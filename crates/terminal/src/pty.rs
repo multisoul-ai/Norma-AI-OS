@@ -151,6 +151,11 @@ mod tests {
             "PTY 输出应包含 'hello-pty'，实际收到: {:?}",
             text
         );
+        assert!(
+            !text.contains("command not found"),
+            "PTY 输出不应含错误信息，若有说明命令执行失败: {:?}",
+            text
+        );
         assert!(saw_exit, "shell exit 后应在超时内收到 Exited 事件");
     }
 }
