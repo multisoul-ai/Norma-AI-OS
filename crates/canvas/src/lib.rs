@@ -4,7 +4,9 @@ pub mod document;
 pub mod geometry;
 pub mod history;
 pub mod node;
+pub mod selection;
 
 pub use document::Document;
 pub use geometry::{CanvasRect, Transform2D, Vec2, Viewport};
 pub use node::{CanvasNode, CanvasNodeKind, NodeId, RectNode, TerminalNodeRef};
+pub use selection::Selection;
