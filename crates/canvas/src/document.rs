@@ -19,7 +19,12 @@ impl Default for Document {
 
 impl Document {
     pub fn new() -> Self {
-        Document { nodes: Vec::new(), viewport: Viewport::default(), next_id: 1, max_z: 0 }
+        Document {
+            nodes: Vec::new(),
+            viewport: Viewport::default(),
+            next_id: 1,
+            max_z: 0,
+        }
     }
 
     /// 添加节点：分配递增 id，z_index 抬到当前最高层 +1。
@@ -27,7 +32,13 @@ impl Document {
         let id = self.next_id;
         self.next_id += 1;
         self.max_z += 1;
-        self.nodes.push(CanvasNode { id, kind, bounds, z_index: self.max_z, selected: false });
+        self.nodes.push(CanvasNode {
+            id,
+            kind,
+            bounds,
+            z_index: self.max_z,
+            selected: false,
+        });
         id
     }
 
@@ -47,6 +58,13 @@ impl Document {
     pub fn move_node(&mut self, id: NodeId, delta: Vec2) {
         if let Some(n) = self.node_mut(id) {
             n.bounds.origin = n.bounds.origin + delta;
+        }
+    }
+
+    /// 直接设置节点 bounds；不存在的 id 忽略。
+    pub fn set_node_bounds(&mut self, id: NodeId, bounds: CanvasRect) {
+        if let Some(n) = self.node_mut(id) {
+            n.bounds = bounds;
         }
     }
 }
@@ -73,8 +91,14 @@ mod tests {
     #[test]
     fn test_add_node_assigns_incrementing_id_and_zindex() {
         let mut doc = Document::new();
-        let a = doc.add_node(CanvasNodeKind::Rect(RectNode { color: 0x4080ff }), CanvasRect::new(0.0, 0.0, 100.0, 80.0));
-        let b = doc.add_node(CanvasNodeKind::Rect(RectNode { color: 0xff8040 }), CanvasRect::new(50.0, 50.0, 100.0, 80.0));
+        let a = doc.add_node(
+            CanvasNodeKind::Rect(RectNode { color: 0x4080ff }),
+            CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+        );
+        let b = doc.add_node(
+            CanvasNodeKind::Rect(RectNode { color: 0xff8040 }),
+            CanvasRect::new(50.0, 50.0, 100.0, 80.0),
+        );
 
         assert_eq!(a, 1, "首个节点 id 应为 1");
         assert_eq!(b, 2, "第二个节点 id 应为 2（递增）");
@@ -101,14 +125,75 @@ mod tests {
     #[test]
     fn test_move_node_translates_origin_keeps_size() {
         let mut doc = Document::new();
-        let id = doc.add_node(CanvasNodeKind::Rect(RectNode { color: 0x4080ff }), CanvasRect::new(10.0, 10.0, 100.0, 80.0));
+        let id = doc.add_node(
+            CanvasNodeKind::Rect(RectNode { color: 0x4080ff }),
+            CanvasRect::new(10.0, 10.0, 100.0, 80.0),
+        );
 
         doc.move_node(id, Vec2::new(15.0, -5.0));
 
         let n = doc.node(id).unwrap();
-        assert_eq!(n.bounds.origin, Vec2::new(25.0, 5.0), "origin 应平移到 (25,5)");
-        assert_eq!(n.bounds.size, Vec2::new(100.0, 80.0), "size 不应被 move 改变");
-        assert_ne!(n.bounds.origin, Vec2::new(10.0, 10.0), "origin 应已改变，证明 move 生效");
+        assert_eq!(
+            n.bounds.origin,
+            Vec2::new(25.0, 5.0),
+            "origin 应平移到 (25,5)"
+        );
+        assert_eq!(
+            n.bounds.size,
+            Vec2::new(100.0, 80.0),
+            "size 不应被 move 改变"
+        );
+        assert_ne!(
+            n.bounds.origin,
+            Vec2::new(10.0, 10.0),
+            "origin 应已改变，证明 move 生效"
+        );
+    }
+
+    /// set_node_bounds 只更新指定节点 bounds，不影响其它节点。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   A 初始 bounds = origin(0,0) size(100x80)
+    ///   B 初始 bounds = origin(200,0) size(100x80)
+    ///   A 新 bounds = origin(10,20) size(300x200)
+    ///
+    /// 执行过程：
+    ///   1. add A → id=1
+    ///   2. add B → id=2
+    ///   3. set_node_bounds(A, new_bounds) → 仅改 A.bounds
+    ///   4. 读取 A/B 验证状态
+    ///
+    /// 预期结果：
+    ///   - 正断言：A bounds 更新为 new_bounds
+    ///   - 正断言：B bounds 仍为原始值
+    ///   - 负断言：B bounds 不应等于 A 的 new_bounds
+    #[test]
+    fn test_set_node_bounds_updates_target_and_leaves_other_node_unchanged() {
+        let mut doc = Document::new();
+        let a = doc.add_node(
+            CanvasNodeKind::Rect(RectNode { color: 0x4080ff }),
+            CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+        );
+        let b = doc.add_node(
+            CanvasNodeKind::Rect(RectNode { color: 0xff8040 }),
+            CanvasRect::new(200.0, 0.0, 100.0, 80.0),
+        );
+        let new_bounds = CanvasRect::new(10.0, 20.0, 300.0, 200.0);
+
+        doc.set_node_bounds(a, new_bounds);
+
+        let node_a = doc.node(a).unwrap();
+        let node_b = doc.node(b).unwrap();
+        assert_eq!(node_a.bounds, new_bounds, "A bounds 应更新为 new_bounds");
+        assert_eq!(
+            node_b.bounds,
+            CanvasRect::new(200.0, 0.0, 100.0, 80.0),
+            "B bounds 应保持原始值，set_node_bounds 不应影响其它节点"
+        );
+        assert_ne!(
+            node_b.bounds, new_bounds,
+            "B bounds 不应等于 A 的 new_bounds，否则说明错误更新了多个节点"
+        );
     }
 
     /// 不存在的 id 查询返回 None（负路径）。

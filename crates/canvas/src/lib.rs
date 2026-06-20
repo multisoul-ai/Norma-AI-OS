@@ -4,11 +4,13 @@ pub mod document;
 pub mod geometry;
 pub mod history;
 pub mod hit_test;
+pub mod layout;
 pub mod node;
 pub mod selection;
 
 pub use document::Document;
 pub use geometry::{CanvasRect, Transform2D, Vec2, Viewport};
 pub use hit_test::hit_test;
+pub use layout::{compute_instant_bsp_layout, InstantBspConfig, LayoutAssignment};
 pub use node::{CanvasNode, CanvasNodeKind, NodeId, RectNode, TerminalNodeRef};
 pub use selection::Selection;

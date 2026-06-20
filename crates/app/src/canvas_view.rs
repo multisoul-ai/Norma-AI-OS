@@ -5,10 +5,12 @@ use crate::app::MultisoulApp;
 use crate::terminal_view::render_terminal_node;
 use canvas::{hit_test, CanvasNodeKind, NodeId, Vec2};
 use gpui::{
-    div, prelude::*, px, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
-    Pixels, Point, ScrollWheelEvent, Window,
+    div, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, BoxShadow, Context,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Point, ScrollWheelEvent,
+    Window,
 };
 use runtime::{route, InputEvent, InputMode, Route};
+use ui::Theme;
 
 #[derive(Clone, Copy)]
 pub struct DragState {
@@ -24,7 +26,7 @@ pub struct InteractionState {
     pub drag: Option<DragState>,
 }
 
-const TITLE_BAR_H: f32 = 28.0; // 屏幕像素，标题栏高度（拖拽热区）
+pub const TITLE_BAR_H: f32 = 28.0; // 屏幕像素，标题栏高度（拖拽热区）
 const ZOOM_MIN: f32 = 0.2;
 const ZOOM_MAX: f32 = 4.0;
 
@@ -32,8 +34,33 @@ fn pt_to_vec(p: Point<Pixels>) -> Vec2 {
     Vec2::new(f32::from(p.x), f32::from(p.y))
 }
 
+fn node_shadow(theme: Theme, focused: bool) -> Vec<BoxShadow> {
+    let mut shadows = vec![BoxShadow {
+        color: rgba(theme.shadow_color).into(),
+        offset: point(px(0.0), px(theme.shadow_y)),
+        blur_radius: px(theme.shadow_blur),
+        spread_radius: px(theme.shadow_spread),
+    }];
+
+    if focused {
+        shadows.push(BoxShadow {
+            color: rgba(0x0a84ff30).into(),
+            offset: point(px(0.0), px(0.0)),
+            blur_radius: px(18.0),
+            spread_radius: px(0.0),
+        });
+    }
+
+    shadows
+}
+
 /// 滚轮 zoom，绕光标保持画布点不动。
-fn on_scroll(app: &mut MultisoulApp, ev: &ScrollWheelEvent, _w: &mut Window, cx: &mut Context<MultisoulApp>) {
+fn on_scroll(
+    app: &mut MultisoulApp,
+    ev: &ScrollWheelEvent,
+    _w: &mut Window,
+    cx: &mut Context<MultisoulApp>,
+) {
     let _span = tracing::trace_span!("canvas_zoom").entered();
     let cursor = pt_to_vec(ev.position);
     let vp = &mut app.runtime.document.viewport;
@@ -50,7 +77,12 @@ fn on_scroll(app: &mut MultisoulApp, ev: &ScrollWheelEvent, _w: &mut Window, cx:
     cx.notify();
 }
 
-fn on_mouse_down(app: &mut MultisoulApp, ev: &MouseDownEvent, _w: &mut Window, cx: &mut Context<MultisoulApp>) {
+fn on_mouse_down(
+    app: &mut MultisoulApp,
+    ev: &MouseDownEvent,
+    _w: &mut Window,
+    cx: &mut Context<MultisoulApp>,
+) {
     let screen = pt_to_vec(ev.position);
 
     // 中键 或 空格+左键 → 开始 pan。
@@ -88,9 +120,16 @@ fn on_mouse_down(app: &mut MultisoulApp, ev: &MouseDownEvent, _w: &mut Window, c
             app.runtime.focus.exit_to_canvas();
             // 命中标题栏 → 开始拖拽。
             if let Some(node) = app.runtime.document.node(id) {
-                let top_screen = app.runtime.document.viewport.canvas_to_screen(node.bounds.origin);
+                let top_screen = app
+                    .runtime
+                    .document
+                    .viewport
+                    .canvas_to_screen(node.bounds.origin);
                 if screen.y <= top_screen.y + TITLE_BAR_H * app.runtime.document.viewport.zoom {
-                    app.interaction.drag = Some(DragState { node: id, last_screen: screen });
+                    app.interaction.drag = Some(DragState {
+                        node: id,
+                        last_screen: screen,
+                    });
                 }
             }
         }
@@ -107,7 +146,12 @@ fn on_mouse_down(app: &mut MultisoulApp, ev: &MouseDownEvent, _w: &mut Window, c
     cx.notify();
 }
 
-fn on_mouse_move(app: &mut MultisoulApp, ev: &MouseMoveEvent, _w: &mut Window, cx: &mut Context<MultisoulApp>) {
+fn on_mouse_move(
+    app: &mut MultisoulApp,
+    ev: &MouseMoveEvent,
+    _w: &mut Window,
+    cx: &mut Context<MultisoulApp>,
+) {
     let screen = pt_to_vec(ev.position);
 
     if app.interaction.panning {
@@ -127,12 +171,20 @@ fn on_mouse_move(app: &mut MultisoulApp, ev: &MouseMoveEvent, _w: &mut Window, c
         // 屏幕位移 → 画布位移（除以 zoom）。
         let canvas_delta = Vec2::new(screen_delta.x / zoom, screen_delta.y / zoom);
         app.runtime.document.move_node(drag.node, canvas_delta);
-        app.interaction.drag = Some(DragState { node: drag.node, last_screen: screen });
+        app.interaction.drag = Some(DragState {
+            node: drag.node,
+            last_screen: screen,
+        });
         cx.notify();
     }
 }
 
-fn on_mouse_up(app: &mut MultisoulApp, _ev: &MouseUpEvent, _w: &mut Window, cx: &mut Context<MultisoulApp>) {
+fn on_mouse_up(
+    app: &mut MultisoulApp,
+    _ev: &MouseUpEvent,
+    _w: &mut Window,
+    cx: &mut Context<MultisoulApp>,
+) {
     app.interaction.panning = false;
     app.interaction.drag = None;
     app.interaction.last_screen = None;
@@ -144,7 +196,8 @@ pub fn render_canvas(
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> impl IntoElement {
-    let _span = tracing::trace_span!("render_canvas", nodes = app.runtime.document.nodes().len()).entered();
+    let _span =
+        tracing::trace_span!("render_canvas", nodes = app.runtime.document.nodes().len()).entered();
 
     let theme = app.theme;
     let vp = app.runtime.document.viewport;
@@ -162,7 +215,13 @@ pub fn render_canvas(
                 CanvasNodeKind::Terminal(r) => Some(r.session_id),
                 _ => None,
             };
-            (n.bounds.origin, n.bounds.size, n.selected, sid.is_some(), sid)
+            (
+                n.bounds.origin,
+                n.bounds.size,
+                n.selected,
+                sid.is_some(),
+                sid,
+            )
         };
         let selected = selected || app.runtime.selection.contains(id);
 
@@ -171,7 +230,8 @@ pub fn render_canvas(
         let h = size.y * vp.zoom;
 
         // viewport culling：完全在窗口外的节点跳过。
-        if top_left.x + w < 0.0 || top_left.y + h < 0.0 || top_left.x > win_w || top_left.y > win_h {
+        if top_left.x + w < 0.0 || top_left.y + h < 0.0 || top_left.x > win_w || top_left.y > win_h
+        {
             continue;
         }
 
@@ -190,19 +250,35 @@ pub fn render_canvas(
             .top(px(top_left.y))
             .w(px(w))
             .h(px(h))
-            .border_2()
-            .border_color(gpui::rgb(stroke))
-            .bg(gpui::rgb(theme.node_fill))
-            .rounded(px(6.0))
+            .border_color(rgba(stroke))
+            .shadow(node_shadow(theme, focused))
+            .bg(rgba(theme.node_fill))
+            .rounded(px(8.0))
             .overflow_hidden();
+
+        node_div = if focused || selected {
+            node_div.border_2()
+        } else {
+            node_div.border_1()
+        };
+
+        node_div = node_div.child(
+            div()
+                .absolute()
+                .top(px(0.0))
+                .left(px(0.0))
+                .h(px(1.0))
+                .w_full()
+                .bg(rgba(theme.edge_highlight)),
+        );
 
         // 标题栏
         node_div = node_div.child(
             div()
                 .h(px(TITLE_BAR_H * vp.zoom))
                 .w_full()
-                .bg(gpui::rgb(theme.title_bar))
-                .text_color(gpui::rgb(theme.text))
+                .bg(rgba(theme.title_bar))
+                .text_color(rgba(theme.text))
                 .px(px(8.0))
                 .child(if is_terminal { "Terminal" } else { "Node" }),
         );
@@ -219,7 +295,11 @@ pub fn render_canvas(
         .id("canvas")
         .size_full()
         .relative()
-        .bg(gpui::rgb(theme.canvas_bg))
+        .bg(linear_gradient(
+            145.0,
+            linear_color_stop(rgba(theme.canvas_from), 0.0),
+            linear_color_stop(rgba(theme.canvas_to), 1.0),
+        ))
         .on_scroll_wheel(cx.listener(on_scroll))
         .on_mouse_down(MouseButton::Left, cx.listener(on_mouse_down))
         .on_mouse_down(MouseButton::Middle, cx.listener(on_mouse_down))

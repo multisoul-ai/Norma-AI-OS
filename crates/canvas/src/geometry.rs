@@ -37,7 +37,10 @@ pub struct CanvasRect {
 
 impl CanvasRect {
     pub fn new(x: f32, y: f32, w: f32, h: f32) -> Self {
-        CanvasRect { origin: Vec2::new(x, y), size: Vec2::new(w, h) }
+        CanvasRect {
+            origin: Vec2::new(x, y),
+            size: Vec2::new(w, h),
+        }
     }
 
     /// 右下角坐标（origin + size）。
@@ -50,6 +53,27 @@ impl CanvasRect {
         let max = self.max();
         p.x >= self.origin.x && p.x < max.x && p.y >= self.origin.y && p.y < max.y
     }
+
+    /// 正面积相交：只共享边界不算相交。
+    pub fn intersects(&self, other: CanvasRect) -> bool {
+        let a_max = self.max();
+        let b_max = other.max();
+        self.origin.x < b_max.x
+            && a_max.x > other.origin.x
+            && self.origin.y < b_max.y
+            && a_max.y > other.origin.y
+    }
+
+    /// 四边等距内缩；过大的 inset 会把尺寸夹到 0，避免负宽高。
+    pub fn inset(&self, amount: f32) -> CanvasRect {
+        let inset = amount.max(0.0);
+        CanvasRect::new(
+            self.origin.x + inset,
+            self.origin.y + inset,
+            (self.size.x - inset * 2.0).max(0.0),
+            (self.size.y - inset * 2.0).max(0.0),
+        )
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -60,11 +84,17 @@ pub struct Transform2D {
 
 impl Transform2D {
     pub fn apply(&self, p: Vec2) -> Vec2 {
-        Vec2::new(p.x * self.scale + self.translate.x, p.y * self.scale + self.translate.y)
+        Vec2::new(
+            p.x * self.scale + self.translate.x,
+            p.y * self.scale + self.translate.y,
+        )
     }
 
     pub fn invert(&self, p: Vec2) -> Vec2 {
-        Vec2::new((p.x - self.translate.x) / self.scale, (p.y - self.translate.y) / self.scale)
+        Vec2::new(
+            (p.x - self.translate.x) / self.scale,
+            (p.y - self.translate.y) / self.scale,
+        )
     }
 }
 
@@ -76,13 +106,19 @@ pub struct Viewport {
 
 impl Default for Viewport {
     fn default() -> Self {
-        Viewport { pan: Vec2::ZERO, zoom: 1.0 }
+        Viewport {
+            pan: Vec2::ZERO,
+            zoom: 1.0,
+        }
     }
 }
 
 impl Viewport {
     pub fn transform(&self) -> Transform2D {
-        Transform2D { scale: self.zoom, translate: self.pan }
+        Transform2D {
+            scale: self.zoom,
+            translate: self.pan,
+        }
     }
 
     pub fn canvas_to_screen(&self, p: Vec2) -> Vec2 {
@@ -120,7 +156,10 @@ mod tests {
     ///   - 负断言：screen 坐标 (120,90) 不等于 canvas 坐标 (10,20)（证明确实发生了变换，而非恒等返回）
     #[test]
     fn test_canvas_screen_roundtrip_under_pan_zoom() {
-        let vp = Viewport { pan: Vec2::new(100.0, 50.0), zoom: 2.0 };
+        let vp = Viewport {
+            pan: Vec2::new(100.0, 50.0),
+            zoom: 2.0,
+        };
         let p = Vec2::new(10.0, 20.0);
 
         let screen = vp.canvas_to_screen(p);
@@ -177,6 +216,83 @@ mod tests {
         assert!(
             !rect.contains(Vec2::new(200.0, 30.0)),
             "(200,30) x 超出右边界 110，contains 应为 false"
+        );
+    }
+
+    /// 矩形相交：部分重叠返回 true，只共享边界或完全分离返回 false。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   base = origin(0,0) size(100x80) → 覆盖 x∈[0,100), y∈[0,80)
+    ///   overlap = origin(80,40) size(50x50) → x∈[80,130), y∈[40,90)，与 base 重叠 20x40
+    ///   touching = origin(100,0) size(20x80) → 左边界 x=100，刚好贴住 base 右边界，无面积重叠
+    ///   separated = origin(130,0) size(20x80) → x 起点超过 base 右边界 30
+    ///
+    /// 执行过程：
+    ///   1. base.intersects(overlap) → 存在正面积重叠
+    ///   2. base.intersects(touching) → 只共享边界，不算可见面积相交
+    ///   3. base.intersects(separated) → 完全分离
+    ///
+    /// 预期结果：
+    ///   - 正断言：overlap 与 base 相交
+    ///   - 负断言：touching 与 base 不相交
+    ///   - 负断言：separated 与 base 不相交
+    #[test]
+    fn test_rect_intersects_partial_overlap_but_not_touching_or_separated() {
+        let base = CanvasRect::new(0.0, 0.0, 100.0, 80.0);
+        let overlap = CanvasRect::new(80.0, 40.0, 50.0, 50.0);
+        let touching = CanvasRect::new(100.0, 0.0, 20.0, 80.0);
+        let separated = CanvasRect::new(130.0, 0.0, 20.0, 80.0);
+
+        assert!(
+            base.intersects(overlap),
+            "overlap 与 base 有 20x40 的正面积重叠，应返回 true"
+        );
+        assert!(
+            !base.intersects(touching),
+            "touching 只在 x=100 共享边界，无正面积重叠，应返回 false"
+        );
+        assert!(
+            !base.intersects(separated),
+            "separated 与 base 完全分离，应返回 false"
+        );
+    }
+
+    /// 矩形 inset：四边内缩相同距离，并在过大 gap 时将尺寸夹到 0。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   normal = origin(0,0) size(100x60)，inset=4
+    ///   normal origin = (0+4, 0+4) = (4,4)
+    ///   normal size = (100-4*2, 60-4*2) = (92,52)
+    ///   tiny = origin(10,10) size(6x4)，inset=4
+    ///   tiny raw size = (6-8, 4-8) = (-2,-4)，夹到 (0,0)
+    ///
+    /// 执行过程：
+    ///   1. normal.inset(4) → 保持正尺寸
+    ///   2. tiny.inset(4) → origin 内移，size clamp 到 0
+    ///
+    /// 预期结果：
+    ///   - 正断言：normal inset 后为 (4,4,92,52)
+    ///   - 正断言：tiny inset 后 size 为 0
+    ///   - 负断言：tiny inset 后尺寸不应为负数
+    #[test]
+    fn test_rect_inset_shrinks_and_clamps_tiny_rect() {
+        let normal = CanvasRect::new(0.0, 0.0, 100.0, 60.0).inset(4.0);
+        let tiny = CanvasRect::new(10.0, 10.0, 6.0, 4.0).inset(4.0);
+
+        assert_eq!(
+            normal,
+            CanvasRect::new(4.0, 4.0, 92.0, 52.0),
+            "100x60 内缩 4 后应为 origin(4,4) size(92x52)"
+        );
+        assert_eq!(
+            tiny.size,
+            Vec2::new(0.0, 0.0),
+            "6x4 内缩 4 后 raw size 为负，应夹到 0x0"
+        );
+        assert!(
+            tiny.size.x >= 0.0 && tiny.size.y >= 0.0,
+            "inset 后 size 不应为负数，实际 {:?}",
+            tiny.size
         );
     }
 }

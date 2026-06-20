@@ -2,7 +2,14 @@
 
 macOS 空间工作台脚手架（垂直切片）。核心抽象 **Live Node on Infinite Canvas**，Terminal 是第一个 Live Node。
 
-## 架构分层（依赖方向 app → ui → runtime → {canvas, terminal}）
+## 知识地图
+- 系统架构：[`ARCHITECTURE.md`](ARCHITECTURE.md)
+- Agent 短导航：[`AGENTS.md`](AGENTS.md)
+- 展开工程手册：[`CLAUDE.md`](CLAUDE.md)
+- 人类快速上手：本文
+- 历史 SDD 施工记录：[`.superpowers/sdd/progress.md`](.superpowers/sdd/progress.md)
+
+## 架构分层（依赖方向 app → {ui, runtime, canvas, terminal}；runtime → {canvas, terminal}）
 - 域层（零 gpui，可独立 `cargo test`）：`canvas`（几何/节点/选择/命中/视口）、`terminal`（pty/grid/session/input）、`runtime`（焦点/路由/生命周期）
 - 壳层（gpui/Metal）：`ui`（主题）、`app`（窗口/菜单/快捷键/画布与终端渲染）
 

@@ -1,11 +1,13 @@
 //! 终端节点渲染 + 键盘翻译。grid 快照按等宽字体逐行绘制。
 
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, Context, Keystroke, Window};
+use gpui::{div, prelude::*, px, rgba, Context, Keystroke, Window};
 use terminal::{Key, KeyInput, TerminalSessionId, TerminalStatus};
 
-const FONT_PX: f32 = 13.0;
-const LINE_PX: f32 = 16.0;
+pub const TERM_FONT_PX: f32 = 13.0;
+pub const TERM_LINE_PX: f32 = 16.0;
+pub const TERM_CELL_PX: f32 = 8.0;
+pub const TERM_PADDING_PX: f32 = 4.0;
 
 /// 渲染一个终端节点内容区：退出态显示占位；否则逐行画 grid。
 pub fn render_terminal_node(
@@ -24,8 +26,8 @@ pub fn render_terminal_node(
     if let TerminalStatus::Exited { code } = session.status {
         return div()
             .size_full()
-            .bg(gpui::rgb(theme.term_bg))
-            .text_color(gpui::rgb(0xff6b6b))
+            .bg(rgba(theme.term_bg))
+            .text_color(rgba(theme.term_exit_fg))
             .p(px(8.0))
             .child(format!(
                 "[process exited{}]",
@@ -40,16 +42,16 @@ pub fn render_terminal_node(
     let mut lines = Vec::with_capacity(snap.lines);
     for row in &snap.rows {
         let text: String = row.iter().map(|c| c.c).collect();
-        lines.push(div().h(px(LINE_PX * zoom)).child(text));
+        lines.push(div().h(px(TERM_LINE_PX * zoom)).child(text));
     }
 
     div()
         .size_full()
-        .bg(gpui::rgb(theme.term_bg))
-        .text_color(gpui::rgb(theme.term_fg))
+        .bg(rgba(theme.term_bg))
+        .text_color(rgba(theme.term_fg))
         .font_family("Menlo") // 系统等宽字体；assets/fonts 留扩展位
-        .text_size(px(FONT_PX * zoom))
-        .p(px(4.0))
+        .text_size(px(TERM_FONT_PX * zoom))
+        .p(px(TERM_PADDING_PX))
         .children(lines)
 }
 
