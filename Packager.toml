@@ -1,0 +1,16 @@
+# cargo-packager 配置（未签名 .app/.dmg）。字段以 cargo-packager 文档为准，
+# 若 schema 不符按 https://docs.crabnebula.dev/packager/ 校准。
+product-name = "Multisoul"
+version = "0.1.0"
+identifier = "com.multisoul.desktop"
+authors = ["multisoul"]
+formats = ["app", "dmg"]
+
+# 指向 release 二进制
+[[binaries]]
+path = "target/release/multisoul"
+main = true
+
+[macos]
+minimum-system-version = "12.0"
+# 本切片不签名/不公证（Phase 6）。
