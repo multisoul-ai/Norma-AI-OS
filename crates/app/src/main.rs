@@ -1,29 +1,43 @@
-//! multisoul-desktop 二进制入口 — Task 2 spike：验证 gpui 可构建 + 开空白窗口。
+//! multisoul-desktop 入口：tracing 初始化 + 启动 GPUI App。
+mod app;
+mod canvas_view;
+mod terminal_view;
+
+use app::{ExitFocus, MultisoulApp, NewTerminal};
 use gpui::{
-    div, prelude::*, px, size, App, Application, Bounds, Context, Window,
-    WindowBounds, WindowOptions,
+    px, size, App, AppContext as _, Application, Bounds, KeyBinding, Menu, MenuItem, WindowBounds,
+    WindowOptions,
 };
 
-struct RootView;
-
-impl Render for RootView {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .size_full()
-            .bg(gpui::rgb(0x1e1e1e))
-            .child("multisoul-desktop spike: blank canvas")
-    }
-}
-
 fn main() {
+    // RUST_LOG 控制级别；frame-time / 热点路径打点见各 view。
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "info".into()),
+        )
+        .init();
+
     Application::new().run(|cx: &mut App| {
-        let bounds = Bounds::centered(None, size(px(1200.0), px(800.0)), cx);
+        // 快捷键（SPEC §7）：Cmd+N 新建终端、Esc 退出终端聚焦。
+        cx.bind_keys([
+            KeyBinding::new("cmd-n", NewTerminal, None),
+            KeyBinding::new("escape", ExitFocus, None),
+        ]);
+
+        // 菜单（App 显示名 Multisoul）。
+        cx.set_menus(vec![Menu {
+            name: "Multisoul".into(),
+            items: vec![MenuItem::action("New Terminal", NewTerminal)],
+        }]);
+
+        let bounds = Bounds::centered(None, size(px(1280.0), px(800.0)), cx);
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
                 ..Default::default()
             },
-            |_window, cx| cx.new(|_cx| RootView),
+            |_window, cx| cx.new(|cx| MultisoulApp::new(cx)),
         )
         .expect("failed to open window");
         cx.activate(true);
