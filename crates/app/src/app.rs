@@ -1,10 +1,11 @@
 //! GPUI 主视图：持有 Runtime，装配画布/终端渲染，处理快捷键与帧级 drain。
 
 use crate::canvas_view::{render_canvas, InteractionState};
+use crate::terminal_view::keystroke_to_input;
 use gpui::{
-    actions, div, prelude::*, px, Context, FocusHandle, Focusable, Window,
+    actions, div, prelude::*, px, Context, FocusHandle, Focusable, KeyDownEvent, Window,
 };
-use runtime::Runtime;
+use runtime::{route, InputEvent, InputMode, Route, Runtime};
 use std::time::Duration;
 use ui::Theme;
 
@@ -69,6 +70,42 @@ impl MultisoulApp {
         self.runtime.focus.exit_to_canvas();
         cx.notify();
     }
+
+    /// 键盘事件：维护 space_held；聚焦终端时把按键编码写入对应 PTY。
+    fn on_key_down(&mut self, ev: &KeyDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
+        // 维护空格按下状态（用于画布 pan）。注意：聚焦终端时空格应进终端，不做 pan 标记。
+        let is_space = ev.keystroke.key == "space";
+        if is_space && matches!(self.runtime.focus.mode(), InputMode::CanvasSelect) {
+            self.interaction.space_held = true;
+        }
+
+        // 仅在终端聚焦模式下路由按键到 PTY。
+        if let InputMode::TerminalFocused(node_id) = self.runtime.focus.mode() {
+            if route(&self.runtime.focus.mode(), &InputEvent::Key) == Route::SendKeyToTerminal(node_id) {
+                if let Some(input) = keystroke_to_input(&ev.keystroke) {
+                    // node_id → session_id
+                    if let Some(canvas::CanvasNodeKind::Terminal(r)) =
+                        self.runtime.document.node(node_id).map(|n| n.kind)
+                    {
+                        let sid = r.session_id;
+                        if let Some(session) = self.runtime.session_mut(sid) {
+                            if let Err(e) = session.write_input(&input) {
+                                tracing::error!(error = %e, "write_input failed");
+                            }
+                        }
+                    }
+                }
+                cx.notify();
+            }
+        }
+    }
+
+    fn on_key_up(&mut self, ev: &gpui::KeyUpEvent, _window: &mut Window, cx: &mut Context<Self>) {
+        if ev.keystroke.key == "space" {
+            self.interaction.space_held = false;
+            cx.notify();
+        }
+    }
 }
 
 impl Focusable for MultisoulApp {
@@ -84,6 +121,8 @@ impl Render for MultisoulApp {
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(Self::on_new_terminal))
             .on_action(cx.listener(Self::on_exit_focus))
+            .on_key_down(cx.listener(Self::on_key_down))
+            .on_key_up(cx.listener(Self::on_key_up))
             .size_full()
             .bg(gpui::rgb(self.theme.canvas_bg))
             .text_size(px(13.0))
