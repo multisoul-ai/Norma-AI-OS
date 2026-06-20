@@ -1,0 +1,12 @@
+[package]
+name = "terminal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+portable-pty.workspace = true
+alacritty_terminal.workspace = true
+crossbeam-channel.workspace = true
+thiserror.workspace = true
+tracing.workspace = true

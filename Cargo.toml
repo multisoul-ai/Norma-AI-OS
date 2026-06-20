@@ -1,0 +1,39 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/canvas",
+  "crates/terminal",
+  "crates/runtime",
+  "crates/ui",
+  "crates/app",
+]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "MIT"
+
+# 版本钉死见 Global Constraints。gpui/alacritty_terminal 精确 pin。
+[workspace.dependencies]
+# 壳层
+gpui = "=0.2.2"
+# 域层
+portable-pty = "0.9"
+alacritty_terminal = "=0.26"
+crossbeam-channel = "0.5"
+# 通用
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# 内部 crate（路径依赖）
+canvas = { path = "crates/canvas" }
+terminal = { path = "crates/terminal" }
+runtime = { path = "crates/runtime" }
+ui = { path = "crates/ui" }
+
+[profile.dev]
+opt-level = 1          # gpui/alacritty 在 opt-level=0 下交互偏卡，地基级折中
+
+[profile.dev.package."*"]
+opt-level = 2          # 依赖库始终优化，加快本地迭代
