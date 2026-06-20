@@ -102,6 +102,13 @@ impl PtyHandle {
     }
 }
 
+impl Drop for PtyHandle {
+    fn drop(&mut self) {
+        // 任何持有路径释放时都确保子进程被回收，避免僵尸。
+        self.kill();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

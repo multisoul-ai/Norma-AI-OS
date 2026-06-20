@@ -108,6 +108,12 @@ impl MultisoulApp {
     }
 }
 
+impl Drop for MultisoulApp {
+    fn drop(&mut self) {
+        self.runtime.kill_all();
+    }
+}
+
 impl Focusable for MultisoulApp {
     fn focus_handle(&self, _cx: &gpui::App) -> FocusHandle {
         self.focus_handle.clone()
