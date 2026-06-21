@@ -185,7 +185,7 @@ impl Runtime {
         rows: u16,
     ) -> Result<NodeId, PtyError> {
         let sid = self.allocate_session_id();
-        let command = PtyCommand::new(shell).with_cwd(self.workspace_root());
+        let command = terminal_shell_command(shell).with_cwd(self.workspace_root());
         let live = TermLive::spawn_command(sid, command, cols, rows)?;
         let node_id = self
             .document
@@ -309,7 +309,7 @@ impl Runtime {
 
     fn attach_terminal_live(&mut self, node_id: NodeId, shell: &str, cols: u16, rows: u16) -> bool {
         let sid = self.allocate_session_id();
-        let command = PtyCommand::new(shell).with_cwd(self.workspace_root());
+        let command = terminal_shell_command(shell).with_cwd(self.workspace_root());
         match TermLive::spawn_command(sid, command, cols, rows) {
             Ok(live) => {
                 self.terminal_shells.insert(node_id, shell.to_string());
@@ -369,6 +369,19 @@ fn checkpoint_grid_size(checkpoint: Option<&SessionCheckpoint>) -> (u16, u16) {
 
 fn usize_to_u16(value: usize) -> u16 {
     value.min(usize::from(u16::MAX)) as u16
+}
+
+fn terminal_shell_command(shell: &str) -> PtyCommand {
+    let command = PtyCommand::new(shell);
+    if is_zsh_shell(shell) {
+        command.arg("-l")
+    } else {
+        command
+    }
+}
+
+fn is_zsh_shell(shell: &str) -> bool {
+    Path::new(shell).file_name().and_then(|name| name.to_str()) == Some("zsh")
 }
 
 #[cfg(test)]

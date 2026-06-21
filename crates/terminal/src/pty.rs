@@ -24,6 +24,7 @@ pub struct PtyCommand {
     pub program: String,
     pub args: Vec<String>,
     pub cwd: Option<PathBuf>,
+    pub env: Vec<(String, String)>,
 }
 
 impl PtyCommand {
@@ -32,6 +33,7 @@ impl PtyCommand {
             program: program.into(),
             args: Vec::new(),
             cwd: None,
+            env: Vec::new(),
         }
     }
 
@@ -53,6 +55,11 @@ impl PtyCommand {
 
     pub fn cwd(mut self, path: impl Into<PathBuf>) -> Self {
         self.cwd = Some(path.into());
+        self
+    }
+
+    pub fn env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.env.push((key.into(), value.into()));
         self
     }
 
@@ -103,6 +110,9 @@ impl PtyHandle {
         }
         if let Some(cwd) = &command.cwd {
             cmd.cwd(cwd);
+        }
+        for (key, value) in &command.env {
+            cmd.env(OsStr::new(key), OsStr::new(value));
         }
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
@@ -356,5 +366,94 @@ mod tests {
             "子进程不应继续使用测试进程 cwd {:?}，说明 CommandBuilder::cwd 未生效",
             process_cwd
         );
+    }
+
+    /// zsh login shell：先读取 .zprofile 补 PATH，再执行 .zshrc 中的 zoxide 初始化。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   zdotdir = temp/multisoul-zsh-login-{pid}
+    ///   PATH = /usr/bin:/bin:/usr/sbin:/sbin（不包含 zdotdir/bin）
+    ///   fake zoxide = zdotdir/bin/zoxide，输出 `printf PROFILE_ZOXIDE_OK\n`
+    ///   .zprofile: export PATH="$ZDOTDIR/bin:$PATH" → zoxide 变为可查找
+    ///   .zshrc: eval "$(zoxide init zsh)"; exit → 若未读 .zprofile 会报 command not found
+    ///
+    /// 执行过程：
+    ///   1. 创建隔离 ZDOTDIR、fake zoxide、.zprofile、.zshrc
+    ///   2. spawn_command(/bin/zsh -l, ZDOTDIR=zdotdir, PATH=最小系统 PATH)
+    ///   3. zsh -l 读取 .zprofile → PATH 增加 zdotdir/bin
+    ///   4. zsh 读取 .zshrc → 找到 fake zoxide → eval 后输出 PROFILE_ZOXIDE_OK → exit
+    ///
+    /// 预期结果：
+    ///   - 正断言：输出包含 PROFILE_ZOXIDE_OK，证明 .zprofile 的 PATH 在 .zshrc 前生效
+    ///   - 负断言：输出不应包含 "command not found"，否则复现 GUI 环境下 zoxide 缺失
+    ///   - 正断言：zsh 在 3 秒内退出，证明 .zshrc 的 exit 被执行
+    #[test]
+    fn test_zsh_login_shell_loads_profile_path_before_zshrc_zoxide_init() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let zdotdir =
+            std::env::temp_dir().join(format!("multisoul-zsh-login-{}", std::process::id()));
+        let bin_dir = zdotdir.join("bin");
+        let zoxide_path = bin_dir.join("zoxide");
+        let _ = std::fs::remove_dir_all(&zdotdir);
+        std::fs::create_dir_all(&bin_dir).expect("test should create isolated zsh bin dir");
+        std::fs::write(
+            &zoxide_path,
+            "#!/bin/sh\nprintf 'printf PROFILE_ZOXIDE_OK\\n'\n",
+        )
+        .expect("test should write fake zoxide executable");
+        let mut permissions = std::fs::metadata(&zoxide_path)
+            .expect("fake zoxide metadata should exist")
+            .permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&zoxide_path, permissions)
+            .expect("fake zoxide should be executable");
+        std::fs::write(
+            zdotdir.join(".zprofile"),
+            "export PATH=\"$ZDOTDIR/bin:$PATH\"\n",
+        )
+        .expect("test should write .zprofile");
+        std::fs::write(
+            zdotdir.join(".zshrc"),
+            "eval \"$(zoxide init zsh)\"\nexit\n",
+        )
+        .expect("test should write .zshrc");
+
+        let (tx, rx) = unbounded();
+        let command = PtyCommand::new("/bin/zsh")
+            .arg("-l")
+            .env("ZDOTDIR", zdotdir.to_string_lossy())
+            .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin");
+
+        let _pty = PtyHandle::spawn_command(command, 120, 24, tx)
+            .expect("spawn zsh login shell command should work");
+
+        let mut acc = Vec::new();
+        let mut saw_exit = false;
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        while std::time::Instant::now() < deadline {
+            match rx.recv_timeout(Duration::from_millis(200)) {
+                Ok(PtyEvent::Output(bytes)) => acc.extend_from_slice(&bytes),
+                Ok(PtyEvent::Exited { .. }) => {
+                    saw_exit = true;
+                    break;
+                }
+                Err(_) => {}
+            }
+        }
+        let _ = std::fs::remove_dir_all(&zdotdir);
+
+        let text = String::from_utf8_lossy(&acc);
+        assert!(
+            text.contains("PROFILE_ZOXIDE_OK"),
+            "zsh -l 应先读取 .zprofile 补 PATH，再让 .zshrc 找到 zoxide；实际输出: {:?}",
+            text
+        );
+        assert!(
+            !text.contains("command not found"),
+            "zsh login shell 不应在 .zshrc 中找不到 zoxide；实际输出: {:?}",
+            text
+        );
+        assert!(saw_exit, "隔离 .zshrc 执行 exit 后，zsh 应在 3 秒内退出");
     }
 }

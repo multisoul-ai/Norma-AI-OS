@@ -266,6 +266,74 @@ fn test_agent_command_specs_are_exact() {
     );
 }
 
+/// Terminal zsh 启动命令：应以 login shell 读取用户 profile 环境。
+///
+/// 数据构造：
+///   shell = "/bin/zsh"
+///   预期命令 = /bin/zsh -l
+///   `-l` 让 zsh 先读 ~/.zprofile，再读 ~/.zshrc；Homebrew PATH 通常在 profile 中初始化
+///
+/// 执行过程：
+///   1. terminal_shell_command("/bin/zsh") → 构造 Terminal 节点实际使用的 PtyCommand
+///   2. 检查 program 与 args
+///
+/// 预期结果：
+///   - 正断言：program 保持 "/bin/zsh"
+///   - 正断言：args 精确为 ["-l"]，确保读取 ~/.zprofile
+///   - 负断言：args 不应为空，否则 GUI 环境下 ~/.zshrc 中的 brew 工具可能找不到
+#[test]
+fn test_terminal_shell_command_uses_login_zsh() {
+    let command = terminal_shell_command("/bin/zsh");
+
+    assert_eq!(
+        command.program, "/bin/zsh",
+        "Terminal zsh 命令应保留用户 shell 路径"
+    );
+    assert_eq!(
+        command.args,
+        vec!["-l"],
+        "Terminal zsh 应带 -l，以读取 ~/.zprofile 中的 Homebrew PATH 初始化"
+    );
+    assert!(
+        !command.args.is_empty(),
+        "Terminal zsh args 不应为空，否则只会读取 ~/.zshrc 而跳过 ~/.zprofile"
+    );
+}
+
+/// 非 zsh shell 启动命令：不应强行追加 zsh 专用 login 参数。
+///
+/// 数据构造：
+///   shell = "/bin/sh"
+///   预期命令 = /bin/sh（无参数）
+///   测试中的 /bin/sh 替身命令依赖精确 argv，不能被追加 -l
+///
+/// 执行过程：
+///   1. terminal_shell_command("/bin/sh") → 构造 Terminal 节点实际使用的 PtyCommand
+///   2. 检查 program 与 args
+///
+/// 预期结果：
+///   - 正断言：program 保持 "/bin/sh"
+///   - 正断言：args 为空，保持非 zsh shell 的原始行为
+///   - 负断言：args 不应包含 "-l"，避免改变 /bin/sh 测试替身语义
+#[test]
+fn test_terminal_shell_command_preserves_non_zsh_shell_args() {
+    let command = terminal_shell_command("/bin/sh");
+
+    assert_eq!(
+        command.program, "/bin/sh",
+        "非 zsh Terminal 命令应保留原始 shell 路径"
+    );
+    assert_eq!(
+        command.args.len(),
+        0,
+        "非 zsh shell 不应被追加 zsh 专用参数"
+    );
+    assert!(
+        !command.args.iter().any(|arg| arg == "-l"),
+        "非 zsh shell 不应包含 -l，避免改变测试替身或用户自定义 shell 行为"
+    );
+}
+
 /// resize_node 通过 NodeResize::TermGrid 到达 terminal-backed live node。
 ///
 /// 数据构造（含关键数值推导）：
