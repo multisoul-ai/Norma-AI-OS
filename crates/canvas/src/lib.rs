@@ -8,7 +8,7 @@ pub mod layout;
 pub mod node;
 pub mod selection;
 
-pub use document::Document;
+pub use document::{CanvasNodeSnapshot, Document, DocumentSnapshot};
 pub use geometry::{CanvasRect, Transform2D, Vec2, Viewport};
 pub use hit_test::hit_test;
 pub use layout::{

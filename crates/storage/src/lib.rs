@@ -1,0 +1,24 @@
+//! storage — SQLite-backed persistence for app and project state.
+
+pub mod app_store;
+pub mod canvas_store;
+pub mod error;
+pub mod migrations;
+pub mod project_store;
+pub mod recent_store;
+pub mod session_store;
+pub mod settings_store;
+
+pub use app_store::{default_app_db_path, AppStore};
+pub use canvas_store::CanvasStore;
+pub use error::{StorageError, StorageResult};
+pub use project_store::ProjectStore;
+pub use recent_store::RecentStore;
+pub use session_store::{SessionCheckpoint, SessionCheckpointKind, SessionStore};
+pub use settings_store::SettingsStore;
+
+pub(crate) fn current_unix_timestamp() -> StorageResult<u64> {
+    Ok(std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs())
+}

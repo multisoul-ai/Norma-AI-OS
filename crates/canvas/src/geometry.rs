@@ -1,8 +1,9 @@
 //! 几何与坐标变换。约定：screen = canvas * zoom + pan。
 
+use serde::{Deserialize, Serialize};
 use std::ops::{Add, Sub};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Vec2 {
     pub x: f32,
     pub y: f32,
@@ -29,7 +30,7 @@ impl Sub for Vec2 {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct CanvasRect {
     pub origin: Vec2,
     pub size: Vec2,
@@ -76,7 +77,7 @@ impl CanvasRect {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Transform2D {
     pub scale: f32,
     pub translate: Vec2,
@@ -98,7 +99,7 @@ impl Transform2D {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Viewport {
     pub pan: Vec2,
     pub zoom: f32,

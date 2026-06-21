@@ -10,6 +10,7 @@ use gpui::{
 use ui::Theme;
 
 const WORKSPACE_LEFT_RAIL_VISIBLE: bool = false;
+const TOP_TOOLBAR_WIDTH: f32 = 340.0;
 
 impl MultisoulApp {
     pub(super) fn render_workspace_backdrop(&self) -> Div {
@@ -113,8 +114,8 @@ impl MultisoulApp {
                 div()
                     .absolute()
                     .top(px(30.0))
-                    .left(px((win_w - 312.0) * 0.5))
-                    .w(px(312.0))
+                    .left(px((win_w - TOP_TOOLBAR_WIDTH) * 0.5))
+                    .w(px(TOP_TOOLBAR_WIDTH))
                     .h(px(46.0))
                     .flex()
                     .flex_row()
@@ -137,21 +138,15 @@ impl MultisoulApp {
                             .on_click(cx.listener(Self::on_toolbar_new_terminal)),
                     )
                     .child(
-                        chrome_button(theme, "CL", false)
+                        chrome_button(theme, "Claude Code", false)
                             .id("toolbar-new-claude-agent")
                             .on_click(cx.listener(Self::on_toolbar_new_claude_agent)),
                     )
                     .child(
-                        chrome_button(theme, "CX", false)
+                        chrome_button(theme, "Codex", false)
                             .id("toolbar-new-codex-agent")
                             .on_click(cx.listener(Self::on_toolbar_new_codex_agent)),
-                    )
-                    .child(
-                        chrome_button(theme, "[]", false)
-                            .id("toolbar-reflow")
-                            .on_click(cx.listener(Self::on_toolbar_reflow)),
-                    )
-                    .child(chrome_button(theme, "*", false)),
+                    ),
             )
             .when(workspace_left_rail_visible(), |chrome| {
                 chrome.child(
@@ -274,7 +269,7 @@ fn chrome_button(theme: Theme, label: &'static str, active: bool) -> Div {
     };
 
     div()
-        .w(px(28.0))
+        .w(px(chrome_button_width(label)))
         .h(px(28.0))
         .flex()
         .items_center()
@@ -286,6 +281,11 @@ fn chrome_button(theme: Theme, label: &'static str, active: bool) -> Div {
         .text_color(rgba(text))
         .text_size(px(11.0))
         .child(label)
+}
+
+fn chrome_button_width(label: &str) -> f32 {
+    let text_width = label.chars().count() as f32 * 6.4;
+    (text_width + 18.0).max(28.0).ceil()
 }
 
 fn workspace_left_rail_visible() -> bool {
@@ -324,6 +324,65 @@ mod tests {
         assert_ne!(
             left_rail_visible, true,
             "左侧菜单列表不应继续标记为可见，否则渲染树仍会挂载该列表"
+        );
+    }
+
+    /// 顶部 agent 菜单：截图中的旧缩写按钮应替换为完整名称，并移除末尾两个占位按钮。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   source = include_str!("app_chrome.rs")（检查当前 chrome 渲染源码）
+    ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
+    ///   expected_1 = "Claude" + " Code"（CL 应展开为完整产品名）
+    ///   expected_2 = "Co" + "dex"（CX 应展开为完整产品名）
+    ///   forbidden_1 = "\"C" + "L\""（截图里的旧 Claude 缩写 literal）
+    ///   forbidden_2 = "\"C" + "X\""（截图里的旧 Codex 缩写 literal）
+    ///   forbidden_3 = "toolbar" + "-reflow"（截图里 CX 后面的 [] 按钮 id）
+    ///   forbidden_4 = "chrome_button(theme, \"*\", false)"（截图里最后一个星号占位按钮）
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 读取 app_chrome.rs 的生产渲染源码
+    ///   2. 确认 agent 按钮包含新的完整文案
+    ///   3. 搜索旧缩写 literal 与截图里的两个末尾无用按钮
+    ///
+    /// 预期结果：
+    ///   - 正断言：Claude agent 顶部按钮显示为 Claude Code
+    ///   - 正断言：Codex agent 顶部按钮显示为 Codex
+    ///   - 负断言：CL/CX 旧缩写不应继续出现在生产渲染源码中
+    ///   - 负断言：[] reflow 按钮和 * 占位按钮不应继续挂载
+    #[test]
+    fn test_top_toolbar_agent_labels_are_expanded_and_trailing_buttons_removed() {
+        let source = include_str!("app_chrome.rs");
+        let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
+        let claude_label = format!("{}{}", "Claude", " Code");
+        let codex_label = format!("{}{}", "Co", "dex");
+        let legacy_claude_literal = format!("\"{}{}\"", "C", "L");
+        let legacy_codex_literal = format!("\"{}{}\"", "C", "X");
+        let trailing_reflow_id = format!("{}{}", "toolbar", "-reflow");
+        let trailing_star_button = format!("{}{}", "chrome_button(theme, \"", "*\", false)");
+
+        assert!(
+            render_source.contains(&claude_label),
+            "顶部 Claude agent 按钮应显示 Claude Code，不能继续只显示 CL"
+        );
+        assert!(
+            render_source.contains(&codex_label),
+            "顶部 Codex agent 按钮应显示 Codex，不能继续只显示 CX"
+        );
+        assert!(
+            !render_source.contains(&legacy_claude_literal),
+            "顶部 Claude agent 按钮不应继续渲染 CL 缩写 literal"
+        );
+        assert!(
+            !render_source.contains(&legacy_codex_literal),
+            "顶部 Codex agent 按钮不应继续渲染 CX 缩写 literal"
+        );
+        assert!(
+            !render_source.contains(&trailing_reflow_id),
+            "顶部菜单不应继续挂载截图中 CX 后面的 [] reflow 按钮"
+        );
+        assert!(
+            !render_source.contains(&trailing_star_button),
+            "顶部菜单不应继续挂载截图中最后的星号占位按钮"
         );
     }
 }

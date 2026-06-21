@@ -1,7 +1,8 @@
 use super::*;
+use crate::persistence::PersistenceScheduler;
 use crate::workspace_flow::enter_workspace_for_path;
 use canvas::{compute_responsive_grid_layout, CanvasNodeKind, RectNode};
-use workspace::RecentStorage;
+use storage::RecentStore;
 
 /// 默认壁纸：未设置 env 时应使用打包进程序的内置画布壁纸。
 ///
@@ -232,14 +233,14 @@ fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   workspace path = temp/launchpad-opened，真实目录，因此 path.is_dir() = true
-///   storage path = temp/state/recent-workspaces.json
+///   storage path = temp/state/app.sqlite
 ///   初始 screen = Launchpad，runtime.workspace_root = None，recent count = 0
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 构造 Runtime::new()、MotionStore::new(true)、AppScreen::Launchpad
 ///   2. WorkspaceState::load_from_storage(storage)
 ///   3. enter_workspace_for_path(workspace)
-///      → WorkspaceState::open_workspace 写 JSON
+///      → WorkspaceState::open_workspace 写 SQLite
 ///      → runtime 替换为 Runtime::new_for_workspace(root)
 ///      → screen = Canvas
 ///   4. 查询 screen/runtime/workspace_state
@@ -256,17 +257,19 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     let canonical_workspace = workspace_path
         .canonicalize()
         .expect("workspace should canonicalize");
-    let storage = RecentStorage::new(temp.path().join("state").join("recent-workspaces.json"));
+    let storage = RecentStore::new(temp.path().join("state").join("app.sqlite"));
     let mut workspace_state = WorkspaceState::load_from_storage(storage);
     let mut runtime = Runtime::new();
     let mut motion = MotionStore::new(true);
     let mut master_layout = MasterLayoutState::default();
+    let mut persistence = PersistenceScheduler::default();
     let mut screen = AppScreen::Launchpad;
 
     let result = enter_workspace_for_path(
         &mut runtime,
         &mut motion,
         &mut master_layout,
+        &mut persistence,
         &mut screen,
         &mut workspace_state,
         &workspace_path,
@@ -328,17 +331,19 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
 fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
     let missing_path = temp.path().join("missing-recent");
-    let storage = RecentStorage::new(temp.path().join("recent-workspaces.json"));
+    let storage = RecentStore::new(temp.path().join("app.sqlite"));
     let mut workspace_state = WorkspaceState::load_from_storage(storage);
     let mut runtime = Runtime::new();
     let mut motion = MotionStore::new(true);
     let mut master_layout = MasterLayoutState::default();
+    let mut persistence = PersistenceScheduler::default();
     let mut screen = AppScreen::Launchpad;
 
     let result = enter_workspace_for_path(
         &mut runtime,
         &mut motion,
         &mut master_layout,
+        &mut persistence,
         &mut screen,
         &mut workspace_state,
         &missing_path,

@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
   "crates/canvas",
+  "crates/storage",
   "crates/workspace",
   "crates/terminal",
   "crates/runtime",
@@ -31,8 +32,10 @@ dirs = "6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"
+rusqlite = { version = "0.32", features = ["bundled"] }
 # 内部 crate（路径依赖）
 canvas = { path = "crates/canvas" }
+storage = { path = "crates/storage" }
 workspace = { path = "crates/workspace" }
 terminal = { path = "crates/terminal" }
 runtime = { path = "crates/runtime" }

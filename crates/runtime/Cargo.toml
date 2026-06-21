@@ -6,5 +6,9 @@ license.workspace = true
 
 [dependencies]
 canvas.workspace = true
+storage.workspace = true
 terminal.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

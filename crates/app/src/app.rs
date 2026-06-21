@@ -12,6 +12,7 @@ use crate::master_layout::{
 #[cfg(test)]
 use crate::master_layout::{close_node_and_reflow_for_area, workspace_reflow_config_for_zoom};
 use crate::motion::MotionStore;
+use crate::persistence::PersistenceScheduler;
 use crate::workspace_state::WorkspaceState;
 use canvas::{AgentProfile, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{
@@ -50,6 +51,7 @@ pub struct MultisoulApp {
     pub interaction: InteractionState,
     pub(crate) motion: MotionStore,
     pub(crate) master_layout: MasterLayoutState,
+    pub(crate) persistence: PersistenceScheduler,
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
     pub focus_handle: FocusHandle,
@@ -89,7 +91,8 @@ impl MultisoulApp {
                 let go = this.update(cx, |app, cx| {
                     let runtime_changed = app.runtime.drain_all();
                     let motion_changed = app.motion.tick(Duration::from_millis(12));
-                    if runtime_changed || motion_changed {
+                    let persistence_changed = app.tick_persistence(Duration::from_millis(12));
+                    if runtime_changed || motion_changed || persistence_changed {
                         cx.notify();
                     }
                 });
@@ -108,6 +111,7 @@ impl MultisoulApp {
             interaction: InteractionState::default(),
             motion: MotionStore::from_env(),
             master_layout: MasterLayoutState::default(),
+            persistence: PersistenceScheduler::default(),
             screen: AppScreen::Launchpad,
             workspace_state: WorkspaceState::load_default(),
             focus_handle: cx.focus_handle(),
@@ -135,6 +139,8 @@ impl MultisoulApp {
                 crate::spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
                 self.motion.spawn_node(node_id, bounds);
                 self.apply_layout_for_current_mode(window);
+                self.mark_canvas_dirty();
+                self.mark_session_dirty();
             }
             Err(e) => {
                 // SPEC §8：spawn 失败不 panic，仅 error 日志（节点内错误占位由 Task 15 渲染）。
@@ -189,6 +195,8 @@ impl MultisoulApp {
                 crate::spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
                 self.motion.spawn_node(node_id, bounds);
                 self.apply_layout_for_current_mode(window);
+                self.mark_canvas_dirty();
+                self.mark_session_dirty();
             }
             Err(e) => {
                 tracing::error!(error = %e, ?profile, "failed to spawn agent");
@@ -207,6 +215,7 @@ impl MultisoulApp {
             return;
         }
         self.reflow_tiled_nodes(window);
+        self.mark_canvas_dirty();
         cx.notify();
     }
 
@@ -250,6 +259,7 @@ impl MultisoulApp {
             }
             _ => {}
         }
+        self.mark_canvas_dirty();
         cx.notify();
     }
 
@@ -263,14 +273,19 @@ impl MultisoulApp {
         if self.interaction.hovered_node == Some(node_id) {
             self.interaction.hovered_node = None;
         }
-        close_node_and_update_layout_for_area(
+        let changed = close_node_and_update_layout_for_area(
             &mut self.runtime,
             &mut self.motion,
             &mut self.master_layout,
             node_id,
             area,
             zoom,
-        )
+        );
+        if changed {
+            self.mark_canvas_dirty();
+            self.mark_session_dirty();
+        }
+        changed
     }
 
     fn visible_canvas_rect(&self, window: &mut Window) -> CanvasRect {
@@ -297,7 +312,7 @@ impl MultisoulApp {
         apply_workspace_reflow_for_area(&mut self.runtime, &mut self.motion, area, zoom);
     }
 
-    fn reflow_tiled_nodes(&mut self, window: &mut Window) {
+    pub(crate) fn reflow_tiled_nodes(&mut self, window: &mut Window) {
         self.master_layout.clear();
         self.apply_tiled_nodes(window);
     }
@@ -406,21 +421,6 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.spawn_agent_card(AgentProfile::Codex, window, cx);
-    }
-
-    fn on_toolbar_reflow(&mut self, _: &ClickEvent, window: &mut Window, cx: &mut Context<Self>) {
-        self.on_reflow_layout(&ReflowLayout, window, cx);
-    }
-
-    fn on_feedback_click(&mut self, _: &ClickEvent, _window: &mut Window, cx: &mut Context<Self>) {
-        tracing::info!("feedback button clicked");
-        cx.notify();
-    }
-}
-
-impl Drop for MultisoulApp {
-    fn drop(&mut self) {
-        self.runtime.kill_all();
     }
 }
 

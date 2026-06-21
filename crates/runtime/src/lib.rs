@@ -9,4 +9,4 @@ pub mod snapshot;
 pub use focus::{FocusState, InputMode};
 pub use live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeView};
 pub use route::{route, InputEvent, Route};
-pub use runtime::Runtime;
+pub use runtime::{Runtime, DEFAULT_TERMINAL_SHELL};

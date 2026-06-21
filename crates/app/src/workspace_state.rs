@@ -1,27 +1,25 @@
 //! App-layer workspace state: recent list loading, current root, and user-facing errors.
 
 use std::path::{Path, PathBuf};
-use workspace::{
-    default_recent_workspaces_path, RecentStorage, RecentWorkspaces, WorkspaceSource,
-    WorkspaceStorageError,
-};
+use storage::{RecentStore, StorageError};
+use workspace::{RecentWorkspaces, WorkspaceSource};
 
 pub struct WorkspaceState {
     pub recent: RecentWorkspaces,
     pub current_root: Option<PathBuf>,
     pub error: Option<String>,
-    storage: RecentStorage,
+    storage: RecentStore,
 }
 
 impl WorkspaceState {
     pub fn load_default() -> Self {
-        match default_recent_workspaces_path() {
-            Ok(path) => Self::load_from_storage(RecentStorage::new(path)),
+        match RecentStore::open_default() {
+            Ok(storage) => Self::load_from_storage(storage),
             Err(error) => Self::with_storage_error(error),
         }
     }
 
-    pub fn load_from_storage(storage: RecentStorage) -> Self {
+    pub fn load_from_storage(storage: RecentStore) -> Self {
         match storage.load() {
             Ok(recent) => WorkspaceState {
                 recent,
@@ -71,12 +69,12 @@ impl WorkspaceState {
         self.error = Some("Clone Repo will be implemented in the next workspace iteration.".into());
     }
 
-    fn with_storage_error(error: WorkspaceStorageError) -> Self {
+    fn with_storage_error(error: StorageError) -> Self {
         WorkspaceState {
             recent: RecentWorkspaces::default(),
             current_root: None,
             error: Some(format!("Could not initialize recent projects: {error}")),
-            storage: RecentStorage::new(PathBuf::from("recent-workspaces.json")),
+            storage: RecentStore::new(PathBuf::from("app.sqlite")),
         }
     }
 }
@@ -89,13 +87,13 @@ mod tests {
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   temp workspace = temp/opened-workspace，真实目录，因此 path.is_dir() = true
-    ///   storage path = temp/state/recent-workspaces.json
+    ///   storage path = temp/state/app.sqlite
     ///   最近项目记录数：初始 0，打开后 1
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. WorkspaceState::load_from_storage(storage) → recent=[]
     ///   2. 预置 error=Some("old")
-    ///   3. open_workspace(workspace, Open) → storage.record_opened → recent 写入 JSON
+    ///   3. open_workspace(workspace, Open) → storage.record_opened → recent 写入 SQLite
     ///   4. 查询 current_root / recent / error
     ///
     /// 预期结果：
@@ -107,7 +105,7 @@ mod tests {
         let temp = tempfile::tempdir().expect("test should create temp dir");
         let workspace_path = temp.path().join("opened-workspace");
         std::fs::create_dir(&workspace_path).expect("test should create workspace dir");
-        let storage = RecentStorage::new(temp.path().join("state").join("recent-workspaces.json"));
+        let storage = RecentStore::new(temp.path().join("state").join("app.sqlite"));
         let mut state = WorkspaceState::load_from_storage(storage);
         state.error = Some("old error".into());
 
@@ -153,7 +151,7 @@ mod tests {
     fn test_open_missing_workspace_sets_error_without_recent_record() {
         let temp = tempfile::tempdir().expect("test should create temp dir");
         let missing_path = temp.path().join("missing-workspace");
-        let storage = RecentStorage::new(temp.path().join("recent-workspaces.json"));
+        let storage = RecentStore::new(temp.path().join("app.sqlite"));
         let mut state = WorkspaceState::load_from_storage(storage);
 
         let result = state.open_workspace(&missing_path, WorkspaceSource::Open);

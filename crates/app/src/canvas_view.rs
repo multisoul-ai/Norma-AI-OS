@@ -202,10 +202,14 @@ fn on_mouse_up(
     _w: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) {
+    let should_persist_canvas = app.interaction.panning || app.interaction.drag.is_some();
     app.interaction.panning = false;
     app.interaction.drag = None;
     app.interaction.last_screen = None;
     app.motion.clear_transient();
+    if should_persist_canvas {
+        app.mark_canvas_dirty();
+    }
     cx.notify();
 }
 

@@ -1,0 +1,104 @@
+use super::*;
+use workspace::WorkspaceSource;
+
+/// R-1: RecentStore 以 SQLite 持久化最近项目，并按路径去重和时间倒序。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   first path = temp/alpha-workspace，真实目录
+///   second path = temp/beta-workspace，真实目录
+///   record count = first 打开 2 次 + second 打开 1 次，但按 path 去重后应为 2
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. RecentStore::new(app.sqlite)
+///   2. record_opened(first, Open) → SQLite upsert 最近项目记录
+///   3. record_opened(second, Open) → 写入第二条记录
+///   4. record_opened(first, Clone) → first 去重更新为最新记录
+///   5. load() → 按 last_opened_at_unix 倒序读取
+///
+/// 预期结果：
+///   - 正断言：最终 records.len() == 2，第一条是 first
+///   - 正断言：first 的 source 更新为 Clone
+///   - 负断言：重复打开 first 不应产生第三条记录
+#[test]
+fn test_record_opened_persists_sqlite_and_dedupes_by_path() {
+    let temp = tempfile::tempdir().expect("test should create temp dir");
+    let first = temp.path().join("alpha-workspace");
+    let second = temp.path().join("beta-workspace");
+    std::fs::create_dir(&first).expect("test should create first workspace");
+    std::fs::create_dir(&second).expect("test should create second workspace");
+    let store = RecentStore::new(temp.path().join("app.sqlite"));
+
+    store
+        .record_opened(&first, WorkspaceSource::Open)
+        .expect("first open 应写入 SQLite");
+    store
+        .record_opened(&second, WorkspaceSource::Open)
+        .expect("second open 应写入 SQLite");
+    store
+        .record_opened(&first, WorkspaceSource::Clone)
+        .expect("reopen first 应去重更新 SQLite");
+
+    let recent = store.load().expect("recent records 应可从 SQLite 读取");
+    let first_canonical = first
+        .canonicalize()
+        .expect("first workspace should canonicalize");
+
+    assert_eq!(
+        recent.records.len(),
+        2,
+        "三次打开两个路径后应只保留 2 条最近项目记录"
+    );
+    assert_eq!(
+        recent.records[0].path, first_canonical,
+        "first 重开后应成为最新的第一条记录"
+    );
+    assert_eq!(
+        recent.records[0].source,
+        WorkspaceSource::Clone,
+        "first 最新记录应保存 Clone source"
+    );
+    assert_ne!(recent.records.len(), 3, "重复打开 first 不应追加第三条记录");
+}
+
+/// R-2: save/load 往返保留固定时间和 Clone 来源。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   record.path = /tmp/saved-workspace
+///   last_opened_at_unix = 42（固定时间，避免依赖系统时钟）
+///   source = Clone（覆盖非 Open 分支）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造 RecentWorkspaces{records:[record]}
+///   2. save() 删除旧表内容并插入 record
+///   3. load() 从 SQLite 读回 record
+///
+/// 预期结果：
+///   - 正断言：读回 records 与写入 records 完全一致
+///   - 负断言：source 不应退化为 Open
+#[test]
+fn test_save_and_load_round_trips_recent_records() {
+    let temp = tempfile::tempdir().expect("test should create temp dir");
+    let store = RecentStore::new(temp.path().join("app.sqlite"));
+    let record = WorkspaceRecord::new(
+        PathBuf::from("/tmp/saved-workspace"),
+        42,
+        WorkspaceSource::Clone,
+    );
+    let recent = RecentWorkspaces {
+        records: vec![record.clone()],
+    };
+
+    store.save(&recent).expect("save 应成功写入 SQLite");
+    let loaded = store.load().expect("load 应成功读回 SQLite");
+
+    assert_eq!(
+        loaded.records,
+        vec![record],
+        "SQLite save/load 应保留完整最近项目记录"
+    );
+    assert_ne!(
+        loaded.records[0].source,
+        WorkspaceSource::Open,
+        "Clone source 不应在 SQLite 往返后退化为 Open"
+    );
+}

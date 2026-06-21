@@ -1,0 +1,172 @@
+use crate::app::MultisoulApp;
+use runtime::Runtime;
+use std::time::Duration;
+use storage::{ProjectStore, StorageError};
+
+const PERSISTENCE_DEBOUNCE: Duration = Duration::from_millis(360);
+
+#[derive(Debug, Default)]
+pub(crate) struct PersistenceScheduler {
+    project_store: Option<ProjectStore>,
+    canvas_dirty: bool,
+    session_dirty: bool,
+    dirty_for: Duration,
+}
+
+impl PersistenceScheduler {
+    pub(crate) fn set_project_store(&mut self, store: ProjectStore) {
+        self.project_store = Some(store);
+        self.canvas_dirty = false;
+        self.session_dirty = false;
+        self.dirty_for = Duration::ZERO;
+    }
+
+    pub(crate) fn mark_canvas_dirty(&mut self) {
+        self.canvas_dirty = true;
+        self.dirty_for = Duration::ZERO;
+    }
+
+    pub(crate) fn mark_session_dirty(&mut self) {
+        self.session_dirty = true;
+        self.dirty_for = Duration::ZERO;
+    }
+
+    pub(crate) fn tick(
+        &mut self,
+        delta: Duration,
+        runtime: &Runtime,
+    ) -> Result<bool, StorageError> {
+        if !self.has_pending_work() {
+            return Ok(false);
+        }
+
+        self.dirty_for = self.dirty_for.saturating_add(delta);
+        if self.dirty_for < PERSISTENCE_DEBOUNCE {
+            return Ok(false);
+        }
+
+        self.flush_now(runtime)
+    }
+
+    pub(crate) fn flush_now(&mut self, runtime: &Runtime) -> Result<bool, StorageError> {
+        let Some(project_store) = self.project_store.as_ref() else {
+            self.canvas_dirty = false;
+            self.session_dirty = false;
+            self.dirty_for = Duration::ZERO;
+            return Ok(false);
+        };
+
+        if self.canvas_dirty {
+            runtime.save_canvas_snapshot(&project_store.canvas_store())?;
+        }
+        if self.session_dirty {
+            runtime.save_session_checkpoints(&project_store.session_store())?;
+        }
+        let flushed = self.has_pending_work();
+        self.canvas_dirty = false;
+        self.session_dirty = false;
+        self.dirty_for = Duration::ZERO;
+        Ok(flushed)
+    }
+
+    fn has_pending_work(&self) -> bool {
+        self.canvas_dirty || self.session_dirty
+    }
+}
+
+impl MultisoulApp {
+    pub(crate) fn mark_canvas_dirty(&mut self) {
+        self.persistence.mark_canvas_dirty();
+    }
+
+    pub(crate) fn mark_session_dirty(&mut self) {
+        self.persistence.mark_session_dirty();
+    }
+
+    pub(crate) fn tick_persistence(&mut self, delta: Duration) -> bool {
+        match self.persistence.tick(delta, &self.runtime) {
+            Ok(changed) => changed,
+            Err(error) => {
+                tracing::warn!(%error, "workspace persistence tick failed");
+                self.workspace_state.error = Some(format!("Could not save workspace: {error}"));
+                true
+            }
+        }
+    }
+
+    pub(crate) fn flush_persistence_now(&mut self) {
+        if let Err(error) = self.persistence.flush_now(&self.runtime) {
+            tracing::warn!(%error, "workspace persistence flush failed");
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use canvas::{CanvasNodeKind, CanvasRect, RectNode};
+    use storage::ProjectStore;
+
+    /// P-1: scheduler debounce 期间不写 SQLite，超过窗口后合并写一次 canvas snapshot。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   debounce = 360ms
+    ///   first tick = 12ms，12 < 360，因此不应 flush
+    ///   second tick = 360ms，累计 372 >= 360，因此应 flush
+    ///   runtime document 添加 Rect 节点，node_id=1
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. set_project_store(project.sqlite)
+    ///   2. mark_canvas_dirty()
+    ///   3. tick(12ms) → dirty 未达到 debounce，load_snapshot 应为 None
+    ///   4. tick(360ms) → flush_now 写入 canvas snapshot
+    ///
+    /// 预期结果：
+    ///   - 正断言：第一次 tick 返回 false 且没有 snapshot
+    ///   - 正断言：第二次 tick 返回 true 且 snapshot 包含 node_id=1
+    ///   - 负断言：debounce 未到时不应提前写库
+    #[test]
+    fn test_scheduler_debounces_canvas_snapshot_flush() {
+        let temp = tempfile::tempdir().expect("test should create temp dir");
+        let workspace_root = temp.path().join("workspace");
+        std::fs::create_dir(&workspace_root).expect("test should create workspace dir");
+        let project_store =
+            ProjectStore::for_workspace(&workspace_root).expect("project store should open");
+        let canvas_store = project_store.canvas_store();
+        let mut scheduler = PersistenceScheduler::default();
+        let mut runtime = Runtime::new();
+        let node_id = runtime.document.add_node(
+            CanvasNodeKind::Rect(RectNode { color: 0x4080ff }),
+            CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+        );
+
+        scheduler.set_project_store(project_store);
+        scheduler.mark_canvas_dirty();
+        let early = scheduler
+            .tick(Duration::from_millis(12), &runtime)
+            .expect("early tick 应成功但不 flush");
+        let before = canvas_store
+            .load_snapshot()
+            .expect("debounce 前 snapshot 查询应成功");
+        let late = scheduler
+            .tick(Duration::from_millis(360), &runtime)
+            .expect("late tick 应触发 flush");
+        let after = canvas_store
+            .load_snapshot()
+            .expect("flush 后 snapshot 查询应成功")
+            .expect("flush 后 snapshot 应存在");
+
+        assert!(!early, "12ms < 360ms 时不应 flush 持久化");
+        assert!(before.is_none(), "debounce 未到时不应提前写 SQLite");
+        assert!(late, "累计超过 debounce 后应 flush 持久化");
+        assert_eq!(
+            after.nodes[0].id, node_id,
+            "flush 后 canvas snapshot 应包含 runtime 中的 node_id"
+        );
+        assert_ne!(
+            before,
+            Some(after),
+            "debounce 前后不应相同，否则说明没有验证到延迟写入"
+        );
+    }
+}

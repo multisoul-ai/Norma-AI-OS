@@ -17,43 +17,54 @@ Multisoul Desktop 是一个 macOS 空间工作台脚手架。当前垂直切片�
 ┌──────────────────────────────────────────────┐
 │ app crate                                     │
 │ MultisoulApp                                  │
-│ canvas_view / cards/*                         │
-└───────────────┬───────────────────┬──────────┘
-                │                   │
-                ▼                   ▼
-┌──────────────────────────┐   ┌──────────────────────────┐
+│ canvas_view / cards/* / persistence scheduler │
+└───────┬───────────────────┬───────────────────┬──────────┘
+        │                   │                   │
+        ▼                   ▼                   ▼
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────────────┐
 │ runtime crate             │   │ ui crate                  │
 │ document + selection      │   │ theme tokens              │
 │ focus + event routing     │   │ GPUI-facing primitives    │
 │ NodeId -> LiveNode registry│   └──────────────────────────┘
-└──────────────┬───────────┘
-               │
-       ┌───────┴────────┐
-       ▼                ▼
-┌──────────────┐   ┌──────────────────────────────┐
-│ canvas crate │   │ terminal crate                │
-│ geometry     │   │ portable-pty + alacritty grid │
-│ nodes        │   │ input encoding + sessions     │
-│ hit testing  │   └──────────────┬───────────────┘
-└──────────────┘                  │
-                                  ▼
-                         ┌────────────────┐
-                         │ /bin/zsh shell │
-                         │ child process  │
-                         └────────────────┘
+└───────┬──────────┬──────┘
+        │          │
+        ▼          ▼
+┌──────────────┐ ┌──────────────────────────────┐
+│ canvas crate │ │ terminal crate                │
+│ geometry     │ │ portable-pty + alacritty grid │
+│ nodes        │ │ input encoding + sessions     │
+│ hit testing  │ └──────────────┬───────────────┘
+└──────────────┘                │
+                                ▼
+                       ┌────────────────┐
+                       │ /bin/zsh shell │
+                       │ child process  │
+                       └────────────────┘
+
+┌──────────────────────────┐
+│ storage crate             │
+│ SQLite stores + migrations│
+│ recent/settings/snapshots │
+└──────────┬───────────────┘
+           ▼
+┌──────────────────────────┐
+│ workspace crate           │
+│ recent metadata + paths   │
+└──────────────────────────┘
 ```
 
 核心 Cargo 依赖方向：
 
 ```text
-app -> {ui, runtime, canvas, terminal}
-runtime -> {canvas, terminal}
+app -> {ui, runtime, canvas, terminal, storage}
+runtime -> {canvas, terminal, storage}
+storage -> {canvas, workspace, rusqlite}
 ui -> gpui
-canvas -> thiserror
+canvas -> {serde, thiserror}
 terminal -> {portable-pty, alacritty_terminal, crossbeam-channel}
 ```
 
-`canvas`、`terminal`、`runtime` 是域层，必须保持零 GPUI；`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
+`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
 
 ## 2. 代码结构
 
@@ -99,6 +110,30 @@ crates/terminal/src/
 - 将原始字节交给 `alacritty_terminal` 解析为屏幕网格
 - 将 GPUI 层翻译后的按键编码为 PTY 字节
 - 维护 `Running` / `Exited` 状态和 resize 后的行列数
+
+### `crates/storage/`
+
+零 GPUI 存储层，负责 SQLite store、migration 和持久化边界。
+
+```text
+crates/storage/src/
+├── app_store.rs       # 用户级 app.sqlite
+├── project_store.rs   # workspace/.multisoul/project.sqlite
+├── migrations.rs      # app/project schema migration
+├── recent_store.rs    # 最近项目
+├── settings_store.rs  # 全局设置
+├── canvas_store.rs    # DocumentSnapshot
+└── session_store.rs   # session checkpoint（按 node_id 覆盖）
+```
+
+主要职责：
+
+- 管理用户级 `~/Library/Application Support/Multisoul/app.sqlite`
+- 管理项目级 `<workspace>/.multisoul/project.sqlite`
+- 读写 recent/settings/canvas snapshot/session checkpoint
+- 保持底层依赖，不反向依赖 `app/runtime/ui`
+
+热路径禁令：`Runtime::drain_all`、PTY output chunk、`canvas_view::on_mouse_move`、`runtime::route`、`send_node_input` 不得同步写 SQLite 或阻塞查库。
 
 ### `crates/runtime/`
 
@@ -339,7 +374,6 @@ child.kill() + child.wait()
 
 当前切片不包含：
 
-- 持久化工作区或最近项目
 - 多窗口/多工作区管理
 - 终端 scrollback 虚拟化
 - 复制粘贴、mouse reporting、完整 resize UI
@@ -356,6 +390,7 @@ child.kill() + child.wait()
 - alacritty_terminal `=0.26`
 - crossbeam-channel `0.5`
 - tracing / tracing-subscriber
+- rusqlite bundled SQLite
 - cargo-packager
 - macOS Metal toolchain
 
@@ -364,13 +399,14 @@ child.kill() + child.wait()
 常用验证：
 
 ```bash
-cargo test -p canvas -p terminal -p runtime
+cargo test -p canvas -p terminal -p runtime -p storage
 cargo test --workspace
 cargo check -p app
 cargo build -p app --release
 cargo tree -p canvas -p terminal -p runtime | grep -i gpui
+bash scripts/check-storage-boundaries.sh
 ```
 
-最后一条应无输出，用来确认域层没有引入 GPUI。
+`cargo tree ... grep -i gpui` 应无输出，用来确认域层没有引入 GPUI；`check-storage-boundaries.sh` 用来确认存储层依赖方向和热路径禁令。
 
 测试规范见 [`CLAUDE.md`](CLAUDE.md) 第 7 节：测试需要写清场景、数据构造、执行过程、预期结果；关键断言必须有正/负验收与失败说明。

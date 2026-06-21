@@ -1,20 +1,21 @@
 //! 画布节点数据模型（零 gpui）。
 
 use crate::geometry::CanvasRect;
+use serde::{Deserialize, Serialize};
 
 pub type NodeId = u64;
 
 /// 普通矩形节点（本切片用于验证拖拽/选中）。color 为 0xRRGGBB。
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct RectNode {
     pub color: u32,
 }
 
 /// 终端节点的可持久化描述。实际 PTY/session 存在 runtime 层。
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 pub struct TermSpec;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub enum AgentProfile {
     Claude,
     Codex,
@@ -30,19 +31,19 @@ impl AgentProfile {
 }
 
 /// Agent 节点的可持久化描述。实际进程/session 存在 runtime 层。
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct AgentSpec {
     pub profile: AgentProfile,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub enum NodeType {
     Rect,
     Term,
     Agent,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum NodeKind {
     Rect(RectNode),
     Term(TermSpec),
@@ -70,7 +71,7 @@ impl NodeKind {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct CanvasNode {
     pub id: NodeId,
     pub kind: CanvasNodeKind,

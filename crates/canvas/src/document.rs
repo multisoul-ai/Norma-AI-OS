@@ -2,6 +2,21 @@
 
 use crate::geometry::{CanvasRect, Vec2, Viewport};
 use crate::node::{CanvasNode, CanvasNodeKind, NodeId};
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct CanvasNodeSnapshot {
+    pub id: NodeId,
+    pub kind: CanvasNodeKind,
+    pub bounds: CanvasRect,
+    pub z_index: i32,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct DocumentSnapshot {
+    pub nodes: Vec<CanvasNodeSnapshot>,
+    pub viewport: Viewport,
+}
 
 #[derive(Debug)]
 pub struct Document {
@@ -24,6 +39,49 @@ impl Document {
             viewport: Viewport::default(),
             next_id: 1,
             max_z: 0,
+        }
+    }
+
+    pub fn to_snapshot(&self) -> DocumentSnapshot {
+        DocumentSnapshot {
+            nodes: self
+                .nodes
+                .iter()
+                .map(|node| CanvasNodeSnapshot {
+                    id: node.id,
+                    kind: node.kind,
+                    bounds: node.bounds,
+                    z_index: node.z_index,
+                })
+                .collect(),
+            viewport: self.viewport,
+        }
+    }
+
+    pub fn from_snapshot(snapshot: DocumentSnapshot) -> Self {
+        let mut next_id = 1;
+        let mut max_z = 0;
+        let nodes = snapshot
+            .nodes
+            .into_iter()
+            .map(|node| {
+                next_id = next_id.max(node.id.saturating_add(1));
+                max_z = max_z.max(node.z_index);
+                CanvasNode {
+                    id: node.id,
+                    kind: node.kind,
+                    bounds: node.bounds,
+                    z_index: node.z_index,
+                    selected: false,
+                }
+            })
+            .collect();
+
+        Document {
+            nodes,
+            viewport: snapshot.viewport,
+            next_id,
+            max_z,
         }
     }
 
@@ -199,6 +257,63 @@ mod tests {
         assert_ne!(
             node_b.bounds, new_bounds,
             "B bounds 不应等于 A 的 new_bounds，否则说明错误更新了多个节点"
+        );
+    }
+
+    /// from_snapshot 恢复节点、viewport，并让后续新增节点 id 接在历史最大 id 后面。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   snapshot.nodes = [id=4,z=7,bounds(10,20,300,200)]
+    ///   viewport.pan = (12,34)，viewport.zoom = 1.5
+    ///   恢复后 next_id 应为 max_id(4)+1 = 5
+    ///   恢复后 max_z 应为 max_z(7)，新增节点 z_index 应为 8
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. Document::from_snapshot(snapshot) → 构造 Document
+    ///   2. 查询 id=4 节点与 viewport，确认状态来自快照
+    ///   3. add_node(Rect) → 新节点应拿到 id=5 且 z_index=8
+    ///
+    /// 预期结果：
+    ///   - 正断言：恢复节点 id=4、bounds、viewport 均保留
+    ///   - 正断言：新增节点 id=5，证明 next_id 按 max_id+1 推导
+    ///   - 负断言：新增节点不应复用 id=4，避免覆盖历史节点
+    #[test]
+    fn test_from_snapshot_restores_document_and_allocates_next_id_after_max() {
+        let snapshot = DocumentSnapshot {
+            nodes: vec![CanvasNodeSnapshot {
+                id: 4,
+                kind: CanvasNodeKind::Rect(RectNode { color: 0x4080ff }),
+                bounds: CanvasRect::new(10.0, 20.0, 300.0, 200.0),
+                z_index: 7,
+            }],
+            viewport: Viewport {
+                pan: Vec2::new(12.0, 34.0),
+                zoom: 1.5,
+            },
+        };
+
+        let mut doc = Document::from_snapshot(snapshot);
+        let restored_bounds = doc.node(4).expect("snapshot id=4 节点应存在").bounds;
+        let new_id = doc.add_node(
+            CanvasNodeKind::Rect(RectNode { color: 0xff8040 }),
+            CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+        );
+
+        assert_eq!(
+            restored_bounds,
+            CanvasRect::new(10.0, 20.0, 300.0, 200.0),
+            "from_snapshot 应恢复节点 bounds"
+        );
+        assert_eq!(doc.viewport.zoom, 1.5, "from_snapshot 应恢复 viewport.zoom");
+        assert_eq!(new_id, 5, "恢复 max_id=4 后新增节点 id 应为 5");
+        assert_ne!(
+            new_id, 4,
+            "新增节点不应复用已恢复的 id=4，否则会破坏持久化节点身份"
+        );
+        assert_eq!(
+            doc.node(new_id).expect("新增节点应存在").z_index,
+            8,
+            "恢复 max_z=7 后新增节点 z_index 应为 8"
         );
     }
 

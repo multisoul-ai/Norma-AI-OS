@@ -21,8 +21,9 @@ Workspace crates:
 Core Cargo dependency direction is:
 
 ```text
-app -> {ui, runtime, canvas, terminal}
-runtime -> {canvas, terminal}
+app -> {ui, runtime, canvas, terminal, storage}
+runtime -> {canvas, terminal, storage}
+storage -> {canvas, workspace, rusqlite}
 ui -> gpui
 ```
 
@@ -86,6 +87,26 @@ Important files:
 - `runtime.rs` - document, selection, focus, `NodeId -> LiveNode` registry, spawn/drain/kill.
 - `snapshot.rs` - Phase 4 placeholder for snapshot caching and scrollback virtualization.
 
+### `storage`
+
+Purpose: persist app/workspace state through SQLite without depending on GPUI or app shell code.
+
+Important files:
+
+- `app_store.rs` - user-level `app.sqlite`.
+- `project_store.rs` - project-level `.multisoul/project.sqlite`.
+- `migrations.rs` - idempotent app/project schema setup.
+- `recent_store.rs` - recent workspace records.
+- `settings_store.rs` - string settings.
+- `canvas_store.rs` - `DocumentSnapshot` round-trip.
+- `session_store.rs` - coalesced session checkpoints by `node_id`.
+
+Boundary rules:
+
+- `storage` must not depend on `app`, `runtime`, or `ui`.
+- `canvas` and `terminal` must not depend on `storage`.
+- Do not write SQLite from `Runtime::drain_all`, PTY output chunks, `canvas_view::on_mouse_move`, `runtime::route`, or `send_node_input`.
+
 ### `ui` and `app`
 
 Purpose: GPUI shell and rendering.
@@ -124,7 +145,7 @@ cargo run -p app
 Domain tests:
 
 ```bash
-cargo test -p canvas -p terminal -p runtime
+cargo test -p canvas -p terminal -p runtime -p storage
 ```
 
 Workspace tests:
@@ -198,11 +219,13 @@ RUST_LOG=trace cargo run -p app
 | `crates/canvas/**` | `cargo test -p canvas` |
 | `crates/terminal/**` | `cargo test -p terminal` |
 | `crates/runtime/**` | `cargo test -p runtime` |
+| `crates/storage/**` | `cargo test -p storage` |
 | `crates/ui/**` | `cargo test -p ui` |
 | `crates/app/**` | `cargo check -p app` |
 | Cross-crate behavior | `cargo test --workspace` |
 | GPUI boot, release, packaging | `cargo build -p app --release` |
 | Domain dependency discipline | `cargo tree -p canvas -p terminal -p runtime | grep -i gpui` should be empty |
+| Storage dependency and hot-path discipline | `bash scripts/check-storage-boundaries.sh` |
 | Code line-count lint | `bash scripts/check-max-file-lines.sh` |
 | No `#[allow(...)]` lint | `bash scripts/check-no-allow.sh` |
 
@@ -264,7 +287,7 @@ Current README phase placeholders:
 - Phase 2: undo/redo and spatial index via `canvas/commands.rs` and `history.rs`.
 - Phase 3: multiple terminals, resize, copy/paste, mouse reporting.
 - Phase 4: snapshot cache and scrollback virtualization via `runtime/snapshot.rs`.
-- Phase 5: persistence and recent projects, likely a new `workspace` crate.
+- Phase 5: persistence and recent projects now start in `crates/storage`; richer session restore remains future work.
 - Phase 6: codesign and notarization.
 
 Historical SDD task records are in `.superpowers/sdd/`. They explain how the current vertical slice was built, but they are not the canonical home for future product specs or design decisions.
