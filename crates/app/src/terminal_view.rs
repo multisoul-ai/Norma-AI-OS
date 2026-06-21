@@ -15,12 +15,16 @@ pub fn render_terminal_node(
     app: &mut MultisoulApp,
     session_id: TerminalSessionId,
     zoom: f32,
+    bottom_radius_px: f32,
     _window: &mut Window,
     _cx: &mut Context<MultisoulApp>,
 ) -> impl IntoElement {
     let theme = app.theme;
     let Some(session) = app.runtime.session(session_id) else {
-        return div().child("(session gone)");
+        return div()
+            .rounded_b(px(bottom_radius_px))
+            .overflow_hidden()
+            .child("(session gone)");
     };
 
     let snap = session.snapshot();
@@ -41,6 +45,7 @@ pub fn render_terminal_node(
         .w_full()
         .relative()
         .overflow_hidden()
+        .rounded_b(px(bottom_radius_px))
         .bg(rgba(theme.term_bg))
         .text_color(rgba(theme.term_fg))
         .font_family("Menlo") // 系统等宽字体；assets/fonts 留扩展位

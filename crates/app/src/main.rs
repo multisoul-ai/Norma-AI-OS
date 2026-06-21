@@ -2,6 +2,7 @@
 mod app;
 mod assets;
 mod canvas_view;
+mod motion;
 mod terminal_renderer;
 mod terminal_view;
 

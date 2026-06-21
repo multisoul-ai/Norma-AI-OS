@@ -34,8 +34,10 @@ ui -> gpui
 - **Input decisions stay pure where possible**: encode routing decisions in `runtime::event_router` before app-layer side effects.
 - **PTY cleanup is required**: `Runtime::kill_all`, `TerminalSession::kill`, and `PtyHandle::Drop` are lifecycle guardrails. Keep new process paths equally explicit.
 - **Pinned libraries require verification**: `gpui =0.2.2` and `alacritty_terminal =0.26` are pinned in the workspace. Upgrade only after checking API compatibility.
+- **Consult GPUI skills first**: when writing GPUI code in `crates/app` or `crates/ui`, load the relevant local `gpui-*` skill before inventing a pattern, then adapt it to this repository's pinned GPUI version and existing style.
 - **TDD before feature or bugfix work**: add a focused failing test first where the behavior can be tested below the GPUI layer.
 - **No broad suppressions**: do not hide Rust diagnostics with blanket allowances. Fix root causes.
+- **Single Rust source files stay at or below 500 lines**: enforced by [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh); split responsibilities instead of raising the cap.
 - **Keep source files small enough to navigate**: split before a file turns into a mixed-responsibility dumping ground.
 - **Do not treat `.superpowers/sdd/` as the new documentation home**: it is useful historical construction context. New durable specs/plans should use a future `docs/` tree.
 
@@ -123,6 +125,12 @@ Workspace tests:
 cargo test --workspace
 ```
 
+Code line-count lint:
+
+```bash
+bash scripts/check-max-file-lines.sh
+```
+
 App check:
 
 ```bash
@@ -175,6 +183,7 @@ RUST_LOG=trace cargo run -p app
 | Cross-crate behavior | `cargo test --workspace` |
 | GPUI boot, release, packaging | `cargo build -p app --release` |
 | Domain dependency discipline | `cargo tree -p canvas -p terminal -p runtime | grep -i gpui` should be empty |
+| Code line-count lint | `bash scripts/check-max-file-lines.sh` |
 
 ## 7. Test Requirements
 
@@ -216,6 +225,8 @@ fn test_ctrl_c_encodes_to_etx() {
 ## 8. UI And Interaction Notes
 
 - GPUI code belongs in `app` and `ui`.
+- Before changing GPUI API usage, elements, styling, actions, async tasks, entities, tests, troubleshooting, or code quality patterns, consult the installed skills from `cnwzhu/gpui-skills`: `gpui-fundamentals`, `gpui-init`, `gpui-elements`, `gpui-styling`, `gpui-actions`, `gpui-async`, `gpui-entities`, `gpui-testing`, `gpui-troubleshooting`, `gpui-patterns`, and `gpui-code-quality`.
+- Treat the skills as the first reference for GPUI idioms, but verify against this workspace's pinned `gpui =0.2.2` API and nearby code before committing to an implementation.
 - Keep domain behavior in pure structs/functions so tests can run without opening a window.
 - Canvas coordinates and screen coordinates are separate. Convert through `Viewport`.
 - Node movement takes canvas-space deltas; app-layer pointer movement must divide by zoom.

@@ -24,6 +24,8 @@ Workspace 分层：
 - **域层零 GPUI**：`canvas`、`terminal`、`runtime` 必须可独立 `cargo test`。
 - **依赖方向不反穿**：不要让 `canvas/terminal/runtime` 反向依赖 `app` 或 `ui`。
 - **版本钉死需审慎**：`gpui =0.2.2`、`alacritty_terminal =0.26`，升级前先验证 API。
+- **GPUI 代码先查 skills**：编写或修改 `crates/app`、`crates/ui` 的 GPUI 代码时，优先参考本地已安装的 `gpui-*` skills，再结合本仓库现有写法落地。
+- **单文件 ≤ 500 行**：Rust 源码由 [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh) 拦截，超长先拆职责。
 - **写代码前先 TDD**：新功能或 bugfix 先补能失败的聚焦测试，再实现。
 - **测试注释必须完整**：测试上方写场景、数据构造、执行过程、预期结果；关键数值写推导。
 - **断言必须具体**：每个 `assert!` / `assert_eq!` 带说明字符串；关键状态要有正断言和负断言。
@@ -70,6 +72,7 @@ Workspace 分层：
 | 跨 crate 行为 | `cargo test --workspace` |
 | GPUI/打包相关 | `cargo build -p app --release` |
 | 域层依赖边界 | `cargo tree -p canvas -p terminal -p runtime | grep -i gpui` 应无输出 |
+| 代码行数 lint | `bash scripts/check-max-file-lines.sh` |
 
 ## 6. 常用命令
 
@@ -78,6 +81,7 @@ cargo run -p app
 cargo test -p canvas -p terminal -p runtime
 cargo test --workspace
 cargo check -p app
+bash scripts/check-max-file-lines.sh
 cargo build -p app --release
 cargo packager --release
 RUST_LOG=trace cargo run -p app
@@ -92,6 +96,7 @@ xcrun metal --version
 ## 7. 给 Agent 的协作约定
 
 - 行动前先检索本地文件，不凭记忆回答。
+- 涉及 GPUI API、元素、样式、actions、async、testing 或 troubleshooting 时，先加载对应 `gpui-*` skill；若 skill 与 `gpui =0.2.2` 或现有代码冲突，以本仓库验证结果为准。
 - 修改代码后按第 5 节跑对应验证；验证失败先定位根因。
 - 新增测试必须遵守第 2 节测试结构规范。
 - 若新增长期文档，优先建立 `docs/product-specs/`、`docs/design-docs/`、`docs/exec-plans/` 这类 canonical 路径；`.superpowers/sdd/` 只作为历史上下文，除非明确继续旧 SDD 流程。
