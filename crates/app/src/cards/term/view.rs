@@ -108,6 +108,10 @@ pub fn keystroke_to_input(ks: &Keystroke) -> Option<KeyInput> {
         return None;
     }
 
+    if let Some(key) = named_control_key(&ks.key) {
+        return Some(KeyInput { key, ctrl, alt });
+    }
+
     // When key_char holds exactly one char and no Ctrl/Cmd is active, use it
     // directly — this is how IME-composed characters (Chinese, Japanese, etc.)
     // and non-ASCII layouts reach us from GPUI.
@@ -125,19 +129,25 @@ pub fn keystroke_to_input(ks: &Keystroke) -> Option<KeyInput> {
     }
 
     let key = match ks.key.as_str() {
-        "enter" => Key::Enter,
-        "tab" => Key::Tab,
-        "backspace" => Key::Backspace,
-        "escape" => Key::Escape,
-        "up" => Key::Up,
-        "down" => Key::Down,
-        "left" => Key::Left,
-        "right" => Key::Right,
         "space" => Key::Char(' '),
         s if s.chars().count() == 1 => Key::Char(s.chars().next().unwrap()),
         _ => return None,
     };
     Some(KeyInput { key, ctrl, alt })
+}
+
+fn named_control_key(key: &str) -> Option<Key> {
+    match key {
+        "enter" => Some(Key::Enter),
+        "tab" => Some(Key::Tab),
+        "backspace" => Some(Key::Backspace),
+        "escape" => Some(Key::Escape),
+        "up" => Some(Key::Up),
+        "down" => Some(Key::Down),
+        "left" => Some(Key::Left),
+        "right" => Some(Key::Right),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -446,3 +456,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "view_enter_tests.rs"]
+mod enter_tests;

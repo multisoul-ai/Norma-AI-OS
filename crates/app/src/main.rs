@@ -7,6 +7,7 @@ mod cards;
 mod launchpad;
 mod master_layout;
 mod motion;
+mod spawn_focus;
 mod workspace_flow;
 mod workspace_state;
 

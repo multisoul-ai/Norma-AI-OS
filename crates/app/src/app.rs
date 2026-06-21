@@ -132,7 +132,7 @@ impl MultisoulApp {
         match self.runtime.spawn_terminal(bounds, "/bin/zsh", cols, rows) {
             Ok(node_id) => {
                 tracing::info!(?node_id, "spawned terminal node");
-                self.runtime.selection.select_only(node_id);
+                crate::spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
                 self.motion.spawn_node(node_id, bounds);
                 self.apply_layout_for_current_mode(window);
             }
@@ -186,7 +186,7 @@ impl MultisoulApp {
         match self.runtime.spawn_agent(profile, bounds, cols, rows) {
             Ok(node_id) => {
                 tracing::info!(?node_id, ?profile, "spawned agent node");
-                self.runtime.selection.select_only(node_id);
+                crate::spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
                 self.motion.spawn_node(node_id, bounds);
                 self.apply_layout_for_current_mode(window);
             }

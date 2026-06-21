@@ -100,7 +100,7 @@ pub(crate) fn commit_text_to_focused_node(
     screen: AppScreen,
     text: &str,
 ) -> bool {
-    if text.is_empty() || screen != AppScreen::Canvas {
+    if text.is_empty() || is_text_input_control_commit(text) || screen != AppScreen::Canvas {
         return false;
     }
 
@@ -121,8 +121,16 @@ pub(crate) fn commit_text_to_focused_node(
     }
 }
 
+fn is_text_input_control_commit(text: &str) -> bool {
+    matches!(text, "\n" | "\r" | "\r\n")
+}
+
 pub(crate) fn should_defer_keystroke_to_ime(keystroke: &Keystroke) -> bool {
     if keystroke.modifiers.control || keystroke.modifiers.platform || keystroke.modifiers.function {
+        return false;
+    }
+
+    if is_terminal_control_key(&keystroke.key) {
         return false;
     }
 
@@ -135,6 +143,25 @@ pub(crate) fn should_defer_keystroke_to_ime(keystroke: &Keystroke) -> bool {
     }
 
     keystroke.key == "space" || keystroke.key.chars().count() == 1
+}
+
+fn is_terminal_control_key(key: &str) -> bool {
+    matches!(
+        key,
+        "enter"
+            | "tab"
+            | "backspace"
+            | "escape"
+            | "up"
+            | "down"
+            | "left"
+            | "right"
+            | "delete"
+            | "home"
+            | "end"
+            | "pageup"
+            | "pagedown"
+    )
 }
 
 impl InputHandler for TerminalImeHandler {
@@ -323,17 +350,25 @@ mod tests {
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   printable.key = "n"，key_char = Some("n")，无 ctrl/cmd/fn
-    ///   enter.key = "enter"，key_char = None
+    ///   space.key = "space"，key_char = Some(" ")，无 ctrl/cmd/fn
+    ///   enter.key = "enter"，key_char = Some("\r")（macOS 可能给 Enter 附带 CR）
+    ///   tab.key = "tab"，key_char = Some("\t")（macOS 可能给 Tab 附带 HT）
+    ///   backspace.key = "backspace"，key_char = Some("\u{7f}")（DEL）
+    ///   escape.key = "escape"，key_char = Some("\u{1b}")（ESC）
+    ///   left.key = "left"，key_char = Some("\u{1b}[D")（CSI D）
     ///   ctrl_c.key = "c"，key_char = Some("c")，control = true
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. should_defer_keystroke_to_ime(printable) → true，让 macOS inputContext 生成 marked/commit 文本
-    ///   2. should_defer_keystroke_to_ime(enter) → false，Enter 仍发给 shell
-    ///   3. should_defer_keystroke_to_ime(ctrl_c) → false，Ctrl+C 仍编码为 ETX
+    ///   2. should_defer_keystroke_to_ime(space) → true，普通空格仍作为文本输入交给 inputContext
+    ///   3. should_defer_keystroke_to_ime(enter/tab/backspace/escape/left) → false，终端控制键仍发给 shell
+    ///   4. should_defer_keystroke_to_ime(ctrl_c) → false，Ctrl+C 仍编码为 ETX
     ///
     /// 预期结果：
     ///   - 正断言：普通 n defer，避免拼音字母先写入 PTY
+    ///   - 正断言：普通 space defer，避免拼音候选确认前空格直写 PTY
     ///   - 正断言：Enter 不 defer，保持终端提交命令行为
+    ///   - 正断言：Tab/Backspace/Escape/方向键不 defer，保持终端编辑/导航行为
     ///   - 负断言：Ctrl+C 不 defer，避免 SIGINT 失效
     #[test]
     fn test_printable_keystroke_deferred_to_ime_but_control_keys_are_not() {
@@ -344,9 +379,34 @@ mod tests {
             key_char: Some("n".into()),
             modifiers: Modifiers::default(),
         };
+        let space = Keystroke {
+            key: "space".into(),
+            key_char: Some(" ".into()),
+            modifiers: Modifiers::default(),
+        };
         let enter = Keystroke {
             key: "enter".into(),
-            key_char: None,
+            key_char: Some("\r".into()),
+            modifiers: Modifiers::default(),
+        };
+        let tab = Keystroke {
+            key: "tab".into(),
+            key_char: Some("\t".into()),
+            modifiers: Modifiers::default(),
+        };
+        let backspace = Keystroke {
+            key: "backspace".into(),
+            key_char: Some("\u{7f}".into()),
+            modifiers: Modifiers::default(),
+        };
+        let escape = Keystroke {
+            key: "escape".into(),
+            key_char: Some("\u{1b}".into()),
+            modifiers: Modifiers::default(),
+        };
+        let left = Keystroke {
+            key: "left".into(),
+            key_char: Some("\u{1b}[D".into()),
             modifiers: Modifiers::default(),
         };
         let ctrl_c = Keystroke {
@@ -363,8 +423,28 @@ mod tests {
             "普通 printable 字符应 defer 给 IME，避免拼音 n 直接写入 PTY"
         );
         assert!(
+            should_defer_keystroke_to_ime(&space),
+            "普通空格应 defer 给 IME，避免候选确认前空格直接写入 PTY"
+        );
+        assert!(
             !should_defer_keystroke_to_ime(&enter),
             "Enter 不应 defer，否则终端无法提交命令"
+        );
+        assert!(
+            !should_defer_keystroke_to_ime(&tab),
+            "Tab 不应 defer，否则终端补全会失效"
+        );
+        assert!(
+            !should_defer_keystroke_to_ime(&backspace),
+            "Backspace 不应 defer，否则终端内编辑会失效"
+        );
+        assert!(
+            !should_defer_keystroke_to_ime(&escape),
+            "Escape 不应 defer，否则终端取消/模式切换会失效"
+        );
+        assert!(
+            !should_defer_keystroke_to_ime(&left),
+            "方向键 Left 不应 defer，否则终端光标移动会失效"
         );
         assert!(
             !should_defer_keystroke_to_ime(&ctrl_c),
@@ -392,3 +472,7 @@ mod tests {
         screen_text
     }
 }
+
+#[cfg(test)]
+#[path = "app_ime_control_tests.rs"]
+mod control_tests;
