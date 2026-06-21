@@ -279,9 +279,9 @@ impl MultisoulApp {
                             {
                                 tracing::error!(error = %e, "paste send_node_input failed");
                             }
+                            cx.notify();
                         }
                     }
-                    cx.notify();
                     return;
                 }
 

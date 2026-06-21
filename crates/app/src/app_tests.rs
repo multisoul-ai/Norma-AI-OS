@@ -305,28 +305,6 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     );
 }
 
-/// paste_bytes_from_clipboard_text 从剪贴板文本生成应写入 PTY 的字节序列。
-///
-/// 数据构造：
-///   clipboard text = "hello 世界"
-///   UTF-8 bytes: b"hello " (6 bytes) + [0xe4,0xb8,0x96,0xe7,0x95,0x8c] (6 bytes) = 12 bytes
-///
-/// 预期结果：
-///   - 正断言：bytes == "hello 世界".as_bytes()
-///   - 负断言：不为空，不为 b"v"（未做粘贴直接发了 v 键）
-#[test]
-fn test_paste_bytes_matches_clipboard_utf8() {
-    let text = "hello 世界";
-    let bytes = text.as_bytes().to_vec();
-    assert_eq!(
-        bytes,
-        "hello 世界".as_bytes(),
-        "粘贴字节应为 UTF-8 原始内容"
-    );
-    assert_ne!(bytes, b"v", "不应是裸 v 键字节");
-    assert!(!bytes.is_empty(), "粘贴内容不应为空");
-}
-///
 /// 数据构造（含关键数值的推导过程）：
 ///   missing path = temp/missing-recent，未创建，因此 path.is_dir() = false
 ///   初始 screen = Launchpad
@@ -386,4 +364,26 @@ fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
         workspace_state.recent.records.is_empty(),
         "打开失败不应向最近项目写入记录"
     );
+}
+
+/// paste_bytes_from_clipboard_text 从剪贴板文本生成应写入 PTY 的字节序列。
+///
+/// 数据构造：
+///   clipboard text = "hello 世界"
+///   UTF-8 bytes: b"hello " (6 bytes) + [0xe4,0xb8,0x96,0xe7,0x95,0x8c] (6 bytes) = 12 bytes
+///
+/// 预期结果：
+///   - 正断言：bytes == "hello 世界".as_bytes()
+///   - 负断言：不为空，不为 b"v"（未做粘贴直接发了 v 键）
+#[test]
+fn test_paste_bytes_matches_clipboard_utf8() {
+    let text = "hello 世界";
+    let bytes = text.as_bytes().to_vec();
+    assert_eq!(
+        bytes,
+        "hello 世界".as_bytes(),
+        "粘贴字节应为 UTF-8 原始内容"
+    );
+    assert_ne!(bytes, b"v", "不应是裸 v 键字节");
+    assert!(!bytes.is_empty(), "粘贴内容不应为空");
 }
