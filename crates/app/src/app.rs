@@ -452,3 +452,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../tests/unit/master_layout_tests.rs"]
 mod master_layout_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/master_layout_exit_tests.rs"]
+mod master_layout_exit_tests;

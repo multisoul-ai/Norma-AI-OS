@@ -43,6 +43,17 @@ impl MasterLayoutState {
         self.active = None;
     }
 
+    fn has_current_nodes_outside_snapshot(&self, runtime: &Runtime) -> bool {
+        let Some(active) = &self.active else {
+            return false;
+        };
+        runtime
+            .document
+            .nodes()
+            .iter()
+            .any(|node| !active.original_bounds.contains_key(&node.id))
+    }
+
     fn begin(&mut self, master_id: NodeId, runtime: &Runtime) -> bool {
         if runtime.document.node(master_id).is_none() {
             return false;
@@ -205,6 +216,26 @@ pub(crate) fn restore_master_layout_for_area(
     state.restore(runtime, motion, zoom);
 }
 
+pub(crate) fn exit_master_layout_for_area(
+    state: &mut MasterLayoutState,
+    runtime: &mut Runtime,
+    motion: &mut MotionStore,
+    area: CanvasRect,
+    zoom: f32,
+) -> bool {
+    if !state.is_active() {
+        return false;
+    }
+
+    if state.has_current_nodes_outside_snapshot(runtime) {
+        state.clear();
+        apply_workspace_reflow_for_area(runtime, motion, area, zoom);
+    } else {
+        restore_master_layout_for_area(state, runtime, motion, zoom);
+    }
+    true
+}
+
 pub(crate) fn reapply_master_layout_for_area(
     state: &mut MasterLayoutState,
     runtime: &mut Runtime,
@@ -239,10 +270,7 @@ pub(crate) fn toggle_master_layout_for_area(
         Route::SwitchMasterLayout(master_id) => {
             switch_master_layout_for_area(state, runtime, motion, master_id, area, zoom)
         }
-        Route::ExitMasterLayout => {
-            restore_master_layout_for_area(state, runtime, motion, zoom);
-            true
-        }
+        Route::ExitMasterLayout => exit_master_layout_for_area(state, runtime, motion, area, zoom),
         _ => false,
     }
 }
