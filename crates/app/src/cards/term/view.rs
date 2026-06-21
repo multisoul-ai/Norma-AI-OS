@@ -114,7 +114,7 @@ pub fn keystroke_to_input(ks: &Keystroke) -> Option<KeyInput> {
                 return Some(KeyInput {
                     key: Key::Char(c),
                     ctrl: false,
-                    alt,
+                    alt: false,
                 });
             }
         }
@@ -304,6 +304,55 @@ mod tests {
                 alt: false
             }),
             "ctrl 修饰时不应跳过 ctrl=true 标志走 key_char 路径"
+        );
+    }
+
+    /// 场景：Alt+a 在 macOS 上由 OS 合成 "å"，key_char 路径应剥离 alt 标志，避免 encode() 再次前缀 ESC。
+    ///
+    /// 数据构造：
+    ///   ks.key = "a"（物理按键）
+    ///   ks.key_char = Some("å")（macOS Option 键合成结果）
+    ///   modifiers: alt = true，ctrl = false，platform = false
+    ///   编码侧：encode() 对 alt=true 的 KeyInput 会前缀 ESC(0x1b)，
+    ///           若 alt 未剥离则输出 ESC+'å' 而非单字符 'å'
+    ///
+    /// 执行过程：
+    ///   1. keystroke_to_input(&ks) → 进入 key_char 守卫（无 ctrl/platform）
+    ///   2. key_char = "å"，单字符 → 命中守卫，返回 KeyInput { key: Char('å'), ctrl: false, alt: false }
+    ///   3. alt 修饰在合成字符里已体现，故置 alt: false 避免双重应用
+    ///
+    /// 预期结果：
+    ///   - 正断言：返回 Some(KeyInput { key: Key::Char('å'), ctrl: false, alt: false })
+    ///   - 负断言：不应返回 alt: true（否则 encode() 会多插入一个 ESC）
+    #[test]
+    fn test_keystroke_to_input_alt_key_char_strips_alt_flag() {
+        use gpui::{Keystroke, Modifiers};
+        let ks = Keystroke {
+            key: "a".into(),
+            key_char: Some("å".into()),
+            modifiers: Modifiers {
+                alt: true,
+                ..Modifiers::default()
+            },
+        };
+        let result = keystroke_to_input(&ks);
+        assert_eq!(
+            result,
+            Some(KeyInput {
+                key: Key::Char('å'),
+                ctrl: false,
+                alt: false
+            }),
+            "Option+a 产生的合成字符 'å' 应以 alt: false 返回，OS 已将修饰编码进字符"
+        );
+        assert_ne!(
+            result,
+            Some(KeyInput {
+                key: Key::Char('å'),
+                ctrl: false,
+                alt: true
+            }),
+            "alt: true 会导致 encode() 在 'å' 前多插 ESC，modifier 不应被双重应用"
         );
     }
 

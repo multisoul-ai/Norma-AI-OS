@@ -305,6 +305,8 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     );
 }
 
+/// 场景：打开不存在的 workspace 路径时，app 应返回错误并保持 Launchpad 界面不切换到 Canvas。
+///
 /// 数据构造（含关键数值的推导过程）：
 ///   missing path = temp/missing-recent，未创建，因此 path.is_dir() = false
 ///   初始 screen = Launchpad
