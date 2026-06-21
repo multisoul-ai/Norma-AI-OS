@@ -104,7 +104,22 @@ pub fn keystroke_to_input(ks: &Keystroke) -> Option<KeyInput> {
     let ctrl = ks.modifiers.control;
     let alt = ks.modifiers.alt;
 
-    // ks.key 是逻辑键名字符串，如 "a"、"enter"、"escape"、"up"、"tab"、"backspace"、"space"。
+    // When key_char holds exactly one char and no Ctrl/Cmd is active, use it
+    // directly — this is how IME-composed characters (Chinese, Japanese, etc.)
+    // and non-ASCII layouts reach us from GPUI.
+    if !ctrl && !ks.modifiers.platform {
+        if let Some(kc) = &ks.key_char {
+            let mut chars = kc.chars();
+            if let (Some(c), None) = (chars.next(), chars.next()) {
+                return Some(KeyInput {
+                    key: Key::Char(c),
+                    ctrl: false,
+                    alt,
+                });
+            }
+        }
+    }
+
     let key = match ks.key.as_str() {
         "enter" => Key::Enter,
         "tab" => Key::Tab,
@@ -200,6 +215,118 @@ mod tests {
         assert_ne!(
             composed_surface, composed_old,
             "terminal surface 不应退化为旧的 node_fill + term_bg 近实心组合"
+        );
+    }
+
+    /// key_char 优先于 key：IME 上屏或非 ASCII 布局键按下时，key_char 携带真实字符。
+    ///
+    /// 数据构造：
+    ///   ks.key = "n"（拼音字母，物理键）
+    ///   ks.key_char = Some("你")（IME 确认上屏的汉字）
+    ///   modifiers: 无 ctrl/alt/platform
+    ///
+    /// 执行过程：
+    ///   1. keystroke_to_input(&ks)
+    ///   2. key_char 为 Some("你")，单字符，无修饰 → 应取 '你' 作为 Key::Char
+    ///
+    /// 预期结果：
+    ///   - 正断言：返回 Some(KeyInput { key: Key::Char('你'), ctrl: false, alt: false })
+    ///   - 负断言：不应返回 Key::Char('n')（物理键）
+    #[test]
+    fn test_keystroke_to_input_prefers_key_char_for_ime() {
+        use gpui::{Keystroke, Modifiers};
+        let ks = Keystroke {
+            key: "n".into(),
+            key_char: Some("你".into()),
+            modifiers: Modifiers::default(),
+        };
+        let result = keystroke_to_input(&ks);
+        assert_eq!(
+            result,
+            Some(KeyInput {
+                key: Key::Char('你'),
+                ctrl: false,
+                alt: false
+            }),
+            "key_char='你' 应优先于物理键 key='n'"
+        );
+        assert_ne!(
+            result,
+            Some(KeyInput {
+                key: Key::Char('n'),
+                ctrl: false,
+                alt: false
+            }),
+            "不应返回物理键字符 'n'，key_char 优先级更高"
+        );
+    }
+
+    /// Ctrl 修饰时不使用 key_char：Ctrl+C 应编码为控制码，而不是 key_char 中可能含有的字符。
+    ///
+    /// 数据构造：
+    ///   ks.key = "c"
+    ///   ks.key_char = Some("c")（macOS 可能仍然填充 key_char）
+    ///   modifiers: ctrl = true
+    ///
+    /// 执行过程：
+    ///   1. keystroke_to_input(&ks)
+    ///   2. ctrl=true → 走 key 路径，Key::Char('c') with ctrl=true
+    ///
+    /// 预期结果：
+    ///   - 正断言：ctrl=true，key=Char('c')
+    #[test]
+    fn test_keystroke_to_input_ctrl_ignores_key_char() {
+        use gpui::{Keystroke, Modifiers};
+        let ks = Keystroke {
+            key: "c".into(),
+            key_char: Some("c".into()),
+            modifiers: Modifiers {
+                control: true,
+                ..Modifiers::default()
+            },
+        };
+        let result = keystroke_to_input(&ks);
+        assert_eq!(
+            result,
+            Some(KeyInput {
+                key: Key::Char('c'),
+                ctrl: true,
+                alt: false
+            }),
+            "Ctrl+C 应保留 ctrl=true，不受 key_char 影响"
+        );
+    }
+
+    /// key_char 多字符时回落 key 路径（例如组字中间态，不应上屏多个字符）。
+    ///
+    /// 数据构造：
+    ///   ks.key = "a"
+    ///   ks.key_char = Some("ab")（不合法的多字符 key_char，fallback 到 key）
+    ///   modifiers: 无
+    ///
+    /// 执行过程：
+    ///   1. keystroke_to_input(&ks)
+    ///   2. key_char.chars().count() > 1 → 回落，使用 ks.key = "a"
+    ///
+    /// 预期结果：
+    ///   - 正断言：返回 Key::Char('a')
+    #[test]
+    fn test_keystroke_to_input_multi_char_key_char_falls_back_to_key() {
+        use gpui::{Keystroke, Modifiers};
+        let ks = Keystroke {
+            key: "a".into(),
+            key_char: Some("ab".into()),
+            modifiers: Modifiers::default(),
+        };
+        let result = keystroke_to_input(&ks);
+        assert_eq!(
+            result,
+            Some(KeyInput {
+                key: Key::Char('a'),
+                ctrl: false,
+                alt: false
+            }),
+            "多字符 key_char 应回落到 ks.key 处理"
         );
     }
 }
