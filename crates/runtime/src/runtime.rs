@@ -10,9 +10,8 @@ use canvas::{
     AgentProfile, AgentSpec, CanvasNodeKind, CanvasRect, Document, NodeId, Selection, TermSpec,
 };
 use std::collections::HashMap;
-#[cfg(test)]
-use terminal::PtyCommand;
-use terminal::{PtyError, TerminalSessionId};
+use std::path::{Path, PathBuf};
+use terminal::{PtyCommand, PtyError, TerminalSessionId};
 
 pub struct Runtime {
     pub document: Document,
@@ -20,6 +19,7 @@ pub struct Runtime {
     pub focus: FocusState,
     live: HashMap<NodeId, Box<dyn LiveNode>>,
     next_session_id: TerminalSessionId,
+    workspace_root: Option<PathBuf>,
 }
 
 impl Default for Runtime {
@@ -36,7 +36,18 @@ impl Runtime {
             focus: FocusState::new(),
             live: HashMap::new(),
             next_session_id: 1,
+            workspace_root: None,
         }
+    }
+
+    pub fn new_for_workspace(root: impl Into<PathBuf>) -> Self {
+        let mut runtime = Self::new();
+        runtime.workspace_root = Some(root.into());
+        runtime
+    }
+
+    pub fn workspace_root(&self) -> Option<&Path> {
+        self.workspace_root.as_deref()
     }
 
     /// 新建一个 Terminal 节点：spawn live runtime + 在画布加 Term 节点。返回画布节点 id。
@@ -49,7 +60,8 @@ impl Runtime {
     ) -> Result<NodeId, PtyError> {
         let sid = self.next_session_id;
         self.next_session_id += 1;
-        let live = TermLive::spawn(sid, shell, cols, rows)?;
+        let command = PtyCommand::new(shell).with_cwd(self.workspace_root());
+        let live = TermLive::spawn_command(sid, command, cols, rows)?;
         let node_id = self
             .document
             .add_node(CanvasNodeKind::Term(TermSpec), bounds);
@@ -66,7 +78,7 @@ impl Runtime {
     ) -> Result<NodeId, PtyError> {
         let sid = self.next_session_id;
         self.next_session_id += 1;
-        let live = spawn_agent_live(sid, profile, cols, rows)?;
+        let live = spawn_agent_live(sid, profile, self.workspace_root(), cols, rows)?;
         let node_id = self
             .document
             .add_node(CanvasNodeKind::Agent(AgentSpec { profile }), bounds);
@@ -85,7 +97,8 @@ impl Runtime {
     ) -> Result<NodeId, PtyError> {
         let sid = self.next_session_id;
         self.next_session_id += 1;
-        let live = TermLive::spawn_command(sid, command, cols, rows)?;
+        let live =
+            TermLive::spawn_command(sid, command.with_cwd(self.workspace_root()), cols, rows)?;
         let node_id = self
             .document
             .add_node(CanvasNodeKind::Agent(AgentSpec { profile }), bounds);
@@ -167,3 +180,6 @@ impl Runtime {
 #[cfg(test)]
 #[path = "runtime_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "workspace_runtime_tests.rs"]
+mod workspace_tests;

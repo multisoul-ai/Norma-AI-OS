@@ -5,6 +5,7 @@ use crate::canvas_view::{render_canvas, InteractionState};
 use crate::cards::card_for;
 use crate::cards::term::view::keystroke_to_input;
 use crate::motion::MotionStore;
+use crate::workspace_state::WorkspaceState;
 use canvas::{
     compute_responsive_grid_layout, AgentProfile, CanvasRect, LayoutInsets, NodeId, NodeType,
     ResponsiveGridConfig, Vec2, DEFAULT_CARD_ASPECT_RATIO,
@@ -28,6 +29,7 @@ actions!(
         NewTerminal,
         NewClaudeAgent,
         NewCodexAgent,
+        OpenProject,
         ExitFocus,
         ReflowLayout
     ]
@@ -49,9 +51,17 @@ pub struct MultisoulApp {
     pub theme: Theme,
     pub interaction: InteractionState,
     pub(crate) motion: MotionStore,
+    pub(crate) screen: AppScreen,
+    pub(crate) workspace_state: WorkspaceState,
     pub focus_handle: FocusHandle,
     wallpaper: WorkspaceWallpaper,
-    last_reflow_window_size: Option<(f32, f32)>,
+    pub(crate) last_reflow_window_size: Option<(f32, f32)>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum AppScreen {
+    Launchpad,
+    Canvas,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -98,6 +108,8 @@ impl MultisoulApp {
             theme: Theme::dark(),
             interaction: InteractionState::default(),
             motion: MotionStore::from_env(),
+            screen: AppScreen::Launchpad,
+            workspace_state: WorkspaceState::load_default(),
             focus_handle: cx.focus_handle(),
             wallpaper,
             last_reflow_window_size: None,
@@ -106,6 +118,12 @@ impl MultisoulApp {
 
     /// Cmd+N：在当前可见画布区域内新建 Terminal 节点，并触发三列平铺 reflow。
     fn on_new_terminal(&mut self, _: &NewTerminal, window: &mut Window, cx: &mut Context<Self>) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error = Some("Open a project before creating terminals.".into());
+            cx.notify();
+            return;
+        }
+
         let bounds = self
             .visible_canvas_rect(window)
             .inset(self.layout_gap_canvas());
@@ -132,6 +150,11 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error = Some("Open a project before creating agents.".into());
+            cx.notify();
+            return;
+        }
         self.spawn_agent_card(AgentProfile::Claude, window, cx);
     }
 
@@ -141,6 +164,11 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error = Some("Open a project before creating agents.".into());
+            cx.notify();
+            return;
+        }
         self.spawn_agent_card(AgentProfile::Codex, window, cx);
     }
 
@@ -175,8 +203,15 @@ impl MultisoulApp {
     }
 
     fn on_reflow_layout(&mut self, _: &ReflowLayout, window: &mut Window, cx: &mut Context<Self>) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            return;
+        }
         self.reflow_tiled_nodes(window);
         cx.notify();
+    }
+
+    fn on_open_project(&mut self, _: &OpenProject, _window: &mut Window, cx: &mut Context<Self>) {
+        self.prompt_open_project(cx);
     }
 
     pub(crate) fn remove_node_and_reflow(&mut self, node_id: NodeId, window: &mut Window) -> bool {
@@ -220,6 +255,10 @@ impl MultisoulApp {
 
     /// 键盘事件：维护 space_held；聚焦终端时把按键编码写入对应 PTY。
     fn on_key_down(&mut self, ev: &KeyDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            return;
+        }
+
         // 维护空格按下状态（用于画布 pan）。注意：聚焦终端时空格应进终端，不做 pan 标记。
         let is_space = ev.keystroke.key == "space";
         if is_space && matches!(self.runtime.focus.mode(), InputMode::CanvasSelect) {
@@ -242,6 +281,10 @@ impl MultisoulApp {
     }
 
     fn on_key_up(&mut self, ev: &gpui::KeyUpEvent, _window: &mut Window, cx: &mut Context<Self>) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            return;
+        }
+
         if ev.keystroke.key == "space" {
             self.interaction.space_held = false;
             cx.notify();
@@ -299,13 +342,13 @@ impl Focusable for MultisoulApp {
 
 impl Render for MultisoulApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.reflow_if_window_size_changed(window);
-        div()
+        let mut root = div()
             .key_context("MultisoulApp")
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(Self::on_new_terminal))
             .on_action(cx.listener(Self::on_new_claude_agent))
             .on_action(cx.listener(Self::on_new_codex_agent))
+            .on_action(cx.listener(Self::on_open_project))
             .on_action(cx.listener(Self::on_exit_focus))
             .on_action(cx.listener(Self::on_reflow_layout))
             .on_key_down(cx.listener(Self::on_key_down))
@@ -313,10 +356,22 @@ impl Render for MultisoulApp {
             .size_full()
             .relative()
             .bg(gpui::rgba(self.theme.graphite))
-            .text_size(px(13.0))
-            .child(self.render_workspace_backdrop())
-            .child(render_canvas(self, window, cx))
-            .child(self.render_workspace_chrome(window, cx))
+            .text_size(px(13.0));
+
+        match self.screen {
+            AppScreen::Launchpad => {
+                root = root.child(self.render_launchpad(window, cx));
+            }
+            AppScreen::Canvas => {
+                self.reflow_if_window_size_changed(window);
+                root = root
+                    .child(self.render_workspace_backdrop())
+                    .child(render_canvas(self, window, cx))
+                    .child(self.render_workspace_chrome(window, cx));
+            }
+        }
+
+        root
     }
 }
 

@@ -2,15 +2,17 @@
 
 use crate::nodes::term::TermLive;
 use canvas::AgentProfile;
+use std::path::Path;
 use terminal::{PtyCommand, PtyError, TerminalSessionId};
 
 pub fn spawn_agent_live(
     id: TerminalSessionId,
     profile: AgentProfile,
+    cwd: Option<&Path>,
     cols: u16,
     rows: u16,
 ) -> Result<TermLive, PtyError> {
-    TermLive::spawn_command(id, agent_command(profile), cols, rows)
+    TermLive::spawn_command(id, agent_command(profile).with_cwd(cwd), cols, rows)
 }
 
 pub(crate) fn agent_command(profile: AgentProfile) -> PtyCommand {

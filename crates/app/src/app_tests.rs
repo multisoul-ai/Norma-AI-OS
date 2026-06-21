@@ -1,5 +1,7 @@
 use super::*;
+use crate::workspace_flow::enter_workspace_for_path;
 use canvas::{CanvasNodeKind, RectNode};
+use workspace::RecentStorage;
 
 /// 默认壁纸：未设置 env 时应使用打包进程序的内置画布壁纸。
 ///
@@ -223,5 +225,145 @@ fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
     assert_ne!(
         c_after, c_three_column_bounds,
         "C 不应停留在删除前的三列第三列 x=816，否则说明删除没有触发重排"
+    );
+}
+
+/// 打开已有 workspace：app 层应记录最近项目并从 Launchpad 切换到 Canvas。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   workspace path = temp/launchpad-opened，真实目录，因此 path.is_dir() = true
+///   storage path = temp/state/recent-workspaces.json
+///   初始 screen = Launchpad，runtime.workspace_root = None，recent count = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造 Runtime::new()、MotionStore::new(true)、AppScreen::Launchpad
+///   2. WorkspaceState::load_from_storage(storage)
+///   3. enter_workspace_for_path(workspace)
+///      → WorkspaceState::open_workspace 写 JSON
+///      → runtime 替换为 Runtime::new_for_workspace(root)
+///      → screen = Canvas
+///   4. 查询 screen/runtime/workspace_state
+///
+/// 预期结果：
+///   - 正断言：返回 Ok 且 screen == Canvas
+///   - 正断言：runtime.workspace_root/current_root/recent[0].path 都是 canonical workspace
+///   - 负断言：screen 不应仍为 Launchpad，recent 不应为空
+#[test]
+fn test_enter_workspace_records_recent_and_switches_to_canvas() {
+    let temp = tempfile::tempdir().expect("test should create temp dir");
+    let workspace_path = temp.path().join("launchpad-opened");
+    std::fs::create_dir(&workspace_path).expect("test should create workspace dir");
+    let canonical_workspace = workspace_path
+        .canonicalize()
+        .expect("workspace should canonicalize");
+    let storage = RecentStorage::new(temp.path().join("state").join("recent-workspaces.json"));
+    let mut workspace_state = WorkspaceState::load_from_storage(storage);
+    let mut runtime = Runtime::new();
+    let mut motion = MotionStore::new(true);
+    let mut screen = AppScreen::Launchpad;
+
+    let result = enter_workspace_for_path(
+        &mut runtime,
+        &mut motion,
+        &mut screen,
+        &mut workspace_state,
+        &workspace_path,
+    );
+
+    assert!(
+        result.is_ok(),
+        "enter_workspace_for_path 应成功打开真实目录，实际: {:?}",
+        result
+    );
+    assert_eq!(
+        screen,
+        AppScreen::Canvas,
+        "成功打开 workspace 后应从 Launchpad 切换到 Canvas"
+    );
+    assert_eq!(
+        runtime.workspace_root(),
+        Some(canonical_workspace.as_path()),
+        "进入画布后 Runtime 应持有 workspace cwd"
+    );
+    assert_eq!(
+        workspace_state.current_root.as_deref(),
+        Some(canonical_workspace.as_path()),
+        "WorkspaceState.current_root 应记录当前 workspace"
+    );
+    assert_eq!(
+        workspace_state.recent.records[0].path, canonical_workspace,
+        "最近项目第一条应是刚打开的 workspace"
+    );
+    assert_ne!(
+        screen,
+        AppScreen::Launchpad,
+        "成功打开 workspace 后不应停留在 Launchpad"
+    );
+    assert!(
+        !workspace_state.recent.records.is_empty(),
+        "成功打开 workspace 后 recent 不应为空"
+    );
+}
+
+/// 打开不存在的最近项目：app 层应停留在 Launchpad，并保留空 runtime。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   missing path = temp/missing-recent，未创建，因此 path.is_dir() = false
+///   初始 screen = Launchpad
+///   初始 runtime.workspace_root = None
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造空 runtime/motion/workspace_state
+///   2. enter_workspace_for_path(missing)
+///   3. WorkspaceState::open_workspace 发现目录不存在并返回 Err
+///   4. 查询 screen/runtime/error/recent
+///
+/// 预期结果：
+///   - 正断言：返回 Err，screen 仍为 Launchpad
+///   - 正断言：error 包含 missing-recent
+///   - 负断言：runtime.workspace_root 不应被设置，recent 不应新增记录
+#[test]
+fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
+    let temp = tempfile::tempdir().expect("test should create temp dir");
+    let missing_path = temp.path().join("missing-recent");
+    let storage = RecentStorage::new(temp.path().join("recent-workspaces.json"));
+    let mut workspace_state = WorkspaceState::load_from_storage(storage);
+    let mut runtime = Runtime::new();
+    let mut motion = MotionStore::new(true);
+    let mut screen = AppScreen::Launchpad;
+
+    let result = enter_workspace_for_path(
+        &mut runtime,
+        &mut motion,
+        &mut screen,
+        &mut workspace_state,
+        &missing_path,
+    );
+
+    assert!(
+        result.is_err(),
+        "打开不存在 workspace 应返回 Err，让 UI 保持在 Launchpad"
+    );
+    assert_eq!(
+        screen,
+        AppScreen::Launchpad,
+        "打开失败后应继续停留在 Launchpad"
+    );
+    assert!(
+        workspace_state
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("missing-recent"),
+        "错误状态应说明哪个最近项目路径不存在，实际: {:?}",
+        workspace_state.error
+    );
+    assert!(
+        runtime.workspace_root().is_none(),
+        "打开失败不应设置 runtime.workspace_root"
+    );
+    assert!(
+        workspace_state.recent.records.is_empty(),
+        "打开失败不应向最近项目写入记录"
     );
 }

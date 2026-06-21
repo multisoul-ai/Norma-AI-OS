@@ -14,7 +14,11 @@ ui.workspace = true
 runtime.workspace = true
 canvas.workspace = true
 terminal.workspace = true
+workspace.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 crossbeam-channel.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

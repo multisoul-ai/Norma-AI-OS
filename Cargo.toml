@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
   "crates/canvas",
+  "crates/workspace",
   "crates/terminal",
   "crates/runtime",
   "crates/ui",
@@ -26,8 +27,13 @@ anyhow = "1"
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dirs = "6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
 # 内部 crate（路径依赖）
 canvas = { path = "crates/canvas" }
+workspace = { path = "crates/workspace" }
 terminal = { path = "crates/terminal" }
 runtime = { path = "crates/runtime" }
 ui = { path = "crates/ui" }

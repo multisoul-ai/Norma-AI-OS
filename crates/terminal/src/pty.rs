@@ -6,6 +6,7 @@ use crossbeam_channel::Sender;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::ffi::OsStr;
 use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
 use std::thread;
 
 #[derive(Debug, thiserror::Error)]
@@ -22,6 +23,7 @@ pub enum PtyError {
 pub struct PtyCommand {
     pub program: String,
     pub args: Vec<String>,
+    pub cwd: Option<PathBuf>,
 }
 
 impl PtyCommand {
@@ -29,6 +31,7 @@ impl PtyCommand {
         PtyCommand {
             program: program.into(),
             args: Vec::new(),
+            cwd: None,
         }
     }
 
@@ -46,6 +49,17 @@ impl PtyCommand {
             self.args.push(arg.into());
         }
         self
+    }
+
+    pub fn cwd(mut self, path: impl Into<PathBuf>) -> Self {
+        self.cwd = Some(path.into());
+        self
+    }
+
+    pub fn with_cwd(&self, path: Option<&Path>) -> Self {
+        let mut command = self.clone();
+        command.cwd = path.map(Path::to_path_buf);
+        command
     }
 }
 
@@ -86,6 +100,9 @@ impl PtyHandle {
         let mut cmd = CommandBuilder::new(OsStr::new(&command.program));
         for arg in &command.args {
             cmd.arg(OsStr::new(arg));
+        }
+        if let Some(cwd) = &command.cwd {
+            cmd.cwd(cwd);
         }
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
@@ -275,5 +292,69 @@ mod tests {
             text
         );
         assert!(saw_exit, "环境探测命令退出后应在超时内收到 Exited 事件");
+    }
+
+    /// spawn_command 将 PtyCommand.cwd 传给子进程工作目录。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   cwd = std::env::temp_dir()/multisoul-pty-cwd-{pid}
+    ///   command = /bin/sh -c "printf '%s' \"$PWD\""
+    ///   cols/rows = 120×24，120 列足够容纳 temp cwd 路径，避免换行影响断言
+    ///
+    /// 执行过程：
+    ///   1. 创建 cwd 目录
+    ///   2. PtyCommand::new("/bin/sh").args(...).cwd(cwd)
+    ///   3. spawn_command → CommandBuilder::cwd(cwd) → 子进程从 cwd 启动
+    ///   4. 收集 Output 直到 Exited
+    ///
+    /// 预期结果：
+    ///   - 正断言：输出包含 canonical cwd
+    ///   - 负断言：输出不应等于当前测试进程工作目录
+    #[test]
+    fn test_spawn_command_uses_configured_cwd() {
+        let cwd = std::env::temp_dir().join(format!("multisoul-pty-cwd-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&cwd);
+        std::fs::create_dir(&cwd).expect("test should create cwd dir");
+        let canonical_cwd = cwd.canonicalize().expect("cwd should canonicalize");
+        let process_cwd = std::env::current_dir().expect("test should read process cwd");
+        let (tx, rx) = unbounded();
+        let command = PtyCommand::new("/bin/sh")
+            .args(["-c", "printf '%s' \"$PWD\""])
+            .cwd(canonical_cwd.clone());
+
+        let _pty =
+            PtyHandle::spawn_command(command, 120, 24, tx).expect("spawn cwd command should work");
+
+        let mut acc = Vec::new();
+        let mut saw_exit = false;
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        while std::time::Instant::now() < deadline {
+            match rx.recv_timeout(Duration::from_millis(200)) {
+                Ok(PtyEvent::Output(bytes)) => acc.extend_from_slice(&bytes),
+                Ok(PtyEvent::Exited { .. }) => {
+                    saw_exit = true;
+                    break;
+                }
+                Err(_) => {}
+            }
+        }
+        let _ = std::fs::remove_dir_all(&cwd);
+
+        let text = String::from_utf8_lossy(&acc);
+        assert!(
+            saw_exit,
+            "cwd 探测命令执行结束后应在 3 秒内收到 Exited 事件"
+        );
+        assert!(
+            text.contains(canonical_cwd.to_string_lossy().as_ref()),
+            "子进程 PWD 应包含 configured cwd {:?}，实际输出: {:?}",
+            canonical_cwd,
+            text
+        );
+        assert!(
+            !text.trim().eq(process_cwd.to_string_lossy().as_ref()),
+            "子进程不应继续使用测试进程 cwd {:?}，说明 CommandBuilder::cwd 未生效",
+            process_cwd
+        );
     }
 }

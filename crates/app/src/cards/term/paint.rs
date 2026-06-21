@@ -21,8 +21,9 @@ pub fn render_terminal_canvas(
     metrics: TerminalRenderMetrics,
 ) -> impl IntoElement {
     let palette = TerminalPalette::from_theme(theme);
+    let glass_style = TerminalGlassStyle::from_theme(theme);
     canvas(
-        move |_bounds, _window, _cx| build_layout(&snapshot, palette, metrics),
+        move |_bounds, _window, _cx| build_layout(&snapshot, palette, metrics, glass_style),
         move |bounds, layout, window, cx| paint_layout(bounds, &layout, window, cx),
     )
     .size_full()
@@ -133,6 +134,31 @@ impl TerminalPalette {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+struct TerminalGlassStyle {
+    cursor_fill: Hsla,
+    cursor_stroke: Hsla,
+    cursor_highlight: Hsla,
+    cursor_radius: Pixels,
+    cursor_stroke_width: Pixels,
+    cursor_highlight_height: Pixels,
+}
+
+impl TerminalGlassStyle {
+    fn from_theme(theme: Theme) -> Self {
+        let accent: Hsla = rgba(theme.focused_stroke).into();
+        let highlight: Hsla = rgba(theme.edge_highlight).into();
+        Self {
+            cursor_fill: hsla_with_alpha(accent, 0.42),
+            cursor_stroke: hsla_with_alpha(accent, 0.86),
+            cursor_highlight: hsla_with_alpha(highlight, 0.55),
+            cursor_radius: px(3.0),
+            cursor_stroke_width: px(1.0),
+            cursor_highlight_height: px(2.0),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct ResolvedCellStyle {
     fg: Hsla,
     bg: Hsla,
@@ -198,13 +224,15 @@ struct TerminalLayout {
     cursor_col: usize,
     metrics: TerminalRenderMetrics,
     default_bg: Hsla,
-    cursor_color: Hsla,
+    default_bg_fill: Option<Hsla>,
+    glass_style: TerminalGlassStyle,
 }
 
 fn build_layout(
     snapshot: &GridSnapshot,
     palette: TerminalPalette,
     metrics: TerminalRenderMetrics,
+    glass_style: TerminalGlassStyle,
 ) -> TerminalLayout {
     let mut backgrounds = Vec::new();
     let mut text_runs = Vec::new();
@@ -222,7 +250,8 @@ fn build_layout(
         cursor_col: snapshot.cursor_col,
         metrics,
         default_bg: palette.resolve(TerminalColor::Named(TerminalNamedColor::Background)),
-        cursor_color: palette.resolve(TerminalColor::Named(TerminalNamedColor::Cursor)),
+        default_bg_fill: None,
+        glass_style,
     }
 }
 
@@ -351,6 +380,25 @@ fn resolve_cell_style(cell: &Cell, palette: TerminalPalette) -> ResolvedCellStyl
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct TerminalCursorPaint {
+    bounds: Bounds<Pixels>,
+    fill: Hsla,
+    stroke: Hsla,
+    highlight: Hsla,
+    radius: Pixels,
+    stroke_width: Pixels,
+    highlight_bounds: Bounds<Pixels>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TerminalPaintLayer {
+    DefaultBackgroundFill,
+    ExplicitBackgrounds,
+    TextRuns,
+    Cursor,
+}
+
 fn paint_layout(
     bounds: Bounds<Pixels>,
     layout: &TerminalLayout,
@@ -359,43 +407,81 @@ fn paint_layout(
 ) {
     let metrics = layout.metrics;
 
-    window.paint_quad(quad(
-        bounds,
-        px(0.0),
-        layout.default_bg,
-        Edges::<Pixels>::default(),
-        transparent_black(),
-        Default::default(),
-    ));
-
-    for bg in &layout.backgrounds {
-        if bg.color == layout.default_bg {
-            continue;
+    for layer in paint_layer_order(layout) {
+        match layer {
+            TerminalPaintLayer::DefaultBackgroundFill => {
+                if let Some(default_bg_fill) = layout.default_bg_fill {
+                    window.paint_quad(quad(
+                        bounds,
+                        px(0.0),
+                        default_bg_fill,
+                        Edges::<Pixels>::default(),
+                        transparent_black(),
+                        Default::default(),
+                    ));
+                }
+            }
+            TerminalPaintLayer::ExplicitBackgrounds => {
+                for bg in paintable_backgrounds(layout) {
+                    let rect = Bounds {
+                        origin: point(
+                            bounds.origin.x + metrics.cell_width * (bg.start_col as f32),
+                            bounds.origin.y + metrics.line_height * (bg.row as f32),
+                        ),
+                        size: Size {
+                            width: metrics.cell_width * ((bg.end_col - bg.start_col) as f32),
+                            height: metrics.line_height,
+                        },
+                    };
+                    window.paint_quad(quad(
+                        rect,
+                        px(0.0),
+                        bg.color,
+                        Edges::<Pixels>::default(),
+                        transparent_black(),
+                        Default::default(),
+                    ));
+                }
+            }
+            TerminalPaintLayer::TextRuns => {
+                for run in &layout.text_runs {
+                    paint_text_run(bounds, run, metrics, window, cx);
+                }
+            }
+            TerminalPaintLayer::Cursor => {
+                paint_cursor(cursor_paint_model(bounds, layout), window);
+            }
         }
-        let rect = Bounds {
-            origin: point(
-                bounds.origin.x + metrics.cell_width * (bg.start_col as f32),
-                bounds.origin.y + metrics.line_height * (bg.row as f32),
-            ),
-            size: Size {
-                width: metrics.cell_width * ((bg.end_col - bg.start_col) as f32),
-                height: metrics.line_height,
-            },
-        };
-        window.paint_quad(quad(
-            rect,
-            px(0.0),
-            bg.color,
-            Edges::<Pixels>::default(),
-            transparent_black(),
-            Default::default(),
-        ));
     }
+}
 
-    for run in &layout.text_runs {
-        paint_text_run(bounds, run, metrics, window, cx);
+fn paintable_backgrounds(
+    layout: &TerminalLayout,
+) -> impl Iterator<Item = TerminalBackgroundRect> + '_ {
+    layout
+        .backgrounds
+        .iter()
+        .copied()
+        .filter(|bg| bg.color != layout.default_bg)
+}
+
+fn paint_layer_order(layout: &TerminalLayout) -> Vec<TerminalPaintLayer> {
+    let mut layers = Vec::new();
+    if layout.default_bg_fill.is_some() {
+        layers.push(TerminalPaintLayer::DefaultBackgroundFill);
     }
+    if paintable_backgrounds(layout).next().is_some() {
+        layers.push(TerminalPaintLayer::ExplicitBackgrounds);
+    }
+    if !layout.text_runs.is_empty() {
+        layers.push(TerminalPaintLayer::TextRuns);
+    }
+    layers.push(TerminalPaintLayer::Cursor);
+    layers
+}
 
+fn cursor_paint_model(bounds: Bounds<Pixels>, layout: &TerminalLayout) -> TerminalCursorPaint {
+    let metrics = layout.metrics;
     let cursor_bounds = Bounds {
         origin: point(
             bounds.origin.x + metrics.cell_width * (layout.cursor_col as f32),
@@ -406,14 +492,55 @@ fn paint_layout(
             height: metrics.line_height,
         },
     };
+    let inset = layout.glass_style.cursor_stroke_width;
+    let highlight_width = px((f32::from(metrics.cell_width) - f32::from(inset) * 2.0).max(0.0));
+    let highlight_height = px(f32::from(layout.glass_style.cursor_highlight_height)
+        .min(f32::from(metrics.line_height))
+        .max(0.0));
+    let highlight_bounds = Bounds {
+        origin: point(
+            cursor_bounds.origin.x + inset,
+            cursor_bounds.origin.y + inset,
+        ),
+        size: Size {
+            width: highlight_width,
+            height: highlight_height,
+        },
+    };
+
+    TerminalCursorPaint {
+        bounds: cursor_bounds,
+        fill: layout.glass_style.cursor_fill,
+        stroke: layout.glass_style.cursor_stroke,
+        highlight: layout.glass_style.cursor_highlight,
+        radius: layout.glass_style.cursor_radius,
+        stroke_width: layout.glass_style.cursor_stroke_width,
+        highlight_bounds,
+    }
+}
+
+fn paint_cursor(cursor: TerminalCursorPaint, window: &mut Window) {
     window.paint_quad(quad(
-        cursor_bounds,
-        px(0.0),
-        layout.cursor_color,
-        Edges::<Pixels>::default(),
-        transparent_black(),
+        cursor.bounds,
+        cursor.radius,
+        cursor.fill,
+        Edges::all(cursor.stroke_width),
+        cursor.stroke,
         Default::default(),
     ));
+
+    if f32::from(cursor.highlight_bounds.size.width) > 0.0
+        && f32::from(cursor.highlight_bounds.size.height) > 0.0
+    {
+        window.paint_quad(quad(
+            cursor.highlight_bounds,
+            cursor.radius,
+            cursor.highlight,
+            Edges::<Pixels>::default(),
+            transparent_black(),
+            Default::default(),
+        ));
+    }
 }
 
 fn paint_text_run(
@@ -480,6 +607,11 @@ fn vertical_text_offset(metrics: TerminalRenderMetrics) -> Pixels {
 
 fn rgb_to_hsla(r: u8, g: u8, b: u8) -> Hsla {
     rgb((u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b)).into()
+}
+
+fn hsla_with_alpha(mut color: Hsla, alpha: f32) -> Hsla {
+    color.a = alpha.clamp(0.0, 1.0);
+    color
 }
 
 fn dim_color(mut color: Hsla) -> Hsla {
