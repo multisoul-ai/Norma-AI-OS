@@ -2,9 +2,8 @@
 mod app;
 mod assets;
 mod canvas_view;
+mod cards;
 mod motion;
-mod terminal_renderer;
-mod terminal_view;
 
 use app::{ExitFocus, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewTerminal, ReflowLayout};
 use assets::EmbeddedAssets;

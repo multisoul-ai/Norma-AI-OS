@@ -10,11 +10,9 @@ pub struct RectNode {
     pub color: u32,
 }
 
-/// 指向一个 terminal session 的引用（实际 session 存在 runtime 层）。
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct TerminalNodeRef {
-    pub session_id: u64,
-}
+/// 终端节点的可持久化描述。实际 PTY/session 存在 runtime 层。
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TermSpec;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AgentProfile {
@@ -31,38 +29,43 @@ impl AgentProfile {
     }
 }
 
-/// 指向一个 agent terminal session，并保留 agent profile 供 UI 命名。
+/// Agent 节点的可持久化描述。实际进程/session 存在 runtime 层。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct AgentNodeRef {
+pub struct AgentSpec {
     pub profile: AgentProfile,
-    pub session_id: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NodeType {
+    Rect,
+    Term,
+    Agent,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum CanvasNodeKind {
+pub enum NodeKind {
     Rect(RectNode),
-    Terminal(TerminalNodeRef),
-    Agent(AgentNodeRef),
+    Term(TermSpec),
+    Agent(AgentSpec),
 }
 
-impl CanvasNodeKind {
-    pub fn terminal_session_id(self) -> Option<u64> {
-        match self {
-            CanvasNodeKind::Terminal(node) => Some(node.session_id),
-            CanvasNodeKind::Agent(node) => Some(node.session_id),
-            CanvasNodeKind::Rect(_) => None,
-        }
-    }
+/// 兼容旧调用方的类型名；新代码优先使用 NodeKind。
+pub type CanvasNodeKind = NodeKind;
 
-    pub fn is_terminal_backed(self) -> bool {
-        self.terminal_session_id().is_some()
+impl NodeKind {
+    pub fn node_type(self) -> NodeType {
+        match self {
+            NodeKind::Rect(_) => NodeType::Rect,
+            NodeKind::Term(_) => NodeType::Term,
+            NodeKind::Agent(_) => NodeType::Agent,
+        }
     }
 
     pub fn display_title(self) -> &'static str {
         match self {
-            CanvasNodeKind::Rect(_) => "Node",
-            CanvasNodeKind::Terminal(_) => "Terminal",
-            CanvasNodeKind::Agent(node) => node.profile.display_title(),
+            NodeKind::Rect(_) => "Node",
+            NodeKind::Term(_) => "Terminal",
+            NodeKind::Agent(node) => node.profile.display_title(),
         }
     }
 }
@@ -80,51 +83,40 @@ pub struct CanvasNode {
 mod tests {
     use super::*;
 
-    /// Agent 节点复用终端能力，并按 profile 暴露显示标题。
+    /// Agent 节点只保存 profile 描述，并按 profile 暴露显示标题与类型。
     ///
     /// 数据构造（含关键数值推导）：
-    ///   Claude Agent: profile=Claude, session_id=7
-    ///   Codex Agent:  profile=Codex,  session_id=8
-    ///   session_id 直接来自 runtime 分配；这里固定为 7/8 便于断言 helper 不改写 id
+    ///   Claude Agent: profile=Claude
+    ///   Codex Agent:  profile=Codex
+    ///   runtime session 不在 canvas 层构造，因此这里没有 session_id 字段
     ///
     /// 执行过程：
-    ///   1. 构造 CanvasNodeKind::Agent(Claude, session_id=7)
-    ///   2. 构造 CanvasNodeKind::Agent(Codex, session_id=8)
-    ///   3. 调用 is_terminal_backed / terminal_session_id / display_title
+    ///   1. 构造 NodeKind::Agent(Claude)
+    ///   2. 构造 NodeKind::Agent(Codex)
+    ///   3. 调用 node_type / display_title
     ///
     /// 预期结果：
-    ///   - 正断言：Claude/Codex Agent 都是 terminal-backed
-    ///   - 正断言：Claude session_id 保持为 7，Codex session_id 保持为 8
+    ///   - 正断言：Claude/Codex Agent 类型都是 NodeType::Agent
     ///   - 正断言：标题分别为 "Claude" 和 "Codex"
     ///   - 负断言：Agent 标题不应退化为普通 "Terminal"
     #[test]
-    fn test_agent_kind_is_terminal_backed_and_exposes_profile_title() {
-        let claude = CanvasNodeKind::Agent(AgentNodeRef {
+    fn test_agent_kind_is_description_only_and_exposes_profile_title() {
+        let claude = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Claude,
-            session_id: 7,
         });
-        let codex = CanvasNodeKind::Agent(AgentNodeRef {
+        let codex = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
-            session_id: 8,
         });
 
-        assert!(
-            claude.is_terminal_backed(),
-            "Claude Agent 应复用终端 session，is_terminal_backed 必须为 true"
-        );
-        assert!(
-            codex.is_terminal_backed(),
-            "Codex Agent 应复用终端 session，is_terminal_backed 必须为 true"
+        assert_eq!(
+            claude.node_type(),
+            NodeType::Agent,
+            "Claude Agent 应暴露 NodeType::Agent，供 runtime/app registry dispatch"
         );
         assert_eq!(
-            claude.terminal_session_id(),
-            Some(7),
-            "Claude Agent 应暴露原始 session_id=7，便于 app 渲染对应 PTY"
-        );
-        assert_eq!(
-            codex.terminal_session_id(),
-            Some(8),
-            "Codex Agent 应暴露原始 session_id=8，便于 app 渲染对应 PTY"
+            codex.node_type(),
+            NodeType::Agent,
+            "Codex Agent 应暴露 NodeType::Agent，供 runtime/app registry dispatch"
         );
         assert_eq!(
             claude.display_title(),
@@ -148,48 +140,46 @@ mod tests {
         );
     }
 
-    /// 普通 Terminal 节点仍暴露终端 session，Rect 节点不暴露 session。
+    /// Term/Rect 节点只暴露节点类型和默认标题，不暴露 runtime session。
     ///
     /// 数据构造（含关键数值推导）：
-    ///   Terminal: session_id=3
+    ///   Term: TermSpec（空描述，runtime 负责实际 session）
     ///   Rect: color=0x4080ff（颜色不影响 terminal helper）
     ///
     /// 执行过程：
-    ///   1. 构造 CanvasNodeKind::Terminal(session_id=3)
-    ///   2. 构造 CanvasNodeKind::Rect
-    ///   3. 分别调用 helper
+    ///   1. 构造 NodeKind::Term(TermSpec)
+    ///   2. 构造 NodeKind::Rect
+    ///   3. 分别调用 node_type / display_title
     ///
     /// 预期结果：
-    ///   - 正断言：Terminal 是 terminal-backed 且 session_id=3
-    ///   - 正断言：Terminal 标题仍为 "Terminal"
-    ///   - 负断言：Rect 不是 terminal-backed，且没有 session_id
+    ///   - 正断言：Term 类型是 NodeType::Term，标题为 "Terminal"
+    ///   - 正断言：Rect 类型是 NodeType::Rect，标题为 "Node"
+    ///   - 负断言：Rect 类型不应是 NodeType::Term
     #[test]
-    fn test_terminal_helpers_preserve_terminal_and_exclude_rect_nodes() {
-        let terminal = CanvasNodeKind::Terminal(TerminalNodeRef { session_id: 3 });
-        let rect = CanvasNodeKind::Rect(RectNode { color: 0x4080ff });
+    fn test_node_type_and_titles_for_term_and_rect_nodes() {
+        let term = NodeKind::Term(TermSpec);
+        let rect = NodeKind::Rect(RectNode { color: 0x4080ff });
 
-        assert!(
-            terminal.is_terminal_backed(),
-            "普通 Terminal 节点应继续被识别为 terminal-backed"
+        assert_eq!(
+            term.node_type(),
+            NodeType::Term,
+            "Term 节点应暴露 NodeType::Term，供 card registry dispatch"
         );
         assert_eq!(
-            terminal.terminal_session_id(),
-            Some(3),
-            "普通 Terminal 节点应暴露 session_id=3"
-        );
-        assert_eq!(
-            terminal.display_title(),
+            term.display_title(),
             "Terminal",
-            "普通 Terminal 节点标题应保持 Terminal"
-        );
-        assert!(
-            !rect.is_terminal_backed(),
-            "Rect 节点不是可运行终端节点，is_terminal_backed 应为 false"
+            "Term 节点默认标题应保持 Terminal"
         );
         assert_eq!(
-            rect.terminal_session_id(),
-            None,
-            "Rect 节点不应暴露任何 terminal session id"
+            rect.node_type(),
+            NodeType::Rect,
+            "Rect 节点应暴露 NodeType::Rect"
+        );
+        assert_eq!(rect.display_title(), "Node", "Rect 节点默认标题应保持 Node");
+        assert_ne!(
+            rect.node_type(),
+            NodeType::Term,
+            "Rect 节点不应伪装成 Term，否则 app 会错误选择 terminal card"
         );
     }
 }

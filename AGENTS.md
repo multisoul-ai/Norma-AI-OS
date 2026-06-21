@@ -12,9 +12,9 @@ Workspace 分层：
 
 - `crates/canvas/` - 零 GPUI 域层：几何、节点、选择、命中、viewport。
 - `crates/terminal/` - 零 GPUI 域层：PTY、ANSI grid、session、输入编码。
-- `crates/runtime/` - 零 GPUI 域层：节点生命周期、焦点状态、输入路由。
+- `crates/runtime/` - 零 GPUI 域层：LiveNode 生命周期、焦点状态、输入路由。
 - `crates/ui/` - GPUI 主题与共享 UI 基础。
-- `crates/app/` - GPUI/Metal 壳层：窗口、菜单、快捷键、画布与终端渲染。
+- `crates/app/` - GPUI/Metal 壳层：窗口、菜单、快捷键、画布与 cards 渲染。
 
 依赖方向：`app -> {ui, runtime, canvas, terminal}`，`runtime -> {canvas, terminal}`；域层不得依赖 GPUI。
 
@@ -40,7 +40,7 @@ Workspace 分层：
 | Shell/UI | Rust 2021, GPUI 0.2.2, Metal |
 | Canvas | 自定义 geometry/document/selection/hit_test |
 | Terminal | portable-pty 0.9, alacritty_terminal 0.26, crossbeam-channel |
-| Runtime | 纯 Rust 状态机与会话注册表 |
+| Runtime | 纯 Rust 状态机与 LiveNode 注册表 |
 | Packaging | cargo-packager, 未签名 `.app` / `.dmg` |
 
 ## 4. Where to find
@@ -55,9 +55,9 @@ Workspace 分层：
 | 打包配置 | [`Packager.toml`](Packager.toml) |
 | 几何/节点/选择/命中/viewport | [`crates/canvas/src/`](crates/canvas/src/) |
 | PTY、ANSI grid、按键编码 | [`crates/terminal/src/`](crates/terminal/src/) |
-| 焦点、输入路由、session 生命周期 | [`crates/runtime/src/`](crates/runtime/src/) |
+| 焦点、输入路由、LiveNode 生命周期 | [`crates/runtime/src/`](crates/runtime/src/) |
 | 主题色 | [`crates/ui/src/theme.rs`](crates/ui/src/theme.rs) |
-| GPUI app shell、画布/终端渲染 | [`crates/app/src/`](crates/app/src/) |
+| GPUI app shell、画布/cards 渲染 | [`crates/app/src/`](crates/app/src/) |
 | 历史 SDD 施工记录 | [`.superpowers/sdd/progress.md`](.superpowers/sdd/progress.md) |
 
 ## 5. 改完代码必跑的验证

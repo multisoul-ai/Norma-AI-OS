@@ -6,8 +6,8 @@ use canvas::NodeId;
 pub enum InputMode {
     /// 画布选择模式：点击选中/拖拽节点、pan/zoom。
     CanvasSelect,
-    /// 终端聚焦模式：键盘写入指定节点的终端。
-    TerminalFocused(NodeId),
+    /// 节点聚焦模式：键盘输入发送到指定 live node。
+    NodeFocused(NodeId),
 }
 
 #[derive(Debug, Clone)]
@@ -32,8 +32,8 @@ impl FocusState {
         self.mode
     }
 
-    pub fn focus_terminal(&mut self, node: NodeId) {
-        self.mode = InputMode::TerminalFocused(node);
+    pub fn focus_node(&mut self, node: NodeId) {
+        self.mode = InputMode::NodeFocused(node);
     }
 
     pub fn exit_to_canvas(&mut self) {
@@ -45,7 +45,7 @@ impl FocusState {
 mod tests {
     use super::*;
 
-    /// FocusState 初始模式为 CanvasSelect；focus_terminal 切换到 TerminalFocused；
+    /// FocusState 初始模式为 CanvasSelect；focus_node 切换到 NodeFocused；
     /// exit_to_canvas 退回 CanvasSelect。
     ///
     /// 数据构造：
@@ -53,15 +53,15 @@ mod tests {
     ///
     /// 执行过程：
     ///   1. FocusState::new() → mode = CanvasSelect
-    ///   2. focus_terminal(42) → mode = TerminalFocused(42)
+    ///   2. focus_node(42) → mode = NodeFocused(42)
     ///   3. exit_to_canvas() → mode = CanvasSelect
     ///
     /// 预期结果：
     ///   - 正断言：new() 后 mode == CanvasSelect
-    ///   - 正断言：focus_terminal(42) 后 mode == TerminalFocused(42)
-    ///   - 负断言：focus_terminal(42) 后 mode != CanvasSelect
+    ///   - 正断言：focus_node(42) 后 mode == NodeFocused(42)
+    ///   - 负断言：focus_node(42) 后 mode != CanvasSelect
     ///   - 正断言：exit_to_canvas() 后 mode == CanvasSelect
-    ///   - 负断言：exit_to_canvas() 后 mode != TerminalFocused(42)
+    ///   - 负断言：exit_to_canvas() 后 mode != NodeFocused(42)
     #[test]
     fn test_focus_state_transitions() {
         let mut f = FocusState::new();
@@ -71,11 +71,11 @@ mod tests {
             "新建 FocusState 应为 CanvasSelect 模式"
         );
 
-        f.focus_terminal(42);
+        f.focus_node(42);
         assert_eq!(
             f.mode(),
-            InputMode::TerminalFocused(42),
-            "focus_terminal(42) 后应为 TerminalFocused(42)"
+            InputMode::NodeFocused(42),
+            "focus_node(42) 后应为 NodeFocused(42)"
         );
         assert_ne!(
             f.mode(),
@@ -91,36 +91,36 @@ mod tests {
         );
         assert_ne!(
             f.mode(),
-            InputMode::TerminalFocused(42),
-            "退出聚焦后不应仍为 TerminalFocused(42)"
+            InputMode::NodeFocused(42),
+            "退出聚焦后不应仍为 NodeFocused(42)"
         );
     }
 
-    /// 连续切换不同终端节点：最后一次 focus_terminal 覆盖前一次。
+    /// 连续切换不同节点：最后一次 focus_node 覆盖前一次。
     ///
     /// 数据构造：
     ///   先聚焦 node_id=1，再聚焦 node_id=7
     ///
     /// 执行过程：
-    ///   1. focus_terminal(1) → mode = TerminalFocused(1)
-    ///   2. focus_terminal(7) → mode = TerminalFocused(7)（覆盖）
+    ///   1. focus_node(1) → mode = NodeFocused(1)
+    ///   2. focus_node(7) → mode = NodeFocused(7)（覆盖）
     ///
     /// 预期结果：
-    ///   - 正断言：mode == TerminalFocused(7)（最新赋值生效）
-    ///   - 负断言：mode != TerminalFocused(1)（旧节点已被覆盖）
+    ///   - 正断言：mode == NodeFocused(7)（最新赋值生效）
+    ///   - 负断言：mode != NodeFocused(1)（旧节点已被覆盖）
     #[test]
-    fn test_focus_terminal_overrides_previous() {
+    fn test_focus_node_overrides_previous() {
         let mut f = FocusState::new();
-        f.focus_terminal(1);
-        f.focus_terminal(7);
+        f.focus_node(1);
+        f.focus_node(7);
         assert_eq!(
             f.mode(),
-            InputMode::TerminalFocused(7),
-            "第二次 focus_terminal 应覆盖第一次，最终聚焦节点 7"
+            InputMode::NodeFocused(7),
+            "第二次 focus_node 应覆盖第一次，最终聚焦节点 7"
         );
         assert_ne!(
             f.mode(),
-            InputMode::TerminalFocused(1),
+            InputMode::NodeFocused(1),
             "旧的聚焦节点 1 已被覆盖，不应出现在 mode 中"
         );
     }

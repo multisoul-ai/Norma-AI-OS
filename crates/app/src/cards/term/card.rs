@@ -1,0 +1,91 @@
+//! Terminal card renderer.
+
+use crate::app::MultisoulApp;
+use crate::cards::chrome::{CardChrome, TITLE_BAR_H};
+use crate::cards::term::view::{render_terminal_node, TERM_CELL_PX, TERM_LINE_PX, TERM_PADDING_PX};
+use crate::cards::Card;
+use canvas::{CanvasNode, CanvasRect, NodeType};
+use gpui::{AnyElement, Context, Window};
+use runtime::{NodeResize, Runtime};
+use ui::Theme;
+
+const MIN_TERMINAL_COLS: u16 = 20;
+const MIN_TERMINAL_ROWS: u16 = 3;
+
+pub struct TermCard;
+
+pub static CARD: TermCard = TermCard;
+
+impl Card for TermCard {
+    fn ty(&self) -> NodeType {
+        NodeType::Term
+    }
+
+    fn chrome(&self, _node: &CanvasNode, _runtime: &Runtime) -> CardChrome {
+        CardChrome { title: "Terminal" }
+    }
+
+    fn body(
+        &self,
+        node: &CanvasNode,
+        runtime: &Runtime,
+        theme: Theme,
+        zoom: f32,
+        bottom_radius_px: f32,
+        _window: &mut Window,
+        _cx: &mut Context<MultisoulApp>,
+    ) -> AnyElement {
+        render_terminal_node(runtime.node_view(node.id), theme, zoom, bottom_radius_px)
+    }
+
+    fn resize(&self, bounds: CanvasRect, zoom: f32) -> Option<NodeResize> {
+        Some(term_resize(bounds, zoom))
+    }
+}
+
+pub(crate) fn term_resize(bounds: CanvasRect, zoom: f32) -> NodeResize {
+    let zoom = zoom.max(0.001);
+    let screen_w = (bounds.size.x * zoom).max(0.0);
+    let screen_h = (bounds.size.y * zoom).max(0.0);
+    let content_w = (screen_w - TERM_PADDING_PX * 2.0).max(0.0);
+    let content_h = (screen_h - TITLE_BAR_H * zoom - TERM_PADDING_PX * 2.0).max(0.0);
+    let cols = clamp_terminal_dimension(content_w / (TERM_CELL_PX * zoom), MIN_TERMINAL_COLS);
+    let rows = clamp_terminal_dimension(content_h / (TERM_LINE_PX * zoom), MIN_TERMINAL_ROWS);
+    NodeResize::TermGrid { cols, rows }
+}
+
+fn clamp_terminal_dimension(raw: f32, min: u16) -> u16 {
+    raw.floor().clamp(f32::from(min), f32::from(u16::MAX)) as u16
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// TermCard resize 将卡片 bounds 换算为 terminal grid 尺寸。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   bounds = size(800x426)，zoom=1
+    ///   padding = 8px * 2 = 16px
+    ///   title bar = 26px
+    ///   content_w = 800 - 16 = 784；TERM_CELL_PX=8 → cols=floor(784/8)=98
+    ///   content_h = 426 - 26 - 16 = 384；TERM_LINE_PX=16 → rows=floor(384/16)=24
+    ///
+    /// 执行过程：
+    ///   1. term_resize(bounds, 1.0)
+    ///   2. 拆出 NodeResize::TermGrid
+    ///
+    /// 预期结果：
+    ///   - 正断言：cols=98, rows=24
+    ///   - 负断言：cols 不应退回最小值 20，rows 不应退回最小值 3
+    #[test]
+    fn test_term_resize_converts_card_bounds_to_grid_dimensions() {
+        let resize = term_resize(CanvasRect::new(0.0, 0.0, 800.0, 426.0), 1.0);
+        let NodeResize::TermGrid { cols, rows } = resize;
+
+        assert_eq!(cols, 98, "800px 宽卡片应换算为 98 列");
+        assert_eq!(rows, 24, "426px 高卡片应换算为 24 行");
+        assert_ne!(cols, 20, "宽度充足时 cols 不应退回最小值 20");
+        assert_ne!(rows, 3, "高度充足时 rows 不应退回最小值 3");
+    }
+}

@@ -16,6 +16,7 @@ pub use layout::{
     ResponsiveGridConfig, TiledGridConfig, DEFAULT_CARD_ASPECT_RATIO,
 };
 pub use node::{
-    AgentNodeRef, AgentProfile, CanvasNode, CanvasNodeKind, NodeId, RectNode, TerminalNodeRef,
+    AgentProfile, AgentSpec, CanvasNode, CanvasNodeKind, NodeId, NodeKind, NodeType, RectNode,
+    TermSpec,
 };
 pub use selection::Selection;

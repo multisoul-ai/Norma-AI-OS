@@ -17,7 +17,7 @@ Multisoul Desktop 是一个 macOS 空间工作台脚手架。当前垂直切片�
 ┌──────────────────────────────────────────────┐
 │ app crate                                     │
 │ MultisoulApp                                  │
-│ canvas_view / terminal_view                   │
+│ canvas_view / cards/*                         │
 └───────────────┬───────────────────┬──────────┘
                 │                   │
                 ▼                   ▼
@@ -25,7 +25,7 @@ Multisoul Desktop 是一个 macOS 空间工作台脚手架。当前垂直切片�
 │ runtime crate             │   │ ui crate                  │
 │ document + selection      │   │ theme tokens              │
 │ focus + event routing     │   │ GPUI-facing primitives    │
-│ terminal session registry │   └──────────────────────────┘
+│ NodeId -> LiveNode registry│   └──────────────────────────┘
 └──────────────┬───────────┘
                │
        ┌───────┴────────┐
@@ -66,7 +66,7 @@ crates/canvas/src/
 ├── lib.rs          # 对外导出 Document、Viewport、Node、Selection 等
 ├── geometry.rs     # Vec2、CanvasRect、Viewport、Transform2D
 ├── document.rs     # 节点集合、viewport、id/z-index 分配、节点移动
-├── node.rs         # CanvasNode、CanvasNodeKind、RectNode、TerminalNodeRef
+├── node.rs         # CanvasNode、NodeKind/CanvasNodeKind、NodeType、TermSpec、AgentSpec
 ├── selection.rs    # BTreeSet 选择集
 ├── hit_test.rs     # 画布坐标命中测试，返回最高 z-index 节点
 ├── commands.rs     # Phase 2: undo/redo command model 占位
@@ -102,21 +102,27 @@ crates/terminal/src/
 
 ### `crates/runtime/`
 
-零 GPUI 域层，负责把 canvas 文档与 terminal sessions 组装成可运行状态。
+零 GPUI 域层，负责把 canvas 文档与 live node runtime 组装成可运行状态。
 
 ```text
 crates/runtime/src/
 ├── lib.rs
-├── runtime.rs       # Runtime：Document、Selection、FocusState、sessions
-├── focus.rs         # CanvasSelect / TerminalFocused(NodeId)
-├── event_router.rs  # InputMode + InputEvent -> Route
+├── live.rs          # LiveNode、Caps、NodeInput、NodeResize、NodeView
+├── nodes/
+│   ├── mod.rs
+│   ├── term.rs      # TermLive：TerminalSession wrapper
+│   └── agent.rs     # Agent live factory/wrapper
+├── runtime.rs       # Runtime：Document、Selection、FocusState、NodeId -> LiveNode
+├── focus.rs         # CanvasSelect / NodeFocused(NodeId)
+├── route.rs         # InputMode + InputEvent -> Route
 └── snapshot.rs      # Phase 4: snapshot cache / scrollback virtualization 占位
 ```
 
 主要职责：
 
-- `spawn_terminal`：创建 `TerminalSession` 并在 `Document` 中加入 Terminal 节点
-- `drain_all`：批量排空所有 session 的 PTY 输出，返回是否需要 repaint
+- `spawn_terminal`：创建 `TermLive` 并在 `Document` 中加入 `NodeKind::Term` 描述节点
+- `spawn_agent`：创建 terminal-backed live node，并在 `Document` 中加入 `NodeKind::Agent` 描述节点
+- `drain_all`：批量排空所有 live node 输出，返回是否需要 repaint
 - `kill_all`：窗口关闭时清理所有子进程
 - 用纯函数表达输入路由，避免把策略锁死在 GPUI 事件回调里
 
@@ -139,7 +145,12 @@ crates/app/src/
 ├── main.rs          # tracing、GPUI boot、菜单、Cmd+N、Esc
 ├── app.rs           # MultisoulApp、帧循环、键盘路由、Drop 清理
 ├── canvas_view.rs   # pan/zoom/drag/click/double-click、viewport culling
-└── terminal_view.rs # GridSnapshot 渲染、GPUI Keystroke -> KeyInput
+├── motion.rs        # card motion state
+└── cards/
+    ├── mod.rs       # Card trait + static registry
+    ├── chrome.rs    # shared card shell helpers
+    ├── term/        # Terminal card
+    └── agent/       # Agent card
 ```
 
 主要职责：
@@ -147,7 +158,7 @@ crates/app/src/
 - 启动 GPUI 应用窗口
 - 处理 `Cmd+N`、`Esc`、鼠标拖拽、滚轮缩放
 - 将用户输入转换为 `runtime::route` 能理解的事件
-- 根据 Runtime 状态渲染画布节点和终端网格
+- 根据 Runtime 状态渲染画布节点；具体卡片内容按 `NodeType -> Card` 分发
 
 ## 3. 内部数据模型
 
@@ -157,8 +168,8 @@ crates/app/src/
 
 - `Document`: `Vec<CanvasNode>`、`Viewport`、递增 `next_id`、递增 `max_z`
 - `CanvasNode`: `id`、`kind`、`bounds`、`z_index`、`selected`
-- `CanvasNodeKind`: `Rect(RectNode)` 或 `Terminal(TerminalNodeRef)`
-- `TerminalNodeRef`: 指向 runtime 中的 `session_id`
+- `NodeKind`/`CanvasNodeKind`: `Rect(RectNode)`、`Term(TermSpec)`、`Agent(AgentSpec)`
+- `NodeType`: `Rect`、`Term`、`Agent`，供 runtime/app dispatch
 - `Selection`: 稳定有序的 `BTreeSet<NodeId>`
 
 坐标约定：
@@ -186,10 +197,11 @@ PTY 输出通过 `crossbeam-channel` 从读线程传到 session。`TerminalSessi
 
 核心类型：
 
-- `Runtime`: `Document`、`Selection`、`FocusState`、`HashMap<TerminalSessionId, TerminalSession>`
-- `InputMode`: `CanvasSelect` 或 `TerminalFocused(NodeId)`
+- `Runtime`: `Document`、`Selection`、`FocusState`、`HashMap<NodeId, Box<dyn LiveNode>>`
+- `LiveNode`: `caps`、`drain`、`resize`、`input`、`view`、`kill`
+- `InputMode`: `CanvasSelect` 或 `NodeFocused(NodeId)`
 - `InputEvent`: click、double-click、key、escape
-- `Route`: select、clear、focus terminal、send key、exit focus、ignore
+- `Route`: select、clear、focus node、send input、exit focus、ignore
 
 `runtime` 不知道 GPUI 事件，也不渲染任何像素；它只维护产品状态和可测试决策。
 
@@ -204,11 +216,13 @@ app::MultisoulApp::on_new_terminal
   ↓
 Runtime::spawn_terminal(bounds, "/bin/zsh", 80, 24)
   ↓
-TerminalSession::spawn(session_id, shell, cols, rows)
+TermLive::spawn(session_id, shell, cols, rows)
   ↓
 PtyHandle::spawn 启动 shell 子进程和 PTY 读线程
   ↓
-Document::add_node(CanvasNodeKind::Terminal(session_id), bounds)
+Document::add_node(NodeKind::Term(TermSpec), bounds)
+  ↓
+Runtime.live.insert(node_id, TermLive)
   ↓
 Selection::select_only(node_id)
   ↓
@@ -226,13 +240,13 @@ crossbeam channel 发送 PtyEvent::Output(bytes)
   ↓
 app 背景循环每约 12ms 调 Runtime::drain_all
   ↓
-TerminalSession::drain
+TermLive::drain → TerminalSession::drain
   ↓
 TerminalGrid::advance(bytes)
   ↓
 dirty=true 时 cx.notify()
   ↓
-terminal_view 读取 GridSnapshot 并逐行渲染
+cards/term 读取 NodeView::Term(GridSnapshot) 并逐行渲染
 ```
 
 ### 键盘输入写入 Terminal
@@ -240,17 +254,19 @@ terminal_view 读取 GridSnapshot 并逐行渲染
 ```text
 用户双击 Terminal 节点
   ↓
-runtime::route(CanvasSelect, DoubleClick{is_terminal=true})
+runtime::route(CanvasSelect, DoubleClick{is_focusable=true})
   ↓
-FocusState::focus_terminal(node_id)
+FocusState::focus_node(node_id)
   ↓
 用户按键
   ↓
-app::terminal_view::keystroke_to_input
+app::cards::term::view::keystroke_to_input
   ↓
-runtime::route(TerminalFocused(node_id), Key)
+runtime::route(NodeFocused(node_id), Key)
   ↓
-TerminalSession::write_input
+Runtime::send_node_input(node_id, NodeInput::Key)
+  ↓
+TermLive::input → TerminalSession::write_input
   ↓
 terminal::input::encode
   ↓

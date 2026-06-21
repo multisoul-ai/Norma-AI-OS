@@ -14,7 +14,7 @@ Workspace crates:
 
 - `canvas` - domain crate for geometry, document state, node models, selection, hit testing, and viewport transforms.
 - `terminal` - domain crate for PTY process handling, ANSI terminal grid parsing, input encoding, and terminal sessions.
-- `runtime` - domain crate for focus state, input routing, session registry, and node lifecycle glue.
+- `runtime` - domain crate for focus state, input routing, LiveNode registry, and node lifecycle glue.
 - `ui` - GPUI-facing shared UI primitives, currently theme only.
 - `app` - GPUI/Metal shell: window boot, menus, key bindings, canvas interaction, and terminal rendering.
 
@@ -31,7 +31,7 @@ ui -> gpui
 ## 2. Key Constraints
 
 - **Domain crates stay UI-free**: no `gpui` imports in `canvas`, `terminal`, or `runtime`.
-- **Input decisions stay pure where possible**: encode routing decisions in `runtime::event_router` before app-layer side effects.
+- **Input decisions stay pure where possible**: encode routing decisions in `runtime::route` before app-layer side effects.
 - **PTY cleanup is required**: `Runtime::kill_all`, `TerminalSession::kill`, and `PtyHandle::Drop` are lifecycle guardrails. Keep new process paths equally explicit.
 - **Pinned libraries require verification**: `gpui =0.2.2` and `alacritty_terminal =0.26` are pinned in the workspace. Upgrade only after checking API compatibility.
 - **Consult GPUI skills first**: when writing GPUI code in `crates/app` or `crates/ui`, load the relevant local `gpui-*` skill before inventing a pattern, then adapt it to this repository's pinned GPUI version and existing style.
@@ -53,7 +53,7 @@ Important files:
 
 - `geometry.rs` - `Vec2`, `CanvasRect`, `Viewport`, and `Transform2D`; convention is `screen = canvas * zoom + pan`.
 - `document.rs` - `Document`, node storage, viewport, monotonic node ids, z-index allocation, node movement.
-- `node.rs` - `CanvasNode`, `CanvasNodeKind`, `RectNode`, `TerminalNodeRef`.
+- `node.rs` - `CanvasNode`, `NodeKind`/`CanvasNodeKind`, `NodeType`, `RectNode`, `TermSpec`, `AgentSpec`.
 - `selection.rs` - stable ordered selection set based on `BTreeSet`.
 - `hit_test.rs` - canvas-space hit testing that returns the highest z-index node.
 - `commands.rs` and `history.rs` - Phase 2 placeholders for undo/redo.
@@ -72,13 +72,16 @@ Important files:
 
 ### `runtime`
 
-Purpose: assemble canvas documents and terminal sessions while keeping policy testable.
+Purpose: assemble canvas documents and LiveNode runtimes while keeping policy testable.
 
 Important files:
 
-- `focus.rs` - `CanvasSelect` and `TerminalFocused(node_id)`.
-- `event_router.rs` - pure input routing from mode/event to route action.
-- `runtime.rs` - document, selection, focus, terminal session registry, spawn/drain/kill.
+- `live.rs` - `LiveNode`, `Caps`, `NodeInput`, `NodeResize`, and `NodeView`.
+- `nodes/term.rs` - `TermLive`, the terminal-backed live node wrapper.
+- `nodes/agent.rs` - Agent command factory/wrapper for terminal-backed live nodes.
+- `focus.rs` - `CanvasSelect` and `NodeFocused(node_id)`.
+- `route.rs` - pure input routing from mode/event to route action.
+- `runtime.rs` - document, selection, focus, `NodeId -> LiveNode` registry, spawn/drain/kill.
 - `snapshot.rs` - Phase 4 placeholder for snapshot caching and scrollback virtualization.
 
 ### `ui` and `app`
@@ -91,15 +94,18 @@ Important files:
 - `crates/app/src/main.rs` - tracing, GPUI application boot, `Cmd+N`, `Esc`, menu.
 - `crates/app/src/app.rs` - `MultisoulApp`, background drain loop, key handling, lifecycle cleanup.
 - `crates/app/src/canvas_view.rs` - pan, zoom, node drag, click/double-click, viewport culling, node chrome.
-- `crates/app/src/terminal_view.rs` - terminal node rendering and GPUI keystroke translation.
+- `crates/app/src/cards/mod.rs` - `Card` trait and static `NodeType -> Card` registry.
+- `crates/app/src/cards/chrome.rs` - shared card chrome helpers.
+- `crates/app/src/cards/term/` - terminal card renderer, terminal view, and grid painter.
+- `crates/app/src/cards/agent/` - agent card renderer.
 
 ## 4. Current User-Facing Behavior
 
 - `Cmd+N` creates a terminal node, then reflows all nodes into a row-major tiled grid with at most three columns.
 - Drag a node by its title bar.
 - Single-click selects a node; clicking blank canvas clears selection.
-- Double-click a terminal node to focus it.
-- `Esc` exits terminal focus.
+- Double-click a focusable node, or click a terminal/agent body, to focus it.
+- `Esc` exits node focus.
 - Space plus left-drag, or middle-drag, pans the canvas.
 - Mouse wheel zooms around the cursor.
 - The app drains PTY output roughly every 12ms and repaints only when dirty.
@@ -231,7 +237,7 @@ fn test_ctrl_c_encodes_to_etx() {
 - Canvas coordinates and screen coordinates are separate. Convert through `Viewport`.
 - Node movement takes canvas-space deltas; app-layer pointer movement must divide by zoom.
 - Wheel zoom should preserve the canvas point under the cursor.
-- Terminal content rendering should consume `GridSnapshot`, not alacritty internals.
+- Terminal card rendering should consume `NodeView::Term` / `GridSnapshot`, not alacritty internals.
 - If adding new controls, keep the interaction model direct, reversible, and visible.
 
 Current theme colors live in `crates/ui/src/theme.rs`.

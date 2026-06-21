@@ -2,12 +2,12 @@
 //! viewport culling：屏幕外节点不构建元素。
 
 use crate::app::MultisoulApp;
-use crate::motion::{ResolvedNodeVisual, VisualPriority};
-use crate::terminal_view::render_terminal_node;
+use crate::cards::card_for;
+use crate::cards::chrome::{node_shadow, TITLE_BAR_H};
 use canvas::{hit_test, CanvasRect, NodeId, Vec2};
 use gpui::{
-    div, point, prelude::*, px, rgba, BoxShadow, Context, MouseButton, MouseDownEvent,
-    MouseMoveEvent, MouseUpEvent, Pixels, Point, ScrollWheelEvent, Window,
+    div, prelude::*, px, rgba, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
+    Pixels, Point, ScrollWheelEvent, Window,
 };
 use runtime::{route, InputEvent, InputMode, Route};
 
@@ -25,7 +25,6 @@ pub struct InteractionState {
     pub drag: Option<DragState>,
 }
 
-pub const TITLE_BAR_H: f32 = 26.0; // 屏幕像素，标题栏高度（拖拽热区）
 const ZOOM_MIN: f32 = 0.2;
 const ZOOM_MAX: f32 = 4.0;
 
@@ -55,35 +54,15 @@ fn is_title_bar_hit(screen_y: f32, node_top_screen_y: f32, zoom: f32) -> bool {
 
 fn click_event_for_node(
     hit: Option<NodeId>,
-    is_terminal: bool,
+    is_focusable: bool,
     is_title_bar: bool,
     click_count: usize,
 ) -> InputEvent {
-    if click_count >= 2 || (is_terminal && !is_title_bar) {
-        InputEvent::DoubleClick { hit, is_terminal }
+    if click_count >= 2 || (is_focusable && !is_title_bar) {
+        InputEvent::DoubleClick { hit, is_focusable }
     } else {
         InputEvent::Click { hit }
     }
-}
-
-fn node_shadow(visual: ResolvedNodeVisual) -> Vec<BoxShadow> {
-    let mut shadows = vec![BoxShadow {
-        color: rgba(visual.shadow_color).into(),
-        offset: point(px(0.0), px(visual.shadow_y)),
-        blur_radius: px(visual.shadow_blur),
-        spread_radius: px(visual.shadow_spread),
-    }];
-
-    if visual.priority == VisualPriority::Focused {
-        shadows.push(BoxShadow {
-            color: rgba(with_alpha(visual.stroke_color, 0x38)).into(),
-            offset: point(px(0.0), px(0.0)),
-            blur_radius: px(18.0),
-            spread_radius: px(0.0),
-        });
-    }
-
-    shadows
 }
 
 /// 滚轮 zoom，绕光标保持画布点不动。
@@ -133,7 +112,7 @@ fn on_mouse_down(
     let canvas_pt = app.runtime.document.viewport.screen_to_canvas(screen);
     let hit = hit_test(app.runtime.document.nodes(), canvas_pt);
 
-    let (is_terminal, is_title_bar) = if let Some(id) = hit {
+    let (is_focusable, is_title_bar) = if let Some(id) = hit {
         if let Some(node) = app.runtime.document.node(id) {
             let top_screen = app
                 .runtime
@@ -141,7 +120,7 @@ fn on_mouse_down(
                 .viewport
                 .canvas_to_screen(node.bounds.origin);
             (
-                node.kind.is_terminal_backed(),
+                app.runtime.node_caps(id).focusable,
                 is_title_bar_hit(screen.y, top_screen.y, app.runtime.document.viewport.zoom),
             )
         } else {
@@ -150,7 +129,7 @@ fn on_mouse_down(
     } else {
         (false, false)
     };
-    let event = click_event_for_node(hit, is_terminal, is_title_bar, ev.click_count);
+    let event = click_event_for_node(hit, is_focusable, is_title_bar, ev.click_count);
 
     match route(&app.runtime.focus.mode(), &event) {
         Route::SelectNode(id) => {
@@ -170,8 +149,8 @@ fn on_mouse_down(
             app.runtime.selection.clear();
             app.runtime.focus.exit_to_canvas();
         }
-        Route::FocusTerminal(id) => {
-            app.runtime.focus.focus_terminal(id);
+        Route::FocusNode(id) => {
+            app.runtime.focus.focus_node(id);
             app.runtime.selection.select_only(id);
             app.motion.set_pressed(id, true);
         }
@@ -248,20 +227,18 @@ pub fn render_canvas(
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
     app.motion.retain_nodes(node_ids.iter().copied());
     for id in node_ids {
-        let (origin, size, selected, title, session_id) = {
-            let n = app.runtime.document.node(id).unwrap();
-            let sid = n.kind.terminal_session_id();
-            (
-                n.bounds.origin,
-                n.bounds.size,
-                n.selected,
-                n.kind.display_title(),
-                sid,
-            )
-        };
+        let node = *app.runtime.document.node(id).unwrap();
+        let card = card_for(node.kind.node_type());
+        let chrome = card.chrome(&node, &app.runtime);
+        let (origin, size, selected, title) = (
+            node.bounds.origin,
+            node.bounds.size,
+            node.selected,
+            chrome.title,
+        );
         let selected = selected || app.runtime.selection.contains(id);
         let canonical_rect = CanvasRect { origin, size };
-        let focused = matches!(focus_mode, InputMode::TerminalFocused(fid) if fid == id);
+        let focused = matches!(focus_mode, InputMode::NodeFocused(fid) if fid == id);
         app.motion.ensure_node(id, canonical_rect);
         app.motion.set_selection_focus(id, selected, focused);
         if app
@@ -387,16 +364,15 @@ pub fn render_canvas(
         );
 
         // 内容
-        if let Some(sid) = session_id {
-            node_div = node_div.child(render_terminal_node(
-                app,
-                sid,
-                vp.zoom,
-                node_terminal_radius_px(vp.zoom),
-                window,
-                cx,
-            ));
-        }
+        node_div = node_div.child(card.body(
+            &node,
+            &app.runtime,
+            theme,
+            vp.zoom,
+            node_terminal_radius_px(vp.zoom),
+            window,
+            cx,
+        ));
 
         node_elems.push(node_div);
     }
@@ -419,149 +395,5 @@ fn with_alpha(color: u32, alpha: u8) -> u32 {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// 终端正文单击应进入终端聚焦，避免用户选中节点后无法输入。
-    ///
-    /// 数据构造（含关键数值推导）：
-    ///   terminal node id = 7
-    ///   click_count = 1（单击，不是双击）
-    ///   is_terminal = true（命中 terminal-backed node）
-    ///   is_title_bar = false（点击正文区，标题栏高度不参与拖拽）
-    ///
-    /// 执行过程：
-    ///   1. click_event_for_node(Some(7), true, false, 1) 生成输入事件
-    ///   2. route(CanvasSelect, event) 按 runtime 纯路由解析
-    ///
-    /// 预期结果：
-    ///   - 正断言：正文单击被转换为 FocusTerminal(7)
-    ///   - 负断言：正文单击不应只是 SelectNode(7)，否则后续按键会被画布忽略
-    #[test]
-    fn test_terminal_body_single_click_focuses_terminal() {
-        let event = click_event_for_node(Some(7), true, false, 1);
-        let route = route(&InputMode::CanvasSelect, &event);
-
-        assert_eq!(
-            route,
-            Route::FocusTerminal(7),
-            "终端正文单击应直接聚焦终端 7，让键盘输入有接收者"
-        );
-        assert_ne!(
-            route,
-            Route::SelectNode(7),
-            "终端正文单击不应只停留在选中态，否则用户会看到橙色边框但无法输入"
-        );
-    }
-
-    /// 终端标题栏单击仍只选中节点并保留拖拽语义。
-    ///
-    /// 数据构造（含关键数值推导）：
-    ///   terminal node id = 7
-    ///   click_count = 1（单击）
-    ///   is_terminal = true（命中 terminal-backed node）
-    ///   is_title_bar = true（screen_y 落在 node_top + TITLE_BAR_H * zoom 内）
-    ///
-    /// 执行过程：
-    ///   1. click_event_for_node(Some(7), true, true, 1) 生成输入事件
-    ///   2. route(CanvasSelect, event) 按 runtime 纯路由解析
-    ///
-    /// 预期结果：
-    ///   - 正断言：标题栏单击保持 SelectNode(7)，供拖拽逻辑继续执行
-    ///   - 负断言：标题栏单击不应进入 FocusTerminal(7)，否则点击标题栏会吞掉拖拽入口
-    #[test]
-    fn test_terminal_title_single_click_selects_for_drag() {
-        let event = click_event_for_node(Some(7), true, true, 1);
-        let route = route(&InputMode::CanvasSelect, &event);
-
-        assert_eq!(
-            route,
-            Route::SelectNode(7),
-            "终端标题栏单击应保持选中节点，标题栏拖拽才能继续工作"
-        );
-        assert_ne!(
-            route,
-            Route::FocusTerminal(7),
-            "终端标题栏单击不应直接聚焦终端，否则拖拽标题栏会变成输入聚焦"
-        );
-    }
-
-    /// 标题栏命中计算随 zoom 缩放，避免高缩放下正文被误判成标题栏。
-    ///
-    /// 数据构造（含关键数值推导）：
-    ///   node_top_screen_y = 100
-    ///   TITLE_BAR_H = 26
-    ///   zoom = 2
-    ///   title_bottom = 100 + 26 * 2 = 152
-    ///   y=151.5 在标题栏内，y=153 已进入正文
-    ///
-    /// 执行过程：
-    ///   1. is_title_bar_hit(151.5, 100, 2) → true
-    ///   2. is_title_bar_hit(153, 100, 2) → false
-    ///
-    /// 预期结果：
-    ///   - 正断言：151.5 被识别为标题栏
-    ///   - 正断言：153 被识别为正文
-    ///   - 负断言：正文 y=153 不应仍被当作标题栏
-    #[test]
-    fn test_title_bar_hit_scales_with_zoom() {
-        let in_title = is_title_bar_hit(151.5, 100.0, 2.0);
-        let in_body = is_title_bar_hit(153.0, 100.0, 2.0);
-
-        assert!(in_title, "y=151.5 <= 100 + 26 * 2，应被识别为标题栏命中");
-        assert!(!in_body, "y=153 > 100 + 26 * 2，应被识别为正文命中");
-        assert_ne!(
-            in_body, true,
-            "正文区域不应被误判为标题栏，否则单击正文不会聚焦终端"
-        );
-    }
-
-    /// 卡片圆角 token 应统一用于外壳、标题栏和顶部高亮线。
-    ///
-    /// 数据构造（含关键数值推导）：
-    ///   base radius = 16px
-    ///   zoom=0.25 → raw radius = 16 * 0.25 = 4px，clamp 到最小 8px
-    ///   zoom=1.00 → raw radius = 16 * 1.00 = 16px，保持 16px
-    ///   zoom=2.00 → raw radius = 16 * 2.00 = 32px，clamp 到最大 22px
-    ///   top highlight inset = card radius，避免 1px 高亮线画进圆角区域
-    ///
-    /// 执行过程：
-    ///   1. 分别计算 zoom=0.25、1.0、2.0 的卡片圆角
-    ///   2. 计算 zoom=1.0 的标题栏圆角与顶部高亮线缩进
-    ///
-    /// 预期结果：
-    ///   - 正断言：卡片圆角随 zoom 缩放并保持在 8..=22px
-    ///   - 正断言：标题栏圆角复用卡片圆角，避免顶部背景填平圆角
-    ///   - 正断言：顶部高亮线从 radius 内侧开始，避开左右顶角
-    ///   - 负断言：高亮线缩进不应为 0，否则会再次画出直角顶边
-    #[test]
-    fn test_node_card_radius_tokens_keep_children_inside_rounded_shell() {
-        let zoomed_out = node_card_radius_px(0.25);
-        let normal = node_card_radius_px(1.0);
-        let zoomed_in = node_card_radius_px(2.0);
-        let title_radius = node_title_radius_px(1.0);
-        let highlight_inset = node_edge_highlight_inset_px(1.0);
-
-        assert_eq!(
-            zoomed_out, 8.0,
-            "zoom=0.25 时 raw=4px，应 clamp 到 8px 最小卡片圆角"
-        );
-        assert_eq!(normal, 16.0, "zoom=1.0 时 raw=16px，应保持默认卡片圆角");
-        assert_eq!(
-            zoomed_in, 22.0,
-            "zoom=2.0 时 raw=32px，应 clamp 到 22px 最大卡片圆角"
-        );
-        assert_eq!(
-            title_radius, normal,
-            "标题栏顶部圆角必须复用卡片圆角，否则矩形标题栏会填平顶角"
-        );
-        assert_eq!(
-            highlight_inset, normal,
-            "顶部高亮线应从卡片圆角内侧开始，避免覆盖圆角弧线"
-        );
-        assert_ne!(
-            highlight_inset, 0.0,
-            "顶部高亮线缩进不能为 0，否则 w_full 的 1px 线会重新制造直角"
-        );
-    }
-}
+#[path = "canvas_view_tests.rs"]
+mod tests;

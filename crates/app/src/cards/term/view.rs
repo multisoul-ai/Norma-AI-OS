@@ -1,9 +1,10 @@
-//! 终端节点渲染 + 键盘翻译。grid 快照按等宽字体逐行绘制。
+//! 终端卡片内容渲染 + 键盘翻译。grid 快照按等宽字体逐行绘制。
 
-use crate::app::MultisoulApp;
-use crate::terminal_renderer::{render_terminal_canvas, TerminalRenderMetrics};
-use gpui::{div, prelude::*, px, rgba, Context, Keystroke, Window};
-use terminal::{Key, KeyInput, TerminalSessionId, TerminalStatus};
+use crate::cards::term::paint::{render_terminal_canvas, TerminalRenderMetrics};
+use gpui::{div, prelude::*, px, rgba, AnyElement, IntoElement, Keystroke};
+use runtime::NodeView;
+use terminal::{Key, KeyInput, TerminalStatus};
+use ui::Theme;
 
 pub const TERM_FONT_PX: f32 = 13.0;
 pub const TERM_LINE_PX: f32 = 16.0;
@@ -12,24 +13,21 @@ pub const TERM_PADDING_PX: f32 = 8.0;
 
 /// 渲染一个终端节点内容区：退出态保留最后一帧输出，并叠加退出状态。
 pub fn render_terminal_node(
-    app: &mut MultisoulApp,
-    session_id: TerminalSessionId,
+    view: Option<NodeView>,
+    theme: Theme,
     zoom: f32,
     bottom_radius_px: f32,
-    _window: &mut Window,
-    _cx: &mut Context<MultisoulApp>,
-) -> impl IntoElement {
-    let theme = app.theme;
-    let Some(session) = app.runtime.session(session_id) else {
+) -> AnyElement {
+    let Some(NodeView::Term { snapshot, status }) = view else {
         return div()
             .rounded_b(px(bottom_radius_px))
             .overflow_hidden()
-            .child("(session gone)");
+            .child("(session gone)")
+            .into_any_element();
     };
 
-    let snap = session.snapshot();
     let terminal_canvas = render_terminal_canvas(
-        snap,
+        snapshot,
         theme,
         TerminalRenderMetrics {
             font_size: px(TERM_FONT_PX * zoom),
@@ -54,7 +52,7 @@ pub fn render_terminal_node(
         .p(px(TERM_PADDING_PX))
         .child(terminal_canvas);
 
-    if let TerminalStatus::Exited { code } = session.status {
+    if let TerminalStatus::Exited { code } = status {
         terminal = terminal.child(
             div()
                 .absolute()
@@ -67,7 +65,7 @@ pub fn render_terminal_node(
         );
     }
 
-    terminal
+    terminal.into_any_element()
 }
 
 fn process_exit_label(code: Option<i32>) -> String {
