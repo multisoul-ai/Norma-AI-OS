@@ -53,6 +53,7 @@ impl MultisoulApp {
         if let Err(error) = enter_workspace_for_path(
             &mut self.runtime,
             &mut self.motion,
+            &mut self.master_layout,
             &mut self.screen,
             &mut self.workspace_state,
             &path,
@@ -67,6 +68,7 @@ impl MultisoulApp {
 pub(crate) fn enter_workspace_for_path(
     runtime: &mut Runtime,
     motion: &mut MotionStore,
+    master_layout: &mut crate::master_layout::MasterLayoutState,
     screen: &mut AppScreen,
     workspace_state: &mut WorkspaceState,
     path: &Path,
@@ -74,6 +76,7 @@ pub(crate) fn enter_workspace_for_path(
     let root = workspace_state.open_workspace(path, WorkspaceSource::Open)?;
     runtime.kill_all();
     *runtime = Runtime::new_for_workspace(root);
+    master_layout.clear();
     motion.clear_transient();
     motion.retain_nodes(std::iter::empty::<NodeId>());
     *screen = AppScreen::Canvas;

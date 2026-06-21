@@ -23,6 +23,7 @@ pub struct InteractionState {
     pub panning: bool,
     pub last_screen: Option<Vec2>,
     pub drag: Option<DragState>,
+    pub hovered_node: Option<NodeId>,
 }
 
 const ZOOM_MIN: f32 = 0.2;
@@ -283,6 +284,11 @@ pub fn render_canvas(
             .overflow_hidden()
             .on_hover(cx.listener(move |app, hovered: &bool, _window, cx| {
                 app.motion.set_hover(id, *hovered);
+                if *hovered {
+                    app.interaction.hovered_node = Some(id);
+                } else if app.interaction.hovered_node == Some(id) {
+                    app.interaction.hovered_node = None;
+                }
                 cx.notify();
             }));
 
@@ -356,6 +362,9 @@ pub fn render_canvas(
                                     app.interaction.drag = None;
                                     app.interaction.panning = false;
                                     app.interaction.last_screen = None;
+                                    if app.interaction.hovered_node == Some(node_id) {
+                                        app.interaction.hovered_node = None;
+                                    }
                                 }
                             }
                             cx.notify();

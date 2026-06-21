@@ -1,15 +1,18 @@
 //! multisoul-desktop 入口：tracing 初始化 + 启动 GPUI App。
 mod app;
+mod app_ime;
 mod assets;
 mod canvas_view;
 mod cards;
 mod launchpad;
+mod master_layout;
 mod motion;
 mod workspace_flow;
 mod workspace_state;
 
 use app::{
     ExitFocus, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewTerminal, OpenProject, ReflowLayout,
+    ToggleMasterLayout,
 };
 use assets::EmbeddedAssets;
 use gpui::{
@@ -32,6 +35,7 @@ fn main() {
             cx.bind_keys([
                 KeyBinding::new("cmd-n", NewTerminal, None),
                 KeyBinding::new("cmd-o", OpenProject, None),
+                KeyBinding::new("cmd-m", ToggleMasterLayout, None),
                 KeyBinding::new("cmd-shift-l", ReflowLayout, None),
                 KeyBinding::new("escape", ExitFocus, None),
             ]);
@@ -45,10 +49,18 @@ fn main() {
                     MenuItem::action("New Claude Agent", NewClaudeAgent),
                     MenuItem::action("New Codex Agent", NewCodexAgent),
                     MenuItem::action("Reflow Layout", ReflowLayout),
+                    MenuItem::action("Toggle Master Layout", ToggleMasterLayout),
                 ],
             }]);
 
             let bounds = Bounds::centered(None, size(px(1280.0), px(800.0)), cx);
+            cx.on_window_closed(|cx| {
+                if cx.windows().is_empty() {
+                    cx.quit();
+                }
+            })
+            .detach();
+
             cx.open_window(
                 WindowOptions {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),

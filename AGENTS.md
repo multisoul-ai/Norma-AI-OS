@@ -32,6 +32,7 @@ Workspace 分层：
 - **测试注释必须完整**：测试上方写场景、数据构造、执行过程、预期结果；关键数值写推导。
 - **断言必须具体**：每个 `assert!` / `assert_eq!` 带说明字符串；关键状态要有正断言和负断言。
 - **PTY 生命周期要收口**：窗口关闭或 session 释放必须 kill/wait 子进程，避免僵尸进程。
+- **关窗必须退出进程**：GPUI 在 macOS 上关闭最后一个窗口后不会自动 quit，必须在 `main.rs` 的 `run` 闭包内注册 `cx.on_window_closed(|cx| { if cx.windows().is_empty() { cx.quit(); } }).detach()`；不得省略，否则进程常驻后台。
 - **交互决策放 runtime**：输入意图先通过 `runtime::route` 这类纯函数表达，再由 `app` 层执行副作用。
 - **不要把知识塞进地图**：`AGENTS.md` 只放指针；长说明沉淀到 `CLAUDE.md` 或未来 `docs/`。
 
@@ -115,3 +116,44 @@ xcrun metal --version
 2. 把短指针写进 `AGENTS.md`，把展开说明写进 `CLAUDE.md` 或 `docs/`。
 3. 如果能机械化，补测试、脚本或 CI 约束。
 4. 保持 `AGENTS.md` 和 `CLAUDE.md` 的重叠事实一致。
+<!-- msctl-inject-start -->
+## msctl Quick Reference
+
+### Agent
+
+```bash
+msctl agent list             # List all registered agents
+msctl agent get <id>         # Show agent details
+msctl agent codex            # Quick register current project with Codex
+msctl agent claude-code      # Quick register current project with Claude Code
+msctl agent cursor-cli       # Quick register current project with Cursor
+msctl agent kodax            # Quick register current project with KodaX
+msctl agent register --name <name> --project <path> --runtime claude-code
+msctl agent register --name <name> --project <path> --runtime codex
+msctl agent register --name <name> --project <path> --runtime cursor-cli
+msctl agent register --name <name> --project <path> --runtime kodax
+msctl agent invoke <id> --message "<task>"
+msctl agent delete <id>
+```
+
+### Ask User Question (`msctl ask-question`)
+
+**MANDATORY**
+
+- For structured decisions (approach, continue/stop, risk trade-offs, etc.), **prefer** the `AskUserQuestion` tool when available.
+- **If the current runtime does not expose `AskUserQuestion`, you MUST call `msctl ask-question` to push a question card to iOS.** Never list options in free text or ask the user to type an answer.
+- After pushing, continue other work. Do not poll; iOS answers are injected into the same conversation automatically.
+
+Run `msctl ask-question -h` for flags, JSON shape, and copy-paste examples.
+
+### Image Output
+
+When generating images (charts, screenshots, diagrams), save them as files and
+reference them in your reply using standard Markdown image syntax:
+
+![description](/absolute/path/to/image.png)
+
+Supported formats: png, jpg, jpeg, gif, webp.
+The MultiSoul mobile app will automatically render these images inline.
+
+<!-- msctl-inject-end -->

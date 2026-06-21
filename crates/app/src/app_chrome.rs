@@ -9,6 +9,8 @@ use gpui::{
 };
 use ui::Theme;
 
+const WORKSPACE_LEFT_RAIL_VISIBLE: bool = false;
+
 impl MultisoulApp {
     pub(super) fn render_workspace_backdrop(&self) -> Div {
         let theme = self.theme;
@@ -151,31 +153,33 @@ impl MultisoulApp {
                     )
                     .child(chrome_button(theme, "*", false)),
             )
-            .child(
-                div()
-                    .absolute()
-                    .left(px(24.0))
-                    .top(px(178.0))
-                    .w(px(46.0))
-                    .flex()
-                    .flex_col()
-                    .items_center()
-                    .gap_2()
-                    .p(px(8.0))
-                    .rounded(px(23.0))
-                    .border_1()
-                    .border_color(rgba(with_alpha(theme.edge_highlight, 0x2f)))
-                    .shadow(chrome_shadow(theme))
-                    .bg(rgba(with_alpha(theme.panel, 0xd0)))
-                    .child(chrome_button(theme, ">", true))
-                    .child(chrome_button(theme, "H", false))
-                    .child(chrome_button(theme, "[]", false))
-                    .child(chrome_button(theme, "<>", false))
-                    .child(chrome_button(theme, "O", false))
-                    .child(chrome_button(theme, "T", false))
-                    .child(chrome_button(theme, "AI", false))
-                    .child(chrome_button(theme, "{}", false)),
-            )
+            .when(workspace_left_rail_visible(), |chrome| {
+                chrome.child(
+                    div()
+                        .absolute()
+                        .left(px(24.0))
+                        .top(px(178.0))
+                        .w(px(46.0))
+                        .flex()
+                        .flex_col()
+                        .items_center()
+                        .gap_2()
+                        .p(px(8.0))
+                        .rounded(px(23.0))
+                        .border_1()
+                        .border_color(rgba(with_alpha(theme.edge_highlight, 0x2f)))
+                        .shadow(chrome_shadow(theme))
+                        .bg(rgba(with_alpha(theme.panel, 0xd0)))
+                        .child(chrome_button(theme, ">", true))
+                        .child(chrome_button(theme, "H", false))
+                        .child(chrome_button(theme, "[]", false))
+                        .child(chrome_button(theme, "<>", false))
+                        .child(chrome_button(theme, "O", false))
+                        .child(chrome_button(theme, "T", false))
+                        .child(chrome_button(theme, "AI", false))
+                        .child(chrome_button(theme, "{}", false)),
+                )
+            })
             .child(
                 div()
                     .absolute()
@@ -284,6 +288,42 @@ fn chrome_button(theme: Theme, label: &'static str, active: bool) -> Div {
         .child(label)
 }
 
+fn workspace_left_rail_visible() -> bool {
+    WORKSPACE_LEFT_RAIL_VISIBLE
+}
+
 fn with_alpha(color: u32, alpha: u8) -> u32 {
     (color & 0xffffff00) | u32::from(alpha)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 左侧菜单列表：临时隐藏期间不应渲染 workspace 左侧纵向菜单。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   workspace_left_rail_visible() = false（临时隐藏开关；后续恢复时只需改回 true）
+    ///   左侧菜单位置 = left 24px, top 178px, width 46px（当前被开关包住，不进入渲染树）
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 读取 workspace_left_rail_visible()
+    ///   2. false → render_workspace_chrome 跳过左侧菜单列表分支
+    ///
+    /// 预期结果：
+    ///   - 正断言：左侧菜单开关为 false，表示列表应被隐藏
+    ///   - 负断言：左侧菜单开关不应为 true，否则用户仍会看到暂时隐藏的菜单列表
+    #[test]
+    fn test_workspace_left_rail_is_temporarily_hidden() {
+        let left_rail_visible = workspace_left_rail_visible();
+
+        assert!(
+            !left_rail_visible,
+            "左侧菜单列表临时隐藏期间 workspace_left_rail_visible() 应返回 false"
+        );
+        assert_ne!(
+            left_rail_visible, true,
+            "左侧菜单列表不应继续标记为可见，否则渲染树仍会挂载该列表"
+        );
+    }
 }

@@ -97,17 +97,7 @@ pub fn compute_responsive_grid_layout(
         return Vec::new();
     }
 
-    let safe_area = config.safe_area;
-    let safe_left = safe_area.left.max(0.0);
-    let safe_top = safe_area.top.max(0.0);
-    let safe_right = safe_area.right.max(0.0);
-    let safe_bottom = safe_area.bottom.max(0.0);
-    let usable = CanvasRect::new(
-        area.origin.x + safe_left,
-        area.origin.y + safe_top,
-        (area.size.x - safe_left - safe_right).max(0.0),
-        (area.size.y - safe_top - safe_bottom).max(0.0),
-    );
+    let usable = usable_area(area, config.safe_area);
 
     let max_columns = config.max_columns.max(1).min(ordered_ids.len());
     let gap = config.gap_canvas.max(0.0);
@@ -142,6 +132,68 @@ pub fn compute_responsive_grid_layout(
         .collect()
 }
 
+pub fn compute_master_detail_layout(
+    ordered_ids: &[NodeId],
+    master_id: NodeId,
+    area: CanvasRect,
+    config: ResponsiveGridConfig,
+) -> Vec<LayoutAssignment> {
+    if !ordered_ids.iter().any(|id| *id == master_id) {
+        return Vec::new();
+    }
+
+    let usable = usable_area(area, config.safe_area);
+    let gap = config.gap_canvas.max(0.0);
+    let panel_width = ((usable.size.x - gap * 3.0) / 2.0).max(0.0);
+    let panel_height = (usable.size.y - gap * 2.0).max(0.0);
+    let master_bounds = CanvasRect::new(
+        usable.origin.x + gap,
+        usable.origin.y + gap,
+        panel_width,
+        panel_height,
+    );
+
+    let detail_ids: Vec<NodeId> = ordered_ids
+        .iter()
+        .copied()
+        .filter(|id| *id != master_id)
+        .collect();
+    let detail_area = CanvasRect::new(
+        master_bounds.max().x,
+        usable.origin.y,
+        (usable.max().x - master_bounds.max().x).max(0.0),
+        usable.size.y,
+    );
+    let detail_config = ResponsiveGridConfig {
+        safe_area: LayoutInsets::ZERO,
+        ..config
+    };
+
+    let mut assignments = vec![LayoutAssignment {
+        node_id: master_id,
+        bounds: master_bounds,
+    }];
+    assignments.extend(compute_responsive_grid_layout(
+        &detail_ids,
+        detail_area,
+        detail_config,
+    ));
+    assignments
+}
+
+fn usable_area(area: CanvasRect, safe_area: LayoutInsets) -> CanvasRect {
+    let safe_left = safe_area.left.max(0.0);
+    let safe_top = safe_area.top.max(0.0);
+    let safe_right = safe_area.right.max(0.0);
+    let safe_bottom = safe_area.bottom.max(0.0);
+    CanvasRect::new(
+        area.origin.x + safe_left,
+        area.origin.y + safe_top,
+        (area.size.x - safe_left - safe_right).max(0.0),
+        (area.size.y - safe_top - safe_bottom).max(0.0),
+    )
+}
+
 #[cfg(test)]
 #[path = "layout_tiled_tests.rs"]
 mod tiled_tests;
@@ -149,3 +201,7 @@ mod tiled_tests;
 #[cfg(test)]
 #[path = "layout_responsive_tests.rs"]
 mod responsive_tests;
+
+#[cfg(test)]
+#[path = "layout_master_detail_tests.rs"]
+mod master_detail_tests;

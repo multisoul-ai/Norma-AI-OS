@@ -104,10 +104,14 @@ pub fn keystroke_to_input(ks: &Keystroke) -> Option<KeyInput> {
     let ctrl = ks.modifiers.control;
     let alt = ks.modifiers.alt;
 
+    if ks.modifiers.platform {
+        return None;
+    }
+
     // When key_char holds exactly one char and no Ctrl/Cmd is active, use it
     // directly — this is how IME-composed characters (Chinese, Japanese, etc.)
     // and non-ASCII layouts reach us from GPUI.
-    if !ctrl && !ks.modifiers.platform {
+    if !ctrl {
         if let Some(kc) = &ks.key_char {
             let mut chars = kc.chars();
             if let (Some(c), None) = (chars.next(), chars.next()) {
@@ -396,6 +400,49 @@ mod tests {
                 alt: false
             }),
             "多字符 key_char 不应取第二个字符"
+        );
+    }
+
+    /// 平台快捷键不透传 PTY：Cmd+M 应由 app action 处理，而不是作为字符 m 发给终端。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   ks.key = "m"
+    ///   modifiers.platform = true（macOS Command 键）
+    ///   key_char = Some("m")（系统可能仍提供字符，但平台快捷键优先级更高）
+    ///
+    /// 执行过程：
+    ///   1. keystroke_to_input(&ks)
+    ///   2. platform=true → 返回 None，让 GPUI action/快捷键处理
+    ///
+    /// 预期结果：
+    ///   - 正断言：返回 None
+    ///   - 负断言：不应返回 Key::Char('m')，否则 Cmd+M 会输入到 PTY
+    #[test]
+    fn test_keystroke_to_input_platform_shortcut_is_not_sent_to_pty() {
+        use gpui::{Keystroke, Modifiers};
+        let ks = Keystroke {
+            key: "m".into(),
+            key_char: Some("m".into()),
+            modifiers: Modifiers {
+                platform: true,
+                ..Modifiers::default()
+            },
+        };
+
+        let result = keystroke_to_input(&ks);
+
+        assert_eq!(
+            result, None,
+            "Cmd+M 应交给 app action 处理，不应生成 terminal KeyInput"
+        );
+        assert_ne!(
+            result,
+            Some(KeyInput {
+                key: Key::Char('m'),
+                ctrl: false,
+                alt: false
+            }),
+            "Cmd+M 不应变成裸字符 m 发送到 PTY"
         );
     }
 }

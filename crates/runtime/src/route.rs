@@ -16,6 +16,11 @@ pub enum InputEvent {
     CloseNode { node: NodeId },
     /// 一次键盘按键（具体编码在 app/card 层翻译为 NodeInput）。
     Key,
+    /// 请求切换 master/detail 布局。active=true 表示当前已经在 master 模式。
+    ToggleMasterLayout {
+        active: bool,
+        target: Option<NodeId>,
+    },
     /// Esc。
     Escape,
 }
@@ -26,12 +31,24 @@ pub enum Route {
     ClearSelection,
     FocusNode(NodeId),
     RemoveNode(NodeId),
+    EnterMasterLayout(NodeId),
+    ExitMasterLayout,
     SendInputToNode(NodeId),
     ExitNodeFocus,
     Ignore,
 }
 
 pub fn route(mode: &InputMode, event: &InputEvent) -> Route {
+    if let InputEvent::ToggleMasterLayout { active, target } = event {
+        return if *active {
+            Route::ExitMasterLayout
+        } else if let Some(node_id) = target {
+            Route::EnterMasterLayout(*node_id)
+        } else {
+            Route::Ignore
+        };
+    }
+
     match mode {
         InputMode::CanvasSelect => match event {
             InputEvent::Click { hit: Some(id) } => Route::SelectNode(*id),
@@ -47,6 +64,7 @@ pub fn route(mode: &InputMode, event: &InputEvent) -> Route {
             } => Route::SelectNode(*id),
             InputEvent::DoubleClick { hit: None, .. } => Route::ClearSelection,
             InputEvent::Key => Route::Ignore,
+            InputEvent::ToggleMasterLayout { .. } => Route::Ignore,
             InputEvent::Escape => Route::Ignore,
         },
         InputMode::NodeFocused(fid) => match event {
@@ -64,6 +82,7 @@ pub fn route(mode: &InputMode, event: &InputEvent) -> Route {
                 is_focusable: false,
             } => Route::SelectNode(*id),
             InputEvent::DoubleClick { hit: None, .. } => Route::ClearSelection,
+            InputEvent::ToggleMasterLayout { .. } => Route::Ignore,
         },
     }
 }
@@ -259,6 +278,70 @@ mod tests {
             from_focus,
             Route::ClearSelection,
             "关闭按钮不应只清空选择，否则 live node 会泄漏"
+        );
+    }
+
+    /// Master layout 快捷键：未激活且有目标时进入，已激活时退出，无目标时忽略。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   target node id = 8（来自 hover 优先、selection 兜底的 app 层解析）
+    ///   inactive event = ToggleMasterLayout { active=false, target=Some(8) }
+    ///   active event   = ToggleMasterLayout { active=true, target=Some(8) }
+    ///   missing event  = ToggleMasterLayout { active=false, target=None }
+    ///
+    /// 执行过程：
+    ///   1. inactive event → route(CanvasSelect)
+    ///   2. active event → route(CanvasSelect)
+    ///   3. missing event → route(CanvasSelect)
+    ///
+    /// 预期结果：
+    ///   - 正断言：inactive + target 返回 EnterMasterLayout(8)
+    ///   - 正断言：active 返回 ExitMasterLayout
+    ///   - 正断言：inactive + None 返回 Ignore
+    ///   - 负断言：active 不应再次返回 EnterMasterLayout(8)
+    #[test]
+    fn test_toggle_master_layout_routes_enter_exit_and_ignore() {
+        let enter = route(
+            &InputMode::CanvasSelect,
+            &InputEvent::ToggleMasterLayout {
+                active: false,
+                target: Some(8),
+            },
+        );
+        let exit = route(
+            &InputMode::CanvasSelect,
+            &InputEvent::ToggleMasterLayout {
+                active: true,
+                target: Some(8),
+            },
+        );
+        let missing = route(
+            &InputMode::CanvasSelect,
+            &InputEvent::ToggleMasterLayout {
+                active: false,
+                target: None,
+            },
+        );
+
+        assert_eq!(
+            enter,
+            Route::EnterMasterLayout(8),
+            "未激活且有 target=8 时应进入 master layout"
+        );
+        assert_eq!(
+            exit,
+            Route::ExitMasterLayout,
+            "已激活时再次按快捷键应退出 master layout"
+        );
+        assert_eq!(
+            missing,
+            Route::Ignore,
+            "未激活但无 hover/selection 目标时应忽略快捷键"
+        );
+        assert_ne!(
+            exit,
+            Route::EnterMasterLayout(8),
+            "已激活时不应再次进入同一个 master layout"
         );
     }
 }
