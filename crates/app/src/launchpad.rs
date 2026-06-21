@@ -1,8 +1,10 @@
 //! Workspace launchpad UI.
 
 use crate::app::MultisoulApp;
+use crate::assets::APP_ICON_ASSET;
 use gpui::{
-    div, point, prelude::*, px, rgba, BoxShadow, ClickEvent, Context, Div, FontWeight, Window,
+    div, img, point, prelude::*, px, rgba, BoxShadow, ClickEvent, Context, Div, FontWeight,
+    ObjectFit, Window,
 };
 use ui::Theme;
 use workspace::{compact_path, WorkspaceRecord};
@@ -150,20 +152,15 @@ fn launchpad_brand(theme: Theme) -> Div {
                 .gap(px(12.0))
                 .child(
                     div()
-                        .w(px(35.0))
-                        .h(px(35.0))
-                        .rounded(px(8.0))
+                        .w(px(40.0))
+                        .h(px(40.0))
+                        .rounded(px(10.0))
+                        .overflow_hidden()
                         .border_1()
-                        .border_color(rgba(with_alpha(theme.edge_highlight, 0x80)))
-                        .bg(rgba(with_alpha(theme.accent_cyan, 0x22)))
-                        .child(
-                            div()
-                                .m(px(8.0))
-                                .w(px(18.0))
-                                .h(px(18.0))
-                                .rounded(px(5.0))
-                                .bg(rgba(theme.text_primary)),
-                        ),
+                        .border_color(rgba(with_alpha(theme.edge_highlight, 0x70)))
+                        .shadow(launchpad_logo_shadow(theme))
+                        .bg(rgba(with_alpha(theme.panel_high, 0xa0)))
+                        .child(img(APP_ICON_ASSET).size_full().object_fit(ObjectFit::Cover)),
                 )
                 .child(
                     div()
@@ -175,7 +172,7 @@ fn launchpad_brand(theme: Theme) -> Div {
         )
         .child(
             div()
-                .ml(px(47.0))
+                .ml(px(52.0))
                 .text_size(px(13.0))
                 .text_color(rgba(theme.text_tertiary))
                 .child("Workspace"),
@@ -280,6 +277,15 @@ fn launchpad_shadow(theme: Theme) -> Vec<BoxShadow> {
         offset: point(px(0.0), px(16.0)),
         blur_radius: px(34.0),
         spread_radius: px(-22.0),
+    }]
+}
+
+fn launchpad_logo_shadow(theme: Theme) -> Vec<BoxShadow> {
+    vec![BoxShadow {
+        color: rgba(with_alpha(theme.shadow_color, 0x8c)).into(),
+        offset: point(px(0.0), px(12.0)),
+        blur_radius: px(24.0),
+        spread_radius: px(-14.0),
     }]
 }
 
