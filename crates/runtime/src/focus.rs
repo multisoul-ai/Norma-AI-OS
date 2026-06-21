@@ -17,7 +17,9 @@ pub struct FocusState {
 
 impl Default for FocusState {
     fn default() -> Self {
-        FocusState { mode: InputMode::CanvasSelect }
+        FocusState {
+            mode: InputMode::CanvasSelect,
+        }
     }
 }
 
@@ -63,15 +65,35 @@ mod tests {
     #[test]
     fn test_focus_state_transitions() {
         let mut f = FocusState::new();
-        assert_eq!(f.mode(), InputMode::CanvasSelect, "新建 FocusState 应为 CanvasSelect 模式");
+        assert_eq!(
+            f.mode(),
+            InputMode::CanvasSelect,
+            "新建 FocusState 应为 CanvasSelect 模式"
+        );
 
         f.focus_terminal(42);
-        assert_eq!(f.mode(), InputMode::TerminalFocused(42), "focus_terminal(42) 后应为 TerminalFocused(42)");
-        assert_ne!(f.mode(), InputMode::CanvasSelect, "聚焦终端后不应仍在 CanvasSelect 模式");
+        assert_eq!(
+            f.mode(),
+            InputMode::TerminalFocused(42),
+            "focus_terminal(42) 后应为 TerminalFocused(42)"
+        );
+        assert_ne!(
+            f.mode(),
+            InputMode::CanvasSelect,
+            "聚焦终端后不应仍在 CanvasSelect 模式"
+        );
 
         f.exit_to_canvas();
-        assert_eq!(f.mode(), InputMode::CanvasSelect, "exit_to_canvas() 后应回到 CanvasSelect");
-        assert_ne!(f.mode(), InputMode::TerminalFocused(42), "退出聚焦后不应仍为 TerminalFocused(42)");
+        assert_eq!(
+            f.mode(),
+            InputMode::CanvasSelect,
+            "exit_to_canvas() 后应回到 CanvasSelect"
+        );
+        assert_ne!(
+            f.mode(),
+            InputMode::TerminalFocused(42),
+            "退出聚焦后不应仍为 TerminalFocused(42)"
+        );
     }
 
     /// 连续切换不同终端节点：最后一次 focus_terminal 覆盖前一次。
@@ -91,7 +113,15 @@ mod tests {
         let mut f = FocusState::new();
         f.focus_terminal(1);
         f.focus_terminal(7);
-        assert_eq!(f.mode(), InputMode::TerminalFocused(7), "第二次 focus_terminal 应覆盖第一次，最终聚焦节点 7");
-        assert_ne!(f.mode(), InputMode::TerminalFocused(1), "旧的聚焦节点 1 已被覆盖，不应出现在 mode 中");
+        assert_eq!(
+            f.mode(),
+            InputMode::TerminalFocused(7),
+            "第二次 focus_terminal 应覆盖第一次，最终聚焦节点 7"
+        );
+        assert_ne!(
+            f.mode(),
+            InputMode::TerminalFocused(1),
+            "旧的聚焦节点 1 已被覆盖，不应出现在 mode 中"
+        );
     }
 }

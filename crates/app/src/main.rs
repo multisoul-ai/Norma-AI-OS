@@ -1,9 +1,12 @@
 //! multisoul-desktop 入口：tracing 初始化 + 启动 GPUI App。
 mod app;
+mod assets;
 mod canvas_view;
+mod terminal_renderer;
 mod terminal_view;
 
-use app::{ExitFocus, MultisoulApp, NewTerminal, ReflowLayout};
+use app::{ExitFocus, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewTerminal, ReflowLayout};
+use assets::EmbeddedAssets;
 use gpui::{
     px, size, App, AppContext as _, Application, Bounds, KeyBinding, Menu, MenuItem,
     TitlebarOptions, WindowBackgroundAppearance, WindowBounds, WindowOptions,
@@ -17,38 +20,42 @@ fn main() {
         )
         .init();
 
-    Application::new().run(|cx: &mut App| {
-        // 快捷键（SPEC §7）：Cmd+N 新建终端、Esc 退出终端聚焦。
-        cx.bind_keys([
-            KeyBinding::new("cmd-n", NewTerminal, None),
-            KeyBinding::new("cmd-shift-l", ReflowLayout, None),
-            KeyBinding::new("escape", ExitFocus, None),
-        ]);
+    Application::new()
+        .with_assets(EmbeddedAssets)
+        .run(|cx: &mut App| {
+            // 快捷键（SPEC §7）：Cmd+N 新建终端、Esc 退出终端聚焦。
+            cx.bind_keys([
+                KeyBinding::new("cmd-n", NewTerminal, None),
+                KeyBinding::new("cmd-shift-l", ReflowLayout, None),
+                KeyBinding::new("escape", ExitFocus, None),
+            ]);
 
-        // 菜单（App 显示名 Multisoul）。
-        cx.set_menus(vec![Menu {
-            name: "Multisoul".into(),
-            items: vec![
-                MenuItem::action("New Terminal", NewTerminal),
-                MenuItem::action("Reflow Layout", ReflowLayout),
-            ],
-        }]);
+            // 菜单（App 显示名 Multisoul）。
+            cx.set_menus(vec![Menu {
+                name: "Multisoul".into(),
+                items: vec![
+                    MenuItem::action("New Terminal", NewTerminal),
+                    MenuItem::action("New Claude Agent", NewClaudeAgent),
+                    MenuItem::action("New Codex Agent", NewCodexAgent),
+                    MenuItem::action("Reflow Layout", ReflowLayout),
+                ],
+            }]);
 
-        let bounds = Bounds::centered(None, size(px(1280.0), px(800.0)), cx);
-        cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
-                titlebar: Some(TitlebarOptions {
-                    title: Some("Multisoul".into()),
-                    appears_transparent: true,
-                    traffic_light_position: None,
-                }),
-                window_background: WindowBackgroundAppearance::Blurred,
-                ..Default::default()
-            },
-            |_window, cx| cx.new(|cx| MultisoulApp::new(cx)),
-        )
-        .expect("failed to open window");
-        cx.activate(true);
-    });
+            let bounds = Bounds::centered(None, size(px(1280.0), px(800.0)), cx);
+            cx.open_window(
+                WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    titlebar: Some(TitlebarOptions {
+                        title: Some("Multisoul".into()),
+                        appears_transparent: true,
+                        traffic_light_position: None,
+                    }),
+                    window_background: WindowBackgroundAppearance::Blurred,
+                    ..Default::default()
+                },
+                |_window, cx| cx.new(|cx| MultisoulApp::new(cx)),
+            )
+            .expect("failed to open window");
+            cx.activate(true);
+        });
 }

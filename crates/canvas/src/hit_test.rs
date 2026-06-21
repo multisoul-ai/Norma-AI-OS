@@ -37,8 +37,14 @@ mod tests {
     #[test]
     fn test_hit_returns_topmost_in_overlap() {
         let mut doc = Document::new();
-        let a = doc.add_node(CanvasNodeKind::Rect(RectNode { color: 0x111111 }), CanvasRect::new(0.0, 0.0, 100.0, 100.0));
-        let b = doc.add_node(CanvasNodeKind::Rect(RectNode { color: 0x222222 }), CanvasRect::new(50.0, 50.0, 100.0, 100.0));
+        let a = doc.add_node(
+            CanvasNodeKind::Rect(RectNode { color: 0x111111 }),
+            CanvasRect::new(0.0, 0.0, 100.0, 100.0),
+        );
+        let b = doc.add_node(
+            CanvasNodeKind::Rect(RectNode { color: 0x222222 }),
+            CanvasRect::new(50.0, 50.0, 100.0, 100.0),
+        );
 
         let hit = hit_test(doc.nodes(), Vec2::new(60.0, 60.0));
         assert_eq!(hit, Some(b), "重叠区应命中最上层 B（z 更高）");
@@ -56,7 +62,10 @@ mod tests {
     #[test]
     fn test_miss_returns_none() {
         let mut doc = Document::new();
-        doc.add_node(CanvasNodeKind::Rect(RectNode { color: 0x111111 }), CanvasRect::new(0.0, 0.0, 10.0, 10.0));
+        doc.add_node(
+            CanvasNodeKind::Rect(RectNode { color: 0x111111 }),
+            CanvasRect::new(0.0, 0.0, 10.0, 10.0),
+        );
 
         let hit = hit_test(doc.nodes(), Vec2::new(500.0, 500.0));
         assert_eq!(hit, None, "点在所有节点之外，应返回 None");
@@ -72,8 +81,14 @@ mod tests {
     #[test]
     fn test_hit_only_covering_node() {
         let mut doc = Document::new();
-        let a = doc.add_node(CanvasNodeKind::Rect(RectNode { color: 0x111111 }), CanvasRect::new(0.0, 0.0, 100.0, 100.0));
-        let b = doc.add_node(CanvasNodeKind::Rect(RectNode { color: 0x222222 }), CanvasRect::new(50.0, 50.0, 100.0, 100.0));
+        let a = doc.add_node(
+            CanvasNodeKind::Rect(RectNode { color: 0x111111 }),
+            CanvasRect::new(0.0, 0.0, 100.0, 100.0),
+        );
+        let b = doc.add_node(
+            CanvasNodeKind::Rect(RectNode { color: 0x222222 }),
+            CanvasRect::new(50.0, 50.0, 100.0, 100.0),
+        );
 
         let hit = hit_test(doc.nodes(), Vec2::new(10.0, 10.0));
         assert_eq!(hit, Some(a), "(10,10) 仅落在 A 内，应命中 A");

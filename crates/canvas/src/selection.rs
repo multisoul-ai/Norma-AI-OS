@@ -75,7 +75,10 @@ mod tests {
         sel.select_only(20);
 
         assert!(sel.contains(20), "select_only(20) 后应选中 20");
-        assert!(!sel.contains(10), "select_only 应清空旧选择，10 不应仍被选中");
+        assert!(
+            !sel.contains(10),
+            "select_only 应清空旧选择，10 不应仍被选中"
+        );
         assert_eq!(sel.len(), 1, "单选后选择集大小应为 1");
     }
 

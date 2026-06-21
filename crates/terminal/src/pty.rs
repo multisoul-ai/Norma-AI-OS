@@ -4,6 +4,7 @@
 use crate::message::PtyEvent;
 use crossbeam_channel::Sender;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+use std::ffi::OsStr;
 use std::io::{Read, Write};
 use std::thread;
 
@@ -15,6 +16,37 @@ pub enum PtyError {
     Io(#[from] std::io::Error),
     #[error("pty resize failed: {0}")]
     Resize(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PtyCommand {
+    pub program: String,
+    pub args: Vec<String>,
+}
+
+impl PtyCommand {
+    pub fn new(program: impl Into<String>) -> Self {
+        PtyCommand {
+            program: program.into(),
+            args: Vec::new(),
+        }
+    }
+
+    pub fn arg(mut self, arg: impl Into<String>) -> Self {
+        self.args.push(arg.into());
+        self
+    }
+
+    pub fn args<I, S>(mut self, args: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        for arg in args {
+            self.args.push(arg.into());
+        }
+        self
+    }
 }
 
 pub struct PtyHandle {
@@ -32,12 +64,31 @@ impl PtyHandle {
         rows: u16,
         tx: Sender<PtyEvent>,
     ) -> Result<PtyHandle, PtyError> {
+        Self::spawn_command(PtyCommand::new(shell), cols, rows, tx)
+    }
+
+    pub fn spawn_command(
+        command: PtyCommand,
+        cols: u16,
+        rows: u16,
+        tx: Sender<PtyEvent>,
+    ) -> Result<PtyHandle, PtyError> {
         let pty_system = native_pty_system();
         let pair = pty_system
-            .openpty(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+            .openpty(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
             .map_err(|e| PtyError::Spawn(e.to_string()))?;
 
-        let cmd = CommandBuilder::new(shell);
+        let mut cmd = CommandBuilder::new(OsStr::new(&command.program));
+        for arg in &command.args {
+            cmd.arg(OsStr::new(arg));
+        }
+        cmd.env("TERM", "xterm-256color");
+        cmd.env("COLORTERM", "truecolor");
         let child = pair
             .slave
             .spawn_command(cmd)
@@ -80,7 +131,11 @@ impl PtyHandle {
             })
             .map_err(PtyError::Io)?;
 
-        Ok(PtyHandle { master: pair.master, writer, child })
+        Ok(PtyHandle {
+            master: pair.master,
+            writer,
+            child,
+        })
     }
 
     pub fn write(&mut self, bytes: &[u8]) -> Result<(), PtyError> {
@@ -91,7 +146,12 @@ impl PtyHandle {
 
     pub fn resize(&self, cols: u16, rows: u16) -> Result<(), PtyError> {
         self.master
-            .resize(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+            .resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
             .map_err(|e| PtyError::Resize(e.to_string()))
     }
 
@@ -164,5 +224,56 @@ mod tests {
             text
         );
         assert!(saw_exit, "shell exit 后应在超时内收到 Exited 事件");
+    }
+
+    /// spawn_command 为子进程补充 true color 终端环境变量。
+    ///
+    /// 数据构造：
+    ///   command = /bin/sh -c "printf '%s/%s' \"$TERM\" \"$COLORTERM\""
+    ///   终端尺寸：80 列 × 24 行
+    ///   预期环境：TERM=xterm-256color，COLORTERM=truecolor
+    ///
+    /// 执行过程：
+    ///   1. spawn_command(command, 80, 24) → PtyHandle 创建 PTY 并启动 /bin/sh
+    ///   2. sh 读取 TERM/COLORTERM 并输出 "xterm-256color/truecolor"
+    ///   3. 读线程把输出写入 Output 事件，进程退出后写入 Exited
+    ///
+    /// 预期结果：
+    ///   - 正断言：输出包含 "xterm-256color/truecolor"
+    ///   - 负断言：输出不应包含 "/\r" 或 "/" 后为空，否则 COLORTERM 未注入
+    ///   - 正断言：在 3 秒内收到 Exited
+    #[test]
+    fn test_spawn_command_sets_truecolor_terminal_environment() {
+        let (tx, rx) = unbounded();
+        let command =
+            PtyCommand::new("/bin/sh").args(["-c", "printf '%s/%s' \"$TERM\" \"$COLORTERM\""]);
+        let _pty = PtyHandle::spawn_command(command, 80, 24, tx).expect("spawn env command");
+
+        let mut acc = Vec::new();
+        let mut saw_exit = false;
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        while std::time::Instant::now() < deadline {
+            match rx.recv_timeout(Duration::from_millis(200)) {
+                Ok(PtyEvent::Output(b)) => acc.extend_from_slice(&b),
+                Ok(PtyEvent::Exited { .. }) => {
+                    saw_exit = true;
+                    break;
+                }
+                Err(_) => {}
+            }
+        }
+
+        let text = String::from_utf8_lossy(&acc);
+        assert!(
+            text.contains("xterm-256color/truecolor"),
+            "子进程应看到 true color 终端环境，实际输出: {:?}",
+            text
+        );
+        assert!(
+            !text.contains("/\r") && !text.ends_with('/'),
+            "COLORTERM 不应为空，否则 true color 程序可能不会输出 24-bit 颜色: {:?}",
+            text
+        );
+        assert!(saw_exit, "环境探测命令退出后应在超时内收到 Exited 事件");
     }
 }

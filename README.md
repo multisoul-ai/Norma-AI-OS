@@ -20,6 +20,7 @@ macOS 空间工作台脚手架（垂直切片）。核心抽象 **Live Node on I
 
 ## 开发命令
 - 运行：`cargo run -p app`
+- 自定义工作台壁纸：`MULTISOUL_WALLPAPER=/path/to/image.png cargo run -p app`（路径无效时回退到内置背景）
 - 域层单测：`cargo test -p canvas -p terminal -p runtime`
 - 全量测试：`cargo test --workspace`
 - 校验域层零 gpui：`cargo tree -p canvas -p terminal -p runtime | grep -i gpui`（应无输出）

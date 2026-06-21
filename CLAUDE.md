@@ -93,7 +93,7 @@ Important files:
 
 ## 4. Current User-Facing Behavior
 
-- `Cmd+N` creates a terminal node at an offset position.
+- `Cmd+N` creates a terminal node, then reflows all nodes into a row-major tiled grid with at most three columns.
 - Drag a node by its title bar.
 - Single-click selects a node; clicking blank canvas clears selection.
 - Double-click a terminal node to focus it.

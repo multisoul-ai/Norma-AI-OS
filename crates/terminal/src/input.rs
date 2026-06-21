@@ -62,7 +62,11 @@ mod tests {
     ///   - 负断言：!= [0x63]（不是裸字符 'c'，证明 ctrl 生效）
     #[test]
     fn test_ctrl_c_encodes_to_etx() {
-        let out = encode(&KeyInput { key: Key::Char('c'), ctrl: true, alt: false });
+        let out = encode(&KeyInput {
+            key: Key::Char('c'),
+            ctrl: true,
+            alt: false,
+        });
         assert_eq!(out, vec![0x03], "Ctrl+C 应编码为 0x03（'c'&0x1f）");
         assert_ne!(out, vec![0x63], "不应是裸 'c'(0x63)，说明 ctrl 修饰未生效");
     }
@@ -73,7 +77,11 @@ mod tests {
     ///   - 正断言：'a' → [0x61]
     #[test]
     fn test_plain_char() {
-        let out = encode(&KeyInput { key: Key::Char('a'), ctrl: false, alt: false });
+        let out = encode(&KeyInput {
+            key: Key::Char('a'),
+            ctrl: false,
+            alt: false,
+        });
         assert_eq!(out, vec![0x61], "'a' 应编码为单字节 0x61");
     }
 
@@ -84,10 +92,42 @@ mod tests {
     /// 预期结果：四个特殊键各自映射正确
     #[test]
     fn test_special_control_bytes() {
-        assert_eq!(encode(&KeyInput { key: Key::Enter, ctrl: false, alt: false }), vec![0x0d], "Enter → CR");
-        assert_eq!(encode(&KeyInput { key: Key::Tab, ctrl: false, alt: false }), vec![0x09], "Tab → HT");
-        assert_eq!(encode(&KeyInput { key: Key::Backspace, ctrl: false, alt: false }), vec![0x7f], "Backspace → DEL");
-        assert_eq!(encode(&KeyInput { key: Key::Escape, ctrl: false, alt: false }), vec![0x1b], "Escape → ESC");
+        assert_eq!(
+            encode(&KeyInput {
+                key: Key::Enter,
+                ctrl: false,
+                alt: false
+            }),
+            vec![0x0d],
+            "Enter → CR"
+        );
+        assert_eq!(
+            encode(&KeyInput {
+                key: Key::Tab,
+                ctrl: false,
+                alt: false
+            }),
+            vec![0x09],
+            "Tab → HT"
+        );
+        assert_eq!(
+            encode(&KeyInput {
+                key: Key::Backspace,
+                ctrl: false,
+                alt: false
+            }),
+            vec![0x7f],
+            "Backspace → DEL"
+        );
+        assert_eq!(
+            encode(&KeyInput {
+                key: Key::Escape,
+                ctrl: false,
+                alt: false
+            }),
+            vec![0x1b],
+            "Escape → ESC"
+        );
     }
 
     /// 方向键编码为 CSI 序列 ESC [ A/B/C/D。
@@ -99,12 +139,40 @@ mod tests {
     ///   - 负断言：Up 序列长度为 3（不是裸字节）
     #[test]
     fn test_arrow_keys_csi() {
-        let up = encode(&KeyInput { key: Key::Up, ctrl: false, alt: false });
+        let up = encode(&KeyInput {
+            key: Key::Up,
+            ctrl: false,
+            alt: false,
+        });
         assert_eq!(up, vec![0x1b, b'[', b'A'], "Up 应为 CSI A 序列");
         assert_eq!(up.len(), 3, "方向键应是 3 字节 CSI 序列");
-        assert_eq!(encode(&KeyInput { key: Key::Down, ctrl: false, alt: false }), vec![0x1b, b'[', b'B'], "Down → CSI B");
-        assert_eq!(encode(&KeyInput { key: Key::Right, ctrl: false, alt: false }), vec![0x1b, b'[', b'C'], "Right → CSI C");
-        assert_eq!(encode(&KeyInput { key: Key::Left, ctrl: false, alt: false }), vec![0x1b, b'[', b'D'], "Left → CSI D");
+        assert_eq!(
+            encode(&KeyInput {
+                key: Key::Down,
+                ctrl: false,
+                alt: false
+            }),
+            vec![0x1b, b'[', b'B'],
+            "Down → CSI B"
+        );
+        assert_eq!(
+            encode(&KeyInput {
+                key: Key::Right,
+                ctrl: false,
+                alt: false
+            }),
+            vec![0x1b, b'[', b'C'],
+            "Right → CSI C"
+        );
+        assert_eq!(
+            encode(&KeyInput {
+                key: Key::Left,
+                ctrl: false,
+                alt: false
+            }),
+            vec![0x1b, b'[', b'D'],
+            "Left → CSI D"
+        );
     }
 
     /// Alt+char 前缀 ESC（meta 键约定：ESC 后跟字符）。
@@ -115,7 +183,11 @@ mod tests {
     ///   - 正断言：Alt+'b' → [0x1b, 0x62]
     #[test]
     fn test_alt_prefixes_esc() {
-        let out = encode(&KeyInput { key: Key::Char('b'), ctrl: false, alt: true });
+        let out = encode(&KeyInput {
+            key: Key::Char('b'),
+            ctrl: false,
+            alt: true,
+        });
         assert_eq!(out, vec![0x1b, 0x62], "Alt+b 应为 ESC 前缀 + 'b'");
     }
 }

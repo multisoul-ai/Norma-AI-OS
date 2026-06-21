@@ -5,8 +5,8 @@ pub mod message;
 pub mod pty;
 pub mod session;
 
-pub use grid::{Cell, GridSnapshot, TerminalGrid};
+pub use grid::{Cell, CellAttrs, GridSnapshot, TerminalColor, TerminalGrid, TerminalNamedColor};
 pub use input::{encode, Key, KeyInput};
 pub use message::PtyEvent;
-pub use pty::{PtyError, PtyHandle};
+pub use pty::{PtyCommand, PtyError, PtyHandle};
 pub use session::{TerminalSession, TerminalSessionId, TerminalStatus};

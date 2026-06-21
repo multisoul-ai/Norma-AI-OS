@@ -11,6 +11,11 @@ pub mod selection;
 pub use document::Document;
 pub use geometry::{CanvasRect, Transform2D, Vec2, Viewport};
 pub use hit_test::hit_test;
-pub use layout::{compute_instant_bsp_layout, InstantBspConfig, LayoutAssignment};
-pub use node::{CanvasNode, CanvasNodeKind, NodeId, RectNode, TerminalNodeRef};
+pub use layout::{
+    compute_responsive_grid_layout, compute_tiled_grid_layout, LayoutAssignment, LayoutInsets,
+    ResponsiveGridConfig, TiledGridConfig, DEFAULT_CARD_ASPECT_RATIO,
+};
+pub use node::{
+    AgentNodeRef, AgentProfile, CanvasNode, CanvasNodeKind, NodeId, RectNode, TerminalNodeRef,
+};
 pub use selection::Selection;

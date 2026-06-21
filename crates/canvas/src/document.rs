@@ -67,6 +67,12 @@ impl Document {
             n.bounds = bounds;
         }
     }
+
+    /// 移除指定节点并返回被移除的节点；不存在的 id 返回 None。
+    pub fn remove_node(&mut self, id: NodeId) -> Option<CanvasNode> {
+        let index = self.nodes.iter().position(|node| node.id == id)?;
+        Some(self.nodes.remove(index))
+    }
 }
 
 #[cfg(test)]
@@ -193,6 +199,76 @@ mod tests {
         assert_ne!(
             node_b.bounds, new_bounds,
             "B bounds 不应等于 A 的 new_bounds，否则说明错误更新了多个节点"
+        );
+    }
+
+    /// remove_node 移除指定节点并返回被移除的节点，其它节点保持原顺序与 bounds。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   A: id=1, color=0x4080ff, bounds=(0,0,100,80)
+    ///   B: id=2, color=0xff8040, bounds=(200,0,120,90)
+    ///   C: id=3, color=0x35d07f, bounds=(400,0,140,100)
+    ///   add_node 从 1 递增，因此删除 B 后应只剩 id=1 与 id=3
+    ///
+    /// 执行过程：
+    ///   1. add A/B/C → document.nodes() = [1,2,3]
+    ///   2. remove_node(B) → 从 Vec 中移除 id=2，并返回原 B 节点
+    ///   3. 查询 A/B/C 与节点列表验证状态
+    ///   4. remove_node(999) → 不存在的 id 不改变文档
+    ///
+    /// 预期结果：
+    ///   - 正断言：返回的 removed.id == B，且 B 已无法查询
+    ///   - 正断言：A 与 C 仍存在，C bounds 保持原值
+    ///   - 负断言：nodes 中不再包含 B，remove_node(999) 不应返回节点
+    #[test]
+    fn test_remove_node_deletes_target_and_preserves_others() {
+        let mut doc = Document::new();
+        let a = doc.add_node(
+            CanvasNodeKind::Rect(RectNode { color: 0x4080ff }),
+            CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+        );
+        let b = doc.add_node(
+            CanvasNodeKind::Rect(RectNode { color: 0xff8040 }),
+            CanvasRect::new(200.0, 0.0, 120.0, 90.0),
+        );
+        let c_bounds = CanvasRect::new(400.0, 0.0, 140.0, 100.0);
+        let c = doc.add_node(CanvasNodeKind::Rect(RectNode { color: 0x35d07f }), c_bounds);
+
+        let removed = doc.remove_node(b);
+
+        assert!(
+            removed.is_some(),
+            "remove_node(B) 应返回 Some，被删除节点需要交给 runtime 做资源清理"
+        );
+        assert_eq!(
+            removed.unwrap().id,
+            b,
+            "remove_node(B) 返回的节点 id 应等于被请求删除的 B"
+        );
+        assert!(doc.node(a).is_some(), "删除 B 不应影响 A，A 应仍可被查询到");
+        assert!(
+            doc.node(b).is_none(),
+            "删除 B 后 node(B) 应返回 None，证明卡片已从文档移除"
+        );
+        assert_eq!(
+            doc.node(c).expect("C 应仍存在").bounds,
+            c_bounds,
+            "删除 B 不应改动 C 的 bounds"
+        );
+        assert!(
+            !doc.nodes().iter().any(|node| node.id == b),
+            "nodes 列表不应再包含 B，否则渲染层仍会显示这张卡片"
+        );
+
+        let missing = doc.remove_node(999);
+        assert!(
+            missing.is_none(),
+            "remove_node(999) 应返回 None，不存在的节点不能伪造删除结果"
+        );
+        assert_eq!(
+            doc.nodes().len(),
+            2,
+            "删除不存在节点后节点数应保持 2，不应误删 A 或 C"
         );
     }
 

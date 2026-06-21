@@ -3,7 +3,7 @@
 use crate::grid::{GridSnapshot, TerminalGrid};
 use crate::input::{encode, KeyInput};
 use crate::message::PtyEvent;
-use crate::pty::{PtyError, PtyHandle};
+use crate::pty::{PtyCommand, PtyError, PtyHandle};
 use crossbeam_channel::{unbounded, Receiver, TryRecvError};
 
 pub type TerminalSessionId = u64;
@@ -31,8 +31,17 @@ impl TerminalSession {
         cols: u16,
         rows: u16,
     ) -> Result<TerminalSession, PtyError> {
+        Self::spawn_command(id, PtyCommand::new(shell), cols, rows)
+    }
+
+    pub fn spawn_command(
+        id: TerminalSessionId,
+        command: PtyCommand,
+        cols: u16,
+        rows: u16,
+    ) -> Result<TerminalSession, PtyError> {
         let (tx, rx) = unbounded();
-        let pty = PtyHandle::spawn(shell, cols, rows, tx)?;
+        let pty = PtyHandle::spawn_command(command, cols, rows, tx)?;
         let grid = TerminalGrid::new(cols, rows);
         Ok(TerminalSession {
             id,
@@ -129,7 +138,8 @@ mod tests {
     #[test]
     fn test_session_runs_command_and_marks_exit() {
         let mut s = TerminalSession::spawn(1, "/bin/sh", 80, 24).expect("spawn 应成功");
-        s.write_bytes(b"printf ABC; exit\n").expect("write_bytes 应成功");
+        s.write_bytes(b"printf ABC; exit\n")
+            .expect("write_bytes 应成功");
 
         let mut any_dirty = false;
         let deadline = Instant::now() + Duration::from_secs(3);
@@ -146,7 +156,10 @@ mod tests {
         let snap = s.snapshot();
         let first_row: String = snap.rows[0].iter().map(|c| c.c).collect();
 
-        assert!(any_dirty, "运行命令后至少一次 drain 应返回 dirty=true，否则说明通道未收到输出");
+        assert!(
+            any_dirty,
+            "运行命令后至少一次 drain 应返回 dirty=true，否则说明通道未收到输出"
+        );
         assert!(
             first_row.contains("ABC"),
             "首行应包含命令输出 'ABC'，实际: {:?}",
@@ -161,6 +174,67 @@ mod tests {
             s.status,
             TerminalStatus::Running,
             "shell 已退出，status 不应仍为 Running"
+        );
+    }
+
+    /// spawn_command 将程序参数传给子进程，命令输出进入 grid 并退出。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   PtyCommand:
+    ///     program = "/bin/sh"
+    ///     args    = ["-lc", "printf ARG_OK; exit"]
+    ///   终端尺寸：80 列 × 24 行
+    ///   session_id = 5（固定值，验证构造路径不改写 id）
+    ///
+    /// 执行过程：
+    ///   1. spawn_command(5, command, 80, 24) → CommandBuilder 以 /bin/sh 为 argv[0]
+    ///   2. CommandBuilder 追加 "-lc" 和 "printf ARG_OK; exit"
+    ///   3. 子进程执行 printf，PTY 读线程投递 Output(bytes)
+    ///   4. 循环 drain 直到 status=Exited 或 3 秒超时
+    ///   5. snapshot() 汇总屏幕文本
+    ///
+    /// 预期结果：
+    ///   - 正断言：session.id == 5
+    ///   - 正断言：屏幕文本包含 "ARG_OK"（证明参数命令实际执行）
+    ///   - 正断言：最终 status == Exited
+    ///   - 负断言：屏幕文本不应包含 "ARG_MISSING"（不是误读默认 shell 输出）
+    #[test]
+    fn test_spawn_command_passes_arguments_to_child_process() {
+        let command = PtyCommand::new("/bin/sh").args(["-lc", "printf ARG_OK; exit"]);
+        let mut s =
+            TerminalSession::spawn_command(5, command, 80, 24).expect("spawn_command 应成功");
+
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while Instant::now() < deadline {
+            s.drain();
+            if matches!(s.status, TerminalStatus::Exited { .. }) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+
+        let snap = s.snapshot();
+        let screen_text: String = snap
+            .rows
+            .iter()
+            .flat_map(|row| row.iter().map(|cell| cell.c))
+            .collect();
+
+        assert_eq!(s.id, 5, "spawn_command 应保留传入的 session_id=5");
+        assert!(
+            screen_text.contains("ARG_OK"),
+            "带参数命令应输出 ARG_OK，实际屏幕文本: {:?}",
+            screen_text
+        );
+        assert!(
+            matches!(s.status, TerminalStatus::Exited { .. }),
+            "命令包含 exit，drain 后 session 应进入 Exited，实际: {:?}",
+            s.status
+        );
+        assert!(
+            !screen_text.contains("ARG_MISSING"),
+            "屏幕文本不应包含未执行命令的哨兵 ARG_MISSING，实际: {:?}",
+            screen_text
         );
     }
 
@@ -181,7 +255,11 @@ mod tests {
     #[test]
     fn test_write_input_encodes_without_error() {
         let mut s = TerminalSession::spawn(2, "/bin/sh", 80, 24).expect("spawn 应成功");
-        let result = s.write_input(&KeyInput { key: Key::Enter, ctrl: false, alt: false });
+        let result = s.write_input(&KeyInput {
+            key: Key::Enter,
+            ctrl: false,
+            alt: false,
+        });
         assert!(result.is_ok(), "write_input(Enter) 应成功写入 PTY，返回 Ok");
         assert!(
             !result.is_err(),

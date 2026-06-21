@@ -8,7 +8,12 @@ pub enum InputEvent {
     /// 单击，hit 为命中的节点（None = 空白）。
     Click { hit: Option<NodeId> },
     /// 双击，is_terminal 表示命中的是否为终端节点。
-    DoubleClick { hit: Option<NodeId>, is_terminal: bool },
+    DoubleClick {
+        hit: Option<NodeId>,
+        is_terminal: bool,
+    },
+    /// 请求关闭/删除某个节点。
+    CloseNode { node: NodeId },
     /// 一次键盘按键（具体编码在 terminal::input 完成）。
     Key,
     /// Esc。
@@ -20,6 +25,7 @@ pub enum Route {
     SelectNode(NodeId),
     ClearSelection,
     FocusTerminal(NodeId),
+    RemoveNode(NodeId),
     SendKeyToTerminal(NodeId),
     ExitTerminalFocus,
     Ignore,
@@ -30,8 +36,15 @@ pub fn route(mode: &InputMode, event: &InputEvent) -> Route {
         InputMode::CanvasSelect => match event {
             InputEvent::Click { hit: Some(id) } => Route::SelectNode(*id),
             InputEvent::Click { hit: None } => Route::ClearSelection,
-            InputEvent::DoubleClick { hit: Some(id), is_terminal: true } => Route::FocusTerminal(*id),
-            InputEvent::DoubleClick { hit: Some(id), is_terminal: false } => Route::SelectNode(*id),
+            InputEvent::CloseNode { node } => Route::RemoveNode(*node),
+            InputEvent::DoubleClick {
+                hit: Some(id),
+                is_terminal: true,
+            } => Route::FocusTerminal(*id),
+            InputEvent::DoubleClick {
+                hit: Some(id),
+                is_terminal: false,
+            } => Route::SelectNode(*id),
             InputEvent::DoubleClick { hit: None, .. } => Route::ClearSelection,
             InputEvent::Key => Route::Ignore,
             InputEvent::Escape => Route::Ignore,
@@ -41,8 +54,15 @@ pub fn route(mode: &InputMode, event: &InputEvent) -> Route {
             InputEvent::Key => Route::SendKeyToTerminal(*fid),
             InputEvent::Click { hit: Some(id) } => Route::SelectNode(*id),
             InputEvent::Click { hit: None } => Route::ClearSelection,
-            InputEvent::DoubleClick { hit: Some(id), is_terminal: true } => Route::FocusTerminal(*id),
-            InputEvent::DoubleClick { hit: Some(id), is_terminal: false } => Route::SelectNode(*id),
+            InputEvent::CloseNode { node } => Route::RemoveNode(*node),
+            InputEvent::DoubleClick {
+                hit: Some(id),
+                is_terminal: true,
+            } => Route::FocusTerminal(*id),
+            InputEvent::DoubleClick {
+                hit: Some(id),
+                is_terminal: false,
+            } => Route::SelectNode(*id),
             InputEvent::DoubleClick { hit: None, .. } => Route::ClearSelection,
         },
     }
@@ -59,7 +79,10 @@ mod tests {
     ///   - 负断言：结果不是 ClearSelection（命中了就不该清空）
     #[test]
     fn test_canvas_click_hit_selects() {
-        let r = route(&InputMode::CanvasSelect, &InputEvent::Click { hit: Some(5) });
+        let r = route(
+            &InputMode::CanvasSelect,
+            &InputEvent::Click { hit: Some(5) },
+        );
         assert_eq!(r, Route::SelectNode(5), "命中节点单击应 SelectNode(5)");
         assert_ne!(r, Route::ClearSelection, "命中时不应清空选择");
     }
@@ -83,10 +106,22 @@ mod tests {
     ///   - 负断言：非终端双击不聚焦（→ SelectNode）
     #[test]
     fn test_canvas_double_click_terminal_focuses() {
-        let r = route(&InputMode::CanvasSelect, &InputEvent::DoubleClick { hit: Some(9), is_terminal: true });
+        let r = route(
+            &InputMode::CanvasSelect,
+            &InputEvent::DoubleClick {
+                hit: Some(9),
+                is_terminal: true,
+            },
+        );
         assert_eq!(r, Route::FocusTerminal(9), "双击终端节点应聚焦终端");
 
-        let r2 = route(&InputMode::CanvasSelect, &InputEvent::DoubleClick { hit: Some(9), is_terminal: false });
+        let r2 = route(
+            &InputMode::CanvasSelect,
+            &InputEvent::DoubleClick {
+                hit: Some(9),
+                is_terminal: false,
+            },
+        );
         assert_eq!(r2, Route::SelectNode(9), "双击非终端节点应只选中");
     }
 
@@ -115,7 +150,11 @@ mod tests {
     fn test_canvas_key_ignored() {
         let r = route(&InputMode::CanvasSelect, &InputEvent::Key);
         assert_eq!(r, Route::Ignore, "画布模式下普通按键应忽略");
-        assert_ne!(r, Route::SendKeyToTerminal(0), "画布模式按键不应路由到任何终端");
+        assert_ne!(
+            r,
+            Route::SendKeyToTerminal(0),
+            "画布模式按键不应路由到任何终端"
+        );
     }
 
     /// 画布模式下 Esc 也被忽略（未聚焦终端时 Esc 无意义）。
@@ -127,7 +166,11 @@ mod tests {
     fn test_canvas_escape_ignored() {
         let r = route(&InputMode::CanvasSelect, &InputEvent::Escape);
         assert_eq!(r, Route::Ignore, "画布模式下 Esc 应被忽略");
-        assert_ne!(r, Route::ExitTerminalFocus, "画布模式无聚焦终端，Esc 不应产生 ExitTerminalFocus");
+        assert_ne!(
+            r,
+            Route::ExitTerminalFocus,
+            "画布模式无聚焦终端，Esc 不应产生 ExitTerminalFocus"
+        );
     }
 
     /// 终端聚焦模式下双击空白 → 清空选择并隐式退出（ClearSelection，不是 ExitTerminalFocus）。
@@ -137,8 +180,66 @@ mod tests {
     ///   - 负断言：不是 ExitTerminalFocus（双击空白不算显式退出终端）
     #[test]
     fn test_terminal_focus_double_click_empty_clears() {
-        let r = route(&InputMode::TerminalFocused(3), &InputEvent::DoubleClick { hit: None, is_terminal: false });
-        assert_eq!(r, Route::ClearSelection, "聚焦态双击空白应产生 ClearSelection");
-        assert_ne!(r, Route::ExitTerminalFocus, "双击空白不是显式退出聚焦，不应产生 ExitTerminalFocus");
+        let r = route(
+            &InputMode::TerminalFocused(3),
+            &InputEvent::DoubleClick {
+                hit: None,
+                is_terminal: false,
+            },
+        );
+        assert_eq!(
+            r,
+            Route::ClearSelection,
+            "聚焦态双击空白应产生 ClearSelection"
+        );
+        assert_ne!(
+            r,
+            Route::ExitTerminalFocus,
+            "双击空白不是显式退出聚焦，不应产生 ExitTerminalFocus"
+        );
+    }
+
+    /// 点击节点标题栏的关闭按钮 → 路由为 RemoveNode，而不是普通选中或清空。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   close target node_id = 7（来自 UI 渲染时捕获的卡片 id）
+    ///   当前模式分别覆盖 CanvasSelect 与 TerminalFocused(7)
+    ///
+    /// 执行过程：
+    ///   1. CanvasSelect + CloseNode(7) → route
+    ///   2. TerminalFocused(7) + CloseNode(7) → route
+    ///   3. 对结果做正负断言
+    ///
+    /// 预期结果：
+    ///   - 正断言：两个模式下都返回 RemoveNode(7)
+    ///   - 负断言：关闭按钮不应退化为 SelectNode 或 ClearSelection
+    #[test]
+    fn test_close_node_routes_to_remove_node() {
+        let from_canvas = route(&InputMode::CanvasSelect, &InputEvent::CloseNode { node: 7 });
+        let from_focus = route(
+            &InputMode::TerminalFocused(7),
+            &InputEvent::CloseNode { node: 7 },
+        );
+
+        assert_eq!(
+            from_canvas,
+            Route::RemoveNode(7),
+            "画布模式点击关闭按钮应路由为 RemoveNode(7)"
+        );
+        assert_eq!(
+            from_focus,
+            Route::RemoveNode(7),
+            "终端聚焦模式点击自身关闭按钮也应路由为 RemoveNode(7)"
+        );
+        assert_ne!(
+            from_canvas,
+            Route::SelectNode(7),
+            "关闭按钮不应只选中节点，否则卡片不会被删除"
+        );
+        assert_ne!(
+            from_focus,
+            Route::ClearSelection,
+            "关闭按钮不应只清空选择，否则 terminal-backed session 会泄漏"
+        );
     }
 }
