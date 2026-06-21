@@ -270,6 +270,21 @@ impl MultisoulApp {
             if route(&self.runtime.focus.mode(), &InputEvent::Key)
                 == Route::SendInputToNode(node_id)
             {
+                // Cmd+V: read clipboard and send raw UTF-8 bytes to PTY.
+                if ev.keystroke.modifiers.platform && ev.keystroke.key == "v" {
+                    if let Some(item) = cx.read_from_clipboard() {
+                        if let Some(text) = item.text() {
+                            if let Err(e) =
+                                self.runtime.send_node_input(node_id, NodeInput::Text(text))
+                            {
+                                tracing::error!(error = %e, "paste send_node_input failed");
+                            }
+                        }
+                    }
+                    cx.notify();
+                    return;
+                }
+
                 if let Some(input) = keystroke_to_input(&ev.keystroke) {
                     if let Err(e) = self.runtime.send_node_input(node_id, NodeInput::Key(input)) {
                         tracing::error!(error = %e, "send_node_input failed");

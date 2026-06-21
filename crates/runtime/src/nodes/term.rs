@@ -57,6 +57,10 @@ impl LiveNode for TermLive {
     fn input(&mut self, input: NodeInput) -> Result<(), NodeError> {
         match input {
             NodeInput::Key(key) => self.session.write_input(&key).map_err(NodeError::from),
+            NodeInput::Text(s) => self
+                .session
+                .write_bytes(s.as_bytes())
+                .map_err(NodeError::from),
         }
     }
 
