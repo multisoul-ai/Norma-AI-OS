@@ -2,7 +2,6 @@
 mod app;
 mod app_ime;
 mod app_lifecycle;
-mod app_toolbar;
 mod assets;
 mod canvas_view;
 mod cards;

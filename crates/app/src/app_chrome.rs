@@ -178,27 +178,6 @@ impl MultisoulApp {
             .child(
                 div()
                     .absolute()
-                    .right(px(24.0))
-                    .top(px(34.0))
-                    .h(px(38.0))
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap_2()
-                    .px(px(14.0))
-                    .rounded(px(19.0))
-                    .shadow(chrome_shadow(theme))
-                    .bg(rgba(theme.accent_orange))
-                    .text_color(rgba(0xffffffff))
-                    .text_size(px(12.0))
-                    .child(chrome_button(theme, "!", true))
-                    .child("Feedback")
-                    .id("workspace-feedback")
-                    .on_click(cx.listener(Self::on_feedback_click)),
-            )
-            .child(
-                div()
-                    .absolute()
                     .left(px(bottom_left))
                     .bottom(px(22.0))
                     .w(px(bottom_w))
@@ -383,6 +362,51 @@ mod tests {
         assert!(
             !render_source.contains(&trailing_star_button),
             "顶部菜单不应继续挂载截图中最后的星号占位按钮"
+        );
+    }
+
+    /// 右上角反馈入口：workspace chrome 不应再挂载反馈按钮。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   source = include_str!("app_chrome.rs")（检查当前 chrome 源码）
+    ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
+    ///   toolbar id = "toolbar" + "-new-terminal"（应继续存在，证明顶部工具栏没有被误删）
+    ///   forbidden label = "Feed" + "back"（用户要求删除的按钮文案）
+    ///   forbidden id = "workspace-" + "feedback"（旧按钮命中 id）
+    ///   forbidden handler = "on_" + "feedback" + "_click"（旧按钮点击处理入口）
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 读取 app_chrome.rs 的生产渲染源码
+    ///   2. 确认 toolbar-new-terminal 仍存在 → chrome 基本结构仍在
+    ///   3. 搜索旧反馈按钮的文案、id、点击 handler
+    ///
+    /// 预期结果：
+    ///   - 正断言：顶部新终端按钮仍存在
+    ///   - 负断言：旧反馈文案、id、handler 不应继续出现在 chrome 渲染源码中
+    #[test]
+    fn test_workspace_chrome_omits_feedback_entry() {
+        let source = include_str!("app_chrome.rs");
+        let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
+        let toolbar_new_terminal_id = concat!("toolbar", "-new-terminal");
+        let feedback_label = format!("{}{}", "Feed", "back");
+        let feedback_id = format!("{}{}", "workspace-", "feedback");
+        let feedback_handler = format!("{}{}{}", "on_", "feedback", "_click");
+
+        assert!(
+            render_source.contains(toolbar_new_terminal_id),
+            "workspace chrome 应保留顶部新终端按钮，避免测试因 chrome 被整体删除而误通过"
+        );
+        assert!(
+            !render_source.contains(&feedback_label),
+            "workspace chrome 不应继续渲染右上角反馈按钮文案"
+        );
+        assert!(
+            !render_source.contains(&feedback_id),
+            "workspace chrome 不应继续挂载旧反馈按钮 id"
+        );
+        assert!(
+            !render_source.contains(&feedback_handler),
+            "workspace chrome 不应继续绑定旧反馈按钮点击 handler"
         );
     }
 }
