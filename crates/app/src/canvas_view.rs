@@ -2,8 +2,8 @@
 //! viewport culling：屏幕外节点不构建元素。
 
 use crate::app::MultisoulApp;
-use crate::cards::card_for;
 use crate::cards::chrome::{node_shadow, TITLE_BAR_H};
+use crate::cards::{card_for, CardBodyContext};
 use canvas::{hit_test, CanvasRect, NodeId, Vec2};
 use gpui::{
     div, prelude::*, px, rgba, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
@@ -366,12 +366,12 @@ pub fn render_canvas(
         // 内容
         node_div = node_div.child(card.body(
             &node,
-            &app.runtime,
-            theme,
-            vp.zoom,
-            node_terminal_radius_px(vp.zoom),
-            window,
-            cx,
+            CardBodyContext {
+                runtime: &app.runtime,
+                theme,
+                zoom: vp.zoom,
+                bottom_radius_px: node_terminal_radius_px(vp.zoom),
+            },
         ));
 
         node_elems.push(node_div);

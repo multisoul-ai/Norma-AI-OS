@@ -1,10 +1,14 @@
 # cargo-packager 配置（未签名 .app/.dmg）。字段以 cargo-packager 文档为准，
 # 若 schema 不符按 https://docs.crabnebula.dev/packager/ 校准。
+name = "app"
 product-name = "Multisoul"
 version = "0.1.0"
 identifier = "com.multisoul.desktop"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
+icons = ["assets/AppIcon.icns"]
+out-dir = "build"
+binaries-dir = "."
 
 # 指向 release 二进制
 [[binaries]]

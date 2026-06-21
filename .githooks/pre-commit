@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Multisoul Desktop pre-commit gate. Keep cheap staged checks first.
+
+set -euo pipefail
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+bash scripts/check-max-file-lines.sh --staged
+bash scripts/check-no-allow.sh --staged
+
+staged_rust=$(
+  git diff --cached --name-only --diff-filter=ACMR |
+    grep -E '(^crates/.*\.rs$|^src/.*\.rs$|^Cargo\.toml$|^Cargo\.lock$|^rust-toolchain\.toml$)' ||
+    true
+)
+
+if [ -n "$staged_rust" ]; then
+  echo "[pre-commit] running cargo check..."
+  cargo check --workspace --quiet
+
+  echo "[pre-commit] running cargo fmt --check..."
+  cargo fmt --check
+fi

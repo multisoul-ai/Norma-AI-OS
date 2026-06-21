@@ -4,27 +4,24 @@ pub mod agent;
 pub mod chrome;
 pub mod term;
 
-use crate::app::MultisoulApp;
 use canvas::{CanvasNode, CanvasRect, NodeType};
 use chrome::CardChrome;
-use gpui::{AnyElement, Context, Window};
+use gpui::AnyElement;
 use runtime::{NodeResize, Runtime};
 use ui::Theme;
 
 pub trait Card: Sync {
     fn ty(&self) -> NodeType;
     fn chrome(&self, node: &CanvasNode, runtime: &Runtime) -> CardChrome;
-    fn body(
-        &self,
-        node: &CanvasNode,
-        runtime: &Runtime,
-        theme: Theme,
-        zoom: f32,
-        bottom_radius_px: f32,
-        window: &mut Window,
-        cx: &mut Context<MultisoulApp>,
-    ) -> AnyElement;
+    fn body(&self, node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElement;
     fn resize(&self, bounds: CanvasRect, zoom: f32) -> Option<NodeResize>;
+}
+
+pub struct CardBodyContext<'a> {
+    pub runtime: &'a Runtime,
+    pub theme: Theme,
+    pub zoom: f32,
+    pub bottom_radius_px: f32,
 }
 
 pub fn card_for(ty: NodeType) -> &'static dyn Card {

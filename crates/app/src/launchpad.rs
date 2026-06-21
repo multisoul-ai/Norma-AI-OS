@@ -71,8 +71,7 @@ impl MultisoulApp {
                     .child("No recent projects"),
             );
         } else {
-            let records: Vec<WorkspaceRecord> =
-                self.workspace_state.recent.top(5).iter().cloned().collect();
+            let records: Vec<WorkspaceRecord> = self.workspace_state.recent.top(5).to_vec();
             list = list.children(
                 records
                     .into_iter()

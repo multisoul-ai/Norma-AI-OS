@@ -1,14 +1,12 @@
 //! Agent card renderer.
 
-use crate::app::MultisoulApp;
 use crate::cards::chrome::CardChrome;
 use crate::cards::term::card::term_resize;
 use crate::cards::term::view::render_terminal_node;
-use crate::cards::Card;
+use crate::cards::{Card, CardBodyContext};
 use canvas::{CanvasNode, CanvasNodeKind, CanvasRect, NodeType};
-use gpui::{AnyElement, Context, Window};
+use gpui::AnyElement;
 use runtime::{NodeResize, Runtime};
-use ui::Theme;
 
 pub struct AgentCard;
 
@@ -27,17 +25,13 @@ impl Card for AgentCard {
         CardChrome { title }
     }
 
-    fn body(
-        &self,
-        node: &CanvasNode,
-        runtime: &Runtime,
-        theme: Theme,
-        zoom: f32,
-        bottom_radius_px: f32,
-        _window: &mut Window,
-        _cx: &mut Context<MultisoulApp>,
-    ) -> AnyElement {
-        render_terminal_node(runtime.node_view(node.id), theme, zoom, bottom_radius_px)
+    fn body(&self, node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElement {
+        render_terminal_node(
+            context.runtime.node_view(node.id),
+            context.theme,
+            context.zoom,
+            context.bottom_radius_px,
+        )
     }
 
     fn resize(&self, bounds: CanvasRect, zoom: f32) -> Option<NodeResize> {

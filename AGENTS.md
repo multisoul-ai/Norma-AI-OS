@@ -26,6 +26,8 @@ Workspace 分层：
 - **版本钉死需审慎**：`gpui =0.2.2`、`alacritty_terminal =0.26`，升级前先验证 API。
 - **GPUI 代码先查 skills**：编写或修改 `crates/app`、`crates/ui` 的 GPUI 代码时，优先参考本地已安装的 `gpui-*` skills，再结合本仓库现有写法落地。
 - **单文件 ≤ 500 行**：Rust 源码由 [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh) 拦截，超长先拆职责。
+- **禁止 `#[allow(...)]`**：Rust 源码不得用 allow 压制编译器或 clippy 诊断；由 [`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截，必须修根因。
+- **本地 hook 可安装**：运行 `bash scripts/install-git-hooks.sh` 后，原生 pre-commit 会跑 staged 约束和轻量 Rust 检查。
 - **写代码前先 TDD**：新功能或 bugfix 先补能失败的聚焦测试，再实现。
 - **测试注释必须完整**：测试上方写场景、数据构造、执行过程、预期结果；关键数值写推导。
 - **断言必须具体**：每个 `assert!` / `assert_eq!` 带说明字符串；关键状态要有正断言和负断言。
@@ -73,6 +75,7 @@ Workspace 分层：
 | GPUI/打包相关 | `cargo build -p app --release` |
 | 域层依赖边界 | `cargo tree -p canvas -p terminal -p runtime | grep -i gpui` 应无输出 |
 | 代码行数 lint | `bash scripts/check-max-file-lines.sh` |
+| 禁止 `#[allow]` lint | `bash scripts/check-no-allow.sh` |
 
 ## 6. 常用命令
 
@@ -82,6 +85,8 @@ cargo test -p canvas -p terminal -p runtime
 cargo test --workspace
 cargo check -p app
 bash scripts/check-max-file-lines.sh
+bash scripts/check-no-allow.sh
+bash scripts/install-git-hooks.sh
 cargo build -p app --release
 cargo packager --release
 RUST_LOG=trace cargo run -p app

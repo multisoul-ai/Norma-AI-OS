@@ -60,7 +60,7 @@ fn main() {
                     window_background: WindowBackgroundAppearance::Blurred,
                     ..Default::default()
                 },
-                |_window, cx| cx.new(|cx| MultisoulApp::new(cx)),
+                |_window, cx| cx.new(MultisoulApp::new),
             )
             .expect("failed to open window");
             cx.activate(true);

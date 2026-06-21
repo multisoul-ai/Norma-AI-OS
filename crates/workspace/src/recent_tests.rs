@@ -45,11 +45,10 @@ fn test_record_opened_sorts_by_latest_and_dedupes_path() {
         "second 应作为较早打开项目排在第二位"
     );
     assert!(
-        !recent
-            .records
-            .iter()
-            .any(|record| record.path == PathBuf::from("/tmp/alpha-project")
-                && record.last_opened_at_unix == 10),
+        !recent.records.iter().any(|record| {
+            record.path.as_path() == std::path::Path::new("/tmp/alpha-project")
+                && record.last_opened_at_unix == 10
+        }),
         "旧 first@10 记录不应继续存在，否则最近项目会重复显示"
     );
 }

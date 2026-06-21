@@ -1,13 +1,11 @@
 //! Shared card chrome primitives.
 
-use crate::motion::{ResolvedNodeVisual, VisualPriority};
 use canvas::{CanvasNode, CanvasRect, NodeType};
-use gpui::{div, point, px, rgba, AnyElement, BoxShadow, Context, IntoElement, Window};
+use gpui::{div, point, px, rgba, AnyElement, BoxShadow, IntoElement};
 use runtime::{NodeResize, Runtime};
-use ui::Theme;
 
-use super::Card;
-use crate::app::MultisoulApp;
+use super::{Card, CardBodyContext};
+use crate::motion::{ResolvedNodeVisual, VisualPriority};
 
 pub const TITLE_BAR_H: f32 = 26.0;
 
@@ -51,16 +49,7 @@ impl Card for EmptyCard {
         }
     }
 
-    fn body(
-        &self,
-        _node: &CanvasNode,
-        _runtime: &Runtime,
-        _theme: Theme,
-        _zoom: f32,
-        _bottom_radius_px: f32,
-        _window: &mut Window,
-        _cx: &mut Context<MultisoulApp>,
-    ) -> AnyElement {
+    fn body(&self, _node: &CanvasNode, _context: CardBodyContext<'_>) -> AnyElement {
         div().into_any_element()
     }
 

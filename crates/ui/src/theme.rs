@@ -283,16 +283,18 @@ mod tests {
     /// 执行过程：
     ///   1. 创建主题实例
     ///   2. 验证 debug 格式化成功
-    ///   3. 验证 clone 生成独立副本
+    ///   3. 编译期验证 Theme 实现 Clone
     ///   4. 验证 copy 能够隐式复制
     ///
     /// 预期结果：
     ///   - format!("{:?}", theme) 应成功生成 Debug 字符串
     ///   - Debug 字符串应包含 "Theme" 字样
-    ///   - cloned_theme 应与原始 theme 的所有字段相同
+    ///   - Theme 应满足 Clone trait bound
     ///   - copy_theme 应与原始 theme 的所有字段相同
     #[test]
     fn test_theme_derives() {
+        fn assert_clone<T: Clone>() {}
+
         let theme = Theme::glass_light();
         let debug_str = format!("{:?}", theme);
         assert!(
@@ -300,15 +302,7 @@ mod tests {
             "Debug output should contain 'Theme'"
         );
 
-        let cloned_theme = theme.clone();
-        assert_eq!(
-            cloned_theme.canvas_from, theme.canvas_from,
-            "Cloned theme should have same canvas_from"
-        );
-        assert_eq!(
-            cloned_theme.text, theme.text,
-            "Cloned theme should have same text color"
-        );
+        assert_clone::<Theme>();
 
         let copy_theme = theme;
         assert_eq!(

@@ -36,8 +36,9 @@ ui -> gpui
 - **Pinned libraries require verification**: `gpui =0.2.2` and `alacritty_terminal =0.26` are pinned in the workspace. Upgrade only after checking API compatibility.
 - **Consult GPUI skills first**: when writing GPUI code in `crates/app` or `crates/ui`, load the relevant local `gpui-*` skill before inventing a pattern, then adapt it to this repository's pinned GPUI version and existing style.
 - **TDD before feature or bugfix work**: add a focused failing test first where the behavior can be tested below the GPUI layer.
-- **No broad suppressions**: do not hide Rust diagnostics with blanket allowances. Fix root causes.
+- **No `#[allow(...)]`**: do not hide Rust diagnostics with allow attributes. Fix root causes instead.
 - **Single Rust source files stay at or below 500 lines**: enforced by [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh); split responsibilities instead of raising the cap.
+- **Native pre-commit is available**: run `bash scripts/install-git-hooks.sh` to enable `.githooks/pre-commit`, which runs staged constraints plus lightweight Rust checks.
 - **Keep source files small enough to navigate**: split before a file turns into a mixed-responsibility dumping ground.
 - **Do not treat `.superpowers/sdd/` as the new documentation home**: it is useful historical construction context. New durable specs/plans should use a future `docs/` tree.
 
@@ -137,6 +138,18 @@ Code line-count lint:
 bash scripts/check-max-file-lines.sh
 ```
 
+No `#[allow(...)]` lint:
+
+```bash
+bash scripts/check-no-allow.sh
+```
+
+Install local Git hooks:
+
+```bash
+bash scripts/install-git-hooks.sh
+```
+
 App check:
 
 ```bash
@@ -190,6 +203,7 @@ RUST_LOG=trace cargo run -p app
 | GPUI boot, release, packaging | `cargo build -p app --release` |
 | Domain dependency discipline | `cargo tree -p canvas -p terminal -p runtime | grep -i gpui` should be empty |
 | Code line-count lint | `bash scripts/check-max-file-lines.sh` |
+| No `#[allow(...)]` lint | `bash scripts/check-no-allow.sh` |
 
 ## 7. Test Requirements
 

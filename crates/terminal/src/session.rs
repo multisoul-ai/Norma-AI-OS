@@ -262,7 +262,7 @@ mod tests {
         });
         assert!(result.is_ok(), "write_input(Enter) 应成功写入 PTY，返回 Ok");
         assert!(
-            !result.is_err(),
+            result.is_ok(),
             "write_input(Enter) 不应返回 Err，PTY 处于运行状态"
         );
         s.kill();

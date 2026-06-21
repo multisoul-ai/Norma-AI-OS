@@ -88,10 +88,6 @@ fn test_title_bar_hit_scales_with_zoom() {
 
     assert!(in_title, "y=151.5 <= 100 + 26 * 2，应被识别为标题栏命中");
     assert!(!in_body, "y=153 > 100 + 26 * 2，应被识别为正文命中");
-    assert_ne!(
-        in_body, true,
-        "正文区域不应被误判为标题栏，否则单击正文不会聚焦节点"
-    );
 }
 
 /// 卡片圆角 token 应统一用于外壳、标题栏和顶部高亮线。

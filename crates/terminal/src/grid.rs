@@ -167,11 +167,11 @@ impl TerminalGrid {
             self.dims.screen_lines
         ];
 
-        for line in 0..self.dims.screen_lines {
-            for col in 0..self.dims.columns {
+        for (line, row) in rows.iter_mut().enumerate().take(self.dims.screen_lines) {
+            for (col, output_cell) in row.iter_mut().enumerate().take(self.dims.columns) {
                 let point = Point::new(Line(line as i32), Column(col));
                 let cell = &grid[point];
-                rows[line][col] = Cell {
+                *output_cell = Cell {
                     c: cell.c,
                     fg: terminal_color(cell.fg),
                     bg: terminal_color(cell.bg),

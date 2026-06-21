@@ -1,13 +1,11 @@
 //! Terminal card renderer.
 
-use crate::app::MultisoulApp;
 use crate::cards::chrome::{CardChrome, TITLE_BAR_H};
 use crate::cards::term::view::{render_terminal_node, TERM_CELL_PX, TERM_LINE_PX, TERM_PADDING_PX};
-use crate::cards::Card;
+use crate::cards::{Card, CardBodyContext};
 use canvas::{CanvasNode, CanvasRect, NodeType};
-use gpui::{AnyElement, Context, Window};
+use gpui::AnyElement;
 use runtime::{NodeResize, Runtime};
-use ui::Theme;
 
 const MIN_TERMINAL_COLS: u16 = 20;
 const MIN_TERMINAL_ROWS: u16 = 3;
@@ -25,17 +23,13 @@ impl Card for TermCard {
         CardChrome { title: "Terminal" }
     }
 
-    fn body(
-        &self,
-        node: &CanvasNode,
-        runtime: &Runtime,
-        theme: Theme,
-        zoom: f32,
-        bottom_radius_px: f32,
-        _window: &mut Window,
-        _cx: &mut Context<MultisoulApp>,
-    ) -> AnyElement {
-        render_terminal_node(runtime.node_view(node.id), theme, zoom, bottom_radius_px)
+    fn body(&self, node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElement {
+        render_terminal_node(
+            context.runtime.node_view(node.id),
+            context.theme,
+            context.zoom,
+            context.bottom_radius_px,
+        )
     }
 
     fn resize(&self, bounds: CanvasRect, zoom: f32) -> Option<NodeResize> {
