@@ -368,9 +368,17 @@ fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
 
 /// paste_bytes_from_clipboard_text 从剪贴板文本生成应写入 PTY 的字节序列。
 ///
-/// 数据构造：
+/// 场景：剪贴板文本（含 ASCII 和多字节汉字）转换为 UTF-8 字节序列，
+///   供 NodeInput::Text 直接写入 PTY，不经过 keystroke 编码。
+///
+/// 数据构造（含关键数值的推导过程）：
 ///   clipboard text = "hello 世界"
 ///   UTF-8 bytes: b"hello " (6 bytes) + [0xe4,0xb8,0x96,0xe7,0x95,0x8c] (6 bytes) = 12 bytes
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 将字符串 "hello 世界" 转换为 as_bytes() 字节切片
+///   2. 断言字节内容与预期 UTF-8 编码一致
+///   3. 断言不为 b"v"（即未将 Cmd+V 的 'v' 键直传 PTY）
 ///
 /// 预期结果：
 ///   - 正断言：bytes == "hello 世界".as_bytes()
