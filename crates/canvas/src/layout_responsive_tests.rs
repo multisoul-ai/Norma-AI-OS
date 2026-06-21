@@ -49,7 +49,7 @@ fn test_responsive_grid_empty_ids_returns_no_assignments() {
     );
 }
 
-/// 响应式编排：窄宽度下即使有三个节点也退回一列。
+/// 响应式编排：窄宽度下即使有三个节点也退回一列，并按三行填满可用高度。
 ///
 /// 数据构造（含关键数值推导）：
 ///   area = origin(0,0) size(420x700)
@@ -58,15 +58,16 @@ fn test_responsive_grid_empty_ids_returns_no_assignments() {
 ///   candidate 2 宽度 = (420 - 16*(2+1)) / 2 = 186 < 320 → 不可用
 ///   columns = 1
 ///   tile_width = 420 - 16*(1+1) = 388
-///   tile_height = 388 / 1.6 = 242.5
+///   rows = ceil(3 / 1) = 3
+///   tile_height = (700 - 16*(3+1)) / 3 = 212
 ///
 /// 执行过程：
 ///   1. id=1 分到 row=0,col=0 → origin=(16,16)
-///   2. id=2 分到 row=1,col=0 → y=16+242.5+16=274.5
+///   2. id=2 分到 row=1,col=0 → y=16+212+16=244
 ///   3. id=3 分到 row=2,col=0
 ///
 /// 预期结果：
-///   - 正断言：id=1/id=2 均为一列宽 388
+///   - 正断言：id=1/id=2 均为一列宽 388、高 212
 ///   - 正断言：id=2 位于第二行第一列
 ///   - 负断言：id=2 不应位于两列布局的 x=218
 #[test]
@@ -91,7 +92,7 @@ fn test_responsive_grid_narrow_area_uses_one_column() {
     assert!(
         approx_rect(
             assignments[0].bounds,
-            CanvasRect::new(16.0, 16.0, 388.0, 242.5)
+            CanvasRect::new(16.0, 16.0, 388.0, 212.0)
         ),
         "id=1 应位于窄屏单列第一行，实际 {:?}",
         assignments[0].bounds
@@ -99,7 +100,7 @@ fn test_responsive_grid_narrow_area_uses_one_column() {
     assert!(
         approx_rect(
             assignments[1].bounds,
-            CanvasRect::new(16.0, 274.5, 388.0, 242.5)
+            CanvasRect::new(16.0, 244.0, 388.0, 212.0)
         ),
         "id=2 应位于窄屏单列第二行，实际 {:?}",
         assignments[1].bounds
@@ -110,7 +111,7 @@ fn test_responsive_grid_narrow_area_uses_one_column() {
     );
 }
 
-/// 响应式编排：中等宽度可放两列但不够三列。
+/// 响应式编排：中等宽度可放两列但不够三列，并按两行填满可用高度。
 ///
 /// 数据构造（含关键数值推导）：
 ///   area = origin(0,0) size(760x700)
@@ -118,12 +119,13 @@ fn test_responsive_grid_narrow_area_uses_one_column() {
 ///   candidate 2 宽度 = (760 - 16*(2+1)) / 2 = 356 >= 320 → 可用
 ///   candidate 3 宽度 = (760 - 16*(3+1)) / 3 = 232 < 320 → 不可用
 ///   columns = 2
-///   tile_height = 356 / 1.6 = 222.5
+///   rows = ceil(3 / 2) = 2
+///   tile_height = (700 - 16*(2+1)) / 2 = 326
 ///
 /// 执行过程：
 ///   1. id=1 → row=0,col=0, origin=(16,16)
 ///   2. id=2 → row=0,col=1, origin=(388,16)
-///   3. id=3 → row=1,col=0, origin=(16,254.5)
+///   3. id=3 → row=1,col=0, origin=(16,358)
 ///
 /// 预期结果：
 ///   - 正断言：id=2 位于第一行第二列
@@ -151,7 +153,7 @@ fn test_responsive_grid_medium_area_uses_two_columns() {
     assert!(
         approx_rect(
             assignments[1].bounds,
-            CanvasRect::new(388.0, 16.0, 356.0, 222.5)
+            CanvasRect::new(388.0, 16.0, 356.0, 326.0)
         ),
         "id=2 应位于中宽两列布局第一行第二列，实际 {:?}",
         assignments[1].bounds
@@ -159,7 +161,7 @@ fn test_responsive_grid_medium_area_uses_two_columns() {
     assert!(
         approx_rect(
             assignments[2].bounds,
-            CanvasRect::new(16.0, 254.5, 356.0, 222.5)
+            CanvasRect::new(16.0, 358.0, 356.0, 326.0)
         ),
         "id=3 应换到第二行第一列，实际 {:?}",
         assignments[2].bounds
@@ -170,7 +172,7 @@ fn test_responsive_grid_medium_area_uses_two_columns() {
     );
 }
 
-/// 响应式编排：宽区域使用三列并保留安全区。
+/// 响应式编排：宽区域使用三列并保留安全区，单行填满可用高度。
 ///
 /// 数据构造（含关键数值推导）：
 ///   area = origin(0,0) size(1280x800)
@@ -178,7 +180,8 @@ fn test_responsive_grid_medium_area_uses_two_columns() {
 ///   usable = origin(96,86) size(1152x630)
 ///   gap = 16, min_column_width = 320
 ///   candidate 3 宽度 = (1152 - 16*(3+1)) / 3 = 362.6667 >= 320 → columns=3
-///   tile_height = 362.6667 / 1.6 = 226.6667
+///   rows = ceil(3 / 3) = 1
+///   tile_height = 630 - 16*(1+1) = 598
 ///   id=1 origin=(96+16,86+16)=(112,102)
 ///   id=3 origin.x = 112 + (362.6667+16)*2 = 869.3334
 ///
@@ -188,8 +191,8 @@ fn test_responsive_grid_medium_area_uses_two_columns() {
 ///   3. 三个节点保持 row-major 位于第一行
 ///
 /// 预期结果：
-///   - 正断言：id=1 位于安全区之后的第一列
-///   - 正断言：id=3 位于第一行第三列
+///   - 正断言：id=1 位于安全区之后的第一列，卡片高 598
+///   - 正断言：id=3 位于第一行第三列，卡片高 598
 ///   - 负断言：id=1 不应从 x=16/y=16 开始，说明不能忽略安全区
 #[test]
 fn test_responsive_grid_wide_area_uses_three_columns_and_safe_area() {
@@ -209,7 +212,7 @@ fn test_responsive_grid_wide_area_uses_three_columns_and_safe_area() {
     assert!(
         approx_rect(
             assignments[0].bounds,
-            CanvasRect::new(112.0, 102.0, 362.66666, 226.66666)
+            CanvasRect::new(112.0, 102.0, 362.66666, 598.0)
         ),
         "id=1 应位于安全区后的第一列，实际 {:?}",
         assignments[0].bounds
@@ -217,7 +220,7 @@ fn test_responsive_grid_wide_area_uses_three_columns_and_safe_area() {
     assert!(
         approx_rect(
             assignments[2].bounds,
-            CanvasRect::new(869.3333, 102.0, 362.66666, 226.66666)
+            CanvasRect::new(869.3333, 102.0, 362.66666, 598.0)
         ),
         "id=3 应位于宽屏三列布局第一行第三列，实际 {:?}",
         assignments[2].bounds

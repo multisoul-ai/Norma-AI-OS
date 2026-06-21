@@ -121,15 +121,25 @@ pub fn compute_responsive_grid_layout(
         }
     }
 
-    compute_tiled_grid_layout(
-        ordered_ids,
-        usable,
-        TiledGridConfig {
-            max_columns: columns,
-            aspect_ratio: config.aspect_ratio,
-            gap_canvas: gap,
-        },
-    )
+    let rows = ordered_ids.len().div_ceil(columns);
+    let tile_width = ((usable.size.x - gap * (columns as f32 + 1.0)) / columns as f32).max(0.0);
+    let tile_height = ((usable.size.y - gap * (rows as f32 + 1.0)) / rows as f32).max(0.0);
+
+    ordered_ids
+        .iter()
+        .enumerate()
+        .map(|(index, node_id)| {
+            let row = index / columns;
+            let col = index % columns;
+            let x = usable.origin.x + gap + col as f32 * (tile_width + gap);
+            let y = usable.origin.y + gap + row as f32 * (tile_height + gap);
+
+            LayoutAssignment {
+                node_id: *node_id,
+                bounds: CanvasRect::new(x, y, tile_width, tile_height),
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
