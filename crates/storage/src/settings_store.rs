@@ -40,5 +40,5 @@ impl SettingsStore {
 }
 
 #[cfg(test)]
-#[path = "settings_store_tests.rs"]
+#[path = "../tests/unit/settings_store_tests.rs"]
 mod tests;

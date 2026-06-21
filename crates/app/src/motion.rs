@@ -472,5 +472,5 @@ fn reduce_motion_from_env_value(value: Option<impl AsRef<OsStr>>) -> bool {
 }
 
 #[cfg(test)]
-#[path = "motion_tests.rs"]
+#[path = "../tests/unit/motion_tests.rs"]
 mod tests;

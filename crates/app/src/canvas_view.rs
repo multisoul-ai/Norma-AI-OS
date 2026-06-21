@@ -408,5 +408,5 @@ fn with_alpha(color: u32, alpha: u8) -> u32 {
 }
 
 #[cfg(test)]
-#[path = "canvas_view_tests.rs"]
+#[path = "../tests/unit/canvas_view_tests.rs"]
 mod tests;

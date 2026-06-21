@@ -422,9 +422,9 @@ fn vertical_text_offset(metrics: TerminalRenderMetrics) -> Pixels {
 }
 
 #[cfg(test)]
-#[path = "paint_tests.rs"]
+#[path = "../../../tests/unit/cards/term/paint_tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "paint_geometry_tests.rs"]
+#[path = "../../../tests/unit/cards/term/paint_geometry_tests.rs"]
 mod geometry_tests;

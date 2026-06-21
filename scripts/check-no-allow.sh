@@ -5,7 +5,7 @@
 # Fix the root cause instead: remove unused code, split responsibilities, group
 # parameters into context structs, or wire the code into the real call path.
 #
-# Scope: production Rust source under crates/*/src and optional root src.
+# Scope: Rust source under crates/*/{src,tests} and optional root src.
 # Excludes: fixture paths, which may intentionally model external code.
 
 set -euo pipefail
@@ -27,7 +27,7 @@ fi
 
 candidates=$(printf '%s\n' "$files" | awk '
   {
-    is_source = ($0 ~ /^crates\/[^\/]+\/src\/.*\.rs$/ || $0 ~ /^src\/.*\.rs$/)
+    is_source = ($0 ~ /^crates\/[^\/]+\/(src|tests)\/.*\.rs$/ || $0 ~ /^src\/.*\.rs$/)
     is_excluded = ($0 ~ /\/fixtures\// || $0 ~ /\/__fixtures__\//)
     if (is_source && !is_excluded) {
       print

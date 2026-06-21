@@ -195,13 +195,13 @@ fn usable_area(area: CanvasRect, safe_area: LayoutInsets) -> CanvasRect {
 }
 
 #[cfg(test)]
-#[path = "layout_tiled_tests.rs"]
+#[path = "../tests/unit/layout_tiled_tests.rs"]
 mod tiled_tests;
 
 #[cfg(test)]
-#[path = "layout_responsive_tests.rs"]
+#[path = "../tests/unit/layout_responsive_tests.rs"]
 mod responsive_tests;
 
 #[cfg(test)]
-#[path = "layout_master_detail_tests.rs"]
+#[path = "../tests/unit/layout_master_detail_tests.rs"]
 mod master_detail_tests;

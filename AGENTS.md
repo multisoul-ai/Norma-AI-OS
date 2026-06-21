@@ -32,6 +32,7 @@ Workspace 分层：
 - **禁止 `#[allow(...)]`**：Rust 源码不得用 allow 压制编译器或 clippy 诊断；由 [`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截，必须修根因。
 - **本地 hook 可安装**：运行 `bash scripts/install-git-hooks.sh` 后，原生 pre-commit 会跑 staged 约束和轻量 Rust 检查。
 - **写代码前先 TDD**：新功能或 bugfix 先补能失败的聚焦测试，再实现。
+- **测试目录按 crate 维护**：大型独立单元测试放 `crates/<crate>/tests/unit/` 并从源码模块用 `#[path]` 挂载；集成测试放 `crates/<crate>/tests/*.rs`；crate 专用 helper 放 `crates/<crate>/tests/support/`。
 - **测试注释必须完整**：测试上方写场景、数据构造、执行过程、预期结果；关键数值写推导。
 - **断言必须具体**：每个 `assert!` / `assert_eq!` 带说明字符串；关键状态要有正断言和负断言。
 - **PTY 生命周期要收口**：窗口关闭或 session 释放必须 kill/wait 子进程，避免僵尸进程。

@@ -446,9 +446,9 @@ fn wallpaper_from_env_value(env_value: Option<OsString>) -> WorkspaceWallpaper {
 }
 
 #[cfg(test)]
-#[path = "app_tests.rs"]
+#[path = "../tests/unit/app_tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "master_layout_tests.rs"]
+#[path = "../tests/unit/master_layout_tests.rs"]
 mod master_layout_tests;

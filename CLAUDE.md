@@ -233,6 +233,13 @@ RUST_LOG=trace cargo run -p app
 
 All unit tests should follow the project style already present in the crate tests.
 
+Crate-local test layout:
+
+- Large standalone unit test files live under `crates/<crate>/tests/unit/` and are mounted from the owning source module with `#[cfg(test)] #[path = "..."] mod ...;`.
+- Cargo integration tests live directly under `crates/<crate>/tests/*.rs` and should exercise public APIs only.
+- Crate-specific test helpers live under `crates/<crate>/tests/support/` when needed.
+- Do not make private functions or types public just to move a test file.
+
 Each test needs a doc comment that states:
 
 - Scenario: one sentence describing the behavior under test.

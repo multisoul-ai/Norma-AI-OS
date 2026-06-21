@@ -474,5 +474,5 @@ mod tests {
 }
 
 #[cfg(test)]
-#[path = "app_ime_control_tests.rs"]
+#[path = "../tests/unit/app_ime_control_tests.rs"]
 mod control_tests;

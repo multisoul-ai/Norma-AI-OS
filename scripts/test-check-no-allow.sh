@@ -4,17 +4,19 @@
 # Scenarios covered:
 #   1. A production Rust source file containing #[allow(...)] is rejected.
 #   2. A clean production Rust source file is accepted.
-#   3. Fixture Rust files are excluded from the production-source rule.
-#   4. --staged checks the staged Rust source candidate set.
+#   3. A crate-local test Rust file containing #[allow(...)] is rejected.
+#   4. Fixture Rust files are excluded from the rule.
+#   5. --staged checks the staged Rust source candidate set.
 #
 # Data construction:
 #   bad file      = crates/app/src/bad.rs with one #[allow(dead_code)] line
 #   clean file    = crates/app/src/clean.rs with no #[allow(...)] attributes
-#   fixture file  = crates/app/src/fixtures/allowed_fixture.rs, outside rule scope
+#   test file     = crates/app/tests/unit/bad_test.rs with one #[allow(dead_code)] line
+#   fixture file  = crates/app/tests/fixtures/allowed_fixture.rs, outside rule scope
 #
 # Expected result:
 #   - Positive: clean source and fixture-only repositories are accepted.
-#   - Negative: production source containing #[allow(...)] is rejected with path and line.
+#   - Negative: checked source containing #[allow(...)] is rejected with path and line.
 
 set -euo pipefail
 
@@ -85,6 +87,19 @@ assert_failure_contains \
   "crates/app/src/bad.rs:1:" \
   bash -c "cd '$bad_repo' && bash '$lint_script'"
 
+# test_allow_fails:
+#   test file   = crates/app/tests/unit/bad_test.rs
+#   line 1      = #[allow(dead_code)]
+#   expectation = rejected with exact path and line number
+bad_test_repo=$(new_repo test-allow)
+write_file "$bad_test_repo/crates/app/tests/unit/bad_test.rs" '#[allow(dead_code)]
+fn unused_test_helper() {}'
+git -C "$bad_test_repo" add crates/app/tests/unit/bad_test.rs
+assert_failure_contains \
+  "test-allow" \
+  "crates/app/tests/unit/bad_test.rs:1:" \
+  bash -c "cd '$bad_test_repo' && bash '$lint_script'"
+
 # clean_source_passes:
 #   source file = crates/app/src/clean.rs
 #   content     = a small function without #[allow(...)]
@@ -95,13 +110,13 @@ git -C "$clean_repo" add crates/app/src/clean.rs
 assert_success "clean-source" bash -c "cd '$clean_repo' && bash '$lint_script'"
 
 # fixtures_are_excluded:
-#   fixture file = crates/app/src/fixtures/allowed_fixture.rs
+#   fixture file = crates/app/tests/fixtures/allowed_fixture.rs
 #   line 1       = #[allow(dead_code)]
 #   expectation  = accepted because fixture paths are outside production scope
 fixture_repo=$(new_repo fixture-excluded)
-write_file "$fixture_repo/crates/app/src/fixtures/allowed_fixture.rs" '#[allow(dead_code)]
+write_file "$fixture_repo/crates/app/tests/fixtures/allowed_fixture.rs" '#[allow(dead_code)]
 fn fixture_helper() {}'
-git -C "$fixture_repo" add crates/app/src/fixtures/allowed_fixture.rs
+git -C "$fixture_repo" add crates/app/tests/fixtures/allowed_fixture.rs
 assert_success "fixture-excluded" bash -c "cd '$fixture_repo' && bash '$lint_script'"
 
 # staged_mode_checks_only_staged_source:

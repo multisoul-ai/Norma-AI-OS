@@ -44,5 +44,5 @@ impl CanvasStore {
 }
 
 #[cfg(test)]
-#[path = "canvas_store_tests.rs"]
+#[path = "../tests/unit/canvas_store_tests.rs"]
 mod tests;

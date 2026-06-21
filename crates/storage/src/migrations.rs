@@ -115,5 +115,5 @@ pub(crate) fn require_workspace_dir(path: &Path) -> Result<(), StorageError> {
 }
 
 #[cfg(test)]
-#[path = "migrations_tests.rs"]
+#[path = "../tests/unit/migrations_tests.rs"]
 mod tests;

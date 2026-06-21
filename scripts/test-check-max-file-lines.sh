@@ -4,9 +4,10 @@
 # Scenarios covered:
 #   1. A Rust source file with exactly 500 physical lines passes.
 #   2. A Rust source file with 501 physical lines fails and reports the file.
-#   3. Non-source and fixture files with 501 lines are excluded.
-#   4. --staged checks only staged Rust source candidates.
-#   5. Full-scan mode also catches untracked Rust source files.
+#   3. A crate-local test file with 501 physical lines fails and reports the file.
+#   4. Non-source and fixture files with 501 lines are excluded.
+#   5. --staged checks only staged Rust source candidates.
+#   6. Full-scan mode also catches untracked Rust source files.
 #
 # Data construction:
 #   limit      = 500 lines
@@ -16,7 +17,7 @@
 # Expected result:
 #   - Positive: exact-limit files are accepted.
 #   - Positive: over-limit source files are rejected with path and line count.
-#   - Negative: docs and fixtures are not treated as production source files.
+#   - Negative: docs and fixtures are not treated as checked Rust source files.
 
 set -euo pipefail
 
@@ -102,16 +103,31 @@ assert_failure_contains \
   $'501\tcrates/app/src/too_long.rs' \
   bash -c "cd '$fail_repo' && bash '$lint_script'"
 
+# test_source_over_limit_fails:
+#   test file   = crates/app/tests/unit/too_long_test.rs
+#   lines       = 501
+#   overage     = 501 - 500 = 1
+#   expectation = rejected with concrete path and count
+test_fail_repo=$(new_repo test-over-limit)
+write_lines "$test_fail_repo/crates/app/tests/unit/too_long_test.rs" 501
+git -C "$test_fail_repo" add crates/app/tests/unit/too_long_test.rs
+assert_failure_contains \
+  "test-over-limit" \
+  $'501\tcrates/app/tests/unit/too_long_test.rs' \
+  bash -c "cd '$test_fail_repo' && bash '$lint_script'"
+
 # exclusions_pass:
 #   docs/oversized.rs                  = 501 lines, outside source scope
 #   crates/app/src/fixtures/large.rs   = 501 lines, fixture data excluded
-#   crates/app/src/production.rs       = 500 lines, production source at limit
-#   expectation = accepted; excluded files do not mask production source behavior
+#   crates/app/tests/fixtures/large.rs = 501 lines, fixture data excluded
+#   crates/app/src/production.rs       = 500 lines, checked Rust source at limit
+#   expectation = accepted; excluded files do not mask checked source behavior
 exclude_repo=$(new_repo exclusions)
 write_lines "$exclude_repo/docs/oversized.rs" 501
 write_lines "$exclude_repo/crates/app/src/fixtures/large.rs" 501
+write_lines "$exclude_repo/crates/app/tests/fixtures/large.rs" 501
 write_lines "$exclude_repo/crates/app/src/production.rs" 500
-git -C "$exclude_repo" add docs/oversized.rs crates/app/src/fixtures/large.rs crates/app/src/production.rs
+git -C "$exclude_repo" add docs/oversized.rs crates/app/src/fixtures/large.rs crates/app/tests/fixtures/large.rs crates/app/src/production.rs
 assert_success "exclusions" bash -c "cd '$exclude_repo' && bash '$lint_script'"
 
 # staged_mode_checks_staged_source:

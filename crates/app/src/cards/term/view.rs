@@ -458,5 +458,5 @@ mod tests {
 }
 
 #[cfg(test)]
-#[path = "view_enter_tests.rs"]
+#[path = "../../../tests/unit/cards/term/view_enter_tests.rs"]
 mod enter_tests;

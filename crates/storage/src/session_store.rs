@@ -139,5 +139,5 @@ fn decode_size(field: &'static str, value: i64) -> StorageResult<u16> {
 }
 
 #[cfg(test)]
-#[path = "session_store_tests.rs"]
+#[path = "../tests/unit/session_store_tests.rs"]
 mod tests;

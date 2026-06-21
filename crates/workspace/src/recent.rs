@@ -71,5 +71,5 @@ pub fn canonical_workspace_path(path: &Path) -> std::io::Result<PathBuf> {
 }
 
 #[cfg(test)]
-#[path = "recent_tests.rs"]
+#[path = "../tests/unit/recent_tests.rs"]
 mod tests;

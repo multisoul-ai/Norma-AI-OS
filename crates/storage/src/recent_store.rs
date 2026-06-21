@@ -110,5 +110,5 @@ fn decode_source(source: &str) -> StorageResult<WorkspaceSource> {
 }
 
 #[cfg(test)]
-#[path = "recent_store_tests.rs"]
+#[path = "../tests/unit/recent_store_tests.rs"]
 mod tests;

@@ -385,11 +385,11 @@ fn is_zsh_shell(shell: &str) -> bool {
 }
 
 #[cfg(test)]
-#[path = "runtime_storage_tests.rs"]
+#[path = "../tests/unit/runtime_storage_tests.rs"]
 mod storage_tests;
 #[cfg(test)]
-#[path = "runtime_tests.rs"]
+#[path = "../tests/unit/runtime_tests.rs"]
 mod tests;
 #[cfg(test)]
-#[path = "workspace_runtime_tests.rs"]
+#[path = "../tests/unit/workspace_runtime_tests.rs"]
 mod workspace_tests;
