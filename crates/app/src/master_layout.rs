@@ -1,12 +1,14 @@
 //! Master/detail layout state and app-layer application helpers.
 
+use crate::app::{MultisoulApp, ToggleMasterLayout};
 use crate::cards::card_for;
 use crate::motion::MotionStore;
 use canvas::{
     compute_master_detail_layout, compute_responsive_grid_layout, CanvasRect, LayoutInsets, NodeId,
     ResponsiveGridConfig, DEFAULT_CARD_ASPECT_RATIO,
 };
-use runtime::{InputMode, NodeResize, Runtime};
+use gpui::{Context, Window};
+use runtime::{route, InputEvent, InputMode, NodeResize, Route, Runtime};
 use std::collections::BTreeMap;
 
 const LAYOUT_GAP_SCREEN_PX: f32 = 16.0;
@@ -164,6 +166,36 @@ pub(crate) fn enter_master_layout_for_area(
     }
 }
 
+pub(crate) fn switch_master_layout_for_area(
+    state: &mut MasterLayoutState,
+    runtime: &mut Runtime,
+    motion: &mut MotionStore,
+    master_id: NodeId,
+    area: CanvasRect,
+    zoom: f32,
+) -> bool {
+    if runtime.document.node(master_id).is_none() {
+        return false;
+    }
+
+    let Some(active) = state.active.as_mut() else {
+        return false;
+    };
+    active.master_id = master_id;
+
+    runtime.selection.select_only(master_id);
+    if matches!(runtime.focus.mode(), InputMode::NodeFocused(focused) if focused != master_id) {
+        runtime.focus.exit_to_canvas();
+    }
+
+    if state.apply(runtime, motion, area, zoom) {
+        true
+    } else {
+        state.clear();
+        false
+    }
+}
+
 pub(crate) fn restore_master_layout_for_area(
     state: &mut MasterLayoutState,
     runtime: &mut Runtime,
@@ -185,6 +217,33 @@ pub(crate) fn reapply_master_layout_for_area(
     } else {
         state.clear();
         false
+    }
+}
+
+pub(crate) fn toggle_master_layout_for_area(
+    state: &mut MasterLayoutState,
+    runtime: &mut Runtime,
+    motion: &mut MotionStore,
+    target: Option<NodeId>,
+    area: CanvasRect,
+    zoom: f32,
+) -> bool {
+    let event = InputEvent::ToggleMasterLayout {
+        current_master: state.master_id(),
+        target,
+    };
+    match route(&runtime.focus.mode(), &event) {
+        Route::EnterMasterLayout(master_id) => {
+            enter_master_layout_for_area(state, runtime, motion, master_id, area, zoom)
+        }
+        Route::SwitchMasterLayout(master_id) => {
+            switch_master_layout_for_area(state, runtime, motion, master_id, area, zoom)
+        }
+        Route::ExitMasterLayout => {
+            restore_master_layout_for_area(state, runtime, motion, zoom);
+            true
+        }
+        _ => false,
     }
 }
 
@@ -313,5 +372,35 @@ fn resize_node_for_bounds(
 ) {
     if let Some(resize) = node_type.and_then(|node_type| card_for(node_type).resize(bounds, zoom)) {
         let _ = runtime.resize_node(node_id, resize);
+    }
+}
+
+impl MultisoulApp {
+    pub(crate) fn on_toggle_master_layout(
+        &mut self,
+        _: &ToggleMasterLayout,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !matches!(self.screen, crate::app::AppScreen::Canvas) {
+            return;
+        }
+
+        let target =
+            master_target_from_hover_or_selection(self.interaction.hovered_node, &self.runtime);
+        let area = self.visible_canvas_rect(window);
+        let zoom = self.runtime.document.viewport.zoom;
+        let changed = toggle_master_layout_for_area(
+            &mut self.master_layout,
+            &mut self.runtime,
+            &mut self.motion,
+            target,
+            area,
+            zoom,
+        );
+        if changed {
+            self.mark_canvas_dirty();
+        }
+        cx.notify();
     }
 }

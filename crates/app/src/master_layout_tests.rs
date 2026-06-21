@@ -1,7 +1,8 @@
 use super::*;
 use crate::master_layout::{
     close_node_and_update_layout_for_area, enter_master_layout_for_area,
-    master_target_from_hover_or_selection, restore_master_layout_for_area, MasterLayoutState,
+    master_target_from_hover_or_selection, restore_master_layout_for_area,
+    switch_master_layout_for_area, MasterLayoutState,
 };
 use canvas::{
     compute_master_detail_layout, compute_responsive_grid_layout, CanvasNodeKind, RectNode,
@@ -139,6 +140,177 @@ fn test_master_layout_enter_saves_snapshot_and_restore_returns_original_bounds()
         runtime.document.node(b).expect("B 应仍存在").bounds,
         b_master_bounds,
         "恢复后 B 不应继续停留在 master 区 bounds"
+    );
+}
+
+/// Master 布局切换：B 已经是 master 时选择 C 再按 Cmd+M，应让 C 成为 master，B 进入右侧 detail。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   A/B/C/D 初始 bounds 分别为 x=0/120/240/360，宽高均为 100x80
+///   area = origin(0,0), size(1000x600)，zoom=1.0
+///   第一次 enter master=B 保存原始快照 [A/B/C/D]
+///   切换 master=C 时，不重建快照，期望布局由 compute_master_detail_layout([A,B,C,D], C, area, config) 计算
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. enter_master_layout_for_area(B) → B 到左侧 master
+///   2. switch_master_layout_for_area(C) → active.master_id 改为 C，重新应用 master/detail
+///   3. 查询 B/C bounds 与 selection
+///
+/// 预期结果：
+///   - 正断言：state.master_id() == C
+///   - 正断言：C 位于左侧 master 区
+///   - 正断言：B 位于右侧 detail 流
+///   - 正断言：selection 选中 C
+///   - 负断言：B 不应继续停留在旧 master 区
+#[test]
+fn test_master_layout_switches_to_new_master_and_moves_old_master_to_detail_flow() {
+    let mut runtime = Runtime::new();
+    let mut motion = MotionStore::new(true);
+    let mut state = MasterLayoutState::default();
+    let area = CanvasRect::new(0.0, 0.0, 1000.0, 600.0);
+    let zoom = 1.0;
+    let a = add_rect(
+        &mut runtime,
+        0x4080ff,
+        CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+    );
+    let b = add_rect(
+        &mut runtime,
+        0xff8040,
+        CanvasRect::new(120.0, 0.0, 100.0, 80.0),
+    );
+    let c = add_rect(
+        &mut runtime,
+        0x35d07f,
+        CanvasRect::new(240.0, 0.0, 100.0, 80.0),
+    );
+    let d = add_rect(
+        &mut runtime,
+        0xff40c0,
+        CanvasRect::new(360.0, 0.0, 100.0, 80.0),
+    );
+
+    let entered =
+        enter_master_layout_for_area(&mut state, &mut runtime, &mut motion, b, area, zoom);
+    let old_master_bounds = runtime
+        .document
+        .node(b)
+        .expect("B 应在进入 master 后继续存在")
+        .bounds;
+    let switched =
+        switch_master_layout_for_area(&mut state, &mut runtime, &mut motion, c, area, zoom);
+    let expected = compute_master_detail_layout(
+        &[a, b, c, d],
+        c,
+        area,
+        workspace_reflow_config_for_zoom(zoom),
+    );
+
+    assert!(entered, "B 存在时进入 master 布局应成功");
+    assert!(switched, "C 存在时切换 master 应成功");
+    assert_eq!(
+        state.master_id(),
+        Some(c),
+        "切换后 active master 应更新为 C"
+    );
+    assert_eq!(
+        runtime.document.node(c).expect("C 应仍存在").bounds,
+        expected[0].bounds,
+        "C 应进入左侧 master 区"
+    );
+    assert_eq!(
+        runtime.document.node(b).expect("B 应仍存在").bounds,
+        expected[2].bounds,
+        "旧 master B 应进入右侧 detail 流"
+    );
+    assert!(
+        runtime.selection.contains(c),
+        "切换 master 后 selection 应选中新 master C"
+    );
+    assert_ne!(
+        runtime.document.node(b).expect("B 应仍存在").bounds,
+        old_master_bounds,
+        "旧 master B 不应继续停留在旧 master 区"
+    );
+}
+
+/// Master 布局切换后退出：B→C 切换不应重建快照，最终退出仍恢复第一次进入前的原始布局。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   A/B/C/D 初始 bounds 分别为 x=0/120/240/360，宽高均为 100x80
+///   第一次 enter master=B 时保存 original_bounds
+///   switch master=C 只改变 master_id，不改 original_bounds
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. enter_master_layout_for_area(B)
+///   2. switch_master_layout_for_area(C)
+///   3. restore_master_layout_for_area()
+///   4. 查询 A/B/C/D bounds
+///
+/// 预期结果：
+///   - 正断言：A/B/C/D 都回到第一次进入 master 前的原始 bounds
+///   - 正断言：state inactive
+///   - 负断言：C 不应停留在 master 区
+#[test]
+fn test_master_layout_restore_after_switch_uses_first_entry_snapshot() {
+    let mut runtime = Runtime::new();
+    let mut motion = MotionStore::new(true);
+    let mut state = MasterLayoutState::default();
+    let area = CanvasRect::new(0.0, 0.0, 1000.0, 600.0);
+    let zoom = 1.0;
+    let a_original = CanvasRect::new(0.0, 0.0, 100.0, 80.0);
+    let b_original = CanvasRect::new(120.0, 0.0, 100.0, 80.0);
+    let c_original = CanvasRect::new(240.0, 0.0, 100.0, 80.0);
+    let d_original = CanvasRect::new(360.0, 0.0, 100.0, 80.0);
+    let a = add_rect(&mut runtime, 0x4080ff, a_original);
+    let b = add_rect(&mut runtime, 0xff8040, b_original);
+    let c = add_rect(&mut runtime, 0x35d07f, c_original);
+    let d = add_rect(&mut runtime, 0xff40c0, d_original);
+
+    assert!(
+        enter_master_layout_for_area(&mut state, &mut runtime, &mut motion, b, area, zoom),
+        "进入 master=B 应成功"
+    );
+    assert!(
+        switch_master_layout_for_area(&mut state, &mut runtime, &mut motion, c, area, zoom),
+        "切换 master=C 应成功"
+    );
+    let c_master_bounds = runtime
+        .document
+        .node(c)
+        .expect("C 应在切换后继续存在")
+        .bounds;
+
+    restore_master_layout_for_area(&mut state, &mut runtime, &mut motion, zoom);
+
+    assert!(
+        !state.is_active(),
+        "restore 后 master layout state 应变为 inactive"
+    );
+    assert_eq!(
+        runtime.document.node(a).expect("A 应仍存在").bounds,
+        a_original,
+        "A 应恢复第一次进入 master 前的原始 bounds"
+    );
+    assert_eq!(
+        runtime.document.node(b).expect("B 应仍存在").bounds,
+        b_original,
+        "B 应恢复第一次进入 master 前的原始 bounds"
+    );
+    assert_eq!(
+        runtime.document.node(c).expect("C 应仍存在").bounds,
+        c_original,
+        "C 应恢复第一次进入 master 前的原始 bounds，而不是切换时的位置"
+    );
+    assert_eq!(
+        runtime.document.node(d).expect("D 应仍存在").bounds,
+        d_original,
+        "D 应恢复第一次进入 master 前的原始 bounds"
+    );
+    assert_ne!(
+        runtime.document.node(c).expect("C 应仍存在").bounds,
+        c_master_bounds,
+        "退出后 C 不应继续停留在切换后的 master 区"
     );
 }
 

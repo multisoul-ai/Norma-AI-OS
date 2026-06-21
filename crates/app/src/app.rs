@@ -4,10 +4,8 @@ use crate::assets::DEFAULT_WALLPAPER_ASSET;
 use crate::canvas_view::{render_canvas, InteractionState};
 use crate::cards::term::view::keystroke_to_input;
 use crate::master_layout::{
-    apply_workspace_reflow_for_area, close_node_and_update_layout_for_area,
-    enter_master_layout_for_area, layout_gap_for_zoom, master_target_from_hover_or_selection,
-    reapply_master_layout_for_area, restore_master_layout_for_area, term_grid_size_for_card,
-    MasterLayoutState,
+    apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
+    reapply_master_layout_for_area, term_grid_size_for_card, MasterLayoutState,
 };
 #[cfg(test)]
 use crate::master_layout::{close_node_and_reflow_for_area, workspace_reflow_config_for_zoom};
@@ -219,50 +217,6 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    fn on_toggle_master_layout(
-        &mut self,
-        _: &ToggleMasterLayout,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if !matches!(self.screen, AppScreen::Canvas) {
-            return;
-        }
-
-        let target =
-            master_target_from_hover_or_selection(self.interaction.hovered_node, &self.runtime);
-        let event = InputEvent::ToggleMasterLayout {
-            active: self.master_layout.is_active(),
-            target,
-        };
-        match route(&self.runtime.focus.mode(), &event) {
-            Route::EnterMasterLayout(master_id) => {
-                let area = self.visible_canvas_rect(window);
-                let zoom = self.runtime.document.viewport.zoom;
-                enter_master_layout_for_area(
-                    &mut self.master_layout,
-                    &mut self.runtime,
-                    &mut self.motion,
-                    master_id,
-                    area,
-                    zoom,
-                );
-            }
-            Route::ExitMasterLayout => {
-                let zoom = self.runtime.document.viewport.zoom;
-                restore_master_layout_for_area(
-                    &mut self.master_layout,
-                    &mut self.runtime,
-                    &mut self.motion,
-                    zoom,
-                );
-            }
-            _ => {}
-        }
-        self.mark_canvas_dirty();
-        cx.notify();
-    }
-
     fn on_open_project(&mut self, _: &OpenProject, _window: &mut Window, cx: &mut Context<Self>) {
         self.prompt_open_project(cx);
     }
@@ -288,7 +242,7 @@ impl MultisoulApp {
         changed
     }
 
-    fn visible_canvas_rect(&self, window: &mut Window) -> CanvasRect {
+    pub(crate) fn visible_canvas_rect(&self, window: &mut Window) -> CanvasRect {
         let vp = self.runtime.document.viewport;
         let win = window.viewport_size();
         let top_left = vp.screen_to_canvas(Vec2::ZERO);
