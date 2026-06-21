@@ -274,6 +274,7 @@ mod tests {
     ///
     /// 预期结果：
     ///   - 正断言：ctrl=true，key=Char('c')
+    ///   - 负断言：返回值不为 ctrl=false（key_char 路径未被走）
     #[test]
     fn test_keystroke_to_input_ctrl_ignores_key_char() {
         use gpui::{Keystroke, Modifiers};
@@ -295,6 +296,15 @@ mod tests {
             }),
             "Ctrl+C 应保留 ctrl=true，不受 key_char 影响"
         );
+        assert_ne!(
+            result,
+            Some(KeyInput {
+                key: Key::Char('c'),
+                ctrl: false,
+                alt: false
+            }),
+            "ctrl 修饰时不应跳过 ctrl=true 标志走 key_char 路径"
+        );
     }
 
     /// key_char 多字符时回落 key 路径（例如组字中间态，不应上屏多个字符）。
@@ -310,6 +320,7 @@ mod tests {
     ///
     /// 预期结果：
     ///   - 正断言：返回 Key::Char('a')
+    ///   - 负断言：多字符 key_char 不应取第二个字符
     #[test]
     fn test_keystroke_to_input_multi_char_key_char_falls_back_to_key() {
         use gpui::{Keystroke, Modifiers};
@@ -327,6 +338,15 @@ mod tests {
                 alt: false
             }),
             "多字符 key_char 应回落到 ks.key 处理"
+        );
+        assert_ne!(
+            result,
+            Some(KeyInput {
+                key: Key::Char('b'),
+                ctrl: false,
+                alt: false
+            }),
+            "多字符 key_char 不应取第二个字符"
         );
     }
 }
