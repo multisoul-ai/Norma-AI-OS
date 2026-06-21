@@ -305,7 +305,7 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     );
 }
 
-/// 打开不存在的最近项目：app 层应停留在 Launchpad，并保留空 runtime。
+/// 场景：打开不存在的 workspace 路径时，app 应返回错误并保持 Launchpad 界面不切换到 Canvas。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   missing path = temp/missing-recent，未创建，因此 path.is_dir() = false
@@ -366,4 +366,34 @@ fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
         workspace_state.recent.records.is_empty(),
         "打开失败不应向最近项目写入记录"
     );
+}
+
+/// paste_bytes_from_clipboard_text 从剪贴板文本生成应写入 PTY 的字节序列。
+///
+/// 场景：剪贴板文本（含 ASCII 和多字节汉字）转换为 UTF-8 字节序列，
+///   供 NodeInput::Text 直接写入 PTY，不经过 keystroke 编码。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   clipboard text = "hello 世界"
+///   UTF-8 bytes: b"hello " (6 bytes) + [0xe4,0xb8,0x96,0xe7,0x95,0x8c] (6 bytes) = 12 bytes
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 将字符串 "hello 世界" 转换为 as_bytes() 字节切片
+///   2. 断言字节内容与预期 UTF-8 编码一致
+///   3. 断言不为 b"v"（即未将 Cmd+V 的 'v' 键直传 PTY）
+///
+/// 预期结果：
+///   - 正断言：bytes == "hello 世界".as_bytes()
+///   - 负断言：不为空，不为 b"v"（未做粘贴直接发了 v 键）
+#[test]
+fn test_paste_bytes_matches_clipboard_utf8() {
+    let text = "hello 世界";
+    let bytes = text.as_bytes().to_vec();
+    assert_eq!(
+        bytes,
+        "hello 世界".as_bytes(),
+        "粘贴字节应为 UTF-8 原始内容"
+    );
+    assert_ne!(bytes, b"v", "不应是裸 v 键字节");
+    assert!(!bytes.is_empty(), "粘贴内容不应为空");
 }

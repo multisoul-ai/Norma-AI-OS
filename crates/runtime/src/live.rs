@@ -24,9 +24,11 @@ impl Caps {
     };
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeInput {
     Key(KeyInput),
+    /// Raw UTF-8 paste — sent to PTY without key encoding.
+    Text(String),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

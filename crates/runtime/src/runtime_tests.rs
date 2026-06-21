@@ -335,7 +335,7 @@ fn test_send_node_input_dispatches_to_live_node() {
         alt: false,
     });
 
-    let existing = rt.send_node_input(node_id, input);
+    let existing = rt.send_node_input(node_id, input.clone());
     let missing = rt.send_node_input(999, input);
 
     assert!(
