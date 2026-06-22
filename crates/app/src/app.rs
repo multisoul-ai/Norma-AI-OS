@@ -1,5 +1,6 @@
 //! GPUI 主视图：持有 Runtime，装配画布/终端渲染，处理快捷键与帧级 drain。
 
+#[cfg(test)]
 use crate::assets::DEFAULT_WALLPAPER_ASSET;
 use crate::canvas_view::{render_canvas, InteractionState};
 use crate::cards::term::view::keystroke_to_input;
@@ -10,25 +11,28 @@ use crate::master_layout::{
 #[cfg(test)]
 use crate::master_layout::{close_node_and_reflow_for_area, workspace_reflow_config_for_zoom};
 use crate::motion::MotionStore;
+use crate::norma_server::NormaServer;
 use crate::persistence::PersistenceScheduler;
 use crate::preview::PreviewStore;
 use crate::workspace_state::WorkspaceState;
 use canvas::{AgentProfile, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{
-    actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, ImageSource,
-    KeyDownEvent, Window,
+    actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, KeyDownEvent, Window,
 };
 use runtime::{route, InputEvent, InputMode, NodeInput, Route, Runtime};
-use std::ffi::OsString;
-use std::path::PathBuf;
 use std::time::Duration;
 use ui::Theme;
 
+#[path = "app_wallpaper.rs"]
+mod app_wallpaper;
 #[path = "settings_panel.rs"]
 mod settings_panel;
 #[path = "app_chrome.rs"]
 mod workspace_chrome;
 
+#[cfg(test)]
+use self::app_wallpaper::wallpaper_from_env_value;
+use self::app_wallpaper::{wallpaper_from_env, WorkspaceWallpaper};
 use self::settings_panel::SettingsPanelState;
 
 actions!(
@@ -58,6 +62,7 @@ pub struct MultisoulApp {
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) persistence: PersistenceScheduler,
     pub(crate) settings_panel: SettingsPanelState,
+    pub(crate) norma_server: NormaServer,
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
     pub focus_handle: FocusHandle,
@@ -69,21 +74,6 @@ pub struct MultisoulApp {
 pub(crate) enum AppScreen {
     Launchpad,
     Canvas,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-enum WorkspaceWallpaper {
-    Embedded(&'static str),
-    File(PathBuf),
-}
-
-impl WorkspaceWallpaper {
-    fn image_source(&self) -> ImageSource {
-        match self {
-            Self::Embedded(asset_path) => (*asset_path).into(),
-            Self::File(path) => path.clone().into(),
-        }
-    }
 }
 
 impl MultisoulApp {
@@ -98,7 +88,8 @@ impl MultisoulApp {
                     let runtime_changed = app.runtime.drain_all();
                     let motion_changed = app.motion.tick(Duration::from_millis(12));
                     let persistence_changed = app.tick_persistence(Duration::from_millis(12));
-                    if runtime_changed || motion_changed || persistence_changed {
+                    let norma_pending = app.norma_server.has_pending();
+                    if runtime_changed || motion_changed || persistence_changed || norma_pending {
                         cx.notify();
                     }
                 });
@@ -120,6 +111,7 @@ impl MultisoulApp {
             master_layout: MasterLayoutState::default(),
             persistence: PersistenceScheduler::default(),
             settings_panel: SettingsPanelState::default(),
+            norma_server: NormaServer::start(),
             screen: AppScreen::Launchpad,
             workspace_state: WorkspaceState::load_default(),
             focus_handle: cx.focus_handle(),
@@ -420,6 +412,8 @@ impl Focusable for MultisoulApp {
 
 impl Render for MultisoulApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.drain_norma_server(window, cx);
+
         let mut root = div()
             .key_context("MultisoulApp")
             .track_focus(&self.focus_handle)
@@ -462,27 +456,6 @@ impl Render for MultisoulApp {
     }
 }
 
-fn wallpaper_from_env() -> WorkspaceWallpaper {
-    wallpaper_from_env_value(std::env::var_os("MULTISOUL_WALLPAPER"))
-}
-
-fn wallpaper_from_env_value(env_value: Option<OsString>) -> WorkspaceWallpaper {
-    let Some(path) = env_value.map(PathBuf::from) else {
-        return WorkspaceWallpaper::Embedded(DEFAULT_WALLPAPER_ASSET);
-    };
-
-    if path.is_file() {
-        WorkspaceWallpaper::File(path)
-    } else {
-        tracing::warn!(
-            path = %path.display(),
-            default_asset = DEFAULT_WALLPAPER_ASSET,
-            "MULTISOUL_WALLPAPER does not point to a readable file; using embedded default wallpaper"
-        );
-        WorkspaceWallpaper::Embedded(DEFAULT_WALLPAPER_ASSET)
-    }
-}
-
 #[cfg(test)]
 #[path = "../tests/unit/app_tests.rs"]
 mod tests;
@@ -494,3 +467,7 @@ mod master_layout_tests;
 #[cfg(test)]
 #[path = "../tests/unit/master_layout_exit_tests.rs"]
 mod master_layout_exit_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/norma_command_tests.rs"]
+mod norma_command_tests;
