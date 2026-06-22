@@ -7,6 +7,7 @@ members = [
   "crates/terminal",
   "crates/runtime",
   "crates/ui",
+  "crates/norma",
   "crates/app",
 ]
 
@@ -31,6 +32,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dirs = "6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+clap = { version = "4", features = ["derive"] }
 tempfile = "3"
 rusqlite = { version = "0.32", features = ["bundled"] }
 # 内部 crate（路径依赖）
@@ -40,6 +42,7 @@ workspace = { path = "crates/workspace" }
 terminal = { path = "crates/terminal" }
 runtime = { path = "crates/runtime" }
 ui = { path = "crates/ui" }
+norma = { path = "crates/norma" }
 
 [profile.dev]
 opt-level = 1          # gpui/alacritty 在 opt-level=0 下交互偏卡，地基级折中

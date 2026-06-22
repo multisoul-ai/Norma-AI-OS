@@ -10,6 +10,7 @@ use crate::master_layout::{
 #[cfg(test)]
 use crate::master_layout::{close_node_and_reflow_for_area, workspace_reflow_config_for_zoom};
 use crate::motion::MotionStore;
+use crate::norma_server::NormaServer;
 use crate::persistence::PersistenceScheduler;
 use crate::workspace_state::WorkspaceState;
 use canvas::{AgentProfile, CanvasRect, NodeId, NodeType, Vec2};
@@ -50,6 +51,7 @@ pub struct MultisoulApp {
     pub(crate) motion: MotionStore,
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) persistence: PersistenceScheduler,
+    pub(crate) norma_server: NormaServer,
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
     pub focus_handle: FocusHandle,
@@ -90,7 +92,8 @@ impl MultisoulApp {
                     let runtime_changed = app.runtime.drain_all();
                     let motion_changed = app.motion.tick(Duration::from_millis(12));
                     let persistence_changed = app.tick_persistence(Duration::from_millis(12));
-                    if runtime_changed || motion_changed || persistence_changed {
+                    let norma_pending = app.norma_server.has_pending();
+                    if runtime_changed || motion_changed || persistence_changed || norma_pending {
                         cx.notify();
                     }
                 });
@@ -110,6 +113,7 @@ impl MultisoulApp {
             motion: MotionStore::from_env(),
             master_layout: MasterLayoutState::default(),
             persistence: PersistenceScheduler::default(),
+            norma_server: NormaServer::start(),
             screen: AppScreen::Launchpad,
             workspace_state: WorkspaceState::load_default(),
             focus_handle: cx.focus_handle(),
@@ -386,6 +390,8 @@ impl Focusable for MultisoulApp {
 
 impl Render for MultisoulApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.drain_norma_server(window, cx);
+
         let mut root = div()
             .key_context("MultisoulApp")
             .track_focus(&self.focus_handle)
@@ -456,3 +462,7 @@ mod master_layout_tests;
 #[cfg(test)]
 #[path = "../tests/unit/master_layout_exit_tests.rs"]
 mod master_layout_exit_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/norma_command_tests.rs"]
+mod norma_command_tests;

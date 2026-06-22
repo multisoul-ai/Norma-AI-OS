@@ -8,6 +8,7 @@ mod cards;
 mod launchpad;
 mod master_layout;
 mod motion;
+mod norma_server;
 mod persistence;
 mod spawn_focus;
 mod workspace_flow;

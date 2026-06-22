@@ -16,6 +16,7 @@ canvas.workspace = true
 storage.workspace = true
 terminal.workspace = true
 workspace.workspace = true
+norma.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
