@@ -10,7 +10,8 @@ use gpui::{
 use ui::Theme;
 
 const WORKSPACE_LEFT_RAIL_VISIBLE: bool = false;
-const TOP_TOOLBAR_WIDTH: f32 = 340.0;
+const TOP_TOOLBAR_WIDTH: f32 = 460.0;
+const SETTINGS_ICON: &str = "⚙";
 
 impl MultisoulApp {
     pub(super) fn render_workspace_backdrop(&self) -> Div {
@@ -146,6 +147,16 @@ impl MultisoulApp {
                         chrome_button(theme, "Codex", false)
                             .id("toolbar-new-codex-agent")
                             .on_click(cx.listener(Self::on_toolbar_new_codex_agent)),
+                    )
+                    .child(
+                        chrome_button(theme, "Preview", false)
+                            .id("toolbar-preview-file")
+                            .on_click(cx.listener(Self::on_toolbar_preview_file)),
+                    )
+                    .child(
+                        chrome_button(theme, SETTINGS_ICON, false)
+                            .id("toolbar-settings")
+                            .on_click(cx.listener(Self::on_toolbar_settings)),
                     ),
             )
             .when(workspace_left_rail_visible(), |chrome| {
@@ -407,6 +418,60 @@ mod tests {
         assert!(
             !render_source.contains(&feedback_handler),
             "workspace chrome 不应继续绑定旧反馈按钮点击 handler"
+        );
+    }
+
+    /// 顶部设置入口：Canvas 顶部菜单应挂载齿轮设置按钮，且不移除现有建卡入口。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   source = include_str!("app_chrome.rs")（检查当前 chrome 渲染源码）
+    ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
+    ///   expected id = "toolbar" + "-settings"
+    ///   expected icon = "⚙"（用户要求使用设置按钮 icon）
+    ///   existing ids/text = toolbar-new-terminal、Claude Code、Codex
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 读取 app_chrome.rs 的生产渲染源码
+    ///   2. 确认 toolbar-settings 与齿轮 icon 出现在顶部工具栏
+    ///   3. 确认现有新终端、Claude Code、Codex 入口仍存在
+    ///
+    /// 预期结果：
+    ///   - 正断言：设置按钮 id 与齿轮 icon 存在
+    ///   - 正断言：现有三个入口仍存在
+    ///   - 负断言：设置入口不应缺失，否则用户无法打开设置弹窗
+    #[test]
+    fn test_top_toolbar_includes_settings_icon_entry() {
+        let source = include_str!("app_chrome.rs");
+        let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
+        let settings_id = format!("{}{}", "toolbar", "-settings");
+        let settings_icon = "⚙";
+        let terminal_id = concat!("toolbar", "-new-terminal");
+        let claude_label = format!("{}{}", "Claude", " Code");
+        let codex_label = format!("{}{}", "Co", "dex");
+
+        assert!(
+            render_source.contains(&settings_id),
+            "顶部菜单应包含 toolbar-settings 设置按钮 id"
+        );
+        assert!(
+            render_source.contains(settings_icon),
+            "顶部菜单设置按钮应使用齿轮 icon"
+        );
+        assert!(
+            render_source.contains(terminal_id),
+            "新增设置入口不应移除顶部新终端按钮"
+        );
+        assert!(
+            render_source.contains(&claude_label),
+            "新增设置入口不应移除 Claude Code 按钮"
+        );
+        assert!(
+            render_source.contains(&codex_label),
+            "新增设置入口不应移除 Codex 按钮"
+        );
+        assert!(
+            render_source.contains(&settings_id) && render_source.contains(settings_icon),
+            "设置入口必须同时具备可定位 id 与可见齿轮 icon"
         );
     }
 }

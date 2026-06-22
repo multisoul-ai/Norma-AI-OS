@@ -20,7 +20,10 @@ impl Card for TermCard {
     }
 
     fn chrome(&self, _node: &CanvasNode, _runtime: &Runtime) -> CardChrome {
-        CardChrome { title: "Terminal" }
+        CardChrome {
+            title: "Terminal".to_string(),
+            refreshable: false,
+        }
     }
 
     fn body(&self, node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElement {

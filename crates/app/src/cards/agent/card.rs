@@ -18,11 +18,14 @@ impl Card for AgentCard {
     }
 
     fn chrome(&self, node: &CanvasNode, _runtime: &Runtime) -> CardChrome {
-        let title = match node.kind {
-            CanvasNodeKind::Agent(agent) => agent.profile.display_title(),
-            _ => "Agent",
+        let title = match &node.kind {
+            CanvasNodeKind::Agent(agent) => agent.profile.display_title().to_string(),
+            _ => "Agent".to_string(),
         };
-        CardChrome { title }
+        CardChrome {
+            title,
+            refreshable: false,
+        }
     }
 
     fn body(&self, node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElement {

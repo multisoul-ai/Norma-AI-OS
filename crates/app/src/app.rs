@@ -11,6 +11,7 @@ use crate::master_layout::{
 use crate::master_layout::{close_node_and_reflow_for_area, workspace_reflow_config_for_zoom};
 use crate::motion::MotionStore;
 use crate::persistence::PersistenceScheduler;
+use crate::preview::PreviewStore;
 use crate::workspace_state::WorkspaceState;
 use canvas::{AgentProfile, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{
@@ -23,8 +24,12 @@ use std::path::PathBuf;
 use std::time::Duration;
 use ui::Theme;
 
+#[path = "settings_panel.rs"]
+mod settings_panel;
 #[path = "app_chrome.rs"]
 mod workspace_chrome;
+
+use self::settings_panel::SettingsPanelState;
 
 actions!(
     multisoul,
@@ -32,6 +37,7 @@ actions!(
         NewTerminal,
         NewClaudeAgent,
         NewCodexAgent,
+        OpenPreviewFile,
         OpenProject,
         ExitFocus,
         ReflowLayout,
@@ -48,8 +54,10 @@ pub struct MultisoulApp {
     pub theme: Theme,
     pub interaction: InteractionState,
     pub(crate) motion: MotionStore,
+    pub(crate) previews: PreviewStore,
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) persistence: PersistenceScheduler,
+    pub(crate) settings_panel: SettingsPanelState,
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
     pub focus_handle: FocusHandle,
@@ -108,8 +116,10 @@ impl MultisoulApp {
             theme: Theme::dark(),
             interaction: InteractionState::default(),
             motion: MotionStore::from_env(),
+            previews: PreviewStore::default(),
             master_layout: MasterLayoutState::default(),
             persistence: PersistenceScheduler::default(),
+            settings_panel: SettingsPanelState::default(),
             screen: AppScreen::Launchpad,
             workspace_state: WorkspaceState::load_default(),
             focus_handle: cx.focus_handle(),
@@ -221,6 +231,20 @@ impl MultisoulApp {
         self.prompt_open_project(cx);
     }
 
+    fn on_open_preview_file(
+        &mut self,
+        _: &OpenPreviewFile,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.can_create_preview() {
+            self.workspace_state.error = Some("Open a project before previewing files.".into());
+            cx.notify();
+            return;
+        }
+        self.prompt_preview_file(window, cx);
+    }
+
     pub(crate) fn remove_node_and_reflow(&mut self, node_id: NodeId, window: &mut Window) -> bool {
         let area = self.visible_canvas_rect(window);
         let zoom = self.runtime.document.viewport.zoom;
@@ -236,6 +260,7 @@ impl MultisoulApp {
             zoom,
         );
         if changed {
+            self.previews.remove(node_id);
             self.mark_canvas_dirty();
             self.mark_session_dirty();
         }
@@ -256,7 +281,7 @@ impl MultisoulApp {
         )
     }
 
-    fn layout_gap_canvas(&self) -> f32 {
+    pub(crate) fn layout_gap_canvas(&self) -> f32 {
         layout_gap_for_zoom(self.runtime.document.viewport.zoom)
     }
 
@@ -271,7 +296,7 @@ impl MultisoulApp {
         self.apply_tiled_nodes(window);
     }
 
-    fn apply_layout_for_current_mode(&mut self, window: &mut Window) {
+    pub(crate) fn apply_layout_for_current_mode(&mut self, window: &mut Window) {
         let area = self.visible_canvas_rect(window);
         let zoom = self.runtime.document.viewport.zoom;
         if self.master_layout.is_active()
@@ -376,6 +401,15 @@ impl MultisoulApp {
     ) {
         self.spawn_agent_card(AgentProfile::Codex, window, cx);
     }
+
+    fn on_toolbar_preview_file(
+        &mut self,
+        _: &ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.on_open_preview_file(&OpenPreviewFile, window, cx);
+    }
 }
 
 impl Focusable for MultisoulApp {
@@ -393,6 +427,7 @@ impl Render for MultisoulApp {
             .on_action(cx.listener(Self::on_new_claude_agent))
             .on_action(cx.listener(Self::on_new_codex_agent))
             .on_action(cx.listener(Self::on_open_project))
+            .on_action(cx.listener(Self::on_open_preview_file))
             .on_action(cx.listener(Self::on_exit_focus))
             .on_action(cx.listener(Self::on_reflow_layout))
             .on_action(cx.listener(Self::on_toggle_master_layout))
@@ -417,6 +452,9 @@ impl Render for MultisoulApp {
                     .child(self.render_workspace_backdrop())
                     .child(render_canvas(self, window, cx))
                     .child(self.render_workspace_chrome(window, cx));
+                if self.settings_panel.open {
+                    root = root.child(self.render_settings_panel(window, cx));
+                }
             }
         }
 

@@ -49,7 +49,7 @@ impl Document {
                 .iter()
                 .map(|node| CanvasNodeSnapshot {
                     id: node.id,
-                    kind: node.kind,
+                    kind: node.kind.clone(),
                     bounds: node.bounds,
                     z_index: node.z_index,
                 })

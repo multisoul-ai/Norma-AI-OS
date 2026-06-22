@@ -5,6 +5,7 @@ use crate::node::NodeId;
 
 const BASE_CARD_ASPECT_RATIO: f32 = 16.0 / 10.0;
 const DEFAULT_CARD_HEIGHT_MULTIPLIER: f32 = 1.4 * 0.9;
+const MASTER_DETAIL_MASTER_WIDTH_RATIO: f32 = 2.0 / 3.0;
 pub const DEFAULT_CARD_ASPECT_RATIO: f32 = BASE_CARD_ASPECT_RATIO / DEFAULT_CARD_HEIGHT_MULTIPLIER;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -144,12 +145,13 @@ pub fn compute_master_detail_layout(
 
     let usable = usable_area(area, config.safe_area);
     let gap = config.gap_canvas.max(0.0);
-    let panel_width = ((usable.size.x - gap * 3.0) / 2.0).max(0.0);
+    let content_width = (usable.size.x - gap * 3.0).max(0.0);
+    let master_width = content_width * MASTER_DETAIL_MASTER_WIDTH_RATIO;
     let panel_height = (usable.size.y - gap * 2.0).max(0.0);
     let master_bounds = CanvasRect::new(
         usable.origin.x + gap,
         usable.origin.y + gap,
-        panel_width,
+        master_width,
         panel_height,
     );
 

@@ -52,7 +52,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn open_workspace_path(&mut self, path: PathBuf, cx: &mut Context<Self>) {
-        if let Err(error) = enter_workspace_for_path(
+        let result = enter_workspace_for_path(
             &mut self.runtime,
             &mut self.motion,
             &mut self.master_layout,
@@ -60,8 +60,12 @@ impl MultisoulApp {
             &mut self.screen,
             &mut self.workspace_state,
             &path,
-        ) {
-            tracing::warn!(%error, path = %path.display(), "failed to open workspace");
+        );
+        match result {
+            Ok(()) => self.reload_all_previews(cx),
+            Err(error) => {
+                tracing::warn!(%error, path = %path.display(), "failed to open workspace");
+            }
         }
         self.last_reflow_window_size = None;
         cx.notify();

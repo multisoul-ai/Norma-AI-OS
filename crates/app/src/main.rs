@@ -9,13 +9,14 @@ mod launchpad;
 mod master_layout;
 mod motion;
 mod persistence;
+mod preview;
 mod spawn_focus;
 mod workspace_flow;
 mod workspace_state;
 
 use app::{
-    ExitFocus, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewTerminal, OpenProject, ReflowLayout,
-    ToggleMasterLayout,
+    ExitFocus, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewTerminal, OpenPreviewFile,
+    OpenProject, ReflowLayout, ToggleMasterLayout,
 };
 use assets::EmbeddedAssets;
 use gpui::{
@@ -38,6 +39,7 @@ fn main() {
             cx.bind_keys([
                 KeyBinding::new("cmd-n", NewTerminal, None),
                 KeyBinding::new("cmd-o", OpenProject, None),
+                KeyBinding::new("cmd-shift-o", OpenPreviewFile, None),
                 KeyBinding::new("cmd-m", ToggleMasterLayout, None),
                 KeyBinding::new("cmd-shift-l", ReflowLayout, None),
                 KeyBinding::new("escape", ExitFocus, None),
@@ -49,6 +51,7 @@ fn main() {
                 items: vec![
                     MenuItem::action("New Terminal", NewTerminal),
                     MenuItem::action("Open Project", OpenProject),
+                    MenuItem::action("Preview File", OpenPreviewFile),
                     MenuItem::action("New Claude Agent", NewClaudeAgent),
                     MenuItem::action("New Codex Agent", NewCodexAgent),
                     MenuItem::action("Reflow Layout", ReflowLayout),

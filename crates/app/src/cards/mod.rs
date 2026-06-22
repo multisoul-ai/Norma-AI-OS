@@ -2,8 +2,10 @@
 
 pub mod agent;
 pub mod chrome;
+pub mod preview;
 pub mod term;
 
+use crate::preview::PreviewLoadState;
 use canvas::{CanvasNode, CanvasRect, NodeType};
 use chrome::CardChrome;
 use gpui::AnyElement;
@@ -15,10 +17,14 @@ pub trait Card: Sync {
     fn chrome(&self, node: &CanvasNode, runtime: &Runtime) -> CardChrome;
     fn body(&self, node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElement;
     fn resize(&self, bounds: CanvasRect, zoom: f32) -> Option<NodeResize>;
+    fn captures_wheel_scroll(&self) -> bool {
+        false
+    }
 }
 
 pub struct CardBodyContext<'a> {
     pub runtime: &'a Runtime,
+    pub preview_state: Option<&'a PreviewLoadState>,
     pub theme: Theme,
     pub zoom: f32,
     pub bottom_radius_px: f32,
@@ -28,6 +34,7 @@ pub fn card_for(ty: NodeType) -> &'static dyn Card {
     let card: &'static dyn Card = match ty {
         NodeType::Term => &term::card::CARD,
         NodeType::Agent => &agent::card::CARD,
+        NodeType::Preview => &preview::card::CARD,
         NodeType::Rect => &chrome::EMPTY_CARD,
     };
     debug_assert_eq!(
@@ -64,6 +71,7 @@ mod tests {
         let term = card_for(NodeType::Term);
         let agent = card_for(NodeType::Agent);
         let rect = card_for(NodeType::Rect);
+        let preview = card_for(NodeType::Preview);
 
         assert_eq!(
             term.ty(),
@@ -80,10 +88,23 @@ mod tests {
             NodeType::Rect,
             "NodeType::Rect 应 dispatch 到 EmptyCard"
         );
+        assert_eq!(
+            preview.ty(),
+            NodeType::Preview,
+            "NodeType::Preview 应 dispatch 到 PreviewCard"
+        );
         assert_ne!(
             term.ty(),
             NodeType::Agent,
             "Term card 不应误返回 Agent 类型，否则 registry dispatch 错误"
+        );
+        assert!(
+            preview.captures_wheel_scroll(),
+            "Preview card 应声明接管内部滚轮，供画布滚轮 handler 让路"
+        );
+        assert!(
+            !term.captures_wheel_scroll(),
+            "Term card 当前没有独立滚动容器，不应声明接管滚轮"
         );
     }
 }

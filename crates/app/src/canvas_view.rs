@@ -4,7 +4,7 @@
 use crate::app::MultisoulApp;
 use crate::cards::chrome::{node_shadow, TITLE_BAR_H};
 use crate::cards::{card_for, CardBodyContext};
-use canvas::{hit_test, CanvasRect, NodeId, Vec2};
+use canvas::{hit_test, CanvasNode, CanvasRect, NodeId, Selection, Vec2, Viewport};
 use gpui::{
     div, prelude::*, px, rgba, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
     Pixels, Point, ScrollWheelEvent, Window,
@@ -28,6 +28,12 @@ pub struct InteractionState {
 
 const ZOOM_MIN: f32 = 0.2;
 const ZOOM_MAX: f32 = 4.0;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WheelScrollOwner {
+    Canvas,
+    Card(NodeId),
+}
 
 fn node_card_radius_px(zoom: f32) -> f32 {
     (16.0 * zoom).clamp(8.0, 22.0)
@@ -66,6 +72,33 @@ fn click_event_for_node(
     }
 }
 
+fn wheel_scroll_owner_for_point(
+    nodes: &[CanvasNode],
+    selection: &Selection,
+    screen: Vec2,
+    viewport: Viewport,
+) -> WheelScrollOwner {
+    let canvas_pt = viewport.screen_to_canvas(screen);
+    let Some(id) = hit_test(nodes, canvas_pt) else {
+        return WheelScrollOwner::Canvas;
+    };
+    if !selection.contains(id) {
+        return WheelScrollOwner::Canvas;
+    }
+    let Some(node) = nodes.iter().find(|node| node.id == id) else {
+        return WheelScrollOwner::Canvas;
+    };
+    let top_screen = viewport.canvas_to_screen(node.bounds.origin);
+    if is_title_bar_hit(screen.y, top_screen.y, viewport.zoom) {
+        return WheelScrollOwner::Canvas;
+    }
+    if card_for(node.kind.node_type()).captures_wheel_scroll() {
+        WheelScrollOwner::Card(id)
+    } else {
+        WheelScrollOwner::Canvas
+    }
+}
+
 /// 滚轮 zoom，绕光标保持画布点不动。
 fn on_scroll(
     app: &mut MultisoulApp,
@@ -75,6 +108,19 @@ fn on_scroll(
 ) {
     let _span = tracing::trace_span!("canvas_zoom").entered();
     let cursor = pt_to_vec(ev.position);
+    if matches!(
+        wheel_scroll_owner_for_point(
+            app.runtime.document.nodes(),
+            &app.runtime.selection,
+            cursor,
+            app.runtime.document.viewport,
+        ),
+        WheelScrollOwner::Card(_)
+    ) {
+        cx.stop_propagation();
+        return;
+    }
+
     let vp = &mut app.runtime.document.viewport;
     let canvas_pt = vp.screen_to_canvas(cursor);
 
@@ -232,7 +278,7 @@ pub fn render_canvas(
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
     app.motion.retain_nodes(node_ids.iter().copied());
     for id in node_ids {
-        let node = *app.runtime.document.node(id).unwrap();
+        let node = app.runtime.document.node(id).unwrap().clone();
         let card = card_for(node.kind.node_type());
         let chrome = card.chrome(&node, &app.runtime);
         let (origin, size, selected, title) = (
@@ -241,6 +287,7 @@ pub fn render_canvas(
             node.selected,
             chrome.title,
         );
+        let refreshable = chrome.refreshable;
         let selected = selected || app.runtime.selection.contains(id);
         let canonical_rect = CanvasRect { origin, size };
         let focused = matches!(focus_mode, InputMode::NodeFocused(fid) if fid == id);
@@ -313,6 +360,66 @@ pub fn render_canvas(
         );
 
         // 标题栏
+        let mut title_actions = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap(px(4.0 * vp.zoom));
+        if refreshable {
+            title_actions = title_actions.child(
+                div()
+                    .id(("node-refresh", id))
+                    .w(px(close_button_size))
+                    .h(px(close_button_size))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px((6.0 * vp.zoom).clamp(5.0, 8.0)))
+                    .bg(rgba(with_alpha(theme.accent_cyan, 0x12)))
+                    .text_color(rgba(theme.text_tertiary))
+                    .text_size(px((12.0 * vp.zoom).clamp(10.0, 13.0)))
+                    .child("R")
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(move |app, _, _window, cx| {
+                        cx.stop_propagation();
+                        app.refresh_preview_node(id, cx);
+                        cx.notify();
+                    })),
+            );
+        }
+        title_actions = title_actions.child(
+            div()
+                .id(("node-close", id))
+                .w(px(close_button_size))
+                .h(px(close_button_size))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded(px((6.0 * vp.zoom).clamp(5.0, 8.0)))
+                .bg(rgba(with_alpha(theme.destructive, 0x12)))
+                .text_color(rgba(theme.text_tertiary))
+                .text_size(px((12.0 * vp.zoom).clamp(10.0, 13.0)))
+                .child("x")
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_click(cx.listener(move |app, _, window, cx| {
+                    cx.stop_propagation();
+                    let event = InputEvent::CloseNode { node: id };
+                    if let Route::RemoveNode(node_id) = route(&app.runtime.focus.mode(), &event) {
+                        if app.remove_node_and_reflow(node_id, window) {
+                            app.interaction.drag = None;
+                            app.interaction.panning = false;
+                            app.interaction.last_screen = None;
+                            if app.interaction.hovered_node == Some(node_id) {
+                                app.interaction.hovered_node = None;
+                            }
+                        }
+                    }
+                    cx.notify();
+                })),
+        );
+
         node_div = node_div.child(
             div()
                 .h(px(TITLE_BAR_H * vp.zoom))
@@ -341,39 +448,7 @@ pub fn render_canvas(
                         )
                         .child(title),
                 )
-                .child(
-                    div()
-                        .id(("node-close", id))
-                        .w(px(close_button_size))
-                        .h(px(close_button_size))
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .rounded(px((6.0 * vp.zoom).clamp(5.0, 8.0)))
-                        .bg(rgba(with_alpha(theme.destructive, 0x12)))
-                        .text_color(rgba(theme.text_tertiary))
-                        .text_size(px((12.0 * vp.zoom).clamp(10.0, 13.0)))
-                        .child("x")
-                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .on_click(cx.listener(move |app, _, window, cx| {
-                            cx.stop_propagation();
-                            let event = InputEvent::CloseNode { node: id };
-                            if let Route::RemoveNode(node_id) =
-                                route(&app.runtime.focus.mode(), &event)
-                            {
-                                if app.remove_node_and_reflow(node_id, window) {
-                                    app.interaction.drag = None;
-                                    app.interaction.panning = false;
-                                    app.interaction.last_screen = None;
-                                    if app.interaction.hovered_node == Some(node_id) {
-                                        app.interaction.hovered_node = None;
-                                    }
-                                }
-                            }
-                            cx.notify();
-                        })),
-                ),
+                .child(title_actions),
         );
 
         // 内容
@@ -381,6 +456,7 @@ pub fn render_canvas(
             &node,
             CardBodyContext {
                 runtime: &app.runtime,
+                preview_state: app.previews.state_for(id),
                 theme,
                 zoom: vp.zoom,
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),

@@ -9,28 +9,29 @@ fn approx_rect(a: CanvasRect, b: CanvasRect) -> bool {
     approx_vec(a.origin, b.origin) && approx_vec(a.size, b.size)
 }
 
-/// Master/detail 布局：四张卡时 master 占左半屏，另外三张在右半屏纵向自适应。
+/// Master/detail 布局：四张卡时 master 占左侧 2/3，另外三张在右侧 1/3 纵向自适应。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   ordered_ids = [1,2,3,4]，master_id = 1
 ///   area = origin(0,0), size(1000x600)
 ///   safe_area = 0 → usable = 1000x600
 ///   gap = 16
-///   panel_width = (1000 - 16*3) / 2 = 476
-///   master = x=16,y=16,w=476,h=600-16*2=568
-///   detail area = x=492,w=508；三张 detail 单列：
-///     tile_width = 508 - 16*2 = 476
+///   content_width = 1000 - 16*3 = 952
+///   master_width = 952 * 2 / 3 = 634.6667
+///   master = x=16,y=16,w=634.6667,h=600-16*2=568
+///   detail area = x=650.6667,w=349.3333；三张 detail 单列：
+///     tile_width = 349.3333 - 16*2 = 317.3333
 ///     tile_height = (600 - 16*4) / 3 = 178.6667
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 识别 master_id=1 存在于 ordered_ids
-///   2. 在安全区内按左右两栏切分
-///   3. master 放入左栏；[2,3,4] 交给响应式网格放入右栏
+///   2. 在安全区内按 2/3 master + 1/3 detail 切分
+///   3. master 放入左侧 2/3；[2,3,4] 交给响应式网格放入右侧 1/3
 ///
 /// 预期结果：
-///   - 正断言：id=1 位于左半屏 master 区
-///   - 正断言：id=2/id=3/id=4 位于右半屏同一列并纵向排列
-///   - 负断言：id=2 不应出现在左半屏 master 的 x=16
+///   - 正断言：id=1 位于左侧 2/3 master 区
+///   - 正断言：id=2/id=3/id=4 位于右侧 1/3 同一列并纵向排列
+///   - 负断言：id=2 不应出现在左侧 master 的 x=16
 #[test]
 fn test_master_detail_layout_places_master_left_and_details_right_column() {
     let assignments = compute_master_detail_layout(
@@ -54,38 +55,38 @@ fn test_master_detail_layout_places_master_left_and_details_right_column() {
     assert!(
         approx_rect(
             assignments[0].bounds,
-            CanvasRect::new(16.0, 16.0, 476.0, 568.0)
+            CanvasRect::new(16.0, 16.0, 634.6667, 568.0)
         ),
-        "id=1 应占据左半屏 master 区，实际 {:?}",
+        "id=1 应占据左侧 2/3 master 区，实际 {:?}",
         assignments[0].bounds
     );
     assert!(
         approx_rect(
             assignments[1].bounds,
-            CanvasRect::new(508.0, 16.0, 476.0, 178.66667)
+            CanvasRect::new(666.6667, 16.0, 317.3333, 178.66667)
         ),
-        "id=2 应位于右半屏第一行，实际 {:?}",
+        "id=2 应位于右侧 1/3 第一行，实际 {:?}",
         assignments[1].bounds
     );
     assert!(
         approx_rect(
             assignments[2].bounds,
-            CanvasRect::new(508.0, 210.66667, 476.0, 178.66667)
+            CanvasRect::new(666.6667, 210.66667, 317.3333, 178.66667)
         ),
-        "id=3 应位于右半屏第二行，实际 {:?}",
+        "id=3 应位于右侧 1/3 第二行，实际 {:?}",
         assignments[2].bounds
     );
     assert!(
         approx_rect(
             assignments[3].bounds,
-            CanvasRect::new(508.0, 405.33334, 476.0, 178.66667)
+            CanvasRect::new(666.6667, 405.33334, 317.3333, 178.66667)
         ),
-        "id=4 应位于右半屏第三行，实际 {:?}",
+        "id=4 应位于右侧 1/3 第三行，实际 {:?}",
         assignments[3].bounds
     );
     assert_ne!(
         assignments[1].bounds.origin.x, 16.0,
-        "detail id=2 不应占用左半屏 master 的 x=16"
+        "detail id=2 不应占用左侧 master 的 x=16"
     );
 }
 
@@ -94,7 +95,7 @@ fn test_master_detail_layout_places_master_left_and_details_right_column() {
 /// 数据构造（含关键数值的推导过程）：
 ///   ordered_ids = [1,2,3,4]，master_id = 3
 ///   detail_ids 应为 [1,2,4]，不能排序为 [1,2,3] 或把 master 留在右侧
-///   area/gap 与上个测试相同，因此左栏 master bounds 仍为 (16,16,476,568)
+///   area/gap 与上个测试相同，因此左侧 2/3 master bounds 仍为 (16,16,634.6667,568)
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 从 ordered_ids 过滤 master_id=3

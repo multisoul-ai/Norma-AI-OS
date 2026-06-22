@@ -17,7 +17,7 @@ pub use layout::{
     DEFAULT_CARD_ASPECT_RATIO,
 };
 pub use node::{
-    AgentProfile, AgentSpec, CanvasNode, CanvasNodeKind, NodeId, NodeKind, NodeType, RectNode,
-    TermSpec,
+    AgentProfile, AgentSpec, CanvasNode, CanvasNodeKind, NodeId, NodeKind, NodeType, PreviewSpec,
+    PreviewType, RectNode, TermSpec,
 };
 pub use selection::Selection;

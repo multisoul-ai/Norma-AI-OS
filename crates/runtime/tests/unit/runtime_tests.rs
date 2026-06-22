@@ -187,7 +187,7 @@ fn test_spawn_agent_registers_live_node_and_agent_descriptor() {
         .document
         .node(node_id)
         .expect("spawn 返回的 node_id 应能在 document 中查到");
-    match node.kind {
+    match &node.kind {
         CanvasNodeKind::Agent(agent) => {
             assert_eq!(
                 agent.profile,
@@ -195,12 +195,7 @@ fn test_spawn_agent_registers_live_node_and_agent_descriptor() {
                 "Agent 节点 profile 应保存为 Claude"
             );
         }
-        CanvasNodeKind::Term(_) => {
-            panic!("spawn_agent_with_command 不应创建普通 Term 节点");
-        }
-        CanvasNodeKind::Rect(_) => {
-            panic!("spawn_agent_with_command 不应创建 Rect 节点");
-        }
+        other => panic!("spawn_agent_with_command 不应创建非 Agent 节点: {other:?}"),
     }
     assert!(
         rt.node_caps(node_id).focusable,

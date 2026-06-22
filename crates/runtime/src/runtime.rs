@@ -8,7 +8,7 @@ use crate::nodes::agent::spawn_agent_live;
 use crate::nodes::term::TermLive;
 use canvas::{
     AgentProfile, AgentSpec, CanvasNodeKind, CanvasRect, Document, DocumentSnapshot, NodeId,
-    Selection, TermSpec,
+    PreviewSpec, PreviewType, Selection, TermSpec,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -90,30 +90,34 @@ impl Runtime {
             .iter()
             .filter(|node| self.live.contains_key(&node.id))
             .filter_map(|node| {
-                let kind = match node.kind {
+                let kind = match &node.kind {
                     CanvasNodeKind::Term(_) => SessionCheckpointKind::Terminal,
                     CanvasNodeKind::Agent(_) => SessionCheckpointKind::Agent,
-                    CanvasNodeKind::Rect(_) => return None,
+                    CanvasNodeKind::Rect(_) | CanvasNodeKind::Preview(_) => return None,
                 };
                 let (cols, rows) = self.live_grid_size(node.id);
                 Some(SessionCheckpoint {
                     node_id: node.id,
                     kind,
-                    payload: node.kind.display_title().to_string(),
+                    payload: node.kind.display_title(),
                     cols,
                     rows,
-                    shell: match node.kind {
+                    shell: match &node.kind {
                         CanvasNodeKind::Term(_) => Some(
                             self.terminal_shells
                                 .get(&node.id)
                                 .cloned()
                                 .unwrap_or_else(|| DEFAULT_TERMINAL_SHELL.to_string()),
                         ),
-                        CanvasNodeKind::Agent(_) | CanvasNodeKind::Rect(_) => None,
+                        CanvasNodeKind::Agent(_)
+                        | CanvasNodeKind::Rect(_)
+                        | CanvasNodeKind::Preview(_) => None,
                     },
-                    agent_profile: match node.kind {
+                    agent_profile: match &node.kind {
                         CanvasNodeKind::Agent(spec) => Some(spec.profile),
-                        CanvasNodeKind::Term(_) | CanvasNodeKind::Rect(_) => None,
+                        CanvasNodeKind::Term(_)
+                        | CanvasNodeKind::Rect(_)
+                        | CanvasNodeKind::Preview(_) => None,
                     },
                 })
             })
@@ -136,7 +140,7 @@ impl Runtime {
             .document
             .nodes()
             .iter()
-            .map(|node| (node.id, node.kind))
+            .map(|node| (node.id, node.kind.clone()))
             .collect();
 
         let mut restored = 0;
@@ -165,7 +169,7 @@ impl Runtime {
                         .unwrap_or(spec.profile);
                     self.attach_agent_live(node_id, profile, cols, rows)
                 }
-                CanvasNodeKind::Rect(_) => false,
+                CanvasNodeKind::Rect(_) | CanvasNodeKind::Preview(_) => false,
             };
 
             if did_restore {
@@ -209,6 +213,21 @@ impl Runtime {
             .add_node(CanvasNodeKind::Agent(AgentSpec { profile }), bounds);
         self.live.insert(node_id, Box::new(live));
         Ok(node_id)
+    }
+
+    pub fn spawn_preview_from_path(
+        &mut self,
+        path: PathBuf,
+        explicit_type: Option<PreviewType>,
+        bounds: CanvasRect,
+    ) -> NodeId {
+        self.document.add_node(
+            CanvasNodeKind::Preview(PreviewSpec {
+                path: path.to_string_lossy().into_owned(),
+                explicit_type,
+            }),
+            bounds,
+        )
     }
 
     #[cfg(test)]
@@ -384,6 +403,9 @@ fn is_zsh_shell(shell: &str) -> bool {
     Path::new(shell).file_name().and_then(|name| name.to_str()) == Some("zsh")
 }
 
+#[cfg(test)]
+#[path = "../tests/unit/preview_tests.rs"]
+mod preview_tests;
 #[cfg(test)]
 #[path = "../tests/unit/runtime_storage_tests.rs"]
 mod storage_tests;

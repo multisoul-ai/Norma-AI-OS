@@ -9,9 +9,10 @@ use crate::motion::{ResolvedNodeVisual, VisualPriority};
 
 pub const TITLE_BAR_H: f32 = 26.0;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CardChrome {
-    pub title: &'static str,
+    pub title: String,
+    pub refreshable: bool,
 }
 
 pub fn node_shadow(visual: ResolvedNodeVisual) -> Vec<BoxShadow> {
@@ -46,6 +47,7 @@ impl Card for EmptyCard {
     fn chrome(&self, node: &CanvasNode, _runtime: &Runtime) -> CardChrome {
         CardChrome {
             title: node.kind.display_title(),
+            refreshable: false,
         }
     }
 

@@ -37,41 +37,67 @@ pub struct AgentSpec {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+pub enum PreviewType {
+    Markdown,
+    Text,
+    Image,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+pub struct PreviewSpec {
+    pub path: String,
+    pub explicit_type: Option<PreviewType>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub enum NodeType {
     Rect,
     Term,
     Agent,
+    Preview,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum NodeKind {
     Rect(RectNode),
     Term(TermSpec),
     Agent(AgentSpec),
+    Preview(PreviewSpec),
 }
 
 /// 兼容旧调用方的类型名；新代码优先使用 NodeKind。
 pub type CanvasNodeKind = NodeKind;
 
 impl NodeKind {
-    pub fn node_type(self) -> NodeType {
+    pub fn node_type(&self) -> NodeType {
         match self {
             NodeKind::Rect(_) => NodeType::Rect,
             NodeKind::Term(_) => NodeType::Term,
             NodeKind::Agent(_) => NodeType::Agent,
+            NodeKind::Preview(_) => NodeType::Preview,
         }
     }
 
-    pub fn display_title(self) -> &'static str {
+    pub fn display_title(&self) -> String {
         match self {
-            NodeKind::Rect(_) => "Node",
-            NodeKind::Term(_) => "Terminal",
-            NodeKind::Agent(node) => node.profile.display_title(),
+            NodeKind::Rect(_) => "Node".to_string(),
+            NodeKind::Term(_) => "Terminal".to_string(),
+            NodeKind::Agent(node) => node.profile.display_title().to_string(),
+            NodeKind::Preview(spec) => preview_title(&spec.path),
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+fn preview_title(path: &str) -> String {
+    std::path::Path::new(path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or("Preview")
+        .to_string()
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct CanvasNode {
     pub id: NodeId,
     pub kind: CanvasNodeKind,
@@ -181,6 +207,52 @@ mod tests {
             rect.node_type(),
             NodeType::Term,
             "Rect 节点不应伪装成 Term，否则 app 会错误选择 terminal card"
+        );
+    }
+
+    /// Preview 节点只保存本地文件路径和可选显式类型，并可完整 serde 往返。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   path = "/tmp/report.md"（绝对本地路径，内容不进入 canvas 层）
+    ///   explicit_type = Some(Markdown)（用户或后续 agent 可显式指定类型）
+    ///   snapshot payload 字段数 = 2（path + explicit_type），不包含文件内容字段
+    ///
+    /// 执行过程：
+    ///   1. 构造 NodeKind::Preview(PreviewSpec)
+    ///   2. 调用 node_type / display_title
+    ///   3. serde_json 序列化后再反序列化
+    ///
+    /// 预期结果：
+    ///   - 正断言：Preview 类型是 NodeType::Preview，标题优先显示文件名 report.md
+    ///   - 正断言：serde 往返后 kind 与原始值一致，路径和显式类型仍保留
+    ///   - 负断言：序列化 JSON 不应包含文件内容字段，避免快照膨胀
+    #[test]
+    fn test_preview_kind_preserves_path_type_and_serializes_without_content() {
+        let kind = NodeKind::Preview(PreviewSpec {
+            path: "/tmp/report.md".to_string(),
+            explicit_type: Some(PreviewType::Markdown),
+        });
+
+        let json = serde_json::to_string(&kind).expect("Preview kind 应可序列化");
+        let restored: NodeKind = serde_json::from_str(&json).expect("Preview kind 应可反序列化");
+
+        assert_eq!(
+            kind.node_type(),
+            NodeType::Preview,
+            "Preview 节点应暴露 NodeType::Preview，供 app card registry dispatch"
+        );
+        assert_eq!(
+            kind.display_title(),
+            "report.md",
+            "Preview 节点标题应优先显示路径中的文件名"
+        );
+        assert_eq!(
+            restored, kind,
+            "Preview kind serde 往返后应完整保留 path 与 explicit_type"
+        );
+        assert!(
+            !json.contains("content"),
+            "Preview canvas snapshot 不应包含文件内容副本，实际 JSON: {json}"
         );
     }
 }
