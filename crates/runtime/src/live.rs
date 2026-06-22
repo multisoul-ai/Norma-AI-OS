@@ -36,6 +36,11 @@ pub enum NodeResize {
     TermGrid { cols: u16, rows: u16 },
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NodeScroll {
+    TermLines(i32),
+}
+
 #[derive(Debug, Clone)]
 pub enum NodeView {
     Term {
@@ -49,6 +54,7 @@ pub enum NodeError {
     MissingNode,
     UnsupportedInput,
     UnsupportedResize,
+    UnsupportedScroll,
     Pty(PtyError),
 }
 
@@ -58,6 +64,7 @@ impl fmt::Display for NodeError {
             NodeError::MissingNode => write!(f, "live node missing"),
             NodeError::UnsupportedInput => write!(f, "live node does not support this input"),
             NodeError::UnsupportedResize => write!(f, "live node does not support this resize"),
+            NodeError::UnsupportedScroll => write!(f, "live node does not support scrolling"),
             NodeError::Pty(error) => write!(f, "{error}"),
         }
     }
@@ -74,6 +81,9 @@ pub trait LiveNode {
     fn drain(&mut self) -> bool;
     fn resize(&mut self, resize: NodeResize) -> Result<(), NodeError>;
     fn input(&mut self, input: NodeInput) -> Result<(), NodeError>;
+    fn scroll(&mut self, _scroll: NodeScroll) -> Result<bool, NodeError> {
+        Err(NodeError::UnsupportedScroll)
+    }
     fn view(&self) -> Option<NodeView>;
     fn kill(&mut self);
 }

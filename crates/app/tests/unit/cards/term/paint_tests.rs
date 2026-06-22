@@ -29,6 +29,8 @@ fn test_snapshot(row: Vec<Cell>) -> GridSnapshot {
         cursor_col: 0,
         cols,
         lines: 1,
+        display_offset: 0,
+        history_size: 0,
     }
 }
 

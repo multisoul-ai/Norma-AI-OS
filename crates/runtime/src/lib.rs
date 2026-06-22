@@ -7,6 +7,6 @@ pub mod runtime;
 pub mod snapshot;
 
 pub use focus::{FocusState, InputMode};
-pub use live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeView};
+pub use live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
 pub use route::{route, InputEvent, Route};
 pub use runtime::{Runtime, DEFAULT_TERMINAL_SHELL};

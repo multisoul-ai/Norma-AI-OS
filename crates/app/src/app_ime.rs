@@ -228,9 +228,12 @@ impl InputHandler for TerminalImeHandler {
         &mut self,
         _range_utf16: Range<usize>,
         _window: &mut Window,
-        _cx: &mut App,
+        cx: &mut App,
     ) -> Option<Bounds<Pixels>> {
-        None
+        let app = self.app.upgrade()?;
+        app.update(cx, |app, _cx| {
+            crate::app_ime_geometry::terminal_ime_cursor_bounds(&app.runtime, app.screen)
+        })
     }
 
     fn character_index_for_point(

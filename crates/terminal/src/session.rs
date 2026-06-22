@@ -102,6 +102,10 @@ impl TerminalSession {
         self.grid.snapshot()
     }
 
+    pub fn scroll_display(&mut self, lines: i32) -> bool {
+        self.grid.scroll_display(lines)
+    }
+
     pub fn kill(&mut self) {
         self.pty.kill();
     }

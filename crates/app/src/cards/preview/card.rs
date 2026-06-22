@@ -42,8 +42,8 @@ impl Card for PreviewCard {
         None
     }
 
-    fn captures_wheel_scroll(&self) -> bool {
-        true
+    fn wheel_scroll_mode(&self) -> crate::cards::CardWheelScrollMode {
+        crate::cards::CardWheelScrollMode::NativeElement
     }
 }
 

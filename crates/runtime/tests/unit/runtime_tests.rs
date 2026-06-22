@@ -1,6 +1,6 @@
 use super::*;
 use crate::focus::InputMode;
-use crate::live::{NodeInput, NodeResize, NodeView};
+use crate::live::{NodeError, NodeInput, NodeResize, NodeView};
 use canvas::{geometry::CanvasRect, AgentProfile, NodeType};
 use terminal::{Key, KeyInput, PtyCommand};
 

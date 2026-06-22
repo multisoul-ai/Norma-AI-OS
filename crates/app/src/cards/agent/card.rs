@@ -40,6 +40,10 @@ impl Card for AgentCard {
     fn resize(&self, bounds: CanvasRect, zoom: f32) -> Option<NodeResize> {
         Some(term_resize(bounds, zoom))
     }
+
+    fn wheel_scroll_mode(&self) -> crate::cards::CardWheelScrollMode {
+        crate::cards::CardWheelScrollMode::TerminalScrollback
+    }
 }
 
 #[cfg(test)]

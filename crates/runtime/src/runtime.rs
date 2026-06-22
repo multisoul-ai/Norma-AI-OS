@@ -1,7 +1,7 @@
 //! 节点生命周期 + LiveNode 注册表。把 canvas 文档与可运行节点组装在一起。
 
 use crate::focus::{FocusState, InputMode};
-use crate::live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeView};
+use crate::live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
 #[cfg(test)]
 use crate::nodes::agent::agent_command;
 use crate::nodes::agent::spawn_agent_live;
@@ -283,6 +283,13 @@ impl Runtime {
         node.input(input)
     }
 
+    pub fn scroll_node(&mut self, node_id: NodeId, scroll: NodeScroll) -> Result<bool, NodeError> {
+        let Some(node) = self.live.get_mut(&node_id) else {
+            return Err(NodeError::MissingNode);
+        };
+        node.scroll(scroll)
+    }
+
     /// drain 所有 live node；任一 dirty 则返回 true（app 据此决定是否 repaint）。
     pub fn drain_all(&mut self) -> bool {
         let mut dirty = false;
@@ -406,6 +413,9 @@ fn is_zsh_shell(shell: &str) -> bool {
 #[cfg(test)]
 #[path = "../tests/unit/preview_tests.rs"]
 mod preview_tests;
+#[cfg(test)]
+#[path = "../tests/unit/runtime_scroll_tests.rs"]
+mod scroll_tests;
 #[cfg(test)]
 #[path = "../tests/unit/runtime_storage_tests.rs"]
 mod storage_tests;

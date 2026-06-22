@@ -34,6 +34,8 @@ fn test_snapshot_with_cursor(
         cursor_col,
         cols,
         lines,
+        display_offset: 0,
+        history_size: 0,
     }
 }
 

@@ -402,6 +402,16 @@ impl MultisoulApp {
     ) {
         self.on_open_preview_file(&OpenPreviewFile, window, cx);
     }
+
+    fn on_toolbar_canvas_scroll(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.interaction.canvas_scroll_enabled = !self.interaction.canvas_scroll_enabled;
+        cx.notify();
+    }
 }
 
 impl Focusable for MultisoulApp {

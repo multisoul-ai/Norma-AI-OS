@@ -17,9 +17,16 @@ pub trait Card: Sync {
     fn chrome(&self, node: &CanvasNode, runtime: &Runtime) -> CardChrome;
     fn body(&self, node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElement;
     fn resize(&self, bounds: CanvasRect, zoom: f32) -> Option<NodeResize>;
-    fn captures_wheel_scroll(&self) -> bool {
-        false
+    fn wheel_scroll_mode(&self) -> CardWheelScrollMode {
+        CardWheelScrollMode::CanvasViewport
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CardWheelScrollMode {
+    CanvasViewport,
+    NativeElement,
+    TerminalScrollback,
 }
 
 pub struct CardBodyContext<'a> {
@@ -98,13 +105,25 @@ mod tests {
             NodeType::Agent,
             "Term card 不应误返回 Agent 类型，否则 registry dispatch 错误"
         );
-        assert!(
-            preview.captures_wheel_scroll(),
-            "Preview card 应声明接管内部滚轮，供画布滚轮 handler 让路"
+        assert_eq!(
+            preview.wheel_scroll_mode(),
+            CardWheelScrollMode::NativeElement,
+            "Preview card 应声明 NativeElement 模式，供 GPUI overflow_scroll 接管滚轮"
         );
-        assert!(
-            !term.captures_wheel_scroll(),
-            "Term card 当前没有独立滚动容器，不应声明接管滚轮"
+        assert_eq!(
+            term.wheel_scroll_mode(),
+            CardWheelScrollMode::TerminalScrollback,
+            "Term card 应声明 TerminalScrollback 模式，滚轮用于本地回滚"
+        );
+        assert_eq!(
+            agent.wheel_scroll_mode(),
+            CardWheelScrollMode::TerminalScrollback,
+            "Agent card 应复用 terminal scrollback 模式，覆盖 Claude/Codex"
+        );
+        assert_eq!(
+            rect.wheel_scroll_mode(),
+            CardWheelScrollMode::CanvasViewport,
+            "Rect card 不支持内部滚动，应保留 CanvasViewport 模式"
         );
     }
 }

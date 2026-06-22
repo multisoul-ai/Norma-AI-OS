@@ -1,15 +1,18 @@
-//! 画布渲染与交互：pan（空格/中键拖）、zoom（滚轮，绕光标）、节点拖拽、单击选中。
+//! 画布渲染与交互：pan（滚轮、空格/中键拖）、节点拖拽、单击选中。
 //! viewport culling：屏幕外节点不构建元素。
 
 use crate::app::MultisoulApp;
+use crate::card_scroll::{
+    terminal_scroll_lines_from_pixel_delta, wheel_scroll_owner_for_point, WheelScrollOwner,
+};
 use crate::cards::chrome::{node_shadow, TITLE_BAR_H};
 use crate::cards::{card_for, CardBodyContext};
-use canvas::{hit_test, CanvasNode, CanvasRect, NodeId, Selection, Vec2, Viewport};
+use canvas::{hit_test, CanvasRect, NodeId, Vec2, Viewport};
 use gpui::{
     div, prelude::*, px, rgba, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
     Pixels, Point, ScrollWheelEvent, Window,
 };
-use runtime::{route, InputEvent, InputMode, Route};
+use runtime::{route, InputEvent, InputMode, NodeScroll, Route};
 
 #[derive(Clone, Copy)]
 pub struct DragState {
@@ -17,22 +20,26 @@ pub struct DragState {
     pub last_screen: Vec2,
 }
 
-#[derive(Default)]
 pub struct InteractionState {
     pub space_held: bool,
     pub panning: bool,
     pub last_screen: Option<Vec2>,
     pub drag: Option<DragState>,
     pub hovered_node: Option<NodeId>,
+    pub canvas_scroll_enabled: bool,
 }
 
-const ZOOM_MIN: f32 = 0.2;
-const ZOOM_MAX: f32 = 4.0;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum WheelScrollOwner {
-    Canvas,
-    Card(NodeId),
+impl Default for InteractionState {
+    fn default() -> Self {
+        Self {
+            space_held: false,
+            panning: false,
+            last_screen: None,
+            drag: None,
+            hovered_node: None,
+            canvas_scroll_enabled: true,
+        }
+    }
 }
 
 fn node_card_radius_px(zoom: f32) -> f32 {
@@ -72,67 +79,64 @@ fn click_event_for_node(
     }
 }
 
-fn wheel_scroll_owner_for_point(
-    nodes: &[CanvasNode],
-    selection: &Selection,
-    screen: Vec2,
-    viewport: Viewport,
-) -> WheelScrollOwner {
-    let canvas_pt = viewport.screen_to_canvas(screen);
-    let Some(id) = hit_test(nodes, canvas_pt) else {
-        return WheelScrollOwner::Canvas;
-    };
-    if !selection.contains(id) {
-        return WheelScrollOwner::Canvas;
+fn apply_canvas_wheel_scroll(viewport: &mut Viewport, pixel_delta: Vec2, enabled: bool) -> bool {
+    if !enabled || (pixel_delta.x == 0.0 && pixel_delta.y == 0.0) {
+        return false;
     }
-    let Some(node) = nodes.iter().find(|node| node.id == id) else {
-        return WheelScrollOwner::Canvas;
-    };
-    let top_screen = viewport.canvas_to_screen(node.bounds.origin);
-    if is_title_bar_hit(screen.y, top_screen.y, viewport.zoom) {
-        return WheelScrollOwner::Canvas;
-    }
-    if card_for(node.kind.node_type()).captures_wheel_scroll() {
-        WheelScrollOwner::Card(id)
-    } else {
-        WheelScrollOwner::Canvas
-    }
+    viewport.pan = Vec2::new(
+        viewport.pan.x - pixel_delta.x,
+        viewport.pan.y - pixel_delta.y,
+    );
+    true
 }
 
-/// 滚轮 zoom，绕光标保持画布点不动。
+/// 滚轮/触控板平移画布；卡片内部滚动优先于画布滚动。
 fn on_scroll(
     app: &mut MultisoulApp,
     ev: &ScrollWheelEvent,
     _w: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) {
-    let _span = tracing::trace_span!("canvas_zoom").entered();
+    let _span = tracing::trace_span!("canvas_scroll").entered();
     let cursor = pt_to_vec(ev.position);
-    if matches!(
-        wheel_scroll_owner_for_point(
-            app.runtime.document.nodes(),
-            &app.runtime.selection,
-            cursor,
-            app.runtime.document.viewport,
-        ),
-        WheelScrollOwner::Card(_)
-    ) {
-        cx.stop_propagation();
-        return;
+    let owner = wheel_scroll_owner_for_point(
+        app.runtime.document.nodes(),
+        &app.runtime.selection,
+        cursor,
+        app.runtime.document.viewport,
+    );
+    match owner {
+        WheelScrollOwner::NativeElement(_) => {
+            cx.stop_propagation();
+            return;
+        }
+        WheelScrollOwner::TerminalScrollback(id) => {
+            cx.stop_propagation();
+            let dy = f32::from(ev.delta.pixel_delta(px(1.0)).y);
+            let lines = terminal_scroll_lines_from_pixel_delta(dy);
+            if lines != 0 {
+                match app.runtime.scroll_node(id, NodeScroll::TermLines(lines)) {
+                    Ok(true) => cx.notify(),
+                    Ok(false) => {}
+                    Err(error) => tracing::debug!(?id, %error, "failed to scroll terminal card"),
+                }
+            }
+            return;
+        }
+        WheelScrollOwner::CanvasViewport => {}
     }
 
-    let vp = &mut app.runtime.document.viewport;
-    let canvas_pt = vp.screen_to_canvas(cursor);
-
-    let dy = f32::from(ev.delta.pixel_delta(px(1.0)).y); // 归一化滚动量
-    let factor = (1.0 + dy * 0.0015).clamp(0.5, 1.5);
-    vp.zoom = (vp.zoom * factor).clamp(ZOOM_MIN, ZOOM_MAX);
-    // 保持光标下画布点不动：pan = cursor - canvas_pt * zoom
-    vp.pan = Vec2::new(
-        cursor.x - canvas_pt.x * vp.zoom,
-        cursor.y - canvas_pt.y * vp.zoom,
-    );
-    cx.notify();
+    cx.stop_propagation();
+    let delta = ev.delta.pixel_delta(px(1.0));
+    let pixel_delta = Vec2::new(f32::from(delta.x), f32::from(delta.y));
+    if apply_canvas_wheel_scroll(
+        &mut app.runtime.document.viewport,
+        pixel_delta,
+        app.interaction.canvas_scroll_enabled,
+    ) {
+        app.mark_canvas_dirty();
+        cx.notify();
+    }
 }
 
 fn on_mouse_down(

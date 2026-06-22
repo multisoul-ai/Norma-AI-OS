@@ -91,6 +91,8 @@ pub struct GridSnapshot {
     pub cursor_col: usize,
     pub cols: usize,
     pub lines: usize,
+    pub display_offset: usize,
+    pub history_size: usize,
 }
 
 /// 实现 alacritty 的 Dimensions：仅可见屏幕（本切片不做 scrollback 虚拟化）。
@@ -154,6 +156,7 @@ impl TerminalGrid {
     /// Line(screen_lines - 1) 为底行，与视觉顺序一致。
     pub fn snapshot(&self) -> GridSnapshot {
         let grid = self.term.grid();
+        let display_offset = grid.display_offset();
         let mut rows = vec![
             vec![
                 Cell {
@@ -169,7 +172,7 @@ impl TerminalGrid {
 
         for (line, row) in rows.iter_mut().enumerate().take(self.dims.screen_lines) {
             for (col, output_cell) in row.iter_mut().enumerate().take(self.dims.columns) {
-                let point = Point::new(Line(line as i32), Column(col));
+                let point = Point::new(Line(line as i32 - display_offset as i32), Column(col));
                 let cell = &grid[point];
                 *output_cell = Cell {
                     c: cell.c,
@@ -187,6 +190,8 @@ impl TerminalGrid {
             cursor_col: cursor.column.0,
             cols: self.dims.columns,
             lines: self.dims.screen_lines,
+            display_offset,
+            history_size: grid.history_size(),
         }
     }
 }
@@ -482,3 +487,6 @@ mod tests {
         );
     }
 }
+
+#[path = "grid/scrollback.rs"]
+mod scrollback;

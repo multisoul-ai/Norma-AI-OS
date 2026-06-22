@@ -1,6 +1,6 @@
 //! Terminal-backed LiveNode implementation.
 
-use crate::live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeView};
+use crate::live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
 use terminal::{PtyCommand, PtyError, TerminalSession, TerminalSessionId};
 
 pub struct TermLive {
@@ -61,6 +61,12 @@ impl LiveNode for TermLive {
                 .session
                 .write_bytes(s.as_bytes())
                 .map_err(NodeError::from),
+        }
+    }
+
+    fn scroll(&mut self, scroll: NodeScroll) -> Result<bool, NodeError> {
+        match scroll {
+            NodeScroll::TermLines(lines) => Ok(self.session.scroll_display(lines)),
         }
     }
 

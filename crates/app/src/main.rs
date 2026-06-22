@@ -1,9 +1,11 @@
 //! multisoul-desktop 入口：tracing 初始化 + 启动 GPUI App。
 mod app;
 mod app_ime;
+mod app_ime_geometry;
 mod app_lifecycle;
 mod assets;
 mod canvas_view;
+mod card_scroll;
 mod cards;
 mod launchpad;
 mod master_layout;

@@ -1,21 +1,135 @@
 use super::*;
-use canvas::{CanvasNodeKind, Document, PreviewSpec, PreviewType, RectNode, Selection, Viewport};
 
-fn preview_kind() -> CanvasNodeKind {
-    CanvasNodeKind::Preview(PreviewSpec {
-        path: "/tmp/report.md".to_string(),
-        explicit_type: Some(PreviewType::Markdown),
-    })
+/// 画布交互状态：默认应开启滚轮/触控板画布滚动。
+///
+/// 数据构造（含关键数值推导）：
+///   InteractionState::default() 来自 app 启动默认状态
+///   canvas_scroll_enabled = true（用户要求画布默认能滚动）
+///   space_held = false，panning = false（未按空格、未拖拽）
+///
+/// 执行过程：
+///   1. 构造 InteractionState::default()
+///   2. 读取 canvas_scroll_enabled 与其他初始交互标记
+///
+/// 预期结果：
+///   - 正断言：canvas_scroll_enabled 为 true
+///   - 负断言：space_held/panning 不应随默认滚动开启而变成 true
+#[test]
+fn test_interaction_state_enables_canvas_scroll_by_default() {
+    let state = InteractionState::default();
+
+    assert!(
+        state.canvas_scroll_enabled,
+        "画布滚动开关默认应开启，让用户进入画布后可直接用滚轮/触控板平移"
+    );
+    assert!(!state.space_held, "默认开启画布滚动不应伪造空格按下状态");
+    assert!(
+        !state.panning,
+        "默认开启画布滚动不应进入鼠标拖拽 panning 状态"
+    );
 }
 
-fn selected_selection(id: NodeId) -> Selection {
-    let mut selection = Selection::new();
-    selection.select_only(id);
-    selection
+/// 画布滚动开启：wheel pixel delta 应平移 viewport.pan，且不再改变 zoom。
+///
+/// 数据构造（含关键数值推导）：
+///   viewport.pan = (20,10)，zoom = 2.0
+///   wheel delta = (12,-24)
+///   画布滚动采用 pan -= delta，因此 new pan = (20-12, 10-(-24)) = (8,34)
+///   zoom 保持 2.0，因为滚轮默认行为已从缩放改为平移
+///
+/// 执行过程：
+///   1. 构造 viewport(pan=(20,10), zoom=2)
+///   2. apply_canvas_wheel_scroll(enabled=true, delta=(12,-24))
+///   3. 检查返回值、pan、zoom
+///
+/// 预期结果：
+///   - 正断言：返回 true 且 pan 更新为 (8,34)
+///   - 正断言：zoom 仍为 2.0
+///   - 负断言：pan 不应停在原值，zoom 不应被改成旧滚轮缩放结果
+#[test]
+fn test_canvas_wheel_scroll_pans_viewport_without_zooming_when_enabled() {
+    let mut viewport = canvas::Viewport {
+        pan: Vec2::new(20.0, 10.0),
+        zoom: 2.0,
+    };
+    let original_pan = viewport.pan;
+    let original_zoom = viewport.zoom;
+
+    let changed = apply_canvas_wheel_scroll(&mut viewport, Vec2::new(12.0, -24.0), true);
+
+    assert!(
+        changed,
+        "非零 wheel delta 且画布滚动开启时应返回 true，表示 viewport 已平移"
+    );
+    assert_eq!(
+        viewport.pan,
+        Vec2::new(8.0, 34.0),
+        "pan 应按 pan -= delta 从 (20,10) 更新到 (8,34)"
+    );
+    assert_eq!(
+        viewport.zoom, original_zoom,
+        "画布默认滚动应保持 zoom=2.0 不变，不再执行旧的滚轮缩放"
+    );
+    assert_ne!(
+        viewport.pan, original_pan,
+        "非零 wheel delta 不应让 pan 停在原值，否则画布看起来不能滚动"
+    );
+    assert_ne!(
+        viewport.zoom,
+        2.0 * (1.0 + 24.0 * 0.0015),
+        "wheel delta 不应继续套用旧缩放公式改变 zoom"
+    );
 }
 
-fn screen_point(viewport: Viewport, canvas_x: f32, canvas_y: f32) -> Vec2 {
-    viewport.canvas_to_screen(Vec2::new(canvas_x, canvas_y))
+/// 画布滚动关闭：画布层 wheel 应被忽略，不改变 pan 或 zoom。
+///
+/// 数据构造（含关键数值推导）：
+///   viewport.pan = (20,10)，zoom = 1.5
+///   wheel delta = (8,16)
+///   canvas_scroll_enabled = false → 不应用 pan -= delta
+///   因此 pan 仍为 (20,10)，zoom 仍为 1.5
+///
+/// 执行过程：
+///   1. 构造 viewport(pan=(20,10), zoom=1.5)
+///   2. apply_canvas_wheel_scroll(enabled=false, delta=(8,16))
+///   3. 检查返回值、pan、zoom
+///
+/// 预期结果：
+///   - 正断言：返回 false 且 pan/zoom 保持原值
+///   - 负断言：pan 不应变成 (12,-6)，zoom 不应改变
+#[test]
+fn test_canvas_wheel_scroll_does_not_move_viewport_when_disabled() {
+    let mut viewport = canvas::Viewport {
+        pan: Vec2::new(20.0, 10.0),
+        zoom: 1.5,
+    };
+    let original_pan = viewport.pan;
+    let original_zoom = viewport.zoom;
+
+    let changed = apply_canvas_wheel_scroll(&mut viewport, Vec2::new(8.0, 16.0), false);
+
+    assert!(
+        !changed,
+        "画布滚动关闭时应返回 false，表示画布层 wheel 被忽略"
+    );
+    assert_eq!(
+        viewport.pan, original_pan,
+        "画布滚动关闭时 pan 应保持 (20,10)，不能继续平移"
+    );
+    assert_eq!(
+        viewport.zoom, original_zoom,
+        "画布滚动关闭时 zoom 应保持 1.5，不能回退到旧的 wheel zoom"
+    );
+    assert_ne!(
+        viewport.pan,
+        Vec2::new(12.0, -6.0),
+        "关闭后不应应用 pan -= delta，否则 toggle 没有真正锁住画布滚动"
+    );
+    assert_ne!(
+        viewport.zoom,
+        1.5 * (1.0 + 16.0 * 0.0015),
+        "关闭后不应继续套用旧缩放公式改变 zoom"
+    );
 }
 
 /// 可聚焦卡片正文单击应进入节点聚焦，避免用户选中节点后无法输入。
@@ -154,212 +268,5 @@ fn test_node_card_radius_tokens_keep_children_inside_rounded_shell() {
     assert_ne!(
         highlight_inset, 0.0,
         "顶部高亮线缩进不能为 0，否则 w_full 的 1px 线会重新制造直角"
-    );
-}
-
-/// 已选 Preview 正文区命中时，滚轮应归 Preview 内部滚动而不是缩放画布。
-///
-/// 数据构造（含关键数值推导）：
-///   preview bounds = origin(100,50) size(300x220)
-///   viewport.pan=(20,10), zoom=2
-///   node_top_screen_y = 50*2 + 10 = 110
-///   title_bottom_screen_y = 110 + TITLE_BAR_H(26)*2 = 162
-///   正文命中点 canvas=(130,80) → screen=(130*2+20, 80*2+10)=(280,170)
-///   170 > 162，因此命中正文区而非标题栏
-///
-/// 执行过程：
-///   1. add Preview 节点并 select_only(preview)
-///   2. wheel_scroll_owner_for_point 用 screen=(280,170) 做命中归属判断
-///
-/// 预期结果：
-///   - 正断言：归属为 Card(preview)，Preview 内部滚动可消费 wheel
-///   - 负断言：不应归属 Canvas，否则滚轮会继续缩放画布
-#[test]
-fn test_selected_preview_body_scroll_belongs_to_card() {
-    let mut doc = Document::new();
-    doc.viewport = Viewport {
-        pan: Vec2::new(20.0, 10.0),
-        zoom: 2.0,
-    };
-    let preview = doc.add_node(preview_kind(), CanvasRect::new(100.0, 50.0, 300.0, 220.0));
-    let selection = selected_selection(preview);
-    let point = screen_point(doc.viewport, 130.0, 80.0);
-
-    let owner = wheel_scroll_owner_for_point(doc.nodes(), &selection, point, doc.viewport);
-
-    assert_eq!(
-        owner,
-        WheelScrollOwner::Card(preview),
-        "已选 Preview 正文区滚轮应归 Preview card，避免画布抢走向下滚动"
-    );
-    assert_ne!(
-        owner,
-        WheelScrollOwner::Canvas,
-        "已选 Preview 正文区滚轮不应归 Canvas，否则会触发 zoom 而不是内容滚动"
-    );
-}
-
-/// 已选 Preview 标题栏命中时，滚轮仍应归画布而不是 Preview 正文滚动。
-///
-/// 数据构造（含关键数值推导）：
-///   preview bounds = origin(100,50) size(300x220)
-///   viewport.pan=(20,10), zoom=2
-///   node_top_screen_y = 50*2 + 10 = 110
-///   title_bottom_screen_y = 110 + 26*2 = 162
-///   标题栏命中点 canvas=(130,60) → screen=(280,130)
-///   130 <= 162，因此命中标题栏区域
-///
-/// 执行过程：
-///   1. add Preview 节点并 select_only(preview)
-///   2. 对标题栏 screen point 做滚轮归属判断
-///
-/// 预期结果：
-///   - 正断言：归属为 Canvas，标题栏保留画布/拖拽语义
-///   - 负断言：不应归属 Card(preview)，否则标题栏也会吞掉画布滚轮
-#[test]
-fn test_selected_preview_title_bar_scroll_belongs_to_canvas() {
-    let mut doc = Document::new();
-    doc.viewport = Viewport {
-        pan: Vec2::new(20.0, 10.0),
-        zoom: 2.0,
-    };
-    let preview = doc.add_node(preview_kind(), CanvasRect::new(100.0, 50.0, 300.0, 220.0));
-    let selection = selected_selection(preview);
-    let point = screen_point(doc.viewport, 130.0, 60.0);
-
-    let owner = wheel_scroll_owner_for_point(doc.nodes(), &selection, point, doc.viewport);
-
-    assert_eq!(
-        owner,
-        WheelScrollOwner::Canvas,
-        "已选 Preview 标题栏滚轮应归 Canvas，标题栏不属于内部滚动内容区"
-    );
-    assert_ne!(
-        owner,
-        WheelScrollOwner::Card(preview),
-        "已选 Preview 标题栏不应归 Preview card，否则标题栏会错误吞掉画布滚轮"
-    );
-}
-
-/// 未选 Preview 正文区命中时，滚轮应保持画布 zoom 语义。
-///
-/// 数据构造（含关键数值推导）：
-///   preview bounds = origin(100,50) size(300x220)
-///   viewport.pan=(20,10), zoom=2
-///   正文命中点 canvas=(130,80) → screen=(280,170)，位于标题栏下方
-///   selection 为空，因此 Preview 未被用户选中
-///
-/// 执行过程：
-///   1. add Preview 节点但不 select
-///   2. 对正文 screen point 做滚轮归属判断
-///
-/// 预期结果：
-///   - 正断言：归属为 Canvas，未选卡片不抢全局滚轮
-///   - 负断言：不应归属 Card(preview)，否则 hover 到未选卡片也会改变滚轮语义
-#[test]
-fn test_unselected_preview_body_scroll_belongs_to_canvas() {
-    let mut doc = Document::new();
-    doc.viewport = Viewport {
-        pan: Vec2::new(20.0, 10.0),
-        zoom: 2.0,
-    };
-    let preview = doc.add_node(preview_kind(), CanvasRect::new(100.0, 50.0, 300.0, 220.0));
-    let selection = Selection::new();
-    let point = screen_point(doc.viewport, 130.0, 80.0);
-
-    let owner = wheel_scroll_owner_for_point(doc.nodes(), &selection, point, doc.viewport);
-
-    assert_eq!(
-        owner,
-        WheelScrollOwner::Canvas,
-        "未选 Preview 正文区滚轮应继续归 Canvas，只有选中态才切换到内部滚动"
-    );
-    assert_ne!(
-        owner,
-        WheelScrollOwner::Card(preview),
-        "未选 Preview 不应接管滚轮，否则用户路过卡片时会失去画布 zoom"
-    );
-}
-
-/// 已选非 Preview 卡片正文区命中时，滚轮应仍归画布。
-///
-/// 数据构造（含关键数值推导）：
-///   rect bounds = origin(100,50) size(300x220)
-///   viewport.pan=(20,10), zoom=2
-///   正文命中点 canvas=(130,80) → screen=(280,170)
-///   Rect card 的 captures_wheel_scroll 默认为 false
-///
-/// 执行过程：
-///   1. add Rect 节点并 select_only(rect)
-///   2. 对正文 screen point 做滚轮归属判断
-///
-/// 预期结果：
-///   - 正断言：归属为 Canvas，非滚动卡片不改变画布滚轮
-///   - 负断言：不应归属 Card(rect)，否则普通卡片会吞掉 zoom
-#[test]
-fn test_selected_non_preview_body_scroll_belongs_to_canvas() {
-    let mut doc = Document::new();
-    doc.viewport = Viewport {
-        pan: Vec2::new(20.0, 10.0),
-        zoom: 2.0,
-    };
-    let rect = doc.add_node(
-        CanvasNodeKind::Rect(RectNode { color: 0x4080ff }),
-        CanvasRect::new(100.0, 50.0, 300.0, 220.0),
-    );
-    let selection = selected_selection(rect);
-    let point = screen_point(doc.viewport, 130.0, 80.0);
-
-    let owner = wheel_scroll_owner_for_point(doc.nodes(), &selection, point, doc.viewport);
-
-    assert_eq!(
-        owner,
-        WheelScrollOwner::Canvas,
-        "已选 Rect 正文区滚轮应归 Canvas，因为 Rect card 未声明内部滚动"
-    );
-    assert_ne!(
-        owner,
-        WheelScrollOwner::Card(rect),
-        "已选 Rect 不应接管滚轮，否则非滚动卡片会阻断画布 zoom"
-    );
-}
-
-/// 已选 Preview 但指针在卡片外时，滚轮应继续缩放画布。
-///
-/// 数据构造（含关键数值推导）：
-///   preview bounds = origin(100,50) size(300x220)
-///   viewport.pan=(20,10), zoom=2
-///   外部点 canvas=(10,10) → screen=(40,30)
-///   preview 覆盖 x∈[100,400), y∈[50,270)，canvas=(10,10) 不在范围内
-///
-/// 执行过程：
-///   1. add Preview 节点并 select_only(preview)
-///   2. 对卡片外 screen point 做滚轮归属判断
-///
-/// 预期结果：
-///   - 正断言：归属为 Canvas，卡片外保持全局画布滚轮
-///   - 负断言：不应归属 Card(preview)，否则选中后会全局吞滚轮
-#[test]
-fn test_selected_preview_outside_scroll_belongs_to_canvas() {
-    let mut doc = Document::new();
-    doc.viewport = Viewport {
-        pan: Vec2::new(20.0, 10.0),
-        zoom: 2.0,
-    };
-    let preview = doc.add_node(preview_kind(), CanvasRect::new(100.0, 50.0, 300.0, 220.0));
-    let selection = selected_selection(preview);
-    let point = screen_point(doc.viewport, 10.0, 10.0);
-
-    let owner = wheel_scroll_owner_for_point(doc.nodes(), &selection, point, doc.viewport);
-
-    assert_eq!(
-        owner,
-        WheelScrollOwner::Canvas,
-        "已选 Preview 外部滚轮应归 Canvas，方便用户继续缩放/导航画布"
-    );
-    assert_ne!(
-        owner,
-        WheelScrollOwner::Card(preview),
-        "已选 Preview 不应全局接管滚轮，否则必须取消选择才能 zoom"
     );
 }

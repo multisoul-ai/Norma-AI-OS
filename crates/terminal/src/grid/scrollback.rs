@@ -1,0 +1,156 @@
+use super::*;
+use alacritty_terminal::grid::Scroll;
+
+impl TerminalGrid {
+    pub fn scroll_display(&mut self, lines: i32) -> bool {
+        if lines == 0 {
+            return false;
+        }
+        let before = self.term.grid().display_offset();
+        self.term.scroll_display(Scroll::Delta(lines));
+        self.term.grid().display_offset() != before
+    }
+}
+
+#[cfg(test)]
+fn row_text(snapshot: &GridSnapshot, row: usize) -> String {
+    snapshot.rows[row].iter().map(|cell| cell.c).collect()
+}
+
+/// scroll_display 正数应回看更旧历史，负数应回到底部可见屏幕。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   grid = 4 cols × 3 lines
+///   输入 "A0\r\nB1\r\nC2\r\nD3\r\nE4"
+///   可见行数 = 3，写入行数 = 5，因此 history_size = 5 - 3 = 2
+///   底部 viewport = C2 / D3 / E4
+///   scroll_display(+2) 后 display_offset = min(0 + 2, history_size=2) = 2
+///   回看 viewport = A0 / B1 / C2
+///   scroll_display(-2) 后 display_offset = max(2 - 2, 0) = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. advance 五行输出 → alacritty grid 生成 2 行 scrollback
+///   2. snapshot() 读取底部 viewport
+///   3. scroll_display(2) → 切到历史顶部
+///   4. snapshot() 读取回看 viewport
+///   5. scroll_display(-2) → 回到底部
+///
+/// 预期结果：
+///   - 断言 A：底部第一行是 C2，证明多余行已进入 scrollback
+///   - 断言 B：回看第一行是 A0，证明 snapshot 按 display_offset 读历史
+///   - 断言 C：回到底部后 display_offset 为 0 且第一行恢复 C2
+///   - 负断言：回看第一行不应仍是 C2，否则滚轮只改变状态但没有改变渲染内容
+#[test]
+fn test_scroll_display_reads_history_and_returns_to_bottom() {
+    let mut grid = TerminalGrid::new(4, 3);
+    grid.advance(b"A0\r\nB1\r\nC2\r\nD3\r\nE4");
+
+    let bottom = grid.snapshot();
+    assert_eq!(
+        bottom.history_size, 2,
+        "5 行输出减去 3 行 viewport，应形成 2 行 history"
+    );
+    assert_eq!(
+        bottom.display_offset, 0,
+        "初始 snapshot 应位于底部 display_offset=0"
+    );
+    assert!(
+        row_text(&bottom, 0).starts_with("C2"),
+        "底部 viewport 第一行应是 C2，实际 {:?}",
+        row_text(&bottom, 0)
+    );
+
+    let changed_up = grid.scroll_display(2);
+    let scrolled = grid.snapshot();
+
+    assert!(changed_up, "scroll_display(+2) 应改变 display_offset");
+    assert_eq!(
+        scrolled.display_offset, 2,
+        "回看两行后 display_offset 应为 2"
+    );
+    assert!(
+        row_text(&scrolled, 0).starts_with("A0"),
+        "回看 viewport 第一行应是 A0，实际 {:?}",
+        row_text(&scrolled, 0)
+    );
+    assert_ne!(
+        row_text(&scrolled, 0),
+        row_text(&bottom, 0),
+        "回看第一行不应仍等于底部第一行，否则 snapshot 没有应用 display_offset"
+    );
+
+    let changed_down = grid.scroll_display(-2);
+    let restored = grid.snapshot();
+
+    assert!(changed_down, "scroll_display(-2) 应从历史回到底部");
+    assert_eq!(
+        restored.display_offset, 0,
+        "回到底部后 display_offset 应恢复为 0"
+    );
+    assert!(
+        row_text(&restored, 0).starts_with("C2"),
+        "回到底部后第一行应恢复 C2，实际 {:?}",
+        row_text(&restored, 0)
+    );
+}
+
+/// scroll_display 超出顶部/底部时应 clamp，并用返回值表达是否真的移动。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   grid = 4 cols × 3 lines
+///   输入 5 行 → history_size = 2
+///   scroll_display(+99) → min(0 + 99, 2) = 2
+///   再次 scroll_display(+1) → min(2 + 1, 2) = 2，不变
+///   scroll_display(-99) → max(2 - 99, 0) = 0
+///   再次 scroll_display(-1) → max(0 - 1, 0) = 0，不变
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造有 2 行 history 的 grid
+///   2. 大步向上滚动并检查 clamp 到顶部
+///   3. 在顶部继续向上滚动
+///   4. 大步向下滚动并检查 clamp 到底部
+///   5. 在底部继续向下滚动
+///
+/// 预期结果：
+///   - 断言 A：第一次向上滚动返回 true 且 display_offset=2
+///   - 断言 B：顶部继续向上返回 false
+///   - 断言 C：第一次向下滚动返回 true 且 display_offset=0
+///   - 负断言：底部继续向下不应返回 true，否则 app 会认为内容发生变化
+#[test]
+fn test_scroll_display_clamps_at_history_edges() {
+    let mut grid = TerminalGrid::new(4, 3);
+    grid.advance(b"A0\r\nB1\r\nC2\r\nD3\r\nE4");
+
+    let moved_to_top = grid.scroll_display(99);
+    let top = grid.snapshot();
+    assert!(moved_to_top, "从底部向上滚动 99 行应移动到 history 顶部");
+    assert_eq!(
+        top.display_offset, 2,
+        "history_size=2，因此向上滚动 99 行应 clamp 到 display_offset=2"
+    );
+
+    let moved_past_top = grid.scroll_display(1);
+    let still_top = grid.snapshot();
+    assert!(
+        !moved_past_top,
+        "已在 history 顶部时继续向上滚动不应报告状态变化"
+    );
+    assert_eq!(
+        still_top.display_offset, 2,
+        "顶部继续向上滚动后 display_offset 应仍为 2"
+    );
+
+    let moved_to_bottom = grid.scroll_display(-99);
+    let bottom = grid.snapshot();
+    assert!(moved_to_bottom, "从顶部向下滚动 99 行应回到底部");
+    assert_eq!(
+        bottom.display_offset, 0,
+        "向下滚动超过 history 后应 clamp 到底部 display_offset=0"
+    );
+
+    let moved_past_bottom = grid.scroll_display(-1);
+    assert!(
+        !moved_past_bottom,
+        "已在底部时继续向下滚动不应返回 true，否则会制造无意义 repaint"
+    );
+}
