@@ -1,6 +1,7 @@
 //! 终端卡片内容渲染 + 键盘翻译。grid 快照按等宽字体逐行绘制。
 
 use crate::cards::term::paint::{render_terminal_canvas, TerminalRenderMetrics};
+use crate::text_selection::TextRange;
 use gpui::{div, prelude::*, px, rgba, AnyElement, IntoElement, Keystroke};
 use runtime::NodeView;
 use terminal::{Key, KeyInput, TerminalStatus};
@@ -18,6 +19,7 @@ pub fn render_terminal_node(
     theme: Theme,
     zoom: f32,
     bottom_radius_px: f32,
+    selection: Option<TextRange>,
 ) -> AnyElement {
     let Some(NodeView::Term { snapshot, status }) = view else {
         return div()
@@ -27,15 +29,8 @@ pub fn render_terminal_node(
             .into_any_element();
     };
 
-    let terminal_canvas = render_terminal_canvas(
-        snapshot,
-        theme,
-        TerminalRenderMetrics {
-            font_size: px(TERM_FONT_PX * zoom),
-            line_height: px(TERM_LINE_PX * zoom),
-            cell_width: px(TERM_CELL_PX * zoom),
-        },
-    );
+    let terminal_canvas =
+        render_terminal_canvas(snapshot, theme, terminal_render_metrics(zoom), selection);
 
     let mut terminal = div()
         .flex()
@@ -67,6 +62,14 @@ pub fn render_terminal_node(
     }
 
     terminal.into_any_element()
+}
+
+pub fn terminal_render_metrics(zoom: f32) -> TerminalRenderMetrics {
+    TerminalRenderMetrics {
+        font_size: px(TERM_FONT_PX * zoom),
+        line_height: px(TERM_LINE_PX * zoom),
+        cell_width: px(TERM_CELL_PX * zoom),
+    }
 }
 
 fn terminal_surface_bg(theme: Theme) -> u32 {

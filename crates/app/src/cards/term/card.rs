@@ -27,11 +27,16 @@ impl Card for TermCard {
     }
 
     fn body(&self, node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElement {
+        let selection = context
+            .text_selection
+            .filter(|selection| selection.node_id == node.id && !selection.is_empty())
+            .map(|selection| selection.range());
         render_terminal_node(
             context.runtime.node_view(node.id),
             context.theme,
             context.zoom,
             context.bottom_radius_px,
+            selection,
         )
     }
 

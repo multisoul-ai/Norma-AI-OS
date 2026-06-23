@@ -3,6 +3,76 @@ use canvas::{CanvasNodeKind, CanvasRect, RectNode};
 use gpui::{Keystroke, Modifiers};
 use runtime::{InputMode, Runtime};
 
+/// active selection 复制：没有文本选区时 Cmd+C 的文本来源应为空。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   runtime = Runtime::new()，没有 live terminal view
+///   active_text_selection = None，表示用户没有拖选任何文本
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 调用 copy_text_for_active_selection(runtime, None)
+///   2. 读取返回值
+///
+/// 预期结果：
+///   - 正断言：返回 None，调用方不会写剪贴板
+///   - 负断言：不应退化为 Some("") 或整卡 fallback
+#[test]
+fn test_copy_text_for_active_selection_returns_none_without_selection() {
+    let runtime = Runtime::new();
+
+    let text = copy_text_for_active_selection(&runtime, None);
+
+    assert_eq!(
+        text, None,
+        "没有 active text selection 时 Cmd+C 不应产生可写入剪贴板的文本"
+    );
+    assert_ne!(
+        text,
+        Some(String::new()),
+        "无选区不应返回空字符串 Some，否则调用方可能误以为复制成功"
+    );
+}
+
+/// active selection 复制：非 terminal/agent 的选区不应触发旧整卡复制 fallback。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   rect node_id = 1，普通 Rect 没有 runtime live node view
+///   selection anchor=(0,0), head=(0,4)，模拟误把非文本卡片放进 active selection
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在 Runtime document 中创建 Rect node
+///   2. 构造 TextSelection(node_id=rect, range=0..4)
+///   3. 调用 copy_text_for_active_selection
+///
+/// 预期结果：
+///   - 正断言：返回 None，非 terminal view 不复制
+///   - 负断言：不应返回 Rect/Preview 的整卡文本 fallback
+#[test]
+fn test_copy_text_for_active_selection_ignores_non_terminal_nodes() {
+    let mut runtime = Runtime::new();
+    let rect = runtime.document.add_node(
+        CanvasNodeKind::Rect(RectNode { color: 0x4080ff }),
+        CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+    );
+    let selection = crate::text_selection::TextSelection::new(
+        rect,
+        crate::text_selection::TextPoint::new(0, 0),
+    )
+    .with_head(crate::text_selection::TextPoint::new(0, 4));
+
+    let text = copy_text_for_active_selection(&runtime, Some(selection));
+
+    assert_eq!(
+        text, None,
+        "active selection 指向非 terminal live node 时不应复制任何内容"
+    );
+    assert_ne!(
+        text,
+        Some("Rect".to_string()),
+        "非 terminal 选区不应走旧的整卡/预览文本 fallback"
+    );
+}
+
 /// 当前卡片复制目标：节点聚焦优先于画布选择，避免 Cmd+C 复制到旧选中卡片。
 ///
 /// 数据构造（含关键数值的推导过程）：

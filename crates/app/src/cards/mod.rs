@@ -6,6 +6,7 @@ pub mod preview;
 pub mod term;
 
 use crate::preview::PreviewLoadState;
+use crate::text_selection::TextSelection;
 use canvas::{CanvasNode, CanvasRect, NodeType};
 use chrome::CardChrome;
 use gpui::AnyElement;
@@ -32,6 +33,7 @@ pub enum CardWheelScrollMode {
 pub struct CardBodyContext<'a> {
     pub runtime: &'a Runtime,
     pub preview_state: Option<&'a PreviewLoadState>,
+    pub text_selection: Option<TextSelection>,
     pub theme: Theme,
     pub zoom: f32,
     pub bottom_radius_px: f32,

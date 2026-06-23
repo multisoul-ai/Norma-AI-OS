@@ -2,92 +2,44 @@
 //! viewport culling：屏幕外节点不构建元素。
 
 use crate::app::MultisoulApp;
+use crate::canvas_geometry::{
+    apply_canvas_wheel_scroll, click_event_for_node, is_title_bar_hit, node_card_radius_px,
+    node_edge_highlight_inset_px, node_terminal_radius_px, node_title_radius_px, pt_to_vec,
+    terminal_content_local_position,
+};
 use crate::card_scroll::{
     terminal_scroll_lines_from_pixel_delta, wheel_scroll_owner_for_point, WheelScrollOwner,
 };
 use crate::cards::chrome::{node_shadow, TITLE_BAR_H};
+use crate::cards::term::selection::terminal_point_for_local_position;
+use crate::cards::term::view::terminal_render_metrics;
 use crate::cards::{card_for, CardBodyContext};
-use canvas::{hit_test, CanvasRect, NodeId, Vec2, Viewport};
+use crate::interaction::DragState;
+#[cfg(test)]
+use crate::interaction::InteractionState;
+use crate::text_selection::TextPoint;
+use canvas::{hit_test, CanvasRect, NodeId, Vec2};
 use gpui::{
     div, prelude::*, px, rgba, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
-    Pixels, Point, ScrollWheelEvent, Window,
+    ScrollWheelEvent, Window,
 };
-use runtime::{route, InputEvent, InputMode, NodeScroll, Route};
+use runtime::{route, InputEvent, InputMode, NodeScroll, NodeView, Route};
 
-#[derive(Clone, Copy)]
-pub struct DragState {
-    pub node: NodeId,
-    pub last_screen: Vec2,
-}
-
-pub struct InteractionState {
-    pub space_held: bool,
-    pub panning: bool,
-    pub last_screen: Option<Vec2>,
-    pub drag: Option<DragState>,
-    pub canvas_scroll_enabled: bool,
-    pub keyboard_selected_node: Option<NodeId>,
-}
-
-impl Default for InteractionState {
-    fn default() -> Self {
-        Self {
-            space_held: false,
-            panning: false,
-            last_screen: None,
-            drag: None,
-            canvas_scroll_enabled: false,
-            keyboard_selected_node: None,
-        }
-    }
-}
-
-fn node_card_radius_px(zoom: f32) -> f32 {
-    (16.0 * zoom).clamp(8.0, 22.0)
-}
-
-fn node_title_radius_px(zoom: f32) -> f32 {
-    node_card_radius_px(zoom)
-}
-
-fn node_terminal_radius_px(zoom: f32) -> f32 {
-    node_card_radius_px(zoom)
-}
-
-fn node_edge_highlight_inset_px(zoom: f32) -> f32 {
-    node_card_radius_px(zoom)
-}
-
-fn pt_to_vec(p: Point<Pixels>) -> Vec2 {
-    Vec2::new(f32::from(p.x), f32::from(p.y))
-}
-
-fn is_title_bar_hit(screen_y: f32, node_top_screen_y: f32, zoom: f32) -> bool {
-    screen_y <= node_top_screen_y + TITLE_BAR_H * zoom
-}
-
-fn click_event_for_node(
-    hit: Option<NodeId>,
-    is_focusable: bool,
-    is_title_bar: bool,
-    click_count: usize,
-) -> InputEvent {
-    if click_count >= 2 || (is_focusable && !is_title_bar) {
-        InputEvent::DoubleClick { hit, is_focusable }
-    } else {
-        InputEvent::Click { hit }
-    }
-}
-
-fn apply_canvas_wheel_scroll(viewport: &mut Viewport, pixel_delta: Vec2, enabled: bool) -> bool {
-    if !enabled || (pixel_delta.x == 0.0 && pixel_delta.y == 0.0) {
-        return false;
-    }
-    viewport.pan = Vec2::new(
-        viewport.pan.x - pixel_delta.x,
-        viewport.pan.y - pixel_delta.y,
-    );
-    true
+fn terminal_text_point_for_screen(
+    app: &MultisoulApp,
+    node_id: NodeId,
+    screen: Vec2,
+) -> Option<TextPoint> {
+    let node = app.runtime.document.node(node_id)?;
+    let viewport = app.runtime.document.viewport;
+    let node_top_left = viewport.canvas_to_screen(node.bounds.origin);
+    let NodeView::Term { snapshot, .. } = app.runtime.node_view(node_id)?;
+    let local = terminal_content_local_position(screen, node_top_left, viewport.zoom);
+    Some(terminal_point_for_local_position(
+        local,
+        &snapshot,
+        terminal_render_metrics(viewport.zoom),
+    ))
 }
 
 /// 滚轮/触控板平移画布；卡片内部滚动优先于画布滚动。
@@ -183,6 +135,23 @@ fn on_mouse_down(
     };
     let event = click_event_for_node(hit, is_focusable, is_title_bar, ev.click_count);
 
+    if let Some(id) = hit {
+        if !is_title_bar {
+            if let Some(point) = terminal_text_point_for_screen(app, id, screen) {
+                app.runtime.focus.focus_node(id);
+                app.runtime.selection.select_only(id);
+                app.motion.set_pressed(id, true);
+                app.interaction.begin_text_selection(id, point);
+                cx.stop_propagation();
+                cx.notify();
+                return;
+            }
+        }
+        app.interaction.clear_text_selection();
+    } else {
+        app.interaction.clear_text_selection();
+    }
+
     match route(&app.runtime.focus.mode(), &event) {
         Route::SelectNode(id) => {
             app.runtime.selection.select_only(id);
@@ -219,6 +188,23 @@ fn on_mouse_move(
 ) {
     let screen = pt_to_vec(ev.position);
 
+    if let Some(selection) = app.interaction.active_text_selection {
+        if selection.dragging {
+            if let Some(point) = terminal_text_point_for_screen(app, selection.node_id, screen) {
+                if app
+                    .interaction
+                    .update_text_selection_head(selection.node_id, point)
+                {
+                    cx.notify();
+                }
+            } else {
+                app.interaction.clear_text_selection();
+                cx.notify();
+            }
+            return;
+        }
+    }
+
     if app.interaction.panning {
         if let Some(last) = app.interaction.last_screen {
             let delta = screen - last;
@@ -254,10 +240,20 @@ fn on_mouse_up(
     cx: &mut Context<MultisoulApp>,
 ) {
     let should_persist_canvas = app.interaction.panning || app.interaction.drag.is_some();
+    let was_text_selecting = app
+        .interaction
+        .active_text_selection
+        .map(|selection| selection.dragging)
+        .unwrap_or(false);
     app.interaction.panning = false;
     app.interaction.drag = None;
     app.interaction.last_screen = None;
     app.motion.clear_transient();
+    if was_text_selecting {
+        app.interaction.finish_text_selection();
+        cx.notify();
+        return;
+    }
     if should_persist_canvas {
         app.mark_canvas_dirty();
     }
@@ -454,6 +450,7 @@ pub fn render_canvas(
             CardBodyContext {
                 runtime: &app.runtime,
                 preview_state: app.previews.state_for(id),
+                text_selection: app.interaction.active_text_selection,
                 theme,
                 zoom: vp.zoom,
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),

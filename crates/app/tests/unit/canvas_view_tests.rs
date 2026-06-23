@@ -136,6 +136,45 @@ fn test_canvas_wheel_scroll_does_not_move_viewport_when_disabled() {
     );
 }
 
+/// terminal 正文局部坐标：screen 坐标应扣除节点位置、标题栏和正文 padding。
+///
+/// 数据构造（含关键数值推导）：
+///   node_top_left = (80,40)
+///   screen = (100,120)
+///   zoom = 2，因此标题栏高度 = TITLE_BAR_H(26) * 2 = 52
+///   TERM_PADDING_PX = 8
+///   local_x = 100 - 80 - 8 = 12
+///   local_y = 120 - 40 - 52 - 8 = 20
+///
+/// 执行过程：
+///   1. terminal_content_local_position(screen, node_top_left, zoom=2)
+///   2. 读取返回的 Point<Pixels>
+///
+/// 预期结果：
+///   - 正断言：local=(12px,20px)
+///   - 负断言：local_y 不应忘记扣标题栏而变成 72px
+#[test]
+fn test_terminal_content_local_position_offsets_title_bar_and_padding() {
+    let local =
+        terminal_content_local_position(Vec2::new(100.0, 120.0), Vec2::new(80.0, 40.0), 2.0);
+
+    assert_eq!(
+        local.x,
+        px(12.0),
+        "terminal local x 应扣除 node.x 和 TERM_PADDING_PX，即 100-80-8=12"
+    );
+    assert_eq!(
+        local.y,
+        px(20.0),
+        "terminal local y 应扣除 node.y、标题栏和 padding，即 120-40-52-8=20"
+    );
+    assert_ne!(
+        local.y,
+        px(72.0),
+        "terminal local y 不应忘记扣 TITLE_BAR_H*zoom，否则选区会整体下移"
+    );
+}
+
 /// 可聚焦卡片正文单击应进入节点聚焦，避免用户选中节点后无法输入。
 ///
 /// 数据构造（含关键数值推导）：
