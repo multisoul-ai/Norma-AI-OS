@@ -24,8 +24,8 @@ mod workspace_flow;
 mod workspace_state;
 
 use app::{
-    ExitFocus, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewTerminal, OpenPreviewFile,
-    OpenProject, ReflowLayout, ToggleMasterLayout,
+    CopyCardContent, ExitFocus, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewTerminal,
+    OpenPreviewFile, OpenProject, ReflowLayout, ToggleMasterLayout,
 };
 use assets::EmbeddedAssets;
 use gpui::{
@@ -47,6 +47,7 @@ fn main() {
             // 快捷键（SPEC §7）：Cmd+N 新建终端、Esc 退出终端聚焦。
             cx.bind_keys([
                 KeyBinding::new("cmd-n", NewTerminal, None),
+                KeyBinding::new("cmd-c", CopyCardContent, None),
                 KeyBinding::new("cmd-o", OpenProject, None),
                 KeyBinding::new("cmd-shift-o", OpenPreviewFile, None),
                 KeyBinding::new("cmd-m", ToggleMasterLayout, None),
@@ -59,6 +60,7 @@ fn main() {
                 name: "Multisoul".into(),
                 items: vec![
                     MenuItem::action("New Terminal", NewTerminal),
+                    MenuItem::action("Copy", CopyCardContent),
                     MenuItem::action("Open Project", OpenProject),
                     MenuItem::action("Preview File", OpenPreviewFile),
                     MenuItem::action("New Claude Agent", NewClaudeAgent),

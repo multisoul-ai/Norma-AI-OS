@@ -38,6 +38,7 @@ actions!(
         NewTerminal,
         NewClaudeAgent,
         NewCodexAgent,
+        CopyCardContent,
         OpenPreviewFile,
         OpenProject,
         ExitFocus,
@@ -244,6 +245,9 @@ impl MultisoulApp {
         if self.interaction.hovered_node == Some(node_id) {
             self.interaction.hovered_node = None;
         }
+        if self.interaction.keyboard_selected_node == Some(node_id) {
+            self.interaction.keyboard_selected_node = None;
+        }
         let changed = close_node_and_update_layout_for_area(
             &mut self.runtime,
             &mut self.motion,
@@ -377,6 +381,7 @@ impl Render for MultisoulApp {
             .on_action(cx.listener(Self::on_new_terminal))
             .on_action(cx.listener(Self::on_new_claude_agent))
             .on_action(cx.listener(Self::on_new_codex_agent))
+            .on_action(cx.listener(Self::on_copy_card_content))
             .on_action(cx.listener(Self::on_open_project))
             .on_action(cx.listener(Self::on_open_preview_file))
             .on_action(cx.listener(Self::on_exit_focus))

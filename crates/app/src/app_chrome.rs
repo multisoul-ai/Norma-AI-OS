@@ -10,6 +10,7 @@ use gpui::{
 use ui::Theme;
 
 const WORKSPACE_LEFT_RAIL_VISIBLE: bool = false;
+const BOTTOM_VOICE_BAR_VISIBLE: bool = false;
 const TOP_TOOLBAR_WIDTH: f32 = 460.0;
 const TOOLBAR_CANVAS_SCROLL_ICON: &str = "↕";
 const SETTINGS_ICON: &str = "⚙";
@@ -106,7 +107,7 @@ impl MultisoulApp {
         let bottom_w = (win_w - 64.0).clamp(260.0, 360.0);
         let bottom_left = (win_w - bottom_w) * 0.5;
 
-        div()
+        let mut chrome = div()
             .absolute()
             .top(px(0.0))
             .left(px(0.0))
@@ -194,8 +195,10 @@ impl MultisoulApp {
                         .child(chrome_button(theme, "AI", false))
                         .child(chrome_button(theme, "{}", false)),
                 )
-            })
-            .child(
+            });
+
+        if bottom_voice_bar_visible() {
+            chrome = chrome.child(
                 div()
                     .absolute()
                     .left(px(bottom_left))
@@ -242,7 +245,10 @@ impl MultisoulApp {
                             .text_color(rgba(theme.accent_orange))
                             .child("........"),
                     ),
-            )
+            );
+        }
+
+        chrome
     }
 }
 
@@ -294,6 +300,10 @@ fn chrome_button_width(label: &str) -> f32 {
 
 fn workspace_left_rail_visible() -> bool {
     WORKSPACE_LEFT_RAIL_VISIBLE
+}
+
+fn bottom_voice_bar_visible() -> bool {
+    BOTTOM_VOICE_BAR_VISIBLE
 }
 
 fn with_alpha(color: u32, alpha: u8) -> u32 {

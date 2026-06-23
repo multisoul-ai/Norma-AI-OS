@@ -1,10 +1,10 @@
 use super::*;
 
-/// 画布交互状态：默认应开启滚轮/触控板画布滚动。
+/// 画布交互状态：默认应关闭滚轮/触控板画布滚动。
 ///
 /// 数据构造（含关键数值推导）：
 ///   InteractionState::default() 来自 app 启动默认状态
-///   canvas_scroll_enabled = true（用户要求画布默认能滚动）
+///   canvas_scroll_enabled = false（用户要求画布模块默认关闭滚动）
 ///   space_held = false，panning = false（未按空格、未拖拽）
 ///
 /// 执行过程：
@@ -12,20 +12,24 @@ use super::*;
 ///   2. 读取 canvas_scroll_enabled 与其他初始交互标记
 ///
 /// 预期结果：
-///   - 正断言：canvas_scroll_enabled 为 true
-///   - 负断言：space_held/panning 不应随默认滚动开启而变成 true
+///   - 正断言：canvas_scroll_enabled 为 false
+///   - 负断言：space_held/panning 不应随默认滚动关闭而变成 true
 #[test]
-fn test_interaction_state_enables_canvas_scroll_by_default() {
+fn test_interaction_state_disables_canvas_scroll_by_default() {
     let state = InteractionState::default();
 
     assert!(
-        state.canvas_scroll_enabled,
-        "画布滚动开关默认应开启，让用户进入画布后可直接用滚轮/触控板平移"
+        !state.canvas_scroll_enabled,
+        "画布滚动开关默认应关闭，用户需要通过顶部 toggle 主动开启"
     );
-    assert!(!state.space_held, "默认开启画布滚动不应伪造空格按下状态");
+    assert_ne!(
+        state.canvas_scroll_enabled, true,
+        "默认状态不应继续开启画布滚动，否则进入画布后仍可直接滚动平移"
+    );
+    assert!(!state.space_held, "默认关闭画布滚动不应伪造空格按下状态");
     assert!(
         !state.panning,
-        "默认开启画布滚动不应进入鼠标拖拽 panning 状态"
+        "默认关闭画布滚动不应进入鼠标拖拽 panning 状态"
     );
 }
 

@@ -27,6 +27,51 @@ fn test_workspace_left_rail_is_temporarily_hidden() {
     );
 }
 
+/// 底部语音输入菜单：临时隐藏渲染入口，但不删除 BottomBar 语音功能代码。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   bottom_voice_bar_visible() = false（临时隐藏开关；后续恢复只需改回 true）
+///   app_chrome.rs 生产渲染源码 = include_str!("../../src/app_chrome.rs") 在 #[cfg(test)] 前的片段
+///   app_voice.rs 源码 = include_str!("../../src/app_voice.rs")（底部入口处理函数应保留）
+///   voice_control.rs 源码 = include_str!("../../src/voice_control.rs")（BottomBar trigger 应保留）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 bottom_voice_bar_visible() → false，render_workspace_chrome 不挂载底部语音菜单
+///   2. 检查 app_voice.rs 仍保留 on_voice_bar_mouse_down / on_voice_bar_mouse_up
+///   3. 检查 voice_control.rs 仍保留 BottomBar trigger
+///
+/// 预期结果：
+///   - 正断言：底部语音菜单开关为 false
+///   - 正断言：底部语音处理函数与 BottomBar trigger 仍存在
+///   - 负断言：可见性开关不应为 true，否则底部菜单仍会显示
+#[test]
+fn test_bottom_voice_bar_is_hidden_without_deleting_functionality() {
+    let bottom_voice_visible = bottom_voice_bar_visible();
+    let app_voice_source = include_str!("../../src/app_voice.rs");
+    let voice_control_source = include_str!("../../src/voice_control.rs");
+
+    assert!(
+        !bottom_voice_visible,
+        "底部语音输入菜单应通过 bottom_voice_bar_visible() 默认隐藏"
+    );
+    assert_ne!(
+        bottom_voice_visible, true,
+        "底部语音输入菜单不应继续标记为可见，否则 Canvas 底部仍会挂载入口"
+    );
+    assert!(
+        app_voice_source.contains("on_voice_bar_mouse_down"),
+        "隐藏菜单不应删除底部语音 mouse down 处理函数，后续恢复入口仍可复用"
+    );
+    assert!(
+        app_voice_source.contains("on_voice_bar_mouse_up"),
+        "隐藏菜单不应删除底部语音 mouse up 处理函数，后续恢复入口仍可复用"
+    );
+    assert!(
+        voice_control_source.contains("BottomBar"),
+        "隐藏菜单不应删除 VoiceTrigger::BottomBar 功能分支"
+    );
+}
+
 /// 顶部 agent 菜单：截图中的旧缩写按钮应替换为完整名称，并移除末尾两个占位按钮。
 ///
 /// 数据构造（含关键数值的推导过程）：

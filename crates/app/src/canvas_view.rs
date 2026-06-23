@@ -27,6 +27,7 @@ pub struct InteractionState {
     pub drag: Option<DragState>,
     pub hovered_node: Option<NodeId>,
     pub canvas_scroll_enabled: bool,
+    pub keyboard_selected_node: Option<NodeId>,
 }
 
 impl Default for InteractionState {
@@ -37,7 +38,8 @@ impl Default for InteractionState {
             last_screen: None,
             drag: None,
             hovered_node: None,
-            canvas_scroll_enabled: true,
+            canvas_scroll_enabled: false,
+            keyboard_selected_node: None,
         }
     }
 }
@@ -146,6 +148,7 @@ fn on_mouse_down(
     cx: &mut Context<MultisoulApp>,
 ) {
     let screen = pt_to_vec(ev.position);
+    app.interaction.keyboard_selected_node = None;
 
     // 中键 或 空格+左键 → 开始 pan。
     let want_pan = ev.button == MouseButton::Middle

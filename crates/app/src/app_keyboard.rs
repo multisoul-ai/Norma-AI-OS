@@ -1,19 +1,179 @@
 //! Keyboard routing for the root GPUI view.
 
-use crate::app::{AppScreen, MultisoulApp};
+use crate::app::{AppScreen, CopyCardContent, MultisoulApp};
 use crate::cards::term::view::keystroke_to_input;
+use crate::preview::{PreviewContent, PreviewLoadState, PreviewStore};
 use crate::voice_control::{
     is_voice_hold_modifier_release, is_voice_hold_release, is_voice_hold_shortcut, VoiceTrigger,
 };
-use gpui::{Context, KeyDownEvent, KeyUpEvent, ModifiersChangedEvent, Window};
-use runtime::{route, InputEvent, InputMode, NodeInput, Route};
+use canvas::{navigate_card, CanvasNodeKind, NavigationDirection, NodeId};
+use gpui::{
+    ClipboardItem, Context, KeyDownEvent, KeyUpEvent, Keystroke, Modifiers, ModifiersChangedEvent,
+    Window,
+};
+use runtime::{route, InputEvent, InputMode, NodeInput, NodeView, Route, Runtime};
+use terminal::{Cell, GridSnapshot};
+
+pub(crate) fn current_copy_node_id(runtime: &Runtime) -> Option<NodeId> {
+    if let InputMode::NodeFocused(node_id) = runtime.focus.mode() {
+        if runtime.document.node(node_id).is_some() {
+            return Some(node_id);
+        }
+    }
+
+    current_selection_node_id(runtime)
+}
+
+fn current_selection_node_id(runtime: &Runtime) -> Option<NodeId> {
+    let mut selected = runtime.selection.iter();
+    let node_id = selected.next()?;
+    if selected.next().is_none() && runtime.document.node(node_id).is_some() {
+        Some(node_id)
+    } else {
+        None
+    }
+}
+
+pub(crate) fn terminal_snapshot_copy_text(snapshot: &GridSnapshot) -> String {
+    let mut lines = snapshot
+        .rows
+        .iter()
+        .map(|row| terminal_row_copy_text(row))
+        .collect::<Vec<_>>();
+    while matches!(lines.last(), Some(line) if line.is_empty()) {
+        lines.pop();
+    }
+    lines.join("\n")
+}
+
+pub(crate) fn copy_text_for_current_card(
+    runtime: &Runtime,
+    previews: &PreviewStore,
+) -> Option<String> {
+    let node_id = current_copy_node_id(runtime)?;
+    let text = copy_text_for_node(runtime, previews, node_id)?;
+    if text.is_empty() {
+        None
+    } else {
+        Some(text)
+    }
+}
+
+fn copy_text_for_node(
+    runtime: &Runtime,
+    previews: &PreviewStore,
+    node_id: NodeId,
+) -> Option<String> {
+    if let Some(NodeView::Term { snapshot, .. }) = runtime.node_view(node_id) {
+        return Some(terminal_snapshot_copy_text(&snapshot));
+    }
+
+    let node = runtime.document.node(node_id)?;
+    match &node.kind {
+        CanvasNodeKind::Preview(_) => preview_copy_text(previews.state_for(node_id)),
+        CanvasNodeKind::Term(_) | CanvasNodeKind::Agent(_) | CanvasNodeKind::Rect(_) => None,
+    }
+}
+
+fn preview_copy_text(state: Option<&PreviewLoadState>) -> Option<String> {
+    match state? {
+        PreviewLoadState::Ready(PreviewContent::Markdown(document)) => {
+            Some(document.source.clone())
+        }
+        PreviewLoadState::Ready(PreviewContent::Text(text)) => Some(text.clone()),
+        PreviewLoadState::Ready(PreviewContent::Image { .. })
+        | PreviewLoadState::Loading
+        | PreviewLoadState::Error(_) => None,
+    }
+}
+
+fn terminal_row_copy_text(row: &[Cell]) -> String {
+    let mut line = row
+        .iter()
+        .map(|cell| {
+            if cell.attrs.hidden || cell.attrs.wide_char_spacer || cell.c == '\0' {
+                ' '
+            } else {
+                cell.c
+            }
+        })
+        .collect::<String>();
+    while line.ends_with(' ') {
+        line.pop();
+    }
+    line
+}
+
+fn canvas_navigation_direction(key: &str, modifiers: Modifiers) -> Option<NavigationDirection> {
+    if modifiers.modified() {
+        return None;
+    }
+
+    match key {
+        "up" => Some(NavigationDirection::Up),
+        "down" => Some(NavigationDirection::Down),
+        "left" => Some(NavigationDirection::Left),
+        "right" => Some(NavigationDirection::Right),
+        _ => None,
+    }
+}
+
+fn keyboard_selected_focus_target(
+    runtime: &Runtime,
+    keyboard_selected_node: Option<NodeId>,
+) -> Option<NodeId> {
+    let selected_id = current_selection_node_id(runtime)?;
+    if keyboard_selected_node != Some(selected_id) || !runtime.node_caps(selected_id).focusable {
+        return None;
+    }
+    Some(selected_id)
+}
+
+fn should_auto_focus_keyboard_selection(keystroke: &Keystroke) -> bool {
+    if canvas_navigation_direction(&keystroke.key, keystroke.modifiers).is_some() {
+        return false;
+    }
+    if keystroke.key == "space" && !keystroke.modifiers.modified() {
+        return false;
+    }
+    if keystroke.modifiers.platform {
+        return keystroke.key == "v"
+            && !keystroke.modifiers.control
+            && !keystroke.modifiers.alt
+            && !keystroke.modifiers.shift
+            && !keystroke.modifiers.function;
+    }
+    if keystroke.modifiers.control || keystroke.modifiers.function {
+        return false;
+    }
+    if keystroke.key == "escape" {
+        return false;
+    }
+
+    crate::app_ime::should_defer_keystroke_to_ime(keystroke)
+        || keystroke_to_input(keystroke).is_some()
+}
 
 impl MultisoulApp {
+    pub(crate) fn on_copy_card_content(
+        &mut self,
+        _: &CopyCardContent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            return;
+        }
+        if let Some(text) = copy_text_for_current_card(&self.runtime, &self.previews) {
+            cx.write_to_clipboard(ClipboardItem::new_string(text));
+        }
+    }
+
     /// 键盘事件：维护 space_held；聚焦终端时把按键编码写入对应 PTY。
     pub(crate) fn on_key_down(
         &mut self,
         ev: &KeyDownEvent,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if is_voice_hold_shortcut(&ev.keystroke) {
@@ -28,6 +188,66 @@ impl MultisoulApp {
         let is_space = ev.keystroke.key == "space";
         if is_space && matches!(self.runtime.focus.mode(), InputMode::CanvasSelect) {
             self.interaction.space_held = true;
+        }
+
+        if matches!(self.runtime.focus.mode(), InputMode::CanvasSelect) {
+            if let Some(direction) =
+                canvas_navigation_direction(&ev.keystroke.key, ev.keystroke.modifiers)
+            {
+                let selected_id = current_selection_node_id(&self.runtime);
+                let visible_area = self.visible_canvas_rect(window);
+                let target = navigate_card(
+                    self.runtime.document.nodes(),
+                    selected_id,
+                    visible_area,
+                    direction,
+                );
+                let event = InputEvent::NavigateSelection { target };
+                if let Route::SelectNode(node_id) = route(&self.runtime.focus.mode(), &event) {
+                    self.runtime.selection.select_only(node_id);
+                    self.runtime.focus.exit_to_canvas();
+                    self.interaction.keyboard_selected_node = Some(node_id);
+                    cx.stop_propagation();
+                    cx.notify();
+                }
+                return;
+            }
+
+            if let Some(node_id) = keyboard_selected_focus_target(
+                &self.runtime,
+                self.interaction.keyboard_selected_node,
+            ) {
+                if should_auto_focus_keyboard_selection(&ev.keystroke) {
+                    self.runtime.focus.focus_node(node_id);
+                    self.interaction.keyboard_selected_node = None;
+                    if ev.keystroke.modifiers.platform && ev.keystroke.key == "v" {
+                        if let Some(item) = cx.read_from_clipboard() {
+                            if let Some(text) = item.text() {
+                                if let Err(e) =
+                                    self.runtime.send_node_input(node_id, NodeInput::Text(text))
+                                {
+                                    tracing::error!(error = %e, "paste send_node_input failed");
+                                }
+                            }
+                        }
+                        cx.notify();
+                        return;
+                    }
+
+                    if crate::app_ime::should_defer_keystroke_to_ime(&ev.keystroke) {
+                        cx.notify();
+                        return;
+                    }
+                    if let Some(input) = keystroke_to_input(&ev.keystroke) {
+                        if let Err(e) = self.runtime.send_node_input(node_id, NodeInput::Key(input))
+                        {
+                            tracing::error!(error = %e, "send_node_input failed");
+                        }
+                    }
+                    cx.notify();
+                    return;
+                }
+            }
         }
 
         if let InputMode::NodeFocused(node_id) = self.runtime.focus.mode() {
@@ -93,3 +313,7 @@ impl MultisoulApp {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/unit/app_keyboard_tests.rs"]
+mod tests;

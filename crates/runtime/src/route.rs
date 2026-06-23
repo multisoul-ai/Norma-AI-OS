@@ -16,6 +16,8 @@ pub enum InputEvent {
     CloseNode { node: NodeId },
     /// 一次键盘按键（具体编码在 app/card 层翻译为 NodeInput）。
     Key,
+    /// 请求在画布选择模式下切换当前选中的节点。
+    NavigateSelection { target: Option<NodeId> },
     /// 请求切换 master/detail 布局。current_master=Some 表示当前已经在 master 模式。
     ToggleMasterLayout {
         current_master: Option<NodeId>,
@@ -70,12 +72,15 @@ pub fn route(mode: &InputMode, event: &InputEvent) -> Route {
             } => Route::SelectNode(*id),
             InputEvent::DoubleClick { hit: None, .. } => Route::ClearSelection,
             InputEvent::Key => Route::Ignore,
+            InputEvent::NavigateSelection { target: Some(id) } => Route::SelectNode(*id),
+            InputEvent::NavigateSelection { target: None } => Route::Ignore,
             InputEvent::ToggleMasterLayout { .. } => Route::Ignore,
             InputEvent::Escape => Route::Ignore,
         },
         InputMode::NodeFocused(fid) => match event {
             InputEvent::Escape => Route::ExitNodeFocus,
             InputEvent::Key => Route::SendInputToNode(*fid),
+            InputEvent::NavigateSelection { .. } => Route::Ignore,
             InputEvent::Click { hit: Some(id) } => Route::SelectNode(*id),
             InputEvent::Click { hit: None } => Route::ClearSelection,
             InputEvent::CloseNode { node } => Route::RemoveNode(*node),
@@ -198,6 +203,87 @@ mod tests {
             r,
             Route::SendInputToNode(0),
             "画布模式按键不应路由到任何节点"
+        );
+    }
+
+    /// 画布选择模式下方向导航事件只在已有目标时选中目标；没有目标则忽略。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   target node id = 12（由 app 层空间导航纯函数提前算出）
+    ///   missing target = None（目标方向无候选）
+    ///
+    /// 执行过程：
+    ///   1. CanvasSelect + NavigateSelection(Some(12)) → route
+    ///   2. CanvasSelect + NavigateSelection(None) → route
+    ///
+    /// 预期结果：
+    ///   - 正断言：Some(12) 路由为 SelectNode(12)
+    ///   - 正断言：None 路由为 Ignore
+    ///   - 负断言：None 不应 ClearSelection，否则方向尽头会清空当前卡片
+    #[test]
+    fn test_canvas_navigate_selection_routes_to_target_or_ignores_missing_target() {
+        let target = route(
+            &InputMode::CanvasSelect,
+            &InputEvent::NavigateSelection { target: Some(12) },
+        );
+        let missing = route(
+            &InputMode::CanvasSelect,
+            &InputEvent::NavigateSelection { target: None },
+        );
+
+        assert_eq!(
+            target,
+            Route::SelectNode(12),
+            "画布模式方向导航有 target=12 时应选中该卡片"
+        );
+        assert_eq!(
+            missing,
+            Route::Ignore,
+            "画布模式方向导航没有目标时应忽略，保持当前选择"
+        );
+        assert_ne!(
+            missing,
+            Route::ClearSelection,
+            "方向尽头不应清空选择，否则用户会丢失当前卡片"
+        );
+    }
+
+    /// 节点聚焦模式下方向导航事件被忽略，保留卡片内部方向键输入。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   focused node id = 7（Terminal/Agent 正在接收键盘输入）
+    ///   navigation target id = 8（即使 app 层误传 target，也不能抢走聚焦态方向键）
+    ///
+    /// 执行过程：
+    ///   1. NodeFocused(7) + NavigateSelection(Some(8)) → route
+    ///   2. NodeFocused(7) + Key → route，用于对照现有 PTY 输入路径
+    ///
+    /// 预期结果：
+    ///   - 正断言：NavigateSelection 返回 Ignore
+    ///   - 正断言：普通 Key 仍返回 SendInputToNode(7)
+    ///   - 负断言：NavigateSelection 不应 SelectNode(8)
+    #[test]
+    fn test_node_focus_ignores_navigate_selection_to_preserve_card_arrow_keys() {
+        let navigation = route(
+            &InputMode::NodeFocused(7),
+            &InputEvent::NavigateSelection { target: Some(8) },
+        );
+        let key = route(&InputMode::NodeFocused(7), &InputEvent::Key);
+
+        assert_eq!(
+            navigation,
+            Route::Ignore,
+            "节点聚焦时方向导航事件应忽略，避免抢走 Terminal/Agent 内部方向键"
+        );
+        assert_eq!(
+            key,
+            Route::SendInputToNode(7),
+            "节点聚焦时普通方向键仍应走 SendInputToNode(7) 路径"
+        );
+        assert_ne!(
+            navigation,
+            Route::SelectNode(8),
+            "节点聚焦时不应切换画布选择到 id=8"
         );
     }
 

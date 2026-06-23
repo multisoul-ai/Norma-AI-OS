@@ -5,6 +5,7 @@ pub mod geometry;
 pub mod history;
 pub mod hit_test;
 pub mod layout;
+pub mod navigation;
 pub mod node;
 pub mod selection;
 
@@ -16,6 +17,7 @@ pub use layout::{
     LayoutAssignment, LayoutInsets, ResponsiveGridConfig, TiledGridConfig,
     DEFAULT_CARD_ASPECT_RATIO,
 };
+pub use navigation::{navigate_card, NavigationDirection};
 pub use node::{
     AgentProfile, AgentSpec, CanvasNode, CanvasNodeKind, NodeId, NodeKind, NodeType, PreviewSpec,
     PreviewType, RectNode, TermSpec,
