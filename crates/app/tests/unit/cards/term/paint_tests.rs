@@ -238,6 +238,58 @@ fn test_layout_does_not_fill_canvas_with_default_background() {
     );
 }
 
+/// 选区高亮布局：Terminal range 应在 layout 中保持每行一个合并 span。
+///
+/// 数据构造（含关键数值推导）：
+///   snapshot cols=5, rows=1
+///   selection = row 0 col 1 → row 0 col 4
+///   性能约束：高亮按连续区间合并，因此只应生成 1 个 span，而不是 3 个 cell span
+///
+/// 执行过程：
+///   1. 构造一行 terminal snapshot
+///   2. build_layout_with_selection(selection=1..4)
+///   3. 读取 layout.selection_spans
+///
+/// 预期结果：
+///   - 正断言：生成一个 SelectionSpan(row=0,col=1..4)
+///   - 负断言：不应按每个 cell 生成 3 个 span
+#[test]
+fn test_layout_selection_highlight_merges_contiguous_cells_into_one_span() {
+    let palette = test_palette();
+    let fg = TerminalColor::Named(TerminalNamedColor::Foreground);
+    let bg = TerminalColor::Named(TerminalNamedColor::Background);
+    let snapshot = test_snapshot(vec![
+        test_cell('A', fg, bg, CellAttrs::default()),
+        test_cell('B', fg, bg, CellAttrs::default()),
+        test_cell('C', fg, bg, CellAttrs::default()),
+        test_cell('D', fg, bg, CellAttrs::default()),
+        test_cell('E', fg, bg, CellAttrs::default()),
+    ]);
+    let range = crate::text_selection::TextRange::new(
+        crate::text_selection::TextPoint::new(0, 1),
+        crate::text_selection::TextPoint::new(0, 4),
+    );
+
+    let layout = build_layout_with_selection(
+        &snapshot,
+        palette,
+        test_metrics(),
+        test_glass_style(),
+        range,
+    );
+
+    assert_eq!(
+        layout.selection_spans,
+        vec![crate::text_selection::SelectionSpan::new(0, 1, 4)],
+        "selection layout 应合并为一个 1..4 span，供 paint 层一次性画矩形"
+    );
+    assert_ne!(
+        layout.selection_spans.len(),
+        3,
+        "高亮不应按每个 cell 生成 span，否则拖选大范围文本会制造过多 quad"
+    );
+}
+
 /// 显式 ANSI 背景色仍应绘制，不能因为去掉默认整块填充而丢失样式。
 ///
 /// 数据构造（含关键数值推导）：

@@ -1,19 +1,22 @@
 //! Keyboard routing for the root GPUI view.
 
 use crate::app::{AppScreen, CopyCardContent, MultisoulApp};
+use crate::cards::term::selection::terminal_selected_text;
 use crate::cards::term::view::keystroke_to_input;
-use crate::preview::{PreviewContent, PreviewLoadState, PreviewStore};
+use crate::text_selection::TextSelection;
 use crate::voice_control::{
     is_voice_hold_modifier_release, is_voice_hold_release, is_voice_hold_shortcut, VoiceTrigger,
 };
-use canvas::{navigate_card, CanvasNodeKind, NavigationDirection, NodeId};
+use canvas::{navigate_card, NavigationDirection, NodeId};
 use gpui::{
     ClipboardItem, Context, KeyDownEvent, KeyUpEvent, Keystroke, Modifiers, ModifiersChangedEvent,
     Window,
 };
 use runtime::{route, InputEvent, InputMode, NodeInput, NodeView, Route, Runtime};
+#[cfg(test)]
 use terminal::{Cell, GridSnapshot};
 
+#[cfg(test)]
 pub(crate) fn current_copy_node_id(runtime: &Runtime) -> Option<NodeId> {
     if let InputMode::NodeFocused(node_id) = runtime.focus.mode() {
         if runtime.document.node(node_id).is_some() {
@@ -34,6 +37,7 @@ fn current_selection_node_id(runtime: &Runtime) -> Option<NodeId> {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn terminal_snapshot_copy_text(snapshot: &GridSnapshot) -> String {
     let mut lines = snapshot
         .rows
@@ -46,47 +50,17 @@ pub(crate) fn terminal_snapshot_copy_text(snapshot: &GridSnapshot) -> String {
     lines.join("\n")
 }
 
-pub(crate) fn copy_text_for_current_card(
+pub(crate) fn copy_text_for_active_selection(
     runtime: &Runtime,
-    previews: &PreviewStore,
+    active_selection: Option<TextSelection>,
 ) -> Option<String> {
-    let node_id = current_copy_node_id(runtime)?;
-    let text = copy_text_for_node(runtime, previews, node_id)?;
-    if text.is_empty() {
-        None
-    } else {
-        Some(text)
-    }
+    let selection = active_selection?;
+    let NodeView::Term { snapshot, .. } = runtime.node_view(selection.node_id)?;
+    let text = terminal_selected_text(&snapshot, selection.range());
+    (!text.is_empty()).then_some(text)
 }
 
-fn copy_text_for_node(
-    runtime: &Runtime,
-    previews: &PreviewStore,
-    node_id: NodeId,
-) -> Option<String> {
-    if let Some(NodeView::Term { snapshot, .. }) = runtime.node_view(node_id) {
-        return Some(terminal_snapshot_copy_text(&snapshot));
-    }
-
-    let node = runtime.document.node(node_id)?;
-    match &node.kind {
-        CanvasNodeKind::Preview(_) => preview_copy_text(previews.state_for(node_id)),
-        CanvasNodeKind::Term(_) | CanvasNodeKind::Agent(_) | CanvasNodeKind::Rect(_) => None,
-    }
-}
-
-fn preview_copy_text(state: Option<&PreviewLoadState>) -> Option<String> {
-    match state? {
-        PreviewLoadState::Ready(PreviewContent::Markdown(document)) => {
-            Some(document.source.clone())
-        }
-        PreviewLoadState::Ready(PreviewContent::Text(text)) => Some(text.clone()),
-        PreviewLoadState::Ready(PreviewContent::Image { .. })
-        | PreviewLoadState::Loading
-        | PreviewLoadState::Error(_) => None,
-    }
-}
-
+#[cfg(test)]
 fn terminal_row_copy_text(row: &[Cell]) -> String {
     let mut line = row
         .iter()
@@ -164,7 +138,9 @@ impl MultisoulApp {
         if !matches!(self.screen, AppScreen::Canvas) {
             return;
         }
-        if let Some(text) = copy_text_for_current_card(&self.runtime, &self.previews) {
+        if let Some(text) =
+            copy_text_for_active_selection(&self.runtime, self.interaction.active_text_selection)
+        {
             cx.write_to_clipboard(ClipboardItem::new_string(text));
         }
     }
@@ -223,6 +199,7 @@ impl MultisoulApp {
                     if ev.keystroke.modifiers.platform && ev.keystroke.key == "v" {
                         if let Some(item) = cx.read_from_clipboard() {
                             if let Some(text) = item.text() {
+                                self.interaction.clear_text_selection_for_node(node_id);
                                 if let Err(e) =
                                     self.runtime.send_node_input(node_id, NodeInput::Text(text))
                                 {
@@ -239,6 +216,7 @@ impl MultisoulApp {
                         return;
                     }
                     if let Some(input) = keystroke_to_input(&ev.keystroke) {
+                        self.interaction.clear_text_selection_for_node(node_id);
                         if let Err(e) = self.runtime.send_node_input(node_id, NodeInput::Key(input))
                         {
                             tracing::error!(error = %e, "send_node_input failed");
@@ -257,6 +235,7 @@ impl MultisoulApp {
                 if ev.keystroke.modifiers.platform && ev.keystroke.key == "v" {
                     if let Some(item) = cx.read_from_clipboard() {
                         if let Some(text) = item.text() {
+                            self.interaction.clear_text_selection_for_node(node_id);
                             if let Err(e) =
                                 self.runtime.send_node_input(node_id, NodeInput::Text(text))
                             {
@@ -272,6 +251,7 @@ impl MultisoulApp {
                     return;
                 }
                 if let Some(input) = keystroke_to_input(&ev.keystroke) {
+                    self.interaction.clear_text_selection_for_node(node_id);
                     if let Err(e) = self.runtime.send_node_input(node_id, NodeInput::Key(input)) {
                         tracing::error!(error = %e, "send_node_input failed");
                     }

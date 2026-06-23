@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 use crate::assets::DEFAULT_WALLPAPER_ASSET;
-use crate::canvas_view::{render_canvas, InteractionState};
+use crate::canvas_view::render_canvas;
+use crate::interaction::InteractionState;
 use crate::master_layout::{
     apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
     reapply_master_layout_for_area, term_grid_size_for_card, MasterLayoutState,
@@ -245,6 +246,7 @@ impl MultisoulApp {
         if self.interaction.keyboard_selected_node == Some(node_id) {
             self.interaction.keyboard_selected_node = None;
         }
+        self.interaction.clear_text_selection_for_node(node_id);
         let changed = close_node_and_update_layout_for_area(
             &mut self.runtime,
             &mut self.motion,

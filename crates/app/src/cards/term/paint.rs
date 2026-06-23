@@ -1,5 +1,7 @@
 //! GPUI terminal renderer: resolves neutral terminal snapshot styles into painted runs.
 
+use crate::cards::term::selection::terminal_selection_spans;
+use crate::text_selection::{SelectionSpan, TextRange};
 use gpui::{
     canvas, point, prelude::*, px, quad, transparent_black, App, Bounds, Edges, Font, FontFeatures,
     FontStyle, FontWeight, Hsla, IntoElement, Pixels, Point, SharedString, Size,
@@ -23,11 +25,18 @@ pub fn render_terminal_canvas(
     snapshot: GridSnapshot,
     theme: Theme,
     metrics: TerminalRenderMetrics,
+    selection: Option<TextRange>,
 ) -> impl IntoElement {
     let palette = TerminalPalette::from_theme(theme);
     let glass_style = TerminalGlassStyle::from_theme(theme);
     canvas(
-        move |_bounds, _window, _cx| build_layout(&snapshot, palette, metrics, glass_style),
+        move |_bounds, _window, _cx| {
+            if let Some(selection) = selection {
+                build_layout_with_selection(&snapshot, palette, metrics, glass_style, selection)
+            } else {
+                build_layout(&snapshot, palette, metrics, glass_style)
+            }
+        },
         move |bounds, layout, window, cx| paint_layout(bounds, &layout, window, cx),
     )
     .size_full()
@@ -63,6 +72,7 @@ struct TerminalLayout {
     cursor_line: usize,
     cursor_col: usize,
     metrics: TerminalRenderMetrics,
+    selection_spans: Vec<SelectionSpan>,
     default_bg: Hsla,
     default_bg_fill: Option<Hsla>,
     glass_style: TerminalGlassStyle,
@@ -89,10 +99,26 @@ fn build_layout(
         cursor_line: snapshot.cursor_line,
         cursor_col: snapshot.cursor_col,
         metrics,
+        selection_spans: Vec::new(),
         default_bg: palette.resolve(TerminalColor::Named(TerminalNamedColor::Background)),
         default_bg_fill: None,
         glass_style,
     }
+}
+
+fn build_layout_with_selection(
+    snapshot: &GridSnapshot,
+    palette: TerminalPalette,
+    metrics: TerminalRenderMetrics,
+    glass_style: TerminalGlassStyle,
+    selection: TextRange,
+) -> TerminalLayout {
+    let mut layout = build_layout(snapshot, palette, metrics, glass_style);
+    layout.selection_spans = terminal_selection_spans(snapshot, selection)
+        .into_iter()
+        .filter(|span| !span.is_empty())
+        .collect();
+    layout
 }
 
 fn layout_row(row_index: usize, row: &[Cell], palette: TerminalPalette) -> TerminalRowLayout {
@@ -211,6 +237,7 @@ struct TerminalCursorPaint {
 enum TerminalPaintLayer {
     DefaultBackgroundFill,
     ExplicitBackgrounds,
+    SelectionHighlights,
     TextRuns,
     Cursor,
 }
@@ -259,6 +286,11 @@ fn paint_layout(
                     ));
                 }
             }
+            TerminalPaintLayer::SelectionHighlights => {
+                for span in &layout.selection_spans {
+                    paint_selection_span(bounds, *span, layout, window);
+                }
+            }
             TerminalPaintLayer::TextRuns => {
                 for run in &layout.text_runs {
                     paint_text_run(bounds, run, metrics, window, cx);
@@ -289,11 +321,41 @@ fn paint_layer_order(layout: &TerminalLayout) -> Vec<TerminalPaintLayer> {
     if paintable_backgrounds(layout).next().is_some() {
         layers.push(TerminalPaintLayer::ExplicitBackgrounds);
     }
+    if !layout.selection_spans.is_empty() {
+        layers.push(TerminalPaintLayer::SelectionHighlights);
+    }
     if !layout.text_runs.is_empty() {
         layers.push(TerminalPaintLayer::TextRuns);
     }
     layers.push(TerminalPaintLayer::Cursor);
     layers
+}
+
+fn paint_selection_span(
+    bounds: Bounds<Pixels>,
+    span: SelectionSpan,
+    layout: &TerminalLayout,
+    window: &mut Window,
+) {
+    let metrics = layout.metrics;
+    let rect = Bounds {
+        origin: point(
+            bounds.origin.x + metrics.cell_width * (span.start_col as f32),
+            bounds.origin.y + metrics.line_height * (span.row as f32),
+        ),
+        size: Size {
+            width: metrics.cell_width * ((span.end_col - span.start_col) as f32),
+            height: metrics.line_height,
+        },
+    };
+    window.paint_quad(quad(
+        rect,
+        px(0.0),
+        layout.glass_style.selection_highlight,
+        Edges::<Pixels>::default(),
+        transparent_black(),
+        Default::default(),
+    ));
 }
 
 fn cursor_paint_model(bounds: Bounds<Pixels>, layout: &TerminalLayout) -> TerminalCursorPaint {
