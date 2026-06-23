@@ -242,9 +242,6 @@ impl MultisoulApp {
     pub(crate) fn remove_node_and_reflow(&mut self, node_id: NodeId, window: &mut Window) -> bool {
         let area = self.visible_canvas_rect(window);
         let zoom = self.runtime.document.viewport.zoom;
-        if self.interaction.hovered_node == Some(node_id) {
-            self.interaction.hovered_node = None;
-        }
         if self.interaction.keyboard_selected_node == Some(node_id) {
             self.interaction.keyboard_selected_node = None;
         }

@@ -1,8 +1,8 @@
 use super::*;
 use crate::master_layout::{
     close_node_and_update_layout_for_area, enter_master_layout_for_area,
-    master_target_from_hover_or_selection, restore_master_layout_for_area,
-    switch_master_layout_for_area, MasterLayoutState,
+    master_target_from_selection, restore_master_layout_for_area, switch_master_layout_for_area,
+    MasterLayoutState,
 };
 use canvas::{
     compute_master_detail_layout, compute_responsive_grid_layout, CanvasNodeKind, RectNode,
@@ -14,23 +14,22 @@ fn add_rect(runtime: &mut Runtime, color: u32, bounds: CanvasRect) -> NodeId {
         .add_node(CanvasNodeKind::Rect(RectNode { color }), bounds)
 }
 
-/// Master 目标解析：hover 优先于 selection；没有 hover 时使用当前选中卡片兜底。
+/// Master 目标解析：只使用显式 selection，不再把 hover 当作隐式选择。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   A id=1，B id=2（Document::add_node 从 1 递增）
 ///   selection = {A}
-///   hovered_node = Some(B)
+///   鼠标可能悬浮在 B，但 hover 不再参与 master target 解析
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. master_target_from_hover_or_selection(Some(B), runtime) → 命中 hover
-///   2. master_target_from_hover_or_selection(None, runtime) → 无 hover，回退 selection
+///   1. master_target_from_selection(runtime) → 读取当前显式 selection
+///   2. 不读取 InteractionState.hovered_node，避免 hover 与方向键 selection 冲突
 ///
 /// 预期结果：
-///   - 正断言：有 hover 时返回 B
-///   - 正断言：无 hover 时返回 A
-///   - 负断言：有 hover 时不应返回 selection 中的 A
+///   - 正断言：返回 A
+///   - 负断言：不返回悬浮的 B
 #[test]
-fn test_master_layout_target_prefers_hover_over_selection() {
+fn test_master_layout_target_uses_selection_not_hover() {
     let mut runtime = Runtime::new();
     let a = add_rect(
         &mut runtime,
@@ -44,19 +43,17 @@ fn test_master_layout_target_prefers_hover_over_selection() {
     );
     runtime.selection.select_only(a);
 
-    let hover_target = master_target_from_hover_or_selection(Some(b), &runtime);
-    let selection_target = master_target_from_hover_or_selection(None, &runtime);
+    let target = master_target_from_selection(&runtime);
 
-    assert_eq!(hover_target, Some(b), "hovered B 应优先成为 master target");
     assert_eq!(
-        selection_target,
+        target,
         Some(a),
-        "没有 hover 时应回退使用当前 selection A"
+        "master target 应来自显式 selection A，而不是鼠标悬浮状态"
     );
     assert_ne!(
-        hover_target,
-        Some(a),
-        "有 hover 时不应误用 selection 中的 A"
+        target,
+        Some(b),
+        "hovered B 不应成为 master target，否则会和方向键选择 A 冲突"
     );
 }
 

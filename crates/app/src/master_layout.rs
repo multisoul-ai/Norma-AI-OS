@@ -136,16 +136,7 @@ pub(crate) fn term_grid_size_for_card(
     }
 }
 
-pub(crate) fn master_target_from_hover_or_selection(
-    hovered_node: Option<NodeId>,
-    runtime: &Runtime,
-) -> Option<NodeId> {
-    if let Some(node_id) = hovered_node {
-        if runtime.document.node(node_id).is_some() {
-            return Some(node_id);
-        }
-    }
-
+pub(crate) fn master_target_from_selection(runtime: &Runtime) -> Option<NodeId> {
     runtime
         .selection
         .iter()
@@ -414,8 +405,7 @@ impl MultisoulApp {
             return;
         }
 
-        let target =
-            master_target_from_hover_or_selection(self.interaction.hovered_node, &self.runtime);
+        let target = master_target_from_selection(&self.runtime);
         let area = self.visible_canvas_rect(window);
         let zoom = self.runtime.document.viewport.zoom;
         let changed = toggle_master_layout_for_area(
