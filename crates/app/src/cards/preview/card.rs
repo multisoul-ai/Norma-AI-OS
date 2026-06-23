@@ -25,6 +25,7 @@ impl Card for PreviewCard {
         CardChrome {
             title: node.kind.display_title(),
             refreshable: true,
+            task_badge: None,
         }
     }
 

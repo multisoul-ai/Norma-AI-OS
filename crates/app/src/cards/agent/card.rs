@@ -1,12 +1,12 @@
 //! Agent card renderer.
 
-use crate::cards::chrome::CardChrome;
+use crate::cards::chrome::{CardChrome, CardChromeTaskBadge, CardChromeTaskTone};
 use crate::cards::term::card::term_resize;
 use crate::cards::term::view::render_terminal_node;
 use crate::cards::{Card, CardBodyContext};
 use canvas::{CanvasNode, CanvasNodeKind, CanvasRect, NodeType};
 use gpui::AnyElement;
-use runtime::{NodeResize, Runtime};
+use runtime::{AgentTaskState, NodeResize, Runtime};
 
 pub struct AgentCard;
 
@@ -17,7 +17,7 @@ impl Card for AgentCard {
         NodeType::Agent
     }
 
-    fn chrome(&self, node: &CanvasNode, _runtime: &Runtime) -> CardChrome {
+    fn chrome(&self, node: &CanvasNode, runtime: &Runtime) -> CardChrome {
         let title = match &node.kind {
             CanvasNodeKind::Agent(agent) => agent
                 .alias
@@ -29,6 +29,7 @@ impl Card for AgentCard {
         CardChrome {
             title,
             refreshable: false,
+            task_badge: agent_task_badge(runtime.agent_task_state(node.id)),
         }
     }
 
@@ -53,6 +54,23 @@ impl Card for AgentCard {
     fn wheel_scroll_mode(&self) -> crate::cards::CardWheelScrollMode {
         crate::cards::CardWheelScrollMode::TerminalScrollback
     }
+}
+
+fn agent_task_badge(state: Option<AgentTaskState>) -> Option<CardChromeTaskBadge> {
+    let state = state?;
+    let (label, tone) = match state {
+        AgentTaskState::Ready => ("Ready", CardChromeTaskTone::Muted),
+        AgentTaskState::Thinking => ("Thinking", CardChromeTaskTone::Active),
+        AgentTaskState::RunningTool { .. } => ("Tool", CardChromeTaskTone::Active),
+        AgentTaskState::WaitingApproval { .. } => ("Approval", CardChromeTaskTone::Warning),
+        AgentTaskState::Done => ("Done", CardChromeTaskTone::Muted),
+        AgentTaskState::Failed { .. } => ("Failed", CardChromeTaskTone::Error),
+        AgentTaskState::Ended => ("Ended", CardChromeTaskTone::Muted),
+    };
+    Some(CardChromeTaskBadge {
+        label: label.to_string(),
+        tone,
+    })
 }
 
 #[cfg(test)]
@@ -152,5 +170,57 @@ mod tests {
         assert_eq!(chrome.title, "Alan", "Agent alias 应优先作为 card 标题");
         assert_ne!(chrome.title, "Codex", "带 alias 时不应显示 profile title");
         assert_ne!(chrome.title, "Agent", "带 alias 时不应退化为泛化 Agent");
+    }
+
+    /// AgentCard chrome 会把 runtime task state 映射成短 badge。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   runtime 添加 node_id=1 的 Codex Agent
+    ///   task update: PreToolUse 等价状态 RunningTool(tool_name=shell)
+    ///   badge 文案 V1 固定为短标签 "Tool"，避免标题栏溢出
+    ///
+    /// 执行过程：
+    ///   1. 在 runtime.document 中添加 Agent node
+    ///   2. apply_agent_task_update 写入 RunningTool
+    ///   3. 调用 AgentCard.chrome 读取 badge
+    ///
+    /// 预期结果：
+    ///   - 正断言：badge 存在且 label 为 Tool
+    ///   - 负断言：badge 不应显示 Terminal，也不应退化为 None
+    #[test]
+    fn test_agent_card_chrome_shows_task_badge() {
+        let mut runtime = Runtime::new();
+        let node_id = runtime.document.add_node(
+            CanvasNodeKind::Agent(AgentSpec {
+                profile: AgentProfile::Codex,
+                alias: None,
+            }),
+            CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+        );
+        let changed = runtime.apply_agent_task_update(runtime::AgentTaskUpdate {
+            node_id,
+            profile: AgentProfile::Codex,
+            provider_event: "PreToolUse".to_string(),
+            to: AgentTaskState::RunningTool {
+                tool_name: Some("shell".to_string()),
+            },
+        });
+        let node = runtime
+            .document
+            .node(node_id)
+            .expect("Agent node 应存在于 runtime document")
+            .clone();
+
+        let chrome = CARD.chrome(&node, &runtime);
+        let badge = chrome
+            .task_badge
+            .expect("RunningTool 状态应渲染 task badge");
+
+        assert!(changed, "Agent task update 应改变 runtime task state");
+        assert_eq!(badge.label, "Tool", "RunningTool 应显示短标签 Tool");
+        assert_ne!(
+            badge.label, "Terminal",
+            "Agent task badge 不应显示 Terminal 文案"
+        );
     }
 }

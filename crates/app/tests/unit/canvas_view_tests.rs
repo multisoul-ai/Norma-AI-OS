@@ -22,8 +22,8 @@ fn test_interaction_state_disables_canvas_scroll_by_default() {
         !state.canvas_scroll_enabled,
         "画布滚动开关默认应关闭，用户需要通过顶部 toggle 主动开启"
     );
-    assert_ne!(
-        state.canvas_scroll_enabled, true,
+    assert!(
+        !state.canvas_scroll_enabled,
         "默认状态不应继续开启画布滚动，否则进入画布后仍可直接滚动平移"
     );
     assert!(!state.space_held, "默认关闭画布滚动不应伪造空格按下状态");

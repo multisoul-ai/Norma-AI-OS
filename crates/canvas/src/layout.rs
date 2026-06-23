@@ -139,7 +139,7 @@ pub fn compute_master_detail_layout(
     area: CanvasRect,
     config: ResponsiveGridConfig,
 ) -> Vec<LayoutAssignment> {
-    if !ordered_ids.iter().any(|id| *id == master_id) {
+    if !ordered_ids.contains(&master_id) {
         return Vec::new();
     }
 

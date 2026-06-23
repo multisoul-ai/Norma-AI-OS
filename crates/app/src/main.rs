@@ -1,4 +1,5 @@
 //! multisoul-desktop 入口：tracing 初始化 + 启动 GPUI App。
+mod agent_hooks;
 mod app;
 mod app_ime;
 mod app_ime_geometry;

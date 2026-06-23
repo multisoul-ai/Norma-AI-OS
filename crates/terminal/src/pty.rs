@@ -3,7 +3,7 @@
 
 use crate::message::PtyEvent;
 use crossbeam_channel::Sender;
-use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, PtySize};
 use std::ffi::OsStr;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -73,7 +73,7 @@ impl PtyCommand {
 pub struct PtyHandle {
     master: Box<dyn portable_pty::MasterPty + Send>,
     writer: Box<dyn Write + Send>,
-    child: Box<dyn portable_pty::Child + Send + Sync>,
+    child: Box<dyn ChildKiller + Send + Sync>,
 }
 
 impl PtyHandle {
@@ -116,10 +116,11 @@ impl PtyHandle {
         }
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
-        let child = pair
+        let mut child = pair
             .slave
             .spawn_command(cmd)
             .map_err(|e| PtyError::Spawn(e.to_string()))?;
+        let child_killer = child.clone_killer();
         // slave 在 spawn 后即可释放（子进程已持有其 fd）。
         drop(pair.slave);
 
@@ -132,7 +133,7 @@ impl PtyHandle {
             .try_clone_reader()
             .map_err(|e| PtyError::Spawn(e.to_string()))?;
 
-        // 读线程：阻塞读 → 发 Output；EOF → 发 Exited 并退出。
+        // 读线程：阻塞读 → 发 Output；EOF → wait 子进程后发 Exited 并退出。
         thread::Builder::new()
             .name("pty-reader".into())
             .spawn(move || {
@@ -140,17 +141,23 @@ impl PtyHandle {
                 loop {
                     match reader.read(&mut buf) {
                         Ok(0) => {
-                            let _ = tx.send(PtyEvent::Exited { code: None });
+                            let _ = tx.send(PtyEvent::Exited {
+                                code: child_exit_code(child.wait()),
+                            });
                             break;
                         }
                         Ok(n) => {
                             // 通道断开（app 已关闭）→ 退出读线程，避免僵尸。
                             if tx.send(PtyEvent::Output(buf[..n].to_vec())).is_err() {
+                                let _ = child.kill();
+                                let _ = child.wait();
                                 break;
                             }
                         }
                         Err(_) => {
-                            let _ = tx.send(PtyEvent::Exited { code: None });
+                            let _ = tx.send(PtyEvent::Exited {
+                                code: child_exit_code(child.wait()),
+                            });
                             break;
                         }
                     }
@@ -161,7 +168,7 @@ impl PtyHandle {
         Ok(PtyHandle {
             master: pair.master,
             writer,
-            child,
+            child: child_killer,
         })
     }
 
@@ -185,8 +192,13 @@ impl PtyHandle {
     /// 杀掉子进程（窗口关闭时调用，确保不留僵尸进程）。
     pub fn kill(&mut self) {
         let _ = self.child.kill();
-        let _ = self.child.wait();
     }
+}
+
+fn child_exit_code(status: std::io::Result<portable_pty::ExitStatus>) -> Option<i32> {
+    status
+        .ok()
+        .map(|status| status.exit_code().min(i32::MAX as u32) as i32)
 }
 
 impl Drop for PtyHandle {
