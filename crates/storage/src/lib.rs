@@ -8,6 +8,7 @@ pub mod project_store;
 pub mod recent_store;
 pub mod session_store;
 pub mod settings_store;
+pub mod voice_history_store;
 
 pub use app_store::{default_app_db_path, AppStore};
 pub use canvas_store::CanvasStore;
@@ -16,6 +17,7 @@ pub use project_store::ProjectStore;
 pub use recent_store::RecentStore;
 pub use session_store::{SessionCheckpoint, SessionCheckpointKind, SessionStore};
 pub use settings_store::SettingsStore;
+pub use voice_history_store::{VoiceHistoryEntry, VoiceHistoryRecord, VoiceHistoryStore};
 
 pub(crate) fn current_unix_timestamp() -> StorageResult<u64> {
     Ok(std::time::SystemTime::now()

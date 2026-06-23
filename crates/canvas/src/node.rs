@@ -31,9 +31,11 @@ impl AgentProfile {
 }
 
 /// Agent 节点的可持久化描述。实际进程/session 存在 runtime 层。
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct AgentSpec {
     pub profile: AgentProfile,
+    #[serde(default)]
+    pub alias: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -82,7 +84,11 @@ impl NodeKind {
         match self {
             NodeKind::Rect(_) => "Node".to_string(),
             NodeKind::Term(_) => "Terminal".to_string(),
-            NodeKind::Agent(node) => node.profile.display_title().to_string(),
+            NodeKind::Agent(node) => node
+                .alias
+                .as_deref()
+                .unwrap_or_else(|| node.profile.display_title())
+                .to_string(),
             NodeKind::Preview(spec) => preview_title(&spec.path),
         }
     }
@@ -130,9 +136,11 @@ mod tests {
     fn test_agent_kind_is_description_only_and_exposes_profile_title() {
         let claude = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Claude,
+            alias: None,
         });
         let codex = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
+            alias: None,
         });
 
         assert_eq!(
@@ -164,6 +172,57 @@ mod tests {
             codex.display_title(),
             "Terminal",
             "Codex Agent 不应退化显示为普通 Terminal"
+        );
+    }
+
+    /// Agent alias 是可持久化显示名；旧 snapshot 缺失 alias 时应兼容恢复为 None。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   legacy_json = {"Agent":{"profile":"Codex"}}，字段数 1，缺少 alias
+    ///   aliased Agent: profile=Codex, alias="Alan"
+    ///   display_title 优先 alias，其次 profile title
+    ///
+    /// 执行过程：
+    ///   1. 反序列化 legacy_json 为 NodeKind
+    ///   2. 构造 alias=Alan 的 NodeKind
+    ///   3. 分别读取 display_title 与 alias 字段
+    ///
+    /// 预期结果：
+    ///   - 正断言：legacy alias 为 None，标题仍是 Codex
+    ///   - 正断言：aliased 标题显示 Alan
+    ///   - 负断言：aliased 标题不应退回 Codex
+    #[test]
+    fn test_agent_alias_defaults_for_legacy_snapshot_and_overrides_title() {
+        let legacy_json = r#"{"Agent":{"profile":"Codex"}}"#;
+        let legacy: NodeKind =
+            serde_json::from_str(legacy_json).expect("legacy Agent snapshot 应可恢复");
+        let aliased = NodeKind::Agent(AgentSpec {
+            profile: AgentProfile::Codex,
+            alias: Some("Alan".to_string()),
+        });
+
+        let NodeKind::Agent(legacy_spec) = &legacy else {
+            panic!("legacy json 应恢复为 Agent kind");
+        };
+
+        assert_eq!(
+            legacy_spec.alias, None,
+            "旧 snapshot 缺少 alias 时应默认恢复为 None"
+        );
+        assert_eq!(
+            legacy.display_title(),
+            "Codex",
+            "legacy Agent 没有 alias 时标题应回退到 profile title"
+        );
+        assert_eq!(
+            aliased.display_title(),
+            "Alan",
+            "Agent alias 存在时标题应优先显示 alias"
+        );
+        assert_ne!(
+            aliased.display_title(),
+            "Codex",
+            "带 alias 的 Agent 不应继续显示 profile title"
         );
     }
 

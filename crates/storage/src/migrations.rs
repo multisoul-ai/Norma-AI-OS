@@ -63,6 +63,20 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
             agent_profile TEXT,
             updated_at_unix INTEGER NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS voice_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            transcript TEXT NOT NULL,
+            planner_json TEXT NOT NULL,
+            confidence REAL NOT NULL,
+            risk TEXT NOT NULL,
+            status TEXT NOT NULL,
+            provider TEXT,
+            model TEXT,
+            target_node_id INTEGER,
+            created_at_unix INTEGER NOT NULL,
+            error TEXT
+        );
         "#,
     )?;
     ensure_column(

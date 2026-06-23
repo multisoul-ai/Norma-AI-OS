@@ -57,4 +57,17 @@ fn test_app_and_project_migrations_are_idempotent() {
 
     assert_eq!(app_version, 1, "app db user_version 应为 1");
     assert_eq!(project_version, 1, "project db user_version 应为 1");
+
+    let voice_history_count: i64 = open_project_connection(&project_db)
+        .expect("project db should reopen")
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'voice_history'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("voice_history table existence should be readable");
+    assert_eq!(
+        voice_history_count, 1,
+        "project migration 应创建 voice_history 表用于语音审计历史"
+    );
 }

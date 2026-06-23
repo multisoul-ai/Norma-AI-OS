@@ -1,4 +1,6 @@
-use crate::{migrations::require_workspace_dir, CanvasStore, SessionStore, StorageResult};
+use crate::{
+    migrations::require_workspace_dir, CanvasStore, SessionStore, StorageResult, VoiceHistoryStore,
+};
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug)]
@@ -31,5 +33,9 @@ impl ProjectStore {
 
     pub fn session_store(&self) -> SessionStore {
         SessionStore::new(self.path.clone())
+    }
+
+    pub fn voice_history_store(&self) -> VoiceHistoryStore {
+        VoiceHistoryStore::new(self.path.clone())
     }
 }

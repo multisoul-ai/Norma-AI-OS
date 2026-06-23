@@ -19,7 +19,11 @@ impl Card for AgentCard {
 
     fn chrome(&self, node: &CanvasNode, _runtime: &Runtime) -> CardChrome {
         let title = match &node.kind {
-            CanvasNodeKind::Agent(agent) => agent.profile.display_title().to_string(),
+            CanvasNodeKind::Agent(agent) => agent
+                .alias
+                .as_deref()
+                .unwrap_or_else(|| agent.profile.display_title())
+                .to_string(),
             _ => "Agent".to_string(),
         };
         CardChrome {
@@ -72,6 +76,7 @@ mod tests {
             id: 1,
             kind: CanvasNodeKind::Agent(AgentSpec {
                 profile: AgentProfile::Claude,
+                alias: None,
             }),
             bounds: CanvasRect::new(0.0, 0.0, 100.0, 80.0),
             z_index: 1,
@@ -81,6 +86,7 @@ mod tests {
             id: 2,
             kind: CanvasNodeKind::Agent(AgentSpec {
                 profile: AgentProfile::Codex,
+                alias: None,
             }),
             bounds: CanvasRect::new(0.0, 0.0, 100.0, 80.0),
             z_index: 2,
@@ -106,5 +112,40 @@ mod tests {
             claude_chrome.title, "Terminal",
             "Claude Agent card 不应退化为 Terminal 标题"
         );
+    }
+
+    /// AgentCard chrome 应优先使用 alias，缺失 alias 时回退 profile。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   node_id=3，profile=Codex，alias=Alan
+    ///   runtime 为空；chrome 标题只依赖 CanvasNodeKind::Agent
+    ///
+    /// 执行过程：
+    ///   1. 构造带 alias 的 Agent node
+    ///   2. 调用 AgentCard.chrome
+    ///   3. 检查 title
+    ///
+    /// 预期结果：
+    ///   - 正断言：title 为 Alan
+    ///   - 负断言：title 不应是 Codex 或泛化 Agent
+    #[test]
+    fn test_agent_card_chrome_prefers_alias_over_profile_title() {
+        let runtime = Runtime::new();
+        let node = CanvasNode {
+            id: 3,
+            kind: CanvasNodeKind::Agent(AgentSpec {
+                profile: AgentProfile::Codex,
+                alias: Some("Alan".to_string()),
+            }),
+            bounds: CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+            z_index: 3,
+            selected: false,
+        };
+
+        let chrome = CARD.chrome(&node, &runtime);
+
+        assert_eq!(chrome.title, "Alan", "Agent alias 应优先作为 card 标题");
+        assert_ne!(chrome.title, "Codex", "带 alias 时不应显示 profile title");
+        assert_ne!(chrome.title, "Agent", "带 alias 时不应退化为泛化 Agent");
     }
 }

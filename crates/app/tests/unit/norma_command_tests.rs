@@ -1,9 +1,11 @@
 use crate::master_layout::MasterLayoutState;
 use crate::motion::MotionStore;
 use crate::norma_server::{execute_card_command_for_area, text_for_submit, NormaCommandEffects};
-use canvas::{CanvasNodeKind, CanvasRect, PreviewType as CanvasPreviewType};
+use canvas::{
+    AgentProfile, AgentSpec, CanvasNodeKind, CanvasRect, PreviewType as CanvasPreviewType,
+};
 use norma::protocol::{
-    CardCommand, CardCommandError, CardCommandResult, CardKind, Placement,
+    CardCommand, CardCommandError, CardCommandResult, CardKind, CardSummaryKind, Placement,
     PreviewType as NormaPreviewType,
 };
 use runtime::Runtime;
@@ -212,6 +214,73 @@ fn test_norma_preview_create_spawns_canvas_preview_without_live_node() {
             notify: true,
         },
         "Preview create 应只标记 canvas dirty，不应标记 terminal session dirty"
+    );
+}
+
+/// Norma executor：List summary 应暴露 Agent alias，供 voice planner 做目标路由。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   agent node_id = 1（document 首个节点）
+///   profile = Codex
+///   alias = Alan
+///   List 不需要 live node，因此 runtime.live_len = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 向 runtime.document 添加 Agent(alias=Alan)
+///   2. execute_card_command_for_area(List)
+///   3. 读取 Listed cards[0]
+///
+/// 预期结果：
+///   - 正断言：summary title 与 alias 都是 Alan
+///   - 正断言：kind 仍是 Agent(Codex)
+///   - 负断言：alias 不应丢失为 None
+#[test]
+fn test_norma_list_summary_includes_agent_alias() {
+    let mut runtime = Runtime::new();
+    let mut motion = MotionStore::new(true);
+    let mut master_layout = MasterLayoutState::default();
+    runtime.document.add_node(
+        CanvasNodeKind::Agent(AgentSpec {
+            profile: AgentProfile::Codex,
+            alias: Some("Alan".to_string()),
+        }),
+        CanvasRect::new(0.0, 0.0, 640.0, 360.0),
+    );
+
+    let execution = execute_card_command_for_area(
+        &mut runtime,
+        &mut motion,
+        &mut master_layout,
+        CardCommand::List,
+        CanvasRect::new(0.0, 0.0, 800.0, 600.0),
+        1.0,
+    )
+    .expect("Norma List 应成功");
+
+    let CardCommandResult::Listed { cards } = execution.result else {
+        panic!("List 命令应返回 Listed 结果");
+    };
+
+    assert_eq!(cards.len(), 1, "List 应返回 1 张 Agent 卡片摘要");
+    assert_eq!(
+        cards[0].title, "Alan",
+        "Agent 有 alias 时 summary title 应显示 alias"
+    );
+    assert_eq!(
+        cards[0].alias.as_deref(),
+        Some("Alan"),
+        "summary alias 应保留 Alan 供 voice planner 匹配"
+    );
+    assert_eq!(
+        cards[0].kind,
+        CardSummaryKind::Agent {
+            profile: norma::protocol::AgentProfile::Codex,
+        },
+        "summary kind 应保留 Codex Agent 类型"
+    );
+    assert!(
+        cards[0].alias.is_some(),
+        "Agent alias 不应在 List summary 中丢失为 None"
     );
 }
 

@@ -1,6 +1,7 @@
 use crate::app::MultisoulApp;
 use runtime::Runtime;
 use std::time::Duration;
+use storage::VoiceHistoryEntry;
 use storage::{ProjectStore, StorageError};
 
 const PERSISTENCE_DEBOUNCE: Duration = Duration::from_millis(360);
@@ -71,6 +72,19 @@ impl PersistenceScheduler {
 
     fn has_pending_work(&self) -> bool {
         self.canvas_dirty || self.session_dirty
+    }
+
+    pub(crate) fn save_voice_history(
+        &self,
+        entry: &VoiceHistoryEntry,
+    ) -> Result<Option<i64>, StorageError> {
+        let Some(project_store) = self.project_store.as_ref() else {
+            return Ok(None);
+        };
+        project_store
+            .voice_history_store()
+            .save_entry(entry)
+            .map(Some)
     }
 }
 

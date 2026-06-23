@@ -141,6 +141,7 @@ fn test_list_result_uses_neutral_card_summary() {
                 CardSummary {
                     node_id: 1,
                     title: "Terminal".to_string(),
+                    alias: None,
                     kind: CardSummaryKind::Terminal,
                     selected: true,
                     focused: true,
@@ -148,6 +149,7 @@ fn test_list_result_uses_neutral_card_summary() {
                 CardSummary {
                     node_id: 2,
                     title: "Codex".to_string(),
+                    alias: Some("Alan".to_string()),
                     kind: CardSummaryKind::Agent {
                         profile: AgentProfile::Codex,
                     },
@@ -179,5 +181,10 @@ fn test_list_result_uses_neutral_card_summary() {
         cards[1].kind,
         CardSummaryKind::Terminal,
         "Codex Agent 不应被误标为 Terminal"
+    );
+    assert_eq!(
+        cards[1].alias.as_deref(),
+        Some("Alan"),
+        "Agent alias 应保留在 List summary 中供 voice planner 路由"
     );
 }

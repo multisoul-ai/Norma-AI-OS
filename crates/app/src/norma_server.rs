@@ -338,11 +338,19 @@ fn summarize_cards(runtime: &Runtime) -> Vec<CardSummary> {
         .map(|node| CardSummary {
             node_id: node.id,
             title: node.kind.display_title().to_string(),
+            alias: summary_alias(&node.kind),
             kind: summary_kind(&node.kind),
             selected: runtime.selection.contains(node.id),
             focused: matches!(runtime.focus.mode(), InputMode::NodeFocused(id) if id == node.id),
         })
         .collect()
+}
+
+fn summary_alias(kind: &CanvasNodeKind) -> Option<String> {
+    match kind {
+        CanvasNodeKind::Agent(spec) => spec.alias.clone(),
+        CanvasNodeKind::Rect(_) | CanvasNodeKind::Term(_) | CanvasNodeKind::Preview(_) => None,
+    }
 }
 
 fn summary_kind(kind: &CanvasNodeKind) -> CardSummaryKind {

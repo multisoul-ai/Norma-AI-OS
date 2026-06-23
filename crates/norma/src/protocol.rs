@@ -93,6 +93,8 @@ pub enum CardCommandResult {
 pub struct CardSummary {
     pub node_id: NodeId,
     pub title: String,
+    #[serde(default)]
+    pub alias: Option<String>,
     pub kind: CardSummaryKind,
     pub selected: bool,
     pub focused: bool,

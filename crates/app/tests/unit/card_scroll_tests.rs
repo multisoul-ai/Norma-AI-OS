@@ -16,7 +16,10 @@ fn term_kind() -> CanvasNodeKind {
 }
 
 fn agent_kind(profile: AgentProfile) -> CanvasNodeKind {
-    CanvasNodeKind::Agent(AgentSpec { profile })
+    CanvasNodeKind::Agent(AgentSpec {
+        profile,
+        alias: None,
+    })
 }
 
 fn selected_selection(id: NodeId) -> Selection {

@@ -5,7 +5,7 @@ use super::{
 };
 use gpui::{
     div, img, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, BoxShadow, Context,
-    Div, ObjectFit, Window,
+    Div, MouseButton, ObjectFit, Window,
 };
 use ui::Theme;
 
@@ -214,6 +214,11 @@ impl MultisoulApp {
                     .bg(rgba(with_alpha(theme.panel, 0xe5)))
                     .text_color(rgba(theme.text_primary))
                     .text_size(px(13.0))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(Self::on_voice_bar_mouse_down),
+                    )
+                    .on_mouse_up(MouseButton::Left, cx.listener(Self::on_voice_bar_mouse_up))
                     .child(
                         div()
                             .flex()
@@ -230,7 +235,7 @@ impl MultisoulApp {
                                     .text_color(rgba(theme.accent_orange))
                                     .child("|||"),
                             )
-                            .child("Listening..."),
+                            .child(self.voice_label()),
                     )
                     .child(
                         div()

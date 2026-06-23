@@ -36,12 +36,14 @@ mod tests {
         let claude_id = runtime.document.add_node(
             CanvasNodeKind::Agent(AgentSpec {
                 profile: AgentProfile::Claude,
+                alias: None,
             }),
             CanvasRect::new(0.0, 0.0, 640.0, 360.0),
         );
         let codex_id = runtime.document.add_node(
             CanvasNodeKind::Agent(AgentSpec {
                 profile: AgentProfile::Codex,
+                alias: None,
             }),
             CanvasRect::new(720.0, 0.0, 640.0, 360.0),
         );

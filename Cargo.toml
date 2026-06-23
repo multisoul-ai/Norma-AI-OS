@@ -6,6 +6,8 @@ members = [
   "crates/workspace",
   "crates/terminal",
   "crates/runtime",
+  "crates/voice",
+  "crates/voice_macos",
   "crates/ui",
   "crates/norma",
   "crates/app",
@@ -42,6 +44,8 @@ storage = { path = "crates/storage" }
 workspace = { path = "crates/workspace" }
 terminal = { path = "crates/terminal" }
 runtime = { path = "crates/runtime" }
+voice = { path = "crates/voice" }
+voice_macos = { path = "crates/voice_macos" }
 ui = { path = "crates/ui" }
 norma = { path = "crates/norma" }
 

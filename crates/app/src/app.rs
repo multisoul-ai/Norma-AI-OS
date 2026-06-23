@@ -3,7 +3,6 @@
 #[cfg(test)]
 use crate::assets::DEFAULT_WALLPAPER_ASSET;
 use crate::canvas_view::{render_canvas, InteractionState};
-use crate::cards::term::view::keystroke_to_input;
 use crate::master_layout::{
     apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
     reapply_master_layout_for_area, term_grid_size_for_card, MasterLayoutState,
@@ -16,10 +15,8 @@ use crate::persistence::PersistenceScheduler;
 use crate::preview::PreviewStore;
 use crate::workspace_state::WorkspaceState;
 use canvas::{AgentProfile, CanvasRect, NodeId, NodeType, Vec2};
-use gpui::{
-    actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, KeyDownEvent, Window,
-};
-use runtime::{route, InputEvent, InputMode, NodeInput, Route, Runtime};
+use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
+use runtime::Runtime;
 use std::time::Duration;
 use ui::Theme;
 
@@ -65,6 +62,8 @@ pub struct MultisoulApp {
     pub(crate) norma_server: NormaServer,
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
+    pub(crate) voice: crate::voice_control::VoiceControlState,
+    pub(crate) pending_voice_commands: Vec<voice::ExecutableCommand>,
     pub focus_handle: FocusHandle,
     wallpaper: WorkspaceWallpaper,
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
@@ -114,6 +113,8 @@ impl MultisoulApp {
             norma_server: NormaServer::start(),
             screen: AppScreen::Launchpad,
             workspace_state: WorkspaceState::load_default(),
+            voice: crate::voice_control::VoiceControlState::default(),
+            pending_voice_commands: Vec::new(),
             focus_handle: cx.focus_handle(),
             wallpaper,
             last_reflow_window_size: None,
@@ -314,59 +315,6 @@ impl MultisoulApp {
         }
     }
 
-    /// 键盘事件：维护 space_held；聚焦终端时把按键编码写入对应 PTY。
-    fn on_key_down(&mut self, ev: &KeyDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
-        if !matches!(self.screen, AppScreen::Canvas) {
-            return;
-        }
-
-        let is_space = ev.keystroke.key == "space";
-        if is_space && matches!(self.runtime.focus.mode(), InputMode::CanvasSelect) {
-            self.interaction.space_held = true;
-        }
-
-        if let InputMode::NodeFocused(node_id) = self.runtime.focus.mode() {
-            if route(&self.runtime.focus.mode(), &InputEvent::Key)
-                == Route::SendInputToNode(node_id)
-            {
-                if ev.keystroke.modifiers.platform && ev.keystroke.key == "v" {
-                    if let Some(item) = cx.read_from_clipboard() {
-                        if let Some(text) = item.text() {
-                            if let Err(e) =
-                                self.runtime.send_node_input(node_id, NodeInput::Text(text))
-                            {
-                                tracing::error!(error = %e, "paste send_node_input failed");
-                            }
-                            cx.notify();
-                        }
-                    }
-                    return;
-                }
-
-                if crate::app_ime::should_defer_keystroke_to_ime(&ev.keystroke) {
-                    return;
-                }
-                if let Some(input) = keystroke_to_input(&ev.keystroke) {
-                    if let Err(e) = self.runtime.send_node_input(node_id, NodeInput::Key(input)) {
-                        tracing::error!(error = %e, "send_node_input failed");
-                    }
-                }
-                cx.notify();
-            }
-        }
-    }
-
-    fn on_key_up(&mut self, ev: &gpui::KeyUpEvent, _window: &mut Window, cx: &mut Context<Self>) {
-        if !matches!(self.screen, AppScreen::Canvas) {
-            return;
-        }
-
-        if ev.keystroke.key == "space" {
-            self.interaction.space_held = false;
-            cx.notify();
-        }
-    }
-
     fn on_toolbar_new_terminal(
         &mut self,
         _: &ClickEvent,
@@ -413,7 +361,6 @@ impl MultisoulApp {
         cx.notify();
     }
 }
-
 impl Focusable for MultisoulApp {
     fn focus_handle(&self, _cx: &gpui::App) -> FocusHandle {
         self.focus_handle.clone()
@@ -437,6 +384,7 @@ impl Render for MultisoulApp {
             .on_action(cx.listener(Self::on_toggle_master_layout))
             .on_key_down(cx.listener(Self::on_key_down))
             .on_key_up(cx.listener(Self::on_key_up))
+            .on_modifiers_changed(cx.listener(Self::on_modifiers_changed))
             .size_full()
             .relative()
             .bg(gpui::rgba(self.theme.graphite))
@@ -456,6 +404,9 @@ impl Render for MultisoulApp {
                     .child(self.render_workspace_backdrop())
                     .child(render_canvas(self, window, cx))
                     .child(self.render_workspace_chrome(window, cx));
+                if let Some(modal) = self.render_voice_confirmation_modal(cx) {
+                    root = root.child(modal);
+                }
                 if self.settings_panel.open {
                     root = root.child(self.render_settings_panel(window, cx));
                 }

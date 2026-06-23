@@ -208,9 +208,13 @@ impl Runtime {
     ) -> Result<NodeId, PtyError> {
         let sid = self.allocate_session_id();
         let live = spawn_agent_live(sid, profile, self.workspace_root(), cols, rows)?;
-        let node_id = self
-            .document
-            .add_node(CanvasNodeKind::Agent(AgentSpec { profile }), bounds);
+        let node_id = self.document.add_node(
+            CanvasNodeKind::Agent(AgentSpec {
+                profile,
+                alias: None,
+            }),
+            bounds,
+        );
         self.live.insert(node_id, Box::new(live));
         Ok(node_id)
     }
@@ -242,9 +246,13 @@ impl Runtime {
         let sid = self.allocate_session_id();
         let live =
             TermLive::spawn_command(sid, command.with_cwd(self.workspace_root()), cols, rows)?;
-        let node_id = self
-            .document
-            .add_node(CanvasNodeKind::Agent(AgentSpec { profile }), bounds);
+        let node_id = self.document.add_node(
+            CanvasNodeKind::Agent(AgentSpec {
+                profile,
+                alias: None,
+            }),
+            bounds,
+        );
         self.live.insert(node_id, Box::new(live));
         Ok(node_id)
     }

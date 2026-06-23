@@ -2,7 +2,11 @@
 mod app;
 mod app_ime;
 mod app_ime_geometry;
+mod app_keyboard;
 mod app_lifecycle;
+mod app_voice;
+mod app_voice_log;
+mod app_voice_modal;
 mod assets;
 mod canvas_view;
 mod card_scroll;
@@ -15,6 +19,7 @@ mod norma_server_transport;
 mod persistence;
 mod preview;
 mod spawn_focus;
+mod voice_control;
 mod workspace_flow;
 mod workspace_state;
 
