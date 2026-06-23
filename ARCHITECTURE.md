@@ -240,6 +240,17 @@ PTY 输出通过 `crossbeam-channel` 从读线程传到 session。`TerminalSessi
 
 `runtime` 不知道 GPUI 事件，也不渲染任何像素；它只维护产品状态和可测试决策。
 
+### Card RuntimeEvent 扩展契约
+
+后续卡片状态扩展应通过统一的 `RuntimeEvent` 契约表达，而不是让每个 card 自己发散状态来源。事件层分两类：
+
+- **进程运行状态**：来自 `LiveNode` / `TerminalSession`，用于描述卡片底层进程是否 `Running`、`Finished`、`Error` 或 `Stopped`。
+- **Agent 任务状态**：来自 Claude/Codex command hooks，描述 Agent 当前是否 `Thinking`、`RunningTool`、`WaitingApproval`、`Done` 或 `Failed`。
+
+事件消费采用 `drain_all()` 后 `take_events()` 的拉取模型；hook 事件先进入 app 层的本地 ingest，再归一化为卡片事件。不得把 PTY output chunk 当成 `RuntimeEvent`，不得在 `Runtime::drain_all`、hook ingest、PTY output 热路径中同步写 SQLite。
+
+详细开发指南见 [`docs/references/card-runtime-events.md`](docs/references/card-runtime-events.md)。
+
 ## 4. 核心流程
 
 ### 新建 Terminal 节点
