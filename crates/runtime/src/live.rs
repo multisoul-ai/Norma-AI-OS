@@ -79,6 +79,9 @@ impl From<PtyError> for NodeError {
 pub trait LiveNode {
     fn caps(&self) -> Caps;
     fn drain(&mut self) -> bool;
+    fn terminal_status(&self) -> Option<TerminalStatus> {
+        None
+    }
     fn resize(&mut self, resize: NodeResize) -> Result<(), NodeError>;
     fn input(&mut self, input: NodeInput) -> Result<(), NodeError>;
     fn scroll(&mut self, _scroll: NodeScroll) -> Result<bool, NodeError> {

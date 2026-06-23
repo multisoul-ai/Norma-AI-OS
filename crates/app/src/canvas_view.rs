@@ -10,7 +10,7 @@ use crate::canvas_geometry::{
 use crate::card_scroll::{
     terminal_scroll_lines_from_pixel_delta, wheel_scroll_owner_for_point, WheelScrollOwner,
 };
-use crate::cards::chrome::{node_shadow, TITLE_BAR_H};
+use crate::cards::chrome::{node_shadow, render_task_badge, TITLE_BAR_H};
 use crate::cards::term::selection::terminal_point_for_local_position;
 use crate::cards::term::view::terminal_render_metrics;
 use crate::cards::{card_for, CardBodyContext};
@@ -282,11 +282,12 @@ pub fn render_canvas(
         let node = app.runtime.document.node(id).unwrap().clone();
         let card = card_for(node.kind.node_type());
         let chrome = card.chrome(&node, &app.runtime);
-        let (origin, size, selected, title) = (
+        let (origin, size, selected, title, task_badge) = (
             node.bounds.origin,
             node.bounds.size,
             node.selected,
             chrome.title,
+            chrome.task_badge,
         );
         let refreshable = chrome.refreshable;
         let selected = selected || app.runtime.selection.contains(id);
@@ -439,7 +440,10 @@ pub fn render_canvas(
                                 .rounded(px(4.0 * vp.zoom))
                                 .bg(rgba(status)),
                         )
-                        .child(title),
+                        .child(title)
+                        .when_some(task_badge, |this, badge| {
+                            this.child(render_task_badge(badge, vp.zoom, theme))
+                        }),
                 )
                 .child(title_actions),
         );

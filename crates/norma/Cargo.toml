@@ -12,6 +12,10 @@ path = "src/lib.rs"
 name = "norma"
 path = "src/bin/norma.rs"
 
+[[bin]]
+name = "multisoul-agent-hook"
+path = "src/bin/multisoul_agent_hook.rs"
+
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true

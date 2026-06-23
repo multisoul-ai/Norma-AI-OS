@@ -21,8 +21,8 @@ fn test_workspace_left_rail_is_temporarily_hidden() {
         !left_rail_visible,
         "左侧菜单列表临时隐藏期间 workspace_left_rail_visible() 应返回 false"
     );
-    assert_ne!(
-        left_rail_visible, true,
+    assert!(
+        !left_rail_visible,
         "左侧菜单列表不应继续标记为可见，否则渲染树仍会挂载该列表"
     );
 }
@@ -54,8 +54,8 @@ fn test_bottom_voice_bar_is_hidden_without_deleting_functionality() {
         !bottom_voice_visible,
         "底部语音输入菜单应通过 bottom_voice_bar_visible() 默认隐藏"
     );
-    assert_ne!(
-        bottom_voice_visible, true,
+    assert!(
+        !bottom_voice_visible,
         "底部语音输入菜单不应继续标记为可见，否则 Canvas 底部仍会挂载入口"
     );
     assert!(

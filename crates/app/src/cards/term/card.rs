@@ -23,6 +23,7 @@ impl Card for TermCard {
         CardChrome {
             title: "Terminal".to_string(),
             refreshable: false,
+            task_badge: None,
         }
     }
 
@@ -93,5 +94,41 @@ mod tests {
         assert_eq!(rows, 24, "426px 高卡片应换算为 24 行");
         assert_ne!(cols, 20, "宽度充足时 cols 不应退回最小值 20");
         assert_ne!(rows, 3, "高度充足时 rows 不应退回最小值 3");
+    }
+
+    /// TermCard chrome 不显示 Agent task badge。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   Terminal node: id=1, bounds=100x80
+    ///   runtime 为空；Terminal card 不读取 Agent task state
+    ///
+    /// 执行过程：
+    ///   1. 构造 Terminal CanvasNode
+    ///   2. 调用 TermCard.chrome
+    ///
+    /// 预期结果：
+    ///   - 正断言：title 为 Terminal
+    ///   - 负断言：task_badge 必须为 None
+    #[test]
+    fn test_term_card_chrome_has_no_task_badge() {
+        let runtime = Runtime::new();
+        let node = CanvasNode {
+            id: 1,
+            kind: canvas::CanvasNodeKind::Term(canvas::TermSpec),
+            bounds: CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+            z_index: 1,
+            selected: false,
+        };
+
+        let chrome = CARD.chrome(&node, &runtime);
+
+        assert_eq!(
+            chrome.title, "Terminal",
+            "Terminal card 标题应保持 Terminal"
+        );
+        assert!(
+            chrome.task_badge.is_none(),
+            "Terminal card 不应显示 Agent task badge"
+        );
     }
 }

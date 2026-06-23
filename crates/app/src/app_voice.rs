@@ -20,6 +20,17 @@ use voice_macos::{AppleSpeechProvider, SpeechError};
 
 const DEFAULT_MAX_VOICE_STEPS: usize = 8;
 
+struct VoiceHistoryDraft {
+    transcript: String,
+    planner_json: String,
+    confidence: f64,
+    risk: &'static str,
+    status: &'static str,
+    provider: Option<String>,
+    model: Option<String>,
+    error: Option<String>,
+}
+
 impl MultisoulApp {
     pub(crate) fn begin_voice_recording(&mut self, trigger: VoiceTrigger, cx: &mut Context<Self>) {
         if !matches!(self.screen, AppScreen::Canvas) {
@@ -389,52 +400,42 @@ impl MultisoulApp {
         status: &'static str,
         error: Option<String>,
     ) {
-        self.save_voice_history_with_provider(
+        self.save_voice_history_with_provider(VoiceHistoryDraft {
             transcript,
             planner_json,
             confidence,
             risk,
             status,
-            Some("ollama".to_string()),
-            Some(OllamaVoicePlanner::configured_model()),
+            provider: Some("ollama".to_string()),
+            model: Some(OllamaVoicePlanner::configured_model()),
             error,
-        );
+        });
     }
 
     fn save_voice_speech_error(&mut self, error: SpeechError) {
-        self.save_voice_history_with_provider(
-            "".into(),
-            "{}".into(),
-            0.0,
-            "low",
-            "provider_error",
-            Some("apple_speech".to_string()),
-            Some(AppleSpeechProvider::default_locale()),
-            Some(error.to_string()),
-        );
+        self.save_voice_history_with_provider(VoiceHistoryDraft {
+            transcript: "".into(),
+            planner_json: "{}".into(),
+            confidence: 0.0,
+            risk: "low",
+            status: "provider_error",
+            provider: Some("apple_speech".to_string()),
+            model: Some(AppleSpeechProvider::default_locale()),
+            error: Some(error.to_string()),
+        });
     }
 
-    fn save_voice_history_with_provider(
-        &mut self,
-        transcript: String,
-        planner_json: String,
-        confidence: f64,
-        risk: &'static str,
-        status: &'static str,
-        provider: Option<String>,
-        model: Option<String>,
-        error: Option<String>,
-    ) {
+    fn save_voice_history_with_provider(&mut self, draft: VoiceHistoryDraft) {
         let entry = VoiceHistoryEntry {
-            transcript,
-            planner_json,
-            confidence,
-            risk: risk.to_string(),
-            status: status.to_string(),
-            provider,
-            model,
+            transcript: draft.transcript,
+            planner_json: draft.planner_json,
+            confidence: draft.confidence,
+            risk: draft.risk.to_string(),
+            status: draft.status.to_string(),
+            provider: draft.provider,
+            model: draft.model,
             target_node_id: None,
-            error,
+            error: draft.error,
         };
         if let Err(error) = self.persistence.save_voice_history(&entry) {
             tracing::warn!(%error, "voice history save failed");

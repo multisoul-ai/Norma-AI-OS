@@ -194,8 +194,10 @@ fn test_terminal_snapshot_copy_text_trims_padding_and_blank_tail() {
 #[test]
 fn test_canvas_navigation_direction_only_accepts_unmodified_arrow_keys() {
     let bare_right = canvas_navigation_direction("right", Modifiers::default());
-    let mut shift = Modifiers::default();
-    shift.shift = true;
+    let shift = Modifiers {
+        shift: true,
+        ..Modifiers::default()
+    };
     let shifted_right = canvas_navigation_direction("right", shift);
     let plain_char = canvas_navigation_direction("a", Modifiers::default());
 
@@ -360,8 +362,10 @@ fn test_should_auto_focus_keyboard_selection_accepts_content_but_not_navigation_
     let enter = key("enter", None, Modifiers::default());
     let arrow = key("right", None, Modifiers::default());
     let space = key("space", Some(" "), Modifiers::default());
-    let mut platform = Modifiers::default();
-    platform.platform = true;
+    let platform = Modifiers {
+        platform: true,
+        ..Modifiers::default()
+    };
     let cmd_c = key("c", None, platform);
     let cmd_v = key("v", None, platform);
 

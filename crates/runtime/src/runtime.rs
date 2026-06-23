@@ -1,29 +1,35 @@
 //! 节点生命周期 + LiveNode 注册表。把 canvas 文档与可运行节点组装在一起。
 
+use crate::events::RuntimeEvents;
 use crate::focus::{FocusState, InputMode};
 use crate::live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
 #[cfg(test)]
 use crate::nodes::agent::agent_command;
 use crate::nodes::agent::spawn_agent_live;
 use crate::nodes::term::TermLive;
+use crate::runtime_support::{checkpoint_grid_size, terminal_shell_command, usize_to_u16};
 use canvas::{
     AgentProfile, AgentSpec, CanvasNodeKind, CanvasRect, Document, DocumentSnapshot, NodeId,
-    PreviewSpec, PreviewType, Selection, TermSpec,
+    NodeType, PreviewSpec, PreviewType, Selection, TermSpec,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use storage::{CanvasStore, SessionCheckpoint, SessionCheckpointKind, SessionStore, StorageError};
-use terminal::{PtyCommand, PtyError, TerminalSessionId};
+#[cfg(test)]
+use terminal::PtyCommand;
+use terminal::{PtyError, TerminalSessionId};
 
 pub const DEFAULT_TERMINAL_SHELL: &str = "/bin/zsh";
-const DEFAULT_SESSION_COLS: u16 = 80;
-const DEFAULT_SESSION_ROWS: u16 = 24;
+pub(crate) const DEFAULT_SESSION_COLS: u16 = 80;
+pub(crate) const DEFAULT_SESSION_ROWS: u16 = 24;
 
 pub struct Runtime {
     pub document: Document,
     pub selection: Selection,
     pub focus: FocusState,
     live: HashMap<NodeId, Box<dyn LiveNode>>,
+    pub(crate) events: RuntimeEvents,
+    pub(crate) agent_hook_config: Option<crate::agent_hooks::AgentHookRuntimeConfig>,
     terminal_shells: HashMap<NodeId, String>,
     next_session_id: TerminalSessionId,
     workspace_root: Option<PathBuf>,
@@ -42,6 +48,8 @@ impl Runtime {
             selection: Selection::new(),
             focus: FocusState::new(),
             live: HashMap::new(),
+            events: RuntimeEvents::default(),
+            agent_hook_config: None,
             terminal_shells: HashMap::new(),
             next_session_id: 1,
             workspace_root: None,
@@ -64,6 +72,7 @@ impl Runtime {
 
     pub fn restore_canvas_snapshot(&mut self, snapshot: DocumentSnapshot) {
         self.kill_all();
+        self.events.remove_all();
         self.document = Document::from_snapshot(snapshot);
         self.selection.clear();
         self.focus.exit_to_canvas();
@@ -190,12 +199,16 @@ impl Runtime {
     ) -> Result<NodeId, PtyError> {
         let sid = self.allocate_session_id();
         let command = terminal_shell_command(shell).with_cwd(self.workspace_root());
-        let live = TermLive::spawn_command(sid, command, cols, rows)?;
+        let live = TermLive::spawn_command(sid, command, cols, rows).inspect_err(|error| {
+            self.events
+                .operation_failed(None, "spawn_terminal", error.to_string());
+        })?;
         let node_id = self
             .document
             .add_node(CanvasNodeKind::Term(TermSpec), bounds);
         self.terminal_shells.insert(node_id, shell.to_string());
         self.live.insert(node_id, Box::new(live));
+        self.events.register(node_id, NodeType::Term);
         Ok(node_id)
     }
 
@@ -206,8 +219,6 @@ impl Runtime {
         cols: u16,
         rows: u16,
     ) -> Result<NodeId, PtyError> {
-        let sid = self.allocate_session_id();
-        let live = spawn_agent_live(sid, profile, self.workspace_root(), cols, rows)?;
         let node_id = self.document.add_node(
             CanvasNodeKind::Agent(AgentSpec {
                 profile,
@@ -215,7 +226,23 @@ impl Runtime {
             }),
             bounds,
         );
+        let sid = self.allocate_session_id();
+        let hook_env = self.agent_hook_env(node_id, profile);
+        let live = spawn_agent_live(
+            sid,
+            profile,
+            self.workspace_root(),
+            hook_env.as_ref(),
+            cols,
+            rows,
+        )
+        .inspect_err(|error| {
+            self.document.remove_node(node_id);
+            self.events
+                .operation_failed(None, "spawn_agent", error.to_string());
+        })?;
         self.live.insert(node_id, Box::new(live));
+        self.events.register(node_id, NodeType::Agent);
         Ok(node_id)
     }
 
@@ -254,12 +281,13 @@ impl Runtime {
             bounds,
         );
         self.live.insert(node_id, Box::new(live));
+        self.events.register(node_id, NodeType::Agent);
         Ok(node_id)
     }
 
     #[cfg(test)]
     fn agent_command(profile: AgentProfile) -> PtyCommand {
-        agent_command(profile)
+        agent_command(profile, None)
     }
 
     pub fn live_len(&self) -> usize {
@@ -279,32 +307,42 @@ impl Runtime {
 
     pub fn resize_node(&mut self, node_id: NodeId, resize: NodeResize) -> Result<(), NodeError> {
         let Some(node) = self.live.get_mut(&node_id) else {
-            return Err(NodeError::MissingNode);
+            return self.fail_node_operation(Some(node_id), "resize", NodeError::MissingNode);
         };
-        node.resize(resize)
+        let result = node.resize(resize);
+        self.finish_node_operation(Some(node_id), "resize", result)
     }
 
     pub fn send_node_input(&mut self, node_id: NodeId, input: NodeInput) -> Result<(), NodeError> {
         let Some(node) = self.live.get_mut(&node_id) else {
-            return Err(NodeError::MissingNode);
+            return self.fail_node_operation(Some(node_id), "input", NodeError::MissingNode);
         };
-        node.input(input)
+        let result = node.input(input);
+        self.finish_node_operation(Some(node_id), "input", result)
     }
 
     pub fn scroll_node(&mut self, node_id: NodeId, scroll: NodeScroll) -> Result<bool, NodeError> {
         let Some(node) = self.live.get_mut(&node_id) else {
-            return Err(NodeError::MissingNode);
+            return self.fail_node_operation(Some(node_id), "scroll", NodeError::MissingNode);
         };
-        node.scroll(scroll)
+        let result = node.scroll(scroll);
+        self.finish_node_operation(Some(node_id), "scroll", result)
     }
 
     /// drain 所有 live node；任一 dirty 则返回 true（app 据此决定是否 repaint）。
     pub fn drain_all(&mut self) -> bool {
         let mut dirty = false;
-        for node in self.live.values_mut() {
+        let mut statuses = Vec::new();
+        for (node_id, node) in self.live.iter_mut() {
             if node.drain() {
                 dirty = true;
             }
+            if let Some(status) = node.terminal_status() {
+                statuses.push((*node_id, status));
+            }
+        }
+        for (node_id, status) in statuses {
+            self.events.update_from_terminal_status(node_id, status);
         }
         dirty
     }
@@ -318,6 +356,7 @@ impl Runtime {
         if let Some(mut node) = self.live.remove(&node_id) {
             node.kill();
         }
+        self.events.remove(node_id);
         self.terminal_shells.remove(&node_id);
 
         self.selection.deselect(node_id);
@@ -348,6 +387,7 @@ impl Runtime {
             Ok(live) => {
                 self.terminal_shells.insert(node_id, shell.to_string());
                 self.live.insert(node_id, Box::new(live));
+                self.events.register(node_id, NodeType::Term);
                 true
             }
             Err(error) => {
@@ -370,9 +410,18 @@ impl Runtime {
         rows: u16,
     ) -> bool {
         let sid = self.allocate_session_id();
-        match spawn_agent_live(sid, profile, self.workspace_root(), cols, rows) {
+        let hook_env = self.agent_hook_env(node_id, profile);
+        match spawn_agent_live(
+            sid,
+            profile,
+            self.workspace_root(),
+            hook_env.as_ref(),
+            cols,
+            rows,
+        ) {
             Ok(live) => {
                 self.live.insert(node_id, Box::new(live));
+                self.events.register(node_id, NodeType::Agent);
                 true
             }
             Err(error) => {
@@ -393,31 +442,38 @@ impl Runtime {
         };
         (usize_to_u16(snapshot.cols), usize_to_u16(snapshot.lines))
     }
-}
 
-fn checkpoint_grid_size(checkpoint: Option<&SessionCheckpoint>) -> (u16, u16) {
-    checkpoint
-        .map(|checkpoint| (checkpoint.cols, checkpoint.rows))
-        .unwrap_or((DEFAULT_SESSION_COLS, DEFAULT_SESSION_ROWS))
-}
+    fn finish_node_operation<T>(
+        &mut self,
+        node_id: Option<NodeId>,
+        operation: &str,
+        result: Result<T, NodeError>,
+    ) -> Result<T, NodeError> {
+        if let Err(error) = &result {
+            self.events
+                .operation_failed(node_id, operation, error.to_string());
+        }
+        result
+    }
 
-fn usize_to_u16(value: usize) -> u16 {
-    value.min(usize::from(u16::MAX)) as u16
-}
-
-fn terminal_shell_command(shell: &str) -> PtyCommand {
-    let command = PtyCommand::new(shell);
-    if is_zsh_shell(shell) {
-        command.arg("-l")
-    } else {
-        command
+    fn fail_node_operation<T>(
+        &mut self,
+        node_id: Option<NodeId>,
+        operation: &str,
+        error: NodeError,
+    ) -> Result<T, NodeError> {
+        self.events
+            .operation_failed(node_id, operation, error.to_string());
+        Err(error)
     }
 }
 
-fn is_zsh_shell(shell: &str) -> bool {
-    Path::new(shell).file_name().and_then(|name| name.to_str()) == Some("zsh")
-}
-
+#[cfg(test)]
+#[path = "../tests/unit/agent_task_event_tests.rs"]
+mod agent_task_event_tests;
+#[cfg(test)]
+#[path = "../tests/unit/runtime_event_tests.rs"]
+mod event_tests;
 #[cfg(test)]
 #[path = "../tests/unit/preview_tests.rs"]
 mod preview_tests;

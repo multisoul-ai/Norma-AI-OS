@@ -45,6 +45,10 @@ impl LiveNode for TermLive {
         self.session.drain()
     }
 
+    fn terminal_status(&self) -> Option<terminal::TerminalStatus> {
+        Some(self.session.status)
+    }
+
     fn resize(&mut self, resize: NodeResize) -> Result<(), NodeError> {
         match resize {
             NodeResize::TermGrid { cols, rows } => {

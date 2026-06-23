@@ -21,6 +21,10 @@ application-folder-position = { x = 460, y = 200 }
 path = "target/release/multisoul"
 main = true
 
+[[binaries]]
+path = "target/release/multisoul-agent-hook"
+main = false
+
 [macos]
 minimum-system-version = "12.0"
 info-plist-path = "packaging/macos/Info.plist"
