@@ -1,5 +1,6 @@
 //! GPUI 主视图：持有 Runtime，装配画布/终端渲染，处理快捷键与帧级 drain。
 
+use crate::agent_hooks::AgentHookServer;
 #[cfg(test)]
 use crate::assets::DEFAULT_WALLPAPER_ASSET;
 use crate::canvas_view::render_canvas;
@@ -62,6 +63,7 @@ pub struct MultisoulApp {
     pub(crate) persistence: PersistenceScheduler,
     pub(crate) settings_panel: SettingsPanelState,
     pub(crate) norma_server: NormaServer,
+    pub(crate) agent_hook_server: AgentHookServer,
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
     pub(crate) voice: crate::voice_control::VoiceControlState,
@@ -87,10 +89,23 @@ impl MultisoulApp {
                     .await;
                 let go = this.update(cx, |app, cx| {
                     let runtime_changed = app.runtime.drain_all();
+                    let agent_hook_changed =
+                        app.agent_hook_server.drain_into_runtime(&mut app.runtime);
+                    let runtime_events = app.runtime.take_events();
+                    for event in &runtime_events {
+                        tracing::debug!(?event, "runtime event");
+                    }
                     let motion_changed = app.motion.tick(Duration::from_millis(12));
                     let persistence_changed = app.tick_persistence(Duration::from_millis(12));
                     let norma_pending = app.norma_server.has_pending();
-                    if runtime_changed || motion_changed || persistence_changed || norma_pending {
+                    if runtime_changed
+                        || !runtime_events.is_empty()
+                        || agent_hook_changed
+                        || motion_changed
+                        || persistence_changed
+                        || norma_pending
+                        || app.agent_hook_server.has_pending()
+                    {
                         cx.notify();
                     }
                 });
@@ -102,9 +117,12 @@ impl MultisoulApp {
         .detach();
 
         let wallpaper = wallpaper_from_env();
+        let agent_hook_server = AgentHookServer::start();
+        let mut runtime = Runtime::new();
+        runtime.set_agent_hook_config(agent_hook_server.runtime_config());
 
         MultisoulApp {
-            runtime: Runtime::new(),
+            runtime,
             theme: Theme::dark(),
             interaction: InteractionState::default(),
             motion: MotionStore::from_env(),
@@ -113,6 +131,7 @@ impl MultisoulApp {
             persistence: PersistenceScheduler::default(),
             settings_panel: SettingsPanelState::default(),
             norma_server: NormaServer::start(),
+            agent_hook_server,
             screen: AppScreen::Launchpad,
             workspace_state: WorkspaceState::load_default(),
             voice: crate::voice_control::VoiceControlState::default(),

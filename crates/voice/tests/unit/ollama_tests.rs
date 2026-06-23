@@ -270,8 +270,8 @@ fn test_planner_prompt_injects_dynamic_schema() {
         "prompt 不应包含会被小模型照抄的 target 数组或 AllowedCommand 占位符"
     );
     assert!(
-        !schema["command_shapes"].get("delete").is_some()
-            && !schema["command_shapes"].get("list").is_some(),
+        schema["command_shapes"].get("delete").is_none()
+            && schema["command_shapes"].get("list").is_none(),
         "delete/list 不应出现在 command_shapes 中"
     );
 }

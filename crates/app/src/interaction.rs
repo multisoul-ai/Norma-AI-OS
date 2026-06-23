@@ -9,6 +9,7 @@ pub struct DragState {
     pub last_screen: Vec2,
 }
 
+#[derive(Default)]
 pub struct InteractionState {
     pub space_held: bool,
     pub panning: bool,
@@ -17,20 +18,6 @@ pub struct InteractionState {
     pub canvas_scroll_enabled: bool,
     pub keyboard_selected_node: Option<NodeId>,
     pub active_text_selection: Option<TextSelection>,
-}
-
-impl Default for InteractionState {
-    fn default() -> Self {
-        Self {
-            space_held: false,
-            panning: false,
-            last_screen: None,
-            drag: None,
-            canvas_scroll_enabled: false,
-            keyboard_selected_node: None,
-            active_text_selection: None,
-        }
-    }
 }
 
 impl InteractionState {

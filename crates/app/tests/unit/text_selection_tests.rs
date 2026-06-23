@@ -60,9 +60,8 @@ fn test_text_range_reports_empty_when_anchor_equals_head() {
         range.is_empty(),
         "anchor/head 坐标相同时应视为空选区，Cmd+C 不应写剪贴板"
     );
-    assert_ne!(
+    assert!(
         range.is_empty(),
-        false,
         "零宽选区不应被当作可复制内容，否则单击正文会误复制"
     );
 }

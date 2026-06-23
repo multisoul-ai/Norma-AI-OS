@@ -1,8 +1,9 @@
 //! Shared card chrome primitives.
 
 use canvas::{CanvasNode, CanvasRect, NodeType};
-use gpui::{div, point, px, rgba, AnyElement, BoxShadow, IntoElement};
+use gpui::{div, point, prelude::*, px, rgba, AnyElement, BoxShadow, Div, FontWeight, IntoElement};
 use runtime::{NodeResize, Runtime};
+use ui::Theme;
 
 use super::{Card, CardBodyContext};
 use crate::motion::{ResolvedNodeVisual, VisualPriority};
@@ -13,6 +14,41 @@ pub const TITLE_BAR_H: f32 = 26.0;
 pub struct CardChrome {
     pub title: String,
     pub refreshable: bool,
+    pub task_badge: Option<CardChromeTaskBadge>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CardChromeTaskTone {
+    Muted,
+    Active,
+    Warning,
+    Error,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CardChromeTaskBadge {
+    pub label: String,
+    pub tone: CardChromeTaskTone,
+}
+
+pub fn render_task_badge(badge: CardChromeTaskBadge, zoom: f32, theme: Theme) -> Div {
+    let (fg, bg) = match badge.tone {
+        CardChromeTaskTone::Muted => (theme.text_secondary, with_alpha(theme.panel_high, 0x68)),
+        CardChromeTaskTone::Active => (theme.accent_cyan, with_alpha(theme.accent_cyan, 0x18)),
+        CardChromeTaskTone::Warning => (theme.accent_warm, with_alpha(theme.accent_warm, 0x1f)),
+        CardChromeTaskTone::Error => (theme.destructive, with_alpha(theme.destructive, 0x1f)),
+    };
+    div()
+        .px(px(6.0 * zoom))
+        .h(px((16.0 * zoom).clamp(14.0, 18.0)))
+        .flex()
+        .items_center()
+        .rounded(px((8.0 * zoom).clamp(7.0, 9.0)))
+        .bg(rgba(bg))
+        .text_color(rgba(fg))
+        .text_size(px((9.0 * zoom).clamp(8.0, 10.0)))
+        .font_weight(FontWeight::MEDIUM)
+        .child(badge.label)
 }
 
 pub fn node_shadow(visual: ResolvedNodeVisual) -> Vec<BoxShadow> {
@@ -48,6 +84,7 @@ impl Card for EmptyCard {
         CardChrome {
             title: node.kind.display_title(),
             refreshable: false,
+            task_badge: None,
         }
     }
 

@@ -87,7 +87,9 @@ pub(crate) fn enter_workspace_for_path(
     project_store
         .migrate()
         .map_err(|error| format!("Could not migrate project storage: {error}"))?;
+    let hook_config = runtime.agent_hook_config().cloned();
     let mut next_runtime = Runtime::new_for_workspace(root);
+    next_runtime.set_agent_hook_config(hook_config);
     next_runtime
         .load_canvas_snapshot(&project_store.canvas_store())
         .map_err(|error| format!("Could not restore canvas snapshot: {error}"))?;
