@@ -38,8 +38,8 @@ fn breathing_hue_color(phase: f32, colors: &[u32]) -> u32 {
 fn breathing_alpha(phase: f32) -> u8 {
     let s = (phase * std::f32::consts::TAU).sin();
     let t = (s + 1.0) / 2.0;
-    let low = 0x66_f32;
-    let high = 0xFF_f32;
+    let low = 0x66 as f32;
+    let high = 0xFF as f32;
     (low + t * (high - low)).round() as u8
 }
 
