@@ -17,6 +17,8 @@ mod interaction;
 mod launchpad;
 mod master_layout;
 mod motion;
+mod motion_breathing;
+mod motion_util;
 mod norma_server;
 mod norma_server_transport;
 mod persistence;

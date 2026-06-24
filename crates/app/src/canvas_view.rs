@@ -10,6 +10,7 @@ use crate::canvas_geometry::{
 use crate::card_scroll::{
     terminal_scroll_lines_from_pixel_delta, wheel_scroll_owner_for_point, WheelScrollOwner,
 };
+use crate::cards::agent::card::agent_breathing_state;
 use crate::cards::chrome::{node_shadow, render_task_badge, TITLE_BAR_H};
 use crate::cards::term::selection::terminal_point_for_local_position;
 use crate::cards::term::view::terminal_render_metrics;
@@ -17,8 +18,9 @@ use crate::cards::{card_for, CardBodyContext};
 use crate::interaction::DragState;
 #[cfg(test)]
 use crate::interaction::InteractionState;
+use crate::motion_breathing::BreathingState;
 use crate::text_selection::TextPoint;
-use canvas::{hit_test, CanvasRect, NodeId, Vec2};
+use canvas::{hit_test, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{
     div, prelude::*, px, rgba, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
     ScrollWheelEvent, Window,
@@ -295,6 +297,12 @@ pub fn render_canvas(
         let focused = matches!(focus_mode, InputMode::NodeFocused(fid) if fid == id);
         app.motion.ensure_node(id, canonical_rect);
         app.motion.set_selection_focus(id, selected, focused);
+        let breathing_state = if node.kind.node_type() == NodeType::Agent {
+            agent_breathing_state(app.runtime.agent_task_state(id))
+        } else {
+            BreathingState::Inactive
+        };
+        app.motion.set_breathing_state(id, breathing_state);
         if app
             .interaction
             .drag
