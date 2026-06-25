@@ -49,6 +49,35 @@ For staged-only feedback:
 bash scripts/check-no-allow.sh --staged
 ```
 
+## R3 · Agent Guides Stay At Or Below 300 Lines
+
+| | |
+|---|---|
+| Script | [`scripts/check-agent-guide-lines.sh`](../../scripts/check-agent-guide-lines.sh) |
+| Scope | `AGENTS.md` and `CLAUDE.md` at repository root |
+| Limit | 300 physical lines per guide file |
+| Navigation hub | `AGENTS.md` must keep `## 4. Where to find` |
+| Failure signal | `ERROR: Agent guide file(s) exceed 300 lines.` |
+| Fix | Archive expanded prose under `docs/` (for example `docs/references/` or `docs/quality/`) and add a pointer row to `AGENTS.md` §4. Do not raise the cap casually. |
+
+Run it manually:
+
+```bash
+bash scripts/check-agent-guide-lines.sh
+```
+
+For staged-only feedback:
+
+```bash
+bash scripts/check-agent-guide-lines.sh --staged
+```
+
+Focused script tests:
+
+```bash
+bash scripts/test-check-agent-guide-lines.sh
+```
+
 ## Local Pre-Commit Hook
 
 Install the tracked native Git hook:
@@ -57,7 +86,7 @@ Install the tracked native Git hook:
 bash scripts/install-git-hooks.sh
 ```
 
-The hook runs staged file-size and `#[allow(...)]` checks first. When staged
+The hook runs staged file-size, `#[allow(...)]`, and agent-guide line checks first. When staged
 Rust, Cargo, or toolchain files changed, it also runs:
 
 ```bash

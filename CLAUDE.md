@@ -40,123 +40,21 @@ ui -> gpui
 - **TDD before feature or bugfix work**: add a focused failing test first where the behavior can be tested below the GPUI layer.
 - **No `#[allow(...)]`**: do not hide Rust diagnostics with allow attributes. Fix root causes instead.
 - **Single Rust source files stay at or below 500 lines**: enforced by [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh); split responsibilities instead of raising the cap.
+- **Agent guides stay at or below 300 lines**: `AGENTS.md` and `CLAUDE.md` are enforced by [`scripts/check-agent-guide-lines.sh`](scripts/check-agent-guide-lines.sh); archive detail to `docs/` and link from [`AGENTS.md`](AGENTS.md) §4.
 - **Native pre-commit is available**: run `bash scripts/install-git-hooks.sh` to enable `.githooks/pre-commit`, which runs staged constraints plus lightweight Rust checks.
 - **Keep source files small enough to navigate**: split before a file turns into a mixed-responsibility dumping ground.
 - **Do not treat `.superpowers/sdd/` as the new documentation home**: it is useful historical construction context. New durable specs/plans should use a future `docs/` tree.
 
 ## 3. Architecture Summary
 
-Canonical architecture details live in [`ARCHITECTURE.md`](ARCHITECTURE.md). This section is the working summary.
+Canonical architecture details live in [`ARCHITECTURE.md`](ARCHITECTURE.md). Per-crate file maps and source organization live in [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md).
 
-### `canvas`
+At a glance:
 
-Purpose: model the infinite canvas without UI dependencies.
-
-Important files:
-
-- `geometry.rs` - `Vec2`, `CanvasRect`, `Viewport`, and `Transform2D`; convention is `screen = canvas * zoom + pan`.
-- `document.rs` - `Document`, node storage, viewport, monotonic node ids, z-index allocation, node movement.
-- `node.rs` - `CanvasNode`, `NodeKind`/`CanvasNodeKind`, `NodeType`, `RectNode`, `TermSpec`, `AgentSpec`.
-- `selection.rs` - stable ordered selection set based on `BTreeSet`.
-- `hit_test.rs` - canvas-space hit testing that returns the highest z-index node.
-- `commands.rs` and `history.rs` - Phase 2 placeholders for undo/redo.
-
-### `terminal`
-
-Purpose: turn a real PTY into a neutral grid snapshot that UI can render.
-
-Important files:
-
-- `pty.rs` - `portable-pty` wrapper, read thread, output channel, resize/write/kill.
-- `grid.rs` - `alacritty_terminal` wrapper producing `GridSnapshot` with neutral `Cell` values.
-- `input.rs` - `KeyInput` to PTY byte encoding, including Ctrl, Alt, Enter, arrows.
-- `session.rs` - `TerminalSession`, drain loop, status, resize, snapshots, cleanup.
-- `message.rs` - PTY channel events.
-
-### `runtime`
-
-Purpose: assemble canvas documents and LiveNode runtimes while keeping policy testable.
-
-Important files:
-
-- `live.rs` - `LiveNode`, `Caps`, `NodeInput`, `NodeResize`, and `NodeView`.
-- `nodes/term.rs` - `TermLive`, the terminal-backed live node wrapper.
-- `nodes/agent.rs` - Agent command factory/wrapper for terminal-backed live nodes.
-- `focus.rs` - `CanvasSelect` and `NodeFocused(node_id)`.
-- `route.rs` - pure input routing from mode/event to route action.
-- `runtime.rs` - document, selection, focus, `NodeId -> LiveNode` registry, spawn/drain/kill.
-- `snapshot.rs` - Phase 4 placeholder for snapshot caching and scrollback virtualization.
-
-### `storage`
-
-Purpose: persist app/workspace state through SQLite without depending on GPUI or app shell code.
-
-Important files:
-
-- `app_store.rs` - user-level `app.sqlite`.
-- `project_store.rs` - project-level `.multisoul/project.sqlite`.
-- `migrations.rs` - idempotent app/project schema setup.
-- `recent_store.rs` - recent workspace records.
-- `settings_store.rs` - string settings.
-- `canvas_store.rs` - `DocumentSnapshot` round-trip.
-- `session_store.rs` - coalesced session checkpoints by `node_id`.
-
-Boundary rules:
-
-- `storage` must not depend on `app`, `runtime`, or `ui`.
-- `canvas` and `terminal` must not depend on `storage`.
-- Do not write SQLite from `Runtime::drain_all`, PTY output chunks, `canvas_view::on_mouse_move`, `runtime::route`, or `send_node_input`.
-
-### `ui` and `app`
-
-Purpose: GPUI shell and rendering.
-
-Important files:
-
-- `crates/ui/src/theme.rs` - dark theme colors as `0xRRGGBB`.
-- `crates/app/src/main.rs` - tracing, GPUI application boot, `Cmd+N`, `Esc`, menu.
-- `crates/app/src/app/mod.rs` - `MultisoulApp`, background drain loop, keyboard routing, lifecycle cleanup.
-- `crates/app/src/canvas/view.rs` - pan, zoom, node drag, click/double-click, viewport culling, node chrome.
-- `crates/app/src/motion/mod.rs` - card motion state.
-- `crates/app/src/cards/mod.rs` - `Card` trait and static `NodeType -> Card` registry.
-- `crates/app/src/cards/chrome.rs` - shared card chrome helpers.
-- `crates/app/src/cards/term/` - terminal card renderer, terminal view, and grid painter.
-- `crates/app/src/cards/agent/` - agent card renderer.
-
-### Source Organization
-
-**Crate 分能力，文件夹分职责，逻辑沉底、适配上浮。**
-
-1. Pure logic → domain crate (`canvas`, `terminal`, `runtime`, `storage`, `voice`).
-2. GPUI binding / side effects → `app` or `ui`.
-3. Folder names = responsibility (`route`, `settings`), not tech layer (`handlers`, `views`).
-
-**Key examples — same concept, different tier:**
-
-| What | Domain (model) | Adapter (UI) |
-|------|----------------|--------------|
-| Canvas | `canvas/document.rs`, `hit_test.rs` | `app/canvas/view.rs` (pan, zoom, drag) |
-| Terminal | `terminal/pty.rs`, `grid.rs` | `app/cards/term/paint.rs` |
-| Input | `runtime/route.rs` | `app/app/keyboard.rs` |
-| Settings | `storage/settings_store.rs` | `app/settings/panel.rs` |
-
-**Directory sketch:**
-
-```text
-crates/
-├── canvas/src/       geometry, document, hit_test     # 零 GPUI
-├── terminal/src/     pty, grid, session
-├── runtime/src/      route, focus, nodes/{term,agent}
-├── storage/src/      *_store.rs
-└── app/src/          GPUI 壳，按体验域分
-    ├── main.rs       boot only
-    ├── app/          MultisoulApp, keyboard, lifecycle
-    ├── canvas/       pointer interaction（≠ canvas crate）
-    ├── cards/term/   terminal painting
-    └── settings/
-```
-
-Do not put domain logic in `app/`, or GPUI code in domain crates. New code goes directly into the target folder; bulk renames only when splitting files.
+- `canvas` / `terminal` / `runtime` / `storage` stay GPUI-free and independently testable.
+- `app` binds GPUI, canvas interaction, cards, menus, and keyboard routing.
+- Input policy is expressed in `runtime::route` before app-layer side effects.
+- SQLite must not run on PTY drain, mouse move, or input routing hot paths.
 
 ## 4. Current User-Facing Behavior
 
@@ -166,9 +64,11 @@ Do not put domain logic in `app/`, or GPUI code in domain crates. New code goes 
 - Double-click a focusable node, or click a terminal/agent body, to focus it.
 - `Esc` exits node focus.
 - Space plus left-drag, or middle-drag, pans the canvas.
-- Mouse wheel zooms around the cursor.
+- Canvas wheel scroll is off by default; enable the toolbar toggle to pan the viewport. Terminal scrollback and preview cards handle wheel separately.
 - The app drains PTY output roughly every 12ms and repaints only when dirty.
 - Closing the window kills spawned terminal child processes.
+
+Full shortcut and pointer routing: [`docs/references/keyboard-shortcuts.md`](docs/references/keyboard-shortcuts.md).
 
 ## 5. Commands
 
@@ -184,34 +84,20 @@ Domain tests:
 cargo test -p canvas -p terminal -p runtime -p storage
 ```
 
-Workspace tests:
+Workspace tests and app check:
 
 ```bash
 cargo test --workspace
+cargo check -p app
 ```
 
-Code line-count lint:
+Mechanized constraints:
 
 ```bash
 bash scripts/check-max-file-lines.sh
-```
-
-No `#[allow(...)]` lint:
-
-```bash
 bash scripts/check-no-allow.sh
-```
-
-Install local Git hooks:
-
-```bash
-bash scripts/install-git-hooks.sh
-```
-
-App check:
-
-```bash
-cargo check -p app
+bash scripts/check-agent-guide-lines.sh
+bash scripts/check-storage-boundaries.sh
 ```
 
 Release build:
@@ -220,13 +106,7 @@ Release build:
 cargo build -p app --release
 ```
 
-Packaging:
-
-```bash
-cargo install cargo-packager --locked
-cargo build --release -p app
-cargo packager --release
-```
+Packaging details: [`docs/references/packaging.md`](docs/references/packaging.md).
 
 GPUI/Metal environment check:
 
@@ -248,66 +128,15 @@ Trace logging:
 RUST_LOG=trace cargo run -p app
 ```
 
+More command recipes: [`AGENTS.md`](AGENTS.md) §6.
+
 ## 6. Verification Matrix
 
-| Change area | Required verification |
-|-------------|-----------------------|
-| `crates/canvas/**` | `cargo test -p canvas` |
-| `crates/terminal/**` | `cargo test -p terminal` |
-| `crates/runtime/**` | `cargo test -p runtime` |
-| `crates/storage/**` | `cargo test -p storage` |
-| `crates/ui/**` | `cargo test -p ui` |
-| `crates/app/**` | `cargo check -p app` |
-| Cross-crate behavior | `cargo test --workspace` |
-| GPUI boot, release, packaging | `cargo build -p app --release` |
-| Domain dependency discipline | `cargo tree -p canvas -p terminal -p runtime | grep -i gpui` should be empty |
-| Storage dependency and hot-path discipline | `bash scripts/check-storage-boundaries.sh` |
-| Code line-count lint | `bash scripts/check-max-file-lines.sh` |
-| No `#[allow(...)]` lint | `bash scripts/check-no-allow.sh` |
+See [`AGENTS.md`](AGENTS.md) §5 for the canonical change-area → verification table.
 
 ## 7. Test Requirements
 
-All unit tests should follow the project style already present in the crate tests.
-
-Crate-local test layout:
-
-- Large standalone unit test files live under `crates/<crate>/tests/unit/` and are mounted from the owning source module with `#[cfg(test)] #[path = "..."] mod ...;`.
-- Cargo integration tests live directly under `crates/<crate>/tests/*.rs` and should exercise public APIs only.
-- Crate-specific test helpers live under `crates/<crate>/tests/support/` when needed.
-- Do not make private functions or types public just to move a test file.
-
-Each test needs a doc comment that states:
-
-- Scenario: one sentence describing the behavior under test.
-- Data construction: include important concrete values and formulas.
-- Execution process: step-by-step behavior and state changes.
-- Expected result: positive and negative acceptance criteria.
-
-Assertions:
-
-- Every `assert!`, `assert_eq!`, and `assert_ne!` must include a failure message.
-- Prefer specific assertions for named states over generic loops.
-- Cover both what should exist and what should not exist when that distinction matters.
-- Boundary numbers such as token budgets, timeouts, viewport transforms, rows/cols, and byte values need comments explaining the calculation.
-
-Example pattern:
-
-```rust
-/// Ctrl+C 编码为 ETX(0x03)。
-///
-/// 数值推导：control code = ascii(letter) & 0x1f
-///   'c' = 0x63；0x63 & 0x1f = 0x03
-///
-/// 预期结果：
-///   - 正断言：encode(Ctrl+'c') == [0x03]
-///   - 负断言：!= [0x63]（不是裸字符 'c'）
-#[test]
-fn test_ctrl_c_encodes_to_etx() {
-    let out = encode(&KeyInput { key: Key::Char('c'), ctrl: true, alt: false });
-    assert_eq!(out, vec![0x03], "Ctrl+C 应编码为 0x03（'c'&0x1f）");
-    assert_ne!(out, vec![0x63], "不应是裸 'c'(0x63)，说明 ctrl 修饰未生效");
-}
-```
+Follow the project test comment and assertion rules in [`docs/quality/test-requirements.md`](docs/quality/test-requirements.md).
 
 ## 8. UI And Interaction Notes
 
@@ -317,7 +146,6 @@ fn test_ctrl_c_encodes_to_etx() {
 - Keep domain behavior in pure structs/functions so tests can run without opening a window.
 - Canvas coordinates and screen coordinates are separate. Convert through `Viewport`.
 - Node movement takes canvas-space deltas; app-layer pointer movement must divide by zoom.
-- Wheel zoom should preserve the canvas point under the cursor.
 - Terminal card rendering should consume `NodeView::Term` / `GridSnapshot`, not alacritty internals.
 - If adding new controls, keep the interaction model direct, reversible, and visible.
 
@@ -344,20 +172,14 @@ Historical SDD task records are in `.superpowers/sdd/`. They explain how the cur
   - `docs/product-specs/` for what and acceptance criteria.
   - `docs/design-docs/` for architecture and trade-offs.
   - `docs/exec-plans/` for implementation plans.
+  - `docs/references/` for stable lookup guides.
+  - `docs/quality/` for test and lint conventions.
 
 When adding a new durable rule, keep overlapping facts synchronized between `AGENTS.md` and `CLAUDE.md`.
 
 ## 11. Packaging Notes
 
-`Packager.toml` configures an unsigned macOS app and DMG:
-
-- product name: `Multisoul`
-- bundle id: `com.multisoul.desktop`
-- formats: `app`, `dmg`
-- binary: `target/release/multisoul`
-- minimum macOS: `12.0`
-
-Codesigning and notarization are explicitly Phase 6.
+See [`docs/references/packaging.md`](docs/references/packaging.md).
 <!-- msctl-inject-start -->
 ## msctl Quick Reference
 

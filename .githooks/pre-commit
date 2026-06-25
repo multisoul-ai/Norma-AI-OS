@@ -8,6 +8,7 @@ cd "$repo_root"
 
 bash scripts/check-max-file-lines.sh --staged
 bash scripts/check-no-allow.sh --staged
+bash scripts/check-agent-guide-lines.sh --staged
 
 staged_rust=$(
   git diff --cached --name-only --diff-filter=ACMR |

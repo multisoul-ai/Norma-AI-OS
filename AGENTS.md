@@ -44,6 +44,7 @@ Workspace 分层：
 - **版本钉死需审慎**：`gpui =0.2.2`、`alacritty_terminal =0.26`，升级前先验证 API。
 - **GPUI 代码先查 skills**：编写或修改 `crates/app`、`crates/ui` 的 GPUI 代码时，优先参考本地已安装的 `gpui-*` skills，再结合本仓库现有写法落地。
 - **单文件 ≤ 500 行**：Rust 源码由 [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh) 拦截，超长先拆职责。
+- **Agent 指南 ≤ 300 行**：`AGENTS.md` 与 `CLAUDE.md` 由 [`scripts/check-agent-guide-lines.sh`](scripts/check-agent-guide-lines.sh) 拦截；超长内容归档到 `docs/`，并在 §4 增加指针。
 - **禁止 `#[allow(...)]`**：Rust 源码不得用 allow 压制编译器或 clippy 诊断；由 [`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截，必须修根因。
 - **本地 hook 可安装**：运行 `bash scripts/install-git-hooks.sh` 后，原生 pre-commit 会跑 staged 约束和轻量 Rust 检查。
 - **写代码前先 TDD**：新功能或 bugfix 先补能失败的聚焦测试，再实现。
@@ -83,7 +84,13 @@ Workspace 分层：
 | Workspace 元数据、路径展示 | [`crates/workspace/src/`](crates/workspace/src/) |
 | 主题色 | [`crates/ui/src/theme.rs`](crates/ui/src/theme.rs) |
 | GPUI app shell、画布/cards 渲染 | [`crates/app/src/`](crates/app/src/) |
-| 源码组织 | [`CLAUDE.md`](CLAUDE.md) §3 Source Organization |
+| 源码组织 | [`CLAUDE.md`](CLAUDE.md) §3；展开见 [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |
+| Crate 文件地图 | [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |
+| 快捷键与输入路由 | [`docs/references/keyboard-shortcuts.md`](docs/references/keyboard-shortcuts.md) |
+| 测试注释与断言规范 | [`docs/quality/test-requirements.md`](docs/quality/test-requirements.md) |
+| 打包与 release | [`docs/references/packaging.md`](docs/references/packaging.md) |
+| 卡片 RuntimeEvent 扩展 | [`docs/references/card-runtime-events.md`](docs/references/card-runtime-events.md) |
+| 机械化约束（lint 脚本） | [`docs/quality/mechanized-constraints.md`](docs/quality/mechanized-constraints.md) |
 | 历史 SDD 施工记录 | [`.superpowers/sdd/progress.md`](.superpowers/sdd/progress.md) |
 
 ## 5. 改完代码必跑的验证
@@ -102,6 +109,7 @@ Workspace 分层：
 | 存储层依赖与热路径边界 | `bash scripts/check-storage-boundaries.sh` |
 | 代码行数 lint | `bash scripts/check-max-file-lines.sh` |
 | 禁止 `#[allow]` lint | `bash scripts/check-no-allow.sh` |
+| Agent 指南行数 lint | `bash scripts/check-agent-guide-lines.sh` |
 
 ## 6. 常用命令
 
@@ -113,6 +121,7 @@ cargo check -p app
 bash scripts/check-storage-boundaries.sh
 bash scripts/check-max-file-lines.sh
 bash scripts/check-no-allow.sh
+bash scripts/check-agent-guide-lines.sh
 bash scripts/install-git-hooks.sh
 cargo build -p app --release
 cargo packager --release

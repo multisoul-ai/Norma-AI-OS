@@ -29,6 +29,12 @@ jobs:
       - name: No #[allow] in Rust source
         run: bash scripts/check-no-allow.sh
 
+      - name: Agent guide line count
+        run: bash scripts/check-agent-guide-lines.sh
+
+      - name: Agent guide lint tests
+        run: bash scripts/test-check-agent-guide-lines.sh
+
       - name: Check
         run: cargo check --workspace
 
