@@ -205,3 +205,92 @@ fn test_breathing_period_mapping_matches_spec() {
         "等待批准的暖色组节奏必须比运行中的冷色组更急促"
     );
 }
+
+/// corner_glow_envelope 在 phase=0.0/0.25/0.5/0.75 应分别得到 0.5/1.0/0.5/0.0。
+///
+/// 数据构造（含关键数值推导）：
+///   envelope(phase) = (sin(phase * 2π) + 1) / 2
+///   phase=0.00 → sin(0)=0      → envelope=0.5
+///   phase=0.25 → sin(π/2)=1    → envelope=1.0
+///   phase=0.50 → sin(π)=0      → envelope=0.5
+///   phase=0.75 → sin(3π/2)=-1  → envelope=0.0
+///
+/// 执行过程：
+///   1. 分别用 4 个相位点调用 corner_glow_envelope
+///
+/// 预期结果：
+///   - 正断言：四个点的返回值分别接近 0.5/1.0/0.5/0.0（容差 1e-4）
+///   - 负断言：phase=0.25 的结果不应等于 phase=0.75 的结果（峰谷不应混淆）
+#[test]
+fn test_corner_glow_envelope_matches_sine_breathing_curve() {
+    let at_0 = corner_glow_envelope(0.0);
+    let at_quarter = corner_glow_envelope(0.25);
+    let at_half = corner_glow_envelope(0.5);
+    let at_three_quarter = corner_glow_envelope(0.75);
+
+    assert!(
+        (at_0 - 0.5).abs() < 1e-4,
+        "phase=0.0 时 envelope 应接近 0.5，实际为 {at_0}"
+    );
+    assert!(
+        (at_quarter - 1.0).abs() < 1e-4,
+        "phase=0.25 时 envelope 应接近峰值 1.0，实际为 {at_quarter}"
+    );
+    assert!(
+        (at_half - 0.5).abs() < 1e-4,
+        "phase=0.5 时 envelope 应接近 0.5，实际为 {at_half}"
+    );
+    assert!(
+        (at_three_quarter - 0.0).abs() < 1e-4,
+        "phase=0.75 时 envelope 应接近谷值 0.0，实际为 {at_three_quarter}"
+    );
+    assert_ne!(
+        at_quarter, at_three_quarter,
+        "波峰(0.25)与波谷(0.75)的 envelope 不应相等"
+    );
+}
+
+/// resolve_corner_glow 仅在 Active 态且 fade_value 足够大时返回 Some，其余情况返回 None。
+///
+/// 数据构造（含关键数值推导）：
+///   EPSILON = 0.0001（crate 内呼吸淡入淡出判定阈值，与 motion.rs 共用同一常量）
+///   phase 固定取 0.25（envelope 峰值 1.0，便于断言 blur/alpha 上界）
+///   CORNER_GLOW_BLUR_MIN/MAX = 8.0/14.0（见 spec 4.3 节）
+///
+/// 执行过程：
+///   1. state=Cool, fade_value=1.0 → 应为 Some，alpha=1.0*1.0=1.0，blur=14.0（envelope=1.0 时取上界）
+///   2. state=Inactive, fade_value=1.0 → 应为 None（未激活）
+///   3. state=Cool, fade_value=0.0（<=EPSILON）→ 应为 None（已完全淡出）
+///
+/// 预期结果：
+///   - 正断言：场景 1 返回 Some，且 alpha≈1.0、blur≈14.0
+///   - 正断言：场景 2、3 均返回 None
+///   - 负断言：场景 1 的 blur 不应等于 BLUR_MIN（说明确实随 envelope 抬升到上界附近）
+#[test]
+fn test_resolve_corner_glow_gates_on_active_state_and_fade_value() {
+    let active = resolve_corner_glow(0.25, 1.0, BreathingState::Cool)
+        .expect("Cool 态且 fade_value=1.0 时应返回 Some");
+    assert!(
+        (active.alpha - 1.0).abs() < 1e-4,
+        "fade_value=1.0、envelope=1.0 时 alpha 应接近 1.0，实际为 {}",
+        active.alpha
+    );
+    assert!(
+        (active.blur - 14.0).abs() < 1e-4,
+        "envelope=1.0 时 blur 应接近上界 14.0，实际为 {}",
+        active.blur
+    );
+    assert_ne!(
+        active.blur, 8.0,
+        "envelope=1.0 时 blur 不应停留在下界 8.0"
+    );
+
+    assert!(
+        resolve_corner_glow(0.25, 1.0, BreathingState::Inactive).is_none(),
+        "Inactive 态不应产生四角光晕"
+    );
+    assert!(
+        resolve_corner_glow(0.25, 0.0, BreathingState::Cool).is_none(),
+        "fade_value=0.0（已淡出完毕）不应产生四角光晕"
+    );
+}

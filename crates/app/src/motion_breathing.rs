@@ -4,6 +4,7 @@
 
 use std::time::Duration;
 use ui::Theme;
+use crate::motion_util::EPSILON;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BreathingState {
@@ -109,6 +110,41 @@ fn mix_color(from: u32, to: u32, t: f32) -> u32 {
 
 fn with_alpha(color: u32, alpha: u8) -> u32 {
     (color & 0xffffff00) | u32::from(alpha)
+}
+
+/// 四角光晕固定色：还原 Uiverse 参考 CSS 的橙/蓝/粉/紫，不随主题或 Cool/Warm 状态切换。
+pub const CORNER_GLOW_TOP_LEFT: u32 = 0xf8903aff;
+pub const CORNER_GLOW_TOP_RIGHT: u32 = 0x00a6ffff;
+pub const CORNER_GLOW_BOTTOM_LEFT: u32 = 0xff0056ff;
+pub const CORNER_GLOW_BOTTOM_RIGHT: u32 = 0x6500ffff;
+
+const CORNER_GLOW_BLUR_MIN: f32 = 8.0;
+const CORNER_GLOW_BLUR_MAX: f32 = 14.0;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CornerGlow {
+    pub blur: f32,
+    pub alpha: f32,
+}
+
+/// 呼吸包络：phase∈[0,1) → 0.0..=1.0，与 breathing_alpha 共享同一个 sin 公式，
+/// 但映射到 0..1 而不是 0x66..0xFF 的字节区间，供 blur 与 alpha 共同复用。
+pub fn corner_glow_envelope(phase: f32) -> f32 {
+    let s = (phase * std::f32::consts::TAU).sin();
+    (s + 1.0) / 2.0
+}
+
+/// 给定相位、呼吸淡入淡出强度与当前呼吸态，解析出四角光晕的模糊/强度参数。
+/// Inactive 或已完全淡出（fade_value <= EPSILON）时返回 None，渲染层应据此完全跳过四角光晕。
+pub fn resolve_corner_glow(phase: f32, fade_value: f32, state: BreathingState) -> Option<CornerGlow> {
+    if state == BreathingState::Inactive || fade_value <= EPSILON {
+        return None;
+    }
+    let envelope = corner_glow_envelope(phase);
+    Some(CornerGlow {
+        blur: CORNER_GLOW_BLUR_MIN + envelope * (CORNER_GLOW_BLUR_MAX - CORNER_GLOW_BLUR_MIN),
+        alpha: fade_value * envelope,
+    })
 }
 
 #[cfg(test)]
