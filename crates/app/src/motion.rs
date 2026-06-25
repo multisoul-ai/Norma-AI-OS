@@ -5,7 +5,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 use ui::Theme;
 
-use crate::motion_breathing::{breathing_color_for_phase, BreathingIntent, BreathingState};
+use crate::motion_breathing::{
+    breathing_color_for_phase, resolve_corner_glow, BreathingIntent, BreathingState, CornerGlow,
+};
 use crate::motion_util::{
     alpha, approx_rect, duration_progress, ease_out_cubic, lerp_rect, mix_color,
     reduce_motion_from_env_value, visual_priority, with_alpha, EPSILON,
@@ -63,6 +65,7 @@ pub struct ResolvedNodeVisual {
     pub shadow_spread: f32,
     pub border_is_emphasized: bool,
     pub opacity: f32,
+    pub corner_glow: Option<CornerGlow>,
 }
 
 #[derive(Debug, Clone)]
@@ -388,6 +391,8 @@ impl NodeMotion {
         } else {
             base_stroke
         };
+        let corner_glow =
+            resolve_corner_glow(self.breathing_phase, self.breathing_fade.value, self.breathing_display_state);
         let settle = self.completion_settle.value.clamp(0.0, 1.0);
         let settle_color = with_alpha(
             theme.accent_green,
@@ -431,6 +436,7 @@ impl NodeMotion {
             shadow_spread: theme.shadow_spread - lift * 5.0 + press_sink * 2.0 - settle * 3.0,
             border_is_emphasized: focus > 0.25 || selected > 0.35 || settle > 0.45,
             opacity: self.opacity.value,
+            corner_glow,
         }
     }
 }
@@ -488,3 +494,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../tests/unit/motion_completion_tests.rs"]
 mod completion_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/motion_corner_glow_tests.rs"]
+mod corner_glow_tests;
