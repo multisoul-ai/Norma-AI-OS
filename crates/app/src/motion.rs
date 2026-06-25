@@ -8,6 +8,7 @@ use ui::Theme;
 use crate::motion_breathing::{
     breathing_color_for_phase, resolve_corner_glow, BreathingIntent, BreathingState, CornerGlow,
 };
+use crate::motion_scalar::AnimatedScalar;
 use crate::motion_util::{
     alpha, approx_rect, duration_progress, ease_out_cubic, lerp_rect, mix_color,
     reduce_motion_from_env_value, visual_priority, with_alpha, EPSILON,
@@ -441,52 +442,6 @@ impl NodeMotion {
             opacity: self.opacity.value,
             corner_glow,
         }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct AnimatedScalar {
-    value: f32,
-    target: f32,
-}
-
-impl AnimatedScalar {
-    fn off() -> Self {
-        Self {
-            value: 0.0,
-            target: 0.0,
-        }
-    }
-
-    fn on() -> Self {
-        Self {
-            value: 1.0,
-            target: 1.0,
-        }
-    }
-
-    fn set_bool(&mut self, active: bool) {
-        self.target = if active { 1.0 } else { 0.0 };
-    }
-
-    fn tick(&mut self, delta: Duration, duration: Duration) -> bool {
-        if (self.value - self.target).abs() <= EPSILON {
-            self.value = self.target;
-            return false;
-        }
-
-        if duration.is_zero() {
-            self.value = self.target;
-            return true;
-        }
-
-        let step = delta.as_secs_f32() / duration.as_secs_f32();
-        if self.target > self.value {
-            self.value = (self.value + step).min(self.target);
-        } else {
-            self.value = (self.value - step).max(self.target);
-        }
-        true
     }
 }
 
