@@ -11,7 +11,7 @@ use crate::card_scroll::{
     terminal_scroll_lines_from_pixel_delta, wheel_scroll_owner_for_point, WheelScrollOwner,
 };
 use crate::cards::agent::card::agent_breathing_intent;
-use crate::cards::chrome::{node_shadow, render_task_badge, TITLE_BAR_H};
+use crate::cards::chrome::{node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H};
 use crate::cards::term::selection::terminal_point_for_local_position;
 use crate::cards::term::view::terminal_render_metrics;
 use crate::cards::{card_for, CardBodyContext};
@@ -338,7 +338,11 @@ pub fn render_canvas(
             .flex()
             .flex_col()
             .border_color(rgba(stroke))
-            .shadow(node_shadow(visual))
+            .shadow(node_shadow(
+                visual,
+                vp.zoom,
+                w >= CORNER_GLOW_MIN_SCREEN_PX && h >= CORNER_GLOW_MIN_SCREEN_PX,
+            ))
             .bg(rgba(visual.fill_color))
             .opacity(visual.opacity)
             .rounded(px(node_radius))
