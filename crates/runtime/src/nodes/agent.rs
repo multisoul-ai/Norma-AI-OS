@@ -27,10 +27,17 @@ pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEn
         AgentProfile::Claude => {
             PtyCommand::new("/bin/zsh").args(["-ic", "exec claude --dangerously-skip-permissions"])
         }
-        AgentProfile::Codex => PtyCommand::new("/bin/zsh").args([
-            "-ic",
-            "exec codex --dangerously-bypass-approvals-and-sandbox",
-        ]),
+        AgentProfile::Codex => {
+            let mut exec_command =
+                "exec codex --dangerously-bypass-approvals-and-sandbox".to_string();
+            if hook_env.is_some() {
+                // Codex 要求每个 hook 命令先经交互式信任确认才会执行；Multisoul 的
+                // hook bridge 命令是非交互启动的，永远没机会走那个确认流程，所以
+                // 只有在确实注入了 Multisoul hook env 时才带上这个标志去跳过信任门禁。
+                exec_command.push_str(" --dangerously-bypass-hook-trust");
+            }
+            PtyCommand::new("/bin/zsh").arg("-ic").arg(exec_command)
+        }
     };
     match hook_env {
         Some(hook_env) => hook_env.apply_to_command(command),
@@ -168,6 +175,61 @@ mod tests {
                 .iter()
                 .all(|(key, value)| key != "MULTISOUL_AGENT_PROFILE" || value != "claude"),
             "Codex hook env 不应误写 profile=claude"
+        );
+    }
+
+    /// Codex 命令只在注入了 Multisoul hook env 时才带 `--dangerously-bypass-hook-trust`。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   Codex CLI（>=0.142.0）对每条 hooks.json 命令要求先经交互式信任确认才会执行；
+    ///   Multisoul 的 hook bridge 命令以非交互方式启动，永远没有机会完成那次确认，
+    ///   因此必须用 `--dangerously-bypass-hook-trust` 跳过门禁，否则 hook 永远不会真正运行。
+    ///   该标志只在确实注入了 hook env 时才有意义，没有 hook env 时不应附带，
+    ///   避免无谓放宽用户其他 hook（例如本机已安装的第三方 hook）的信任要求。
+    ///
+    /// 执行过程：
+    ///   1. agent_command(Codex, None)
+    ///   2. agent_command(Codex, Some(hook_env))
+    ///   3. 检查 args[1] 是否包含该标志
+    ///
+    /// 预期结果：
+    ///   - 正断言：带 hook env 时命令包含 `--dangerously-bypass-hook-trust`
+    ///   - 负断言：不带 hook env 时命令不应包含该标志
+    ///   - 负断言：Claude 命令永远不应包含该标志（Claude CLI 没有这个参数）
+    #[test]
+    fn test_codex_command_bypasses_hook_trust_only_with_hook_env() {
+        let codex_without_hook_env = agent_command(AgentProfile::Codex, None);
+        let hook_env = AgentHookEnv {
+            node_id: 7,
+            profile: AgentProfile::Codex,
+            endpoint: "http://127.0.0.1:49153/agent-hooks".to_string(),
+            token: "tok_456".to_string(),
+        };
+        let codex_with_hook_env = agent_command(AgentProfile::Codex, Some(&hook_env));
+        let claude_with_hook_env = agent_command(
+            AgentProfile::Claude,
+            Some(&AgentHookEnv {
+                node_id: 7,
+                profile: AgentProfile::Claude,
+                endpoint: "http://127.0.0.1:49153/agent-hooks".to_string(),
+                token: "tok_456".to_string(),
+            }),
+        );
+
+        assert!(
+            codex_with_hook_env.args[1].contains("--dangerously-bypass-hook-trust"),
+            "注入 hook env 时 Codex 命令应跳过 hook 信任门禁，实际: {:?}",
+            codex_with_hook_env.args
+        );
+        assert!(
+            !codex_without_hook_env.args[1].contains("--dangerously-bypass-hook-trust"),
+            "未注入 hook env 时不应附带该标志，实际: {:?}",
+            codex_without_hook_env.args
+        );
+        assert!(
+            !claude_with_hook_env.args[1].contains("--dangerously-bypass-hook-trust"),
+            "Claude CLI 没有该参数，命令中不应出现，实际: {:?}",
+            claude_with_hook_env.args
         );
     }
 }

@@ -1,12 +1,18 @@
 //! App 层卡片动效状态：只影响渲染连续性，不改变 canvas/runtime 的真实状态。
 
-use canvas::{CanvasRect, NodeId, Vec2};
+use canvas::{CanvasRect, NodeId};
 use std::collections::{BTreeMap, BTreeSet};
-use std::ffi::OsStr;
 use std::time::Duration;
 use ui::Theme;
 
-const EPSILON: f32 = 0.0001;
+use crate::motion_breathing::{
+    breathing_color_for_phase, resolve_corner_glow, BreathingIntent, BreathingState, CornerGlow,
+};
+use crate::motion_scalar::AnimatedScalar;
+use crate::motion_util::{
+    alpha, approx_rect, duration_progress, ease_out_cubic, lerp_rect, mix_color,
+    reduce_motion_from_env_value, visual_priority, with_alpha, EPSILON,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MotionTokens {
@@ -16,6 +22,8 @@ pub struct MotionTokens {
     pub focus_selected: Duration,
     pub layout: Duration,
     pub reduced_fade: Duration,
+    pub breathing_fade: Duration,
+    pub completion_settle: Duration,
 }
 
 impl Default for MotionTokens {
@@ -27,6 +35,8 @@ impl Default for MotionTokens {
             focus_selected: Duration::from_millis(180),
             layout: Duration::from_millis(420),
             reduced_fade: Duration::from_millis(160),
+            breathing_fade: Duration::from_millis(150),
+            completion_settle: Duration::from_millis(520),
         }
     }
 }
@@ -56,6 +66,7 @@ pub struct ResolvedNodeVisual {
     pub shadow_spread: f32,
     pub border_is_emphasized: bool,
     pub opacity: f32,
+    pub corner_glow: Option<CornerGlow>,
 }
 
 #[derive(Debug, Clone)]
@@ -142,6 +153,13 @@ impl MotionStore {
         }
     }
 
+    pub fn set_breathing_intent(&mut self, id: NodeId, intent: BreathingIntent) {
+        let reduce_motion = self.reduce_motion;
+        if let Some(node) = self.nodes.get_mut(&id) {
+            node.set_breathing_intent(intent, reduce_motion);
+        }
+    }
+
     pub fn clear_transient(&mut self) {
         for node in self.nodes.values_mut() {
             node.pressed.set_bool(false);
@@ -183,6 +201,12 @@ pub struct NodeMotion {
     focused: AnimatedScalar,
     dragging: AnimatedScalar,
     opacity: AnimatedScalar,
+    breathing_phase: f32,
+    breathing_state: BreathingState,
+    breathing_display_state: BreathingState,
+    breathing_intent: BreathingIntent,
+    breathing_fade: AnimatedScalar,
+    completion_settle: AnimatedScalar,
 }
 
 impl NodeMotion {
@@ -199,6 +223,36 @@ impl NodeMotion {
             focused: AnimatedScalar::off(),
             dragging: AnimatedScalar::off(),
             opacity: AnimatedScalar::on(),
+            breathing_phase: 0.0,
+            breathing_state: BreathingState::Inactive,
+            breathing_display_state: BreathingState::Inactive,
+            breathing_intent: BreathingIntent::Inactive,
+            breathing_fade: AnimatedScalar::off(),
+            completion_settle: AnimatedScalar::off(),
+        }
+    }
+
+    fn set_breathing_intent(&mut self, intent: BreathingIntent, reduce_motion: bool) {
+        let previous_intent = self.breathing_intent;
+        self.breathing_intent = intent;
+        let state = intent.breathing_state();
+        if intent == BreathingIntent::Done && previous_intent.is_active() && !reduce_motion {
+            self.completion_settle.value = 1.0;
+            self.completion_settle.target = 0.0;
+        }
+        if state != BreathingState::Inactive {
+            if self.breathing_state != state {
+                self.breathing_phase = 0.0;
+            }
+            self.breathing_display_state = state;
+        }
+        self.breathing_state = state;
+        if reduce_motion {
+            self.breathing_fade.value = 0.0;
+            self.breathing_fade.target = 0.0;
+        } else {
+            self.breathing_fade
+                .set_bool(state != BreathingState::Inactive);
         }
     }
 
@@ -239,6 +293,14 @@ impl NodeMotion {
                 tokens.focus_selected
             },
         );
+        changed |= self.breathing_fade.tick(delta, tokens.breathing_fade);
+        changed |= self.completion_settle.tick(delta, tokens.completion_settle);
+        if !reduce_motion && self.breathing_state != BreathingState::Inactive {
+            let period = self.breathing_state.period();
+            self.breathing_phase =
+                (self.breathing_phase + delta.as_secs_f32() / period.as_secs_f32()).rem_euclid(1.0);
+            changed = true;
+        }
 
         if self.dragging.target > 0.0 {
             self.layout_active = false;
@@ -317,160 +379,80 @@ impl NodeMotion {
             .clamp(0.0, 1.0);
         let press_sink = pressed * (1.0 - dragging).clamp(0.0, 1.0);
 
+        let base_stroke = mix_color(theme.node_stroke, accent_color, accent_mix);
+        let stroke_color = if self.breathing_fade.value > EPSILON
+            && self.breathing_display_state != BreathingState::Inactive
+        {
+            let breathing = breathing_color_for_phase(
+                self.breathing_phase,
+                self.breathing_display_state,
+                theme,
+            );
+            mix_color(base_stroke, breathing, self.breathing_fade.value)
+        } else {
+            base_stroke
+        };
+        let corner_glow = resolve_corner_glow(
+            self.breathing_phase,
+            self.breathing_fade.value,
+            self.breathing_display_state,
+        );
+        let settle = self.completion_settle.value.clamp(0.0, 1.0);
+        let settle_color = with_alpha(
+            theme.accent_green,
+            (0x54 as f32 + settle * 0xab as f32) as u8,
+        );
+        let stroke_color = mix_color(stroke_color, settle_color, settle * 0.88);
+        let done_mix: f32 = if self.breathing_intent == BreathingIntent::Done {
+            0.86
+        } else {
+            0.0
+        };
+        let completion_mix = done_mix.max(settle * 0.94);
+        let edge_highlight_color = mix_color(
+            with_alpha(theme.edge_highlight, edge_alpha),
+            with_alpha(theme.accent_green, 0x8a),
+            settle * 0.72,
+        );
+
         ResolvedNodeVisual {
             priority,
             rect: self.current_rect,
             fill_color: with_alpha(theme.node_fill, fill_alpha),
-            stroke_color: mix_color(theme.node_stroke, accent_color, accent_mix),
-            status_color: mix_color(theme.text_tertiary, accent_color, accent_mix),
-            title_bar_color: with_alpha(theme.title_bar, title_alpha),
-            edge_highlight_color: with_alpha(theme.edge_highlight, edge_alpha),
-            shadow_color: with_alpha(theme.shadow_color, shadow_alpha),
-            shadow_y: (theme.shadow_y + lift * 6.0 - press_sink * 5.0).max(8.0),
-            shadow_blur: (theme.shadow_blur + lift * 18.0 - press_sink * 6.0).max(20.0),
-            shadow_spread: theme.shadow_spread - lift * 5.0 + press_sink * 2.0,
-            border_is_emphasized: focus > 0.25 || selected > 0.35,
+            stroke_color,
+            status_color: mix_color(
+                mix_color(theme.text_tertiary, accent_color, accent_mix),
+                theme.accent_green,
+                completion_mix,
+            ),
+            title_bar_color: with_alpha(
+                theme.title_bar,
+                title_alpha.saturating_add((10.0 * settle) as u8),
+            ),
+            edge_highlight_color,
+            shadow_color: with_alpha(
+                theme.shadow_color,
+                shadow_alpha.saturating_add((24.0 * settle) as u8),
+            ),
+            shadow_y: (theme.shadow_y + lift * 6.0 - press_sink * 5.0 - settle * 4.0).max(8.0),
+            shadow_blur: (theme.shadow_blur + lift * 18.0 - press_sink * 6.0 + settle * 10.0)
+                .max(20.0),
+            shadow_spread: theme.shadow_spread - lift * 5.0 + press_sink * 2.0 - settle * 3.0,
+            border_is_emphasized: focus > 0.25 || selected > 0.35 || settle > 0.45,
             opacity: self.opacity.value,
+            corner_glow,
         }
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct AnimatedScalar {
-    value: f32,
-    target: f32,
-}
-
-impl AnimatedScalar {
-    fn off() -> Self {
-        Self {
-            value: 0.0,
-            target: 0.0,
-        }
-    }
-
-    fn on() -> Self {
-        Self {
-            value: 1.0,
-            target: 1.0,
-        }
-    }
-
-    fn set_bool(&mut self, active: bool) {
-        self.target = if active { 1.0 } else { 0.0 };
-    }
-
-    fn tick(&mut self, delta: Duration, duration: Duration) -> bool {
-        if (self.value - self.target).abs() <= EPSILON {
-            self.value = self.target;
-            return false;
-        }
-
-        if duration.is_zero() {
-            self.value = self.target;
-            return true;
-        }
-
-        let step = delta.as_secs_f32() / duration.as_secs_f32();
-        if self.target > self.value {
-            self.value = (self.value + step).min(self.target);
-        } else {
-            self.value = (self.value - step).max(self.target);
-        }
-        true
-    }
-}
-
-fn visual_priority(
-    hover: f32,
-    pressed: f32,
-    dragging: f32,
-    selected: f32,
-    focused: f32,
-) -> VisualPriority {
-    if focused > EPSILON {
-        VisualPriority::Focused
-    } else if selected > EPSILON {
-        VisualPriority::Selected
-    } else if dragging > EPSILON {
-        VisualPriority::Dragging
-    } else if pressed > EPSILON {
-        VisualPriority::Pressed
-    } else if hover > EPSILON {
-        VisualPriority::Hover
-    } else {
-        VisualPriority::Idle
-    }
-}
-
-fn duration_progress(elapsed: Duration, duration: Duration) -> f32 {
-    if duration.is_zero() {
-        1.0
-    } else {
-        (elapsed.as_secs_f32() / duration.as_secs_f32()).clamp(0.0, 1.0)
-    }
-}
-
-fn ease_out_cubic(t: f32) -> f32 {
-    1.0 - (1.0 - t.clamp(0.0, 1.0)).powi(3)
-}
-
-fn lerp(a: f32, b: f32, t: f32) -> f32 {
-    a + (b - a) * t.clamp(0.0, 1.0)
-}
-
-fn lerp_rect(a: CanvasRect, b: CanvasRect, t: f32) -> CanvasRect {
-    CanvasRect {
-        origin: Vec2::new(
-            lerp(a.origin.x, b.origin.x, t),
-            lerp(a.origin.y, b.origin.y, t),
-        ),
-        size: Vec2::new(lerp(a.size.x, b.size.x, t), lerp(a.size.y, b.size.y, t)),
-    }
-}
-
-fn approx_rect(a: CanvasRect, b: CanvasRect) -> bool {
-    (a.origin.x - b.origin.x).abs() <= EPSILON
-        && (a.origin.y - b.origin.y).abs() <= EPSILON
-        && (a.size.x - b.size.x).abs() <= EPSILON
-        && (a.size.y - b.size.y).abs() <= EPSILON
-}
-
-fn mix_color(from: u32, to: u32, t: f32) -> u32 {
-    let t = t.clamp(0.0, 1.0);
-    let fr = ((from >> 24) & 0xff) as f32;
-    let fg = ((from >> 16) & 0xff) as f32;
-    let fb = ((from >> 8) & 0xff) as f32;
-    let fa = (from & 0xff) as f32;
-    let tr = ((to >> 24) & 0xff) as f32;
-    let tg = ((to >> 16) & 0xff) as f32;
-    let tb = ((to >> 8) & 0xff) as f32;
-    let ta = (to & 0xff) as f32;
-
-    ((lerp(fr, tr, t).round() as u32) << 24)
-        | ((lerp(fg, tg, t).round() as u32) << 16)
-        | ((lerp(fb, tb, t).round() as u32) << 8)
-        | (lerp(fa, ta, t).round() as u32)
-}
-
-fn with_alpha(color: u32, alpha: u8) -> u32 {
-    (color & 0xffffff00) | u32::from(alpha)
-}
-
-fn alpha(color: u32) -> u8 {
-    (color & 0xff) as u8
-}
-
-fn reduce_motion_from_env_value(value: Option<impl AsRef<OsStr>>) -> bool {
-    value
-        .and_then(|value| value.as_ref().to_str().map(str::to_owned))
-        .map(|value| {
-            let value = value.trim().to_ascii_lowercase();
-            matches!(value.as_str(), "1" | "true" | "yes" | "on")
-        })
-        .unwrap_or(false)
 }
 
 #[cfg(test)]
 #[path = "../tests/unit/motion_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/motion_completion_tests.rs"]
+mod completion_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/motion_corner_glow_tests.rs"]
+mod corner_glow_tests;
