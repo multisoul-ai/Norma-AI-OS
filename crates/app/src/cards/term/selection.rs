@@ -1,5 +1,5 @@
+use crate::canvas::text_selection::{SelectionSpan, TextPoint, TextRange};
 use crate::cards::term::paint::TerminalRenderMetrics;
-use crate::text_selection::{SelectionSpan, TextPoint, TextRange};
 use gpui::{Pixels, Point};
 use terminal::{Cell, GridSnapshot};
 

@@ -2,8 +2,8 @@
 
 use crate::app::{AppScreen, MultisoulApp};
 use crate::motion::MotionStore;
-use crate::persistence::PersistenceScheduler;
-use crate::workspace_state::WorkspaceState;
+use crate::workspace::persistence::PersistenceScheduler;
+use crate::workspace::state::WorkspaceState;
 use canvas::NodeId;
 use gpui::{Context, PathPromptOptions};
 use runtime::Runtime;
@@ -75,7 +75,7 @@ impl MultisoulApp {
 pub(crate) fn enter_workspace_for_path(
     runtime: &mut Runtime,
     motion: &mut MotionStore,
-    master_layout: &mut crate::master_layout::MasterLayoutState,
+    master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
     persistence: &mut PersistenceScheduler,
     screen: &mut AppScreen,
     workspace_state: &mut WorkspaceState,
@@ -115,7 +115,7 @@ pub(crate) fn enter_workspace_for_path(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::master_layout::MasterLayoutState;
+    use crate::canvas::master_layout::MasterLayoutState;
     use canvas::{
         CanvasNodeKind, CanvasNodeSnapshot, CanvasRect, DocumentSnapshot, TermSpec, Vec2, Viewport,
     };

@@ -311,5 +311,5 @@ fn with_alpha(color: u32, alpha: u8) -> u32 {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/app_chrome_tests.rs"]
+#[path = "../../tests/unit/app_chrome_tests.rs"]
 mod tests;

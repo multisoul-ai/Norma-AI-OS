@@ -115,12 +115,48 @@ Important files:
 
 - `crates/ui/src/theme.rs` - dark theme colors as `0xRRGGBB`.
 - `crates/app/src/main.rs` - tracing, GPUI application boot, `Cmd+N`, `Esc`, menu.
-- `crates/app/src/app.rs` - `MultisoulApp`, background drain loop, key handling, lifecycle cleanup.
-- `crates/app/src/canvas_view.rs` - pan, zoom, node drag, click/double-click, viewport culling, node chrome.
+- `crates/app/src/app/mod.rs` - `MultisoulApp`, background drain loop, keyboard routing, lifecycle cleanup.
+- `crates/app/src/canvas/view.rs` - pan, zoom, node drag, click/double-click, viewport culling, node chrome.
+- `crates/app/src/motion/mod.rs` - card motion state.
 - `crates/app/src/cards/mod.rs` - `Card` trait and static `NodeType -> Card` registry.
 - `crates/app/src/cards/chrome.rs` - shared card chrome helpers.
 - `crates/app/src/cards/term/` - terminal card renderer, terminal view, and grid painter.
 - `crates/app/src/cards/agent/` - agent card renderer.
+
+### Source Organization
+
+**Crate 分能力，文件夹分职责，逻辑沉底、适配上浮。**
+
+1. Pure logic → domain crate (`canvas`, `terminal`, `runtime`, `storage`, `voice`).
+2. GPUI binding / side effects → `app` or `ui`.
+3. Folder names = responsibility (`route`, `settings`), not tech layer (`handlers`, `views`).
+
+**Key examples — same concept, different tier:**
+
+| What | Domain (model) | Adapter (UI) |
+|------|----------------|--------------|
+| Canvas | `canvas/document.rs`, `hit_test.rs` | `app/canvas/view.rs` (pan, zoom, drag) |
+| Terminal | `terminal/pty.rs`, `grid.rs` | `app/cards/term/paint.rs` |
+| Input | `runtime/route.rs` | `app/app/keyboard.rs` |
+| Settings | `storage/settings_store.rs` | `app/settings/panel.rs` |
+
+**Directory sketch:**
+
+```text
+crates/
+├── canvas/src/       geometry, document, hit_test     # 零 GPUI
+├── terminal/src/     pty, grid, session
+├── runtime/src/      route, focus, nodes/{term,agent}
+├── storage/src/      *_store.rs
+└── app/src/          GPUI 壳，按体验域分
+    ├── main.rs       boot only
+    ├── app/          MultisoulApp, keyboard, lifecycle
+    ├── canvas/       pointer interaction（≠ canvas crate）
+    ├── cards/term/   terminal painting
+    └── settings/
+```
+
+Do not put domain logic in `app/`, or GPUI code in domain crates. New code goes directly into the target folder; bulk renames only when splitting files.
 
 ## 4. Current User-Facing Behavior
 

@@ -178,9 +178,14 @@ GPUI/Metal 壳层，负责窗口、菜单、快捷键、鼠标事件、渲染和
 ```text
 crates/app/src/
 ├── main.rs          # tracing、GPUI boot、菜单、Cmd+N、Esc
-├── app.rs           # MultisoulApp、帧循环、键盘路由、Drop 清理
-├── canvas_view.rs   # pan/zoom/drag/click/double-click、viewport culling
-├── motion.rs        # card motion state
+├── assets.rs        # 内嵌 icon / wallpaper
+├── app/             # MultisoulApp 壳层、keyboard、IME、voice、chrome
+├── canvas/          # pan/zoom/drag、master layout、interaction
+├── motion/          # card motion state
+├── norma/           # Norma server + transport
+├── settings/        # settings panel、hooks UI
+├── workspace/       # launchpad、flow、state、persistence
+├── preview/         # PreviewStore
 └── cards/
     ├── mod.rs       # Card trait + static registry
     ├── chrome.rs    # shared card shell helpers

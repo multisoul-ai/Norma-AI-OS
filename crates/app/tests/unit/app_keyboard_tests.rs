@@ -54,11 +54,11 @@ fn test_copy_text_for_active_selection_ignores_non_terminal_nodes() {
         CanvasNodeKind::Rect(RectNode { color: 0x4080ff }),
         CanvasRect::new(0.0, 0.0, 100.0, 80.0),
     );
-    let selection = crate::text_selection::TextSelection::new(
+    let selection = crate::canvas::text_selection::TextSelection::new(
         rect,
-        crate::text_selection::TextPoint::new(0, 0),
+        crate::canvas::text_selection::TextPoint::new(0, 0),
     )
-    .with_head(crate::text_selection::TextPoint::new(0, 4));
+    .with_head(crate::canvas::text_selection::TextPoint::new(0, 4));
 
     let text = copy_text_for_active_selection(&runtime, Some(selection));
 

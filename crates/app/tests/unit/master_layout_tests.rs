@@ -1,5 +1,5 @@
 use super::*;
-use crate::master_layout::{
+use crate::canvas::master_layout::{
     close_node_and_update_layout_for_area, enter_master_layout_for_area,
     master_target_from_selection, restore_master_layout_for_area, switch_master_layout_for_area,
     MasterLayoutState,

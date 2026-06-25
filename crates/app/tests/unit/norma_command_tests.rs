@@ -1,6 +1,6 @@
-use crate::master_layout::MasterLayoutState;
+use crate::canvas::master_layout::MasterLayoutState;
 use crate::motion::MotionStore;
-use crate::norma_server::{execute_card_command_for_area, text_for_submit, NormaCommandEffects};
+use crate::norma::server::{execute_card_command_for_area, text_for_submit, NormaCommandEffects};
 use canvas::{
     AgentProfile, AgentSpec, CanvasNodeKind, CanvasRect, PreviewType as CanvasPreviewType,
 };
@@ -122,7 +122,7 @@ fn test_norma_delete_missing_node_returns_not_found_without_side_effects() {
     );
     assert_ne!(
         result,
-        Ok(crate::norma_server::NormaExecution {
+        Ok(crate::norma::server::NormaExecution {
             result: CardCommandResult::Deleted { node_id: 99 },
             effects: NormaCommandEffects {
                 canvas_dirty: true,

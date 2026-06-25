@@ -1,34 +1,13 @@
 //! multisoul-desktop 入口：tracing 初始化 + 启动 GPUI App。
-mod agent_hooks;
 mod app;
-mod app_ime;
-mod app_ime_geometry;
-mod app_keyboard;
-mod app_lifecycle;
-mod app_voice;
-mod app_voice_log;
-mod app_voice_modal;
 mod assets;
-mod canvas_geometry;
-mod canvas_view;
-mod card_scroll;
+mod canvas;
 mod cards;
-mod interaction;
-mod launchpad;
-mod master_layout;
 mod motion;
-mod motion_breathing;
-mod motion_scalar;
-mod motion_util;
-mod norma_server;
-mod norma_server_transport;
-mod persistence;
+mod norma;
 mod preview;
-mod spawn_focus;
-mod text_selection;
-mod voice_control;
-mod workspace_flow;
-mod workspace_state;
+mod settings;
+mod workspace;
 
 use app::{
     CopyCardContent, ExitFocus, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewTerminal,

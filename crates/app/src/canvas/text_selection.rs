@@ -130,5 +130,5 @@ impl TextSelection {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/text_selection_tests.rs"]
+#[path = "../../tests/unit/text_selection_tests.rs"]
 mod tests;

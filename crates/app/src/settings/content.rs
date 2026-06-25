@@ -1,11 +1,13 @@
-use super::{with_alpha, MultisoulApp, SettingsSection};
+use super::{with_alpha, SettingsPanelState, SettingsSection};
+use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
 use ui::Theme;
 
-#[path = "settings_appearance.rs"]
-mod settings_appearance;
+mod appearance;
+mod hooks;
 
-use self::settings_appearance::general_appearance;
+use self::appearance::general_appearance;
+use self::hooks::hooks_settings;
 
 #[derive(Clone, Copy)]
 struct MockSetting {
@@ -16,7 +18,7 @@ struct MockSetting {
 
 pub(super) fn settings_content(
     theme: Theme,
-    section: SettingsSection,
+    panel: &SettingsPanelState,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     div()
@@ -25,7 +27,7 @@ pub(super) fn settings_content(
         .flex()
         .flex_col()
         .bg(rgba(with_alpha(theme.term_bg, 0x72)))
-        .child(content_header(theme, section, cx))
+        .child(content_header(theme, panel.active_section, cx))
         .child(
             div()
                 .id("settings-content-scroll")
@@ -33,16 +35,34 @@ pub(super) fn settings_content(
                 .overflow_scroll()
                 .px(px(26.0))
                 .pb(px(28.0))
-                .child(match section {
+                .child(match panel.active_section {
                     SettingsSection::General => general_appearance(theme),
                     SettingsSection::Runtime => mock_section(theme, runtime_rows()),
                     SettingsSection::Agents => mock_section(theme, agent_rows()),
                     SettingsSection::Skills => mock_section(theme, skill_rows()),
+                    SettingsSection::Hooks => hooks_settings(theme, panel, cx),
                 }),
         )
 }
 
 fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<MultisoulApp>) -> Div {
+    let subtitle = content_subtitle(section);
+    let mut title_column = div().flex().flex_col().gap(px(3.0)).child(
+        div()
+            .text_size(px(21.0))
+            .font_weight(FontWeight::BOLD)
+            .text_color(rgba(theme.text_primary))
+            .child(content_title(section)),
+    );
+    if !subtitle.is_empty() {
+        title_column = title_column.child(
+            div()
+                .text_size(px(16.0))
+                .text_color(rgba(theme.text_tertiary))
+                .child(subtitle),
+        );
+    }
+
     div()
         .h(px(100.0))
         .flex()
@@ -51,25 +71,7 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
         .justify_between()
         .pt(px(34.0))
         .px(px(26.0))
-        .child(
-            div()
-                .flex()
-                .flex_col()
-                .gap(px(3.0))
-                .child(
-                    div()
-                        .text_size(px(21.0))
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(rgba(theme.text_primary))
-                        .child(content_title(section)),
-                )
-                .child(
-                    div()
-                        .text_size(px(16.0))
-                        .text_color(rgba(theme.text_tertiary))
-                        .child(content_subtitle(section)),
-                ),
-        )
+        .child(title_column)
         .child(
             div()
                 .id("settings-close")
@@ -98,6 +100,7 @@ fn content_title(section: SettingsSection) -> &'static str {
         SettingsSection::Runtime => "Runtime",
         SettingsSection::Agents => "Agents",
         SettingsSection::Skills => "Skills",
+        SettingsSection::Hooks => "Agent Hooks",
     }
 }
 
@@ -107,6 +110,7 @@ fn content_subtitle(section: SettingsSection) -> &'static str {
         SettingsSection::Runtime => "Configure shell behavior and live sessions",
         SettingsSection::Agents => "Choose default agents, permissions, and profiles",
         SettingsSection::Skills => "Manage installed skills and project skill sources",
+        SettingsSection::Hooks => "",
     }
 }
 

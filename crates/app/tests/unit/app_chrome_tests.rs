@@ -31,7 +31,7 @@ fn test_workspace_left_rail_is_temporarily_hidden() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   bottom_voice_bar_visible() = false（临时隐藏开关；后续恢复只需改回 true）
-///   app_chrome.rs 生产渲染源码 = include_str!("../../src/app_chrome.rs") 在 #[cfg(test)] 前的片段
+///   app_chrome.rs 生产渲染源码 = include_str!("../../src/app/chrome.rs") 在 #[cfg(test)] 前的片段
 ///   app_voice.rs 源码 = include_str!("../../src/app_voice.rs")（底部入口处理函数应保留）
 ///   voice_control.rs 源码 = include_str!("../../src/voice_control.rs")（BottomBar trigger 应保留）
 ///
@@ -47,8 +47,8 @@ fn test_workspace_left_rail_is_temporarily_hidden() {
 #[test]
 fn test_bottom_voice_bar_is_hidden_without_deleting_functionality() {
     let bottom_voice_visible = bottom_voice_bar_visible();
-    let app_voice_source = include_str!("../../src/app_voice.rs");
-    let voice_control_source = include_str!("../../src/voice_control.rs");
+    let app_voice_source = include_str!("../../src/app/voice/mod.rs");
+    let voice_control_source = include_str!("../../src/app/voice/control.rs");
 
     assert!(
         !bottom_voice_visible,
@@ -75,7 +75,7 @@ fn test_bottom_voice_bar_is_hidden_without_deleting_functionality() {
 /// 顶部 agent 菜单：截图中的旧缩写按钮应替换为完整名称，并移除末尾两个占位按钮。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = include_str!("../../src/app_chrome.rs")（检查当前 chrome 渲染源码）
+///   source = include_str!("../../src/app/chrome.rs")（检查当前 chrome 渲染源码）
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
 ///   expected_1 = "Claude" + " Code"（CL 应展开为完整产品名）
 ///   expected_2 = "Co" + "dex"（CX 应展开为完整产品名）
@@ -96,7 +96,7 @@ fn test_bottom_voice_bar_is_hidden_without_deleting_functionality() {
 ///   - 负断言：[] reflow 按钮和 * 占位按钮不应继续挂载
 #[test]
 fn test_top_toolbar_agent_labels_are_expanded_and_trailing_buttons_removed() {
-    let source = include_str!("../../src/app_chrome.rs");
+    let source = include_str!("../../src/app/chrome.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
     let claude_label = format!("{}{}", "Claude", " Code");
     let codex_label = format!("{}{}", "Co", "dex");
@@ -134,7 +134,7 @@ fn test_top_toolbar_agent_labels_are_expanded_and_trailing_buttons_removed() {
 /// 右上角反馈入口：workspace chrome 不应再挂载反馈按钮。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = include_str!("../../src/app_chrome.rs")（检查当前 chrome 源码）
+///   source = include_str!("../../src/app/chrome.rs")（检查当前 chrome 源码）
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
 ///   toolbar id = "toolbar" + "-new-terminal"（应继续存在，证明顶部工具栏没有被误删）
 ///   forbidden label = "Feed" + "back"（用户要求删除的按钮文案）
@@ -151,7 +151,7 @@ fn test_top_toolbar_agent_labels_are_expanded_and_trailing_buttons_removed() {
 ///   - 负断言：旧反馈文案、id、handler 不应继续出现在 chrome 渲染源码中
 #[test]
 fn test_workspace_chrome_omits_feedback_entry() {
-    let source = include_str!("../../src/app_chrome.rs");
+    let source = include_str!("../../src/app/chrome.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
     let toolbar_new_terminal_id = concat!("toolbar", "-new-terminal");
     let feedback_label = format!("{}{}", "Feed", "back");
@@ -179,7 +179,7 @@ fn test_workspace_chrome_omits_feedback_entry() {
 /// 顶部设置入口：Canvas 顶部菜单应挂载齿轮设置按钮，且不移除现有建卡入口。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = include_str!("../../src/app_chrome.rs")（检查当前 chrome 渲染源码）
+///   source = include_str!("../../src/app/chrome.rs")（检查当前 chrome 渲染源码）
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
 ///   expected id = "toolbar" + "-settings"
 ///   expected icon = "⚙"（用户要求使用设置按钮 icon）
@@ -196,7 +196,7 @@ fn test_workspace_chrome_omits_feedback_entry() {
 ///   - 负断言：设置入口不应缺失，否则用户无法打开设置弹窗
 #[test]
 fn test_top_toolbar_includes_settings_icon_entry() {
-    let source = include_str!("../../src/app_chrome.rs");
+    let source = include_str!("../../src/app/chrome.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
     let settings_id = format!("{}{}", "toolbar", "-settings");
     let settings_icon = "⚙";
@@ -233,7 +233,7 @@ fn test_top_toolbar_includes_settings_icon_entry() {
 /// 顶部画布滚动入口：Canvas 顶部菜单应挂载箭头 toggle，并保留现有建卡与设置入口。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = include_str!("../../src/app_chrome.rs")（检查当前 chrome 渲染源码）
+///   source = include_str!("../../src/app/chrome.rs")（检查当前 chrome 渲染源码）
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
 ///   expected id = "toolbar" + "-canvas-scroll"
 ///   expected icon = "↕"（箭头表示画布可滚动）
@@ -251,7 +251,7 @@ fn test_top_toolbar_includes_settings_icon_entry() {
 ///   - 负断言：旧的无 id 箭头占位按钮不应继续使用固定 false 状态
 #[test]
 fn test_top_toolbar_includes_canvas_scroll_arrow_toggle() {
-    let source = include_str!("../../src/app_chrome.rs");
+    let source = include_str!("../../src/app/chrome.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
     let scroll_id = format!("{}{}", "toolbar", "-canvas-scroll");
     let scroll_handler = format!("{}{}{}", "on_", "toolbar", "_canvas_scroll");

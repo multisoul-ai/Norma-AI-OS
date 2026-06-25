@@ -53,5 +53,5 @@ pub(crate) fn terminal_scroll_lines_from_pixel_delta(delta_y: f32) -> i32 {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/card_scroll_tests.rs"]
+#[path = "../../tests/unit/card_scroll_tests.rs"]
 mod tests;

@@ -1,12 +1,12 @@
 //! Keyboard routing for the root GPUI view.
 
-use crate::app::{AppScreen, CopyCardContent, MultisoulApp};
-use crate::cards::term::selection::terminal_selected_text;
-use crate::cards::term::view::keystroke_to_input;
-use crate::text_selection::TextSelection;
-use crate::voice_control::{
+use crate::app::voice::control::{
     is_voice_hold_modifier_release, is_voice_hold_release, is_voice_hold_shortcut, VoiceTrigger,
 };
+use crate::app::{AppScreen, CopyCardContent, MultisoulApp};
+use crate::canvas::text_selection::TextSelection;
+use crate::cards::term::selection::terminal_selected_text;
+use crate::cards::term::view::keystroke_to_input;
 use canvas::{navigate_card, NavigationDirection, NodeId};
 use gpui::{
     ClipboardItem, Context, KeyDownEvent, KeyUpEvent, Keystroke, Modifiers, ModifiersChangedEvent,
@@ -124,7 +124,7 @@ fn should_auto_focus_keyboard_selection(keystroke: &Keystroke) -> bool {
         return false;
     }
 
-    crate::app_ime::should_defer_keystroke_to_ime(keystroke)
+    crate::app::ime::should_defer_keystroke_to_ime(keystroke)
         || keystroke_to_input(keystroke).is_some()
 }
 
@@ -211,7 +211,7 @@ impl MultisoulApp {
                         return;
                     }
 
-                    if crate::app_ime::should_defer_keystroke_to_ime(&ev.keystroke) {
+                    if crate::app::ime::should_defer_keystroke_to_ime(&ev.keystroke) {
                         cx.notify();
                         return;
                     }
@@ -247,7 +247,7 @@ impl MultisoulApp {
                     return;
                 }
 
-                if crate::app_ime::should_defer_keystroke_to_ime(&ev.keystroke) {
+                if crate::app::ime::should_defer_keystroke_to_ime(&ev.keystroke) {
                     return;
                 }
                 if let Some(input) = keystroke_to_input(&ev.keystroke) {
@@ -295,5 +295,5 @@ impl MultisoulApp {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/app_keyboard_tests.rs"]
+#[path = "../../tests/unit/app_keyboard_tests.rs"]
 mod tests;

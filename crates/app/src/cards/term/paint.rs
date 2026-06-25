@@ -1,7 +1,7 @@
 //! GPUI terminal renderer: resolves neutral terminal snapshot styles into painted runs.
 
+use crate::canvas::text_selection::{SelectionSpan, TextRange};
 use crate::cards::term::selection::terminal_selection_spans;
-use crate::text_selection::{SelectionSpan, TextRange};
 use gpui::{
     canvas, point, prelude::*, px, quad, transparent_black, App, Bounds, Edges, Font, FontFeatures,
     FontStyle, FontWeight, Hsla, IntoElement, Pixels, Point, SharedString, Size,

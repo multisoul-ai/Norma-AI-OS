@@ -1,5 +1,7 @@
 use crate::app::{AppScreen, MultisoulApp};
-use crate::master_layout::{apply_workspace_reflow_for_area, reapply_master_layout_for_area};
+use crate::canvas::master_layout::{
+    apply_workspace_reflow_for_area, reapply_master_layout_for_area,
+};
 use canvas::{CanvasNodeKind, CanvasRect, NodeId, PreviewType};
 use gpui::{AppContext, Context, PathPromptOptions, Window};
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
@@ -475,5 +477,5 @@ impl MultisoulApp {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/preview_tests.rs"]
+#[path = "../../tests/unit/preview_tests.rs"]
 mod tests;

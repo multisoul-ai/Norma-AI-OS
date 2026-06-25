@@ -232,7 +232,7 @@ impl InputHandler for TerminalImeHandler {
     ) -> Option<Bounds<Pixels>> {
         let app = self.app.upgrade()?;
         app.update(cx, |app, _cx| {
-            crate::app_ime_geometry::terminal_ime_cursor_bounds(&app.runtime, app.screen)
+            crate::app::ime_geometry::terminal_ime_cursor_bounds(&app.runtime, app.screen)
         })
     }
 
@@ -477,5 +477,5 @@ mod tests {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/app_ime_control_tests.rs"]
+#[path = "../../tests/unit/app_ime_control_tests.rs"]
 mod control_tests;

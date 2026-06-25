@@ -4,9 +4,9 @@ use crate::cards::chrome::{CardChrome, CardChromeTaskBadge, CardChromeTaskTone};
 use crate::cards::term::card::term_resize;
 use crate::cards::term::view::render_terminal_node;
 use crate::cards::{Card, CardBodyContext};
-use crate::motion_breathing::BreathingIntent;
+use crate::motion::breathing::BreathingIntent;
 #[cfg(test)]
-use crate::motion_breathing::BreathingState;
+use crate::motion::breathing::BreathingState;
 use canvas::{CanvasNode, CanvasNodeKind, CanvasRect, NodeType};
 use gpui::AnyElement;
 use runtime::{AgentTaskState, NodeResize, Runtime};

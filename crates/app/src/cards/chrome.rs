@@ -6,11 +6,11 @@ use runtime::{NodeResize, Runtime};
 use ui::Theme;
 
 use super::{Card, CardBodyContext};
-use crate::motion::{ResolvedNodeVisual, VisualPriority};
-use crate::motion_breathing::{
+use crate::motion::breathing::{
     CornerGlow, CORNER_GLOW_BOTTOM_LEFT, CORNER_GLOW_BOTTOM_RIGHT, CORNER_GLOW_TOP_LEFT,
     CORNER_GLOW_TOP_RIGHT,
 };
+use crate::motion::{ResolvedNodeVisual, VisualPriority};
 
 pub const TITLE_BAR_H: f32 = 26.0;
 

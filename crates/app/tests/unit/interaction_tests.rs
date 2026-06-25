@@ -1,5 +1,5 @@
 use super::*;
-use crate::text_selection::TextPoint;
+use crate::canvas::text_selection::TextPoint;
 
 /// 文本选区拖动性能：鼠标仍在同一 cell 时不应报告状态变化。
 ///

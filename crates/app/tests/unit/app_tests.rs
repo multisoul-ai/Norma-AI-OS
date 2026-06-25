@@ -1,6 +1,6 @@
 use super::*;
-use crate::persistence::PersistenceScheduler;
-use crate::workspace_flow::enter_workspace_for_path;
+use crate::workspace::flow::enter_workspace_for_path;
+use crate::workspace::persistence::PersistenceScheduler;
 use canvas::{compute_responsive_grid_layout, CanvasNodeKind, RectNode};
 use storage::RecentStore;
 

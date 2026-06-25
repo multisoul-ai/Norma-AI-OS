@@ -1,5 +1,5 @@
 use super::*;
-use crate::master_layout::{
+use crate::canvas::master_layout::{
     enter_master_layout_for_area, reapply_master_layout_for_area, toggle_master_layout_for_area,
 };
 use canvas::{compute_responsive_grid_layout, CanvasNodeKind, RectNode};

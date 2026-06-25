@@ -1,7 +1,9 @@
 use norma::agent_hook::{
-    build_hook_command, forward_hook, hook_events_for_source, install_hook_config,
-    parse_hook_event, task_state_for_provider_event, AgentHookTaskState, HookForwardEnv,
-    HookForwardOutcome, HookInstallPaths, HookSource, HookTarget,
+    agent_hooks_installed, agent_hooks_installed_for_source, build_hook_command, forward_hook,
+    hook_events_for_source, install_hook_config, parse_hook_event,
+    resolve_agent_hook_command_path_from, task_state_for_provider_event, uninstall_hook_config,
+    AgentHookTaskState, HookForwardEnv, HookForwardOutcome, HookInstallPaths, HookSource,
+    HookTarget, AGENT_HOOK_BINARY_NAME,
 };
 use norma::protocol::AgentProfile;
 use serde_json::json;
@@ -294,5 +296,140 @@ fn test_forward_hook_ignores_unreachable_endpoint() {
         outcome,
         HookForwardOutcome::Posted,
         "endpoint 不可达时不应报告 Posted"
+    );
+}
+
+/// resolve_agent_hook_command_path_from 应优先查找 app 可执行文件同目录下的 hook bridge。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   app_executable=/tmp/bin/multisoul
+///   sibling=/tmp/bin/multisoul-agent-hook
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在临时目录创建 multisoul-agent-hook 空文件
+///   2. 调用 resolve_agent_hook_command_path_from("/tmp/bin/multisoul")
+///   3. 确认返回 sibling 路径
+///
+/// 预期结果：
+///   - 正断言：返回 Some(sibling)
+///   - 负断言：不应返回 app 可执行文件本身
+#[test]
+fn test_resolve_agent_hook_command_path_from_sibling_binary() {
+    let temp = tempfile::tempdir().expect("应能创建临时目录");
+    let app_executable = temp.path().join("multisoul");
+    let hook_binary = temp.path().join(AGENT_HOOK_BINARY_NAME);
+    std::fs::write(&hook_binary, b"").expect("应能创建 hook bridge 占位文件");
+
+    let resolved = resolve_agent_hook_command_path_from(app_executable.as_path());
+
+    assert_eq!(
+        resolved,
+        Some(hook_binary.clone()),
+        "应优先返回与 Multisoul 同目录的 multisoul-agent-hook"
+    );
+    assert_ne!(
+        resolved,
+        Some(app_executable),
+        "不应把 Multisoul 主程序误当作 hook bridge"
+    );
+}
+
+/// install 后应检测到 Multisoul hooks 已安装，uninstall 后应恢复未安装状态。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   command_path=/tmp/multisoul-agent-hook
+///   target=Codex，event 数 = hook_events_for_source(Codex).len()
+///   第三方 hook command="echo keep-me" 与 Multisoul hook 共存
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 预置 Codex config 含第三方 hook
+///   2. install_hook_config(Codex)
+///   3. agent_hooks_installed_for_source(Codex) 应为 true
+///   4. uninstall_hook_config(Codex)
+///   5. 再次检测应为 false，且第三方 hook 仍保留
+///
+/// 预期结果：
+///   - 正断言：install/uninstall 前后 installed 状态正确切换
+///   - 负断言：uninstall 后不应仍报告 installed
+///   - 正断言：第三方 hook command 不应被删除
+#[test]
+fn test_uninstall_hook_config_removes_only_multisoul_hooks() {
+    let temp = tempfile::tempdir().expect("应能创建临时目录");
+    let codex_path = temp.path().join("codex-hooks.json");
+    let paths = HookInstallPaths {
+        claude_settings: temp.path().join("claude-settings.json"),
+        codex_hooks: codex_path.clone(),
+    };
+    let command_path = temp.path().join("multisoul-agent-hook");
+    std::fs::write(
+        &codex_path,
+        r#"{
+  "hooks": {
+    "SessionStart": [{
+      "matcher": "*",
+      "hooks": [{
+        "type": "command",
+        "command": "echo keep-me",
+        "timeout": 5
+      }]
+    }]
+  }
+}"#,
+    )
+    .expect("应能写入预置 Codex config");
+
+    assert!(
+        !agent_hooks_installed_for_source(HookSource::Codex, &paths),
+        "install 前 Codex 不应报告 Multisoul hooks 已安装"
+    );
+
+    install_hook_config(HookTarget::Codex, &command_path, &paths).expect("install 应成功");
+    assert!(
+        agent_hooks_installed_for_source(HookSource::Codex, &paths),
+        "install 后 Codex 应报告 Multisoul hooks 已安装"
+    );
+
+    uninstall_hook_config(HookTarget::Codex, &paths).expect("uninstall 应成功");
+    assert!(
+        !agent_hooks_installed_for_source(HookSource::Codex, &paths),
+        "uninstall 后 Codex 不应继续报告 Multisoul hooks 已安装"
+    );
+
+    let codex_json = std::fs::read_to_string(&codex_path).expect("应能读取 Codex config");
+    assert!(
+        codex_json.contains("echo keep-me"),
+        "uninstall 应保留第三方 hook command"
+    );
+    assert!(
+        !codex_json.contains(AGENT_HOOK_BINARY_NAME),
+        "uninstall 后 Codex config 不应再包含 multisoul-agent-hook"
+    );
+}
+
+/// 重复 uninstall 应是幂等的，不应报错。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   target=Codex，config 文件不存在
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. uninstall_hook_config(Codex) 两次
+///   2. 检查返回结果
+///
+/// 预期结果：
+///   - 正断言：两次 uninstall 都成功
+///   - 负断言：agent_hooks_installed(Codex) 仍为 false
+#[test]
+fn test_uninstall_hook_config_is_idempotent_when_missing_or_clean() {
+    let temp = tempfile::tempdir().expect("应能创建临时目录");
+    let paths = HookInstallPaths {
+        claude_settings: temp.path().join("claude-settings.json"),
+        codex_hooks: temp.path().join("codex-hooks.json"),
+    };
+
+    uninstall_hook_config(HookTarget::Codex, &paths).expect("第一次 uninstall 应成功");
+    uninstall_hook_config(HookTarget::Codex, &paths).expect("第二次 uninstall 应成功");
+    assert!(
+        !agent_hooks_installed(HookTarget::Codex, &paths),
+        "空 config 上 uninstall 后仍应保持未安装"
     );
 }

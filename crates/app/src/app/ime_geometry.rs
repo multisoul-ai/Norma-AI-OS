@@ -39,5 +39,5 @@ pub(crate) fn terminal_ime_cursor_bounds(
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/app_ime_geometry_tests.rs"]
+#[path = "../../tests/unit/app_ime_geometry_tests.rs"]
 mod tests;

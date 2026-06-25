@@ -1,7 +1,7 @@
 //! 终端卡片内容渲染 + 键盘翻译。grid 快照按等宽字体逐行绘制。
 
+use crate::canvas::text_selection::TextRange;
 use crate::cards::term::paint::{render_terminal_canvas, TerminalRenderMetrics};
-use crate::text_selection::TextRange;
 use gpui::{div, prelude::*, px, rgba, AnyElement, IntoElement, Keystroke};
 use runtime::NodeView;
 use terminal::{Key, KeyInput, TerminalStatus};

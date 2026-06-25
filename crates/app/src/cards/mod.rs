@@ -5,8 +5,8 @@ pub mod chrome;
 pub mod preview;
 pub mod term;
 
+use crate::canvas::text_selection::TextSelection;
 use crate::preview::PreviewLoadState;
-use crate::text_selection::TextSelection;
 use canvas::{CanvasNode, CanvasRect, NodeType};
 use chrome::CardChrome;
 use gpui::AnyElement;

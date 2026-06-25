@@ -1,14 +1,14 @@
-use super::MultisoulApp;
+use crate::app::MultisoulApp;
 use gpui::{
     div, point, prelude::*, px, rgba, BoxShadow, ClickEvent, Context, Div, FontWeight, MouseButton,
     Window,
 };
 use ui::Theme;
 
-#[path = "settings_content.rs"]
-mod settings_content;
+#[path = "content.rs"]
+mod content;
 
-use self::settings_content::settings_content;
+use self::content::settings_content;
 
 const PANEL_MIN_W: f32 = 860.0;
 const PANEL_MAX_W: f32 = 1180.0;
@@ -22,6 +22,7 @@ pub(crate) enum SettingsSection {
     Runtime,
     Agents,
     Skills,
+    Hooks,
 }
 
 impl SettingsSection {
@@ -31,6 +32,7 @@ impl SettingsSection {
             Self::Runtime => "Runtime",
             Self::Agents => "Agents",
             Self::Skills => "Skills",
+            Self::Hooks => "Hooks",
         }
     }
 
@@ -40,6 +42,7 @@ impl SettingsSection {
             Self::Runtime => ">_",
             Self::Agents => "A",
             Self::Skills => "✦",
+            Self::Hooks => "⛓",
         }
     }
 
@@ -49,14 +52,32 @@ impl SettingsSection {
             Self::Runtime => 1,
             Self::Agents => 2,
             Self::Skills => 3,
+            Self::Hooks => 4,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct HookInstallStatus {
+    pub(crate) message: Option<String>,
+    pub(crate) is_error: bool,
+}
+
+impl Default for HookInstallStatus {
+    fn default() -> Self {
+        Self {
+            message: None,
+            is_error: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SettingsPanelState {
     pub(crate) open: bool,
     pub(crate) active_section: SettingsSection,
+    pub(crate) codex_hook_status: HookInstallStatus,
+    pub(crate) claude_hook_status: HookInstallStatus,
 }
 
 impl Default for SettingsPanelState {
@@ -64,6 +85,8 @@ impl Default for SettingsPanelState {
         Self {
             open: false,
             active_section: SettingsSection::General,
+            codex_hook_status: HookInstallStatus::default(),
+            claude_hook_status: HookInstallStatus::default(),
         }
     }
 }
@@ -101,7 +124,7 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    pub(super) fn render_settings_panel(
+    pub(crate) fn render_settings_panel(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -155,11 +178,7 @@ impl MultisoulApp {
                     .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
                     .on_click(|_, _, cx| cx.stop_propagation())
                     .child(self.render_settings_sidebar(theme, cx))
-                    .child(settings_content(
-                        theme,
-                        self.settings_panel.active_section,
-                        cx,
-                    )),
+                    .child(settings_content(theme, &self.settings_panel, cx)),
             )
     }
 
@@ -198,6 +217,7 @@ impl MultisoulApp {
             .child(section_button(theme, SettingsSection::Runtime, active, cx))
             .child(section_button(theme, SettingsSection::Agents, active, cx))
             .child(section_button(theme, SettingsSection::Skills, active, cx))
+            .child(section_button(theme, SettingsSection::Hooks, active, cx))
     }
 }
 
@@ -321,5 +341,5 @@ fn with_alpha(color: u32, alpha: u8) -> u32 {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/settings_panel_tests.rs"]
+#[path = "../../tests/unit/settings_panel_tests.rs"]
 mod tests;

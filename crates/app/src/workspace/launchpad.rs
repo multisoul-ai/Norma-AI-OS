@@ -14,7 +14,7 @@ const ACTION_CARD_W_PX: f32 = 170.0;
 const ACTION_CARD_H_PX: f32 = 78.0;
 
 impl MultisoulApp {
-    pub(super) fn render_launchpad(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Div {
+    pub(crate) fn render_launchpad(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Div {
         let theme = self.theme;
         let win = window.viewport_size();
         let win_w = f32::from(win.width);

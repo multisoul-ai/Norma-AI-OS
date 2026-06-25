@@ -62,12 +62,12 @@ fn test_terminal_point_for_local_position_floors_and_clamps_to_grid() {
 
     assert_eq!(
         point,
-        crate::text_selection::TextPoint::new(2, 2),
+        crate::canvas::text_selection::TextPoint::new(2, 2),
         "19/8 与 33/16 都应向下取整，得到 row=2,col=2"
     );
     assert_ne!(
         point,
-        crate::text_selection::TextPoint::new(2, 3),
+        crate::canvas::text_selection::TextPoint::new(2, 3),
         "列坐标不应四舍五入到 3，否则鼠标在 cell 左半边会错位"
     );
 }
@@ -90,9 +90,9 @@ fn test_terminal_point_for_local_position_floors_and_clamps_to_grid() {
 #[test]
 fn test_terminal_selected_text_copies_single_line_columns_only() {
     let snapshot = snapshot_from_lines(&["abcdef"], 10);
-    let range = crate::text_selection::TextRange::new(
-        crate::text_selection::TextPoint::new(0, 1),
-        crate::text_selection::TextPoint::new(0, 4),
+    let range = crate::canvas::text_selection::TextRange::new(
+        crate::canvas::text_selection::TextPoint::new(0, 1),
+        crate::canvas::text_selection::TextPoint::new(0, 4),
     );
 
     let text = terminal_selected_text(&snapshot, range);
@@ -123,9 +123,9 @@ fn test_terminal_selected_text_copies_single_line_columns_only() {
 #[test]
 fn test_terminal_selected_text_copies_multiline_range_with_newlines() {
     let snapshot = snapshot_from_lines(&["abcde", "xy", "12345"], 8);
-    let range = crate::text_selection::TextRange::new(
-        crate::text_selection::TextPoint::new(0, 2),
-        crate::text_selection::TextPoint::new(2, 3),
+    let range = crate::canvas::text_selection::TextRange::new(
+        crate::canvas::text_selection::TextPoint::new(0, 2),
+        crate::canvas::text_selection::TextPoint::new(2, 3),
     );
 
     let text = terminal_selected_text(&snapshot, range);
@@ -174,9 +174,9 @@ fn test_terminal_selected_text_does_not_duplicate_wide_char_spacer() {
         display_offset: 0,
         history_size: 0,
     };
-    let range = crate::text_selection::TextRange::new(
-        crate::text_selection::TextPoint::new(0, 0),
-        crate::text_selection::TextPoint::new(0, 3),
+    let range = crate::canvas::text_selection::TextRange::new(
+        crate::canvas::text_selection::TextPoint::new(0, 0),
+        crate::canvas::text_selection::TextPoint::new(0, 3),
     );
 
     let text = terminal_selected_text(&snapshot, range);

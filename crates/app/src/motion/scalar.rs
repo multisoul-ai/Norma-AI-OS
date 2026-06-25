@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use crate::motion_util::EPSILON;
+use crate::motion::util::EPSILON;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct AnimatedScalar {

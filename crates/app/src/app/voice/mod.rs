@@ -1,13 +1,17 @@
 //! Voice entrypoint glue for the app shell.
 
-use crate::app::{AppScreen, MultisoulApp};
-use crate::app_voice_log::{
+pub(crate) mod control;
+pub(crate) mod log;
+pub(crate) mod modal;
+
+use crate::app::voice::control::{VoicePhase, VoiceTrigger};
+use crate::app::voice::log::{
     log_voice_confirmation_required, log_voice_executed, log_voice_executing,
     log_voice_planner_failed, log_voice_planner_rejected, log_voice_planning_started,
     log_voice_runtime_failed, log_voice_transcript_only,
 };
-use crate::norma_server::{execute_card_command_for_area, NormaCommandEffects, NormaExecution};
-use crate::voice_control::{VoicePhase, VoiceTrigger};
+use crate::app::{AppScreen, MultisoulApp};
+use crate::norma::server::{execute_card_command_for_area, NormaCommandEffects, NormaExecution};
 use gpui::{Context, MouseDownEvent, MouseUpEvent, Window};
 use norma::protocol::{CardCommand, CardCommandResult};
 use std::collections::HashMap;
@@ -483,5 +487,5 @@ fn voice_transcript_source_from_value(value: Option<String>) -> VoiceTranscriptS
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/app_voice_tests.rs"]
+#[path = "../../../tests/unit/app_voice_tests.rs"]
 mod app_voice_tests;

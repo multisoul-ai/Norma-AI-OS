@@ -20,6 +20,21 @@ Workspace 分层：
 
 依赖方向：`app -> {ui, runtime, canvas, terminal, storage}`，`runtime -> {canvas, terminal, storage}`，`storage -> {canvas, workspace}`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
 
+### 源码组织
+
+**Crate 分能力，文件夹分职责，逻辑沉底、适配上浮。** 目录示例见 [`CLAUDE.md`](CLAUDE.md) §3。
+
+- 纯逻辑、零 GPUI → 域 crate；绑 UI、跑副作用 → `app`/`ui`
+- 目录名写职责（`route`、`settings`），不写 `utils/`、`handlers/`、`views/`
+- 新代码直接进目标目录；文件近 500 行或 ≥3 个 `prefix_*` 再建子目录
+
+| 改什么 | ✓ | ✗ |
+|--------|---|---|
+| 命中测试 | `canvas/hit_test.rs` | `app/canvas/` |
+| 滚轮缩放 | `app/canvas/` | `runtime/` |
+| PTY / grid | `terminal/` | `app/cards/term/` |
+| 终端绘制 | `app/cards/term/` | `terminal/` |
+
 ## 2. 关键约束
 
 - **先读本文**：每次会话开始先读 `AGENTS.md`，再按指针深入。
@@ -68,6 +83,7 @@ Workspace 分层：
 | Workspace 元数据、路径展示 | [`crates/workspace/src/`](crates/workspace/src/) |
 | 主题色 | [`crates/ui/src/theme.rs`](crates/ui/src/theme.rs) |
 | GPUI app shell、画布/cards 渲染 | [`crates/app/src/`](crates/app/src/) |
+| 源码组织 | [`CLAUDE.md`](CLAUDE.md) §3 Source Organization |
 | 历史 SDD 施工记录 | [`.superpowers/sdd/progress.md`](.superpowers/sdd/progress.md) |
 
 ## 5. 改完代码必跑的验证

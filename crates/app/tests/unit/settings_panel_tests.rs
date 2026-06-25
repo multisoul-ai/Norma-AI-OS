@@ -4,7 +4,7 @@ use super::*;
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   initial open = false（启动后不应遮挡画布）
-///   section count = 4（General / Runtime / Agents / Skills）
+///   section count = 5（General / Runtime / Agents / Skills / Hooks）
 ///   default section = General（计划指定默认打开 General）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -32,6 +32,55 @@ fn test_settings_panel_defaults_closed_on_general() {
         panel.active_section,
         SettingsSection::Runtime,
         "设置面板首次打开不应落到 Runtime 分组"
+    );
+}
+
+/// Hooks 页面锚点：Settings 应提供 Codex / Claude 一键安装入口。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source = settings_panel.rs + settings_content.rs + settings_hooks.rs
+///   nav anchor = Hooks
+///   action anchors = settings-install-codex-hooks / settings-install-claude-hooks
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 拼接 Settings 生产渲染源码
+///   2. 检查 Hooks 分组与安装按钮 id 是否存在
+///
+/// 预期结果：
+///   - 正断言：Hooks 导航与 Codex/Claude 安装按钮锚点都存在
+///   - 负断言：Hooks 页面不应仍只是 Runtime mock 文案
+#[test]
+fn test_hooks_settings_panel_contains_install_actions() {
+    let source = format!(
+        "{}{}{}",
+        include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/hooks.rs")
+    );
+    let anchors = [
+        "SettingsSection::Hooks",
+        "Agent Hooks",
+        "settings-install-codex-hooks",
+        "settings-install-claude-hooks",
+        "Install hooks",
+        "Uninstall hooks",
+        "agent_hooks_installed",
+        "uninstall_agent_hooks",
+    ];
+
+    for anchor in anchors {
+        assert!(
+            source.contains(anchor),
+            "Hooks 设置页应包含安装入口锚点: {anchor}"
+        );
+    }
+    assert!(
+        source.contains("Manage lifecycle hooks in ~/.codex/hooks.json"),
+        "Hooks 页面应包含 Codex 管理说明"
+    );
+    assert!(
+        source.contains("Manage lifecycle hooks in ~/.claude/settings.json"),
+        "Hooks 页面应包含 Claude 管理说明"
     );
 }
 
@@ -82,7 +131,7 @@ fn test_settings_panel_open_close_toggle_preserve_section() {
 /// 设置面板分组选择：点击 Runtime / Skills 应切换右侧内容并保持弹窗打开。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   section count = 4（General / Runtime / Agents / Skills）
+///   section count = 5（General / Runtime / Agents / Skills / Hooks）
 ///   initial open = true（模拟用户已经打开设置弹窗）
 ///   target sequence = Runtime → Skills（覆盖两个非默认分组）
 ///
@@ -143,9 +192,9 @@ fn test_settings_panel_selects_sections_without_closing() {
 fn test_general_settings_panel_contains_reference_appearance_anchors() {
     let source = format!(
         "{}{}{}",
-        include_str!("../../src/settings_panel.rs"),
-        include_str!("../../src/settings_content.rs"),
-        include_str!("../../src/settings_appearance.rs")
+        include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/appearance.rs")
     );
     let nav_anchors = [
         "Language & Region",
@@ -204,9 +253,9 @@ fn test_general_settings_panel_contains_reference_appearance_anchors() {
 fn test_settings_panel_uses_card_theme_tokens_not_light_mock_palette() {
     let source = format!(
         "{}{}{}",
-        include_str!("../../src/settings_panel.rs"),
-        include_str!("../../src/settings_content.rs"),
-        include_str!("../../src/settings_appearance.rs")
+        include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/appearance.rs")
     );
     let required_tokens = [
         "theme.panel",

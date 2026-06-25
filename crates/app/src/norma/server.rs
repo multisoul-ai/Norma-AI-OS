@@ -1,11 +1,11 @@
 use crate::app::{AppScreen, MultisoulApp};
-use crate::master_layout::{
+use crate::canvas::master_layout::{
     apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
     term_grid_size_for_card,
 };
+use crate::canvas::spawn_focus::activate_spawned_node;
 use crate::motion::MotionStore;
-use crate::norma_server_transport::{bind_socket, NormaServerRequest};
-use crate::spawn_focus::activate_spawned_node;
+use crate::norma::transport::{bind_socket, NormaServerRequest};
 use canvas::{
     AgentProfile as CanvasAgentProfile, CanvasNodeKind, CanvasRect, NodeType,
     PreviewType as CanvasPreviewType,
@@ -184,7 +184,7 @@ impl MultisoulApp {
 pub(crate) fn execute_card_command_for_area(
     runtime: &mut Runtime,
     motion: &mut MotionStore,
-    master_layout: &mut crate::master_layout::MasterLayoutState,
+    master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
     command: CardCommand,
     area: CanvasRect,
     zoom: f32,
@@ -221,7 +221,7 @@ pub(crate) fn text_for_submit(mut text: String, submit: bool) -> String {
 fn create_card(
     runtime: &mut Runtime,
     motion: &mut MotionStore,
-    master_layout: &mut crate::master_layout::MasterLayoutState,
+    master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
     kind: CardKind,
     placement: Placement,
     area: CanvasRect,
@@ -284,7 +284,7 @@ fn create_card(
 fn delete_card(
     runtime: &mut Runtime,
     motion: &mut MotionStore,
-    master_layout: &mut crate::master_layout::MasterLayoutState,
+    master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
     node_id: NodeId,
     area: CanvasRect,
     zoom: f32,
@@ -365,14 +365,14 @@ fn summary_kind(kind: &CanvasNodeKind) -> CardSummaryKind {
 }
 
 fn apply_layout_for_current_mode(
-    master_layout: &mut crate::master_layout::MasterLayoutState,
+    master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
     runtime: &mut Runtime,
     motion: &mut MotionStore,
     area: CanvasRect,
     zoom: f32,
 ) {
     if master_layout.is_active()
-        && crate::master_layout::reapply_master_layout_for_area(
+        && crate::canvas::master_layout::reapply_master_layout_for_area(
             master_layout,
             runtime,
             motion,
@@ -426,3 +426,7 @@ fn canvas_preview_type(value: NormaPreviewType) -> CanvasPreviewType {
 fn card_bounds_to_canvas(value: CardBounds) -> CanvasRect {
     CanvasRect::new(value.x, value.y, value.width, value.height)
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/norma_command_tests.rs"]
+mod norma_command_tests;

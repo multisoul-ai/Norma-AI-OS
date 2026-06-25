@@ -2,7 +2,7 @@
 //!
 //! 不依赖 GPUI 类型，只操作 `0xRRGGBBAA` 形式的 u32 颜色，方便在 GPUI 窗口外单测。
 
-use crate::motion_util::EPSILON;
+use crate::motion::util::EPSILON;
 use std::time::Duration;
 use ui::Theme;
 
@@ -152,5 +152,5 @@ pub fn resolve_corner_glow(
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/motion_breathing_tests.rs"]
+#[path = "../../tests/unit/motion_breathing_tests.rs"]
 mod tests;

@@ -1,38 +1,42 @@
 //! GPUI 主视图：持有 Runtime，装配画布/终端渲染，处理快捷键与帧级 drain。
 
-use crate::agent_hooks::AgentHookServer;
 #[cfg(test)]
 use crate::assets::DEFAULT_WALLPAPER_ASSET;
-use crate::canvas_view::render_canvas;
-use crate::interaction::InteractionState;
-use crate::master_layout::{
+use crate::canvas::interaction::InteractionState;
+use crate::canvas::master_layout::{
     apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
     reapply_master_layout_for_area, term_grid_size_for_card, MasterLayoutState,
 };
 #[cfg(test)]
-use crate::master_layout::{close_node_and_reflow_for_area, workspace_reflow_config_for_zoom};
+use crate::canvas::master_layout::{
+    close_node_and_reflow_for_area, workspace_reflow_config_for_zoom,
+};
+use crate::canvas::spawn_focus;
+use crate::canvas::view::render_canvas;
 use crate::motion::MotionStore;
-use crate::norma_server::NormaServer;
-use crate::persistence::PersistenceScheduler;
+use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
-use crate::workspace_state::WorkspaceState;
+use crate::settings::agent_hooks::AgentHookServer;
+use crate::settings::panel::SettingsPanelState;
+use crate::workspace::persistence::PersistenceScheduler;
+use crate::workspace::state::WorkspaceState;
 use canvas::{AgentProfile, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
 use runtime::Runtime;
 use std::time::Duration;
 use ui::Theme;
 
-#[path = "app_wallpaper.rs"]
-mod app_wallpaper;
-#[path = "settings_panel.rs"]
-mod settings_panel;
-#[path = "app_chrome.rs"]
-mod workspace_chrome;
+mod chrome;
+mod ime;
+mod ime_geometry;
+mod keyboard;
+mod lifecycle;
+mod voice;
+mod wallpaper;
 
 #[cfg(test)]
-use self::app_wallpaper::wallpaper_from_env_value;
-use self::app_wallpaper::{wallpaper_from_env, WorkspaceWallpaper};
-use self::settings_panel::SettingsPanelState;
+use self::wallpaper::wallpaper_from_env_value;
+use self::wallpaper::{wallpaper_from_env, WorkspaceWallpaper};
 
 actions!(
     multisoul,
@@ -66,8 +70,8 @@ pub struct MultisoulApp {
     pub(crate) agent_hook_server: AgentHookServer,
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
-    pub(crate) voice: crate::voice_control::VoiceControlState,
-    pub(crate) pending_voice_commands: Vec<voice::ExecutableCommand>,
+    pub(crate) voice: crate::app::voice::control::VoiceControlState,
+    pub(crate) pending_voice_commands: Vec<::voice::ExecutableCommand>,
     pub focus_handle: FocusHandle,
     wallpaper: WorkspaceWallpaper,
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
@@ -134,7 +138,7 @@ impl MultisoulApp {
             agent_hook_server,
             screen: AppScreen::Launchpad,
             workspace_state: WorkspaceState::load_default(),
-            voice: crate::voice_control::VoiceControlState::default(),
+            voice: crate::app::voice::control::VoiceControlState::default(),
             pending_voice_commands: Vec::new(),
             focus_handle: cx.focus_handle(),
             wallpaper,
@@ -158,7 +162,7 @@ impl MultisoulApp {
         match self.runtime.spawn_terminal(bounds, "/bin/zsh", cols, rows) {
             Ok(node_id) => {
                 tracing::info!(?node_id, "spawned terminal node");
-                crate::spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
+                spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
                 self.motion.spawn_node(node_id, bounds);
                 self.apply_layout_for_current_mode(window);
                 self.mark_canvas_dirty();
@@ -214,7 +218,7 @@ impl MultisoulApp {
         match self.runtime.spawn_agent(profile, bounds, cols, rows) {
             Ok(node_id) => {
                 tracing::info!(?node_id, ?profile, "spawned agent node");
-                crate::spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
+                spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
                 self.motion.spawn_node(node_id, bounds);
                 self.apply_layout_for_current_mode(window);
                 self.mark_canvas_dirty();
@@ -412,7 +416,7 @@ impl Render for MultisoulApp {
             .relative()
             .bg(gpui::rgba(self.theme.graphite))
             .text_size(px(13.0))
-            .child(crate::app_ime::TerminalImeElement::new(
+            .child(crate::app::ime::TerminalImeElement::new(
                 self.focus_handle.clone(),
                 cx.weak_entity(),
             ));
@@ -441,17 +445,5 @@ impl Render for MultisoulApp {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/app_tests.rs"]
+#[path = "../../tests/unit/app_tests.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "../tests/unit/master_layout_tests.rs"]
-mod master_layout_tests;
-
-#[cfg(test)]
-#[path = "../tests/unit/master_layout_exit_tests.rs"]
-mod master_layout_exit_tests;
-
-#[cfg(test)]
-#[path = "../tests/unit/norma_command_tests.rs"]
-mod norma_command_tests;

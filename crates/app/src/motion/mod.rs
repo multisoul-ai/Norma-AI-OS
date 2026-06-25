@@ -1,15 +1,19 @@
 //! App 层卡片动效状态：只影响渲染连续性，不改变 canvas/runtime 的真实状态。
 
+pub(crate) mod breathing;
+pub(crate) mod scalar;
+pub(crate) mod util;
+
 use canvas::{CanvasRect, NodeId};
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 use ui::Theme;
 
-use crate::motion_breathing::{
+use crate::motion::breathing::{
     breathing_color_for_phase, resolve_corner_glow, BreathingIntent, BreathingState, CornerGlow,
 };
-use crate::motion_scalar::AnimatedScalar;
-use crate::motion_util::{
+use crate::motion::scalar::AnimatedScalar;
+use crate::motion::util::{
     alpha, approx_rect, duration_progress, ease_out_cubic, lerp_rect, mix_color,
     reduce_motion_from_env_value, visual_priority, with_alpha, EPSILON,
 };
@@ -446,13 +450,13 @@ impl NodeMotion {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/motion_tests.rs"]
+#[path = "../../tests/unit/motion_tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "../tests/unit/motion_completion_tests.rs"]
+#[path = "../../tests/unit/motion_completion_tests.rs"]
 mod completion_tests;
 
 #[cfg(test)]
-#[path = "../tests/unit/motion_corner_glow_tests.rs"]
+#[path = "../../tests/unit/motion_corner_glow_tests.rs"]
 mod corner_glow_tests;

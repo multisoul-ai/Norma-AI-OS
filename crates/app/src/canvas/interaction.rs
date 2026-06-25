@@ -1,6 +1,6 @@
 //! Shared canvas interaction state.
 
-use crate::text_selection::{TextPoint, TextSelection};
+use crate::canvas::text_selection::{TextPoint, TextSelection};
 use canvas::{NodeId, Vec2};
 
 #[derive(Clone, Copy)]
@@ -63,5 +63,5 @@ impl InteractionState {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/interaction_tests.rs"]
+#[path = "../../tests/unit/interaction_tests.rs"]
 mod tests;

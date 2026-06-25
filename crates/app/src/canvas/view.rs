@@ -2,14 +2,18 @@
 //! viewport culling：屏幕外节点不构建元素。
 
 use crate::app::MultisoulApp;
-use crate::canvas_geometry::{
+use crate::canvas::geometry::{
     apply_canvas_wheel_scroll, click_event_for_node, is_title_bar_hit, node_card_radius_px,
     node_edge_highlight_inset_px, node_terminal_radius_px, node_title_radius_px, pt_to_vec,
     terminal_content_local_position,
 };
-use crate::card_scroll::{
+use crate::canvas::interaction::DragState;
+#[cfg(test)]
+use crate::canvas::interaction::InteractionState;
+use crate::canvas::scroll::{
     terminal_scroll_lines_from_pixel_delta, wheel_scroll_owner_for_point, WheelScrollOwner,
 };
+use crate::canvas::text_selection::TextPoint;
 use crate::cards::agent::card::agent_breathing_intent;
 use crate::cards::chrome::{
     node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
@@ -17,11 +21,7 @@ use crate::cards::chrome::{
 use crate::cards::term::selection::terminal_point_for_local_position;
 use crate::cards::term::view::terminal_render_metrics;
 use crate::cards::{card_for, CardBodyContext};
-use crate::interaction::DragState;
-#[cfg(test)]
-use crate::interaction::InteractionState;
-use crate::motion_breathing::BreathingIntent;
-use crate::text_selection::TextPoint;
+use crate::motion::breathing::BreathingIntent;
 use canvas::{hit_test, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{
     div, prelude::*, px, rgba, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
@@ -496,5 +496,5 @@ fn with_alpha(color: u32, alpha: u8) -> u32 {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/canvas_view_tests.rs"]
+#[path = "../../tests/unit/canvas_view_tests.rs"]
 mod tests;

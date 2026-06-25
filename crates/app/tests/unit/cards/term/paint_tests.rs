@@ -265,9 +265,9 @@ fn test_layout_selection_highlight_merges_contiguous_cells_into_one_span() {
         test_cell('D', fg, bg, CellAttrs::default()),
         test_cell('E', fg, bg, CellAttrs::default()),
     ]);
-    let range = crate::text_selection::TextRange::new(
-        crate::text_selection::TextPoint::new(0, 1),
-        crate::text_selection::TextPoint::new(0, 4),
+    let range = crate::canvas::text_selection::TextRange::new(
+        crate::canvas::text_selection::TextPoint::new(0, 1),
+        crate::canvas::text_selection::TextPoint::new(0, 4),
     );
 
     let layout = build_layout_with_selection(
@@ -280,7 +280,7 @@ fn test_layout_selection_highlight_merges_contiguous_cells_into_one_span() {
 
     assert_eq!(
         layout.selection_spans,
-        vec![crate::text_selection::SelectionSpan::new(0, 1, 4)],
+        vec![crate::canvas::text_selection::SelectionSpan::new(0, 1, 4)],
         "selection layout 应合并为一个 1..4 span，供 paint 层一次性画矩形"
     );
     assert_ne!(
