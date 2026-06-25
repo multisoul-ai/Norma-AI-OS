@@ -2,9 +2,9 @@
 //!
 //! 不依赖 GPUI 类型，只操作 `0xRRGGBBAA` 形式的 u32 颜色，方便在 GPUI 窗口外单测。
 
+use crate::motion_util::EPSILON;
 use std::time::Duration;
 use ui::Theme;
-use crate::motion_util::EPSILON;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BreathingState {
@@ -136,7 +136,11 @@ pub fn corner_glow_envelope(phase: f32) -> f32 {
 
 /// 给定相位、呼吸淡入淡出强度与当前呼吸态，解析出四角光晕的模糊/强度参数。
 /// Inactive 或已完全淡出（fade_value <= EPSILON）时返回 None，渲染层应据此完全跳过四角光晕。
-pub fn resolve_corner_glow(phase: f32, fade_value: f32, state: BreathingState) -> Option<CornerGlow> {
+pub fn resolve_corner_glow(
+    phase: f32,
+    fade_value: f32,
+    state: BreathingState,
+) -> Option<CornerGlow> {
     if state == BreathingState::Inactive || fade_value <= EPSILON {
         return None;
     }

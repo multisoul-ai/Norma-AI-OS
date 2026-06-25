@@ -391,8 +391,11 @@ impl NodeMotion {
         } else {
             base_stroke
         };
-        let corner_glow =
-            resolve_corner_glow(self.breathing_phase, self.breathing_fade.value, self.breathing_display_state);
+        let corner_glow = resolve_corner_glow(
+            self.breathing_phase,
+            self.breathing_fade.value,
+            self.breathing_display_state,
+        );
         let settle = self.completion_settle.value.clamp(0.0, 1.0);
         let settle_color = with_alpha(
             theme.accent_green,

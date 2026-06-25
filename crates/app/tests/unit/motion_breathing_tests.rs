@@ -280,10 +280,7 @@ fn test_resolve_corner_glow_gates_on_active_state_and_fade_value() {
         "envelope=1.0 时 blur 应接近上界 14.0，实际为 {}",
         active.blur
     );
-    assert_ne!(
-        active.blur, 8.0,
-        "envelope=1.0 时 blur 不应停留在下界 8.0"
-    );
+    assert_ne!(active.blur, 8.0, "envelope=1.0 时 blur 不应停留在下界 8.0");
 
     assert!(
         resolve_corner_glow(0.25, 1.0, BreathingState::Inactive).is_none(),
