@@ -12,6 +12,38 @@ pub enum BreathingState {
     Warm,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BreathingIntent {
+    Inactive,
+    Cool,
+    Warm,
+    Done,
+}
+
+impl BreathingIntent {
+    pub fn breathing_state(self) -> BreathingState {
+        match self {
+            Self::Inactive | Self::Done => BreathingState::Inactive,
+            Self::Cool => BreathingState::Cool,
+            Self::Warm => BreathingState::Warm,
+        }
+    }
+
+    pub fn is_active(self) -> bool {
+        matches!(self, Self::Cool | Self::Warm)
+    }
+}
+
+impl From<BreathingState> for BreathingIntent {
+    fn from(state: BreathingState) -> Self {
+        match state {
+            BreathingState::Inactive => Self::Inactive,
+            BreathingState::Cool => Self::Cool,
+            BreathingState::Warm => Self::Warm,
+        }
+    }
+}
+
 impl BreathingState {
     pub fn period(self) -> Duration {
         match self {

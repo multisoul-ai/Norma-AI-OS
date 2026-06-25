@@ -4,6 +4,8 @@ use crate::cards::chrome::{CardChrome, CardChromeTaskBadge, CardChromeTaskTone};
 use crate::cards::term::card::term_resize;
 use crate::cards::term::view::render_terminal_node;
 use crate::cards::{Card, CardBodyContext};
+use crate::motion_breathing::BreathingIntent;
+#[cfg(test)]
 use crate::motion_breathing::BreathingState;
 use canvas::{CanvasNode, CanvasNodeKind, CanvasRect, NodeType};
 use gpui::AnyElement;
@@ -74,18 +76,17 @@ fn agent_task_badge(state: Option<AgentTaskState>) -> Option<CardChromeTaskBadge
     })
 }
 
-/// Agent 卡片呼吸边框的色组映射：运行中用冷色组，等待批准用暖色组，其余状态不呼吸。
-pub fn agent_breathing_state(state: Option<AgentTaskState>) -> BreathingState {
+pub fn agent_breathing_intent(state: Option<AgentTaskState>) -> BreathingIntent {
     match state {
         Some(AgentTaskState::Thinking) | Some(AgentTaskState::RunningTool { .. }) => {
-            BreathingState::Cool
+            BreathingIntent::Cool
         }
-        Some(AgentTaskState::WaitingApproval { .. }) => BreathingState::Warm,
+        Some(AgentTaskState::WaitingApproval { .. }) => BreathingIntent::Warm,
+        Some(AgentTaskState::Done) => BreathingIntent::Done,
         Some(AgentTaskState::Ready)
-        | Some(AgentTaskState::Done)
         | Some(AgentTaskState::Failed { .. })
         | Some(AgentTaskState::Ended)
-        | None => BreathingState::Inactive,
+        | None => BreathingIntent::Inactive,
     }
 }
 
@@ -93,6 +94,10 @@ pub fn agent_breathing_state(state: Option<AgentTaskState>) -> BreathingState {
 mod tests {
     use super::*;
     use canvas::{AgentProfile, AgentSpec, CanvasRect};
+
+    fn agent_breathing_state(state: Option<AgentTaskState>) -> BreathingState {
+        agent_breathing_intent(state).breathing_state()
+    }
 
     /// AgentCard chrome 使用 Agent profile 作为标题。
     ///
@@ -326,6 +331,38 @@ mod tests {
             })),
             BreathingState::Cool,
             "Failed 不应被误判进冷色组呼吸"
+        );
+    }
+
+    /// agent_breathing_intent 单独保留 Done 语义，供 motion 层播放一次性落定。
+    ///
+    /// 数据构造：
+    ///   AgentTaskState::Done 表示 provider 已完成当前任务。
+    ///
+    /// 执行过程：
+    ///   1. 调用 agent_breathing_intent(Done)
+    ///   2. 同时调用 agent_breathing_state(Done) 验证循环呼吸仍关闭
+    ///
+    /// 预期结果：
+    ///   - 正断言：intent 为 BreathingIntent::Done
+    ///   - 正断言：breathing_state 仍为 Inactive
+    ///   - 负断言：Done 不应退化为 BreathingIntent::Inactive，否则无法触发呼气落定
+    #[test]
+    fn test_agent_breathing_intent_preserves_done_for_completion_settle() {
+        assert_eq!(
+            agent_breathing_intent(Some(AgentTaskState::Done)),
+            BreathingIntent::Done,
+            "Done intent 应保留完成语义，供 motion 层触发一次性落定"
+        );
+        assert_eq!(
+            agent_breathing_state(Some(AgentTaskState::Done)),
+            BreathingState::Inactive,
+            "Done 不应继续参与循环呼吸"
+        );
+        assert_ne!(
+            agent_breathing_intent(Some(AgentTaskState::Done)),
+            BreathingIntent::Inactive,
+            "Done intent 不应退化为 Inactive，否则完成落定不会触发"
         );
     }
 }

@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 use ui::Theme;
 
-use crate::motion_breathing::{breathing_color_for_phase, BreathingState};
+use crate::motion_breathing::{breathing_color_for_phase, BreathingIntent, BreathingState};
 use crate::motion_util::{
     alpha, approx_rect, duration_progress, ease_out_cubic, lerp_rect, mix_color,
     reduce_motion_from_env_value, visual_priority, with_alpha, EPSILON,
@@ -20,6 +20,7 @@ pub struct MotionTokens {
     pub layout: Duration,
     pub reduced_fade: Duration,
     pub breathing_fade: Duration,
+    pub completion_settle: Duration,
 }
 
 impl Default for MotionTokens {
@@ -32,6 +33,7 @@ impl Default for MotionTokens {
             layout: Duration::from_millis(420),
             reduced_fade: Duration::from_millis(160),
             breathing_fade: Duration::from_millis(150),
+            completion_settle: Duration::from_millis(520),
         }
     }
 }
@@ -147,10 +149,10 @@ impl MotionStore {
         }
     }
 
-    pub fn set_breathing_state(&mut self, id: NodeId, state: BreathingState) {
+    pub fn set_breathing_intent(&mut self, id: NodeId, intent: BreathingIntent) {
         let reduce_motion = self.reduce_motion;
         if let Some(node) = self.nodes.get_mut(&id) {
-            node.set_breathing_state(state, reduce_motion);
+            node.set_breathing_intent(intent, reduce_motion);
         }
     }
 
@@ -198,7 +200,9 @@ pub struct NodeMotion {
     breathing_phase: f32,
     breathing_state: BreathingState,
     breathing_display_state: BreathingState,
+    breathing_intent: BreathingIntent,
     breathing_fade: AnimatedScalar,
+    completion_settle: AnimatedScalar,
 }
 
 impl NodeMotion {
@@ -218,13 +222,20 @@ impl NodeMotion {
             breathing_phase: 0.0,
             breathing_state: BreathingState::Inactive,
             breathing_display_state: BreathingState::Inactive,
+            breathing_intent: BreathingIntent::Inactive,
             breathing_fade: AnimatedScalar::off(),
+            completion_settle: AnimatedScalar::off(),
         }
     }
 
-    /// 切换呼吸色组：同一色组内不重置相位；切到新色组或重新激活时相位回到循环起点；
-    /// 进入/退出激活态只驱动 breathing_fade 在 breathing_fade token 时长内淡入淡出。
-    fn set_breathing_state(&mut self, state: BreathingState, reduce_motion: bool) {
+    fn set_breathing_intent(&mut self, intent: BreathingIntent, reduce_motion: bool) {
+        let previous_intent = self.breathing_intent;
+        self.breathing_intent = intent;
+        let state = intent.breathing_state();
+        if intent == BreathingIntent::Done && previous_intent.is_active() && !reduce_motion {
+            self.completion_settle.value = 1.0;
+            self.completion_settle.target = 0.0;
+        }
         if state != BreathingState::Inactive {
             if self.breathing_state != state {
                 self.breathing_phase = 0.0;
@@ -279,6 +290,7 @@ impl NodeMotion {
             },
         );
         changed |= self.breathing_fade.tick(delta, tokens.breathing_fade);
+        changed |= self.completion_settle.tick(delta, tokens.completion_settle);
         if !reduce_motion && self.breathing_state != BreathingState::Inactive {
             let period = self.breathing_state.period();
             self.breathing_phase =
@@ -376,20 +388,48 @@ impl NodeMotion {
         } else {
             base_stroke
         };
+        let settle = self.completion_settle.value.clamp(0.0, 1.0);
+        let settle_color = with_alpha(
+            theme.accent_green,
+            (0x54 as f32 + settle * 0xab as f32) as u8,
+        );
+        let stroke_color = mix_color(stroke_color, settle_color, settle * 0.88);
+        let done_mix: f32 = if self.breathing_intent == BreathingIntent::Done {
+            0.86
+        } else {
+            0.0
+        };
+        let completion_mix = done_mix.max(settle * 0.94);
+        let edge_highlight_color = mix_color(
+            with_alpha(theme.edge_highlight, edge_alpha),
+            with_alpha(theme.accent_green, 0x8a),
+            settle * 0.72,
+        );
 
         ResolvedNodeVisual {
             priority,
             rect: self.current_rect,
             fill_color: with_alpha(theme.node_fill, fill_alpha),
             stroke_color,
-            status_color: mix_color(theme.text_tertiary, accent_color, accent_mix),
-            title_bar_color: with_alpha(theme.title_bar, title_alpha),
-            edge_highlight_color: with_alpha(theme.edge_highlight, edge_alpha),
-            shadow_color: with_alpha(theme.shadow_color, shadow_alpha),
-            shadow_y: (theme.shadow_y + lift * 6.0 - press_sink * 5.0).max(8.0),
-            shadow_blur: (theme.shadow_blur + lift * 18.0 - press_sink * 6.0).max(20.0),
-            shadow_spread: theme.shadow_spread - lift * 5.0 + press_sink * 2.0,
-            border_is_emphasized: focus > 0.25 || selected > 0.35,
+            status_color: mix_color(
+                mix_color(theme.text_tertiary, accent_color, accent_mix),
+                theme.accent_green,
+                completion_mix,
+            ),
+            title_bar_color: with_alpha(
+                theme.title_bar,
+                title_alpha.saturating_add((10.0 * settle) as u8),
+            ),
+            edge_highlight_color,
+            shadow_color: with_alpha(
+                theme.shadow_color,
+                shadow_alpha.saturating_add((24.0 * settle) as u8),
+            ),
+            shadow_y: (theme.shadow_y + lift * 6.0 - press_sink * 5.0 - settle * 4.0).max(8.0),
+            shadow_blur: (theme.shadow_blur + lift * 18.0 - press_sink * 6.0 + settle * 10.0)
+                .max(20.0),
+            shadow_spread: theme.shadow_spread - lift * 5.0 + press_sink * 2.0 - settle * 3.0,
+            border_is_emphasized: focus > 0.25 || selected > 0.35 || settle > 0.45,
             opacity: self.opacity.value,
         }
     }
@@ -444,3 +484,7 @@ impl AnimatedScalar {
 #[cfg(test)]
 #[path = "../tests/unit/motion_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/motion_completion_tests.rs"]
+mod completion_tests;
