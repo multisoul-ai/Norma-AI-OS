@@ -22,8 +22,9 @@ pub(crate) enum VoicePhase {
 
 pub(crate) struct VoiceControlState {
     phase: VoicePhase,
-    speech_session: Option<voice_macos::SpeechSession>,
+    speech_session: Option<voice_sherpa::SpeechSession>,
     speech_task: Option<Task<()>>,
+    pub(crate) partial_text: String,
 }
 
 impl Default for VoiceControlState {
@@ -32,6 +33,7 @@ impl Default for VoiceControlState {
             phase: VoicePhase::Idle,
             speech_session: None,
             speech_task: None,
+            partial_text: String::new(),
         }
     }
 }
@@ -110,7 +112,7 @@ impl VoiceControlState {
         };
     }
 
-    pub(crate) fn set_speech_session(&mut self, session: voice_macos::SpeechSession) {
+    pub(crate) fn set_speech_session(&mut self, session: voice_sherpa::SpeechSession) {
         self.speech_session = Some(session);
     }
 
@@ -126,12 +128,12 @@ impl VoiceControlState {
         self.speech_task = None;
     }
 
-    pub(crate) fn take_speech_session(&mut self) -> Option<voice_macos::SpeechSession> {
+    pub(crate) fn take_speech_session(&mut self) -> Option<voice_sherpa::SpeechSession> {
         self.speech_session.take()
     }
 
     pub(crate) fn cancel_speech_session(&mut self) {
-        if let Some(mut session) = self.speech_session.take() {
+        if let Some(session) = self.speech_session.take() {
             session.cancel();
         }
     }
@@ -139,7 +141,13 @@ impl VoiceControlState {
     pub(crate) fn label(&self) -> String {
         match &self.phase {
             VoicePhase::Idle => "Hold Cmd+Shift+V".to_string(),
-            VoicePhase::Recording { .. } => "Recording...".to_string(),
+            VoicePhase::Recording { .. } => {
+                if self.partial_text.is_empty() {
+                    "Recording...".to_string()
+                } else {
+                    self.partial_text.clone()
+                }
+            }
             VoicePhase::Transcribing => "Transcribing...".to_string(),
             VoicePhase::Planning { .. } => "Planning...".to_string(),
             VoicePhase::Confirming { .. } => "Confirmation required".to_string(),

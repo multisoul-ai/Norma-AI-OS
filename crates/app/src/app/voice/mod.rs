@@ -20,7 +20,7 @@ use voice::{
     compile_voice_plan, CardRef, ExecutableCommand, OllamaVoicePlanner, RiskLevel, VoiceCardKind,
     VoicePlanDecision, VoicePlanner, VoicePlanningRequest,
 };
-use voice_macos::{AppleSpeechProvider, SpeechError};
+use voice_sherpa::{SherpaProvider, SpeechError};
 
 const DEFAULT_MAX_VOICE_STEPS: usize = 8;
 
@@ -49,7 +49,7 @@ impl MultisoulApp {
             voice_transcript_source(),
             VoiceTranscriptSource::AppleSpeech
         ) {
-            match AppleSpeechProvider::start_recording(AppleSpeechProvider::default_locale()) {
+            match SherpaProvider::from_env_or_default().and_then(|p| p.start_recording()) {
                 Ok(session) => self.voice.set_speech_session(session),
                 Err(error) => {
                     self.voice
@@ -114,31 +114,38 @@ impl MultisoulApp {
                 self.record_empty_voice_transcript();
             }
             VoiceTranscriptSource::AppleSpeech => {
-                self.process_apple_speech_recording(window, cx);
+                self.process_sherpa_speech_recording(window, cx);
             }
         }
         cx.notify();
     }
 
-    fn process_apple_speech_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(mut session) = self.voice.take_speech_session() else {
+    fn process_sherpa_speech_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(session) = self.voice.take_speech_session() else {
             let error = SpeechError::NotRecording;
             self.voice
                 .set_error(format!("Speech recognition failed: {error}"));
             self.save_voice_speech_error(error);
             return;
         };
+        // Drain any partials already queued before key-up.
+        while let Ok(text) = session.partials.try_recv() {
+            self.voice.partial_text = text;
+        }
+        cx.notify();
+        // finish() blocks (recognizer thread join); run in spawn_in to match existing pattern.
         let task = cx.spawn_in(window, async move |this, cx| {
             let result = session.finish();
             let _ = this.update_in(cx, |app, window, cx| {
                 app.voice.clear_speech_task();
-                app.handle_apple_speech_result(result, window, cx);
+                app.voice.partial_text.clear();
+                app.handle_sherpa_speech_result(result, window, cx);
             });
         });
         self.voice.set_speech_task(task);
     }
 
-    fn handle_apple_speech_result(
+    fn handle_sherpa_speech_result(
         &mut self,
         result: Result<String, SpeechError>,
         window: &mut Window,
@@ -423,8 +430,8 @@ impl MultisoulApp {
             confidence: 0.0,
             risk: "low",
             status: "provider_error",
-            provider: Some("apple_speech".to_string()),
-            model: Some(AppleSpeechProvider::default_locale()),
+            provider: Some("sherpa_onnx_paraformer".to_string()),
+            model: None,
             error: Some(error.to_string()),
         });
     }
