@@ -57,6 +57,7 @@ impl SessionState {
                 Ok(())
             }
             (SessionPhase::Finished, SessionEvent::Finish) => Err(SpeechError::AlreadyFinished),
+            (SessionPhase::Recording, SessionEvent::Start) => Err(SpeechError::AlreadyFinished),
             _ => Err(SpeechError::NotRecording),
         }
     }

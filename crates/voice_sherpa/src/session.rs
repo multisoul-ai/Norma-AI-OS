@@ -56,6 +56,17 @@ impl InnerSession {
     }
 }
 
+impl Drop for InnerSession {
+    fn drop(&mut self) {
+        // Signal the recognizer thread to stop (ignore send error if already stopped).
+        let _ = self.stop_tx.try_send(());
+        // Join the thread to prevent it from spinning after the session is dropped.
+        if let Some(handle) = self.thread_handle.take() {
+            let _ = handle.join();
+        }
+    }
+}
+
 pub(crate) fn start(model_dir: PathBuf) -> Result<crate::SpeechSession, SpeechError> {
     ensure_microphone_authorized()?;
 
@@ -151,8 +162,9 @@ fn recognizer_loop(
 
     loop {
         // Check for stop signal (non-blocking).
-        if stop_rx.try_recv().is_ok() {
-            break;
+        match stop_rx.try_recv() {
+            Ok(()) | Err(crossbeam_channel::TryRecvError::Disconnected) => break,
+            Err(crossbeam_channel::TryRecvError::Empty) => {}
         }
 
         // Drain all available PCM chunks, feed to stream.

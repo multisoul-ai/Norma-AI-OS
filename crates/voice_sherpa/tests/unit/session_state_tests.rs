@@ -64,3 +64,33 @@ fn test_session_state_finish_without_start_is_error() {
         "finish without start should return NotRecording"
     );
 }
+
+/// SS-4: Duplicate Start while already Recording returns AlreadyFinished, not NotRecording.
+///
+/// Data:
+///   Initial state: Idle → Recording (via first Start)
+///
+/// Execution:
+///   1. apply(Idle, Start) → Recording (ok)
+///   2. apply(Recording, Start) → error
+///
+/// Expected:
+///   - Positive: error is Err(SpeechError::AlreadyFinished)
+///   - Negative: error is NOT Err(SpeechError::NotRecording)
+#[test]
+fn test_session_state_duplicate_start_returns_already_finished() {
+    let mut state = SessionState::default();
+    let first = state.apply(SessionEvent::Start);
+    assert!(first.is_ok(), "first Start should succeed");
+    let second = state.apply(SessionEvent::Start);
+    assert_eq!(
+        second,
+        Err(SpeechError::AlreadyFinished),
+        "duplicate Start should return AlreadyFinished, not NotRecording"
+    );
+    assert_ne!(
+        second,
+        Err(SpeechError::NotRecording),
+        "AlreadyFinished is a more accurate error than NotRecording for a duplicate Start"
+    );
+}
