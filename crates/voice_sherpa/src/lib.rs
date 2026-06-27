@@ -25,6 +25,10 @@ pub fn request_microphone_permission() -> Result<(), SpeechError> {
     permissions::ensure_microphone_authorized()
 }
 
+pub fn resolve_model_dir() -> Result<std::path::PathBuf, SpeechError> {
+    model::resolve_model_dir()
+}
+
 #[derive(Debug, Eq, PartialEq, thiserror::Error)]
 pub enum SpeechError {
     #[error("microphone permission was denied")]

@@ -1,6 +1,7 @@
 //! Voice domain layer: STT transcript planning, LLM schema validation, and card command compilation.
 
 mod ollama;
+mod ollama_prompt;
 mod ollama_repair;
 mod plan;
 pub mod refine;

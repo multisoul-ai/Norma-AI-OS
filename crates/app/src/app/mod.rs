@@ -18,6 +18,7 @@ use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::panel::SettingsPanelState;
+use crate::settings::voice::VoiceSettingsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{AgentProfile, CanvasRect, NodeId, NodeType, Vec2};
@@ -66,6 +67,7 @@ pub struct MultisoulApp {
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) persistence: PersistenceScheduler,
     pub(crate) settings_panel: SettingsPanelState,
+    pub(crate) voice_settings: VoiceSettingsState,
     pub(crate) norma_server: NormaServer,
     pub(crate) agent_hook_server: AgentHookServer,
     pub(crate) screen: AppScreen,
@@ -134,6 +136,7 @@ impl MultisoulApp {
             master_layout: MasterLayoutState::default(),
             persistence: PersistenceScheduler::default(),
             settings_panel: SettingsPanelState::default(),
+            voice_settings: VoiceSettingsState::load_default(),
             norma_server: NormaServer::start(),
             agent_hook_server,
             screen: AppScreen::Launchpad,

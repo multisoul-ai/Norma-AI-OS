@@ -27,7 +27,7 @@ pub(crate) fn repair_plan_with_required_hint(
     (required, true)
 }
 
-fn required_plan_from_request(request: &VoicePlanningRequest) -> Option<VoicePlan> {
+pub(crate) fn required_plan_from_request(request: &VoicePlanningRequest) -> Option<VoicePlan> {
     let transcript = request.transcript.trim();
     let normalized = normalize_transcript(transcript);
     if !has_explicit_create_intent(&normalized) {

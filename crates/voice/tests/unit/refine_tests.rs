@@ -154,3 +154,42 @@ fn test_refiner_trace_prompt_uses_voice_trace_gate() {
         "trace 关闭时不应把完整 prompt 交给日志路径"
     );
 }
+
+/// R-5: refine_prompt 应提示模型修复带空格中文和“合/和”同音误识别。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   raw = "打 开 两 个 终 端 合 一 个  codex"
+///   期望最小修正 = 去掉中文内部空格，并把连接词“合”修正为“和”
+///   Latin span = codex，应保留 Latin-script，不翻译
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 调用 refine_prompt(raw)
+///   2. 检查 prompt 中包含 raw
+///   3. 检查 prompt 中包含 spaced Chinese 和 合/和 修正示例
+///
+/// 预期结果：
+///   - 正断言：prompt 包含真实 raw，避免丢失 ASR 原文
+///   - 正断言：prompt 明确 spaced Chinese 可以压缩
+///   - 正断言：prompt 明确“合”作为连接词时可修为“和”
+///   - 负断言：prompt 不应要求翻译 codex
+#[test]
+fn test_refine_prompt_guides_spaced_chinese_and_he_homophone() {
+    let prompt = refine_prompt("打 开 两 个 终 端 合 一 个  codex");
+
+    assert!(
+        prompt.contains("打 开 两 个 终 端 合 一 个  codex"),
+        "refine prompt 应包含真实 raw transcript"
+    );
+    assert!(
+        prompt.contains("Remove unnatural spaces inside Chinese phrases"),
+        "refine prompt 应明确带空格中文可以压缩"
+    );
+    assert!(
+        prompt.contains("合") && prompt.contains("和"),
+        "refine prompt 应提示连接词场景下可修正 合/和 同音错误"
+    );
+    assert!(
+        !prompt.contains("translate Codex") && !prompt.contains("translate codex"),
+        "refine prompt 不应要求翻译 codex"
+    );
+}

@@ -1,5 +1,6 @@
 use super::{with_alpha, SettingsPanelState, SettingsSection};
 use crate::app::MultisoulApp;
+use crate::settings::voice::{voice_settings, VoiceSettingsState};
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
 use ui::Theme;
 
@@ -19,6 +20,7 @@ struct MockSetting {
 pub(super) fn settings_content(
     theme: Theme,
     panel: &SettingsPanelState,
+    voice_state: &VoiceSettingsState,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     div()
@@ -38,6 +40,7 @@ pub(super) fn settings_content(
                 .child(match panel.active_section {
                     SettingsSection::General => general_appearance(theme),
                     SettingsSection::Runtime => mock_section(theme, runtime_rows()),
+                    SettingsSection::Voice => voice_settings(theme, voice_state, cx),
                     SettingsSection::Agents => mock_section(theme, agent_rows()),
                     SettingsSection::Skills => mock_section(theme, skill_rows()),
                     SettingsSection::Hooks => hooks_settings(theme, panel, cx),
@@ -98,6 +101,7 @@ fn content_title(section: SettingsSection) -> &'static str {
     match section {
         SettingsSection::General => "Themes",
         SettingsSection::Runtime => "Runtime",
+        SettingsSection::Voice => "Voice",
         SettingsSection::Agents => "Agents",
         SettingsSection::Skills => "Skills",
         SettingsSection::Hooks => "Agent Hooks",
@@ -108,6 +112,7 @@ fn content_subtitle(section: SettingsSection) -> &'static str {
     match section {
         SettingsSection::General => "Choose your style or customize your theme",
         SettingsSection::Runtime => "Configure shell behavior and live sessions",
+        SettingsSection::Voice => "Configure local speech recognition and command planning",
         SettingsSection::Agents => "Choose default agents, permissions, and profiles",
         SettingsSection::Skills => "Manage installed skills and project skill sources",
         SettingsSection::Hooks => "",

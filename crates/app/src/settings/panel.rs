@@ -20,6 +20,7 @@ const SIDEBAR_W: f32 = 330.0;
 pub(crate) enum SettingsSection {
     General,
     Runtime,
+    Voice,
     Agents,
     Skills,
     Hooks,
@@ -30,6 +31,7 @@ impl SettingsSection {
         match self {
             Self::General => "General",
             Self::Runtime => "Runtime",
+            Self::Voice => "Voice",
             Self::Agents => "Agents",
             Self::Skills => "Skills",
             Self::Hooks => "Hooks",
@@ -40,6 +42,7 @@ impl SettingsSection {
         match self {
             Self::General => "⚙",
             Self::Runtime => ">_",
+            Self::Voice => "V",
             Self::Agents => "A",
             Self::Skills => "✦",
             Self::Hooks => "⛓",
@@ -50,9 +53,10 @@ impl SettingsSection {
         match self {
             Self::General => 0,
             Self::Runtime => 1,
-            Self::Agents => 2,
-            Self::Skills => 3,
-            Self::Hooks => 4,
+            Self::Voice => 2,
+            Self::Agents => 3,
+            Self::Skills => 4,
+            Self::Hooks => 5,
         }
     }
 }
@@ -178,7 +182,12 @@ impl MultisoulApp {
                     .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
                     .on_click(|_, _, cx| cx.stop_propagation())
                     .child(self.render_settings_sidebar(theme, cx))
-                    .child(settings_content(theme, &self.settings_panel, cx)),
+                    .child(settings_content(
+                        theme,
+                        &self.settings_panel,
+                        &self.voice_settings,
+                        cx,
+                    )),
             )
     }
 
@@ -215,6 +224,7 @@ impl MultisoulApp {
             .child(sidebar_child(theme, "Keyboard Shortcuts", false))
             .child(sidebar_gap())
             .child(section_button(theme, SettingsSection::Runtime, active, cx))
+            .child(section_button(theme, SettingsSection::Voice, active, cx))
             .child(section_button(theme, SettingsSection::Agents, active, cx))
             .child(section_button(theme, SettingsSection::Skills, active, cx))
             .child(section_button(theme, SettingsSection::Hooks, active, cx))

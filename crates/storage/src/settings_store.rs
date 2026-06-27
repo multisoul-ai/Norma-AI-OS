@@ -37,6 +37,12 @@ impl SettingsStore {
             )
             .optional()?)
     }
+
+    pub fn delete_string(&self, key: &str) -> StorageResult<()> {
+        let connection = open_app_connection(&self.path)?;
+        connection.execute("DELETE FROM settings WHERE key = ?1", params![key])?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

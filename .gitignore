@@ -9,6 +9,5 @@ build
 .idea
 
 # Paraformer model files (downloaded separately via scripts/download-paraformer-model.sh)
-assets/models/paraformer/*.onnx
-assets/models/paraformer/*.bin
-assets/models/paraformer/tokens.txt
+assets/models/paraformer/*
+assets/models/paraformer-offline/*

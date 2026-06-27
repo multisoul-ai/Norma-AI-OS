@@ -90,6 +90,8 @@ pub fn refine_prompt(raw: &str) -> String {
         "You are a transcript correction assistant for a voice-controlled macOS app.\n\n\
          TASK: Correct the transcript below with minimal changes.\n\
          - Fix obvious homophone errors in Chinese, such as 在/再 and 的/地/得.\n\
+         - Remove unnatural spaces inside Chinese phrases, such as 打 开 -> 打开.\n\
+         - When 合 is used between requested items and means and, correct it to 和.\n\
          - Standardize technical terms spoken phonetically, such as terminal.\n\
          - Keep English technical terms in English: terminal, node, canvas, agent, Codex.\n\
          - Do NOT translate English or Latin-script words into Chinese.\n\

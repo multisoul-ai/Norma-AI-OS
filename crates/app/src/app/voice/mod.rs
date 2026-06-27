@@ -19,10 +19,10 @@ use gpui::{Context, MouseDownEvent, MouseUpEvent, Window};
 use norma::protocol::{CardCommand, CardCommandResult};
 use std::collections::HashMap;
 use voice::{
-    compile_voice_plan, CardRef, ExecutableCommand, OllamaVoicePlanner, RiskLevel, VoiceCardKind,
-    VoicePlanDecision, VoicePlanner, VoicePlanningRequest,
+    compile_voice_plan, CardRef, ExecutableCommand, RiskLevel, VoiceCardKind, VoicePlanDecision,
+    VoicePlanner, VoicePlanningRequest,
 };
-use voice_sherpa::{SherpaProvider, SpeechError};
+use voice_sherpa::SpeechError;
 
 const DEFAULT_MAX_VOICE_STEPS: usize = 8;
 
@@ -60,7 +60,9 @@ impl MultisoulApp {
                             app.save_voice_speech_error(error);
                         }
                         Ok(()) => {
-                            match SherpaProvider::from_env_or_default()
+                            match app
+                                .voice_settings
+                                .sherpa_provider()
                                 .and_then(|p| p.start_recording())
                             {
                                 Ok((session, partials)) => {
@@ -186,7 +188,8 @@ impl MultisoulApp {
         match result {
             Ok(transcript) if !transcript.trim().is_empty() => {
                 let raw_transcript = transcript.trim().to_string();
-                let (transcript, refined_transcript) = refine_speech_transcript(&raw_transcript);
+                let (transcript, refined_transcript) =
+                    refine_speech_transcript(&raw_transcript, self.voice_settings.values());
                 self.handle_voice_transcript(
                     transcript,
                     raw_transcript,
@@ -215,7 +218,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.voice.set_planning(transcript.clone());
-        let planner = OllamaVoicePlanner::from_env_or_default();
+        let planner = self.voice_settings.planner();
 
         let request = self.voice_planning_request(transcript.clone());
         log_voice_planning_started(&transcript, &planner, &request);

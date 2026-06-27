@@ -252,7 +252,7 @@ fn test_voice_trace_env_parser_accepts_only_truthy_values() {
     );
 }
 
-/// O-9: 本地 Ollama live planner 应能把中文 transcript 转成 create -> send 计划。
+/// O-12: 本地 Ollama live planner 应能把中文 transcript 转成 create -> send 计划。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   model 默认 qwen3.5:0.8b，可用 MULTISOUL_VOICE_LIVE_OLLAMA_MODEL 覆盖

@@ -128,20 +128,21 @@ fn test_settings_panel_open_close_toggle_preserve_section() {
     assert!(!panel.open, "第二次 toggle() 应关闭打开的设置面板");
 }
 
-/// 设置面板分组选择：点击 Runtime / Skills 应切换右侧内容并保持弹窗打开。
+/// 设置面板分组选择：点击 Runtime / Voice / Skills 应切换右侧内容并保持弹窗打开。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   section count = 5（General / Runtime / Agents / Skills / Hooks）
+///   section count = 6（General / Runtime / Voice / Agents / Skills / Hooks）
 ///   initial open = true（模拟用户已经打开设置弹窗）
-///   target sequence = Runtime → Skills（覆盖两个非默认分组）
+///   target sequence = Runtime → Voice → Skills（覆盖三个非默认分组）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. open() 打开设置面板
 ///   2. select(Runtime) → active_section = Runtime，open 仍为 true
-///   3. select(Skills) → active_section = Skills，open 仍为 true
+///   3. select(Voice) → active_section = Voice，open 仍为 true
+///   4. select(Skills) → active_section = Skills，open 仍为 true
 ///
 /// 预期结果：
-///   - 正断言：Runtime 与 Skills 都能成为 active_section
+///   - 正断言：Runtime / Voice / Skills 都能成为 active_section
 ///   - 正断言：切换分组不会关闭弹窗
 ///   - 负断言：选择 Skills 后不应仍停留在 Runtime
 #[test]
@@ -157,6 +158,19 @@ fn test_settings_panel_selects_sections_without_closing() {
     );
     assert!(panel.open, "选择 Runtime 不应关闭设置弹窗");
 
+    panel.select(SettingsSection::Voice);
+    assert_eq!(
+        panel.active_section,
+        SettingsSection::Voice,
+        "选择 Voice 后右侧内容应切到 Voice 分组"
+    );
+    assert!(panel.open, "选择 Voice 不应关闭设置弹窗");
+    assert_ne!(
+        panel.active_section,
+        SettingsSection::Runtime,
+        "选择 Voice 后不应继续停留在 Runtime 分组"
+    );
+
     panel.select(SettingsSection::Skills);
     assert_eq!(
         panel.active_section,
@@ -168,6 +182,61 @@ fn test_settings_panel_selects_sections_without_closing() {
         panel.active_section,
         SettingsSection::Runtime,
         "选择 Skills 后不应继续停留在 Runtime 分组"
+    );
+}
+
+/// Voice 页面锚点：Settings 应提供语音识别、规划模型和 trace 配置入口。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source = settings_panel.rs + settings_content.rs + settings_voice.rs
+///   nav anchor = Voice
+///   storage keys = 5 个 voice.* key（endpoint/model/refine/model_dir/trace）
+///   hidden debug env = MULTISOUL_VOICE_TRANSCRIPT，不应暴露成设置项
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 拼接 Settings 生产渲染源码
+///   2. 检查 Voice 导航、分区标题、持久化 key 与按钮锚点
+///   3. 检查隐藏 transcript fallback 没有出现在 Settings UI
+///
+/// 预期结果：
+///   - 正断言：Voice 页面包含 Speech Recognition / Command Planning / Advanced
+///   - 正断言：页面包含模型目录选择、恢复默认和 trace toggle 锚点
+///   - 负断言：不应暴露 MULTISOUL_VOICE_TRANSCRIPT
+#[test]
+fn test_voice_settings_panel_contains_voice_configuration_anchors() {
+    let source = format!(
+        "{}{}{}{}{}",
+        include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/voice.rs"),
+        include_str!("../../src/settings/voice/state.rs"),
+        include_str!("../../src/settings/voice/view.rs")
+    );
+    let anchors = [
+        "SettingsSection::Voice",
+        "Voice",
+        "Speech Recognition",
+        "Command Planning",
+        "Advanced",
+        "voice.ollama.endpoint",
+        "voice.ollama.model",
+        "voice.refine.model",
+        "voice.paraformer.model_dir",
+        "voice.trace_enabled",
+        "settings-voice-model-dir-choose",
+        "settings-voice-model-dir-default",
+        "settings-voice-trace-toggle",
+    ];
+
+    for anchor in anchors {
+        assert!(
+            source.contains(anchor),
+            "Voice 设置页应包含配置锚点: {anchor}"
+        );
+    }
+    assert!(
+        !source.contains("MULTISOUL_VOICE_TRANSCRIPT"),
+        "Voice Settings 不应暴露测试用 transcript 注入环境变量"
     );
 }
 

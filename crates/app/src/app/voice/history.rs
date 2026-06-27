@@ -2,7 +2,6 @@
 
 use crate::app::MultisoulApp;
 use storage::VoiceHistoryEntry;
-use voice::OllamaVoicePlanner;
 use voice_sherpa::SpeechError;
 
 pub(super) struct VoiceHistoryDraft {
@@ -49,7 +48,7 @@ impl MultisoulApp {
             risk,
             status,
             provider: Some("ollama".to_string()),
-            model: Some(OllamaVoicePlanner::configured_model()),
+            model: Some(self.voice_settings.values().planner_model().to_string()),
             error,
         });
     }

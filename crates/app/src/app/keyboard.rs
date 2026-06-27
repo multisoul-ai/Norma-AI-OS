@@ -152,6 +152,12 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.settings_panel.open && self.voice_settings.handle_key_down(&ev.keystroke) {
+            cx.stop_propagation();
+            cx.notify();
+            return;
+        }
+
         if is_voice_hold_shortcut(&ev.keystroke) {
             self.begin_voice_recording(VoiceTrigger::Shortcut, cx);
             return;
