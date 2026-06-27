@@ -1,10 +1,13 @@
 use crate::SpeechError;
 
+#[cfg(test)]
+#[path = "../tests/unit/session_state_tests.rs"]
+mod tests;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SessionPhase {
     Idle,
     Recording,
-    Finishing,
     Finished,
     Cancelled,
 }
@@ -21,10 +24,16 @@ pub struct SessionState {
     phase: SessionPhase,
 }
 
+impl Default for SessionPhase {
+    fn default() -> Self {
+        Self::Idle
+    }
+}
+
 impl Default for SessionState {
     fn default() -> Self {
         Self {
-            phase: SessionPhase::Idle,
+            phase: SessionPhase::default(),
         }
     }
 }
@@ -33,7 +42,6 @@ impl SessionState {
     pub fn phase(&self) -> SessionPhase {
         self.phase
     }
-
     pub fn apply(&mut self, event: SessionEvent) -> Result<(), SpeechError> {
         match (self.phase, event) {
             (SessionPhase::Idle, SessionEvent::Start) => {
@@ -48,22 +56,9 @@ impl SessionState {
                 self.phase = SessionPhase::Cancelled;
                 Ok(())
             }
-            (SessionPhase::Recording, SessionEvent::Start) => Err(SpeechError::Provider(
-                "speech session is already recording".to_string(),
-            )),
             (SessionPhase::Finished, SessionEvent::Finish) => Err(SpeechError::AlreadyFinished),
-            (SessionPhase::Cancelled, SessionEvent::Finish)
-            | (SessionPhase::Idle, SessionEvent::Finish)
-            | (SessionPhase::Idle, SessionEvent::Cancel) => Err(SpeechError::NotRecording),
-            (SessionPhase::Finished, _) => Err(SpeechError::AlreadyFinished),
-            (SessionPhase::Cancelled, _) => Err(SpeechError::NotRecording),
-            (SessionPhase::Finishing, _) => Err(SpeechError::Provider(
-                "speech session is already finishing".to_string(),
-            )),
+            (SessionPhase::Recording, SessionEvent::Start) => Err(SpeechError::AlreadyFinished),
+            _ => Err(SpeechError::NotRecording),
         }
     }
 }
-
-#[cfg(test)]
-#[path = "../tests/unit/session_state_tests.rs"]
-mod tests;
