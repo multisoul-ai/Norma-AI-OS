@@ -8,6 +8,7 @@ pub mod nodes;
 pub mod route;
 pub mod runtime;
 mod runtime_support;
+pub mod session_snapshot;
 pub mod snapshot;
 
 pub use agent_hooks::AgentHookRuntimeConfig;
