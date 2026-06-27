@@ -37,6 +37,8 @@ mod new_menu;
 #[cfg(target_os = "macos")]
 mod video_decoder;
 #[cfg(target_os = "macos")]
+pub(crate) mod video_thumbnails;
+#[cfg(target_os = "macos")]
 mod video_wallpaper;
 mod voice;
 mod wallpaper_actions;
@@ -57,7 +59,6 @@ actions!(
         ToggleSettings
     ]
 );
-
 const WALLPAPER_IMAGE_OPACITY: f32 = 1.0;
 const WALLPAPER_SHADE_TOP_ALPHA: u8 = 0x00;
 const WALLPAPER_SHADE_BOTTOM_ALPHA: u8 = 0x00;

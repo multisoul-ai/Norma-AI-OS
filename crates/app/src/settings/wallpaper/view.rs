@@ -2,14 +2,15 @@
 //!
 //! Renders a thumbnail grid (builtins + custom) with an Import button. Each
 //! cell is clickable to select that wallpaper; custom cells additionally show
-//! a hover delete affordance. Video wallpapers render a labeled placeholder
-//! for now — Task 11 replaces it with the first-frame thumbnail.
+//! a hover delete affordance. Video wallpapers render the decoded first-frame
+//! thumbnail (Task 11) once the background AVAssetReader decode completes,
+//! falling back to a labeled placeholder while decoding or on non-mac builds.
 //!
 //! State lives in [`super::state`]; this module only renders against
 //! `&WallpaperSettingsState` and routes clicks back into `MultisoulApp`.
 
 use super::state::{custom_wallpapers_dir, WallpaperSettingsState};
-use crate::app::wallpaper_resolvers::{builtin_wallpapers, WallpaperKind};
+use crate::app::wallpaper_resolvers::{builtin_wallpapers, resolve_builtin_asset, WallpaperKind};
 use crate::app::MultisoulApp;
 use gpui::{
     div, img, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, ImageSource, MouseButton,
@@ -121,7 +122,7 @@ fn builtin_cell(
             theme,
             kind,
             selected,
-            builtin_thumbnail(kind, rel),
+            builtin_thumbnail(kind, rel, cx),
             None,
             cx,
         ))
@@ -149,7 +150,7 @@ fn custom_cell(
                 .and_then(WallpaperKind::from_extension)
         })
         .unwrap_or(WallpaperKind::Static);
-    let thumb = custom_thumbnail(kind, path);
+    let thumb = custom_thumbnail(kind, path, cx);
 
     div()
         .id(("wallpaper-thumb-custom", idx))
@@ -257,22 +258,33 @@ fn thumbnail_label(theme: Theme, text: &str, selected: bool) -> Div {
 }
 
 /// Builtin thumbnail content. Static/Gif render from the embedded asset path
-/// (ImageSource::from(&'static str)); Video renders a placeholder until Task
-/// 11 ships the first-frame thumbnail.
-fn builtin_thumbnail(kind: WallpaperKind, rel: &'static str) -> Div {
+/// (ImageSource::from(&'static str)); Video renders the cached first-frame
+/// thumbnail (Task 11), falling back to the labeled placeholder while the
+/// background decode is pending or on non-mac builds.
+fn builtin_thumbnail(
+    kind: WallpaperKind,
+    rel: &'static str,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
     match kind {
         WallpaperKind::Static | WallpaperKind::Gif => div().size_full().child(
             img(ImageSource::from(rel))
                 .size_full()
                 .object_fit(ObjectFit::Cover),
         ),
-        WallpaperKind::Video => video_placeholder(),
+        WallpaperKind::Video => video_thumbnail(resolve_builtin_asset(rel), cx),
     }
 }
 
 /// Custom thumbnail content. Static/Gif render from the on-disk path
-/// (ImageSource::from(PathBuf)); Video renders a placeholder until Task 11.
-fn custom_thumbnail(kind: WallpaperKind, path: Option<PathBuf>) -> Div {
+/// (ImageSource::from(PathBuf)); Video renders the cached first-frame
+/// thumbnail (Task 11), falling back to the labeled placeholder while the
+/// background decode is pending or on non-mac builds.
+fn custom_thumbnail(
+    kind: WallpaperKind,
+    path: Option<PathBuf>,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
     match kind {
         WallpaperKind::Static | WallpaperKind::Gif => match path {
             Some(p) => div().size_full().child(
@@ -282,12 +294,53 @@ fn custom_thumbnail(kind: WallpaperKind, path: Option<PathBuf>) -> Div {
             ),
             None => div().size_full(),
         },
-        WallpaperKind::Video => video_placeholder(),
+        WallpaperKind::Video => video_thumbnail(path, cx),
     }
 }
 
-// Task 11: video first-frame thumbnail. Until then the grid labels a video
-// cell with "VIDEO" so the affordance is discoverable without a live decoder.
+/// Video cell thumbnail (Task 11).
+///
+/// On macOS: look up the cached decoded first frame for `path` and render it
+/// via `img(ImageSource::Render(...))` if present; otherwise kick off a
+/// background `VideoDecoder::first_frame_bgra` decode (deduped per path) and
+/// fall back to the labeled placeholder until the next repaint.
+///
+/// On non-mac: the `video_thumbnails` helper is not compiled (the decoder is
+/// mac-only), so the labeled placeholder is always shown — this is a
+/// mac-only product, the branch exists only to keep the build green.
+///
+/// `path` is `None` when a builtin video asset could not be resolved to an
+/// absolute on-disk path (missing dev assets dir / unpacked bundle); in that
+/// case there is nothing to decode, so the placeholder is shown.
+#[cfg(target_os = "macos")]
+fn video_thumbnail(path: Option<PathBuf>, cx: &mut Context<MultisoulApp>) -> Div {
+    let Some(path) = path else {
+        return video_placeholder();
+    };
+    if let Some(image) = crate::app::video_thumbnails::get(&path) {
+        // video_thumb: render the cached first-frame still (non-animating).
+        return div().size_full().child(
+            img(ImageSource::Render(image))
+                .size_full()
+                .object_fit(ObjectFit::Cover),
+        );
+    }
+    // Cache miss: spawn a deduped background decode and show the placeholder
+    // until the next repaint (the decode task fires cx.notify() on success).
+    crate::app::video_thumbnails::request(path, cx);
+    video_placeholder()
+}
+
+/// Non-mac fallback: video thumbnails are not supported (the AVFoundation
+/// decoder is mac-only). The labeled placeholder stays so the affordance
+/// remains discoverable on the (unsupported) non-mac build.
+#[cfg(not(target_os = "macos"))]
+fn video_thumbnail(_path: Option<PathBuf>, _cx: &mut Context<MultisoulApp>) -> Div {
+    video_placeholder()
+}
+
+/// Neutral labeled placeholder shown while a video thumbnail is decoding, when
+/// decoding failed, on non-mac builds, or when the video path did not resolve.
 fn video_placeholder() -> Div {
     div()
         .size_full()
