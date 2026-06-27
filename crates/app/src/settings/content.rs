@@ -1,6 +1,7 @@
 use super::{with_alpha, SettingsPanelState, SettingsSection};
 use crate::app::MultisoulApp;
 use crate::settings::voice::{voice_settings, VoiceSettingsState};
+use crate::settings::wallpaper::WallpaperSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
 use ui::Theme;
@@ -24,6 +25,7 @@ pub(super) fn settings_content(
     theme: Theme,
     panel: &SettingsPanelState,
     voice_state: &VoiceSettingsState,
+    wallpaper_state: &WallpaperSettingsState,
     shortcuts: &ShortcutSettingsState,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
@@ -49,6 +51,7 @@ pub(super) fn settings_content(
                     SettingsSection::Agents => mock_section(theme, agent_rows()),
                     SettingsSection::Skills => mock_section(theme, skill_rows()),
                     SettingsSection::Hooks => hooks_settings(theme, panel, cx),
+                    SettingsSection::Wallpaper => wallpaper_settings(theme, wallpaper_state, cx),
                 }),
         )
 }
@@ -110,6 +113,7 @@ fn content_title(section: SettingsSection) -> &'static str {
         SettingsSection::Agents => "Agents",
         SettingsSection::Skills => "Skills",
         SettingsSection::Hooks => "Agent Hooks",
+        SettingsSection::Wallpaper => "Wallpaper",
     }
 }
 
@@ -122,6 +126,7 @@ fn content_subtitle(section: SettingsSection) -> &'static str {
         SettingsSection::Agents => "Choose default agents, permissions, and profiles",
         SettingsSection::Skills => "Manage installed skills and project skill sources",
         SettingsSection::Hooks => "",
+        SettingsSection::Wallpaper => "Choose a background",
     }
 }
 
@@ -291,4 +296,24 @@ fn skill_rows() -> &'static [MockSetting] {
             value: "Ready",
         },
     ]
+}
+
+/// Minimal placeholder renderer for the Wallpaper settings section.
+///
+/// Task 7 moves this into `wallpaper_view.rs` and expands it into the full
+/// grid (builtin thumbnails + custom import + delete). For now it renders just
+/// the section title so the panel compiles and the sidebar entry is reachable.
+fn wallpaper_settings(
+    theme: Theme,
+    _state: &WallpaperSettingsState,
+    _cx: &mut Context<MultisoulApp>,
+) -> Div {
+    // Task 7 implements the grid.
+    div().flex().flex_col().gap(px(16.0)).pt(px(8.0)).child(
+        div()
+            .text_size(px(18.0))
+            .font_weight(FontWeight::BOLD)
+            .text_color(rgba(theme.text_primary))
+            .child("Wallpaper"),
+    )
 }

@@ -412,3 +412,39 @@ fn test_settings_panel_uses_card_theme_tokens_not_light_mock_palette() {
         );
     }
 }
+
+/// T-W5: Settings 侧栏必须新增 Wallpaper 项，并在 content 分发里渲染它。
+///
+/// 数据来源：将 panel.rs / content.rs / wallpaper.rs 三个源文件拼接为单一
+/// source 字符串，逐一检查下列 anchor 子串是否存在。
+///
+/// 执行过程：
+///   1. include_str! 拼接三处源码 → src
+///   2. 遍历 required anchors，断言每个都出现在 src 中
+///
+/// 预期结果：
+///   - "SettingsSection::Wallpaper"：枚举新增 Wallpaper 变体
+///   - "\"Wallpaper\""：title()/content_title() 返回 Wallpaper
+///   - "wallpaper_settings"：app 字段 / 渲染 fn 名已接线
+///   - "wallpaper_state"：settings_content 签名新增该参数
+#[test]
+fn test_settings_has_wallpaper_section() {
+    let src = format!(
+        "{}{}{}",
+        include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/wallpaper.rs")
+    );
+    let required = [
+        "SettingsSection::Wallpaper",
+        "\"Wallpaper\"",      // title
+        "wallpaper_settings", // toolbar/state field wired
+        "wallpaper_state",    // param
+    ];
+    for anchor in required {
+        assert!(
+            src.contains(anchor),
+            "wallpaper settings wiring missing: {anchor}"
+        );
+    }
+}

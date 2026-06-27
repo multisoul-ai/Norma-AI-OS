@@ -25,6 +25,7 @@ pub(crate) enum SettingsSection {
     Agents,
     Skills,
     Hooks,
+    Wallpaper,
 }
 
 impl SettingsSection {
@@ -37,6 +38,7 @@ impl SettingsSection {
             Self::Agents => "Agents",
             Self::Skills => "Skills",
             Self::Hooks => "Hooks",
+            Self::Wallpaper => "Wallpaper",
         }
     }
 
@@ -49,6 +51,9 @@ impl SettingsSection {
             Self::Agents => "A",
             Self::Skills => "✦",
             Self::Hooks => "⛓",
+            // 🖼 emoji is risky in the bundled icon font; reuse the single-ASCII
+            // letter convention used by Voice/Agents for consistency.
+            Self::Wallpaper => "W",
         }
     }
 
@@ -61,6 +66,7 @@ impl SettingsSection {
             Self::Agents => 4,
             Self::Skills => 5,
             Self::Hooks => 6,
+            Self::Wallpaper => 7,
         }
     }
 }
@@ -216,6 +222,7 @@ impl MultisoulApp {
                         theme,
                         &self.settings_panel,
                         &self.voice_settings,
+                        &self.wallpaper_settings,
                         &self.shortcuts,
                         cx,
                     )),
@@ -259,6 +266,12 @@ impl MultisoulApp {
             .child(section_button(theme, SettingsSection::Agents, active, cx))
             .child(section_button(theme, SettingsSection::Skills, active, cx))
             .child(section_button(theme, SettingsSection::Hooks, active, cx))
+            .child(section_button(
+                theme,
+                SettingsSection::Wallpaper,
+                active,
+                cx,
+            ))
     }
 }
 
