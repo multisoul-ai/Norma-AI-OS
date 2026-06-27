@@ -3,6 +3,12 @@
 # Downloads sherpa-onnx-streaming-paraformer-bilingual-zh-en (int8) to assets/models/paraformer/
 set -euo pipefail
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "Usage: $0 [--help]"
+    echo "Downloads sherpa-onnx-streaming-paraformer-bilingual-zh-en (int8) to assets/models/paraformer/"
+    exit 0
+fi
+
 DEST="$(cd "$(dirname "$0")/.." && pwd)/assets/models/paraformer"
 MODEL_NAME="sherpa-onnx-streaming-paraformer-bilingual-zh-en"
 BASE_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models"
