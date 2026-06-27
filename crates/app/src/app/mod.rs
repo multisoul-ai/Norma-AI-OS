@@ -38,6 +38,7 @@ mod new_menu;
 mod video_decoder;
 mod voice;
 mod wallpaper;
+pub(crate) mod wallpaper_resolvers;
 
 #[cfg(test)]
 use self::wallpaper::wallpaper_from_env_value;
@@ -486,6 +487,10 @@ impl Render for MultisoulApp {
 #[cfg(test)]
 #[path = "../../tests/unit/app_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_resolvers_tests.rs"]
+mod wallpaper_resolvers_tests;
 
 #[cfg(all(test, target_os = "macos"))]
 #[path = "../../tests/unit/video_decoder_tests.rs"]
