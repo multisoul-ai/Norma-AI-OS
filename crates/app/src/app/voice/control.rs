@@ -69,14 +69,19 @@ impl VoiceControlState {
     /// 把当前 `VoicePhase` 映射成渲染层需要的 `VoiceVisual` 分类。
     /// 任何 phase 变化都应能在这里找到唯一对应视觉，渲染层据此决定
     /// 图标颜色与布局，无需自己枚举 8 个 phase。
+    ///
+    /// 注意：`Executed`（命令成功执行）刻意映射为 `Idle` —— 成功就静默
+    /// 回到底部条的 idle 外观，不显示专门的"成功"反馈（历史记录与日志已
+    /// 独立保存）。`TranscriptOnly`（planner 拒绝/无可执行命令）不算"成功"，
+    /// 仍保留 `Success` 反馈让用户知道发生了什么。
     pub(crate) fn visual(&self) -> VoiceVisual {
         match self.phase {
-            VoicePhase::Idle => VoiceVisual::Idle,
+            VoicePhase::Idle | VoicePhase::Executed { .. } => VoiceVisual::Idle,
             VoicePhase::Recording { .. } => VoiceVisual::Recording,
             VoicePhase::Transcribing
             | VoicePhase::Planning { .. }
             | VoicePhase::Confirming { .. } => VoiceVisual::Processing,
-            VoicePhase::Executed { .. } | VoicePhase::TranscriptOnly { .. } => VoiceVisual::Success,
+            VoicePhase::TranscriptOnly { .. } => VoiceVisual::Success,
             VoicePhase::Error { .. } => VoiceVisual::Error,
         }
     }
@@ -283,8 +288,8 @@ mod tests {
     ///   Transcribing     → 期望 Processing（finish_recording 后进入）
     ///   Planning         → 期望 Processing
     ///   Confirming       → 期望 Processing（待确认仍属处理中，不是 Error）
-    ///   Executed         → 期望 Success
-    ///   TranscriptOnly   → 期望 Success（仅转写完成也是成功收尾）
+    ///   Executed         → 期望 Idle（成功执行静默回 idle，不显示成功反馈）
+    ///   TranscriptOnly   → 期望 Success（planner 拒绝/无命令，保留反馈）
     ///   Error            → 期望 Error
     ///
     /// 执行过程（逐步说明系统如何处理）：
@@ -294,7 +299,8 @@ mod tests {
     ///
     /// 预期结果：
     ///   - 正断言：每个 phase 的视觉分类与上表一致
-    ///   - 负断言：Confirming 不应被误判为 Error，TranscriptOnly 不应被误判为 Processing
+    ///   - 负断言：Confirming 不应被误判为 Error；Executed 不应显示 Success 反馈，
+    ///     而是静默回 Idle；TranscriptOnly 不应被误判为 Processing。
     #[test]
     fn test_visual_maps_every_phase_correctly() {
         let cases = [
@@ -319,11 +325,12 @@ mod tests {
                 },
                 VoiceVisual::Processing,
             ),
+            // 成功执行：静默回 Idle，不显示专门的"成功"反馈。
             (
                 VoicePhase::Executed {
                     message: "done".into(),
                 },
-                VoiceVisual::Success,
+                VoiceVisual::Idle,
             ),
             (
                 VoicePhase::TranscriptOnly {
