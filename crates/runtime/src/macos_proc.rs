@@ -38,7 +38,7 @@ pub(crate) fn process_cwd(pid: u32) -> Option<String> {
         return None;
     }
 
-    // cwd path immediately follows the 160-byte vnode_info header of pvi_cdir
+    // cwd path immediately follows the 152-byte vnode_info header of pvi_cdir
     let path_bytes = &buf[VNODE_INFO_SIZE..VNODE_INFO_SIZE + MAXPATHLEN];
     // SAFETY: path_bytes is NUL-terminated (the buffer was zero-initialized and
     // proc_pidinfo writes a NUL-terminated C string into vip_path).
