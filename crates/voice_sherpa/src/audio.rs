@@ -2,8 +2,8 @@ use crate::SpeechError;
 use crossbeam_channel::Sender;
 
 const INPUT_BUS: usize = 0;
-const TAP_BUFFER_SIZE: u32 = 1_600; // 100ms at 16kHz
-const SAMPLE_RATE: f64 = 16_000.0;
+const TAP_BUFFER_SIZE: u32 = 1_600; // requested tap size in frames (hint; HW may differ)
+const SAMPLE_RATE: f64 = 16_000.0; // sherpa Paraformer target rate
 
 pub(crate) struct AudioCapture {
     #[cfg(target_os = "macos")]
@@ -36,11 +36,11 @@ impl AudioCapture {
 #[cfg(target_os = "macos")]
 mod macos {
     use super::*;
+    use crate::resample::LinearResampler;
     use block2::RcBlock;
-    use objc2::{rc::Retained, AnyThread};
-    use objc2_avf_audio::{
-        AVAudioEngine, AVAudioFormat, AVAudioInputNode, AVAudioPCMBuffer, AVAudioTime,
-    };
+    use objc2::rc::Retained;
+    use objc2_avf_audio::{AVAudioEngine, AVAudioInputNode, AVAudioPCMBuffer, AVAudioTime};
+    use std::cell::RefCell;
     use std::ptr::NonNull;
 
     type TapBlock = RcBlock<dyn Fn(NonNull<AVAudioPCMBuffer>, NonNull<AVAudioTime>)>;
@@ -57,16 +57,19 @@ mod macos {
             let engine = unsafe { AVAudioEngine::new() };
             let input_node = unsafe { engine.inputNode() };
 
-            // Request 16kHz mono f32 so AVAudioEngine resamples from hardware rate.
-            let format = unsafe {
-                AVAudioFormat::initStandardFormatWithSampleRate_channels(
-                    AVAudioFormat::alloc(),
-                    SAMPLE_RATE,
-                    1,
-                )
+            // AVAudioEngine will NOT resample on an inputNode tap: the tap format
+            // must equal the hardware output format, otherwise it throws
+            // "Input HW format and tap format not matching". Tap at the native
+            // rate and downsample to 16kHz mono in the callback instead.
+            let hw_format = unsafe { input_node.outputFormatForBus(INPUT_BUS) };
+            let hw_sample_rate = unsafe { hw_format.sampleRate() };
+            if hw_sample_rate <= 0.0 {
+                return Err(SpeechError::Audio(
+                    "microphone reported an invalid hardware sample rate".to_string(),
+                ));
             }
-            .ok_or_else(|| SpeechError::Audio("could not create 16kHz audio format".to_string()))?;
 
+            let resampler = RefCell::new(LinearResampler::new(hw_sample_rate, SAMPLE_RATE));
             let tap_block = RcBlock::new(
                 move |buffer: NonNull<AVAudioPCMBuffer>, _: NonNull<AVAudioTime>| {
                     let buf = unsafe { buffer.as_ref() };
@@ -74,7 +77,7 @@ mod macos {
                     if frame_count == 0 {
                         return;
                     }
-                    // Extract f32 samples from float channel data pointer.
+                    // Extract channel 0 f32 samples at the hardware rate.
                     let samples: Vec<f32> = unsafe {
                         let channels = buf.floatChannelData();
                         if channels.is_null() {
@@ -84,8 +87,12 @@ mod macos {
                         let channel_ptr = (*channels).as_ptr();
                         std::slice::from_raw_parts(channel_ptr, frame_count).to_vec()
                     };
+                    let resampled = resampler.borrow_mut().process(&samples);
+                    if resampled.is_empty() {
+                        return;
+                    }
                     // Use try_send to avoid blocking the real-time audio thread.
-                    let _ = sender.try_send(samples);
+                    let _ = sender.try_send(resampled);
                 },
             );
 
@@ -93,7 +100,7 @@ mod macos {
                 input_node.installTapOnBus_bufferSize_format_block(
                     INPUT_BUS,
                     TAP_BUFFER_SIZE,
-                    Some(&format),
+                    Some(&hw_format),
                     RcBlock::as_ptr(&tap_block),
                 );
                 engine.prepare();

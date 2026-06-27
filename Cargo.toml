@@ -26,6 +26,7 @@ gpui = "=0.2.2"
 portable-pty = "0.9"
 alacritty_terminal = "=0.26"
 crossbeam-channel = "0.5"
+async-channel = "2"
 # 通用
 anyhow = "1"
 thiserror = "2"

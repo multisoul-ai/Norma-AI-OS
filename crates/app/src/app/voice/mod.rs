@@ -61,7 +61,9 @@ impl MultisoulApp {
                             match SherpaProvider::from_env_or_default()
                                 .and_then(|p| p.start_recording())
                             {
-                                Ok(session) => app.voice.set_speech_session(session),
+                                Ok((session, partials_rx)) => {
+                                    app.voice.set_speech_session(session, partials_rx);
+                                }
                                 Err(error) => {
                                     app.voice
                                         .set_error(format!("Speech recognition failed: {error}"));
@@ -146,8 +148,13 @@ impl MultisoulApp {
             return;
         };
         // Drain any partials already queued before key-up.
-        while let Ok(text) = session.partials.try_recv() {
-            self.voice.partial_text = text;
+        // TODO(task-2): replace with event-driven GPUI async task so partials
+        // display in real time during recording, not just at key-up.
+        while let Some(rx) = &self.voice.partials_rx {
+            match rx.try_recv() {
+                Ok(text) => self.voice.partial_text = text,
+                Err(_) => break,
+            }
         }
         cx.notify();
         // finish() blocks (recognizer thread join); run in spawn_in to match existing pattern.

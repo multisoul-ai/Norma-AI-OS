@@ -3,6 +3,7 @@ pub mod session_state;
 
 mod audio;
 mod model;
+mod resample;
 mod session;
 
 #[cfg(test)]
@@ -49,8 +50,6 @@ pub struct SherpaProvider {
 }
 
 pub struct SpeechSession {
-    /// Receive live partial transcription text (may arrive multiple times per second).
-    pub partials: std::sync::mpsc::Receiver<String>,
     inner: InnerSession,
 }
 
@@ -69,7 +68,9 @@ impl SherpaProvider {
         Self::new(&dir)
     }
 
-    pub fn start_recording(&self) -> Result<SpeechSession, SpeechError> {
+    pub fn start_recording(
+        &self,
+    ) -> Result<(SpeechSession, async_channel::Receiver<String>), SpeechError> {
         session::start(self.model_dir.clone())
     }
 }

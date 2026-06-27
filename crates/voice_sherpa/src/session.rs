@@ -67,7 +67,9 @@ impl Drop for InnerSession {
     }
 }
 
-pub(crate) fn start(model_dir: PathBuf) -> Result<crate::SpeechSession, SpeechError> {
+pub(crate) fn start(
+    model_dir: PathBuf,
+) -> Result<(crate::SpeechSession, async_channel::Receiver<String>), SpeechError> {
     ensure_microphone_authorized()?;
 
     let mut state = SessionState::default();
@@ -77,7 +79,9 @@ pub(crate) fn start(model_dir: PathBuf) -> Result<crate::SpeechSession, SpeechEr
     // PCM channel: audio tap → recognizer thread.
     let (pcm_tx, pcm_rx) = unbounded::<Vec<f32>>();
     // Partials channel: recognizer thread → caller.
-    let (partial_tx, partial_rx) = std::sync::mpsc::channel::<String>();
+    // bounded(64): sherpa emits ~10 partials/s; 64 slots is more than enough.
+    // When the channel is closed, recv().await returns Err — safe for GPUI tasks.
+    let (partial_tx, partial_rx) = async_channel::bounded::<String>(64);
     // Stop signal: session::finish/cancel → recognizer thread.
     let (stop_tx, stop_rx) = unbounded::<()>();
 
@@ -90,15 +94,17 @@ pub(crate) fn start(model_dir: PathBuf) -> Result<crate::SpeechSession, SpeechEr
 
     let audio = AudioCapture::start(pcm_tx)?;
 
-    Ok(crate::SpeechSession {
-        partials: partial_rx,
-        inner: InnerSession {
-            audio: Some(audio),
-            state,
-            thread_handle: Some(thread_handle),
-            stop_tx,
+    Ok((
+        crate::SpeechSession {
+            inner: InnerSession {
+                audio: Some(audio),
+                state,
+                thread_handle: Some(thread_handle),
+                stop_tx,
+            },
         },
-    })
+        partial_rx,
+    ))
 }
 
 fn build_recognizer_config(
@@ -148,7 +154,7 @@ fn recognizer_loop(
     config: sherpa_onnx::OnlineRecognizerConfig,
     pcm_rx: crossbeam_channel::Receiver<Vec<f32>>,
     stop_rx: crossbeam_channel::Receiver<()>,
-    partial_tx: std::sync::mpsc::Sender<String>,
+    partial_tx: async_channel::Sender<String>,
 ) -> String {
     let recognizer = match sherpa_onnx::OnlineRecognizer::create(&config) {
         Some(r) => r,
@@ -182,7 +188,7 @@ fn recognizer_loop(
                 let text = result.text.trim().to_string();
                 if !text.is_empty() && text != last_text {
                     last_text = text.clone();
-                    let _ = partial_tx.send(text);
+                    let _ = partial_tx.try_send(text);
                 }
             }
         } else {
@@ -204,7 +210,7 @@ fn recognizer_loop(
         .map(|r| r.text.trim().to_string())
         .unwrap_or_default();
     if !final_text.is_empty() {
-        let _ = partial_tx.send(final_text.clone());
+        let _ = partial_tx.try_send(final_text.clone());
     }
 
     final_text
