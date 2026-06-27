@@ -21,7 +21,6 @@ use crate::cards::chrome::{
 use crate::cards::term::selection::terminal_point_for_local_position;
 use crate::cards::term::view::terminal_render_metrics;
 use crate::cards::{card_for, CardBodyContext};
-use crate::motion::breathing::BreathingIntent;
 use canvas::{hit_test, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{
     div, prelude::*, px, rgba, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
