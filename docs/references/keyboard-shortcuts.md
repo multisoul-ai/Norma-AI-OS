@@ -2,7 +2,7 @@
 
 本文汇总 Multisoul Desktop 当前可配置快捷键与键盘/指针交互契约。macOS 上 `Cmd` 对应 GPUI 的 `platform` 修饰键（⌘）。
 
-最后对照源码：`crates/app/src/shortcuts.rs`、`crates/app/src/app/keyboard.rs`、`crates/app/src/settings/keyboard.rs`、`crates/app/src/canvas/view.rs`（2026-06-27）。
+最后对照源码：`crates/app/src/shortcuts.rs`、`crates/app/src/app/keyboard.rs`、`crates/app/src/settings/keyboard.rs`、`crates/app/src/canvas/view.rs`、`crates/app/src/app/new_menu.rs`（2026-06-28）。
 
 ## 1. 注册机制
 
@@ -88,8 +88,14 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 
 | 菜单项 | Action | 处理器 | 等效入口 |
 | --- | --- | --- | --- |
-| New Claude Agent | `NewClaudeAgent` | `on_new_claude_agent` | 顶部工具栏「Claude Code」 |
-| New Codex Agent | `NewCodexAgent` | `on_new_codex_agent` | 顶部工具栏「Codex」 |
+| New Claude Agent | `NewClaudeAgent` | `on_new_claude_agent` | 顶部工具栏 ✚ 菜单 → Claude |
+| New Codex Agent | `NewCodexAgent` | `on_new_codex_agent` | 顶部工具栏 ✚ 菜单 → Codex |
+
+顶部工具栏的 ✚（Plus）按钮不再是直接的新建终端入口，而是展开一个浮层菜单（Terminal / Claude / Codex / Preview）。菜单展开后：
+
+- ✚ 按钮高亮（accent 橙填充），再次点击收起。
+- 选择任一项执行对应动作（Terminal → `on_new_terminal`、Claude → `spawn_agent_card(Claude)`、Codex → `spawn_agent_card(Codex)`、Preview → `on_open_preview_file`）并自动收起菜单。
+- 裸 `Esc` 优先收起菜单（不退焦、不传 PTY）。画布任意鼠标按下也会收起菜单。判定函数：`should_close_new_menu_on_escape`（`keyboard.rs`）。
 
 ## 4. 键事件路由（非 Action）
 

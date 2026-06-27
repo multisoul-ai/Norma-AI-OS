@@ -391,6 +391,8 @@ WorkspaceOverlay / GlassEffectContainer
 - 工具按钮必须有 `.help(...)` 和 `accessibilityLabel(...)`。
 - 布局模式使用 segmented control，不使用一排普通按钮。
 
+> GPUI 落地注记（2026-06-28）：`crates/app/src/app/chrome.rs` 的顶栏已按本节落地为分组图标胶囊——4 组图标按钮（模式 / 新建 / Agent / 配置）以 1px 竖向分隔线分组，全部使用 `crates/ui/src/icons.rs` 的 `ToolbarIcon` SVG 图标集（嵌入于 `crates/app/assets/icons/toolbar-*.svg`），icon-only 按钮通过 GPUI `.tooltip()` 提供帮助文字，hover/active 提供玻璃反馈。创建动作收敛进 ✚ 浮层菜单（`crates/app/src/app/new_menu.rs`），不再以一排文字按钮平铺。「CANVAS」装饰文案已移除。SwiftUI 端（`apple/`）仍以本节原始规范为准。
+
 ### 8.3 GlassIconButton
 
 使用现有 `GlassIconButton`，不要新建风格相近的按钮。

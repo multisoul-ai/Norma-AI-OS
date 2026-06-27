@@ -33,6 +33,7 @@ mod ime;
 mod ime_geometry;
 mod keyboard;
 mod lifecycle;
+mod new_menu;
 mod voice;
 mod wallpaper;
 
@@ -394,15 +395,6 @@ impl MultisoulApp {
         }
     }
 
-    fn on_toolbar_new_terminal(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.on_new_terminal(&NewTerminal, window, cx);
-    }
-
     fn on_toolbar_new_claude_agent(
         &mut self,
         _: &ClickEvent,
@@ -419,15 +411,6 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.spawn_agent_card(AgentProfile::Codex, window, cx);
-    }
-
-    fn on_toolbar_preview_file(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.on_open_preview_file(&OpenPreviewFile, window, cx);
     }
 
     fn on_toolbar_canvas_scroll(

@@ -66,46 +66,51 @@ fn test_bottom_voice_bar_is_visible_with_sherpa_provider() {
     );
 }
 
-/// 顶部 agent 菜单：截图中的旧缩写按钮应替换为完整名称，并移除末尾两个占位按钮。
+/// 顶部 agent 菜单（第三步重设计后）：旧文本标签已被图标按钮取代，不得回退。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = include_str!("../../src/app/chrome.rs")（检查当前 chrome 渲染源码）
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
-///   expected_1 = "Claude" + " Code"（CL 应展开为完整产品名）
-///   expected_2 = "Co" + "dex"（CX 应展开为完整产品名）
+///   new claude form = "ToolbarIcon::Claude"（图标按钮变体）
+///   new codex form  = "ToolbarIcon::Codex"（图标按钮变体）
 ///   forbidden_1 = "\"C" + "L\""（截图里的旧 Claude 缩写 literal）
 ///   forbidden_2 = "\"C" + "X\""（截图里的旧 Codex 缩写 literal）
-///   forbidden_3 = "toolbar" + "-reflow"（截图里 CX 后面的 [] 按钮 id）
-///   forbidden_4 = "chrome_button(theme, \"*\", false)"（截图里最后一个星号占位按钮）
+///   forbidden_3 = "chrome_button(theme, \"Claude" + " Code\""（第三步前的文本按钮调用，现已被图标取代）
+///   forbidden_4 = "chrome_button(theme, \"Co" + "dex\""（第三步前的文本按钮调用，现已被图标取代）
+///   forbidden_5 = "toolbar" + "-reflow"（截图里 CX 后面的 [] 按钮 id）
+///   forbidden_6 = "chrome_button(theme, \"" + "*\", false)"（截图里最后一个星号占位按钮）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 app_chrome.rs 的生产渲染源码
-///   2. 确认 agent 按钮包含新的完整文案
-///   3. 搜索旧缩写 literal 与截图里的两个末尾无用按钮
+///   2. 确认 agent 入口用 ToolbarIcon 变体挂载，而非旧文本标签
+///   3. 搜索旧缩写 literal、旧完整文本标签与截图里的两个末尾无用按钮
 ///
 /// 预期结果：
-///   - 正断言：Claude agent 顶部按钮显示为 Claude Code
-///   - 正断言：Codex agent 顶部按钮显示为 Codex
+///   - 正断言：Claude agent 入口以 ToolbarIcon::Claude 形式存在
+///   - 正断言：Codex agent 入口以 ToolbarIcon::Codex 形式存在
 ///   - 负断言：CL/CX 旧缩写不应继续出现在生产渲染源码中
+///   - 负断言：旧完整文本标签 "Claude Code" / "Codex" 不应继续作为 chrome_button 文案
 ///   - 负断言：[] reflow 按钮和 * 占位按钮不应继续挂载
 #[test]
-fn test_top_toolbar_agent_labels_are_expanded_and_trailing_buttons_removed() {
+fn test_top_toolbar_agent_entries_use_icon_variants_not_text_labels() {
     let source = include_str!("../../src/app/chrome.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
-    let claude_label = format!("{}{}", "Claude", " Code");
-    let codex_label = format!("{}{}", "Co", "dex");
+    let claude_icon_variant = "ToolbarIcon::Claude";
+    let codex_icon_variant = "ToolbarIcon::Codex";
     let legacy_claude_literal = format!("\"{}{}\"", "C", "L");
     let legacy_codex_literal = format!("\"{}{}\"", "C", "X");
+    let legacy_claude_label = format!("{}{}", "chrome_button(theme, \"Claude", " Code\"");
+    let legacy_codex_label = format!("{}{}", "chrome_button(theme, \"Co", "dex\"");
     let trailing_reflow_id = format!("{}{}", "toolbar", "-reflow");
     let trailing_star_button = format!("{}{}", "chrome_button(theme, \"", "*\", false)");
 
     assert!(
-        render_source.contains(&claude_label),
-        "顶部 Claude agent 按钮应显示 Claude Code，不能继续只显示 CL"
+        render_source.contains(claude_icon_variant),
+        "顶部 Claude agent 入口应由 chrome_icon_button + ToolbarIcon::Claude 渲染"
     );
     assert!(
-        render_source.contains(&codex_label),
-        "顶部 Codex agent 按钮应显示 Codex，不能继续只显示 CX"
+        render_source.contains(codex_icon_variant),
+        "顶部 Codex agent 入口应由 chrome_icon_button + ToolbarIcon::Codex 渲染"
     );
     assert!(
         !render_source.contains(&legacy_claude_literal),
@@ -114,6 +119,14 @@ fn test_top_toolbar_agent_labels_are_expanded_and_trailing_buttons_removed() {
     assert!(
         !render_source.contains(&legacy_codex_literal),
         "顶部 Codex agent 按钮不应继续渲染 CX 缩写 literal"
+    );
+    assert!(
+        !render_source.contains(&legacy_claude_label),
+        "第三步重设计后顶部不应继续以 chrome_button(theme, \"Claude Code\", ...) 文本标签形式挂载"
+    );
+    assert!(
+        !render_source.contains(&legacy_codex_label),
+        "第三步重设计后顶部不应继续以 chrome_button(theme, \"Codex\", ...) 文本标签形式挂载"
     );
     assert!(
         !render_source.contains(&trailing_reflow_id),
@@ -170,104 +183,117 @@ fn test_workspace_chrome_omits_feedback_entry() {
     );
 }
 
-/// 顶部设置入口：Canvas 顶部菜单应挂载齿轮设置按钮，且不移除现有建卡入口。
+/// 顶部设置入口（第三步重设计后）：齿轮由 SVG 图标 ToolbarIcon::Settings 渲染，旧 ⚙ glyph 不再使用。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = include_str!("../../src/app/chrome.rs")（检查当前 chrome 渲染源码）
+///   source = include_str!("../../src/app/chrome.rs")（检查 chrome 渲染源码）
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
-///   expected id = "toolbar" + "-settings"
-///   expected icon = "⚙"（用户要求使用设置按钮 icon）
-///   existing ids/text = toolbar-new-terminal、Claude Code、Codex
+///   expected id        = "toolbar" + "-settings"
+///   expected icon form = "ToolbarIcon::Settings"（SVG 图标变体）
+///   existing icons     = ToolbarIcon::Plus、ToolbarIcon::Claude、ToolbarIcon::Codex
+///   forbidden glyph    = "\"⚙\""（第三步前使用的 Unicode 字符）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 app_chrome.rs 的生产渲染源码
-///   2. 确认 toolbar-settings 与齿轮 icon 出现在顶部工具栏
-///   3. 确认现有新终端、Claude Code、Codex 入口仍存在
+///   2. 确认 toolbar-settings 与 ToolbarIcon::Settings 出现在顶部工具栏
+///   3. 确认其它入口（新终端、Claude、Codex）仍以图标形式存在
+///   4. 搜索旧 ⚙ glyph literal，确认已被移除
 ///
 /// 预期结果：
-///   - 正断言：设置按钮 id 与齿轮 icon 存在
-///   - 正断言：现有三个入口仍存在
-///   - 负断言：设置入口不应缺失，否则用户无法打开设置弹窗
+///   - 正断言：设置按钮 id 与 Settings 图标变体同时存在
+///   - 正断言：现有三个入口的图标变体仍存在
+///   - 负断言：旧 ⚙ glyph literal 不应继续出现
 #[test]
 fn test_top_toolbar_includes_settings_icon_entry() {
     let source = include_str!("../../src/app/chrome.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
-    let settings_id = format!("{}{}", "toolbar", "-settings");
-    let settings_icon = "⚙";
-    let terminal_id = concat!("toolbar", "-new-terminal");
-    let claude_label = format!("{}{}", "Claude", " Code");
-    let codex_label = format!("{}{}", "Co", "dex");
+    let settings_id = concat!("toolbar", "-settings");
+    let settings_icon_variant = "ToolbarIcon::Settings";
+    let plus_icon_variant = "ToolbarIcon::Plus";
+    let claude_icon_variant = "ToolbarIcon::Claude";
+    let codex_icon_variant = "ToolbarIcon::Codex";
+    let legacy_settings_glyph = "\"⚙\"";
 
     assert!(
-        render_source.contains(&settings_id),
+        render_source.contains(settings_id),
         "顶部菜单应包含 toolbar-settings 设置按钮 id"
     );
     assert!(
-        render_source.contains(settings_icon),
-        "顶部菜单设置按钮应使用齿轮 icon"
+        render_source.contains(settings_icon_variant),
+        "顶部菜单设置按钮应使用 ToolbarIcon::Settings 图标变体"
     );
     assert!(
-        render_source.contains(terminal_id),
-        "新增设置入口不应移除顶部新终端按钮"
+        render_source.contains(plus_icon_variant),
+        "新增设置入口不应移除顶部新终端按钮（ToolbarIcon::Plus）"
     );
     assert!(
-        render_source.contains(&claude_label),
-        "新增设置入口不应移除 Claude Code 按钮"
+        render_source.contains(claude_icon_variant),
+        "新增设置入口不应移除 Claude 图标按钮"
     );
     assert!(
-        render_source.contains(&codex_label),
-        "新增设置入口不应移除 Codex 按钮"
+        render_source.contains(codex_icon_variant),
+        "新增设置入口不应移除 Codex 图标按钮"
     );
     assert!(
-        render_source.contains(&settings_id) && render_source.contains(settings_icon),
-        "设置入口必须同时具备可定位 id 与可见齿轮 icon"
+        !render_source.contains(legacy_settings_glyph),
+        "第三步重设计后顶部不应继续使用 ⚙ Unicode glyph literal"
+    );
+    assert!(
+        render_source.contains(settings_id) && render_source.contains(settings_icon_variant),
+        "设置入口必须同时具备可定位 id 与 Settings 图标变体"
     );
 }
 
-/// 顶部画布滚动入口：Canvas 顶部菜单应挂载箭头 toggle，并保留现有建卡与设置入口。
+/// 顶部画布滚动入口（第三步重设计后）：滚动开关由 ToolbarIcon::Scroll 图标渲染，旧 ↕ glyph 不再使用。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = include_str!("../../src/app/chrome.rs")（检查当前 chrome 渲染源码）
+///   source = include_str!("../../src/app/chrome.rs")（检查 chrome 渲染源码）
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
-///   expected id = "toolbar" + "-canvas-scroll"
-///   expected icon = "↕"（箭头表示画布可滚动）
-///   expected handler = "on_" + "toolbar" + "_canvas_scroll"
-///   existing ids/text = toolbar-new-terminal、toolbar-settings、Preview
+///   expected id        = "toolbar" + "-canvas-scroll"
+///   expected icon form = "ToolbarIcon::Scroll"（第三步起的 SVG 图标变体）
+///   expected handler   = "on_" + "toolbar" + "_canvas_scroll"
+///   existing ids       = toolbar-new-terminal、toolbar-settings
+///   forbidden glyph    = "\"↕\""（第三步前的 Unicode 箭头 glyph）
+///   forbidden button   = "chrome_button(theme, \"v\", false)"（更早的静态占位按钮）
+///   forbidden const    = "TOOLBAR_CANVAS_SCROLL_ICON"（第三步删除的常量）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 app_chrome.rs 的生产渲染源码
-///   2. 确认画布滚动按钮 id、箭头 icon、点击 handler 都存在
-///   3. 确认现有新终端、Preview、设置入口仍存在
+///   2. 确认画布滚动按钮 id、Scroll 图标变体、点击 handler 都存在
+///   3. 确认现有新终端、设置入口仍存在
+///   4. 搜索旧 ↕ glyph literal、旧静态 v 占位按钮、已删除的 TOOLBAR_CANVAS_SCROLL_ICON 常量
 ///
 /// 预期结果：
-///   - 正断言：顶部菜单存在 toolbar-canvas-scroll、箭头 icon、toggle handler
-///   - 正断言：现有入口仍存在
-///   - 负断言：旧的无 id 箭头占位按钮不应继续使用固定 false 状态
+///   - 正断言：顶部菜单存在 toolbar-canvas-scroll、Scroll 图标变体、toggle handler
+///   - 正断言：现有新终端与设置入口仍存在
+///   - 负断言：旧 ↕ glyph literal、旧静态 v 占位按钮、TOOLBAR_CANVAS_SCROLL_ICON 常量不应继续存在
 #[test]
-fn test_top_toolbar_includes_canvas_scroll_arrow_toggle() {
+fn test_top_toolbar_includes_canvas_scroll_icon_toggle() {
     let source = include_str!("../../src/app/chrome.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
-    let scroll_id = format!("{}{}", "toolbar", "-canvas-scroll");
+    let scroll_id = concat!("toolbar", "-canvas-scroll");
     let scroll_handler = format!("{}{}{}", "on_", "toolbar", "_canvas_scroll");
-    let terminal_id = concat!("toolbar", "-new-terminal");
+    let scroll_icon_variant = "ToolbarIcon::Scroll";
+    let terminal_icon_variant = "ToolbarIcon::Plus";
     let settings_id = concat!("toolbar", "-settings");
-    let preview_label = "Preview";
+    let legacy_arrow_glyph = "\"↕\"";
     let legacy_static_button = "chrome_button(theme, \"v\", false)";
+    let legacy_scroll_const = "TOOLBAR_CANVAS_SCROLL_ICON";
 
     assert!(
-        render_source.contains(&scroll_id),
+        render_source.contains(scroll_id),
         "顶部菜单应包含 toolbar-canvas-scroll 画布滚动 toggle"
     );
     assert!(
-        render_source.contains(TOOLBAR_CANVAS_SCROLL_ICON),
-        "画布滚动 toggle 应使用箭头 icon 表示可滚动"
+        render_source.contains(scroll_icon_variant),
+        "画布滚动 toggle 应使用 ToolbarIcon::Scroll 图标变体表示可滚动"
     );
     assert!(
         render_source.contains(&scroll_handler),
         "画布滚动 toggle 应绑定 on_toolbar_canvas_scroll 点击 handler"
     );
     assert!(
-        render_source.contains(terminal_id),
+        render_source.contains(terminal_icon_variant),
         "新增画布滚动 toggle 不应移除顶部新终端按钮"
     );
     assert!(
@@ -275,11 +301,110 @@ fn test_top_toolbar_includes_canvas_scroll_arrow_toggle() {
         "新增画布滚动 toggle 不应移除顶部设置按钮"
     );
     assert!(
-        render_source.contains(preview_label),
-        "新增画布滚动 toggle 不应移除顶部 Preview 按钮"
+        !render_source.contains(legacy_arrow_glyph),
+        "第三步重设计后顶部不应继续使用 ↕ Unicode glyph literal"
     );
     assert!(
         !render_source.contains(legacy_static_button),
         "旧的静态 v 占位按钮不应继续存在，否则无法反映画布滚动开关状态"
+    );
+    assert!(
+        !render_source.contains(legacy_scroll_const),
+        "第三步删除的 TOOLBAR_CANVAS_SCROLL_ICON 常量不应再出现"
+    );
+}
+
+/// 顶部工具栏整体形态（第三步重设计后）：4 个图标按钮 + 3 分隔符的分组 pill，
+/// 不再渲染 CANVAS 占位文字，且顶部工具栏区段内不再混用旧文本 chrome_button。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source = include_str!("../../src/app/chrome.rs")
+///   render_source = source 中 #[cfg(test)] 前的生产渲染区
+///   top_toolbar_start = render_source 中首个 ".top(px(30.0))" 的下标（顶部工具栏锚点）
+///   top_toolbar_end   = render_source 中 ".when(workspace_left_rail_visible()" 的下标（左侧菜单分支起点）
+///   top_toolbar       = render_source[top_toolbar_start..top_toolbar_end]（仅顶部工具栏区段）
+///   分隔符调用次数    = top_toolbar 中 "chrome_divider(" 出现次数 = 3（Scroll|Plus|Claude·Codex|Settings）
+///   图标按钮调用次数  = top_toolbar 中 "chrome_icon_button(" 出现次数 = 5（Scroll/Plus/Claude/Codex/Settings）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 截取顶部工具栏区段（排除左侧菜单分支与函数定义，避免误命中）
+///   2. 确认 render_source 含 chrome_icon_button 定义与 ToolbarIcon:: 使用
+///   3. 确认顶部区段含 4 个 chrome_icon_button 调用、3 个 chrome_divider 调用
+///   4. 确认 render_source 不再含 "CANVAS" 字面量
+///   5. 确认顶部区段不再含旧文本 chrome_button( 调用、旧文本标签与旧 glyph
+///
+/// 预期结果：
+///   - 正断言：render_source 含 chrome_icon_button( 与 ToolbarIcon::
+///   - 正断言：顶部区段含 4 个 chrome_icon_button 调用、3 个 chrome_divider 分隔符
+///   - 负断言：render_source 不含 "CANVAS" 字面量
+///   - 负断言：顶部区段不含 chrome_button( 调用（左侧菜单仍可用 chrome_button，故只截顶部区段）
+///   - 负断言：顶部区段不含旧文本标签 (+/Claude Code/Codex/Preview) 与旧 glyph (⚙/↕)
+#[test]
+fn test_top_toolbar_uses_icon_buttons_and_drops_canvas_literal() {
+    let source = include_str!("../../src/app/chrome.rs");
+    let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
+
+    let top_toolbar_start = render_source
+        .find(".top(px(30.0))")
+        .expect("顶部工具栏应以 .top(px(30.0)) 锚点起始");
+    let top_toolbar_end = render_source
+        .find(".when(workspace_left_rail_visible()")
+        .expect("左侧菜单分支应作为顶部工具栏区段的右界");
+    let top_toolbar = &render_source[top_toolbar_start..top_toolbar_end];
+
+    let icon_button_calls = top_toolbar.matches("chrome_icon_button(").count();
+    let divider_calls = top_toolbar.matches("chrome_divider(").count();
+
+    assert!(
+        render_source.contains("chrome_icon_button("),
+        "顶部工具栏应通过 chrome_icon_button 渲染图标按钮"
+    );
+    assert!(
+        render_source.contains("ToolbarIcon::"),
+        "顶部工具栏应使用 ToolbarIcon 枚举变体指定图标"
+    );
+    assert_eq!(
+        icon_button_calls,
+        5,
+        "顶部工具栏应恰好含 5 个 chrome_icon_button 调用 (Scroll/Plus/Claude/Codex/Settings)，实际 {}",
+        icon_button_calls
+    );
+    assert_eq!(
+        divider_calls,
+        3,
+        "顶部工具栏应恰好含 3 个 chrome_divider 分隔符 (Scroll|Plus|Claude·Codex|Settings)，实际 {}",
+        divider_calls
+    );
+    assert!(
+        !render_source.contains("\"CANVAS\""),
+        "第三步重设计后顶部不应继续渲染 \"CANVAS\" 占位文字"
+    );
+    assert!(
+        !top_toolbar.contains("chrome_button("),
+        "顶部工具栏区段不应继续混用旧文本 chrome_button（左侧菜单仍可使用，但顶部应全部图标化）"
+    );
+    assert!(
+        !top_toolbar.contains("\"+\""),
+        "顶部工具栏不应继续以 \"+\" 文本标签挂载新终端按钮"
+    );
+    assert!(
+        !top_toolbar.contains("chrome_button(theme, \"Claude Code\""),
+        "顶部工具栏不应继续以 chrome_button 文本标签形式挂载 Claude Code 按钮"
+    );
+    assert!(
+        !top_toolbar.contains("chrome_button(theme, \"Codex\""),
+        "顶部工具栏不应继续以 chrome_button 文本标签形式挂载 Codex 按钮（\"Codex\" 仅可作为 tooltip 文案）"
+    );
+    assert!(
+        !top_toolbar.contains("\"Preview\""),
+        "第三步将 Preview 移入 ✚ 菜单前，顶部工具栏不应继续渲染 Preview 按钮"
+    );
+    assert!(
+        !top_toolbar.contains("\"⚙\""),
+        "顶部工具栏不应继续使用 ⚙ glyph literal"
+    );
+    assert!(
+        !top_toolbar.contains("\"↕\""),
+        "顶部工具栏不应继续使用 ↕ glyph literal"
     );
 }
