@@ -7,8 +7,8 @@ use ui::Theme;
 
 use super::{Card, CardBodyContext};
 use crate::motion::breathing::{
-    CornerGlow, CORNER_GLOW_BOTTOM_LEFT, CORNER_GLOW_BOTTOM_RIGHT, CORNER_GLOW_TOP_LEFT,
-    CORNER_GLOW_TOP_RIGHT,
+    chase_corner_intensity, ChaseGlow, CornerGlow, CORNER_GLOW_BOTTOM_LEFT,
+    CORNER_GLOW_BOTTOM_RIGHT, CORNER_GLOW_TOP_LEFT, CORNER_GLOW_TOP_RIGHT,
 };
 use crate::motion::{ResolvedNodeVisual, VisualPriority};
 
@@ -87,6 +87,9 @@ pub fn node_shadow(
         if let Some(glow) = visual.corner_glow {
             push_corner_glow(&mut shadows, glow, zoom);
         }
+        if let Some(chase) = visual.chase_glow {
+            push_chase_glow(&mut shadows, chase, zoom);
+        }
     }
 
     shadows
@@ -116,6 +119,35 @@ fn with_glow_alpha(color: u32, intensity: f32) -> u32 {
     let intensity = intensity.clamp(0.0, 1.0);
     let base_alpha = (color & 0xff) as f32;
     with_alpha(color, (base_alpha * intensity).round() as u8)
+}
+
+/// 白色追尾光：四角按追尾相位计算强度，头部最亮、拖尾衰减。
+fn push_chase_glow(shadows: &mut Vec<BoxShadow>, chase: ChaseGlow, zoom: f32) {
+    const CHASE_BLUR_PX: f32 = 10.0;
+    const CHASE_MAX_ALPHA: f32 = 0xCC as f32;
+    let offset = CORNER_GLOW_OFFSET_PX * zoom;
+    let blur = px(CHASE_BLUR_PX * zoom);
+    let spread = px(CORNER_GLOW_SPREAD_PX * zoom);
+    // TL=0.0, TR=0.25, BR=0.5, BL=0.75（顺时针）
+    let corners: [(f32, f32, f32); 4] = [
+        (0.0, -offset, -offset),
+        (0.25, offset, -offset),
+        (0.5, offset, offset),
+        (0.75, -offset, offset),
+    ];
+    for (corner_phase, dx, dy) in corners {
+        let intensity = chase_corner_intensity(chase.phase, corner_phase) * chase.fade;
+        if intensity <= 0.001 {
+            continue;
+        }
+        let alpha = (CHASE_MAX_ALPHA * intensity).round() as u8;
+        shadows.push(BoxShadow {
+            color: rgba(0xffffff00 | u32::from(alpha)).into(),
+            offset: point(px(dx), px(dy)),
+            blur_radius: blur,
+            spread_radius: spread,
+        });
+    }
 }
 
 pub struct EmptyCard;
@@ -168,6 +200,7 @@ mod tests {
             border_is_emphasized: false,
             opacity: 1.0,
             corner_glow,
+            chase_glow: None,
         }
     }
 

@@ -291,3 +291,74 @@ fn test_resolve_corner_glow_gates_on_active_state_and_fade_value() {
         "fade_value=0.0（已淡出完毕）不应产生四角光晕"
     );
 }
+
+/// CC-1: chase_corner_intensity 在追尾头（behind=0）时强度最大，在尾端归零。
+///
+/// 数据构造：
+///   追尾头位于 TL（phase=0.0），各角 behind 距离：
+///     TL  = (0.0 - 0.0 + 1.0) % 1.0 = 0.0  → 最亮
+///     TR  = (0.0 - 0.25 + 1.0) % 1.0 = 0.75 → 超出 TAIL(0.35)，归零
+///     BR  = (0.0 - 0.5 + 1.0) % 1.0 = 0.5  → 超出 TAIL，归零
+///     BL  = (0.0 - 0.75 + 1.0) % 1.0 = 0.25 → 在 TAIL 内，有拖尾
+///
+/// 执行过程：调用 chase_corner_intensity(0.0, corner_phase)。
+///
+/// 预期结果：
+///   - TL 强度精确等于 1.0（behind=0, 1.0^1.5=1.0）
+///   - TR 强度为 0.0（behind=0.75 > TAIL=0.35）
+///   - BR 强度为 0.0（behind=0.5 > TAIL=0.35）
+///   - BL 强度 > 0 且 < 1（拖尾衰减中）
+///   - TL 强度 > BL 强度（头部比拖尾亮）
+#[test]
+fn test_chase_corner_intensity_head_is_brightest_tail_fades() {
+    let tl = chase_corner_intensity(0.0, 0.0);
+    let tr = chase_corner_intensity(0.0, 0.25);
+    let br = chase_corner_intensity(0.0, 0.5);
+    let bl = chase_corner_intensity(0.0, 0.75);
+
+    assert!(
+        (tl - 1.0).abs() < 1e-5,
+        "追尾头（behind=0）强度应精确为 1.0，实际 {tl}"
+    );
+    assert_eq!(tr, 0.0, "TR behind=0.75 超出拖尾长度，强度应为 0.0");
+    assert_eq!(br, 0.0, "BR behind=0.5 超出拖尾长度，强度应为 0.0");
+    assert!(
+        bl > 0.0 && bl < 1.0,
+        "BL behind=0.25 在拖尾内，强度应 (0,1)，实际 {bl}"
+    );
+    assert!(tl > bl, "头部强度应大于拖尾强度");
+}
+
+/// CC-2: chase_corner_intensity 在 phase=0.5 时形成对侧追尾，TL 不受影响。
+///
+/// 数据构造（含关键数值推导）：
+///   phase=0.5（追尾头在 BR），各角 behind：
+///     BR  = (0.5 - 0.5 + 1.0) % 1.0 = 0.0  → 最亮
+///     TL  = (0.5 - 0.0 + 1.0) % 1.0 = 0.5  → 超出 TAIL，归零
+///     TR  = (0.5 - 0.25 + 1.0) % 1.0 = 0.25 → 拖尾内，部分亮
+///     BL  = (0.5 - 0.75 + 1.0) % 1.0 = 0.75 → 超出 TAIL，归零
+///
+/// 执行过程：调用 chase_corner_intensity(0.5, corner_phase)。
+///
+/// 预期结果：
+///   - BR 强度 = 1.0
+///   - TL/BL 强度 = 0.0（头部已过去，不在拖尾内）
+///   - TR 强度在 (0, 1) 内
+#[test]
+fn test_chase_corner_intensity_phase_half_lights_bottom_right() {
+    let tl = chase_corner_intensity(0.5, 0.0);
+    let tr = chase_corner_intensity(0.5, 0.25);
+    let br = chase_corner_intensity(0.5, 0.5);
+    let bl = chase_corner_intensity(0.5, 0.75);
+
+    assert!(
+        (br - 1.0).abs() < 1e-5,
+        "phase=0.5 时 BR 追尾头应精确为 1.0，实际 {br}"
+    );
+    assert_eq!(tl, 0.0, "TL behind=0.5 超出拖尾长度，应为 0.0");
+    assert_eq!(bl, 0.0, "BL behind=0.75 超出拖尾长度，应为 0.0");
+    assert!(
+        tr > 0.0 && tr < 1.0,
+        "TR behind=0.25 应在拖尾衰减内，实际 {tr}"
+    );
+}

@@ -151,6 +151,27 @@ pub fn resolve_corner_glow(
     })
 }
 
+/// Chase 追尾光的渲染输出参数，传给 chrome 层使用。
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ChaseGlow {
+    /// 追尾头在边框周长上的位置，0..1 顺时针（TL=0, TR=0.25, BR=0.5, BL=0.75）
+    pub phase: f32,
+    /// 整体淡入淡出强度 0..1
+    pub fade: f32,
+}
+
+/// 给定当前追尾相位与某角的固定相位，返回该角的发光强度 0..1。
+/// 追尾头最亮（behind=0），向后拖尾衰减至 TAIL_LENGTH 处归零。
+pub fn chase_corner_intensity(chase_phase: f32, corner_phase: f32) -> f32 {
+    let behind = (chase_phase - corner_phase + 1.0).rem_euclid(1.0);
+    const TAIL_LENGTH: f32 = 0.35;
+    if behind < TAIL_LENGTH {
+        (1.0 - behind / TAIL_LENGTH).powf(1.5)
+    } else {
+        0.0
+    }
+}
+
 #[cfg(test)]
 #[path = "../../tests/unit/motion_breathing_tests.rs"]
 mod tests;

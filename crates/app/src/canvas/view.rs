@@ -14,7 +14,7 @@ use crate::canvas::scroll::{
     terminal_scroll_lines_from_pixel_delta, wheel_scroll_owner_for_point, WheelScrollOwner,
 };
 use crate::canvas::text_selection::TextPoint;
-use crate::cards::agent::card::agent_breathing_intent;
+use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
 use crate::cards::chrome::{
     node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
 };
@@ -299,12 +299,12 @@ pub fn render_canvas(
         let focused = matches!(focus_mode, InputMode::NodeFocused(fid) if fid == id);
         app.motion.ensure_node(id, canonical_rect);
         app.motion.set_selection_focus(id, selected, focused);
-        let breathing_intent = if node.kind.node_type() == NodeType::Agent {
-            agent_breathing_intent(app.runtime.agent_task_state(id))
-        } else {
-            BreathingIntent::Inactive
-        };
+        let is_agent = node.kind.node_type() == NodeType::Agent;
+        let agent_state = is_agent.then(|| app.runtime.agent_task_state(id)).flatten();
+        let breathing_intent = agent_breathing_intent(agent_state.clone());
         app.motion.set_breathing_intent(id, breathing_intent);
+        app.motion
+            .set_chase_intent(id, is_agent && agent_chase_intent(agent_state));
         if app
             .interaction
             .drag
