@@ -1,4 +1,4 @@
-use crate::app::MultisoulApp;
+use crate::app::{AppScreen, MultisoulApp, ToggleSettings};
 use gpui::{
     div, point, prelude::*, px, rgba, BoxShadow, ClickEvent, Context, Div, FontWeight, MouseButton,
     Window,
@@ -19,6 +19,7 @@ const SIDEBAR_W: f32 = 330.0;
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) enum SettingsSection {
     General,
+    Keyboard,
     Runtime,
     Voice,
     Agents,
@@ -30,6 +31,7 @@ impl SettingsSection {
     fn title(self) -> &'static str {
         match self {
             Self::General => "General",
+            Self::Keyboard => "Keyboard Shortcuts",
             Self::Runtime => "Runtime",
             Self::Voice => "Voice",
             Self::Agents => "Agents",
@@ -41,6 +43,7 @@ impl SettingsSection {
     fn icon(self) -> &'static str {
         match self {
             Self::General => "⚙",
+            Self::Keyboard => "⌘",
             Self::Runtime => ">_",
             Self::Voice => "V",
             Self::Agents => "A",
@@ -52,11 +55,12 @@ impl SettingsSection {
     fn index(self) -> usize {
         match self {
             Self::General => 0,
-            Self::Runtime => 1,
-            Self::Voice => 2,
-            Self::Agents => 3,
-            Self::Skills => 4,
-            Self::Hooks => 5,
+            Self::Keyboard => 1,
+            Self::Runtime => 2,
+            Self::Voice => 3,
+            Self::Agents => 4,
+            Self::Skills => 5,
+            Self::Hooks => 6,
         }
     }
 }
@@ -124,7 +128,33 @@ impl MultisoulApp {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.toggle_settings_panel(cx);
+    }
+
+    pub(crate) fn on_toggle_settings(
+        &mut self,
+        _: &ToggleSettings,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.toggle_settings_panel(cx);
+    }
+
+    pub(crate) fn toggle_settings_panel(&mut self, cx: &mut Context<Self>) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            return;
+        }
+        let was_open = self.settings_panel.open;
         self.settings_panel.toggle();
+        if was_open {
+            self.shortcuts.recording = None;
+        }
+        cx.notify();
+    }
+
+    pub(crate) fn close_settings_panel(&mut self, cx: &mut Context<Self>) {
+        self.settings_panel.close();
+        self.shortcuts.recording = None;
         cx.notify();
     }
 
@@ -186,6 +216,7 @@ impl MultisoulApp {
                         theme,
                         &self.settings_panel,
                         &self.voice_settings,
+                        &self.shortcuts,
                         cx,
                     )),
             )
@@ -221,7 +252,7 @@ impl MultisoulApp {
                 active == SettingsSection::General,
             ))
             .child(sidebar_child(theme, "Date & Time", false))
-            .child(sidebar_child(theme, "Keyboard Shortcuts", false))
+            .child(section_button(theme, SettingsSection::Keyboard, active, cx))
             .child(sidebar_gap())
             .child(section_button(theme, SettingsSection::Runtime, active, cx))
             .child(section_button(theme, SettingsSection::Voice, active, cx))

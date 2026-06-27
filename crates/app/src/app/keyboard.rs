@@ -7,6 +7,7 @@ use crate::app::{AppScreen, CopyCardContent, MultisoulApp};
 use crate::canvas::text_selection::TextSelection;
 use crate::cards::term::selection::terminal_selected_text;
 use crate::cards::term::view::keystroke_to_input;
+use crate::shortcuts::ShortcutCommandId;
 use canvas::{navigate_card, NavigationDirection, NodeId};
 use gpui::{
     ClipboardItem, Context, KeyDownEvent, KeyUpEvent, Keystroke, Modifiers, ModifiersChangedEvent,
@@ -152,7 +153,11 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.settings_panel.open && self.voice_settings.handle_key_down(&ev.keystroke) {
+        if self.settings_panel.open
+            && (self.voice_settings.handle_key_down(&ev.keystroke)
+                || (self.shortcuts.recording.is_some()
+                    && self.shortcuts.record_keystroke(&ev.keystroke)))
+        {
             cx.stop_propagation();
             cx.notify();
             return;
@@ -160,6 +165,12 @@ impl MultisoulApp {
 
         if is_voice_hold_shortcut(&ev.keystroke) {
             self.begin_voice_recording(VoiceTrigger::Shortcut, cx);
+            return;
+        }
+
+        if let Some(command) = self.shortcuts.command_for_keystroke(&ev.keystroke) {
+            self.dispatch_shortcut_command(command, window, cx);
+            cx.stop_propagation();
             return;
         }
 
@@ -264,6 +275,42 @@ impl MultisoulApp {
                 }
                 cx.notify();
             }
+        }
+    }
+
+    fn dispatch_shortcut_command(
+        &mut self,
+        command: ShortcutCommandId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match command {
+            ShortcutCommandId::NewTerminal => {
+                self.on_new_terminal(&crate::app::NewTerminal, window, cx)
+            }
+            ShortcutCommandId::CopyCardContent => {
+                self.on_copy_card_content(&crate::app::CopyCardContent, window, cx)
+            }
+            ShortcutCommandId::OpenProject => {
+                self.on_open_project(&crate::app::OpenProject, window, cx)
+            }
+            ShortcutCommandId::OpenPreviewFile => {
+                self.on_open_preview_file(&crate::app::OpenPreviewFile, window, cx)
+            }
+            ShortcutCommandId::NewClaudeAgent => {
+                self.on_new_claude_agent(&crate::app::NewClaudeAgent, window, cx)
+            }
+            ShortcutCommandId::NewCodexAgent => {
+                self.on_new_codex_agent(&crate::app::NewCodexAgent, window, cx)
+            }
+            ShortcutCommandId::ReflowLayout => {
+                self.on_reflow_layout(&crate::app::ReflowLayout, window, cx)
+            }
+            ShortcutCommandId::ToggleMasterLayout => {
+                self.on_toggle_master_layout(&crate::app::ToggleMasterLayout, window, cx)
+            }
+            ShortcutCommandId::ExitFocus => self.on_exit_focus(&crate::app::ExitFocus, window, cx),
+            ShortcutCommandId::ToggleSettings => self.toggle_settings_panel(cx),
         }
     }
 

@@ -153,6 +153,7 @@ dependencies = [
  "norma",
  "pulldown-cmark",
  "runtime",
+ "serde",
  "serde_json",
  "storage",
  "tempfile",

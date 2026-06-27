@@ -1,14 +1,17 @@
 use super::{with_alpha, SettingsPanelState, SettingsSection};
 use crate::app::MultisoulApp;
 use crate::settings::voice::{voice_settings, VoiceSettingsState};
+use crate::shortcuts::ShortcutSettingsState;
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
 use ui::Theme;
 
 mod appearance;
 mod hooks;
+mod keyboard;
 
 use self::appearance::general_appearance;
 use self::hooks::hooks_settings;
+use self::keyboard::keyboard_settings;
 
 #[derive(Clone, Copy)]
 struct MockSetting {
@@ -21,6 +24,7 @@ pub(super) fn settings_content(
     theme: Theme,
     panel: &SettingsPanelState,
     voice_state: &VoiceSettingsState,
+    shortcuts: &ShortcutSettingsState,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     div()
@@ -39,6 +43,7 @@ pub(super) fn settings_content(
                 .pb(px(28.0))
                 .child(match panel.active_section {
                     SettingsSection::General => general_appearance(theme),
+                    SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
                     SettingsSection::Runtime => mock_section(theme, runtime_rows()),
                     SettingsSection::Voice => voice_settings(theme, voice_state, cx),
                     SettingsSection::Agents => mock_section(theme, agent_rows()),
@@ -90,8 +95,7 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
                 .cursor_pointer()
                 .hover(move |style| style.bg(rgba(with_alpha(theme.destructive, 0x10))))
                 .on_click(cx.listener(|app, _, _window, cx| {
-                    app.settings_panel.close();
-                    cx.notify();
+                    app.close_settings_panel(cx);
                 }))
                 .child("x"),
         )
@@ -100,6 +104,7 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
 fn content_title(section: SettingsSection) -> &'static str {
     match section {
         SettingsSection::General => "Themes",
+        SettingsSection::Keyboard => "Keyboard Shortcuts",
         SettingsSection::Runtime => "Runtime",
         SettingsSection::Voice => "Voice",
         SettingsSection::Agents => "Agents",
@@ -111,6 +116,7 @@ fn content_title(section: SettingsSection) -> &'static str {
 fn content_subtitle(section: SettingsSection) -> &'static str {
     match section {
         SettingsSection::General => "Choose your style or customize your theme",
+        SettingsSection::Keyboard => "Customize app commands and review system input behavior",
         SettingsSection::Runtime => "Configure shell behavior and live sessions",
         SettingsSection::Voice => "Configure local speech recognition and command planning",
         SettingsSection::Agents => "Choose default agents, permissions, and profiles",

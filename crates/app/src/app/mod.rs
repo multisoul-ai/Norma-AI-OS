@@ -19,6 +19,7 @@ use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::panel::SettingsPanelState;
 use crate::settings::voice::VoiceSettingsState;
+use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{AgentProfile, CanvasRect, NodeId, NodeType, Vec2};
@@ -50,7 +51,8 @@ actions!(
         OpenProject,
         ExitFocus,
         ReflowLayout,
-        ToggleMasterLayout
+        ToggleMasterLayout,
+        ToggleSettings
     ]
 );
 
@@ -68,6 +70,7 @@ pub struct MultisoulApp {
     pub(crate) persistence: PersistenceScheduler,
     pub(crate) settings_panel: SettingsPanelState,
     pub(crate) voice_settings: VoiceSettingsState,
+    pub(crate) shortcuts: ShortcutSettingsState,
     pub(crate) norma_server: NormaServer,
     pub(crate) agent_hook_server: AgentHookServer,
     pub(crate) screen: AppScreen,
@@ -137,6 +140,7 @@ impl MultisoulApp {
             persistence: PersistenceScheduler::default(),
             settings_panel: SettingsPanelState::default(),
             voice_settings: VoiceSettingsState::load_default(),
+            shortcuts: ShortcutSettingsState::load_default(),
             norma_server: NormaServer::start(),
             agent_hook_server,
             screen: AppScreen::Launchpad,
@@ -412,6 +416,7 @@ impl Render for MultisoulApp {
             .on_action(cx.listener(Self::on_exit_focus))
             .on_action(cx.listener(Self::on_reflow_layout))
             .on_action(cx.listener(Self::on_toggle_master_layout))
+            .on_action(cx.listener(Self::on_toggle_settings))
             .on_key_down(cx.listener(Self::on_key_down))
             .on_key_up(cx.listener(Self::on_key_up))
             .on_modifiers_changed(cx.listener(Self::on_modifiers_changed))

@@ -4,7 +4,7 @@ use super::*;
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   initial open = false（启动后不应遮挡画布）
-///   section count = 5（General / Runtime / Agents / Skills / Hooks）
+///   section count = 7（General / Keyboard / Runtime / Voice / Agents / Skills / Hooks）
 ///   default section = General（计划指定默认打开 General）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -32,6 +32,62 @@ fn test_settings_panel_defaults_closed_on_general() {
         panel.active_section,
         SettingsSection::Runtime,
         "设置面板首次打开不应落到 Runtime 分组"
+    );
+}
+
+/// Keyboard Shortcuts 页面：Settings 应把侧栏占位升级为真实可点击页面，并渲染可编辑命令与只读输入行为。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source = settings_panel.rs + settings_content.rs + settings_keyboard.rs + shortcuts.rs
+///   editable anchors = settings-shortcut-new-terminal / settings-shortcut-toggle-settings
+///   read-only anchors = Paste / Voice Recording / Arrow Navigation / Space Pan / Terminal Input
+///   restore anchors = settings-shortcuts-restore-all / Restore
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 拼接 Settings 生产渲染源码
+///   2. 检查 Keyboard 分组、页面标题、可编辑行、只读行与恢复入口
+///   3. 检查 Keyboard Shortcuts 不再以 sidebar_child disabled 占位形式存在
+///
+/// 预期结果：
+///   - 正断言：Keyboard Shortcuts 页面关键锚点都存在
+///   - 正断言：SettingsSection::Keyboard 可被 select
+///   - 负断言：Keyboard Shortcuts 不应仍是 disabled sidebar_child
+#[test]
+fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() {
+    let source = format!(
+        "{}{}{}{}",
+        include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/keyboard.rs"),
+        include_str!("../../src/shortcuts.rs")
+    );
+    let required = [
+        "SettingsSection::Keyboard",
+        "Keyboard Shortcuts",
+        "Customize app commands and review system input behavior",
+        "settings-shortcut-new-terminal",
+        "settings-shortcut-toggle-settings",
+        "settings-shortcut-new-claude-agent",
+        "settings-shortcut-new-codex-agent",
+        "settings-shortcuts-restore-all",
+        "Paste",
+        "Voice Recording",
+        "Arrow Navigation",
+        "Space Pan",
+        "Terminal Input",
+        "Modified",
+        "Restore",
+    ];
+
+    for anchor in required {
+        assert!(
+            source.contains(anchor),
+            "Keyboard Shortcuts 设置页应包含关键锚点: {anchor}"
+        );
+    }
+    assert!(
+        !source.contains("sidebar_child(theme, \"Keyboard Shortcuts\", false)"),
+        "Keyboard Shortcuts 不应继续是 disabled sidebar_child 占位"
     );
 }
 
@@ -131,7 +187,7 @@ fn test_settings_panel_open_close_toggle_preserve_section() {
 /// 设置面板分组选择：点击 Runtime / Voice / Skills 应切换右侧内容并保持弹窗打开。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   section count = 6（General / Runtime / Voice / Agents / Skills / Hooks）
+///   section count = 7（General / Keyboard / Runtime / Voice / Agents / Skills / Hooks）
 ///   initial open = true（模拟用户已经打开设置弹窗）
 ///   target sequence = Runtime → Voice → Skills（覆盖三个非默认分组）
 ///

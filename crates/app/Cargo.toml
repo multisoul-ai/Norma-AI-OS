@@ -20,6 +20,7 @@ norma.workspace = true
 voice.workspace = true
 voice_sherpa.workspace = true
 anyhow.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
