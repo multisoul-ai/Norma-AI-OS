@@ -62,8 +62,11 @@ impl PersistenceScheduler {
         }
         if self.session_dirty {
             runtime.save_session_checkpoints(&project_store.session_store())?;
-            let _ = runtime.save_node_sessions(&project_store.node_session_store());
         }
+        // Always capture node sessions (e.g. cwd) regardless of session_dirty, because
+        // cwd changes happen inside live terminals and do not trigger mark_session_dirty.
+        // This ensures the most recent cwd is captured even if the debounce already flushed.
+        let _ = runtime.save_node_sessions(&project_store.node_session_store());
         let flushed = self.has_pending_work();
         self.canvas_dirty = false;
         self.session_dirty = false;
