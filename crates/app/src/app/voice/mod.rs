@@ -73,7 +73,10 @@ impl MultisoulApp {
                                             });
                                         }
                                     });
-                                    app.voice.set_speech_task(partials_task);
+                                    // Store in the dedicated slot — NOT in speech_task — so that
+                                    // the outer permission task (already in speech_task) and the
+                                    // later finish task (set at key-up) never cancel the loop.
+                                    app.voice.set_partials_task(partials_task);
                                 }
                                 Err(error) => {
                                     app.voice

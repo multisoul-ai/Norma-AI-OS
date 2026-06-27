@@ -23,7 +23,12 @@ pub(crate) enum VoicePhase {
 pub(crate) struct VoiceControlState {
     phase: VoicePhase,
     speech_session: Option<voice_sherpa::SpeechSession>,
+    /// Holds the outer permission/finish task for the current voice recording.
     speech_task: Option<Task<()>>,
+    /// Holds the partials-receive loop task separately so it is never overwritten
+    /// by the permission or finish task, and continues running until the channel
+    /// closes naturally after `session.finish()` drops the sender.
+    partials_task: Option<Task<()>>,
     pub(crate) partial_text: String,
 }
 
@@ -33,6 +38,7 @@ impl Default for VoiceControlState {
             phase: VoicePhase::Idle,
             speech_session: None,
             speech_task: None,
+            partials_task: None,
             partial_text: String::new(),
         }
     }
@@ -120,12 +126,17 @@ impl VoiceControlState {
         self.speech_task = Some(task);
     }
 
+    pub(crate) fn set_partials_task(&mut self, task: Task<()>) {
+        self.partials_task = Some(task);
+    }
+
     pub(crate) fn clear_speech_task(&mut self) {
         self.speech_task = None;
     }
 
     pub(crate) fn cancel_speech_task(&mut self) {
         self.speech_task = None;
+        self.partials_task = None;
     }
 
     pub(crate) fn take_speech_session(&mut self) -> Option<voice_sherpa::SpeechSession> {
@@ -136,6 +147,7 @@ impl VoiceControlState {
         if let Some(session) = self.speech_session.take() {
             session.cancel();
         }
+        self.partials_task = None;
     }
 
     pub(crate) fn label(&self) -> String {
