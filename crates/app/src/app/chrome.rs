@@ -30,7 +30,8 @@ impl MultisoulApp {
             ));
 
         backdrop = backdrop.child(
-            img(self.wallpaper.image_source())
+            img(self.wallpaper_settings.image_source_for_render())
+                .id("wallpaper")
                 .absolute()
                 .top(px(0.0))
                 .left(px(0.0))

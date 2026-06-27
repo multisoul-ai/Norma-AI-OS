@@ -181,6 +181,41 @@ impl WallpaperSettingsState {
         }
     }
 
+    /// Build the GPUI [`ImageSource`] the chrome wallpaper layer should render.
+    ///
+    /// This is the single source of truth used by the chrome backdrop so the
+    /// render decision lives next to the persistent state instead of being
+    /// re-derived at the view layer:
+    ///
+    /// - Builtin Static/Gif → `ImageSource::from(asset_path)` (resolves to
+    ///   `Resource::Embedded`, served by the `EmbeddedAssets` AssetSource).
+    /// - Custom image (any kind) → `ImageSource::from(resolved_path)`, which
+    ///   yields `Resource(path)` that GPUI loads from disk.
+    /// - Video selection → falls back to the default builtin image asset.
+    ///   Task 10 will replace this branch with the live video render path; in
+    ///   the meantime we never hand GPUI a video byte stream through `img()`.
+    /// - Anything unresolvable (deleted custom file, missing data root) →
+    ///   falls back to the default builtin image asset so the canvas never
+    ///   renders a blank backdrop.
+    pub(crate) fn image_source_for_render(&self) -> gpui::ImageSource {
+        match self.current_kind() {
+            WallpaperKind::Video => {
+                // Video is wired in Task 10; render the default image asset
+                // until then so the background is never empty.
+                gpui::ImageSource::from(DEFAULT_WALLPAPER_ASSET)
+            }
+            WallpaperKind::Static | WallpaperKind::Gif => {
+                if let Some(rel) = self.image_asset_path() {
+                    gpui::ImageSource::from(rel)
+                } else if let Some(path) = self.resolve_path() {
+                    gpui::ImageSource::from(path)
+                } else {
+                    gpui::ImageSource::from(DEFAULT_WALLPAPER_ASSET)
+                }
+            }
+        }
+    }
+
     /// List custom wallpaper filenames (basenames) currently in the custom
     /// wallpapers dir. Filters by [`WallpaperKind::from_extension`]; unknown
     /// extensions are excluded. Sorted lexicographically for stable UI order.

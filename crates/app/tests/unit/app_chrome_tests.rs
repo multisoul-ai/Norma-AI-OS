@@ -408,3 +408,37 @@ fn test_top_toolbar_uses_icon_buttons_and_drops_canvas_literal() {
         "顶部工具栏不应继续使用 ↕ glyph literal"
     );
 }
+
+/// 壁纸 img 元素必须挂稳定 id "wallpaper"，否则 GPUI 多帧 GIF 会冻结在第 0 帧。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source = include_str!("../../src/app/chrome.rs")（检查当前 chrome 渲染源码）
+///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
+///   expected id literal = ".id(\"wallpaper\")"（壁纸 img 上必须存在的稳定 id）
+///   img call = "img("（确认壁纸图层仍以 img 元素渲染，而非被替换）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 app_chrome.rs 的生产渲染源码
+///   2. 确认壁纸渲染分支仍含 img( 调用，避免整体被删导致测试空过
+///   3. 搜索 .id("wallpaper") literal —— 这是 GIF 多帧动画复用 ImageCache 的关键
+///
+/// 预期结果：
+///   - 正断言：render_source 含 img( 调用（壁纸图层仍由 img 渲染）
+///   - 正断言：render_source 含 .id("wallpaper") literal（稳定 id 已挂载）
+///   - 负断言：不能仅出现 img( 而缺 .id("wallpaper")，否则 GIF 会冻结
+#[test]
+fn test_wallpaper_img_has_stable_id_for_gif_animation() {
+    let source = include_str!("../../src/app/chrome.rs");
+    let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
+    let wallpaper_id_literal = ".id(\"wallpaper\")";
+    let img_call = "img(";
+
+    assert!(
+        render_source.contains(img_call),
+        "壁纸图层应以 img 元素渲染，否则其它断言失去意义"
+    );
+    assert!(
+        render_source.contains(wallpaper_id_literal),
+        "壁纸 img 必须挂 .id(\"wallpaper\") 稳定 id；缺少会导致 GPUI GIF 多帧动画冻结在第 0 帧"
+    );
+}
