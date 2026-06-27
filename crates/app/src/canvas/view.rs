@@ -16,7 +16,7 @@ use crate::canvas::scroll::{
 use crate::canvas::text_selection::TextPoint;
 use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
 use crate::cards::chrome::{
-    node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
+    node_shadow, render_task_badge, with_chase_overlays, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
 };
 use crate::cards::term::selection::terminal_point_for_local_position;
 use crate::cards::term::view::terminal_render_metrics;
@@ -315,8 +315,7 @@ pub fn render_canvas(
 
         let visual = app.motion.resolve_node_visual(id, canonical_rect, theme);
         let top_left = vp.canvas_to_screen(visual.rect.origin);
-        let w = visual.rect.size.x * vp.zoom;
-        let h = visual.rect.size.y * vp.zoom;
+        let (w, h) = (visual.rect.size.x * vp.zoom, visual.rect.size.y * vp.zoom);
 
         // viewport culling：完全在窗口外的节点跳过。
         if top_left.x + w < 0.0 || top_left.y + h < 0.0 || top_left.x > win_w || top_left.y > win_h
@@ -473,7 +472,9 @@ pub fn render_canvas(
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),
             },
         ));
-
+        if let Some(chase) = visual.chase_glow {
+            node_div = with_chase_overlays(node_div, chase, w, h, vp.zoom);
+        }
         node_elems.push(node_div);
     }
 

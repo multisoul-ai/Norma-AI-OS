@@ -172,6 +172,44 @@ pub fn chase_corner_intensity(chase_phase: f32, corner_phase: f32) -> f32 {
     }
 }
 
+/// 追尾拖尾长度，以周长比例表示（0.35 = 35% 周长）。
+pub const CHASE_TAIL_LENGTH: f32 = 0.35;
+
+/// 计算 snake [phase-tail, phase] 与边 [edge_start, edge_end] 的交叉区间。
+/// 返回 Option<(local_tail, local_head)>，均为边内归一化坐标 [0,1]。
+/// local_tail 为暗端，local_head 为亮端（snake 头方向）。
+pub fn chase_edge_segment(
+    chase_phase: f32,
+    tail_length: f32,
+    edge_start: f32,
+    edge_end: f32,
+) -> Option<(f32, f32)> {
+    let edge_len = edge_end - edge_start;
+    let tail_phase = chase_phase - tail_length;
+    let to_local = |p: f32| (p - edge_start) / edge_len;
+    if tail_phase >= 0.0 {
+        let gs = tail_phase.max(edge_start);
+        let ge = chase_phase.min(edge_end);
+        if ge - gs < 0.001 {
+            return None;
+        }
+        Some((to_local(gs), to_local(ge)))
+    } else {
+        // 折返：snake = [tail_phase+1, 1.0] ∪ [0.0, chase_phase]
+        let upper_s = (tail_phase + 1.0).max(edge_start);
+        let upper_e = (1.0_f32).min(edge_end);
+        if upper_e - upper_s >= 0.001 {
+            return Some((to_local(upper_s), to_local(upper_e)));
+        }
+        let lower_s = (0.0_f32).max(edge_start);
+        let lower_e = chase_phase.min(edge_end);
+        if lower_e - lower_s < 0.001 {
+            return None;
+        }
+        Some((to_local(lower_s), to_local(lower_e)))
+    }
+}
+
 #[cfg(test)]
 #[path = "../../tests/unit/motion_breathing_tests.rs"]
 mod tests;

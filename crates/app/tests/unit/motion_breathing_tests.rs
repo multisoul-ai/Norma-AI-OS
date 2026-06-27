@@ -362,3 +362,87 @@ fn test_chase_corner_intensity_phase_half_lights_bottom_right() {
         "TR behind=0.25 应在拖尾衰减内，实际 {tr}"
     );
 }
+
+/// CE-1: snake 完全覆盖目标边 → 返回 (0.0, 1.0)。
+///
+/// 数据构造（含关键数值推导）：
+///   chase_phase=0.5，tail_length=0.35 → snake=[0.15, 0.5]
+///   right 边 = [0.25, 0.5]：[0.15,0.5] ⊇ [0.25,0.5] → 完整覆盖
+///   local_tail = (0.25-0.25)/0.25 = 0.0
+///   local_head = (0.5-0.25)/0.25  = 1.0
+///
+/// 预期结果：
+///   - 正断言：返回 Some((0.0, 1.0))
+///   - 负断言：不应返回 None
+#[test]
+fn test_chase_edge_segment_full_coverage() {
+    let result = chase_edge_segment(0.5, 0.35, 0.25, 0.5);
+    assert_eq!(
+        result,
+        Some((0.0, 1.0)),
+        "snake [0.15,0.5] 应完整覆盖 right 边 [0.25,0.5]，返回 (0.0, 1.0)"
+    );
+    assert!(result.is_some(), "完整覆盖不应返回 None");
+}
+
+/// CE-2: snake 头越出边尾，尾在前一条边（折返），整条边被覆盖。
+///
+/// 数据构造（含关键数值推导）：
+///   chase_phase=0.3，tail_length=0.35 → tail_phase=-0.05 → 折返
+///   upper part = [0.95, 1.0]：与 top[0,0.25] 无交叉
+///   lower part = [0.0, 0.3]：∩ [0.0, 0.25] = [0.0, 0.25]
+///   local_tail = 0.0, local_head = (0.25-0)/0.25 = 1.0
+///
+/// 预期结果：
+///   - 正断言：top 边返回 Some((0.0, 1.0))（头越出顶边，尾来自上一圈末尾）
+#[test]
+fn test_chase_edge_segment_wrap_head_beyond_clamps_to_full_edge() {
+    let result = chase_edge_segment(0.3, 0.35, 0.0, 0.25);
+    assert_eq!(
+        result,
+        Some((0.0, 1.0)),
+        "折返时 top 边应全覆盖：lower=[0,0.25]，local=(0.0, 1.0)"
+    );
+}
+
+/// CE-3: 无折返，snake 尾在边内，头越出边尾 → 返回 (local_tail, 1.0)。
+///
+/// 数据构造（含关键数值推导）：
+///   chase_phase=0.4，tail_length=0.35 → tail_phase=0.05（无折返）
+///   top 边 [0.0, 0.25]：gs=max(0.05,0)=0.05，ge=min(0.4,0.25)=0.25
+///   local_tail = (0.05-0)/0.25 = 0.2
+///   local_head = (0.25-0)/0.25 = 1.0
+///
+/// 预期结果：
+///   - 正断言：local_tail ≈ 0.2，local_head ≈ 1.0
+#[test]
+fn test_chase_edge_segment_tail_in_edge_head_beyond() {
+    let (lt, lh) = chase_edge_segment(0.4, 0.35, 0.0, 0.25)
+        .expect("snake [0.05,0.4] 应与 top 边有交叉，不应返回 None");
+    assert!(
+        (lt - 0.2).abs() < 1e-5,
+        "local_tail 应为 0.2（尾 0.05 在边内），实际 {lt}"
+    );
+    assert!(
+        (lh - 1.0).abs() < 1e-5,
+        "local_head 应为 1.0（头 0.4 超出边尾），实际 {lh}"
+    );
+}
+
+/// CE-4: snake 与目标边完全无交叉 → 返回 None。
+///
+/// 数据构造（含关键数值推导）：
+///   chase_phase=0.2，tail_length=0.35 → tail_phase=-0.15 → 折返
+///   upper=[0.85,1.0]，lower=[0.0,0.2]
+///   right 边 [0.25,0.5]：upper∩right=∅（0.85>0.5），lower∩right=∅（0.2<0.25）
+///
+/// 预期结果：
+///   - 正断言：返回 None
+#[test]
+fn test_chase_edge_segment_no_overlap_returns_none() {
+    let result = chase_edge_segment(0.2, 0.35, 0.25, 0.5);
+    assert!(
+        result.is_none(),
+        "snake [0.85,1.0]∪[0.0,0.2] 与 right 边 [0.25,0.5] 无交叉，应返回 None"
+    );
+}
