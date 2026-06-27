@@ -162,6 +162,7 @@ pub struct ChaseGlow {
 
 /// 给定当前追尾相位与某角的固定相位，返回该角的发光强度 0..1。
 /// 追尾头最亮（behind=0），向后拖尾衰减至 TAIL_LENGTH 处归零。
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn chase_corner_intensity(chase_phase: f32, corner_phase: f32) -> f32 {
     let behind = (chase_phase - corner_phase + 1.0).rem_euclid(1.0);
     const TAIL_LENGTH: f32 = 0.35;
