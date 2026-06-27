@@ -1,6 +1,7 @@
 //! Voice entrypoint glue for the app shell.
 
 pub(crate) mod control;
+mod history;
 pub(crate) mod log;
 pub(crate) mod modal;
 
@@ -15,7 +16,6 @@ use crate::norma::server::{execute_card_command_for_area, NormaCommandEffects, N
 use gpui::{Context, MouseDownEvent, MouseUpEvent, Window};
 use norma::protocol::{CardCommand, CardCommandResult};
 use std::collections::HashMap;
-use storage::VoiceHistoryEntry;
 use voice::{
     compile_voice_plan, CardRef, ExecutableCommand, OllamaVoicePlanner, RiskLevel, VoiceCardKind,
     VoicePlanDecision, VoicePlanner, VoicePlanningRequest,
@@ -23,17 +23,6 @@ use voice::{
 use voice_sherpa::{SherpaProvider, SpeechError};
 
 const DEFAULT_MAX_VOICE_STEPS: usize = 8;
-
-struct VoiceHistoryDraft {
-    transcript: String,
-    planner_json: String,
-    confidence: f64,
-    risk: &'static str,
-    status: &'static str,
-    provider: Option<String>,
-    model: Option<String>,
-    error: Option<String>,
-}
 
 impl MultisoulApp {
     pub(crate) fn begin_voice_recording(&mut self, trigger: VoiceTrigger, cx: &mut Context<Self>) {
@@ -49,14 +38,42 @@ impl MultisoulApp {
             voice_transcript_source(),
             VoiceTranscriptSource::AppleSpeech
         ) {
-            match SherpaProvider::from_env_or_default().and_then(|p| p.start_recording()) {
-                Ok(session) => self.voice.set_speech_session(session),
-                Err(error) => {
-                    self.voice
-                        .set_error(format!("Speech recognition failed: {error}"));
-                    self.save_voice_speech_error(error);
-                }
-            }
+            // Two-step async to avoid CFRunLoop re-entrancy with GPUI's RefCell:
+            //
+            //   Step 1 (background): request_microphone_permission() — may block while
+            //     the user responds to the system dialog.
+            //   Step 2 (main thread, via this.update): start_recording() — creates
+            //     AVAudioEngine objects which are not Send. By this point the permission
+            //     is already Authorized, so the call is non-blocking.
+            let task = cx.spawn(async move |this, cx| {
+                let perm = cx
+                    .background_executor()
+                    .spawn(async { voice_sherpa::request_microphone_permission() })
+                    .await;
+                let _ = this.update(cx, |app, cx| {
+                    match perm {
+                        Err(error) => {
+                            app.voice
+                                .set_error(format!("Speech recognition failed: {error}"));
+                            app.save_voice_speech_error(error);
+                        }
+                        Ok(()) => {
+                            match SherpaProvider::from_env_or_default()
+                                .and_then(|p| p.start_recording())
+                            {
+                                Ok(session) => app.voice.set_speech_session(session),
+                                Err(error) => {
+                                    app.voice
+                                        .set_error(format!("Speech recognition failed: {error}"));
+                                    app.save_voice_speech_error(error);
+                                }
+                            }
+                        }
+                    }
+                    cx.notify();
+                });
+            });
+            self.voice.set_speech_task(task);
         }
         cx.notify();
     }
@@ -399,57 +416,6 @@ impl MultisoulApp {
         }
         if session_dirty {
             self.mark_session_dirty();
-        }
-    }
-
-    pub(crate) fn save_voice_history(
-        &mut self,
-        transcript: String,
-        planner_json: String,
-        confidence: f64,
-        risk: &'static str,
-        status: &'static str,
-        error: Option<String>,
-    ) {
-        self.save_voice_history_with_provider(VoiceHistoryDraft {
-            transcript,
-            planner_json,
-            confidence,
-            risk,
-            status,
-            provider: Some("ollama".to_string()),
-            model: Some(OllamaVoicePlanner::configured_model()),
-            error,
-        });
-    }
-
-    fn save_voice_speech_error(&mut self, error: SpeechError) {
-        self.save_voice_history_with_provider(VoiceHistoryDraft {
-            transcript: "".into(),
-            planner_json: "{}".into(),
-            confidence: 0.0,
-            risk: "low",
-            status: "provider_error",
-            provider: Some("sherpa_onnx_paraformer".to_string()),
-            model: None,
-            error: Some(error.to_string()),
-        });
-    }
-
-    fn save_voice_history_with_provider(&mut self, draft: VoiceHistoryDraft) {
-        let entry = VoiceHistoryEntry {
-            transcript: draft.transcript,
-            planner_json: draft.planner_json,
-            confidence: draft.confidence,
-            risk: draft.risk.to_string(),
-            status: draft.status.to_string(),
-            provider: draft.provider,
-            model: draft.model,
-            target_node_id: None,
-            error: draft.error,
-        };
-        if let Err(error) = self.persistence.save_voice_history(&entry) {
-            tracing::warn!(%error, "voice history save failed");
         }
     }
 }

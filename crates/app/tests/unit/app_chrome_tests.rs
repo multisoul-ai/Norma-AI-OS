@@ -27,48 +27,42 @@ fn test_workspace_left_rail_is_temporarily_hidden() {
     );
 }
 
-/// 底部语音输入菜单：临时隐藏渲染入口，但不删除 BottomBar 语音功能代码。
+/// 底部语音输入菜单：sherpa-onnx 接入后入口已开启，BottomBar 功能代码完整保留。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   bottom_voice_bar_visible() = false（临时隐藏开关；后续恢复只需改回 true）
-///   app_chrome.rs 生产渲染源码 = include_str!("../../src/app/chrome.rs") 在 #[cfg(test)] 前的片段
-///   app_voice.rs 源码 = include_str!("../../src/app_voice.rs")（底部入口处理函数应保留）
-///   voice_control.rs 源码 = include_str!("../../src/voice_control.rs")（BottomBar trigger 应保留）
+///   bottom_voice_bar_visible() = true（voice_sherpa 接入后恢复显示）
+///   app_voice.rs 源码 = include_str!("../../src/app/voice/mod.rs")
+///   voice_control.rs 源码 = include_str!("../../src/app/voice/control.rs")
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 bottom_voice_bar_visible() → false，render_workspace_chrome 不挂载底部语音菜单
+///   1. 读取 bottom_voice_bar_visible() → true，render_workspace_chrome 挂载底部语音菜单
 ///   2. 检查 app_voice.rs 仍保留 on_voice_bar_mouse_down / on_voice_bar_mouse_up
 ///   3. 检查 voice_control.rs 仍保留 BottomBar trigger
 ///
 /// 预期结果：
-///   - 正断言：底部语音菜单开关为 false
-///   - 正断言：底部语音处理函数与 BottomBar trigger 仍存在
-///   - 负断言：可见性开关不应为 true，否则底部菜单仍会显示
+///   - 正断言：底部语音菜单开关为 true（voice_sherpa 接入后已启用）
+///   - 正断言：底部语音处理函数与 BottomBar trigger 完整保留
 #[test]
-fn test_bottom_voice_bar_is_hidden_without_deleting_functionality() {
+fn test_bottom_voice_bar_is_visible_with_sherpa_provider() {
     let bottom_voice_visible = bottom_voice_bar_visible();
     let app_voice_source = include_str!("../../src/app/voice/mod.rs");
     let voice_control_source = include_str!("../../src/app/voice/control.rs");
 
     assert!(
-        !bottom_voice_visible,
-        "底部语音输入菜单应通过 bottom_voice_bar_visible() 默认隐藏"
-    );
-    assert!(
-        !bottom_voice_visible,
-        "底部语音输入菜单不应继续标记为可见，否则 Canvas 底部仍会挂载入口"
+        bottom_voice_visible,
+        "voice_sherpa 接入后底部语音输入菜单应通过 bottom_voice_bar_visible() 开启"
     );
     assert!(
         app_voice_source.contains("on_voice_bar_mouse_down"),
-        "隐藏菜单不应删除底部语音 mouse down 处理函数，后续恢复入口仍可复用"
+        "底部语音 mouse down 处理函数应保留"
     );
     assert!(
         app_voice_source.contains("on_voice_bar_mouse_up"),
-        "隐藏菜单不应删除底部语音 mouse up 处理函数，后续恢复入口仍可复用"
+        "底部语音 mouse up 处理函数应保留"
     );
     assert!(
         voice_control_source.contains("BottomBar"),
-        "隐藏菜单不应删除 VoiceTrigger::BottomBar 功能分支"
+        "VoiceTrigger::BottomBar 功能分支应保留"
     );
 }
 

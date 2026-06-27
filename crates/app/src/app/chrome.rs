@@ -10,7 +10,7 @@ use gpui::{
 use ui::Theme;
 
 const WORKSPACE_LEFT_RAIL_VISIBLE: bool = false;
-const BOTTOM_VOICE_BAR_VISIBLE: bool = false;
+const BOTTOM_VOICE_BAR_VISIBLE: bool = true;
 const TOP_TOOLBAR_WIDTH: f32 = 460.0;
 const TOOLBAR_CANVAS_SCROLL_ICON: &str = "↕";
 const SETTINGS_ICON: &str = "⚙";

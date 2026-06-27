@@ -15,6 +15,15 @@ pub fn resolve_model_dir_for_test() -> Result<std::path::PathBuf, SpeechError> {
 
 use session::InnerSession;
 
+/// Check and (if not yet determined) request microphone permission.
+///
+/// Safe to call from a background thread — blocks until the user responds to the
+/// system dialog (up to 60 s). After this returns `Ok(())`, subsequent calls to
+/// `SherpaProvider::start_recording()` will not block on the permission check.
+pub fn request_microphone_permission() -> Result<(), SpeechError> {
+    permissions::ensure_microphone_authorized()
+}
+
 #[derive(Debug, Eq, PartialEq, thiserror::Error)]
 pub enum SpeechError {
     #[error("microphone permission was denied")]

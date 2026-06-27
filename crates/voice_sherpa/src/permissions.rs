@@ -41,7 +41,6 @@ fn request_microphone_authorization(
 ) -> Result<(), SpeechError> {
     use block2::RcBlock;
     use objc2_av_foundation::AVCaptureDevice;
-    use objc2_core_foundation::{kCFRunLoopDefaultMode, CFRunLoop};
     use std::sync::mpsc;
     use std::time::{Duration, Instant};
 
@@ -51,6 +50,10 @@ fn request_microphone_authorization(
     });
     unsafe { AVCaptureDevice::requestAccessForMediaType_completionHandler(media_type, &block) };
 
+    // The completion handler fires on an arbitrary Apple dispatch queue — NOT the main
+    // CFRunLoop. Plain sleep is sufficient; pumping the main CFRunLoop causes GPUI
+    // re-entrancy ("RefCell already borrowed") because GPUI holds a mutable app borrow
+    // during event handling.
     let deadline = Instant::now() + Duration::from_secs(60);
     loop {
         match rx.try_recv() {
@@ -65,11 +68,7 @@ fn request_microphone_authorization(
                 ))
             }
             Err(mpsc::TryRecvError::Empty) => {
-                if let Some(mode) = unsafe { kCFRunLoopDefaultMode } {
-                    CFRunLoop::run_in_mode(Some(mode), 0.02, true);
-                } else {
-                    std::thread::sleep(Duration::from_millis(20));
-                }
+                std::thread::sleep(Duration::from_millis(20));
             }
         }
     }
