@@ -61,8 +61,19 @@ impl MultisoulApp {
                             match SherpaProvider::from_env_or_default()
                                 .and_then(|p| p.start_recording())
                             {
-                                Ok((session, partials_rx)) => {
-                                    app.voice.set_speech_session(session, partials_rx);
+                                Ok((session, partials)) => {
+                                    app.voice.set_speech_session(session);
+                                    // Event-driven: wakes only when sherpa emits a partial,
+                                    // exits automatically when the channel closes on session drop.
+                                    let partials_task = cx.spawn(async move |this, cx| {
+                                        while let Ok(text) = partials.recv().await {
+                                            let _ = this.update(cx, |app, cx| {
+                                                app.voice.partial_text = text;
+                                                cx.notify();
+                                            });
+                                        }
+                                    });
+                                    app.voice.set_speech_task(partials_task);
                                 }
                                 Err(error) => {
                                     app.voice
@@ -147,15 +158,6 @@ impl MultisoulApp {
             self.save_voice_speech_error(error);
             return;
         };
-        // Drain any partials already queued before key-up.
-        // TODO(task-2): replace with event-driven GPUI async task so partials
-        // display in real time during recording, not just at key-up.
-        while let Some(rx) = &self.voice.partials_rx {
-            match rx.try_recv() {
-                Ok(text) => self.voice.partial_text = text,
-                Err(_) => break,
-            }
-        }
         cx.notify();
         // finish() blocks (recognizer thread join); run in spawn_in to match existing pattern.
         let task = cx.spawn_in(window, async move |this, cx| {

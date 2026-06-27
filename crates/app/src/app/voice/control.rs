@@ -116,13 +116,8 @@ impl VoiceControlState {
         };
     }
 
-    pub(crate) fn set_speech_session(
-        &mut self,
-        session: voice_sherpa::SpeechSession,
-        partials_rx: async_channel::Receiver<String>,
-    ) {
+    pub(crate) fn set_speech_session(&mut self, session: voice_sherpa::SpeechSession) {
         self.speech_session = Some(session);
-        self.partials_rx = Some(partials_rx);
     }
 
     pub(crate) fn set_speech_task(&mut self, task: Task<()>) {
@@ -142,6 +137,7 @@ impl VoiceControlState {
     }
 
     pub(crate) fn cancel_speech_session(&mut self) {
+        self.partials_rx = None;
         if let Some(session) = self.speech_session.take() {
             session.cancel();
         }
