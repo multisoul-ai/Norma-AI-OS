@@ -1,9 +1,9 @@
 //! Shared card chrome primitives.
 
-use canvas::{CanvasNode, CanvasRect, NodeType};
+use canvas::{CanvasNode, CanvasRect, NodeType, Vec2};
 use gpui::{
     div, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, AnyElement, BoxShadow,
-    Div, FontWeight, IntoElement, Stateful,
+    Div, FontWeight,
 };
 use runtime::{NodeResize, Runtime};
 use ui::Theme;
@@ -121,18 +121,22 @@ fn with_glow_alpha(color: u32, intensity: f32) -> u32 {
     with_alpha(color, (base_alpha * intensity).round() as u8)
 }
 
-/// 将 Running 状态的贪吃蛇追尾光覆盖层追加到节点 div。
-pub fn with_chase_overlays(
-    mut d: Stateful<Div>,
-    chase: ChaseGlow,
+/// 返回蛇形覆盖层容器，与卡片同位置但无 overflow_hidden，使圆角弧上的小圆不被剪裁。
+pub fn chase_overlay_container(
+    pos: Vec2,
     w: f32,
     h: f32,
+    chase: ChaseGlow,
     zoom: f32,
-) -> Stateful<Div> {
-    for ov in chase_snake_overlays(chase, w, h, zoom) {
-        d = d.child(ov);
-    }
-    d
+) -> AnyElement {
+    div()
+        .absolute()
+        .left(px(pos.x))
+        .top(px(pos.y))
+        .w(px(w))
+        .h(px(h))
+        .children(chase_snake_overlays(chase, w, h, zoom))
+        .into_any_element()
 }
 
 /// 生成 snake 追尾光 overlay：4 条边（各收缩圆角距离）+ 最多 4 个角点圆点。

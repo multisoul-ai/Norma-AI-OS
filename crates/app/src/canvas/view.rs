@@ -16,15 +16,15 @@ use crate::canvas::scroll::{
 use crate::canvas::text_selection::TextPoint;
 use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
 use crate::cards::chrome::{
-    node_shadow, render_task_badge, with_chase_overlays, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
+    chase_overlay_container, node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
 };
 use crate::cards::term::selection::terminal_point_for_local_position;
 use crate::cards::term::view::terminal_render_metrics;
 use crate::cards::{card_for, CardBodyContext};
 use canvas::{hit_test, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{
-    div, prelude::*, px, rgba, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
-    ScrollWheelEvent, Window,
+    div, prelude::*, px, rgba, AnyElement, Context, MouseButton, MouseDownEvent, MouseMoveEvent,
+    MouseUpEvent, ScrollWheelEvent, Window,
 };
 use runtime::{route, InputEvent, InputMode, NodeScroll, NodeView, Route};
 
@@ -278,7 +278,7 @@ pub fn render_canvas(
     let focus_mode = app.runtime.focus.mode();
 
     // 先收集需要渲染的节点数据（避免借用冲突）。
-    let mut node_elems = Vec::new();
+    let mut node_elems: Vec<AnyElement> = Vec::new();
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
     app.motion.retain_nodes(node_ids.iter().copied());
     for id in node_ids {
@@ -472,10 +472,10 @@ pub fn render_canvas(
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),
             },
         ));
+        node_elems.push(node_div.into_any_element());
         if let Some(chase) = visual.chase_glow {
-            node_div = with_chase_overlays(node_div, chase, w, h, vp.zoom);
+            node_elems.push(chase_overlay_container(top_left, w, h, chase, vp.zoom));
         }
-        node_elems.push(node_div);
     }
 
     div()
