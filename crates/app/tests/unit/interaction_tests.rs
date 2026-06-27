@@ -114,3 +114,55 @@ fn test_finish_text_selection_clears_empty_click_selection() {
         "空选区不应保留，否则 Cmd+C 会看到 stale selection"
     );
 }
+
+/// ✚ 弹出菜单状态：toggle 翻转 open 标志，close 强制收起。
+///
+/// 数据构造（含关键数值推导）：
+///   state = InteractionState::default()
+///   new_menu_open 初值 = false（Default 派生，bool 默认 false）
+///   第一次 toggle_new_menu() → !false = true
+///   第二次 toggle_new_menu() → !true = false
+///   再 toggle 打开 → true，随后 close_new_menu() → false
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. fresh default → new_menu_open=false（菜单默认关闭）
+///   2. toggle_new_menu() → new_menu_open=true（✚ 按钮点击展开菜单）
+///   3. toggle_new_menu() → new_menu_open=false（再次点击 ✚ 收起菜单）
+///   4. toggle_new_menu() 后 close_new_menu() → new_menu_open=false（任意收起路径）
+///
+/// 预期结果：
+///   - 正断言：toggle 后应展开（true）；close 后应为 false
+///   - 负断言：初始状态不应为 true；二次 toggle 后不应保持 true
+#[test]
+fn test_new_menu_state_toggles_and_closes() {
+    let mut state = InteractionState::default();
+
+    assert!(
+        !state.new_menu_open,
+        "InteractionState 默认 new_menu_open 应为 false，菜单初始关闭"
+    );
+
+    state.toggle_new_menu();
+    assert!(
+        state.new_menu_open,
+        "第一次 toggle_new_menu 后菜单应展开（new_menu_open=true）"
+    );
+
+    state.toggle_new_menu();
+    assert!(
+        !state.new_menu_open,
+        "第二次 toggle_new_menu 后菜单应收起（new_menu_open=false）"
+    );
+
+    state.toggle_new_menu();
+    assert!(
+        state.new_menu_open,
+        "再次 toggle 后菜单应展开，准备验证 close_new_menu"
+    );
+
+    state.close_new_menu();
+    assert!(
+        !state.new_menu_open,
+        "close_new_menu 应无条件收起菜单（new_menu_open=false）"
+    );
+}
