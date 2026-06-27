@@ -281,6 +281,11 @@ impl MultisoulApp {
             self.interaction.keyboard_selected_node = None;
         }
         self.interaction.clear_text_selection_for_node(node_id);
+
+        // 在 remove_node 真正执行前，从删除前的节点顺序中抓取应承接选择的邻居。
+        // document.nodes() 的插入序即 reflow 行主序；删除后 i+1 将滑入槽位 i。
+        let next_id = canvas::next_neighbor_after_delete(self.runtime.document.nodes(), node_id);
+
         let changed = close_node_and_update_layout_for_area(
             &mut self.runtime,
             &mut self.motion,
@@ -293,6 +298,21 @@ impl MultisoulApp {
             self.previews.remove(node_id);
             self.mark_canvas_dirty();
             self.mark_session_dirty();
+
+            // 删除后承接选择：选中下一个邻居，使 Cmd+D 可连续触发。
+            // Runtime::remove_node 已 deselect(node_id) 并 exit_to_canvas；
+            // 这里再选中邻居以保持键盘选区连续性。
+            match next_id {
+                Some(next) if self.runtime.document.node(next).is_some() => {
+                    self.runtime.selection.select_only(next);
+                    self.runtime.focus.exit_to_canvas();
+                    self.interaction.keyboard_selected_node = Some(next);
+                }
+                _ => {
+                    // 无幸存节点：清空键盘选区（Runtime 已清空 selection/focus）。
+                    self.interaction.keyboard_selected_node = None;
+                }
+            }
         }
         changed
     }
