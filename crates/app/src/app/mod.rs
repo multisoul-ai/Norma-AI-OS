@@ -28,6 +28,7 @@ use std::time::Duration;
 use ui::Theme;
 
 mod chrome;
+mod file_picker;
 mod ime;
 mod ime_geometry;
 mod keyboard;
@@ -36,6 +37,7 @@ mod new_menu;
 #[cfg(target_os = "macos")]
 mod video_decoder;
 mod voice;
+mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
 
 actions!(

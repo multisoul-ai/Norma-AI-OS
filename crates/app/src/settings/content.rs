@@ -1,7 +1,7 @@
 use super::{with_alpha, SettingsPanelState, SettingsSection};
 use crate::app::MultisoulApp;
 use crate::settings::voice::{voice_settings, VoiceSettingsState};
-use crate::settings::wallpaper::WallpaperSettingsState;
+use crate::settings::wallpaper::{wallpaper_settings, WallpaperSettingsState};
 use crate::shortcuts::ShortcutSettingsState;
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
 use ui::Theme;
@@ -296,24 +296,4 @@ fn skill_rows() -> &'static [MockSetting] {
             value: "Ready",
         },
     ]
-}
-
-/// Minimal placeholder renderer for the Wallpaper settings section.
-///
-/// Task 7 moves this into `wallpaper_view.rs` and expands it into the full
-/// grid (builtin thumbnails + custom import + delete). For now it renders just
-/// the section title so the panel compiles and the sidebar entry is reachable.
-fn wallpaper_settings(
-    theme: Theme,
-    _state: &WallpaperSettingsState,
-    _cx: &mut Context<MultisoulApp>,
-) -> Div {
-    // Task 7 implements the grid.
-    div().flex().flex_col().gap(px(16.0)).pt(px(8.0)).child(
-        div()
-            .text_size(px(18.0))
-            .font_weight(FontWeight::BOLD)
-            .text_color(rgba(theme.text_primary))
-            .child("Wallpaper"),
-    )
 }

@@ -12,7 +12,8 @@
 //! clears the var on drop. This serializes the (small number of) wallpaper
 //! persistence tests while leaving all other crate tests fully parallel.
 
-use super::*;
+use super::import::ImportResult;
+use super::state::{custom_wallpapers_dir, WallpaperSelection, WallpaperSettingsState};
 use std::fs;
 use std::sync::Mutex;
 
@@ -333,5 +334,133 @@ fn test_list_custom_filters_and_delete_non_current_keeps_selection() {
     assert!(
         dir.join("valid.png").exists(),
         "valid.png must still exist after deleting a different file"
+    );
+}
+
+/// T-W7: import_custom 把一个 png 拷到数据目录，列表出现，selection 切到它。
+///
+/// 数据构造：
+///   tempdir 作为 MULTISOUL_TEST_DATA_ROOT → custom dir = tempdir/wallpapers（不存在）
+///   额外独立 tempdir 提供 src.png（内容 b"fakepng"），与壁纸目录隔离避免污染
+///   WallpaperSettingsState::load_default_test() → 默认 builtin 选择
+///
+/// 执行过程：
+///   1. s.import_custom(src.png)
+///      → 扩展 png → Static ✓
+///      → create_dir_all(tempdir/wallpapers)
+///      → 非 colliding dest = tempdir/wallpapers/src.png
+///      → fs::copy(src → dest) 成功
+///      → select_custom("src.png") 持久化
+///   2. list_custom() 扫描 tempdir/wallpapers → [src.png]
+///
+/// 预期结果：
+///   - 正断言：返回 ImportResult::Imported(_)
+///   - 正断言：list_custom 长度 1
+///   - 正断言：selection == Custom { .. }
+///   - 正断言：tempdir/wallpapers/src.png 物理存在
+#[test]
+fn test_import_custom_copies_and_selects() {
+    let _g = TestRootGuard::new();
+    // Source lives in a separate tempdir so it never appears as a wallpaper.
+    let src_tmp = tempfile::tempdir().expect("tempdir for source file");
+    let src = src_tmp.path().join("src.png");
+    fs::write(&src, b"fakepng").expect("write source png");
+
+    let mut s = WallpaperSettingsState::load_default_test();
+    let res = s.import_custom(&src);
+    assert!(
+        matches!(res, ImportResult::Imported(_)),
+        "png import must succeed; got {res:?}"
+    );
+
+    let custom = s.list_custom();
+    assert_eq!(
+        custom.len(),
+        1,
+        "exactly one custom wallpaper after import; got {custom:?}"
+    );
+    assert!(
+        matches!(s.selection, WallpaperSelection::Custom { .. }),
+        "selection must switch to the imported custom wallpaper"
+    );
+
+    let dir = custom_wallpapers_dir().expect("custom dir resolved under test root");
+    assert!(
+        dir.join("src.png").is_file(),
+        "imported file must physically exist in the custom wallpapers dir"
+    );
+}
+
+/// T-W8: import_custom 拒绝非图片/非视频扩展（.txt），返回 Rejected 且不污染目录。
+///
+/// 数据构造：
+///   tempdir 作为 MULTISOUL_TEST_DATA_ROOT
+///   独立 src.tmp/notes.txt（内容 b"nope"）
+///   load_default_test() → 默认 builtin
+///
+/// 执行过程：
+///   s.import_custom(notes.txt)
+///     → 扩展 txt → WallpaperKind::from_extension 返回 None
+///     → 立即返回 Rejected，不触 create_dir_all/copy
+///
+/// 预期结果：
+///   - 正断言：返回 ImportResult::Rejected(_)
+///   - 正断言：list_custom 为空（无文件残留）
+///   - 负断言：selection 不被切到 Custom
+#[test]
+fn test_import_custom_rejects_unknown_extension() {
+    let _g = TestRootGuard::new();
+    let src_tmp = tempfile::tempdir().expect("tempdir for source file");
+    let src = src_tmp.path().join("notes.txt");
+    fs::write(&src, b"nope").expect("write source txt");
+
+    let mut s = WallpaperSettingsState::load_default_test();
+    let res = s.import_custom(&src);
+    assert!(
+        matches!(res, ImportResult::Rejected(_)),
+        "txt import must be rejected; got {res:?}"
+    );
+    assert!(
+        s.list_custom().is_empty(),
+        "rejected import must not leave any file in the custom dir"
+    );
+    assert!(
+        !matches!(s.selection, WallpaperSelection::Custom { .. }),
+        "rejected import must not switch selection to Custom"
+    );
+}
+
+/// T-W9: wallpaper view 模块必须包含缩略图网格锚点、Import 按钮，且不依赖运行时。
+///
+/// 锚点：view.rs 源文件内必须出现
+///   - "wallpaper-thumb"        （内置缩略格 cell id 前缀）
+///   - "Import"                  （Import 按钮文案）
+///   - "wallpaper-import"        （Import 按钮 id）
+///   - "wallpaper-delete"        （custom cell 删除按钮 id 前缀）
+///   - Task 11 视频占位注释
+///
+/// 这是结构性的源码锚点测试，避免 view 被误重构时丢失关键交互元素。
+#[test]
+fn test_wallpaper_view_has_grid_import_and_builtin_nodelete() {
+    let src = include_str!("../../src/settings/wallpaper/view.rs");
+    assert!(
+        src.contains("wallpaper-thumb"),
+        "view must define builtin thumbnail cell anchors (id \"wallpaper-thumb\")"
+    );
+    assert!(
+        src.contains("Import"),
+        "view must render an Import button label"
+    );
+    assert!(
+        src.contains("wallpaper-import"),
+        "view must give the Import button the wallpaper-import id"
+    );
+    assert!(
+        src.contains("wallpaper-delete"),
+        "view must define a per-cell delete affordance id (wallpaper-delete)"
+    );
+    assert!(
+        src.contains("Task 11"),
+        "video placeholder must reference the Task 11 first-frame follow-up"
     );
 }
