@@ -62,6 +62,7 @@ impl PersistenceScheduler {
         }
         if self.session_dirty {
             runtime.save_session_checkpoints(&project_store.session_store())?;
+            let _ = runtime.save_node_sessions(&project_store.node_session_store());
         }
         let flushed = self.has_pending_work();
         self.canvas_dirty = false;
