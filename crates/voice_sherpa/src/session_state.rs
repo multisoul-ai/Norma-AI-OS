@@ -1,5 +1,9 @@
 use crate::SpeechError;
 
+#[cfg(test)]
+#[path = "../tests/unit/session_state_tests.rs"]
+mod tests;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SessionPhase {
     Idle,
