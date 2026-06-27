@@ -3,20 +3,20 @@ use super::*;
 /// 快捷键默认注册表：当前 app 命令应全部从 registry 暴露，Settings 入口采用 macOS 习惯的 Cmd+,。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   editable command count = 10
+///   editable command count = 11
 ///     NewTerminal / CopyCardContent / OpenProject / OpenPreviewFile /
-///     NewClaudeAgent / NewCodexAgent / ReflowLayout / ToggleMasterLayout /
+///     NewClaudeAgent / NewCodexAgent / DeleteCard / ReflowLayout / ToggleMasterLayout /
 ///     ExitFocus / ToggleSettings
-///   default assigned count = 8（Claude/Codex agent 默认未设置）
+///   default assigned count = 9（Claude/Codex agent 默认未设置）
 ///   read-only behavior count >= 5（Paste / Voice / Arrow navigation / Space pan / PTY input）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. default_shortcut_entries() 返回所有设置页可展示项
 ///   2. effective_shortcuts(default prefs) 计算默认有效快捷键
-///   3. 查询关键命令的默认键位与只读行为
+///   3. 查询关键命令的默认键位、可编辑性与只读行为
 ///
 /// 预期结果：
-///   - 正断言：NewTerminal、ToggleSettings 等命令存在且默认键位正确
+///   - 正断言：NewTerminal、DeleteCard、ToggleSettings 等命令存在且默认键位正确
 ///   - 正断言：NewClaudeAgent / NewCodexAgent 存在但默认未设置
 ///   - 负断言：Cmd+V 不应作为可编辑命令出现，避免覆盖 paste 路由
 #[test]
@@ -30,9 +30,27 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
         "New Terminal 默认应保留 Cmd+N"
     );
     assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::DeleteCard),
+        Some("cmd-d"),
+        "Delete Card 默认应使用 Cmd+D"
+    );
+    assert_eq!(
         shortcut_for(&effective, ShortcutCommandId::ToggleSettings),
         Some("cmd-,"),
         "Settings 默认入口应使用 macOS 习惯的 Cmd+,"
+    );
+    let delete_entry = entry_for(&effective, ShortcutCommandId::DeleteCard);
+    assert_eq!(
+        delete_entry.category, "Cards",
+        "Delete Card 应归类在 Cards，Settings 才会出现在卡片命令分组"
+    );
+    assert_eq!(
+        delete_entry.title, "Delete Card",
+        "Delete Card 应使用明确标题，避免和复制/关闭等命令混淆"
+    );
+    assert!(
+        delete_entry.editable,
+        "Delete Card 应允许用户在 Settings 中改键"
     );
     assert_eq!(
         shortcut_for(&effective, ShortcutCommandId::NewClaudeAgent),
@@ -146,6 +164,7 @@ fn test_shortcut_preferences_ignore_invalid_json_and_invalid_keystrokes() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   duplicate candidate = cmd-o（OpenProject 默认已占用）
+///   duplicate card candidate = cmd-d（DeleteCard 默认已占用）
 ///   reserved candidates = cmd-v / cmd-shift-v / up / space
 ///   bare printable = a
 ///   valid candidate = cmd-t
@@ -156,7 +175,7 @@ fn test_shortcut_preferences_ignore_invalid_json_and_invalid_keystrokes() {
 ///
 /// 预期结果：
 ///   - 正断言：cmd-t 可用于 NewTerminal
-///   - 负断言：cmd-o / cmd-v / cmd-shift-v / up / space / a 均不允许
+///   - 负断言：cmd-o / cmd-d / cmd-v / cmd-shift-v / up / space / a 均不允许
 #[test]
 fn test_shortcut_validation_rejects_duplicates_reserved_inputs_and_bare_printables() {
     let effective = effective_shortcuts(&ShortcutPreferences::default());
@@ -168,6 +187,10 @@ fn test_shortcut_validation_rejects_duplicates_reserved_inputs_and_bare_printabl
     assert!(
         validate_shortcut_change(ShortcutCommandId::NewTerminal, "cmd-o", &effective).is_err(),
         "cmd-o 已被 OpenProject 占用，不应允许重复分配"
+    );
+    assert!(
+        validate_shortcut_change(ShortcutCommandId::NewTerminal, "cmd-d", &effective).is_err(),
+        "cmd-d 已被 DeleteCard 占用，不应允许重复分配"
     );
     assert!(
         validate_shortcut_change(ShortcutCommandId::NewTerminal, "cmd-v", &effective).is_err(),
@@ -250,4 +273,14 @@ fn shortcut_for(entries: &[EffectiveShortcutEntry], command: ShortcutCommandId) 
         .iter()
         .find(|entry| entry.command == command)
         .and_then(|entry| entry.current_keystroke.as_deref())
+}
+
+fn entry_for(
+    entries: &[EffectiveShortcutEntry],
+    command: ShortcutCommandId,
+) -> &EffectiveShortcutEntry {
+    entries
+        .iter()
+        .find(|entry| entry.command == command)
+        .expect("测试命令应存在于 effective shortcuts")
 }

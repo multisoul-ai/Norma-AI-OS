@@ -19,6 +19,14 @@ use terminal::{Cell, GridSnapshot};
 
 #[cfg(test)]
 pub(crate) fn current_copy_node_id(runtime: &Runtime) -> Option<NodeId> {
+    current_focused_or_single_selected_node_id(runtime)
+}
+
+fn current_delete_node_id(runtime: &Runtime) -> Option<NodeId> {
+    current_focused_or_single_selected_node_id(runtime)
+}
+
+fn current_focused_or_single_selected_node_id(runtime: &Runtime) -> Option<NodeId> {
     if let InputMode::NodeFocused(node_id) = runtime.focus.mode() {
         if runtime.document.node(node_id).is_some() {
             return Some(node_id);
@@ -146,6 +154,18 @@ impl MultisoulApp {
         }
     }
 
+    fn on_delete_card_shortcut(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            return;
+        }
+        let Some(node_id) = current_delete_node_id(&self.runtime) else {
+            return;
+        };
+        if self.close_node_through_route(node_id, window) {
+            cx.notify();
+        }
+    }
+
     /// 键盘事件：维护 space_held；聚焦终端时把按键编码写入对应 PTY。
     pub(crate) fn on_key_down(
         &mut self,
@@ -199,6 +219,7 @@ impl MultisoulApp {
                 if let Route::SelectNode(node_id) = route(&self.runtime.focus.mode(), &event) {
                     self.runtime.selection.select_only(node_id);
                     self.runtime.focus.exit_to_canvas();
+                    self.mark_node_viewed_if_needed(node_id);
                     self.interaction.keyboard_selected_node = Some(node_id);
                     cx.stop_propagation();
                     cx.notify();
@@ -303,6 +324,7 @@ impl MultisoulApp {
             ShortcutCommandId::NewCodexAgent => {
                 self.on_new_codex_agent(&crate::app::NewCodexAgent, window, cx)
             }
+            ShortcutCommandId::DeleteCard => self.on_delete_card_shortcut(window, cx),
             ShortcutCommandId::ReflowLayout => {
                 self.on_reflow_layout(&crate::app::ReflowLayout, window, cx)
             }
@@ -350,3 +372,7 @@ impl MultisoulApp {
 #[cfg(test)]
 #[path = "../../tests/unit/app_keyboard_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_keyboard_delete_tests.rs"]
+mod delete_tests;

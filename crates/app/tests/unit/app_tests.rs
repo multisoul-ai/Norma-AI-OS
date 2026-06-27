@@ -1,7 +1,8 @@
 use super::*;
 use crate::workspace::flow::enter_workspace_for_path;
 use crate::workspace::persistence::PersistenceScheduler;
-use canvas::{compute_responsive_grid_layout, CanvasNodeKind, RectNode};
+use canvas::{compute_responsive_grid_layout, AgentProfile, AgentSpec, CanvasNodeKind, RectNode};
+use runtime::{AgentTaskState, AgentTaskUpdate, CardAttentionKind, CardAttentionState};
 use storage::RecentStore;
 
 /// 默认壁纸：未设置 env 时应使用打包进程序的内置画布壁纸。
@@ -141,6 +142,68 @@ fn test_wallpaper_brightness_uses_original_image_luminance() {
     assert_ne!(
         WALLPAPER_SHADE_BOTTOM_ALPHA, 0xd8,
         "wallpaper bottom shade must not keep the old darkening alpha"
+    );
+}
+
+/// 卡片查看 helper：用户选择/聚焦卡片时应把未查看完成提醒标记为已查看。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Agent node_id=1，profile=Codex
+///   AgentTaskState::Done → runtime 创建 AgentTaskDone attention(viewed=false)
+///   mark_runtime_node_viewed_if_needed(node_id) 模拟鼠标点击或方向键选中该卡片
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. Runtime document 加入 Codex Agent node
+///   2. apply_agent_task_update(Done) 创建未查看 attention
+///   3. mark_runtime_node_viewed_if_needed(node_id)
+///   4. 再次 mark_runtime_node_viewed_if_needed(node_id)
+///
+/// 预期结果：
+///   - 正断言：首次 helper 返回 true，并把 viewed 改为 true
+///   - 正断言：attention kind 保持 AgentTaskDone
+///   - 负断言：重复 helper 返回 false，不能重复确认同一提醒
+#[test]
+fn test_mark_runtime_node_viewed_if_needed_marks_done_attention_viewed() {
+    let mut runtime = Runtime::new();
+    let node_id = runtime.document.add_node(
+        CanvasNodeKind::Agent(AgentSpec {
+            profile: AgentProfile::Codex,
+            alias: None,
+        }),
+        CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+    );
+    let changed = runtime.apply_agent_task_update(AgentTaskUpdate {
+        node_id,
+        profile: AgentProfile::Codex,
+        provider_event: "Stop".to_string(),
+        to: AgentTaskState::Done,
+    });
+    assert!(changed, "Done update 应创建未查看完成提醒");
+
+    let first = mark_runtime_node_viewed_if_needed(&mut runtime, node_id);
+    let attention = runtime.card_attention(node_id);
+    let second = mark_runtime_node_viewed_if_needed(&mut runtime, node_id);
+
+    assert!(first, "首次查看 Done attention 应返回 true");
+    assert_eq!(
+        attention,
+        Some(CardAttentionState {
+            kind: CardAttentionKind::AgentTaskDone,
+            viewed: true,
+        }),
+        "查看后 attention 应保留 AgentTaskDone kind，并标记 viewed=true"
+    );
+    assert!(
+        !second,
+        "重复调用 helper 不应再次返回 true，否则 UI 会重复处理同一提醒"
+    );
+    assert_ne!(
+        attention,
+        Some(CardAttentionState {
+            kind: CardAttentionKind::AgentTaskDone,
+            viewed: false,
+        }),
+        "查看后不应仍保持 viewed=false，否则呼吸灯不会关闭"
     );
 }
 

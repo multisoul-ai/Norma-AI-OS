@@ -7,9 +7,6 @@ mod resample;
 mod session;
 
 #[cfg(test)]
-pub use audio::audio_capture_for_test;
-
-#[cfg(test)]
 pub fn resolve_model_dir_for_test() -> Result<std::path::PathBuf, SpeechError> {
     model::resolve_model_dir()
 }

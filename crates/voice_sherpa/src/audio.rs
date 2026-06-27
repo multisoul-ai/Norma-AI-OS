@@ -1,5 +1,7 @@
+use crate::session::{AudioQueueStats, PcmEvent};
 use crate::SpeechError;
 use crossbeam_channel::Sender;
+use std::sync::Arc;
 
 const INPUT_BUS: usize = 0;
 const TAP_BUFFER_SIZE: u32 = 1_600; // requested tap size in frames (hint; HW may differ)
@@ -11,16 +13,20 @@ pub(crate) struct AudioCapture {
 }
 
 impl AudioCapture {
-    pub(crate) fn start(sender: Sender<Vec<f32>>) -> Result<Self, SpeechError> {
+    pub(crate) fn start(
+        sender: Sender<PcmEvent>,
+        stats: Arc<AudioQueueStats>,
+    ) -> Result<Self, SpeechError> {
         #[cfg(target_os = "macos")]
         {
             Ok(Self {
-                inner: macos::MacosAudioCapture::start(sender)?,
+                inner: macos::MacosAudioCapture::start(sender, stats)?,
             })
         }
         #[cfg(not(target_os = "macos"))]
         {
             let _ = sender;
+            let _ = stats;
             Err(SpeechError::Audio(
                 "audio not supported on this platform".to_string(),
             ))
@@ -53,7 +59,10 @@ mod macos {
     }
 
     impl MacosAudioCapture {
-        pub(super) fn start(sender: Sender<Vec<f32>>) -> Result<Self, SpeechError> {
+        pub(super) fn start(
+            sender: Sender<PcmEvent>,
+            stats: Arc<AudioQueueStats>,
+        ) -> Result<Self, SpeechError> {
             let engine = unsafe { AVAudioEngine::new() };
             let input_node = unsafe { engine.inputNode() };
 
@@ -92,7 +101,13 @@ mod macos {
                         return;
                     }
                     // Use try_send to avoid blocking the real-time audio thread.
-                    let _ = sender.try_send(resampled);
+                    match sender.try_send(PcmEvent::Samples(resampled)) {
+                        Ok(()) => stats.record_sent_chunk(),
+                        Err(crossbeam_channel::TrySendError::Full(_)) => {
+                            stats.record_dropped_chunk();
+                        }
+                        Err(crossbeam_channel::TrySendError::Disconnected(_)) => {}
+                    }
                 },
             );
 
@@ -141,10 +156,10 @@ mod macos {
 
 /// Exposed for integration testing only.
 #[cfg(test)]
-pub fn audio_capture_for_test(
-    sender: crossbeam_channel::Sender<Vec<f32>>,
+fn audio_capture_for_test(
+    sender: crossbeam_channel::Sender<PcmEvent>,
 ) -> Result<AudioCapture, SpeechError> {
-    AudioCapture::start(sender)
+    AudioCapture::start(sender, Arc::new(AudioQueueStats::default()))
 }
 
 #[cfg(test)]

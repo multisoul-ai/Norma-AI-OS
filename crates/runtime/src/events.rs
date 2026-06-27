@@ -28,6 +28,17 @@ pub enum AgentTaskState {
     Ended,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CardAttentionKind {
+    AgentTaskDone,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CardAttentionState {
+    pub kind: CardAttentionKind,
+    pub viewed: bool,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AgentTaskUpdate {
     pub node_id: NodeId,
@@ -72,6 +83,7 @@ pub enum RuntimeEvent {
 pub(crate) struct RuntimeEvents {
     states: HashMap<NodeId, NodeRunState>,
     agent_task_states: HashMap<NodeId, AgentTaskState>,
+    card_attention: HashMap<NodeId, CardAttentionState>,
     queue: VecDeque<RuntimeEvent>,
 }
 
@@ -82,6 +94,10 @@ impl RuntimeEvents {
 
     pub(crate) fn agent_task_state(&self, node_id: NodeId) -> Option<AgentTaskState> {
         self.agent_task_states.get(&node_id).cloned()
+    }
+
+    pub(crate) fn card_attention(&self, node_id: NodeId) -> Option<CardAttentionState> {
+        self.card_attention.get(&node_id).copied()
     }
 
     pub(crate) fn pending_len(&self) -> usize {
@@ -116,6 +132,7 @@ impl RuntimeEvents {
 
     pub(crate) fn remove(&mut self, node_id: NodeId) {
         self.agent_task_states.remove(&node_id);
+        self.card_attention.remove(&node_id);
         if let Some(previous_state) = self.states.remove(&node_id) {
             self.push(RuntimeEvent::NodeRemoved {
                 node_id,
@@ -126,6 +143,7 @@ impl RuntimeEvents {
 
     pub(crate) fn remove_all(&mut self) {
         self.agent_task_states.clear();
+        self.card_attention.clear();
         let removed: Vec<_> = self.states.drain().collect();
         for (node_id, previous_state) in removed {
             self.push(RuntimeEvent::NodeRemoved {
@@ -159,6 +177,7 @@ impl RuntimeEvents {
             return false;
         }
         let from = previous.unwrap_or(AgentTaskState::Ready);
+        self.update_attention_for_agent_task(node_id, &to);
         self.agent_task_states.insert(node_id, to.clone());
         self.push(RuntimeEvent::AgentTaskStateChanged {
             node_id,
@@ -166,6 +185,17 @@ impl RuntimeEvents {
             to,
             source_event,
         });
+        true
+    }
+
+    pub(crate) fn mark_card_viewed(&mut self, node_id: NodeId) -> bool {
+        let Some(attention) = self.card_attention.get_mut(&node_id) else {
+            return false;
+        };
+        if attention.viewed {
+            return false;
+        }
+        attention.viewed = true;
         true
     }
 
@@ -177,6 +207,28 @@ impl RuntimeEvents {
             return;
         }
         self.queue.push_back(event);
+    }
+
+    fn update_attention_for_agent_task(&mut self, node_id: NodeId, to: &AgentTaskState) {
+        match to {
+            AgentTaskState::Done => {
+                self.card_attention.insert(
+                    node_id,
+                    CardAttentionState {
+                        kind: CardAttentionKind::AgentTaskDone,
+                        viewed: false,
+                    },
+                );
+            }
+            AgentTaskState::Ready
+            | AgentTaskState::Thinking
+            | AgentTaskState::RunningTool { .. }
+            | AgentTaskState::WaitingApproval { .. }
+            | AgentTaskState::Failed { .. }
+            | AgentTaskState::Ended => {
+                self.card_attention.remove(&node_id);
+            }
+        }
     }
 }
 
@@ -195,6 +247,17 @@ impl Runtime {
 
     pub fn agent_task_state(&self, node_id: NodeId) -> Option<AgentTaskState> {
         self.events.agent_task_state(node_id)
+    }
+
+    pub fn card_attention(&self, node_id: NodeId) -> Option<CardAttentionState> {
+        self.events.card_attention(node_id)
+    }
+
+    pub fn mark_card_viewed(&mut self, node_id: NodeId) -> bool {
+        if self.document.node(node_id).is_none() {
+            return false;
+        }
+        self.events.mark_card_viewed(node_id)
     }
 
     pub fn apply_agent_task_update(&mut self, update: AgentTaskUpdate) -> bool {

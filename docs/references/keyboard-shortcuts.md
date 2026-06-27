@@ -40,6 +40,7 @@ canvas/view.rs
 | `⌘⇧O` | `OpenPreviewFile` | `on_open_preview_file` | Canvas | 弹出文件选择器，创建 Preview 卡片 |
 | 未设置 | `NewClaudeAgent` | `on_new_claude_agent` | Canvas | 创建 Claude Code agent 卡片 |
 | 未设置 | `NewCodexAgent` | `on_new_codex_agent` | Canvas | 创建 Codex agent 卡片 |
+| `⌘D` | `DeleteCard` | `on_delete_card_shortcut` | Canvas | 删除当前聚焦卡片；无聚焦时仅删除唯一选中的画布卡片 |
 | `⌘M` | `ToggleMasterLayout` | `on_toggle_master_layout` | Canvas | 切换 master/detail 布局；无选中时忽略 |
 | `⌘⇧L` | `ReflowLayout` | `on_reflow_layout` | Canvas | 退出 master 模式并按最多三列平铺网格重排全部节点 |
 | `Esc` | `ExitFocus` | `on_exit_focus` | 全局 | 从 `NodeFocused` 退回 `CanvasSelect`（画布选择模式） |
@@ -53,11 +54,21 @@ canvas/view.rs
 2. 否则若画布上**恰好选中一个**节点 → 以该节点为准。
 3. 仅当存在**非空**终端文本选区（`active_text_selection`）时才写入剪贴板。
 
+### 删除（`⌘D`）目标优先级
+
+`on_delete_card_shortcut` 复用标题栏关闭按钮的 `InputEvent::CloseNode` → `Route::RemoveNode` → `close_node_through_route` 路径：
+
+1. 若节点已聚焦（`NodeFocused`）且该节点仍存在 → 删除该聚焦节点。
+2. 否则若画布上**恰好选中一个**仍存在的节点 → 删除该节点。
+3. 多选、空选择、失效选择或 Launchpad 下静默忽略。
+
+删除后的布局 reflow、preview 清理、master/detail 更新、交互状态清理、canvas/session dirty 标记与标题栏关闭行为保持一致。
+
 ### Canvas 前置条件
 
 以下命令在 `AppScreen::Launchpad` 下会直接返回或设置错误提示，不执行画布操作：
 
-- `NewTerminal`、`OpenPreviewFile`、`NewClaudeAgent`、`NewCodexAgent`、`ToggleMasterLayout`、`ReflowLayout`、`ToggleSettings`
+- `NewTerminal`、`OpenPreviewFile`、`NewClaudeAgent`、`NewCodexAgent`、`DeleteCard`、`ToggleMasterLayout`、`ReflowLayout`、`ToggleSettings`
 - `CopyCardContent`（静默忽略）
 
 `OpenProject`、`ExitFocus` 不受 Canvas 限制。
@@ -144,7 +155,7 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 
 - 任意 `⌘` 组合（`modifiers.platform == true` 时 `keystroke_to_input` 返回 `None`）
 - 需交给 IME 的可打印键（`ime::should_defer_keystroke_to_ime`）
-- 被 app shortcut registry 消费的键（如默认 `⌘N`、`⌘M`、`Esc` 等）
+- 被 app shortcut registry 消费的键（如默认 `⌘N`、`⌘D`、`⌘M`、`Esc` 等）
 
 **会传入 PTY：**
 
@@ -207,7 +218,7 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 | 快捷键 registry / 偏好 / 校验 | `crates/app/src/shortcuts.rs` |
 | Settings 快捷键页面 | `crates/app/src/settings/keyboard.rs` |
 | Action 定义与 `on_action` 挂载 | `crates/app/src/app/mod.rs` |
-| 键事件 / app 命令分发 / 粘贴 / 导航 / 复制 | `crates/app/src/app/keyboard.rs` |
+| 键事件 / app 命令分发 / 粘贴 / 导航 / 复制 / 删除 | `crates/app/src/app/keyboard.rs` |
 | 语音长按快捷键 | `crates/app/src/app/voice/control.rs` |
 | GPUI → PTY 编码 | `crates/app/src/cards/term/view.rs` → `keystroke_to_input` |
 | IME  defer 判定 | `crates/app/src/app/ime.rs` |
@@ -220,8 +231,9 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 
 1. 在 `actions!` 中声明 Action（若需菜单复用）。
 2. 在 `shortcuts.rs` 的 `default_shortcut_entries()` 增加命令默认值和 Settings 展示文案。
-3. 在 `app/keyboard.rs` 的 `dispatch_shortcut_command` 映射到处理器。
-4. 在 `MultisoulApp::render` 根元素 `.on_action(...)` 挂载菜单 Action 处理器。
-5. 若快捷键不应传入 PTY，确认 `keystroke_to_input` 对 `modifiers.platform` 的拦截已覆盖；必要时补测试（参考 `test_keystroke_to_input_platform_shortcut_is_not_sent_to_pty`）。
-6. 若与手写输入路由冲突（如 `⌘V` / `⌘⇧V`），先在 `shortcuts.rs` 保留输入行为，再在 `keyboard.rs` 或 `voice/control.rs` 明确优先级并补单元测试。
-7. 更新本文档。
+3. 在 `settings/keyboard.rs` 增加 `settings-shortcut-*` 与 restore id，保证 Settings → Keyboard Shortcuts 可录制与恢复。
+4. 在 `app/keyboard.rs` 的 `dispatch_shortcut_command` 映射到处理器。
+5. 在 `MultisoulApp::render` 根元素 `.on_action(...)` 挂载菜单 Action 处理器（仅当需要菜单复用）。
+6. 若快捷键不应传入 PTY，确认 `keystroke_to_input` 对 `modifiers.platform` 的拦截已覆盖；必要时补测试（参考 `test_keystroke_to_input_platform_shortcut_is_not_sent_to_pty`）。
+7. 若与手写输入路由冲突（如 `⌘V` / `⌘⇧V`），先在 `shortcuts.rs` 保留输入行为，再在 `keyboard.rs` 或 `voice/control.rs` 明确优先级并补单元测试。
+8. 更新本文档。

@@ -24,7 +24,7 @@ use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{AgentProfile, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
-use runtime::Runtime;
+use runtime::{route, InputEvent, Route, Runtime};
 use std::time::Duration;
 use ui::Theme;
 
@@ -86,6 +86,10 @@ pub struct MultisoulApp {
 pub(crate) enum AppScreen {
     Launchpad,
     Canvas,
+}
+
+pub(crate) fn mark_runtime_node_viewed_if_needed(runtime: &mut Runtime, node_id: NodeId) -> bool {
+    runtime.mark_card_viewed(node_id)
 }
 
 impl MultisoulApp {
@@ -291,6 +295,28 @@ impl MultisoulApp {
             self.mark_session_dirty();
         }
         changed
+    }
+
+    pub(crate) fn close_node_through_route(
+        &mut self,
+        node_id: NodeId,
+        window: &mut Window,
+    ) -> bool {
+        let event = InputEvent::CloseNode { node: node_id };
+        let Route::RemoveNode(node_id) = route(&self.runtime.focus.mode(), &event) else {
+            return false;
+        };
+        if !self.remove_node_and_reflow(node_id, window) {
+            return false;
+        }
+        self.interaction.drag = None;
+        self.interaction.panning = false;
+        self.interaction.last_screen = None;
+        true
+    }
+
+    pub(crate) fn mark_node_viewed_if_needed(&mut self, node_id: NodeId) -> bool {
+        mark_runtime_node_viewed_if_needed(&mut self.runtime, node_id)
     }
 
     pub(crate) fn visible_canvas_rect(&self, window: &mut Window) -> CanvasRect {

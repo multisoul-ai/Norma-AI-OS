@@ -16,6 +16,7 @@ pub(crate) enum ShortcutCommandId {
     OpenPreviewFile,
     NewClaudeAgent,
     NewCodexAgent,
+    DeleteCard,
     ReflowLayout,
     ToggleMasterLayout,
     ExitFocus,
@@ -293,6 +294,14 @@ pub(crate) fn default_shortcut_entries() -> &'static [ShortcutEntry] {
             title: "Copy Selection",
             hint: "Copy the active terminal text selection",
             default_keystroke: Some("cmd-c"),
+            editable: true,
+        },
+        ShortcutEntry {
+            command: ShortcutCommandId::DeleteCard,
+            category: "Cards",
+            title: "Delete Card",
+            hint: "Delete the focused or single selected card",
+            default_keystroke: Some("cmd-d"),
             editable: true,
         },
         ShortcutEntry {
