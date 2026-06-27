@@ -64,6 +64,14 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
             updated_at_unix INTEGER NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS node_sessions (
+            node_id         INTEGER PRIMARY KEY NOT NULL,
+            kind            TEXT    NOT NULL,
+            cwd             TEXT,
+            session_id      TEXT,
+            updated_at_unix INTEGER NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS voice_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             transcript TEXT NOT NULL,
