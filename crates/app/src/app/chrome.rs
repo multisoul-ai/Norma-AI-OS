@@ -5,7 +5,7 @@ use super::{
 };
 use gpui::{
     div, img, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, BoxShadow, Context,
-    Div, MouseButton, ObjectFit, Window,
+    Div, ObjectFit, Window,
 };
 use ui::Theme;
 
@@ -104,8 +104,6 @@ impl MultisoulApp {
         let theme = self.theme;
         let win = window.viewport_size();
         let win_w = f32::from(win.width);
-        let bottom_w = (win_w - 64.0).clamp(260.0, 360.0);
-        let bottom_left = (win_w - bottom_w) * 0.5;
 
         let mut chrome = div()
             .absolute()
@@ -198,54 +196,7 @@ impl MultisoulApp {
             });
 
         if bottom_voice_bar_visible() {
-            chrome = chrome.child(
-                div()
-                    .absolute()
-                    .left(px(bottom_left))
-                    .bottom(px(22.0))
-                    .w(px(bottom_w))
-                    .h(px(42.0))
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .justify_between()
-                    .px(px(18.0))
-                    .rounded(px(21.0))
-                    .border_1()
-                    .border_color(rgba(with_alpha(theme.edge_highlight, 0x2d)))
-                    .shadow(chrome_shadow(theme))
-                    .bg(rgba(with_alpha(theme.panel, 0xe5)))
-                    .text_color(rgba(theme.text_primary))
-                    .text_size(px(13.0))
-                    .on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener(Self::on_voice_bar_mouse_down),
-                    )
-                    .on_mouse_up(MouseButton::Left, cx.listener(Self::on_voice_bar_mouse_up))
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .w(px(18.0))
-                                    .h(px(18.0))
-                                    .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .text_color(rgba(theme.accent_orange))
-                                    .child("|||"),
-                            )
-                            .child(self.voice_label()),
-                    )
-                    .child(
-                        div()
-                            .text_color(rgba(theme.accent_orange))
-                            .child("........"),
-                    ),
-            );
+            chrome = chrome.child(self.render_voice_bar(window, cx));
         }
 
         chrome
