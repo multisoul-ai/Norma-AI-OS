@@ -129,78 +129,145 @@ pub fn with_chase_overlays(
     h: f32,
     zoom: f32,
 ) -> Stateful<Div> {
-    for ov in chase_snake_overlays(chase, w, h, zoom)
-        .into_iter()
-        .flatten()
-    {
+    for ov in chase_snake_overlays(chase, w, h, zoom) {
         d = d.child(ov);
     }
     d
 }
 
-/// 为四条边各生成一个追尾光渐变 overlay div；无交叉时对应位置为 None。
-fn chase_snake_overlays(chase: ChaseGlow, w: f32, h: f32, zoom: f32) -> [Option<Div>; 4] {
-    let t = 2.0 * zoom;
+/// 生成 snake 追尾光 overlay：4 条边（各收缩圆角距离）+ 最多 4 个角点圆点。
+fn chase_snake_overlays(chase: ChaseGlow, w: f32, h: f32, zoom: f32) -> Vec<Div> {
+    let t = 3.5 * zoom;
+    let r = (16.0 * zoom).clamp(8.0, 22.0);
     let alpha = (0xCC as f32 * chase.fade).round() as u8;
-    let bright = rgba(0xffffff00_u32 | u32::from(alpha));
-    let dim = rgba(0xffffff00_u32);
-    // top: TL→TR，snake 头方向向右（90°）
-    let top = chase_edge_segment(chase.phase, CHASE_TAIL_LENGTH, 0.0, 0.25).map(|(lt, lh)| {
-        div()
-            .absolute()
-            .top(px(0.0))
-            .left(px(lt * w))
-            .w(px((lh - lt) * w))
-            .h(px(t))
-            .bg(linear_gradient(
-                90.0,
-                linear_color_stop(dim, 0.0),
-                linear_color_stop(bright, 1.0),
-            ))
-    });
-    // right: TR→BR，snake 头方向向下（180°）
-    let right = chase_edge_segment(chase.phase, CHASE_TAIL_LENGTH, 0.25, 0.5).map(|(lt, lh)| {
-        div()
-            .absolute()
-            .right(px(0.0))
-            .top(px(lt * h))
-            .w(px(t))
-            .h(px((lh - lt) * h))
-            .bg(linear_gradient(
-                180.0,
-                linear_color_stop(dim, 0.0),
-                linear_color_stop(bright, 1.0),
-            ))
-    });
-    // bottom: BR→BL，snake 头方向向左（270°），local_0=BR(right), local_1=BL(left)
-    let bottom = chase_edge_segment(chase.phase, CHASE_TAIL_LENGTH, 0.5, 0.75).map(|(lt, lh)| {
-        div()
-            .absolute()
-            .bottom(px(0.0))
-            .left(px((1.0 - lh) * w))
-            .w(px((lh - lt) * w))
-            .h(px(t))
-            .bg(linear_gradient(
-                270.0,
-                linear_color_stop(dim, 0.0),
-                linear_color_stop(bright, 1.0),
-            ))
-    });
-    // left: BL→TL，snake 头方向向上（0°），local_0=BL(bottom), local_1=TL(top)
-    let left = chase_edge_segment(chase.phase, CHASE_TAIL_LENGTH, 0.75, 1.0).map(|(lt, lh)| {
-        div()
-            .absolute()
-            .left(px(0.0))
-            .top(px((1.0 - lh) * h))
-            .w(px(t))
-            .h(px((lh - lt) * h))
-            .bg(linear_gradient(
-                0.0,
-                linear_color_stop(dim, 0.0),
-                linear_color_stop(bright, 1.0),
-            ))
-    });
-    [top, right, bottom, left]
+    let bright = rgba(0x27d7ea00_u32 | u32::from(alpha));
+    let dim = rgba(0x27d7ea00_u32);
+    let iw = (w - 2.0 * r).max(0.0);
+    let ih = (h - 2.0 * r).max(0.0);
+    let mut out: Vec<Div> = Vec::new();
+
+    // top: TL→TR (90°)，strip 从 x=r 到 x=w-r
+    if let Some((lt, lh)) = chase_edge_segment(chase.phase, CHASE_TAIL_LENGTH, 0.0, 0.25) {
+        out.push(
+            div()
+                .absolute()
+                .top(px(0.0))
+                .left(px(r + lt * iw))
+                .w(px((lh - lt) * iw))
+                .h(px(t))
+                .rounded(px(t / 2.0))
+                .bg(linear_gradient(
+                    90.0,
+                    linear_color_stop(dim, 0.0),
+                    linear_color_stop(bright, 1.0),
+                )),
+        );
+    }
+    // right: TR→BR (180°)，strip 从 y=r 到 y=h-r
+    if let Some((lt, lh)) = chase_edge_segment(chase.phase, CHASE_TAIL_LENGTH, 0.25, 0.5) {
+        out.push(
+            div()
+                .absolute()
+                .right(px(0.0))
+                .top(px(r + lt * ih))
+                .w(px(t))
+                .h(px((lh - lt) * ih))
+                .rounded(px(t / 2.0))
+                .bg(linear_gradient(
+                    180.0,
+                    linear_color_stop(dim, 0.0),
+                    linear_color_stop(bright, 1.0),
+                )),
+        );
+    }
+    // bottom: BR→BL (270°)，strip 从 x=w-r 到 x=r
+    if let Some((lt, lh)) = chase_edge_segment(chase.phase, CHASE_TAIL_LENGTH, 0.5, 0.75) {
+        out.push(
+            div()
+                .absolute()
+                .bottom(px(0.0))
+                .left(px(r + (1.0 - lh) * iw))
+                .w(px((lh - lt) * iw))
+                .h(px(t))
+                .rounded(px(t / 2.0))
+                .bg(linear_gradient(
+                    270.0,
+                    linear_color_stop(dim, 0.0),
+                    linear_color_stop(bright, 1.0),
+                )),
+        );
+    }
+    // left: BL→TL (0°)，strip 从 y=h-r 到 y=r
+    if let Some((lt, lh)) = chase_edge_segment(chase.phase, CHASE_TAIL_LENGTH, 0.75, 1.0) {
+        out.push(
+            div()
+                .absolute()
+                .left(px(0.0))
+                .top(px(r + (1.0 - lh) * ih))
+                .w(px(t))
+                .h(px((lh - lt) * ih))
+                .rounded(px(t / 2.0))
+                .bg(linear_gradient(
+                    0.0,
+                    linear_color_stop(dim, 0.0),
+                    linear_color_stop(bright, 1.0),
+                )),
+        );
+    }
+
+    // 角部圆弧：K 个小圆沿卡片圆角弧线排列，snake 经过时显示。
+    // 每个小圆圆心用 sin/cos 精确落在卡片圆弧上，整体看起来是 snake 绕圆角行进。
+    // 渐变方向：arc_t=1（出边）最亮 → arc_t=0（入边）稍暗（对应 head→tail 方向）。
+    const K: usize = 8;
+    const CORNER_W: f32 = 0.04; // 角部虚拟宽度（perimeter 坐标），用于产生 head→tail 渐变
+    let half_pi: f32 = std::f32::consts::FRAC_PI_2;
+    for (cp, is_right, is_bottom) in [
+        (0.0_f32, false, false), // TL
+        (0.25, true, false),     // TR
+        (0.5, true, true),       // BR
+        (0.75, false, true),     // BL
+    ] {
+        let tail = chase.phase - CHASE_TAIL_LENGTH;
+        let hit = if tail >= 0.0 {
+            tail <= cp && cp <= chase.phase
+        } else {
+            cp >= tail + 1.0 || cp <= chase.phase
+        };
+        if !hit {
+            continue;
+        }
+        let dist = (chase.phase - cp).rem_euclid(1.0);
+        for i in 0..K {
+            let frac = (i as f32 + 0.5) / K as f32; // arc_t: 0=入边, 1=出边
+            let seg_dist = dist + (1.0 - frac) * CORNER_W;
+            let seg_intens = (1.0 - seg_dist / CHASE_TAIL_LENGTH).clamp(0.0, 1.0);
+            let seg_a = (0xCC as f32 * chase.fade * seg_intens).round() as u8;
+            if seg_a == 0 {
+                continue;
+            }
+            let seg_col = rgba(0x27d7ea00_u32 | u32::from(seg_a));
+            let alpha = frac * half_pi;
+            // 各角圆弧公式（arc center: TL=(r,r), TR=(w-r,r), BR=(w-r,h-r), BL=(r,h-r)）
+            let (sx, sy) = match (is_right, is_bottom) {
+                (false, false) => (r * (1.0 - alpha.cos()), r * (1.0 - alpha.sin())),
+                (true, false) => (w - r + r * alpha.sin(), r * (1.0 - alpha.cos())),
+                (true, true) => (w - r + r * alpha.cos(), h - r + r * alpha.sin()),
+                _ => (r * (1.0 - alpha.sin()), h - r + r * alpha.cos()),
+            };
+            out.push(
+                div()
+                    .absolute()
+                    .left(px(sx - t / 2.0))
+                    .top(px(sy - t / 2.0))
+                    .w(px(t))
+                    .h(px(t))
+                    .rounded(px(t / 2.0))
+                    .bg(seg_col),
+            );
+        }
+    }
+
+    out
 }
 
 pub struct EmptyCard;
