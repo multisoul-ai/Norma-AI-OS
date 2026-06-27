@@ -4,6 +4,7 @@ pub(crate) mod control;
 mod history;
 pub(crate) mod log;
 pub(crate) mod modal;
+mod refine;
 
 use crate::app::voice::control::{VoicePhase, VoiceTrigger};
 use crate::app::voice::log::{
@@ -11,6 +12,7 @@ use crate::app::voice::log::{
     log_voice_planner_failed, log_voice_planner_rejected, log_voice_planning_started,
     log_voice_runtime_failed, log_voice_transcript_only,
 };
+use crate::app::voice::refine::refine_speech_transcript;
 use crate::app::{AppScreen, MultisoulApp};
 use crate::norma::server::{execute_card_command_for_area, NormaCommandEffects, NormaExecution};
 use gpui::{Context, MouseDownEvent, MouseUpEvent, Window};
@@ -141,7 +143,8 @@ impl MultisoulApp {
     fn process_finished_voice_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match voice_transcript_source() {
             VoiceTranscriptSource::Environment(transcript) if !transcript.trim().is_empty() => {
-                self.handle_voice_transcript(transcript.trim().to_string(), window, cx);
+                let transcript = transcript.trim().to_string();
+                self.handle_voice_transcript(transcript.clone(), transcript, None, window, cx);
             }
             VoiceTranscriptSource::Environment(_) => {
                 self.record_empty_voice_transcript();
@@ -182,7 +185,15 @@ impl MultisoulApp {
     ) {
         match result {
             Ok(transcript) if !transcript.trim().is_empty() => {
-                self.handle_voice_transcript(transcript.trim().to_string(), window, cx);
+                let raw_transcript = transcript.trim().to_string();
+                let (transcript, refined_transcript) = refine_speech_transcript(&raw_transcript);
+                self.handle_voice_transcript(
+                    transcript,
+                    raw_transcript,
+                    refined_transcript,
+                    window,
+                    cx,
+                );
             }
             Ok(_) | Err(SpeechError::EmptyTranscript) => {
                 self.record_empty_voice_transcript();
@@ -195,14 +206,11 @@ impl MultisoulApp {
         }
     }
 
-    fn record_empty_voice_transcript(&mut self) {
-        self.voice.set_transcript_only("", "empty transcript");
-        self.save_voice_history("".into(), "{}".into(), 0.0, "low", "transcript_only", None);
-    }
-
     fn handle_voice_transcript(
         &mut self,
         transcript: String,
+        raw_transcript: String,
+        refined_transcript: Option<String>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -218,7 +226,8 @@ impl MultisoulApp {
                 self.voice
                     .set_error(format!("Voice planner failed: {error}"));
                 self.save_voice_history(
-                    transcript,
+                    raw_transcript.clone(),
+                    refined_transcript.clone(),
                     "{}".into(),
                     0.0,
                     "low",
@@ -241,7 +250,8 @@ impl MultisoulApp {
                     format!("planner output rejected: {error}"),
                 );
                 self.save_voice_history(
-                    transcript,
+                    raw_transcript.clone(),
+                    refined_transcript.clone(),
                     planner_json,
                     confidence,
                     risk,
@@ -258,7 +268,8 @@ impl MultisoulApp {
                 log_voice_transcript_only(&transcript, &reason, confidence, risk);
                 self.voice.set_transcript_only(transcript.clone(), reason);
                 self.save_voice_history(
-                    transcript,
+                    raw_transcript.clone(),
+                    refined_transcript.clone(),
                     planner_json,
                     confidence,
                     risk,
@@ -280,7 +291,8 @@ impl MultisoulApp {
                 self.pending_voice_commands = compiled.commands;
                 self.voice.set_confirming(transcript.clone(), reason);
                 self.save_voice_history(
-                    transcript,
+                    raw_transcript.clone(),
+                    refined_transcript.clone(),
                     planner_json,
                     confidence,
                     risk,
@@ -297,7 +309,8 @@ impl MultisoulApp {
                         log_voice_executed(&transcript, &message);
                         self.voice.set_executed(message);
                         self.save_voice_history(
-                            transcript,
+                            raw_transcript.clone(),
+                            refined_transcript.clone(),
                             planner_json,
                             confidence,
                             risk,
@@ -310,7 +323,8 @@ impl MultisoulApp {
                         self.voice
                             .set_error(format!("Voice command failed: {error}"));
                         self.save_voice_history(
-                            transcript,
+                            raw_transcript.clone(),
+                            refined_transcript.clone(),
                             planner_json,
                             confidence,
                             risk,

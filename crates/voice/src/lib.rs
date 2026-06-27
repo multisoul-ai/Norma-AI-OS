@@ -3,6 +3,7 @@
 mod ollama;
 mod ollama_repair;
 mod plan;
+pub mod refine;
 
 pub use ollama::{OllamaVoicePlanner, VoicePlanner};
 pub use plan::{
@@ -10,3 +11,4 @@ pub use plan::{
     PlannedCommand, PlannedTarget, RiskLevel, Transcript, VoiceCardKind, VoicePlan,
     VoicePlanDecision, VoicePlanError, VoicePlanningRequest, MIN_EXECUTE_CONFIDENCE,
 };
+pub use refine::{refine_prompt, RefineError, TranscriptRefiner};

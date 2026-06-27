@@ -87,16 +87,30 @@ impl MultisoulApp {
             cx.notify();
             return;
         }
+        let transcript = self
+            .voice
+            .confirmation()
+            .map(|(transcript, _)| transcript.to_string())
+            .unwrap_or_default();
         match self.execute_compiled_voice_plan(commands, window) {
             Ok(message) => {
                 self.voice.set_executed(message);
-                self.save_voice_history("".into(), "{}".into(), 0.0, "medium", "confirmed", None);
+                self.save_voice_history(
+                    transcript.clone(),
+                    None,
+                    "{}".into(),
+                    0.0,
+                    "medium",
+                    "confirmed",
+                    None,
+                );
             }
             Err(error) => {
                 self.voice
                     .set_error(format!("Voice command failed: {error}"));
                 self.save_voice_history(
-                    "".into(),
+                    transcript,
+                    None,
                     "{}".into(),
                     0.0,
                     "medium",
@@ -116,8 +130,16 @@ impl MultisoulApp {
             .map(|(transcript, _)| transcript.to_string())
             .unwrap_or_default();
         self.voice
-            .set_transcript_only(transcript, "voice command cancelled");
-        self.save_voice_history("".into(), "{}".into(), 0.0, "medium", "cancelled", None);
+            .set_transcript_only(transcript.clone(), "voice command cancelled");
+        self.save_voice_history(
+            transcript,
+            None,
+            "{}".into(),
+            0.0,
+            "medium",
+            "cancelled",
+            None,
+        );
         cx.notify();
     }
 }

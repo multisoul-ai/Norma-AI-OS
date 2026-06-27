@@ -2,8 +2,10 @@ use crate::{
     PlannedCardKind, PlannedCommand, PlannedTarget, RiskLevel, VoicePlan, VoicePlanningRequest,
 };
 use norma::protocol::AgentProfile;
+#[cfg(test)]
 use serde_json::Value;
 
+#[cfg(test)]
 pub(crate) fn required_plan_hint_json(request: &VoicePlanningRequest) -> Value {
     required_plan_from_request(request)
         .and_then(|plan| serde_json::to_value(plan).ok())

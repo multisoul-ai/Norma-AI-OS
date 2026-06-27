@@ -3,6 +3,8 @@ use super::*;
 fn history_entry(transcript: &str, status: &str) -> VoiceHistoryEntry {
     VoiceHistoryEntry {
         transcript: transcript.to_string(),
+        raw_transcript: transcript.to_string(),
+        refined_transcript: None,
         planner_json: r#"{"commands":[]}"#.to_string(),
         confidence: 0.82,
         risk: "low".to_string(),
@@ -120,5 +122,60 @@ fn test_voice_history_recent_order_and_limit() {
     assert!(
         !records.iter().any(|record| record.transcript == "first"),
         "limit=2 时最旧的 first 不应出现在结果中"
+    );
+}
+
+/// VH-3: raw_transcript 和 refined_transcript 应分别保存并可读回。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   raw_transcript = "再哪里"（Apple/Sherpa Speech 原始输出）
+///   refined_transcript = Some("在哪里")（LLM 修正后）
+///   transcript = "在哪里"（用于规划）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造 entry，raw 与 refined 不同
+///   2. save_entry(entry) → 写入 voice_history
+///   3. load_recent(1) → 读取最近 1 条
+///   4. 检查两列独立存储
+///
+/// 预期结果：
+///   - 正断言：raw_transcript = "再哪里"
+///   - 正断言：refined_transcript = Some("在哪里")
+///   - 负断言：raw_transcript 不应等于 refined_transcript（它们不同）
+#[test]
+fn test_voice_history_stores_raw_and_refined_transcripts() {
+    let temp = tempfile::tempdir().expect("test should create temp dir");
+    let store = VoiceHistoryStore::new(temp.path().join("project.sqlite"));
+    let entry = VoiceHistoryEntry {
+        transcript: "在哪里".to_string(),
+        raw_transcript: "再哪里".to_string(),
+        refined_transcript: Some("在哪里".to_string()),
+        planner_json: r#"{"commands":[]}"#.to_string(),
+        confidence: 0.9,
+        risk: "low".to_string(),
+        status: "executed".to_string(),
+        provider: Some("ollama".to_string()),
+        model: Some("qwen2.5:1.5b".to_string()),
+        target_node_id: None,
+        error: None,
+    };
+
+    store.save_entry(&entry).expect("entry 应写入 SQLite");
+    let records = store.load_recent(1).expect("应可从 SQLite 读回");
+
+    assert_eq!(records.len(), 1, "应读回 1 条记录");
+    assert_eq!(
+        records[0].raw_transcript, "再哪里",
+        "raw_transcript 应保存 Speech 原始输出"
+    );
+    assert_eq!(
+        records[0].refined_transcript,
+        Some("在哪里".to_string()),
+        "refined_transcript 应保存 LLM 修正后内容"
+    );
+    assert_ne!(
+        records[0].raw_transcript,
+        records[0].refined_transcript.as_deref().unwrap_or(""),
+        "同音字修正场景下 raw 与 refined 不应相同"
     );
 }

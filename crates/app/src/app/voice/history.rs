@@ -6,7 +6,8 @@ use voice::OllamaVoicePlanner;
 use voice_sherpa::SpeechError;
 
 pub(super) struct VoiceHistoryDraft {
-    pub transcript: String,
+    pub raw_transcript: String,
+    pub refined_transcript: Option<String>,
     pub planner_json: String,
     pub confidence: f64,
     pub risk: &'static str,
@@ -17,9 +18,23 @@ pub(super) struct VoiceHistoryDraft {
 }
 
 impl MultisoulApp {
+    pub(super) fn record_empty_voice_transcript(&mut self) {
+        self.voice.set_transcript_only("", "empty transcript");
+        self.save_voice_history(
+            "".into(),
+            None,
+            "{}".into(),
+            0.0,
+            "low",
+            "transcript_only",
+            None,
+        );
+    }
+
     pub(crate) fn save_voice_history(
         &mut self,
-        transcript: String,
+        raw_transcript: String,
+        refined_transcript: Option<String>,
         planner_json: String,
         confidence: f64,
         risk: &'static str,
@@ -27,7 +42,8 @@ impl MultisoulApp {
         error: Option<String>,
     ) {
         self.save_voice_history_with_provider(VoiceHistoryDraft {
-            transcript,
+            raw_transcript,
+            refined_transcript,
             planner_json,
             confidence,
             risk,
@@ -40,7 +56,8 @@ impl MultisoulApp {
 
     pub(super) fn save_voice_speech_error(&mut self, error: SpeechError) {
         self.save_voice_history_with_provider(VoiceHistoryDraft {
-            transcript: "".into(),
+            raw_transcript: "".into(),
+            refined_transcript: None,
             planner_json: "{}".into(),
             confidence: 0.0,
             risk: "low",
@@ -52,8 +69,14 @@ impl MultisoulApp {
     }
 
     fn save_voice_history_with_provider(&mut self, draft: VoiceHistoryDraft) {
+        let transcript = draft
+            .refined_transcript
+            .clone()
+            .unwrap_or_else(|| draft.raw_transcript.clone());
         let entry = VoiceHistoryEntry {
-            transcript: draft.transcript,
+            transcript,
+            raw_transcript: draft.raw_transcript,
+            refined_transcript: draft.refined_transcript,
             planner_json: draft.planner_json,
             confidence: draft.confidence,
             risk: draft.risk.to_string(),
