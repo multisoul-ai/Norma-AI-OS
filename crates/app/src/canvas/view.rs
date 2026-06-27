@@ -14,18 +14,17 @@ use crate::canvas::scroll::{
     terminal_scroll_lines_from_pixel_delta, wheel_scroll_owner_for_point, WheelScrollOwner,
 };
 use crate::canvas::text_selection::TextPoint;
-use crate::cards::agent::card::agent_breathing_intent;
+use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
 use crate::cards::chrome::{
-    node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
+    chase_overlay_container, node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
 };
 use crate::cards::term::selection::terminal_point_for_local_position;
 use crate::cards::term::view::terminal_render_metrics;
 use crate::cards::{card_for, CardBodyContext};
-use crate::motion::breathing::BreathingIntent;
 use canvas::{hit_test, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{
-    div, prelude::*, px, rgba, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
-    ScrollWheelEvent, Window,
+    div, prelude::*, px, rgba, AnyElement, Context, MouseButton, MouseDownEvent, MouseMoveEvent,
+    MouseUpEvent, ScrollWheelEvent, Window,
 };
 use runtime::{route, InputEvent, InputMode, NodeScroll, NodeView, Route};
 
@@ -279,7 +278,7 @@ pub fn render_canvas(
     let focus_mode = app.runtime.focus.mode();
 
     // 先收集需要渲染的节点数据（避免借用冲突）。
-    let mut node_elems = Vec::new();
+    let mut node_elems: Vec<AnyElement> = Vec::new();
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
     app.motion.retain_nodes(node_ids.iter().copied());
     for id in node_ids {
@@ -299,12 +298,12 @@ pub fn render_canvas(
         let focused = matches!(focus_mode, InputMode::NodeFocused(fid) if fid == id);
         app.motion.ensure_node(id, canonical_rect);
         app.motion.set_selection_focus(id, selected, focused);
-        let breathing_intent = if node.kind.node_type() == NodeType::Agent {
-            agent_breathing_intent(app.runtime.agent_task_state(id))
-        } else {
-            BreathingIntent::Inactive
-        };
+        let is_agent = node.kind.node_type() == NodeType::Agent;
+        let agent_state = is_agent.then(|| app.runtime.agent_task_state(id)).flatten();
+        let breathing_intent = agent_breathing_intent(agent_state.clone());
         app.motion.set_breathing_intent(id, breathing_intent);
+        app.motion
+            .set_chase_intent(id, is_agent && agent_chase_intent(agent_state));
         if app
             .interaction
             .drag
@@ -316,8 +315,7 @@ pub fn render_canvas(
 
         let visual = app.motion.resolve_node_visual(id, canonical_rect, theme);
         let top_left = vp.canvas_to_screen(visual.rect.origin);
-        let w = visual.rect.size.x * vp.zoom;
-        let h = visual.rect.size.y * vp.zoom;
+        let (w, h) = (visual.rect.size.x * vp.zoom, visual.rect.size.y * vp.zoom);
 
         // viewport culling：完全在窗口外的节点跳过。
         if top_left.x + w < 0.0 || top_left.y + h < 0.0 || top_left.x > win_w || top_left.y > win_h
@@ -474,8 +472,10 @@ pub fn render_canvas(
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),
             },
         ));
-
-        node_elems.push(node_div);
+        node_elems.push(node_div.into_any_element());
+        if let Some(chase) = visual.chase_glow {
+            node_elems.push(chase_overlay_container(top_left, w, h, chase, vp.zoom));
+        }
     }
 
     div()

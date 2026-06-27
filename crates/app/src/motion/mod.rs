@@ -10,7 +10,8 @@ use std::time::Duration;
 use ui::Theme;
 
 use crate::motion::breathing::{
-    breathing_color_for_phase, resolve_corner_glow, BreathingIntent, BreathingState, CornerGlow,
+    breathing_color_for_phase, resolve_corner_glow, BreathingIntent, BreathingState, ChaseGlow,
+    CornerGlow,
 };
 use crate::motion::scalar::AnimatedScalar;
 use crate::motion::util::{
@@ -28,6 +29,7 @@ pub struct MotionTokens {
     pub reduced_fade: Duration,
     pub breathing_fade: Duration,
     pub completion_settle: Duration,
+    pub chase_fade: Duration,
 }
 
 impl Default for MotionTokens {
@@ -41,6 +43,7 @@ impl Default for MotionTokens {
             reduced_fade: Duration::from_millis(160),
             breathing_fade: Duration::from_millis(150),
             completion_settle: Duration::from_millis(520),
+            chase_fade: Duration::from_millis(150),
         }
     }
 }
@@ -71,6 +74,7 @@ pub struct ResolvedNodeVisual {
     pub border_is_emphasized: bool,
     pub opacity: f32,
     pub corner_glow: Option<CornerGlow>,
+    pub chase_glow: Option<ChaseGlow>,
 }
 
 #[derive(Debug, Clone)]
@@ -164,6 +168,13 @@ impl MotionStore {
         }
     }
 
+    pub fn set_chase_intent(&mut self, id: NodeId, active: bool) {
+        let reduce_motion = self.reduce_motion;
+        if let Some(node) = self.nodes.get_mut(&id) {
+            node.set_chase_intent(active, reduce_motion);
+        }
+    }
+
     pub fn clear_transient(&mut self) {
         for node in self.nodes.values_mut() {
             node.pressed.set_bool(false);
@@ -211,6 +222,9 @@ pub struct NodeMotion {
     breathing_intent: BreathingIntent,
     breathing_fade: AnimatedScalar,
     completion_settle: AnimatedScalar,
+    chase_phase: f32,
+    chase_active: bool,
+    chase_fade: AnimatedScalar,
 }
 
 impl NodeMotion {
@@ -233,6 +247,9 @@ impl NodeMotion {
             breathing_intent: BreathingIntent::Inactive,
             breathing_fade: AnimatedScalar::off(),
             completion_settle: AnimatedScalar::off(),
+            chase_phase: 0.0,
+            chase_active: false,
+            chase_fade: AnimatedScalar::off(),
         }
     }
 
@@ -257,6 +274,19 @@ impl NodeMotion {
         } else {
             self.breathing_fade
                 .set_bool(state != BreathingState::Inactive);
+        }
+    }
+
+    fn set_chase_intent(&mut self, active: bool, reduce_motion: bool) {
+        if !active {
+            self.chase_phase = 0.0;
+        }
+        self.chase_active = active;
+        if reduce_motion {
+            self.chase_fade.value = if active { 1.0 } else { 0.0 };
+            self.chase_fade.target = self.chase_fade.value;
+        } else {
+            self.chase_fade.set_bool(active);
         }
     }
 
@@ -299,10 +329,16 @@ impl NodeMotion {
         );
         changed |= self.breathing_fade.tick(delta, tokens.breathing_fade);
         changed |= self.completion_settle.tick(delta, tokens.completion_settle);
+        changed |= self.chase_fade.tick(delta, tokens.chase_fade);
         if !reduce_motion && self.breathing_state != BreathingState::Inactive {
             let period = self.breathing_state.period();
             self.breathing_phase =
                 (self.breathing_phase + delta.as_secs_f32() / period.as_secs_f32()).rem_euclid(1.0);
+            changed = true;
+        }
+
+        if !reduce_motion && self.chase_active {
+            self.chase_phase = (self.chase_phase + delta.as_secs_f32()).rem_euclid(1.0);
             changed = true;
         }
 
@@ -401,17 +437,17 @@ impl NodeMotion {
             self.breathing_fade.value,
             self.breathing_display_state,
         );
+        let chase_glow = (self.chase_fade.value > EPSILON).then_some(ChaseGlow {
+            phase: self.chase_phase,
+            fade: self.chase_fade.value,
+        });
         let settle = self.completion_settle.value.clamp(0.0, 1.0);
         let settle_color = with_alpha(
             theme.accent_green,
             (0x54 as f32 + settle * 0xab as f32) as u8,
         );
         let stroke_color = mix_color(stroke_color, settle_color, settle * 0.88);
-        let done_mix: f32 = if self.breathing_intent == BreathingIntent::Done {
-            0.86
-        } else {
-            0.0
-        };
+        let done_mix = (self.breathing_intent == BreathingIntent::Done) as u8 as f32 * 0.86;
         let completion_mix = done_mix.max(settle * 0.94);
         let edge_highlight_color = mix_color(
             with_alpha(theme.edge_highlight, edge_alpha),
@@ -445,6 +481,7 @@ impl NodeMotion {
             border_is_emphasized: focus > 0.25 || selected > 0.35 || settle > 0.45,
             opacity: self.opacity.value,
             corner_glow,
+            chase_glow,
         }
     }
 }

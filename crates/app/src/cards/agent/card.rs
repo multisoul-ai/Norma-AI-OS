@@ -79,15 +79,22 @@ fn agent_task_badge(state: Option<AgentTaskState>) -> Option<CardChromeTaskBadge
 pub fn agent_breathing_intent(state: Option<AgentTaskState>) -> BreathingIntent {
     match state {
         Some(AgentTaskState::Thinking) | Some(AgentTaskState::RunningTool { .. }) => {
-            BreathingIntent::Cool
+            BreathingIntent::Inactive
         }
         Some(AgentTaskState::WaitingApproval { .. }) => BreathingIntent::Warm,
-        Some(AgentTaskState::Done) => BreathingIntent::Done,
+        Some(AgentTaskState::Done) => BreathingIntent::Cool,
         Some(AgentTaskState::Ready)
         | Some(AgentTaskState::Failed { .. })
         | Some(AgentTaskState::Ended)
         | None => BreathingIntent::Inactive,
     }
+}
+
+pub fn agent_chase_intent(state: Option<AgentTaskState>) -> bool {
+    matches!(
+        state,
+        Some(AgentTaskState::Thinking) | Some(AgentTaskState::RunningTool { .. })
+    )
 }
 
 #[cfg(test)]
@@ -245,57 +252,67 @@ mod tests {
         );
     }
 
-    /// agent_breathing_state 把运行中状态映射为冷色组、等待批准映射为暖色组。
+    /// Running 状态（Thinking/RunningTool）使用 Chase 动画，呼吸关闭；
+    /// WaitingApproval 保持暖色呼吸。
     ///
-    /// 数据构造（含关键数值推导）：
-    ///   Thinking / RunningTool 对应 SPEC 4.1 表格中的冷色组（cyan↔violet↔blue）
-    ///   WaitingApproval 对应暖色组（warm↔orange），节奏更急促
+    /// 数据构造：
+    ///   Thinking / RunningTool → Chase 负责动画，breathing intent 为 Inactive
+    ///   WaitingApproval → Warm breathing（节奏急促）
     ///
     /// 执行过程：
-    ///   1. 分别构造 Thinking、RunningTool、WaitingApproval 三种状态
-    ///   2. 调用 agent_breathing_state 映射
+    ///   1. 分别构造 Thinking、RunningTool、WaitingApproval
+    ///   2. 调用 agent_breathing_state / agent_chase_intent 映射
     ///
     /// 预期结果：
-    ///   - 正断言：Thinking 和 RunningTool 都映射为 BreathingState::Cool
-    ///   - 正断言：WaitingApproval 映射为 BreathingState::Warm
-    ///   - 负断言：Cool 与 Warm 不应被混淆
+    ///   - Thinking/RunningTool breathing_state 为 Inactive（Chase 接管）
+    ///   - Thinking/RunningTool chase_intent 为 true
+    ///   - WaitingApproval breathing_state 为 Warm，chase_intent 为 false
     #[test]
     fn test_agent_breathing_state_maps_active_states_to_color_groups() {
         assert_eq!(
             agent_breathing_state(Some(AgentTaskState::Thinking)),
-            BreathingState::Cool,
-            "Thinking 应映射为冷色组"
+            BreathingState::Inactive,
+            "Thinking 由 Chase 动画驱动，breathing 应为 Inactive"
         );
         assert_eq!(
             agent_breathing_state(Some(AgentTaskState::RunningTool { tool_name: None })),
-            BreathingState::Cool,
-            "RunningTool 应映射为冷色组"
+            BreathingState::Inactive,
+            "RunningTool 由 Chase 动画驱动，breathing 应为 Inactive"
+        );
+        assert!(
+            agent_chase_intent(Some(AgentTaskState::Thinking)),
+            "Thinking 应激活 Chase 动画"
+        );
+        assert!(
+            agent_chase_intent(Some(AgentTaskState::RunningTool { tool_name: None })),
+            "RunningTool 应激活 Chase 动画"
         );
         assert_eq!(
             agent_breathing_state(Some(AgentTaskState::WaitingApproval { tool_name: None })),
             BreathingState::Warm,
-            "WaitingApproval 应映射为暖色组"
+            "WaitingApproval 应映射为暖色呼吸"
         );
-        assert_ne!(
-            agent_breathing_state(Some(AgentTaskState::Thinking)),
-            agent_breathing_state(Some(AgentTaskState::WaitingApproval { tool_name: None })),
-            "运行中冷色组不应与等待批准暖色组混淆"
+        assert!(
+            !agent_chase_intent(Some(AgentTaskState::WaitingApproval { tool_name: None })),
+            "WaitingApproval 不应激活 Chase"
         );
     }
 
-    /// agent_breathing_state 对终止态和缺失状态都返回 Inactive，不触发呼吸。
+    /// Done 使用 Cool 呼吸（青蓝紫循环），与 Running 的 Chase 动画形成视觉区分。
+    /// Ready/Failed/Ended/None 保持 Inactive（静止）。
     ///
-    /// 数据构造（含关键数值推导）：
-    ///   Ready/Done/Failed/Ended 均属于 SPEC 4.1 表格中"呼吸激活=否"的行
-    ///   None 表示 runtime 尚无该节点的 task state 记录
+    /// 数据构造：
+    ///   Done → Cool 呼吸（视觉上"完成但仍在线"）
+    ///   其余终止态 → Inactive（静止）
     ///
     /// 执行过程：
     ///   1. 分别构造 Ready、Done、Failed、Ended、None
     ///   2. 调用 agent_breathing_state 映射
     ///
     /// 预期结果：
-    ///   - 正断言：以上全部映射为 BreathingState::Inactive
-    ///   - 负断言：Failed 不应被误判为激活态（错误色高亮走静态路径，不参与呼吸）
+    ///   - Done 映射为 Cool 呼吸
+    ///   - Ready/Failed/Ended/None 仍为 Inactive
+    ///   - Done 不应激活 Chase
     #[test]
     fn test_agent_breathing_state_keeps_terminal_states_static() {
         assert_eq!(
@@ -305,8 +322,8 @@ mod tests {
         );
         assert_eq!(
             agent_breathing_state(Some(AgentTaskState::Done)),
-            BreathingState::Inactive,
-            "Done 不应呼吸"
+            BreathingState::Cool,
+            "Done 应切换为 Cool 呼吸，表达完成后的在线感"
         );
         assert_eq!(
             agent_breathing_state(Some(AgentTaskState::Failed {
@@ -325,44 +342,41 @@ mod tests {
             BreathingState::Inactive,
             "缺失 task state 时不应呼吸"
         );
-        assert_ne!(
-            agent_breathing_state(Some(AgentTaskState::Failed {
-                message: "boom".to_string()
-            })),
-            BreathingState::Cool,
-            "Failed 不应被误判进冷色组呼吸"
+        assert!(
+            !agent_chase_intent(Some(AgentTaskState::Done)),
+            "Done 不应激活 Chase"
         );
     }
 
-    /// agent_breathing_intent 单独保留 Done 语义，供 motion 层播放一次性落定。
+    /// Done 的 breathing intent 为 Cool，让完成态保持青蓝紫呼吸而非绿色闪烁。
     ///
     /// 数据构造：
     ///   AgentTaskState::Done 表示 provider 已完成当前任务。
     ///
     /// 执行过程：
     ///   1. 调用 agent_breathing_intent(Done)
-    ///   2. 同时调用 agent_breathing_state(Done) 验证循环呼吸仍关闭
+    ///   2. 调用 agent_breathing_state(Done) 验证 Cool 循环呼吸激活
     ///
     /// 预期结果：
-    ///   - 正断言：intent 为 BreathingIntent::Done
-    ///   - 正断言：breathing_state 仍为 Inactive
-    ///   - 负断言：Done 不应退化为 BreathingIntent::Inactive，否则无法触发呼气落定
+    ///   - 正断言：intent 为 BreathingIntent::Cool
+    ///   - 正断言：breathing_state 为 Cool（持续循环呼吸）
+    ///   - 负断言：Done 不应退化为 BreathingIntent::Inactive
     #[test]
     fn test_agent_breathing_intent_preserves_done_for_completion_settle() {
         assert_eq!(
             agent_breathing_intent(Some(AgentTaskState::Done)),
-            BreathingIntent::Done,
-            "Done intent 应保留完成语义，供 motion 层触发一次性落定"
+            BreathingIntent::Cool,
+            "Done intent 应使用 Cool 呼吸表达完成后在线状态"
         );
         assert_eq!(
             agent_breathing_state(Some(AgentTaskState::Done)),
-            BreathingState::Inactive,
-            "Done 不应继续参与循环呼吸"
+            BreathingState::Cool,
+            "Done 应持续参与 Cool 循环呼吸"
         );
         assert_ne!(
             agent_breathing_intent(Some(AgentTaskState::Done)),
             BreathingIntent::Inactive,
-            "Done intent 不应退化为 Inactive，否则完成落定不会触发"
+            "Done 不应退化为 Inactive，否则完成后无呼吸动画"
         );
     }
 }
