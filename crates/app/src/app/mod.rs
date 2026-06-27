@@ -34,6 +34,8 @@ mod ime_geometry;
 mod keyboard;
 mod lifecycle;
 mod new_menu;
+#[cfg(target_os = "macos")]
+mod video_decoder;
 mod voice;
 mod wallpaper;
 
@@ -484,3 +486,7 @@ impl Render for MultisoulApp {
 #[cfg(test)]
 #[path = "../../tests/unit/app_tests.rs"]
 mod tests;
+
+#[cfg(all(test, target_os = "macos"))]
+#[path = "../../tests/unit/video_decoder_tests.rs"]
+mod video_decoder_tests;
