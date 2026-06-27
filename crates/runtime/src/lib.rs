@@ -3,6 +3,7 @@ pub mod agent_hooks;
 pub mod events;
 pub mod focus;
 pub mod live;
+pub(crate) mod macos_proc;
 pub mod nodes;
 pub mod route;
 pub mod runtime;
