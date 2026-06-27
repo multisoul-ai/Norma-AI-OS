@@ -8,6 +8,23 @@ pub(crate) enum VoiceTrigger {
     BottomBar,
 }
 
+/// 视觉分类：把 8 个 `VoicePhase` 压缩成 5 类外观，供 `chrome.rs` 决定
+/// 底部语音条的图标、颜色与布局分支。语义"这里应该长什么样"，与具体
+/// `VoicePhase` 解耦，避免渲染层重复 match 8 个 arm。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum VoiceVisual {
+    /// 等待用户开始录音：弱化键帽提示。
+    Idle,
+    /// 正在收音：accent 色 + 实时转写。
+    Recording,
+    /// 录音结束后的处理流水线：转写 / 规划 / 待确认。
+    Processing,
+    /// 命令已执行或仅转写完成：成功反馈。
+    Success,
+    /// 录音或处理失败：错误反馈。
+    Error,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum VoicePhase {
     Idle,
@@ -47,6 +64,21 @@ impl Default for VoiceControlState {
 impl VoiceControlState {
     pub(crate) fn phase(&self) -> &VoicePhase {
         &self.phase
+    }
+
+    /// 把当前 `VoicePhase` 映射成渲染层需要的 `VoiceVisual` 分类。
+    /// 任何 phase 变化都应能在这里找到唯一对应视觉，渲染层据此决定
+    /// 图标颜色与布局，无需自己枚举 8 个 phase。
+    pub(crate) fn visual(&self) -> VoiceVisual {
+        match self.phase {
+            VoicePhase::Idle => VoiceVisual::Idle,
+            VoicePhase::Recording { .. } => VoiceVisual::Recording,
+            VoicePhase::Transcribing
+            | VoicePhase::Planning { .. }
+            | VoicePhase::Confirming { .. } => VoiceVisual::Processing,
+            VoicePhase::Executed { .. } | VoicePhase::TranscriptOnly { .. } => VoiceVisual::Success,
+            VoicePhase::Error { .. } => VoiceVisual::Error,
+        }
     }
 
     pub(crate) fn begin_recording(&mut self, trigger: VoiceTrigger) -> bool {
@@ -152,10 +184,10 @@ impl VoiceControlState {
 
     pub(crate) fn label(&self) -> String {
         match &self.phase {
-            VoicePhase::Idle => "Hold Cmd+Shift+V".to_string(),
+            VoicePhase::Idle => "Voice".to_string(),
             VoicePhase::Recording { .. } => {
                 if self.partial_text.is_empty() {
-                    "Recording...".to_string()
+                    "Listening…".to_string()
                 } else {
                     self.partial_text.clone()
                 }
@@ -216,6 +248,128 @@ mod tests {
             shift,
             ..Modifiers::default()
         }
+    }
+
+    /// 辅助：构造一个处于指定 phase 的 `VoiceControlState`，用于 visual() 测试。
+    fn state_with_phase(phase: VoicePhase) -> VoiceControlState {
+        let mut state = VoiceControlState::default();
+        match phase {
+            VoicePhase::Idle => {}
+            VoicePhase::Recording { trigger } => {
+                state.begin_recording(trigger);
+            }
+            VoicePhase::Transcribing => {
+                state.begin_recording(VoiceTrigger::Shortcut);
+                state.finish_recording(VoiceTrigger::Shortcut);
+            }
+            VoicePhase::Planning { transcript } => state.set_planning(transcript),
+            VoicePhase::Confirming { transcript, reason } => {
+                state.set_confirming(transcript, reason)
+            }
+            VoicePhase::Executed { message } => state.set_executed(message),
+            VoicePhase::TranscriptOnly { transcript, reason } => {
+                state.set_transcript_only(transcript, reason)
+            }
+            VoicePhase::Error { message } => state.set_error(message),
+        }
+        state
+    }
+
+    /// VV-1: 8 个 VoicePhase 全部映射到正确的 VoiceVisual 分类。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   Idle             → 期望 Idle
+    ///   Recording(Shortcut) → 期望 Recording
+    ///   Transcribing     → 期望 Processing（finish_recording 后进入）
+    ///   Planning         → 期望 Processing
+    ///   Confirming       → 期望 Processing（待确认仍属处理中，不是 Error）
+    ///   Executed         → 期望 Success
+    ///   TranscriptOnly   → 期望 Success（仅转写完成也是成功收尾）
+    ///   Error            → 期望 Error
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 为每个 phase 构造 VoiceControlState
+    ///   2. 调用 visual() 取视觉分类
+    ///   3. 与期望分类逐一比对
+    ///
+    /// 预期结果：
+    ///   - 正断言：每个 phase 的视觉分类与上表一致
+    ///   - 负断言：Confirming 不应被误判为 Error，TranscriptOnly 不应被误判为 Processing
+    #[test]
+    fn test_visual_maps_every_phase_correctly() {
+        let cases = [
+            (VoicePhase::Idle, VoiceVisual::Idle),
+            (
+                VoicePhase::Recording {
+                    trigger: VoiceTrigger::Shortcut,
+                },
+                VoiceVisual::Recording,
+            ),
+            (VoicePhase::Transcribing, VoiceVisual::Processing),
+            (
+                VoicePhase::Planning {
+                    transcript: "new terminal".into(),
+                },
+                VoiceVisual::Processing,
+            ),
+            (
+                VoicePhase::Confirming {
+                    transcript: "rm -rf".into(),
+                    reason: "destructive".into(),
+                },
+                VoiceVisual::Processing,
+            ),
+            (
+                VoicePhase::Executed {
+                    message: "done".into(),
+                },
+                VoiceVisual::Success,
+            ),
+            (
+                VoicePhase::TranscriptOnly {
+                    transcript: "hello".into(),
+                    reason: "no command".into(),
+                },
+                VoiceVisual::Success,
+            ),
+            (
+                VoicePhase::Error {
+                    message: "no mic".into(),
+                },
+                VoiceVisual::Error,
+            ),
+        ];
+
+        for (phase, expected) in cases {
+            let state = state_with_phase(phase.clone());
+            let got = state.visual();
+            assert_eq!(
+                got, expected,
+                "phase {:?} 应映射为 {:?}，实际得到 {:?}",
+                phase, expected, got
+            );
+        }
+    }
+
+    /// VV-2: default() 状态（刚启动）的视觉分类必须是 Idle。
+    ///
+    /// 数据构造：
+    ///   state = VoiceControlState::default()  // phase = Idle
+    ///
+    /// 执行过程：
+    ///   1. 取默认状态
+    ///   2. 调用 visual()
+    ///
+    /// 预期结果：
+    ///   - 正断言：default 状态为 Idle，避免启动时误显示录音/错误外观
+    #[test]
+    fn test_visual_default_is_idle() {
+        let state = VoiceControlState::default();
+        assert_eq!(
+            state.visual(),
+            VoiceVisual::Idle,
+            "默认状态应为 Idle，启动时不应误显示录音或错误外观"
+        );
     }
 
     /// VC-1: Cmd+Shift+V 是语音长按快捷键，普通 Cmd+V 不应匹配。
