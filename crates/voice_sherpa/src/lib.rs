@@ -5,6 +5,9 @@ mod audio;
 mod model;
 mod session;
 
+#[cfg(test)]
+pub use audio::audio_capture_for_test;
+
 use session::InnerSession;
 
 #[derive(Debug, Eq, PartialEq, thiserror::Error)]
