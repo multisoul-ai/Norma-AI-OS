@@ -32,7 +32,14 @@ impl InnerSession {
         match self.thread_handle.take() {
             Some(handle) => handle
                 .join()
-                .map_err(|_| SpeechError::Recognizer("recognizer thread panicked".to_string())),
+                .map_err(|_| SpeechError::Recognizer("recognizer thread panicked".to_string()))
+                .and_then(|s| {
+                    if s.is_empty() {
+                        Err(SpeechError::EmptyTranscript)
+                    } else {
+                        Ok(s)
+                    }
+                }),
             None => Err(SpeechError::EmptyTranscript),
         }
     }
