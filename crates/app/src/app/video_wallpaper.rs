@@ -99,6 +99,15 @@ pub(crate) enum VideoSyncAction {
     Restart { path: PathBuf },
 }
 
+/// Pure path-identity check used by the spawned frame loop to detect that it
+/// has been superseded. Returns `true` iff `current` (the slot's live path)
+/// equals `spawned` (the path this task was spawned for). Kept as a free
+/// function so the invariant — "a task exits when the slot's path no longer
+/// matches the path it was spawned for" — is unit-testable without GPUI.
+pub(crate) fn slot_path_matches(current: &Path, spawned: &Path) -> bool {
+    current == spawned
+}
+
 /// Decide the sync action purely from the current slot + runtime inputs.
 ///
 /// Invariants enforced (see [`VideoWallpaperState`] docs):
@@ -228,7 +237,32 @@ impl MultisoulApp {
     /// the kind switches away from Video, or the error cap is hit (in which
     /// case the slot is left as `Failed`, not `None`, so the render-side sync
     /// does not retry).
+    ///
+    /// **Path-identity guard (Task 10 regression fix):** this task captures the
+    /// path of the `Active` slot it was spawned for and exits (returns false)
+    /// on the first tick where the slot's current path no longer matches. This
+    /// is what makes a video A→B switch safe: `sync_video_wallpaper` returns
+    /// `Restart{B}`, `start_video_loop` overwrites the slot with `Active{B}`
+    /// and spawns task B; the OLD task A observes `slot.path == B != my_path`
+    /// on its next 40ms tick and exits WITHOUT touching decoder B. Without
+    /// this guard, task A would keep running and call `next_frame()` on
+    /// decoder B (concurrent reads + ~25fps double-advance), and every switch
+    /// would leak another decoder-driving task. The invariant: **only the
+    /// newest task drives the decoder for its captured path.**
     fn spawn_video_frame_loop(&mut self, cx: &mut Context<Self>) {
+        // Capture the path this task is responsible for. The slot was just set
+        // to `Active { path, .. }` by `start_video_loop`, so read it back here.
+        // If, defensively, the slot is no longer Active (cleared between the
+        // set and the spawn), there is nothing for this task to drive.
+        let my_path = match &self.video_wallpaper {
+            Some(VideoWallpaperState::Active { path, .. }) => path.clone(),
+            _ => {
+                tracing::warn!(
+                    "spawn_video_frame_loop called without an Active slot; skipping spawn"
+                );
+                return;
+            }
+        };
         cx.spawn(async move |this, cx| {
             let mut consecutive_errors: u32 = 0;
             loop {
@@ -253,6 +287,13 @@ impl MultisoulApp {
                         // Failed slot shouldn't have a running loop; exit.
                         return false;
                     };
+                    // Path-identity guard: if the slot's path no longer matches
+                    // the path this task was spawned for, a newer task has taken
+                    // ownership (video A→B switch). Exit without touching the
+                    // decoder so only the newest task drives it.
+                    if !slot_path_matches(path, &my_path) {
+                        return false;
+                    }
                     match decoder.next_frame() {
                         Ok(new_frame) => {
                             consecutive_errors = 0;
@@ -385,6 +426,48 @@ mod tests {
             action,
             VideoSyncAction::Keep,
             "None slot under non-Video kind must be a no-op"
+        );
+    }
+
+    /// T-G1: the path-identity guard returns TRUE when the slot's current path
+    /// equals the path the task was spawned for. This is the steady-state
+    /// condition under which the task is allowed to keep advancing the decoder.
+    ///
+    /// 执行过程：
+    ///   1. spawned = /a.mp4, current = /a.mp4
+    ///   2. slot_path_matches → true → task keeps driving.
+    ///
+    /// 预期结果：
+    ///   - matches == true: same path means the task is still the rightful owner.
+    #[test]
+    fn test_slot_path_matches_same_path() {
+        let spawned = Path::new("/a.mp4");
+        let current = Path::new("/a.mp4");
+        assert!(
+            slot_path_matches(current, spawned),
+            "same path must match — the task is still the rightful decoder owner"
+        );
+    }
+
+    /// T-G2: the path-identity guard returns FALSE when the slot's current path
+    /// differs from the path the task was spawned for. This is the
+    /// supersession condition (video A→B switch): the old task MUST exit so
+    /// only the newest task drives decoder B.
+    ///
+    /// 执行过程：
+    ///   1. spawned = /a.mp4, current = /b.mp4
+    ///   2. slot_path_matches → false → old task exits on next 40ms tick.
+    ///
+    /// 预期结果：
+    ///   - matches == false: a different path means this task has been
+    ///     superseded and must not touch the (now different) decoder.
+    #[test]
+    fn test_slot_path_matches_different_path() {
+        let spawned = Path::new("/a.mp4");
+        let current = Path::new("/b.mp4");
+        assert!(
+            !slot_path_matches(current, spawned),
+            "different path must NOT match — the old task has been superseded by a newer spawn and must exit"
         );
     }
 }
