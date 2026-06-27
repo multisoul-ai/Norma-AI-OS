@@ -3,6 +3,7 @@
 use super::{
     MultisoulApp, WALLPAPER_IMAGE_OPACITY, WALLPAPER_SHADE_BOTTOM_ALPHA, WALLPAPER_SHADE_TOP_ALPHA,
 };
+use crate::app::wallpaper_resolvers::WallpaperKind;
 use gpui::{
     div, img, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, AnyView, App,
     BoxShadow, Context, Div, MouseButton, ObjectFit, Stateful, Window,
@@ -29,18 +30,7 @@ impl MultisoulApp {
                 linear_color_stop(rgba(theme.graphite), 1.0),
             ));
 
-        backdrop = backdrop.child(
-            img(self.wallpaper_settings.image_source_for_render())
-                .id("wallpaper")
-                .absolute()
-                .top(px(0.0))
-                .left(px(0.0))
-                .right(px(0.0))
-                .bottom(px(0.0))
-                .size_full()
-                .object_fit(ObjectFit::Cover)
-                .opacity(WALLPAPER_IMAGE_OPACITY),
-        );
+        backdrop = backdrop.child(self.render_wallpaper_layer());
 
         backdrop
             .child(
@@ -95,11 +85,62 @@ impl MultisoulApp {
             )
     }
 
+    /// Render the wallpaper layer, branching on the current [`WallpaperKind`].
+    ///
+    /// - `Video` (mac): render the live decoded frame via `surface()`; until
+    ///   the first frame is decoded (or on non-mac) fall back to the default
+    ///   image so the canvas never shows an empty backdrop.
+    /// - `Static` / `Gif`: render the image via `img()` with the stable
+    ///   `"wallpaper"` id (required for GPUI GIF multi-frame animation).
+    pub(super) fn render_wallpaper_layer(&self) -> Div {
+        let host = div()
+            .absolute()
+            .top(px(0.0))
+            .left(px(0.0))
+            .right(px(0.0))
+            .bottom(px(0.0))
+            .size_full()
+            .overflow_hidden();
+
+        match self.wallpaper_settings.current_kind() {
+            WallpaperKind::Video => {
+                #[cfg(target_os = "macos")]
+                if let Some(surf) = self.render_video_wallpaper_surface() {
+                    return host.child(surf);
+                }
+                host.child(self.wallpaper_img())
+            }
+            WallpaperKind::Static | WallpaperKind::Gif => host.child(self.wallpaper_img()),
+        }
+    }
+
+    /// The default image wallpaper element (Static/Gif + Video fallback).
+    /// Carries the stable `.id("wallpaper")` so GPUI's ImageCache drives GIF
+    /// multi-frame animation.
+    fn wallpaper_img(&self) -> gpui::Stateful<gpui::Img> {
+        img(self.wallpaper_settings.image_source_for_render())
+            .id("wallpaper")
+            .absolute()
+            .top(px(0.0))
+            .left(px(0.0))
+            .right(px(0.0))
+            .bottom(px(0.0))
+            .size_full()
+            .object_fit(ObjectFit::Cover)
+            .opacity(WALLPAPER_IMAGE_OPACITY)
+    }
+
     pub(super) fn render_workspace_chrome(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
+        // Task 10: keep the video decoder lifecycle synced with the current
+        // wallpaper kind once per render. Lives here (not in backdrop) because
+        // the backdrop builder only has &self, while sync needs &mut self + cx.
+        #[cfg(target_os = "macos")]
+        self.sync_video_wallpaper(cx);
+
         let theme = self.theme;
         let win = window.viewport_size();
         let win_w = f32::from(win.width);

@@ -36,6 +36,8 @@ mod lifecycle;
 mod new_menu;
 #[cfg(target_os = "macos")]
 mod video_decoder;
+#[cfg(target_os = "macos")]
+mod video_wallpaper;
 mod voice;
 mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
@@ -79,6 +81,8 @@ pub struct MultisoulApp {
     pub(crate) pending_voice_commands: Vec<::voice::ExecutableCommand>,
     pub focus_handle: FocusHandle,
     pub(crate) wallpaper_settings: WallpaperSettingsState,
+    #[cfg(target_os = "macos")]
+    pub(crate) video_wallpaper: Option<video_wallpaper::VideoWallpaperState>,
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
 }
 
@@ -153,6 +157,8 @@ impl MultisoulApp {
             pending_voice_commands: Vec::new(),
             focus_handle: cx.focus_handle(),
             wallpaper_settings,
+            #[cfg(target_os = "macos")]
+            video_wallpaper: None,
             last_reflow_window_size: None,
         }
     }

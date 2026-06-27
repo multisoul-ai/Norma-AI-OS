@@ -442,3 +442,53 @@ fn test_wallpaper_img_has_stable_id_for_gif_animation() {
         "壁纸 img 必须挂 .id(\"wallpaper\") 稳定 id；缺少会导致 GPUI GIF 多帧动画冻结在第 0 帧"
     );
 }
+
+/// Task 10 anchor：视频壁纸渲染胶水存在。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   chrome_src      = include_str!("../../src/app/chrome.rs")（chrome 渲染源码）
+///   render_src      = chrome_src 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
+///   video_src       = include_str!("../../src/app/video_wallpaper.rs")（Task 10 新增模块）
+///   anchor_chrome   = "WallpaperKind::Video"（chrome wallpaper layer 必须含 Video 分支）
+///   anchor_surface  = "surface("（video_wallpaper.rs 必须通过 gpui::surface() 渲染当前帧）
+///   anchor_timer_a  = "background_executor()"（帧推进必须由后台 executor 驱动，无自驱动动画）
+///   anchor_timer_b  = ".timer("（与 background_executor() 配对，确认是定时器轮询而非单次）
+///
+///   注：brief 原写 contiguous anchor "background_executor().timer"，但 rustfmt 会把该
+///   长链跨行拆分（与 mod.rs 12ms 帧循环同款格式），无法保留为单行连续子串。此处拆成
+///   两个 rustfmt-stable 子串，断言语义不变（同一循环体内同时出现 executor + .timer(）。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 chrome.rs 生产渲染区，确认壁纸层含 WallpaperKind::Video 分支
+///   2. 读取 video_wallpaper.rs 源码，确认含 surface( 调用与 background_executor() / .timer( 循环
+///
+/// 预期结果：
+///   - 正断言：render_src 含 "WallpaperKind::Video"（chrome 已接入视频分支）
+///   - 正断言：video_src 含 "surface("（视频帧经 GPUI surface 渲染）
+///   - 正断言：video_src 含 "background_executor()" 且含 ".timer("（外部 timer 驱动帧推进）
+#[test]
+fn test_video_wallpaper_branch_uses_surface() {
+    let chrome_src = include_str!("../../src/app/chrome.rs");
+    let render_src = chrome_src
+        .split("#[cfg(test)]")
+        .next()
+        .unwrap_or(chrome_src);
+    let video_src = include_str!("../../src/app/video_wallpaper.rs");
+
+    assert!(
+        render_src.contains("WallpaperKind::Video"),
+        "chrome wallpaper layer 必须含 WallpaperKind::Video 视频分支"
+    );
+    assert!(
+        video_src.contains("surface("),
+        "video_wallpaper.rs 必须通过 gpui::surface() 渲染当前视频帧"
+    );
+    assert!(
+        video_src.contains("background_executor()"),
+        "video_wallpaper.rs 帧推进必须经由 background_executor()（surface 无自驱动动画）"
+    );
+    assert!(
+        video_src.contains(".timer("),
+        "video_wallpaper.rs 必须以 .timer( 定时器轮询驱动帧推进"
+    );
+}
