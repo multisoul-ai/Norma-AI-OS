@@ -23,9 +23,6 @@ pub(crate) enum VoicePhase {
 pub(crate) struct VoiceControlState {
     phase: VoicePhase,
     speech_session: Option<voice_sherpa::SpeechSession>,
-    /// Separate receiver for partial transcription texts produced by the recognizer thread.
-    /// Stored alongside the session so it can be moved into a GPUI async task in Task 2.
-    pub(crate) partials_rx: Option<async_channel::Receiver<String>>,
     speech_task: Option<Task<()>>,
     pub(crate) partial_text: String,
 }
@@ -35,7 +32,6 @@ impl Default for VoiceControlState {
         Self {
             phase: VoicePhase::Idle,
             speech_session: None,
-            partials_rx: None,
             speech_task: None,
             partial_text: String::new(),
         }
@@ -137,7 +133,6 @@ impl VoiceControlState {
     }
 
     pub(crate) fn cancel_speech_session(&mut self) {
-        self.partials_rx = None;
         if let Some(session) = self.speech_session.take() {
             session.cancel();
         }
