@@ -1,6 +1,10 @@
 use crate::SpeechError;
 use std::path::PathBuf;
 
+#[cfg(test)]
+#[path = "../tests/unit/model_tests.rs"]
+mod tests;
+
 pub fn resolve_model_dir() -> Result<PathBuf, SpeechError> {
     if let Ok(path) = std::env::var("MULTISOUL_PARAFORMER_MODEL_DIR") {
         return Ok(PathBuf::from(path));
