@@ -71,19 +71,10 @@ impl SettingsSection {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct HookInstallStatus {
     pub(crate) message: Option<String>,
     pub(crate) is_error: bool,
-}
-
-impl Default for HookInstallStatus {
-    fn default() -> Self {
-        Self {
-            message: None,
-            is_error: false,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

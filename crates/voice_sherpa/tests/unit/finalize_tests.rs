@@ -234,29 +234,24 @@ fn test_abort_exits_without_graceful_finalization() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取三个常量
-///   2. 校验 bounded backlog 不为 0 且不无限
-///   3. 校验 drain/finalize 超时均为正且 finalize 不低于 1000ms
+///   2. 校验 backlog 容量、drain 等待、finalize 超时均固定在已审定的具体值
 ///
 /// 预期结果：
-///   - 正断言：队列容量等于 30，约束 backlog 为约 3 秒
-///   - 正断言：drain 与 finalize timeout 均为正
-///   - 负断言：finalize timeout 不应小于 1000ms，否则快语速 backlog 仍易截断
+///   - 正断言：PCM_QUEUE_CHUNKS 固定为 30，约束 backlog 为约 3 秒
+///   - 正断言：TAP_DRAIN_WAIT_MS 固定为 200ms，确保最后 tap callback 有机会入队
+///   - 正断言：FINALIZE_TIMEOUT_MS 固定为 3000ms，兼顾不截断与不卡死 app
 #[test]
 fn test_backlog_and_timeout_constants_are_bounded_and_adequate() {
     assert_eq!(
         PCM_QUEUE_CHUNKS, 30,
         "PCM_QUEUE_CHUNKS=30 对应约 3 秒 100ms chunk backlog，不应回退到 unbounded"
     );
-    assert!(
-        TAP_DRAIN_WAIT_MS > 0,
-        "TAP_DRAIN_WAIT_MS 必须大于 0，确保最后 tap callback 有机会入队"
+    assert_eq!(
+        TAP_DRAIN_WAIT_MS, 200,
+        "TAP_DRAIN_WAIT_MS 固定为 200ms，确保最后 tap callback 有机会入队"
     );
-    assert!(
-        FINALIZE_TIMEOUT_MS >= 1_000,
-        "FINALIZE_TIMEOUT_MS 不应小于 1000ms，否则识别稍慢仍会提前截断"
-    );
-    assert!(
-        FINALIZE_TIMEOUT_MS <= 10_000,
-        "FINALIZE_TIMEOUT_MS 必须有限，避免 recognizer 异常时卡住 app"
+    assert_eq!(
+        FINALIZE_TIMEOUT_MS, 3_000,
+        "FINALIZE_TIMEOUT_MS 固定为 3000ms，兼顾不截断与不卡死 app"
     );
 }

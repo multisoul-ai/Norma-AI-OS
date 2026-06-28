@@ -3,7 +3,7 @@ use crate::permissions::ensure_microphone_authorized;
 use crate::session_state::{SessionEvent, SessionState};
 use crate::SpeechError;
 use crossbeam_channel::bounded;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -186,7 +186,7 @@ pub(crate) fn start(
 }
 
 fn build_recognizer_config(
-    model_dir: &PathBuf,
+    model_dir: &Path,
 ) -> Result<sherpa_onnx::OnlineRecognizerConfig, SpeechError> {
     use sherpa_onnx::{OnlineModelConfig, OnlineParaformerModelConfig, OnlineRecognizerConfig};
 
@@ -214,7 +214,7 @@ fn build_recognizer_config(
     })
 }
 
-fn find_model_file(dir: &PathBuf, candidates: &[&str]) -> Result<PathBuf, SpeechError> {
+fn find_model_file(dir: &Path, candidates: &[&str]) -> Result<PathBuf, SpeechError> {
     for name in candidates {
         let path = dir.join(name);
         if path.exists() {

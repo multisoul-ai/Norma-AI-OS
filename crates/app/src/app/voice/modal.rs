@@ -1,5 +1,6 @@
 //! Voice confirmation modal rendering and actions.
 
+use super::history::VoiceOutcome;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, BoxShadow, ClickEvent, Context, Div, FontWeight, Window};
 
@@ -100,8 +101,7 @@ impl MultisoulApp {
                     None,
                     "{}".into(),
                     0.0,
-                    "medium",
-                    "confirmed",
+                    VoiceOutcome::new("medium", "confirmed"),
                     None,
                 );
             }
@@ -113,8 +113,7 @@ impl MultisoulApp {
                     None,
                     "{}".into(),
                     0.0,
-                    "medium",
-                    "runtime_error",
+                    VoiceOutcome::new("medium", "runtime_error"),
                     Some(error),
                 );
             }
@@ -136,8 +135,7 @@ impl MultisoulApp {
             None,
             "{}".into(),
             0.0,
-            "medium",
-            "cancelled",
+            VoiceOutcome::new("medium", "cancelled"),
             None,
         );
         cx.notify();

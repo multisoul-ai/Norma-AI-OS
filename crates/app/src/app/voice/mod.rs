@@ -16,6 +16,7 @@ use crate::app::voice::refine::refine_speech_transcript;
 use crate::app::{AppScreen, MultisoulApp};
 use crate::norma::server::{execute_card_command_for_area, NormaCommandEffects, NormaExecution};
 use gpui::{Context, MouseDownEvent, MouseUpEvent, Window};
+use history::VoiceOutcome;
 use norma::protocol::{CardCommand, CardCommandResult};
 use std::collections::HashMap;
 use voice::{
@@ -233,8 +234,7 @@ impl MultisoulApp {
                     refined_transcript.clone(),
                     "{}".into(),
                     0.0,
-                    "low",
-                    "provider_error",
+                    VoiceOutcome::new("low", "provider_error"),
                     Some(error.to_string()),
                 );
                 cx.notify();
@@ -257,8 +257,7 @@ impl MultisoulApp {
                     refined_transcript.clone(),
                     planner_json,
                     confidence,
-                    risk,
-                    "planner_rejected",
+                    VoiceOutcome::new(risk, "planner_rejected"),
                     Some(error.to_string()),
                 );
                 cx.notify();
@@ -275,8 +274,7 @@ impl MultisoulApp {
                     refined_transcript.clone(),
                     planner_json,
                     confidence,
-                    risk,
-                    "transcript_only",
+                    VoiceOutcome::new(risk, "transcript_only"),
                     None,
                 );
             }
@@ -298,8 +296,7 @@ impl MultisoulApp {
                     refined_transcript.clone(),
                     planner_json,
                     confidence,
-                    risk,
-                    "confirmation_required",
+                    VoiceOutcome::new(risk, "confirmation_required"),
                     None,
                 );
             }
@@ -316,8 +313,7 @@ impl MultisoulApp {
                             refined_transcript.clone(),
                             planner_json,
                             confidence,
-                            risk,
-                            "executed",
+                            VoiceOutcome::new(risk, "executed"),
                             None,
                         );
                     }
@@ -330,8 +326,7 @@ impl MultisoulApp {
                             refined_transcript.clone(),
                             planner_json,
                             confidence,
-                            risk,
-                            "runtime_error",
+                            VoiceOutcome::new(risk, "runtime_error"),
                             Some(error),
                         );
                     }
