@@ -7,8 +7,51 @@ use std::borrow::Cow;
 pub const APP_ICON_ASSET: &str = "icons/app-icon.png";
 pub const DEFAULT_WALLPAPER_ASSET: &str = "wallpapers/1331865.png";
 
+/// Toolbar SVG icon asset paths. These mirror `crate::ui::icons::ToolbarIcon::asset_path`
+/// exactly (icons/toolbar-<name>.svg) so GPUI `svg().path(...)` can resolve them.
+pub const TOOLBAR_SCROLL_ASSET: &str = "icons/toolbar-scroll.svg";
+pub const TOOLBAR_PLUS_ASSET: &str = "icons/toolbar-plus.svg";
+pub const TOOLBAR_TERMINAL_ASSET: &str = "icons/toolbar-terminal.svg";
+pub const TOOLBAR_CLAUDE_ASSET: &str = "icons/toolbar-claude.svg";
+pub const TOOLBAR_CODEX_ASSET: &str = "icons/toolbar-codex.svg";
+pub const TOOLBAR_PREVIEW_ASSET: &str = "icons/toolbar-preview.svg";
+pub const TOOLBAR_SETTINGS_ASSET: &str = "icons/toolbar-settings.svg";
+
 const APP_ICON_BYTES: &[u8] = include_bytes!("../assets/icons/app-icon.png");
-const DEFAULT_WALLPAPER_BYTES: &[u8] = include_bytes!("../assets/wallpapers/1331865.png");
+
+/// 为所有内置 image 壁纸（3 PNG + 2 GIF）生成 `include_bytes!` 常量与按相对路径
+/// 查询的 `image_builtin_bytes` 辅助函数。
+///
+/// `include_bytes!(concat!("../assets/", $rel))` 在编译期把字面量拼成
+/// `../assets/wallpapers/<name>.{png|gif}`，相对 `crates/app/src/assets.rs` 解析。
+/// 视频不在其中：MP4 文件较大，走 Task 9 的 git-lfs + bundle Resources 流程，
+/// 不打进二进制。
+macro_rules! image_builtins {
+    ( $( ($rel:literal, $const_name:ident) ),* $(,)? ) => {
+        $( const $const_name: &[u8] = include_bytes!(concat!("../assets/", $rel)); )*
+        fn image_builtin_bytes(path: &str) -> Option<Cow<'static, [u8]>> {
+            match path {
+                $( $rel => Some(Cow::Borrowed($const_name)), )*
+                _ => None,
+            }
+        }
+    };
+}
+image_builtins! {
+    ("wallpapers/1331865.png", DEFAULT_WALLPAPER_BYTES),
+    ("wallpapers/1350954.png", WALLPAPER_1350954_BYTES),
+    ("wallpapers/1358524.png", WALLPAPER_1358524_BYTES),
+    ("wallpapers/215824.gif",  WALLPAPER_215824_BYTES),
+    ("wallpapers/220240.gif",  WALLPAPER_220240_BYTES),
+}
+
+const TOOLBAR_SCROLL_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-scroll.svg");
+const TOOLBAR_PLUS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-plus.svg");
+const TOOLBAR_TERMINAL_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-terminal.svg");
+const TOOLBAR_CLAUDE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-claude.svg");
+const TOOLBAR_CODEX_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-codex.svg");
+const TOOLBAR_PREVIEW_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-preview.svg");
+const TOOLBAR_SETTINGS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-settings.svg");
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EmbeddedAssets;
@@ -17,8 +60,17 @@ impl AssetSource for EmbeddedAssets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
         match path {
             APP_ICON_ASSET => Ok(Some(Cow::Borrowed(APP_ICON_BYTES))),
-            DEFAULT_WALLPAPER_ASSET => Ok(Some(Cow::Borrowed(DEFAULT_WALLPAPER_BYTES))),
-            _ => Ok(None),
+            TOOLBAR_SCROLL_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SCROLL_BYTES))),
+            TOOLBAR_PLUS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PLUS_BYTES))),
+            TOOLBAR_TERMINAL_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_TERMINAL_BYTES))),
+            TOOLBAR_CLAUDE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_CLAUDE_BYTES))),
+            TOOLBAR_CODEX_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_CODEX_BYTES))),
+            TOOLBAR_PREVIEW_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PREVIEW_BYTES))),
+            TOOLBAR_SETTINGS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SETTINGS_BYTES))),
+            _ => match image_builtin_bytes(path) {
+                Some(bytes) => Ok(Some(bytes)),
+                None => Ok(None),
+            },
         }
     }
 
@@ -28,8 +80,31 @@ impl AssetSource for EmbeddedAssets {
                 SharedString::from("icons"),
                 SharedString::from("wallpapers"),
             ]),
-            "icons" => Ok(vec![SharedString::from("app-icon.png")]),
-            "wallpapers" => Ok(vec![SharedString::from("1331865.png")]),
+            "icons" => Ok(vec![
+                SharedString::from("app-icon.png"),
+                SharedString::from("toolbar-scroll.svg"),
+                SharedString::from("toolbar-plus.svg"),
+                SharedString::from("toolbar-terminal.svg"),
+                SharedString::from("toolbar-claude.svg"),
+                SharedString::from("toolbar-codex.svg"),
+                SharedString::from("toolbar-preview.svg"),
+                SharedString::from("toolbar-settings.svg"),
+            ]),
+            // 仅枚举 image 内置项（PNG/GIF）。视频文件不在 EmbeddedAssets 分发，
+            // 由 builtin_wallpapers() 过滤掉 Video kind 后派生，避免与清单脱钩。
+            "wallpapers" => Ok(crate::app::wallpaper_resolvers::builtin_wallpapers()
+                .iter()
+                .filter(|(_, _, kind)| {
+                    !matches!(kind, crate::app::wallpaper_resolvers::WallpaperKind::Video)
+                })
+                .map(|(rel, _, _)| {
+                    SharedString::from(
+                        rel.rsplit('/')
+                            .next()
+                            .expect("builtin wallpaper rel path must have a filename"),
+                    )
+                })
+                .collect()),
             _ => Ok(vec![]),
         }
     }
@@ -124,20 +199,36 @@ mod tests {
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   root list path = "" → 2 个顶层目录 icons、wallpapers
-    ///   icons list path = "icons" → 1 个文件 app-icon.png
-    ///   wallpapers list path = "wallpapers" → 1 个文件 1331865.png
+    ///   icons list path = "icons" → 8 个文件（1 PNG + 7 SVG）
+    ///     1. app-icon.png
+    ///     2. toolbar-scroll.svg
+    ///     3. toolbar-plus.svg
+    ///     4. toolbar-terminal.svg
+    ///     5. toolbar-claude.svg
+    ///     6. toolbar-codex.svg
+    ///     7. toolbar-preview.svg
+    ///     8. toolbar-settings.svg
+    ///   wallpapers list path = "wallpapers" → 5 个 image built-in 文件名
+    ///     （3 PNG + 2 GIF，由 builtin_wallpapers() 过滤掉 Video 后得到）：
+    ///     1. 1331865.png  (default, Static)
+    ///     2. 1350954.png  (Static)
+    ///     3. 1358524.png  (Static)
+    ///     4. 215824.gif   (Gif)
+    ///     5. 220240.gif   (Gif)
+    ///     不含任何 .mp4（视频由 Task 9 的 git-lfs 流程处理，不在此嵌入）
     ///   unknown list path = "missing" → 0 个条目
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. list("") → 返回 icons、wallpapers
-    ///   2. list("icons") → 返回 app-icon.png
-    ///   3. list("wallpapers") → 返回 1331865.png
+    ///   2. list("icons") → 返回 app-icon.png + 7 个 toolbar-*.svg（顺序与 icons.rs 一致）
+    ///   3. list("wallpapers") → 返回 5 个 image 文件名（包含全部 image built-in）
     ///   4. list("missing") → 返回空列表
     ///
     /// 预期结果：
-    ///   - 正断言：root 包含 icons 与 wallpapers
-    ///   - 正断言：icons 包含 app-icon.png
-    ///   - 正断言：wallpapers 包含 1331865.png
+    ///   - 正断言：root 等于 [icons, wallpapers]
+    ///   - 正断言：icons 顺序精确等于 [app-icon.png, toolbar-scroll.svg, ..., toolbar-settings.svg]
+    ///   - 正断言：wallpapers 包含每个 image built-in 文件名（1331865.png 等共 5 个）
+    ///   - 负断言：wallpapers 不包含任何视频文件名（如 1403512.mp4）
     ///   - 负断言：missing 不包含任何条目
     #[test]
     fn test_embedded_assets_list_wallpaper_directory() {
@@ -166,17 +257,215 @@ mod tests {
         );
         assert_eq!(
             icons,
-            vec![SharedString::from("app-icon.png")],
-            "icons asset listing should expose the bundled app icon"
+            vec![
+                SharedString::from("app-icon.png"),
+                SharedString::from("toolbar-scroll.svg"),
+                SharedString::from("toolbar-plus.svg"),
+                SharedString::from("toolbar-terminal.svg"),
+                SharedString::from("toolbar-claude.svg"),
+                SharedString::from("toolbar-codex.svg"),
+                SharedString::from("toolbar-preview.svg"),
+                SharedString::from("toolbar-settings.svg"),
+            ],
+            "icons asset listing should expose the bundled app icon plus the 7 toolbar SVGs in icons.rs order"
         );
+
+        // 期望的 image built-in 文件名集合（由 builtin_wallpapers() 过滤掉 Video 派生）。
+        let expected_image_filenames: Vec<&str> =
+            crate::app::wallpaper_resolvers::builtin_wallpapers()
+                .iter()
+                .filter(|(_, _, kind)| {
+                    !matches!(kind, crate::app::wallpaper_resolvers::WallpaperKind::Video)
+                })
+                .map(|(rel, _, _)| {
+                    rel.rsplit('/')
+                        .next()
+                        .expect("builtin rel path has a filename")
+                })
+                .collect();
         assert_eq!(
-            wallpapers,
-            vec![SharedString::from("1331865.png")],
-            "wallpapers asset listing should expose the bundled default image"
+            expected_image_filenames.len(),
+            5,
+            "there should be exactly 5 image built-ins (3 PNG + 2 GIF): got {:?}",
+            expected_image_filenames
         );
+        for fname in &expected_image_filenames {
+            assert!(
+                wallpapers.iter().any(|s| s.as_ref() == *fname),
+                "wallpapers listing must include image built-in {:?}; got {:?}",
+                fname,
+                wallpapers
+            );
+        }
+        // 负断言：视频文件名绝不应出现在 EmbeddedAssets 的 wallpapers 枚举中（视频不经此通道分发）。
+        for (rel, _, kind) in crate::app::wallpaper_resolvers::builtin_wallpapers() {
+            if matches!(kind, crate::app::wallpaper_resolvers::WallpaperKind::Video) {
+                let vfname = rel
+                    .rsplit('/')
+                    .next()
+                    .expect("video rel path has a filename");
+                assert!(
+                    !wallpapers.iter().any(|s| s.as_ref() == vfname),
+                    "video built-in {:?} must NOT be served by EmbeddedAssets (Task 9 territory); got {:?}",
+                    vfname,
+                    wallpapers
+                );
+            }
+        }
+
         assert!(
             missing.is_empty(),
             "unknown embedded asset directory should list no entries"
+        );
+    }
+
+    /// 内置 image 资产：EmbeddedAssets.load/list 应覆盖所有 Static 与 GIF 内置项（不含视频）。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   builtin_wallpapers() = 10 项 → 5 项 image（3 PNG + 2 GIF）+ 5 项 Video
+    ///   image 项的相对路径（与 include_bytes! 的 const 一一对应）：
+    ///     wallpapers/1331865.png  → DEFAULT_WALLPAPER_BYTES    (PNG, 8 字节签名)
+    ///     wallpapers/1350954.png  → WALLPAPER_1350954_BYTES    (PNG)
+    ///     wallpapers/1358524.png  → WALLPAPER_1358524_BYTES    (PNG)
+    ///     wallpapers/215824.gif   → WALLPAPER_215824_BYTES     (GIF, 签名 "GIF8")
+    ///     wallpapers/220240.gif   → WALLPAPER_220240_BYTES     (GIF, 签名 "GIF8")
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 对每个 image builtin 调 EmbeddedAssets.load(rel) → 期望 Some(bytes)
+    ///   2. 校验 bytes 非空
+    ///   3. 对 PNG 校验首 8 字节 == PNG signature
+    ///   4. 对 GIF 校验首 6 字节 == "GIF89a" 或 "GIF87a"
+    ///   5. list("wallpapers") 应包含每个 image 文件名
+    ///
+    /// 预期结果：
+    ///   - 正断言：5 个 image builtin 均能 load 且字节非空
+    ///   - 正断言：PNG 项首 8 字节为 PNG signature
+    ///   - 正断言：GIF 项首 6 字节为 "GIF8" 前缀
+    ///   - 正断言：list("wallpapers") 包含全部 5 个 image 文件名
+    #[test]
+    fn test_embedded_assets_serve_all_image_builtins() {
+        let assets = EmbeddedAssets;
+
+        for (rel, _name, kind) in crate::app::wallpaper_resolvers::builtin_wallpapers() {
+            if matches!(kind, crate::app::wallpaper_resolvers::WallpaperKind::Video) {
+                continue;
+            }
+            let bytes = assets
+                .load(rel)
+                .expect("image builtin load must not error")
+                .unwrap_or_else(|| panic!("image builtin {rel} must be embedded"));
+            assert!(
+                !bytes.is_empty(),
+                "builtin {rel} embedded bytes must be non-empty"
+            );
+
+            match kind {
+                crate::app::wallpaper_resolvers::WallpaperKind::Static => {
+                    assert_eq!(
+                        &bytes[..8],
+                        &[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a],
+                        "static builtin {rel} must start with PNG signature"
+                    );
+                }
+                crate::app::wallpaper_resolvers::WallpaperKind::Gif => {
+                    assert_eq!(
+                        &bytes[..4],
+                        b"GIF8",
+                        "gif builtin {rel} must start with GIF8 magic"
+                    );
+                }
+                crate::app::wallpaper_resolvers::WallpaperKind::Video => {
+                    unreachable!("video built-ins are filtered out above")
+                }
+            }
+        }
+
+        let listed = assets
+            .list("wallpapers")
+            .expect("list wallpapers must not error");
+        for (rel, _, kind) in crate::app::wallpaper_resolvers::builtin_wallpapers() {
+            if matches!(kind, crate::app::wallpaper_resolvers::WallpaperKind::Video) {
+                continue;
+            }
+            let fname = rel.rsplit('/').next().expect("path has filename");
+            assert!(
+                listed.iter().any(|s| s.as_ref() == fname),
+                "wallpapers listing must include {fname}; got {:?}",
+                listed
+            );
+        }
+    }
+
+    /// 顶栏 SVG 图标资产：每个 icons/toolbar-*.svg 路径都应能通过 AssetSource 加载，
+    /// 返回非空字节且首字节为 `<`（SVG 文件以 `<svg` 或 `<?xml` 开头）。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   toolbar 路径表（与 crates/ui/src/icons.rs::ToolbarIcon::asset_path 完全一致）：
+    ///     icons/toolbar-scroll.svg
+    ///     icons/toolbar-plus.svg
+    ///     icons/toolbar-terminal.svg
+    ///     icons/toolbar-claude.svg
+    ///     icons/toolbar-codex.svg
+    ///     icons/toolbar-preview.svg
+    ///     icons/toolbar-settings.svg
+    ///   路径数 = 7
+    ///   首非空白字节期望 = b'<'（ASCII 60），SVG 文本必然以 `<` 起始
+    ///   负样本路径 = "icons/toolbar-missing.svg"（不存在）
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 对 7 条路径逐一调用 EmbeddedAssets.load(path)
+    ///   2. 每条期望返回 Some(bytes)
+    ///   3. 对 bytes 跳过前导 ASCII 空白，取首非空白字节，断言 == b'<'
+    ///   4. 调用 load("icons/toolbar-missing.svg") → 期望 None
+    ///
+    /// 预期结果：
+    ///   - 正断言：7 条路径均返回 Some 且字节非空
+    ///   - 正断言：7 条路径首非空白字节均为 b'<'（SVG 起始标记）
+    ///   - 负断言：不存在的 toolbar-missing.svg 返回 None
+    #[test]
+    fn test_embedded_assets_load_toolbar_svg_icons() {
+        let assets = EmbeddedAssets;
+
+        let toolbar_paths = [
+            TOOLBAR_SCROLL_ASSET,
+            TOOLBAR_PLUS_ASSET,
+            TOOLBAR_TERMINAL_ASSET,
+            TOOLBAR_CLAUDE_ASSET,
+            TOOLBAR_CODEX_ASSET,
+            TOOLBAR_PREVIEW_ASSET,
+            TOOLBAR_SETTINGS_ASSET,
+        ];
+
+        for path in toolbar_paths.iter() {
+            let loaded = assets
+                .load(path)
+                .expect("toolbar svg asset lookup should not fail")
+                .unwrap_or_else(|| panic!("toolbar svg asset {:?} should be present", path));
+
+            assert!(
+                !loaded.is_empty(),
+                "toolbar svg asset {:?} should contain bytes",
+                path
+            );
+
+            // SVG 文件以 `<` 开头（可能带前导空白）；找到首非空白字节断言为 b'<'。
+            let first_non_ws = loaded
+                .iter()
+                .position(|b| !b.is_ascii_whitespace())
+                .expect("toolbar svg asset should have at least one non-whitespace byte");
+            assert_eq!(
+                loaded[first_non_ws], b'<',
+                "toolbar svg asset {:?} must start with '<' (SVG markup), got byte {:#04x}",
+                path, loaded[first_non_ws]
+            );
+        }
+
+        assert!(
+            assets
+                .load("icons/toolbar-missing.svg")
+                .expect("missing toolbar svg lookup should not fail")
+                .is_none(),
+            "non-existent toolbar svg path must not resolve to any bytes"
         );
     }
 }

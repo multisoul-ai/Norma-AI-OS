@@ -109,6 +109,10 @@ impl TerminalSession {
     pub fn kill(&mut self) {
         self.pty.kill();
     }
+
+    pub fn child_pid(&self) -> Option<u32> {
+        self.pty.child_pid
+    }
 }
 
 #[cfg(test)]
@@ -359,5 +363,41 @@ mod tests {
         assert_eq!(s.id, 42, "session.id 应等于传入的 id=42");
         assert_ne!(s.id, 0, "session.id 不应为零值");
         s.kill();
+    }
+
+    /// T-PID-1: spawn_command 成功后 child_pid 应为 Some(非零值)。
+    ///
+    /// 数据构造：
+    ///   command = "sleep 100"（保证进程存活足够长，避免 PID 在读取前消失）
+    ///   cols = 80, rows = 24（标准终端尺寸）
+    ///   session_id = 1
+    ///
+    /// 执行过程：
+    ///   1. spawn_command(id=1, PtyCommand::new("sleep").args(["100"]), 80, 24)
+    ///      → PtyHandle::spawn_command 在 clone_killer() 前调用 child.process_id()
+    ///      → child_pid 被捕获并存入 PtyHandle.child_pid
+    ///   2. session.child_pid() 委托给 self.pty.child_pid 返回 Option<u32>
+    ///
+    /// 预期结果：
+    ///   - 正断言：child_pid 是 Some(pid)，spawn 成功后 PID 必须存在
+    ///   - 正断言：pid > 0，OS 分配的进程 ID 始终大于 0
+    #[test]
+    fn test_spawn_sets_child_pid() {
+        let mut session =
+            TerminalSession::spawn_command(1, PtyCommand::new("sleep").args(["100"]), 80, 24)
+                .unwrap();
+
+        let pid = session.child_pid();
+        assert!(
+            pid.is_some(),
+            "spawn 后 child_pid 应为 Some，实际为 None — process_id() 未在 clone_killer() 前调用"
+        );
+        assert!(
+            pid.unwrap() > 0,
+            "PID 应大于 0，实际为 {} — OS 不应分配 PID 0 给普通进程",
+            pid.unwrap()
+        );
+
+        session.kill();
     }
 }

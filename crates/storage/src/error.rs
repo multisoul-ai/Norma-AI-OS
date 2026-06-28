@@ -14,6 +14,8 @@ pub enum StorageError {
     InvalidSessionKind(String),
     #[error("invalid agent profile stored in sqlite: {0}")]
     InvalidAgentProfile(String),
+    #[error("invalid node session kind: {0}")]
+    InvalidNodeSessionKind(String),
     #[error("invalid session terminal size stored in sqlite: {field}={value}")]
     InvalidSessionSize { field: &'static str, value: i64 },
     #[error("storage io failed: {0}")]

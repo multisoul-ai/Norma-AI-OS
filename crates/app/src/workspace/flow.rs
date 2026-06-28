@@ -97,11 +97,20 @@ pub(crate) fn enter_workspace_for_path(
         .session_store()
         .load_checkpoints()
         .map_err(|error| format!("Could not load session checkpoints: {error}"))?;
-    let restored_sessions = next_runtime.restore_live_sessions(&checkpoints);
+    let node_sessions = project_store
+        .node_session_store()
+        .load_sessions()
+        .unwrap_or_default();
+    let restored_sessions =
+        next_runtime.restore_live_sessions_with_node_sessions(&checkpoints, &node_sessions);
     tracing::info!(
         restored_sessions,
         "restored live sessions for opened workspace"
     );
+    // Flush cwd and session state before killing live terminals.
+    // Without this, workspace-switch discards any cwd changes that occurred
+    // since the last debounce flush (session_dirty already cleared).
+    let _ = persistence.flush_now(runtime);
     runtime.kill_all();
     *runtime = next_runtime;
     persistence.set_project_store(project_store);

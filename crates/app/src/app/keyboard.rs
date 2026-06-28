@@ -46,6 +46,24 @@ fn current_selection_node_id(runtime: &Runtime) -> Option<NodeId> {
     }
 }
 
+/// ✚ 菜单展开时 Esc 是否应优先关闭菜单（而非退焦 / 传 PTY / 触发其余快捷键）。
+///
+/// 决策为纯函数：菜单未开 → 永不拦截；菜单开着时仅对无修饰键的 Esc 拦截。
+/// 平台/控制/Alt/Shift 任一修饰键按住时 Esc 不归本逻辑处理（让常规快捷键继续生效）。
+pub(crate) fn should_close_new_menu_on_escape(
+    new_menu_open: bool,
+    key: &str,
+    modifiers: &Modifiers,
+) -> bool {
+    new_menu_open
+        && key == "escape"
+        && !modifiers.platform
+        && !modifiers.control
+        && !modifiers.alt
+        && !modifiers.shift
+        && !modifiers.function
+}
+
 #[cfg(test)]
 pub(crate) fn terminal_snapshot_copy_text(snapshot: &GridSnapshot) -> String {
     let mut lines = snapshot
@@ -185,6 +203,18 @@ impl MultisoulApp {
 
         if is_voice_hold_shortcut(&ev.keystroke) {
             self.begin_voice_recording(VoiceTrigger::Shortcut, cx);
+            return;
+        }
+
+        // 菜单展开时 Esc 优先关闭 ✚ 菜单，不退焦、不传 PTY、不触发其余快捷键。
+        if should_close_new_menu_on_escape(
+            self.interaction.new_menu_open,
+            &ev.keystroke.key,
+            &ev.keystroke.modifiers,
+        ) {
+            self.interaction.close_new_menu();
+            cx.stop_propagation();
+            cx.notify();
             return;
         }
 

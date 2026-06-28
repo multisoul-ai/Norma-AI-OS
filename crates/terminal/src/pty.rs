@@ -74,6 +74,7 @@ pub struct PtyHandle {
     master: Box<dyn portable_pty::MasterPty + Send>,
     writer: Box<dyn Write + Send>,
     child: Box<dyn ChildKiller + Send + Sync>,
+    pub child_pid: Option<u32>,
 }
 
 impl PtyHandle {
@@ -120,6 +121,7 @@ impl PtyHandle {
             .slave
             .spawn_command(cmd)
             .map_err(|e| PtyError::Spawn(e.to_string()))?;
+        let child_pid = child.process_id();
         let child_killer = child.clone_killer();
         // slave 在 spawn 后即可释放（子进程已持有其 fd）。
         drop(pair.slave);
@@ -169,6 +171,7 @@ impl PtyHandle {
             master: pair.master,
             writer,
             child: child_killer,
+            child_pid,
         })
     }
 

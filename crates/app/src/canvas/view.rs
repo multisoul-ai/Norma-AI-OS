@@ -83,6 +83,12 @@ fn on_mouse_down(
     cx: &mut Context<MultisoulApp>,
 ) {
     let screen = pt_to_vec(ev.position);
+    // 画布上任意鼠标按下都应关闭展开的 ✚ 菜单（避免菜单悬浮在画布之上）。
+    // 不 return：让正常画布点击逻辑继续执行。
+    if app.interaction.new_menu_open {
+        app.interaction.close_new_menu();
+        cx.notify();
+    }
     app.interaction.keyboard_selected_node = None;
 
     // 中键 或 空格+左键 → 开始 pan。

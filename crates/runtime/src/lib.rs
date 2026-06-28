@@ -3,10 +3,13 @@ pub mod agent_hooks;
 pub mod events;
 pub mod focus;
 pub mod live;
+pub(crate) mod macos_proc;
 pub mod nodes;
 pub mod route;
 pub mod runtime;
 mod runtime_support;
+pub(crate) mod session_restore;
+pub mod session_snapshot;
 pub mod snapshot;
 
 pub use agent_hooks::AgentHookRuntimeConfig;

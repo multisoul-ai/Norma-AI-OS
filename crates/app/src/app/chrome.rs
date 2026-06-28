@@ -3,17 +3,16 @@
 use super::{
     MultisoulApp, WALLPAPER_IMAGE_OPACITY, WALLPAPER_SHADE_BOTTOM_ALPHA, WALLPAPER_SHADE_TOP_ALPHA,
 };
+use crate::app::wallpaper_resolvers::WallpaperKind;
 use gpui::{
-    div, img, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, BoxShadow, Context,
-    Div, MouseButton, ObjectFit, Window,
+    div, img, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, AnyView, App,
+    BoxShadow, Context, Div, MouseButton, ObjectFit, Stateful, Window,
 };
+use ui::icons::{toolbar_icon, with_alpha, ToolbarIcon};
 use ui::Theme;
 
 const WORKSPACE_LEFT_RAIL_VISIBLE: bool = false;
 const BOTTOM_VOICE_BAR_VISIBLE: bool = true;
-const TOP_TOOLBAR_WIDTH: f32 = 460.0;
-const TOOLBAR_CANVAS_SCROLL_ICON: &str = "↕";
-const SETTINGS_ICON: &str = "⚙";
 
 impl MultisoulApp {
     pub(super) fn render_workspace_backdrop(&self) -> Div {
@@ -31,17 +30,7 @@ impl MultisoulApp {
                 linear_color_stop(rgba(theme.graphite), 1.0),
             ));
 
-        backdrop = backdrop.child(
-            img(self.wallpaper.image_source())
-                .absolute()
-                .top(px(0.0))
-                .left(px(0.0))
-                .right(px(0.0))
-                .bottom(px(0.0))
-                .size_full()
-                .object_fit(ObjectFit::Cover)
-                .opacity(WALLPAPER_IMAGE_OPACITY),
-        );
+        backdrop = backdrop.child(self.render_wallpaper_layer());
 
         backdrop
             .child(
@@ -96,11 +85,75 @@ impl MultisoulApp {
             )
     }
 
+    /// Render the wallpaper layer, branching on the current [`WallpaperKind`].
+    ///
+    /// - `Video` (mac): render the live decoded frame via `surface()`; until
+    ///   the first frame is decoded (or on non-mac) fall back to the default
+    ///   image so the canvas never shows an empty backdrop.
+    /// - `Static` / `Gif`: render the image via `img()` with a source-derived
+    ///   id (required both for GPUI GIF multi-frame animation and to avoid the
+    ///   cross-source `frame_index` out-of-bounds panic; see `wallpaper_img`).
+    pub(super) fn render_wallpaper_layer(&self) -> Div {
+        let host = div()
+            .absolute()
+            .top(px(0.0))
+            .left(px(0.0))
+            .right(px(0.0))
+            .bottom(px(0.0))
+            .size_full()
+            .overflow_hidden();
+
+        match self.wallpaper_settings.current_kind() {
+            WallpaperKind::Video => {
+                #[cfg(target_os = "macos")]
+                if let Some(surf) = self.render_video_wallpaper_surface() {
+                    return host.child(surf);
+                }
+                host.child(self.wallpaper_img())
+            }
+            WallpaperKind::Static | WallpaperKind::Gif => host.child(self.wallpaper_img()),
+        }
+    }
+
+    /// The default image wallpaper element (Static/Gif + Video fallback).
+    /// Its id is derived from the rendered source (`render_id_key`) — NOT a
+    /// fixed string — so GPUI discards the stale `ImgState` (and its
+    /// `frame_index`) when the wallpaper source changes. See the inline note
+    /// below for the panic this prevents.
+    fn wallpaper_img(&self) -> gpui::Stateful<gpui::Img> {
+        // The id MUST be derived from the rendered source, not a fixed string.
+        // GPUI 0.2.2 keeps `ImgState.frame_index` per element-id across renders;
+        // a multi-frame GIF can push frame_index past 1, and reusing the same
+        // id when switching to a single-frame image lets the stale index access
+        // the new 1-frame RenderImage.data → index-out-of-bounds panic
+        // (assets.rs:79). A source-derived id makes GPUI treat it as a fresh
+        // element and reset frame_index to 0. The id is still stable per source
+        // so the GIF multi-frame animation path stays active across repaints.
+        img(self.wallpaper_settings.image_source_for_render())
+            .id(gpui::SharedString::from(
+                self.wallpaper_settings.render_id_key(),
+            ))
+            .absolute()
+            .top(px(0.0))
+            .left(px(0.0))
+            .right(px(0.0))
+            .bottom(px(0.0))
+            .size_full()
+            .object_fit(ObjectFit::Cover)
+            .opacity(WALLPAPER_IMAGE_OPACITY)
+    }
+
     pub(super) fn render_workspace_chrome(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
+        // Task 10: keep the video decoder lifecycle synced with the current
+        // wallpaper kind once per render. Lives here (not in backdrop) because
+        // the backdrop builder only has &self, while sync needs &mut self + cx.
+        #[cfg(target_os = "macos")]
+        self.sync_video_wallpaper(cx);
+
         let theme = self.theme;
         let win = window.viewport_size();
         let win_w = f32::from(win.width);
@@ -117,56 +170,81 @@ impl MultisoulApp {
                 div()
                     .absolute()
                     .top(px(30.0))
-                    .left(px((win_w - TOP_TOOLBAR_WIDTH) * 0.5))
-                    .w(px(TOP_TOOLBAR_WIDTH))
+                    .left(px(0.0))
+                    .right(px(0.0))
                     .h(px(46.0))
                     .flex()
                     .flex_row()
                     .items_center()
                     .justify_center()
-                    .gap_2()
-                    .px(px(12.0))
-                    .rounded(px(23.0))
-                    .border_1()
-                    .border_color(rgba(with_alpha(theme.edge_highlight, 0x34)))
-                    .shadow(chrome_shadow(theme))
-                    .bg(rgba(with_alpha(theme.panel, 0xdc)))
-                    .text_color(rgba(theme.text_primary))
-                    .text_size(px(12.0))
                     .child(
-                        chrome_button(
-                            theme,
-                            TOOLBAR_CANVAS_SCROLL_ICON,
-                            self.interaction.canvas_scroll_enabled,
-                        )
-                        .id("toolbar-canvas-scroll")
-                        .on_click(cx.listener(Self::on_toolbar_canvas_scroll)),
-                    )
-                    .child(div().px(px(8.0)).child("CANVAS"))
-                    .child(
-                        chrome_button(theme, "+", true)
-                            .id("toolbar-new-terminal")
-                            .on_click(cx.listener(Self::on_toolbar_new_terminal)),
-                    )
-                    .child(
-                        chrome_button(theme, "Claude Code", false)
-                            .id("toolbar-new-claude-agent")
-                            .on_click(cx.listener(Self::on_toolbar_new_claude_agent)),
-                    )
-                    .child(
-                        chrome_button(theme, "Codex", false)
-                            .id("toolbar-new-codex-agent")
-                            .on_click(cx.listener(Self::on_toolbar_new_codex_agent)),
-                    )
-                    .child(
-                        chrome_button(theme, "Preview", false)
-                            .id("toolbar-preview-file")
-                            .on_click(cx.listener(Self::on_toolbar_preview_file)),
-                    )
-                    .child(
-                        chrome_button(theme, SETTINGS_ICON, false)
-                            .id("toolbar-settings")
-                            .on_click(cx.listener(Self::on_toolbar_settings)),
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_2()
+                            .px(px(12.0))
+                            .h(px(46.0))
+                            .rounded(px(23.0))
+                            .border_1()
+                            .border_color(rgba(with_alpha(theme.edge_highlight, 0x34)))
+                            .shadow(chrome_shadow(theme))
+                            .bg(rgba(with_alpha(theme.panel, 0xdc)))
+                            .text_color(rgba(theme.text_primary))
+                            .text_size(px(12.0))
+                            .child(
+                                chrome_icon_button(
+                                    theme,
+                                    ToolbarIcon::Scroll,
+                                    self.interaction.canvas_scroll_enabled,
+                                    "toolbar-canvas-scroll",
+                                    "Scroll mode",
+                                )
+                                .on_click(cx.listener(Self::on_toolbar_canvas_scroll)),
+                            )
+                            .child(chrome_divider(theme))
+                            .child(
+                                chrome_icon_button(
+                                    theme,
+                                    ToolbarIcon::Plus,
+                                    self.interaction.new_menu_open,
+                                    "toolbar-new-terminal",
+                                    "New",
+                                )
+                                .on_click(cx.listener(Self::on_toolbar_toggle_new_menu)),
+                            )
+                            .child(chrome_divider(theme))
+                            .child(
+                                chrome_icon_button(
+                                    theme,
+                                    ToolbarIcon::Claude,
+                                    false,
+                                    "toolbar-new-claude-agent",
+                                    "Claude",
+                                )
+                                .on_click(cx.listener(Self::on_toolbar_new_claude_agent)),
+                            )
+                            .child(
+                                chrome_icon_button(
+                                    theme,
+                                    ToolbarIcon::Codex,
+                                    false,
+                                    "toolbar-new-codex-agent",
+                                    "Codex",
+                                )
+                                .on_click(cx.listener(Self::on_toolbar_new_codex_agent)),
+                            )
+                            .child(chrome_divider(theme))
+                            .child(
+                                chrome_icon_button(
+                                    theme,
+                                    ToolbarIcon::Settings,
+                                    false,
+                                    "toolbar-settings",
+                                    "Settings",
+                                )
+                                .on_click(cx.listener(Self::on_toolbar_settings)),
+                            ),
                     ),
             )
             .when(workspace_left_rail_visible(), |chrome| {
@@ -195,6 +273,9 @@ impl MultisoulApp {
                         .child(chrome_button(theme, "AI", false))
                         .child(chrome_button(theme, "{}", false)),
                 )
+            })
+            .when(self.interaction.new_menu_open, |chrome| {
+                chrome.child(self.render_new_menu(cx))
             });
 
         if bottom_voice_bar_visible() {
@@ -252,7 +333,7 @@ impl MultisoulApp {
     }
 }
 
-fn chrome_shadow(theme: Theme) -> Vec<BoxShadow> {
+pub(super) fn chrome_shadow(theme: Theme) -> Vec<BoxShadow> {
     vec![BoxShadow {
         color: rgba(theme.shadow_color).into(),
         offset: point(px(0.0), px(18.0)),
@@ -306,8 +387,85 @@ fn bottom_voice_bar_visible() -> bool {
     BOTTOM_VOICE_BAR_VISIBLE
 }
 
-fn with_alpha(color: u32, alpha: u8) -> u32 {
-    (color & 0xffffff00) | u32::from(alpha)
+/// Toolbar icon button: a 30×30 stateful square holding one SVG icon with
+/// hover/active/tooltip feedback. `active` swaps the rest tint for the accent
+/// orange tint (mirror of the old text `chrome_button`).
+///
+/// Returns a `Stateful<Div>` so the caller only needs to chain `.on_click(...)`.
+fn chrome_icon_button(
+    theme: Theme,
+    icon: ToolbarIcon,
+    active: bool,
+    id: &'static str,
+    tooltip: &'static str,
+) -> Stateful<Div> {
+    let fill = if active {
+        with_alpha(theme.accent_orange, 0x36)
+    } else {
+        with_alpha(theme.edge_highlight, 0x08)
+    };
+    let stroke = if active {
+        with_alpha(theme.accent_orange, 0x78)
+    } else {
+        with_alpha(theme.edge_highlight, 0x20)
+    };
+    let icon_color = if active {
+        theme.accent_orange
+    } else {
+        theme.text_primary
+    };
+
+    div()
+        .id(id)
+        .w(px(30.0))
+        .h(px(30.0))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(px(8.0))
+        .border_1()
+        .border_color(rgba(stroke))
+        .bg(rgba(fill))
+        .child(toolbar_icon(icon, icon_color, 16.0))
+        .hover(move |s| s.bg(rgba(with_alpha(theme.edge_highlight, 0x14))))
+        .active(move |s| s.bg(rgba(with_alpha(theme.edge_highlight, 0x28))))
+        .tooltip(move |_, cx| tooltip_view(theme, tooltip, cx))
+}
+
+/// Vertical 1×20 separator between toolbar icon groups.
+fn chrome_divider(theme: Theme) -> Div {
+    div()
+        .w(px(1.0))
+        .h(px(20.0))
+        .bg(rgba(with_alpha(theme.edge_highlight, 0x18)))
+}
+
+/// Build the hover tooltip `AnyView`. GPUI's `tooltip` closure must return an
+/// `AnyView`; a stateless styled `Div` alone does not satisfy that, so we wrap
+/// the pill in a tiny `Render` view entity via `App::new`.
+fn tooltip_view(theme: Theme, text: &'static str, cx: &mut App) -> AnyView {
+    cx.new(|_| TooltipView { theme, text }).into()
+}
+
+/// Stateless view backing [`tooltip_view`]: a small glass pill rendering `text`.
+struct TooltipView {
+    theme: Theme,
+    text: &'static str,
+}
+
+impl Render for TooltipView {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .px(px(8.0))
+            .py(px(4.0))
+            .rounded(px(6.0))
+            .bg(rgba(with_alpha(self.theme.panel, 0xf0)))
+            .border_1()
+            .border_color(rgba(with_alpha(self.theme.edge_highlight, 0x40)))
+            .text_color(rgba(self.theme.text_primary))
+            .text_size(px(11.0))
+            .child(self.text)
+    }
 }
 
 #[cfg(test)]
