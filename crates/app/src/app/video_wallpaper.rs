@@ -3,11 +3,11 @@
 //! loop that advances frames and triggers `cx.notify()` repaints. The chrome
 //! wallpaper layer renders the current buffer via GPUI `surface()`.
 //!
-//! GATED to macOS: AVFoundation / CoreVideo / GPUI `surface()` are mac-only.
-//! On non-mac this module is not compiled and `MultisoulApp.video_wallpaper`
-//! does not exist; all access sites gate with `#[cfg(target_os = "macos")]`.
-
-#![cfg(target_os = "macos")]
+//! GATED to macOS via the parent `#[cfg(target_os = "macos")] mod
+//! video_wallpaper;` in `mod.rs`; no inner `#![cfg]` is needed (it would
+//! duplicate that gate). On non-mac this module is not compiled and
+//! `MultisoulApp.video_wallpaper` does not exist; all access sites gate with
+//! `#[cfg(target_os = "macos")]`.
 
 use super::{MultisoulApp, WALLPAPER_IMAGE_OPACITY};
 use crate::app::video_decoder::{DecodedVideoFrame, VideoDecoder};

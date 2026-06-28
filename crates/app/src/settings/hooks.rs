@@ -23,26 +23,42 @@ pub(super) fn hooks_settings(
         .gap(px(20.0))
         .child(hook_provider_row(
             theme,
-            "Codex",
-            "Manage lifecycle hooks in ~/.codex/hooks.json",
-            paths.codex_hooks.display().to_string(),
-            codex_installed,
-            &panel.codex_hook_status,
-            "settings-install-codex-hooks",
+            &HookProviderRowSpec {
+                title: "Codex",
+                hint: "Manage lifecycle hooks in ~/.codex/hooks.json",
+                config_path: paths.codex_hooks.display().to_string(),
+                installed: codex_installed,
+                status: &panel.codex_hook_status,
+                button_id: "settings-install-codex-hooks",
+            },
             cx,
             MultisoulApp::on_toggle_codex_hooks,
         ))
         .child(hook_provider_row(
             theme,
-            "Claude Code",
-            "Manage lifecycle hooks in ~/.claude/settings.json",
-            paths.claude_settings.display().to_string(),
-            claude_installed,
-            &panel.claude_hook_status,
-            "settings-install-claude-hooks",
+            &HookProviderRowSpec {
+                title: "Claude Code",
+                hint: "Manage lifecycle hooks in ~/.claude/settings.json",
+                config_path: paths.claude_settings.display().to_string(),
+                installed: claude_installed,
+                status: &panel.claude_hook_status,
+                button_id: "settings-install-claude-hooks",
+            },
             cx,
             MultisoulApp::on_toggle_claude_hooks,
         ))
+}
+
+/// Content bundle for one [`hook_provider_row`] (provider labels, paths, and
+/// install state). Grouped so the row builder stays under clippy's
+/// `too_many_arguments` threshold without losing call-site clarity.
+struct HookProviderRowSpec<'a> {
+    title: &'static str,
+    hint: &'static str,
+    config_path: String,
+    installed: bool,
+    status: &'a HookInstallStatus,
+    button_id: &'static str,
 }
 
 impl MultisoulApp {
@@ -104,15 +120,18 @@ fn uninstall_status_for(target: HookTarget) -> HookInstallStatus {
 
 fn hook_provider_row(
     theme: Theme,
-    title: &'static str,
-    hint: &'static str,
-    config_path: String,
-    installed: bool,
-    status: &HookInstallStatus,
-    button_id: &'static str,
+    spec: &HookProviderRowSpec<'_>,
     cx: &mut Context<MultisoulApp>,
     handler: fn(&mut MultisoulApp, &ClickEvent, &mut Window, &mut Context<MultisoulApp>),
 ) -> Div {
+    let HookProviderRowSpec {
+        title,
+        hint,
+        ref config_path,
+        installed,
+        status,
+        button_id,
+    } = *spec;
     let (button_label, accent) = if installed {
         ("Uninstall hooks", theme.destructive)
     } else {
@@ -161,7 +180,7 @@ fn hook_provider_row(
                                 .child(if installed {
                                     format!("Installed · {config_path}")
                                 } else {
-                                    config_path
+                                    config_path.as_str().to_owned()
                                 }),
                         )
                         .children(status_message(theme, status)),

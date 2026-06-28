@@ -26,9 +26,9 @@
 //! `img.rs`). [`render_image_from_rgba`] performs that swap before building the
 //! single GPUI frame, mirroring exactly what GPUI's own image cache does.
 //!
-//! GATED to macOS: `VideoDecoder::first_frame_bgra` is mac-only.
-
-#![cfg(target_os = "macos")]
+//! GATED to macOS via the parent `#[cfg(target_os = "macos")] mod
+//! video_thumbnails;` in `mod.rs`; no inner `#![cfg]` is needed (it would
+//! duplicate that gate).
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};

@@ -268,9 +268,8 @@ impl WallpaperSettingsState {
                     return None;
                 }
                 let ext = path.extension().and_then(|e| e.to_str())?;
-                if WallpaperKind::from_extension(ext).is_none() {
-                    return None;
-                }
+                // Unknown extensions don't map to a WallpaperKind; bail to filter them out.
+                WallpaperKind::from_extension(ext)?;
                 path.file_name().and_then(|n| n.to_str()).map(str::to_owned)
             })
             .collect();

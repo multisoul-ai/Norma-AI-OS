@@ -19,8 +19,9 @@
 //!     rule (retained), so the frame outlives the sample buffer.
 //!   - On EOF the reader's `status` becomes `Completed`; we rebuild a fresh
 //!     reader + output against the same asset/track to loop.
-
-#![cfg(target_os = "macos")]
+//!
+//! GATED to macOS via the parent `#[cfg(target_os = "macos")] mod video_decoder;`
+//! in `mod.rs`; no inner `#![cfg]` is needed (it would duplicate that gate).
 
 use anyhow::{anyhow, bail, ensure, Result};
 use core_foundation::base::TCFType;
@@ -186,19 +187,31 @@ unsafe fn open_url_asset(path: &Path) -> Result<Retained<AVURLAsset>> {
     Ok(AVURLAsset::URLAssetWithURL_options(&url, None))
 }
 
-/// First video track of `asset` (deprecated sync `tracksWithMediaType:` is
-/// fine for local file assets; flagged in CONCERNS of the task report).
+/// First video track of `asset`. The deprecated sync `tracksWithMediaType:`
+/// is avoided (clippy `-D deprecated` + the repo's no-`#[allow]` rule); instead
+/// we pull ALL tracks via the non-deprecated `tracks` accessor and filter
+/// client-side by `AVAssetTrack::mediaType`. For local file-backed assets this
+/// is a synchronous, in-memory lookup, so blocking is safe here.
 fn first_video_track(asset: &AVURLAsset) -> Result<Retained<AVAssetTrack>> {
     // SAFETY: AVMediaTypeVideo is a process-lifetime extern NSString constant
     // populated by AVFoundation at framework load; reading it after the crate
     // has linked AVFoundation (which it has) is sound.
-    let media_type = unsafe { AVMediaTypeVideo }
+    let video_media_type = unsafe { AVMediaTypeVideo }
         .ok_or_else(|| anyhow!("AVMediaTypeVideo static unavailable"))?;
-    // SAFETY: tracksWithMediaType on a file-backed AVURLAsset is safe to call.
-    let tracks = unsafe { asset.tracksWithMediaType(media_type) };
-    tracks
-        .firstObject()
-        .ok_or_else(|| anyhow!("asset has no video track"))
+    // SAFETY: `tracks` on a file-backed AVURLAsset is a synchronous, safe call
+    // (the deprecated `tracksWithMediaType:` is replaced by `tracks` +
+    // client-side media-type filtering).
+    let all_tracks = unsafe { asset.tracks() };
+    for track in all_tracks.iter() {
+        // SAFETY: mediaType is a non-deprecated, synchronous accessor.
+        let mt = unsafe { track.mediaType() };
+        // Compare NSString *values* (not pointers) via isEqualToString:.
+        if mt.isEqualToString(video_media_type) {
+            // FirstObject-equivalent: return the first video track encountered.
+            return Ok(track);
+        }
+    }
+    Err(anyhow!("asset has no video track"))
 }
 
 fn new_reader(asset: &AVURLAsset) -> Result<Retained<AVAssetReader>> {
