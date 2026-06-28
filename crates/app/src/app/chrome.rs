@@ -90,8 +90,9 @@ impl MultisoulApp {
     /// - `Video` (mac): render the live decoded frame via `surface()`; until
     ///   the first frame is decoded (or on non-mac) fall back to the default
     ///   image so the canvas never shows an empty backdrop.
-    /// - `Static` / `Gif`: render the image via `img()` with the stable
-    ///   `"wallpaper"` id (required for GPUI GIF multi-frame animation).
+    /// - `Static` / `Gif`: render the image via `img()` with a source-derived
+    ///   id (required both for GPUI GIF multi-frame animation and to avoid the
+    ///   cross-source `frame_index` out-of-bounds panic; see `wallpaper_img`).
     pub(super) fn render_wallpaper_layer(&self) -> Div {
         let host = div()
             .absolute()
@@ -115,11 +116,23 @@ impl MultisoulApp {
     }
 
     /// The default image wallpaper element (Static/Gif + Video fallback).
-    /// Carries the stable `.id("wallpaper")` so GPUI's ImageCache drives GIF
-    /// multi-frame animation.
+    /// Its id is derived from the rendered source (`render_id_key`) — NOT a
+    /// fixed string — so GPUI discards the stale `ImgState` (and its
+    /// `frame_index`) when the wallpaper source changes. See the inline note
+    /// below for the panic this prevents.
     fn wallpaper_img(&self) -> gpui::Stateful<gpui::Img> {
+        // The id MUST be derived from the rendered source, not a fixed string.
+        // GPUI 0.2.2 keeps `ImgState.frame_index` per element-id across renders;
+        // a multi-frame GIF can push frame_index past 1, and reusing the same
+        // id when switching to a single-frame image lets the stale index access
+        // the new 1-frame RenderImage.data → index-out-of-bounds panic
+        // (assets.rs:79). A source-derived id makes GPUI treat it as a fresh
+        // element and reset frame_index to 0. The id is still stable per source
+        // so the GIF multi-frame animation path stays active across repaints.
         img(self.wallpaper_settings.image_source_for_render())
-            .id("wallpaper")
+            .id(gpui::SharedString::from(
+                self.wallpaper_settings.render_id_key(),
+            ))
             .absolute()
             .top(px(0.0))
             .left(px(0.0))

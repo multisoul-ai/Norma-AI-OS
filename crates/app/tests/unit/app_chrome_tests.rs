@@ -409,37 +409,30 @@ fn test_top_toolbar_uses_icon_buttons_and_drops_canvas_literal() {
     );
 }
 
-/// 壁纸 img 元素必须挂稳定 id "wallpaper"，否则 GPUI 多帧 GIF 会冻结在第 0 帧。
+/// 壁纸 img 的 id 必须随渲染源派生（render_id_key），而非固定字符串。
 ///
-/// 数据构造（含关键数值的推导过程）：
-///   source = include_str!("../../src/app/chrome.rs")（检查当前 chrome 渲染源码）
-///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
-///   expected id literal = ".id(\"wallpaper\")"（壁纸 img 上必须存在的稳定 id）
-///   img call = "img("（确认壁纸图层仍以 img 元素渲染，而非被替换）
+/// 回归根因：GPUI 0.2.2 按 element-id 跨渲染保留 `ImgState.frame_index`。多帧 GIF 可把
+/// frame_index 推到 >1；若随后切到单帧静态图且复用同一 id，旧 frame_index 索引新单帧
+/// RenderImage.data → `index out of bounds` panic（assets.rs:79）。源派生 id 让切换即换 id，
+/// GPUI 丢弃旧 state、frame_index 归零；同源稳定以维持 GIF 多帧动画。
 ///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 app_chrome.rs 的生产渲染源码
-///   2. 确认壁纸渲染分支仍含 img( 调用，避免整体被删导致测试空过
-///   3. 搜索 .id("wallpaper") literal —— 这是 GIF 多帧动画复用 ImageCache 的关键
+/// 数据构造：source = chrome.rs 生产区（#[cfg(test)] 前）；
+///   render_id_key 锚点（必含）；固定 .id("wallpaper") 反锚点（必不含）；img( 锚点（必含）。
 ///
-/// 预期结果：
-///   - 正断言：render_source 含 img( 调用（壁纸图层仍由 img 渲染）
-///   - 正断言：render_source 含 .id("wallpaper") literal（稳定 id 已挂载）
-///   - 负断言：不能仅出现 img( 而缺 .id("wallpaper")，否则 GIF 会冻结
+/// 预期结果：含 img(、含 render_id_key、不含 .id("wallpaper")（裸固定 id 会触发越界 panic）。
 #[test]
-fn test_wallpaper_img_has_stable_id_for_gif_animation() {
+fn test_wallpaper_img_has_source_derived_id() {
     let source = include_str!("../../src/app/chrome.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
-    let wallpaper_id_literal = ".id(\"wallpaper\")";
-    let img_call = "img(";
 
+    assert!(render_source.contains("img("), "壁纸图层应以 img 元素渲染");
     assert!(
-        render_source.contains(img_call),
-        "壁纸图层应以 img 元素渲染，否则其它断言失去意义"
+        render_source.contains("render_id_key"),
+        "壁纸 img 的 id 必须由 render_id_key 派生，否则切源时 GPUI 旧 frame_index 越界 panic"
     );
     assert!(
-        render_source.contains(wallpaper_id_literal),
-        "壁纸 img 必须挂 .id(\"wallpaper\") 稳定 id；缺少会导致 GPUI GIF 多帧动画冻结在第 0 帧"
+        !render_source.contains(".id(\"wallpaper\")"),
+        "壁纸 img 不应再用固定 .id(\"wallpaper\")；跨源复用 ImgState 会导致 index-out-of-bounds panic"
     );
 }
 

@@ -144,6 +144,26 @@ impl WallpaperSettingsState {
         selection_kind(&self.selection)
     }
 
+    /// A stable key identifying the *currently rendered* wallpaper source.
+    ///
+    /// Used as the GPUI `img()` element id suffix so the element identity
+    /// changes when the wallpaper source changes. This is REQUIRED: GPUI 0.2.2
+    /// keeps `ImgState.frame_index` per-element-id across renders, and a
+    /// multi-frame GIF can advance `frame_index` past 1. If the user then
+    /// switches to a single-frame static image under the SAME id, the stale
+    /// `frame_index` indexes the new 1-frame `RenderImage.data` →
+    /// `index out of bounds` panic (gpui `assets.rs:79`). A source-derived id
+    /// forces GPUI to discard the old state and reset `frame_index` to 0.
+    ///
+    /// The key covers all render paths: builtins (incl. default fallback) and
+    /// customs; switching kind (e.g. video↔image) also changes the key.
+    pub(crate) fn render_id_key(&self) -> String {
+        match &self.selection {
+            WallpaperSelection::Builtin { rel } => format!("builtin:{rel}"),
+            WallpaperSelection::Custom { filename } => format!("custom:{filename}"),
+        }
+    }
+
     /// Whether the given builtin rel path is the currently selected wallpaper.
     /// Used by the grid view to render the highlight border without poking the
     /// `selection` enum directly.

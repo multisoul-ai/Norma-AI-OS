@@ -15,3 +15,7 @@ pub(crate) use view::wallpaper_settings;
 #[cfg(test)]
 #[path = "../../tests/unit/wallpaper_settings_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_render_id_tests.rs"]
+mod render_id_tests;

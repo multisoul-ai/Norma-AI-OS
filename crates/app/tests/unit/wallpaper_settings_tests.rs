@@ -19,18 +19,21 @@ use std::sync::Mutex;
 
 /// Process-wide lock acquired by every wallpaper persistence test before
 /// touching `MULTISOUL_TEST_DATA_ROOT`. Poisoning is treated as a hard failure.
-static TEST_ROOT_LOCK: Mutex<()> = Mutex::new(());
+///
+/// `pub(super)` so the sibling `render_id_tests` module (also under
+/// `settings::wallpaper`) can share the same serialization guard.
+pub(super) static TEST_ROOT_LOCK: Mutex<()> = Mutex::new(());
 
 /// RAII guard. On construction it acquires [`TEST_ROOT_LOCK`], allocates a fresh
 /// tempdir, and points `MULTISOUL_TEST_DATA_ROOT` at it. On drop it removes the
 /// env var and releases the lock, so the next test starts from a clean slate.
-struct TestRootGuard {
+pub(super) struct TestRootGuard {
     _guard: std::sync::MutexGuard<'static, ()>,
     _tmp: tempfile::TempDir,
 }
 
 impl TestRootGuard {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let guard = TEST_ROOT_LOCK
             .lock()
             .expect("wallpaper test root mutex poisoned");
@@ -440,6 +443,8 @@ fn test_import_custom_rejects_unknown_extension() {
 ///   - Task 11 视频占位注释
 ///
 /// 这是结构性的源码锚点测试，避免 view 被误重构时丢失关键交互元素。
+/// T-W10（render_id_key 契约）见 wallpaper_render_id_tests.rs，独立文件以守住 500 行上限。
+
 #[test]
 fn test_wallpaper_view_has_grid_import_and_builtin_nodelete() {
     let src = include_str!("../../src/settings/wallpaper/view.rs");
