@@ -412,3 +412,74 @@ fn test_settings_panel_uses_card_theme_tokens_not_light_mock_palette() {
         );
     }
 }
+
+/// T-W5: Settings 侧栏必须新增 Wallpaper 项，并在 content 分发里渲染它。
+///
+/// 数据来源：将 panel.rs / content.rs / wallpaper.rs 三个源文件拼接为单一
+/// source 字符串，逐一检查下列 anchor 子串是否存在。
+///
+/// 执行过程：
+///   1. include_str! 拼接三处源码 → src
+///   2. 遍历 required anchors，断言每个都出现在 src 中
+///
+/// 预期结果：
+///   - "SettingsSection::Wallpaper"：枚举新增 Wallpaper 变体
+///   - "\"Wallpaper\""：title()/content_title() 返回 Wallpaper
+///   - "wallpaper_settings"：app 字段 / 渲染 fn 名已接线
+///   - "wallpaper_state"：settings_content 签名新增该参数
+#[test]
+fn test_settings_has_wallpaper_section() {
+    let src = format!(
+        "{}{}{}",
+        include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/wallpaper.rs")
+    );
+    let required = [
+        "SettingsSection::Wallpaper",
+        "\"Wallpaper\"",      // title
+        "wallpaper_settings", // toolbar/state field wired
+        "wallpaper_state",    // param
+    ];
+    for anchor in required {
+        assert!(
+            src.contains(anchor),
+            "wallpaper settings wiring missing: {anchor}"
+        );
+    }
+}
+
+/// T-11: 视频缩略图必须用首帧解码（first_frame_bgra），而不是停在 VIDEO 占位。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source = view.rs（网格渲染）+ video_thumbnails.rs（mac-gated 缓存/解码帮助）
+///   required anchors:
+///     - first_frame_bgra：必须调用 VideoDecoder::first_frame_bgra 解码首帧
+///     - video_thumb：缩略图渲染处必须携带可被测试锚定的 video_thumb id/source 标记
+///   banned = `"VIDEO"` 占位仍允许作为 mac 以外 / 解码中 的 fallback，但视频分支
+///            的主路径必须出现 first_frame_bgra 与 video_thumb 锚点。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. include_str! 拼接 view.rs + video_thumbnails.rs
+///   2. 断言 first_frame_bgra 出现 → 视频缩略图确实走 AVAssetReader 首帧解码
+///   3. 断言 video_thumb 标记出现 → 视频缩略图渲染分支携带被锚定的标记
+///
+/// 预期结果：
+///   - 正断言：first_frame_bgra 存在
+///   - 正断言：video_thumb 标记存在
+#[test]
+fn test_video_thumbnail_uses_first_frame() {
+    let source = format!(
+        "{}{}",
+        include_str!("../../src/settings/wallpaper/view.rs"),
+        include_str!("../../src/app/video_thumbnails.rs"),
+    );
+    assert!(
+        source.contains("first_frame_bgra"),
+        "视频缩略图主路径必须调用 VideoDecoder::first_frame_bgra 解码首帧，而不是停在占位"
+    );
+    assert!(
+        source.contains("video_thumb"),
+        "视频缩略图渲染分支必须携带 video_thumb id/source 标记以便锚定"
+    );
+}

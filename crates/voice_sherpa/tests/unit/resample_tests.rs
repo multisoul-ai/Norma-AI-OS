@@ -148,7 +148,7 @@ fn test_empty_input_is_safe() {
     let empty = resampler.process(&[]);
     assert_eq!(empty.len(), 0, "空输入应返回空输出");
 
-    let next = resampler.process(&vec![1.0f32; 48]);
+    let next = resampler.process(&[1.0f32; 48]);
     assert!(
         !next.is_empty(),
         "空调用后解析器仍应能正常处理非空输入（状态未被破坏）"

@@ -25,7 +25,19 @@ pub(crate) enum SettingsSection {
     Agents,
     Skills,
     Hooks,
+    Wallpaper,
 }
+
+const SETTINGS_SECTION_ORDER: [SettingsSection; 8] = [
+    SettingsSection::General,
+    SettingsSection::Keyboard,
+    SettingsSection::Runtime,
+    SettingsSection::Voice,
+    SettingsSection::Agents,
+    SettingsSection::Skills,
+    SettingsSection::Hooks,
+    SettingsSection::Wallpaper,
+];
 
 impl SettingsSection {
     fn title(self) -> &'static str {
@@ -37,6 +49,7 @@ impl SettingsSection {
             Self::Agents => "Agents",
             Self::Skills => "Skills",
             Self::Hooks => "Hooks",
+            Self::Wallpaper => "Wallpaper",
         }
     }
 
@@ -49,35 +62,26 @@ impl SettingsSection {
             Self::Agents => "A",
             Self::Skills => "✦",
             Self::Hooks => "⛓",
+            // 🖼 emoji is risky in the bundled icon font; reuse the single-ASCII
+            // letter convention used by Voice/Agents for consistency.
+            Self::Wallpaper => "W",
         }
     }
 
     fn index(self) -> usize {
-        match self {
-            Self::General => 0,
-            Self::Keyboard => 1,
-            Self::Runtime => 2,
-            Self::Voice => 3,
-            Self::Agents => 4,
-            Self::Skills => 5,
-            Self::Hooks => 6,
+        for (index, section) in SETTINGS_SECTION_ORDER.iter().enumerate() {
+            if *section == self {
+                return index;
+            }
         }
+        0
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct HookInstallStatus {
     pub(crate) message: Option<String>,
     pub(crate) is_error: bool,
-}
-
-impl Default for HookInstallStatus {
-    fn default() -> Self {
-        Self {
-            message: None,
-            is_error: false,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -216,6 +220,7 @@ impl MultisoulApp {
                         theme,
                         &self.settings_panel,
                         &self.voice_settings,
+                        &self.wallpaper_settings,
                         &self.shortcuts,
                         cx,
                     )),
@@ -261,6 +266,12 @@ impl MultisoulApp {
             // [MOCK] .child(section_button(theme, SettingsSection::Agents, active, cx))
             // [MOCK] .child(section_button(theme, SettingsSection::Skills, active, cx))
             .child(section_button(theme, SettingsSection::Hooks, active, cx))
+            .child(section_button(
+                theme,
+                SettingsSection::Wallpaper,
+                active,
+                cx,
+            ))
     }
 }
 
@@ -344,26 +355,6 @@ fn section_icon(theme: Theme, section: SettingsSection, active: bool) -> Div {
             theme.text_secondary
         }))
         .child(section.icon())
-}
-
-fn sidebar_child(theme: Theme, label: &'static str, selected: bool) -> Div {
-    div()
-        .h(px(34.0))
-        .ml(px(56.0))
-        .flex()
-        .items_center()
-        .text_size(px(15.0))
-        .font_weight(if selected {
-            FontWeight::BOLD
-        } else {
-            FontWeight::NORMAL
-        })
-        .text_color(rgba(if selected {
-            theme.text_primary
-        } else {
-            theme.text_tertiary
-        }))
-        .child(label)
 }
 
 fn sidebar_gap() -> Div {

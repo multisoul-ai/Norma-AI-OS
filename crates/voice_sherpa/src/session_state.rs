@@ -4,8 +4,9 @@ use crate::SpeechError;
 #[path = "../tests/unit/session_state_tests.rs"]
 mod tests;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum SessionPhase {
+    #[default]
     Idle,
     Recording,
     Finished,
@@ -19,23 +20,9 @@ pub enum SessionEvent {
     Cancel,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SessionState {
     phase: SessionPhase,
-}
-
-impl Default for SessionPhase {
-    fn default() -> Self {
-        Self::Idle
-    }
-}
-
-impl Default for SessionState {
-    fn default() -> Self {
-        Self {
-            phase: SessionPhase::default(),
-        }
-    }
 }
 
 impl SessionState {

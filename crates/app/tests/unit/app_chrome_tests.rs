@@ -408,3 +408,80 @@ fn test_top_toolbar_uses_icon_buttons_and_drops_canvas_literal() {
         "顶部工具栏不应继续使用 ↕ glyph literal"
     );
 }
+
+/// 壁纸 img 的 id 必须随渲染源派生（render_id_key），而非固定字符串。
+///
+/// 回归根因：GPUI 0.2.2 按 element-id 跨渲染保留 `ImgState.frame_index`。多帧 GIF 可把
+/// frame_index 推到 >1；若随后切到单帧静态图且复用同一 id，旧 frame_index 索引新单帧
+/// RenderImage.data → `index out of bounds` panic（assets.rs:79）。源派生 id 让切换即换 id，
+/// GPUI 丢弃旧 state、frame_index 归零；同源稳定以维持 GIF 多帧动画。
+///
+/// 数据构造：source = chrome.rs 生产区（#[cfg(test)] 前）；
+///   render_id_key 锚点（必含）；固定 .id("wallpaper") 反锚点（必不含）；img( 锚点（必含）。
+///
+/// 预期结果：含 img(、含 render_id_key、不含 .id("wallpaper")（裸固定 id 会触发越界 panic）。
+#[test]
+fn test_wallpaper_img_has_source_derived_id() {
+    let source = include_str!("../../src/app/chrome.rs");
+    let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
+
+    assert!(render_source.contains("img("), "壁纸图层应以 img 元素渲染");
+    assert!(
+        render_source.contains("render_id_key"),
+        "壁纸 img 的 id 必须由 render_id_key 派生，否则切源时 GPUI 旧 frame_index 越界 panic"
+    );
+    assert!(
+        !render_source.contains(".id(\"wallpaper\")"),
+        "壁纸 img 不应再用固定 .id(\"wallpaper\")；跨源复用 ImgState 会导致 index-out-of-bounds panic"
+    );
+}
+
+/// Task 10 anchor：视频壁纸渲染胶水存在。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   chrome_src      = include_str!("../../src/app/chrome.rs")（chrome 渲染源码）
+///   render_src      = chrome_src 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
+///   video_src       = include_str!("../../src/app/video_wallpaper.rs")（Task 10 新增模块）
+///   anchor_chrome   = "WallpaperKind::Video"（chrome wallpaper layer 必须含 Video 分支）
+///   anchor_surface  = "surface("（video_wallpaper.rs 必须通过 gpui::surface() 渲染当前帧）
+///   anchor_timer_a  = "background_executor()"（帧推进必须由后台 executor 驱动，无自驱动动画）
+///   anchor_timer_b  = ".timer("（与 background_executor() 配对，确认是定时器轮询而非单次）
+///
+///   注：brief 原写 contiguous anchor "background_executor().timer"，但 rustfmt 会把该
+///   长链跨行拆分（与 mod.rs 12ms 帧循环同款格式），无法保留为单行连续子串。此处拆成
+///   两个 rustfmt-stable 子串，断言语义不变（同一循环体内同时出现 executor + .timer(）。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 chrome.rs 生产渲染区，确认壁纸层含 WallpaperKind::Video 分支
+///   2. 读取 video_wallpaper.rs 源码，确认含 surface( 调用与 background_executor() / .timer( 循环
+///
+/// 预期结果：
+///   - 正断言：render_src 含 "WallpaperKind::Video"（chrome 已接入视频分支）
+///   - 正断言：video_src 含 "surface("（视频帧经 GPUI surface 渲染）
+///   - 正断言：video_src 含 "background_executor()" 且含 ".timer("（外部 timer 驱动帧推进）
+#[test]
+fn test_video_wallpaper_branch_uses_surface() {
+    let chrome_src = include_str!("../../src/app/chrome.rs");
+    let render_src = chrome_src
+        .split("#[cfg(test)]")
+        .next()
+        .unwrap_or(chrome_src);
+    let video_src = include_str!("../../src/app/video_wallpaper.rs");
+
+    assert!(
+        render_src.contains("WallpaperKind::Video"),
+        "chrome wallpaper layer 必须含 WallpaperKind::Video 视频分支"
+    );
+    assert!(
+        video_src.contains("surface("),
+        "video_wallpaper.rs 必须通过 gpui::surface() 渲染当前视频帧"
+    );
+    assert!(
+        video_src.contains("background_executor()"),
+        "video_wallpaper.rs 帧推进必须经由 background_executor()（surface 无自驱动动画）"
+    );
+    assert!(
+        video_src.contains(".timer("),
+        "video_wallpaper.rs 必须以 .timer( 定时器轮询驱动帧推进"
+    );
+}

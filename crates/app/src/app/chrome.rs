@@ -3,6 +3,7 @@
 use super::{
     MultisoulApp, WALLPAPER_IMAGE_OPACITY, WALLPAPER_SHADE_BOTTOM_ALPHA, WALLPAPER_SHADE_TOP_ALPHA,
 };
+use crate::app::wallpaper_resolvers::WallpaperKind;
 use gpui::{
     div, img, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, AnyView, App,
     BoxShadow, Context, Div, ObjectFit, Stateful, Window,
@@ -29,17 +30,7 @@ impl MultisoulApp {
                 linear_color_stop(rgba(theme.graphite), 1.0),
             ));
 
-        backdrop = backdrop.child(
-            img(self.wallpaper.image_source())
-                .absolute()
-                .top(px(0.0))
-                .left(px(0.0))
-                .right(px(0.0))
-                .bottom(px(0.0))
-                .size_full()
-                .object_fit(ObjectFit::Cover)
-                .opacity(WALLPAPER_IMAGE_OPACITY),
-        );
+        backdrop = backdrop.child(self.render_wallpaper_layer());
 
         backdrop
             .child(
@@ -94,11 +85,75 @@ impl MultisoulApp {
             )
     }
 
+    /// Render the wallpaper layer, branching on the current [`WallpaperKind`].
+    ///
+    /// - `Video` (mac): render the live decoded frame via `surface()`; until
+    ///   the first frame is decoded (or on non-mac) fall back to the default
+    ///   image so the canvas never shows an empty backdrop.
+    /// - `Static` / `Gif`: render the image via `img()` with a source-derived
+    ///   id (required both for GPUI GIF multi-frame animation and to avoid the
+    ///   cross-source `frame_index` out-of-bounds panic; see `wallpaper_img`).
+    pub(super) fn render_wallpaper_layer(&self) -> Div {
+        let host = div()
+            .absolute()
+            .top(px(0.0))
+            .left(px(0.0))
+            .right(px(0.0))
+            .bottom(px(0.0))
+            .size_full()
+            .overflow_hidden();
+
+        match self.wallpaper_settings.current_kind() {
+            WallpaperKind::Video => {
+                #[cfg(target_os = "macos")]
+                if let Some(surf) = self.render_video_wallpaper_surface() {
+                    return host.child(surf);
+                }
+                host.child(self.wallpaper_img())
+            }
+            WallpaperKind::Static | WallpaperKind::Gif => host.child(self.wallpaper_img()),
+        }
+    }
+
+    /// The default image wallpaper element (Static/Gif + Video fallback).
+    /// Its id is derived from the rendered source (`render_id_key`) — NOT a
+    /// fixed string — so GPUI discards the stale `ImgState` (and its
+    /// `frame_index`) when the wallpaper source changes. See the inline note
+    /// below for the panic this prevents.
+    fn wallpaper_img(&self) -> gpui::Stateful<gpui::Img> {
+        // The id MUST be derived from the rendered source, not a fixed string.
+        // GPUI 0.2.2 keeps `ImgState.frame_index` per element-id across renders;
+        // a multi-frame GIF can push frame_index past 1, and reusing the same
+        // id when switching to a single-frame image lets the stale index access
+        // the new 1-frame RenderImage.data → index-out-of-bounds panic
+        // (assets.rs:79). A source-derived id makes GPUI treat it as a fresh
+        // element and reset frame_index to 0. The id is still stable per source
+        // so the GIF multi-frame animation path stays active across repaints.
+        img(self.wallpaper_settings.image_source_for_render())
+            .id(gpui::SharedString::from(
+                self.wallpaper_settings.render_id_key(),
+            ))
+            .absolute()
+            .top(px(0.0))
+            .left(px(0.0))
+            .right(px(0.0))
+            .bottom(px(0.0))
+            .size_full()
+            .object_fit(ObjectFit::Cover)
+            .opacity(WALLPAPER_IMAGE_OPACITY)
+    }
+
     pub(super) fn render_workspace_chrome(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
+        // Task 10: keep the video decoder lifecycle synced with the current
+        // wallpaper kind once per render. Lives here (not in backdrop) because
+        // the backdrop builder only has &self, while sync needs &mut self + cx.
+        #[cfg(target_os = "macos")]
+        self.sync_video_wallpaper(cx);
+
         let theme = self.theme;
 
         let mut chrome = div()

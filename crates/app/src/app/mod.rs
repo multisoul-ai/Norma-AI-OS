@@ -1,7 +1,5 @@
 //! GPUI 主视图：持有 Runtime，装配画布/终端渲染，处理快捷键与帧级 drain。
 
-#[cfg(test)]
-use crate::assets::DEFAULT_WALLPAPER_ASSET;
 use crate::canvas::interaction::InteractionState;
 use crate::canvas::master_layout::{
     apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
@@ -19,6 +17,7 @@ use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::panel::SettingsPanelState;
 use crate::settings::voice::VoiceSettingsState;
+use crate::settings::wallpaper::WallpaperSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
@@ -29,17 +28,21 @@ use std::time::Duration;
 use ui::Theme;
 
 mod chrome;
+mod file_picker;
 mod ime;
 mod ime_geometry;
 mod keyboard;
 mod lifecycle;
 mod new_menu;
+#[cfg(target_os = "macos")]
+mod video_decoder;
+#[cfg(target_os = "macos")]
+pub(crate) mod video_thumbnails;
+#[cfg(target_os = "macos")]
+mod video_wallpaper;
 mod voice;
-mod wallpaper;
-
-#[cfg(test)]
-use self::wallpaper::wallpaper_from_env_value;
-use self::wallpaper::{wallpaper_from_env, WorkspaceWallpaper};
+mod wallpaper_actions;
+pub(crate) mod wallpaper_resolvers;
 
 actions!(
     multisoul,
@@ -56,7 +59,6 @@ actions!(
         ToggleSettings
     ]
 );
-
 const WALLPAPER_IMAGE_OPACITY: f32 = 1.0;
 const WALLPAPER_SHADE_TOP_ALPHA: u8 = 0x00;
 const WALLPAPER_SHADE_BOTTOM_ALPHA: u8 = 0x00;
@@ -79,7 +81,9 @@ pub struct MultisoulApp {
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
     pub(crate) pending_voice_commands: Vec<::voice::ExecutableCommand>,
     pub focus_handle: FocusHandle,
-    wallpaper: WorkspaceWallpaper,
+    pub(crate) wallpaper_settings: WallpaperSettingsState,
+    #[cfg(target_os = "macos")]
+    pub(crate) video_wallpaper: Option<video_wallpaper::VideoWallpaperState>,
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
 }
 
@@ -130,7 +134,7 @@ impl MultisoulApp {
         })
         .detach();
 
-        let wallpaper = wallpaper_from_env();
+        let wallpaper_settings = WallpaperSettingsState::load_default();
         let agent_hook_server = AgentHookServer::start();
         let mut runtime = Runtime::new();
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
@@ -153,7 +157,9 @@ impl MultisoulApp {
             voice: crate::app::voice::control::VoiceControlState::default(),
             pending_voice_commands: Vec::new(),
             focus_handle: cx.focus_handle(),
-            wallpaper,
+            wallpaper_settings,
+            #[cfg(target_os = "macos")]
+            video_wallpaper: None,
             last_reflow_window_size: None,
         }
     }
@@ -484,3 +490,11 @@ impl Render for MultisoulApp {
 #[cfg(test)]
 #[path = "../../tests/unit/app_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_resolvers_tests.rs"]
+mod wallpaper_resolvers_tests;
+
+#[cfg(all(test, target_os = "macos"))]
+#[path = "../../tests/unit/video_decoder_tests.rs"]
+mod video_decoder_tests;

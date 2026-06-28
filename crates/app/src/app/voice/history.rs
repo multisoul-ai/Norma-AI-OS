@@ -4,6 +4,21 @@ use crate::app::MultisoulApp;
 use storage::VoiceHistoryEntry;
 use voice_sherpa::SpeechError;
 
+/// Outcome label pair for a voice turn's history record. `risk` and `status`
+/// are always set together and read together downstream, so grouping them
+/// keeps `save_voice_history` under clippy's `too_many_arguments` threshold
+/// without splitting a single concern across many parameters.
+pub(crate) struct VoiceOutcome {
+    pub risk: &'static str,
+    pub status: &'static str,
+}
+
+impl VoiceOutcome {
+    pub(crate) const fn new(risk: &'static str, status: &'static str) -> Self {
+        Self { risk, status }
+    }
+}
+
 pub(super) struct VoiceHistoryDraft {
     pub raw_transcript: String,
     pub refined_transcript: Option<String>,
@@ -24,8 +39,7 @@ impl MultisoulApp {
             None,
             "{}".into(),
             0.0,
-            "low",
-            "transcript_only",
+            VoiceOutcome::new("low", "transcript_only"),
             None,
         );
     }
@@ -36,8 +50,7 @@ impl MultisoulApp {
         refined_transcript: Option<String>,
         planner_json: String,
         confidence: f64,
-        risk: &'static str,
-        status: &'static str,
+        outcome: VoiceOutcome,
         error: Option<String>,
     ) {
         self.save_voice_history_with_provider(VoiceHistoryDraft {
@@ -45,8 +58,8 @@ impl MultisoulApp {
             refined_transcript,
             planner_json,
             confidence,
-            risk,
-            status,
+            risk: outcome.risk,
+            status: outcome.status,
             provider: Some("ollama".to_string()),
             model: Some(self.voice_settings.values().planner_model().to_string()),
             error,
