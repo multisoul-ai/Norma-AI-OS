@@ -1,3 +1,4 @@
+use crate::app::MultisoulApp;
 use crate::assets::DEFAULT_WALLPAPER_ASSET;
 use gpui::ImageSource;
 use std::ffi::OsString;
@@ -15,6 +16,12 @@ impl WorkspaceWallpaper {
             Self::Embedded(asset_path) => (*asset_path).into(),
             Self::File(path) => path.clone().into(),
         }
+    }
+}
+
+impl MultisoulApp {
+    pub(crate) fn wallpaper_image_source(&self) -> ImageSource {
+        self.wallpaper.image_source()
     }
 }
 
