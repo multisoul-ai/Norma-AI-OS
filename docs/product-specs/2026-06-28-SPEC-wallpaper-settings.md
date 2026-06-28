@@ -14,7 +14,7 @@ Multisoul Desktop 当前壁纸写死为内置单张 PNG（`crates/app/assets/wal
 ### 2.1 In Scope
 - Settings 侧边栏新增独立 **Wallpaper** 项：缩略图网格 + "Import…" 按钮。
 - **内置库 10 个素材**（2 PNG + 2 GIF + 5 mp4 + 现有默认 PNG），全部随 App bundle 分发。
-- **统一打包**：PNG/GIF/视频一致作为 bundle 独立资源文件（`Contents/Resources/wallpapers/`），不再用 `include_bytes!` 编进二进制。
+- **混合打包**（实现期修订，见 §9）：图片内置项（PNG/GIF）走 `include_bytes!` 编进二进制（GPUI `AssetSource` 需 `ImageSource::Resource` 服务缩略图/背景）；视频内置项（mp4）作为 bundle 独立资源文件（`Contents/Resources/wallpapers/`），不编进二进制（体积过大）。开发期视频路径回退 `CARGO_MANIFEST_DIR/assets/wallpapers/`。
 - 自定义导入：拷贝到 App 数据目录，可选中、可删除（内置不可删）。
 - 三类渲染：静态图 `img()`、GIF `img()`+原生多帧、视频 AVFoundation + `surface()` 零拷贝。
 - 持久化（复用 `settings_store`）。
@@ -84,9 +84,9 @@ pub(crate) enum WorkspaceWallpaper {
 
 **打包迁移**：
 - `crates/app/assets/wallpapers/` 下放全部 10 个素材文件（复制自 `/Users/alan/Documents/壁纸/mut/`，保留现有 `1331865.png`）。
-- PNG/GIF 仍可走 GPUI asset source（`ImageSource::Resource` 需要），**视频不走 asset source**——视频由 bundle 资源**文件路径**直接喂 `AVAssetReader`。内置视频项 `Embedded(&str)` 语义 = "bundle 资源相对路径"，运行时解析到 `Contents/Resources/wallpapers/<file>` 绝对路径。
-- 打包脚本（扩展现有 packaging 流程）：把 `assets/wallpapers/*` 拷进 `.app/Contents/Resources/wallpapers/`。开发期 `cargo run` 用 `CARGO_MANIFEST_DIR/assets/wallpapers/` 回退解析。
-- 现有默认壁纸 `1331865.png` 加载路径迁移：从 `include_bytes!` 改为 bundle 文件路径（asset source 仍保留以兼容 GPUI `ImageSource::Resource` 对 PNG/GIF 的加载）。
+- PNG/GIF 走 GPUI asset source（`include_bytes!` 嵌入，`ImageSource::Resource` 解析），**视频不走 asset source**——视频由资源**文件路径**直接喂 `AVAssetReader`。内置视频项 `Embedded(&str)` 语义 = "资源相对路径"，运行时解析：打包态 `Contents/Resources/wallpapers/<file>`，开发态回退 `CARGO_MANIFEST_DIR/assets/wallpapers/<file>`。
+- 打包脚本（`scripts/copy-wallpaper-resources.sh`）：release 时把 `assets/wallpapers/*` 拷进 `.app/Contents/Resources/wallpapers/`（供视频文件路径解析）。图片已通过 `include_bytes!` 在二进制内，不需额外拷贝。
+- 现有默认壁纸 `1331865.png` 保留 `include_bytes!` 嵌入（与其它图片内置项一致）。
 
 **三条渲染路径**：
 
@@ -128,7 +128,7 @@ pub(crate) enum WorkspaceWallpaper {
 ## 9. 非功能性需求
 
 - **性能**：GIF 每帧首次上传后复用 atlas；视频 420f 零拷贝（CVMetalTextureCache 直采 Y/CbCr 双平面），无 CPU→GPU RGBA 拷贝、无 atlas 膨胀，25fps timer。始终循环（已接受电池权衡；未来可加可见性暂停，列为未来项）。
-- **包体积**：二进制不增大（资源独立文件）；App bundle 因 5 mp4 + 2 PNG + 2 GIF 增 ~168MB（实现期评估压缩/降分辨率，列为优化，可考虑精选 2-3 个 mp4）。
+- **包体积**：图片内置项经 `include_bytes!` 编进二进制（增 ~40MB，3 PNG + 2 GIF）；视频内置项作为 bundle 资源文件（5 mp4 ~141MB），不进二进制。App bundle 总增 ~168MB（实现期评估压缩/降分辨率，列为优化，可考虑精选 2-3 个 mp4）。dev 模式下 `cargo run` 二进制即含 ~40MB 图片；release bundle 另含视频资源文件。
 - **安全/权限**：仅读用户主动选择文件；仅写应用自身数据目录；视频静音。
 - **可维护性**：内置库静态配置；视频解码模块独立。
 
@@ -138,7 +138,7 @@ pub(crate) enum WorkspaceWallpaper {
 - **trade-off**：GIF/视频始终循环 → 笔记本不插电持续占 CPU/GPU。接受，未来可加可见性暂停。
 - **风险**：视频 timer 非 vsync 对齐可能轻微抖动——实现期实测，必要时改用 `request_animation_frame` 跨帧节流。
 - **风险**：objc2 对 AVAssetReader 覆盖度未实测——实现前需 spike 验证最小闭环（`copyNextSampleBuffer → CMSampleBufferGetImageBuffer → 420f CVPixelBuffer`）。
-- **风险**：打包迁移把默认壁纸从 `include_bytes!` 改成 bundle 文件路径，开发期 `cargo run` 无 `.app` bundle 时需路径回退（`CARGO_MANIFEST_DIR/assets/wallpapers/`），否则默认壁纸加载失败。
+- **风险**：视频资源路径解析依赖 bundle 或 `CARGO_MANIFEST_DIR/assets/wallpapers/` 回退；开发期 `cargo run` 无 `.app` bundle 时走回退路径，若素材文件缺失则视频项回默认 + warn（图片项不受影响，已嵌入二进制）。
 - **未决**：数据目录确切路径；视频缩略图首帧提取实现；删除入口交互（hover 按钮 vs 右键）。
 
 ## 11. 验收标准与示例
