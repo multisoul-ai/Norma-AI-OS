@@ -244,20 +244,22 @@ impl MultisoulApp {
                     .text_color(rgba(theme.text_primary))
                     .child("Settings"),
             )
-            .child(section_button(theme, SettingsSection::General, active, cx))
-            .child(sidebar_child(theme, "Language & Region", false))
-            .child(sidebar_child(
-                theme,
-                "Appearance",
-                active == SettingsSection::General,
-            ))
-            .child(sidebar_child(theme, "Date & Time", false))
+            // [MOCK] General/Themes 是占位实现（appearance.rs 无 on_click、硬编码选中），暂时屏蔽。
+            // .child(section_button(theme, SettingsSection::General, active, cx))
+            // .child(sidebar_child(theme, "Language & Region", false))
+            // .child(sidebar_child(
+            //     theme,
+            //     "Appearance",
+            //     active == SettingsSection::General,
+            // ))
+            // .child(sidebar_child(theme, "Date & Time", false))
             .child(section_button(theme, SettingsSection::Keyboard, active, cx))
             .child(sidebar_gap())
-            .child(section_button(theme, SettingsSection::Runtime, active, cx))
+            // [MOCK] Runtime/Agents/Skills 走 mock_section + 硬编码假数据，暂时屏蔽。
+            // .child(section_button(theme, SettingsSection::Runtime, active, cx))
             .child(section_button(theme, SettingsSection::Voice, active, cx))
-            .child(section_button(theme, SettingsSection::Agents, active, cx))
-            .child(section_button(theme, SettingsSection::Skills, active, cx))
+            // [MOCK] .child(section_button(theme, SettingsSection::Agents, active, cx))
+            // [MOCK] .child(section_button(theme, SettingsSection::Skills, active, cx))
             .child(section_button(theme, SettingsSection::Hooks, active, cx))
     }
 }

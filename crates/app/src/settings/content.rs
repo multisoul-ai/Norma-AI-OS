@@ -42,13 +42,15 @@ pub(super) fn settings_content(
                 .px(px(26.0))
                 .pb(px(28.0))
                 .child(match panel.active_section {
-                    SettingsSection::General => general_appearance(theme),
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
-                    SettingsSection::Runtime => mock_section(theme, runtime_rows()),
                     SettingsSection::Voice => voice_settings(theme, voice_state, cx),
-                    SettingsSection::Agents => mock_section(theme, agent_rows()),
-                    SettingsSection::Skills => mock_section(theme, skill_rows()),
                     SettingsSection::Hooks => hooks_settings(theme, panel, cx),
+                    // [MOCK] 以下分区为占位实现，侧边栏入口已屏蔽；保留分支以防路由进入。
+                    // SettingsSection::General => general_appearance(theme),
+                    // SettingsSection::Runtime => mock_section(theme, runtime_rows()),
+                    // SettingsSection::Agents => mock_section(theme, agent_rows()),
+                    // SettingsSection::Skills => mock_section(theme, skill_rows()),
+                    _ => div(), // 不可达：mock 分区已无入口
                 }),
         )
 }
