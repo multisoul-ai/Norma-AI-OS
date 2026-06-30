@@ -73,6 +73,7 @@ fn test_bottom_voice_bar_is_visible_with_sherpa_provider() {
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
 ///   new claude form = "ToolbarIcon::Claude"（图标按钮变体）
 ///   new codex form  = "ToolbarIcon::Codex"（图标按钮变体）
+///   new opencode form = "ToolbarIcon::OpenCode"（图标按钮变体）
 ///   forbidden_1 = "\"C" + "L\""（截图里的旧 Claude 缩写 literal）
 ///   forbidden_2 = "\"C" + "X\""（截图里的旧 Codex 缩写 literal）
 ///   forbidden_3 = "chrome_button(theme, \"Claude" + " Code\""（第三步前的文本按钮调用，现已被图标取代）
@@ -88,6 +89,7 @@ fn test_bottom_voice_bar_is_visible_with_sherpa_provider() {
 /// 预期结果：
 ///   - 正断言：Claude agent 入口以 ToolbarIcon::Claude 形式存在
 ///   - 正断言：Codex agent 入口以 ToolbarIcon::Codex 形式存在
+///   - 正断言：OpenCode agent 入口以 ToolbarIcon::OpenCode 形式存在
 ///   - 负断言：CL/CX 旧缩写不应继续出现在生产渲染源码中
 ///   - 负断言：旧完整文本标签 "Claude Code" / "Codex" 不应继续作为 chrome_button 文案
 ///   - 负断言：[] reflow 按钮和 * 占位按钮不应继续挂载
@@ -97,6 +99,7 @@ fn test_top_toolbar_agent_entries_use_icon_variants_not_text_labels() {
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
     let claude_icon_variant = "ToolbarIcon::Claude";
     let codex_icon_variant = "ToolbarIcon::Codex";
+    let opencode_icon_variant = "ToolbarIcon::OpenCode";
     let legacy_claude_literal = format!("\"{}{}\"", "C", "L");
     let legacy_codex_literal = format!("\"{}{}\"", "C", "X");
     let legacy_claude_label = format!("{}{}", "chrome_button(theme, \"Claude", " Code\"");
@@ -111,6 +114,10 @@ fn test_top_toolbar_agent_entries_use_icon_variants_not_text_labels() {
     assert!(
         render_source.contains(codex_icon_variant),
         "顶部 Codex agent 入口应由 chrome_icon_button + ToolbarIcon::Codex 渲染"
+    );
+    assert!(
+        render_source.contains(opencode_icon_variant),
+        "顶部 OpenCode agent 入口应由 chrome_icon_button + ToolbarIcon::OpenCode 渲染"
     );
     assert!(
         !render_source.contains(&legacy_claude_literal),
@@ -190,7 +197,7 @@ fn test_workspace_chrome_omits_feedback_entry() {
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
 ///   expected id        = "toolbar" + "-settings"
 ///   expected icon form = "ToolbarIcon::Settings"（SVG 图标变体）
-///   existing icons     = ToolbarIcon::Plus、ToolbarIcon::Claude、ToolbarIcon::Codex
+///   existing icons     = ToolbarIcon::Plus、ToolbarIcon::Claude、ToolbarIcon::Codex、ToolbarIcon::OpenCode
 ///   forbidden glyph    = "\"⚙\""（第三步前使用的 Unicode 字符）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -212,6 +219,7 @@ fn test_top_toolbar_includes_settings_icon_entry() {
     let plus_icon_variant = "ToolbarIcon::Plus";
     let claude_icon_variant = "ToolbarIcon::Claude";
     let codex_icon_variant = "ToolbarIcon::Codex";
+    let opencode_icon_variant = "ToolbarIcon::OpenCode";
     let legacy_settings_glyph = "\"⚙\"";
 
     assert!(
@@ -233,6 +241,10 @@ fn test_top_toolbar_includes_settings_icon_entry() {
     assert!(
         render_source.contains(codex_icon_variant),
         "新增设置入口不应移除 Codex 图标按钮"
+    );
+    assert!(
+        render_source.contains(opencode_icon_variant),
+        "新增设置入口不应移除 OpenCode 图标按钮"
     );
     assert!(
         !render_source.contains(legacy_settings_glyph),
@@ -323,19 +335,19 @@ fn test_top_toolbar_includes_canvas_scroll_icon_toggle() {
 ///   top_toolbar_start = render_source 中首个 ".top(px(30.0))" 的下标（顶部工具栏锚点）
 ///   top_toolbar_end   = render_source 中 ".when(workspace_left_rail_visible()" 的下标（左侧菜单分支起点）
 ///   top_toolbar       = render_source[top_toolbar_start..top_toolbar_end]（仅顶部工具栏区段）
-///   分隔符调用次数    = top_toolbar 中 "chrome_divider(" 出现次数 = 3（Scroll|Plus|Claude·Codex|Settings）
-///   图标按钮调用次数  = top_toolbar 中 "chrome_icon_button(" 出现次数 = 5（Scroll/Plus/Claude/Codex/Settings）
+///   分隔符调用次数    = top_toolbar 中 "chrome_divider(" 出现次数 = 3（Scroll|Plus|Claude·Codex·OpenCode|Settings）
+///   图标按钮调用次数  = top_toolbar 中 "chrome_icon_button(" 出现次数 = 6（Scroll/Plus/Claude/Codex/OpenCode/Settings）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 截取顶部工具栏区段（排除左侧菜单分支与函数定义，避免误命中）
 ///   2. 确认 render_source 含 chrome_icon_button 定义与 ToolbarIcon:: 使用
-///   3. 确认顶部区段含 4 个 chrome_icon_button 调用、3 个 chrome_divider 调用
+///   3. 确认顶部区段含 6 个 chrome_icon_button 调用、3 个 chrome_divider 调用
 ///   4. 确认 render_source 不再含 "CANVAS" 字面量
 ///   5. 确认顶部区段不再含旧文本 chrome_button( 调用、旧文本标签与旧 glyph
 ///
 /// 预期结果：
 ///   - 正断言：render_source 含 chrome_icon_button( 与 ToolbarIcon::
-///   - 正断言：顶部区段含 4 个 chrome_icon_button 调用、3 个 chrome_divider 分隔符
+///   - 正断言：顶部区段含 6 个 chrome_icon_button 调用、3 个 chrome_divider 分隔符
 ///   - 负断言：render_source 不含 "CANVAS" 字面量
 ///   - 负断言：顶部区段不含 chrome_button( 调用（左侧菜单仍可用 chrome_button，故只截顶部区段）
 ///   - 负断言：顶部区段不含旧文本标签 (+/Claude Code/Codex/Preview) 与旧 glyph (⚙/↕)
@@ -365,14 +377,14 @@ fn test_top_toolbar_uses_icon_buttons_and_drops_canvas_literal() {
     );
     assert_eq!(
         icon_button_calls,
-        5,
-        "顶部工具栏应恰好含 5 个 chrome_icon_button 调用 (Scroll/Plus/Claude/Codex/Settings)，实际 {}",
+        6,
+        "顶部工具栏应恰好含 6 个 chrome_icon_button 调用 (Scroll/Plus/Claude/Codex/OpenCode/Settings)，实际 {}",
         icon_button_calls
     );
     assert_eq!(
         divider_calls,
         3,
-        "顶部工具栏应恰好含 3 个 chrome_divider 分隔符 (Scroll|Plus|Claude·Codex|Settings)，实际 {}",
+        "顶部工具栏应恰好含 3 个 chrome_divider 分隔符 (Scroll|Plus|Claude·Codex·OpenCode|Settings)，实际 {}",
         divider_calls
     );
     assert!(

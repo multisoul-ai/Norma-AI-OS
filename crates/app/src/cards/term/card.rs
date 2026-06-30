@@ -38,6 +38,9 @@ impl Card for TermCard {
             context.zoom,
             context.bottom_radius_px,
             selection,
+            context.focused,
+            context.reduce_motion,
+            context.terminal_cursor_phase,
         )
     }
 

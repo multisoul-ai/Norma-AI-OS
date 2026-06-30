@@ -336,6 +336,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         match command {
+            ShortcutCommandId::NewWindow => self.on_new_window(&crate::app::NewWindow, window, cx),
             ShortcutCommandId::NewTerminal => {
                 self.on_new_terminal(&crate::app::NewTerminal, window, cx)
             }
@@ -353,6 +354,9 @@ impl MultisoulApp {
             }
             ShortcutCommandId::NewCodexAgent => {
                 self.on_new_codex_agent(&crate::app::NewCodexAgent, window, cx)
+            }
+            ShortcutCommandId::NewOpenCodeAgent => {
+                self.on_new_opencode_agent(&crate::app::NewOpenCodeAgent, window, cx)
             }
             ShortcutCommandId::DeleteCard => self.on_delete_card_shortcut(window, cx),
             ShortcutCommandId::ReflowLayout => {

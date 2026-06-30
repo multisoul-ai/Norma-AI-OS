@@ -3,11 +3,11 @@ use super::*;
 /// 快捷键默认注册表：当前 app 命令应全部从 registry 暴露，Settings 入口采用 macOS 习惯的 Cmd+,。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   editable command count = 11
-///     NewTerminal / CopyCardContent / OpenProject / OpenPreviewFile /
-///     NewClaudeAgent / NewCodexAgent / DeleteCard / ReflowLayout / ToggleMasterLayout /
+///   editable command count = 13
+///     NewWindow / NewTerminal / CopyCardContent / OpenProject / OpenPreviewFile /
+///     NewClaudeAgent / NewCodexAgent / NewOpenCodeAgent / DeleteCard / ReflowLayout / ToggleMasterLayout /
 ///     ExitFocus / ToggleSettings
-///   default assigned count = 9（Claude/Codex agent 默认未设置）
+///   default assigned count = 10（Claude/Codex/OpenCode agent 默认未设置）
 ///   read-only behavior count >= 5（Paste / Voice / Arrow navigation / Space pan / PTY input）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -16,14 +16,19 @@ use super::*;
 ///   3. 查询关键命令的默认键位、可编辑性与只读行为
 ///
 /// 预期结果：
-///   - 正断言：NewTerminal、DeleteCard、ToggleSettings 等命令存在且默认键位正确
-///   - 正断言：NewClaudeAgent / NewCodexAgent 存在但默认未设置
+///   - 正断言：NewWindow、NewTerminal、DeleteCard、ToggleSettings 等命令存在且默认键位正确
+///   - 正断言：NewClaudeAgent / NewCodexAgent / NewOpenCodeAgent 存在但默认未设置
 ///   - 负断言：Cmd+V 不应作为可编辑命令出现，避免覆盖 paste 路由
 #[test]
 fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
     let prefs = ShortcutPreferences::default();
     let effective = effective_shortcuts(&prefs);
 
+    assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::NewWindow),
+        Some("cmd-shift-n"),
+        "New Window 默认应使用 Cmd+Shift+N 打开独立启动页窗口"
+    );
     assert_eq!(
         shortcut_for(&effective, ShortcutCommandId::NewTerminal),
         Some("cmd-n"),
@@ -61,6 +66,11 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
         shortcut_for(&effective, ShortcutCommandId::NewCodexAgent),
         None,
         "New Codex Agent 应出现在可配置命令中，但默认不占用快捷键"
+    );
+    assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::NewOpenCodeAgent),
+        None,
+        "New OpenCode Agent 应出现在可配置命令中，但默认不占用快捷键"
     );
     assert!(
         read_only_behaviors()

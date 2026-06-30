@@ -98,6 +98,7 @@ fn agent_profile_name(profile: AgentProfile) -> &'static str {
     match profile {
         AgentProfile::Claude => "Claude",
         AgentProfile::Codex => "Codex",
+        AgentProfile::OpenCode => "OpenCode",
     }
 }
 
@@ -107,6 +108,7 @@ Allowed commands:
 {"type":"create","kind":{"kind":"terminal"}}
 {"type":"create","kind":{"kind":"agent","profile":"Codex"}}
 {"type":"create","kind":{"kind":"agent","profile":"Claude"}}
+{"type":"create","kind":{"kind":"agent","profile":"OpenCode"}}
 {"type":"focus","target":{"type":"node_id","node_id":1}}
 {"type":"send_text","target":{"type":"previous_step","step":0},"text":"hello","submit":false}
 Allowed targets: node_id, alias, previous_step, focused, selected. Allowed risk: low, medium, high."#
@@ -118,16 +120,17 @@ fn planning_rules_prompt() -> &'static str {
      3. If a count is requested, repeat create commands for that count.\n\
      4. 打开codex, 开启codex, 创建codex, or open/create Codex means create a new agent profile Codex card.\n\
      5. Claude Code, 打开claude code, 开启claude code, or open/create Claude means create a new agent profile Claude card.\n\
-     6. Terminal, terminal, 终端, 命令行 mean create terminal.\n\
-     7. 输入, 发送, 发给, send, input, type mean send_text.\n\
-     8. If send_text happens after newly created cards and no explicit target is named, target the most recently created compatible card with previous_step.\n\
-     9. Use TARGETS only for existing-card routing by node_id, alias/name, focused, or selected.\n\
-     10. 不要提交 or 不执行 means submit=false. 提交, 执行, or 回车 means submit=true.\n\
-     11. target and kind must be single objects, never arrays.\n\
-     12. Do not output delete, list, unsupported commands, or natural-language-only plans.\n\
-     13. Chinese ASR may insert spaces between every character; ignore those spaces when identifying commands.\n\
-     14. If ASR says 合 between requested cards, treat it as 和 when the sentence means and.\n\
-     15. If uncertain, set confidence below 0.65."
+     6. OpenCode, opencode, 打开opencode, 开启opencode, or open/create OpenCode means create a new agent profile OpenCode card.\n\
+     7. Terminal, terminal, 终端, 命令行 mean create terminal.\n\
+     8. 输入, 发送, 发给, send, input, type mean send_text.\n\
+     9. If send_text happens after newly created cards and no explicit target is named, target the most recently created compatible card with previous_step.\n\
+     10. Use TARGETS only for existing-card routing by node_id, alias/name, focused, or selected.\n\
+     11. 不要提交 or 不执行 means submit=false. 提交, 执行, or 回车 means submit=true.\n\
+     12. target and kind must be single objects, never arrays.\n\
+     13. Do not output delete, list, unsupported commands, or natural-language-only plans.\n\
+     14. Chinese ASR may insert spaces between every character; ignore those spaces when identifying commands.\n\
+     15. If ASR says 合 between requested cards, treat it as 和 when the sentence means and.\n\
+     16. If uncertain, set confidence below 0.65."
 }
 
 fn repair_rules_prompt() -> &'static str {

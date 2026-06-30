@@ -365,6 +365,9 @@ impl Runtime {
 }
 
 #[cfg(test)]
+#[path = "../tests/unit/agent_command_tests.rs"]
+mod agent_command_tests;
+#[cfg(test)]
 #[path = "../tests/unit/agent_task_event_tests.rs"]
 mod agent_task_event_tests;
 #[cfg(test)]

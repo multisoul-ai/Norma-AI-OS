@@ -7,7 +7,7 @@ mod preview;
 mod recent;
 
 use self::actions::{action_card, launchpad_brand};
-use self::backdrop::{launchpad_backdrop, toolbar_preview};
+use self::backdrop::launchpad_backdrop;
 use self::layout::launchpad_layout_for_window;
 #[cfg(test)]
 use self::layout::LaunchpadLayoutMode;
@@ -20,6 +20,13 @@ use ui::Theme;
 
 impl MultisoulApp {
     pub(crate) fn render_launchpad(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Div {
+        // Mirror `render_workspace_chrome`: drive the video decoder lifecycle once
+        // per render so an mp4/mov wallpaper decodes on the launchpad too. Idempotent
+        // (`decide_video_sync` returns `Keep` for an already-running Active slot), so
+        // launchpad↔canvas transitions never double-spawn the decode loop.
+        #[cfg(target_os = "macos")]
+        self.sync_video_wallpaper(cx);
+
         let theme = self.theme;
         let win = window.viewport_size();
         let layout = launchpad_layout_for_window(f32::from(win.width), f32::from(win.height));
@@ -32,20 +39,17 @@ impl MultisoulApp {
             .bottom(px(0.0))
             .overflow_hidden()
             .bg(rgba(theme.graphite))
-            .child(launchpad_backdrop(
-                theme,
-                self.wallpaper_settings.image_source_for_render(),
-            ))
-            .child(toolbar_preview(theme, layout))
+            .child(launchpad_backdrop(theme, self.render_wallpaper_layer()))
             .child(
                 div()
                     .absolute()
                     .left(px(layout.content_left))
                     .top(px(layout.content_top))
                     .w(px(layout.content_width))
+                    .h(px(layout.content_max_height))
                     .flex()
                     .flex_col()
-                    .gap(px(28.0))
+                    .gap(px(20.0))
                     .child(launchpad_brand(theme))
                     .child(
                         div()
@@ -79,10 +83,10 @@ impl MultisoulApp {
     fn on_launchpad_open_project(
         &mut self,
         _: &ClickEvent,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.prompt_open_project(cx);
+        self.prompt_open_project(window, cx);
     }
 
     fn on_launchpad_clone_todo(

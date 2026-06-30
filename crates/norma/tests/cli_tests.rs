@@ -82,6 +82,56 @@ fn test_parse_create_codex_agent_command() {
     );
 }
 
+/// Norma CLI：`card create agent --profile opencode` 应生成 OpenCode Agent 创建命令。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   argv profile = "opencode"（小写命令行输入）
+///   AgentProfile::OpenCode 是协议枚举，app 再映射为 canvas::AgentProfile
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. parse_command_from(argv)
+///   2. 检查 CardKind::Agent profile
+///
+/// 预期结果：
+///   - 正断言：profile 被解析为 OpenCode
+///   - 负断言：不应解析为 Claude 或 Codex
+#[test]
+fn test_parse_create_opencode_agent_command() {
+    let command = parse_command_from(["norma", "card", "create", "agent", "--profile", "opencode"])
+        .expect("OpenCode agent create CLI 应解析成功");
+
+    assert_eq!(
+        command,
+        CardCommand::Create {
+            kind: CardKind::Agent {
+                profile: AgentProfile::OpenCode,
+            },
+            placement: Placement::VisibleArea,
+        },
+        "card create agent --profile opencode 应生成 OpenCode Agent"
+    );
+    assert_ne!(
+        command,
+        CardCommand::Create {
+            kind: CardKind::Agent {
+                profile: AgentProfile::Claude,
+            },
+            placement: Placement::VisibleArea,
+        },
+        "opencode profile 不应被误解析为 Claude"
+    );
+    assert_ne!(
+        command,
+        CardCommand::Create {
+            kind: CardKind::Agent {
+                profile: AgentProfile::Codex,
+            },
+            placement: Placement::VisibleArea,
+        },
+        "opencode profile 不应被误解析为 Codex"
+    );
+}
+
 /// Norma CLI：`card create preview PATH --type markdown` 应生成 Preview 创建命令。
 ///
 /// 数据构造（含关键数值的推导过程）：

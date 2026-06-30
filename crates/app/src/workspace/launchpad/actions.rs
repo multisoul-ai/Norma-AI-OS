@@ -17,9 +17,9 @@ pub(super) fn launchpad_brand(theme: Theme) -> Div {
                 .gap(px(14.0))
                 .child(
                     div()
-                        .w(px(54.0))
-                        .h(px(54.0))
-                        .rounded(px(14.0))
+                        .w(px(44.0))
+                        .h(px(44.0))
+                        .rounded(px(12.0))
                         .overflow_hidden()
                         .border_1()
                         .border_color(rgba(with_alpha(theme.edge_highlight, 0x70)))
@@ -34,14 +34,14 @@ pub(super) fn launchpad_brand(theme: Theme) -> Div {
                         .gap(px(6.0))
                         .child(
                             div()
-                                .text_size(px(28.0))
+                                .text_size(px(22.0))
                                 .font_weight(FontWeight::BOLD)
                                 .text_color(rgba(theme.text_primary))
                                 .child("MULTISOUL"),
                         )
                         .child(
                             div()
-                                .text_size(px(13.0))
+                                .text_size(px(12.0))
                                 .text_color(rgba(theme.text_tertiary))
                                 .child("Workspace"),
                         ),
@@ -49,7 +49,7 @@ pub(super) fn launchpad_brand(theme: Theme) -> Div {
         )
         .child(
             div()
-                .mt(px(42.0))
+                .mt(px(16.0))
                 .text_size(px(11.0))
                 .font_family("Menlo")
                 .text_color(rgba(theme.accent_cyan))
@@ -57,23 +57,23 @@ pub(super) fn launchpad_brand(theme: Theme) -> Div {
         )
         .child(
             div()
-                .mt(px(14.0))
+                .mt(px(10.0))
                 .w(px(520.0))
-                .text_size(px(52.0))
-                .line_height(px(54.0))
+                .text_size(px(28.0))
+                .line_height(px(30.0))
                 .font_weight(FontWeight::BOLD)
                 .text_color(rgba(theme.text_primary))
                 .child("Start where your work is still alive."),
         )
         .child(
             div()
-                .mt(px(14.0))
-                .w(px(460.0))
-                .text_size(px(15.0))
-                .line_height(px(23.0))
+                .mt(px(10.0))
+                .w(px(480.0))
+                .text_size(px(13.0))
+                .line_height(px(19.0))
                 .text_color(rgba(theme.text_secondary))
                 .child(
-                    "Open a project and return to the same canvas rhythm: terminals, agents, previews, and workspace state held in one spatial surface.",
+                    "Open a project and return to the same canvas rhythm — terminals, agents, and previews held in one spatial surface.",
                 ),
         )
 }
@@ -106,9 +106,8 @@ pub(super) fn action_card(
         .h(px(ACTION_CARD_HEIGHT))
         .flex()
         .flex_col()
-        .justify_center()
-        .gap(px(7.0))
-        .px(px(16.0))
+        .justify_between()
+        .p(px(12.0))
         .rounded(px(8.0))
         .border_1()
         .border_color(rgba(stroke))
@@ -125,23 +124,54 @@ pub(super) fn action_card(
         })
         .child(
             div()
-                .text_size(px(19.0))
-                .text_color(rgba(if enabled {
-                    theme.accent_orange
-                } else {
-                    theme.text_secondary
-                }))
-                .child(icon),
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap(px(10.0))
+                .child(
+                    div()
+                        .w(px(24.0))
+                        .h(px(24.0))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .rounded(px(6.0))
+                        .border_1()
+                        .border_color(rgba(if enabled {
+                            with_alpha(theme.accent_orange, 0x76)
+                        } else {
+                            with_alpha(theme.edge_highlight, 0x32)
+                        }))
+                        .bg(rgba(if enabled {
+                            with_alpha(theme.accent_orange, 0x16)
+                        } else {
+                            with_alpha(theme.panel_high, 0x46)
+                        }))
+                        .text_size(px(17.0))
+                        .line_height(px(20.0))
+                        .text_color(rgba(if enabled {
+                            theme.accent_orange
+                        } else {
+                            theme.text_secondary
+                        }))
+                        .child(icon),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .truncate()
+                        .text_size(px(15.0))
+                        .line_height(px(20.0))
+                        .font_weight(FontWeight::BOLD)
+                        .child(label),
+                ),
         )
         .child(
             div()
-                .text_size(px(15.0))
-                .font_weight(FontWeight::BOLD)
-                .child(label),
-        )
-        .child(
-            div()
+                .truncate()
                 .text_size(px(11.0))
+                .line_height(px(16.0))
                 .text_color(rgba(theme.text_tertiary))
                 .child(meta),
         )

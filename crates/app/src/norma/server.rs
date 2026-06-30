@@ -405,6 +405,7 @@ fn canvas_agent_profile(value: AgentProfile) -> CanvasAgentProfile {
     match value {
         AgentProfile::Claude => CanvasAgentProfile::Claude,
         AgentProfile::Codex => CanvasAgentProfile::Codex,
+        AgentProfile::OpenCode => CanvasAgentProfile::OpenCode,
     }
 }
 
@@ -412,6 +413,7 @@ fn norma_agent_profile(value: CanvasAgentProfile) -> AgentProfile {
     match value {
         CanvasAgentProfile::Claude => AgentProfile::Claude,
         CanvasAgentProfile::Codex => AgentProfile::Codex,
+        CanvasAgentProfile::OpenCode => AgentProfile::OpenCode,
     }
 }
 

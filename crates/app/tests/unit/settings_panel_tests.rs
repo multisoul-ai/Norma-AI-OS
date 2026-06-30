@@ -72,6 +72,7 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
         "settings-shortcut-restore-delete-card",
         "settings-shortcut-new-claude-agent",
         "settings-shortcut-new-codex-agent",
+        "settings-shortcut-new-opencode-agent",
         "settings-shortcuts-restore-all",
         "Paste",
         "Voice Recording",

@@ -1,6 +1,7 @@
 //! 终端卡片内容渲染 + 键盘翻译。grid 快照按等宽字体逐行绘制。
 
 use crate::canvas::text_selection::TextRange;
+use crate::cards::term::cursor::TerminalCursorAnimation;
 use crate::cards::term::paint::{render_terminal_canvas, TerminalRenderMetrics};
 use gpui::{div, prelude::*, px, rgba, AnyElement, IntoElement, Keystroke};
 use runtime::NodeView;
@@ -20,6 +21,9 @@ pub fn render_terminal_node(
     zoom: f32,
     bottom_radius_px: f32,
     selection: Option<TextRange>,
+    focused: bool,
+    reduce_motion: bool,
+    cursor_phase: f32,
 ) -> AnyElement {
     let Some(NodeView::Term { snapshot, status }) = view else {
         return div()
@@ -29,8 +33,20 @@ pub fn render_terminal_node(
             .into_any_element();
     };
 
-    let terminal_canvas =
-        render_terminal_canvas(snapshot, theme, terminal_render_metrics(zoom), selection);
+    let cursor_animation = TerminalCursorAnimation {
+        phase: cursor_phase,
+        focused,
+        reduce_motion,
+        running: matches!(status, TerminalStatus::Running),
+        display_offset: snapshot.display_offset,
+    };
+    let terminal_canvas = render_terminal_canvas(
+        snapshot,
+        theme,
+        terminal_render_metrics(zoom),
+        selection,
+        cursor_animation,
+    );
 
     let mut terminal = div()
         .flex()

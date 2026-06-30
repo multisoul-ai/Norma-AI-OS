@@ -55,6 +55,17 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    pub(super) fn on_new_menu_opencode(
+        &mut self,
+        _: &ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.interaction.close_new_menu();
+        self.spawn_agent_card(AgentProfile::OpenCode, window, cx);
+        cx.notify();
+    }
+
     pub(super) fn on_new_menu_preview(
         &mut self,
         _: &ClickEvent,
@@ -112,6 +123,13 @@ impl MultisoulApp {
                         "Codex",
                         "new-menu-codex",
                         cx.listener(Self::on_new_menu_codex),
+                    ))
+                    .child(new_menu_item(
+                        theme,
+                        ToolbarIcon::OpenCode,
+                        "OpenCode",
+                        "new-menu-opencode",
+                        cx.listener(Self::on_new_menu_opencode),
                     ))
                     .child(new_menu_item(
                         theme,

@@ -209,7 +209,10 @@ fn most_recent_input_target_step(commands: &[PlannedCommand]) -> Option<usize> {
                     PlannedCommand::Create {
                         kind:
                             PlannedCardKind::Agent {
-                                profile: AgentProfile::Codex | AgentProfile::Claude,
+                                profile:
+                                    AgentProfile::Codex
+                                    | AgentProfile::Claude
+                                    | AgentProfile::OpenCode,
                             },
                     } => Some(index),
                     _ => None,

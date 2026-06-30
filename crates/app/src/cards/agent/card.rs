@@ -47,6 +47,9 @@ impl Card for AgentCard {
             context.zoom,
             context.bottom_radius_px,
             selection,
+            context.focused,
+            context.reduce_motion,
+            context.terminal_cursor_phase,
         )
     }
 
@@ -127,14 +130,15 @@ mod tests {
     /// 数据构造（含关键数值推导）：
     ///   Claude node: id=1, kind=Agent(profile=Claude)
     ///   Codex node:  id=2, kind=Agent(profile=Codex)
-    ///   profile display title 分别为 "Claude" / "Codex"
+    ///   OpenCode node: id=3, kind=Agent(profile=OpenCode)
+    ///   profile display title 分别为 "Claude" / "Codex" / "OpenCode"
     ///
     /// 执行过程：
-    ///   1. 构造两个 CanvasNode
+    ///   1. 构造三个 CanvasNode
     ///   2. 调用 AgentCard.chrome
     ///
     /// 预期结果：
-    ///   - 正断言：Claude/Codex title 分别正确
+    ///   - 正断言：Claude/Codex/OpenCode title 分别正确
     ///   - 负断言：Claude title 不应退化为 "Agent" 或 "Terminal"
     #[test]
     fn test_agent_card_chrome_uses_profile_title() {
@@ -159,9 +163,20 @@ mod tests {
             z_index: 2,
             selected: false,
         };
+        let opencode = CanvasNode {
+            id: 3,
+            kind: CanvasNodeKind::Agent(AgentSpec {
+                profile: AgentProfile::OpenCode,
+                alias: None,
+            }),
+            bounds: CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+            z_index: 3,
+            selected: false,
+        };
 
         let claude_chrome = CARD.chrome(&claude, &runtime);
         let codex_chrome = CARD.chrome(&codex, &runtime);
+        let opencode_chrome = CARD.chrome(&opencode, &runtime);
 
         assert_eq!(
             claude_chrome.title, "Claude",
@@ -170,6 +185,10 @@ mod tests {
         assert_eq!(
             codex_chrome.title, "Codex",
             "Codex Agent card 标题应显示 Codex"
+        );
+        assert_eq!(
+            opencode_chrome.title, "OpenCode",
+            "OpenCode Agent card 标题应显示 OpenCode"
         );
         assert_ne!(
             claude_chrome.title, "Agent",

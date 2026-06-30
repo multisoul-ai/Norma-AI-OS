@@ -93,7 +93,7 @@ impl MultisoulApp {
     /// - `Static` / `Gif`: render the image via `img()` with a source-derived
     ///   id (required both for GPUI GIF multi-frame animation and to avoid the
     ///   cross-source `frame_index` out-of-bounds panic; see `wallpaper_img`).
-    pub(super) fn render_wallpaper_layer(&self) -> Div {
+    pub(crate) fn render_wallpaper_layer(&self) -> Div {
         let host = div()
             .absolute()
             .top(px(0.0))
@@ -229,6 +229,16 @@ impl MultisoulApp {
                                     "Codex",
                                 )
                                 .on_click(cx.listener(Self::on_toolbar_new_codex_agent)),
+                            )
+                            .child(
+                                chrome_icon_button(
+                                    theme,
+                                    ToolbarIcon::OpenCode,
+                                    false,
+                                    "toolbar-new-opencode-agent",
+                                    "OpenCode",
+                                )
+                                .on_click(cx.listener(Self::on_toolbar_new_opencode_agent)),
                             )
                             .child(chrome_divider(theme))
                             .child(

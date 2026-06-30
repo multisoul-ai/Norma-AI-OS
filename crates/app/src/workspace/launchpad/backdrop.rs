@@ -1,11 +1,14 @@
-use super::layout::{LaunchpadLayout, TOOLBAR_HEIGHT, TOOLBAR_WIDTH};
-use super::{launchpad_shadow, with_alpha};
-use gpui::{
-    div, img, linear_color_stop, linear_gradient, prelude::*, px, rgba, Div, ImageSource, ObjectFit,
-};
+use super::with_alpha;
+use gpui::{div, linear_color_stop, linear_gradient, prelude::*, px, rgba, Div};
 use ui::Theme;
 
-pub(super) fn launchpad_backdrop(theme: Theme, wallpaper: ImageSource) -> Div {
+/// Build the launchpad backdrop: the wallpaper layer is passed in pre-built by
+/// `render_launchpad` (via the canvas's shared `render_wallpaper_layer`), so it
+/// shares the canvas's video-aware render path — a live `surface()` for Video,
+/// the static image element with a source-derived id for Static/Gif. Receiving
+/// the wallpaper as an already-built `Div` (rather than as a raw image source)
+/// is what lets mp4/mov render here exactly as on the canvas.
+pub(super) fn launchpad_backdrop(theme: Theme, wallpaper: Div) -> Div {
     div()
         .absolute()
         .top(px(0.0))
@@ -14,16 +17,7 @@ pub(super) fn launchpad_backdrop(theme: Theme, wallpaper: ImageSource) -> Div {
         .bottom(px(0.0))
         .overflow_hidden()
         .bg(rgba(theme.graphite))
-        .child(
-            img(wallpaper)
-                .absolute()
-                .top(px(0.0))
-                .left(px(0.0))
-                .right(px(0.0))
-                .bottom(px(0.0))
-                .size_full()
-                .object_fit(ObjectFit::Cover),
-        )
+        .child(wallpaper)
         .child(
             div()
                 .absolute()
@@ -81,67 +75,4 @@ pub(super) fn launchpad_backdrop(theme: Theme, wallpaper: ImageSource) -> Div {
                 .h(px(1.0))
                 .bg(rgba(with_alpha(theme.accent_cyan, 0x22))),
         )
-}
-
-pub(super) fn toolbar_preview(theme: Theme, layout: LaunchpadLayout) -> Div {
-    div()
-        .absolute()
-        .top(px(layout.toolbar_top))
-        .left(px(layout.toolbar_left))
-        .w(px(TOOLBAR_WIDTH))
-        .h(px(TOOLBAR_HEIGHT))
-        .flex()
-        .flex_row()
-        .items_center()
-        .justify_center()
-        .gap(px(8.0))
-        .px(px(12.0))
-        .rounded(px(23.0))
-        .border_1()
-        .border_color(rgba(with_alpha(theme.edge_highlight, 0x34)))
-        .shadow(launchpad_shadow(theme))
-        .bg(rgba(with_alpha(theme.panel, 0xdc)))
-        .child(toolbar_chip(theme, "CANVAS", true))
-        .child(toolbar_chip(theme, "+", false))
-        .child(toolbar_chip(theme, "Claude Code", false))
-        .child(toolbar_chip(theme, "Codex", false))
-        .child(toolbar_chip(theme, "Preview", false))
-        .child(toolbar_chip(theme, "Settings", false))
-}
-
-fn toolbar_chip(theme: Theme, label: &'static str, active: bool) -> Div {
-    let fill = if active {
-        with_alpha(theme.accent_orange, 0x36)
-    } else {
-        with_alpha(theme.edge_highlight, 0x08)
-    };
-    let stroke = if active {
-        with_alpha(theme.accent_orange, 0x78)
-    } else {
-        with_alpha(theme.edge_highlight, 0x20)
-    };
-    let text = if active {
-        theme.accent_orange
-    } else {
-        theme.text_primary
-    };
-
-    div()
-        .w(px(toolbar_chip_width(label)))
-        .h(px(28.0))
-        .flex()
-        .items_center()
-        .justify_center()
-        .rounded(px(8.0))
-        .border_1()
-        .border_color(rgba(stroke))
-        .bg(rgba(fill))
-        .text_color(rgba(text))
-        .text_size(px(11.0))
-        .child(label)
-}
-
-fn toolbar_chip_width(label: &str) -> f32 {
-    let text_width = label.chars().count() as f32 * 6.4;
-    (text_width + 18.0).max(28.0).ceil()
 }

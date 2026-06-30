@@ -10,12 +10,14 @@ const SHORTCUT_PREFS_KEY: &str = "keyboard.shortcuts.v1";
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ShortcutCommandId {
+    NewWindow,
     NewTerminal,
     CopyCardContent,
     OpenProject,
     OpenPreviewFile,
     NewClaudeAgent,
     NewCodexAgent,
+    NewOpenCodeAgent,
     DeleteCard,
     ReflowLayout,
     ToggleMasterLayout,
@@ -249,6 +251,14 @@ impl fmt::Display for ShortcutValidationError {
 pub(crate) fn default_shortcut_entries() -> &'static [ShortcutEntry] {
     &[
         ShortcutEntry {
+            command: ShortcutCommandId::NewWindow,
+            category: "Workspace",
+            title: "New Window",
+            hint: "Open a new project launcher window",
+            default_keystroke: Some("cmd-shift-n"),
+            editable: true,
+        },
+        ShortcutEntry {
             command: ShortcutCommandId::NewTerminal,
             category: "Workspace",
             title: "New Terminal",
@@ -285,6 +295,14 @@ pub(crate) fn default_shortcut_entries() -> &'static [ShortcutEntry] {
             category: "Cards",
             title: "New Codex Agent",
             hint: "Create a Codex live agent card",
+            default_keystroke: None,
+            editable: true,
+        },
+        ShortcutEntry {
+            command: ShortcutCommandId::NewOpenCodeAgent,
+            category: "Cards",
+            title: "New OpenCode Agent",
+            hint: "Create an OpenCode live agent card",
             default_keystroke: None,
             editable: true,
         },

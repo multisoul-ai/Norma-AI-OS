@@ -19,6 +19,7 @@ pub struct TermSpec;
 pub enum AgentProfile {
     Claude,
     Codex,
+    OpenCode,
 }
 
 impl AgentProfile {
@@ -26,6 +27,7 @@ impl AgentProfile {
         match self {
             AgentProfile::Claude => "Claude",
             AgentProfile::Codex => "Codex",
+            AgentProfile::OpenCode => "OpenCode",
         }
     }
 }
@@ -121,16 +123,18 @@ mod tests {
     /// 数据构造（含关键数值推导）：
     ///   Claude Agent: profile=Claude
     ///   Codex Agent:  profile=Codex
+    ///   OpenCode Agent: profile=OpenCode
     ///   runtime session 不在 canvas 层构造，因此这里没有 session_id 字段
     ///
     /// 执行过程：
     ///   1. 构造 NodeKind::Agent(Claude)
     ///   2. 构造 NodeKind::Agent(Codex)
+    ///   3. 构造 NodeKind::Agent(OpenCode)
     ///   3. 调用 node_type / display_title
     ///
     /// 预期结果：
-    ///   - 正断言：Claude/Codex Agent 类型都是 NodeType::Agent
-    ///   - 正断言：标题分别为 "Claude" 和 "Codex"
+    ///   - 正断言：Claude/Codex/OpenCode Agent 类型都是 NodeType::Agent
+    ///   - 正断言：标题分别为 "Claude"、"Codex" 和 "OpenCode"
     ///   - 负断言：Agent 标题不应退化为普通 "Terminal"
     #[test]
     fn test_agent_kind_is_description_only_and_exposes_profile_title() {
@@ -140,6 +144,10 @@ mod tests {
         });
         let codex = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
+            alias: None,
+        });
+        let opencode = NodeKind::Agent(AgentSpec {
+            profile: AgentProfile::OpenCode,
             alias: None,
         });
 
@@ -154,6 +162,11 @@ mod tests {
             "Codex Agent 应暴露 NodeType::Agent，供 runtime/app registry dispatch"
         );
         assert_eq!(
+            opencode.node_type(),
+            NodeType::Agent,
+            "OpenCode Agent 应暴露 NodeType::Agent，供 runtime/app registry dispatch"
+        );
+        assert_eq!(
             claude.display_title(),
             "Claude",
             "Claude Agent 标题应显示为 Claude"
@@ -162,6 +175,11 @@ mod tests {
             codex.display_title(),
             "Codex",
             "Codex Agent 标题应显示为 Codex"
+        );
+        assert_eq!(
+            opencode.display_title(),
+            "OpenCode",
+            "OpenCode Agent 标题应显示为 OpenCode"
         );
         assert_ne!(
             claude.display_title(),
@@ -172,6 +190,11 @@ mod tests {
             codex.display_title(),
             "Terminal",
             "Codex Agent 不应退化显示为普通 Terminal"
+        );
+        assert_ne!(
+            opencode.display_title(),
+            "Terminal",
+            "OpenCode Agent 不应退化显示为普通 Terminal"
         );
     }
 

@@ -201,6 +201,7 @@ pub fn restore_live_sessions_with_node_sessions(
 
                 // Use resume command if session_id is available.
                 let use_resume = node_session
+                    .filter(|_| profile == AgentProfile::Claude)
                     .filter(|s| s.kind == NodeSessionKind::Agent)
                     .and_then(|s| s.session_id.as_deref());
 
@@ -361,8 +362,10 @@ pub fn build_agent_restore_command_for_test(
     hook_env: Option<&AgentHookEnv>,
 ) -> PtyCommand {
     match &session.session_id {
-        Some(id) => session_snapshot::build_resume_command(DEFAULT_TERMINAL_SHELL, id, hook_env),
-        None => agent_command(profile, hook_env),
+        Some(id) if profile == AgentProfile::Claude => {
+            session_snapshot::build_resume_command(DEFAULT_TERMINAL_SHELL, id, hook_env)
+        }
+        Some(_) | None => agent_command(profile, hook_env),
     }
 }
 

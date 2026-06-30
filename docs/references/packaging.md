@@ -6,15 +6,18 @@
 - bundle id: `com.multisoul.desktop`
 - formats: `app`, `dmg`
 - binary: `target/release/multisoul`
+- secondary binary: `target/release/multisoul-agent-hook`
 - minimum macOS: `12.0`
 
 Release workflow:
 
 ```bash
 cargo install cargo-packager --locked
-cargo build --release -p app
-cargo packager --release
+cargo packager --release -c Packager.toml
 ```
+
+`Packager.toml` runs a `before-packaging-command` that builds both release
+binaries before the `.app` layout copies them into `Contents/MacOS/`.
 
 Codesigning and notarization are explicitly Phase 6.
 

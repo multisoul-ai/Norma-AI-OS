@@ -188,7 +188,7 @@ impl MultisoulApp {
     /// Call this once per render from the chrome layer (which holds
     /// `&mut self` + `cx`). Idempotent: a no-op when the lifecycle already
     /// matches the current kind/path.
-    pub(super) fn sync_video_wallpaper(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn sync_video_wallpaper(&mut self, cx: &mut Context<Self>) {
         let is_video = self.wallpaper_settings.current_kind() == WallpaperKind::Video;
         let resolved = self.wallpaper_settings.resolve_path();
         let action =

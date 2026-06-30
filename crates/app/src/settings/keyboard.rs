@@ -272,12 +272,14 @@ fn scope_badge(theme: Theme, label: &'static str) -> Div {
 
 fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
     match command {
+        ShortcutCommandId::NewWindow => "settings-shortcut-new-window",
         ShortcutCommandId::NewTerminal => "settings-shortcut-new-terminal",
         ShortcutCommandId::CopyCardContent => "settings-shortcut-copy-card-content",
         ShortcutCommandId::OpenProject => "settings-shortcut-open-project",
         ShortcutCommandId::OpenPreviewFile => "settings-shortcut-open-preview-file",
         ShortcutCommandId::NewClaudeAgent => "settings-shortcut-new-claude-agent",
         ShortcutCommandId::NewCodexAgent => "settings-shortcut-new-codex-agent",
+        ShortcutCommandId::NewOpenCodeAgent => "settings-shortcut-new-opencode-agent",
         ShortcutCommandId::DeleteCard => "settings-shortcut-delete-card",
         ShortcutCommandId::ReflowLayout => "settings-shortcut-reflow-layout",
         ShortcutCommandId::ToggleMasterLayout => "settings-shortcut-toggle-master-layout",
@@ -288,12 +290,14 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
 
 fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
     match command {
+        ShortcutCommandId::NewWindow => "settings-shortcut-restore-new-window",
         ShortcutCommandId::NewTerminal => "settings-shortcut-restore-new-terminal",
         ShortcutCommandId::CopyCardContent => "settings-shortcut-restore-copy-card-content",
         ShortcutCommandId::OpenProject => "settings-shortcut-restore-open-project",
         ShortcutCommandId::OpenPreviewFile => "settings-shortcut-restore-open-preview-file",
         ShortcutCommandId::NewClaudeAgent => "settings-shortcut-restore-new-claude-agent",
         ShortcutCommandId::NewCodexAgent => "settings-shortcut-restore-new-codex-agent",
+        ShortcutCommandId::NewOpenCodeAgent => "settings-shortcut-restore-new-opencode-agent",
         ShortcutCommandId::DeleteCard => "settings-shortcut-restore-delete-card",
         ShortcutCommandId::ReflowLayout => "settings-shortcut-restore-reflow-layout",
         ShortcutCommandId::ToggleMasterLayout => "settings-shortcut-restore-toggle-master-layout",

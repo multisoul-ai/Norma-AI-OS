@@ -14,6 +14,7 @@ pub const TOOLBAR_PLUS_ASSET: &str = "icons/toolbar-plus.svg";
 pub const TOOLBAR_TERMINAL_ASSET: &str = "icons/toolbar-terminal.svg";
 pub const TOOLBAR_CLAUDE_ASSET: &str = "icons/toolbar-claude.svg";
 pub const TOOLBAR_CODEX_ASSET: &str = "icons/toolbar-codex.svg";
+pub const TOOLBAR_OPENCODE_ASSET: &str = "icons/toolbar-opencode.svg";
 pub const TOOLBAR_PREVIEW_ASSET: &str = "icons/toolbar-preview.svg";
 pub const TOOLBAR_SETTINGS_ASSET: &str = "icons/toolbar-settings.svg";
 
@@ -50,6 +51,7 @@ const TOOLBAR_PLUS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-plus.s
 const TOOLBAR_TERMINAL_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-terminal.svg");
 const TOOLBAR_CLAUDE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-claude.svg");
 const TOOLBAR_CODEX_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-codex.svg");
+const TOOLBAR_OPENCODE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-opencode.svg");
 const TOOLBAR_PREVIEW_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-preview.svg");
 const TOOLBAR_SETTINGS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-settings.svg");
 
@@ -65,6 +67,7 @@ impl AssetSource for EmbeddedAssets {
             TOOLBAR_TERMINAL_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_TERMINAL_BYTES))),
             TOOLBAR_CLAUDE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_CLAUDE_BYTES))),
             TOOLBAR_CODEX_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_CODEX_BYTES))),
+            TOOLBAR_OPENCODE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_OPENCODE_BYTES))),
             TOOLBAR_PREVIEW_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PREVIEW_BYTES))),
             TOOLBAR_SETTINGS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SETTINGS_BYTES))),
             _ => match image_builtin_bytes(path) {
@@ -87,6 +90,7 @@ impl AssetSource for EmbeddedAssets {
                 SharedString::from("toolbar-terminal.svg"),
                 SharedString::from("toolbar-claude.svg"),
                 SharedString::from("toolbar-codex.svg"),
+                SharedString::from("toolbar-opencode.svg"),
                 SharedString::from("toolbar-preview.svg"),
                 SharedString::from("toolbar-settings.svg"),
             ]),
@@ -199,15 +203,16 @@ mod tests {
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   root list path = "" → 2 个顶层目录 icons、wallpapers
-    ///   icons list path = "icons" → 8 个文件（1 PNG + 7 SVG）
+    ///   icons list path = "icons" → 9 个文件（1 PNG + 8 SVG）
     ///     1. app-icon.png
     ///     2. toolbar-scroll.svg
     ///     3. toolbar-plus.svg
     ///     4. toolbar-terminal.svg
     ///     5. toolbar-claude.svg
     ///     6. toolbar-codex.svg
-    ///     7. toolbar-preview.svg
-    ///     8. toolbar-settings.svg
+    ///     7. toolbar-opencode.svg
+    ///     8. toolbar-preview.svg
+    ///     9. toolbar-settings.svg
     ///   wallpapers list path = "wallpapers" → 5 个 image built-in 文件名
     ///     （3 PNG + 2 GIF，由 builtin_wallpapers() 过滤掉 Video 后得到）：
     ///     1. 1331865.png  (default, Static)
@@ -264,10 +269,11 @@ mod tests {
                 SharedString::from("toolbar-terminal.svg"),
                 SharedString::from("toolbar-claude.svg"),
                 SharedString::from("toolbar-codex.svg"),
+                SharedString::from("toolbar-opencode.svg"),
                 SharedString::from("toolbar-preview.svg"),
                 SharedString::from("toolbar-settings.svg"),
             ],
-            "icons asset listing should expose the bundled app icon plus the 7 toolbar SVGs in icons.rs order"
+            "icons asset listing should expose the bundled app icon plus the 8 toolbar SVGs in icons.rs order"
         );
 
         // 期望的 image built-in 文件名集合（由 builtin_wallpapers() 过滤掉 Video 派生）。
@@ -406,21 +412,22 @@ mod tests {
     ///     icons/toolbar-terminal.svg
     ///     icons/toolbar-claude.svg
     ///     icons/toolbar-codex.svg
+    ///     icons/toolbar-opencode.svg
     ///     icons/toolbar-preview.svg
     ///     icons/toolbar-settings.svg
-    ///   路径数 = 7
+    ///   路径数 = 8
     ///   首非空白字节期望 = b'<'（ASCII 60），SVG 文本必然以 `<` 起始
     ///   负样本路径 = "icons/toolbar-missing.svg"（不存在）
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 对 7 条路径逐一调用 EmbeddedAssets.load(path)
+    ///   1. 对 8 条路径逐一调用 EmbeddedAssets.load(path)
     ///   2. 每条期望返回 Some(bytes)
     ///   3. 对 bytes 跳过前导 ASCII 空白，取首非空白字节，断言 == b'<'
     ///   4. 调用 load("icons/toolbar-missing.svg") → 期望 None
     ///
     /// 预期结果：
-    ///   - 正断言：7 条路径均返回 Some 且字节非空
-    ///   - 正断言：7 条路径首非空白字节均为 b'<'（SVG 起始标记）
+    ///   - 正断言：8 条路径均返回 Some 且字节非空
+    ///   - 正断言：8 条路径首非空白字节均为 b'<'（SVG 起始标记）
     ///   - 负断言：不存在的 toolbar-missing.svg 返回 None
     #[test]
     fn test_embedded_assets_load_toolbar_svg_icons() {
@@ -432,6 +439,7 @@ mod tests {
             TOOLBAR_TERMINAL_ASSET,
             TOOLBAR_CLAUDE_ASSET,
             TOOLBAR_CODEX_ASSET,
+            TOOLBAR_OPENCODE_ASSET,
             TOOLBAR_PREVIEW_ASSET,
             TOOLBAR_SETTINGS_ASSET,
         ];

@@ -460,6 +460,7 @@ fn voice_card_kind(kind: &canvas::CanvasNodeKind) -> VoiceCardKind {
             profile: match spec.profile {
                 canvas::AgentProfile::Claude => norma::protocol::AgentProfile::Claude,
                 canvas::AgentProfile::Codex => norma::protocol::AgentProfile::Codex,
+                canvas::AgentProfile::OpenCode => norma::protocol::AgentProfile::OpenCode,
             },
         },
         canvas::CanvasNodeKind::Preview(_) => VoiceCardKind::Preview,

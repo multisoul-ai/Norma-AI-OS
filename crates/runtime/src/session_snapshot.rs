@@ -44,6 +44,7 @@ pub fn collect_node_sessions(
                         // TODO(Phase 1b): implement Codex session file discovery
                         None
                     }
+                    AgentProfile::OpenCode => None,
                 });
                 sessions.push(NodeSession {
                     node_id: node.id,

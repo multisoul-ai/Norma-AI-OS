@@ -10,22 +10,19 @@ pub(crate) struct LaunchpadLayout {
     pub content_left: f32,
     pub content_top: f32,
     pub content_width: f32,
+    pub content_max_height: f32,
     pub preview_visible: bool,
     pub preview_left: f32,
     pub preview_top: f32,
     pub preview_width: f32,
     pub preview_height: f32,
-    pub toolbar_left: f32,
-    pub toolbar_top: f32,
 }
 
 pub(crate) const CONTENT_WIDTH: f32 = 560.0;
 pub(crate) const ACTION_CARD_WIDTH: f32 = 180.0;
-pub(crate) const ACTION_CARD_HEIGHT: f32 = 82.0;
+pub(crate) const ACTION_CARD_HEIGHT: f32 = 92.0;
 pub(crate) const PREVIEW_WIDTH: f32 = 520.0;
 pub(crate) const PREVIEW_HEIGHT: f32 = 610.0;
-pub(crate) const TOOLBAR_WIDTH: f32 = 460.0;
-pub(crate) const TOOLBAR_HEIGHT: f32 = 46.0;
 
 const SAFE_EDGE: f32 = 24.0;
 const WIDE_THRESHOLD: f32 = 1180.0;
@@ -43,7 +40,7 @@ pub(crate) fn launchpad_layout_for_window(width: f32, height: f32) -> LaunchpadL
     };
     let content_width = CONTENT_WIDTH.min((width - SAFE_EDGE * 2.0).max(280.0));
     let content_top = ((height - 512.0) * 0.48).clamp(MIN_SHORT_TOP, OPTION_ONE_CONTENT_TOP);
-    let toolbar_left = ((width - TOOLBAR_WIDTH) * 0.5).max(SAFE_EDGE);
+    let content_max_height = (height - content_top - SAFE_EDGE).max(320.0);
 
     match mode {
         LaunchpadLayoutMode::Wide => {
@@ -64,13 +61,12 @@ pub(crate) fn launchpad_layout_for_window(width: f32, height: f32) -> LaunchpadL
                 content_left,
                 content_top,
                 content_width,
+                content_max_height,
                 preview_visible: true,
                 preview_left,
                 preview_top,
                 preview_width: PREVIEW_WIDTH,
                 preview_height: PREVIEW_HEIGHT,
-                toolbar_left,
-                toolbar_top: 30.0,
             }
         }
         LaunchpadLayoutMode::Compact => {
@@ -81,13 +77,12 @@ pub(crate) fn launchpad_layout_for_window(width: f32, height: f32) -> LaunchpadL
                 content_left,
                 content_top,
                 content_width,
+                content_max_height,
                 preview_visible: false,
                 preview_left: 0.0,
                 preview_top: 0.0,
                 preview_width: 0.0,
                 preview_height: 0.0,
-                toolbar_left,
-                toolbar_top: 30.0,
             }
         }
     }

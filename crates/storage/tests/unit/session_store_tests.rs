@@ -6,15 +6,17 @@ use canvas::AgentProfile;
 /// 数据构造（含关键数值的推导过程）：
 ///   terminal node_id = 7，cols=120，rows=31，shell="/bin/sh"
 ///   agent node_id = 8，cols=100，rows=28，profile=Codex
-///   两条记录 node_id 不同，因此 load_checkpoints 应按 node_id 读回 2 条
+///   opencode node_id = 9，cols=100，rows=28，profile=OpenCode
+///   三条记录 node_id 不同，因此 load_checkpoints 应按 node_id 读回 3 条
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. save_checkpoint(terminal) → 插入 Terminal checkpoint
 ///   2. save_checkpoint(agent) → 插入 Agent checkpoint
-///   3. load_checkpoints() → 读取全部 checkpoint
+///   3. save_checkpoint(opencode) → 插入 OpenCode Agent checkpoint
+///   4. load_checkpoints() → 读取全部 checkpoint
 ///
 /// 预期结果：
-///   - 正断言：读回 2 条 checkpoint，且 shell/profile/cols/rows 与保存值一致
+///   - 正断言：读回 3 条 checkpoint，且 shell/profile/cols/rows 与保存值一致
 ///   - 负断言：Terminal 不应带 Agent profile，Agent 不应带 shell
 #[test]
 fn test_session_checkpoint_round_trips_restore_metadata() {
@@ -38,6 +40,15 @@ fn test_session_checkpoint_round_trips_restore_metadata() {
         shell: None,
         agent_profile: Some(AgentProfile::Codex),
     };
+    let opencode = SessionCheckpoint {
+        node_id: 9,
+        kind: SessionCheckpointKind::Agent,
+        payload: "OpenCode".into(),
+        cols: 100,
+        rows: 28,
+        shell: None,
+        agent_profile: Some(AgentProfile::OpenCode),
+    };
 
     store
         .save_checkpoint(&terminal)
@@ -45,6 +56,9 @@ fn test_session_checkpoint_round_trips_restore_metadata() {
     store
         .save_checkpoint(&agent)
         .expect("agent checkpoint 应写入 SQLite");
+    store
+        .save_checkpoint(&opencode)
+        .expect("OpenCode agent checkpoint 应写入 SQLite");
 
     let checkpoints = store
         .load_checkpoints()
@@ -52,8 +66,8 @@ fn test_session_checkpoint_round_trips_restore_metadata() {
 
     assert_eq!(
         checkpoints.len(),
-        2,
-        "两个不同 node_id 的 checkpoint 都应被保存并读回"
+        3,
+        "三个不同 node_id 的 checkpoint 都应被保存并读回"
     );
     assert_eq!(
         checkpoints[0], terminal,
@@ -62,6 +76,10 @@ fn test_session_checkpoint_round_trips_restore_metadata() {
     assert_eq!(
         checkpoints[1], agent,
         "Agent checkpoint 应完整保留 profile/cols/rows 元数据"
+    );
+    assert_eq!(
+        checkpoints[2], opencode,
+        "OpenCode Agent checkpoint 应完整保留 profile/cols/rows 元数据"
     );
     assert_eq!(
         checkpoints[0].agent_profile, None,

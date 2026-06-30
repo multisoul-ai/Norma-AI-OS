@@ -30,6 +30,8 @@ impl MultisoulApp {
 
         div()
             .w_full()
+            .flex_1()
+            .min_h(px(0.0))
             .flex()
             .flex_col()
             .gap(px(12.0))
@@ -47,7 +49,14 @@ impl MultisoulApp {
                         self.workspace_state.recent.records.len()
                     )),
             )
-            .child(list)
+            .child(
+                div()
+                    .id("launchpad-recent-list-scroll")
+                    .flex_1()
+                    .min_h(px(0.0))
+                    .overflow_scroll()
+                    .child(list),
+            )
             .when_some(self.workspace_state.error.clone(), |this, error| {
                 this.child(
                     div()
@@ -66,10 +75,12 @@ impl MultisoulApp {
     }
 }
 
+pub(crate) const LAUNCHPAD_RECENT_LIMIT: usize = 6;
+
 pub(crate) fn recent_project_records_for_launchpad(
     recent: &RecentWorkspaces,
 ) -> Vec<WorkspaceRecord> {
-    recent.top(5).to_vec()
+    recent.top(LAUNCHPAD_RECENT_LIMIT).to_vec()
 }
 
 fn recent_project_row(
@@ -133,8 +144,8 @@ fn recent_project_row(
                 })),
         )
         .on_click(
-            cx.listener(move |app, _: &ClickEvent, _window: &mut Window, cx| {
-                app.open_workspace_path(path.clone(), cx);
+            cx.listener(move |app, _: &ClickEvent, window: &mut Window, cx| {
+                app.open_workspace_in_project_window(path.clone(), true, window, cx);
             }),
         )
 }
