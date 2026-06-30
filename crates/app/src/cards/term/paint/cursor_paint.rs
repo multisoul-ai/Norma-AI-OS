@@ -6,9 +6,9 @@ use crate::cards::term::cursor::{resolve_cursor_style, TerminalCursorAnimation};
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct TerminalCursorPaint {
     pub(super) bounds: Bounds<Pixels>,
-    fill: Hsla,
-    stroke: Hsla,
-    highlight: Hsla,
+    pub(super) fill: Hsla,
+    pub(super) stroke: Hsla,
+    pub(super) highlight: Hsla,
     radius: Pixels,
     stroke_width: Pixels,
     highlight_bounds: Bounds<Pixels>,

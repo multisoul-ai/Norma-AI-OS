@@ -206,11 +206,11 @@ mod tests {
     /// 终端内容区使用轻量 tint，而不是再次铺满高不透明 term_bg。
     ///
     /// 数据构造（含关键数值推导）：
-    ///   glass_dark.node_fill alpha = 0x73 / 0xff ≈ 45%
+    ///   glass_dark.node_fill alpha = 0xcc / 0xff ≈ 80%
     ///   glass_dark.term_bg alpha   = 0xfa / 0xff ≈ 98%
     ///   terminal_surface_bg alpha  = 0x20 / 0xff ≈ 12%
-    ///   组合 alpha = 1 - (1 - 0x73/255) * (1 - 0x20/255) ≈ 0.520 → 0x85
-    ///   旧组合 alpha = 1 - (1 - 0xd9/255) * (1 - 0x3d/255) ≈ 0.887 → 0xe2
+    ///   组合 alpha = 1 - (1 - 0xcc/255) * (1 - 0x20/255) ≈ 0.825 → 0xd2
+    ///   旧组合 alpha = 1 - (1 - 0xcc/255) * (1 - 0xfa/255) ≈ 0.996 → 0xfe
     ///
     /// 执行过程：
     ///   1. 从 glass_dark 派生 terminal_surface_bg
@@ -219,7 +219,7 @@ mod tests {
     ///
     /// 预期结果：
     ///   - 正断言：surface alpha 为 0x20，明显低于 term_bg
-    ///   - 正断言：node_fill + surface 组合 alpha 不超过 0x90，保留玻璃感
+    ///   - 正断言：node_fill + surface 组合 alpha 不超过 0xd8，保留轻 tint 而非实心终端块
     ///   - 负断言：node_fill + surface 不应等于旧的 node_fill + term_bg 近实心组合
     #[test]
     fn test_terminal_surface_bg_keeps_liquid_glass_transparency() {
@@ -242,7 +242,7 @@ mod tests {
             "terminal surface alpha 应明显低于原始 term_bg，否则仍会像黑色实心块"
         );
         assert!(
-            composed_surface <= 0x90,
+            composed_surface <= 0xd8,
             "node_fill + terminal surface 组合 alpha 应保持在玻璃范围内，实际为 {composed_surface:#04x}"
         );
         assert_ne!(

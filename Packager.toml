@@ -9,7 +9,7 @@ formats = ["app", "dmg"]
 icons = ["assets/AppIcon.icns"]
 out-dir = "build"
 binaries-dir = "."
-before-packaging-command = "cargo build --release -p app --bin multisoul -p norma --bin multisoul-agent-hook"
+before-packaging-command = "cargo build --release -p app"
 
 [dmg]
 background = "assets/dmg-background.png"
