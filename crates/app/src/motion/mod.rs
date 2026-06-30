@@ -80,7 +80,7 @@ pub struct ResolvedNodeVisual {
 #[derive(Debug, Clone)]
 pub struct MotionStore {
     tokens: MotionTokens,
-    reduce_motion: bool,
+    pub(crate) reduce_motion: bool,
     nodes: BTreeMap<NodeId, NodeMotion>,
 }
 

@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Multisoul Launchpad UI Options</title>
+    <style>
+      :root {
+        --graphite: #05090b;
+        --panel: rgba(14, 27, 22, 0.82);
+        --panel-high: rgba(31, 55, 42, 0.72);
+        --edge: rgba(255, 255, 255, 0.22);
+        --edge-soft: rgba(255, 255, 255, 0.08);
+        --text: rgba(255, 255, 255, 0.96);
+        --text-2: rgba(255, 255, 255, 0.72);
+        --text-3: rgba(255, 255, 255, 0.46);
+        --orange: #ff7932;
+        --cyan: #27d7ea;
+        --green: #60f078;
+        --violet: #9b55ff;
+        --blue: #4b70ff;
+        --warm: #f2c26b;
+        --shadow: rgba(0, 0, 0, 0.45);
+        --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+          "Helvetica Neue", sans-serif;
+        --mono: Menlo, Monaco, "SF Mono", Consolas, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--graphite);
+        color: var(--text);
+        font-family: var(--sans);
+      }
+
+      body.variant .mockup {
+        display: none;
+      }
+
+      body.variant-1 #variant-1,
+      body.variant-2 #variant-2,
+      body.variant-3 #variant-3 {
+        display: block;
+      }
+
+      .mockup {
+        position: relative;
+        width: 1440px;
+        height: 900px;
+        overflow: hidden;
+        background: var(--graphite);
+      }
+
+      .wallpaper {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(180deg, rgba(5, 9, 11, 0.3), rgba(5, 9, 11, 0.14)),
+          url("../../../crates/app/assets/wallpapers/1331865.png");
+        background-size: cover;
+        background-position: center;
+      }
+
+      .shade {
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(90deg, rgba(5, 9, 11, 0.84), rgba(5, 9, 11, 0.42) 46%, rgba(5, 9, 11, 0.68)),
+          radial-gradient(circle at 82% 24%, rgba(255, 121, 50, 0.18), transparent 28%),
+          radial-gradient(circle at 16% 78%, rgba(39, 215, 234, 0.16), transparent 24%);
+      }
+
+      .ring {
+        position: absolute;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+        pointer-events: none;
+      }
+
+      .ring.cyan {
+        border-color: rgba(39, 215, 234, 0.16);
+      }
+
+      .ring.orange {
+        border-color: rgba(255, 121, 50, 0.18);
+      }
+
+      .logo {
+        width: 54px;
+        height: 54px;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.38);
+        background: rgba(255, 255, 255, 0.12);
+        box-shadow: 0 18px 34px -20px var(--shadow);
+      }
+
+      .logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .brand-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .brand-title {
+        font-size: 28px;
+        line-height: 1;
+        font-weight: 760;
+        letter-spacing: 0;
+      }
+
+      .brand-subtitle {
+        margin-top: 6px;
+        font-size: 13px;
+        color: var(--text-3);
+      }
+
+      .eyebrow {
+        color: var(--cyan);
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .headline {
+        margin: 16px 0 0;
+        max-width: 640px;
+        font-size: 56px;
+        line-height: 0.96;
+        font-weight: 720;
+        letter-spacing: 0;
+      }
+
+      .copy {
+        margin-top: 18px;
+        max-width: 460px;
+        color: var(--text-2);
+        font-size: 15px;
+        line-height: 1.56;
+      }
+
+      .glass {
+        border: 1px solid var(--edge);
+        background: linear-gradient(180deg, rgba(31, 55, 42, 0.68), rgba(14, 27, 22, 0.76));
+        box-shadow: 0 24px 52px -30px var(--shadow);
+        backdrop-filter: blur(24px) saturate(1.15);
+      }
+
+      .actions {
+        display: flex;
+        gap: 14px;
+        margin-top: 34px;
+      }
+
+      .action {
+        width: 180px;
+        height: 82px;
+        border-radius: 8px;
+        padding: 15px 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 9px;
+      }
+
+      .action.primary {
+        border-color: rgba(255, 121, 50, 0.56);
+        background:
+          linear-gradient(180deg, rgba(255, 121, 50, 0.18), rgba(14, 27, 22, 0.72)),
+          rgba(14, 27, 22, 0.78);
+      }
+
+      .action-icon {
+        color: var(--text-2);
+        font-size: 19px;
+        line-height: 1;
+      }
+
+      .action.primary .action-icon {
+        color: var(--orange);
+      }
+
+      .action-title {
+        font-size: 15px;
+        font-weight: 620;
+      }
+
+      .action-meta {
+        font-size: 11px;
+        color: var(--text-3);
+      }
+
+      .recent-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: var(--text-3);
+        font-size: 13px;
+      }
+
+      .recent-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .recent-row {
+        height: 36px;
+        display: grid;
+        grid-template-columns: 170px 1fr auto;
+        align-items: center;
+        gap: 20px;
+        padding: 0 4px;
+        border-radius: 6px;
+        color: var(--text-2);
+      }
+
+      .recent-row.active {
+        padding: 0 12px;
+        border: 1px solid rgba(255, 121, 50, 0.3);
+        background: rgba(255, 121, 50, 0.08);
+      }
+
+      .recent-name {
+        font-size: 14px;
+        font-weight: 620;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .recent-path {
+        color: var(--text-3);
+        font-size: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: right;
+      }
+
+      .recent-status {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.22);
+      }
+
+      .recent-row.active .recent-status {
+        background: var(--orange);
+        box-shadow: 0 0 18px rgba(255, 121, 50, 0.76);
+      }
+
+      .top-toolbar {
+        position: absolute;
+        top: 30px;
+        left: 50%;
+        width: 460px;
+        height: 46px;
+        transform: translateX(-50%);
+        border-radius: 23px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 12px;
+      }
+
+      .chip {
+        height: 28px;
+        padding: 0 13px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-2);
+        font-size: 11px;
+      }
+
+      .chip.active {
+        color: var(--orange);
+        border-color: rgba(255, 121, 50, 0.45);
+        background: rgba(255, 121, 50, 0.15);
+      }
+
+      .preview-card {
+        position: absolute;
+        border-radius: 14px;
+        overflow: hidden;
+      }
+
+      .preview-title {
+        height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 12px;
+        color: var(--text-2);
+      }
+
+      .preview-body {
+        padding: 14px;
+        font-family: var(--mono);
+        font-size: 12px;
+        line-height: 1.72;
+        color: rgba(231, 237, 245, 0.82);
+      }
+
+      .terminal-line.dim {
+        color: rgba(231, 237, 245, 0.42);
+      }
+
+      .terminal-line.good {
+        color: var(--green);
+      }
+
+      .terminal-line.hot {
+        color: var(--orange);
+      }
+
+      .dock {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+      }
+
+      .label-small {
+        color: var(--text-3);
+        font-size: 12px;
+      }
+
+      #variant-1 .content {
+        position: absolute;
+        left: 118px;
+        top: 186px;
+        width: 560px;
+      }
+
+      #variant-1 .recent-panel {
+        margin-top: 34px;
+        width: 560px;
+      }
+
+      #variant-1 .canvas-preview {
+        position: absolute;
+        right: 112px;
+        top: 142px;
+        width: 520px;
+        height: 610px;
+      }
+
+      #variant-1 .mini-map {
+        position: absolute;
+        right: 130px;
+        bottom: 104px;
+        width: 278px;
+        height: 118px;
+        border-radius: 8px;
+        padding: 14px;
+      }
+
+      .node-rail {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+
+      .node-tile {
+        height: 58px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(5, 9, 11, 0.42);
+        padding: 10px;
+        color: var(--text-3);
+        font-size: 11px;
+      }
+
+      .node-tile strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--text-2);
+        font-size: 12px;
+      }
+
+      #variant-2 .main {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+
+      #variant-2 .hero-brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      #variant-2 .hero-logo {
+        width: 86px;
+        height: 86px;
+        border-radius: 22px;
+      }
+
+      #variant-2 .hero-title {
+        margin-top: 22px;
+        font-size: 42px;
+        line-height: 1;
+        font-weight: 760;
+        letter-spacing: 0;
+      }
+
+      #variant-2 .hero-subtitle {
+        margin-top: 10px;
+        color: var(--text-3);
+        font-size: 14px;
+      }
+
+      #variant-2 .command-dock {
+        margin-top: 42px;
+        width: 680px;
+        height: 74px;
+        border-radius: 16px;
+        padding: 10px;
+        display: grid;
+        grid-template-columns: 1.15fr 1fr 1fr;
+        gap: 10px;
+      }
+
+      #variant-2 .command {
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px;
+        color: var(--text-2);
+      }
+
+      #variant-2 .command.active {
+        color: var(--text);
+        background: rgba(255, 121, 50, 0.15);
+        border: 1px solid rgba(255, 121, 50, 0.38);
+      }
+
+      #variant-2 .command-glyph {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--orange);
+        background: rgba(255, 121, 50, 0.12);
+        font-size: 15px;
+      }
+
+      #variant-2 .command-title {
+        font-size: 14px;
+        font-weight: 640;
+      }
+
+      #variant-2 .command-kbd {
+        margin-top: 3px;
+        color: var(--text-3);
+        font-family: var(--mono);
+        font-size: 10px;
+      }
+
+      #variant-2 .bottom-recent {
+        bottom: 42px;
+        width: 960px;
+        height: 88px;
+        border-radius: 18px;
+        padding: 12px 18px;
+        gap: 14px;
+      }
+
+      #variant-2 .recent-pill {
+        flex: 1;
+        min-width: 0;
+        height: 62px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(5, 9, 11, 0.32);
+        padding: 12px 14px;
+      }
+
+      #variant-2 .recent-pill.active {
+        border-color: rgba(39, 215, 234, 0.42);
+        background: rgba(39, 215, 234, 0.09);
+      }
+
+      #variant-2 .recent-pill .recent-name {
+        font-size: 13px;
+      }
+
+      #variant-2 .recent-pill .recent-path {
+        margin-top: 7px;
+        text-align: left;
+      }
+
+      #variant-2 .side-note {
+        position: absolute;
+        left: 54px;
+        bottom: 58px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        color: var(--text-3);
+        font-family: var(--mono);
+        font-size: 11px;
+      }
+
+      #variant-3 .workspace-shell {
+        position: absolute;
+        left: 86px;
+        top: 108px;
+        right: 86px;
+        bottom: 74px;
+        display: grid;
+        grid-template-columns: 420px 1fr;
+        gap: 26px;
+      }
+
+      #variant-3 .left-panel {
+        border-radius: 18px;
+        padding: 28px;
+      }
+
+      #variant-3 .left-panel .actions {
+        margin-top: 26px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      #variant-3 .left-panel .action {
+        width: auto;
+      }
+
+      #variant-3 .left-panel .recent-title {
+        margin-top: 34px;
+        margin-bottom: 12px;
+      }
+
+      #variant-3 .left-panel .recent-row {
+        grid-template-columns: 1fr auto;
+        height: 48px;
+        padding: 0 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(5, 9, 11, 0.24);
+      }
+
+      #variant-3 .left-panel .recent-path {
+        text-align: left;
+      }
+
+      #variant-3 .right-stage {
+        position: relative;
+        border-radius: 24px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(5, 9, 11, 0.26);
+      }
+
+      #variant-3 .stage-wallpaper {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(180deg, rgba(5, 9, 11, 0.28), rgba(5, 9, 11, 0.5)),
+          url("../../../crates/app/assets/wallpapers/1331865.png");
+        background-size: cover;
+        background-position: center;
+      }
+
+      #variant-3 .stage-toolbar {
+        position: absolute;
+        top: 26px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 428px;
+        height: 44px;
+        border-radius: 22px;
+        padding: 0 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      #variant-3 .stage-title {
+        position: absolute;
+        left: 38px;
+        top: 126px;
+      }
+
+      #variant-3 .stage-title h2 {
+        margin: 10px 0 0;
+        font-size: 44px;
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      #variant-3 .stage-title p {
+        margin: 12px 0 0;
+        width: 360px;
+        color: var(--text-2);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      #variant-3 .stage-status {
+        position: absolute;
+        left: 38px;
+        bottom: 34px;
+        right: 38px;
+        height: 98px;
+        border-radius: 14px;
+        padding: 18px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+
+      .metric {
+        border-left: 1px solid rgba(255, 255, 255, 0.12);
+        padding-left: 14px;
+      }
+
+      .metric:first-child {
+        border-left: 0;
+        padding-left: 0;
+      }
+
+      .metric-value {
+        font-family: var(--mono);
+        font-size: 22px;
+        color: var(--text);
+      }
+
+      .metric-label {
+        margin-top: 6px;
+        color: var(--text-3);
+        font-size: 12px;
+      }
+
+      .path-line {
+        position: absolute;
+        width: 1px;
+        background: linear-gradient(180deg, transparent, rgba(39, 215, 234, 0.28), transparent);
+      }
+
+      .path-line.horizontal {
+        width: auto;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255, 121, 50, 0.28), transparent);
+      }
+    </style>
+  </head>
+  <body>
+    <section
+      class="mockup"
+      id="variant-1"
+      data-name="orbit-entry"
+      data-prototype-id="launchpad_option_1_orbit_entry"
+    >
+      <div class="wallpaper"></div>
+      <div class="shade"></div>
+      <div class="ring cyan" style="left:-160px;top:54px;width:520px;height:520px"></div>
+      <div class="ring orange" style="right:-180px;bottom:-120px;width:620px;height:620px"></div>
+      <div class="top-toolbar glass">
+        <div class="chip active">CANVAS</div>
+        <div class="chip">+</div>
+        <div class="chip">Claude Code</div>
+        <div class="chip">Codex</div>
+        <div class="chip">Preview</div>
+        <div class="chip">Settings</div>
+      </div>
+      <div class="content">
+        <div class="brand-row">
+          <div class="logo"><img src="../../../crates/app/assets/icons/app-icon.png" alt="" /></div>
+          <div>
+            <div class="brand-title">MULTISOUL</div>
+            <div class="brand-subtitle">Workspace</div>
+          </div>
+        </div>
+        <div class="eyebrow" style="margin-top:44px">Infinite canvas</div>
+        <h1 class="headline">Start where your work is still alive.</h1>
+        <div class="copy">
+          Open a project and return to the same canvas rhythm: terminals, agents,
+          previews, and workspace state held in one spatial surface.
+        </div>
+        <div class="actions">
+          <div class="action primary glass">
+            <div class="action-icon">□</div>
+            <div class="action-title">Open Project</div>
+            <div class="action-meta">Choose a local workspace</div>
+          </div>
+          <div class="action glass">
+            <div class="action-icon">↓</div>
+            <div class="action-title">Clone Repo</div>
+            <div class="action-meta">Remote setup soon</div>
+          </div>
+        </div>
+        <div class="recent-panel">
+          <div class="recent-title">
+            <span>Recent projects</span>
+            <span>View all (5)</span>
+          </div>
+          <div class="recent-list" style="margin-top:12px">
+            <div class="recent-row active">
+              <div class="recent-name">multisoul-desktop</div>
+              <div class="recent-path">~/Documents/code/multisoul-desktop</div>
+              <div class="recent-status"></div>
+            </div>
+            <div class="recent-row">
+              <div class="recent-name">agent-studio</div>
+              <div class="recent-path">~/Documents/code/agent-studio</div>
+              <div class="recent-status"></div>
+            </div>
+            <div class="recent-row">
+              <div class="recent-name">norma-lab</div>
+              <div class="recent-path">~/work/norma-lab</div>
+              <div class="recent-status"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="canvas-preview">
+        <div class="preview-card glass" style="left:22px;top:38px;width:342px;height:228px">
+          <div class="preview-title"><span>Terminal</span><span style="color:var(--cyan)">sample</span></div>
+          <div class="preview-body">
+            <div class="terminal-line dim">~/multisoul $ cargo test -p runtime</div>
+            <div class="terminal-line good">test result: ok. 42 passed</div>
+            <div class="terminal-line dim">~/multisoul $ cargo check -p app</div>
+            <div class="terminal-line hot">checking multisoul-app v0.1.0</div>
+          </div>
+        </div>
+        <div class="preview-card glass" style="right:0;top:202px;width:300px;height:210px">
+          <div class="preview-title"><span>Codex Agent</span><span style="color:var(--violet)">context</span></div>
+          <div class="preview-body">
+            <div class="terminal-line dim">reading launchpad.rs</div>
+            <div class="terminal-line">mapping canvas state</div>
+            <div class="terminal-line good">ready for UI pass</div>
+          </div>
+        </div>
+        <div class="preview-card glass" style="left:82px;bottom:36px;width:360px;height:188px">
+          <div class="preview-title"><span>Preview</span><span style="color:var(--warm)">artifact</span></div>
+          <div class="preview-body">
+            <div class="terminal-line">ARCHITECTURE.md</div>
+            <div class="terminal-line dim">workspace launchpad, flow, persistence</div>
+            <div class="terminal-line dim">storage boundaries clean</div>
+          </div>
+        </div>
+      </div>
+      <div class="mini-map glass">
+        <div class="label-small" style="margin-bottom:12px">Workspace shape</div>
+        <div class="node-rail">
+          <div class="node-tile"><strong>Term</strong>shell</div>
+          <div class="node-tile"><strong>Agent</strong>codex</div>
+          <div class="node-tile"><strong>Preview</strong>artifact</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mockup" id="variant-2" data-name="command-dock">
+      <div class="wallpaper"></div>
+      <div class="shade" style="background:linear-gradient(180deg,rgba(5,9,11,.74),rgba(5,9,11,.32) 46%,rgba(5,9,11,.82)),radial-gradient(circle at 50% 50%,rgba(39,215,234,.13),transparent 28%)"></div>
+      <div class="ring cyan" style="left:372px;top:194px;width:696px;height:696px"></div>
+      <div class="ring orange" style="left:462px;top:284px;width:516px;height:516px"></div>
+      <div class="main">
+        <div class="hero-brand">
+          <div class="logo hero-logo"><img src="../../../crates/app/assets/icons/app-icon.png" alt="" /></div>
+          <div class="hero-title">MULTISOUL</div>
+          <div class="hero-subtitle">Workspace</div>
+        </div>
+        <div class="command-dock glass">
+          <div class="command active">
+            <div class="command-glyph">□</div>
+            <div>
+              <div class="command-title">Open Project</div>
+              <div class="command-kbd">⌘ O</div>
+            </div>
+          </div>
+          <div class="command">
+            <div class="command-glyph">↓</div>
+            <div>
+              <div class="command-title">Clone Repo</div>
+              <div class="command-kbd">coming soon</div>
+            </div>
+          </div>
+          <div class="command">
+            <div class="command-glyph">↵</div>
+            <div>
+              <div class="command-title">Last Canvas</div>
+              <div class="command-kbd">multisoul-desktop</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="side-note">
+        <span>runtime: idle</span>
+        <span>recent store: ready</span>
+        <span>wallpaper: embedded</span>
+      </div>
+      <div class="bottom-recent dock glass">
+        <div class="label-small" style="width:108px">Recent</div>
+        <div class="recent-pill active">
+          <div class="recent-name">multisoul-desktop</div>
+          <div class="recent-path">~/Documents/code/multisoul-desktop</div>
+        </div>
+        <div class="recent-pill">
+          <div class="recent-name">agent-studio</div>
+          <div class="recent-path">~/Documents/code/agent-studio</div>
+        </div>
+        <div class="recent-pill">
+          <div class="recent-name">norma-lab</div>
+          <div class="recent-path">~/work/norma-lab</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mockup" id="variant-3" data-name="recent-first">
+      <div class="wallpaper"></div>
+      <div class="shade" style="background:linear-gradient(90deg,rgba(5,9,11,.82),rgba(5,9,11,.66) 38%,rgba(5,9,11,.4)),linear-gradient(180deg,rgba(5,9,11,.14),rgba(5,9,11,.74))"></div>
+      <div class="workspace-shell">
+        <div class="left-panel glass">
+          <div class="brand-row">
+            <div class="logo"><img src="../../../crates/app/assets/icons/app-icon.png" alt="" /></div>
+            <div>
+              <div class="brand-title">MULTISOUL</div>
+              <div class="brand-subtitle">Workspace</div>
+            </div>
+          </div>
+          <div class="actions">
+            <div class="action primary glass">
+              <div class="action-icon">□</div>
+              <div class="action-title">Open Project</div>
+              <div class="action-meta">Local folder</div>
+            </div>
+            <div class="action glass">
+              <div class="action-icon">↓</div>
+              <div class="action-title">Clone Repo</div>
+              <div class="action-meta">Remote setup</div>
+            </div>
+          </div>
+          <div class="recent-title">
+            <span>Recent projects</span>
+            <span>View all (5)</span>
+          </div>
+          <div class="recent-list">
+            <div class="recent-row active">
+              <div>
+                <div class="recent-name">multisoul-desktop</div>
+                <div class="recent-path">~/Documents/code/multisoul-desktop</div>
+              </div>
+              <div class="recent-status"></div>
+            </div>
+            <div class="recent-row">
+              <div>
+                <div class="recent-name">agent-studio</div>
+                <div class="recent-path">~/Documents/code/agent-studio</div>
+              </div>
+              <div class="recent-status"></div>
+            </div>
+            <div class="recent-row">
+              <div>
+                <div class="recent-name">norma-lab</div>
+                <div class="recent-path">~/work/norma-lab</div>
+              </div>
+              <div class="recent-status"></div>
+            </div>
+            <div class="recent-row">
+              <div>
+                <div class="recent-name">canvas-prototype</div>
+                <div class="recent-path">~/archive/canvas-prototype</div>
+              </div>
+              <div class="recent-status"></div>
+            </div>
+          </div>
+        </div>
+        <div class="right-stage">
+          <div class="stage-wallpaper"></div>
+          <div class="ring cyan" style="left:-120px;top:34px;width:420px;height:420px"></div>
+          <div class="ring orange" style="right:-190px;bottom:-160px;width:590px;height:590px"></div>
+          <div class="stage-toolbar glass">
+            <div class="chip active">CANVAS</div>
+            <div class="chip">+</div>
+            <div class="chip">Codex</div>
+            <div class="chip">Preview</div>
+          </div>
+          <div class="stage-title">
+            <div class="eyebrow">Resume spatial work</div>
+            <h2>Everything returns to the canvas.</h2>
+            <p>
+              The launchpad previews the working surface before the project opens,
+              so startup feels like entering the workspace, not a separate menu.
+            </p>
+          </div>
+          <div class="preview-card glass" style="right:68px;top:176px;width:310px;height:206px">
+            <div class="preview-title"><span>Terminal</span><span style="color:var(--cyan)">live</span></div>
+            <div class="preview-body">
+              <div class="terminal-line dim">~/multisoul $ cargo run -p app</div>
+              <div class="terminal-line good">workspace restored</div>
+              <div class="terminal-line">node focus: terminal-1</div>
+            </div>
+          </div>
+          <div class="preview-card glass" style="right:154px;top:404px;width:284px;height:162px">
+            <div class="preview-title"><span>Agent</span><span style="color:var(--violet)">ready</span></div>
+            <div class="preview-body">
+              <div class="terminal-line">route input</div>
+              <div class="terminal-line dim">focus state clean</div>
+              <div class="terminal-line hot">next action waiting</div>
+            </div>
+          </div>
+          <div class="stage-status glass">
+            <div class="metric">
+              <div class="metric-value">5</div>
+              <div class="metric-label">recent projects</div>
+            </div>
+            <div class="metric">
+              <div class="metric-value">3</div>
+              <div class="metric-label">saved live nodes</div>
+            </div>
+            <div class="metric">
+              <div class="metric-value">0ms</div>
+              <div class="metric-label">storage writes on hover</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const variant = params.get("variant");
+      if (variant) document.body.className = `variant variant-${variant}`;
+    </script>
+  </body>
+</html>

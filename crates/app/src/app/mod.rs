@@ -1,7 +1,5 @@
 //! GPUI 主视图：持有 Runtime，装配画布/终端渲染，处理快捷键与帧级 drain。
 
-#[cfg(test)]
-use crate::assets::DEFAULT_WALLPAPER_ASSET;
 use crate::canvas::interaction::InteractionState;
 use crate::canvas::master_layout::{
     apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
@@ -13,46 +11,58 @@ use crate::canvas::master_layout::{
 };
 use crate::canvas::spawn_focus;
 use crate::canvas::view::render_canvas;
+use crate::cards::term::cursor::advance_terminal_cursor_phase as advance_cursor_phase;
 use crate::motion::MotionStore;
 use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::panel::SettingsPanelState;
+use crate::settings::voice::VoiceSettingsState;
+use crate::settings::wallpaper::WallpaperSettingsState;
+use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
-use canvas::{AgentProfile, CanvasRect, NodeId, NodeType, Vec2};
+use canvas::{CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
-use runtime::Runtime;
+use runtime::{route, InputEvent, InputMode, NodeRunState, Route, Runtime};
 use std::time::Duration;
 use ui::Theme;
 
+mod agent_actions;
 mod chrome;
+mod file_picker;
 mod ime;
 mod ime_geometry;
 mod keyboard;
 mod lifecycle;
+mod new_menu;
+#[cfg(target_os = "macos")]
+mod video_decoder;
+#[cfg(target_os = "macos")]
+pub(crate) mod video_thumbnails;
+#[cfg(target_os = "macos")]
+mod video_wallpaper;
 mod voice;
-mod wallpaper;
-
-#[cfg(test)]
-use self::wallpaper::wallpaper_from_env_value;
-use self::wallpaper::{wallpaper_from_env, WorkspaceWallpaper};
+mod wallpaper_actions;
+pub(crate) mod wallpaper_resolvers;
 
 actions!(
     multisoul,
     [
+        NewWindow,
         NewTerminal,
         NewClaudeAgent,
         NewCodexAgent,
+        NewOpenCodeAgent,
         CopyCardContent,
         OpenPreviewFile,
         OpenProject,
         ExitFocus,
         ReflowLayout,
-        ToggleMasterLayout
+        ToggleMasterLayout,
+        ToggleSettings
     ]
 );
-
 const WALLPAPER_IMAGE_OPACITY: f32 = 1.0;
 const WALLPAPER_SHADE_TOP_ALPHA: u8 = 0x00;
 const WALLPAPER_SHADE_BOTTOM_ALPHA: u8 = 0x00;
@@ -66,6 +76,8 @@ pub struct MultisoulApp {
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) persistence: PersistenceScheduler,
     pub(crate) settings_panel: SettingsPanelState,
+    pub(crate) voice_settings: VoiceSettingsState,
+    pub(crate) shortcuts: ShortcutSettingsState,
     pub(crate) norma_server: NormaServer,
     pub(crate) agent_hook_server: AgentHookServer,
     pub(crate) screen: AppScreen,
@@ -73,8 +85,11 @@ pub struct MultisoulApp {
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
     pub(crate) pending_voice_commands: Vec<::voice::ExecutableCommand>,
     pub focus_handle: FocusHandle,
-    wallpaper: WorkspaceWallpaper,
+    pub(crate) wallpaper_settings: WallpaperSettingsState,
+    #[cfg(target_os = "macos")]
+    pub(crate) video_wallpaper: Option<video_wallpaper::VideoWallpaperState>,
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
+    pub(crate) terminal_cursor_phase: f32,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -83,8 +98,17 @@ pub(crate) enum AppScreen {
     Canvas,
 }
 
+pub(crate) fn mark_runtime_node_viewed_if_needed(runtime: &mut Runtime, node_id: NodeId) -> bool {
+    runtime.mark_card_viewed(node_id)
+}
+
 impl MultisoulApp {
     pub fn new(cx: &mut Context<Self>) -> Self {
+        cx.on_release(|app, cx| {
+            app.unregister_workspace_window_if_needed(cx);
+        })
+        .detach();
+
         // 后台帧循环：每 ~12ms drain 一次（8–16ms 批处理窗口），dirty 才 repaint。
         cx.spawn(async move |this, cx| {
             loop {
@@ -100,12 +124,15 @@ impl MultisoulApp {
                         tracing::debug!(?event, "runtime event");
                     }
                     let motion_changed = app.motion.tick(Duration::from_millis(12));
+                    let cursor_changed =
+                        app.advance_terminal_cursor_phase(Duration::from_millis(12));
                     let persistence_changed = app.tick_persistence(Duration::from_millis(12));
                     let norma_pending = app.norma_server.has_pending();
                     if runtime_changed
                         || !runtime_events.is_empty()
                         || agent_hook_changed
                         || motion_changed
+                        || cursor_changed
                         || persistence_changed
                         || norma_pending
                         || app.agent_hook_server.has_pending()
@@ -120,7 +147,7 @@ impl MultisoulApp {
         })
         .detach();
 
-        let wallpaper = wallpaper_from_env();
+        let wallpaper_settings = WallpaperSettingsState::load_default();
         let agent_hook_server = AgentHookServer::start();
         let mut runtime = Runtime::new();
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
@@ -134,6 +161,8 @@ impl MultisoulApp {
             master_layout: MasterLayoutState::default(),
             persistence: PersistenceScheduler::default(),
             settings_panel: SettingsPanelState::default(),
+            voice_settings: VoiceSettingsState::load_default(),
+            shortcuts: ShortcutSettingsState::load_default(),
             norma_server: NormaServer::start(),
             agent_hook_server,
             screen: AppScreen::Launchpad,
@@ -141,9 +170,41 @@ impl MultisoulApp {
             voice: crate::app::voice::control::VoiceControlState::default(),
             pending_voice_commands: Vec::new(),
             focus_handle: cx.focus_handle(),
-            wallpaper,
+            wallpaper_settings,
+            #[cfg(target_os = "macos")]
+            video_wallpaper: None,
             last_reflow_window_size: None,
+            terminal_cursor_phase: 0.0,
         }
+    }
+
+    fn advance_terminal_cursor_phase(&mut self, delta: Duration) -> bool {
+        if !self.focused_terminal_cursor_animation_active() {
+            return false;
+        }
+        let next = advance_cursor_phase(self.terminal_cursor_phase, delta);
+        let changed = (next - self.terminal_cursor_phase).abs() > f32::EPSILON;
+        self.terminal_cursor_phase = next;
+        changed
+    }
+
+    fn focused_terminal_cursor_animation_active(&self) -> bool {
+        if self.motion.reduce_motion {
+            return false;
+        }
+        let InputMode::NodeFocused(node_id) = self.runtime.focus.mode() else {
+            return false;
+        };
+        let Some(node) = self.runtime.document.node(node_id) else {
+            return false;
+        };
+        if !matches!(node.kind.node_type(), NodeType::Term | NodeType::Agent) {
+            return false;
+        }
+        matches!(
+            self.runtime.node_run_state(node_id),
+            Some(NodeRunState::Running)
+        )
     }
 
     /// Cmd+N：在当前可见画布区域内新建 Terminal 节点，并触发三列平铺 reflow。
@@ -176,61 +237,6 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    fn on_new_claude_agent(
-        &mut self,
-        _: &NewClaudeAgent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if !matches!(self.screen, AppScreen::Canvas) {
-            self.workspace_state.error = Some("Open a project before creating agents.".into());
-            cx.notify();
-            return;
-        }
-        self.spawn_agent_card(AgentProfile::Claude, window, cx);
-    }
-
-    fn on_new_codex_agent(
-        &mut self,
-        _: &NewCodexAgent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if !matches!(self.screen, AppScreen::Canvas) {
-            self.workspace_state.error = Some("Open a project before creating agents.".into());
-            cx.notify();
-            return;
-        }
-        self.spawn_agent_card(AgentProfile::Codex, window, cx);
-    }
-
-    fn spawn_agent_card(
-        &mut self,
-        profile: AgentProfile,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let bounds = self
-            .visible_canvas_rect(window)
-            .inset(self.layout_gap_canvas());
-        let (cols, rows) =
-            term_grid_size_for_card(NodeType::Agent, bounds, self.runtime.document.viewport.zoom);
-        match self.runtime.spawn_agent(profile, bounds, cols, rows) {
-            Ok(node_id) => {
-                tracing::info!(?node_id, ?profile, "spawned agent node");
-                spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
-                self.motion.spawn_node(node_id, bounds);
-                self.apply_layout_for_current_mode(window);
-                self.mark_canvas_dirty();
-                self.mark_session_dirty();
-            }
-            Err(e) => {
-                tracing::error!(error = %e, ?profile, "failed to spawn agent");
-            }
-        }
-        cx.notify();
-    }
-
     fn on_exit_focus(&mut self, _: &ExitFocus, _window: &mut Window, cx: &mut Context<Self>) {
         self.runtime.focus.exit_to_canvas();
         cx.notify();
@@ -245,8 +251,12 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    fn on_open_project(&mut self, _: &OpenProject, _window: &mut Window, cx: &mut Context<Self>) {
-        self.prompt_open_project(cx);
+    fn on_open_project(&mut self, _: &OpenProject, window: &mut Window, cx: &mut Context<Self>) {
+        self.prompt_open_project(window, cx);
+    }
+
+    fn on_new_window(&mut self, _: &NewWindow, _window: &mut Window, cx: &mut Context<Self>) {
+        Self::open_new_launchpad_window(cx);
     }
 
     fn on_open_preview_file(
@@ -270,6 +280,11 @@ impl MultisoulApp {
             self.interaction.keyboard_selected_node = None;
         }
         self.interaction.clear_text_selection_for_node(node_id);
+
+        // 在 remove_node 真正执行前，从删除前的节点顺序中抓取应承接选择的邻居。
+        // document.nodes() 的插入序即 reflow 行主序；删除后 i+1 将滑入槽位 i。
+        let next_id = canvas::next_neighbor_after_delete(self.runtime.document.nodes(), node_id);
+
         let changed = close_node_and_update_layout_for_area(
             &mut self.runtime,
             &mut self.motion,
@@ -282,8 +297,45 @@ impl MultisoulApp {
             self.previews.remove(node_id);
             self.mark_canvas_dirty();
             self.mark_session_dirty();
+
+            // 删除后承接选择：选中下一个邻居，使 Cmd+D 可连续触发。
+            // Runtime::remove_node 已 deselect(node_id) 并 exit_to_canvas；
+            // 这里再选中邻居以保持键盘选区连续性。
+            match next_id {
+                Some(next) if self.runtime.document.node(next).is_some() => {
+                    self.runtime.selection.select_only(next);
+                    self.runtime.focus.exit_to_canvas();
+                    self.interaction.keyboard_selected_node = Some(next);
+                }
+                _ => {
+                    // 无幸存节点：清空键盘选区（Runtime 已清空 selection/focus）。
+                    self.interaction.keyboard_selected_node = None;
+                }
+            }
         }
         changed
+    }
+
+    pub(crate) fn close_node_through_route(
+        &mut self,
+        node_id: NodeId,
+        window: &mut Window,
+    ) -> bool {
+        let event = InputEvent::CloseNode { node: node_id };
+        let Route::RemoveNode(node_id) = route(&self.runtime.focus.mode(), &event) else {
+            return false;
+        };
+        if !self.remove_node_and_reflow(node_id, window) {
+            return false;
+        }
+        self.interaction.drag = None;
+        self.interaction.panning = false;
+        self.interaction.last_screen = None;
+        true
+    }
+
+    pub(crate) fn mark_node_viewed_if_needed(&mut self, node_id: NodeId) -> bool {
+        mark_runtime_node_viewed_if_needed(&mut self.runtime, node_id)
     }
 
     pub(crate) fn visible_canvas_rect(&self, window: &mut Window) -> CanvasRect {
@@ -341,42 +393,6 @@ impl MultisoulApp {
         }
     }
 
-    fn on_toolbar_new_terminal(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.on_new_terminal(&NewTerminal, window, cx);
-    }
-
-    fn on_toolbar_new_claude_agent(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.spawn_agent_card(AgentProfile::Claude, window, cx);
-    }
-
-    fn on_toolbar_new_codex_agent(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.spawn_agent_card(AgentProfile::Codex, window, cx);
-    }
-
-    fn on_toolbar_preview_file(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.on_open_preview_file(&OpenPreviewFile, window, cx);
-    }
-
     fn on_toolbar_canvas_scroll(
         &mut self,
         _: &ClickEvent,
@@ -400,6 +416,7 @@ impl Render for MultisoulApp {
         let mut root = div()
             .key_context("MultisoulApp")
             .track_focus(&self.focus_handle)
+            .on_action(cx.listener(Self::on_new_window))
             .on_action(cx.listener(Self::on_new_terminal))
             .on_action(cx.listener(Self::on_new_claude_agent))
             .on_action(cx.listener(Self::on_new_codex_agent))
@@ -409,6 +426,7 @@ impl Render for MultisoulApp {
             .on_action(cx.listener(Self::on_exit_focus))
             .on_action(cx.listener(Self::on_reflow_layout))
             .on_action(cx.listener(Self::on_toggle_master_layout))
+            .on_action(cx.listener(Self::on_toggle_settings))
             .on_key_down(cx.listener(Self::on_key_down))
             .on_key_up(cx.listener(Self::on_key_up))
             .on_modifiers_changed(cx.listener(Self::on_modifiers_changed))
@@ -447,3 +465,11 @@ impl Render for MultisoulApp {
 #[cfg(test)]
 #[path = "../../tests/unit/app_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_resolvers_tests.rs"]
+mod wallpaper_resolvers_tests;
+
+#[cfg(all(test, target_os = "macos"))]
+#[path = "../../tests/unit/video_decoder_tests.rs"]
+mod video_decoder_tests;

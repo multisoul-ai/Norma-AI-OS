@@ -84,6 +84,10 @@ impl LiveNode for TermLive {
     fn kill(&mut self) {
         self.session.kill();
     }
+
+    fn child_pid(&self) -> Option<u32> {
+        self.session.child_pid()
+    }
 }
 
 #[cfg(test)]

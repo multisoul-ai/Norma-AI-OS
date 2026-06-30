@@ -31,8 +31,9 @@ macOS 空间工作台脚手架（垂直切片）。核心抽象 **Live Node on I
 - `cargo packager --release` → 产出 `Multisoul.app` / `.dmg`
 
 ## 快捷键
-- `Cmd+N` 新建 Terminal；拖标题栏移动；单击选中；双击终端聚焦；`Esc` 退出聚焦
-- 空格+拖 / 中键拖 = pan；滚轮 = zoom
+- `Cmd+N` 新建 Terminal；`Cmd+D` 删除当前聚焦或唯一选中的卡片；`Esc` 退出聚焦
+- 拖标题栏移动；单击选中；双击终端聚焦；空格+拖 / 中键拖 = pan
+- 画布滚轮平移默认关闭，可在顶部工具栏开启；Terminal / Preview 卡片内部滚轮独立滚动
 
 ## Phase 映射（占位，本切片未实现）
 - Phase 2: undo/redo + 空间索引（`canvas/commands.rs`、`history.rs`）

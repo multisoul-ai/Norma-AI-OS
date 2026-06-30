@@ -2,8 +2,10 @@ use crate::{
     PlannedCardKind, PlannedCommand, PlannedTarget, RiskLevel, VoicePlan, VoicePlanningRequest,
 };
 use norma::protocol::AgentProfile;
+#[cfg(test)]
 use serde_json::Value;
 
+#[cfg(test)]
 pub(crate) fn required_plan_hint_json(request: &VoicePlanningRequest) -> Value {
     required_plan_from_request(request)
         .and_then(|plan| serde_json::to_value(plan).ok())
@@ -25,7 +27,7 @@ pub(crate) fn repair_plan_with_required_hint(
     (required, true)
 }
 
-fn required_plan_from_request(request: &VoicePlanningRequest) -> Option<VoicePlan> {
+pub(crate) fn required_plan_from_request(request: &VoicePlanningRequest) -> Option<VoicePlan> {
     let transcript = request.transcript.trim();
     let normalized = normalize_transcript(transcript);
     if !has_explicit_create_intent(&normalized) {
@@ -207,7 +209,10 @@ fn most_recent_input_target_step(commands: &[PlannedCommand]) -> Option<usize> {
                     PlannedCommand::Create {
                         kind:
                             PlannedCardKind::Agent {
-                                profile: AgentProfile::Codex | AgentProfile::Claude,
+                                profile:
+                                    AgentProfile::Codex
+                                    | AgentProfile::Claude
+                                    | AgentProfile::OpenCode,
                             },
                     } => Some(index),
                     _ => None,

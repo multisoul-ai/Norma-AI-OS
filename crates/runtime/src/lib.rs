@@ -3,14 +3,20 @@ pub mod agent_hooks;
 pub mod events;
 pub mod focus;
 pub mod live;
+pub(crate) mod macos_proc;
 pub mod nodes;
 pub mod route;
 pub mod runtime;
 mod runtime_support;
+pub(crate) mod session_restore;
+pub mod session_snapshot;
 pub mod snapshot;
 
 pub use agent_hooks::AgentHookRuntimeConfig;
-pub use events::{AgentTaskState, AgentTaskUpdate, NodeRunState, RuntimeEvent};
+pub use events::{
+    AgentTaskState, AgentTaskUpdate, CardAttentionKind, CardAttentionState, NodeRunState,
+    RuntimeEvent,
+};
 pub use focus::{FocusState, InputMode};
 pub use live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
 pub use route::{route, InputEvent, Route};

@@ -120,6 +120,7 @@ fn encode_agent_profile(profile: Option<AgentProfile>) -> Option<&'static str> {
     profile.map(|profile| match profile {
         AgentProfile::Claude => "claude",
         AgentProfile::Codex => "codex",
+        AgentProfile::OpenCode => "opencode",
     })
 }
 
@@ -130,6 +131,7 @@ fn decode_agent_profile(profile: Option<String>) -> StorageResult<Option<AgentPr
     match profile.as_str() {
         "claude" => Ok(Some(AgentProfile::Claude)),
         "codex" => Ok(Some(AgentProfile::Codex)),
+        "opencode" => Ok(Some(AgentProfile::OpenCode)),
         other => Err(StorageError::InvalidAgentProfile(other.to_string())),
     }
 }

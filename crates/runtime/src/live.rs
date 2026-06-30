@@ -89,6 +89,9 @@ pub trait LiveNode {
     }
     fn view(&self) -> Option<NodeView>;
     fn kill(&mut self);
+    fn child_pid(&self) -> Option<u32> {
+        None
+    }
 }
 
 #[cfg(test)]

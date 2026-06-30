@@ -85,7 +85,11 @@ fn test_cursor_bounds_follow_grid_position() {
     };
 
     let layout = build_layout(&snapshot, palette, test_metrics(), test_glass_style());
-    let cursor = cursor_paint_model(bounds, &layout);
+    let cursor = cursor_paint_model(
+        bounds,
+        &layout,
+        crate::cards::term::cursor::TerminalCursorAnimation::static_default(),
+    );
 
     assert_eq!(
         cursor.bounds.origin,

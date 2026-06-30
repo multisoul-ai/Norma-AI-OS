@@ -1,8 +1,11 @@
 //! Voice entrypoint glue for the app shell.
 
+pub(crate) mod bar;
 pub(crate) mod control;
+mod history;
 pub(crate) mod log;
 pub(crate) mod modal;
+mod refine;
 
 use crate::app::voice::control::{VoicePhase, VoiceTrigger};
 use crate::app::voice::log::{
@@ -10,30 +13,20 @@ use crate::app::voice::log::{
     log_voice_planner_failed, log_voice_planner_rejected, log_voice_planning_started,
     log_voice_runtime_failed, log_voice_transcript_only,
 };
+use crate::app::voice::refine::refine_speech_transcript;
 use crate::app::{AppScreen, MultisoulApp};
 use crate::norma::server::{execute_card_command_for_area, NormaCommandEffects, NormaExecution};
 use gpui::{Context, MouseDownEvent, MouseUpEvent, Window};
+use history::VoiceOutcome;
 use norma::protocol::{CardCommand, CardCommandResult};
 use std::collections::HashMap;
-use storage::VoiceHistoryEntry;
 use voice::{
-    compile_voice_plan, CardRef, ExecutableCommand, OllamaVoicePlanner, RiskLevel, VoiceCardKind,
-    VoicePlanDecision, VoicePlanner, VoicePlanningRequest,
+    compile_voice_plan, CardRef, ExecutableCommand, RiskLevel, VoiceCardKind, VoicePlanDecision,
+    VoicePlanner, VoicePlanningRequest,
 };
-use voice_macos::{AppleSpeechProvider, SpeechError};
+use voice_sherpa::SpeechError;
 
 const DEFAULT_MAX_VOICE_STEPS: usize = 8;
-
-struct VoiceHistoryDraft {
-    transcript: String,
-    planner_json: String,
-    confidence: f64,
-    risk: &'static str,
-    status: &'static str,
-    provider: Option<String>,
-    model: Option<String>,
-    error: Option<String>,
-}
 
 impl MultisoulApp {
     pub(crate) fn begin_voice_recording(&mut self, trigger: VoiceTrigger, cx: &mut Context<Self>) {
@@ -49,14 +42,60 @@ impl MultisoulApp {
             voice_transcript_source(),
             VoiceTranscriptSource::AppleSpeech
         ) {
-            match AppleSpeechProvider::start_recording(AppleSpeechProvider::default_locale()) {
-                Ok(session) => self.voice.set_speech_session(session),
-                Err(error) => {
-                    self.voice
-                        .set_error(format!("Speech recognition failed: {error}"));
-                    self.save_voice_speech_error(error);
-                }
-            }
+            // Two-step async to avoid CFRunLoop re-entrancy with GPUI's RefCell:
+            //
+            //   Step 1 (background): request_microphone_permission() — may block while
+            //     the user responds to the system dialog.
+            //   Step 2 (main thread, via this.update): start_recording() — creates
+            //     AVAudioEngine objects which are not Send. By this point the permission
+            //     is already Authorized, so the call is non-blocking.
+            let task = cx.spawn(async move |this, cx| {
+                let perm = cx
+                    .background_executor()
+                    .spawn(async { voice_sherpa::request_microphone_permission() })
+                    .await;
+                let _ = this.update(cx, |app, cx| {
+                    match perm {
+                        Err(error) => {
+                            app.voice
+                                .set_error(format!("Speech recognition failed: {error}"));
+                            app.save_voice_speech_error(error);
+                        }
+                        Ok(()) => {
+                            match app
+                                .voice_settings
+                                .sherpa_provider()
+                                .and_then(|p| p.start_recording())
+                            {
+                                Ok((session, partials)) => {
+                                    app.voice.set_speech_session(session);
+                                    // Event-driven: wakes only when sherpa emits a partial,
+                                    // exits automatically when the channel closes on session drop.
+                                    let partials_task = cx.spawn(async move |this, cx| {
+                                        while let Ok(text) = partials.recv().await {
+                                            let _ = this.update(cx, |app, cx| {
+                                                app.voice.partial_text = text;
+                                                cx.notify();
+                                            });
+                                        }
+                                    });
+                                    // Store in the dedicated slot — NOT in speech_task — so that
+                                    // the outer permission task (already in speech_task) and the
+                                    // later finish task (set at key-up) never cancel the loop.
+                                    app.voice.set_partials_task(partials_task);
+                                }
+                                Err(error) => {
+                                    app.voice
+                                        .set_error(format!("Speech recognition failed: {error}"));
+                                    app.save_voice_speech_error(error);
+                                }
+                            }
+                        }
+                    }
+                    cx.notify();
+                });
+            });
+            self.voice.set_speech_task(task);
         }
         cx.notify();
     }
@@ -108,37 +147,41 @@ impl MultisoulApp {
     fn process_finished_voice_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match voice_transcript_source() {
             VoiceTranscriptSource::Environment(transcript) if !transcript.trim().is_empty() => {
-                self.handle_voice_transcript(transcript.trim().to_string(), window, cx);
+                let transcript = transcript.trim().to_string();
+                self.handle_voice_transcript(transcript.clone(), transcript, None, window, cx);
             }
             VoiceTranscriptSource::Environment(_) => {
                 self.record_empty_voice_transcript();
             }
             VoiceTranscriptSource::AppleSpeech => {
-                self.process_apple_speech_recording(window, cx);
+                self.process_sherpa_speech_recording(window, cx);
             }
         }
         cx.notify();
     }
 
-    fn process_apple_speech_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(mut session) = self.voice.take_speech_session() else {
+    fn process_sherpa_speech_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(session) = self.voice.take_speech_session() else {
             let error = SpeechError::NotRecording;
             self.voice
                 .set_error(format!("Speech recognition failed: {error}"));
             self.save_voice_speech_error(error);
             return;
         };
+        cx.notify();
+        // finish() blocks (recognizer thread join); run in spawn_in to match existing pattern.
         let task = cx.spawn_in(window, async move |this, cx| {
             let result = session.finish();
             let _ = this.update_in(cx, |app, window, cx| {
                 app.voice.clear_speech_task();
-                app.handle_apple_speech_result(result, window, cx);
+                app.voice.partial_text.clear();
+                app.handle_sherpa_speech_result(result, window, cx);
             });
         });
         self.voice.set_speech_task(task);
     }
 
-    fn handle_apple_speech_result(
+    fn handle_sherpa_speech_result(
         &mut self,
         result: Result<String, SpeechError>,
         window: &mut Window,
@@ -146,7 +189,16 @@ impl MultisoulApp {
     ) {
         match result {
             Ok(transcript) if !transcript.trim().is_empty() => {
-                self.handle_voice_transcript(transcript.trim().to_string(), window, cx);
+                let raw_transcript = transcript.trim().to_string();
+                let (transcript, refined_transcript) =
+                    refine_speech_transcript(&raw_transcript, self.voice_settings.values());
+                self.handle_voice_transcript(
+                    transcript,
+                    raw_transcript,
+                    refined_transcript,
+                    window,
+                    cx,
+                );
             }
             Ok(_) | Err(SpeechError::EmptyTranscript) => {
                 self.record_empty_voice_transcript();
@@ -159,19 +211,16 @@ impl MultisoulApp {
         }
     }
 
-    fn record_empty_voice_transcript(&mut self) {
-        self.voice.set_transcript_only("", "empty transcript");
-        self.save_voice_history("".into(), "{}".into(), 0.0, "low", "transcript_only", None);
-    }
-
     fn handle_voice_transcript(
         &mut self,
         transcript: String,
+        raw_transcript: String,
+        refined_transcript: Option<String>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         self.voice.set_planning(transcript.clone());
-        let planner = OllamaVoicePlanner::from_env_or_default();
+        let planner = self.voice_settings.planner();
 
         let request = self.voice_planning_request(transcript.clone());
         log_voice_planning_started(&transcript, &planner, &request);
@@ -182,11 +231,11 @@ impl MultisoulApp {
                 self.voice
                     .set_error(format!("Voice planner failed: {error}"));
                 self.save_voice_history(
-                    transcript,
+                    raw_transcript.clone(),
+                    refined_transcript.clone(),
                     "{}".into(),
                     0.0,
-                    "low",
-                    "provider_error",
+                    VoiceOutcome::new("low", "provider_error"),
                     Some(error.to_string()),
                 );
                 cx.notify();
@@ -205,11 +254,11 @@ impl MultisoulApp {
                     format!("planner output rejected: {error}"),
                 );
                 self.save_voice_history(
-                    transcript,
+                    raw_transcript.clone(),
+                    refined_transcript.clone(),
                     planner_json,
                     confidence,
-                    risk,
-                    "planner_rejected",
+                    VoiceOutcome::new(risk, "planner_rejected"),
                     Some(error.to_string()),
                 );
                 cx.notify();
@@ -222,11 +271,11 @@ impl MultisoulApp {
                 log_voice_transcript_only(&transcript, &reason, confidence, risk);
                 self.voice.set_transcript_only(transcript.clone(), reason);
                 self.save_voice_history(
-                    transcript,
+                    raw_transcript.clone(),
+                    refined_transcript.clone(),
                     planner_json,
                     confidence,
-                    risk,
-                    "transcript_only",
+                    VoiceOutcome::new(risk, "transcript_only"),
                     None,
                 );
             }
@@ -244,11 +293,11 @@ impl MultisoulApp {
                 self.pending_voice_commands = compiled.commands;
                 self.voice.set_confirming(transcript.clone(), reason);
                 self.save_voice_history(
-                    transcript,
+                    raw_transcript.clone(),
+                    refined_transcript.clone(),
                     planner_json,
                     confidence,
-                    risk,
-                    "confirmation_required",
+                    VoiceOutcome::new(risk, "confirmation_required"),
                     None,
                 );
             }
@@ -261,11 +310,11 @@ impl MultisoulApp {
                         log_voice_executed(&transcript, &message);
                         self.voice.set_executed(message);
                         self.save_voice_history(
-                            transcript,
+                            raw_transcript.clone(),
+                            refined_transcript.clone(),
                             planner_json,
                             confidence,
-                            risk,
-                            "executed",
+                            VoiceOutcome::new(risk, "executed"),
                             None,
                         );
                     }
@@ -274,11 +323,11 @@ impl MultisoulApp {
                         self.voice
                             .set_error(format!("Voice command failed: {error}"));
                         self.save_voice_history(
-                            transcript,
+                            raw_transcript.clone(),
+                            refined_transcript.clone(),
                             planner_json,
                             confidence,
-                            risk,
-                            "runtime_error",
+                            VoiceOutcome::new(risk, "runtime_error"),
                             Some(error),
                         );
                     }
@@ -394,57 +443,6 @@ impl MultisoulApp {
             self.mark_session_dirty();
         }
     }
-
-    pub(crate) fn save_voice_history(
-        &mut self,
-        transcript: String,
-        planner_json: String,
-        confidence: f64,
-        risk: &'static str,
-        status: &'static str,
-        error: Option<String>,
-    ) {
-        self.save_voice_history_with_provider(VoiceHistoryDraft {
-            transcript,
-            planner_json,
-            confidence,
-            risk,
-            status,
-            provider: Some("ollama".to_string()),
-            model: Some(OllamaVoicePlanner::configured_model()),
-            error,
-        });
-    }
-
-    fn save_voice_speech_error(&mut self, error: SpeechError) {
-        self.save_voice_history_with_provider(VoiceHistoryDraft {
-            transcript: "".into(),
-            planner_json: "{}".into(),
-            confidence: 0.0,
-            risk: "low",
-            status: "provider_error",
-            provider: Some("apple_speech".to_string()),
-            model: Some(AppleSpeechProvider::default_locale()),
-            error: Some(error.to_string()),
-        });
-    }
-
-    fn save_voice_history_with_provider(&mut self, draft: VoiceHistoryDraft) {
-        let entry = VoiceHistoryEntry {
-            transcript: draft.transcript,
-            planner_json: draft.planner_json,
-            confidence: draft.confidence,
-            risk: draft.risk.to_string(),
-            status: draft.status.to_string(),
-            provider: draft.provider,
-            model: draft.model,
-            target_node_id: None,
-            error: draft.error,
-        };
-        if let Err(error) = self.persistence.save_voice_history(&entry) {
-            tracing::warn!(%error, "voice history save failed");
-        }
-    }
 }
 
 fn risk_label(risk: RiskLevel) -> &'static str {
@@ -462,6 +460,7 @@ fn voice_card_kind(kind: &canvas::CanvasNodeKind) -> VoiceCardKind {
             profile: match spec.profile {
                 canvas::AgentProfile::Claude => norma::protocol::AgentProfile::Claude,
                 canvas::AgentProfile::Codex => norma::protocol::AgentProfile::Codex,
+                canvas::AgentProfile::OpenCode => norma::protocol::AgentProfile::OpenCode,
             },
         },
         canvas::CanvasNodeKind::Preview(_) => VoiceCardKind::Preview,

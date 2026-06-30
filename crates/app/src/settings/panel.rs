@@ -1,4 +1,4 @@
-use crate::app::MultisoulApp;
+use crate::app::{AppScreen, MultisoulApp, ToggleSettings};
 use gpui::{
     div, point, prelude::*, px, rgba, BoxShadow, ClickEvent, Context, Div, FontWeight, MouseButton,
     Window,
@@ -19,57 +19,69 @@ const SIDEBAR_W: f32 = 330.0;
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) enum SettingsSection {
     General,
+    Keyboard,
     Runtime,
+    Voice,
     Agents,
     Skills,
     Hooks,
+    Wallpaper,
 }
+
+const SETTINGS_SECTION_ORDER: [SettingsSection; 8] = [
+    SettingsSection::General,
+    SettingsSection::Keyboard,
+    SettingsSection::Runtime,
+    SettingsSection::Voice,
+    SettingsSection::Agents,
+    SettingsSection::Skills,
+    SettingsSection::Hooks,
+    SettingsSection::Wallpaper,
+];
 
 impl SettingsSection {
     fn title(self) -> &'static str {
         match self {
             Self::General => "General",
+            Self::Keyboard => "Keyboard Shortcuts",
             Self::Runtime => "Runtime",
+            Self::Voice => "Voice",
             Self::Agents => "Agents",
             Self::Skills => "Skills",
             Self::Hooks => "Hooks",
+            Self::Wallpaper => "Wallpaper",
         }
     }
 
     fn icon(self) -> &'static str {
         match self {
             Self::General => "⚙",
+            Self::Keyboard => "⌘",
             Self::Runtime => ">_",
+            Self::Voice => "V",
             Self::Agents => "A",
             Self::Skills => "✦",
             Self::Hooks => "⛓",
+            // 🖼 emoji is risky in the bundled icon font; reuse the single-ASCII
+            // letter convention used by Voice/Agents for consistency.
+            Self::Wallpaper => "W",
         }
     }
 
     fn index(self) -> usize {
-        match self {
-            Self::General => 0,
-            Self::Runtime => 1,
-            Self::Agents => 2,
-            Self::Skills => 3,
-            Self::Hooks => 4,
+        for (index, section) in SETTINGS_SECTION_ORDER.iter().enumerate() {
+            if *section == self {
+                return index;
+            }
         }
+        0
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct HookInstallStatus {
     pub(crate) message: Option<String>,
     pub(crate) is_error: bool,
-}
-
-impl Default for HookInstallStatus {
-    fn default() -> Self {
-        Self {
-            message: None,
-            is_error: false,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -120,7 +132,33 @@ impl MultisoulApp {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.toggle_settings_panel(cx);
+    }
+
+    pub(crate) fn on_toggle_settings(
+        &mut self,
+        _: &ToggleSettings,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.toggle_settings_panel(cx);
+    }
+
+    pub(crate) fn toggle_settings_panel(&mut self, cx: &mut Context<Self>) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            return;
+        }
+        let was_open = self.settings_panel.open;
         self.settings_panel.toggle();
+        if was_open {
+            self.shortcuts.recording = None;
+        }
+        cx.notify();
+    }
+
+    pub(crate) fn close_settings_panel(&mut self, cx: &mut Context<Self>) {
+        self.settings_panel.close();
+        self.shortcuts.recording = None;
         cx.notify();
     }
 
@@ -178,7 +216,14 @@ impl MultisoulApp {
                     .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
                     .on_click(|_, _, cx| cx.stop_propagation())
                     .child(self.render_settings_sidebar(theme, cx))
-                    .child(settings_content(theme, &self.settings_panel, cx)),
+                    .child(settings_content(
+                        theme,
+                        &self.settings_panel,
+                        &self.voice_settings,
+                        &self.wallpaper_settings,
+                        &self.shortcuts,
+                        cx,
+                    )),
             )
     }
 
@@ -204,20 +249,29 @@ impl MultisoulApp {
                     .text_color(rgba(theme.text_primary))
                     .child("Settings"),
             )
-            .child(section_button(theme, SettingsSection::General, active, cx))
-            .child(sidebar_child(theme, "Language & Region", false))
-            .child(sidebar_child(
-                theme,
-                "Appearance",
-                active == SettingsSection::General,
-            ))
-            .child(sidebar_child(theme, "Date & Time", false))
-            .child(sidebar_child(theme, "Keyboard Shortcuts", false))
+            // [MOCK] General/Themes 是占位实现（appearance.rs 无 on_click、硬编码选中），暂时屏蔽。
+            // .child(section_button(theme, SettingsSection::General, active, cx))
+            // .child(sidebar_child(theme, "Language & Region", false))
+            // .child(sidebar_child(
+            //     theme,
+            //     "Appearance",
+            //     active == SettingsSection::General,
+            // ))
+            // .child(sidebar_child(theme, "Date & Time", false))
+            .child(section_button(theme, SettingsSection::Keyboard, active, cx))
             .child(sidebar_gap())
-            .child(section_button(theme, SettingsSection::Runtime, active, cx))
-            .child(section_button(theme, SettingsSection::Agents, active, cx))
-            .child(section_button(theme, SettingsSection::Skills, active, cx))
+            // [MOCK] Runtime/Agents/Skills 走 mock_section + 硬编码假数据，暂时屏蔽。
+            // .child(section_button(theme, SettingsSection::Runtime, active, cx))
+            .child(section_button(theme, SettingsSection::Voice, active, cx))
+            // [MOCK] .child(section_button(theme, SettingsSection::Agents, active, cx))
+            // [MOCK] .child(section_button(theme, SettingsSection::Skills, active, cx))
             .child(section_button(theme, SettingsSection::Hooks, active, cx))
+            .child(section_button(
+                theme,
+                SettingsSection::Wallpaper,
+                active,
+                cx,
+            ))
     }
 }
 
@@ -301,26 +355,6 @@ fn section_icon(theme: Theme, section: SettingsSection, active: bool) -> Div {
             theme.text_secondary
         }))
         .child(section.icon())
-}
-
-fn sidebar_child(theme: Theme, label: &'static str, selected: bool) -> Div {
-    div()
-        .h(px(34.0))
-        .ml(px(56.0))
-        .flex()
-        .items_center()
-        .text_size(px(15.0))
-        .font_weight(if selected {
-            FontWeight::BOLD
-        } else {
-            FontWeight::NORMAL
-        })
-        .text_color(rgba(if selected {
-            theme.text_primary
-        } else {
-            theme.text_tertiary
-        }))
-        .child(label)
 }
 
 fn sidebar_gap() -> Div {

@@ -3,18 +3,19 @@
 use crate::events::RuntimeEvents;
 use crate::focus::{FocusState, InputMode};
 use crate::live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
-#[cfg(test)]
-use crate::nodes::agent::agent_command;
 use crate::nodes::agent::spawn_agent_live;
 use crate::nodes::term::TermLive;
-use crate::runtime_support::{checkpoint_grid_size, terminal_shell_command, usize_to_u16};
+use crate::runtime_support::terminal_shell_command;
 use canvas::{
     AgentProfile, AgentSpec, CanvasNodeKind, CanvasRect, Document, DocumentSnapshot, NodeId,
     NodeType, PreviewSpec, PreviewType, Selection, TermSpec,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use storage::{CanvasStore, SessionCheckpoint, SessionCheckpointKind, SessionStore, StorageError};
+use storage::{
+    CanvasStore, NodeSession, NodeSessionStore, SessionCheckpoint, SessionStore, StorageError,
+    StorageResult,
+};
 #[cfg(test)]
 use terminal::PtyCommand;
 use terminal::{PtyError, TerminalSessionId};
@@ -94,99 +95,57 @@ impl Runtime {
     }
 
     pub fn collect_session_checkpoints(&self) -> Vec<SessionCheckpoint> {
-        self.document
-            .nodes()
-            .iter()
-            .filter(|node| self.live.contains_key(&node.id))
-            .filter_map(|node| {
-                let kind = match &node.kind {
-                    CanvasNodeKind::Term(_) => SessionCheckpointKind::Terminal,
-                    CanvasNodeKind::Agent(_) => SessionCheckpointKind::Agent,
-                    CanvasNodeKind::Rect(_) | CanvasNodeKind::Preview(_) => return None,
-                };
-                let (cols, rows) = self.live_grid_size(node.id);
-                Some(SessionCheckpoint {
-                    node_id: node.id,
-                    kind,
-                    payload: node.kind.display_title(),
-                    cols,
-                    rows,
-                    shell: match &node.kind {
-                        CanvasNodeKind::Term(_) => Some(
-                            self.terminal_shells
-                                .get(&node.id)
-                                .cloned()
-                                .unwrap_or_else(|| DEFAULT_TERMINAL_SHELL.to_string()),
-                        ),
-                        CanvasNodeKind::Agent(_)
-                        | CanvasNodeKind::Rect(_)
-                        | CanvasNodeKind::Preview(_) => None,
-                    },
-                    agent_profile: match &node.kind {
-                        CanvasNodeKind::Agent(spec) => Some(spec.profile),
-                        CanvasNodeKind::Term(_)
-                        | CanvasNodeKind::Rect(_)
-                        | CanvasNodeKind::Preview(_) => None,
-                    },
-                })
-            })
-            .collect()
+        crate::session_restore::collect_session_checkpoints(
+            &self.live,
+            &self.document,
+            &self.terminal_shells,
+        )
     }
 
-    pub fn save_session_checkpoints(&self, store: &SessionStore) -> Result<(), StorageError> {
-        for checkpoint in self.collect_session_checkpoints() {
-            store.save_checkpoint(&checkpoint)?;
-        }
-        Ok(())
+    pub fn save_session_checkpoints(&self, store: &SessionStore) -> StorageResult<()> {
+        crate::session_restore::save_session_checkpoints(store, &self.collect_session_checkpoints())
     }
 
     pub fn restore_live_sessions(&mut self, checkpoints: &[SessionCheckpoint]) -> usize {
-        let checkpoints_by_node_id: HashMap<NodeId, &SessionCheckpoint> = checkpoints
-            .iter()
-            .map(|checkpoint| (checkpoint.node_id, checkpoint))
-            .collect();
-        let nodes: Vec<(NodeId, CanvasNodeKind)> = self
-            .document
-            .nodes()
-            .iter()
-            .map(|node| (node.id, node.kind.clone()))
-            .collect();
+        let mut ctx = crate::session_restore::RestoreCtx {
+            live: &mut self.live,
+            terminal_shells: &mut self.terminal_shells,
+            events: &mut self.events,
+            next_session_id: &mut self.next_session_id,
+            workspace_root: self.workspace_root.as_deref(),
+            agent_hook_config: self.agent_hook_config.as_ref(),
+        };
+        crate::session_restore::restore_live_sessions(checkpoints, &self.document, &mut ctx)
+    }
 
-        let mut restored = 0;
-        for (node_id, kind) in nodes {
-            if self.live.contains_key(&node_id) {
-                continue;
-            }
+    pub fn save_node_sessions(&self, store: &NodeSessionStore) -> StorageResult<()> {
+        crate::session_restore::save_node_sessions(
+            store,
+            &self.live,
+            &self.document,
+            self.workspace_root.as_deref(),
+        )
+    }
 
-            let checkpoint = checkpoints_by_node_id.get(&node_id).copied();
-            let did_restore = match kind {
-                CanvasNodeKind::Term(_) => {
-                    let terminal_checkpoint = checkpoint
-                        .filter(|checkpoint| checkpoint.kind == SessionCheckpointKind::Terminal);
-                    let (cols, rows) = checkpoint_grid_size(terminal_checkpoint);
-                    let shell = terminal_checkpoint
-                        .and_then(|checkpoint| checkpoint.shell.as_deref())
-                        .unwrap_or(DEFAULT_TERMINAL_SHELL);
-                    self.attach_terminal_live(node_id, shell, cols, rows)
-                }
-                CanvasNodeKind::Agent(spec) => {
-                    let agent_checkpoint = checkpoint
-                        .filter(|checkpoint| checkpoint.kind == SessionCheckpointKind::Agent);
-                    let (cols, rows) = checkpoint_grid_size(agent_checkpoint);
-                    let profile = agent_checkpoint
-                        .and_then(|checkpoint| checkpoint.agent_profile)
-                        .unwrap_or(spec.profile);
-                    self.attach_agent_live(node_id, profile, cols, rows)
-                }
-                CanvasNodeKind::Rect(_) | CanvasNodeKind::Preview(_) => false,
-            };
-
-            if did_restore {
-                restored += 1;
-            }
-        }
-
-        restored
+    pub fn restore_live_sessions_with_node_sessions(
+        &mut self,
+        checkpoints: &[SessionCheckpoint],
+        node_sessions: &[NodeSession],
+    ) -> usize {
+        let mut ctx = crate::session_restore::RestoreCtx {
+            live: &mut self.live,
+            terminal_shells: &mut self.terminal_shells,
+            events: &mut self.events,
+            next_session_id: &mut self.next_session_id,
+            workspace_root: self.workspace_root.as_deref(),
+            agent_hook_config: self.agent_hook_config.as_ref(),
+        };
+        crate::session_restore::restore_live_sessions_with_node_sessions(
+            checkpoints,
+            node_sessions,
+            &self.document,
+            &mut ctx,
+        )
     }
 
     /// 新建一个 Terminal 节点：spawn live runtime + 在画布加 Term 节点。返回画布节点 id。
@@ -287,7 +246,7 @@ impl Runtime {
 
     #[cfg(test)]
     fn agent_command(profile: AgentProfile) -> PtyCommand {
-        agent_command(profile, None)
+        crate::nodes::agent::agent_command(profile, None)
     }
 
     pub fn live_len(&self) -> usize {
@@ -380,69 +339,6 @@ impl Runtime {
         sid
     }
 
-    fn attach_terminal_live(&mut self, node_id: NodeId, shell: &str, cols: u16, rows: u16) -> bool {
-        let sid = self.allocate_session_id();
-        let command = terminal_shell_command(shell).with_cwd(self.workspace_root());
-        match TermLive::spawn_command(sid, command, cols, rows) {
-            Ok(live) => {
-                self.terminal_shells.insert(node_id, shell.to_string());
-                self.live.insert(node_id, Box::new(live));
-                self.events.register(node_id, NodeType::Term);
-                true
-            }
-            Err(error) => {
-                tracing::warn!(
-                    ?node_id,
-                    %shell,
-                    %error,
-                    "failed to restore terminal live session"
-                );
-                false
-            }
-        }
-    }
-
-    fn attach_agent_live(
-        &mut self,
-        node_id: NodeId,
-        profile: AgentProfile,
-        cols: u16,
-        rows: u16,
-    ) -> bool {
-        let sid = self.allocate_session_id();
-        let hook_env = self.agent_hook_env(node_id, profile);
-        match spawn_agent_live(
-            sid,
-            profile,
-            self.workspace_root(),
-            hook_env.as_ref(),
-            cols,
-            rows,
-        ) {
-            Ok(live) => {
-                self.live.insert(node_id, Box::new(live));
-                self.events.register(node_id, NodeType::Agent);
-                true
-            }
-            Err(error) => {
-                tracing::warn!(
-                    ?node_id,
-                    ?profile,
-                    %error,
-                    "failed to restore agent live session"
-                );
-                false
-            }
-        }
-    }
-
-    fn live_grid_size(&self, node_id: NodeId) -> (u16, u16) {
-        let Some(NodeView::Term { snapshot, .. }) = self.node_view(node_id) else {
-            return (DEFAULT_SESSION_COLS, DEFAULT_SESSION_ROWS);
-        };
-        (usize_to_u16(snapshot.cols), usize_to_u16(snapshot.lines))
-    }
-
     fn finish_node_operation<T>(
         &mut self,
         node_id: Option<NodeId>,
@@ -468,6 +364,9 @@ impl Runtime {
     }
 }
 
+#[cfg(test)]
+#[path = "../tests/unit/agent_command_tests.rs"]
+mod agent_command_tests;
 #[cfg(test)]
 #[path = "../tests/unit/agent_task_event_tests.rs"]
 mod agent_task_event_tests;

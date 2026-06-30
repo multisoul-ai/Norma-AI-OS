@@ -284,6 +284,71 @@ fn test_norma_list_summary_includes_agent_alias() {
     );
 }
 
+/// Norma executor：List summary 应保留 OpenCode Agent profile，供外部控制端识别卡片类型。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   agent node_id = 1（document 首个节点）
+///   profile = OpenCode
+///   alias = None，因此 title 回退到 "OpenCode"
+///   List 不需要 live node，因此 runtime.live_len = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 向 runtime.document 添加 OpenCode Agent
+///   2. execute_card_command_for_area(List)
+///   3. 读取 Listed cards[0]
+///
+/// 预期结果：
+///   - 正断言：summary title 为 OpenCode
+///   - 正断言：kind 是 Agent(OpenCode)
+///   - 负断言：不应误标为 Codex
+#[test]
+fn test_norma_list_summary_preserves_opencode_agent_profile() {
+    let mut runtime = Runtime::new();
+    let mut motion = MotionStore::new(true);
+    let mut master_layout = MasterLayoutState::default();
+    runtime.document.add_node(
+        CanvasNodeKind::Agent(AgentSpec {
+            profile: AgentProfile::OpenCode,
+            alias: None,
+        }),
+        CanvasRect::new(0.0, 0.0, 640.0, 360.0),
+    );
+
+    let execution = execute_card_command_for_area(
+        &mut runtime,
+        &mut motion,
+        &mut master_layout,
+        CardCommand::List,
+        CanvasRect::new(0.0, 0.0, 800.0, 600.0),
+        1.0,
+    )
+    .expect("Norma List 应成功");
+
+    let CardCommandResult::Listed { cards } = execution.result else {
+        panic!("List 命令应返回 Listed 结果");
+    };
+
+    assert_eq!(cards.len(), 1, "List 应返回 1 张 OpenCode Agent 卡片摘要");
+    assert_eq!(
+        cards[0].title, "OpenCode",
+        "OpenCode Agent 没有 alias 时 summary title 应回退 profile title"
+    );
+    assert_eq!(
+        cards[0].kind,
+        CardSummaryKind::Agent {
+            profile: norma::protocol::AgentProfile::OpenCode,
+        },
+        "summary kind 应保留 OpenCode Agent 类型"
+    );
+    assert_ne!(
+        cards[0].kind,
+        CardSummaryKind::Agent {
+            profile: norma::protocol::AgentProfile::Codex,
+        },
+        "OpenCode Agent 不应在 summary 中误标为 Codex"
+    );
+}
+
 /// Norma executor：submit 补换行只在 app 执行层发生，避免 CLI parse 阶段重复追加。
 ///
 /// 数据构造（含关键数值的推导过程）：

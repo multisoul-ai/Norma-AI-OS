@@ -10,9 +10,13 @@ use gpui::{
 use terminal::{Cell, GridSnapshot, TerminalColor, TerminalNamedColor};
 use ui::Theme;
 
+use self::cursor_paint::{cursor_paint_model, paint_cursor};
+use super::cursor::TerminalCursorAnimation;
 use super::paint_style::{
     resolve_cell_style, TerminalGlassStyle, TerminalPalette, TerminalTextStyle,
 };
+
+mod cursor_paint;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TerminalRenderMetrics {
@@ -26,6 +30,7 @@ pub fn render_terminal_canvas(
     theme: Theme,
     metrics: TerminalRenderMetrics,
     selection: Option<TextRange>,
+    cursor_animation: TerminalCursorAnimation,
 ) -> impl IntoElement {
     let palette = TerminalPalette::from_theme(theme);
     let glass_style = TerminalGlassStyle::from_theme(theme);
@@ -37,7 +42,9 @@ pub fn render_terminal_canvas(
                 build_layout(&snapshot, palette, metrics, glass_style)
             }
         },
-        move |bounds, layout, window, cx| paint_layout(bounds, &layout, window, cx),
+        move |bounds, layout, window, cx| {
+            paint_layout(bounds, &layout, cursor_animation, window, cx)
+        },
     )
     .size_full()
 }
@@ -222,17 +229,6 @@ fn flush_text(text_runs: &mut Vec<TerminalTextRun>, current_text: &mut Option<Te
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct TerminalCursorPaint {
-    bounds: Bounds<Pixels>,
-    fill: Hsla,
-    stroke: Hsla,
-    highlight: Hsla,
-    radius: Pixels,
-    stroke_width: Pixels,
-    highlight_bounds: Bounds<Pixels>,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum TerminalPaintLayer {
     DefaultBackgroundFill,
@@ -245,6 +241,7 @@ enum TerminalPaintLayer {
 fn paint_layout(
     bounds: Bounds<Pixels>,
     layout: &TerminalLayout,
+    cursor_animation: TerminalCursorAnimation,
     window: &mut Window,
     cx: &mut App,
 ) {
@@ -297,7 +294,7 @@ fn paint_layout(
                 }
             }
             TerminalPaintLayer::Cursor => {
-                paint_cursor(cursor_paint_model(bounds, layout), window);
+                paint_cursor(cursor_paint_model(bounds, layout, cursor_animation), window);
             }
         }
     }
@@ -356,69 +353,6 @@ fn paint_selection_span(
         transparent_black(),
         Default::default(),
     ));
-}
-
-fn cursor_paint_model(bounds: Bounds<Pixels>, layout: &TerminalLayout) -> TerminalCursorPaint {
-    let metrics = layout.metrics;
-    let cursor_bounds = Bounds {
-        origin: point(
-            bounds.origin.x + metrics.cell_width * (layout.cursor_col as f32),
-            bounds.origin.y + metrics.line_height * (layout.cursor_line as f32),
-        ),
-        size: Size {
-            width: metrics.cell_width,
-            height: metrics.line_height,
-        },
-    };
-    let inset = layout.glass_style.cursor_stroke_width;
-    let highlight_width = px((f32::from(metrics.cell_width) - f32::from(inset) * 2.0).max(0.0));
-    let highlight_height = px(f32::from(layout.glass_style.cursor_highlight_height)
-        .min(f32::from(metrics.line_height))
-        .max(0.0));
-    let highlight_bounds = Bounds {
-        origin: point(
-            cursor_bounds.origin.x + inset,
-            cursor_bounds.origin.y + inset,
-        ),
-        size: Size {
-            width: highlight_width,
-            height: highlight_height,
-        },
-    };
-
-    TerminalCursorPaint {
-        bounds: cursor_bounds,
-        fill: layout.glass_style.cursor_fill,
-        stroke: layout.glass_style.cursor_stroke,
-        highlight: layout.glass_style.cursor_highlight,
-        radius: layout.glass_style.cursor_radius,
-        stroke_width: layout.glass_style.cursor_stroke_width,
-        highlight_bounds,
-    }
-}
-
-fn paint_cursor(cursor: TerminalCursorPaint, window: &mut Window) {
-    window.paint_quad(quad(
-        cursor.bounds,
-        cursor.radius,
-        cursor.fill,
-        Edges::all(cursor.stroke_width),
-        cursor.stroke,
-        Default::default(),
-    ));
-
-    if f32::from(cursor.highlight_bounds.size.width) > 0.0
-        && f32::from(cursor.highlight_bounds.size.height) > 0.0
-    {
-        window.paint_quad(quad(
-            cursor.highlight_bounds,
-            cursor.radius,
-            cursor.highlight,
-            Edges::<Pixels>::default(),
-            transparent_black(),
-            Default::default(),
-        ));
-    }
 }
 
 fn paint_text_run(

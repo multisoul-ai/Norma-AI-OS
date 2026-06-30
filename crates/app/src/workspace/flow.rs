@@ -5,45 +5,48 @@ use crate::motion::MotionStore;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::NodeId;
-use gpui::{Context, PathPromptOptions};
+use gpui::{Context, PathPromptOptions, Window};
 use runtime::Runtime;
 use std::path::{Path, PathBuf};
 use storage::ProjectStore;
 use workspace::WorkspaceSource;
 
 impl MultisoulApp {
-    pub(crate) fn prompt_open_project(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn prompt_open_project(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let receiver = cx.prompt_for_paths(PathPromptOptions {
             files: false,
             directories: true,
             multiple: false,
             prompt: Some("Open Project".into()),
         });
+        let current_window = window.window_handle().downcast::<MultisoulApp>();
 
         cx.spawn(async move |this, cx| {
             match receiver.await {
                 Ok(Ok(Some(paths))) => {
                     if let Some(path) = paths.into_iter().next() {
-                        this.update(&mut *cx, |app, cx| {
-                            app.open_workspace_path(path, cx);
-                        })?;
+                        if let Some(current_window) = current_window {
+                            let _ = current_window.update(&mut *cx, |app, window, cx| {
+                                app.open_workspace_in_project_window(path, true, window, cx);
+                            });
+                        }
                     }
                 }
                 Ok(Ok(None)) => {}
                 Ok(Err(error)) => {
-                    this.update(&mut *cx, |app, cx| {
+                    let _ = this.update(&mut *cx, |app, cx| {
                         app.workspace_state.error =
                             Some(format!("Could not open project picker: {error}"));
                         cx.notify();
-                    })?;
+                    });
                 }
                 Err(error) => {
-                    this.update(&mut *cx, |app, cx| {
+                    let _ = this.update(&mut *cx, |app, cx| {
                         app.workspace_state.error = Some(format!(
                             "Project picker was cancelled unexpectedly: {error}"
                         ));
                         cx.notify();
-                    })?;
+                    });
                 }
             }
             Ok::<(), anyhow::Error>(())
@@ -62,7 +65,7 @@ impl MultisoulApp {
             &path,
         );
         match result {
-            Ok(()) => self.reload_all_previews(cx),
+            Ok(_root) => self.reload_all_previews(cx),
             Err(error) => {
                 tracing::warn!(%error, path = %path.display(), "failed to open workspace");
             }
@@ -80,7 +83,7 @@ pub(crate) fn enter_workspace_for_path(
     screen: &mut AppScreen,
     workspace_state: &mut WorkspaceState,
     path: &Path,
-) -> Result<(), String> {
+) -> Result<PathBuf, String> {
     let root = workspace_state.open_workspace(path, WorkspaceSource::Open)?;
     let project_store = ProjectStore::for_workspace(&root)
         .map_err(|error| format!("Could not initialize project storage: {error}"))?;
@@ -88,7 +91,7 @@ pub(crate) fn enter_workspace_for_path(
         .migrate()
         .map_err(|error| format!("Could not migrate project storage: {error}"))?;
     let hook_config = runtime.agent_hook_config().cloned();
-    let mut next_runtime = Runtime::new_for_workspace(root);
+    let mut next_runtime = Runtime::new_for_workspace(root.clone());
     next_runtime.set_agent_hook_config(hook_config);
     next_runtime
         .load_canvas_snapshot(&project_store.canvas_store())
@@ -97,11 +100,20 @@ pub(crate) fn enter_workspace_for_path(
         .session_store()
         .load_checkpoints()
         .map_err(|error| format!("Could not load session checkpoints: {error}"))?;
-    let restored_sessions = next_runtime.restore_live_sessions(&checkpoints);
+    let node_sessions = project_store
+        .node_session_store()
+        .load_sessions()
+        .unwrap_or_default();
+    let restored_sessions =
+        next_runtime.restore_live_sessions_with_node_sessions(&checkpoints, &node_sessions);
     tracing::info!(
         restored_sessions,
         "restored live sessions for opened workspace"
     );
+    // Flush cwd and session state before killing live terminals.
+    // Without this, workspace-switch discards any cwd changes that occurred
+    // since the last debounce flush (session_dirty already cleared).
+    let _ = persistence.flush_now(runtime);
     runtime.kill_all();
     *runtime = next_runtime;
     persistence.set_project_store(project_store);
@@ -109,7 +121,7 @@ pub(crate) fn enter_workspace_for_path(
     motion.clear_transient();
     motion.retain_nodes(std::iter::empty::<NodeId>());
     *screen = AppScreen::Canvas;
-    Ok(())
+    Ok(root)
 }
 
 #[cfg(test)]

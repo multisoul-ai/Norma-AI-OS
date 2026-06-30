@@ -4,7 +4,7 @@ use super::*;
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   initial open = false（启动后不应遮挡画布）
-///   section count = 5（General / Runtime / Agents / Skills / Hooks）
+///   section count = 7（General / Keyboard / Runtime / Voice / Agents / Skills / Hooks）
 ///   default section = General（计划指定默认打开 General）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -32,6 +32,66 @@ fn test_settings_panel_defaults_closed_on_general() {
         panel.active_section,
         SettingsSection::Runtime,
         "设置面板首次打开不应落到 Runtime 分组"
+    );
+}
+
+/// Keyboard Shortcuts 页面：Settings 应把侧栏占位升级为真实可点击页面，并渲染可编辑命令与只读输入行为。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source = settings_panel.rs + settings_content.rs + settings_keyboard.rs + shortcuts.rs
+///   editable anchors = settings-shortcut-new-terminal / settings-shortcut-toggle-settings
+///                      / settings-shortcut-delete-card
+///   read-only anchors = Paste / Voice Recording / Arrow Navigation / Space Pan / Terminal Input
+///   restore anchors = settings-shortcuts-restore-all / settings-shortcut-restore-delete-card / Restore
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 拼接 Settings 生产渲染源码
+///   2. 检查 Keyboard 分组、页面标题、可编辑行、只读行与恢复入口
+///   3. 检查 Keyboard Shortcuts 不再以 sidebar_child disabled 占位形式存在
+///
+/// 预期结果：
+///   - 正断言：Keyboard Shortcuts 页面关键锚点都存在
+///   - 正断言：SettingsSection::Keyboard 可被 select
+///   - 负断言：Keyboard Shortcuts 不应仍是 disabled sidebar_child
+#[test]
+fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() {
+    let source = format!(
+        "{}{}{}{}",
+        include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/keyboard.rs"),
+        include_str!("../../src/shortcuts.rs")
+    );
+    let required = [
+        "SettingsSection::Keyboard",
+        "Keyboard Shortcuts",
+        "Customize app commands and review system input behavior",
+        "settings-shortcut-new-terminal",
+        "settings-shortcut-toggle-settings",
+        "settings-shortcut-delete-card",
+        "settings-shortcut-restore-delete-card",
+        "settings-shortcut-new-claude-agent",
+        "settings-shortcut-new-codex-agent",
+        "settings-shortcut-new-opencode-agent",
+        "settings-shortcuts-restore-all",
+        "Paste",
+        "Voice Recording",
+        "Arrow Navigation",
+        "Space Pan",
+        "Terminal Input",
+        "Modified",
+        "Restore",
+    ];
+
+    for anchor in required {
+        assert!(
+            source.contains(anchor),
+            "Keyboard Shortcuts 设置页应包含关键锚点: {anchor}"
+        );
+    }
+    assert!(
+        !source.contains("sidebar_child(theme, \"Keyboard Shortcuts\", false)"),
+        "Keyboard Shortcuts 不应继续是 disabled sidebar_child 占位"
     );
 }
 
@@ -128,20 +188,21 @@ fn test_settings_panel_open_close_toggle_preserve_section() {
     assert!(!panel.open, "第二次 toggle() 应关闭打开的设置面板");
 }
 
-/// 设置面板分组选择：点击 Runtime / Skills 应切换右侧内容并保持弹窗打开。
+/// 设置面板分组选择：点击 Runtime / Voice / Skills 应切换右侧内容并保持弹窗打开。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   section count = 5（General / Runtime / Agents / Skills / Hooks）
+///   section count = 7（General / Keyboard / Runtime / Voice / Agents / Skills / Hooks）
 ///   initial open = true（模拟用户已经打开设置弹窗）
-///   target sequence = Runtime → Skills（覆盖两个非默认分组）
+///   target sequence = Runtime → Voice → Skills（覆盖三个非默认分组）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. open() 打开设置面板
 ///   2. select(Runtime) → active_section = Runtime，open 仍为 true
-///   3. select(Skills) → active_section = Skills，open 仍为 true
+///   3. select(Voice) → active_section = Voice，open 仍为 true
+///   4. select(Skills) → active_section = Skills，open 仍为 true
 ///
 /// 预期结果：
-///   - 正断言：Runtime 与 Skills 都能成为 active_section
+///   - 正断言：Runtime / Voice / Skills 都能成为 active_section
 ///   - 正断言：切换分组不会关闭弹窗
 ///   - 负断言：选择 Skills 后不应仍停留在 Runtime
 #[test]
@@ -157,6 +218,19 @@ fn test_settings_panel_selects_sections_without_closing() {
     );
     assert!(panel.open, "选择 Runtime 不应关闭设置弹窗");
 
+    panel.select(SettingsSection::Voice);
+    assert_eq!(
+        panel.active_section,
+        SettingsSection::Voice,
+        "选择 Voice 后右侧内容应切到 Voice 分组"
+    );
+    assert!(panel.open, "选择 Voice 不应关闭设置弹窗");
+    assert_ne!(
+        panel.active_section,
+        SettingsSection::Runtime,
+        "选择 Voice 后不应继续停留在 Runtime 分组"
+    );
+
     panel.select(SettingsSection::Skills);
     assert_eq!(
         panel.active_section,
@@ -168,6 +242,61 @@ fn test_settings_panel_selects_sections_without_closing() {
         panel.active_section,
         SettingsSection::Runtime,
         "选择 Skills 后不应继续停留在 Runtime 分组"
+    );
+}
+
+/// Voice 页面锚点：Settings 应提供语音识别、规划模型和 trace 配置入口。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source = settings_panel.rs + settings_content.rs + settings_voice.rs
+///   nav anchor = Voice
+///   storage keys = 5 个 voice.* key（endpoint/model/refine/model_dir/trace）
+///   hidden debug env = MULTISOUL_VOICE_TRANSCRIPT，不应暴露成设置项
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 拼接 Settings 生产渲染源码
+///   2. 检查 Voice 导航、分区标题、持久化 key 与按钮锚点
+///   3. 检查隐藏 transcript fallback 没有出现在 Settings UI
+///
+/// 预期结果：
+///   - 正断言：Voice 页面包含 Speech Recognition / Command Planning / Advanced
+///   - 正断言：页面包含模型目录选择、恢复默认和 trace toggle 锚点
+///   - 负断言：不应暴露 MULTISOUL_VOICE_TRANSCRIPT
+#[test]
+fn test_voice_settings_panel_contains_voice_configuration_anchors() {
+    let source = format!(
+        "{}{}{}{}{}",
+        include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/voice.rs"),
+        include_str!("../../src/settings/voice/state.rs"),
+        include_str!("../../src/settings/voice/view.rs")
+    );
+    let anchors = [
+        "SettingsSection::Voice",
+        "Voice",
+        "Speech Recognition",
+        "Command Planning",
+        "Advanced",
+        "voice.ollama.endpoint",
+        "voice.ollama.model",
+        "voice.refine.model",
+        "voice.paraformer.model_dir",
+        "voice.trace_enabled",
+        "settings-voice-model-dir-choose",
+        "settings-voice-model-dir-default",
+        "settings-voice-trace-toggle",
+    ];
+
+    for anchor in anchors {
+        assert!(
+            source.contains(anchor),
+            "Voice 设置页应包含配置锚点: {anchor}"
+        );
+    }
+    assert!(
+        !source.contains("MULTISOUL_VOICE_TRANSCRIPT"),
+        "Voice Settings 不应暴露测试用 transcript 注入环境变量"
     );
 }
 
@@ -283,4 +412,75 @@ fn test_settings_panel_uses_card_theme_tokens_not_light_mock_palette() {
             "Settings 不应继续保留上一版白色 mock 调色常量: {color}"
         );
     }
+}
+
+/// T-W5: Settings 侧栏必须新增 Wallpaper 项，并在 content 分发里渲染它。
+///
+/// 数据来源：将 panel.rs / content.rs / wallpaper.rs 三个源文件拼接为单一
+/// source 字符串，逐一检查下列 anchor 子串是否存在。
+///
+/// 执行过程：
+///   1. include_str! 拼接三处源码 → src
+///   2. 遍历 required anchors，断言每个都出现在 src 中
+///
+/// 预期结果：
+///   - "SettingsSection::Wallpaper"：枚举新增 Wallpaper 变体
+///   - "\"Wallpaper\""：title()/content_title() 返回 Wallpaper
+///   - "wallpaper_settings"：app 字段 / 渲染 fn 名已接线
+///   - "wallpaper_state"：settings_content 签名新增该参数
+#[test]
+fn test_settings_has_wallpaper_section() {
+    let src = format!(
+        "{}{}{}",
+        include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/wallpaper.rs")
+    );
+    let required = [
+        "SettingsSection::Wallpaper",
+        "\"Wallpaper\"",      // title
+        "wallpaper_settings", // toolbar/state field wired
+        "wallpaper_state",    // param
+    ];
+    for anchor in required {
+        assert!(
+            src.contains(anchor),
+            "wallpaper settings wiring missing: {anchor}"
+        );
+    }
+}
+
+/// T-11: 视频缩略图必须用首帧解码（first_frame_bgra），而不是停在 VIDEO 占位。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source = view.rs（网格渲染）+ video_thumbnails.rs（mac-gated 缓存/解码帮助）
+///   required anchors:
+///     - first_frame_bgra：必须调用 VideoDecoder::first_frame_bgra 解码首帧
+///     - video_thumb：缩略图渲染处必须携带可被测试锚定的 video_thumb id/source 标记
+///   banned = `"VIDEO"` 占位仍允许作为 mac 以外 / 解码中 的 fallback，但视频分支
+///            的主路径必须出现 first_frame_bgra 与 video_thumb 锚点。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. include_str! 拼接 view.rs + video_thumbnails.rs
+///   2. 断言 first_frame_bgra 出现 → 视频缩略图确实走 AVAssetReader 首帧解码
+///   3. 断言 video_thumb 标记出现 → 视频缩略图渲染分支携带被锚定的标记
+///
+/// 预期结果：
+///   - 正断言：first_frame_bgra 存在
+///   - 正断言：video_thumb 标记存在
+#[test]
+fn test_video_thumbnail_uses_first_frame() {
+    let source = format!(
+        "{}{}",
+        include_str!("../../src/settings/wallpaper/view.rs"),
+        include_str!("../../src/app/video_thumbnails.rs"),
+    );
+    assert!(
+        source.contains("first_frame_bgra"),
+        "视频缩略图主路径必须调用 VideoDecoder::first_frame_bgra 解码首帧，而不是停在占位"
+    );
+    assert!(
+        source.contains("video_thumb"),
+        "视频缩略图渲染分支必须携带 video_thumb id/source 标记以便锚定"
+    );
 }

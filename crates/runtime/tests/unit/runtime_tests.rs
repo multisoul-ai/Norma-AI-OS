@@ -209,58 +209,6 @@ fn test_spawn_agent_registers_live_node_and_agent_descriptor() {
     rt.kill_all();
 }
 
-/// Claude/Codex Agent profile 映射到精确的高权限启动命令。
-///
-/// 数据构造（含关键数值推导）：
-///   Claude profile → /bin/zsh -ic "exec claude --dangerously-skip-permissions"
-///   Codex profile  → /bin/zsh -ic "exec codex --dangerously-bypass-approvals-and-sandbox"
-///   使用 -ic：交互 shell 读取用户环境，exec 替换 shell 进程
-///
-/// 执行过程：
-///   1. Runtime::agent_command(Claude)
-///   2. Runtime::agent_command(Codex)
-///   3. 分别检查 program 与 args
-///
-/// 预期结果：
-///   - 正断言：两个命令 program 都是 /bin/zsh
-///   - 正断言：Claude/Codex args 精确匹配计划中的危险权限命令
-///   - 负断言：Claude 命令不应包含 Codex 可执行名，Codex 命令不应包含 Claude 可执行名
-#[test]
-fn test_agent_command_specs_are_exact() {
-    let claude = Runtime::agent_command(AgentProfile::Claude);
-    let codex = Runtime::agent_command(AgentProfile::Codex);
-
-    assert_eq!(
-        claude.program, "/bin/zsh",
-        "Claude Agent 应通过 /bin/zsh 启动以继承用户 shell 环境"
-    );
-    assert_eq!(
-        codex.program, "/bin/zsh",
-        "Codex Agent 应通过 /bin/zsh 启动以继承用户 shell 环境"
-    );
-    assert_eq!(
-        claude.args,
-        vec!["-ic", "exec claude --dangerously-skip-permissions"],
-        "Claude Agent args 必须精确匹配计划中的高权限命令"
-    );
-    assert_eq!(
-        codex.args,
-        vec![
-            "-ic",
-            "exec codex --dangerously-bypass-approvals-and-sandbox"
-        ],
-        "Codex Agent args 必须精确匹配计划中的高权限命令"
-    );
-    assert!(
-        !claude.args.iter().any(|arg| arg.contains("codex")),
-        "Claude Agent 命令不应包含 codex 可执行名"
-    );
-    assert!(
-        !codex.args.iter().any(|arg| arg.contains("claude")),
-        "Codex Agent 命令不应包含 claude 可执行名"
-    );
-}
-
 /// Terminal zsh 启动命令：应以 login shell 读取用户 profile 环境。
 ///
 /// 数据构造：

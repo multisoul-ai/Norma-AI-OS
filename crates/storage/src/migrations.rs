@@ -64,6 +64,14 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
             updated_at_unix INTEGER NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS node_sessions (
+            node_id         INTEGER PRIMARY KEY NOT NULL,
+            kind            TEXT    NOT NULL,
+            cwd             TEXT,
+            session_id      TEXT,
+            updated_at_unix INTEGER NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS voice_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             transcript TEXT NOT NULL,
@@ -75,7 +83,9 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
             model TEXT,
             target_node_id INTEGER,
             created_at_unix INTEGER NOT NULL,
-            error TEXT
+            error TEXT,
+            raw_transcript TEXT NOT NULL DEFAULT '',
+            refined_transcript TEXT
         );
         "#,
     )?;
@@ -97,6 +107,18 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
         "session_checkpoints",
         "agent_profile",
         "agent_profile TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "voice_history",
+        "raw_transcript",
+        "raw_transcript TEXT NOT NULL DEFAULT ''",
+    )?;
+    ensure_column(
+        connection,
+        "voice_history",
+        "refined_transcript",
+        "refined_transcript TEXT",
     )?;
     connection.pragma_update(None, "user_version", 1)?;
     Ok(())

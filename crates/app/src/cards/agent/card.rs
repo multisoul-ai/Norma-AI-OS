@@ -9,7 +9,7 @@ use crate::motion::breathing::BreathingIntent;
 use crate::motion::breathing::BreathingState;
 use canvas::{CanvasNode, CanvasNodeKind, CanvasRect, NodeType};
 use gpui::AnyElement;
-use runtime::{AgentTaskState, NodeResize, Runtime};
+use runtime::{AgentTaskState, CardAttentionKind, CardAttentionState, NodeResize, Runtime};
 
 pub struct AgentCard;
 
@@ -47,6 +47,9 @@ impl Card for AgentCard {
             context.zoom,
             context.bottom_radius_px,
             selection,
+            context.focused,
+            context.reduce_motion,
+            context.terminal_cursor_phase,
         )
     }
 
@@ -76,13 +79,26 @@ fn agent_task_badge(state: Option<AgentTaskState>) -> Option<CardChromeTaskBadge
     })
 }
 
-pub fn agent_breathing_intent(state: Option<AgentTaskState>) -> BreathingIntent {
+pub fn agent_breathing_intent(
+    state: Option<AgentTaskState>,
+    attention: Option<CardAttentionState>,
+) -> BreathingIntent {
     match state {
         Some(AgentTaskState::Thinking) | Some(AgentTaskState::RunningTool { .. }) => {
             BreathingIntent::Inactive
         }
         Some(AgentTaskState::WaitingApproval { .. }) => BreathingIntent::Warm,
-        Some(AgentTaskState::Done) => BreathingIntent::Cool,
+        Some(AgentTaskState::Done) => match attention {
+            Some(CardAttentionState {
+                kind: CardAttentionKind::AgentTaskDone,
+                viewed: false,
+            }) => BreathingIntent::Cool,
+            Some(CardAttentionState {
+                kind: CardAttentionKind::AgentTaskDone,
+                viewed: true,
+            })
+            | None => BreathingIntent::Inactive,
+        },
         Some(AgentTaskState::Ready)
         | Some(AgentTaskState::Failed { .. })
         | Some(AgentTaskState::Ended)
@@ -102,8 +118,11 @@ mod tests {
     use super::*;
     use canvas::{AgentProfile, AgentSpec, CanvasRect};
 
-    fn agent_breathing_state(state: Option<AgentTaskState>) -> BreathingState {
-        agent_breathing_intent(state).breathing_state()
+    fn agent_breathing_state(
+        state: Option<AgentTaskState>,
+        attention: Option<CardAttentionState>,
+    ) -> BreathingState {
+        agent_breathing_intent(state, attention).breathing_state()
     }
 
     /// AgentCard chrome 使用 Agent profile 作为标题。
@@ -111,14 +130,15 @@ mod tests {
     /// 数据构造（含关键数值推导）：
     ///   Claude node: id=1, kind=Agent(profile=Claude)
     ///   Codex node:  id=2, kind=Agent(profile=Codex)
-    ///   profile display title 分别为 "Claude" / "Codex"
+    ///   OpenCode node: id=3, kind=Agent(profile=OpenCode)
+    ///   profile display title 分别为 "Claude" / "Codex" / "OpenCode"
     ///
     /// 执行过程：
-    ///   1. 构造两个 CanvasNode
+    ///   1. 构造三个 CanvasNode
     ///   2. 调用 AgentCard.chrome
     ///
     /// 预期结果：
-    ///   - 正断言：Claude/Codex title 分别正确
+    ///   - 正断言：Claude/Codex/OpenCode title 分别正确
     ///   - 负断言：Claude title 不应退化为 "Agent" 或 "Terminal"
     #[test]
     fn test_agent_card_chrome_uses_profile_title() {
@@ -143,9 +163,20 @@ mod tests {
             z_index: 2,
             selected: false,
         };
+        let opencode = CanvasNode {
+            id: 3,
+            kind: CanvasNodeKind::Agent(AgentSpec {
+                profile: AgentProfile::OpenCode,
+                alias: None,
+            }),
+            bounds: CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+            z_index: 3,
+            selected: false,
+        };
 
         let claude_chrome = CARD.chrome(&claude, &runtime);
         let codex_chrome = CARD.chrome(&codex, &runtime);
+        let opencode_chrome = CARD.chrome(&opencode, &runtime);
 
         assert_eq!(
             claude_chrome.title, "Claude",
@@ -154,6 +185,10 @@ mod tests {
         assert_eq!(
             codex_chrome.title, "Codex",
             "Codex Agent card 标题应显示 Codex"
+        );
+        assert_eq!(
+            opencode_chrome.title, "OpenCode",
+            "OpenCode Agent card 标题应显示 OpenCode"
         );
         assert_ne!(
             claude_chrome.title, "Agent",
@@ -270,12 +305,12 @@ mod tests {
     #[test]
     fn test_agent_breathing_state_maps_active_states_to_color_groups() {
         assert_eq!(
-            agent_breathing_state(Some(AgentTaskState::Thinking)),
+            agent_breathing_state(Some(AgentTaskState::Thinking), None),
             BreathingState::Inactive,
             "Thinking 由 Chase 动画驱动，breathing 应为 Inactive"
         );
         assert_eq!(
-            agent_breathing_state(Some(AgentTaskState::RunningTool { tool_name: None })),
+            agent_breathing_state(Some(AgentTaskState::RunningTool { tool_name: None }), None),
             BreathingState::Inactive,
             "RunningTool 由 Chase 动画驱动，breathing 应为 Inactive"
         );
@@ -288,7 +323,10 @@ mod tests {
             "RunningTool 应激活 Chase 动画"
         );
         assert_eq!(
-            agent_breathing_state(Some(AgentTaskState::WaitingApproval { tool_name: None })),
+            agent_breathing_state(
+                Some(AgentTaskState::WaitingApproval { tool_name: None }),
+                None
+            ),
             BreathingState::Warm,
             "WaitingApproval 应映射为暖色呼吸"
         );
@@ -298,47 +336,70 @@ mod tests {
         );
     }
 
-    /// Done 使用 Cool 呼吸（青蓝紫循环），与 Running 的 Chase 动画形成视觉区分。
-    /// Ready/Failed/Ended/None 保持 Inactive（静止）。
+    /// Done 只有在存在未查看完成提醒时使用 Cool 呼吸；已查看或缺失 attention 时静止。
+    /// Ready/Failed/Ended/None 保持 Inactive。
     ///
-    /// 数据构造：
-    ///   Done → Cool 呼吸（视觉上"完成但仍在线"）
-    ///   其余终止态 → Inactive（静止）
+    /// 数据构造（含关键数值推导）：
+    ///   Done + AgentTaskDone(viewed=false) → Cool 呼吸，提示用户查看结果
+    ///   Done + AgentTaskDone(viewed=true)  → Inactive，表示用户已查看
+    ///   Done + None                        → Inactive，避免缺失 attention 时误闪
     ///
     /// 执行过程：
-    ///   1. 分别构造 Ready、Done、Failed、Ended、None
+    ///   1. 分别构造 Ready、Done(unviewed/viewed/none)、Failed、Ended、None
     ///   2. 调用 agent_breathing_state 映射
     ///
     /// 预期结果：
-    ///   - Done 映射为 Cool 呼吸
-    ///   - Ready/Failed/Ended/None 仍为 Inactive
+    ///   - Done 未查看映射为 Cool 呼吸
+    ///   - Done 已查看和缺失 attention 映射为 Inactive
     ///   - Done 不应激活 Chase
     #[test]
     fn test_agent_breathing_state_keeps_terminal_states_static() {
+        let unviewed_done = Some(CardAttentionState {
+            kind: runtime::CardAttentionKind::AgentTaskDone,
+            viewed: false,
+        });
+        let viewed_done = Some(CardAttentionState {
+            kind: runtime::CardAttentionKind::AgentTaskDone,
+            viewed: true,
+        });
+
         assert_eq!(
-            agent_breathing_state(Some(AgentTaskState::Ready)),
+            agent_breathing_state(Some(AgentTaskState::Ready), None),
             BreathingState::Inactive,
             "Ready 不应呼吸"
         );
         assert_eq!(
-            agent_breathing_state(Some(AgentTaskState::Done)),
+            agent_breathing_state(Some(AgentTaskState::Done), unviewed_done),
             BreathingState::Cool,
-            "Done 应切换为 Cool 呼吸，表达完成后的在线感"
+            "未查看 Done attention 应保持 Cool 呼吸，提示用户查看结果"
         );
         assert_eq!(
-            agent_breathing_state(Some(AgentTaskState::Failed {
-                message: "boom".to_string()
-            })),
+            agent_breathing_state(Some(AgentTaskState::Done), viewed_done),
+            BreathingState::Inactive,
+            "已查看 Done attention 应关闭呼吸灯"
+        );
+        assert_eq!(
+            agent_breathing_state(Some(AgentTaskState::Done), None),
+            BreathingState::Inactive,
+            "缺失 attention 的 Done 不应呼吸，避免恢复/异常状态误提示"
+        );
+        assert_eq!(
+            agent_breathing_state(
+                Some(AgentTaskState::Failed {
+                    message: "boom".to_string()
+                }),
+                None
+            ),
             BreathingState::Inactive,
             "Failed 应维持现有错误色静态高亮，不应呼吸"
         );
         assert_eq!(
-            agent_breathing_state(Some(AgentTaskState::Ended)),
+            agent_breathing_state(Some(AgentTaskState::Ended), None),
             BreathingState::Inactive,
             "Ended 不应呼吸"
         );
         assert_eq!(
-            agent_breathing_state(None),
+            agent_breathing_state(None, None),
             BreathingState::Inactive,
             "缺失 task state 时不应呼吸"
         );
@@ -348,35 +409,51 @@ mod tests {
         );
     }
 
-    /// Done 的 breathing intent 为 Cool，让完成态保持青蓝紫呼吸而非绿色闪烁。
+    /// Done 的 breathing intent 由通用 attention viewed 状态控制。
     ///
-    /// 数据构造：
+    /// 数据构造（含关键数值推导）：
     ///   AgentTaskState::Done 表示 provider 已完成当前任务。
+    ///   unviewed attention = AgentTaskDone{viewed=false}
+    ///   viewed attention   = AgentTaskDone{viewed=true}
     ///
     /// 执行过程：
-    ///   1. 调用 agent_breathing_intent(Done)
-    ///   2. 调用 agent_breathing_state(Done) 验证 Cool 循环呼吸激活
+    ///   1. 调用 agent_breathing_intent(Done, unviewed)
+    ///   2. 调用 agent_breathing_intent(Done, viewed)
     ///
     /// 预期结果：
-    ///   - 正断言：intent 为 BreathingIntent::Cool
-    ///   - 正断言：breathing_state 为 Cool（持续循环呼吸）
-    ///   - 负断言：Done 不应退化为 BreathingIntent::Inactive
+    ///   - 正断言：未查看 Done 使用 BreathingIntent::Cool
+    ///   - 正断言：已查看 Done 使用 BreathingIntent::Inactive
+    ///   - 负断言：已查看 Done 不应继续保持 Cool
     #[test]
-    fn test_agent_breathing_intent_preserves_done_for_completion_settle() {
+    fn test_agent_breathing_intent_uses_attention_for_done_prompt() {
+        let unviewed_done = Some(CardAttentionState {
+            kind: runtime::CardAttentionKind::AgentTaskDone,
+            viewed: false,
+        });
+        let viewed_done = Some(CardAttentionState {
+            kind: runtime::CardAttentionKind::AgentTaskDone,
+            viewed: true,
+        });
+
         assert_eq!(
-            agent_breathing_intent(Some(AgentTaskState::Done)),
+            agent_breathing_intent(Some(AgentTaskState::Done), unviewed_done),
             BreathingIntent::Cool,
-            "Done intent 应使用 Cool 呼吸表达完成后在线状态"
+            "未查看 Done attention 应使用 Cool 呼吸提示用户查看结果"
         );
         assert_eq!(
-            agent_breathing_state(Some(AgentTaskState::Done)),
+            agent_breathing_state(Some(AgentTaskState::Done), unviewed_done),
             BreathingState::Cool,
-            "Done 应持续参与 Cool 循环呼吸"
+            "未查看 Done 应持续参与 Cool 循环呼吸"
+        );
+        assert_eq!(
+            agent_breathing_intent(Some(AgentTaskState::Done), viewed_done),
+            BreathingIntent::Inactive,
+            "已查看 Done attention 应关闭呼吸灯"
         );
         assert_ne!(
-            agent_breathing_intent(Some(AgentTaskState::Done)),
-            BreathingIntent::Inactive,
-            "Done 不应退化为 Inactive，否则完成后无呼吸动画"
+            agent_breathing_intent(Some(AgentTaskState::Done), viewed_done),
+            BreathingIntent::Cool,
+            "已查看 Done 不应继续保持 Cool 呼吸"
         );
     }
 }

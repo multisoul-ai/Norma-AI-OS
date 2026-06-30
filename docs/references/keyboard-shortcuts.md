@@ -1,8 +1,8 @@
 # Keyboard Shortcuts Reference
 
-本文汇总 Multisoul Desktop 当前已注册的快捷键与键盘/指针交互契约。macOS 上 `Cmd` 对应 GPUI 的 `platform` 修饰键（⌘）。
+本文汇总 Multisoul Desktop 当前可配置快捷键与键盘/指针交互契约。macOS 上 `Cmd` 对应 GPUI 的 `platform` 修饰键（⌘）。
 
-最后对照源码：`crates/app/src/main.rs`、`crates/app/src/app/keyboard.rs`、`crates/app/src/canvas/view.rs`（2026-06-25）。
+最后对照源码：`crates/app/src/shortcuts.rs`、`crates/app/src/app/keyboard.rs`、`crates/app/src/settings/keyboard.rs`、`crates/app/src/canvas/view.rs`、`crates/app/src/app/new_menu.rs`（2026-06-28）。
 
 ## 1. 注册机制
 
@@ -10,37 +10,41 @@
 
 | 层 | 注册位置 | 机制 | 典型用途 |
 | --- | --- | --- | --- |
-| **GPUI Action 绑定** | `main.rs` → `cx.bind_keys([...])` | 全局 `KeyBinding` → `actions!` 定义的 Action | 新建卡片、布局、复制、打开项目 |
+| **App shortcut registry** | `shortcuts.rs` → `default_shortcut_entries()` | 默认快捷键 + SQLite `settings` JSON override → 有效快捷键 | 新建卡片、布局、复制、打开项目、打开 Settings |
 | **Action 处理器** | `app/mod.rs` → `.on_action(cx.listener(...))` | Action 触发时执行副作用 | 与菜单项共用同一 Action |
-| **原始键事件路由** | `app/keyboard.rs` → `on_key_down` / `on_key_up` | 不经 Action 系统，直接读 `Keystroke` | 语音长按、方向键导航、Cmd+V 粘贴、PTY 输入 |
+| **原始键事件路由** | `app/keyboard.rs` → `on_key_down` / `on_key_up` | 先处理 Settings 录制态和 registry 命令，再处理手写输入路由 | 语音长按、方向键导航、Cmd+V 粘贴、PTY 输入 |
 
 鼠标/滚轮交互不走 Action 系统，由 `canvas/view.rs` 与 `canvas/scroll.rs` 处理。
 
 ```text
-cx.bind_keys (main.rs)
-  → GPUI 分发 Action
-  → MultisoulApp::on_* (mod.rs)
+shortcuts.rs registry + SettingsStore overrides
+  → on_key_down 匹配 Keystroke
+  → MultisoulApp::dispatch_shortcut_command
 
 on_key_down (keyboard.rs)
-  → 语音 / 导航 / 粘贴 / PTY 编码
+  → Settings 录制 / app 命令 / 语音 / 导航 / 粘贴 / PTY 编码
 
 canvas/view.rs
   → pan / 拖拽 / 选中 / 文本选区 / 滚轮路由
 ```
 
-## 2. 全局快捷键（GPUI Action）
+## 2. 可配置 App 命令快捷键
 
-在 `crates/app/src/main.rs` 通过 `cx.bind_keys` 注册。Action 定义见 `crates/app/src/app/mod.rs` 的 `actions!(multisoul, [...])`。
+默认值在 `crates/app/src/shortcuts.rs` 注册。用户 override 以 JSON 存在 app SQLite 的 `settings` 表，key 为 `keyboard.shortcuts.v1`。Settings → Keyboard Shortcuts 页面会即时更新内存中的有效快捷键；无需重启。
 
-| 快捷键 | Action | 处理器 | 生效界面 | 行为 |
+| 默认快捷键 | Command | 处理器 | 生效界面 | 行为 |
 | --- | --- | --- | --- | --- |
 | `⌘N` | `NewTerminal` | `on_new_terminal` | Canvas | 在可见画布区域新建 Terminal 节点，激活选中并触发当前布局 reflow |
 | `⌘C` | `CopyCardContent` | `on_copy_card_content` | Canvas | 复制当前终端文本选区到剪贴板；无选区时不写入 |
 | `⌘O` | `OpenProject` | `on_open_project` | 全局 | 弹出目录选择器打开 workspace（Launchpad / Canvas 均可用） |
 | `⌘⇧O` | `OpenPreviewFile` | `on_open_preview_file` | Canvas | 弹出文件选择器，创建 Preview 卡片 |
+| 未设置 | `NewClaudeAgent` | `on_new_claude_agent` | Canvas | 创建 Claude Code agent 卡片 |
+| 未设置 | `NewCodexAgent` | `on_new_codex_agent` | Canvas | 创建 Codex agent 卡片 |
+| `⌘D` | `DeleteCard` | `on_delete_card_shortcut` | Canvas | 删除当前聚焦卡片；无聚焦时仅删除唯一选中的画布卡片 |
 | `⌘M` | `ToggleMasterLayout` | `on_toggle_master_layout` | Canvas | 切换 master/detail 布局；无选中时忽略 |
 | `⌘⇧L` | `ReflowLayout` | `on_reflow_layout` | Canvas | 退出 master 模式并按最多三列平铺网格重排全部节点 |
 | `Esc` | `ExitFocus` | `on_exit_focus` | 全局 | 从 `NodeFocused` 退回 `CanvasSelect`（画布选择模式） |
+| `⌘,` | `ToggleSettings` | `toggle_settings_panel` | Canvas | 打开或关闭 Settings 面板 |
 
 ### 复制（`⌘C`）优先级
 
@@ -50,29 +54,52 @@ canvas/view.rs
 2. 否则若画布上**恰好选中一个**节点 → 以该节点为准。
 3. 仅当存在**非空**终端文本选区（`active_text_selection`）时才写入剪贴板。
 
+### 删除（`⌘D`）目标优先级
+
+`on_delete_card_shortcut` 复用标题栏关闭按钮的 `InputEvent::CloseNode` → `Route::RemoveNode` → `close_node_through_route` 路径：
+
+1. 若节点已聚焦（`NodeFocused`）且该节点仍存在 → 删除该聚焦节点。
+2. 否则若画布上**恰好选中一个**仍存在的节点 → 删除该节点。
+3. 多选、空选择、失效选择或 Launchpad 下静默忽略。
+
+删除后的布局 reflow、preview 清理、master/detail 更新、交互状态清理、canvas/session dirty 标记与标题栏关闭行为保持一致。
+
 ### Canvas 前置条件
 
-以下 Action 在 `AppScreen::Launchpad` 下会直接返回或设置错误提示，不执行画布操作：
+以下命令在 `AppScreen::Launchpad` 下会直接返回或设置错误提示，不执行画布操作：
 
-- `NewTerminal`、`OpenPreviewFile`、`ToggleMasterLayout`、`ReflowLayout`
+- `NewTerminal`、`OpenPreviewFile`、`NewClaudeAgent`、`NewCodexAgent`、`DeleteCard`、`ToggleMasterLayout`、`ReflowLayout`、`ToggleSettings`
 - `CopyCardContent`（静默忽略）
 
 `OpenProject`、`ExitFocus` 不受 Canvas 限制。
 
-## 3. 菜单项（无快捷键绑定）
+### Settings 页面校验规则
 
-`main.rs` 的 `Multisoul` 菜单注册了以下 Action，但**没有**对应的 `KeyBinding`：
+Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore Defaults。校验规则：
+
+- 不允许两个可编辑命令使用同一快捷键。
+- 不允许覆盖只读输入行为：`⌘V`、`⌘⇧V`、裸方向键、裸 `Space`。
+- 不允许裸可打印字符作为 app 命令快捷键，避免干扰 terminal 输入。
+- 录制非 Exit Focus 命令时，裸 `Esc` 取消录制；录制 Exit Focus 时，裸 `Esc` 可作为快捷键。
+
+## 3. 菜单项与默认未设置命令
+
+`main.rs` 的 `Multisoul` 菜单仍注册 Action，菜单点击与快捷键分发共用同一批处理器。以下命令默认没有快捷键，但可在 Settings 中分配：
 
 | 菜单项 | Action | 处理器 | 等效入口 |
 | --- | --- | --- | --- |
-| New Claude Agent | `NewClaudeAgent` | `on_new_claude_agent` | 顶部工具栏「Claude Code」 |
-| New Codex Agent | `NewCodexAgent` | `on_new_codex_agent` | 顶部工具栏「Codex」 |
+| New Claude Agent | `NewClaudeAgent` | `on_new_claude_agent` | 顶部工具栏 ✚ 菜单 → Claude |
+| New Codex Agent | `NewCodexAgent` | `on_new_codex_agent` | 顶部工具栏 ✚ 菜单 → Codex |
 
-其余菜单项均有快捷键，见上一节。
+顶部工具栏的 ✚（Plus）按钮不再是直接的新建终端入口，而是展开一个浮层菜单（Terminal / Claude / Codex / Preview）。菜单展开后：
+
+- ✚ 按钮高亮（accent 橙填充），再次点击收起。
+- 选择任一项执行对应动作（Terminal → `on_new_terminal`、Claude → `spawn_agent_card(Claude)`、Codex → `spawn_agent_card(Codex)`、Preview → `on_open_preview_file`）并自动收起菜单。
+- 裸 `Esc` 优先收起菜单（不退焦、不传 PTY）。画布任意鼠标按下也会收起菜单。判定函数：`should_close_new_menu_on_escape`（`keyboard.rs`）。
 
 ## 4. 键事件路由（非 Action）
 
-在 `crates/app/src/app/keyboard.rs` 的 `on_key_down` / `on_key_up` / `on_modifiers_changed` 中处理，不经过 `cx.bind_keys`。
+在 `crates/app/src/app/keyboard.rs` 的 `on_key_down` / `on_key_up` / `on_modifiers_changed` 中处理。Settings 录制态优先级最高，其次是可配置 app 命令，然后才是以下手写输入行为。
 
 ### 4.1 语音输入
 
@@ -134,7 +161,7 @@ canvas/view.rs
 
 - 任意 `⌘` 组合（`modifiers.platform == true` 时 `keystroke_to_input` 返回 `None`）
 - 需交给 IME 的可打印键（`ime::should_defer_keystroke_to_ime`）
-- 被 app Action 消费的键（如 `⌘N`、`⌘M`、`Esc` 等）
+- 被 app shortcut registry 消费的键（如默认 `⌘N`、`⌘D`、`⌘M`、`Esc` 等）
 
 **会传入 PTY：**
 
@@ -178,7 +205,7 @@ canvas/view.rs
 
 | 模式 | 进入方式 | 退出方式 | 键盘主要行为 |
 | --- | --- | --- | --- |
-| `CanvasSelect` | 默认；单击选中；Esc | 双击/正文点击 → 聚焦 | 方向键导航；Space 预备 pan；平台快捷键走 Action |
+| `CanvasSelect` | 默认；单击选中；Esc | 双击/正文点击 → 聚焦 | 方向键导航；Space 预备 pan；平台快捷键走 shortcut registry |
 | `NodeFocused` | 双击；terminal 正文点击；键盘自动聚焦 | Esc → `ExitFocus` | 按键进 PTY；`⌘V` 粘贴；`⌘C` 复制选区 |
 
 路由决策的纯函数：`crates/runtime/src/route.rs`。
@@ -187,18 +214,17 @@ canvas/view.rs
 
 | 项目 | 状态 |
 | --- | --- |
-| Settings 面板侧栏「Keyboard Shortcuts」 | UI 占位，侧栏项 `enabled = false`，尚无设置页内容（`settings/panel.rs`） |
-| New Claude / Codex Agent 快捷键 | 仅菜单与工具栏，无 `KeyBinding` |
+| 输入路由类快捷键编辑 | `⌘V`、`⌘⇧V`、方向键、`Space`、PTY 输入在 Settings 中只读展示 |
 | 滚轮缩放 | 文档旧描述（`ARCHITECTURE.md` §5）已过时；当前滚轮不缩放 |
-| Settings 面板开关 | 仅工具栏 ⚙ 点击，无快捷键 |
 
 ## 8. 源码索引
 
 | 关注点 | 文件 |
 | --- | --- |
-| `cx.bind_keys` 注册 | `crates/app/src/main.rs` |
+| 快捷键 registry / 偏好 / 校验 | `crates/app/src/shortcuts.rs` |
+| Settings 快捷键页面 | `crates/app/src/settings/keyboard.rs` |
 | Action 定义与 `on_action` 挂载 | `crates/app/src/app/mod.rs` |
-| 键事件 / 粘贴 / 导航 / 复制 | `crates/app/src/app/keyboard.rs` |
+| 键事件 / app 命令分发 / 粘贴 / 导航 / 复制 / 删除 | `crates/app/src/app/keyboard.rs` |
 | 语音长按快捷键 | `crates/app/src/app/voice/control.rs` |
 | GPUI → PTY 编码 | `crates/app/src/cards/term/view.rs` → `keystroke_to_input` |
 | IME  defer 判定 | `crates/app/src/app/ime.rs` |
@@ -210,8 +236,10 @@ canvas/view.rs
 ## 9. 新增快捷键检查清单
 
 1. 在 `actions!` 中声明 Action（若需菜单复用）。
-2. 在 `main.rs` 的 `cx.bind_keys` 注册 `KeyBinding`；如需菜单项，同步 `MenuItem::action`。
-3. 在 `MultisoulApp::render` 根元素 `.on_action(...)` 挂载处理器。
-4. 若快捷键不应传入 PTY，确认 `keystroke_to_input` 对 `modifiers.platform` 的拦截已覆盖；必要时补测试（参考 `test_keystroke_to_input_platform_shortcut_is_not_sent_to_pty`）。
-5. 若与 `on_key_down` 自定义路由冲突（如 `⌘V` / `⌘⇧V`），在 `keyboard.rs` 或 `voice/control.rs` 明确优先级并补单元测试。
-6. 更新本文档。
+2. 在 `shortcuts.rs` 的 `default_shortcut_entries()` 增加命令默认值和 Settings 展示文案。
+3. 在 `settings/keyboard.rs` 增加 `settings-shortcut-*` 与 restore id，保证 Settings → Keyboard Shortcuts 可录制与恢复。
+4. 在 `app/keyboard.rs` 的 `dispatch_shortcut_command` 映射到处理器。
+5. 在 `MultisoulApp::render` 根元素 `.on_action(...)` 挂载菜单 Action 处理器（仅当需要菜单复用）。
+6. 若快捷键不应传入 PTY，确认 `keystroke_to_input` 对 `modifiers.platform` 的拦截已覆盖；必要时补测试（参考 `test_keystroke_to_input_platform_shortcut_is_not_sent_to_pty`）。
+7. 若与手写输入路由冲突（如 `⌘V` / `⌘⇧V`），先在 `shortcuts.rs` 保留输入行为，再在 `keyboard.rs` 或 `voice/control.rs` 明确优先级并补单元测试。
+8. 更新本文档。
