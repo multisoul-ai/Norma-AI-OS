@@ -2,10 +2,11 @@
 //! viewport culling：屏幕外节点不构建元素。
 
 use crate::app::MultisoulApp;
+#[cfg(test)]
+use crate::canvas::geometry::terminal_content_local_position;
 use crate::canvas::geometry::{
     apply_canvas_wheel_scroll, click_event_for_node, is_title_bar_hit, node_card_radius_px,
     node_edge_highlight_inset_px, node_terminal_radius_px, node_title_radius_px, pt_to_vec,
-    terminal_content_local_position,
 };
 use crate::canvas::interaction::DragState;
 #[cfg(test)]
@@ -13,38 +14,18 @@ use crate::canvas::interaction::InteractionState;
 use crate::canvas::scroll::{
     terminal_scroll_lines_from_pixel_delta, wheel_scroll_owner_for_point, WheelScrollOwner,
 };
-use crate::canvas::text_selection::TextPoint;
-use crate::cards::agent::card::agent_breathing_intent;
+use crate::canvas::terminal_hit::terminal_text_point_for_screen;
+use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
 use crate::cards::chrome::{
-    node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
+    chase_overlay_container, node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
 };
-use crate::cards::term::selection::terminal_point_for_local_position;
-use crate::cards::term::view::terminal_render_metrics;
 use crate::cards::{card_for, CardBodyContext};
-use crate::motion::breathing::BreathingIntent;
 use canvas::{hit_test, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{
-    div, prelude::*, px, rgba, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
-    ScrollWheelEvent, Window,
+    div, prelude::*, px, rgba, AnyElement, Context, MouseButton, MouseDownEvent, MouseMoveEvent,
+    MouseUpEvent, ScrollWheelEvent, Window,
 };
-use runtime::{route, InputEvent, InputMode, NodeScroll, NodeView, Route};
-
-fn terminal_text_point_for_screen(
-    app: &MultisoulApp,
-    node_id: NodeId,
-    screen: Vec2,
-) -> Option<TextPoint> {
-    let node = app.runtime.document.node(node_id)?;
-    let viewport = app.runtime.document.viewport;
-    let node_top_left = viewport.canvas_to_screen(node.bounds.origin);
-    let NodeView::Term { snapshot, .. } = app.runtime.node_view(node_id)?;
-    let local = terminal_content_local_position(screen, node_top_left, viewport.zoom);
-    Some(terminal_point_for_local_position(
-        local,
-        &snapshot,
-        terminal_render_metrics(viewport.zoom),
-    ))
-}
+use runtime::{route, InputMode, NodeScroll, Route};
 
 /// 滚轮/触控板平移画布；卡片内部滚动优先于画布滚动。
 fn on_scroll(
@@ -102,6 +83,12 @@ fn on_mouse_down(
     cx: &mut Context<MultisoulApp>,
 ) {
     let screen = pt_to_vec(ev.position);
+    // 画布上任意鼠标按下都应关闭展开的 ✚ 菜单（避免菜单悬浮在画布之上）。
+    // 不 return：让正常画布点击逻辑继续执行。
+    if app.interaction.new_menu_open {
+        app.interaction.close_new_menu();
+        cx.notify();
+    }
     app.interaction.keyboard_selected_node = None;
 
     // 中键 或 空格+左键 → 开始 pan。
@@ -144,6 +131,7 @@ fn on_mouse_down(
             if let Some(point) = terminal_text_point_for_screen(app, id, screen) {
                 app.runtime.focus.focus_node(id);
                 app.runtime.selection.select_only(id);
+                app.mark_node_viewed_if_needed(id);
                 app.motion.set_pressed(id, true);
                 app.interaction.begin_text_selection(id, point);
                 cx.stop_propagation();
@@ -160,6 +148,7 @@ fn on_mouse_down(
         Route::SelectNode(id) => {
             app.runtime.selection.select_only(id);
             app.runtime.focus.exit_to_canvas();
+            app.mark_node_viewed_if_needed(id);
             app.motion.set_pressed(id, true);
             // 命中标题栏 → 开始拖拽。
             if is_title_bar {
@@ -177,6 +166,7 @@ fn on_mouse_down(
         Route::FocusNode(id) => {
             app.runtime.focus.focus_node(id);
             app.runtime.selection.select_only(id);
+            app.mark_node_viewed_if_needed(id);
             app.motion.set_pressed(id, true);
         }
         _ => {}
@@ -279,7 +269,7 @@ pub fn render_canvas(
     let focus_mode = app.runtime.focus.mode();
 
     // 先收集需要渲染的节点数据（避免借用冲突）。
-    let mut node_elems = Vec::new();
+    let mut node_elems: Vec<AnyElement> = Vec::new();
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
     app.motion.retain_nodes(node_ids.iter().copied());
     for id in node_ids {
@@ -299,12 +289,13 @@ pub fn render_canvas(
         let focused = matches!(focus_mode, InputMode::NodeFocused(fid) if fid == id);
         app.motion.ensure_node(id, canonical_rect);
         app.motion.set_selection_focus(id, selected, focused);
-        let breathing_intent = if node.kind.node_type() == NodeType::Agent {
-            agent_breathing_intent(app.runtime.agent_task_state(id))
-        } else {
-            BreathingIntent::Inactive
-        };
+        let is_agent = node.kind.node_type() == NodeType::Agent;
+        let agent_state = is_agent.then(|| app.runtime.agent_task_state(id)).flatten();
+        let card_attention = app.runtime.card_attention(id);
+        let breathing_intent = agent_breathing_intent(agent_state.clone(), card_attention);
         app.motion.set_breathing_intent(id, breathing_intent);
+        app.motion
+            .set_chase_intent(id, is_agent && agent_chase_intent(agent_state));
         if app
             .interaction
             .drag
@@ -316,8 +307,7 @@ pub fn render_canvas(
 
         let visual = app.motion.resolve_node_visual(id, canonical_rect, theme);
         let top_left = vp.canvas_to_screen(visual.rect.origin);
-        let w = visual.rect.size.x * vp.zoom;
-        let h = visual.rect.size.y * vp.zoom;
+        let (w, h) = (visual.rect.size.x * vp.zoom, visual.rect.size.y * vp.zoom);
 
         // viewport culling：完全在窗口外的节点跳过。
         if top_left.x + w < 0.0 || top_left.y + h < 0.0 || top_left.x > win_w || top_left.y > win_h
@@ -416,14 +406,7 @@ pub fn render_canvas(
                 .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_click(cx.listener(move |app, _, window, cx| {
                     cx.stop_propagation();
-                    let event = InputEvent::CloseNode { node: id };
-                    if let Route::RemoveNode(node_id) = route(&app.runtime.focus.mode(), &event) {
-                        if app.remove_node_and_reflow(node_id, window) {
-                            app.interaction.drag = None;
-                            app.interaction.panning = false;
-                            app.interaction.last_screen = None;
-                        }
-                    }
+                    app.close_node_through_route(id, window);
                     cx.notify();
                 })),
         );
@@ -474,8 +457,10 @@ pub fn render_canvas(
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),
             },
         ));
-
-        node_elems.push(node_div);
+        node_elems.push(node_div.into_any_element());
+        if let Some(chase) = visual.chase_glow {
+            node_elems.push(chase_overlay_container(top_left, w, h, chase, vp.zoom));
+        }
     }
 
     div()

@@ -7,16 +7,17 @@ mod motion;
 mod norma;
 mod preview;
 mod settings;
+mod shortcuts;
 mod workspace;
 
 use app::{
-    CopyCardContent, ExitFocus, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewTerminal,
-    OpenPreviewFile, OpenProject, ReflowLayout, ToggleMasterLayout,
+    CopyCardContent, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewTerminal, OpenPreviewFile,
+    OpenProject, ReflowLayout, ToggleMasterLayout, ToggleSettings,
 };
 use assets::EmbeddedAssets;
 use gpui::{
-    px, size, App, AppContext as _, Application, Bounds, KeyBinding, Menu, MenuItem,
-    TitlebarOptions, WindowBackgroundAppearance, WindowBounds, WindowOptions,
+    px, size, App, AppContext as _, Application, Bounds, Menu, MenuItem, TitlebarOptions,
+    WindowBackgroundAppearance, WindowBounds, WindowOptions,
 };
 
 fn main() {
@@ -30,17 +31,6 @@ fn main() {
     Application::new()
         .with_assets(EmbeddedAssets)
         .run(|cx: &mut App| {
-            // 快捷键（SPEC §7）：Cmd+N 新建终端、Esc 退出终端聚焦。
-            cx.bind_keys([
-                KeyBinding::new("cmd-n", NewTerminal, None),
-                KeyBinding::new("cmd-c", CopyCardContent, None),
-                KeyBinding::new("cmd-o", OpenProject, None),
-                KeyBinding::new("cmd-shift-o", OpenPreviewFile, None),
-                KeyBinding::new("cmd-m", ToggleMasterLayout, None),
-                KeyBinding::new("cmd-shift-l", ReflowLayout, None),
-                KeyBinding::new("escape", ExitFocus, None),
-            ]);
-
             // 菜单（App 显示名 Multisoul）。
             cx.set_menus(vec![Menu {
                 name: "Multisoul".into(),
@@ -53,6 +43,7 @@ fn main() {
                     MenuItem::action("New Codex Agent", NewCodexAgent),
                     MenuItem::action("Reflow Layout", ReflowLayout),
                     MenuItem::action("Toggle Master Layout", ToggleMasterLayout),
+                    MenuItem::action("Settings", ToggleSettings),
                 ],
             }]);
 

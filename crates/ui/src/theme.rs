@@ -75,7 +75,7 @@ impl Theme {
             panel_high: 0x1f372ab8,
             canvas_from: 0x101722f2,
             canvas_to: 0x1d2635e6,
-            node_fill: 0x0e1b16d9,
+            node_fill: 0x0e1b1673,
             node_stroke: 0xffffff24,
             selected_stroke: 0xff7932ff,
             focused_stroke: 0x27d7eaff,
@@ -93,7 +93,7 @@ impl Theme {
             term_fg: 0xe7edf5ff,
             term_bg: 0x080d13fa,
             term_exit_fg: 0xff6961ff,
-            title_bar: 0x13231dd9,
+            title_bar: 0x13231d73,
             text: 0xf2f6fbff,
             shadow_color: 0x00000073,
             shadow_y: 20.0,
@@ -186,7 +186,7 @@ mod tests {
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   canvas_from alpha = 0xf2 / 0xff ≈ 95%（暗色画布需要稳定底色）
-    ///   node_fill alpha   = 0xd9 / 0xff ≈ 85%（暗色玻璃比浅色略厚）
+    ///   node_fill alpha   = 0x73 / 0xff ≈ 45%（暗色玻璃外壳，比旧 0xd9 再透 40pp）
     ///   term_bg alpha     = 0xfa / 0xff ≈ 98%（暗色终端仍保持最高可读性）
     ///
     /// 执行过程：
@@ -213,8 +213,8 @@ mod tests {
         );
         assert_eq!(
             alpha(glass_dark.node_fill),
-            0xd9,
-            "glass_dark node_fill should be translucent but thicker than light glass"
+            0x73,
+            "glass_dark node_fill should be translucent glass at about 45% opacity"
         );
         assert!(
             alpha(glass_dark.term_bg) > alpha(glass_dark.node_fill),
@@ -392,7 +392,7 @@ mod tests {
     /// G-6: Workspace V1 终端内容区比玻璃节点更不透明，保障壁纸背景上的可读性
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   glass_dark.node_fill alpha = 0xd6 / 0xff ≈ 84%
+    ///   glass_dark.node_fill alpha = 0x73 / 0xff ≈ 45%
     ///   glass_dark.term_bg alpha   = 0xfa / 0xff ≈ 98%
     ///   差值 = 0xfa - 0xd6 = 0x24 = 36 alpha levels
     ///

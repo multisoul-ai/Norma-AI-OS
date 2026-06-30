@@ -18,13 +18,38 @@ terminal.workspace = true
 workspace.workspace = true
 norma.workspace = true
 voice.workspace = true
-voice_macos.workspace = true
+voice_sherpa.workspace = true
 anyhow.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 crossbeam-channel.workspace = true
+async-channel.workspace = true
 pulldown-cmark.workspace = true
+
+# Native file picker for wallpaper import (Task 8). AsyncFileDialog is awaited
+# inside a cx.spawn task so it never blocks the GPUI event loop.
+rfd = "0.16"
 
 [dev-dependencies]
 tempfile.workspace = true
+
+# Video wallpaper spike (Task 1): objc2 + AVAssetReader → 420f CVPixelBuffer.
+# All AVFoundation interop is macOS-only; on other targets these crates are
+# neither compiled against nor linked.
+[target.'cfg(target_os = "macos")'.dependencies]
+image = "0.25"
+core-video = { version = "=0.4.3", features = ["metal"] }
+core-foundation = "0.10"
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-av-foundation = { version = "0.3", features = [
+    "AVAsset",
+    "AVAssetReader",
+    "AVAssetReaderOutput",
+    "AVAssetTrack",
+    "AVMediaFormat",
+    "objc2-core-media",
+] }
+block2 = "0.6"

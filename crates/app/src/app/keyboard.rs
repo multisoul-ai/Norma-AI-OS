@@ -7,6 +7,7 @@ use crate::app::{AppScreen, CopyCardContent, MultisoulApp};
 use crate::canvas::text_selection::TextSelection;
 use crate::cards::term::selection::terminal_selected_text;
 use crate::cards::term::view::keystroke_to_input;
+use crate::shortcuts::ShortcutCommandId;
 use canvas::{navigate_card, NavigationDirection, NodeId};
 use gpui::{
     ClipboardItem, Context, KeyDownEvent, KeyUpEvent, Keystroke, Modifiers, ModifiersChangedEvent,
@@ -18,6 +19,14 @@ use terminal::{Cell, GridSnapshot};
 
 #[cfg(test)]
 pub(crate) fn current_copy_node_id(runtime: &Runtime) -> Option<NodeId> {
+    current_focused_or_single_selected_node_id(runtime)
+}
+
+fn current_delete_node_id(runtime: &Runtime) -> Option<NodeId> {
+    current_focused_or_single_selected_node_id(runtime)
+}
+
+fn current_focused_or_single_selected_node_id(runtime: &Runtime) -> Option<NodeId> {
     if let InputMode::NodeFocused(node_id) = runtime.focus.mode() {
         if runtime.document.node(node_id).is_some() {
             return Some(node_id);
@@ -35,6 +44,24 @@ fn current_selection_node_id(runtime: &Runtime) -> Option<NodeId> {
     } else {
         None
     }
+}
+
+/// ✚ 菜单展开时 Esc 是否应优先关闭菜单（而非退焦 / 传 PTY / 触发其余快捷键）。
+///
+/// 决策为纯函数：菜单未开 → 永不拦截；菜单开着时仅对无修饰键的 Esc 拦截。
+/// 平台/控制/Alt/Shift 任一修饰键按住时 Esc 不归本逻辑处理（让常规快捷键继续生效）。
+pub(crate) fn should_close_new_menu_on_escape(
+    new_menu_open: bool,
+    key: &str,
+    modifiers: &Modifiers,
+) -> bool {
+    new_menu_open
+        && key == "escape"
+        && !modifiers.platform
+        && !modifiers.control
+        && !modifiers.alt
+        && !modifiers.shift
+        && !modifiers.function
 }
 
 #[cfg(test)]
@@ -145,6 +172,18 @@ impl MultisoulApp {
         }
     }
 
+    fn on_delete_card_shortcut(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            return;
+        }
+        let Some(node_id) = current_delete_node_id(&self.runtime) else {
+            return;
+        };
+        if self.close_node_through_route(node_id, window) {
+            cx.notify();
+        }
+    }
+
     /// 键盘事件：维护 space_held；聚焦终端时把按键编码写入对应 PTY。
     pub(crate) fn on_key_down(
         &mut self,
@@ -152,8 +191,36 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.settings_panel.open
+            && (self.voice_settings.handle_key_down(&ev.keystroke)
+                || (self.shortcuts.recording.is_some()
+                    && self.shortcuts.record_keystroke(&ev.keystroke)))
+        {
+            cx.stop_propagation();
+            cx.notify();
+            return;
+        }
+
         if is_voice_hold_shortcut(&ev.keystroke) {
             self.begin_voice_recording(VoiceTrigger::Shortcut, cx);
+            return;
+        }
+
+        // 菜单展开时 Esc 优先关闭 ✚ 菜单，不退焦、不传 PTY、不触发其余快捷键。
+        if should_close_new_menu_on_escape(
+            self.interaction.new_menu_open,
+            &ev.keystroke.key,
+            &ev.keystroke.modifiers,
+        ) {
+            self.interaction.close_new_menu();
+            cx.stop_propagation();
+            cx.notify();
+            return;
+        }
+
+        if let Some(command) = self.shortcuts.command_for_keystroke(&ev.keystroke) {
+            self.dispatch_shortcut_command(command, window, cx);
+            cx.stop_propagation();
             return;
         }
 
@@ -182,6 +249,7 @@ impl MultisoulApp {
                 if let Route::SelectNode(node_id) = route(&self.runtime.focus.mode(), &event) {
                     self.runtime.selection.select_only(node_id);
                     self.runtime.focus.exit_to_canvas();
+                    self.mark_node_viewed_if_needed(node_id);
                     self.interaction.keyboard_selected_node = Some(node_id);
                     cx.stop_propagation();
                     cx.notify();
@@ -261,6 +329,43 @@ impl MultisoulApp {
         }
     }
 
+    fn dispatch_shortcut_command(
+        &mut self,
+        command: ShortcutCommandId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match command {
+            ShortcutCommandId::NewTerminal => {
+                self.on_new_terminal(&crate::app::NewTerminal, window, cx)
+            }
+            ShortcutCommandId::CopyCardContent => {
+                self.on_copy_card_content(&crate::app::CopyCardContent, window, cx)
+            }
+            ShortcutCommandId::OpenProject => {
+                self.on_open_project(&crate::app::OpenProject, window, cx)
+            }
+            ShortcutCommandId::OpenPreviewFile => {
+                self.on_open_preview_file(&crate::app::OpenPreviewFile, window, cx)
+            }
+            ShortcutCommandId::NewClaudeAgent => {
+                self.on_new_claude_agent(&crate::app::NewClaudeAgent, window, cx)
+            }
+            ShortcutCommandId::NewCodexAgent => {
+                self.on_new_codex_agent(&crate::app::NewCodexAgent, window, cx)
+            }
+            ShortcutCommandId::DeleteCard => self.on_delete_card_shortcut(window, cx),
+            ShortcutCommandId::ReflowLayout => {
+                self.on_reflow_layout(&crate::app::ReflowLayout, window, cx)
+            }
+            ShortcutCommandId::ToggleMasterLayout => {
+                self.on_toggle_master_layout(&crate::app::ToggleMasterLayout, window, cx)
+            }
+            ShortcutCommandId::ExitFocus => self.on_exit_focus(&crate::app::ExitFocus, window, cx),
+            ShortcutCommandId::ToggleSettings => self.toggle_settings_panel(cx),
+        }
+    }
+
     pub(crate) fn on_key_up(
         &mut self,
         ev: &KeyUpEvent,
@@ -297,3 +402,7 @@ impl MultisoulApp {
 #[cfg(test)]
 #[path = "../../tests/unit/app_keyboard_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_keyboard_delete_tests.rs"]
+mod delete_tests;

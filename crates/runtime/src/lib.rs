@@ -13,7 +13,10 @@ pub mod session_snapshot;
 pub mod snapshot;
 
 pub use agent_hooks::AgentHookRuntimeConfig;
-pub use events::{AgentTaskState, AgentTaskUpdate, NodeRunState, RuntimeEvent};
+pub use events::{
+    AgentTaskState, AgentTaskUpdate, CardAttentionKind, CardAttentionState, NodeRunState,
+    RuntimeEvent,
+};
 pub use focus::{FocusState, InputMode};
 pub use live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
 pub use route::{route, InputEvent, Route};

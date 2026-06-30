@@ -1,11 +1,13 @@
-use crate::ollama_repair::{repair_plan_with_required_hint, required_plan_hint_json};
+use crate::ollama_prompt::{json_repair_prompt, planner_prompt};
+use crate::ollama_repair::{repair_plan_with_required_hint, required_plan_from_request};
 use crate::{VoicePlan, VoicePlanError, VoicePlanningRequest};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
-const DEFAULT_OLLAMA_MODEL: &str = "qwen2.5:1.5b";
+const DEFAULT_OLLAMA_MODEL: &str = "qwen3.5:0.8b";
+const JSON_REPAIR_TIMEOUT_MS: u64 = 1500;
 
 pub trait VoicePlanner {
     fn plan(&self, request: &VoicePlanningRequest) -> Result<VoicePlan, VoicePlanProviderError>;
@@ -79,7 +81,7 @@ impl VoicePlanner for OllamaVoicePlanner {
         log_voice_planner_request(self, request, &prompt, trace_full);
         let response = post_ollama_generate(&self.endpoint, &self.model, &prompt, self.timeout)?;
         log_voice_planner_response(self, &response.response, trace_full);
-        let parsed_plan = parse_voice_plan_response(&response.response)?;
+        let parsed_plan = self.parse_or_recover_plan(request, &response.response, trace_full)?;
         let (plan, repaired) = repair_plan_with_required_hint(request, parsed_plan);
         if repaired {
             tracing::warn!(
@@ -101,6 +103,77 @@ impl VoicePlanner for OllamaVoicePlanner {
         );
         Ok(plan)
     }
+}
+
+impl OllamaVoicePlanner {
+    fn parse_or_recover_plan(
+        &self,
+        request: &VoicePlanningRequest,
+        response: &str,
+        trace_full: bool,
+    ) -> Result<VoicePlan, VoicePlanProviderError> {
+        match parse_voice_plan_response(response) {
+            Ok(plan) => Ok(plan),
+            Err(error) if is_repairable_parse_error(&error) => {
+                self.recover_malformed_plan(request, response, error, trace_full)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    fn recover_malformed_plan(
+        &self,
+        request: &VoicePlanningRequest,
+        response: &str,
+        parse_error: VoicePlanProviderError,
+        trace_full: bool,
+    ) -> Result<VoicePlan, VoicePlanProviderError> {
+        if let Some(plan) = required_plan_from_request(request) {
+            tracing::warn!(
+                target: "voice::ollama",
+                model = %self.model,
+                transcript = %request.transcript,
+                error = %parse_error,
+                "voice planner malformed output recovered from deterministic required plan"
+            );
+            return Ok(plan);
+        }
+
+        let prompt = json_repair_prompt(request, response)?;
+        tracing::warn!(
+            target: "voice::ollama",
+            model = %self.model,
+            transcript = %request.transcript,
+            error = %parse_error,
+            prompt_chars = prompt.chars().count(),
+            "voice planner malformed output retrying JSON repair"
+        );
+        if trace_full {
+            tracing::info!(
+                target: "voice::ollama",
+                endpoint = %self.endpoint,
+                model = %self.model,
+                prompt = %prompt,
+                "voice planner JSON repair prompt"
+            );
+        }
+
+        let response = post_ollama_generate(
+            &self.endpoint,
+            &self.model,
+            &prompt,
+            Duration::from_millis(JSON_REPAIR_TIMEOUT_MS),
+        )?;
+        log_voice_planner_response(self, &response.response, trace_full);
+        parse_voice_plan_response(&response.response)
+    }
+}
+
+fn is_repairable_parse_error(error: &VoicePlanProviderError) -> bool {
+    matches!(
+        error,
+        VoicePlanProviderError::MissingBody | VoicePlanProviderError::Json(_)
+    )
 }
 
 fn log_voice_planner_request(
@@ -150,11 +223,11 @@ fn log_voice_planner_response(planner: &OllamaVoicePlanner, response: &str, trac
     }
 }
 
-fn voice_trace_enabled() -> bool {
+pub(crate) fn voice_trace_enabled() -> bool {
     voice_trace_enabled_from_value(std::env::var("MULTISOUL_VOICE_TRACE").ok())
 }
 
-fn voice_trace_enabled_from_value(value: Option<String>) -> bool {
+pub(crate) fn voice_trace_enabled_from_value(value: Option<String>) -> bool {
     value
         .as_deref()
         .map(str::trim)
@@ -167,6 +240,7 @@ struct OllamaGenerateRequest<'a> {
     model: &'a str,
     prompt: &'a str,
     stream: bool,
+    think: bool,
     format: &'static str,
     options: OllamaGenerateOptions,
 }
@@ -177,118 +251,8 @@ struct OllamaGenerateOptions {
 }
 
 #[derive(Deserialize)]
-struct OllamaGenerateResponse {
-    response: String,
-}
-
-fn planner_prompt(request: &VoicePlanningRequest) -> Result<String, serde_json::Error> {
-    let context = serde_json::to_string(request)?;
-    let schema = serde_json::to_string(&planner_schema(request.max_steps))?;
-    let required_hint = serde_json::to_string(&required_plan_hint_json(request))?;
-    let transcript = serde_json::to_string(&request.transcript)?;
-    Ok(format!(
-        "You are Multisoul's local voice planner.\n\n\
-         Return exactly one JSON object. No markdown. No text outside JSON.\n\n\
-         CURRENT_TRANSCRIPT:\n{}\n\n\
-         ALLOWED_SCHEMA:\n{}\n\n\
-         CURRENT_CANVAS_CONTEXT:\n{}\n\n\
-         REQUIRED_OUTPUT_HINT:\n{}\n\n\
-         TASK:\nConvert CURRENT_TRANSCRIPT into a VoicePlan JSON object.\n\n\
-         OUTPUT_SHAPE:\n{}\n\n\
-         PLANNING_RULES:\n{}\n\n\
-         SELF_CHECK_BEFORE_OUTPUT:\n{}\n\n\
-         EXAMPLES:\n{}",
-        transcript,
-        schema,
-        context,
-        required_hint,
-        output_shape_prompt(),
-        planning_rules_prompt(request.max_steps),
-        self_check_prompt(),
-        examples_prompt()
-    ))
-}
-
-fn planner_schema(max_steps: usize) -> serde_json::Value {
-    serde_json::json!({
-        "command_shapes": {
-            "create": {
-                "type": "create",
-                "kind": "one of allowed_card_kinds"
-            },
-            "focus": {
-                "type": "focus",
-                "target": "one of allowed_targets"
-            },
-            "send_text": {
-                "type": "send_text",
-                "target": "one of allowed_targets",
-                "text": "string",
-                "submit": false
-            }
-        },
-        "allowed_card_kinds": {
-            "terminal": { "kind": "terminal" },
-            "agent_claude": { "kind": "agent", "profile": "Claude" },
-            "agent_codex": { "kind": "agent", "profile": "Codex" }
-        },
-        "allowed_targets": {
-            "node_id": { "type": "node_id", "node_id": 1 },
-            "alias": { "type": "alias", "alias": "card alias" },
-            "previous_step": { "type": "previous_step", "step": 0 },
-            "focused": { "type": "focused" },
-            "selected": { "type": "selected" }
-        },
-        "risk_values": {
-            "low": "low",
-            "medium": "medium",
-            "high": "high"
-        },
-        "max_steps": max_steps,
-        "forbidden_commands": {
-            "delete": "never output",
-            "list": "never output"
-        }
-    })
-}
-
-fn output_shape_prompt() -> &'static str {
-    r#"{"commands":[],"confidence":0.9,"risk":"low","requires_confirmation":false,"reason":"string"}"#
-}
-
-fn planning_rules_prompt(max_steps: usize) -> String {
-    format!(
-        "1. Every explicit requested card/entity in CURRENT_TRANSCRIPT must become a create or focus command.\n\
-         2. Do not merge multiple requested cards into one command. Create one command for every requested card.\n\
-         3. If a count is requested, repeat create commands for that count.\n\
-         4. 打开codex, 开启codex, 创建codex, or open/create Codex means create a new agent profile Codex card even if Codex cards already exist.\n\
-         5. Claude Code, 打开claude code, 开启claude code, or open/create Claude means create a new agent profile Claude card even if Claude cards already exist.\n\
-         6. Terminal, terminal, 终端, 命令行 mean create terminal.\n\
-         7. 输入, 发送, 发给, send, input, type mean send_text.\n\
-         8. If send_text happens after newly created cards and no explicit target is named, target the most recently created compatible card with previous_step.\n\
-         9. previous_step must refer to a prior create command index; do not always use previous_step 0.\n\
-         10. 不要提交 or 不执行 means submit=false. 提交, 执行, or 回车 means submit=true.\n\
-         11. target must be one object, never an array of target names.\n\
-         12. kind must be one object, never an array of card kind names.\n\
-         13. If REQUIRED_OUTPUT_HINT is not null, follow its commands exactly unless CURRENT_CANVAS_CONTEXT contradicts it.\n\
-         14. Do not output delete, list, unsupported commands, or natural-language-only plans.\n\
-         15. Use at most {max_steps} commands.\n\
-         16. If you cannot satisfy every explicit requested entity, set confidence below 0.65."
-    )
-}
-
-fn self_check_prompt() -> &'static str {
-    "Internally list all requested cards/entities from CURRENT_TRANSCRIPT. \
-     Verify each requested card/entity has a matching command. Verify send_text target points \
-     to the intended card. Then output only the final JSON."
-}
-
-fn examples_prompt() -> &'static str {
-    r#"Input: "打开codex,claude code, 再开启两个终端 然后输入hi"
-Output: {"commands":[{"type":"create","kind":{"kind":"agent","profile":"Codex"}},{"type":"create","kind":{"kind":"agent","profile":"Claude"}},{"type":"create","kind":{"kind":"terminal"}},{"type":"create","kind":{"kind":"terminal"}},{"type":"send_text","target":{"type":"previous_step","step":3},"text":"hi","submit":false}],"confidence":0.9,"risk":"low","requires_confirmation":false,"reason":"create Codex, Claude, two terminals, then type hi in the last terminal"}
-
-Input: "创建一个 Codex 卡片，并向它发送 hello，不要提交"
-Output: {"commands":[{"type":"create","kind":{"kind":"agent","profile":"Codex"}},{"type":"send_text","target":{"type":"previous_step","step":0},"text":"hello","submit":false}],"confidence":0.9,"risk":"low","requires_confirmation":false,"reason":"create Codex and send hello without submitting"}"#
+pub(crate) struct OllamaGenerateResponse {
+    pub(crate) response: String,
 }
 
 fn build_generate_body(model: &str, prompt: &str) -> Result<Vec<u8>, serde_json::Error> {
@@ -296,6 +260,7 @@ fn build_generate_body(model: &str, prompt: &str) -> Result<Vec<u8>, serde_json:
         model,
         prompt,
         stream: false,
+        think: false,
         format: "json",
         options: OllamaGenerateOptions { temperature: 0.0 },
     })
@@ -343,7 +308,7 @@ fn extract_json_object(response: &str) -> Option<&str> {
     None
 }
 
-fn post_ollama_generate(
+pub(crate) fn post_ollama_generate(
     endpoint: &str,
     model: &str,
     prompt: &str,
@@ -365,7 +330,11 @@ fn post_ollama_generate(
     };
 
     let body = build_generate_body(model, prompt)?;
-    let mut stream = TcpStream::connect(host_port)?;
+    let address = host_port
+        .to_socket_addrs()?
+        .next()
+        .ok_or_else(|| std::io::Error::other("ollama endpoint resolved no addresses"))?;
+    let mut stream = TcpStream::connect_timeout(&address, timeout)?;
     stream.set_read_timeout(Some(timeout))?;
     stream.set_write_timeout(Some(timeout))?;
     write!(
@@ -424,3 +393,7 @@ fn decode_chunked_body(body: &str) -> Result<String, VoicePlanProviderError> {
 #[cfg(test)]
 #[path = "../tests/unit/ollama_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/ollama_recovery_tests.rs"]
+mod recovery_tests;

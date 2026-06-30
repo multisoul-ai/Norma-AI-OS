@@ -1,111 +1,9 @@
 use super::*;
 use crate::workspace::flow::enter_workspace_for_path;
 use crate::workspace::persistence::PersistenceScheduler;
-use canvas::{compute_responsive_grid_layout, CanvasNodeKind, RectNode};
+use canvas::{compute_responsive_grid_layout, AgentProfile, AgentSpec, CanvasNodeKind, RectNode};
+use runtime::{AgentTaskState, AgentTaskUpdate, CardAttentionKind, CardAttentionState};
 use storage::RecentStore;
-
-/// 默认壁纸：未设置 env 时应使用打包进程序的内置画布壁纸。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   env_value = None（模拟未设置 MULTISOUL_WALLPAPER）
-///   default asset path = "wallpapers/1331865.png"（应用启动时交给 GPUI asset source 加载）
-///   fallback count = 1（只有一个默认壁纸候选，避免空背景）
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. wallpaper_from_env_value(None) → 不存在用户覆盖路径
-///   2. 选择 WorkspaceWallpaper::Embedded(DEFAULT_WALLPAPER_ASSET)
-///
-/// 预期结果：
-///   - 正断言：返回内置 asset 路径 wallpapers/1331865.png
-///   - 负断言：不返回 File 路径，避免打包后依赖开发机外部文件
-#[test]
-fn test_default_wallpaper_uses_embedded_asset_when_env_missing() {
-    let wallpaper = wallpaper_from_env_value(None);
-
-    assert_eq!(
-        wallpaper,
-        WorkspaceWallpaper::Embedded(DEFAULT_WALLPAPER_ASSET),
-        "missing MULTISOUL_WALLPAPER should use the embedded default asset"
-    );
-    assert!(
-        !matches!(wallpaper, WorkspaceWallpaper::File(_)),
-        "missing MULTISOUL_WALLPAPER must not produce a file path dependency"
-    );
-}
-
-/// 用户壁纸覆盖：env 指向可读文件时应优先使用用户指定路径。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   temp file path = std::env::temp_dir()/multisoul-wallpaper-override.png
-///   temp file bytes = 3（只用于 is_file 判定，不参与图片解码）
-///   env_value = Some(temp file path)
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 创建临时普通文件 → path.is_file() = true
-///   2. wallpaper_from_env_value(Some(path)) → 识别为用户覆盖
-///   3. 删除临时文件 → 测试清理
-///
-/// 预期结果：
-///   - 正断言：返回 File(temp file path)
-///   - 负断言：不返回 Embedded 默认壁纸，证明覆盖生效
-#[test]
-fn test_wallpaper_env_file_overrides_embedded_default() {
-    let path = std::env::temp_dir().join(format!(
-        "multisoul-wallpaper-override-{}.png",
-        std::process::id()
-    ));
-    std::fs::write(&path, [1_u8, 2, 3]).expect("test should create temp wallpaper file");
-
-    let wallpaper = wallpaper_from_env_value(Some(path.clone().into_os_string()));
-
-    std::fs::remove_file(&path).expect("test should remove temp wallpaper file");
-    assert_eq!(
-        wallpaper,
-        WorkspaceWallpaper::File(path),
-        "readable MULTISOUL_WALLPAPER file should override the embedded default"
-    );
-    assert_ne!(
-        wallpaper,
-        WorkspaceWallpaper::Embedded(DEFAULT_WALLPAPER_ASSET),
-        "readable MULTISOUL_WALLPAPER must not fall back to the embedded asset"
-    );
-}
-
-/// 无效用户壁纸：env 指向不存在的文件时应回退到内置画布壁纸。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   missing path = std::env::temp_dir()/multisoul-missing-wallpaper.png
-///   path.is_file() = false（不存在，因此不能作为图片资源）
-///   fallback count = 1（内置默认壁纸）
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 确保 missing path 不存在 → path.is_file() = false
-///   2. wallpaper_from_env_value(Some(missing path)) → 触发回退
-///
-/// 预期结果：
-///   - 正断言：返回 Embedded(DEFAULT_WALLPAPER_ASSET)
-///   - 负断言：不返回 File(missing path)，避免渲染层加载坏路径
-#[test]
-fn test_invalid_wallpaper_env_falls_back_to_embedded_default() {
-    let path = std::env::temp_dir().join(format!(
-        "multisoul-missing-wallpaper-{}.png",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_file(&path);
-
-    let wallpaper = wallpaper_from_env_value(Some(path.clone().into_os_string()));
-
-    assert_eq!(
-        wallpaper,
-        WorkspaceWallpaper::Embedded(DEFAULT_WALLPAPER_ASSET),
-        "invalid MULTISOUL_WALLPAPER should fall back to the embedded default asset"
-    );
-    assert_ne!(
-        wallpaper,
-        WorkspaceWallpaper::File(path),
-        "invalid MULTISOUL_WALLPAPER must not be kept as a file-backed wallpaper"
-    );
-}
 
 /// 壁纸亮度：默认画布壁纸应按原图亮度显示，不额外压暗。
 ///
@@ -141,6 +39,68 @@ fn test_wallpaper_brightness_uses_original_image_luminance() {
     assert_ne!(
         WALLPAPER_SHADE_BOTTOM_ALPHA, 0xd8,
         "wallpaper bottom shade must not keep the old darkening alpha"
+    );
+}
+
+/// 卡片查看 helper：用户选择/聚焦卡片时应把未查看完成提醒标记为已查看。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Agent node_id=1，profile=Codex
+///   AgentTaskState::Done → runtime 创建 AgentTaskDone attention(viewed=false)
+///   mark_runtime_node_viewed_if_needed(node_id) 模拟鼠标点击或方向键选中该卡片
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. Runtime document 加入 Codex Agent node
+///   2. apply_agent_task_update(Done) 创建未查看 attention
+///   3. mark_runtime_node_viewed_if_needed(node_id)
+///   4. 再次 mark_runtime_node_viewed_if_needed(node_id)
+///
+/// 预期结果：
+///   - 正断言：首次 helper 返回 true，并把 viewed 改为 true
+///   - 正断言：attention kind 保持 AgentTaskDone
+///   - 负断言：重复 helper 返回 false，不能重复确认同一提醒
+#[test]
+fn test_mark_runtime_node_viewed_if_needed_marks_done_attention_viewed() {
+    let mut runtime = Runtime::new();
+    let node_id = runtime.document.add_node(
+        CanvasNodeKind::Agent(AgentSpec {
+            profile: AgentProfile::Codex,
+            alias: None,
+        }),
+        CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+    );
+    let changed = runtime.apply_agent_task_update(AgentTaskUpdate {
+        node_id,
+        profile: AgentProfile::Codex,
+        provider_event: "Stop".to_string(),
+        to: AgentTaskState::Done,
+    });
+    assert!(changed, "Done update 应创建未查看完成提醒");
+
+    let first = mark_runtime_node_viewed_if_needed(&mut runtime, node_id);
+    let attention = runtime.card_attention(node_id);
+    let second = mark_runtime_node_viewed_if_needed(&mut runtime, node_id);
+
+    assert!(first, "首次查看 Done attention 应返回 true");
+    assert_eq!(
+        attention,
+        Some(CardAttentionState {
+            kind: CardAttentionKind::AgentTaskDone,
+            viewed: true,
+        }),
+        "查看后 attention 应保留 AgentTaskDone kind，并标记 viewed=true"
+    );
+    assert!(
+        !second,
+        "重复调用 helper 不应再次返回 true，否则 UI 会重复处理同一提醒"
+    );
+    assert_ne!(
+        attention,
+        Some(CardAttentionState {
+            kind: CardAttentionKind::AgentTaskDone,
+            viewed: false,
+        }),
+        "查看后不应仍保持 viewed=false，否则呼吸灯不会关闭"
     );
 }
 
