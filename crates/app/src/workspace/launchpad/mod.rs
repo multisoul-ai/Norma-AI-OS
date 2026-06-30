@@ -3,7 +3,6 @@
 mod actions;
 mod backdrop;
 mod layout;
-mod preview;
 mod recent;
 
 use self::actions::{action_card, launchpad_brand};
@@ -11,7 +10,6 @@ use self::backdrop::launchpad_backdrop;
 use self::layout::launchpad_layout_for_window;
 #[cfg(test)]
 use self::layout::LaunchpadLayoutMode;
-use self::preview::preview_cluster;
 #[cfg(test)]
 use self::recent::recent_project_records_for_launchpad;
 use crate::app::MultisoulApp;
@@ -75,9 +73,6 @@ impl MultisoulApp {
                     )
                     .child(self.render_recent_projects(theme, cx)),
             )
-            .when(layout.preview_visible, |this| {
-                this.child(preview_cluster(theme, layout))
-            })
     }
 
     fn on_launchpad_open_project(

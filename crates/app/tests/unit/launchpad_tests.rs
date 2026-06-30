@@ -3,33 +3,31 @@ use super::*;
 use std::path::PathBuf;
 use workspace::{RecentWorkspaces, WorkspaceSource};
 
-/// L-1: 1440x900 宽屏 Launchpad 应采用方案 1 双区布局并接近原型视觉锚点。
+/// L-1: 1440x900 宽屏 Launchpad 不应再显示右侧静态卡片区。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   window = 1440x900
 ///   spec 锚点：content left ≈118、top ≈186、width ≈560
-///   spec 锚点：preview right ≈112、width ≈520，因此 preview_left ≈ 1440 - 112 - 520 = 808
+///   旧 preview 卡片数量 = 4（Terminal / Codex Agent / Preview / Workspace shape）
+///   目标 preview 卡片数量 = 0（用户要求去除右侧显示的卡片）
 ///
 /// 执行过程：
 ///   1. 调用 launchpad_layout_for_window(1440, 900)
-///   2. 检查布局模式、preview 可见性、左侧内容和右侧预览位置
+///   2. 检查布局模式、左侧内容锚点仍稳定、右侧卡片模块未接入
 ///
 /// 预期结果：
-///   - 正断言：mode 为 Wide，preview_visible = true
-///   - 正断言：content / preview 接近方案 1 视觉锚点
-///   - 负断言：preview 不应与 content 水平重叠
+///   - 正断言：mode 为 Wide，主内容接近既有视觉锚点
+///   - 正断言：渲染入口不再声明 preview 模块或挂载 preview_cluster
+///   - 负断言：右侧卡片模块不应继续接入 Launchpad
 #[test]
-fn test_launchpad_layout_wide_matches_option_one_visual_anchors() {
+fn test_launchpad_layout_wide_hides_right_preview_cards() {
     let layout = launchpad_layout_for_window(1440.0, 900.0);
+    let source_mod = include_str!("../../src/workspace/launchpad/mod.rs");
 
     assert_eq!(
         layout.mode,
         LaunchpadLayoutMode::Wide,
-        "1440px 宽窗口应使用 Wide 双区布局"
-    );
-    assert!(
-        layout.preview_visible,
-        "1440px 宽窗口应显示右侧静态 preview 区"
+        "1440px 宽窗口应保留 Wide 布局模式以稳定主内容锚点"
     );
     assert_close(
         layout.content_left,
@@ -47,33 +45,31 @@ fn test_launchpad_layout_wide_matches_option_one_visual_anchors() {
         layout.content_width,
         560.0,
         0.5,
-        "content_width 应保持方案 1 的 560px 主列宽",
-    );
-    assert_close(
-        layout.preview_left,
-        808.0,
-        6.0,
-        "preview_left 应接近 1440 - 112 - 520 = 808px",
+        "content_width 应保持 560px 主列宽，去除右侧卡片不应挤压主入口",
     );
     assert!(
-        layout.preview_left >= layout.content_left + layout.content_width + 96.0,
-        "右侧 preview 不应与左侧 content 重叠，应至少保留 96px 空隙"
+        !source_mod.contains("mod preview"),
+        "Launchpad 不应继续声明右侧静态卡片 preview 模块"
+    );
+    assert!(
+        !source_mod.contains("preview_cluster"),
+        "Launchpad render_launchpad 不应继续挂载右侧静态卡片 preview_cluster"
     );
 }
 
-/// L-2: 960x700 窄窗口 Launchpad 应隐藏右侧 preview 并保持主入口可用。
+/// L-2: 960x700 窄窗口 Launchpad 应保持主入口位于安全边距内。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   window = 960x700
 ///   安全边距 = 24px * 2，因此主内容最大可用宽度 = 960 - 48 = 912
-///   spec 要求 width < 1180 时进入 Compact 并隐藏 preview
+///   spec 要求 width < 1180 时进入 Compact
 ///
 /// 执行过程：
 ///   1. 调用 launchpad_layout_for_window(960, 700)
-///   2. 检查 Compact 模式、preview 隐藏、content 位于安全边距内
+///   2. 检查 Compact 模式、content 位于安全边距内
 ///
 /// 预期结果：
-///   - 正断言：mode 为 Compact，preview_visible = false
+///   - 正断言：mode 为 Compact
 ///   - 正断言：content 左右边界都在 24px 安全边距内
 ///   - 负断言：content_width 不应超过 912px
 #[test]
@@ -86,10 +82,6 @@ fn test_launchpad_layout_compact_hides_preview_and_keeps_content_safe() {
         layout.mode,
         LaunchpadLayoutMode::Compact,
         "960px 宽窗口应使用 Compact 布局"
-    );
-    assert!(
-        !layout.preview_visible,
-        "Compact 布局不应显示右侧静态 preview，避免核心入口被压缩"
     );
     assert!(
         layout.content_left >= safe_left,
@@ -414,6 +406,41 @@ fn test_launchpad_backdrop_reuses_video_aware_wallpaper_layer() {
         !source_backdrop.contains("ImageSource"),
         "Launchpad backdrop 签名不应再接收 ImageSource——壁纸层应由上层 \
          render_wallpaper_layer 构建，backdrop 只负责挂载与遮罩"
+    );
+}
+
+/// L-10: Workspace/Launchpad 页面不应再挂载右侧静态卡片预览模块。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source_mod = launchpad/mod.rs（真实 render_launchpad 组装入口）
+///   旧右侧卡片模块 = preview.rs
+///   旧挂载函数数量 = 1（preview_cluster）
+///   目标挂载函数数量 = 0（右侧静态卡片区完全移除）
+///
+/// 执行过程：
+///   1. 读取 launchpad/mod.rs，确认不再声明 mod preview
+///   2. 读取 launchpad/mod.rs，确认不再 import / child(preview_cluster)
+///   3. 确认仍保留 launchpad_brand，避免测试因页面主体被整体删除而误通过
+///
+/// 预期结果：
+///   - 正断言：Launchpad 仍保留品牌和主入口区域
+///   - 负断言：Launchpad 不应继续声明 preview 模块
+///   - 负断言：Launchpad 不应继续调用 preview_cluster 挂载右侧卡片
+#[test]
+fn test_launchpad_drops_right_preview_card_cluster() {
+    let source_mod = include_str!("../../src/workspace/launchpad/mod.rs");
+
+    assert!(
+        source_mod.contains("launchpad_brand"),
+        "Launchpad 应继续渲染品牌和主入口区域，去除右侧卡片不应删除页面主体"
+    );
+    assert!(
+        !source_mod.contains("mod preview"),
+        "Launchpad 不应继续声明右侧静态卡片 preview 模块"
+    );
+    assert!(
+        !source_mod.contains("preview_cluster"),
+        "Launchpad render_launchpad 不应继续挂载右侧静态卡片 preview_cluster"
     );
 }
 
