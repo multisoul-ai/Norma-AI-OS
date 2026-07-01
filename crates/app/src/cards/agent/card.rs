@@ -267,6 +267,7 @@ mod tests {
             to: AgentTaskState::RunningTool {
                 tool_name: Some("shell".to_string()),
             },
+            task_title: None,
         });
         let node = runtime
             .document
