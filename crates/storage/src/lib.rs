@@ -3,6 +3,7 @@
 pub mod app_store;
 pub mod canvas_store;
 pub mod error;
+pub mod layout_store;
 pub mod migrations;
 pub mod node_session_store;
 pub mod project_store;
@@ -14,6 +15,7 @@ pub mod voice_history_store;
 pub use app_store::{default_app_db_path, AppStore};
 pub use canvas_store::CanvasStore;
 pub use error::{StorageError, StorageResult};
+pub use layout_store::{LayoutMode, LayoutOriginalBounds, LayoutStateSnapshot, LayoutStore};
 pub use node_session_store::{NodeSession, NodeSessionKind, NodeSessionStore};
 pub use project_store::ProjectStore;
 pub use recent_store::RecentStore;

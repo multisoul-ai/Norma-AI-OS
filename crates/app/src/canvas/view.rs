@@ -79,10 +79,13 @@ fn on_scroll(
 fn on_mouse_down(
     app: &mut MultisoulApp,
     ev: &MouseDownEvent,
-    _w: &mut Window,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) {
     let screen = pt_to_vec(ev.position);
+    if should_focus_app_root_for_mouse_down(ev.button) {
+        app.focus_handle.focus(window);
+    }
     // 画布上任意鼠标按下都应关闭展开的 ✚ 菜单（避免菜单悬浮在画布之上）。
     // 不 return：让正常画布点击逻辑继续执行。
     if app.interaction.new_menu_open {
@@ -172,6 +175,10 @@ fn on_mouse_down(
         _ => {}
     }
     cx.notify();
+}
+
+fn should_focus_app_root_for_mouse_down(button: MouseButton) -> bool {
+    matches!(button, MouseButton::Left | MouseButton::Middle)
 }
 
 fn on_mouse_move(

@@ -10,6 +10,7 @@ use canvas::{
 use gpui::{Context, Window};
 use runtime::{route, InputEvent, InputMode, NodeResize, Route, Runtime};
 use std::collections::BTreeMap;
+use storage::{LayoutMode, LayoutOriginalBounds, LayoutStateSnapshot};
 
 const LAYOUT_GAP_SCREEN_PX: f32 = 16.0;
 const LAYOUT_MAX_COLUMNS: usize = 3;
@@ -41,6 +42,60 @@ impl MasterLayoutState {
 
     pub(crate) fn clear(&mut self) {
         self.active = None;
+    }
+
+    pub(crate) fn to_snapshot(&self) -> LayoutStateSnapshot {
+        match &self.active {
+            Some(active) => LayoutStateSnapshot {
+                mode: LayoutMode::MasterDetail,
+                master_id: Some(active.master_id),
+                original_bounds: active
+                    .original_bounds
+                    .iter()
+                    .map(|(node_id, bounds)| LayoutOriginalBounds {
+                        node_id: *node_id,
+                        bounds: *bounds,
+                    })
+                    .collect(),
+            },
+            None => LayoutStateSnapshot {
+                mode: LayoutMode::Tiled,
+                master_id: None,
+                original_bounds: Vec::new(),
+            },
+        }
+    }
+
+    pub(crate) fn restore_from_snapshot(
+        &mut self,
+        snapshot: LayoutStateSnapshot,
+        runtime: &Runtime,
+    ) -> bool {
+        if snapshot.mode == LayoutMode::Tiled {
+            self.clear();
+            return false;
+        }
+
+        let Some(master_id) = snapshot.master_id else {
+            self.clear();
+            return false;
+        };
+        if runtime.document.node(master_id).is_none() {
+            self.clear();
+            return false;
+        }
+
+        let original_bounds = snapshot
+            .original_bounds
+            .into_iter()
+            .filter(|entry| runtime.document.node(entry.node_id).is_some())
+            .map(|entry| (entry.node_id, entry.bounds))
+            .collect();
+        self.active = Some(ActiveMasterLayout {
+            master_id,
+            original_bounds,
+        });
+        true
     }
 
     fn has_current_nodes_outside_snapshot(&self, runtime: &Runtime) -> bool {
@@ -426,6 +481,10 @@ impl MultisoulApp {
 #[cfg(test)]
 #[path = "../../tests/unit/master_layout_tests.rs"]
 mod master_layout_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/master_layout_persistence_tests.rs"]
+mod master_layout_persistence_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/master_layout_exit_tests.rs"]

@@ -72,6 +72,14 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
             updated_at_unix INTEGER NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS layout_state (
+            id                   INTEGER PRIMARY KEY CHECK (id = 1),
+            mode                 TEXT NOT NULL,
+            master_id            INTEGER,
+            original_bounds_json TEXT NOT NULL,
+            updated_at_unix      INTEGER NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS voice_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             transcript TEXT NOT NULL,

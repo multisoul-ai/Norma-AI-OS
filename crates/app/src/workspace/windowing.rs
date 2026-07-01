@@ -49,11 +49,11 @@ pub(crate) fn open_multisoul_window(
 ) -> anyhow::Result<WindowHandle<MultisoulApp>> {
     let title = title_for_initial_state(&state);
     let bounds = Bounds::centered(None, size(px(1280.0), px(800.0)), cx);
-    let handle = cx.open_window(window_options(title, bounds), |_window, cx| {
+    let handle = cx.open_window(window_options(title, bounds), |window, cx| {
         cx.new(|cx| {
             let mut app = MultisoulApp::new(cx);
             if let InitialWindowState::Workspace(path) = state {
-                app.open_workspace_path(path, cx);
+                app.open_workspace_path(path, window, cx);
             }
             app
         })

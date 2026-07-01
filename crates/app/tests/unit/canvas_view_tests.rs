@@ -207,6 +207,41 @@ fn test_focusable_body_single_click_focuses_node() {
     );
 }
 
+/// 画布鼠标按下应把 GPUI root focus 拉回应用，保证 IME commit 能进入聚焦节点。
+///
+/// 数据构造（含关键数值推导）：
+///   Left = 正文/标题栏点击，会改变 runtime focus 或 selection
+///   Middle = 画布 pan，也会让用户继续在画布中操作
+///   Right = 当前没有画布输入语义，不应抢焦点
+///
+/// 执行过程：
+///   1. should_focus_app_root_for_mouse_down(Left)
+///   2. should_focus_app_root_for_mouse_down(Middle)
+///   3. should_focus_app_root_for_mouse_down(Right)
+///
+/// 预期结果：
+///   - 正断言：Left/Middle 返回 true，点击恢复后卡片时会重新激活 root FocusHandle
+///   - 负断言：Right 返回 false，避免无语义右键抢走系统上下文焦点
+#[test]
+fn test_canvas_mouse_down_requests_root_focus_for_primary_canvas_buttons() {
+    let left = should_focus_app_root_for_mouse_down(MouseButton::Left);
+    let middle = should_focus_app_root_for_mouse_down(MouseButton::Middle);
+    let right = should_focus_app_root_for_mouse_down(MouseButton::Right);
+
+    assert!(
+        left,
+        "左键点击卡片正文/标题栏应请求 GPUI root focus，否则 IME 文本不会提交到节点"
+    );
+    assert!(
+        middle,
+        "中键 pan 也属于画布交互，应请求 GPUI root focus 保持后续键盘事件在应用内"
+    );
+    assert!(
+        !right,
+        "右键当前没有画布输入语义，不应无条件抢占 GPUI root focus"
+    );
+}
+
 /// 可聚焦卡片标题栏单击仍只选中节点并保留拖拽语义。
 ///
 /// 数据构造（含关键数值推导）：

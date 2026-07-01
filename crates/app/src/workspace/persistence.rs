@@ -1,4 +1,5 @@
 use crate::app::MultisoulApp;
+use crate::canvas::master_layout::MasterLayoutState;
 use runtime::Runtime;
 use std::time::Duration;
 use storage::VoiceHistoryEntry;
@@ -36,6 +37,7 @@ impl PersistenceScheduler {
         &mut self,
         delta: Duration,
         runtime: &Runtime,
+        master_layout: &MasterLayoutState,
     ) -> Result<bool, StorageError> {
         if !self.has_pending_work() {
             return Ok(false);
@@ -46,10 +48,14 @@ impl PersistenceScheduler {
             return Ok(false);
         }
 
-        self.flush_now(runtime)
+        self.flush_now(runtime, master_layout)
     }
 
-    pub(crate) fn flush_now(&mut self, runtime: &Runtime) -> Result<bool, StorageError> {
+    pub(crate) fn flush_now(
+        &mut self,
+        runtime: &Runtime,
+        master_layout: &MasterLayoutState,
+    ) -> Result<bool, StorageError> {
         let Some(project_store) = self.project_store.as_ref() else {
             self.canvas_dirty = false;
             self.session_dirty = false;
@@ -59,6 +65,9 @@ impl PersistenceScheduler {
 
         if self.canvas_dirty {
             runtime.save_canvas_snapshot(&project_store.canvas_store())?;
+            project_store
+                .layout_store()
+                .save_state(&master_layout.to_snapshot())?;
         }
         if self.session_dirty {
             runtime.save_session_checkpoints(&project_store.session_store())?;
@@ -102,7 +111,10 @@ impl MultisoulApp {
     }
 
     pub(crate) fn tick_persistence(&mut self, delta: Duration) -> bool {
-        match self.persistence.tick(delta, &self.runtime) {
+        match self
+            .persistence
+            .tick(delta, &self.runtime, &self.master_layout)
+        {
             Ok(changed) => changed,
             Err(error) => {
                 tracing::warn!(%error, "workspace persistence tick failed");
@@ -113,7 +125,10 @@ impl MultisoulApp {
     }
 
     pub(crate) fn flush_persistence_now(&mut self) {
-        if let Err(error) = self.persistence.flush_now(&self.runtime) {
+        if let Err(error) = self
+            .persistence
+            .flush_now(&self.runtime, &self.master_layout)
+        {
             tracing::warn!(%error, "workspace persistence flush failed");
         }
     }
@@ -151,6 +166,7 @@ mod tests {
         let project_store =
             ProjectStore::for_workspace(&workspace_root).expect("project store should open");
         let canvas_store = project_store.canvas_store();
+        let layout_store = project_store.layout_store();
         let mut scheduler = PersistenceScheduler::default();
         let mut runtime = Runtime::new();
         let node_id = runtime.document.add_node(
@@ -161,18 +177,30 @@ mod tests {
         scheduler.set_project_store(project_store);
         scheduler.mark_canvas_dirty();
         let early = scheduler
-            .tick(Duration::from_millis(12), &runtime)
+            .tick(
+                Duration::from_millis(12),
+                &runtime,
+                &crate::canvas::master_layout::MasterLayoutState::default(),
+            )
             .expect("early tick 应成功但不 flush");
         let before = canvas_store
             .load_snapshot()
             .expect("debounce 前 snapshot 查询应成功");
         let late = scheduler
-            .tick(Duration::from_millis(360), &runtime)
+            .tick(
+                Duration::from_millis(360),
+                &runtime,
+                &crate::canvas::master_layout::MasterLayoutState::default(),
+            )
             .expect("late tick 应触发 flush");
         let after = canvas_store
             .load_snapshot()
             .expect("flush 后 snapshot 查询应成功")
             .expect("flush 后 snapshot 应存在");
+        let layout_after = layout_store
+            .load_state()
+            .expect("flush 后 layout state 查询应成功")
+            .expect("flush 后 layout state 应存在");
 
         assert!(!early, "12ms < 360ms 时不应 flush 持久化");
         assert!(before.is_none(), "debounce 未到时不应提前写 SQLite");
@@ -185,6 +213,15 @@ mod tests {
             before,
             Some(after),
             "debounce 前后不应相同，否则说明没有验证到延迟写入"
+        );
+        assert_eq!(
+            layout_after.mode,
+            storage::LayoutMode::Tiled,
+            "canvas dirty flush 应同步保存默认 Tiled layout state"
+        );
+        assert!(
+            layout_after.master_id.is_none(),
+            "默认 Tiled layout state 不应保存 master_id"
         );
     }
 }

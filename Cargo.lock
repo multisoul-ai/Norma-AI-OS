@@ -4805,6 +4805,7 @@ dependencies = [
  "canvas",
  "filetime",
  "libc",
+ "serde_json",
  "storage",
  "tempfile",
  "terminal",
