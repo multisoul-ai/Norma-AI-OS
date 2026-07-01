@@ -12,3 +12,6 @@ build
 assets/models/paraformer/*
 assets/models/paraformer-offline/*
 assets/models/tts/*
+
+# Git worktrees
+.worktrees/
