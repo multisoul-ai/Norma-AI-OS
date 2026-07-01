@@ -1,9 +1,9 @@
 use super::{
-    run_finalize_for_test, FinalizeOutcome, FinalizeRecognizer, PcmEvent, FINALIZE_TIMEOUT_MS,
-    PCM_QUEUE_CHUNKS, TAP_DRAIN_WAIT_MS,
+    run_finalize_for_test, FinalizeOutcome, FinalizeRecognizer, PcmEvent, SpeechFinalizer,
+    FINALIZE_TIMEOUT_MS, PCM_QUEUE_CHUNKS, TAP_DRAIN_WAIT_MS,
 };
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[derive(Default)]
 struct FakeRecognizer {
@@ -253,5 +253,76 @@ fn test_backlog_and_timeout_constants_are_bounded_and_adequate() {
     assert_eq!(
         FINALIZE_TIMEOUT_MS, 3_000,
         "FINALIZE_TIMEOUT_MS 固定为 3000ms，兼顾不截断与不卡死 app"
+    );
+}
+
+fn assert_send<T: Send>() {}
+
+/// VF-5: SpeechFinalizer 必须是 Send，才能把阻塞 join 移到 GPUI background executor。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   SpeechSession 包含 AudioCapture/AVAudioEngine，不能跨线程移动
+///   SpeechFinalizer 只应包含 JoinHandle + channel sender + stats
+///   background executor 要求 task capture 满足 Send
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 编译期调用 assert_send::<SpeechFinalizer>()
+///   2. 若 SpeechFinalizer 捕获了非 Send 的音频对象，测试无法编译
+///
+/// 预期结果：
+///   - 正断言：SpeechFinalizer 满足 Send
+///   - 负断言：不能把 AudioCapture 留在 SpeechFinalizer 中，否则会阻塞后台化
+#[test]
+fn test_speech_finalizer_is_send_for_background_executor() {
+    assert_send::<SpeechFinalizer>();
+}
+
+/// VF-6: SpeechFinalizer::finish 应等待 tap drain 后发送 EndOfAudio 并返回 join 结果。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   TAP_DRAIN_WAIT_MS = 200ms
+///   test channel capacity = 1，可容纳 EndOfAudio
+///   fake recognizer thread 收到 EndOfAudio 后返回 "完成"
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造 SpeechFinalizer，内部持有 tx 和 fake thread handle
+///   2. 调用 finish()
+///   3. finish 等待 200ms 后发送 EndOfAudio
+///   4. fake thread 收到 EndOfAudio 并返回 transcript
+///
+/// 预期结果：
+///   - 正断言：finish 返回 "完成"
+///   - 正断言：耗时至少为 TAP_DRAIN_WAIT_MS
+///   - 负断言：fake thread 不应收到 Disconnected，否则没有 graceful EndOfAudio
+#[test]
+fn test_speech_finalizer_sends_end_of_audio_after_drain_wait() {
+    let (pcm_tx, pcm_rx) = crossbeam_channel::bounded(1);
+    let (abort_tx, _abort_rx) = crossbeam_channel::bounded(1);
+    let stats = std::sync::Arc::new(super::AudioQueueStats::default());
+    let thread_handle = thread::spawn(move || match pcm_rx.recv() {
+        Ok(PcmEvent::EndOfAudio) => "完成".to_string(),
+        Ok(PcmEvent::Samples(_)) => "unexpected samples".to_string(),
+        Err(_) => "disconnected".to_string(),
+    });
+    let finalizer = SpeechFinalizer::new(Some(thread_handle), Some(pcm_tx), abort_tx, stats);
+
+    let started = Instant::now();
+    let transcript = finalizer
+        .finish()
+        .expect("finalizer 应返回 fake transcript");
+
+    assert_eq!(
+        transcript, "完成",
+        "finalizer 应通过 EndOfAudio 让 recognizer thread graceful 返回"
+    );
+    assert!(
+        started.elapsed() >= Duration::from_millis(TAP_DRAIN_WAIT_MS),
+        "finish 应等待 TAP_DRAIN_WAIT_MS={}ms 后再发送 EndOfAudio，实际 {:?}",
+        TAP_DRAIN_WAIT_MS,
+        started.elapsed()
+    );
+    assert_ne!(
+        transcript, "disconnected",
+        "finalizer 不应通过断开 channel 结束，否则会丢失 graceful finalization"
     );
 }

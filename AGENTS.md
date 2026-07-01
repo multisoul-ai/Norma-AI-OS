@@ -41,6 +41,7 @@ Workspace 分层：
 - **域层零 GPUI**：`canvas`、`terminal`、`runtime` 必须可独立 `cargo test`。
 - **依赖方向不反穿**：不要让 `canvas/terminal/runtime/storage` 反向依赖 `app` 或 `ui`；不要让 `canvas/terminal` 依赖 `storage`。
 - **存储/性能热路径禁令**：不要在 `Runtime::drain_all`、PTY output chunk、`canvas_view::on_mouse_move`、`runtime::route`、`send_node_input`、关闭无脏 flush 中同步写 SQLite、扫描会话目录或阻塞查库。
+- **GPUI 前台禁阻塞**：语音结束、LLM planning/refine、recognizer join、网络/文件 IO、长 sleep 或 CPU 重活必须移到 `background_executor`/后台线程；前台只做状态更新和 runtime UI 副作用。
 - **版本钉死需审慎**：`gpui =0.2.2`、`alacritty_terminal =0.26`，升级前先验证 API。
 - **GPUI 代码先查 skills**：编写或修改 `crates/app`、`crates/ui` 的 GPUI 代码时，优先参考本地已安装的 `gpui-*` skills，再结合本仓库现有写法落地。
 - **单文件 ≤ 500 行**：Rust 源码由 [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh) 拦截，超长先拆职责。

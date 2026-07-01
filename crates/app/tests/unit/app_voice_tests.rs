@@ -1,4 +1,7 @@
-use super::{voice_transcript_source_from_value, VoiceTranscriptSource, DEFAULT_MAX_VOICE_STEPS};
+use super::{
+    voice_transcript_source_from_value, VoicePlanningJob, VoicePlanningResult,
+    VoiceTranscriptSource, DEFAULT_MAX_VOICE_STEPS,
+};
 
 /// AV-0: 默认 voice planner 步数应覆盖“四张卡片 + 一次输入”的复合语音。
 ///
@@ -88,4 +91,28 @@ fn test_voice_source_uses_env_transcript_as_hidden_fallback() {
         VoiceTranscriptSource::AppleSpeech,
         "设置 env fallback 时不应打开 Apple Speech 麦克风 provider"
     );
+}
+
+fn assert_send<T: Send>() {}
+
+/// AV-3: 语音 planning job 的输入与输出必须可跨线程移动。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   finalizer 在 background executor 完成后，会把 raw transcript 交给 planning job
+///   planning job 内含 VoicePlanningRequest + VoiceSettingsValues + transcript 字符串
+///   background executor 要求 job capture 和 result 都满足 Send
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 编译期调用 assert_send::<VoicePlanningJob>()
+///   2. 编译期调用 assert_send::<VoicePlanningResult>()
+///   3. 若 job/result 捕获 Window、Context、MultisoulApp 或非 Send 状态，测试无法编译
+///
+/// 预期结果：
+///   - 正断言：VoicePlanningJob 可 Send，可进入 background executor
+///   - 正断言：VoicePlanningResult 可 Send，可从后台返回 UI task
+///   - 负断言：planning job 不应携带 GPUI Window/Context 或整个 app 状态
+#[test]
+fn test_voice_planning_job_and_result_are_send() {
+    assert_send::<VoicePlanningJob>();
+    assert_send::<VoicePlanningResult>();
 }

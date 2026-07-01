@@ -2,6 +2,7 @@ pub mod permissions;
 pub mod session_state;
 
 mod audio;
+mod finalizer;
 mod model;
 mod resample;
 mod session;
@@ -11,7 +12,7 @@ pub fn resolve_model_dir_for_test() -> Result<std::path::PathBuf, SpeechError> {
     model::resolve_model_dir()
 }
 
-use session::InnerSession;
+use session::{InnerSession, SpeechFinalizer as InnerSpeechFinalizer};
 
 /// Check and (if not yet determined) request microphone permission.
 ///
@@ -54,6 +55,10 @@ pub struct SpeechSession {
     inner: InnerSession,
 }
 
+pub struct SpeechFinalizer {
+    inner: InnerSpeechFinalizer,
+}
+
 impl SherpaProvider {
     pub fn new(model_dir: &std::path::Path) -> Result<Self, SpeechError> {
         if !model_dir.exists() {
@@ -81,7 +86,19 @@ impl SpeechSession {
         self.inner.finish()
     }
 
+    pub fn begin_finish(self) -> Result<SpeechFinalizer, SpeechError> {
+        self.inner
+            .begin_finish()
+            .map(|inner| SpeechFinalizer { inner })
+    }
+
     pub fn cancel(self) {
         self.inner.cancel();
+    }
+}
+
+impl SpeechFinalizer {
+    pub fn finish(self) -> Result<String, SpeechError> {
+        self.inner.finish()
     }
 }

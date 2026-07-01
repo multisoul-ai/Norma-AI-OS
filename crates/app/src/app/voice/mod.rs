@@ -2,28 +2,24 @@
 
 pub(crate) mod bar;
 pub(crate) mod control;
+mod execution;
 mod history;
 pub(crate) mod log;
 pub(crate) mod modal;
+mod planning;
 mod refine;
 
 use crate::app::voice::control::{VoicePhase, VoiceTrigger};
 use crate::app::voice::log::{
     log_voice_confirmation_required, log_voice_executed, log_voice_executing,
-    log_voice_planner_failed, log_voice_planner_rejected, log_voice_planning_started,
-    log_voice_runtime_failed, log_voice_transcript_only,
+    log_voice_planner_rejected, log_voice_runtime_failed, log_voice_transcript_only,
 };
-use crate::app::voice::refine::refine_speech_transcript;
+use crate::app::voice::planning::{run_voice_planning_job, VoicePlanningOutcome};
 use crate::app::{AppScreen, MultisoulApp};
-use crate::norma::server::{execute_card_command_for_area, NormaCommandEffects, NormaExecution};
 use gpui::{Context, MouseDownEvent, MouseUpEvent, Window};
 use history::VoiceOutcome;
-use norma::protocol::{CardCommand, CardCommandResult};
-use std::collections::HashMap;
-use voice::{
-    compile_voice_plan, CardRef, ExecutableCommand, RiskLevel, VoiceCardKind, VoicePlanDecision,
-    VoicePlanner, VoicePlanningRequest,
-};
+pub(crate) use planning::{VoicePlanningJob, VoicePlanningResult};
+use voice::{CardRef, RiskLevel, VoiceCardKind, VoicePlanningRequest};
 use voice_sherpa::SpeechError;
 
 const DEFAULT_MAX_VOICE_STEPS: usize = 8;
@@ -148,7 +144,7 @@ impl MultisoulApp {
         match voice_transcript_source() {
             VoiceTranscriptSource::Environment(transcript) if !transcript.trim().is_empty() => {
                 let transcript = transcript.trim().to_string();
-                self.handle_voice_transcript(transcript.clone(), transcript, None, window, cx);
+                self.start_voice_planning(transcript, window, cx);
             }
             VoiceTranscriptSource::Environment(_) => {
                 self.record_empty_voice_transcript();
@@ -169,9 +165,21 @@ impl MultisoulApp {
             return;
         };
         cx.notify();
-        // finish() blocks (recognizer thread join); run in spawn_in to match existing pattern.
+        // Stop AVAudioEngine on the UI side, then move the blocking final join off-thread.
+        let finalizer = match session.begin_finish() {
+            Ok(finalizer) => finalizer,
+            Err(error) => {
+                self.voice
+                    .set_error(format!("Speech recognition failed: {error}"));
+                self.save_voice_speech_error(error);
+                return;
+            }
+        };
+        let finalize_task = cx
+            .background_executor()
+            .spawn(async move { finalizer.finish() });
         let task = cx.spawn_in(window, async move |this, cx| {
-            let result = session.finish();
+            let result = finalize_task.await;
             let _ = this.update_in(cx, |app, window, cx| {
                 app.voice.clear_speech_task();
                 app.voice.partial_text.clear();
@@ -190,15 +198,7 @@ impl MultisoulApp {
         match result {
             Ok(transcript) if !transcript.trim().is_empty() => {
                 let raw_transcript = transcript.trim().to_string();
-                let (transcript, refined_transcript) =
-                    refine_speech_transcript(&raw_transcript, self.voice_settings.values());
-                self.handle_voice_transcript(
-                    transcript,
-                    raw_transcript,
-                    refined_transcript,
-                    window,
-                    cx,
-                );
+                self.start_voice_planning(raw_transcript, window, cx);
             }
             Ok(_) | Err(SpeechError::EmptyTranscript) => {
                 self.record_empty_voice_transcript();
@@ -211,78 +211,104 @@ impl MultisoulApp {
         }
     }
 
-    fn handle_voice_transcript(
+    fn start_voice_planning(
         &mut self,
-        transcript: String,
         raw_transcript: String,
-        refined_transcript: Option<String>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.voice.set_planning(transcript.clone());
-        let planner = self.voice_settings.planner();
+        self.voice.set_planning(raw_transcript.clone());
+        let job = VoicePlanningJob {
+            request: self.voice_planning_request(raw_transcript.clone()),
+            raw_transcript,
+            settings: self.voice_settings.values().clone(),
+        };
+        let planning_task = cx
+            .background_executor()
+            .spawn(async move { run_voice_planning_job(job) });
+        let task = cx.spawn_in(window, async move |this, cx| {
+            let result = planning_task.await;
+            let _ = this.update_in(cx, |app, window, cx| {
+                app.voice.clear_speech_task();
+                app.apply_voice_planning_result(result, window, cx);
+            });
+        });
+        self.voice.set_speech_task(task);
+        cx.notify();
+    }
 
-        let request = self.voice_planning_request(transcript.clone());
-        log_voice_planning_started(&transcript, &planner, &request);
-        let plan = match planner.plan(&request) {
-            Ok(plan) => plan,
-            Err(error) => {
-                log_voice_planner_failed(&error, &transcript);
+    fn apply_voice_planning_result(
+        &mut self,
+        result: VoicePlanningResult,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let raw_transcript = result.raw_transcript;
+        let refined_transcript = result.refined_transcript;
+        let transcript = result.transcript;
+
+        match result.outcome {
+            VoicePlanningOutcome::ProviderError { error } => {
                 self.voice
                     .set_error(format!("Voice planner failed: {error}"));
                 self.save_voice_history(
-                    raw_transcript.clone(),
-                    refined_transcript.clone(),
+                    raw_transcript,
+                    refined_transcript,
                     "{}".into(),
                     0.0,
                     VoiceOutcome::new("low", "provider_error"),
-                    Some(error.to_string()),
+                    Some(error),
                 );
-                cx.notify();
-                return;
             }
-        };
-        let planner_json = serde_json::to_string(&plan).unwrap_or_else(|_| "{}".to_string());
-        let confidence = f64::from(plan.confidence);
-        let risk = risk_label(plan.risk);
-        let decision = match compile_voice_plan(&request, plan) {
-            Ok(decision) => decision,
-            Err(error) => {
+            VoicePlanningOutcome::Rejected {
+                planner_json,
+                confidence,
+                risk,
+                error,
+            } => {
                 log_voice_planner_rejected(&transcript, &planner_json, &error);
                 self.voice.set_transcript_only(
                     transcript.clone(),
                     format!("planner output rejected: {error}"),
                 );
                 self.save_voice_history(
-                    raw_transcript.clone(),
-                    refined_transcript.clone(),
+                    raw_transcript,
+                    refined_transcript,
                     planner_json,
                     confidence,
-                    VoiceOutcome::new(risk, "planner_rejected"),
-                    Some(error.to_string()),
+                    VoiceOutcome::new(risk_label(risk), "planner_rejected"),
+                    Some(error),
                 );
-                cx.notify();
-                return;
             }
-        };
-
-        match decision {
-            VoicePlanDecision::TranscriptOnly { reason } => {
+            VoicePlanningOutcome::TranscriptOnly {
+                planner_json,
+                confidence,
+                risk,
+                reason,
+            } => {
+                let risk = risk_label(risk);
                 log_voice_transcript_only(&transcript, &reason, confidence, risk);
                 self.voice.set_transcript_only(transcript.clone(), reason);
                 self.save_voice_history(
-                    raw_transcript.clone(),
-                    refined_transcript.clone(),
+                    raw_transcript,
+                    refined_transcript,
                     planner_json,
                     confidence,
                     VoiceOutcome::new(risk, "transcript_only"),
                     None,
                 );
             }
-            VoicePlanDecision::Execute(compiled) if compiled.requires_confirmation => {
+            VoicePlanningOutcome::ConfirmationRequired {
+                planner_json,
+                confidence,
+                risk,
+                compiled,
+            } => {
                 let reason = compiled
                     .reason
+                    .clone()
                     .unwrap_or_else(|| "Plan requires confirmation.".to_string());
+                let risk = risk_label(risk);
                 log_voice_confirmation_required(
                     &transcript,
                     compiled.commands.len(),
@@ -293,15 +319,21 @@ impl MultisoulApp {
                 self.pending_voice_commands = compiled.commands;
                 self.voice.set_confirming(transcript.clone(), reason);
                 self.save_voice_history(
-                    raw_transcript.clone(),
-                    refined_transcript.clone(),
+                    raw_transcript,
+                    refined_transcript,
                     planner_json,
                     confidence,
                     VoiceOutcome::new(risk, "confirmation_required"),
                     None,
                 );
             }
-            VoicePlanDecision::Execute(compiled) => {
+            VoicePlanningOutcome::Execute {
+                planner_json,
+                confidence,
+                risk,
+                compiled,
+            } => {
+                let risk = risk_label(risk);
                 log_voice_executing(&transcript, compiled.commands.len(), confidence, risk);
                 self.pending_voice_commands.clear();
                 let result = self.execute_compiled_voice_plan(compiled.commands, window);
@@ -374,73 +406,6 @@ impl MultisoulApp {
             },
             selected_node_ids,
             max_steps: DEFAULT_MAX_VOICE_STEPS,
-        }
-    }
-
-    pub(crate) fn execute_compiled_voice_plan(
-        &mut self,
-        commands: Vec<ExecutableCommand>,
-        window: &mut Window,
-    ) -> Result<String, String> {
-        let area = self.visible_canvas_rect(window);
-        let zoom = self.runtime.document.viewport.zoom;
-        let mut created_by_step = HashMap::new();
-        let mut last_message = "Voice command executed".to_string();
-
-        for (step, command) in commands.into_iter().enumerate() {
-            let card_command = match command {
-                ExecutableCommand::Card(command) => command,
-                ExecutableCommand::SendTextToPrevious {
-                    previous_step,
-                    text,
-                    submit,
-                } => {
-                    let node_id = *created_by_step
-                        .get(&previous_step)
-                        .ok_or_else(|| format!("missing created node for step {previous_step}"))?;
-                    CardCommand::SendText {
-                        node_id,
-                        text,
-                        submit,
-                    }
-                }
-                ExecutableCommand::FocusPrevious { previous_step } => {
-                    let node_id = *created_by_step
-                        .get(&previous_step)
-                        .ok_or_else(|| format!("missing created node for step {previous_step}"))?;
-                    CardCommand::Focus { node_id }
-                }
-            };
-            let execution = execute_card_command_for_area(
-                &mut self.runtime,
-                &mut self.motion,
-                &mut self.master_layout,
-                card_command,
-                area,
-                zoom,
-            )
-            .map_err(|error| error.to_string())?;
-            if let CardCommandResult::Created { node_id } = &execution.result {
-                created_by_step.insert(step, *node_id);
-                last_message = format!("Created card {node_id}");
-            }
-            self.apply_voice_execution_effects(execution);
-        }
-
-        Ok(last_message)
-    }
-
-    fn apply_voice_execution_effects(&mut self, execution: NormaExecution) {
-        let NormaCommandEffects {
-            canvas_dirty,
-            session_dirty,
-            notify: _,
-        } = execution.effects;
-        if canvas_dirty {
-            self.mark_canvas_dirty();
-        }
-        if session_dirty {
-            self.mark_session_dirty();
         }
     }
 }

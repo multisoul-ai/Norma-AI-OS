@@ -189,13 +189,6 @@ impl VoiceSettingsState {
         &self.values
     }
 
-    pub(crate) fn planner(&self) -> OllamaVoicePlanner {
-        OllamaVoicePlanner::new(
-            self.values.ollama_endpoint.clone(),
-            self.values.planner_model.clone(),
-        )
-    }
-
     pub(crate) fn sherpa_provider(&self) -> Result<SherpaProvider, SpeechError> {
         match self.values.paraformer_model_dir.as_deref() {
             Some(path) => SherpaProvider::new(path),
