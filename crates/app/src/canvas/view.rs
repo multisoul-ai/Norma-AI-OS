@@ -1,265 +1,32 @@
-//! 画布渲染与交互：pan（滚轮、空格/中键拖）、节点拖拽、单击选中。
-//! viewport culling：屏幕外节点不构建元素。
+//! 画布节点渲染：viewport culling、标题栏、内容体。
+//! 事件处理（pan、拖拽、单击）见 `events` 子模块。
 
+use super::events;
 use crate::app::MultisoulApp;
 #[cfg(test)]
+use crate::canvas::events::should_focus_app_root_for_mouse_down;
+#[cfg(test)]
 use crate::canvas::geometry::terminal_content_local_position;
+#[cfg(test)]
+use crate::canvas::geometry::{apply_canvas_wheel_scroll, click_event_for_node, is_title_bar_hit};
 use crate::canvas::geometry::{
-    apply_canvas_wheel_scroll, click_event_for_node, is_title_bar_hit, node_card_radius_px,
-    node_edge_highlight_inset_px, node_terminal_radius_px, node_title_radius_px, pt_to_vec,
+    node_card_radius_px, node_edge_highlight_inset_px, node_terminal_radius_px,
+    node_title_radius_px,
 };
-use crate::canvas::interaction::DragState;
 #[cfg(test)]
 use crate::canvas::interaction::InteractionState;
-use crate::canvas::scroll::{
-    terminal_scroll_lines_from_pixel_delta, wheel_scroll_owner_for_point, WheelScrollOwner,
-};
-use crate::canvas::terminal_hit::terminal_text_point_for_screen;
 use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
 use crate::cards::chrome::{
     chase_overlay_container, node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
 };
 use crate::cards::{card_for, CardBodyContext};
-use canvas::{hit_test, CanvasRect, NodeId, NodeType, Vec2};
-use gpui::{
-    div, prelude::*, px, rgba, AnyElement, Context, MouseButton, MouseDownEvent, MouseMoveEvent,
-    MouseUpEvent, ScrollWheelEvent, Window,
-};
-use runtime::{route, InputMode, NodeScroll, Route};
-
-/// 滚轮/触控板平移画布；卡片内部滚动优先于画布滚动。
-fn on_scroll(
-    app: &mut MultisoulApp,
-    ev: &ScrollWheelEvent,
-    _w: &mut Window,
-    cx: &mut Context<MultisoulApp>,
-) {
-    let _span = tracing::trace_span!("canvas_scroll").entered();
-    let cursor = pt_to_vec(ev.position);
-    let owner = wheel_scroll_owner_for_point(
-        app.runtime.document.nodes(),
-        &app.runtime.selection,
-        cursor,
-        app.runtime.document.viewport,
-    );
-    match owner {
-        WheelScrollOwner::NativeElement(_) => {
-            cx.stop_propagation();
-            return;
-        }
-        WheelScrollOwner::TerminalScrollback(id) => {
-            cx.stop_propagation();
-            let dy = f32::from(ev.delta.pixel_delta(px(1.0)).y);
-            let lines = terminal_scroll_lines_from_pixel_delta(dy);
-            if lines != 0 {
-                match app.runtime.scroll_node(id, NodeScroll::TermLines(lines)) {
-                    Ok(true) => cx.notify(),
-                    Ok(false) => {}
-                    Err(error) => tracing::debug!(?id, %error, "failed to scroll terminal card"),
-                }
-            }
-            return;
-        }
-        WheelScrollOwner::CanvasViewport => {}
-    }
-
-    cx.stop_propagation();
-    let delta = ev.delta.pixel_delta(px(1.0));
-    let pixel_delta = Vec2::new(f32::from(delta.x), f32::from(delta.y));
-    if apply_canvas_wheel_scroll(
-        &mut app.runtime.document.viewport,
-        pixel_delta,
-        app.interaction.canvas_scroll_enabled,
-    ) {
-        app.mark_canvas_dirty();
-        cx.notify();
-    }
-}
-
-fn on_mouse_down(
-    app: &mut MultisoulApp,
-    ev: &MouseDownEvent,
-    window: &mut Window,
-    cx: &mut Context<MultisoulApp>,
-) {
-    let screen = pt_to_vec(ev.position);
-    if should_focus_app_root_for_mouse_down(ev.button) {
-        app.focus_handle.focus(window);
-    }
-    // 画布上任意鼠标按下都应关闭展开的 ✚ 菜单（避免菜单悬浮在画布之上）。
-    // 不 return：让正常画布点击逻辑继续执行。
-    if app.interaction.new_menu_open {
-        app.interaction.close_new_menu();
-        cx.notify();
-    }
-    app.interaction.keyboard_selected_node = None;
-
-    // 中键 或 空格+左键 → 开始 pan。
-    let want_pan = ev.button == MouseButton::Middle
-        || (ev.button == MouseButton::Left && app.interaction.space_held);
-    if want_pan {
-        app.interaction.panning = true;
-        app.interaction.last_screen = Some(screen);
-        return;
-    }
-
-    if ev.button != MouseButton::Left {
-        return;
-    }
-
-    let canvas_pt = app.runtime.document.viewport.screen_to_canvas(screen);
-    let hit = hit_test(app.runtime.document.nodes(), canvas_pt);
-
-    let (is_focusable, is_title_bar) = if let Some(id) = hit {
-        if let Some(node) = app.runtime.document.node(id) {
-            let top_screen = app
-                .runtime
-                .document
-                .viewport
-                .canvas_to_screen(node.bounds.origin);
-            (
-                app.runtime.node_caps(id).focusable,
-                is_title_bar_hit(screen.y, top_screen.y, app.runtime.document.viewport.zoom),
-            )
-        } else {
-            (false, false)
-        }
-    } else {
-        (false, false)
-    };
-    let event = click_event_for_node(hit, is_focusable, is_title_bar, ev.click_count);
-
-    if let Some(id) = hit {
-        if !is_title_bar {
-            if let Some(point) = terminal_text_point_for_screen(app, id, screen) {
-                app.runtime.focus.focus_node(id);
-                app.runtime.selection.select_only(id);
-                app.mark_node_viewed_if_needed(id);
-                app.motion.set_pressed(id, true);
-                app.interaction.begin_text_selection(id, point);
-                cx.stop_propagation();
-                cx.notify();
-                return;
-            }
-        }
-        app.interaction.clear_text_selection();
-    } else {
-        app.interaction.clear_text_selection();
-    }
-
-    match route(&app.runtime.focus.mode(), &event) {
-        Route::SelectNode(id) => {
-            app.runtime.selection.select_only(id);
-            app.runtime.focus.exit_to_canvas();
-            app.mark_node_viewed_if_needed(id);
-            app.motion.set_pressed(id, true);
-            // 命中标题栏 → 开始拖拽。
-            if is_title_bar {
-                app.interaction.drag = Some(DragState {
-                    node: id,
-                    last_screen: screen,
-                });
-                app.motion.set_dragging(id, true);
-            }
-        }
-        Route::ClearSelection => {
-            app.runtime.selection.clear();
-            app.runtime.focus.exit_to_canvas();
-        }
-        Route::FocusNode(id) => {
-            app.runtime.focus.focus_node(id);
-            app.runtime.selection.select_only(id);
-            app.mark_node_viewed_if_needed(id);
-            app.motion.set_pressed(id, true);
-        }
-        _ => {}
-    }
-    cx.notify();
-}
-
-fn should_focus_app_root_for_mouse_down(button: MouseButton) -> bool {
-    matches!(button, MouseButton::Left | MouseButton::Middle)
-}
-
-fn on_mouse_move(
-    app: &mut MultisoulApp,
-    ev: &MouseMoveEvent,
-    _w: &mut Window,
-    cx: &mut Context<MultisoulApp>,
-) {
-    let screen = pt_to_vec(ev.position);
-
-    if let Some(selection) = app.interaction.active_text_selection {
-        if selection.dragging {
-            if let Some(point) = terminal_text_point_for_screen(app, selection.node_id, screen) {
-                if app
-                    .interaction
-                    .update_text_selection_head(selection.node_id, point)
-                {
-                    cx.notify();
-                }
-            } else {
-                app.interaction.clear_text_selection();
-                cx.notify();
-            }
-            return;
-        }
-    }
-
-    if app.interaction.panning {
-        if let Some(last) = app.interaction.last_screen {
-            let delta = screen - last;
-            let vp = &mut app.runtime.document.viewport;
-            vp.pan = vp.pan + delta; // pan 直接按屏幕位移走
-        }
-        app.interaction.last_screen = Some(screen);
-        cx.notify();
-        return;
-    }
-
-    if let Some(drag) = app.interaction.drag {
-        let zoom = app.runtime.document.viewport.zoom;
-        let screen_delta = screen - drag.last_screen;
-        // 屏幕位移 → 画布位移（除以 zoom）。
-        let canvas_delta = Vec2::new(screen_delta.x / zoom, screen_delta.y / zoom);
-        app.runtime.document.move_node(drag.node, canvas_delta);
-        if let Some(node) = app.runtime.document.node(drag.node) {
-            app.motion.sync_drag_rect(drag.node, node.bounds);
-        }
-        app.interaction.drag = Some(DragState {
-            node: drag.node,
-            last_screen: screen,
-        });
-        cx.notify();
-    }
-}
-
-fn on_mouse_up(
-    app: &mut MultisoulApp,
-    _ev: &MouseUpEvent,
-    _w: &mut Window,
-    cx: &mut Context<MultisoulApp>,
-) {
-    let should_persist_canvas = app.interaction.panning || app.interaction.drag.is_some();
-    let was_text_selecting = app
-        .interaction
-        .active_text_selection
-        .map(|selection| selection.dragging)
-        .unwrap_or(false);
-    app.interaction.panning = false;
-    app.interaction.drag = None;
-    app.interaction.last_screen = None;
-    app.motion.clear_transient();
-    if was_text_selecting {
-        app.interaction.finish_text_selection();
-        cx.notify();
-        return;
-    }
-    if should_persist_canvas {
-        app.mark_canvas_dirty();
-    }
-    cx.notify();
-}
+#[cfg(test)]
+use canvas::Vec2;
+use canvas::{CanvasRect, NodeId, NodeType};
+use gpui::{div, prelude::*, px, rgba, AnyElement, Context, MouseButton, Window};
+use runtime::InputMode;
+#[cfg(test)]
+use runtime::{route, Route};
 
 pub fn render_canvas(
     app: &mut MultisoulApp,
@@ -283,12 +50,13 @@ pub fn render_canvas(
         let node = app.runtime.document.node(id).unwrap().clone();
         let card = card_for(node.kind.node_type());
         let chrome = card.chrome(&node, &app.runtime);
-        let (origin, size, selected, title, task_badge) = (
+        let (origin, size, selected, title, task_badge, status_line) = (
             node.bounds.origin,
             node.bounds.size,
             node.selected,
             chrome.title,
             chrome.task_badge,
+            chrome.status_line,
         );
         let refreshable = chrome.refreshable;
         let selected = selected || app.runtime.selection.contains(id);
@@ -452,6 +220,15 @@ pub fn render_canvas(
                 .child(title_actions),
         );
 
+        if let Some(row) = render_status_line(
+            status_line,
+            visual.title_bar_color,
+            theme.text_secondary,
+            vp.zoom,
+        ) {
+            node_div = node_div.child(row);
+        }
+
         // 内容
         node_div = node_div.child(card.body(
             &node,
@@ -477,13 +254,36 @@ pub fn render_canvas(
         .id("canvas")
         .size_full()
         .relative()
-        .on_scroll_wheel(cx.listener(on_scroll))
-        .on_mouse_down(MouseButton::Left, cx.listener(on_mouse_down))
-        .on_mouse_down(MouseButton::Middle, cx.listener(on_mouse_down))
-        .on_mouse_move(cx.listener(on_mouse_move))
-        .on_mouse_up(MouseButton::Left, cx.listener(on_mouse_up))
-        .on_mouse_up(MouseButton::Middle, cx.listener(on_mouse_up))
+        .on_scroll_wheel(cx.listener(events::on_scroll))
+        .on_mouse_down(MouseButton::Left, cx.listener(events::on_mouse_down))
+        .on_mouse_down(MouseButton::Middle, cx.listener(events::on_mouse_down))
+        .on_mouse_move(cx.listener(events::on_mouse_move))
+        .on_mouse_up(MouseButton::Left, cx.listener(events::on_mouse_up))
+        .on_mouse_up(MouseButton::Middle, cx.listener(events::on_mouse_up))
         .children(node_elems)
+}
+
+/// Renders a slim secondary bar below the title bar when `status_line` is `Some`.
+fn render_status_line(
+    status_line: Option<String>,
+    title_bar_color: u32,
+    text_secondary: u32,
+    zoom: f32,
+) -> Option<gpui::Div> {
+    let line = status_line?;
+    Some(
+        div()
+            .h(px(18.0 * zoom))
+            .w_full()
+            .flex()
+            .flex_row()
+            .items_center()
+            .px(px(10.0 * zoom))
+            .bg(rgba(with_alpha(title_bar_color, 0xcc)))
+            .text_color(rgba(text_secondary))
+            .text_size(px((10.0 * zoom).max(8.0)))
+            .child(line),
+    )
 }
 
 fn with_alpha(color: u32, alpha: u8) -> u32 {
