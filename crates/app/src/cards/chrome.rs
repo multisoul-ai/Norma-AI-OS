@@ -22,6 +22,7 @@ pub struct CardChrome {
     pub title: String,
     pub refreshable: bool,
     pub task_badge: Option<CardChromeTaskBadge>,
+    pub status_line: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -288,6 +289,7 @@ impl Card for EmptyCard {
             title: node.kind.display_title(),
             refreshable: false,
             task_badge: None,
+            status_line: None,
         }
     }
 
