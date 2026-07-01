@@ -57,9 +57,8 @@ impl AgentDefinitionStore {
             ],
         )?;
         let id = connection.last_insert_rowid();
-        self.get(id)?.ok_or(StorageError::InvalidAgentProfile(
-            "missing-created-agent-definition".to_string(),
-        ))
+        self.get(id)?
+            .ok_or(StorageError::AgentDefinitionNotFound(id))
     }
 
     pub fn list(&self) -> StorageResult<Vec<AgentDefinition>> {
@@ -103,18 +102,10 @@ impl AgentDefinitionStore {
             ],
         )?;
         if changed == 0 {
-            return Ok(AgentDefinition {
-                id: input.id,
-                name: input.name.clone(),
-                runtime_profile: input.runtime_profile,
-                workflow_description: input.workflow_description.clone(),
-                enabled: input.enabled,
-                sort_order: input.sort_order,
-            });
+            return Err(StorageError::AgentDefinitionNotFound(input.id));
         }
-        self.get(input.id)?.ok_or(StorageError::InvalidAgentProfile(
-            "missing-updated-agent-definition".to_string(),
-        ))
+        self.get(input.id)?
+            .ok_or(StorageError::AgentDefinitionNotFound(input.id))
     }
 
     pub fn delete(&self, id: i64) -> StorageResult<bool> {

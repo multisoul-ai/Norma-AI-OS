@@ -216,6 +216,50 @@ fn test_agent_definition_store_rejects_case_insensitive_duplicate_names() {
     );
 }
 
+/// AD-4: update() 遇到不存在的 id 时，必须返回 typed storage error，不能伪造成功写入。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   existing rows = 0 条，确保要更新的 id=4242 在 project DB 中不存在
+///   updated payload = "Missing Reviewer" / Claude / "Should not be persisted."
+///   target id = 4242，选取一个远离 AUTOINCREMENT 初始值的固定整数，避免和自动生成主键碰撞
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 直接调用 update(id=4242) → 触发 WHERE id = 4242 的 UPDATE
+///   2. SQLite 返回 0 rows changed → 调用方应收到错误，而不是 synthetic AgentDefinition
+///
+/// 预期结果：
+///   - 正断言：update() 返回 Err
+///   - 正断言：错误类型应为 AgentDefinitionNotFound(4242) 以便上层处理缺失记录
+///   - 负断言：不能返回看似成功的 AgentDefinition，因为那会掩盖未持久化的状态
+#[test]
+fn test_agent_definition_store_update_missing_id_returns_typed_error() {
+    let temp = tempfile::tempdir().expect("test should create temp dir");
+    let store = AgentDefinitionStore::new(temp.path().join("project.sqlite"));
+
+    let result = store.update(&AgentDefinitionUpdate {
+        id: 4242,
+        name: "Missing Reviewer".to_string(),
+        runtime_profile: AgentProfile::Claude,
+        workflow_description: "Should not be persisted.".to_string(),
+        enabled: true,
+        sort_order: 7,
+    });
+
+    match result {
+        Err(StorageError::AgentDefinitionNotFound(id)) => {
+            assert_eq!(
+                id, 4242,
+                "missing-id 错误必须回传原始 id 供调用方定位缺失记录"
+            );
+        }
+        Err(other) => panic!("update() 应返回 AgentDefinitionNotFound(4242)，实际得到 {other:?}"),
+        Ok(value) => panic!(
+            "update() 不应伪造成功 AgentDefinition；实际错误地返回了 {:?}",
+            value
+        ),
+    }
+}
+
 /// AD-3: list() 遇到非法 runtime_profile 脏数据时，应返回 typed StorageError 供调用方上报迁移问题。
 ///
 /// 数据构造（含关键数值的推导过程）：
