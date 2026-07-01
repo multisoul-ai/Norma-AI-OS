@@ -2,7 +2,9 @@ use canvas::AgentProfile as CanvasAgentProfile;
 #[cfg(test)]
 use canvas::CanvasNodeKind;
 use crossbeam_channel::{unbounded, Receiver};
-use norma::agent_hook::{task_state_for_provider_event, AgentHookEvent, AgentHookTaskState};
+use norma::agent_hook::{
+    extract_prompt_text, task_state_for_provider_event, AgentHookEvent, AgentHookTaskState,
+};
 use runtime::{AgentHookRuntimeConfig, AgentTaskState, AgentTaskUpdate, Runtime};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -84,11 +86,17 @@ pub(crate) fn apply_agent_hook_event(runtime: &mut Runtime, event: AgentHookEven
         tracing::debug!(provider_event = %event.provider_event, "ignored unmapped agent hook event");
         return false;
     };
+    let task_title = if event.provider_event == "UserPromptSubmit" {
+        extract_prompt_text(&event.raw_json)
+    } else {
+        None
+    };
     runtime.apply_agent_task_update(AgentTaskUpdate {
         node_id: event.node_id,
         profile: canvas_profile(event.profile),
         provider_event: event.provider_event,
         to,
+        task_title,
     })
 }
 
