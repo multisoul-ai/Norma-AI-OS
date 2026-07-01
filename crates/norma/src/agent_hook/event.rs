@@ -151,24 +151,38 @@ mod tests {
         );
     }
 
-    /// extract_prompt_text: "message" 字段作为备选键。
+    /// extract_prompt_text: "message" 和 "user_message" 字段作为备选键；无任何已知键时返回 None。
     ///
     /// 数据构造：
-    ///   raw_json = {"hook_event_name": "UserPromptSubmit", "message": "hello"}
-    ///   raw_json_no_keys = {"hook_event_name": "UserPromptSubmit"}
+    ///   with_message = {"message": "hello"}
+    ///   with_user_message = {"user_message": "hey"}
+    ///   no_keys = {}（无任何已知 prompt 键）
+    ///
+    /// 执行过程：
+    ///   1. 调用 extract_prompt_text(&with_message) → 应返回 Some("hello")
+    ///   2. 调用 extract_prompt_text(&with_user_message) → 应返回 Some("hey")
+    ///   3. 调用 extract_prompt_text(&no_keys) → 应返回 None
     ///
     /// 预期结果：
     ///   - 正断言：有 "message" 时返回 Some("hello")
+    ///   - 正断言：有 "user_message" 时返回 Some("hey")
     ///   - 正断言：无任何已知键时返回 None
     #[test]
     fn test_extract_prompt_text_fallback_keys_and_none() {
         let with_message = json!({"hook_event_name": "UserPromptSubmit", "message": "hello"});
+        let with_user_message =
+            json!({"hook_event_name": "UserPromptSubmit", "user_message": "hey"});
         let no_keys = json!({"hook_event_name": "UserPromptSubmit"});
 
         assert_eq!(
             extract_prompt_text(&with_message),
             Some("hello".to_string()),
             "有 message 字段时应返回其值"
+        );
+        assert_eq!(
+            extract_prompt_text(&with_user_message),
+            Some("hey".to_string()),
+            "有 user_message 字段时应返回其值"
         );
         assert_eq!(
             extract_prompt_text(&no_keys),
