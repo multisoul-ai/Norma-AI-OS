@@ -32,6 +32,7 @@ pub struct Runtime {
     pub(crate) events: RuntimeEvents,
     pub(crate) agent_hook_config: Option<crate::agent_hooks::AgentHookRuntimeConfig>,
     terminal_shells: HashMap<NodeId, String>,
+    pub(crate) agent_session_ids: HashMap<NodeId, String>,
     next_session_id: TerminalSessionId,
     workspace_root: Option<PathBuf>,
 }
@@ -52,6 +53,7 @@ impl Runtime {
             events: RuntimeEvents::default(),
             agent_hook_config: None,
             terminal_shells: HashMap::new(),
+            agent_session_ids: HashMap::new(),
             next_session_id: 1,
             workspace_root: None,
         }
@@ -79,6 +81,7 @@ impl Runtime {
         self.focus.exit_to_canvas();
         self.live.clear();
         self.terminal_shells.clear();
+        self.agent_session_ids.clear();
         self.next_session_id = 1;
     }
 
@@ -124,6 +127,7 @@ impl Runtime {
             &self.live,
             &self.document,
             self.workspace_root.as_deref(),
+            &self.agent_session_ids,
         )
     }
 
@@ -317,6 +321,7 @@ impl Runtime {
         }
         self.events.remove(node_id);
         self.terminal_shells.remove(&node_id);
+        self.agent_session_ids.remove(&node_id);
 
         self.selection.deselect(node_id);
         if matches!(self.focus.mode(), InputMode::NodeFocused(focused) if focused == node_id) {
@@ -337,6 +342,10 @@ impl Runtime {
         let sid = self.next_session_id;
         self.next_session_id += 1;
         sid
+    }
+
+    pub fn agent_session_id(&self, node_id: NodeId) -> Option<String> {
+        self.agent_session_ids.get(&node_id).cloned()
     }
 
     fn finish_node_operation<T>(
@@ -367,6 +376,9 @@ impl Runtime {
 #[cfg(test)]
 #[path = "../tests/unit/agent_command_tests.rs"]
 mod agent_command_tests;
+#[cfg(test)]
+#[path = "../tests/unit/agent_session_snapshot_tests.rs"]
+mod agent_session_snapshot_tests;
 #[cfg(test)]
 #[path = "../tests/unit/agent_task_event_tests.rs"]
 mod agent_task_event_tests;

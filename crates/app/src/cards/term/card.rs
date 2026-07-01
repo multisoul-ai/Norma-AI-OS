@@ -24,7 +24,6 @@ impl Card for TermCard {
             title: "Terminal".to_string(),
             refreshable: false,
             task_badge: None,
-            status_line: None,
         }
     }
 

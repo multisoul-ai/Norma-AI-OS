@@ -72,10 +72,7 @@ pub fn save_session_checkpoints(
     store: &SessionStore,
     checkpoints: &[SessionCheckpoint],
 ) -> StorageResult<()> {
-    for checkpoint in checkpoints {
-        store.save_checkpoint(checkpoint)?;
-    }
-    Ok(())
+    store.replace_all_checkpoints(checkpoints)
 }
 
 /// Context needed by restore functions to attach live nodes.
@@ -232,12 +229,11 @@ pub fn save_node_sessions(
     live: &HashMap<NodeId, Box<dyn LiveNode>>,
     document: &Document,
     workspace_root: Option<&Path>,
+    agent_session_ids: &HashMap<NodeId, String>,
 ) -> StorageResult<()> {
-    let sessions = session_snapshot::collect_node_sessions(live, document, workspace_root);
-    for session in &sessions {
-        store.save_session(session)?;
-    }
-    Ok(())
+    let sessions =
+        session_snapshot::collect_node_sessions(live, document, workspace_root, agent_session_ids);
+    store.replace_all_sessions(&sessions)
 }
 
 fn resolve_agent_restore_session_id(

@@ -48,6 +48,8 @@ pub struct AgentTaskUpdate {
     /// Optional display title for this task. Locked on first non-None value;
     /// subsequent updates with a value are ignored.
     pub task_title: Option<String>,
+    /// Optional provider session id from agent hook payloads.
+    pub session_id: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -293,6 +295,14 @@ impl Runtime {
         };
         match &node.kind {
             CanvasNodeKind::Agent(agent) if agent.profile == update.profile => {
+                if let Some(session_id) = update
+                    .session_id
+                    .as_deref()
+                    .filter(|session_id| !session_id.is_empty())
+                {
+                    self.agent_session_ids
+                        .insert(update.node_id, session_id.to_string());
+                }
                 if let Some(title) = update.task_title {
                     self.events
                         .set_agent_task_title_if_absent(update.node_id, title);

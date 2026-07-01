@@ -158,6 +158,7 @@ fn test_task_title_locked_on_first_set() {
         provider_event: "UserPromptSubmit".to_string(),
         to: AgentTaskState::Thinking,
         task_title: Some("帮我重构".to_string()),
+        session_id: None,
     });
     runtime.apply_agent_task_update(AgentTaskUpdate {
         node_id,
@@ -165,6 +166,7 @@ fn test_task_title_locked_on_first_set() {
         provider_event: "UserPromptSubmit".to_string(),
         to: AgentTaskState::Thinking,
         task_title: Some("现在再做别的".to_string()),
+        session_id: None,
     });
 
     assert_eq!(
@@ -210,6 +212,7 @@ fn test_task_title_none_does_not_write() {
             tool_name: Some("bash".to_string()),
         },
         task_title: None,
+        session_id: None,
     });
 
     assert_eq!(
@@ -248,6 +251,7 @@ fn test_task_title_cleared_on_node_remove() {
         provider_event: "UserPromptSubmit".to_string(),
         to: AgentTaskState::Thinking,
         task_title: Some("test task".to_string()),
+        session_id: None,
     });
 
     runtime.remove_node(node_id);
@@ -338,6 +342,7 @@ fn test_task_title_cleared_on_new_session() {
         provider_event: "UserPromptSubmit".to_string(),
         to: AgentTaskState::Thinking,
         task_title: Some("旧任务".to_string()),
+        session_id: None,
     });
     runtime.apply_agent_task_update(AgentTaskUpdate {
         node_id,
@@ -345,6 +350,7 @@ fn test_task_title_cleared_on_new_session() {
         provider_event: "SessionStart".to_string(),
         to: AgentTaskState::Ready,
         task_title: None,
+        session_id: None,
     });
     runtime.apply_agent_task_update(AgentTaskUpdate {
         node_id,
@@ -352,6 +358,7 @@ fn test_task_title_cleared_on_new_session() {
         provider_event: "UserPromptSubmit".to_string(),
         to: AgentTaskState::Thinking,
         task_title: Some("新任务".to_string()),
+        session_id: None,
     });
 
     assert_eq!(

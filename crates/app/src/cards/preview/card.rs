@@ -26,7 +26,6 @@ impl Card for PreviewCard {
             title: node.kind.display_title(),
             refreshable: true,
             task_badge: None,
-            status_line: None,
         }
     }
 

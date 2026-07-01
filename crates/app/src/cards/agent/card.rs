@@ -19,24 +19,24 @@ impl Card for AgentCard {
     }
 
     fn chrome(&self, node: &CanvasNode, runtime: &Runtime) -> CardChrome {
-        // Use task_title (locked on first UserPromptSubmit) if available;
-        // fall back to alias then profile name.
-        let title = runtime
-            .agent_task_title(node.id)
-            .or_else(|| match &node.kind {
-                CanvasNodeKind::Agent(agent) => agent.alias.clone(),
-                _ => None,
-            })
-            .unwrap_or_else(|| match &node.kind {
-                CanvasNodeKind::Agent(agent) => agent.profile.display_title().to_string(),
-                _ => "Agent".to_string(),
-            });
+        // Title format: "<profile/alias>" or "<profile/alias> — <task_title>"
+        let profile_name = match &node.kind {
+            CanvasNodeKind::Agent(agent) => agent
+                .alias
+                .as_deref()
+                .unwrap_or_else(|| agent.profile.display_title())
+                .to_string(),
+            _ => "Agent".to_string(),
+        };
+        let title = match runtime.agent_task_title(node.id) {
+            Some(task_title) => format!("{profile_name} — {task_title}"),
+            None => profile_name,
+        };
         let state = runtime.agent_task_state(node.id);
         CardChrome {
             title,
             refreshable: false,
-            task_badge: agent_task_badge(state.clone()),
-            status_line: agent_status_line(state),
+            task_badge: agent_task_badge(state),
         }
     }
 
@@ -80,26 +80,6 @@ fn agent_task_badge(state: Option<AgentTaskState>) -> Option<CardChromeTaskBadge
     Some(CardChromeTaskBadge {
         label: label.to_string(),
         tone,
-    })
-}
-
-pub(crate) fn agent_status_line(state: Option<AgentTaskState>) -> Option<String> {
-    Some(match state? {
-        AgentTaskState::Ready => "Waiting for input".to_string(),
-        AgentTaskState::Thinking => "Thinking\u{2026}".to_string(),
-        AgentTaskState::RunningTool {
-            tool_name: Some(name),
-        } => format!("Running: {name}"),
-        AgentTaskState::RunningTool { tool_name: None } => "Running tool\u{2026}".to_string(),
-        AgentTaskState::WaitingApproval {
-            tool_name: Some(name),
-        } => format!("Waiting approval: {name}"),
-        AgentTaskState::WaitingApproval { tool_name: None } => {
-            "Waiting approval\u{2026}".to_string()
-        }
-        AgentTaskState::Done => "Completed".to_string(),
-        AgentTaskState::Failed { message } => format!("Failed: {message}"),
-        AgentTaskState::Ended => "Session ended".to_string(),
     })
 }
 

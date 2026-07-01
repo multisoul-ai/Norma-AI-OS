@@ -59,6 +59,29 @@ impl NodeSessionStore {
         Ok(())
     }
 
+    pub fn replace_all_sessions(&self, sessions: &[NodeSession]) -> StorageResult<()> {
+        let mut conn = Connection::open(&self.path)?;
+        let tx = conn.transaction()?;
+        tx.execute("DELETE FROM node_sessions", [])?;
+        {
+            let mut statement = tx.prepare(
+                "INSERT INTO node_sessions \
+                 (node_id, kind, cwd, session_id, updated_at_unix) \
+                 VALUES (?1, ?2, ?3, ?4, strftime('%s','now'))",
+            )?;
+            for session in sessions {
+                statement.execute(params![
+                    session.node_id,
+                    session.kind.as_str(),
+                    session.cwd,
+                    session.session_id,
+                ])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
     pub fn load_sessions(&self) -> StorageResult<Vec<NodeSession>> {
         let conn = Connection::open(&self.path)?;
         let mut stmt = conn.prepare("SELECT node_id, kind, cwd, session_id FROM node_sessions")?;

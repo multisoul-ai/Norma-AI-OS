@@ -17,8 +17,10 @@
 #
 # Expected result:
 #   - Positive: the hook binary path is present in [[binaries]].
-#   - Positive: before-packaging-command exists and invokes `cargo build --release -p app`.
-#   - Negative: a config that only packages the hook, but never builds it, fails.
+#   - Positive: before-packaging-command exists and bumps the persisted version.
+#   - Positive: before-packaging-command invokes `cargo build --release -p app`.
+#   - Negative: a config that builds without bumping the version fails.
+#   - Negative: a config that bumps after building fails.
 
 set -euo pipefail
 
@@ -38,8 +40,22 @@ if ! grep -Fq 'before-packaging-command' "$config"; then
   fail "Packager.toml must build release binaries before packaging"
 fi
 
-if ! grep -F 'before-packaging-command' "$config" | grep -Fq -- 'cargo build --release -p app'; then
+hook=$(grep -F 'before-packaging-command' "$config")
+
+if ! printf '%s\n' "$hook" | grep -Fq -- 'scripts/bump-release-version.sh'; then
+  fail "before-packaging-command must bump the release version before packaging"
+fi
+
+if ! printf '%s\n' "$hook" | grep -Fq -- 'cargo build --release -p app'; then
   fail "before-packaging-command must build the app package release binaries"
 fi
+
+case "$hook" in
+  *scripts/bump-release-version.sh*'cargo build --release -p app'*)
+    ;;
+  *)
+    fail "before-packaging-command must bump the release version before cargo build"
+    ;;
+esac
 
 echo "packager config test passed"

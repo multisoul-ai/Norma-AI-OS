@@ -4,7 +4,7 @@
 use super::events;
 use crate::app::MultisoulApp;
 #[cfg(test)]
-use crate::canvas::events::should_focus_app_root_for_mouse_down;
+use crate::canvas::events::{should_focus_app_root_for_mouse_down, should_notify_motion_frame};
 #[cfg(test)]
 use crate::canvas::geometry::terminal_content_local_position;
 #[cfg(test)]
@@ -22,7 +22,7 @@ use crate::cards::chrome::{
 use crate::cards::{card_for, CardBodyContext};
 #[cfg(test)]
 use canvas::Vec2;
-use canvas::{CanvasRect, NodeId, NodeType};
+use canvas::{NodeId, NodeType};
 use gpui::{div, prelude::*, px, rgba, AnyElement, Context, MouseButton, Window};
 use runtime::InputMode;
 #[cfg(test)]
@@ -47,24 +47,21 @@ pub fn render_canvas(
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
     app.motion.retain_nodes(node_ids.iter().copied());
     for id in node_ids {
-        let node = app.runtime.document.node(id).unwrap().clone();
-        let card = card_for(node.kind.node_type());
-        let chrome = card.chrome(&node, &app.runtime);
-        let (origin, size, selected, title, task_badge, status_line) = (
-            node.bounds.origin,
-            node.bounds.size,
-            node.selected,
-            chrome.title,
-            chrome.task_badge,
-            chrome.status_line,
-        );
-        let refreshable = chrome.refreshable;
-        let selected = selected || app.runtime.selection.contains(id);
-        let canonical_rect = CanvasRect { origin, size };
+        let Some((canonical_rect, selected, node_type)) =
+            app.runtime.document.node(id).map(|node| {
+                (
+                    node.bounds,
+                    node.selected || app.runtime.selection.contains(id),
+                    node.kind.node_type(),
+                )
+            })
+        else {
+            continue;
+        };
         let focused = matches!(focus_mode, InputMode::NodeFocused(fid) if fid == id);
         app.motion.ensure_node(id, canonical_rect);
         app.motion.set_selection_focus(id, selected, focused);
-        let is_agent = node.kind.node_type() == NodeType::Agent;
+        let is_agent = node_type == NodeType::Agent;
         let agent_state = is_agent.then(|| app.runtime.agent_task_state(id)).flatten();
         let card_attention = app.runtime.card_attention(id);
         let breathing_intent = agent_breathing_intent(agent_state.clone(), card_attention);
@@ -90,6 +87,12 @@ pub fn render_canvas(
             continue;
         }
 
+        let node = app.runtime.document.node(id).unwrap().clone();
+        let card = card_for(node_type);
+        let chrome = card.chrome(&node, &app.runtime);
+        let title = chrome.title;
+        let task_badge = chrome.task_badge;
+        let refreshable = chrome.refreshable;
         let stroke = visual.stroke_color;
         let status = visual.status_color;
         let close_button_size = (18.0 * vp.zoom).clamp(16.0, 24.0);
@@ -204,30 +207,33 @@ pub fn render_canvas(
                         .flex()
                         .flex_row()
                         .items_center()
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .overflow_hidden()
                         .gap_2()
                         .child(
                             div()
                                 .w(px(7.0 * vp.zoom))
                                 .h(px(7.0 * vp.zoom))
+                                .flex_none()
                                 .rounded(px(4.0 * vp.zoom))
                                 .bg(rgba(status)),
                         )
-                        .child(title)
+                        .child(
+                            div()
+                                .id(("node-title", id))
+                                .flex_1()
+                                .min_w(px(0.0))
+                                .overflow_hidden()
+                                .truncate()
+                                .child(title),
+                        )
                         .when_some(task_badge, |this, badge| {
                             this.child(render_task_badge(badge, vp.zoom, theme))
                         }),
                 )
                 .child(title_actions),
         );
-
-        if let Some(row) = render_status_line(
-            status_line,
-            visual.title_bar_color,
-            theme.text_secondary,
-            vp.zoom,
-        ) {
-            node_div = node_div.child(row);
-        }
 
         // 内容
         node_div = node_div.child(card.body(
@@ -261,29 +267,6 @@ pub fn render_canvas(
         .on_mouse_up(MouseButton::Left, cx.listener(events::on_mouse_up))
         .on_mouse_up(MouseButton::Middle, cx.listener(events::on_mouse_up))
         .children(node_elems)
-}
-
-/// Renders a slim secondary bar below the title bar when `status_line` is `Some`.
-fn render_status_line(
-    status_line: Option<String>,
-    title_bar_color: u32,
-    text_secondary: u32,
-    zoom: f32,
-) -> Option<gpui::Div> {
-    let line = status_line?;
-    Some(
-        div()
-            .h(px(18.0 * zoom))
-            .w_full()
-            .flex()
-            .flex_row()
-            .items_center()
-            .px(px(10.0 * zoom))
-            .bg(rgba(with_alpha(title_bar_color, 0xcc)))
-            .text_color(rgba(text_secondary))
-            .text_size(px((10.0 * zoom).max(8.0)))
-            .child(line),
-    )
 }
 
 fn with_alpha(color: u32, alpha: u8) -> u32 {

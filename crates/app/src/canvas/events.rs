@@ -15,6 +15,9 @@ use gpui::{
     Window,
 };
 use runtime::{route, NodeScroll, Route};
+use std::time::{Duration, Instant};
+
+const MOTION_NOTIFY_INTERVAL: Duration = Duration::from_millis(16);
 
 /// 滚轮/触控板平移画布；卡片内部滚动优先于画布滚动。
 pub(super) fn on_scroll(
@@ -89,6 +92,7 @@ pub(super) fn on_mouse_down(
     if want_pan {
         app.interaction.panning = true;
         app.interaction.last_screen = Some(screen);
+        app.interaction.last_motion_notify = None;
         return;
     }
 
@@ -148,6 +152,7 @@ pub(super) fn on_mouse_down(
                     node: id,
                     last_screen: screen,
                 });
+                app.interaction.last_motion_notify = None;
                 app.motion.set_dragging(id, true);
             }
         }
@@ -168,6 +173,16 @@ pub(super) fn on_mouse_down(
 
 pub(super) fn should_focus_app_root_for_mouse_down(button: MouseButton) -> bool {
     matches!(button, MouseButton::Left | MouseButton::Middle)
+}
+
+pub(super) fn should_notify_motion_frame(last: Option<Instant>, now: Instant) -> bool {
+    match last {
+        Some(last) => now
+            .checked_duration_since(last)
+            .map(|elapsed| elapsed >= MOTION_NOTIFY_INTERVAL)
+            .unwrap_or(true),
+        None => true,
+    }
 }
 
 pub(super) fn on_mouse_move(
@@ -202,7 +217,11 @@ pub(super) fn on_mouse_move(
             vp.pan = vp.pan + delta; // pan 直接按屏幕位移走
         }
         app.interaction.last_screen = Some(screen);
-        cx.notify();
+        let now = Instant::now();
+        if should_notify_motion_frame(app.interaction.last_motion_notify, now) {
+            app.interaction.last_motion_notify = Some(now);
+            cx.notify();
+        }
         return;
     }
 
@@ -219,7 +238,11 @@ pub(super) fn on_mouse_move(
             node: drag.node,
             last_screen: screen,
         });
-        cx.notify();
+        let now = Instant::now();
+        if should_notify_motion_frame(app.interaction.last_motion_notify, now) {
+            app.interaction.last_motion_notify = Some(now);
+            cx.notify();
+        }
     }
 }
 
@@ -238,6 +261,7 @@ pub(super) fn on_mouse_up(
     app.interaction.panning = false;
     app.interaction.drag = None;
     app.interaction.last_screen = None;
+    app.interaction.last_motion_notify = None;
     app.motion.clear_transient();
     if was_text_selecting {
         app.interaction.finish_text_selection();

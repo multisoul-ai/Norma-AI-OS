@@ -19,7 +19,8 @@ use crate::macos_proc;
 pub fn collect_node_sessions(
     live: &HashMap<NodeId, Box<dyn LiveNode>>,
     document: &Document,
-    workspace_root: Option<&Path>,
+    _workspace_root: Option<&Path>,
+    agent_session_ids: &HashMap<NodeId, String>,
 ) -> Vec<NodeSession> {
     let mut sessions = Vec::new();
 
@@ -38,12 +39,8 @@ pub fn collect_node_sessions(
                     session_id: None,
                 });
             }
-            CanvasNodeKind::Agent(spec) => {
-                let session_id = workspace_root.and_then(|root| match spec.profile {
-                    AgentProfile::Claude => find_agent_session_id(root),
-                    AgentProfile::Codex => find_codex_session_id(root),
-                    AgentProfile::OpenCode => None,
-                });
+            CanvasNodeKind::Agent(_) => {
+                let session_id = agent_session_ids.get(&node.id).cloned();
                 sessions.push(NodeSession {
                     node_id: node.id,
                     kind: NodeSessionKind::Agent,

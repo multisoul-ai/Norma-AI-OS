@@ -63,6 +63,12 @@ impl PersistenceScheduler {
             return Ok(false);
         };
 
+        let had_pending_work = self.has_pending_work();
+        if !had_pending_work {
+            self.dirty_for = Duration::ZERO;
+            return Ok(false);
+        }
+
         if self.canvas_dirty {
             runtime.save_canvas_snapshot(&project_store.canvas_store())?;
             project_store
@@ -72,15 +78,13 @@ impl PersistenceScheduler {
         if self.session_dirty {
             runtime.save_session_checkpoints(&project_store.session_store())?;
         }
-        // Always capture node sessions (e.g. cwd) regardless of session_dirty, because
-        // cwd changes happen inside live terminals and do not trigger mark_session_dirty.
-        // This ensures the most recent cwd is captured even if the debounce already flushed.
-        let _ = runtime.save_node_sessions(&project_store.node_session_store());
-        let flushed = self.has_pending_work();
+        // Node sessions are derived from live nodes and may require process metadata.
+        // Keep them on dirty flushes only so close/no-op flushes stay off the SQLite path.
+        runtime.save_node_sessions(&project_store.node_session_store())?;
         self.canvas_dirty = false;
         self.session_dirty = false;
         self.dirty_for = Duration::ZERO;
-        Ok(flushed)
+        Ok(had_pending_work)
     }
 
     fn has_pending_work(&self) -> bool {
@@ -138,7 +142,7 @@ impl MultisoulApp {
 mod tests {
     use super::*;
     use canvas::{CanvasNodeKind, CanvasRect, RectNode};
-    use storage::ProjectStore;
+    use storage::{NodeSession, NodeSessionKind, ProjectStore};
 
     /// P-1: scheduler debounce 期间不写 SQLite，超过窗口后合并写一次 canvas snapshot。
     ///
@@ -222,6 +226,76 @@ mod tests {
         assert!(
             layout_after.master_id.is_none(),
             "默认 Tiled layout state 不应保存 master_id"
+        );
+    }
+
+    /// P-2: 没有脏数据时 flush_now 应快速返回，不能重写 node_sessions 表。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   stale node session = node_id=99, cwd="/tmp/stale"
+    ///   canvas_dirty=false，session_dirty=false，因此 pending work = 0
+    ///   runtime document = empty，若错误调用 replace_all_sessions([]) 会把 node_id=99 删掉
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. set_project_store(project.sqlite) 后保持无脏标记
+    ///   2. 预写入 node_sessions[node_id=99]
+    ///   3. flush_now(runtime empty, master_layout default)
+    ///   4. load_sessions() 检查 node_id=99 是否还在
+    ///
+    /// 预期结果：
+    ///   - 正断言：flush_now 返回 false，表示没有执行持久化工作
+    ///   - 正断言：node_id=99 仍存在，证明无脏 flush 没有写 node_sessions
+    ///   - 负断言：node_sessions 不应变为空，否则关闭窗口会把无关同步写放回热路径
+    #[test]
+    fn test_flush_now_without_dirty_state_does_not_touch_node_sessions() {
+        let temp = tempfile::tempdir().expect("test should create temp dir");
+        let workspace_root = temp.path().join("workspace");
+        std::fs::create_dir(&workspace_root).expect("test should create workspace dir");
+        let project_store =
+            ProjectStore::for_workspace(&workspace_root).expect("project store should open");
+        project_store
+            .migrate()
+            .expect("project store schema should migrate");
+        let node_session_store = project_store.node_session_store();
+        node_session_store
+            .save_session(&NodeSession {
+                node_id: 99,
+                kind: NodeSessionKind::Terminal,
+                cwd: Some("/tmp/stale".to_string()),
+                session_id: None,
+            })
+            .expect("预置 node session 应写入成功");
+        let mut scheduler = PersistenceScheduler::default();
+        let runtime = Runtime::new();
+
+        scheduler.set_project_store(project_store);
+        let flushed = scheduler
+            .flush_now(
+                &runtime,
+                &crate::canvas::master_layout::MasterLayoutState::default(),
+            )
+            .expect("无脏数据 flush 应成功返回");
+        let sessions = node_session_store
+            .load_sessions()
+            .expect("flush 后 node_sessions 查询应成功");
+
+        assert!(
+            !flushed,
+            "无 canvas/session 脏标记时 flush_now 应返回 false"
+        );
+        assert_eq!(
+            sessions.len(),
+            1,
+            "无脏 flush 不应清空 node_sessions，否则关闭窗口会重新引入同步写库"
+        );
+        assert_eq!(
+            sessions[0].node_id, 99,
+            "node_id=99 应保留，证明 flush_now 没有调用 replace_all_sessions([])"
+        );
+        assert_eq!(
+            sessions[0].cwd.as_deref(),
+            Some("/tmp/stale"),
+            "保留下来的 node session 应保持原 cwd，不应被空 runtime 覆盖"
         );
     }
 }

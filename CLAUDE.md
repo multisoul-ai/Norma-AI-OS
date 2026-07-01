@@ -34,6 +34,7 @@ ui -> gpui
 - **Domain crates stay UI-free**: no `gpui` imports in `canvas`, `terminal`, or `runtime`.
 - **Input decisions stay pure where possible**: encode routing decisions in `runtime::route` before app-layer side effects.
 - **PTY cleanup is required**: `Runtime::kill_all`, `TerminalSession::kill`, and `PtyHandle::Drop` are lifecycle guardrails. Keep new process paths equally explicit.
+- **Keep interaction and shutdown paths cheap**: drag/pan mouse move must coalesce repaint notifications, canvas render must cull before cloning/rendering heavy node bodies, no-op persistence flush must return before SQLite writes, and agent session save must use cached hook session IDs rather than scanning CLI history directories. Enforced by [`scripts/check-performance-guardrails.sh`](scripts/check-performance-guardrails.sh); examples live in [`docs/quality/mechanized-constraints.md`](docs/quality/mechanized-constraints.md).
 - **Quit on last window close**: GPUI on macOS does not quit the process automatically when the last window closes. `main.rs` must register `cx.on_window_closed(|cx| { if cx.windows().is_empty() { cx.quit(); } }).detach()` inside the `Application::run` closure, before `open_window`. Omitting this leaves the process running invisibly in the background after the user closes the window.
 - **Pinned libraries require verification**: `gpui =0.2.2` and `alacritty_terminal =0.26` are pinned in the workspace. Upgrade only after checking API compatibility.
 - **Consult GPUI skills first**: when writing GPUI code in `crates/app` or `crates/ui`, load the relevant local `gpui-*` skill before inventing a pattern, then adapt it to this repository's pinned GPUI version and existing style.
@@ -55,7 +56,7 @@ At a glance:
 - `canvas` / `terminal` / `runtime` / `storage` stay GPUI-free and independently testable.
 - `app` binds GPUI, canvas interaction, cards, menus, and keyboard routing.
 - Input policy is expressed in `runtime::route` before app-layer side effects.
-- SQLite must not run on PTY drain, mouse move, or input routing hot paths.
+- SQLite and session discovery must not run on PTY drain, mouse move, input routing, render, or no-op shutdown flush paths.
 
 ## 4. Current User-Facing Behavior
 
@@ -99,6 +100,7 @@ bash scripts/check-max-file-lines.sh
 bash scripts/check-no-allow.sh
 bash scripts/check-agent-guide-lines.sh
 bash scripts/check-storage-boundaries.sh
+bash scripts/check-performance-guardrails.sh
 ```
 
 Release build:

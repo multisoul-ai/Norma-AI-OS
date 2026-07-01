@@ -1,8 +1,5 @@
 use super::*;
 use canvas::{AgentProfile, AgentSpec, CanvasRect};
-
-/// AgentCard chrome 使用 Agent profile 作为标题。
-///
 /// 数据构造（含关键数值推导）：
 ///   Claude node: id=1, kind=Agent(profile=Claude)
 ///   Codex node:  id=2, kind=Agent(profile=Codex)
@@ -144,6 +141,7 @@ fn test_agent_card_chrome_shows_task_badge() {
             tool_name: Some("shell".to_string()),
         },
         task_title: None,
+        session_id: None,
     });
     let node = runtime
         .document
@@ -164,7 +162,7 @@ fn test_agent_card_chrome_shows_task_badge() {
     );
 }
 
-/// AgentCard chrome: task_title 存在时应使用它作为标题，而非 profile 名。
+/// AgentCard chrome: task_title 存在时标题格式为 "<profile> — <task_title>"。
 ///
 /// 数据构造：
 ///   node_id=1, profile=Claude, alias=None
@@ -175,8 +173,8 @@ fn test_agent_card_chrome_shows_task_badge() {
 ///   2. 调用 AgentCard.chrome()
 ///
 /// 预期结果：
-///   - 正断言：chrome.title = "帮我重构 user_service.rs"
-///   - 负断言：chrome.title ≠ "Claude"（task_title 应覆盖 profile 名）
+///   - 正断言：chrome.title = "Claude — 帮我重构 user_service.rs"（profile 前缀 + task_title）
+///   - 负断言：chrome.title ≠ "Claude"（有 task_title 时不应只显示 profile 名）
 #[test]
 fn test_agent_card_chrome_uses_task_title_when_set() {
     let mut runtime = Runtime::new();
@@ -193,18 +191,19 @@ fn test_agent_card_chrome_uses_task_title_when_set() {
         provider_event: "UserPromptSubmit".to_string(),
         to: runtime::AgentTaskState::Thinking,
         task_title: Some("帮我重构 user_service.rs".to_string()),
+        session_id: None,
     });
     let node = runtime.document.node(node_id).unwrap().clone();
 
     let chrome = CARD.chrome(&node, &runtime);
 
     assert_eq!(
-        chrome.title, "帮我重构 user_service.rs",
-        "task_title 存在时 chrome.title 应使用 task_title"
+        chrome.title, "Claude — 帮我重构 user_service.rs",
+        "task_title 存在时 chrome.title 应为 '<profile> — <task_title>'"
     );
     assert_ne!(
         chrome.title, "Claude",
-        "task_title 存在时不应回退到 profile 名"
+        "task_title 存在时不应只显示 profile 名"
     );
 }
 
@@ -238,7 +237,7 @@ fn test_agent_card_chrome_falls_back_to_profile_when_no_task_title() {
     assert_eq!(chrome.title, "Codex", "无 task_title 时应回退到 profile 名");
 }
 
-/// AgentCard chrome: task_title 优先于 alias（三级回退链顶端）。
+/// AgentCard chrome: task_title 优先于 alias（前缀用 alias，后缀用 task_title）。
 ///
 /// 数据构造：
 ///   node_id=1, profile=Claude, alias=Some("Alan")
@@ -249,8 +248,8 @@ fn test_agent_card_chrome_falls_back_to_profile_when_no_task_title() {
 ///   2. 调用 AgentCard.chrome()
 ///
 /// 预期结果：
-///   - 正断言：chrome.title = "重构任务"（task_title 赢过 alias）
-///   - 负断言：chrome.title ≠ "Alan"（alias 不应覆盖 task_title）
+///   - 正断言：chrome.title = "Alan — 重构任务"（alias 作前缀，task_title 作后缀）
+///   - 负断言：chrome.title ≠ "Alan"（有 task_title 时不应只显示 alias）
 #[test]
 fn test_agent_card_chrome_task_title_beats_alias() {
     let mut runtime = Runtime::new();
@@ -267,87 +266,15 @@ fn test_agent_card_chrome_task_title_beats_alias() {
         provider_event: "UserPromptSubmit".to_string(),
         to: runtime::AgentTaskState::Thinking,
         task_title: Some("重构任务".to_string()),
+        session_id: None,
     });
     let node = runtime.document.node(node_id).unwrap().clone();
 
     let chrome = CARD.chrome(&node, &runtime);
 
     assert_eq!(
-        chrome.title, "重构任务",
-        "task_title 应优先于 alias 作为 card 标题"
+        chrome.title, "Alan — 重构任务",
+        "alias 作前缀、task_title 作后缀，格式应为 '<alias> — <task_title>'"
     );
-    assert_ne!(chrome.title, "Alan", "有 task_title 时 alias 不应覆盖它");
-}
-
-/// agent_status_line: 各 AgentTaskState 返回正确的摘要文本。
-///
-/// 执行过程：
-///   对每种状态调用 agent_status_line()，检查返回值
-///
-/// 预期结果：
-///   - Thinking → Some("Thinking…")
-///   - RunningTool Some("bash") → Some("Running: bash")
-///   - RunningTool None → Some("Running tool…")
-///   - WaitingApproval Some("Bash") → Some("Waiting approval: Bash")
-///   - WaitingApproval None → Some("Waiting approval…")
-///   - Done → Some("Completed")
-///   - Ended → Some("Session ended")
-///   - Failed "boom" → Some("Failed: boom")
-///   - Ready → Some("Waiting for input")
-///   - None → None
-#[test]
-fn test_agent_status_line_maps_all_states() {
-    use runtime::AgentTaskState;
-    assert_eq!(
-        agent_status_line(Some(AgentTaskState::Thinking)),
-        Some("Thinking\u{2026}".to_string()),
-        "Thinking 应显示 'Thinking…'"
-    );
-    assert_eq!(
-        agent_status_line(Some(AgentTaskState::RunningTool {
-            tool_name: Some("bash".to_string())
-        })),
-        Some("Running: bash".to_string()),
-        "RunningTool with name 应显示 'Running: bash'"
-    );
-    assert_eq!(
-        agent_status_line(Some(AgentTaskState::RunningTool { tool_name: None })),
-        Some("Running tool\u{2026}".to_string()),
-        "RunningTool without name 应显示 'Running tool…'"
-    );
-    assert_eq!(
-        agent_status_line(Some(AgentTaskState::WaitingApproval {
-            tool_name: Some("Bash".to_string())
-        })),
-        Some("Waiting approval: Bash".to_string()),
-        "WaitingApproval with name 应显示 'Waiting approval: Bash'"
-    );
-    assert_eq!(
-        agent_status_line(Some(AgentTaskState::WaitingApproval { tool_name: None })),
-        Some("Waiting approval\u{2026}".to_string()),
-        "WaitingApproval with None should map to 'Waiting approval…'"
-    );
-    assert_eq!(
-        agent_status_line(Some(AgentTaskState::Done)),
-        Some("Completed".to_string()),
-        "Done 应显示 'Completed'"
-    );
-    assert_eq!(
-        agent_status_line(Some(AgentTaskState::Ended)),
-        Some("Session ended".to_string()),
-        "Ended 应映射为 'Session ended'"
-    );
-    assert_eq!(
-        agent_status_line(Some(AgentTaskState::Failed {
-            message: "boom".to_string()
-        })),
-        Some("Failed: boom".to_string()),
-        "Failed 应显示 'Failed: boom'"
-    );
-    assert_eq!(
-        agent_status_line(Some(AgentTaskState::Ready)),
-        Some("Waiting for input".to_string()),
-        "Ready 应显示 'Waiting for input'"
-    );
-    assert_eq!(agent_status_line(None), None, "None 状态应返回 None");
+    assert_ne!(chrome.title, "Alan", "有 task_title 时不应只显示 alias");
 }
