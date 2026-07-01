@@ -1,4 +1,5 @@
 use super::*;
+use crate::{AgentTaskState, AgentTaskUpdate};
 use canvas::AgentProfile;
 use storage::{NodeSession, NodeSessionKind};
 
@@ -123,6 +124,138 @@ fn test_restore_codex_agent_uses_saved_session_id_for_resume() {
     assert!(
         !args_str.ends_with("codex --dangerously-bypass-approvals-and-sandbox"),
         "Codex restore must not fall back to a fresh agent command"
+    );
+}
+
+/// T-title-1: 首次 UserPromptSubmit 将 task_title 写入 runtime，后续调用不覆盖。
+///
+/// 数据构造：
+///   node_id = 1, profile = Claude
+///   第一次 apply_agent_task_update task_title = Some("帮我重构")
+///   第二次 apply_agent_task_update task_title = Some("现在再做别的")
+///
+/// 执行过程：
+///   1. 两次 apply_agent_task_update，task_title 分别为 Some("帮我重构") 和 Some("现在再做别的")
+///   2. 读取 runtime.agent_task_title(node_id)
+///
+/// 预期结果：
+///   - 正断言：agent_task_title 为 "帮我重构"（首次写入，锁定）
+///   - 负断言：不应为 "现在再做别的"（第二次不应覆盖）
+#[test]
+fn test_task_title_locked_on_first_set() {
+    let mut runtime = Runtime::new();
+    let node_id = runtime.document.add_node(
+        canvas::CanvasNodeKind::Agent(canvas::AgentSpec {
+            profile: canvas::AgentProfile::Claude,
+            alias: None,
+        }),
+        canvas::CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+    );
+
+    runtime.apply_agent_task_update(AgentTaskUpdate {
+        node_id,
+        profile: canvas::AgentProfile::Claude,
+        provider_event: "UserPromptSubmit".to_string(),
+        to: AgentTaskState::Thinking,
+        task_title: Some("帮我重构".to_string()),
+    });
+    runtime.apply_agent_task_update(AgentTaskUpdate {
+        node_id,
+        profile: canvas::AgentProfile::Claude,
+        provider_event: "UserPromptSubmit".to_string(),
+        to: AgentTaskState::Thinking,
+        task_title: Some("现在再做别的".to_string()),
+    });
+
+    assert_eq!(
+        runtime.agent_task_title(node_id),
+        Some("帮我重构".to_string()),
+        "task_title 应在首次写入后锁定，不被第二次覆盖"
+    );
+    assert_ne!(
+        runtime.agent_task_title(node_id),
+        Some("现在再做别的".to_string()),
+        "第二次 task_title 不应覆盖首次写入的值"
+    );
+}
+
+/// T-title-2: task_title 为 None 时不写入，agent_task_title 返回 None。
+///
+/// 数据构造：
+///   node_id = 1, profile = Codex
+///   apply_agent_task_update task_title = None
+///
+/// 执行过程：
+///   1. apply_agent_task_update task_title = None
+///   2. 读取 runtime.agent_task_title(node_id)
+///
+/// 预期结果：
+///   - 正断言：agent_task_title 返回 None
+#[test]
+fn test_task_title_none_does_not_write() {
+    let mut runtime = Runtime::new();
+    let node_id = runtime.document.add_node(
+        canvas::CanvasNodeKind::Agent(canvas::AgentSpec {
+            profile: canvas::AgentProfile::Codex,
+            alias: None,
+        }),
+        canvas::CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+    );
+
+    runtime.apply_agent_task_update(AgentTaskUpdate {
+        node_id,
+        profile: canvas::AgentProfile::Codex,
+        provider_event: "PreToolUse".to_string(),
+        to: AgentTaskState::RunningTool {
+            tool_name: Some("bash".to_string()),
+        },
+        task_title: None,
+    });
+
+    assert_eq!(
+        runtime.agent_task_title(node_id),
+        None,
+        "task_title=None 时不应写入任何值"
+    );
+}
+
+/// T-title-3: 节点被移除后，task_title 也应清除。
+///
+/// 数据构造：
+///   node_id = 1, profile = Claude, task_title = "test task"
+///
+/// 执行过程：
+///   1. 写入 task_title
+///   2. runtime.remove_node(node_id)
+///   3. 读取 runtime.agent_task_title(node_id)
+///
+/// 预期结果：
+///   - 正断言：agent_task_title 返回 None
+#[test]
+fn test_task_title_cleared_on_node_remove() {
+    let mut runtime = Runtime::new();
+    let node_id = runtime.document.add_node(
+        canvas::CanvasNodeKind::Agent(canvas::AgentSpec {
+            profile: canvas::AgentProfile::Claude,
+            alias: None,
+        }),
+        canvas::CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+    );
+
+    runtime.apply_agent_task_update(AgentTaskUpdate {
+        node_id,
+        profile: canvas::AgentProfile::Claude,
+        provider_event: "UserPromptSubmit".to_string(),
+        to: AgentTaskState::Thinking,
+        task_title: Some("test task".to_string()),
+    });
+
+    runtime.remove_node(node_id);
+
+    assert_eq!(
+        runtime.agent_task_title(node_id),
+        None,
+        "节点移除后 task_title 应被清除"
     );
 }
 

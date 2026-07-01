@@ -45,6 +45,9 @@ pub struct AgentTaskUpdate {
     pub profile: AgentProfile,
     pub provider_event: String,
     pub to: AgentTaskState,
+    /// Optional display title for this task. Locked on first non-None value;
+    /// subsequent updates with a value are ignored.
+    pub task_title: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -83,6 +86,7 @@ pub enum RuntimeEvent {
 pub(crate) struct RuntimeEvents {
     states: HashMap<NodeId, NodeRunState>,
     agent_task_states: HashMap<NodeId, AgentTaskState>,
+    agent_task_titles: HashMap<NodeId, String>,
     card_attention: HashMap<NodeId, CardAttentionState>,
     queue: VecDeque<RuntimeEvent>,
 }
@@ -94,6 +98,14 @@ impl RuntimeEvents {
 
     pub(crate) fn agent_task_state(&self, node_id: NodeId) -> Option<AgentTaskState> {
         self.agent_task_states.get(&node_id).cloned()
+    }
+
+    pub(crate) fn agent_task_title(&self, node_id: NodeId) -> Option<String> {
+        self.agent_task_titles.get(&node_id).cloned()
+    }
+
+    pub(crate) fn set_agent_task_title_if_absent(&mut self, node_id: NodeId, title: String) {
+        self.agent_task_titles.entry(node_id).or_insert(title);
     }
 
     pub(crate) fn card_attention(&self, node_id: NodeId) -> Option<CardAttentionState> {
@@ -132,6 +144,7 @@ impl RuntimeEvents {
 
     pub(crate) fn remove(&mut self, node_id: NodeId) {
         self.agent_task_states.remove(&node_id);
+        self.agent_task_titles.remove(&node_id);
         self.card_attention.remove(&node_id);
         if let Some(previous_state) = self.states.remove(&node_id) {
             self.push(RuntimeEvent::NodeRemoved {
@@ -143,6 +156,7 @@ impl RuntimeEvents {
 
     pub(crate) fn remove_all(&mut self) {
         self.agent_task_states.clear();
+        self.agent_task_titles.clear();
         self.card_attention.clear();
         let removed: Vec<_> = self.states.drain().collect();
         for (node_id, previous_state) in removed {
@@ -249,6 +263,10 @@ impl Runtime {
         self.events.agent_task_state(node_id)
     }
 
+    pub fn agent_task_title(&self, node_id: NodeId) -> Option<String> {
+        self.events.agent_task_title(node_id)
+    }
+
     pub fn card_attention(&self, node_id: NodeId) -> Option<CardAttentionState> {
         self.events.card_attention(node_id)
     }
@@ -269,9 +287,17 @@ impl Runtime {
             return false;
         };
         match &node.kind {
-            CanvasNodeKind::Agent(agent) if agent.profile == update.profile => self
-                .events
-                .update_agent_task_state(update.node_id, update.to, update.provider_event),
+            CanvasNodeKind::Agent(agent) if agent.profile == update.profile => {
+                if let Some(title) = update.task_title {
+                    self.events
+                        .set_agent_task_title_if_absent(update.node_id, title);
+                }
+                self.events.update_agent_task_state(
+                    update.node_id,
+                    update.to,
+                    update.provider_event,
+                )
+            }
             CanvasNodeKind::Agent(agent) => {
                 tracing::debug!(
                     node_id = update.node_id,
