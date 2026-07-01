@@ -190,6 +190,11 @@ impl RuntimeEvents {
         if previous.as_ref() == Some(&to) {
             return false;
         }
+        // Clear task title when a new session starts (Ready = SessionStart).
+        // This allows the next UserPromptSubmit to write a fresh title.
+        if to == AgentTaskState::Ready {
+            self.agent_task_titles.remove(&node_id);
+        }
         let from = previous.unwrap_or(AgentTaskState::Ready);
         self.update_attention_for_agent_task(node_id, &to);
         self.agent_task_states.insert(node_id, to.clone());

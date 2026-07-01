@@ -140,3 +140,7 @@ pub fn agent_chase_intent(state: Option<AgentTaskState>) -> bool {
 #[cfg(test)]
 #[path = "../../../tests/unit/cards/agent/card_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/cards/agent/breathing_tests.rs"]
+mod breathing_tests;

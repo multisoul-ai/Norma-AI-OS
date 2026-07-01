@@ -303,3 +303,65 @@ fn test_restore_claude_agent_falls_back_to_discovered_session_id() {
         "旧库 session_id=None 但 Claude jsonl 存在时不应继续返回 None"
     );
 }
+
+/// T-title-4: 新 session 开始（Ready 状态）时，旧 task_title 被清除，允许新 prompt 写入。
+///
+/// 数据构造：
+///   node_id = 1, profile = Claude
+///   第一次 UserPromptSubmit task_title = "旧任务"
+///   之后触发 SessionStart → Ready 状态
+///   第二次 UserPromptSubmit task_title = "新任务"
+///
+/// 执行过程：
+///   1. apply_agent_task_update task_title=Some("旧任务"), to=Thinking
+///   2. apply_agent_task_update task_title=None, to=Ready（SessionStart）
+///   3. apply_agent_task_update task_title=Some("新任务"), to=Thinking
+///   4. 读取 runtime.agent_task_title(node_id)
+///
+/// 预期结果：
+///   - 正断言：agent_task_title 为 "新任务"（新 session 的首次 prompt）
+///   - 负断言：不应为 "旧任务"（旧 session 的标题已被 Ready 状态清除）
+#[test]
+fn test_task_title_cleared_on_new_session() {
+    let mut runtime = Runtime::new();
+    let node_id = runtime.document.add_node(
+        canvas::CanvasNodeKind::Agent(canvas::AgentSpec {
+            profile: canvas::AgentProfile::Claude,
+            alias: None,
+        }),
+        canvas::CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+    );
+
+    runtime.apply_agent_task_update(AgentTaskUpdate {
+        node_id,
+        profile: canvas::AgentProfile::Claude,
+        provider_event: "UserPromptSubmit".to_string(),
+        to: AgentTaskState::Thinking,
+        task_title: Some("旧任务".to_string()),
+    });
+    runtime.apply_agent_task_update(AgentTaskUpdate {
+        node_id,
+        profile: canvas::AgentProfile::Claude,
+        provider_event: "SessionStart".to_string(),
+        to: AgentTaskState::Ready,
+        task_title: None,
+    });
+    runtime.apply_agent_task_update(AgentTaskUpdate {
+        node_id,
+        profile: canvas::AgentProfile::Claude,
+        provider_event: "UserPromptSubmit".to_string(),
+        to: AgentTaskState::Thinking,
+        task_title: Some("新任务".to_string()),
+    });
+
+    assert_eq!(
+        runtime.agent_task_title(node_id),
+        Some("新任务".to_string()),
+        "新 session 的首次 prompt 应成为新 task_title"
+    );
+    assert_ne!(
+        runtime.agent_task_title(node_id),
+        Some("旧任务".to_string()),
+        "旧 session 的 task_title 应在 Ready（SessionStart）时被清除"
+    );
+}
