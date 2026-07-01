@@ -78,9 +78,116 @@ pub fn hook_events_for_source(source: HookSource) -> &'static [&'static str] {
     }
 }
 
+/// Extract user prompt text from a UserPromptSubmit raw_json.
+/// Tries keys in order: "prompt", "message", "user_message".
+/// Truncates to 60 chars (by char count) and appends "…" if longer.
+pub fn extract_prompt_text(raw_json: &Value) -> Option<String> {
+    let text = ["prompt", "message", "user_message"]
+        .iter()
+        .find_map(|key| string_field(raw_json, key))?;
+    if text.chars().count() <= 60 {
+        Some(text)
+    } else {
+        let truncated: String = text.chars().take(60).collect();
+        Some(format!("{truncated}…"))
+    }
+}
+
 fn string_field(raw: &Value, field: &str) -> Option<String> {
     raw.get(field)
         .and_then(Value::as_str)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// extract_prompt_text: UserPromptSubmit raw_json 中有 "prompt" 字段时返回截断后的文本。
+    ///
+    /// 数据构造：
+    ///   raw_json = {"prompt": "帮我重构 user_service.rs 的错误处理逻辑"}（26字，< 60）
+    ///   raw_json_long: prompt 为 70 字的字符串
+    ///
+    /// 执行过程：
+    ///   1. 调用 extract_prompt_text(&raw_json)
+    ///   2. 调用 extract_prompt_text(&raw_json_long)
+    ///
+    /// 预期结果：
+    ///   - 正断言：短 prompt 原样返回
+    ///   - 正断言：长 prompt 截断到 60 字 + "…"
+    ///   - 负断言：长 prompt 不应返回完整 70 字
+    #[test]
+    fn test_extract_prompt_text_short_and_truncated() {
+        let short =
+            json!({"hook_event_name": "UserPromptSubmit", "prompt": "帮我重构 user_service.rs"});
+        let long_text = "A".repeat(70);
+        let long = json!({"hook_event_name": "UserPromptSubmit", "prompt": long_text});
+
+        let result_short = extract_prompt_text(&short);
+        let result_long = extract_prompt_text(&long);
+
+        assert_eq!(
+            result_short,
+            Some("帮我重构 user_service.rs".to_string()),
+            "短 prompt 应原样返回"
+        );
+        let long_result = result_long.expect("长 prompt 应返回 Some");
+        assert!(
+            long_result.ends_with('…'),
+            "长 prompt 应以 … 结尾，实际：{long_result}"
+        );
+        assert!(
+            long_result.chars().count() <= 61,
+            "截断后长度应 ≤ 61（60字 + …），实际：{}",
+            long_result.chars().count()
+        );
+        assert_ne!(
+            long_result.chars().count(),
+            70,
+            "长 prompt 不应原样返回完整 70 字"
+        );
+    }
+
+    /// extract_prompt_text: "message" 和 "user_message" 字段作为备选键；无任何已知键时返回 None。
+    ///
+    /// 数据构造：
+    ///   with_message = {"message": "hello"}
+    ///   with_user_message = {"user_message": "hey"}
+    ///   no_keys = {}（无任何已知 prompt 键）
+    ///
+    /// 执行过程：
+    ///   1. 调用 extract_prompt_text(&with_message) → 应返回 Some("hello")
+    ///   2. 调用 extract_prompt_text(&with_user_message) → 应返回 Some("hey")
+    ///   3. 调用 extract_prompt_text(&no_keys) → 应返回 None
+    ///
+    /// 预期结果：
+    ///   - 正断言：有 "message" 时返回 Some("hello")
+    ///   - 正断言：有 "user_message" 时返回 Some("hey")
+    ///   - 正断言：无任何已知键时返回 None
+    #[test]
+    fn test_extract_prompt_text_fallback_keys_and_none() {
+        let with_message = json!({"hook_event_name": "UserPromptSubmit", "message": "hello"});
+        let with_user_message =
+            json!({"hook_event_name": "UserPromptSubmit", "user_message": "hey"});
+        let no_keys = json!({"hook_event_name": "UserPromptSubmit"});
+
+        assert_eq!(
+            extract_prompt_text(&with_message),
+            Some("hello".to_string()),
+            "有 message 字段时应返回其值"
+        );
+        assert_eq!(
+            extract_prompt_text(&with_user_message),
+            Some("hey".to_string()),
+            "有 user_message 字段时应返回其值"
+        );
+        assert_eq!(
+            extract_prompt_text(&no_keys),
+            None,
+            "无已知 prompt 键时应返回 None"
+        );
+    }
 }

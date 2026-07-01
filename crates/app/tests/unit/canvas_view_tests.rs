@@ -1,4 +1,5 @@
 use super::*;
+use std::time::{Duration, Instant};
 
 /// 画布交互状态：默认应关闭滚轮/触控板画布滚动。
 ///
@@ -175,6 +176,127 @@ fn test_terminal_content_local_position_offsets_title_bar_and_padding() {
     );
 }
 
+/// 标题栏文本：长 task_title 应保持单行截断，不能换行撑高标题栏。
+///
+/// 数据构造（含关键数值推导）：
+///   TITLE_BAR_H = 26px；标题栏高度固定为 TITLE_BAR_H * zoom
+///   长 task_title 来源于用户输入，可能远超卡片宽度
+///   标题文本应在可用宽度内 flex_1 + min_w(0)，再 truncate 成单行
+///
+/// 执行过程：
+///   1. 读取 canvas/view.rs 的生产渲染源码
+///   2. 定位 node-title 文本元素
+///   3. 检查该元素声明单行截断所需的 GPUI 样式
+///
+/// 预期结果：
+///   - 正断言：标题文本元素有 node-title id，便于防回归定位
+///   - 正断言：标题文本元素有 flex_1、min_w(0)、overflow_hidden、truncate
+///   - 负断言：标题不应继续以裸 .child(title) 直接挂在标题行 flex 内
+#[test]
+fn test_canvas_title_text_truncates_in_single_line() {
+    let source = include_str!("../../src/canvas/view.rs");
+    let title_marker = ".id((\"node-title\", id))";
+    let bare_title_sequence = ".child(title)\n                        .when_some(task_badge";
+
+    let title_start = source
+        .find(title_marker)
+        .expect("标题文本元素应声明 node-title id，便于锁定单行截断样式");
+    let title_block_end = (title_start + 500).min(source.len());
+    let title_block = &source[title_start..title_block_end];
+
+    assert!(
+        title_block.contains(".flex_1()"),
+        "标题文本应 flex_1 占用剩余空间，避免和 badge/actions 争宽后换行"
+    );
+    assert!(
+        title_block.contains(".min_w(px(0.0))"),
+        "标题文本应 min_w(0)，否则 flex 子项可能拒绝收缩并挤压标题栏"
+    );
+    assert!(
+        title_block.contains(".overflow_hidden()"),
+        "标题文本应隐藏溢出内容，不能让长 task_title 画到第二行"
+    );
+    assert!(
+        title_block.contains(".truncate()"),
+        "标题文本应用 GPUI truncate 单行截断，长用户输入不应换行"
+    );
+    assert!(
+        !source.contains(bare_title_sequence),
+        "标题不应继续以裸 .child(title) 挂在标题行 flex 内，否则长文本会按默认文本布局换行"
+    );
+}
+
+/// 拖拽/平移渲染节流：高频 mouse move 不应每个事件都触发整画布 repaint。
+///
+/// 数据构造（含关键数值推导）：
+///   frame interval = 16ms（约 60fps）
+///   first frame last=None → 应通知，保证拖拽立即有反馈
+///   too_soon = first + 4ms，4 < 16 → 不应通知
+///   next_frame = first + 16ms，16 >= 16 → 应通知
+///
+/// 执行过程：
+///   1. should_notify_motion_frame(None, first)
+///   2. should_notify_motion_frame(Some(first), first+4ms)
+///   3. should_notify_motion_frame(Some(first), first+16ms)
+///
+/// 预期结果：
+///   - 正断言：首帧和满 16ms 后返回 true
+///   - 负断言：4ms 内返回 false，避免 mousemove 频率直接驱动整画布重绘
+#[test]
+fn test_motion_frame_notify_is_throttled_to_frame_interval() {
+    let first = Instant::now();
+    let too_soon = first + Duration::from_millis(4);
+    let next_frame = first + Duration::from_millis(16);
+
+    let initial = should_notify_motion_frame(None, first);
+    let suppressed = should_notify_motion_frame(Some(first), too_soon);
+    let allowed = should_notify_motion_frame(Some(first), next_frame);
+
+    assert!(initial, "拖拽首帧应立即 notify，避免拖动看起来没有响应");
+    assert!(
+        !suppressed,
+        "4ms < 16ms 的高频 mouse move 不应触发整画布 repaint"
+    );
+    assert!(allowed, "达到 16ms frame interval 后应允许下一次 repaint");
+}
+
+/// render_canvas 应在 clone/chrome/body 前完成 viewport culling，避免离屏卡片参与重型渲染路径。
+///
+/// 数据构造（含关键数值推导）：
+///   source = canvas/view.rs 当前源码
+///   cull marker = "viewport culling"
+///   heavy clone marker = "let node = app.runtime.document.node(id).unwrap().clone()"
+///   目标顺序：cull marker 的位置必须小于 heavy clone marker
+///
+/// 执行过程：
+///   1. 读取 canvas/view.rs
+///   2. 找到 culling 代码与 node clone 代码位置
+///   3. 比较两者顺序
+///
+/// 预期结果：
+///   - 正断言：culling 在 clone/chrome/body 之前
+///   - 负断言：clone 不应继续早于 culling，否则离屏节点仍会消耗拖拽帧预算
+#[test]
+fn test_canvas_render_culls_before_heavy_node_clone() {
+    let source = include_str!("../../src/canvas/view.rs");
+    let cull_pos = source
+        .find("viewport culling")
+        .expect("render_canvas 应保留 viewport culling 注释作为性能护栏");
+    let clone_pos = source
+        .find("let node = app.runtime.document.node(id).unwrap().clone()")
+        .expect("render_canvas 应只在必要时 clone node");
+
+    assert!(
+        cull_pos < clone_pos,
+        "viewport culling 应早于 heavy node clone/chrome/body，cull_pos={cull_pos}, clone_pos={clone_pos}"
+    );
+    assert_ne!(
+        clone_pos < cull_pos,
+        true,
+        "node clone 不应早于 culling，否则离屏卡片仍参与拖拽重绘热路径"
+    );
+}
+
 /// 可聚焦卡片正文单击应进入节点聚焦，避免用户选中节点后无法输入。
 ///
 /// 数据构造（含关键数值推导）：
@@ -204,6 +326,41 @@ fn test_focusable_body_single_click_focuses_node() {
         route,
         Route::SelectNode(7),
         "可聚焦正文单击不应只停留在选中态，否则用户会看到橙色边框但无法输入"
+    );
+}
+
+/// 画布鼠标按下应把 GPUI root focus 拉回应用，保证 IME commit 能进入聚焦节点。
+///
+/// 数据构造（含关键数值推导）：
+///   Left = 正文/标题栏点击，会改变 runtime focus 或 selection
+///   Middle = 画布 pan，也会让用户继续在画布中操作
+///   Right = 当前没有画布输入语义，不应抢焦点
+///
+/// 执行过程：
+///   1. should_focus_app_root_for_mouse_down(Left)
+///   2. should_focus_app_root_for_mouse_down(Middle)
+///   3. should_focus_app_root_for_mouse_down(Right)
+///
+/// 预期结果：
+///   - 正断言：Left/Middle 返回 true，点击恢复后卡片时会重新激活 root FocusHandle
+///   - 负断言：Right 返回 false，避免无语义右键抢走系统上下文焦点
+#[test]
+fn test_canvas_mouse_down_requests_root_focus_for_primary_canvas_buttons() {
+    let left = should_focus_app_root_for_mouse_down(MouseButton::Left);
+    let middle = should_focus_app_root_for_mouse_down(MouseButton::Middle);
+    let right = should_focus_app_root_for_mouse_down(MouseButton::Right);
+
+    assert!(
+        left,
+        "左键点击卡片正文/标题栏应请求 GPUI root focus，否则 IME 文本不会提交到节点"
+    );
+    assert!(
+        middle,
+        "中键 pan 也属于画布交互，应请求 GPUI root focus 保持后续键盘事件在应用内"
+    );
+    assert!(
+        !right,
+        "右键当前没有画布输入语义，不应无条件抢占 GPUI root focus"
     );
 }
 

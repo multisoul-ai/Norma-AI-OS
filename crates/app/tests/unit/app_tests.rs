@@ -74,6 +74,8 @@ fn test_mark_runtime_node_viewed_if_needed_marks_done_attention_viewed() {
         profile: AgentProfile::Codex,
         provider_event: "Stop".to_string(),
         to: AgentTaskState::Done,
+        task_title: None,
+        session_id: None,
     });
     assert!(changed, "Done update 应创建未查看完成提醒");
 

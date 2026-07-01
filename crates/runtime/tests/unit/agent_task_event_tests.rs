@@ -12,6 +12,8 @@ fn update(node_id: NodeId, to: AgentTaskState, provider_event: &str) -> AgentTas
         profile: AgentProfile::Codex,
         provider_event: provider_event.to_string(),
         to,
+        task_title: None,
+        session_id: None,
     }
 }
 

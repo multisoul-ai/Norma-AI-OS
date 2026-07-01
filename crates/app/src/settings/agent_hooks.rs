@@ -2,7 +2,9 @@ use canvas::AgentProfile as CanvasAgentProfile;
 #[cfg(test)]
 use canvas::CanvasNodeKind;
 use crossbeam_channel::{unbounded, Receiver};
-use norma::agent_hook::{task_state_for_provider_event, AgentHookEvent, AgentHookTaskState};
+use norma::agent_hook::{
+    extract_prompt_text, task_state_for_provider_event, AgentHookEvent, AgentHookTaskState,
+};
 use runtime::{AgentHookRuntimeConfig, AgentTaskState, AgentTaskUpdate, Runtime};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -84,11 +86,18 @@ pub(crate) fn apply_agent_hook_event(runtime: &mut Runtime, event: AgentHookEven
         tracing::debug!(provider_event = %event.provider_event, "ignored unmapped agent hook event");
         return false;
     };
+    let task_title = if event.provider_event == "UserPromptSubmit" {
+        extract_prompt_text(&event.raw_json)
+    } else {
+        None
+    };
     runtime.apply_agent_task_update(AgentTaskUpdate {
         node_id: event.node_id,
         profile: canvas_profile(event.profile),
         provider_event: event.provider_event,
         to,
+        task_title,
+        session_id: event.session_id,
     })
 }
 
@@ -280,6 +289,61 @@ mod tests {
             runtime.agent_task_state(node_id + 1),
             None,
             "非目标 node 不应被写入 task state"
+        );
+    }
+
+    /// hook event 的 session_id 应透传到 runtime，避免关闭窗口时重新扫描 agent 会话目录。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   Agent node_id=1，profile=Codex
+    ///   raw.session_id="hook-session-123"，由 Codex/Claude hook JSON 提供
+    ///   raw.hook_event_name="UserPromptSubmit" → Thinking
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. Runtime document 加入 Codex Agent node
+    ///   2. parse_hook_event 解析包含 session_id 的 raw JSON
+    ///   3. apply_agent_hook_event 写入 runtime
+    ///
+    /// 预期结果：
+    ///   - 正断言：runtime.agent_session_id(node_id)=Some("hook-session-123")
+    ///   - 正断言：runtime task state=Thinking，说明 hook 正常生效
+    ///   - 负断言：session_id 不应为 None，否则关闭路径仍会做昂贵 discovery
+    #[test]
+    fn test_apply_agent_hook_event_caches_session_id() {
+        let mut runtime = Runtime::new();
+        let node_id = runtime.document.add_node(
+            CanvasNodeKind::Agent(AgentSpec {
+                profile: CanvasAgentProfile::Codex,
+                alias: None,
+            }),
+            CanvasRect::new(0.0, 0.0, 640.0, 400.0),
+        );
+        let event = parse_hook_event(
+            norma::agent_hook::HookSource::Codex,
+            node_id,
+            serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "session_id": "hook-session-123"
+            }),
+        )
+        .expect("hook event 应可解析");
+
+        let changed = apply_agent_hook_event(&mut runtime, event);
+
+        assert!(changed, "合法 hook event 应更新 runtime task state");
+        assert_eq!(
+            runtime.agent_task_state(node_id),
+            Some(AgentTaskState::Thinking),
+            "目标 Agent node 应进入 Thinking"
+        );
+        assert_eq!(
+            runtime.agent_session_id(node_id).as_deref(),
+            Some("hook-session-123"),
+            "hook session_id 应被 runtime 缓存，供 node_sessions 快速保存"
+        );
+        assert!(
+            runtime.agent_session_id(node_id).is_some(),
+            "session_id 不应丢失，否则关闭窗口会重新扫描 ~/.codex 或 ~/.claude"
         );
     }
 

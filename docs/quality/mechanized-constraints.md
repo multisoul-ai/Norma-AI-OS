@@ -78,6 +78,51 @@ Focused script tests:
 bash scripts/test-check-agent-guide-lines.sh
 ```
 
+## R4 · Interaction And Shutdown Paths Stay Cheap
+
+| | |
+|---|---|
+| Script | [`scripts/check-performance-guardrails.sh`](../../scripts/check-performance-guardrails.sh) |
+| Scope | Canvas mouse/render files, session snapshot save path, and persistence flush ordering |
+| Rule | Drag/pan/render/no-op shutdown paths must not perform SQLite work, session directory scans, or unthrottled repaint loops. |
+| Failure signal | `ERROR: performance guardrail violations found.` |
+| Fix | Cache data from hooks/events, write persistence only after explicit dirty state, coalesce pointer repaint notifications, and cull invisible nodes before cloning or rendering card bodies. |
+
+Run it manually:
+
+```bash
+bash scripts/check-performance-guardrails.sh
+```
+
+Bad example:
+
+```rust
+fn on_mouse_move(app: &mut MultisoulApp, cx: &mut Context<MultisoulApp>) {
+    app.persistence.flush_now(&app.runtime, &app.master_layout)?;
+    cx.notify();
+}
+
+fn collect_node_sessions(workspace_root: &Path) -> Vec<NodeSession> {
+    let session_id = find_codex_session_id(workspace_root);
+    // ...
+}
+```
+
+Good example:
+
+```rust
+fn on_mouse_move(app: &mut MultisoulApp, cx: &mut Context<MultisoulApp>) {
+    if should_notify_motion_frame(app.interaction.last_motion_notify, Instant::now()) {
+        cx.notify();
+    }
+}
+
+fn collect_node_sessions(agent_session_ids: &HashMap<NodeId, String>) -> Vec<NodeSession> {
+    let session_id = agent_session_ids.get(&node_id).cloned();
+    // ...
+}
+```
+
 ## Local Pre-Commit Hook
 
 Install the tracked native Git hook:
@@ -86,8 +131,7 @@ Install the tracked native Git hook:
 bash scripts/install-git-hooks.sh
 ```
 
-The hook runs staged file-size, `#[allow(...)]`, and agent-guide line checks first. When staged
-Rust, Cargo, or toolchain files changed, it also runs:
+The hook runs staged file-size, `#[allow(...)]`, agent-guide line, and performance guardrail checks first. When staged Rust, Cargo, or toolchain files changed, it also runs:
 
 ```bash
 cargo check --workspace --quiet

@@ -426,6 +426,7 @@ fn test_restore_agent_no_session_id_omits_resume() {
         &session,
         canvas::AgentProfile::Claude,
         None,
+        None,
     );
     let args_str = cmd.args.join(" ");
     assert!(

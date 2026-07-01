@@ -16,8 +16,17 @@ cargo install cargo-packager --locked
 cargo packager --release -c Packager.toml
 ```
 
-`Packager.toml` runs a `before-packaging-command` that builds both release
-binaries before the `.app` layout copies them into `Contents/MacOS/`.
+`Packager.toml` runs a `before-packaging-command` that first calls
+`scripts/bump-release-version.sh`, then builds both release binaries before the
+`.app` layout copies them into `Contents/MacOS/`. The bump script increments the
+patch version in both `Packager.toml` and the root `Cargo.toml`
+`[workspace.package]` section, and fails if those versions do not match.
+
+`cargo-packager 0.11.8` parses `Packager.toml` before running
+`before-packaging-command`, so a hook cannot change the already-loaded packager
+config for the current process. The persisted files are advanced before the
+release build, and the next `cargo packager --release -c Packager.toml`
+invocation starts from that bumped version.
 
 Codesigning and notarization are explicitly Phase 6.
 
