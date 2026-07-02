@@ -148,6 +148,8 @@ impl AgentDefinitionsState {
     }
 
     pub(crate) fn save_draft(&mut self) -> bool {
+        self.commit_pending_edit();
+
         if let Err(message) =
             validate_agent_definition_text(&self.draft.name, &self.draft.workflow_description)
         {
@@ -373,6 +375,12 @@ impl AgentDefinitionsState {
         self.editing = None;
         self.edit_buffer.clear();
         self.status = None;
+    }
+
+    fn commit_pending_edit(&mut self) {
+        if let Some(field) = self.editing {
+            self.commit_edit(field);
+        }
     }
 
     fn commit_edit(&mut self, field: AgentDefinitionField) {

@@ -132,3 +132,87 @@ Results:
 - Commit created with message: `feat: persist agent settings actions`
 - The repository hook chain in this worktree attempted to execute `/Users/alan/Documents/mybook/multisoul-desktop/.worktrees/project-agent-catalog/scripts/check-video-wallpaper-performance.py`, which does not exist in the worktree, so the normal commit path failed before creating a commit.
 - I committed with `--no-verify` only after manually running the required Task 5 verification commands above plus the max-file-lines guardrail that originally blocked the oversized test file.
+
+## Review Fix: Pending Edit Buffer Save Regression
+
+### Scope
+
+Addressed the review finding that clicking `Save Agent` could silently persist stale `self.draft` values while the visible text still lived only in the active `edit_buffer`.
+
+Files touched for this fix:
+
+- `crates/app/src/settings/agents/state.rs`
+- `crates/app/tests/unit/agent_settings_actions_tests.rs`
+
+### Root Cause
+
+`save_draft()` validated and persisted `self.draft` immediately. While a field was in inline edit mode, the latest visible text remained in `edit_buffer` until Enter committed it through `commit_edit()`. Clicking Save bypassed that commit path entirely, so persistence could ignore what the user was looking at.
+
+### RED
+
+Added focused regression coverage:
+
+- `test_agent_definitions_state_save_draft_commits_pending_active_edit_buffer`
+
+Also added a small persistence test for the minor coverage gap:
+
+- `test_agent_definitions_state_toggle_enabled_persists_to_store`
+
+First ran the focused regression command:
+
+```bash
+cargo test -p app save_draft_commits_pending_active_edit_buffer -- --nocapture
+```
+
+Observed expected RED:
+
+- test `settings::agents::action_tests::test_agent_definitions_state_save_draft_commits_pending_active_edit_buffer` failed
+- assertion failed because saved name stayed `"Original Agent"` instead of `"Visible Draft Name"`
+
+This proved the save path was still persisting the stale draft value rather than the pending visible edit buffer.
+
+### Fix
+
+Implemented the smallest state-layer change inside `AgentDefinitionsState::save_draft()`:
+
+- added `commit_pending_edit()`
+- `save_draft()` now calls it before validation and persistence
+
+This keeps Enter/Escape behavior intact:
+
+- Enter still commits the active field explicitly during editing
+- Escape still cancels the active field edit
+- Save now safely commits any active field before running the existing save flow
+
+### GREEN
+
+Reran the focused regression command:
+
+```bash
+cargo test -p app save_draft_commits_pending_active_edit_buffer -- --nocapture
+```
+
+Result:
+
+- 1 passed
+- 0 failed
+
+### Verification
+
+Commands run after the fix:
+
+```bash
+cargo test -p app agent_definitions_state
+cargo check -p app
+bash scripts/check-max-file-lines.sh
+```
+
+Results:
+
+- `cargo test -p app agent_definitions_state`: pass, 8 passed / 0 failed
+- `cargo check -p app`: pass
+- `bash scripts/check-max-file-lines.sh`: pass
+
+### Notes
+
+`cargo check -p app` still emits pre-existing `dead_code` warnings around adjacent agent settings/app wiring. They did not affect the regression fix or verification status.
