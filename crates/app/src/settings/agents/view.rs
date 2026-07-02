@@ -41,7 +41,7 @@ fn form_section(
     section(
         theme,
         "Draft Agent",
-        "Prepare a project agent profile before persistence wiring.",
+        "Create or update a project agent profile.",
     )
     .child(
         div()
@@ -50,12 +50,7 @@ fn form_section(
             .items_center()
             .justify_between()
             .gap(px(16.0))
-            .child(readonly_field(
-                theme,
-                AgentDefinitionField::Name,
-                "Name",
-                draft_name_display(draft.name.as_str()),
-            ))
+            .child(editable_field(theme, state, AgentDefinitionField::Name, "Name", cx))
             .child(
                 action_button(theme, "Reset", theme.accent_cyan)
                     .id("settings-agent-reset")
@@ -63,11 +58,12 @@ fn form_section(
             ),
     )
     .child(profile_buttons(theme, draft.runtime_profile, cx))
-    .child(readonly_field(
+    .child(editable_field(
         theme,
+        state,
         AgentDefinitionField::WorkflowDescription,
         "Workflow",
-        workflow_display(draft.workflow_description.as_str()),
+        cx,
     ))
     .child(
         div()
@@ -98,7 +94,7 @@ fn list_section(
     section(
         theme,
         "Project Agents",
-        "Existing definitions can be loaded into the draft for review.",
+        "Existing definitions can be edited, toggled, or deleted.",
     )
     .child(
         div()
@@ -166,7 +162,13 @@ fn definition_row(
                                 .child(runtime_profile),
                         ),
                 )
-                .child(status_chip(theme, enabled)),
+                .child(
+                    status_chip(theme, enabled)
+                        .id(("settings-agent-toggle", id as u64))
+                        .on_click(cx.listener(move |app, event, window, cx| {
+                            app.on_agent_settings_toggle_definition(id, event, window, cx);
+                        })),
+                ),
         )
         .child(
             div()
@@ -227,11 +229,12 @@ fn section(theme: Theme, title: &'static str, hint: &'static str) -> Div {
         )
 }
 
-fn readonly_field(
+fn editable_field(
     theme: Theme,
+    state: &AgentDefinitionsState,
     field: AgentDefinitionField,
     label: &'static str,
-    value: String,
+    cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let (id, min_height) = match field {
         AgentDefinitionField::Name => ("settings-agent-name-input", 40.0),
@@ -244,10 +247,25 @@ fn readonly_field(
         .gap(px(8.0))
         .child(
             div()
-                .text_size(px(13.0))
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(rgba(theme.text_secondary))
-                .child(label),
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_between()
+                .gap(px(12.0))
+                .child(
+                    div()
+                        .text_size(px(13.0))
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(rgba(theme.text_secondary))
+                        .child(label),
+                )
+                .child(
+                    action_button(theme, "Edit", theme.accent_orange)
+                        .id(("settings-agent-field-edit", field.index() as u64))
+                        .on_click(cx.listener(move |app, event, window, cx| {
+                            app.on_agent_settings_begin_edit(field, event, window, cx);
+                        })),
+                ),
         )
         .child(
             div()
@@ -260,9 +278,13 @@ fn readonly_field(
                 .border_1()
                 .border_color(rgba(with_alpha(theme.edge_highlight, 0x40)))
                 .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
-                .text_color(rgba(theme.text_primary))
+                .text_color(rgba(if state.is_editing(field) {
+                    theme.accent_orange
+                } else {
+                    theme.text_primary
+                }))
                 .line_height(px(20.0))
-                .child(value),
+                .child(state.row_value(field)),
         )
 }
 
@@ -408,6 +430,8 @@ fn status_chip(theme: Theme, enabled: bool) -> Div {
         } else {
             theme.destructive
         }))
+        .cursor_pointer()
+        .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xd2))))
         .child(if enabled { "Enabled" } else { "Disabled" })
 }
 
@@ -454,15 +478,6 @@ fn empty_list_message(theme: Theme, message: &'static str) -> Div {
         .text_size(px(13.0))
         .text_color(rgba(theme.text_tertiary))
         .child(message)
-}
-
-fn draft_name_display(name: &str) -> String {
-    let trimmed = name.trim();
-    if trimmed.is_empty() {
-        "Set in Task 4 persistence/editor wiring.".to_string()
-    } else {
-        trimmed.to_string()
-    }
 }
 
 fn workflow_display(workflow: &str) -> String {

@@ -1,4 +1,5 @@
 use crate::app::MultisoulApp;
+use crate::settings::agents::AgentDefinitionField;
 use canvas::AgentProfile;
 use gpui::{ClickEvent, Context, Window};
 
@@ -43,12 +44,19 @@ impl MultisoulApp {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        match self.agent_definitions.validate_draft() {
-            Ok(()) => self
-                .agent_definitions
-                .set_status("Agent form is valid. Persistence wiring lands in Task 5."),
-            Err(error) => self.agent_definitions.set_status(error),
-        }
+        self.agent_definitions.save_draft();
+        cx.notify();
+    }
+
+    pub(crate) fn on_agent_settings_begin_edit(
+        &mut self,
+        field: AgentDefinitionField,
+        _: &ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.agent_definitions.begin_edit(field);
+        self.focus_handle.focus(window);
         cx.notify();
     }
 
@@ -59,12 +67,7 @@ impl MultisoulApp {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.agent_definitions.load_draft_from_definition(id) {
-            self.agent_definitions.clear_status();
-        } else {
-            self.agent_definitions
-                .set_status("Could not load that agent into the draft.");
-        }
+        self.agent_definitions.edit_definition(id);
         cx.notify();
     }
 
@@ -75,8 +78,18 @@ impl MultisoulApp {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.agent_definitions
-            .set_status(format!("Delete for agent #{id} is UI-only in Task 3."));
+        self.agent_definitions.delete_definition(id);
+        cx.notify();
+    }
+
+    pub(crate) fn on_agent_settings_toggle_definition(
+        &mut self,
+        id: i64,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.agent_definitions.toggle_enabled(id);
         cx.notify();
     }
 }
