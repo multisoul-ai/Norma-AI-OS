@@ -1,85 +1,36 @@
 use super::audio_capture_for_test;
 
-#[cfg(target_os = "macos")]
-use super::{resolve_core_audio_input_device_id, CoreAudioInputDevice};
-
-/// AUDIO-2: 已保存的麦克风 UID 应映射到对应 CoreAudio device id。
+/// AUDIO-2: macOS 录音层不得调用 AVAudioInputNode::audioUnit。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   built-in uid = "built-in" → device_id = 11
-///   headset uid  = "headset"  → device_id = 42
-///   selected uid = "headset"
-///   expected     = 42
+///   source = include_str!("../../src/audio.rs")（编译期读取生产源码）
+///   banned selector 1 = ".audioUnit()"（objc2 会校验返回类型编码）
+///   banned selector 2 = "AudioUnitSetProperty"（依赖 audioUnit 返回值）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 构造两个 CoreAudioInputDevice，模拟系统中同时存在内置麦克风和耳机麦克风
-///   2. 将 selected uid "headset" 传入 resolve_core_audio_input_device_id
-///   3. helper 按 uid 精确匹配并返回耳机对应的 device_id
+///   1. 读取 audio.rs 源码文本
+///   2. 检查源码不包含 ".audioUnit()" 调用
+///   3. 检查源码不包含 AudioUnitSetProperty 设置当前设备
 ///
 /// 预期结果：
-///   - 正断言：返回 42，说明录音层会选择耳机麦克风
-///   - 负断言：不应返回 11，避免继续录到内置麦克风
+///   - 正断言：源码仍包含 AVAudioEngine，说明保留原有稳定录音路径
+///   - 负断言：源码不应包含 audioUnit / AudioUnitSetProperty，避免启动录音时 runtime abort
 #[cfg(target_os = "macos")]
 #[test]
-fn test_resolve_core_audio_input_device_id_selects_saved_uid() {
-    let devices = vec![
-        CoreAudioInputDevice {
-            uid: "built-in".to_string(),
-            device_id: 11,
-        },
-        CoreAudioInputDevice {
-            uid: "headset".to_string(),
-            device_id: 42,
-        },
-    ];
-
-    let selected = resolve_core_audio_input_device_id("headset", &devices)
-        .expect("headset uid should resolve to a CoreAudio device id");
-
-    assert_eq!(
-        selected, 42,
-        "已保存的 headset uid 应解析到耳机麦克风 device_id"
-    );
-    assert_ne!(
-        selected, 11,
-        "已保存的 headset uid 不应解析到内置麦克风 device_id"
-    );
-}
-
-/// AUDIO-3: 已保存的麦克风 UID 不存在时应返回明确错误。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   built-in uid = "built-in" → device_id = 11
-///   headset uid  = absent（设备列表中不存在）
-///   selected uid = "headset"
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 构造只包含内置麦克风的 CoreAudioInputDevice 列表
-///   2. 将 selected uid "headset" 传入 resolve_core_audio_input_device_id
-///   3. helper 无法找到匹配设备，应返回 SpeechError::Audio
-///
-/// 预期结果：
-///   - 正断言：错误消息包含 headset，方便用户判断是耳机不可用
-///   - 负断言：不应静默回退到 11，否则用户选择耳机后仍会录到电脑麦克风
-#[cfg(target_os = "macos")]
-#[test]
-fn test_resolve_core_audio_input_device_id_missing_uid_returns_error() {
-    let devices = vec![CoreAudioInputDevice {
-        uid: "built-in".to_string(),
-        device_id: 11,
-    }];
-
-    let error = resolve_core_audio_input_device_id("headset", &devices)
-        .expect_err("missing headset uid should return a microphone selection error");
+fn test_macos_audio_capture_does_not_use_aborting_audio_unit_selector() {
+    let source = include_str!("../../src/audio.rs");
 
     assert!(
-        error.to_string().contains("headset"),
-        "缺失设备错误应包含 headset uid，实际错误为 {error}"
+        source.contains("AVAudioEngine"),
+        "macOS 录音层应继续使用已有 AVAudioEngine 路径"
     );
-    assert_ne!(
-        error,
-        crate::SpeechError::Audio("selected microphone is unavailable: built-in".to_string()),
-        "缺失 headset 时不应把内置麦克风伪装成失败设备"
+    assert!(
+        !source.contains(".audioUnit()"),
+        "AVAudioInputNode::audioUnit 返回类型编码不兼容，会在 objc2 message send 校验阶段 abort"
+    );
+    assert!(
+        !source.contains("AudioUnitSetProperty"),
+        "不应通过 AudioUnitSetProperty 设置输入设备，因为它依赖 aborting audioUnit selector"
     );
 }
 
