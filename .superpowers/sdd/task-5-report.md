@@ -216,3 +216,97 @@ Results:
 ### Notes
 
 `cargo check -p app` still emits pre-existing `dead_code` warnings around adjacent agent settings/app wiring. They did not affect the regression fix or verification status.
+
+## Review Fix: Cross-Project Stale Draft Carry-Over
+
+### Scope
+
+Addressed the re-review blocker that a draft/edit buffer from Project A could survive `bind_project_store()` and then be saved into Project B once Task 5 persistence was live.
+
+Files touched for this fix:
+
+- `crates/app/src/settings/agents/state.rs`
+- `crates/app/src/settings/agents.rs`
+- `crates/app/tests/unit/agent_settings_tests.rs`
+- `crates/app/tests/unit/agent_settings_actions_tests.rs`
+- `crates/app/tests/unit/agent_settings_store_binding_tests.rs`
+
+### Root Cause
+
+`bind_project_store()` swapped `self.store` and called `reload()`, but it did not clear:
+
+- `draft`
+- `editing`
+- `edit_buffer`
+
+That meant a draft loaded from Project A could stay live across a workspace switch. Because project-local SQLite stores commonly start their first row at the same id, a stale `draft.id` from Project A could incorrectly update Project B's first row after rebinding.
+
+`clear_project_store()` also rebuilt only `draft`, leaving the inline edit state partially stale.
+
+### RED
+
+Added focused regression coverage in a dedicated binding test file:
+
+- `test_agent_definitions_state_bind_project_store_clears_stale_draft_before_save`
+
+First verified RED by temporarily removing the reset logic and running:
+
+```bash
+cargo test -p app bind_project_store_clears_stale_draft_before_save -- --nocapture
+```
+
+Observed expected RED:
+
+- test `settings::agents::store_binding_tests::test_agent_definitions_state_bind_project_store_clears_stale_draft_before_save` failed
+- assertion failed because `save_draft()` still returned true after rebinding to Project B
+
+This proved the stale Project A draft remained active across the store switch.
+
+### Fix
+
+Implemented the smallest state-layer fix:
+
+- `bind_project_store()` now calls `reset_draft()` before `reload()`
+- `clear_project_store()` now also calls `reset_draft()`
+
+This clears:
+
+- `draft`
+- `editing`
+- `edit_buffer`
+
+while preserving the existing reload behavior for the newly bound store.
+
+### GREEN
+
+Reran the focused regression command:
+
+```bash
+cargo test -p app bind_project_store_clears_stale_draft_before_save -- --nocapture
+```
+
+Result:
+
+- 1 passed
+- 0 failed
+
+### Verification
+
+Commands run after the fix:
+
+```bash
+cargo test -p app agent_definitions_state
+cargo check -p app
+bash scripts/check-max-file-lines.sh
+```
+
+Results:
+
+- `cargo test -p app agent_definitions_state`: pass, 9 passed / 0 failed
+- `cargo check -p app`: pass
+- `bash scripts/check-max-file-lines.sh`: pass
+
+### Notes
+
+- The new regression test was split into `crates/app/tests/unit/agent_settings_store_binding_tests.rs` to keep every Rust source file under the repository's 500-line cap.
+- `cargo check -p app` still emits pre-existing `dead_code` warnings in adjacent app/agent settings code. They did not affect this fix or any verification command.

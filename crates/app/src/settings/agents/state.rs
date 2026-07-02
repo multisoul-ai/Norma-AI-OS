@@ -77,13 +77,14 @@ impl AgentDefinitionField {
 impl AgentDefinitionsState {
     pub(crate) fn bind_project_store(&mut self, store: AgentDefinitionStore) {
         self.store = Some(store);
+        self.reset_draft();
         self.reload();
     }
 
     pub(crate) fn clear_project_store(&mut self) {
         self.store = None;
         self.definitions.clear();
-        self.draft = AgentDefinitionDraft::new();
+        self.reset_draft();
         self.status = None;
     }
 

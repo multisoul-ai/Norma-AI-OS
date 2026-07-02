@@ -15,3 +15,6 @@ mod tests;
 #[cfg(test)]
 #[path = "../../tests/unit/agent_settings_actions_tests.rs"]
 mod action_tests;
+#[cfg(test)]
+#[path = "../../tests/unit/agent_settings_store_binding_tests.rs"]
+mod store_binding_tests;
