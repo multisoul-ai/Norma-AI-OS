@@ -182,13 +182,20 @@ impl Runtime {
         cols: u16,
         rows: u16,
     ) -> Result<NodeId, PtyError> {
-        let node_id = self.document.add_node(
-            CanvasNodeKind::Agent(AgentSpec {
-                profile,
-                alias: None,
-            }),
-            bounds,
-        );
+        self.spawn_agent_with_alias(profile, None, bounds, cols, rows)
+    }
+
+    pub fn spawn_agent_with_alias(
+        &mut self,
+        profile: AgentProfile,
+        alias: Option<String>,
+        bounds: CanvasRect,
+        cols: u16,
+        rows: u16,
+    ) -> Result<NodeId, PtyError> {
+        let node_id = self
+            .document
+            .add_node(CanvasNodeKind::Agent(AgentSpec { profile, alias }), bounds);
         let sid = self.allocate_session_id();
         let hook_env = self.agent_hook_env(node_id, profile);
         let live = spawn_agent_live(
@@ -233,16 +240,25 @@ impl Runtime {
         cols: u16,
         rows: u16,
     ) -> Result<NodeId, PtyError> {
+        self.spawn_agent_with_command_and_alias(profile, None, bounds, command, cols, rows)
+    }
+
+    #[cfg(test)]
+    fn spawn_agent_with_command_and_alias(
+        &mut self,
+        profile: AgentProfile,
+        alias: Option<String>,
+        bounds: CanvasRect,
+        command: PtyCommand,
+        cols: u16,
+        rows: u16,
+    ) -> Result<NodeId, PtyError> {
         let sid = self.allocate_session_id();
         let live =
             TermLive::spawn_command(sid, command.with_cwd(self.workspace_root()), cols, rows)?;
-        let node_id = self.document.add_node(
-            CanvasNodeKind::Agent(AgentSpec {
-                profile,
-                alias: None,
-            }),
-            bounds,
-        );
+        let node_id = self
+            .document
+            .add_node(CanvasNodeKind::Agent(AgentSpec { profile, alias }), bounds);
         self.live.insert(node_id, Box::new(live));
         self.events.register(node_id, NodeType::Agent);
         Ok(node_id)
@@ -373,6 +389,9 @@ impl Runtime {
     }
 }
 
+#[cfg(test)]
+#[path = "../tests/unit/agent_alias_tests.rs"]
+mod agent_alias_tests;
 #[cfg(test)]
 #[path = "../tests/unit/agent_command_tests.rs"]
 mod agent_command_tests;
