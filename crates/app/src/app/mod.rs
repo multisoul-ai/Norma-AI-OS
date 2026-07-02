@@ -16,6 +16,7 @@ use crate::motion::MotionStore;
 use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
+use crate::settings::agents::AgentDefinitionsState;
 use crate::settings::panel::SettingsPanelState;
 use crate::settings::voice::VoiceSettingsState;
 use crate::settings::wallpaper::WallpaperSettingsState;
@@ -76,6 +77,7 @@ pub struct MultisoulApp {
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) persistence: PersistenceScheduler,
     pub(crate) settings_panel: SettingsPanelState,
+    pub(crate) agent_definitions: AgentDefinitionsState,
     pub(crate) voice_settings: VoiceSettingsState,
     pub(crate) shortcuts: ShortcutSettingsState,
     pub(crate) norma_server: NormaServer,
@@ -161,6 +163,7 @@ impl MultisoulApp {
             master_layout: MasterLayoutState::default(),
             persistence: PersistenceScheduler::default(),
             settings_panel: SettingsPanelState::default(),
+            agent_definitions: AgentDefinitionsState::default(),
             voice_settings: VoiceSettingsState::load_default(),
             shortcuts: ShortcutSettingsState::load_default(),
             norma_server: NormaServer::start(),

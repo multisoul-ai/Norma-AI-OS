@@ -2,6 +2,7 @@
 
 use crate::app::{AppScreen, MultisoulApp};
 use crate::motion::MotionStore;
+use crate::settings::agents::AgentDefinitionsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::NodeId;
@@ -65,6 +66,7 @@ impl MultisoulApp {
             &mut self.motion,
             &mut self.master_layout,
             &mut self.persistence,
+            &mut self.agent_definitions,
             &mut self.screen,
             &mut self.workspace_state,
             &path,
@@ -88,6 +90,7 @@ pub(crate) fn enter_workspace_for_path(
     motion: &mut MotionStore,
     master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
     persistence: &mut PersistenceScheduler,
+    agent_definitions: &mut AgentDefinitionsState,
     screen: &mut AppScreen,
     workspace_state: &mut WorkspaceState,
     path: &Path,
@@ -128,9 +131,11 @@ pub(crate) fn enter_workspace_for_path(
         restored_sessions,
         "restored live sessions for opened workspace"
     );
+    let agent_definition_store = project_store.agent_definition_store();
     runtime.kill_all();
     *runtime = next_runtime;
     persistence.set_project_store(project_store);
+    agent_definitions.bind_project_store(agent_definition_store);
     motion.clear_transient();
     motion.retain_nodes(std::iter::empty::<NodeId>());
     *screen = AppScreen::Canvas;
@@ -211,6 +216,7 @@ mod tests {
         let mut motion = MotionStore::new(true);
         let mut master_layout = MasterLayoutState::default();
         let mut persistence = PersistenceScheduler::default();
+        let mut agent_definitions = AgentDefinitionsState::default();
         let mut screen = AppScreen::Launchpad;
 
         let result = enter_workspace_for_path(
@@ -218,6 +224,7 @@ mod tests {
             &mut motion,
             &mut master_layout,
             &mut persistence,
+            &mut agent_definitions,
             &mut screen,
             &mut workspace_state,
             &workspace_path,
@@ -336,6 +343,7 @@ mod tests {
         let mut motion = MotionStore::new(true);
         let mut master_layout = MasterLayoutState::default();
         let mut persistence = PersistenceScheduler::default();
+        let mut agent_definitions = AgentDefinitionsState::default();
         let mut screen = AppScreen::Launchpad;
 
         let result = enter_workspace_for_path(
@@ -343,6 +351,7 @@ mod tests {
             &mut motion,
             &mut master_layout,
             &mut persistence,
+            &mut agent_definitions,
             &mut screen,
             &mut workspace_state,
             &workspace_path,
