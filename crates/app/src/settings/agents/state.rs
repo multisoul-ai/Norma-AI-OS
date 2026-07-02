@@ -101,6 +101,42 @@ impl AgentDefinitionsState {
         self.draft.runtime_profile = profile;
     }
 
+    pub(crate) fn toggle_draft_enabled(&mut self) {
+        self.draft.enabled = !self.draft.enabled;
+    }
+
+    pub(crate) fn reset_draft(&mut self) {
+        self.draft = AgentDefinitionDraft::new();
+    }
+
+    pub(crate) fn load_draft_from_definition(&mut self, id: i64) -> bool {
+        let Some(definition) = self
+            .definitions
+            .iter()
+            .find(|definition| definition.id == id)
+        else {
+            return false;
+        };
+
+        self.draft = AgentDefinitionDraft {
+            id: Some(definition.id),
+            name: definition.name.clone(),
+            runtime_profile: definition.runtime_profile,
+            workflow_description: definition.workflow_description.clone(),
+            enabled: definition.enabled,
+            sort_order: definition.sort_order,
+        };
+        true
+    }
+
+    pub(crate) fn set_status(&mut self, status: impl Into<String>) {
+        self.status = Some(status.into());
+    }
+
+    pub(crate) fn clear_status(&mut self) {
+        self.status = None;
+    }
+
     pub(crate) fn validate_draft(&self) -> Result<(), String> {
         validate_agent_definition_text(&self.draft.name, &self.draft.workflow_description)
     }

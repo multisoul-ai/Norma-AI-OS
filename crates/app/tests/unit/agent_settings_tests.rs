@@ -299,3 +299,119 @@ fn test_agent_settings_facade_reexports_task2_types() {
         "voice context workflow text should remain readable after facade re-export"
     );
 }
+
+/// AS-5: Agents 设置页应从空白占位升级为真实内容，至少暴露列表、表单和保存入口锚点。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source files = content.rs + agents.rs + agents/view.rs（view.rs 在 Task 3 前不存在）
+///   required ids  = 6 个：
+///     settings-agents-list
+///     settings-agent-name-input
+///     settings-agent-workflow-input
+///     settings-agent-profile-codex
+///     settings-agent-save
+///     settings-agent-empty-project
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 Settings content 与 agents facade 的源码
+///   2. 尝试读取 agents/view.rs 真实视图源码
+///   3. 断言关键 ids 已出现在实现中，证明 Agents 页面不再是空白占位
+///
+/// 预期结果：
+///   - 正断言：所有 Agents 视图锚点都存在
+///   - 负断言：缺少 view.rs 时测试必须失败，证明 Task 3 尚未实现
+#[test]
+fn test_agents_settings_section_renders_real_content() {
+    let source = format!(
+        "{}{}{}",
+        include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/agents.rs"),
+        include_str!("../../src/settings/agents/view.rs")
+    );
+    let required = [
+        "settings-agents-list",
+        "settings-agent-name-input",
+        "settings-agent-workflow-input",
+        "settings-agent-profile-codex",
+        "settings-agent-save",
+        "settings-agent-empty-project",
+    ];
+
+    for anchor in required {
+        assert!(
+            source.contains(anchor),
+            "Agents 设置页应包含真实内容锚点: {anchor}"
+        );
+    }
+}
+
+/// AS-6: 没有 project store 时，Agents 设置页应显示空项目提示并禁用“创建可保存 agent”路径。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source files = agents/state.rs + agents/view.rs
+///   no project condition = state.has_project_store() == false
+///   required empty-state id = settings-agent-empty-project
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 AgentDefinitionsState 与 Agents view 源码
+///   2. 检查 view 是否按 has_project_store() 分支渲染 empty-state
+///   3. 检查 empty-state 文案存在，避免无项目时仍显示可操作表单
+///
+/// 预期结果：
+///   - 正断言：view 会检查 has_project_store()
+///   - 正断言：empty-state id 存在
+///   - 负断言：无项目状态不应继续只有空白 div 占位
+#[test]
+fn test_agents_settings_no_project_state_disables_create_controls() {
+    let source = format!(
+        "{}{}",
+        include_str!("../../src/settings/agents/state.rs"),
+        include_str!("../../src/settings/agents/view.rs")
+    );
+
+    assert!(
+        source.contains("has_project_store()"),
+        "Agents view 应检查 has_project_store()，无项目时走 empty-state"
+    );
+    assert!(
+        source.contains("settings-agent-empty-project"),
+        "无项目时应渲染 settings-agent-empty-project 提示"
+    );
+    assert!(
+        !source.contains("SettingsSection::Agents => div()"),
+        "Agents 页面不应继续退回空白 div 占位"
+    );
+}
+
+/// AS-7: Settings content 路由应把 Agents 分组接到 agents view，而不是继续回空白 div。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source = settings/content.rs
+///   target route = SettingsSection::Agents => agents_settings(...)
+///   forbidden fallback = SettingsSection::Agents => div()
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 settings/content.rs 源码
+///   2. 断言 Agents 分组已调用 agents_settings
+///   3. 断言旧的空白 fallback 已被移除
+///
+/// 预期结果：
+///   - 正断言：content 路由到 agents_settings
+///   - 负断言：SettingsSection::Agents => div() 不存在
+#[test]
+fn test_agents_settings_content_routes_agents_section_to_agents_view() {
+    let source = include_str!("../../src/settings/content.rs");
+
+    assert!(
+        source.contains("SettingsSection::Agents => agents_settings("),
+        "Settings content 应把 Agents 分组路由到 agents_settings"
+    );
+    assert!(
+        !source.contains(
+            "SettingsSection::Agents\n                    | SettingsSection::Skills => div()"
+        ) && !source.contains(
+            "| SettingsSection::Agents\n                    | SettingsSection::Skills => div()"
+        ) && !source.contains("SettingsSection::Agents => div()"),
+        "SettingsSection::Agents 不应继续回退到空白 div"
+    );
+}
