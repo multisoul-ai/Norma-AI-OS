@@ -2,9 +2,14 @@ pub mod permissions;
 pub mod session_state;
 
 mod audio;
+mod devices;
 mod model;
 mod resample;
 mod session;
+
+#[cfg(test)]
+#[path = "../tests/unit/device_tests.rs"]
+mod device_tests;
 
 #[cfg(test)]
 pub fn resolve_model_dir_for_test() -> Result<std::path::PathBuf, SpeechError> {
@@ -12,6 +17,10 @@ pub fn resolve_model_dir_for_test() -> Result<std::path::PathBuf, SpeechError> {
 }
 
 use session::InnerSession;
+
+pub use devices::{
+    list_audio_input_devices, resolve_audio_input_device_selection, AudioInputDevice,
+};
 
 /// Check and (if not yet determined) request microphone permission.
 ///
@@ -72,7 +81,17 @@ impl SherpaProvider {
     pub fn start_recording(
         &self,
     ) -> Result<(SpeechSession, async_channel::Receiver<String>), SpeechError> {
-        session::start(self.model_dir.clone())
+        self.start_recording_with_input_device(None)
+    }
+
+    pub fn start_recording_with_input_device(
+        &self,
+        input_device_id: Option<&str>,
+    ) -> Result<(SpeechSession, async_channel::Receiver<String>), SpeechError> {
+        session::start(
+            self.model_dir.clone(),
+            input_device_id.map(ToOwned::to_owned),
+        )
     }
 }
 

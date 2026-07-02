@@ -13,8 +13,10 @@ tracing.workspace = true
 block2 = "0.6"
 objc2 = "0.6"
 objc2-av-foundation = { version = "0.3.2", features = ["AVCaptureDevice", "AVMediaFormat", "block2"] }
-objc2-avf-audio = { version = "0.3.2", features = ["AVAudioBuffer", "AVAudioConverter", "AVAudioEngine", "AVAudioFormat", "AVAudioIONode", "AVAudioNode", "AVAudioTime", "AVAudioTypes", "block2"] }
-objc2-core-foundation = { version = "0.3.2", features = ["CFDate", "CFRunLoop"] }
+objc2-audio-toolbox = { version = "0.3.2", features = ["AUComponent", "AudioUnitProperties"], default-features = false }
+objc2-avf-audio = { version = "0.3.2", features = ["AVAudioBuffer", "AVAudioConverter", "AVAudioEngine", "AVAudioFormat", "AVAudioIONode", "AVAudioNode", "AVAudioTime", "AVAudioTypes", "block2", "objc2-audio-toolbox"] }
+objc2-core-audio = { version = "0.3.2", features = ["AudioHardware"], default-features = false }
+objc2-core-foundation = { version = "0.3.2", features = ["CFDate", "CFRunLoop", "CFString"] }
 objc2-foundation = { version = "0.3.2", features = ["NSError", "NSObject", "NSString"] }
 sherpa-onnx = "1.13"
 async-channel.workspace = true
