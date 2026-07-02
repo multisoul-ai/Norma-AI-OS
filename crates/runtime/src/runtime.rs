@@ -33,6 +33,8 @@ pub struct Runtime {
     pub(crate) agent_hook_config: Option<crate::agent_hooks::AgentHookRuntimeConfig>,
     terminal_shells: HashMap<NodeId, String>,
     pub(crate) agent_session_ids: HashMap<NodeId, String>,
+    #[cfg(test)]
+    test_agent_spawn_command: Option<PtyCommand>,
     next_session_id: TerminalSessionId,
     workspace_root: Option<PathBuf>,
 }
@@ -54,6 +56,8 @@ impl Runtime {
             agent_hook_config: None,
             terminal_shells: HashMap::new(),
             agent_session_ids: HashMap::new(),
+            #[cfg(test)]
+            test_agent_spawn_command: None,
             next_session_id: 1,
             workspace_root: None,
         }
@@ -205,30 +209,27 @@ impl Runtime {
         cols: u16,
         rows: u16,
     ) -> Result<NodeId, PtyError> {
-        let node_id = self.document.add_node(
-            CanvasNodeKind::Agent(AgentSpec {
-                profile,
-                alias: None,
-            }),
-            bounds,
-        );
+        self.spawn_agent_with_alias(profile, None, bounds, cols, rows)
+    }
+
+    pub fn spawn_agent_with_alias(
+        &mut self,
+        profile: AgentProfile,
+        alias: Option<String>,
+        bounds: CanvasRect,
+        cols: u16,
+        rows: u16,
+    ) -> Result<NodeId, PtyError> {
+        let node_id = self.add_agent_node(profile, alias, bounds);
         let sid = self.allocate_session_id();
-        let hook_env = self.agent_hook_env(node_id, profile);
-        let live = spawn_agent_live(
-            sid,
-            profile,
-            self.workspace_root(),
-            hook_env.as_ref(),
-            cols,
-            rows,
-        )
-        .inspect_err(|error| {
-            self.document.remove_node(node_id);
-            self.events
-                .operation_failed(None, "spawn_agent", error.to_string());
-        })?;
-        self.live.insert(node_id, Box::new(live));
-        self.events.register(node_id, NodeType::Agent);
+        let live = self
+            .spawn_agent_live_for_profile(node_id, sid, profile, cols, rows)
+            .inspect_err(|error| {
+                self.document.remove_node(node_id);
+                self.events
+                    .operation_failed(None, "spawn_agent", error.to_string());
+            })?;
+        self.register_agent_live_node(node_id, live);
         Ok(node_id)
     }
 
@@ -256,24 +257,79 @@ impl Runtime {
         cols: u16,
         rows: u16,
     ) -> Result<NodeId, PtyError> {
+        self.spawn_agent_with_command_and_alias(profile, None, bounds, command, cols, rows)
+    }
+
+    #[cfg(test)]
+    fn spawn_agent_with_command_and_alias(
+        &mut self,
+        profile: AgentProfile,
+        alias: Option<String>,
+        bounds: CanvasRect,
+        command: PtyCommand,
+        cols: u16,
+        rows: u16,
+    ) -> Result<NodeId, PtyError> {
         let sid = self.allocate_session_id();
         let live =
             TermLive::spawn_command(sid, command.with_cwd(self.workspace_root()), cols, rows)?;
-        let node_id = self.document.add_node(
-            CanvasNodeKind::Agent(AgentSpec {
-                profile,
-                alias: None,
-            }),
-            bounds,
-        );
-        self.live.insert(node_id, Box::new(live));
-        self.events.register(node_id, NodeType::Agent);
+        let node_id = self.add_agent_node(profile, alias, bounds);
+        self.register_agent_live_node(node_id, live);
         Ok(node_id)
     }
 
     #[cfg(test)]
     fn agent_command(profile: AgentProfile) -> PtyCommand {
         crate::nodes::agent::agent_command(profile, None)
+    }
+
+    #[cfg(test)]
+    fn set_test_agent_spawn_command(&mut self, command: PtyCommand) {
+        self.test_agent_spawn_command = Some(command);
+    }
+
+    fn add_agent_node(
+        &mut self,
+        profile: AgentProfile,
+        alias: Option<String>,
+        bounds: CanvasRect,
+    ) -> NodeId {
+        self.document
+            .add_node(CanvasNodeKind::Agent(AgentSpec { profile, alias }), bounds)
+    }
+
+    fn register_agent_live_node(&mut self, node_id: NodeId, live: TermLive) {
+        self.live.insert(node_id, Box::new(live));
+        self.events.register(node_id, NodeType::Agent);
+    }
+
+    fn spawn_agent_live_for_profile(
+        &self,
+        node_id: NodeId,
+        sid: TerminalSessionId,
+        profile: AgentProfile,
+        cols: u16,
+        rows: u16,
+    ) -> Result<TermLive, PtyError> {
+        #[cfg(test)]
+        if let Some(command) = &self.test_agent_spawn_command {
+            return TermLive::spawn_command(
+                sid,
+                command.with_cwd(self.workspace_root()),
+                cols,
+                rows,
+            );
+        }
+
+        let hook_env = self.agent_hook_env(node_id, profile);
+        spawn_agent_live(
+            sid,
+            profile,
+            self.workspace_root(),
+            hook_env.as_ref(),
+            cols,
+            rows,
+        )
     }
 
     pub fn live_len(&self) -> usize {
@@ -396,6 +452,9 @@ impl Runtime {
     }
 }
 
+#[cfg(test)]
+#[path = "../tests/unit/agent_alias_tests.rs"]
+mod agent_alias_tests;
 #[cfg(test)]
 #[path = "../tests/unit/agent_command_tests.rs"]
 mod agent_command_tests;

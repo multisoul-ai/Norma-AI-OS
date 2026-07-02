@@ -193,6 +193,7 @@ impl MultisoulApp {
     ) {
         if self.settings_panel.open
             && (self.voice_settings.handle_key_down(&ev.keystroke)
+                || self.agent_definitions.handle_key_down(&ev.keystroke)
                 || (self.shortcuts.recording.is_some()
                     && self.shortcuts.record_keystroke(&ev.keystroke)))
         {

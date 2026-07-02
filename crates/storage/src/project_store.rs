@@ -1,6 +1,6 @@
 use crate::{
-    migrations::require_workspace_dir, CanvasStore, LayoutStore, NodeSessionStore, SessionStore,
-    StorageResult, VoiceHistoryStore,
+    migrations::require_workspace_dir, AgentDefinitionStore, CanvasStore, LayoutStore,
+    NodeSessionStore, SessionStore, StorageResult, VoiceHistoryStore,
 };
 use std::path::{Path, PathBuf};
 
@@ -46,5 +46,9 @@ impl ProjectStore {
 
     pub fn voice_history_store(&self) -> VoiceHistoryStore {
         VoiceHistoryStore::new(self.path.clone())
+    }
+
+    pub fn agent_definition_store(&self) -> AgentDefinitionStore {
+        AgentDefinitionStore::new(self.path.clone())
     }
 }

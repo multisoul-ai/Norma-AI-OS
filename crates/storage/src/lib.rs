@@ -1,5 +1,6 @@
 //! storage — SQLite-backed persistence for app and project state.
 
+pub mod agent_definition_store;
 pub mod app_store;
 pub mod canvas_store;
 pub mod error;
@@ -12,6 +13,9 @@ pub mod session_store;
 pub mod settings_store;
 pub mod voice_history_store;
 
+pub use agent_definition_store::{
+    AgentDefinition, AgentDefinitionStore, AgentDefinitionUpdate, NewAgentDefinition,
+};
 pub use app_store::{default_app_db_path, AppStore};
 pub use canvas_store::CanvasStore;
 pub use error::{StorageError, StorageResult};

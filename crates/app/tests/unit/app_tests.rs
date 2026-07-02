@@ -3,7 +3,7 @@ use crate::workspace::flow::enter_workspace_for_path;
 use crate::workspace::persistence::PersistenceScheduler;
 use canvas::{compute_responsive_grid_layout, AgentProfile, AgentSpec, CanvasNodeKind, RectNode};
 use runtime::{AgentTaskState, AgentTaskUpdate, CardAttentionKind, CardAttentionState};
-use storage::RecentStore;
+use storage::{NewAgentDefinition, ProjectStore, RecentStore};
 
 /// 壁纸亮度：默认画布壁纸应按原图亮度显示，不额外压暗。
 ///
@@ -191,26 +191,30 @@ fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
     );
 }
 
-/// 打开已有 workspace：app 层应记录最近项目并从 Launchpad 切换到 Canvas。
+/// 打开已有 workspace：app 层应记录最近项目、切换到 Canvas，并把 agent state 绑定到该项目的本地定义库。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   workspace path = temp/launchpad-opened，真实目录，因此 path.is_dir() = true
+///   project-local agent defs = 1 条，name = "Workspace Agent"
 ///   storage path = temp/state/app.sqlite
-///   初始 screen = Launchpad，runtime.workspace_root = None，recent count = 0
+///   初始 screen = Launchpad，runtime.workspace_root = None，recent count = 0，agent_definitions 未绑定
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 构造 Runtime::new()、MotionStore::new(true)、AppScreen::Launchpad
-///   2. WorkspaceState::load_from_storage(storage)
-///   3. enter_workspace_for_path(workspace)
+///   1. 先为 workspace 创建并 migrate ProjectStore，写入 1 条项目本地 agent definition
+///   2. 构造 Runtime::new()、MotionStore::new(true)、AppScreen::Launchpad、AgentDefinitionsState::default()
+///   3. WorkspaceState::load_from_storage(storage)
+///   4. enter_workspace_for_path(workspace)
 ///      → WorkspaceState::open_workspace 写 SQLite
 ///      → runtime 替换为 Runtime::new_for_workspace(root)
+///      → agent_definitions.bind_project_store(project_store.agent_definition_store())
 ///      → screen = Canvas
-///   4. 查询 screen/runtime/workspace_state
+///   5. 查询 screen/runtime/workspace_state/agent_definitions
 ///
 /// 预期结果：
 ///   - 正断言：返回 Ok 且 screen == Canvas
 ///   - 正断言：runtime.workspace_root/current_root/recent[0].path 都是 canonical workspace
-///   - 负断言：screen 不应仍为 Launchpad，recent 不应为空
+///   - 正断言：agent_definitions 只加载该 workspace 的本地 agent definition
+///   - 负断言：screen 不应仍为 Launchpad，recent 不应为空，agent_definitions 不应保持未绑定
 #[test]
 fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
@@ -219,12 +223,26 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     let canonical_workspace = workspace_path
         .canonicalize()
         .expect("workspace should canonicalize");
+    let project_store = ProjectStore::for_workspace(&workspace_path)
+        .expect("project store should open for workspace-local agent setup");
+    project_store
+        .migrate()
+        .expect("project store should migrate before agent definition write");
+    project_store
+        .agent_definition_store()
+        .create(&NewAgentDefinition {
+            name: "Workspace Agent".to_string(),
+            runtime_profile: AgentProfile::Codex,
+            workflow_description: "Workspace-local workflow".to_string(),
+        })
+        .expect("workspace-local agent definition should persist");
     let storage = RecentStore::new(temp.path().join("state").join("app.sqlite"));
     let mut workspace_state = WorkspaceState::load_from_storage(storage);
     let mut runtime = Runtime::new();
     let mut motion = MotionStore::new(true);
     let mut master_layout = MasterLayoutState::default();
     let mut persistence = PersistenceScheduler::default();
+    let mut agent_definitions = AgentDefinitionsState::default();
     let mut screen = AppScreen::Launchpad;
 
     let result = enter_workspace_for_path(
@@ -232,6 +250,7 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
         &mut motion,
         &mut master_layout,
         &mut persistence,
+        &mut agent_definitions,
         &mut screen,
         &mut workspace_state,
         &workspace_path,
@@ -261,6 +280,16 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
         workspace_state.recent.records[0].path, canonical_workspace,
         "最近项目第一条应是刚打开的 workspace"
     );
+    assert_eq!(
+        agent_definitions.definitions().len(),
+        1,
+        "打开 workspace 后 agent state 应加载该项目本地的 1 条 agent 定义"
+    );
+    assert_eq!(
+        agent_definitions.definitions()[0].name,
+        "Workspace Agent",
+        "agent state 应绑定到当前 workspace 的 project store，而不是保持空状态"
+    );
     assert_ne!(
         screen,
         AppScreen::Launchpad,
@@ -269,6 +298,10 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     assert!(
         !workspace_state.recent.records.is_empty(),
         "成功打开 workspace 后 recent 不应为空"
+    );
+    assert!(
+        !agent_definitions.voice_context().is_empty(),
+        "打开 workspace 后 agent_definitions 不应保持未绑定，否则 voice context 仍为空"
     );
 }
 
@@ -299,6 +332,7 @@ fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
     let mut motion = MotionStore::new(true);
     let mut master_layout = MasterLayoutState::default();
     let mut persistence = PersistenceScheduler::default();
+    let mut agent_definitions = AgentDefinitionsState::default();
     let mut screen = AppScreen::Launchpad;
 
     let result = enter_workspace_for_path(
@@ -306,6 +340,7 @@ fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
         &mut motion,
         &mut master_layout,
         &mut persistence,
+        &mut agent_definitions,
         &mut screen,
         &mut workspace_state,
         &missing_path,
