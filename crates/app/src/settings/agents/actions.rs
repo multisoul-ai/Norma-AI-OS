@@ -71,6 +71,16 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    pub(crate) fn on_agent_settings_create_card(
+        &mut self,
+        id: i64,
+        _: &ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.spawn_agent_card_from_definition(id, window, cx);
+    }
+
     pub(crate) fn on_agent_settings_delete_definition(
         &mut self,
         id: i64,

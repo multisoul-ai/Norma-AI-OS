@@ -1,6 +1,7 @@
 //! Project-scoped Agent catalog settings state.
 
 mod actions;
+mod components;
 mod state;
 mod view;
 

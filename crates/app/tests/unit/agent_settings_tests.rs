@@ -415,3 +415,52 @@ fn test_agents_settings_content_routes_agents_section_to_agents_view() {
         "SettingsSection::Agents 不应继续回退到空白 div"
     );
 }
+
+/// AS-12: Project Agent 行级操作应暴露稳定的 “Create card” action，并把点击事件接到 spawn_agent_card_from_definition。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source files             = agents/view.rs + agents/actions.rs，共 2 个源码入口
+///   stable action id prefix  = "settings-agent-create-card"，用于 Settings 行级按钮定位
+///   required wiring target   = spawn_agent_card_from_definition(id, window, cx)
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 agents/view.rs，检查行级按钮文案、稳定 id 前缀与 handler 名称
+///   2. 读取 agents/actions.rs，检查 create-card handler 是否存在
+///   3. 断言 handler 内部最终调用 spawn_agent_card_from_definition(id, window, cx)
+///
+/// 预期结果：
+///   - 正断言：Settings row 暴露 "Create card" 文案
+///   - 正断言：按钮暴露稳定 id 前缀 settings-agent-create-card
+///   - 正断言：handler 存在且调用 spawn_agent_card_from_definition
+///   - 负断言：行级 create-card 不应只停留在 edit/delete，避免保存定义后仍无法从 Settings 创建卡片
+#[test]
+fn test_agents_settings_row_exposes_create_card_action_and_wires_spawn_handler() {
+    let view_source = include_str!("../../src/settings/agents/view.rs");
+    let actions_source = include_str!("../../src/settings/agents/actions.rs");
+
+    assert!(
+        view_source.contains("\"Create card\""),
+        "Agents settings row should expose a visible Create card action for saved project definitions"
+    );
+    assert!(
+        view_source.contains("settings-agent-create-card"),
+        "Agents settings row should expose a stable id prefix for the create-card action"
+    );
+    assert!(
+        view_source.contains("on_agent_settings_create_card"),
+        "Agents settings row should wire the create-card button to a dedicated handler"
+    );
+    assert!(
+        actions_source.contains("fn on_agent_settings_create_card"),
+        "Agent settings actions should define a create-card handler for row-level spawning"
+    );
+    assert!(
+        actions_source.contains("self.spawn_agent_card_from_definition(id, window, cx);"),
+        "create-card handler should delegate to spawn_agent_card_from_definition so Settings can create Agent cards"
+    );
+    assert!(
+        !view_source.contains("\"Edit draft\"")
+            || view_source.contains("\"Create card\""),
+        "row actions should not remain edit/delete only; saved definitions must also offer Create card"
+    );
+}
