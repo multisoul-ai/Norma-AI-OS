@@ -28,6 +28,7 @@ fn test_voice_settings_saved_values_override_env_values() {
         planner_model: Some("saved-planner".to_string()),
         refine_model: Some("saved-refine".to_string()),
         paraformer_model_dir: Some(PathBuf::from("/saved/model")),
+        input_device_id: Some("saved-headset".to_string()),
         trace_enabled: Some(false),
     };
     let env = EnvVoiceSettings {
@@ -35,6 +36,7 @@ fn test_voice_settings_saved_values_override_env_values() {
         planner_model: Some("env-planner".to_string()),
         refine_model: Some("env-refine".to_string()),
         paraformer_model_dir: Some(PathBuf::from("/env/model")),
+        input_device_id: Some("env-headset".to_string()),
         trace_enabled: Some("true".to_string()),
     };
 
@@ -59,6 +61,11 @@ fn test_voice_settings_saved_values_override_env_values() {
         values.paraformer_model_dir(),
         Some(PathBuf::from("/saved/model").as_path()),
         "已保存 Paraformer 目录应优先于 MULTISOUL_PARAFORMER_MODEL_DIR"
+    );
+    assert_eq!(
+        values.input_device_id(),
+        Some("saved-headset"),
+        "已保存 input device id 应优先于 MULTISOUL_VOICE_INPUT_DEVICE_ID"
     );
     assert!(
         !values.trace_enabled(),
@@ -98,6 +105,7 @@ fn test_voice_settings_env_fallback_and_refine_follows_planner() {
         planner_model: Some("env-planner".to_string()),
         refine_model: None,
         paraformer_model_dir: None,
+        input_device_id: Some("env-headset".to_string()),
         trace_enabled: Some("on".to_string()),
     };
 
@@ -117,6 +125,11 @@ fn test_voice_settings_env_fallback_and_refine_follows_planner() {
         values.refine_model(),
         "env-planner",
         "refine model 缺失时应跟随有效 planner model"
+    );
+    assert_eq!(
+        values.input_device_id(),
+        Some("env-headset"),
+        "缺少保存设置时 input device id 应来自 env"
     );
     assert!(values.trace_enabled(), "env trace=on 应被识别为开启");
     assert_ne!(
@@ -171,5 +184,100 @@ fn test_voice_settings_defaults_when_saved_and_env_are_missing() {
     assert!(
         values.paraformer_model_dir().is_none(),
         "缺少保存设置和 env 时不应伪造自定义 Paraformer 目录"
+    );
+    assert!(
+        values.input_device_id().is_none(),
+        "缺少保存设置和 env 时不应伪造自定义输入设备"
+    );
+}
+
+/// VS-4: Settings 中选择输入设备后，应写入当前状态并可清回 System Default。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   initial saved.input_device_id = None
+///   selected id = "headset"
+///   clear selection = None，表示 System Default
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用空 saved/env 构造 VoiceSettingsState
+///   2. select_input_device(Some("headset")) → values.input_device_id 应变为 headset
+///   3. select_input_device(None) → values.input_device_id 应回到 None
+///
+/// 预期结果：
+///   - 正断言：选择后读回 headset
+///   - 正断言：清除后读回 None
+///   - 负断言：清除后不应继续保留旧 headset
+#[test]
+fn test_voice_settings_select_and_clear_input_device_id() {
+    let mut state = VoiceSettingsState::from_sources(
+        SavedVoiceSettings::default(),
+        EnvVoiceSettings::default(),
+    );
+
+    state.select_input_device(Some("headset".to_string()));
+
+    assert_eq!(
+        state.values().input_device_id(),
+        Some("headset"),
+        "选择耳机麦克风后 values 应读回 headset"
+    );
+
+    state.select_input_device(None);
+
+    assert!(
+        state.values().input_device_id().is_none(),
+        "清除输入设备后应回到 System Default"
+    );
+    assert_ne!(
+        state.values().input_device_id(),
+        Some("headset"),
+        "清除输入设备后不应继续保留旧 headset"
+    );
+}
+
+/// VS-5: 刷新输入设备失败时应保留当前选择，并显示错误状态。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   selected id = "headset"
+///   refresh result = Err(SpeechError::Audio("device service unavailable"))
+///   devices before refresh = []
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造 VoiceSettingsState 并选择 headset
+///   2. 调用 refresh_input_devices_from_result(Err(...)) 模拟系统枚举失败
+///   3. 读取 values.input_device_id 与 status
+///
+/// 预期结果：
+///   - 正断言：input_device_id 仍为 headset
+///   - 正断言：status 标记为 error 且包含失败原因
+///   - 负断言：刷新失败不应清空选择
+#[test]
+fn test_voice_settings_refresh_input_devices_error_preserves_selection() {
+    let mut state = VoiceSettingsState::from_sources(
+        SavedVoiceSettings::default(),
+        EnvVoiceSettings::default(),
+    );
+    state.select_input_device(Some("headset".to_string()));
+
+    state.refresh_input_devices_from_result(Err(voice_sherpa::SpeechError::Audio(
+        "device service unavailable".to_string(),
+    )));
+
+    let status = state.status().expect("刷新失败应写入 status");
+
+    assert_eq!(
+        state.values().input_device_id(),
+        Some("headset"),
+        "刷新设备失败时应保留当前选择"
+    );
+    assert!(status.1, "刷新设备失败时 status 应标记为错误");
+    assert!(
+        status.0.contains("device service unavailable"),
+        "刷新设备失败时 status 应包含底层失败原因"
+    );
+    assert_ne!(
+        state.values().input_device_id(),
+        None,
+        "刷新设备失败不应清空已选择的输入设备"
     );
 }

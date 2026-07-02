@@ -58,11 +58,12 @@ impl MultisoulApp {
                             app.save_voice_speech_error(error);
                         }
                         Ok(()) => {
-                            match app
-                                .voice_settings
-                                .sherpa_provider()
-                                .and_then(|p| p.start_recording())
-                            {
+                            let input_device_id = voice_recording_input_device_id_from_value(
+                                app.voice_settings.values().input_device_id(),
+                            );
+                            match app.voice_settings.sherpa_provider().and_then(|p| {
+                                p.start_recording_with_input_device(input_device_id.as_deref())
+                            }) {
                                 Ok((session, partials)) => {
                                     app.voice.set_speech_session(session);
                                     // Event-driven: wakes only when sherpa emits a partial,
@@ -448,6 +449,13 @@ fn voice_transcript_source_from_value(value: Option<String>) -> VoiceTranscriptS
         Some(transcript) => VoiceTranscriptSource::Environment(transcript),
         None => VoiceTranscriptSource::AppleSpeech,
     }
+}
+
+fn voice_recording_input_device_id_from_value(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
 }
 
 #[cfg(test)]

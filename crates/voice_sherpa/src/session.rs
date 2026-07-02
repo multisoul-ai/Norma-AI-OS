@@ -122,6 +122,7 @@ impl Drop for InnerSession {
 
 pub(crate) fn start(
     model_dir: PathBuf,
+    input_device_id: Option<String>,
 ) -> Result<(crate::SpeechSession, async_channel::Receiver<String>), SpeechError> {
     ensure_microphone_authorized()?;
 
@@ -147,7 +148,11 @@ pub(crate) fn start(
         .spawn(move || recognizer_loop(config, pcm_rx, abort_rx, partial_tx, recognizer_stats))
         .map_err(|e| SpeechError::Recognizer(format!("could not spawn recognizer thread: {e}")))?;
 
-    let audio = AudioCapture::start(pcm_tx.clone(), Arc::clone(&stats))?;
+    let audio = AudioCapture::start(
+        pcm_tx.clone(),
+        Arc::clone(&stats),
+        input_device_id.as_deref(),
+    )?;
 
     Ok((
         crate::SpeechSession {

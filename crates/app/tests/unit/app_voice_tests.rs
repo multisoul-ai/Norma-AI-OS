@@ -1,6 +1,6 @@
 use super::{
-    voice_transcript_source_from_value, VoicePlanningJob, VoicePlanningResult,
-    VoiceTranscriptSource, DEFAULT_MAX_VOICE_STEPS,
+    voice_recording_input_device_id_from_value, voice_transcript_source_from_value,
+    VoicePlanningJob, VoicePlanningResult, VoiceTranscriptSource, DEFAULT_MAX_VOICE_STEPS,
 };
 
 /// AV-0: 默认 voice planner 步数应覆盖“四张卡片 + 一次输入”的复合语音。
@@ -115,4 +115,54 @@ fn assert_send<T: Send>() {}
 fn test_voice_planning_job_and_result_are_send() {
     assert_send::<VoicePlanningJob>();
     assert_send::<VoicePlanningResult>();
+}
+
+/// AV-3: 录音启动参数应保留 Settings 中选定的输入设备 ID。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   settings input_device_id = Some("headset")
+///   expected recording arg = Some("headset")
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 将 Some("headset") 传入 voice_recording_input_device_id_from_value
+///   2. helper trim 后发现 ID 非空，应保留该 ID 给 SherpaProvider
+///
+/// 预期结果：
+///   - 正断言：返回 Some("headset")
+///   - 负断言：不应返回 None，避免录音启动丢失用户选择
+#[test]
+fn test_voice_recording_input_device_id_preserves_selected_device() {
+    let selected = voice_recording_input_device_id_from_value(Some("headset"));
+
+    assert_eq!(
+        selected.as_deref(),
+        Some("headset"),
+        "录音启动参数应保留 Settings 中选择的 input device id"
+    );
+    assert_ne!(selected, None, "录音启动参数不应丢失已选择的输入设备");
+}
+
+/// AV-4: System Default 不应伪造成具体输入设备 ID。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   settings input_device_id = None
+///   expected recording arg = None
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 将 None 传入 voice_recording_input_device_id_from_value
+///   2. helper 保留 None，交给 voice_sherpa 在录音开始时解析系统默认设备
+///
+/// 预期结果：
+///   - 正断言：返回 None
+///   - 负断言：不应返回 "headset" 之类的具体设备，避免伪造选择
+#[test]
+fn test_voice_recording_input_device_id_preserves_system_default() {
+    let selected = voice_recording_input_device_id_from_value(None);
+
+    assert!(selected.is_none(), "System Default 应以 None 传给录音层");
+    assert_ne!(
+        selected.as_deref(),
+        Some("headset"),
+        "System Default 不应伪造成具体输入设备 ID"
+    );
 }

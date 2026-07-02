@@ -2,13 +2,14 @@ use gpui::Keystroke;
 use std::path::PathBuf;
 use storage::{AppStore, SettingsStore};
 use voice::OllamaVoicePlanner;
-use voice_sherpa::{SherpaProvider, SpeechError};
+use voice_sherpa::{AudioInputDevice, SherpaProvider, SpeechError};
 
 pub(crate) const DEFAULT_OLLAMA_ENDPOINT: &str = "http://127.0.0.1:11434";
 const KEY_OLLAMA_ENDPOINT: &str = "voice.ollama.endpoint";
 const KEY_OLLAMA_MODEL: &str = "voice.ollama.model";
 const KEY_REFINE_MODEL: &str = "voice.refine.model";
 const KEY_PARAFORMER_MODEL_DIR: &str = "voice.paraformer.model_dir";
+const KEY_INPUT_DEVICE_ID: &str = "voice.input_device_id";
 const KEY_TRACE_ENABLED: &str = "voice.trace_enabled";
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -17,6 +18,7 @@ pub(crate) struct SavedVoiceSettings {
     pub(crate) planner_model: Option<String>,
     pub(crate) refine_model: Option<String>,
     pub(crate) paraformer_model_dir: Option<PathBuf>,
+    pub(crate) input_device_id: Option<String>,
     pub(crate) trace_enabled: Option<bool>,
 }
 
@@ -26,6 +28,7 @@ pub(crate) struct EnvVoiceSettings {
     pub(crate) planner_model: Option<String>,
     pub(crate) refine_model: Option<String>,
     pub(crate) paraformer_model_dir: Option<PathBuf>,
+    pub(crate) input_device_id: Option<String>,
     pub(crate) trace_enabled: Option<String>,
 }
 
@@ -35,6 +38,7 @@ pub(crate) struct VoiceSettingsValues {
     planner_model: String,
     refine_model: String,
     paraformer_model_dir: Option<PathBuf>,
+    input_device_id: Option<String>,
     trace_enabled: bool,
 }
 
@@ -57,6 +61,7 @@ pub(crate) struct VoiceSettingsState {
     saved: SavedVoiceSettings,
     env: EnvVoiceSettings,
     storage: Option<SettingsStore>,
+    input_devices: Vec<AudioInputDevice>,
     editing: Option<VoiceSettingsField>,
     draft: String,
     status: Option<VoiceSettingsStatus>,
@@ -90,6 +95,17 @@ impl VoiceSettingsValues {
             .paraformer_model_dir
             .clone()
             .or_else(|| env.paraformer_model_dir.clone());
+        let input_device_id = saved
+            .input_device_id
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| {
+                env.input_device_id
+                    .as_deref()
+                    .filter(|value| !value.trim().is_empty())
+            })
+            .map(str::trim)
+            .map(ToOwned::to_owned);
         let trace_enabled = saved
             .trace_enabled
             .unwrap_or_else(|| trace_enabled_from_value(env.trace_enabled.as_deref()));
@@ -99,6 +115,7 @@ impl VoiceSettingsValues {
             planner_model,
             refine_model,
             paraformer_model_dir,
+            input_device_id,
             trace_enabled,
         }
     }
@@ -119,6 +136,10 @@ impl VoiceSettingsValues {
         self.paraformer_model_dir.as_deref()
     }
 
+    pub(crate) fn input_device_id(&self) -> Option<&str> {
+        self.input_device_id.as_deref()
+    }
+
     pub(crate) fn trace_enabled(&self) -> bool {
         self.trace_enabled
     }
@@ -133,6 +154,7 @@ impl EnvVoiceSettings {
             paraformer_model_dir: std::env::var("MULTISOUL_PARAFORMER_MODEL_DIR")
                 .ok()
                 .map(PathBuf::from),
+            input_device_id: std::env::var("MULTISOUL_VOICE_INPUT_DEVICE_ID").ok(),
             trace_enabled: std::env::var("MULTISOUL_VOICE_TRACE").ok(),
         }
     }
@@ -179,6 +201,7 @@ impl VoiceSettingsState {
             saved,
             env,
             storage: None,
+            input_devices: Vec::new(),
             editing: None,
             draft: String::new(),
             status: None,
@@ -187,6 +210,10 @@ impl VoiceSettingsState {
 
     pub(crate) fn values(&self) -> &VoiceSettingsValues {
         &self.values
+    }
+
+    pub(crate) fn input_devices(&self) -> &[AudioInputDevice] {
+        &self.input_devices
     }
 
     pub(crate) fn sherpa_provider(&self) -> Result<SherpaProvider, SpeechError> {
@@ -244,6 +271,38 @@ impl VoiceSettingsState {
         self.saved.paraformer_model_dir = None;
         self.delete_string(KEY_PARAFORMER_MODEL_DIR);
         self.refresh_values();
+    }
+
+    pub(crate) fn select_input_device(&mut self, id: Option<String>) {
+        self.saved.input_device_id = id
+            .map(|id| id.trim().to_string())
+            .filter(|id| !id.is_empty());
+        match self.saved.input_device_id.clone() {
+            Some(id) => self.persist_string(KEY_INPUT_DEVICE_ID, &id),
+            None => self.delete_string(KEY_INPUT_DEVICE_ID),
+        }
+        self.refresh_values();
+    }
+
+    pub(crate) fn refresh_input_devices(&mut self) {
+        self.refresh_input_devices_from_result(voice_sherpa::list_audio_input_devices());
+    }
+
+    pub(crate) fn refresh_input_devices_from_result(
+        &mut self,
+        result: Result<Vec<AudioInputDevice>, SpeechError>,
+    ) {
+        match result {
+            Ok(devices) => {
+                self.input_devices = devices;
+                self.status = Some(ok_status("Input devices refreshed"));
+            }
+            Err(error) => {
+                self.status = Some(error_status(format!(
+                    "Could not refresh input devices: {error}"
+                )));
+            }
+        }
     }
 
     pub(crate) fn toggle_trace(&mut self) {
@@ -345,6 +404,7 @@ impl SavedVoiceSettings {
             refine_model: non_empty_option(store.get_string(KEY_REFINE_MODEL)?),
             paraformer_model_dir: non_empty_option(store.get_string(KEY_PARAFORMER_MODEL_DIR)?)
                 .map(PathBuf::from),
+            input_device_id: non_empty_option(store.get_string(KEY_INPUT_DEVICE_ID)?),
             trace_enabled: store
                 .get_string(KEY_TRACE_ENABLED)?
                 .as_deref()
