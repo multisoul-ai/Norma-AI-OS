@@ -251,7 +251,11 @@ impl AgentDefinitionsState {
     }
 
     pub(crate) fn toggle_enabled(&mut self, id: i64) -> bool {
-        let Some(definition) = self.definitions.iter().find(|definition| definition.id == id) else {
+        let Some(definition) = self
+            .definitions
+            .iter()
+            .find(|definition| definition.id == id)
+        else {
             self.status = Some("Could not find that agent.".to_string());
             return false;
         };

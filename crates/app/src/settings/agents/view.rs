@@ -50,7 +50,13 @@ fn form_section(
             .items_center()
             .justify_between()
             .gap(px(16.0))
-            .child(editable_field(theme, state, AgentDefinitionField::Name, "Name", cx))
+            .child(editable_field(
+                theme,
+                state,
+                AgentDefinitionField::Name,
+                "Name",
+                cx,
+            ))
             .child(
                 action_button(theme, "Reset", theme.accent_cyan)
                     .id("settings-agent-reset")
