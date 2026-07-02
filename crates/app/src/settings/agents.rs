@@ -2,7 +2,9 @@
 
 mod state;
 
-pub(crate) use state::AgentDefinitionsState;
+pub(crate) use state::{
+    AgentDefinitionDraft, AgentDefinitionField, AgentDefinitionsState, AgentVoiceContext,
+};
 
 #[cfg(test)]
 #[path = "../../tests/unit/agent_settings_tests.rs"]

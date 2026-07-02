@@ -245,3 +245,57 @@ fn test_agent_voice_context_includes_enabled_agents_only() {
         "禁用 agent 不应进入 voice_context，否则语音规划会看到已禁用定义"
     );
 }
+
+/// AS-4: settings::agents facade 应直接暴露 Task 2 承诺的草稿、字段和语音上下文类型，避免 Task 3 模块无法命名它们。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   AgentDefinitionDraft = 1 个实例，用于证明类型可从 facade 命名并构造
+///   AgentDefinitionField = 1 个枚举值，用于证明字段枚举可从 facade 命名
+///   AgentVoiceContext    = 1 个实例，用于证明语音上下文类型可从 facade 命名并构造
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 从 super::agents facade 直接导入三个 promised 类型
+///   2. 构造一个 draft、一个字段枚举值、一个 voice context
+///   3. 断言这些值可被正常比较与读取，证明类型 re-export 生效
+///
+/// 预期结果：
+///   - 正断言：draft、field、voice context 都能从 facade 命名并实例化
+///   - 正断言：field 取值与 voice context 字段保持预期内容
+///   - 负断言：类型不应再只能通过 private state 模块路径访问
+#[test]
+fn test_agent_settings_facade_reexports_task2_types() {
+    use super::{AgentDefinitionDraft, AgentDefinitionField, AgentVoiceContext};
+    use canvas::AgentProfile;
+
+    let draft = AgentDefinitionDraft::new();
+    let field = AgentDefinitionField::Name;
+    let voice_context = AgentVoiceContext {
+        id: 42,
+        name: "Facade Agent".to_string(),
+        runtime_profile: AgentProfile::Codex,
+        workflow_description: "Facade workflow".to_string(),
+    };
+
+    assert_eq!(
+        draft.name,
+        String::new(),
+        "draft should be constructible from the settings::agents facade"
+    );
+    assert_eq!(
+        field,
+        AgentDefinitionField::Name,
+        "field enum should be accessible from the settings::agents facade"
+    );
+    assert_eq!(
+        voice_context.id, 42,
+        "voice context should be constructible from the settings::agents facade"
+    );
+    assert_eq!(
+        voice_context.name, "Facade Agent",
+        "voice context fields should remain readable after facade re-export"
+    );
+    assert_eq!(
+        voice_context.workflow_description, "Facade workflow",
+        "voice context workflow text should remain readable after facade re-export"
+    );
+}

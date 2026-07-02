@@ -62,3 +62,24 @@ Required checks:
 ## Outcome
 
 Task 2 now leaves agent definition state project-local after workspace open, with test coverage for validation, project-local loading, voice-context filtering, and workspace-open binding.
+
+## Review Fix: Facade Re-exports
+
+The Task 2 review found that `settings::agents` did not re-export the promised
+facade types. I fixed the facade to export `AgentDefinitionDraft`,
+`AgentDefinitionField`, and `AgentVoiceContext` alongside
+`AgentDefinitionsState`, then added a focused test proving the types can be
+named from the facade.
+
+Verification:
+
+- `cargo test -p app test_agent_settings_facade_reexports_task2_types`
+  - Result: `1 passed; 0 failed`
+- `cargo check -p app`
+  - Result: success
+  - Remaining warnings are Task 3-facing dead-code/unused-import warnings from
+    the newly exposed APIs before the UI consumes them.
+- `bash scripts/check-max-file-lines.sh`
+  - Result: success
+- `bash scripts/check-no-allow.sh`
+  - Result: success
