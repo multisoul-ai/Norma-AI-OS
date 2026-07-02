@@ -2,6 +2,7 @@
 //! and build PtyCommands that restore them at next open.
 
 use std::collections::HashMap;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use canvas::node::{AgentProfile, CanvasNodeKind};
@@ -199,9 +200,11 @@ fn visit_codex_session_files(dir: &Path, visit: &mut dyn FnMut(&Path, std::time:
 }
 
 fn codex_session_id_for_workspace(path: &Path, workspace_root: &Path) -> Option<String> {
-    let contents = std::fs::read_to_string(path).ok()?;
-    for line in contents.lines().take(8) {
-        let value: Value = serde_json::from_str(line).ok()?;
+    let file = std::fs::File::open(path).ok()?;
+    let reader = BufReader::new(file);
+    for line in reader.lines().take(8) {
+        let line = line.ok()?;
+        let value: Value = serde_json::from_str(&line).ok()?;
         if value.get("type").and_then(Value::as_str) != Some("session_meta") {
             continue;
         }

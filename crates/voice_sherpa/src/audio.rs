@@ -16,17 +16,19 @@ impl AudioCapture {
     pub(crate) fn start(
         sender: Sender<PcmEvent>,
         stats: Arc<AudioQueueStats>,
+        input_device_id: Option<&str>,
     ) -> Result<Self, SpeechError> {
         #[cfg(target_os = "macos")]
         {
             Ok(Self {
-                inner: macos::MacosAudioCapture::start(sender, stats)?,
+                inner: macos::MacosAudioCapture::start(sender, stats, input_device_id)?,
             })
         }
         #[cfg(not(target_os = "macos"))]
         {
             let _ = sender;
             let _ = stats;
+            let _ = input_device_id;
             Err(SpeechError::Audio(
                 "audio not supported on this platform".to_string(),
             ))
@@ -62,6 +64,7 @@ mod macos {
         pub(super) fn start(
             sender: Sender<PcmEvent>,
             stats: Arc<AudioQueueStats>,
+            _input_device_id: Option<&str>,
         ) -> Result<Self, SpeechError> {
             let engine = unsafe { AVAudioEngine::new() };
             let input_node = unsafe { engine.inputNode() };
@@ -159,7 +162,7 @@ mod macos {
 fn audio_capture_for_test(
     sender: crossbeam_channel::Sender<PcmEvent>,
 ) -> Result<AudioCapture, SpeechError> {
-    AudioCapture::start(sender, Arc::new(AudioQueueStats::default()))
+    AudioCapture::start(sender, Arc::new(AudioQueueStats::default()), None)
 }
 
 #[cfg(test)]

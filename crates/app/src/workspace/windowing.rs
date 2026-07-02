@@ -5,6 +5,7 @@ use gpui::{
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 #[derive(Default)]
 pub(crate) struct WorkspaceWindowRegistry {
@@ -133,8 +134,15 @@ impl MultisoulApp {
             }
         }
 
+        let open_start = Instant::now();
         match open_multisoul_window(InitialWindowState::Workspace(root.clone()), cx) {
             Ok(handle) => {
+                tracing::info!(
+                    stage = "workspace_open_project_window",
+                    path = %root.display(),
+                    elapsed_ms = open_start.elapsed().as_secs_f64() * 1000.0,
+                    "workspace_open_timing"
+                );
                 let opened = handle
                     .read(cx)
                     .map(|app| app.workspace_state.current_root.as_deref() == Some(root.as_path()))

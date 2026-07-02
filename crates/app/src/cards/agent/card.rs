@@ -2,7 +2,7 @@
 
 use crate::cards::chrome::{CardChrome, CardChromeTaskBadge, CardChromeTaskTone};
 use crate::cards::term::card::term_resize;
-use crate::cards::term::view::render_terminal_node;
+use crate::cards::term::view::{render_terminal_node, TerminalNodeRenderOptions};
 use crate::cards::{Card, CardBodyContext};
 use crate::motion::breathing::BreathingIntent;
 use canvas::{CanvasNode, CanvasNodeKind, CanvasRect, NodeType};
@@ -47,13 +47,15 @@ impl Card for AgentCard {
             .map(|selection| selection.range());
         render_terminal_node(
             context.runtime.node_view(node.id),
-            context.theme,
-            context.zoom,
-            context.bottom_radius_px,
-            selection,
-            context.focused,
-            context.reduce_motion,
-            context.terminal_cursor_phase,
+            TerminalNodeRenderOptions {
+                theme: context.theme,
+                zoom: context.zoom,
+                bottom_radius_px: context.bottom_radius_px,
+                selection,
+                focused: context.focused,
+                reduce_motion: context.reduce_motion,
+                cursor_phase: context.terminal_cursor_phase,
+            },
         )
     }
 

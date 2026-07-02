@@ -222,6 +222,63 @@ pub fn restore_live_sessions_with_node_sessions(
     restored
 }
 
+pub fn restore_live_session_for_node_with_node_sessions(
+    node_id: NodeId,
+    checkpoints: &[SessionCheckpoint],
+    node_sessions: &[NodeSession],
+    document: &Document,
+    ctx: &mut RestoreCtx<'_>,
+) -> bool {
+    if ctx.live.contains_key(&node_id) {
+        return false;
+    }
+    let Some(node) = document.node(node_id) else {
+        return false;
+    };
+    let checkpoint = checkpoints.iter().find(|cp| cp.node_id == node_id);
+    let node_session = node_sessions
+        .iter()
+        .find(|session| session.node_id == node_id);
+
+    match node.kind.clone() {
+        CanvasNodeKind::Term(_) => {
+            let terminal_checkpoint =
+                checkpoint.filter(|cp| cp.kind == SessionCheckpointKind::Terminal);
+            let (cols, rows) = checkpoint_grid_size(terminal_checkpoint);
+            let shell = terminal_checkpoint
+                .and_then(|cp| cp.shell.as_deref())
+                .unwrap_or(DEFAULT_TERMINAL_SHELL);
+            let command = match node_session.and_then(|s| s.cwd.as_deref()) {
+                Some(cwd) => session_snapshot::build_terminal_restore_command(shell, cwd),
+                None => terminal_shell_command(shell).with_cwd(ctx.workspace_root),
+            };
+            attach_terminal_live_with_command(node_id, shell, command, cols, rows, ctx)
+        }
+        CanvasNodeKind::Agent(spec) => {
+            let agent_checkpoint = checkpoint.filter(|cp| cp.kind == SessionCheckpointKind::Agent);
+            let (cols, rows) = checkpoint_grid_size(agent_checkpoint);
+            let profile = agent_checkpoint
+                .and_then(|cp| cp.agent_profile)
+                .unwrap_or(spec.profile);
+            let hook_env = ctx.make_hook_env(node_id, profile);
+            let use_resume =
+                resolve_agent_restore_session_id(node_session, profile, ctx.workspace_root);
+            let command = match use_resume.as_deref() {
+                Some(session_id) => session_snapshot::build_agent_resume_command(
+                    profile,
+                    DEFAULT_TERMINAL_SHELL,
+                    session_id,
+                    hook_env.as_ref(),
+                    ctx.workspace_root,
+                ),
+                None => agent_command(profile, hook_env.as_ref()).with_cwd(ctx.workspace_root),
+            };
+            attach_agent_live_with_command(node_id, command, cols, rows, ctx)
+        }
+        CanvasNodeKind::Rect(_) | CanvasNodeKind::Preview(_) => false,
+    }
+}
+
 /// Capture cwd + session_id for all live nodes and persist to the store.
 /// Must be called before kill_all() so PTY processes are still alive.
 pub fn save_node_sessions(

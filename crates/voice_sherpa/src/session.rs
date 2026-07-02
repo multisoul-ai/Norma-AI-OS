@@ -1,4 +1,5 @@
 use crate::audio::AudioCapture;
+pub(crate) use crate::finalizer::SpeechFinalizer;
 use crate::permissions::ensure_microphone_authorized;
 use crate::session_state::{SessionEvent, SessionState};
 use crate::SpeechError;
@@ -43,11 +44,11 @@ impl AudioQueueStats {
         self.dropped_chunks.fetch_add(1, Ordering::Relaxed);
     }
 
-    fn sent_chunks(&self) -> usize {
+    pub(crate) fn sent_chunks(&self) -> usize {
         self.sent_chunks.load(Ordering::Relaxed)
     }
 
-    fn dropped_chunks(&self) -> usize {
+    pub(crate) fn dropped_chunks(&self) -> usize {
         self.dropped_chunks.load(Ordering::Relaxed)
     }
 }
@@ -68,7 +69,11 @@ pub(crate) trait FinalizeRecognizer {
 }
 
 impl InnerSession {
-    pub(crate) fn finish(mut self) -> Result<String, SpeechError> {
+    pub(crate) fn finish(self) -> Result<String, SpeechError> {
+        self.begin_finish()?.finish()
+    }
+
+    pub(crate) fn begin_finish(mut self) -> Result<SpeechFinalizer, SpeechError> {
         {
             let mut state = self
                 .state
@@ -80,22 +85,12 @@ impl InnerSession {
         if let Some(capture) = self.audio.take() {
             capture.stop();
         }
-        std::thread::sleep(Duration::from_millis(TAP_DRAIN_WAIT_MS));
-        self.finish_pcm_input();
-        // Wait for recognizer thread to return the final transcript.
-        match self.thread_handle.take() {
-            Some(handle) => handle
-                .join()
-                .map_err(|_| SpeechError::Recognizer("recognizer thread panicked".to_string()))
-                .and_then(|s| {
-                    if s.is_empty() {
-                        Err(SpeechError::EmptyTranscript)
-                    } else {
-                        Ok(s)
-                    }
-                }),
-            None => Err(SpeechError::EmptyTranscript),
-        }
+        Ok(SpeechFinalizer::new(
+            self.thread_handle.take(),
+            self.pcm_tx.take(),
+            self.abort_tx.clone(),
+            Arc::clone(&self.stats),
+        ))
     }
 
     pub(crate) fn cancel(mut self) {
@@ -109,30 +104,14 @@ impl InnerSession {
             let _ = handle.join();
         }
     }
-
-    fn finish_pcm_input(&mut self) {
-        let Some(tx) = self.pcm_tx.take() else {
-            return;
-        };
-        match tx.try_send(PcmEvent::EndOfAudio) {
-            Ok(()) => {}
-            Err(crossbeam_channel::TrySendError::Full(_)) => {
-                tracing::warn!(
-                    target: "voice_sherpa::session",
-                    sent_chunks = self.stats.sent_chunks(),
-                    dropped_chunks = self.stats.dropped_chunks(),
-                    "voice PCM queue full while sending EndOfAudio; using channel disconnect as graceful end"
-                );
-            }
-            Err(crossbeam_channel::TrySendError::Disconnected(_)) => {}
-        }
-    }
 }
 
 impl Drop for InnerSession {
     fn drop(&mut self) {
         // Drop is cleanup/abort, not graceful finalization.
-        let _ = self.abort_tx.try_send(());
+        if self.thread_handle.is_some() {
+            let _ = self.abort_tx.try_send(());
+        }
         self.pcm_tx.take();
         // Join the thread to prevent it from spinning after the session is dropped.
         if let Some(handle) = self.thread_handle.take() {
@@ -143,6 +122,7 @@ impl Drop for InnerSession {
 
 pub(crate) fn start(
     model_dir: PathBuf,
+    input_device_id: Option<String>,
 ) -> Result<(crate::SpeechSession, async_channel::Receiver<String>), SpeechError> {
     ensure_microphone_authorized()?;
 
@@ -168,7 +148,11 @@ pub(crate) fn start(
         .spawn(move || recognizer_loop(config, pcm_rx, abort_rx, partial_tx, recognizer_stats))
         .map_err(|e| SpeechError::Recognizer(format!("could not spawn recognizer thread: {e}")))?;
 
-    let audio = AudioCapture::start(pcm_tx.clone(), Arc::clone(&stats))?;
+    let audio = AudioCapture::start(
+        pcm_tx.clone(),
+        Arc::clone(&stats),
+        input_device_id.as_deref(),
+    )?;
 
     Ok((
         crate::SpeechSession {

@@ -448,52 +448,53 @@ fn test_wallpaper_img_has_source_derived_id() {
     );
 }
 
-/// Task 10 anchor：视频壁纸渲染胶水存在。
+/// 视频壁纸 live 路径必须使用 420f CVPixelBuffer + surface。
 ///
-/// 数据构造（含关键数值的推导过程）：
-///   chrome_src      = include_str!("../../src/app/chrome.rs")（chrome 渲染源码）
-///   render_src      = chrome_src 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
-///   video_src       = include_str!("../../src/app/video_wallpaper.rs")（Task 10 新增模块）
-///   anchor_chrome   = "WallpaperKind::Video"（chrome wallpaper layer 必须含 Video 分支）
-///   anchor_surface  = "surface("（video_wallpaper.rs 必须通过 gpui::surface() 渲染当前帧）
-///   anchor_timer_a  = "background_executor()"（帧推进必须由后台 executor 驱动，无自驱动动画）
-///   anchor_timer_b  = ".timer("（与 background_executor() 配对，确认是定时器轮询而非单次）
+/// 数据构造：
+///   render_src = chrome.rs 生产渲染区；video_src = video_wallpaper.rs live 壁纸生产源码
+///   正锚点：WallpaperKind::Video、render_video_wallpaper_surface、surface(、background_executor、spawn
+///   反锚点：render_video_wallpaper_image、RenderImage、render_image_from_rgba、next_frame_rgba
 ///
-///   注：brief 原写 contiguous anchor "background_executor().timer"，但 rustfmt 会把该
-///   长链跨行拆分（与 mod.rs 12ms 帧循环同款格式），无法保留为单行连续子串。此处拆成
-///   两个 rustfmt-stable 子串，断言语义不变（同一循环体内同时出现 executor + .timer(）。
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 chrome.rs 生产渲染区，确认壁纸层含 WallpaperKind::Video 分支
-///   2. 读取 video_wallpaper.rs 源码，确认含 surface( 调用与 background_executor() / .timer( 循环
+/// 执行过程：
+///   1. 读取 chrome.rs，确认 Video 分支存在且调用 surface 渲染入口
+///   2. 读取 video_wallpaper.rs，确认 live 帧后台解码并通过 surface(CVPixelBuffer) 渲染
 ///
 /// 预期结果：
-///   - 正断言：render_src 含 "WallpaperKind::Video"（chrome 已接入视频分支）
-///   - 正断言：video_src 含 "surface("（视频帧经 GPUI surface 渲染）
-///   - 正断言：video_src 含 "background_executor()" 且含 ".timer("（外部 timer 驱动帧推进）
+///   - 正断言：Video 分支调用 render_video_wallpaper_surface，后台解码，且使用 surface(
+///   - 负断言：live 视频壁纸不应通过 RenderImage / RGBA / img(frame) 路径每帧上屏
 #[test]
-fn test_video_wallpaper_branch_uses_surface() {
+fn test_video_wallpaper_branch_uses_surface_not_render_images() {
     let chrome_src = include_str!("../../src/app/chrome.rs");
-    let render_src = chrome_src
-        .split("#[cfg(test)]")
-        .next()
-        .unwrap_or(chrome_src);
+    let render_src = &chrome_src[..chrome_src.find("#[cfg(test)]").unwrap_or(chrome_src.len())];
     let video_src = include_str!("../../src/app/video_wallpaper.rs");
 
     assert!(
-        render_src.contains("WallpaperKind::Video"),
-        "chrome wallpaper layer 必须含 WallpaperKind::Video 视频分支"
+        render_src.contains("WallpaperKind::Video")
+            && render_src.contains("render_video_wallpaper_surface"),
+        "Video 分支必须调用 render_video_wallpaper_surface，避免回到每帧 RenderImage/img 路径"
     );
     assert!(
         video_src.contains("surface("),
-        "video_wallpaper.rs 必须通过 gpui::surface() 渲染当前视频帧"
+        "video_wallpaper.rs live 视频帧必须通过 gpui::surface(CVPixelBuffer) 渲染"
     );
     assert!(
-        video_src.contains("background_executor()"),
-        "video_wallpaper.rs 帧推进必须经由 background_executor()（surface 无自驱动动画）"
+        video_src.contains("background_executor()") && video_src.contains(".spawn(async move"),
+        "video_wallpaper.rs 必须把 AVFoundation open/decode 放到 background_executor worker"
     );
     assert!(
-        video_src.contains(".timer("),
-        "video_wallpaper.rs 必须以 .timer( 定时器轮询驱动帧推进"
+        !video_src.contains("render_video_wallpaper_image"),
+        "live 视频壁纸不应再暴露 render_video_wallpaper_image，否则可能继续走 img(RenderImage)"
+    );
+    assert!(
+        !video_src.contains("RenderImage"),
+        "live 视频壁纸不应持有 RenderImage；缩略图可用 RenderImage，但 live 每帧不可用"
+    );
+    assert!(
+        !video_src.contains("render_image_from_rgba"),
+        "live 视频壁纸不应每帧 RGBA→BGRA 转换后构造 RenderImage"
+    );
+    assert!(
+        !video_src.contains("next_frame_rgba"),
+        "live 视频壁纸不应调用 next_frame_rgba；该接口只适合首帧缩略图/离线图片路径"
     );
 }

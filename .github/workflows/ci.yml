@@ -35,6 +35,9 @@ jobs:
       - name: Agent guide lint tests
         run: bash scripts/test-check-agent-guide-lines.sh
 
+      - name: Video wallpaper performance guardrail
+        run: python3 scripts/check-video-wallpaper-performance.py
+
       - name: Check
         run: cargo check --workspace
 

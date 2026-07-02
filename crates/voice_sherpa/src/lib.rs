@@ -2,16 +2,26 @@ pub mod permissions;
 pub mod session_state;
 
 mod audio;
+mod devices;
+mod finalizer;
 mod model;
 mod resample;
 mod session;
+
+#[cfg(test)]
+#[path = "../tests/unit/device_tests.rs"]
+mod device_tests;
 
 #[cfg(test)]
 pub fn resolve_model_dir_for_test() -> Result<std::path::PathBuf, SpeechError> {
     model::resolve_model_dir()
 }
 
-use session::InnerSession;
+use session::{InnerSession, SpeechFinalizer as InnerSpeechFinalizer};
+
+pub use devices::{
+    list_audio_input_devices, resolve_audio_input_device_selection, AudioInputDevice,
+};
 
 /// Check and (if not yet determined) request microphone permission.
 ///
@@ -54,6 +64,10 @@ pub struct SpeechSession {
     inner: InnerSession,
 }
 
+pub struct SpeechFinalizer {
+    inner: InnerSpeechFinalizer,
+}
+
 impl SherpaProvider {
     pub fn new(model_dir: &std::path::Path) -> Result<Self, SpeechError> {
         if !model_dir.exists() {
@@ -72,7 +86,17 @@ impl SherpaProvider {
     pub fn start_recording(
         &self,
     ) -> Result<(SpeechSession, async_channel::Receiver<String>), SpeechError> {
-        session::start(self.model_dir.clone())
+        self.start_recording_with_input_device(None)
+    }
+
+    pub fn start_recording_with_input_device(
+        &self,
+        input_device_id: Option<&str>,
+    ) -> Result<(SpeechSession, async_channel::Receiver<String>), SpeechError> {
+        session::start(
+            self.model_dir.clone(),
+            input_device_id.map(ToOwned::to_owned),
+        )
     }
 }
 
@@ -81,7 +105,19 @@ impl SpeechSession {
         self.inner.finish()
     }
 
+    pub fn begin_finish(self) -> Result<SpeechFinalizer, SpeechError> {
+        self.inner
+            .begin_finish()
+            .map(|inner| SpeechFinalizer { inner })
+    }
+
     pub fn cancel(self) {
         self.inner.cancel();
+    }
+}
+
+impl SpeechFinalizer {
+    pub fn finish(self) -> Result<String, SpeechError> {
+        self.inner.finish()
     }
 }

@@ -1,4 +1,7 @@
-use super::{voice_transcript_source_from_value, VoiceTranscriptSource, DEFAULT_MAX_VOICE_STEPS};
+use super::{
+    voice_recording_input_device_id_from_value, voice_transcript_source_from_value,
+    VoicePlanningJob, VoicePlanningResult, VoiceTranscriptSource, DEFAULT_MAX_VOICE_STEPS,
+};
 
 /// AV-0: 默认 voice planner 步数应覆盖“四张卡片 + 一次输入”的复合语音。
 ///
@@ -87,5 +90,79 @@ fn test_voice_source_uses_env_transcript_as_hidden_fallback() {
         source,
         VoiceTranscriptSource::AppleSpeech,
         "设置 env fallback 时不应打开 Apple Speech 麦克风 provider"
+    );
+}
+
+fn assert_send<T: Send>() {}
+
+/// AV-3: 语音 planning job 的输入与输出必须可跨线程移动。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   finalizer 在 background executor 完成后，会把 raw transcript 交给 planning job
+///   planning job 内含 VoicePlanningRequest + VoiceSettingsValues + transcript 字符串
+///   background executor 要求 job capture 和 result 都满足 Send
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 编译期调用 assert_send::<VoicePlanningJob>()
+///   2. 编译期调用 assert_send::<VoicePlanningResult>()
+///   3. 若 job/result 捕获 Window、Context、MultisoulApp 或非 Send 状态，测试无法编译
+///
+/// 预期结果：
+///   - 正断言：VoicePlanningJob 可 Send，可进入 background executor
+///   - 正断言：VoicePlanningResult 可 Send，可从后台返回 UI task
+///   - 负断言：planning job 不应携带 GPUI Window/Context 或整个 app 状态
+#[test]
+fn test_voice_planning_job_and_result_are_send() {
+    assert_send::<VoicePlanningJob>();
+    assert_send::<VoicePlanningResult>();
+}
+
+/// AV-3: 录音启动参数应保留 Settings 中选定的输入设备 ID。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   settings input_device_id = Some("headset")
+///   expected recording arg = Some("headset")
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 将 Some("headset") 传入 voice_recording_input_device_id_from_value
+///   2. helper trim 后发现 ID 非空，应保留该 ID 给 SherpaProvider
+///
+/// 预期结果：
+///   - 正断言：返回 Some("headset")
+///   - 负断言：不应返回 None，避免录音启动丢失用户选择
+#[test]
+fn test_voice_recording_input_device_id_preserves_selected_device() {
+    let selected = voice_recording_input_device_id_from_value(Some("headset"));
+
+    assert_eq!(
+        selected.as_deref(),
+        Some("headset"),
+        "录音启动参数应保留 Settings 中选择的 input device id"
+    );
+    assert_ne!(selected, None, "录音启动参数不应丢失已选择的输入设备");
+}
+
+/// AV-4: System Default 不应伪造成具体输入设备 ID。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   settings input_device_id = None
+///   expected recording arg = None
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 将 None 传入 voice_recording_input_device_id_from_value
+///   2. helper 保留 None，交给 voice_sherpa 在录音开始时解析系统默认设备
+///
+/// 预期结果：
+///   - 正断言：返回 None
+///   - 负断言：不应返回 "headset" 之类的具体设备，避免伪造选择
+#[test]
+fn test_voice_recording_input_device_id_preserves_system_default() {
+    let selected = voice_recording_input_device_id_from_value(None);
+
+    assert!(selected.is_none(), "System Default 应以 None 传给录音层");
+    assert_ne!(
+        selected.as_deref(),
+        Some("headset"),
+        "System Default 不应伪造成具体输入设备 ID"
     );
 }

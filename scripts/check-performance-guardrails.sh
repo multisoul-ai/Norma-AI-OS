@@ -53,6 +53,18 @@ forbid_pattern_in_file \
   'rusqlite|Connection::open|ProjectStore|NodeSessionStore|SessionStore|CanvasStore|save_node_sessions|save_session_checkpoints|flush_persistence_now|find_(agent|codex)_session_id' \
   "canvas render code must not call persistence or session discovery APIs."
 
+codex_body=$(
+  awk '
+    /^fn codex_session_id_for_workspace\(/ { inside=1 }
+    inside { print }
+    inside && /^}$/ { exit }
+  ' crates/runtime/src/session_snapshot.rs
+)
+
+if printf '%s\n' "$codex_body" | grep -q 'read_to_string'; then
+  record_failure "codex_session_id_for_workspace must use bounded line reads, not read_to_string on full JSONL files."
+fi
+
 persistence_file=crates/app/src/workspace/persistence.rs
 guard_line=$(line_number "if !had_pending_work" "$persistence_file")
 node_sessions_line=$(line_number "save_node_sessions" "$persistence_file")

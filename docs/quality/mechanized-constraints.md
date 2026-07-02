@@ -123,6 +123,28 @@ fn collect_node_sessions(agent_session_ids: &HashMap<NodeId, String>) -> Vec<Nod
 }
 ```
 
+## R5 · Live Video Wallpaper Stays Low-Copy
+
+| | |
+|---|---|
+| Script | [`scripts/check-video-wallpaper-performance.py`](../../scripts/check-video-wallpaper-performance.py) |
+| Scope | `video_wallpaper.rs`, `video_decoder.rs`, and `chrome.rs` |
+| Rule | Live video wallpaper must decode IOSurface-backed 420f CVPixelBuffers and render through `gpui::surface()` from a dedicated decoder thread. |
+| Failure signal | `ERROR: video wallpaper performance guardrail violations found.` |
+| Fix | Keep CPU RGBA / `RenderImage` paths limited to thumbnails, request Metal + IOSurface output settings, disable sample copies, and do not run the AVAssetReader loop in GPUI's shared background executor. |
+
+Run it manually:
+
+```bash
+python3 scripts/check-video-wallpaper-performance.py
+```
+
+For staged-compatible feedback:
+
+```bash
+python3 scripts/check-video-wallpaper-performance.py --staged
+```
+
 ## Local Pre-Commit Hook
 
 Install the tracked native Git hook:
@@ -131,7 +153,7 @@ Install the tracked native Git hook:
 bash scripts/install-git-hooks.sh
 ```
 
-The hook runs staged file-size, `#[allow(...)]`, agent-guide line, and performance guardrail checks first. When staged Rust, Cargo, or toolchain files changed, it also runs:
+The hook runs staged file-size, `#[allow(...)]`, agent-guide line, performance guardrail, and video wallpaper low-copy checks first. When staged Rust, Cargo, or toolchain files changed, it also runs:
 
 ```bash
 cargo check --workspace --quiet
