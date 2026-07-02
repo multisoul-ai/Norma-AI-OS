@@ -1,14 +1,16 @@
-//! Video decoder glue: AVAssetReader → RGBA frame loop.
+//! Video decoder glue: AVAssetReader → 420f surface frames + BGRA thumbnails.
 //!
 //! GATED to macOS: AVFoundation / CoreMedia / CoreVideo are only available there.
 //!
 //! Approach (high-level objc2 crate, NOT raw `msg_send!`):
 //!   - `AVURLAsset` opens the file.
 //!   - `AVAssetReader` + `AVAssetReaderTrackOutput` decode the first video
-//!     track straight to `{ PixelFormatType → 32BGRA }`.
+//!     track straight to `{ PixelFormatType → 420f }` for live playback.
 //!   - `copyNextSampleBuffer` → raw `CMSampleBufferGetImageBuffer` (extern C,
 //!     linked via objc2-core-media's `#[link(name="CoreMedia")]`) → retained
-//!     `CVPixelBuffer` → copied into `image::RgbaImage`.
+//!     `CVPixelBuffer` for GPUI `surface()` live rendering.
+//!   - Thumbnail decoding separately asks AVFoundation for `32BGRA`, then copies
+//!     that single frame into `image::RgbaImage`.
 //!   - On EOF the reader's `status` becomes `Completed`; we rebuild a fresh
 //!     reader + output against the same asset/track to loop.
 //!
@@ -17,9 +19,13 @@
 
 use anyhow::{anyhow, bail, ensure, Result};
 use core_foundation::base::TCFType;
+use core_foundation::string::{CFString, CFStringRef};
 use core_video::pixel_buffer::{
-    kCVPixelBufferLock_ReadOnly, kCVPixelFormatType_32BGRA, CVPixelBuffer, CVPixelBufferRef,
+    kCVPixelBufferIOSurfacePropertiesKey, kCVPixelBufferLock_ReadOnly,
+    kCVPixelBufferMetalCompatibilityKey, kCVPixelFormatType_32BGRA,
+    kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, CVPixelBuffer, CVPixelBufferRef,
 };
+use core_video::pixel_buffer_io_surface::CVPixelBufferGetIOSurface;
 use core_video::r#return::kCVReturnSuccess;
 use image::RgbaImage;
 use objc2::rc::Retained;
@@ -45,40 +51,77 @@ extern "C-unwind" {
     fn CMSampleBufferGetImageBuffer(sbuf: *mut c_void) -> *mut c_void;
 }
 
-/// Loops an mp4/mov via AVAssetReader, emitting RGBA images. Uses the first
-/// video track and rebuilds the reader at EOF to loop indefinitely.
+/// A decoded live video frame. `buffer` is guaranteed to be 420f, the pixel
+/// format GPUI 0.2.2's surface renderer accepts.
+pub(crate) struct DecodedVideoFrame {
+    buffer: CVPixelBuffer,
+}
+
+impl DecodedVideoFrame {
+    pub(crate) fn from_buffer(buffer: CVPixelBuffer) -> Result<Self> {
+        let actual = buffer.get_pixel_format();
+        ensure!(
+            actual == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+            "decoded live video frame pixel format must be 420f for gpui::surface, got {}",
+            actual
+        );
+        ensure!(
+            buffer.get_plane_count() == 2,
+            "decoded live video frame must be bi-planar 420f for gpui::surface, got {} planes",
+            buffer.get_plane_count()
+        );
+        ensure!(
+            Self::buffer_has_io_surface(&buffer),
+            "decoded live video frame must be IOSurface-backed for low-copy gpui::surface rendering"
+        );
+        Ok(Self { buffer })
+    }
+
+    pub(crate) fn buffer(&self) -> &CVPixelBuffer {
+        &self.buffer
+    }
+
+    pub(crate) fn buffer_has_io_surface(buffer: &CVPixelBuffer) -> bool {
+        // `CVPixelBufferGetIOSurface` returns a borrowed IOSurfaceRef. Do not
+        // wrap it in `IOSurface`; core-video 0.4.3's convenience wrapper treats
+        // the pointer as owned and can release CoreVideo-owned storage.
+        unsafe { !CVPixelBufferGetIOSurface(buffer.as_concrete_TypeRef()).is_null() }
+    }
+}
+
+// SAFETY: `DecodedVideoFrame` can only be constructed after validating the
+// retained CoreVideo pixel buffer is 420f, which is the read-only IOSurface path
+// consumed by GPUI 0.2.2 `surface()`. The wallpaper pipeline transfers ownership
+// between the decoder worker and GPUI thread, never locks the base address and
+// never mutates the buffer after construction.
+unsafe impl Send for DecodedVideoFrame {}
+
+/// Loops an mp4/mov via AVAssetReader, emitting 420f CVPixelBuffers ready for
+/// `gpui::surface()`. Uses the first video track and rebuilds the reader at EOF.
 pub(crate) struct VideoDecoder {
     asset: Retained<AVURLAsset>,
     reader: Retained<AVAssetReader>,
     output: Retained<AVAssetReaderTrackOutput>,
-    pixel_format: u32,
 }
 
 impl VideoDecoder {
-    /// Open `path` for CPU-readable BGRA frames suitable for `RenderImage`.
-    pub(crate) fn open_bgra(path: &Path) -> Result<Self> {
-        Self::open_with_pixel_format(path, kCVPixelFormatType_32BGRA)
-    }
-
-    fn open_with_pixel_format(path: &Path, pixel_format: u32) -> Result<Self> {
+    /// Open `path` for 420f CVPixelBuffer frames suitable for `gpui::surface()`.
+    pub(crate) fn open(path: &Path) -> Result<Self> {
         // SAFETY: open_url_asset only constructs an AVURLAsset; no aliasing.
         let asset = unsafe { open_url_asset(path) }?;
         let track = first_video_track(&asset)?;
         let reader = new_reader(&asset)?;
-        let output = new_track_output(&track, pixel_format)?;
+        let output = new_track_output(&track, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)?;
         attach_and_start(&reader, &output)?;
         Ok(Self {
             asset,
             reader,
             output,
-            pixel_format,
         })
     }
 
-    /// Next frame copied into an RGBA image. Intended for background wallpaper
-    /// decoding where the foreground thread renders `RenderImage` instead of
-    /// holding a CoreVideo buffer.
-    pub(crate) fn next_frame_rgba(&mut self) -> Result<RgbaImage> {
+    /// Next 420f frame; loops at EOF. Callers own cadence.
+    pub(crate) fn next_frame(&mut self) -> Result<DecodedVideoFrame> {
         loop {
             let next = unsafe { self.output.copyNextSampleBuffer() };
             match next {
@@ -91,7 +134,7 @@ impl VideoDecoder {
                     let buffer = unsafe {
                         <CVPixelBuffer as TCFType>::wrap_under_get_rule(img_ptr as CVPixelBufferRef)
                     };
-                    return bgra_pixel_buffer_to_rgba(&buffer);
+                    return DecodedVideoFrame::from_buffer(buffer);
                 }
                 None => {
                     let status = unsafe { self.reader.status() };
@@ -143,7 +186,7 @@ impl VideoDecoder {
         unsafe { self.reader.cancelReading() };
         let track = unsafe { self.output.track() };
         let reader = new_reader(&self.asset)?;
-        let output = new_track_output(&track, self.pixel_format)?;
+        let output = new_track_output(&track, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)?;
         attach_and_start(&reader, &output)?;
         self.reader = reader;
         self.output = output;
@@ -208,10 +251,7 @@ fn new_track_output(
     track: &AVAssetTrack,
     pixel_format: u32,
 ) -> Result<Retained<AVAssetReaderTrackOutput>> {
-    let key = NSString::from_str(PIXEL_FORMAT_KEY);
-    let value_any: Retained<AnyObject> = NSNumber::new_u32(pixel_format).into();
-    let settings =
-        NSDictionary::<NSString, AnyObject>::from_retained_objects(&[&*key], &[value_any]);
+    let settings = new_video_output_settings(pixel_format);
     // SAFETY: output_settings is a properly-typed NSDictionary<NSString, AnyObject>;
     // `track` is a video track owned by the asset that the reader will bind to.
     let output = unsafe {
@@ -220,7 +260,39 @@ fn new_track_output(
             Some(&settings),
         )
     };
+    // SAFETY: output is freshly created and not attached to a reader yet.
+    unsafe { output.setAlwaysCopiesSampleData(false) };
     Ok(output)
+}
+
+fn new_video_output_settings(pixel_format: u32) -> Retained<NSDictionary<NSString, AnyObject>> {
+    let pixel_format_key = NSString::from_str(PIXEL_FORMAT_KEY);
+    // SAFETY: CoreVideo exposes these process-lifetime CFString constants after
+    // the framework is loaded. We convert their string values into NSString keys
+    // for objc2 Foundation's typed NSDictionary.
+    let metal_key = unsafe { ns_string_from_cf_key(kCVPixelBufferMetalCompatibilityKey) };
+    let iosurface_key = unsafe { ns_string_from_cf_key(kCVPixelBufferIOSurfacePropertiesKey) };
+
+    let pixel_format_value: Retained<AnyObject> = NSNumber::new_u32(pixel_format).into();
+    let metal_value: Retained<AnyObject> = NSNumber::new_bool(true).into();
+    let iosurface_properties =
+        NSDictionary::<NSString, AnyObject>::from_retained_objects::<NSString>(&[], &[]);
+    let iosurface_value: Retained<AnyObject> = iosurface_properties.into();
+
+    NSDictionary::<NSString, AnyObject>::from_retained_objects(
+        &[&*pixel_format_key, &*metal_key, &*iosurface_key],
+        &[pixel_format_value, metal_value, iosurface_value],
+    )
+}
+
+/// Convert a CoreVideo CFString key into an NSString with the same value.
+///
+/// # SAFETY
+/// `key` must be a valid CoreFoundation string constant that lives for the
+/// duration of the process.
+unsafe fn ns_string_from_cf_key(key: CFStringRef) -> Retained<NSString> {
+    let cf_key = unsafe { <CFString as TCFType>::wrap_under_get_rule(key) };
+    NSString::from_str(&cf_key.to_string())
 }
 
 /// Add `output` to `reader` and start reading; Err on rejection / start failure.

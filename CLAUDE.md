@@ -35,6 +35,7 @@ ui -> gpui
 - **Input decisions stay pure where possible**: encode routing decisions in `runtime::route` before app-layer side effects.
 - **PTY cleanup is required**: `Runtime::kill_all`, `TerminalSession::kill`, and `PtyHandle::Drop` are lifecycle guardrails. Keep new process paths equally explicit.
 - **Keep interaction and shutdown paths cheap**: drag/pan mouse move must coalesce repaint notifications, canvas render must cull before cloning/rendering heavy node bodies, no-op persistence flush must return before SQLite writes, and agent session save must use cached hook session IDs rather than scanning CLI history directories. Enforced by [`scripts/check-performance-guardrails.sh`](scripts/check-performance-guardrails.sh); examples live in [`docs/quality/mechanized-constraints.md`](docs/quality/mechanized-constraints.md).
+- **Keep live video wallpaper low-copy**: live video frames must not go through per-frame CPU RGBA/`RenderImage`/`img()` rendering; decode 420f IOSurface-backed buffers off the GPUI shared executor and paint with `surface()`. Enforced by [`scripts/check-video-wallpaper-performance.py`](scripts/check-video-wallpaper-performance.py).
 - **Never block the GPUI foreground path**: voice finalization, LLM planning/refine, recognizer joins, network/file IO, long sleeps, and CPU-heavy work must run on `background_executor` or a background thread; foreground code should only update state and perform runtime/UI side effects.
 - **Quit on last window close**: GPUI on macOS does not quit the process automatically when the last window closes. `main.rs` must register `cx.on_window_closed(|cx| { if cx.windows().is_empty() { cx.quit(); } }).detach()` inside the `Application::run` closure, before `open_window`. Omitting this leaves the process running invisibly in the background after the user closes the window.
 - **Pinned libraries require verification**: `gpui =0.2.2` and `alacritty_terminal =0.26` are pinned in the workspace. Upgrade only after checking API compatibility.
@@ -102,6 +103,7 @@ bash scripts/check-no-allow.sh
 bash scripts/check-agent-guide-lines.sh
 bash scripts/check-storage-boundaries.sh
 bash scripts/check-performance-guardrails.sh
+python3 scripts/check-video-wallpaper-performance.py
 ```
 
 Release build:

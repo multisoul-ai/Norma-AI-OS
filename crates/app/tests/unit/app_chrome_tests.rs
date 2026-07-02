@@ -448,46 +448,53 @@ fn test_wallpaper_img_has_source_derived_id() {
     );
 }
 
-/// Task 10 regression: 视频壁纸必须后台解码为图片帧，不得在 UI 路径推进 AVAssetReader。
+/// 视频壁纸 live 路径必须使用 420f CVPixelBuffer + surface。
 ///
-/// 数据构造：render_src = chrome.rs 生产渲染区；video_src = video_wallpaper.rs；
-/// 正锚点 = WallpaperKind::Video、render_video_wallpaper_image、background_executor()；
-/// 反锚点 = surface(、VideoDecoder::open(&path)、decoder.next_frame()。
+/// 数据构造：
+///   render_src = chrome.rs 生产渲染区；video_src = video_wallpaper.rs live 壁纸生产源码
+///   正锚点：WallpaperKind::Video、render_video_wallpaper_surface、surface(、background_executor、spawn
+///   反锚点：render_video_wallpaper_image、RenderImage、render_image_from_rgba、next_frame_rgba
 ///
-/// 执行过程：读取源码 → 确认视频分支接入图片帧渲染 → 搜索旧前台解码反锚点。
+/// 执行过程：
+///   1. 读取 chrome.rs，确认 Video 分支存在且调用 surface 渲染入口
+///   2. 读取 video_wallpaper.rs，确认 live 帧后台解码并通过 surface(CVPixelBuffer) 渲染
 ///
-/// 预期结果：正锚点存在；反锚点不存在，避免打开画布时同步 open/decode。
+/// 预期结果：
+///   - 正断言：Video 分支调用 render_video_wallpaper_surface，后台解码，且使用 surface(
+///   - 负断言：live 视频壁纸不应通过 RenderImage / RGBA / img(frame) 路径每帧上屏
 #[test]
-fn test_video_wallpaper_branch_uses_background_decoded_images() {
+fn test_video_wallpaper_branch_uses_surface_not_render_images() {
     let chrome_src = include_str!("../../src/app/chrome.rs");
-    let render_src = chrome_src
-        .split("#[cfg(test)]")
-        .next()
-        .unwrap_or(chrome_src);
+    let render_src = &chrome_src[..chrome_src.find("#[cfg(test)]").unwrap_or(chrome_src.len())];
     let video_src = include_str!("../../src/app/video_wallpaper.rs");
 
     assert!(
-        render_src.contains("WallpaperKind::Video"),
-        "chrome wallpaper layer 必须含 WallpaperKind::Video 视频分支"
+        render_src.contains("WallpaperKind::Video")
+            && render_src.contains("render_video_wallpaper_surface"),
+        "Video 分支必须调用 render_video_wallpaper_surface，避免回到每帧 RenderImage/img 路径"
     );
     assert!(
-        video_src.contains("render_video_wallpaper_image"),
-        "video_wallpaper.rs 应通过已解码 RenderImage/img 渲染当前视频帧，避免 CVPixelBuffer 跨线程假设"
+        video_src.contains("surface("),
+        "video_wallpaper.rs live 视频帧必须通过 gpui::surface(CVPixelBuffer) 渲染"
     );
     assert!(
-        video_src.contains("background_executor()"),
-        "video_wallpaper.rs 必须经由 background_executor() 执行 AVFoundation open/decode"
+        video_src.contains("background_executor()") && video_src.contains(".spawn(async move"),
+        "video_wallpaper.rs 必须把 AVFoundation open/decode 放到 background_executor worker"
     );
     assert!(
-        !video_src.contains("surface("),
-        "视频壁纸不应继续通过 surface(CVPixelBuffer) 渲染；该路径会推动前台持有解码帧"
+        !video_src.contains("render_video_wallpaper_image"),
+        "live 视频壁纸不应再暴露 render_video_wallpaper_image，否则可能继续走 img(RenderImage)"
     );
     assert!(
-        !video_src.contains("VideoDecoder::open(&path)"),
-        "VideoDecoder::open(&path) 不应出现在 UI start/sync 路径；open 必须后台化"
+        !video_src.contains("RenderImage"),
+        "live 视频壁纸不应持有 RenderImage；缩略图可用 RenderImage，但 live 每帧不可用"
     );
     assert!(
-        !video_src.contains("decoder.next_frame()"),
-        "decoder.next_frame() 不应出现在 UI update 闭包；帧解码必须后台化"
+        !video_src.contains("render_image_from_rgba"),
+        "live 视频壁纸不应每帧 RGBA→BGRA 转换后构造 RenderImage"
+    );
+    assert!(
+        !video_src.contains("next_frame_rgba"),
+        "live 视频壁纸不应调用 next_frame_rgba；该接口只适合首帧缩略图/离线图片路径"
     );
 }

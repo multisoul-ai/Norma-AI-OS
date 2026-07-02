@@ -290,9 +290,9 @@ fn test_canvas_render_culls_before_heavy_node_clone() {
         cull_pos < clone_pos,
         "viewport culling 应早于 heavy node clone/chrome/body，cull_pos={cull_pos}, clone_pos={clone_pos}"
     );
-    assert_ne!(
-        clone_pos < cull_pos,
-        true,
+    let clone_before_cull = clone_pos < cull_pos;
+    assert!(
+        !clone_before_cull,
         "node clone 不应早于 culling，否则离屏卡片仍参与拖拽重绘热路径"
     );
 }

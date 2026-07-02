@@ -1,7 +1,9 @@
 //! Terminal card renderer.
 
 use crate::cards::chrome::{CardChrome, TITLE_BAR_H};
-use crate::cards::term::view::{render_terminal_node, TERM_CELL_PX, TERM_LINE_PX, TERM_PADDING_PX};
+use crate::cards::term::view::{
+    render_terminal_node, TerminalNodeRenderOptions, TERM_CELL_PX, TERM_LINE_PX, TERM_PADDING_PX,
+};
 use crate::cards::{Card, CardBodyContext};
 use canvas::{CanvasNode, CanvasRect, NodeType};
 use gpui::AnyElement;
@@ -34,13 +36,15 @@ impl Card for TermCard {
             .map(|selection| selection.range());
         render_terminal_node(
             context.runtime.node_view(node.id),
-            context.theme,
-            context.zoom,
-            context.bottom_radius_px,
-            selection,
-            context.focused,
-            context.reduce_motion,
-            context.terminal_cursor_phase,
+            TerminalNodeRenderOptions {
+                theme: context.theme,
+                zoom: context.zoom,
+                bottom_radius_px: context.bottom_radius_px,
+                selection,
+                focused: context.focused,
+                reduce_motion: context.reduce_motion,
+                cursor_phase: context.terminal_cursor_phase,
+            },
         )
     }
 

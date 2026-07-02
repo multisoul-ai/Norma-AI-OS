@@ -14,17 +14,31 @@ pub const TERM_CELL_PX: f32 = 8.0;
 pub const TERM_PADDING_PX: f32 = 8.0;
 const TERM_SURFACE_TINT_ALPHA: u8 = 0x20;
 
+pub struct TerminalNodeRenderOptions {
+    pub theme: Theme,
+    pub zoom: f32,
+    pub bottom_radius_px: f32,
+    pub selection: Option<TextRange>,
+    pub focused: bool,
+    pub reduce_motion: bool,
+    pub cursor_phase: f32,
+}
+
 /// 渲染一个终端节点内容区：退出态保留最后一帧输出，并叠加退出状态。
 pub fn render_terminal_node(
     view: Option<NodeView>,
-    theme: Theme,
-    zoom: f32,
-    bottom_radius_px: f32,
-    selection: Option<TextRange>,
-    focused: bool,
-    reduce_motion: bool,
-    cursor_phase: f32,
+    options: TerminalNodeRenderOptions,
 ) -> AnyElement {
+    let TerminalNodeRenderOptions {
+        theme,
+        zoom,
+        bottom_radius_px,
+        selection,
+        focused,
+        reduce_motion,
+        cursor_phase,
+    } = options;
+
     let Some(NodeView::Term { snapshot, status }) = view else {
         return div()
             .rounded_b(px(bottom_radius_px))

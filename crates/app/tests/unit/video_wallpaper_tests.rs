@@ -195,8 +195,9 @@ fn test_slot_path_matches_same_path() {
         matches,
         "identical video wallpaper paths should match the active poll loop"
     );
+    let stopped_poll_loop = !matches;
     assert!(
-        matches != false,
+        !stopped_poll_loop,
         "identical video wallpaper paths must not stop the poll loop"
     );
 }
@@ -220,8 +221,9 @@ fn test_slot_path_matches_different_path() {
         !matches,
         "different video wallpaper paths should reject stale poll loop updates"
     );
+    let stale_worker_accepted = matches;
     assert!(
-        matches != true,
+        !stale_worker_accepted,
         "different video wallpaper paths must not be treated as the active worker"
     );
 }

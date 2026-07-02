@@ -53,11 +53,6 @@ forbid_pattern_in_file \
   'rusqlite|Connection::open|ProjectStore|NodeSessionStore|SessionStore|CanvasStore|save_node_sessions|save_session_checkpoints|flush_persistence_now|find_(agent|codex)_session_id' \
   "canvas render code must not call persistence or session discovery APIs."
 
-forbid_pattern_in_file \
-  crates/app/src/app/video_wallpaper.rs \
-  'surface\(|VideoDecoder::open\(&path\)|decoder\.next_frame\(\)' \
-  "video wallpaper UI lifecycle/render code must not use surface(CVPixelBuffer) or foreground AVFoundation open/decode."
-
 codex_body=$(
   awk '
     /^fn codex_session_id_for_workspace\(/ { inside=1 }

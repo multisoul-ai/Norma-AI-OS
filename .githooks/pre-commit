@@ -10,6 +10,7 @@ bash scripts/check-max-file-lines.sh --staged
 bash scripts/check-no-allow.sh --staged
 bash scripts/check-agent-guide-lines.sh --staged
 bash scripts/check-performance-guardrails.sh
+python3 scripts/check-video-wallpaper-performance.py --staged
 
 staged_rust=$(
   git diff --cached --name-only --diff-filter=ACMR |
