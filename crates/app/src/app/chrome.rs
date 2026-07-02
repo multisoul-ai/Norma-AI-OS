@@ -106,8 +106,8 @@ impl MultisoulApp {
         match self.wallpaper_settings.current_kind() {
             WallpaperKind::Video => {
                 #[cfg(target_os = "macos")]
-                if let Some(surf) = self.render_video_wallpaper_surface() {
-                    return host.child(surf);
+                if let Some(frame) = self.render_video_wallpaper_image() {
+                    return host.child(frame);
                 }
                 host.child(self.wallpaper_img())
             }

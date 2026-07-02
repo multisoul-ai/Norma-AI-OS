@@ -152,6 +152,29 @@ impl Runtime {
         )
     }
 
+    pub fn restore_live_session_for_node_with_node_sessions(
+        &mut self,
+        node_id: NodeId,
+        checkpoints: &[SessionCheckpoint],
+        node_sessions: &[NodeSession],
+    ) -> bool {
+        let mut ctx = crate::session_restore::RestoreCtx {
+            live: &mut self.live,
+            terminal_shells: &mut self.terminal_shells,
+            events: &mut self.events,
+            next_session_id: &mut self.next_session_id,
+            workspace_root: self.workspace_root.as_deref(),
+            agent_hook_config: self.agent_hook_config.as_ref(),
+        };
+        crate::session_restore::restore_live_session_for_node_with_node_sessions(
+            node_id,
+            checkpoints,
+            node_sessions,
+            &self.document,
+            &mut ctx,
+        )
+    }
+
     /// 新建一个 Terminal 节点：spawn live runtime + 在画布加 Term 节点。返回画布节点 id。
     pub fn spawn_terminal(
         &mut self,

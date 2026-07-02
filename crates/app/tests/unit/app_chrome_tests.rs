@@ -448,31 +448,17 @@ fn test_wallpaper_img_has_source_derived_id() {
     );
 }
 
-/// Task 10 anchor：视频壁纸渲染胶水存在。
+/// Task 10 regression: 视频壁纸必须后台解码为图片帧，不得在 UI 路径推进 AVAssetReader。
 ///
-/// 数据构造（含关键数值的推导过程）：
-///   chrome_src      = include_str!("../../src/app/chrome.rs")（chrome 渲染源码）
-///   render_src      = chrome_src 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
-///   video_src       = include_str!("../../src/app/video_wallpaper.rs")（Task 10 新增模块）
-///   anchor_chrome   = "WallpaperKind::Video"（chrome wallpaper layer 必须含 Video 分支）
-///   anchor_surface  = "surface("（video_wallpaper.rs 必须通过 gpui::surface() 渲染当前帧）
-///   anchor_timer_a  = "background_executor()"（帧推进必须由后台 executor 驱动，无自驱动动画）
-///   anchor_timer_b  = ".timer("（与 background_executor() 配对，确认是定时器轮询而非单次）
+/// 数据构造：render_src = chrome.rs 生产渲染区；video_src = video_wallpaper.rs；
+/// 正锚点 = WallpaperKind::Video、render_video_wallpaper_image、background_executor()；
+/// 反锚点 = surface(、VideoDecoder::open(&path)、decoder.next_frame()。
 ///
-///   注：brief 原写 contiguous anchor "background_executor().timer"，但 rustfmt 会把该
-///   长链跨行拆分（与 mod.rs 12ms 帧循环同款格式），无法保留为单行连续子串。此处拆成
-///   两个 rustfmt-stable 子串，断言语义不变（同一循环体内同时出现 executor + .timer(）。
+/// 执行过程：读取源码 → 确认视频分支接入图片帧渲染 → 搜索旧前台解码反锚点。
 ///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 chrome.rs 生产渲染区，确认壁纸层含 WallpaperKind::Video 分支
-///   2. 读取 video_wallpaper.rs 源码，确认含 surface( 调用与 background_executor() / .timer( 循环
-///
-/// 预期结果：
-///   - 正断言：render_src 含 "WallpaperKind::Video"（chrome 已接入视频分支）
-///   - 正断言：video_src 含 "surface("（视频帧经 GPUI surface 渲染）
-///   - 正断言：video_src 含 "background_executor()" 且含 ".timer("（外部 timer 驱动帧推进）
+/// 预期结果：正锚点存在；反锚点不存在，避免打开画布时同步 open/decode。
 #[test]
-fn test_video_wallpaper_branch_uses_surface() {
+fn test_video_wallpaper_branch_uses_background_decoded_images() {
     let chrome_src = include_str!("../../src/app/chrome.rs");
     let render_src = chrome_src
         .split("#[cfg(test)]")
@@ -485,15 +471,23 @@ fn test_video_wallpaper_branch_uses_surface() {
         "chrome wallpaper layer 必须含 WallpaperKind::Video 视频分支"
     );
     assert!(
-        video_src.contains("surface("),
-        "video_wallpaper.rs 必须通过 gpui::surface() 渲染当前视频帧"
+        video_src.contains("render_video_wallpaper_image"),
+        "video_wallpaper.rs 应通过已解码 RenderImage/img 渲染当前视频帧，避免 CVPixelBuffer 跨线程假设"
     );
     assert!(
         video_src.contains("background_executor()"),
-        "video_wallpaper.rs 帧推进必须经由 background_executor()（surface 无自驱动动画）"
+        "video_wallpaper.rs 必须经由 background_executor() 执行 AVFoundation open/decode"
     );
     assert!(
-        video_src.contains(".timer("),
-        "video_wallpaper.rs 必须以 .timer( 定时器轮询驱动帧推进"
+        !video_src.contains("surface("),
+        "视频壁纸不应继续通过 surface(CVPixelBuffer) 渲染；该路径会推动前台持有解码帧"
+    );
+    assert!(
+        !video_src.contains("VideoDecoder::open(&path)"),
+        "VideoDecoder::open(&path) 不应出现在 UI start/sync 路径；open 必须后台化"
+    );
+    assert!(
+        !video_src.contains("decoder.next_frame()"),
+        "decoder.next_frame() 不应出现在 UI update 闭包；帧解码必须后台化"
     );
 }

@@ -1,22 +1,14 @@
-//! Video feasibility spike: AVAssetReader → 420f CVPixelBuffer loop.
-//!
-//! This is a throwaway spike (wallpaper Task 1). The `VideoDecoder` interface
-//! frozen here is the contract adopted verbatim by wallpaper Tasks 10–13; any
-//! signature change requires explicit escalation.
+//! Video decoder glue: AVAssetReader → RGBA frame loop.
 //!
 //! GATED to macOS: AVFoundation / CoreMedia / CoreVideo are only available there.
 //!
 //! Approach (high-level objc2 crate, NOT raw `msg_send!`):
 //!   - `AVURLAsset` opens the file.
 //!   - `AVAssetReader` + `AVAssetReaderTrackOutput` decode the first video
-//!     track straight to the requested CVPixelBuffer format via
-//!     `outputSettings = { PixelFormatType → 420f }` (for the decode loop) or
-//!     `{ PixelFormatType → 32BGRA }` (for `first_frame_bgra` thumbnails).
+//!     track straight to `{ PixelFormatType → 32BGRA }`.
 //!   - `copyNextSampleBuffer` → raw `CMSampleBufferGetImageBuffer` (extern C,
-//!     linked via objc2-core-media's `#[link(name="CoreMedia")]`) → the buffer
-//!     is wrapped into a `core_video::pixel_buffer::CVPixelBuffer` (the exact
-//!     type GPUI 0.2.2's `surface()` consumes) under the CoreFoundation *get*
-//!     rule (retained), so the frame outlives the sample buffer.
+//!     linked via objc2-core-media's `#[link(name="CoreMedia")]`) → retained
+//!     `CVPixelBuffer` → copied into `image::RgbaImage`.
 //!   - On EOF the reader's `status` becomes `Completed`; we rebuild a fresh
 //!     reader + output against the same asset/track to loop.
 //!
@@ -26,8 +18,7 @@
 use anyhow::{anyhow, bail, ensure, Result};
 use core_foundation::base::TCFType;
 use core_video::pixel_buffer::{
-    kCVPixelBufferLock_ReadOnly, kCVPixelFormatType_32BGRA,
-    kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, CVPixelBuffer, CVPixelBufferRef,
+    kCVPixelBufferLock_ReadOnly, kCVPixelFormatType_32BGRA, CVPixelBuffer, CVPixelBufferRef,
 };
 use core_video::r#return::kCVReturnSuccess;
 use image::RgbaImage;
@@ -54,43 +45,40 @@ extern "C-unwind" {
     fn CMSampleBufferGetImageBuffer(sbuf: *mut c_void) -> *mut c_void;
 }
 
-/// A decoded video frame. `buffer` is guaranteed to be 420f, the only pixel
-/// format GPUI 0.2.2's Metal surface renderer accepts.
-pub(crate) struct DecodedVideoFrame {
-    pub buffer: CVPixelBuffer,
-}
-
-/// Loops an mp4/mov via AVAssetReader, emitting 420f CVPixelBuffers ready for
-/// `gpui::surface()`. Uses the first video track and rebuilds the reader at
-/// EOF to loop indefinitely.
+/// Loops an mp4/mov via AVAssetReader, emitting RGBA images. Uses the first
+/// video track and rebuilds the reader at EOF to loop indefinitely.
 pub(crate) struct VideoDecoder {
     asset: Retained<AVURLAsset>,
     reader: Retained<AVAssetReader>,
     output: Retained<AVAssetReaderTrackOutput>,
+    pixel_format: u32,
 }
 
 impl VideoDecoder {
-    /// Open `path` (mp4/mov). Returns Err if unreadable / unsupported.
-    pub(crate) fn open(path: &Path) -> Result<Self> {
+    /// Open `path` for CPU-readable BGRA frames suitable for `RenderImage`.
+    pub(crate) fn open_bgra(path: &Path) -> Result<Self> {
+        Self::open_with_pixel_format(path, kCVPixelFormatType_32BGRA)
+    }
+
+    fn open_with_pixel_format(path: &Path, pixel_format: u32) -> Result<Self> {
         // SAFETY: open_url_asset only constructs an AVURLAsset; no aliasing.
         let asset = unsafe { open_url_asset(path) }?;
         let track = first_video_track(&asset)?;
         let reader = new_reader(&asset)?;
-        let output = new_track_output(&track, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)?;
+        let output = new_track_output(&track, pixel_format)?;
         attach_and_start(&reader, &output)?;
         Ok(Self {
             asset,
             reader,
             output,
+            pixel_format,
         })
     }
 
-    /// Next frame in a 420f CVPixelBuffer; loops at EOF.
-    ///
-    /// `Duration`-hint semantics from the frozen interface are intentionally
-    /// not throttled here: the decoder advances to the next available frame as
-    /// fast as AVFoundation decodes. Callers (Task 11) gate cadence externally.
-    pub(crate) fn next_frame(&mut self) -> Result<DecodedVideoFrame> {
+    /// Next frame copied into an RGBA image. Intended for background wallpaper
+    /// decoding where the foreground thread renders `RenderImage` instead of
+    /// holding a CoreVideo buffer.
+    pub(crate) fn next_frame_rgba(&mut self) -> Result<RgbaImage> {
         loop {
             let next = unsafe { self.output.copyNextSampleBuffer() };
             match next {
@@ -98,17 +86,12 @@ impl VideoDecoder {
                     let sbuf_ptr = Retained::as_ptr(&sb) as *mut c_void;
                     let img_ptr = unsafe { CMSampleBufferGetImageBuffer(sbuf_ptr) };
                     if img_ptr.is_null() {
-                        // Marker-only sample buffer (no image); advance.
                         continue;
                     }
-                    // SAFETY: img_ptr is a get-rule CVImageBufferRef returned
-                    // by CoreMedia; for video track output it is a
-                    // CVPixelBufferRef. wrap_under_get_rule retains it so the
-                    // frame is valid after the sample buffer drops.
                     let buffer = unsafe {
                         <CVPixelBuffer as TCFType>::wrap_under_get_rule(img_ptr as CVPixelBufferRef)
                     };
-                    return Ok(DecodedVideoFrame { buffer });
+                    return bgra_pixel_buffer_to_rgba(&buffer);
                 }
                 None => {
                     let status = unsafe { self.reader.status() };
@@ -160,7 +143,7 @@ impl VideoDecoder {
         unsafe { self.reader.cancelReading() };
         let track = unsafe { self.output.track() };
         let reader = new_reader(&self.asset)?;
-        let output = new_track_output(&track, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)?;
+        let output = new_track_output(&track, self.pixel_format)?;
         attach_and_start(&reader, &output)?;
         self.reader = reader;
         self.output = output;

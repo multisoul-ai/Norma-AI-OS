@@ -247,6 +247,46 @@ fn test_find_codex_session_returns_most_recent_matching_workspace() {
     );
 }
 
+/// SS-5b: Codex session discovery must read bounded metadata lines, not full JSONL files.
+///
+/// 数据构造：
+///   source = include_str!("../../src/session_snapshot.rs")（生产 discovery 源码）
+///   target function = codex_session_id_for_workspace
+///   forbidden = "std::fs::read_to_string"（会把单个巨大 jsonl 整体读入内存）
+///   required = "BufReader" + ".take(8)"（只读取 session_meta 所在的前 8 行）
+///
+/// 执行过程：
+///   1. 截取 codex_session_id_for_workspace 函数体
+///   2. 搜索整文件读取反锚点
+///   3. 搜索 bounded line reader 正锚点
+///
+/// 预期结果：
+///   - 正断言：函数体包含 BufReader，说明按流读取
+///   - 正断言：函数体包含 .take(8)，说明最多检查前 8 行 metadata
+///   - 负断言：函数体不包含 read_to_string，否则打开 workspace fallback discovery 会读 GB 级历史
+#[test]
+fn test_codex_session_discovery_uses_bounded_metadata_reader() {
+    let source = include_str!("../../src/session_snapshot.rs");
+    let body = source
+        .split("fn codex_session_id_for_workspace")
+        .nth(1)
+        .and_then(|rest| rest.split("fn shell_quote").next())
+        .expect("test should find codex_session_id_for_workspace body");
+
+    assert!(
+        body.contains("BufReader"),
+        "codex_session_id_for_workspace 应使用 BufReader 按行读取 metadata"
+    );
+    assert!(
+        body.contains(".take(8)"),
+        "codex_session_id_for_workspace 应只检查前 8 行 session_meta"
+    );
+    assert!(
+        !body.contains("read_to_string"),
+        "codex_session_id_for_workspace 不应 read_to_string 整个 jsonl；大 Codex 历史会导致 workspace 打开卡顿"
+    );
+}
+
 /// SS-6: build_agent_resume_command 为 Claude 生成带 --resume 的命令。
 ///
 /// 数据构造：

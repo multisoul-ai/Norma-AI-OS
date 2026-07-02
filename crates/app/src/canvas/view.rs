@@ -27,14 +27,23 @@ use gpui::{div, prelude::*, px, rgba, AnyElement, Context, MouseButton, Window};
 use runtime::InputMode;
 #[cfg(test)]
 use runtime::{route, Route};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
+
+static CANVAS_OPEN_RENDER_PENDING: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn mark_canvas_open_render_pending() {
+    CANVAS_OPEN_RENDER_PENDING.store(true, Ordering::Release);
+}
 
 pub fn render_canvas(
     app: &mut MultisoulApp,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> impl IntoElement {
-    let _span =
-        tracing::trace_span!("render_canvas", nodes = app.runtime.document.nodes().len()).entered();
+    let render_start = Instant::now();
+    let total_nodes = app.runtime.document.nodes().len();
+    let _span = tracing::trace_span!("render_canvas", nodes = total_nodes).entered();
 
     let theme = app.theme;
     let vp = app.runtime.document.viewport;
@@ -44,6 +53,7 @@ pub fn render_canvas(
 
     // 先收集需要渲染的节点数据（避免借用冲突）。
     let mut node_elems: Vec<AnyElement> = Vec::new();
+    let mut visible_nodes = 0usize;
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
     app.motion.retain_nodes(node_ids.iter().copied());
     for id in node_ids {
@@ -86,6 +96,7 @@ pub fn render_canvas(
         {
             continue;
         }
+        visible_nodes += 1;
 
         let node = app.runtime.document.node(id).unwrap().clone();
         let card = card_for(node_type);
@@ -254,6 +265,20 @@ pub fn render_canvas(
         if let Some(chase) = visual.chase_glow {
             node_elems.push(chase_overlay_container(top_left, w, h, chase, vp.zoom));
         }
+    }
+
+    if CANVAS_OPEN_RENDER_PENDING.swap(false, Ordering::AcqRel) {
+        tracing::info!(
+            stage = "workspace_open_first_canvas_render",
+            total_nodes,
+            visible_nodes,
+            element_count = node_elems.len(),
+            zoom = vp.zoom,
+            window_width = win_w,
+            window_height = win_h,
+            elapsed_ms = render_start.elapsed().as_secs_f64() * 1000.0,
+            "workspace_open_timing"
+        );
     }
 
     div()

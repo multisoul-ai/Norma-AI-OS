@@ -114,7 +114,7 @@ pub(crate) fn request(path: PathBuf, cx: &mut Context<MultisoulApp>) {
 /// Build a non-animating single-frame GPUI `RenderImage` from an RGBA
 /// `image::RgbaImage`, performing the RGBA→BGRA swap GPUI requires. See the
 /// module-level byte-order note for the rationale.
-fn render_image_from_rgba(rgba: image::RgbaImage) -> RenderImage {
+pub(crate) fn render_image_from_rgba(rgba: image::RgbaImage) -> RenderImage {
     let mut buffer = rgba;
     for pixel in buffer.chunks_exact_mut(4) {
         // RGBA → BGRA: swap the red (index 0) and blue (index 2) channels.
