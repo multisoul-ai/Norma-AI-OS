@@ -446,3 +446,55 @@ fn test_reduce_motion_disables_breathing_phase_and_fade_entirely() {
         "Reduce Motion 开启时不应渗入任何呼吸色"
     );
 }
+
+/// M-10: Agent 工作态应通过卡片自身描边/阴影呼吸，而不是依赖 chase 直线 overlay。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   node_id = 33，初始 Idle，theme.node_stroke = 0xffffff24。
+///   chase_fade token = 150ms，set_chase_intent(true) 后 tick(150ms)：
+///     chase_fade.value = 1.0，chase_phase = 150ms / 1200ms = 0.125。
+///   工作态视觉应复用 node_div 自身 rounded border/shadow，不再产生单独 overlay 数据。
+///
+/// 执行过程：
+///   1. ensure_node 创建空闲节点
+///   2. set_chase_intent(true) 模拟 Agent Thinking/RunningTool
+///   3. tick(150ms) 让工作态淡入完成
+///   4. resolve_node_visual 读取描边、阴影和强调边框状态
+///
+/// 预期结果：
+///   - 正断言：stroke_color 不再等于静态 node_stroke，说明工作态有自身边框反馈
+///   - 正断言：border_is_emphasized=true，复用卡片真实 rounded border 路径
+///   - 正断言：shadow_blur 大于主题默认值，说明工作态通过阴影呼吸表达活跃
+///   - 负断言：priority 不应伪装成 Focused，工作态不是输入焦点
+#[test]
+fn test_working_state_uses_card_chrome_glow_without_chase_overlay() {
+    let mut store = MotionStore::new(false);
+    let theme = Theme::glass_dark();
+    let node_id = 33;
+    let node_rect = rect(0.0, 0.0, 100.0, 80.0);
+    store.ensure_node(node_id, node_rect);
+
+    store.set_chase_intent(node_id, true);
+    store.tick(Duration::from_millis(150));
+    let visual = store.resolve_node_visual(node_id, node_rect, theme);
+
+    assert_ne!(
+        visual.stroke_color, theme.node_stroke,
+        "Agent 工作态淡入完成后 stroke_color 不应仍是静态 node_stroke"
+    );
+    assert!(
+        visual.border_is_emphasized,
+        "Agent 工作态应复用卡片自身 emphasized border，而不是额外直线 overlay"
+    );
+    assert!(
+        visual.shadow_blur > theme.shadow_blur,
+        "Agent 工作态应增加卡片自身 shadow_blur，实际 {} <= 默认 {}",
+        visual.shadow_blur,
+        theme.shadow_blur
+    );
+    assert_ne!(
+        visual.priority,
+        VisualPriority::Focused,
+        "Agent 工作态不应伪装成 Focused；真实输入焦点仍应由 selection/focus 控制"
+    );
+}

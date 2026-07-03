@@ -27,7 +27,8 @@ fn key(key: &str, key_char: Option<&str>) -> Keystroke {
 ///   4. 分别读取 state.definitions()、store_a.list()、store_b.list() 验证切换后的保存行为
 ///
 /// 预期结果：
-///   - 正断言：切到 store B 后 save_draft() 返回 false，因为新 project 下 draft 已被重置，缺少必填字段
+///   - 正断言：切到 store B 后 draft 自动加载 Project B 的首条 definition
+///   - 正断言：save_draft() 返回 true 且只保存 Project B 自己的详情
 ///   - 正断言：state.definitions() 只显示 Project B 原始记录
 ///   - 正断言：store A 原始记录保持不变，说明旧项目数据没有被误改
 ///   - 正断言：store B 原始记录保持不变，说明没有把 Project A 草稿误写进新项目
@@ -100,6 +101,8 @@ fn test_agent_definitions_state_bind_project_store_clears_stale_draft_before_sav
 
     state.bind_project_store(store_b.clone());
 
+    let selected_after_bind = state.selected_definition_id();
+    let draft_after_bind = state.draft().clone();
     let did_save = state.save_draft();
     let in_memory = state.definitions().to_vec();
     let persisted_a = store_a
@@ -113,9 +116,18 @@ fn test_agent_definitions_state_bind_project_store_clears_stale_draft_before_sav
         did_edit,
         "edit_definition should return true so the test starts from a real Project A draft"
     );
+    assert_eq!(
+        selected_after_bind,
+        Some(beta.id),
+        "切换到 Project B 后应自动选中 Project B 的首条 definition，而不是保留 Project A selected id"
+    );
+    assert_eq!(
+        draft_after_bind.name, "Beta Agent",
+        "切换到 Project B 后 draft 应加载 Project B 名称，避免 Project A pending edit 泄漏"
+    );
     assert!(
-        !did_save,
-        "save_draft should fail after switching stores because the stale draft must be cleared"
+        did_save,
+        "切换到 Project B 后 save_draft 应保存当前 Project B 详情，而不是失败或写入 Project A 草稿"
     );
     assert_eq!(
         in_memory.len(),

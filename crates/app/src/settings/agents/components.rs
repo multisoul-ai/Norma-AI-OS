@@ -1,35 +1,6 @@
 use gpui::{div, prelude::*, px, rgba, Div, FontWeight};
 use ui::Theme;
 
-pub(super) fn section(theme: Theme, title: &'static str, hint: &'static str) -> Div {
-    div()
-        .flex()
-        .flex_col()
-        .gap(px(14.0))
-        .pt(px(18.0))
-        .border_t_1()
-        .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
-        .child(
-            div()
-                .flex()
-                .flex_col()
-                .gap(px(4.0))
-                .child(
-                    div()
-                        .text_size(px(13.0))
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(rgba(theme.accent_cyan))
-                        .child(title),
-                )
-                .child(
-                    div()
-                        .text_size(px(13.0))
-                        .text_color(rgba(theme.text_tertiary))
-                        .child(hint),
-                ),
-        )
-}
-
 pub(super) fn action_button(_theme: Theme, label: &'static str, accent: u32) -> Div {
     div()
         .px(px(12.0))

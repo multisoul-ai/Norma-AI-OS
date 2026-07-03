@@ -17,6 +17,9 @@ pub(crate) fn terminal_ime_cursor_bounds(
     };
     let node = runtime.document.node(node_id)?;
     let NodeView::Term { snapshot, .. } = runtime.node_view(node_id)?;
+    if snapshot.display_offset > 0 {
+        return None;
+    }
     let zoom = runtime.document.viewport.zoom;
     let node_top_left = runtime
         .document

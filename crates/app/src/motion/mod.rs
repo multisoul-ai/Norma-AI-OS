@@ -2,7 +2,9 @@
 
 pub(crate) mod breathing;
 pub(crate) mod scalar;
+pub(crate) mod tokens;
 pub(crate) mod util;
+pub(crate) mod working;
 
 use canvas::{CanvasRect, NodeId};
 use std::collections::{BTreeMap, BTreeSet};
@@ -10,43 +12,17 @@ use std::time::Duration;
 use ui::Theme;
 
 use crate::motion::breathing::{
-    breathing_color_for_phase, resolve_corner_glow, BreathingIntent, BreathingState, ChaseGlow,
-    CornerGlow,
+    breathing_color_for_phase, resolve_corner_glow, BreathingIntent, BreathingState, CornerGlow,
 };
 use crate::motion::scalar::AnimatedScalar;
+use crate::motion::tokens::MotionTokens;
 use crate::motion::util::{
     alpha, approx_rect, duration_progress, ease_out_cubic, lerp_rect, mix_color,
     reduce_motion_from_env_value, visual_priority, with_alpha, EPSILON,
 };
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct MotionTokens {
-    pub hover_in: Duration,
-    pub hover_out: Duration,
-    pub press: Duration,
-    pub focus_selected: Duration,
-    pub layout: Duration,
-    pub reduced_fade: Duration,
-    pub breathing_fade: Duration,
-    pub completion_settle: Duration,
-    pub chase_fade: Duration,
-}
-
-impl Default for MotionTokens {
-    fn default() -> Self {
-        Self {
-            hover_in: Duration::from_millis(120),
-            hover_out: Duration::from_millis(180),
-            press: Duration::from_millis(100),
-            focus_selected: Duration::from_millis(180),
-            layout: Duration::from_millis(420),
-            reduced_fade: Duration::from_millis(160),
-            breathing_fade: Duration::from_millis(150),
-            completion_settle: Duration::from_millis(520),
-            chase_fade: Duration::from_millis(150),
-        }
-    }
-}
+use crate::motion::working::{
+    resolve_working_visual, WorkingSnake, WorkingVisualInput, WORKING_SNAKE_PERIOD_SECS,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum VisualPriority {
@@ -74,7 +50,7 @@ pub struct ResolvedNodeVisual {
     pub border_is_emphasized: bool,
     pub opacity: f32,
     pub corner_glow: Option<CornerGlow>,
-    pub chase_glow: Option<ChaseGlow>,
+    pub working_snake: Option<WorkingSnake>,
 }
 
 #[derive(Debug, Clone)]
@@ -338,7 +314,8 @@ impl NodeMotion {
         }
 
         if !reduce_motion && self.chase_active {
-            self.chase_phase = (self.chase_phase + delta.as_secs_f32()).rem_euclid(1.0);
+            self.chase_phase = (self.chase_phase + delta.as_secs_f32() / WORKING_SNAKE_PERIOD_SECS)
+                .rem_euclid(1.0);
             changed = true;
         }
 
@@ -437,10 +414,6 @@ impl NodeMotion {
             self.breathing_fade.value,
             self.breathing_display_state,
         );
-        let chase_glow = (self.chase_fade.value > EPSILON).then_some(ChaseGlow {
-            phase: self.chase_phase,
-            fade: self.chase_fade.value,
-        });
         let settle = self.completion_settle.value.clamp(0.0, 1.0);
         let settle_color = with_alpha(
             theme.accent_green,
@@ -454,12 +427,30 @@ impl NodeMotion {
             with_alpha(theme.accent_green, 0x8a),
             settle * 0.72,
         );
+        let base_shadow_alpha = shadow_alpha.saturating_add((24.0 * settle) as u8);
+        let base_shadow_y =
+            (theme.shadow_y + lift * 6.0 - press_sink * 5.0 - settle * 4.0).max(8.0);
+        let base_shadow_blur =
+            (theme.shadow_blur + lift * 18.0 - press_sink * 6.0 + settle * 10.0).max(20.0);
+        let base_shadow_spread = theme.shadow_spread - lift * 5.0 + press_sink * 2.0 - settle * 3.0;
+        let working_visual = resolve_working_visual(WorkingVisualInput {
+            theme,
+            stroke_color,
+            edge_highlight_color,
+            shadow_alpha: base_shadow_alpha,
+            shadow_y: base_shadow_y,
+            shadow_blur: base_shadow_blur,
+            shadow_spread: base_shadow_spread,
+            border_is_emphasized: focus > 0.25 || selected > 0.35 || settle > 0.45,
+            fade: self.chase_fade.value,
+            phase: self.chase_phase,
+        });
 
         ResolvedNodeVisual {
             priority,
             rect: self.current_rect,
             fill_color: with_alpha(theme.node_fill, fill_alpha),
-            stroke_color,
+            stroke_color: working_visual.stroke_color,
             status_color: mix_color(
                 mix_color(theme.text_tertiary, accent_color, accent_mix),
                 theme.accent_green,
@@ -469,19 +460,15 @@ impl NodeMotion {
                 theme.title_bar,
                 title_alpha.saturating_add((10.0 * settle) as u8),
             ),
-            edge_highlight_color,
-            shadow_color: with_alpha(
-                theme.shadow_color,
-                shadow_alpha.saturating_add((24.0 * settle) as u8),
-            ),
-            shadow_y: (theme.shadow_y + lift * 6.0 - press_sink * 5.0 - settle * 4.0).max(8.0),
-            shadow_blur: (theme.shadow_blur + lift * 18.0 - press_sink * 6.0 + settle * 10.0)
-                .max(20.0),
-            shadow_spread: theme.shadow_spread - lift * 5.0 + press_sink * 2.0 - settle * 3.0,
-            border_is_emphasized: focus > 0.25 || selected > 0.35 || settle > 0.45,
+            edge_highlight_color: working_visual.edge_highlight_color,
+            shadow_color: working_visual.shadow_color,
+            shadow_y: working_visual.shadow_y,
+            shadow_blur: working_visual.shadow_blur,
+            shadow_spread: working_visual.shadow_spread,
+            border_is_emphasized: working_visual.border_is_emphasized,
             opacity: self.opacity.value,
             corner_glow,
-            chase_glow,
+            working_snake: working_visual.working_snake,
         }
     }
 }
@@ -497,3 +484,7 @@ mod completion_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/motion_corner_glow_tests.rs"]
 mod corner_glow_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/working_snake_tests.rs"]
+mod working_snake_tests;

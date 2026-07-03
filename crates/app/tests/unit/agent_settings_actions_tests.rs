@@ -33,7 +33,8 @@ fn make_agent_definition_store(workspace_name: &str) -> storage::AgentDefinition
 ///   - 正断言：save_draft() 返回 true
 ///   - 正断言：内存 definitions 列表新增 1 条并保留输入字段
 ///   - 正断言：store.list() 也持久化出同一条 definition
-///   - 负断言：保存成功后 draft 不应继续保留旧名称，避免脏草稿残留
+///   - 正断言：保存成功后新建 definition 应保持选中，右侧详情继续显示保存结果
+///   - 负断言：保存成功后 draft 不应保持 dirty 状态
 #[test]
 fn test_agent_definitions_state_save_draft_creates_definition() {
     let store = make_agent_definition_store("task-5-save-draft");
@@ -87,11 +88,17 @@ fn test_agent_definitions_state_save_draft_creates_definition() {
         persisted[0].workflow_description, "Handle project catalog actions",
         "project store should persist the created workflow description"
     );
-    assert_ne!(
+    assert_eq!(
+        state.selected_definition_id(),
+        Some(in_memory[0].id),
+        "保存新建 definition 后应保持选中新记录，供 list-detail 详情继续显示"
+    );
+    assert_eq!(
         state.draft().name,
         "Catalog Agent",
-        "draft name should reset after a successful save to avoid stale form state"
+        "保存新建 definition 后详情 draft 应显示已保存名称"
     );
+    assert!(!state.is_dirty(), "保存成功后 draft 不应保持 dirty 状态");
 }
 
 /// AS-9: edit_definition() 加载已有 definition 后，再次 save_draft() 应更新原记录，而不是新增重复记录。
@@ -202,7 +209,7 @@ fn test_agent_definitions_state_edit_and_save_updates_definition() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建真实 temp project store，并先写入 1 条现有 definition
-///   2. bind_project_store() 后设置同名 draft，再调用 save_draft()
+///   2. bind_project_store() 后进入新建模式，设置同名 draft，再调用 save_draft()
 ///   3. 读取 state.status()、state.definitions() 与 store.list()，确认失败路径
 ///
 /// 预期结果：
@@ -223,6 +230,7 @@ fn test_agent_definitions_state_duplicate_name_sets_readable_error() {
     let mut state = AgentDefinitionsState::default();
     state.bind_project_store(store.clone());
 
+    let did_begin_new = state.begin_new_definition();
     state.set_draft_name("Duplicate Agent");
     state.set_draft_runtime_profile(AgentProfile::Claude);
     state.set_draft_workflow_description("Another workflow");
@@ -234,6 +242,10 @@ fn test_agent_definitions_state_duplicate_name_sets_readable_error() {
         .expect("store list should load original definitions after failed save");
     let status = state.status().map(str::to_string);
 
+    assert!(
+        did_begin_new,
+        "begin_new_definition 应从已选中的原始 definition 切到新建草稿，确保测试覆盖 duplicate create 路径"
+    );
     assert!(
         !did_save,
         "save_draft should return false when the draft name duplicates an existing definition"

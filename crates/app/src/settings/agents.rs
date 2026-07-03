@@ -17,8 +17,14 @@ mod action_tests;
 #[path = "../../tests/unit/agent_settings_pending_edit_tests.rs"]
 mod pending_edit_tests;
 #[cfg(test)]
+#[path = "../../tests/unit/agent_settings_selection_tests.rs"]
+mod selection_tests;
+#[cfg(test)]
 #[path = "../../tests/unit/agent_settings_store_binding_tests.rs"]
 mod store_binding_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/agent_settings_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "../../tests/unit/agent_settings_view_contract_tests.rs"]
+mod view_contract_tests;
