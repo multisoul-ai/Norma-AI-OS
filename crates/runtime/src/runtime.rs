@@ -71,6 +71,11 @@ impl Runtime {
         self.workspace_root.as_deref()
     }
 
+    /// 测试用：设置 workspace root（供 e2e 进入 Canvas 后注入 cwd，生产不调用）。
+    pub fn set_workspace_root(&mut self, root: std::path::PathBuf) {
+        self.workspace_root = Some(root);
+    }
+
     pub fn collect_canvas_snapshot(&self) -> DocumentSnapshot {
         self.document.to_snapshot()
     }

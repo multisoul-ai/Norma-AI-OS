@@ -117,10 +117,15 @@ impl MultisoulApp {
     /// `enter_workspace_for_path` 会用全新 `Runtime::new_for_workspace(root)`
     /// 替换旧 runtime，导致 `set_pty_factory` 注入的测试工厂丢失。本方法绕过
     /// 这两个问题：直接置 `screen = Canvas`，保留现有 runtime（含工厂），
-    /// 不加载持久化快照、不恢复 session。fresh tempdir 场景下与真实流程行为等价。
+    /// 不加载持久化快照、不恢复 session。
+    ///
+    /// 与真实流程的差异通过 `root` 参数补齐：调用 `Runtime::set_workspace_root`
+    /// 注入 cwd，使后续 spawn 走测试 PTY 时仍能拿到正确的工作目录（L2 真实
+    /// PTY 场景需要）。fresh tempdir 场景下与真实流程行为等价。
     ///
     /// 生产路径**禁止**调用本方法；必须经 `OpenProject` action 进入 canvas。
-    pub fn enter_canvas_for_test(&mut self, cx: &mut Context<Self>) {
+    pub fn enter_canvas_for_test(&mut self, root: &std::path::Path, cx: &mut Context<Self>) {
+        self.runtime.set_workspace_root(root.to_path_buf());
         self.screen = AppScreen::Canvas;
         self.last_reflow_window_size = None;
         cx.notify();
