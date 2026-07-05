@@ -271,7 +271,7 @@ pub(super) fn on_mouse_move(
 pub(super) fn on_mouse_up(
     app: &mut MultisoulApp,
     _ev: &MouseUpEvent,
-    _w: &mut Window,
+    w: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) {
     let should_persist_canvas = app.interaction.panning || app.interaction.drag.is_some();
@@ -280,6 +280,15 @@ pub(super) fn on_mouse_up(
         .active_text_selection
         .map(|selection| selection.dragging)
         .unwrap_or(false);
+    // Execute card swap before clearing drag state.
+    if let Some(drag) = &app.interaction.drag {
+        if let Some(target) = drag.swap_candidate {
+            let dragged = drag.node;
+            if app.runtime.document.swap_node_order(dragged, target) {
+                app.apply_layout_for_current_mode(w);
+            }
+        }
+    }
     app.interaction.panning = false;
     app.interaction.drag = None;
     app.interaction.last_screen = None;

@@ -131,6 +131,18 @@ impl Document {
         let index = self.nodes.iter().position(|node| node.id == id)?;
         Some(self.nodes.remove(index))
     }
+
+    pub fn swap_node_order(&mut self, a: NodeId, b: NodeId) -> bool {
+        let pos_a = self.nodes.iter().position(|n| n.id == a);
+        let pos_b = self.nodes.iter().position(|n| n.id == b);
+        match (pos_a, pos_b) {
+            (Some(i), Some(j)) if i != j => {
+                self.nodes.swap(i, j);
+                true
+            }
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]
