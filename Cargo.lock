@@ -5061,6 +5061,7 @@ name = "realtime"
 version = "0.1.14"
 dependencies = [
  "base64",
+ "crossbeam-channel",
  "serde",
  "serde_json",
  "thiserror 2.0.18",

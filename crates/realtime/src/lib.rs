@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod protocol;
 pub mod session;
+pub mod sidecar;
 
 pub use audio::{PcmAudioChunk, PcmAudioError, PcmFormat};
 pub use protocol::{
@@ -11,3 +12,4 @@ pub use session::{
     RealtimeSessionConfig, RealtimeSessionError, RealtimeSessionId, RealtimeSessionState,
     RealtimeStatus,
 };
+pub use sidecar::{RealtimeSidecarError, SecretString, SidecarLaunchConfig, SidecarProcess};
