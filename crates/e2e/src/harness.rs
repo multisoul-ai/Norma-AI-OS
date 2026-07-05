@@ -12,7 +12,7 @@ use app::{MultisoulApp, NewTerminal};
 use canvas::{CanvasNodeKind, NodeId};
 use gpui::{Entity, TestAppContext, VisualTestContext};
 use runtime::{NodeView, PtyFactory, Runtime};
-use terminal::{GridSnapshot, PtyBackend, TestPtyBackend};
+use terminal::{GridSnapshot, PtyBackend, ScriptRule, TestPtyBackend};
 
 /// 构造一个 echo PTY 工厂：`write(bytes)` → 同步回吐 `PtyEvent::Output(bytes)`。
 ///
@@ -21,6 +21,17 @@ use terminal::{GridSnapshot, PtyBackend, TestPtyBackend};
 /// 不可 `Clone`）。
 pub fn echo_factory() -> PtyFactory {
     Box::new(|_cmd, _cols, _rows, tx| Ok(Box::new(TestPtyBackend::echo(tx)) as Box<dyn PtyBackend>))
+}
+
+/// 构造一个剧本 PTY 工厂：`write(bytes)` 若含某 `rule.trigger` 子串，
+/// 则通过 `tx` 投递 `PtyEvent::Output(rule.output)`；无匹配则静默。
+///
+/// 与 `echo_factory` 对称，供 E2E-02 等需要“特定输入 → 特定输出”映射的场景使用。
+/// 每次 `write` 仅取首个匹配的 rule（`TestPtyBackend::scripted` 语义）。
+pub fn scripted_factory(rules: Vec<ScriptRule>) -> PtyFactory {
+    Box::new(move |_cmd, _cols, _rows, tx| {
+        Ok(Box::new(TestPtyBackend::scripted(tx, rules.clone())) as Box<dyn PtyBackend>)
+    })
 }
 
 /// 装配 headless GPUI 窗口 + `MultisoulApp`，注入测试 PTY 工厂，并 focus root view。
@@ -112,15 +123,20 @@ pub fn read_runtime<R>(
     view.read_with(cx, |app, _cx| f(&app.runtime))
 }
 
-/// 循环 `run_until_parked` + 读 runtime，直到 `predicate` 返回 `Some(value)` 或超时。
+/// 循环 `advance_clock` + `run_until_parked` + 读 runtime，直到 `predicate` 返回
+/// `Some(value)` 或超时。
 ///
-/// L1（echo PTY 同步回吐）通常一轮即收敛；L2（真实 PTY 异步）需要足够 timeout。
+/// L1（注入 PTY 同步回吐）通常一轮即收敛；L2（真实 PTY 异步）需要足够 timeout。
 /// 超时返回 `None`，由调用方决定是否 panic（推荐 `.expect("...")` 带场景说明）。
 ///
-/// 实现说明：每轮先 `run_until_parked` 推进 executor，再读 runtime 判定谓词；
-/// 若未满足且未到 deadline，sleep 2ms 让出线程。`Instant` + `Duration` 来自
-/// `std::time`，不依赖 GPUI 时钟（test executor 的虚拟时钟对 `run_until_parked`
-/// 已生效，wall-clock sleep 仅用于避免 busy-loop）。
+/// 实现说明（mock 时钟驱动 drain timer）：
+///   GPUI 的 `TestAppContext` 用 mock 时钟，`background_executor.timer(dur)` 返回的
+///   future 只在 `advance_clock(dur)` 后才就绪。`MultisoulApp` 的 12ms 周期 drain
+///   loop（`crates/app/src/app/mod.rs:142`）依赖该 timer 触发 `runtime.drain_all()`。
+///   仅 `run_until_parked` 不会推进 mock 时钟，drain 永不执行，PTY 输出永远停在
+///   `TerminalSession` 的 rx 队列里——这正是 E2E-02 grid 不更新的根因。
+///   因此每轮显式 `advance_clock(12ms)` 让 drain timer 就绪，再 `run_until_parked`
+///   推进 executor 执行 drain 回调。wall-clock `sleep(1ms)` 仅用于避免 busy-loop。
 pub fn drain_until<R>(
     view: &Entity<MultisoulApp>,
     cx: &mut VisualTestContext,
@@ -128,7 +144,11 @@ pub fn drain_until<R>(
     timeout: Duration,
 ) -> Option<R> {
     let deadline = Instant::now() + timeout;
+    // 单轮 advance 量：与 app drain 周期一致（12ms），保证至少触发一次 drain timer。
+    let step = Duration::from_millis(12);
     loop {
+        // 推进 mock 时钟让 12ms drain timer 就绪，再跑 executor 执行 drain 回调。
+        cx.cx.background_executor.advance_clock(step);
         cx.run_until_parked();
         if let Some(v) = read_runtime(view, cx, &mut predicate) {
             return Some(v);
@@ -136,7 +156,7 @@ pub fn drain_until<R>(
         if Instant::now() >= deadline {
             return None;
         }
-        std::thread::sleep(Duration::from_millis(2));
+        std::thread::sleep(Duration::from_millis(1));
     }
 }
 
