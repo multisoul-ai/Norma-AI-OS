@@ -19,11 +19,14 @@ mod e2e_01_create_terminal;
 // E2E-02（SPEC §4.3）：向 focused Term 节点写入输入 → 剧本后端回吐 → grid 含回吐内容。
 mod e2e_02_terminal_echo;
 
+// E2E-02-real（SPEC §3.4，L2 `#[ignore]`）：真实 portable_pty 后端，本地 `--ignored` 跑。
+mod e2e_02_real_pty;
+
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。
 pub use harness::{
-    create_terminal, drain_until, echo_factory, enter_canvas, make_app, read_grid, read_runtime,
-    scripted_factory,
+    create_terminal, drain_until, echo_factory, enter_canvas, make_app, make_app_real, read_grid,
+    read_runtime, scripted_factory,
 };
 
 /// Smoke：headless GPUI 启动 `MultisoulApp`，初始屏幕应为 `Launchpad`。

@@ -51,13 +51,34 @@ pub fn make_app(
 ) -> (Entity<MultisoulApp>, &mut VisualTestContext) {
     let (view, cx) =
         cx.add_window_view(|_window, cx| MultisoulApp::new_with_pty_factory(cx, factory));
-    // focus root view + activate window，否则 dispatch_action 找不到目标节点。
+    focus_root(&view, cx);
+    (view, cx)
+}
+
+/// 装配 headless GPUI 窗口 + `MultisoulApp`，**不**注入 PTY 工厂（走真实 PTY 路径）。
+///
+/// 与 `make_app` 对称，但调用 `MultisoulApp::new(cx)`（无 `set_pty_factory`）→
+/// `Runtime.pty_factory = None` → `spawn_term_live(None, ...)` →
+/// `TermLive::spawn_command` → 真实 `portable_pty`。供 L2 `#[ignore]` 真 PTY 冒烟
+/// （Task 10 / SPEC §3.4）使用：覆盖 `on_new_terminal` → 真实 shell spawn →
+/// PTY 读线程 → grid 异步更新链路。
+///
+/// 注意：真实 shell 为 `/bin/zsh`（`on_new_terminal` 硬编码，无公开 API 覆盖）。
+/// 调用方应使用 `contains("hi")` 这类对 zsh prompt/rc 噪声鲁棒的断言，而非精确
+/// 行匹配。输出异步到达，必须用 `drain_until(predicate, timeout)` 轮询。
+pub fn make_app_real(cx: &mut TestAppContext) -> (Entity<MultisoulApp>, &mut VisualTestContext) {
+    let (view, cx) = cx.add_window_view(|_window, cx| MultisoulApp::new(cx));
+    focus_root(&view, cx);
+    (view, cx)
+}
+
+/// focus root view + activate window，否则 dispatch_action 找不到目标节点。
+fn focus_root(view: &Entity<MultisoulApp>, cx: &mut VisualTestContext) {
     cx.update(|window, cx| {
         window.focus(&view.read(cx).focus_handle);
         window.activate_window();
     });
     cx.run_until_parked();
-    (view, cx)
 }
 
 /// 进入 Canvas 屏幕：调用 `MultisoulApp::enter_canvas_for_test` 直接切换屏幕，
