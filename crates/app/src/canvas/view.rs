@@ -271,7 +271,7 @@ pub fn render_canvas(
                 w,
                 h,
                 node_radius,
-                theme.accent_orange,
+                theme.accent_violet,
             ));
         }
         if let Some(chase) = visual.chase_glow {
