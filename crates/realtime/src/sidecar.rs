@@ -1,5 +1,5 @@
 use crate::protocol::{decode_event, encode_command, RealtimeCommand, RealtimeEvent};
-use crossbeam_channel::{unbounded, Receiver};
+use crossbeam_channel::{unbounded, Receiver, TryRecvError};
 use std::fmt;
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::PathBuf;
@@ -71,6 +71,8 @@ pub enum RealtimeSidecarError {
     MalformedEvent,
     #[error("failed to read realtime sidecar stdout")]
     StdoutReadFailed(#[source] io::Error),
+    #[error("realtime sidecar stdout closed before a terminal event")]
+    StdoutClosed,
     #[error("failed to wait for realtime sidecar process")]
     WaitFailed(#[source] io::Error),
     #[error("failed to kill realtime sidecar process after stop timeout")]
@@ -188,7 +190,11 @@ impl SidecarProcess {
     }
 
     pub fn try_recv(&self) -> Option<Result<RealtimeEvent, RealtimeSidecarError>> {
-        self.events.try_recv().ok()
+        match self.events.try_recv() {
+            Ok(event) => Some(event),
+            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Disconnected) => Some(Err(RealtimeSidecarError::StdoutClosed)),
+        }
     }
 
     pub fn stop(mut self, timeout: Duration) -> Result<(), RealtimeSidecarError> {

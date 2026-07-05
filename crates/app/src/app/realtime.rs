@@ -12,9 +12,12 @@ use realtime::{
 use std::fmt;
 use std::path::PathBuf;
 use std::sync::Mutex;
+use std::thread;
 use std::time::Duration;
 
 static ACTIVE_REALTIME_SESSION: Mutex<Option<RealtimeSessionId>> = Mutex::new(None);
+#[cfg(test)]
+pub(crate) static REALTIME_PROCESS_TEST_LOCK: Mutex<()> = Mutex::new(());
 const SIDECAR_POLL_INTERVAL: Duration = Duration::from_millis(10);
 const SIDECAR_STOP_TIMEOUT: Duration = Duration::from_millis(500);
 
@@ -221,7 +224,7 @@ impl RealtimeControlState {
                     break;
                 }
                 Ok(RealtimeEvent::SessionStopped { .. }) => {
-                    self.stop_shell();
+                    self.finish_sidecar_stopped();
                     break;
                 }
                 Ok(_) => {}
@@ -335,7 +338,7 @@ impl RealtimeControlState {
 
     fn stop_sidecar_process(&mut self) {
         if let Some(sidecar) = self.sidecar.take() {
-            let _ = sidecar.stop(SIDECAR_STOP_TIMEOUT);
+            stop_sidecar_process_in_background(sidecar);
         }
     }
 
@@ -346,6 +349,22 @@ impl RealtimeControlState {
         self.stop_sidecar_process();
         self.session.mark_error(message);
         self.config_error = None;
+    }
+}
+
+fn stop_sidecar_process_in_background(sidecar: SidecarProcess) {
+    thread::spawn(move || {
+        let _ = sidecar.stop(SIDECAR_STOP_TIMEOUT);
+    });
+}
+
+impl RealtimeControlState {
+    fn finish_sidecar_stopped(&mut self) {
+        self.stop_sidecar_process();
+        if let Some(session_id) = self.session.session_id().cloned() {
+            release_process_slot(&session_id);
+        }
+        *self = Self::default();
     }
 }
 
@@ -453,3 +472,7 @@ impl MultisoulApp {
 #[cfg(test)]
 #[path = "../../tests/unit/app_realtime_tests.rs"]
 mod app_realtime_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_realtime_sidecar_tests.rs"]
+mod app_realtime_tests_sidecar;

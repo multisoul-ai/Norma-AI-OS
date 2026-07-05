@@ -10,6 +10,10 @@ function handleCommand(command) {
   const sessionId = command.session_id || "sidecar-test-session";
 
   if (command.type === "start_session") {
+    if (command.model === "exit-without-event") {
+      process.exit(0);
+    }
+
     if (command.model === "emit-malformed-json") {
       process.stdout.write("{malformed-json\n");
       return;

@@ -209,6 +209,53 @@ fn sidecar_unknown_event_is_ignored_before_valid_started_event() {
         .expect("fake sidecar should still exit cleanly after unknown event");
 }
 
+/// SC-4: fake sidecar without a terminal event is surfaced as StdoutClosed.
+///
+/// 数据构造（含关键数值的推导过程）：
+///   model = "exit-without-event"，fixture 收到 start_session 后立即 exit(0)
+///   stdout lines = 0，channel 会在 reader thread 结束后 disconnected
+///   wait timeout = 3s，足够覆盖本地 Node 进程启动、退出和 reader thread 收口
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 启动 fake sidecar
+///   2. send(StartSession(model=exit-without-event))
+///   3. fake sidecar 不写 session_started/session_stopped，直接退出
+///   4. try_recv 观察 stdout channel disconnected 并返回 StdoutClosed
+///
+/// 预期结果：
+///   - 正断言：收到 RealtimeSidecarError::StdoutClosed
+///   - 正断言：stop 能处理已经退出的 sidecar
+///   - 负断言：异常退出不应被误报为 SessionStarted
+#[test]
+fn sidecar_exit_without_event_returns_stdout_closed_error() {
+    let mut process = SidecarProcess::spawn(fake_sidecar_config("sk-sidecar-exit-secret"))
+        .expect("fake sidecar should launch for unexpected-exit test");
+
+    process
+        .send(&start_command("exit-without-event"))
+        .expect("start_session should be sent before fake sidecar exits");
+
+    let err = wait_for_sidecar_event(&process)
+        .expect_err("sidecar exit without a terminal event should surface an error");
+    assert!(
+        matches!(err, RealtimeSidecarError::StdoutClosed),
+        "sidecar stdout close should map to RealtimeSidecarError::StdoutClosed, got {err:?}"
+    );
+    assert!(
+        err.to_string().contains("stdout"),
+        "StdoutClosed Display should mention stdout closure: {err}"
+    );
+    assert_ne!(
+        err.to_string(),
+        "session_started",
+        "sidecar exit without an event must not be reported as SessionStarted"
+    );
+
+    process
+        .stop(Duration::from_secs(3))
+        .expect("stop should tolerate a fake sidecar that has already exited");
+}
+
 /// SC-4: stop_session command makes the fake sidecar emit session_stopped and exit.
 ///
 /// 数据构造（含关键数值的推导过程）：
