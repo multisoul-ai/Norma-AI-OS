@@ -7,5 +7,9 @@
   <string>Multisoul uses speech recognition to turn spoken commands into card actions.</string>
   <key>NSMicrophoneUsageDescription</key>
   <string>Multisoul uses the microphone only while you hold the voice control.</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>12.0</string>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.developer-tools</string>
 </dict>
 </plist>

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Mechanized constraint: macOS codesign/notarize 所需配置就绪校验。
+#
+# Scope: entitlements 文件、Info.plist 关键键、Packager 配置字段。
+#
+# On failure: 打印缺失项，退出码 1。挂 pre-commit 与 CI。
+#
+# Background: docs/design-docs/2026-07-05-developer-id-notarize-design.md
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENT="$ROOT/packaging/macos/Multisoul.entitlements"
+INFO="$ROOT/packaging/macos/Info.plist"
+PKG="$ROOT/Packager.toml"
+PKG_DEV="$ROOT/Packager.dev.toml"
+
+fail() { echo "FAIL: $*" >&2; exit 1; }
+
+# 1. entitlements 存在且为合法 plist
+[ -f "$ENT" ] || fail "entitlements 文件缺失: $ENT"
+plutil -lint "$ENT" >/dev/null || fail "entitlements 不是合法 plist: $ENT"
+
+# 2. Info.plist 关键键
+[ -f "$INFO" ] || fail "Info.plist 缺失: $INFO"
+/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$INFO" >/dev/null 2>&1 \
+  || fail "Info.plist 缺 LSMinimumSystemVersion"
+/usr/libexec/PlistBuddy -c "Print :LSApplicationCategoryType" "$INFO" >/dev/null 2>&1 \
+  || fail "Info.plist 缺 LSApplicationCategoryType"
+/usr/libexec/PlistBuddy -c "Print :NSMicrophoneUsageDescription" "$INFO" >/dev/null 2>&1 \
+  || fail "Info.plist 缺 NSMicrophoneUsageDescription"
+/usr/libexec/PlistBuddy -c "Print :NSSpeechRecognitionUsageDescription" "$INFO" >/dev/null 2>&1 \
+  || fail "Info.plist 缺 NSSpeechRecognitionUsageDescription"
+
+echo "OK: codesign readiness check passed"
