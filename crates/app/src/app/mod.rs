@@ -78,7 +78,7 @@ pub struct MultisoulApp {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum AppScreen {
+pub enum AppScreen {
     Launchpad,
     Canvas,
 }
@@ -99,6 +99,12 @@ impl MultisoulApp {
         runtime.set_pty_factory(factory);
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
         Self::assemble(cx, runtime, agent_hook_server, wallpaper_from_env())
+    }
+
+    /// 当前 App 屏幕（Launchpad / Canvas）。供 e2e 测试从外部 crate 断言屏幕状态——
+    /// `screen` 字段为 `pub(crate)`，跨 crate 读取必须经此访问器。
+    pub fn screen(&self) -> AppScreen {
+        self.screen
     }
 
     /// `new` / `new_with_pty_factory` 共享的构造核心：启动后台帧循环并装配字段。

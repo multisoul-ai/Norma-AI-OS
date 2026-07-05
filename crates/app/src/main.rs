@@ -1,19 +1,9 @@
 //! multisoul-desktop 入口：tracing 初始化 + 启动 GPUI App。
-mod app;
-mod assets;
-mod canvas;
-mod cards;
-mod motion;
-mod norma;
-mod preview;
-mod settings;
-mod workspace;
-
+//! 模块声明见 `src/lib.rs`（bin 隐式依赖 lib）。此处仅装配运行时。
 use app::{
-    CopyCardContent, ExitFocus, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewTerminal,
-    OpenPreviewFile, OpenProject, ReflowLayout, ToggleMasterLayout,
+    CopyCardContent, EmbeddedAssets, ExitFocus, MultisoulApp, NewClaudeAgent, NewCodexAgent,
+    NewTerminal, OpenPreviewFile, OpenProject, ReflowLayout, ToggleMasterLayout,
 };
-use assets::EmbeddedAssets;
 use gpui::{
     px, size, App, AppContext as _, Application, Bounds, KeyBinding, Menu, MenuItem,
     TitlebarOptions, WindowBackgroundAppearance, WindowBounds, WindowOptions,

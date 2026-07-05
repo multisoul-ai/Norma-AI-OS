@@ -1,0 +1,19 @@
+[lib]
+doctest = false
+
+[package]
+name = "e2e"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+# 本 crate 全部是测试代码，依赖放在 [dependencies]（非 dev-dependencies），
+# 以便 `cargo test -p e2e` 默认编译。`gpui` 显式启用 `test-support` feature，
+# 该 feature 仅在 e2e crate 激活，不会影响 `cargo build -p app` 的生产构建。
+[dependencies]
+app = { path = "../app" }
+runtime = { path = "../runtime" }
+canvas = { path = "../canvas" }
+terminal = { path = "../terminal" }
+gpui = { workspace = true, features = ["test-support"] }
+crossbeam-channel = { workspace = true }
