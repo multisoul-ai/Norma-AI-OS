@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
 #[command(name = "norma")]
-#[command(about = "Control cards in a running Multisoul Desktop app")]
+#[command(about = "Control cards in a running Norma OS app")]
 struct NormaArgs {
     #[command(subcommand)]
     command: TopCommand,

@@ -5,6 +5,7 @@ use gpui::{AssetSource, SharedString};
 use std::borrow::Cow;
 
 pub const APP_ICON_ASSET: &str = "icons/app-icon.png";
+pub const APP_LOGO_ASSET: &str = "icons/logo.png";
 pub const DEFAULT_WALLPAPER_ASSET: &str = "wallpapers/1331865.png";
 
 /// Toolbar SVG icon asset paths. These mirror `crate::ui::icons::ToolbarIcon::asset_path`
@@ -12,6 +13,7 @@ pub const DEFAULT_WALLPAPER_ASSET: &str = "wallpapers/1331865.png";
 pub const TOOLBAR_SCROLL_ASSET: &str = "icons/toolbar-scroll.svg";
 pub const TOOLBAR_PLUS_ASSET: &str = "icons/toolbar-plus.svg";
 pub const TOOLBAR_TERMINAL_ASSET: &str = "icons/toolbar-terminal.svg";
+pub const TOOLBAR_BROWSER_ASSET: &str = "icons/toolbar-browser.svg";
 pub const TOOLBAR_CLAUDE_ASSET: &str = "icons/toolbar-claude.svg";
 pub const TOOLBAR_CODEX_ASSET: &str = "icons/toolbar-codex.svg";
 pub const TOOLBAR_OPENCODE_ASSET: &str = "icons/toolbar-opencode.svg";
@@ -19,6 +21,7 @@ pub const TOOLBAR_PREVIEW_ASSET: &str = "icons/toolbar-preview.svg";
 pub const TOOLBAR_SETTINGS_ASSET: &str = "icons/toolbar-settings.svg";
 
 const APP_ICON_BYTES: &[u8] = include_bytes!("../assets/icons/app-icon.png");
+const APP_LOGO_BYTES: &[u8] = include_bytes!("../assets/icons/logo.png");
 
 /// 为所有内置 image 壁纸（3 PNG + 2 GIF）生成 `include_bytes!` 常量与按相对路径
 /// 查询的 `image_builtin_bytes` 辅助函数。
@@ -49,6 +52,7 @@ image_builtins! {
 const TOOLBAR_SCROLL_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-scroll.svg");
 const TOOLBAR_PLUS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-plus.svg");
 const TOOLBAR_TERMINAL_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-terminal.svg");
+const TOOLBAR_BROWSER_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-browser.svg");
 const TOOLBAR_CLAUDE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-claude.svg");
 const TOOLBAR_CODEX_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-codex.svg");
 const TOOLBAR_OPENCODE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-opencode.svg");
@@ -62,9 +66,11 @@ impl AssetSource for EmbeddedAssets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
         match path {
             APP_ICON_ASSET => Ok(Some(Cow::Borrowed(APP_ICON_BYTES))),
+            APP_LOGO_ASSET => Ok(Some(Cow::Borrowed(APP_LOGO_BYTES))),
             TOOLBAR_SCROLL_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SCROLL_BYTES))),
             TOOLBAR_PLUS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PLUS_BYTES))),
             TOOLBAR_TERMINAL_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_TERMINAL_BYTES))),
+            TOOLBAR_BROWSER_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_BROWSER_BYTES))),
             TOOLBAR_CLAUDE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_CLAUDE_BYTES))),
             TOOLBAR_CODEX_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_CODEX_BYTES))),
             TOOLBAR_OPENCODE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_OPENCODE_BYTES))),
@@ -85,9 +91,11 @@ impl AssetSource for EmbeddedAssets {
             ]),
             "icons" => Ok(vec![
                 SharedString::from("app-icon.png"),
+                SharedString::from("logo.png"),
                 SharedString::from("toolbar-scroll.svg"),
                 SharedString::from("toolbar-plus.svg"),
                 SharedString::from("toolbar-terminal.svg"),
+                SharedString::from("toolbar-browser.svg"),
                 SharedString::from("toolbar-claude.svg"),
                 SharedString::from("toolbar-codex.svg"),
                 SharedString::from("toolbar-opencode.svg"),
@@ -199,42 +207,74 @@ mod tests {
         );
     }
 
+    /// 内置产品 Logo 资产：workspace 启动页品牌图应读取独立 logo PNG，而不是复用 App icon。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   logo asset path = APP_LOGO_ASSET = "icons/logo.png"
+    ///   icon asset path = "icons/app-icon.png"
+    ///   PNG signature   = 8 bytes（89 50 4E 47 0D 0A 1A 0A）
+    ///   unknown path    = "icons/logo-missing.png"
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. EmbeddedAssets.load(APP_LOGO_ASSET) → 应返回 Some(bytes)
+    ///   2. EmbeddedAssets.load(APP_ICON_ASSET) → 应返回 Some(icon_bytes)
+    ///   3. 检查 logo bytes 前 8 字节 → 匹配 PNG signature
+    ///   4. 比较 APP_LOGO_ASSET 与 APP_ICON_ASSET → 两者路径不应相同
+    ///   5. EmbeddedAssets.load("icons/logo-missing.png") → 返回 None
+    ///
+    /// 预期结果：
+    ///   - 正断言：Logo asset 存在且字节非空
+    ///   - 正断言：Logo asset 是 PNG
+    ///   - 负断言：Logo asset path 不应与 App icon asset path 相同
+    ///   - 负断言：未知 logo 路径不应返回 Logo 字节
+    #[test]
+    fn test_embedded_assets_load_app_logo_png() {
+        let assets = EmbeddedAssets;
+        let logo = assets
+            .load(APP_LOGO_ASSET)
+            .expect("embedded app logo lookup should not fail")
+            .expect("app logo asset should be present");
+        let icon = assets
+            .load(APP_ICON_ASSET)
+            .expect("embedded app icon lookup should not fail")
+            .expect("app icon asset should be present");
+
+        assert!(!logo.is_empty(), "embedded app logo should contain bytes");
+        assert_eq!(
+            &logo[..8],
+            &[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a],
+            "embedded app logo should be a PNG file"
+        );
+        assert_ne!(
+            APP_LOGO_ASSET, APP_ICON_ASSET,
+            "embedded app logo must have a separate asset path from the app icon"
+        );
+        assert!(
+            !icon.is_empty(),
+            "embedded app icon should still load bytes"
+        );
+        assert!(
+            assets
+                .load("icons/logo-missing.png")
+                .expect("unknown logo lookup should not fail")
+                .is_none(),
+            "unknown logo path must not return the app logo bytes"
+        );
+    }
+
     /// 内置资产目录：GPUI 查询 icons 与 wallpapers 目录时应能枚举对应文件名。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   root list path = "" → 2 个顶层目录 icons、wallpapers
-    ///   icons list path = "icons" → 9 个文件（1 PNG + 8 SVG）
-    ///     1. app-icon.png
-    ///     2. toolbar-scroll.svg
-    ///     3. toolbar-plus.svg
-    ///     4. toolbar-terminal.svg
-    ///     5. toolbar-claude.svg
-    ///     6. toolbar-codex.svg
-    ///     7. toolbar-opencode.svg
-    ///     8. toolbar-preview.svg
-    ///     9. toolbar-settings.svg
-    ///   wallpapers list path = "wallpapers" → 5 个 image built-in 文件名
-    ///     （3 PNG + 2 GIF，由 builtin_wallpapers() 过滤掉 Video 后得到）：
-    ///     1. 1331865.png  (default, Static)
-    ///     2. 1350954.png  (Static)
-    ///     3. 1358524.png  (Static)
-    ///     4. 215824.gif   (Gif)
-    ///     5. 220240.gif   (Gif)
-    ///     不含任何 .mp4（视频由 Task 9 的 git-lfs 流程处理，不在此嵌入）
-    ///   unknown list path = "missing" → 0 个条目
+    ///   root = "" → 2 个顶层目录；icons → 11 个文件（2 PNG + 9 SVG）；
+    ///   wallpapers → 5 个 image built-in（3 PNG + 2 GIF），不含视频。
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. list("") → 返回 icons、wallpapers
-    ///   2. list("icons") → 返回 app-icon.png + 7 个 toolbar-*.svg（顺序与 icons.rs 一致）
-    ///   3. list("wallpapers") → 返回 5 个 image 文件名（包含全部 image built-in）
-    ///   4. list("missing") → 返回空列表
+    ///   1. list root/icons/wallpapers/missing
+    ///   2. 校验 icons 精确顺序、wallpapers image 集合和 missing 空集合
     ///
     /// 预期结果：
-    ///   - 正断言：root 等于 [icons, wallpapers]
-    ///   - 正断言：icons 顺序精确等于 [app-icon.png, toolbar-scroll.svg, ..., toolbar-settings.svg]
-    ///   - 正断言：wallpapers 包含每个 image built-in 文件名（1331865.png 等共 5 个）
-    ///   - 负断言：wallpapers 不包含任何视频文件名（如 1403512.mp4）
-    ///   - 负断言：missing 不包含任何条目
+    ///   - 正断言：root、icons、wallpapers 均返回预期内容
+    ///   - 负断言：wallpapers 不包含视频文件，missing 不包含任何条目
     #[test]
     fn test_embedded_assets_list_wallpaper_directory() {
         let assets = EmbeddedAssets;
@@ -264,16 +304,18 @@ mod tests {
             icons,
             vec![
                 SharedString::from("app-icon.png"),
+                SharedString::from("logo.png"),
                 SharedString::from("toolbar-scroll.svg"),
                 SharedString::from("toolbar-plus.svg"),
                 SharedString::from("toolbar-terminal.svg"),
+                SharedString::from("toolbar-browser.svg"),
                 SharedString::from("toolbar-claude.svg"),
                 SharedString::from("toolbar-codex.svg"),
                 SharedString::from("toolbar-opencode.svg"),
                 SharedString::from("toolbar-preview.svg"),
                 SharedString::from("toolbar-settings.svg"),
             ],
-            "icons asset listing should expose the bundled app icon plus the 8 toolbar SVGs in icons.rs order"
+            "icons asset listing should expose the app icon, logo, and 9 toolbar SVGs in icons.rs order"
         );
 
         // 期望的 image built-in 文件名集合（由 builtin_wallpapers() 过滤掉 Video 派生）。
@@ -328,25 +370,14 @@ mod tests {
     /// 内置 image 资产：EmbeddedAssets.load/list 应覆盖所有 Static 与 GIF 内置项（不含视频）。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   builtin_wallpapers() = 10 项 → 5 项 image（3 PNG + 2 GIF）+ 5 项 Video
-    ///   image 项的相对路径（与 include_bytes! 的 const 一一对应）：
-    ///     wallpapers/1331865.png  → DEFAULT_WALLPAPER_BYTES    (PNG, 8 字节签名)
-    ///     wallpapers/1350954.png  → WALLPAPER_1350954_BYTES    (PNG)
-    ///     wallpapers/1358524.png  → WALLPAPER_1358524_BYTES    (PNG)
-    ///     wallpapers/215824.gif   → WALLPAPER_215824_BYTES     (GIF, 签名 "GIF8")
-    ///     wallpapers/220240.gif   → WALLPAPER_220240_BYTES     (GIF, 签名 "GIF8")
+    ///   builtin_wallpapers() = 10 项 → 5 项 image（3 PNG + 2 GIF）+ 5 项 Video。
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 对每个 image builtin 调 EmbeddedAssets.load(rel) → 期望 Some(bytes)
-    ///   2. 校验 bytes 非空
-    ///   3. 对 PNG 校验首 8 字节 == PNG signature
-    ///   4. 对 GIF 校验首 6 字节 == "GIF89a" 或 "GIF87a"
-    ///   5. list("wallpapers") 应包含每个 image 文件名
+    ///   1. 对每个 image builtin 调 EmbeddedAssets.load(rel)
+    ///   2. 校验 PNG/GIF magic，并确认 list("wallpapers") 包含文件名
     ///
     /// 预期结果：
-    ///   - 正断言：5 个 image builtin 均能 load 且字节非空
-    ///   - 正断言：PNG 项首 8 字节为 PNG signature
-    ///   - 正断言：GIF 项首 6 字节为 "GIF8" 前缀
+    ///   - 正断言：5 个 image builtin 均能 load 且 magic 正确
     ///   - 正断言：list("wallpapers") 包含全部 5 个 image 文件名
     #[test]
     fn test_embedded_assets_serve_all_image_builtins() {
@@ -402,32 +433,18 @@ mod tests {
         }
     }
 
-    /// 顶栏 SVG 图标资产：每个 icons/toolbar-*.svg 路径都应能通过 AssetSource 加载，
-    /// 返回非空字节且首字节为 `<`（SVG 文件以 `<svg` 或 `<?xml` 开头）。
+    /// 顶栏 SVG 图标资产：每个 icons/toolbar-*.svg 路径都应能通过 AssetSource 加载。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   toolbar 路径表（与 crates/ui/src/icons.rs::ToolbarIcon::asset_path 完全一致）：
-    ///     icons/toolbar-scroll.svg
-    ///     icons/toolbar-plus.svg
-    ///     icons/toolbar-terminal.svg
-    ///     icons/toolbar-claude.svg
-    ///     icons/toolbar-codex.svg
-    ///     icons/toolbar-opencode.svg
-    ///     icons/toolbar-preview.svg
-    ///     icons/toolbar-settings.svg
-    ///   路径数 = 8
-    ///   首非空白字节期望 = b'<'（ASCII 60），SVG 文本必然以 `<` 起始
-    ///   负样本路径 = "icons/toolbar-missing.svg"（不存在）
+    ///   toolbar 路径数 = 9；首非空白字节期望 = b'<'（ASCII 60）；
+    ///   负样本路径 = "icons/toolbar-missing.svg"。
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 对 8 条路径逐一调用 EmbeddedAssets.load(path)
-    ///   2. 每条期望返回 Some(bytes)
-    ///   3. 对 bytes 跳过前导 ASCII 空白，取首非空白字节，断言 == b'<'
-    ///   4. 调用 load("icons/toolbar-missing.svg") → 期望 None
+    ///   1. 逐一 load 9 条 toolbar 路径并检查首非空白字节
+    ///   2. load 缺失路径并期望 None
     ///
     /// 预期结果：
-    ///   - 正断言：8 条路径均返回 Some 且字节非空
-    ///   - 正断言：8 条路径首非空白字节均为 b'<'（SVG 起始标记）
+    ///   - 正断言：9 条路径均返回 Some 且首非空白字节为 b'<'
     ///   - 负断言：不存在的 toolbar-missing.svg 返回 None
     #[test]
     fn test_embedded_assets_load_toolbar_svg_icons() {
@@ -437,6 +454,7 @@ mod tests {
             TOOLBAR_SCROLL_ASSET,
             TOOLBAR_PLUS_ASSET,
             TOOLBAR_TERMINAL_ASSET,
+            TOOLBAR_BROWSER_ASSET,
             TOOLBAR_CLAUDE_ASSET,
             TOOLBAR_CODEX_ASSET,
             TOOLBAR_OPENCODE_ASSET,

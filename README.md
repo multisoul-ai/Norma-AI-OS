@@ -1,4 +1,4 @@
-# Multisoul Desktop
+# Norma OS
 
 macOS 空间工作台脚手架（垂直切片）。核心抽象 **Live Node on Infinite Canvas**，Terminal 是第一个 Live Node。
 
@@ -28,7 +28,7 @@ macOS 空间工作台脚手架（垂直切片）。核心抽象 **Live Node on I
 ## 打包（未签名）
 - `cargo install cargo-packager --locked`
 - `cargo build --release -p app`
-- `cargo packager --release` → 产出 `Multisoul.app` / `.dmg`
+- `cargo packager --release` → 产出 `Norma OS.app` / `.dmg`
 
 ## 快捷键
 - `Cmd+N` 新建 Terminal；`Cmd+D` 删除当前聚焦或唯一选中的卡片；`Cmd+Esc` 退出聚焦（裸 `Esc` 直达 PTY）

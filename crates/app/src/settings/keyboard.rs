@@ -274,6 +274,7 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
     match command {
         ShortcutCommandId::NewWindow => "settings-shortcut-new-window",
         ShortcutCommandId::NewTerminal => "settings-shortcut-new-terminal",
+        ShortcutCommandId::NewBrowser => "settings-shortcut-new-browser",
         ShortcutCommandId::CopyCardContent => "settings-shortcut-copy-card-content",
         ShortcutCommandId::OpenProject => "settings-shortcut-open-project",
         ShortcutCommandId::OpenPreviewFile => "settings-shortcut-open-preview-file",
@@ -292,6 +293,7 @@ fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
     match command {
         ShortcutCommandId::NewWindow => "settings-shortcut-restore-new-window",
         ShortcutCommandId::NewTerminal => "settings-shortcut-restore-new-terminal",
+        ShortcutCommandId::NewBrowser => "settings-shortcut-restore-new-browser",
         ShortcutCommandId::CopyCardContent => "settings-shortcut-restore-copy-card-content",
         ShortcutCommandId::OpenProject => "settings-shortcut-restore-open-project",
         ShortcutCommandId::OpenPreviewFile => "settings-shortcut-restore-open-preview-file",

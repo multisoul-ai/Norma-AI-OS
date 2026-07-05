@@ -47,6 +47,9 @@ pub enum CardKind {
         path: PathBuf,
         explicit_type: Option<PreviewType>,
     },
+    Browser {
+        url: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -107,6 +110,7 @@ pub enum CardSummaryKind {
     Terminal,
     Agent { profile: AgentProfile },
     Preview,
+    Browser,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

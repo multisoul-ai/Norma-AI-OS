@@ -36,6 +36,10 @@ fn test_snapshot_with_cursor(
         lines,
         display_offset: 0,
         history_size: 0,
+        alt_screen: false,
+        alternate_scroll: true,
+        mouse_mode: false,
+        sgr_mouse: false,
     }
 }
 

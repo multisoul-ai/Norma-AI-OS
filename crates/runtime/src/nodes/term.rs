@@ -111,6 +111,13 @@ impl LiveNode for TermLive {
                 }
                 Ok(changed)
             }
+            NodeScroll::TermWheel { lines, row, col } => {
+                let changed = self.session.scroll_wheel(lines, row, col)?;
+                if changed {
+                    self.refresh_cached_view();
+                }
+                Ok(changed)
+            }
         }
     }
 

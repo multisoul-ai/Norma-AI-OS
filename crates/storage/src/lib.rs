@@ -16,7 +16,7 @@ pub mod voice_history_store;
 pub use agent_definition_store::{
     AgentDefinition, AgentDefinitionStore, AgentDefinitionUpdate, NewAgentDefinition,
 };
-pub use app_store::{default_app_db_path, AppStore};
+pub use app_store::{default_app_data_dir, default_app_db_path, legacy_app_data_dir, AppStore};
 pub use canvas_store::CanvasStore;
 pub use error::{StorageError, StorageResult};
 pub use layout_store::{LayoutMode, LayoutOriginalBounds, LayoutStateSnapshot, LayoutStore};

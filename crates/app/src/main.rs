@@ -12,8 +12,8 @@ mod shortcuts;
 mod workspace;
 
 use app::{
-    CopyCardContent, NewClaudeAgent, NewCodexAgent, NewOpenCodeAgent, NewTerminal, NewWindow,
-    OpenPreviewFile, OpenProject, ReflowLayout, ToggleMasterLayout, ToggleSettings,
+    CopyCardContent, NewBrowser, NewClaudeAgent, NewCodexAgent, NewOpenCodeAgent, NewTerminal,
+    NewWindow, OpenPreviewFile, OpenProject, ReflowLayout, ToggleMasterLayout, ToggleSettings,
 };
 use assets::EmbeddedAssets;
 use gpui::{App, Application, Menu, MenuItem};
@@ -30,12 +30,13 @@ fn main() {
     Application::new()
         .with_assets(EmbeddedAssets)
         .run(|cx: &mut App| {
-            // 菜单（App 显示名 Multisoul）。
+            // 菜单（App 显示名 Norma OS）。
             cx.set_menus(vec![Menu {
-                name: "Multisoul".into(),
+                name: "Norma OS".into(),
                 items: vec![
                     MenuItem::action("New Window", NewWindow),
                     MenuItem::action("New Terminal", NewTerminal),
+                    MenuItem::action("New Browser", NewBrowser),
                     MenuItem::action("Copy", CopyCardContent),
                     MenuItem::action("Open Project", OpenProject),
                     MenuItem::action("Preview File", OpenPreviewFile),

@@ -14,6 +14,7 @@ pub enum ToolbarIcon {
     Scroll,
     Plus,
     Terminal,
+    Browser,
     Claude,
     Codex,
     OpenCode,
@@ -28,6 +29,7 @@ impl ToolbarIcon {
             ToolbarIcon::Scroll => "icons/toolbar-scroll.svg",
             ToolbarIcon::Plus => "icons/toolbar-plus.svg",
             ToolbarIcon::Terminal => "icons/toolbar-terminal.svg",
+            ToolbarIcon::Browser => "icons/toolbar-browser.svg",
             ToolbarIcon::Claude => "icons/toolbar-claude.svg",
             ToolbarIcon::Codex => "icons/toolbar-codex.svg",
             ToolbarIcon::OpenCode => "icons/toolbar-opencode.svg",
@@ -56,13 +58,14 @@ mod tests {
     /// 顶栏图标 asset 路径：每个 ToolbarIcon 变体都映射到唯一的、命名规范的 SVG 路径。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   变体总数 = 8（Scroll / Plus / Terminal / Claude / Codex / OpenCode / Preview / Settings）
+    ///   变体总数 = 9（Scroll / Plus / Terminal / Browser / Claude / Codex / OpenCode / Preview / Settings）
     ///   命名前缀 = "icons/toolbar-"
     ///   命名后缀 = ".svg"
     ///   期望路径表（variant -> asset_path）：
     ///     Scroll    -> "icons/toolbar-scroll.svg"
     ///     Plus      -> "icons/toolbar-plus.svg"
     ///     Terminal  -> "icons/toolbar-terminal.svg"
+    ///     Browser   -> "icons/toolbar-browser.svg"
     ///     Claude    -> "icons/toolbar-claude.svg"
     ///     Codex     -> "icons/toolbar-codex.svg"
     ///     OpenCode  -> "icons/toolbar-opencode.svg"
@@ -86,17 +89,19 @@ mod tests {
             ToolbarIcon::Scroll,
             ToolbarIcon::Plus,
             ToolbarIcon::Terminal,
+            ToolbarIcon::Browser,
             ToolbarIcon::Claude,
             ToolbarIcon::Codex,
             ToolbarIcon::OpenCode,
             ToolbarIcon::Preview,
             ToolbarIcon::Settings,
         ];
-        // expected len = 8（与 ToolbarIcon 变体数一致，手工推导）
-        let expected: [(&ToolbarIcon, &str); 8] = [
+        // expected len = 9（与 ToolbarIcon 变体数一致，手工推导）
+        let expected: [(&ToolbarIcon, &str); 9] = [
             (&ToolbarIcon::Scroll, "icons/toolbar-scroll.svg"),
             (&ToolbarIcon::Plus, "icons/toolbar-plus.svg"),
             (&ToolbarIcon::Terminal, "icons/toolbar-terminal.svg"),
+            (&ToolbarIcon::Browser, "icons/toolbar-browser.svg"),
             (&ToolbarIcon::Claude, "icons/toolbar-claude.svg"),
             (&ToolbarIcon::Codex, "icons/toolbar-codex.svg"),
             (&ToolbarIcon::OpenCode, "icons/toolbar-opencode.svg"),

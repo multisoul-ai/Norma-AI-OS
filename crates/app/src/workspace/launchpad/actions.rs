@@ -1,6 +1,6 @@
 use super::layout::{ACTION_CARD_HEIGHT, ACTION_CARD_WIDTH};
 use super::{launchpad_logo_shadow, launchpad_shadow, with_alpha};
-use crate::assets::APP_ICON_ASSET;
+use crate::assets::APP_LOGO_ASSET;
 use gpui::{div, img, prelude::*, px, rgba, Div, FontWeight, ObjectFit};
 use ui::Theme;
 
@@ -25,7 +25,7 @@ pub(super) fn launchpad_brand(theme: Theme) -> Div {
                         .border_color(rgba(with_alpha(theme.edge_highlight, 0x70)))
                         .shadow(launchpad_logo_shadow(theme))
                         .bg(rgba(with_alpha(theme.panel_high, 0xa0)))
-                        .child(img(APP_ICON_ASSET).size_full().object_fit(ObjectFit::Cover)),
+                        .child(img(APP_LOGO_ASSET).size_full().object_fit(ObjectFit::Cover)),
                 )
                 .child(
                     div()
@@ -37,7 +37,7 @@ pub(super) fn launchpad_brand(theme: Theme) -> Div {
                                 .text_size(px(22.0))
                                 .font_weight(FontWeight::BOLD)
                                 .text_color(rgba(theme.text_primary))
-                                .child("MULTISOUL"),
+                                .child("NORMA OS"),
                         )
                         .child(
                             div()

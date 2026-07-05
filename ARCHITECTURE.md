@@ -1,6 +1,6 @@
-# Multisoul Desktop Architecture
+# Norma OS Architecture
 
-Multisoul Desktop 是一个 macOS 空间工作台脚手架。当前垂直切片围绕 **Live Node on Infinite Canvas** 构建：GPUI 窗口中有无限画布，画布节点可以承载实时运行的能力；Terminal 是第一个 Live Node。
+Norma OS 是一个 macOS 空间工作台脚手架。当前垂直切片围绕 **Live Node on Infinite Canvas** 构建：GPUI 窗口中有无限画布，画布节点可以承载实时运行的能力；Terminal 是第一个 Live Node。
 
 本文描述当前实现，不描述未来愿景的完整形态。Phase 占位见 [`README.md`](README.md)。
 
@@ -128,7 +128,7 @@ crates/storage/src/
 
 主要职责：
 
-- 管理用户级 `~/Library/Application Support/Multisoul/app.sqlite`
+- 管理用户级 `~/Library/Application Support/Norma OS/app.sqlite`
 - 管理项目级 `<workspace>/.multisoul/project.sqlite`
 - 读写 recent/settings/canvas snapshot/session checkpoint
 - 保持底层依赖，不反向依赖 `app/runtime/ui`

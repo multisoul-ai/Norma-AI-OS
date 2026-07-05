@@ -1,6 +1,6 @@
 # Keyboard Shortcuts Reference
 
-本文汇总 Multisoul Desktop 当前可配置快捷键与键盘/指针交互契约。macOS 上 `Cmd` 对应 GPUI 的 `platform` 修饰键（⌘）。
+本文汇总 Norma OS 当前可配置快捷键与键盘/指针交互契约。macOS 上 `Cmd` 对应 GPUI 的 `platform` 修饰键（⌘）。
 
 最后对照源码：`crates/app/src/shortcuts.rs`、`crates/app/src/app/keyboard.rs`、`crates/app/src/settings/keyboard.rs`、`crates/app/src/canvas/view.rs`、`crates/app/src/app/new_menu.rs`（2026-06-28）。
 
@@ -84,7 +84,7 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 
 ## 3. 菜单项与默认未设置命令
 
-`main.rs` 的 `Multisoul` 菜单仍注册 Action，菜单点击与快捷键分发共用同一批处理器。以下命令默认没有快捷键，但可在 Settings 中分配：
+`main.rs` 的 `Norma OS` 菜单仍注册 Action，菜单点击与快捷键分发共用同一批处理器。以下命令默认没有快捷键，但可在 Settings 中分配：
 
 | 菜单项 | Action | 处理器 | 等效入口 |
 | --- | --- | --- | --- |

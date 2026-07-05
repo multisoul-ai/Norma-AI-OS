@@ -8,7 +8,7 @@ Every session must begin by reading [`AGENTS.md`](AGENTS.md). It is the short na
 
 ## 1. Project Overview
 
-Multisoul Desktop is a macOS spatial workbench scaffold. The product direction is **Live Node on Infinite Canvas**: an infinite canvas hosts live executable nodes, with Terminal as the first live node.
+Norma OS is a macOS spatial workbench scaffold. The product direction is **Live Node on Infinite Canvas**: an infinite canvas hosts live executable nodes, with Terminal as the first live node.
 
 Workspace crates:
 
@@ -225,6 +225,6 @@ reference them in your reply using standard Markdown image syntax:
 ![description](/absolute/path/to/image.png)
 
 Supported formats: png, jpg, jpeg, gif, webp.
-The MultiSoul mobile app will automatically render these images inline.
+The Norma OS mobile app will automatically render these images inline.
 
 <!-- msctl-inject-end -->

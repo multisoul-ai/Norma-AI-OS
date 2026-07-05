@@ -7,8 +7,8 @@ use crate::nodes::agent::spawn_agent_live;
 use crate::nodes::term::TermLive;
 use crate::runtime_support::terminal_shell_command;
 use canvas::{
-    AgentProfile, AgentSpec, CanvasNodeKind, CanvasRect, Document, DocumentSnapshot, NodeId,
-    NodeType, PreviewSpec, PreviewType, Selection, TermSpec,
+    AgentProfile, AgentSpec, BrowserSpec, CanvasNodeKind, CanvasRect, Document, DocumentSnapshot,
+    NodeId, NodeType, PreviewSpec, PreviewType, Selection, TermSpec,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -246,6 +246,16 @@ impl Runtime {
             }),
             bounds,
         )
+    }
+
+    pub fn spawn_browser(
+        &mut self,
+        url: String,
+        title: Option<String>,
+        bounds: CanvasRect,
+    ) -> NodeId {
+        self.document
+            .add_node(CanvasNodeKind::Browser(BrowserSpec { url, title }), bounds)
     }
 
     #[cfg(test)]

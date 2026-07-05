@@ -9,7 +9,8 @@
 //! State lives in [`super::state`]; this module only renders against
 //! `&WallpaperSettingsState` and routes clicks back into `MultisoulApp`.
 
-use super::state::{custom_wallpapers_dir, WallpaperSettingsState};
+use super::dirs::custom_wallpapers_dir;
+use super::state::WallpaperSettingsState;
 use crate::app::wallpaper_resolvers::{builtin_wallpapers, resolve_builtin_asset, WallpaperKind};
 use crate::app::MultisoulApp;
 use gpui::{

@@ -2,6 +2,7 @@
 //! 事件处理（pan、拖拽、单击）见 `events` 子模块。
 
 use super::events;
+use crate::app::browser::BrowserViewBounds;
 use crate::app::MultisoulApp;
 #[cfg(test)]
 use crate::canvas::events::{should_focus_app_root_for_mouse_down, should_notify_motion_frame};
@@ -16,6 +17,7 @@ use crate::canvas::geometry::{
 #[cfg(test)]
 use crate::canvas::interaction::InteractionState;
 use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
+use crate::cards::browser::card::BROWSER_TOOLBAR_H_PX;
 use crate::cards::chrome::{
     node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
 };
@@ -23,11 +25,12 @@ use crate::cards::snake::render_working_snake_border;
 use crate::cards::{card_for, CardBodyContext};
 #[cfg(test)]
 use canvas::Vec2;
-use canvas::{NodeId, NodeType};
+use canvas::{CanvasNodeKind, NodeId, NodeType};
 use gpui::{div, prelude::*, px, rgba, AnyElement, Context, MouseButton, Window};
 use runtime::InputMode;
 #[cfg(test)]
 use runtime::{route, Route};
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
@@ -53,7 +56,9 @@ pub fn render_canvas(
     let focus_mode = app.runtime.focus.mode();
 
     // 先收集需要渲染的节点数据（避免借用冲突）。
+    let swap_candidate = app.interaction.drag.as_ref().and_then(|d| d.swap_candidate);
     let mut node_elems: Vec<AnyElement> = Vec::new();
+    let mut visible_browser_nodes = HashSet::new();
     let mut visible_nodes = 0usize;
     let mut snake_nodes = 0usize;
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
@@ -71,6 +76,7 @@ pub fn render_canvas(
             continue;
         };
         let focused = matches!(focus_mode, InputMode::NodeFocused(fid) if fid == id);
+        let is_swap_candidate = swap_candidate == Some(id);
         app.motion.ensure_node(id, canonical_rect);
         app.motion.set_selection_focus(id, selected, focused);
         let is_agent = node_type == NodeType::Agent;
@@ -256,11 +262,31 @@ pub fn render_canvas(
                 focused,
                 reduce_motion: app.motion.reduce_motion,
                 terminal_cursor_phase: app.terminal_cursor_phase,
+                browser_address_draft: app.browser_address_draft_for(id),
+                app_focus_handle: app.focus_handle.clone(),
                 theme,
                 zoom: vp.zoom,
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),
             },
         );
+        if matches!(node_type, NodeType::Browser) {
+            visible_browser_nodes.insert(id);
+            if let CanvasNodeKind::Browser(spec) = &node.kind {
+                let browser_y = top_left.y + (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
+                let browser_h = h - (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
+                app.sync_browser_view_for_node(
+                    id,
+                    &spec.url,
+                    BrowserViewBounds {
+                        x: f64::from(top_left.x),
+                        y: f64::from(browser_y),
+                        width: f64::from(w),
+                        height: f64::from(browser_h.max(0.0)),
+                    },
+                    window,
+                );
+            }
+        }
         node_div = node_div
             .child(edge_highlight)
             .child(title_bar)
@@ -275,6 +301,16 @@ pub fn render_canvas(
             ));
         }
         node_elems.push(node_div.into_any_element());
+        if is_swap_candidate {
+            node_elems.push(swap_highlight_overlay(
+                top_left.x,
+                top_left.y,
+                w,
+                h,
+                node_radius,
+                theme.accent_violet,
+            ));
+        }
     }
 
     if CANVAS_OPEN_RENDER_PENDING.swap(false, Ordering::AcqRel) {
@@ -301,6 +337,7 @@ pub fn render_canvas(
         elapsed: render_start.elapsed(),
     }
     .log_if_enabled();
+    app.finish_browser_view_sync(&visible_browser_nodes);
 
     div()
         .id("canvas")
@@ -313,6 +350,26 @@ pub fn render_canvas(
         .on_mouse_up(MouseButton::Left, cx.listener(events::on_mouse_up))
         .on_mouse_up(MouseButton::Middle, cx.listener(events::on_mouse_up))
         .children(node_elems)
+}
+
+fn swap_highlight_overlay(
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    radius_px: f32,
+    color: u32,
+) -> AnyElement {
+    div()
+        .absolute()
+        .left(px(x))
+        .top(px(y))
+        .w(px(w))
+        .h(px(h))
+        .border_2()
+        .border_color(rgba(color))
+        .rounded(px(radius_px))
+        .into_any_element()
 }
 
 fn with_alpha(color: u32, alpha: u8) -> u32 {

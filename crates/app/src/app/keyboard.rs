@@ -3,7 +3,7 @@
 use crate::app::voice::control::{
     is_voice_hold_modifier_release, is_voice_hold_release, is_voice_hold_shortcut, VoiceTrigger,
 };
-use crate::app::{AppScreen, CopyCardContent, MultisoulApp};
+use crate::app::{clipboard_image, AppScreen, CopyCardContent, MultisoulApp};
 use crate::canvas::text_selection::TextSelection;
 use crate::cards::term::selection::terminal_selected_text;
 use crate::cards::term::view::keystroke_to_input;
@@ -156,6 +156,40 @@ fn should_auto_focus_keyboard_selection(keystroke: &Keystroke) -> bool {
 }
 
 impl MultisoulApp {
+    fn paste_clipboard_to_node(&mut self, node_id: NodeId, cx: &mut Context<Self>) -> bool {
+        let item = cx.read_from_clipboard();
+        if clipboard_image::accepts_clipboard_image_path(&self.runtime, node_id) {
+            if let Some(image) = clipboard_image::read_clipboard_image_first(item.as_ref()) {
+                match clipboard_image::save_clipboard_image_to_system_temp(&image) {
+                    Ok(saved) => {
+                        self.interaction.clear_text_selection_for_node(node_id);
+                        if let Err(error) = self
+                            .runtime
+                            .send_node_input(node_id, NodeInput::Text(saved.text))
+                        {
+                            tracing::error!(%error, "clipboard image path paste send_node_input failed");
+                        }
+                        return true;
+                    }
+                    Err(error) => {
+                        tracing::error!(%error, "clipboard image paste failed");
+                        return false;
+                    }
+                }
+            }
+        }
+
+        if let Some(text) = item.and_then(|item| item.text()) {
+            self.interaction.clear_text_selection_for_node(node_id);
+            if let Err(error) = self.runtime.send_node_input(node_id, NodeInput::Text(text)) {
+                tracing::error!(%error, "paste send_node_input failed");
+            }
+            return true;
+        }
+
+        false
+    }
+
     pub(crate) fn on_copy_card_content(
         &mut self,
         _: &CopyCardContent,
@@ -191,6 +225,10 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.handle_browser_address_key_down(ev, cx) {
+            return;
+        }
+
         if self.settings_panel.open
             && (self.voice_settings.handle_key_down(&ev.keystroke)
                 || self.agent_definitions.handle_key_down(&ev.keystroke)
@@ -266,16 +304,7 @@ impl MultisoulApp {
                     self.runtime.focus.focus_node(node_id);
                     self.interaction.keyboard_selected_node = None;
                     if ev.keystroke.modifiers.platform && ev.keystroke.key == "v" {
-                        if let Some(item) = cx.read_from_clipboard() {
-                            if let Some(text) = item.text() {
-                                self.interaction.clear_text_selection_for_node(node_id);
-                                if let Err(e) =
-                                    self.runtime.send_node_input(node_id, NodeInput::Text(text))
-                                {
-                                    tracing::error!(error = %e, "paste send_node_input failed");
-                                }
-                            }
-                        }
+                        self.paste_clipboard_to_node(node_id, cx);
                         cx.notify();
                         return;
                     }
@@ -302,16 +331,8 @@ impl MultisoulApp {
                 == Route::SendInputToNode(node_id)
             {
                 if ev.keystroke.modifiers.platform && ev.keystroke.key == "v" {
-                    if let Some(item) = cx.read_from_clipboard() {
-                        if let Some(text) = item.text() {
-                            self.interaction.clear_text_selection_for_node(node_id);
-                            if let Err(e) =
-                                self.runtime.send_node_input(node_id, NodeInput::Text(text))
-                            {
-                                tracing::error!(error = %e, "paste send_node_input failed");
-                            }
-                            cx.notify();
-                        }
+                    if self.paste_clipboard_to_node(node_id, cx) {
+                        cx.notify();
                     }
                     return;
                 }
@@ -340,6 +361,9 @@ impl MultisoulApp {
             ShortcutCommandId::NewWindow => self.on_new_window(&crate::app::NewWindow, window, cx),
             ShortcutCommandId::NewTerminal => {
                 self.on_new_terminal(&crate::app::NewTerminal, window, cx)
+            }
+            ShortcutCommandId::NewBrowser => {
+                self.on_new_browser(&crate::app::NewBrowser, window, cx)
             }
             ShortcutCommandId::CopyCardContent => {
                 self.on_copy_card_content(&crate::app::CopyCardContent, window, cx)

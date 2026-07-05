@@ -12,8 +12,9 @@
 //! clears the var on drop. This serializes the (small number of) wallpaper
 //! persistence tests while leaving all other crate tests fully parallel.
 
+use super::dirs::custom_wallpapers_dir;
 use super::import::ImportResult;
-use super::state::{custom_wallpapers_dir, WallpaperSelection, WallpaperSettingsState};
+use super::state::{WallpaperSelection, WallpaperSettingsState};
 use std::fs;
 use std::sync::Mutex;
 
