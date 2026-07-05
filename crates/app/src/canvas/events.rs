@@ -252,9 +252,6 @@ pub(super) fn on_mouse_move(
         } else {
             None
         };
-        if new_swap != drag.swap_candidate {
-            app.mark_canvas_dirty();
-        }
         app.interaction.drag = Some(DragState {
             node: drag.node,
             last_screen: screen,
