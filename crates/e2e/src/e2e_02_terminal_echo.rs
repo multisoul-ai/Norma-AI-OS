@@ -16,7 +16,7 @@ use gpui::TestAppContext;
 use runtime::NodeInput;
 
 use crate::harness::{
-    create_terminal, drain_until, enter_canvas, make_app, read_grid, read_runtime, scripted_factory,
+    create_terminal, drain_until, enter_canvas, make_app, read_grid, scripted_factory,
 };
 
 /// E2E-02：向 focused Term 节点写入 `echo hi` → 剧本后端回吐 `hi\r\n` → grid 含 `hi`。
@@ -134,6 +134,5 @@ fn e2e_02_terminal_input_echoes_scripted_output_into_grid() {
     );
 
     // 清理：杀掉所有 live node 的 PTY（剧本 backend 无真实进程，但保持习惯）。
-    read_runtime(&app, cx, |_r| ()); // 触发一次稳定读，确保 drain 队列清空
     app.update(cx, |a, _cx| a.runtime.kill_all());
 }
