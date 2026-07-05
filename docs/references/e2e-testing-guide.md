@@ -37,7 +37,7 @@ cargo test -p e2e e2e_02_terminal_input_echoes
 subagent 完成涉及 Terminal / Canvas / 焦点路由 / PTY 链路的功能后，把相关 e2e 测试当作"功能做完了没"的自动判定：
 
 1. 跑与改动相关的 e2e 测试（如改了 spawn 路径 → `e2e_01`；改了 input/drain → `e2e_02`）。
-2. 绿 = 功能闭环；红 = 回到 [`superpowers:systematic-debugging`](../../.claude/skills) 排查，不要手动"看起来对了"就宣告完成。
+2. 绿 = 功能闭环；红 = 回到 `superpowers:systematic-debugging` 排查，不要手动"看起来对了"就宣告完成。
 3. 改动若影响真 PTY 路径，本地补跑 `cargo test -p e2e -- --ignored`。
 
 ## 4. Harness Helper 速查
