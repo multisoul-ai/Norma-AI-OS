@@ -1,7 +1,7 @@
 //! Agent live node factories. Agent 节点复用 terminal-backed runtime。
 
 use crate::agent_hooks::AgentHookEnv;
-use crate::nodes::term::TermLive;
+use crate::nodes::term::{PtyFactory, TermLive};
 use canvas::AgentProfile;
 use std::path::Path;
 use terminal::{PtyCommand, PtyError, TerminalSessionId};
@@ -13,13 +13,13 @@ pub(crate) fn spawn_agent_live(
     hook_env: Option<&AgentHookEnv>,
     cols: u16,
     rows: u16,
+    pty_factory: Option<&PtyFactory>,
 ) -> Result<TermLive, PtyError> {
-    TermLive::spawn_command(
-        id,
-        agent_command(profile, hook_env).with_cwd(cwd),
-        cols,
-        rows,
-    )
+    let command = agent_command(profile, hook_env).with_cwd(cwd);
+    match pty_factory {
+        Some(factory) => TermLive::spawn_with_factory(id, command, cols, rows, factory),
+        None => TermLive::spawn_command(id, command, cols, rows),
+    }
 }
 
 pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEnv>) -> PtyCommand {

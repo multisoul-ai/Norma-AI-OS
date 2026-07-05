@@ -85,6 +85,30 @@ pub(crate) enum AppScreen {
 
 impl MultisoulApp {
     pub fn new(cx: &mut Context<Self>) -> Self {
+        let agent_hook_server = AgentHookServer::start();
+        let mut runtime = Runtime::new();
+        runtime.set_agent_hook_config(agent_hook_server.runtime_config());
+        Self::assemble(cx, runtime, agent_hook_server, wallpaper_from_env())
+    }
+
+    /// 测试入口：注入 PTY 工厂，使 Cmd+N 走 TestPtyBackend 而非真实 PTY。
+    /// 与 `new` 行为一致，仅在 `Runtime::new()` 后额外调用 `set_pty_factory`。
+    pub fn new_with_pty_factory(cx: &mut Context<Self>, factory: runtime::PtyFactory) -> Self {
+        let agent_hook_server = AgentHookServer::start();
+        let mut runtime = Runtime::new();
+        runtime.set_pty_factory(factory);
+        runtime.set_agent_hook_config(agent_hook_server.runtime_config());
+        Self::assemble(cx, runtime, agent_hook_server, wallpaper_from_env())
+    }
+
+    /// `new` / `new_with_pty_factory` 共享的构造核心：启动后台帧循环并装配字段。
+    /// 调用方负责准备 `Runtime`（含可选 PTY 工厂与 agent hook 配置）。
+    fn assemble(
+        cx: &mut Context<Self>,
+        runtime: Runtime,
+        agent_hook_server: AgentHookServer,
+        wallpaper: WorkspaceWallpaper,
+    ) -> Self {
         // 后台帧循环：每 ~12ms drain 一次（8–16ms 批处理窗口），dirty 才 repaint。
         cx.spawn(async move |this, cx| {
             loop {
@@ -119,11 +143,6 @@ impl MultisoulApp {
             }
         })
         .detach();
-
-        let wallpaper = wallpaper_from_env();
-        let agent_hook_server = AgentHookServer::start();
-        let mut runtime = Runtime::new();
-        runtime.set_agent_hook_config(agent_hook_server.runtime_config());
 
         MultisoulApp {
             runtime,

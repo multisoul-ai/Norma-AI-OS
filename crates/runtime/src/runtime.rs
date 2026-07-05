@@ -3,10 +3,8 @@
 use crate::events::RuntimeEvents;
 use crate::focus::{FocusState, InputMode};
 use crate::live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
-#[cfg(test)]
-use crate::nodes::agent::agent_command;
 use crate::nodes::agent::spawn_agent_live;
-use crate::nodes::term::TermLive;
+use crate::nodes::term::{spawn_term_live, PtyFactory};
 use crate::runtime_support::{checkpoint_grid_size, terminal_shell_command, usize_to_u16};
 use canvas::{
     AgentProfile, AgentSpec, CanvasNodeKind, CanvasRect, Document, DocumentSnapshot, NodeId,
@@ -33,6 +31,7 @@ pub struct Runtime {
     terminal_shells: HashMap<NodeId, String>,
     next_session_id: TerminalSessionId,
     workspace_root: Option<PathBuf>,
+    pty_factory: Option<PtyFactory>,
 }
 
 impl Default for Runtime {
@@ -53,6 +52,7 @@ impl Runtime {
             terminal_shells: HashMap::new(),
             next_session_id: 1,
             workspace_root: None,
+            pty_factory: None,
         }
     }
 
@@ -60,6 +60,11 @@ impl Runtime {
         let mut runtime = Self::new();
         runtime.workspace_root = Some(root.into());
         runtime
+    }
+
+    /// 注入测试 PTY 工厂（仅测试）；设后 spawn 走注入 backend，生产不调用。
+    pub fn set_pty_factory(&mut self, factory: PtyFactory) {
+        self.pty_factory = Some(factory);
     }
 
     pub fn workspace_root(&self) -> Option<&Path> {
@@ -199,7 +204,8 @@ impl Runtime {
     ) -> Result<NodeId, PtyError> {
         let sid = self.allocate_session_id();
         let command = terminal_shell_command(shell).with_cwd(self.workspace_root());
-        let live = TermLive::spawn_command(sid, command, cols, rows).inspect_err(|error| {
+        let factory = self.pty_factory.as_ref();
+        let live = spawn_term_live(factory, sid, command, cols, rows).inspect_err(|error| {
             self.events
                 .operation_failed(None, "spawn_terminal", error.to_string());
         })?;
@@ -235,6 +241,7 @@ impl Runtime {
             hook_env.as_ref(),
             cols,
             rows,
+            self.pty_factory.as_ref(),
         )
         .inspect_err(|error| {
             self.document.remove_node(node_id);
@@ -259,35 +266,6 @@ impl Runtime {
             }),
             bounds,
         )
-    }
-
-    #[cfg(test)]
-    fn spawn_agent_with_command(
-        &mut self,
-        profile: AgentProfile,
-        bounds: CanvasRect,
-        command: PtyCommand,
-        cols: u16,
-        rows: u16,
-    ) -> Result<NodeId, PtyError> {
-        let sid = self.allocate_session_id();
-        let live =
-            TermLive::spawn_command(sid, command.with_cwd(self.workspace_root()), cols, rows)?;
-        let node_id = self.document.add_node(
-            CanvasNodeKind::Agent(AgentSpec {
-                profile,
-                alias: None,
-            }),
-            bounds,
-        );
-        self.live.insert(node_id, Box::new(live));
-        self.events.register(node_id, NodeType::Agent);
-        Ok(node_id)
-    }
-
-    #[cfg(test)]
-    fn agent_command(profile: AgentProfile) -> PtyCommand {
-        agent_command(profile, None)
     }
 
     pub fn live_len(&self) -> usize {
@@ -383,7 +361,7 @@ impl Runtime {
     fn attach_terminal_live(&mut self, node_id: NodeId, shell: &str, cols: u16, rows: u16) -> bool {
         let sid = self.allocate_session_id();
         let command = terminal_shell_command(shell).with_cwd(self.workspace_root());
-        match TermLive::spawn_command(sid, command, cols, rows) {
+        match spawn_term_live(self.pty_factory.as_ref(), sid, command, cols, rows) {
             Ok(live) => {
                 self.terminal_shells.insert(node_id, shell.to_string());
                 self.live.insert(node_id, Box::new(live));
@@ -418,6 +396,7 @@ impl Runtime {
             hook_env.as_ref(),
             cols,
             rows,
+            self.pty_factory.as_ref(),
         ) {
             Ok(live) => {
                 self.live.insert(node_id, Box::new(live));
@@ -477,6 +456,9 @@ mod event_tests;
 #[cfg(test)]
 #[path = "../tests/unit/preview_tests.rs"]
 mod preview_tests;
+#[cfg(test)]
+#[path = "runtime_test_helpers.rs"]
+mod runtime_test_helpers;
 #[cfg(test)]
 #[path = "../tests/unit/runtime_scroll_tests.rs"]
 mod scroll_tests;
