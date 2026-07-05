@@ -20,7 +20,7 @@ impl MultisoulApp {
     /// 外层是全宽锚点（仅做水平居中），内层才是真正可见的 pill。
     pub(crate) fn render_voice_bar(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> Div {
         let theme = self.theme;
-        let visual = self.voice.visual();
+        let visual = self.effective_voice_visual();
 
         // 外层全宽锚点，仅负责把 pill 水平居中并固定在底部。
         div()
@@ -182,10 +182,10 @@ fn voice_content(theme: Theme, visual: VoiceVisual, app: &mut MultisoulApp) -> D
                 div()
                     .max_w(px(360.0))
                     .text_color(rgba(theme.text_primary))
-                    .child(app.voice_label()),
+                    .child(app.effective_voice_label()),
             ),
         VoiceVisual::Processing | VoiceVisual::Success | VoiceVisual::Error => {
-            div().max_w(px(420.0)).child(app.voice_label())
+            div().max_w(px(420.0)).child(app.effective_voice_label())
         }
     }
 }

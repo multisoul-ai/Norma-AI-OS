@@ -1,9 +1,12 @@
+use self::realtime::realtime_group;
 use super::state::{VoiceSettingsField, VoiceSettingsState};
 use crate::app::MultisoulApp;
 use gpui::{
     div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, PathPromptOptions, Window,
 };
 use ui::Theme;
+
+mod realtime;
 
 pub(crate) fn voice_settings(
     theme: Theme,
@@ -46,6 +49,7 @@ pub(crate) fn voice_settings(
                     cx,
                 )),
         )
+        .child(realtime_group(theme, state, cx))
         .child(settings_group(theme, "Advanced").child(trace_row(theme, state, cx)))
         .children(status_message(theme, state))
 }

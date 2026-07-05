@@ -378,3 +378,7 @@ fn with_alpha(color: u32, alpha: u8) -> u32 {
 #[cfg(test)]
 #[path = "../../tests/unit/settings_panel_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/settings_panel_voice_tests.rs"]
+mod voice_tests;

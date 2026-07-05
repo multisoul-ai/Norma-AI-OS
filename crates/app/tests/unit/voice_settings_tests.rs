@@ -1,3 +1,4 @@
+use super::values::DEFAULT_OLLAMA_ENDPOINT;
 use super::*;
 use std::path::PathBuf;
 
@@ -30,6 +31,7 @@ fn test_voice_settings_saved_values_override_env_values() {
         paraformer_model_dir: Some(PathBuf::from("/saved/model")),
         input_device_id: Some("saved-headset".to_string()),
         trace_enabled: Some(false),
+        ..SavedVoiceSettings::default()
     };
     let env = EnvVoiceSettings {
         ollama_endpoint: Some("http://env:11434".to_string()),

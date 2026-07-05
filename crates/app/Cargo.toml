@@ -24,6 +24,7 @@ workspace.workspace = true
 norma.workspace = true
 voice.workspace = true
 voice_sherpa.workspace = true
+realtime = { path = "../realtime" }
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
