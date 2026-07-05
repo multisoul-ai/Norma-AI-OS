@@ -1,0 +1,1097 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MultiSoul - Mac desktop vibe coding with many agents</title>
+  <meta name="description" content="MultiSoul 是面向开发者的 Mac 桌面 vibe coding 工作台，让你在无限画布中与多个 AI Agent 实时协作。">
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #08090f;
+      --navy: #111735;
+      --panel: #151b2a;
+      --paper: #fff8e8;
+      --white: #fffdf8;
+      --lime: #c8ff00;
+      --cyan: #00d9f2;
+      --coral: #ff5c4d;
+      --violet: #7557ff;
+      --lavender: #b7adc8;
+      --muted: rgba(255, 253, 248, 0.72);
+      --line: rgba(255, 253, 248, 0.18);
+      --line-dark: rgba(8, 9, 15, 0.18);
+      --shadow: rgba(0, 0, 0, 0.34);
+      --sans: "Avenir Next", "SF Pro Display", "PingFang SC", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--white);
+      font-family: var(--sans);
+      letter-spacing: 0;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.034) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.034) 1px, transparent 1px),
+        var(--ink);
+      background-size: 44px 44px;
+    }
+
+    body::after {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+      content: "";
+      background-image: repeating-linear-gradient(135deg, transparent 0, transparent 38px, rgba(255, 255, 255, 0.025) 39px, transparent 40px);
+      opacity: 0.5;
+      mix-blend-mode: screen;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    img {
+      display: block;
+      max-width: 100%;
+    }
+
+    .site-header {
+      position: fixed;
+      top: 18px;
+      right: 22px;
+      left: 22px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      min-height: 62px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 253, 248, 0.22);
+      border-radius: 999px;
+      background: rgba(8, 9, 15, 0.62);
+      backdrop-filter: blur(22px) saturate(130%);
+      box-shadow: 0 18px 52px rgba(0, 0, 0, 0.24);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      padding-left: 4px;
+      font-weight: 900;
+      font-size: 18px;
+    }
+
+    .brand img {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 253, 248, 0.24);
+      background: var(--paper);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .nav a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 0 14px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 760;
+      border-radius: 999px;
+      transition: color 160ms ease, background 160ms ease;
+    }
+
+    .nav a:hover {
+      color: var(--white);
+      background: rgba(255, 253, 248, 0.1);
+    }
+
+    .header-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      min-height: 42px;
+      padding: 0 18px;
+      color: var(--ink);
+      font-weight: 900;
+      border-radius: 999px;
+      background: var(--lime);
+      box-shadow: 0 0 0 1px var(--ink), 7px 7px 0 var(--coral);
+      white-space: nowrap;
+    }
+
+    .hero {
+      position: relative;
+      min-height: 84vh;
+      padding: 138px 40px 58px;
+      overflow: hidden;
+      background-image:
+        linear-gradient(90deg, rgba(8, 9, 15, 0.92) 0%, rgba(8, 9, 15, 0.70) 33%, rgba(8, 9, 15, 0.18) 68%, rgba(8, 9, 15, 0.52) 100%),
+        url("landing-assets/brand-hero.png");
+      background-size: cover;
+      background-position: center;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero::before {
+      position: absolute;
+      inset: auto 0 0;
+      height: 172px;
+      content: "";
+      background: linear-gradient(180deg, transparent, var(--ink));
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      width: min(760px, 100%);
+      padding-top: 16px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 36px;
+      padding: 0 14px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: var(--cyan);
+      box-shadow: 6px 6px 0 var(--lime);
+    }
+
+    .eyebrow::before {
+      width: 13px;
+      height: 13px;
+      content: "";
+      border: 3px solid var(--ink);
+      border-radius: 50%;
+      background: var(--lime);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      margin-top: 22px;
+      max-width: 720px;
+      font-size: 104px;
+      line-height: 0.84;
+      font-weight: 950;
+    }
+
+    .hero-copy {
+      max-width: 690px;
+      margin-top: 24px;
+      color: rgba(255, 253, 248, 0.9);
+      font-size: 24px;
+      line-height: 1.18;
+      font-weight: 760;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 34px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 54px;
+      padding: 0 22px;
+      font-weight: 900;
+      border-radius: 999px;
+      border: 2px solid var(--ink);
+      transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .button:hover {
+      transform: translate(-2px, -2px);
+    }
+
+    .button.primary {
+      color: var(--ink);
+      background: var(--lime);
+      box-shadow: 8px 8px 0 var(--coral);
+    }
+
+    .button.secondary {
+      color: var(--ink);
+      background: var(--paper);
+      box-shadow: 8px 8px 0 var(--cyan);
+    }
+
+    .button.dark {
+      color: var(--white);
+      border-color: rgba(255, 253, 248, 0.78);
+      background: var(--navy);
+      box-shadow: 8px 8px 0 var(--violet);
+    }
+
+    .button-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      font-size: 18px;
+      font-weight: 950;
+    }
+
+    .hero-metrics {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      width: min(760px, 100%);
+      margin-top: 44px;
+    }
+
+    .metric {
+      min-height: 108px;
+      padding: 16px;
+      border: 1px solid rgba(255, 253, 248, 0.28);
+      border-radius: 8px;
+      background: rgba(8, 9, 15, 0.68);
+      backdrop-filter: blur(18px);
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 30px;
+      line-height: 1;
+      color: var(--lime);
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 9px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.28;
+      font-weight: 700;
+    }
+
+    .section {
+      position: relative;
+      padding: 92px 40px;
+    }
+
+    .section.light {
+      color: var(--ink);
+      background: var(--paper);
+    }
+
+    .section.deep {
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        var(--navy);
+      background-size: 36px 36px;
+    }
+
+    .section.cyan {
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(8, 9, 15, 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(8, 9, 15, 0.055) 1px, transparent 1px),
+        var(--cyan);
+      background-size: 42px 42px;
+    }
+
+    .container {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(0, 0.8fr) minmax(280px, 0.56fr);
+      gap: 42px;
+      align-items: end;
+      margin-bottom: 48px;
+    }
+
+    .kicker {
+      display: inline-flex;
+      width: fit-content;
+      min-height: 34px;
+      align-items: center;
+      padding: 0 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 850;
+      text-transform: uppercase;
+      border: 2px solid currentColor;
+      border-radius: 999px;
+    }
+
+    h2 {
+      margin-top: 18px;
+      font-size: 60px;
+      line-height: 0.9;
+      font-weight: 950;
+    }
+
+    .section-head p {
+      font-size: 20px;
+      line-height: 1.32;
+      font-weight: 720;
+      color: currentColor;
+      opacity: 0.76;
+    }
+
+    .intro-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+    }
+
+    .feature-card {
+      min-height: 260px;
+      padding: 24px;
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      background: var(--white);
+      box-shadow: 10px 10px 0 var(--ink);
+    }
+
+    .feature-card:nth-child(2) {
+      background: var(--lime);
+    }
+
+    .feature-card:nth-child(3) {
+      background: var(--coral);
+    }
+
+    .feature-card h3 {
+      font-size: 34px;
+      line-height: 0.94;
+      font-weight: 950;
+    }
+
+    .feature-card p {
+      margin-top: 18px;
+      font-size: 17px;
+      line-height: 1.34;
+      font-weight: 720;
+    }
+
+    .card-mark {
+      display: grid;
+      place-items: center;
+      width: 58px;
+      height: 58px;
+      margin-bottom: 30px;
+      color: var(--white);
+      font-family: var(--mono);
+      font-weight: 950;
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      background: var(--navy);
+    }
+
+    .product-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
+      gap: 28px;
+      align-items: stretch;
+    }
+
+    .product-shot {
+      min-height: 560px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 28px 70px var(--shadow);
+    }
+
+    .product-shot img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .signal-stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .signal {
+      position: relative;
+      min-height: 126px;
+      padding: 22px 22px 22px 72px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 253, 248, 0.055);
+    }
+
+    .signal::before {
+      position: absolute;
+      top: 24px;
+      left: 22px;
+      width: 28px;
+      height: 28px;
+      content: "";
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: var(--lime);
+      box-shadow: 0 0 0 7px rgba(200, 255, 0, 0.1);
+    }
+
+    .signal:nth-child(2)::before {
+      background: var(--cyan);
+      box-shadow: 0 0 0 7px rgba(0, 217, 242, 0.1);
+    }
+
+    .signal:nth-child(3)::before {
+      background: var(--coral);
+      box-shadow: 0 0 0 7px rgba(255, 92, 77, 0.1);
+    }
+
+    .signal h3 {
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 930;
+    }
+
+    .signal p {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.36;
+      font-weight: 650;
+    }
+
+    .workflow {
+      display: grid;
+      grid-template-columns: 0.86fr 1.14fr;
+      gap: 28px;
+      align-items: start;
+    }
+
+    .workflow-board {
+      display: grid;
+      gap: 16px;
+    }
+
+    .workflow-step {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 16px;
+      align-items: start;
+      min-height: 132px;
+      padding: 20px;
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      background: var(--white);
+      box-shadow: 8px 8px 0 rgba(8, 9, 15, 0.24);
+    }
+
+    .step-no {
+      display: grid;
+      place-items: center;
+      width: 64px;
+      height: 64px;
+      color: var(--ink);
+      font-size: 25px;
+      font-weight: 950;
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      background: var(--lime);
+    }
+
+    .workflow-step:nth-child(2) .step-no {
+      background: var(--cyan);
+    }
+
+    .workflow-step:nth-child(3) .step-no {
+      background: var(--coral);
+    }
+
+    .workflow-step h3 {
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 950;
+    }
+
+    .workflow-step p {
+      margin-top: 10px;
+      color: rgba(8, 9, 15, 0.72);
+      font-size: 16px;
+      line-height: 1.34;
+      font-weight: 700;
+    }
+
+    .terminal-wall {
+      min-height: 456px;
+      padding: 22px;
+      overflow: hidden;
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      background: #101521;
+      box-shadow: 12px 12px 0 var(--violet);
+    }
+
+    .term-bar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      height: 28px;
+      margin-bottom: 18px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--coral);
+    }
+
+    .dot:nth-child(2) {
+      background: #ffd35a;
+    }
+
+    .dot:nth-child(3) {
+      background: var(--lime);
+    }
+
+    .term-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .term-pane {
+      min-height: 176px;
+      padding: 16px;
+      border: 1px solid rgba(255, 253, 248, 0.15);
+      border-radius: 8px;
+      background: rgba(255, 253, 248, 0.05);
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .term-pane strong {
+      color: var(--cyan);
+    }
+
+    .term-pane span {
+      display: block;
+      color: var(--lime);
+    }
+
+    .norma-band {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1fr);
+      gap: 34px;
+      align-items: stretch;
+    }
+
+    .norma-portrait {
+      min-height: 500px;
+      overflow: hidden;
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: 14px 14px 0 var(--lime);
+    }
+
+    .norma-portrait img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .norma-copy {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 500px;
+    }
+
+    .norma-copy h2 {
+      color: var(--ink);
+    }
+
+    .norma-copy p {
+      margin-top: 24px;
+      max-width: 620px;
+      color: rgba(8, 9, 15, 0.76);
+      font-size: 21px;
+      line-height: 1.34;
+      font-weight: 760;
+    }
+
+    .norma-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 30px;
+    }
+
+    .tag {
+      min-height: 38px;
+      padding: 8px 13px;
+      color: var(--ink);
+      font-weight: 900;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: var(--white);
+    }
+
+    .tag:nth-child(2) {
+      background: var(--lime);
+    }
+
+    .tag:nth-child(3) {
+      background: var(--coral);
+    }
+
+    .download-shell {
+      display: grid;
+      grid-template-columns: 0.88fr 1.12fr;
+      gap: 30px;
+      align-items: stretch;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 253, 248, 0.055);
+      box-shadow: 0 28px 70px var(--shadow);
+    }
+
+    .download-copy h2 {
+      margin-top: 0;
+    }
+
+    .download-copy p {
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: 19px;
+      line-height: 1.36;
+      font-weight: 700;
+    }
+
+    .download-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .download-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: center;
+      min-height: 92px;
+      padding: 18px;
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      color: var(--ink);
+      background: var(--paper);
+      box-shadow: 8px 8px 0 var(--lime);
+    }
+
+    .download-item:nth-child(2) {
+      box-shadow: 8px 8px 0 var(--cyan);
+    }
+
+    .download-item:nth-child(3) {
+      box-shadow: 8px 8px 0 var(--coral);
+    }
+
+    .download-item strong {
+      display: block;
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 950;
+    }
+
+    .download-item span {
+      display: block;
+      margin-top: 8px;
+      color: rgba(8, 9, 15, 0.62);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .download-arrow {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      font-size: 24px;
+      font-weight: 950;
+      background: var(--white);
+    }
+
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 32px 40px;
+      color: rgba(255, 253, 248, 0.68);
+      border-top: 1px solid var(--line);
+      background: #05060a;
+    }
+
+    .footer strong {
+      color: var(--white);
+    }
+
+    .mock-note {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 34px;
+      margin-top: 20px;
+      padding: 0 12px;
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 900;
+      border-radius: 999px;
+      background: var(--coral);
+    }
+
+    @media (max-width: 980px) {
+      .site-header {
+        align-items: stretch;
+        border-radius: 18px;
+      }
+
+      .nav {
+        display: none;
+      }
+
+      h1 {
+        font-size: 72px;
+      }
+
+      h2 {
+        font-size: 46px;
+      }
+
+      .hero {
+        min-height: 86vh;
+        padding: 124px 22px 48px;
+        background-position: 62% center;
+      }
+
+      .hero-copy {
+        font-size: 20px;
+      }
+
+      .hero-metrics,
+      .intro-grid,
+      .section-head,
+      .product-grid,
+      .workflow,
+      .norma-band,
+      .download-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .section {
+        padding: 74px 22px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .site-header {
+        right: 12px;
+        left: 12px;
+        min-height: 58px;
+      }
+
+      .brand {
+        font-size: 16px;
+      }
+
+      .brand img {
+        width: 38px;
+        height: 38px;
+      }
+
+      .header-cta {
+        min-height: 38px;
+        padding: 0 12px;
+        font-size: 13px;
+        box-shadow: 5px 5px 0 var(--coral);
+      }
+
+      h1 {
+        font-size: 52px;
+      }
+
+      h2 {
+        font-size: 38px;
+      }
+
+      .hero-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .button {
+        width: 100%;
+      }
+
+      .hero-metrics {
+        grid-template-columns: 1fr;
+      }
+
+      .term-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .download-item {
+        grid-template-columns: 1fr;
+      }
+
+      .download-arrow {
+        justify-self: start;
+      }
+
+      .footer {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 28px 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header" aria-label="MultiSoul site navigation">
+    <a class="brand" href="#top" aria-label="MultiSoul home">
+      <img src="landing-assets/app-icon.png" alt="MultiSoul app icon">
+      <span>MultiSoul</span>
+    </a>
+    <nav class="nav" aria-label="Primary">
+      <a href="#product">产品</a>
+      <a href="#workflow">工作流</a>
+      <a href="#norma">Norma</a>
+      <a href="#download">下载</a>
+    </nav>
+    <a class="header-cta" href="#download"><span class="button-icon">↓</span>下载</a>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-content">
+        <span class="eyebrow">Mac desktop vibe coding</span>
+        <h1 id="hero-title">MultiSoul</h1>
+        <p class="hero-copy">一个面向开发者的空间工作台。通过实时对话，让多个运行在不同终端、不同任务上下文里的 AI Agent，在同一张无限画布上与你协作。</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#download"><span class="button-icon">↓</span>下载 macOS 版</a>
+          <a class="button secondary" href="#product"><span class="button-icon">⌁</span>查看产品</a>
+        </div>
+        <div class="hero-metrics" aria-label="Product highlights">
+          <div class="metric"><strong>∞</strong><span>Live Node on Infinite Canvas</span></div>
+          <div class="metric"><strong>多</strong><span>多个 Agent 同时处理上下文</span></div>
+          <div class="metric"><strong>Mac</strong><span>桌面级空间工作体验</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section light" id="product">
+      <div class="container">
+        <div class="section-head">
+          <div>
+            <span class="kicker">Product idea</span>
+            <h2>不是 IDE，也不是聊天窗口。</h2>
+          </div>
+          <p>MultiSoul 把终端、文件、界面、图表、分析和 Agent 对话放进同一个空间里。你看到的不只是回答，而是工作正在发生。</p>
+        </div>
+        <div class="intro-grid">
+          <article class="feature-card">
+            <div class="card-mark">01</div>
+            <h3>Live Agents</h3>
+            <p>Planner、Builder、Reviewer、Researcher 可以并行工作，每个 Agent 都有自己的任务节奏和状态信号。</p>
+          </article>
+          <article class="feature-card">
+            <div class="card-mark">02</div>
+            <h3>Terminal Contexts</h3>
+            <p>Terminal 是第一个 Live Node。命令、日志、测试、diff 和输出结果留在原位，随时可继续。</p>
+          </article>
+          <article class="feature-card">
+            <div class="card-mark">03</div>
+            <h3>Infinite Canvas</h3>
+            <p>工作不是一条聊天记录，而是一张能承载节点、产物、过程与决策的无限画布。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section deep" aria-labelledby="obsession-title">
+      <div class="container">
+        <div class="section-head">
+          <div>
+            <span class="kicker">Product obsession</span>
+            <h2 id="obsession-title">把过程和结果都摆到你面前。</h2>
+          </div>
+          <p>高密度但不吵闹。深色玻璃承载内容，高饱和色只作为状态、角色和协作节奏的信号。</p>
+        </div>
+        <div class="product-grid">
+          <div class="product-shot">
+            <img src="landing-assets/product-obsession.png" alt="MultiSoul product interface concept showing live agents, terminal contexts and infinite canvas">
+          </div>
+          <div class="signal-stack">
+            <article class="signal">
+              <h3>同一空间</h3>
+              <p>Agent 产出的代码、文档、图表和 UI 不是隐藏在消息里，而是成为画布上的可见节点。</p>
+            </article>
+            <article class="signal">
+              <h3>实时对话</h3>
+              <p>你可以用自然语言分配任务，也能回到终端、文件和节点中继续精确操作。</p>
+            </article>
+            <article class="signal">
+              <h3>可交付成果</h3>
+              <p>从探索到验证再到交付，MultiSoul 让每个 Agent 的工作痕迹和结果保持可追踪。</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section cyan" id="workflow">
+      <div class="container">
+        <div class="section-head">
+          <div>
+            <span class="kicker">Workflow</span>
+            <h2>一次对话，多条任务线。</h2>
+          </div>
+          <p>面向开发工作的协作模型：你保留判断和方向，Agent 在不同终端上下文里推进具体任务。</p>
+        </div>
+        <div class="workflow">
+          <div class="workflow-board">
+            <article class="workflow-step">
+              <div class="step-no">1</div>
+              <div>
+                <h3>描述目标</h3>
+                <p>告诉 MultiSoul 要构建、修复、分析或整理什么，系统把目标拆成可协作的 Agent 任务。</p>
+              </div>
+            </article>
+            <article class="workflow-step">
+              <div class="step-no">2</div>
+              <div>
+                <h3>Agent 并行执行</h3>
+                <p>每个 Agent 进入自己的终端和上下文，生成文件、运行命令、检查结果并同步状态。</p>
+              </div>
+            </article>
+            <article class="workflow-step">
+              <div class="step-no">3</div>
+              <div>
+                <h3>在画布里收敛</h3>
+                <p>代码、界面、图表、报告与决策节点留在画布上，形成可回看、可继续的工作空间。</p>
+              </div>
+            </article>
+          </div>
+          <div class="terminal-wall" aria-label="Terminal context mockup">
+            <div class="term-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div>
+            <div class="term-grid">
+              <div class="term-pane"><strong>planner</strong><span>$ map goal</span><span>split into 4 live nodes</span><span>handoff: builder</span></div>
+              <div class="term-pane"><strong>builder</strong><span>$ cargo check</span><span>ui shell compiled</span><span>artifact: landing.html</span></div>
+              <div class="term-pane"><strong>reviewer</strong><span>$ inspect diff</span><span>risk: download mocked</span><span>status: accepted</span></div>
+              <div class="term-pane"><strong>norma</strong><span>“不是说你做得很好。”</span><span>“只是这次还可以。”</span><span>status: watching</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section light" id="norma">
+      <div class="container">
+        <div class="norma-band">
+          <div class="norma-portrait">
+            <img src="landing-assets/norma-smug.png" alt="Norma, the tsundere AI mascot of MultiSoul">
+          </div>
+          <div class="norma-copy">
+            <span class="kicker">Norma AI</span>
+            <h2>傲娇，但一直在场。</h2>
+            <p>Norma 是 MultiSoul 的人工智能人格：她让多 Agent 系统从“工具集合”变成一个有情绪、有节奏、有陪伴感的创作空间。她会吐槽你，也会帮你把混乱的任务线收回来。</p>
+            <div class="norma-tags">
+              <span class="tag">Tsundere</span>
+              <span class="tag">AI companion</span>
+              <span class="tag">Agent conductor</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section deep" id="download">
+      <div class="container">
+        <div class="download-shell">
+          <div class="download-copy">
+            <span class="kicker">Download</span>
+            <h2>先把入口放好。</h2>
+            <p>下载链接目前是 mock，后续可以替换成真实 `.dmg`、GitHub Release、自动更新通道或 TestFlight/内测分发页。</p>
+            <span class="mock-note">Mock download links</span>
+          </div>
+          <div class="download-list">
+            <a class="download-item" href="downloads/MultiSoul-latest-arm64.dmg" aria-label="Mock download MultiSoul for Apple Silicon">
+              <span><strong>macOS Apple Silicon</strong><span>Mock · MultiSoul-latest-arm64.dmg</span></span>
+              <i class="download-arrow">↓</i>
+            </a>
+            <a class="download-item" href="downloads/MultiSoul-latest-universal.dmg" aria-label="Mock download MultiSoul universal build">
+              <span><strong>macOS Universal</strong><span>Mock · Intel / Apple Silicon fallback</span></span>
+              <i class="download-arrow">↓</i>
+            </a>
+            <a class="download-item" href="releases/latest.html" aria-label="Mock release notes">
+              <span><strong>Release notes</strong><span>Mock · changelog and build metadata</span></span>
+              <i class="download-arrow">→</i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span><strong>MultiSoul</strong> · Mac desktop vibe coding with many agents</span>
+    <span>Static website mock · 2026</span>
+  </footer>
+</body>
+</html>

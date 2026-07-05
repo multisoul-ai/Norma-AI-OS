@@ -151,6 +151,7 @@ pub(super) fn on_mouse_down(
                 app.interaction.drag = Some(DragState {
                     node: id,
                     last_screen: screen,
+                    swap_candidate: None,
                 });
                 app.interaction.last_motion_notify = None;
                 app.motion.set_dragging(id, true);
@@ -234,9 +235,27 @@ pub(super) fn on_mouse_move(
         if let Some(node) = app.runtime.document.node(drag.node) {
             app.motion.sync_drag_rect(drag.node, node.bounds);
         }
+        // Convert node ref to Vec2 (Copy) before calling nodes(), avoiding overlapping borrows.
+        let dragged_center = app.runtime.document.node(drag.node).map(|n| {
+            Vec2::new(
+                n.bounds.origin.x + n.bounds.size.x / 2.0,
+                n.bounds.origin.y + n.bounds.size.y / 2.0,
+            )
+        });
+        let new_swap = if let Some(center) = dragged_center {
+            app.runtime
+                .document
+                .nodes()
+                .iter()
+                .find(|n| n.id != drag.node && n.bounds.contains(center))
+                .map(|n| n.id)
+        } else {
+            None
+        };
         app.interaction.drag = Some(DragState {
             node: drag.node,
             last_screen: screen,
+            swap_candidate: new_swap,
         });
         let now = Instant::now();
         if should_notify_motion_frame(app.interaction.last_motion_notify, now) {
@@ -249,7 +268,7 @@ pub(super) fn on_mouse_move(
 pub(super) fn on_mouse_up(
     app: &mut MultisoulApp,
     _ev: &MouseUpEvent,
-    _w: &mut Window,
+    w: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) {
     let should_persist_canvas = app.interaction.panning || app.interaction.drag.is_some();
@@ -258,6 +277,15 @@ pub(super) fn on_mouse_up(
         .active_text_selection
         .map(|selection| selection.dragging)
         .unwrap_or(false);
+    // Execute card swap before clearing drag state.
+    if let Some(drag) = &app.interaction.drag {
+        if let Some(target) = drag.swap_candidate {
+            let dragged = drag.node;
+            if app.runtime.document.swap_node_order(dragged, target) {
+                app.apply_layout_for_current_mode(w);
+            }
+        }
+    }
     app.interaction.panning = false;
     app.interaction.drag = None;
     app.interaction.last_screen = None;

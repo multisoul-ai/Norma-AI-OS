@@ -53,6 +53,7 @@ pub fn render_canvas(
     let focus_mode = app.runtime.focus.mode();
 
     // 先收集需要渲染的节点数据（避免借用冲突）。
+    let swap_candidate = app.interaction.drag.as_ref().and_then(|d| d.swap_candidate);
     let mut node_elems: Vec<AnyElement> = Vec::new();
     let mut visible_nodes = 0usize;
     let mut snake_nodes = 0usize;
@@ -71,6 +72,7 @@ pub fn render_canvas(
             continue;
         };
         let focused = matches!(focus_mode, InputMode::NodeFocused(fid) if fid == id);
+        let is_swap_candidate = swap_candidate == Some(id);
         app.motion.ensure_node(id, canonical_rect);
         app.motion.set_selection_focus(id, selected, focused);
         let is_agent = node_type == NodeType::Agent;
@@ -275,6 +277,16 @@ pub fn render_canvas(
             ));
         }
         node_elems.push(node_div.into_any_element());
+        if is_swap_candidate {
+            node_elems.push(swap_highlight_overlay(
+                top_left.x,
+                top_left.y,
+                w,
+                h,
+                node_radius,
+                theme.accent_violet,
+            ));
+        }
     }
 
     if CANVAS_OPEN_RENDER_PENDING.swap(false, Ordering::AcqRel) {
@@ -313,6 +325,26 @@ pub fn render_canvas(
         .on_mouse_up(MouseButton::Left, cx.listener(events::on_mouse_up))
         .on_mouse_up(MouseButton::Middle, cx.listener(events::on_mouse_up))
         .children(node_elems)
+}
+
+fn swap_highlight_overlay(
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    radius_px: f32,
+    color: u32,
+) -> AnyElement {
+    div()
+        .absolute()
+        .left(px(x))
+        .top(px(y))
+        .w(px(w))
+        .h(px(h))
+        .border_2()
+        .border_color(rgba(color))
+        .rounded(px(radius_px))
+        .into_any_element()
 }
 
 fn with_alpha(color: u32, alpha: u8) -> u32 {
