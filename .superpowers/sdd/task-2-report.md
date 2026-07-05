@@ -224,6 +224,49 @@ git diff --check
 
 All exited 0.
 
+## Third Review Fix
+
+Final review found the brief acceptance filters matched zero or missed split test modules after
+large test files were split to satisfy line-count limits.
+
+Fixes applied:
+
+- Renamed the mounted realtime test module to `app_realtime_tests`.
+- Renamed the mounted voice settings modules to `voice_settings_tests` and
+  `voice_settings_tests_realtime` so the brief filter covers both original and realtime settings
+  tests.
+- Renamed the mounted settings panel modules to `settings_panel_tests` and
+  `settings_panel_tests_voice` so the brief filter covers both original and voice anchors.
+
+GREEN evidence:
+
+```bash
+cargo test -p app voice_settings_tests -- --nocapture
+```
+
+Exit 0. `12 passed; 0 failed`.
+
+```bash
+cargo test -p app settings_panel_tests -- --nocapture
+```
+
+Exit 0. `10 passed; 0 failed`.
+
+```bash
+cargo test -p app app_realtime_tests -- --nocapture
+```
+
+Exit 0. `7 passed; 0 failed`.
+
+```bash
+cargo fmt --check
+bash scripts/check-max-file-lines.sh
+bash scripts/check-no-allow.sh
+git diff --check
+```
+
+All exited 0.
+
 ## Second Review Fix
 
 Second review found that the per-window `RealtimeControlState` enforced only one active

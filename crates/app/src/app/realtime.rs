@@ -258,4 +258,4 @@ impl MultisoulApp {
 
 #[cfg(test)]
 #[path = "../../tests/unit/app_realtime_tests.rs"]
-mod tests;
+mod app_realtime_tests;
