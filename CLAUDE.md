@@ -66,7 +66,7 @@ At a glance:
 - Drag a node by its title bar.
 - Single-click selects a node; clicking blank canvas clears selection.
 - Double-click a focusable node, or click a terminal/agent body, to focus it.
-- `Esc` exits node focus.
+- `Cmd+Esc` exits node focus; bare `Esc` passes through to the PTY.
 - Space plus left-drag, or middle-drag, pans the canvas.
 - Canvas wheel scroll is off by default; enable the toolbar toggle to pan the viewport. Terminal scrollback and preview cards handle wheel separately.
 - The app drains PTY output roughly every 12ms and repaints only when dirty.
