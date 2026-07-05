@@ -5056,6 +5056,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "realtime"
+version = "0.1.14"
+dependencies = [
+ "base64",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"

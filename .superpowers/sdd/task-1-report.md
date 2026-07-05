@@ -1,48 +1,61 @@
-# Task 1 Report: Storage Schema And Store for Project Agent Catalog
+# Task 1 Report: Realtime Crate Core Types And JSONL Protocol
 
-## Scope
+## 实现了什么
 
-Implemented exactly Task 1 storage work in `/Users/alan/Documents/mybook/multisoul-desktop/.worktrees/project-agent-catalog`:
-
-- Added `agent_definitions` project-db schema and case-insensitive unique index.
-- Added `AgentDefinitionStore` plus `AgentDefinition`, `NewAgentDefinition`, `AgentDefinitionUpdate`.
-- Exported the new store/types from `storage::lib`.
-- Added `ProjectStore::agent_definition_store()`.
-- Added focused storage tests for migration, CRUD round-trip, duplicate-name rejection, and invalid runtime-profile decoding.
-
-Did not implement app settings UI, card creation, or any non-storage behavior.
+- Added the new pure-Rust `realtime` workspace crate.
+- Implemented PCM core types:
+  - `PcmFormat`
+  - `PcmAudioChunk`
+  - `PcmAudioError`
+- Implemented realtime session core types:
+  - `RealtimeSessionId`
+  - `RealtimeSessionConfig`
+  - `RealtimeSessionState`
+  - `RealtimeStatus`
+  - `RealtimeSessionError`
+- Implemented JSONL protocol domain types and codecs:
+  - `RealtimeCommand`
+  - `RealtimeEvent`
+  - `RealtimeToolCall`
+  - `RealtimeToolResult`
+  - `encode_command`
+  - `decode_event`
+  - `RealtimeProtocolError`
+- Kept `crates/realtime` independent from GPUI, runtime, canvas, terminal, and storage.
+- Kept JSONL encoding newline-free; writers remain responsible for line framing.
+- Did not add any API key or OpenAI secret/config field to Task 1 types.
+- Used the repository's existing mounted unit-test convention instead of `cargo test -p realtime --test unit -- ...`, because this repo mounts `crates/<crate>/tests/unit/*.rs` from source modules with `#[path = ...]` and has no `unit` integration-test target.
 
 ## TDD Evidence
 
-### RED 1: migration test before schema
+### RED 1: PCM validation tests before audio implementation
 
 Command:
 
 ```bash
-cargo test -p storage test_agent_definitions_migration_creates_table_and_unique_index
+cargo test -p realtime audio
 ```
 
 Result:
 
 - Exit code: `101`
-- Failure observed in `test_agent_definitions_migration_creates_table_and_unique_index`
-- Relevant failure text:
+- Key failure:
 
 ```text
-agent_definitions 必须包含 name 列作为 Settings 和语音匹配的显示名
+unresolved imports `super::PcmAudioChunk`, `super::PcmAudioError`, `super::PcmFormat`
 ```
 
-Interpretation:
+Why this was expected:
 
-- `PRAGMA table_info(agent_definitions)` returned no useful schema rows because the table did not exist yet.
-- This is the expected RED for Step 2 of the brief.
+- The crate/test scaffold existed, but the PCM API required by Step 1 did not exist yet.
+- This proved the audio test was exercising missing Task 1 behavior.
 
-### GREEN 1: migration test after schema
+### GREEN 1: PCM validation after audio implementation
 
 Command:
 
 ```bash
-cargo test -p storage test_agent_definitions_migration_creates_table_and_unique_index
+cargo test -p realtime audio
 ```
 
 Result:
@@ -50,144 +63,109 @@ Result:
 - Exit code: `0`
 - `1 passed; 0 failed`
 
-### RED 2: CRUD tests before store implementation
+### RED 2: JSONL protocol tests before protocol implementation
 
 Command:
 
 ```bash
-cargo test -p storage agent_definition_store
+cargo test -p realtime protocol
 ```
 
 Result:
 
 - Exit code: `101`
-- Compile-time RED matched the missing implementation state
-- Relevant errors included:
+- Key failures:
 
 ```text
-cannot find struct, variant or union type `NewAgentDefinition` in this scope
-cannot find struct, variant or union type `AgentDefinitionUpdate` in this scope
-use of undeclared type `AgentDefinitionStore`
+unresolved imports `crate::session::RealtimeSessionConfig`, `crate::session::RealtimeSessionId`
+unresolved imports `super::decode_event`, `super::encode_command`, `super::RealtimeCommand`, `super::RealtimeEvent`, `super::RealtimeProtocolError`
 ```
 
-Interpretation:
+Why this was expected:
 
-- The new CRUD tests were compiled and failed specifically because Task 1 store types and API were not implemented yet.
-- This is the expected RED for Step 6 of the brief.
+- The protocol tests compiled against the intended public API, but the session id/config and protocol symbols were not implemented yet.
 
-### GREEN 2: focused AgentDefinitionStore tests after implementation
+### GREEN 2: JSONL protocol after implementation
 
-Commands:
+Command:
 
 ```bash
-cargo test -p storage test_agent_definitions_migration_creates_table_and_unique_index
-cargo test -p storage agent_definition_store
+cargo test -p realtime protocol
 ```
 
-Results:
+Result:
 
-- Migration test: exit code `0`
-- AgentDefinitionStore-focused run: exit code `0`
-- `4 passed; 0 failed`
+- Exit code: `0`
+- `6 passed; 0 failed; 1 filtered out`
 
-Passing tests:
+### RED 3: session-state tests before state implementation
 
-- `test_agent_definitions_migration_creates_table_and_unique_index`
-- `test_agent_definition_store_create_list_update_delete_round_trips`
-- `test_agent_definition_store_rejects_case_insensitive_duplicate_names`
-- `test_agent_definition_store_invalid_runtime_profile_returns_typed_error`
-
-## Final Verification
-
-Commands run fresh before completion:
+Command:
 
 ```bash
-cargo test -p storage
-bash scripts/check-max-file-lines.sh
-bash scripts/check-no-allow.sh
+cargo test -p realtime session
 ```
 
-Results:
-
-- `cargo test -p storage`: exit code `0`, `25 passed; 0 failed`
-- `bash scripts/check-max-file-lines.sh`: exit code `0`
-- `bash scripts/check-no-allow.sh`: exit code `0`
-
-## Files Changed
-
-- `crates/storage/src/agent_definition_store.rs` (new)
-- `crates/storage/tests/unit/agent_definition_store_tests.rs` (new)
-- `crates/storage/src/migrations.rs`
-- `crates/storage/src/project_store.rs`
-- `crates/storage/src/lib.rs`
-
-## Implementation Notes
-
-- Schema added to `migrate_project_db`:
-  - table: `agent_definitions`
-  - unique index: `idx_agent_definitions_name_nocase`
-- `AgentDefinitionStore::create` writes defaults:
-  - `enabled = true`
-  - `sort_order = 0`
-- `list()` orders by:
-  - `sort_order ASC`
-  - `name COLLATE NOCASE ASC`
-- Runtime profile encoding/decoding matches the existing storage convention:
-  - `claude`
-  - `codex`
-  - `opencode`
-- Invalid stored runtime profiles surface as `StorageError::InvalidAgentProfile(...)`.
-
-## Self-Review Notes
-
-- Stayed within the task boundary; no UI/runtime/app feature work was added.
-- Preserved storage dependency boundaries; no app/runtime/ui imports were introduced.
-- Kept Rust files below the 500-line limit:
-  - `agent_definition_store.rs`: 192 lines
-  - `agent_definition_store_tests.rs`: 267 lines
-- Followed repository test-comment structure and explicit assertion-message requirements.
-- Did not revert or overwrite unrelated work; working tree only contains the Task 1 storage changes listed above.
-
-## Review Fix: Missing-ID Update No Longer Fakes Success
-
-The review finding on `AgentDefinitionStore::update()` is fixed.
-
-### What changed
-
-- Added a focused regression test for updating a missing id:
-  - `test_agent_definition_store_update_missing_id_returns_typed_error`
-- Added a typed storage error:
-  - `StorageError::AgentDefinitionNotFound(i64)`
-- Changed `AgentDefinitionStore::update()` so `changed == 0` returns `Err(StorageError::AgentDefinitionNotFound(input.id))` instead of a synthetic `AgentDefinition`.
-- Kept the API shape stable:
-  - `update()` still returns `StorageResult<AgentDefinition>`.
-- Also aligned the create fallback to use the same typed not-found error if the inserted row cannot be reloaded.
-
-### TDD Evidence
-
-RED:
-
-```bash
-cargo test -p storage test_agent_definition_store_update_missing_id_returns_typed_error
-```
-
-Initial result before the fix:
+Result:
 
 - Exit code: `101`
-- Failure reason: `StorageError::AgentDefinitionNotFound` did not exist yet, so the new regression test could not compile.
+- Key failure:
 
-GREEN:
+```text
+unresolved imports `super::RealtimeSessionError`, `super::RealtimeSessionState`, `super::RealtimeStatus`
+```
+
+Why this was expected:
+
+- The state tests exercised the intended pure session state machine before the state/status/error types existed.
+
+### GREEN 3: session-state after implementation
+
+Command:
 
 ```bash
-cargo test -p storage test_agent_definition_store_update_missing_id_returns_typed_error
-cargo test -p storage agent_definition_store
-bash scripts/check-max-file-lines.sh
+cargo test -p realtime session
+```
+
+Result:
+
+- Exit code: `0`
+- `4 passed; 0 failed; 5 filtered out`
+
+## 最终验证命令与结果
+
+Commands run fresh before commit:
+
+```bash
+cargo test -p realtime
+cargo tree -p realtime | rg -i "gpui|runtime|canvas|terminal|storage"; test $? -eq 1
 bash scripts/check-no-allow.sh
 ```
 
 Results:
 
-- Missing-id regression test: passed
-- `agent_definition_store` slice: `5 passed; 0 failed`
-- `check-max-file-lines.sh`: passed
-- `check-no-allow.sh`: passed
+- `cargo test -p realtime`: exit code `0`; `9 passed; 0 failed`; doc-tests `0 passed; 0 failed`.
+- Dependency-boundary grep command: exit code `0`; no forbidden dependency output.
+- `bash scripts/check-no-allow.sh`: exit code `0`.
+
+## 修改文件列表
+
+- `Cargo.toml`
+- `Cargo.lock`
+- `crates/realtime/Cargo.toml`
+- `crates/realtime/src/lib.rs`
+- `crates/realtime/src/audio.rs`
+- `crates/realtime/src/protocol.rs`
+- `crates/realtime/src/session.rs`
+- `crates/realtime/tests/unit/audio_tests.rs`
+- `crates/realtime/tests/unit/protocol_tests.rs`
+- `crates/realtime/tests/unit/session_tests.rs`
+- `.superpowers/sdd/task-1-report.md`
+
+## 自审发现与风险
+
+- `Cargo.lock` changed because Cargo added the new workspace package entry for `realtime`; it should be committed with the crate to keep locked builds stable.
+- `start_session` encodes `model` and `tools` at the top level, matching the Task 1 brief. Some broader draft docs still mention nested `config`; downstream tasks should use the Task 1 contract or update intentionally.
+- No GPUI/runtime/canvas/terminal/storage dependency was introduced.
+- No `#[allow(...)]` was added.
+- The crate remains pure state/protocol/audio logic; no sidecar process, app UI, storage, or API-key behavior was added in Task 1.

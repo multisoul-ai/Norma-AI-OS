@@ -6,6 +6,7 @@ members = [
   "crates/workspace",
   "crates/terminal",
   "crates/runtime",
+  "crates/realtime",
   "crates/voice",
   "crates/voice_sherpa",
   "crates/ui",
