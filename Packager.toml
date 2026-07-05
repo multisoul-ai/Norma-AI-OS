@@ -1,9 +1,9 @@
 # cargo-packager 配置：Developer ID 签名 + notarize（signing-identity 阶段 0 启用）。字段以 cargo-packager 文档为准，
 # 若 schema 不符按 https://docs.crabnebula.dev/packager/ 校准。
 name = "app"
-product-name = "Multisoul"
-version = "0.1.8"
-identifier = "com.multisoul.desktop"
+product-name = "Norma OS"
+version = "0.1.14"
+identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
 resources = ["crates/app/assets/wallpapers"]
@@ -20,7 +20,7 @@ application-folder-position = { x = 460, y = 200 }
 
 # 指向 release 二进制
 [[binaries]]
-path = "target/release/multisoul"
+path = "target/release/norma-os"
 main = true
 
 [[binaries]]

@@ -7,7 +7,7 @@ use super::*;
 ///     NewWindow / NewTerminal / CopyCardContent / OpenProject / OpenPreviewFile /
 ///     NewClaudeAgent / NewCodexAgent / NewOpenCodeAgent / DeleteCard / ReflowLayout / ToggleMasterLayout /
 ///     ExitFocus / ToggleSettings
-///   default assigned count = 10（Claude/Codex/OpenCode agent 默认未设置）
+///   default assigned count = 11（Claude/Codex/OpenCode agent 默认未设置；ExitFocus 默认 cmd-escape）
 ///   read-only behavior count >= 5（Paste / Voice / Arrow navigation / Space pan / PTY input）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -43,6 +43,11 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
         shortcut_for(&effective, ShortcutCommandId::ToggleSettings),
         Some("cmd-,"),
         "Settings 默认入口应使用 macOS 习惯的 Cmd+,"
+    );
+    assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::ExitFocus),
+        Some("cmd-escape"),
+        "ExitFocus 默认应使用 cmd-escape，避免与 PTY Esc 输入冲突"
     );
     let delete_entry = entry_for(&effective, ShortcutCommandId::DeleteCard);
     assert_eq!(

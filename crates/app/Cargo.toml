@@ -3,10 +3,10 @@ name = "app"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-default-run = "multisoul"
+default-run = "norma-os"
 
 [[bin]]
-name = "multisoul"
+name = "norma-os"
 path = "src/main.rs"
 
 [[bin]]

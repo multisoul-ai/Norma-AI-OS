@@ -11,7 +11,7 @@ fn main() {
 
     let plist = plist.canonicalize().unwrap_or(plist);
     println!(
-        "cargo:rustc-link-arg-bin=multisoul=-Wl,-sectcreate,__TEXT,__info_plist,{}",
+        "cargo:rustc-link-arg-bin=norma-os=-Wl,-sectcreate,__TEXT,__info_plist,{}",
         plist.display()
     );
 }

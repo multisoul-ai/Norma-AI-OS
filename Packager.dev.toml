@@ -2,9 +2,9 @@
 # 用法：cargo packager -c Packager.dev.toml
 # 真实发版走 Packager.toml（阶段 0 启用 signing-identity 后）。
 name = "app"
-product-name = "Multisoul"
+product-name = "Norma OS"
 version = "0.1.14"
-identifier = "com.multisoul.desktop"
+identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
 icons = ["assets/AppIcon.icns"]
@@ -13,7 +13,7 @@ binaries-dir = "."
 resources = ["crates/app/assets/wallpapers"]
 
 [[binaries]]
-path = "target/release/multisoul"
+path = "target/release/norma-os"
 main = true
 
 [[binaries]]

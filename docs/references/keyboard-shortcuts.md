@@ -43,7 +43,7 @@ canvas/view.rs
 | `⌘D` | `DeleteCard` | `on_delete_card_shortcut` | Canvas | 删除当前聚焦卡片；无聚焦时仅删除唯一选中的画布卡片 |
 | `⌘M` | `ToggleMasterLayout` | `on_toggle_master_layout` | Canvas | 切换 master/detail 布局；无选中时忽略 |
 | `⌘⇧L` | `ReflowLayout` | `on_reflow_layout` | Canvas | 退出 master 模式并按最多三列平铺网格重排全部节点 |
-| `Esc` | `ExitFocus` | `on_exit_focus` | 全局 | 从 `NodeFocused` 退回 `CanvasSelect`（画布选择模式） |
+| `⌘Esc` | `ExitFocus` | `on_exit_focus` | 全局 | 从 `NodeFocused` 退回 `CanvasSelect`（画布选择模式） |
 | `⌘,` | `ToggleSettings` | `toggle_settings_panel` | Canvas | 打开或关闭 Settings 面板 |
 
 ### 复制（`⌘C`）优先级
@@ -161,13 +161,15 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 
 - 任意 `⌘` 组合（`modifiers.platform == true` 时 `keystroke_to_input` 返回 `None`）
 - 需交给 IME 的可打印键（`ime::should_defer_keystroke_to_ime`）
-- 被 app shortcut registry 消费的键（如默认 `⌘N`、`⌘D`、`⌘M`、`Esc` 等）
+- 被 app shortcut registry 消费的键（如默认 `⌘N`、`⌘D`、`⌘M`、`⌘Esc` 等）
 
 **会传入 PTY：**
 
 - 字母、数字、符号（含 IME  finalized 字符的 `key_char` 路径）
 - `Enter`、`Tab`、`Backspace`、`Esc`、方向键
 - `Ctrl+*`、`Alt+*` 组合（如 `Ctrl+C` → ETX）
+
+> 注：默认快捷键改为 `⌘Esc` 后，裸 `Esc` 不再被 registry 消费，会作为 `Esc` 键传入 PTY（终端进程可见）。`⌘Esc` 才触发 `ExitFocus`，把键盘控制权交还画布。
 
 ## 5. 指针与滚轮交互
 
@@ -206,7 +208,7 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 | 模式 | 进入方式 | 退出方式 | 键盘主要行为 |
 | --- | --- | --- | --- |
 | `CanvasSelect` | 默认；单击选中；Esc | 双击/正文点击 → 聚焦 | 方向键导航；Space 预备 pan；平台快捷键走 shortcut registry |
-| `NodeFocused` | 双击；terminal 正文点击；键盘自动聚焦 | Esc → `ExitFocus` | 按键进 PTY；`⌘V` 粘贴；`⌘C` 复制选区 |
+| `NodeFocused` | 双击；terminal 正文点击；键盘自动聚焦 | `⌘Esc` → `ExitFocus` | 按键进 PTY（含裸 `Esc`）；`⌘V` 粘贴；`⌘C` 复制选区 |
 
 路由决策的纯函数：`crates/runtime/src/route.rs`。
 

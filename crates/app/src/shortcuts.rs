@@ -342,8 +342,8 @@ pub(crate) fn default_shortcut_entries() -> &'static [ShortcutEntry] {
             command: ShortcutCommandId::ExitFocus,
             category: "Layout",
             title: "Exit Focus",
-            hint: "Return keyboard control to the canvas",
-            default_keystroke: Some("escape"),
+            hint: "Return keyboard control to the canvas. When a card is focused, bare Esc always reaches the terminal — use this shortcut or click outside to exit.",
+            default_keystroke: Some("cmd-escape"),
             editable: true,
         },
         ShortcutEntry {

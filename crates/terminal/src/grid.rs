@@ -183,11 +183,11 @@ impl TerminalGrid {
             }
         }
 
-        let cursor = self.term.grid().cursor.point;
+        let (cursor_line, cursor_col) = self.render_cursor_position();
         GridSnapshot {
             rows,
-            cursor_line: cursor.line.0.max(0) as usize,
-            cursor_col: cursor.column.0,
+            cursor_line,
+            cursor_col,
             cols: self.dims.columns,
             lines: self.dims.screen_lines,
             display_offset,
@@ -490,3 +490,6 @@ mod tests {
 
 #[path = "grid/scrollback.rs"]
 mod scrollback;
+
+#[path = "grid/cursor.rs"]
+mod cursor;

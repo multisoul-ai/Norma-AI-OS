@@ -1,5 +1,6 @@
 use super::{with_alpha, SettingsPanelState, SettingsSection};
 use crate::app::MultisoulApp;
+use crate::settings::agents::{agents_settings, AgentDefinitionsState};
 use crate::settings::voice::{voice_settings, VoiceSettingsState};
 use crate::settings::wallpaper::{wallpaper_settings, WallpaperSettingsState};
 use crate::shortcuts::ShortcutSettingsState;
@@ -15,6 +16,7 @@ use self::keyboard::keyboard_settings;
 pub(super) fn settings_content(
     theme: Theme,
     panel: &SettingsPanelState,
+    agent_definitions: &AgentDefinitionsState,
     voice_state: &VoiceSettingsState,
     wallpaper_state: &WallpaperSettingsState,
     shortcuts: &ShortcutSettingsState,
@@ -37,13 +39,13 @@ pub(super) fn settings_content(
                 .child(match panel.active_section {
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
                     SettingsSection::Voice => voice_settings(theme, voice_state, cx),
+                    SettingsSection::Agents => agents_settings(theme, agent_definitions, cx),
                     SettingsSection::Hooks => hooks_settings(theme, panel, cx),
                     SettingsSection::Wallpaper => wallpaper_settings(theme, wallpaper_state, cx),
                     // Mock-only sections are hidden from the sidebar; keep a blank
                     // fallback so stale state or tests cannot route to old placeholders.
                     SettingsSection::General
                     | SettingsSection::Runtime
-                    | SettingsSection::Agents
                     | SettingsSection::Skills => div(),
                 }),
         )

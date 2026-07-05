@@ -65,12 +65,12 @@ else
 fi
 
 # 3. 验证产物
-# 真实发版产物在 build/Multisoul.app（Packager.toml out-dir="build"），
-# ad-hoc 测试产物在 build/dev/Multisoul.app（Packager.dev.toml out-dir="build/dev"）。
+# 真实发版产物在 build/Norma OS.app（Packager.toml out-dir="build"，product-name="Norma OS"），
+# ad-hoc 测试产物在 build/dev/Norma OS.app（Packager.dev.toml out-dir="build/dev"）。
 # 用循环而非 `ls -d a b | head -1`：当 a 不存在时 ls 退出非零，
 # 在 `set -euo pipefail` 下会直接终止脚本，跳过整段验证。
 APP=""
-for p in build/Multisoul.app build/dev/Multisoul.app; do
+for p in "build/Norma OS.app" "build/dev/Norma OS.app"; do
   [ -d "$p" ] && APP="$p" && break
 done
 [ -n "$APP" ] || die "未找到产物 Multisoul.app"

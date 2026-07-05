@@ -78,6 +78,7 @@ struct TerminalLayout {
     text_runs: Vec<TerminalTextRun>,
     cursor_line: usize,
     cursor_col: usize,
+    cursor_visible: bool,
     metrics: TerminalRenderMetrics,
     selection_spans: Vec<SelectionSpan>,
     default_bg: Hsla,
@@ -105,6 +106,7 @@ fn build_layout(
         text_runs,
         cursor_line: snapshot.cursor_line,
         cursor_col: snapshot.cursor_col,
+        cursor_visible: snapshot.display_offset == 0,
         metrics,
         selection_spans: Vec::new(),
         default_bg: palette.resolve(TerminalColor::Named(TerminalNamedColor::Background)),
@@ -324,7 +326,9 @@ fn paint_layer_order(layout: &TerminalLayout) -> Vec<TerminalPaintLayer> {
     if !layout.text_runs.is_empty() {
         layers.push(TerminalPaintLayer::TextRuns);
     }
-    layers.push(TerminalPaintLayer::Cursor);
+    if layout.cursor_visible {
+        layers.push(TerminalPaintLayer::Cursor);
+    }
     layers
 }
 

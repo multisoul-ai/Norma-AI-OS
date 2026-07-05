@@ -69,6 +69,7 @@ fn test_enter_workspace_defers_live_terminal_restore_for_saved_card() {
     let mut motion = MotionStore::new(true);
     let mut master_layout = MasterLayoutState::default();
     let mut persistence = PersistenceScheduler::default();
+    let mut agent_definitions = AgentDefinitionsState::default();
     let mut screen = AppScreen::Launchpad;
 
     let opened = enter_workspace_for_path(
@@ -76,6 +77,7 @@ fn test_enter_workspace_defers_live_terminal_restore_for_saved_card() {
         &mut motion,
         &mut master_layout,
         &mut persistence,
+        &mut agent_definitions,
         &mut screen,
         &mut workspace_state,
         &workspace_path,
@@ -208,6 +210,7 @@ fn test_enter_workspace_restores_saved_master_layout_state() {
     let mut motion = MotionStore::new(true);
     let mut master_layout = MasterLayoutState::default();
     let mut persistence = PersistenceScheduler::default();
+    let mut agent_definitions = AgentDefinitionsState::default();
     let mut screen = AppScreen::Launchpad;
 
     let result = enter_workspace_for_path(
@@ -215,6 +218,7 @@ fn test_enter_workspace_restores_saved_master_layout_state() {
         &mut motion,
         &mut master_layout,
         &mut persistence,
+        &mut agent_definitions,
         &mut screen,
         &mut workspace_state,
         &workspace_path,

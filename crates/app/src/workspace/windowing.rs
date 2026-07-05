@@ -53,6 +53,7 @@ pub(crate) fn open_multisoul_window(
     let handle = cx.open_window(window_options(title, bounds), |window, cx| {
         cx.new(|cx| {
             let mut app = MultisoulApp::new(cx);
+            app.start_norma_drain_loop(window, cx);
             if let InitialWindowState::Workspace(path) = state {
                 app.open_workspace_path(path, window, cx);
             }

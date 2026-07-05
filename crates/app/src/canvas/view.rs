@@ -17,8 +17,9 @@ use crate::canvas::geometry::{
 use crate::canvas::interaction::InteractionState;
 use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
 use crate::cards::chrome::{
-    chase_overlay_container, node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
+    node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
 };
+use crate::cards::snake::render_working_snake_border;
 use crate::cards::{card_for, CardBodyContext};
 #[cfg(test)]
 use canvas::Vec2;
@@ -54,6 +55,7 @@ pub fn render_canvas(
     // 先收集需要渲染的节点数据（避免借用冲突）。
     let mut node_elems: Vec<AnyElement> = Vec::new();
     let mut visible_nodes = 0usize;
+    let mut snake_nodes = 0usize;
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
     app.motion.retain_nodes(node_ids.iter().copied());
     for id in node_ids {
@@ -87,7 +89,9 @@ pub fn render_canvas(
             app.motion.sync_drag_rect(id, canonical_rect);
         }
 
-        let visual = app.motion.resolve_node_visual(id, canonical_rect, theme);
+        let visual = app
+            .motion
+            .resolve_node_visual_at(id, canonical_rect, theme, render_start);
         let top_left = vp.canvas_to_screen(visual.rect.origin);
         let (w, h) = (visual.rect.size.x * vp.zoom, visual.rect.size.y * vp.zoom);
 
@@ -118,12 +122,12 @@ pub fn render_canvas(
             .h(px(h))
             .flex()
             .flex_col()
-            .border_color(rgba(stroke))
             .shadow(node_shadow(
                 visual,
                 vp.zoom,
                 w >= CORNER_GLOW_MIN_SCREEN_PX && h >= CORNER_GLOW_MIN_SCREEN_PX,
             ))
+            .border_color(rgba(stroke))
             .bg(rgba(visual.fill_color))
             .opacity(visual.opacity)
             .rounded(px(node_radius))
@@ -139,15 +143,13 @@ pub fn render_canvas(
             node_div.border_1()
         };
 
-        node_div = node_div.child(
-            div()
-                .absolute()
-                .top(px(0.0))
-                .left(px(node_edge_highlight_inset_px(vp.zoom)))
-                .right(px(node_edge_highlight_inset_px(vp.zoom)))
-                .h(px(1.0))
-                .bg(rgba(visual.edge_highlight_color)),
-        );
+        let edge_highlight = div()
+            .absolute()
+            .top(px(0.0))
+            .left(px(node_edge_highlight_inset_px(vp.zoom)))
+            .right(px(node_edge_highlight_inset_px(vp.zoom)))
+            .h(px(1.0))
+            .bg(rgba(visual.edge_highlight_color));
 
         // 标题栏
         let mut title_actions = div()
@@ -200,54 +202,52 @@ pub fn render_canvas(
                 })),
         );
 
-        node_div = node_div.child(
-            div()
-                .h(px(TITLE_BAR_H * vp.zoom))
-                .w_full()
-                .flex()
-                .flex_row()
-                .items_center()
-                .justify_between()
-                .rounded_t(px(node_title_radius_px(vp.zoom)))
-                .bg(rgba(visual.title_bar_color))
-                .text_color(rgba(theme.text_primary))
-                .text_size(px((12.0 * vp.zoom).max(9.0)))
-                .px(px(10.0 * vp.zoom))
-                .child(
-                    div()
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .flex_1()
-                        .min_w(px(0.0))
-                        .overflow_hidden()
-                        .gap_2()
-                        .child(
-                            div()
-                                .w(px(7.0 * vp.zoom))
-                                .h(px(7.0 * vp.zoom))
-                                .flex_none()
-                                .rounded(px(4.0 * vp.zoom))
-                                .bg(rgba(status)),
-                        )
-                        .child(
-                            div()
-                                .id(("node-title", id))
-                                .flex_1()
-                                .min_w(px(0.0))
-                                .overflow_hidden()
-                                .truncate()
-                                .child(title),
-                        )
-                        .when_some(task_badge, |this, badge| {
-                            this.child(render_task_badge(badge, vp.zoom, theme))
-                        }),
-                )
-                .child(title_actions),
-        );
+        let title_bar = div()
+            .h(px(TITLE_BAR_H * vp.zoom))
+            .w_full()
+            .flex()
+            .flex_row()
+            .items_center()
+            .justify_between()
+            .rounded_t(px(node_title_radius_px(vp.zoom)))
+            .bg(rgba(visual.title_bar_color))
+            .text_color(rgba(theme.text_primary))
+            .text_size(px((12.0 * vp.zoom).max(9.0)))
+            .px(px(10.0 * vp.zoom))
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .flex_1()
+                    .min_w(px(0.0))
+                    .overflow_hidden()
+                    .gap_2()
+                    .child(
+                        div()
+                            .w(px(7.0 * vp.zoom))
+                            .h(px(7.0 * vp.zoom))
+                            .flex_none()
+                            .rounded(px(4.0 * vp.zoom))
+                            .bg(rgba(status)),
+                    )
+                    .child(
+                        div()
+                            .id(("node-title", id))
+                            .flex_1()
+                            .min_w(px(0.0))
+                            .overflow_hidden()
+                            .truncate()
+                            .child(title),
+                    )
+                    .when_some(task_badge, |this, badge| {
+                        this.child(render_task_badge(badge, vp.zoom, theme))
+                    }),
+            )
+            .child(title_actions);
 
         // 内容
-        node_div = node_div.child(card.body(
+        let card_body = card.body(
             &node,
             CardBodyContext {
                 runtime: &app.runtime,
@@ -260,11 +260,21 @@ pub fn render_canvas(
                 zoom: vp.zoom,
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),
             },
-        ));
-        node_elems.push(node_div.into_any_element());
-        if let Some(chase) = visual.chase_glow {
-            node_elems.push(chase_overlay_container(top_left, w, h, chase, vp.zoom));
+        );
+        node_div = node_div
+            .child(edge_highlight)
+            .child(title_bar)
+            .child(card_body);
+        if let Some(working_snake) = visual.working_snake {
+            snake_nodes += 1;
+            node_div = node_div.child(render_working_snake_border(
+                id,
+                working_snake,
+                vp.zoom,
+                node_radius,
+            ));
         }
+        node_elems.push(node_div.into_any_element());
     }
 
     if CANVAS_OPEN_RENDER_PENDING.swap(false, Ordering::AcqRel) {
@@ -280,6 +290,17 @@ pub fn render_canvas(
             "workspace_open_timing"
         );
     }
+    crate::frame_diagnostics::CanvasRenderReport {
+        total_nodes,
+        visible_nodes,
+        snake_nodes,
+        element_count: node_elems.len(),
+        zoom: vp.zoom,
+        window_width: win_w,
+        window_height: win_h,
+        elapsed: render_start.elapsed(),
+    }
+    .log_if_enabled();
 
     div()
         .id("canvas")
@@ -301,3 +322,7 @@ fn with_alpha(color: u32, alpha: u8) -> u32 {
 #[cfg(test)]
 #[path = "../../tests/unit/canvas_view_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/chase_canvas_view_contract_tests.rs"]
+mod chase_canvas_view_contract_tests;

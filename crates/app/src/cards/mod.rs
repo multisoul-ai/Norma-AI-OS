@@ -3,6 +3,7 @@
 pub mod agent;
 pub mod chrome;
 pub mod preview;
+pub(crate) mod snake;
 pub mod term;
 
 use crate::canvas::text_selection::TextSelection;
