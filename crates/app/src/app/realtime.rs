@@ -187,7 +187,7 @@ impl RealtimeControlState {
     ) -> Result<SidecarProcess, RealtimeSidecarError> {
         let mut sidecar = SidecarProcess::spawn(sidecar_config)?;
         if let Err(error) = sidecar.send(&RealtimeCommand::StartSession(config)) {
-            let _ = sidecar.stop(SIDECAR_STOP_TIMEOUT);
+            stop_sidecar_process_in_background(sidecar);
             return Err(error);
         }
         Ok(sidecar)

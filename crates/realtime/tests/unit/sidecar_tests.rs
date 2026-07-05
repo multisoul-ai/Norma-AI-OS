@@ -256,7 +256,7 @@ fn sidecar_exit_without_event_returns_stdout_closed_error() {
         .expect("stop should tolerate a fake sidecar that has already exited");
 }
 
-/// SC-4: stop_session command makes the fake sidecar emit session_stopped and exit.
+/// SC-5: stop_session command makes the fake sidecar emit session_stopped and exit.
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   session_id = "sidecar-test-session"
@@ -316,7 +316,7 @@ fn sidecar_stop_session_emits_stopped_and_exits() {
         .expect("stop should observe fake sidecar process exit after stop_session");
 }
 
-/// SC-5: sidecar config, launch errors, and formatted logs never expose the API key string.
+/// SC-6: sidecar config, launch errors, and formatted logs never expose the API key string.
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   secret = "sk-sidecar-leak-check-secret"
