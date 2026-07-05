@@ -108,7 +108,7 @@ fn install_status_for(target: HookTarget) -> HookInstallStatus {
 fn uninstall_status_for(target: HookTarget) -> HookInstallStatus {
     match uninstall_agent_hooks(target) {
         Ok(()) => HookInstallStatus {
-            message: Some("Multisoul hooks removed".to_string()),
+            message: Some("Norma OS hooks removed".to_string()),
             is_error: false,
         },
         Err(error) => HookInstallStatus {

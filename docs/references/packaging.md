@@ -2,8 +2,8 @@
 
 `Packager.toml` configures an unsigned macOS app and DMG:
 
-- product name: `Multisoul`
-- bundle id: `com.multisoul.desktop`
+- product name: `Norma OS`
+- bundle id: `com.norma.os`
 - formats: `app`, `dmg`
 - binary: `target/release/multisoul`
 - secondary binary: `target/release/multisoul-agent-hook`
@@ -44,7 +44,7 @@ glob wired up yet, so the step is manual:
 ```bash
 # after `cargo packager --release` produces target/release/bundle/<bundle>/
 bash scripts/copy-wallpaper-resources.sh \
-    "target/release/bundle/osx/Multisoul.app/Contents/Resources"
+    "target/release/bundle/osx/Norma OS.app/Contents/Resources"
 ```
 
 The resulting `Contents/Resources/wallpapers/` holds all 10 built-ins, which the

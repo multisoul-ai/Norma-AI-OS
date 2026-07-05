@@ -5,7 +5,10 @@ pub mod message;
 pub mod pty;
 pub mod session;
 
-pub use grid::{Cell, CellAttrs, GridSnapshot, TerminalColor, TerminalGrid, TerminalNamedColor};
+pub use grid::{
+    terminal_wheel_action, Cell, CellAttrs, GridSnapshot, TerminalColor, TerminalGrid,
+    TerminalNamedColor, TerminalWheelAction,
+};
 pub use input::{encode, Key, KeyInput};
 pub use message::PtyEvent;
 pub use pty::{PtyCommand, PtyError, PtyHandle};

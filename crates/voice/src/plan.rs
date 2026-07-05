@@ -34,6 +34,7 @@ pub enum VoiceCardKind {
     Terminal,
     Agent { profile: AgentProfile },
     Preview,
+    Browser,
     Rect,
 }
 

@@ -1,17 +1,17 @@
-# Multisoul Design System
+# Norma OS Design System
 
 > 状态: Draft
 > 日期: 2026-06-21
 > 适用范围: `apple/Sources/MultisoulApp`
 > Review 页面: [`design.html`](design.html)
 >
-> 本规范基于当前 Multisoul 品牌视觉、`/Users/alan/Documents/mybook/multica/docs/design.md` 的产品 UI 纪律，以及现有 SwiftUI 代码中的 `WorkspaceGlassStyle.swift`、`LiquidGlassWorkspaceView.swift`、`CanvasNodeChrome.swift`。
+> 本规范基于当前 Norma OS 品牌视觉、`/Users/alan/Documents/mybook/multica/docs/design.md` 的产品 UI 纪律，以及现有 SwiftUI 代码中的 `WorkspaceGlassStyle.swift`、`LiquidGlassWorkspaceView.swift`、`CanvasNodeChrome.swift`。
 
 ---
 
 ## 1. 设计定位
 
-Multisoul 是面向开发人员的 vibe coding 开发平台。它不是传统 IDE，也不是聊天窗口，而是一个让用户与多个智能 Agent 在同一空间里协作的空间工作台。
+Norma OS 是面向开发人员的 vibe coding 开发平台。它不是传统 IDE，也不是聊天窗口，而是一个让用户与多个智能 Agent 在同一空间里协作的空间工作台。
 
 品牌体验要传达:
 
@@ -77,7 +77,7 @@ SwiftUI 界面需要同时满足两种要求:
 
 ### 2.4 过程可见，状态可信
 
-Multisoul 的核心是多个 Agent 正在同一空间里一起工作。UI 必须让用户清楚看到:
+Norma OS 的核心是多个 Agent 正在同一空间里一起工作。UI 必须让用户清楚看到:
 
 - 哪个 Agent 正在运行。
 - 哪个节点被选中。
@@ -115,7 +115,7 @@ Multisoul 的核心是多个 Agent 正在同一空间里一起工作。UI 必须
 - premium creative technology
 - spatial productivity
 
-Multisoul 可以有趣，但不能幼稚；可以鲜明，但不能嘈杂。
+Norma OS 可以有趣，但不能幼稚；可以鲜明，但不能嘈杂。
 
 ---
 
@@ -413,7 +413,7 @@ WorkspaceOverlay / GlassEffectContainer
 
 ### 8.4 Live Node
 
-Live Node 是 Multisoul 的核心组件，优先级高于所有装饰。
+Live Node 是 Norma OS 的核心组件，优先级高于所有装饰。
 
 基线:
 
@@ -473,7 +473,7 @@ Agent 状态点采用 Node 母题。
 
 空状态可以使用更强品牌表达:
 
-- 大号 Multisoul 标题。
+- 大号 Norma OS 标题。
 - Orbit / Node 插图。
 - 1 个 primary action。
 - 2-3 个 secondary action。
@@ -752,7 +752,7 @@ Canvas/
 - hover / active / disabled / invalid 状态必须统一。
 - 不要用随机字号、随机颜色、随机动效制造层级。
 
-Multisoul 的差异:
+Norma OS 的差异:
 
 - 允许更强品牌色，但只作为 Agent / 状态 / 轨道信号。
 - 允许玻璃材质和轻微发光，但必须通过共享 token 管控。

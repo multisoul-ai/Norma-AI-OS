@@ -125,6 +125,7 @@ impl MultisoulApp {
         match result {
             Ok(opened) => {
                 self.focus_handle.focus(window);
+                self.clear_browser_views();
                 self.reload_all_previews(cx);
                 self.spawn_deferred_live_session_restore(opened.pending_live_restore, cx);
             }

@@ -53,12 +53,20 @@ pub struct PreviewSpec {
     pub explicit_type: Option<PreviewType>,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+pub struct BrowserSpec {
+    pub url: String,
+    #[serde(default)]
+    pub title: Option<String>,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub enum NodeType {
     Rect,
     Term,
     Agent,
     Preview,
+    Browser,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -67,6 +75,7 @@ pub enum NodeKind {
     Term(TermSpec),
     Agent(AgentSpec),
     Preview(PreviewSpec),
+    Browser(BrowserSpec),
 }
 
 /// 兼容旧调用方的类型名；新代码优先使用 NodeKind。
@@ -79,6 +88,7 @@ impl NodeKind {
             NodeKind::Term(_) => NodeType::Term,
             NodeKind::Agent(_) => NodeType::Agent,
             NodeKind::Preview(_) => NodeType::Preview,
+            NodeKind::Browser(_) => NodeType::Browser,
         }
     }
 
@@ -92,8 +102,34 @@ impl NodeKind {
                 .unwrap_or_else(|| node.profile.display_title())
                 .to_string(),
             NodeKind::Preview(spec) => preview_title(&spec.path),
+            NodeKind::Browser(spec) => browser_title(spec),
         }
     }
+}
+
+fn browser_title(spec: &BrowserSpec) -> String {
+    spec.title
+        .as_deref()
+        .filter(|title| !title.trim().is_empty())
+        .map(str::to_string)
+        .or_else(|| browser_host(&spec.url))
+        .unwrap_or_else(|| "Browser".to_string())
+}
+
+fn browser_host(url: &str) -> Option<String> {
+    let (_, rest) = url.split_once("://")?;
+    let host = rest
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or("")
+        .split('@')
+        .next_back()
+        .unwrap_or("")
+        .split(':')
+        .next()
+        .unwrap_or("")
+        .trim();
+    (!host.is_empty() && !host.chars().any(char::is_whitespace)).then(|| host.to_string())
 }
 
 fn preview_title(path: &str) -> String {
@@ -335,6 +371,100 @@ mod tests {
         assert!(
             !json.contains("content"),
             "Preview canvas snapshot 不应包含文件内容副本，实际 JSON: {json}"
+        );
+    }
+
+    /// Browser 节点只保存网页地址和可选标题，并可完整 serde 往返。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   url = "https://example.com/docs"，网页内容不进入 canvas 层
+    ///   title = Some("Docs")，标题来自 app 层 WebView 回调
+    ///   snapshot payload 字段数 = 2（url + title），不包含 HTML、cookie 或 cache 字段
+    ///
+    /// 执行过程：
+    ///   1. 构造 NodeKind::Browser(BrowserSpec)
+    ///   2. 调用 node_type / display_title
+    ///   3. serde_json 序列化后再反序列化
+    ///
+    /// 预期结果：
+    ///   - 正断言：Browser 类型是 NodeType::Browser，标题优先显示 "Docs"
+    ///   - 正断言：serde 往返后 kind 与原始值一致，url/title 仍保留
+    ///   - 负断言：序列化 JSON 不应包含 HTML 内容或 cookie/cache 状态
+    #[test]
+    fn test_browser_kind_preserves_url_title_and_serializes_without_page_state() {
+        let kind = NodeKind::Browser(BrowserSpec {
+            url: "https://example.com/docs".to_string(),
+            title: Some("Docs".to_string()),
+        });
+
+        let json = serde_json::to_string(&kind).expect("Browser kind 应可序列化");
+        let restored: NodeKind = serde_json::from_str(&json).expect("Browser kind 应可反序列化");
+
+        assert_eq!(
+            kind.node_type(),
+            NodeType::Browser,
+            "Browser 节点应暴露 NodeType::Browser，供 app card registry dispatch"
+        );
+        assert_eq!(
+            kind.display_title(),
+            "Docs",
+            "Browser 节点标题应优先显示 WebView 提供的页面标题"
+        );
+        assert_eq!(
+            restored, kind,
+            "Browser kind serde 往返后应完整保留 url 与 title"
+        );
+        assert!(
+            !json.contains("html"),
+            "Browser canvas snapshot 不应包含 HTML 内容副本，实际 JSON: {json}"
+        );
+        assert!(
+            !json.contains("cookie") && !json.contains("cache"),
+            "Browser canvas snapshot 不应包含 cookie/cache 状态，实际 JSON: {json}"
+        );
+    }
+
+    /// Browser 无标题时用 URL host 做标题，URL 不可解析时回退为 Browser。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   titled url = "https://docs.example.com/path"，host = docs.example.com
+    ///   invalid url = "not a url"，没有 scheme/host
+    ///   title=None，display_title 必须从 URL fallback 推导
+    ///
+    /// 执行过程：
+    ///   1. 构造 title=None 且 URL 有 host 的 Browser kind
+    ///   2. 构造 title=None 且 URL 不可解析的 Browser kind
+    ///   3. 分别调用 display_title
+    ///
+    /// 预期结果：
+    ///   - 正断言：可解析 URL 标题为 docs.example.com
+    ///   - 正断言：不可解析 URL 标题为 Browser
+    ///   - 负断言：无标题 Browser 不应退化显示为 Terminal
+    #[test]
+    fn test_browser_title_falls_back_to_host_then_browser_label() {
+        let hosted = NodeKind::Browser(BrowserSpec {
+            url: "https://docs.example.com/path".to_string(),
+            title: None,
+        });
+        let invalid = NodeKind::Browser(BrowserSpec {
+            url: "not a url".to_string(),
+            title: None,
+        });
+
+        assert_eq!(
+            hosted.display_title(),
+            "docs.example.com",
+            "Browser 无页面标题时应从 URL host 推导标题"
+        );
+        assert_eq!(
+            invalid.display_title(),
+            "Browser",
+            "Browser 无法从 URL 推导 host 时应回退为 Browser"
+        );
+        assert_ne!(
+            hosted.display_title(),
+            "Terminal",
+            "Browser 标题 fallback 不应退化成 Terminal"
         );
     }
 }

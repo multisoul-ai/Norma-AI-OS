@@ -1,4 +1,4 @@
-# AGENTS.md - Multisoul Desktop 导航地图
+# AGENTS.md - Norma OS 导航地图
 
 > 本文是地图，不是说明书。它告诉 Agent 去哪儿查、先守哪些边界。
 > 系统架构见 [`ARCHITECTURE.md`](ARCHITECTURE.md)；展开命令、工程细节、测试规范见 [`CLAUDE.md`](CLAUDE.md)。
@@ -6,7 +6,7 @@
 
 ## 1. 这是什么
 
-Multisoul Desktop 是 macOS 空间工作台脚手架。核心抽象是 **Live Node on Infinite Canvas**：无限画布承载可运行节点，Terminal 是第一个 Live Node。
+Norma OS 是 macOS 空间工作台脚手架。核心抽象是 **Live Node on Infinite Canvas**：无限画布承载可运行节点，Terminal 是第一个 Live Node。
 
 Workspace 分层：
 
@@ -196,6 +196,6 @@ reference them in your reply using standard Markdown image syntax:
 ![description](/absolute/path/to/image.png)
 
 Supported formats: png, jpg, jpeg, gif, webp.
-The MultiSoul mobile app will automatically render these images inline.
+The Norma OS mobile app will automatically render these images inline.
 
 <!-- msctl-inject-end -->

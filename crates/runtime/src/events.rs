@@ -322,7 +322,10 @@ impl Runtime {
                 );
                 false
             }
-            CanvasNodeKind::Rect(_) | CanvasNodeKind::Term(_) | CanvasNodeKind::Preview(_) => {
+            CanvasNodeKind::Rect(_)
+            | CanvasNodeKind::Term(_)
+            | CanvasNodeKind::Preview(_)
+            | CanvasNodeKind::Browser(_) => {
                 tracing::debug!(
                     node_id = update.node_id,
                     "agent task update ignored: target is not an agent node"

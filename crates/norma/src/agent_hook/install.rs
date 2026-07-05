@@ -11,7 +11,7 @@ pub fn install_agent_hooks(target: HookTarget) -> Result<PathBuf, AgentHookError
     let command_path = resolve_agent_hook_command_path().ok_or_else(|| {
         AgentHookError::Io(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            format!("{AGENT_HOOK_BINARY_NAME} binary not found next to Multisoul or on PATH"),
+            format!("{AGENT_HOOK_BINARY_NAME} binary not found next to Norma OS or on PATH"),
         ))
     })?;
     install_hook_config(target, &command_path, &default_install_paths())?;

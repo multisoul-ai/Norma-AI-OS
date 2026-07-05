@@ -160,6 +160,10 @@ fn test_terminal_snapshot_copy_text_trims_padding_and_blank_tail() {
         lines: 3,
         display_offset: 0,
         history_size: 0,
+        alt_screen: false,
+        alternate_scroll: true,
+        mouse_mode: false,
+        sgr_mouse: false,
     };
 
     let text = terminal_snapshot_copy_text(&snapshot);

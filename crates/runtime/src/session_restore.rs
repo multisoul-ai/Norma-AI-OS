@@ -36,7 +36,9 @@ pub fn collect_session_checkpoints(
             let kind = match &node.kind {
                 CanvasNodeKind::Term(_) => SessionCheckpointKind::Terminal,
                 CanvasNodeKind::Agent(_) => SessionCheckpointKind::Agent,
-                CanvasNodeKind::Rect(_) | CanvasNodeKind::Preview(_) => return None,
+                CanvasNodeKind::Rect(_)
+                | CanvasNodeKind::Preview(_)
+                | CanvasNodeKind::Browser(_) => return None,
             };
             let (cols, rows) = live_grid_size(live, node.id);
             Some(SessionCheckpoint {
@@ -45,26 +47,27 @@ pub fn collect_session_checkpoints(
                 payload: node.kind.display_title(),
                 cols,
                 rows,
-                shell: match &node.kind {
-                    CanvasNodeKind::Term(_) => Some(
+                shell: if matches!(&node.kind, CanvasNodeKind::Term(_)) {
+                    Some(
                         terminal_shells
                             .get(&node.id)
                             .cloned()
                             .unwrap_or_else(|| DEFAULT_TERMINAL_SHELL.to_string()),
-                    ),
-                    CanvasNodeKind::Agent(_)
-                    | CanvasNodeKind::Rect(_)
-                    | CanvasNodeKind::Preview(_) => None,
+                    )
+                } else {
+                    None
                 },
-                agent_profile: match &node.kind {
-                    CanvasNodeKind::Agent(spec) => Some(spec.profile),
-                    CanvasNodeKind::Term(_)
-                    | CanvasNodeKind::Rect(_)
-                    | CanvasNodeKind::Preview(_) => None,
-                },
+                agent_profile: agent_profile_for_checkpoint(&node.kind),
             })
         })
         .collect()
+}
+
+fn agent_profile_for_checkpoint(kind: &CanvasNodeKind) -> Option<AgentProfile> {
+    match kind {
+        CanvasNodeKind::Agent(spec) => Some(spec.profile),
+        _ => None,
+    }
 }
 
 /// Persist all checkpoints to the store (INSERT OR REPLACE).
@@ -136,7 +139,7 @@ pub fn restore_live_sessions(
                     .unwrap_or(spec.profile);
                 attach_agent_live(node_id, profile, cols, rows, ctx)
             }
-            CanvasNodeKind::Rect(_) | CanvasNodeKind::Preview(_) => false,
+            _ => false,
         };
         if did_restore {
             restored += 1;
@@ -213,7 +216,7 @@ pub fn restore_live_sessions_with_node_sessions(
                 };
                 attach_agent_live_with_command(node_id, command, cols, rows, ctx)
             }
-            CanvasNodeKind::Rect(_) | CanvasNodeKind::Preview(_) => false,
+            _ => false,
         };
         if did_restore {
             restored += 1;
@@ -275,7 +278,7 @@ pub fn restore_live_session_for_node_with_node_sessions(
             };
             attach_agent_live_with_command(node_id, command, cols, rows, ctx)
         }
-        CanvasNodeKind::Rect(_) | CanvasNodeKind::Preview(_) => false,
+        CanvasNodeKind::Rect(_) | CanvasNodeKind::Preview(_) | CanvasNodeKind::Browser(_) => false,
     }
 }
 
@@ -449,9 +452,6 @@ fn attach_agent_live_with_command(
     }
 }
 
-// ── Test helpers ───────────────────────────────────────────────────────────
-
-/// Test helper: return the PtyCommand that would be used for agent restore.
 #[cfg(test)]
 pub fn build_agent_restore_command_for_test(
     session: &NodeSession,
@@ -489,7 +489,6 @@ pub fn resolve_agent_restore_session_id_for_test(
     })
 }
 
-/// Test helper: return the PtyCommand that would be used for terminal restore.
 #[cfg(test)]
 pub fn build_terminal_restore_command_for_test(session: &NodeSession, shell: &str) -> PtyCommand {
     match &session.cwd {

@@ -4,6 +4,7 @@
 //! the import flow; `view.rs` holds the settings-panel grid. Tests covering
 //! both live in `crates/app/tests/unit/wallpaper_settings_tests.rs`.
 
+mod dirs;
 mod import;
 mod state;
 mod view;
@@ -19,3 +20,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../../tests/unit/wallpaper_render_id_tests.rs"]
 mod render_id_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_dirs_tests.rs"]
+mod dirs_tests;

@@ -1,5 +1,6 @@
 //! GPUI 主视图：持有 Runtime，装配画布/终端渲染，处理快捷键与帧级 drain。
 
+use crate::app::browser::{BrowserAddressEdit, BrowserStore};
 use crate::app::frame_throttle::{FrameThrottle, CURSOR_REPAINT_INTERVAL};
 use crate::canvas::interaction::InteractionState;
 use crate::canvas::master_layout::{
@@ -25,13 +26,17 @@ use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasRect, NodeId, NodeType, Vec2};
-use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
+use gpui::{
+    actions, div, prelude::*, px, Action, ClickEvent, Context, FocusHandle, Focusable, Window,
+};
 use runtime::{route, InputEvent, InputMode, NodeRunState, Route, Runtime};
 use std::time::Duration;
 use ui::Theme;
 
 mod agent_actions;
+pub(crate) mod browser;
 mod chrome;
+mod clipboard_image;
 mod file_picker;
 mod frame_loop;
 mod frame_throttle;
@@ -49,7 +54,6 @@ mod video_wallpaper;
 mod voice;
 mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
-
 actions!(
     multisoul,
     [
@@ -58,6 +62,7 @@ actions!(
         NewClaudeAgent,
         NewCodexAgent,
         NewOpenCodeAgent,
+        NewBrowser,
         CopyCardContent,
         OpenPreviewFile,
         OpenProject,
@@ -67,6 +72,19 @@ actions!(
         ToggleSettings
     ]
 );
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BrowserCommandKind {
+    Back,
+    Forward,
+    Reload,
+    EditAddress,
+}
+#[derive(Clone, Debug, PartialEq, Action)]
+#[action(namespace = multisoul, no_json)]
+pub(crate) struct BrowserCommand {
+    pub(crate) node_id: NodeId,
+    pub(crate) command: BrowserCommandKind,
+}
 const WALLPAPER_IMAGE_OPACITY: f32 = 1.0;
 const WALLPAPER_SHADE_TOP_ALPHA: u8 = 0x00;
 const WALLPAPER_SHADE_BOTTOM_ALPHA: u8 = 0x00;
@@ -77,6 +95,8 @@ pub struct MultisoulApp {
     pub interaction: InteractionState,
     pub(crate) motion: MotionStore,
     pub(crate) previews: PreviewStore,
+    pub(crate) browsers: BrowserStore,
+    pub(crate) browser_address_edit: Option<BrowserAddressEdit>,
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) persistence: PersistenceScheduler,
     pub(crate) settings_panel: SettingsPanelState,
@@ -128,6 +148,8 @@ impl MultisoulApp {
             interaction: InteractionState::default(),
             motion: MotionStore::from_env(),
             previews: PreviewStore::default(),
+            browsers: BrowserStore::default(),
+            browser_address_edit: None,
             master_layout: MasterLayoutState::default(),
             persistence: PersistenceScheduler::default(),
             settings_panel: SettingsPanelState::default(),
@@ -216,6 +238,29 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    fn on_new_browser(&mut self, _: &NewBrowser, window: &mut Window, cx: &mut Context<Self>) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error = Some("Open a project before creating browsers.".into());
+            cx.notify();
+            return;
+        }
+
+        let bounds = self
+            .visible_canvas_rect(window)
+            .inset(self.layout_gap_canvas());
+        let node_id = self.runtime.spawn_browser(
+            crate::cards::browser::normalize_browser_url(""),
+            None,
+            bounds,
+        );
+        self.runtime.selection.select_only(node_id);
+        self.runtime.focus.exit_to_canvas();
+        self.motion.spawn_node(node_id, bounds);
+        self.apply_layout_for_current_mode(window);
+        self.mark_canvas_dirty();
+        cx.notify();
+    }
+
     fn on_exit_focus(&mut self, _: &ExitFocus, _window: &mut Window, cx: &mut Context<Self>) {
         self.runtime.focus.exit_to_canvas();
         cx.notify();
@@ -274,6 +319,7 @@ impl MultisoulApp {
         );
         if changed {
             self.previews.remove(node_id);
+            self.remove_browser_view(node_id);
             self.mark_canvas_dirty();
             self.mark_session_dirty();
 
@@ -395,6 +441,7 @@ impl Render for MultisoulApp {
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(Self::on_new_window))
             .on_action(cx.listener(Self::on_new_terminal))
+            .on_action(cx.listener(Self::on_new_browser))
             .on_action(cx.listener(Self::on_new_claude_agent))
             .on_action(cx.listener(Self::on_new_codex_agent))
             .on_action(cx.listener(Self::on_copy_card_content))
@@ -404,6 +451,7 @@ impl Render for MultisoulApp {
             .on_action(cx.listener(Self::on_reflow_layout))
             .on_action(cx.listener(Self::on_toggle_master_layout))
             .on_action(cx.listener(Self::on_toggle_settings))
+            .on_action(cx.listener(Self::on_browser_command))
             .on_key_down(cx.listener(Self::on_key_down))
             .on_key_up(cx.listener(Self::on_key_up))
             .on_modifiers_changed(cx.listener(Self::on_modifiers_changed))

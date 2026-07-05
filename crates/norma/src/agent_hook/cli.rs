@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
 #[command(name = "multisoul-agent-hook")]
-#[command(about = "Bridge Claude/Codex lifecycle hooks back to Multisoul Desktop")]
+#[command(about = "Bridge Claude/Codex lifecycle hooks back to Norma OS")]
 struct Args {
     #[command(subcommand)]
     command: Command,
@@ -43,7 +43,7 @@ pub fn main() -> anyhow::Result<()> {
             let command_path = command_path.unwrap_or(std::env::current_exe()?);
             install_hook_config(target, &command_path, &default_install_paths())?;
             println!(
-                "installed Multisoul agent hooks using {}",
+                "installed Norma OS agent hooks using {}",
                 command_path.display()
             );
             Ok(())

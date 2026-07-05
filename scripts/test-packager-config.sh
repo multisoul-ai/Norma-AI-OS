@@ -2,11 +2,12 @@
 # Focused test for Packager.toml release binary wiring.
 #
 # Scenario:
-#   Packager.toml packages target/release/multisoul-agent-hook as a secondary
-#   macOS bundle executable.
+#   Packager.toml packages target/release/norma-os as the main macOS bundle
+#   executable and target/release/multisoul-agent-hook as a secondary helper.
 #
 # Data construction:
-#   required binary path = target/release/multisoul-agent-hook
+#   main binary path     = target/release/norma-os
+#   hook binary path     = target/release/multisoul-agent-hook
 #   release build hook   = before-packaging-command in Packager.toml
 #   required cargo target = -p app（app package now owns both release binaries）
 #
@@ -16,9 +17,14 @@
 #   3. Verify the one-shot pre-packaging command builds the app package.
 #
 # Expected result:
+#   - Positive: product-name is Norma OS.
+#   - Positive: bundle identifier is com.norma.os.
+#   - Positive: the main app binary path is target/release/norma-os.
 #   - Positive: the hook binary path is present in [[binaries]].
 #   - Positive: before-packaging-command exists and bumps the persisted version.
 #   - Positive: before-packaging-command invokes `cargo build --release -p app`.
+#   - Negative: the old target/release/multisoul main binary path is not retained.
+#   - Negative: old Multisoul product metadata is not retained.
 #   - Negative: a config that builds without bumping the version fails.
 #   - Negative: a config that bumps after building fails.
 
@@ -32,8 +38,28 @@ fail() {
   exit 1
 }
 
+if ! grep -Fq 'path = "target/release/norma-os"' "$config"; then
+  fail "Packager.toml must package target/release/norma-os as the main app binary"
+fi
+
+if grep -Fq 'path = "target/release/multisoul"' "$config"; then
+  fail "Packager.toml must not package the old target/release/multisoul app binary"
+fi
+
 if ! grep -Fq 'path = "target/release/multisoul-agent-hook"' "$config"; then
   fail "Packager.toml must package target/release/multisoul-agent-hook"
+fi
+
+if ! grep -Fq 'product-name = "Norma OS"' "$config"; then
+  fail "Packager.toml product-name must be Norma OS"
+fi
+
+if ! grep -Fq 'identifier = "com.norma.os"' "$config"; then
+  fail "Packager.toml identifier must be com.norma.os"
+fi
+
+if grep -Fq 'product-name = "Multisoul"' "$config"; then
+  fail "Packager.toml must not keep the old Multisoul product-name"
 fi
 
 if ! grep -Fq 'before-packaging-command' "$config"; then

@@ -39,6 +39,7 @@ pub enum NodeResize {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NodeScroll {
     TermLines(i32),
+    TermWheel { lines: i32, row: u16, col: u16 },
 }
 
 #[derive(Debug, Clone)]

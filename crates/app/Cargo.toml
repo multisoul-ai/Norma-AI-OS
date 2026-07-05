@@ -3,10 +3,10 @@ name = "app"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-default-run = "multisoul"
+default-run = "norma-os"
 
 [[bin]]
-name = "multisoul"
+name = "norma-os"
 path = "src/main.rs"
 
 [[bin]]
@@ -49,6 +49,8 @@ core-video = { version = "=0.4.3", features = ["metal"] }
 core-foundation = "0.10"
 objc2 = "0.6"
 objc2-foundation = "0.3"
+objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSView"] }
+objc2-quartz-core = { version = "0.3", features = ["CALayer"] }
 objc2-av-foundation = { version = "0.3", features = [
     "AVAsset",
     "AVAssetReader",
@@ -58,3 +60,4 @@ objc2-av-foundation = { version = "0.3", features = [
     "objc2-core-media",
 ] }
 block2 = "0.6"
+wry = { version = "0.55.1", default-features = false, features = ["protocol"] }

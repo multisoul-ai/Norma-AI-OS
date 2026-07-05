@@ -6,7 +6,7 @@ pub(crate) fn planner_prompt(request: &VoicePlanningRequest) -> Result<String, s
     let transcript = serde_json::to_string(&request.transcript)?;
     let targets = serde_json::to_string(&planner_targets(request))?;
     Ok(format!(
-        "You are Multisoul's local voice planner.\n\n\
+        "You are Norma OS's local voice planner.\n\n\
          Return exactly one JSON object. No markdown. No text outside JSON.\n\n\
          CURRENT_TRANSCRIPT:\n{}\n\n\
          TARGETS:\n{}\n\n\
@@ -29,7 +29,7 @@ pub(crate) fn json_repair_prompt(
     let targets = serde_json::to_string(&planner_targets(request))?;
     let malformed = serde_json::to_string(malformed_response)?;
     Ok(format!(
-        "Repair the malformed VoicePlan JSON from Multisoul's local voice planner.\n\n\
+        "Repair the malformed VoicePlan JSON from Norma OS's local voice planner.\n\n\
          Return exactly one JSON object matching the VoicePlan JSON contract. No prose. No fenced code.\n\n\
          CURRENT_TRANSCRIPT:\n{}\n\n\
          TARGETS:\n{}\n\n\
@@ -90,6 +90,7 @@ fn planner_target_kind(kind: &VoiceCardKind) -> String {
         VoiceCardKind::Terminal => "terminal".to_string(),
         VoiceCardKind::Agent { profile } => format!("agent:{}", agent_profile_name(*profile)),
         VoiceCardKind::Preview => "preview".to_string(),
+        VoiceCardKind::Browser => "browser".to_string(),
         VoiceCardKind::Rect => "rect".to_string(),
     }
 }

@@ -119,7 +119,7 @@ PTY child process
 
 ## 4. Agent 任务状态来源
 
-Claude/Codex command hooks 会在 session、用户输入、工具调用、授权请求、停止等生命周期点执行命令。Multisoul 应追加自己的 hook bridge 命令，而不是替换用户现有 OpenIsland、Vibe 或 Petdex hooks。
+Claude/Codex command hooks 会在 session、用户输入、工具调用、授权请求、停止等生命周期点执行命令。Norma OS 应追加自己的 hook bridge 命令，而不是替换用户现有 OpenIsland、Vibe 或 Petdex hooks。
 
 推荐命令：
 
@@ -132,7 +132,7 @@ bridge 行为：
 
 - 从 `stdin` 读取 provider 原始 hook JSON。
 - 从 env 读取 `MULTISOUL_NODE_ID`、`MULTISOUL_AGENT_PROFILE`、`MULTISOUL_HOOK_ENDPOINT`、`MULTISOUL_HOOK_TOKEN`。
-- 缺少 Multisoul env 时直接 `exit 0`，避免影响普通 Claude/Codex 会话。
+- 缺少 Norma OS env 时直接 `exit 0`，避免影响普通 Claude/Codex 会话。
 - POST 到本地 app ingest endpoint，例如 `http://127.0.0.1:<port>/agent-hooks`。
 - endpoint 不可达或解析失败时也 `exit 0`，避免阻塞 Agent CLI。
 - 不解析 transcript 文件。transcript 只用于人工排障，不作为稳定状态接口。

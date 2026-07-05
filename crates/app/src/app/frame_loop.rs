@@ -127,13 +127,14 @@ impl MultisoulApp {
             let go = this.update(cx, |app, cx| {
                 let tick_started_at = Instant::now();
                 let runtime_changed = app.runtime.drain_all();
+                let browser_changed = app.drain_browser_events();
                 let agent_hook_changed = app.agent_hook_server.drain_into_runtime(&mut app.runtime);
                 let runtime_events = app.runtime.take_events();
                 for event in &runtime_events {
                     tracing::debug!(?event, "runtime event");
                 }
                 let report = RuntimeFrameReport {
-                    runtime_changed,
+                    runtime_changed: runtime_changed || browser_changed,
                     runtime_event_count: runtime_events.len(),
                     agent_hook_changed,
                     agent_hook_pending: app.agent_hook_server.has_pending(),

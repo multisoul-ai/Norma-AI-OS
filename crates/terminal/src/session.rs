@@ -1,6 +1,6 @@
 //! TerminalSession：把 PtyHandle + TerminalGrid + 通道接收端组装为一个可 drain 的会话。
 
-use crate::grid::{GridSnapshot, TerminalGrid};
+use crate::grid::{terminal_wheel_action, GridSnapshot, TerminalGrid, TerminalWheelAction};
 use crate::input::{encode, KeyInput};
 use crate::message::PtyEvent;
 use crate::pty::{PtyCommand, PtyError, PtyHandle};
@@ -104,6 +104,16 @@ impl TerminalSession {
 
     pub fn scroll_display(&mut self, lines: i32) -> bool {
         self.grid.scroll_display(lines)
+    }
+
+    pub fn scroll_wheel(&mut self, lines: i32, row: u16, col: u16) -> Result<bool, PtyError> {
+        match terminal_wheel_action(&self.grid.snapshot(), lines, row, col) {
+            TerminalWheelAction::Scrollback(lines) => Ok(self.grid.scroll_display(lines)),
+            TerminalWheelAction::WriteBytes(bytes) => {
+                self.pty.write(&bytes)?;
+                Ok(false)
+            }
+        }
     }
 
     pub fn kill(&mut self) {

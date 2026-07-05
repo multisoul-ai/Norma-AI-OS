@@ -31,6 +31,10 @@ fn test_snapshot(row: Vec<Cell>) -> GridSnapshot {
         lines: 1,
         display_offset: 0,
         history_size: 0,
+        alt_screen: false,
+        alternate_scroll: true,
+        mouse_mode: false,
+        sgr_mouse: false,
     }
 }
 
