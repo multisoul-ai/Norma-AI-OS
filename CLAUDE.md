@@ -103,6 +103,7 @@ bash scripts/check-no-allow.sh
 bash scripts/check-agent-guide-lines.sh
 bash scripts/check-storage-boundaries.sh
 bash scripts/check-performance-guardrails.sh
+bash scripts/check-codesign-readiness.sh
 python3 scripts/check-video-wallpaper-performance.py
 ```
 

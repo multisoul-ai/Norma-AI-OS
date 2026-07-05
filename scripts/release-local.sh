@@ -32,6 +32,7 @@ done
 bash scripts/check-codesign-readiness.sh
 
 # 2. git lfs pull（确保 wallpaper MP4 真实字节在树里）
+command -v git-lfs >/dev/null 2>&1 || die "git-lfs 未安装，见 docs/references/packaging.md"
 info "git lfs pull"
 git lfs pull
 
@@ -70,7 +71,7 @@ done
 [ -n "$APP" ] || die "未找到产物 Multisoul.app"
 info "验证 $APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
-spctl --assess --type execute --verbose "$APP" || warn "spctl 在 ad-hoc 下会失败，真实签名时应 accepted"
+spctl --assess --type execute --verbose "$APP" || warn "spctl 在 ad-hoc 下会失败，真实签名 + notarize + staple 后应 accepted"
 xcrun stapler validate "$APP" || warn "stapler 在 ad-hoc/notarize 跳过时无票据"
 
 info "Done: $APP"

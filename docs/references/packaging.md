@@ -1,6 +1,6 @@
 # Packaging Notes
 
-`Packager.toml` configures an unsigned macOS app and DMG:
+`Packager.toml` configures a macOS app and DMG with entitlements + (staged) Developer ID signing/notarize:
 
 - product name: `Multisoul`
 - bundle id: `com.multisoul.desktop`

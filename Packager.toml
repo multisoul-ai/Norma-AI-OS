@@ -1,4 +1,4 @@
-# cargo-packager 配置（未签名 .app/.dmg）。字段以 cargo-packager 文档为准，
+# cargo-packager 配置：Developer ID 签名 + notarize（signing-identity 阶段 0 启用）。字段以 cargo-packager 文档为准，
 # 若 schema 不符按 https://docs.crabnebula.dev/packager/ 校准。
 name = "app"
 product-name = "Multisoul"
@@ -34,4 +34,3 @@ entitlements = "packaging/macos/Multisoul.entitlements"
 # 阶段 0 启用：签发 Developer ID Application (2BF8G9AN4L) 证书后取消注释并填入证书 CN。
 # 用 security find-identity -v -p codesigning | grep "Developer ID Application.*2BF8G9AN4L" 查到。
 # signing-identity = "Developer ID Application: <公司证书名> (2BF8G9AN4L)"
-# 本切片不签名/不公证（Phase 6）。
