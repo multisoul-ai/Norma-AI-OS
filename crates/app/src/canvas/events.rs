@@ -151,6 +151,7 @@ pub(super) fn on_mouse_down(
                 app.interaction.drag = Some(DragState {
                     node: id,
                     last_screen: screen,
+                    swap_candidate: None,
                 });
                 app.interaction.last_motion_notify = None;
                 app.motion.set_dragging(id, true);
@@ -237,6 +238,7 @@ pub(super) fn on_mouse_move(
         app.interaction.drag = Some(DragState {
             node: drag.node,
             last_screen: screen,
+            swap_candidate: drag.swap_candidate,
         });
         let now = Instant::now();
         if should_notify_motion_frame(app.interaction.last_motion_notify, now) {

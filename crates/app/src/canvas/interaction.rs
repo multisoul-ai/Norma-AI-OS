@@ -8,6 +8,7 @@ use std::time::Instant;
 pub struct DragState {
     pub node: NodeId,
     pub last_screen: Vec2,
+    pub swap_candidate: Option<NodeId>,
 }
 
 #[derive(Default)]
