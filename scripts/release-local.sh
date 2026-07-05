@@ -38,7 +38,7 @@ git lfs pull
 
 if [ "$AD_HOC" = true ]; then
   # ad-hoc 测试：不 notarize，用 Packager.dev.toml
-  [ -f target/release/multisoul ] || die "target/release/multisoul 不存在，先 cargo build --release -p app"
+  [ -f target/release/norma-os ] || die "target/release/norma-os 不存在，先 cargo build --release -p app"
   info "ad-hoc 打包（不 notarize）"
   env -u APPLE_API_KEY -u APPLE_API_ISSUER -u APPLE_API_KEY_PATH \
       -u APPLE_KEYCHAIN_PROFILE -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \
@@ -73,7 +73,7 @@ APP=""
 for p in "build/Norma OS.app" "build/dev/Norma OS.app"; do
   [ -d "$p" ] && APP="$p" && break
 done
-[ -n "$APP" ] || die "未找到产物 Multisoul.app"
+[ -n "$APP" ] || die "未找到产物 Norma OS.app"
 info "验证 $APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 if [ "$AD_HOC" = true ]; then

@@ -30,5 +30,5 @@ main = false
 [macos]
 minimum-system-version = "12.0"
 info-plist-path = "packaging/macos/Info.plist"
-entitlements = "packaging/macos/Multisoul.entitlements"
+entitlements = "packaging/macos/NormaOS.entitlements"
 signing-identity = "Developer ID Application: Shanghai Jieyu Future Intelligent Network Technology Co., Ltd (2BF8G9AN4L)"

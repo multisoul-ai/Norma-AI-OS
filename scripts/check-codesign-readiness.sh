@@ -10,7 +10,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENT="$ROOT/packaging/macos/Multisoul.entitlements"
+ENT="$ROOT/packaging/macos/NormaOS.entitlements"
 INFO="$ROOT/packaging/macos/Info.plist"
 PKG="$ROOT/Packager.toml"
 PKG_DEV="$ROOT/Packager.dev.toml"

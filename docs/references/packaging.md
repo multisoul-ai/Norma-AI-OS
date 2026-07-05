@@ -2,10 +2,10 @@
 
 `Packager.toml` configures a macOS app and DMG with entitlements + (staged) Developer ID signing/notarize:
 
-- product name: `Multisoul`
-- bundle id: `com.multisoul.desktop`
+- product name: `Norma OS`
+- bundle id: `com.norma.os`
 - formats: `app`, `dmg`
-- binary: `target/release/multisoul`
+- binary: `target/release/norma-os`
 - secondary binary: `target/release/multisoul-agent-hook`
 - minimum macOS: `12.0`
 
@@ -28,7 +28,7 @@ config for the current process. The persisted files are advanced before the
 release build, and the next `cargo packager --release -c Packager.toml`
 invocation starts from that bumped version.
 
-Codesigning and notarization 配置见 `packaging/macos/Multisoul.entitlements` 与
+Codesigning and notarization 配置见 `packaging/macos/NormaOS.entitlements` 与
 `Packager.toml` 的 `[macos]` 段；本地发版用 `scripts/release-local.sh`，详见
 `docs/design-docs/2026-07-05-developer-id-notarize-design.md`。
 
