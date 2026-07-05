@@ -1,72 +1,45 @@
 //! App 层卡片动效状态：只影响渲染连续性，不改变 canvas/runtime 的真实状态。
-
 pub(crate) mod breathing;
+pub(crate) mod diagnostics;
 pub(crate) mod scalar;
+#[cfg(test)]
+mod tests;
 pub(crate) mod tokens;
 pub(crate) mod util;
+pub(crate) mod visual;
 pub(crate) mod working;
-
-use canvas::{CanvasRect, NodeId};
-use std::collections::{BTreeMap, BTreeSet};
-use std::time::Duration;
-use ui::Theme;
-
 use crate::motion::breathing::{
-    breathing_color_for_phase, resolve_corner_glow, BreathingIntent, BreathingState, CornerGlow,
+    breathing_color_for_phase, resolve_corner_glow, BreathingIntent, BreathingState,
 };
+pub(crate) use crate::motion::diagnostics::MotionDiagnostics;
 use crate::motion::scalar::AnimatedScalar;
 use crate::motion::tokens::MotionTokens;
 use crate::motion::util::{
     alpha, approx_rect, duration_progress, ease_out_cubic, lerp_rect, mix_color,
     reduce_motion_from_env_value, visual_priority, with_alpha, EPSILON,
 };
+pub use crate::motion::visual::{ResolvedNodeVisual, VisualPriority};
 use crate::motion::working::{
-    resolve_working_visual, WorkingSnake, WorkingVisualInput, WORKING_SNAKE_PERIOD_SECS,
+    resolve_working_visual, WorkingVisualInput, WORKING_SNAKE_PERIOD_SECS,
 };
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum VisualPriority {
-    Idle,
-    Hover,
-    Pressed,
-    Dragging,
-    Selected,
-    Focused,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ResolvedNodeVisual {
-    pub priority: VisualPriority,
-    pub rect: CanvasRect,
-    pub fill_color: u32,
-    pub stroke_color: u32,
-    pub status_color: u32,
-    pub title_bar_color: u32,
-    pub edge_highlight_color: u32,
-    pub shadow_color: u32,
-    pub shadow_y: f32,
-    pub shadow_blur: f32,
-    pub shadow_spread: f32,
-    pub border_is_emphasized: bool,
-    pub opacity: f32,
-    pub corner_glow: Option<CornerGlow>,
-    pub working_snake: Option<WorkingSnake>,
-}
-
+use canvas::{CanvasRect, NodeId};
+use std::collections::{BTreeMap, BTreeSet};
+use std::time::{Duration, Instant};
+use ui::Theme;
+const BREATHING_REPAINT_INTERVAL: Duration = Duration::from_millis(33);
+const WORKING_SNAKE_REPAINT_INTERVAL: Duration = Duration::from_millis(12);
 #[derive(Debug, Clone)]
 pub struct MotionStore {
     tokens: MotionTokens,
     pub(crate) reduce_motion: bool,
     nodes: BTreeMap<NodeId, NodeMotion>,
 }
-
 impl MotionStore {
     pub fn from_env() -> Self {
         Self::new(reduce_motion_from_env_value(std::env::var_os(
             "MULTISOUL_REDUCE_MOTION",
         )))
     }
-
     pub fn new(reduce_motion: bool) -> Self {
         Self {
             tokens: MotionTokens::default(),
@@ -74,7 +47,6 @@ impl MotionStore {
             nodes: BTreeMap::new(),
         }
     }
-
     pub fn tick(&mut self, delta: Duration) -> bool {
         let mut changed = false;
         for node in self.nodes.values_mut() {
@@ -82,25 +54,21 @@ impl MotionStore {
         }
         changed
     }
-
     pub fn retain_nodes(&mut self, live_nodes: impl IntoIterator<Item = NodeId>) {
         let live_nodes: BTreeSet<NodeId> = live_nodes.into_iter().collect();
         self.nodes.retain(|id, _| live_nodes.contains(id));
     }
-
     pub fn ensure_node(&mut self, id: NodeId, rect: CanvasRect) {
         self.nodes
             .entry(id)
             .or_insert_with(|| NodeMotion::settled(rect));
     }
-
     pub fn spawn_node(&mut self, id: NodeId, rect: CanvasRect) {
         let mut node = NodeMotion::settled(rect);
         node.opacity.value = if self.reduce_motion { 1.0 } else { 0.0 };
         node.opacity.target = 1.0;
         self.nodes.insert(id, node);
     }
-
     pub fn set_layout_target(&mut self, id: NodeId, target_rect: CanvasRect) {
         let node = self
             .nodes
@@ -108,19 +76,16 @@ impl MotionStore {
             .or_insert_with(|| NodeMotion::settled(target_rect));
         node.set_layout_target(target_rect, self.reduce_motion);
     }
-
     pub fn set_hover(&mut self, id: NodeId, hovered: bool) {
         if let Some(node) = self.nodes.get_mut(&id) {
             node.hover.set_bool(hovered);
         }
     }
-
     pub fn set_pressed(&mut self, id: NodeId, pressed: bool) {
         if let Some(node) = self.nodes.get_mut(&id) {
             node.pressed.set_bool(pressed);
         }
     }
-
     pub fn set_dragging(&mut self, id: NodeId, dragging: bool) {
         if let Some(node) = self.nodes.get_mut(&id) {
             node.dragging.set_bool(dragging);
@@ -129,35 +94,33 @@ impl MotionStore {
             }
         }
     }
-
     pub fn set_selection_focus(&mut self, id: NodeId, selected: bool, focused: bool) {
         if let Some(node) = self.nodes.get_mut(&id) {
             node.selected.set_bool(selected);
             node.focused.set_bool(focused);
         }
     }
-
     pub fn set_breathing_intent(&mut self, id: NodeId, intent: BreathingIntent) {
         let reduce_motion = self.reduce_motion;
         if let Some(node) = self.nodes.get_mut(&id) {
             node.set_breathing_intent(intent, reduce_motion);
         }
     }
-
     pub fn set_chase_intent(&mut self, id: NodeId, active: bool) {
+        self.set_chase_intent_at(id, active, Instant::now());
+    }
+    pub fn set_chase_intent_at(&mut self, id: NodeId, active: bool, now: Instant) {
         let reduce_motion = self.reduce_motion;
         if let Some(node) = self.nodes.get_mut(&id) {
-            node.set_chase_intent(active, reduce_motion);
+            node.set_chase_intent(active, reduce_motion, now);
         }
     }
-
     pub fn clear_transient(&mut self) {
         for node in self.nodes.values_mut() {
             node.pressed.set_bool(false);
             node.dragging.set_bool(false);
         }
     }
-
     pub fn sync_drag_rect(&mut self, id: NodeId, rect: CanvasRect) {
         if let Some(node) = self.nodes.get_mut(&id) {
             node.current_rect = rect;
@@ -166,16 +129,34 @@ impl MotionStore {
             node.layout_active = false;
         }
     }
-
+    #[cfg(test)]
     pub fn resolve_node_visual(
         &mut self,
         id: NodeId,
         canonical_rect: CanvasRect,
         theme: Theme,
     ) -> ResolvedNodeVisual {
+        self.resolve_node_visual_with_time(id, canonical_rect, theme, None)
+    }
+    pub fn resolve_node_visual_at(
+        &mut self,
+        id: NodeId,
+        canonical_rect: CanvasRect,
+        theme: Theme,
+        now: Instant,
+    ) -> ResolvedNodeVisual {
+        self.resolve_node_visual_with_time(id, canonical_rect, theme, Some(now))
+    }
+    fn resolve_node_visual_with_time(
+        &mut self,
+        id: NodeId,
+        canonical_rect: CanvasRect,
+        theme: Theme,
+        now: Option<Instant>,
+    ) -> ResolvedNodeVisual {
         self.ensure_node(id, canonical_rect);
         let node = self.nodes.get_mut(&id).expect("node was just ensured");
-        node.resolve(canonical_rect, theme)
+        node.resolve(canonical_rect, theme, now)
     }
 }
 
@@ -197,12 +178,14 @@ pub struct NodeMotion {
     breathing_display_state: BreathingState,
     breathing_intent: BreathingIntent,
     breathing_fade: AnimatedScalar,
+    breathing_repaint_elapsed: Duration,
     completion_settle: AnimatedScalar,
     chase_phase: f32,
+    chase_started_at: Option<Instant>,
     chase_active: bool,
     chase_fade: AnimatedScalar,
+    chase_repaint_elapsed: Duration,
 }
-
 impl NodeMotion {
     fn settled(rect: CanvasRect) -> Self {
         Self {
@@ -222,13 +205,15 @@ impl NodeMotion {
             breathing_display_state: BreathingState::Inactive,
             breathing_intent: BreathingIntent::Inactive,
             breathing_fade: AnimatedScalar::off(),
+            breathing_repaint_elapsed: Duration::ZERO,
             completion_settle: AnimatedScalar::off(),
             chase_phase: 0.0,
+            chase_started_at: None,
             chase_active: false,
             chase_fade: AnimatedScalar::off(),
+            chase_repaint_elapsed: Duration::ZERO,
         }
     }
-
     fn set_breathing_intent(&mut self, intent: BreathingIntent, reduce_motion: bool) {
         let previous_intent = self.breathing_intent;
         self.breathing_intent = intent;
@@ -240,10 +225,14 @@ impl NodeMotion {
         if state != BreathingState::Inactive {
             if self.breathing_state != state {
                 self.breathing_phase = 0.0;
+                self.breathing_repaint_elapsed = Duration::ZERO;
             }
             self.breathing_display_state = state;
         }
         self.breathing_state = state;
+        if state == BreathingState::Inactive || reduce_motion {
+            self.breathing_repaint_elapsed = Duration::ZERO;
+        }
         if reduce_motion {
             self.breathing_fade.value = 0.0;
             self.breathing_fade.target = 0.0;
@@ -252,10 +241,15 @@ impl NodeMotion {
                 .set_bool(state != BreathingState::Inactive);
         }
     }
-
-    fn set_chase_intent(&mut self, active: bool, reduce_motion: bool) {
+    fn set_chase_intent(&mut self, active: bool, reduce_motion: bool, now: Instant) {
+        let was_active = self.chase_active;
         if !active {
             self.chase_phase = 0.0;
+            self.chase_started_at = None;
+            self.chase_repaint_elapsed = Duration::ZERO;
+        } else if !was_active {
+            self.chase_phase = 0.0;
+            self.chase_started_at = Some(now);
         }
         self.chase_active = active;
         if reduce_motion {
@@ -265,7 +259,6 @@ impl NodeMotion {
             self.chase_fade.set_bool(active);
         }
     }
-
     fn set_layout_target(&mut self, target_rect: CanvasRect, reduce_motion: bool) {
         self.target_rect = target_rect;
         if reduce_motion {
@@ -279,7 +272,6 @@ impl NodeMotion {
             self.layout_active = !approx_rect(self.current_rect, target_rect);
         }
     }
-
     fn tick(&mut self, delta: Duration, tokens: MotionTokens, reduce_motion: bool) -> bool {
         let mut changed = false;
 
@@ -303,27 +295,40 @@ impl NodeMotion {
                 tokens.focus_selected
             },
         );
-        changed |= self.breathing_fade.tick(delta, tokens.breathing_fade);
+        let breathing_fade_changed = self.breathing_fade.tick(delta, tokens.breathing_fade);
+        changed |= breathing_fade_changed;
         changed |= self.completion_settle.tick(delta, tokens.completion_settle);
-        changed |= self.chase_fade.tick(delta, tokens.chase_fade);
+        let chase_fade_changed = self.chase_fade.tick(delta, tokens.chase_fade);
+        changed |= chase_fade_changed;
         if !reduce_motion && self.breathing_state != BreathingState::Inactive {
+            let breathing_is_fading =
+                breathing_fade_changed || self.breathing_fade.value < 1.0 - EPSILON;
             let period = self.breathing_state.period();
             self.breathing_phase =
                 (self.breathing_phase + delta.as_secs_f32() / period.as_secs_f32()).rem_euclid(1.0);
-            changed = true;
+            self.breathing_repaint_elapsed += delta;
+            if breathing_is_fading || self.breathing_repaint_elapsed >= BREATHING_REPAINT_INTERVAL {
+                self.breathing_repaint_elapsed = Duration::ZERO;
+                changed = true;
+            }
         }
-
         if !reduce_motion && self.chase_active {
-            self.chase_phase = (self.chase_phase + delta.as_secs_f32() / WORKING_SNAKE_PERIOD_SECS)
-                .rem_euclid(1.0);
-            changed = true;
+            self.advance_chase_phase(delta);
+            if chase_fade_changed || self.chase_fade.value < 1.0 - EPSILON {
+                self.chase_repaint_elapsed = Duration::ZERO;
+                changed = true;
+            } else {
+                self.chase_repaint_elapsed += delta;
+                if self.chase_repaint_elapsed >= WORKING_SNAKE_REPAINT_INTERVAL {
+                    self.chase_repaint_elapsed = Duration::ZERO;
+                    changed = true;
+                }
+            }
         }
-
         if self.dragging.target > 0.0 {
             self.layout_active = false;
             return changed;
         }
-
         if self.layout_active {
             self.layout_elapsed += delta;
             let raw = duration_progress(self.layout_elapsed, tokens.layout);
@@ -338,8 +343,17 @@ impl NodeMotion {
 
         changed
     }
+    fn advance_chase_phase(&mut self, delta: Duration) {
+        self.chase_phase =
+            (self.chase_phase + delta.as_secs_f32() / WORKING_SNAKE_PERIOD_SECS).rem_euclid(1.0);
+    }
 
-    fn resolve(&mut self, canonical_rect: CanvasRect, theme: Theme) -> ResolvedNodeVisual {
+    fn resolve(
+        &mut self,
+        canonical_rect: CanvasRect,
+        theme: Theme,
+        now: Option<Instant>,
+    ) -> ResolvedNodeVisual {
         if self.dragging.target > 0.0 {
             self.current_rect = canonical_rect;
             self.target_rect = canonical_rect;
@@ -443,7 +457,7 @@ impl NodeMotion {
             shadow_spread: base_shadow_spread,
             border_is_emphasized: focus > 0.25 || selected > 0.35 || settle > 0.45,
             fade: self.chase_fade.value,
-            phase: self.chase_phase,
+            phase: self.chase_phase_at(now),
         });
 
         ResolvedNodeVisual {
@@ -471,20 +485,15 @@ impl NodeMotion {
             working_snake: working_visual.working_snake,
         }
     }
+
+    fn chase_phase_at(&self, now: Option<Instant>) -> f32 {
+        let Some(now) = now else {
+            return self.chase_phase;
+        };
+        let Some(started_at) = self.chase_started_at else {
+            return self.chase_phase;
+        };
+        (now.saturating_duration_since(started_at).as_secs_f32() / WORKING_SNAKE_PERIOD_SECS)
+            .rem_euclid(1.0)
+    }
 }
-
-#[cfg(test)]
-#[path = "../../tests/unit/motion_tests.rs"]
-mod tests;
-
-#[cfg(test)]
-#[path = "../../tests/unit/motion_completion_tests.rs"]
-mod completion_tests;
-
-#[cfg(test)]
-#[path = "../../tests/unit/motion_corner_glow_tests.rs"]
-mod corner_glow_tests;
-
-#[cfg(test)]
-#[path = "../../tests/unit/working_snake_tests.rs"]
-mod working_snake_tests;

@@ -5,18 +5,33 @@ use gpui::{
     Path, PathBuilder, Pixels,
 };
 
+use canvas::NodeId;
+
 use crate::motion::working::WorkingSnake;
 
-const GLOW_EXTRA_PX: f32 = 5.0;
 const EPSILON: f32 = 0.001;
 
 pub(crate) fn render_working_snake_border(
+    node_id: NodeId,
     snake: WorkingSnake,
     zoom: f32,
     node_radius_px: f32,
 ) -> impl IntoElement {
     canvas(
-        move |bounds, _window, _cx| build_snake_paths(bounds, snake, zoom, node_radius_px),
+        move |bounds, _window, _cx| {
+            let build_started_at = std::time::Instant::now();
+            let paths = build_snake_paths(bounds, snake, zoom, node_radius_px);
+            crate::frame_diagnostics::SnakePaintReport {
+                node_id,
+                width_px: f32::from(bounds.right()) - f32::from(bounds.left()),
+                height_px: f32::from(bounds.bottom()) - f32::from(bounds.top()),
+                zoom,
+                path_count: paths.len(),
+                elapsed: build_started_at.elapsed(),
+            }
+            .log_if_enabled();
+            paths
+        },
         move |_bounds, paths, window, _cx| {
             for (path, color) in paths {
                 window.paint_path(path, color);
@@ -37,15 +52,11 @@ fn build_snake_paths(
     node_radius_px: f32,
 ) -> Vec<(Path<Pixels>, Background)> {
     let stroke_width = snake.stroke_px * zoom;
-    let glow_width = stroke_width + GLOW_EXTRA_PX * zoom;
-    let centerline_inset = (snake.inset_px * zoom).max(glow_width * 0.5 + 1.0);
+    let centerline_inset = (snake.inset_px * zoom).max(stroke_width * 0.5 + 1.0);
     let track = RoundedTrack::new(bounds, centerline_inset, node_radius_px - centerline_inset);
     let ranges = snake_ranges(snake.head_phase, snake.tail_fraction);
-    let mut paths = Vec::with_capacity(ranges.len() * 2);
+    let mut paths = Vec::with_capacity(ranges.len());
     for (start, end) in ranges {
-        if let Some(glow) = build_track_segment(&track, start, end, glow_width) {
-            paths.push((glow, rgba(with_alpha(snake.glow_color, 0x3c)).into()));
-        }
         if let Some(segment) = build_track_segment(&track, start, end, stroke_width) {
             paths.push((
                 segment,
@@ -270,6 +281,6 @@ enum TrackComponentKind {
     },
 }
 
-fn with_alpha(color: u32, alpha: u8) -> u32 {
-    (color & 0xffffff00) | u32::from(alpha)
-}
+#[cfg(test)]
+#[path = "../../tests/unit/cards/snake_tests.rs"]
+mod tests;

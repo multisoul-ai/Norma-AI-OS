@@ -3,6 +3,7 @@ mod app;
 mod assets;
 mod canvas;
 mod cards;
+mod frame_diagnostics;
 mod motion;
 mod norma;
 mod preview;

@@ -55,6 +55,7 @@ pub fn render_canvas(
     // 先收集需要渲染的节点数据（避免借用冲突）。
     let mut node_elems: Vec<AnyElement> = Vec::new();
     let mut visible_nodes = 0usize;
+    let mut snake_nodes = 0usize;
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
     app.motion.retain_nodes(node_ids.iter().copied());
     for id in node_ids {
@@ -88,7 +89,9 @@ pub fn render_canvas(
             app.motion.sync_drag_rect(id, canonical_rect);
         }
 
-        let visual = app.motion.resolve_node_visual(id, canonical_rect, theme);
+        let visual = app
+            .motion
+            .resolve_node_visual_at(id, canonical_rect, theme, render_start);
         let top_left = vp.canvas_to_screen(visual.rect.origin);
         let (w, h) = (visual.rect.size.x * vp.zoom, visual.rect.size.y * vp.zoom);
 
@@ -263,7 +266,9 @@ pub fn render_canvas(
             .child(title_bar)
             .child(card_body);
         if let Some(working_snake) = visual.working_snake {
+            snake_nodes += 1;
             node_div = node_div.child(render_working_snake_border(
+                id,
                 working_snake,
                 vp.zoom,
                 node_radius,
@@ -285,6 +290,17 @@ pub fn render_canvas(
             "workspace_open_timing"
         );
     }
+    crate::frame_diagnostics::CanvasRenderReport {
+        total_nodes,
+        visible_nodes,
+        snake_nodes,
+        element_count: node_elems.len(),
+        zoom: vp.zoom,
+        window_width: win_w,
+        window_height: win_h,
+        elapsed: render_start.elapsed(),
+    }
+    .log_if_enabled();
 
     div()
         .id("canvas")

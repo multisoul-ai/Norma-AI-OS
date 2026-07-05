@@ -1,5 +1,6 @@
 //! GPUI 主视图：持有 Runtime，装配画布/终端渲染，处理快捷键与帧级 drain。
 
+use crate::app::frame_throttle::{FrameThrottle, CURSOR_REPAINT_INTERVAL};
 use crate::canvas::interaction::InteractionState;
 use crate::canvas::master_layout::{
     apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
@@ -32,6 +33,8 @@ use ui::Theme;
 mod agent_actions;
 mod chrome;
 mod file_picker;
+mod frame_loop;
+mod frame_throttle;
 mod ime;
 mod ime_geometry;
 mod keyboard;
@@ -92,6 +95,7 @@ pub struct MultisoulApp {
     pub(crate) video_wallpaper: Option<video_wallpaper::VideoWallpaperState>,
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
     pub(crate) terminal_cursor_phase: f32,
+    terminal_cursor_repaint: FrameThrottle,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -111,43 +115,7 @@ impl MultisoulApp {
         })
         .detach();
 
-        // 后台帧循环：每 ~12ms drain 一次（8–16ms 批处理窗口），dirty 才 repaint。
-        cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor()
-                    .timer(Duration::from_millis(12))
-                    .await;
-                let go = this.update(cx, |app, cx| {
-                    let runtime_changed = app.runtime.drain_all();
-                    let agent_hook_changed =
-                        app.agent_hook_server.drain_into_runtime(&mut app.runtime);
-                    let runtime_events = app.runtime.take_events();
-                    for event in &runtime_events {
-                        tracing::debug!(?event, "runtime event");
-                    }
-                    let motion_changed = app.motion.tick(Duration::from_millis(12));
-                    let cursor_changed =
-                        app.advance_terminal_cursor_phase(Duration::from_millis(12));
-                    let persistence_changed = app.tick_persistence(Duration::from_millis(12));
-                    let norma_pending = app.norma_server.has_pending();
-                    if runtime_changed
-                        || !runtime_events.is_empty()
-                        || agent_hook_changed
-                        || motion_changed
-                        || cursor_changed
-                        || persistence_changed
-                        || norma_pending
-                        || app.agent_hook_server.has_pending()
-                    {
-                        cx.notify();
-                    }
-                });
-                if go.is_err() {
-                    break; // 视图已释放
-                }
-            }
-        })
-        .detach();
+        Self::start_frame_loops(cx);
 
         let wallpaper_settings = WallpaperSettingsState::load_default();
         let agent_hook_server = AgentHookServer::start();
@@ -178,13 +146,21 @@ impl MultisoulApp {
             video_wallpaper: None,
             last_reflow_window_size: None,
             terminal_cursor_phase: 0.0,
+            terminal_cursor_repaint: FrameThrottle::default(),
         }
     }
 
     fn advance_terminal_cursor_phase(&mut self, delta: Duration) -> bool {
         if !self.focused_terminal_cursor_animation_active() {
+            self.terminal_cursor_repaint.reset();
             return false;
         }
+        let Some(delta) = self
+            .terminal_cursor_repaint
+            .tick(delta, CURSOR_REPAINT_INTERVAL)
+        else {
+            return false;
+        };
         let next = advance_cursor_phase(self.terminal_cursor_phase, delta);
         let changed = (next - self.terminal_cursor_phase).abs() > f32::EPSILON;
         self.terminal_cursor_phase = next;
@@ -414,8 +390,6 @@ impl Focusable for MultisoulApp {
 
 impl Render for MultisoulApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.drain_norma_server(window, cx);
-
         let mut root = div()
             .key_context("MultisoulApp")
             .track_focus(&self.focus_handle)

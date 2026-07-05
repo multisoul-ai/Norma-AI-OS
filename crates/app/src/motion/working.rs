@@ -45,41 +45,16 @@ pub(crate) struct WorkingVisual {
 
 pub(crate) fn resolve_working_visual(input: WorkingVisualInput) -> WorkingVisual {
     let fade = input.fade.clamp(0.0, 1.0);
-    let wave = if fade > EPSILON {
-        let pulse = 0.5 + 0.5 * (input.phase * std::f32::consts::TAU).sin();
-        fade * (0.62 + 0.38 * pulse)
-    } else {
-        0.0
-    };
-    let working_shadow_alpha = (72.0 * wave).round() as u8;
     let snake = resolve_working_snake(input.theme, fade, input.phase);
-    let snake_stroke = snake
-        .map(|snake| {
-            mix_color(
-                snake.head_color,
-                snake.tail_color,
-                0.5 + 0.5 * phase_wave(input.phase),
-            )
-        })
-        .unwrap_or(input.stroke_color);
 
     WorkingVisual {
-        stroke_color: mix_color(input.stroke_color, snake_stroke, wave * 0.56),
-        edge_highlight_color: mix_color(
-            input.edge_highlight_color,
-            snake
-                .map(|snake| snake.glow_color)
-                .unwrap_or(input.edge_highlight_color),
-            wave * 0.76,
-        ),
-        shadow_color: with_alpha(
-            input.theme.shadow_color,
-            input.shadow_alpha.saturating_add(working_shadow_alpha),
-        ),
-        shadow_y: (input.shadow_y + wave * 2.0).max(8.0),
-        shadow_blur: (input.shadow_blur + wave * 14.0).max(20.0),
-        shadow_spread: input.shadow_spread - wave * 4.0,
-        border_is_emphasized: input.border_is_emphasized || fade > 0.35,
+        stroke_color: input.stroke_color,
+        edge_highlight_color: input.edge_highlight_color,
+        shadow_color: with_alpha(input.theme.shadow_color, input.shadow_alpha),
+        shadow_y: input.shadow_y,
+        shadow_blur: input.shadow_blur,
+        shadow_spread: input.shadow_spread,
+        border_is_emphasized: input.border_is_emphasized,
         working_snake: snake,
     }
 }

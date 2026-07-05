@@ -42,6 +42,53 @@ fn test_wallpaper_brightness_uses_original_image_luminance() {
     );
 }
 
+/// 运行态光标动画应按约 30fps 节流 repaint，避免 focused Agent 绕过 snake 节流。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   repaint 预算 = 33ms（约 30fps）
+///   app frame loop tick = 12ms
+///   第 1 个 tick：累计 12ms < 33ms → None，不 repaint
+///   第 2 个 tick：累计 24ms < 33ms → None，不 repaint
+///   第 3 个 tick：累计 36ms >= 33ms → Some(36ms)，允许 repaint
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建默认 FrameThrottle
+///   2. 连续输入三个 12ms tick
+///   3. 读取每一步返回的 repaint delta
+///
+/// 预期结果：
+///   - 负断言：第 1 个 12ms tick 不应返回 repaint delta
+///   - 负断言：第 2 个 12ms tick 不应返回 repaint delta
+///   - 正断言：第 3 个 12ms tick 返回累计 36ms，供 phase 一次性追上真实时间
+///   - 负断言：第 3 个 tick 不应只返回 12ms，否则动画相位会变慢
+#[test]
+fn test_frame_throttle_batches_cursor_repaint_to_approximately_30fps() {
+    let mut throttle = FrameThrottle::default();
+
+    let first = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    let second = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    let third = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+
+    assert!(
+        first.is_none(),
+        "第 1 个 12ms tick 不应触发 focused cursor repaint"
+    );
+    assert!(
+        second.is_none(),
+        "第 2 个 12ms tick 累计 24ms < 33ms，仍不应触发 repaint"
+    );
+    assert_eq!(
+        third,
+        Some(Duration::from_millis(36)),
+        "第 3 个 tick 应返回累计 36ms，让 cursor phase 追上真实时间"
+    );
+    assert_ne!(
+        third,
+        Some(Duration::from_millis(12)),
+        "放行 repaint 时不应只推进 12ms，否则节流会让 cursor 动画变慢"
+    );
+}
+
 /// 卡片查看 helper：用户选择/聚焦卡片时应把未查看完成提醒标记为已查看。
 ///
 /// 数据构造（含关键数值的推导过程）：

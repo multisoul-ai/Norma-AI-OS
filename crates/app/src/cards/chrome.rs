@@ -10,7 +10,6 @@ use crate::motion::breathing::{
     CornerGlow, CORNER_GLOW_BOTTOM_LEFT, CORNER_GLOW_BOTTOM_RIGHT, CORNER_GLOW_TOP_LEFT,
     CORNER_GLOW_TOP_RIGHT,
 };
-use crate::motion::working::WorkingSnake;
 use crate::motion::{ResolvedNodeVisual, VisualPriority};
 
 pub const TITLE_BAR_H: f32 = 26.0;
@@ -67,7 +66,7 @@ pub fn node_shadow(
     zoom: f32,
     corner_glow_visible: bool,
 ) -> Vec<BoxShadow> {
-    let mut shadows = Vec::with_capacity(6);
+    let mut shadows = Vec::with_capacity(5);
     shadows.push(BoxShadow {
         color: rgba(visual.shadow_color).into(),
         offset: point(px(0.0), px(visual.shadow_y)),
@@ -82,10 +81,6 @@ pub fn node_shadow(
             blur_radius: px(18.0),
             spread_radius: px(0.0),
         });
-    }
-
-    if let Some(snake) = visual.working_snake {
-        push_working_snake_glow(&mut shadows, snake, zoom);
     }
 
     if corner_glow_visible {
@@ -115,15 +110,6 @@ fn push_corner_glow(shadows: &mut Vec<BoxShadow>, glow: CornerGlow, zoom: f32) {
             spread_radius: spread,
         });
     }
-}
-
-fn push_working_snake_glow(shadows: &mut Vec<BoxShadow>, snake: WorkingSnake, zoom: f32) {
-    shadows.push(BoxShadow {
-        color: rgba(with_alpha(snake.glow_color, 0x46)).into(),
-        offset: point(px(0.0), px(0.0)),
-        blur_radius: px(20.0 * zoom),
-        spread_radius: px(-8.0 * zoom),
-    });
 }
 
 fn with_glow_alpha(color: u32, intensity: f32) -> u32 {
@@ -165,6 +151,7 @@ fn with_alpha(color: u32, alpha: u8) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::motion::working::WorkingSnake;
 
     fn base_visual(corner_glow: Option<CornerGlow>) -> ResolvedNodeVisual {
         ResolvedNodeVisual {
@@ -264,5 +251,52 @@ mod tests {
         );
         assert_ne!(without_glow.len(), 5, "corner_glow=None 时不应误产出角光晕");
         assert_ne!(culled.len(), 5, "裁剪命中时不应误产出角光晕");
+    }
+
+    /// CS-3: working_snake 只由 canvas overlay 绘制，不应追加卡片外发光 shadow。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   base_visual 的 priority=Idle（不触发 Focused 专属光晕），corner_glow=None。
+    ///   working_snake.head_phase=0.25、tail_fraction=0.24 只用于表示 snake overlay 已存在。
+    ///   基础阴影层数 = 1；若 working_snake 被错误用于卡片 chrome glow，则层数会变成 2。
+    ///
+    /// 执行过程：
+    ///   1. 构造带 working_snake 的 Idle visual
+    ///   2. 调用 node_shadow(visual, 1.0, true)
+    ///
+    /// 预期结果：
+    ///   - 正断言：返回长度仍为 1，只保留基础阴影
+    ///   - 正断言：基础阴影 blur_radius 仍为 20.0px
+    ///   - 负断言：返回长度不应为 2，避免 snake 额外增加卡片外发光
+    #[test]
+    fn test_node_shadow_ignores_working_snake_overlay() {
+        let mut visual = base_visual(None);
+        visual.working_snake = Some(WorkingSnake {
+            head_phase: 0.25,
+            tail_fraction: 0.24,
+            head_color: 0x27d7eae6,
+            tail_color: 0x9b55ffe6,
+            glow_color: 0x27d7eae6,
+            inset_px: 3.0,
+            stroke_px: 3.0,
+        });
+
+        let shadows = node_shadow(visual, 1.0, true);
+
+        assert_eq!(
+            shadows.len(),
+            1,
+            "working_snake 应只通过 overlay 绘制，不应让 node_shadow 追加外发光"
+        );
+        assert_eq!(
+            f32::from(shadows[0].blur_radius),
+            20.0,
+            "基础阴影 blur_radius 应保持 base_visual 的 20.0px"
+        );
+        assert_ne!(
+            shadows.len(),
+            2,
+            "working_snake 不应额外增加第二层 shadow，否则卡片本体仍在动画变色/发光"
+        );
     }
 }
