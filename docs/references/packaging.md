@@ -28,25 +28,23 @@ config for the current process. The persisted files are advanced before the
 release build, and the next `cargo packager --release -c Packager.toml`
 invocation starts from that bumped version.
 
-Codesigning and notarization are explicitly Phase 6.
+Codesigning and notarization 配置见 `packaging/macos/Multisoul.entitlements` 与
+`Packager.toml` 的 `[macos]` 段；本地发版用 `scripts/release-local.sh`，详见
+`docs/design-docs/2026-07-05-developer-id-notarize-design.md`。
 
 ## Wallpaper resources
 
-Built-in wallpapers live in `crates/app/assets/wallpapers/` (3 PNG, 2 GIF, 5 MP4).
-The MP4s are tracked by **git-lfs** (see root `.gitattributes`); the working tree
-holds the real bytes after `git lfs pull`, but the committed blobs are LFS
-pointers, so the repository does not bloat by ~141 MB.
+Built-in wallpapers live in `crates/app/assets/wallpapers/` (3 PNG, 2 GIF, 5 MP4)。
+The MP4s are tracked by **git-lfs** (see root `.gitattributes`)；commit 的是 LFS
+指针，`git lfs pull` 后工作树才有真实字节（~141 MB），打包前 `release-local.sh`
+会强制 lfs pull。
 
-Release packaging must copy these into the app bundle's `Contents/Resources/`
-directory after `cargo packager` lays out the bundle. There is no `Packager.toml`
-glob wired up yet, so the step is manual:
+`Packager.toml` 的 `resources` glob 在签名前把整个目录拷进 app bundle 的
+`Contents/Resources/wallpapers/`：
 
-```bash
-# after `cargo packager --release` produces target/release/bundle/<bundle>/
-bash scripts/copy-wallpaper-resources.sh \
-    "target/release/bundle/osx/Multisoul.app/Contents/Resources"
+```toml
+resources = ["crates/app/assets/wallpapers"]
 ```
 
-The resulting `Contents/Resources/wallpapers/` holds all 10 built-ins, which the
-runtime resolves at launch (see `EmbeddedAssets` / built-in resolver).
-If a `Packager.toml` is added later, prefer a `resources` glob over the script.
+不再需要手动 `copy-wallpaper-resources.sh`——`resources` glob 在 cargo-packager
+签名 pass 之前执行，确保 wallpapers 进入已签名 bundle。
