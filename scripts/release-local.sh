@@ -65,16 +65,23 @@ else
 fi
 
 # 3. 验证产物
+# 真实发版产物在 build/Multisoul.app（Packager.toml out-dir="build"），
+# ad-hoc 测试产物在 build/dev/Multisoul.app（Packager.dev.toml out-dir="build/dev"）。
 # 用循环而非 `ls -d a b | head -1`：当 a 不存在时 ls 退出非零，
 # 在 `set -euo pipefail` 下会直接终止脚本，跳过整段验证。
 APP=""
-for p in build/bundle/osx/Multisoul.app build/dev/Multisoul.app; do
+for p in build/Multisoul.app build/dev/Multisoul.app; do
   [ -d "$p" ] && APP="$p" && break
 done
 [ -n "$APP" ] || die "未找到产物 Multisoul.app"
 info "验证 $APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
-spctl --assess --type execute --verbose "$APP" || warn "spctl 在 ad-hoc 下会失败，真实签名 + notarize + staple 后应 accepted"
-xcrun stapler validate "$APP" || warn "stapler 在 ad-hoc/notarize 跳过时无票据"
+if [ "$AD_HOC" = true ]; then
+  spctl --assess --type execute --verbose "$APP" || warn "spctl 在 ad-hoc 下会失败，真实签名 + notarize + staple 后应 accepted"
+  xcrun stapler validate "$APP" || warn "stapler 在 ad-hoc 下无票据"
+else
+  spctl --assess --type execute --verbose "$APP" || die "spctl 拒绝真实签名 .app（应 accepted）"
+  xcrun stapler validate "$APP" || die "stapler 无公证票据（真实发版必须有）"
+fi
 
 info "Done: $APP"
