@@ -17,3 +17,4 @@ canvas = { path = "../canvas" }
 terminal = { path = "../terminal" }
 gpui = { workspace = true, features = ["test-support"] }
 crossbeam-channel = { workspace = true }
+tempfile = { workspace = true }

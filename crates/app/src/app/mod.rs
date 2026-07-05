@@ -107,6 +107,25 @@ impl MultisoulApp {
         self.screen
     }
 
+    /// E2E 测试专用：直接切换到 Canvas 屏幕，**不**走 `OpenProject` →
+    /// `enter_workspace_for_path` 路径。
+    ///
+    /// # 为什么需要这个入口
+    /// 真实 `OpenProject` 流程调用 `cx.prompt_for_paths`，而 GPUI 的
+    /// `TestPlatform::prompt_for_paths` 是 `unimplemented!()`（仅
+    /// `prompt_for_new_path` 可被 `simulate_new_path_selection` 驱动）。此外
+    /// `enter_workspace_for_path` 会用全新 `Runtime::new_for_workspace(root)`
+    /// 替换旧 runtime，导致 `set_pty_factory` 注入的测试工厂丢失。本方法绕过
+    /// 这两个问题：直接置 `screen = Canvas`，保留现有 runtime（含工厂），
+    /// 不加载持久化快照、不恢复 session。fresh tempdir 场景下与真实流程行为等价。
+    ///
+    /// 生产路径**禁止**调用本方法；必须经 `OpenProject` action 进入 canvas。
+    pub fn enter_canvas_for_test(&mut self, cx: &mut Context<Self>) {
+        self.screen = AppScreen::Canvas;
+        self.last_reflow_window_size = None;
+        cx.notify();
+    }
+
     /// `new` / `new_with_pty_factory` 共享的构造核心：启动后台帧循环并装配字段。
     /// 调用方负责准备 `Runtime`（含可选 PTY 工厂与 agent hook 配置）。
     fn assemble(

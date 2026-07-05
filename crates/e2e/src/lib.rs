@@ -9,8 +9,15 @@
 use app::{AppScreen, MultisoulApp};
 use gpui::TestAppContext;
 
-/// 子模块占位：后续 Task 在此扩展 helper（如 `enter_canvas`、`spawn_term`）。
-mod helpers {}
+/// E2E 驱动 harness：装配 MultisoulApp、进入 Canvas、创建 Terminal、读取 runtime。
+/// 详见 `harness.rs` 顶部模块文档。Task 8/9 (E2E-01/02) 在此模块上构建。
+mod harness;
+
+// 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
+// `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。
+pub use harness::{
+    create_terminal, drain_until, echo_factory, enter_canvas, make_app, read_grid, read_runtime,
+};
 
 /// Smoke：headless GPUI 启动 `MultisoulApp`，初始屏幕应为 `Launchpad`。
 ///
