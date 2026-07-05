@@ -13,6 +13,9 @@ use gpui::TestAppContext;
 /// 详见 `harness.rs` 顶部模块文档。Task 8/9 (E2E-01/02) 在此模块上构建。
 mod harness;
 
+// E2E-01（SPEC §4.2）：创建 Terminal 节点 + 焦点 + layout reflow 正/负断言矩阵。
+mod e2e_01_create_terminal;
+
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。
 pub use harness::{
