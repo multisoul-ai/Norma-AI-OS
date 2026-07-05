@@ -14,6 +14,7 @@ use std::fmt;
 pub(crate) enum RealtimeConfigError {
     MissingApiKey,
     MissingRealtimeModel,
+    MissingCardPlannerModel,
 }
 
 impl fmt::Debug for RealtimeConfigError {
@@ -21,6 +22,7 @@ impl fmt::Debug for RealtimeConfigError {
         match self {
             Self::MissingApiKey => f.write_str("MissingApiKey"),
             Self::MissingRealtimeModel => f.write_str("MissingRealtimeModel"),
+            Self::MissingCardPlannerModel => f.write_str("MissingCardPlannerModel"),
         }
     }
 }
@@ -30,6 +32,7 @@ impl fmt::Display for RealtimeConfigError {
         match self {
             Self::MissingApiKey => f.write_str("OpenAI API key is required"),
             Self::MissingRealtimeModel => f.write_str("Realtime model is required"),
+            Self::MissingCardPlannerModel => f.write_str("Card planner model is required"),
         }
     }
 }
@@ -65,6 +68,13 @@ impl RealtimeControlState {
         else {
             return Err(RealtimeConfigError::MissingRealtimeModel);
         };
+        if values
+            .card_planner_model()
+            .filter(|value| !value.trim().is_empty())
+            .is_none()
+        {
+            return Err(RealtimeConfigError::MissingCardPlannerModel);
+        }
 
         Ok(RealtimeSessionConfig {
             session_id: RealtimeSessionId::new("always-listening-shell"),

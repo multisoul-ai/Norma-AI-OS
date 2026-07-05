@@ -174,3 +174,52 @@ The controller fixed the root cause by splitting new realtime responsibilities:
 - The original brief filters still match 0 tests due existing module names; focused behavior-bearing tests were rerun and passed.
 - `Cargo.lock` changed because `app` now depends on `realtime`; `voice/mod.rs` contains the bottom-bar mouse handlers needed to route realtime vs one-shot behavior.
 - API key is stored in memory/settings value for startup validation, but not shown raw in UI, custom `Debug`, validation error `Debug`, or validation error `Display`.
+
+## Review Fix
+
+Task review found four missing behaviors:
+
+- Enabling `Enable Always Listening` only saved the flag and did not start/validate the realtime shell.
+- `validate_start_config` did not require `Card Planner Model`.
+- An existing OpenAI API key could not be cleared from Settings by submitting an empty API-key edit.
+- Project open / app drop did not stop the realtime shell state.
+
+Fixes applied:
+
+- `on_voice_settings_toggle_realtime` now calls `start_always_listening_shell(cx)` when enabling, and still calls `stop_always_listening_shell(cx)` when disabling.
+- `RealtimeConfigError::MissingCardPlannerModel` was added; `validate_start_config` now requires non-empty API key, realtime model, and card planner model.
+- Empty realtime-field edits now clear saved realtime fields; this specifically makes API key clearable and leaves the UI row at `Not set`.
+- `open_workspace_path` and `Drop for MultisoulApp` now call `self.realtime.stop_shell()`.
+- Added regression tests for planner-model validation, API-key clearing, and start/stop wiring.
+
+RED evidence:
+
+```bash
+cargo test -p app test_realtime -- --nocapture
+```
+
+Before the fix, 3 tests failed:
+
+- `test_realtime_toggle_and_lifecycle_are_wired_to_start_and_stop_paths`
+- `test_realtime_openai_api_key_empty_commit_clears_saved_key`
+- `test_realtime_validate_start_config_requires_card_planner_model`
+
+GREEN evidence:
+
+```bash
+cargo test -p app test_realtime -- --nocapture
+```
+
+Exit 0. `13 passed; 0 failed`.
+
+```bash
+cargo test -p app test_voice_settings -- --nocapture
+cargo test -p app test_voice_settings_panel_contains_voice_configuration_anchors -- --nocapture
+cargo check -p app
+cargo fmt --check
+bash scripts/check-max-file-lines.sh
+bash scripts/check-no-allow.sh
+git diff --check
+```
+
+All exited 0.

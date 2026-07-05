@@ -259,7 +259,12 @@ impl VoiceSettingsState {
     fn commit_edit(&mut self, field: VoiceSettingsField) {
         let value = self.draft.trim().to_string();
         if value.is_empty() {
-            self.status = Some(error_status("Value cannot be empty"));
+            if self.clear_empty_realtime_field(field) {
+                self.editing = None;
+                self.draft.clear();
+            } else {
+                self.status = Some(error_status("Value cannot be empty"));
+            }
             return;
         }
 
@@ -315,6 +320,32 @@ impl VoiceSettingsState {
         self.editing = None;
         self.draft.clear();
         self.refresh_values();
+    }
+
+    fn clear_empty_realtime_field(&mut self, field: VoiceSettingsField) -> bool {
+        match field {
+            VoiceSettingsField::OpenAiApiKey => {
+                self.set_openai_api_key(String::new());
+                true
+            }
+            VoiceSettingsField::RealtimeModel => {
+                self.set_realtime_model(String::new());
+                true
+            }
+            VoiceSettingsField::CardPlannerModel => {
+                self.set_card_planner_model(String::new());
+                true
+            }
+            VoiceSettingsField::SidecarPath => {
+                self.saved.sidecar_path = None;
+                self.delete_string(KEY_OPENAI_SIDECAR_PATH);
+                self.refresh_values();
+                true
+            }
+            VoiceSettingsField::OllamaEndpoint
+            | VoiceSettingsField::PlannerModel
+            | VoiceSettingsField::RefineModel => false,
+        }
     }
 
     fn persist_string(&mut self, key: &str, value: &str) {

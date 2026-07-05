@@ -1,6 +1,7 @@
 use super::values::DEFAULT_OLLAMA_ENDPOINT;
 use super::*;
 use crate::app::realtime::RealtimeControlState;
+use gpui::{Keystroke, Modifiers};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -47,8 +48,16 @@ fn values_with_realtime_parts(
         realtime_enabled: true,
         openai_api_key: openai_api_key.map(ToOwned::to_owned),
         realtime_model: realtime_model.map(ToOwned::to_owned),
-        card_planner_model: None,
+        card_planner_model: Some("gpt-card-planner".to_string()),
         sidecar_path: None,
+    }
+}
+
+fn key(key: &str, key_char: Option<&str>) -> Keystroke {
+    Keystroke {
+        key: key.to_string(),
+        modifiers: Modifiers::default(),
+        key_char: key_char.map(str::to_string),
     }
 }
 
@@ -167,6 +176,7 @@ fn test_realtime_saved_values_resolve_into_voice_settings_values() {
 /// 数据构造（含关键数值的推导过程）：
 ///   missing_key: api_key=None, model=Some("gpt-realtime-2")
 ///   missing_model: api_key=Some("sk-validation"), model=None
+///   helper 默认提供 card_planner_model=Some("gpt-card-planner")，确保只验证 API key / realtime model
 ///   tools = []（Task 2 shell 不注册真实工具）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -205,11 +215,56 @@ fn test_realtime_validate_start_config_requires_api_key_and_model() {
     );
 }
 
+/// VS-8b: Realtime 启动配置缺少 Card Planner Model 时也应返回配置错误。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   api_key = Some("sk-planner")
+///   realtime_model = Some("gpt-realtime-2")
+///   card_planner_model = None（唯一缺失字段）
+///   tools = []（Task 2 shell 不注册真实工具）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造只缺 card_planner_model 的 VoiceSettingsValues
+///   2. 调用 validate_start_config
+///   3. 检查错误 Debug/Display 是否不包含 API key
+///
+/// 预期结果：
+///   - 正断言：返回 MissingCardPlannerModel
+///   - 负断言：错误文本不应泄露 API key，也不应误报 MissingApiKey
+#[test]
+fn test_realtime_validate_start_config_requires_card_planner_model() {
+    let missing_planner = VoiceSettingsValues {
+        card_planner_model: None,
+        ..values_with_realtime_parts(Some("sk-planner"), Some("gpt-realtime-2"))
+    };
+
+    let error = RealtimeControlState::validate_start_config(&missing_planner)
+        .expect_err("缺少 Card Planner Model 时应返回配置错误");
+
+    assert!(
+        format!("{error:?}").contains("MissingCardPlannerModel"),
+        "缺少 planner model 时 Debug 应说明 MissingCardPlannerModel，实际: {error:?}"
+    );
+    assert!(
+        !format!("{error:?}").contains("sk-planner"),
+        "planner 缺失错误 Debug 不应泄露 API key"
+    );
+    assert!(
+        !error.to_string().contains("sk-planner"),
+        "planner 缺失错误 Display 不应泄露 API key"
+    );
+    assert!(
+        !format!("{error:?}").contains("MissingApiKey"),
+        "planner 缺失时不应误报 MissingApiKey"
+    );
+}
+
 /// VS-9: saved realtime model 缺失时，Values 应使用 gpt-realtime-2 作为默认模型。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   saved.realtime_model = None
-///   saved.openai_api_key = Some("sk-default-model")（保证只有 model default 被测试）
+///   saved.openai_api_key = Some("sk-default-model")
+///   saved.card_planner_model = Some("gpt-card-planner")（保证只有 model default 被测试）
 ///   expected realtime_model = gpt-realtime-2
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -225,6 +280,7 @@ fn test_realtime_validate_start_config_requires_api_key_and_model() {
 fn test_realtime_model_defaults_to_gpt_realtime_2_when_saved_model_is_missing() {
     let saved = SavedVoiceSettings {
         openai_api_key: Some("sk-default-model".to_string()),
+        card_planner_model: Some("gpt-card-planner".to_string()),
         ..SavedVoiceSettings::default()
     };
 
@@ -245,6 +301,53 @@ fn test_realtime_model_defaults_to_gpt_realtime_2_when_saved_model_is_missing() 
         values.realtime_model(),
         None,
         "saved realtime_model 缺失不应让 values.realtime_model() 返回 None"
+    );
+}
+
+/// VS-11: OpenAI API Key 编辑态提交空值应清除已保存 key，而不是卡在错误状态。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   saved.openai_api_key = Some("sk-clear")
+///   begin_edit(OpenAiApiKey) 按安全规则展示空 draft，不把旧 key 放入输入框
+///   key("enter") 表示用户直接提交空输入，目标是清除 key
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造带已保存 API key 的 VoiceSettingsState
+///   2. begin_edit(OpenAiApiKey) 后直接 handle_key_down(enter)
+///   3. 读取 values.openai_api_key() / row_value(OpenAiApiKey) / Debug 文本
+///
+/// 预期结果：
+///   - 正断言：提交空值后 API key 被清除，row 显示 Not set
+///   - 负断言：旧 key 不应继续存在于 values 或 Debug 输出
+#[test]
+fn test_realtime_openai_api_key_empty_commit_clears_saved_key() {
+    let saved = SavedVoiceSettings {
+        openai_api_key: Some("sk-clear".to_string()),
+        ..SavedVoiceSettings::default()
+    };
+    let mut state = VoiceSettingsState::from_sources(saved, EnvVoiceSettings::default());
+
+    state.begin_edit(VoiceSettingsField::OpenAiApiKey);
+    let handled = state.handle_key_down(&key("enter", None));
+
+    assert!(handled, "OpenAI API key 编辑态应处理 enter 提交");
+    assert!(
+        state.values().openai_api_key().is_none(),
+        "OpenAI API key 空提交后应清除保存值"
+    );
+    assert_eq!(
+        state.row_value(VoiceSettingsField::OpenAiApiKey),
+        "Not set",
+        "API key 清除后 Settings 行应显示 Not set"
+    );
+    assert_ne!(
+        state.values().openai_api_key(),
+        Some("sk-clear"),
+        "API key 清除后 values 不应继续保留旧 key"
+    );
+    assert!(
+        !format!("{state:?}").contains("sk-clear"),
+        "API key 清除后 Debug 输出不应包含旧 key"
     );
 }
 

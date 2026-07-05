@@ -58,7 +58,7 @@ impl MultisoulApp {
             self.stop_always_listening_shell(cx);
             return;
         }
-        cx.notify();
+        self.start_always_listening_shell(cx);
     }
 }
 

@@ -234,3 +234,46 @@ fn test_realtime_repeating_start_while_active_does_not_create_second_session() {
         "重复 start 不应把 active session 替换为第二个 session"
     );
 }
+
+/// RT-6: Always Listening 开关与生命周期必须接入 start/stop path。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   settings toggle source = settings/voice/view/realtime.rs
+///   workspace open source = workspace/flow.rs
+///   app drop source = app/lifecycle.rs
+///   required start anchor = start_always_listening_shell(cx)
+///   required stop anchor = realtime.stop_shell()
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 静态读取 Settings realtime toggle handler 源码
+///   2. 静态读取 workspace open 与 Drop 源码
+///   3. 检查开启开关会调用 start path，项目切换和 app drop 会调用 stop path
+///
+/// 预期结果：
+///   - 正断言：Settings 开关开启路径调用 start_always_listening_shell
+///   - 正断言：workspace open / app drop 均调用 realtime.stop_shell()
+///   - 负断言：开关开启路径不应只有 cx.notify()
+#[test]
+fn test_realtime_toggle_and_lifecycle_are_wired_to_start_and_stop_paths() {
+    let toggle_source = include_str!("../../src/settings/voice/view/realtime.rs");
+    let workspace_source = include_str!("../../src/workspace/flow.rs");
+    let lifecycle_source = include_str!("../../src/app/lifecycle.rs");
+
+    assert!(
+        toggle_source.contains("self.start_always_listening_shell(cx)"),
+        "Enable Always Listening 开关开启后必须调用 start_always_listening_shell"
+    );
+    assert!(
+        workspace_source.contains("self.realtime.stop_shell()"),
+        "打开/切换 project 时必须停止 Always Listening shell 状态"
+    );
+    assert!(
+        lifecycle_source.contains("self.realtime.stop_shell()"),
+        "app drop/close 时必须停止 Always Listening shell 状态"
+    );
+    assert!(
+        !toggle_source
+            .contains("self.voice_settings.toggle_realtime_enabled();\n        cx.notify();"),
+        "开关开启路径不应只保存设置并 notify，否则不会进入 Connecting 或错误状态"
+    );
+}
