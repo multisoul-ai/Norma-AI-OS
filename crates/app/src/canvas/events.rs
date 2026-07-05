@@ -235,10 +235,31 @@ pub(super) fn on_mouse_move(
         if let Some(node) = app.runtime.document.node(drag.node) {
             app.motion.sync_drag_rect(drag.node, node.bounds);
         }
+        // 检测 swap 候选：计算被拖拽节点的画布中心，找第一个包含该中心的其他节点。
+        // 使用 .map() 提前将 &CanvasNode 转换为 Vec2（Copy），保证与后续 nodes() 借用不冲突。
+        let dragged_center = app.runtime.document.node(drag.node).map(|n| {
+            Vec2::new(
+                n.bounds.origin.x + n.bounds.size.x / 2.0,
+                n.bounds.origin.y + n.bounds.size.y / 2.0,
+            )
+        });
+        let new_swap = if let Some(center) = dragged_center {
+            app.runtime
+                .document
+                .nodes()
+                .iter()
+                .find(|n| n.id != drag.node && n.bounds.contains(center))
+                .map(|n| n.id)
+        } else {
+            None
+        };
+        if new_swap != drag.swap_candidate {
+            app.mark_canvas_dirty();
+        }
         app.interaction.drag = Some(DragState {
             node: drag.node,
             last_screen: screen,
-            swap_candidate: drag.swap_candidate,
+            swap_candidate: new_swap,
         });
         let now = Instant::now();
         if should_notify_motion_frame(app.interaction.last_motion_notify, now) {
