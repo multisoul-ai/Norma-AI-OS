@@ -58,7 +58,10 @@ else
     || die "未找到 2BF8G9AN4L 的 Developer ID Application 证书（阶段 0 未完成）"
 
   info "签名 + notarize + staple"
-  cargo packager --release -c Packager.toml
+  # env -u 清掉 AppleId 方式（APPLE_ID/PASSWORD/TEAM_ID 可能来自 ~/.zshrc 的个人账号），
+  # 强制 cargo-packager notarize_auth() 走 ApiKey 方式（APPLE_API_* = 公司 2BF8G9AN4L key）。
+  env -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID -u APPLE_KEYCHAIN_PROFILE \
+      cargo packager --release -c Packager.toml
 fi
 
 # 3. 验证产物
