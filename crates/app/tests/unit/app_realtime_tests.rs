@@ -1,6 +1,9 @@
 use super::{RealtimeConfigError, RealtimeControlState, VoiceBarMouseDownAction};
 use crate::app::voice::control::VoiceVisual;
 use realtime::{RealtimeSessionConfig, RealtimeSessionId};
+use std::sync::Mutex;
+
+static REALTIME_PROCESS_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 fn config(session_id: &str, model: &str) -> RealtimeSessionConfig {
     RealtimeSessionConfig {
@@ -8,6 +11,15 @@ fn config(session_id: &str, model: &str) -> RealtimeSessionConfig {
         model: model.to_string(),
         tools: Vec::new(),
     }
+}
+
+fn with_realtime_process_guard(assertions: impl FnOnce()) {
+    let _guard = REALTIME_PROCESS_TEST_LOCK
+        .lock()
+        .expect("realtime process test lock should not be poisoned");
+    RealtimeControlState::reset_process_guard_for_tests();
+    assertions();
+    RealtimeControlState::reset_process_guard_for_tests();
 }
 
 /// RT-1: 默认 realtime shell 不覆盖 one-shot voice 的底栏 label 与视觉。
@@ -74,35 +86,37 @@ fn test_realtime_default_maps_bottom_bar_to_voice() {
 ///   - 负断言：Listening 后不应退回 one-shot Voice
 #[test]
 fn test_realtime_valid_config_maps_bottom_label_connecting_then_always_listening() {
-    let mut state = RealtimeControlState::default();
+    with_realtime_process_guard(|| {
+        let mut state = RealtimeControlState::default();
 
-    state
-        .start_shell_with_config(config("rt-1", "gpt-realtime-2"))
-        .expect("valid shell config should enter Connecting");
+        state
+            .start_shell_with_config(config("rt-1", "gpt-realtime-2"))
+            .expect("valid shell config should enter Connecting");
 
-    assert_eq!(
-        state.effective_voice_label("Voice"),
-        "Connecting...",
-        "shell start 后底栏应先显示 Connecting..."
-    );
+        assert_eq!(
+            state.effective_voice_label("Voice"),
+            "Connecting...",
+            "shell start 后底栏应先显示 Connecting..."
+        );
 
-    state.mark_started();
+        state.mark_started();
 
-    assert_eq!(
-        state.effective_voice_label("Voice"),
-        "Always Listening",
-        "mark_started 后底栏应显示 Always Listening"
-    );
-    assert_eq!(
-        state.effective_voice_visual(VoiceVisual::Idle),
-        VoiceVisual::Recording,
-        "Listening 状态应使用 active voice visual，而不是 Idle"
-    );
-    assert_ne!(
-        state.effective_voice_label("Voice"),
-        "Voice",
-        "Listening 状态不应退回 one-shot Voice label"
-    );
+        assert_eq!(
+            state.effective_voice_label("Voice"),
+            "Always Listening",
+            "mark_started 后底栏应显示 Always Listening"
+        );
+        assert_eq!(
+            state.effective_voice_visual(VoiceVisual::Idle),
+            VoiceVisual::Recording,
+            "Listening 状态应使用 active voice visual，而不是 Idle"
+        );
+        assert_ne!(
+            state.effective_voice_label("Voice"),
+            "Voice",
+            "Listening 状态不应退回 one-shot Voice label"
+        );
+    });
 }
 
 /// RT-3: 配置错误应映射为 Realtime error，而不是泄露底层设置值。
@@ -166,33 +180,35 @@ fn test_realtime_config_error_maps_bottom_label_to_realtime_error() {
 ///   - 负断言：active realtime 时不返回 StartOneShotRecording
 #[test]
 fn test_realtime_active_bottom_bar_mouse_down_does_not_start_one_shot_recording() {
-    let mut state = RealtimeControlState::default();
+    with_realtime_process_guard(|| {
+        let mut state = RealtimeControlState::default();
 
-    assert_eq!(
-        state.voice_bar_mouse_down_action(false),
-        VoiceBarMouseDownAction::StartOneShotRecording,
-        "realtime 关闭时 bottom bar mouse down 应保留 one-shot 行为"
-    );
-    assert_eq!(
-        state.voice_bar_mouse_down_action(true),
-        VoiceBarMouseDownAction::StartAlwaysListeningShell,
-        "realtime 开启且未 active 时 bottom bar mouse down 应启动 shell"
-    );
+        assert_eq!(
+            state.voice_bar_mouse_down_action(false),
+            VoiceBarMouseDownAction::StartOneShotRecording,
+            "realtime 关闭时 bottom bar mouse down 应保留 one-shot 行为"
+        );
+        assert_eq!(
+            state.voice_bar_mouse_down_action(true),
+            VoiceBarMouseDownAction::StartAlwaysListeningShell,
+            "realtime 开启且未 active 时 bottom bar mouse down 应启动 shell"
+        );
 
-    state
-        .start_shell_with_config(config("rt-active", "gpt-realtime-2"))
-        .expect("valid shell config should enter Connecting");
+        state
+            .start_shell_with_config(config("rt-active", "gpt-realtime-2"))
+            .expect("valid shell config should enter Connecting");
 
-    assert_eq!(
-        state.voice_bar_mouse_down_action(true),
-        VoiceBarMouseDownAction::Ignore,
-        "realtime active 时 bottom bar mouse down 应忽略重复开始"
-    );
-    assert_ne!(
-        state.voice_bar_mouse_down_action(true),
-        VoiceBarMouseDownAction::StartOneShotRecording,
-        "realtime active 时 bottom bar mouse down 不应启动 one-shot recording"
-    );
+        assert_eq!(
+            state.voice_bar_mouse_down_action(true),
+            VoiceBarMouseDownAction::Ignore,
+            "realtime active 时 bottom bar mouse down 应忽略重复开始"
+        );
+        assert_ne!(
+            state.voice_bar_mouse_down_action(true),
+            VoiceBarMouseDownAction::StartOneShotRecording,
+            "realtime active 时 bottom bar mouse down 不应启动 one-shot recording"
+        );
+    });
 }
 
 /// RT-5: active session 上重复 start 不应创建第二个 session。
@@ -213,26 +229,93 @@ fn test_realtime_active_bottom_bar_mouse_down_does_not_start_one_shot_recording(
 ///   - 负断言：current_session_id 不应被替换成 rt-second
 #[test]
 fn test_realtime_repeating_start_while_active_does_not_create_second_session() {
-    let mut state = RealtimeControlState::default();
+    with_realtime_process_guard(|| {
+        let mut state = RealtimeControlState::default();
 
-    let first = state.start_shell_with_config(config("rt-first", "gpt-realtime-2"));
-    let duplicate = state.start_shell_with_config(config("rt-second", "gpt-realtime-2"));
+        let first = state.start_shell_with_config(config("rt-first", "gpt-realtime-2"));
+        let duplicate = state.start_shell_with_config(config("rt-second", "gpt-realtime-2"));
 
-    assert!(first.is_ok(), "第一次 shell start 应成功进入 Connecting");
-    assert!(
-        duplicate.is_err(),
-        "active session 上重复 start 应返回错误，而不是创建第二个 session"
-    );
-    assert_eq!(
-        state.current_session_id().map(|id| id.as_str()),
-        Some("rt-first"),
-        "重复 start 后 current_session_id 应保留第一个 session"
-    );
-    assert_ne!(
-        state.current_session_id().map(|id| id.as_str()),
-        Some("rt-second"),
-        "重复 start 不应把 active session 替换为第二个 session"
-    );
+        assert!(first.is_ok(), "第一次 shell start 应成功进入 Connecting");
+        assert!(
+            duplicate.is_err(),
+            "active session 上重复 start 应返回错误，而不是创建第二个 session"
+        );
+        assert_eq!(
+            state.current_session_id().map(|id| id.as_str()),
+            Some("rt-first"),
+            "重复 start 后 current_session_id 应保留第一个 session"
+        );
+        assert_ne!(
+            state.current_session_id().map(|id| id.as_str()),
+            Some("rt-second"),
+            "重复 start 不应把 active session 替换为第二个 session"
+        );
+    });
+}
+
+/// RT-6: 进程级 guard 应阻止两个独立 app/window state 同时进入 active realtime session。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   first.state = RealtimeControlState::default()
+///   second.state = RealtimeControlState::default()
+///   first session_id = rt-first-window
+///   second session_id = rt-second-window
+///   active session capacity = 1（全进程只能有一个 active realtime session）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. first.start_shell_with_config(rt-first-window) → Ok，持有进程级 slot
+///   2. second.start_shell_with_config(rt-second-window) → Err AlreadyActive
+///   3. first.stop_shell() 释放进程级 slot
+///   4. second.start_shell_with_config(rt-second-window) → Ok
+///
+/// 预期结果：
+///   - 正断言：第一个独立 state 可启动，第二个独立 state 在 first active 时失败
+///   - 正断言：失败错误指向 first session id，second 不获得本地 session id
+///   - 正断言：first stop 后 second 可启动
+///   - 负断言：second 不应在 first active 时替换成 rt-second-window
+#[test]
+fn test_realtime_process_guard_blocks_second_independent_state_until_first_stops() {
+    with_realtime_process_guard(|| {
+        let mut first = RealtimeControlState::default();
+        let mut second = RealtimeControlState::default();
+
+        first
+            .start_shell_with_config(config("rt-first-window", "gpt-realtime-2"))
+            .expect("first realtime state should acquire the process slot");
+        let second_start =
+            second.start_shell_with_config(config("rt-second-window", "gpt-realtime-2"));
+
+        let error = second_start
+            .expect_err("second independent realtime state must not acquire a second process slot");
+        assert!(
+            format!("{error:?}").contains("rt-first-window"),
+            "second start error should point at the process-active first session: {error:?}"
+        );
+        assert!(
+            second.current_session_id().is_none(),
+            "second state must remain inactive while first owns the process slot"
+        );
+        assert_ne!(
+            second.current_session_id().map(|id| id.as_str()),
+            Some("rt-second-window"),
+            "second state must not replace the process slot while first is active"
+        );
+
+        first.stop_shell();
+        let second_retry =
+            second.start_shell_with_config(config("rt-second-window", "gpt-realtime-2"));
+
+        assert!(
+            second_retry.is_ok(),
+            "after first stop_shell releases the process slot, second state should start"
+        );
+        assert_eq!(
+            second.current_session_id().map(|id| id.as_str()),
+            Some("rt-second-window"),
+            "second state should own rt-second-window after retry"
+        );
+        second.stop_shell();
+    });
 }
 
 /// RT-6: Always Listening 开关与生命周期必须接入 start/stop path。

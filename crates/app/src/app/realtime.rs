@@ -9,6 +9,9 @@ use realtime::{
     RealtimeStatus,
 };
 use std::fmt;
+use std::sync::Mutex;
+
+static ACTIVE_REALTIME_SESSION: Mutex<Option<RealtimeSessionId>> = Mutex::new(None);
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) enum RealtimeConfigError {
@@ -87,7 +90,15 @@ impl RealtimeControlState {
         &mut self,
         config: RealtimeSessionConfig,
     ) -> Result<(), RealtimeSessionError> {
-        self.session.start_connecting(config.session_id)?;
+        if self.is_active() {
+            return self.session.start_connecting(config.session_id);
+        }
+        let session_id = config.session_id.clone();
+        acquire_process_slot(&session_id)?;
+        if let Err(error) = self.session.start_connecting(config.session_id) {
+            release_process_slot(&session_id);
+            return Err(error);
+        }
         self.config_error = None;
         Ok(())
     }
@@ -97,11 +108,17 @@ impl RealtimeControlState {
     }
 
     pub(crate) fn mark_config_error(&mut self, error: RealtimeConfigError) {
+        if let Some(session_id) = self.session.session_id().cloned() {
+            release_process_slot(&session_id);
+        }
         self.session.mark_error(error.to_string());
         self.config_error = Some(error);
     }
 
     pub(crate) fn stop_shell(&mut self) {
+        if let Some(session_id) = self.session.session_id().cloned() {
+            release_process_slot(&session_id);
+        }
         *self = Self::default();
     }
 
@@ -162,6 +179,36 @@ impl RealtimeControlState {
         } else {
             VoiceBarMouseDownAction::StartOneShotRecording
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn reset_process_guard_for_tests() {
+        let mut active = ACTIVE_REALTIME_SESSION
+            .lock()
+            .expect("active realtime session lock should not be poisoned");
+        *active = None;
+    }
+}
+
+fn acquire_process_slot(session_id: &RealtimeSessionId) -> Result<(), RealtimeSessionError> {
+    let mut active = ACTIVE_REALTIME_SESSION
+        .lock()
+        .expect("active realtime session lock should not be poisoned");
+    if let Some(existing_session_id) = active.clone() {
+        return Err(RealtimeSessionError::AlreadyActive {
+            existing_session_id,
+        });
+    }
+    *active = Some(session_id.clone());
+    Ok(())
+}
+
+fn release_process_slot(session_id: &RealtimeSessionId) {
+    let mut active = ACTIVE_REALTIME_SESSION
+        .lock()
+        .expect("active realtime session lock should not be poisoned");
+    if active.as_ref() == Some(session_id) {
+        *active = None;
     }
 }
 

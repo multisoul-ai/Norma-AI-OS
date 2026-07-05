@@ -223,3 +223,51 @@ git diff --check
 ```
 
 All exited 0.
+
+## Second Review Fix
+
+Second review found that the per-window `RealtimeControlState` enforced only one active
+session inside a single app/window state, but not across multiple windows in the same
+process.
+
+Fixes applied:
+
+- Added a process-level `ACTIVE_REALTIME_SESSION: Mutex<Option<RealtimeSessionId>>` guard in
+  `crates/app/src/app/realtime.rs`.
+- `start_shell_with_config` now acquires the process slot before entering `Connecting`.
+- `stop_shell` releases the process slot for the owning session.
+- `mark_config_error` releases any existing slot before moving to error state.
+- Added `test_realtime_process_guard_blocks_second_independent_state_until_first_stops` to prove
+  two independent `RealtimeControlState` instances cannot both become active, and the second can
+  start only after the first stops.
+- Serialized realtime state tests that acquire the process guard so Rust's parallel test runner
+  cannot create false failures.
+
+RED evidence:
+
+```bash
+cargo test -p app test_realtime_process_guard -- --nocapture
+```
+
+Before the fix, the new test failed to compile because `reset_process_guard_for_tests` did not
+exist, proving there was no process-level guard API to reset or exercise.
+
+GREEN evidence:
+
+```bash
+cargo test -p app test_realtime -- --nocapture
+```
+
+Exit 0. `14 passed; 0 failed`.
+
+```bash
+cargo test -p app test_voice_settings -- --nocapture
+cargo test -p app test_voice_settings_panel_contains_voice_configuration_anchors -- --nocapture
+cargo check -p app
+cargo fmt --check
+bash scripts/check-max-file-lines.sh
+bash scripts/check-no-allow.sh
+git diff --check
+```
+
+All exited 0.
