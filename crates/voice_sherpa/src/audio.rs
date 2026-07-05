@@ -1,11 +1,13 @@
 use crate::session::{AudioQueueStats, PcmEvent};
 use crate::SpeechError;
 use crossbeam_channel::Sender;
+use realtime::{PcmAudioChunk, PcmFormat};
 use std::sync::Arc;
 
 const INPUT_BUS: usize = 0;
 const TAP_BUFFER_SIZE: u32 = 1_600; // requested tap size in frames (hint; HW may differ)
-const SAMPLE_RATE: f64 = 16_000.0; // sherpa Paraformer target rate
+pub(crate) const RECOGNIZER_SAMPLE_RATE_HZ: u32 = 16_000;
+pub(crate) const PCM_STREAM_SAMPLE_RATE_HZ: u32 = 24_000;
 
 pub(crate) struct AudioCapture {
     #[cfg(target_os = "macos")]
@@ -17,11 +19,17 @@ impl AudioCapture {
         sender: Sender<PcmEvent>,
         stats: Arc<AudioQueueStats>,
         input_device_id: Option<&str>,
+        target_sample_rate_hz: u32,
     ) -> Result<Self, SpeechError> {
         #[cfg(target_os = "macos")]
         {
             Ok(Self {
-                inner: macos::MacosAudioCapture::start(sender, stats, input_device_id)?,
+                inner: macos::MacosAudioCapture::start(
+                    sender,
+                    stats,
+                    input_device_id,
+                    target_sample_rate_hz,
+                )?,
             })
         }
         #[cfg(not(target_os = "macos"))]
@@ -29,6 +37,7 @@ impl AudioCapture {
             let _ = sender;
             let _ = stats;
             let _ = input_device_id;
+            let _ = target_sample_rate_hz;
             Err(SpeechError::Audio(
                 "audio not supported on this platform".to_string(),
             ))
@@ -39,6 +48,41 @@ impl AudioCapture {
         #[cfg(target_os = "macos")]
         self.inner.stop();
     }
+}
+
+pub(crate) fn pcm16_bytes_from_f32_samples(samples: &[f32]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(samples.len() * 2);
+    for sample in samples {
+        bytes.extend_from_slice(&pcm16_sample_from_f32(*sample).to_le_bytes());
+    }
+    bytes
+}
+
+pub(crate) fn pcm_stream_chunk_from_samples(samples: &[f32]) -> Option<PcmAudioChunk> {
+    if samples.is_empty() {
+        return None;
+    }
+    PcmAudioChunk::new(
+        PcmFormat::Pcm16,
+        PCM_STREAM_SAMPLE_RATE_HZ,
+        1,
+        pcm16_bytes_from_f32_samples(samples),
+    )
+    .ok()
+}
+
+fn pcm16_sample_from_f32(sample: f32) -> i16 {
+    if sample <= -1.0 {
+        return i16::MIN;
+    }
+    if sample >= 1.0 {
+        return i16::MAX;
+    }
+    if !sample.is_finite() {
+        return 0;
+    }
+    let scale = if sample < 0.0 { 32_768.0 } else { 32_767.0 };
+    (sample * scale).round() as i16
 }
 
 #[cfg(target_os = "macos")]
@@ -65,6 +109,7 @@ mod macos {
             sender: Sender<PcmEvent>,
             stats: Arc<AudioQueueStats>,
             _input_device_id: Option<&str>,
+            target_sample_rate_hz: u32,
         ) -> Result<Self, SpeechError> {
             let engine = unsafe { AVAudioEngine::new() };
             let input_node = unsafe { engine.inputNode() };
@@ -81,7 +126,10 @@ mod macos {
                 ));
             }
 
-            let resampler = RefCell::new(LinearResampler::new(hw_sample_rate, SAMPLE_RATE));
+            let resampler = RefCell::new(LinearResampler::new(
+                hw_sample_rate,
+                f64::from(target_sample_rate_hz),
+            ));
             let tap_block = RcBlock::new(
                 move |buffer: NonNull<AVAudioPCMBuffer>, _: NonNull<AVAudioTime>| {
                     let buf = unsafe { buffer.as_ref() };
@@ -162,9 +210,14 @@ mod macos {
 fn audio_capture_for_test(
     sender: crossbeam_channel::Sender<PcmEvent>,
 ) -> Result<AudioCapture, SpeechError> {
-    AudioCapture::start(sender, Arc::new(AudioQueueStats::default()), None)
+    AudioCapture::start(
+        sender,
+        Arc::new(AudioQueueStats::default()),
+        None,
+        RECOGNIZER_SAMPLE_RATE_HZ,
+    )
 }
 
 #[cfg(test)]
 #[path = "../tests/unit/audio_tests.rs"]
-mod tests;
+mod audio_tests;

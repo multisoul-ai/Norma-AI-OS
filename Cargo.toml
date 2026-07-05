@@ -46,6 +46,7 @@ storage = { path = "crates/storage" }
 workspace = { path = "crates/workspace" }
 terminal = { path = "crates/terminal" }
 runtime = { path = "crates/runtime" }
+realtime = { path = "crates/realtime" }
 voice = { path = "crates/voice" }
 voice_sherpa = { path = "crates/voice_sherpa" }
 ui = { path = "crates/ui" }
