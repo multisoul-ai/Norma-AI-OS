@@ -32,4 +32,13 @@ plutil -lint "$ENT" >/dev/null || fail "entitlements 不是合法 plist: $ENT"
 /usr/libexec/PlistBuddy -c "Print :NSSpeechRecognitionUsageDescription" "$INFO" >/dev/null 2>&1 \
   || fail "Info.plist 缺 NSSpeechRecognitionUsageDescription"
 
+# 3. Packager.toml 含 entitlements + resources 字段
+grep -q '^entitlements' "$PKG" || fail "Packager.toml 缺 entitlements 字段"
+grep -q '^resources' "$PKG" || fail "Packager.toml 缺 resources 字段"
+
+# 4. Packager.dev.toml 存在且 signing-identity = "-"
+[ -f "$PKG_DEV" ] || fail "Packager.dev.toml 缺失: $PKG_DEV"
+grep -q 'signing-identity = "-"' "$PKG_DEV" \
+  || fail "Packager.dev.toml 缺 signing-identity = \"-\"（ad-hoc 测试签名）"
+
 echo "OK: codesign readiness check passed"

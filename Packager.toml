@@ -6,6 +6,7 @@ version = "0.1.8"
 identifier = "com.multisoul.desktop"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
+resources = ["crates/app/assets/wallpapers"]
 icons = ["assets/AppIcon.icns"]
 out-dir = "build"
 binaries-dir = "."
@@ -29,4 +30,8 @@ main = false
 [macos]
 minimum-system-version = "12.0"
 info-plist-path = "packaging/macos/Info.plist"
+entitlements = "packaging/macos/Multisoul.entitlements"
+# 阶段 0 启用：签发 Developer ID Application (2BF8G9AN4L) 证书后取消注释并填入证书 CN。
+# 用 security find-identity -v -p codesigning | grep "Developer ID Application.*2BF8G9AN4L" 查到。
+# signing-identity = "Developer ID Application: <公司证书名> (2BF8G9AN4L)"
 # 本切片不签名/不公证（Phase 6）。

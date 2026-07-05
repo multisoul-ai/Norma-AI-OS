@@ -1,0 +1,27 @@
+# 本地签名测试配置：ad-hoc 签名（"-"），不 bump 版本，直接用 target/release 现有二进制。
+# 用法：cargo packager -c Packager.dev.toml
+# 真实发版走 Packager.toml（阶段 0 启用 signing-identity 后）。
+name = "app"
+product-name = "Multisoul"
+version = "0.1.14"
+identifier = "com.multisoul.desktop"
+authors = ["multisoul"]
+formats = ["app", "dmg"]
+icons = ["assets/AppIcon.icns"]
+out-dir = "build/dev"
+binaries-dir = "."
+resources = ["crates/app/assets/wallpapers"]
+
+[[binaries]]
+path = "target/release/multisoul"
+main = true
+
+[[binaries]]
+path = "target/release/multisoul-agent-hook"
+main = false
+
+[macos]
+minimum-system-version = "12.0"
+info-plist-path = "packaging/macos/Info.plist"
+signing-identity = "-"
+entitlements = "packaging/macos/Multisoul.entitlements"
