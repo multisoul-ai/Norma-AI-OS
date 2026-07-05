@@ -61,7 +61,12 @@ else
 fi
 
 # 3. 验证产物
-APP=$(ls -d build/bundle/osx/Multisoul.app build/dev/Multisoul.app 2>/dev/null | head -1)
+# 用循环而非 `ls -d a b | head -1`：当 a 不存在时 ls 退出非零，
+# 在 `set -euo pipefail` 下会直接终止脚本，跳过整段验证。
+APP=""
+for p in build/bundle/osx/Multisoul.app build/dev/Multisoul.app; do
+  [ -d "$p" ] && APP="$p" && break
+done
 [ -n "$APP" ] || die "未找到产物 Multisoul.app"
 info "验证 $APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
