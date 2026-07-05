@@ -1,6 +1,7 @@
 //! 终端卡片内容渲染 + 键盘翻译。grid 快照按等宽字体逐行绘制。
 
 use crate::canvas::text_selection::TextRange;
+use crate::cards::term::cursor::TerminalCursorAnimation;
 use crate::cards::term::paint::{render_terminal_canvas, TerminalRenderMetrics};
 use gpui::{div, prelude::*, px, rgba, AnyElement, IntoElement, Keystroke};
 use runtime::NodeView;
@@ -11,16 +12,33 @@ pub const TERM_FONT_PX: f32 = 13.0;
 pub const TERM_LINE_PX: f32 = 16.0;
 pub const TERM_CELL_PX: f32 = 8.0;
 pub const TERM_PADDING_PX: f32 = 8.0;
-const TERM_SURFACE_TINT_ALPHA: u8 = 0x3d;
+const TERM_SURFACE_TINT_ALPHA: u8 = 0x20;
+
+pub struct TerminalNodeRenderOptions {
+    pub theme: Theme,
+    pub zoom: f32,
+    pub bottom_radius_px: f32,
+    pub selection: Option<TextRange>,
+    pub focused: bool,
+    pub reduce_motion: bool,
+    pub cursor_phase: f32,
+}
 
 /// 渲染一个终端节点内容区：退出态保留最后一帧输出，并叠加退出状态。
 pub fn render_terminal_node(
     view: Option<NodeView>,
-    theme: Theme,
-    zoom: f32,
-    bottom_radius_px: f32,
-    selection: Option<TextRange>,
+    options: TerminalNodeRenderOptions,
 ) -> AnyElement {
+    let TerminalNodeRenderOptions {
+        theme,
+        zoom,
+        bottom_radius_px,
+        selection,
+        focused,
+        reduce_motion,
+        cursor_phase,
+    } = options;
+
     let Some(NodeView::Term { snapshot, status }) = view else {
         return div()
             .rounded_b(px(bottom_radius_px))
@@ -29,8 +47,20 @@ pub fn render_terminal_node(
             .into_any_element();
     };
 
-    let terminal_canvas =
-        render_terminal_canvas(snapshot, theme, terminal_render_metrics(zoom), selection);
+    let cursor_animation = TerminalCursorAnimation {
+        phase: cursor_phase,
+        focused,
+        reduce_motion,
+        running: matches!(status, TerminalStatus::Running),
+        display_offset: snapshot.display_offset,
+    };
+    let terminal_canvas = render_terminal_canvas(
+        snapshot,
+        theme,
+        terminal_render_metrics(zoom),
+        selection,
+        cursor_animation,
+    );
 
     let mut terminal = div()
         .flex()
@@ -190,11 +220,11 @@ mod tests {
     /// 终端内容区使用轻量 tint，而不是再次铺满高不透明 term_bg。
     ///
     /// 数据构造（含关键数值推导）：
-    ///   glass_dark.node_fill alpha = 0xd9 / 0xff ≈ 85%
+    ///   glass_dark.node_fill alpha = 0xcc / 0xff ≈ 80%
     ///   glass_dark.term_bg alpha   = 0xfa / 0xff ≈ 98%
-    ///   terminal_surface_bg alpha  = 0x3d / 0xff ≈ 24%
-    ///   组合 alpha = 1 - (1 - 0xd9/255) * (1 - 0x3d/255) ≈ 0.887 → 0xe2
-    ///   旧组合 alpha = 1 - (1 - 0xd9/255) * (1 - 0xfa/255) ≈ 0.997 → 0xfe
+    ///   terminal_surface_bg alpha  = 0x20 / 0xff ≈ 12%
+    ///   组合 alpha = 1 - (1 - 0xcc/255) * (1 - 0x20/255) ≈ 0.825 → 0xd2
+    ///   旧组合 alpha = 1 - (1 - 0xcc/255) * (1 - 0xfa/255) ≈ 0.996 → 0xfe
     ///
     /// 执行过程：
     ///   1. 从 glass_dark 派生 terminal_surface_bg
@@ -202,8 +232,8 @@ mod tests {
     ///   3. 对比旧的 node_fill + term_bg 组合，确认不再接近实心
     ///
     /// 预期结果：
-    ///   - 正断言：surface alpha 为 0x3d，明显低于 term_bg
-    ///   - 正断言：node_fill + surface 组合 alpha 不超过 0xe6，保留玻璃感
+    ///   - 正断言：surface alpha 为 0x20，明显低于 term_bg
+    ///   - 正断言：node_fill + surface 组合 alpha 不超过 0xd8，保留轻 tint 而非实心终端块
     ///   - 负断言：node_fill + surface 不应等于旧的 node_fill + term_bg 近实心组合
     #[test]
     fn test_terminal_surface_bg_keeps_liquid_glass_transparency() {
@@ -215,7 +245,7 @@ mod tests {
         assert_eq!(
             alpha(surface),
             TERM_SURFACE_TINT_ALPHA,
-            "terminal surface 应使用轻量 tint alpha 0x3d，而不是原始 term_bg alpha"
+            "terminal surface 应使用轻量 tint alpha 0x20，而不是原始 term_bg alpha"
         );
         assert!(
             alpha(surface) < alpha(theme.node_fill),
@@ -226,7 +256,7 @@ mod tests {
             "terminal surface alpha 应明显低于原始 term_bg，否则仍会像黑色实心块"
         );
         assert!(
-            composed_surface <= 0xe6,
+            composed_surface <= 0xd8,
             "node_fill + terminal surface 组合 alpha 应保持在玻璃范围内，实际为 {composed_surface:#04x}"
         );
         assert_ne!(

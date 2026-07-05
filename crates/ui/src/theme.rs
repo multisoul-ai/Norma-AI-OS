@@ -41,7 +41,7 @@ impl Theme {
             panel_high: 0x1f372ab8,
             canvas_from: 0xf8fbffff,
             canvas_to: 0xe8eef8d9,
-            node_fill: 0xffffffcc,
+            node_fill: 0xffffffef,
             node_stroke: 0xffffffd9,
             selected_stroke: 0x0a84ffff,
             focused_stroke: 0x006fe6ff,
@@ -59,7 +59,7 @@ impl Theme {
             term_fg: 0xe7edf5ff,
             term_bg: 0x111827f6,
             term_exit_fg: 0xff6961ff,
-            title_bar: 0xffffffb8,
+            title_bar: 0xffffffe7,
             text: 0x1f2937ff,
             shadow_color: 0x38506a2e,
             shadow_y: 18.0,
@@ -75,7 +75,7 @@ impl Theme {
             panel_high: 0x1f372ab8,
             canvas_from: 0x101722f2,
             canvas_to: 0x1d2635e6,
-            node_fill: 0x0e1b16d9,
+            node_fill: 0x0e1b16cc,
             node_stroke: 0xffffff24,
             selected_stroke: 0xff7932ff,
             focused_stroke: 0x27d7eaff,
@@ -93,7 +93,7 @@ impl Theme {
             term_fg: 0xe7edf5ff,
             term_bg: 0x080d13fa,
             term_exit_fg: 0xff6961ff,
-            title_bar: 0x13231dd9,
+            title_bar: 0x13231dc9,
             text: 0xf2f6fbff,
             shadow_color: 0x00000073,
             shadow_y: 20.0,
@@ -120,8 +120,8 @@ mod tests {
     /// G-1: glass_light() 返回默认浅色玻璃主题 token
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   node_fill alpha  = 0xcc / 0xff ≈ 80%（玻璃面板需要半透明）
-    ///   title_bar alpha  = 0xb8 / 0xff ≈ 72%（标题栏比面板更轻）
+    ///   node_fill alpha  = 0xff - round((0xff - 0xd6) * 0.4) = 0xef ≈ 94%（透明度降低 60%）
+    ///   title_bar alpha  = 0xff - round((0xff - 0xc2) * 0.4) = 0xe7 ≈ 91%（标题栏同步降低透明度）
     ///   term_bg alpha    = 0xf6 / 0xff ≈ 96%（终端内容区可读优先）
     ///   selected/focused = Apple 蓝同色系（不再使用绿色聚焦）
     ///
@@ -151,13 +151,13 @@ mod tests {
         );
         assert_eq!(
             alpha(theme.node_fill),
-            0xcc,
-            "node_fill alpha should be semi-transparent glass"
+            0xef,
+            "node_fill alpha should reduce remaining transparency by 60% from 0xd6"
         );
         assert_eq!(
             alpha(theme.title_bar),
-            0xb8,
-            "title_bar alpha should be lighter than the panel body"
+            0xe7,
+            "title_bar alpha should reduce remaining transparency by 60% from 0xc2"
         );
         assert_eq!(
             alpha(theme.term_bg),
@@ -186,7 +186,8 @@ mod tests {
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   canvas_from alpha = 0xf2 / 0xff ≈ 95%（暗色画布需要稳定底色）
-    ///   node_fill alpha   = 0xd9 / 0xff ≈ 85%（暗色玻璃比浅色略厚）
+    ///   node_fill alpha   = 0xff - round((0xff - 0x80) * 0.4) = 0xcc ≈ 80%（透明度降低 60%）
+    ///   title_bar alpha   = 0xff - round((0xff - 0x78) * 0.4) = 0xc9 ≈ 79%（标题栏同步降低透明度）
     ///   term_bg alpha     = 0xfa / 0xff ≈ 98%（暗色终端仍保持最高可读性）
     ///
     /// 执行过程：
@@ -213,8 +214,13 @@ mod tests {
         );
         assert_eq!(
             alpha(glass_dark.node_fill),
-            0xd9,
-            "glass_dark node_fill should be translucent but thicker than light glass"
+            0xcc,
+            "glass_dark node_fill alpha should reduce remaining transparency by 60% from 0x80"
+        );
+        assert_eq!(
+            alpha(glass_dark.title_bar),
+            0xc9,
+            "glass_dark title_bar alpha should reduce remaining transparency by 60% from 0x78"
         );
         assert!(
             alpha(glass_dark.term_bg) > alpha(glass_dark.node_fill),
@@ -392,9 +398,9 @@ mod tests {
     /// G-6: Workspace V1 终端内容区比玻璃节点更不透明，保障壁纸背景上的可读性
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   glass_dark.node_fill alpha = 0xd6 / 0xff ≈ 84%
+    ///   glass_dark.node_fill alpha = 0xcc / 0xff ≈ 80%
     ///   glass_dark.term_bg alpha   = 0xfa / 0xff ≈ 98%
-    ///   差值 = 0xfa - 0xd6 = 0x24 = 36 alpha levels
+    ///   差值 = 0xfa - 0xcc = 0x2e = 46 alpha levels
     ///
     /// 执行过程：
     ///   1. 调用 Theme::glass_dark()

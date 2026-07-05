@@ -21,6 +21,7 @@ use norma::protocol::{
 use runtime::{InputMode, NodeError, NodeInput, Runtime, DEFAULT_TERMINAL_SHELL};
 use std::fs;
 use std::path::PathBuf;
+use std::time::Duration;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct NormaCommandEffects {
@@ -91,6 +92,21 @@ impl Drop for NormaServer {
 }
 
 impl MultisoulApp {
+    pub(crate) fn start_norma_drain_loop(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        cx.spawn_in(window, async move |this, cx| loop {
+            cx.background_executor()
+                .timer(Duration::from_millis(12))
+                .await;
+            let go = this.update_in(cx, |app, window, cx| {
+                app.drain_norma_server(window, cx);
+            });
+            if go.is_err() {
+                break;
+            }
+        })
+        .detach();
+    }
+
     pub(crate) fn drain_norma_server(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         while let Ok(request) = self.norma_server.receiver.try_recv() {
             let response = self.execute_card_command(request.request, window, cx);
@@ -405,6 +421,7 @@ fn canvas_agent_profile(value: AgentProfile) -> CanvasAgentProfile {
     match value {
         AgentProfile::Claude => CanvasAgentProfile::Claude,
         AgentProfile::Codex => CanvasAgentProfile::Codex,
+        AgentProfile::OpenCode => CanvasAgentProfile::OpenCode,
     }
 }
 
@@ -412,6 +429,7 @@ fn norma_agent_profile(value: CanvasAgentProfile) -> AgentProfile {
     match value {
         CanvasAgentProfile::Claude => AgentProfile::Claude,
         CanvasAgentProfile::Codex => AgentProfile::Codex,
+        CanvasAgentProfile::OpenCode => AgentProfile::OpenCode,
     }
 }
 

@@ -23,6 +23,9 @@ pub type PtyFactory = Box<
 
 pub struct TermLive {
     session: TerminalSession,
+    cached_view: NodeView,
+    #[cfg(test)]
+    cached_view_refreshes: usize,
 }
 
 impl TermLive {
@@ -32,9 +35,7 @@ impl TermLive {
         cols: u16,
         rows: u16,
     ) -> Result<Self, PtyError> {
-        Ok(Self {
-            session: TerminalSession::spawn(id, shell, cols, rows)?,
-        })
+        Self::from_session(TerminalSession::spawn(id, shell, cols, rows)?)
     }
 
     pub fn spawn_command(
@@ -43,8 +44,16 @@ impl TermLive {
         cols: u16,
         rows: u16,
     ) -> Result<Self, PtyError> {
+        Self::from_session(TerminalSession::spawn_command(id, command, cols, rows)?)
+    }
+
+    fn from_session(session: TerminalSession) -> Result<Self, PtyError> {
+        let cached_view = Self::view_from_session(&session);
         Ok(Self {
-            session: TerminalSession::spawn_command(id, command, cols, rows)?,
+            session,
+            cached_view,
+            #[cfg(test)]
+            cached_view_refreshes: 1,
         })
     }
 
@@ -64,14 +73,33 @@ impl TermLive {
     ) -> Result<Self, PtyError> {
         let (tx, rx) = unbounded();
         let backend = factory(command, cols, rows, tx)?;
-        Ok(Self {
-            session: TerminalSession::spawn_with_backend(id, cols, rows, backend, rx),
-        })
+        let session = TerminalSession::spawn_with_backend(id, cols, rows, backend, rx);
+        Self::from_session(session)
+    }
+
+    fn view_from_session(session: &TerminalSession) -> NodeView {
+        NodeView::Term {
+            snapshot: session.snapshot(),
+            status: session.status,
+        }
+    }
+
+    fn refresh_cached_view(&mut self) {
+        self.cached_view = Self::view_from_session(&self.session);
+        #[cfg(test)]
+        {
+            self.cached_view_refreshes += 1;
+        }
     }
 
     #[cfg(test)]
     pub(crate) fn session(&self) -> &TerminalSession {
         &self.session
+    }
+
+    #[cfg(test)]
+    pub(crate) fn cached_view_refresh_count(&self) -> usize {
+        self.cached_view_refreshes
     }
 }
 
@@ -97,7 +125,11 @@ impl LiveNode for TermLive {
     }
 
     fn drain(&mut self) -> bool {
-        self.session.drain()
+        let dirty = self.session.drain();
+        if dirty {
+            self.refresh_cached_view();
+        }
+        dirty
     }
 
     fn terminal_status(&self) -> Option<terminal::TerminalStatus> {
@@ -108,6 +140,7 @@ impl LiveNode for TermLive {
         match resize {
             NodeResize::TermGrid { cols, rows } => {
                 self.session.resize(cols, rows);
+                self.refresh_cached_view();
                 Ok(())
             }
         }
@@ -125,19 +158,26 @@ impl LiveNode for TermLive {
 
     fn scroll(&mut self, scroll: NodeScroll) -> Result<bool, NodeError> {
         match scroll {
-            NodeScroll::TermLines(lines) => Ok(self.session.scroll_display(lines)),
+            NodeScroll::TermLines(lines) => {
+                let changed = self.session.scroll_display(lines);
+                if changed {
+                    self.refresh_cached_view();
+                }
+                Ok(changed)
+            }
         }
     }
 
     fn view(&self) -> Option<NodeView> {
-        Some(NodeView::Term {
-            snapshot: self.session.snapshot(),
-            status: self.session.status,
-        })
+        Some(self.cached_view.clone())
     }
 
     fn kill(&mut self) {
         self.session.kill();
+    }
+
+    fn child_pid(&self) -> Option<u32> {
+        self.session.child_pid()
     }
 }
 
@@ -279,5 +319,64 @@ mod tests {
         );
 
         runtime.kill_all();
+    }
+
+    /// TermLive view 应复用缓存，避免 animation-only repaint 每次重建 terminal snapshot。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   初始尺寸 80×24。
+    ///   cached_view 初始刷新次数 = 1（spawn 后生成第一份可渲染快照）。
+    ///   重复 view 3 次没有 drain/resize/scroll，因此刷新次数仍应为 1。
+    ///   resize 到 100×30 是真实 terminal view 变化，应刷新一次：1 + 1 = 2。
+    ///
+    /// 执行过程：
+    ///   1. spawn /bin/sh 创建 TermLive。
+    ///   2. 读取 cached_view_refresh_count 作为初始计数。
+    ///   3. 连续调用 view() 三次，模拟只有边框动画触发的重绘。
+    ///   4. resize(TermGrid{100,30}) 后再次读取计数。
+    ///
+    /// 预期结果：
+    ///   - 正断言：初始缓存刷新次数为 1，说明 spawn 后已有 cached view。
+    ///   - 正断言：重复 view 后刷新次数仍为 1，证明 view 只 clone 缓存。
+    ///   - 正断言：resize 后刷新次数为 2，证明 terminal 内容结构变化会刷新缓存。
+    ///   - 负断言：重复 view 后刷新次数不应为 4，否则每次 animation repaint 都会重建 snapshot。
+    #[test]
+    fn test_term_live_view_reuses_cached_snapshot_until_terminal_changes() {
+        let mut live = TermLive::spawn(4, "/bin/sh", 80, 24).expect("TermLive spawn 应成功");
+
+        let initial_refresh_count = live.cached_view_refresh_count();
+        let _first_view = live.view().expect("首次 view 应返回 cached terminal view");
+        let _second_view = live
+            .view()
+            .expect("第二次 view 应返回 cached terminal view");
+        let _third_view = live
+            .view()
+            .expect("第三次 view 应返回 cached terminal view");
+        let repeated_view_refresh_count = live.cached_view_refresh_count();
+        live.resize(NodeResize::TermGrid {
+            cols: 100,
+            rows: 30,
+        })
+        .expect("TermGrid resize 应成功");
+        let resized_refresh_count = live.cached_view_refresh_count();
+
+        assert_eq!(
+            initial_refresh_count, 1,
+            "spawn 后应生成 1 次 cached terminal view，作为初始渲染快照"
+        );
+        assert_eq!(
+            repeated_view_refresh_count, 1,
+            "连续 view() 不应刷新 snapshot；否则 animation-only repaint 仍会重建 terminal grid"
+        );
+        assert_eq!(
+            resized_refresh_count, 2,
+            "resize 改变 terminal view 尺寸后应刷新 cached snapshot"
+        );
+        assert_ne!(
+            repeated_view_refresh_count, 4,
+            "三次 view() 后刷新次数不应变成 4，否则缓存没有生效"
+        );
+
+        live.kill();
     }
 }

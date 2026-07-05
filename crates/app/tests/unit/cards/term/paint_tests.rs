@@ -375,7 +375,11 @@ fn test_glass_cursor_model_keeps_default_background_transparent() {
     };
 
     let layout = build_layout(&snapshot, palette, test_metrics(), test_glass_style());
-    let cursor = cursor_paint_model(bounds, &layout);
+    let cursor = cursor_paint_model(
+        bounds,
+        &layout,
+        crate::cards::term::cursor::TerminalCursorAnimation::static_default(),
+    );
 
     assert_eq!(
         layout.default_bg_fill, None,

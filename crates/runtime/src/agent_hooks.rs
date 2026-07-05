@@ -42,6 +42,9 @@ impl Runtime {
         node_id: NodeId,
         profile: AgentProfile,
     ) -> Option<AgentHookEnv> {
+        if profile == AgentProfile::OpenCode {
+            return None;
+        }
         self.agent_hook_config.as_ref().map(|config| AgentHookEnv {
             node_id,
             profile,
@@ -55,5 +58,6 @@ fn agent_profile_env(profile: AgentProfile) -> &'static str {
     match profile {
         AgentProfile::Claude => "claude",
         AgentProfile::Codex => "codex",
+        AgentProfile::OpenCode => "opencode",
     }
 }

@@ -40,7 +40,9 @@ Workspace 分层：
 - **先读本文**：每次会话开始先读 `AGENTS.md`，再按指针深入。
 - **域层零 GPUI**：`canvas`、`terminal`、`runtime` 必须可独立 `cargo test`。
 - **依赖方向不反穿**：不要让 `canvas/terminal/runtime/storage` 反向依赖 `app` 或 `ui`；不要让 `canvas/terminal` 依赖 `storage`。
-- **存储热路径禁令**：不要在 `Runtime::drain_all`、PTY output chunk、`canvas_view::on_mouse_move`、`runtime::route`、`send_node_input` 中同步写 SQLite 或阻塞查库。
+- **存储/性能热路径禁令**：不要在 `Runtime::drain_all`、PTY output chunk、`canvas_view::on_mouse_move`、`runtime::route`、`send_node_input`、关闭无脏 flush 中同步写 SQLite、扫描会话目录或阻塞查库。
+- **GPUI 前台禁阻塞**：语音结束、LLM planning/refine、recognizer join、网络/文件 IO、长 sleep 或 CPU 重活必须移到 `background_executor`/后台线程；前台只做状态更新和 runtime UI 副作用。
+- **视频/动画壁纸低拷贝**：live 视频/动画帧不得每帧经 CPU RGBA/`RenderImage`/`img()` 路径上屏；解码推进必须后台化，上屏必须用 420f `surface()` 或等价低拷贝路径，并由 `scripts/check-video-wallpaper-performance.py` 护栏拦截回退。
 - **版本钉死需审慎**：`gpui =0.2.2`、`alacritty_terminal =0.26`，升级前先验证 API。
 - **GPUI 代码先查 skills**：编写或修改 `crates/app`、`crates/ui` 的 GPUI 代码时，优先参考本地已安装的 `gpui-*` skills，再结合本仓库现有写法落地。
 - **单文件 ≤ 500 行**：Rust 源码由 [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh) 拦截，超长先拆职责。
@@ -54,6 +56,7 @@ Workspace 分层：
 - **PTY 生命周期要收口**：窗口关闭或 session 释放必须 kill/wait 子进程，避免僵尸进程。
 - **关窗必须退出进程**：GPUI 在 macOS 上关闭最后一个窗口后不会自动 quit，必须在 `main.rs` 的 `run` 闭包内注册 `cx.on_window_closed(|cx| { if cx.windows().is_empty() { cx.quit(); } }).detach()`；不得省略，否则进程常驻后台。
 - **交互决策放 runtime**：输入意图先通过 `runtime::route` 这类纯函数表达，再由 `app` 层执行副作用。
+- **新增可配置快捷键必须进 Settings**：任何新的 app shortcut 都要注册到 `shortcuts.rs`，并在 Settings → Keyboard Shortcuts 支持录制与恢复。
 - **不要把知识塞进地图**：`AGENTS.md` 只放指针；长说明沉淀到 `CLAUDE.md` 或未来 `docs/`。
 
 ## 3. 技术栈速览
@@ -107,6 +110,8 @@ Workspace 分层：
 | GPUI/打包相关 | `cargo build -p app --release` |
 | 域层依赖边界 | `cargo tree -p canvas -p terminal -p runtime | grep -i gpui` 应无输出 |
 | 存储层依赖与热路径边界 | `bash scripts/check-storage-boundaries.sh` |
+| 拖拽/关闭/session 扫描性能护栏 | `bash scripts/check-performance-guardrails.sh` |
+| 视频壁纸低拷贝护栏 | `python3 scripts/check-video-wallpaper-performance.py` |
 | 代码行数 lint | `bash scripts/check-max-file-lines.sh` |
 | 禁止 `#[allow]` lint | `bash scripts/check-no-allow.sh` |
 | Agent 指南行数 lint | `bash scripts/check-agent-guide-lines.sh` |
@@ -119,6 +124,8 @@ cargo test -p canvas -p terminal -p runtime -p storage
 cargo test --workspace
 cargo check -p app
 bash scripts/check-storage-boundaries.sh
+bash scripts/check-performance-guardrails.sh
+python3 scripts/check-video-wallpaper-performance.py
 bash scripts/check-max-file-lines.sh
 bash scripts/check-no-allow.sh
 bash scripts/check-agent-guide-lines.sh

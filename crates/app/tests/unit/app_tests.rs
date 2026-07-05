@@ -1,111 +1,9 @@
 use super::*;
 use crate::workspace::flow::enter_workspace_for_path;
 use crate::workspace::persistence::PersistenceScheduler;
-use canvas::{compute_responsive_grid_layout, CanvasNodeKind, RectNode};
-use storage::RecentStore;
-
-/// 默认壁纸：未设置 env 时应使用打包进程序的内置画布壁纸。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   env_value = None（模拟未设置 MULTISOUL_WALLPAPER）
-///   default asset path = "wallpapers/1331865.png"（应用启动时交给 GPUI asset source 加载）
-///   fallback count = 1（只有一个默认壁纸候选，避免空背景）
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. wallpaper_from_env_value(None) → 不存在用户覆盖路径
-///   2. 选择 WorkspaceWallpaper::Embedded(DEFAULT_WALLPAPER_ASSET)
-///
-/// 预期结果：
-///   - 正断言：返回内置 asset 路径 wallpapers/1331865.png
-///   - 负断言：不返回 File 路径，避免打包后依赖开发机外部文件
-#[test]
-fn test_default_wallpaper_uses_embedded_asset_when_env_missing() {
-    let wallpaper = wallpaper_from_env_value(None);
-
-    assert_eq!(
-        wallpaper,
-        WorkspaceWallpaper::Embedded(DEFAULT_WALLPAPER_ASSET),
-        "missing MULTISOUL_WALLPAPER should use the embedded default asset"
-    );
-    assert!(
-        !matches!(wallpaper, WorkspaceWallpaper::File(_)),
-        "missing MULTISOUL_WALLPAPER must not produce a file path dependency"
-    );
-}
-
-/// 用户壁纸覆盖：env 指向可读文件时应优先使用用户指定路径。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   temp file path = std::env::temp_dir()/multisoul-wallpaper-override.png
-///   temp file bytes = 3（只用于 is_file 判定，不参与图片解码）
-///   env_value = Some(temp file path)
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 创建临时普通文件 → path.is_file() = true
-///   2. wallpaper_from_env_value(Some(path)) → 识别为用户覆盖
-///   3. 删除临时文件 → 测试清理
-///
-/// 预期结果：
-///   - 正断言：返回 File(temp file path)
-///   - 负断言：不返回 Embedded 默认壁纸，证明覆盖生效
-#[test]
-fn test_wallpaper_env_file_overrides_embedded_default() {
-    let path = std::env::temp_dir().join(format!(
-        "multisoul-wallpaper-override-{}.png",
-        std::process::id()
-    ));
-    std::fs::write(&path, [1_u8, 2, 3]).expect("test should create temp wallpaper file");
-
-    let wallpaper = wallpaper_from_env_value(Some(path.clone().into_os_string()));
-
-    std::fs::remove_file(&path).expect("test should remove temp wallpaper file");
-    assert_eq!(
-        wallpaper,
-        WorkspaceWallpaper::File(path),
-        "readable MULTISOUL_WALLPAPER file should override the embedded default"
-    );
-    assert_ne!(
-        wallpaper,
-        WorkspaceWallpaper::Embedded(DEFAULT_WALLPAPER_ASSET),
-        "readable MULTISOUL_WALLPAPER must not fall back to the embedded asset"
-    );
-}
-
-/// 无效用户壁纸：env 指向不存在的文件时应回退到内置画布壁纸。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   missing path = std::env::temp_dir()/multisoul-missing-wallpaper.png
-///   path.is_file() = false（不存在，因此不能作为图片资源）
-///   fallback count = 1（内置默认壁纸）
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 确保 missing path 不存在 → path.is_file() = false
-///   2. wallpaper_from_env_value(Some(missing path)) → 触发回退
-///
-/// 预期结果：
-///   - 正断言：返回 Embedded(DEFAULT_WALLPAPER_ASSET)
-///   - 负断言：不返回 File(missing path)，避免渲染层加载坏路径
-#[test]
-fn test_invalid_wallpaper_env_falls_back_to_embedded_default() {
-    let path = std::env::temp_dir().join(format!(
-        "multisoul-missing-wallpaper-{}.png",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_file(&path);
-
-    let wallpaper = wallpaper_from_env_value(Some(path.clone().into_os_string()));
-
-    assert_eq!(
-        wallpaper,
-        WorkspaceWallpaper::Embedded(DEFAULT_WALLPAPER_ASSET),
-        "invalid MULTISOUL_WALLPAPER should fall back to the embedded default asset"
-    );
-    assert_ne!(
-        wallpaper,
-        WorkspaceWallpaper::File(path),
-        "invalid MULTISOUL_WALLPAPER must not be kept as a file-backed wallpaper"
-    );
-}
+use canvas::{compute_responsive_grid_layout, AgentProfile, AgentSpec, CanvasNodeKind, RectNode};
+use runtime::{AgentTaskState, AgentTaskUpdate, CardAttentionKind, CardAttentionState};
+use storage::{NewAgentDefinition, ProjectStore, RecentStore};
 
 /// 壁纸亮度：默认画布壁纸应按原图亮度显示，不额外压暗。
 ///
@@ -141,6 +39,117 @@ fn test_wallpaper_brightness_uses_original_image_luminance() {
     assert_ne!(
         WALLPAPER_SHADE_BOTTOM_ALPHA, 0xd8,
         "wallpaper bottom shade must not keep the old darkening alpha"
+    );
+}
+
+/// 运行态光标动画应按约 30fps 节流 repaint，避免 focused Agent 绕过 snake 节流。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   repaint 预算 = 33ms（约 30fps）
+///   app frame loop tick = 12ms
+///   第 1 个 tick：累计 12ms < 33ms → None，不 repaint
+///   第 2 个 tick：累计 24ms < 33ms → None，不 repaint
+///   第 3 个 tick：累计 36ms >= 33ms → Some(36ms)，允许 repaint
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建默认 FrameThrottle
+///   2. 连续输入三个 12ms tick
+///   3. 读取每一步返回的 repaint delta
+///
+/// 预期结果：
+///   - 负断言：第 1 个 12ms tick 不应返回 repaint delta
+///   - 负断言：第 2 个 12ms tick 不应返回 repaint delta
+///   - 正断言：第 3 个 12ms tick 返回累计 36ms，供 phase 一次性追上真实时间
+///   - 负断言：第 3 个 tick 不应只返回 12ms，否则动画相位会变慢
+#[test]
+fn test_frame_throttle_batches_cursor_repaint_to_approximately_30fps() {
+    let mut throttle = FrameThrottle::default();
+
+    let first = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    let second = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    let third = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+
+    assert!(
+        first.is_none(),
+        "第 1 个 12ms tick 不应触发 focused cursor repaint"
+    );
+    assert!(
+        second.is_none(),
+        "第 2 个 12ms tick 累计 24ms < 33ms，仍不应触发 repaint"
+    );
+    assert_eq!(
+        third,
+        Some(Duration::from_millis(36)),
+        "第 3 个 tick 应返回累计 36ms，让 cursor phase 追上真实时间"
+    );
+    assert_ne!(
+        third,
+        Some(Duration::from_millis(12)),
+        "放行 repaint 时不应只推进 12ms，否则节流会让 cursor 动画变慢"
+    );
+}
+
+/// 卡片查看 helper：用户选择/聚焦卡片时应把未查看完成提醒标记为已查看。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Agent node_id=1，profile=Codex
+///   AgentTaskState::Done → runtime 创建 AgentTaskDone attention(viewed=false)
+///   mark_runtime_node_viewed_if_needed(node_id) 模拟鼠标点击或方向键选中该卡片
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. Runtime document 加入 Codex Agent node
+///   2. apply_agent_task_update(Done) 创建未查看 attention
+///   3. mark_runtime_node_viewed_if_needed(node_id)
+///   4. 再次 mark_runtime_node_viewed_if_needed(node_id)
+///
+/// 预期结果：
+///   - 正断言：首次 helper 返回 true，并把 viewed 改为 true
+///   - 正断言：attention kind 保持 AgentTaskDone
+///   - 负断言：重复 helper 返回 false，不能重复确认同一提醒
+#[test]
+fn test_mark_runtime_node_viewed_if_needed_marks_done_attention_viewed() {
+    let mut runtime = Runtime::new();
+    let node_id = runtime.document.add_node(
+        CanvasNodeKind::Agent(AgentSpec {
+            profile: AgentProfile::Codex,
+            alias: None,
+        }),
+        CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+    );
+    let changed = runtime.apply_agent_task_update(AgentTaskUpdate {
+        node_id,
+        profile: AgentProfile::Codex,
+        provider_event: "Stop".to_string(),
+        to: AgentTaskState::Done,
+        task_title: None,
+        session_id: None,
+    });
+    assert!(changed, "Done update 应创建未查看完成提醒");
+
+    let first = mark_runtime_node_viewed_if_needed(&mut runtime, node_id);
+    let attention = runtime.card_attention(node_id);
+    let second = mark_runtime_node_viewed_if_needed(&mut runtime, node_id);
+
+    assert!(first, "首次查看 Done attention 应返回 true");
+    assert_eq!(
+        attention,
+        Some(CardAttentionState {
+            kind: CardAttentionKind::AgentTaskDone,
+            viewed: true,
+        }),
+        "查看后 attention 应保留 AgentTaskDone kind，并标记 viewed=true"
+    );
+    assert!(
+        !second,
+        "重复调用 helper 不应再次返回 true，否则 UI 会重复处理同一提醒"
+    );
+    assert_ne!(
+        attention,
+        Some(CardAttentionState {
+            kind: CardAttentionKind::AgentTaskDone,
+            viewed: false,
+        }),
+        "查看后不应仍保持 viewed=false，否则呼吸灯不会关闭"
     );
 }
 
@@ -229,26 +238,30 @@ fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
     );
 }
 
-/// 打开已有 workspace：app 层应记录最近项目并从 Launchpad 切换到 Canvas。
+/// 打开已有 workspace：app 层应记录最近项目、切换到 Canvas，并把 agent state 绑定到该项目的本地定义库。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   workspace path = temp/launchpad-opened，真实目录，因此 path.is_dir() = true
+///   project-local agent defs = 1 条，name = "Workspace Agent"
 ///   storage path = temp/state/app.sqlite
-///   初始 screen = Launchpad，runtime.workspace_root = None，recent count = 0
+///   初始 screen = Launchpad，runtime.workspace_root = None，recent count = 0，agent_definitions 未绑定
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 构造 Runtime::new()、MotionStore::new(true)、AppScreen::Launchpad
-///   2. WorkspaceState::load_from_storage(storage)
-///   3. enter_workspace_for_path(workspace)
+///   1. 先为 workspace 创建并 migrate ProjectStore，写入 1 条项目本地 agent definition
+///   2. 构造 Runtime::new()、MotionStore::new(true)、AppScreen::Launchpad、AgentDefinitionsState::default()
+///   3. WorkspaceState::load_from_storage(storage)
+///   4. enter_workspace_for_path(workspace)
 ///      → WorkspaceState::open_workspace 写 SQLite
 ///      → runtime 替换为 Runtime::new_for_workspace(root)
+///      → agent_definitions.bind_project_store(project_store.agent_definition_store())
 ///      → screen = Canvas
-///   4. 查询 screen/runtime/workspace_state
+///   5. 查询 screen/runtime/workspace_state/agent_definitions
 ///
 /// 预期结果：
 ///   - 正断言：返回 Ok 且 screen == Canvas
 ///   - 正断言：runtime.workspace_root/current_root/recent[0].path 都是 canonical workspace
-///   - 负断言：screen 不应仍为 Launchpad，recent 不应为空
+///   - 正断言：agent_definitions 只加载该 workspace 的本地 agent definition
+///   - 负断言：screen 不应仍为 Launchpad，recent 不应为空，agent_definitions 不应保持未绑定
 #[test]
 fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
@@ -257,23 +270,37 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     let canonical_workspace = workspace_path
         .canonicalize()
         .expect("workspace should canonicalize");
+    let project_store = ProjectStore::for_workspace(&workspace_path)
+        .expect("project store should open for workspace-local agent setup");
+    project_store
+        .migrate()
+        .expect("project store should migrate before agent definition write");
+    project_store
+        .agent_definition_store()
+        .create(&NewAgentDefinition {
+            name: "Workspace Agent".to_string(),
+            runtime_profile: AgentProfile::Codex,
+            workflow_description: "Workspace-local workflow".to_string(),
+        })
+        .expect("workspace-local agent definition should persist");
     let storage = RecentStore::new(temp.path().join("state").join("app.sqlite"));
     let mut workspace_state = WorkspaceState::load_from_storage(storage);
     let mut runtime = Runtime::new();
     let mut motion = MotionStore::new(true);
     let mut master_layout = MasterLayoutState::default();
     let mut persistence = PersistenceScheduler::default();
+    let mut agent_definitions = AgentDefinitionsState::default();
     let mut screen = AppScreen::Launchpad;
 
-    let result = enter_workspace_for_path(
-        &mut runtime,
-        &mut motion,
-        &mut master_layout,
-        &mut persistence,
-        &mut screen,
-        &mut workspace_state,
-        &workspace_path,
-    );
+    let mut state = crate::workspace::flow::WorkspaceOpenStateMut {
+        motion: &mut motion,
+        master_layout: &mut master_layout,
+        persistence: &mut persistence,
+        agent_definitions: &mut agent_definitions,
+        screen: &mut screen,
+        workspace_state: &mut workspace_state,
+    };
+    let result = enter_workspace_for_path(&mut runtime, &mut state, &workspace_path);
 
     assert!(
         result.is_ok(),
@@ -299,6 +326,16 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
         workspace_state.recent.records[0].path, canonical_workspace,
         "最近项目第一条应是刚打开的 workspace"
     );
+    assert_eq!(
+        agent_definitions.definitions().len(),
+        1,
+        "打开 workspace 后 agent state 应加载该项目本地的 1 条 agent 定义"
+    );
+    assert_eq!(
+        agent_definitions.definitions()[0].name,
+        "Workspace Agent",
+        "agent state 应绑定到当前 workspace 的 project store，而不是保持空状态"
+    );
     assert_ne!(
         screen,
         AppScreen::Launchpad,
@@ -307,6 +344,10 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     assert!(
         !workspace_state.recent.records.is_empty(),
         "成功打开 workspace 后 recent 不应为空"
+    );
+    assert!(
+        !agent_definitions.voice_context().is_empty(),
+        "打开 workspace 后 agent_definitions 不应保持未绑定，否则 voice context 仍为空"
     );
 }
 
@@ -337,17 +378,18 @@ fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
     let mut motion = MotionStore::new(true);
     let mut master_layout = MasterLayoutState::default();
     let mut persistence = PersistenceScheduler::default();
+    let mut agent_definitions = AgentDefinitionsState::default();
     let mut screen = AppScreen::Launchpad;
 
-    let result = enter_workspace_for_path(
-        &mut runtime,
-        &mut motion,
-        &mut master_layout,
-        &mut persistence,
-        &mut screen,
-        &mut workspace_state,
-        &missing_path,
-    );
+    let mut state = crate::workspace::flow::WorkspaceOpenStateMut {
+        motion: &mut motion,
+        master_layout: &mut master_layout,
+        persistence: &mut persistence,
+        agent_definitions: &mut agent_definitions,
+        screen: &mut screen,
+        workspace_state: &mut workspace_state,
+    };
+    let result = enter_workspace_for_path(&mut runtime, &mut state, &missing_path);
 
     assert!(
         result.is_err(),

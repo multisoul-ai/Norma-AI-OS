@@ -68,6 +68,8 @@ struct CreateArgs {
 enum AgentProfileValue {
     Claude,
     Codex,
+    #[value(name = "opencode")]
+    OpenCode,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -151,6 +153,7 @@ impl From<AgentProfileValue> for AgentProfile {
         match value {
             AgentProfileValue::Claude => AgentProfile::Claude,
             AgentProfileValue::Codex => AgentProfile::Codex,
+            AgentProfileValue::OpenCode => AgentProfile::OpenCode,
         }
     }
 }

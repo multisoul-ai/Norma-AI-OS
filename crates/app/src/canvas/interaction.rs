@@ -2,6 +2,7 @@
 
 use crate::canvas::text_selection::{TextPoint, TextSelection};
 use canvas::{NodeId, Vec2};
+use std::time::Instant;
 
 #[derive(Clone, Copy)]
 pub struct DragState {
@@ -18,9 +19,22 @@ pub struct InteractionState {
     pub canvas_scroll_enabled: bool,
     pub keyboard_selected_node: Option<NodeId>,
     pub active_text_selection: Option<TextSelection>,
+    pub last_motion_notify: Option<Instant>,
+    /// 顶部工具栏 ✚ 按钮的弹出菜单（Terminal/Claude/Codex/Preview）是否展开。
+    pub new_menu_open: bool,
 }
 
 impl InteractionState {
+    /// 切换顶部 ✚ 弹出菜单的展开状态。
+    pub fn toggle_new_menu(&mut self) {
+        self.new_menu_open = !self.new_menu_open;
+    }
+
+    /// 关闭顶部 ✚ 弹出菜单（Esc / 画布点击 / 选中菜单项后调用）。
+    pub fn close_new_menu(&mut self) {
+        self.new_menu_open = false;
+    }
+
     pub fn begin_text_selection(&mut self, node_id: NodeId, anchor: TextPoint) {
         self.active_text_selection = Some(TextSelection::new(node_id, anchor));
     }

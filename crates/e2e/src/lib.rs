@@ -35,7 +35,7 @@ pub use harness::{
 ///   - `TestAppContext::single()`：单窗口 headless 测试上下文（gpui test-support）。
 ///   - `MultisoulApp::new(cx)`：装配 Runtime、AgentHookServer、wallpaper 与
 ///     ~12ms 帧循环；初始 `screen = AppScreen::Launchpad`（见 `assemble`）。
-///   无外部 PTY / 项目路径注入，仅验证 boot 路径。
+///     无外部 PTY / 项目路径注入，仅验证 boot 路径。
 ///
 /// 执行过程：
 ///   1. `cx.add_window_view(|_window, cx| MultisoulApp::new(cx))` → GPUI 开窗、

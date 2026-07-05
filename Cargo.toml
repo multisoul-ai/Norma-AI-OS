@@ -7,7 +7,7 @@ members = [
   "crates/terminal",
   "crates/runtime",
   "crates/voice",
-  "crates/voice_macos",
+  "crates/voice_sherpa",
   "crates/ui",
   "crates/norma",
   "crates/app",
@@ -16,7 +16,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-version = "0.1.0"
+version = "0.1.14"
 license = "MIT"
 
 # 版本钉死见 Global Constraints。gpui/alacritty_terminal 精确 pin。
@@ -27,6 +27,7 @@ gpui = "=0.2.2"
 portable-pty = "0.9"
 alacritty_terminal = "=0.26"
 crossbeam-channel = "0.5"
+async-channel = "2"
 # 通用
 anyhow = "1"
 thiserror = "2"
@@ -46,7 +47,7 @@ workspace = { path = "crates/workspace" }
 terminal = { path = "crates/terminal" }
 runtime = { path = "crates/runtime" }
 voice = { path = "crates/voice" }
-voice_macos = { path = "crates/voice_macos" }
+voice_sherpa = { path = "crates/voice_sherpa" }
 ui = { path = "crates/ui" }
 norma = { path = "crates/norma" }
 

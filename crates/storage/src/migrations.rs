@@ -64,6 +64,22 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
             updated_at_unix INTEGER NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS node_sessions (
+            node_id         INTEGER PRIMARY KEY NOT NULL,
+            kind            TEXT    NOT NULL,
+            cwd             TEXT,
+            session_id      TEXT,
+            updated_at_unix INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS layout_state (
+            id                   INTEGER PRIMARY KEY CHECK (id = 1),
+            mode                 TEXT NOT NULL,
+            master_id            INTEGER,
+            original_bounds_json TEXT NOT NULL,
+            updated_at_unix      INTEGER NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS voice_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             transcript TEXT NOT NULL,
@@ -75,8 +91,24 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
             model TEXT,
             target_node_id INTEGER,
             created_at_unix INTEGER NOT NULL,
-            error TEXT
+            error TEXT,
+            raw_transcript TEXT NOT NULL DEFAULT '',
+            refined_transcript TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS agent_definitions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            runtime_profile TEXT NOT NULL,
+            workflow_description TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at_unix INTEGER NOT NULL,
+            updated_at_unix INTEGER NOT NULL
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_definitions_name_nocase
+        ON agent_definitions(name COLLATE NOCASE);
         "#,
     )?;
     ensure_column(
@@ -97,6 +129,18 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
         "session_checkpoints",
         "agent_profile",
         "agent_profile TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "voice_history",
+        "raw_transcript",
+        "raw_transcript TEXT NOT NULL DEFAULT ''",
+    )?;
+    ensure_column(
+        connection,
+        "voice_history",
+        "refined_transcript",
+        "refined_transcript TEXT",
     )?;
     connection.pragma_update(None, "user_version", 1)?;
     Ok(())

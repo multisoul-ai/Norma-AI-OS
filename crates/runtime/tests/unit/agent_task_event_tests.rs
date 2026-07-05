@@ -1,5 +1,5 @@
 use super::*;
-use crate::{AgentTaskState, AgentTaskUpdate, RuntimeEvent};
+use crate::{AgentTaskState, AgentTaskUpdate, CardAttentionKind, CardAttentionState, RuntimeEvent};
 use canvas::{AgentProfile, CanvasNodeKind, CanvasRect, PreviewSpec};
 
 fn bounds() -> CanvasRect {
@@ -12,6 +12,8 @@ fn update(node_id: NodeId, to: AgentTaskState, provider_event: &str) -> AgentTas
         profile: AgentProfile::Codex,
         provider_event: provider_event.to_string(),
         to,
+        task_title: None,
+        session_id: None,
     }
 }
 
@@ -239,5 +241,194 @@ fn test_remove_node_clears_agent_task_state() {
         runtime.agent_task_state(node_id),
         Some(waiting),
         "删除后不应残留 WaitingApproval 状态"
+    );
+}
+
+/// Agent Done 应创建未查看的通用卡片提醒，并允许用户查看后关闭提醒。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Agent node_id=1
+///   task update: Done，表示 hook 已通知当前任务完成
+///   attention kind=AgentTaskDone，viewed=false 表示用户尚未查看完成结果
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建 Codex Agent node 并清空注册事件
+///   2. apply_agent_task_update(Done) → 写入 task state，并创建未查看 attention
+///   3. mark_card_viewed(node_id) → 用户显式查看该卡片
+///   4. 再次 mark_card_viewed(node_id) → 已查看状态不应重复变化
+///
+/// 预期结果：
+///   - 正断言：Done 后 card_attention 为 AgentTaskDone 且 viewed=false
+///   - 正断言：首次 mark 返回 true，并把 viewed 改为 true
+///   - 负断言：重复 mark 返回 false，不能伪造第二次状态变化
+#[test]
+fn test_agent_done_attention_can_be_marked_viewed_once() {
+    let mut runtime = Runtime::new();
+    let command = PtyCommand::new("/bin/sh").args(["-lc", "exit 0"]);
+    let node_id = runtime
+        .spawn_agent_with_command(AgentProfile::Codex, bounds(), command, 80, 24)
+        .expect("测试 Agent 替身应可成功 spawn");
+    let registered = runtime.take_events();
+    assert_eq!(
+        registered.len(),
+        1,
+        "测试开始前应只清空 NodeRegistered 事件"
+    );
+
+    let changed = runtime.apply_agent_task_update(update(node_id, AgentTaskState::Done, "Stop"));
+    let attention_after_done = runtime.card_attention(node_id);
+    let first_mark = runtime.mark_card_viewed(node_id);
+    let attention_after_view = runtime.card_attention(node_id);
+    let second_mark = runtime.mark_card_viewed(node_id);
+
+    assert!(changed, "Done update 应改变 Agent task state");
+    assert_eq!(
+        attention_after_done,
+        Some(CardAttentionState {
+            kind: CardAttentionKind::AgentTaskDone,
+            viewed: false,
+        }),
+        "Done 应创建未查看 AgentTaskDone attention"
+    );
+    assert!(first_mark, "首次查看未读 Done attention 应返回 true");
+    assert_eq!(
+        attention_after_view,
+        Some(CardAttentionState {
+            kind: CardAttentionKind::AgentTaskDone,
+            viewed: true,
+        }),
+        "mark_card_viewed 后 attention 应保留 kind 并标记 viewed=true"
+    );
+    assert!(
+        !second_mark,
+        "重复查看已 viewed 的 attention 不应返回 true，否则 UI 会误以为状态又变化"
+    );
+
+    runtime.kill_all();
+}
+
+/// 新任务状态应清除旧完成提醒，避免上一轮 Done 的已查看状态污染下一轮任务。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Agent node_id=1
+///   第一轮 task update: Done → AgentTaskDone attention
+///   第二轮 task update: Thinking → 新任务开始，旧完成提醒不再成立
+///   第三轮 task update: Done → 新完成结果应重新变成未查看
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. apply Done 并 mark_card_viewed → attention viewed=true
+///   2. apply Thinking → 清除旧 attention
+///   3. apply Done → 创建新的未查看 attention
+///
+/// 预期结果：
+///   - 正断言：Thinking 后 card_attention=None
+///   - 正断言：新 Done 后 viewed=false
+///   - 负断言：新 Done 不应继承上一轮 viewed=true
+#[test]
+fn test_new_agent_task_cycle_resets_done_attention() {
+    let mut runtime = Runtime::new();
+    let command = PtyCommand::new("/bin/sh").args(["-lc", "exit 0"]);
+    let node_id = runtime
+        .spawn_agent_with_command(AgentProfile::Codex, bounds(), command, 80, 24)
+        .expect("测试 Agent 替身应可成功 spawn");
+    let registered = runtime.take_events();
+    assert_eq!(
+        registered.len(),
+        1,
+        "测试开始前应只清空 NodeRegistered 事件"
+    );
+    assert!(
+        runtime.apply_agent_task_update(update(node_id, AgentTaskState::Done, "Stop")),
+        "第一轮 Done 应写入状态"
+    );
+    assert!(
+        runtime.mark_card_viewed(node_id),
+        "第一轮 Done attention 应可标记为 viewed"
+    );
+
+    let thinking = runtime.apply_agent_task_update(update(
+        node_id,
+        AgentTaskState::Thinking,
+        "UserPromptSubmit",
+    ));
+    let attention_after_thinking = runtime.card_attention(node_id);
+    let done_again = runtime.apply_agent_task_update(update(node_id, AgentTaskState::Done, "Stop"));
+    let attention_after_second_done = runtime.card_attention(node_id);
+
+    assert!(thinking, "Thinking 应开始新任务周期并改变状态");
+    assert_eq!(
+        attention_after_thinking, None,
+        "新任务开始后旧 Done attention 应被清除"
+    );
+    assert!(done_again, "第二轮 Done 应再次改变状态");
+    assert_eq!(
+        attention_after_second_done,
+        Some(CardAttentionState {
+            kind: CardAttentionKind::AgentTaskDone,
+            viewed: false,
+        }),
+        "第二轮 Done 应创建新的未查看 attention"
+    );
+    assert_ne!(
+        attention_after_second_done,
+        Some(CardAttentionState {
+            kind: CardAttentionKind::AgentTaskDone,
+            viewed: true,
+        }),
+        "第二轮 Done 不应继承上一轮 viewed=true"
+    );
+
+    runtime.kill_all();
+}
+
+/// 没有未查看 attention 的节点调用 mark_card_viewed 应被安全忽略。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Preview node_id=1，不是 Agent 且没有 attention
+///   missing node_id=999，document 中不存在
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建 Preview node
+///   2. mark_card_viewed(preview)
+///   3. mark_card_viewed(999)
+///
+/// 预期结果：
+///   - 正断言：两个 mark 都返回 false
+///   - 正断言：Preview attention 仍为 None
+///   - 负断言：不应凭空创建 AgentTaskDone attention
+#[test]
+fn test_mark_card_viewed_ignores_nodes_without_attention() {
+    let mut runtime = Runtime::new();
+    let preview = runtime.document.add_node(
+        CanvasNodeKind::Preview(PreviewSpec {
+            path: "README.md".to_string(),
+            explicit_type: None,
+        }),
+        bounds(),
+    );
+
+    let preview_marked = runtime.mark_card_viewed(preview);
+    let missing_marked = runtime.mark_card_viewed(999);
+
+    assert!(
+        !preview_marked,
+        "没有 attention 的 Preview 调用 mark_card_viewed 应返回 false"
+    );
+    assert!(
+        !missing_marked,
+        "不存在的 node_id 调用 mark_card_viewed 应返回 false"
+    );
+    assert_eq!(
+        runtime.card_attention(preview),
+        None,
+        "Preview 不应因为 mark_card_viewed 被创建 attention"
+    );
+    assert_ne!(
+        runtime.card_attention(preview),
+        Some(CardAttentionState {
+            kind: CardAttentionKind::AgentTaskDone,
+            viewed: false,
+        }),
+        "非 Agent Preview 不应凭空出现 AgentTaskDone attention"
     );
 }

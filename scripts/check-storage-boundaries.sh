@@ -33,7 +33,7 @@ hot_path_files=(
   crates/runtime/src/route.rs
   crates/terminal/src/pty.rs
   crates/terminal/src/session.rs
-  crates/app/src/canvas_view.rs
+  crates/app/src/canvas/view.rs
 )
 
 for file in "${hot_path_files[@]}"; do
@@ -54,7 +54,7 @@ if printf '%s\n' "$drain_body" | grep -qE "$hot_path_pattern"; then
   record_failure "Runtime::drain_all must not contain direct persistence work"
 fi
 
-frame_loop=$(sed -n '/let runtime_changed = app.runtime.drain_all()/,/if runtime_changed/p' crates/app/src/app.rs)
+frame_loop=$(sed -n '/let runtime_changed = app.runtime.drain_all()/,/if runtime_changed/p' crates/app/src/app/mod.rs)
 if printf '%s\n' "$frame_loop" | grep -qE "$hot_path_pattern"; then
   record_failure "app frame loop must not call direct SQLite store APIs"
 fi

@@ -70,18 +70,21 @@ impl PtyCommand {
     }
 }
 
-/// PTY 后端能力抽象：把"写、resize、kill"从具体 portable-pty 实现解耦，
-/// 便于 e2e 测试桩在不启动真实子进程的情况下驱动上层；域层无 GPUI 依赖。
+/// PTY 后端能力抽象：把"写、resize、kill"从 portable-pty 解耦，便于 e2e 测试桩驱动；域层无 GPUI 依赖。
 pub trait PtyBackend {
     fn write(&mut self, bytes: &[u8]) -> Result<(), PtyError>;
     fn resize(&mut self, cols: u16, rows: u16) -> Result<(), PtyError>;
     fn kill(&mut self);
+    fn child_pid(&self) -> Option<u32> {
+        None
+    }
 }
 
 pub struct PtyHandle {
     master: Box<dyn portable_pty::MasterPty + Send>,
     writer: Box<dyn Write + Send>,
     child: Box<dyn ChildKiller + Send + Sync>,
+    pub child_pid: Option<u32>,
 }
 
 impl PtyHandle {
@@ -128,6 +131,7 @@ impl PtyHandle {
             .slave
             .spawn_command(cmd)
             .map_err(|e| PtyError::Spawn(e.to_string()))?;
+        let child_pid = child.process_id();
         let child_killer = child.clone_killer();
         // slave 在 spawn 后即可释放（子进程已持有其 fd）。
         drop(pair.slave);
@@ -177,6 +181,7 @@ impl PtyHandle {
             master: pair.master,
             writer,
             child: child_killer,
+            child_pid,
         })
     }
 
@@ -197,13 +202,11 @@ impl PtyHandle {
             .map_err(|e| PtyError::Resize(e.to_string()))
     }
 
-    /// 杀掉子进程（窗口关闭时调用，确保不留僵尸进程）。
     pub fn kill(&mut self) {
         let _ = self.child.kill();
     }
 }
 
-/// 默认实现：PtyHandle 即真实 PTY 后端，全限定委托固有方法，不改动其公开 API。
 impl PtyBackend for PtyHandle {
     fn write(&mut self, bytes: &[u8]) -> Result<(), PtyError> {
         PtyHandle::write(self, bytes)
@@ -215,6 +218,9 @@ impl PtyBackend for PtyHandle {
 
     fn kill(&mut self) {
         PtyHandle::kill(self)
+    }
+    fn child_pid(&self) -> Option<u32> {
+        self.child_pid
     }
 }
 

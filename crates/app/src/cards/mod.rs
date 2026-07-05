@@ -3,6 +3,7 @@
 pub mod agent;
 pub mod chrome;
 pub mod preview;
+pub(crate) mod snake;
 pub mod term;
 
 use crate::canvas::text_selection::TextSelection;
@@ -34,6 +35,9 @@ pub struct CardBodyContext<'a> {
     pub runtime: &'a Runtime,
     pub preview_state: Option<&'a PreviewLoadState>,
     pub text_selection: Option<TextSelection>,
+    pub focused: bool,
+    pub reduce_motion: bool,
+    pub terminal_cursor_phase: f32,
     pub theme: Theme,
     pub zoom: f32,
     pub bottom_radius_px: f32,

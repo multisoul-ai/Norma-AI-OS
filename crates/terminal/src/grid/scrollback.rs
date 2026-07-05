@@ -154,3 +154,42 @@ fn test_scroll_display_clamps_at_history_edges() {
         "已在底部时继续向下滚动不应返回 true，否则会制造无意义 repaint"
     );
 }
+
+/// cursor 落在宽字符 spacer cell 时，snapshot 应回退到宽字符起始列。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   grid = 4 cols × 3 lines
+///   输入 "你"：中文宽字符占用 col0 + col1(spacer)
+///   ANSI "\x1b[1;2H"：移动 cursor 到第 1 行第 2 列，即 0-based col1
+///   col1 是 WIDE_CHAR_SPACER，不是真实 glyph 起点
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. advance("你") 写入宽字符，alacritty 标记 col1 为 spacer
+///   2. advance(CUP 1;2) 将 cursor 移到 spacer cell
+///   3. snapshot() 生成中性 GridSnapshot
+///
+/// 预期结果：
+///   - 断言 A：col1 标记为 wide_char_spacer，证明测试前置条件成立
+///   - 断言 B：cursor_col 应规范化为 0，指向宽字符真实起始格
+///   - 负断言：cursor_col 不应仍为 1，否则 UI 会在 CJK 字符右半格画光标
+#[test]
+fn test_snapshot_cursor_normalizes_wide_char_spacer_column() {
+    let mut grid = TerminalGrid::new(4, 3);
+    grid.advance("你\x1b[1;2H".as_bytes());
+
+    let snapshot = grid.snapshot();
+
+    assert!(
+        snapshot.rows[0][1].attrs.wide_char_spacer,
+        "第 0 行第 1 列应是宽字符 spacer，实际 attrs={:?}",
+        snapshot.rows[0][1].attrs
+    );
+    assert_eq!(
+        snapshot.cursor_col, 0,
+        "cursor 位于宽字符 spacer 时应回退到宽字符起始列 0"
+    );
+    assert_ne!(
+        snapshot.cursor_col, 1,
+        "cursor_col 不应保留 spacer 列 1，否则 UI 光标会相对 CJK 字符右移一格"
+    );
+}

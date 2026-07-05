@@ -7,14 +7,18 @@ mod app;
 mod assets;
 mod canvas;
 mod cards;
+mod frame_diagnostics;
 mod motion;
 mod norma;
 mod preview;
 mod settings;
+mod shortcuts;
 mod workspace;
 
 pub use app::{
     AppScreen, CopyCardContent, ExitFocus, MultisoulApp, NewClaudeAgent, NewCodexAgent,
-    NewTerminal, OpenPreviewFile, OpenProject, ReflowLayout, ToggleMasterLayout,
+    NewOpenCodeAgent, NewTerminal, NewWindow, OpenPreviewFile, OpenProject, ReflowLayout,
+    ToggleMasterLayout, ToggleSettings,
 };
 pub use assets::EmbeddedAssets;
+pub use workspace::windowing::{open_multisoul_window, InitialWindowState};

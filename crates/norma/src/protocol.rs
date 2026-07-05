@@ -53,6 +53,7 @@ pub enum CardKind {
 pub enum AgentProfile {
     Claude,
     Codex,
+    OpenCode,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]

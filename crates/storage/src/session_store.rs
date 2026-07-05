@@ -63,6 +63,36 @@ impl SessionStore {
         Ok(())
     }
 
+    pub fn replace_all_checkpoints(&self, checkpoints: &[SessionCheckpoint]) -> StorageResult<()> {
+        let mut connection = open_project_connection(&self.path)?;
+        let tx = connection.transaction()?;
+        tx.execute("DELETE FROM session_checkpoints", [])?;
+        {
+            let mut statement = tx.prepare(
+                r#"
+                INSERT INTO session_checkpoints (
+                    node_id, kind, payload, cols, rows, shell, agent_profile, updated_at_unix
+                )
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                "#,
+            )?;
+            for checkpoint in checkpoints {
+                statement.execute(params![
+                    checkpoint.node_id,
+                    encode_kind(checkpoint.kind),
+                    checkpoint.payload,
+                    checkpoint.cols,
+                    checkpoint.rows,
+                    checkpoint.shell,
+                    encode_agent_profile(checkpoint.agent_profile),
+                    current_unix_timestamp()?,
+                ])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
     pub fn load_checkpoints(&self) -> StorageResult<Vec<SessionCheckpoint>> {
         let connection = open_project_connection(&self.path)?;
         let mut statement = connection.prepare(
@@ -120,6 +150,7 @@ fn encode_agent_profile(profile: Option<AgentProfile>) -> Option<&'static str> {
     profile.map(|profile| match profile {
         AgentProfile::Claude => "claude",
         AgentProfile::Codex => "codex",
+        AgentProfile::OpenCode => "opencode",
     })
 }
 
@@ -130,6 +161,7 @@ fn decode_agent_profile(profile: Option<String>) -> StorageResult<Option<AgentPr
     match profile.as_str() {
         "claude" => Ok(Some(AgentProfile::Claude)),
         "codex" => Ok(Some(AgentProfile::Codex)),
+        "opencode" => Ok(Some(AgentProfile::OpenCode)),
         other => Err(StorageError::InvalidAgentProfile(other.to_string())),
     }
 }

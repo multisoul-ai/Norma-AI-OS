@@ -1,49 +1,104 @@
 //! Workspace opening flow for the app shell.
 
 use crate::app::{AppScreen, MultisoulApp};
+use crate::canvas::view::mark_canvas_open_render_pending;
 use crate::motion::MotionStore;
+use crate::settings::agents::AgentDefinitionsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::NodeId;
-use gpui::{Context, PathPromptOptions};
+use gpui::{Context, PathPromptOptions, Window};
 use runtime::Runtime;
 use std::path::{Path, PathBuf};
-use storage::ProjectStore;
+use std::time::{Duration, Instant};
+use storage::{NodeSession, ProjectStore, SessionCheckpoint};
 use workspace::WorkspaceSource;
 
+#[derive(Clone, Debug)]
+pub(crate) struct PendingLiveSessionRestore {
+    root: PathBuf,
+    checkpoints: Vec<SessionCheckpoint>,
+    node_sessions: Vec<NodeSession>,
+    node_ids: Vec<NodeId>,
+}
+
+impl PendingLiveSessionRestore {
+    fn new(
+        root: PathBuf,
+        runtime: &Runtime,
+        checkpoints: Vec<SessionCheckpoint>,
+        node_sessions: Vec<NodeSession>,
+    ) -> Self {
+        let node_ids = runtime
+            .document
+            .nodes()
+            .iter()
+            .filter(|node| {
+                matches!(
+                    node.kind,
+                    canvas::CanvasNodeKind::Term(_) | canvas::CanvasNodeKind::Agent(_)
+                )
+            })
+            .map(|node| node.id)
+            .collect();
+        Self {
+            root,
+            checkpoints,
+            node_sessions,
+            node_ids,
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.node_ids.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.node_ids.is_empty()
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct WorkspaceOpenResult {
+    pending_live_restore: PendingLiveSessionRestore,
+}
+
 impl MultisoulApp {
-    pub(crate) fn prompt_open_project(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn prompt_open_project(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let receiver = cx.prompt_for_paths(PathPromptOptions {
             files: false,
             directories: true,
             multiple: false,
             prompt: Some("Open Project".into()),
         });
+        let current_window = window.window_handle().downcast::<MultisoulApp>();
 
         cx.spawn(async move |this, cx| {
             match receiver.await {
                 Ok(Ok(Some(paths))) => {
                     if let Some(path) = paths.into_iter().next() {
-                        this.update(&mut *cx, |app, cx| {
-                            app.open_workspace_path(path, cx);
-                        })?;
+                        if let Some(current_window) = current_window {
+                            let _ = current_window.update(&mut *cx, |app, window, cx| {
+                                app.open_workspace_in_project_window(path, true, window, cx);
+                            });
+                        }
                     }
                 }
                 Ok(Ok(None)) => {}
                 Ok(Err(error)) => {
-                    this.update(&mut *cx, |app, cx| {
+                    let _ = this.update(&mut *cx, |app, cx| {
                         app.workspace_state.error =
                             Some(format!("Could not open project picker: {error}"));
                         cx.notify();
-                    })?;
+                    });
                 }
                 Err(error) => {
-                    this.update(&mut *cx, |app, cx| {
+                    let _ = this.update(&mut *cx, |app, cx| {
                         app.workspace_state.error = Some(format!(
                             "Project picker was cancelled unexpectedly: {error}"
                         ));
                         cx.notify();
-                    })?;
+                    });
                 }
             }
             Ok::<(), anyhow::Error>(())
@@ -51,18 +106,27 @@ impl MultisoulApp {
         .detach();
     }
 
-    pub(crate) fn open_workspace_path(&mut self, path: PathBuf, cx: &mut Context<Self>) {
-        let result = enter_workspace_for_path(
-            &mut self.runtime,
-            &mut self.motion,
-            &mut self.master_layout,
-            &mut self.persistence,
-            &mut self.screen,
-            &mut self.workspace_state,
-            &path,
-        );
+    pub(crate) fn open_workspace_path(
+        &mut self,
+        path: PathBuf,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let mut state = WorkspaceOpenStateMut {
+            motion: &mut self.motion,
+            master_layout: &mut self.master_layout,
+            persistence: &mut self.persistence,
+            agent_definitions: &mut self.agent_definitions,
+            screen: &mut self.screen,
+            workspace_state: &mut self.workspace_state,
+        };
+        let result = enter_workspace_for_path(&mut self.runtime, &mut state, &path);
         match result {
-            Ok(()) => self.reload_all_previews(cx),
+            Ok(opened) => {
+                self.focus_handle.focus(window);
+                self.reload_all_previews(cx);
+                self.spawn_deferred_live_session_restore(opened.pending_live_restore, cx);
+            }
             Err(error) => {
                 tracing::warn!(%error, path = %path.display(), "failed to open workspace");
             }
@@ -70,167 +134,241 @@ impl MultisoulApp {
         self.last_reflow_window_size = None;
         cx.notify();
     }
+
+    fn spawn_deferred_live_session_restore(
+        &mut self,
+        pending: PendingLiveSessionRestore,
+        cx: &mut Context<Self>,
+    ) {
+        if pending.is_empty() {
+            return;
+        }
+
+        let root = pending.root.clone();
+        let total_sessions = pending.len();
+        tracing::info!(
+            stage = "workspace_open_restore_live_sessions_deferred_start",
+            path = %root.display(),
+            total_sessions,
+            "workspace_open_timing"
+        );
+        cx.spawn(async move |this, cx| {
+            let mut next_index = 0usize;
+            loop {
+                if next_index >= pending.node_ids.len() {
+                    tracing::info!(
+                        stage = "workspace_open_restore_live_sessions_deferred_done",
+                        path = %root.display(),
+                        total_sessions,
+                        "workspace_open_timing"
+                    );
+                    break;
+                }
+                cx.background_executor()
+                    .timer(Duration::from_millis(16))
+                    .await;
+                let node_id = pending.node_ids[next_index];
+                next_index += 1;
+                let remaining = pending.node_ids.len().saturating_sub(next_index);
+                let update = this.update(cx, |app, cx| {
+                    if app.workspace_state.current_root.as_deref() != Some(root.as_path()) {
+                        return false;
+                    }
+                    let restore_start = Instant::now();
+                    let restored = app
+                        .runtime
+                        .restore_live_session_for_node_with_node_sessions(
+                            node_id,
+                            &pending.checkpoints,
+                            &pending.node_sessions,
+                        );
+                    tracing::info!(
+                        stage = "workspace_open_restore_live_session_node",
+                        path = %root.display(),
+                        node_id,
+                        restored,
+                        remaining,
+                        elapsed_ms = restore_start.elapsed().as_secs_f64() * 1000.0,
+                        "workspace_open_timing"
+                    );
+                    if restored {
+                        cx.notify();
+                    }
+                    true
+                });
+                match update {
+                    Ok(true) => {}
+                    Ok(false) | Err(_) => break,
+                }
+            }
+            Ok::<(), anyhow::Error>(())
+        })
+        .detach();
+    }
+}
+
+/// Mutable workspace-opening state grouped to keep `enter_workspace_for_path`
+/// under clippy's argument-count threshold. All fields are borrowed mutably by
+/// the caller (either `MultisoulApp` fields or test-local vars).
+pub(crate) struct WorkspaceOpenStateMut<'a> {
+    pub motion: &'a mut MotionStore,
+    pub master_layout: &'a mut crate::canvas::master_layout::MasterLayoutState,
+    pub persistence: &'a mut PersistenceScheduler,
+    pub agent_definitions: &'a mut AgentDefinitionsState,
+    pub screen: &'a mut AppScreen,
+    pub workspace_state: &'a mut WorkspaceState,
 }
 
 pub(crate) fn enter_workspace_for_path(
     runtime: &mut Runtime,
-    motion: &mut MotionStore,
-    master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
-    persistence: &mut PersistenceScheduler,
-    screen: &mut AppScreen,
-    workspace_state: &mut WorkspaceState,
+    state: &mut WorkspaceOpenStateMut<'_>,
     path: &Path,
-) -> Result<(), String> {
-    let root = workspace_state.open_workspace(path, WorkspaceSource::Open)?;
+) -> Result<WorkspaceOpenResult, String> {
+    let total_start = Instant::now();
+    let mut stage_start = total_start;
+    let root = state
+        .workspace_state
+        .open_workspace(path, WorkspaceSource::Open)?;
+    log_workspace_open_timing(
+        "workspace_open_record_recent",
+        &root,
+        &mut stage_start,
+        total_start,
+    );
     let project_store = ProjectStore::for_workspace(&root)
         .map_err(|error| format!("Could not initialize project storage: {error}"))?;
+    log_workspace_open_timing(
+        "workspace_open_project_store",
+        &root,
+        &mut stage_start,
+        total_start,
+    );
     project_store
         .migrate()
         .map_err(|error| format!("Could not migrate project storage: {error}"))?;
+    log_workspace_open_timing(
+        "workspace_open_migrate",
+        &root,
+        &mut stage_start,
+        total_start,
+    );
+    // Flush cwd, canvas, and layout state before replacing runtime/master layout
+    // with the newly opened workspace.
+    let _ = state.persistence.flush_now(runtime, state.master_layout);
+    log_workspace_open_timing(
+        "workspace_open_flush_previous",
+        &root,
+        &mut stage_start,
+        total_start,
+    );
     let hook_config = runtime.agent_hook_config().cloned();
-    let mut next_runtime = Runtime::new_for_workspace(root);
+    let mut next_runtime = Runtime::new_for_workspace(root.clone());
     next_runtime.set_agent_hook_config(hook_config);
     next_runtime
         .load_canvas_snapshot(&project_store.canvas_store())
         .map_err(|error| format!("Could not restore canvas snapshot: {error}"))?;
+    log_workspace_open_timing(
+        "workspace_open_load_canvas_snapshot",
+        &root,
+        &mut stage_start,
+        total_start,
+    );
+    match project_store.layout_store().load_state() {
+        Ok(Some(layout_state)) => {
+            state
+                .master_layout
+                .restore_from_snapshot(layout_state, &next_runtime);
+        }
+        Ok(None) => state.master_layout.clear(),
+        Err(error) => return Err(format!("Could not restore layout state: {error}")),
+    }
+    log_workspace_open_timing(
+        "workspace_open_restore_layout",
+        &root,
+        &mut stage_start,
+        total_start,
+    );
     let checkpoints = project_store
         .session_store()
         .load_checkpoints()
         .map_err(|error| format!("Could not load session checkpoints: {error}"))?;
-    let restored_sessions = next_runtime.restore_live_sessions(&checkpoints);
-    tracing::info!(
-        restored_sessions,
-        "restored live sessions for opened workspace"
+    log_workspace_open_timing(
+        "workspace_open_load_checkpoints",
+        &root,
+        &mut stage_start,
+        total_start,
     );
+    let node_sessions = project_store
+        .node_session_store()
+        .load_sessions()
+        .unwrap_or_default();
+    log_workspace_open_timing(
+        "workspace_open_load_node_sessions",
+        &root,
+        &mut stage_start,
+        total_start,
+    );
+    tracing::info!(
+        stage = "workspace_open_restore_live_sessions",
+        path = %root.display(),
+        checkpoints = checkpoints.len(),
+        node_sessions = node_sessions.len(),
+        pending_sessions = next_runtime.document.nodes().iter().filter(|node| {
+            matches!(
+                node.kind,
+                canvas::CanvasNodeKind::Term(_) | canvas::CanvasNodeKind::Agent(_)
+            )
+        }).count(),
+        stage_ms = stage_start.elapsed().as_secs_f64() * 1000.0,
+        total_ms = total_start.elapsed().as_secs_f64() * 1000.0,
+        "workspace_open_timing"
+    );
+    stage_start = Instant::now();
+    let pending_live_restore =
+        PendingLiveSessionRestore::new(root.clone(), &next_runtime, checkpoints, node_sessions);
+    let agent_definition_store = project_store.agent_definition_store();
     runtime.kill_all();
     *runtime = next_runtime;
-    persistence.set_project_store(project_store);
-    master_layout.clear();
-    motion.clear_transient();
-    motion.retain_nodes(std::iter::empty::<NodeId>());
-    *screen = AppScreen::Canvas;
-    Ok(())
+    state.persistence.set_project_store(project_store);
+    state
+        .agent_definitions
+        .bind_project_store(agent_definition_store);
+    state.motion.clear_transient();
+    state.motion.retain_nodes(std::iter::empty::<NodeId>());
+    *state.screen = AppScreen::Canvas;
+    mark_canvas_open_render_pending();
+    tracing::info!(
+        stage = "workspace_open_total",
+        path = %root.display(),
+        total_ms = total_start.elapsed().as_secs_f64() * 1000.0,
+        final_swap_ms = stage_start.elapsed().as_secs_f64() * 1000.0,
+        "workspace_open_timing"
+    );
+    Ok(WorkspaceOpenResult {
+        pending_live_restore,
+    })
+}
+
+fn log_workspace_open_timing(
+    stage: &'static str,
+    root: &Path,
+    stage_start: &mut Instant,
+    total_start: Instant,
+) {
+    tracing::info!(
+        stage,
+        path = %root.display(),
+        stage_ms = stage_start.elapsed().as_secs_f64() * 1000.0,
+        total_ms = total_start.elapsed().as_secs_f64() * 1000.0,
+        "workspace_open_timing"
+    );
+    *stage_start = Instant::now();
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::canvas::master_layout::MasterLayoutState;
-    use canvas::{
-        CanvasNodeKind, CanvasNodeSnapshot, CanvasRect, DocumentSnapshot, TermSpec, Vec2, Viewport,
-    };
-    use runtime::NodeView;
-    use storage::{RecentStore, SessionCheckpoint, SessionCheckpointKind};
+#[path = "../../tests/unit/workspace_flow_tests.rs"]
+mod tests;
 
-    /// 打开已有 workspace：app 层应恢复布局后重新挂载 live terminal，避免卡片显示 session gone。
-    ///
-    /// 数据构造（含关键数值的推导过程）：
-    ///   workspace path = temp/restored-live-terminal，真实目录
-    ///   canvas snapshot = [Term id=6,bounds(10,20,640,360)]
-    ///   session checkpoint = node_id=6，shell="/bin/sh"，cols=88，rows=26
-    ///   初始 runtime.live_len = 0，打开后应恢复为 1
-    ///
-    /// 执行过程（逐步说明系统如何处理）：
-    ///   1. ProjectStore 写入 canvas snapshot 与 session checkpoint
-    ///   2. enter_workspace_for_path(workspace)
-    ///      → load_canvas_snapshot 恢复 document
-    ///      → load_checkpoints + restore_live_sessions 为 id=6 重新 spawn live terminal
-    ///   3. 查询 runtime.node_view(6)
-    ///
-    /// 预期结果：
-    ///   - 正断言：打开成功，screen == Canvas，live_len == 1
-    ///   - 正断言：node_view(6) 是 Term 且尺寸为 88x26
-    ///   - 负断言：node_view(6) 不应为 None，否则 UI 会显示 session gone
-    #[test]
-    fn test_enter_workspace_restores_live_terminal_for_saved_card() {
-        let temp = tempfile::tempdir().expect("test should create temp dir");
-        let workspace_path = temp.path().join("restored-live-terminal");
-        std::fs::create_dir(&workspace_path).expect("test should create workspace dir");
-        let project_store =
-            ProjectStore::for_workspace(&workspace_path).expect("project store should open");
-        let snapshot = DocumentSnapshot {
-            nodes: vec![CanvasNodeSnapshot {
-                id: 6,
-                kind: CanvasNodeKind::Term(TermSpec),
-                bounds: CanvasRect::new(10.0, 20.0, 640.0, 360.0),
-                z_index: 2,
-            }],
-            viewport: Viewport {
-                pan: Vec2::new(4.0, 5.0),
-                zoom: 1.25,
-            },
-        };
-        let checkpoint = SessionCheckpoint {
-            node_id: 6,
-            kind: SessionCheckpointKind::Terminal,
-            payload: "Terminal".into(),
-            cols: 88,
-            rows: 26,
-            shell: Some("/bin/sh".into()),
-            agent_profile: None,
-        };
-        project_store
-            .canvas_store()
-            .save_snapshot(&snapshot)
-            .expect("canvas snapshot 应写入 project store");
-        project_store
-            .session_store()
-            .save_checkpoint(&checkpoint)
-            .expect("session checkpoint 应写入 project store");
-        let storage = RecentStore::new(temp.path().join("state").join("app.sqlite"));
-        let mut workspace_state = WorkspaceState::load_from_storage(storage);
-        let mut runtime = Runtime::new();
-        let mut motion = MotionStore::new(true);
-        let mut master_layout = MasterLayoutState::default();
-        let mut persistence = PersistenceScheduler::default();
-        let mut screen = AppScreen::Launchpad;
-
-        let result = enter_workspace_for_path(
-            &mut runtime,
-            &mut motion,
-            &mut master_layout,
-            &mut persistence,
-            &mut screen,
-            &mut workspace_state,
-            &workspace_path,
-        );
-        let view = runtime.node_view(6);
-
-        assert!(
-            result.is_ok(),
-            "enter_workspace_for_path 应成功打开已持久化的 workspace，实际: {:?}",
-            result
-        );
-        assert_eq!(
-            screen,
-            AppScreen::Canvas,
-            "成功打开 workspace 后应切换到 Canvas"
-        );
-        assert_eq!(
-            runtime.live_len(),
-            1,
-            "打开 workspace 后应为保存的 terminal card 恢复 1 个 live node"
-        );
-        let Some(NodeView::Term { snapshot, .. }) = view else {
-            runtime.kill_all();
-            panic!("node_view(6) 不应为 None，否则终端卡片会显示 session gone");
-        };
-        assert_eq!(
-            snapshot.cols, 88,
-            "恢复的 live terminal 应使用 checkpoint 中的 88 列"
-        );
-        assert_eq!(
-            snapshot.lines, 26,
-            "恢复的 live terminal 应使用 checkpoint 中的 26 行"
-        );
-        assert!(
-            runtime.node_view(6).is_some(),
-            "保存过 checkpoint 的 terminal card 不应进入 session gone 状态"
-        );
-        assert!(
-            runtime.node_view(7).is_none(),
-            "恢复 node_id=6 不应额外创建 node_id=7 的 live node"
-        );
-        runtime.kill_all();
-    }
-}
+#[cfg(test)]
+#[path = "../../tests/unit/workspace_open_timing_tests.rs"]
+mod workspace_open_timing_tests;

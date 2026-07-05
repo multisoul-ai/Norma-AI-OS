@@ -1,3 +1,5 @@
+pub mod cli;
+
 mod event;
 mod forward;
 mod install;
@@ -8,7 +10,9 @@ use serde_json::Value;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-pub use event::{hook_events_for_source, parse_hook_event, task_state_for_provider_event};
+pub use event::{
+    extract_prompt_text, hook_events_for_source, parse_hook_event, task_state_for_provider_event,
+};
 pub use forward::{forward_event, forward_hook};
 pub use install::{
     agent_hooks_installed, agent_hooks_installed_at, agent_hooks_installed_for_source,

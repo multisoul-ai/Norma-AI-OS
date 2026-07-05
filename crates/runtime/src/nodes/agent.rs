@@ -38,6 +38,9 @@ pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEn
             }
             PtyCommand::new("/bin/zsh").arg("-ic").arg(exec_command)
         }
+        AgentProfile::OpenCode => {
+            PtyCommand::new("/bin/zsh").args(["-lic", "exec \"${OPENCODE_BIN:-opencode}\""])
+        }
     };
     match hook_env {
         Some(hook_env) => hook_env.apply_to_command(command),
