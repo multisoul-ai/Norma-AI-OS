@@ -1,5 +1,6 @@
 //! App-layer shell state for Always Listening realtime voice.
 
+mod callbacks;
 mod card_tasks;
 mod chat;
 mod shell;
@@ -235,6 +236,7 @@ impl RealtimeControlState {
         self.config_error = Some(error);
     }
 
+    #[cfg(test)]
     pub(crate) fn drain_sidecar_events(&mut self) -> bool {
         let mut changed = false;
         loop {
@@ -251,7 +253,8 @@ impl RealtimeControlState {
                         realtime::RealtimeEvent::SessionError { .. }
                             | realtime::RealtimeEvent::SessionStopped { .. }
                     );
-                    self.apply_sidecar_event(event);
+                    let update = self.apply_sidecar_event(event);
+                    self.dispatch_tool_result_callbacks(update);
                     if terminal {
                         break;
                     }
@@ -479,3 +482,7 @@ mod app_realtime_card_task_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/app_realtime_tool_call_tests.rs"]
 mod app_realtime_tool_call_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_realtime_callback_tests.rs"]
+mod app_realtime_callback_tests;

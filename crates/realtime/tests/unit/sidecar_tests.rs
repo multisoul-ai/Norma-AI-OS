@@ -6,6 +6,8 @@ use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
 
+mod callback_tests;
+
 fn fake_sidecar_config(api_key: &str) -> SidecarLaunchConfig {
     SidecarLaunchConfig {
         executable: node_executable(),

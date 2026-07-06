@@ -5,11 +5,12 @@ use crate::motion::MotionStore;
 use crate::norma::server::{execute_card_command_for_area, NormaCommandEffects};
 use canvas::{CanvasNodeKind, CanvasRect};
 use card_task::{
-    plan_with_provider, CardCommandRunner, CardTaskEvent, CardTaskPlanJsonProvider,
+    plan_with_provider, CardCommandRunner, CardTaskEvent, CardTaskId, CardTaskPlanJsonProvider,
     CardTaskPlanner, CardTaskPlannerError, CardTaskQueue, CardTaskRequest,
 };
 use gpui::{Context, Window};
 use norma::protocol::{CardCommand, CardCommandError, CardCommandResult};
+use realtime::RealtimeToolResultStatus;
 use runtime::{InputMode, Runtime};
 use std::collections::HashMap;
 use voice::{CardRef, VoiceCardKind, VoicePlanningRequest};
@@ -62,6 +63,7 @@ impl StoredRequestPlanner {
             .insert(CardTaskRequestKey::from(request), planning_request);
     }
 
+    #[cfg(test)]
     fn replace_provider(&mut self, provider: Box<dyn CardTaskPlanJsonProvider>) {
         self.provider = provider;
         self.requests.clear();
@@ -86,6 +88,7 @@ impl CardTaskPlanner for StoredRequestPlanner {
 
 enum RealtimeCardTaskPlannerMode {
     PreparedJson(StoredRequestPlanner),
+    #[cfg(test)]
     Direct(Box<dyn CardTaskPlanner>),
 }
 
@@ -95,8 +98,10 @@ impl RealtimeCardTaskPlannerMode {
         request: &CardTaskRequest,
         planning_request: VoicePlanningRequest,
     ) {
-        if let Self::PreparedJson(planner) = self {
-            planner.insert(request, planning_request);
+        match self {
+            Self::PreparedJson(planner) => planner.insert(request, planning_request),
+            #[cfg(test)]
+            Self::Direct(_) => {}
         }
     }
 
@@ -129,6 +134,7 @@ impl CardTaskPlanner for RealtimeCardTaskPlannerMode {
     ) -> Result<voice::CompiledVoicePlan, CardTaskPlannerError> {
         match self {
             Self::PreparedJson(planner) => planner.plan(request),
+            #[cfg(test)]
             Self::Direct(planner) => planner.plan(request),
         }
     }
@@ -139,6 +145,16 @@ pub(crate) struct RealtimeCardTaskState {
     queue: CardTaskQueue,
     planner: RealtimeCardTaskPlannerMode,
     events: Vec<CardTaskEvent>,
+    tool_call_ids: HashMap<CardTaskId, Option<String>>,
+    callbacks: Vec<PendingCardTaskCallback>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PendingCardTaskCallback {
+    pub(crate) task_id: String,
+    pub(crate) tool_call_id: Option<String>,
+    pub(crate) status: RealtimeToolResultStatus,
+    pub(crate) summary: String,
 }
 
 impl RealtimeCardTaskState {
@@ -148,17 +164,47 @@ impl RealtimeCardTaskState {
         tool_call_id: String,
         planning_request: VoicePlanningRequest,
     ) {
-        let request = CardTaskRequest {
-            intent,
-            tool_call_id: Some(tool_call_id),
-        };
+        self.enqueue_task_request(
+            CardTaskRequest {
+                intent,
+                tool_call_id: Some(tool_call_id),
+            },
+            planning_request,
+        );
+    }
+
+    fn enqueue_task_request(
+        &mut self,
+        request: CardTaskRequest,
+        planning_request: VoicePlanningRequest,
+    ) {
         self.planner.insert_snapshot(&request, planning_request);
-        self.queue.enqueue(request);
-        self.events.extend(self.queue.drain_events());
+        let task_id = self.queue.enqueue(request.clone());
+        self.tool_call_ids.insert(task_id, request.tool_call_id);
+        let events = self.queue.drain_events();
+        self.record_terminal_callbacks(&events);
+        self.events.extend(events);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn enqueue_task_for_tests(
+        &mut self,
+        intent: String,
+        tool_call_id: Option<String>,
+        planning_request: VoicePlanningRequest,
+    ) {
+        self.enqueue_task_request(
+            CardTaskRequest {
+                intent,
+                tool_call_id,
+            },
+            planning_request,
+        );
     }
 
     pub(crate) fn cancel_task(&mut self) {
         if let Ok(event) = self.queue.cancel_latest() {
+            self.record_terminal_callbacks(std::slice::from_ref(&event));
             self.events.push(event);
         }
     }
@@ -166,12 +212,18 @@ impl RealtimeCardTaskState {
     pub(crate) fn run_next(&mut self, runner: &mut dyn CardCommandRunner) -> bool {
         let events = self.queue.run_next(&mut self.planner, runner);
         let changed = !events.is_empty();
+        self.record_terminal_callbacks(&events);
         self.events.extend(events);
         changed
     }
 
+    #[cfg(test)]
     pub(crate) fn drain_events(&mut self) -> Vec<CardTaskEvent> {
         std::mem::take(&mut self.events)
+    }
+
+    pub(crate) fn drain_completed_callbacks(&mut self) -> Vec<PendingCardTaskCallback> {
+        std::mem::take(&mut self.callbacks)
     }
 
     #[cfg(test)]
@@ -185,6 +237,38 @@ impl RealtimeCardTaskState {
         planner: Box<dyn CardTaskPlanJsonProvider>,
     ) {
         self.planner.set_json_planner_for_tests(planner);
+    }
+
+    fn record_terminal_callbacks(&mut self, events: &[CardTaskEvent]) {
+        for event in events {
+            let terminal = match event {
+                CardTaskEvent::Succeeded { task_id, summary } => Some((
+                    *task_id,
+                    RealtimeToolResultStatus::Succeeded,
+                    summary.clone(),
+                )),
+                CardTaskEvent::Failed { task_id, message } => {
+                    Some((*task_id, RealtimeToolResultStatus::Failed, message.clone()))
+                }
+                CardTaskEvent::Cancelled { task_id, message } => Some((
+                    *task_id,
+                    RealtimeToolResultStatus::Cancelled,
+                    message.clone(),
+                )),
+                _ => None,
+            };
+
+            let Some((task_id, status, summary)) = terminal else {
+                continue;
+            };
+            let tool_call_id = self.tool_call_ids.remove(&task_id).flatten();
+            self.callbacks.push(PendingCardTaskCallback {
+                task_id: task_id.to_string(),
+                tool_call_id,
+                status,
+                summary,
+            });
+        }
     }
 }
 
@@ -298,6 +382,7 @@ fn voice_card_kind(kind: &CanvasNodeKind) -> VoiceCardKind {
 }
 
 impl RealtimeControlState {
+    #[cfg(test)]
     pub(crate) fn drain_card_task_events(&mut self) -> Vec<CardTaskEvent> {
         self.card_tasks.drain_events()
     }
@@ -328,6 +413,7 @@ impl MultisoulApp {
 
     pub(crate) fn cancel_realtime_card_task(&mut self, cx: &mut Context<Self>) {
         self.realtime.card_tasks.cancel_task();
+        self.flush_realtime_card_task_callbacks();
         cx.notify();
     }
 
@@ -356,6 +442,7 @@ impl MultisoulApp {
         let changed = self.realtime.card_tasks.run_next(&mut runner);
         let effects = runner.finish();
         self.apply_card_task_effects(effects);
+        self.flush_realtime_card_task_callbacks();
         changed
     }
 

@@ -202,7 +202,8 @@ impl MultisoulApp {
                         event,
                         RealtimeEvent::SessionError { .. } | RealtimeEvent::SessionStopped { .. }
                     );
-                    self.realtime.apply_sidecar_event(event);
+                    let update = self.realtime.apply_sidecar_event(event);
+                    self.realtime.dispatch_tool_result_callbacks(update);
                     if terminal {
                         break;
                     }

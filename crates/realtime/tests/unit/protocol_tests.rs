@@ -2,7 +2,10 @@ use crate::audio::{PcmAudioChunk, PcmFormat};
 use crate::session::{RealtimeSessionConfig, RealtimeSessionId};
 use serde_json::json;
 
-use super::{decode_event, encode_command, RealtimeCommand, RealtimeEvent, RealtimeProtocolError};
+use super::{
+    decode_event, encode_command, RealtimeCommand, RealtimeEvent, RealtimeProtocolError,
+    RealtimeToolResult, RealtimeToolResultStatus,
+};
 
 /// P-1: start_session command 编码为单行 JSON object，且 model/tools 位于顶层。
 ///
@@ -254,7 +257,7 @@ fn test_unknown_event_type_decodes_to_ignored_unknown() {
 ///   - 负断言：输出不包含换行，避免破坏 JSONL framing
 #[test]
 fn test_tool_result_encodes_jsonl_object_without_newline() {
-    let command = RealtimeCommand::ToolResult(super::super::RealtimeToolResult {
+    let command = RealtimeCommand::ToolResult(RealtimeToolResult {
         session_id: RealtimeSessionId::new("rt_1"),
         tool_call_id: "call_123".to_string(),
         result: json!({
@@ -290,6 +293,54 @@ fn test_tool_result_encodes_jsonl_object_without_newline() {
             "summary": "missing intent",
         }),
         "tool_result command should preserve the exact structured result payload"
+    );
+}
+
+/// P-7: task_result helper 必须编码 succeeded/failed/cancelled + task_id + summary。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   session_id   = "rt_1"
+///   tool_call_id = "call_task_7"
+///   task_id      = "task_7"
+///   summary      = "已创建 Codex 卡片并发送请求。"
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 调用 RealtimeToolResult::task_result(...)
+///   2. 检查 result JSON 中的 status/task_id/summary
+///
+/// 预期结果：
+///   - 正断言：status 使用 snake_case succeeded
+///   - 正断言：task_id/summary 原样保留
+///   - 负断言：task_result 不应退化成 failed-only helper 形态
+#[test]
+fn test_task_result_helper_encodes_status_task_id_and_summary() {
+    let result = RealtimeToolResult::task_result(
+        RealtimeSessionId::new("rt_1"),
+        "call_task_7",
+        RealtimeToolResultStatus::Succeeded,
+        "task_7",
+        "已创建 Codex 卡片并发送请求。",
+    );
+
+    assert_eq!(
+        result.result["status"],
+        json!("succeeded"),
+        "task_result helper 应把成功状态编码为 succeeded"
+    );
+    assert_eq!(
+        result.result["task_id"],
+        json!("task_7"),
+        "task_result helper 应保留 task_id 字段，便于 sidecar 回灌原任务结果"
+    );
+    assert_eq!(
+        result.result["summary"],
+        json!("已创建 Codex 卡片并发送请求。"),
+        "task_result helper 应保留 summary 文本，便于 Realtime 自然汇报"
+    );
+    assert_ne!(
+        result.result["status"],
+        json!("failed"),
+        "成功 task_result helper 不应退化成 failed-only 结果"
     );
 }
 
