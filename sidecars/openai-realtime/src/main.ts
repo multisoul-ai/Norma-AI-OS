@@ -69,6 +69,8 @@ type ActiveSession = {
   started: boolean;
   stoppingForUser: boolean;
   settledAfterClose: boolean;
+  latestAssistantItemId: string | undefined;
+  latestAssistantAudioEndMs: number;
   openDeferred:
     | {
         resolve: () => void;
@@ -98,6 +100,12 @@ type OpenAiClientEvent =
     }
   | {
       type: "response.cancel";
+    }
+  | {
+      type: "conversation.item.truncate";
+      item_id: string;
+      content_index: number;
+      audio_end_ms: number;
     };
 
 const TEST_WEBSOCKET_KEY = "__NORMA_TEST_WEBSOCKET__";
@@ -215,6 +223,8 @@ async function handleStartSession(command: JsonObject): Promise<void> {
     started: false,
     stoppingForUser: false,
     settledAfterClose: false,
+    latestAssistantItemId: undefined,
+    latestAssistantAudioEndMs: 0,
     openDeferred: undefined,
   };
   activeSession = session;
@@ -291,6 +301,14 @@ async function handleInterrupt(command: JsonObject): Promise<void> {
     await sendRealtimeEvent(session.socket, {
       type: "response.cancel",
     });
+    if (session.latestAssistantItemId !== undefined) {
+      await sendRealtimeEvent(session.socket, {
+        type: "conversation.item.truncate",
+        item_id: session.latestAssistantItemId,
+        content_index: 0,
+        audio_end_ms: Math.max(0, Math.trunc(session.latestAssistantAudioEndMs)),
+      });
+    }
     await sendRealtimeEvent(session.socket, {
       type: "input_audio_buffer.clear",
     });
@@ -412,6 +430,8 @@ async function handleSocketMessage(session: ActiveSession, data: unknown): Promi
     return;
   }
 
+  updateAssistantPlaybackState(session, eventType, event);
+
   if (eventType === "error") {
     await writeSessionError(session.sessionId, upstreamErrorMessage(event));
     return;
@@ -420,6 +440,7 @@ async function handleSocketMessage(session: ActiveSession, data: unknown): Promi
   if (eventType === "response.output_audio.delta" || eventType === "response.audio.delta") {
     const delta = stringField(event, "delta");
     if (delta !== undefined) {
+      session.latestAssistantAudioEndMs += estimateAudioDeltaDurationMs(delta);
       await writeEvent({
         type: "assistant_audio_state",
         session_id: session.sessionId,
@@ -620,8 +641,57 @@ function stringField(value: JsonObject, field: string): string | undefined {
   return typeof fieldValue === "string" ? fieldValue : undefined;
 }
 
+function objectField(value: JsonObject, field: string): JsonObject | undefined {
+  const fieldValue = value[field];
+  return isJsonObject(fieldValue) ? fieldValue : undefined;
+}
+
 function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function updateAssistantPlaybackState(
+  session: ActiveSession,
+  eventType: string,
+  event: JsonObject,
+): void {
+  const assistantItemId = assistantItemIdFromEvent(eventType, event);
+  if (assistantItemId === undefined) {
+    return;
+  }
+
+  if (assistantItemId !== session.latestAssistantItemId) {
+    session.latestAssistantItemId = assistantItemId;
+    session.latestAssistantAudioEndMs = 0;
+  }
+}
+
+function assistantItemIdFromEvent(eventType: string, event: JsonObject): string | undefined {
+  if (eventType.startsWith("response.")) {
+    return (
+      stringField(event, "item_id") ??
+      stringField(objectField(event, "item") ?? {}, "id") ??
+      stringField(objectField(event, "output_item") ?? {}, "id")
+    );
+  }
+
+  const item = objectField(event, "item");
+  if (item !== undefined && stringField(item, "role") === "assistant") {
+    return stringField(item, "id");
+  }
+
+  const outputItem = objectField(event, "output_item");
+  if (outputItem !== undefined && stringField(outputItem, "role") === "assistant") {
+    return stringField(outputItem, "id");
+  }
+
+  return undefined;
+}
+
+function estimateAudioDeltaDurationMs(delta: string): number {
+  const pcmBytes = Buffer.from(delta, "base64").byteLength;
+  const bytesPerMillisecond = (DEFAULT_SAMPLE_RATE * DEFAULT_CHANNELS * 2) / 1000;
+  return Math.max(0, Math.floor(pcmBytes / bytesPerMillisecond));
 }
 
 async function sendRealtimeEvent(socket: WebSocketLike, event: OpenAiClientEvent): Promise<void> {

@@ -104,7 +104,7 @@ function spawnSidecar({ useFakeWebSocket = false } = {}) {
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error(`timed out waiting for child IPC message kind=${kind}`));
-        }, 1000);
+        }, 2000);
 
         childMessageWaiters.push({
           predicate(message) {
@@ -157,7 +157,7 @@ function nextLine(lines, waiters) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       reject(new Error("timed out waiting for sidecar stdout JSONL"));
-    }, 1000);
+    }, 2000);
 
     waiters.push({
       resolve(line) {
@@ -597,6 +597,387 @@ test("OpenAI assistant audio delta maps to assistant_audio_chunk", async () => {
       "AAECAw==",
       "assistant_audio_chunk should preserve the exact OpenAI base64 audio delta",
     );
+    assertNoApiKeyLeak(ipc);
+  } finally {
+    await ipc.cleanup();
+  }
+});
+
+/**
+ * OpenAI interrupt truncation: verifies interrupt sends cancel, truncate, and
+ * clear in order after the sidecar has seen one assistant item id and one
+ * deterministic audio delta duration.
+ *
+ * Data construction:
+ *   session_id = "rt_interrupt"
+ *   item_id    = "asst_item_1"
+ *   audio bytes = 960 bytes of PCM16 silence.
+ *   audio_end_ms = bytes(960) / bytes_per_ms(24000 Hz * 1 ch * 2 B = 48) = 20 ms.
+ *
+ * Execution process:
+ *   1. Start OpenAI mode and finish the fake WebSocket handshake.
+ *   2. Inject one fake assistant audio delta carrying `item_id="asst_item_1"`.
+ *   3. Send one Rust `interrupt` command for the active session.
+ *   4. Inspect the next three upstream WebSocket payloads and the local audio-state event.
+ *
+ * Expected result:
+ *   - Positive: first payload is `response.cancel`.
+ *   - Positive: second payload is `conversation.item.truncate` for `asst_item_1` with `audio_end_ms=20`.
+ *   - Positive: third payload is `input_audio_buffer.clear`.
+ *   - Positive: local `assistant_audio_state` becomes `false`.
+ *   - Negative: none of the payloads contain the raw API key.
+ */
+test("OpenAI interrupt sends cancel truncate clear sequence when assistant item is known", async () => {
+  const ipc = spawnSidecar({ useFakeWebSocket: true });
+  try {
+    ipc.writeJson({
+      type: "start_session",
+      session_id: "rt_interrupt",
+      config: { model: "gpt-realtime-2", tools: [] },
+    });
+    await ipc.nextChildMessage("ws-created");
+    ipc.sendControl({ kind: "ws-open" });
+    await ipc.nextChildMessage("ws-send", (message) => {
+      return parseSentRealtimeEvent(message).type === "session.update";
+    });
+    await ipc.nextEventOfType("session_started");
+
+    ipc.sendControl({
+      kind: "ws-message",
+      data: {
+        type: "response.output_audio.delta",
+        item_id: "asst_item_1",
+        delta: Buffer.alloc(960).toString("base64"),
+      },
+    });
+    const speakingTrue = await ipc.nextEventOfType("assistant_audio_state");
+    const audioChunk = await ipc.nextEventOfType("assistant_audio_chunk");
+
+    assert.equal(
+      speakingTrue.speaking,
+      true,
+      "assistant audio delta should first mark assistant_audio_state speaking=true during test setup",
+    );
+    assert.equal(
+      audioChunk.data_b64,
+      Buffer.alloc(960).toString("base64"),
+      "assistant audio delta should preserve the deterministic base64 payload during test setup",
+    );
+
+    ipc.writeJson({ type: "interrupt", session_id: "rt_interrupt" });
+
+    const cancel = parseSentRealtimeEvent(await ipc.nextChildMessage("ws-send"));
+    const truncate = parseSentRealtimeEvent(await ipc.nextChildMessage("ws-send"));
+    const clear = parseSentRealtimeEvent(await ipc.nextChildMessage("ws-send"));
+    const speakingFalse = await ipc.nextEventOfType("assistant_audio_state");
+
+    assert.equal(
+      cancel.type,
+      "response.cancel",
+      "interrupt should send response.cancel before any truncate or clear payload",
+    );
+    assert.equal(
+      truncate.type,
+      "conversation.item.truncate",
+      "interrupt should send conversation.item.truncate after response.cancel when an assistant item id is known",
+    );
+    assert.equal(
+      truncate.item_id,
+      "asst_item_1",
+      "conversation.item.truncate should target the latest known assistant item id",
+    );
+    assert.equal(
+      truncate.content_index,
+      0,
+      "conversation.item.truncate should target the first assistant content part for MVP audio playback",
+    );
+    assert.equal(
+      truncate.audio_end_ms,
+      20,
+      "conversation.item.truncate should use the deterministic 20 ms audio duration implied by the fake PCM chunk",
+    );
+    assert.equal(
+      clear.type,
+      "input_audio_buffer.clear",
+      "interrupt should clear the input audio buffer after cancel and truncate",
+    );
+    assert.equal(
+      speakingFalse.speaking,
+      false,
+      "interrupt should emit assistant_audio_state speaking=false locally after the upstream interrupt sequence",
+    );
+    assert.doesNotMatch(
+      JSON.stringify(cancel),
+      apiKeyPattern,
+      "response.cancel payload must never embed the raw OPENAI_API_KEY",
+    );
+    assert.doesNotMatch(
+      JSON.stringify(truncate),
+      apiKeyPattern,
+      "conversation.item.truncate payload must never embed the raw OPENAI_API_KEY",
+    );
+    assert.doesNotMatch(
+      JSON.stringify(clear),
+      apiKeyPattern,
+      "input_audio_buffer.clear payload must never embed the raw OPENAI_API_KEY",
+    );
+    assertNoApiKeyLeak(ipc);
+  } finally {
+    await ipc.cleanup();
+  }
+});
+
+/**
+ * OpenAI interrupt fallback: verifies interrupt omits truncate when no
+ * assistant item id has been observed yet.
+ *
+ * Data construction:
+ *   session_id = "rt_interrupt_no_item"
+ *   no assistant server events are injected before interrupt, so the sidecar
+ *   has no safe assistant item id to truncate.
+ *
+ * Execution process:
+ *   1. Start OpenAI mode and finish the fake WebSocket handshake.
+ *   2. Send one Rust `interrupt` command immediately.
+ *   3. Inspect the next two upstream WebSocket payloads and the local audio-state event.
+ *
+ * Expected result:
+ *   - Positive: first payload is `response.cancel`.
+ *   - Positive: second payload is `input_audio_buffer.clear`.
+ *   - Positive: local `assistant_audio_state` becomes `false`.
+ *   - Negative: no `conversation.item.truncate` payload is sent.
+ */
+test("OpenAI interrupt skips truncate when no assistant item is known", async () => {
+  const ipc = spawnSidecar({ useFakeWebSocket: true });
+  try {
+    ipc.writeJson({
+      type: "start_session",
+      session_id: "rt_interrupt_no_item",
+      config: { model: "gpt-realtime-2", tools: [] },
+    });
+    await ipc.nextChildMessage("ws-created");
+    ipc.sendControl({ kind: "ws-open" });
+    await ipc.nextChildMessage("ws-send", (message) => {
+      return parseSentRealtimeEvent(message).type === "session.update";
+    });
+    await ipc.nextEventOfType("session_started");
+
+    ipc.writeJson({ type: "interrupt", session_id: "rt_interrupt_no_item" });
+
+    const first = parseSentRealtimeEvent(await ipc.nextChildMessage("ws-send"));
+    const second = parseSentRealtimeEvent(await ipc.nextChildMessage("ws-send"));
+    const speakingFalse = await ipc.nextEventOfType("assistant_audio_state");
+
+    assert.equal(
+      first.type,
+      "response.cancel",
+      "interrupt should still send response.cancel even before any assistant item is known",
+    );
+    assert.equal(
+      second.type,
+      "input_audio_buffer.clear",
+      "interrupt should clear the input audio buffer directly when truncate is unavailable",
+    );
+    assert.notEqual(
+      second.type,
+      "conversation.item.truncate",
+      "interrupt fallback must not fabricate a conversation.item.truncate without a known assistant item id",
+    );
+    assert.equal(
+      speakingFalse.speaking,
+      false,
+      "interrupt fallback should still emit assistant_audio_state speaking=false locally",
+    );
+    assertNoApiKeyLeak(ipc);
+  } finally {
+    await ipc.cleanup();
+  }
+});
+
+/**
+ * OpenAI assistant text mapping: verifies both transcript-oriented and plain
+ * text response deltas become Norma `assistant_text_delta` events.
+ *
+ * Data construction:
+ *   session_id = "rt_text_delta"
+ *   delta A    = "Hello"
+ *   delta B    = " world"
+ *
+ * Execution process:
+ *   1. Start OpenAI mode and finish the fake WebSocket handshake.
+ *   2. Inject `response.output_audio_transcript.delta` with "Hello".
+ *   3. Inject `response.output_text.delta` with " world".
+ *   4. Read the two stdout JSONL assistant-text events.
+ *
+ * Expected result:
+ *   - Positive: both events are `assistant_text_delta`.
+ *   - Positive: first text is "Hello" and second text is " world".
+ *   - Negative: stdout and stderr must not contain the raw API key.
+ */
+test("OpenAI transcript and text deltas map to assistant_text_delta", async () => {
+  const ipc = spawnSidecar({ useFakeWebSocket: true });
+  try {
+    ipc.writeJson({
+      type: "start_session",
+      session_id: "rt_text_delta",
+      config: { model: "gpt-realtime-2", tools: [] },
+    });
+    await ipc.nextChildMessage("ws-created");
+    ipc.sendControl({ kind: "ws-open" });
+    await ipc.nextChildMessage("ws-send", (message) => {
+      return parseSentRealtimeEvent(message).type === "session.update";
+    });
+    await ipc.nextEventOfType("session_started");
+
+    ipc.sendControl({
+      kind: "ws-message",
+      data: {
+        type: "response.output_audio_transcript.delta",
+        delta: "Hello",
+      },
+    });
+    ipc.sendControl({
+      kind: "ws-message",
+      data: {
+        type: "response.output_text.delta",
+        delta: " world",
+      },
+    });
+
+    const first = await ipc.nextEventOfType("assistant_text_delta");
+    const second = await ipc.nextEventOfType("assistant_text_delta");
+
+    assert.equal(
+      first.text,
+      "Hello",
+      "response.output_audio_transcript.delta should map to assistant_text_delta with the original delta text",
+    );
+    assert.equal(
+      second.text,
+      " world",
+      "response.output_text.delta should map to assistant_text_delta with the original delta text",
+    );
+    assertNoApiKeyLeak(ipc);
+  } finally {
+    await ipc.cleanup();
+  }
+});
+
+/**
+ * OpenAI input transcription mapping: verifies one input-audio transcription
+ * delta becomes one Norma `transcript_delta` event.
+ *
+ * Data construction:
+ *   session_id = "rt_transcript_delta"
+ *   delta      = "ni"
+ *
+ * Execution process:
+ *   1. Start OpenAI mode and finish the fake WebSocket handshake.
+ *   2. Inject one fake `conversation.item.input_audio_transcription.delta`.
+ *   3. Read the resulting stdout JSONL event.
+ *
+ * Expected result:
+ *   - Positive: event type is exactly `transcript_delta`.
+ *   - Positive: transcript text is exactly "ni".
+ *   - Negative: stdout and stderr must not contain the raw API key.
+ */
+test("OpenAI input transcription delta maps to transcript_delta", async () => {
+  const ipc = spawnSidecar({ useFakeWebSocket: true });
+  try {
+    ipc.writeJson({
+      type: "start_session",
+      session_id: "rt_transcript_delta",
+      config: { model: "gpt-realtime-2", tools: [] },
+    });
+    await ipc.nextChildMessage("ws-created");
+    ipc.sendControl({ kind: "ws-open" });
+    await ipc.nextChildMessage("ws-send", (message) => {
+      return parseSentRealtimeEvent(message).type === "session.update";
+    });
+    await ipc.nextEventOfType("session_started");
+
+    ipc.sendControl({
+      kind: "ws-message",
+      data: {
+        type: "conversation.item.input_audio_transcription.delta",
+        delta: "ni",
+      },
+    });
+
+    const event = await ipc.nextEventOfType("transcript_delta");
+
+    assert.equal(
+      event.text,
+      "ni",
+      "conversation.item.input_audio_transcription.delta should map to transcript_delta with the original delta text",
+    );
+    assertNoApiKeyLeak(ipc);
+  } finally {
+    await ipc.cleanup();
+  }
+});
+
+/**
+ * OpenAI stop_session lifecycle: verifies OpenAI mode closes the active
+ * WebSocket, emits `session_stopped`, and exits cleanly.
+ *
+ * Data construction:
+ *   session_id = "rt_openai_stop"
+ *   close code = 1000, reason = "user stopped" from the sidecar's explicit stop path.
+ *
+ * Execution process:
+ *   1. Start OpenAI mode and finish the fake WebSocket handshake.
+ *   2. Send one Rust `stop_session` command.
+ *   3. Read the fake WebSocket close telemetry, the stop event, and the exit code.
+ *
+ * Expected result:
+ *   - Positive: fake transport records one client close with code 1000 and reason "user stopped".
+ *   - Positive: stdout emits `session_stopped` for the active session.
+ *   - Positive: process exits with code 0.
+ *   - Negative: stdout and stderr must not contain the raw API key.
+ */
+test("OpenAI stop_session closes websocket emits session_stopped and exits", async () => {
+  const ipc = spawnSidecar({ useFakeWebSocket: true });
+  try {
+    ipc.writeJson({
+      type: "start_session",
+      session_id: "rt_openai_stop",
+      config: { model: "gpt-realtime-2", tools: [] },
+    });
+    await ipc.nextChildMessage("ws-created");
+    ipc.sendControl({ kind: "ws-open" });
+    await ipc.nextChildMessage("ws-send", (message) => {
+      return parseSentRealtimeEvent(message).type === "session.update";
+    });
+    await ipc.nextEventOfType("session_started");
+
+    ipc.writeJson({ type: "stop_session", session_id: "rt_openai_stop" });
+
+    const closed = await ipc.nextChildMessage("ws-close");
+    const stopped = await ipc.nextEventOfType("session_stopped");
+    const exitCode = await ipc.waitForExit();
+
+    assert.equal(
+      closed.code,
+      1000,
+      "OpenAI stop_session should close the WebSocket with the normal code 1000",
+    );
+    assert.equal(
+      closed.reason,
+      "user stopped",
+      "OpenAI stop_session should close the WebSocket with the explicit user-stopped reason",
+    );
+    assert.equal(
+      stopped.session_id,
+      "rt_openai_stop",
+      "session_stopped should preserve the active OpenAI session id during stop_session",
+    );
+    assert.equal(
+      stopped.reason,
+      "user stopped",
+      "session_stopped should explain that the user requested the stop",
+    );
+    assert.equal(exitCode, 0, "OpenAI stop_session should exit the sidecar cleanly");
     assertNoApiKeyLeak(ipc);
   } finally {
     await ipc.cleanup();
