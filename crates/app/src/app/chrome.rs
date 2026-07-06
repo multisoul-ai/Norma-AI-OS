@@ -429,4 +429,4 @@ impl Render for TooltipView {
 
 #[cfg(test)]
 #[path = "../../tests/unit/app_chrome_tests.rs"]
-mod tests;
+mod app_chrome_tests;
