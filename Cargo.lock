@@ -885,6 +885,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "card_task"
+version = "0.1.15"
+dependencies = [
+ "norma",
+ "thiserror 2.0.18",
+ "voice",
+]
+
+[[package]]
 name = "cbc"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
