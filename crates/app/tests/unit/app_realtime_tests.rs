@@ -156,6 +156,55 @@ fn test_realtime_config_error_maps_bottom_label_to_realtime_error() {
     );
 }
 
+/// RT-3b: 缺少 sidecar path 的配置错误必须进入 Realtime error，且不能抢占进程级 realtime slot。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   config_error = MissingSidecarPath
+///   fallback label = "Voice"
+///   retry session_id = rt-after-missing-sidecar
+///   process slot capacity = 1，但当前错误路径不应获取任何 slot
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 默认 state 调用 mark_config_error(MissingSidecarPath)
+///   2. 读取 label 与 current_session_id
+///   3. 新建第二个独立 state，并尝试 start_shell_with_config(retry)
+///
+/// 预期结果：
+///   - 正断言：错误 label 显示 Realtime error，current_session_id 为空
+///   - 正断言：第二个 state 可以成功启动，证明缺 sidecar path 没有占用进程级 slot
+///   - 负断言：错误状态不应残留 active session，也不应继续显示 Voice
+#[test]
+fn test_realtime_missing_sidecar_path_error_does_not_acquire_process_slot() {
+    with_realtime_process_guard(|| {
+        let mut state = RealtimeControlState::default();
+        state.mark_config_error(RealtimeConfigError::MissingSidecarPath);
+
+        assert_eq!(
+            state.effective_voice_label("Voice"),
+            "Realtime error",
+            "缺少 sidecar path 时底栏应显示 Realtime error"
+        );
+        assert!(
+            state.current_session_id().is_none(),
+            "缺少 sidecar path 的配置错误不应保留 active realtime session id"
+        );
+        assert_ne!(
+            state.effective_voice_label("Voice"),
+            "Voice",
+            "缺少 sidecar path 的配置错误不应静默退回 Voice"
+        );
+
+        let mut retry = RealtimeControlState::default();
+        let retry_start =
+            retry.start_shell_with_config(config("rt-after-missing-sidecar", "gpt-realtime-2"));
+        assert!(
+            retry_start.is_ok(),
+            "缺少 sidecar path 的错误路径不应占用进程级 slot，后续独立 state 应可启动"
+        );
+        retry.stop_shell();
+    });
+}
+
 /// RT-4: Realtime active 时，bottom-bar mouse down 不应启动 one-shot recording。
 ///
 /// 数据构造（含关键数值的推导过程）：

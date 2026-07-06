@@ -2,38 +2,137 @@
 use super::acquire_process_slot;
 use super::{
     release_process_slot, stop_sidecar_process_in_background, RealtimeControlState,
-    RealtimeStartError,
+    RealtimeStartError, SIDECAR_STOP_TIMEOUT,
 };
 #[cfg(test)]
 use crate::app::voice::playback::AssistantAudioSink;
+use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
 use gpui::Task;
 use realtime::{
     PcmAudioChunk, RealtimeCommand, RealtimeEvent, RealtimeSessionConfig, RealtimeSessionId,
     RealtimeSidecarError, RealtimeStatus, SidecarLaunchConfig, SidecarProcess,
 };
+use std::io;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 use voice_sherpa::{PcmStreamSession, SherpaProvider};
 
 pub(crate) trait RealtimeSidecarClient: Send {
-    fn send(&mut self, command: &RealtimeCommand) -> Result<(), RealtimeSidecarError>;
+    fn enqueue(&self, command: RealtimeCommand) -> Result<(), RealtimeSidecarError>;
     fn try_recv(&self) -> Option<Result<RealtimeEvent, RealtimeSidecarError>>;
     fn stop(self: Box<Self>, timeout: Duration) -> Result<(), RealtimeSidecarError>;
 }
 
-impl RealtimeSidecarClient for SidecarProcess {
-    fn send(&mut self, command: &RealtimeCommand) -> Result<(), RealtimeSidecarError> {
-        SidecarProcess::send(self, command)
+enum SidecarWorkerMessage {
+    Command(RealtimeCommand),
+    Stop {
+        timeout: Duration,
+        response: Sender<Result<(), RealtimeSidecarError>>,
+    },
+}
+
+struct BackgroundSidecarClient {
+    commands: Sender<SidecarWorkerMessage>,
+    events: Receiver<Result<RealtimeEvent, RealtimeSidecarError>>,
+    worker: Mutex<Option<thread::JoinHandle<()>>>,
+}
+
+impl BackgroundSidecarClient {
+    fn spawn(sidecar: SidecarProcess) -> Self {
+        let (command_tx, command_rx) = unbounded();
+        let (event_tx, event_rx) = unbounded();
+        let worker = thread::spawn(move || run_sidecar_worker(sidecar, command_rx, event_tx));
+        Self {
+            commands: command_tx,
+            events: event_rx,
+            worker: Mutex::new(Some(worker)),
+        }
+    }
+}
+
+impl RealtimeSidecarClient for BackgroundSidecarClient {
+    fn enqueue(&self, command: RealtimeCommand) -> Result<(), RealtimeSidecarError> {
+        self.commands
+            .send(SidecarWorkerMessage::Command(command))
+            .map_err(|_| closed_command_channel_error())
     }
 
     fn try_recv(&self) -> Option<Result<RealtimeEvent, RealtimeSidecarError>> {
-        SidecarProcess::try_recv(self)
+        self.events.try_recv().ok()
     }
 
     fn stop(self: Box<Self>, timeout: Duration) -> Result<(), RealtimeSidecarError> {
-        (*self).stop(timeout)
+        let (response_tx, response_rx) = unbounded();
+        let _ = self.commands.send(SidecarWorkerMessage::Stop {
+            timeout,
+            response: response_tx,
+        });
+
+        let stop_result = response_rx.recv().unwrap_or(Ok(()));
+        if let Some(worker) = self
+            .worker
+            .lock()
+            .expect("background sidecar worker lock should not be poisoned")
+            .take()
+        {
+            let _ = worker.join();
+        }
+        stop_result
     }
+}
+
+fn run_sidecar_worker(
+    mut sidecar: SidecarProcess,
+    command_rx: Receiver<SidecarWorkerMessage>,
+    event_tx: Sender<Result<RealtimeEvent, RealtimeSidecarError>>,
+) {
+    loop {
+        let mut should_exit = false;
+        while let Some(event) = sidecar.try_recv() {
+            let is_error = event.is_err();
+            if event_tx.send(event).is_err() {
+                should_exit = true;
+                break;
+            }
+            if is_error {
+                should_exit = true;
+                break;
+            }
+        }
+        if should_exit {
+            let _ = sidecar.stop(SIDECAR_STOP_TIMEOUT);
+            return;
+        }
+
+        match command_rx.recv_timeout(Duration::from_millis(10)) {
+            Ok(SidecarWorkerMessage::Command(command)) => {
+                if let Err(error) = sidecar.send(&command) {
+                    let _ = event_tx.send(Err(error));
+                    let _ = sidecar.stop(SIDECAR_STOP_TIMEOUT);
+                    return;
+                }
+            }
+            Ok(SidecarWorkerMessage::Stop { timeout, response }) => {
+                let result = sidecar.stop(timeout);
+                let _ = response.send(result);
+                return;
+            }
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => {
+                let _ = sidecar.stop(SIDECAR_STOP_TIMEOUT);
+                return;
+            }
+        }
+    }
+}
+
+fn closed_command_channel_error() -> RealtimeSidecarError {
+    RealtimeSidecarError::CommandWriteFailed(io::Error::new(
+        io::ErrorKind::BrokenPipe,
+        "realtime sidecar command worker is closed",
+    ))
 }
 
 pub(crate) trait RealtimePcmStream: Send {
@@ -114,9 +213,10 @@ pub(super) fn spawn_and_start_sidecar(
     config: RealtimeSessionConfig,
     sidecar_config: SidecarLaunchConfig,
 ) -> Result<Box<dyn RealtimeSidecarClient>, RealtimeSidecarError> {
-    let mut sidecar: Box<dyn RealtimeSidecarClient> =
-        Box::new(SidecarProcess::spawn(sidecar_config)?);
-    if let Err(error) = sidecar.send(&RealtimeCommand::StartSession(config)) {
+    let sidecar: Box<dyn RealtimeSidecarClient> = Box::new(BackgroundSidecarClient::spawn(
+        SidecarProcess::spawn(sidecar_config)?,
+    ));
+    if let Err(error) = sidecar.enqueue(RealtimeCommand::StartSession(config)) {
         stop_sidecar_process_in_background(sidecar);
         return Err(error);
     }
@@ -146,6 +246,13 @@ impl RealtimeControlState {
         self.config_error = None;
     }
 
+    pub(crate) fn enqueue_input_audio_chunk(
+        &mut self,
+        chunk: PcmAudioChunk,
+    ) -> Result<bool, RealtimeSidecarError> {
+        self.send_input_audio_chunk(chunk)
+    }
+
     pub(crate) fn send_input_audio_chunk(
         &mut self,
         chunk: PcmAudioChunk,
@@ -159,14 +266,14 @@ impl RealtimeControlState {
 
         if self.session.status() == RealtimeStatus::AssistantSpeaking {
             self.assistant_audio_sink.stop();
-            self.send_sidecar_command(&RealtimeCommand::Interrupt {
+            self.send_sidecar_command(RealtimeCommand::Interrupt {
                 session_id: session_id.clone(),
             })?;
             self.session.mark_assistant_speaking(false);
         }
 
         self.session.mark_user_speaking(true);
-        self.send_sidecar_command(&RealtimeCommand::InputAudioChunk { session_id, chunk })?;
+        self.send_sidecar_command(RealtimeCommand::InputAudioChunk { session_id, chunk })?;
         Ok(true)
     }
 
@@ -218,14 +325,14 @@ impl RealtimeControlState {
         self.assistant_audio_sink.stop();
     }
 
-    fn send_sidecar_command(
-        &mut self,
-        command: &RealtimeCommand,
+    pub(super) fn send_sidecar_command(
+        &self,
+        command: RealtimeCommand,
     ) -> Result<(), RealtimeSidecarError> {
-        let Some(sidecar) = self.sidecar.as_mut() else {
+        let Some(sidecar) = self.sidecar.as_ref() else {
             return Ok(());
         };
-        sidecar.send(command)
+        sidecar.enqueue(command)
     }
 
     fn matches_active_session(&self, session_id: &RealtimeSessionId) -> bool {
@@ -272,7 +379,7 @@ impl RealtimeControlState {
     fn start_shell_with_sidecar_client_for_tests(
         &mut self,
         config: RealtimeSessionConfig,
-        mut sidecar: Box<dyn RealtimeSidecarClient>,
+        sidecar: Box<dyn RealtimeSidecarClient>,
     ) -> Result<(), RealtimeStartError> {
         if self.is_active() {
             return self
@@ -289,7 +396,7 @@ impl RealtimeControlState {
         }
         self.config_error = None;
 
-        if let Err(error) = sidecar.send(&RealtimeCommand::StartSession(config)) {
+        if let Err(error) = sidecar.enqueue(RealtimeCommand::StartSession(config)) {
             release_process_slot(&session_id);
             self.session.mark_error(error.to_string());
             stop_sidecar_process_in_background(sidecar);

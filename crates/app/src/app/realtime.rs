@@ -29,6 +29,7 @@ pub(crate) enum RealtimeConfigError {
     MissingApiKey,
     MissingRealtimeModel,
     MissingCardPlannerModel,
+    MissingSidecarPath,
 }
 
 impl fmt::Debug for RealtimeConfigError {
@@ -37,6 +38,7 @@ impl fmt::Debug for RealtimeConfigError {
             Self::MissingApiKey => f.write_str("MissingApiKey"),
             Self::MissingRealtimeModel => f.write_str("MissingRealtimeModel"),
             Self::MissingCardPlannerModel => f.write_str("MissingCardPlannerModel"),
+            Self::MissingSidecarPath => f.write_str("MissingSidecarPath"),
         }
     }
 }
@@ -47,6 +49,7 @@ impl fmt::Display for RealtimeConfigError {
             Self::MissingApiKey => f.write_str("OpenAI API key is required"),
             Self::MissingRealtimeModel => f.write_str("Realtime model is required"),
             Self::MissingCardPlannerModel => f.write_str("Card planner model is required"),
+            Self::MissingSidecarPath => f.write_str("Realtime sidecar path is required"),
         }
     }
 }
@@ -134,6 +137,9 @@ impl RealtimeControlState {
         {
             return Err(RealtimeConfigError::MissingCardPlannerModel);
         }
+        if values.sidecar_path().is_none() {
+            return Err(RealtimeConfigError::MissingSidecarPath);
+        }
 
         Ok(RealtimeSessionConfig {
             session_id: RealtimeSessionId::new("always-listening-shell"),
@@ -211,6 +217,7 @@ impl RealtimeControlState {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn mark_started(&mut self) {
         self.session.mark_started();
     }
@@ -259,7 +266,7 @@ impl RealtimeControlState {
         let session_id = self.session.session_id().cloned();
         self.stop_chat_runtime();
         if let Some(session_id) = &session_id {
-            self.send_sidecar_stop(session_id);
+            self.enqueue_stop_session(session_id);
         }
         self.stop_sidecar_process();
         if let Some(session_id) = self.session.session_id().cloned() {
@@ -380,12 +387,10 @@ fn node_executable() -> PathBuf {
 }
 
 impl RealtimeControlState {
-    fn send_sidecar_stop(&mut self, session_id: &RealtimeSessionId) {
-        if let Some(sidecar) = self.sidecar.as_mut() {
-            let _ = sidecar.send(&RealtimeCommand::StopSession {
-                session_id: session_id.clone(),
-            });
-        }
+    fn enqueue_stop_session(&self, session_id: &RealtimeSessionId) {
+        let _ = self.send_sidecar_command(RealtimeCommand::StopSession {
+            session_id: session_id.clone(),
+        });
     }
 
     fn stop_sidecar_process(&mut self) {

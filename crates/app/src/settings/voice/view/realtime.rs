@@ -40,7 +40,7 @@ pub(super) fn realtime_group(
             state,
             VoiceSettingsField::SidecarPath,
             "Sidecar Path",
-            "Optional local sidecar executable path for a future realtime bridge",
+            "Local OpenAI realtime sidecar executable or .mjs entry path",
             cx,
         ))
 }

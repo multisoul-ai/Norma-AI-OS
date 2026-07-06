@@ -1,5 +1,5 @@
 use super::chat::start_realtime_chat_runtime;
-use super::{RealtimeControlState, SIDECAR_POLL_INTERVAL};
+use super::{RealtimeConfigError, RealtimeControlState, SIDECAR_POLL_INTERVAL};
 use crate::app::voice::control::VoiceVisual;
 use crate::app::MultisoulApp;
 use gpui::Context;
@@ -104,17 +104,9 @@ impl MultisoulApp {
                             tracing::warn!(%error, "failed to start realtime shell");
                         }
                     }
-                } else if self.realtime.start_shell_with_config(config).is_ok() {
-                    if let Some(session_id) = self.realtime.current_session_id() {
-                        tracing::info!(%session_id, "started always listening shell");
-                    }
-                    cx.spawn(async move |this, cx| {
-                        let _ = this.update(cx, |app, cx| {
-                            app.realtime.mark_started();
-                            cx.notify();
-                        });
-                    })
-                    .detach();
+                } else {
+                    self.realtime
+                        .mark_config_error(RealtimeConfigError::MissingSidecarPath);
                 }
             }
             Err(error) => self.realtime.mark_config_error(error),
@@ -148,7 +140,7 @@ impl MultisoulApp {
         let task = cx.spawn(async move |this, cx| {
             while let Ok(chunk) = pcm_chunks.recv().await {
                 let go = this.update(cx, |app, cx| {
-                    match app.realtime.send_input_audio_chunk(chunk) {
+                    match app.realtime.enqueue_input_audio_chunk(chunk) {
                         Ok(sent) => {
                             if sent {
                                 cx.notify();

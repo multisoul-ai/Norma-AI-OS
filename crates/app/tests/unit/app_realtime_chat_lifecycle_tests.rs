@@ -307,3 +307,66 @@ fn test_realtime_chat_cleanup_source_guard_uses_background_pcm_stop_helper() {
         "stop_chat_runtime must not call pcm_stream.stop() inline on the foreground path"
     );
 }
+
+/// RTC-10: realtime 前台循环只能 enqueue sidecar 命令，不能在 update/stop_shell 内联阻塞 send。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   shell source file = crates/app/src/app/realtime/shell.rs（1 个）
+///   state source file = crates/app/src/app/realtime.rs（1 个）
+///   guarded functions = 2 个：start_realtime_pcm_forward_loop / stop_shell
+///   forbidden direct send anchors = 2 个：send_input_audio_chunk / send_sidecar_stop
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 shell.rs 与 realtime.rs 源码文本
+///   2. 截取 start_realtime_pcm_forward_loop 的函数体
+///   3. 截取 stop_shell 的函数体
+///   4. 检查前台循环使用 enqueue_input_audio_chunk，stop_shell 使用 enqueue_stop_session
+///   5. 检查两个函数体都不包含 direct send helper
+///
+/// 预期结果：
+///   - 正断言：PCM 前台循环调用 enqueue_input_audio_chunk，stop_shell 调用 enqueue_stop_session
+///   - 负断言：前台循环不应再直接调用 send_input_audio_chunk，stop_shell 不应直接调用 send_sidecar_stop
+#[test]
+fn test_realtime_shell_source_guard_uses_enqueue_path_instead_of_foreground_send() {
+    let shell_path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/app/realtime/shell.rs");
+    let shell_source = std::fs::read_to_string(&shell_path)
+        .expect("source guard should be able to read realtime shell source");
+    let shell_start = shell_source
+        .find("fn start_realtime_pcm_forward_loop(")
+        .expect("source guard should find start_realtime_pcm_forward_loop");
+    let shell_stop = shell_source[shell_start..]
+        .find("pub(crate) fn stop_always_listening_shell")
+        .map(|offset| shell_start + offset)
+        .expect("source guard should find the end anchor after the PCM loop");
+    let pcm_loop_body = &shell_source[shell_start..shell_stop];
+
+    let state_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/app/realtime.rs");
+    let state_source = std::fs::read_to_string(&state_path)
+        .expect("source guard should be able to read realtime state source");
+    let stop_start = state_source
+        .find("pub(crate) fn stop_shell(&mut self)")
+        .expect("source guard should find RealtimeControlState::stop_shell");
+    let stop_end = state_source[stop_start..]
+        .find("pub(crate) fn current_session_id(&self)")
+        .map(|offset| stop_start + offset)
+        .expect("source guard should find the next function after stop_shell");
+    let stop_body = &state_source[stop_start..stop_end];
+
+    assert!(
+        pcm_loop_body.contains("enqueue_input_audio_chunk"),
+        "PCM foreground loop should enqueue_input_audio_chunk instead of performing blocking sidecar IO"
+    );
+    assert!(
+        !pcm_loop_body.contains("send_input_audio_chunk"),
+        "PCM foreground loop must not call send_input_audio_chunk from inside this.update"
+    );
+    assert!(
+        stop_body.contains("enqueue_stop_session"),
+        "stop_shell should enqueue_stop_session before background sidecar shutdown"
+    );
+    assert!(
+        !stop_body.contains("send_sidecar_stop"),
+        "stop_shell must not call send_sidecar_stop inline on the foreground path"
+    );
+}

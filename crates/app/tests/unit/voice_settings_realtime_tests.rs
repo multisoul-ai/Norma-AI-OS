@@ -259,12 +259,55 @@ fn test_realtime_validate_start_config_requires_card_planner_model() {
     );
 }
 
+/// VS-8c: Realtime 启动配置缺少 sidecar path 时应返回配置错误，而不是假装进入 active shell。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   api_key = Some("sk-sidecar-required")
+///   realtime_model = Some("gpt-realtime-2")
+///   card_planner_model = Some("gpt-card-planner")
+///   sidecar_path = None（唯一缺失字段）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造只缺 sidecar_path 的 VoiceSettingsValues
+///   2. 调用 validate_start_config
+///   3. 检查错误 Debug/Display 是否指向 MissingSidecarPath 且不泄露 API key
+///
+/// 预期结果：
+///   - 正断言：返回 MissingSidecarPath
+///   - 负断言：错误文本不应泄露 API key，也不应误报 MissingRealtimeModel
+#[test]
+fn test_realtime_validate_start_config_requires_sidecar_path() {
+    let missing_sidecar =
+        values_with_realtime_parts(Some("sk-sidecar-required"), Some("gpt-realtime-2"));
+
+    let error = RealtimeControlState::validate_start_config(&missing_sidecar)
+        .expect_err("缺少 sidecar path 时应返回配置错误");
+
+    assert!(
+        format!("{error:?}").contains("MissingSidecarPath"),
+        "缺少 sidecar path 时 Debug 应说明 MissingSidecarPath，实际: {error:?}"
+    );
+    assert!(
+        !format!("{error:?}").contains("sk-sidecar-required"),
+        "sidecar path 缺失错误 Debug 不应泄露 API key"
+    );
+    assert!(
+        !error.to_string().contains("sk-sidecar-required"),
+        "sidecar path 缺失错误 Display 不应泄露 API key"
+    );
+    assert!(
+        !format!("{error:?}").contains("MissingRealtimeModel"),
+        "sidecar path 缺失时不应误报 MissingRealtimeModel"
+    );
+}
+
 /// VS-9: saved realtime model 缺失时，Values 应使用 gpt-realtime-2 作为默认模型。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   saved.realtime_model = None
 ///   saved.openai_api_key = Some("sk-default-model")
 ///   saved.card_planner_model = Some("gpt-card-planner")（保证只有 model default 被测试）
+///   saved.sidecar_path = /saved/realtime-sidecar-default（满足启动校验新增 sidecar path 约束）
 ///   expected realtime_model = gpt-realtime-2
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -281,6 +324,7 @@ fn test_realtime_model_defaults_to_gpt_realtime_2_when_saved_model_is_missing() 
     let saved = SavedVoiceSettings {
         openai_api_key: Some("sk-default-model".to_string()),
         card_planner_model: Some("gpt-card-planner".to_string()),
+        sidecar_path: Some(PathBuf::from("/saved/realtime-sidecar-default")),
         ..SavedVoiceSettings::default()
     };
 

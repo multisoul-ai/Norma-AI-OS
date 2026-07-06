@@ -67,13 +67,13 @@ impl RecordingSidecar {
 }
 
 impl RealtimeSidecarClient for RecordingSidecar {
-    fn send(&mut self, command: &RealtimeCommand) -> Result<(), RealtimeSidecarError> {
+    fn enqueue(&self, command: RealtimeCommand) -> Result<(), RealtimeSidecarError> {
         let mut inner = self
             .inner
             .lock()
             .expect("recording sidecar lock should not be poisoned");
         inner.commands.push(command.clone());
-        match command {
+        match &command {
             RealtimeCommand::StartSession(config) => {
                 inner.events.push_back(Ok(RealtimeEvent::SessionStarted {
                     session_id: config.session_id.clone(),
