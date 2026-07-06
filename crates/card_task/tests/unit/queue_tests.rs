@@ -33,21 +33,36 @@ impl CardTaskPlanner for FakePlanner {
 #[derive(Default)]
 struct FakeRunner {
     commands: Vec<CardCommand>,
+    results: VecDeque<Result<CardCommandResult, CardCommandError>>,
+}
+
+impl FakeRunner {
+    fn with_results(results: Vec<Result<CardCommandResult, CardCommandError>>) -> Self {
+        Self {
+            commands: Vec::new(),
+            results: results.into(),
+        }
+    }
 }
 
 impl CardCommandRunner for FakeRunner {
     fn run(&mut self, command: CardCommand) -> Result<CardCommandResult, CardCommandError> {
-        let result = match &command {
-            CardCommand::Create { .. } => CardCommandResult::Created {
-                node_id: self.commands.len() as u64 + 100,
-            },
-            CardCommand::Focus { node_id } => CardCommandResult::Focused { node_id: *node_id },
-            CardCommand::SendText { node_id, .. } => CardCommandResult::Sent { node_id: *node_id },
-            CardCommand::Delete { node_id } => CardCommandResult::Deleted { node_id: *node_id },
-            CardCommand::List => CardCommandResult::Listed { cards: Vec::new() },
-        };
         self.commands.push(command);
-        Ok(result)
+        if let Some(result) = self.results.pop_front() {
+            return result;
+        }
+
+        match &self.commands[self.commands.len() - 1] {
+            CardCommand::Create { .. } => Ok(CardCommandResult::Created {
+                node_id: self.commands.len() as u64 + 99,
+            }),
+            CardCommand::Focus { node_id } => Ok(CardCommandResult::Focused { node_id: *node_id }),
+            CardCommand::SendText { node_id, .. } => {
+                Ok(CardCommandResult::Sent { node_id: *node_id })
+            }
+            CardCommand::Delete { node_id } => Ok(CardCommandResult::Deleted { node_id: *node_id }),
+            CardCommand::List => Ok(CardCommandResult::Listed { cards: Vec::new() }),
+        }
     }
 }
 
@@ -70,6 +85,15 @@ fn create_then_focus_plan() -> CompiledVoicePlan {
         requires_confirmation: false,
         risk: RiskLevel::Low,
         reason: Some("create then focus".to_string()),
+    }
+}
+
+fn one_command_plan(command: CardCommand) -> CompiledVoicePlan {
+    CompiledVoicePlan {
+        commands: vec![ExecutableCommand::Card(command)],
+        requires_confirmation: false,
+        risk: RiskLevel::Low,
+        reason: Some("single command".to_string()),
     }
 }
 
@@ -298,24 +322,76 @@ fn test_cancel_latest_removes_newest_queued_task() {
     );
 }
 
-/// Q-6: active task 取消应在 step 边界停止，不回滚已完成 step。
+/// Q-6: runner error 应同时产生 StepFailed 和终态 Failed。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   task steps = 1（List）
+///   fake runner result count = 1，固定返回 Runtime("runner exploded")
+///   failed step_index = 0，因为唯一命令就是首步
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. enqueue 单个 task
+///   2. planner 产出仅含 List 的 plan
+///   3. runner 在 step0 返回 Runtime 错误
+///
+/// 预期结果：
+///   - 正断言：事件序列包含 StepFailed(step0, "runner exploded")
+///   - 正断言：事件序列包含 Failed("runner exploded")
+///   - 正断言：completed task 终态为 Failed
+#[test]
+fn test_runner_error_emits_step_failed_and_terminal_failed() {
+    let mut queue = CardTaskQueue::default();
+    let task_id = queue.enqueue(request("list cards"));
+    let mut planner = FakePlanner::with_results(vec![Ok(one_command_plan(CardCommand::List))]);
+    let mut runner = FakeRunner::with_results(vec![Err(CardCommandError::Runtime {
+        message: "runner exploded".to_string(),
+    })]);
+
+    let events = queue.run_next(&mut planner, &mut runner);
+
+    assert!(
+        events.iter().any(|event| matches!(event, CardTaskEvent::StepFailed { task_id: failed_id, step_index, message } if *failed_id == task_id && *step_index == 0 && message.contains("runner exploded"))),
+        "runner step 失败时必须先发出 StepFailed(step0, runner exploded)"
+    );
+    assert!(
+        events.iter().any(|event| matches!(event, CardTaskEvent::Failed { task_id: failed_id, message } if *failed_id == task_id && message.contains("runner exploded"))),
+        "runner step 失败后必须继续发出终态 Failed(runner exploded)"
+    );
+    assert_eq!(
+        queue.completed_tasks().len(),
+        1,
+        "runner 失败后 task 必须被移入 completed"
+    );
+    assert_eq!(
+        queue.completed_tasks()[0].state,
+        CardTaskState::Failed {
+            message: "runner exploded".to_string(),
+        },
+        "runner 失败后的 completed task 终态必须是 Failed(runner exploded)"
+    );
+}
+
+/// Q-7: active task 取消应先设置 cancel_requested，再在下一次推进时停止，不回滚已完成 step。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   task A steps = 2（create + focus previous）
-///   task B steps = 2（create + focus previous），在 A 取消后再入队，用于验证队列继续前进
+///   task B steps = 2（create + focus previous），在 A 真正停止后再入队，用于验证队列继续前进
 ///   create result node_id = 100（FakeRunner 第 1 条命令固定返回）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. enqueue task A
 ///   2. 第一次 run_next() 执行 task A 的 step0(create)，A 仍为 active
 ///   3. cancel_latest() 对 active task A 发起取消
-///   4. 再 enqueue task B
-///   5. 下一次 run_next() 开始 task B
+///   4. 检查 active_task.cancel_requested 是否已置为 true
+///   5. 第二次 run_next() 在 step 边界停止 task A
+///   6. 再 enqueue task B，并在下一次 run_next() 开始 B
 ///
 /// 预期结果：
 ///   - 正断言：cancel_latest 返回 task A 的 Cancelled
+///   - 正断言：cancel 请求后 active task 仍存在，且 cancel_requested == true
 ///   - 正断言：runner 只执行了 task A 的 step0(create)，没有执行 step1(focus)
-///   - 正断言：task A 取消后，下一次 run_next() 才开始 task B
+///   - 正断言：第二次 run_next() 只终止 task A，不应同时开始 task B
+///   - 正断言：task A 真正停止后，下一次 run_next() 才开始 task B
 #[test]
 fn test_cancel_active_task_stops_before_next_step_without_rollback() {
     let mut queue = CardTaskQueue::default();
@@ -341,7 +417,12 @@ fn test_cancel_active_task_stops_before_next_step_without_rollback() {
             task_id: first_id,
             message: "cancelled active task".to_string(),
         },
-        "active task 取消应返回 task A 的 Cancelled 事件"
+        "active task 收到取消请求时应先返回 task A 的 Cancelled 事件"
+    );
+    assert_eq!(
+        queue.active_task().map(|task| task.cancel_requested),
+        Some(true),
+        "active task 收到取消请求后必须保留在 active，并把 cancel_requested 置为 true"
     );
     assert_eq!(
         runner.commands.len(),
@@ -353,6 +434,25 @@ fn test_cancel_active_task_stops_before_next_step_without_rollback() {
         "已完成且保留下来的唯一副作用应是 step0 的 Create 命令"
     );
 
+    let second_events = queue.run_next(&mut planner, &mut runner);
+
+    assert!(
+        second_events
+            .iter()
+            .any(|event| matches!(event, CardTaskEvent::Cancelled { task_id, message } if *task_id == first_id && message == "cancelled active task")),
+        "下一次 run_next 必须在 step 边界真正终止 task A"
+    );
+    assert!(
+        second_events.iter().all(
+            |event| !matches!(event, CardTaskEvent::Planning { task_id } if *task_id != first_id)
+        ),
+        "终止 task A 的这次 run_next 不应顺带启动其他 task"
+    );
+    assert!(
+        queue.active_task().is_none(),
+        "task A 在 step 边界真正取消后，active_task 必须被清空"
+    );
+
     let second_id = queue.enqueue(request("task B"));
     let third_events = queue.run_next(&mut planner, &mut runner);
 
@@ -360,11 +460,11 @@ fn test_cancel_active_task_stops_before_next_step_without_rollback() {
         third_events.iter().any(
             |event| matches!(event, CardTaskEvent::Planning { task_id } if *task_id == second_id)
         ),
-        "task A 取消后，下一次 run_next 才应开始 task B"
+        "task A 真正停止后，后续 run_next 才应开始 task B"
     );
 }
 
-/// Q-7: 没有 pending 或 active task 时取消应返回 no active card task。
+/// Q-8: 没有 pending 或 active task 时取消应返回 no active card task。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   pending = 0

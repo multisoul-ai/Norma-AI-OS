@@ -126,3 +126,58 @@ cargo tree -p card_task --prefix none | rg -i '^(gpui|app|runtime|canvas|termina
 - 当前 `CardTaskPlanner` trait 只接收 `CardTaskRequest`。后续 app 集成如果需要把 `VoicePlanningRequest` 的 card/focus/selection 上下文交给 planner，需要在 adapter 层补齐，不建议让本 crate 直接依赖 app/runtime。
 - 当前 `summary` 直接复用 `intent`。这满足 Task 1 的结果摘要承载要求，但更自然的“已创建/已聚焦/已停止后续操作”文案应在后续 callback/result formatting 任务中完善。
 - brief 中的依赖边界 grep 命令会被 `is_terminal_polyfill` 这类第三方包名误伤；本次已补充更精确的检查命令。
+
+## Reviewer Findings 修复追加
+
+### 修复内容
+
+- 补充 runner error 回归测试，证明执行器错误会连续发出 `StepFailed` 与终态 `Failed`。
+- 收紧 active cancellation 语义：
+  - `cancel_latest()` 对 active task 只设置 `cancel_requested = true`
+  - 下一次 `run_next()` 才在 step 边界把 task 终止为 `Cancelled`
+- 增强 active cancellation 测试，明确断言 active task 在取消请求后仍留在 `active`，且 `cancel_requested == true`。
+- 新增 `List` / `Delete` 白名单执行覆盖，证明这两个 `CardCommand` 变体能经由 fake runner 正常透传执行。
+- 复核 `crates/card_task/Cargo.toml` 的 diff hygiene；`git diff --check` 已为干净状态，没有残留 EOF/trailing whitespace 问题。
+
+### 本轮 TDD 证据
+
+先补测试后执行：
+
+```bash
+cargo test -p card_task
+```
+
+RED 结果：`13 tests` 中 `test_cancel_active_task_stops_before_next_step_without_rollback` 失败，错误为：
+
+```text
+left: None
+right: Some(true)
+```
+
+说明旧实现会在 `cancel_latest()` 时立即移除 active task，未满足“先置 `cancel_requested`，再在下一次推进时停止”的 reviewer 期望。
+
+修正 `queue.rs` 后重新执行同一命令：
+
+```bash
+cargo test -p card_task
+```
+
+GREEN 结果：`13 passed; 0 failed`
+
+### 验证命令与结果
+
+1. `cargo test -p card_task`
+   - `13 passed; 0 failed`
+2. `bash scripts/check-max-file-lines.sh`
+   - `exit 0`
+3. `bash scripts/check-no-allow.sh`
+   - `exit 0`
+4. `git diff --check`
+   - `exit 0`
+
+### 本轮变更文件
+
+- `crates/card_task/src/queue.rs`
+- `crates/card_task/tests/unit/queue_tests.rs`
+- `crates/card_task/tests/unit/executor_tests.rs`
+- `.superpowers/sdd/task-1-report.md`

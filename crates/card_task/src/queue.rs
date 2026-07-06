@@ -83,11 +83,12 @@ impl CardTaskQueue {
             return Ok(event);
         }
 
-        if let Some(mut active) = self.active.take() {
+        if let Some(active) = self.active.as_mut() {
             active.task.cancel_requested = true;
-            let event = cancel_task(&mut active.task, "cancelled active task");
-            self.completed.push(active.task);
-            return Ok(event);
+            return Ok(CardTaskEvent::Cancelled {
+                task_id: active.task.task_id,
+                message: "cancelled active task".to_string(),
+            });
         }
 
         Err(CardTaskCancelError::NoActiveCardTask)
@@ -141,6 +142,13 @@ impl CardTaskQueue {
         let Some(mut active) = self.active.take() else {
             return events;
         };
+
+        if active.task.cancel_requested {
+            let event = cancel_task(&mut active.task, "cancelled active task");
+            events.push(event);
+            self.completed.push(active.task);
+            return events;
+        }
 
         if active.next_step_index >= active.task.steps.len() {
             let task_id = active.task.task_id;

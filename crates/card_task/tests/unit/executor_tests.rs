@@ -167,3 +167,57 @@ fn test_execute_card_task_step_fails_when_previous_step_did_not_create_node() {
         "存在但未创建 node 的 previous step 应返回 PreviousStepDidNotCreateNode(step=0)"
     );
 }
+
+/// E-4: 白名单中的 List 与 Delete 命令应能作为普通 CardCommand 透传给 runner。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   total_steps = 2
+///   step0 = List
+///   step1 = Delete(node_id=88)
+///   fake runner 对 List 返回 Listed，对 Delete 返回 Deleted(88)
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 顺序执行 step0(List) 与 step1(Delete)
+///   2. 记录 fake runner 接收到的原始命令顺序
+///
+/// 预期结果：
+///   - 正断言：step0 返回 Listed
+///   - 正断言：step1 返回 Deleted(node_id=88)
+///   - 正断言：runner 第 1 条命令是 List
+///   - 正断言：runner 第 2 条命令是 Delete(node_id=88)
+#[test]
+fn test_execute_card_task_step_supports_list_and_delete_commands() {
+    let steps = [
+        CardTaskStep::Command(CardCommand::List),
+        CardTaskStep::Command(CardCommand::Delete { node_id: 88 }),
+    ];
+    let mut context = CardTaskExecutionContext::default();
+    let mut runner = FakeRunner::default();
+
+    let list_result = execute_card_task_step(0, &steps[0], steps.len(), &mut context, &mut runner)
+        .expect("List 命令应能被 fake runner 正常执行");
+    let delete_result =
+        execute_card_task_step(1, &steps[1], steps.len(), &mut context, &mut runner)
+            .expect("Delete 命令应能被 fake runner 正常执行");
+
+    assert_eq!(
+        list_result,
+        CardCommandResult::Listed { cards: Vec::new() },
+        "List 命令必须返回 Listed(empty)"
+    );
+    assert_eq!(
+        delete_result,
+        CardCommandResult::Deleted { node_id: 88 },
+        "Delete(node_id=88) 必须返回 Deleted(node_id=88)"
+    );
+    assert_eq!(
+        runner.commands[0],
+        CardCommand::List,
+        "runner 收到的第一条命令必须保持为 CardCommand::List"
+    );
+    assert_eq!(
+        runner.commands[1],
+        CardCommand::Delete { node_id: 88 },
+        "runner 收到的第二条命令必须保持为 CardCommand::Delete(node_id=88)"
+    );
+}
