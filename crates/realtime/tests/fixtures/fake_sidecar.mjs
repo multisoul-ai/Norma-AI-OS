@@ -35,6 +35,31 @@ function handleCommand(command) {
     });
     process.exit(0);
   }
+
+  if (command.type === "input_audio_chunk") {
+    writeJson({
+      type: "assistant_audio_state",
+      session_id: sessionId,
+      speaking: true,
+    });
+    writeJson({
+      type: "assistant_audio_chunk",
+      session_id: sessionId,
+      format: command.format || "pcm16",
+      sample_rate: command.sample_rate || 24000,
+      channels: command.channels || 1,
+      data_b64: command.data_b64 || "AAA=",
+    });
+    return;
+  }
+
+  if (command.type === "interrupt") {
+    writeJson({
+      type: "assistant_audio_state",
+      session_id: sessionId,
+      speaking: false,
+    });
+  }
 }
 
 function handleLine(line) {

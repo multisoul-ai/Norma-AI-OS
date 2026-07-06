@@ -1,13 +1,16 @@
 //! App-layer shell state for Always Listening realtime voice.
 
+mod chat;
+mod shell;
+
+use self::chat::{RealtimePcmStream, RealtimeSidecarClient};
 use crate::app::voice::control::VoiceVisual;
-use crate::app::MultisoulApp;
+use crate::app::voice::playback::{default_assistant_audio_sink, AssistantAudioSink};
 use crate::settings::voice::VoiceSettingsValues;
-use gpui::Context;
+use gpui::Task;
 use realtime::{
-    RealtimeCommand, RealtimeEvent, RealtimeSessionConfig, RealtimeSessionError, RealtimeSessionId,
+    RealtimeCommand, RealtimeSessionConfig, RealtimeSessionError, RealtimeSessionId,
     RealtimeSessionState, RealtimeSidecarError, RealtimeStatus, SecretString, SidecarLaunchConfig,
-    SidecarProcess,
 };
 use std::fmt;
 use std::path::PathBuf;
@@ -52,15 +55,19 @@ impl std::error::Error for RealtimeConfigError {}
 
 #[derive(Debug)]
 pub(crate) enum RealtimeStartError {
+    #[cfg(test)]
     Session(RealtimeSessionError),
     Sidecar(RealtimeSidecarError),
+    Speech(voice_sherpa::SpeechError),
 }
 
 impl fmt::Display for RealtimeStartError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            #[cfg(test)]
             Self::Session(error) => write!(f, "{error}"),
             Self::Sidecar(error) => write!(f, "{error}"),
+            Self::Speech(error) => write!(f, "{error}"),
         }
     }
 }
@@ -74,11 +81,30 @@ pub(crate) enum VoiceBarMouseDownAction {
     Ignore,
 }
 
-#[derive(Default)]
 pub(crate) struct RealtimeControlState {
     session: RealtimeSessionState,
     config_error: Option<RealtimeConfigError>,
-    sidecar: Option<SidecarProcess>,
+    sidecar: Option<Box<dyn RealtimeSidecarClient>>,
+    pcm_stream: Option<Box<dyn RealtimePcmStream>>,
+    assistant_audio_sink: Box<dyn AssistantAudioSink>,
+    startup_task: Option<Task<()>>,
+    sidecar_drain_task: Option<Task<()>>,
+    pcm_forward_task: Option<Task<()>>,
+}
+
+impl Default for RealtimeControlState {
+    fn default() -> Self {
+        Self {
+            session: RealtimeSessionState::default(),
+            config_error: None,
+            sidecar: None,
+            pcm_stream: None,
+            assistant_audio_sink: default_assistant_audio_sink(),
+            startup_task: None,
+            sidecar_drain_task: None,
+            pcm_forward_task: None,
+        }
+    }
 }
 
 impl RealtimeControlState {
@@ -147,6 +173,7 @@ impl RealtimeControlState {
         Ok(())
     }
 
+    #[cfg(test)]
     pub(crate) fn start_shell_with_sidecar_config(
         &mut self,
         config: RealtimeSessionConfig,
@@ -167,7 +194,7 @@ impl RealtimeControlState {
         }
         self.config_error = None;
 
-        match self.spawn_and_start_sidecar(config, sidecar_config) {
+        match chat::spawn_and_start_sidecar(config, sidecar_config) {
             Ok(sidecar) => {
                 self.sidecar = Some(sidecar);
                 Ok(())
@@ -180,19 +207,6 @@ impl RealtimeControlState {
         }
     }
 
-    fn spawn_and_start_sidecar(
-        &self,
-        config: RealtimeSessionConfig,
-        sidecar_config: SidecarLaunchConfig,
-    ) -> Result<SidecarProcess, RealtimeSidecarError> {
-        let mut sidecar = SidecarProcess::spawn(sidecar_config)?;
-        if let Err(error) = sidecar.send(&RealtimeCommand::StartSession(config)) {
-            stop_sidecar_process_in_background(sidecar);
-            return Err(error);
-        }
-        Ok(sidecar)
-    }
-
     pub(crate) fn mark_started(&mut self) {
         self.session.mark_started();
     }
@@ -201,6 +215,7 @@ impl RealtimeControlState {
         if let Some(session_id) = self.session.session_id().cloned() {
             release_process_slot(&session_id);
         }
+        self.stop_chat_runtime();
         self.stop_sidecar_process();
         self.session.mark_error(error.to_string());
         self.config_error = Some(error);
@@ -209,25 +224,24 @@ impl RealtimeControlState {
     pub(crate) fn drain_sidecar_events(&mut self) -> bool {
         let mut changed = false;
         loop {
-            let event = match self.sidecar.as_ref().and_then(SidecarProcess::try_recv) {
+            let event = match self.sidecar.as_ref().and_then(|sidecar| sidecar.try_recv()) {
                 Some(event) => event,
                 None => break,
             };
 
             changed = true;
             match event {
-                Ok(RealtimeEvent::SessionStarted { .. }) => {
-                    self.session.mark_started();
+                Ok(event) => {
+                    let terminal = matches!(
+                        event,
+                        realtime::RealtimeEvent::SessionError { .. }
+                            | realtime::RealtimeEvent::SessionStopped { .. }
+                    );
+                    self.apply_sidecar_event(event);
+                    if terminal {
+                        break;
+                    }
                 }
-                Ok(RealtimeEvent::SessionError { message, .. }) => {
-                    self.mark_sidecar_error(message);
-                    break;
-                }
-                Ok(RealtimeEvent::SessionStopped { .. }) => {
-                    self.finish_sidecar_stopped();
-                    break;
-                }
-                Ok(_) => {}
                 Err(error) => {
                     self.mark_sidecar_error(error.to_string());
                     break;
@@ -239,6 +253,7 @@ impl RealtimeControlState {
 
     pub(crate) fn stop_shell(&mut self) {
         let session_id = self.session.session_id().cloned();
+        self.stop_chat_runtime();
         if let Some(session_id) = &session_id {
             self.send_sidecar_stop(session_id);
         }
@@ -271,9 +286,10 @@ impl RealtimeControlState {
         match self.session.status() {
             RealtimeStatus::Off => None,
             RealtimeStatus::Connecting => Some("Connecting...".to_string()),
-            RealtimeStatus::Listening
-            | RealtimeStatus::UserSpeaking
-            | RealtimeStatus::AssistantSpeaking => Some("Always Listening".to_string()),
+            RealtimeStatus::AssistantSpeaking => Some("Replying...".to_string()),
+            RealtimeStatus::Listening | RealtimeStatus::UserSpeaking => {
+                Some("Always Listening".to_string())
+            }
             RealtimeStatus::Error => Some("Realtime error".to_string()),
         }
     }
@@ -346,13 +362,14 @@ impl RealtimeControlState {
         if let Some(session_id) = self.session.session_id().cloned() {
             release_process_slot(&session_id);
         }
+        self.stop_chat_runtime();
         self.stop_sidecar_process();
         self.session.mark_error(message);
         self.config_error = None;
     }
 }
 
-fn stop_sidecar_process_in_background(sidecar: SidecarProcess) {
+fn stop_sidecar_process_in_background(sidecar: Box<dyn RealtimeSidecarClient>) {
     thread::spawn(move || {
         let _ = sidecar.stop(SIDECAR_STOP_TIMEOUT);
     });
@@ -360,6 +377,7 @@ fn stop_sidecar_process_in_background(sidecar: SidecarProcess) {
 
 impl RealtimeControlState {
     fn finish_sidecar_stopped(&mut self) {
+        self.stop_chat_runtime();
         self.stop_sidecar_process();
         if let Some(session_id) = self.session.session_id().cloned() {
             release_process_slot(&session_id);
@@ -390,85 +408,6 @@ fn release_process_slot(session_id: &RealtimeSessionId) {
     }
 }
 
-impl MultisoulApp {
-    pub(crate) fn realtime_voice_label(&self) -> Option<String> {
-        self.realtime.realtime_voice_label()
-    }
-
-    pub(crate) fn effective_voice_label(&self) -> String {
-        if self.realtime_voice_label().is_some() {
-            self.realtime.effective_voice_label(self.voice_label())
-        } else {
-            self.voice_label()
-        }
-    }
-
-    pub(crate) fn effective_voice_visual(&self) -> VoiceVisual {
-        self.realtime.effective_voice_visual(self.voice.visual())
-    }
-
-    pub(crate) fn start_always_listening_shell(&mut self, cx: &mut Context<Self>) {
-        match RealtimeControlState::validate_start_config(self.voice_settings.values()) {
-            Ok(config) => {
-                let sidecar_config =
-                    RealtimeControlState::sidecar_launch_config(self.voice_settings.values());
-                if let Some(sidecar_config) = sidecar_config {
-                    match self
-                        .realtime
-                        .start_shell_with_sidecar_config(config, sidecar_config)
-                    {
-                        Ok(()) => {
-                            if let Some(session_id) = self.realtime.current_session_id() {
-                                tracing::info!(%session_id, "started always listening sidecar shell");
-                            }
-                            Self::start_realtime_sidecar_drain_loop(cx);
-                        }
-                        Err(error) => {
-                            tracing::warn!(%error, "failed to start realtime sidecar shell");
-                        }
-                    }
-                } else if self.realtime.start_shell_with_config(config).is_ok() {
-                    if let Some(session_id) = self.realtime.current_session_id() {
-                        tracing::info!(%session_id, "started always listening shell");
-                    }
-                    cx.spawn(async move |this, cx| {
-                        let _ = this.update(cx, |app, cx| {
-                            app.realtime.mark_started();
-                            cx.notify();
-                        });
-                    })
-                    .detach();
-                }
-            }
-            Err(error) => self.realtime.mark_config_error(error),
-        }
-        cx.notify();
-    }
-
-    fn start_realtime_sidecar_drain_loop(cx: &mut Context<Self>) {
-        cx.spawn(async move |this, cx| loop {
-            cx.background_executor().timer(SIDECAR_POLL_INTERVAL).await;
-            let go = this.update(cx, |app, cx| {
-                let changed = app.realtime.drain_sidecar_events();
-                if changed {
-                    cx.notify();
-                }
-                app.realtime.has_sidecar() && app.realtime.is_active()
-            });
-            match go {
-                Ok(true) => {}
-                Ok(false) | Err(_) => break,
-            }
-        })
-        .detach();
-    }
-
-    pub(crate) fn stop_always_listening_shell(&mut self, cx: &mut Context<Self>) {
-        self.realtime.stop_shell();
-        cx.notify();
-    }
-}
-
 #[cfg(test)]
 #[path = "../../tests/unit/app_realtime_tests.rs"]
 mod app_realtime_tests;
@@ -476,3 +415,15 @@ mod app_realtime_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/app_realtime_sidecar_tests.rs"]
 mod app_realtime_tests_sidecar;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_realtime_chat_tests.rs"]
+mod app_realtime_tests_chat;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_realtime_chat_lifecycle_tests.rs"]
+mod app_realtime_tests_chat_lifecycle;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_realtime_chat_support.rs"]
+mod app_realtime_tests_chat_support;

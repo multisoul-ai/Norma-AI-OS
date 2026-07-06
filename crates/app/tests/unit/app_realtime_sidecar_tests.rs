@@ -287,35 +287,38 @@ fn test_realtime_sidecar_error_stop_is_detached_from_foreground_drain() {
 /// RT-S-5: start_session send 失败分支必须后台收口 sidecar。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = app/realtime.rs
+///   source = app/realtime.rs + app/realtime/chat.rs
 ///   同步等待风险 = sidecar.stop(SIDECAR_STOP_TIMEOUT)，timeout = 500ms
 ///   期望分支 = stop_sidecar_process_in_background(sidecar)
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 静态读取 app realtime 源码
+///   1. 静态读取 app realtime shell 源码与 chat sidecar 源码
 ///   2. 定位 send(StartSession) 失败分支的回归锚点
 ///   3. 验证该分支调用后台 stop helper，而不是同步 stop(timeout)
 ///
 /// 预期结果：
 ///   - 正断言：send 失败分支调用 stop_sidecar_process_in_background(sidecar)
-///   - 正断言：后台 helper 内部拥有唯一的 sidecar.stop(SIDECAR_STOP_TIMEOUT) 调用
+///   - 正断言：后台 helper 接收 trait sidecar，仍能统一收口真实 sidecar 与测试 fake
 ///   - 负断言：send 失败分支不应直接同步调用 sidecar.stop(SIDECAR_STOP_TIMEOUT)
 #[test]
 fn test_realtime_sidecar_send_failure_stop_is_detached_from_foreground_start() {
-    let source = include_str!("../../src/app/realtime.rs");
-    let send_failure_branch = "if let Err(error) = sidecar.send(&RealtimeCommand::StartSession(config)) {\n            stop_sidecar_process_in_background(sidecar);\n            return Err(error);\n        }";
+    let shell_source = include_str!("../../src/app/realtime.rs");
+    let chat_source = include_str!("../../src/app/realtime/chat.rs");
+    let send_failure_branch = "if let Err(error) = sidecar.send(&RealtimeCommand::StartSession(config)) {\n        stop_sidecar_process_in_background(sidecar);\n        return Err(error);\n    }";
 
     assert!(
-        source.contains(send_failure_branch),
+        chat_source.contains(send_failure_branch),
         "start_session send failure branch must hand sidecar cleanup to the background helper"
     );
     assert!(
-        source.contains("fn stop_sidecar_process_in_background(sidecar: SidecarProcess)"),
-        "app realtime module should keep a dedicated background sidecar stop helper"
+        shell_source.contains(
+            "fn stop_sidecar_process_in_background(sidecar: Box<dyn RealtimeSidecarClient>)"
+        ),
+        "app realtime module should keep a dedicated background sidecar stop helper over the local sidecar trait"
     );
     assert!(
-        !source.contains(
-            "if let Err(error) = sidecar.send(&RealtimeCommand::StartSession(config)) {\n            let _ = sidecar.stop(SIDECAR_STOP_TIMEOUT);"
+        !chat_source.contains(
+            "if let Err(error) = sidecar.send(&RealtimeCommand::StartSession(config)) {\n        let _ = sidecar.stop(SIDECAR_STOP_TIMEOUT);"
         ),
         "start_session send failure branch must not synchronously wait on sidecar.stop(timeout)"
     );

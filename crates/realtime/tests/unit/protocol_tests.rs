@@ -237,6 +237,43 @@ fn test_unknown_event_type_decodes_to_ignored_unknown() {
     );
 }
 
+/// P-7: assistant_audio_state event 解码为 assistant speaking 状态。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   line = {"type":"assistant_audio_state","session_id":"rt_1","speaking":true}
+///   field count = 3（type + session_id + speaking，是 speaking state 的最小有效载荷）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 调用 decode_event 解析 assistant_audio_state JSON
+///   2. 协议层读取 speaking=true
+///   3. 返回 RealtimeEvent::AssistantAudioState
+///
+/// 预期结果：
+///   - 正断言：返回 AssistantAudioState 且 speaking 为 true
+///   - 负断言：不应被归类为 IgnoredUnknown，否则 app 无法切换 Replying... 状态
+#[test]
+fn test_assistant_audio_state_decodes_speaking_state() {
+    let event =
+        decode_event(r#"{"type":"assistant_audio_state","session_id":"rt_1","speaking":true}"#)
+            .expect("assistant_audio_state JSON should decode");
+
+    assert_eq!(
+        event,
+        RealtimeEvent::AssistantAudioState {
+            session_id: RealtimeSessionId::new("rt_1"),
+            speaking: true,
+        },
+        "assistant_audio_state should decode into the assistant speaking domain event"
+    );
+    assert_ne!(
+        event,
+        RealtimeEvent::IgnoredUnknown {
+            event_type: "assistant_audio_state".to_string(),
+        },
+        "assistant_audio_state must not be ignored because app uses it for Replying..."
+    );
+}
+
 /// P-6: malformed JSON line 返回 MalformedJson 错误。
 ///
 /// 数据构造（含关键数值的推导过程）：

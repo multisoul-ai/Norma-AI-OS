@@ -7,6 +7,7 @@ mod history;
 pub(crate) mod log;
 pub(crate) mod modal;
 mod planning;
+pub(crate) mod playback;
 mod refine;
 
 use crate::app::realtime::VoiceBarMouseDownAction;

@@ -41,6 +41,10 @@ pub enum RealtimeEvent {
         session_id: RealtimeSessionId,
         chunk: PcmAudioChunk,
     },
+    AssistantAudioState {
+        session_id: RealtimeSessionId,
+        speaking: bool,
+    },
     ToolCall(RealtimeToolCall),
     SessionError {
         session_id: RealtimeSessionId,
@@ -138,6 +142,12 @@ struct WireAssistantAudioChunk {
 }
 
 #[derive(Deserialize)]
+struct WireAssistantAudioState {
+    session_id: RealtimeSessionId,
+    speaking: bool,
+}
+
+#[derive(Deserialize)]
 struct WireToolCall {
     session_id: RealtimeSessionId,
     tool_call_id: String,
@@ -211,6 +221,13 @@ pub fn decode_event(line: &str) -> Result<RealtimeEvent, RealtimeProtocolError> 
             RealtimeEvent::AssistantTextDelta { session_id, text }
         }),
         "assistant_audio_chunk" => decode_assistant_audio_chunk(value),
+        "assistant_audio_state" => {
+            let wire = decode_wire::<WireAssistantAudioState>(value)?;
+            Ok(RealtimeEvent::AssistantAudioState {
+                session_id: wire.session_id,
+                speaking: wire.speaking,
+            })
+        }
         "tool_call" => {
             let wire = decode_wire::<WireToolCall>(value)?;
             Ok(RealtimeEvent::ToolCall(RealtimeToolCall {
