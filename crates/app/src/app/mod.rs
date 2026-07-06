@@ -44,6 +44,7 @@ mod ime_geometry;
 mod keyboard;
 mod lifecycle;
 mod new_menu;
+pub(crate) mod realtime;
 #[cfg(target_os = "macos")]
 mod video_decoder;
 #[cfg(target_os = "macos")]
@@ -107,6 +108,7 @@ pub struct MultisoulApp {
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
+    pub(crate) realtime: crate::app::realtime::RealtimeControlState,
     pub(crate) pending_voice_commands: Vec<::voice::ExecutableCommand>,
     pub focus_handle: FocusHandle,
     pub(crate) wallpaper_settings: WallpaperSettingsState,
@@ -160,6 +162,7 @@ impl MultisoulApp {
             screen: AppScreen::Launchpad,
             workspace_state: WorkspaceState::load_default(),
             voice: crate::app::voice::control::VoiceControlState::default(),
+            realtime: crate::app::realtime::RealtimeControlState::default(),
             pending_voice_commands: Vec::new(),
             focus_handle: cx.focus_handle(),
             wallpaper_settings,
@@ -490,10 +493,6 @@ impl Render for MultisoulApp {
 #[cfg(test)]
 #[path = "../../tests/unit/app_tests.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "../../tests/unit/wallpaper_resolvers_tests.rs"]
-mod wallpaper_resolvers_tests;
 
 #[cfg(all(test, target_os = "macos"))]
 #[path = "../../tests/unit/video_decoder_tests.rs"]

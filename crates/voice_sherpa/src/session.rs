@@ -152,6 +152,7 @@ pub(crate) fn start(
         pcm_tx.clone(),
         Arc::clone(&stats),
         input_device_id.as_deref(),
+        crate::audio::RECOGNIZER_SAMPLE_RATE_HZ,
     )?;
 
     Ok((

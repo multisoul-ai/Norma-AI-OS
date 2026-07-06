@@ -1,4 +1,4 @@
-use super::wallpaper_resolvers::{builtin_wallpapers, resolve_builtin_asset, WallpaperKind};
+use super::{builtin_wallpapers, bundle_resources_dir, resolve_builtin_asset, WallpaperKind};
 
 /// T-R1: 扩展名 → kind 判定覆盖三类，未知扩展返回 None。
 ///
@@ -186,7 +186,6 @@ fn test_builtin_wallpapers_kind_matches_extension() {
 ///   - 说明：仅在打包 .app 内运行时返回 Some；此测试在 dev 下恒为 None
 #[test]
 fn test_bundle_resources_dir_is_none_in_dev_build() {
-    use super::wallpaper_resolvers::bundle_resources_dir;
     let dir = bundle_resources_dir();
     // 仅当当前进程恰好被装在 .app/Contents/MacOS 下时为 Some。
     // cargo test / cargo run 跑的是 target/... 二进制，故应为 None。

@@ -7,8 +7,10 @@ mod history;
 pub(crate) mod log;
 pub(crate) mod modal;
 mod planning;
+pub(crate) mod playback;
 mod refine;
 
+use crate::app::realtime::VoiceBarMouseDownAction;
 use crate::app::voice::control::{VoicePhase, VoiceTrigger};
 use crate::app::voice::log::{
     log_voice_confirmation_required, log_voice_executed, log_voice_executing,
@@ -129,7 +131,18 @@ impl MultisoulApp {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.begin_voice_recording(VoiceTrigger::BottomBar, cx);
+        match self
+            .realtime
+            .voice_bar_mouse_down_action(self.voice_settings.values().realtime_enabled())
+        {
+            VoiceBarMouseDownAction::StartOneShotRecording => {
+                self.begin_voice_recording(VoiceTrigger::BottomBar, cx);
+            }
+            VoiceBarMouseDownAction::StartAlwaysListeningShell => {
+                self.start_always_listening_shell(cx);
+            }
+            VoiceBarMouseDownAction::Ignore => {}
+        }
     }
 
     pub(crate) fn on_voice_bar_mouse_up(
@@ -138,6 +151,9 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.realtime.is_active() || self.voice_settings.values().realtime_enabled() {
+            return;
+        }
         self.end_voice_recording(VoiceTrigger::BottomBar, window, cx);
     }
 

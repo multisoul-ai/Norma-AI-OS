@@ -114,3 +114,7 @@ pub(crate) fn resolve_builtin_asset(rel: &str) -> Option<PathBuf> {
     }
     None
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_resolvers_tests.rs"]
+mod tests;

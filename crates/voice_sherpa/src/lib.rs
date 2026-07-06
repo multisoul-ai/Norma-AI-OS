@@ -7,6 +7,7 @@ mod finalizer;
 mod model;
 mod resample;
 mod session;
+mod stream;
 
 #[cfg(test)]
 #[path = "../tests/unit/device_tests.rs"]
@@ -22,6 +23,7 @@ use session::{InnerSession, SpeechFinalizer as InnerSpeechFinalizer};
 pub use devices::{
     list_audio_input_devices, resolve_audio_input_device_selection, AudioInputDevice,
 };
+pub use stream::PcmStreamSession;
 
 /// Check and (if not yet determined) request microphone permission.
 ///
@@ -97,6 +99,19 @@ impl SherpaProvider {
             self.model_dir.clone(),
             input_device_id.map(ToOwned::to_owned),
         )
+    }
+
+    pub fn start_pcm_stream(
+        &self,
+        input_device_id: Option<&str>,
+    ) -> Result<
+        (
+            PcmStreamSession,
+            async_channel::Receiver<realtime::PcmAudioChunk>,
+        ),
+        SpeechError,
+    > {
+        stream::start(input_device_id.map(ToOwned::to_owned))
     }
 }
 

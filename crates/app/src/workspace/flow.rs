@@ -124,6 +124,7 @@ impl MultisoulApp {
         );
         match result {
             Ok(opened) => {
+                self.realtime.stop_shell();
                 self.focus_handle.focus(window);
                 self.clear_browser_views();
                 self.reload_all_previews(cx);
