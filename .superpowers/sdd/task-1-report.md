@@ -127,6 +127,39 @@ cargo tree -p card_task --prefix none | rg -i '^(gpui|app|runtime|canvas|termina
 - 当前 `summary` 直接复用 `intent`。这满足 Task 1 的结果摘要承载要求，但更自然的“已创建/已聚焦/已停止后续操作”文案应在后续 callback/result formatting 任务中完善。
 - brief 中的依赖边界 grep 命令会被 `is_terminal_polyfill` 这类第三方包名误伤；本次已补充更精确的检查命令。
 
+## 修复记录 1
+
+- 补充 runner error 覆盖，断言 `StepFailed` 与 terminal `Failed` 都被发出。
+- 补充 active cancellation 覆盖，断言 active task 的 `cancel_requested == true`。
+- 补充 `List` / `Delete` 白名单命令 passthrough 覆盖。
+- 清理 `crates/card_task/Cargo.toml` 末尾多余空行。
+
+验证：
+
+```bash
+cargo test -p card_task
+bash scripts/check-max-file-lines.sh
+bash scripts/check-no-allow.sh
+git diff --check
+```
+
+结果：
+
+- `cargo test -p card_task`：13 passed; 0 failed
+- `check-max-file-lines.sh`：exit 0
+- `check-no-allow.sh`：exit 0
+- `git diff --check`：exit 0
+
+## 修复记录 2
+
+复审指出 `git diff --check cd4fd4f..0c20a29` 仍会检查已提交范围中的 EOF 空行。已单独修复 `crates/card_task/Cargo.toml` 并重新验证：
+
+```bash
+cargo test -p card_task
+```
+
+结果：13 passed; 0 failed。
+
 ## Reviewer Findings 修复追加
 
 ### 修复内容
