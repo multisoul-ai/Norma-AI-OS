@@ -131,6 +131,27 @@ pub(crate) fn mark_runtime_node_viewed_if_needed(runtime: &mut Runtime, node_id:
 
 impl MultisoulApp {
     pub fn new(cx: &mut Context<Self>) -> Self {
+        let agent_hook_server = AgentHookServer::start();
+        let mut runtime = Runtime::new();
+        runtime.set_agent_hook_config(agent_hook_server.runtime_config());
+        Self::build(cx, runtime, agent_hook_server)
+    }
+
+    /// Test entry point: inject a PTY factory so app-level e2e tests can create
+    /// terminals without launching a real child process.
+    pub fn new_with_pty_factory(cx: &mut Context<Self>, factory: runtime::PtyFactory) -> Self {
+        let agent_hook_server = AgentHookServer::start();
+        let mut runtime = Runtime::new();
+        runtime.set_pty_factory(factory);
+        runtime.set_agent_hook_config(agent_hook_server.runtime_config());
+        Self::build(cx, runtime, agent_hook_server)
+    }
+
+    fn build(
+        cx: &mut Context<Self>,
+        runtime: Runtime,
+        agent_hook_server: AgentHookServer,
+    ) -> Self {
         cx.on_release(|app, cx| {
             app.unregister_workspace_window_if_needed(cx);
         })
@@ -139,10 +160,6 @@ impl MultisoulApp {
         Self::start_frame_loops(cx);
 
         let wallpaper_settings = WallpaperSettingsState::load_default();
-        let agent_hook_server = AgentHookServer::start();
-        let mut runtime = Runtime::new();
-        runtime.set_agent_hook_config(agent_hook_server.runtime_config());
-
         MultisoulApp {
             runtime,
             theme: Theme::dark(),

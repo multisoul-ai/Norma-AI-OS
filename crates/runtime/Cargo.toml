@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 canvas.workspace = true
+crossbeam-channel.workspace = true
 storage.workspace = true
 terminal.workspace = true
 tracing.workspace = true

@@ -4,7 +4,7 @@ use crate::events::RuntimeEvents;
 use crate::focus::{FocusState, InputMode};
 use crate::live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
 use crate::nodes::agent::spawn_agent_live;
-use crate::nodes::term::TermLive;
+use crate::nodes::term::{spawn_term_live, PtyFactory, TermLive};
 use crate::runtime_support::terminal_shell_command;
 use canvas::{
     AgentProfile, AgentSpec, BrowserSpec, CanvasNodeKind, CanvasRect, Document, DocumentSnapshot,
@@ -37,6 +37,7 @@ pub struct Runtime {
     test_agent_spawn_command: Option<PtyCommand>,
     next_session_id: TerminalSessionId,
     workspace_root: Option<PathBuf>,
+    pty_factory: Option<PtyFactory>,
 }
 
 impl Default for Runtime {
@@ -60,6 +61,7 @@ impl Runtime {
             test_agent_spawn_command: None,
             next_session_id: 1,
             workspace_root: None,
+            pty_factory: None,
         }
     }
 
@@ -67,6 +69,12 @@ impl Runtime {
         let mut runtime = Self::new();
         runtime.workspace_root = Some(root.into());
         runtime
+    }
+
+    /// Inject a test PTY factory so e2e tests can exercise terminal flows
+    /// without launching a real child process.
+    pub fn set_pty_factory(&mut self, factory: PtyFactory) {
+        self.pty_factory = Some(factory);
     }
 
     pub fn workspace_root(&self) -> Option<&Path> {
@@ -189,7 +197,8 @@ impl Runtime {
     ) -> Result<NodeId, PtyError> {
         let sid = self.allocate_session_id();
         let command = terminal_shell_command(shell).with_cwd(self.workspace_root());
-        let live = TermLive::spawn_command(sid, command, cols, rows).inspect_err(|error| {
+        let live =
+            spawn_term_live(self.pty_factory.as_ref(), sid, command, cols, rows).inspect_err(|error| {
             self.events
                 .operation_failed(None, "spawn_terminal", error.to_string());
         })?;
@@ -339,6 +348,7 @@ impl Runtime {
             hook_env.as_ref(),
             cols,
             rows,
+            self.pty_factory.as_ref(),
         )
     }
 
@@ -480,6 +490,9 @@ mod event_tests;
 #[cfg(test)]
 #[path = "../tests/unit/preview_tests.rs"]
 mod preview_tests;
+#[cfg(test)]
+#[path = "runtime_test_helpers.rs"]
+mod runtime_test_helpers;
 #[cfg(test)]
 #[path = "../tests/unit/runtime_scroll_tests.rs"]
 mod scroll_tests;

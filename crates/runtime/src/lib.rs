@@ -19,5 +19,6 @@ pub use events::{
 };
 pub use focus::{FocusState, InputMode};
 pub use live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
+pub use nodes::term::PtyFactory;
 pub use route::{route, InputEvent, Route};
 pub use runtime::{Runtime, DEFAULT_TERMINAL_SHELL};
