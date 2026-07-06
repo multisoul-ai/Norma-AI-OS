@@ -376,7 +376,7 @@ fn test_runner_error_emits_step_failed_and_terminal_failed() {
 /// 数据构造（含关键数值的推导过程）：
 ///   task A steps = 2（create + focus previous）
 ///   task B steps = 2（create + focus previous），在 A 真正停止后再入队，用于验证队列继续前进
-///   create result node_id = 100（FakeRunner 第 1 条命令固定返回）
+///   completed_steps = 1，因此取消摘要需要明确说明已完成工作不回滚
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. enqueue task A
@@ -387,10 +387,10 @@ fn test_runner_error_emits_step_failed_and_terminal_failed() {
 ///   6. 再 enqueue task B，并在下一次 run_next() 开始 B
 ///
 /// 预期结果：
-///   - 正断言：cancel_latest 返回 task A 的 Cancelled
+///   - 正断言：cancel_latest 返回 task A 的 Cancelled，且摘要说明已完成工作不回滚
 ///   - 正断言：cancel 请求后 active task 仍存在，且 cancel_requested == true
 ///   - 正断言：runner 只执行了 task A 的 step0(create)，没有执行 step1(focus)
-///   - 正断言：第二次 run_next() 只终止 task A，不应同时开始 task B
+///   - 正断言：第二次 run_next() 只终止 task A，且摘要说明已完成工作不回滚，不应同时开始 task B
 ///   - 正断言：task A 真正停止后，下一次 run_next() 才开始 task B
 #[test]
 fn test_cancel_active_task_stops_before_next_step_without_rollback() {
@@ -411,13 +411,9 @@ fn test_cancel_active_task_stops_before_next_step_without_rollback() {
         first_events.iter().any(|event| matches!(event, CardTaskEvent::StepSucceeded { task_id, step_index } if *task_id == first_id && *step_index == 0)),
         "第一次 run_next 应先完成 task A 的 step0(create)"
     );
-    assert_eq!(
-        cancel_event,
-        CardTaskEvent::Cancelled {
-            task_id: first_id,
-            message: "cancelled active task".to_string(),
-        },
-        "active task 收到取消请求时应先返回 task A 的 Cancelled 事件"
+    assert!(
+        matches!(&cancel_event, CardTaskEvent::Cancelled { task_id, message } if *task_id == first_id && message.contains("not rolled back")),
+        "active task 已完成至少一步时，cancel_latest 返回的摘要必须说明 completed work was not rolled back"
     );
     assert_eq!(
         queue.active_task().map(|task| task.cancel_requested),
@@ -439,8 +435,8 @@ fn test_cancel_active_task_stops_before_next_step_without_rollback() {
     assert!(
         second_events
             .iter()
-            .any(|event| matches!(event, CardTaskEvent::Cancelled { task_id, message } if *task_id == first_id && message == "cancelled active task")),
-        "下一次 run_next 必须在 step 边界真正终止 task A"
+            .any(|event| matches!(event, CardTaskEvent::Cancelled { task_id, message } if *task_id == first_id && message.contains("not rolled back"))),
+        "下一次 run_next 在 step 边界真正终止 task A 时，也必须说明已完成工作不回滚"
     );
     assert!(
         second_events.iter().all(

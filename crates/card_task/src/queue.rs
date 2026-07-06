@@ -91,7 +91,7 @@ impl CardTaskQueue {
             active.task.cancel_requested = true;
             return Ok(CardTaskEvent::Cancelled {
                 task_id: active.task.task_id,
-                message: "cancelled active task".to_string(),
+                message: active_cancel_message(active.next_step_index),
             });
         }
 
@@ -148,7 +148,10 @@ impl CardTaskQueue {
         };
 
         if active.task.cancel_requested {
-            let event = cancel_task(&mut active.task, "cancelled active task");
+            let event = cancel_task(
+                &mut active.task,
+                &active_cancel_message(active.next_step_index),
+            );
             events.push(event);
             self.completed.push(active.task);
             return events;
@@ -228,4 +231,19 @@ fn cancel_task(task: &mut CardTask, message: &str) -> CardTaskEvent {
         task_id: task.task_id,
         message: message.to_string(),
     }
+}
+
+fn active_cancel_message(completed_steps: usize) -> String {
+    if completed_steps == 0 {
+        return "cancelled active task".to_string();
+    }
+
+    let step_label = if completed_steps == 1 {
+        "step"
+    } else {
+        "steps"
+    };
+    format!(
+        "cancelled active task after {completed_steps} completed {step_label}; completed work was not rolled back"
+    )
 }
