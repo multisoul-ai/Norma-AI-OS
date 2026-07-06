@@ -40,6 +40,8 @@ impl MultisoulApp {
                         .map(ToOwned::to_owned);
                     match self.realtime.start_shell_with_config(config.clone()) {
                         Ok(()) => {
+                            let startup_attempt = self.realtime.begin_chat_startup_attempt();
+                            let expected_session_id = config.session_id.clone();
                             if let Some(session_id) = self.realtime.current_session_id() {
                                 tracing::info!(%session_id, "starting always listening chat shell");
                             }
@@ -54,24 +56,45 @@ impl MultisoulApp {
                                 });
                                 let runtime = runtime_task.await;
                                 let _ = this.update(cx, |app, cx| {
-                                    app.realtime.clear_startup_task();
+                                    let should_accept =
+                                        app.realtime.should_accept_chat_startup_attempt(
+                                            startup_attempt,
+                                            &expected_session_id,
+                                        );
                                     match runtime {
-                                        Ok(runtime) => {
-                                            app.realtime.install_chat_runtime(
-                                                runtime.sidecar,
-                                                runtime.pcm_stream,
-                                            );
-                                            app.start_realtime_pcm_forward_loop(
-                                                runtime.pcm_chunks,
-                                                cx,
-                                            );
-                                            app.start_realtime_sidecar_drain_loop(cx);
+                                        Ok(mut runtime) => {
+                                            if should_accept {
+                                                let pcm_chunks =
+                                                    runtime.install_into(&mut app.realtime);
+                                                app.start_realtime_pcm_forward_loop(pcm_chunks, cx);
+                                                app.start_realtime_sidecar_drain_loop(cx);
+                                            } else {
+                                                tracing::info!(
+                                                    %expected_session_id,
+                                                    startup_attempt,
+                                                    "dropping stale realtime chat startup"
+                                                );
+                                                runtime.dispose();
+                                            }
                                         }
                                         Err(error) => {
-                                            tracing::warn!(%error, "failed to start realtime chat shell");
-                                            app.realtime.mark_start_error(error);
+                                            if should_accept {
+                                                tracing::warn!(
+                                                    %error,
+                                                    "failed to start realtime chat shell"
+                                                );
+                                                app.realtime.mark_start_error(error);
+                                            } else {
+                                                tracing::info!(
+                                                    %expected_session_id,
+                                                    startup_attempt,
+                                                    %error,
+                                                    "ignoring stale realtime chat startup failure"
+                                                );
+                                            }
                                         }
                                     }
+                                    app.realtime.finish_chat_startup_attempt(startup_attempt);
                                     cx.notify();
                                 });
                             });

@@ -46,9 +46,38 @@ impl RealtimePcmStream for PcmStreamSession {
 }
 
 pub(crate) struct RealtimeChatRuntime {
-    pub(crate) sidecar: Box<dyn RealtimeSidecarClient>,
-    pub(crate) pcm_stream: Box<dyn RealtimePcmStream>,
-    pub(crate) pcm_chunks: async_channel::Receiver<PcmAudioChunk>,
+    pub(crate) sidecar: Option<Box<dyn RealtimeSidecarClient>>,
+    pub(crate) pcm_stream: Option<Box<dyn RealtimePcmStream>>,
+    pub(crate) pcm_chunks: Option<async_channel::Receiver<PcmAudioChunk>>,
+}
+
+impl RealtimeChatRuntime {
+    pub(crate) fn install_into(
+        mut self,
+        state: &mut RealtimeControlState,
+    ) -> async_channel::Receiver<PcmAudioChunk> {
+        state.sidecar = self.sidecar.take();
+        state.pcm_stream = self.pcm_stream.take();
+        self.pcm_chunks
+            .take()
+            .expect("chat runtime should retain PCM chunks until install")
+    }
+
+    pub(crate) fn dispose(&mut self) {
+        self.pcm_chunks = None;
+        if let Some(pcm_stream) = self.pcm_stream.take() {
+            pcm_stream.stop();
+        }
+        if let Some(sidecar) = self.sidecar.take() {
+            stop_sidecar_process_in_background(sidecar);
+        }
+    }
+}
+
+impl Drop for RealtimeChatRuntime {
+    fn drop(&mut self) {
+        self.dispose();
+    }
 }
 
 pub(crate) fn start_realtime_chat_runtime(
@@ -69,9 +98,9 @@ pub(crate) fn start_realtime_chat_runtime(
 
     match spawn_and_start_sidecar(config, sidecar_config) {
         Ok(sidecar) => Ok(RealtimeChatRuntime {
-            sidecar,
-            pcm_stream: Box::new(pcm_stream),
-            pcm_chunks,
+            sidecar: Some(sidecar),
+            pcm_stream: Some(Box::new(pcm_stream)),
+            pcm_chunks: Some(pcm_chunks),
         }),
         Err(error) => {
             pcm_stream.cancel();
@@ -94,21 +123,8 @@ pub(super) fn spawn_and_start_sidecar(
 }
 
 impl RealtimeControlState {
-    pub(crate) fn install_chat_runtime(
-        &mut self,
-        sidecar: Box<dyn RealtimeSidecarClient>,
-        pcm_stream: Box<dyn RealtimePcmStream>,
-    ) {
-        self.sidecar = Some(sidecar);
-        self.pcm_stream = Some(pcm_stream);
-    }
-
     pub(crate) fn set_startup_task(&mut self, task: Task<()>) {
         self.startup_task = Some(task);
-    }
-
-    pub(crate) fn clear_startup_task(&mut self) {
-        self.startup_task = None;
     }
 
     pub(crate) fn set_sidecar_drain_task(&mut self, task: Task<()>) {
@@ -194,6 +210,7 @@ impl RealtimeControlState {
         self.startup_task = None;
         self.sidecar_drain_task = None;
         self.pcm_forward_task = None;
+        self.pending_startup_attempt = None;
         if let Some(pcm_stream) = self.pcm_stream.take() {
             pcm_stream.stop();
         }

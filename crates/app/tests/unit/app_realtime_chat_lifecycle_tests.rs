@@ -2,7 +2,7 @@ use super::app_realtime_tests_chat_support::{
     chunk, config, wait_until, with_realtime_process_guard, RecordingAudioSink, RecordingPcmStream,
     RecordingSidecar,
 };
-use super::RealtimeControlState;
+use super::{chat::RealtimeChatRuntime, RealtimeControlState};
 use realtime::{RealtimeCommand, RealtimeEvent, RealtimeSessionId};
 use std::time::{Duration, Instant};
 
@@ -144,5 +144,103 @@ fn test_realtime_chat_stop_stops_pcm_sends_stop_and_restores_voice_label() {
             "Replying...",
             "stop_shell should not leave assistant speaking label active"
         );
+    });
+}
+
+/// RTC-7: 未安装的 realtime runtime 被丢弃时必须回收 PCM 和 sidecar。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   session_id = rt-chat-drop-before-install
+///   fake PCM stop count starts at 0
+///   fake sidecar stop count starts at 0
+///   wait timeout = 1s，用于等待后台 sidecar stop helper 调用 fake stop
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造尚未 install 的 RealtimeChatRuntime(fake sidecar + fake PCM)
+///   2. 直接 drop(runtime)，模拟后台启动完成后因未安装而被丢弃
+///   3. 等待后台 sidecar stop helper 记录 stop
+///
+/// 预期结果：
+///   - 正断言：PCM stop 调用一次，sidecar stop 调用一次
+///   - 负断言：未安装 runtime 被丢弃时不应留下未停止的 PCM 或 sidecar
+#[test]
+fn test_realtime_chat_drop_uninstalled_runtime_stops_pcm_and_sidecar() {
+    with_realtime_process_guard(|| {
+        let sidecar = RecordingSidecar::default();
+        let pcm = RecordingPcmStream::default();
+        let (_pcm_tx, pcm_chunks) = async_channel::unbounded();
+        let runtime = RealtimeChatRuntime {
+            sidecar: Some(Box::new(sidecar.clone())),
+            pcm_stream: Some(Box::new(pcm.clone())),
+            pcm_chunks: Some(pcm_chunks),
+        };
+
+        drop(runtime);
+
+        wait_until(
+            Instant::now() + Duration::from_secs(1),
+            || sidecar.stop_calls() == 1,
+            "dropping an uninstalled runtime should stop the sidecar before timeout",
+        );
+
+        assert_eq!(
+            pcm.stop_calls(),
+            1,
+            "dropping an uninstalled runtime should stop the PCM stream exactly once"
+        );
+        assert_eq!(
+            sidecar.stop_calls(),
+            1,
+            "dropping an uninstalled runtime should stop the sidecar exactly once"
+        );
+    });
+}
+
+/// RTC-8: stop/restart 之后旧 startup attempt 必须判定为 stale，不能安装到新会话。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   session_id = always-listening-shell（当前实现固定值）
+///   first startup token 与 second startup token 必须不同
+///   stop_shell() 会清空旧的 pending startup
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. start_shell_with_config + begin_chat_startup_attempt() 记录 first token
+///   2. stop_shell()，模拟用户在 Connecting 时停止
+///   3. 再次 start_shell_with_config + begin_chat_startup_attempt() 记录 second token
+///   4. 检查旧 token 与新 token 的 accept 判定
+///
+/// 预期结果：
+///   - 正断言：first token 被拒绝，second token 被接受
+///   - 负断言：stop/restart 后旧 startup 结果不应再匹配当前安装路径
+#[test]
+fn test_realtime_chat_stop_and_restart_rejects_stale_startup_attempt() {
+    with_realtime_process_guard(|| {
+        let mut state = RealtimeControlState::default();
+        let session_id = RealtimeSessionId::new("always-listening-shell");
+        state
+            .start_shell_with_config(config("always-listening-shell"))
+            .expect("first chat startup should enter Connecting");
+        let first_startup = state.begin_chat_startup_attempt();
+
+        state.stop_shell();
+
+        state
+            .start_shell_with_config(config("always-listening-shell"))
+            .expect("second chat startup should enter Connecting after stop");
+        let second_startup = state.begin_chat_startup_attempt();
+
+        assert!(
+            !state.should_accept_chat_startup_attempt(first_startup, &session_id),
+            "startup attempt recorded before stop_shell should be rejected as stale"
+        );
+        assert!(
+            state.should_accept_chat_startup_attempt(second_startup, &session_id),
+            "latest startup attempt should still be accepted for installation"
+        );
+        assert_ne!(
+            first_startup, second_startup,
+            "stop and restart should issue a fresh startup attempt token"
+        );
+        state.stop_shell();
     });
 }

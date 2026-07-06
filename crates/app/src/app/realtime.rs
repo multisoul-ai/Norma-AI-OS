@@ -90,6 +90,8 @@ pub(crate) struct RealtimeControlState {
     startup_task: Option<Task<()>>,
     sidecar_drain_task: Option<Task<()>>,
     pcm_forward_task: Option<Task<()>>,
+    next_startup_attempt: u64,
+    pending_startup_attempt: Option<u64>,
 }
 
 impl Default for RealtimeControlState {
@@ -103,6 +105,8 @@ impl Default for RealtimeControlState {
             startup_task: None,
             sidecar_drain_task: None,
             pcm_forward_task: None,
+            next_startup_attempt: 0,
+            pending_startup_attempt: None,
         }
     }
 }
@@ -261,11 +265,35 @@ impl RealtimeControlState {
         if let Some(session_id) = self.session.session_id().cloned() {
             release_process_slot(&session_id);
         }
-        *self = Self::default();
+        self.reset_after_shutdown();
     }
 
     pub(crate) fn current_session_id(&self) -> Option<&RealtimeSessionId> {
         self.session.session_id()
+    }
+
+    pub(crate) fn begin_chat_startup_attempt(&mut self) -> u64 {
+        self.next_startup_attempt = self.next_startup_attempt.wrapping_add(1);
+        let attempt = self.next_startup_attempt;
+        self.pending_startup_attempt = Some(attempt);
+        attempt
+    }
+
+    pub(crate) fn should_accept_chat_startup_attempt(
+        &self,
+        attempt: u64,
+        session_id: &RealtimeSessionId,
+    ) -> bool {
+        self.pending_startup_attempt == Some(attempt)
+            && self.current_session_id() == Some(session_id)
+            && self.is_active()
+    }
+
+    pub(crate) fn finish_chat_startup_attempt(&mut self, attempt: u64) {
+        self.startup_task = None;
+        if self.pending_startup_attempt == Some(attempt) {
+            self.pending_startup_attempt = None;
+        }
     }
 
     pub(crate) fn is_active(&self) -> bool {
@@ -335,6 +363,14 @@ impl RealtimeControlState {
             .expect("active realtime session lock should not be poisoned");
         *active = None;
     }
+
+    fn reset_after_shutdown(&mut self) {
+        let next_startup_attempt = self.next_startup_attempt;
+        *self = Self {
+            next_startup_attempt,
+            ..Self::default()
+        };
+    }
 }
 
 fn node_executable() -> PathBuf {
@@ -382,7 +418,7 @@ impl RealtimeControlState {
         if let Some(session_id) = self.session.session_id().cloned() {
             release_process_slot(&session_id);
         }
-        *self = Self::default();
+        self.reset_after_shutdown();
     }
 }
 
