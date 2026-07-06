@@ -9,6 +9,10 @@ impl RealtimeControlState {
         self.dispatch_tool_result_callbacks(update);
     }
 
+    pub(super) fn can_accept_tool_result_callback(&self) -> bool {
+        self.is_active() && self.has_sidecar()
+    }
+
     pub(super) fn dispatch_tool_result_callbacks(&mut self, update: RealtimeCallbackUpdate) {
         if !update.dropped.is_empty() {
             tracing::warn!(
@@ -18,7 +22,7 @@ impl RealtimeControlState {
         }
 
         for result in update.injected {
-            if !self.is_active() || !self.has_sidecar() {
+            if !self.can_accept_tool_result_callback() {
                 tracing::info!(
                     "skipping realtime tool result injection because the session is unavailable"
                 );
@@ -28,6 +32,11 @@ impl RealtimeControlState {
                 tracing::warn!(%error, "failed to send realtime tool result");
             }
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn pending_tool_result_count_for_tests(&self) -> usize {
+        self.session.pending_tool_result_count()
     }
 }
 
@@ -56,6 +65,13 @@ impl MultisoulApp {
         callback: PendingCardTaskCallback,
         session_id: &realtime::RealtimeSessionId,
     ) {
+        if !self.realtime.can_accept_tool_result_callback() {
+            tracing::info!(
+                task_id = %callback.task_id,
+                "dropping realtime tool result callback because the session is unavailable"
+            );
+            return;
+        }
         let Some(tool_call_id) = callback.tool_call_id else {
             tracing::info!(
                 task_id = %callback.task_id,

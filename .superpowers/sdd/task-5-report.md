@@ -81,3 +81,30 @@
 ## Concerns
 
 - 当前实现的 flush 触发点是 `TranscriptFinal` 和 `AssistantAudioState { speaking: false }`。如果未来出现“task 在 session 仍处于 Connecting 时就完成”的极端路径，结果会先入队，现阶段没有专门在 `SessionStarted` 上做一次补 flush；当前 app 流程下未观察到该路径。
+
+---
+
+## Task 5 Fix Implementer Follow-up
+
+### Fix Summary
+
+- 在 `crates/app/src/app/realtime/callbacks.rs` 增加 app-layer availability guard：只有 `self.realtime.is_active() && self.realtime.has_sidecar()` 成立时，才允许把 card-task callback 交给 `RealtimeSessionState::queue_or_inject_tool_result(...)`。
+- 当 session_id 仍存在、但 realtime 已 error 或 sidecar 已不可用时，bridge 现在只记录 drop 日志并直接返回，不再把 callback 滞留进 realtime pending queue。
+- 保持 `crates/realtime` 的 callback queue 语义不变；此次修复只收紧 app callback bridge 的入口条件。
+- 新增回归测试 `ARC-CB-5`：覆盖 sidecar error 后 session_id 仍在、task 完成时既不发送 `ToolResult`，也不在 pending queue 留下 callback。
+- 增加 test-only getter `pending_tool_result_count_for_tests()`，仅用于验证 app bridge 未把 callback 误排入 queue。
+
+### Verification Commands And Results
+
+1. `cargo test -p app app_realtime_callback_tests -- --nocapture`
+   - PASS（5 个 callback app 测试通过，含新增 ARC-CB-5）
+2. `cargo test -p realtime --test unit -- callback`
+   - PASS
+3. `cargo check -p app`
+   - PASS
+4. `bash scripts/check-max-file-lines.sh`
+   - PASS
+5. `bash scripts/check-no-allow.sh`
+   - PASS
+6. `git diff --check`
+   - PASS

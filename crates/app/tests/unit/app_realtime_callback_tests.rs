@@ -368,3 +368,78 @@ async fn test_realtime_card_task_callback_skips_when_realtime_unavailable_or_too
         );
     });
 }
+
+/// ARC-CB-5：session_id 仍存在但 sidecar 已错误退出时，card task callback 必须直接丢弃，不能滞留在 pending queue。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   session_id   = "rt_callback_sidecar_error"
+///   tool_call_id = "call_sidecar_error"
+///   compiled plan = 1 步 Create Terminal，因此第 2 次 drain 后 task 必然 Succeeded
+///   sidecar error = RealtimeSidecarError::MalformedEvent，会触发 mark_sidecar_error，但保留 session_id
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 启动 RecordingSidecar realtime shell，并先 drain 到 SessionStarted
+///   2. 注入 MalformedEvent 错误并 drain_realtime_sidecar(...)，把 realtime 置为 error / sidecar unavailable
+///   3. 在该错误态下执行 1 条成功 task 到终态
+///   4. 读取 sidecar commands 中的 ToolResult，并查询 pending callback 数量
+///
+/// 预期结果：
+///   - 正断言：sidecar error 后 label 显示 Realtime error
+///   - 正断言：错误态完成 task 后不会新增任何 ToolResult
+///   - 正断言：pending callback queue 长度为 0
+///   - 负断言：session_id 残留时也不应把 callback 偷偷排进 queue，等待未来错误恢复
+#[gpui::test]
+async fn test_realtime_card_task_callback_drops_when_session_id_exists_but_sidecar_is_unavailable(
+    cx: &mut TestAppContext,
+) {
+    with_realtime_process_guard(|| {
+        let sidecar = RecordingSidecar::default();
+        let (app, cx) = cx.add_window_view(|_, cx| MultisoulApp::new(cx));
+        let (label, tool_results_after_error, pending_callbacks) =
+            app.update_in(cx, |app, window, cx| {
+                app.realtime
+                    .start_shell_with_sidecar_for_tests(
+                        config("rt_callback_sidecar_error"),
+                        Box::new(sidecar.clone()),
+                    )
+                    .expect("recording sidecar 应能启动测试 realtime shell");
+                let _ = app.realtime.drain_sidecar_events();
+
+                sidecar.push_event(Err(realtime::RealtimeSidecarError::MalformedEvent));
+                let _ = app.drain_realtime_sidecar(cx);
+
+                app.realtime
+                    .card_tasks_for_tests()
+                    .set_compiled_planner_for_tests(Box::new(FakeCompiledPlanner::with_results(
+                        vec![Ok(create_terminal_plan())],
+                    )));
+
+                app.enqueue_realtime_card_task(
+                    "sidecar error 后创建 Terminal".to_string(),
+                    "call_sidecar_error".to_string(),
+                    cx,
+                );
+                let _ = app.drain_realtime_card_tasks(window, cx);
+                let _ = app.drain_realtime_card_tasks(window, cx);
+
+                (
+                    app.effective_voice_label(),
+                    tool_results(sidecar.commands()),
+                    app.realtime.pending_tool_result_count_for_tests(),
+                )
+            });
+
+        assert_eq!(
+            label, "Realtime error",
+            "sidecar error 注入后 realtime 应进入错误态，确保测试命中 session_id 仍在但 session unavailable 的窗口"
+        );
+        assert!(
+            tool_results_after_error.is_empty(),
+            "session_id 仍存在但 sidecar unavailable 时不应发送任何 ToolResult"
+        );
+        assert_eq!(
+            pending_callbacks, 0,
+            "session unavailable 时 callback 必须直接丢弃，pending queue 中不应残留未来无法 flush 的项"
+        );
+    });
+}
