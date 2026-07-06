@@ -120,7 +120,7 @@ pub struct MultisoulApp {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum AppScreen {
+pub enum AppScreen {
     Launchpad,
     Canvas,
 }
@@ -145,6 +145,11 @@ impl MultisoulApp {
         runtime.set_pty_factory(factory);
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
         Self::build(cx, runtime, agent_hook_server)
+    }
+
+    /// Current app screen for e2e assertions across crate boundaries.
+    pub fn screen(&self) -> AppScreen {
+        self.screen
     }
 
     fn build(
