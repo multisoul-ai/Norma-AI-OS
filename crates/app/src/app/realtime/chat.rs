@@ -335,6 +335,10 @@ impl RealtimeControlState {
         sidecar.enqueue(command)
     }
 
+    pub(super) fn take_sidecar_event(&self) -> Option<Result<RealtimeEvent, RealtimeSidecarError>> {
+        self.sidecar.as_ref().and_then(|sidecar| sidecar.try_recv())
+    }
+
     fn matches_active_session(&self, session_id: &RealtimeSessionId) -> bool {
         self.session.session_id() == Some(session_id)
     }

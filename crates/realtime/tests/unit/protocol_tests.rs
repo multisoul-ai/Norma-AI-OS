@@ -237,6 +237,101 @@ fn test_unknown_event_type_decodes_to_ignored_unknown() {
     );
 }
 
+/// P-6: tool_result command 编码为单行 JSON object，且结果 payload 原样保留。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   session_id   = "rt_1"
+///   tool_call_id = "call_123"
+///   result       = {"status":"failed","summary":"missing intent"}（无 task_id 的最小失败结果）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造 RealtimeCommand::ToolResult(...)
+///   2. 调用 encode_command 得到 JSONL line
+///   3. 解析 JSON 并检查 type/session_id/tool_call_id/result
+///
+/// 预期结果：
+///   - 正断言：输出 type 为 tool_result，且 result payload 原样保留
+///   - 负断言：输出不包含换行，避免破坏 JSONL framing
+#[test]
+fn test_tool_result_encodes_jsonl_object_without_newline() {
+    let command = RealtimeCommand::ToolResult(super::super::RealtimeToolResult {
+        session_id: RealtimeSessionId::new("rt_1"),
+        tool_call_id: "call_123".to_string(),
+        result: json!({
+            "status": "failed",
+            "summary": "missing intent",
+        }),
+    });
+
+    let encoded = encode_command(&command).expect("tool_result command should encode to JSON");
+    assert!(
+        !encoded.contains('\n'),
+        "tool_result encode_command must not append a newline because JSONL framing is external"
+    );
+
+    let value: serde_json::Value =
+        serde_json::from_str(&encoded).expect("encoded tool_result should be valid JSON");
+    assert_eq!(
+        value["type"], "tool_result",
+        "tool_result command should carry type=tool_result"
+    );
+    assert_eq!(
+        value["session_id"], "rt_1",
+        "tool_result command should preserve the target session id"
+    );
+    assert_eq!(
+        value["tool_call_id"], "call_123",
+        "tool_result command should preserve the target tool_call_id"
+    );
+    assert_eq!(
+        value["result"],
+        json!({
+            "status": "failed",
+            "summary": "missing intent",
+        }),
+        "tool_result command should preserve the exact structured result payload"
+    );
+}
+
+/// P-6b: tool_call event 解码为 RealtimeEvent::ToolCall，并保留 arguments object。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   line = {"type":"tool_call","session_id":"rt_1","tool_call_id":"call_1","name":"enqueue_card_task","arguments":{"intent":"创建 Codex 卡片"}}
+///   arguments field count = 1（intent 是 enqueue_card_task 的最小有效参数）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 调用 decode_event 解析 tool_call JSON
+///   2. 比较返回的 RealtimeEvent::ToolCall 内容
+///
+/// 预期结果：
+///   - 正断言：返回 ToolCall，session_id/tool_call_id/name/arguments 都正确
+///   - 负断言：已知 tool_call 事件不应退化为 IgnoredUnknown
+#[test]
+fn test_tool_call_decodes_to_domain_event() {
+    let event = decode_event(
+        r#"{"type":"tool_call","session_id":"rt_1","tool_call_id":"call_1","name":"enqueue_card_task","arguments":{"intent":"创建 Codex 卡片"}}"#,
+    )
+    .expect("tool_call JSON should decode");
+
+    assert_eq!(
+        event,
+        RealtimeEvent::ToolCall(super::super::RealtimeToolCall {
+            session_id: RealtimeSessionId::new("rt_1"),
+            tool_call_id: "call_1".to_string(),
+            name: "enqueue_card_task".to_string(),
+            arguments: json!({ "intent": "创建 Codex 卡片" }),
+        }),
+        "tool_call should decode into the matching domain event"
+    );
+    assert_ne!(
+        event,
+        RealtimeEvent::IgnoredUnknown {
+            event_type: "tool_call".to_string(),
+        },
+        "known tool_call events must not be ignored as unknown"
+    );
+}
+
 /// P-7: assistant_audio_state event 解码为 assistant speaking 状态。
 ///
 /// 数据构造（含关键数值的推导过程）：

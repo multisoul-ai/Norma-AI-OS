@@ -2,7 +2,7 @@ use crate::audio::{PcmAudioChunk, PcmAudioError, PcmFormat};
 use crate::session::{RealtimeSessionConfig, RealtimeSessionId};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum RealtimeCommand {
@@ -72,6 +72,23 @@ pub struct RealtimeToolResult {
     pub session_id: RealtimeSessionId,
     pub tool_call_id: String,
     pub result: Value,
+}
+
+impl RealtimeToolResult {
+    pub fn failed(
+        session_id: RealtimeSessionId,
+        tool_call_id: impl Into<String>,
+        summary: impl Into<String>,
+    ) -> Self {
+        Self {
+            session_id,
+            tool_call_id: tool_call_id.into(),
+            result: json!({
+                "status": "failed",
+                "summary": summary.into(),
+            }),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]

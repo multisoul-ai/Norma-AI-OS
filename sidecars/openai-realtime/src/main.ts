@@ -38,6 +38,13 @@ type NormaEvent =
       speaking: boolean;
     }
   | {
+      type: "tool_call";
+      session_id: string;
+      tool_call_id: string;
+      name: string;
+      arguments: JsonObject;
+    }
+  | {
       type: "session_error";
       session_id: string;
       message: string;
@@ -106,6 +113,17 @@ type OpenAiClientEvent =
       item_id: string;
       content_index: number;
       audio_end_ms: number;
+    }
+  | {
+      type: "conversation.item.create";
+      item: {
+        type: "function_call_output";
+        call_id: string;
+        output: string;
+      };
+    }
+  | {
+      type: "response.create";
     };
 
 const TEST_WEBSOCKET_KEY = "__NORMA_TEST_WEBSOCKET__";
@@ -182,6 +200,11 @@ async function handleLine(line: string): Promise<void> {
 
   if (commandType === "interrupt") {
     await handleInterrupt(command);
+    return;
+  }
+
+  if (commandType === "tool_result") {
+    await handleToolResult(command);
     return;
   }
 
@@ -316,6 +339,36 @@ async function handleInterrupt(command: JsonObject): Promise<void> {
       type: "assistant_audio_state",
       session_id: session.sessionId,
       speaking: false,
+    });
+  } catch (error) {
+    await writeSessionError(session.sessionId, errorMessage(error));
+  }
+}
+
+async function handleToolResult(command: JsonObject): Promise<void> {
+  const session = requireActiveSession(command, "tool_result requires an active session");
+  if (session === undefined) {
+    return;
+  }
+
+  const toolCallId = stringField(command, "tool_call_id");
+  if (toolCallId === undefined) {
+    await writeSessionError(session.sessionId, "tool_result is missing tool_call_id");
+    return;
+  }
+
+  const output = JSON.stringify(jsonField(command, "result") ?? {});
+  try {
+    await sendRealtimeEvent(session.socket, {
+      type: "conversation.item.create",
+      item: {
+        type: "function_call_output",
+        call_id: toolCallId,
+        output,
+      },
+    });
+    await sendRealtimeEvent(session.socket, {
+      type: "response.create",
     });
   } catch (error) {
     await writeSessionError(session.sessionId, errorMessage(error));
@@ -515,6 +568,12 @@ async function handleSocketMessage(session: ActiveSession, data: unknown): Promi
       session_id: session.sessionId,
       speaking: false,
     });
+    return;
+  }
+
+  const toolCallEvent = toolCallEventFromRealtime(session.sessionId, eventType, event);
+  if (toolCallEvent !== undefined) {
+    await writeEvent(toolCallEvent);
   }
 }
 
@@ -646,8 +705,68 @@ function objectField(value: JsonObject, field: string): JsonObject | undefined {
   return isJsonObject(fieldValue) ? fieldValue : undefined;
 }
 
+function jsonField(value: JsonObject, field: string): unknown {
+  return field in value ? value[field] : undefined;
+}
+
 function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function toolCallEventFromRealtime(
+  sessionId: string,
+  eventType: string,
+  event: JsonObject,
+): Extract<NormaEvent, { type: "tool_call" }> | undefined {
+  if (eventType === "response.output_item.done") {
+    const item = objectField(event, "item");
+    if (item === undefined || stringField(item, "type") !== "function_call") {
+      return undefined;
+    }
+    return buildToolCallEvent(sessionId, item);
+  }
+
+  if (eventType === "response.function_call_arguments.done") {
+    return buildToolCallEvent(sessionId, event);
+  }
+
+  return undefined;
+}
+
+function buildToolCallEvent(
+  sessionId: string,
+  source: JsonObject,
+): Extract<NormaEvent, { type: "tool_call" }> | undefined {
+  const toolCallId = stringField(source, "call_id") ?? stringField(source, "id");
+  const name = stringField(source, "name");
+  if (toolCallId === undefined || name === undefined) {
+    return undefined;
+  }
+
+  return {
+    type: "tool_call",
+    session_id: sessionId,
+    tool_call_id: toolCallId,
+    name,
+    arguments: jsonObjectFromUnknown(jsonField(source, "arguments")),
+  };
+}
+
+function jsonObjectFromUnknown(value: unknown): JsonObject {
+  if (isJsonObject(value)) {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return isJsonObject(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
 }
 
 function updateAssistantPlaybackState(

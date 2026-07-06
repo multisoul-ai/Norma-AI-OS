@@ -238,7 +238,7 @@ impl RealtimeControlState {
     pub(crate) fn drain_sidecar_events(&mut self) -> bool {
         let mut changed = false;
         loop {
-            let event = match self.sidecar.as_ref().and_then(|sidecar| sidecar.try_recv()) {
+            let event = match self.take_sidecar_event() {
                 Some(event) => event,
                 None => break,
             };
@@ -475,3 +475,7 @@ mod app_realtime_tests_chat_support;
 #[cfg(test)]
 #[path = "../../tests/unit/app_realtime_card_task_tests.rs"]
 mod app_realtime_card_task_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_realtime_tool_call_tests.rs"]
+mod app_realtime_tool_call_tests;
