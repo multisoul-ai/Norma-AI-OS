@@ -194,6 +194,7 @@ fn test_install_hook_config_is_idempotent_for_claude_and_codex() {
     let paths = HookInstallPaths {
         claude_settings: claude_path.clone(),
         codex_hooks: codex_path.clone(),
+        opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
 
@@ -302,12 +303,12 @@ fn test_forward_hook_ignores_unreachable_endpoint() {
 /// resolve_agent_hook_command_path_from 应优先查找 app 可执行文件同目录下的 hook bridge。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   app_executable=/tmp/bin/multisoul
+///   app_executable=/tmp/bin/norma-os
 ///   sibling=/tmp/bin/multisoul-agent-hook
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 在临时目录创建 multisoul-agent-hook 空文件
-///   2. 调用 resolve_agent_hook_command_path_from("/tmp/bin/multisoul")
+///   2. 调用 resolve_agent_hook_command_path_from("/tmp/bin/norma-os")
 ///   3. 确认返回 sibling 路径
 ///
 /// 预期结果：
@@ -316,7 +317,7 @@ fn test_forward_hook_ignores_unreachable_endpoint() {
 #[test]
 fn test_resolve_agent_hook_command_path_from_sibling_binary() {
     let temp = tempfile::tempdir().expect("应能创建临时目录");
-    let app_executable = temp.path().join("multisoul");
+    let app_executable = temp.path().join("norma-os");
     let hook_binary = temp.path().join(AGENT_HOOK_BINARY_NAME);
     std::fs::write(&hook_binary, b"").expect("应能创建 hook bridge 占位文件");
 
@@ -359,6 +360,7 @@ fn test_uninstall_hook_config_removes_only_multisoul_hooks() {
     let paths = HookInstallPaths {
         claude_settings: temp.path().join("claude-settings.json"),
         codex_hooks: codex_path.clone(),
+        opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
     std::fs::write(
@@ -424,6 +426,7 @@ fn test_uninstall_hook_config_is_idempotent_when_missing_or_clean() {
     let paths = HookInstallPaths {
         claude_settings: temp.path().join("claude-settings.json"),
         codex_hooks: temp.path().join("codex-hooks.json"),
+        opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
     };
 
     uninstall_hook_config(HookTarget::Codex, &paths).expect("第一次 uninstall 应成功");

@@ -21,6 +21,7 @@ use norma::protocol::{
 use runtime::{InputMode, NodeError, NodeInput, Runtime, DEFAULT_TERMINAL_SHELL};
 use std::fs;
 use std::path::PathBuf;
+use std::time::Duration;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct NormaCommandEffects {
@@ -91,6 +92,21 @@ impl Drop for NormaServer {
 }
 
 impl MultisoulApp {
+    pub(crate) fn start_norma_drain_loop(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        cx.spawn_in(window, async move |this, cx| loop {
+            cx.background_executor()
+                .timer(Duration::from_millis(12))
+                .await;
+            let go = this.update_in(cx, |app, window, cx| {
+                app.drain_norma_server(window, cx);
+            });
+            if go.is_err() {
+                break;
+            }
+        })
+        .detach();
+    }
+
     pub(crate) fn drain_norma_server(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         while let Ok(request) = self.norma_server.receiver.try_recv() {
             let response = self.execute_card_command(request.request, window, cx);
@@ -167,6 +183,7 @@ impl MultisoulApp {
         let result = result.map(|execution| {
             if let CardCommandResult::Deleted { node_id } = &execution.result {
                 self.previews.remove(*node_id);
+                self.remove_browser_view(*node_id);
             }
             if execution.effects.canvas_dirty {
                 self.mark_canvas_dirty();
@@ -278,6 +295,17 @@ fn create_card(
                 effects: NormaCommandEffects::CANVAS,
             })
         }
+        CardKind::Browser { url } => {
+            let node_id = runtime.spawn_browser(url, None, bounds);
+            runtime.selection.select_only(node_id);
+            runtime.focus.exit_to_canvas();
+            motion.spawn_node(node_id, bounds);
+            apply_layout_for_current_mode(master_layout, runtime, motion, area, zoom);
+            Ok(NormaExecution {
+                result: CardCommandResult::Created { node_id },
+                effects: NormaCommandEffects::CANVAS,
+            })
+        }
     }
 }
 
@@ -349,7 +377,10 @@ fn summarize_cards(runtime: &Runtime) -> Vec<CardSummary> {
 fn summary_alias(kind: &CanvasNodeKind) -> Option<String> {
     match kind {
         CanvasNodeKind::Agent(spec) => spec.alias.clone(),
-        CanvasNodeKind::Rect(_) | CanvasNodeKind::Term(_) | CanvasNodeKind::Preview(_) => None,
+        CanvasNodeKind::Rect(_)
+        | CanvasNodeKind::Term(_)
+        | CanvasNodeKind::Preview(_)
+        | CanvasNodeKind::Browser(_) => None,
     }
 }
 
@@ -361,6 +392,7 @@ fn summary_kind(kind: &CanvasNodeKind) -> CardSummaryKind {
             profile: norma_agent_profile(spec.profile),
         },
         CanvasNodeKind::Preview(_) => CardSummaryKind::Preview,
+        CanvasNodeKind::Browser(_) => CardSummaryKind::Browser,
     }
 }
 

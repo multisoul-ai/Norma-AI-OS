@@ -14,6 +14,7 @@
 
 use std::path::{Path, PathBuf};
 
+use super::dirs::{custom_wallpapers_dir, data_root, TEST_DATA_ROOT_ENV};
 use super::import::{non_colliding_dest, ImportResult};
 use crate::app::wallpaper_resolvers::{builtin_wallpapers, resolve_builtin_asset, WallpaperKind};
 use crate::assets::DEFAULT_WALLPAPER_ASSET;
@@ -27,12 +28,6 @@ const KEY_WALLPAPER_VALUE: &str = "wallpaper.value";
 
 const KIND_BUILTIN: &str = "builtin";
 const KIND_CUSTOM: &str = "custom";
-
-/// Env var overriding the data dir root for tests. When set, both the app db
-/// (`<root>/app.sqlite`) and the custom wallpapers dir (`<root>/wallpapers`)
-/// are routed underneath it. Production callers do not set this var and fall
-/// back to `default_app_db_path()?.parent()`.
-const TEST_DATA_ROOT_ENV: &str = "MULTISOUL_TEST_DATA_ROOT";
 
 /// The user's wallpaper selection.
 ///
@@ -437,30 +432,6 @@ fn selection_resolves(sel: &WallpaperSelection) -> bool {
             .map(|d| d.join(filename).is_file())
             .unwrap_or(false),
     }
-}
-
-/// Absolute path to the custom wallpapers directory.
-///
-/// Production: `~/Library/Application Support/Multisoul/wallpapers/`.
-/// Tests: `<MULTISOUL_TEST_DATA_ROOT>/wallpapers/`. Returns None when the
-/// data root cannot be computed (rare: missing `$HOME` both in prod and when
-/// env var unset).
-pub(crate) fn custom_wallpapers_dir() -> Option<PathBuf> {
-    data_root().map(|p| p.join("wallpapers"))
-}
-
-/// Resolve the data dir root. Honors `MULTISOUL_TEST_DATA_ROOT` when set;
-/// otherwise falls back to the parent of the default app db path.
-fn data_root() -> Option<PathBuf> {
-    if let Some(test_root) = std::env::var(TEST_DATA_ROOT_ENV)
-        .ok()
-        .filter(|s| !s.is_empty())
-    {
-        return Some(PathBuf::from(test_root));
-    }
-    storage::default_app_db_path()
-        .ok()
-        .and_then(|p| p.parent().map(Path::to_path_buf))
 }
 
 /// Open the SettingsStore used by [`WallpaperSettingsState::load_default`].

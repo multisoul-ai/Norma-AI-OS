@@ -444,6 +444,42 @@ fn test_launchpad_drops_right_preview_card_cluster() {
     );
 }
 
+/// L-11: Launchpad 品牌图应使用独立产品 Logo，而不是复用 App icon。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source_actions = launchpad/actions.rs（真实品牌区元素树）
+///   logo const     = APP_LOGO_ASSET（目标产品 logo 路径 icons/logo.png）
+///   icon const     = APP_ICON_ASSET（目标 app icon 路径 icons/app-icon.png）
+///   品牌图片区数量 = 1 个 img(...) 调用，位于 44x44 品牌容器中
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 launchpad/actions.rs
+///   2. 确认文件 import / 使用 APP_LOGO_ASSET
+///   3. 确认品牌图片区调用 img(APP_LOGO_ASSET)
+///   4. 确认品牌图片区不再调用 img(APP_ICON_ASSET)
+///
+/// 预期结果：
+///   - 正断言：launchpad brand 使用 APP_LOGO_ASSET
+///   - 正断言：品牌图片由 img(APP_LOGO_ASSET) 渲染
+///   - 负断言：品牌图片不应继续由 img(APP_ICON_ASSET) 渲染
+#[test]
+fn test_launchpad_brand_uses_logo_asset_not_app_icon() {
+    let source_actions = include_str!("../../src/workspace/launchpad/actions.rs");
+
+    assert!(
+        source_actions.contains("APP_LOGO_ASSET"),
+        "Launchpad brand 应导入并使用 APP_LOGO_ASSET 作为产品 logo"
+    );
+    assert!(
+        source_actions.contains("img(APP_LOGO_ASSET)"),
+        "Launchpad 品牌图片区应通过 img(APP_LOGO_ASSET) 渲染产品 logo"
+    );
+    assert!(
+        !source_actions.contains("img(APP_ICON_ASSET)"),
+        "Launchpad 品牌图片区不应继续复用 APP_ICON_ASSET；app icon 与产品 logo 需分离"
+    );
+}
+
 fn assert_close(actual: f32, expected: f32, tolerance: f32, message: &str) {
     let delta = (actual - expected).abs();
     assert!(

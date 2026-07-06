@@ -3,6 +3,7 @@
 use crate::app::{AppScreen, MultisoulApp};
 use crate::canvas::view::mark_canvas_open_render_pending;
 use crate::motion::MotionStore;
+use crate::settings::agents::AgentDefinitionsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::NodeId;
@@ -116,6 +117,7 @@ impl MultisoulApp {
             &mut self.motion,
             &mut self.master_layout,
             &mut self.persistence,
+            &mut self.agent_definitions,
             &mut self.screen,
             &mut self.workspace_state,
             &path,
@@ -123,6 +125,7 @@ impl MultisoulApp {
         match result {
             Ok(opened) => {
                 self.focus_handle.focus(window);
+                self.clear_browser_views();
                 self.reload_all_previews(cx);
                 self.spawn_deferred_live_session_restore(opened.pending_live_restore, cx);
             }
@@ -211,6 +214,7 @@ pub(crate) fn enter_workspace_for_path(
     motion: &mut MotionStore,
     master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
     persistence: &mut PersistenceScheduler,
+    agent_definitions: &mut AgentDefinitionsState,
     screen: &mut AppScreen,
     workspace_state: &mut WorkspaceState,
     path: &Path,
@@ -313,9 +317,11 @@ pub(crate) fn enter_workspace_for_path(
     stage_start = Instant::now();
     let pending_live_restore =
         PendingLiveSessionRestore::new(root.clone(), &next_runtime, checkpoints, node_sessions);
+    let agent_definition_store = project_store.agent_definition_store();
     runtime.kill_all();
     *runtime = next_runtime;
     persistence.set_project_store(project_store);
+    agent_definitions.bind_project_store(agent_definition_store);
     motion.clear_transient();
     motion.retain_nodes(std::iter::empty::<NodeId>());
     *screen = AppScreen::Canvas;

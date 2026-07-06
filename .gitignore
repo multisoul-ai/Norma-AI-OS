@@ -15,3 +15,5 @@ assets/models/tts/*
 
 # Git worktrees
 .worktrees/
+# superpowers scratch (subagent reports, ledger)
+.superpowers/

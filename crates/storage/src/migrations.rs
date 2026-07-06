@@ -95,6 +95,20 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
             raw_transcript TEXT NOT NULL DEFAULT '',
             refined_transcript TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS agent_definitions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            runtime_profile TEXT NOT NULL,
+            workflow_description TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at_unix INTEGER NOT NULL,
+            updated_at_unix INTEGER NOT NULL
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_definitions_name_nocase
+        ON agent_definitions(name COLLATE NOCASE);
         "#,
     )?;
     ensure_column(

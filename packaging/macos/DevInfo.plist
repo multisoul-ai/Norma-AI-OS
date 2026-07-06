@@ -6,13 +6,13 @@
   <key>CFBundleDevelopmentRegion</key>
   <string>en</string>
   <key>CFBundleExecutable</key>
-  <string>multisoul</string>
+  <string>norma-os</string>
   <key>CFBundleIdentifier</key>
-  <string>com.multisoul.desktop.dev</string>
+  <string>com.norma.os.dev</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>Multisoul</string>
+  <string>Norma OS</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
@@ -20,8 +20,8 @@
   <key>CFBundleVersion</key>
   <string>0.1.0</string>
   <key>NSSpeechRecognitionUsageDescription</key>
-  <string>Multisoul uses speech recognition to turn spoken commands into card actions.</string>
+  <string>Norma OS uses speech recognition to turn spoken commands into card actions.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>Multisoul uses the microphone only while you hold the voice control.</string>
+  <string>Norma OS uses the microphone only while you hold the voice control.</string>
 </dict>
 </plist>

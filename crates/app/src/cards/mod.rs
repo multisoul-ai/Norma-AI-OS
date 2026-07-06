@@ -1,15 +1,17 @@
 //! Card registry: app 层按 NodeType 分发卡片渲染。
 
 pub mod agent;
+pub mod browser;
 pub mod chrome;
 pub mod preview;
+pub(crate) mod snake;
 pub mod term;
 
 use crate::canvas::text_selection::TextSelection;
 use crate::preview::PreviewLoadState;
 use canvas::{CanvasNode, CanvasRect, NodeType};
 use chrome::CardChrome;
-use gpui::AnyElement;
+use gpui::{AnyElement, FocusHandle};
 use runtime::{NodeResize, Runtime};
 use ui::Theme;
 
@@ -37,6 +39,8 @@ pub struct CardBodyContext<'a> {
     pub focused: bool,
     pub reduce_motion: bool,
     pub terminal_cursor_phase: f32,
+    pub browser_address_draft: Option<&'a str>,
+    pub app_focus_handle: FocusHandle,
     pub theme: Theme,
     pub zoom: f32,
     pub bottom_radius_px: f32,
@@ -47,6 +51,7 @@ pub fn card_for(ty: NodeType) -> &'static dyn Card {
         NodeType::Term => &term::card::CARD,
         NodeType::Agent => &agent::card::CARD,
         NodeType::Preview => &preview::card::CARD,
+        NodeType::Browser => &browser::card::CARD,
         NodeType::Rect => &chrome::EMPTY_CARD,
     };
     debug_assert_eq!(
@@ -66,8 +71,9 @@ mod tests {
     /// 数据构造（含关键数值推导）：
     ///   NodeType::Term  → cards/term/card.rs 的 TermCard
     ///   NodeType::Agent → cards/agent/card.rs 的 AgentCard
-    ///   NodeType::Rect  → chrome.rs 的 EmptyCard
-    ///   三种类型是一一映射，registry 不做运行时动态注册
+    ///   NodeType::Rect    → chrome.rs 的 EmptyCard
+    ///   NodeType::Browser → cards/browser/card.rs 的 BrowserCard
+    ///   五种类型是一一映射，registry 不做运行时动态注册
     ///
     /// 执行过程：
     ///   1. card_for(NodeType::Term)
@@ -84,6 +90,7 @@ mod tests {
         let agent = card_for(NodeType::Agent);
         let rect = card_for(NodeType::Rect);
         let preview = card_for(NodeType::Preview);
+        let browser = card_for(NodeType::Browser);
 
         assert_eq!(
             term.ty(),
@@ -105,6 +112,11 @@ mod tests {
             NodeType::Preview,
             "NodeType::Preview 应 dispatch 到 PreviewCard"
         );
+        assert_eq!(
+            browser.ty(),
+            NodeType::Browser,
+            "NodeType::Browser 应 dispatch 到 BrowserCard"
+        );
         assert_ne!(
             term.ty(),
             NodeType::Agent,
@@ -114,6 +126,11 @@ mod tests {
             preview.wheel_scroll_mode(),
             CardWheelScrollMode::NativeElement,
             "Preview card 应声明 NativeElement 模式，供 GPUI overflow_scroll 接管滚轮"
+        );
+        assert_eq!(
+            browser.wheel_scroll_mode(),
+            CardWheelScrollMode::NativeElement,
+            "Browser card 应声明 NativeElement 模式，供 native WebView 接管滚轮"
         );
         assert_eq!(
             term.wheel_scroll_mode(),
@@ -132,3 +149,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/cards/browser_url_tests.rs"]
+mod browser_url_tests;

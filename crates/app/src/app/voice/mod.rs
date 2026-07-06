@@ -430,6 +430,7 @@ fn voice_card_kind(kind: &canvas::CanvasNodeKind) -> VoiceCardKind {
             },
         },
         canvas::CanvasNodeKind::Preview(_) => VoiceCardKind::Preview,
+        canvas::CanvasNodeKind::Browser(_) => VoiceCardKind::Browser,
         canvas::CanvasNodeKind::Rect(_) => VoiceCardKind::Rect,
     }
 }

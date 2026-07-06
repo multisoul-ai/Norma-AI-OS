@@ -8,7 +8,7 @@ Every session must begin by reading [`AGENTS.md`](AGENTS.md). It is the short na
 
 ## 1. Project Overview
 
-Multisoul Desktop is a macOS spatial workbench scaffold. The product direction is **Live Node on Infinite Canvas**: an infinite canvas hosts live executable nodes, with Terminal as the first live node.
+Norma OS is a macOS spatial workbench scaffold. The product direction is **Live Node on Infinite Canvas**: an infinite canvas hosts live executable nodes, with Terminal as the first live node.
 
 Workspace crates:
 
@@ -66,7 +66,7 @@ At a glance:
 - Drag a node by its title bar.
 - Single-click selects a node; clicking blank canvas clears selection.
 - Double-click a focusable node, or click a terminal/agent body, to focus it.
-- `Esc` exits node focus.
+- `Cmd+Esc` exits node focus; bare `Esc` passes through to the PTY.
 - Space plus left-drag, or middle-drag, pans the canvas.
 - Canvas wheel scroll is off by default; enable the toolbar toggle to pan the viewport. Terminal scrollback and preview cards handle wheel separately.
 - The app drains PTY output roughly every 12ms and repaints only when dirty.
@@ -103,6 +103,7 @@ bash scripts/check-no-allow.sh
 bash scripts/check-agent-guide-lines.sh
 bash scripts/check-storage-boundaries.sh
 bash scripts/check-performance-guardrails.sh
+bash scripts/check-codesign-readiness.sh
 python3 scripts/check-video-wallpaper-performance.py
 ```
 
@@ -224,6 +225,6 @@ reference them in your reply using standard Markdown image syntax:
 ![description](/absolute/path/to/image.png)
 
 Supported formats: png, jpg, jpeg, gif, webp.
-The MultiSoul mobile app will automatically render these images inline.
+The Norma OS mobile app will automatically render these images inline.
 
 <!-- msctl-inject-end -->

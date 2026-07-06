@@ -7,6 +7,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+const APP_DISPLAY_NAME: &str = "Norma OS";
+
 #[derive(Default)]
 pub(crate) struct WorkspaceWindowRegistry {
     windows_by_root: HashMap<PathBuf, WindowHandle<MultisoulApp>>,
@@ -53,6 +55,8 @@ pub(crate) fn open_multisoul_window(
     let handle = cx.open_window(window_options(title, bounds), |window, cx| {
         cx.new(|cx| {
             let mut app = MultisoulApp::new(cx);
+            app.start_norma_drain_loop(window, cx);
+            app.start_cef_message_pump_loop(window, cx);
             if let InitialWindowState::Workspace(path) = state {
                 app.open_workspace_path(path, window, cx);
             }
@@ -64,14 +68,14 @@ pub(crate) fn open_multisoul_window(
 
 pub(crate) fn title_for_initial_state(state: &InitialWindowState) -> String {
     match state {
-        InitialWindowState::Launchpad => "Multisoul".to_string(),
+        InitialWindowState::Launchpad => APP_DISPLAY_NAME.to_string(),
         InitialWindowState::Workspace(path) => {
             let name = path
                 .file_name()
                 .and_then(|name| name.to_str())
                 .filter(|name| !name.is_empty())
                 .unwrap_or("Workspace");
-            format!("{name} - Multisoul")
+            format!("{name} - {APP_DISPLAY_NAME}")
         }
     }
 }
@@ -250,13 +254,13 @@ mod tests {
         );
     }
 
-    /// WN-2: workspace 窗口标题应使用项目名，启动页标题保持应用名。
+    /// WN-2: workspace 窗口标题应使用项目名，启动页标题保持 Norma OS 应用名。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   launchpad title = "Multisoul"
+    ///   launchpad title = "Norma OS"
     ///   workspace path = /tmp/acme
     ///   file_name(path) = "acme"
-    ///   expected workspace title = "acme - Multisoul"
+    ///   expected workspace title = "acme - Norma OS"
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. title_for_initial_state(Launchpad)
@@ -264,23 +268,26 @@ mod tests {
     ///   3. 对比两个标题
     ///
     /// 预期结果：
-    ///   - 正断言：启动页标题为 Multisoul
-    ///   - 正断言：项目窗口标题包含项目名和 Multisoul
-    ///   - 负断言：项目窗口不应继续只显示 Multisoul
+    ///   - 正断言：启动页标题为 Norma OS
+    ///   - 正断言：项目窗口标题包含项目名和 Norma OS
+    ///   - 负断言：项目窗口不应继续只显示旧品牌 Multisoul
     #[test]
     fn test_window_titles_distinguish_workspace_from_launchpad() {
         let launchpad = title_for_initial_state(&InitialWindowState::Launchpad);
         let workspace =
             title_for_initial_state(&InitialWindowState::Workspace(PathBuf::from("/tmp/acme")));
 
-        assert_eq!(launchpad, "Multisoul", "Launchpad 窗口标题应保持应用名");
         assert_eq!(
-            workspace, "acme - Multisoul",
+            launchpad, "Norma OS",
+            "Launchpad 窗口标题应保持 Norma OS 应用名"
+        );
+        assert_eq!(
+            workspace, "acme - Norma OS",
             "项目窗口标题应显示项目名，方便 macOS 窗口切换"
         );
         assert_ne!(
             workspace, "Multisoul",
-            "项目窗口不应继续只显示 Multisoul，否则多个项目窗口无法区分"
+            "项目窗口不应继续只显示旧品牌 Multisoul，否则重命名不完整"
         );
     }
 

@@ -4,6 +4,9 @@ use canvas::{
     RectNode, Selection, TermSpec, Vec2, Viewport,
 };
 
+#[path = "card_scroll_wheel_tests.rs"]
+mod wheel_tests;
+
 fn preview_kind() -> CanvasNodeKind {
     CanvasNodeKind::Preview(PreviewSpec {
         path: "/tmp/report.md".to_string(),
@@ -280,24 +283,26 @@ fn test_selected_terminal_body_scroll_belongs_to_terminal_scrollback() {
     );
 }
 
-/// 已选 Claude/Codex Agent 正文区命中时，滚轮应同样归 terminal scrollback。
+/// 已选 Claude/Codex/OpenCode Agent 正文区命中时，滚轮应同样归 terminal-owned wheel。
 ///
 /// 数据构造（含关键数值推导）：
 ///   Claude bounds = origin(100,50) size(300x220)
 ///   Codex bounds  = origin(500,50) size(300x220)
+///   OpenCode bounds = origin(900,50) size(300x220)
 ///   viewport.pan=(20,10), zoom=2
 ///   正文 y=80 → screen_y = 80*2 + 10 = 170
-///   title_bottom_screen_y = 50*2 + 10 + 26*2 = 162，因此两个点都在正文区
+///   title_bottom_screen_y = 50*2 + 10 + 26*2 = 162，因此三个点都在正文区
 ///
 /// 执行过程：
-///   1. add Claude/Codex 两个 Agent 节点
+///   1. add Claude/Codex/OpenCode 三个 Agent 节点
 ///   2. 分别 select_only 并命中各自正文点
-///   3. 对两个 screen point 做滚轮归属判断
+///   3. 对三个 screen point 做滚轮归属判断
 ///
 /// 预期结果：
 ///   - 正断言：Claude 归属 TerminalScrollback(claude)
 ///   - 正断言：Codex 归属 TerminalScrollback(codex)
-///   - 负断言：Claude/Codex 都不应归 CanvasViewport
+///   - 正断言：OpenCode 归属 TerminalScrollback(opencode)
+///   - 负断言：Claude/Codex/OpenCode 都不应归 CanvasViewport
 #[test]
 fn test_selected_agent_bodies_scroll_belong_to_terminal_scrollback() {
     let mut doc = Document::new();
@@ -313,15 +318,27 @@ fn test_selected_agent_bodies_scroll_belong_to_terminal_scrollback() {
         agent_kind(AgentProfile::Codex),
         CanvasRect::new(500.0, 50.0, 300.0, 220.0),
     );
+    let opencode = doc.add_node(
+        agent_kind(AgentProfile::OpenCode),
+        CanvasRect::new(900.0, 50.0, 300.0, 220.0),
+    );
     let claude_selection = selected_selection(claude);
     let codex_selection = selected_selection(codex);
+    let opencode_selection = selected_selection(opencode);
     let claude_point = screen_point(doc.viewport, 130.0, 80.0);
     let codex_point = screen_point(doc.viewport, 530.0, 80.0);
+    let opencode_point = screen_point(doc.viewport, 930.0, 80.0);
 
     let claude_owner =
         wheel_scroll_owner_for_point(doc.nodes(), &claude_selection, claude_point, doc.viewport);
     let codex_owner =
         wheel_scroll_owner_for_point(doc.nodes(), &codex_selection, codex_point, doc.viewport);
+    let opencode_owner = wheel_scroll_owner_for_point(
+        doc.nodes(),
+        &opencode_selection,
+        opencode_point,
+        doc.viewport,
+    );
 
     assert_eq!(
         claude_owner,
@@ -333,6 +350,11 @@ fn test_selected_agent_bodies_scroll_belong_to_terminal_scrollback() {
         WheelScrollOwner::TerminalScrollback(codex),
         "已选 Codex 正文区滚轮应归 terminal scrollback"
     );
+    assert_eq!(
+        opencode_owner,
+        WheelScrollOwner::TerminalScrollback(opencode),
+        "已选 OpenCode 正文区滚轮应归 terminal-owned wheel，供 TUI/scrollback 再分流"
+    );
     assert_ne!(
         claude_owner,
         WheelScrollOwner::CanvasViewport,
@@ -342,6 +364,71 @@ fn test_selected_agent_bodies_scroll_belong_to_terminal_scrollback() {
         codex_owner,
         WheelScrollOwner::CanvasViewport,
         "已选 Codex 正文区滚轮不应归 CanvasViewport"
+    );
+    assert_ne!(
+        opencode_owner,
+        WheelScrollOwner::CanvasViewport,
+        "已选 OpenCode 正文区滚轮不应归 CanvasViewport，否则 TUI 无法收到 wheel"
+    );
+}
+
+/// 未选 Terminal/Agent 正文区命中时，滚轮仍应归画布 viewport。
+///
+/// 数据构造（含关键数值推导）：
+///   terminal bounds = origin(100,50) size(300x220)
+///   OpenCode bounds = origin(500,50) size(300x220)
+///   viewport.pan=(20,10), zoom=2
+///   正文 y=80 → screen_y = 170 > title_bottom_screen_y 162
+///   selection 为空，因此两个 terminal-backed 卡片都未选中
+///
+/// 执行过程：
+///   1. add Terminal 与 OpenCode Agent
+///   2. 不选择任何节点
+///   3. 对两个正文 screen point 做滚轮归属判断
+///
+/// 预期结果：
+///   - 正断言：Terminal/OpenCode 都归 CanvasViewport
+///   - 负断言：未选卡片不应归 TerminalScrollback，否则 hover 就会抢画布滚轮
+#[test]
+fn test_unselected_terminal_and_agent_body_scroll_belongs_to_canvas() {
+    let mut doc = Document::new();
+    doc.viewport = Viewport {
+        pan: Vec2::new(20.0, 10.0),
+        zoom: 2.0,
+    };
+    let term = doc.add_node(term_kind(), CanvasRect::new(100.0, 50.0, 300.0, 220.0));
+    let opencode = doc.add_node(
+        agent_kind(AgentProfile::OpenCode),
+        CanvasRect::new(500.0, 50.0, 300.0, 220.0),
+    );
+    let selection = Selection::new();
+    let term_point = screen_point(doc.viewport, 130.0, 80.0);
+    let opencode_point = screen_point(doc.viewport, 530.0, 80.0);
+
+    let term_owner =
+        wheel_scroll_owner_for_point(doc.nodes(), &selection, term_point, doc.viewport);
+    let opencode_owner =
+        wheel_scroll_owner_for_point(doc.nodes(), &selection, opencode_point, doc.viewport);
+
+    assert_eq!(
+        term_owner,
+        WheelScrollOwner::CanvasViewport,
+        "未选 Terminal 正文区滚轮应继续归 CanvasViewport"
+    );
+    assert_eq!(
+        opencode_owner,
+        WheelScrollOwner::CanvasViewport,
+        "未选 OpenCode 正文区滚轮应继续归 CanvasViewport"
+    );
+    assert_ne!(
+        term_owner,
+        WheelScrollOwner::TerminalScrollback(term),
+        "未选 Terminal 不应抢 terminal scrollback"
+    );
+    assert_ne!(
+        opencode_owner,
+        WheelScrollOwner::TerminalScrollback(opencode),
+        "未选 OpenCode 不应抢 terminal wheel，否则路过卡片会影响画布滚动"
     );
 }
 

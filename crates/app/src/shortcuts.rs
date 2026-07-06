@@ -12,6 +12,7 @@ const SHORTCUT_PREFS_KEY: &str = "keyboard.shortcuts.v1";
 pub(crate) enum ShortcutCommandId {
     NewWindow,
     NewTerminal,
+    NewBrowser,
     CopyCardContent,
     OpenProject,
     OpenPreviewFile,
@@ -267,6 +268,14 @@ pub(crate) fn default_shortcut_entries() -> &'static [ShortcutEntry] {
             editable: true,
         },
         ShortcutEntry {
+            command: ShortcutCommandId::NewBrowser,
+            category: "Workspace",
+            title: "New Browser",
+            hint: "Create a lightweight browser card in the visible canvas",
+            default_keystroke: None,
+            editable: true,
+        },
+        ShortcutEntry {
             command: ShortcutCommandId::OpenProject,
             category: "Workspace",
             title: "Open Project",
@@ -342,8 +351,8 @@ pub(crate) fn default_shortcut_entries() -> &'static [ShortcutEntry] {
             command: ShortcutCommandId::ExitFocus,
             category: "Layout",
             title: "Exit Focus",
-            hint: "Return keyboard control to the canvas",
-            default_keystroke: Some("escape"),
+            hint: "Return keyboard control to the canvas. When a card is focused, bare Esc always reaches the terminal — use this shortcut or click outside to exit.",
+            default_keystroke: Some("cmd-escape"),
             editable: true,
         },
         ShortcutEntry {

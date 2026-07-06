@@ -90,6 +90,7 @@ pub(crate) struct SettingsPanelState {
     pub(crate) active_section: SettingsSection,
     pub(crate) codex_hook_status: HookInstallStatus,
     pub(crate) claude_hook_status: HookInstallStatus,
+    pub(crate) opencode_hook_status: HookInstallStatus,
 }
 
 impl Default for SettingsPanelState {
@@ -99,6 +100,7 @@ impl Default for SettingsPanelState {
             active_section: SettingsSection::General,
             codex_hook_status: HookInstallStatus::default(),
             claude_hook_status: HookInstallStatus::default(),
+            opencode_hook_status: HookInstallStatus::default(),
         }
     }
 }
@@ -219,6 +221,7 @@ impl MultisoulApp {
                     .child(settings_content(
                         theme,
                         &self.settings_panel,
+                        &self.agent_definitions,
                         &self.voice_settings,
                         &self.wallpaper_settings,
                         &self.shortcuts,
@@ -263,7 +266,7 @@ impl MultisoulApp {
             // [MOCK] Runtime/Agents/Skills 走 mock_section + 硬编码假数据，暂时屏蔽。
             // .child(section_button(theme, SettingsSection::Runtime, active, cx))
             .child(section_button(theme, SettingsSection::Voice, active, cx))
-            // [MOCK] .child(section_button(theme, SettingsSection::Agents, active, cx))
+            .child(section_button(theme, SettingsSection::Agents, active, cx))
             // [MOCK] .child(section_button(theme, SettingsSection::Skills, active, cx))
             .child(section_button(theme, SettingsSection::Hooks, active, cx))
             .child(section_button(

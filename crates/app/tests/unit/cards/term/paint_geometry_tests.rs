@@ -36,6 +36,10 @@ fn test_snapshot_with_cursor(
         lines,
         display_offset: 0,
         history_size: 0,
+        alt_screen: false,
+        alternate_scroll: true,
+        mouse_mode: false,
+        sgr_mouse: false,
     }
 }
 
@@ -107,6 +111,61 @@ fn test_cursor_bounds_follow_grid_position() {
     assert_ne!(
         cursor.bounds.origin, bounds.origin,
         "cursor 不应固定在 canvas 原点，否则输入会看起来没有落到真实位置"
+    );
+}
+
+/// scrollback 回看历史时不应绘制 live cursor，避免历史 viewport 叠加实时输入光标。
+///
+/// 数据构造（含关键数值推导）：
+///   grid = 2 行 × 3 列
+///   display_offset = 2，表示当前可见 rows 已经按 line - 2 读取历史内容
+///   cursor_line = 1, cursor_col = 2 仍代表 live terminal 底部光标，而不是历史 viewport 光标
+///
+/// 执行过程：
+///   1. 构造带 display_offset=2 的 GridSnapshot
+///   2. build_layout 将 snapshot 转成 TerminalLayout
+///   3. paint_layer_order 决定实际绘制层
+///
+/// 预期结果：
+///   - 正断言：layout.cursor_visible 为 false，回看历史时不显示 live cursor
+///   - 正断言：paint_layer_order 不包含 Cursor 层
+///   - 负断言：paint_layer_order 不应继续包含 Cursor，否则历史内容上会叠加错位光标
+#[test]
+fn test_scrollback_layout_hides_live_cursor() {
+    let palette = test_palette();
+    let fg = TerminalColor::Named(TerminalNamedColor::Foreground);
+    let bg = TerminalColor::Named(TerminalNamedColor::Background);
+    let rows = vec![
+        vec![
+            test_cell('A', fg, bg, CellAttrs::default()),
+            test_cell('B', fg, bg, CellAttrs::default()),
+            test_cell('C', fg, bg, CellAttrs::default()),
+        ],
+        vec![
+            test_cell('D', fg, bg, CellAttrs::default()),
+            test_cell('E', fg, bg, CellAttrs::default()),
+            test_cell('F', fg, bg, CellAttrs::default()),
+        ],
+    ];
+    let mut snapshot = test_snapshot_with_cursor(rows, 1, 2);
+    snapshot.display_offset = 2;
+    snapshot.history_size = 2;
+
+    let layout = build_layout(&snapshot, palette, test_metrics(), test_glass_style());
+    let layers = paint_layer_order(&layout);
+
+    assert!(
+        !layout.cursor_visible,
+        "display_offset=2 时应隐藏 live cursor，否则历史 viewport 会显示实时输入光标"
+    );
+    assert!(
+        !layers.contains(&TerminalPaintLayer::Cursor),
+        "scrollback layout 不应包含 Cursor 绘制层，实际层为 {layers:?}"
+    );
+    assert_ne!(
+        layers.last(),
+        Some(&TerminalPaintLayer::Cursor),
+        "scrollback 下最后一层不应仍是 Cursor，否则会覆盖历史文本"
     );
 }
 

@@ -3,6 +3,7 @@ mod app;
 mod assets;
 mod canvas;
 mod cards;
+mod frame_diagnostics;
 mod motion;
 mod norma;
 mod preview;
@@ -11,14 +12,16 @@ mod shortcuts;
 mod workspace;
 
 use app::{
-    CopyCardContent, NewClaudeAgent, NewCodexAgent, NewOpenCodeAgent, NewTerminal, NewWindow,
-    OpenPreviewFile, OpenProject, ReflowLayout, ToggleMasterLayout, ToggleSettings,
+    CopyCardContent, NewBrowser, NewClaudeAgent, NewCodexAgent, NewOpenCodeAgent, NewTerminal,
+    NewWindow, OpenPreviewFile, OpenProject, ReflowLayout, ToggleMasterLayout, ToggleSettings,
 };
 use assets::EmbeddedAssets;
 use gpui::{App, Application, Menu, MenuItem};
 use workspace::windowing::{open_multisoul_window, InitialWindowState};
 
 fn main() {
+    app::cef_process::exit_if_cef_subprocess();
+
     // RUST_LOG 控制级别；frame-time / 热点路径打点见各 view。
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -29,12 +32,13 @@ fn main() {
     Application::new()
         .with_assets(EmbeddedAssets)
         .run(|cx: &mut App| {
-            // 菜单（App 显示名 Multisoul）。
+            // 菜单（App 显示名 Norma OS）。
             cx.set_menus(vec![Menu {
-                name: "Multisoul".into(),
+                name: "Norma OS".into(),
                 items: vec![
                     MenuItem::action("New Window", NewWindow),
                     MenuItem::action("New Terminal", NewTerminal),
+                    MenuItem::action("New Browser", NewBrowser),
                     MenuItem::action("Copy", CopyCardContent),
                     MenuItem::action("Open Project", OpenProject),
                     MenuItem::action("Preview File", OpenPreviewFile),

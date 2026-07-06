@@ -2,7 +2,7 @@
 //! 关闭菜单并派发到既有 on_new_terminal / spawn_agent_card / on_open_preview_file。
 
 use super::chrome::chrome_shadow;
-use super::{MultisoulApp, NewTerminal, OpenPreviewFile};
+use super::{MultisoulApp, NewBrowser, NewTerminal, OpenPreviewFile};
 use canvas::AgentProfile;
 use gpui::{
     div, prelude::*, px, rgba, App, ClickEvent, Context, Div, MouseButton, Stateful, Window,
@@ -77,6 +77,17 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    pub(super) fn on_new_menu_browser(
+        &mut self,
+        _: &ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.interaction.close_new_menu();
+        self.on_new_browser(&NewBrowser, window, cx);
+        cx.notify();
+    }
+
     /// ✚ 弹出菜单：在顶部工具栏下方居中悬浮的玻璃 pill，列出 4 个新建入口。
     /// 绝对定位 `top(80)` 使其覆盖画布；菜单容器吞掉左键按下事件，避免穿透到画布。
     pub(super) fn render_new_menu(&self, cx: &mut Context<Self>) -> Div {
@@ -137,6 +148,13 @@ impl MultisoulApp {
                         "Preview",
                         "new-menu-preview",
                         cx.listener(Self::on_new_menu_preview),
+                    ))
+                    .child(new_menu_item(
+                        theme,
+                        ToolbarIcon::Browser,
+                        "Browser",
+                        "new-menu-browser",
+                        cx.listener(Self::on_new_menu_browser),
                     )),
             )
     }

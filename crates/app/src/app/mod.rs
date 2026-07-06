@@ -1,5 +1,5 @@
-//! GPUI 主视图：持有 Runtime，装配画布/终端渲染，处理快捷键与帧级 drain。
-
+use crate::app::browser::{BrowserAddressEdit, BrowserStore};
+use crate::app::frame_throttle::{FrameThrottle, CURSOR_REPAINT_INTERVAL};
 use crate::canvas::interaction::InteractionState;
 use crate::canvas::master_layout::{
     apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
@@ -16,21 +16,29 @@ use crate::motion::MotionStore;
 use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
+use crate::settings::agents::AgentDefinitionsState;
 use crate::settings::panel::SettingsPanelState;
 use crate::settings::voice::VoiceSettingsState;
 use crate::settings::wallpaper::WallpaperSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
-use canvas::{CanvasRect, NodeId, NodeType, Vec2};
-use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
+use canvas::{CanvasNodeKind, CanvasRect, NodeId, NodeType, Vec2};
+use gpui::{
+    actions, div, prelude::*, px, Action, ClickEvent, Context, FocusHandle, Focusable, Window,
+};
 use runtime::{route, InputEvent, InputMode, NodeRunState, Route, Runtime};
 use std::time::Duration;
 use ui::Theme;
 
 mod agent_actions;
+pub(crate) mod browser;
+pub(crate) mod cef_process;
 mod chrome;
+mod clipboard_image;
 mod file_picker;
+mod frame_loop;
+mod frame_throttle;
 mod ime;
 mod ime_geometry;
 mod keyboard;
@@ -45,7 +53,6 @@ mod video_wallpaper;
 mod voice;
 mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
-
 actions!(
     multisoul,
     [
@@ -54,6 +61,7 @@ actions!(
         NewClaudeAgent,
         NewCodexAgent,
         NewOpenCodeAgent,
+        NewBrowser,
         CopyCardContent,
         OpenPreviewFile,
         OpenProject,
@@ -63,6 +71,19 @@ actions!(
         ToggleSettings
     ]
 );
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BrowserCommandKind {
+    Back,
+    Forward,
+    Reload,
+    EditAddress,
+}
+#[derive(Clone, Debug, PartialEq, Action)]
+#[action(namespace = multisoul, no_json)]
+pub(crate) struct BrowserCommand {
+    pub(crate) node_id: NodeId,
+    pub(crate) command: BrowserCommandKind,
+}
 const WALLPAPER_IMAGE_OPACITY: f32 = 1.0;
 const WALLPAPER_SHADE_TOP_ALPHA: u8 = 0x00;
 const WALLPAPER_SHADE_BOTTOM_ALPHA: u8 = 0x00;
@@ -73,9 +94,12 @@ pub struct MultisoulApp {
     pub interaction: InteractionState,
     pub(crate) motion: MotionStore,
     pub(crate) previews: PreviewStore,
+    pub(crate) browsers: BrowserStore,
+    pub(crate) browser_address_edit: Option<BrowserAddressEdit>,
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) persistence: PersistenceScheduler,
     pub(crate) settings_panel: SettingsPanelState,
+    pub(crate) agent_definitions: AgentDefinitionsState,
     pub(crate) voice_settings: VoiceSettingsState,
     pub(crate) shortcuts: ShortcutSettingsState,
     pub(crate) norma_server: NormaServer,
@@ -90,6 +114,7 @@ pub struct MultisoulApp {
     pub(crate) video_wallpaper: Option<video_wallpaper::VideoWallpaperState>,
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
     pub(crate) terminal_cursor_phase: f32,
+    terminal_cursor_repaint: FrameThrottle,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -109,43 +134,7 @@ impl MultisoulApp {
         })
         .detach();
 
-        // 后台帧循环：每 ~12ms drain 一次（8–16ms 批处理窗口），dirty 才 repaint。
-        cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor()
-                    .timer(Duration::from_millis(12))
-                    .await;
-                let go = this.update(cx, |app, cx| {
-                    let runtime_changed = app.runtime.drain_all();
-                    let agent_hook_changed =
-                        app.agent_hook_server.drain_into_runtime(&mut app.runtime);
-                    let runtime_events = app.runtime.take_events();
-                    for event in &runtime_events {
-                        tracing::debug!(?event, "runtime event");
-                    }
-                    let motion_changed = app.motion.tick(Duration::from_millis(12));
-                    let cursor_changed =
-                        app.advance_terminal_cursor_phase(Duration::from_millis(12));
-                    let persistence_changed = app.tick_persistence(Duration::from_millis(12));
-                    let norma_pending = app.norma_server.has_pending();
-                    if runtime_changed
-                        || !runtime_events.is_empty()
-                        || agent_hook_changed
-                        || motion_changed
-                        || cursor_changed
-                        || persistence_changed
-                        || norma_pending
-                        || app.agent_hook_server.has_pending()
-                    {
-                        cx.notify();
-                    }
-                });
-                if go.is_err() {
-                    break; // 视图已释放
-                }
-            }
-        })
-        .detach();
+        Self::start_frame_loops(cx);
 
         let wallpaper_settings = WallpaperSettingsState::load_default();
         let agent_hook_server = AgentHookServer::start();
@@ -158,9 +147,12 @@ impl MultisoulApp {
             interaction: InteractionState::default(),
             motion: MotionStore::from_env(),
             previews: PreviewStore::default(),
+            browsers: BrowserStore::default(),
+            browser_address_edit: None,
             master_layout: MasterLayoutState::default(),
             persistence: PersistenceScheduler::default(),
             settings_panel: SettingsPanelState::default(),
+            agent_definitions: AgentDefinitionsState::default(),
             voice_settings: VoiceSettingsState::load_default(),
             shortcuts: ShortcutSettingsState::load_default(),
             norma_server: NormaServer::start(),
@@ -175,13 +167,21 @@ impl MultisoulApp {
             video_wallpaper: None,
             last_reflow_window_size: None,
             terminal_cursor_phase: 0.0,
+            terminal_cursor_repaint: FrameThrottle::default(),
         }
     }
 
     fn advance_terminal_cursor_phase(&mut self, delta: Duration) -> bool {
         if !self.focused_terminal_cursor_animation_active() {
+            self.terminal_cursor_repaint.reset();
             return false;
         }
+        let Some(delta) = self
+            .terminal_cursor_repaint
+            .tick(delta, CURSOR_REPAINT_INTERVAL)
+        else {
+            return false;
+        };
         let next = advance_cursor_phase(self.terminal_cursor_phase, delta);
         let changed = (next - self.terminal_cursor_phase).abs() > f32::EPSILON;
         self.terminal_cursor_phase = next;
@@ -207,7 +207,6 @@ impl MultisoulApp {
         )
     }
 
-    /// Cmd+N：在当前可见画布区域内新建 Terminal 节点，并触发三列平铺 reflow。
     fn on_new_terminal(&mut self, _: &NewTerminal, window: &mut Window, cx: &mut Context<Self>) {
         if !matches!(self.screen, AppScreen::Canvas) {
             self.workspace_state.error = Some("Open a project before creating terminals.".into());
@@ -230,10 +229,32 @@ impl MultisoulApp {
                 self.mark_session_dirty();
             }
             Err(e) => {
-                // SPEC §8：spawn 失败不 panic，仅 error 日志（节点内错误占位由 Task 15 渲染）。
                 tracing::error!(error = %e, "failed to spawn terminal");
             }
         }
+        cx.notify();
+    }
+
+    fn on_new_browser(&mut self, _: &NewBrowser, window: &mut Window, cx: &mut Context<Self>) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error = Some("Open a project before creating browsers.".into());
+            cx.notify();
+            return;
+        }
+
+        let bounds = self
+            .visible_canvas_rect(window)
+            .inset(self.layout_gap_canvas());
+        let node_id = self.runtime.spawn_browser(
+            crate::cards::browser::normalize_browser_url(""),
+            None,
+            bounds,
+        );
+        self.runtime.selection.select_only(node_id);
+        self.runtime.focus.exit_to_canvas();
+        self.motion.spawn_node(node_id, bounds);
+        self.apply_layout_for_current_mode(window);
+        self.mark_canvas_dirty();
         cx.notify();
     }
 
@@ -281,8 +302,12 @@ impl MultisoulApp {
         }
         self.interaction.clear_text_selection_for_node(node_id);
 
-        // 在 remove_node 真正执行前，从删除前的节点顺序中抓取应承接选择的邻居。
-        // document.nodes() 的插入序即 reflow 行主序；删除后 i+1 将滑入槽位 i。
+        let removed_node_was_browser = self
+            .runtime
+            .document
+            .node(node_id)
+            .map(|node| matches!(node.kind, CanvasNodeKind::Browser(_)))
+            .unwrap_or(false);
         let next_id = canvas::next_neighbor_after_delete(self.runtime.document.nodes(), node_id);
 
         let changed = close_node_and_update_layout_for_area(
@@ -295,12 +320,13 @@ impl MultisoulApp {
         );
         if changed {
             self.previews.remove(node_id);
+            if removed_node_was_browser {
+                self.focus_handle.focus(window);
+            }
+            self.remove_browser_view(node_id);
             self.mark_canvas_dirty();
             self.mark_session_dirty();
 
-            // 删除后承接选择：选中下一个邻居，使 Cmd+D 可连续触发。
-            // Runtime::remove_node 已 deselect(node_id) 并 exit_to_canvas；
-            // 这里再选中邻居以保持键盘选区连续性。
             match next_id {
                 Some(next) if self.runtime.document.node(next).is_some() => {
                     self.runtime.selection.select_only(next);
@@ -308,7 +334,6 @@ impl MultisoulApp {
                     self.interaction.keyboard_selected_node = Some(next);
                 }
                 _ => {
-                    // 无幸存节点：清空键盘选区（Runtime 已清空 selection/focus）。
                     self.interaction.keyboard_selected_node = None;
                 }
             }
@@ -411,13 +436,12 @@ impl Focusable for MultisoulApp {
 
 impl Render for MultisoulApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.drain_norma_server(window, cx);
-
         let mut root = div()
             .key_context("MultisoulApp")
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(Self::on_new_window))
             .on_action(cx.listener(Self::on_new_terminal))
+            .on_action(cx.listener(Self::on_new_browser))
             .on_action(cx.listener(Self::on_new_claude_agent))
             .on_action(cx.listener(Self::on_new_codex_agent))
             .on_action(cx.listener(Self::on_copy_card_content))
@@ -427,6 +451,7 @@ impl Render for MultisoulApp {
             .on_action(cx.listener(Self::on_reflow_layout))
             .on_action(cx.listener(Self::on_toggle_master_layout))
             .on_action(cx.listener(Self::on_toggle_settings))
+            .on_action(cx.listener(Self::on_browser_command))
             .on_key_down(cx.listener(Self::on_key_down))
             .on_key_up(cx.listener(Self::on_key_up))
             .on_modifiers_changed(cx.listener(Self::on_modifiers_changed))

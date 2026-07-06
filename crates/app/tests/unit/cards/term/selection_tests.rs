@@ -29,6 +29,10 @@ fn snapshot_from_lines(lines: &[&str], cols: usize) -> GridSnapshot {
         cursor_col: 0,
         display_offset: 0,
         history_size: 0,
+        alt_screen: false,
+        alternate_scroll: true,
+        mouse_mode: false,
+        sgr_mouse: false,
     }
 }
 
@@ -173,6 +177,10 @@ fn test_terminal_selected_text_does_not_duplicate_wide_char_spacer() {
         lines: 1,
         display_offset: 0,
         history_size: 0,
+        alt_screen: false,
+        alternate_scroll: true,
+        mouse_mode: false,
+        sgr_mouse: false,
     };
     let range = crate::canvas::text_selection::TextRange::new(
         crate::canvas::text_selection::TextPoint::new(0, 0),
