@@ -10,8 +10,12 @@
     "build": "tsc -p tsconfig.json",
     "test": "node --test test/*.test.mjs"
   },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@types/ws": "^8.18.1",
     "typescript": "^5.7.2"
   }
 }

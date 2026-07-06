@@ -21,6 +21,11 @@
 - 支持用户语音打断 assistant 回复。
 - 底部语音条能显示 `Listening...` / `Replying...`。
 
+实现说明补充：
+
+- sidecar 的 Node WebSocket 客户端使用 `ws` 包，而不是依赖 Node 22 的 global `WebSocket`。
+- 原因是本任务要求 `OPENAI_API_KEY` 只能通过 `Authorization: Bearer ...` header 发送，不能进入 payload、URL、argv 或错误消息；当前 global `WebSocket` 不能满足这个 header 约束。
+
 本阶段不做：
 
 - 不处理 `enqueue_card_task`。

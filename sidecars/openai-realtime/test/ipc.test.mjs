@@ -11,20 +11,28 @@ const sidecarPath = resolve(packageRoot, "dist/main.js");
 const apiKey = "sk-test-secret-123456";
 const apiKeyPattern = /sk-test-secret-123456/;
 
-function spawnSidecar() {
+function spawnSidecar({ useFakeWebSocket = false } = {}) {
   assert.ok(
     existsSync(sidecarPath),
     `expected compiled sidecar at ${sidecarPath} before running IPC tests`,
   );
 
-  const child = spawn(process.execPath, [sidecarPath], {
+  const args = [];
+  if (useFakeWebSocket) {
+    args.push("--import", resolve(packageRoot, "test/fake-websocket-loader.mjs"));
+  }
+  args.push(sidecarPath);
+
+  const child = spawn(process.execPath, args, {
     cwd: packageRoot,
     env: { ...process.env, OPENAI_API_KEY: apiKey },
-    stdio: ["pipe", "pipe", "pipe"],
+    stdio: ["pipe", "pipe", "pipe", "ipc"],
   });
 
   const lines = [];
   const waiters = [];
+  const childMessages = [];
+  const childMessageWaiters = [];
   const stdoutChunks = [];
   const stderrChunks = [];
   let stdoutBuffer = "";
@@ -53,6 +61,17 @@ function spawnSidecar() {
   child.stderr.on("data", (chunk) => {
     stderrChunks.push(chunk);
   });
+  child.on("message", (message) => {
+    const waiterIndex = childMessageWaiters.findIndex((waiter) =>
+      waiter.predicate(message),
+    );
+    if (waiterIndex !== -1) {
+      const [waiter] = childMessageWaiters.splice(waiterIndex, 1);
+      waiter.resolve(message);
+      return;
+    }
+    childMessages.push(message);
+  });
 
   return {
     child,
@@ -65,6 +84,41 @@ function spawnSidecar() {
     async nextEvent() {
       const line = await nextLine(lines, waiters);
       return JSON.parse(line);
+    },
+    async nextEventOfType(type) {
+      while (true) {
+        const event = await this.nextEvent();
+        if (event.type === type) {
+          return event;
+        }
+      }
+    },
+    async nextChildMessage(kind, predicate = () => true) {
+      const existingIndex = childMessages.findIndex(
+        (message) => message?.kind === kind && predicate(message),
+      );
+      if (existingIndex !== -1) {
+        return childMessages.splice(existingIndex, 1)[0];
+      }
+
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error(`timed out waiting for child IPC message kind=${kind}`));
+        }, 1000);
+
+        childMessageWaiters.push({
+          predicate(message) {
+            return message?.kind === kind && predicate(message);
+          },
+          resolve(message) {
+            clearTimeout(timeout);
+            resolve(message);
+          },
+        });
+      });
+    },
+    sendControl(message) {
+      child.send(message);
     },
     stdoutText() {
       return stdoutChunks.join("");
@@ -131,6 +185,15 @@ function assertNoApiKeyLeak(ipc) {
     apiKeyPattern,
     "stderr must not contain the raw OPENAI_API_KEY",
   );
+}
+
+function parseSentRealtimeEvent(message) {
+  assert.equal(
+    typeof message?.data,
+    "string",
+    "fake WebSocket telemetry should carry serialized client JSON",
+  );
+  return JSON.parse(message.data);
 }
 
 /**
@@ -291,54 +354,313 @@ test("malformed input returns session_error without crashing", async () => {
 });
 
 /**
- * OpenAI mode placeholder: verifies Task 4 does not implement a WebSocket
- * client and instead returns a clear error when offline_echo is absent.
+ * OpenAI start_session handshake: verifies OpenAI mode opens the GA Realtime
+ * WebSocket, passes Authorization only in headers, and sends a session.update
+ * payload with audio config and task tool definitions.
  *
  * Data construction:
- *   session_id = "rt_openai"
- *   config.offline_echo is omitted, so this requests future OpenAI mode.
+ *   session_id = "rt_openai_start"
+ *   model      = "gpt-realtime-2", so the WebSocket URL must target
+ *                /v1/realtime?model=gpt-realtime-2.
+ *   tools      = ["enqueue_card_task", "cancel_card_task"] to prove the
+ *                session.update payload exposes both function definitions.
+ *   OPENAI_API_KEY = "sk-test-secret-123456", which must appear only in the
+ *                    Authorization header and nowhere in payload/stdout/stderr.
  *
  * Execution process:
- *   1. Spawn `node dist/main.js`.
- *   2. Send one JSONL `start_session` command without `offline_echo`.
- *   3. Read one stdout JSONL event.
+ *   1. Spawn the compiled sidecar with `--import test/fake-websocket-loader.mjs`.
+ *   2. Send one JSONL `start_session` command for OpenAI mode.
+ *   3. Read the fake WebSocket constructor telemetry and assert URL + headers.
+ *   4. Simulate socket open and capture the first client event sent upstream.
  *
  * Expected result:
- *   - Positive: event type is exactly `session_error`.
- *   - Positive: event message states OpenAI realtime is not implemented.
- *   - Negative: no `session_started` event is emitted for OpenAI mode.
- *   - Negative: stdout and stderr do not contain the API key.
+ *   - Positive: URL contains `wss://api.openai.com/v1/realtime?model=gpt-realtime-2`.
+ *   - Positive: Authorization header is `Bearer <OPENAI_API_KEY>`.
+ *   - Positive: session.update locks audio output to PCM and declares both tools.
+ *   - Negative: session.update payload must not contain the raw API key.
+ *   - Negative: stdout and stderr must not contain the raw API key.
  */
-test("OpenAI mode returns clear session_error until WebSocket support exists", async () => {
-  const ipc = spawnSidecar();
+test("OpenAI start_session opens websocket with auth header and sends session.update", async () => {
+  const ipc = spawnSidecar({ useFakeWebSocket: true });
   try {
     ipc.writeJson({
       type: "start_session",
-      session_id: "rt_openai",
-      config: { model: "gpt-realtime", tools: ["enqueue_card_task"] },
+      session_id: "rt_openai_start",
+      config: {
+        model: "gpt-realtime-2",
+        tools: ["enqueue_card_task", "cancel_card_task"],
+      },
     });
 
-    const event = await ipc.nextEvent();
+    const constructed = await ipc.nextChildMessage("ws-created");
 
-    assert.equal(
-      event.type,
-      "session_error",
-      "non-offline start_session should emit session_error in Task 4",
+    assert.match(
+      constructed.url,
+      /^wss:\/\/api\.openai\.com\/v1\/realtime\?model=gpt-realtime-2$/,
+      "OpenAI mode should connect to the GA Realtime WebSocket URL for the requested model",
     );
     assert.equal(
+      constructed.headers.Authorization,
+      `Bearer ${apiKey}`,
+      "OpenAI mode must send OPENAI_API_KEY only through the Authorization header",
+    );
+    ipc.sendControl({ kind: "ws-open" });
+    const sent = parseSentRealtimeEvent(await ipc.nextChildMessage("ws-send"));
+
+    assert.equal(
+      sent.type,
+      "session.update",
+      "OpenAI mode should send session.update immediately after the WebSocket opens",
+    );
+    assert.deepEqual(
+      sent.session.output_modalities,
+      ["audio", "text"],
+      "session.update should request both audio and text output modalities for the voice assistant",
+    );
+    assert.equal(
+      sent.session.audio.input.format.type,
+      "audio/pcm",
+      "session.update should declare PCM audio input format",
+    );
+    assert.equal(
+      sent.session.audio.input.format.rate,
+      24000,
+      "session.update should keep the 24 kHz PCM input rate expected by the Rust audio pipeline",
+    );
+    assert.equal(
+      sent.session.audio.output.format.type,
+      "audio/pcm",
+      "session.update should request PCM audio output for assistant playback",
+    );
+    assert.equal(
+      sent.session.audio.output.voice,
+      "marin",
+      "session.update should choose a deterministic assistant voice for MVP playback",
+    );
+    assert.equal(
+      sent.session.tools.length,
+      2,
+      "session.update should expose both enqueue_card_task and cancel_card_task tool definitions",
+    );
+    assert.deepEqual(
+      sent.session.tools.map((tool) => tool.name),
+      ["enqueue_card_task", "cancel_card_task"],
+      "session.update should include the expected tool names in order",
+    );
+    assert.doesNotMatch(
+      JSON.stringify(sent),
+      apiKeyPattern,
+      "session.update payload must never embed the raw OPENAI_API_KEY",
+    );
+    assertNoApiKeyLeak(ipc);
+  } finally {
+    await ipc.cleanup();
+  }
+});
+
+/**
+ * OpenAI input audio forwarding: verifies one Rust `input_audio_chunk` command
+ * becomes one Realtime `input_audio_buffer.append` event with the same base64.
+ *
+ * Data construction:
+ *   session_id = "rt_audio_in"
+ *   model      = "gpt-realtime-2"
+ *   data_b64   = "AAECAwQ=", representing five deterministic PCM bytes
+ *                [0x00, 0x01, 0x02, 0x03, 0x04].
+ *
+ * Execution process:
+ *   1. Start OpenAI mode with the fake WebSocket and simulate socket open.
+ *   2. Send one JSONL `input_audio_chunk` command from the Rust side.
+ *   3. Inspect the upstream WebSocket payload captured by the fake transport.
+ *
+ * Expected result:
+ *   - Positive: client event type is exactly `input_audio_buffer.append`.
+ *   - Positive: upstream `audio` field exactly matches the Rust `data_b64`.
+ *   - Negative: forwarded payload must not contain the raw API key.
+ */
+test("OpenAI input_audio_chunk maps to input_audio_buffer.append", async () => {
+  const ipc = spawnSidecar({ useFakeWebSocket: true });
+  try {
+    ipc.writeJson({
+      type: "start_session",
+      session_id: "rt_audio_in",
+      config: { model: "gpt-realtime-2", tools: [] },
+    });
+    await ipc.nextChildMessage("ws-created");
+    ipc.sendControl({ kind: "ws-open" });
+    await ipc.nextChildMessage("ws-send", (message) => {
+      return parseSentRealtimeEvent(message).type === "session.update";
+    });
+
+    ipc.writeJson({
+      type: "input_audio_chunk",
+      session_id: "rt_audio_in",
+      format: "pcm16",
+      sample_rate: 24000,
+      channels: 1,
+      data_b64: "AAECAwQ=",
+    });
+
+    const append = parseSentRealtimeEvent(
+      await ipc.nextChildMessage("ws-send", (message) => {
+        return parseSentRealtimeEvent(message).type === "input_audio_buffer.append";
+      }),
+    );
+
+    assert.equal(
+      append.type,
+      "input_audio_buffer.append",
+      "Rust input_audio_chunk should forward as OpenAI input_audio_buffer.append",
+    );
+    assert.equal(
+      append.audio,
+      "AAECAwQ=",
+      "input_audio_buffer.append should preserve the exact base64 PCM bytes from Rust",
+    );
+    assert.doesNotMatch(
+      JSON.stringify(append),
+      apiKeyPattern,
+      "input_audio_buffer.append payload must never embed the raw OPENAI_API_KEY",
+    );
+    assertNoApiKeyLeak(ipc);
+  } finally {
+    await ipc.cleanup();
+  }
+});
+
+/**
+ * OpenAI assistant audio mapping: verifies a fake Realtime audio delta from
+ * the WebSocket becomes one Norma `assistant_audio_chunk` event.
+ *
+ * Data construction:
+ *   session_id = "rt_audio_out"
+ *   delta      = "AAECAw==", representing four deterministic PCM bytes
+ *                [0x00, 0x01, 0x02, 0x03].
+ *
+ * Execution process:
+ *   1. Start OpenAI mode and simulate the WebSocket open handshake.
+ *   2. Inject one fake `response.output_audio.delta` server event.
+ *   3. Read the corresponding stdout JSONL event from the sidecar.
+ *
+ * Expected result:
+ *   - Positive: event type is exactly `assistant_audio_chunk`.
+ *   - Positive: session id is preserved and PCM metadata matches the MVP contract.
+ *   - Positive: data_b64 exactly matches the fake OpenAI audio delta.
+ *   - Negative: stdout and stderr must not contain the raw API key.
+ */
+test("OpenAI assistant audio delta maps to assistant_audio_chunk", async () => {
+  const ipc = spawnSidecar({ useFakeWebSocket: true });
+  try {
+    ipc.writeJson({
+      type: "start_session",
+      session_id: "rt_audio_out",
+      config: { model: "gpt-realtime-2", tools: [] },
+    });
+    await ipc.nextChildMessage("ws-created");
+    ipc.sendControl({ kind: "ws-open" });
+    await ipc.nextChildMessage("ws-send", (message) => {
+      return parseSentRealtimeEvent(message).type === "session.update";
+    });
+
+    ipc.sendControl({
+      kind: "ws-message",
+      data: {
+        type: "response.output_audio.delta",
+        delta: "AAECAw==",
+      },
+    });
+
+    const event = await ipc.nextEventOfType("assistant_audio_chunk");
+
+    assert.equal(
       event.session_id,
-      "rt_openai",
-      "OpenAI-mode error should preserve the command session_id",
+      "rt_audio_out",
+      "assistant_audio_chunk should preserve the active realtime session id",
+    );
+    assert.equal(
+      event.format,
+      "pcm16",
+      "assistant_audio_chunk should always emit PCM16 to the Rust audio sink",
+    );
+    assert.equal(
+      event.sample_rate,
+      24000,
+      "assistant_audio_chunk should keep the 24 kHz output sample rate expected by the app",
+    );
+    assert.equal(
+      event.channels,
+      1,
+      "assistant_audio_chunk should emit mono audio chunks for the MVP playback path",
+    );
+    assert.equal(
+      event.data_b64,
+      "AAECAw==",
+      "assistant_audio_chunk should preserve the exact OpenAI base64 audio delta",
+    );
+    assertNoApiKeyLeak(ipc);
+  } finally {
+    await ipc.cleanup();
+  }
+});
+
+/**
+ * OpenAI error sanitization: verifies server-side Realtime errors become one
+ * Norma `session_error` event and redact the raw API key from the message.
+ *
+ * Data construction:
+ *   session_id = "rt_error"
+ *   fake error = "upstream rejected sk-test-secret-123456"
+ *
+ * Execution process:
+ *   1. Start OpenAI mode and simulate the WebSocket open handshake.
+ *   2. Inject one fake `error` server event whose message contains the API key.
+ *   3. Read the resulting stdout JSONL `session_error`.
+ *
+ * Expected result:
+ *   - Positive: event type is exactly `session_error`.
+ *   - Positive: message still explains the upstream failure.
+ *   - Negative: message, stdout, and stderr must not contain the raw API key.
+ */
+test("OpenAI error maps to sanitized session_error", async () => {
+  const ipc = spawnSidecar({ useFakeWebSocket: true });
+  try {
+    ipc.writeJson({
+      type: "start_session",
+      session_id: "rt_error",
+      config: { model: "gpt-realtime-2", tools: [] },
+    });
+    await ipc.nextChildMessage("ws-created");
+    ipc.sendControl({ kind: "ws-open" });
+    await ipc.nextChildMessage("ws-send", (message) => {
+      return parseSentRealtimeEvent(message).type === "session.update";
+    });
+
+    ipc.sendControl({
+      kind: "ws-message",
+      data: {
+        type: "error",
+        error: {
+          message: `upstream rejected ${apiKey}`,
+        },
+      },
+    });
+
+    const event = await ipc.nextEventOfType("session_error");
+
+    assert.equal(
+      event.session_id,
+      "rt_error",
+      "session_error should preserve the active realtime session id",
     );
     assert.match(
       event.message,
-      /not implemented/i,
-      "OpenAI-mode error should clearly state realtime WebSocket is not implemented",
+      /upstream rejected/i,
+      "session_error should keep a useful upstream failure summary",
     );
-    assert.notEqual(
-      event.type,
-      "session_started",
-      "OpenAI mode must not emit session_started before WebSocket support exists",
+    assert.doesNotMatch(
+      event.message,
+      apiKeyPattern,
+      "session_error must redact the raw OPENAI_API_KEY from error messages",
     );
     assertNoApiKeyLeak(ipc);
   } finally {
