@@ -1,6 +1,4 @@
 //! portable-pty 封装：spawn 默认 shell、读线程桥接、resize、write、kill。
-//! 不引 tokio —— 读线程是普通 std::thread，数据经 crossbeam 通道回 app。
-
 use crate::message::PtyEvent;
 use crossbeam_channel::Sender;
 use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, PtySize};
@@ -70,8 +68,6 @@ impl PtyCommand {
     }
 }
 
-/// PTY 后端能力抽象：把"写、resize、kill"从具体 portable-pty 实现解耦，
-/// 便于 e2e 测试桩在不启动真实子进程的情况下驱动上层；域层无 GPUI 依赖。
 pub trait PtyBackend {
     fn write(&mut self, bytes: &[u8]) -> Result<(), PtyError>;
     fn resize(&mut self, cols: u16, rows: u16) -> Result<(), PtyError>;

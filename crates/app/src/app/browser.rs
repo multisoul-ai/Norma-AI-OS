@@ -1,10 +1,10 @@
 //! Browser card state, commands, and native WebView lifecycle.
 
-use super::{BrowserCommand, BrowserCommandKind, MultisoulApp};
+use super::MultisoulApp;
 use crate::cards::browser::normalize_browser_url;
 use canvas::{CanvasNodeKind, NodeId};
 use crossbeam_channel::{unbounded, Receiver, Sender};
-use gpui::{Context, KeyDownEvent, Window};
+use gpui::{Action, Context, KeyDownEvent, Window};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
@@ -18,6 +18,21 @@ pub(crate) use engine::BrowserEngineKind;
 pub(crate) use native::{browser_native_view_bounds, BrowserViewBounds, NativeBrowserView};
 
 const CEF_MESSAGE_PUMP_INTERVAL: Duration = Duration::from_millis(16);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BrowserCommandKind {
+    Back,
+    Forward,
+    Reload,
+    EditAddress,
+}
+
+#[derive(Clone, Debug, PartialEq, Action)]
+#[action(namespace = multisoul, no_json)]
+pub(crate) struct BrowserCommand {
+    pub(crate) node_id: NodeId,
+    pub(crate) command: BrowserCommandKind,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct BrowserAddressEdit {

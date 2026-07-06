@@ -3,8 +3,12 @@
 //! These accessors keep external e2e tests on stable, primitive state without
 //! exposing the full private settings model.
 
-use super::MultisoulApp;
+use super::{AppScreen, MultisoulApp};
+use crate::settings::agent_hooks::AgentHookServer;
 use crate::shortcuts::ShortcutCommandId;
+use crate::shortcuts::ShortcutSettingsState;
+use gpui::Context;
+use runtime::Runtime;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SettingsE2eSnapshot {
@@ -17,6 +21,27 @@ pub struct SettingsE2eSnapshot {
 }
 
 impl MultisoulApp {
+    pub fn new_with_pty_factory(cx: &mut Context<Self>, factory: runtime::PtyFactory) -> Self {
+        let agent_hook_server = AgentHookServer::start();
+        let mut runtime = Runtime::new();
+        runtime.set_pty_factory(factory);
+        runtime.set_agent_hook_config(agent_hook_server.runtime_config());
+        let mut app = Self::build(cx, runtime, agent_hook_server);
+        app.shortcuts = ShortcutSettingsState::default();
+        app
+    }
+
+    pub fn screen(&self) -> AppScreen {
+        self.screen
+    }
+
+    pub fn enter_canvas_for_test(&mut self, root: &std::path::Path, cx: &mut Context<Self>) {
+        self.runtime.set_workspace_root(root.to_path_buf());
+        self.screen = AppScreen::Canvas;
+        self.last_reflow_window_size = None;
+        cx.notify();
+    }
+
     pub fn settings_e2e_snapshot(&self) -> SettingsE2eSnapshot {
         let new_terminal = self
             .shortcuts
@@ -38,6 +63,7 @@ fn shortcut_command_name(command: ShortcutCommandId) -> &'static str {
     match command {
         ShortcutCommandId::NewWindow => "new_window",
         ShortcutCommandId::NewTerminal => "new_terminal",
+        ShortcutCommandId::NewBrowser => "new_browser",
         ShortcutCommandId::CopyCardContent => "copy_card_content",
         ShortcutCommandId::OpenProject => "open_project",
         ShortcutCommandId::OpenPreviewFile => "open_preview_file",

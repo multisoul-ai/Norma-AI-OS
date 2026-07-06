@@ -24,15 +24,14 @@ use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasNodeKind, CanvasRect, NodeId, NodeType, Vec2};
-use gpui::{
-    actions, div, prelude::*, px, Action, ClickEvent, Context, FocusHandle, Focusable, Window,
-};
+use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
 use runtime::{route, InputEvent, InputMode, NodeRunState, Route, Runtime};
 use std::time::Duration;
 use ui::Theme;
 
 mod agent_actions;
 pub(crate) mod browser;
+pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 pub(crate) mod cef_process;
 mod chrome;
 mod clipboard_image;
@@ -75,19 +74,6 @@ actions!(
         ToggleSettings
     ]
 );
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum BrowserCommandKind {
-    Back,
-    Forward,
-    Reload,
-    EditAddress,
-}
-#[derive(Clone, Debug, PartialEq, Action)]
-#[action(namespace = multisoul, no_json)]
-pub(crate) struct BrowserCommand {
-    pub(crate) node_id: NodeId,
-    pub(crate) command: BrowserCommandKind,
-}
 const WALLPAPER_IMAGE_OPACITY: f32 = 1.0;
 const WALLPAPER_SHADE_TOP_ALPHA: u8 = 0x00;
 const WALLPAPER_SHADE_BOTTOM_ALPHA: u8 = 0x00;
@@ -140,36 +126,7 @@ impl MultisoulApp {
         Self::build(cx, runtime, agent_hook_server)
     }
 
-    /// Test entry point: inject a PTY factory so app-level e2e tests can create
-    /// terminals without launching a real child process.
-    pub fn new_with_pty_factory(cx: &mut Context<Self>, factory: runtime::PtyFactory) -> Self {
-        let agent_hook_server = AgentHookServer::start();
-        let mut runtime = Runtime::new();
-        runtime.set_pty_factory(factory);
-        runtime.set_agent_hook_config(agent_hook_server.runtime_config());
-        Self::build(cx, runtime, agent_hook_server)
-    }
-
-    /// Current app screen for e2e assertions across crate boundaries.
-    pub fn screen(&self) -> AppScreen {
-        self.screen
-    }
-
-    /// E2E test entry point: switch directly to Canvas without invoking the
-    /// native project picker, preserving any injected test runtime state and
-    /// setting the workspace root used as terminal cwd.
-    pub fn enter_canvas_for_test(&mut self, root: &std::path::Path, cx: &mut Context<Self>) {
-        self.runtime.set_workspace_root(root.to_path_buf());
-        self.screen = AppScreen::Canvas;
-        self.last_reflow_window_size = None;
-        cx.notify();
-    }
-
-    fn build(
-        cx: &mut Context<Self>,
-        runtime: Runtime,
-        agent_hook_server: AgentHookServer,
-    ) -> Self {
+    fn build(cx: &mut Context<Self>, runtime: Runtime, agent_hook_server: AgentHookServer) -> Self {
         cx.on_release(|app, cx| {
             app.unregister_workspace_window_if_needed(cx);
         })

@@ -409,6 +409,7 @@ fn attach_agent_live(
         hook_env.as_ref(),
         cols,
         rows,
+        None,
     ) {
         Ok(live) => {
             ctx.live.insert(node_id, Box::new(live));
