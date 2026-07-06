@@ -117,7 +117,7 @@ mod macos {
             // AVAudioEngine will NOT resample on an inputNode tap: the tap format
             // must equal the hardware output format, otherwise it throws
             // "Input HW format and tap format not matching". Tap at the native
-            // rate and downsample to 16kHz mono in the callback instead.
+            // rate and resample to the target mono rate in the callback instead.
             let hw_format = unsafe { input_node.outputFormatForBus(INPUT_BUS) };
             let hw_sample_rate = unsafe { hw_format.sampleRate() };
             if hw_sample_rate <= 0.0 {
