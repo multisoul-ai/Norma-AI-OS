@@ -1,6 +1,6 @@
 # Packaging Notes
 
-`Packager.toml` configures a macOS app and DMG with entitlements + (staged) Developer ID signing/notarize:
+`Packager.toml` configures a macOS app and DMG with entitlements + Developer ID signing:
 
 - product name: `Norma OS`
 - bundle id: `com.norma.os`
@@ -13,8 +13,22 @@ Release workflow:
 
 ```bash
 cargo install cargo-packager --locked
-cargo packager --release -c Packager.toml
+./scripts/release-local.sh
+./scripts/release-local.sh --notarize
 ```
+
+默认使用 `./scripts/release-local.sh`，它会清掉 `APPLE_API_*`、
+`APPLE_KEYCHAIN_PROFILE`、`APPLE_ID`、`APPLE_PASSWORD`、`APPLE_TEAM_ID` 后再调用
+`cargo packager --release -c Packager.toml`，因此只做 Developer ID 签名打包，不提交
+Apple 公证。
+
+需要真实发版公证时，显式传 `--notarize`。脚本会把
+`APP_STORE_CONNECT_API_KEY_ID` / `APP_STORE_CONNECT_API_ISSUER_ID` /
+`APP_STORE_CONNECT_API_KEY_PATH` 映射成 cargo-packager 读取的 `APPLE_API_*`，
+然后再执行同一个底层打包命令。
+
+不要把裸 `cargo packager --release -c Packager.toml` 当作日常入口：cargo-packager
+0.11.8 没有 `--notarize` / `--no-notarize` 参数，`cargo packager --release -c Packager.toml` 会直接读取当前 shell 的 APPLE_* notary 环境变量；如果这些变量残留，它会在 `.app` 签名后自动尝试 notarize。
 
 `Packager.toml` runs a `before-packaging-command` that first calls
 `scripts/bump-release-version.sh`, then builds both release binaries before the
@@ -28,8 +42,9 @@ config for the current process. The persisted files are advanced before the
 release build, and the next `cargo packager --release -c Packager.toml`
 invocation starts from that bumped version.
 
-Codesigning and notarization 配置见 `packaging/macos/NormaOS.entitlements` 与
-`Packager.toml` 的 `[macos]` 段；本地发版用 `scripts/release-local.sh`，详见
+Codesigning 配置见 `packaging/macos/NormaOS.entitlements` 与
+`Packager.toml` 的 `[macos]` 段；notarization 只通过
+`scripts/release-local.sh --notarize` 显式开启，详见
 `docs/design-docs/2026-07-05-developer-id-notarize-design.md`。
 
 ## Wallpaper resources

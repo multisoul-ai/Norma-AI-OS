@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# release-local.sh - 本地签名 + 公证发版。
+# release-local.sh - 本地签名打包；显式 --notarize 时提交 Apple 公证。
 #
 # 用法：
-#   ./scripts/release-local.sh             # 真实发版（需 Developer ID 证书 + APP_STORE_CONNECT_* env）
+#   ./scripts/release-local.sh             # Developer ID 签名打包（不 notarize）
+#   ./scripts/release-local.sh --notarize  # 真实发版（需 Developer ID 证书 + APP_STORE_CONNECT_* env）
 #   ./scripts/release-local.sh --ad-hoc    # ad-hoc 签名测试（不 notarize，用 Packager.dev.toml）
 #
 # notarize 凭证复用 mobile 的 App Store Connect API Key（同属 2BF8G9AN4L）：
@@ -21,12 +22,18 @@ warn() { echo -e "${YELLOW}[release-local]${NC} $*"; }
 die()  { echo -e "${RED}[release-local] error:${NC} $*" >&2; exit 1; }
 
 AD_HOC=false
+NOTARIZE=false
 for arg in "$@"; do
   case "$arg" in
+    --notarize) NOTARIZE=true ;;
     --ad-hoc) AD_HOC=true ;;
     *) die "未知参数: $arg" ;;
   esac
 done
+
+if [ "$AD_HOC" = true ] && [ "$NOTARIZE" = true ]; then
+  die "--ad-hoc 与 --notarize 不能同时使用"
+fi
 
 # 1. 前置：codesign readiness
 bash scripts/check-codesign-readiness.sh
@@ -44,7 +51,7 @@ if [ "$AD_HOC" = true ]; then
       -u APPLE_KEYCHAIN_PROFILE -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \
       -u APPLE_CERTIFICATE -u APPLE_CERTIFICATE_PASSWORD \
       cargo packager -c Packager.dev.toml
-else
+elif [ "$NOTARIZE" = true ]; then
   # 真实发版：映射 APP_STORE_CONNECT_* -> APPLE_API_*，启用 notarize
   : "${APP_STORE_CONNECT_API_KEY_ID:?需设置 APP_STORE_CONNECT_API_KEY_ID（同 mobile）}"
   : "${APP_STORE_CONNECT_API_ISSUER_ID:?需设置 APP_STORE_CONNECT_API_ISSUER_ID}"
@@ -62,6 +69,15 @@ else
   # 强制 cargo-packager notarize_auth() 走 ApiKey 方式（APPLE_API_* = 公司 2BF8G9AN4L key）。
   env -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID -u APPLE_KEYCHAIN_PROFILE \
       cargo packager --release -c Packager.toml
+else
+  # 默认：Developer ID 签名打包，但显式移除 notary 凭证，避免 cargo-packager 自动公证。
+  security find-identity -v -p codesigning | grep -q "Developer ID Application.*2BF8G9AN4L" \
+    || die "未找到 2BF8G9AN4L 的 Developer ID Application 证书（阶段 0 未完成）"
+
+  info "签名打包（不 notarize；需要公证请传 --notarize）"
+  env -u APPLE_API_KEY -u APPLE_API_ISSUER -u APPLE_API_KEY_PATH \
+      -u APPLE_KEYCHAIN_PROFILE -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \
+      cargo packager --release -c Packager.toml
 fi
 
 # 3. 验证产物
@@ -76,12 +92,12 @@ done
 [ -n "$APP" ] || die "未找到产物 Norma OS.app"
 info "验证 $APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
-if [ "$AD_HOC" = true ]; then
-  spctl --assess --type execute --verbose "$APP" || warn "spctl 在 ad-hoc 下会失败，真实签名 + notarize + staple 后应 accepted"
-  xcrun stapler validate "$APP" || warn "stapler 在 ad-hoc 下无票据"
+if [ "$NOTARIZE" = true ]; then
+  spctl --assess --type execute --verbose "$APP" || die "spctl 拒绝真实签名 .app（--notarize 后应 accepted）"
+  xcrun stapler validate "$APP" || die "stapler 无公证票据（--notarize 必须有）"
 else
-  spctl --assess --type execute --verbose "$APP" || die "spctl 拒绝真实签名 .app（应 accepted）"
-  xcrun stapler validate "$APP" || die "stapler 无公证票据（真实发版必须有）"
+  spctl --assess --type execute --verbose "$APP" || warn "spctl 在未公证/ad-hoc 下可能失败，--notarize 后应 accepted"
+  xcrun stapler validate "$APP" || warn "stapler 在未公证/ad-hoc 下无票据"
 fi
 
 info "Done: $APP"

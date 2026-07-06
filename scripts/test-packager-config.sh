@@ -27,11 +27,19 @@
 #   - Negative: old Multisoul product metadata is not retained.
 #   - Negative: a config that builds without bumping the version fails.
 #   - Negative: a config that bumps after building fails.
+#   - Positive: release and dev DMG configs use the Norma OS background and
+#     matching window/icon positions.
+#   - Positive: the 1024 app icon source has a tight alpha bbox so Finder and
+#     DMG icons do not render visually undersized.
+#   - Negative: the dev config must not fall back to cargo-packager's default
+#     DMG layout.
 
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config="$repo_root/Packager.toml"
+dev_config="$repo_root/Packager.dev.toml"
+icon_source="$repo_root/assets/app-icon-source.png"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -83,5 +91,72 @@ case "$hook" in
     fail "before-packaging-command must bump the release version before cargo build"
     ;;
 esac
+
+# DMG visual/layout guard:
+#   product name      = Norma OS
+#   background path  = assets/dmg-background.png
+#   window size      = 640x400, matching the generated background bitmap
+#   app/drop targets = x=180 and x=460, centered on the left/right wells
+#   dev config       = same [dmg] values, so local test packages match release
+for cfg in "$config" "$dev_config"; do
+  if ! grep -Fq '[dmg]' "$cfg"; then
+    fail "$(basename "$cfg") must include a [dmg] section instead of using default DMG layout"
+  fi
+
+  if ! grep -Fq 'background = "assets/dmg-background.png"' "$cfg"; then
+    fail "$(basename "$cfg") must use assets/dmg-background.png as the DMG background"
+  fi
+
+  if ! grep -Fq 'window-size = { width = 640, height = 400 }' "$cfg"; then
+    fail "$(basename "$cfg") DMG window must match the 640x400 generated background"
+  fi
+
+  if ! grep -Fq 'app-position = { x = 180, y = 200 }' "$cfg"; then
+    fail "$(basename "$cfg") must place the app icon at x=180 y=200"
+  fi
+
+  if ! grep -Fq 'application-folder-position = { x = 460, y = 200 }' "$cfg"; then
+    fail "$(basename "$cfg") must place the Applications link at x=460 y=200"
+  fi
+done
+
+# App icon whitespace guard:
+#   image size        = 1024x1024
+#   old alpha bbox    = 931x868+25+78, leaving visible transparent slack
+#   required bbox     >= 950px wide and >= 900px tall after trimming/repadding
+#   upper-left offset <= 45px on both axes, so the icon is optically centered
+if ! command -v magick >/dev/null 2>&1; then
+  fail "ImageMagick 'magick' is required to verify app icon source whitespace"
+fi
+
+icon_geometry=$(magick identify -format '%wx%h' "$icon_source")
+if [ "$icon_geometry" != "1024x1024" ]; then
+  fail "assets/app-icon-source.png must remain a 1024x1024 PNG, got $icon_geometry"
+fi
+
+icon_bbox=$(magick identify -format '%@' "$icon_source")
+case "$icon_bbox" in
+  *x*+*+*) ;;
+  *) fail "could not read alpha bounding box for assets/app-icon-source.png: $icon_bbox" ;;
+esac
+
+bbox_w=${icon_bbox%%x*}
+bbox_rest=${icon_bbox#*x}
+bbox_h=${bbox_rest%%+*}
+bbox_offsets=${bbox_rest#*+}
+bbox_x=${bbox_offsets%%+*}
+bbox_y=${bbox_offsets#*+}
+
+if [ "$bbox_w" -lt 950 ]; then
+  fail "assets/app-icon-source.png alpha bbox width must be at least 950px, got $bbox_w ($icon_bbox)"
+fi
+
+if [ "$bbox_h" -lt 900 ]; then
+  fail "assets/app-icon-source.png alpha bbox height must be at least 900px, got $bbox_h ($icon_bbox)"
+fi
+
+if [ "$bbox_x" -gt 45 ] || [ "$bbox_y" -gt 45 ]; then
+  fail "assets/app-icon-source.png alpha bbox must start within 45px of top-left, got +$bbox_x+$bbox_y ($icon_bbox)"
+fi
 
 echo "packager config test passed"
