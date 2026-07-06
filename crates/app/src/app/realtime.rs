@@ -1,5 +1,6 @@
 //! App-layer shell state for Always Listening realtime voice.
 
+mod card_tasks;
 mod chat;
 mod shell;
 
@@ -90,6 +91,7 @@ pub(crate) struct RealtimeControlState {
     sidecar: Option<Box<dyn RealtimeSidecarClient>>,
     pcm_stream: Option<Box<dyn RealtimePcmStream>>,
     assistant_audio_sink: Box<dyn AssistantAudioSink>,
+    card_tasks: card_tasks::RealtimeCardTaskState,
     startup_task: Option<Task<()>>,
     sidecar_drain_task: Option<Task<()>>,
     pcm_forward_task: Option<Task<()>>,
@@ -105,6 +107,7 @@ impl Default for RealtimeControlState {
             sidecar: None,
             pcm_stream: None,
             assistant_audio_sink: default_assistant_audio_sink(),
+            card_tasks: card_tasks::RealtimeCardTaskState::default(),
             startup_task: None,
             sidecar_drain_task: None,
             pcm_forward_task: None,
@@ -468,3 +471,7 @@ mod app_realtime_tests_chat_lifecycle;
 #[cfg(test)]
 #[path = "../../tests/unit/app_realtime_chat_support.rs"]
 mod app_realtime_tests_chat_support;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_realtime_card_task_tests.rs"]
+mod app_realtime_card_task_tests;

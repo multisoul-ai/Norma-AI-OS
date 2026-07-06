@@ -18,7 +18,7 @@ name = "multisoul-agent-hook"
 path = "src/bin/multisoul_agent_hook.rs"
 
 [dependencies]
-gpui.workspace = true
+gpui = { workspace = true, features = ["test-support"] }
 ui.workspace = true
 runtime.workspace = true
 canvas.workspace = true
@@ -28,6 +28,7 @@ workspace.workspace = true
 norma.workspace = true
 voice.workspace = true
 voice_sherpa.workspace = true
+card_task.workspace = true
 realtime = { path = "../realtime" }
 anyhow.workspace = true
 serde.workspace = true

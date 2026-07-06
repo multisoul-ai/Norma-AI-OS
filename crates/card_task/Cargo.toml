@@ -8,3 +8,4 @@ license.workspace = true
 norma.workspace = true
 voice.workspace = true
 thiserror.workspace = true
+serde_json.workspace = true

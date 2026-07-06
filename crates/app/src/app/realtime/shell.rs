@@ -124,6 +124,20 @@ impl MultisoulApp {
                 }
                 app.realtime.has_sidecar() && app.realtime.is_active()
             });
+            let task_windows = cx.update(|app| app.windows()).unwrap_or_default();
+            let task_changed = task_windows
+                .into_iter()
+                .filter_map(|window| window.downcast::<MultisoulApp>())
+                .any(|window| {
+                    window
+                        .update(cx, |app, window, cx| {
+                            app.drain_realtime_card_tasks(window, cx)
+                        })
+                        .unwrap_or(false)
+                });
+            if task_changed {
+                tracing::debug!("drained realtime card task tick");
+            }
             match go {
                 Ok(true) => {}
                 Ok(false) | Err(_) => break,

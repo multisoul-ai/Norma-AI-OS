@@ -16,8 +16,12 @@ pub trait CardTaskPlanner {
 pub enum CardTaskPlannerError {
     #[error("planner provider error: {message}")]
     Provider { message: String },
+    #[error("planner json error: {message}")]
+    Json { message: String },
     #[error("planner compile error: {message}")]
     Compile { message: String },
+    #[error("planner rejected execution and kept transcript only: {reason}")]
+    TranscriptOnly { reason: String },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
