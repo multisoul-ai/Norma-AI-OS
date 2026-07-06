@@ -16,6 +16,7 @@ pub(super) fn hooks_settings(
     let paths = default_install_paths();
     let codex_installed = agent_hooks_installed(HookTarget::Codex, &paths);
     let claude_installed = agent_hooks_installed(HookTarget::Claude, &paths);
+    let opencode_installed = agent_hooks_installed(HookTarget::OpenCode, &paths);
 
     div()
         .flex()
@@ -46,6 +47,19 @@ pub(super) fn hooks_settings(
             },
             cx,
             MultisoulApp::on_toggle_claude_hooks,
+        ))
+        .child(hook_provider_row(
+            theme,
+            &HookProviderRowSpec {
+                title: "OpenCode",
+                hint: "Manage lifecycle hooks in ~/.config/opencode/plugins",
+                config_path: paths.opencode_plugin.display().to_string(),
+                installed: opencode_installed,
+                status: &panel.opencode_hook_status,
+                button_id: "settings-install-opencode-hooks",
+            },
+            cx,
+            MultisoulApp::on_toggle_opencode_hooks,
         ))
 }
 
@@ -79,6 +93,16 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.settings_panel.claude_hook_status = toggle_status_for(HookTarget::Claude);
+        cx.notify();
+    }
+
+    pub(super) fn on_toggle_opencode_hooks(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.settings_panel.opencode_hook_status = toggle_status_for(HookTarget::OpenCode);
         cx.notify();
     }
 }

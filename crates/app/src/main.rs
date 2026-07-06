@@ -20,6 +20,8 @@ use gpui::{App, Application, Menu, MenuItem};
 use workspace::windowing::{open_multisoul_window, InitialWindowState};
 
 fn main() {
+    app::cef_process::exit_if_cef_subprocess();
+
     // RUST_LOG 控制级别；frame-time / 热点路径打点见各 view。
     tracing_subscriber::fmt()
         .with_env_filter(

@@ -6,20 +6,24 @@ use canvas::{CanvasNodeKind, NodeId};
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use gpui::{Context, KeyDownEvent, Window};
 use std::collections::{HashMap, HashSet};
+use std::time::Duration;
+
+#[cfg(all(target_os = "macos", feature = "chromium-browser"))]
+mod cef_backend;
+mod engine;
+mod native;
+mod wry_backend;
+
+pub(crate) use engine::BrowserEngineKind;
+pub(crate) use native::{browser_native_view_bounds, BrowserViewBounds, NativeBrowserView};
+
+const CEF_MESSAGE_PUMP_INTERVAL: Duration = Duration::from_millis(16);
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct BrowserAddressEdit {
     pub(crate) node_id: NodeId,
     pub(crate) draft: String,
     replace_on_input: bool,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct BrowserViewBounds {
-    pub(crate) x: f64,
-    pub(crate) y: f64,
-    pub(crate) width: f64,
-    pub(crate) height: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -37,8 +41,7 @@ struct BrowserView {
     url: String,
     bounds: BrowserViewBounds,
     visible: bool,
-    #[cfg(target_os = "macos")]
-    webview: Option<wry::WebView>,
+    native_view: Option<NativeBrowserView>,
 }
 
 impl Default for BrowserStore {
@@ -74,8 +77,7 @@ impl BrowserStore {
             url: url.to_string(),
             bounds,
             visible: false,
-            #[cfg(target_os = "macos")]
-            webview: None,
+            native_view: None,
         });
         view.sync(node_id, url, bounds, window, event_sender);
     }
@@ -142,10 +144,17 @@ impl BrowserView {
         window: &mut Window,
         event_sender: Sender<BrowserEvent>,
     ) {
-        #[cfg(target_os = "macos")]
-        {
-            if self.webview.is_none() {
-                self.webview = create_webview(node_id, url, bounds, window, event_sender).ok();
+        if self.native_view.is_none() {
+            let configured = std::env::var("MULTISOUL_BROWSER_ENGINE").ok();
+            let engine = BrowserEngineKind::from_env_value(configured.as_deref());
+            match NativeBrowserView::create(engine, node_id, url, bounds, window, event_sender) {
+                Ok(native_view) => self.native_view = Some(native_view),
+                Err(error) => tracing::warn!(
+                    node_id,
+                    engine = ?engine,
+                    error = %error,
+                    "failed to create native Browser view"
+                ),
             }
         }
 
@@ -161,93 +170,63 @@ impl BrowserView {
     }
 
     fn load_url(&mut self, url: &str) {
-        #[cfg(target_os = "macos")]
-        if let Some(webview) = &self.webview {
-            let _ = webview.load_url(url);
+        if let Some(native_view) = &mut self.native_view {
+            native_view.load_url(url);
         }
     }
 
     fn go_back(&mut self) {
-        #[cfg(target_os = "macos")]
-        if let Some(webview) = &self.webview {
-            let _ = webview.evaluate_script("history.back()");
+        if let Some(native_view) = &mut self.native_view {
+            native_view.go_back();
         }
     }
 
     fn go_forward(&mut self) {
-        #[cfg(target_os = "macos")]
-        if let Some(webview) = &self.webview {
-            let _ = webview.evaluate_script("history.forward()");
+        if let Some(native_view) = &mut self.native_view {
+            native_view.go_forward();
         }
     }
 
     fn reload(&mut self) {
-        #[cfg(target_os = "macos")]
-        if let Some(webview) = &self.webview {
-            let _ = webview.reload();
+        if let Some(native_view) = &mut self.native_view {
+            native_view.reload();
         }
     }
 
     fn set_bounds(&mut self, bounds: BrowserViewBounds) {
-        #[cfg(target_os = "macos")]
-        if let Some(webview) = &self.webview {
-            let _ = webview.set_bounds(wry_rect(bounds));
+        if let Some(native_view) = &mut self.native_view {
+            native_view.set_bounds(bounds);
         }
     }
 
     fn set_visible(&mut self, visible: bool) {
         self.visible = visible;
-        #[cfg(target_os = "macos")]
-        if let Some(webview) = &self.webview {
-            let _ = webview.set_visible(visible);
+        if let Some(native_view) = &mut self.native_view {
+            native_view.set_visible(visible);
         }
     }
 }
 
-#[cfg(target_os = "macos")]
-fn create_webview(
-    node_id: NodeId,
-    url: &str,
-    bounds: BrowserViewBounds,
-    window: &mut Window,
-    event_sender: Sender<BrowserEvent>,
-) -> wry::Result<wry::WebView> {
-    let webview = wry::WebViewBuilder::new()
-        .with_url(url)
-        .with_bounds(wry_rect(bounds))
-        .with_document_title_changed_handler(move |title| {
-            let _ = event_sender.send(BrowserEvent::TitleChanged { node_id, title });
-        })
-        .with_new_window_req_handler(|_url, _features| wry::NewWindowResponse::Deny)
-        .build_as_child(window)?;
-    round_native_webview_corners(&webview, BROWSER_NATIVE_CORNER_RADIUS_PX);
-    Ok(webview)
-}
-
-#[cfg(target_os = "macos")]
-const BROWSER_NATIVE_CORNER_RADIUS_PX: f64 = 12.0;
-
-#[cfg(target_os = "macos")]
-fn round_native_webview_corners(webview: &wry::WebView, radius_px: f64) {
-    use wry::WebViewExtMacOS;
-
-    let native_view = webview.webview();
-    native_view.setWantsLayer(true);
-    if let Some(layer) = native_view.layer() {
-        layer.setCornerRadius(radius_px);
-        layer.setMasksToBounds(true);
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn wry_rect(bounds: BrowserViewBounds) -> wry::Rect {
-    wry::Rect {
-        position: wry::dpi::LogicalPosition::new(bounds.x, bounds.y).into(),
-        size: wry::dpi::LogicalSize::new(bounds.width, bounds.height).into(),
-    }
-}
-
 impl MultisoulApp {
+    pub(crate) fn start_cef_message_pump_loop(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        cx.spawn_in(window, async move |this, cx| loop {
+            cx.background_executor()
+                .timer(CEF_MESSAGE_PUMP_INTERVAL)
+                .await;
+            let go = this.update_in(cx, |_app, _window, _cx| {
+                pump_cef_message_loop_if_initialized();
+            });
+            if go.is_err() {
+                break;
+            }
+        })
+        .detach();
+    }
+
     pub(crate) fn browser_address_draft_for(&self, node_id: NodeId) -> Option<&str> {
         self.browser_address_edit
             .as_ref()
@@ -453,6 +432,16 @@ impl MultisoulApp {
     }
 }
 
+#[cfg(all(target_os = "macos", feature = "chromium-browser"))]
+fn pump_cef_message_loop_if_initialized() -> bool {
+    cef_backend::pump_cef_message_loop_if_initialized()
+}
+
+#[cfg(not(all(target_os = "macos", feature = "chromium-browser")))]
+fn pump_cef_message_loop_if_initialized() -> bool {
+    false
+}
+
 fn browser_input_char(ev: &KeyDownEvent) -> Option<char> {
     if ev.keystroke.modifiers.alt || ev.keystroke.modifiers.function {
         return None;
@@ -485,6 +474,10 @@ fn browser_address_paste_requested(ev: &KeyDownEvent) -> bool {
 fn is_browser_address_char(ch: char) -> bool {
     ch.is_ascii_graphic()
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/browser_cef_tests.rs"]
+mod cef_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/browser_view_tests.rs"]

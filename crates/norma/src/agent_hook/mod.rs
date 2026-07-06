@@ -24,17 +24,21 @@ pub const ENV_AGENT_PROFILE: &str = "MULTISOUL_AGENT_PROFILE";
 pub const ENV_HOOK_ENDPOINT: &str = "MULTISOUL_HOOK_ENDPOINT";
 pub const ENV_HOOK_TOKEN: &str = "MULTISOUL_HOOK_TOKEN";
 pub const AGENT_HOOK_BINARY_NAME: &str = "multisoul-agent-hook";
+pub const OPENCODE_PLUGIN_FILE_NAME: &str = "multisoul-agent-hook.js";
+pub const OPENCODE_PLUGIN_MARKER: &str = "multisoul-opencode-plugin-marker";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HookSource {
     Claude,
     Codex,
+    OpenCode,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HookTarget {
     Claude,
     Codex,
+    OpenCode,
     All,
 }
 
@@ -65,6 +69,7 @@ pub enum AgentHookTaskState {
 pub struct HookInstallPaths {
     pub claude_settings: PathBuf,
     pub codex_hooks: PathBuf,
+    pub opencode_plugin: PathBuf,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -120,6 +125,7 @@ pub fn parse_hook_source(value: &str) -> Option<HookSource> {
     match value {
         "claude" | "Claude" => Some(HookSource::Claude),
         "codex" | "Codex" => Some(HookSource::Codex),
+        "opencode" | "OpenCode" => Some(HookSource::OpenCode),
         _ => None,
     }
 }
@@ -128,6 +134,7 @@ pub fn parse_hook_target(value: &str) -> Option<HookTarget> {
     match value {
         "claude" | "Claude" => Some(HookTarget::Claude),
         "codex" | "Codex" => Some(HookTarget::Codex),
+        "opencode" | "OpenCode" => Some(HookTarget::OpenCode),
         "all" | "All" => Some(HookTarget::All),
         _ => None,
     }
@@ -148,6 +155,7 @@ pub fn hook_source_arg(source: HookSource) -> &'static str {
     match source {
         HookSource::Claude => "claude",
         HookSource::Codex => "codex",
+        HookSource::OpenCode => "opencode",
     }
 }
 
@@ -155,6 +163,7 @@ pub fn profile_for_source(source: HookSource) -> AgentProfile {
     match source {
         HookSource::Claude => AgentProfile::Claude,
         HookSource::Codex => AgentProfile::Codex,
+        HookSource::OpenCode => AgentProfile::OpenCode,
     }
 }
 
@@ -173,6 +182,11 @@ pub fn default_install_paths() -> HookInstallPaths {
     HookInstallPaths {
         claude_settings: home.join(".claude").join("settings.json"),
         codex_hooks: home.join(".codex").join("hooks.json"),
+        opencode_plugin: home
+            .join(".config")
+            .join("opencode")
+            .join("plugins")
+            .join(OPENCODE_PLUGIN_FILE_NAME),
     }
 }
 

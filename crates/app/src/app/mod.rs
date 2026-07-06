@@ -1,5 +1,3 @@
-//! GPUI 主视图：持有 Runtime，装配画布/终端渲染，处理快捷键与帧级 drain。
-
 use crate::app::browser::{BrowserAddressEdit, BrowserStore};
 use crate::app::frame_throttle::{FrameThrottle, CURSOR_REPAINT_INTERVAL};
 use crate::canvas::interaction::InteractionState;
@@ -25,7 +23,7 @@ use crate::settings::wallpaper::WallpaperSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
-use canvas::{CanvasRect, NodeId, NodeType, Vec2};
+use canvas::{CanvasNodeKind, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{
     actions, div, prelude::*, px, Action, ClickEvent, Context, FocusHandle, Focusable, Window,
 };
@@ -35,6 +33,7 @@ use ui::Theme;
 
 mod agent_actions;
 pub(crate) mod browser;
+pub(crate) mod cef_process;
 mod chrome;
 mod clipboard_image;
 mod file_picker;
@@ -208,7 +207,6 @@ impl MultisoulApp {
         )
     }
 
-    /// Cmd+N：在当前可见画布区域内新建 Terminal 节点，并触发三列平铺 reflow。
     fn on_new_terminal(&mut self, _: &NewTerminal, window: &mut Window, cx: &mut Context<Self>) {
         if !matches!(self.screen, AppScreen::Canvas) {
             self.workspace_state.error = Some("Open a project before creating terminals.".into());
@@ -231,7 +229,6 @@ impl MultisoulApp {
                 self.mark_session_dirty();
             }
             Err(e) => {
-                // SPEC §8：spawn 失败不 panic，仅 error 日志（节点内错误占位由 Task 15 渲染）。
                 tracing::error!(error = %e, "failed to spawn terminal");
             }
         }
@@ -305,8 +302,12 @@ impl MultisoulApp {
         }
         self.interaction.clear_text_selection_for_node(node_id);
 
-        // 在 remove_node 真正执行前，从删除前的节点顺序中抓取应承接选择的邻居。
-        // document.nodes() 的插入序即 reflow 行主序；删除后 i+1 将滑入槽位 i。
+        let removed_node_was_browser = self
+            .runtime
+            .document
+            .node(node_id)
+            .map(|node| matches!(node.kind, CanvasNodeKind::Browser(_)))
+            .unwrap_or(false);
         let next_id = canvas::next_neighbor_after_delete(self.runtime.document.nodes(), node_id);
 
         let changed = close_node_and_update_layout_for_area(
@@ -319,13 +320,13 @@ impl MultisoulApp {
         );
         if changed {
             self.previews.remove(node_id);
+            if removed_node_was_browser {
+                self.focus_handle.focus(window);
+            }
             self.remove_browser_view(node_id);
             self.mark_canvas_dirty();
             self.mark_session_dirty();
 
-            // 删除后承接选择：选中下一个邻居，使 Cmd+D 可连续触发。
-            // Runtime::remove_node 已 deselect(node_id) 并 exit_to_canvas；
-            // 这里再选中邻居以保持键盘选区连续性。
             match next_id {
                 Some(next) if self.runtime.document.node(next).is_some() => {
                     self.runtime.selection.select_only(next);
@@ -333,7 +334,6 @@ impl MultisoulApp {
                     self.interaction.keyboard_selected_node = Some(next);
                 }
                 _ => {
-                    // 无幸存节点：清空键盘选区（Runtime 已清空 selection/focus）。
                     self.interaction.keyboard_selected_node = None;
                 }
             }

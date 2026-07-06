@@ -75,6 +75,16 @@ pub fn hook_events_for_source(source: HookSource) -> &'static [&'static str] {
             "SubagentStart",
             "SubagentStop",
         ],
+        HookSource::OpenCode => &[
+            "SessionStart",
+            "UserPromptSubmit",
+            "PreToolUse",
+            "PostToolUse",
+            "PostToolUseFailure",
+            "Stop",
+            "StopFailure",
+            "SessionEnd",
+        ],
     }
 }
 

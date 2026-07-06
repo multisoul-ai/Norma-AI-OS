@@ -2,7 +2,7 @@
 //! 事件处理（pan、拖拽、单击）见 `events` 子模块。
 
 use super::events;
-use crate::app::browser::BrowserViewBounds;
+use crate::app::browser::browser_native_view_bounds;
 use crate::app::MultisoulApp;
 #[cfg(test)]
 use crate::canvas::events::{should_focus_app_root_for_mouse_down, should_notify_motion_frame};
@@ -272,17 +272,18 @@ pub fn render_canvas(
         if matches!(node_type, NodeType::Browser) {
             visible_browser_nodes.insert(id);
             if let CanvasNodeKind::Browser(spec) = &node.kind {
-                let browser_y = top_left.y + (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
-                let browser_h = h - (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
+                let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
                 app.sync_browser_view_for_node(
                     id,
                     &spec.url,
-                    BrowserViewBounds {
-                        x: f64::from(top_left.x),
-                        y: f64::from(browser_y),
-                        width: f64::from(w),
-                        height: f64::from(browser_h.max(0.0)),
-                    },
+                    browser_native_view_bounds(
+                        f64::from(top_left.x),
+                        f64::from(top_left.y),
+                        f64::from(w),
+                        f64::from(h),
+                        f64::from(browser_header_h),
+                        f64::from(node_terminal_radius_px(vp.zoom)),
+                    ),
                     window,
                 );
             }
