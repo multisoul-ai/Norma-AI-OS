@@ -1864,6 +1864,7 @@ dependencies = [
  "crossbeam-channel",
  "gpui",
  "runtime",
+ "tempfile",
  "terminal",
 ]
 

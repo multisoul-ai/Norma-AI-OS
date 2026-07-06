@@ -1,0 +1,221 @@
+//! E2E 测试驱动 harness：在 headless GPUI `TestAppContext` 中装配 `MultisoulApp`、
+//! 进入 Canvas、创建 Terminal 节点，并读取 runtime 状态供断言。
+//!
+//! 本模块仅供 e2e crate 内部测试使用（`#![cfg(test)]` 已在 lib.rs 顶层开启）。
+//! 所有 helper 仅依赖 `app` / `runtime` / `canvas` / `terminal` 的公开 API，
+//! 不触达 `pub(crate)` 字段或私有方法。
+
+use std::time::{Duration, Instant};
+
+use app::{MultisoulApp, NewTerminal};
+use canvas::{CanvasNodeKind, NodeId};
+use gpui::{Entity, TestAppContext, VisualTestContext};
+use runtime::{NodeView, PtyFactory, Runtime};
+use terminal::{GridSnapshot, PtyBackend, TestPtyBackend};
+
+/// 构造一个 echo PTY 工厂：`write(bytes)` → 同步回吐 `PtyEvent::Output(bytes)`。
+///
+/// 供 `make_app` / `enter_canvas` 注入，使 `NewTerminal` 走 `TestPtyBackend` 而非
+/// 真实 PTY。每次调用返回独立的工厂实例（`PtyFactory` 是 `Box<dyn Send + Sync>`，
+/// 不可 `Clone`）。
+pub fn echo_factory() -> PtyFactory {
+    Box::new(|_cmd, _cols, _rows, tx| Ok(Box::new(TestPtyBackend::echo(tx)) as Box<dyn PtyBackend>))
+}
+
+/// 装配 headless GPUI 窗口 + `MultisoulApp`，注入测试 PTY 工厂，并 focus root view。
+///
+/// 内部调用 `cx.add_window_view(|_w, cx| MultisoulApp::new_with_pty_factory(cx, factory))`。
+/// `add_window_view` 末尾的 `run_until_parked` 会绘制初始帧（Launchpad），此时
+/// `render()` 中注册的 `.on_action(...)` 监听器已挂到 dispatch tree。随后显式
+/// `window.focus(&app.focus_handle)` + `activate_window()`，使后续
+/// `dispatch_action` 能解析到 root view 的 dispatch node（GPUI 的 action
+/// 分发依赖 focused element；未 focus 时 dispatch 是 no-op）。
+///
+/// 返回 root view entity 与 `&mut VisualTestContext`（借用传入的 `cx`）。
+/// 调用方后续用返回的 `VisualTestContext` dispatch action / `run_until_parked`。
+pub fn make_app(
+    cx: &mut TestAppContext,
+    factory: PtyFactory,
+) -> (Entity<MultisoulApp>, &mut VisualTestContext) {
+    let (view, cx) =
+        cx.add_window_view(|_window, cx| MultisoulApp::new_with_pty_factory(cx, factory));
+    // focus root view + activate window，否则 dispatch_action 找不到目标节点。
+    cx.update(|window, cx| {
+        window.focus(&view.read(cx).focus_handle);
+        window.activate_window();
+    });
+    cx.run_until_parked();
+    (view, cx)
+}
+
+/// 进入 Canvas 屏幕：调用 `MultisoulApp::enter_canvas_for_test` 直接切换屏幕。
+///
+/// # 为什么不走真实 `OpenProject` action
+/// 真实流程调用 `cx.prompt_for_paths`，而 GPUI 的 `TestPlatform::prompt_for_paths`
+/// 是 `unimplemented!()`（只有 `prompt_for_new_path` 能被 `simulate_new_path_selection`
+/// 驱动）。即便绕过文件选择器，`enter_workspace_for_path` 也会用全新 runtime
+/// 替换旧 runtime，导致 `set_pty_factory` 注入的测试工厂丢失。
+///
+/// `enter_canvas_for_test`（`crates/app/src/app/mod.rs`）直接置 `screen = Canvas`、
+/// 保留现有 runtime（含工厂）、不加载持久化快照。对 fresh tempdir 场景，这与
+/// 真实流程行为等价（无快照可加载、无 session 可恢复）。
+///
+/// # 取舍
+/// 本方法不设置 runtime 的 `workspace_root`（该字段无私有 setter）。echo PTY
+/// backend 忽略 cwd，故 L1 测试不受影响；L2（真实 PTY）若需要 cwd，应在
+/// Task 10 扩展 `Runtime` 暴露 `workspace_root` setter 或改走真实流程。
+pub fn enter_canvas(view: &Entity<MultisoulApp>, cx: &mut VisualTestContext) {
+    view.update(cx, |app, cx| app.enter_canvas_for_test(cx));
+    cx.run_until_parked();
+}
+
+/// Dispatch `NewTerminal` 并返回新建 Term 节点的 id。
+///
+/// 通过比较 dispatch 前后 `document.nodes()` 中 Term 节点的最大 id 来定位新节点
+/// （`Document::add_node` 分配单调递增 id，新节点 id 必然 > 先前最大 id）。
+///
+/// 前置条件：调用方已通过 `enter_canvas` 进入 Canvas 屏幕（否则 `on_new_terminal`
+/// 会拒绝创建并写一条 error 到 `workspace_state`，本函数会 panic 在
+/// `expect` 上）。
+pub fn create_terminal(view: &Entity<MultisoulApp>, cx: &mut VisualTestContext) -> NodeId {
+    let max_before = read_runtime(view, cx, |r| {
+        r.document
+            .nodes()
+            .iter()
+            .filter(|n| matches!(n.kind, CanvasNodeKind::Term(_)))
+            .map(|n| n.id)
+            .max()
+            .unwrap_or(0)
+    });
+    cx.dispatch_action(NewTerminal);
+    cx.run_until_parked();
+    read_runtime(view, cx, |r| {
+        r.document
+            .nodes()
+            .iter()
+            .filter(|n| matches!(n.kind, CanvasNodeKind::Term(_)))
+            .map(|n| n.id)
+            .max()
+            .filter(|id| *id > max_before)
+            .expect(
+                "NewTerminal should have spawned a new Term node with id greater than prior max",
+            )
+    })
+}
+
+/// 读取 runtime 状态：`view.read_with(cx, |app, _| f(&app.runtime))` 的封装。
+///
+/// 仅借用 `cx` 的不可变视图，不触发 notify。适合在 dispatch 之间反复读取。
+pub fn read_runtime<R>(
+    view: &Entity<MultisoulApp>,
+    cx: &mut VisualTestContext,
+    f: impl FnOnce(&Runtime) -> R,
+) -> R {
+    view.read_with(cx, |app, _cx| f(&app.runtime))
+}
+
+/// 循环 `run_until_parked` + 读 runtime，直到 `predicate` 返回 `Some(value)` 或超时。
+///
+/// L1（echo PTY 同步回吐）通常一轮即收敛；L2（真实 PTY 异步）需要足够 timeout。
+/// 超时返回 `None`，由调用方决定是否 panic（推荐 `.expect("...")` 带场景说明）。
+///
+/// 实现说明：每轮先 `run_until_parked` 推进 executor，再读 runtime 判定谓词；
+/// 若未满足且未到 deadline，sleep 2ms 让出线程。`Instant` + `Duration` 来自
+/// `std::time`，不依赖 GPUI 时钟（test executor 的虚拟时钟对 `run_until_parked`
+/// 已生效，wall-clock sleep 仅用于避免 busy-loop）。
+pub fn drain_until<R>(
+    view: &Entity<MultisoulApp>,
+    cx: &mut VisualTestContext,
+    mut predicate: impl FnMut(&Runtime) -> Option<R>,
+    timeout: Duration,
+) -> Option<R> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        cx.run_until_parked();
+        if let Some(v) = read_runtime(view, cx, &mut predicate) {
+            return Some(v);
+        }
+        if Instant::now() >= deadline {
+            return None;
+        }
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
+
+/// 读取指定 Term 节点的 `GridSnapshot`。
+///
+/// 经 `runtime.node_view(node_id)` 取 `NodeView::Term { snapshot, .. }`。
+/// 若节点不存在或不是 Term 视图（如已退出 / session gone），返回 `None`。
+/// 调用方通常 `.expect("...")` 带场景说明。
+pub fn read_grid(
+    view: &Entity<MultisoulApp>,
+    cx: &mut VisualTestContext,
+    node_id: NodeId,
+) -> Option<GridSnapshot> {
+    read_runtime(view, cx, |r| match r.node_view(node_id) {
+        Some(NodeView::Term { snapshot, .. }) => Some(snapshot),
+        _ => None,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// 编译 / 烟雾测试：证明 harness 端到端可用（make_app → enter_canvas → create_terminal）。
+// 这是 Task 7 唯一需要执行的测试；Task 8/9 会复用本 harness 编写更完整的 E2E。
+// ---------------------------------------------------------------------------
+
+/// harness 端到端烟雾：echo PTY → 进入 Canvas → 创建 1 个 Terminal 节点。
+///
+/// 数据构造：
+///   - `echo_factory()`：回显 PTY 工厂，注入 `MultisoulApp::new_with_pty_factory`。
+///     进入 canvas 走 `enter_canvas_for_test`（不替换 runtime），工厂得以保留。
+///
+/// 执行过程：
+///   1. `make_app(cx, factory)` → `MultisoulApp::new_with_pty_factory`，
+///      初始 screen = Launchpad，runtime 已注入 echo 工厂。
+///   2. `enter_canvas(app, cx)` → `app.enter_canvas_for_test(cx)` 直接置
+///      `screen = Canvas`，runtime 不变（工厂仍在）。
+///   3. `create_terminal(app, cx)` → `dispatch_action(NewTerminal)` →
+///      `runtime.spawn_terminal` 走 echo backend，返回新 Term 节点 id。
+///
+/// 预期结果：
+///   - 正断言：`screen() == Canvas`（enter_canvas 后切换成功）。
+///   - 正断言：`runtime.live_len() == 1`（恰好 spawn 了 1 个 Term live node）。
+///   - 正断言：`read_grid(node)` 返回 `Some`（Term 视图存在且可读）。
+///   - 负断言：`runtime.live_len() != 0`（NewTerminal 未被静默拒绝）。
+#[test]
+fn harness_enters_canvas_and_spawns_terminal() {
+    let mut cx = TestAppContext::single();
+
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    enter_canvas(&app, cx);
+    let node = create_terminal(&app, cx);
+    cx.run_until_parked();
+
+    let screen = app.update(cx, |a, _cx| a.screen());
+    let live_len = read_runtime(&app, cx, |r| r.live_len());
+    let grid = read_grid(&app, cx, node);
+
+    assert_eq!(
+        screen,
+        app::AppScreen::Canvas,
+        "enter_canvas 后屏幕应为 Canvas，实际为 {:?}",
+        screen
+    );
+    assert_eq!(
+        live_len, 1,
+        "create_terminal 后应恰好有 1 个 live node，实际为 {}",
+        live_len
+    );
+    assert_ne!(
+        live_len, 0,
+        "NewTerminal 不应被静默拒绝（live_len 不应为 0）"
+    );
+    assert!(
+        grid.is_some(),
+        "新建节点 {} 应有 Term 视图，但 read_grid 返回 None",
+        node
+    );
+
+    // 清理：杀掉所有 live node 的 PTY（echo backend 无真实进程，但保持习惯）。
+    app.update(cx, |a, _cx| a.runtime.kill_all());
+}
