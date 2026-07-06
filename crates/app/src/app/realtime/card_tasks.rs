@@ -446,6 +446,16 @@ impl MultisoulApp {
         changed
     }
 
+    #[cfg(test)]
+    pub(crate) fn drain_realtime_card_tasks_with_runner_for_tests(
+        &mut self,
+        runner: &mut dyn CardCommandRunner,
+    ) -> bool {
+        let changed = self.realtime.card_tasks.run_next(runner);
+        self.flush_realtime_card_task_callbacks();
+        changed
+    }
+
     fn apply_card_task_effects(&mut self, effects: NormaCommandEffects) {
         if effects.canvas_dirty {
             self.mark_canvas_dirty();

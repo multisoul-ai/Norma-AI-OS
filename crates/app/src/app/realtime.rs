@@ -486,3 +486,7 @@ mod app_realtime_tool_call_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/app_realtime_callback_tests.rs"]
 mod app_realtime_callback_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_realtime_acceptance_tests.rs"]
+mod app_realtime_acceptance_tests;

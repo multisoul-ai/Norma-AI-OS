@@ -3,6 +3,7 @@
 - 日期：2026-07-06
 - 状态：草稿
 - 上游：`01-always-listening-shell.md` 到 `06-task-result-callback.md`
+- 最新自动化/手动验收状态：[`acceptance-report.md`](./acceptance-report.md)
 
 ## 1. 目标
 
