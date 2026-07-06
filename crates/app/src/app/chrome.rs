@@ -376,6 +376,7 @@ fn chrome_icon_button(
 
     div()
         .id(id)
+        .debug_selector(move || id.to_string())
         .w(px(30.0))
         .h(px(30.0))
         .flex()

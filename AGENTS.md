@@ -57,6 +57,8 @@ Workspace 分层：
 - **关窗必须退出进程**：GPUI 在 macOS 上关闭最后一个窗口后不会自动 quit，必须在 `main.rs` 的 `run` 闭包内注册 `cx.on_window_closed(|cx| { if cx.windows().is_empty() { cx.quit(); } }).detach()`；不得省略，否则进程常驻后台。
 - **交互决策放 runtime**：输入意图先通过 `runtime::route` 这类纯函数表达，再由 `app` 层执行副作用。
 - **新增可配置快捷键必须进 Settings**：任何新的 app shortcut 都要注册到 `shortcuts.rs`，并在 Settings → Keyboard Shortcuts 支持录制与恢复。
+- **验收标准要落 e2e**：涉及用户可观察流程、Settings、Canvas、Terminal、焦点/输入路由、PTY 或持久化闭环时，必须根据验收标准自动新增/更新 `crates/e2e` 用例；不要只写单测或手测说明。
+- **区分 e2e 层级**：`TestAppContext`/`simulate_click` 是 headless GPUI 渲染树点击，不等于启动真实 `.app`；若验收要求真实启动程序，必须新增独立 L3 runner 并在报告中明确说明。
 - **不要把知识塞进地图**：`AGENTS.md` 只放指针；长说明沉淀到 `CLAUDE.md` 或未来 `docs/`。
 
 ## 3. 技术栈速览
@@ -91,6 +93,7 @@ Workspace 分层：
 | Crate 文件地图 | [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |
 | 快捷键与输入路由 | [`docs/references/keyboard-shortcuts.md`](docs/references/keyboard-shortcuts.md) |
 | 测试注释与断言规范 | [`docs/quality/test-requirements.md`](docs/quality/test-requirements.md) |
+| e2e 测试分层与写法 | [`docs/references/e2e-testing-guide.md`](docs/references/e2e-testing-guide.md) |
 | 打包与 release | [`docs/references/packaging.md`](docs/references/packaging.md) |
 | 卡片 RuntimeEvent 扩展 | [`docs/references/card-runtime-events.md`](docs/references/card-runtime-events.md) |
 | 机械化约束（lint 脚本） | [`docs/quality/mechanized-constraints.md`](docs/quality/mechanized-constraints.md) |
@@ -106,6 +109,7 @@ Workspace 分层：
 | `crates/storage/**` | `cargo test -p storage` |
 | `crates/ui/**` | `cargo test -p ui` |
 | `crates/app/**` | `cargo check -p app` |
+| `crates/e2e/**` 或验收流程 | `cargo test -p e2e`；真 PTY/L3 冒烟按需跑 `cargo test -p e2e -- --ignored` |
 | 跨 crate 行为 | `cargo test --workspace` |
 | GPUI/打包相关 | `cargo build -p app --release` |
 | 域层依赖边界 | `cargo tree -p canvas -p terminal -p runtime | grep -i gpui` 应无输出 |
@@ -147,6 +151,7 @@ xcrun metal --version
 - 涉及 GPUI API、元素、样式、actions、async、testing 或 troubleshooting 时，先加载对应 `gpui-*` skill；若 skill 与 `gpui =0.2.2` 或现有代码冲突，以本仓库验证结果为准。
 - 修改代码后按第 5 节跑对应验证；验证失败先定位根因。
 - 新增测试必须遵守第 2 节测试结构规范。
+- 处理带验收标准的需求时，先把每条验收标准映射到自动化证据；能通过 `crates/e2e` 验证的用户流程必须生成 e2e 测试。
 - 若新增长期文档，优先建立 `docs/product-specs/`、`docs/design-docs/`、`docs/exec-plans/` 这类 canonical 路径；`.superpowers/sdd/` 只作为历史上下文，除非明确继续旧 SDD 流程。
 - 生成截图或图片时，保存为文件并在回复里用 Markdown 图片语法引用绝对路径。
 

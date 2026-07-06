@@ -41,6 +41,8 @@ ui -> gpui
 - **Pinned libraries require verification**: `gpui =0.2.2` and `alacritty_terminal =0.26` are pinned in the workspace. Upgrade only after checking API compatibility.
 - **Consult GPUI skills first**: when writing GPUI code in `crates/app` or `crates/ui`, load the relevant local `gpui-*` skill before inventing a pattern, then adapt it to this repository's pinned GPUI version and existing style.
 - **New configurable app shortcuts must appear in Settings**: register them in `shortcuts.rs` and support recording/restoring them in Settings → Keyboard Shortcuts.
+- **Acceptance criteria must drive e2e coverage**: for user-visible flows involving Settings, Canvas, Terminal, focus/input routing, PTY, or persistence, derive `crates/e2e` cases from the acceptance criteria instead of relying only on unit tests or manual notes.
+- **Do not blur e2e levels**: GPUI `TestAppContext` + `VisualTestContext::simulate_click` is headless rendered-tree interaction. It does not launch the real `.app`. If acceptance criteria require a real app process/window, add a separate L3 runner and document that requirement explicitly.
 - **TDD before feature or bugfix work**: add a focused failing test first where the behavior can be tested below the GPUI layer.
 - **No `#[allow(...)]`**: do not hide Rust diagnostics with allow attributes. Fix root causes instead.
 - **Single Rust source files stay at or below 500 lines**: enforced by [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh); split responsibilities instead of raising the cap.
@@ -95,6 +97,13 @@ cargo test --workspace
 cargo check -p app
 ```
 
+E2E tests:
+
+```bash
+cargo test -p e2e
+cargo test -p e2e -- --ignored
+```
+
 Mechanized constraints:
 
 ```bash
@@ -144,6 +153,12 @@ See [`AGENTS.md`](AGENTS.md) §5 for the canonical change-area → verification 
 ## 7. Test Requirements
 
 Follow the project test comment and assertion rules in [`docs/quality/test-requirements.md`](docs/quality/test-requirements.md).
+
+For any task with explicit acceptance criteria, create a checklist that maps each criterion to automated evidence. If the criterion describes an end-user flow, add or update `crates/e2e` so the flow is machine-verifiable. Use `docs/references/e2e-testing-guide.md` for the current e2e layers:
+
+- L1: headless GPUI sandbox with rendered-tree clicks/actions.
+- L2: ignored real PTY smoke tests.
+- L3: future real launched app/window automation when explicitly required.
 
 ## 8. UI And Interaction Notes
 

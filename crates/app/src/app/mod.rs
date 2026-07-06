@@ -36,6 +36,7 @@ pub(crate) mod browser;
 pub(crate) mod cef_process;
 mod chrome;
 mod clipboard_image;
+mod e2e;
 mod file_picker;
 mod frame_loop;
 mod frame_throttle;
@@ -54,6 +55,8 @@ mod video_wallpaper;
 mod voice;
 mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
+pub use e2e::SettingsE2eSnapshot;
+
 actions!(
     multisoul,
     [
@@ -463,6 +466,7 @@ impl MultisoulApp {
         cx.notify();
     }
 }
+
 impl Focusable for MultisoulApp {
     fn focus_handle(&self, _cx: &gpui::App) -> FocusHandle {
         self.focus_handle.clone()

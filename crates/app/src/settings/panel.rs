@@ -40,7 +40,7 @@ const SETTINGS_SECTION_ORDER: [SettingsSection; 8] = [
 ];
 
 impl SettingsSection {
-    fn title(self) -> &'static str {
+    pub(crate) fn title(self) -> &'static str {
         match self {
             Self::General => "General",
             Self::Keyboard => "Keyboard Shortcuts",
@@ -186,6 +186,7 @@ impl MultisoulApp {
 
         div()
             .id("settings-overlay")
+            .debug_selector(|| "settings-overlay".to_string())
             .absolute()
             .top(px(0.0))
             .left(px(0.0))
@@ -200,6 +201,7 @@ impl MultisoulApp {
             .child(
                 div()
                     .id("settings-panel")
+                    .debug_selector(|| "settings-panel".to_string())
                     .absolute()
                     .left(px(left))
                     .top(px(top))
@@ -301,6 +303,7 @@ fn section_button(
 
     div()
         .id(("settings-section", section.index()))
+        .debug_selector(move || settings_section_debug_selector(section).to_string())
         .h(px(42.0))
         .w_full()
         .flex()
@@ -362,6 +365,19 @@ fn section_icon(theme: Theme, section: SettingsSection, active: bool) -> Div {
 
 fn sidebar_gap() -> Div {
     div().h(px(8.0))
+}
+
+fn settings_section_debug_selector(section: SettingsSection) -> &'static str {
+    match section {
+        SettingsSection::General => "settings-section-general",
+        SettingsSection::Keyboard => "settings-section-keyboard",
+        SettingsSection::Runtime => "settings-section-runtime",
+        SettingsSection::Voice => "settings-section-voice",
+        SettingsSection::Agents => "settings-section-agents",
+        SettingsSection::Skills => "settings-section-skills",
+        SettingsSection::Hooks => "settings-section-hooks",
+        SettingsSection::Wallpaper => "settings-section-wallpaper",
+    }
 }
 
 fn settings_shadow(theme: Theme) -> Vec<BoxShadow> {

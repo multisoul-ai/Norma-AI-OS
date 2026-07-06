@@ -24,6 +24,7 @@ pub(super) fn settings_content(
 ) -> Div {
     div()
         .flex_1()
+        .min_w(px(0.0))
         .h_full()
         .flex()
         .flex_col()
@@ -33,6 +34,7 @@ pub(super) fn settings_content(
             div()
                 .id("settings-content-scroll")
                 .flex_1()
+                .min_w(px(0.0))
                 .overflow_scroll()
                 .px(px(26.0))
                 .pb(px(28.0))
@@ -53,13 +55,19 @@ pub(super) fn settings_content(
 
 fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<MultisoulApp>) -> Div {
     let subtitle = content_subtitle(section);
-    let mut title_column = div().flex().flex_col().gap(px(3.0)).child(
-        div()
-            .text_size(px(21.0))
-            .font_weight(FontWeight::BOLD)
-            .text_color(rgba(theme.text_primary))
-            .child(content_title(section)),
-    );
+    let mut title_column = div()
+        .flex_1()
+        .min_w(px(0.0))
+        .flex()
+        .flex_col()
+        .gap(px(3.0))
+        .child(
+            div()
+                .text_size(px(21.0))
+                .font_weight(FontWeight::BOLD)
+                .text_color(rgba(theme.text_primary))
+                .child(content_title(section)),
+        );
     if !subtitle.is_empty() {
         title_column = title_column.child(
             div()
@@ -81,6 +89,7 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
         .child(
             div()
                 .id("settings-close")
+                .debug_selector(|| "settings-close".to_string())
                 .w(px(34.0))
                 .h(px(34.0))
                 .flex()

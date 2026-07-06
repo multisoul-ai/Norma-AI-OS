@@ -18,6 +18,6 @@ mod workspace;
 pub use app::{
     AppScreen, CopyCardContent, ExitFocus, MultisoulApp, NewBrowser, NewClaudeAgent, NewCodexAgent,
     NewOpenCodeAgent, NewTerminal, NewWindow, OpenPreviewFile, OpenProject, ReflowLayout,
-    ToggleMasterLayout, ToggleSettings,
+    SettingsE2eSnapshot, ToggleMasterLayout, ToggleSettings,
 };
 pub use assets::EmbeddedAssets;
