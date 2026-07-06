@@ -73,3 +73,23 @@
   - `git diff --check` -> pass
 - residual risk:
   - The real sidecar stop still happens on the existing background thread helper, so shutdown completion remains asynchronous by design; the tests only prove the stop path is triggered exactly once.
+
+## Fix Report 2
+
+- commit SHA: `f95cbd6`
+- root cause:
+  - `RealtimeChatRuntime::dispose()` and `RealtimeControlState::stop_chat_runtime()` both called `pcm_stream.stop()` inline on foreground cleanup paths.
+  - For `PcmStreamSession`, `stop()` maps to `cancel()`, which can join capture/forward threads, so stale startup disposal and `stop_shell()` could block GPUI foreground updates.
+- test/source guard added:
+  - Added `test_realtime_chat_cleanup_source_guard_uses_background_pcm_stop_helper` to assert `dispose` and `stop_chat_runtime` use `stop_pcm_stream_in_background` and do not contain direct `pcm_stream.stop()` calls.
+  - Updated RTC-6 / RTC-7 to wait for async PCM stop and async sidecar stop before asserting exact stop counts.
+- exact verification results:
+  - `cargo test -p app app_realtime_tests_chat_lifecycle -- --nocapture` -> pass, 5 passed / 0 failed
+  - `cargo test -p app app_realtime_tests -- --nocapture` -> pass, 21 passed / 0 failed
+  - `cargo check -p app` -> pass
+  - `bash scripts/check-no-allow.sh` -> pass
+  - `bash scripts/check-max-file-lines.sh` -> pass
+  - `cargo fmt --check` -> pass
+  - `git diff --check` -> pass
+- residual risk:
+  - PCM cleanup is now detached onto a background thread, so these tests prove non-blocking scheduling and exact-once ownership transfer, but they do not measure shutdown latency of the underlying audio backend itself.
