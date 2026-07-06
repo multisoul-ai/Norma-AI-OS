@@ -92,7 +92,7 @@ fn test_realtime_chat_user_pcm_interrupts_assistant_and_stops_sink() {
 ///   1. start_shell_with_sidecar_and_pcm_for_tests → active session
 ///   2. drain_sidecar_events → Listening
 ///   3. stop_shell()
-///   4. 等待 fake sidecar stop helper 记录 stop
+///   4. 等待 fake PCM/background sidecar stop helper 记录 stop
 ///
 /// 预期结果：
 ///   - 正断言：PCM stop 调用一次，sidecar 收到 stop_session，session 清空，label 回 Voice
@@ -115,8 +115,8 @@ fn test_realtime_chat_stop_stops_pcm_sends_stop_and_restores_voice_label() {
         state.stop_shell();
         wait_until(
             Instant::now() + Duration::from_secs(1),
-            || sidecar.stop_calls() == 1,
-            "stop_shell should call sidecar stop helper before timeout",
+            || pcm.stop_calls() == 1 && sidecar.stop_calls() == 1,
+            "stop_shell should trigger background PCM/sidecar stop before timeout",
         );
 
         assert_eq!(
@@ -158,7 +158,7 @@ fn test_realtime_chat_stop_stops_pcm_sends_stop_and_restores_voice_label() {
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 构造尚未 install 的 RealtimeChatRuntime(fake sidecar + fake PCM)
 ///   2. 直接 drop(runtime)，模拟后台启动完成后因未安装而被丢弃
-///   3. 等待后台 sidecar stop helper 记录 stop
+///   3. 等待后台 PCM/sidecar stop helper 记录 stop
 ///
 /// 预期结果：
 ///   - 正断言：PCM stop 调用一次，sidecar stop 调用一次
@@ -179,8 +179,8 @@ fn test_realtime_chat_drop_uninstalled_runtime_stops_pcm_and_sidecar() {
 
         wait_until(
             Instant::now() + Duration::from_secs(1),
-            || sidecar.stop_calls() == 1,
-            "dropping an uninstalled runtime should stop the sidecar before timeout",
+            || pcm.stop_calls() == 1 && sidecar.stop_calls() == 1,
+            "dropping an uninstalled runtime should stop PCM and sidecar before timeout",
         );
 
         assert_eq!(
@@ -243,4 +243,67 @@ fn test_realtime_chat_stop_and_restart_rejects_stale_startup_attempt() {
         );
         state.stop_shell();
     });
+}
+
+/// RTC-9: 前台 cleanup 函数必须把 PCM stop 委托到后台 helper，不能内联阻塞 stop。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source file = crates/app/src/app/realtime/chat.rs（1 个源文件）
+///   target fns  = 2 个：RealtimeChatRuntime::dispose / RealtimeControlState::stop_chat_runtime
+///   helper name = 1 个：stop_pcm_stream_in_background
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 realtime/chat.rs 源码文本
+///   2. 定位 dispose 与 stop_chat_runtime 的函数体片段
+///   3. 断言两个前台 cleanup 函数都调用后台 helper
+///   4. 断言两个函数体里都不存在直接的 pcm_stream.stop()
+///
+/// 预期结果：
+///   - 正断言：源码包含 stop_pcm_stream_in_background helper 调用
+///   - 正断言：dispose 与 stop_chat_runtime 两个函数体都存在
+///   - 负断言：两个前台 cleanup 函数体都不应直接调用 pcm_stream.stop()，避免在 GPUI 前台路径阻塞
+#[test]
+fn test_realtime_chat_cleanup_source_guard_uses_background_pcm_stop_helper() {
+    let source_path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/app/realtime/chat.rs");
+    let source = std::fs::read_to_string(&source_path)
+        .expect("source guard should be able to read realtime chat source");
+    let dispose_start = source
+        .find("pub(crate) fn dispose(&mut self)")
+        .expect("source guard should find RealtimeChatRuntime::dispose");
+    let drop_start = source[dispose_start..]
+        .find("impl Drop for RealtimeChatRuntime")
+        .map(|offset| dispose_start + offset)
+        .expect("source guard should find Drop impl after dispose");
+    let dispose_body = &source[dispose_start..drop_start];
+
+    let stop_start = source
+        .find("pub(super) fn stop_chat_runtime(&mut self)")
+        .expect("source guard should find RealtimeControlState::stop_chat_runtime");
+    let send_sidecar_start = source[stop_start..]
+        .find("fn send_sidecar_command(")
+        .map(|offset| stop_start + offset)
+        .expect("source guard should find helper after stop_chat_runtime");
+    let stop_body = &source[stop_start..send_sidecar_start];
+
+    assert!(
+        source.contains("fn stop_pcm_stream_in_background("),
+        "realtime chat cleanup should define a dedicated background PCM stop helper"
+    );
+    assert!(
+        dispose_body.contains("stop_pcm_stream_in_background"),
+        "dispose should delegate PCM cleanup to the background helper"
+    );
+    assert!(
+        stop_body.contains("stop_pcm_stream_in_background"),
+        "stop_chat_runtime should delegate PCM cleanup to the background helper"
+    );
+    assert!(
+        !dispose_body.contains("pcm_stream.stop()"),
+        "dispose must not call pcm_stream.stop() inline on the foreground path"
+    );
+    assert!(
+        !stop_body.contains("pcm_stream.stop()"),
+        "stop_chat_runtime must not call pcm_stream.stop() inline on the foreground path"
+    );
 }

@@ -12,6 +12,7 @@ use realtime::{
     RealtimeSidecarError, RealtimeStatus, SidecarLaunchConfig, SidecarProcess,
 };
 use std::path::PathBuf;
+use std::thread;
 use std::time::Duration;
 use voice_sherpa::{PcmStreamSession, SherpaProvider};
 
@@ -66,7 +67,7 @@ impl RealtimeChatRuntime {
     pub(crate) fn dispose(&mut self) {
         self.pcm_chunks = None;
         if let Some(pcm_stream) = self.pcm_stream.take() {
-            pcm_stream.stop();
+            stop_pcm_stream_in_background(pcm_stream);
         }
         if let Some(sidecar) = self.sidecar.take() {
             stop_sidecar_process_in_background(sidecar);
@@ -212,7 +213,7 @@ impl RealtimeControlState {
         self.pcm_forward_task = None;
         self.pending_startup_attempt = None;
         if let Some(pcm_stream) = self.pcm_stream.take() {
-            pcm_stream.stop();
+            stop_pcm_stream_in_background(pcm_stream);
         }
         self.assistant_audio_sink.stop();
     }
@@ -298,4 +299,10 @@ impl RealtimeControlState {
         self.sidecar = Some(sidecar);
         Ok(())
     }
+}
+
+fn stop_pcm_stream_in_background(pcm_stream: Box<dyn RealtimePcmStream>) {
+    thread::spawn(move || {
+        pcm_stream.stop();
+    });
 }
