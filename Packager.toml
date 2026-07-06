@@ -1,4 +1,4 @@
-# cargo-packager 配置（未签名 .app/.dmg）。字段以 cargo-packager 文档为准，
+# cargo-packager 配置：Developer ID 签名 + notarize（signing-identity 阶段 0 启用）。字段以 cargo-packager 文档为准，
 # 若 schema 不符按 https://docs.crabnebula.dev/packager/ 校准。
 name = "app"
 product-name = "Norma OS"
@@ -6,6 +6,7 @@ version = "0.1.15"
 identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
+resources = ["crates/app/assets/wallpapers"]
 icons = ["assets/AppIcon.icns"]
 out-dir = "build"
 binaries-dir = "."
@@ -29,4 +30,5 @@ main = false
 [macos]
 minimum-system-version = "12.0"
 info-plist-path = "packaging/macos/Info.plist"
-# 本切片不签名/不公证（Phase 6）。
+entitlements = "packaging/macos/NormaOS.entitlements"
+signing-identity = "Developer ID Application: Shanghai Jieyu Future Intelligent Network Technology Co., Ltd (2BF8G9AN4L)"

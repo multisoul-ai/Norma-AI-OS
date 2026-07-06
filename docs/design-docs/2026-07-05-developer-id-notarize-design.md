@@ -1,4 +1,4 @@
-# Multisoul — Developer ID 签名 + 公证 设计文档
+# Norma OS — Developer ID 签名 + 公证 设计文档
 
 - 日期: 2026-07-05
 - 状态: 已批准（待实施）
@@ -7,7 +7,7 @@
 
 ## 1. 背景与目标
 
-Multisoul 当前打包流程产出**未签名**的 `.app` / `.dmg`（`Packager.toml` 注释「本切片不签名/不公证（Phase 6）」）。用户下载后无法通过 Gatekeeper，终端节点与外部 agent exec 的架构也与 Mac App Store 的 App Sandbox 根本冲突（已确认走路线 B：Developer ID 直接分发，不上 MAS）。
+Norma OS 当前打包流程产出**未签名**的 `.app` / `.dmg`（`Packager.toml` 注释「本切片不签名/不公证（Phase 6）」）。用户下载后无法通过 Gatekeeper，终端节点与外部 agent exec 的架构也与 Mac App Store 的 App Sandbox 根本冲突（已确认走路线 B：Developer ID 直接分发，不上 MAS）。
 
 **目标**：产出经 codesign + notarize + staple 的 DMG，用户从 GitHub Releases 下载后可直接打开，无「未识别开发者」警告。
 
@@ -43,7 +43,7 @@ Multisoul 当前打包流程产出**未签名**的 `.app` / `.dmg`（`Packager.t
 | 整包 verify | ✅ | `codesign --verify --deep --strict` 通过 |
 | sherpa-onnx 链接 | ✅ 静态 | `otool -L` 无非系统依赖，bundle 内无 `.dylib`——库校验担忧不成立 |
 | notarize | ✅ | `ditto`→签 zip→`notarytool submit --wait`→Accepted 自动 staple，被拒自动拉 log；缺 `APPLE_*` 时优雅跳过 |
-| DMG 文件名 | — | 自动带架构后缀 `Multisoul_0.1.14_aarch64.dmg` |
+| DMG 文件名 | — | 自动带架构后缀 `Norma OS_0.1.14_aarch64.dmg` |
 
 **核心判断**：cargo-packager 0.11.8 原生覆盖完整流水线（深签 + entitlements + DMG + notarize + staple）。无需自写 `codesign-and-notarize.sh` 脚本。
 
@@ -62,14 +62,14 @@ Multisoul 当前打包流程产出**未签名**的 `.app` / `.dmg`（`Packager.t
     └─ 打包 DMG（保留背景）+ 签 DMG
 
 CI 额外:
-  └─ 上传 Multisoul_*.dmg 到 GitHub Release
+  └─ 上传 Norma OS_*.dmg 到 GitHub Release
 ```
 
 ### 3.2 组件清单
 
 | 文件 | 状态 | 职责 |
 |---|---|---|
-| `packaging/macos/Multisoul.entitlements` | 新增 | hardened runtime entitlements plist |
+| `packaging/macos/NormaOS.entitlements` | 新增 | hardened runtime entitlements plist |
 | `packaging/macos/Info.plist` | 修改 | 补 `LSMinimumSystemVersion=12.0`、`LSApplicationCategoryType=public.app-category.developer-tools` |
 | `Packager.toml` | 修改 | 加 `signing-identity`、`entitlements`、`resources` |
 | `Packager.dev.toml` | 新增 | 本地签名测试用：不 bump 版本、不复用 release 版本号，避免反复测试导致版本号虚高 |
@@ -81,7 +81,7 @@ CI 额外:
 
 ## 4. 详细设计
 
-### 4.1 `packaging/macos/Multisoul.entitlements`
+### 4.1 `packaging/macos/NormaOS.entitlements`
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -109,7 +109,7 @@ resources = ["crates/app/assets/wallpapers"]
 minimum-system-version = "12.0"
 info-plist-path = "packaging/macos/Info.plist"
 signing-identity = "Developer ID Application: <公司证书名> (2BF8G9AN4L)"  # 非密钥，明文
-entitlements = "packaging/macos/Multisoul.entitlements"
+entitlements = "packaging/macos/NormaOS.entitlements"
 # 签名/公证在 cargo packager pass 内自动完成
 ```
 
@@ -118,7 +118,7 @@ entitlements = "packaging/macos/Multisoul.entitlements"
 ### 4.3 `Packager.dev.toml`（本地测试用）
 
 与 `Packager.toml` 区别：
-- 无 `before-packaging-command`（不 bump 版本、不 rebuild，直接用 `target/release/multisoul` 现有二进制）
+- 无 `before-packaging-command`（不 bump 版本、不 rebuild，直接用 `target/release/norma-os` 现有二进制）
 - `version` 固定不递增
 - 其余字段（signing-identity、entitlements、resources、dmg 背景）一致
 
@@ -164,7 +164,7 @@ git lfs pull
 cargo packager --release -c Packager.toml
 
 # 5. 验证
-APP=$(ls -d build/bundle/osx/Multisoul.app 2>/dev/null | head -1)
+APP=$(ls -d build/bundle/osx/Norma OS.app 2>/dev/null | head -1)
 codesign --verify --deep --strict --verbose=2 "$APP"
 spctl --assess --type execute --verbose "$APP"
 xcrun stapler validate "$APP"
@@ -185,7 +185,7 @@ xcrun stapler validate "$APP"
 4. 写 API Key 文件：从 secret `APP_STORE_CONNECT_API_KEY_B64`（.p8 base64）解码到 `./private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8`（cargo-packager 的 `notarize_auth()` 会搜索 `./private_keys/`），或显式设 `APPLE_API_KEY_PATH`
 5. 映射 env：`APPLE_API_KEY`/`APPLE_API_ISSUER`/`APPLE_API_KEY_PATH` ← `APP_STORE_CONNECT_*`
 6. `cargo packager --release -c Packager.toml`
-7. `softprops/action-gh-release` 上传 `Multisoul_*.dmg`
+7. `softprops/action-gh-release` 上传 `Norma OS_*.dmg`
 
 **Secrets**（复用 mobile 命名 + 新增 p12）：
 - `APP_STORE_CONNECT_API_KEY_ID`、`APP_STORE_CONNECT_API_ISSUER_ID`、`APP_STORE_CONNECT_API_KEY_B64`（.p8 base64；mobile 用路径，CI 用 base64）
@@ -210,9 +210,9 @@ xcrun stapler validate "$APP"
 - `signing-identity` / `entitlements` 字段在 Packager.toml 中已配置
 
 ### 6.2 本地发版验证清单
-- `codesign --verify --deep --strict --verbose=2 Multisoul.app` → valid
-- `spctl --assess --type execute --verbose Multisoul.app` → accepted
-- `xcrun stapler validate Multisoul.app` → OK
+- `codesign --verify --deep --strict --verbose=2 Norma OS.app` → valid
+- `spctl --assess --type execute --verbose Norma OS.app` → accepted
+- `xcrun stapler validate Norma OS.app` → OK
 - DMG 双击挂载、拖拽安装、启动无 Gatekeeper 警告
 - 运行时：终端节点 spawn PTY、voice 麦克风、agent exec 均正常
 

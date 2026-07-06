@@ -22,13 +22,13 @@
 ### Task 1: entitlements 文件 + Info.plist 修补 + 校验脚本（entitlements/Info.plist 部分）
 
 **Files:**
-- Create: `packaging/macos/Multisoul.entitlements`
+- Create: `packaging/macos/NormaOS.entitlements`
 - Modify: `packaging/macos/Info.plist`
 - Create: `scripts/check-codesign-readiness.sh`
 
 **Interfaces:**
 - Produces: `scripts/check-codesign-readiness.sh`（退出码 0=就绪，1=缺失；Task 2 会扩展 Packager 校验段）
-- Produces: `packaging/macos/Multisoul.entitlements`（被 `Packager.toml`/`Packager.dev.toml` 的 `entitlements` 字段引用）
+- Produces: `packaging/macos/NormaOS.entitlements`（被 `Packager.toml`/`Packager.dev.toml` 的 `entitlements` 字段引用）
 
 - [ ] **Step 1: 写校验脚本（entitlements + Info.plist 部分，此时应失败）**
 
@@ -47,7 +47,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENT="$ROOT/packaging/macos/Multisoul.entitlements"
+ENT="$ROOT/packaging/macos/NormaOS.entitlements"
 INFO="$ROOT/packaging/macos/Info.plist"
 PKG="$ROOT/Packager.toml"
 PKG_DEV="$ROOT/Packager.dev.toml"
@@ -79,7 +79,7 @@ Expected: FAIL，提示 entitlements 文件缺失（此时 Info.plist 也缺两�
 
 - [ ] **Step 3: 创建 entitlements 文件**
 
-创建 `packaging/macos/Multisoul.entitlements`：
+创建 `packaging/macos/NormaOS.entitlements`：
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -114,7 +114,7 @@ Expected: `OK: codesign readiness check passed`
 
 ```bash
 chmod +x scripts/check-codesign-readiness.sh
-git add packaging/macos/Multisoul.entitlements packaging/macos/Info.plist scripts/check-codesign-readiness.sh
+git add packaging/macos/NormaOS.entitlements packaging/macos/Info.plist scripts/check-codesign-readiness.sh
 git commit -m "feat(packaging): add entitlements, Info.plist keys, codesign readiness check"
 ```
 
@@ -128,7 +128,7 @@ git commit -m "feat(packaging): add entitlements, Info.plist keys, codesign read
 - Modify: `scripts/check-codesign-readiness.sh`
 
 **Interfaces:**
-- Consumes: `packaging/macos/Multisoul.entitlements`（Task 1）
+- Consumes: `packaging/macos/NormaOS.entitlements`（Task 1）
 - Produces: `Packager.dev.toml`（ad-hoc 本地测试配置，被 Task 4 的 `release-local.sh` 与 Task 5 的 e2e 验证使用）
 - Produces: `Packager.toml` 的 `resources`+`entitlements` 字段（`signing-identity` 注释占位，阶段 0 启用）
 
@@ -166,7 +166,7 @@ resources = ["crates/app/assets/wallpapers"]
 [macos]
 minimum-system-version = "12.0"
 info-plist-path = "packaging/macos/Info.plist"
-entitlements = "packaging/macos/Multisoul.entitlements"
+entitlements = "packaging/macos/NormaOS.entitlements"
 # 阶段 0 启用：签发 Developer ID Application (2BF8G9AN4L) 证书后取消注释并填入证书 CN。
 # 用 security find-identity -v -p codesigning | grep "Developer ID Application.*2BF8G9AN4L" 查到。
 # signing-identity = "Developer ID Application: <公司证书名> (2BF8G9AN4L)"
@@ -181,9 +181,9 @@ entitlements = "packaging/macos/Multisoul.entitlements"
 # 用法：cargo packager -c Packager.dev.toml
 # 真实发版走 Packager.toml（阶段 0 启用 signing-identity 后）。
 name = "app"
-product-name = "Multisoul"
+product-name = "Norma OS"
 version = "0.1.14"
-identifier = "com.multisoul.desktop"
+identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
 icons = ["assets/AppIcon.icns"]
@@ -192,7 +192,7 @@ binaries-dir = "."
 resources = ["crates/app/assets/wallpapers"]
 
 [[binaries]]
-path = "target/release/multisoul"
+path = "target/release/norma-os"
 main = true
 
 [[binaries]]
@@ -203,7 +203,7 @@ main = false
 minimum-system-version = "12.0"
 info-plist-path = "packaging/macos/Info.plist"
 signing-identity = "-"
-entitlements = "packaging/macos/Multisoul.entitlements"
+entitlements = "packaging/macos/NormaOS.entitlements"
 ```
 
 - [ ] **Step 5: 运行校验，确认通过**
@@ -228,7 +228,7 @@ git commit -m "feat(packaging): add resources/entitlements to Packager configs, 
 **Interfaces:**
 - Consumes: `APP_STORE_CONNECT_API_KEY_ID` / `_ISSUER_ID` / `_KEY_PATH` env（mobile 复用）
 - Consumes: `Packager.toml`（真实发版）或 `Packager.dev.toml`（`--ad-hoc` 测试）
-- Produces: `build/bundle/osx/Multisoul.app` + `Multisoul_*.dmg`（签名 + 公证）
+- Produces: `build/bundle/osx/Norma OS.app` + `Norma OS_*.dmg`（签名 + 公证）
 
 - [ ] **Step 1: 创建 release-local.sh**
 
@@ -274,7 +274,7 @@ git lfs pull
 
 if [ "$AD_HOC" = true ]; then
   # ad-hoc 测试：不 notarize，用 Packager.dev.toml
-  [ -f target/release/multisoul ] || die "target/release/multisoul 不存在，先 cargo build --release -p app"
+  [ -f target/release/norma-os ] || die "target/release/norma-os 不存在，先 cargo build --release -p app"
   info "ad-hoc 打包（不 notarize）"
   env -u APPLE_API_KEY -u APPLE_API_ISSUER -u APPLE_API_KEY_PATH \
       -u APPLE_KEYCHAIN_PROFILE -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \
@@ -298,8 +298,8 @@ else
 fi
 
 # 3. 验证产物
-APP=$(ls -d build/bundle/osx/Multisoul.app build/dev/Multisoul.app 2>/dev/null | head -1)
-[ -n "$APP" ] || die "未找到产物 Multisoul.app"
+APP=$(ls -d build/bundle/osx/Norma OS.app build/dev/Norma OS.app 2>/dev/null | head -1)
+[ -n "$APP" ] || die "未找到产物 Norma OS.app"
 info "验证 $APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 spctl --assess --type execute --verbose "$APP" || warn "spctl 在 ad-hoc 下会失败，真实签名时应 accepted"
@@ -372,7 +372,7 @@ resources = ["crates/app/assets/wallpapers"]
 并在文末「Codesigning and notarization are explicitly Phase 6.」一行更新为：
 
 ```markdown
-Codesigning and notarization 配置见 `packaging/macos/Multisoul.entitlements` 与
+Codesigning and notarization 配置见 `packaging/macos/NormaOS.entitlements` 与
 `Packager.toml` 的 `[macos]` 段；本地发版用 `scripts/release-local.sh`，详见
 `docs/design-docs/2026-07-05-developer-id-notarize-design.md`。
 ```
@@ -396,31 +396,31 @@ git commit -m "refactor(packaging): retire copy-wallpaper-resources.sh in favor 
 - [ ] **Step 1: 确保 release 二进制存在**
 
 Run: `cargo build --release -p app`
-Expected: `target/release/multisoul` 与 `target/release/multisoul-agent-hook` 产出（若已存在则跳过）。
+Expected: `target/release/norma-os` 与 `target/release/multisoul-agent-hook` 产出（若已存在则跳过）。
 
 - [ ] **Step 2: 跑 ad-hoc 签名打包**
 
 Run: `./scripts/release-local.sh --ad-hoc`
-Expected: 产出 `build/dev/Multisoul.app` + `build/dev/Multisoul_0.1.14_aarch64.dmg`；`codesign --verify` 通过；`spctl` 在 ad-hoc 下 warn（可接受）。
+Expected: 产出 `build/dev/Norma OS.app` + `build/dev/Norma OS_0.1.14_aarch64.dmg`；`codesign --verify` 通过；`spctl` 在 ad-hoc 下 warn（可接受）。
 
 - [ ] **Step 3: 验证 entitlements 已嵌入签名**
 
 Run:
 ```bash
-codesign -d --entitlements - build/dev/Multisoul.app | grep disable-library-validation
+codesign -d --entitlements - build/dev/Norma OS.app | grep disable-library-validation
 ```
 Expected: 输出包含 `com.apple.security.cs.disable-library-validation` 且 `Bool=true`。
 
 - [ ] **Step 4: 验证 wallpapers 进入 bundle**
 
-Run: `ls build/dev/Multisoul.app/Contents/Resources/wallpapers/ | wc -l`
+Run: `ls build/dev/Norma OS.app/Contents/Resources/wallpapers/ | wc -l`
 Expected: `10`（3 PNG + 2 GIF + 5 MP4）。
 
 - [ ] **Step 5: 验证 sherpa 静态链接（无非系统 dylib 依赖）**
 
 Run:
 ```bash
-otool -L build/dev/Multisoul.app/Contents/MacOS/multisoul | grep -vE "/usr/lib|/System" | grep -v "^$"
+otool -L build/dev/Norma OS.app/Contents/MacOS/multisoul | grep -vE "/usr/lib|/System" | grep -v "^$"
 ```
 Expected: 无输出（所有动态依赖均为系统库）。
 
@@ -428,10 +428,10 @@ Expected: 无输出（所有动态依赖均为系统库）。
 
 Run:
 ```bash
-DMG=$(ls build/dev/Multisoul_*.dmg | head -1)
+DMG=$(ls build/dev/Norma OS_*.dmg | head -1)
 hdiutil attach -nobrowse -readonly "$DMG" >/dev/null
-codesign -dv /Volumes/Multisoul/Multisoul.app 2>&1 | grep -E "flags|Signature"
-hdiutil detach /Volumes/Multisoul >/dev/null
+codesign -dv /Volumes/Norma OS/Norma OS.app 2>&1 | grep -E "flags|Signature"
+hdiutil detach /Volumes/Norma OS >/dev/null
 ```
 Expected: `flags=0x10002(adhoc,runtime)`（hardened runtime 已启用）。
 
@@ -457,6 +457,6 @@ Expected: `flags=0x10002(adhoc,runtime)`（hardened runtime 已启用）。
 
 **Placeholder scan:** `signing-identity` 注释占位是设计意图（阶段 0 启用），非计划缺陷；其余无 TBD/TODO。
 
-**Type/命名一致性:** `Multisoul.entitlements`、`Packager.dev.toml`、`check-codesign-readiness.sh`、`release-local.sh` 在各 Task 间引用一致。
+**Type/命名一致性:** `NormaOS.entitlements`、`Packager.dev.toml`、`check-codesign-readiness.sh`、`release-local.sh` 在各 Task 间引用一致。
 
 **范围:** 仅阶段 A（本地 ad-hoc 跑通），CI 与真实签名属阶段 B / 阶段 0，本计划不覆盖。
