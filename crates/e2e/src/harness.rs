@@ -5,6 +5,7 @@
 //! 所有 helper 仅依赖 `app` / `runtime` / `canvas` / `terminal` 的公开 API，
 //! 不触达 `pub(crate)` 字段或私有方法。
 
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 use app::{MultisoulApp, NewTerminal};
@@ -48,7 +49,8 @@ pub fn make_app(
     (view, cx)
 }
 
-/// 进入 Canvas 屏幕：调用 `MultisoulApp::enter_canvas_for_test` 直接切换屏幕。
+/// 进入 Canvas 屏幕：调用 `MultisoulApp::enter_canvas_for_test` 直接切换屏幕，
+/// 并把 `root` 注入 `Runtime::set_workspace_root` 作为 cwd。
 ///
 /// # 为什么不走真实 `OpenProject` action
 /// 真实流程调用 `cx.prompt_for_paths`，而 GPUI 的 `TestPlatform::prompt_for_paths`
@@ -57,15 +59,11 @@ pub fn make_app(
 /// 替换旧 runtime，导致 `set_pty_factory` 注入的测试工厂丢失。
 ///
 /// `enter_canvas_for_test`（`crates/app/src/app/mod.rs`）直接置 `screen = Canvas`、
-/// 保留现有 runtime（含工厂）、不加载持久化快照。对 fresh tempdir 场景，这与
-/// 真实流程行为等价（无快照可加载、无 session 可恢复）。
-///
-/// # 取舍
-/// 本方法不设置 runtime 的 `workspace_root`（该字段无私有 setter）。echo PTY
-/// backend 忽略 cwd，故 L1 测试不受影响；L2（真实 PTY）若需要 cwd，应在
-/// Task 10 扩展 `Runtime` 暴露 `workspace_root` setter 或改走真实流程。
-pub fn enter_canvas(view: &Entity<MultisoulApp>, cx: &mut VisualTestContext) {
-    view.update(cx, |app, cx| app.enter_canvas_for_test(cx));
+/// 保留现有 runtime（含工厂）、不加载持久化快照，并通过 `set_workspace_root`
+/// 注入 cwd。对 fresh tempdir 场景，这与真实流程行为等价（无快照可加载、
+/// 无 session 可恢复），且为 L2（真实 PTY）提供了正确的 cwd。
+pub fn enter_canvas(view: &Entity<MultisoulApp>, cx: &mut VisualTestContext, root: &Path) {
+    view.update(cx, |app, cx| app.enter_canvas_for_test(root, cx));
     cx.run_until_parked();
 }
 
@@ -168,12 +166,15 @@ pub fn read_grid(
 /// 数据构造：
 ///   - `echo_factory()`：回显 PTY 工厂，注入 `MultisoulApp::new_with_pty_factory`。
 ///     进入 canvas 走 `enter_canvas_for_test`（不替换 runtime），工厂得以保留。
+///   - `tempfile::TempDir::new()`：临时 workspace root，传给 `enter_canvas`
+///     注入 `Runtime::set_workspace_root`，验证 cwd 注入路径可用。
+///     `_tmp` 持有到函数末尾以保持目录存活。
 ///
 /// 执行过程：
 ///   1. `make_app(cx, factory)` → `MultisoulApp::new_with_pty_factory`，
 ///      初始 screen = Launchpad，runtime 已注入 echo 工厂。
-///   2. `enter_canvas(app, cx)` → `app.enter_canvas_for_test(cx)` 直接置
-///      `screen = Canvas`，runtime 不变（工厂仍在）。
+///   2. `enter_canvas(app, cx, tmp.path())` → `app.enter_canvas_for_test(root, cx)`
+///      先 `set_workspace_root(root)` 再置 `screen = Canvas`，runtime 不变（工厂仍在）。
 ///   3. `create_terminal(app, cx)` → `dispatch_action(NewTerminal)` →
 ///      `runtime.spawn_terminal` 走 echo backend，返回新 Term 节点 id。
 ///
@@ -181,13 +182,14 @@ pub fn read_grid(
 ///   - 正断言：`screen() == Canvas`（enter_canvas 后切换成功）。
 ///   - 正断言：`runtime.live_len() == 1`（恰好 spawn 了 1 个 Term live node）。
 ///   - 正断言：`read_grid(node)` 返回 `Some`（Term 视图存在且可读）。
-///   - 负断言：`runtime.live_len() != 0`（NewTerminal 未被静默拒绝）。
+///   - 负断言：`screen() != Launchpad`（确认确实离开了 Launchpad）。
 #[test]
 fn harness_enters_canvas_and_spawns_terminal() {
     let mut cx = TestAppContext::single();
 
     let (app, cx) = make_app(&mut cx, echo_factory());
-    enter_canvas(&app, cx);
+    let _tmp = tempfile::TempDir::new().expect("tempdir for workspace root should create");
+    enter_canvas(&app, cx, _tmp.path());
     let node = create_terminal(&app, cx);
     cx.run_until_parked();
 
@@ -201,14 +203,15 @@ fn harness_enters_canvas_and_spawns_terminal() {
         "enter_canvas 后屏幕应为 Canvas，实际为 {:?}",
         screen
     );
+    assert_ne!(
+        screen,
+        app::AppScreen::Launchpad,
+        "enter_canvas 后不应停留在 Launchpad"
+    );
     assert_eq!(
         live_len, 1,
         "create_terminal 后应恰好有 1 个 live node，实际为 {}",
         live_len
-    );
-    assert_ne!(
-        live_len, 0,
-        "NewTerminal 不应被静默拒绝（live_len 不应为 0）"
     );
     assert!(
         grid.is_some(),

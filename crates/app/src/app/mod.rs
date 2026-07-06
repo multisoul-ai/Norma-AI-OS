@@ -153,8 +153,10 @@ impl MultisoulApp {
     }
 
     /// E2E test entry point: switch directly to Canvas without invoking the
-    /// native project picker, preserving any injected test runtime state.
-    pub fn enter_canvas_for_test(&mut self, cx: &mut Context<Self>) {
+    /// native project picker, preserving any injected test runtime state and
+    /// setting the workspace root used as terminal cwd.
+    pub fn enter_canvas_for_test(&mut self, root: &std::path::Path, cx: &mut Context<Self>) {
+        self.runtime.set_workspace_root(root.to_path_buf());
         self.screen = AppScreen::Canvas;
         self.last_reflow_window_size = None;
         cx.notify();
