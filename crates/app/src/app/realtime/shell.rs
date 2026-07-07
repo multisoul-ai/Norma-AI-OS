@@ -3,7 +3,9 @@ use super::{RealtimeConfigError, RealtimeControlState, SIDECAR_POLL_INTERVAL};
 use crate::app::voice::control::VoiceVisual;
 use crate::app::MultisoulApp;
 use gpui::Context;
-use realtime::PcmAudioChunk;
+use realtime::{
+    PcmAudioChunk, RealtimeCommand, RealtimeEvent, RealtimeToolCall, RealtimeToolResult,
+};
 
 impl MultisoulApp {
     pub(crate) fn realtime_voice_label(&self) -> Option<String> {
@@ -118,12 +120,26 @@ impl MultisoulApp {
         let task = cx.spawn(async move |this, cx| loop {
             cx.background_executor().timer(SIDECAR_POLL_INTERVAL).await;
             let go = this.update(cx, |app, cx| {
-                let changed = app.realtime.drain_sidecar_events();
+                let changed = app.drain_realtime_sidecar(cx);
                 if changed {
                     cx.notify();
                 }
                 app.realtime.has_sidecar() && app.realtime.is_active()
             });
+            let task_windows = cx.update(|app| app.windows()).unwrap_or_default();
+            let task_changed = task_windows
+                .into_iter()
+                .filter_map(|window| window.downcast::<MultisoulApp>())
+                .any(|window| {
+                    window
+                        .update(cx, |app, window, cx| {
+                            app.drain_realtime_card_tasks(window, cx)
+                        })
+                        .unwrap_or(false)
+                });
+            if task_changed {
+                tracing::debug!("drained realtime card task tick");
+            }
             match go {
                 Ok(true) => {}
                 Ok(false) | Err(_) => break,
@@ -166,5 +182,99 @@ impl MultisoulApp {
     pub(crate) fn stop_always_listening_shell(&mut self, cx: &mut Context<Self>) {
         self.realtime.stop_shell();
         cx.notify();
+    }
+
+    pub(crate) fn drain_realtime_sidecar(&mut self, cx: &mut Context<Self>) -> bool {
+        let mut changed = false;
+        loop {
+            let event = match self.realtime.take_sidecar_event() {
+                Some(event) => event,
+                None => break,
+            };
+
+            changed = true;
+            match event {
+                Ok(RealtimeEvent::ToolCall(tool_call)) => {
+                    self.route_realtime_tool_call(tool_call, cx);
+                }
+                Ok(event) => {
+                    let terminal = matches!(
+                        event,
+                        RealtimeEvent::SessionError { .. } | RealtimeEvent::SessionStopped { .. }
+                    );
+                    let update = self.realtime.apply_sidecar_event(event);
+                    self.realtime.dispatch_tool_result_callbacks(update);
+                    if terminal {
+                        break;
+                    }
+                }
+                Err(error) => {
+                    self.realtime.mark_sidecar_error(error.to_string());
+                    break;
+                }
+            }
+        }
+        changed
+    }
+
+    fn route_realtime_tool_call(&mut self, tool_call: RealtimeToolCall, cx: &mut Context<Self>) {
+        let RealtimeToolCall {
+            session_id,
+            tool_call_id,
+            name,
+            arguments,
+        } = tool_call;
+
+        if !self.realtime.matches_active_session(&session_id) {
+            self.send_failed_realtime_tool_result(
+                session_id,
+                tool_call_id,
+                "stale realtime session tool call",
+            );
+            return;
+        }
+
+        match name.as_str() {
+            "enqueue_card_task" => {
+                let intent = arguments
+                    .get("intent")
+                    .and_then(|value| value.as_str())
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(ToOwned::to_owned);
+                match intent {
+                    Some(intent) => self.enqueue_realtime_card_task(intent, tool_call_id, cx),
+                    None => self.send_failed_realtime_tool_result(
+                        session_id,
+                        tool_call_id,
+                        "enqueue_card_task is missing intent",
+                    ),
+                }
+            }
+            "cancel_card_task" => {
+                self.cancel_realtime_card_task_for_tool_call(session_id, tool_call_id, cx)
+            }
+            _ => self.send_failed_realtime_tool_result(
+                session_id,
+                tool_call_id,
+                format!("unknown tool: {name}"),
+            ),
+        }
+    }
+
+    fn send_failed_realtime_tool_result(
+        &mut self,
+        session_id: realtime::RealtimeSessionId,
+        tool_call_id: String,
+        summary: impl Into<String>,
+    ) {
+        let command = RealtimeCommand::ToolResult(RealtimeToolResult::failed(
+            session_id,
+            tool_call_id,
+            summary,
+        ));
+        if let Err(error) = self.realtime.send_sidecar_command(command) {
+            tracing::warn!(%error, "failed to send realtime tool result");
+        }
     }
 }

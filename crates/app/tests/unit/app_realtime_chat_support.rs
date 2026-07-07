@@ -58,6 +58,14 @@ impl RecordingSidecar {
             .clone()
     }
 
+    pub(crate) fn push_event(&self, event: Result<RealtimeEvent, RealtimeSidecarError>) {
+        self.inner
+            .lock()
+            .expect("recording sidecar lock should not be poisoned")
+            .events
+            .push_back(event);
+    }
+
     pub(crate) fn stop_calls(&self) -> usize {
         self.inner
             .lock()

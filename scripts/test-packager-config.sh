@@ -8,6 +8,7 @@
 # Data construction:
 #   main binary path     = target/release/norma-os
 #   hook binary path     = target/release/multisoul-agent-hook
+#   planner helper path  = sidecars/openai-card-planner/openai-card-planner.mjs
 #   release build hook   = before-packaging-command in Packager.toml
 #   required cargo target = -p app（app package now owns both release binaries）
 #
@@ -21,6 +22,7 @@
 #   - Positive: bundle identifier is com.norma.os.
 #   - Positive: the main app binary path is target/release/norma-os.
 #   - Positive: the hook binary path is present in [[binaries]].
+#   - Positive: the OpenAI card planner helper is packaged as a resource.
 #   - Positive: before-packaging-command exists and bumps the persisted version.
 #   - Positive: before-packaging-command invokes `cargo build --release -p app`.
 #   - Negative: the old target/release/multisoul main binary path is not retained.
@@ -62,6 +64,12 @@ fi
 if ! grep -Fq 'path = "target/release/multisoul-agent-hook"' "$config"; then
   fail "Packager.toml must package target/release/multisoul-agent-hook"
 fi
+
+for resource_config in "$config" "$dev_config"; do
+  if ! grep -Fq '"sidecars/openai-card-planner/openai-card-planner.mjs"' "$resource_config"; then
+    fail "$(basename "$resource_config") must package the OpenAI card planner helper resource"
+  fi
+done
 
 if ! grep -Fq 'product-name = "Norma OS"' "$config"; then
   fail "Packager.toml product-name must be Norma OS"

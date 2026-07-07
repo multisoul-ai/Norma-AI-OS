@@ -9,8 +9,8 @@ use crate::app::voice::playback::AssistantAudioSink;
 use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
 use gpui::Task;
 use realtime::{
-    PcmAudioChunk, RealtimeCommand, RealtimeEvent, RealtimeSessionConfig, RealtimeSessionId,
-    RealtimeSidecarError, RealtimeStatus, SidecarLaunchConfig, SidecarProcess,
+    PcmAudioChunk, RealtimeCallbackUpdate, RealtimeCommand, RealtimeEvent, RealtimeSessionConfig,
+    RealtimeSessionId, RealtimeSidecarError, RealtimeStatus, SidecarLaunchConfig, SidecarProcess,
 };
 use std::io;
 use std::path::PathBuf;
@@ -277,7 +277,8 @@ impl RealtimeControlState {
         Ok(true)
     }
 
-    pub(super) fn apply_sidecar_event(&mut self, event: RealtimeEvent) {
+    pub(super) fn apply_sidecar_event(&mut self, event: RealtimeEvent) -> RealtimeCallbackUpdate {
+        let mut callback_update = RealtimeCallbackUpdate::default();
         match event {
             RealtimeEvent::SessionStarted { session_id } => {
                 if self.matches_active_session(&session_id) {
@@ -291,8 +292,10 @@ impl RealtimeControlState {
                 if self.matches_active_session(&session_id) {
                     if speaking {
                         self.session.mark_user_speaking(false);
+                        self.session.mark_assistant_speaking(true);
+                    } else {
+                        callback_update = self.session.handle_assistant_audio_end();
                     }
-                    self.session.mark_assistant_speaking(speaking);
                 }
             }
             RealtimeEvent::AssistantAudioChunk { session_id, chunk } => {
@@ -306,12 +309,17 @@ impl RealtimeControlState {
             RealtimeEvent::SessionStopped { .. } => {
                 self.finish_sidecar_stopped();
             }
+            RealtimeEvent::TranscriptFinal { session_id, .. } => {
+                if self.matches_active_session(&session_id) {
+                    callback_update = self.session.handle_transcript_final();
+                }
+            }
             RealtimeEvent::TranscriptDelta { .. }
-            | RealtimeEvent::TranscriptFinal { .. }
             | RealtimeEvent::AssistantTextDelta { .. }
             | RealtimeEvent::ToolCall(_)
             | RealtimeEvent::IgnoredUnknown { .. } => {}
         }
+        callback_update
     }
 
     pub(super) fn stop_chat_runtime(&mut self) {
@@ -335,7 +343,11 @@ impl RealtimeControlState {
         sidecar.enqueue(command)
     }
 
-    fn matches_active_session(&self, session_id: &RealtimeSessionId) -> bool {
+    pub(super) fn take_sidecar_event(&self) -> Option<Result<RealtimeEvent, RealtimeSidecarError>> {
+        self.sidecar.as_ref().and_then(|sidecar| sidecar.try_recv())
+    }
+
+    pub(super) fn matches_active_session(&self, session_id: &RealtimeSessionId) -> bool {
         self.session.session_id() == Some(session_id)
     }
 
@@ -372,7 +384,8 @@ impl RealtimeControlState {
 
     #[cfg(test)]
     pub(crate) fn apply_sidecar_event_for_tests(&mut self, event: RealtimeEvent) {
-        self.apply_sidecar_event(event);
+        let update = self.apply_sidecar_event(event);
+        self.dispatch_tool_result_callbacks(update);
     }
 
     #[cfg(test)]

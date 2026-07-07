@@ -2,17 +2,18 @@
 resolver = "2"
 members = [
   "crates/canvas",
+  "crates/card_task",
   "crates/storage",
   "crates/workspace",
   "crates/terminal",
   "crates/runtime",
   "crates/realtime",
+  "crates/e2e",
   "crates/voice",
   "crates/voice_sherpa",
   "crates/ui",
   "crates/norma",
   "crates/app",
-  "crates/e2e",
 ]
 
 [workspace.package]
@@ -52,6 +53,7 @@ voice = { path = "crates/voice" }
 voice_sherpa = { path = "crates/voice_sherpa" }
 ui = { path = "crates/ui" }
 norma = { path = "crates/norma" }
+card_task = { path = "crates/card_task" }
 
 [profile.dev]
 opt-level = 1          # gpui/alacritty 在 opt-level=0 下交互偏卡，地基级折中

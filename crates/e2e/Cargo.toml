@@ -12,9 +12,14 @@ license.workspace = true
 # 该 feature 仅在 e2e crate 激活，不会影响 `cargo build -p app` 的生产构建。
 [dependencies]
 app = { path = "../app" }
+card_task.workspace = true
 runtime = { path = "../runtime" }
 canvas = { path = "../canvas" }
 terminal = { path = "../terminal" }
+norma.workspace = true
+realtime.workspace = true
+serde_json.workspace = true
+voice.workspace = true
 gpui = { workspace = true, features = ["test-support"] }
 crossbeam-channel = { workspace = true }
 tempfile = { workspace = true }

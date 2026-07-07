@@ -1,5 +1,8 @@
 //! App-layer shell state for Always Listening realtime voice.
 
+mod callbacks;
+mod card_task_support;
+mod card_tasks;
 mod chat;
 mod shell;
 
@@ -90,6 +93,7 @@ pub(crate) struct RealtimeControlState {
     sidecar: Option<Box<dyn RealtimeSidecarClient>>,
     pcm_stream: Option<Box<dyn RealtimePcmStream>>,
     assistant_audio_sink: Box<dyn AssistantAudioSink>,
+    card_tasks: card_tasks::RealtimeCardTaskState,
     startup_task: Option<Task<()>>,
     sidecar_drain_task: Option<Task<()>>,
     pcm_forward_task: Option<Task<()>>,
@@ -105,6 +109,7 @@ impl Default for RealtimeControlState {
             sidecar: None,
             pcm_stream: None,
             assistant_audio_sink: default_assistant_audio_sink(),
+            card_tasks: card_tasks::RealtimeCardTaskState::default(),
             startup_task: None,
             sidecar_drain_task: None,
             pcm_forward_task: None,
@@ -144,7 +149,10 @@ impl RealtimeControlState {
         Ok(RealtimeSessionConfig {
             session_id: RealtimeSessionId::new("always-listening-shell"),
             model: model.to_string(),
-            tools: Vec::new(),
+            tools: vec![
+                "enqueue_card_task".to_string(),
+                "cancel_card_task".to_string(),
+            ],
         })
     }
 
@@ -232,10 +240,11 @@ impl RealtimeControlState {
         self.config_error = Some(error);
     }
 
+    #[cfg(test)]
     pub(crate) fn drain_sidecar_events(&mut self) -> bool {
         let mut changed = false;
         loop {
-            let event = match self.sidecar.as_ref().and_then(|sidecar| sidecar.try_recv()) {
+            let event = match self.take_sidecar_event() {
                 Some(event) => event,
                 None => break,
             };
@@ -248,7 +257,8 @@ impl RealtimeControlState {
                         realtime::RealtimeEvent::SessionError { .. }
                             | realtime::RealtimeEvent::SessionStopped { .. }
                     );
-                    self.apply_sidecar_event(event);
+                    let update = self.apply_sidecar_event(event);
+                    self.dispatch_tool_result_callbacks(update);
                     if terminal {
                         break;
                     }
@@ -468,3 +478,23 @@ mod app_realtime_tests_chat_lifecycle;
 #[cfg(test)]
 #[path = "../../tests/unit/app_realtime_chat_support.rs"]
 mod app_realtime_tests_chat_support;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_realtime_card_task_tests.rs"]
+mod app_realtime_card_task_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_realtime_tool_call_tests.rs"]
+mod app_realtime_tool_call_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_realtime_review_fix_tests.rs"]
+mod app_realtime_review_fix_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_realtime_callback_tests.rs"]
+mod app_realtime_callback_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_realtime_acceptance_tests.rs"]
+mod app_realtime_acceptance_tests;

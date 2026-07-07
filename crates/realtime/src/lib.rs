@@ -6,10 +6,10 @@ pub mod sidecar;
 pub use audio::{PcmAudioChunk, PcmAudioError, PcmFormat};
 pub use protocol::{
     decode_event, encode_command, RealtimeCommand, RealtimeEvent, RealtimeProtocolError,
-    RealtimeToolCall, RealtimeToolResult,
+    RealtimeToolCall, RealtimeToolResult, RealtimeToolResultStatus,
 };
 pub use session::{
-    RealtimeSessionConfig, RealtimeSessionError, RealtimeSessionId, RealtimeSessionState,
-    RealtimeStatus,
+    RealtimeCallbackUpdate, RealtimeSessionConfig, RealtimeSessionError, RealtimeSessionId,
+    RealtimeSessionState, RealtimeStatus,
 };
 pub use sidecar::{RealtimeSidecarError, SecretString, SidecarLaunchConfig, SidecarProcess};

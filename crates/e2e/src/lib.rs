@@ -2,7 +2,7 @@
 //!
 //! 本 crate 隔离 headless GPUI 启动，避免污染域层的快速单测。`gpui` 的
 //! `test-support` feature 在此 crate 局部启用，生产 `cargo build -p app`
-//! 不受影响。
+//! 不受影响。跨 crate domain-level 验收测试放在 `tests/`。
 
 #![cfg(test)]
 

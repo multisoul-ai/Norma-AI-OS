@@ -7,7 +7,10 @@ version = "0.1.21"
 identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
-resources = ["crates/app/assets/wallpapers"]
+resources = [
+  "crates/app/assets/wallpapers",
+  "sidecars/openai-card-planner/openai-card-planner.mjs",
+]
 icons = ["assets/AppIcon.icns"]
 out-dir = "build"
 binaries-dir = "."

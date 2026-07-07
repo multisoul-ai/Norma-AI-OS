@@ -1048,3 +1048,310 @@ test("OpenAI error maps to sanitized session_error", async () => {
     await ipc.cleanup();
   }
 });
+
+/**
+ * OpenAI function-call output-item mapping: verifies one completed
+ * `response.output_item.done` function call becomes one Norma `tool_call`.
+ *
+ * Data construction:
+ *   session_id    = "rt_tool_call_enqueue"
+ *   tool_call_id  = "call_1"
+ *   function name = "enqueue_card_task"
+ *   arguments     = {"intent":"创建 Codex 卡片"}
+ *
+ * Execution process:
+ *   1. Start OpenAI mode and finish the fake WebSocket handshake.
+ *   2. Inject one fake `response.output_item.done` event whose item is a function call.
+ *   3. Read the resulting stdout JSONL `tool_call`.
+ *
+ * Expected result:
+ *   - Positive: event type is exactly `tool_call`.
+ *   - Positive: tool_call_id/name/arguments match the upstream function call.
+ *   - Negative: stdout and stderr must not contain the raw API key.
+ */
+test("OpenAI response.output_item.done function call maps to tool_call", async () => {
+  const ipc = spawnSidecar({ useFakeWebSocket: true });
+  try {
+    ipc.writeJson({
+      type: "start_session",
+      session_id: "rt_tool_call_enqueue",
+      config: { model: "gpt-realtime-2", tools: ["enqueue_card_task"] },
+    });
+    await ipc.nextChildMessage("ws-created");
+    ipc.sendControl({ kind: "ws-open" });
+    await ipc.nextChildMessage("ws-send", (message) => {
+      return parseSentRealtimeEvent(message).type === "session.update";
+    });
+    await ipc.nextEventOfType("session_started");
+
+    ipc.sendControl({
+      kind: "ws-message",
+      data: {
+        type: "response.output_item.done",
+        item: {
+          type: "function_call",
+          call_id: "call_1",
+          name: "enqueue_card_task",
+          arguments: JSON.stringify({ intent: "创建 Codex 卡片" }),
+        },
+      },
+    });
+
+    const event = await ipc.nextEventOfType("tool_call");
+
+    assert.equal(
+      event.session_id,
+      "rt_tool_call_enqueue",
+      "tool_call should preserve the active realtime session id",
+    );
+    assert.equal(
+      event.tool_call_id,
+      "call_1",
+      "tool_call should preserve the upstream function call id",
+    );
+    assert.equal(
+      event.name,
+      "enqueue_card_task",
+      "tool_call should preserve the upstream function name",
+    );
+    assert.deepEqual(
+      event.arguments,
+      { intent: "创建 Codex 卡片" },
+      "tool_call should decode the upstream JSON arguments into a plain object",
+    );
+    assertNoApiKeyLeak(ipc);
+  } finally {
+    await ipc.cleanup();
+  }
+});
+
+/**
+ * OpenAI function-call arguments-done mapping: verifies one completed
+ * `response.function_call_arguments.done` event becomes one Norma `tool_call`.
+ *
+ * Data construction:
+ *   session_id    = "rt_tool_call_cancel"
+ *   tool_call_id  = "call_cancel_1"
+ *   function name = "cancel_card_task"
+ *   arguments     = {"scope":"latest"}
+ *
+ * Execution process:
+ *   1. Start OpenAI mode and finish the fake WebSocket handshake.
+ *   2. Inject one fake `response.function_call_arguments.done` event.
+ *   3. Read the resulting stdout JSONL `tool_call`.
+ *
+ * Expected result:
+ *   - Positive: event type is exactly `tool_call`.
+ *   - Positive: tool_call_id/name/arguments match the upstream function call.
+ *   - Negative: stdout and stderr must not contain the raw API key.
+ */
+test("OpenAI response.function_call_arguments.done maps to cancel tool_call", async () => {
+  const ipc = spawnSidecar({ useFakeWebSocket: true });
+  try {
+    ipc.writeJson({
+      type: "start_session",
+      session_id: "rt_tool_call_cancel",
+      config: { model: "gpt-realtime-2", tools: ["cancel_card_task"] },
+    });
+    await ipc.nextChildMessage("ws-created");
+    ipc.sendControl({ kind: "ws-open" });
+    await ipc.nextChildMessage("ws-send", (message) => {
+      return parseSentRealtimeEvent(message).type === "session.update";
+    });
+    await ipc.nextEventOfType("session_started");
+
+    ipc.sendControl({
+      kind: "ws-message",
+      data: {
+        type: "response.function_call_arguments.done",
+        call_id: "call_cancel_1",
+        name: "cancel_card_task",
+        arguments: JSON.stringify({ scope: "latest" }),
+      },
+    });
+
+    const event = await ipc.nextEventOfType("tool_call");
+
+    assert.equal(
+      event.tool_call_id,
+      "call_cancel_1",
+      "tool_call should preserve the function call id from arguments.done events",
+    );
+    assert.equal(
+      event.name,
+      "cancel_card_task",
+      "tool_call should preserve the cancel function name",
+    );
+    assert.deepEqual(
+      event.arguments,
+      { scope: "latest" },
+      "tool_call should decode JSON arguments from arguments.done events",
+    );
+    assertNoApiKeyLeak(ipc);
+  } finally {
+    await ipc.cleanup();
+  }
+});
+
+/**
+ * OpenAI invalid function-call arguments: verifies malformed JSON arguments do
+ * not become sidecar errors and instead emit a fallback Norma `tool_call`.
+ *
+ * Data construction:
+ *   session_id    = "rt_tool_call_invalid_args"
+ *   tool_call_id  = "call_bad_args"
+ *   function name = "enqueue_card_task"
+ *   arguments     = "{bad json" (deterministic malformed payload)
+ *
+ * Execution process:
+ *   1. Start OpenAI mode and finish the fake WebSocket handshake.
+ *   2. Inject one fake function-call event with malformed JSON arguments.
+ *   3. Read the resulting stdout JSONL `tool_call`.
+ *
+ * Expected result:
+ *   - Positive: event type is exactly `tool_call`.
+ *   - Positive: arguments fall back to `{}` so Rust can emit a failed tool result.
+ *   - Negative: the sidecar must not emit `session_error` for malformed arguments.
+ */
+test("OpenAI malformed function-call arguments still emit tool_call with empty arguments", async () => {
+  const ipc = spawnSidecar({ useFakeWebSocket: true });
+  try {
+    ipc.writeJson({
+      type: "start_session",
+      session_id: "rt_tool_call_invalid_args",
+      config: { model: "gpt-realtime-2", tools: ["enqueue_card_task"] },
+    });
+    await ipc.nextChildMessage("ws-created");
+    ipc.sendControl({ kind: "ws-open" });
+    await ipc.nextChildMessage("ws-send", (message) => {
+      return parseSentRealtimeEvent(message).type === "session.update";
+    });
+    await ipc.nextEventOfType("session_started");
+
+    ipc.sendControl({
+      kind: "ws-message",
+      data: {
+        type: "response.output_item.done",
+        item: {
+          type: "function_call",
+          id: "call_bad_args",
+          name: "enqueue_card_task",
+          arguments: "{bad json",
+        },
+      },
+    });
+
+    const event = await ipc.nextEventOfType("tool_call");
+
+    assert.equal(
+      event.tool_call_id,
+      "call_bad_args",
+      "tool_call should fall back to item.id when call_id is unavailable",
+    );
+    assert.deepEqual(
+      event.arguments,
+      {},
+      "malformed JSON arguments should degrade to an empty object for Rust-side validation",
+    );
+    assert.doesNotMatch(
+      JSON.stringify(event),
+      apiKeyPattern,
+      "tool_call fallback payload must never embed the raw OPENAI_API_KEY",
+    );
+    assertNoApiKeyLeak(ipc);
+  } finally {
+    await ipc.cleanup();
+  }
+});
+
+/**
+ * OpenAI tool_result forwarding: verifies one Rust `tool_result` command
+ * becomes one `conversation.item.create(function_call_output)` followed by one
+ * `response.create`.
+ *
+ * Data construction:
+ *   session_id   = "rt_tool_result"
+ *   tool_call_id = "call_failed_1"
+ *   result       = {"status":"failed","summary":"missing intent"}
+ *
+ * Execution process:
+ *   1. Start OpenAI mode and finish the fake WebSocket handshake.
+ *   2. Send one JSONL `tool_result` command from Rust.
+ *   3. Inspect the next two upstream WebSocket payloads.
+ *
+ * Expected result:
+ *   - Positive: first payload is `conversation.item.create` with `function_call_output`.
+ *   - Positive: second payload is `response.create`.
+ *   - Negative: neither payload contains the raw API key.
+ */
+test("OpenAI tool_result maps to function_call_output then response.create", async () => {
+  const ipc = spawnSidecar({ useFakeWebSocket: true });
+  try {
+    ipc.writeJson({
+      type: "start_session",
+      session_id: "rt_tool_result",
+      config: { model: "gpt-realtime-2", tools: ["enqueue_card_task"] },
+    });
+    await ipc.nextChildMessage("ws-created");
+    ipc.sendControl({ kind: "ws-open" });
+    await ipc.nextChildMessage("ws-send", (message) => {
+      return parseSentRealtimeEvent(message).type === "session.update";
+    });
+    await ipc.nextEventOfType("session_started");
+
+    ipc.writeJson({
+      type: "tool_result",
+      session_id: "rt_tool_result",
+      tool_call_id: "call_failed_1",
+      result: {
+        status: "failed",
+        summary: "missing intent",
+      },
+    });
+
+    const itemCreate = parseSentRealtimeEvent(await ipc.nextChildMessage("ws-send"));
+    const responseCreate = parseSentRealtimeEvent(await ipc.nextChildMessage("ws-send"));
+
+    assert.equal(
+      itemCreate.type,
+      "conversation.item.create",
+      "tool_result should first inject a conversation.item.create event",
+    );
+    assert.equal(
+      itemCreate.item.type,
+      "function_call_output",
+      "tool_result should inject a function_call_output item for the matching tool call",
+    );
+    assert.equal(
+      itemCreate.item.call_id,
+      "call_failed_1",
+      "function_call_output should target the original tool_call_id",
+    );
+    assert.deepEqual(
+      JSON.parse(itemCreate.item.output),
+      {
+        status: "failed",
+        summary: "missing intent",
+      },
+      "function_call_output should serialize the structured Rust tool result payload",
+    );
+    assert.equal(
+      responseCreate.type,
+      "response.create",
+      "tool_result should request a follow-up assistant response after injecting function_call_output",
+    );
+    assert.doesNotMatch(
+      JSON.stringify(itemCreate),
+      apiKeyPattern,
+      "function_call_output payload must never embed the raw OPENAI_API_KEY",
+    );
+    assert.doesNotMatch(
+      JSON.stringify(responseCreate),
+      apiKeyPattern,
+      "response.create payload must never embed the raw OPENAI_API_KEY",
+    );
+    assertNoApiKeyLeak(ipc);
+  } finally {
+    await ipc.cleanup();
+  }
+});
