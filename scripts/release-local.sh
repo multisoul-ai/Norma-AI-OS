@@ -68,7 +68,7 @@ elif [ "$NOTARIZE" = true ]; then
   # env -u 清掉 AppleId 方式（APPLE_ID/PASSWORD/TEAM_ID 可能来自 ~/.zshrc 的个人账号），
   # 强制 cargo-packager notarize_auth() 走 ApiKey 方式（APPLE_API_* = 公司 2BF8G9AN4L key）。
   env -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID -u APPLE_KEYCHAIN_PROFILE \
-      cargo packager --release -c Packager.toml
+      cargo packager --notarize --release -c Packager.toml
 else
   # 默认：Developer ID 签名打包，但显式移除 notary 凭证，避免 cargo-packager 自动公证。
   security find-identity -v -p codesigning | grep -q "Developer ID Application.*2BF8G9AN4L" \

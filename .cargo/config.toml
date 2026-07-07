@@ -1,0 +1,2 @@
+[alias]
+packager = "run --quiet --manifest-path tools/cargo-packager-wrapper/Cargo.toml --"

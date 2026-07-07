@@ -25,9 +25,11 @@ macOS 空间工作台脚手架（垂直切片）。核心抽象 **Live Node on I
 - 全量测试：`cargo test --workspace`
 - 校验域层零 gpui：`cargo tree -p canvas -p terminal -p runtime | grep -i gpui`（应无输出）
 
-## 打包（未签名）
+## 打包
 - `cargo install cargo-packager --locked`
 - `cargo build --release -p app`
+- `cargo packager --release -c Packager.toml` → 产出已签名但不公证的 `Norma OS.app` / `.dmg`
+- `cargo packager --notarize --release -c Packager.toml` → 产出签名、公证并 staple 的发版包
 - `./scripts/release-local.sh` → 产出已签名但不公证的 `Norma OS.app` / `.dmg`
 - `./scripts/release-local.sh --notarize` → 产出签名、公证并 staple 的发版包
 

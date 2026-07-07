@@ -13,22 +13,37 @@ Release workflow:
 
 ```bash
 cargo install cargo-packager --locked
+cargo packager --release -c Packager.toml
+cargo packager --notarize --release -c Packager.toml
 ./scripts/release-local.sh
 ./scripts/release-local.sh --notarize
 ```
 
-默认使用 `./scripts/release-local.sh`，它会清掉 `APPLE_API_*`、
-`APPLE_KEYCHAIN_PROFILE`、`APPLE_ID`、`APPLE_PASSWORD`、`APPLE_TEAM_ID` 后再调用
-`cargo packager --release -c Packager.toml`，因此只做 Developer ID 签名打包，不提交
-Apple 公证。
+仓库里的 `.cargo/config.toml` 会把 `cargo packager ...` 路由到
+`tools/cargo-packager-wrapper`，再由 wrapper 调用真实的 `cargo-packager`。
+默认执行 `cargo packager --release -c Packager.toml` 时，wrapper 会清掉
+`APPLE_API_*`、`APPLE_KEYCHAIN_PROFILE`、`APPLE_ID`、`APPLE_PASSWORD`、
+`APPLE_TEAM_ID`，因此只做 Developer ID 签名打包，不提交 Apple 公证。
 
-需要真实发版公证时，显式传 `--notarize`。脚本会把
+需要真实发版公证时，显式传 `--notarize`：
+
+```bash
+cargo packager --notarize --release -c Packager.toml
+```
+
+wrapper 会把
 `APP_STORE_CONNECT_API_KEY_ID` / `APP_STORE_CONNECT_API_ISSUER_ID` /
 `APP_STORE_CONNECT_API_KEY_PATH` 映射成 cargo-packager 读取的 `APPLE_API_*`，
-然后再执行同一个底层打包命令。
+并移除个人 Apple ID 方式的 notary 凭证，避免账号串用。
 
-不要把裸 `cargo packager --release -c Packager.toml` 当作日常入口：cargo-packager
-0.11.8 没有 `--notarize` / `--no-notarize` 参数，`cargo packager --release -c Packager.toml` 会直接读取当前 shell 的 APPLE_* notary 环境变量；如果这些变量残留，它会在 `.app` 签名后自动尝试 notarize。
+`./scripts/release-local.sh` 保留为完整本地 release 流程入口：它会先做
+codesign readiness 检查和 `git lfs pull`，再调用同一个 `cargo packager` 入口。
+`./scripts/release-local.sh --notarize` 与 `cargo packager --notarize ...` 使用同一组
+`APP_STORE_CONNECT_*` 凭证约定。
+
+注意：这里依赖项目内 `.cargo/config.toml` 的 Cargo alias。如果绕过 Cargo alias 直接执行
+`cargo-packager --release -c Packager.toml`，上游 cargo-packager 0.11.8 仍会直接读取当前
+shell 的 `APPLE_*` notary 环境变量。
 
 `Packager.toml` runs a `before-packaging-command` that first calls
 `scripts/bump-release-version.sh`, then builds both release binaries before the
@@ -44,7 +59,7 @@ invocation starts from that bumped version.
 
 Codesigning 配置见 `packaging/macos/NormaOS.entitlements` 与
 `Packager.toml` 的 `[macos]` 段；notarization 只通过
-`scripts/release-local.sh --notarize` 显式开启，详见
+`cargo packager --notarize ...` 或 `scripts/release-local.sh --notarize` 显式开启，详见
 `docs/design-docs/2026-07-05-developer-id-notarize-design.md`。
 
 ## Wallpaper resources

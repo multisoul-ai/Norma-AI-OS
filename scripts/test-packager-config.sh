@@ -31,6 +31,10 @@
 #     matching window/icon positions.
 #   - Positive: the 1024 app icon source has a tight alpha bbox so Finder and
 #     DMG icons do not render visually undersized.
+#   - Positive: the DMG background is authored at 2x Retina resolution
+#     (1280x800) for a 640x400 Finder window.
+#   - Negative: the app icon source must not contain near-white edge pixels
+#     that show up as a strange border on dark backgrounds.
 #   - Negative: the dev config must not fall back to cargo-packager's default
 #     DMG layout.
 
@@ -40,6 +44,7 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config="$repo_root/Packager.toml"
 dev_config="$repo_root/Packager.dev.toml"
 icon_source="$repo_root/assets/app-icon-source.png"
+dmg_background="$repo_root/assets/dmg-background.png"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -84,6 +89,10 @@ if ! printf '%s\n' "$hook" | grep -Fq -- 'cargo build --release -p app'; then
   fail "before-packaging-command must build the app package release binaries"
 fi
 
+if ! command -v magick >/dev/null 2>&1; then
+  fail "ImageMagick 'magick' is required to verify DMG and app icon assets"
+fi
+
 case "$hook" in
   *scripts/bump-release-version.sh*'cargo build --release -p app'*)
     ;;
@@ -95,7 +104,7 @@ esac
 # DMG visual/layout guard:
 #   product name      = Norma OS
 #   background path  = assets/dmg-background.png
-#   window size      = 640x400, matching the generated background bitmap
+#   background bitmap = 1280x800 (2x) for a 640x400 logical Finder window
 #   app/drop targets = x=180 and x=460, centered on the left/right wells
 #   dev config       = same [dmg] values, so local test packages match release
 for cfg in "$config" "$dev_config"; do
@@ -108,7 +117,7 @@ for cfg in "$config" "$dev_config"; do
   fi
 
   if ! grep -Fq 'window-size = { width = 640, height = 400 }' "$cfg"; then
-    fail "$(basename "$cfg") DMG window must match the 640x400 generated background"
+    fail "$(basename "$cfg") DMG window must stay 640x400 logical points"
   fi
 
   if ! grep -Fq 'app-position = { x = 180, y = 200 }' "$cfg"; then
@@ -120,15 +129,18 @@ for cfg in "$config" "$dev_config"; do
   fi
 done
 
+background_geometry=$(magick identify -format '%wx%h' "$dmg_background")
+if [ "$background_geometry" != "1280x800" ]; then
+  fail "assets/dmg-background.png must be a 1280x800 Retina source, got $background_geometry"
+fi
+
 # App icon whitespace guard:
 #   image size        = 1024x1024
 #   old alpha bbox    = 931x868+25+78, leaving visible transparent slack
 #   required bbox     >= 950px wide and >= 900px tall after trimming/repadding
 #   upper-left offset <= 45px on both axes, so the icon is optically centered
-if ! command -v magick >/dev/null 2>&1; then
-  fail "ImageMagick 'magick' is required to verify app icon source whitespace"
-fi
-
+#   edge-white count  <= 16 pixels on each outer strip; larger counts indicate
+#                       an antialiased white border or leftover drop shadow
 icon_geometry=$(magick identify -format '%wx%h' "$icon_source")
 if [ "$icon_geometry" != "1024x1024" ]; then
   fail "assets/app-icon-source.png must remain a 1024x1024 PNG, got $icon_geometry"
@@ -158,5 +170,26 @@ fi
 if [ "$bbox_x" -gt 45 ] || [ "$bbox_y" -gt 45 ]; then
   fail "assets/app-icon-source.png alpha bbox must start within 45px of top-left, got +$bbox_x+$bbox_y ($icon_bbox)"
 fi
+
+for edge_spec in \
+  "top 1024x36+0+0" \
+  "bottom 1024x124+0+900" \
+  "left 36x1024+0+0" \
+  "right 36x1024+988+0"
+do
+  edge_name=${edge_spec%% *}
+  edge_crop=${edge_spec#* }
+  # Count visible near-white pixels only on the outer edge. This ignores the
+  # interior white X and small square marks, but catches the previous white
+  # fringe/drop-shadow around the rounded rectangle.
+  edge_white=$(magick "$icon_source" -crop "$edge_crop" +repage -alpha on \
+    -fx 'a>0.10 && r>0.82 && g>0.82 && b>0.82 ? 1 : 0' \
+    -format '%[fx:mean*w*h]' info:)
+  edge_white=${edge_white%.*}
+
+  if [ "$edge_white" -gt 16 ]; then
+    fail "assets/app-icon-source.png has $edge_white near-white pixels on the $edge_name edge; white border not removed"
+  fi
+done
 
 echo "packager config test passed"
