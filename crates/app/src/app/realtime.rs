@@ -1,6 +1,7 @@
 //! App-layer shell state for Always Listening realtime voice.
 
 mod callbacks;
+mod card_task_support;
 mod card_tasks;
 mod chat;
 mod shell;
@@ -148,7 +149,10 @@ impl RealtimeControlState {
         Ok(RealtimeSessionConfig {
             session_id: RealtimeSessionId::new("always-listening-shell"),
             model: model.to_string(),
-            tools: Vec::new(),
+            tools: vec![
+                "enqueue_card_task".to_string(),
+                "cancel_card_task".to_string(),
+            ],
         })
     }
 
@@ -482,6 +486,10 @@ mod app_realtime_card_task_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/app_realtime_tool_call_tests.rs"]
 mod app_realtime_tool_call_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_realtime_review_fix_tests.rs"]
+mod app_realtime_review_fix_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/app_realtime_callback_tests.rs"]

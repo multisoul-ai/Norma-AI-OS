@@ -4,7 +4,7 @@ use crate::app::MultisoulApp;
 use realtime::{RealtimeCallbackUpdate, RealtimeCommand, RealtimeToolResult};
 
 impl RealtimeControlState {
-    fn queue_or_inject_tool_result(&mut self, result: RealtimeToolResult) {
+    pub(super) fn queue_or_inject_tool_result(&mut self, result: RealtimeToolResult) {
         let update = self.session.queue_or_inject_tool_result(result);
         self.dispatch_tool_result_callbacks(update);
     }

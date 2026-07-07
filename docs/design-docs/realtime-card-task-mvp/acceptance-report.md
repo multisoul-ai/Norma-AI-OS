@@ -9,8 +9,9 @@
 本次新增自动验收测试：
 
 - `app::realtime::app_realtime_acceptance_tests::test_realtime_acceptance_tool_call_executes_create_then_send_and_flushes_after_audio_end`
+- `e2e::realtime_card_task_pipeline::test_realtime_tool_call_create_send_and_callback_pipeline`
 
-该测试确定性覆盖了 07 核心句子的最小闭环：
+app-level headless 测试确定性覆盖了 07 核心句子的最小闭环：
 
 - `enqueue_card_task(intent="创建一个 Codex 卡片，让它分析 README，然后发送")` 能从 realtime `tool_call` 路由到 app card-task queue。
 - fake planner 返回两步 plan：`Create Codex` + `SendText(previous_step=0, submit=true)`。
@@ -19,6 +20,18 @@
   - `SendText { node_id: created_id(77), text: "请分析 README", submit: true }`
 - task 成功终态会桥接成 realtime `ToolResult`，且 `status="succeeded"`。
 - assistant speaking 时成功结果先进入 callback queue；assistant audio end 后才注入 sidecar。
+
+新增 `crates/e2e` 测试覆盖了该闭环中可通过公开 crate API 验证的
+domain-level pieces：
+
+- `realtime::decode_event` 解码 JSONL `tool_call`。
+- `card_task::CardTaskQueue` 执行 create -> send previous-step。
+- `realtime::RealtimeSessionState` 在 assistant speaking 时排队 callback，并在 audio end 后 flush。
+- `realtime::encode_command` 输出 `tool_result` JSONL。
+
+说明：`crates/e2e` 不依赖 `crates/app` 私有测试入口，因此不验证 app 内部
+`tool_call_id` 映射和 callback bridge；这部分由上面的 app-level headless
+acceptance test 覆盖。
 
 与本次验收链共同形成覆盖的现有自动测试：
 
@@ -60,6 +73,12 @@
 
 - 本次没有使用 live OpenAI API key。
 - 本次没有做 microphone / speaker 手动验收。
+- 本次 `crates/e2e` 是不依赖 app 私有测试入口的 domain-level e2e；
+  `crates/app` 仍通过 headless `TestAppContext` 覆盖 app-level 链路。
+  这两者都不是启动真实 packaged `.app` 的 L3 验收。
+- packaged `.app` 内 card planner helper 的资源拷贝已通过 `Packager.toml`
+  配置和 `scripts/test-packager-config.sh` 做静态验证；真实 packaged app
+  live planner 仍需发版包内手动验证。
 - 这些项不阻塞 Task 6 自动化完成，由主控在最终验收阶段补跑。
 
 ## 3. 本次实际运行命令与结果
@@ -68,8 +87,10 @@
 
 - `cargo test -p app app_realtime_acceptance_tests -- --nocapture`
   - 1 个新增 app-level acceptance test 通过。
+- `cargo test -p e2e`
+  - 1 个新增 domain-level e2e test 通过。
 - `cargo test -p card_task`
-  - 19 passed。
+  - 20 passed。
 - `cargo test -p realtime`
   - 24 passed（unit + sidecar tests）。
 - `cargo test -p voice`
@@ -77,11 +98,15 @@
 - `cargo test -p voice_sherpa`
   - 29 lib tests 中 28 passed / 1 ignored，另有 `tts_demo` 1 passed / 1 ignored（需要真实模型/硬件）。
 - `cargo test -p app`
-  - 346 passed，1 ignored。
+  - 354 passed，1 ignored。
 - `cargo check -p app`
   - passed。
 - `cd sidecars/openai-realtime && npm run build && npm test`
   - build 成功，Node test 16 passed。
+- `node --check sidecars/openai-card-planner/openai-card-planner.mjs`
+  - OpenAI card planner helper 语法校验通过。
+- `cargo tree -p card_task | rg -i '(^|[[:space:]])(gpui|app|runtime|canvas|terminal|storage) v'; test $? -eq 1`
+  - `card_task` 未依赖 GPUI/app/runtime/canvas/terminal/storage。
 - `bash scripts/check-storage-boundaries.sh`
   - passed。
 - `bash scripts/check-performance-guardrails.sh`

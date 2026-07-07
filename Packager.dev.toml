@@ -10,7 +10,10 @@ formats = ["app", "dmg"]
 icons = ["assets/AppIcon.icns"]
 out-dir = "build/dev"
 binaries-dir = "."
-resources = ["crates/app/assets/wallpapers"]
+resources = [
+  "crates/app/assets/wallpapers",
+  "sidecars/openai-card-planner/openai-card-planner.mjs",
+]
 
 [[binaries]]
 path = "target/release/norma-os"

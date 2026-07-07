@@ -95,6 +95,10 @@ pub enum CardTaskEvent {
         step_index: usize,
         message: String,
     },
+    CancelRequested {
+        task_id: CardTaskId,
+        message: String,
+    },
     Succeeded {
         task_id: CardTaskId,
         summary: String,

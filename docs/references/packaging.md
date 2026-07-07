@@ -39,12 +39,16 @@ The MP4s are tracked by **git-lfs** (see root `.gitattributes`)；commit 的是 
 指针，`git lfs pull` 后工作树才有真实字节（~141 MB），打包前 `release-local.sh`
 会强制 lfs pull。
 
-`Packager.toml` 的 `resources` glob 在签名前把整个目录拷进 app bundle 的
-`Contents/Resources/wallpapers/`：
+`Packager.toml` / `Packager.dev.toml` 的 `resources` glob 在签名前把 wallpapers 目录拷进 app bundle 的
+`Contents/Resources/wallpapers/`，并把 realtime card planner helper 拷进
+`Contents/Resources/openai-card-planner.mjs`：
 
 ```toml
-resources = ["crates/app/assets/wallpapers"]
+resources = [
+  "crates/app/assets/wallpapers",
+  "sidecars/openai-card-planner/openai-card-planner.mjs",
+]
 ```
 
 不再需要手动 `copy-wallpaper-resources.sh`——`resources` glob 在 cargo-packager
-签名 pass 之前执行，确保 wallpapers 进入已签名 bundle。
+签名 pass 之前执行，确保 wallpapers 和 card planner helper 进入已签名 bundle。

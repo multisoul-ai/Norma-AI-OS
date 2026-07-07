@@ -173,7 +173,7 @@ fn test_send_failure_stops_later_steps() {
 ///   4. 检查 runner 只收到 Create，且取消消息带“不回滚”提示
 ///
 /// 预期结果：
-///   - 正断言：cancel_latest 返回的 Cancelled 消息包含 "not rolled back"
+///   - 正断言：cancel_latest 返回的 CancelRequested 消息包含 "not rolled back"
 ///   - 正断言：第二次 run_next 返回的 Cancelled 消息包含 "not rolled back"
 ///   - 正断言：runner 只收到 Create，不收到 SendText 或 Delete
 ///   - 正断言：completed task 终态为 Cancelled，且消息包含 "not rolled back"
@@ -196,8 +196,8 @@ fn test_cancel_after_create_before_send_keeps_created_card_and_skips_send() {
         "取消前必须先完成 step0(create)，这个场景才是在 create 后、send 前取消"
     );
     assert!(
-        matches!(&cancel_event, CardTaskEvent::Cancelled { task_id: cancelled_id, message } if *cancelled_id == task_id && message.contains("not rolled back")),
-        "active task 已完成至少一步时，cancel_latest 的摘要必须明确说明 completed work was not rolled back"
+        matches!(&cancel_event, CardTaskEvent::CancelRequested { task_id: cancelled_id, message } if *cancelled_id == task_id && message.contains("not rolled back")),
+        "active task 已完成至少一步时，cancel_latest 只应返回 CancelRequested，不能提前生成终态 Cancelled"
     );
     assert!(
         second_events.iter().any(|event| matches!(event, CardTaskEvent::Cancelled { task_id: cancelled_id, message } if *cancelled_id == task_id && message.contains("not rolled back"))),

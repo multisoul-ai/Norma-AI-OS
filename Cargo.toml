@@ -8,6 +8,7 @@ members = [
   "crates/terminal",
   "crates/runtime",
   "crates/realtime",
+  "crates/e2e",
   "crates/voice",
   "crates/voice_sherpa",
   "crates/ui",

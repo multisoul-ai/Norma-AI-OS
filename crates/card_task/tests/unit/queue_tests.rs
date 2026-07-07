@@ -387,7 +387,7 @@ fn test_runner_error_emits_step_failed_and_terminal_failed() {
 ///   6. 再 enqueue task B，并在下一次 run_next() 开始 B
 ///
 /// 预期结果：
-///   - 正断言：cancel_latest 返回 task A 的 Cancelled，且摘要说明已完成工作不回滚
+///   - 正断言：cancel_latest 返回 task A 的 CancelRequested，且摘要说明已完成工作不回滚
 ///   - 正断言：cancel 请求后 active task 仍存在，且 cancel_requested == true
 ///   - 正断言：runner 只执行了 task A 的 step0(create)，没有执行 step1(focus)
 ///   - 正断言：第二次 run_next() 只终止 task A，且摘要说明已完成工作不回滚，不应同时开始 task B
@@ -412,8 +412,8 @@ fn test_cancel_active_task_stops_before_next_step_without_rollback() {
         "第一次 run_next 应先完成 task A 的 step0(create)"
     );
     assert!(
-        matches!(&cancel_event, CardTaskEvent::Cancelled { task_id, message } if *task_id == first_id && message.contains("not rolled back")),
-        "active task 已完成至少一步时，cancel_latest 返回的摘要必须说明 completed work was not rolled back"
+        matches!(&cancel_event, CardTaskEvent::CancelRequested { task_id, message } if *task_id == first_id && message.contains("not rolled back")),
+        "active task 已完成至少一步时，cancel_latest 只应返回 CancelRequested，不能提前生成终态 Cancelled"
     );
     assert_eq!(
         queue.active_task().map(|task| task.cancel_requested),

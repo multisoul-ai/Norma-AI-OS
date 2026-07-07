@@ -89,17 +89,18 @@ async fn test_realtime_tool_call_enqueue_routes_to_card_task_queue(cx: &mut Test
 ///   1. 启动 RecordingSidecar realtime shell，并先 drain 掉 session_started
 ///   2. 直接调用 enqueue_realtime_card_task(...) 造出一个 queued task
 ///   3. 注入一条 ToolCall(cancel_card_task)，再调用 app drain sidecar 入口
-///   4. 读取 card-task 事件流
+///   4. 读取 card-task 事件流和 sidecar ToolResult commands
 ///
 /// 预期结果：
 ///   - 正断言：事件流包含 Cancelled，说明 cancel tool_call 已命中 app cancel entrypoint
+///   - 正断言：cancel tool_call 自己的 tool_call_id 收到 status=cancelled 的 ToolResult
 ///   - 负断言：cancel 路由不应产生 Realtime error
 #[gpui::test]
 async fn test_realtime_tool_call_cancel_routes_to_cancel_entrypoint(cx: &mut TestAppContext) {
     with_realtime_process_guard(|| {
         let sidecar = RecordingSidecar::default();
         let (app, cx) = cx.add_window_view(|_, cx| MultisoulApp::new(cx));
-        let (events, label) = app.update_in(cx, |app, _window, cx| {
+        let (events, tool_results, label) = app.update_in(cx, |app, _window, cx| {
             app.realtime
                 .start_shell_with_sidecar_for_tests(
                     config("rt_tool_cancel"),
@@ -123,8 +124,18 @@ async fn test_realtime_tool_call_cancel_routes_to_cancel_entrypoint(cx: &mut Tes
             })));
             let _ = app.drain_realtime_sidecar(cx);
 
+            let tool_results = sidecar
+                .commands()
+                .into_iter()
+                .filter_map(|command| match command {
+                    RealtimeCommand::ToolResult(result) => Some(result),
+                    _ => None,
+                })
+                .collect::<Vec<RealtimeToolResult>>();
+
             (
                 app.realtime.drain_card_task_events(),
+                tool_results,
                 app.effective_voice_label(),
             )
         });
@@ -138,6 +149,85 @@ async fn test_realtime_tool_call_cancel_routes_to_cancel_entrypoint(cx: &mut Tes
         assert_ne!(
             label, "Realtime error",
             "cancel_card_task routing must not push the shell into Realtime error"
+        );
+        assert!(
+            tool_results
+                .iter()
+                .any(|result| result.tool_call_id == "call_cancel_1"
+                    && result.result["status"] == json!("cancelled")),
+            "cancel_card_task tool_call 自己必须收到 status=cancelled 的 ToolResult"
+        );
+    });
+}
+
+/// RTC-2b：stale session 的 tool_call 不应进入当前 card task queue，并应返回失败 ToolResult。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   active session_id = "rt_tool_current"
+///   stale session_id  = "rt_tool_stale"
+///   tool_call_id      = "call_stale_enqueue"
+///   初始 queue 为空，因此正确拒绝 stale call 后事件流仍为空
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用 RecordingSidecar 启动 active session，并 drain 到 Listening
+///   2. 注入一条 session_id 不匹配的 enqueue_card_task tool_call
+///   3. 调用 app drain sidecar 入口
+///   4. 读取 card-task events 与 sidecar ToolResult commands
+///
+/// 预期结果：
+///   - 正断言：stale call 收到 status=failed 的 ToolResult
+///   - 正断言：失败摘要说明 session mismatch / stale session
+///   - 负断言：stale call 不应创建 Queued 事件
+#[gpui::test]
+async fn test_realtime_tool_call_from_stale_session_is_rejected(cx: &mut TestAppContext) {
+    with_realtime_process_guard(|| {
+        let sidecar = RecordingSidecar::default();
+        let (app, cx) = cx.add_window_view(|_, cx| MultisoulApp::new(cx));
+        let (events, tool_results) = app.update_in(cx, |app, _window, cx| {
+            app.realtime
+                .start_shell_with_sidecar_for_tests(
+                    config("rt_tool_current"),
+                    Box::new(sidecar.clone()),
+                )
+                .expect("recording sidecar should accept start_session");
+            let _ = app.drain_realtime_sidecar(cx);
+
+            sidecar.push_event(Ok(RealtimeEvent::ToolCall(RealtimeToolCall {
+                session_id: realtime::RealtimeSessionId::new("rt_tool_stale"),
+                tool_call_id: "call_stale_enqueue".to_string(),
+                name: "enqueue_card_task".to_string(),
+                arguments: json!({ "intent": "创建 Codex 卡片" }),
+            })));
+            let _ = app.drain_realtime_sidecar(cx);
+
+            let tool_results = sidecar
+                .commands()
+                .into_iter()
+                .filter_map(|command| match command {
+                    RealtimeCommand::ToolResult(result) => Some(result),
+                    _ => None,
+                })
+                .collect::<Vec<RealtimeToolResult>>();
+
+            (app.realtime.drain_card_task_events(), tool_results)
+        });
+
+        assert!(
+            events.is_empty(),
+            "stale session 的 tool_call 不应进入当前 card task queue"
+        );
+        assert!(
+            tool_results
+                .iter()
+                .any(|result| result.tool_call_id == "call_stale_enqueue"
+                    && result.result["status"] == json!("failed")),
+            "stale enqueue tool_call 必须收到 status=failed 的 ToolResult"
+        );
+        assert!(
+            tool_results.iter().any(|result| result.result["summary"]
+                .as_str()
+                .is_some_and(|summary| summary.contains("session"))),
+            "stale enqueue 失败摘要应说明 session 不匹配，方便定位过期 tool_call"
         );
     });
 }

@@ -1,144 +1,25 @@
+pub(crate) use super::card_task_support::{
+    build_realtime_card_task_planning_request, AppCardTaskRunner, DEFAULT_MAX_CARD_TASK_STEPS,
+};
+#[path = "card_task_planner_mode.rs"]
+mod card_task_planner_mode;
+#[path = "card_task_planning.rs"]
+mod card_task_planning;
 use super::RealtimeControlState;
 use crate::app::MultisoulApp;
-use crate::canvas::master_layout::MasterLayoutState;
-use crate::motion::MotionStore;
-use crate::norma::server::{execute_card_command_for_area, NormaCommandEffects};
-use canvas::{CanvasNodeKind, CanvasRect};
+use crate::norma::server::NormaCommandEffects;
 use card_task::{
-    plan_with_provider, CardCommandRunner, CardTaskEvent, CardTaskId, CardTaskPlanJsonProvider,
-    CardTaskPlanner, CardTaskPlannerError, CardTaskQueue, CardTaskRequest,
+    CardCommandRunner, CardTaskCancelError, CardTaskEvent, CardTaskId, CardTaskPlannerError,
+    CardTaskQueue, CardTaskRequest,
 };
-use gpui::{Context, Window};
-use norma::protocol::{CardCommand, CardCommandError, CardCommandResult};
+#[cfg(test)]
+use card_task::{CardTaskPlanJsonProvider, CardTaskPlanner};
+use card_task_planner_mode::RealtimeCardTaskPlannerMode;
+use card_task_planning::{run_openai_card_task_planning_job, OpenAiCardTaskPlanningJob};
+use gpui::{Context, Task, Window};
 use realtime::RealtimeToolResultStatus;
-use runtime::{InputMode, Runtime};
 use std::collections::HashMap;
-use voice::{CardRef, VoiceCardKind, VoicePlanningRequest};
-
-pub(crate) const DEFAULT_MAX_CARD_TASK_STEPS: usize = 8;
-
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-struct CardTaskRequestKey {
-    intent: String,
-    tool_call_id: Option<String>,
-}
-
-impl From<&CardTaskRequest> for CardTaskRequestKey {
-    fn from(value: &CardTaskRequest) -> Self {
-        Self {
-            intent: value.intent.clone(),
-            tool_call_id: value.tool_call_id.clone(),
-        }
-    }
-}
-
-struct UnavailableCardTaskPlannerProvider;
-
-impl CardTaskPlanJsonProvider for UnavailableCardTaskPlannerProvider {
-    fn plan_json(
-        &mut self,
-        _request: &VoicePlanningRequest,
-    ) -> Result<String, CardTaskPlannerError> {
-        Err(CardTaskPlannerError::Provider {
-            message: "realtime card planner provider unavailable".to_string(),
-        })
-    }
-}
-
-struct StoredRequestPlanner {
-    provider: Box<dyn CardTaskPlanJsonProvider>,
-    requests: HashMap<CardTaskRequestKey, VoicePlanningRequest>,
-}
-
-impl StoredRequestPlanner {
-    fn new(provider: Box<dyn CardTaskPlanJsonProvider>) -> Self {
-        Self {
-            provider,
-            requests: HashMap::new(),
-        }
-    }
-
-    fn insert(&mut self, request: &CardTaskRequest, planning_request: VoicePlanningRequest) {
-        self.requests
-            .insert(CardTaskRequestKey::from(request), planning_request);
-    }
-
-    #[cfg(test)]
-    fn replace_provider(&mut self, provider: Box<dyn CardTaskPlanJsonProvider>) {
-        self.provider = provider;
-        self.requests.clear();
-    }
-}
-
-impl CardTaskPlanner for StoredRequestPlanner {
-    fn plan(
-        &mut self,
-        request: &CardTaskRequest,
-    ) -> Result<voice::CompiledVoicePlan, CardTaskPlannerError> {
-        let key = CardTaskRequestKey::from(request);
-        let planning_request =
-            self.requests
-                .remove(&key)
-                .ok_or_else(|| CardTaskPlannerError::Provider {
-                    message: format!("missing planning request snapshot for {}", request.intent),
-                })?;
-        plan_with_provider(self.provider.as_mut(), &planning_request)
-    }
-}
-
-enum RealtimeCardTaskPlannerMode {
-    PreparedJson(StoredRequestPlanner),
-    #[cfg(test)]
-    Direct(Box<dyn CardTaskPlanner>),
-}
-
-impl RealtimeCardTaskPlannerMode {
-    fn insert_snapshot(
-        &mut self,
-        request: &CardTaskRequest,
-        planning_request: VoicePlanningRequest,
-    ) {
-        match self {
-            Self::PreparedJson(planner) => planner.insert(request, planning_request),
-            #[cfg(test)]
-            Self::Direct(_) => {}
-        }
-    }
-
-    #[cfg(test)]
-    fn set_compiled_planner_for_tests(&mut self, planner: Box<dyn CardTaskPlanner>) {
-        *self = Self::Direct(planner);
-    }
-
-    #[cfg(test)]
-    fn set_json_planner_for_tests(&mut self, planner: Box<dyn CardTaskPlanJsonProvider>) {
-        match self {
-            Self::PreparedJson(stored) => stored.replace_provider(planner),
-            Self::Direct(_) => *self = Self::PreparedJson(StoredRequestPlanner::new(planner)),
-        }
-    }
-}
-
-impl Default for RealtimeCardTaskPlannerMode {
-    fn default() -> Self {
-        Self::PreparedJson(StoredRequestPlanner::new(Box::new(
-            UnavailableCardTaskPlannerProvider,
-        )))
-    }
-}
-
-impl CardTaskPlanner for RealtimeCardTaskPlannerMode {
-    fn plan(
-        &mut self,
-        request: &CardTaskRequest,
-    ) -> Result<voice::CompiledVoicePlan, CardTaskPlannerError> {
-        match self {
-            Self::PreparedJson(planner) => planner.plan(request),
-            #[cfg(test)]
-            Self::Direct(planner) => planner.plan(request),
-        }
-    }
-}
+use voice::{CompiledVoicePlan, VoicePlanningRequest};
 
 #[derive(Default)]
 pub(crate) struct RealtimeCardTaskState {
@@ -147,6 +28,7 @@ pub(crate) struct RealtimeCardTaskState {
     events: Vec<CardTaskEvent>,
     tool_call_ids: HashMap<CardTaskId, Option<String>>,
     callbacks: Vec<PendingCardTaskCallback>,
+    planning_tasks: Vec<Task<()>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -157,20 +39,25 @@ pub(crate) struct PendingCardTaskCallback {
     pub(crate) summary: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct CardTaskCancelOutcome {
+    pub(crate) task_id: String,
+    pub(crate) summary: String,
+}
+
 impl RealtimeCardTaskState {
     pub(crate) fn enqueue_task(
         &mut self,
         intent: String,
         tool_call_id: String,
         planning_request: VoicePlanningRequest,
-    ) {
-        self.enqueue_task_request(
-            CardTaskRequest {
-                intent,
-                tool_call_id: Some(tool_call_id),
-            },
-            planning_request,
-        );
+    ) -> CardTaskRequest {
+        let request = CardTaskRequest {
+            intent,
+            tool_call_id: Some(tool_call_id),
+        };
+        self.enqueue_task_request(request.clone(), planning_request);
+        request
     }
 
     fn enqueue_task_request(
@@ -202,11 +89,12 @@ impl RealtimeCardTaskState {
         );
     }
 
-    pub(crate) fn cancel_task(&mut self) {
-        if let Ok(event) = self.queue.cancel_latest() {
-            self.record_terminal_callbacks(std::slice::from_ref(&event));
-            self.events.push(event);
-        }
+    pub(crate) fn cancel_task(&mut self) -> Result<CardTaskCancelOutcome, CardTaskCancelError> {
+        let event = self.queue.cancel_latest()?;
+        self.record_terminal_callbacks(std::slice::from_ref(&event));
+        let outcome = cancel_outcome_from_event(&event);
+        self.events.push(event);
+        Ok(outcome)
     }
 
     pub(crate) fn run_next(&mut self, runner: &mut dyn CardCommandRunner) -> bool {
@@ -215,6 +103,27 @@ impl RealtimeCardTaskState {
         self.record_terminal_callbacks(&events);
         self.events.extend(events);
         changed
+    }
+
+    pub(crate) fn finish_planning(
+        &mut self,
+        request: CardTaskRequest,
+        result: Result<CompiledVoicePlan, CardTaskPlannerError>,
+    ) {
+        self.planner.finish_background_result(request, result);
+    }
+
+    pub(crate) fn push_planning_task(&mut self, task: Task<()>) {
+        self.planning_tasks.push(task);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn finish_planning_for_tests(
+        &mut self,
+        request: CardTaskRequest,
+        result: Result<CompiledVoicePlan, CardTaskPlannerError>,
+    ) {
+        self.finish_planning(request, result);
     }
 
     #[cfg(test)]
@@ -272,112 +181,14 @@ impl RealtimeCardTaskState {
     }
 }
 
-pub(crate) struct AppCardTaskRunner<'a> {
-    runtime: &'a mut Runtime,
-    motion: &'a mut MotionStore,
-    master_layout: &'a mut MasterLayoutState,
-    area: CanvasRect,
-    zoom: f32,
-    effects: NormaCommandEffects,
-}
-
-impl<'a> AppCardTaskRunner<'a> {
-    pub(crate) fn new(
-        runtime: &'a mut Runtime,
-        motion: &'a mut MotionStore,
-        master_layout: &'a mut MasterLayoutState,
-        area: CanvasRect,
-        zoom: f32,
-    ) -> Self {
-        Self {
-            runtime,
-            motion,
-            master_layout,
-            area,
-            zoom,
-            effects: NormaCommandEffects {
-                canvas_dirty: false,
-                session_dirty: false,
-                notify: false,
-            },
-        }
-    }
-
-    pub(crate) fn finish(self) -> NormaCommandEffects {
-        self.effects
-    }
-}
-
-impl CardCommandRunner for AppCardTaskRunner<'_> {
-    fn run(&mut self, command: CardCommand) -> Result<CardCommandResult, CardCommandError> {
-        let execution = execute_card_command_for_area(
-            self.runtime,
-            self.motion,
-            self.master_layout,
-            command,
-            self.area,
-            self.zoom,
-        )?;
-        self.effects.canvas_dirty |= execution.effects.canvas_dirty;
-        self.effects.session_dirty |= execution.effects.session_dirty;
-        self.effects.notify |= execution.effects.notify;
-        Ok(execution.result)
-    }
-}
-
-pub(crate) fn build_realtime_card_task_planning_request(
-    runtime: &Runtime,
-    intent: String,
-    max_steps: usize,
-) -> VoicePlanningRequest {
-    let selected_node_ids = runtime
-        .document
-        .nodes()
-        .iter()
-        .filter(|node| runtime.selection.contains(node.id))
-        .map(|node| node.id)
-        .collect();
-
-    VoicePlanningRequest {
-        transcript: intent,
-        cards: runtime
-            .document
-            .nodes()
-            .iter()
-            .map(|node| CardRef {
-                node_id: node.id,
-                title: node.kind.display_title(),
-                alias: match &node.kind {
-                    CanvasNodeKind::Agent(spec) => spec.alias.clone(),
-                    _ => None,
-                },
-                kind: voice_card_kind(&node.kind),
-                selected: runtime.selection.contains(node.id),
-                focused: matches!(runtime.focus.mode(), InputMode::NodeFocused(id) if id == node.id),
-            })
-            .collect(),
-        focused_node_id: match runtime.focus.mode() {
-            InputMode::NodeFocused(id) => Some(id),
-            InputMode::CanvasSelect => None,
+fn cancel_outcome_from_event(event: &CardTaskEvent) -> CardTaskCancelOutcome {
+    match event {
+        CardTaskEvent::CancelRequested { task_id, message }
+        | CardTaskEvent::Cancelled { task_id, message } => CardTaskCancelOutcome {
+            task_id: task_id.to_string(),
+            summary: message.clone(),
         },
-        selected_node_ids,
-        max_steps,
-    }
-}
-
-fn voice_card_kind(kind: &CanvasNodeKind) -> VoiceCardKind {
-    match kind {
-        CanvasNodeKind::Term(_) => VoiceCardKind::Terminal,
-        CanvasNodeKind::Agent(spec) => VoiceCardKind::Agent {
-            profile: match spec.profile {
-                canvas::AgentProfile::Claude => norma::protocol::AgentProfile::Claude,
-                canvas::AgentProfile::Codex => norma::protocol::AgentProfile::Codex,
-                canvas::AgentProfile::OpenCode => norma::protocol::AgentProfile::OpenCode,
-            },
-        },
-        CanvasNodeKind::Preview(_) => VoiceCardKind::Preview,
-        CanvasNodeKind::Browser(_) => VoiceCardKind::Browser,
-        CanvasNodeKind::Rect(_) => VoiceCardKind::Rect,
+        _ => unreachable!("cancel_task only returns cancellation events"),
     }
 }
 
@@ -405,15 +216,102 @@ impl MultisoulApp {
             intent.clone(),
             DEFAULT_MAX_CARD_TASK_STEPS,
         );
-        self.realtime
-            .card_tasks
-            .enqueue_task(intent, tool_call_id, planning_request);
+        let request =
+            self.realtime
+                .card_tasks
+                .enqueue_task(intent, tool_call_id, planning_request.clone());
+        self.start_realtime_card_task_planning(request, planning_request, cx);
         cx.notify();
     }
 
+    fn start_realtime_card_task_planning(
+        &mut self,
+        request: CardTaskRequest,
+        planning_request: VoicePlanningRequest,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(api_key) = self
+            .voice_settings
+            .values()
+            .openai_api_key()
+            .map(ToOwned::to_owned)
+        else {
+            self.realtime.card_tasks.finish_planning(
+                request,
+                Err(CardTaskPlannerError::Provider {
+                    message: "OpenAI API key is required for card planning".to_string(),
+                }),
+            );
+            return;
+        };
+        let Some(model) = self
+            .voice_settings
+            .values()
+            .card_planner_model()
+            .map(ToOwned::to_owned)
+        else {
+            self.realtime.card_tasks.finish_planning(
+                request,
+                Err(CardTaskPlannerError::Provider {
+                    message: "card planner model is required".to_string(),
+                }),
+            );
+            return;
+        };
+
+        let job = OpenAiCardTaskPlanningJob {
+            request: planning_request,
+            api_key,
+            model,
+        };
+        let task = cx.spawn(async move |this, cx| {
+            let planning_task = cx
+                .background_executor()
+                .spawn(async move { run_openai_card_task_planning_job(job) });
+            let result = planning_task.await;
+            let _ = this.update(cx, |app, cx| {
+                app.realtime.card_tasks.finish_planning(request, result);
+                cx.notify();
+            });
+        });
+        self.realtime.card_tasks.push_planning_task(task);
+    }
+
+    #[cfg(test)]
     pub(crate) fn cancel_realtime_card_task(&mut self, cx: &mut Context<Self>) {
-        self.realtime.card_tasks.cancel_task();
+        let _ = self.realtime.card_tasks.cancel_task();
         self.flush_realtime_card_task_callbacks();
+        cx.notify();
+    }
+
+    pub(crate) fn cancel_realtime_card_task_for_tool_call(
+        &mut self,
+        session_id: realtime::RealtimeSessionId,
+        tool_call_id: String,
+        cx: &mut Context<Self>,
+    ) {
+        match self.realtime.card_tasks.cancel_task() {
+            Ok(outcome) => {
+                self.flush_realtime_card_task_callbacks();
+                self.realtime.queue_or_inject_tool_result(
+                    realtime::RealtimeToolResult::task_result(
+                        session_id,
+                        tool_call_id,
+                        RealtimeToolResultStatus::Cancelled,
+                        outcome.task_id,
+                        outcome.summary,
+                    ),
+                );
+            }
+            Err(error) => {
+                self.realtime
+                    .queue_or_inject_tool_result(realtime::RealtimeToolResult::failed(
+                        session_id,
+                        tool_call_id,
+                        error.to_string(),
+                    ));
+            }
+        }
         cx.notify();
     }
 

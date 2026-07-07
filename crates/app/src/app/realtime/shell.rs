@@ -225,6 +225,15 @@ impl MultisoulApp {
             arguments,
         } = tool_call;
 
+        if !self.realtime.matches_active_session(&session_id) {
+            self.send_failed_realtime_tool_result(
+                session_id,
+                tool_call_id,
+                "stale realtime session tool call",
+            );
+            return;
+        }
+
         match name.as_str() {
             "enqueue_card_task" => {
                 let intent = arguments
@@ -242,7 +251,9 @@ impl MultisoulApp {
                     ),
                 }
             }
-            "cancel_card_task" => self.cancel_realtime_card_task(cx),
+            "cancel_card_task" => {
+                self.cancel_realtime_card_task_for_tool_call(session_id, tool_call_id, cx)
+            }
             _ => self.send_failed_realtime_tool_result(
                 session_id,
                 tool_call_id,

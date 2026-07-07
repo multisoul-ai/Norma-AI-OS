@@ -14,6 +14,8 @@ pub trait CardTaskPlanner {
 
 #[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum CardTaskPlannerError {
+    #[error("planner result is not ready yet")]
+    Pending,
     #[error("planner provider error: {message}")]
     Provider { message: String },
     #[error("planner json error: {message}")]
@@ -89,7 +91,7 @@ impl CardTaskQueue {
 
         if let Some(active) = self.active.as_mut() {
             active.task.cancel_requested = true;
-            return Ok(CardTaskEvent::Cancelled {
+            return Ok(CardTaskEvent::CancelRequested {
                 task_id: active.task.task_id,
                 message: active_cancel_message(active.next_step_index),
             });
@@ -127,6 +129,11 @@ impl CardTaskQueue {
                         next_step_index: 0,
                         execution: CardTaskExecutionContext::default(),
                     });
+                }
+                Err(CardTaskPlannerError::Pending) => {
+                    task.state = CardTaskState::Queued;
+                    self.pending.push_front(task);
+                    return Vec::new();
                 }
                 Err(error) => {
                     let message = error.to_string();
