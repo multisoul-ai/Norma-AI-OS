@@ -1,13 +1,22 @@
 //! App-layer shell state for Always Listening local voice dialogue.
 
 mod chat;
+mod reply;
 mod shell;
 
 use crate::app::voice::control::VoiceVisual;
 use crate::settings::voice::VoiceSettingsValues;
-use dialogue::{apply_asr_final, DialoguePhase, DialogueSession};
+use dialogue::{apply_asr_final, handle_barge_in_speech_start, DialoguePhase, DialogueSession};
 use gpui::{Context, Task};
+use reply::{
+    apply_stub_reply_synthesis, create_assistant_audio_sink, create_tts_client,
+    finish_stub_reply_playback, StubReplyPlayback, TtsClientBox,
+};
 use std::fmt;
+#[cfg(test)]
+use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(test)]
+use std::sync::Arc;
 use std::sync::Mutex;
 use voice_sherpa::{ListeningPipelineEvent, PcmStreamSession, SherpaProvider, SpeechError};
 
@@ -55,6 +64,19 @@ pub(crate) trait CardTaskCancelHook: Send {
     fn cancel_all(&mut self);
 }
 
+#[cfg(test)]
+#[derive(Clone)]
+struct TrackingCardTaskCancelHook {
+    cancelled: Arc<AtomicBool>,
+}
+
+#[cfg(test)]
+impl CardTaskCancelHook for TrackingCardTaskCancelHook {
+    fn cancel_all(&mut self) {
+        self.cancelled.store(true, Ordering::SeqCst);
+    }
+}
+
 #[derive(Default)]
 struct NoopCardTaskCancelHook;
 
@@ -66,11 +88,18 @@ pub(crate) struct DialogueControlState {
     session: DialogueSession,
     pcm_stream: Option<PcmStreamSession>,
     card_task_cancel: Box<dyn CardTaskCancelHook>,
+    stub_reply_playback: StubReplyPlayback,
+    tts_client: Option<TtsClientBox>,
     startup_task: Option<Task<()>>,
     pcm_pump_task: Option<Task<()>>,
+    reply_task: Option<Task<()>>,
     next_startup_attempt: u64,
     pending_startup_attempt: Option<u64>,
     error_message: Option<String>,
+    #[cfg(test)]
+    recording_sink: Option<crate::app::voice::playback::RecordingAssistantAudioSink>,
+    #[cfg(test)]
+    card_cancel_flag: Option<Arc<AtomicBool>>,
 }
 
 impl Default for DialogueControlState {
@@ -79,11 +108,18 @@ impl Default for DialogueControlState {
             session: DialogueSession::new(),
             pcm_stream: None,
             card_task_cancel: Box::new(NoopCardTaskCancelHook),
+            stub_reply_playback: StubReplyPlayback::new(create_assistant_audio_sink()),
+            tts_client: None,
             startup_task: None,
             pcm_pump_task: None,
+            reply_task: None,
             next_startup_attempt: 0,
             pending_startup_attempt: None,
             error_message: None,
+            #[cfg(test)]
+            recording_sink: None,
+            #[cfg(test)]
+            card_cancel_flag: None,
         }
     }
 }
@@ -209,6 +245,8 @@ impl DialogueControlState {
 
     pub(crate) fn stop_shell(&mut self) {
         self.card_task_cancel.cancel_all();
+        self.stub_reply_playback.interrupt();
+        self.reply_task = None;
         self.stop_pcm_stream();
         self.session.on_listening_stopped();
         self.error_message = None;
@@ -220,6 +258,13 @@ impl DialogueControlState {
     pub(crate) fn on_window_closed(&mut self) {
         self.stop_shell();
         self.session.on_window_closed();
+    }
+
+    #[cfg(test)]
+    pub(crate) fn reset_test_seams_for_tests() {
+        reply::set_tts_client_factory_for_tests(None);
+        reply::set_audio_sink_factory_for_tests(None);
+        Self::set_mic_permission_check_for_tests(None);
     }
 
     #[cfg(test)]
@@ -261,14 +306,25 @@ impl DialogueControlState {
             while let Ok(event) = pipeline_events.recv().await {
                 match event {
                     ListeningPipelineEvent::PartialTranscript(_partial) => {}
+                    ListeningPipelineEvent::SpeechStart => {
+                        let should_notify = this
+                            .update(cx, |app, _cx| app.dialogue.on_speech_start_barge_in())
+                            .unwrap_or(false);
+                        if should_notify {
+                            let _ = this.update(cx, |_app, cx| cx.notify());
+                        }
+                    }
                     ListeningPipelineEvent::FinalTranscript(text) => {
                         let should_notify = this
-                            .update(cx, |app, _cx| {
+                            .update(cx, |app, cx| {
                                 if app.dialogue.phase() != DialoguePhase::Listening {
                                     return false;
                                 }
                                 match app.dialogue.on_final_transcript(&text) {
-                                    Ok(()) => true,
+                                    Ok(()) => {
+                                        app.dialogue.begin_stub_reply_synthesis(cx);
+                                        true
+                                    }
                                     Err(error) => {
                                         tracing::warn!(%error, "failed to apply final transcript");
                                         false
@@ -290,6 +346,108 @@ impl DialogueControlState {
             }
         });
         self.pcm_pump_task = Some(task);
+    }
+
+    fn begin_stub_reply_synthesis(&mut self, cx: &mut Context<crate::app::MultisoulApp>) {
+        if self.session.phase() != DialoguePhase::Thinking {
+            return;
+        }
+        let task = cx.spawn(async move |this, cx| {
+            let synthesis_result = this.update(cx, |app, _cx| {
+                if app.dialogue.tts_client.is_none() {
+                    app.dialogue.tts_client = Some(create_tts_client()?);
+                }
+                let tts = app
+                    .dialogue
+                    .tts_client
+                    .as_mut()
+                    .expect("tts client should exist after lazy init");
+                apply_stub_reply_synthesis(
+                    &mut app.dialogue.session,
+                    tts.as_mut(),
+                    &mut app.dialogue.stub_reply_playback,
+                )
+            });
+            let Ok(result) = synthesis_result else {
+                return;
+            };
+            match result {
+                Ok(()) => {
+                    let _ = this.update(cx, |app, cx| {
+                        finish_stub_reply_playback(&mut app.dialogue.session, true);
+                        app.dialogue.reply_task = None;
+                        cx.notify();
+                    });
+                }
+                Err(error) => {
+                    tracing::warn!(%error, "stub reply synthesis failed");
+                    let _ = this.update(cx, |app, cx| {
+                        app.dialogue.error_message = Some(format!("Speech error: {error}"));
+                        app.dialogue.reply_task = None;
+                        cx.notify();
+                    });
+                }
+            }
+        });
+        self.reply_task = Some(task);
+    }
+
+    fn on_speech_start_barge_in(&mut self) -> bool {
+        if self.session.phase() != DialoguePhase::Speaking {
+            return false;
+        }
+        self.stub_reply_playback.interrupt();
+        handle_barge_in_speech_start(&mut self.session);
+        self.reply_task = None;
+        true
+    }
+
+    #[cfg(test)]
+    pub(crate) fn prepare_reply_test_fixtures(&mut self) {
+        let sink = crate::app::voice::playback::RecordingAssistantAudioSink::new();
+        self.recording_sink = Some(sink.clone());
+        self.stub_reply_playback = StubReplyPlayback::new(Box::new(sink));
+        reply::set_tts_client_factory_for_tests(Some(|| Ok(reply::fake_tts_client_for_tests())));
+        let flag = Arc::new(AtomicBool::new(false));
+        self.card_cancel_flag = Some(Arc::clone(&flag));
+        self.card_task_cancel = Box::new(TrackingCardTaskCancelHook { cancelled: flag });
+    }
+
+    #[cfg(test)]
+    pub(crate) fn assistant_audio_sink_for_tests(
+        &self,
+    ) -> crate::app::voice::playback::RecordingAssistantAudioSink {
+        self.recording_sink
+            .clone()
+            .expect("test recording sink should be installed")
+    }
+
+    #[cfg(test)]
+    pub(crate) fn on_stub_reply_ready_for_tests(&mut self) -> Result<(), SpeechError> {
+        if self.tts_client.is_none() {
+            self.tts_client = Some(create_tts_client()?);
+        }
+        let tts = self
+            .tts_client
+            .as_mut()
+            .expect("tts client should exist after lazy init");
+        apply_stub_reply_synthesis(
+            &mut self.session,
+            tts.as_mut(),
+            &mut self.stub_reply_playback,
+        )
+    }
+
+    #[cfg(test)]
+    pub(crate) fn on_speech_start_barge_in_for_tests(&mut self) -> bool {
+        self.on_speech_start_barge_in()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn card_tasks_were_cancelled_for_tests(&self) -> bool {
+        self.card_cancel_flag
+            .as_ref()
+            .is_some_and(|flag| flag.load(Ordering::SeqCst))
     }
 
     fn stop_pcm_stream(&mut self) {

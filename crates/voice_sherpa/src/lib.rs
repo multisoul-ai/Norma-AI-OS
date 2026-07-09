@@ -11,6 +11,7 @@ mod resample;
 mod samples;
 mod session;
 mod stream;
+mod tts;
 mod vad;
 
 #[cfg(test)]
@@ -32,6 +33,7 @@ pub use listening_pipeline::{
     SherpaListeningPipeline,
 };
 pub use stream::PcmStreamSession;
+pub use tts::{FakeTtsClient, SherpaTtsClient};
 pub use vad::{FakeEnergyVadClient, SherpaVadClient};
 
 /// Check and (if not yet determined) request microphone permission.

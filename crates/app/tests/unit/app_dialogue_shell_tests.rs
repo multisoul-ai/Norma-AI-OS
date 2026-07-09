@@ -12,9 +12,9 @@ fn with_dialogue_shell_test_guard(assertions: impl FnOnce()) {
     let _guard = DIALOGUE_SHELL_TEST_LOCK
         .lock()
         .expect("dialogue shell test lock should not be poisoned");
-    DialogueControlState::set_mic_permission_check_for_tests(None);
+    DialogueControlState::reset_test_seams_for_tests();
     assertions();
-    DialogueControlState::set_mic_permission_check_for_tests(None);
+    DialogueControlState::reset_test_seams_for_tests();
 }
 
 fn mic_ok() -> Result<(), SpeechError> {
@@ -306,9 +306,64 @@ fn test_dialogue_final_transcript_moves_to_thinking() {
     });
 }
 
+/// DLG-9: Speaking 阶段 barge-in 应停止 sink 并回到 Listening，且不取消 card tasks。
 ///
-/// 数据构造（含关键数值的推导过程）：
-///   saved.realtime_enabled = Some(true)
+/// 执行过程：
+///   1. 进入 Listening → Thinking → Speaking
+///   2. on_speech_start_barge_in
+///
+/// 预期结果：
+///   - 正断言：phase == Listening
+///   - 正断言：recording sink stopped == true
+///   - 负断言：card task cancel hook 未被调用
+#[test]
+fn test_dialogue_barge_in_stops_sink_returns_listening_without_canceling_tasks() {
+    with_dialogue_shell_test_guard(|| {
+        let dir = tempdir().expect("temp model dir should be creatable");
+        let values = always_listening_values(Some(dir.path().to_path_buf()));
+        let mut state = DialogueControlState::default();
+        state.prepare_reply_test_fixtures();
+
+        DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
+        state
+            .begin_listening_sync_for_tests(&values)
+            .expect("测试启动应进入 Listening");
+        state
+            .on_final_transcript("你好")
+            .expect("final transcript 应进入 Thinking");
+        state
+            .on_stub_reply_ready_for_tests()
+            .expect("stub reply 应进入 Speaking");
+
+        let sink = state.assistant_audio_sink_for_tests();
+        assert!(!sink.stopped(), "前置：Speaking 播放尚未被 stop");
+        assert!(
+            !state.card_tasks_were_cancelled_for_tests(),
+            "前置：card tasks 尚未被取消"
+        );
+
+        assert!(
+            state.on_speech_start_barge_in_for_tests(),
+            "Speaking 下 barge-in 应被处理"
+        );
+
+        assert_eq!(
+            state.phase(),
+            DialoguePhase::Listening,
+            "barge-in 后应回到 Listening"
+        );
+        assert!(sink.stopped(), "barge-in 应停止 assistant sink");
+        assert!(
+            !state.card_tasks_were_cancelled_for_tests(),
+            "barge-in 不应取消 card tasks"
+        );
+        assert!(
+            state.models_resident(),
+            "barge-in 后 models_resident 应保持 true"
+        );
+    });
+}
+
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. resolve SavedVoiceSettings

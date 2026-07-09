@@ -11,6 +11,7 @@ use std::thread::JoinHandle;
 pub enum ListeningPipelineEvent {
     PartialTranscript(String),
     FinalTranscript(String),
+    SpeechStart,
 }
 
 pub struct SherpaListeningPipeline {
@@ -41,6 +42,11 @@ impl SherpaListeningPipeline {
         .map_err(|error| SpeechError::Recognizer(error.to_string()))?;
 
         let mut events = Vec::new();
+        for event in &outcome.vad_events {
+            if *event == dialogue::VadEvent::SpeechStart {
+                events.push(ListeningPipelineEvent::SpeechStart);
+            }
+        }
         for partial in outcome.partial_transcripts {
             events.push(ListeningPipelineEvent::PartialTranscript(partial));
         }
