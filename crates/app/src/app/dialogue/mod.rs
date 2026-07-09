@@ -103,6 +103,7 @@ impl DialogueControlState {
         self.session.phase()
     }
 
+    #[cfg(test)]
     pub(crate) fn models_resident(&self) -> bool {
         self.session.models_resident()
     }

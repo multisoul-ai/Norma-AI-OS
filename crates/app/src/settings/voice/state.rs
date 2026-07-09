@@ -4,14 +4,12 @@ use storage::{AppStore, SettingsStore};
 use voice_sherpa::{AudioInputDevice, SherpaProvider, SpeechError};
 
 mod values;
-use values::{
-    non_empty_option, API_KEY_MASK, KEY_INPUT_DEVICE_ID, KEY_OLLAMA_ENDPOINT, KEY_OLLAMA_MODEL,
-    KEY_OPENAI_API_KEY, KEY_OPENAI_CARD_PLANNER_MODEL, KEY_OPENAI_REALTIME_MODEL,
-    KEY_OPENAI_SIDECAR_PATH, KEY_PARAFORMER_MODEL_DIR, KEY_REALTIME_ENABLED, KEY_REFINE_MODEL,
-    KEY_TRACE_ENABLED,
-};
 pub(crate) use values::{
     EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsField, VoiceSettingsValues,
+};
+use values::{
+    KEY_INPUT_DEVICE_ID, KEY_OLLAMA_ENDPOINT, KEY_OLLAMA_MODEL, KEY_PARAFORMER_MODEL_DIR,
+    KEY_REALTIME_ENABLED, KEY_REFINE_MODEL, KEY_TRACE_ENABLED,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -96,11 +94,7 @@ impl VoiceSettingsState {
     }
 
     pub(crate) fn begin_edit(&mut self, field: VoiceSettingsField) {
-        self.draft = if field == VoiceSettingsField::OpenAiApiKey {
-            String::new()
-        } else {
-            self.field_value(field)
-        };
+        self.draft = self.field_value(field);
         self.editing = Some(field);
         self.status = None;
     }
@@ -195,50 +189,13 @@ impl VoiceSettingsState {
         self.refresh_values();
     }
 
-    pub(crate) fn set_openai_api_key(&mut self, value: String) {
-        self.saved.openai_api_key = non_empty_option(Some(value));
-        match self.saved.openai_api_key.clone() {
-            Some(value) => self.persist_string(KEY_OPENAI_API_KEY, &value),
-            None => self.delete_string(KEY_OPENAI_API_KEY),
-        }
-        self.refresh_values();
-    }
-
-    pub(crate) fn set_realtime_model(&mut self, value: String) {
-        self.saved.realtime_model = non_empty_option(Some(value));
-        match self.saved.realtime_model.clone() {
-            Some(value) => self.persist_string(KEY_OPENAI_REALTIME_MODEL, &value),
-            None => self.delete_string(KEY_OPENAI_REALTIME_MODEL),
-        }
-        self.refresh_values();
-    }
-
-    pub(crate) fn set_card_planner_model(&mut self, value: String) {
-        self.saved.card_planner_model = non_empty_option(Some(value));
-        match self.saved.card_planner_model.clone() {
-            Some(value) => self.persist_string(KEY_OPENAI_CARD_PLANNER_MODEL, &value),
-            None => self.delete_string(KEY_OPENAI_CARD_PLANNER_MODEL),
-        }
-        self.refresh_values();
-    }
-
-    pub(crate) fn set_sidecar_path(&mut self, path: PathBuf) {
-        self.saved.sidecar_path = Some(path.clone());
-        self.persist_string(KEY_OPENAI_SIDECAR_PATH, &path.display().to_string());
-        self.refresh_values();
-    }
-
     pub(super) fn is_editing(&self, field: VoiceSettingsField) -> bool {
         self.editing == Some(field)
     }
 
     pub(super) fn row_value(&self, field: VoiceSettingsField) -> String {
         if self.editing == Some(field) {
-            if field == VoiceSettingsField::OpenAiApiKey && !self.draft.is_empty() {
-                format!("{API_KEY_MASK}|")
-            } else {
-                format!("{}|", self.draft)
-            }
+            format!("{}|", self.draft)
         } else {
             self.field_value(field)
         }
@@ -259,43 +216,8 @@ impl VoiceSettingsState {
     fn commit_edit(&mut self, field: VoiceSettingsField) {
         let value = self.draft.trim().to_string();
         if value.is_empty() {
-            if self.clear_empty_realtime_field(field) {
-                self.editing = None;
-                self.draft.clear();
-            } else {
-                self.status = Some(error_status("Value cannot be empty"));
-            }
+            self.status = Some(error_status("Value cannot be empty"));
             return;
-        }
-
-        match field {
-            VoiceSettingsField::OpenAiApiKey => {
-                self.set_openai_api_key(value);
-                self.editing = None;
-                self.draft.clear();
-                return;
-            }
-            VoiceSettingsField::RealtimeModel => {
-                self.set_realtime_model(value);
-                self.editing = None;
-                self.draft.clear();
-                return;
-            }
-            VoiceSettingsField::CardPlannerModel => {
-                self.set_card_planner_model(value);
-                self.editing = None;
-                self.draft.clear();
-                return;
-            }
-            VoiceSettingsField::SidecarPath => {
-                self.set_sidecar_path(PathBuf::from(value));
-                self.editing = None;
-                self.draft.clear();
-                return;
-            }
-            VoiceSettingsField::OllamaEndpoint
-            | VoiceSettingsField::PlannerModel
-            | VoiceSettingsField::RefineModel => {}
         }
 
         let key = match field {
@@ -311,41 +233,11 @@ impl VoiceSettingsState {
                 self.saved.refine_model = Some(value.clone());
                 KEY_REFINE_MODEL
             }
-            VoiceSettingsField::OpenAiApiKey
-            | VoiceSettingsField::RealtimeModel
-            | VoiceSettingsField::CardPlannerModel
-            | VoiceSettingsField::SidecarPath => unreachable!("realtime fields return above"),
         };
         self.persist_string(key, &value);
         self.editing = None;
         self.draft.clear();
         self.refresh_values();
-    }
-
-    fn clear_empty_realtime_field(&mut self, field: VoiceSettingsField) -> bool {
-        match field {
-            VoiceSettingsField::OpenAiApiKey => {
-                self.set_openai_api_key(String::new());
-                true
-            }
-            VoiceSettingsField::RealtimeModel => {
-                self.set_realtime_model(String::new());
-                true
-            }
-            VoiceSettingsField::CardPlannerModel => {
-                self.set_card_planner_model(String::new());
-                true
-            }
-            VoiceSettingsField::SidecarPath => {
-                self.saved.sidecar_path = None;
-                self.delete_string(KEY_OPENAI_SIDECAR_PATH);
-                self.refresh_values();
-                true
-            }
-            VoiceSettingsField::OllamaEndpoint
-            | VoiceSettingsField::PlannerModel
-            | VoiceSettingsField::RefineModel => false,
-        }
     }
 
     fn persist_string(&mut self, key: &str, value: &str) {
@@ -377,28 +269,6 @@ impl VoiceSettingsState {
             VoiceSettingsField::OllamaEndpoint => self.values.ollama_endpoint().to_string(),
             VoiceSettingsField::PlannerModel => self.values.planner_model().to_string(),
             VoiceSettingsField::RefineModel => self.values.refine_model().to_string(),
-            VoiceSettingsField::OpenAiApiKey => {
-                if self.values.openai_api_key().is_some() {
-                    API_KEY_MASK.to_string()
-                } else {
-                    "Not set".to_string()
-                }
-            }
-            VoiceSettingsField::RealtimeModel => self
-                .values
-                .realtime_model()
-                .unwrap_or("Not set")
-                .to_string(),
-            VoiceSettingsField::CardPlannerModel => self
-                .values
-                .card_planner_model()
-                .unwrap_or("Not set")
-                .to_string(),
-            VoiceSettingsField::SidecarPath => self
-                .values
-                .sidecar_path()
-                .map(|path| path.display().to_string())
-                .unwrap_or_else(|| "Not set".to_string()),
         }
     }
 }

@@ -22,48 +22,34 @@ fn mic_ok() -> Result<(), SpeechError> {
 }
 
 fn always_listening_values(model_dir: Option<std::path::PathBuf>) -> VoiceSettingsValues {
-    VoiceSettingsValues {
-        ollama_endpoint: "http://127.0.0.1:11434".to_string(),
-        planner_model: voice::OllamaVoicePlanner::default_model().to_string(),
-        refine_model: voice::OllamaVoicePlanner::default_model().to_string(),
+    let saved = SavedVoiceSettings {
+        realtime_enabled: Some(true),
         paraformer_model_dir: model_dir,
-        input_device_id: None,
-        trace_enabled: false,
-        realtime_enabled: true,
-        openai_api_key: None,
-        realtime_model: None,
-        card_planner_model: None,
-        sidecar_path: None,
-    }
+        ..SavedVoiceSettings::default()
+    };
+    VoiceSettingsValues::resolve(&saved, &EnvVoiceSettings::default())
 }
 
 /// DLG-1: Always Listening 启动校验不要求 OpenAI API key。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   model_dir = tempfile 创建的现存目录（满足 SherpaProvider::new 存在性检查）
-///   openai_api_key = None（刻意不配置任何 OpenAI 凭据）
 ///   realtime_enabled = true（表示用户已打开 Always Listening 开关）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 构造不含 OpenAI 字段的 VoiceSettingsValues
+///   1. 构造仅含本地 sherpa 配置的 VoiceSettingsValues
 ///   2. 调用 DialogueControlState::validate_start_provider
-///   3. 检查返回 Ok 且错误文本不包含 API key 相关字样
 ///
 /// 预期结果：
-///   - 正断言：缺少 API key 时仍可解析本地 sherpa provider
-///   - 负断言：校验结果不应提及 OpenAI API key 或 MissingApiKey
+///   - 正断言：validate_start_provider 返回 Ok，本地 provider 可解析
+///   - 负断言：校验结果不应因缺少 OpenAI 设置而失败
 #[test]
 fn test_dialogue_start_does_not_require_openai_api_key() {
     let dir = tempdir().expect("temp model dir should be creatable");
     let values = always_listening_values(Some(dir.path().to_path_buf()));
 
     DialogueControlState::validate_start_provider(&values)
-        .expect("存在本地 model dir 时启动校验不应要求 OpenAI API key");
-
-    assert!(
-        values.openai_api_key().is_none(),
-        "测试夹具应刻意不配置 OpenAI API key"
-    );
+        .expect("存在本地 model dir 时启动校验应成功，且不依赖 OpenAI 设置");
 }
 
 /// DLG-2: 停止 Always Listening 后 phase 回到 Idle，但 models_resident 仍为 true。

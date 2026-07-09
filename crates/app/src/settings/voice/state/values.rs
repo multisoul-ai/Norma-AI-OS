@@ -5,8 +5,6 @@ use storage::SettingsStore;
 use voice::OllamaVoicePlanner;
 
 pub(crate) const DEFAULT_OLLAMA_ENDPOINT: &str = "http://127.0.0.1:11434";
-pub(crate) const DEFAULT_REALTIME_MODEL: &str = "gpt-realtime-2";
-pub(super) const API_KEY_MASK: &str = "••••••••";
 pub(super) const KEY_OLLAMA_ENDPOINT: &str = "voice.ollama.endpoint";
 pub(super) const KEY_OLLAMA_MODEL: &str = "voice.ollama.model";
 pub(super) const KEY_REFINE_MODEL: &str = "voice.refine.model";
@@ -28,10 +26,6 @@ pub(crate) struct SavedVoiceSettings {
     pub(crate) input_device_id: Option<String>,
     pub(crate) trace_enabled: Option<bool>,
     pub(crate) realtime_enabled: Option<bool>,
-    pub(crate) openai_api_key: Option<String>,
-    pub(crate) realtime_model: Option<String>,
-    pub(crate) card_planner_model: Option<String>,
-    pub(crate) sidecar_path: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -53,10 +47,6 @@ pub(crate) struct VoiceSettingsValues {
     pub(crate) input_device_id: Option<String>,
     pub(crate) trace_enabled: bool,
     pub(crate) realtime_enabled: bool,
-    pub(crate) openai_api_key: Option<String>,
-    pub(crate) realtime_model: Option<String>,
-    pub(crate) card_planner_model: Option<String>,
-    pub(crate) sidecar_path: Option<PathBuf>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -64,10 +54,6 @@ pub(crate) enum VoiceSettingsField {
     OllamaEndpoint,
     PlannerModel,
     RefineModel,
-    OpenAiApiKey,
-    RealtimeModel,
-    CardPlannerModel,
-    SidecarPath,
 }
 
 impl fmt::Debug for SavedVoiceSettings {
@@ -80,10 +66,6 @@ impl fmt::Debug for SavedVoiceSettings {
             .field("input_device_id", &self.input_device_id)
             .field("trace_enabled", &self.trace_enabled)
             .field("realtime_enabled", &self.realtime_enabled)
-            .field("openai_api_key", &masked_api_key(&self.openai_api_key))
-            .field("realtime_model", &self.realtime_model)
-            .field("card_planner_model", &self.card_planner_model)
-            .field("sidecar_path", &self.sidecar_path)
             .finish()
     }
 }
@@ -98,10 +80,6 @@ impl fmt::Debug for VoiceSettingsValues {
             .field("input_device_id", &self.input_device_id)
             .field("trace_enabled", &self.trace_enabled)
             .field("realtime_enabled", &self.realtime_enabled)
-            .field("openai_api_key", &masked_api_key(&self.openai_api_key))
-            .field("realtime_model", &self.realtime_model)
-            .field("card_planner_model", &self.card_planner_model)
-            .field("sidecar_path", &self.sidecar_path)
             .finish()
     }
 }
@@ -115,7 +93,7 @@ impl fmt::Debug for VoiceSettingsState {
             .field("storage", &self.storage)
             .field("input_devices", &self.input_devices)
             .field("editing", &self.editing)
-            .field("draft", &masked_draft(self.editing, &self.draft))
+            .field("draft", &self.draft)
             .field("status", &self.status)
             .finish()
     }
@@ -164,11 +142,6 @@ impl VoiceSettingsValues {
             .trace_enabled
             .unwrap_or_else(|| trace_enabled_from_value(env.trace_enabled.as_deref()));
         let realtime_enabled = saved.realtime_enabled.unwrap_or(false);
-        let openai_api_key = non_empty_option(saved.openai_api_key.clone());
-        let realtime_model = non_empty_option(saved.realtime_model.clone())
-            .or_else(|| Some(DEFAULT_REALTIME_MODEL.to_string()));
-        let card_planner_model = non_empty_option(saved.card_planner_model.clone());
-        let sidecar_path = saved.sidecar_path.clone();
 
         Self {
             ollama_endpoint: endpoint,
@@ -178,10 +151,6 @@ impl VoiceSettingsValues {
             input_device_id,
             trace_enabled,
             realtime_enabled,
-            openai_api_key,
-            realtime_model,
-            card_planner_model,
-            sidecar_path,
         }
     }
 
@@ -212,22 +181,6 @@ impl VoiceSettingsValues {
     pub(crate) fn realtime_enabled(&self) -> bool {
         self.realtime_enabled
     }
-
-    pub(crate) fn openai_api_key(&self) -> Option<&str> {
-        self.openai_api_key.as_deref()
-    }
-
-    pub(crate) fn realtime_model(&self) -> Option<&str> {
-        self.realtime_model.as_deref()
-    }
-
-    pub(crate) fn card_planner_model(&self) -> Option<&str> {
-        self.card_planner_model.as_deref()
-    }
-
-    pub(crate) fn sidecar_path(&self) -> Option<&Path> {
-        self.sidecar_path.as_deref()
-    }
 }
 
 impl EnvVoiceSettings {
@@ -247,6 +200,8 @@ impl EnvVoiceSettings {
 
 impl SavedVoiceSettings {
     pub(super) fn load(store: &SettingsStore) -> storage::StorageResult<Self> {
+        ignore_legacy_openai_realtime_keys(store)?;
+
         Ok(Self {
             ollama_endpoint: non_empty_option(store.get_string(KEY_OLLAMA_ENDPOINT)?),
             planner_model: non_empty_option(store.get_string(KEY_OLLAMA_MODEL)?),
@@ -262,11 +217,6 @@ impl SavedVoiceSettings {
                 .get_string(KEY_REALTIME_ENABLED)?
                 .as_deref()
                 .and_then(stored_bool),
-            openai_api_key: non_empty_option(store.get_string(KEY_OPENAI_API_KEY)?),
-            realtime_model: non_empty_option(store.get_string(KEY_OPENAI_REALTIME_MODEL)?),
-            card_planner_model: non_empty_option(store.get_string(KEY_OPENAI_CARD_PLANNER_MODEL)?),
-            sidecar_path: non_empty_option(store.get_string(KEY_OPENAI_SIDECAR_PATH)?)
-                .map(PathBuf::from),
         })
     }
 }
@@ -277,10 +227,6 @@ impl VoiceSettingsField {
             Self::OllamaEndpoint => 0,
             Self::PlannerModel => 1,
             Self::RefineModel => 2,
-            Self::OpenAiApiKey => 3,
-            Self::RealtimeModel => 4,
-            Self::CardPlannerModel => 5,
-            Self::SidecarPath => 6,
         }
     }
 }
@@ -291,19 +237,12 @@ pub(super) fn non_empty_option(value: Option<String>) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
-fn masked_api_key(value: &Option<String>) -> Option<&'static str> {
-    value
-        .as_deref()
-        .filter(|value| !value.trim().is_empty())
-        .map(|_| API_KEY_MASK)
-}
-
-fn masked_draft(editing: Option<VoiceSettingsField>, draft: &str) -> String {
-    if editing == Some(VoiceSettingsField::OpenAiApiKey) && !draft.is_empty() {
-        API_KEY_MASK.to_string()
-    } else {
-        draft.to_string()
-    }
+fn ignore_legacy_openai_realtime_keys(store: &SettingsStore) -> storage::StorageResult<()> {
+    let _ = store.get_string(KEY_OPENAI_API_KEY)?;
+    let _ = store.get_string(KEY_OPENAI_REALTIME_MODEL)?;
+    let _ = store.get_string(KEY_OPENAI_CARD_PLANNER_MODEL)?;
+    let _ = store.get_string(KEY_OPENAI_SIDECAR_PATH)?;
+    Ok(())
 }
 
 fn first_non_empty(saved: Option<&str>, env: Option<&str>, default: &str) -> String {
