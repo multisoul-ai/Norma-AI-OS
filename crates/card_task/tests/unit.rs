@@ -6,6 +6,8 @@ mod model_tests;
 mod planner_tests;
 #[path = "unit/queue_cancel_flow_tests.rs"]
 mod queue_cancel_flow_tests;
+#[path = "unit/queue_flat_tests.rs"]
+mod queue_flat_tests;
 #[path = "unit/queue_send_text_tests.rs"]
 mod queue_send_text_tests;
 #[path = "unit/queue_tests.rs"]

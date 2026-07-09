@@ -11,6 +11,7 @@ pub use executor::{
 };
 pub use model::{
     CardTask, CardTaskEvent, CardTaskId, CardTaskRequest, CardTaskState, CardTaskStep,
+    FlatCardTaskRequest,
 };
 pub use planner::{
     compile_voice_plan_for_card_task, compile_voice_plan_json_for_card_task, parse_voice_plan_json,

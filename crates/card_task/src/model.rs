@@ -23,6 +23,13 @@ pub struct CardTaskRequest {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FlatCardTaskRequest {
+    pub summary: String,
+    pub steps: Vec<CardCommand>,
+    pub tool_call_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CardTask {
     pub task_id: CardTaskId,
     pub request: CardTaskRequest,
@@ -40,6 +47,25 @@ impl CardTask {
             request,
             summary,
             steps: Vec::new(),
+            state: CardTaskState::Queued,
+            cancel_requested: false,
+        }
+    }
+
+    pub fn from_flat_request(task_id: CardTaskId, request: FlatCardTaskRequest) -> Self {
+        let summary = request.summary.clone();
+        Self {
+            task_id,
+            request: CardTaskRequest {
+                intent: summary.clone(),
+                tool_call_id: request.tool_call_id,
+            },
+            summary,
+            steps: request
+                .steps
+                .into_iter()
+                .map(CardTaskStep::Command)
+                .collect(),
             state: CardTaskState::Queued,
             cancel_requested: false,
         }

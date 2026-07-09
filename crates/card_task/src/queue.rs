@@ -1,6 +1,6 @@
 use crate::{
     compile_card_task_steps, execute_card_task_step, CardCommandRunner, CardTask, CardTaskEvent,
-    CardTaskExecutionContext, CardTaskId, CardTaskRequest, CardTaskState,
+    CardTaskExecutionContext, CardTaskId, CardTaskRequest, CardTaskState, FlatCardTaskRequest,
 };
 use std::collections::VecDeque;
 use voice::CompiledVoicePlan;
@@ -62,6 +62,19 @@ impl CardTaskQueue {
         task_id
     }
 
+    pub fn enqueue_flat(&mut self, request: FlatCardTaskRequest) -> CardTaskId {
+        let task_id = CardTaskId::new(self.next_task_id);
+        self.next_task_id += 1;
+
+        let task = CardTask::from_flat_request(task_id, request);
+        self.events.push(CardTaskEvent::Queued {
+            task_id,
+            summary: task.summary.clone(),
+        });
+        self.pending.push_back(task);
+        task_id
+    }
+
     pub fn drain_events(&mut self) -> Vec<CardTaskEvent> {
         std::mem::take(&mut self.events)
     }
@@ -112,41 +125,53 @@ impl CardTaskQueue {
                 return events;
             };
 
-            task.state = CardTaskState::Planning;
-            events.push(CardTaskEvent::Planning {
-                task_id: task.task_id,
-            });
+            if task.steps.is_empty() {
+                task.state = CardTaskState::Planning;
+                events.push(CardTaskEvent::Planning {
+                    task_id: task.task_id,
+                });
 
-            match planner.plan(&task.request) {
-                Ok(compiled) => {
-                    task.steps = compile_card_task_steps(&compiled);
-                    events.push(CardTaskEvent::Planned {
-                        task_id: task.task_id,
-                        step_count: task.steps.len(),
-                    });
-                    self.active = Some(ActiveCardTask {
-                        task,
-                        next_step_index: 0,
-                        execution: CardTaskExecutionContext::default(),
-                    });
+                match planner.plan(&task.request) {
+                    Ok(compiled) => {
+                        task.steps = compile_card_task_steps(&compiled);
+                        events.push(CardTaskEvent::Planned {
+                            task_id: task.task_id,
+                            step_count: task.steps.len(),
+                        });
+                        self.active = Some(ActiveCardTask {
+                            task,
+                            next_step_index: 0,
+                            execution: CardTaskExecutionContext::default(),
+                        });
+                    }
+                    Err(CardTaskPlannerError::Pending) => {
+                        task.state = CardTaskState::Queued;
+                        self.pending.push_front(task);
+                        return Vec::new();
+                    }
+                    Err(error) => {
+                        let message = error.to_string();
+                        task.state = CardTaskState::Failed {
+                            message: message.clone(),
+                        };
+                        events.push(CardTaskEvent::Failed {
+                            task_id: task.task_id,
+                            message,
+                        });
+                        self.completed.push(task);
+                        return events;
+                    }
                 }
-                Err(CardTaskPlannerError::Pending) => {
-                    task.state = CardTaskState::Queued;
-                    self.pending.push_front(task);
-                    return Vec::new();
-                }
-                Err(error) => {
-                    let message = error.to_string();
-                    task.state = CardTaskState::Failed {
-                        message: message.clone(),
-                    };
-                    events.push(CardTaskEvent::Failed {
-                        task_id: task.task_id,
-                        message,
-                    });
-                    self.completed.push(task);
-                    return events;
-                }
+            } else {
+                events.push(CardTaskEvent::Planned {
+                    task_id: task.task_id,
+                    step_count: task.steps.len(),
+                });
+                self.active = Some(ActiveCardTask {
+                    task,
+                    next_step_index: 0,
+                    execution: CardTaskExecutionContext::default(),
+                });
             }
         }
 
