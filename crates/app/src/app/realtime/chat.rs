@@ -9,8 +9,9 @@ use crate::app::voice::playback::AssistantAudioSink;
 use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
 use gpui::Task;
 use realtime::{
-    PcmAudioChunk, RealtimeCallbackUpdate, RealtimeCommand, RealtimeEvent, RealtimeSessionConfig,
-    RealtimeSessionId, RealtimeSidecarError, RealtimeStatus, SidecarLaunchConfig, SidecarProcess,
+    PcmAudioChunk, PcmFormat, RealtimeCallbackUpdate, RealtimeCommand, RealtimeEvent,
+    RealtimeSessionConfig, RealtimeSessionId, RealtimeSidecarError, RealtimeStatus,
+    SidecarLaunchConfig, SidecarProcess,
 };
 use std::io;
 use std::path::PathBuf;
@@ -18,6 +19,26 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 use voice_sherpa::{PcmStreamSession, SherpaProvider};
+
+fn capture_pcm_to_sidecar_protocol(chunk: audio::PcmAudioChunk) -> PcmAudioChunk {
+    PcmAudioChunk {
+        format: match chunk.format {
+            audio::PcmFormat::Pcm16 => PcmFormat::Pcm16,
+        },
+        sample_rate_hz: chunk.sample_rate_hz,
+        channels: chunk.channels,
+        bytes: chunk.bytes,
+    }
+}
+
+fn sidecar_pcm_to_playback(chunk: &PcmAudioChunk) -> audio::PcmAudioChunk {
+    audio::PcmAudioChunk {
+        format: audio::PcmFormat::Pcm16,
+        sample_rate_hz: chunk.sample_rate_hz,
+        channels: chunk.channels,
+        bytes: chunk.bytes.clone(),
+    }
+}
 
 pub(crate) trait RealtimeSidecarClient: Send {
     fn enqueue(&self, command: RealtimeCommand) -> Result<(), RealtimeSidecarError>;
@@ -148,14 +169,14 @@ impl RealtimePcmStream for PcmStreamSession {
 pub(crate) struct RealtimeChatRuntime {
     pub(crate) sidecar: Option<Box<dyn RealtimeSidecarClient>>,
     pub(crate) pcm_stream: Option<Box<dyn RealtimePcmStream>>,
-    pub(crate) pcm_chunks: Option<async_channel::Receiver<PcmAudioChunk>>,
+    pub(crate) pcm_chunks: Option<async_channel::Receiver<audio::PcmAudioChunk>>,
 }
 
 impl RealtimeChatRuntime {
     pub(crate) fn install_into(
         mut self,
         state: &mut RealtimeControlState,
-    ) -> async_channel::Receiver<PcmAudioChunk> {
+    ) -> async_channel::Receiver<audio::PcmAudioChunk> {
         state.sidecar = self.sidecar.take();
         state.pcm_stream = self.pcm_stream.take();
         self.pcm_chunks
@@ -248,14 +269,14 @@ impl RealtimeControlState {
 
     pub(crate) fn enqueue_input_audio_chunk(
         &mut self,
-        chunk: PcmAudioChunk,
+        chunk: audio::PcmAudioChunk,
     ) -> Result<bool, RealtimeSidecarError> {
         self.send_input_audio_chunk(chunk)
     }
 
     pub(crate) fn send_input_audio_chunk(
         &mut self,
-        chunk: PcmAudioChunk,
+        chunk: audio::PcmAudioChunk,
     ) -> Result<bool, RealtimeSidecarError> {
         let Some(session_id) = self.session.session_id().cloned() else {
             return Ok(false);
@@ -273,7 +294,10 @@ impl RealtimeControlState {
         }
 
         self.session.mark_user_speaking(true);
-        self.send_sidecar_command(RealtimeCommand::InputAudioChunk { session_id, chunk })?;
+        self.send_sidecar_command(RealtimeCommand::InputAudioChunk {
+            session_id,
+            chunk: capture_pcm_to_sidecar_protocol(chunk),
+        })?;
         Ok(true)
     }
 
@@ -300,7 +324,8 @@ impl RealtimeControlState {
             }
             RealtimeEvent::AssistantAudioChunk { session_id, chunk } => {
                 if self.matches_active_session(&session_id) {
-                    self.assistant_audio_sink.write_chunk(&chunk);
+                    self.assistant_audio_sink
+                        .write_chunk(&sidecar_pcm_to_playback(&chunk));
                 }
             }
             RealtimeEvent::SessionError { message, .. } => {

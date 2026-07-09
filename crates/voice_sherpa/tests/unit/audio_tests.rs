@@ -2,7 +2,7 @@ use super::{
     audio_capture_for_test, pcm16_bytes_from_f32_samples, pcm_stream_chunk_from_samples,
     PCM_STREAM_SAMPLE_RATE_HZ,
 };
-use realtime::PcmFormat;
+use audio::PcmFormat;
 
 fn assert_send<T: Send>() {}
 
@@ -52,39 +52,39 @@ fn test_pcm16_conversion_uses_little_endian_saturation() {
     );
 }
 
-/// AUDIO-4: realtime PCM chunk 应使用 24kHz / mono / PCM16 元数据。
+/// AUDIO-4: dialogue capture PCM chunk 应使用 16kHz / mono / PCM16 元数据。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   input samples = [-1.0, 0.0, 1.0]，共 3 个 f32 mono 样本
 ///   PCM16 bytes   = 3 samples * 2 bytes/sample = 6 bytes
-///   sample_rate   = 24_000Hz（Realtime MVP 目标采样率）
+///   sample_rate   = 16_000Hz（VAD/ASR 目标采样率）
 ///   channels      = 1（麦克风输入转 mono）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 将 3 个 f32 样本转换为 realtime::PcmAudioChunk
+///   1. 将 3 个 f32 样本转换为 audio::PcmAudioChunk
 ///   2. 检查 chunk 的 format / sample_rate_hz / channels
 ///   3. 检查 bytes 与 AUDIO-3 的 little-endian PCM16 输出一致
 ///
 /// 预期结果：
-///   - 正断言：chunk 元数据固定为 Pcm16 / 24_000Hz / mono
+///   - 正断言：chunk 元数据固定为 Pcm16 / 16_000Hz / mono
 ///   - 正断言：chunk bytes 保留转换后的 6 bytes PCM16 payload
-///   - 负断言：realtime stream 不应沿用 one-shot recognition 的 16_000Hz
+///   - 负断言：capture stream 不应沿用 TTS playback 常用的 24_000Hz
 #[test]
-fn test_pcm_stream_chunk_uses_realtime_metadata() {
+fn test_pcm_stream_chunk_uses_dialogue_capture_metadata() {
     let chunk = pcm_stream_chunk_from_samples(&[-1.0, 0.0, 1.0])
-        .expect("非空样本应生成 realtime PCM chunk");
+        .expect("非空样本应生成 dialogue capture PCM chunk");
 
     assert_eq!(
-        PCM_STREAM_SAMPLE_RATE_HZ, 24_000,
-        "realtime stream 目标采样率应固定为 24_000Hz"
+        PCM_STREAM_SAMPLE_RATE_HZ, 16_000,
+        "dialogue capture stream 目标采样率应固定为 16_000Hz"
     );
     assert_eq!(
-        chunk.sample_rate_hz, 24_000,
-        "PcmAudioChunk.sample_rate_hz 应写入 Realtime MVP 要求的 24_000Hz"
+        chunk.sample_rate_hz, 16_000,
+        "PcmAudioChunk.sample_rate_hz 应写入 VAD/ASR 要求的 16_000Hz"
     );
     assert_ne!(
-        chunk.sample_rate_hz, 16_000,
-        "realtime stream 不应沿用 sherpa one-shot recognizer 的 16_000Hz"
+        chunk.sample_rate_hz, 24_000,
+        "capture stream 不应沿用 TTS playback 常用的 24_000Hz"
     );
     assert_eq!(chunk.channels, 1, "PcmAudioChunk.channels 应固定为 mono");
     assert_eq!(
@@ -99,7 +99,7 @@ fn test_pcm_stream_chunk_uses_realtime_metadata() {
     );
 }
 
-/// AUDIO-5: 空样本输入不应发送 realtime PCM chunk。
+/// AUDIO-5: 空样本输入不应发送 capture PCM chunk。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   input samples = []，样本数 0

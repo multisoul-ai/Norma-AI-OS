@@ -2,10 +2,9 @@ use super::chat::start_realtime_chat_runtime;
 use super::{RealtimeConfigError, RealtimeControlState, SIDECAR_POLL_INTERVAL};
 use crate::app::voice::control::VoiceVisual;
 use crate::app::MultisoulApp;
+use audio::PcmAudioChunk;
 use gpui::Context;
-use realtime::{
-    PcmAudioChunk, RealtimeCommand, RealtimeEvent, RealtimeToolCall, RealtimeToolResult,
-};
+use realtime::{RealtimeCommand, RealtimeEvent, RealtimeToolCall, RealtimeToolResult};
 
 impl MultisoulApp {
     pub(crate) fn realtime_voice_label(&self) -> Option<String> {

@@ -1,6 +1,6 @@
 //! Assistant audio playback sink used by realtime voice chat.
 
-use realtime::PcmAudioChunk;
+use audio::PcmAudioChunk;
 
 pub(crate) trait AssistantAudioSink: Send {
     fn write_chunk(&mut self, chunk: &PcmAudioChunk);

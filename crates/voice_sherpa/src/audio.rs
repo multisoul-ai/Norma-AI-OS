@@ -1,13 +1,13 @@
 use crate::session::{AudioQueueStats, PcmEvent};
 use crate::SpeechError;
+use audio::{PcmAudioChunk, PcmFormat};
 use crossbeam_channel::Sender;
-use realtime::{PcmAudioChunk, PcmFormat};
 use std::sync::Arc;
 
 const INPUT_BUS: usize = 0;
 const TAP_BUFFER_SIZE: u32 = 1_600; // requested tap size in frames (hint; HW may differ)
 pub(crate) const RECOGNIZER_SAMPLE_RATE_HZ: u32 = 16_000;
-pub(crate) const PCM_STREAM_SAMPLE_RATE_HZ: u32 = 24_000;
+pub(crate) const PCM_STREAM_SAMPLE_RATE_HZ: u32 = 16_000;
 
 pub(crate) struct AudioCapture {
     #[cfg(target_os = "macos")]

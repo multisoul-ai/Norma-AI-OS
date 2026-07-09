@@ -156,6 +156,7 @@ version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-channel 2.5.0",
+ "audio",
  "block2",
  "canvas",
  "card_task",
@@ -7404,6 +7405,7 @@ name = "voice_sherpa"
 version = "0.1.21"
 dependencies = [
  "async-channel 2.5.0",
+ "audio",
  "block2",
  "crossbeam-channel",
  "objc2",
@@ -7411,7 +7413,6 @@ dependencies = [
  "objc2-avf-audio",
  "objc2-core-foundation",
  "objc2-foundation",
- "realtime",
  "sherpa-onnx",
  "thiserror 2.0.18",
  "tracing",

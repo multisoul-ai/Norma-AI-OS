@@ -1,6 +1,6 @@
 use super::app_realtime_tests_chat_support::{
-    chunk, config, wait_until, with_realtime_process_guard, RecordingAudioSink, RecordingPcmStream,
-    RecordingSidecar,
+    chunk, config, sidecar_chunk_from_capture, wait_until, with_realtime_process_guard,
+    RecordingAudioSink, RecordingPcmStream, RecordingSidecar,
 };
 use super::{chat::RealtimeChatRuntime, RealtimeControlState};
 use realtime::{RealtimeCommand, RealtimeEvent, RealtimeSessionId};
@@ -62,7 +62,7 @@ fn test_realtime_chat_user_pcm_interrupts_assistant_and_stops_sink() {
                 .commands()
                 .contains(&RealtimeCommand::InputAudioChunk {
                     session_id: RealtimeSessionId::new("rt-chat-interrupt"),
-                    chunk: user_chunk,
+                    chunk: sidecar_chunk_from_capture(&user_chunk),
                 }),
             "user PCM during assistant speaking should still forward input_audio_chunk"
         );

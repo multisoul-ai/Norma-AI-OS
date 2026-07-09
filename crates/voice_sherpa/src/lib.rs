@@ -107,7 +107,7 @@ impl SherpaProvider {
     ) -> Result<
         (
             PcmStreamSession,
-            async_channel::Receiver<realtime::PcmAudioChunk>,
+            async_channel::Receiver<::audio::PcmAudioChunk>,
         ),
         SpeechError,
     > {

@@ -3,6 +3,7 @@ use super::{
     RealtimeControlState, REALTIME_PROCESS_TEST_LOCK,
 };
 use crate::app::voice::playback::AssistantAudioSink;
+use audio::{PcmAudioChunk as CapturePcmChunk, PcmFormat as CapturePcmFormat};
 use realtime::{
     PcmAudioChunk, PcmFormat, RealtimeCommand, RealtimeEvent, RealtimeSessionConfig,
     RealtimeSessionId, RealtimeSidecarError,
@@ -23,9 +24,37 @@ pub(crate) fn config(session_id: &str) -> RealtimeSessionConfig {
     }
 }
 
-pub(crate) fn chunk(bytes: Vec<u8>) -> PcmAudioChunk {
+pub(crate) fn capture_chunk(bytes: Vec<u8>) -> CapturePcmChunk {
+    CapturePcmChunk::new(CapturePcmFormat::Pcm16, 16_000, 1, bytes)
+        .expect("test capture PCM chunk should use valid 16k mono PCM16 metadata")
+}
+
+pub(crate) fn realtime_chunk(bytes: Vec<u8>) -> PcmAudioChunk {
     PcmAudioChunk::new(PcmFormat::Pcm16, 24_000, 1, bytes)
-        .expect("test PCM chunk should use valid 24k mono PCM16 metadata")
+        .expect("test sidecar PCM chunk should use valid 24k mono PCM16 metadata")
+}
+
+pub(crate) fn sidecar_chunk_from_capture(chunk: &CapturePcmChunk) -> PcmAudioChunk {
+    PcmAudioChunk {
+        format: PcmFormat::Pcm16,
+        sample_rate_hz: chunk.sample_rate_hz,
+        channels: chunk.channels,
+        bytes: chunk.bytes.clone(),
+    }
+}
+
+pub(crate) fn playback_chunk_from_sidecar(chunk: &PcmAudioChunk) -> CapturePcmChunk {
+    CapturePcmChunk {
+        format: CapturePcmFormat::Pcm16,
+        sample_rate_hz: chunk.sample_rate_hz,
+        channels: chunk.channels,
+        bytes: chunk.bytes.clone(),
+    }
+}
+
+/// Capture-path PCM chunks for microphone forward tests.
+pub(crate) fn chunk(bytes: Vec<u8>) -> CapturePcmChunk {
+    capture_chunk(bytes)
 }
 
 pub(crate) fn with_realtime_process_guard(assertions: impl FnOnce()) {
@@ -155,12 +184,12 @@ pub(crate) struct RecordingAudioSink {
 
 #[derive(Default)]
 struct RecordingAudioSinkState {
-    chunks: Vec<PcmAudioChunk>,
+    chunks: Vec<CapturePcmChunk>,
     stop_calls: usize,
 }
 
 impl RecordingAudioSink {
-    pub(crate) fn chunks(&self) -> Vec<PcmAudioChunk> {
+    pub(crate) fn chunks(&self) -> Vec<CapturePcmChunk> {
         self.inner
             .lock()
             .expect("recording audio sink lock should not be poisoned")
@@ -177,7 +206,7 @@ impl RecordingAudioSink {
 }
 
 impl AssistantAudioSink for RecordingAudioSink {
-    fn write_chunk(&mut self, chunk: &PcmAudioChunk) {
+    fn write_chunk(&mut self, chunk: &CapturePcmChunk) {
         self.inner
             .lock()
             .expect("recording audio sink lock should not be poisoned")

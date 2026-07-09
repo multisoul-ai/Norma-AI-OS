@@ -1,6 +1,6 @@
 use super::app_realtime_tests_chat_support::{
-    chunk, config, with_realtime_process_guard, RecordingAudioSink, RecordingPcmStream,
-    RecordingSidecar,
+    chunk, config, playback_chunk_from_sidecar, realtime_chunk, sidecar_chunk_from_capture,
+    with_realtime_process_guard, RecordingAudioSink, RecordingPcmStream, RecordingSidecar,
 };
 use super::RealtimeControlState;
 use crate::app::voice::control::VoiceVisual;
@@ -76,7 +76,7 @@ fn test_realtime_chat_start_starts_pcm_sidecar_and_reaches_listening() {
 /// 数据构造（含关键数值的推导过程）：
 ///   PCM bytes = [0, 1, 2, 3]
 ///   byte length = 4；4 % 2 = 0，因此是合法 PCM16
-///   sample_rate = 24_000Hz，channels = 1
+///   sample_rate = 16_000Hz，channels = 1
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 启动 fake sidecar chat 并 drain 到 Listening
@@ -110,7 +110,7 @@ fn test_realtime_chat_forwarding_pcm_chunk_sends_input_audio_chunk_to_sidecar() 
                 .commands()
                 .contains(&RealtimeCommand::InputAudioChunk {
                     session_id: RealtimeSessionId::new("rt-chat-pcm"),
-                    chunk: pcm,
+                    chunk: sidecar_chunk_from_capture(&pcm),
                 }),
             "forwarding PCM should send input_audio_chunk with the exact session and bytes"
         );
@@ -204,7 +204,7 @@ fn test_realtime_chat_assistant_audio_chunk_writes_to_audio_sink() {
         let sink = RecordingAudioSink::default();
         state.set_assistant_audio_sink_for_tests(Box::new(sink.clone()));
 
-        let assistant_chunk = chunk(vec![8, 9, 10, 11]);
+        let assistant_chunk = realtime_chunk(vec![8, 9, 10, 11]);
         state.apply_sidecar_event_for_tests(RealtimeEvent::AssistantAudioChunk {
             session_id: RealtimeSessionId::new("rt-chat-audio"),
             chunk: assistant_chunk.clone(),
@@ -212,7 +212,7 @@ fn test_realtime_chat_assistant_audio_chunk_writes_to_audio_sink() {
 
         assert_eq!(
             sink.chunks(),
-            vec![assistant_chunk],
+            vec![playback_chunk_from_sidecar(&assistant_chunk)],
             "assistant_audio_chunk should be written to the assistant audio sink"
         );
         assert_eq!(
