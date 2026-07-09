@@ -3,7 +3,7 @@
 use crate::app::voice::playback::{
     default_assistant_audio_sink, interrupt_assistant_playback, AssistantAudioSink,
 };
-use dialogue::{format_stub_reply, DialoguePhase, DialogueSession};
+use dialogue::{DialoguePhase, DialogueSession};
 use std::sync::Mutex;
 #[cfg(test)]
 use voice_sherpa::FakeTtsClient;
@@ -20,11 +20,11 @@ pub(crate) fn fake_tts_client_for_tests() -> TtsClientBox {
     Box::new(FakeTtsClient::silent_pcm16_16k())
 }
 
-pub(crate) struct StubReplyPlayback {
+pub(crate) struct ReplyPlayback {
     sink: Box<dyn AssistantAudioSink>,
 }
 
-impl StubReplyPlayback {
+impl ReplyPlayback {
     pub(crate) fn new(sink: Box<dyn AssistantAudioSink>) -> Self {
         Self { sink }
     }
@@ -37,36 +37,31 @@ impl StubReplyPlayback {
         interrupt_assistant_playback(self.sink.as_mut());
     }
 }
-
-pub(crate) fn synthesize_stub_reply(
+pub(crate) fn synthesize_reply(
     tts: &mut dyn dialogue::TtsClient,
-    pending_transcript: &str,
+    reply_text: &str,
 ) -> Result<audio::PcmAudioChunk, SpeechError> {
-    let reply_text = format_stub_reply(pending_transcript);
-    tts.synthesize(&reply_text)
+    tts.synthesize(reply_text)
         .map_err(|error| SpeechError::Recognizer(error.to_string()))
 }
 
-pub(crate) fn finish_stub_reply_playback(session: &mut DialogueSession, keep_listening: bool) {
+pub(crate) fn finish_reply_playback(session: &mut DialogueSession, keep_listening: bool) {
     session.on_playback_finished_or_interrupted(keep_listening);
 }
 
-pub(crate) fn apply_stub_reply_synthesis(
+pub(crate) fn apply_reply_synthesis(
     session: &mut DialogueSession,
     tts: &mut dyn dialogue::TtsClient,
-    playback: &mut StubReplyPlayback,
+    playback: &mut ReplyPlayback,
+    reply_text: &str,
 ) -> Result<(), SpeechError> {
     if session.phase() != DialoguePhase::Thinking {
         return Err(SpeechError::Recognizer(format!(
-            "stub reply requires Thinking, got {:?}",
+            "reply synthesis requires Thinking, got {:?}",
             session.phase()
         )));
     }
-    let pending = session
-        .pending_transcript()
-        .ok_or_else(|| SpeechError::Recognizer("missing pending_transcript".to_string()))?
-        .to_string();
-    let chunk = synthesize_stub_reply(tts, &pending)?;
+    let chunk = synthesize_reply(tts, reply_text)?;
     session
         .on_reply_ready()
         .map_err(|error| SpeechError::Recognizer(error.to_string()))?;

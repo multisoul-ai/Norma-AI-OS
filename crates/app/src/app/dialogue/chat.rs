@@ -1,6 +1,8 @@
 //! Background runtime for Always Listening dialogue shell (PCM → VAD → ASR).
 
-use super::DialogueStartError;
+use super::{DialogueControlState, DialogueStartError};
+use dialogue::DialoguePhase;
+use gpui::Context;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 use voice_sherpa::{
@@ -51,4 +53,55 @@ impl DialogueListeningRuntime {
             let _ = thread.join();
         }
     }
+}
+
+pub(crate) fn start_pipeline_event_pump(
+    dialogue: &mut DialogueControlState,
+    pipeline_events: async_channel::Receiver<ListeningPipelineEvent>,
+    cx: &mut Context<crate::app::MultisoulApp>,
+) {
+    let task = cx.spawn(async move |this, cx| {
+        while let Ok(event) = pipeline_events.recv().await {
+            match event {
+                ListeningPipelineEvent::PartialTranscript(_partial) => {}
+                ListeningPipelineEvent::SpeechStart => {
+                    let should_notify = this
+                        .update(cx, |app, _cx| app.dialogue.on_speech_start_barge_in())
+                        .unwrap_or(false);
+                    if should_notify {
+                        let _ = this.update(cx, |_app, cx| cx.notify());
+                    }
+                }
+                ListeningPipelineEvent::FinalTranscript(text) => {
+                    let should_notify = this
+                        .update(cx, |app, _cx| {
+                            if app.dialogue.phase() != DialoguePhase::Listening {
+                                return false;
+                            }
+                            match app.dialogue.on_final_transcript(&text) {
+                                Ok(()) => {
+                                    app.dialogue.mark_voice_turn_pending();
+                                    true
+                                }
+                                Err(error) => {
+                                    tracing::warn!(%error, "failed to apply final transcript");
+                                    false
+                                }
+                            }
+                        })
+                        .unwrap_or(false);
+                    if should_notify {
+                        let _ = this.update(cx, |_app, cx| cx.notify());
+                    }
+                }
+            }
+            let still_active = this
+                .update(cx, |app, _cx| app.dialogue.is_active())
+                .unwrap_or(false);
+            if !still_active {
+                break;
+            }
+        }
+    });
+    dialogue.pcm_pump_task = Some(task);
 }

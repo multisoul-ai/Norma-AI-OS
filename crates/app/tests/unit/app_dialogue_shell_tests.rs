@@ -306,7 +306,61 @@ fn test_dialogue_final_transcript_moves_to_thinking() {
     });
 }
 
-/// DLG-9: Speaking 阶段 barge-in 应停止 sink 并回到 Listening，且不取消 card tasks。
+/// DLG-10: final transcript 后 Mock echo turn 应保存回复文本并可通过 TTS 进入 Speaking。
+///
+/// 执行过程：
+///   1. 进入 Listening → Thinking
+///   2. run_voice_turn_for_tests（默认 echo Mock）
+///   3. on_reply_ready_for_tests
+///
+/// 预期结果：
+///   - 正断言：last_reply_text ==「收到：你好」
+///   - 正断言：phase == Speaking
+///   - 负断言：card task cancel hook 未被调用
+#[test]
+fn test_dialogue_echo_turn_reply_text_reaches_speaking() {
+    with_dialogue_shell_test_guard(|| {
+        let dir = tempdir().expect("temp model dir should be creatable");
+        let values = always_listening_values(Some(dir.path().to_path_buf()));
+        let mut state = DialogueControlState::default();
+        state.prepare_reply_test_fixtures();
+
+        DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
+        state
+            .begin_listening_sync_for_tests(&values)
+            .expect("测试启动应进入 Listening");
+        state
+            .on_final_transcript("你好")
+            .expect("final transcript 应进入 Thinking");
+        state
+            .run_voice_turn_for_tests()
+            .expect("echo Mock turn 应成功");
+
+        assert_eq!(
+            state.last_reply_text_for_tests(),
+            Some("收到：你好"),
+            "默认 echo Mock 应保存回复文本"
+        );
+        assert!(
+            state.queued_template_reports_for_tests().is_empty(),
+            "纯文本 echo turn 不应排队模板报告"
+        );
+
+        state
+            .on_reply_ready_for_tests()
+            .expect("reply TTS 应进入 Speaking");
+        assert_eq!(
+            state.phase(),
+            DialoguePhase::Speaking,
+            "TTS 合成后应进入 Speaking"
+        );
+        assert!(
+            !state.card_tasks_were_cancelled_for_tests(),
+            "echo turn 不应取消 card tasks"
+        );
+    });
+}
+
 ///
 /// 执行过程：
 ///   1. 进入 Listening → Thinking → Speaking
@@ -331,9 +385,10 @@ fn test_dialogue_barge_in_stops_sink_returns_listening_without_canceling_tasks()
         state
             .on_final_transcript("你好")
             .expect("final transcript 应进入 Thinking");
+        state.run_voice_turn_for_tests().expect("voice turn 应完成");
         state
-            .on_stub_reply_ready_for_tests()
-            .expect("stub reply 应进入 Speaking");
+            .on_reply_ready_for_tests()
+            .expect("reply TTS 应进入 Speaking");
 
         let sink = state.assistant_audio_sink_for_tests();
         assert!(!sink.stopped(), "前置：Speaking 播放尚未被 stop");

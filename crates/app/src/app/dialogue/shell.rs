@@ -2,6 +2,7 @@ use super::chat::start_dialogue_listening_runtime;
 use super::DialogueControlState;
 use crate::app::MultisoulApp;
 use gpui::Context;
+use std::time::Duration;
 
 impl MultisoulApp {
     pub(crate) fn dialogue_voice_label(&self) -> Option<String> {
@@ -79,5 +80,26 @@ impl MultisoulApp {
     pub(crate) fn stop_always_listening_shell(&mut self, cx: &mut Context<Self>) {
         self.dialogue.stop_shell();
         cx.notify();
+    }
+
+    pub(crate) fn start_dialogue_turn_loop(
+        &mut self,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        cx.spawn_in(window, async move |this, cx| loop {
+            cx.background_executor()
+                .timer(Duration::from_millis(12))
+                .await;
+            let go = this.update_in(cx, |app, window, cx| {
+                if app.dialogue.take_pending_voice_turn() {
+                    app.dialogue.begin_voice_turn_reply(window, cx);
+                }
+            });
+            if go.is_err() {
+                break;
+            }
+        })
+        .detach();
     }
 }

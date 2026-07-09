@@ -167,6 +167,7 @@ dependencies = [
  "dialogue",
  "gpui",
  "image",
+ "llm",
  "norma",
  "objc2",
  "objc2-app-kit",
