@@ -7404,6 +7404,7 @@ dependencies = [
  "audio",
  "block2",
  "crossbeam-channel",
+ "dialogue",
  "objc2",
  "objc2-av-foundation",
  "objc2-avf-audio",

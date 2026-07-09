@@ -15,6 +15,7 @@ pub enum DialoguePhase {
 pub struct DialogueSession {
     phase: DialoguePhase,
     models_resident: bool,
+    pending_transcript: Option<String>,
 }
 
 impl DialogueSession {
@@ -22,7 +23,16 @@ impl DialogueSession {
         Self {
             phase: DialoguePhase::Idle,
             models_resident: false,
+            pending_transcript: None,
         }
+    }
+
+    pub fn pending_transcript(&self) -> Option<&str> {
+        self.pending_transcript.as_deref()
+    }
+
+    pub(crate) fn set_pending_transcript(&mut self, text: &str) {
+        self.pending_transcript = Some(text.to_string());
     }
 
     pub fn phase(&self) -> DialoguePhase {

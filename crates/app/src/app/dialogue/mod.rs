@@ -5,11 +5,11 @@ mod shell;
 
 use crate::app::voice::control::VoiceVisual;
 use crate::settings::voice::VoiceSettingsValues;
-use dialogue::{DialoguePhase, DialogueSession};
+use dialogue::{apply_asr_final, DialoguePhase, DialogueSession};
 use gpui::{Context, Task};
 use std::fmt;
 use std::sync::Mutex;
-use voice_sherpa::{PcmStreamSession, SherpaProvider, SpeechError};
+use voice_sherpa::{ListeningPipelineEvent, PcmStreamSession, SherpaProvider, SpeechError};
 
 type MicPermissionCheck = fn() -> Result<(), SpeechError>;
 
@@ -188,7 +188,17 @@ impl DialogueControlState {
         self.error_message = None;
         self.session.on_listening_started();
         self.pcm_stream = Some(runtime.pcm_stream);
-        self.start_pcm_pump(runtime.pcm_chunks, cx);
+        self.start_pipeline_event_pump(runtime.pipeline_events, cx);
+    }
+
+    pub(crate) fn on_final_transcript(&mut self, text: &str) -> Result<(), SpeechError> {
+        apply_asr_final(&mut self.session, text)
+            .map_err(|error| SpeechError::Recognizer(error.to_string()))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn pending_transcript(&self) -> Option<&str> {
+        self.session.pending_transcript()
     }
 
     pub(crate) fn mark_start_error(&mut self, error: DialogueStartError) {
@@ -242,17 +252,40 @@ impl DialogueControlState {
         Ok(())
     }
 
-    fn start_pcm_pump(
+    fn start_pipeline_event_pump(
         &mut self,
-        pcm_chunks: async_channel::Receiver<audio::PcmAudioChunk>,
+        pipeline_events: async_channel::Receiver<ListeningPipelineEvent>,
         cx: &mut Context<crate::app::MultisoulApp>,
     ) {
         let task = cx.spawn(async move |this, cx| {
-            while let Ok(_chunk) = pcm_chunks.recv().await {
-                let go = this.update(cx, |app, _cx| app.dialogue.is_active());
-                match go {
-                    Ok(true) => {}
-                    Ok(false) | Err(_) => break,
+            while let Ok(event) = pipeline_events.recv().await {
+                match event {
+                    ListeningPipelineEvent::PartialTranscript(_partial) => {}
+                    ListeningPipelineEvent::FinalTranscript(text) => {
+                        let should_notify = this
+                            .update(cx, |app, _cx| {
+                                if app.dialogue.phase() != DialoguePhase::Listening {
+                                    return false;
+                                }
+                                match app.dialogue.on_final_transcript(&text) {
+                                    Ok(()) => true,
+                                    Err(error) => {
+                                        tracing::warn!(%error, "failed to apply final transcript");
+                                        false
+                                    }
+                                }
+                            })
+                            .unwrap_or(false);
+                        if should_notify {
+                            let _ = this.update(cx, |_app, cx| cx.notify());
+                        }
+                    }
+                }
+                let still_active = this
+                    .update(cx, |app, _cx| app.dialogue.is_active())
+                    .unwrap_or(false);
+                if !still_active {
+                    break;
                 }
             }
         });

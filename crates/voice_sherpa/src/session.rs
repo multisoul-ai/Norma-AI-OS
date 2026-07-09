@@ -199,7 +199,7 @@ fn build_recognizer_config(
     })
 }
 
-fn find_model_file(dir: &Path, candidates: &[&str]) -> Result<PathBuf, SpeechError> {
+pub(crate) fn find_model_file(dir: &Path, candidates: &[&str]) -> Result<PathBuf, SpeechError> {
     for name in candidates {
         let path = dir.join(name);
         if path.exists() {

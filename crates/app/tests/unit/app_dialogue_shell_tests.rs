@@ -263,7 +263,49 @@ fn test_dialogue_voice_bar_mouse_down_starts_shell_when_enabled() {
     );
 }
 
-/// DLG-7: Settings 仍从 saved realtime_enabled 解析 Always Listening 开关。
+/// DLG-8: final transcript 应把 session 推进 Thinking 并保存 pending_transcript。
+///
+/// 执行过程：
+///   1. begin_listening_sync_for_tests 进入 Listening
+///   2. on_final_transcript("你好")
+///
+/// 预期结果：
+///   - 正断言：phase == Thinking
+///   - 正断言：pending_transcript == Some("你好")
+#[test]
+fn test_dialogue_final_transcript_moves_to_thinking() {
+    with_dialogue_shell_test_guard(|| {
+        let dir = tempdir().expect("temp model dir should be creatable");
+        let values = always_listening_values(Some(dir.path().to_path_buf()));
+        let mut state = DialogueControlState::default();
+
+        DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
+        state
+            .begin_listening_sync_for_tests(&values)
+            .expect("测试启动应进入 Listening");
+
+        state
+            .on_final_transcript("你好")
+            .expect("Listening 下 final transcript 应成功");
+
+        assert_eq!(
+            state.phase(),
+            DialoguePhase::Thinking,
+            "final transcript 后应进入 Thinking"
+        );
+        assert_eq!(
+            state.pending_transcript(),
+            Some("你好"),
+            "Thinking 前应保存 pending_transcript"
+        );
+        assert_eq!(
+            state.effective_voice_label("Voice"),
+            "Thinking...",
+            "Thinking phase 底栏应显示 Thinking..."
+        );
+    });
+}
+
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   saved.realtime_enabled = Some(true)
