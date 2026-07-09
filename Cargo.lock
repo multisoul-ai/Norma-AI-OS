@@ -1654,6 +1654,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dialogue"
+version = "0.1.21"
+dependencies = [
+ "audio",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"

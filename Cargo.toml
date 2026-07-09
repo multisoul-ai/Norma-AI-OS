@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
   "crates/audio",
+  "crates/dialogue",
   "crates/canvas",
   "crates/card_task",
   "crates/storage",
@@ -45,6 +46,7 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 pulldown-cmark = "0.10"
 # 内部 crate（路径依赖）
 audio = { path = "crates/audio" }
+dialogue = { path = "crates/dialogue" }
 canvas = { path = "crates/canvas" }
 storage = { path = "crates/storage" }
 workspace = { path = "crates/workspace" }
