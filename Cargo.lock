@@ -3630,6 +3630,7 @@ name = "llm"
 version = "0.1.21"
 dependencies = [
  "norma",
+ "serde",
  "serde_json",
  "thiserror 2.0.18",
 ]

@@ -5,11 +5,12 @@ use voice_sherpa::{AudioInputDevice, SherpaProvider, SpeechError};
 
 mod values;
 pub(crate) use values::{
-    EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsField, VoiceSettingsValues,
+    DialogueLlmMode, EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsField, VoiceSettingsValues,
 };
 use values::{
-    KEY_INPUT_DEVICE_ID, KEY_OLLAMA_ENDPOINT, KEY_OLLAMA_MODEL, KEY_PARAFORMER_MODEL_DIR,
-    KEY_REALTIME_ENABLED, KEY_REFINE_MODEL, KEY_TRACE_ENABLED,
+    KEY_DIALOGUE_LLM_MODE, KEY_DIALOGUE_MODEL, KEY_INPUT_DEVICE_ID, KEY_OLLAMA_ENDPOINT,
+    KEY_OLLAMA_MODEL, KEY_PARAFORMER_MODEL_DIR, KEY_REALTIME_ENABLED, KEY_REFINE_MODEL,
+    KEY_TRACE_ENABLED,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -189,6 +190,16 @@ impl VoiceSettingsState {
         self.refresh_values();
     }
 
+    pub(crate) fn toggle_dialogue_llm_mode(&mut self) {
+        let next = match self.values.dialogue_llm_mode {
+            DialogueLlmMode::Mock => DialogueLlmMode::Ollama,
+            DialogueLlmMode::Ollama => DialogueLlmMode::Mock,
+        };
+        self.saved.dialogue_llm_mode = Some(next);
+        self.persist_string(KEY_DIALOGUE_LLM_MODE, next.as_str());
+        self.refresh_values();
+    }
+
     pub(super) fn is_editing(&self, field: VoiceSettingsField) -> bool {
         self.editing == Some(field)
     }
@@ -229,6 +240,10 @@ impl VoiceSettingsState {
                 self.saved.planner_model = Some(value.clone());
                 KEY_OLLAMA_MODEL
             }
+            VoiceSettingsField::DialogueModel => {
+                self.saved.dialogue_model = Some(value.clone());
+                KEY_DIALOGUE_MODEL
+            }
             VoiceSettingsField::RefineModel => {
                 self.saved.refine_model = Some(value.clone());
                 KEY_REFINE_MODEL
@@ -268,6 +283,7 @@ impl VoiceSettingsState {
         match field {
             VoiceSettingsField::OllamaEndpoint => self.values.ollama_endpoint().to_string(),
             VoiceSettingsField::PlannerModel => self.values.planner_model().to_string(),
+            VoiceSettingsField::DialogueModel => self.values.dialogue_model().to_string(),
             VoiceSettingsField::RefineModel => self.values.refine_model().to_string(),
         }
     }

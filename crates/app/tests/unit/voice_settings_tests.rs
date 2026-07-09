@@ -40,6 +40,7 @@ fn test_voice_settings_saved_values_override_env_values() {
         paraformer_model_dir: Some(PathBuf::from("/env/model")),
         input_device_id: Some("env-headset".to_string()),
         trace_enabled: Some("true".to_string()),
+        ..EnvVoiceSettings::default()
     };
 
     let values = VoiceSettingsValues::resolve(&saved, &env);
@@ -109,6 +110,7 @@ fn test_voice_settings_env_fallback_and_refine_follows_planner() {
         paraformer_model_dir: None,
         input_device_id: Some("env-headset".to_string()),
         trace_enabled: Some("on".to_string()),
+        ..EnvVoiceSettings::default()
     };
 
     let values = VoiceSettingsValues::resolve(&saved, &env);

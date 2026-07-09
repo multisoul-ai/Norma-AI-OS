@@ -22,7 +22,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn start_always_listening_shell(&mut self, cx: &mut Context<Self>) {
-        match DialogueControlState::validate_start_provider(self.voice_settings.values()) {
+        match DialogueControlState::validate_dialogue_start(self.voice_settings.values()) {
             Ok(provider) => {
                 let input_device_id = self
                     .voice_settings

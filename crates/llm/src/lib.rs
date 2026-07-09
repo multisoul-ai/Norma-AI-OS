@@ -1,10 +1,12 @@
 mod client;
 mod mock;
+mod ollama;
 mod tools_card;
 mod types;
 
 pub use client::*;
 pub use mock::*;
+pub use ollama::*;
 pub use tools_card::*;
 pub use types::*;
 

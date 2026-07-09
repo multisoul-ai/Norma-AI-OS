@@ -8,7 +8,7 @@ use voice_sherpa::SpeechError;
 
 static DIALOGUE_SHELL_TEST_LOCK: Mutex<()> = Mutex::new(());
 
-fn with_dialogue_shell_test_guard(assertions: impl FnOnce()) {
+pub(super) fn with_dialogue_shell_test_guard(assertions: impl FnOnce()) {
     let _guard = DIALOGUE_SHELL_TEST_LOCK
         .lock()
         .expect("dialogue shell test lock should not be poisoned");

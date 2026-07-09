@@ -40,6 +40,8 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         "Advanced",
         "voice.ollama.endpoint",
         "voice.ollama.model",
+        "voice.dialogue.llm_mode",
+        "voice.dialogue.model",
         "voice.refine.model",
         "voice.paraformer.model_dir",
         "voice.input_device_id",
@@ -51,6 +53,9 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         "settings-voice-input-device-refresh",
         "settings-voice-input-device-clear",
         "settings-voice-realtime-toggle",
+        "settings-voice-dialogue-llm-toggle",
+        "Dialogue LLM",
+        "Dialogue Model",
         "settings-voice-trace-toggle",
     ];
 

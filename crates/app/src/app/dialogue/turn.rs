@@ -4,12 +4,13 @@ use super::card_tools::{
     template_report_for_result, AppCardToolExecutor, CanvasInlineCardRunner, CardCommandRunner,
 };
 use crate::app::MultisoulApp;
+use crate::settings::voice::DialogueLlmMode;
 use dialogue::{
     decide_template_report, run_voice_turn, DialogueError, DialoguePhase, ReportPlayDecision,
     ToolExecutor,
 };
 use gpui::Window;
-use llm::{LlmClient, MockLlmClient, MockStep};
+use llm::{LlmClient, MockLlmClient, MockStep, OllamaLlmClient};
 use norma::protocol::CardCommand;
 use std::sync::Mutex;
 
@@ -132,23 +133,63 @@ impl MultisoulApp {
         Ok(outcome)
     }
 
+    pub(crate) fn run_dialogue_voice_turn_ollama(
+        &mut self,
+        window: &mut Window,
+        transcript: &str,
+        endpoint: &str,
+        model: &str,
+    ) -> Result<VoiceTurnArtifacts, DialogueError> {
+        let area = self.visible_canvas_rect(window);
+        let zoom = self.runtime.document.viewport.zoom;
+        let mut runner = CanvasInlineCardRunner {
+            runtime: &mut self.runtime,
+            motion: &mut self.motion,
+            master_layout: &mut self.master_layout,
+            area,
+            zoom,
+            executions: Vec::new(),
+        };
+        let mut llm = OllamaLlmClient::new(endpoint, model);
+        let mut executor = AppCardToolExecutor::new(&mut runner);
+        let outcome = run_dialogue_turn(
+            &mut llm,
+            &mut executor,
+            transcript,
+            DialoguePhase::Thinking,
+            false,
+        )?;
+        for execution in runner.take_executions() {
+            self.apply_voice_execution_effects(execution);
+        }
+        Ok(outcome)
+    }
+
     pub(crate) fn run_dialogue_turn_after_final(
         &mut self,
         window: &mut Window,
     ) -> Result<VoiceTurnArtifacts, DialogueError> {
         let transcript = self.dialogue.pending_transcript_or_err()?.to_string();
-        let mock_script = mock_script_for_transcript(&transcript);
+        let llm_mode = self.voice_settings.values().dialogue_llm_mode();
 
         #[cfg(test)]
         if let Some(runner) =
             crate::app::dialogue::DialogueControlState::test_turn_runner_for_tests()
         {
+            let mock_script = mock_script_for_transcript(&transcript);
             let artifacts = runner(&transcript, mock_script)?;
             self.dialogue.store_turn_artifacts(&artifacts);
             return Ok(artifacts);
         }
 
-        let artifacts = self.run_dialogue_voice_turn(window, &transcript, mock_script)?;
+        let artifacts = if llm_mode == DialogueLlmMode::Ollama {
+            let endpoint = self.voice_settings.values().ollama_endpoint().to_string();
+            let model = self.voice_settings.values().dialogue_model().to_string();
+            self.run_dialogue_voice_turn_ollama(window, &transcript, &endpoint, &model)?
+        } else {
+            let mock_script = mock_script_for_transcript(&transcript);
+            self.run_dialogue_voice_turn(window, &transcript, mock_script)?
+        };
         self.dialogue.store_turn_artifacts(&artifacts);
         Ok(artifacts)
     }

@@ -8,7 +8,7 @@ mod shell;
 mod turn;
 
 use crate::app::voice::control::VoiceVisual;
-use crate::settings::voice::VoiceSettingsValues;
+use crate::settings::voice::{DialogueLlmMode, VoiceSettingsValues};
 use dialogue::{apply_asr_final, handle_barge_in_speech_start, DialoguePhase, DialogueSession};
 use gpui::{Context, Task};
 use reply::{create_assistant_audio_sink, ReplyPlayback, TtsClientBox};
@@ -41,12 +41,14 @@ pub(crate) fn check_mic_permission() -> Result<(), SpeechError> {
 #[derive(Debug)]
 pub(crate) enum DialogueStartError {
     Speech(SpeechError),
+    Ollama(String),
 }
 
 impl fmt::Display for DialogueStartError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Speech(error) => write!(f, "{error}"),
+            Self::Ollama(message) => write!(f, "Ollama unavailable: {message}"),
         }
     }
 }
@@ -139,6 +141,17 @@ impl DialogueControlState {
             None => SherpaProvider::from_env_or_default(),
         }
         .map_err(DialogueStartError::Speech)
+    }
+
+    pub(crate) fn validate_dialogue_start(
+        values: &VoiceSettingsValues,
+    ) -> Result<SherpaProvider, DialogueStartError> {
+        let provider = Self::validate_start_provider(values)?;
+        if values.dialogue_llm_mode() == DialogueLlmMode::Ollama {
+            llm::probe_ollama_ready(values.ollama_endpoint())
+                .map_err(|error| DialogueStartError::Ollama(error.to_string()))?;
+        }
+        Ok(provider)
     }
 
     pub(crate) fn phase(&self) -> DialoguePhase {
@@ -303,7 +316,7 @@ impl DialogueControlState {
             self.session.on_listening_stopped();
             return Err(error);
         }
-        if let Err(error) = Self::validate_start_provider(values) {
+        if let Err(error) = Self::validate_dialogue_start(values) {
             self.error_message = Some(start_error_label(&error));
             self.stop_pcm_stream();
             self.session.on_listening_stopped();
@@ -375,9 +388,14 @@ fn start_error_label(error: &DialogueStartError) -> String {
             format!("Speech model not found: {path}")
         }
         DialogueStartError::Speech(error) => format!("Speech error: {error}"),
+        DialogueStartError::Ollama(message) => format!("Ollama unavailable: {message}"),
     }
 }
 
 #[cfg(test)]
 #[path = "../../../tests/unit/app_dialogue_shell_tests.rs"]
 mod app_dialogue_shell_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/app_dialogue_ollama_gate_tests.rs"]
+mod app_dialogue_ollama_gate_tests;

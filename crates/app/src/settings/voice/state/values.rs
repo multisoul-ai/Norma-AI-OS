@@ -7,6 +7,8 @@ use voice::OllamaVoicePlanner;
 pub(crate) const DEFAULT_OLLAMA_ENDPOINT: &str = "http://127.0.0.1:11434";
 pub(super) const KEY_OLLAMA_ENDPOINT: &str = "voice.ollama.endpoint";
 pub(super) const KEY_OLLAMA_MODEL: &str = "voice.ollama.model";
+pub(super) const KEY_DIALOGUE_LLM_MODE: &str = "voice.dialogue.llm_mode";
+pub(super) const KEY_DIALOGUE_MODEL: &str = "voice.dialogue.model";
 pub(super) const KEY_REFINE_MODEL: &str = "voice.refine.model";
 pub(super) const KEY_PARAFORMER_MODEL_DIR: &str = "voice.paraformer.model_dir";
 pub(super) const KEY_INPUT_DEVICE_ID: &str = "voice.input_device_id";
@@ -17,10 +19,35 @@ pub(super) const KEY_OPENAI_REALTIME_MODEL: &str = "voice.openai.realtime_model"
 pub(super) const KEY_OPENAI_CARD_PLANNER_MODEL: &str = "voice.openai.card_planner_model";
 pub(super) const KEY_OPENAI_SIDECAR_PATH: &str = "voice.openai.sidecar_path";
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum DialogueLlmMode {
+    Mock,
+    Ollama,
+}
+
+impl DialogueLlmMode {
+    pub(crate) fn from_stored(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "mock" => Some(Self::Mock),
+            "ollama" => Some(Self::Ollama),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Mock => "mock",
+            Self::Ollama => "ollama",
+        }
+    }
+}
+
 #[derive(Clone, Default, Eq, PartialEq)]
 pub(crate) struct SavedVoiceSettings {
     pub(crate) ollama_endpoint: Option<String>,
     pub(crate) planner_model: Option<String>,
+    pub(crate) dialogue_llm_mode: Option<DialogueLlmMode>,
+    pub(crate) dialogue_model: Option<String>,
     pub(crate) refine_model: Option<String>,
     pub(crate) paraformer_model_dir: Option<PathBuf>,
     pub(crate) input_device_id: Option<String>,
@@ -32,6 +59,7 @@ pub(crate) struct SavedVoiceSettings {
 pub(crate) struct EnvVoiceSettings {
     pub(crate) ollama_endpoint: Option<String>,
     pub(crate) planner_model: Option<String>,
+    pub(crate) dialogue_model: Option<String>,
     pub(crate) refine_model: Option<String>,
     pub(crate) paraformer_model_dir: Option<PathBuf>,
     pub(crate) input_device_id: Option<String>,
@@ -42,6 +70,8 @@ pub(crate) struct EnvVoiceSettings {
 pub(crate) struct VoiceSettingsValues {
     pub(crate) ollama_endpoint: String,
     pub(crate) planner_model: String,
+    pub(crate) dialogue_llm_mode: DialogueLlmMode,
+    pub(crate) dialogue_model: String,
     pub(crate) refine_model: String,
     pub(crate) paraformer_model_dir: Option<PathBuf>,
     pub(crate) input_device_id: Option<String>,
@@ -53,6 +83,7 @@ pub(crate) struct VoiceSettingsValues {
 pub(crate) enum VoiceSettingsField {
     OllamaEndpoint,
     PlannerModel,
+    DialogueModel,
     RefineModel,
 }
 
@@ -61,6 +92,8 @@ impl fmt::Debug for SavedVoiceSettings {
         f.debug_struct("SavedVoiceSettings")
             .field("ollama_endpoint", &self.ollama_endpoint)
             .field("planner_model", &self.planner_model)
+            .field("dialogue_llm_mode", &self.dialogue_llm_mode)
+            .field("dialogue_model", &self.dialogue_model)
             .field("refine_model", &self.refine_model)
             .field("paraformer_model_dir", &self.paraformer_model_dir)
             .field("input_device_id", &self.input_device_id)
@@ -75,6 +108,8 @@ impl fmt::Debug for VoiceSettingsValues {
         f.debug_struct("VoiceSettingsValues")
             .field("ollama_endpoint", &self.ollama_endpoint)
             .field("planner_model", &self.planner_model)
+            .field("dialogue_llm_mode", &self.dialogue_llm_mode)
+            .field("dialogue_model", &self.dialogue_model)
             .field("refine_model", &self.refine_model)
             .field("paraformer_model_dir", &self.paraformer_model_dir)
             .field("input_device_id", &self.input_device_id)
@@ -109,6 +144,12 @@ impl VoiceSettingsValues {
         let planner_model = first_non_empty(
             saved.planner_model.as_deref(),
             env.planner_model.as_deref(),
+            OllamaVoicePlanner::default_model(),
+        );
+        let dialogue_llm_mode = saved.dialogue_llm_mode.unwrap_or(DialogueLlmMode::Mock);
+        let dialogue_model = first_non_empty(
+            saved.dialogue_model.as_deref(),
+            env.dialogue_model.as_deref(),
             OllamaVoicePlanner::default_model(),
         );
         let refine_model = saved
@@ -146,6 +187,8 @@ impl VoiceSettingsValues {
         Self {
             ollama_endpoint: endpoint,
             planner_model,
+            dialogue_llm_mode,
+            dialogue_model,
             refine_model,
             paraformer_model_dir,
             input_device_id,
@@ -160,6 +203,14 @@ impl VoiceSettingsValues {
 
     pub(crate) fn planner_model(&self) -> &str {
         &self.planner_model
+    }
+
+    pub(crate) fn dialogue_llm_mode(&self) -> DialogueLlmMode {
+        self.dialogue_llm_mode
+    }
+
+    pub(crate) fn dialogue_model(&self) -> &str {
+        &self.dialogue_model
     }
 
     pub(crate) fn refine_model(&self) -> &str {
@@ -188,6 +239,7 @@ impl EnvVoiceSettings {
         Self {
             ollama_endpoint: std::env::var("MULTISOUL_OLLAMA_ENDPOINT").ok(),
             planner_model: std::env::var("MULTISOUL_OLLAMA_MODEL").ok(),
+            dialogue_model: std::env::var("MULTISOUL_DIALOGUE_MODEL").ok(),
             refine_model: std::env::var("MULTISOUL_REFINE_MODEL").ok(),
             paraformer_model_dir: std::env::var("MULTISOUL_PARAFORMER_MODEL_DIR")
                 .ok()
@@ -205,6 +257,11 @@ impl SavedVoiceSettings {
         Ok(Self {
             ollama_endpoint: non_empty_option(store.get_string(KEY_OLLAMA_ENDPOINT)?),
             planner_model: non_empty_option(store.get_string(KEY_OLLAMA_MODEL)?),
+            dialogue_llm_mode: store
+                .get_string(KEY_DIALOGUE_LLM_MODE)?
+                .as_deref()
+                .and_then(DialogueLlmMode::from_stored),
+            dialogue_model: non_empty_option(store.get_string(KEY_DIALOGUE_MODEL)?),
             refine_model: non_empty_option(store.get_string(KEY_REFINE_MODEL)?),
             paraformer_model_dir: non_empty_option(store.get_string(KEY_PARAFORMER_MODEL_DIR)?)
                 .map(PathBuf::from),
@@ -226,7 +283,8 @@ impl VoiceSettingsField {
         match self {
             Self::OllamaEndpoint => 0,
             Self::PlannerModel => 1,
-            Self::RefineModel => 2,
+            Self::DialogueModel => 2,
+            Self::RefineModel => 3,
         }
     }
 }
