@@ -117,7 +117,37 @@ fn test_resolve_audio_input_device_missing_saved_id_returns_error() {
     );
 }
 
-/// D-4: 空白输入源 ID 应等价于 System Default。
+/// D-4: 麦克风枚举必须使用 macOS 12+ 可用的 AVFoundation 符号。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Packager minimum-system-version = 12.0
+///   AVCaptureDeviceTypeMicrophone 仅在 macOS 14+ 的 AVFoundation 中导出
+///   BuiltInMicrophone 在 Ventura 及更早版本可用
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 devices.rs 源码
+///   2. 确认 discovery session 使用 BuiltInMicrophone
+///   3. 确认未引用 macOS 14+ 专用 discovery 符号
+///
+/// 预期结果：
+///   - 正断言：源码包含 AVCaptureDeviceTypeBuiltInMicrophone
+///   - 负断言：源码不包含 macOS 14+ discovery 符号引用，避免 Ventura dyld abort
+#[test]
+fn test_list_audio_input_devices_uses_macos_12_compatible_capture_device_type() {
+    let source = include_str!("../../src/devices.rs");
+
+    assert!(
+        source.contains("AVCaptureDeviceTypeBuiltInMicrophone"),
+        "microphone discovery should use AVCaptureDeviceTypeBuiltInMicrophone for macOS 12+ compatibility"
+    );
+    assert!(
+        !source.contains("AVCaptureDeviceTypeMicrophone,")
+            && !source.contains("AVCaptureDeviceTypeMicrophone }"),
+        "macOS 14+ microphone discovery symbol breaks startup on Ventura"
+    );
+}
+
+/// D-5: 空白输入源 ID 应等价于 System Default。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   devices.len() = 2
