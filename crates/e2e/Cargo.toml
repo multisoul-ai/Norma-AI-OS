@@ -13,6 +13,8 @@ license.workspace = true
 [dependencies]
 app = { path = "../app" }
 card_task.workspace = true
+dialogue.workspace = true
+llm.workspace = true
 runtime = { path = "../runtime" }
 canvas = { path = "../canvas" }
 terminal = { path = "../terminal" }

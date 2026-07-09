@@ -5,7 +5,8 @@
 - app/headless GPUI e2e：在 `TestAppContext` 中驱动真实 `MultisoulApp` 状态机，
   覆盖 boot -> Canvas -> `NewTerminal` -> PTY 输入 -> grid 渲染链路。
 - domain-level e2e：使用公开 crate API 串起跨 crate 用户流程，不依赖 app 私有
-  `#[cfg(test)]` 入口。实时卡片任务 MVP 的公开边界验收属于这一层。
+  `#[cfg(test)]` 入口。本地语音管线（`dialogue::run_voice_turn` + 扁平 card tools）
+  的公开边界验收属于这一层。
 
 参考：实现计划 [`docs/exec-plans/2026-06-28-e2e-testing-infra.md`](../exec-plans/2026-06-28-e2e-testing-infra.md)；
 SPEC [`docs/product-specs/2026-06-28-SPEC-e2e-testing.md`](../product-specs/2026-06-28-SPEC-e2e-testing.md)。
@@ -34,7 +35,7 @@ cargo test --workspace
 # 单个 e2e 测试
 cargo test -p e2e e2e_01
 cargo test -p e2e e2e_02_terminal_input_echoes
-cargo test -p e2e test_realtime_tool_call_create_send_and_callback_pipeline
+cargo test -p e2e test_local_voice_create_then_send_text_pipeline
 ```
 
 `gpui` 的 `test-support` feature 仅在 `e2e` crate 局部启用，`cargo build -p app`
@@ -49,8 +50,9 @@ subagent 完成涉及 Terminal / Canvas / 焦点路由 / PTY 链路的功能后�
 2. 绿 = 功能闭环；红 = 回到 `superpowers:systematic-debugging` 排查，不要手动"看起来对了"就宣告完成。
 3. 改动若影响真 PTY 路径，本地补跑 `cargo test -p e2e -- --ignored`。
 
-实时卡片任务这类跨 crate 协议闭环，优先补 domain-level e2e；真实语音、麦克风、
-扬声器和 OpenAI 联机验收不能由 `cargo test -p e2e` 替代。
+本地语音管线（ASR → LLM 工具 → 卡片命令 → 模板播报决策）这类跨 crate 协议闭环，
+优先补 domain-level e2e；真实语音、麦克风、扬声器和 Ollama/sherpa 联机验收不能由
+`cargo test -p e2e` 替代。
 
 ## 4. Harness Helper 速查
 
@@ -91,7 +93,9 @@ GPUI 的 `TestAppContext` 用 mock 时钟：`background_executor.timer(dur)` 返
 | `e2e_02_terminal_input_echoes_scripted_output_into_grid` | `e2e_02_terminal_echo.rs` | L1 剧本：`echo hi` -> grid 含 `hi` |
 | `e2e_02_real_pty_echo_hi_into_grid` | `e2e_02_real_pty.rs` | L2 真 PTY（`#[ignore]`）：真 zsh `echo hi` -> grid 含 `hi` |
 | `e2e_03_settings_keyboard_shortcut_can_be_changed_and_restored_by_clicks` | `e2e_03_settings_clicks.rs` | Settings 真点击链路：toolbar -> Keyboard -> keycap 录制 -> Restore -> Close |
-| `test_realtime_tool_call_create_send_and_callback_pipeline` | `tests/realtime_card_task_pipeline.rs` | domain-level：Realtime tool_call -> CardTask create/send -> callback tool_result |
+| `test_local_voice_create_then_send_text_pipeline` | `tests/local_voice_card_tools_pipeline.rs` | domain-level：Mock LLM Create→SendText → `run_voice_turn` 命令顺序 |
+| `test_template_report_decision_speaking_queues` | `tests/local_voice_card_tools_pipeline.rs` | domain-level：`decide_template_report` Speaking → Queue |
+| `test_template_report_decision_listening_plays_now` | `tests/local_voice_card_tools_pipeline.rs` | domain-level：`decide_template_report` Listening → PlayNow |
 
 ## 7. 新增 e2e 测试检查清单
 
