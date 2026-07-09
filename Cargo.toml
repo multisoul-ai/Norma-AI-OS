@@ -9,7 +9,6 @@ members = [
   "crates/workspace",
   "crates/terminal",
   "crates/runtime",
-  "crates/realtime",
   "crates/e2e",
   "crates/voice",
   "crates/voice_sherpa",
@@ -52,7 +51,6 @@ storage = { path = "crates/storage" }
 workspace = { path = "crates/workspace" }
 terminal = { path = "crates/terminal" }
 runtime = { path = "crates/runtime" }
-realtime = { path = "crates/realtime" }
 voice = { path = "crates/voice" }
 voice_sherpa = { path = "crates/voice_sherpa" }
 ui = { path = "crates/ui" }

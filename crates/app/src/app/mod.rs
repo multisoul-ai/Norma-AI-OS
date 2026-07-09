@@ -35,6 +35,7 @@ pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 pub(crate) mod cef_process;
 mod chrome;
 mod clipboard_image;
+pub(crate) mod dialogue;
 mod e2e;
 mod file_picker;
 mod frame_loop;
@@ -44,7 +45,6 @@ mod ime_geometry;
 mod keyboard;
 mod lifecycle;
 mod new_menu;
-pub(crate) mod realtime;
 #[cfg(target_os = "macos")]
 mod video_decoder;
 #[cfg(target_os = "macos")]
@@ -97,7 +97,7 @@ pub struct MultisoulApp {
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
-    pub(crate) realtime: crate::app::realtime::RealtimeControlState,
+    pub(crate) dialogue: crate::app::dialogue::DialogueControlState,
     pub(crate) pending_voice_commands: Vec<::voice::ExecutableCommand>,
     pub focus_handle: FocusHandle,
     pub(crate) wallpaper_settings: WallpaperSettingsState,
@@ -154,7 +154,7 @@ impl MultisoulApp {
             screen: AppScreen::Launchpad,
             workspace_state: WorkspaceState::load_default(),
             voice: crate::app::voice::control::VoiceControlState::default(),
-            realtime: crate::app::realtime::RealtimeControlState::default(),
+            dialogue: crate::app::dialogue::DialogueControlState::default(),
             pending_voice_commands: Vec::new(),
             focus_handle: cx.focus_handle(),
             wallpaper_settings,

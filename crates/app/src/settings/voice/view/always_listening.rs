@@ -1,48 +1,15 @@
-use super::{setting_row, settings_group, text_setting_row, with_alpha};
+use super::{setting_row, settings_group};
 use crate::app::MultisoulApp;
-use crate::settings::voice::state::{VoiceSettingsField, VoiceSettingsState};
+use crate::settings::voice::state::VoiceSettingsState;
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, Window};
 use ui::Theme;
 
-pub(super) fn realtime_group(
+pub(super) fn always_listening_group(
     theme: Theme,
     state: &VoiceSettingsState,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    settings_group(theme, "Realtime conversation")
-        .child(realtime_toggle_row(theme, state, cx))
-        .child(text_setting_row(
-            theme,
-            state,
-            VoiceSettingsField::OpenAiApiKey,
-            "OpenAI API Key",
-            "Stored locally for Always Listening startup validation",
-            cx,
-        ))
-        .child(text_setting_row(
-            theme,
-            state,
-            VoiceSettingsField::RealtimeModel,
-            "Realtime Model",
-            "OpenAI realtime model used by the listening shell",
-            cx,
-        ))
-        .child(text_setting_row(
-            theme,
-            state,
-            VoiceSettingsField::CardPlannerModel,
-            "Card Planner Model",
-            "Model reserved for converting realtime intent into card actions",
-            cx,
-        ))
-        .child(text_setting_row(
-            theme,
-            state,
-            VoiceSettingsField::SidecarPath,
-            "Sidecar Path",
-            "Local OpenAI realtime sidecar executable or .mjs entry path",
-            cx,
-        ))
+    settings_group(theme, "Always Listening").child(always_listening_toggle_row(theme, state, cx))
 }
 
 impl MultisoulApp {
@@ -62,7 +29,7 @@ impl MultisoulApp {
     }
 }
 
-fn realtime_toggle_row(
+fn always_listening_toggle_row(
     theme: Theme,
     state: &VoiceSettingsState,
     cx: &mut Context<MultisoulApp>,
@@ -71,7 +38,7 @@ fn realtime_toggle_row(
     setting_row(
         theme,
         "Enable Always Listening",
-        "Use the bottom voice bar as a realtime conversation shell",
+        "Keep the microphone open for local voice dialogue on the bottom bar",
     )
     .child(
         div()
@@ -112,4 +79,8 @@ fn realtime_toggle_row(
             )
             .on_click(cx.listener(MultisoulApp::on_voice_settings_toggle_realtime)),
     )
+}
+
+fn with_alpha(color: u32, alpha: u8) -> u32 {
+    (color & 0xffffff00) | u32::from(alpha)
 }

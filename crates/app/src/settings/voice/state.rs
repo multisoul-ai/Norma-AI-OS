@@ -424,7 +424,3 @@ fn error_status(message: impl Into<String>) -> VoiceSettingsStatus {
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_tests.rs"]
 mod voice_settings_tests;
-
-#[cfg(test)]
-#[path = "../../../tests/unit/voice_settings_realtime_tests.rs"]
-mod voice_settings_tests_realtime;

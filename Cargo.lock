@@ -164,6 +164,7 @@ dependencies = [
  "core-foundation 0.10.0",
  "core-video",
  "crossbeam-channel",
+ "dialogue",
  "gpui",
  "image",
  "norma",
@@ -174,7 +175,6 @@ dependencies = [
  "objc2-quartz-core",
  "pulldown-cmark",
  "raw-window-handle",
- "realtime",
  "rfd",
  "runtime",
  "serde",
@@ -1892,7 +1892,6 @@ dependencies = [
  "crossbeam-channel",
  "gpui",
  "norma",
- "realtime",
  "runtime",
  "serde_json",
  "tempfile",
@@ -5330,17 +5329,6 @@ checksum = "c4ed38b89c2c77ff968c524145ad65fb010f38af5c7a224b53b81d47ac2daa81"
 dependencies = [
  "bytemuck",
  "font-types",
-]
-
-[[package]]
-name = "realtime"
-version = "0.1.21"
-dependencies = [
- "base64",
- "crossbeam-channel",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
 ]
 
 [[package]]

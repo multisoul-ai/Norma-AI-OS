@@ -1,4 +1,4 @@
-//! Assistant audio playback sink used by realtime voice chat.
+//! Assistant audio playback sink used by dialogue voice chat.
 
 use audio::PcmAudioChunk;
 

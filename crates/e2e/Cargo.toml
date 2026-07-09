@@ -17,7 +17,6 @@ runtime = { path = "../runtime" }
 canvas = { path = "../canvas" }
 terminal = { path = "../terminal" }
 norma.workspace = true
-realtime.workspace = true
 serde_json.workspace = true
 voice.workspace = true
 gpui = { workspace = true, features = ["test-support"] }
