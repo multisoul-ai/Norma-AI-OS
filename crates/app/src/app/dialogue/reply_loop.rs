@@ -2,11 +2,13 @@
 
 use super::{
     reply::{apply_reply_synthesis, create_tts_client, finish_reply_playback},
-    turn::VoiceTurnArtifacts,
+    turn::{self, VoiceTurnArtifacts},
     DialogueControlState,
 };
 use dialogue::DialoguePhase;
 use gpui::Context;
+#[cfg(test)]
+use voice_sherpa::SpeechError;
 
 #[cfg(test)]
 type TestTurnRunner =
