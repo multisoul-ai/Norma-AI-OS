@@ -6,4 +6,6 @@ license.workspace = true
 
 [dependencies]
 audio.workspace = true
+llm.workspace = true
+norma.workspace = true
 thiserror.workspace = true

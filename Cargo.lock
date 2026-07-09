@@ -1658,6 +1658,8 @@ name = "dialogue"
 version = "0.1.21"
 dependencies = [
  "audio",
+ "llm",
+ "norma",
  "thiserror 2.0.18",
 ]
 
