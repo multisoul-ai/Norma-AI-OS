@@ -8,7 +8,9 @@ license.workspace = true
 thiserror.workspace = true
 crossbeam-channel.workspace = true
 tracing.workspace = true
-realtime.workspace = true
+audio.workspace = true
+dialogue.workspace = true
+async-channel.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"
@@ -18,4 +20,3 @@ objc2-avf-audio = { version = "0.3.2", features = ["AVAudioBuffer", "AVAudioConv
 objc2-core-foundation = { version = "0.3.2", features = ["CFDate", "CFRunLoop", "CFString"] }
 objc2-foundation = { version = "0.3.2", features = ["NSError", "NSObject", "NSString"] }
 sherpa-onnx = "1.13"
-async-channel.workspace = true

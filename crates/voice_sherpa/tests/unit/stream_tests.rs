@@ -59,7 +59,7 @@ fn test_drop_pcm_stream_session_stops_capture_and_closes_stream() {
             chunk_rx.try_recv(),
             Err(async_channel::TryRecvError::Closed)
         ),
-        "dropping PcmStreamSession should close the realtime chunk receiver once forwarder exits"
+        "dropping PcmStreamSession should close the PCM chunk receiver once forwarder exits"
     );
 }
 

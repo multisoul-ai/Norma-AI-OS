@@ -156,6 +156,7 @@ version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-channel 2.5.0",
+ "audio",
  "block2",
  "canvas",
  "card_task",
@@ -163,8 +164,10 @@ dependencies = [
  "core-foundation 0.10.0",
  "core-video",
  "crossbeam-channel",
+ "dialogue",
  "gpui",
  "image",
+ "llm",
  "norma",
  "objc2",
  "objc2-app-kit",
@@ -173,7 +176,6 @@ dependencies = [
  "objc2-quartz-core",
  "pulldown-cmark",
  "raw-window-handle",
- "realtime",
  "rfd",
  "runtime",
  "serde",
@@ -545,6 +547,13 @@ name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
+
+[[package]]
+name = "audio"
+version = "0.1.21"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "autocfg"
@@ -1646,6 +1655,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dialogue"
+version = "0.1.21"
+dependencies = [
+ "audio",
+ "llm",
+ "norma",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1874,9 +1893,10 @@ dependencies = [
  "canvas",
  "card_task",
  "crossbeam-channel",
+ "dialogue",
  "gpui",
+ "llm",
  "norma",
- "realtime",
  "runtime",
  "serde_json",
  "tempfile",
@@ -3608,6 +3628,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
+name = "llm"
+version = "0.1.21"
+dependencies = [
+ "norma",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5314,17 +5344,6 @@ checksum = "c4ed38b89c2c77ff968c524145ad65fb010f38af5c7a224b53b81d47ac2daa81"
 dependencies = [
  "bytemuck",
  "font-types",
-]
-
-[[package]]
-name = "realtime"
-version = "0.1.21"
-dependencies = [
- "base64",
- "crossbeam-channel",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7397,14 +7416,15 @@ name = "voice_sherpa"
 version = "0.1.21"
 dependencies = [
  "async-channel 2.5.0",
+ "audio",
  "block2",
  "crossbeam-channel",
+ "dialogue",
  "objc2",
  "objc2-av-foundation",
  "objc2-avf-audio",
  "objc2-core-foundation",
  "objc2-foundation",
- "realtime",
  "sherpa-onnx",
  "thiserror 2.0.18",
  "tracing",

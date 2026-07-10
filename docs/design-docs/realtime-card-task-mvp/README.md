@@ -1,7 +1,9 @@
 # 实时语音与卡片任务 MVP SPEC 索引
 
+> **已取代：** 本 MVP 的 OpenAI Realtime / sidecar 路径已由 [`docs/product-specs/2026-07-09-SPEC-local-voice-pipeline.md`](../../product-specs/2026-07-09-SPEC-local-voice-pipeline.md) 中的本地语音管线取代（Task 4 删除 sidecar）。下文保留为历史施工记录。
+
 - 日期：2026-07-06
-- 状态：草稿，待逐项评审
+- 状态：已被 2026-07-09 本地语音管线 SPEC 取代（历史草稿）
 - 来源总稿：[`../realtime-card-task-mvp.md`](../realtime-card-task-mvp.md)
 - 目标：把“Always Listening 实时语音对话 + 异步操作画布卡片”拆成多个可以独立实现、独立验收的小 SPEC。
 

@@ -2,8 +2,8 @@ use crate::audio::{pcm_stream_chunk_from_samples, AudioCapture, PCM_STREAM_SAMPL
 use crate::permissions::ensure_microphone_authorized;
 use crate::session::{AudioQueueStats, PcmEvent, PCM_QUEUE_CHUNKS};
 use crate::SpeechError;
+use audio::PcmAudioChunk;
 use crossbeam_channel::bounded;
-use realtime::PcmAudioChunk;
 use std::sync::{mpsc, Arc};
 use std::thread::JoinHandle;
 

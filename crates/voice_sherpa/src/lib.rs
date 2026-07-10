@@ -1,13 +1,18 @@
 pub mod permissions;
 pub mod session_state;
 
+mod asr_stream;
 mod audio;
 mod devices;
 mod finalizer;
+mod listening_pipeline;
 mod model;
 mod resample;
+mod samples;
 mod session;
 mod stream;
+mod tts;
+mod vad;
 
 #[cfg(test)]
 #[path = "../tests/unit/device_tests.rs"]
@@ -23,7 +28,13 @@ use session::{InnerSession, SpeechFinalizer as InnerSpeechFinalizer};
 pub use devices::{
     list_audio_input_devices, resolve_audio_input_device_selection, AudioInputDevice,
 };
+pub use listening_pipeline::{
+    apply_final_transcript_to_session, spawn_listening_pipeline_loop, ListeningPipelineEvent,
+    SherpaListeningPipeline,
+};
 pub use stream::PcmStreamSession;
+pub use tts::{FakeTtsClient, SherpaTtsClient};
+pub use vad::{FakeEnergyVadClient, SherpaVadClient};
 
 /// Check and (if not yet determined) request microphone permission.
 ///
@@ -85,6 +96,10 @@ impl SherpaProvider {
         Self::new(&dir)
     }
 
+    pub fn model_dir(&self) -> &std::path::Path {
+        &self.model_dir
+    }
+
     pub fn start_recording(
         &self,
     ) -> Result<(SpeechSession, async_channel::Receiver<String>), SpeechError> {
@@ -107,7 +122,7 @@ impl SherpaProvider {
     ) -> Result<
         (
             PcmStreamSession,
-            async_channel::Receiver<realtime::PcmAudioChunk>,
+            async_channel::Receiver<::audio::PcmAudioChunk>,
         ),
         SpeechError,
     > {

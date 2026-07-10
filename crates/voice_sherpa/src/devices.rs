@@ -36,7 +36,7 @@ mod platform {
     use super::*;
     use objc2_av_foundation::{
         AVCaptureDevice, AVCaptureDeviceDiscoverySession, AVCaptureDevicePosition,
-        AVCaptureDeviceTypeMicrophone, AVMediaTypeAudio,
+        AVCaptureDeviceTypeBuiltInMicrophone, AVMediaTypeAudio,
     };
     use objc2_foundation::{NSArray, NSString};
     use std::ffi::CStr;
@@ -48,7 +48,10 @@ mod platform {
             AVCaptureDevice::defaultDeviceWithMediaType(media_type)
                 .map(|device| ns_string_to_string(&device.uniqueID()))
         };
-        let device_types = NSArray::from_slice(&[unsafe { AVCaptureDeviceTypeMicrophone }]);
+        // BuiltInMicrophone is available on macOS 12+; the macOS 14+ Microphone
+        // alias causes dyld abort on Ventura when the binary is linked against a
+        // newer SDK that hard-references AVCaptureDeviceTypeMicrophone.
+        let device_types = NSArray::from_slice(&[unsafe { AVCaptureDeviceTypeBuiltInMicrophone }]);
         let discovery = unsafe {
             AVCaptureDeviceDiscoverySession::discoverySessionWithDeviceTypes_mediaType_position(
                 &device_types,

@@ -29,7 +29,9 @@ norma.workspace = true
 voice.workspace = true
 voice_sherpa.workspace = true
 card_task.workspace = true
-realtime = { path = "../realtime" }
+dialogue.workspace = true
+llm.workspace = true
+audio.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -61,7 +61,7 @@ impl MultisoulApp {
         Ok(last_message)
     }
 
-    fn apply_voice_execution_effects(&mut self, execution: NormaExecution) {
+    pub(crate) fn apply_voice_execution_effects(&mut self, execution: NormaExecution) {
         let NormaCommandEffects {
             canvas_dirty,
             session_dirty,
