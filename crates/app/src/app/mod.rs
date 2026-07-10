@@ -30,6 +30,7 @@ use std::time::Duration;
 use ui::Theme;
 
 mod agent_actions;
+mod agent_runtime;
 pub(crate) mod browser;
 pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 pub(crate) mod cef_process;
@@ -98,6 +99,7 @@ pub struct MultisoulApp {
     pub(crate) workspace_state: WorkspaceState,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
     pub(crate) dialogue: crate::app::dialogue::DialogueControlState,
+    pub(crate) agent_runtime: Option<agent_runtime::ProjectAgentRuntime>,
     pub(crate) pending_voice_commands: Vec<::voice::ExecutableCommand>,
     pub focus_handle: FocusHandle,
     pub(crate) wallpaper_settings: WallpaperSettingsState,
@@ -155,6 +157,7 @@ impl MultisoulApp {
             workspace_state: WorkspaceState::load_default(),
             voice: crate::app::voice::control::VoiceControlState::default(),
             dialogue: crate::app::dialogue::DialogueControlState::default(),
+            agent_runtime: None,
             pending_voice_commands: Vec::new(),
             focus_handle: cx.focus_handle(),
             wallpaper_settings,

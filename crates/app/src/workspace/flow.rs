@@ -112,6 +112,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.agent_runtime = None;
         let result = enter_workspace_for_path(
             &mut self.runtime,
             &mut self.motion,

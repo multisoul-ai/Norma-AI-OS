@@ -1,4 +1,5 @@
 use self::always_listening::always_listening_group;
+use self::provider::agent_provider_group;
 use super::state::{VoiceSettingsField, VoiceSettingsState};
 use crate::app::MultisoulApp;
 use gpui::{
@@ -7,6 +8,7 @@ use gpui::{
 use ui::Theme;
 
 mod always_listening;
+mod provider;
 
 pub(crate) fn voice_settings(
     theme: Theme,
@@ -17,37 +19,11 @@ pub(crate) fn voice_settings(
         .flex()
         .flex_col()
         .gap(px(20.0))
+        .child(agent_provider_group(theme, state, cx))
         .child(
             settings_group(theme, "Speech Recognition")
                 .child(model_dir_row(theme, state, cx))
                 .child(input_device_row(theme, state, cx)),
-        )
-        .child(
-            settings_group(theme, "Command Planning")
-                .child(text_setting_row(
-                    theme,
-                    state,
-                    VoiceSettingsField::OllamaEndpoint,
-                    "Ollama Endpoint",
-                    "Local endpoint used by planner and transcript refine",
-                    cx,
-                ))
-                .child(text_setting_row(
-                    theme,
-                    state,
-                    VoiceSettingsField::PlannerModel,
-                    "Planner Model",
-                    "Ollama model that converts voice transcripts into card commands",
-                    cx,
-                ))
-                .child(text_setting_row(
-                    theme,
-                    state,
-                    VoiceSettingsField::RefineModel,
-                    "Refine Model",
-                    "Ollama model that minimally repairs transcript wording before planning",
-                    cx,
-                )),
         )
         .child(always_listening_group(theme, state, cx))
         .child(settings_group(theme, "Advanced").child(trace_row(theme, state, cx)))
@@ -85,6 +61,7 @@ impl MultisoulApp {
                 if let Some(path) = paths.into_iter().next() {
                     this.update(cx, |app, cx| {
                         app.voice_settings.set_paraformer_model_dir(path);
+                        app.persist_voice_settings_in_background(cx);
                         cx.notify();
                     })?;
                 }
@@ -101,6 +78,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.voice_settings.clear_paraformer_model_dir();
+        self.persist_voice_settings_in_background(cx);
         cx.notify();
     }
 
@@ -121,6 +99,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.voice_settings.select_input_device(None);
+        self.persist_voice_settings_in_background(cx);
         cx.notify();
     }
 
@@ -131,11 +110,34 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.voice_settings.toggle_trace();
+        self.persist_voice_settings_in_background(cx);
         cx.notify();
+    }
+
+    pub(crate) fn persist_voice_settings_in_background(&mut self, cx: &mut Context<Self>) {
+        let writes = self.voice_settings.take_pending_writes();
+        if writes.is_empty() {
+            return;
+        }
+        let work = cx.background_executor().spawn(async move {
+            for write in writes {
+                write.execute().map_err(|error| error.to_string())?;
+            }
+            Ok::<(), String>(())
+        });
+        cx.spawn(async move |this, cx| {
+            let result = work.await;
+            let _ = this.update(cx, |app, cx| {
+                app.voice_settings.record_persistence_result(result);
+                app.persist_voice_settings_in_background(cx);
+                cx.notify();
+            });
+        })
+        .detach();
     }
 }
 
-fn settings_group(theme: Theme, title: &'static str) -> Div {
+pub(super) fn settings_group(theme: Theme, title: &'static str) -> Div {
     div()
         .w_full()
         .flex()
@@ -153,7 +155,7 @@ fn settings_group(theme: Theme, title: &'static str) -> Div {
         )
 }
 
-fn text_setting_row(
+pub(super) fn text_setting_row(
     theme: Theme,
     state: &VoiceSettingsState,
     field: VoiceSettingsField,
@@ -256,6 +258,7 @@ fn input_device_row(
                 .id(("settings-voice-input-device", index))
                 .on_click(cx.listener(move |app, _, _window, cx| {
                     app.voice_settings.select_input_device(Some(id.clone()));
+                    app.persist_voice_settings_in_background(cx);
                     cx.notify();
                 })),
         );
@@ -377,7 +380,7 @@ fn input_device_option(theme: Theme, label: String, selected: bool) -> Div {
         .child(label)
 }
 
-fn setting_row(theme: Theme, title: &'static str, hint: &'static str) -> Div {
+pub(super) fn setting_row(theme: Theme, title: &'static str, hint: &'static str) -> Div {
     div()
         .w_full()
         .flex()
@@ -409,7 +412,7 @@ fn setting_label(theme: Theme, title: &'static str, hint: &'static str) -> Div {
         )
 }
 
-fn value_pill(theme: Theme, value: String, editing: bool) -> Div {
+pub(super) fn value_pill(theme: Theme, value: String, editing: bool) -> Div {
     div()
         .max_w(px(300.0))
         .overflow_hidden()
@@ -432,7 +435,7 @@ fn value_pill(theme: Theme, value: String, editing: bool) -> Div {
         .child(value)
 }
 
-fn action_button(_theme: Theme, label: &'static str, accent: u32) -> Div {
+pub(super) fn action_button(_theme: Theme, label: &'static str, accent: u32) -> Div {
     div()
         .px(px(12.0))
         .py(px(8.0))
@@ -487,6 +490,6 @@ fn model_dir_display(state: &VoiceSettingsState) -> (String, bool) {
     }
 }
 
-fn with_alpha(color: u32, alpha: u8) -> u32 {
+pub(super) fn with_alpha(color: u32, alpha: u8) -> u32 {
     (color & 0xffffff00) | u32::from(alpha)
 }

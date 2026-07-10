@@ -3,7 +3,16 @@ use std::path::PathBuf;
 use storage::{AppStore, SettingsStore};
 use voice_sherpa::{AudioInputDevice, SherpaProvider, SpeechError};
 
+mod provider_values;
 mod values;
+pub(crate) use provider_values::AgentProviderKind;
+#[cfg(test)]
+pub(crate) use provider_values::SavedProviderProfile;
+use provider_values::{
+    KEY_AGENT_OLLAMA_API_KEY, KEY_AGENT_OLLAMA_BASE_URL, KEY_AGENT_OLLAMA_MODEL,
+    KEY_AGENT_OPENAI_API_KEY, KEY_AGENT_OPENAI_BASE_URL, KEY_AGENT_OPENAI_MODEL,
+    KEY_AGENT_PROVIDER,
+};
 pub(crate) use values::{
     DialogueLlmMode, EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsField, VoiceSettingsValues,
 };
@@ -20,6 +29,28 @@ struct VoiceSettingsStatus {
 }
 
 #[derive(Clone)]
+pub(crate) enum PendingVoiceSettingWrite {
+    Set {
+        store: SettingsStore,
+        key: String,
+        value: String,
+    },
+    Delete {
+        store: SettingsStore,
+        key: String,
+    },
+}
+
+impl PendingVoiceSettingWrite {
+    pub(crate) fn execute(self) -> storage::StorageResult<()> {
+        match self {
+            Self::Set { store, key, value } => store.set_string(&key, &value),
+            Self::Delete { store, key } => store.delete_string(&key),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub(crate) struct VoiceSettingsState {
     values: VoiceSettingsValues,
     saved: SavedVoiceSettings,
@@ -29,9 +60,15 @@ pub(crate) struct VoiceSettingsState {
     editing: Option<VoiceSettingsField>,
     draft: String,
     status: Option<VoiceSettingsStatus>,
+    pending_writes: Vec<PendingVoiceSettingWrite>,
+    persistence_running: bool,
 }
 
 impl VoiceSettingsState {
+    pub(crate) fn in_memory_default() -> Self {
+        Self::from_sources(SavedVoiceSettings::default(), EnvVoiceSettings::default())
+    }
+
     pub(crate) fn load_default() -> Self {
         match AppStore::open_default() {
             Ok(store) => Self::load_from_store(store.settings_store()),
@@ -76,6 +113,8 @@ impl VoiceSettingsState {
             editing: None,
             draft: String::new(),
             status: None,
+            pending_writes: Vec::new(),
+            persistence_running: false,
         }
     }
 
@@ -200,13 +239,43 @@ impl VoiceSettingsState {
         self.refresh_values();
     }
 
+    pub(crate) fn select_agent_provider(&mut self, provider: AgentProviderKind) {
+        self.saved.agent_provider = Some(provider);
+        self.persist_string(KEY_AGENT_PROVIDER, provider.as_str());
+        self.cancel_edit();
+        self.refresh_values();
+    }
+
+    pub(crate) fn clear_agent_api_key(&mut self) {
+        let key = match self.values.agent_provider() {
+            AgentProviderKind::Ollama => {
+                self.saved.ollama_profile.api_key = None;
+                KEY_AGENT_OLLAMA_API_KEY
+            }
+            AgentProviderKind::OpenAiCompatible => {
+                self.saved.openai_profile.api_key = None;
+                KEY_AGENT_OPENAI_API_KEY
+            }
+        };
+        self.delete_string(key);
+        self.refresh_values();
+    }
+
     pub(super) fn is_editing(&self, field: VoiceSettingsField) -> bool {
         self.editing == Some(field)
     }
 
     pub(super) fn row_value(&self, field: VoiceSettingsField) -> String {
-        if self.editing == Some(field) {
+        if self.editing == Some(field) && field == VoiceSettingsField::AgentApiKey {
+            format!("{}|", "•".repeat(self.draft.chars().count()))
+        } else if self.editing == Some(field) {
             format!("{}|", self.draft)
+        } else if field == VoiceSettingsField::AgentApiKey {
+            if self.values.active_provider_profile().api_key().is_some() {
+                "Configured ••••••••".to_string()
+            } else {
+                "Not configured".to_string()
+            }
         } else {
             self.field_value(field)
         }
@@ -218,6 +287,22 @@ impl VoiceSettingsState {
             .map(|status| (status.message.as_str(), status.is_error))
     }
 
+    pub(crate) fn take_pending_writes(&mut self) -> Vec<PendingVoiceSettingWrite> {
+        if self.persistence_running || self.pending_writes.is_empty() {
+            return Vec::new();
+        }
+        self.persistence_running = true;
+        std::mem::take(&mut self.pending_writes)
+    }
+
+    pub(crate) fn record_persistence_result(&mut self, result: Result<(), String>) {
+        self.persistence_running = false;
+        self.status = Some(match result {
+            Ok(()) => ok_status("Saved"),
+            Err(error) => error_status(format!("Could not save setting: {error}")),
+        });
+    }
+
     fn cancel_edit(&mut self) {
         self.editing = None;
         self.draft.clear();
@@ -226,12 +311,42 @@ impl VoiceSettingsState {
 
     fn commit_edit(&mut self, field: VoiceSettingsField) {
         let value = self.draft.trim().to_string();
-        if value.is_empty() {
+        if value.is_empty() && field != VoiceSettingsField::AgentApiKey {
             self.status = Some(error_status("Value cannot be empty"));
             return;
         }
 
         let key = match field {
+            VoiceSettingsField::AgentBaseUrl => match self.values.agent_provider() {
+                AgentProviderKind::Ollama => {
+                    self.saved.ollama_profile.base_url = Some(value.clone());
+                    KEY_AGENT_OLLAMA_BASE_URL
+                }
+                AgentProviderKind::OpenAiCompatible => {
+                    self.saved.openai_profile.base_url = Some(value.clone());
+                    KEY_AGENT_OPENAI_BASE_URL
+                }
+            },
+            VoiceSettingsField::AgentModel => match self.values.agent_provider() {
+                AgentProviderKind::Ollama => {
+                    self.saved.ollama_profile.model = Some(value.clone());
+                    KEY_AGENT_OLLAMA_MODEL
+                }
+                AgentProviderKind::OpenAiCompatible => {
+                    self.saved.openai_profile.model = Some(value.clone());
+                    KEY_AGENT_OPENAI_MODEL
+                }
+            },
+            VoiceSettingsField::AgentApiKey => match self.values.agent_provider() {
+                AgentProviderKind::Ollama => {
+                    self.saved.ollama_profile.api_key = non_empty(value.clone());
+                    KEY_AGENT_OLLAMA_API_KEY
+                }
+                AgentProviderKind::OpenAiCompatible => {
+                    self.saved.openai_profile.api_key = non_empty(value.clone());
+                    KEY_AGENT_OPENAI_API_KEY
+                }
+            },
             VoiceSettingsField::OllamaEndpoint => {
                 self.saved.ollama_endpoint = Some(value.clone());
                 KEY_OLLAMA_ENDPOINT
@@ -249,30 +364,41 @@ impl VoiceSettingsState {
                 KEY_REFINE_MODEL
             }
         };
-        self.persist_string(key, &value);
+        if value.is_empty() {
+            self.delete_string(key);
+        } else {
+            self.persist_string(key, &value);
+        }
         self.editing = None;
         self.draft.clear();
         self.refresh_values();
     }
 
     fn persist_string(&mut self, key: &str, value: &str) {
-        self.status = match &self.storage {
-            Some(store) => match store.set_string(key, value) {
-                Ok(()) => Some(ok_status("Saved")),
-                Err(error) => Some(error_status(format!("Could not save setting: {error}"))),
-            },
-            None => Some(ok_status("Saved for this session")),
-        };
+        match &self.storage {
+            Some(store) => {
+                self.pending_writes.push(PendingVoiceSettingWrite::Set {
+                    store: store.clone(),
+                    key: key.to_string(),
+                    value: value.to_string(),
+                });
+                self.status = Some(ok_status("Saving..."));
+            }
+            None => self.status = Some(ok_status("Saved for this session")),
+        }
     }
 
     fn delete_string(&mut self, key: &str) {
-        self.status = match &self.storage {
-            Some(store) => match store.delete_string(key) {
-                Ok(()) => Some(ok_status("Using default")),
-                Err(error) => Some(error_status(format!("Could not clear setting: {error}"))),
-            },
-            None => Some(ok_status("Using default for this session")),
-        };
+        match &self.storage {
+            Some(store) => {
+                self.pending_writes.push(PendingVoiceSettingWrite::Delete {
+                    store: store.clone(),
+                    key: key.to_string(),
+                });
+                self.status = Some(ok_status("Saving..."));
+            }
+            None => self.status = Some(ok_status("Using default for this session")),
+        }
     }
 
     fn refresh_values(&mut self) {
@@ -281,12 +407,24 @@ impl VoiceSettingsState {
 
     fn field_value(&self, field: VoiceSettingsField) -> String {
         match field {
+            VoiceSettingsField::AgentBaseUrl => {
+                self.values.active_provider_profile().base_url().to_string()
+            }
+            VoiceSettingsField::AgentModel => {
+                self.values.active_provider_profile().model().to_string()
+            }
+            VoiceSettingsField::AgentApiKey => String::new(),
             VoiceSettingsField::OllamaEndpoint => self.values.ollama_endpoint().to_string(),
             VoiceSettingsField::PlannerModel => self.values.planner_model().to_string(),
             VoiceSettingsField::DialogueModel => self.values.dialogue_model().to_string(),
             VoiceSettingsField::RefineModel => self.values.refine_model().to_string(),
         }
     }
+}
+
+fn non_empty(value: String) -> Option<String> {
+    let value = value.trim().to_string();
+    (!value.is_empty()).then_some(value)
 }
 
 fn no_command_modifiers(keystroke: &Keystroke) -> bool {
@@ -310,3 +448,7 @@ fn error_status(message: impl Into<String>) -> VoiceSettingsStatus {
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_tests.rs"]
 mod voice_settings_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_persistence_tests.rs"]
+mod voice_settings_persistence_tests;

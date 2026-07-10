@@ -48,6 +48,26 @@ impl ProviderConfig {
         self.api_key.as_deref()
     }
 
+    pub fn validate(&self) -> Result<(), ProviderError> {
+        let endpoint = self.endpoint.trim();
+        if endpoint.is_empty() {
+            return Err(ProviderError::Message(
+                "provider base_url is required".to_string(),
+            ));
+        }
+        if !endpoint.starts_with("http://") && !endpoint.starts_with("https://") {
+            return Err(ProviderError::Message(
+                "provider base_url must use http:// or https://".to_string(),
+            ));
+        }
+        if self.model.trim().is_empty() {
+            return Err(ProviderError::Message(
+                "provider model is required".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn redacted(&self) -> RedactedProviderConfig {
         RedactedProviderConfig {
             protocol: self.protocol,
@@ -182,12 +202,7 @@ fn ensure_protocol(
             "provider protocol does not match request codec".to_string(),
         ));
     }
-    if config.endpoint.trim().is_empty() || config.model.trim().is_empty() {
-        return Err(ProviderError::Message(
-            "provider endpoint and model are required".to_string(),
-        ));
-    }
-    Ok(())
+    config.validate()
 }
 
 fn build_http_request(
@@ -202,8 +217,9 @@ fn build_http_request(
     let endpoint = config
         .endpoint
         .strip_prefix("http://")
+        .or_else(|| config.endpoint.strip_prefix("https://"))
         .ok_or_else(|| {
-            ProviderError::Message("only http:// provider endpoints are supported".into())
+            ProviderError::Message("provider base_url must use http:// or https://".into())
         })?
         .trim_end_matches('/');
     let mut endpoint_parts = endpoint.splitn(2, '/');

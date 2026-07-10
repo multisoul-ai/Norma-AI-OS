@@ -18,6 +18,7 @@ pub struct SettingsE2eSnapshot {
     pub new_terminal_shortcut: Option<String>,
     pub new_terminal_modified: bool,
     pub status_message: Option<String>,
+    pub agent_provider: &'static str,
 }
 
 impl MultisoulApp {
@@ -28,6 +29,7 @@ impl MultisoulApp {
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
         let mut app = Self::build(cx, runtime, agent_hook_server);
         app.shortcuts = ShortcutSettingsState::default();
+        app.voice_settings = crate::settings::voice::VoiceSettingsState::in_memory_default();
         app
     }
 
@@ -55,6 +57,7 @@ impl MultisoulApp {
             new_terminal_shortcut: new_terminal.and_then(|entry| entry.current_keystroke.clone()),
             new_terminal_modified: new_terminal.map(|entry| entry.modified).unwrap_or(false),
             status_message: self.shortcuts.status.message.clone(),
+            agent_provider: self.voice_settings.values().agent_provider().as_str(),
         }
     }
 }

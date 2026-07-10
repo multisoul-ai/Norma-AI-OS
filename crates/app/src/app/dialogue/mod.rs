@@ -7,6 +7,8 @@ mod reply_loop;
 mod shell;
 mod turn;
 
+pub(crate) use turn::VoiceTurnArtifacts;
+
 use crate::app::voice::control::VoiceVisual;
 use crate::settings::voice::{DialogueLlmMode, VoiceSettingsValues};
 use dialogue::{apply_asr_final, handle_barge_in_speech_start, DialoguePhase, DialogueSession};
@@ -42,6 +44,7 @@ pub(crate) fn check_mic_permission() -> Result<(), SpeechError> {
 pub(crate) enum DialogueStartError {
     Speech(SpeechError),
     Ollama(String),
+    Provider(String),
 }
 
 impl fmt::Display for DialogueStartError {
@@ -49,6 +52,7 @@ impl fmt::Display for DialogueStartError {
         match self {
             Self::Speech(error) => write!(f, "{error}"),
             Self::Ollama(message) => write!(f, "Ollama unavailable: {message}"),
+            Self::Provider(message) => write!(f, "Agent provider unavailable: {message}"),
         }
     }
 }
@@ -147,8 +151,11 @@ impl DialogueControlState {
         values: &VoiceSettingsValues,
     ) -> Result<SherpaProvider, DialogueStartError> {
         let provider = Self::validate_start_provider(values)?;
-        if values.dialogue_llm_mode() == DialogueLlmMode::Ollama {
-            llm::probe_ollama_ready(values.ollama_endpoint())
+        let agent_config = values
+            .agent_provider_config()
+            .map_err(|error| DialogueStartError::Provider(error.to_string()))?;
+        if agent_config.protocol() == agent::ProviderProtocol::Ollama {
+            llm::probe_ollama_ready(agent_config.endpoint())
                 .map_err(|error| DialogueStartError::Ollama(error.to_string()))?;
         }
         Ok(provider)
@@ -389,6 +396,9 @@ fn start_error_label(error: &DialogueStartError) -> String {
         }
         DialogueStartError::Speech(error) => format!("Speech error: {error}"),
         DialogueStartError::Ollama(message) => format!("Ollama unavailable: {message}"),
+        DialogueStartError::Provider(message) => {
+            format!("Agent provider unavailable: {message}")
+        }
     }
 }
 

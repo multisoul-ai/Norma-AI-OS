@@ -235,6 +235,7 @@ impl MultisoulApp {
                 || (self.shortcuts.recording.is_some()
                     && self.shortcuts.record_keystroke(&ev.keystroke)))
         {
+            self.persist_voice_settings_in_background(cx);
             cx.stop_propagation();
             cx.notify();
             return;

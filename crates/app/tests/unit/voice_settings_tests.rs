@@ -1,4 +1,4 @@
-use super::values::DEFAULT_OLLAMA_ENDPOINT;
+use super::provider_values::DEFAULT_OLLAMA_ENDPOINT;
 use super::*;
 use std::path::PathBuf;
 
@@ -283,5 +283,205 @@ fn test_voice_settings_refresh_input_devices_error_preserves_selection() {
         state.values().input_device_id(),
         None,
         "刷新设备失败不应清空已选择的输入设备"
+    );
+}
+
+/// VS-6：Ollama 与 OpenAI profile 应分别保留，并只导出当前选择的 ProviderConfig。
+///
+/// 数据构造：Ollama 使用本地 URL/model，OpenAI 使用 HTTPS URL/model/key，active=OpenAI。
+/// 执行过程：resolve 两套 profile，再读取 active profile 和 agent_provider_config。
+/// 预期结果：当前配置为 OpenAI；Ollama 值仍保留；Debug 不包含 API Key。
+#[test]
+fn test_agent_provider_profiles_are_retained_and_active_profile_is_exported() {
+    let saved = SavedVoiceSettings {
+        agent_provider: Some(AgentProviderKind::OpenAiCompatible),
+        ollama_profile: SavedProviderProfile {
+            base_url: Some("http://127.0.0.1:11434".to_string()),
+            api_key: Some("ollama-secret".to_string()),
+            model: Some("qwen-local".to_string()),
+        },
+        openai_profile: SavedProviderProfile {
+            base_url: Some("https://api.openai.com/v1".to_string()),
+            api_key: Some("top-secret".to_string()),
+            model: Some("gpt-test".to_string()),
+        },
+        ..SavedVoiceSettings::default()
+    };
+
+    let values = VoiceSettingsValues::resolve(&saved, &EnvVoiceSettings::default());
+    let config = values
+        .agent_provider_config()
+        .expect("完整 OpenAI profile 应导出 ProviderConfig");
+    let debug = format!("{values:?}");
+
+    assert_eq!(
+        values.agent_provider(),
+        AgentProviderKind::OpenAiCompatible,
+        "active provider 应为 OpenAI-compatible"
+    );
+    assert_eq!(
+        config.model(),
+        "gpt-test",
+        "导出配置应使用当前 OpenAI model"
+    );
+    assert_eq!(
+        values.ollama_profile.model(),
+        "qwen-local",
+        "切换到 OpenAI 后应继续保留 Ollama model"
+    );
+    assert!(
+        !debug.contains("top-secret"),
+        "Voice Settings Debug 不得泄漏 API Key"
+    );
+    assert!(
+        !debug.contains("ollama-secret"),
+        "未激活 Ollama profile 的 API Key 也不得出现在 Debug"
+    );
+}
+
+/// VS-7：OpenAI 默认 profile 不应擅自选择付费模型。
+///
+/// 数据构造：仅选择 OpenAI，不保存 base_url、model 或 key。
+/// 执行过程：resolve 默认值并尝试导出 ProviderConfig。
+/// 预期结果：base_url 使用官方 /v1；model 为空；配置校验明确失败。
+#[test]
+fn test_openai_defaults_base_url_but_requires_explicit_model() {
+    let saved = SavedVoiceSettings {
+        agent_provider: Some(AgentProviderKind::OpenAiCompatible),
+        ..SavedVoiceSettings::default()
+    };
+
+    let values = VoiceSettingsValues::resolve(&saved, &EnvVoiceSettings::default());
+    let result = values.agent_provider_config();
+
+    assert_eq!(
+        values.active_provider_profile().base_url(),
+        super::provider_values::DEFAULT_OPENAI_BASE_URL,
+        "OpenAI base_url 应默认到官方 /v1"
+    );
+    assert_eq!(
+        values.active_provider_profile().model(),
+        "",
+        "OpenAI model 必须由用户显式填写"
+    );
+    assert!(result.is_err(), "OpenAI model 为空时不得构造生产 Provider");
+}
+
+/// VS-8：canonical Provider 设置应从 app SQLite 完整读回且密钥只在专用 getter 可见。
+///
+/// 数据构造：临时 SettingsStore 写入 active=openai、HTTPS base_url、model 和 top-secret。
+/// 执行过程：通过 VoiceSettingsState::load_from_store 读取，再导出 ProviderConfig 和 Debug。
+/// 预期结果：配置字段完整；Debug 不含密钥；Ollama profile 没有被 OpenAI 值覆盖。
+#[test]
+fn test_agent_provider_settings_round_trip_through_sqlite_with_masked_debug() {
+    let temp = tempfile::tempdir().expect("测试应创建临时目录");
+    let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
+    store
+        .set_string(super::provider_values::KEY_AGENT_PROVIDER, "openai")
+        .expect("应保存 active provider");
+    store
+        .set_string(
+            super::provider_values::KEY_AGENT_OPENAI_BASE_URL,
+            "https://example.test/v1",
+        )
+        .expect("应保存 OpenAI base_url");
+    store
+        .set_string(super::provider_values::KEY_AGENT_OPENAI_MODEL, "gpt-test")
+        .expect("应保存 OpenAI model");
+    store
+        .set_string(
+            super::provider_values::KEY_AGENT_OPENAI_API_KEY,
+            "top-secret",
+        )
+        .expect("应保存 OpenAI API Key");
+
+    let state = VoiceSettingsState::load_from_store(store);
+    let config = state
+        .values()
+        .agent_provider_config()
+        .expect("SQLite 中完整 profile 应导出配置");
+    let debug = format!("{state:?}");
+
+    assert_eq!(
+        config.endpoint(),
+        "https://example.test/v1",
+        "应从 SQLite 读回 OpenAI base_url"
+    );
+    assert_eq!(
+        config.api_key(),
+        Some("top-secret"),
+        "专用 getter 应读回密钥"
+    );
+    assert!(
+        !debug.contains("top-secret"),
+        "VoiceSettingsState Debug 不得泄漏 SQLite API Key"
+    );
+    assert_ne!(
+        state.values().ollama_profile.base_url(),
+        "https://example.test/v1",
+        "OpenAI profile 不得覆盖独立 Ollama profile"
+    );
+}
+
+/// VS-9：编辑中的 API Key 也不得通过 Debug 或 Settings 行文本泄漏。
+///
+/// 数据构造：进入 AgentApiKey 编辑态，并模拟草稿值 top-secret。
+/// 执行过程：格式化 VoiceSettingsState Debug，并读取 API Key 行展示值。
+/// 预期结果：两处都不含明文；行文本只显示与字符数对应的掩码。
+#[test]
+fn test_agent_api_key_editing_state_is_masked_everywhere() {
+    let mut state = VoiceSettingsState::from_sources(
+        SavedVoiceSettings::default(),
+        EnvVoiceSettings::default(),
+    );
+    state.begin_edit(VoiceSettingsField::AgentApiKey);
+    state.draft = "top-secret".to_string();
+
+    let debug = format!("{state:?}");
+    let row = state.row_value(VoiceSettingsField::AgentApiKey);
+
+    assert!(
+        !debug.contains("top-secret"),
+        "编辑态 Debug 不得包含 API Key 草稿"
+    );
+    assert!(
+        !row.contains("top-secret"),
+        "Settings 行不得显示 API Key 草稿明文"
+    );
+    assert_eq!(
+        row, "••••••••••|",
+        "10 个 API Key 字符应显示为 10 个掩码字符和光标"
+    );
+}
+
+/// VS-10：Settings 状态变更只排队写操作，不得在 GPUI 调用路径同步写 SQLite。
+///
+/// 数据构造：临时 SettingsStore 初始无 active provider，加载 state 后选择 OpenAI。
+/// 执行过程：选择后先直接查库，再 drain pending write 并在测试线程执行，最后再次查库。
+/// 预期结果：执行 pending write 前数据库仍为空；执行后为 openai；队列只包含一次写入。
+#[test]
+fn test_agent_provider_persistence_is_deferred_until_background_write_executes() {
+    let temp = tempfile::tempdir().expect("测试应创建临时目录");
+    let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
+    let mut state = VoiceSettingsState::load_from_store(store.clone());
+
+    state.select_agent_provider(AgentProviderKind::OpenAiCompatible);
+    let before = store
+        .get_string(super::provider_values::KEY_AGENT_PROVIDER)
+        .expect("后台写入前查询应成功");
+    let writes = state.take_pending_writes();
+
+    assert!(before.is_none(), "状态更新不得在 GPUI 路径同步写 SQLite");
+    assert_eq!(writes.len(), 1, "一次 Provider 切换应只排队一次持久化");
+    for write in writes {
+        write.execute().expect("模拟后台写入应成功");
+    }
+    let after = store
+        .get_string(super::provider_values::KEY_AGENT_PROVIDER)
+        .expect("后台写入后查询应成功");
+    assert_eq!(
+        after.as_deref(),
+        Some("openai"),
+        "后台执行后应持久化 OpenAI"
     );
 }

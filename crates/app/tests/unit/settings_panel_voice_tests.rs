@@ -1,8 +1,7 @@
 /// Voice 页面锚点：Settings 应提供语音识别、输入设备、规划模型、Always Listening 和 trace 配置入口。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = settings_panel.rs + settings_content.rs + settings_voice.rs
-///            + voice state/view/always_listening 拆分源码
+///   source = settings panel/content + voice state/provider/view 拆分源码
 ///   nav anchor = Voice
 ///   storage keys = voice.* key（one-shot voice + Always Listening toggle）
 ///   input anchors = default / refresh / clear（覆盖默认输入、设备刷新、清除选择）
@@ -15,26 +14,28 @@
 ///   3. 检查隐藏 transcript fallback 没有出现在 Settings UI
 ///
 /// 预期结果：
-///   - 正断言：Voice 页面包含 Speech Recognition / Command Planning / Always Listening / Advanced
+///   - 正断言：Voice 页面包含 Agent Provider / Speech Recognition / Always Listening / Advanced
 ///   - 正断言：页面包含模型目录选择、输入设备、恢复默认和 trace toggle 锚点
-///   - 负断言：不应暴露 MULTISOUL_VOICE_TRANSCRIPT 或已删除的 OpenAI realtime 设置项
+///   - 负断言：不应暴露 MULTISOUL_VOICE_TRANSCRIPT 或 API Key 明文值
 #[test]
 fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     let source = format!(
-        "{}{}{}{}{}{}{}",
+        "{}{}{}{}{}{}{}{}{}",
         include_str!("../../src/settings/panel.rs"),
         include_str!("../../src/settings/content.rs"),
         include_str!("../../src/settings/voice.rs"),
         include_str!("../../src/settings/voice/state.rs"),
+        include_str!("../../src/settings/voice/state/provider_values.rs"),
         include_str!("../../src/settings/voice/state/values.rs"),
         include_str!("../../src/settings/voice/view.rs"),
-        include_str!("../../src/settings/voice/view/always_listening.rs")
+        include_str!("../../src/settings/voice/view/always_listening.rs"),
+        include_str!("../../src/settings/voice/view/provider.rs")
     );
     let anchors = [
         "SettingsSection::Voice",
         "Voice",
         "Speech Recognition",
-        "Command Planning",
+        "Agent Provider",
         "Always Listening",
         "Enable Always Listening",
         "Advanced",
@@ -53,9 +54,15 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         "settings-voice-input-device-refresh",
         "settings-voice-input-device-clear",
         "settings-voice-realtime-toggle",
-        "settings-voice-dialogue-llm-toggle",
-        "Dialogue LLM",
-        "Dialogue Model",
+        "agent.provider.active",
+        "agent.provider.ollama.base_url",
+        "agent.provider.openai.base_url",
+        "settings-agent-provider-ollama",
+        "settings-agent-provider-openai",
+        "settings-agent-provider-api-key-edit",
+        "settings-agent-provider-api-key-clear",
+        "Base URL",
+        "API Key",
         "settings-voice-trace-toggle",
     ];
 
@@ -70,7 +77,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         "Voice Settings 不应暴露测试用 transcript 注入环境变量"
     );
     assert!(
-        !source.contains("OpenAI API Key"),
-        "Task 4 后 Voice Settings 不应再暴露 OpenAI realtime 配置项"
+        !source.contains("top-secret"),
+        "Settings 源码不得包含测试 API Key 明文"
     );
 }

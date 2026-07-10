@@ -6,8 +6,7 @@ use crate::{
     AgentProvider, ProviderError, ProviderRequest, ProviderResponse, ProviderStreamEvent,
     ProviderToolCall,
 };
-use std::io::{Read, Write};
-use std::net::{TcpStream, ToSocketAddrs};
+use std::io::{BufRead, BufReader};
 use std::time::Duration;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -44,14 +43,57 @@ impl AgentProvider for OllamaProvider {
     ) -> Result<ProviderResponse, ProviderError> {
         let request = build_ollama_chat_request(&self.config, request)?
             .replace("\"stream\":false", "\"stream\":true");
-        let raw = send_http_request(&self.config, request, self.timeout)?;
-        parse_ollama_stream(&raw, emit)
+        send_streaming_request(&self.config, request, self.timeout, emit)
     }
 }
 
 pub struct OpenAiCompatibleProvider {
     config: ProviderConfig,
     timeout: Duration,
+}
+
+pub enum ConfiguredProvider {
+    Ollama(OllamaProvider),
+    OpenAiCompatible(OpenAiCompatibleProvider),
+}
+
+impl ConfiguredProvider {
+    pub fn new(config: ProviderConfig) -> Result<Self, ProviderError> {
+        config.validate()?;
+        Ok(match config.protocol() {
+            crate::ProviderProtocol::Ollama => Self::Ollama(OllamaProvider::new(config)),
+            crate::ProviderProtocol::OpenAiCompatible => {
+                Self::OpenAiCompatible(OpenAiCompatibleProvider::new(config))
+            }
+        })
+    }
+
+    pub fn protocol(&self) -> crate::ProviderProtocol {
+        match self {
+            Self::Ollama(_) => crate::ProviderProtocol::Ollama,
+            Self::OpenAiCompatible(_) => crate::ProviderProtocol::OpenAiCompatible,
+        }
+    }
+}
+
+impl AgentProvider for ConfiguredProvider {
+    fn complete(&mut self, request: &ProviderRequest) -> Result<ProviderResponse, ProviderError> {
+        match self {
+            Self::Ollama(provider) => provider.complete(request),
+            Self::OpenAiCompatible(provider) => provider.complete(request),
+        }
+    }
+
+    fn stream(
+        &mut self,
+        request: &ProviderRequest,
+        emit: &mut dyn FnMut(ProviderStreamEvent),
+    ) -> Result<ProviderResponse, ProviderError> {
+        match self {
+            Self::Ollama(provider) => provider.stream(request, emit),
+            Self::OpenAiCompatible(provider) => provider.stream(request, emit),
+        }
+    }
 }
 
 impl OpenAiCompatibleProvider {
@@ -80,8 +122,7 @@ impl AgentProvider for OpenAiCompatibleProvider {
         emit: &mut dyn FnMut(ProviderStreamEvent),
     ) -> Result<ProviderResponse, ProviderError> {
         let request = build_openai_stream_request(&self.config, request)?;
-        let raw = send_http_request(&self.config, request, self.timeout)?;
-        parse_openai_stream(&raw, emit)
+        send_streaming_request(&self.config, request, self.timeout, emit)
     }
 }
 
@@ -99,121 +140,109 @@ fn send_http_request(
     request: String,
     timeout: Duration,
 ) -> Result<String, ProviderError> {
-    let endpoint = config
-        .endpoint()
-        .strip_prefix("http://")
-        .ok_or_else(|| ProviderError::Message("provider endpoint must use http://".to_string()))?;
-    let host_port = endpoint.split('/').next().unwrap_or_default();
-    let address = host_port
-        .to_socket_addrs()
-        .map_err(|_| ProviderError::Message("provider endpoint could not resolve".to_string()))?
-        .next()
-        .ok_or_else(|| ProviderError::Message("provider endpoint has no address".to_string()))?;
-    let mut stream = TcpStream::connect_timeout(&address, timeout)
-        .map_err(|_| ProviderError::Message("provider connection failed".to_string()))?;
-    stream
-        .set_read_timeout(Some(timeout))
-        .and_then(|_| stream.set_write_timeout(Some(timeout)))
-        .map_err(|_| ProviderError::Message("provider socket setup failed".to_string()))?;
-    stream
-        .write_all(request.as_bytes())
-        .map_err(|_| ProviderError::Message("provider request failed".to_string()))?;
-    let mut raw = String::new();
-    stream
-        .read_to_string(&mut raw)
-        .map_err(|_| ProviderError::Message("provider response failed".to_string()))?;
-    decode_http_body(&raw)
+    let (url, body) = request_parts(config, &request)?;
+    let mut response = send_request(config, &url, body, timeout)?;
+    response
+        .body_mut()
+        .read_to_string()
+        .map_err(|_| ProviderError::Message("provider response failed".to_string()))
 }
 
-fn decode_http_body(raw: &str) -> Result<String, ProviderError> {
-    let (status, rest) = raw
-        .split_once("\r\n")
-        .ok_or_else(|| ProviderError::Message("provider response missing status".to_string()))?;
-    if !status.contains(" 200 ") {
-        return Err(ProviderError::Message(
-            "provider returned a non-200 response".to_string(),
-        ));
+fn send_streaming_request(
+    config: &ProviderConfig,
+    request: String,
+    timeout: Duration,
+    emit: &mut dyn FnMut(ProviderStreamEvent),
+) -> Result<ProviderResponse, ProviderError> {
+    let (url, body) = request_parts(config, &request)?;
+    let response = send_request(config, &url, body, timeout)?;
+    let reader = BufReader::new(response.into_body().into_reader());
+    let mut text = String::new();
+    let mut calls = Vec::new();
+    for line in reader.lines() {
+        let line =
+            line.map_err(|_| ProviderError::Message("provider response failed".to_string()))?;
+        match config.protocol() {
+            crate::ProviderProtocol::OpenAiCompatible => {
+                consume_openai_stream_line(&line, &mut text, &mut calls, emit)?;
+            }
+            crate::ProviderProtocol::Ollama => {
+                consume_ollama_stream_line(&line, &mut text, &mut calls, emit)?;
+            }
+        }
     }
-    let (_, body) = rest
+    if config.protocol() == crate::ProviderProtocol::OpenAiCompatible {
+        for call in &calls {
+            emit(ProviderStreamEvent::ToolCall(call.clone()));
+        }
+    }
+    Ok(ProviderResponse {
+        text,
+        tool_calls: calls,
+    })
+}
+
+fn send_request(
+    config: &ProviderConfig,
+    url: &str,
+    body: &str,
+    timeout: Duration,
+) -> Result<ureq::http::Response<ureq::Body>, ProviderError> {
+    let agent = ureq::Agent::config_builder()
+        .timeout_global(Some(timeout))
+        .build()
+        .new_agent();
+    let mut request = agent.post(url).header("Content-Type", "application/json");
+    if let Some(api_key) = config.api_key().filter(|key| !key.trim().is_empty()) {
+        request = request.header("Authorization", &format!("Bearer {api_key}"));
+    }
+    request
+        .send(body)
+        .map_err(|error| provider_transport_error(error, config.api_key()))
+}
+
+fn request_parts<'a>(
+    config: &ProviderConfig,
+    request: &'a str,
+) -> Result<(String, &'a str), ProviderError> {
+    config.validate()?;
+    let request_line = request.lines().next().ok_or_else(|| {
+        ProviderError::Message("provider request missing request line".to_string())
+    })?;
+    let path = request_line
+        .split_whitespace()
+        .nth(1)
+        .ok_or_else(|| ProviderError::Message("provider request missing path".to_string()))?;
+    let scheme_end = config.endpoint().find("://").ok_or_else(|| {
+        ProviderError::Message("provider base_url must use http:// or https://".to_string())
+    })? + 3;
+    let authority_end = config.endpoint()[scheme_end..]
+        .find('/')
+        .map(|index| scheme_end + index)
+        .unwrap_or(config.endpoint().len());
+    let origin = &config.endpoint()[..authority_end];
+    let (_, body) = request
         .split_once("\r\n\r\n")
-        .ok_or_else(|| ProviderError::Message("provider response missing body".to_string()))?;
-    if !raw
-        .to_ascii_lowercase()
-        .contains("transfer-encoding: chunked")
-    {
-        return Ok(body.to_string());
-    }
-    decode_chunked_body(body)
+        .ok_or_else(|| ProviderError::Message("provider request missing body".to_string()))?;
+    Ok((format!("{origin}{path}"), body))
 }
 
-fn decode_chunked_body(mut body: &str) -> Result<String, ProviderError> {
-    let mut decoded = String::new();
-    loop {
-        let (size, rest) = body
-            .split_once("\r\n")
-            .ok_or_else(|| ProviderError::Message("provider chunked body truncated".to_string()))?;
-        let size = usize::from_str_radix(size.trim(), 16)
-            .map_err(|_| ProviderError::Message("provider chunk size invalid".to_string()))?;
-        if size == 0 {
-            return Ok(decoded);
-        }
-        if rest.len() < size + 2 {
-            return Err(ProviderError::Message(
-                "provider chunk payload truncated".to_string(),
-            ));
-        }
-        decoded.push_str(&rest[..size]);
-        body = &rest[size + 2..];
+fn provider_transport_error(error: ureq::Error, api_key: Option<&str>) -> ProviderError {
+    let mut message = error.to_string();
+    if let Some(api_key) = api_key.filter(|key| !key.is_empty()) {
+        message = message.replace(api_key, "<redacted>");
     }
+    ProviderError::Message(format!("provider request failed: {message}"))
 }
 
-fn parse_openai_stream(
+pub fn parse_openai_stream(
     raw: &str,
     emit: &mut dyn FnMut(ProviderStreamEvent),
 ) -> Result<ProviderResponse, ProviderError> {
     let mut text = String::new();
     let mut calls: Vec<ProviderToolCall> = Vec::new();
-    for line in raw.lines().filter_map(|line| line.strip_prefix("data: ")) {
-        if line == "[DONE]" {
-            continue;
-        }
-        let chunk: OpenAiStreamChunk = serde_json::from_str(line).map_err(|error| {
-            ProviderError::Message(format!("OpenAI stream JSON failed: {error}"))
-        })?;
-        let Some(choice) = chunk.choices.into_iter().next() else {
-            continue;
-        };
-        if let Some(delta) = choice.delta.content {
-            text.push_str(&delta);
-            emit(ProviderStreamEvent::TextDelta(delta));
-        }
-        for call in choice.delta.tool_calls.unwrap_or_default() {
-            if let Some(existing) = calls.get_mut(call.index) {
-                if let Some(arguments) = call.function.arguments {
-                    existing.arguments_json.push_str(&arguments);
-                }
-                if let Some(name) = call.function.name {
-                    existing.name = name;
-                }
-                if let Some(id) = call.id {
-                    existing.id = id;
-                }
-            } else {
-                let normalized = ProviderToolCall {
-                    id: call
-                        .id
-                        .unwrap_or_else(|| format!("openai-stream-call-{}", call.index)),
-                    name: call.function.name.unwrap_or_default(),
-                    arguments_json: call.function.arguments.unwrap_or_default(),
-                };
-                calls.resize_with(call.index + 1, || ProviderToolCall {
-                    id: String::new(),
-                    name: String::new(),
-                    arguments_json: String::new(),
-                });
-                calls[call.index] = normalized;
-            }
-        }
+    for line in raw.lines() {
+        consume_openai_stream_line(line, &mut text, &mut calls, emit)?;
     }
     for call in &calls {
         emit(ProviderStreamEvent::ToolCall(call.clone()));
@@ -224,27 +253,86 @@ fn parse_openai_stream(
     })
 }
 
-fn parse_ollama_stream(
+fn consume_openai_stream_line(
+    line: &str,
+    text: &mut String,
+    calls: &mut Vec<ProviderToolCall>,
+    emit: &mut dyn FnMut(ProviderStreamEvent),
+) -> Result<(), ProviderError> {
+    let Some(line) = line.strip_prefix("data: ") else {
+        return Ok(());
+    };
+    if line == "[DONE]" {
+        return Ok(());
+    }
+    let chunk: OpenAiStreamChunk = serde_json::from_str(line)
+        .map_err(|error| ProviderError::Message(format!("OpenAI stream JSON failed: {error}")))?;
+    let Some(choice) = chunk.choices.into_iter().next() else {
+        return Ok(());
+    };
+    if let Some(delta) = choice.delta.content {
+        text.push_str(&delta);
+        emit(ProviderStreamEvent::TextDelta(delta));
+    }
+    for call in choice.delta.tool_calls.unwrap_or_default() {
+        if calls.len() <= call.index {
+            calls.resize_with(call.index + 1, || ProviderToolCall {
+                id: String::new(),
+                name: String::new(),
+                arguments_json: String::new(),
+            });
+        }
+        let existing = &mut calls[call.index];
+        if existing.id.is_empty() {
+            existing.id = format!("openai-stream-call-{}", call.index);
+        }
+        if let Some(arguments) = call.function.arguments {
+            existing.arguments_json.push_str(&arguments);
+        }
+        if let Some(name) = call.function.name {
+            existing.name = name;
+        }
+        if let Some(id) = call.id {
+            existing.id = id;
+        }
+    }
+    Ok(())
+}
+
+pub fn parse_ollama_stream(
     raw: &str,
     emit: &mut dyn FnMut(ProviderStreamEvent),
 ) -> Result<ProviderResponse, ProviderError> {
     let mut text = String::new();
     let mut calls = Vec::new();
-    for line in raw.lines().filter(|line| !line.trim().is_empty()) {
-        let response = crate::parse_ollama_response(line)?;
-        if !response.text.is_empty() {
-            text.push_str(&response.text);
-            emit(ProviderStreamEvent::TextDelta(response.text));
-        }
-        calls.extend(response.tool_calls);
-    }
-    for call in &calls {
-        emit(ProviderStreamEvent::ToolCall(call.clone()));
+    for line in raw.lines() {
+        consume_ollama_stream_line(line, &mut text, &mut calls, emit)?;
     }
     Ok(ProviderResponse {
         text,
         tool_calls: calls,
     })
+}
+
+fn consume_ollama_stream_line(
+    line: &str,
+    text: &mut String,
+    calls: &mut Vec<ProviderToolCall>,
+    emit: &mut dyn FnMut(ProviderStreamEvent),
+) -> Result<(), ProviderError> {
+    if line.trim().is_empty() {
+        return Ok(());
+    }
+    let response = crate::parse_ollama_response(line)?;
+    if !response.text.is_empty() {
+        text.push_str(&response.text);
+        emit(ProviderStreamEvent::TextDelta(response.text));
+    }
+    for call in response.tool_calls {
+        emit(ProviderStreamEvent::ToolCall(call.clone()));
+        calls.push(call);
+    }
+    Ok(())
 }
 
 #[derive(serde::Deserialize)]

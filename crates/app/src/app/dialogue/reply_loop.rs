@@ -40,12 +40,29 @@ impl DialogueControlState {
             return;
         }
         let task = cx.spawn_in(window, async move |this, cx| {
-            let turn_result = this.update_in(cx, |app, window, _cx| {
-                app.run_dialogue_turn_after_final(window)
-            });
-            let Ok(turn_result) = turn_result else {
-                return;
+            let response = match this.update_in(cx, |app, window, cx| {
+                let transcript = app.dialogue.pending_transcript_or_err()?.to_string();
+                app.submit_project_agent(agent::AgentCommand::UserTurn(transcript), window, cx)
+                    .map_err(dialogue::DialogueError::Message)
+            }) {
+                Ok(Ok(response)) => response,
+                Ok(Err(error)) => {
+                    tracing::warn!(%error, "voice turn setup failed");
+                    let _ = this.update(cx, |app, cx| {
+                        app.dialogue.error_message = Some(format!("Turn error: {error}"));
+                        app.dialogue.reply_task = None;
+                        cx.notify();
+                    });
+                    return;
+                }
+                Err(_) => return,
             };
+            let turn_result = response
+                .recv()
+                .await
+                .map_err(|_| dialogue::DialogueError::Message("agent response closed".into()))
+                .and_then(|result| result.map_err(dialogue::DialogueError::Message))
+                .map(crate::app::agent_runtime::artifacts_from_agent_events);
             match turn_result {
                 Ok(artifacts) => {
                     let synthesis_result = this.update(cx, |app, _cx| {

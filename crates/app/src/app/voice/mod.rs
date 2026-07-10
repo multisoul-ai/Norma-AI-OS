@@ -1,5 +1,6 @@
 //! Voice entrypoint glue for the app shell.
 
+mod agent_task;
 pub(crate) mod bar;
 pub(crate) mod control;
 mod execution;
@@ -16,11 +17,13 @@ use crate::app::voice::log::{
     log_voice_confirmation_required, log_voice_executed, log_voice_executing,
     log_voice_planner_rejected, log_voice_runtime_failed, log_voice_transcript_only,
 };
-use crate::app::voice::planning::{run_voice_planning_job, VoicePlanningOutcome};
+use crate::app::voice::planning::VoicePlanningOutcome;
 use crate::app::{AppScreen, MultisoulApp};
 use gpui::{Context, MouseDownEvent, MouseUpEvent, Window};
 use history::VoiceOutcome;
-pub(crate) use planning::{VoicePlanningJob, VoicePlanningResult};
+#[cfg(test)]
+pub(crate) use planning::VoicePlanningJob;
+pub(crate) use planning::VoicePlanningResult;
 use voice::{CardRef, RiskLevel, VoiceCardKind, VoicePlanningRequest};
 use voice_sherpa::SpeechError;
 
@@ -234,24 +237,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.voice.set_planning(raw_transcript.clone());
-        let job = VoicePlanningJob {
-            request: self.voice_planning_request(raw_transcript.clone()),
-            raw_transcript,
-            settings: self.voice_settings.values().clone(),
-        };
-        let planning_task = cx
-            .background_executor()
-            .spawn(async move { run_voice_planning_job(job) });
-        let task = cx.spawn_in(window, async move |this, cx| {
-            let result = planning_task.await;
-            let _ = this.update_in(cx, |app, window, cx| {
-                app.voice.clear_speech_task();
-                app.apply_voice_planning_result(result, window, cx);
-            });
-        });
-        self.voice.set_speech_task(task);
-        cx.notify();
+        agent_task::start_direct_agent_task(self, raw_transcript, window, cx);
     }
 
     fn apply_voice_planning_result(

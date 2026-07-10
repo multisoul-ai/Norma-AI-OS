@@ -14,7 +14,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///
 /// 场景：用户在 Canvas 顶部工具栏点击 Settings，进入 Keyboard Shortcuts，
 /// 点击 New Terminal keycap 进入录制，键入 `cmd-alt-n` 保存覆盖，再点击该行
-/// Restore 按钮恢复默认，最后点击右上角关闭按钮。
+/// Restore 按钮恢复默认，再切到 Voice 选择 OpenAI，最后点击右上角关闭按钮。
 ///
 /// 数据构造（含关键数值推导过程）：
 ///   toolbar-settings              = 30px × 30px（`chrome_icon_button` 固定尺寸）
@@ -31,12 +31,14 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///   4. 点击 `settings-shortcut-new-terminal` → keycap on_click 开始录制。
 ///   5. 输入 `cmd-alt-n` → `ShortcutSettingsState::record_keystroke` 保存覆盖。
 ///   6. 点击 `settings-shortcut-restore-new-terminal` → 恢复默认 `cmd-n`。
-///   7. 点击 `settings-close` → Settings panel 关闭且 close hitbox 消失。
+///   7. 点击 Voice → OpenAI，验证统一 Agent Provider 选择。
+///   8. 点击 `settings-close` → Settings panel 关闭且 close hitbox 消失。
 ///
 /// 预期结果：
 ///   - 正断言：每个可点击控件在点击前都存在 debug bounds，证明点击目标来自真实渲染树。
 ///   - 正断言：保存覆盖后 restore 按钮出现，证明 keycap click + keystroke 生效。
 ///   - 正断言：恢复默认后 New Terminal keycap 仍存在，证明 Settings 面板仍可操作。
+///   - 正断言：点击 OpenAI 后 snapshot.provider=openai。
 ///   - 负断言：恢复默认后 `new_terminal_modified == false`，证明覆盖已清除。
 ///   - 负断言：关闭后 `settings_open == false`，证明面板已关闭。
 ///
@@ -108,6 +110,29 @@ fn e2e_03_settings_keyboard_shortcut_can_be_changed_and_restored_by_clicks() {
     assert!(
         cx.debug_bounds("settings-shortcut-new-terminal").is_some(),
         "restoring the shortcut should keep the New Terminal keycap visible"
+    );
+
+    click_debug(cx, "settings-section-voice");
+    let voice = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    assert_eq!(
+        voice.active_section, "Voice",
+        "点击 Voice 后应切换到 Voice Settings，snapshot: {:?}",
+        voice
+    );
+    assert!(
+        cx.debug_bounds("settings-agent-provider-openai").is_some(),
+        "Voice Settings 应渲染 OpenAI Provider 选择按钮，snapshot: {:?}",
+        voice
+    );
+    click_debug(cx, "settings-agent-provider-openai");
+    let openai = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    assert_eq!(
+        openai.agent_provider, "openai",
+        "点击 OpenAI 后全局 Agent Provider 应立即切换"
+    );
+    assert_ne!(
+        openai.agent_provider, "ollama",
+        "OpenAI 被选中后不应继续报告 Ollama"
     );
 
     click_debug(cx, "settings-close");

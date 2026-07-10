@@ -1,7 +1,7 @@
 use agent::{
     build_ollama_chat_request, build_openai_chat_request, parse_ollama_response,
-    parse_openai_response, AgentMessage, MessageRole, ProviderConfig, ProviderProtocol,
-    ProviderRequest, ProviderToolCall,
+    parse_openai_response, parse_openai_stream, AgentMessage, MessageRole, ProviderConfig,
+    ProviderProtocol, ProviderRequest, ProviderStreamEvent, ProviderToolCall,
 };
 
 fn request() -> ProviderRequest {
@@ -180,3 +180,43 @@ fn provider_config_redacts_api_key() {
 }
 
 fn _keep_import(_: ProviderToolCall) {}
+
+/// P-4：OpenAI SSE 的分片 tool arguments 应在流结束后组成完整 JSON。
+///
+/// 数据构造：同一个 index=0 的 tool call 分两块返回 action 字段，且包含一个文本 delta。
+/// 执行过程：调用公开 stream parser，并记录 TextDelta 与 ToolCall 事件。
+/// 预期结果：文本只拼接一次；最终 ToolCall 保留 id/name 和完整 arguments JSON。
+#[test]
+fn openai_stream_assembles_split_tool_call_arguments() {
+    let raw = concat!(
+        "data: {\"choices\":[{\"delta\":{\"content\":\"正在派发\",\"tool_calls\":[{\"index\":0,\"id\":\"call-7\",\"function\":{\"name\":\"card_task\",\"arguments\":\"{\\\"action\\\":\"}}]}}]}\n\n",
+        "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"start\\\"}\"}}]}}]}\n\n",
+        "data: [DONE]\n\n"
+    );
+    let mut events = Vec::new();
+
+    let response = parse_openai_stream(raw, &mut |event| events.push(event))
+        .expect("合法 OpenAI SSE 应成功解析");
+
+    assert_eq!(response.text, "正在派发", "文本 delta 应按顺序拼接");
+    assert_eq!(response.tool_calls.len(), 1, "应只归一化一个 tool call");
+    assert_eq!(
+        response.tool_calls[0].arguments_json, r#"{"action":"start"}"#,
+        "跨 chunk arguments 应拼成完整 JSON"
+    );
+    assert!(
+        events.iter().any(|event| matches!(
+            event,
+            ProviderStreamEvent::TextDelta(text) if text == "正在派发"
+        )),
+        "stream parser 应发出文本增量"
+    );
+    assert!(
+        events.iter().any(|event| matches!(
+            event,
+            ProviderStreamEvent::ToolCall(call)
+                if call.id == "call-7" && call.name == "card_task"
+        )),
+        "stream 结束时应发出完整 ToolCall"
+    );
+}

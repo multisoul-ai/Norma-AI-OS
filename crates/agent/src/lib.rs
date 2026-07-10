@@ -23,7 +23,10 @@ pub use protocol::{
     parse_openai_response, ProviderConfig, ProviderProtocol, RedactedProviderConfig,
 };
 pub use provider::{AgentProvider, ProviderError, ProviderStreamEvent};
-pub use providers::{OllamaProvider, OpenAiCompatibleProvider};
+pub use providers::{
+    parse_ollama_stream, parse_openai_stream, ConfiguredProvider, OllamaProvider,
+    OpenAiCompatibleProvider,
+};
 pub use system::AgentSystem;
 pub use system_types::{AgentError, CardTaskBudget};
 pub use tools::{

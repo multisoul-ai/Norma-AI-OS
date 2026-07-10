@@ -1,10 +1,15 @@
+use super::provider_values::{
+    AgentProviderKind, ProviderProfileValues, SavedProviderProfile, DEFAULT_OLLAMA_ENDPOINT,
+    DEFAULT_OPENAI_BASE_URL, KEY_AGENT_OLLAMA_API_KEY, KEY_AGENT_OLLAMA_BASE_URL,
+    KEY_AGENT_OLLAMA_MODEL, KEY_AGENT_OPENAI_API_KEY, KEY_AGENT_OPENAI_BASE_URL,
+    KEY_AGENT_OPENAI_MODEL, KEY_AGENT_PROVIDER,
+};
 use super::VoiceSettingsState;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use storage::SettingsStore;
 use voice::OllamaVoicePlanner;
 
-pub(crate) const DEFAULT_OLLAMA_ENDPOINT: &str = "http://127.0.0.1:11434";
 pub(super) const KEY_OLLAMA_ENDPOINT: &str = "voice.ollama.endpoint";
 pub(super) const KEY_OLLAMA_MODEL: &str = "voice.ollama.model";
 pub(super) const KEY_DIALOGUE_LLM_MODE: &str = "voice.dialogue.llm_mode";
@@ -44,6 +49,9 @@ impl DialogueLlmMode {
 
 #[derive(Clone, Default, Eq, PartialEq)]
 pub(crate) struct SavedVoiceSettings {
+    pub(crate) agent_provider: Option<AgentProviderKind>,
+    pub(crate) ollama_profile: SavedProviderProfile,
+    pub(crate) openai_profile: SavedProviderProfile,
     pub(crate) ollama_endpoint: Option<String>,
     pub(crate) planner_model: Option<String>,
     pub(crate) dialogue_llm_mode: Option<DialogueLlmMode>,
@@ -68,6 +76,9 @@ pub(crate) struct EnvVoiceSettings {
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct VoiceSettingsValues {
+    pub(crate) agent_provider: AgentProviderKind,
+    pub(crate) ollama_profile: ProviderProfileValues,
+    pub(crate) openai_profile: ProviderProfileValues,
     pub(crate) ollama_endpoint: String,
     pub(crate) planner_model: String,
     pub(crate) dialogue_llm_mode: DialogueLlmMode,
@@ -81,6 +92,9 @@ pub(crate) struct VoiceSettingsValues {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum VoiceSettingsField {
+    AgentBaseUrl,
+    AgentModel,
+    AgentApiKey,
     OllamaEndpoint,
     PlannerModel,
     DialogueModel,
@@ -90,6 +104,14 @@ pub(crate) enum VoiceSettingsField {
 impl fmt::Debug for SavedVoiceSettings {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SavedVoiceSettings")
+            .field("agent_provider", &self.agent_provider)
+            .field("ollama_profile", &self.ollama_profile)
+            .field("openai_profile_base_url", &self.openai_profile.base_url)
+            .field("openai_profile_model", &self.openai_profile.model)
+            .field(
+                "openai_profile_api_key",
+                &self.openai_profile.api_key.as_ref().map(|_| "<redacted>"),
+            )
             .field("ollama_endpoint", &self.ollama_endpoint)
             .field("planner_model", &self.planner_model)
             .field("dialogue_llm_mode", &self.dialogue_llm_mode)
@@ -106,6 +128,9 @@ impl fmt::Debug for SavedVoiceSettings {
 impl fmt::Debug for VoiceSettingsValues {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("VoiceSettingsValues")
+            .field("agent_provider", &self.agent_provider)
+            .field("ollama_profile", &self.ollama_profile)
+            .field("openai_profile", &self.openai_profile)
             .field("ollama_endpoint", &self.ollama_endpoint)
             .field("planner_model", &self.planner_model)
             .field("dialogue_llm_mode", &self.dialogue_llm_mode)
@@ -121,6 +146,11 @@ impl fmt::Debug for VoiceSettingsValues {
 
 impl fmt::Debug for VoiceSettingsState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let draft = if self.editing == Some(VoiceSettingsField::AgentApiKey) {
+            "<redacted>"
+        } else {
+            self.draft.as_str()
+        };
         f.debug_struct("VoiceSettingsState")
             .field("values", &self.values)
             .field("saved", &self.saved)
@@ -128,7 +158,7 @@ impl fmt::Debug for VoiceSettingsState {
             .field("storage", &self.storage)
             .field("input_devices", &self.input_devices)
             .field("editing", &self.editing)
-            .field("draft", &self.draft)
+            .field("draft", &draft)
             .field("status", &self.status)
             .finish()
     }
@@ -184,7 +214,48 @@ impl VoiceSettingsValues {
             .unwrap_or_else(|| trace_enabled_from_value(env.trace_enabled.as_deref()));
         let realtime_enabled = saved.realtime_enabled.unwrap_or(false);
 
+        let agent_provider = saved.agent_provider.unwrap_or_default();
+        let ollama_profile = ProviderProfileValues {
+            base_url: first_non_empty(
+                saved
+                    .ollama_profile
+                    .base_url
+                    .as_deref()
+                    .or(saved.ollama_endpoint.as_deref()),
+                env.ollama_endpoint.as_deref(),
+                DEFAULT_OLLAMA_ENDPOINT,
+            ),
+            api_key: non_empty_option(saved.ollama_profile.api_key.clone()),
+            model: first_non_empty(
+                saved
+                    .ollama_profile
+                    .model
+                    .as_deref()
+                    .or(saved.dialogue_model.as_deref()),
+                env.dialogue_model.as_deref(),
+                OllamaVoicePlanner::default_model(),
+            ),
+        };
+        let openai_profile = ProviderProfileValues {
+            base_url: first_non_empty(
+                saved.openai_profile.base_url.as_deref(),
+                None,
+                DEFAULT_OPENAI_BASE_URL,
+            ),
+            api_key: non_empty_option(saved.openai_profile.api_key.clone()),
+            model: saved
+                .openai_profile
+                .model
+                .as_deref()
+                .map(str::trim)
+                .unwrap_or_default()
+                .to_string(),
+        };
+
         Self {
+            agent_provider,
+            ollama_profile,
+            openai_profile,
             ollama_endpoint: endpoint,
             planner_model,
             dialogue_llm_mode,
@@ -195,6 +266,35 @@ impl VoiceSettingsValues {
             trace_enabled,
             realtime_enabled,
         }
+    }
+
+    pub(crate) fn agent_provider(&self) -> AgentProviderKind {
+        self.agent_provider
+    }
+
+    pub(crate) fn active_provider_profile(&self) -> &ProviderProfileValues {
+        match self.agent_provider {
+            AgentProviderKind::Ollama => &self.ollama_profile,
+            AgentProviderKind::OpenAiCompatible => &self.openai_profile,
+        }
+    }
+
+    pub(crate) fn agent_provider_config(
+        &self,
+    ) -> Result<agent::ProviderConfig, agent::ProviderError> {
+        let profile = self.active_provider_profile();
+        let protocol = match self.agent_provider {
+            AgentProviderKind::Ollama => agent::ProviderProtocol::Ollama,
+            AgentProviderKind::OpenAiCompatible => agent::ProviderProtocol::OpenAiCompatible,
+        };
+        let config = agent::ProviderConfig::new(
+            protocol,
+            profile.base_url.clone(),
+            profile.model.clone(),
+            profile.api_key.clone(),
+        );
+        config.validate()?;
+        Ok(config)
     }
 
     pub(crate) fn ollama_endpoint(&self) -> &str {
@@ -252,10 +352,29 @@ impl EnvVoiceSettings {
 
 impl SavedVoiceSettings {
     pub(super) fn load(store: &SettingsStore) -> storage::StorageResult<Self> {
-        ignore_legacy_openai_realtime_keys(store)?;
-
+        let legacy_ollama_endpoint = non_empty_option(store.get_string(KEY_OLLAMA_ENDPOINT)?);
+        let legacy_openai_api_key = non_empty_option(store.get_string(KEY_OPENAI_API_KEY)?);
+        let legacy_openai_model =
+            non_empty_option(store.get_string(KEY_OPENAI_CARD_PLANNER_MODEL)?);
         Ok(Self {
-            ollama_endpoint: non_empty_option(store.get_string(KEY_OLLAMA_ENDPOINT)?),
+            agent_provider: store
+                .get_string(KEY_AGENT_PROVIDER)?
+                .as_deref()
+                .and_then(AgentProviderKind::from_stored),
+            ollama_profile: SavedProviderProfile {
+                base_url: non_empty_option(store.get_string(KEY_AGENT_OLLAMA_BASE_URL)?)
+                    .or_else(|| legacy_ollama_endpoint.clone()),
+                api_key: non_empty_option(store.get_string(KEY_AGENT_OLLAMA_API_KEY)?),
+                model: non_empty_option(store.get_string(KEY_AGENT_OLLAMA_MODEL)?),
+            },
+            openai_profile: SavedProviderProfile {
+                base_url: non_empty_option(store.get_string(KEY_AGENT_OPENAI_BASE_URL)?),
+                api_key: non_empty_option(store.get_string(KEY_AGENT_OPENAI_API_KEY)?)
+                    .or(legacy_openai_api_key),
+                model: non_empty_option(store.get_string(KEY_AGENT_OPENAI_MODEL)?)
+                    .or(legacy_openai_model),
+            },
+            ollama_endpoint: legacy_ollama_endpoint,
             planner_model: non_empty_option(store.get_string(KEY_OLLAMA_MODEL)?),
             dialogue_llm_mode: store
                 .get_string(KEY_DIALOGUE_LLM_MODE)?
@@ -281,10 +400,13 @@ impl SavedVoiceSettings {
 impl VoiceSettingsField {
     pub(crate) fn index(self) -> usize {
         match self {
-            Self::OllamaEndpoint => 0,
-            Self::PlannerModel => 1,
-            Self::DialogueModel => 2,
-            Self::RefineModel => 3,
+            Self::AgentBaseUrl => 0,
+            Self::AgentModel => 1,
+            Self::AgentApiKey => 2,
+            Self::OllamaEndpoint => 3,
+            Self::PlannerModel => 4,
+            Self::DialogueModel => 5,
+            Self::RefineModel => 6,
         }
     }
 }
@@ -293,14 +415,6 @@ pub(super) fn non_empty_option(value: Option<String>) -> Option<String> {
     value
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
-}
-
-fn ignore_legacy_openai_realtime_keys(store: &SettingsStore) -> storage::StorageResult<()> {
-    let _ = store.get_string(KEY_OPENAI_API_KEY)?;
-    let _ = store.get_string(KEY_OPENAI_REALTIME_MODEL)?;
-    let _ = store.get_string(KEY_OPENAI_CARD_PLANNER_MODEL)?;
-    let _ = store.get_string(KEY_OPENAI_SIDECAR_PATH)?;
-    Ok(())
 }
 
 fn first_non_empty(saved: Option<&str>, env: Option<&str>, default: &str) -> String {

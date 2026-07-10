@@ -58,10 +58,11 @@ where
         dialogue_provider: D,
         card_provider: C,
         card_tool_host: H,
-        journal: J,
+        mut journal: J,
         budget: CardTaskBudget,
     ) -> Self {
         let project_id = project_id.into();
+        let interrupted = journal.recover_incomplete(&project_id);
         let next_task_id = journal.next_task_id(&project_id);
         Self {
             project_id,
@@ -75,7 +76,10 @@ where
             active: None,
             records: HashMap::new(),
             next_task_id,
-            events: Vec::new(),
+            events: interrupted
+                .into_iter()
+                .map(|task_id| AgentEvent::TaskInterrupted { task_id })
+                .collect(),
         }
     }
 
@@ -216,12 +220,13 @@ where
             .filter(|call| call.name == crate::CARD_TASK_TOOL)
             .map(|call| {
                 parse_dialogue_tool_call(&call.arguments_json)
+                    .map(|action| (call.id.clone(), action))
                     .map_err(|error| AgentError::InvalidCommand(error.to_string()))
             })
             .collect::<Result<Vec<_>, _>>()?;
         let has_task_start = actions
             .iter()
-            .any(|action| matches!(action, DialogueToolAction::Start { .. }));
+            .any(|(_, action)| matches!(action, DialogueToolAction::Start { .. }));
         if !has_task_start {
             for text in streamed {
                 self.emit_event(AgentEvent::DialogueTextDelta { text });
@@ -230,16 +235,41 @@ where
         self.dialogue_messages
             .push(assistant_message(&response.text, &response.tool_calls));
         let mut started = false;
-        for action in actions {
+        for (call_id, action) in actions {
             match action {
                 DialogueToolAction::Start { intent } => {
                     if !started {
-                        self.enqueue_task(intent);
+                        let task_id = self.enqueue_task(intent);
+                        self.dialogue_messages.push(tool_message(
+                            call_id,
+                            format!(r#"{{"status":"queued","task_id":{task_id}}}"#),
+                        ));
                         started = true;
+                    } else {
+                        self.dialogue_messages.push(tool_message(
+                            call_id,
+                            r#"{"status":"ignored","reason":"one task per turn"}"#,
+                        ));
                     }
                 }
-                DialogueToolAction::Cancel { task_id } => self.cancel_task(task_id)?,
-                DialogueToolAction::Status { task_id } => self.emit_status(task_id),
+                DialogueToolAction::Cancel { task_id } => {
+                    let result = self.cancel_task(task_id);
+                    self.dialogue_messages.push(tool_message(
+                        call_id,
+                        format!(r#"{{"status":"cancel_requested","task_id":{task_id}}}"#),
+                    ));
+                    result?;
+                }
+                DialogueToolAction::Status { task_id } => {
+                    let reported_task_id = task_id
+                        .or_else(|| self.records.keys().max().copied())
+                        .map_or_else(|| "null".to_string(), |id| id.to_string());
+                    self.emit_status(task_id);
+                    self.dialogue_messages.push(tool_message(
+                        call_id,
+                        format!(r#"{{"status":"reported","task_id":{reported_task_id}}}"#),
+                    ));
+                }
             }
         }
         Ok(())
