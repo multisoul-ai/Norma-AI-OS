@@ -35,6 +35,38 @@ fn test_settings_panel_defaults_closed_on_general() {
     );
 }
 
+/// 设置面板响应式布局：小窗口和极窄窗口都不应把面板或侧栏推出 viewport。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   常见小窗口 = 420×360；紧凑边距 = 12px，因此面板 = 396×336。
+///   极窄窗口 = 120×100；紧凑边距 = 12px，因此面板 = 96×76，侧栏上限 = 96×45%=43.2px。
+///
+/// 执行过程：分别计算两个 viewport 的纯布局，并读取面板四边与侧栏宽度。
+///
+/// 预期结果：面板四边均在 viewport 内；侧栏小于面板宽度且为内容保留至少 55% 宽度。
+#[test]
+fn test_settings_panel_layout_stays_inside_small_viewports() {
+    let small = SettingsPanelLayout::for_viewport(420.0, 360.0);
+    assert_eq!(small.left, 12.0, "420px 宽窗口应保留 12px 左边距");
+    assert_eq!(small.top, 12.0, "360px 高窗口应保留 12px 上边距");
+    assert_eq!(small.width, 396.0, "面板宽度应为 420-2×12=396px");
+    assert_eq!(small.height, 336.0, "面板高度应为 360-2×12=336px");
+    assert!(
+        small.left + small.width <= 420.0 && small.top + small.height <= 360.0,
+        "小窗口面板不得越过 viewport 右边或底边，layout={small:?}"
+    );
+
+    let narrow = SettingsPanelLayout::for_viewport(120.0, 100.0);
+    assert!(
+        narrow.left + narrow.width <= 120.0 && narrow.top + narrow.height <= 100.0,
+        "极窄窗口面板仍不得溢出 viewport，layout={narrow:?}"
+    );
+    assert!(
+        narrow.sidebar_width <= narrow.width * 0.45,
+        "侧栏最多占面板 45%，应为内容保留至少 55%，layout={narrow:?}"
+    );
+}
+
 /// Keyboard Shortcuts 页面：Settings 应把侧栏占位升级为真实可点击页面，并渲染可编辑命令与只读输入行为。
 ///
 /// 数据构造（含关键数值的推导过程）：

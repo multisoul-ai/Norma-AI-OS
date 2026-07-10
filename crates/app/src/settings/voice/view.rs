@@ -1,13 +1,16 @@
 use self::always_listening::always_listening_group;
+pub(super) use self::editable::editable_value_pill;
 use self::provider::agent_provider_group;
 use super::state::{VoiceSettingsField, VoiceSettingsState};
 use crate::app::MultisoulApp;
 use gpui::{
-    div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, PathPromptOptions, Window,
+    div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, MouseDownEvent,
+    PathPromptOptions, Window,
 };
 use ui::Theme;
 
 mod always_listening;
+mod editable;
 mod provider;
 
 pub(crate) fn voice_settings(
@@ -16,6 +19,8 @@ pub(crate) fn voice_settings(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     div()
+        .w_full()
+        .min_w(px(0.0))
         .flex()
         .flex_col()
         .gap(px(20.0))
@@ -34,7 +39,7 @@ impl MultisoulApp {
     pub(crate) fn on_voice_settings_edit(
         &mut self,
         field: VoiceSettingsField,
-        _event: &ClickEvent,
+        _event: &MouseDownEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -140,6 +145,7 @@ impl MultisoulApp {
 pub(super) fn settings_group(theme: Theme, title: &'static str) -> Div {
     div()
         .w_full()
+        .min_w(px(0.0))
         .flex()
         .flex_col()
         .gap(px(12.0))
@@ -163,25 +169,7 @@ pub(super) fn text_setting_row(
     hint: &'static str,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    setting_row(theme, title, hint).child(
-        div()
-            .flex()
-            .flex_row()
-            .items_center()
-            .gap(px(10.0))
-            .child(value_pill(
-                theme,
-                state.row_value(field),
-                state.is_editing(field),
-            ))
-            .child(
-                action_button(theme, "Edit", theme.accent_orange)
-                    .id(("settings-voice-edit", field.index()))
-                    .on_click(cx.listener(move |app, event, window, cx| {
-                        app.on_voice_settings_edit(field, event, window, cx);
-                    })),
-            ),
-    )
+    setting_row(theme, title, hint).child(editable_value_pill(theme, state, field, cx))
 }
 
 fn model_dir_row(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<MultisoulApp>) -> Div {
@@ -212,6 +200,7 @@ fn model_dir_row(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<Mult
             div()
                 .flex()
                 .flex_row()
+                .flex_wrap()
                 .items_center()
                 .gap(px(10.0))
                 .child(
@@ -280,6 +269,7 @@ fn input_device_row(
             div()
                 .flex()
                 .flex_row()
+                .flex_wrap()
                 .items_center()
                 .gap(px(10.0))
                 .child(
@@ -383,17 +373,19 @@ fn input_device_option(theme: Theme, label: String, selected: bool) -> Div {
 pub(super) fn setting_row(theme: Theme, title: &'static str, hint: &'static str) -> Div {
     div()
         .w_full()
+        .min_w(px(0.0))
         .flex()
-        .flex_row()
-        .items_center()
-        .justify_between()
-        .gap(px(24.0))
+        .flex_col()
+        .items_start()
+        .gap(px(10.0))
         .py(px(6.0))
         .child(setting_label(theme, title, hint))
 }
 
 fn setting_label(theme: Theme, title: &'static str, hint: &'static str) -> Div {
     div()
+        .w_full()
+        .min_w(px(0.0))
         .flex()
         .flex_col()
         .gap(px(4.0))
@@ -414,7 +406,9 @@ fn setting_label(theme: Theme, title: &'static str, hint: &'static str) -> Div {
 
 pub(super) fn value_pill(theme: Theme, value: String, editing: bool) -> Div {
     div()
-        .max_w(px(300.0))
+        .w_full()
+        .min_w(px(0.0))
+        .max_w(px(520.0))
         .overflow_hidden()
         .truncate()
         .px(px(12.0))

@@ -19,6 +19,8 @@ pub struct SettingsE2eSnapshot {
     pub new_terminal_modified: bool,
     pub status_message: Option<String>,
     pub agent_provider: &'static str,
+    pub agent_model: String,
+    pub voice_editing_field: Option<&'static str>,
 }
 
 impl MultisoulApp {
@@ -58,6 +60,11 @@ impl MultisoulApp {
             new_terminal_modified: new_terminal.map(|entry| entry.modified).unwrap_or(false),
             status_message: self.shortcuts.status.message.clone(),
             agent_provider: self.voice_settings.values().agent_provider().as_str(),
+            agent_model: self.voice_settings.active_agent_model().to_string(),
+            voice_editing_field: self
+                .voice_settings
+                .editing_field()
+                .map(crate::settings::voice::VoiceSettingsField::stable_name),
         }
     }
 }

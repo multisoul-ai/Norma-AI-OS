@@ -14,7 +14,46 @@ const PANEL_MIN_W: f32 = 860.0;
 const PANEL_MAX_W: f32 = 1180.0;
 const PANEL_MIN_H: f32 = 620.0;
 const PANEL_MAX_H: f32 = 760.0;
-const SIDEBAR_W: f32 = 330.0;
+const SIDEBAR_MIN_W: f32 = 160.0;
+const SIDEBAR_MAX_W: f32 = 280.0;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct SettingsPanelLayout {
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+    sidebar_width: f32,
+}
+
+impl SettingsPanelLayout {
+    fn for_viewport(width: f32, height: f32) -> Self {
+        let margin = if width < 640.0 || height < 520.0 {
+            12.0
+        } else {
+            32.0
+        };
+        let available_width = (width - margin * 2.0).max(1.0);
+        let available_height = (height - margin * 2.0).max(1.0);
+        let panel_width = available_width
+            .min(PANEL_MAX_W)
+            .max(PANEL_MIN_W.min(available_width));
+        let panel_height = available_height
+            .min(PANEL_MAX_H)
+            .max(PANEL_MIN_H.min(available_height));
+        let sidebar_width = (panel_width * 0.28)
+            .clamp(SIDEBAR_MIN_W, SIDEBAR_MAX_W)
+            .min((panel_width * 0.45).max(1.0));
+
+        Self {
+            left: ((width - panel_width) * 0.5).max(0.0),
+            top: ((height - panel_height) * 0.5).max(0.0),
+            width: panel_width,
+            height: panel_height,
+            sidebar_width,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) enum SettingsSection {
@@ -173,16 +212,7 @@ impl MultisoulApp {
         let win = window.viewport_size();
         let win_w = f32::from(win.width);
         let win_h = f32::from(win.height);
-        let available_w = (win_w - 64.0).max(360.0);
-        let available_h = (win_h - 64.0).max(360.0);
-        let panel_w = available_w
-            .min(PANEL_MAX_W)
-            .max(PANEL_MIN_W.min(available_w));
-        let panel_h = available_h
-            .min(PANEL_MAX_H)
-            .max(PANEL_MIN_H.min(available_h));
-        let left = ((win_w - panel_w) * 0.5).max(24.0);
-        let top = ((win_h - panel_h) * 0.5).max(38.0);
+        let layout = SettingsPanelLayout::for_viewport(win_w, win_h);
 
         div()
             .id("settings-overlay")
@@ -203,10 +233,10 @@ impl MultisoulApp {
                     .id("settings-panel")
                     .debug_selector(|| "settings-panel".to_string())
                     .absolute()
-                    .left(px(left))
-                    .top(px(top))
-                    .w(px(panel_w))
-                    .h(px(panel_h))
+                    .left(px(layout.left))
+                    .top(px(layout.top))
+                    .w(px(layout.width))
+                    .h(px(layout.height))
                     .flex()
                     .flex_row()
                     .overflow_hidden()
@@ -217,9 +247,8 @@ impl MultisoulApp {
                     .bg(rgba(with_alpha(theme.panel, 0xf4)))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
                     .on_click(|_, _, cx| cx.stop_propagation())
-                    .child(self.render_settings_sidebar(theme, cx))
+                    .child(self.render_settings_sidebar(theme, layout.sidebar_width, cx))
                     .child(settings_content(
                         theme,
                         &self.settings_panel,
@@ -232,17 +261,28 @@ impl MultisoulApp {
             )
     }
 
-    fn render_settings_sidebar(&mut self, theme: Theme, cx: &mut Context<Self>) -> Div {
+    fn render_settings_sidebar(
+        &mut self,
+        theme: Theme,
+        sidebar_w: f32,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let active = self.settings_panel.active_section;
+        let compact = sidebar_w < 220.0;
 
         div()
-            .w(px(SIDEBAR_W))
+            .id("settings-sidebar-scroll")
+            .debug_selector(|| "settings-sidebar-scroll".to_string())
+            .w(px(sidebar_w))
+            .min_w(px(sidebar_w))
             .h_full()
+            .overflow_y_scroll()
+            .overflow_x_hidden()
             .flex()
             .flex_col()
             .gap(px(8.0))
-            .px(px(22.0))
-            .py(px(26.0))
+            .px(px(if compact { 12.0 } else { 22.0 }))
+            .py(px(if compact { 18.0 } else { 26.0 }))
             .border_r_1()
             .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
             .bg(rgba(with_alpha(theme.node_fill, 0xf2)))
@@ -263,18 +303,43 @@ impl MultisoulApp {
             //     active == SettingsSection::General,
             // ))
             // .child(sidebar_child(theme, "Date & Time", false))
-            .child(section_button(theme, SettingsSection::Keyboard, active, cx))
+            .child(section_button(
+                theme,
+                SettingsSection::Keyboard,
+                active,
+                compact,
+                cx,
+            ))
             .child(sidebar_gap())
             // [MOCK] Runtime/Agents/Skills 走 mock_section + 硬编码假数据，暂时屏蔽。
             // .child(section_button(theme, SettingsSection::Runtime, active, cx))
-            .child(section_button(theme, SettingsSection::Voice, active, cx))
-            .child(section_button(theme, SettingsSection::Agents, active, cx))
+            .child(section_button(
+                theme,
+                SettingsSection::Voice,
+                active,
+                compact,
+                cx,
+            ))
+            .child(section_button(
+                theme,
+                SettingsSection::Agents,
+                active,
+                compact,
+                cx,
+            ))
             // [MOCK] .child(section_button(theme, SettingsSection::Skills, active, cx))
-            .child(section_button(theme, SettingsSection::Hooks, active, cx))
+            .child(section_button(
+                theme,
+                SettingsSection::Hooks,
+                active,
+                compact,
+                cx,
+            ))
             .child(section_button(
                 theme,
                 SettingsSection::Wallpaper,
                 active,
+                compact,
                 cx,
             ))
     }
@@ -284,6 +349,7 @@ fn section_button(
     theme: Theme,
     section: SettingsSection,
     active: SettingsSection,
+    compact: bool,
     cx: &mut Context<MultisoulApp>,
 ) -> impl IntoElement {
     let is_active = section == active;
@@ -310,7 +376,7 @@ fn section_button(
         .flex_row()
         .items_center()
         .justify_between()
-        .px(px(18.0))
+        .px(px(if compact { 10.0 } else { 18.0 }))
         .rounded(px(7.0))
         .bg(rgba(bg))
         .text_color(rgba(text))
@@ -322,13 +388,18 @@ fn section_button(
         }))
         .child(
             div()
+                .flex_1()
+                .min_w(px(0.0))
                 .flex()
                 .flex_row()
                 .items_center()
-                .gap(px(12.0))
+                .gap(px(if compact { 8.0 } else { 12.0 }))
                 .child(section_icon(theme, section, is_active))
                 .child(
                     div()
+                        .min_w(px(0.0))
+                        .overflow_hidden()
+                        .truncate()
                         .text_size(px(15.0))
                         .font_weight(FontWeight::MEDIUM)
                         .child(section.title()),
@@ -336,6 +407,7 @@ fn section_button(
         )
         .child(
             div()
+                .flex_none()
                 .text_size(px(18.0))
                 .text_color(rgba(theme.text_tertiary))
                 .child(chevron),

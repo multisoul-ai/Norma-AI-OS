@@ -1,4 +1,6 @@
-use super::{action_button, setting_row, settings_group, text_setting_row, value_pill, with_alpha};
+use super::{
+    action_button, editable_value_pill, setting_row, settings_group, text_setting_row, with_alpha,
+};
 use crate::app::MultisoulApp;
 use crate::settings::voice::state::{AgentProviderKind, VoiceSettingsField, VoiceSettingsState};
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, Window};
@@ -80,8 +82,10 @@ fn provider_selector(
     )
     .child(
         div()
+            .w_full()
             .flex()
             .flex_row()
+            .flex_wrap()
             .gap(px(8.0))
             .child(
                 provider_button(theme, "Ollama", active == AgentProviderKind::Ollama)
@@ -126,27 +130,18 @@ fn api_key_row(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<Multis
     )
     .child(
         div()
+            .w_full()
             .flex()
             .flex_row()
+            .flex_wrap()
             .items_center()
             .gap(px(10.0))
-            .child(value_pill(
+            .child(editable_value_pill(
                 theme,
-                state.row_value(VoiceSettingsField::AgentApiKey),
-                state.is_editing(VoiceSettingsField::AgentApiKey),
+                state,
+                VoiceSettingsField::AgentApiKey,
+                cx,
             ))
-            .child(
-                action_button(theme, "Replace", theme.accent_orange)
-                    .id("settings-agent-provider-api-key-edit")
-                    .on_click(cx.listener(|app, event, window, cx| {
-                        app.on_voice_settings_edit(
-                            VoiceSettingsField::AgentApiKey,
-                            event,
-                            window,
-                            cx,
-                        );
-                    })),
-            )
             .child(
                 action_button(theme, "Clear", theme.destructive)
                     .id("settings-agent-provider-api-key-clear")

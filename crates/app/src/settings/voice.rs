@@ -1,7 +1,9 @@
 mod state;
 mod view;
 
-pub(crate) use state::{DialogueLlmMode, VoiceSettingsState, VoiceSettingsValues};
+pub(crate) use state::{
+    DialogueLlmMode, VoiceSettingsField, VoiceSettingsState, VoiceSettingsValues,
+};
 
 #[cfg(test)]
 pub(crate) use state::{EnvVoiceSettings, SavedVoiceSettings};

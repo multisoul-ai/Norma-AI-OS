@@ -101,6 +101,20 @@ pub(crate) enum VoiceSettingsField {
     RefineModel,
 }
 
+impl VoiceSettingsField {
+    pub(crate) fn stable_name(self) -> &'static str {
+        match self {
+            Self::AgentBaseUrl => "agent_base_url",
+            Self::AgentModel => "agent_model",
+            Self::AgentApiKey => "agent_api_key",
+            Self::OllamaEndpoint => "ollama_endpoint",
+            Self::PlannerModel => "planner_model",
+            Self::DialogueModel => "dialogue_model",
+            Self::RefineModel => "refine_model",
+        }
+    }
+}
+
 impl fmt::Debug for SavedVoiceSettings {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SavedVoiceSettings")

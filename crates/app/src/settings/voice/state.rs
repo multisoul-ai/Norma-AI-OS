@@ -122,6 +122,14 @@ impl VoiceSettingsState {
         &self.values
     }
 
+    pub(crate) fn editing_field(&self) -> Option<VoiceSettingsField> {
+        self.editing
+    }
+
+    pub(crate) fn active_agent_model(&self) -> &str {
+        self.values.active_provider_profile().model()
+    }
+
     pub(crate) fn input_devices(&self) -> &[AudioInputDevice] {
         &self.input_devices
     }

@@ -33,10 +33,12 @@ pub(super) fn settings_content(
         .child(
             div()
                 .id("settings-content-scroll")
+                .debug_selector(|| "settings-content-scroll".to_string())
                 .flex_1()
                 .min_w(px(0.0))
-                .overflow_scroll()
-                .px(px(26.0))
+                .overflow_y_scroll()
+                .overflow_x_hidden()
+                .px(px(18.0))
                 .pb(px(28.0))
                 .child(match panel.active_section {
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
@@ -84,7 +86,7 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
         .items_start()
         .justify_between()
         .pt(px(34.0))
-        .px(px(26.0))
+        .px(px(18.0))
         .child(title_column)
         .child(
             div()

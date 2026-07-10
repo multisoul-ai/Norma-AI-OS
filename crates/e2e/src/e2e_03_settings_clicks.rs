@@ -6,7 +6,10 @@
 //! `simulate_keystrokes` 输入真实按键序列。这样覆盖的是 GPUI hitbox →
 //! mouse down/up → on_click listener → app state 的完整链路。
 
-use gpui::{Modifiers, TestAppContext, VisualTestContext};
+use gpui::{
+    point, px, size, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent, Pixels, Point,
+    ScrollDelta, ScrollWheelEvent, TestAppContext, VisualTestContext,
+};
 
 use crate::harness::{echo_factory, enter_canvas, make_app};
 
@@ -144,12 +147,109 @@ fn e2e_03_settings_keyboard_shortcut_can_be_changed_and_restored_by_clicks() {
     );
 }
 
+/// Settings 小窗口适配与双击编辑链路。
+///
+/// 场景：窗口缩到 420×360 后打开 Voice Settings，并双击 Model 值区域。
+/// 数据构造：420×360 小于旧面板 860×620 的设计尺寸；向上滚动 450px，等于约 5 个
+/// 90px 设置行，可把 Provider 下方的 Model 行移入 248px 高的内容区；侧栏再滚动 300px，
+/// 大于 5 个导航项总高度 5×42=210px，可把底部 Wallpaper 入口移入可点击区域。
+/// 执行过程：resize → 打开 Settings → 切到 Voice → 滚动内容 → 双击字段 → 输入 x → Enter。
+/// 随后滚动侧栏并点击 Wallpaper。
+/// 预期结果：小窗口内仍能通过真实 hitbox 操作 Model 和底部导航；双击进入编辑，提交后
+/// model 追加 x 且 editing_field 清空；Wallpaper 成为 active section。
+#[test]
+fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let _tmp = tempfile::TempDir::new().expect("tempdir for workspace root should create");
+    enter_canvas(&app, cx, _tmp.path());
+    cx.simulate_resize(size(px(420.0), px(360.0)));
+    cx.run_until_parked();
+
+    click_debug(cx, "toolbar-settings");
+    click_debug(cx, "settings-section-voice");
+    let before = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    assert_eq!(
+        before.active_section, "Voice",
+        "小窗口中应能点击 Voice 导航，snapshot: {:?}",
+        before
+    );
+
+    scroll_debug(cx, "settings-content-scroll", -450.0);
+
+    double_click_debug(cx, "settings-voice-field-agent-model");
+    let editing = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    assert_eq!(
+        editing.voice_editing_field,
+        Some("agent_model"),
+        "双击 Model 值区域应进入内联编辑，snapshot: {:?}",
+        editing
+    );
+    cx.simulate_keystrokes("x");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    let committed = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    assert_eq!(
+        committed.agent_model,
+        format!("{}x", before.agent_model),
+        "双击后输入 x 并回车应修改当前 Agent model，snapshot: {:?}",
+        committed
+    );
+    assert_eq!(
+        committed.voice_editing_field, None,
+        "提交 Model 后不应继续处于编辑态，snapshot: {:?}",
+        committed
+    );
+
+    scroll_debug(cx, "settings-sidebar-scroll", -300.0);
+    click_debug(cx, "settings-section-wallpaper");
+    let wallpaper = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    assert_eq!(
+        wallpaper.active_section, "Wallpaper",
+        "小窗口滚动侧栏后应能点击底部 Wallpaper 导航，snapshot: {:?}",
+        wallpaper
+    );
+}
+
 fn click_debug(cx: &mut VisualTestContext, selector: &'static str) {
+    let position = move_to_debug_target(cx, selector);
+    cx.simulate_click(position, Modifiers::none());
+    cx.run_until_parked();
+}
+
+fn move_to_debug_target(cx: &mut VisualTestContext, selector: &'static str) -> Point<Pixels> {
     cx.run_until_parked();
     let bounds = cx
         .debug_bounds(selector)
         .unwrap_or_else(|| panic!("selector `{selector}` should have debug bounds before click"));
     cx.simulate_mouse_move(bounds.center(), None, Modifiers::none());
-    cx.simulate_click(bounds.center(), Modifiers::none());
+    bounds.center()
+}
+
+fn double_click_debug(cx: &mut VisualTestContext, selector: &'static str) {
+    let position = move_to_debug_target(cx, selector);
+    cx.simulate_event(MouseDownEvent {
+        position,
+        modifiers: Modifiers::none(),
+        button: MouseButton::Left,
+        click_count: 2,
+        first_mouse: false,
+    });
+    cx.simulate_event(MouseUpEvent {
+        position,
+        modifiers: Modifiers::none(),
+        button: MouseButton::Left,
+        click_count: 2,
+    });
+    cx.run_until_parked();
+}
+
+fn scroll_debug(cx: &mut VisualTestContext, selector: &'static str, delta_y: f32) {
+    let position = move_to_debug_target(cx, selector);
+    cx.simulate_event(ScrollWheelEvent {
+        position,
+        delta: ScrollDelta::Pixels(point(px(0.0), px(delta_y))),
+        ..Default::default()
+    });
     cx.run_until_parked();
 }
