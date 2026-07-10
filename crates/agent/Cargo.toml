@@ -8,7 +8,9 @@ license.workspace = true
 norma.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tracing.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+tracing-subscriber.workspace = true

@@ -196,6 +196,7 @@ where
                 "user turn must not be empty".to_string(),
             ));
         }
+        tracing::debug!(project_id = %self.project_id, "dialogue user turn received");
         self.dialogue_messages.push(user_message(&text));
         let request = ProviderRequest {
             messages: self.dialogue_messages.clone(),
@@ -262,6 +263,12 @@ where
             task_id,
             intent: intent.clone(),
         });
+        tracing::info!(
+            project_id = %self.project_id,
+            task_id,
+            intent = %intent,
+            "card task queued by dialogue"
+        );
         self.emit_event(AgentEvent::TaskQueued {
             task_id,
             summary: intent,
@@ -274,6 +281,12 @@ where
             return;
         };
         active.round_count += 1;
+        tracing::debug!(
+            project_id = %self.project_id,
+            task_id = active.task_id,
+            round = active.round_count,
+            "card subagent provider round started"
+        );
         let request = ProviderRequest {
             messages: active.messages.clone(),
             tools: crate::card_subagent_tool_specs(),
@@ -292,6 +305,11 @@ where
             } else {
                 response.text
             };
+            tracing::info!(
+                project_id = %self.project_id,
+                task_id,
+                "card subagent completed task"
+            );
             self.update_task_state(task_id, TaskState::Succeeded, Some(summary.clone()), None);
             self.emit_event(AgentEvent::TaskSucceeded { task_id, summary });
             self.active = None;
@@ -320,6 +338,13 @@ where
             task_id: active.task_id,
             tool_call_id: call.id.clone(),
         });
+        tracing::info!(
+            project_id = %self.project_id,
+            task_id = active.task_id,
+            tool_call_id = %call.id,
+            tool = %call.name,
+            "card subagent tool call started"
+        );
         let result = if let Some(result) = active.cached_results.get(&call.id) {
             result.clone()
         } else {
@@ -378,9 +403,16 @@ where
             .push(tool_message(call.id.clone(), card_result_message(&result)));
         self.emit_event(AgentEvent::ToolFinished {
             task_id: active.task_id,
-            tool_call_id: call.id,
+            tool_call_id: call.id.clone(),
             result: result.clone(),
         });
+        tracing::info!(
+            project_id = %self.project_id,
+            task_id = active.task_id,
+            tool = %call.name,
+            success = result.is_ok(),
+            "card subagent tool call finished"
+        );
         let task_id = active.task_id;
         self.update_completed_count(task_id, active.completed_tool_calls);
         if active.consecutive_failures >= self.budget.max_consecutive_tool_failures {

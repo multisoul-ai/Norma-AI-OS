@@ -5,6 +5,20 @@ use agent::{
 };
 use norma::protocol::{CardCommand, CardCommandResult};
 use std::collections::VecDeque;
+use std::sync::Once;
+
+static TRACE_INIT: Once = Once::new();
+
+pub fn init_trace() {
+    TRACE_INIT.call_once(|| {
+        tracing_subscriber::fmt()
+            .with_test_writer()
+            .without_time()
+            .with_max_level(tracing::Level::TRACE)
+            .try_init()
+            .expect("test tracing subscriber should initialize");
+    });
+}
 
 pub struct ScriptedProvider {
     responses: VecDeque<ProviderResponse>,

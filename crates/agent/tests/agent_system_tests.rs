@@ -5,7 +5,8 @@ use agent::{
 };
 use norma::protocol::CardCommand;
 use support::{
-    response, system, task_id_from, text_response, tool, RecordingHost, ScriptedProvider,
+    init_trace, response, system, task_id_from, text_response, tool, RecordingHost,
+    ScriptedProvider,
 };
 
 /// A-1：普通聊天只产生文本事件，不创建 CardTask，也不触碰 CardToolHost。
@@ -91,6 +92,7 @@ fn dialogue_task_start_suppresses_premature_completion_text_and_duplicates() {
 /// 预期结果：task id 在 queued/running/succeeded 事件和 Journal 中一致，send_text 指向新节点。
 #[test]
 fn dialogue_start_is_queued_before_independent_subagent_execution() {
+    init_trace();
     let dialogue = ScriptedProvider::new([response([tool(
         "dialogue-call-1",
         "card_task",
