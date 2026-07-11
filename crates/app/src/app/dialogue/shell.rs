@@ -20,6 +20,11 @@ impl MultisoulApp {
         self.dialogue.effective_voice_visual(self.voice.visual())
     }
 
+    pub(crate) fn can_open_microphone_privacy_settings(&self) -> bool {
+        self.voice.microphone_settings_recovery_available()
+            || self.dialogue.microphone_settings_recovery_available()
+    }
+
     pub(crate) fn start_always_listening_shell(&mut self, cx: &mut Context<Self>) {
         let values = self.voice_settings.values().clone();
         let input_device_id = values.input_device_id().map(ToOwned::to_owned);

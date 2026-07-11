@@ -118,6 +118,7 @@ fn test_dialogue_stop_returns_idle_but_models_remain_resident() {
 ///   - 正断言：返回 MicrophoneDenied 错误
 ///   - 正断言：phase 保持 Idle
 ///   - 正断言：底栏 label/visual 映射到麦克风错误
+///   - 正断言：错误态暴露麦克风系统设置恢复入口
 ///   - 负断言：不应进入 Listening 或 Always Listening label
 #[test]
 fn test_dialogue_start_fails_cleanly_when_mic_permission_denied() {
@@ -158,6 +159,10 @@ fn test_dialogue_start_fails_cleanly_when_mic_permission_denied() {
             state.effective_voice_visual(VoiceVisual::Idle),
             VoiceVisual::Error,
             "麦克风拒绝应映射 Error 视觉"
+        );
+        assert!(
+            state.microphone_settings_recovery_available(),
+            "Always Listening 的 MicrophoneDenied 必须暴露与一次性录音相同的系统设置恢复入口"
         );
         assert_ne!(
             state.effective_voice_label("Voice"),

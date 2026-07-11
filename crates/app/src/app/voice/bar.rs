@@ -43,8 +43,9 @@ fn voice_pill(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let palette = voice_palette(theme, visual);
+    let microphone_settings_recovery = app.can_open_microphone_privacy_settings();
 
-    div()
+    let mut pill = div()
         .h(px(42.0))
         .min_w(px(168.0))
         .max_w(px(520.0))
@@ -59,17 +60,20 @@ fn voice_pill(
         .shadow(voice_shadow(theme))
         .bg(rgba(palette.fill))
         .text_color(rgba(palette.text))
-        .text_size(px(13.0))
-        .on_mouse_down(
-            MouseButton::Left,
-            cx.listener(MultisoulApp::on_voice_bar_mouse_down),
-        )
-        .on_mouse_up(
-            MouseButton::Left,
-            cx.listener(MultisoulApp::on_voice_bar_mouse_up),
-        )
-        .child(status_glyph(theme, visual))
-        .child(voice_content(theme, visual, app))
+        .text_size(px(13.0));
+    if !microphone_settings_recovery {
+        pill = pill
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(MultisoulApp::on_voice_bar_mouse_down),
+            )
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(MultisoulApp::on_voice_bar_mouse_up),
+            );
+    }
+    pill.child(status_glyph(theme, visual))
+        .child(voice_content(theme, visual, app, cx))
 }
 
 /// 按 `visual` 取色：图标色、文字色、pill 填充与描边。Idle 一律弱化。
@@ -161,7 +165,12 @@ fn static_waveform(theme: Theme) -> Div {
 
 /// pill 右侧的内容区，按 `visual` 分支：
 /// Idle = 键帽提示；Recording = 波形 + 转写；其余 = 状态文字。
-fn voice_content(theme: Theme, visual: VoiceVisual, app: &mut MultisoulApp) -> Div {
+fn voice_content(
+    theme: Theme,
+    visual: VoiceVisual,
+    app: &mut MultisoulApp,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
     match visual {
         VoiceVisual::Idle => div()
             .flex()
@@ -184,10 +193,42 @@ fn voice_content(theme: Theme, visual: VoiceVisual, app: &mut MultisoulApp) -> D
                     .text_color(rgba(theme.text_primary))
                     .child(app.effective_voice_label()),
             ),
-        VoiceVisual::Processing | VoiceVisual::Success | VoiceVisual::Error => {
+        VoiceVisual::Processing | VoiceVisual::Success => {
             div().max_w(px(420.0)).child(app.effective_voice_label())
         }
+        VoiceVisual::Error => {
+            let mut content = div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .max_w(px(460.0))
+                .child(app.effective_voice_label());
+            if app.can_open_microphone_privacy_settings() {
+                content = content.child(microphone_settings_button(theme, cx));
+            }
+            content
+        }
     }
+}
+
+fn microphone_settings_button(theme: Theme, cx: &mut Context<MultisoulApp>) -> impl IntoElement {
+    div()
+        .id("voice-open-microphone-settings")
+        .debug_selector(|| "voice-open-microphone-settings".to_string())
+        .h(px(26.0))
+        .px(px(9.0))
+        .flex()
+        .items_center()
+        .rounded(px(7.0))
+        .border_1()
+        .border_color(rgba(with_alpha(theme.destructive, 0x70)))
+        .bg(rgba(with_alpha(theme.destructive, 0x18)))
+        .text_size(px(12.0))
+        .text_color(rgba(theme.text_primary))
+        .cursor_pointer()
+        .on_click(cx.listener(MultisoulApp::on_voice_open_microphone_privacy_settings))
+        .child("Open Microphone Settings")
 }
 
 /// Idle 用的小键帽，风格参照 `settings/keyboard.rs` 的 `keycap()` 但更克制：

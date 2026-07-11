@@ -10,6 +10,7 @@ use crate::shortcuts::ShortcutSettingsState;
 use gpui::{App, Context};
 use runtime::Runtime;
 use std::time::Duration;
+use voice_sherpa::SpeechError;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ApiKeyDisplayState {
@@ -170,6 +171,13 @@ impl MultisoulApp {
         self.runtime.set_workspace_root(root.to_path_buf());
         self.screen = AppScreen::Canvas;
         self.last_reflow_window_size = None;
+        cx.notify();
+    }
+
+    /// 注入已被 TCC 拒绝的麦克风错误，供 L1 e2e 验证应用内恢复 UI。
+    /// 系统设置本身属于 L3 外部流程，不能由 headless GPUI 修改。
+    pub fn show_microphone_permission_denied_for_e2e(&mut self, cx: &mut Context<Self>) {
+        self.voice.set_speech_error(&SpeechError::MicrophoneDenied);
         cx.notify();
     }
 

@@ -3,20 +3,19 @@
 mod card_tools;
 mod chat;
 mod error;
+mod error_state;
 mod reply;
 mod reply_loop;
 mod reply_stream;
 mod shell;
 mod turn;
 
-pub(crate) use turn::VoiceTurnArtifacts;
 use crate::app::voice::control::VoiceVisual;
 use crate::settings::voice::{DialogueLlmMode, VoiceSettingsValues};
 use dialogue::{
     apply_asr_final, handle_speaking_speech_start, DialoguePhase, DialogueSession,
     SpeakingSpeechSource, UtteranceCommitter,
 };
-use error::start_error_label;
 use gpui::{Context, Task};
 use reply::{create_assistant_audio_sink, ReplyPlayback, TtsClientBox};
 use reply_stream::StreamPlaybackBuffer;
@@ -27,6 +26,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+pub(crate) use turn::VoiceTurnArtifacts;
 use voice_sherpa::{PcmStreamSession, SherpaProvider, SpeechError};
 
 type MicPermissionCheck = fn() -> Result<(), SpeechError>;
@@ -125,6 +125,7 @@ pub(crate) struct DialogueControlState {
     next_startup_attempt: u64,
     pending_startup_attempt: Option<u64>,
     error_message: Option<String>,
+    microphone_settings_recovery_available: bool,
     pub(super) queued_template_reports: Vec<String>,
     pub(super) last_reply_text: Option<String>,
     pub(super) pending_voice_turn: bool,
@@ -162,6 +163,7 @@ impl Default for DialogueControlState {
             next_startup_attempt: 0,
             pending_startup_attempt: None,
             error_message: None,
+            microphone_settings_recovery_available: false,
             queued_template_reports: Vec::new(),
             last_reply_text: None,
             pending_voice_turn: false,
@@ -322,6 +324,7 @@ impl DialogueControlState {
         cx: &mut Context<crate::app::MultisoulApp>,
     ) {
         self.error_message = None;
+        self.microphone_settings_recovery_available = false;
         self.session.on_listening_started();
         self.pcm_stream = Some(runtime.pcm_stream);
         chat::start_pipeline_event_pump(self, runtime.pipeline_events, cx);
@@ -338,6 +341,7 @@ impl DialogueControlState {
         self.abort_reply_stream(false);
         self.session.on_playback_finished_or_interrupted(true);
         self.error_message = Some(message.into());
+        self.microphone_settings_recovery_available = false;
         self.reply_task = None;
     }
 
@@ -352,12 +356,6 @@ impl DialogueControlState {
             .ok_or_else(|| dialogue::DialogueError::Message("missing pending_transcript".into()))
     }
 
-    pub(crate) fn mark_start_error(&mut self, error: DialogueStartError) {
-        self.stop_pcm_stream();
-        self.session.on_listening_stopped();
-        self.error_message = Some(start_error_label(&error));
-    }
-
     pub(crate) fn stop_shell(&mut self) {
         self.card_task_cancel.cancel_all();
         self.abort_reply_stream(false);
@@ -365,6 +363,7 @@ impl DialogueControlState {
         self.stop_pcm_stream();
         self.session.on_listening_stopped();
         self.error_message = None;
+        self.microphone_settings_recovery_available = false;
         self.last_reply_text = None;
         self.pending_voice_turn = false;
         self.startup_task = None;
@@ -400,18 +399,15 @@ impl DialogueControlState {
     ) -> Result<(), DialogueStartError> {
         if let Err(speech_error) = check_mic_permission() {
             let error = DialogueStartError::Speech(speech_error);
-            self.error_message = Some(start_error_label(&error));
-            self.stop_pcm_stream();
-            self.session.on_listening_stopped();
+            self.record_start_error(&error);
             return Err(error);
         }
         if let Err(error) = Self::validate_dialogue_start(values) {
-            self.error_message = Some(start_error_label(&error));
-            self.stop_pcm_stream();
-            self.session.on_listening_stopped();
+            self.record_start_error(&error);
             return Err(error);
         }
         self.error_message = None;
+        self.microphone_settings_recovery_available = false;
         self.session.on_listening_started();
         Ok(())
     }

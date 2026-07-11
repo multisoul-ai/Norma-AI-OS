@@ -2,6 +2,8 @@
 
 use gpui::{Keystroke, Modifiers, Task};
 
+mod error;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum VoiceTrigger {
     Shortcut,
@@ -39,6 +41,7 @@ pub(crate) enum VoicePhase {
 
 pub(crate) struct VoiceControlState {
     phase: VoicePhase,
+    microphone_settings_recovery_available: bool,
     speech_session: Option<voice_sherpa::SpeechSession>,
     /// Holds the outer permission/finish task for the current voice recording.
     speech_task: Option<Task<()>>,
@@ -53,6 +56,7 @@ impl Default for VoiceControlState {
     fn default() -> Self {
         Self {
             phase: VoicePhase::Idle,
+            microphone_settings_recovery_available: false,
             speech_session: None,
             speech_task: None,
             partials_task: None,
@@ -150,6 +154,7 @@ impl VoiceControlState {
     }
 
     pub(crate) fn set_error(&mut self, message: impl Into<String>) {
+        self.microphone_settings_recovery_available = false;
         self.phase = VoicePhase::Error {
             message: message.into(),
         };

@@ -1,7 +1,45 @@
 use super::{
+    microphone_permission_recovery_url, microphone_privacy_settings_url,
     voice_recording_input_device_id_from_value, voice_transcript_source_from_value,
     VoicePlanningJob, VoicePlanningResult, VoiceTranscriptSource, DEFAULT_MAX_VOICE_STEPS,
 };
+use voice_sherpa::SpeechError;
+
+/// AV-5：仅在 macOS 已拒绝麦克风权限时，语音错误应提供系统设置恢复入口。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   denied error      = SpeechError::MicrophoneDenied（TCC 已记录拒绝，不能再次弹窗）
+///   restricted error  = SpeechError::MicrophoneRestricted（受系统策略限制，用户不能自行授权）
+///   audio error       = SpeechError::Audio("capture failed")（设备/采集失败，非 TCC 拒绝）
+///   expected URL      = x-apple.systempreferences:...Privacy_Microphone（macOS 麦克风页）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 将 MicrophoneDenied 传入 recovery helper → 返回麦克风隐私设置 URL。
+///   2. 将 MicrophoneRestricted 传入 recovery helper → 返回 None，避免承诺用户可解除策略限制。
+///   3. 将普通 Audio 错误传入 recovery helper → 返回 None，避免把设备故障误报为权限问题。
+///
+/// 预期结果：
+///   - 断言 A：Denied 必须提供准确的系统设置 URL，用户可恢复授权。
+///   - 断言 B：Restricted 不应提供该 URL，避免无效跳转。
+///   - 断言 C：普通音频错误不应提供该 URL，避免错误的恢复建议。
+#[test]
+fn test_microphone_permission_denied_offers_only_the_microphone_settings_recovery() {
+    assert_eq!(
+        microphone_permission_recovery_url(&SpeechError::MicrophoneDenied),
+        Some(microphone_privacy_settings_url()),
+        "已拒绝的麦克风权限必须引导用户打开 macOS 麦克风隐私设置"
+    );
+    assert_eq!(
+        microphone_permission_recovery_url(&SpeechError::MicrophoneRestricted),
+        None,
+        "受系统策略限制时不应显示可由用户自行恢复的麦克风设置入口"
+    );
+    assert_eq!(
+        microphone_permission_recovery_url(&SpeechError::Audio("capture failed".to_string())),
+        None,
+        "普通音频采集错误不应误显示麦克风权限恢复入口"
+    );
+}
 
 /// AV-0: 默认 voice planner 步数应覆盖“四张卡片 + 一次输入”的复合语音。
 ///

@@ -19,7 +19,7 @@ use crate::app::voice::log::{
 };
 use crate::app::voice::planning::VoicePlanningOutcome;
 use crate::app::{AppScreen, MultisoulApp};
-use gpui::{Context, MouseDownEvent, MouseUpEvent, Window};
+use gpui::{ClickEvent, Context, MouseDownEvent, MouseUpEvent, Window};
 use history::VoiceOutcome;
 #[cfg(test)]
 pub(crate) use planning::VoicePlanningJob;
@@ -28,6 +28,16 @@ use voice::{CardRef, RiskLevel, VoiceCardKind, VoicePlanningRequest};
 use voice_sherpa::SpeechError;
 
 const DEFAULT_MAX_VOICE_STEPS: usize = 8;
+const MICROPHONE_PRIVACY_SETTINGS_URL: &str =
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
+
+pub(crate) fn microphone_privacy_settings_url() -> &'static str {
+    MICROPHONE_PRIVACY_SETTINGS_URL
+}
+
+pub(crate) fn microphone_permission_recovery_url(error: &SpeechError) -> Option<&'static str> {
+    matches!(error, SpeechError::MicrophoneDenied).then_some(microphone_privacy_settings_url())
+}
 
 impl MultisoulApp {
     pub(crate) fn begin_voice_recording(&mut self, trigger: VoiceTrigger, cx: &mut Context<Self>) {
@@ -58,8 +68,7 @@ impl MultisoulApp {
                 let _ = this.update(cx, |app, cx| {
                     match perm {
                         Err(error) => {
-                            app.voice
-                                .set_error(format!("Speech recognition failed: {error}"));
+                            app.voice.set_speech_error(&error);
                             app.save_voice_speech_error(error);
                         }
                         Ok(()) => {
@@ -87,8 +96,7 @@ impl MultisoulApp {
                                     app.voice.set_partials_task(partials_task);
                                 }
                                 Err(error) => {
-                                    app.voice
-                                        .set_error(format!("Speech recognition failed: {error}"));
+                                    app.voice.set_speech_error(&error);
                                     app.save_voice_speech_error(error);
                                 }
                             }
@@ -126,6 +134,25 @@ impl MultisoulApp {
                 trigger: VoiceTrigger::Shortcut,
             }
         )
+    }
+
+    pub(crate) fn on_voice_open_microphone_privacy_settings(
+        &mut self,
+        _: &ClickEvent,
+        _: &mut Window,
+        _: &mut Context<Self>,
+    ) {
+        if !self.can_open_microphone_privacy_settings() {
+            return;
+        }
+        let url = microphone_privacy_settings_url().to_string();
+        let _ = std::thread::Builder::new()
+            .name("open_microphone_privacy_settings".to_string())
+            .spawn(move || {
+                if let Err(error) = std::process::Command::new("open").arg(url).spawn() {
+                    tracing::warn!(%error, "failed to open macOS microphone privacy settings");
+                }
+            });
     }
 
     pub(crate) fn on_voice_bar_mouse_down(
@@ -179,8 +206,7 @@ impl MultisoulApp {
     fn process_sherpa_speech_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(session) = self.voice.take_speech_session() else {
             let error = SpeechError::NotRecording;
-            self.voice
-                .set_error(format!("Speech recognition failed: {error}"));
+            self.voice.set_speech_error(&error);
             self.save_voice_speech_error(error);
             return;
         };
@@ -189,8 +215,7 @@ impl MultisoulApp {
         let finalizer = match session.begin_finish() {
             Ok(finalizer) => finalizer,
             Err(error) => {
-                self.voice
-                    .set_error(format!("Speech recognition failed: {error}"));
+                self.voice.set_speech_error(&error);
                 self.save_voice_speech_error(error);
                 return;
             }
@@ -224,8 +249,7 @@ impl MultisoulApp {
                 self.record_empty_voice_transcript();
             }
             Err(error) => {
-                self.voice
-                    .set_error(format!("Speech recognition failed: {error}"));
+                self.voice.set_speech_error(&error);
                 self.save_voice_speech_error(error);
             }
         }
