@@ -149,6 +149,58 @@ fn test_utterance_to_reply_enters_thinking_then_speaking() {
     );
 }
 
+/// DS-4b：后台任务报告只能在 Listening 时占用一次回复播放槽。
+///
+/// 数据构造：会话先进入 Listening，不产生用户 transcript。
+/// 执行过程：调用 `on_report_pending()`。
+/// 预期结果：成功进入 Thinking，随后可复用正常 `on_reply_ready()` 进入 Speaking。
+#[test]
+fn test_background_report_enters_thinking_before_playback() {
+    let mut session = DialogueSession::new();
+    session.on_listening_started();
+
+    assert_eq!(
+        session.on_report_pending(),
+        Ok(()),
+        "Listening 下后台终态报告应能占用回复播放槽"
+    );
+    assert_eq!(
+        session.phase(),
+        DialoguePhase::Thinking,
+        "报告开始合成前应进入 Thinking"
+    );
+    assert_eq!(
+        session.on_reply_ready(),
+        Ok(()),
+        "后台报告应复用正常 TTS ready 状态迁移"
+    );
+    assert_eq!(
+        session.phase(),
+        DialoguePhase::Speaking,
+        "后台报告音频就绪后应进入 Speaking"
+    );
+}
+
+/// DS-4c：Always Listening 未开启时，后台报告必须保留排队而不能擅自播放。
+///
+/// 数据构造：新会话保持 Idle。
+/// 执行过程：调用 `on_report_pending()`。
+/// 预期结果：返回 Err，phase 仍为 Idle。
+#[test]
+fn test_background_report_from_idle_is_rejected() {
+    let mut session = DialogueSession::new();
+
+    assert!(
+        session.on_report_pending().is_err(),
+        "Idle 下不得开始后台报告播放"
+    );
+    assert_eq!(
+        session.phase(),
+        DialoguePhase::Idle,
+        "被拒绝的后台报告不得改变会话状态"
+    );
+}
+
 /// DS-5: 播放结束且 keep_listening=true 时回到 Listening。
 ///
 /// 数据构造：

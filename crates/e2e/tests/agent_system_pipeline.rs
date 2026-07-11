@@ -1,4 +1,4 @@
-//! L1 domain e2e：从 Dialogue card_task 到 Card Subagent，再到可审计卡片命令。
+//! L1 domain e2e：从明确 Dialogue 用户意图到 Card Subagent，再到可审计卡片命令。
 //!
 //! 该文件验证 AgentSystem 的公开 seam，不声称启动真实 `.app`；真实 GPUI/L3 流程仍需
 //! 在真实麦克风、Provider 和 TTS 环境中单独运行。
@@ -76,16 +76,15 @@ fn tools(calls: Vec<ProviderToolCall>) -> ProviderResponse {
 
 /// L1-A-1：明确语音意图应在 queued receipt 后完成 create + send_text submit，并落审计。
 ///
-/// 数据构造：Dialogue 只产生一个 card_task start；Subagent 产生 create agent 与 send_text。
+/// 数据构造：Dialogue Provider 只返回确认文本，证明漏调用时会 fallback；Subagent 产生 create agent 与 send_text。
 /// 执行过程：submit UserTurn 后 pump 直到无新事件，再观察 host 与 MemoryJournal。
 /// 预期结果：task 成功、runtime-like host 的节点数增加、提交标记为 true、审计 task id 一致。
 #[test]
 fn voice_intent_reaches_runtime_like_host_and_journal() {
-    let dialogue = ScriptedProvider::new(vec![tools(vec![call(
-        "dialogue-1",
-        "card_task",
-        r#"{"action":"start","intent":"创建 Codex 并发送分析 README"}"#,
-    )])]);
+    let dialogue = ScriptedProvider::new(vec![ProviderResponse {
+        text: "请确认要创建哪种 Agent".to_string(),
+        tool_calls: Vec::new(),
+    }]);
     let card = ScriptedProvider::new(vec![
         tools(vec![call(
             "card-1",
@@ -115,7 +114,7 @@ fn voice_intent_reaches_runtime_like_host_and_journal() {
         .submit(AgentCommand::UserTurn(
             "创建 Codex 并发送分析 README".to_string(),
         ))
-        .expect("Dialogue 应成功产生 queued receipt");
+        .expect("明确创建意图应确定性产生 queued receipt");
     let task_id = queued
         .iter()
         .find_map(|event| match event {

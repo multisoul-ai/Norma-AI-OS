@@ -1,3 +1,4 @@
+use super::dialogue_policy::DialogueRoutingDecision;
 use super::AgentSystem;
 use crate::journal::CardTaskJournal;
 use crate::lifecycle::TaskCancelOutcome;
@@ -7,7 +8,7 @@ use crate::provider::{
 use crate::tools::{parse_dialogue_tool_call, DialogueToolAction};
 use crate::{
     dialogue_tool_specs, AgentError, AgentEvent, AgentMessage, CardToolHost, ProviderRequest,
-    CARD_TASK_TOOL, MAX_DIALOGUE_HISTORY_TURNS,
+    ProviderToolCall, CARD_TASK_TOOL, MAX_DIALOGUE_HISTORY_TURNS,
 };
 
 impl<D, C, H, J> AgentSystem<D, C, H, J>
@@ -27,6 +28,7 @@ where
         while self.dialogue_turns.len() >= MAX_DIALOGUE_HISTORY_TURNS {
             self.dialogue_turns.pop_front();
         }
+        let routing_decision = super::dialogue_policy::route_user_turn(&text);
         let mut turn = vec![user_message(&text)];
         let request = ProviderRequest {
             messages: self.dialogue_request_messages(&turn),
@@ -34,7 +36,7 @@ where
         };
         crate::diagnostics::dialogue_request(&self.project_id, &request);
         let mut streamed = Vec::new();
-        let response = self.dialogue_provider.stream(&request, &mut |event| {
+        let mut response = self.dialogue_provider.stream(&request, &mut |event| {
             if let crate::ProviderStreamEvent::TextDelta(text) = event {
                 if !text.is_empty() {
                     streamed.push(text);
@@ -42,6 +44,23 @@ where
             }
         })?;
         crate::diagnostics::dialogue_response(&self.project_id, &response);
+        if routing_decision == DialogueRoutingDecision::RequireCardTaskFallback
+            && !response.tool_calls.iter().any(|call| {
+                call.name == CARD_TASK_TOOL
+                    && matches!(
+                        parse_dialogue_tool_call(&call.arguments_json),
+                        Ok(DialogueToolAction::Start { .. })
+                    )
+            })
+        {
+            response
+                .tool_calls
+                .retain(|call| call.name != CARD_TASK_TOOL);
+            response
+                .tool_calls
+                .push(self.explicit_card_task_fallback(&text));
+            response.text.clear();
+        }
         let actions = response
             .tool_calls
             .iter()
@@ -121,6 +140,18 @@ where
         }
         self.dialogue_turns.push_back(turn);
         Ok(())
+    }
+
+    fn explicit_card_task_fallback(&self, intent: &str) -> ProviderToolCall {
+        ProviderToolCall {
+            id: format!("dialogue-policy-card-task-{}", self.next_task_id),
+            name: CARD_TASK_TOOL.to_string(),
+            arguments_json: serde_json::json!({
+                "action": "start",
+                "intent": intent,
+            })
+            .to_string(),
+        }
     }
 
     fn dialogue_request_messages(&self, current_turn: &[AgentMessage]) -> Vec<AgentMessage> {

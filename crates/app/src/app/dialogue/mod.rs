@@ -319,7 +319,6 @@ impl DialogueControlState {
         self.stop_pcm_stream();
         self.session.on_listening_stopped();
         self.error_message = None;
-        self.queued_template_reports.clear();
         self.last_reply_text = None;
         self.pending_voice_turn = false;
         self.startup_task = None;
@@ -456,6 +455,10 @@ fn start_error_label(error: &DialogueStartError) -> String {
 #[cfg(test)]
 #[path = "../../../tests/unit/app_dialogue_shell_tests.rs"]
 mod app_dialogue_shell_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/agent_report_queue_tests.rs"]
+mod agent_report_queue_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/unit/app_dialogue_ollama_gate_tests.rs"]

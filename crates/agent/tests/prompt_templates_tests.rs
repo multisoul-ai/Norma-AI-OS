@@ -36,6 +36,14 @@ fn dialogue_system_prompt_combines_product_rules_with_full_persona() {
         "产品运行层必须约束任务状态的真实性"
     );
     assert!(
+        prompt.contains("必须立即调用 `card_task`") && prompt.contains("不得要求用户二次确认"),
+        "明确且信息充分的画布操作必须立即派发，不能继续追问确认"
+    );
+    assert!(
+        prompt.contains("创建终端") && prompt.contains("创建 Codex"),
+        "产品规则必须给模型提供明确创建类任务的工具选择锚点"
+    );
+    assert!(
         prompt.contains(agent::dialogue_persona()),
         "组合后的 Dialogue prompt 必须完整保留 persona 源文本"
     );

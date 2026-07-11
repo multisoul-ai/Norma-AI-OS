@@ -17,11 +17,13 @@ pub(super) fn with_dialogue_shell_test_guard(assertions: impl FnOnce()) {
     DialogueControlState::reset_test_seams_for_tests();
 }
 
-fn mic_ok() -> Result<(), SpeechError> {
+pub(super) fn mic_ok() -> Result<(), SpeechError> {
     Ok(())
 }
 
-fn always_listening_values(model_dir: Option<std::path::PathBuf>) -> VoiceSettingsValues {
+pub(super) fn always_listening_values(
+    model_dir: Option<std::path::PathBuf>,
+) -> VoiceSettingsValues {
     let saved = SavedVoiceSettings {
         realtime_enabled: Some(true),
         paraformer_model_dir: model_dir,

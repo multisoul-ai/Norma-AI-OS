@@ -64,6 +64,17 @@ impl DialogueSession {
         Ok(())
     }
 
+    pub fn on_report_pending(&mut self) -> Result<(), DialogueError> {
+        if self.phase != DialoguePhase::Listening {
+            return Err(DialogueError::Message(format!(
+                "on_report_pending requires Listening, got {:?}",
+                self.phase
+            )));
+        }
+        self.phase = DialoguePhase::Thinking;
+        Ok(())
+    }
+
     pub fn on_reply_ready(&mut self) -> Result<(), DialogueError> {
         if self.phase != DialoguePhase::Thinking {
             return Err(DialogueError::Message(format!(

@@ -81,6 +81,8 @@ impl MultisoulApp {
             let go = this.update_in(cx, |app, window, cx| {
                 if app.dialogue.take_pending_voice_turn() {
                     app.dialogue.begin_voice_turn_reply(window, cx);
+                } else {
+                    app.dialogue.begin_queued_agent_report(window, cx);
                 }
             });
             if go.is_err() {

@@ -67,6 +67,61 @@ fn provider_request_codecs_keep_protocol_boundary() {
     );
 }
 
+/// P-1c：OpenAI-compatible 请求只在携带工具时显式声明自动工具选择。
+///
+/// 数据构造：分别构造一条带生产 `card_task` schema 的创建终端消息，以及一条空工具消息，
+/// 两者使用同一 OpenAI-compatible 配置。
+/// 执行过程：构造并解析两份 wire request body。
+/// 预期结果：带工具 body 同时包含 tools 与 `tool_choice="auto"`；空工具 body 不含
+/// `tool_choice`，避免发送无意义字段。
+#[test]
+fn openai_request_with_tools_declares_auto_tool_choice() {
+    let config = ProviderConfig::new(
+        ProviderProtocol::OpenAiCompatible,
+        "https://api.example.com/v1",
+        "tool-model",
+        Some("secret-key".to_string()),
+    );
+    let tool_request = ProviderRequest {
+        messages: vec![AgentMessage {
+            role: MessageRole::User,
+            content: "创建一个终端".to_string(),
+            tool_call_id: None,
+            tool_calls: Vec::new(),
+        }],
+        tools: agent::dialogue_tool_specs(),
+    };
+
+    let wire = build_openai_chat_request(&config, &tool_request)
+        .expect("带 card_task 的 OpenAI-compatible 请求应成功编码");
+    let (_, body) = wire
+        .split_once("\r\n\r\n")
+        .expect("编码后的 HTTP request 必须包含 header/body 分隔符");
+    let body: serde_json::Value =
+        serde_json::from_str(body).expect("OpenAI-compatible HTTP body 必须是合法 JSON");
+
+    assert_eq!(
+        body["tools"][0]["function"]["name"], "card_task",
+        "请求必须携带生产 card_task 工具 schema"
+    );
+    assert_eq!(
+        body["tool_choice"], "auto",
+        "OpenAI-compatible 工具请求必须显式声明 auto，不能依赖 Provider 默认值"
+    );
+
+    let no_tools_wire = build_openai_chat_request(&config, &request())
+        .expect("不带工具的 OpenAI-compatible 请求也应成功编码");
+    let (_, no_tools_body) = no_tools_wire
+        .split_once("\r\n\r\n")
+        .expect("无工具 HTTP request 必须包含 header/body 分隔符");
+    let no_tools_body: serde_json::Value = serde_json::from_str(no_tools_body)
+        .expect("无工具 OpenAI-compatible HTTP body 必须是合法 JSON");
+    assert!(
+        no_tools_body.get("tool_choice").is_none(),
+        "没有工具 schema 时不得发送无意义的 tool_choice"
+    );
+}
+
 /// P-1b：assistant tool call 必须按各协议的 function wire shape 编码，而不能直接暴露领域字段名。
 ///
 /// 数据构造：assistant 返回 card_task，arguments_json 为 JSON 字符串。

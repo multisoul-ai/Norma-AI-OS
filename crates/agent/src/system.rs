@@ -14,6 +14,7 @@ use std::time::Instant;
 
 pub(crate) mod card_task;
 mod dialogue;
+mod dialogue_policy;
 pub(crate) struct PendingTask {
     pub(crate) task_id: TaskId,
 }

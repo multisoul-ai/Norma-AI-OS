@@ -125,12 +125,15 @@ pub fn build_openai_chat_request(
     request: &ProviderRequest,
 ) -> Result<String, ProviderError> {
     ensure_protocol(config, ProviderProtocol::OpenAiCompatible)?;
-    let body = json!({
+    let mut body = json!({
         "model": config.model,
         "messages": messages_json(request, true),
         "tools": tools_json(request),
         "stream": false,
     });
+    if !request.tools.is_empty() {
+        body["tool_choice"] = json!("auto");
+    }
     build_http_request(config, "/chat/completions", &body, true)
 }
 

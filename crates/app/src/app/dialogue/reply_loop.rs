@@ -32,6 +32,92 @@ impl DialogueControlState {
         pending
     }
 
+    pub(crate) fn queue_agent_report(&mut self, report: String) {
+        self.queued_template_reports.push(report);
+    }
+
+    pub(crate) fn begin_next_agent_report(&mut self) -> Option<String> {
+        if self.session.phase() != DialoguePhase::Listening
+            || self.reply_task.is_some()
+            || self.queued_template_reports.is_empty()
+        {
+            return None;
+        }
+        self.session.on_report_pending().ok()?;
+        self.queued_template_reports.first().cloned()
+    }
+
+    pub(crate) fn complete_current_agent_report(&mut self) {
+        if !self.queued_template_reports.is_empty() {
+            self.queued_template_reports.remove(0);
+        }
+    }
+
+    pub(crate) fn begin_queued_agent_report(
+        &mut self,
+        window: &mut gpui::Window,
+        cx: &mut Context<crate::app::MultisoulApp>,
+    ) {
+        let Some(report) = self.begin_next_agent_report() else {
+            return;
+        };
+        self.last_reply_text = Some(report.clone());
+        let existing_tts = self.tts_client.take();
+        let task = cx.spawn_in(window, async move |this, cx| {
+            let synthesis_task = cx.background_executor().spawn(async move {
+                let mut tts = match existing_tts {
+                    Some(tts) => tts,
+                    None => create_tts_client()?,
+                };
+                let chunk = synthesize_reply(tts.as_mut(), &report)?;
+                Ok::<_, voice_sherpa::SpeechError>((tts, chunk))
+            });
+            let (tts, chunk) = match synthesis_task.await {
+                Ok(result) => result,
+                Err(error) => {
+                    tracing::warn!(%error, "agent terminal report synthesis failed");
+                    let _ = this.update(cx, |app, cx| {
+                        app.dialogue
+                            .recover_reply_failure(format!("Speech error: {error}"));
+                        cx.notify();
+                    });
+                    return;
+                }
+            };
+            let schedule_result = this.update(cx, |app, _cx| {
+                app.dialogue.tts_client = Some(tts);
+                schedule_reply_chunk(
+                    &mut app.dialogue.session,
+                    &mut app.dialogue.reply_playback,
+                    &chunk,
+                )
+            });
+            match schedule_result {
+                Ok(Ok(playback_duration)) => {
+                    cx.background_executor().timer(playback_duration).await;
+                    let _ = this.update(cx, |app, cx| {
+                        if app.dialogue.session.phase() == DialoguePhase::Speaking {
+                            finish_reply_playback(&mut app.dialogue.session, true);
+                        }
+                        app.dialogue.complete_current_agent_report();
+                        app.dialogue.reply_task = None;
+                        cx.notify();
+                    });
+                }
+                Ok(Err(error)) => {
+                    tracing::warn!(%error, "agent terminal report playback failed");
+                    let _ = this.update(cx, |app, cx| {
+                        app.dialogue
+                            .recover_reply_failure(format!("Speech error: {error}"));
+                        cx.notify();
+                    });
+                }
+                Err(_) => {}
+            }
+        });
+        self.reply_task = Some(task);
+    }
+
     pub(crate) fn begin_voice_turn_reply(
         &mut self,
         window: &mut gpui::Window,

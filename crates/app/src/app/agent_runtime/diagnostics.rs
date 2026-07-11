@@ -101,7 +101,7 @@ pub(super) fn turn_events(events: &[AgentEvent]) {
 
 pub(super) fn empty_turn_fallback() {
     tracing::warn!(
-        "{FLOW_MARKER} voice turn had no visible agent event and will use the dispatch fallback text"
+        "{FLOW_MARKER} voice turn had no visible agent event and will use the empty-response fallback text"
     );
 }
 

@@ -312,17 +312,28 @@ pub(crate) fn artifacts_from_agent_events(
     for event in events {
         match event {
             AgentEvent::DialogueTextDelta { text } => reply.push_str(&text),
-            AgentEvent::TaskQueued { summary, .. } => reply = summary,
+            AgentEvent::TaskQueued { summary, .. } => reply = format!("任务已派发：{summary}"),
             AgentEvent::TaskSucceeded { summary, .. } => reply = summary,
             AgentEvent::TaskFailed { reason, .. } => reply = format!("任务失败：{reason}"),
             AgentEvent::TaskCancelled { .. } => reply = "任务已取消".to_string(),
+            AgentEvent::TaskInterrupted { .. } => reply = "任务已中断".to_string(),
+            AgentEvent::TaskStatus {
+                task_id,
+                state,
+                completed_tool_calls,
+            } => {
+                reply = format!(
+                    "任务 #{task_id} 状态：{state}；已完成 {completed_tool_calls} 次工具调用"
+                )
+            }
+            AgentEvent::ProviderError { message } => reply = format!("模型服务错误：{message}"),
             _ => {}
         }
     }
     reply = strip_thinking_blocks(&reply);
     if reply.trim().is_empty() {
         diagnostics::empty_turn_fallback();
-        reply = "任务已派发".to_string();
+        reply = "我没有收到有效回复，请再试一次。".to_string();
     }
     crate::app::dialogue::VoiceTurnArtifacts {
         reply_text: reply,
@@ -444,18 +455,32 @@ fn start_event_pump(
     cx.spawn(async move |this, cx| {
         while let Ok(event) = events.recv().await {
             diagnostics::event_receive(runtime_id, &event);
-            if let AgentEvent::TaskSucceeded { summary, .. } = event {
+            if let Some(report) = terminal_task_report(&event) {
                 let _ = this.update(cx, |app, cx| {
                     if !is_current_runtime(app, runtime_id) {
                         return;
                     }
-                    app.dialogue.queued_template_reports.push(summary);
+                    app.dialogue.queue_agent_report(report);
                     cx.notify();
                 });
             }
         }
     })
     .detach();
+}
+
+fn terminal_task_report(event: &AgentEvent) -> Option<String> {
+    match event {
+        AgentEvent::TaskSucceeded { summary, .. } => Some(summary.clone()),
+        AgentEvent::TaskFailed { reason, .. } => Some(format!("任务失败：{reason}")),
+        AgentEvent::TaskCancelled {
+            partial_effects: true,
+            ..
+        } => Some("任务已取消；已发生的操作不会回滚".to_string()),
+        AgentEvent::TaskCancelled { .. } => Some("任务已取消".to_string()),
+        AgentEvent::TaskInterrupted { .. } => Some("任务已中断".to_string()),
+        _ => None,
+    }
 }
 
 fn is_current_runtime(app: &MultisoulApp, runtime_id: u64) -> bool {

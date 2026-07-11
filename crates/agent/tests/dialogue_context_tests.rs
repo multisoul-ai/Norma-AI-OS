@@ -222,21 +222,17 @@ fn dialogue_history_discards_old_turns_without_dropping_system_prompt() {
     );
 }
 
-/// A-1c：Dialogue 的 card_task tool call 必须在共享上下文中闭合为 queued receipt。
+/// A-1c：明确创建 fallback 生成的 card_task tool call 必须在共享上下文中闭合为 queued receipt。
 ///
-/// 数据构造：首轮返回 call-queued 的 start；第二轮返回普通文本，并记录两次 ProviderRequest。
-/// 执行过程：连续提交两个 UserTurn，检查第二次请求携带的历史消息。
+/// 数据构造：首轮 Provider 只追问确认且不调用工具；后续进度查询返回普通文本，并记录两次 ProviderRequest。
+/// 执行过程：先提交明确创建指令触发 fallback，再提交进度查询，检查查询请求携带的合成历史消息。
 /// 预期结果：assistant tool call 后存在同 call id 的 Tool 消息，内容含 queued 与 task_id=1。
 #[test]
 fn dialogue_task_start_appends_queued_tool_receipt_to_shared_context() {
     let requests = Arc::new(Mutex::new(Vec::new()));
     let dialogue = RecordingDialogueProvider {
         responses: VecDeque::from([
-            response([tool(
-                "call-queued",
-                "card_task",
-                r#"{"action":"start","intent":"创建终端"}"#,
-            )]),
+            text_response("请确认需要哪一种终端"),
             text_response("任务仍在后台执行"),
         ]),
         requests: requests.clone(),
@@ -263,7 +259,7 @@ fn dialogue_task_start_appends_queued_tool_receipt_to_shared_context() {
     assert_eq!(
         recorded.len(),
         2,
-        "连续两个 UserTurn 应产生两次 Provider 请求"
+        "明确创建应先经过 Dialogue Provider，漏调用时再由策略 fallback"
     );
     let tool_receipt = recorded[1]
         .messages
@@ -272,8 +268,8 @@ fn dialogue_task_start_appends_queued_tool_receipt_to_shared_context() {
         .expect("第二轮上下文应包含 queued tool receipt");
     assert_eq!(
         tool_receipt.tool_call_id.as_deref(),
-        Some("call-queued"),
-        "Tool receipt 必须闭合原始 OpenAI tool call id"
+        Some("dialogue-policy-card-task-1"),
+        "Tool receipt 必须闭合确定性策略生成的稳定 tool call id"
     );
     assert!(
         tool_receipt.content.contains(r#""status":"queued""#),
@@ -345,7 +341,7 @@ fn dialogue_unknown_tool_call_appends_an_ignored_receipt_to_shared_context() {
 
 /// A-1e：Dialogue 的取消工具回执必须反映任务真实状态，而非统一声称“请求中”。
 ///
-/// 数据构造：先排队 task #1 并在启动前取消，再尝试取消不存在的 #999；随后排队 task #2、启动其 Subagent，再取消运行中的任务。
+/// 数据构造：通过 DirectCardTask 排队 task #1 并在启动前取消，再尝试取消不存在的 #999；随后直接排队 task #2、启动其 Subagent，再取消运行中的任务。
 /// 执行过程：在每次取消后的下一次公开 ProviderRequest 中查找相同 tool call id 的 Tool 回执。
 /// 预期结果：排队任务记录 `cancelled`，未知任务记录 `error`，运行中任务记录 `cancel_requested`；三者不得相互混淆。
 #[test]
@@ -353,11 +349,6 @@ fn dialogue_cancel_receipts_reflect_queued_active_and_unknown_task_states() {
     let requests = Arc::new(Mutex::new(Vec::new()));
     let dialogue = RecordingDialogueProvider {
         responses: VecDeque::from([
-            response([tool(
-                "start-queued",
-                "card_task",
-                r#"{"action":"start","intent":"创建终端"}"#,
-            )]),
             response([tool(
                 "cancel-queued",
                 "card_task",
@@ -367,11 +358,6 @@ fn dialogue_cancel_receipts_reflect_queued_active_and_unknown_task_states() {
                 "cancel-unknown",
                 "card_task",
                 r#"{"action":"cancel","task_id":999}"#,
-            )]),
-            response([tool(
-                "start-active",
-                "card_task",
-                r#"{"action":"start","intent":"再创建一个终端"}"#,
             )]),
             response([tool(
                 "cancel-active",
@@ -397,7 +383,7 @@ fn dialogue_cancel_receipts_reflect_queued_active_and_unknown_task_states() {
     );
 
     system
-        .submit(AgentCommand::UserTurn("先创建一个终端".to_string()))
+        .submit(AgentCommand::DirectCardTask("先创建一个终端".to_string()))
         .expect("首轮应创建排队任务");
     system
         .submit(AgentCommand::UserTurn("取消第一个任务".to_string()))
@@ -406,7 +392,7 @@ fn dialogue_cancel_receipts_reflect_queued_active_and_unknown_task_states() {
         .submit(AgentCommand::UserTurn("取消不存在的任务".to_string()))
         .expect("未知任务必须以 Tool 错误回执而非中断 Dialogue turn 收口");
     system
-        .submit(AgentCommand::UserTurn("再创建一个终端".to_string()))
+        .submit(AgentCommand::DirectCardTask("再创建一个终端".to_string()))
         .expect("第二个任务应成功入队");
     let _ = system.pump();
     system
@@ -420,14 +406,14 @@ fn dialogue_cancel_receipts_reflect_queued_active_and_unknown_task_states() {
         .lock()
         .expect("request recording lock should not be poisoned");
     let queued_cancel_follow_up = recorded
-        .get(2)
-        .expect("第三次 Provider 请求必须保留排队任务的取消回执");
+        .get(1)
+        .expect("第二次 Provider 请求必须保留排队任务的取消回执");
     let unknown_cancel_follow_up = recorded
-        .get(3)
-        .expect("第四次 Provider 请求必须保留未知任务的错误回执");
+        .get(2)
+        .expect("第三次 Provider 请求必须保留未知任务的错误回执");
     let active_cancel_follow_up = recorded
-        .get(5)
-        .expect("第六次 Provider 请求必须保留运行中任务的取消请求回执");
+        .get(3)
+        .expect("第四次 Provider 请求必须保留运行中任务的取消请求回执");
     assert!(
         request_contains_tool_receipt(queued_cancel_follow_up, "cancel-queued", "cancelled"),
         "已从 pending 队列移除的任务必须回执为 cancelled"
