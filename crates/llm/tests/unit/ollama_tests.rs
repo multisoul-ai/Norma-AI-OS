@@ -37,7 +37,7 @@ fn start_fake_ollama(
     (endpoint, requests, handle)
 }
 
-fn start_fake_ollama_tags_only() -> (String, JoinHandle<()>) {
+fn start_fake_ollama_tags_only(body: &'static str) -> (String, JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("fake Ollama listener 应绑定本地端口");
     let endpoint = format!(
         "http://{}",
@@ -50,10 +50,7 @@ fn start_fake_ollama_tags_only() -> (String, JoinHandle<()>) {
             .accept()
             .expect("fake Ollama 应接受 readiness 请求");
         let _request = read_http_request(&mut stream);
-        write_json_response(
-            &mut stream,
-            r#"{"models":[{"name":"qwen3.5:0.8b","modified_at":"now"}]}"#,
-        );
+        write_json_response(&mut stream, body);
     });
     (endpoint, handle)
 }
@@ -145,10 +142,38 @@ fn request_body(requests: &Arc<Mutex<Vec<String>>>, index: usize) -> String {
 ///   - 负断言：不应返回 Message 错误
 #[test]
 fn test_probe_ollama_ready_accepts_tags_response() {
-    let (endpoint, handle) = start_fake_ollama_tags_only();
+    let (endpoint, handle) =
+        start_fake_ollama_tags_only(r#"{"models":[{"name":"qwen3.5:0.8b","modified_at":"now"}]}"#);
 
     probe_ollama_ready(&endpoint).expect("tags 响应含 models 时应判定 Ollama 可用");
     handle.join().expect("fake Ollama thread 应正常结束");
+}
+
+/// OL-8: readiness 必须确认配置模型已经安装，不能把空模型服务判为可对话。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   fake Ollama /api/tags 返回 models = []；目标模型 = qwen3.5:0.8b
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 调用 probe_ollama_model_ready(endpoint, model)
+///   2. 解析已安装模型列表并匹配目标模型
+///
+/// 预期结果：
+///   - 正断言：返回错误且包含目标模型与 `ollama pull` 修复提示
+///   - 负断言：空模型列表不得返回 Ok，避免 ASR 完成后才静默失败
+#[test]
+fn test_probe_ollama_model_ready_rejects_empty_model_list() {
+    let (endpoint, handle) = start_fake_ollama_tags_only(r#"{"models":[]}"#);
+
+    let result = probe_ollama_model_ready(&endpoint, "qwen3.5:0.8b");
+    handle.join().expect("fake Ollama thread 应正常结束");
+
+    assert!(
+        matches!(result, Err(LlmError::Message(ref message))
+            if message.contains("qwen3.5:0.8b") && message.contains("ollama pull")),
+        "未安装目标模型时应返回可执行的下载提示，实际: {result:?}"
+    );
+    assert!(result.is_err(), "空模型列表不应被判定为 ready");
 }
 
 /// OL-2: probe_ollama_ready 在连接失败时应返回可读错误。
@@ -248,6 +273,118 @@ fn test_ollama_chat_posts_tools_and_parses_assistant_text() {
         value["stream"].as_bool(),
         Some(false),
         "chat 请求应关闭 stream"
+    );
+}
+
+/// OL-9: 实时语音 chat 请求必须关闭深度思考并限制回复长度。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   model = qwen3.5:0.8b；单轮用户消息；回复上限 = 128 tokens
+///   128 足以覆盖简短语音答复，同时避免默认 thinking 长时间占满 30 秒超时。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. build_chat_body 序列化 Ollama `/api/chat` 请求
+///   2. 解析 JSON 并检查低延迟参数
+///
+/// 预期结果：
+///   - 正断言：think == false
+///   - 正断言：options.num_predict == 128
+///   - 负断言：请求不能依赖模型默认的无界 thinking
+#[test]
+fn test_chat_body_disables_thinking_and_caps_voice_reply_output() {
+    let request = ChatRequest {
+        messages: vec![ChatMessage {
+            role: Role::User,
+            content: "你好".into(),
+            tool_call_id: None,
+            tool_calls: vec![],
+        }],
+        tools: card_tool_specs(),
+    };
+
+    let body = build_chat_body("qwen3.5:0.8b", &request).expect("实时语音 chat body 应可序列化");
+    let value: Value = serde_json::from_slice(&body).expect("chat body 应是 JSON");
+
+    assert_eq!(
+        value["think"].as_bool(),
+        Some(false),
+        "实时语音请求应显式关闭 thinking"
+    );
+    assert_eq!(
+        value["options"]["num_predict"].as_u64(),
+        Some(128),
+        "实时语音回复应限制为 128 tokens"
+    );
+    assert_ne!(
+        value["think"],
+        Value::Null,
+        "请求不得依赖 thinking 模型的默认行为"
+    );
+}
+
+/// OL-L3-1: 本机真实 Ollama 应在语音轮次超时内返回可播报文本。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   endpoint = MULTISOUL_OLLAMA_ENDPOINT 或默认 127.0.0.1:11434
+///   model = MULTISOUL_DIALOGUE_MODEL 或默认 qwen3.5:0.8b
+///   30 秒上限与生产 OllamaLlmClient timeout 一致
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 真实调用 `/api/chat`，携带生产 tools、think=false 与 128-token 上限
+///   2. 解析 assistant response 并记录耗时
+///
+/// 预期结果：
+///   - 正断言：30 秒内返回非空可播报文本
+///   - 负断言：不应返回 tool call 或卡在默认 thinking 直到超时
+#[test]
+#[ignore = "requires running Ollama and the configured dialogue model"]
+fn test_live_ollama_chat_returns_bounded_voice_reply() {
+    let endpoint = std::env::var("MULTISOUL_OLLAMA_ENDPOINT")
+        .unwrap_or_else(|_| "http://127.0.0.1:11434".to_string());
+    let model =
+        std::env::var("MULTISOUL_DIALOGUE_MODEL").unwrap_or_else(|_| "qwen3.5:0.8b".to_string());
+    probe_ollama_model_ready(&endpoint, &model)
+        .expect("真实 Ollama 应运行且已安装配置的 dialogue model");
+    let mut client = OllamaLlmClient::new(endpoint, model);
+    let request = ChatRequest {
+        messages: vec![
+            ChatMessage {
+                role: Role::System,
+                content: "你是 Norma 语音助手，请用一句简短中文回答。".into(),
+                tool_call_id: None,
+                tool_calls: vec![],
+            },
+            ChatMessage {
+                role: Role::User,
+                content: "你好，请回复实时语音测试成功。".into(),
+                tool_call_id: None,
+                tool_calls: vec![],
+            },
+        ],
+        tools: card_tool_specs(),
+    };
+    let started = std::time::Instant::now();
+
+    let response = client.chat(&request).expect("真实 Ollama chat 应成功");
+    let elapsed = started.elapsed();
+
+    assert!(
+        !response.assistant_text.trim().is_empty(),
+        "真实 Ollama 应返回可播报文本，实际: {response:?}"
+    );
+    assert!(
+        response.tool_calls.is_empty(),
+        "普通问候不应错误触发 card tools，实际: {:?}",
+        response.tool_calls
+    );
+    assert!(
+        elapsed < Duration::from_secs(30),
+        "真实语音回复应在生产超时前完成，实际耗时: {elapsed:?}"
+    );
+    eprintln!(
+        "live Ollama voice reply in {:.3}s: {}",
+        elapsed.as_secs_f64(),
+        response.assistant_text
     );
 }
 

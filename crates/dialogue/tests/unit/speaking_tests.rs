@@ -1,5 +1,8 @@
 use crate::session::{DialoguePhase, DialogueSession};
-use crate::speaking::{format_stub_reply, handle_barge_in_speech_start};
+use crate::speaking::{
+    format_stub_reply, handle_barge_in_speech_start, handle_speaking_speech_start,
+    SpeakingSpeechSource,
+};
 
 /// SPK-1: Speaking 阶段收到 SpeechStart 应回到 Listening 且 models_resident 不变。
 ///
@@ -65,5 +68,37 @@ fn test_format_stub_reply_prefixes_transcript() {
         format_stub_reply("你好"),
         "收到：你好",
         "stub reply 应使用收到：前缀包裹 transcript"
+    );
+}
+
+/// SPK-4: 未分类麦克风 SpeechStart 可能是 assistant 回声，不得直接截断 Speaking。
+///
+/// 数据构造：
+///   会话经 Listening → Thinking → Speaking；source = UnclassifiedMicrophone。
+///
+/// 执行过程：
+///   1. handle_speaking_speech_start(session, UnclassifiedMicrophone)
+///
+/// 预期结果：
+///   - 负断言：返回 false，不触发 barge-in；
+///   - 正断言：phase 仍为 Speaking，完整 TTS 可继续播放。
+#[test]
+fn test_unclassified_microphone_speech_does_not_interrupt_speaking() {
+    let mut session = DialogueSession::new();
+    session.on_listening_started();
+    session.on_utterance_final().expect("应进入 Thinking");
+    session.on_reply_ready().expect("应进入 Speaking");
+
+    let interrupted =
+        handle_speaking_speech_start(&mut session, SpeakingSpeechSource::UnclassifiedMicrophone);
+
+    assert!(
+        !interrupted,
+        "未分类麦克风事件可能是 TTS 回声，不应直接打断"
+    );
+    assert_eq!(
+        session.phase(),
+        DialoguePhase::Speaking,
+        "忽略回声候选后应继续 Speaking"
     );
 }

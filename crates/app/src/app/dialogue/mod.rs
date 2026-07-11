@@ -11,7 +11,10 @@ pub(crate) use turn::VoiceTurnArtifacts;
 
 use crate::app::voice::control::VoiceVisual;
 use crate::settings::voice::{DialogueLlmMode, VoiceSettingsValues};
-use dialogue::{apply_asr_final, handle_barge_in_speech_start, DialoguePhase, DialogueSession};
+use dialogue::{
+    apply_asr_final, handle_speaking_speech_start, DialoguePhase, DialogueSession,
+    SpeakingSpeechSource,
+};
 use gpui::{Context, Task};
 use reply::{create_assistant_audio_sink, ReplyPlayback, TtsClientBox};
 use std::fmt;
@@ -63,6 +66,14 @@ impl std::error::Error for DialogueStartError {}
 pub(crate) enum VoiceBarMouseDownAction {
     StartOneShotRecording,
     StartAlwaysListeningShell,
+    Ignore,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum VoiceShortcutKeyDownAction {
+    StartOneShotRecording,
+    StartAlwaysListeningShell,
+    InterruptAssistantReply,
     Ignore,
 }
 
@@ -220,6 +231,23 @@ impl DialogueControlState {
         }
     }
 
+    pub(crate) fn voice_shortcut_key_down_action(
+        &self,
+        always_listening_enabled: bool,
+    ) -> VoiceShortcutKeyDownAction {
+        if always_listening_enabled {
+            if self.phase() == DialoguePhase::Speaking {
+                return VoiceShortcutKeyDownAction::InterruptAssistantReply;
+            }
+            return if self.is_active() {
+                VoiceShortcutKeyDownAction::Ignore
+            } else {
+                VoiceShortcutKeyDownAction::StartAlwaysListeningShell
+            };
+        }
+        VoiceShortcutKeyDownAction::StartOneShotRecording
+    }
+
     pub(crate) fn begin_startup_attempt(&mut self) -> u64 {
         self.next_startup_attempt = self.next_startup_attempt.wrapping_add(1);
         let attempt = self.next_startup_attempt;
@@ -255,7 +283,16 @@ impl DialogueControlState {
 
     pub(crate) fn on_final_transcript(&mut self, text: &str) -> Result<(), SpeechError> {
         apply_asr_final(&mut self.session, text)
-            .map_err(|error| SpeechError::Recognizer(error.to_string()))
+            .map_err(|error| SpeechError::Recognizer(error.to_string()))?;
+        self.error_message = None;
+        Ok(())
+    }
+
+    pub(crate) fn recover_reply_failure(&mut self, message: impl Into<String>) {
+        self.reply_playback.interrupt();
+        self.session.on_playback_finished_or_interrupted(true);
+        self.error_message = Some(message.into());
+        self.reply_task = None;
     }
 
     #[cfg(test)]
@@ -334,12 +371,26 @@ impl DialogueControlState {
         Ok(())
     }
 
-    pub(super) fn on_speech_start_barge_in(&mut self) -> bool {
-        if self.session.phase() != DialoguePhase::Speaking {
+    pub(super) fn on_unclassified_speech_start(&mut self) -> bool {
+        let interrupted = handle_speaking_speech_start(
+            &mut self.session,
+            SpeakingSpeechSource::UnclassifiedMicrophone,
+        );
+        if !interrupted {
             return false;
         }
         self.reply_playback.interrupt();
-        handle_barge_in_speech_start(&mut self.session);
+        self.reply_task = None;
+        true
+    }
+
+    pub(crate) fn interrupt_assistant_reply_for_user_action(&mut self) -> bool {
+        let interrupted =
+            handle_speaking_speech_start(&mut self.session, SpeakingSpeechSource::ConfirmedUser);
+        if !interrupted {
+            return false;
+        }
+        self.reply_playback.interrupt();
         self.reply_task = None;
         true
     }
@@ -365,8 +416,8 @@ impl DialogueControlState {
     }
 
     #[cfg(test)]
-    pub(crate) fn on_speech_start_barge_in_for_tests(&mut self) -> bool {
-        self.on_speech_start_barge_in()
+    pub(crate) fn on_unclassified_speech_start_for_tests(&mut self) -> bool {
+        self.on_unclassified_speech_start()
     }
 
     #[cfg(test)]
@@ -409,3 +460,7 @@ mod app_dialogue_shell_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/app_dialogue_ollama_gate_tests.rs"]
 mod app_dialogue_ollama_gate_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/app_dialogue_shortcut_tests.rs"]
+mod app_dialogue_shortcut_tests;

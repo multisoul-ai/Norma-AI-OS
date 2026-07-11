@@ -48,6 +48,7 @@ rfd = "0.16"
 
 [dev-dependencies]
 tempfile.workspace = true
+hound = "3.5"
 
 # Video wallpaper spike (Task 1): objc2 + AVAssetReader → 420f CVPixelBuffer.
 # All AVFoundation interop is macOS-only; on other targets these crates are
@@ -59,6 +60,16 @@ core-foundation = "0.10"
 objc2 = "0.6"
 objc2-foundation = "0.3"
 objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSView"] }
+objc2-avf-audio = { version = "0.3.2", features = [
+    "AVAudioBuffer",
+    "AVAudioEngine",
+    "AVAudioFormat",
+    "AVAudioMixerNode",
+    "AVAudioNode",
+    "AVAudioPlayerNode",
+    "AVAudioTypes",
+    "block2",
+] }
 objc2-quartz-core = { version = "0.3", features = ["CALayer"] }
 objc2-av-foundation = { version = "0.3", features = [
     "AVAsset",

@@ -53,6 +53,16 @@ forbid_pattern_in_file \
   'rusqlite|Connection::open|ProjectStore|NodeSessionStore|SessionStore|CanvasStore|save_node_sessions|save_session_checkpoints|flush_persistence_now|find_(agent|codex)_session_id' \
   "canvas render code must not call persistence or session discovery APIs."
 
+forbid_pattern_in_file \
+  crates/app/src/app/dialogue/shell.rs \
+  'validate_dialogue_start|probe_ollama_ready|request_microphone_permission' \
+  "Always Listening GPUI shell entry must move model, Ollama, and microphone preflight to the background startup runtime."
+
+forbid_pattern_in_file \
+  crates/app/src/app/dialogue/reply_loop.rs \
+  'run_dialogue_turn_after_final' \
+  "Voice reply scheduling must not run synchronous LLM turns inside a GPUI entity update."
+
 codex_body=$(
   awk '
     /^fn codex_session_id_for_workspace\(/ { inside=1 }

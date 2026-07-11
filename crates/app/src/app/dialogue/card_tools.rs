@@ -4,6 +4,7 @@ use crate::canvas::master_layout::MasterLayoutState;
 use crate::motion::MotionStore;
 use crate::norma::server::{execute_card_command_for_area, NormaExecution};
 use canvas::CanvasRect;
+#[cfg(test)]
 use dialogue::{DialogueError, ToolExecutor};
 use norma::protocol::{CardCommand, CardCommandResult, NodeId};
 use runtime::Runtime;
@@ -39,10 +40,6 @@ pub(crate) fn template_report_for_result(result: &CardCommandResult) -> Option<S
 
 pub(crate) trait CardCommandRunner {
     fn execute(&mut self, command: CardCommand) -> Result<CardCommandResult, String>;
-
-    fn recorded_commands(&self) -> &[CardCommand] {
-        &[]
-    }
 }
 
 pub(crate) struct CanvasInlineCardRunner<'a> {
@@ -77,16 +74,19 @@ impl CanvasInlineCardRunner<'_> {
     }
 }
 
+#[cfg(test)]
 pub(crate) struct AppCardToolExecutor<'a, R: CardCommandRunner + ?Sized> {
     runner: &'a mut R,
 }
 
+#[cfg(test)]
 impl<'a, R: CardCommandRunner + ?Sized> AppCardToolExecutor<'a, R> {
     pub(crate) fn new(runner: &'a mut R) -> Self {
         Self { runner }
     }
 }
 
+#[cfg(test)]
 impl<R: CardCommandRunner + ?Sized> ToolExecutor for AppCardToolExecutor<'_, R> {
     fn execute(&mut self, command: CardCommand) -> Result<CardCommandResult, DialogueError> {
         self.runner.execute(command).map_err(DialogueError::Message)
@@ -120,10 +120,6 @@ impl CardCommandRunner for RecordingCardCommandRunner {
     fn execute(&mut self, command: CardCommand) -> Result<CardCommandResult, String> {
         self.recorded.push(command.clone());
         (self.handler)(command)
-    }
-
-    fn recorded_commands(&self) -> &[CardCommand] {
-        &self.recorded
     }
 }
 

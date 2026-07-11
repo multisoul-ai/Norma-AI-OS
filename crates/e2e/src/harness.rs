@@ -55,6 +55,19 @@ pub fn make_app(
     (view, cx)
 }
 
+/// 装配使用指定 SettingsStore 的 headless App，供持久化后重新加载的 e2e 使用。
+pub fn make_app_with_settings_store(
+    cx: &mut TestAppContext,
+    factory: PtyFactory,
+    store: storage::SettingsStore,
+) -> (Entity<MultisoulApp>, &mut VisualTestContext) {
+    let (view, cx) = cx.add_window_view(|_window, cx| {
+        MultisoulApp::new_with_pty_factory_and_voice_settings_store(cx, factory, store)
+    });
+    focus_root(&view, cx);
+    (view, cx)
+}
+
 /// 装配 headless GPUI 窗口 + `MultisoulApp`，**不**注入 PTY 工厂（走真实 PTY 路径）。
 ///
 /// 与 `make_app` 对称，但调用 `MultisoulApp::new(cx)`（无 `set_pty_factory`）→

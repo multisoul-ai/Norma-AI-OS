@@ -1,11 +1,10 @@
 use self::always_listening::always_listening_group;
-pub(super) use self::editable::editable_value_pill;
+pub(crate) use self::editable::VoiceSettingsInputs;
 use self::provider::agent_provider_group;
 use super::state::{VoiceSettingsField, VoiceSettingsState};
 use crate::app::MultisoulApp;
 use gpui::{
-    div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, MouseDownEvent,
-    PathPromptOptions, Window,
+    div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, PathPromptOptions, Window,
 };
 use ui::Theme;
 
@@ -16,6 +15,7 @@ mod provider;
 pub(crate) fn voice_settings(
     theme: Theme,
     state: &VoiceSettingsState,
+    inputs: &VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     div()
@@ -24,7 +24,7 @@ pub(crate) fn voice_settings(
         .flex()
         .flex_col()
         .gap(px(20.0))
-        .child(agent_provider_group(theme, state, cx))
+        .child(agent_provider_group(theme, state, inputs, cx))
         .child(
             settings_group(theme, "Speech Recognition")
                 .child(model_dir_row(theme, state, cx))
@@ -36,18 +36,6 @@ pub(crate) fn voice_settings(
 }
 
 impl MultisoulApp {
-    pub(crate) fn on_voice_settings_edit(
-        &mut self,
-        field: VoiceSettingsField,
-        _event: &MouseDownEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.voice_settings.begin_edit(field);
-        self.focus_handle.focus(window);
-        cx.notify();
-    }
-
     pub(crate) fn on_voice_settings_choose_model_dir(
         &mut self,
         _: &ClickEvent,
@@ -163,13 +151,14 @@ pub(super) fn settings_group(theme: Theme, title: &'static str) -> Div {
 
 pub(super) fn text_setting_row(
     theme: Theme,
-    state: &VoiceSettingsState,
+    inputs: &VoiceSettingsInputs,
     field: VoiceSettingsField,
     title: &'static str,
     hint: &'static str,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    setting_row(theme, title, hint).child(editable_value_pill(theme, state, field, cx))
+    let _ = cx;
+    setting_row(theme, title, hint).child(inputs.input(field))
 }
 
 fn model_dir_row(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<MultisoulApp>) -> Div {

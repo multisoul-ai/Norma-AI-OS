@@ -1,14 +1,17 @@
-use crate::app::{AppScreen, MultisoulApp, ToggleSettings};
+use crate::app::MultisoulApp;
 use gpui::{
-    div, point, prelude::*, px, rgba, BoxShadow, ClickEvent, Context, Div, FontWeight, MouseButton,
-    Window,
+    div, point, prelude::*, px, rgba, BoxShadow, Context, Div, FontWeight, KeyDownEvent,
+    MouseButton, Window,
 };
 use ui::Theme;
 
 #[path = "content.rs"]
 mod content;
+#[path = "panel_style.rs"]
+mod panel_style;
 
 use self::content::settings_content;
+use self::panel_style::{settings_shadow, with_alpha};
 
 const PANEL_MIN_W: f32 = 860.0;
 const PANEL_MAX_W: f32 = 1180.0;
@@ -167,40 +170,22 @@ impl SettingsPanelState {
 }
 
 impl MultisoulApp {
-    pub(crate) fn on_toolbar_settings(
+    /// Settings 面板 KeyDown 入口。
+    pub(crate) fn on_settings_panel_key_down(
         &mut self,
-        _: &ClickEvent,
-        _window: &mut Window,
+        ev: &KeyDownEvent,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.toggle_settings_panel(cx);
-    }
-
-    pub(crate) fn on_toggle_settings(
-        &mut self,
-        _: &ToggleSettings,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.toggle_settings_panel(cx);
-    }
-
-    pub(crate) fn toggle_settings_panel(&mut self, cx: &mut Context<Self>) {
-        if !matches!(self.screen, AppScreen::Canvas) {
+        if self.handle_settings_text_key_down(ev, cx) {
             return;
         }
-        let was_open = self.settings_panel.open;
-        self.settings_panel.toggle();
-        if was_open {
-            self.shortcuts.recording = None;
+        if self.voice_settings_inputs.is_focused(window, cx) {
+            return;
         }
-        cx.notify();
-    }
-
-    pub(crate) fn close_settings_panel(&mut self, cx: &mut Context<Self>) {
-        self.settings_panel.close();
-        self.shortcuts.recording = None;
-        cx.notify();
+        if self.shortcuts.recording.is_some() {
+            cx.stop_propagation();
+        }
     }
 
     pub(crate) fn render_settings_panel(
@@ -214,6 +199,7 @@ impl MultisoulApp {
         let win_h = f32::from(win.height);
         let layout = SettingsPanelLayout::for_viewport(win_w, win_h);
 
+        // overlay 挡住自动聚焦；点击时显式 focus。
         div()
             .id("settings-overlay")
             .debug_selector(|| "settings-overlay".to_string())
@@ -224,7 +210,13 @@ impl MultisoulApp {
             .bottom(px(0.0))
             .occlude()
             .bg(rgba(with_alpha(theme.graphite, 0x46)))
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_mouse_down(MouseButton::Left, {
+                let focus = self.focus_handle.clone();
+                move |_, window, cx| {
+                    focus.focus(window);
+                    cx.stop_propagation();
+                }
+            })
             .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
             .on_click(|_, _, cx| cx.stop_propagation())
@@ -232,6 +224,7 @@ impl MultisoulApp {
                 div()
                     .id("settings-panel")
                     .debug_selector(|| "settings-panel".to_string())
+                    .track_focus(&self.focus_handle)
                     .absolute()
                     .left(px(layout.left))
                     .top(px(layout.top))
@@ -245,15 +238,23 @@ impl MultisoulApp {
                     .border_color(rgba(with_alpha(theme.edge_highlight, 0x46)))
                     .shadow(settings_shadow(theme))
                     .bg(rgba(with_alpha(theme.panel, 0xf4)))
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_mouse_down(MouseButton::Left, {
+                        let focus = self.focus_handle.clone();
+                        move |_, window, cx| {
+                            focus.focus(window);
+                            cx.stop_propagation();
+                        }
+                    })
                     .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_click(|_, _, cx| cx.stop_propagation())
+                    .on_key_down(cx.listener(Self::on_settings_panel_key_down))
                     .child(self.render_settings_sidebar(theme, layout.sidebar_width, cx))
                     .child(settings_content(
                         theme,
                         &self.settings_panel,
                         &self.agent_definitions,
                         &self.voice_settings,
+                        &self.voice_settings_inputs,
                         &self.wallpaper_settings,
                         &self.shortcuts,
                         cx,
@@ -294,15 +295,10 @@ impl MultisoulApp {
                     .text_color(rgba(theme.text_primary))
                     .child("Settings"),
             )
-            // [MOCK] General/Themes 是占位实现（appearance.rs 无 on_click、硬编码选中），暂时屏蔽。
-            // .child(section_button(theme, SettingsSection::General, active, cx))
-            // .child(sidebar_child(theme, "Language & Region", false))
-            // .child(sidebar_child(
             //     theme,
             //     "Appearance",
             //     active == SettingsSection::General,
             // ))
-            // .child(sidebar_child(theme, "Date & Time", false))
             .child(section_button(
                 theme,
                 SettingsSection::Keyboard,
@@ -311,8 +307,6 @@ impl MultisoulApp {
                 cx,
             ))
             .child(sidebar_gap())
-            // [MOCK] Runtime/Agents/Skills 走 mock_section + 硬编码假数据，暂时屏蔽。
-            // .child(section_button(theme, SettingsSection::Runtime, active, cx))
             .child(section_button(
                 theme,
                 SettingsSection::Voice,
@@ -327,7 +321,6 @@ impl MultisoulApp {
                 compact,
                 cx,
             ))
-            // [MOCK] .child(section_button(theme, SettingsSection::Skills, active, cx))
             .child(section_button(
                 theme,
                 SettingsSection::Hooks,
@@ -450,19 +443,6 @@ fn settings_section_debug_selector(section: SettingsSection) -> &'static str {
         SettingsSection::Hooks => "settings-section-hooks",
         SettingsSection::Wallpaper => "settings-section-wallpaper",
     }
-}
-
-fn settings_shadow(theme: Theme) -> Vec<BoxShadow> {
-    vec![BoxShadow {
-        color: rgba(with_alpha(theme.shadow_color, 0x9a)).into(),
-        offset: point(px(0.0), px(26.0)),
-        blur_radius: px(58.0),
-        spread_radius: px(-22.0),
-    }]
-}
-
-fn with_alpha(color: u32, alpha: u8) -> u32 {
-    (color & 0xffffff00) | u32::from(alpha)
 }
 
 #[cfg(test)]

@@ -5,6 +5,8 @@ use norma::protocol::{CardCommand, CardCommandResult};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc};
 
+mod diagnostics;
+
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
 
 type ProjectAgentSystem = agent::AgentSystem<
@@ -20,6 +22,8 @@ struct AgentRequest {
 }
 
 struct AgentToolRequest {
+    task_id: u64,
+    tool_call_id: String,
     command: CardCommand,
     result_tx: mpsc::Sender<Result<CardCommandResult, String>>,
 }
@@ -39,9 +43,12 @@ impl agent::CardToolHost for ChannelCardToolHost {
         &mut self,
         request: agent::CardToolRequest,
     ) -> Result<agent::CardToolResult, agent::CardToolError> {
+        diagnostics::tool_bridge_send(&request);
         let (result_tx, result_rx) = mpsc::channel();
         self.sender
             .send_blocking(AgentToolRequest {
+                task_id: request.task_id,
+                tool_call_id: request.tool_call_id,
                 command: request.command,
                 result_tx,
             })
@@ -118,6 +125,7 @@ impl ProjectAgentRuntime {
     > {
         config.validate().map_err(|error| error.to_string())?;
         let id = NEXT_RUNTIME_ID.fetch_add(1, Ordering::Relaxed);
+        diagnostics::runtime_spawn(id, &config, project_db_path.is_some());
         let (request_tx, request_rx) = async_channel::unbounded();
         let (tool_tx, tool_rx) = async_channel::bounded(1);
         let (event_tx, event_rx) = async_channel::unbounded();
@@ -164,6 +172,7 @@ impl ProjectAgentRuntime {
         &self,
         command: AgentCommand,
     ) -> async_channel::Receiver<Result<Vec<AgentEvent>, String>> {
+        diagnostics::command_submit(self.id, &command);
         let (response_tx, response_rx) = async_channel::bounded(1);
         let result = self.request_tx.try_send(AgentRequest {
             command,
@@ -224,6 +233,7 @@ fn run_project_agent(
     );
     publish_events(system.events().to_vec(), &events);
     while let Ok(request) = requests.recv_blocking() {
+        diagnostics::worker_command(&request.command, system.pending_task_count());
         let closing = matches!(request.command, AgentCommand::ProjectClosed);
         handle_request(&mut system, request, &events);
         if closing {
@@ -237,6 +247,7 @@ fn run_project_agent(
                 handle_request(&mut system, request, &events);
             }
             let produced = system.pump();
+            diagnostics::worker_pump(&produced, system.pending_task_count());
             if interrupt_cancelled(&mut system, &events, &cancelled) {
                 return;
             }
@@ -280,6 +291,7 @@ fn handle_request(
     let result = system
         .submit(request.command)
         .map_err(|error| error.to_string());
+    diagnostics::worker_result(&result, system.pending_task_count());
     if let Ok(produced) = &result {
         publish_events(produced.clone(), events);
     }
@@ -295,6 +307,7 @@ fn publish_events(produced: Vec<AgentEvent>, events: &async_channel::Sender<Agen
 pub(crate) fn artifacts_from_agent_events(
     events: Vec<AgentEvent>,
 ) -> crate::app::dialogue::VoiceTurnArtifacts {
+    diagnostics::turn_events(&events);
     let mut reply = String::new();
     for event in events {
         match event {
@@ -306,7 +319,9 @@ pub(crate) fn artifacts_from_agent_events(
             _ => {}
         }
     }
+    reply = strip_thinking_blocks(&reply);
     if reply.trim().is_empty() {
+        diagnostics::empty_turn_fallback();
         reply = "任务已派发".to_string();
     }
     crate::app::dialogue::VoiceTurnArtifacts {
@@ -315,6 +330,23 @@ pub(crate) fn artifacts_from_agent_events(
         template_reports: Vec::new(),
         queued_template_reports: Vec::new(),
     }
+}
+
+fn strip_thinking_blocks(text: &str) -> String {
+    let mut visible = String::with_capacity(text.len());
+    let mut remaining = text;
+
+    while let Some(start) = remaining.find("<think>") {
+        visible.push_str(&remaining[..start]);
+        let after_start = &remaining[start + "<think>".len()..];
+        let Some(end) = after_start.find("</think>") else {
+            return visible.trim().to_string();
+        };
+        remaining = &after_start[end + "</think>".len()..];
+    }
+
+    visible.push_str(remaining);
+    visible.trim().to_string()
 }
 
 impl MultisoulApp {
@@ -364,6 +396,7 @@ fn start_tool_pump(
 ) {
     cx.spawn_in(window, async move |this, cx| {
         while let Ok(request) = tools.recv().await {
+            diagnostics::tool_bridge_receive(runtime_id, &request);
             let command = request.command.clone();
             let result = this.update_in(cx, |app, window, _cx| {
                 if !is_current_runtime(app, runtime_id) {
@@ -371,10 +404,12 @@ fn start_tool_pump(
                 }
                 execute_agent_card_command(app, window, command)
             });
-            request.complete(match result {
+            let result = match result {
                 Ok(result) => result,
                 Err(_) => Err("agent tool app context closed".to_string()),
-            });
+            };
+            diagnostics::tool_bridge_complete(runtime_id, &request, result.is_ok());
+            request.complete(result);
         }
     })
     .detach();
@@ -408,7 +443,7 @@ fn start_event_pump(
 ) {
     cx.spawn(async move |this, cx| {
         while let Ok(event) = events.recv().await {
-            tracing::debug!(?event, "project agent event");
+            diagnostics::event_receive(runtime_id, &event);
             if let AgentEvent::TaskSucceeded { summary, .. } = event {
                 let _ = this.update(cx, |app, cx| {
                     if !is_current_runtime(app, runtime_id) {
@@ -428,3 +463,7 @@ fn is_current_runtime(app: &MultisoulApp, runtime_id: u64) -> bool {
         .as_ref()
         .is_some_and(|runtime| runtime.id() == runtime_id)
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/agent_runtime_tests.rs"]
+mod agent_runtime_tests;

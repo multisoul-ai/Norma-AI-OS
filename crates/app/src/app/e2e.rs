@@ -7,8 +7,17 @@ use super::{AppScreen, MultisoulApp};
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::shortcuts::ShortcutCommandId;
 use crate::shortcuts::ShortcutSettingsState;
-use gpui::Context;
+use gpui::{App, Context};
 use runtime::Runtime;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ApiKeyDisplayState {
+    NotRendered,
+    NotConfigured,
+    Configured,
+    MaskedEditing,
+    Unsafe,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SettingsE2eSnapshot {
@@ -19,7 +28,14 @@ pub struct SettingsE2eSnapshot {
     pub new_terminal_modified: bool,
     pub status_message: Option<String>,
     pub agent_provider: &'static str,
+    pub agent_base_url: String,
     pub agent_model: String,
+    pub agent_api_key_configured: bool,
+    pub agent_base_url_input_surface_size: Option<(u32, u32)>,
+    pub agent_model_input_surface_size: Option<(u32, u32)>,
+    pub agent_base_url_rendered_text: Option<String>,
+    pub agent_model_rendered_text: Option<String>,
+    pub agent_api_key_display_state: ApiKeyDisplayState,
     pub voice_editing_field: Option<&'static str>,
 }
 
@@ -32,7 +48,33 @@ impl MultisoulApp {
         let mut app = Self::build(cx, runtime, agent_hook_server);
         app.shortcuts = ShortcutSettingsState::default();
         app.voice_settings = crate::settings::voice::VoiceSettingsState::in_memory_default();
+        app.voice_settings_inputs
+            .sync_from_state(&app.voice_settings, cx);
         app
+    }
+
+    pub fn new_with_pty_factory_and_voice_settings_store(
+        cx: &mut Context<Self>,
+        factory: runtime::PtyFactory,
+        store: storage::SettingsStore,
+    ) -> Self {
+        let mut app = Self::new_with_pty_factory(cx, factory);
+        app.voice_settings = crate::settings::voice::VoiceSettingsState::load_from_store(store);
+        app.voice_settings_inputs
+            .sync_from_state(&app.voice_settings, cx);
+        app
+    }
+
+    pub fn load_voice_provider_settings_for_e2e(
+        store: storage::SettingsStore,
+    ) -> (String, String, bool) {
+        let state = crate::settings::voice::VoiceSettingsState::load_from_store(store);
+        let profile = state.values().active_provider_profile();
+        (
+            profile.base_url().to_string(),
+            profile.model().to_string(),
+            profile.api_key().is_some(),
+        )
     }
 
     pub fn screen(&self) -> AppScreen {
@@ -46,7 +88,7 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    pub fn settings_e2e_snapshot(&self) -> SettingsE2eSnapshot {
+    pub fn settings_e2e_snapshot(&self, cx: &App) -> SettingsE2eSnapshot {
         let new_terminal = self
             .shortcuts
             .effective
@@ -60,12 +102,53 @@ impl MultisoulApp {
             new_terminal_modified: new_terminal.map(|entry| entry.modified).unwrap_or(false),
             status_message: self.shortcuts.status.message.clone(),
             agent_provider: self.voice_settings.values().agent_provider().as_str(),
+            agent_base_url: self
+                .voice_settings
+                .values()
+                .active_provider_profile()
+                .base_url()
+                .to_string(),
             agent_model: self.voice_settings.active_agent_model().to_string(),
+            agent_api_key_configured: self
+                .voice_settings
+                .values()
+                .active_provider_profile()
+                .api_key()
+                .is_some(),
+            agent_base_url_input_surface_size: self
+                .voice_settings_inputs
+                .input_surface_size(crate::settings::voice::VoiceSettingsField::AgentBaseUrl, cx),
+            agent_model_input_surface_size: self
+                .voice_settings_inputs
+                .input_surface_size(crate::settings::voice::VoiceSettingsField::AgentModel, cx),
+            agent_base_url_rendered_text: self
+                .voice_settings_inputs
+                .rendered_text(crate::settings::voice::VoiceSettingsField::AgentBaseUrl, cx),
+            agent_model_rendered_text: self
+                .voice_settings_inputs
+                .rendered_text(crate::settings::voice::VoiceSettingsField::AgentModel, cx),
+            agent_api_key_display_state: classify_api_key_display(
+                self.voice_settings_inputs
+                    .rendered_text(crate::settings::voice::VoiceSettingsField::AgentApiKey, cx)
+                    .as_deref(),
+            ),
             voice_editing_field: self
                 .voice_settings
                 .editing_field()
                 .map(crate::settings::voice::VoiceSettingsField::stable_name),
         }
+    }
+}
+
+fn classify_api_key_display(text: Option<&str>) -> ApiKeyDisplayState {
+    match text {
+        None => ApiKeyDisplayState::NotRendered,
+        Some("Not configured") => ApiKeyDisplayState::NotConfigured,
+        Some("Configured ••••••••") => ApiKeyDisplayState::Configured,
+        Some(value) if !value.is_empty() && value.chars().all(|character| character == '•') => {
+            ApiKeyDisplayState::MaskedEditing
+        }
+        Some(_) => ApiKeyDisplayState::Unsafe,
     }
 }
 

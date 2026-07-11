@@ -1,7 +1,7 @@
 use super::{with_alpha, SettingsPanelState, SettingsSection};
 use crate::app::MultisoulApp;
 use crate::settings::agents::{agents_settings, AgentDefinitionsState};
-use crate::settings::voice::{voice_settings, VoiceSettingsState};
+use crate::settings::voice::{voice_settings, VoiceSettingsInputs, VoiceSettingsState};
 use crate::settings::wallpaper::{wallpaper_settings, WallpaperSettingsState};
 use crate::shortcuts::ShortcutSettingsState;
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
@@ -18,6 +18,7 @@ pub(super) fn settings_content(
     panel: &SettingsPanelState,
     agent_definitions: &AgentDefinitionsState,
     voice_state: &VoiceSettingsState,
+    voice_inputs: &VoiceSettingsInputs,
     wallpaper_state: &WallpaperSettingsState,
     shortcuts: &ShortcutSettingsState,
     cx: &mut Context<MultisoulApp>,
@@ -42,7 +43,7 @@ pub(super) fn settings_content(
                 .pb(px(28.0))
                 .child(match panel.active_section {
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
-                    SettingsSection::Voice => voice_settings(theme, voice_state, cx),
+                    SettingsSection::Voice => voice_settings(theme, voice_state, voice_inputs, cx),
                     SettingsSection::Agents => agents_settings(theme, agent_definitions, cx),
                     SettingsSection::Hooks => hooks_settings(theme, panel, cx),
                     SettingsSection::Wallpaper => wallpaper_settings(theme, wallpaper_state, cx),

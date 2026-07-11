@@ -18,7 +18,7 @@ use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::agents::AgentDefinitionsState;
 use crate::settings::panel::SettingsPanelState;
-use crate::settings::voice::VoiceSettingsState;
+use crate::settings::voice::{VoiceSettingsInputs, VoiceSettingsState};
 use crate::settings::wallpaper::WallpaperSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::persistence::PersistenceScheduler;
@@ -31,6 +31,7 @@ use ui::Theme;
 
 mod agent_actions;
 mod agent_runtime;
+mod bootstrap;
 pub(crate) mod browser;
 pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 pub(crate) mod cef_process;
@@ -44,6 +45,7 @@ mod frame_throttle;
 mod ime;
 mod ime_geometry;
 mod keyboard;
+mod keyboard_settings;
 mod lifecycle;
 mod new_menu;
 #[cfg(target_os = "macos")]
@@ -55,7 +57,7 @@ mod video_wallpaper;
 mod voice;
 mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
-pub use e2e::SettingsE2eSnapshot;
+pub use e2e::{ApiKeyDisplayState, SettingsE2eSnapshot};
 
 actions!(
     multisoul,
@@ -92,6 +94,7 @@ pub struct MultisoulApp {
     pub(crate) settings_panel: SettingsPanelState,
     pub(crate) agent_definitions: AgentDefinitionsState,
     pub(crate) voice_settings: VoiceSettingsState,
+    pub(crate) voice_settings_inputs: VoiceSettingsInputs,
     pub(crate) shortcuts: ShortcutSettingsState,
     pub(crate) norma_server: NormaServer,
     pub(crate) agent_hook_server: AgentHookServer,
@@ -126,47 +129,6 @@ impl MultisoulApp {
         let mut runtime = Runtime::new();
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
         Self::build(cx, runtime, agent_hook_server)
-    }
-
-    fn build(cx: &mut Context<Self>, runtime: Runtime, agent_hook_server: AgentHookServer) -> Self {
-        cx.on_release(|app, cx| {
-            app.unregister_workspace_window_if_needed(cx);
-        })
-        .detach();
-
-        Self::start_frame_loops(cx);
-
-        let wallpaper_settings = WallpaperSettingsState::load_default();
-        MultisoulApp {
-            runtime,
-            theme: Theme::dark(),
-            interaction: InteractionState::default(),
-            motion: MotionStore::from_env(),
-            previews: PreviewStore::default(),
-            browsers: BrowserStore::default(),
-            browser_address_edit: None,
-            master_layout: MasterLayoutState::default(),
-            persistence: PersistenceScheduler::default(),
-            settings_panel: SettingsPanelState::default(),
-            agent_definitions: AgentDefinitionsState::default(),
-            voice_settings: VoiceSettingsState::load_default(),
-            shortcuts: ShortcutSettingsState::load_default(),
-            norma_server: NormaServer::start(),
-            agent_hook_server,
-            screen: AppScreen::Launchpad,
-            workspace_state: WorkspaceState::load_default(),
-            voice: crate::app::voice::control::VoiceControlState::default(),
-            dialogue: crate::app::dialogue::DialogueControlState::default(),
-            agent_runtime: None,
-            pending_voice_commands: Vec::new(),
-            focus_handle: cx.focus_handle(),
-            wallpaper_settings,
-            #[cfg(target_os = "macos")]
-            video_wallpaper: None,
-            last_reflow_window_size: None,
-            terminal_cursor_phase: 0.0,
-            terminal_cursor_repaint: FrameThrottle::default(),
-        }
     }
 
     fn advance_terminal_cursor_phase(&mut self, delta: Duration) -> bool {

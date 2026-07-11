@@ -3,12 +3,12 @@
 //! 本测试不直接调用 `toggle_settings_panel`、`settings_panel.select`、
 //! `begin_recording` 或 `restore_default` 等处理函数；它只通过
 //! `VisualTestContext::simulate_click` 点击已渲染控件的 debug bounds，并通过
-//! `simulate_keystrokes` 输入真实按键序列。这样覆盖的是 GPUI hitbox →
-//! mouse down/up → on_click listener → app state 的完整链路。
+//! `simulate_keystrokes` 或 `simulate_input` 输入真实按键与文本。Voice 文本输入必须经过
+//! GPUI 当前聚焦节点及平台 `InputHandler`，测试不得直接调用 Voice state 或输入 helper。
 
 use gpui::{
-    point, px, size, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent, Pixels, Point,
-    ScrollDelta, ScrollWheelEvent, TestAppContext, VisualTestContext,
+    point, px, size, ClipboardItem, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent, Pixels,
+    Point, ScrollDelta, ScrollWheelEvent, TestAppContext, VisualTestContext,
 };
 
 use crate::harness::{echo_factory, enter_canvas, make_app};
@@ -70,7 +70,7 @@ fn e2e_03_settings_keyboard_shortcut_can_be_changed_and_restored_by_clicks() {
         cx.debug_bounds("settings-shortcut-new-terminal").is_some(),
         "clicking the Keyboard section should render the New Terminal keycap"
     );
-    let initial = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    let initial = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert!(
         !initial.new_terminal_modified,
         "New Terminal should start at its default shortcut, snapshot: {:?}",
@@ -78,7 +78,7 @@ fn e2e_03_settings_keyboard_shortcut_can_be_changed_and_restored_by_clicks() {
     );
 
     click_debug(cx, "settings-shortcut-new-terminal");
-    let recording = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    let recording = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
         recording.recording_command,
         Some("new_terminal"),
@@ -86,7 +86,7 @@ fn e2e_03_settings_keyboard_shortcut_can_be_changed_and_restored_by_clicks() {
         recording
     );
     cx.simulate_keystrokes("cmd-alt-n");
-    let modified = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    let modified = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
         modified.recording_command, None,
         "recording should clear after accepting cmd-alt-n, snapshot: {:?}",
@@ -104,7 +104,7 @@ fn e2e_03_settings_keyboard_shortcut_can_be_changed_and_restored_by_clicks() {
     );
 
     click_debug(cx, "settings-shortcut-restore-new-terminal");
-    let restored = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    let restored = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert!(
         !restored.new_terminal_modified,
         "clicking Restore should clear New Terminal modification, snapshot: {:?}",
@@ -116,7 +116,7 @@ fn e2e_03_settings_keyboard_shortcut_can_be_changed_and_restored_by_clicks() {
     );
 
     click_debug(cx, "settings-section-voice");
-    let voice = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    let voice = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
         voice.active_section, "Voice",
         "点击 Voice 后应切换到 Voice Settings，snapshot: {:?}",
@@ -128,7 +128,7 @@ fn e2e_03_settings_keyboard_shortcut_can_be_changed_and_restored_by_clicks() {
         voice
     );
     click_debug(cx, "settings-agent-provider-openai");
-    let openai = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    let openai = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
         openai.agent_provider, "openai",
         "点击 OpenAI 后全局 Agent Provider 应立即切换"
@@ -139,11 +139,245 @@ fn e2e_03_settings_keyboard_shortcut_can_be_changed_and_restored_by_clicks() {
     );
 
     click_debug(cx, "settings-close");
-    let closed = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    let closed = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert!(
         !closed.settings_open,
         "after clicking close, the settings panel should be closed, snapshot: {:?}",
         closed
+    );
+}
+
+/// Voice Provider 三个文本框应通过真实聚焦与平台文本输入保存配置。
+///
+/// 场景：用户打开 Voice Settings，依次双击 Base URL、Model、API Key 输入框并输入新值。
+/// 数据构造：Base URL 使用 `https://api.example.test/v1`，Model 使用 `gpt-e2e-mini`；
+/// API Key 使用仅存在于测试内存的 `sk-e2e-secret`，快照只暴露 configured 布尔值。
+/// 执行过程：每个字段均从渲染树 debug bounds 双击；Base URL 与 Model 通过
+/// `simulate_input` 走当前焦点的 GPUI 文本输入，API Key 通过 Cmd+V 走用户粘贴路径；
+/// 每项输入后按 Enter 提交。
+/// 预期结果：Base URL 与 Model 精确替换旧值而非追加；API Key 仅报告已配置；三个字段
+/// 提交后均退出编辑态，证明可见输入框、焦点、输入路由和提交形成完整闭环。
+#[test]
+fn e2e_03_voice_provider_fields_accept_text_input() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let _tmp = tempfile::TempDir::new().expect("tempdir for workspace root should create");
+    enter_canvas(&app, cx, _tmp.path());
+
+    click_debug(cx, "toolbar-settings");
+    click_debug(cx, "settings-section-voice");
+
+    double_click_debug(cx, "settings-voice-field-agent-base-url");
+    cx.simulate_input("https://api.example.test/v1");
+    cx.simulate_keystrokes("enter");
+    let base_url = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        base_url.agent_base_url, "https://api.example.test/v1",
+        "Base URL 输入框应以平台文本输入精确替换旧值，snapshot: {:?}",
+        base_url
+    );
+    assert_eq!(
+        base_url.voice_editing_field, None,
+        "Base URL 回车提交后应退出编辑态，snapshot: {:?}",
+        base_url
+    );
+
+    double_click_debug(cx, "settings-voice-field-agent-model");
+    cx.simulate_input("gpt-e2e-mini");
+    cx.simulate_keystrokes("enter");
+    let model = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        model.agent_model, "gpt-e2e-mini",
+        "Model 输入框应以平台文本输入精确替换旧值，snapshot: {:?}",
+        model
+    );
+    assert_eq!(
+        model.voice_editing_field, None,
+        "Model 回车提交后应退出编辑态，snapshot: {:?}",
+        model
+    );
+
+    double_click_debug(cx, "settings-voice-field-agent-api-key");
+    cx.update(|_window, cx| {
+        cx.write_to_clipboard(ClipboardItem::new_string("sk-e2e-secret".to_string()));
+    });
+    cx.simulate_keystrokes("cmd-v enter");
+    cx.run_until_parked();
+    let api_key = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert!(
+        api_key.agent_api_key_configured,
+        "API Key 输入框粘贴并提交后应仅报告已配置，snapshot: {:?}",
+        api_key
+    );
+    assert_eq!(
+        api_key.agent_api_key_display_state,
+        app::ApiKeyDisplayState::Configured,
+        "API Key 回车提交后应清除明文并显示安全的 configured 状态"
+    );
+    assert_eq!(
+        api_key.voice_editing_field, None,
+        "API Key 回车提交后应退出编辑态，snapshot: {:?}",
+        api_key
+    );
+}
+
+/// Voice Provider 的原生文本输入区域必须覆盖可见字段，不能退化成零尺寸 IME 锚点。
+///
+/// 场景：用户打开 Voice Settings，分别单击 Base URL 与 Model 并输入文本；当前缺陷会让
+/// 输入法出现，但非空文本在字段中只渲染为 `...`，看起来像没有输入。
+/// 数据构造：输入值使用 `visible-text`；实际 surface 尺寸由 paint 后的 bounds 换算为
+/// 整数像素，不写死具体面板宽度，只要求宽高均非零。
+/// 执行过程：从真实 debug hitbox 单击 Base URL，检查 paint 后的原生输入区域；再单击
+/// Model、通过 `simulate_input` 输入文本，并再次检查其原生输入区域。
+/// 预期结果：两个输入区域均非零，Base URL 的 shaped text 等于真实配置值，Model 输入后的
+/// shaped text 精确等于 `visible-text` 且不等于 `...`；Model 同时保持编辑态。
+#[test]
+fn e2e_03_voice_provider_native_input_surfaces_are_visible() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let _tmp = tempfile::TempDir::new().expect("tempdir for workspace root should create");
+    enter_canvas(&app, cx, _tmp.path());
+
+    click_debug(cx, "toolbar-settings");
+    click_debug(cx, "settings-section-voice");
+    click_debug(cx, "settings-voice-field-agent-base-url");
+
+    let base_url = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    let base_url_size = base_url
+        .agent_base_url_input_surface_size
+        .expect("Base URL paint 后应记录原生输入 surface 尺寸");
+    assert!(
+        base_url_size.0 > 0 && base_url_size.1 > 0,
+        "Base URL 的原生输入区域宽高应非零，actual={base_url_size:?}, snapshot: {:?}",
+        base_url
+    );
+    assert_eq!(
+        base_url.agent_base_url_rendered_text,
+        Some(base_url.agent_base_url.clone()),
+        "Base URL 实际 shaped text 应等于配置值，不能只剩省略号，snapshot: {:?}",
+        base_url
+    );
+    assert_ne!(
+        base_url.agent_base_url_rendered_text,
+        Some("...".to_string()),
+        "Base URL 不得继续渲染为旧版省略号，snapshot: {:?}",
+        base_url
+    );
+
+    click_debug(cx, "settings-voice-field-agent-model");
+    cx.simulate_input("visible-text");
+    let model = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    let model_size = model
+        .agent_model_input_surface_size
+        .expect("Model paint 后应记录原生输入 surface 尺寸");
+    assert!(
+        model_size.0 > 0 && model_size.1 > 0,
+        "Model 的原生输入区域宽高应非零，actual={model_size:?}, snapshot: {:?}",
+        model
+    );
+    assert_eq!(
+        model.agent_model_rendered_text,
+        Some("visible-text".to_string()),
+        "Model 输入后的实际 shaped text 应精确显示新内容，snapshot: {:?}",
+        model
+    );
+    assert_ne!(
+        model.agent_model_rendered_text,
+        Some("...".to_string()),
+        "Model 输入后不得继续渲染为旧版省略号，snapshot: {:?}",
+        model
+    );
+    assert_eq!(
+        model.voice_editing_field,
+        Some("agent_model"),
+        "输入文本后 Model 应继续处于编辑态，snapshot: {:?}",
+        model
+    );
+}
+
+/// Voice Provider 字段单击后应立即进入编辑态并接受平台文本输入。
+///
+/// 场景：用户打开 Voice Settings，单击 Model 值区域，直接输入新模型并回车提交。
+/// 数据构造：输入值为 `single-click-model`，用于区分单击是否真的进入编辑态。
+/// 执行过程：通过真实 debug hitbox 单击字段，调用 GPUI `simulate_input`，再发送 Enter。
+/// 预期结果：Model 精确替换为新值，且提交后退出编辑态；如果字段仍要求双击，本测试
+/// 会在输入前后的状态断言处失败。
+#[test]
+fn e2e_03_voice_provider_field_accepts_text_after_single_click() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let _tmp = tempfile::TempDir::new().expect("tempdir for workspace root should create");
+    enter_canvas(&app, cx, _tmp.path());
+
+    click_debug(cx, "toolbar-settings");
+    click_debug(cx, "settings-section-voice");
+    click_debug(cx, "settings-voice-field-agent-model");
+
+    let editing = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        editing.voice_editing_field,
+        Some("agent_model"),
+        "单击 Model 值区域应立即进入编辑态，snapshot: {:?}",
+        editing
+    );
+
+    cx.simulate_input("single-click-model");
+    cx.simulate_keystrokes("enter");
+    let committed = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        committed.agent_model, "single-click-model",
+        "单击后平台文本输入应替换 Model 值，snapshot: {:?}",
+        committed
+    );
+    assert_eq!(
+        committed.voice_editing_field, None,
+        "单击输入回车提交后应退出编辑态，snapshot: {:?}",
+        committed
+    );
+}
+
+/// Voice Provider 文本框必须支持平台级全选后替换，而不是把粘贴内容追加到草稿。
+///
+/// 场景：用户单击 Model 文本框，先输入一段模型名，再用 Cmd+A 全选并粘贴新模型名。
+/// 数据构造：初次输入 `first-model`，替换文本为 `replacement-model`；两者不同且后者
+/// 不包含前者，可明确区分“全选替换”和“末尾追加”。
+/// 执行过程：通过真实 debug hitbox 单击 Model → `simulate_input` 输入首值 → Cmd+A →
+/// 写入测试剪贴板 → Cmd+V → Enter；全程走当前聚焦 GPUI 文本输入与快捷键链路。
+/// 预期结果：最终模型精确等于 `replacement-model`，不得残留 `first-model`；提交后退出
+/// 编辑态，证明文本选择、粘贴、提交和 Settings 状态形成完整闭环。
+#[test]
+fn e2e_03_voice_provider_text_input_select_all_replaces_content() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let _tmp = tempfile::TempDir::new().expect("tempdir for workspace root should create");
+    enter_canvas(&app, cx, _tmp.path());
+
+    click_debug(cx, "toolbar-settings");
+    click_debug(cx, "settings-section-voice");
+    click_debug(cx, "settings-voice-field-agent-model");
+
+    cx.simulate_input("first-model");
+    cx.simulate_keystrokes("cmd-a");
+    cx.update(|_window, cx| {
+        cx.write_to_clipboard(ClipboardItem::new_string("replacement-model".to_string()));
+    });
+    cx.simulate_keystrokes("cmd-v enter");
+
+    let committed = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        committed.agent_model, "replacement-model",
+        "Cmd+A 后粘贴应替换完整 Model，而不是追加旧文本，snapshot: {:?}",
+        committed
+    );
+    assert!(
+        !committed.agent_model.contains("first-model"),
+        "全选替换后不得残留首段 Model 文本，snapshot: {:?}",
+        committed
+    );
+    assert_eq!(
+        committed.voice_editing_field, None,
+        "Model 回车提交后应退出编辑态，snapshot: {:?}",
+        committed
     );
 }
 
@@ -153,10 +387,11 @@ fn e2e_03_settings_keyboard_shortcut_can_be_changed_and_restored_by_clicks() {
 /// 数据构造：420×360 小于旧面板 860×620 的设计尺寸；向上滚动 450px，等于约 5 个
 /// 90px 设置行，可把 Provider 下方的 Model 行移入 248px 高的内容区；侧栏再滚动 300px，
 /// 大于 5 个导航项总高度 5×42=210px，可把底部 Wallpaper 入口移入可点击区域。
-/// 执行过程：resize → 打开 Settings → 切到 Voice → 滚动内容 → 双击字段 → 输入 x → Enter。
+/// 执行过程：resize → 打开 Settings → 切到 Voice → 滚动内容 → 双击字段 → 通过
+/// GPUI `simulate_input` 提交文本 `兼容-x` → 通过 `Cmd+V` 粘贴 `-paste` → Enter。
 /// 随后滚动侧栏并点击 Wallpaper。
 /// 预期结果：小窗口内仍能通过真实 hitbox 操作 Model 和底部导航；双击进入编辑，提交后
-/// model 追加 x 且 editing_field 清空；Wallpaper 成为 active section。
+/// model 替换为 `兼容-x-paste` 且 editing_field 清空；Wallpaper 成为 active section。
 #[test]
 fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
     let mut cx = TestAppContext::single();
@@ -168,7 +403,7 @@ fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
 
     click_debug(cx, "toolbar-settings");
     click_debug(cx, "settings-section-voice");
-    let before = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    let before = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
         before.active_section, "Voice",
         "小窗口中应能点击 Voice 导航，snapshot: {:?}",
@@ -178,21 +413,24 @@ fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
     scroll_debug(cx, "settings-content-scroll", -450.0);
 
     double_click_debug(cx, "settings-voice-field-agent-model");
-    let editing = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    let editing = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
         editing.voice_editing_field,
         Some("agent_model"),
         "双击 Model 值区域应进入内联编辑，snapshot: {:?}",
         editing
     );
-    cx.simulate_keystrokes("x");
+    cx.simulate_input("兼容-x");
+    cx.update(|_window, cx| {
+        cx.write_to_clipboard(ClipboardItem::new_string("-paste".to_string()));
+    });
+    cx.simulate_keystrokes("cmd-v");
     cx.simulate_keystrokes("enter");
     cx.run_until_parked();
-    let committed = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    let committed = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
-        committed.agent_model,
-        format!("{}x", before.agent_model),
-        "双击后输入 x 并回车应修改当前 Agent model，snapshot: {:?}",
+        committed.agent_model, "兼容-x-paste",
+        "双击后输入并粘贴文本再回车应修改当前 Agent model，snapshot: {:?}",
         committed
     );
     assert_eq!(
@@ -203,7 +441,7 @@ fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
 
     scroll_debug(cx, "settings-sidebar-scroll", -300.0);
     click_debug(cx, "settings-section-wallpaper");
-    let wallpaper = app.update(cx, |app, _cx| app.settings_e2e_snapshot());
+    let wallpaper = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
         wallpaper.active_section, "Wallpaper",
         "小窗口滚动侧栏后应能点击底部 Wallpaper 导航，snapshot: {:?}",

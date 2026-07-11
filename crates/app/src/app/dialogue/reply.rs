@@ -3,8 +3,11 @@
 use crate::app::voice::playback::{
     default_assistant_audio_sink, interrupt_assistant_playback, AssistantAudioSink,
 };
-use dialogue::{DialoguePhase, DialogueSession};
+#[cfg(test)]
+use dialogue::DialoguePhase;
+use dialogue::DialogueSession;
 use std::sync::Mutex;
+use std::time::Duration;
 #[cfg(test)]
 use voice_sherpa::FakeTtsClient;
 use voice_sherpa::{SherpaTtsClient, SpeechError};
@@ -29,8 +32,11 @@ impl ReplyPlayback {
         Self { sink }
     }
 
-    pub(crate) fn play_chunk(&mut self, chunk: &audio::PcmAudioChunk) {
-        self.sink.write_chunk(chunk);
+    pub(crate) fn play_chunk(
+        &mut self,
+        chunk: &audio::PcmAudioChunk,
+    ) -> Result<Duration, SpeechError> {
+        self.sink.write_chunk(chunk).map_err(SpeechError::Audio)
     }
 
     pub(crate) fn interrupt(&mut self) {
@@ -49,12 +55,13 @@ pub(crate) fn finish_reply_playback(session: &mut DialogueSession, keep_listenin
     session.on_playback_finished_or_interrupted(keep_listening);
 }
 
+#[cfg(test)]
 pub(crate) fn apply_reply_synthesis(
     session: &mut DialogueSession,
     tts: &mut dyn dialogue::TtsClient,
     playback: &mut ReplyPlayback,
     reply_text: &str,
-) -> Result<(), SpeechError> {
+) -> Result<Duration, SpeechError> {
     if session.phase() != DialoguePhase::Thinking {
         return Err(SpeechError::Recognizer(format!(
             "reply synthesis requires Thinking, got {:?}",
@@ -62,11 +69,18 @@ pub(crate) fn apply_reply_synthesis(
         )));
     }
     let chunk = synthesize_reply(tts, reply_text)?;
+    schedule_reply_chunk(session, playback, &chunk)
+}
+
+pub(crate) fn schedule_reply_chunk(
+    session: &mut DialogueSession,
+    playback: &mut ReplyPlayback,
+    chunk: &audio::PcmAudioChunk,
+) -> Result<Duration, SpeechError> {
     session
         .on_reply_ready()
         .map_err(|error| SpeechError::Recognizer(error.to_string()))?;
-    playback.play_chunk(&chunk);
-    Ok(())
+    playback.play_chunk(&chunk)
 }
 
 static TTS_CLIENT_FACTORY: Mutex<Option<fn() -> Result<TtsClientBox, SpeechError>>> =

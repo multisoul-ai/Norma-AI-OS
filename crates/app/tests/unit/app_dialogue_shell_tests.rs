@@ -361,17 +361,18 @@ fn test_dialogue_echo_turn_reply_text_reaches_speaking() {
     });
 }
 
+/// DLG-14: Speaking 时原始麦克风 SpeechStart 未分类，不能直接截断 assistant TTS。
 ///
 /// 执行过程：
 ///   1. 进入 Listening → Thinking → Speaking
-///   2. on_speech_start_barge_in
+///   2. 注入 pipeline 原始 SpeechStart（可能是扬声器回声）
 ///
 /// 预期结果：
-///   - 正断言：phase == Listening
-///   - 正断言：recording sink stopped == true
+///   - 正断言：phase 仍为 Speaking
+///   - 负断言：recording sink 不得 stop
 ///   - 负断言：card task cancel hook 未被调用
 #[test]
-fn test_dialogue_barge_in_stops_sink_returns_listening_without_canceling_tasks() {
+fn test_dialogue_unclassified_speech_does_not_truncate_assistant_reply() {
     with_dialogue_shell_test_guard(|| {
         let dir = tempdir().expect("temp model dir should be creatable");
         let values = always_listening_values(Some(dir.path().to_path_buf()));
@@ -398,23 +399,23 @@ fn test_dialogue_barge_in_stops_sink_returns_listening_without_canceling_tasks()
         );
 
         assert!(
-            state.on_speech_start_barge_in_for_tests(),
-            "Speaking 下 barge-in 应被处理"
+            !state.on_unclassified_speech_start_for_tests(),
+            "未分类 SpeechStart 可能来自 assistant 扬声器回声，不应直接处理为 barge-in"
         );
 
         assert_eq!(
             state.phase(),
-            DialoguePhase::Listening,
-            "barge-in 后应回到 Listening"
+            DialoguePhase::Speaking,
+            "忽略 assistant 回声候选后应继续 Speaking"
         );
-        assert!(sink.stopped(), "barge-in 应停止 assistant sink");
+        assert!(!sink.stopped(), "assistant 回声不得停止正在播放的完整回复");
         assert!(
             !state.card_tasks_were_cancelled_for_tests(),
-            "barge-in 不应取消 card tasks"
+            "assistant 回声不应取消 card tasks"
         );
         assert!(
             state.models_resident(),
-            "barge-in 后 models_resident 应保持 true"
+            "忽略 assistant 回声后 models_resident 应保持 true"
         );
     });
 }

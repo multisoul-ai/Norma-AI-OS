@@ -50,16 +50,51 @@ impl LlmClient for OllamaLlmClient {
 }
 
 pub fn probe_ollama_ready(endpoint: &str) -> Result<(), LlmError> {
+    let _ = fetch_ollama_models(endpoint)?;
+    Ok(())
+}
+
+pub fn probe_ollama_model_ready(endpoint: &str, model: &str) -> Result<(), LlmError> {
+    let models = fetch_ollama_models(endpoint)?;
+    if models
+        .iter()
+        .any(|installed| model_names_match(installed, model))
+    {
+        return Ok(());
+    }
+    Err(LlmError::Message(format!(
+        "Ollama model '{model}' is not installed; run: ollama pull {model}"
+    )))
+}
+
+fn fetch_ollama_models(endpoint: &str) -> Result<Vec<String>, LlmError> {
     let raw = get_http(endpoint, "/api/tags", PROBE_TIMEOUT)?;
     let value: Value = serde_json::from_str(&raw)
         .map_err(|err| LlmError::Message(format!("ollama tags json failed: {err}")))?;
-    if value.get("models").is_some() {
-        Ok(())
-    } else {
-        Err(LlmError::Message(
-            "ollama tags response missing models".into(),
-        ))
-    }
+    let models = value
+        .get("models")
+        .and_then(Value::as_array)
+        .ok_or_else(|| LlmError::Message("ollama tags response missing models".into()))?;
+    Ok(models
+        .iter()
+        .filter_map(|entry| {
+            entry
+                .get("name")
+                .or_else(|| entry.get("model"))
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect())
+}
+
+fn model_names_match(installed: &str, configured: &str) -> bool {
+    installed == configured
+        || installed
+            .strip_suffix(":latest")
+            .is_some_and(|name| name == configured)
+        || configured
+            .strip_suffix(":latest")
+            .is_some_and(|name| name == installed)
 }
 
 fn build_chat_body(model: &str, request: &ChatRequest) -> Result<Vec<u8>, LlmError> {
@@ -73,6 +108,10 @@ fn build_chat_body(model: &str, request: &ChatRequest) -> Result<Vec<u8>, LlmErr
         "model": model,
         "messages": messages,
         "tools": tools,
+        "think": false,
+        "options": {
+            "num_predict": 128,
+        },
         "stream": false,
     });
     serde_json::to_vec(&payload)

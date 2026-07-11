@@ -114,6 +114,17 @@ mod macos {
             let engine = unsafe { AVAudioEngine::new() };
             let input_node = unsafe { engine.inputNode() };
 
+            unsafe {
+                input_node
+                    .setVoiceProcessingEnabled_error(true)
+                    .map_err(|error| {
+                        SpeechError::Audio(format!(
+                            "could not enable microphone voice processing: {}",
+                            error.localizedDescription()
+                        ))
+                    })?;
+            }
+
             // AVAudioEngine will NOT resample on an inputNode tap: the tap format
             // must equal the hardware output format, otherwise it throws
             // "Input HW format and tap format not matching". Tap at the native

@@ -4,8 +4,8 @@
 
 use card_task::CardCommandRunner;
 use dialogue::{
-    decide_template_report, run_voice_turn, DialogueError, DialoguePhase, ReportPlayDecision,
-    ToolExecutor,
+    decide_template_report, handle_speaking_speech_start, run_voice_turn, DialogueError,
+    DialoguePhase, DialogueSession, ReportPlayDecision, SpeakingSpeechSource, ToolExecutor,
 };
 use llm::{MockLlmClient, MockStep, ToolCall};
 use norma::protocol::{CardCommand, CardCommandError, CardCommandResult, CardKind, Placement};
@@ -187,5 +187,51 @@ fn test_template_report_decision_listening_plays_now() {
         decision,
         ReportPlayDecision::Queue,
         "Listening 时不应排队等待"
+    );
+}
+
+/// LVCP-4: assistant 播放期间的未分类麦克风事件不得截断回复，确认用户事件仍可打断。
+///
+/// 数据构造：
+///   两个 session 均进入 Speaking；分别注入 UnclassifiedMicrophone 与 ConfirmedUser。
+///
+/// 执行过程：
+///   1. 对 assistant 回声候选执行 speaking speech policy；
+///   2. 对已确认用户插话执行同一 policy。
+///
+/// 预期结果：
+///   - 正断言：未分类事件保持 Speaking，完整 TTS 不被截断；
+///   - 正断言：已确认用户插话回到 Listening；
+///   - 负断言：两类来源不得继续被无条件当成 barge-in。
+#[test]
+fn test_speaking_input_policy_distinguishes_echo_from_confirmed_user() {
+    fn speaking_session() -> DialogueSession {
+        let mut session = DialogueSession::new();
+        session.on_listening_started();
+        session.on_utterance_final().expect("应进入 Thinking");
+        session.on_reply_ready().expect("应进入 Speaking");
+        session
+    }
+
+    let mut echo_session = speaking_session();
+    let echo_interrupted = handle_speaking_speech_start(
+        &mut echo_session,
+        SpeakingSpeechSource::UnclassifiedMicrophone,
+    );
+    let mut user_session = speaking_session();
+    let user_interrupted =
+        handle_speaking_speech_start(&mut user_session, SpeakingSpeechSource::ConfirmedUser);
+
+    assert!(!echo_interrupted, "assistant 回声候选不应触发 barge-in");
+    assert_eq!(
+        echo_session.phase(),
+        DialoguePhase::Speaking,
+        "assistant 回声候选后应继续完整播放"
+    );
+    assert!(user_interrupted, "已确认用户插话应触发 barge-in");
+    assert_eq!(
+        user_session.phase(),
+        DialoguePhase::Listening,
+        "已确认用户插话后应恢复 Listening"
     );
 }

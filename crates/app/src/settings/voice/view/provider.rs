@@ -1,5 +1,5 @@
 use super::{
-    action_button, editable_value_pill, setting_row, settings_group, text_setting_row, with_alpha,
+    action_button, setting_row, settings_group, text_setting_row, with_alpha, VoiceSettingsInputs,
 };
 use crate::app::MultisoulApp;
 use crate::settings::voice::state::{AgentProviderKind, VoiceSettingsField, VoiceSettingsState};
@@ -9,13 +9,14 @@ use ui::Theme;
 pub(super) fn agent_provider_group(
     theme: Theme,
     state: &VoiceSettingsState,
+    inputs: &VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     settings_group(theme, "Agent Provider")
         .child(provider_selector(theme, state, cx))
         .child(text_setting_row(
             theme,
-            state,
+            inputs,
             VoiceSettingsField::AgentBaseUrl,
             "Base URL",
             "Base URL for the selected Ollama or OpenAI-compatible provider",
@@ -23,13 +24,13 @@ pub(super) fn agent_provider_group(
         ))
         .child(text_setting_row(
             theme,
-            state,
+            inputs,
             VoiceSettingsField::AgentModel,
             "Model",
             "Model used by Dialogue and Card Subagent",
             cx,
         ))
-        .child(api_key_row(theme, state, cx))
+        .child(api_key_row(theme, inputs, cx))
 }
 
 impl MultisoulApp {
@@ -41,6 +42,8 @@ impl MultisoulApp {
     ) {
         self.voice_settings
             .select_agent_provider(AgentProviderKind::Ollama);
+        self.voice_settings_inputs
+            .sync_from_state(&self.voice_settings, cx);
         self.persist_voice_settings_in_background(cx);
         cx.notify();
     }
@@ -53,6 +56,8 @@ impl MultisoulApp {
     ) {
         self.voice_settings
             .select_agent_provider(AgentProviderKind::OpenAiCompatible);
+        self.voice_settings_inputs
+            .sync_from_state(&self.voice_settings, cx);
         self.persist_voice_settings_in_background(cx);
         cx.notify();
     }
@@ -64,6 +69,8 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.voice_settings.clear_agent_api_key();
+        self.voice_settings_inputs
+            .sync_from_state(&self.voice_settings, cx);
         self.persist_voice_settings_in_background(cx);
         cx.notify();
     }
@@ -122,7 +129,7 @@ fn provider_button(theme: Theme, label: &'static str, active: bool) -> Div {
     )))
 }
 
-fn api_key_row(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<MultisoulApp>) -> Div {
+fn api_key_row(theme: Theme, inputs: &VoiceSettingsInputs, cx: &mut Context<MultisoulApp>) -> Div {
     setting_row(
         theme,
         "API Key",
@@ -136,15 +143,11 @@ fn api_key_row(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<Multis
             .flex_wrap()
             .items_center()
             .gap(px(10.0))
-            .child(editable_value_pill(
-                theme,
-                state,
-                VoiceSettingsField::AgentApiKey,
-                cx,
-            ))
+            .child(inputs.input(VoiceSettingsField::AgentApiKey))
             .child(
                 action_button(theme, "Clear", theme.destructive)
                     .id("settings-agent-provider-api-key-clear")
+                    .debug_selector(|| "settings-agent-provider-api-key-clear".to_string())
                     .on_click(cx.listener(MultisoulApp::on_voice_settings_clear_api_key)),
             ),
     )

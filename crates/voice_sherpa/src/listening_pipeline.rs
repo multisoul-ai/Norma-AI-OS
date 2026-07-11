@@ -7,6 +7,10 @@ use std::path::Path;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 
+#[cfg(test)]
+#[path = "../tests/unit/listening_pipeline_tests.rs"]
+mod listening_pipeline_tests;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ListeningPipelineEvent {
     PartialTranscript(String),
@@ -63,42 +67,33 @@ pub fn spawn_listening_pipeline_loop(
     event_tx: async_channel::Sender<ListeningPipelineEvent>,
     stop_rx: mpsc::Receiver<()>,
 ) -> Result<JoinHandle<()>, SpeechError> {
+    let mut pipeline = SherpaListeningPipeline::from_model_dir(&model_dir)?;
     std::thread::Builder::new()
         .name("voice_sherpa_listening_pipeline".to_string())
-        .spawn(move || {
-            let mut pipeline = match SherpaListeningPipeline::from_model_dir(&model_dir) {
-                Ok(pipeline) => pipeline,
-                Err(error) => {
-                    tracing::error!(%error, "failed to create listening pipeline");
-                    return;
-                }
-            };
-
-            loop {
-                if stop_rx.try_recv().is_ok() {
-                    break;
-                }
-                match pcm_rx.try_recv() {
-                    Ok(chunk) => match pipeline.process_chunk(&chunk) {
-                        Ok(events) => {
-                            for event in events {
-                                if event_tx.try_send(event).is_err() {
-                                    return;
-                                }
+        .spawn(move || loop {
+            if stop_rx.try_recv().is_ok() {
+                break;
+            }
+            match pcm_rx.try_recv() {
+                Ok(chunk) => match pipeline.process_chunk(&chunk) {
+                    Ok(events) => {
+                        for event in events {
+                            if event_tx.try_send(event).is_err() {
+                                return;
                             }
                         }
-                        Err(error) => {
-                            tracing::warn!(%error, "listening pipeline chunk failed");
-                        }
-                    },
-                    Err(async_channel::TryRecvError::Empty) => {
-                        if stop_rx.try_recv().is_ok() {
-                            break;
-                        }
-                        std::thread::sleep(std::time::Duration::from_millis(5));
                     }
-                    Err(async_channel::TryRecvError::Closed) => break,
+                    Err(error) => {
+                        tracing::warn!(%error, "listening pipeline chunk failed");
+                    }
+                },
+                Err(async_channel::TryRecvError::Empty) => {
+                    if stop_rx.try_recv().is_ok() {
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(5));
                 }
+                Err(async_channel::TryRecvError::Closed) => break,
             }
         })
         .map_err(|error| {

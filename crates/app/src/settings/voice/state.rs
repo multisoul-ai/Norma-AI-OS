@@ -1,4 +1,3 @@
-use gpui::Keystroke;
 use std::path::PathBuf;
 use storage::{AppStore, SettingsStore};
 use voice_sherpa::{AudioInputDevice, SherpaProvider, SpeechError};
@@ -18,8 +17,8 @@ pub(crate) use values::{
 };
 use values::{
     KEY_DIALOGUE_LLM_MODE, KEY_DIALOGUE_MODEL, KEY_INPUT_DEVICE_ID, KEY_OLLAMA_ENDPOINT,
-    KEY_OLLAMA_MODEL, KEY_PARAFORMER_MODEL_DIR, KEY_REALTIME_ENABLED, KEY_REFINE_MODEL,
-    KEY_TRACE_ENABLED,
+    KEY_OLLAMA_MODEL, KEY_OPENAI_API_KEY, KEY_PARAFORMER_MODEL_DIR, KEY_REALTIME_ENABLED,
+    KEY_REFINE_MODEL, KEY_TRACE_ENABLED,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -46,6 +45,12 @@ impl PendingVoiceSettingWrite {
         match self {
             Self::Set { store, key, value } => store.set_string(&key, &value),
             Self::Delete { store, key } => store.delete_string(&key),
+        }
+    }
+
+    fn key(&self) -> &str {
+        match self {
+            Self::Set { key, .. } | Self::Delete { key, .. } => key,
         }
     }
 }
@@ -141,41 +146,50 @@ impl VoiceSettingsState {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn begin_edit(&mut self, field: VoiceSettingsField) {
         self.draft = self.field_value(field);
         self.editing = Some(field);
         self.status = None;
     }
 
-    pub(crate) fn handle_key_down(&mut self, keystroke: &Keystroke) -> bool {
-        let Some(field) = self.editing else {
-            return false;
-        };
+    pub(crate) fn begin_edit_with_value(&mut self, field: VoiceSettingsField, value: String) {
+        self.editing = Some(field);
+        self.draft = value;
+        self.status = None;
+    }
 
-        match keystroke.key.as_ref() {
-            "escape" => {
-                self.cancel_edit();
-                true
-            }
-            "enter" => {
-                self.commit_edit(field);
-                true
-            }
-            "backspace" => {
-                self.draft.pop();
-                true
-            }
-            "space" if no_command_modifiers(keystroke) => {
-                self.draft.push(' ');
-                true
-            }
-            _ if no_command_modifiers(keystroke) => {
-                if let Some(text) = keystroke.key_char.as_deref() {
-                    self.draft.push_str(text);
-                }
-                true
-            }
-            _ => true,
+    pub(crate) fn update_edit_value(&mut self, field: VoiceSettingsField, value: String) {
+        if self.editing == Some(field) {
+            self.draft = value;
+        }
+    }
+
+    pub(crate) fn auto_save_edit_value(
+        &mut self,
+        field: VoiceSettingsField,
+        value: String,
+    ) -> Option<String> {
+        if self.editing != Some(field) {
+            return None;
+        }
+        self.draft = value;
+        self.save_edit(field, false)
+    }
+
+    pub(crate) fn commit_edit_value(
+        &mut self,
+        field: VoiceSettingsField,
+        value: String,
+    ) -> Option<String> {
+        self.editing = Some(field);
+        self.draft = value;
+        self.commit_edit(field)
+    }
+
+    pub(crate) fn cancel_edit_field(&mut self, field: VoiceSettingsField) {
+        if self.editing == Some(field) {
+            self.cancel_edit();
         }
     }
 
@@ -255,24 +269,25 @@ impl VoiceSettingsState {
     }
 
     pub(crate) fn clear_agent_api_key(&mut self) {
-        let key = match self.values.agent_provider() {
+        self.cancel_edit_field(VoiceSettingsField::AgentApiKey);
+        let (key, legacy_key) = match self.values.agent_provider() {
             AgentProviderKind::Ollama => {
                 self.saved.ollama_profile.api_key = None;
-                KEY_AGENT_OLLAMA_API_KEY
+                (KEY_AGENT_OLLAMA_API_KEY, None)
             }
             AgentProviderKind::OpenAiCompatible => {
                 self.saved.openai_profile.api_key = None;
-                KEY_AGENT_OPENAI_API_KEY
+                (KEY_AGENT_OPENAI_API_KEY, Some(KEY_OPENAI_API_KEY))
             }
         };
         self.delete_string(key);
+        if let Some(legacy_key) = legacy_key {
+            self.delete_string(legacy_key);
+        }
         self.refresh_values();
     }
 
-    pub(super) fn is_editing(&self, field: VoiceSettingsField) -> bool {
-        self.editing == Some(field)
-    }
-
+    #[cfg(test)]
     pub(super) fn row_value(&self, field: VoiceSettingsField) -> String {
         if self.editing == Some(field) && field == VoiceSettingsField::AgentApiKey {
             format!("{}|", "•".repeat(self.draft.chars().count()))
@@ -317,11 +332,23 @@ impl VoiceSettingsState {
         self.status = None;
     }
 
-    fn commit_edit(&mut self, field: VoiceSettingsField) {
+    fn commit_edit(&mut self, field: VoiceSettingsField) -> Option<String> {
+        self.save_edit(field, true)
+    }
+
+    fn save_edit(&mut self, field: VoiceSettingsField, finish_editing: bool) -> Option<String> {
         let value = self.draft.trim().to_string();
-        if value.is_empty() && field != VoiceSettingsField::AgentApiKey {
-            self.status = Some(error_status("Value cannot be empty"));
-            return;
+        if value.is_empty() {
+            if field == VoiceSettingsField::AgentApiKey {
+                if finish_editing {
+                    self.editing = None;
+                    self.draft.clear();
+                }
+                self.status = Some(ok_status("API Key unchanged; use Clear to remove it"));
+            } else {
+                self.status = Some(error_status("Value cannot be empty"));
+            }
+            return None;
         }
 
         let key = match field {
@@ -372,41 +399,44 @@ impl VoiceSettingsState {
                 KEY_REFINE_MODEL
             }
         };
-        if value.is_empty() {
-            self.delete_string(key);
-        } else {
-            self.persist_string(key, &value);
+        self.persist_string(key, &value);
+        if finish_editing {
+            self.editing = None;
+            self.draft.clear();
         }
-        self.editing = None;
-        self.draft.clear();
         self.refresh_values();
+        Some(value)
     }
 
     fn persist_string(&mut self, key: &str, value: &str) {
-        match &self.storage {
-            Some(store) => {
-                self.pending_writes.push(PendingVoiceSettingWrite::Set {
-                    store: store.clone(),
-                    key: key.to_string(),
-                    value: value.to_string(),
-                });
-                self.status = Some(ok_status("Saving..."));
-            }
-            None => self.status = Some(ok_status("Saved for this session")),
+        if let Some(store) = self.storage.clone() {
+            self.queue_pending_write(PendingVoiceSettingWrite::Set {
+                store,
+                key: key.to_string(),
+                value: value.to_string(),
+            });
+            self.status = Some(ok_status("Saving..."));
+        } else {
+            self.status = Some(ok_status("Saved for this session"));
         }
     }
 
     fn delete_string(&mut self, key: &str) {
-        match &self.storage {
-            Some(store) => {
-                self.pending_writes.push(PendingVoiceSettingWrite::Delete {
-                    store: store.clone(),
-                    key: key.to_string(),
-                });
-                self.status = Some(ok_status("Saving..."));
-            }
-            None => self.status = Some(ok_status("Using default for this session")),
+        if let Some(store) = self.storage.clone() {
+            self.queue_pending_write(PendingVoiceSettingWrite::Delete {
+                store,
+                key: key.to_string(),
+            });
+            self.status = Some(ok_status("Saving..."));
+        } else {
+            self.status = Some(ok_status("Using default for this session"));
         }
+    }
+
+    fn queue_pending_write(&mut self, write: PendingVoiceSettingWrite) {
+        self.pending_writes
+            .retain(|pending| pending.key() != write.key());
+        self.pending_writes.push(write);
     }
 
     fn refresh_values(&mut self) {
@@ -428,15 +458,15 @@ impl VoiceSettingsState {
             VoiceSettingsField::RefineModel => self.values.refine_model().to_string(),
         }
     }
+
+    pub(crate) fn editor_value(&self, field: VoiceSettingsField) -> String {
+        self.field_value(field)
+    }
 }
 
 fn non_empty(value: String) -> Option<String> {
     let value = value.trim().to_string();
     (!value.is_empty()).then_some(value)
-}
-
-fn no_command_modifiers(keystroke: &Keystroke) -> bool {
-    !keystroke.modifiers.platform && !keystroke.modifiers.control && !keystroke.modifiers.alt
 }
 
 fn ok_status(message: impl Into<String>) -> VoiceSettingsStatus {

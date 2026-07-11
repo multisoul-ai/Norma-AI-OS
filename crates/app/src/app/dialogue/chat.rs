@@ -1,13 +1,12 @@
 //! Background runtime for Always Listening dialogue shell (PCM → VAD → ASR).
 
 use super::{DialogueControlState, DialogueStartError};
+use crate::settings::voice::VoiceSettingsValues;
 use dialogue::DialoguePhase;
 use gpui::Context;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
-use voice_sherpa::{
-    spawn_listening_pipeline_loop, ListeningPipelineEvent, PcmStreamSession, SherpaProvider,
-};
+use voice_sherpa::{spawn_listening_pipeline_loop, ListeningPipelineEvent, PcmStreamSession};
 
 pub(crate) struct DialogueListeningRuntime {
     pub(crate) pcm_stream: PcmStreamSession,
@@ -17,9 +16,10 @@ pub(crate) struct DialogueListeningRuntime {
 }
 
 pub(crate) fn start_dialogue_listening_runtime(
-    provider: SherpaProvider,
+    values: VoiceSettingsValues,
     input_device_id: Option<String>,
 ) -> Result<DialogueListeningRuntime, DialogueStartError> {
+    let provider = DialogueControlState::validate_dialogue_start(&values)?;
     super::check_mic_permission().map_err(DialogueStartError::Speech)?;
     let (pcm_stream, pcm_chunks) = provider
         .start_pcm_stream(input_device_id.as_deref())
@@ -66,13 +66,17 @@ pub(crate) fn start_pipeline_event_pump(
                 ListeningPipelineEvent::PartialTranscript(_partial) => {}
                 ListeningPipelineEvent::SpeechStart => {
                     let should_notify = this
-                        .update(cx, |app, _cx| app.dialogue.on_speech_start_barge_in())
+                        .update(cx, |app, _cx| app.dialogue.on_unclassified_speech_start())
                         .unwrap_or(false);
                     if should_notify {
                         let _ = this.update(cx, |_app, cx| cx.notify());
                     }
                 }
                 ListeningPipelineEvent::FinalTranscript(text) => {
+                    tracing::debug!(
+                        transcript_chars = text.chars().count(),
+                        "[DEBUG-agent-flow-7c1e] listening pipeline produced final transcript"
+                    );
                     let should_notify = this
                         .update(cx, |app, _cx| {
                             if app.dialogue.phase() != DialoguePhase::Listening {

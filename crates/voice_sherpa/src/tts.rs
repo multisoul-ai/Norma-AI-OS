@@ -3,8 +3,8 @@ use crate::SpeechError;
 use audio::{PcmAudioChunk, PcmFormat};
 use dialogue::{DialogueError, TtsClient};
 use sherpa_onnx::{
-    GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsMatchaModelConfig,
-    OfflineTtsModelConfig,
+    GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsKokoroModelConfig,
+    OfflineTtsMatchaModelConfig, OfflineTtsModelConfig,
 };
 use std::path::{Path, PathBuf};
 
@@ -45,6 +45,39 @@ pub struct SherpaTtsClient {
 }
 
 impl SherpaTtsClient {
+    pub fn from_kokoro_model_dir(model_dir: &Path) -> Result<Self, SpeechError> {
+        if !model_dir.exists() {
+            return Err(SpeechError::ModelNotFound(model_dir.display().to_string()));
+        }
+        let model_path = resolve_kokoro_model_path(model_dir)?;
+        let config = OfflineTtsConfig {
+            model: OfflineTtsModelConfig {
+                kokoro: OfflineTtsKokoroModelConfig {
+                    model: Some(path_string(&model_path)),
+                    voices: Some(path_string(&model_dir.join("voices.bin"))),
+                    tokens: Some(path_string(&model_dir.join("tokens.txt"))),
+                    data_dir: Some(path_string(&model_dir.join("espeak-ng-data"))),
+                    lexicon: Some(format!(
+                        "{},{}",
+                        path_string(&model_dir.join("lexicon-us-en.txt")),
+                        path_string(&model_dir.join("lexicon-zh.txt"))
+                    )),
+                    ..Default::default()
+                },
+                num_threads: 2,
+                provider: Some("cpu".to_string()),
+                debug: false,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let inner = OfflineTts::create(&config).ok_or_else(|| {
+            SpeechError::Recognizer("failed to create OfflineTts with Kokoro model".to_string())
+        })?;
+        let generation = generation_config_from_env();
+        Ok(Self { inner, generation })
+    }
+
     pub fn from_model_dir(model_dir: &Path, vocoder_path: &Path) -> Result<Self, SpeechError> {
         if !model_dir.exists() {
             return Err(SpeechError::ModelNotFound(model_dir.display().to_string()));
@@ -83,19 +116,12 @@ impl SherpaTtsClient {
         let inner = OfflineTts::create(&config).ok_or_else(|| {
             SpeechError::Recognizer("failed to create OfflineTts with Matcha model".to_string())
         })?;
-        let generation = GenerationConfig {
-            sid: env_i32("MULTISOUL_TTS_SPEAKER_ID").unwrap_or(0),
-            speed: env_f32("MULTISOUL_TTS_SPEED").unwrap_or(1.0),
-            ..Default::default()
-        };
+        let generation = generation_config_from_env();
         Ok(Self { inner, generation })
     }
 
     pub fn from_env_or_default() -> Result<Self, SpeechError> {
-        Self::from_model_dir(
-            &resolve_matcha_model_dir()?,
-            &resolve_matcha_vocoder_path()?,
-        )
+        Self::from_kokoro_model_dir(&resolve_kokoro_model_dir()?)
     }
 }
 
@@ -114,7 +140,7 @@ impl TtsClient for SherpaTtsClient {
                 audio.sample_rate()
             ))
         })?;
-        if sample_rate_hz != 16_000 && sample_rate_hz != 24_000 {
+        if !matches!(sample_rate_hz, 16_000 | 22_050 | 24_000) {
             return Err(DialogueError::Message(format!(
                 "unsupported TTS sample rate: {sample_rate_hz}"
             )));
@@ -126,6 +152,24 @@ impl TtsClient for SherpaTtsClient {
     }
 }
 
+pub fn resolve_kokoro_model_dir() -> Result<PathBuf, SpeechError> {
+    if let Ok(path) = std::env::var("MULTISOUL_KOKORO_TTS_MODEL_DIR") {
+        let dir = PathBuf::from(path);
+        if dir.exists() {
+            return Ok(dir);
+        }
+        return Err(SpeechError::ModelNotFound(dir.display().to_string()));
+    }
+    let path = repo_root().join("assets/models/tts/kokoro-int8-multi-lang-v1_1");
+    if path.exists() {
+        return Ok(path);
+    }
+    Err(SpeechError::ModelNotFound(
+        "no Kokoro TTS model found; run scripts/download-kokoro-tts-model.sh".to_string(),
+    ))
+}
+
+#[cfg(test)]
 pub fn resolve_matcha_model_dir() -> Result<PathBuf, SpeechError> {
     if let Ok(path) = std::env::var("MULTISOUL_MATCHA_TTS_MODEL_DIR") {
         let dir = PathBuf::from(path);
@@ -143,6 +187,7 @@ pub fn resolve_matcha_model_dir() -> Result<PathBuf, SpeechError> {
     ))
 }
 
+#[cfg(test)]
 pub fn resolve_matcha_vocoder_path() -> Result<PathBuf, SpeechError> {
     if let Ok(path) = std::env::var("MULTISOUL_MATCHA_TTS_VOCODER") {
         let file = PathBuf::from(path);
@@ -171,12 +216,33 @@ fn path_string(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
+fn resolve_kokoro_model_path(model_dir: &Path) -> Result<PathBuf, SpeechError> {
+    for filename in ["model.int8.onnx", "model.onnx"] {
+        let path = model_dir.join(filename);
+        if path.exists() {
+            return Ok(path);
+        }
+    }
+    Err(SpeechError::ModelNotFound(format!(
+        "no model.int8.onnx or model.onnx found in {}",
+        model_dir.display()
+    )))
+}
+
 fn env_i32(name: &str) -> Option<i32> {
     std::env::var(name).ok()?.parse().ok()
 }
 
 fn env_f32(name: &str) -> Option<f32> {
     std::env::var(name).ok()?.parse().ok()
+}
+
+fn generation_config_from_env() -> GenerationConfig {
+    GenerationConfig {
+        sid: env_i32("MULTISOUL_TTS_SPEAKER_ID").unwrap_or(0),
+        speed: env_f32("MULTISOUL_TTS_SPEED").unwrap_or(1.0),
+        ..Default::default()
+    }
 }
 
 #[cfg(test)]

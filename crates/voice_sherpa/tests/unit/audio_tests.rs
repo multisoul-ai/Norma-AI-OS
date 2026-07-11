@@ -181,6 +181,34 @@ fn test_macos_audio_capture_does_not_use_aborting_audio_unit_selector() {
     );
 }
 
+/// AUDIO-7: Always Listening 的 macOS 输入必须启用 Voice Processing I/O 回声消除。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source = 生产 `audio.rs`；目标 API = `setVoiceProcessingEnabled_error(true)`。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 macOS AudioCapture 启动代码；
+///   2. 检查安装 input tap 前显式启用系统 voice processing。
+///
+/// 预期结果：
+///   - 正断言：输入节点启用 voice processing，让系统从麦克风上行中消除设备播放音频；
+///   - 负断言：不得继续用裸 input tap 把 assistant TTS 当成用户 barge-in。
+#[cfg(target_os = "macos")]
+#[test]
+fn test_macos_audio_capture_enables_voice_processing_echo_cancellation() {
+    let source = include_str!("../../src/audio.rs");
+
+    assert!(
+        source.contains("setVoiceProcessingEnabled_error(true)"),
+        "Always Listening 输入必须启用 AVAudioIONode voice processing/AEC"
+    );
+    assert!(
+        source.find("setVoiceProcessingEnabled_error(true)")
+            < source.find("installTapOnBus_bufferSize_format_block"),
+        "voice processing 必须在安装 input tap 与启动 engine 前启用"
+    );
+}
+
 /// AUDIO-1: AudioCapture::start 启动后应向 PCM 队列发送录音样本。
 ///
 /// 数据构造（含关键数值的推导过程）：

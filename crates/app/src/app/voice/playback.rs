@@ -3,9 +3,13 @@
 use audio::PcmAudioChunk;
 #[cfg(test)]
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+#[cfg(target_os = "macos")]
+mod macos;
 
 pub(crate) trait AssistantAudioSink: Send {
-    fn write_chunk(&mut self, chunk: &PcmAudioChunk);
+    fn write_chunk(&mut self, chunk: &PcmAudioChunk) -> Result<Duration, String>;
     fn stop(&mut self);
 }
 
@@ -13,13 +17,14 @@ pub(crate) trait AssistantAudioSink: Send {
 pub(crate) struct NoopAssistantAudioSink;
 
 impl AssistantAudioSink for NoopAssistantAudioSink {
-    fn write_chunk(&mut self, chunk: &PcmAudioChunk) {
+    fn write_chunk(&mut self, chunk: &PcmAudioChunk) -> Result<Duration, String> {
         tracing::trace!(
             bytes = chunk.bytes.len(),
             sample_rate_hz = chunk.sample_rate_hz,
             channels = chunk.channels,
             "received assistant PCM chunk without a runtime playback backend"
         );
+        Err("assistant audio playback backend is unavailable".to_string())
     }
 
     fn stop(&mut self) {
@@ -64,7 +69,7 @@ impl RecordingAssistantAudioSink {
 
 #[cfg(test)]
 impl AssistantAudioSink for RecordingAssistantAudioSink {
-    fn write_chunk(&mut self, chunk: &PcmAudioChunk) {
+    fn write_chunk(&mut self, chunk: &PcmAudioChunk) -> Result<Duration, String> {
         let mut state = self
             .inner
             .lock()
@@ -76,6 +81,7 @@ impl AssistantAudioSink for RecordingAssistantAudioSink {
             channels = chunk.channels,
             "recording assistant PCM chunk"
         );
+        Ok(pcm_chunk_duration(chunk))
     }
 
     fn stop(&mut self) {
@@ -87,11 +93,25 @@ impl AssistantAudioSink for RecordingAssistantAudioSink {
 }
 
 pub(crate) fn default_assistant_audio_sink() -> Box<dyn AssistantAudioSink> {
+    #[cfg(target_os = "macos")]
+    {
+        match macos::MacosAssistantAudioSink::new() {
+            Ok(sink) => return Box::new(sink),
+            Err(error) => {
+                tracing::warn!(%error, "failed to create macOS assistant audio sink");
+            }
+        }
+    }
     Box::<NoopAssistantAudioSink>::default()
 }
 
 pub(crate) fn interrupt_assistant_playback(sink: &mut dyn AssistantAudioSink) {
     sink.stop();
+}
+
+pub(crate) fn pcm_chunk_duration(chunk: &PcmAudioChunk) -> Duration {
+    let frame_count = chunk.bytes.len() / 2 / usize::from(chunk.channels);
+    Duration::from_secs_f64(frame_count as f64 / f64::from(chunk.sample_rate_hz))
 }
 
 #[cfg(test)]

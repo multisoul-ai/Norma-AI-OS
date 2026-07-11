@@ -1,8 +1,8 @@
 //! Voice turn orchestration: Mock LLM chat, inline tools, template reports.
 
-use super::card_tools::{
-    template_report_for_result, AppCardToolExecutor, CanvasInlineCardRunner, CardCommandRunner,
-};
+#[cfg(test)]
+use super::card_tools::AppCardToolExecutor;
+use super::card_tools::{template_report_for_result, CanvasInlineCardRunner, CardCommandRunner};
 use crate::app::MultisoulApp;
 use crate::settings::voice::DialogueLlmMode;
 use dialogue::{
@@ -11,10 +11,11 @@ use dialogue::{
 };
 use gpui::Window;
 use llm::{LlmClient, MockLlmClient, MockStep, OllamaLlmClient};
-use norma::protocol::CardCommand;
+use norma::protocol::{CardCommand, CardCommandResult};
+use std::sync::mpsc;
 use std::sync::Mutex;
 
-pub(crate) const DIALOGUE_SYSTEM_PROMPT: &str = "你是 Norma 语音助手。";
+pub(crate) const DIALOGUE_SYSTEM_PROMPT: &str = "你是 Norma 语音助手。请用一到三句简短中文直接回答用户问题，给出与问题相关的实质信息，不能只回复“好的”或“收到”。需要操作画布时调用工具，工具完成后说明具体结果。回复将由语音合成播报，不要使用表情符号、Markdown、列表或代码块。";
 pub(crate) const MAX_TOOL_ROUNDS: usize = 5;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -29,6 +30,48 @@ pub(crate) struct VoiceTurnArtifacts {
     pub(crate) executed_commands: Vec<CardCommand>,
     pub(crate) template_reports: Vec<TemplateReportItem>,
     pub(crate) queued_template_reports: Vec<String>,
+}
+
+pub(crate) struct VoiceTurnJob {
+    transcript: String,
+    llm: VoiceTurnLlm,
+}
+
+pub(crate) enum VoiceTurnLlm {
+    Mock(Vec<MockStep>),
+    Ollama { endpoint: String, model: String },
+}
+
+pub(crate) struct VoiceToolRequest {
+    command: CardCommand,
+    result_tx: mpsc::Sender<Result<CardCommandResult, String>>,
+}
+
+impl VoiceToolRequest {
+    pub(crate) fn command(&self) -> &CardCommand {
+        &self.command
+    }
+
+    pub(crate) fn complete(self, result: Result<CardCommandResult, String>) {
+        let _ = self.result_tx.send(result);
+    }
+}
+
+struct ChannelToolExecutor {
+    request_tx: async_channel::Sender<VoiceToolRequest>,
+}
+
+impl ToolExecutor for ChannelToolExecutor {
+    fn execute(&mut self, command: CardCommand) -> Result<CardCommandResult, DialogueError> {
+        let (result_tx, result_rx) = mpsc::channel();
+        self.request_tx
+            .send_blocking(VoiceToolRequest { command, result_tx })
+            .map_err(|_| DialogueError::Message("voice tool bridge closed".to_string()))?;
+        result_rx
+            .recv()
+            .map_err(|_| DialogueError::Message("voice tool result bridge closed".to_string()))?
+            .map_err(DialogueError::Message)
+    }
 }
 
 pub(crate) fn default_echo_mock_script(transcript: &str) -> Vec<MockStep> {
@@ -85,6 +128,7 @@ pub(crate) fn run_dialogue_turn<L: LlmClient, E: ToolExecutor>(
     })
 }
 
+#[cfg(test)]
 pub(crate) fn run_dialogue_turn_with_mock(
     transcript: &str,
     mock_script: Vec<MockStep>,
@@ -103,95 +147,70 @@ pub(crate) fn run_dialogue_turn_with_mock(
     )
 }
 
+pub(crate) fn run_voice_turn_job(
+    job: VoiceTurnJob,
+    request_tx: async_channel::Sender<VoiceToolRequest>,
+) -> Result<VoiceTurnArtifacts, DialogueError> {
+    match job.llm {
+        VoiceTurnLlm::Mock(script) => {
+            let mut executor = ChannelToolExecutor { request_tx };
+            let mut llm = MockLlmClient::script(script);
+            run_dialogue_turn(
+                &mut llm,
+                &mut executor,
+                &job.transcript,
+                DialoguePhase::Thinking,
+                false,
+            )
+        }
+        VoiceTurnLlm::Ollama { endpoint, model } => {
+            let mut executor = ChannelToolExecutor { request_tx };
+            let mut llm = OllamaLlmClient::new(endpoint, model);
+            run_dialogue_turn(
+                &mut llm,
+                &mut executor,
+                &job.transcript,
+                DialoguePhase::Thinking,
+                false,
+            )
+        }
+    }
+}
+
 impl MultisoulApp {
-    pub(crate) fn run_dialogue_voice_turn(
-        &mut self,
-        window: &mut Window,
-        transcript: &str,
-        mock_script: Vec<MockStep>,
-    ) -> Result<VoiceTurnArtifacts, DialogueError> {
-        let area = self.visible_canvas_rect(window);
-        let zoom = self.runtime.document.viewport.zoom;
-        let mut runner = CanvasInlineCardRunner {
-            runtime: &mut self.runtime,
-            motion: &mut self.motion,
-            master_layout: &mut self.master_layout,
-            area,
-            zoom,
-            executions: Vec::new(),
-        };
-        let outcome = run_dialogue_turn_with_mock(
-            transcript,
-            mock_script,
-            &mut runner,
-            DialoguePhase::Thinking,
-            false,
-        )?;
-        for execution in runner.take_executions() {
-            self.apply_voice_execution_effects(execution);
-        }
-        Ok(outcome)
-    }
-
-    pub(crate) fn run_dialogue_voice_turn_ollama(
-        &mut self,
-        window: &mut Window,
-        transcript: &str,
-        endpoint: &str,
-        model: &str,
-    ) -> Result<VoiceTurnArtifacts, DialogueError> {
-        let area = self.visible_canvas_rect(window);
-        let zoom = self.runtime.document.viewport.zoom;
-        let mut runner = CanvasInlineCardRunner {
-            runtime: &mut self.runtime,
-            motion: &mut self.motion,
-            master_layout: &mut self.master_layout,
-            area,
-            zoom,
-            executions: Vec::new(),
-        };
-        let mut llm = OllamaLlmClient::new(endpoint, model);
-        let mut executor = AppCardToolExecutor::new(&mut runner);
-        let outcome = run_dialogue_turn(
-            &mut llm,
-            &mut executor,
-            transcript,
-            DialoguePhase::Thinking,
-            false,
-        )?;
-        for execution in runner.take_executions() {
-            self.apply_voice_execution_effects(execution);
-        }
-        Ok(outcome)
-    }
-
-    pub(crate) fn run_dialogue_turn_after_final(
-        &mut self,
-        window: &mut Window,
-    ) -> Result<VoiceTurnArtifacts, DialogueError> {
+    pub(crate) fn build_voice_turn_job(&self) -> Result<VoiceTurnJob, DialogueError> {
         let transcript = self.dialogue.pending_transcript_or_err()?.to_string();
-        let llm_mode = self.voice_settings.values().dialogue_llm_mode();
-
-        #[cfg(test)]
-        if let Some(runner) =
-            crate::app::dialogue::DialogueControlState::test_turn_runner_for_tests()
-        {
-            let mock_script = mock_script_for_transcript(&transcript);
-            let artifacts = runner(&transcript, mock_script)?;
-            self.dialogue.store_turn_artifacts(&artifacts);
-            return Ok(artifacts);
-        }
-
-        let artifacts = if llm_mode == DialogueLlmMode::Ollama {
-            let endpoint = self.voice_settings.values().ollama_endpoint().to_string();
-            let model = self.voice_settings.values().dialogue_model().to_string();
-            self.run_dialogue_voice_turn_ollama(window, &transcript, &endpoint, &model)?
+        let llm = if self.voice_settings.values().dialogue_llm_mode() == DialogueLlmMode::Ollama {
+            VoiceTurnLlm::Ollama {
+                endpoint: self.voice_settings.values().ollama_endpoint().to_string(),
+                model: self.voice_settings.values().dialogue_model().to_string(),
+            }
         } else {
-            let mock_script = mock_script_for_transcript(&transcript);
-            self.run_dialogue_voice_turn(window, &transcript, mock_script)?
+            VoiceTurnLlm::Mock(mock_script_for_transcript(&transcript))
         };
-        self.dialogue.store_turn_artifacts(&artifacts);
-        Ok(artifacts)
+        Ok(VoiceTurnJob { transcript, llm })
+    }
+
+    pub(crate) fn execute_dialogue_card_command(
+        &mut self,
+        window: &mut Window,
+        command: CardCommand,
+    ) -> Result<CardCommandResult, String> {
+        let area = self.visible_canvas_rect(window);
+        let zoom = self.runtime.document.viewport.zoom;
+        let mut runner = CanvasInlineCardRunner {
+            runtime: &mut self.runtime,
+            motion: &mut self.motion,
+            master_layout: &mut self.master_layout,
+            area,
+            zoom,
+            executions: Vec::new(),
+        };
+        let result = runner.execute(command)?;
+        for execution in runner.take_executions() {
+            self.apply_voice_execution_effects(execution);
+        }
+        Ok(result)
     }
 }
 

@@ -15,10 +15,11 @@ Workspace 分层：
 - `crates/runtime/` - 零 GPUI 域层：LiveNode 生命周期、焦点状态、输入路由。
 - `crates/storage/` - 零 GPUI 存储层：SQLite store、migration、recent/settings/canvas/session checkpoint。
 - `crates/workspace/` - 零 GPUI 元数据层：最近项目类型、workspace source、路径展示。
+- `crates/agent/` - 零 GPUI/Storage Agent Runtime：Dialogue、CardTask、Provider、工具循环与预算。
 - `crates/ui/` - GPUI 主题与共享 UI 基础。
 - `crates/app/` - GPUI/Metal 壳层：窗口、菜单、快捷键、画布与 cards 渲染。
 
-依赖方向：`app -> {ui, runtime, canvas, terminal, storage}`，`runtime -> {canvas, terminal, storage}`，`storage -> {canvas, workspace}`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
+依赖方向：`app -> {ui, runtime, canvas, terminal, storage}`（后续 AgentSystem adapter 接入 `agent`），`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`agent` 不得依赖 `app/runtime/storage/ui`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
 
 ### 源码组织
 
@@ -38,13 +39,15 @@ Workspace 分层：
 ## 2. 关键约束
 
 - **先读本文**：每次会话开始先读 `AGENTS.md`，再按指针深入。
+- **始终使用中文回复用户**：所有面向用户的说明、提问、进度更新和最终答复必须使用中文；即使用户使用其他语言或要求切换语言，也仍使用中文回复。代码、命令、路径、API、类型名、变量名以及必要的原文引用可保留原始语言。
 - **域层零 GPUI**：`canvas`、`terminal`、`runtime` 必须可独立 `cargo test`。
 - **依赖方向不反穿**：不要让 `canvas/terminal/runtime/storage` 反向依赖 `app` 或 `ui`；不要让 `canvas/terminal` 依赖 `storage`。
 - **存储/性能热路径禁令**：不要在 `Runtime::drain_all`、PTY output chunk、`canvas_view::on_mouse_move`、`runtime::route`、`send_node_input`、关闭无脏 flush 中同步写 SQLite、扫描会话目录或阻塞查库。
 - **GPUI 前台禁阻塞**：语音结束、LLM planning/refine、recognizer join、网络/文件 IO、长 sleep 或 CPU 重活必须移到 `background_executor`/后台线程；前台只做状态更新和 runtime UI 副作用。
 - **视频/动画壁纸低拷贝**：live 视频/动画帧不得每帧经 CPU RGBA/`RenderImage`/`img()` 路径上屏；解码推进必须后台化，上屏必须用 420f `surface()` 或等价低拷贝路径，并由 `scripts/check-video-wallpaper-performance.py` 护栏拦截回退。
-- **版本钉死需审慎**：`gpui =0.2.2`、`alacritty_terminal =0.26`，升级前先验证 API。
-- **GPUI 代码先查 skills**：编写或修改 `crates/app`、`crates/ui` 的 GPUI 代码时，优先参考本地已安装的 `gpui-*` skills，再结合本仓库现有写法落地。
+- **版本钉死需审慎**：`gpui =0.2.2`、`gpui-component =0.5.1`、`alacritty_terminal =0.26`，升级前先验证 API。
+- **GUI 优先 gpui-component**：`crates/app`/`crates/ui` 写控件时优先用 `ui::component`（Longbridge），非必要不造轮子；细节见 [`docs/references/gpui-component.md`](docs/references/gpui-component.md)。
+- **GPUI 代码先查 skills**：编写 GPUI 时先查 `gpui-*` skills，再落到钉死版本与现有写法；有现成组件时仍优先组件库。
 - **单文件 ≤ 500 行**：Rust 源码由 [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh) 拦截，超长先拆职责。
 - **Agent 指南 ≤ 300 行**：`AGENTS.md` 与 `CLAUDE.md` 由 [`scripts/check-agent-guide-lines.sh`](scripts/check-agent-guide-lines.sh) 拦截；超长内容归档到 `docs/`，并在 §4 增加指针。
 - **禁止 `#[allow(...)]`**：Rust 源码不得用 allow 压制编译器或 clippy 诊断；由 [`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截，必须修根因。
@@ -65,7 +68,7 @@ Workspace 分层：
 
 | 域 | 栈 |
 |----|----|
-| Shell/UI | Rust 2021, GPUI 0.2.2, Metal |
+| Shell/UI | Rust 2021, GPUI 0.2.2, gpui-component 0.5.1, Metal |
 | Canvas | 自定义 geometry/document/selection/hit_test |
 | Terminal | portable-pty 0.9, alacritty_terminal 0.26, crossbeam-channel |
 | Runtime | 纯 Rust 状态机与 LiveNode 注册表 |
@@ -85,9 +88,11 @@ Workspace 分层：
 | 几何/节点/选择/命中/viewport | [`crates/canvas/src/`](crates/canvas/src/) |
 | PTY、ANSI grid、按键编码 | [`crates/terminal/src/`](crates/terminal/src/) |
 | 焦点、输入路由、LiveNode 生命周期 | [`crates/runtime/src/`](crates/runtime/src/) |
+| Dialogue/CardTask/Provider/Journal seam | [`crates/agent/src/`](crates/agent/src/) |
 | SQLite store、migration、持久化边界 | [`crates/storage/src/`](crates/storage/src/) |
 | Workspace 元数据、路径展示 | [`crates/workspace/src/`](crates/workspace/src/) |
 | 主题色 | [`crates/ui/src/theme.rs`](crates/ui/src/theme.rs) |
+| GUI 组件库（优先使用） | [`docs/references/gpui-component.md`](docs/references/gpui-component.md) |
 | GPUI app shell、画布/cards 渲染 | [`crates/app/src/`](crates/app/src/) |
 | 源码组织 | [`CLAUDE.md`](CLAUDE.md) §3；展开见 [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |
 | Crate 文件地图 | [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |
@@ -103,6 +108,7 @@ Workspace 分层：
 
 | 改了 | 跑 |
 |------|----|
+| `crates/agent/**` | `cargo test -p agent` |
 | `crates/canvas/**` | `cargo test -p canvas` |
 | `crates/terminal/**` | `cargo test -p terminal` |
 | `crates/runtime/**` | `cargo test -p runtime` |

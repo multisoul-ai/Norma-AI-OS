@@ -17,6 +17,7 @@ card_task.workspace = true
 dialogue.workspace = true
 llm.workspace = true
 runtime = { path = "../runtime" }
+storage.workspace = true
 canvas = { path = "../canvas" }
 terminal = { path = "../terminal" }
 norma.workspace = true

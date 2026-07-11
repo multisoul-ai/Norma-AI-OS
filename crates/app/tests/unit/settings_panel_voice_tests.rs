@@ -10,7 +10,7 @@
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 拼接 Settings 生产渲染源码
-///   2. 检查 Voice 导航、分区标题、持久化 key、输入设备与双击编辑锚点
+///   2. 检查 Voice 导航、分区标题、持久化 key、输入设备与单击编辑锚点
 ///   3. 检查 Edit 按钮和隐藏 transcript fallback 没有出现在 Settings UI
 ///
 /// 预期结果：
@@ -20,7 +20,7 @@
 #[test]
 fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     let source = format!(
-        "{}{}{}{}{}{}{}{}{}{}",
+        "{}{}{}{}{}{}{}{}{}{}{}",
         include_str!("../../src/settings/panel.rs"),
         include_str!("../../src/settings/content.rs"),
         include_str!("../../src/settings/voice.rs"),
@@ -29,6 +29,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         include_str!("../../src/settings/voice/state/values.rs"),
         include_str!("../../src/settings/voice/view.rs"),
         include_str!("../../src/settings/voice/view/editable.rs"),
+        include_str!("../../src/settings/voice/view/editable/native.rs"),
         include_str!("../../src/settings/voice/view/always_listening.rs"),
         include_str!("../../src/settings/voice/view/provider.rs")
     );
@@ -60,7 +61,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         "agent.provider.openai.base_url",
         "settings-agent-provider-ollama",
         "settings-agent-provider-openai",
-        "settings-voice-field-{}",
+        "settings-voice-field-",
         "agent_base_url",
         "agent_model",
         "agent_api_key",
@@ -68,8 +69,8 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         "Base URL",
         "API Key",
         "settings-voice-trace-toggle",
-        "MouseDownEvent",
-        "click_count >= 2",
+        "on_mouse_down",
+        "begin_edit",
     ];
 
     for anchor in anchors {

@@ -15,22 +15,25 @@ Workspace crates:
 - `canvas` - domain crate for geometry, document state, node models, selection, hit testing, and viewport transforms.
 - `terminal` - domain crate for PTY process handling, ANSI terminal grid parsing, input encoding, and terminal sessions.
 - `runtime` - domain crate for focus state, input routing, LiveNode registry, and node lifecycle glue.
-- `ui` - GPUI-facing shared UI primitives, currently theme only.
+- `agent` - GPUI-free unified Dialogue/CardTask/Provider runtime with injected card tools and journal.
+- `ui` - GPUI-facing shared UI: theme, icons, and `gpui-component` re-export (`ui::component`).
 - `app` - GPUI/Metal shell: window boot, menus, key bindings, canvas interaction, and terminal rendering.
 
 Core Cargo dependency direction is:
 
 ```text
-app -> {ui, runtime, canvas, terminal, storage}
+agent -> norma
+app -> {ui, runtime, canvas, terminal, storage} (AgentSystem adapter pending)
 runtime -> {canvas, terminal, storage}
-storage -> {canvas, workspace, rusqlite}
-ui -> gpui
+storage -> {agent, canvas, workspace, rusqlite}
+ui -> {gpui, gpui-component}
 ```
 
 `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable.
 
 ## 2. Key Constraints
 
+- **始终使用中文回复用户**：所有面向用户的说明、提问、进度更新和最终答复必须使用中文；即使用户使用其他语言或要求切换语言，也仍使用中文回复。代码、命令、路径、API、类型名、变量名以及必要的原文引用可保留原始语言。
 - **Domain crates stay UI-free**: no `gpui` imports in `canvas`, `terminal`, or `runtime`.
 - **Input decisions stay pure where possible**: encode routing decisions in `runtime::route` before app-layer side effects.
 - **PTY cleanup is required**: `Runtime::kill_all`, `TerminalSession::kill`, and `PtyHandle::Drop` are lifecycle guardrails. Keep new process paths equally explicit.
@@ -38,8 +41,9 @@ ui -> gpui
 - **Keep live video wallpaper low-copy**: live video frames must not go through per-frame CPU RGBA/`RenderImage`/`img()` rendering; decode 420f IOSurface-backed buffers off the GPUI shared executor and paint with `surface()`. Enforced by [`scripts/check-video-wallpaper-performance.py`](scripts/check-video-wallpaper-performance.py).
 - **Never block the GPUI foreground path**: voice finalization, LLM planning/refine, recognizer joins, network/file IO, long sleeps, and CPU-heavy work must run on `background_executor` or a background thread; foreground code should only update state and perform runtime/UI side effects.
 - **Quit on last window close**: GPUI on macOS does not quit the process automatically when the last window closes. `main.rs` must register `cx.on_window_closed(|cx| { if cx.windows().is_empty() { cx.quit(); } }).detach()` inside the `Application::run` closure, before `open_window`. Omitting this leaves the process running invisibly in the background after the user closes the window.
-- **Pinned libraries require verification**: `gpui =0.2.2` and `alacritty_terminal =0.26` are pinned in the workspace. Upgrade only after checking API compatibility.
-- **Consult GPUI skills first**: when writing GPUI code in `crates/app` or `crates/ui`, load the relevant local `gpui-*` skill before inventing a pattern, then adapt it to this repository's pinned GPUI version and existing style.
+- **Pinned libraries require verification**: `gpui =0.2.2`, `gpui-component =0.5.1`, and `alacritty_terminal =0.26` are pinned. Upgrade only after checking API compatibility.
+- **Prefer gpui-component for GUI**: in `crates/app` / `crates/ui`, use `ui::component` (Longbridge) before hand-rolling controls with bare `div()`; see [`docs/references/gpui-component.md`](docs/references/gpui-component.md). Call `ui::init_components(cx)` at app entry (already done in `run_norma_os` / `MultisoulApp::build`).
+- **Consult GPUI skills first**: when writing GPUI code, load local `gpui-*` skills, then adapt to the pinned GPUI version; still prefer the component library when it covers the need.
 - **New configurable app shortcuts must appear in Settings**: register them in `shortcuts.rs` and support recording/restoring them in Settings → Keyboard Shortcuts.
 - **Acceptance criteria must drive e2e coverage**: for user-visible flows involving Settings, Canvas, Terminal, focus/input routing, PTY, or persistence, derive `crates/e2e` cases from the acceptance criteria instead of relying only on unit tests or manual notes.
 - **Do not blur e2e levels**: GPUI `TestAppContext` + `VisualTestContext::simulate_click` is headless rendered-tree interaction. It does not launch the real `.app`. If acceptance criteria require a real app process/window, add a separate L3 runner and document that requirement explicitly.
@@ -88,6 +92,7 @@ Domain tests:
 
 ```bash
 cargo test -p canvas -p terminal -p runtime -p storage
+cargo test -p agent
 ```
 
 Workspace tests and app check:
@@ -163,8 +168,9 @@ For any task with explicit acceptance criteria, create a checklist that maps eac
 ## 8. UI And Interaction Notes
 
 - GPUI code belongs in `app` and `ui`.
+- Prefer `ui::component` (gpui-component) for buttons, inputs, dialogs, and similar controls; do not reinvent them unless the library lacks the capability or the surface is domain-specific (canvas/terminal).
 - Before changing GPUI API usage, elements, styling, actions, async tasks, entities, tests, troubleshooting, or code quality patterns, consult the installed skills from `cnwzhu/gpui-skills`: `gpui-fundamentals`, `gpui-init`, `gpui-elements`, `gpui-styling`, `gpui-actions`, `gpui-async`, `gpui-entities`, `gpui-testing`, `gpui-troubleshooting`, `gpui-patterns`, and `gpui-code-quality`.
-- Treat the skills as the first reference for GPUI idioms, but verify against this workspace's pinned `gpui =0.2.2` API and nearby code before committing to an implementation.
+- Treat the skills as the reference for GPUI idioms, but verify against pinned `gpui =0.2.2` / `gpui-component =0.5.1` and nearby code before committing.
 - Keep domain behavior in pure structs/functions so tests can run without opening a window.
 - Canvas coordinates and screen coordinates are separate. Convert through `Viewport`.
 - Node movement takes canvas-space deltas; app-layer pointer movement must divide by zoom.
@@ -202,6 +208,21 @@ When adding a new durable rule, keep overlapping facts synchronized between `AGE
 ## 11. Packaging Notes
 
 See [`docs/references/packaging.md`](docs/references/packaging.md).
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues; external PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Triage uses the canonical labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Domain documentation uses a single-context layout. See `docs/agents/domain.md`.
+
 <!-- msctl-inject-start -->
 ## msctl Quick Reference
 

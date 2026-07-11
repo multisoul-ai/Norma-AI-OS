@@ -16,9 +16,9 @@ mod shortcuts;
 mod workspace;
 
 pub use app::{
-    AppScreen, CopyCardContent, ExitFocus, MultisoulApp, NewBrowser, NewClaudeAgent, NewCodexAgent,
-    NewOpenCodeAgent, NewTerminal, NewWindow, OpenPreviewFile, OpenProject, ReflowLayout,
-    SettingsE2eSnapshot, ToggleMasterLayout, ToggleSettings,
+    ApiKeyDisplayState, AppScreen, CopyCardContent, ExitFocus, MultisoulApp, NewBrowser,
+    NewClaudeAgent, NewCodexAgent, NewOpenCodeAgent, NewTerminal, NewWindow, OpenPreviewFile,
+    OpenProject, ReflowLayout, SettingsE2eSnapshot, ToggleMasterLayout, ToggleSettings,
 };
 pub use assets::EmbeddedAssets;
 
@@ -38,6 +38,9 @@ pub fn run_norma_os() {
     Application::new()
         .with_assets(EmbeddedAssets)
         .run(|cx: &mut App| {
+            // gpui-component：主题与组件 actions；须在开窗前初始化。
+            ui::init_components(cx);
+
             // 菜单（App 显示名 Norma OS）。
             cx.set_menus(vec![Menu {
                 name: "Norma OS".into(),

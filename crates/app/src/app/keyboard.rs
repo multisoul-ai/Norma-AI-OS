@@ -1,5 +1,6 @@
 //! Keyboard routing for the root GPUI view.
 
+use crate::app::dialogue::VoiceShortcutKeyDownAction;
 use crate::app::voice::control::{
     is_voice_hold_modifier_release, is_voice_hold_release, is_voice_hold_shortcut, VoiceTrigger,
 };
@@ -229,20 +230,33 @@ impl MultisoulApp {
             return;
         }
 
-        if self.settings_panel.open
-            && (self.voice_settings.handle_key_down(&ev.keystroke)
-                || self.agent_definitions.handle_key_down(&ev.keystroke)
-                || (self.shortcuts.recording.is_some()
-                    && self.shortcuts.record_keystroke(&ev.keystroke)))
-        {
-            self.persist_voice_settings_in_background(cx);
-            cx.stop_propagation();
-            cx.notify();
-            return;
+        if self.settings_panel.open {
+            if self.handle_settings_text_key_down(ev, cx) {
+                return;
+            }
+            if self.voice_settings_inputs.is_focused(window, cx) {
+                return;
+            }
         }
 
         if is_voice_hold_shortcut(&ev.keystroke) {
-            self.begin_voice_recording(VoiceTrigger::Shortcut, cx);
+            match self
+                .dialogue
+                .voice_shortcut_key_down_action(self.voice_settings.values().realtime_enabled())
+            {
+                VoiceShortcutKeyDownAction::StartOneShotRecording => {
+                    self.begin_voice_recording(VoiceTrigger::Shortcut, cx);
+                }
+                VoiceShortcutKeyDownAction::StartAlwaysListeningShell => {
+                    self.start_always_listening_shell(cx);
+                }
+                VoiceShortcutKeyDownAction::InterruptAssistantReply => {
+                    if self.dialogue.interrupt_assistant_reply_for_user_action() {
+                        cx.notify();
+                    }
+                }
+                VoiceShortcutKeyDownAction::Ignore => {}
+            }
             return;
         }
 

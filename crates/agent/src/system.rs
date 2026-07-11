@@ -200,12 +200,12 @@ where
                 "user turn must not be empty".to_string(),
             ));
         }
-        tracing::debug!(project_id = %self.project_id, "dialogue user turn received");
         self.dialogue_messages.push(user_message(&text));
         let request = ProviderRequest {
             messages: self.dialogue_messages.clone(),
             tools: dialogue_tool_specs(),
         };
+        crate::diagnostics::dialogue_request(&self.project_id, &request);
         let mut streamed = Vec::new();
         let response = self.dialogue_provider.stream(&request, &mut |event| {
             if let crate::ProviderStreamEvent::TextDelta(text) = event {
@@ -214,6 +214,7 @@ where
                 }
             }
         })?;
+        crate::diagnostics::dialogue_response(&self.project_id, &response);
         let actions = response
             .tool_calls
             .iter()
@@ -296,8 +297,8 @@ where
         tracing::info!(
             project_id = %self.project_id,
             task_id,
-            intent = %intent,
-            "card task queued by dialogue"
+            intent_chars = intent.chars().count(),
+            "[DEBUG-agent-flow-7c1e] card task queued by dialogue"
         );
         self.emit_event(AgentEvent::TaskQueued {
             task_id,
@@ -311,16 +312,16 @@ where
             return;
         };
         active.round_count += 1;
-        tracing::debug!(
-            project_id = %self.project_id,
-            task_id = active.task_id,
-            round = active.round_count,
-            "card subagent provider round started"
-        );
         let request = ProviderRequest {
             messages: active.messages.clone(),
             tools: crate::card_subagent_tool_specs(),
         };
+        crate::diagnostics::card_request(
+            &self.project_id,
+            active.task_id,
+            active.round_count,
+            &request,
+        );
         let response = match self.card_provider.complete(&request) {
             Ok(response) => response,
             Err(error) => {
@@ -328,6 +329,13 @@ where
                 return;
             }
         };
+        crate::diagnostics::card_response(
+            &self.project_id,
+            active.task_id,
+            active.round_count,
+            active.completed_tool_calls,
+            &response,
+        );
         if response.tool_calls.is_empty() {
             let task_id = active.task_id;
             let summary = if response.text.trim().is_empty() {
@@ -335,11 +343,6 @@ where
             } else {
                 response.text
             };
-            tracing::info!(
-                project_id = %self.project_id,
-                task_id,
-                "card subagent completed task"
-            );
             self.update_task_state(task_id, TaskState::Succeeded, Some(summary.clone()), None);
             self.emit_event(AgentEvent::TaskSucceeded { task_id, summary });
             self.active = None;

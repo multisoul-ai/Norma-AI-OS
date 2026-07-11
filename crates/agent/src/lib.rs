@@ -1,5 +1,6 @@
 //! Unified, GPUI-free Agent runtime for dialogue and serial card subagents.
 
+mod diagnostics;
 mod host;
 mod journal;
 mod lifecycle;

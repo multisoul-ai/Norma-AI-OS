@@ -141,11 +141,24 @@ fn send_http_request(
     timeout: Duration,
 ) -> Result<String, ProviderError> {
     let (url, body) = request_parts(config, &request)?;
+    tracing::debug!(
+        protocol = ?config.protocol(),
+        model = config.model(),
+        request_body_bytes = body.len(),
+        "[DEBUG-agent-flow-7c1e] provider non-streaming request started"
+    );
     let mut response = send_request(config, &url, body, timeout)?;
-    response
+    let raw = response
         .body_mut()
         .read_to_string()
-        .map_err(|_| ProviderError::Message("provider response failed".to_string()))
+        .map_err(|_| ProviderError::Message("provider response failed".to_string()))?;
+    tracing::debug!(
+        protocol = ?config.protocol(),
+        model = config.model(),
+        response_body_bytes = raw.len(),
+        "[DEBUG-agent-flow-7c1e] provider non-streaming response received"
+    );
+    Ok(raw)
 }
 
 fn send_streaming_request(
@@ -155,13 +168,29 @@ fn send_streaming_request(
     emit: &mut dyn FnMut(ProviderStreamEvent),
 ) -> Result<ProviderResponse, ProviderError> {
     let (url, body) = request_parts(config, &request)?;
+    tracing::debug!(
+        protocol = ?config.protocol(),
+        model = config.model(),
+        request_body_bytes = body.len(),
+        "[DEBUG-agent-flow-7c1e] provider streaming request started"
+    );
     let response = send_request(config, &url, body, timeout)?;
     let reader = BufReader::new(response.into_body().into_reader());
     let mut text = String::new();
     let mut calls = Vec::new();
+    let mut line_count = 0_usize;
+    let mut openai_data_line_count = 0_usize;
+    let mut accepted_openai_data_line_count = 0_usize;
     for line in reader.lines() {
         let line =
             line.map_err(|_| ProviderError::Message("provider response failed".to_string()))?;
+        line_count += 1;
+        if line.starts_with("data:") {
+            openai_data_line_count += 1;
+        }
+        if line.starts_with("data: ") {
+            accepted_openai_data_line_count += 1;
+        }
         match config.protocol() {
             crate::ProviderProtocol::OpenAiCompatible => {
                 consume_openai_stream_line(&line, &mut text, &mut calls, emit)?;
@@ -175,7 +204,32 @@ fn send_streaming_request(
         for call in &calls {
             emit(ProviderStreamEvent::ToolCall(call.clone()));
         }
+        if openai_data_line_count > accepted_openai_data_line_count {
+            tracing::warn!(
+                protocol = ?config.protocol(),
+                model = config.model(),
+                openai_data_line_count,
+                accepted_openai_data_line_count,
+                "[DEBUG-agent-flow-7c1e] OpenAI stream contained data lines rejected by the strict prefix parser"
+            );
+        }
     }
+    let tool_names = calls
+        .iter()
+        .map(|call: &ProviderToolCall| call.name.as_str())
+        .collect::<Vec<_>>()
+        .join(",");
+    tracing::debug!(
+        protocol = ?config.protocol(),
+        model = config.model(),
+        line_count,
+        openai_data_line_count,
+        accepted_openai_data_line_count,
+        text_chars = text.chars().count(),
+        tool_call_count = calls.len(),
+        tool_names,
+        "[DEBUG-agent-flow-7c1e] provider streaming response consumed"
+    );
     Ok(ProviderResponse {
         text,
         tool_calls: calls,
@@ -196,9 +250,23 @@ fn send_request(
     if let Some(api_key) = config.api_key().filter(|key| !key.trim().is_empty()) {
         request = request.header("Authorization", &format!("Bearer {api_key}"));
     }
-    request
+    let response = request
         .send(body)
-        .map_err(|error| provider_transport_error(error, config.api_key()))
+        .map_err(|error| provider_transport_error(error, config.api_key()));
+    match &response {
+        Ok(_) => tracing::debug!(
+            protocol = ?config.protocol(),
+            model = config.model(),
+            "[DEBUG-agent-flow-7c1e] provider HTTP request completed"
+        ),
+        Err(error) => tracing::warn!(
+            protocol = ?config.protocol(),
+            model = config.model(),
+            %error,
+            "[DEBUG-agent-flow-7c1e] provider HTTP request failed"
+        ),
+    }
+    response
 }
 
 fn request_parts<'a>(

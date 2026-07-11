@@ -12,6 +12,7 @@ build
 # Paraformer model files (downloaded separately via scripts/download-paraformer-model.sh)
 assets/models/paraformer/*
 assets/models/paraformer-offline/*
+assets/models/silero_vad/*
 assets/models/tts/*
 
 # Git worktrees

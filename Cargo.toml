@@ -28,6 +28,8 @@ license = "MIT"
 [workspace.dependencies]
 # 壳层
 gpui = "=0.2.2"
+# Longbridge 组件库；与 gpui 0.2.2 对齐的 crates.io 版本（勿跟 git main，那会拉 Zed 最新 gpui）
+gpui-component = "=0.5.1"
 # 域层
 portable-pty = "0.9"
 alacritty_terminal = "=0.26"
