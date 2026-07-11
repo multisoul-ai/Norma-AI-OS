@@ -2,8 +2,10 @@
 
 mod card_tools;
 mod chat;
+mod error;
 mod reply;
 mod reply_loop;
+mod reply_stream;
 mod shell;
 mod turn;
 
@@ -13,16 +15,19 @@ use crate::app::voice::control::VoiceVisual;
 use crate::settings::voice::{DialogueLlmMode, VoiceSettingsValues};
 use dialogue::{
     apply_asr_final, handle_speaking_speech_start, DialoguePhase, DialogueSession,
-    SpeakingSpeechSource,
+    SpeakingSpeechSource, UtteranceCommitter,
 };
+use error::start_error_label;
 use gpui::{Context, Task};
 use reply::{create_assistant_audio_sink, ReplyPlayback, TtsClientBox};
+use reply_stream::StreamPlaybackBuffer;
+use std::collections::VecDeque;
 use std::fmt;
+use std::sync::atomic::AtomicBool;
 #[cfg(test)]
-use std::sync::atomic::{AtomicBool, Ordering};
-#[cfg(test)]
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use voice_sherpa::{PcmStreamSession, SherpaProvider, SpeechError};
 
 type MicPermissionCheck = fn() -> Result<(), SpeechError>;
@@ -110,12 +115,24 @@ pub(crate) struct DialogueControlState {
     startup_task: Option<Task<()>>,
     pub(super) pcm_pump_task: Option<Task<()>>,
     pub(super) reply_task: Option<Task<()>>,
+    pub(super) speech_task: Option<Task<()>>,
     next_startup_attempt: u64,
     pending_startup_attempt: Option<u64>,
     error_message: Option<String>,
     pub(super) queued_template_reports: Vec<String>,
     pub(super) last_reply_text: Option<String>,
     pub(super) pending_voice_turn: bool,
+    pub(super) utterance_committer: UtteranceCommitter,
+    pub(super) speech_queue: VecDeque<String>,
+    playback_buffer: StreamPlaybackBuffer,
+    pub(super) speech_synthesis_active: bool,
+    pub(super) dialogue_stream_finished: bool,
+    pub(super) playback_chunks_pending: usize,
+    pub(super) reply_generation: u64,
+    pub(super) tts_cancelled: Arc<AtomicBool>,
+    dialogue_stream_cancellation: Option<Arc<AtomicBool>>,
+    pub(super) reply_stream_started_at: Option<Instant>,
+    pub(super) last_reply_interrupted: bool,
     #[cfg(test)]
     recording_sink: Option<crate::app::voice::playback::RecordingAssistantAudioSink>,
     #[cfg(test)]
@@ -133,12 +150,24 @@ impl Default for DialogueControlState {
             startup_task: None,
             pcm_pump_task: None,
             reply_task: None,
+            speech_task: None,
             next_startup_attempt: 0,
             pending_startup_attempt: None,
             error_message: None,
             queued_template_reports: Vec::new(),
             last_reply_text: None,
             pending_voice_turn: false,
+            utterance_committer: UtteranceCommitter::new(),
+            speech_queue: VecDeque::new(),
+            playback_buffer: StreamPlaybackBuffer::new(std::time::Duration::from_millis(120)),
+            speech_synthesis_active: false,
+            dialogue_stream_finished: false,
+            playback_chunks_pending: 0,
+            reply_generation: 0,
+            tts_cancelled: Arc::new(AtomicBool::new(false)),
+            dialogue_stream_cancellation: None,
+            reply_stream_started_at: None,
+            last_reply_interrupted: false,
             #[cfg(test)]
             recording_sink: None,
             #[cfg(test)]
@@ -174,6 +203,10 @@ impl DialogueControlState {
 
     pub(crate) fn phase(&self) -> DialoguePhase {
         self.session.phase()
+    }
+
+    pub(crate) fn set_dialogue_stream_cancellation(&mut self, cancellation: Arc<AtomicBool>) {
+        self.dialogue_stream_cancellation = Some(cancellation);
     }
 
     #[cfg(test)]
@@ -289,7 +322,7 @@ impl DialogueControlState {
     }
 
     pub(crate) fn recover_reply_failure(&mut self, message: impl Into<String>) {
-        self.reply_playback.interrupt();
+        self.abort_reply_stream(false);
         self.session.on_playback_finished_or_interrupted(true);
         self.error_message = Some(message.into());
         self.reply_task = None;
@@ -314,7 +347,7 @@ impl DialogueControlState {
 
     pub(crate) fn stop_shell(&mut self) {
         self.card_task_cancel.cancel_all();
-        self.reply_playback.interrupt();
+        self.abort_reply_stream(false);
         self.reply_task = None;
         self.stop_pcm_stream();
         self.session.on_listening_stopped();
@@ -378,7 +411,7 @@ impl DialogueControlState {
         if !interrupted {
             return false;
         }
-        self.reply_playback.interrupt();
+        self.abort_reply_stream(true);
         self.reply_task = None;
         true
     }
@@ -389,7 +422,7 @@ impl DialogueControlState {
         if !interrupted {
             return false;
         }
-        self.reply_playback.interrupt();
+        self.abort_reply_stream(true);
         self.reply_task = None;
         true
     }
@@ -433,25 +466,6 @@ impl DialogueControlState {
     }
 }
 
-fn start_error_label(error: &DialogueStartError) -> String {
-    match error {
-        DialogueStartError::Speech(SpeechError::MicrophoneDenied) => {
-            "Microphone permission denied".to_string()
-        }
-        DialogueStartError::Speech(SpeechError::MicrophoneRestricted) => {
-            "Microphone permission restricted".to_string()
-        }
-        DialogueStartError::Speech(SpeechError::ModelNotFound(path)) => {
-            format!("Speech model not found: {path}")
-        }
-        DialogueStartError::Speech(error) => format!("Speech error: {error}"),
-        DialogueStartError::Ollama(message) => format!("Ollama unavailable: {message}"),
-        DialogueStartError::Provider(message) => {
-            format!("Agent provider unavailable: {message}")
-        }
-    }
-}
-
 #[cfg(test)]
 #[path = "../../../tests/unit/app_dialogue_shell_tests.rs"]
 mod app_dialogue_shell_tests;
@@ -459,6 +473,10 @@ mod app_dialogue_shell_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/agent_report_queue_tests.rs"]
 mod agent_report_queue_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/reply_stream_tests.rs"]
+mod reply_stream_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/unit/app_dialogue_ollama_gate_tests.rs"]

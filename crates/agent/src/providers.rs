@@ -7,6 +7,7 @@ use crate::{
     ProviderToolCall,
 };
 use std::io::{BufRead, BufReader};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -43,7 +44,18 @@ impl AgentProvider for OllamaProvider {
     ) -> Result<ProviderResponse, ProviderError> {
         let request = build_ollama_chat_request(&self.config, request)?
             .replace("\"stream\":false", "\"stream\":true");
-        send_streaming_request(&self.config, request, self.timeout, emit)
+        send_streaming_request(&self.config, request, self.timeout, None, emit)
+    }
+
+    fn stream_with_cancellation(
+        &mut self,
+        request: &ProviderRequest,
+        cancelled: Option<&AtomicBool>,
+        emit: &mut dyn FnMut(ProviderStreamEvent),
+    ) -> Result<ProviderResponse, ProviderError> {
+        let request = build_ollama_chat_request(&self.config, request)?
+            .replace("\"stream\":false", "\"stream\":true");
+        send_streaming_request(&self.config, request, self.timeout, cancelled, emit)
     }
 }
 
@@ -94,6 +106,20 @@ impl AgentProvider for ConfiguredProvider {
             Self::OpenAiCompatible(provider) => provider.stream(request, emit),
         }
     }
+
+    fn stream_with_cancellation(
+        &mut self,
+        request: &ProviderRequest,
+        cancelled: Option<&AtomicBool>,
+        emit: &mut dyn FnMut(ProviderStreamEvent),
+    ) -> Result<ProviderResponse, ProviderError> {
+        match self {
+            Self::Ollama(provider) => provider.stream_with_cancellation(request, cancelled, emit),
+            Self::OpenAiCompatible(provider) => {
+                provider.stream_with_cancellation(request, cancelled, emit)
+            }
+        }
+    }
 }
 
 impl OpenAiCompatibleProvider {
@@ -122,7 +148,17 @@ impl AgentProvider for OpenAiCompatibleProvider {
         emit: &mut dyn FnMut(ProviderStreamEvent),
     ) -> Result<ProviderResponse, ProviderError> {
         let request = build_openai_stream_request(&self.config, request)?;
-        send_streaming_request(&self.config, request, self.timeout, emit)
+        send_streaming_request(&self.config, request, self.timeout, None, emit)
+    }
+
+    fn stream_with_cancellation(
+        &mut self,
+        request: &ProviderRequest,
+        cancelled: Option<&AtomicBool>,
+        emit: &mut dyn FnMut(ProviderStreamEvent),
+    ) -> Result<ProviderResponse, ProviderError> {
+        let request = build_openai_stream_request(&self.config, request)?;
+        send_streaming_request(&self.config, request, self.timeout, cancelled, emit)
     }
 }
 
@@ -165,8 +201,14 @@ fn send_streaming_request(
     config: &ProviderConfig,
     request: String,
     timeout: Duration,
+    cancelled: Option<&AtomicBool>,
     emit: &mut dyn FnMut(ProviderStreamEvent),
 ) -> Result<ProviderResponse, ProviderError> {
+    if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+        return Err(ProviderError::Message(
+            "dialogue stream cancelled".to_string(),
+        ));
+    }
     let (url, body) = request_parts(config, &request)?;
     tracing::debug!(
         protocol = ?config.protocol(),
@@ -182,6 +224,11 @@ fn send_streaming_request(
     let mut openai_data_line_count = 0_usize;
     let mut accepted_openai_data_line_count = 0_usize;
     for line in reader.lines() {
+        if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+            return Err(ProviderError::Message(
+                "dialogue stream cancelled".to_string(),
+            ));
+        }
         let line =
             line.map_err(|_| ProviderError::Message("provider response failed".to_string()))?;
         line_count += 1;

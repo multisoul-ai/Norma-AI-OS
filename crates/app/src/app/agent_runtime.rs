@@ -5,7 +5,10 @@ use norma::protocol::{CardCommand, CardCommandResult};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc};
 
+mod artifacts;
 mod diagnostics;
+
+pub(crate) use artifacts::artifacts_from_agent_events;
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -108,6 +111,7 @@ pub(crate) struct ProjectAgentRuntime {
     config: agent::ProviderConfig,
     request_tx: async_channel::Sender<AgentRequest>,
     cancelled: Arc<std::sync::atomic::AtomicBool>,
+    dialogue_cancelled: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl ProjectAgentRuntime {
@@ -130,7 +134,9 @@ impl ProjectAgentRuntime {
         let (tool_tx, tool_rx) = async_channel::bounded(1);
         let (event_tx, event_rx) = async_channel::unbounded();
         let cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let dialogue_cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let worker_cancelled = cancelled.clone();
+        let worker_dialogue_cancelled = dialogue_cancelled.clone();
         let worker_project_id = project_id.clone();
         let worker_config = config.clone();
         std::thread::Builder::new()
@@ -144,6 +150,7 @@ impl ProjectAgentRuntime {
                     request_rx,
                     event_tx,
                     worker_cancelled,
+                    worker_dialogue_cancelled,
                 )
             })
             .map_err(|error| format!("could not start project agent: {error}"))?;
@@ -154,6 +161,7 @@ impl ProjectAgentRuntime {
                 config,
                 request_tx,
                 cancelled,
+                dialogue_cancelled,
             },
             tool_rx,
             event_rx,
@@ -166,6 +174,10 @@ impl ProjectAgentRuntime {
 
     fn id(&self) -> u64 {
         self.id
+    }
+
+    fn dialogue_cancel_handle(&self) -> Arc<std::sync::atomic::AtomicBool> {
+        Arc::clone(&self.dialogue_cancelled)
     }
 
     pub(crate) fn submit(
@@ -204,6 +216,7 @@ fn run_project_agent(
     requests: async_channel::Receiver<AgentRequest>,
     events: async_channel::Sender<AgentEvent>,
     cancelled: Arc<std::sync::atomic::AtomicBool>,
+    dialogue_cancelled: Arc<std::sync::atomic::AtomicBool>,
 ) {
     let dialogue = match agent::ConfiguredProvider::new(config.clone()) {
         Ok(provider) => provider,
@@ -223,6 +236,7 @@ fn run_project_agent(
         backend,
         cancelled: cancelled.clone(),
     };
+    let live_events = events.clone();
     let mut system = agent::AgentSystem::new(
         project_id,
         dialogue,
@@ -230,12 +244,16 @@ fn run_project_agent(
         ChannelCardToolHost { sender: tool_tx },
         journal,
         agent::CardTaskBudget::default(),
-    );
+    )
+    .with_live_event_sink(move |event| {
+        let _ = live_events.send_blocking(event);
+    })
+    .with_live_dialogue_cancellation(Arc::clone(&dialogue_cancelled));
     publish_events(system.events().to_vec(), &events);
     while let Ok(request) = requests.recv_blocking() {
         diagnostics::worker_command(&request.command, system.pending_task_count());
         let closing = matches!(request.command, AgentCommand::ProjectClosed);
-        handle_request(&mut system, request, &events);
+        handle_request(&mut system, request, &events, &dialogue_cancelled);
         if closing {
             break;
         }
@@ -244,7 +262,7 @@ fn run_project_agent(
                 return;
             }
             while let Ok(request) = requests.try_recv() {
-                handle_request(&mut system, request, &events);
+                handle_request(&mut system, request, &events, &dialogue_cancelled);
             }
             let produced = system.pump();
             diagnostics::worker_pump(&produced, system.pending_task_count());
@@ -287,13 +305,27 @@ fn handle_request(
     system: &mut ProjectAgentSystem,
     request: AgentRequest,
     events: &async_channel::Sender<AgentEvent>,
+    dialogue_cancelled: &std::sync::atomic::AtomicBool,
 ) {
+    let is_user_turn = matches!(request.command, AgentCommand::UserTurn(_));
+    if is_user_turn {
+        dialogue_cancelled.store(false, Ordering::Release);
+    }
     let result = system
         .submit(request.command)
         .map_err(|error| error.to_string());
     diagnostics::worker_result(&result, system.pending_task_count());
     if let Ok(produced) = &result {
-        publish_events(produced.clone(), events);
+        if is_user_turn {
+            let had_live_dialogue_text = produced
+                .iter()
+                .any(|event| matches!(event, AgentEvent::DialogueTextDelta { .. }));
+            if had_live_dialogue_text {
+                let _ = events.send_blocking(AgentEvent::DialogueStreamFinished);
+            }
+        } else {
+            publish_events(produced.clone(), events);
+        }
     }
     let _ = request.response.send_blocking(result);
 }
@@ -302,62 +334,6 @@ fn publish_events(produced: Vec<AgentEvent>, events: &async_channel::Sender<Agen
     for event in produced {
         let _ = events.send_blocking(event);
     }
-}
-
-pub(crate) fn artifacts_from_agent_events(
-    events: Vec<AgentEvent>,
-) -> crate::app::dialogue::VoiceTurnArtifacts {
-    diagnostics::turn_events(&events);
-    let mut reply = String::new();
-    for event in events {
-        match event {
-            AgentEvent::DialogueTextDelta { text } => reply.push_str(&text),
-            AgentEvent::TaskQueued { summary, .. } => reply = format!("任务已派发：{summary}"),
-            AgentEvent::TaskSucceeded { summary, .. } => reply = summary,
-            AgentEvent::TaskFailed { reason, .. } => reply = format!("任务失败：{reason}"),
-            AgentEvent::TaskCancelled { .. } => reply = "任务已取消".to_string(),
-            AgentEvent::TaskInterrupted { .. } => reply = "任务已中断".to_string(),
-            AgentEvent::TaskStatus {
-                task_id,
-                state,
-                completed_tool_calls,
-            } => {
-                reply = format!(
-                    "任务 #{task_id} 状态：{state}；已完成 {completed_tool_calls} 次工具调用"
-                )
-            }
-            AgentEvent::ProviderError { message } => reply = format!("模型服务错误：{message}"),
-            _ => {}
-        }
-    }
-    reply = strip_thinking_blocks(&reply);
-    if reply.trim().is_empty() {
-        diagnostics::empty_turn_fallback();
-        reply = "我没有收到有效回复，请再试一次。".to_string();
-    }
-    crate::app::dialogue::VoiceTurnArtifacts {
-        reply_text: reply,
-        executed_commands: Vec::new(),
-        template_reports: Vec::new(),
-        queued_template_reports: Vec::new(),
-    }
-}
-
-fn strip_thinking_blocks(text: &str) -> String {
-    let mut visible = String::with_capacity(text.len());
-    let mut remaining = text;
-
-    while let Some(start) = remaining.find("<think>") {
-        visible.push_str(&remaining[..start]);
-        let after_start = &remaining[start + "<think>".len()..];
-        let Some(end) = after_start.find("</think>") else {
-            return visible.trim().to_string();
-        };
-        remaining = &after_start[end + "</think>".len()..];
-    }
-
-    visible.push_str(remaining);
-    visible.trim().to_string()
 }
 
 impl MultisoulApp {
@@ -387,7 +363,10 @@ impl MultisoulApp {
             let (runtime, tools, events) =
                 ProjectAgentRuntime::spawn(project_id, project_db_path, config)?;
             let runtime_id = runtime.id();
+            let dialogue_cancel_handle = runtime.dialogue_cancel_handle();
             self.agent_runtime = Some(runtime);
+            self.dialogue
+                .set_dialogue_stream_cancellation(dialogue_cancel_handle);
             start_tool_pump(tools, runtime_id, window, cx);
             start_event_pump(events, runtime_id, cx);
         }
@@ -455,15 +434,25 @@ fn start_event_pump(
     cx.spawn(async move |this, cx| {
         while let Ok(event) = events.recv().await {
             diagnostics::event_receive(runtime_id, &event);
-            if let Some(report) = terminal_task_report(&event) {
-                let _ = this.update(cx, |app, cx| {
-                    if !is_current_runtime(app, runtime_id) {
-                        return;
+            let _ = this.update(cx, |app, cx| {
+                if !is_current_runtime(app, runtime_id) {
+                    return;
+                }
+                match event {
+                    AgentEvent::DialogueTextDelta { text } => {
+                        app.dialogue.on_agent_text_delta(&text, cx);
                     }
-                    app.dialogue.queue_agent_report(report);
-                    cx.notify();
-                });
-            }
+                    AgentEvent::DialogueStreamFinished => {
+                        app.dialogue.finish_agent_text_stream(cx);
+                    }
+                    _ => {
+                        if let Some(report) = terminal_task_report(&event) {
+                            app.dialogue.queue_agent_report(report);
+                        }
+                    }
+                }
+                cx.notify();
+            });
         }
     })
     .detach();

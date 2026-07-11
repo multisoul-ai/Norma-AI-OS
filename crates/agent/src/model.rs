@@ -61,6 +61,8 @@ pub enum AgentEvent {
     DialogueTextDelta {
         text: String,
     },
+    /// Signals that all live deltas for the current ordinary dialogue reply were emitted.
+    DialogueStreamFinished,
     TaskQueued {
         task_id: TaskId,
         summary: String,

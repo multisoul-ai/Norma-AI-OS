@@ -1,14 +1,46 @@
 mod support;
 
 use agent::{
-    AgentCommand, AgentEvent, AgentSystem, AuditEntry, CardTaskBudget, CardTaskJournal,
-    MemoryJournal,
+    AgentCommand, AgentEvent, AgentProvider, AgentSystem, AuditEntry, CardTaskBudget,
+    CardTaskJournal, MemoryJournal, ProviderError, ProviderRequest, ProviderResponse,
+    ProviderStreamEvent,
 };
 use norma::protocol::CardCommand;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use support::{
     init_trace, response, system, task_id_from, text_response, tool, RecordingHost,
     ScriptedProvider,
 };
+
+struct ListenerAwareStreamingProvider {
+    listener_observed: Arc<AtomicBool>,
+}
+
+impl AgentProvider for ListenerAwareStreamingProvider {
+    fn complete(&mut self, _request: &ProviderRequest) -> Result<ProviderResponse, ProviderError> {
+        Err(ProviderError::Message(
+            "本测试必须经过流式 Provider 路径".to_string(),
+        ))
+    }
+
+    fn stream(
+        &mut self,
+        _request: &ProviderRequest,
+        emit: &mut dyn FnMut(ProviderStreamEvent),
+    ) -> Result<ProviderResponse, ProviderError> {
+        emit(ProviderStreamEvent::TextDelta("第一段已经到达。".to_string()));
+        if !self.listener_observed.load(Ordering::SeqCst) {
+            return Err(ProviderError::Message(
+                "live listener was not invoked before provider continued".to_string(),
+            ));
+        }
+        Ok(ProviderResponse {
+            text: "第一段已经到达。".to_string(),
+            tool_calls: Vec::new(),
+        })
+    }
+}
 
 /// A-1：普通聊天只产生文本事件，不创建 CardTask，也不触碰 CardToolHost。
 ///
@@ -39,6 +71,62 @@ fn ordinary_chat_does_not_dispatch_card_task() {
         system.card_tool_host().commands.is_empty(),
         "普通聊天不得调用任何卡片工具"
     );
+}
+
+/// A-1b：普通对话的 Provider delta 必须在 `submit` 返回前同步交给实时 listener。
+///
+/// 数据构造：
+///   `ListenerAwareStreamingProvider` 发出「第一段已经到达。」后立即检查原子标志；
+///   live listener 收到 `DialogueTextDelta` 时将该标志置为 true。
+///
+/// 执行过程：
+///   1. 用 `with_live_event_sink` 构造 AgentSystem；
+///   2. 提交说明性 UserTurn，确保路由为 ModelOnly；
+///   3. Provider 在同一调用栈中发出 delta 并检查 listener。
+///
+/// 预期结果：
+///   - 正断言：submit 成功且 listener 已在 Provider 继续前收到 delta；
+///   - 正断言：原有 submit 返回事件仍保留文本，供审计与非实时调用者使用；
+///   - 负断言：不得退化为 Provider 完成后才批量通知 listener。
+#[test]
+fn ordinary_dialogue_delta_reaches_live_listener_before_provider_returns() {
+    let listener_observed = Arc::new(AtomicBool::new(false));
+    let provider_observed = Arc::clone(&listener_observed);
+    let mut system = AgentSystem::new(
+        "project-a",
+        ListenerAwareStreamingProvider {
+            listener_observed: provider_observed,
+        },
+        ScriptedProvider::default(),
+        RecordingHost::default(),
+        MemoryJournal::default(),
+        CardTaskBudget::default(),
+    )
+    .with_live_event_sink({
+        let listener_observed = Arc::clone(&listener_observed);
+        move |event| {
+            if matches!(event, AgentEvent::DialogueTextDelta { .. }) {
+                listener_observed.store(true, Ordering::SeqCst);
+            }
+        }
+    });
+
+    let events = system
+        .submit(AgentCommand::UserTurn("解释什么是无限画布".to_string()))
+        .expect("实时 listener 应在 Provider 回调内收到普通对话 delta");
+
+    assert!(
+        listener_observed.load(Ordering::SeqCst),
+        "Provider 发出 delta 后 listener 必须已同步收到，不能等整轮完成"
+    );
+    assert!(
+        events.iter().any(|event| matches!(
+            event,
+            AgentEvent::DialogueTextDelta { text } if text == "第一段已经到达。"
+        )),
+        "submit 返回事件仍应保留文本 delta，保证审计与既有调用者兼容"
+    );
+    assert_eq!(system.pending_task_count(), 0, "说明性问答不得创建 CardTask");
 }
 
 /// A-2：Dialogue 的 card_task start 只产生 queued receipt；CardTask 在后续 pump 中独立运行。

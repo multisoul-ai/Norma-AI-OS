@@ -30,6 +30,9 @@ where
             self.dialogue_turns.pop_front();
         }
         let routing_decision = super::dialogue_policy::route_user_turn(&text);
+        let live_event_sink = (routing_decision == DialogueRoutingDecision::ModelOnly)
+            .then(|| self.live_event_sink.clone())
+            .flatten();
         let mut turn = vec![user_message(&text)];
         let request = ProviderRequest {
             messages: self.dialogue_request_messages(&turn),
@@ -37,13 +40,20 @@ where
         };
         crate::diagnostics::dialogue_request(&self.project_id, &request);
         let mut streamed = Vec::new();
-        let mut response = self.dialogue_provider.stream(&request, &mut |event| {
-            if let crate::ProviderStreamEvent::TextDelta(text) = event {
-                if !text.is_empty() {
-                    streamed.push(text);
+        let mut response = self.dialogue_provider.stream_with_cancellation(
+            &request,
+            self.live_dialogue_cancellation.as_deref(),
+            &mut |event| {
+                if let crate::ProviderStreamEvent::TextDelta(text) = event {
+                    if !text.is_empty() {
+                        if let Some(sink) = &live_event_sink {
+                            sink(AgentEvent::DialogueTextDelta { text: text.clone() });
+                        }
+                        streamed.push(text);
+                    }
                 }
-            }
-        })?;
+            },
+        )?;
         crate::diagnostics::dialogue_response(&self.project_id, &response);
         if routing_decision == DialogueRoutingDecision::RequireCardTaskFallback
             && !response.tool_calls.iter().any(|call| {

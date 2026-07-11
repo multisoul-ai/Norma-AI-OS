@@ -1,4 +1,5 @@
 use crate::{AgentMessage, ProviderRequest, ProviderResponse, ProviderToolCall};
+use std::sync::atomic::{AtomicBool, Ordering};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Eq, PartialEq, Error)]
@@ -27,6 +28,27 @@ pub trait AgentProvider: Send {
         }
         for tool_call in &response.tool_calls {
             emit(ProviderStreamEvent::ToolCall(tool_call.clone()));
+        }
+        Ok(response)
+    }
+
+    /// Streams a reply until the caller abandons the current dialogue turn.
+    fn stream_with_cancellation(
+        &mut self,
+        request: &ProviderRequest,
+        cancelled: Option<&AtomicBool>,
+        emit: &mut dyn FnMut(ProviderStreamEvent),
+    ) -> Result<ProviderResponse, ProviderError> {
+        if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+            return Err(ProviderError::Message(
+                "dialogue stream cancelled".to_string(),
+            ));
+        }
+        let response = self.stream(request, emit)?;
+        if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+            return Err(ProviderError::Message(
+                "dialogue stream cancelled".to_string(),
+            ));
         }
         Ok(response)
     }

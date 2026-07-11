@@ -281,6 +281,7 @@ fn test_agent_tool_pump_forwards_multiple_creates_to_real_runtime() {
             ),
             request_tx: agent_request_tx,
             cancelled: Arc::new(AtomicBool::new(false)),
+            dialogue_cancelled: Arc::new(AtomicBool::new(false)),
         });
     });
     cx.update(|window, app_cx| {

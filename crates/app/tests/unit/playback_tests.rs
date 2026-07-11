@@ -62,6 +62,29 @@ fn test_recording_sink_accepts_supported_voice_chunks() {
     assert!(duration_24k.as_nanos() > 0, "24k 调度时长应大于零");
 }
 
+/// PB-2b：播放完成信号必须由 sink 显式交回，而不是由上层按 PCM 理论时长伪造。
+///
+/// 数据构造：Recording sink 与一块合法 16kHz mono PCM；完成 channel 容量为 1。
+/// 执行过程：通过 write_chunk_with_completion 调度该 PCM，再立即读取完成信号。
+/// 预期结果：调度成功后必须收到一个完成信号；该信号只对应本次实际 sink 调度。
+#[test]
+fn test_recording_sink_emits_explicit_playback_completion() {
+    let mut sink = RecordingAssistantAudioSink::new();
+    let (completion_tx, completion_rx) = async_channel::bounded(1);
+
+    sink.write_chunk_with_completion(&test_pcm_chunk(), completion_tx)
+        .expect("Recording sink 应能调度带完成回调的 PCM");
+
+    completion_rx
+        .try_recv()
+        .expect("Recording sink 必须显式发出本次播放完成信号");
+    assert_eq!(
+        sink.chunks_written(),
+        1,
+        "完成信号不能掩盖或重复一次 PCM 调度"
+    );
+}
+
 /// PB-3: macOS 默认 assistant sink 必须真正接受 PCM，而不是静默 Noop。
 ///
 /// 数据构造：
@@ -94,40 +117,40 @@ fn test_macos_default_sink_schedules_matcha_pcm() {
     assert_ne!(duration.as_nanos(), 0, "默认 sink 不得返回零时长伪成功");
 }
 
-/// PB-4: 生产 Kokoro TTS 音频必须能由 macOS 默认 sink 完整调度播放。
+/// PB-4: 生产 Matcha TTS 音频必须能由 macOS 默认 sink 完整调度播放。
 ///
 /// 数据构造：
-///   文本 =「Norma AI 实时语音播放验证完成」；
-///   TTS = scripts/download-kokoro-tts-model.sh 安装的中英混合真实模型；
+///   文本 =「多灵魂桌面本地语音播放验证完成」；
+///   TTS = scripts/download-matcha-tts-model.sh 安装的中文真实模型；
 ///   sink = default_assistant_audio_sink（AVFoundation 后端）。
 ///
 /// 执行过程：
-///   1. 生产 SherpaTtsClient 合成真实 24000Hz PCM；
+///   1. 生产 SherpaTtsClient 合成真实 22050Hz PCM；
 ///   2. 默认 sink 调度该 PCM；
 ///   3. 等待音频时长，确保硬件有机会完成播放。
 ///
 /// 预期结果：
-///   - 正断言：中英混合文本合成 PCM 非空且为 24000Hz；
+///   - 正断言：中文文本合成 PCM 非空且为 22050Hz；
 ///   - 正断言：sink 返回的播放时长大于零；
-///   - 负断言：不得返回旧 Matcha 的 22050Hz 或 backend unavailable。
+///   - 负断言：不得返回 Kokoro 的 24000Hz 或 backend unavailable。
 #[cfg(target_os = "macos")]
 #[test]
-#[ignore = "plays audible speech; requires downloaded Kokoro TTS model and macOS audio output"]
-fn test_real_kokoro_mixed_tts_plays_through_macos_default_sink() {
+#[ignore = "plays audible speech; requires downloaded Matcha TTS model and macOS audio output"]
+fn test_real_matcha_chinese_tts_plays_through_macos_default_sink() {
     let mut tts =
-        voice_sherpa::SherpaTtsClient::from_env_or_default().expect("真实 Kokoro TTS 模型应已安装");
+        voice_sherpa::SherpaTtsClient::from_env_or_default().expect("真实 Matcha TTS 模型应已安装");
     let chunk = tts
-        .synthesize("Norma AI 实时语音播放验证完成")
-        .expect("真实 Kokoro TTS 应合成中英混合 PCM");
+        .synthesize("多灵魂桌面本地语音播放验证完成")
+        .expect("真实 Matcha TTS 应合成中文 PCM");
     assert_eq!(
-        chunk.sample_rate_hz, 24_000,
-        "官方 Kokoro 输出应保持 24000Hz"
+        chunk.sample_rate_hz, 22_050,
+        "官方 Matcha 输出应保持 22050Hz"
     );
     assert_ne!(
-        chunk.sample_rate_hz, 22_050,
-        "默认播放链不得仍使用 22050Hz 的 Matcha 中文模型"
+        chunk.sample_rate_hz, 24_000,
+        "默认播放链不得继续使用 24000Hz 的 Kokoro 模型"
     );
-    assert!(!chunk.bytes.is_empty(), "真实 Kokoro PCM 不应为空");
+    assert!(!chunk.bytes.is_empty(), "真实 Matcha PCM 不应为空");
 
     let mut sink = default_assistant_audio_sink();
     let duration = sink
@@ -143,7 +166,7 @@ fn test_real_kokoro_mixed_tts_plays_through_macos_default_sink() {
 /// 数据构造（含关键数值的推导过程）：
 ///   输入 = Paraformer 官方 16kHz/mono/PCM16 `test_wavs/0.wav`；
 ///   chunk = 512 samples，与 Silero window 对齐；尾部静音 = 1 秒，超过 250ms endpoint；
-///   Ollama/Kokoro/播放均使用生产默认配置。
+///   Ollama/Matcha/播放均使用生产默认配置。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 官方真实语音逐块送入 Silero VAD 与 Paraformer 得到 final transcript；
@@ -231,10 +254,10 @@ fn test_real_end_to_end_voice_conversation_replies_audibly() {
     );
 
     let mut tts =
-        voice_sherpa::SherpaTtsClient::from_env_or_default().expect("真实 Kokoro TTS 应已安装");
+        voice_sherpa::SherpaTtsClient::from_env_or_default().expect("真实 Matcha TTS 应已安装");
     let chunk = tts
         .synthesize(&response.assistant_text)
-        .expect("真实 Kokoro TTS 应合成 Ollama 回复");
+        .expect("真实 Matcha TTS 应合成 Ollama 回复");
     assert!(
         !chunk.bytes.is_empty(),
         "Ollama 回复合成的 TTS PCM 不得为空"
@@ -265,7 +288,7 @@ fn pcm16_chunk(samples: &[i16]) -> PcmAudioChunk {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   capture = 生产 AVAudioEngine 麦克风输入；VAD = 真实 Silero；
-///   playback = 生产 Kokoro 合成约数秒中英混合语音，再由 AVFoundation 默认 sink 播放；
+///   playback = 生产 Matcha 合成约数秒中文语音，再由 AVFoundation 默认 sink 播放；
 ///   监听窗口 = 完整播放时长 + 500ms，覆盖 AEC 收敛与 VAD 150ms 起说阈值。
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -296,10 +319,10 @@ fn test_assistant_playback_echo_is_ignored_until_reply_completes() {
     std::thread::sleep(Duration::from_millis(300));
 
     let mut tts =
-        voice_sherpa::SherpaTtsClient::from_env_or_default().expect("真实 Kokoro TTS 应已安装");
+        voice_sherpa::SherpaTtsClient::from_env_or_default().expect("真实 Matcha TTS 应已安装");
     let chunk = tts
         .synthesize("好的，我已经听清楚了，现在为你完整回答这个问题。")
-        .expect("真实 Kokoro 应合成 assistant 测试回复");
+        .expect("真实 Matcha 应合成 assistant 测试回复");
     while event_rx.try_recv().is_ok() {}
     let mut sink = default_assistant_audio_sink();
     let playback_duration = sink

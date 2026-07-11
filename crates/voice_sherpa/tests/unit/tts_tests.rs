@@ -1,7 +1,30 @@
-use super::{resolve_matcha_model_dir, resolve_matcha_vocoder_path, SherpaTtsClient};
+use super::{
+    resolve_matcha_model_dir, resolve_matcha_vocoder_path, ProgressivePcmEncoder, SherpaTtsClient,
+};
 use crate::FakeTtsClient;
 use audio::{PcmAudioChunk, PcmFormat};
 use dialogue::{DialogueError, TtsClient};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+
+struct CollectingTtsSink {
+    chunks: Arc<Mutex<Vec<PcmAudioChunk>>>,
+    cancelled: AtomicBool,
+}
+
+impl dialogue::TtsChunkSink for CollectingTtsSink {
+    fn send(&self, chunk: PcmAudioChunk) -> bool {
+        self.chunks
+            .lock()
+            .expect("stream collecting sink lock should not be poisoned")
+            .push(chunk);
+        true
+    }
+
+    fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Acquire)
+    }
+}
 
 /// TTS-1: 空文本合成应返回 DialogueError。
 ///
@@ -44,6 +67,86 @@ fn test_fake_tts_returns_valid_pcm_chunk() {
         .synthesize("你好")
         .expect("非空文本应成功合成 24k 块");
     assert_valid_pcm_chunk(&chunk_24k, 24_000, "24k fake TTS");
+}
+
+/// TTS-2b：sherpa 累积 callback 只能转发新增样本，避免播放队列重复旧音频。
+///
+/// 数据构造：
+///   第一次 callback = [0.0, 0.5] 共 2 samples；
+///   第二次 callback = [0.0, 0.5, -0.5] 共 3 samples，前 2 个与第一次相同；
+///   第三次 callback 与第二次完全相同。
+///
+/// 执行过程：
+///   1. 依次交给 `ProgressivePcmEncoder::take_new_chunk`；
+///   2. 读取每次产生的 PCM16 byte 数。
+///
+/// 预期结果：
+///   - 正断言：第一次产生 2 samples = 4 bytes，第二次只产生新增 1 sample = 2 bytes；
+///   - 正断言：相同累计快照不再产生 chunk；
+///   - 负断言：第二次不得重复发送第一次的 4 bytes。
+#[test]
+fn test_progressive_pcm_encoder_emits_only_new_callback_samples() {
+    let mut encoder = ProgressivePcmEncoder::new(22_050).expect("22.05kHz 应为合法 Matcha 采样率");
+
+    let first = encoder
+        .take_new_chunk(&[0.0, 0.5])
+        .expect("首次累计 samples 应可编码")
+        .expect("首次 callback 应产生 PCM");
+    let second = encoder
+        .take_new_chunk(&[0.0, 0.5, -0.5])
+        .expect("增长后的累计 samples 应可编码")
+        .expect("新增 sample 应产生 PCM");
+    let repeated = encoder
+        .take_new_chunk(&[0.0, 0.5, -0.5])
+        .expect("相同累计 samples 不应报错");
+
+    assert_eq!(first.bytes.len(), 4, "2 个 PCM16 samples 应编码为 4 bytes");
+    assert_eq!(second.bytes.len(), 2, "第二次只应编码新增 1 个 sample");
+    assert_eq!(
+        second.sample_rate_hz, 22_050,
+        "增量 chunk 应保留 Matcha 的 22.05kHz 采样率"
+    );
+    assert!(repeated.is_none(), "相同累计 callback 不得重复产生 PCM");
+    assert_ne!(
+        second.bytes.len(),
+        first.bytes.len(),
+        "第二次不得把首次 2 个 samples 再次转发"
+    );
+    assert_eq!(
+        encoder.trailing_samples_from_final(&[0.0, 0.5, -0.5, 0.25]),
+        &[0.25],
+        "最终 aggregate 比 callback 多出的尾部 sample 必须单独补发，不能丢字尾"
+    );
+}
+
+/// TTS-2c：Matcha 回调短于前一块时代表新的有序音频片段，而不是错误的倒退快照。
+///
+/// 数据构造：第一个片段含 3 个 samples；第二个片段含 2 个 samples，长度故意更短。
+/// 执行过程：按 Matcha 回调顺序交给 ProgressivePcmEncoder。
+/// 预期结果：两次均输出完整片段；第二次不得报“moved backwards”，也不得丢掉尾句音频。
+#[test]
+fn test_progressive_pcm_encoder_accepts_shorter_following_matcha_piece() {
+    let mut encoder = ProgressivePcmEncoder::new(22_050).expect("22.05kHz 应为合法 Matcha 采样率");
+
+    let first = encoder
+        .take_new_chunk(&[0.0, 0.5, -0.5])
+        .expect("首个 Matcha 片段应可编码")
+        .expect("首个 Matcha 片段应产生 PCM");
+    let second = encoder
+        .take_new_chunk(&[0.25, -0.25])
+        .expect("更短的后续 Matcha 片段不应被误判为错误")
+        .expect("更短的后续 Matcha 片段应产生 PCM");
+
+    assert_eq!(first.bytes.len(), 6, "首个 3-sample 片段应编码为 6 bytes");
+    assert_eq!(
+        second.bytes.len(),
+        4,
+        "第二个 2-sample 片段应完整编码为 4 bytes"
+    );
+    assert!(
+        encoder.emitted_callback_audio(),
+        "回调送出音频后应记录，避免最终 aggregate 重复播放"
+    );
 }
 
 /// TTS-3: 官方 Matcha 中文模型的 22050Hz 输出必须能通过生产客户端返回。
@@ -123,35 +226,85 @@ fn test_real_matcha_tts_long_reply_is_not_truncated_to_okay() {
     );
 }
 
-/// TTS-5: 默认生产 TTS 必须使用 Kokoro 中英模型合成混合语言文本。
+/// TTS-5: 默认生产 TTS 必须使用 Matcha 中文模型合成中文文本。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   text =「你好，我是 Norma AI。」同时包含中文、英文专有名词与英文缩写；
-///   Kokoro multi-lang v1.1 官方输出 sample_rate = 24_000Hz；
-///   旧 Matcha 中文模型输出 sample_rate = 22_050Hz。
+///   text =「你好，多灵魂桌面正在测试本地中文语音合成。」；
+///   Matcha 官方模型输出 sample_rate = 22_050Hz；
+///   新 Kokoro 模型输出 sample_rate = 24_000Hz。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 通过应用生产入口 `SherpaTtsClient::from_env_or_default` 加载默认 TTS；
-///   2. 将完整中英混合句一次性交给 `TtsClient::synthesize`；
+///   2. 将中文句子一次性交给 `TtsClient::synthesize`；
 ///   3. 检查返回的中立 PCM chunk。
 ///
 /// 预期结果：
-///   - 正断言：返回 24_000Hz mono PCM16 且音频非空；
-///   - 负断言：不得返回旧 Matcha 的 22_050Hz，证明默认后端确已切换。
+///   - 正断言：返回 22_050Hz mono PCM16 且音频非空；
+///   - 负断言：不得返回 Kokoro 的 24_000Hz，证明默认后端已切回 Matcha。
 #[test]
-#[ignore = "requires downloaded Kokoro Chinese-English TTS model; run scripts/download-kokoro-tts-model.sh first"]
-fn test_default_real_tts_synthesizes_mixed_chinese_english_with_kokoro() {
+#[ignore = "requires downloaded Matcha Chinese TTS model; run scripts/download-matcha-tts-model.sh first"]
+fn test_default_real_tts_synthesizes_chinese_with_matcha() {
     let mut tts =
-        SherpaTtsClient::from_env_or_default().expect("默认生产 TTS 应加载 Kokoro 中英模型");
+        SherpaTtsClient::from_env_or_default().expect("默认生产 TTS 应加载 Matcha 中文模型");
 
     let chunk = tts
-        .synthesize("你好，我是 Norma AI。")
-        .expect("Kokoro 应能合成完整中英混合句");
+        .synthesize("你好，多灵魂桌面正在测试本地中文语音合成。")
+        .expect("Matcha 应能合成完整中文句");
 
-    assert_valid_pcm_chunk(&chunk, 24_000, "default Kokoro mixed-language TTS");
+    assert_valid_pcm_chunk(&chunk, 22_050, "default Matcha Chinese TTS");
     assert_ne!(
-        chunk.sample_rate_hz, 22_050,
-        "默认 TTS 不得仍使用 22.05kHz 的 Matcha 中文模型"
+        chunk.sample_rate_hz, 24_000,
+        "默认 TTS 不得继续使用 24kHz 的 Kokoro 模型"
+    );
+}
+
+/// TTS-6：生产 Matcha 的流式接口必须交出可播放的 PCM，不能只在内部完成合成。
+///
+/// 数据构造：默认 Matcha 模型、线程安全的 collecting sink，以及含两个短句的中文文本。
+/// 执行过程：调用 `synthesize_stream`，收集它主动送出的每一个 PCM 块。
+/// 预期结果：至少一个块到达 sink；每块均为 22.05kHz mono PCM16；sink 未被取消。
+#[test]
+#[ignore = "requires downloaded Matcha Chinese TTS model; run scripts/download-matcha-tts-model.sh first"]
+fn test_real_matcha_streams_pcm_to_incremental_sink() {
+    let mut tts =
+        SherpaTtsClient::from_env_or_default().expect("默认生产 TTS 应加载 Matcha 中文模型");
+    let chunks = Arc::new(Mutex::new(Vec::new()));
+    let sink = Arc::new(CollectingTtsSink {
+        chunks: Arc::clone(&chunks),
+        cancelled: AtomicBool::new(false),
+    });
+
+    let text = "第一句已经准备好了。第二句继续说明。";
+    tts.synthesize_stream(text, sink)
+        .expect("Matcha 流式合成应把 PCM 送入 sink");
+
+    let received = chunks
+        .lock()
+        .expect("stream collecting sink lock should not be poisoned");
+    assert!(!received.is_empty(), "流式 Matcha 至少应送出一个 PCM 块");
+    assert!(
+        received.iter().all(|chunk| {
+            chunk.format == PcmFormat::Pcm16
+                && chunk.sample_rate_hz == 22_050
+                && chunk.channels == 1
+                && !chunk.bytes.is_empty()
+        }),
+        "每个增量 PCM 块都必须保持 Matcha 的 22.05kHz mono PCM16 格式"
+    );
+    let streamed_frame_count = received
+        .iter()
+        .map(|chunk| chunk.bytes.len() / 2)
+        .sum::<usize>();
+    drop(received);
+    let complete = tts
+        .synthesize(text)
+        .expect("同一 Matcha 文本应能生成完整基准 PCM");
+
+    let complete_frame_count = complete.bytes.len() / 2;
+    let frame_delta = streamed_frame_count.abs_diff(complete_frame_count);
+    assert!(
+        frame_delta <= 256,
+        "流式 callback 的 PCM 总帧数必须与完整合成处于 256 frames（约 12ms）以内，不能重复或截断句子；streamed={streamed_frame_count}, complete={complete_frame_count}, delta={frame_delta}"
     );
 }
 

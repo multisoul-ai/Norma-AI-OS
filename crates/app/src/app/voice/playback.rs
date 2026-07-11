@@ -10,6 +10,21 @@ mod macos;
 
 pub(crate) trait AssistantAudioSink: Send {
     fn write_chunk(&mut self, chunk: &PcmAudioChunk) -> Result<Duration, String>;
+
+    /// Schedules audio and reports when the backend says this chunk finished playing.
+    ///
+    /// Backends without a hardware completion facility retain the previous behavior and report
+    /// completion immediately. The macOS AVFoundation sink overrides this with DataPlayedBack.
+    fn write_chunk_with_completion(
+        &mut self,
+        chunk: &PcmAudioChunk,
+        completion: async_channel::Sender<()>,
+    ) -> Result<Duration, String> {
+        let duration = self.write_chunk(chunk)?;
+        let _ = completion.try_send(());
+        Ok(duration)
+    }
+
     fn stop(&mut self);
 }
 

@@ -1,14 +1,10 @@
 //! Voice turn reply scheduling and TTS playback after ASR finals.
 
 #[cfg(test)]
-use super::reply::apply_reply_synthesis;
+use super::reply::{apply_reply_synthesis, create_tts_client};
 #[cfg(test)]
 use super::turn;
-use super::{
-    reply::{create_tts_client, finish_reply_playback, schedule_reply_chunk, synthesize_reply},
-    turn::VoiceTurnArtifacts,
-    DialogueControlState,
-};
+use super::{turn::VoiceTurnArtifacts, DialogueControlState};
 use dialogue::DialoguePhase;
 use gpui::Context;
 #[cfg(test)]
@@ -39,6 +35,7 @@ impl DialogueControlState {
     pub(crate) fn begin_next_agent_report(&mut self) -> Option<String> {
         if self.session.phase() != DialoguePhase::Listening
             || self.reply_task.is_some()
+            || self.speech_task.is_some()
             || self.queued_template_reports.is_empty()
         {
             return None;
@@ -55,67 +52,14 @@ impl DialogueControlState {
 
     pub(crate) fn begin_queued_agent_report(
         &mut self,
-        window: &mut gpui::Window,
+        _window: &mut gpui::Window,
         cx: &mut Context<crate::app::MultisoulApp>,
     ) {
         let Some(report) = self.begin_next_agent_report() else {
             return;
         };
-        self.last_reply_text = Some(report.clone());
-        let existing_tts = self.tts_client.take();
-        let task = cx.spawn_in(window, async move |this, cx| {
-            let synthesis_task = cx.background_executor().spawn(async move {
-                let mut tts = match existing_tts {
-                    Some(tts) => tts,
-                    None => create_tts_client()?,
-                };
-                let chunk = synthesize_reply(tts.as_mut(), &report)?;
-                Ok::<_, voice_sherpa::SpeechError>((tts, chunk))
-            });
-            let (tts, chunk) = match synthesis_task.await {
-                Ok(result) => result,
-                Err(error) => {
-                    tracing::warn!(%error, "agent terminal report synthesis failed");
-                    let _ = this.update(cx, |app, cx| {
-                        app.dialogue
-                            .recover_reply_failure(format!("Speech error: {error}"));
-                        cx.notify();
-                    });
-                    return;
-                }
-            };
-            let schedule_result = this.update(cx, |app, _cx| {
-                app.dialogue.tts_client = Some(tts);
-                schedule_reply_chunk(
-                    &mut app.dialogue.session,
-                    &mut app.dialogue.reply_playback,
-                    &chunk,
-                )
-            });
-            match schedule_result {
-                Ok(Ok(playback_duration)) => {
-                    cx.background_executor().timer(playback_duration).await;
-                    let _ = this.update(cx, |app, cx| {
-                        if app.dialogue.session.phase() == DialoguePhase::Speaking {
-                            finish_reply_playback(&mut app.dialogue.session, true);
-                        }
-                        app.dialogue.complete_current_agent_report();
-                        app.dialogue.reply_task = None;
-                        cx.notify();
-                    });
-                }
-                Ok(Err(error)) => {
-                    tracing::warn!(%error, "agent terminal report playback failed");
-                    let _ = this.update(cx, |app, cx| {
-                        app.dialogue
-                            .recover_reply_failure(format!("Speech error: {error}"));
-                        cx.notify();
-                    });
-                }
-                Err(_) => {}
-            }
-        });
-        self.reply_task = Some(task);
+        self.complete_current_agent_report();
+        self.begin_static_reply_stream(report, cx);
     }
 
     pub(crate) fn begin_voice_turn_reply(
@@ -129,6 +73,7 @@ impl DialogueControlState {
         if self.reply_task.is_some() {
             return;
         }
+        self.begin_reply_stream();
         let task = cx.spawn_in(window, async move |this, cx| {
             let response = match this.update_in(cx, |app, window, cx| {
                 let transcript = app.dialogue.pending_transcript_or_err()?.to_string();
@@ -151,69 +96,22 @@ impl DialogueControlState {
                 .recv()
                 .await
                 .map_err(|_| dialogue::DialogueError::Message("agent response closed".into()))
-                .and_then(|result| result.map_err(dialogue::DialogueError::Message))
-                .map(crate::app::agent_runtime::artifacts_from_agent_events);
+                .and_then(|result| result.map_err(dialogue::DialogueError::Message));
             match turn_result {
-                Ok(artifacts) => {
-                    let stored =
-                        this.update(cx, |app, _cx| app.dialogue.store_turn_artifacts(&artifacts));
-                    if stored.is_err() {
-                        return;
-                    }
-                    let existing_tts = this
-                        .update(cx, |app, _cx| app.dialogue.tts_client.take())
-                        .ok()
-                        .flatten();
-                    let reply_text = artifacts.reply_text;
-                    let synthesis_task = cx.background_executor().spawn(async move {
-                        let mut tts = match existing_tts {
-                            Some(tts) => tts,
-                            None => create_tts_client()?,
-                        };
-                        let chunk = synthesize_reply(tts.as_mut(), &reply_text)?;
-                        Ok::<_, voice_sherpa::SpeechError>((tts, chunk))
+                Ok(events) => {
+                    let has_live_dialogue = events
+                        .iter()
+                        .any(|event| matches!(event, agent::AgentEvent::DialogueTextDelta { .. }));
+                    let artifacts = crate::app::agent_runtime::artifacts_from_agent_events(events);
+                    let _ = this.update(cx, |app, cx| {
+                        app.dialogue.store_turn_artifacts(&artifacts);
+                        app.dialogue.reply_task = None;
+                        if !has_live_dialogue {
+                            app.dialogue
+                                .begin_static_reply_stream(artifacts.reply_text.clone(), cx);
+                        }
+                        cx.notify();
                     });
-                    let (tts, chunk) = match synthesis_task.await {
-                        Ok(result) => result,
-                        Err(error) => {
-                            tracing::warn!(%error, "voice turn reply synthesis failed");
-                            let _ = this.update(cx, |app, cx| {
-                                app.dialogue
-                                    .recover_reply_failure(format!("Speech error: {error}"));
-                                cx.notify();
-                            });
-                            return;
-                        }
-                    };
-                    let schedule_result = this.update(cx, |app, _cx| {
-                        app.dialogue.tts_client = Some(tts);
-                        schedule_reply_chunk(
-                            &mut app.dialogue.session,
-                            &mut app.dialogue.reply_playback,
-                            &chunk,
-                        )
-                    });
-                    match schedule_result {
-                        Ok(Ok(playback_duration)) => {
-                            cx.background_executor().timer(playback_duration).await;
-                            let _ = this.update(cx, |app, cx| {
-                                if app.dialogue.session.phase() == DialoguePhase::Speaking {
-                                    finish_reply_playback(&mut app.dialogue.session, true);
-                                }
-                                app.dialogue.reply_task = None;
-                                cx.notify();
-                            });
-                        }
-                        Ok(Err(error)) => {
-                            tracing::warn!(%error, "voice turn reply synthesis failed");
-                            let _ = this.update(cx, |app, cx| {
-                                app.dialogue
-                                    .recover_reply_failure(format!("Speech error: {error}"));
-                                cx.notify();
-                            });
-                        }
-                        Err(_) => return,
-                    }
                 }
                 Err(error) => {
                     tracing::warn!(%error, "voice turn failed");

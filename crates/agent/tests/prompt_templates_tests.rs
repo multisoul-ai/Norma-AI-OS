@@ -3,8 +3,8 @@ use sha2::{Digest, Sha256};
 /// P-1：默认 Dialogue persona 必须逐字保持用户指定的来源文本。
 ///
 /// 数据构造：来源原文的 SHA-256 是
-/// `56ff8153df1cfa1d103b67b314391f8aadd5c85ac38ba2c533617ce323e19e5d`；
-/// 此值由原始 GitHub raw 文件在未作任何转码或规范化时计算得到。
+/// `d031af097e201ac84fe834227ea01ae7074d47069359e11a169d56b9bfcf34e1`；
+/// 此值由 `prompts/dialogue/norma-persona.txt` 在未作任何转码或规范化时计算得到。
 /// 执行过程：通过 `agent` 的公开 prompt API 读取默认 persona，并计算其 UTF-8 字节的 SHA-256。
 /// 预期结果：摘要完全相同；任何删改、换行或字符替换都会改变摘要并使测试失败。
 #[test]
@@ -13,7 +13,7 @@ fn default_dialogue_persona_matches_approved_source_checksum() {
     let actual = format!("{digest:x}");
 
     assert_eq!(
-        actual, "56ff8153df1cfa1d103b67b314391f8aadd5c85ac38ba2c533617ce323e19e5d",
+        actual, "d031af097e201ac84fe834227ea01ae7074d47069359e11a169d56b9bfcf34e1",
         "Dialogue persona 必须与用户指定来源逐字一致，实际 SHA-256：{actual}"
     );
 }
@@ -56,9 +56,9 @@ fn dialogue_system_prompt_combines_product_rules_with_full_persona() {
 
 /// P-3：CardTask 必须使用独立、严谨的执行型 prompt，不能继承 Dialogue persona。
 ///
-/// 数据构造：CardTask 只有白名单卡片工具，且 `send_text` 默认提交；Dialogue persona 含 QQ 私聊角色设定。
+/// 数据构造：CardTask 只有白名单卡片工具，且 `send_text` 默认提交；Dialogue persona 含 Norma 多人工智能助理人设。
 /// 执行过程：通过公开 prompt API 读取 CardTask system prompt，并检查执行规则与 persona 隔离标记。
-/// 预期结果：存在查证、创建回执和真实结果规则；不存在 QQ 私聊或角色核心数据等 persona 内容。
+/// 预期结果：存在查证、创建回执和真实结果规则；不存在 Dialogue persona 的角色核心标记。
 #[test]
 fn card_task_system_prompt_is_rigorous_and_persona_isolated() {
     let prompt = agent::card_task_system_prompt();
@@ -84,11 +84,11 @@ fn card_task_system_prompt_is_rigorous_and_persona_isolated() {
         "CardTask prompt 必须要求最终摘要基于真实工具回执"
     );
     assert!(
-        !prompt.contains("QQ私聊环境"),
-        "CardTask prompt 不得继承 Dialogue persona 的 QQ 私聊设定"
+        !prompt.contains("Norma 多人工智能助理"),
+        "CardTask prompt 不得继承 Dialogue persona 的助理人设"
     );
     assert!(
-        !prompt.contains("角色核心数据"),
+        !prompt.contains("【角色核心数据】"),
         "CardTask prompt 不得泄漏 Dialogue persona 的角色资料"
     );
 }

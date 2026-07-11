@@ -52,6 +52,7 @@ Workspace 分层：
 - **Agent 指南 ≤ 300 行**：`AGENTS.md` 与 `CLAUDE.md` 由 [`scripts/check-agent-guide-lines.sh`](scripts/check-agent-guide-lines.sh) 拦截；超长内容归档到 `docs/`，并在 §4 增加指针。
 - **禁止 `#[allow(...)]`**：Rust 源码不得用 allow 压制编译器或 clippy 诊断；由 [`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截，必须修根因。
 - **本地 hook 可安装**：运行 `bash scripts/install-git-hooks.sh` 后，原生 pre-commit 会跑 staged 约束和轻量 Rust 检查。
+- **Agent 不得绕过提交验证**：禁止 `git commit --no-verify`、`git commit -n` 及关闭/替换 hook；完整规则与按范围提速流程见 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md)。
 - **写代码前先 TDD**：新功能或 bugfix 先补能失败的聚焦测试，再实现。
 - **测试目录按 crate 维护**：大型独立单元测试放 `crates/<crate>/tests/unit/` 并从源码模块用 `#[path]` 挂载；集成测试放 `crates/<crate>/tests/*.rs`；crate 专用 helper 放 `crates/<crate>/tests/support/`。
 - **测试注释必须完整**：测试上方写场景、数据构造、执行过程、预期结果；关键数值写推导。
@@ -102,6 +103,7 @@ Workspace 分层：
 | 打包与 release | [`docs/references/packaging.md`](docs/references/packaging.md) |
 | 卡片 RuntimeEvent 扩展 | [`docs/references/card-runtime-events.md`](docs/references/card-runtime-events.md) |
 | 机械化约束（lint 脚本） | [`docs/quality/mechanized-constraints.md`](docs/quality/mechanized-constraints.md) |
+| Agent 执行分级与提交完整性 | [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md) |
 | 历史 SDD 施工记录 | [`.superpowers/sdd/progress.md`](.superpowers/sdd/progress.md) |
 
 ## 5. 改完代码必跑的验证
@@ -156,6 +158,7 @@ xcrun metal --version
 - 行动前先检索本地文件，不凭记忆回答。
 - 涉及 GPUI API、元素、样式、actions、async、testing 或 troubleshooting 时，先加载对应 `gpui-*` skill；若 skill 与 `gpui =0.2.2` 或现有代码冲突，以本仓库验证结果为准。
 - 修改代码后按第 5 节跑对应验证；验证失败先定位根因。
+- 按 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md) 选择最小充分流程；没有明确理由，不启动重型 skill、并行审查或全仓验证。
 - 新增测试必须遵守第 2 节测试结构规范。
 - 处理带验收标准的需求时，先把每条验收标准映射到自动化证据；能通过 `crates/e2e` 验证的用户流程必须生成 e2e 测试。
 - 若新增长期文档，优先建立 `docs/product-specs/`、`docs/design-docs/`、`docs/exec-plans/` 这类 canonical 路径；`.superpowers/sdd/` 只作为历史上下文，除非明确继续旧 SDD 流程。
@@ -169,44 +172,3 @@ xcrun metal --version
 2. 把短指针写进 `AGENTS.md`，把展开说明写进 `CLAUDE.md` 或 `docs/`。
 3. 如果能机械化，补测试、脚本或 CI 约束。
 4. 保持 `AGENTS.md` 和 `CLAUDE.md` 的重叠事实一致。
-<!-- msctl-inject-start -->
-## msctl Quick Reference
-
-### Agent
-
-```bash
-msctl agent list             # List all registered agents
-msctl agent get <id>         # Show agent details
-msctl agent codex            # Quick register current project with Codex
-msctl agent claude-code      # Quick register current project with Claude Code
-msctl agent cursor-cli       # Quick register current project with Cursor
-msctl agent kodax            # Quick register current project with KodaX
-msctl agent register --name <name> --project <path> --runtime claude-code
-msctl agent register --name <name> --project <path> --runtime codex
-msctl agent register --name <name> --project <path> --runtime cursor-cli
-msctl agent register --name <name> --project <path> --runtime kodax
-msctl agent invoke <id> --message "<task>"
-msctl agent delete <id>
-```
-
-### Ask User Question (`msctl ask-question`)
-
-**MANDATORY**
-
-- For structured decisions (approach, continue/stop, risk trade-offs, etc.), **prefer** the `AskUserQuestion` tool when available.
-- **If the current runtime does not expose `AskUserQuestion`, you MUST call `msctl ask-question` to push a question card to iOS.** Never list options in free text or ask the user to type an answer.
-- After pushing, continue other work. Do not poll; iOS answers are injected into the same conversation automatically.
-
-Run `msctl ask-question -h` for flags, JSON shape, and copy-paste examples.
-
-### Image Output
-
-When generating images (charts, screenshots, diagrams), save them as files and
-reference them in your reply using standard Markdown image syntax:
-
-![description](/absolute/path/to/image.png)
-
-Supported formats: png, jpg, jpeg, gif, webp.
-The Norma OS mobile app will automatically render these images inline.
-
-<!-- msctl-inject-end -->

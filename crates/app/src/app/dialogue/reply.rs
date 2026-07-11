@@ -39,6 +39,16 @@ impl ReplyPlayback {
         self.sink.write_chunk(chunk).map_err(SpeechError::Audio)
     }
 
+    pub(crate) fn play_chunk_with_completion(
+        &mut self,
+        chunk: &audio::PcmAudioChunk,
+        completion: async_channel::Sender<()>,
+    ) -> Result<Duration, SpeechError> {
+        self.sink
+            .write_chunk_with_completion(chunk, completion)
+            .map_err(SpeechError::Audio)
+    }
+
     pub(crate) fn interrupt(&mut self) {
         interrupt_assistant_playback(self.sink.as_mut());
     }

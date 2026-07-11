@@ -52,6 +52,7 @@ ui -> {gpui, gpui-component}
 - **Single Rust source files stay at or below 500 lines**: enforced by [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh); split responsibilities instead of raising the cap.
 - **Agent guides stay at or below 300 lines**: `AGENTS.md` and `CLAUDE.md` are enforced by [`scripts/check-agent-guide-lines.sh`](scripts/check-agent-guide-lines.sh); archive detail to `docs/` and link from [`AGENTS.md`](AGENTS.md) §4.
 - **Native pre-commit is available**: run `bash scripts/install-git-hooks.sh` to enable `.githooks/pre-commit`, which runs staged constraints plus lightweight Rust checks.
+- **Agents must not bypass commit verification**: never use `git commit --no-verify`, `git commit -n`, or disable/replace the configured hook path. See [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md) for the enforcement limits and escalation path.
 - **Keep source files small enough to navigate**: split before a file turns into a mixed-responsibility dumping ground.
 - **Do not treat `.superpowers/sdd/` as the new documentation home**: it is useful historical construction context. New durable specs/plans should use a future `docs/` tree.
 
@@ -165,6 +166,10 @@ For any task with explicit acceptance criteria, create a checklist that maps eac
 - L2: ignored real PTY smoke tests.
 - L3: future real launched app/window automation when explicitly required.
 
+## Agent Execution Sizing
+
+Choose the smallest sufficient implementation and verification flow from [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md). In particular, do not automatically invoke implementation/review skills that require full-suite validation or parallel review for a focused single-crate change. Escalate only for cross-crate behaviour, explicit acceptance criteria, or high-risk boundaries.
+
 ## 8. UI And Interaction Notes
 
 - GPUI code belongs in `app` and `ui`.
@@ -222,45 +227,3 @@ Triage uses the canonical labels `needs-triage`, `needs-info`, `ready-for-agent`
 ### Domain docs
 
 Domain documentation uses a single-context layout. See `docs/agents/domain.md`.
-
-<!-- msctl-inject-start -->
-## msctl Quick Reference
-
-### Agent
-
-```bash
-msctl agent list             # List all registered agents
-msctl agent get <id>         # Show agent details
-msctl agent codex            # Quick register current project with Codex
-msctl agent claude-code      # Quick register current project with Claude Code
-msctl agent cursor-cli       # Quick register current project with Cursor
-msctl agent kodax            # Quick register current project with KodaX
-msctl agent register --name <name> --project <path> --runtime claude-code
-msctl agent register --name <name> --project <path> --runtime codex
-msctl agent register --name <name> --project <path> --runtime cursor-cli
-msctl agent register --name <name> --project <path> --runtime kodax
-msctl agent invoke <id> --message "<task>"
-msctl agent delete <id>
-```
-
-### Ask User Question (`msctl ask-question`)
-
-**MANDATORY**
-
-- For structured decisions (approach, continue/stop, risk trade-offs, etc.), **prefer** the `AskUserQuestion` tool when available.
-- **If the current runtime does not expose `AskUserQuestion`, you MUST call `msctl ask-question` to push a question card to iOS.** Never list options in free text or ask the user to type an answer.
-- After pushing, continue other work. Do not poll; iOS answers are injected into the same conversation automatically.
-
-Run `msctl ask-question -h` for flags, JSON shape, and copy-paste examples.
-
-### Image Output
-
-When generating images (charts, screenshots, diagrams), save them as files and
-reference them in your reply using standard Markdown image syntax:
-
-![description](/absolute/path/to/image.png)
-
-Supported formats: png, jpg, jpeg, gif, webp.
-The Norma OS mobile app will automatically render these images inline.
-
-<!-- msctl-inject-end -->

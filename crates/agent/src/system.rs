@@ -10,6 +10,8 @@ use crate::{
 };
 use norma::protocol::{CardCommand, CardCommandResult};
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::time::Instant;
 
 pub(crate) mod card_task;
@@ -57,6 +59,8 @@ where
     pub(crate) records: HashMap<TaskId, TaskRecord>,
     next_task_id: TaskId,
     events: Vec<AgentEvent>,
+    live_event_sink: Option<Arc<dyn Fn(AgentEvent) + Send + Sync>>,
+    live_dialogue_cancellation: Option<Arc<AtomicBool>>,
 }
 impl<D, C, H, J> AgentSystem<D, C, H, J>
 where
@@ -92,7 +96,24 @@ where
                 .into_iter()
                 .map(|task_id| AgentEvent::TaskInterrupted { task_id })
                 .collect(),
+            live_event_sink: None,
+            live_dialogue_cancellation: None,
         }
+    }
+
+    /// Installs an observer for ordinary dialogue deltas while a provider is streaming.
+    pub fn with_live_event_sink(
+        mut self,
+        sink: impl Fn(AgentEvent) + Send + Sync + 'static,
+    ) -> Self {
+        self.live_event_sink = Some(Arc::new(sink));
+        self
+    }
+
+    /// Installs the cancellation flag controlled by the app's barge-in policy.
+    pub fn with_live_dialogue_cancellation(mut self, cancellation: Arc<AtomicBool>) -> Self {
+        self.live_dialogue_cancellation = Some(cancellation);
+        self
     }
 
     pub fn submit(&mut self, command: AgentCommand) -> Result<Vec<AgentEvent>, AgentError> {

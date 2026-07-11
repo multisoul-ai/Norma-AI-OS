@@ -134,6 +134,7 @@ fn event_names(events: &[AgentEvent]) -> String {
 fn event_name(event: &AgentEvent) -> &'static str {
     match event {
         AgentEvent::DialogueTextDelta { .. } => "dialogue_text_delta",
+        AgentEvent::DialogueStreamFinished => "dialogue_stream_finished",
         AgentEvent::TaskQueued { .. } => "task_queued",
         AgentEvent::TaskRunning { .. } => "task_running",
         AgentEvent::TaskStatus { .. } => "task_status",
@@ -162,6 +163,7 @@ fn event_task_id(event: &AgentEvent) -> Option<u64> {
         | AgentEvent::TaskCancelled { task_id, .. }
         | AgentEvent::TaskInterrupted { task_id } => Some(*task_id),
         AgentEvent::DialogueTextDelta { .. }
+        | AgentEvent::DialogueStreamFinished
         | AgentEvent::CardActivityNotification { .. }
         | AgentEvent::ProviderError { .. } => None,
     }

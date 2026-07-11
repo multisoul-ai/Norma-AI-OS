@@ -83,7 +83,7 @@ fn dialogue_request_starts_with_the_composed_system_prompt() {
 ///
 /// 数据构造：直接提交一个 CardTask，记录型 Card Provider 立即返回无工具调用的文本；Dialogue Provider 不参与。
 /// 执行过程：调用一次 `pump` 启动任务并记录 Card ProviderRequest，读取其首条消息。
-/// 预期结果：首条消息等于公开 CardTask prompt；当前任务意图仍存在；请求中没有 Dialogue persona 的 QQ 私聊标记。
+/// 预期结果：首条消息等于公开 CardTask prompt；当前任务意图仍存在；请求中没有 Dialogue persona 的助理人设标记。
 #[test]
 fn card_task_request_starts_with_the_isolated_execution_prompt() {
     let requests = Arc::new(Mutex::new(Vec::new()));
@@ -135,7 +135,7 @@ fn card_task_request_starts_with_the_isolated_execution_prompt() {
         !request
             .messages
             .iter()
-            .any(|message| message.content.contains("QQ私聊环境")),
+            .any(|message| message.content.contains("Norma 多人工智能助理")),
         "CardTask Provider 请求不得泄漏 Dialogue persona"
     );
 }

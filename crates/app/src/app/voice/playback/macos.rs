@@ -1,9 +1,11 @@
 use super::{pcm_chunk_duration, AssistantAudioSink};
 use audio::PcmAudioChunk;
+use block2::RcBlock;
 use objc2::rc::autoreleasepool;
 use objc2::AnyThread;
 use objc2_avf_audio::{
     AVAudioCommonFormat, AVAudioEngine, AVAudioFormat, AVAudioPCMBuffer, AVAudioPlayerNode,
+    AVAudioPlayerNodeCompletionCallbackType,
 };
 use std::sync::mpsc;
 use std::thread::JoinHandle;
@@ -15,6 +17,7 @@ enum PlaybackCommand {
     Play {
         chunk: PcmAudioChunk,
         result_tx: mpsc::Sender<Result<(), String>>,
+        completion_tx: async_channel::Sender<()>,
     },
     Stop,
     Shutdown,
@@ -41,12 +44,22 @@ impl MacosAssistantAudioSink {
 
 impl AssistantAudioSink for MacosAssistantAudioSink {
     fn write_chunk(&mut self, chunk: &PcmAudioChunk) -> Result<Duration, String> {
+        let (completion_tx, _completion_rx) = async_channel::bounded(1);
+        self.write_chunk_with_completion(chunk, completion_tx)
+    }
+
+    fn write_chunk_with_completion(
+        &mut self,
+        chunk: &PcmAudioChunk,
+        completion_tx: async_channel::Sender<()>,
+    ) -> Result<Duration, String> {
         let duration = pcm_chunk_duration(chunk);
         let (result_tx, result_rx) = mpsc::channel();
         self.command_tx
             .send(PlaybackCommand::Play {
                 chunk: chunk.clone(),
                 result_tx,
+                completion_tx,
             })
             .map_err(|_| "assistant playback thread is unavailable".to_string())?;
         result_rx
@@ -77,8 +90,18 @@ fn playback_loop(command_rx: mpsc::Receiver<PlaybackCommand>) {
 
     while let Ok(command) = command_rx.recv() {
         match command {
-            PlaybackCommand::Play { chunk, result_tx } => {
-                let result = schedule_chunk(&engine, &player, &chunk, &mut connected_sample_rate);
+            PlaybackCommand::Play {
+                chunk,
+                result_tx,
+                completion_tx,
+            } => {
+                let result = schedule_chunk(
+                    &engine,
+                    &player,
+                    &chunk,
+                    &mut connected_sample_rate,
+                    completion_tx,
+                );
                 let _ = result_tx.send(result);
             }
             PlaybackCommand::Stop => unsafe { player.stop() },
@@ -98,6 +121,7 @@ fn schedule_chunk(
     player: &AVAudioPlayerNode,
     chunk: &PcmAudioChunk,
     connected_sample_rate: &mut Option<u32>,
+    completion_tx: async_channel::Sender<()>,
 ) -> Result<(), String> {
     let frame_count = u32::try_from(chunk.bytes.len() / 2)
         .map_err(|_| "assistant PCM chunk is too large".to_string())?;
@@ -150,7 +174,18 @@ fn schedule_chunk(
                 .startAndReturnError()
                 .map_err(|error| error.localizedDescription().to_string())?;
         }
-        player.scheduleBuffer_completionHandler(&buffer, std::ptr::null_mut());
+        let completion_handler = RcBlock::new(
+            move |callback_type: AVAudioPlayerNodeCompletionCallbackType| {
+                if callback_type == AVAudioPlayerNodeCompletionCallbackType::DataPlayedBack {
+                    let _ = completion_tx.try_send(());
+                }
+            },
+        );
+        player.scheduleBuffer_completionCallbackType_completionHandler(
+            &buffer,
+            AVAudioPlayerNodeCompletionCallbackType::DataPlayedBack,
+            RcBlock::as_ptr(&completion_handler).cast(),
+        );
         if !player.isPlaying() {
             player.play();
         }

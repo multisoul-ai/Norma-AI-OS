@@ -9,13 +9,13 @@
 
 ## Dialogue persona
 
-`dialogue/norma-persona.txt` 是用户指定来源的逐字快照，不得在原文件内编辑、格式化或转码。来源：
+`dialogue/norma-persona.txt` 是用户指定的 Dialogue 角色原文，不得在未授权时编辑、格式化或转码。
 
-<https://github.com/dongshuyan/Awesome-Prompts/blob/master/%E8%A7%92%E8%89%B2%E6%89%AE%E6%BC%94/%E5%A4%9A%E8%A7%92%E8%89%B2%E4%BA%BA%E8%AE%BE/%E8%AF%BA%E7%8E%9B-19%E5%B2%81%E8%AE%BE%E8%AE%A1%E7%B3%BB%E5%A4%A7%E4%B8%80-%E6%B8%A9%E6%9F%94%E4%BE%9D%E8%B5%96%E5%9E%8B%20NSFW%20%E6%8F%90%E7%A4%BA%E8%AF%8D.txt>
+当前人设：**Norma 多人工智能助理**（贾维斯式：严谨、干练、可调度多能力的统一对外接口）。旧版「QQ 私聊女友」快照保留在同目录的 `.bk` / `copy` 备份中，仅作历史参考。
 
 当前批准的 SHA-256：
 
-`56ff8153df1cfa1d103b67b314391f8aadd5c85ac38ba2c533617ce323e19e5d`
+`d031af097e201ac84fe834227ea01ae7074d47069359e11a169d56b9bfcf34e1`
 
 `src/prompts.rs` 的 `dialogue_system_prompt()` 在原文外层加入不可违背的产品规则；原文自身不变。修改来源快照时，必须显式更新校验值和 `tests/prompt_templates_tests.rs`，并在变更说明中记录原因。
 

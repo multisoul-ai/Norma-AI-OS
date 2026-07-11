@@ -68,7 +68,7 @@ fn test_pcm16_conversion_uses_little_endian_saturation() {
 /// 预期结果：
 ///   - 正断言：chunk 元数据固定为 Pcm16 / 16_000Hz / mono
 ///   - 正断言：chunk bytes 保留转换后的 6 bytes PCM16 payload
-///   - 负断言：capture stream 不应沿用 TTS playback 常用的 24_000Hz
+///   - 负断言：capture stream 不应沿用 TTS playback 常用的 22_050Hz
 #[test]
 fn test_pcm_stream_chunk_uses_dialogue_capture_metadata() {
     let chunk = pcm_stream_chunk_from_samples(&[-1.0, 0.0, 1.0])
@@ -83,8 +83,8 @@ fn test_pcm_stream_chunk_uses_dialogue_capture_metadata() {
         "PcmAudioChunk.sample_rate_hz 应写入 VAD/ASR 要求的 16_000Hz"
     );
     assert_ne!(
-        chunk.sample_rate_hz, 24_000,
-        "capture stream 不应沿用 TTS playback 常用的 24_000Hz"
+        chunk.sample_rate_hz, 22_050,
+        "capture stream 不应沿用 TTS playback 常用的 22_050Hz"
     );
     assert_eq!(chunk.channels, 1, "PcmAudioChunk.channels 应固定为 mono");
     assert_eq!(
