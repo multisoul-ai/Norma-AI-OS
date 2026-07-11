@@ -2,7 +2,7 @@ use gpui::{div, linear_color_stop, linear_gradient, prelude::*, px, rgba, Statef
 use std::time::Duration;
 
 const QUIET_OPACITY: f32 = 0.12;
-const QUIET_INSET_PX: f32 = 10.0;
+const QUIET_INSET_PX: f32 = 40.0;
 const FADE_IN: Duration = Duration::from_millis(120);
 const NORMAL_FADE_OUT: Duration = Duration::from_millis(220);
 const INTERRUPT_FADE_OUT: Duration = Duration::from_millis(80);
