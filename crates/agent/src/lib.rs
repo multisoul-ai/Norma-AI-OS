@@ -5,6 +5,7 @@ mod host;
 mod journal;
 mod lifecycle;
 mod model;
+mod prompts;
 mod protocol;
 mod provider;
 mod providers;
@@ -18,6 +19,9 @@ pub use model::{
     AgentCommand, AgentEvent, AgentMessage, CardToolRequest, CardToolResult, MessageRole,
     ProviderRequest, ProviderResponse, ProviderToolCall, ProviderToolSpec, TaskId, TaskRecord,
     TaskState, ToolCallRecord, ToolErrorRecord,
+};
+pub use prompts::{
+    card_task_system_prompt, dialogue_persona, dialogue_system_prompt, MAX_DIALOGUE_HISTORY_TURNS,
 };
 pub use protocol::{
     build_ollama_chat_request, build_openai_chat_request, parse_ollama_response,

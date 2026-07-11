@@ -32,6 +32,15 @@ pub trait AgentProvider: Send {
     }
 }
 
+pub(crate) fn system_message(content: impl Into<String>) -> AgentMessage {
+    AgentMessage {
+        role: crate::MessageRole::System,
+        content: content.into(),
+        tool_call_id: None,
+        tool_calls: Vec::new(),
+    }
+}
+
 pub(crate) fn user_message(content: impl Into<String>) -> AgentMessage {
     AgentMessage {
         role: crate::MessageRole::User,

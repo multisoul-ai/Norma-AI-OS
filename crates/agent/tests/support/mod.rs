@@ -3,7 +3,7 @@ use agent::{
     CardToolResult, MemoryJournal, ProviderError, ProviderRequest, ProviderResponse,
     ProviderToolCall,
 };
-use norma::protocol::{CardCommand, CardCommandResult};
+use norma::protocol::{CardCommand, CardCommandResult, CardSummary};
 use std::collections::VecDeque;
 use std::sync::Once;
 
@@ -50,6 +50,7 @@ impl AgentProvider for ScriptedProvider {
 pub struct RecordingHost {
     pub commands: Vec<CardToolRequest>,
     pub next_node_id: u64,
+    pub listed_cards: Vec<CardSummary>,
 }
 
 impl CardToolHost for RecordingHost {
@@ -68,7 +69,9 @@ impl CardToolHost for RecordingHost {
             CardCommand::SendText { node_id, .. } => CardCommandResult::Sent { node_id },
             CardCommand::Focus { node_id } => CardCommandResult::Focused { node_id },
             CardCommand::Delete { node_id } => CardCommandResult::Deleted { node_id },
-            CardCommand::List => CardCommandResult::Listed { cards: Vec::new() },
+            CardCommand::List => CardCommandResult::Listed {
+                cards: self.listed_cards.clone(),
+            },
         };
         Ok(CardToolResult { result })
     }

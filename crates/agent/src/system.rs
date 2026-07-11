@@ -1,27 +1,38 @@
 use crate::journal::{AuditEntry, CardTaskJournal};
-use crate::provider::{assistant_message, tool_message, user_message, AgentProvider};
-use crate::tools::{parse_card_subagent_tool_call, parse_dialogue_tool_call, DialogueToolAction};
-use crate::{
-    dialogue_tool_specs, AgentCommand, AgentError, AgentEvent, AgentMessage, CardTaskBudget,
-    CardToolHost, CardToolRequest, CardToolResult, ProviderRequest, ProviderToolCall, TaskId,
-    TaskRecord, TaskState, ToolCallRecord, ToolErrorRecord,
+use crate::provider::{
+    assistant_message, system_message, tool_message, user_message, AgentProvider,
 };
-use norma::protocol::CardCommandResult;
-use std::collections::{HashMap, VecDeque};
+use crate::tools::parse_card_subagent_tool_call;
+use crate::{
+    AgentCommand, AgentError, AgentEvent, AgentMessage, CardTaskBudget, CardToolHost,
+    CardToolRequest, CardToolResult, ProviderRequest, ProviderToolCall, TaskId, TaskRecord,
+    TaskState, ToolCallRecord, ToolErrorRecord,
+};
+use norma::protocol::{CardCommand, CardCommandResult};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::Instant;
+
+pub(crate) mod card_task;
+mod dialogue;
 pub(crate) struct PendingTask {
     pub(crate) task_id: TaskId,
-    intent: String,
+}
+struct UnresolvedToolFailure {
+    command: Option<CardCommand>,
+    error: String,
 }
 pub(crate) struct ActiveTask {
     pub(crate) task_id: TaskId,
-    intent: String,
     messages: Vec<AgentMessage>,
     pending_tool_calls: VecDeque<ProviderToolCall>,
     cached_results: HashMap<String, Result<CardCommandResult, String>>,
+    created_node_ids: HashSet<u64>,
+    verified_node_ids: HashSet<u64>,
+    successful_results: Vec<CardCommandResult>,
     round_count: usize,
     tool_call_count: usize,
     consecutive_failures: usize,
+    unresolved_tool_failures: Vec<UnresolvedToolFailure>,
     pub(crate) completed_tool_calls: usize,
     pub(crate) cancel_requested: bool,
     started_at: Instant,
@@ -39,7 +50,7 @@ where
     card_tool_host: H,
     journal: J,
     budget: CardTaskBudget,
-    dialogue_messages: Vec<AgentMessage>,
+    dialogue_turns: VecDeque<Vec<AgentMessage>>,
     pub(crate) pending: VecDeque<PendingTask>,
     pub(crate) active: Option<ActiveTask>,
     pub(crate) records: HashMap<TaskId, TaskRecord>,
@@ -71,7 +82,7 @@ where
             card_tool_host,
             journal,
             budget,
-            dialogue_messages: Vec::new(),
+            dialogue_turns: VecDeque::new(),
             pending: VecDeque::new(),
             active: None,
             records: HashMap::new(),
@@ -91,7 +102,9 @@ where
                 self.enqueue_task(intent);
             }
             AgentCommand::CancelLatest => self.cancel_latest()?,
-            AgentCommand::CancelTask { task_id } => self.cancel_task(task_id)?,
+            AgentCommand::CancelTask { task_id } => {
+                self.cancel_task(task_id)?;
+            }
             AgentCommand::Status { task_id } => self.emit_status(task_id),
             AgentCommand::CardActivity { node_id, summary } => {
                 self.emit_event(AgentEvent::CardActivityNotification { node_id, summary });
@@ -108,18 +121,23 @@ where
                 return Vec::new();
             };
             let task_id = task.task_id;
-            let intent = task.intent;
             self.update_task_state(task_id, TaskState::Running, None, None);
             self.emit_event(AgentEvent::TaskRunning { task_id });
             self.active = Some(ActiveTask {
                 task_id,
-                intent,
-                messages: vec![user_message(self.task_intent(task_id))],
+                messages: vec![
+                    system_message(crate::card_task_system_prompt()),
+                    user_message(self.task_intent(task_id)),
+                ],
                 pending_tool_calls: VecDeque::new(),
                 cached_results: HashMap::new(),
+                created_node_ids: HashSet::new(),
+                verified_node_ids: HashSet::new(),
+                successful_results: Vec::new(),
                 round_count: 0,
                 tool_call_count: 0,
                 consecutive_failures: 0,
+                unresolved_tool_failures: Vec::new(),
                 completed_tool_calls: 0,
                 cancel_requested: false,
                 started_at: Instant::now(),
@@ -194,88 +212,6 @@ where
         self.records.get(&task_id)
     }
 
-    fn handle_user_turn(&mut self, text: String) -> Result<(), AgentError> {
-        if text.trim().is_empty() {
-            return Err(AgentError::InvalidCommand(
-                "user turn must not be empty".to_string(),
-            ));
-        }
-        self.dialogue_messages.push(user_message(&text));
-        let request = ProviderRequest {
-            messages: self.dialogue_messages.clone(),
-            tools: dialogue_tool_specs(),
-        };
-        crate::diagnostics::dialogue_request(&self.project_id, &request);
-        let mut streamed = Vec::new();
-        let response = self.dialogue_provider.stream(&request, &mut |event| {
-            if let crate::ProviderStreamEvent::TextDelta(text) = event {
-                if !text.is_empty() {
-                    streamed.push(text);
-                }
-            }
-        })?;
-        crate::diagnostics::dialogue_response(&self.project_id, &response);
-        let actions = response
-            .tool_calls
-            .iter()
-            .filter(|call| call.name == crate::CARD_TASK_TOOL)
-            .map(|call| {
-                parse_dialogue_tool_call(&call.arguments_json)
-                    .map(|action| (call.id.clone(), action))
-                    .map_err(|error| AgentError::InvalidCommand(error.to_string()))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let has_task_start = actions
-            .iter()
-            .any(|(_, action)| matches!(action, DialogueToolAction::Start { .. }));
-        if !has_task_start {
-            for text in streamed {
-                self.emit_event(AgentEvent::DialogueTextDelta { text });
-            }
-        }
-        self.dialogue_messages
-            .push(assistant_message(&response.text, &response.tool_calls));
-        let mut started = false;
-        for (call_id, action) in actions {
-            match action {
-                DialogueToolAction::Start { intent } => {
-                    if !started {
-                        let task_id = self.enqueue_task(intent);
-                        self.dialogue_messages.push(tool_message(
-                            call_id,
-                            format!(r#"{{"status":"queued","task_id":{task_id}}}"#),
-                        ));
-                        started = true;
-                    } else {
-                        self.dialogue_messages.push(tool_message(
-                            call_id,
-                            r#"{"status":"ignored","reason":"one task per turn"}"#,
-                        ));
-                    }
-                }
-                DialogueToolAction::Cancel { task_id } => {
-                    let result = self.cancel_task(task_id);
-                    self.dialogue_messages.push(tool_message(
-                        call_id,
-                        format!(r#"{{"status":"cancel_requested","task_id":{task_id}}}"#),
-                    ));
-                    result?;
-                }
-                DialogueToolAction::Status { task_id } => {
-                    let reported_task_id = task_id
-                        .or_else(|| self.records.keys().max().copied())
-                        .map_or_else(|| "null".to_string(), |id| id.to_string());
-                    self.emit_status(task_id);
-                    self.dialogue_messages.push(tool_message(
-                        call_id,
-                        format!(r#"{{"status":"reported","task_id":{reported_task_id}}}"#),
-                    ));
-                }
-            }
-        }
-        Ok(())
-    }
-
     fn enqueue_task(&mut self, intent: String) -> TaskId {
         let task_id = self.next_task_id;
         self.next_task_id += 1;
@@ -290,10 +226,7 @@ where
         };
         self.journal.append(AuditEntry::Task(record.clone()));
         self.records.insert(task_id, record);
-        self.pending.push_back(PendingTask {
-            task_id,
-            intent: intent.clone(),
-        });
+        self.pending.push_back(PendingTask { task_id });
         tracing::info!(
             project_id = %self.project_id,
             task_id,
@@ -338,11 +271,23 @@ where
         );
         if response.tool_calls.is_empty() {
             let task_id = active.task_id;
-            let summary = if response.text.trim().is_empty() {
-                active.intent.clone()
-            } else {
-                response.text
-            };
+            if active.completed_tool_calls == 0 {
+                self.finish_failed("TaskIncomplete: no successful card-tool receipt".to_string());
+                return;
+            }
+            if !active.unresolved_tool_failures.is_empty() {
+                let errors = active
+                    .unresolved_tool_failures
+                    .iter()
+                    .map(|failure| failure.error.as_str())
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                self.finish_failed(format!(
+                    "TaskIncomplete: unresolved card-tool failures: {errors}"
+                ));
+                return;
+            }
+            let summary = card_task::successful_summary(active);
             self.update_task_state(task_id, TaskState::Succeeded, Some(summary.clone()), None);
             self.emit_event(AgentEvent::TaskSucceeded { task_id, summary });
             self.active = None;
@@ -378,6 +323,8 @@ where
             tool = %call.name,
             "card subagent tool call started"
         );
+        let mut attempted_command = None;
+        let is_cached = active.cached_results.contains_key(&call.id);
         let result = if let Some(result) = active.cached_results.get(&call.id) {
             result.clone()
         } else {
@@ -390,11 +337,14 @@ where
                         tool_call_id: call.id.clone(),
                         command,
                     };
-                    let result = self
-                        .card_tool_host
-                        .execute(request.clone())
-                        .map(|value: CardToolResult| value.result)
-                        .map_err(|error| error.to_string());
+                    attempted_command = Some(request.command.clone());
+                    let result = card_task::require_verified_target(&active, &request.command)
+                        .and_then(|()| {
+                            self.card_tool_host
+                                .execute(request.clone())
+                                .map(|value: CardToolResult| value.result)
+                                .map_err(|error| error.to_string())
+                        });
                     self.journal.append(AuditEntry::ToolCall(ToolCallRecord {
                         project_id: self.project_id.clone(),
                         task_id: active.task_id,
@@ -402,6 +352,9 @@ where
                         command: request.command,
                         result: result.clone(),
                     }));
+                    if let Ok(result) = &result {
+                        card_task::record_successful_result(&mut active, result);
+                    }
                     active
                         .cached_results
                         .insert(call.id.clone(), result.clone());
@@ -428,8 +381,21 @@ where
             Ok(_) => {
                 active.completed_tool_calls += 1;
                 active.consecutive_failures = 0;
+                if let Some(command) = attempted_command.as_ref() {
+                    active
+                        .unresolved_tool_failures
+                        .retain(|failure| failure.command.as_ref() != Some(command));
+                }
             }
-            Err(_) => active.consecutive_failures += 1,
+            Err(error) => {
+                active.consecutive_failures += 1;
+                if !is_cached {
+                    active.unresolved_tool_failures.push(UnresolvedToolFailure {
+                        command: attempted_command,
+                        error: format!("{}: {error}", call.name),
+                    });
+                }
+            }
         }
         active
             .messages
