@@ -135,7 +135,10 @@ fn schedule_chunk(
     let format = unsafe {
         AVAudioFormat::initWithCommonFormat_sampleRate_channels_interleaved(
             AVAudioFormat::alloc(),
-            AVAudioCommonFormat::PCMFormatInt16,
+            // AVAudioEngine's main mixer accepts its standard Float32 graph format. Connecting
+            // an Int16 buffer format can raise NSOSStatusErrorDomain(-10868), which cannot cross
+            // the Rust/Objective-C FFI boundary safely.
+            AVAudioCommonFormat::PCMFormatFloat32,
             f64::from(chunk.sample_rate_hz),
             u32::from(chunk.channels),
             false,
@@ -151,16 +154,17 @@ fn schedule_chunk(
     }
     .ok_or_else(|| "could not allocate assistant PCM buffer".to_string())?;
 
-    let channel_data = unsafe { buffer.int16ChannelData() };
+    let channel_data = unsafe { buffer.floatChannelData() };
     if channel_data.is_null() {
-        return Err("assistant PCM buffer has no int16 channel data".to_string());
+        return Err("assistant PCM buffer has no float channel data".to_string());
     }
     let destination =
         unsafe { std::slice::from_raw_parts_mut((*channel_data).as_ptr(), frame_count as usize) };
     for (destination_sample, source_bytes) in
         destination.iter_mut().zip(chunk.bytes.chunks_exact(2))
     {
-        *destination_sample = i16::from_le_bytes([source_bytes[0], source_bytes[1]]);
+        *destination_sample =
+            f32::from(i16::from_le_bytes([source_bytes[0], source_bytes[1]])) / 32_768.0;
     }
     unsafe { buffer.setFrameLength(frame_count) };
 

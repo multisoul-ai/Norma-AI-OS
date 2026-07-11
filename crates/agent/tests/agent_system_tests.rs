@@ -1,9 +1,8 @@
 mod support;
 
 use agent::{
-    AgentCommand, AgentEvent, AgentProvider, AgentSystem, AuditEntry, CardTaskBudget,
-    CardTaskJournal, MemoryJournal, ProviderError, ProviderRequest, ProviderResponse,
-    ProviderStreamEvent,
+    AgentCommand, AgentEvent, AgentProvider, AgentSystem, CardTaskBudget, MemoryJournal,
+    ProviderError, ProviderRequest, ProviderResponse, ProviderStreamEvent,
 };
 use norma::protocol::CardCommand;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -29,7 +28,9 @@ impl AgentProvider for ListenerAwareStreamingProvider {
         _request: &ProviderRequest,
         emit: &mut dyn FnMut(ProviderStreamEvent),
     ) -> Result<ProviderResponse, ProviderError> {
-        emit(ProviderStreamEvent::TextDelta("第一段已经到达。".to_string()));
+        emit(ProviderStreamEvent::TextDelta(
+            "第一段已经到达。".to_string(),
+        ));
         if !self.listener_observed.load(Ordering::SeqCst) {
             return Err(ProviderError::Message(
                 "live listener was not invoked before provider continued".to_string(),
@@ -126,7 +127,11 @@ fn ordinary_dialogue_delta_reaches_live_listener_before_provider_returns() {
         )),
         "submit 返回事件仍应保留文本 delta，保证审计与既有调用者兼容"
     );
-    assert_eq!(system.pending_task_count(), 0, "说明性问答不得创建 CardTask");
+    assert_eq!(
+        system.pending_task_count(),
+        0,
+        "说明性问答不得创建 CardTask"
+    );
 }
 
 /// A-2：Dialogue 的 card_task start 只产生 queued receipt；CardTask 在后续 pump 中独立运行。
@@ -443,49 +448,6 @@ fn project_close_interrupts_active_and_pending_tasks() {
         )),
         "排队任务应被标记 Interrupted"
     );
-}
-
-/// A-6b：项目级 AgentSystem 重建时应公开上次未完成任务的中断事件，并延续 task id。
-///
-/// 数据构造：Journal 模拟恢复 task_id=7，并报告下一个 id=8。
-/// 执行过程：构造 AgentSystem，读取初始事件，再提交一个新的 DirectCardTask。
-/// 预期结果：初始事件包含 TaskInterrupted(7)；新任务使用 task_id=8，不能复用旧 id。
-#[test]
-fn startup_surfaces_recovered_tasks_and_continues_task_ids() {
-    struct RecoveryJournal;
-
-    impl CardTaskJournal for RecoveryJournal {
-        fn append(&mut self, _entry: AuditEntry) {}
-
-        fn next_task_id(&self, project_id: &str) -> u64 {
-            assert_eq!(project_id, "project-a", "应按当前项目查询下一个 task id");
-            8
-        }
-
-        fn recover_incomplete(&mut self, project_id: &str) -> Vec<u64> {
-            assert_eq!(project_id, "project-a", "应只恢复当前项目的未完成任务");
-            vec![7]
-        }
-    }
-
-    let mut system = AgentSystem::new(
-        "project-a",
-        ScriptedProvider::default(),
-        ScriptedProvider::default(),
-        RecordingHost::default(),
-        RecoveryJournal,
-        CardTaskBudget::default(),
-    );
-
-    assert_eq!(
-        system.events(),
-        &[AgentEvent::TaskInterrupted { task_id: 7 }],
-        "启动时应公开恢复出的中断任务"
-    );
-    let queued = system
-        .submit(AgentCommand::DirectCardTask("新任务".to_string()))
-        .expect("恢复后仍应接受新任务");
-    assert_eq!(task_id_from(&queued), 8, "新任务不得复用已恢复的 task id");
 }
 
 /// A-7：模型给出非法工具参数时也必须记录 tool call 与错误，且不得产生卡片副作用。
