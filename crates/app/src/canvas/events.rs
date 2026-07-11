@@ -42,6 +42,7 @@ pub(super) fn on_scroll(
         }
         WheelScrollOwner::TerminalScrollback(id) => {
             cx.stop_propagation();
+            app.motion.interrupt_initialization(id);
             let dy = f32::from(ev.delta.pixel_delta(px(1.0)).y);
             let lines = terminal_scroll_lines_from_pixel_delta(dy);
             if lines != 0 {
@@ -128,6 +129,7 @@ pub(super) fn on_mouse_down(
     if let Some(id) = hit {
         if !is_title_bar {
             if let Some(point) = terminal_text_point_for_screen(app, id, screen) {
+                app.motion.interrupt_initialization(id);
                 app.runtime.focus.focus_node(id);
                 app.runtime.selection.select_only(id);
                 app.mark_node_viewed_if_needed(id);

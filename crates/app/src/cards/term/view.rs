@@ -1,12 +1,15 @@
 //! 终端卡片内容渲染 + 键盘翻译。grid 快照按等宽字体逐行绘制。
 
 use crate::canvas::text_selection::TextRange;
-use crate::cards::term::cursor::TerminalCursorAnimation;
-use crate::cards::term::paint::{render_terminal_canvas, TerminalRenderMetrics};
-use gpui::{div, prelude::*, px, rgba, AnyElement, IntoElement, Keystroke};
-use runtime::NodeView;
-use terminal::{Key, KeyInput, TerminalStatus};
+use crate::cards::term::paint::TerminalRenderMetrics;
+use crate::motion::InitializationPresentation;
+use gpui::{px, Keystroke};
+use terminal::{Key, KeyInput};
 use ui::Theme;
+
+mod render;
+
+pub(crate) use render::render_terminal_node;
 
 pub const TERM_FONT_PX: f32 = 13.0;
 pub const TERM_LINE_PX: f32 = 16.0;
@@ -21,77 +24,8 @@ pub struct TerminalNodeRenderOptions {
     pub selection: Option<TextRange>,
     pub focused: bool,
     pub reduce_motion: bool,
+    pub initialization: Option<InitializationPresentation>,
     pub cursor_phase: f32,
-}
-
-/// 渲染一个终端节点内容区：退出态保留最后一帧输出，并叠加退出状态。
-pub fn render_terminal_node(
-    view: Option<NodeView>,
-    options: TerminalNodeRenderOptions,
-) -> AnyElement {
-    let TerminalNodeRenderOptions {
-        theme,
-        zoom,
-        bottom_radius_px,
-        selection,
-        focused,
-        reduce_motion,
-        cursor_phase,
-    } = options;
-
-    let Some(NodeView::Term { snapshot, status }) = view else {
-        return div()
-            .rounded_b(px(bottom_radius_px))
-            .overflow_hidden()
-            .child("(session gone)")
-            .into_any_element();
-    };
-
-    let cursor_animation = TerminalCursorAnimation {
-        phase: cursor_phase,
-        focused,
-        reduce_motion,
-        running: matches!(status, TerminalStatus::Running),
-        display_offset: snapshot.display_offset,
-    };
-    let terminal_canvas = render_terminal_canvas(
-        snapshot,
-        theme,
-        terminal_render_metrics(zoom),
-        selection,
-        cursor_animation,
-    );
-
-    let mut terminal = div()
-        .flex()
-        .flex_col()
-        .flex_1()
-        .w_full()
-        .relative()
-        .overflow_hidden()
-        .rounded_b(px(bottom_radius_px))
-        .bg(rgba(terminal_surface_bg(theme)))
-        .text_color(rgba(theme.term_fg))
-        .font_family("Menlo") // 系统等宽字体；assets/fonts 留扩展位
-        .text_size(px(TERM_FONT_PX * zoom))
-        .line_height(px(TERM_LINE_PX * zoom))
-        .p(px(TERM_PADDING_PX))
-        .child(terminal_canvas);
-
-    if let TerminalStatus::Exited { code } = status {
-        terminal = terminal.child(
-            div()
-                .absolute()
-                .left(px(TERM_PADDING_PX))
-                .right(px(TERM_PADDING_PX))
-                .bottom(px(TERM_PADDING_PX))
-                .bg(rgba(terminal_surface_bg(theme)))
-                .text_color(rgba(theme.term_exit_fg))
-                .child(process_exit_label(code)),
-        );
-    }
-
-    terminal.into_any_element()
 }
 
 pub fn terminal_render_metrics(zoom: f32) -> TerminalRenderMetrics {

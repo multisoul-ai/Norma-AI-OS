@@ -111,6 +111,7 @@ pub fn render_canvas(
         let node = app.runtime.document.node(id).unwrap().clone();
         let card = card_for(node_type);
         let chrome = card.chrome(&node, &app.runtime);
+        let initialization = app.motion.initialization_presentation(id);
         let title = chrome.title;
         let task_badge = chrome.task_badge;
         let refreshable = chrome.refreshable;
@@ -261,6 +262,7 @@ pub fn render_canvas(
                 text_selection: app.interaction.active_text_selection,
                 focused,
                 reduce_motion: app.motion.reduce_motion,
+                initialization,
                 terminal_cursor_phase: app.terminal_cursor_phase,
                 browser_address_draft: app.browser_address_draft_for(id),
                 app_focus_handle: app.focus_handle.clone(),

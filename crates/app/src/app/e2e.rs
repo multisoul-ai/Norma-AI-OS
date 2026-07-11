@@ -9,6 +9,7 @@ use crate::shortcuts::ShortcutCommandId;
 use crate::shortcuts::ShortcutSettingsState;
 use gpui::{App, Context};
 use runtime::Runtime;
+use std::time::Duration;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ApiKeyDisplayState {
@@ -37,6 +38,18 @@ pub struct SettingsE2eSnapshot {
     pub agent_model_rendered_text: Option<String>,
     pub agent_api_key_display_state: ApiKeyDisplayState,
     pub voice_editing_field: Option<&'static str>,
+}
+
+/// 初始化动画的稳定 e2e 投影：不暴露 app 私有 MotionStore 或帧资源实现。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct InitializationAnimationE2eSnapshot {
+    pub kind: &'static str,
+    pub asset: &'static str,
+    pub frame_index: usize,
+    pub neutral_visible_cells: usize,
+    pub accent_visible_cells: usize,
+    pub overlay_opacity_milli: u16,
+    pub content_opacity_milli: u16,
 }
 
 impl MultisoulApp {
@@ -79,6 +92,45 @@ impl MultisoulApp {
 
     pub fn screen(&self) -> AppScreen {
         self.screen
+    }
+
+    pub fn initialization_e2e_snapshot(
+        &self,
+        node_id: canvas::NodeId,
+    ) -> Option<InitializationAnimationE2eSnapshot> {
+        self.motion
+            .initialization_presentation(node_id)
+            .map(|presentation| {
+                let (neutral_visible_cells, accent_visible_cells) =
+                    crate::cards::intro::intro_visible_cell_counts(
+                        presentation.kind,
+                        presentation.frame_index,
+                    );
+                InitializationAnimationE2eSnapshot {
+                    kind: match presentation.kind {
+                        crate::motion::InitializationAnimationKind::Terminal => "terminal",
+                        crate::motion::InitializationAnimationKind::Agent => "agent",
+                    },
+                    asset: crate::cards::intro::intro_asset_name(presentation.kind),
+                    frame_index: presentation.frame_index,
+                    neutral_visible_cells,
+                    accent_visible_cells,
+                    overlay_opacity_milli: opacity_to_milli(presentation.overlay_opacity),
+                    content_opacity_milli: opacity_to_milli(presentation.content_opacity),
+                }
+            })
+    }
+
+    /// 以精确的逻辑时长推进 app 动效，供 headless e2e 验证帧边界使用。
+    ///
+    /// 真实窗口由 12ms 帧循环驱动；测试必须能直接验证 31ms 初始化帧和 80ms
+    /// 用户中断边界，不能让帧循环量化误差改变产品时间线。
+    pub fn advance_animations_for_e2e(&mut self, delta: Duration, cx: &mut Context<Self>) {
+        let motion_changed = self.motion.tick(delta);
+        let cursor_changed = self.advance_terminal_cursor_phase(delta);
+        if motion_changed || cursor_changed {
+            cx.notify();
+        }
     }
 
     pub fn enter_canvas_for_test(&mut self, root: &std::path::Path, cx: &mut Context<Self>) {
@@ -138,6 +190,10 @@ impl MultisoulApp {
                 .map(crate::settings::voice::VoiceSettingsField::stable_name),
         }
     }
+}
+
+fn opacity_to_milli(opacity: f32) -> u16 {
+    (opacity.clamp(0.0, 1.0) * 1000.0).round() as u16
 }
 
 fn classify_api_key_display(text: Option<&str>) -> ApiKeyDisplayState {

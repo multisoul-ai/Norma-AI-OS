@@ -107,6 +107,10 @@ impl MultisoulApp {
                 tracing::info!(?node_id, ?profile, "spawned agent node");
                 spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
                 self.motion.spawn_node(node_id, bounds);
+                self.motion.start_initialization(
+                    node_id,
+                    crate::motion::InitializationAnimationKind::Agent,
+                );
                 self.apply_layout_for_current_mode(window);
                 self.mark_canvas_dirty();
                 self.mark_session_dirty();

@@ -256,6 +256,10 @@ fn create_card(
                 })?;
             activate_spawned_node(runtime, node_id);
             motion.spawn_node(node_id, bounds);
+            motion.start_initialization(
+                node_id,
+                crate::motion::InitializationAnimationKind::Terminal,
+            );
             apply_layout_for_current_mode(master_layout, runtime, motion, area, zoom);
             Ok(NormaExecution {
                 result: CardCommandResult::Created { node_id },
@@ -271,6 +275,7 @@ fn create_card(
                 })?;
             activate_spawned_node(runtime, node_id);
             motion.spawn_node(node_id, bounds);
+            motion.start_initialization(node_id, crate::motion::InitializationAnimationKind::Agent);
             apply_layout_for_current_mode(master_layout, runtime, motion, area, zoom);
             Ok(NormaExecution {
                 result: CardCommandResult::Created { node_id },

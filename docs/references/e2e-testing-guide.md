@@ -1,22 +1,25 @@
 # E2E Testing Guide
 
-`crates/e2e` 是 Multisoul Desktop 的端到端测试 crate。当前包含两类测试：
+`crates/e2e` 是 Multisoul Desktop 的端到端测试 crate。当前包含三类测试：
 
 - app/headless GPUI e2e：在 `TestAppContext` 中驱动真实 `MultisoulApp` 状态机，
   覆盖 boot -> Canvas -> `NewTerminal` -> PTY 输入 -> grid 渲染链路。
 - domain-level e2e：使用公开 crate API 串起跨 crate 用户流程，不依赖 app 私有
   `#[cfg(test)]` 入口。本地语音管线（`dialogue::run_voice_turn` + 扁平 card tools）
   的公开边界验收属于这一层。
+- L3 真实 `.app` 截图 runner：启动打包产物，经 macOS 菜单/快捷键创建卡片，保存
+  用户可见的画面。它不替代确定性的 L1/L2 测试。
 
 参考：实现计划 [`docs/exec-plans/2026-06-28-e2e-testing-infra.md`](../exec-plans/2026-06-28-e2e-testing-infra.md)；
 SPEC [`docs/product-specs/2026-06-28-SPEC-e2e-testing.md`](../product-specs/2026-06-28-SPEC-e2e-testing.md)。
 
-## 1. 两层模型
+## 1. 三层模型
 
 | 层 | 后端 | 用途 | CI 默认 |
 | --- | --- | --- | --- |
 | **L1 注入剧本** | `TestPtyBackend`（`terminal` crate）：`write(bytes)` 同步回吐预设剧本 / 回显 | CI 主防线，快、确定 | 跑 |
 | **L2 真 PTY** | 真实 `portable_pty` 子进程（`/bin/zsh`） | 本地冒烟，覆盖真 PTY 异步链路 | 跳过（`#[ignore]`） |
+| **L3 真实 `.app`** | 打包的 macOS app + System Events + `screencapture` | 用户可见的真实窗口/菜单/截图验收 | 手动 |
 
 L2 标 `#[ignore]`：真 PTY 输出依赖 host 时钟与 shell rc，CI 易抖动；本地手动跑。
 
@@ -29,6 +32,12 @@ cargo test -p e2e
 # L2（真 PTY 冒烟，本地）
 cargo test -p e2e -- --ignored
 
+# L3：先打包 ad-hoc .app；需要 Accessibility 与 Screen Recording 权限
+cargo build --release -p app
+cargo packager -c Packager.dev.toml
+bash scripts/run-card-init-animation-l3.sh
+bash scripts/run-card-init-animation-l3.sh "build/dev/Norma OS.app" artifacts/l3-agent "$PWD" agent
+
 # 全 workspace（含 L1 e2e + 全部 domain/app 单测；L2 自动跳过）
 cargo test --workspace
 
@@ -40,6 +49,17 @@ cargo test -p e2e test_local_voice_create_then_send_text_pipeline
 
 `gpui` 的 `test-support` feature 仅在 `e2e` crate 局部启用，`cargo build -p app`
 生产构建不受影响。
+
+## 2.1 初始化动画 L3 截图
+
+`scripts/run-card-init-animation-l3.sh` 是独立 L3 runner：它会启动实际打包的
+`.app`，通过 `Cmd+O` 进入指定 workspace，再以 `Cmd+N`（Terminal）或应用菜单
+（Codex Agent）创建卡片，并保存 `<kind>-000ms.png`、`-500ms.png` 与 `-1000ms.png`。
+截图默认落在 `artifacts/l3-card-init-animation/`。它要求运行 shell 具有 macOS
+Accessibility 与 Screen Recording 权限；受这些机器权限影响，不进入 CI 默认集。首张
+截图在创建 action 所在的同一 System Events transaction 内发起，避免 action 返回后的
+额外 shell 往返；`000ms` 是该即时采样标签，不承诺绕过 macOS 的截图调度延迟。每次运行
+会生成 `l3-run-result.txt`，权限或自动化失败时也会留下失败状态和授权提示。
 
 ## 3. Agent 验收用法
 

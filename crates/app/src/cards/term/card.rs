@@ -43,6 +43,7 @@ impl Card for TermCard {
                 selection,
                 focused: context.focused,
                 reduce_motion: context.reduce_motion,
+                initialization: context.initialization,
                 cursor_phase: context.terminal_cursor_phase,
             },
         )

@@ -16,9 +16,10 @@ mod shortcuts;
 mod workspace;
 
 pub use app::{
-    ApiKeyDisplayState, AppScreen, CopyCardContent, ExitFocus, MultisoulApp, NewBrowser,
-    NewClaudeAgent, NewCodexAgent, NewOpenCodeAgent, NewTerminal, NewWindow, OpenPreviewFile,
-    OpenProject, ReflowLayout, SettingsE2eSnapshot, ToggleMasterLayout, ToggleSettings,
+    ApiKeyDisplayState, AppScreen, CopyCardContent, ExitFocus, InitializationAnimationE2eSnapshot,
+    MultisoulApp, NewBrowser, NewClaudeAgent, NewCodexAgent, NewOpenCodeAgent, NewTerminal,
+    NewWindow, OpenPreviewFile, OpenProject, ReflowLayout, SettingsE2eSnapshot, ToggleMasterLayout,
+    ToggleSettings,
 };
 pub use assets::EmbeddedAssets;
 

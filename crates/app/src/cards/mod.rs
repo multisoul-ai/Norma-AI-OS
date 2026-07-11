@@ -3,11 +3,13 @@
 pub mod agent;
 pub mod browser;
 pub mod chrome;
+pub(crate) mod intro;
 pub mod preview;
 pub(crate) mod snake;
 pub mod term;
 
 use crate::canvas::text_selection::TextSelection;
+use crate::motion::InitializationPresentation;
 use crate::preview::PreviewLoadState;
 use canvas::{CanvasNode, CanvasRect, NodeType};
 use chrome::CardChrome;
@@ -38,6 +40,7 @@ pub struct CardBodyContext<'a> {
     pub text_selection: Option<TextSelection>,
     pub focused: bool,
     pub reduce_motion: bool,
+    pub initialization: Option<InitializationPresentation>,
     pub terminal_cursor_phase: f32,
     pub browser_address_draft: Option<&'a str>,
     pub app_focus_handle: FocusHandle,

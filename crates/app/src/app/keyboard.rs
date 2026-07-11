@@ -164,6 +164,7 @@ impl MultisoulApp {
                 match clipboard_image::save_clipboard_image_to_system_temp(&image) {
                     Ok(saved) => {
                         self.interaction.clear_text_selection_for_node(node_id);
+                        self.motion.interrupt_initialization(node_id);
                         if let Err(error) = self
                             .runtime
                             .send_node_input(node_id, NodeInput::Text(saved.text))
@@ -182,6 +183,7 @@ impl MultisoulApp {
 
         if let Some(text) = item.and_then(|item| item.text()) {
             self.interaction.clear_text_selection_for_node(node_id);
+            self.motion.interrupt_initialization(node_id);
             if let Err(error) = self.runtime.send_node_input(node_id, NodeInput::Text(text)) {
                 tracing::error!(%error, "paste send_node_input failed");
             }
@@ -330,6 +332,7 @@ impl MultisoulApp {
                     }
                     if let Some(input) = keystroke_to_input(&ev.keystroke) {
                         self.interaction.clear_text_selection_for_node(node_id);
+                        self.motion.interrupt_initialization(node_id);
                         if let Err(e) = self.runtime.send_node_input(node_id, NodeInput::Key(input))
                         {
                             tracing::error!(error = %e, "send_node_input failed");
@@ -357,6 +360,7 @@ impl MultisoulApp {
                 }
                 if let Some(input) = keystroke_to_input(&ev.keystroke) {
                     self.interaction.clear_text_selection_for_node(node_id);
+                    self.motion.interrupt_initialization(node_id);
                     if let Err(e) = self.runtime.send_node_input(node_id, NodeInput::Key(input)) {
                         tracing::error!(error = %e, "send_node_input failed");
                     }

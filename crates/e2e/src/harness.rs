@@ -8,7 +8,7 @@
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use app::{MultisoulApp, NewTerminal};
+use app::{MultisoulApp, NewCodexAgent, NewTerminal};
 use canvas::{CanvasNodeKind, NodeId};
 use gpui::{Entity, TestAppContext, VisualTestContext};
 use runtime::{NodeView, PtyFactory, Runtime};
@@ -143,6 +143,36 @@ pub fn create_terminal(view: &Entity<MultisoulApp>, cx: &mut VisualTestContext) 
             .expect(
                 "NewTerminal should have spawned a new Term node with id greater than prior max",
             )
+    })
+}
+
+/// Dispatch `NewCodexAgent` 并返回新建 Agent 节点的 id。
+///
+/// 选择 Codex 仅用于稳定地覆盖一个公开 Agent action；注入的测试 PTY 工厂仍会
+/// 承担底层 live node，测试不依赖本机是否安装 Codex CLI。
+pub fn create_codex_agent(view: &Entity<MultisoulApp>, cx: &mut VisualTestContext) -> NodeId {
+    let max_before = read_runtime(view, cx, |runtime| {
+        runtime
+            .document
+            .nodes()
+            .iter()
+            .filter(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
+            .map(|node| node.id)
+            .max()
+            .unwrap_or(0)
+    });
+    cx.dispatch_action(NewCodexAgent);
+    cx.run_until_parked();
+    read_runtime(view, cx, |runtime| {
+        runtime
+            .document
+            .nodes()
+            .iter()
+            .filter(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
+            .map(|node| node.id)
+            .max()
+            .filter(|id| *id > max_before)
+            .expect("NewCodexAgent should have spawned an Agent node with a larger id")
     })
 }
 

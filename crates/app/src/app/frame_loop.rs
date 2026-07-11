@@ -153,29 +153,33 @@ impl MultisoulApp {
     }
 
     fn start_animation_frame_loop(cx: &mut Context<Self>) {
-        cx.spawn(async move |this, cx| loop {
-            cx.background_executor()
-                .timer(ANIMATION_FRAME_INTERVAL)
-                .await;
-            let go = this.update(cx, |app, cx| {
-                let tick_started_at = Instant::now();
-                let motion_changed = app.motion.tick(ANIMATION_FRAME_INTERVAL);
-                let cursor_changed = app.advance_terminal_cursor_phase(ANIMATION_FRAME_INTERVAL);
-                let diagnostics = app.motion.diagnostics();
-                crate::frame_diagnostics::log_motion_sample(diagnostics);
-                let report = AnimationFrameReport {
-                    motion_changed,
-                    cursor_changed,
-                    visible_working_snake: diagnostics.chase_visible_nodes > 0,
-                    elapsed: tick_started_at.elapsed(),
-                };
-                if report.should_notify() {
-                    cx.notify();
+        cx.spawn(async move |this, cx| {
+            let mut animation_interval = ANIMATION_FRAME_INTERVAL;
+            loop {
+                cx.background_executor().timer(animation_interval).await;
+                let go = this.update(cx, |app, cx| {
+                    let tick_started_at = Instant::now();
+                    let motion_changed = app.motion.tick(animation_interval);
+                    let cursor_changed = app.advance_terminal_cursor_phase(animation_interval);
+                    let diagnostics = app.motion.diagnostics();
+                    crate::frame_diagnostics::log_motion_sample(diagnostics);
+                    let report = AnimationFrameReport {
+                        motion_changed,
+                        cursor_changed,
+                        visible_working_snake: diagnostics.chase_visible_nodes > 0,
+                        elapsed: tick_started_at.elapsed(),
+                    };
+                    if report.should_notify() {
+                        cx.notify();
+                    }
+                    report.log_if_enabled();
+                    app.motion
+                        .next_animation_tick_interval(ANIMATION_FRAME_INTERVAL)
+                });
+                match go {
+                    Ok(next_interval) => animation_interval = next_interval,
+                    Err(_) => break,
                 }
-                report.log_if_enabled();
-            });
-            if go.is_err() {
-                break;
             }
         })
         .detach();

@@ -1,0 +1,267 @@
+#!/usr/bin/env node
+/**
+ * Build the compact 32 × 41 × 100 initialization-animation assets.
+ *
+ * Terminal data comes from the official ghostty-org/website repository's
+ * `terminals/home/animation_frames/frame_017.txt` through `frame_048.txt`.
+ * Agent data is a deterministic, duotone ASCII interpretation of Norma's
+ * bundled logo: dark portrait pixels form the neutral layer and the white X
+ * hair clip forms the purple accent layer.
+ *
+ * Usage:
+ *   node scripts/generate-initialization-animation-assets.mjs \
+ *     /path/to/ghostty-org-website
+ */
+
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { inflateSync } from "node:zlib";
+
+const [ghosttyRoot] = process.argv.slice(2);
+if (!ghosttyRoot) {
+  throw new Error("usage: generate-initialization-animation-assets.mjs <ghostty-website-root>");
+}
+
+const root = path.resolve(import.meta.dirname, "..");
+const outputDirectory = path.join(root, "crates/app/assets/init-animation");
+const logoPath = path.join(root, "crates/app/assets/icons/logo.png");
+const rows = 41;
+const columns = 100;
+const frames = 32;
+const accentBit = 0x80;
+const middleDot = 0x7f;
+const ghosttyWebsiteCommit = "10bfc9b9d240ec43bcf983d99f9bf405c3478101";
+const ghosttyFramesSha256 = "d417e2c1aa7b2f00b12ba236024f4ec99b18a4c770dbb3ee19ddd1a7793a3f70";
+const normaLogoSha256 = "950ce77367e5838bd24ba83444843d4352a3896ab9f4ee1161f98506c29ece8b";
+
+fs.mkdirSync(outputDirectory, { recursive: true });
+fs.writeFileSync(
+  path.join(outputDirectory, "ghostty-terminal-16-47.bin"),
+  buildGhosttyFrames(ghosttyRoot),
+);
+fs.writeFileSync(
+  path.join(outputDirectory, "norma-agent-duotone.bin"),
+  buildNormaFrames(logoPath),
+);
+
+function buildGhosttyFrames(websiteRoot) {
+  const revision = execFileSync("git", ["-C", websiteRoot, "rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).trim();
+  if (revision !== ghosttyWebsiteCommit) {
+    throw new Error(
+      `Ghostty website must be pinned at ${ghosttyWebsiteCommit}; received ${revision || "no revision"}`,
+    );
+  }
+  const directory = path.join(websiteRoot, "terminals/home/animation_frames");
+  const output = Buffer.alloc(frames * rows * columns);
+  const sourceHash = createHash("sha256");
+  for (let frame = 0; frame < frames; frame += 1) {
+    const number = String(frame + 17).padStart(3, "0");
+    const source = fs.readFileSync(path.join(directory, `frame_${number}.txt`));
+    sourceHash.update(source);
+    const text = source.toString("utf8");
+    const lines = text.replace(/\r/g, "").split("\n");
+    if (lines.at(-1) === "") lines.pop();
+    if (lines.length !== rows) {
+      throw new Error(`Ghostty frame ${number} must have ${rows} rows; got ${lines.length}`);
+    }
+    lines.forEach((line, row) => {
+      const cells = parseGhosttyLine(line);
+      if (cells.length !== columns) {
+        throw new Error(
+          `Ghostty frame ${number}, row ${row} must have ${columns} cells; got ${cells.length}`,
+        );
+      }
+      cells.forEach((cell, column) => {
+        output[(frame * rows + row) * columns + column] = cell;
+      });
+    });
+  }
+  const sourceDigest = sourceHash.digest("hex");
+  if (sourceDigest !== ghosttyFramesSha256) {
+    throw new Error(
+      `Ghostty frame source hash mismatch; expected ${ghosttyFramesSha256}, received ${sourceDigest}`,
+    );
+  }
+  return output;
+}
+
+function parseGhosttyLine(line) {
+  const marked = line
+    .replaceAll('<span class="b">', "\u0001")
+    .replaceAll("</span>", "\u0002");
+  let accent = false;
+  const cells = [];
+  for (const character of marked) {
+    if (character === "\u0001") {
+      accent = true;
+    } else if (character === "\u0002") {
+      accent = false;
+    } else {
+      cells.push(encodeCell(character, accent));
+    }
+  }
+  return cells;
+}
+
+function buildNormaFrames(sourceLogoPath) {
+  const source = fs.readFileSync(sourceLogoPath);
+  const sourceDigest = createHash("sha256").update(source).digest("hex");
+  if (sourceDigest !== normaLogoSha256) {
+    throw new Error(
+      `Norma logo hash mismatch; expected ${normaLogoSha256}, received ${sourceDigest}`,
+    );
+  }
+  return buildNormaMorphFrames(resizePngRgba(source, 82, rows));
+}
+
+function resizePngRgba(input, targetWidth, targetHeight) {
+  if (input.toString("hex", 0, 8) !== "89504e470d0a1a0a") {
+    throw new Error("Norma logo must be a PNG");
+  }
+  let offset = 8;
+  let width;
+  let height;
+  const idat = [];
+  while (offset < input.length) {
+    const length = input.readUInt32BE(offset);
+    const type = input.toString("ascii", offset + 4, offset + 8);
+    const data = input.subarray(offset + 8, offset + 8 + length);
+    if (type === "IHDR") {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      if (data[8] !== 8 || data[9] !== 6 || data[12] !== 0) {
+        throw new Error("Norma logo must be a non-interlaced 8-bit RGBA PNG");
+      }
+    } else if (type === "IDAT") {
+      idat.push(data);
+    }
+    offset += length + 12;
+  }
+  if (!width || !height || idat.length === 0) throw new Error("Norma logo PNG is incomplete");
+
+  const rowBytes = width * 4;
+  const filtered = inflateSync(Buffer.concat(idat));
+  if (filtered.length !== height * (rowBytes + 1)) throw new Error("unexpected PNG data length");
+  const decoded = Buffer.alloc(width * height * 4);
+  let sourceOffset = 0;
+  for (let y = 0; y < height; y += 1) {
+    const filter = filtered[sourceOffset];
+    sourceOffset += 1;
+    for (let x = 0; x < rowBytes; x += 1) {
+      const raw = filtered[sourceOffset + x];
+      const left = x >= 4 ? decoded[y * rowBytes + x - 4] : 0;
+      const up = y > 0 ? decoded[(y - 1) * rowBytes + x] : 0;
+      const upLeft = y > 0 && x >= 4 ? decoded[(y - 1) * rowBytes + x - 4] : 0;
+      decoded[y * rowBytes + x] = unfilterPngByte(filter, raw, left, up, upLeft);
+    }
+    sourceOffset += rowBytes;
+  }
+
+  const pixels = [];
+  for (let y = 0; y < targetHeight; y += 1) {
+    const sourceY = Math.min(height - 1, Math.floor((y + 0.5) * height / targetHeight));
+    const row = [];
+    for (let x = 0; x < targetWidth; x += 1) {
+      const sourceX = Math.min(width - 1, Math.floor((x + 0.5) * width / targetWidth));
+      const index = (sourceY * width + sourceX) * 4;
+      const alpha = decoded[index + 3] / 255;
+      row.push({
+        r: Math.round(decoded[index] * alpha + 255 * (1 - alpha)),
+        g: Math.round(decoded[index + 1] * alpha + 255 * (1 - alpha)),
+        b: Math.round(decoded[index + 2] * alpha + 255 * (1 - alpha)),
+      });
+    }
+    pixels.push(row);
+  }
+  return pixels;
+}
+
+function unfilterPngByte(filter, raw, left, up, upLeft) {
+  if (filter === 0) return raw;
+  if (filter === 1) return (raw + left) & 0xff;
+  if (filter === 2) return (raw + up) & 0xff;
+  if (filter === 3) return (raw + Math.floor((left + up) / 2)) & 0xff;
+  if (filter === 4) return (raw + paeth(left, up, upLeft)) & 0xff;
+  throw new Error(`unsupported PNG filter ${filter}`);
+}
+
+function paeth(left, up, upLeft) {
+  const estimate = left + up - upLeft;
+  const leftDistance = Math.abs(estimate - left);
+  const upDistance = Math.abs(estimate - up);
+  const upLeftDistance = Math.abs(estimate - upLeft);
+  if (leftDistance <= upDistance && leftDistance <= upLeftDistance) return left;
+  if (upDistance <= upLeftDistance) return up;
+  return upLeft;
+}
+
+function buildNormaMorphFrames(pixels) {
+  const base = Array.from({ length: rows }, () => Array(columns).fill(encodeCell(" ", false)));
+  for (let y = 0; y < rows; y += 1) {
+    for (let x = 0; x < 82; x += 1) {
+      const cell = normaLogoCell(pixels[y][x]);
+      base[y][x + 9] = cell;
+    }
+  }
+
+  const output = Buffer.alloc(frames * rows * columns);
+  for (let frame = 0; frame < frames; frame += 1) {
+    for (let y = 0; y < rows; y += 1) {
+      for (let x = 0; x < columns; x += 1) {
+        output[(frame * rows + y) * columns + x] = morphCell(base[y][x], x, y, frame);
+      }
+    }
+  }
+  return output;
+}
+
+function normaLogoCell(pixel) {
+  const max = Math.max(pixel.r, pixel.g, pixel.b);
+  const min = Math.min(pixel.r, pixel.g, pixel.b);
+  const average = (pixel.r + pixel.g + pixel.b) / 3;
+  if (average > 210 && max - min < 35) return encodeCell("X", true);
+  if (max >= 86) return encodeCell(" ", false);
+  const glyphs = "·.:=+*#%@";
+  const strength = 1 - max / 86;
+  return encodeCell(glyphs[Math.min(glyphs.length - 1, Math.floor(strength * glyphs.length))], false);
+}
+
+function morphCell(cell, x, y, frame) {
+  if ((cell & 0x7f) === 0x20) return cell;
+  if (frame >= 29) return cell;
+  const dx = (x - (columns - 1) / 2) / ((columns - 1) / 2);
+  const dy = (y - (rows - 1) / 2) / ((rows - 1) / 2);
+  const distance = Math.hypot(dx, dy);
+  const progress = frame / 29;
+  const threshold = progress * 1.55 - 0.05;
+  const jitter = hash(x, y, 0) * 0.22 - 0.11;
+  if (distance <= threshold + jitter) return cell;
+  if (distance <= threshold + jitter + 0.13) {
+    const noise = "·.+~";
+    return encodeCell(noise[Math.floor(hash(x, y, frame) * noise.length)], (cell & accentBit) !== 0);
+  }
+  return encodeCell(" ", false);
+}
+
+function hash(x, y, frame) {
+  let value = Math.imul(x + 11, 374761393) ^ Math.imul(y + 7, 668265263) ^ Math.imul(frame + 3, 2246822519);
+  value = Math.imul(value ^ (value >>> 13), 1274126177);
+  return ((value ^ (value >>> 16)) >>> 0) / 0x1_0000_0000;
+}
+
+function encodeCell(character, accent) {
+  let code;
+  if (character === "·") {
+    code = middleDot;
+  } else {
+    code = character.codePointAt(0);
+  }
+  if (code === undefined || code > middleDot) {
+    throw new Error(`character ${JSON.stringify(character)} cannot fit the compact ASCII asset`);
+  }
+  return code | (accent ? accentBit : 0);
+}

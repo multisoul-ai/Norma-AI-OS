@@ -28,11 +28,14 @@ mod e2e_03_settings_clicks;
 // Settings E2E：Voice Provider 文本输入无需 Enter 即自动保存。
 mod e2e_04_voice_autosave;
 
+// 卡片初始化动画 E2E：新建路径登记、帧推进和恢复路径不重播。
+mod e2e_05_card_initialization_animation;
+
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。
 pub use harness::{
-    create_terminal, drain_until, echo_factory, enter_canvas, make_app, make_app_real,
-    make_app_with_settings_store, read_grid, read_runtime, scripted_factory,
+    create_codex_agent, create_terminal, drain_until, echo_factory, enter_canvas, make_app,
+    make_app_real, make_app_with_settings_store, read_grid, read_runtime, scripted_factory,
 };
 
 /// Smoke：headless GPUI 启动 `MultisoulApp`，初始屏幕应为 `Launchpad`。
