@@ -1,8 +1,14 @@
-use super::{artifacts_from_agent_events, execute_agent_card_command, terminal_task_report};
-use agent::AgentEvent;
+use super::{
+    artifacts_from_agent_events, execute_agent_card_command, start_tool_pump, terminal_task_report,
+    AgentToolRequest, ProjectAgentRuntime,
+};
+use agent::{AgentEvent, ProviderConfig, ProviderProtocol};
 use canvas::CanvasNodeKind;
 use gpui::TestAppContext;
 use norma::protocol::{CardCommand, CardCommandResult, CardKind, Placement};
+use std::sync::atomic::AtomicBool;
+use std::sync::{mpsc, Arc};
+use std::time::Duration;
 use terminal::{PtyBackend, TestPtyBackend};
 
 fn echo_factory() -> runtime::PtyFactory {
@@ -184,13 +190,13 @@ fn test_terminal_task_reports_cover_all_terminal_states_only() {
     );
 }
 
-/// ART-6：Agent tool bridge 的生产 adapter 必须把 Terminal Create 落到真实 app Runtime。
+/// ART-6：Agent tool bridge 的生产 adapter 必须把连续的 Terminal Create 落到真实 app Runtime。
 ///
-/// 数据构造：headless MultisoulApp 注入 echo PTY 并进入临时画布；构造生产 CardCommand::Create。
-/// 执行过程：直接调用 tool pump 使用的私有 `execute_agent_card_command` adapter。
-/// 预期结果：返回 Created；Runtime live/document 各只有一个 Terminal，且没有 Agent 节点。
+/// 数据构造：headless MultisoulApp 注入 echo PTY 并进入临时画布；构造两条生产 CardCommand::Create。
+/// 执行过程：按顺序两次调用 tool pump 使用的私有 `execute_agent_card_command` adapter。
+/// 预期结果：两次均返回 Created；Runtime live/document 各有两个 Terminal，且没有 Agent 节点。
 #[test]
-fn test_agent_card_command_adapter_creates_terminal_in_real_runtime() {
+fn test_agent_card_command_adapter_creates_multiple_terminals_in_real_runtime() {
     let mut gpui = TestAppContext::single();
     let workspace =
         tempfile::TempDir::new().expect("app adapter temp workspace should be creatable");
@@ -201,22 +207,28 @@ fn test_agent_card_command_adapter_creates_terminal_in_real_runtime() {
         app.enter_canvas_for_test(workspace.path(), cx)
     });
 
-    let result = cx.update(|window, app_cx| {
-        app.update(app_cx, |app, _cx| {
-            execute_agent_card_command(
-                app,
-                window,
-                CardCommand::Create {
-                    kind: CardKind::Terminal { shell: None },
-                    placement: Placement::VisibleArea,
-                },
-            )
+    let results = (0..2)
+        .map(|_| {
+            cx.update(|window, app_cx| {
+                app.update(app_cx, |app, _cx| {
+                    execute_agent_card_command(
+                        app,
+                        window,
+                        CardCommand::Create {
+                            kind: CardKind::Terminal { shell: None },
+                            placement: Placement::VisibleArea,
+                        },
+                    )
+                })
+            })
         })
-    });
+        .collect::<Vec<_>>();
 
     assert!(
-        matches!(result, Ok(CardCommandResult::Created { .. })),
-        "生产 Agent adapter 必须返回 Runtime 的 Created receipt；实际结果：{result:?}"
+        results
+            .iter()
+            .all(|result| matches!(result, Ok(CardCommandResult::Created { .. }))),
+        "两次生产 Agent adapter 调用都必须返回 Runtime Created receipt；实际结果：{results:?}"
     );
     let (live_len, nodes) = app.read_with(cx, |app, _cx| {
         (
@@ -224,16 +236,110 @@ fn test_agent_card_command_adapter_creates_terminal_in_real_runtime() {
             app.runtime.document.nodes().to_vec(),
         )
     });
-    assert_eq!(live_len, 1, "生产 adapter 必须注册一个 live terminal");
-    assert_eq!(nodes.len(), 1, "生产 adapter 必须只创建一个画布节点");
+    assert_eq!(live_len, 2, "生产 adapter 必须注册两个 live terminal");
+    assert_eq!(nodes.len(), 2, "生产 adapter 必须创建两个画布节点");
     assert!(
-        matches!(nodes[0].kind, CanvasNodeKind::Term(_)),
-        "新增节点必须是 Terminal"
+        nodes
+            .iter()
+            .all(|node| matches!(node.kind, CanvasNodeKind::Term(_))),
+        "两个新增节点都必须是 Terminal"
     );
     assert!(
         !nodes
             .iter()
             .any(|node| matches!(node.kind, CanvasNodeKind::Agent(_))),
         "Terminal 创建不得误建 Agent 节点"
+    );
+}
+
+/// ART-7：生产 Agent tool pump 必须连续转发多个 Runtime 请求，不能在第一个完成后丢弃第二个。
+///
+/// 数据构造：headless MultisoulApp 注入 echo PTY 并进入临时画布；向生产 async channel 连续发送
+/// 两条带独立 tool_call_id 的 Terminal Create 请求，runtime_id=77 与当前 ProjectAgentRuntime 一致。
+/// 执行过程：启动生产 `start_tool_pump`，驱动 TestAppContext 直到两个同步结果 channel 都收到回执。
+/// 预期结果：两个回执均为 Created；真实 Runtime 的 live/document 都有两个 Terminal，第二请求不得丢失。
+#[test]
+fn test_agent_tool_pump_forwards_multiple_creates_to_real_runtime() {
+    const RUNTIME_ID: u64 = 77;
+    let mut gpui = TestAppContext::single();
+    let workspace = tempfile::TempDir::new().expect("tool pump temp workspace should be creatable");
+    let (app, cx) = gpui.add_window_view(|_window, cx| {
+        crate::app::MultisoulApp::new_with_pty_factory(cx, echo_factory())
+    });
+    let (tool_tx, tool_rx) = async_channel::unbounded();
+    let (agent_request_tx, _agent_request_rx) = async_channel::bounded(1);
+    app.update(cx, |app, cx| {
+        app.enter_canvas_for_test(workspace.path(), cx);
+        app.agent_runtime = Some(ProjectAgentRuntime {
+            id: RUNTIME_ID,
+            project_id: "tool-pump-test".to_string(),
+            config: ProviderConfig::new(
+                ProviderProtocol::Ollama,
+                "http://127.0.0.1:11434",
+                "test-model",
+                None,
+            ),
+            request_tx: agent_request_tx,
+            cancelled: Arc::new(AtomicBool::new(false)),
+        });
+    });
+    cx.update(|window, app_cx| {
+        app.update(app_cx, |_app, cx| {
+            start_tool_pump(tool_rx, RUNTIME_ID, window, cx);
+        });
+    });
+
+    let (first_result_tx, first_result_rx) = mpsc::channel();
+    let (second_result_tx, second_result_rx) = mpsc::channel();
+    for (task_id, tool_call_id, result_tx) in [
+        (1, "tool-create-1", first_result_tx),
+        (2, "tool-create-2", second_result_tx),
+    ] {
+        tool_tx
+            .send_blocking(AgentToolRequest {
+                task_id,
+                tool_call_id: tool_call_id.to_string(),
+                command: CardCommand::Create {
+                    kind: CardKind::Terminal { shell: None },
+                    placement: Placement::VisibleArea,
+                },
+                result_tx,
+            })
+            .expect("生产 tool pump receiver 在测试期间必须保持连接");
+    }
+    cx.run_until_parked();
+
+    // 1s = 本用例没有网络、真实 PTY 或计时器，仅等待一次 headless executor 调度；
+    // 该余量远高于正常毫秒级 channel/GPUI 交接，同时把 bridge 死锁限制为快速、确定的失败。
+    let first_result = first_result_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("第一条 tool request 必须在一秒内获得 Runtime receipt");
+    let second_result = second_result_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("第二条 tool request 必须在一秒内获得 Runtime receipt");
+    assert!(
+        matches!(first_result, Ok(CardCommandResult::Created { .. })),
+        "第一条 Create 必须成功；实际结果：{first_result:?}"
+    );
+    assert!(
+        matches!(second_result, Ok(CardCommandResult::Created { .. })),
+        "第二条 Create 不得在 tool pump 中丢失；实际结果：{second_result:?}"
+    );
+    let (live_len, nodes) = app.read_with(cx, |app, _cx| {
+        (
+            app.runtime.live_len(),
+            app.runtime.document.nodes().to_vec(),
+        )
+    });
+    assert_eq!(
+        live_len, 2,
+        "两个 bridge request 必须注册两个 live terminal"
+    );
+    assert_eq!(nodes.len(), 2, "两个 bridge request 必须创建两个画布节点");
+    assert!(
+        nodes
+            .iter()
+            .all(|node| matches!(node.kind, CanvasNodeKind::Term(_))),
+        "两个 bridge request 创建的节点都必须是 Terminal"
     );
 }

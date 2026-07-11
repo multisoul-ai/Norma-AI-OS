@@ -162,3 +162,165 @@ fn voice_intent_reaches_runtime_like_host_and_journal() {
         "send_text 工具审计应关联同一个 task id"
     );
 }
+
+/// L1-A-2：一个语音 turn 的多个 card_task start 必须按队列顺序全部执行。
+///
+/// 数据构造：Dialogue Provider 在同一响应中返回两个 start；两个独立 Card Subagent 回合各创建
+/// 一个 terminal 后结束。RuntimeLikeHost 为每次 Create 分配递增 node id。
+/// 执行过程：提交一次 UserTurn，验证两个 queued receipt；连续 pump 直到队列清空。
+/// 预期结果：两个 Terminal Create 均执行且 task #1 先成功、task #2 后成功；第二任务不与第一任务并行。
+#[test]
+fn one_voice_turn_queues_and_serially_executes_multiple_card_tasks() {
+    let dialogue = ScriptedProvider::new(vec![tools(vec![
+        call(
+            "dialogue-create-1",
+            "card_task",
+            r#"{"action":"start","intent":"创建第一个终端"}"#,
+        ),
+        call(
+            "dialogue-create-2",
+            "card_task",
+            r#"{"action":"start","intent":"创建第二个终端"}"#,
+        ),
+    ])]);
+    let card = ScriptedProvider::new(vec![
+        tools(vec![call(
+            "card-create-1",
+            "create_card",
+            r#"{"kind":"terminal"}"#,
+        )]),
+        ProviderResponse {
+            text: "第一个终端已创建".to_string(),
+            tool_calls: Vec::new(),
+        },
+        tools(vec![call(
+            "card-create-2",
+            "create_card",
+            r#"{"kind":"terminal"}"#,
+        )]),
+        ProviderResponse {
+            text: "第二个终端已创建".to_string(),
+            tool_calls: Vec::new(),
+        },
+    ]);
+    let mut system = AgentSystem::new(
+        "project-e2e-multiple-tasks",
+        dialogue,
+        card,
+        RuntimeLikeHost::default(),
+        MemoryJournal::default(),
+        CardTaskBudget::default(),
+    );
+
+    let queued = system
+        .submit(AgentCommand::UserTurn("创建两个终端卡片".to_string()))
+        .expect("同一语音 turn 的两个 card_task start 都应成功入队");
+    let task_ids = queued
+        .iter()
+        .filter_map(|event| match event {
+            AgentEvent::TaskQueued { task_id, .. } => Some(*task_id),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        task_ids,
+        vec![1, 2],
+        "两个 start 必须各自产生递增且有序的 task id"
+    );
+    assert_eq!(
+        system.pending_task_count(),
+        2,
+        "两个任务都应进入同一项目的串行队列"
+    );
+    assert!(
+        system.card_tool_host().commands.is_empty(),
+        "queued receipt 返回前不得提前创建任何终端"
+    );
+
+    let first_start = system.pump();
+    assert!(
+        first_start.contains(&AgentEvent::TaskRunning { task_id: 1 }),
+        "首个 pump 只能启动队首任务 #1"
+    );
+    assert!(
+        !first_start.iter().any(|event| matches!(
+            event,
+            AgentEvent::TaskRunning { task_id: 2 } | AgentEvent::ToolStarted { task_id: 2, .. }
+        )),
+        "首个 pump 不得同时启动或执行 task #2"
+    );
+    let first_create = system.pump();
+    assert_eq!(
+        system.card_tool_host().created,
+        1,
+        "task #1 执行时只能先创建第一个 Terminal"
+    );
+    assert!(
+        !first_create
+            .iter()
+            .any(|event| matches!(event, AgentEvent::TaskRunning { task_id: 2 })),
+        "task #1 尚未终态时 task #2 不得并行进入 Running"
+    );
+    assert!(
+        !system
+            .events()
+            .iter()
+            .any(|event| matches!(event, AgentEvent::ToolStarted { task_id: 2, .. })),
+        "task #1 执行期间 task #2 不得开始底层工具调用"
+    );
+    let first_finish = system.pump();
+    assert!(
+        first_finish
+            .iter()
+            .any(|event| matches!(event, AgentEvent::TaskSucceeded { task_id: 1, .. })),
+        "task #1 的终态必须先于 task #2 启动"
+    );
+    assert!(
+        !system.events().iter().any(|event| matches!(
+            event,
+            AgentEvent::TaskRunning { task_id: 2 } | AgentEvent::ToolStarted { task_id: 2, .. }
+        )),
+        "task #1 终态前的完整事件前缀不得包含 task #2 的运行或工具事件"
+    );
+
+    // 每个任务最多启动、执行一个工具、收尾三次 pump；首任务已消费三次，剩余上限为五次。
+    for _ in 0..5 {
+        if system.pending_task_count() == 0 {
+            break;
+        }
+        let _ = system.pump();
+    }
+
+    assert_eq!(
+        system.pending_task_count(),
+        0,
+        "有限 pump 后两个串行任务都必须完成，不能遗留 pending 或 active 状态"
+    );
+
+    assert_eq!(
+        system.card_tool_host().created,
+        2,
+        "两个任务必须各自创建一个 Terminal"
+    );
+    assert!(
+        system
+            .card_tool_host()
+            .commands
+            .iter()
+            .all(|command| matches!(command, CardCommand::Create { .. })),
+        "这条流程只应向 Runtime bridge 发送两个 Create 命令"
+    );
+    let succeeded_ids = system
+        .events()
+        .iter()
+        .filter_map(|event| match event {
+            AgentEvent::TaskSucceeded { task_id, .. } => Some(*task_id),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        succeeded_ids,
+        vec![1, 2],
+        "第二任务必须在第一任务终态之后才成功，保持项目内串行执行"
+    );
+}

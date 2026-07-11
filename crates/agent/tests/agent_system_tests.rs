@@ -2,7 +2,7 @@ mod support;
 
 use agent::{
     AgentCommand, AgentEvent, AgentSystem, AuditEntry, CardTaskBudget, CardTaskJournal,
-    MemoryJournal, ProviderResponse,
+    MemoryJournal,
 };
 use norma::protocol::CardCommand;
 use support::{
@@ -38,51 +38,6 @@ fn ordinary_chat_does_not_dispatch_card_task() {
     assert!(
         system.card_tool_host().commands.is_empty(),
         "普通聊天不得调用任何卡片工具"
-    );
-}
-
-/// A-1b：模型同时返回 card_task start 与“已完成”文本时，系统不得把未执行的承诺播给用户。
-///
-/// 数据构造：同一 Dialogue response 含两次 start 与一段虚假的完成文本。
-/// 执行过程：提交单个 UserTurn，观察文本事件和 queued 任务数量。
-/// 预期结果：只保留一个任务；不产生 DialogueTextDelta，避免未执行的成功声明。
-#[test]
-fn dialogue_task_start_suppresses_premature_completion_text_and_duplicates() {
-    let dialogue = ScriptedProvider::new([ProviderResponse {
-        text: "已经完成创建".to_string(),
-        tool_calls: vec![
-            tool(
-                "dialogue-call-1",
-                "card_task",
-                r#"{"action":"start","intent":"创建终端"}"#,
-            ),
-            tool(
-                "dialogue-call-2",
-                "card_task",
-                r#"{"action":"start","intent":"再创建一个终端"}"#,
-            ),
-        ],
-    }]);
-    let mut system = system(
-        dialogue,
-        ScriptedProvider::default(),
-        RecordingHost::default(),
-    );
-
-    let events = system
-        .submit(AgentCommand::UserTurn("创建终端".to_string()))
-        .expect("带 card_task 的 Dialogue turn 应成功处理");
-
-    assert_eq!(
-        system.pending_task_count(),
-        1,
-        "一个用户 turn 最多只应派发一个任务"
-    );
-    assert!(
-        !events
-            .iter()
-            .any(|event| matches!(event, AgentEvent::DialogueTextDelta { .. })),
-        "任务尚未进入终态时不得播报模型虚假的完成文本"
     );
 }
 

@@ -10,6 +10,7 @@ use crate::{
     dialogue_tool_specs, AgentError, AgentEvent, AgentMessage, CardToolHost, ProviderRequest,
     ProviderToolCall, CARD_TASK_TOOL, MAX_DIALOGUE_HISTORY_TURNS,
 };
+use std::collections::HashMap;
 
 impl<D, C, H, J> AgentSystem<D, C, H, J>
 where
@@ -93,50 +94,39 @@ where
                 ),
             ));
         }
-        let mut started = false;
+        let mut turn_tool_receipts = HashMap::<String, String>::new();
         for (call_id, action) in actions {
-            match action {
+            if let Some(receipt) = turn_tool_receipts.get(&call_id) {
+                turn.push(tool_message(call_id, receipt.clone()));
+                continue;
+            }
+            let receipt = match action {
                 DialogueToolAction::Start { intent } => {
-                    if !started {
-                        let task_id = self.enqueue_task(intent);
-                        turn.push(tool_message(
-                            call_id,
-                            format!(r#"{{"status":"queued","task_id":{task_id}}}"#),
-                        ));
-                        started = true;
-                    } else {
-                        turn.push(tool_message(
-                            call_id,
-                            r#"{"status":"ignored","reason":"one task per turn"}"#,
-                        ));
+                    let task_id = self.enqueue_task(intent);
+                    format!(r#"{{"status":"queued","task_id":{task_id}}}"#)
+                }
+                DialogueToolAction::Cancel { task_id } => match self.cancel_task(task_id) {
+                    Ok(TaskCancelOutcome::CancelRequested) => {
+                        format!(r#"{{"status":"cancel_requested","task_id":{task_id}}}"#)
                     }
-                }
-                DialogueToolAction::Cancel { task_id } => {
-                    let receipt = match self.cancel_task(task_id) {
-                        Ok(TaskCancelOutcome::CancelRequested) => {
-                            format!(r#"{{"status":"cancel_requested","task_id":{task_id}}}"#)
-                        }
-                        Ok(TaskCancelOutcome::Cancelled) => {
-                            format!(r#"{{"status":"cancelled","task_id":{task_id}}}"#)
-                        }
-                        Err(error) => format!(
-                            r#"{{"status":"error","task_id":{task_id},"error":{}}}"#,
-                            serde_json::json!(error.to_string())
-                        ),
-                    };
-                    turn.push(tool_message(call_id, receipt));
-                }
+                    Ok(TaskCancelOutcome::Cancelled) => {
+                        format!(r#"{{"status":"cancelled","task_id":{task_id}}}"#)
+                    }
+                    Err(error) => format!(
+                        r#"{{"status":"error","task_id":{task_id},"error":{}}}"#,
+                        serde_json::json!(error.to_string())
+                    ),
+                },
                 DialogueToolAction::Status { task_id } => {
                     let reported_task_id = task_id
                         .or_else(|| self.records.keys().max().copied())
                         .map_or_else(|| "null".to_string(), |id| id.to_string());
                     self.emit_status(task_id);
-                    turn.push(tool_message(
-                        call_id,
-                        format!(r#"{{"status":"reported","task_id":{reported_task_id}}}"#),
-                    ));
+                    format!(r#"{{"status":"reported","task_id":{reported_task_id}}}"#)
                 }
-            }
+            };
+            turn_tool_receipts.insert(call_id.clone(), receipt.clone());
+            turn.push(tool_message(call_id, receipt));
         }
         self.dialogue_turns.push_back(turn);
         Ok(())
