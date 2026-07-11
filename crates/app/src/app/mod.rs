@@ -28,6 +28,7 @@ use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focus
 use runtime::{route, InputEvent, InputMode, NodeRunState, Route, Runtime};
 use std::time::Duration;
 use ui::Theme;
+use voice_window_inset::VoiceWindowInset;
 
 mod agent_actions;
 mod agent_runtime;
@@ -55,6 +56,7 @@ pub(crate) mod video_thumbnails;
 #[cfg(target_os = "macos")]
 mod video_wallpaper;
 mod voice;
+mod voice_window_inset;
 mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
 pub use e2e::{ApiKeyDisplayState, InitializationAnimationE2eSnapshot, SettingsE2eSnapshot};
@@ -111,6 +113,7 @@ pub struct MultisoulApp {
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
     pub(crate) terminal_cursor_phase: f32,
     terminal_cursor_repaint: FrameThrottle,
+    voice_window_inset: VoiceWindowInset,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -439,6 +442,9 @@ impl Render for MultisoulApp {
                     .child(self.render_workspace_backdrop())
                     .child(render_canvas(self, window, cx))
                     .child(self.render_workspace_chrome(window, cx));
+                if let Some(visual) = self.voice_window_inset.visual() {
+                    root = root.child(voice_window_inset::render(visual));
+                }
                 if let Some(modal) = self.render_voice_confirmation_modal(cx) {
                     root = root.child(modal);
                 }

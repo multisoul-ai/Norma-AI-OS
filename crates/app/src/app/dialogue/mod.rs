@@ -10,7 +10,6 @@ mod shell;
 mod turn;
 
 pub(crate) use turn::VoiceTurnArtifacts;
-
 use crate::app::voice::control::VoiceVisual;
 use crate::settings::voice::{DialogueLlmMode, VoiceSettingsValues};
 use dialogue::{
@@ -82,6 +81,13 @@ pub(crate) enum VoiceShortcutKeyDownAction {
     Ignore,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum AssistantPlaybackEvent {
+    Started,
+    Finished,
+    Interrupted,
+}
+
 pub(crate) trait CardTaskCancelHook: Send {
     fn cancel_all(&mut self);
 }
@@ -128,11 +134,13 @@ pub(crate) struct DialogueControlState {
     pub(super) speech_synthesis_active: bool,
     pub(super) dialogue_stream_finished: bool,
     pub(super) playback_chunks_pending: usize,
+    pub(super) playback_started: bool,
     pub(super) reply_generation: u64,
     pub(super) tts_cancelled: Arc<AtomicBool>,
     dialogue_stream_cancellation: Option<Arc<AtomicBool>>,
     pub(super) reply_stream_started_at: Option<Instant>,
     pub(super) last_reply_interrupted: bool,
+    playback_events: Vec<AssistantPlaybackEvent>,
     #[cfg(test)]
     recording_sink: Option<crate::app::voice::playback::RecordingAssistantAudioSink>,
     #[cfg(test)]
@@ -163,11 +171,13 @@ impl Default for DialogueControlState {
             speech_synthesis_active: false,
             dialogue_stream_finished: false,
             playback_chunks_pending: 0,
+            playback_started: false,
             reply_generation: 0,
             tts_cancelled: Arc::new(AtomicBool::new(false)),
             dialogue_stream_cancellation: None,
             reply_stream_started_at: None,
             last_reply_interrupted: false,
+            playback_events: Vec::new(),
             #[cfg(test)]
             recording_sink: None,
             #[cfg(test)]
@@ -177,6 +187,9 @@ impl Default for DialogueControlState {
 }
 
 impl DialogueControlState {
+    pub(super) fn take_playback_events(&mut self) -> Vec<AssistantPlaybackEvent> {
+        std::mem::take(&mut self.playback_events)
+    }
     pub(crate) fn validate_start_provider(
         values: &VoiceSettingsValues,
     ) -> Result<SherpaProvider, DialogueStartError> {

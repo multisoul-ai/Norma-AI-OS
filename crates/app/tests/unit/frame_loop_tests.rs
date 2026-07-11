@@ -42,6 +42,7 @@ fn test_frame_loop_reports_keep_runtime_animation_and_persistence_separate() {
         motion_changed: true,
         cursor_changed: false,
         visible_working_snake: true,
+        voice_window_inset_changed: false,
         elapsed: std::time::Duration::from_millis(1),
     };
 

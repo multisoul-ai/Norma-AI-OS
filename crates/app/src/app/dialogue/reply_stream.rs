@@ -56,6 +56,7 @@ impl DialogueControlState {
         self.speech_synthesis_active = false;
         self.dialogue_stream_finished = false;
         self.playback_chunks_pending = 0;
+        self.playback_started = false;
         self.reply_stream_started_at = Some(Instant::now());
         self.last_reply_text = Some(String::new());
         self.last_reply_interrupted = false;
@@ -100,6 +101,10 @@ impl DialogueControlState {
     }
 
     pub(super) fn abort_reply_stream(&mut self, mark_interrupted: bool) {
+        if self.playback_started {
+            self.playback_events
+                .push(super::AssistantPlaybackEvent::Interrupted);
+        }
         self.reply_generation = self.reply_generation.wrapping_add(1);
         self.tts_cancelled.store(true, Ordering::Release);
         if mark_interrupted {
@@ -113,6 +118,7 @@ impl DialogueControlState {
         self.playback_buffer.clear();
         self.speech_synthesis_active = false;
         self.playback_chunks_pending = 0;
+        self.playback_started = false;
         self.dialogue_stream_finished = false;
         self.utterance_committer = dialogue::UtteranceCommitter::new();
         self.reply_stream_started_at = None;
@@ -264,16 +270,27 @@ impl DialogueControlState {
                 self.recover_reply_failure("Speech error: reply is no longer active".to_string());
                 return;
             }
+            let (playback_started_tx, playback_started_rx) = async_channel::bounded(1);
             let (completion_tx, completion_rx) = async_channel::bounded(1);
-            if let Err(error) = self
-                .reply_playback
-                .play_chunk_with_completion(&chunk, completion_tx)
-            {
+            if let Err(error) = self.reply_playback.play_chunk_with_completion(
+                &chunk,
+                playback_started_tx,
+                completion_tx,
+            ) {
                 self.recover_reply_failure(format!("Speech error: {error}"));
                 return;
             }
             self.playback_chunks_pending = self.playback_chunks_pending.saturating_add(1);
             cx.spawn(async move |this, cx| {
+                if playback_started_rx.recv().await.is_ok()
+                    && this
+                        .update(cx, |app, _cx| {
+                            app.dialogue.on_playback_chunk_started(generation);
+                        })
+                        .is_err()
+                {
+                    return;
+                }
                 if completion_rx.recv().await.is_ok() {
                     let _ = this.update(cx, |app, cx| {
                         app.dialogue.on_playback_chunk_finished(generation);
@@ -285,26 +302,40 @@ impl DialogueControlState {
         }
     }
 
+    fn on_playback_chunk_started(&mut self, generation: u64) {
+        if generation != self.reply_generation || self.playback_started {
+            return;
+        }
+        self.playback_started = true;
+        self.playback_events
+            .push(super::AssistantPlaybackEvent::Started);
+    }
+
     fn on_playback_chunk_finished(&mut self, generation: u64) {
         if generation != self.reply_generation {
             return;
         }
         self.playback_chunks_pending = self.playback_chunks_pending.saturating_sub(1);
-        self.finish_reply_stream_if_ready();
+        if self.finish_reply_stream_if_ready() && self.playback_started {
+            self.playback_started = false;
+            self.playback_events
+                .push(super::AssistantPlaybackEvent::Finished);
+        }
     }
 
-    fn finish_reply_stream_if_ready(&mut self) {
+    fn finish_reply_stream_if_ready(&mut self) -> bool {
         if !self.dialogue_stream_finished
             || self.speech_synthesis_active
             || !self.speech_queue.is_empty()
             || !self.playback_buffer.is_empty()
             || self.playback_chunks_pending != 0
         {
-            return;
+            return false;
         }
         self.session.on_playback_finished_or_interrupted(true);
         self.reply_stream_started_at = None;
         self.dialogue_stream_finished = false;
+        true
     }
 
     fn stream_elapsed(&self) -> Duration {

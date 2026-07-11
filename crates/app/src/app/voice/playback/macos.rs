@@ -17,6 +17,7 @@ enum PlaybackCommand {
     Play {
         chunk: PcmAudioChunk,
         result_tx: mpsc::Sender<Result<(), String>>,
+        playback_started: async_channel::Sender<()>,
         completion_tx: async_channel::Sender<()>,
     },
     Stop,
@@ -44,13 +45,15 @@ impl MacosAssistantAudioSink {
 
 impl AssistantAudioSink for MacosAssistantAudioSink {
     fn write_chunk(&mut self, chunk: &PcmAudioChunk) -> Result<Duration, String> {
+        let (playback_started, _playback_started_rx) = async_channel::bounded(1);
         let (completion_tx, _completion_rx) = async_channel::bounded(1);
-        self.write_chunk_with_completion(chunk, completion_tx)
+        self.write_chunk_with_completion(chunk, playback_started, completion_tx)
     }
 
     fn write_chunk_with_completion(
         &mut self,
         chunk: &PcmAudioChunk,
+        playback_started: async_channel::Sender<()>,
         completion_tx: async_channel::Sender<()>,
     ) -> Result<Duration, String> {
         let duration = pcm_chunk_duration(chunk);
@@ -59,6 +62,7 @@ impl AssistantAudioSink for MacosAssistantAudioSink {
             .send(PlaybackCommand::Play {
                 chunk: chunk.clone(),
                 result_tx,
+                playback_started,
                 completion_tx,
             })
             .map_err(|_| "assistant playback thread is unavailable".to_string())?;
@@ -93,6 +97,7 @@ fn playback_loop(command_rx: mpsc::Receiver<PlaybackCommand>) {
             PlaybackCommand::Play {
                 chunk,
                 result_tx,
+                playback_started,
                 completion_tx,
             } => {
                 let result = schedule_chunk(
@@ -100,6 +105,7 @@ fn playback_loop(command_rx: mpsc::Receiver<PlaybackCommand>) {
                     &player,
                     &chunk,
                     &mut connected_sample_rate,
+                    playback_started,
                     completion_tx,
                 );
                 let _ = result_tx.send(result);
@@ -121,6 +127,7 @@ fn schedule_chunk(
     player: &AVAudioPlayerNode,
     chunk: &PcmAudioChunk,
     connected_sample_rate: &mut Option<u32>,
+    playback_started: async_channel::Sender<()>,
     completion_tx: async_channel::Sender<()>,
 ) -> Result<(), String> {
     let frame_count = u32::try_from(chunk.bytes.len() / 2)
@@ -189,6 +196,7 @@ fn schedule_chunk(
         if !player.isPlaying() {
             player.play();
         }
+        let _ = playback_started.try_send(());
     }
     Ok(())
 }

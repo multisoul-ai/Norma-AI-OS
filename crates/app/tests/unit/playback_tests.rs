@@ -62,19 +62,23 @@ fn test_recording_sink_accepts_supported_voice_chunks() {
     assert!(duration_24k.as_nanos() > 0, "24k 调度时长应大于零");
 }
 
-/// PB-2b：播放完成信号必须由 sink 显式交回，而不是由上层按 PCM 理论时长伪造。
+/// PB-2b：播放启动和完成信号必须由 sink 显式交回，而不是由上层按 PCM 理论时长伪造。
 ///
-/// 数据构造：Recording sink 与一块合法 16kHz mono PCM；完成 channel 容量为 1。
-/// 执行过程：通过 write_chunk_with_completion 调度该 PCM，再立即读取完成信号。
-/// 预期结果：调度成功后必须收到一个完成信号；该信号只对应本次实际 sink 调度。
+/// 数据构造：Recording sink 与一块合法 16kHz mono PCM；启动和完成 channel 容量均为 1。
+/// 执行过程：通过 write_chunk_with_completion 调度该 PCM，再立即读取启动和完成信号。
+/// 预期结果：调度成功后必须各收到一个启动、完成信号；两者只对应本次实际 sink 调度。
 #[test]
 fn test_recording_sink_emits_explicit_playback_completion() {
     let mut sink = RecordingAssistantAudioSink::new();
+    let (playback_started_tx, playback_started_rx) = async_channel::bounded(1);
     let (completion_tx, completion_rx) = async_channel::bounded(1);
 
-    sink.write_chunk_with_completion(&test_pcm_chunk(), completion_tx)
+    sink.write_chunk_with_completion(&test_pcm_chunk(), playback_started_tx, completion_tx)
         .expect("Recording sink 应能调度带完成回调的 PCM");
 
+    playback_started_rx
+        .try_recv()
+        .expect("Recording sink 必须显式发出本次播放启动信号");
     completion_rx
         .try_recv()
         .expect("Recording sink 必须显式发出本次播放完成信号");
