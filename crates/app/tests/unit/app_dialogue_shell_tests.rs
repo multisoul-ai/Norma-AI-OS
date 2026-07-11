@@ -442,3 +442,43 @@ fn test_dialogue_settings_still_resolve_always_listening_toggle() {
         "Settings 仍应通过 realtime_enabled 字段表示 Always Listening 开关"
     );
 }
+
+/// DLG-15：最终语音识别文本必须以 info 日志输出，便于默认日志级别直接观察。
+///
+/// 数据构造：
+///   读取生产 `dialogue/chat.rs`，截取 `FinalTranscript` 分支到状态更新前的日志块；
+///   默认日志过滤器为 info，因此 debug 不会出现在普通运行日志中。
+///
+/// 执行过程：
+///   1. 定位 `ListeningPipelineEvent::FinalTranscript(text)` 分支；
+///   2. 截取紧随其后的日志语句；
+///   3. 检查日志级别和 transcript 字段。
+///
+/// 预期结果：
+///   - 正断言：日志块使用 `tracing::info!` 并输出 `%text`；
+///   - 负断言：不得继续使用只在 debug 级别可见的日志。
+#[test]
+fn test_final_speech_transcript_is_logged_at_info_with_text() {
+    let source = include_str!("../../src/app/dialogue/chat.rs");
+    let branch_start = source
+        .find("ListeningPipelineEvent::FinalTranscript(text) =>")
+        .expect("生产 pipeline event pump 应处理 FinalTranscript");
+    let update_start = source[branch_start..]
+        .find("let should_notify")
+        .map(|offset| branch_start + offset)
+        .expect("FinalTranscript 日志后应继续更新 dialogue 状态");
+    let log_block = &source[branch_start..update_start];
+
+    assert!(
+        log_block.contains("tracing::info!("),
+        "final transcript 应在默认 info 级别可见；日志块：{log_block:?}"
+    );
+    assert!(
+        log_block.contains("transcript = %text"),
+        "info 日志必须打印实际识别文本，而不只是字符数；日志块：{log_block:?}"
+    );
+    assert!(
+        !log_block.contains("tracing::debug!("),
+        "final transcript 不得继续只写入 debug 日志；日志块：{log_block:?}"
+    );
+}

@@ -253,7 +253,51 @@ fn test_utterance_committer_forces_commit_at_maximum_segment_length() {
     );
 }
 
-/// SPEECH-7：旧式整句 TTS 实现通过默认适配仍可向流式播放端交付 PCM。
+/// SPEECH-7：流式模型的思考块不得进入 TTS，思考结论与最终答案不得重复播报。
+///
+/// 数据构造：
+///   开始标签被拆成 `<thi` 与 `nk>`，结束标签被拆成 `</thi` 与 `nk>`；
+///   思考块和最终答案都包含「应该重启服务」，用于复现用户听到的部分重复。
+///
+/// 执行过程：
+///   1. 按真实流式顺序推入三个 delta；
+///   2. 收集每次即时提交的 TTS 段；
+///   3. 模型结束后调用 `finish` 刷出可见尾段。
+///
+/// 预期结果：
+///   - 正断言：只产生一次最终答案「最终回答：应该重启服务。」；
+///   - 负断言：结果不含 `<think>`、内部分析或第二次「应该重启服务」。
+#[test]
+fn test_utterance_committer_suppresses_split_thinking_block_and_repeated_conclusion() {
+    let mut committer = UtteranceCommitter::new();
+    let mut spoken = Vec::new();
+
+    spoken.extend(committer.push_delta("<thi", Duration::ZERO));
+    spoken.extend(committer.push_delta(
+        "nk>我需要先分析。关键结论是应该重启服务。</thi",
+        Duration::from_millis(10),
+    ));
+    spoken.extend(committer.push_delta("nk>最终回答：应该重启服务。", Duration::from_millis(20)));
+    spoken.extend(committer.finish());
+
+    assert_eq!(
+        spoken,
+        vec!["最终回答：应该重启服务。".to_string()],
+        "TTS 应跳过跨 delta 的完整思考块，并只播一次最终答案；实际：{spoken:?}"
+    );
+    let joined = spoken.join(" ");
+    assert!(
+        !joined.contains("<think>") && !joined.contains("我需要先分析"),
+        "TTS 不得泄漏思考标签或内部分析；实际：{joined:?}"
+    );
+    assert_eq!(
+        joined.matches("应该重启服务").count(),
+        1,
+        "思考结论与最终答案重合时只能播报最终答案一次；实际：{joined:?}"
+    );
+}
+
+/// SPEECH-8：旧式整句 TTS 实现通过默认适配仍可向流式播放端交付 PCM。
 ///
 /// 数据构造：
 ///   `OneChunkTts` 对任意文本返回 16kHz/mono/PCM16 的单帧静音块；

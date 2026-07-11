@@ -8,6 +8,8 @@ pub const SHORT_SPEECH_MERGE_WINDOW: Duration = Duration::from_millis(250);
 const MIN_SPEECH_SEGMENT_CHARS: usize = 8;
 /// Forces a bounded wait when a streamed model does not produce punctuation.
 pub const MAX_SPEECH_SEGMENT_CHARS: usize = 60;
+const THINKING_BLOCK_START: &str = "<think>";
+const THINKING_BLOCK_END: &str = "</think>";
 
 /// Converts a display reply into text that is safe and natural to speak.
 pub struct SpokenTextNormalizer;
@@ -47,6 +49,13 @@ impl SpokenTextNormalizer {
 pub struct UtteranceCommitter {
     pending: String,
     short_sentence_deadline: Option<Duration>,
+    thinking_filter: ThinkingBlockFilter,
+}
+
+#[derive(Default)]
+struct ThinkingBlockFilter {
+    pending: String,
+    inside_thinking: bool,
 }
 
 impl UtteranceCommitter {
@@ -56,7 +65,8 @@ impl UtteranceCommitter {
 
     /// Appends a model text delta and returns every speech segment now safe to synthesize.
     pub fn push_delta(&mut self, delta: &str, now: Duration) -> Vec<String> {
-        self.pending.push_str(delta);
+        let visible = self.thinking_filter.push_delta(delta);
+        self.pending.push_str(&visible);
         self.drain_complete_segments(now)
     }
 
@@ -82,6 +92,7 @@ impl UtteranceCommitter {
     /// Flushes all remaining text after the model marks the response complete.
     pub fn finish(&mut self) -> Vec<String> {
         self.short_sentence_deadline = None;
+        self.pending.push_str(&self.thinking_filter.finish());
         speech_segment_from_display_text(std::mem::take(&mut self.pending))
             .into_iter()
             .collect()
@@ -110,6 +121,57 @@ impl UtteranceCommitter {
         }
         committed
     }
+}
+
+impl ThinkingBlockFilter {
+    fn push_delta(&mut self, delta: &str) -> String {
+        self.pending.push_str(delta);
+        let mut visible = String::new();
+
+        loop {
+            if self.inside_thinking {
+                if let Some(end) = self.pending.find(THINKING_BLOCK_END) {
+                    self.pending.drain(..end + THINKING_BLOCK_END.len());
+                    self.inside_thinking = false;
+                    continue;
+                }
+                let retained = partial_tag_suffix_len(&self.pending, THINKING_BLOCK_END);
+                self.pending.drain(..self.pending.len() - retained);
+                return visible;
+            }
+
+            if let Some(start) = self.pending.find(THINKING_BLOCK_START) {
+                visible.push_str(&self.pending[..start]);
+                self.pending.drain(..start + THINKING_BLOCK_START.len());
+                self.inside_thinking = true;
+                continue;
+            }
+
+            let retained = partial_tag_suffix_len(&self.pending, THINKING_BLOCK_START);
+            let visible_end = self.pending.len() - retained;
+            visible.push_str(&self.pending[..visible_end]);
+            self.pending.drain(..visible_end);
+            return visible;
+        }
+    }
+
+    fn finish(&mut self) -> String {
+        let visible = if self.inside_thinking {
+            String::new()
+        } else {
+            std::mem::take(&mut self.pending)
+        };
+        self.pending.clear();
+        self.inside_thinking = false;
+        visible
+    }
+}
+
+fn partial_tag_suffix_len(text: &str, tag: &str) -> usize {
+    (1..tag.len())
+        .rev()
+        .find(|length| text.ends_with(&tag[..*length]))
+        .unwrap_or(0)
 }
 
 fn speech_segment_from_display_text(display_text: String) -> Option<String> {

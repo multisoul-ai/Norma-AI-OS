@@ -73,9 +73,10 @@ pub(crate) fn start_pipeline_event_pump(
                     }
                 }
                 ListeningPipelineEvent::FinalTranscript(text) => {
-                    tracing::debug!(
+                    tracing::info!(
+                        transcript = %text,
                         transcript_chars = text.chars().count(),
-                        "[DEBUG-agent-flow-7c1e] listening pipeline produced final transcript"
+                        "speech recognition final transcript"
                     );
                     let should_notify = this
                         .update(cx, |app, _cx| {
