@@ -18,9 +18,11 @@ pub(crate) trait AssistantAudioSink: Send {
     fn write_chunk_with_completion(
         &mut self,
         chunk: &PcmAudioChunk,
+        playback_started: async_channel::Sender<()>,
         completion: async_channel::Sender<()>,
     ) -> Result<Duration, String> {
         let duration = self.write_chunk(chunk)?;
+        let _ = playback_started.try_send(());
         let _ = completion.try_send(());
         Ok(duration)
     }

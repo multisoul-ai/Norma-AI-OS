@@ -66,6 +66,7 @@ impl MultisoulApp {
             last_reflow_window_size: None,
             terminal_cursor_phase: 0.0,
             terminal_cursor_repaint: FrameThrottle::default(),
+            voice_window_inset: crate::app::voice_window_inset::VoiceWindowInset::default(),
         }
     }
 }

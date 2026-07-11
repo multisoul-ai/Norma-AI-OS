@@ -52,6 +52,13 @@ pub struct InitializationAnimationE2eSnapshot {
     pub content_opacity_milli: u16,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct VoiceWindowInsetE2eSnapshot {
+    pub active: bool,
+    pub opacity_milli: u16,
+    pub inset_px_milli: u16,
+}
+
 impl MultisoulApp {
     pub fn new_with_pty_factory(cx: &mut Context<Self>, factory: runtime::PtyFactory) -> Self {
         let agent_hook_server = AgentHookServer::start();
@@ -128,8 +135,34 @@ impl MultisoulApp {
     pub fn advance_animations_for_e2e(&mut self, delta: Duration, cx: &mut Context<Self>) {
         let motion_changed = self.motion.tick(delta);
         let cursor_changed = self.advance_terminal_cursor_phase(delta);
-        if motion_changed || cursor_changed {
+        let voice_window_inset_changed = self.voice_window_inset.tick(delta);
+        if motion_changed || cursor_changed || voice_window_inset_changed {
             cx.notify();
+        }
+    }
+
+    pub fn begin_assistant_playback_for_e2e(&mut self, cx: &mut Context<Self>) {
+        self.voice_window_inset.begin_playback();
+        cx.notify();
+    }
+
+    pub fn finish_assistant_playback_for_e2e(&mut self, cx: &mut Context<Self>) {
+        self.voice_window_inset.finish_playback();
+        cx.notify();
+    }
+
+    pub fn voice_window_inset_e2e_snapshot(&self) -> VoiceWindowInsetE2eSnapshot {
+        match self.voice_window_inset.visual() {
+            Some(visual) => VoiceWindowInsetE2eSnapshot {
+                active: true,
+                opacity_milli: opacity_to_milli(visual.opacity),
+                inset_px_milli: (visual.inset_px * 1000.0).round() as u16,
+            },
+            None => VoiceWindowInsetE2eSnapshot {
+                active: false,
+                opacity_milli: 0,
+                inset_px_milli: 0,
+            },
         }
     }
 

@@ -42,10 +42,11 @@ impl ReplyPlayback {
     pub(crate) fn play_chunk_with_completion(
         &mut self,
         chunk: &audio::PcmAudioChunk,
+        playback_started: async_channel::Sender<()>,
         completion: async_channel::Sender<()>,
     ) -> Result<Duration, SpeechError> {
         self.sink
-            .write_chunk_with_completion(chunk, completion)
+            .write_chunk_with_completion(chunk, playback_started, completion)
             .map_err(SpeechError::Audio)
     }
 

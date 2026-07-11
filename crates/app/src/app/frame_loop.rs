@@ -2,6 +2,7 @@ use std::time::{Duration, Instant};
 
 use gpui::Context;
 
+use super::dialogue::AssistantPlaybackEvent;
 use super::MultisoulApp;
 
 const RUNTIME_FRAME_INTERVAL: Duration = Duration::from_millis(12);
@@ -70,12 +71,16 @@ pub(super) struct AnimationFrameReport {
     pub motion_changed: bool,
     pub cursor_changed: bool,
     pub visible_working_snake: bool,
+    pub voice_window_inset_changed: bool,
     pub elapsed: Duration,
 }
 
 impl AnimationFrameReport {
     pub(super) fn should_notify(self) -> bool {
-        self.motion_changed || self.cursor_changed || self.visible_working_snake
+        self.motion_changed
+            || self.cursor_changed
+            || self.visible_working_snake
+            || self.voice_window_inset_changed
     }
 
     pub(super) fn notify_reason_labels(self) -> String {
@@ -88,6 +93,9 @@ impl AnimationFrameReport {
         }
         if self.visible_working_snake {
             labels.push("visible_working_snake");
+        }
+        if self.voice_window_inset_changed {
+            labels.push("voice_window_inset_changed");
         }
         if labels.is_empty() {
             "none".to_string()
@@ -161,12 +169,28 @@ impl MultisoulApp {
                     let tick_started_at = Instant::now();
                     let motion_changed = app.motion.tick(animation_interval);
                     let cursor_changed = app.advance_terminal_cursor_phase(animation_interval);
+                    for event in app.dialogue.take_playback_events() {
+                        match event {
+                            AssistantPlaybackEvent::Started => {
+                                app.voice_window_inset.begin_playback();
+                            }
+                            AssistantPlaybackEvent::Finished => {
+                                app.voice_window_inset.finish_playback();
+                            }
+                            AssistantPlaybackEvent::Interrupted => {
+                                app.voice_window_inset.interrupt_playback();
+                            }
+                        }
+                    }
+                    let voice_window_inset_changed =
+                        app.voice_window_inset.tick(animation_interval);
                     let diagnostics = app.motion.diagnostics();
                     crate::frame_diagnostics::log_motion_sample(diagnostics);
                     let report = AnimationFrameReport {
                         motion_changed,
                         cursor_changed,
                         visible_working_snake: diagnostics.chase_visible_nodes > 0,
+                        voice_window_inset_changed,
                         elapsed: tick_started_at.elapsed(),
                     };
                     if report.should_notify() {

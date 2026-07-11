@@ -31,6 +31,9 @@ mod e2e_04_voice_autosave;
 // 卡片初始化动画 E2E：新建路径登记、帧推进和恢复路径不重播。
 mod e2e_05_card_initialization_animation;
 
+// 语音驱动窗口内缘光：播放生命周期、Settings 层级与正常收束。
+mod e2e_06_voice_window_inset;
+
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。
 pub use harness::{
