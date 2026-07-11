@@ -1,8 +1,11 @@
+mod models;
 mod state;
 mod view;
 
+pub(crate) use models::{AsrModelInstallState, AsrModelManagerState};
 pub(crate) use state::{
-    DialogueLlmMode, VoiceSettingsField, VoiceSettingsState, VoiceSettingsValues,
+    resolve_available_asr_model, DialogueLlmMode, DictationTrigger, VoiceInteractionMode,
+    VoiceSettingsField, VoiceSettingsState, VoiceSettingsValues,
 };
 pub(crate) use view::VoiceSettingsInputs;
 

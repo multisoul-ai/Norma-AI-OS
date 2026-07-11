@@ -7,66 +7,42 @@ Norma OS 是一个 macOS 空间工作台脚手架。当前垂直切片围绕 **L
 ## 1. 系统拓扑
 
 ```text
-┌──────────────────────────────────────────────┐
-│ macOS Window                                  │
-│ GPUI + Metal                                  │
-│ menu / key binding / mouse events             │
-└──────────────────────┬───────────────────────┘
-                       │
-                       ▼
-┌──────────────────────────────────────────────┐
-│ app crate                                     │
-│ MultisoulApp                                  │
-│ canvas_view / cards/* / persistence scheduler │
-└───────┬───────────────────┬───────────────────┬──────────┘
-        │                   │                   │
-        ▼                   ▼                   ▼
-┌──────────────────┐ ┌──────────────────┐ ┌──────────────────────────┐
-│ runtime crate             │   │ ui crate                  │
-│ document + selection      │   │ theme tokens              │
-│ focus + event routing     │   │ GPUI-facing primitives    │
-│ NodeId -> LiveNode registry│   └──────────────────────────┘
-└───────┬──────────┬──────┘
-        │          │
-        ▼          ▼
-┌──────────────┐ ┌──────────────────────────────┐
-│ canvas crate │ │ terminal crate                │
-│ geometry     │ │ portable-pty + alacritty grid │
-│ nodes        │ │ input encoding + sessions     │
-│ hit testing  │ └──────────────┬───────────────┘
-└──────────────┘                │
-                                ▼
-                       ┌────────────────┐
-                       │ /bin/zsh shell │
-                       │ child process  │
-                       └────────────────┘
-
-┌──────────────────────────┐
-│ storage crate             │
-│ SQLite stores + migrations│
-│ recent/settings/snapshots │
-└──────────┬───────────────┘
-           ▼
-┌──────────────────────────┐
-│ workspace crate           │
-│ recent metadata + paths   │
-└──────────────────────────┘
+macOS Window（GPUI + Metal）
+└── app：窗口、渲染、快捷键、后台副作用编排
+    ├── ui：主题与 GPUI 共享组件
+    ├── runtime：LiveNode 生命周期、焦点与输入路由
+    │   ├── canvas：几何、节点、选择与命中
+    │   ├── terminal：PTY、ANSI grid 与输入编码 ──> /bin/zsh
+    │   └── storage：SQLite store 与 migration ──> workspace 元数据
+    ├── asr：模型 ID、受控目录、清单、哈希与原子安装
+    └── voice_sherpa：Sherpa recognizer、VAD、PCM partial/final adapter
+        ├── asr：消费已校验的 AvailableAsrModel
+        ├── dialogue：消费引擎中立的语音协议
+        └── audio：消费共享 PCM 类型
 ```
 
 核心 Cargo 依赖方向：
 
 ```text
-app -> {ui, runtime, canvas, terminal, storage}
+app -> {ui, runtime, canvas, terminal, storage, asr, voice_sherpa}
+voice_sherpa -> {asr, dialogue, audio}
 runtime -> {canvas, terminal, storage}
 storage -> {canvas, workspace, rusqlite}
 ui -> gpui
 canvas -> {serde, thiserror}
 terminal -> {portable-pty, alacritty_terminal, crossbeam-channel}
+asr -> {serde, sha2, tar, bzip2, tempfile}
 ```
 
-`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
+`asr`、`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`asr` 还保持零 Sherpa/网络依赖，识别器适配归 `voice_sherpa`，下载编排归 `app`。`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
 
 ## 2. 代码结构
+
+### `crates/asr/`
+
+零 GPUI/Sherpa/网络的 ASR 领域层，负责不可变模型 ID、受控目录、安装清单、SHA-256、
+安全解压、原子安装和共享 Silero VAD 支持工件。Sherpa 的 Paraformer/Transducer 分支只存在于
+`crates/voice_sherpa/`；Settings 下载、进度、选择和删除编排只存在于 `crates/app/`。
 
 ### `crates/canvas/`
 

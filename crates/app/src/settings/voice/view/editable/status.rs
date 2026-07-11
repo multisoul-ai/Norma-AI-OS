@@ -18,7 +18,6 @@ pub(super) fn input_placeholder(
             CONFIGURED_API_KEY_PLACEHOLDER
         }
         VoiceSettingsField::AgentApiKey => UNCONFIGURED_API_KEY_PLACEHOLDER,
-        _ => unreachable!("only Agent Provider fields use VoiceTextInput"),
     }
 }
 

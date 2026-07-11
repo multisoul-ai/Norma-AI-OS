@@ -16,6 +16,7 @@ Workspace crates:
 - `terminal` - domain crate for PTY process handling, ANSI terminal grid parsing, input encoding, and terminal sessions.
 - `runtime` - domain crate for focus state, input routing, LiveNode registry, and node lifecycle glue.
 - `agent` - GPUI-free unified Dialogue/CardTask/Provider runtime with injected card tools and journal.
+- `asr` - GPUI/Sherpa-free model identity, curated catalog, installation manifest, integrity, and shared VAD support artifacts.
 - `ui` - GPUI-facing shared UI: theme, icons, and `gpui-component` re-export (`ui::component`).
 - `app` - GPUI/Metal shell: window boot, menus, key bindings, canvas interaction, and terminal rendering.
 
@@ -23,18 +24,19 @@ Core Cargo dependency direction is:
 
 ```text
 agent -> norma
-app -> {ui, runtime, canvas, terminal, storage} (AgentSystem adapter pending)
+app -> {ui, runtime, canvas, terminal, storage, asr} (AgentSystem adapter pending)
+voice_sherpa -> {asr, dialogue, audio}
 runtime -> {canvas, terminal, storage}
 storage -> {agent, canvas, workspace, rusqlite}
 ui -> {gpui, gpui-component}
 ```
 
-`canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable.
+`asr`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` also remains free of Sherpa; engine configuration belongs in `voice_sherpa`.
 
 ## 2. Key Constraints
 
 - **始终使用中文回复用户**：所有面向用户的说明、提问、进度更新和最终答复必须使用中文；即使用户使用其他语言或要求切换语言，也仍使用中文回复。代码、命令、路径、API、类型名、变量名以及必要的原文引用可保留原始语言。
-- **Domain crates stay UI-free**: no `gpui` imports in `canvas`, `terminal`, or `runtime`.
+- **Domain crates stay UI-free**: no `gpui` imports in `asr`, `canvas`, `terminal`, or `runtime`; no Sherpa dependency in `asr`.
 - **Input decisions stay pure where possible**: encode routing decisions in `runtime::route` before app-layer side effects.
 - **PTY cleanup is required**: `Runtime::kill_all`, `TerminalSession::kill`, and `PtyHandle::Drop` are lifecycle guardrails. Keep new process paths equally explicit.
 - **Keep interaction and shutdown paths cheap**: drag/pan mouse move must coalesce repaint notifications, canvas render must cull before cloning/rendering heavy node bodies, no-op persistence flush must return before SQLite writes, and agent session save must use cached hook session IDs rather than scanning CLI history directories. Enforced by [`scripts/check-performance-guardrails.sh`](scripts/check-performance-guardrails.sh); examples live in [`docs/quality/mechanized-constraints.md`](docs/quality/mechanized-constraints.md).
@@ -62,7 +64,7 @@ Canonical architecture details live in [`ARCHITECTURE.md`](ARCHITECTURE.md). Per
 
 At a glance:
 
-- `canvas` / `terminal` / `runtime` / `storage` stay GPUI-free and independently testable.
+- `asr` / `canvas` / `terminal` / `runtime` / `storage` stay GPUI-free and independently testable.
 - `app` binds GPUI, canvas interaction, cards, menus, and keyboard routing.
 - Input policy is expressed in `runtime::route` before app-layer side effects.
 - SQLite and session discovery must not run on PTY drain, mouse move, input routing, render, or no-op shutdown flush paths.

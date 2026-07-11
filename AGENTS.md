@@ -16,10 +16,11 @@ Workspace 分层：
 - `crates/storage/` - 零 GPUI 存储层：SQLite store、migration、recent/settings/canvas/session checkpoint。
 - `crates/workspace/` - 零 GPUI 元数据层：最近项目类型、workspace source、路径展示。
 - `crates/agent/` - 零 GPUI/Storage Agent Runtime：Dialogue、CardTask、Provider、工具循环与预算。
+- `crates/asr/` - 零 GPUI/Sherpa ASR 领域层：模型身份、受控目录、安装清单、完整性与共享 VAD 工件。
 - `crates/ui/` - GPUI 主题与共享 UI 基础。
 - `crates/app/` - GPUI/Metal 壳层：窗口、菜单、快捷键、画布与 cards 渲染。
 
-依赖方向：`app -> {ui, runtime, canvas, terminal, storage}`（后续 AgentSystem adapter 接入 `agent`），`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`agent` 不得依赖 `app/runtime/storage/ui`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
+依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr}`（后续 AgentSystem adapter 接入 `agent`），`voice_sherpa -> {asr, dialogue, audio}`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/agent` 不得依赖 `app/runtime/storage/ui`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
 
 ### 源码组织
 
@@ -40,7 +41,7 @@ Workspace 分层：
 
 - **先读本文**：每次会话开始先读 `AGENTS.md`，再按指针深入。
 - **始终使用中文回复用户**：所有面向用户的说明、提问、进度更新和最终答复必须使用中文；即使用户使用其他语言或要求切换语言，也仍使用中文回复。代码、命令、路径、API、类型名、变量名以及必要的原文引用可保留原始语言。
-- **域层零 GPUI**：`canvas`、`terminal`、`runtime` 必须可独立 `cargo test`。
+- **域层零 GPUI**：`asr`、`canvas`、`terminal`、`runtime` 必须可独立 `cargo test`。
 - **依赖方向不反穿**：不要让 `canvas/terminal/runtime/storage` 反向依赖 `app` 或 `ui`；不要让 `canvas/terminal` 依赖 `storage`。
 - **存储/性能热路径禁令**：不要在 `Runtime::drain_all`、PTY output chunk、`canvas_view::on_mouse_move`、`runtime::route`、`send_node_input`、关闭无脏 flush 中同步写 SQLite、扫描会话目录或阻塞查库。
 - **GPUI 前台禁阻塞**：语音结束、LLM planning/refine、recognizer join、网络/文件 IO、长 sleep 或 CPU 重活必须移到 `background_executor`/后台线程；前台只做状态更新和 runtime UI 副作用。
@@ -74,6 +75,7 @@ Workspace 分层：
 | Terminal | portable-pty 0.9, alacritty_terminal 0.26, crossbeam-channel |
 | Runtime | 纯 Rust 状态机与 LiveNode 注册表 |
 | Storage | rusqlite bundled SQLite、recent/settings/canvas/session checkpoint |
+| ASR | 受控模型目录、SHA-256、tar.bz2 原子安装；Sherpa 适配在 `voice_sherpa` |
 | Packaging | cargo-packager, 未签名 `.app` / `.dmg` |
 
 ## 4. Where to find
@@ -90,6 +92,7 @@ Workspace 分层：
 | PTY、ANSI grid、按键编码 | [`crates/terminal/src/`](crates/terminal/src/) |
 | 焦点、输入路由、LiveNode 生命周期 | [`crates/runtime/src/`](crates/runtime/src/) |
 | Dialogue/CardTask/Provider/Journal seam | [`crates/agent/src/`](crates/agent/src/) |
+| ASR 模型身份、目录、安装与完整性 | [`crates/asr/src/`](crates/asr/src/) |
 | SQLite store、migration、持久化边界 | [`crates/storage/src/`](crates/storage/src/) |
 | Workspace 元数据、路径展示 | [`crates/workspace/src/`](crates/workspace/src/) |
 | 主题色 | [`crates/ui/src/theme.rs`](crates/ui/src/theme.rs) |

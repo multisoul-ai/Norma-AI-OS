@@ -32,6 +32,7 @@ card_task.workspace = true
 dialogue.workspace = true
 llm.workspace = true
 audio.workspace = true
+asr.workspace = true
 agent.workspace = true
 anyhow.workspace = true
 serde.workspace = true
@@ -41,6 +42,7 @@ tracing-subscriber.workspace = true
 crossbeam-channel.workspace = true
 async-channel.workspace = true
 pulldown-cmark.workspace = true
+ureq.workspace = true
 
 # Native file picker for wallpaper import (Task 8). AsyncFileDialog is awaited
 # inside a cx.spawn task so it never blocks the GPUI event loop.

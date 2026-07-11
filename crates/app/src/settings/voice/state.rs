@@ -1,9 +1,13 @@
+use super::models::AsrModelManagerState;
+use asr::AsrModelId;
 use std::path::PathBuf;
 use storage::{AppStore, SettingsStore};
-use voice_sherpa::{AudioInputDevice, SherpaProvider, SpeechError};
+use voice_sherpa::{AudioInputDevice, SpeechError};
 
+mod model_selection;
 mod provider_values;
 mod values;
+pub(crate) use model_selection::resolve_available_asr_model;
 pub(crate) use provider_values::AgentProviderKind;
 #[cfg(test)]
 pub(crate) use provider_values::SavedProviderProfile;
@@ -13,12 +17,12 @@ use provider_values::{
     KEY_AGENT_PROVIDER,
 };
 pub(crate) use values::{
-    DialogueLlmMode, EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsField, VoiceSettingsValues,
+    DialogueLlmMode, DictationTrigger, EnvVoiceSettings, SavedVoiceSettings, VoiceInteractionMode,
+    VoiceSettingsField, VoiceSettingsValues,
 };
 use values::{
-    KEY_DIALOGUE_LLM_MODE, KEY_DIALOGUE_MODEL, KEY_INPUT_DEVICE_ID, KEY_OLLAMA_ENDPOINT,
-    KEY_OLLAMA_MODEL, KEY_OPENAI_API_KEY, KEY_PARAFORMER_MODEL_DIR, KEY_REALTIME_ENABLED,
-    KEY_REFINE_MODEL, KEY_TRACE_ENABLED,
+    KEY_ASR_MODEL_ID, KEY_DICTATION_TRIGGER, KEY_INPUT_DEVICE_ID, KEY_INTERACTION_MODE,
+    KEY_OPENAI_API_KEY, KEY_TRACE_ENABLED,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -67,6 +71,9 @@ pub(crate) struct VoiceSettingsState {
     status: Option<VoiceSettingsStatus>,
     pending_writes: Vec<PendingVoiceSettingWrite>,
     persistence_running: bool,
+    model_root: PathBuf,
+    model_manager: AsrModelManagerState,
+    advanced_expanded: bool,
 }
 
 impl VoiceSettingsState {
@@ -108,7 +115,17 @@ impl VoiceSettingsState {
     }
 
     pub(crate) fn from_sources(saved: SavedVoiceSettings, env: EnvVoiceSettings) -> Self {
+        let model_root = asr::default_model_installation_root().unwrap_or_default();
+        Self::from_sources_with_model_root(saved, env, model_root)
+    }
+
+    pub(crate) fn from_sources_with_model_root(
+        saved: SavedVoiceSettings,
+        env: EnvVoiceSettings,
+        model_root: PathBuf,
+    ) -> Self {
         let values = VoiceSettingsValues::resolve(&saved, &env);
+        let model_manager = AsrModelManagerState::unscanned(&asr::builtin_model_catalog());
         Self {
             values,
             saved,
@@ -120,6 +137,9 @@ impl VoiceSettingsState {
             status: None,
             pending_writes: Vec::new(),
             persistence_running: false,
+            model_root,
+            model_manager,
+            advanced_expanded: false,
         }
     }
 
@@ -137,13 +157,6 @@ impl VoiceSettingsState {
 
     pub(crate) fn input_devices(&self) -> &[AudioInputDevice] {
         &self.input_devices
-    }
-
-    pub(crate) fn sherpa_provider(&self) -> Result<SherpaProvider, SpeechError> {
-        match self.values.paraformer_model_dir.as_deref() {
-            Some(path) => SherpaProvider::new(path),
-            None => SherpaProvider::from_env_or_default(),
-        }
     }
 
     #[cfg(test)]
@@ -193,15 +206,24 @@ impl VoiceSettingsState {
         }
     }
 
-    pub(crate) fn set_paraformer_model_dir(&mut self, path: PathBuf) {
-        self.saved.paraformer_model_dir = Some(path.clone());
-        self.persist_string(KEY_PARAFORMER_MODEL_DIR, &path.display().to_string());
+    pub(crate) fn select_interaction_mode(&mut self, mode: VoiceInteractionMode) {
+        self.saved.interaction_mode = Some(mode);
+        self.persist_string(KEY_INTERACTION_MODE, mode.as_str());
         self.refresh_values();
     }
 
-    pub(crate) fn clear_paraformer_model_dir(&mut self) {
-        self.saved.paraformer_model_dir = None;
-        self.delete_string(KEY_PARAFORMER_MODEL_DIR);
+    pub(crate) fn select_dictation_trigger(&mut self, trigger: DictationTrigger) {
+        self.saved.dictation_trigger = Some(trigger);
+        self.persist_string(KEY_DICTATION_TRIGGER, trigger.as_str());
+        self.refresh_values();
+    }
+
+    pub(crate) fn select_asr_model(&mut self, model_id: Option<AsrModelId>) {
+        self.saved.asr_model_id = model_id.clone();
+        match model_id {
+            Some(model_id) => self.persist_string(KEY_ASR_MODEL_ID, model_id.as_str()),
+            None => self.delete_string(KEY_ASR_MODEL_ID),
+        }
         self.refresh_values();
     }
 
@@ -241,23 +263,6 @@ impl VoiceSettingsState {
         let next = !self.values.trace_enabled;
         self.saved.trace_enabled = Some(next);
         self.persist_string(KEY_TRACE_ENABLED, if next { "true" } else { "false" });
-        self.refresh_values();
-    }
-
-    pub(crate) fn toggle_realtime_enabled(&mut self) {
-        let next = !self.values.realtime_enabled;
-        self.saved.realtime_enabled = Some(next);
-        self.persist_string(KEY_REALTIME_ENABLED, if next { "true" } else { "false" });
-        self.refresh_values();
-    }
-
-    pub(crate) fn toggle_dialogue_llm_mode(&mut self) {
-        let next = match self.values.dialogue_llm_mode {
-            DialogueLlmMode::Mock => DialogueLlmMode::Ollama,
-            DialogueLlmMode::Ollama => DialogueLlmMode::Mock,
-        };
-        self.saved.dialogue_llm_mode = Some(next);
-        self.persist_string(KEY_DIALOGUE_LLM_MODE, next.as_str());
         self.refresh_values();
     }
 
@@ -382,22 +387,6 @@ impl VoiceSettingsState {
                     KEY_AGENT_OPENAI_API_KEY
                 }
             },
-            VoiceSettingsField::OllamaEndpoint => {
-                self.saved.ollama_endpoint = Some(value.clone());
-                KEY_OLLAMA_ENDPOINT
-            }
-            VoiceSettingsField::PlannerModel => {
-                self.saved.planner_model = Some(value.clone());
-                KEY_OLLAMA_MODEL
-            }
-            VoiceSettingsField::DialogueModel => {
-                self.saved.dialogue_model = Some(value.clone());
-                KEY_DIALOGUE_MODEL
-            }
-            VoiceSettingsField::RefineModel => {
-                self.saved.refine_model = Some(value.clone());
-                KEY_REFINE_MODEL
-            }
         };
         self.persist_string(key, &value);
         if finish_editing {
@@ -452,10 +441,6 @@ impl VoiceSettingsState {
                 self.values.active_provider_profile().model().to_string()
             }
             VoiceSettingsField::AgentApiKey => String::new(),
-            VoiceSettingsField::OllamaEndpoint => self.values.ollama_endpoint().to_string(),
-            VoiceSettingsField::PlannerModel => self.values.planner_model().to_string(),
-            VoiceSettingsField::DialogueModel => self.values.dialogue_model().to_string(),
-            VoiceSettingsField::RefineModel => self.values.refine_model().to_string(),
         }
     }
 
@@ -486,6 +471,10 @@ fn error_status(message: impl Into<String>) -> VoiceSettingsStatus {
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_tests.rs"]
 mod voice_settings_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_asr_tests.rs"]
+mod voice_settings_asr_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_persistence_tests.rs"]

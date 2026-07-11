@@ -3,7 +3,6 @@ use crate::vad::SherpaVadClient;
 use crate::SpeechError;
 use audio::PcmAudioChunk;
 use dialogue::{apply_asr_final, process_listening_pcm_chunk, DialogueSession};
-use std::path::Path;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 
@@ -25,10 +24,10 @@ pub struct SherpaListeningPipeline {
 }
 
 impl SherpaListeningPipeline {
-    pub fn from_model_dir(model_dir: &Path) -> Result<Self, SpeechError> {
+    pub fn from_available_model(model: &asr::AvailableAsrModel) -> Result<Self, SpeechError> {
         Ok(Self {
-            vad: SherpaVadClient::from_asr_model_dir(model_dir)?,
-            asr: SherpaAsrStreamClient::from_model_dir(model_dir)?,
+            vad: SherpaVadClient::from_asr_model_dir(model.root())?,
+            asr: SherpaAsrStreamClient::from_available_model(model)?,
             speech_active: false,
         })
     }
@@ -62,12 +61,12 @@ impl SherpaListeningPipeline {
 }
 
 pub fn spawn_listening_pipeline_loop(
-    model_dir: std::path::PathBuf,
+    model: asr::AvailableAsrModel,
     pcm_rx: async_channel::Receiver<PcmAudioChunk>,
     event_tx: async_channel::Sender<ListeningPipelineEvent>,
     stop_rx: mpsc::Receiver<()>,
 ) -> Result<JoinHandle<()>, SpeechError> {
-    let mut pipeline = SherpaListeningPipeline::from_model_dir(&model_dir)?;
+    let mut pipeline = SherpaListeningPipeline::from_available_model(&model)?;
     std::thread::Builder::new()
         .name("voice_sherpa_listening_pipeline".to_string())
         .spawn(move || loop {

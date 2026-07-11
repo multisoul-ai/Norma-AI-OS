@@ -17,17 +17,29 @@ pub(super) fn agent_provider_group(
         .child(text_setting_row(
             theme,
             inputs,
-            VoiceSettingsField::AgentBaseUrl,
-            "Base URL",
-            "Base URL for the selected Ollama or OpenAI-compatible provider",
-            cx,
-        ))
-        .child(text_setting_row(
-            theme,
-            inputs,
             VoiceSettingsField::AgentModel,
             "Model",
             "Model used by Dialogue and Card Subagent",
+            cx,
+        ))
+}
+
+pub(super) fn agent_provider_advanced_rows(
+    theme: Theme,
+    inputs: &VoiceSettingsInputs,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
+    div()
+        .w_full()
+        .flex()
+        .flex_col()
+        .gap(px(12.0))
+        .child(text_setting_row(
+            theme,
+            inputs,
+            VoiceSettingsField::AgentBaseUrl,
+            "Base URL",
+            "Base URL for the selected Ollama or OpenAI-compatible provider",
             cx,
         ))
         .child(api_key_row(theme, inputs, cx))

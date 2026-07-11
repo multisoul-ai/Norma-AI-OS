@@ -1,9 +1,52 @@
+use super::dictation::{final_voice_text_action, FinalVoiceTextAction};
 use super::{
     microphone_permission_recovery_url, microphone_privacy_settings_url,
     voice_recording_input_device_id_from_value, voice_transcript_source_from_value,
     VoicePlanningJob, VoicePlanningResult, VoiceTranscriptSource, DEFAULT_MAX_VOICE_STEPS,
 };
 use voice_sherpa::SpeechError;
+
+/// AV-MODE-1：最终识别文本必须由交互模式路由到听写或 Agent，且两条路径互斥。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   interaction modes = 2（Dictation + ContinuousListening）
+///   destinations      = 2（focused target + Agent turn）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. Dictation 进入 final_voice_text_action → InsertIntoFocusedTarget
+///   2. ContinuousListening 进入同一函数 → StartAgentTurn
+///
+/// 预期结果：
+///   - 正断言：两种模式分别命中唯一目标
+///   - 负断言：Dictation 不得启动 Agent，Continuous 不得走直接听写
+#[test]
+fn test_final_voice_text_routes_dictation_away_from_agent_turn() {
+    let dictation =
+        final_voice_text_action(crate::settings::voice::VoiceInteractionMode::Dictation);
+    let continuous =
+        final_voice_text_action(crate::settings::voice::VoiceInteractionMode::ContinuousListening);
+
+    assert_eq!(
+        dictation,
+        FinalVoiceTextAction::InsertIntoFocusedTarget,
+        "Dictation final 必须直接写入焦点目标"
+    );
+    assert_eq!(
+        continuous,
+        FinalVoiceTextAction::StartAgentTurn,
+        "ContinuousListening final 必须进入 Agent 对话"
+    );
+    assert_ne!(
+        dictation,
+        FinalVoiceTextAction::StartAgentTurn,
+        "Dictation 不得调用 Agent 或后续 TTS"
+    );
+    assert_ne!(
+        continuous,
+        FinalVoiceTextAction::InsertIntoFocusedTarget,
+        "持续聆听不得被降级成一次性听写"
+    );
+}
 
 /// AV-5：仅在 macOS 已拒绝麦克风权限时，语音错误应提供系统设置恢复入口。
 ///
