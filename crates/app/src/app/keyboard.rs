@@ -228,10 +228,6 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.handle_browser_address_key_down(ev, cx) {
-            return;
-        }
-
         if self.settings_panel.open {
             if self.handle_settings_text_key_down(ev, cx) {
                 return;

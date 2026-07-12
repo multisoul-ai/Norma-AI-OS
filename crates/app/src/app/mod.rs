@@ -225,7 +225,9 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    fn on_exit_focus(&mut self, _: &ExitFocus, _window: &mut Window, cx: &mut Context<Self>) {
+    fn on_exit_focus(&mut self, _: &ExitFocus, window: &mut Window, cx: &mut Context<Self>) {
+        self.release_all_browser_input();
+        self.focus_handle.focus(window);
         self.runtime.focus.exit_to_canvas();
         cx.notify();
     }
@@ -288,6 +290,7 @@ impl MultisoulApp {
         if changed {
             self.previews.remove(node_id);
             if removed_node_was_browser {
+                self.release_browser_input(node_id);
                 self.focus_handle.focus(window);
             }
             self.remove_browser_view(node_id);
@@ -313,6 +316,7 @@ impl MultisoulApp {
         node_id: NodeId,
         window: &mut Window,
     ) -> bool {
+        self.release_all_browser_input();
         let event = InputEvent::CloseNode { node: node_id };
         let Route::RemoveNode(node_id) = route(&self.runtime.focus.mode(), &event) else {
             return false;

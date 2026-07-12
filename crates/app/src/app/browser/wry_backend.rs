@@ -5,6 +5,15 @@ use canvas::NodeId;
 use crossbeam_channel::Sender;
 use gpui::Window;
 
+const BROWSER_PAGE_INTERACTION_MESSAGE: &str = "multisoul:browser-page-interaction";
+const BROWSER_PAGE_INTERACTION_SCRIPT: &str = r#"
+(() => {
+    const notifyHost = () => window.ipc?.postMessage("multisoul:browser-page-interaction");
+    window.addEventListener("pointerdown", notifyHost, true);
+    window.addEventListener("focusin", notifyHost, true);
+})();
+"#;
+
 pub(crate) struct WryBrowserView {
     webview: wry::WebView,
 }
@@ -17,11 +26,18 @@ impl WryBrowserView {
         window: &mut Window,
         event_sender: Sender<BrowserEvent>,
     ) -> wry::Result<Self> {
+        let title_sender = event_sender.clone();
         let webview = wry::WebViewBuilder::new()
             .with_url(url)
             .with_bounds(wry_rect(bounds))
+            .with_initialization_script_for_main_only(BROWSER_PAGE_INTERACTION_SCRIPT, false)
+            .with_ipc_handler(move |request| {
+                if request.body() == BROWSER_PAGE_INTERACTION_MESSAGE {
+                    let _ = event_sender.send(BrowserEvent::PageInteraction { node_id });
+                }
+            })
             .with_document_title_changed_handler(move |title| {
-                let _ = event_sender.send(BrowserEvent::TitleChanged { node_id, title });
+                let _ = title_sender.send(BrowserEvent::TitleChanged { node_id, title });
             })
             .with_new_window_req_handler(|_url, _features| wry::NewWindowResponse::Deny)
             .build_as_child(window)?;
@@ -52,6 +68,10 @@ impl WryBrowserView {
 
     pub(crate) fn set_visible(&mut self, visible: bool) {
         let _ = self.webview.set_visible(visible);
+    }
+
+    pub(crate) fn release_input(&mut self) {
+        let _ = self.webview.focus_parent();
     }
 }
 

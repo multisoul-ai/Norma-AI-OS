@@ -264,8 +264,7 @@ pub fn render_canvas(
                 reduce_motion: app.motion.reduce_motion,
                 initialization,
                 terminal_cursor_phase: app.terminal_cursor_phase,
-                browser_address_draft: app.browser_address_draft_for(id),
-                app_focus_handle: app.focus_handle.clone(),
+                browser_address_input: app.browser_address_input_for(id),
                 theme,
                 zoom: vp.zoom,
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),
@@ -344,6 +343,7 @@ pub fn render_canvas(
 
     div()
         .id("canvas")
+        .debug_selector(|| "canvas".to_string())
         .size_full()
         .relative()
         .on_scroll_wheel(cx.listener(events::on_scroll))

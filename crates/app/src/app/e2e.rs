@@ -68,6 +68,7 @@ impl MultisoulApp {
         runtime.set_pty_factory(factory);
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
         let mut app = Self::build(cx, runtime, agent_hook_server);
+        app.browsers.disable_native_views();
         app.shortcuts = ShortcutSettingsState::default();
         app.voice_settings = crate::settings::voice::VoiceSettingsState::in_memory_default();
         app.voice_settings_inputs

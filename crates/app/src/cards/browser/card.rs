@@ -45,12 +45,9 @@ fn render_browser_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyEl
     let theme = context.theme;
     let zoom = context.zoom;
     let node_id = node.id;
-    let url = context
-        .browser_address_draft
-        .map(str::to_string)
-        .unwrap_or_else(|| browser_url(node));
-    let editing = context.browser_address_draft.is_some();
-    let app_focus_handle = context.app_focus_handle.clone();
+    let url = browser_url(node);
+    let browser_address_input = context.browser_address_input;
+    let editing = browser_address_input.is_some();
 
     div()
         .id(("browser-card", node_id))
@@ -94,6 +91,7 @@ fn render_browser_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyEl
                 .child(
                     div()
                         .id(("browser-address", node_id))
+                        .debug_selector(|| "browser-address".to_string())
                         .flex_1()
                         .min_w(px(0.0))
                         .h(px(22.0 * zoom))
@@ -112,44 +110,30 @@ fn render_browser_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyEl
                         .text_size(px((12.0 * zoom).max(9.0)))
                         .text_color(rgba(theme.text_secondary))
                         .overflow_hidden()
-                        .child(
-                            div()
-                                .flex()
-                                .flex_row()
-                                .items_center()
-                                .min_w(px(0.0))
-                                .overflow_hidden()
-                                .child(div().min_w(px(0.0)).overflow_hidden().truncate().child(url))
-                                .when(editing, |this| {
-                                    this.child(
-                                        div()
-                                            .id(("browser-address-caret", node_id))
-                                            .flex_none()
-                                            .ml(px(1.0 * zoom))
-                                            .w(px((1.0 * zoom).max(1.0)))
-                                            .h(px((14.0 * zoom).clamp(10.0, 16.0)))
-                                            .bg(rgba(theme.accent_cyan)),
-                                    )
-                                }),
-                        )
-                        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
-                            app_focus_handle.focus(window);
-                            cx.stop_propagation();
+                        .when_some(browser_address_input, |this, browser_address_input| {
+                            this.child(browser_address_input)
                         })
-                        .on_mouse_up(MouseButton::Left, move |_, window, cx| {
-                            window.dispatch_action(
-                                Box::new(BrowserCommand {
-                                    node_id,
-                                    command: BrowserCommandKind::EditAddress,
-                                }),
-                                cx,
-                            );
+                        .when(!editing, |this| {
+                            this.child(div().min_w(px(0.0)).overflow_hidden().truncate().child(url))
+                                .on_mouse_down(MouseButton::Left, move |_, _, cx| {
+                                    cx.stop_propagation();
+                                })
+                                .on_mouse_up(MouseButton::Left, move |_, window, cx| {
+                                    window.dispatch_action(
+                                        Box::new(BrowserCommand {
+                                            node_id,
+                                            command: BrowserCommandKind::EditAddress,
+                                        }),
+                                        cx,
+                                    );
+                                })
                         }),
                 ),
         )
         .child(
             div()
                 .id(("browser-native-surface", node_id))
+                .debug_selector(|| "browser-native-surface".to_string())
                 .flex_1()
                 .min_h(px(0.0))
                 .flex()

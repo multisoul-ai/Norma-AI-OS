@@ -31,11 +31,17 @@ mod e2e_04_voice_autosave;
 // 卡片初始化动画 E2E：新建路径登记、帧推进和恢复路径不重播。
 mod e2e_05_card_initialization_animation;
 
-// 语音驱动窗口内缘光：播放生命周期、Settings 层级与正常收束。
+// 语音驱动窗口内缘光：PCM 能量、Settings 层级与正常收束。
 mod e2e_06_voice_window_inset;
 
 // 麦克风权限被拒绝后：语音栏提供 macOS 隐私设置恢复入口。
 mod e2e_07_microphone_permission_recovery;
+
+// Browser 地址栏：平台文本输入、选区、复制、粘贴与 Enter 提交。
+mod e2e_08_browser_address_input;
+
+// Browser 卡片：内容区选择与清除选择的画布状态闭环。
+mod e2e_09_browser_card_selection;
 
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。

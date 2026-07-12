@@ -80,6 +80,7 @@ pub(super) fn on_mouse_down(
 ) {
     let screen = pt_to_vec(ev.position);
     if should_focus_app_root_for_mouse_down(ev.button) {
+        app.release_all_browser_input();
         app.focus_handle.focus(window);
     }
     // 画布上任意鼠标按下都应关闭展开的 ✚ 菜单（避免菜单悬浮在画布之上）。

@@ -3,19 +3,24 @@
 use super::MultisoulApp;
 use crate::cards::browser::normalize_browser_url;
 use canvas::{CanvasNodeKind, NodeId};
-use crossbeam_channel::{unbounded, Receiver, Sender};
-use gpui::{Action, Context, KeyDownEvent, Window};
-use std::collections::{HashMap, HashSet};
+use gpui::{Action, AppContext as _, Context, Entity, Subscription, Window};
+use std::collections::HashSet;
 use std::time::Duration;
+
+mod address_input;
 
 #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
 mod cef_backend;
 mod engine;
 mod native;
+mod store;
 mod wry_backend;
 
+pub(crate) use address_input::BrowserAddressInput;
+use address_input::BrowserAddressInputEvent;
 pub(crate) use engine::BrowserEngineKind;
 pub(crate) use native::{browser_native_view_bounds, BrowserViewBounds, NativeBrowserView};
+pub(crate) use store::BrowserStore;
 
 const CEF_MESSAGE_PUMP_INTERVAL: Duration = Duration::from_millis(16);
 
@@ -34,192 +39,16 @@ pub(crate) struct BrowserCommand {
     pub(crate) command: BrowserCommandKind,
 }
 
-#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct BrowserAddressEdit {
     pub(crate) node_id: NodeId,
-    pub(crate) draft: String,
-    replace_on_input: bool,
+    input: Entity<BrowserAddressInput>,
+    _subscription: Subscription,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum BrowserEvent {
     TitleChanged { node_id: NodeId, title: String },
-}
-
-pub(crate) struct BrowserStore {
-    views: HashMap<NodeId, BrowserView>,
-    sender: Sender<BrowserEvent>,
-    receiver: Receiver<BrowserEvent>,
-}
-
-struct BrowserView {
-    url: String,
-    bounds: BrowserViewBounds,
-    visible: bool,
-    native_view: Option<NativeBrowserView>,
-}
-
-impl Default for BrowserStore {
-    fn default() -> Self {
-        let (sender, receiver) = unbounded();
-        Self {
-            views: HashMap::new(),
-            sender,
-            receiver,
-        }
-    }
-}
-
-impl BrowserStore {
-    pub(crate) fn drain_events(&self) -> Vec<BrowserEvent> {
-        self.receiver.try_iter().collect()
-    }
-
-    pub(crate) fn sync_view(
-        &mut self,
-        node_id: NodeId,
-        url: &str,
-        bounds: BrowserViewBounds,
-        window: &mut Window,
-    ) {
-        if bounds.width <= 1.0 || bounds.height <= 1.0 {
-            self.hide(node_id);
-            return;
-        }
-
-        let event_sender = self.sender.clone();
-        let view = self.views.entry(node_id).or_insert_with(|| BrowserView {
-            url: url.to_string(),
-            bounds,
-            visible: false,
-            native_view: None,
-        });
-        view.sync(node_id, url, bounds, window, event_sender);
-    }
-
-    pub(crate) fn load_url(&mut self, node_id: NodeId, url: &str) {
-        if let Some(view) = self.views.get_mut(&node_id) {
-            view.url = url.to_string();
-            view.load_url(url);
-        }
-    }
-
-    pub(crate) fn go_back(&mut self, node_id: NodeId) {
-        if let Some(view) = self.views.get_mut(&node_id) {
-            view.go_back();
-        }
-    }
-
-    pub(crate) fn go_forward(&mut self, node_id: NodeId) {
-        if let Some(view) = self.views.get_mut(&node_id) {
-            view.go_forward();
-        }
-    }
-
-    pub(crate) fn reload(&mut self, node_id: NodeId) {
-        if let Some(view) = self.views.get_mut(&node_id) {
-            view.reload();
-        }
-    }
-
-    pub(crate) fn hide(&mut self, node_id: NodeId) {
-        if let Some(view) = self.views.get_mut(&node_id) {
-            view.set_visible(false);
-        }
-    }
-
-    pub(crate) fn remove(&mut self, node_id: NodeId) {
-        if let Some(mut view) = self.views.remove(&node_id) {
-            view.set_visible(false);
-        }
-    }
-
-    pub(crate) fn retain_visible(&mut self, visible: &HashSet<NodeId>) {
-        for (node_id, view) in self.views.iter_mut() {
-            if !visible.contains(node_id) {
-                view.set_visible(false);
-            }
-        }
-    }
-
-    pub(crate) fn clear(&mut self) {
-        for view in self.views.values_mut() {
-            view.set_visible(false);
-        }
-        self.views.clear();
-    }
-}
-
-impl BrowserView {
-    fn sync(
-        &mut self,
-        node_id: NodeId,
-        url: &str,
-        bounds: BrowserViewBounds,
-        window: &mut Window,
-        event_sender: Sender<BrowserEvent>,
-    ) {
-        if self.native_view.is_none() {
-            let configured = std::env::var("MULTISOUL_BROWSER_ENGINE").ok();
-            let engine = BrowserEngineKind::from_env_value(configured.as_deref());
-            match NativeBrowserView::create(engine, node_id, url, bounds, window, event_sender) {
-                Ok(native_view) => self.native_view = Some(native_view),
-                Err(error) => tracing::warn!(
-                    node_id,
-                    engine = ?engine,
-                    error = %error,
-                    "failed to create native Browser view"
-                ),
-            }
-        }
-
-        if self.bounds != bounds {
-            self.bounds = bounds;
-            self.set_bounds(bounds);
-        }
-        if self.url != url {
-            self.url = url.to_string();
-            self.load_url(url);
-        }
-        self.set_visible(true);
-    }
-
-    fn load_url(&mut self, url: &str) {
-        if let Some(native_view) = &mut self.native_view {
-            native_view.load_url(url);
-        }
-    }
-
-    fn go_back(&mut self) {
-        if let Some(native_view) = &mut self.native_view {
-            native_view.go_back();
-        }
-    }
-
-    fn go_forward(&mut self) {
-        if let Some(native_view) = &mut self.native_view {
-            native_view.go_forward();
-        }
-    }
-
-    fn reload(&mut self) {
-        if let Some(native_view) = &mut self.native_view {
-            native_view.reload();
-        }
-    }
-
-    fn set_bounds(&mut self, bounds: BrowserViewBounds) {
-        if let Some(native_view) = &mut self.native_view {
-            native_view.set_bounds(bounds);
-        }
-    }
-
-    fn set_visible(&mut self, visible: bool) {
-        self.visible = visible;
-        if let Some(native_view) = &mut self.native_view {
-            native_view.set_visible(visible);
-        }
-    }
+    PageInteraction { node_id: NodeId },
 }
 
 impl MultisoulApp {
@@ -242,11 +71,14 @@ impl MultisoulApp {
         .detach();
     }
 
-    pub(crate) fn browser_address_draft_for(&self, node_id: NodeId) -> Option<&str> {
+    pub(crate) fn browser_address_input_for(
+        &self,
+        node_id: NodeId,
+    ) -> Option<Entity<BrowserAddressInput>> {
         self.browser_address_edit
             .as_ref()
             .filter(|edit| edit.node_id == node_id)
-            .map(|edit| edit.draft.as_str())
+            .map(|edit| edit.input.clone())
     }
 
     pub(crate) fn sync_browser_view_for_node(
@@ -275,6 +107,14 @@ impl MultisoulApp {
         }
     }
 
+    pub(crate) fn release_browser_input(&mut self, node_id: NodeId) {
+        self.browsers.release_input(node_id);
+    }
+
+    pub(crate) fn release_all_browser_input(&mut self) {
+        self.browsers.release_all_input();
+    }
+
     pub(crate) fn clear_browser_views(&mut self) {
         self.browsers.clear();
         self.browser_address_edit = None;
@@ -289,6 +129,15 @@ impl MultisoulApp {
                         changed = true;
                     }
                 }
+                BrowserEvent::PageInteraction { node_id } => {
+                    if self.runtime.document.node(node_id).is_some() {
+                        self.runtime.selection.select_only(node_id);
+                        self.runtime.focus.exit_to_canvas();
+                        self.interaction.keyboard_selected_node = None;
+                        self.mark_node_viewed_if_needed(node_id);
+                        changed = true;
+                    }
+                }
             }
         }
         changed
@@ -297,122 +146,105 @@ impl MultisoulApp {
     pub(crate) fn on_browser_command(
         &mut self,
         action: &BrowserCommand,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.release_all_browser_input();
         match action.command {
             BrowserCommandKind::Back => self.browsers.go_back(action.node_id),
             BrowserCommandKind::Forward => self.browsers.go_forward(action.node_id),
             BrowserCommandKind::Reload => self.browsers.reload(action.node_id),
-            BrowserCommandKind::EditAddress => self.begin_browser_address_edit(action.node_id),
+            BrowserCommandKind::EditAddress => {
+                self.begin_browser_address_edit(action.node_id, window, cx)
+            }
         }
         cx.notify();
     }
 
-    pub(crate) fn handle_browser_address_key_down(
+    fn begin_browser_address_edit(
         &mut self,
-        ev: &KeyDownEvent,
+        node_id: NodeId,
+        window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> bool {
-        if self.browser_address_edit.is_none() {
-            return false;
+    ) {
+        if let Some(edit) = self
+            .browser_address_edit
+            .as_ref()
+            .filter(|edit| edit.node_id == node_id)
+        {
+            edit.input.update(cx, |input, _| input.focus(window));
+            return;
         }
-        if browser_address_paste_requested(ev) {
-            if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
-                self.replace_browser_address_draft(&text);
-            }
-            cx.stop_propagation();
-            cx.notify();
-            return true;
-        }
-        if ev.keystroke.modifiers.platform || ev.keystroke.modifiers.control {
-            return false;
-        }
-
-        match ev.keystroke.key.as_str() {
-            "enter" => {
-                self.submit_browser_address_edit();
-                cx.stop_propagation();
-                cx.notify();
-                true
-            }
-            "escape" => {
-                self.browser_address_edit = None;
-                cx.stop_propagation();
-                cx.notify();
-                true
-            }
-            "backspace" => {
-                if let Some(edit) = &mut self.browser_address_edit {
-                    if edit.replace_on_input {
-                        edit.draft.clear();
-                        edit.replace_on_input = false;
-                    } else {
-                        edit.draft.pop();
-                    }
-                }
-                cx.stop_propagation();
-                cx.notify();
-                true
-            }
-            _ => {
-                if let Some(ch) = browser_input_char(ev) {
-                    self.push_browser_address_char(ch);
-                    cx.stop_propagation();
-                    cx.notify();
-                    return true;
-                }
-                false
-            }
-        }
-    }
-
-    fn begin_browser_address_edit(&mut self, node_id: NodeId) {
         let Some(node) = self.runtime.document.node(node_id) else {
             return;
         };
         let CanvasNodeKind::Browser(spec) = &node.kind else {
             return;
         };
+        let input = cx.new(|cx| BrowserAddressInput::new(spec.url.clone(), self.theme, cx));
+        let subscription = cx.subscribe(&input, move |app, input, event, cx| match event {
+            BrowserAddressInputEvent::Submit => {
+                let draft = input.read(cx).value();
+                app.submit_browser_address_edit(node_id, &draft, cx);
+            }
+            BrowserAddressInputEvent::Cancel => {
+                app.cancel_browser_address_edit(node_id, cx);
+            }
+        });
+        self.browsers.release_input(node_id);
+        input.update(cx, |input, _| input.focus(window));
         self.browser_address_edit = Some(BrowserAddressEdit {
             node_id,
-            draft: spec.url.clone(),
-            replace_on_input: true,
+            input,
+            _subscription: subscription,
         });
     }
 
-    fn push_browser_address_char(&mut self, ch: char) {
-        if let Some(edit) = &mut self.browser_address_edit {
-            if edit.replace_on_input {
-                edit.draft.clear();
-                edit.replace_on_input = false;
-            }
-            edit.draft.push(ch);
-        }
-    }
-
-    fn replace_browser_address_draft(&mut self, text: &str) {
-        let Some(edit) = &mut self.browser_address_edit else {
-            return;
-        };
-        let pasted = text.lines().next().unwrap_or("").trim();
-        if pasted.is_empty() {
+    fn submit_browser_address_edit(
+        &mut self,
+        node_id: NodeId,
+        draft: &str,
+        cx: &mut Context<Self>,
+    ) {
+        if self
+            .browser_address_edit
+            .as_ref()
+            .map(|edit| edit.node_id != node_id)
+            .unwrap_or(true)
+        {
             return;
         }
-        edit.draft.clear();
-        edit.draft.push_str(pasted);
-        edit.replace_on_input = false;
-    }
-
-    fn submit_browser_address_edit(&mut self) {
-        let Some(edit) = self.browser_address_edit.take() else {
-            return;
-        };
-        let url = normalize_browser_url(&edit.draft);
-        if self.set_browser_url(edit.node_id, url.clone()) {
-            self.browsers.load_url(edit.node_id, &url);
+        let url = normalize_browser_url(draft);
+        self.browser_address_edit = None;
+        if self.set_browser_url(node_id, url.clone()) {
+            self.browsers.load_url(node_id, &url);
             self.mark_canvas_dirty();
         }
+        self.browsers.release_input(node_id);
+        self.focus_app_root(cx);
+        cx.notify();
+    }
+
+    fn cancel_browser_address_edit(&mut self, node_id: NodeId, cx: &mut Context<Self>) {
+        if self
+            .browser_address_edit
+            .as_ref()
+            .map(|edit| edit.node_id == node_id)
+            .unwrap_or(false)
+        {
+            self.browser_address_edit = None;
+            self.browsers.release_input(node_id);
+            self.focus_app_root(cx);
+            cx.notify();
+        }
+    }
+
+    fn focus_app_root(&self, cx: &mut Context<Self>) {
+        let Some(window_handle) = cx.active_window() else {
+            return;
+        };
+        let focus_handle = self.focus_handle.clone();
+        let _ = cx.update_window(window_handle, |_, window, _| focus_handle.focus(window));
     }
 
     fn set_browser_url(&mut self, node_id: NodeId, url: String) -> bool {
@@ -455,39 +287,6 @@ fn pump_cef_message_loop_if_initialized() -> bool {
 #[cfg(not(all(target_os = "macos", feature = "chromium-browser")))]
 fn pump_cef_message_loop_if_initialized() -> bool {
     false
-}
-
-fn browser_input_char(ev: &KeyDownEvent) -> Option<char> {
-    if ev.keystroke.modifiers.alt || ev.keystroke.modifiers.function {
-        return None;
-    }
-    if let Some(key_char) = &ev.keystroke.key_char {
-        let mut chars = key_char.chars();
-        if let (Some(ch), None) = (chars.next(), chars.next()) {
-            if is_browser_address_char(ch) {
-                return Some(ch);
-            }
-        }
-    }
-    let mut chars = ev.keystroke.key.chars();
-    let ch = chars.next()?;
-    if chars.next().is_none() && is_browser_address_char(ch) {
-        return Some(ch);
-    }
-    None
-}
-
-fn browser_address_paste_requested(ev: &KeyDownEvent) -> bool {
-    ev.keystroke.key == "v"
-        && ev.keystroke.modifiers.platform
-        && !ev.keystroke.modifiers.control
-        && !ev.keystroke.modifiers.alt
-        && !ev.keystroke.modifiers.shift
-        && !ev.keystroke.modifiers.function
-}
-
-fn is_browser_address_char(ch: char) -> bool {
-    ch.is_ascii_graphic()
 }
 
 #[cfg(test)]
