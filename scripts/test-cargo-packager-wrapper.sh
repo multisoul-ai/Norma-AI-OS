@@ -17,13 +17,15 @@
 #   2. Run `cargo packager` in default mode against a fake cargo-packager.
 #   3. Verify default mode forwards original cargo-packager args.
 #   4. Verify default mode removes every notary credential env var.
-#   5. Run the wrapper with --notarize against the same fake cargo-packager.
-#   6. Verify --notarize is stripped before forwarding to cargo-packager.
-#   7. Verify --notarize maps APP_STORE_CONNECT_* into APPLE_API_*.
+#   5. Verify the real cargo-packager process still starts in the repository root.
+#   6. Run the wrapper with --notarize against the same fake cargo-packager.
+#   7. Verify --notarize is stripped before forwarding to cargo-packager.
+#   8. Verify --notarize maps APP_STORE_CONNECT_* into APPLE_API_*.
 #
 # Expected result:
 #   - Positive: default mode forwards `--release -c Packager.toml`.
 #   - Positive: default mode removes stale APPLE_* notary credentials.
+#   - Positive: relative `Packager.toml` resolves from the repository root.
 #   - Positive: --notarize mode injects APPLE_API_* from APP_STORE_CONNECT_*.
 #   - Negative: cargo-packager never receives the wrapper-only --notarize flag.
 #   - Negative: personal Apple ID credentials are not forwarded in --notarize mode.
@@ -51,6 +53,7 @@ cat >"$fake_bin/cargo-packager" <<'FAKE'
 #!/usr/bin/env bash
 {
   printf 'args=%s\n' "$*"
+  printf 'cwd=%s\n' "$(pwd -P)"
   printf 'APPLE_ID=%s\n' "${APPLE_ID-<unset>}"
   printf 'APPLE_PASSWORD=%s\n' "${APPLE_PASSWORD-<unset>}"
   printf 'APPLE_TEAM_ID=%s\n' "${APPLE_TEAM_ID-<unset>}"
@@ -76,6 +79,9 @@ APPLE_API_KEY_PATH="/tmp/stale.p8" \
 
 grep -Fq 'args=--release -c Packager.toml' "$default_capture" \
   || fail "default wrapper mode must forward cargo-packager args unchanged"
+
+grep -Fq "cwd=$repo_root" "$default_capture" \
+  || fail "relative Packager.toml must resolve from the repository root"
 
 for name in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID APPLE_KEYCHAIN_PROFILE APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_PATH; do
   grep -Fq "$name=<unset>" "$default_capture" \

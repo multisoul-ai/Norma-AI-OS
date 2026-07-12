@@ -33,8 +33,8 @@
 #     matching window/icon positions.
 #   - Positive: the 1024 app icon source has a tight alpha bbox so Finder and
 #     DMG icons do not render visually undersized.
-#   - Positive: the DMG background is authored at 2x Retina resolution
-#     (1280x800) for a 640x400 Finder window.
+#   - Positive: the DMG background has a 2x Retina pixel buffer and 144 DPI
+#     metadata, so Finder displays it sharply at 640x400 logical points.
 #   - Negative: the app icon source must not contain near-white edge pixels
 #     that show up as a strange border on dark backgrounds.
 #   - Negative: the dev config must not fall back to cargo-packager's default
@@ -97,10 +97,6 @@ if ! printf '%s\n' "$hook" | grep -Fq -- 'cargo build --release -p app'; then
   fail "before-packaging-command must build the app package release binaries"
 fi
 
-if ! command -v magick >/dev/null 2>&1; then
-  fail "ImageMagick 'magick' is required to verify DMG and app icon assets"
-fi
-
 case "$hook" in
   *scripts/bump-release-version.sh*'cargo build --release -p app'*)
     ;;
@@ -112,7 +108,8 @@ esac
 # DMG visual/layout guard:
 #   product name      = Norma OS
 #   background path  = assets/dmg-background.png
-#   background bitmap = 1280x800 (2x) for a 640x400 logical Finder window
+#   background bitmap = 1280x800 @ 144 DPI (2x), which Finder displays as a
+#                       sharp 640x400-point background instead of upscaling
 #   app/drop targets = x=180 and x=460, centered on the left/right wells
 #   dev config       = same [dmg] values, so local test packages match release
 for cfg in "$config" "$dev_config"; do
@@ -137,9 +134,22 @@ for cfg in "$config" "$dev_config"; do
   fi
 done
 
-background_geometry=$(magick identify -format '%wx%h' "$dmg_background")
+background_width=$(sips -g pixelWidth "$dmg_background" | awk '/pixelWidth/ { print $2 }')
+background_height=$(sips -g pixelHeight "$dmg_background" | awk '/pixelHeight/ { print $2 }')
+background_geometry="${background_width}x${background_height}"
 if [ "$background_geometry" != "1280x800" ]; then
-  fail "assets/dmg-background.png must be a 1280x800 Retina source, got $background_geometry"
+  fail "assets/dmg-background.png must use a 1280x800 Retina pixel buffer, got $background_geometry"
+fi
+
+background_dpi_width=$(sips -g dpiWidth "$dmg_background" | awk '/dpiWidth/ { print $2 }')
+background_dpi_height=$(sips -g dpiHeight "$dmg_background" | awk '/dpiHeight/ { print $2 }')
+background_dpi="${background_dpi_width}x${background_dpi_height}"
+if [ "$background_dpi" != "144.000x144.000" ]; then
+  fail "assets/dmg-background.png must set 144 DPI Retina metadata, got $background_dpi"
+fi
+
+if ! command -v magick >/dev/null 2>&1; then
+  fail "ImageMagick 'magick' is required to verify the app icon asset"
 fi
 
 # App icon whitespace guard:

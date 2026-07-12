@@ -1,4 +1,5 @@
 use std::env;
+use std::path::PathBuf;
 use std::process::{Command, ExitCode};
 
 const NOTARY_ENV_VARS: &[&str] = &[
@@ -23,7 +24,16 @@ fn main() -> ExitCode {
         }
     }
 
+    let working_dir = match caller_working_dir() {
+        Ok(path) => path,
+        Err(error) => {
+            eprintln!("failed to determine cargo-packager working directory: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+
     let mut command = Command::new("cargo-packager");
+    command.current_dir(working_dir);
     command.args(&forwarded_args);
 
     for name in NOTARY_ENV_VARS {
@@ -59,6 +69,16 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+fn caller_working_dir() -> Result<PathBuf, std::io::Error> {
+    if let Some(path) = env::var_os("PWD").map(PathBuf::from) {
+        if path.is_dir() {
+            return Ok(path);
+        }
+    }
+
+    env::current_dir()
 }
 
 fn required_env(name: &str) -> Result<String, ExitCode> {
