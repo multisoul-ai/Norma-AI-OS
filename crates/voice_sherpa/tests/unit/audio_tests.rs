@@ -181,31 +181,33 @@ fn test_macos_audio_capture_does_not_use_aborting_audio_unit_selector() {
     );
 }
 
-/// AUDIO-7: Always Listening 的 macOS 输入必须启用 Voice Processing I/O 回声消除。
+/// AUDIO-7：Always Listening 不得启用会让 macOS input tap 静默失效的 Voice Processing。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = 生产 `audio.rs`；目标 API = `setVoiceProcessingEnabled_error(true)`。
+///   source = 生产 `audio.rs`
+///   regression API = `setVoiceProcessingEnabled_error(true)`（2026-07-11 引入后 App 无 PCM）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 macOS AudioCapture 启动代码；
-///   2. 检查安装 input tap 前显式启用系统 voice processing。
+///   1. 读取 macOS AudioCapture 启动代码。
+///   2. 确认仍使用 AVAudioEngine + input tap 采集。
+///   3. 确认核心录音路径不再强制开启不稳定的 voice processing。
 ///
 /// 预期结果：
-///   - 正断言：输入节点启用 voice processing，让系统从麦克风上行中消除设备播放音频；
-///   - 负断言：不得继续用裸 input tap 把 assistant TTS 当成用户 barge-in。
+///   - 正断言：AVAudioEngine input tap 仍存在，保留已验证的麦克风路径。
+///   - 负断言：不得强制开启会出现 engine started 但零 PCM 的 voice processing。
 #[cfg(target_os = "macos")]
 #[test]
-fn test_macos_audio_capture_enables_voice_processing_echo_cancellation() {
+fn test_macos_audio_capture_avoids_unstable_voice_processing_path() {
     let source = include_str!("../../src/audio.rs");
 
     assert!(
-        source.contains("setVoiceProcessingEnabled_error(true)"),
-        "Always Listening 输入必须启用 AVAudioIONode voice processing/AEC"
+        source.contains("AVAudioEngine")
+            && source.contains("installTapOnBus_bufferSize_format_block"),
+        "Always Listening 应保留已验证的 AVAudioEngine input tap 录音路径"
     );
     assert!(
-        source.find("setVoiceProcessingEnabled_error(true)")
-            < source.find("installTapOnBus_bufferSize_format_block"),
-        "voice processing 必须在安装 input tap 与启动 engine 前启用"
+        !source.contains("setVoiceProcessingEnabled_error(true)"),
+        "核心录音不得强制开启会让 macOS App bundle 静默零 PCM 的 voice processing"
     );
 }
 
@@ -244,5 +246,60 @@ fn test_audio_capture_sends_pcm_chunks() {
         chunks_received >= 1,
         "should receive at least one PCM chunk in 300ms but received {}",
         chunks_received
+    );
+}
+
+/// AUDIO-3：生产线程模型中创建 AVAudioEngine 后阻塞等待 stop 时仍必须持续收到 tap callback。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   capture owner       = 独立 std::thread（与 PcmStreamSession 生产路径一致）
+///   wait_ms             = 500ms（大于基础测试的 300ms，允许线程启动开销）
+///   expected_chunks     >= 1
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在独立线程创建 AudioCapture，并通过 channel 报告启动结果。
+///   2. capture owner 阻塞等待 stop，与生产 `spawn_capture_thread` 行为一致。
+///   3. 测试线程等待 500ms 后统计 PCM，随后发送 stop 并 join owner。
+///
+/// 预期结果：
+///   - 正断言：独立 capture owner 线程模型下仍至少收到一块 PCM。
+///   - 负断言：不得出现 engine started 但 tap callback 永远不产出数据。
+#[test]
+#[ignore = "requires microphone hardware and permission"]
+fn test_audio_capture_on_blocked_owner_thread_still_sends_pcm_chunks() {
+    use crossbeam_channel::unbounded;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    let (pcm_tx, pcm_rx) = unbounded();
+    let (started_tx, started_rx) = mpsc::channel();
+    let (stop_tx, stop_rx) = mpsc::channel();
+    let owner = std::thread::spawn(move || match audio_capture_for_test(pcm_tx) {
+        Ok(capture) => {
+            started_tx
+                .send(Ok(()))
+                .expect("测试应报告 capture 启动成功");
+            let _ = stop_rx.recv();
+            capture.stop();
+        }
+        Err(error) => {
+            started_tx
+                .send(Err(error.to_string()))
+                .expect("测试应报告 capture 启动失败");
+        }
+    });
+
+    started_rx
+        .recv()
+        .expect("capture owner 应报告启动结果")
+        .expect("独立线程中的 AudioCapture 应成功启动");
+    std::thread::sleep(Duration::from_millis(500));
+    let chunks_received = pcm_rx.try_iter().count();
+    stop_tx.send(()).expect("测试应通知 capture owner 停止");
+    owner.join().expect("capture owner 应正常退出");
+
+    assert!(
+        chunks_received >= 1,
+        "独立 capture owner 阻塞等待 stop 时仍应收到 PCM，实际为 {chunks_received} 块"
     );
 }

@@ -79,7 +79,7 @@ fn e2e_03_voice_modes_and_shared_model_catalog_are_clickable() {
 /// Settings 小窗口适配与双击编辑链路。
 ///
 /// 场景：窗口缩到 420×360 后打开 Voice Settings，并双击 Model 值区域。
-/// 数据构造：420×360 小于旧面板 860×620 的设计尺寸；向上滚动 1500px，覆盖交互模式、
+/// 数据构造：420×360 小于旧面板 860×620 的设计尺寸；向上滚动 4200px，覆盖交互模式、
 /// 听写触发方式和共享模型目录，可把 Provider 下方的 Model 行移入内容区；侧栏再滚动 300px，
 /// 大于 5 个导航项总高度 5×42=210px，可把底部 Wallpaper 入口移入可点击区域。
 /// 执行过程：resize → 打开 Settings → 切到 Voice → 滚动内容 → 双击字段 → 通过
@@ -99,7 +99,7 @@ fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
     click_debug(cx, "toolbar-settings");
     click_debug(cx, "settings-section-voice");
     click_debug(cx, "settings-voice-mode-continuous");
-    scroll_debug(cx, "settings-content-scroll", -1500.0);
+    scroll_debug(cx, "settings-content-scroll", -4200.0);
     let before = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
         before.active_section, "Voice",

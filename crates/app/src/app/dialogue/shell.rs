@@ -30,6 +30,17 @@ impl MultisoulApp {
         let model_root = self.voice_settings.model_root().to_path_buf();
         let input_device_id = values.input_device_id().map(ToOwned::to_owned);
         let startup_attempt = self.dialogue.begin_startup_attempt();
+        tracing::info!(
+            target: "norma_voice",
+            startup_attempt,
+            selected_model = values
+                .asr_model_id()
+                .map(asr::AsrModelId::as_str)
+                .unwrap_or("<none>"),
+            model_root = %model_root.display(),
+            input_device_selected = input_device_id.is_some(),
+            "realtime voice startup requested"
+        );
         let task = cx.spawn(async move |this, cx| {
             let runtime_task = cx.background_executor().spawn(async move {
                 start_dialogue_listening_runtime(values, model_root, input_device_id)
@@ -40,6 +51,11 @@ impl MultisoulApp {
                 match runtime {
                     Ok(runtime) => {
                         if should_accept {
+                            tracing::info!(
+                                target: "norma_voice",
+                                startup_attempt,
+                                "realtime voice runtime ready; installing event pump"
+                            );
                             app.dialogue.install_listening_runtime(runtime, cx);
                         } else {
                             tracing::info!(
@@ -51,7 +67,12 @@ impl MultisoulApp {
                     }
                     Err(error) => {
                         if should_accept {
-                            tracing::warn!(%error, "failed to start dialogue listening shell");
+                            tracing::warn!(
+                                target: "norma_voice",
+                                startup_attempt,
+                                %error,
+                                "realtime voice startup failed"
+                            );
                             app.dialogue.mark_start_error(error);
                         } else {
                             tracing::info!(
@@ -71,6 +92,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn stop_continuous_listening(&mut self, cx: &mut Context<Self>) {
+        tracing::info!(target: "norma_voice", "realtime voice stop requested");
         self.dialogue.stop_shell();
         cx.notify();
     }

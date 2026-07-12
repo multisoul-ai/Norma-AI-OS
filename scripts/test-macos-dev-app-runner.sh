@@ -14,14 +14,19 @@
 # Execution:
 #   1. Check Cargo's native macOS target runner configuration.
 #   2. Check the runner materializes an app bundle from the compiled binary.
-#   3. Check the runner installs the development microphone usage description.
-#   4. Check the runner executes the binary from inside that bundle.
+#   3. Check the runner clears stale bundle contents before copying the binary.
+#   4. Check the runner installs the development microphone usage description.
+#   5. Check the LaunchServices process forwards stdout/stderr to the caller.
+#   6. Check the runner executes the binary from inside that bundle.
 #
 # Expected result:
 #   - Positive: aarch64 macOS cargo runs use the development app runner.
 #   - Positive: the runner copies DevInfo.plist into Contents/Info.plist.
 #   - Positive: the runner executes Contents/MacOS/<binary>.
+#   - Positive: tracing output remains visible to terminal pipes such as `tee`.
+#   - Negative: stale executables must not survive into a newly signed bundle.
 #   - Negative: cargo run must not keep launching only target/debug/norma-os.
+#   - Negative: LaunchServices must not leave app stdout/stderr on `/dev/null`.
 
 set -euo pipefail
 
@@ -76,6 +81,10 @@ if ! grep -Fq 'Norma OS Dev.app' "$runner"; then
   fail "dev app runner must materialize a dedicated Norma OS Dev.app bundle"
 fi
 
+if ! grep -Fq 'rm -rf "$bundle"' "$runner"; then
+  fail "dev app runner must clear stale bundle contents before signing a new executable"
+fi
+
 if ! grep -Fq 'Contents/MacOS' "$runner"; then
   fail "dev app runner must place the executable under Contents/MacOS"
 fi
@@ -84,8 +93,16 @@ if ! grep -Fq 'Delete :CFBundleExecutable' "$runner"; then
   fail "dev app runner must replace CFBundleExecutable on repeated cargo runs"
 fi
 
-if ! grep -Fq 'open -W -n "$bundle"' "$runner"; then
+if ! grep -Fq 'open -W -n ' "$runner"; then
   fail "dev app runner must use LaunchServices to start the bundled app so macOS can present TCC authorization"
+fi
+
+if ! grep -Fq 'mkfifo "$stdout_pipe" "$stderr_pipe"' "$runner"; then
+  fail "dev app runner must create FIFO bridges for LaunchServices output"
+fi
+
+if ! grep -Fq -- '-o "$stdout_pipe" --stderr "$stderr_pipe"' "$runner"; then
+  fail "dev app runner must connect LaunchServices stdout/stderr to FIFO bridges"
 fi
 
 echo "macOS dev app runner contract test passed"
