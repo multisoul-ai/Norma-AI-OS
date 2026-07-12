@@ -1,4 +1,5 @@
 use super::super::models::AsrModelManagerState;
+use super::super::tts_models::TtsModelManagerState;
 use super::{VoiceSettingsState, VoiceSettingsValues};
 use voice_sherpa::SpeechError;
 
@@ -26,6 +27,19 @@ impl VoiceSettingsState {
     pub(crate) fn model_manager_mut(&mut self) -> &mut AsrModelManagerState {
         &mut self.model_manager
     }
+
+    pub(crate) fn tts_model_root(&self) -> std::path::PathBuf {
+        self.model_root.join("tts")
+    }
+    pub(crate) fn tts_model_manager(&self) -> &TtsModelManagerState {
+        &self.tts_model_manager
+    }
+    pub(crate) fn tts_model_manager_mut(&mut self) -> &mut TtsModelManagerState {
+        &mut self.tts_model_manager
+    }
+    pub(crate) fn replace_tts_model_manager(&mut self, manager: TtsModelManagerState) {
+        self.tts_model_manager = manager;
+    }
 }
 
 pub(crate) fn resolve_available_asr_model(
@@ -44,4 +58,21 @@ pub(crate) fn resolve_available_asr_model(
     let root = model_root.join(model_id.as_str());
     asr::validate_installation(&root, descriptor)
         .map_err(|error| SpeechError::ModelNotFound(error.to_string()))
+}
+
+pub(crate) fn selected_tts_model(
+    values: &VoiceSettingsValues,
+    model_root: &std::path::Path,
+) -> Option<crate::app::dialogue::SelectedTtsModel> {
+    let model_id = values.tts_model_id()?.clone();
+    let catalog = tts::builtin_model_catalog();
+    let descriptor = catalog.find(&model_id)?;
+    let voice_id = descriptor
+        .resolve_voice_id(values.tts_voice_id().map(tts::TtsVoiceId::as_str))
+        .clone();
+    Some(crate::app::dialogue::SelectedTtsModel {
+        root: model_root.join("tts"),
+        model_id,
+        voice_id,
+    })
 }

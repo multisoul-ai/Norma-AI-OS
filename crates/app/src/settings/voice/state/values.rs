@@ -8,8 +8,8 @@ use super::VoiceSettingsState;
 use asr::AsrModelId;
 use std::fmt;
 use storage::SettingsStore;
+use tts::{TtsModelId, TtsVoiceId};
 use voice::OllamaVoicePlanner;
-
 pub(super) const KEY_OLLAMA_ENDPOINT: &str = "voice.ollama.endpoint";
 pub(super) const KEY_OLLAMA_MODEL: &str = "voice.ollama.model";
 pub(super) const KEY_DIALOGUE_LLM_MODE: &str = "voice.dialogue.llm_mode";
@@ -19,24 +19,23 @@ pub(super) const KEY_INTERACTION_MODE: &str = "voice.interaction.mode";
 pub(super) const KEY_SINGLE_VOICE_COMMAND_TRIGGER: &str = "voice.single_voice_command.trigger";
 pub(super) const LEGACY_KEY_DICTATION_TRIGGER: &str = "voice.dictation.trigger";
 pub(super) const KEY_ASR_MODEL_ID: &str = "voice.asr.model_id";
+pub(super) const KEY_TTS_MODEL_ID: &str = "voice.tts.model_id";
+pub(super) const KEY_TTS_VOICE_ID: &str = "voice.tts.voice_id";
 pub(super) const KEY_INPUT_DEVICE_ID: &str = "voice.input_device_id";
 pub(super) const KEY_TRACE_ENABLED: &str = "voice.trace_enabled";
 pub(super) const KEY_OPENAI_API_KEY: &str = "voice.openai.api_key";
 pub(super) const KEY_OPENAI_CARD_PLANNER_MODEL: &str = "voice.openai.card_planner_model";
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum DialogueLlmMode {
     Mock,
     Ollama,
 }
-
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum VoiceInteractionMode {
     #[default]
     SingleVoiceCommand,
     ContinuousListening,
 }
-
 impl VoiceInteractionMode {
     pub(crate) fn from_stored(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
@@ -45,7 +44,6 @@ impl VoiceInteractionMode {
             _ => None,
         }
     }
-
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::SingleVoiceCommand => "single_voice_command",
@@ -53,14 +51,12 @@ impl VoiceInteractionMode {
         }
     }
 }
-
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum DictationTrigger {
     #[default]
     Hold,
     Toggle,
 }
-
 impl DictationTrigger {
     pub(crate) fn from_stored(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
@@ -69,7 +65,6 @@ impl DictationTrigger {
             _ => None,
         }
     }
-
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::Hold => "hold",
@@ -77,7 +72,6 @@ impl DictationTrigger {
         }
     }
 }
-
 impl DialogueLlmMode {
     pub(crate) fn from_stored(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
@@ -87,12 +81,13 @@ impl DialogueLlmMode {
         }
     }
 }
-
 #[derive(Clone, Default, Eq, PartialEq)]
 pub(crate) struct SavedVoiceSettings {
     pub(crate) interaction_mode: Option<VoiceInteractionMode>,
     pub(crate) dictation_trigger: Option<DictationTrigger>,
     pub(crate) asr_model_id: Option<AsrModelId>,
+    pub(crate) tts_model_id: Option<TtsModelId>,
+    pub(crate) tts_voice_id: Option<TtsVoiceId>,
     pub(crate) agent_provider: Option<AgentProviderKind>,
     pub(crate) ollama_profile: SavedProviderProfile,
     pub(crate) openai_profile: SavedProviderProfile,
@@ -104,7 +99,6 @@ pub(crate) struct SavedVoiceSettings {
     pub(crate) input_device_id: Option<String>,
     pub(crate) trace_enabled: Option<bool>,
 }
-
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct EnvVoiceSettings {
     pub(crate) ollama_endpoint: Option<String>,
@@ -114,12 +108,13 @@ pub(crate) struct EnvVoiceSettings {
     pub(crate) input_device_id: Option<String>,
     pub(crate) trace_enabled: Option<String>,
 }
-
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct VoiceSettingsValues {
     pub(crate) interaction_mode: VoiceInteractionMode,
     pub(crate) dictation_trigger: DictationTrigger,
     pub(crate) asr_model_id: Option<AsrModelId>,
+    pub(crate) tts_model_id: Option<TtsModelId>,
+    pub(crate) tts_voice_id: Option<TtsVoiceId>,
     pub(crate) agent_provider: AgentProviderKind,
     pub(crate) ollama_profile: ProviderProfileValues,
     pub(crate) openai_profile: ProviderProfileValues,
@@ -131,7 +126,6 @@ pub(crate) struct VoiceSettingsValues {
     pub(crate) input_device_id: Option<String>,
     pub(crate) trace_enabled: bool,
 }
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum VoiceSettingsField {
     AgentBaseUrl,
@@ -213,12 +207,13 @@ impl fmt::Debug for VoiceSettingsState {
             .finish()
     }
 }
-
 impl VoiceSettingsValues {
     pub(crate) fn resolve(saved: &SavedVoiceSettings, env: &EnvVoiceSettings) -> Self {
         let interaction_mode = saved.interaction_mode.unwrap_or_default();
         let dictation_trigger = saved.dictation_trigger.unwrap_or_default();
         let asr_model_id = saved.asr_model_id.clone();
+        let tts_model_id = saved.tts_model_id.clone();
+        let tts_voice_id = saved.tts_voice_id.clone();
         let endpoint = first_non_empty(
             saved.ollama_endpoint.as_deref(),
             env.ollama_endpoint.as_deref(),
@@ -304,6 +299,8 @@ impl VoiceSettingsValues {
             interaction_mode,
             dictation_trigger,
             asr_model_id,
+            tts_model_id,
+            tts_voice_id,
             agent_provider,
             ollama_profile,
             openai_profile,
@@ -331,6 +328,13 @@ impl VoiceSettingsValues {
 
     pub(crate) fn asr_model_id(&self) -> Option<&AsrModelId> {
         self.asr_model_id.as_ref()
+    }
+
+    pub(crate) fn tts_model_id(&self) -> Option<&TtsModelId> {
+        self.tts_model_id.as_ref()
+    }
+    pub(crate) fn tts_voice_id(&self) -> Option<&TtsVoiceId> {
+        self.tts_voice_id.as_ref()
     }
 
     pub(crate) fn active_provider_profile(&self) -> &ProviderProfileValues {
@@ -386,7 +390,6 @@ impl VoiceSettingsValues {
         self.trace_enabled
     }
 }
-
 impl EnvVoiceSettings {
     pub(crate) fn from_env() -> Self {
         Self {
@@ -399,7 +402,6 @@ impl EnvVoiceSettings {
         }
     }
 }
-
 impl SavedVoiceSettings {
     pub(super) fn load(store: &SettingsStore) -> storage::StorageResult<Self> {
         let legacy_ollama_endpoint = non_empty_option(store.get_string(KEY_OLLAMA_ENDPOINT)?);
@@ -418,6 +420,10 @@ impl SavedVoiceSettings {
                 .and_then(DictationTrigger::from_stored),
             asr_model_id: non_empty_option(store.get_string(KEY_ASR_MODEL_ID)?)
                 .and_then(|value| AsrModelId::parse(value).ok()),
+            tts_model_id: non_empty_option(store.get_string(KEY_TTS_MODEL_ID)?)
+                .and_then(|value| TtsModelId::parse(value).ok()),
+            tts_voice_id: non_empty_option(store.get_string(KEY_TTS_VOICE_ID)?)
+                .and_then(|value| TtsVoiceId::parse(value).ok()),
             agent_provider: store
                 .get_string(KEY_AGENT_PROVIDER)?
                 .as_deref()
@@ -451,7 +457,6 @@ impl SavedVoiceSettings {
         })
     }
 }
-
 impl VoiceSettingsField {
     pub(crate) fn index(self) -> usize {
         match self {

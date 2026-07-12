@@ -10,6 +10,7 @@ crossbeam-channel.workspace = true
 tracing.workspace = true
 audio.workspace = true
 asr.workspace = true
+tts.workspace = true
 dialogue.workspace = true
 async-channel.workspace = true
 

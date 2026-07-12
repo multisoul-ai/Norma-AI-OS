@@ -2,6 +2,7 @@ pub(crate) use self::editable::VoiceSettingsInputs;
 use self::interaction::interaction_group;
 use self::model_catalog::model_catalog_row;
 use self::provider::{agent_provider_advanced_rows, agent_provider_group};
+use self::tts_catalog::tts_catalog_row;
 use super::state::{VoiceSettingsField, VoiceSettingsState};
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, Window};
@@ -11,6 +12,7 @@ mod editable;
 mod interaction;
 mod model_catalog;
 mod provider;
+mod tts_catalog;
 
 pub(crate) fn voice_settings(
     theme: Theme,
@@ -31,16 +33,52 @@ pub(crate) fn voice_settings(
                 .child(model_catalog_row(theme, state, cx)),
         )
         .child(agent_provider_group(theme, state, inputs, cx))
-        .child(settings_group(theme, "Spoken Reply").child(setting_row(
-            theme,
-            "Local TTS",
-            "Both voice interaction modes use the configured local Matcha voice",
-        )))
         .child(advanced_group(theme, state, inputs, cx))
+        .child(settings_group(theme, "Spoken Reply").child(tts_catalog_row(theme, state, cx)))
         .children(status_message(theme, state))
 }
 
 impl MultisoulApp {
+    pub(crate) fn apply_tts_selection(
+        &mut self,
+        model_id: tts::TtsModelId,
+        requested_voice: Option<tts::TtsVoiceId>,
+        cx: &mut Context<Self>,
+    ) -> Result<(), String> {
+        let catalog = tts::builtin_model_catalog();
+        let descriptor = catalog
+            .find(&model_id)
+            .ok_or_else(|| format!("unknown TTS model {}", model_id.as_str()))?;
+        let root = self
+            .voice_settings
+            .model_root()
+            .join("tts")
+            .join(model_id.as_str());
+        let available =
+            tts::validate_installation(&root, descriptor).map_err(|error| error.to_string())?;
+        voice_sherpa::SherpaTtsClient::from_available_model(
+            &available,
+            descriptor.resolve_voice_id(requested_voice.as_ref().map(tts::TtsVoiceId::as_str)),
+        )
+        .map_err(|error| error.to_string())?;
+        let voice_id = descriptor
+            .resolve_voice_id(requested_voice.as_ref().map(tts::TtsVoiceId::as_str))
+            .clone();
+        self.stop_continuous_listening(cx);
+        self.voice.stop_for_model_switch();
+        self.dialogue.cancel_tts_for_configuration_change();
+        self.voice_settings
+            .select_tts_model_and_voice(Some(model_id), Some(voice_id));
+        crate::app::dialogue::configure_selected_tts_model(
+            crate::settings::voice::selected_tts_model(
+                self.voice_settings.values(),
+                self.voice_settings.model_root(),
+            ),
+        );
+        self.persist_voice_settings_in_background(cx);
+        cx.notify();
+        Ok(())
+    }
     pub(crate) fn on_voice_settings_refresh_input_devices(
         &mut self,
         _: &ClickEvent,

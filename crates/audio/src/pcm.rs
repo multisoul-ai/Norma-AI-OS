@@ -28,7 +28,7 @@ impl PcmAudioChunk {
         channels: u16,
         bytes: Vec<u8>,
     ) -> Result<Self, PcmAudioError> {
-        if !matches!(sample_rate_hz, 16_000 | 22_050 | 24_000) {
+        if !(8_000..=192_000).contains(&sample_rate_hz) {
             return Err(PcmAudioError::InvalidSampleRate);
         }
         if channels != 1 {

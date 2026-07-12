@@ -45,6 +45,8 @@ pub struct SettingsE2eSnapshot {
     pub trace_enabled: bool,
     pub selected_asr_model_id: Option<String>,
     pub asr_models: Vec<AsrModelE2eSnapshot>,
+    pub selected_tts_model_id: Option<String>,
+    pub tts_model_count: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -381,6 +383,12 @@ impl MultisoulApp {
                     }
                 })
                 .collect(),
+            selected_tts_model_id: self
+                .voice_settings
+                .values()
+                .tts_model_id()
+                .map(|id| id.as_str().to_string()),
+            tts_model_count: self.voice_settings.tts_model_manager().entries().len(),
         }
     }
 }

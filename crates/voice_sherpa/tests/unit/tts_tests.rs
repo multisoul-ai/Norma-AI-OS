@@ -69,6 +69,42 @@ fn test_fake_tts_returns_valid_pcm_chunk() {
     assert_valid_pcm_chunk(&chunk_24k, 24_000, "24k fake TTS");
 }
 
+/// TTS-2a：目录已验证的 48kHz 官方 TTS 输出不得被历史三档采样率白名单拒绝。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   sample rate = 48_000 Hz（高质量官方模型的原生单声道输出）
+///   samples     = 1（一个 f32 sample 足以验证格式而非音频内容）
+///   PCM bytes   = 1 sample × 2 bytes/sample = 2 bytes
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用 48_000Hz 创建渐进 PCM 编码器；
+///   2. 送入一个 sample，取得一个可播放 PCM16 chunk；
+///   3. 读取 chunk 的原生采样率。
+///
+/// 预期结果：
+///   - 断言 A：48kHz 编码器能创建，未来官方模型不会在回调前被拒绝；
+///   - 断言 B：chunk 保留 48kHz，播放层可根据原生格式配置输出；
+///   - 断言 C：chunk 不得被旧 24kHz 默认值改写。
+#[test]
+fn test_progressive_pcm_encoder_accepts_48khz_catalog_output() {
+    let mut encoder =
+        ProgressivePcmEncoder::new(48_000).expect("48kHz 官方单声道 PCM16 应被渐进 TTS 编码器接受");
+    let chunk = encoder
+        .take_new_chunk(&[0.25])
+        .expect("48kHz sample 编码不应报错")
+        .expect("非空 48kHz sample 应产生 PCM chunk");
+
+    assert_eq!(
+        chunk.sample_rate_hz, 48_000,
+        "48kHz 模型输出必须原样交给播放层"
+    );
+    assert_eq!(chunk.bytes.len(), 2, "一个 PCM16 sample 应编码为 2 bytes");
+    assert_ne!(
+        chunk.sample_rate_hz, 24_000,
+        "48kHz 模型输出不得被旧 24kHz 默认值替代"
+    );
+}
+
 /// TTS-2b：sherpa 累积 callback 只能转发新增样本，避免播放队列重复旧音频。
 ///
 /// 数据构造：

@@ -48,6 +48,7 @@ mod e2e_08_browser_address_input;
 mod e2e_09_browser_card_selection;
 
 // 语音全链路场景矩阵：快捷键、听写触发、配置持久化、模型切换与运行时路由。
+mod e2e_10_tts_model_catalog;
 mod e2e_10_voice_config_matrix;
 mod e2e_10_voice_matrix;
 mod e2e_10_voice_model_matrix;

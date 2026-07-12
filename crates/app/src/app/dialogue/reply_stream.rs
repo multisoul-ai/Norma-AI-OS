@@ -1,6 +1,6 @@
 //! Streaming reply state shared by the dialogue controller and playback bridge.
 
-use super::reply::{create_tts_client, TtsClientBox};
+use super::reply::{create_tts_client, selected_tts_model_configured, TtsClientBox};
 use super::DialogueControlState;
 use crate::app::voice::playback::pcm_chunk_duration;
 use crate::app::voice_window_inset::PcmEnergyTimeline;
@@ -184,6 +184,11 @@ impl DialogueControlState {
 
     fn start_next_speech_synthesis(&mut self, cx: &mut Context<crate::app::MultisoulApp>) {
         if self.speech_synthesis_active || self.speech_queue.is_empty() {
+            return;
+        }
+        if !selected_tts_model_configured() {
+            self.speech_queue.clear();
+            self.finish_reply_stream_if_ready();
             return;
         }
         let generation = self.reply_generation;

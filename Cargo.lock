@@ -213,6 +213,7 @@ dependencies = [
  "terminal",
  "tracing",
  "tracing-subscriber",
+ "tts",
  "ui",
  "ureq 3.3.0",
  "voice",
@@ -4218,6 +4219,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "model_store"
+version = "0.1.23"
+dependencies = [
+ "bzip2 0.5.2",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tar",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "moxcms"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7658,6 +7672,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tts"
+version = "0.1.23"
+dependencies = [
+ "dirs 6.0.0",
+ "model_store",
+ "serde",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "typeid"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8018,6 +8043,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tracing",
+ "tts",
 ]
 
 [[package]]

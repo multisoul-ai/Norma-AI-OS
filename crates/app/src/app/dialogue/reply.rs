@@ -14,8 +14,43 @@ use voice_sherpa::{SherpaTtsClient, SpeechError};
 
 pub(crate) type TtsClientBox = Box<dyn dialogue::TtsClient>;
 
+#[derive(Clone)]
+pub(crate) struct SelectedTtsModel {
+    pub(crate) root: std::path::PathBuf,
+    pub(crate) model_id: tts::TtsModelId,
+    pub(crate) voice_id: tts::TtsVoiceId,
+}
+
+static SELECTED_TTS_MODEL: Mutex<Option<SelectedTtsModel>> = Mutex::new(None);
+
+pub(crate) fn configure_selected_tts_model(model: Option<SelectedTtsModel>) {
+    *SELECTED_TTS_MODEL
+        .lock()
+        .expect("selected TTS model lock should not be poisoned") = model;
+}
+
+pub(crate) fn selected_tts_model_configured() -> bool {
+    SELECTED_TTS_MODEL
+        .lock()
+        .expect("selected TTS model lock should not be poisoned")
+        .is_some()
+}
+
 pub(crate) fn default_tts_client() -> Result<TtsClientBox, SpeechError> {
-    SherpaTtsClient::from_env_or_default().map(|client| Box::new(client) as TtsClientBox)
+    let selected = SELECTED_TTS_MODEL
+        .lock()
+        .expect("selected TTS model lock should not be poisoned")
+        .clone()
+        .ok_or_else(|| SpeechError::ModelNotFound("no Local TTS model selected".to_string()))?;
+    let catalog = tts::builtin_model_catalog();
+    let descriptor = catalog.find(&selected.model_id).ok_or_else(|| {
+        SpeechError::ModelNotFound(format!("unknown TTS model {}", selected.model_id.as_str()))
+    })?;
+    let available =
+        tts::validate_installation(&selected.root.join(selected.model_id.as_str()), descriptor)
+            .map_err(|error| SpeechError::ModelNotFound(error.to_string()))?;
+    SherpaTtsClient::from_available_model(&available, &selected.voice_id)
+        .map(|client| Box::new(client) as TtsClientBox)
 }
 
 #[cfg(test)]

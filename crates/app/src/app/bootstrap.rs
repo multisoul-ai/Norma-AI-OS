@@ -36,7 +36,13 @@ impl MultisoulApp {
         let focus_handle: FocusHandle = cx.focus_handle();
         let (voice_settings, voice_settings_inputs) =
             VoiceSettingsInputs::load_default(cx.weak_entity(), focus_handle.clone(), theme, cx);
-        MultisoulApp {
+        crate::app::dialogue::configure_selected_tts_model(
+            crate::settings::voice::selected_tts_model(
+                voice_settings.values(),
+                voice_settings.model_root(),
+            ),
+        );
+        let mut app = MultisoulApp {
             runtime,
             theme,
             interaction: InteractionState::default(),
@@ -67,6 +73,8 @@ impl MultisoulApp {
             terminal_cursor_phase: 0.0,
             terminal_cursor_repaint: FrameThrottle::default(),
             voice_window_inset: crate::app::voice_window_inset::VoiceWindowInset::default(),
-        }
+        };
+        app.refresh_tts_model_states(cx);
+        app
     }
 }

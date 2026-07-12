@@ -98,7 +98,42 @@ pub struct SherpaTtsClient {
 }
 
 impl SherpaTtsClient {
+    pub fn from_available_model(
+        model: &tts::AvailableTtsModel,
+        voice_id: &tts::TtsVoiceId,
+    ) -> Result<Self, SpeechError> {
+        let voice = model.descriptor().voice(voice_id).ok_or_else(|| {
+            SpeechError::ModelNotFound(format!(
+                "voice {} is unavailable for TTS model {}",
+                voice_id.as_str(),
+                model.descriptor().id().as_str()
+            ))
+        })?;
+        let generation = GenerationConfig {
+            sid: voice.speaker_id(),
+            speed: 1.0,
+            ..Default::default()
+        };
+        match model.descriptor().backend() {
+            tts::TtsBackend::Matcha => Self::from_model_dir_with_generation(
+                model.root(),
+                &model.root().join("vocos-22khz-univ.onnx"),
+                generation,
+            ),
+            tts::TtsBackend::Kokoro => {
+                Self::from_kokoro_model_dir_with_generation(model.root(), generation)
+            }
+        }
+    }
+
     pub fn from_kokoro_model_dir(model_dir: &Path) -> Result<Self, SpeechError> {
+        Self::from_kokoro_model_dir_with_generation(model_dir, generation_config_from_env())
+    }
+
+    fn from_kokoro_model_dir_with_generation(
+        model_dir: &Path,
+        generation: GenerationConfig,
+    ) -> Result<Self, SpeechError> {
         if !model_dir.exists() {
             return Err(SpeechError::ModelNotFound(model_dir.display().to_string()));
         }
@@ -127,11 +162,18 @@ impl SherpaTtsClient {
         let inner = OfflineTts::create(&config).ok_or_else(|| {
             SpeechError::Recognizer("failed to create OfflineTts with Kokoro model".to_string())
         })?;
-        let generation = generation_config_from_env();
         Ok(Self { inner, generation })
     }
 
     pub fn from_model_dir(model_dir: &Path, vocoder_path: &Path) -> Result<Self, SpeechError> {
+        Self::from_model_dir_with_generation(model_dir, vocoder_path, generation_config_from_env())
+    }
+
+    fn from_model_dir_with_generation(
+        model_dir: &Path,
+        vocoder_path: &Path,
+        generation: GenerationConfig,
+    ) -> Result<Self, SpeechError> {
         if !model_dir.exists() {
             return Err(SpeechError::ModelNotFound(model_dir.display().to_string()));
         }
@@ -169,7 +211,6 @@ impl SherpaTtsClient {
         let inner = OfflineTts::create(&config).ok_or_else(|| {
             SpeechError::Recognizer("failed to create OfflineTts with Matcha model".to_string())
         })?;
-        let generation = generation_config_from_env();
         Ok(Self { inner, generation })
     }
 
@@ -293,7 +334,7 @@ fn sample_rate_from_sherpa(sample_rate: i32) -> Result<u32, DialogueError> {
 }
 
 fn validate_tts_sample_rate(sample_rate_hz: u32) -> Result<(), DialogueError> {
-    if matches!(sample_rate_hz, 16_000 | 22_050 | 24_000) {
+    if (8_000..=192_000).contains(&sample_rate_hz) {
         Ok(())
     } else {
         Err(DialogueError::Message(format!(

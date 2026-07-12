@@ -9,7 +9,6 @@ mod reply_loop;
 mod reply_stream;
 mod shell;
 mod turn;
-
 use crate::app::voice::control::VoiceVisual;
 use crate::settings::voice::{resolve_available_asr_model, VoiceSettingsValues};
 use dialogue::{
@@ -17,7 +16,13 @@ use dialogue::{
     SpeakingSpeechSource, UtteranceCommitter,
 };
 use gpui::{Context, Task};
+pub(crate) use reply::{configure_selected_tts_model, SelectedTtsModel};
 use reply::{create_assistant_audio_sink, ReplyPlayback, TtsClientBox};
+
+pub(crate) fn play_tts_preview(chunk: &audio::PcmAudioChunk) {
+    let mut sink = reply::create_assistant_audio_sink();
+    let _ = sink.write_chunk(chunk);
+}
 use reply_stream::StreamPlaybackBuffer;
 use std::collections::VecDeque;
 use std::fmt;
@@ -28,11 +33,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 pub(crate) use turn::VoiceTurnArtifacts;
 use voice_sherpa::{PcmStreamSession, SherpaProvider, SpeechError};
-
 type MicPermissionCheck = fn() -> Result<(), SpeechError>;
 
 static MIC_PERMISSION_CHECK: Mutex<Option<MicPermissionCheck>> = Mutex::new(None);
-
 pub(crate) fn default_mic_permission_check() -> Result<(), SpeechError> {
     voice_sherpa::request_microphone_permission()
 }
@@ -186,6 +189,10 @@ impl Default for DialogueControlState {
 }
 
 impl DialogueControlState {
+    pub(crate) fn cancel_tts_for_configuration_change(&mut self) {
+        self.abort_reply_stream(true);
+        self.tts_client = None;
+    }
     pub(super) fn take_playback_events(&mut self) -> Vec<AssistantPlaybackEvent> {
         std::mem::take(&mut self.playback_events)
     }

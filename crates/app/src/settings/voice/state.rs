@@ -1,14 +1,15 @@
 use super::models::AsrModelManagerState;
+use super::tts_models::TtsModelManagerState;
 use asr::AsrModelId;
 use std::path::PathBuf;
 use storage::{AppStore, SettingsStore};
+use tts::{TtsModelId, TtsVoiceId};
 use voice_sherpa::{AudioInputDevice, SpeechError};
-
 mod migration;
 mod model_selection;
 mod provider_values;
 mod values;
-pub(crate) use model_selection::resolve_available_asr_model;
+pub(crate) use model_selection::{resolve_available_asr_model, selected_tts_model};
 pub(crate) use provider_values::AgentProviderKind;
 #[cfg(test)]
 pub(crate) use provider_values::SavedProviderProfile;
@@ -23,15 +24,13 @@ pub(crate) use values::{
 };
 use values::{
     KEY_ASR_MODEL_ID, KEY_INPUT_DEVICE_ID, KEY_INTERACTION_MODE, KEY_OPENAI_API_KEY,
-    KEY_SINGLE_VOICE_COMMAND_TRIGGER, KEY_TRACE_ENABLED,
+    KEY_SINGLE_VOICE_COMMAND_TRIGGER, KEY_TRACE_ENABLED, KEY_TTS_MODEL_ID, KEY_TTS_VOICE_ID,
 };
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct VoiceSettingsStatus {
     message: String,
     is_error: bool,
 }
-
 #[derive(Clone)]
 pub(crate) enum PendingVoiceSettingWrite {
     Set {
@@ -44,7 +43,6 @@ pub(crate) enum PendingVoiceSettingWrite {
         key: String,
     },
 }
-
 impl PendingVoiceSettingWrite {
     pub(crate) fn execute(self) -> storage::StorageResult<()> {
         match self {
@@ -59,7 +57,6 @@ impl PendingVoiceSettingWrite {
         }
     }
 }
-
 #[derive(Clone)]
 pub(crate) struct VoiceSettingsState {
     values: VoiceSettingsValues,
@@ -74,9 +71,9 @@ pub(crate) struct VoiceSettingsState {
     persistence_running: bool,
     model_root: PathBuf,
     model_manager: AsrModelManagerState,
+    tts_model_manager: TtsModelManagerState,
     advanced_expanded: bool,
 }
-
 impl VoiceSettingsState {
     pub(crate) fn in_memory_default() -> Self {
         Self::from_sources(SavedVoiceSettings::default(), EnvVoiceSettings::default())
@@ -128,6 +125,7 @@ impl VoiceSettingsState {
     ) -> Self {
         let values = VoiceSettingsValues::resolve(&saved, &env);
         let model_manager = AsrModelManagerState::unscanned(&asr::builtin_model_catalog());
+        let tts_model_manager = TtsModelManagerState::unscanned(&tts::builtin_model_catalog());
         Self {
             values,
             saved,
@@ -141,6 +139,7 @@ impl VoiceSettingsState {
             persistence_running: false,
             model_root,
             model_manager,
+            tts_model_manager,
             advanced_expanded: false,
         }
     }
@@ -225,6 +224,24 @@ impl VoiceSettingsState {
         match model_id {
             Some(model_id) => self.persist_string(KEY_ASR_MODEL_ID, model_id.as_str()),
             None => self.delete_string(KEY_ASR_MODEL_ID),
+        }
+        self.refresh_values();
+    }
+
+    pub(crate) fn select_tts_model_and_voice(
+        &mut self,
+        model_id: Option<TtsModelId>,
+        voice_id: Option<TtsVoiceId>,
+    ) {
+        self.saved.tts_model_id = model_id.clone();
+        self.saved.tts_voice_id = voice_id.clone();
+        match model_id {
+            Some(id) => self.persist_string(KEY_TTS_MODEL_ID, id.as_str()),
+            None => self.delete_string(KEY_TTS_MODEL_ID),
+        }
+        match voice_id {
+            Some(id) => self.persist_string(KEY_TTS_VOICE_ID, id.as_str()),
+            None => self.delete_string(KEY_TTS_VOICE_ID),
         }
         self.refresh_values();
     }
