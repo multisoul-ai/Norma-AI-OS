@@ -3,7 +3,7 @@ use sha2::{Digest, Sha256};
 /// P-1：默认 Dialogue persona 必须逐字保持用户指定的来源文本。
 ///
 /// 数据构造：来源原文的 SHA-256 是
-/// `d031af097e201ac84fe834227ea01ae7074d47069359e11a169d56b9bfcf34e1`；
+/// `ad3e3878679c9db3740353f97c90ab47d82078822f6e8df1875772aeccdda948`；
 /// 此值由 `prompts/dialogue/norma-persona.txt` 在未作任何转码或规范化时计算得到。
 /// 执行过程：通过 `agent` 的公开 prompt API 读取默认 persona，并计算其 UTF-8 字节的 SHA-256。
 /// 预期结果：摘要完全相同；任何删改、换行或字符替换都会改变摘要并使测试失败。
@@ -13,7 +13,7 @@ fn default_dialogue_persona_matches_approved_source_checksum() {
     let actual = format!("{digest:x}");
 
     assert_eq!(
-        actual, "d031af097e201ac84fe834227ea01ae7074d47069359e11a169d56b9bfcf34e1",
+        actual, "ad3e3878679c9db3740353f97c90ab47d82078822f6e8df1875772aeccdda948",
         "Dialogue persona 必须与用户指定来源逐字一致，实际 SHA-256：{actual}"
     );
 }

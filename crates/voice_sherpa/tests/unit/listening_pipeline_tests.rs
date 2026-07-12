@@ -6,18 +6,22 @@ use crate::SpeechError;
 use audio::{PcmAudioChunk, PcmFormat};
 use dialogue::{DialoguePhase, DialogueSession};
 use std::path::PathBuf;
-use std::sync::mpsc;
+use std::sync::{mpsc, Mutex, OnceLock};
+
+static VAD_PATH_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 /// LP-UT-1: ASR 安装完整但缺失真实 VAD 时，启动入口必须同步返回可见错误。
 ///
 /// 数据构造：
 ///   model_dir = 临时受管目录，含 3 个 ASR 占位文件与匹配清单，但不含 Silero VAD；
+///   MULTISOUL_SILERO_VAD_MODEL_DIR = model_dir/missing-vad（不存在，屏蔽开发资源回退）；
 ///   PCM 与事件通道均为空，确保失败只来自模型初始化。
 ///
 /// 执行过程：
 ///   1. 领域校验先把完整 ASR 占位安装转换成 AvailableAsrModel；
-///   2. 调用公开的 spawn_listening_pipeline_loop；
-///   3. 检查启动结果，不等待后台线程或依赖麦克风。
+///   2. 以进程级互斥锁临时指定不存在的 VAD 路径，隔离本机 assets/models/silero_vad 回退；
+///   3. 调用公开的 spawn_listening_pipeline_loop，随后立即恢复环境变量；
+///   4. 检查启动结果，不等待后台线程或依赖麦克风。
 ///
 /// 预期结果：
 ///   - 正断言：返回 SpeechError::ModelNotFound；
@@ -40,7 +44,18 @@ fn test_listening_pipeline_start_reports_missing_models_before_spawning() {
     let (event_tx, _event_rx) = async_channel::bounded(1);
     let (_stop_tx, stop_rx) = mpsc::channel();
 
+    let _env_lock = VAD_PATH_ENV_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .expect("VAD 环境变量测试锁不应中毒");
+    let missing_vad_dir = model_dir.path().join("missing-vad");
+    let previous_vad_dir = std::env::var_os("MULTISOUL_SILERO_VAD_MODEL_DIR");
+    std::env::set_var("MULTISOUL_SILERO_VAD_MODEL_DIR", &missing_vad_dir);
     let result = spawn_listening_pipeline_loop(available, pcm_rx, event_tx, stop_rx);
+    match previous_vad_dir {
+        Some(path) => std::env::set_var("MULTISOUL_SILERO_VAD_MODEL_DIR", path),
+        None => std::env::remove_var("MULTISOUL_SILERO_VAD_MODEL_DIR"),
+    }
 
     assert!(
         matches!(&result, Err(SpeechError::ModelNotFound(_))),

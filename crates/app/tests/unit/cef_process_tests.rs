@@ -1,33 +1,33 @@
-/// C-1: CEF feature 构建必须在 main 启动 UI 前接管 CEF 子进程。
+/// C-1: CEF feature 构建必须在库启动入口创建 UI 前接管 CEF 子进程。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   main.rs        = 应用进程入口；
+///   lib.rs         = 应用运行时入口，main.rs 只委托给 run_norma_os；
 ///   cef_process.rs = feature-gated CEF 子进程接管模块；
 ///   execute_process 返回值 >= 0 表示当前进程是 CEF 子进程，应立即退出。
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 main.rs，确认最早调用 exit_if_cef_subprocess()
+///   1. 读取 lib.rs，确认 run_norma_os 最早调用 exit_if_cef_subprocess()
 ///   2. 读取 cef_process.rs，确认普通主进程会先通过 is_cef_subprocess_arg() 过滤
 ///   3. 检查 feature 分支仅在 CEF 子进程参数存在时调用 cef::execute_process
 ///   4. 检查 execute_process 返回 >= 0 时是否 std::process::exit
 ///
 /// 预期结果：
-///   - 正断言：main 在 tracing/Application 之前调用子进程接管入口
+///   - 正断言：run_norma_os 在 tracing/Application 之前调用子进程接管入口
 ///   - 正断言：CEF feature 分支调用 cef::execute_process
 ///   - 负断言：子进程不应继续进入完整 Norma UI 启动路径
 #[test]
 fn test_cef_subprocess_handoff_runs_before_app_startup() {
-    let main = include_str!("../../src/main.rs");
+    let app_entrypoint = include_str!("../../src/lib.rs");
     let source = include_str!("../../src/app/cef_process.rs");
     let implementation = source
         .split("#[cfg(test)]")
         .next()
         .expect("cef_process source should have an implementation section");
 
-    let handoff = main
+    let handoff = app_entrypoint
         .find("app::cef_process::exit_if_cef_subprocess();")
-        .expect("main should call CEF subprocess handoff before app startup");
-    let tracing = main
+        .expect("run_norma_os should call CEF subprocess handoff before app startup");
+    let tracing = app_entrypoint
         .find("tracing_subscriber::fmt()")
         .expect("main should initialize tracing after early process handoffs");
 

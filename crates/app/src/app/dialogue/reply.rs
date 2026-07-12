@@ -62,10 +62,6 @@ pub(crate) fn synthesize_reply(
         .map_err(|error| SpeechError::Recognizer(error.to_string()))
 }
 
-pub(crate) fn finish_reply_playback(session: &mut DialogueSession, keep_listening: bool) {
-    session.on_playback_finished_or_interrupted(keep_listening);
-}
-
 #[cfg(test)]
 pub(crate) fn apply_reply_synthesis(
     session: &mut DialogueSession,

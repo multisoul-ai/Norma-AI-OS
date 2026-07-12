@@ -1,7 +1,6 @@
 use crate::app::MultisoulApp;
 use gpui::{
-    div, point, prelude::*, px, rgba, BoxShadow, Context, Div, FontWeight, KeyDownEvent,
-    MouseButton, Window,
+    div, prelude::*, px, rgba, Context, Div, FontWeight, KeyDownEvent, MouseButton, Window,
 };
 use ui::Theme;
 

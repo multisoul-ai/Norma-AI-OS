@@ -282,62 +282,45 @@ fn test_settings_panel_selects_sections_without_closing() {
     );
 }
 
-/// General 页面还原锚点：设置面板应包含图一中的 Appearance 风格结构与关键文案。
+/// Settings 导航只暴露已实现的可配置页面，隐藏旧 General/Runtime/Skills mock 分组。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = settings_panel.rs + settings_content.rs + settings_appearance.rs
-///            （检查生产渲染源码与拆分后的内容模块）
-///   nav anchors = General + Language & Region + Appearance + Date & Time + Keyboard Shortcuts
-///   content anchors = Themes + Light Mode + Dark Mode + System Preferences + Accent Colors
-///   lower anchors = Show Animations + Tables View
+///   source = settings_panel.rs + settings_content.rs（生产侧栏与内容路由）；
+///   visible sections = Keyboard + Voice + Agents + Hooks + Wallpaper，共 5 个；
+///   hidden mock sections = General + Runtime + Skills，共 3 个。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 settings_panel.rs 生产源码
-///   2. 检查左侧 General 展开子项是否存在
-///   3. 检查右侧 Appearance 页面关键模块是否存在
+///   2. 检查侧栏接线的 5 个可配置页面
+///   3. 检查内容路由明确把 3 个旧 mock 分组收敛为空白 fallback
 ///
 /// 预期结果：
-///   - 正断言：图一中的导航与内容锚点都存在
-///   - 负断言：General 页面不应只停留在 Workspace Path 这类旧泛化 mock 内容
+///   - 正断言：所有实际可配置页面均在侧栏和内容路由中存在
+///   - 负断言：旧 mock 页面不得重新接入内容渲染
 #[test]
-fn test_general_settings_panel_contains_reference_appearance_anchors() {
+fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
     let source = format!(
-        "{}{}{}",
+        "{}{}",
         include_str!("../../src/settings/panel.rs"),
-        include_str!("../../src/settings/content.rs"),
-        include_str!("../../src/settings/appearance.rs")
+        include_str!("../../src/settings/content.rs")
     );
-    let nav_anchors = [
-        "Language & Region",
-        "Appearance",
-        "Date & Time",
-        "Keyboard Shortcuts",
-    ];
-    let content_anchors = [
-        "Themes",
-        "Light Mode",
-        "Dark Mode",
-        "System Preferences",
-        "Accent Colors",
-        "Show Animations",
-        "Tables View",
+    let visible_sections = [
+        "SettingsSection::Keyboard",
+        "SettingsSection::Voice",
+        "SettingsSection::Agents",
+        "SettingsSection::Hooks",
+        "SettingsSection::Wallpaper",
     ];
 
-    for anchor in nav_anchors {
+    for section in visible_sections {
         assert!(
-            source.contains(anchor),
-            "General 左侧展开导航应包含图一锚点: {anchor}"
-        );
-    }
-    for anchor in content_anchors {
-        assert!(
-            source.contains(anchor),
-            "General 右侧内容应包含图一 Appearance 锚点: {anchor}"
+            source.contains(section),
+            "已实现的 Settings 分组必须保持侧栏/内容路由接线: {section}"
         );
     }
     assert!(
-        !source.contains("Workspace Path"),
-        "General 页面不应继续以 Workspace Path 泛化 mock 作为主要内容"
+        source.contains("SettingsSection::General\n                    | SettingsSection::Runtime\n                    | SettingsSection::Skills => div()"),
+        "旧 General/Runtime/Skills 分组必须保留为空白 fallback，不能恢复为 mock 内容"
     );
 }
 
