@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+  "crates/asr",
   "crates/audio",
   "crates/agent",
   "crates/llm",
@@ -50,6 +51,7 @@ pulldown-cmark = "0.10"
 ureq = { version = "3.3", features = ["json", "rustls"] }
 # 内部 crate（路径依赖）
 audio = { path = "crates/audio" }
+asr = { path = "crates/asr" }
 agent = { path = "crates/agent" }
 llm = { path = "crates/llm" }
 dialogue = { path = "crates/dialogue" }

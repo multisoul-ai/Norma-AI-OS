@@ -1,4 +1,4 @@
-//! App-layer shell state for Always Listening local voice dialogue.
+//! App-layer shell state for Continuous Listening local voice dialogue.
 
 mod card_tools;
 mod chat;
@@ -11,7 +11,7 @@ mod shell;
 mod turn;
 
 use crate::app::voice::control::VoiceVisual;
-use crate::settings::voice::{DialogueLlmMode, VoiceSettingsValues};
+use crate::settings::voice::{resolve_available_asr_model, VoiceSettingsValues};
 use dialogue::{
     apply_asr_final, handle_speaking_speech_start, DialoguePhase, DialogueSession,
     SpeakingSpeechSource, UtteranceCommitter,
@@ -67,16 +67,10 @@ impl fmt::Display for DialogueStartError {
 impl std::error::Error for DialogueStartError {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum VoiceBarMouseDownAction {
-    StartOneShotRecording,
-    StartAlwaysListeningShell,
-    Ignore,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum VoiceShortcutKeyDownAction {
     StartOneShotRecording,
-    StartAlwaysListeningShell,
+    StartContinuousListening,
+    StopContinuousListening,
     InterruptAssistantReply,
     Ignore,
 }
@@ -195,18 +189,18 @@ impl DialogueControlState {
     }
     pub(crate) fn validate_start_provider(
         values: &VoiceSettingsValues,
+        model_root: &std::path::Path,
     ) -> Result<SherpaProvider, DialogueStartError> {
-        match values.paraformer_model_dir() {
-            Some(path) => SherpaProvider::new(path),
-            None => SherpaProvider::from_env_or_default(),
-        }
-        .map_err(DialogueStartError::Speech)
+        resolve_available_asr_model(values, model_root)
+            .map(SherpaProvider::new)
+            .map_err(DialogueStartError::Speech)
     }
 
     pub(crate) fn validate_dialogue_start(
         values: &VoiceSettingsValues,
+        model_root: &std::path::Path,
     ) -> Result<SherpaProvider, DialogueStartError> {
-        let provider = Self::validate_start_provider(values)?;
+        let provider = Self::validate_start_provider(values, model_root)?;
         let agent_config = values
             .agent_provider_config()
             .map_err(|error| DialogueStartError::Provider(error.to_string()))?;
@@ -240,7 +234,7 @@ impl DialogueControlState {
         }
         match self.session.phase() {
             DialoguePhase::Idle => None,
-            DialoguePhase::Listening => Some("Always Listening".to_string()),
+            DialoguePhase::Listening => Some("Continuous Listening".to_string()),
             DialoguePhase::Thinking => Some("Thinking...".to_string()),
             DialoguePhase::Speaking => Some("Replying...".to_string()),
         }
@@ -266,32 +260,18 @@ impl DialogueControlState {
         self.dialogue_voice_visual().unwrap_or(fallback)
     }
 
-    pub(crate) fn voice_bar_mouse_down_action(
-        &self,
-        always_listening_enabled: bool,
-    ) -> VoiceBarMouseDownAction {
-        if self.is_active() {
-            return VoiceBarMouseDownAction::Ignore;
-        }
-        if always_listening_enabled {
-            VoiceBarMouseDownAction::StartAlwaysListeningShell
-        } else {
-            VoiceBarMouseDownAction::StartOneShotRecording
-        }
-    }
-
     pub(crate) fn voice_shortcut_key_down_action(
         &self,
-        always_listening_enabled: bool,
+        continuous_listening_enabled: bool,
     ) -> VoiceShortcutKeyDownAction {
-        if always_listening_enabled {
+        if continuous_listening_enabled {
             if self.phase() == DialoguePhase::Speaking {
                 return VoiceShortcutKeyDownAction::InterruptAssistantReply;
             }
             return if self.is_active() {
-                VoiceShortcutKeyDownAction::Ignore
+                VoiceShortcutKeyDownAction::StopContinuousListening
             } else {
-                VoiceShortcutKeyDownAction::StartAlwaysListeningShell
+                VoiceShortcutKeyDownAction::StartContinuousListening
             };
         }
         VoiceShortcutKeyDownAction::StartOneShotRecording
@@ -397,13 +377,14 @@ impl DialogueControlState {
     pub(crate) fn begin_listening_sync_for_tests(
         &mut self,
         values: &VoiceSettingsValues,
+        model_root: &std::path::Path,
     ) -> Result<(), DialogueStartError> {
         if let Err(speech_error) = check_mic_permission() {
             let error = DialogueStartError::Speech(speech_error);
             self.record_start_error(&error);
             return Err(error);
         }
-        if let Err(error) = Self::validate_dialogue_start(values) {
+        if let Err(error) = Self::validate_dialogue_start(values, model_root) {
             self.record_start_error(&error);
             return Err(error);
         }

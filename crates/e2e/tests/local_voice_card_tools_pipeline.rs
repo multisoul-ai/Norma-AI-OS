@@ -4,8 +4,9 @@
 
 use card_task::CardCommandRunner;
 use dialogue::{
-    decide_template_report, handle_speaking_speech_start, run_voice_turn, DialogueError,
-    DialoguePhase, DialogueSession, ReportPlayDecision, SpeakingSpeechSource, ToolExecutor,
+    apply_asr_final, decide_template_report, handle_speaking_speech_start, run_voice_turn,
+    DialogueError, DialoguePhase, DialogueSession, ReportPlayDecision, SpeakingSpeechSource,
+    ToolExecutor,
 };
 use llm::{MockLlmClient, MockStep, ToolCall};
 use norma::protocol::{CardCommand, CardCommandError, CardCommandResult, CardKind, Placement};
@@ -233,5 +234,131 @@ fn test_speaking_input_policy_distinguishes_echo_from_confirmed_user() {
         user_session.phase(),
         DialoguePhase::Listening,
         "已确认用户插话后应恢复 Listening"
+    );
+}
+
+/// LVCP-5：持续聆听应完成 ASR→LLM/tool→Speaking→Listening，并接受下一句。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   utterances = 2（第一句执行工具，第二句验证会话可继续）
+///   first-turn LLM steps = 2（Create tool + 最终文本）
+///   executed commands = 1（Create Terminal）
+///   assistant echo events = 1（未分类麦克风输入，不得打断）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. DialogueSession 从 Idle 启动到 Listening
+///   2. apply_asr_final(第一句) 保存 transcript 并推进 Thinking
+///   3. run_voice_turn 执行 Create，拿到 node_id=11，再返回最终回复
+///   4. on_reply_ready 推进 Speaking；注入 assistant 回声候选并继续播放
+///   5. 播放完成恢复 Listening；apply_asr_final(第二句) 再次推进 Thinking
+///
+/// 预期结果：
+///   - 正断言：第一轮工具结果、回复文本和每个 phase 均精确匹配
+///   - 正断言：播放结束后模型保持驻留，第二句可继续进入 Thinking
+///   - 负断言：assistant 回声不得截断 Speaking 或清除会话
+///   - 负断言：完整一轮后不得错误回到 Idle
+#[test]
+fn test_continuous_voice_round_trip_returns_to_listening_and_accepts_next_utterance() {
+    let mut session = DialogueSession::new();
+    session.on_listening_started();
+    assert_eq!(
+        session.phase(),
+        DialoguePhase::Listening,
+        "持续会话启动后应进入 Listening"
+    );
+
+    apply_asr_final(&mut session, "创建一个终端").expect("第一句 ASR final 应被 Listening 接受");
+    assert_eq!(
+        session.phase(),
+        DialoguePhase::Thinking,
+        "第一句 final 后应进入 Thinking"
+    );
+    assert_eq!(
+        session.pending_transcript(),
+        Some("创建一个终端"),
+        "Thinking 前应保存第一句 transcript"
+    );
+
+    let mut runner = RecordingCardRunner::new(|command| match command {
+        CardCommand::Create { .. } => Ok(CardCommandResult::Created { node_id: 11 }),
+        other => Err(CardCommandError::Unsupported {
+            message: format!("连续对话矩阵未实现命令: {other:?}"),
+        }),
+    });
+    let mut executor = CardRunnerToolExecutor {
+        runner: &mut runner,
+    };
+    let mut llm = MockLlmClient::script(vec![
+        MockStep::Tools(vec![ToolCall {
+            id: "call_create_round_trip".into(),
+            name: "Create".into(),
+            arguments_json: r#"{"kind":"terminal"}"#.into(),
+        }]),
+        MockStep::Text("终端已经创建".into()),
+    ]);
+    let outcome = run_voice_turn(
+        &mut llm,
+        &mut executor,
+        session
+            .pending_transcript()
+            .expect("第一句 pending transcript 应存在"),
+        "你是 Norma 语音助手。",
+        2,
+    )
+    .expect("第一轮 LLM/tool 应成功完成");
+    assert_eq!(
+        outcome.reply_text, "终端已经创建",
+        "第一轮最终回复应来自 Mock 文本步骤"
+    );
+    assert_eq!(
+        outcome.command_results,
+        vec![CardCommandResult::Created { node_id: 11 }],
+        "第一轮应返回精确的 Terminal node_id"
+    );
+    assert_eq!(
+        runner.recorded_commands().len(),
+        1,
+        "第一轮应且只应执行一个 Create 命令"
+    );
+
+    session
+        .on_reply_ready()
+        .expect("LLM 回复就绪后应进入 Speaking");
+    let echo_interrupted =
+        handle_speaking_speech_start(&mut session, SpeakingSpeechSource::UnclassifiedMicrophone);
+    assert!(!echo_interrupted, "assistant 回声候选不得打断 Speaking");
+    assert_eq!(
+        session.phase(),
+        DialoguePhase::Speaking,
+        "回声候选后应继续 Speaking"
+    );
+
+    session.on_playback_finished_or_interrupted(true);
+    assert_eq!(
+        session.phase(),
+        DialoguePhase::Listening,
+        "播放完成后持续会话应恢复 Listening"
+    );
+    assert!(
+        session.models_resident(),
+        "完成一轮后识别模型应保持进程内驻留"
+    );
+    assert_ne!(
+        session.phase(),
+        DialoguePhase::Idle,
+        "持续会话完成一轮后不得错误停止"
+    );
+
+    apply_asr_final(&mut session, "再创建一个浏览器")
+        .expect("恢复 Listening 后第二句 ASR final 应继续被接受");
+    assert_eq!(
+        session.phase(),
+        DialoguePhase::Thinking,
+        "第二句 final 应证明会话可继续进入下一轮 Thinking"
+    );
+    assert_eq!(
+        session.pending_transcript(),
+        Some("再创建一个浏览器"),
+        "第二轮应替换为新的 pending transcript"
     );
 }

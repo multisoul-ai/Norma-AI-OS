@@ -1,6 +1,6 @@
 use crate::{current_unix_timestamp, migrations::open_app_connection, StorageResult};
 use rusqlite::{params, OptionalExtension};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
 pub struct SettingsStore {
@@ -10,10 +10,6 @@ pub struct SettingsStore {
 impl SettingsStore {
     pub fn new(path: PathBuf) -> Self {
         SettingsStore { path }
-    }
-
-    pub fn path(&self) -> &Path {
-        &self.path
     }
 
     pub fn set_string(&self, key: &str, value: &str) -> StorageResult<()> {

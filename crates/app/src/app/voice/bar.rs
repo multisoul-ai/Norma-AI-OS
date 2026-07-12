@@ -7,7 +7,7 @@
 
 use super::control::VoiceVisual;
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, MouseButton, Window};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Window};
 use ui::Theme;
 
 /// 底部语音条与画布底部的间距。
@@ -43,9 +43,7 @@ fn voice_pill(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let palette = voice_palette(theme, visual);
-    let microphone_settings_recovery = app.can_open_microphone_privacy_settings();
-
-    let mut pill = div()
+    div()
         .h(px(42.0))
         .min_w(px(168.0))
         .max_w(px(520.0))
@@ -60,19 +58,8 @@ fn voice_pill(
         .shadow(voice_shadow(theme))
         .bg(rgba(palette.fill))
         .text_color(rgba(palette.text))
-        .text_size(px(13.0));
-    if !microphone_settings_recovery {
-        pill = pill
-            .on_mouse_down(
-                MouseButton::Left,
-                cx.listener(MultisoulApp::on_voice_bar_mouse_down),
-            )
-            .on_mouse_up(
-                MouseButton::Left,
-                cx.listener(MultisoulApp::on_voice_bar_mouse_up),
-            );
-    }
-    pill.child(status_glyph(theme, visual))
+        .text_size(px(13.0))
+        .child(status_glyph(theme, visual))
         .child(voice_content(theme, visual, app, cx))
 }
 

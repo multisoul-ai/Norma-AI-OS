@@ -24,6 +24,7 @@ mod e2e_02_real_pty;
 
 // Settings E2E：真实点击 Settings 面板控件、录制快捷键、恢复默认、关闭面板。
 mod e2e_03_settings_clicks;
+mod e2e_03_voice_modes;
 
 // Settings E2E：Voice Provider 文本输入无需 Enter 即自动保存。
 mod e2e_04_voice_autosave;
@@ -42,6 +43,11 @@ mod e2e_08_browser_address_input;
 
 // Browser 卡片：内容区选择与清除选择的画布状态闭环。
 mod e2e_09_browser_card_selection;
+
+// 语音全链路场景矩阵：快捷键、听写触发、配置持久化、模型切换与运行时路由。
+mod e2e_10_voice_config_matrix;
+mod e2e_10_voice_matrix;
+mod e2e_10_voice_model_matrix;
 
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。

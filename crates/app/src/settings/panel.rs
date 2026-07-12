@@ -377,6 +377,9 @@ fn section_button(
         .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xa6))))
         .on_click(cx.listener(move |app, _, _window, cx| {
             app.settings_panel.select(section);
+            if section == SettingsSection::Voice {
+                app.refresh_asr_model_states(cx);
+            }
             cx.notify();
         }))
         .child(

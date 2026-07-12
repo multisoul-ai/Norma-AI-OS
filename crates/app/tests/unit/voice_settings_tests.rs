@@ -1,6 +1,5 @@
 use super::provider_values::DEFAULT_OLLAMA_ENDPOINT;
 use super::*;
-use std::path::PathBuf;
 
 /// VS-1: 已保存的 voice 设置应优先于环境变量，避免 Settings UI 被 env 覆盖。
 ///
@@ -19,7 +18,7 @@ use std::path::PathBuf;
 ///   3. VoiceSettingsValues::resolve(saved, env) 合成有效配置
 ///
 /// 预期结果：
-///   - 正断言：endpoint / planner / refine / model_dir 均使用 saved 值
+///   - 正断言：endpoint / planner / refine 均使用 saved 值
 ///   - 正断言：trace 使用 saved=false，而不是 env=true
 ///   - 负断言：任何字段都不应退回 env 值
 #[test]
@@ -28,7 +27,6 @@ fn test_voice_settings_saved_values_override_env_values() {
         ollama_endpoint: Some("http://saved:11434".to_string()),
         planner_model: Some("saved-planner".to_string()),
         refine_model: Some("saved-refine".to_string()),
-        paraformer_model_dir: Some(PathBuf::from("/saved/model")),
         input_device_id: Some("saved-headset".to_string()),
         trace_enabled: Some(false),
         ..SavedVoiceSettings::default()
@@ -37,7 +35,6 @@ fn test_voice_settings_saved_values_override_env_values() {
         ollama_endpoint: Some("http://env:11434".to_string()),
         planner_model: Some("env-planner".to_string()),
         refine_model: Some("env-refine".to_string()),
-        paraformer_model_dir: Some(PathBuf::from("/env/model")),
         input_device_id: Some("env-headset".to_string()),
         trace_enabled: Some("true".to_string()),
         ..EnvVoiceSettings::default()
@@ -59,11 +56,6 @@ fn test_voice_settings_saved_values_override_env_values() {
         values.refine_model(),
         "saved-refine",
         "已保存 refine model 应优先于 MULTISOUL_REFINE_MODEL"
-    );
-    assert_eq!(
-        values.paraformer_model_dir(),
-        Some(PathBuf::from("/saved/model").as_path()),
-        "已保存 Paraformer 目录应优先于 MULTISOUL_PARAFORMER_MODEL_DIR"
     );
     assert_eq!(
         values.input_device_id(),
@@ -107,7 +99,6 @@ fn test_voice_settings_env_fallback_and_refine_follows_planner() {
         ollama_endpoint: Some("http://env:11434".to_string()),
         planner_model: Some("env-planner".to_string()),
         refine_model: None,
-        paraformer_model_dir: None,
         input_device_id: Some("env-headset".to_string()),
         trace_enabled: Some("on".to_string()),
         ..EnvVoiceSettings::default()
@@ -160,7 +151,7 @@ fn test_voice_settings_env_fallback_and_refine_follows_planner() {
 /// 预期结果：
 ///   - 正断言：endpoint / planner / refine 使用现有默认
 ///   - 正断言：trace 默认关闭
-///   - 负断言：Paraformer model_dir 不应被伪造成自定义路径
+///   - 负断言：ASR model ID 不应被伪造
 #[test]
 fn test_voice_settings_defaults_when_saved_and_env_are_missing() {
     let values =
@@ -186,8 +177,8 @@ fn test_voice_settings_defaults_when_saved_and_env_are_missing() {
         "缺少保存设置和 env 时 trace 应默认关闭"
     );
     assert!(
-        values.paraformer_model_dir().is_none(),
-        "缺少保存设置和 env 时不应伪造自定义 Paraformer 目录"
+        values.asr_model_id().is_none(),
+        "缺少新模型选择时不应伪造 ASR 模型 ID"
     );
     assert!(
         values.input_device_id().is_none(),

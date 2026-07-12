@@ -1,4 +1,4 @@
-//! Background runtime for Always Listening dialogue shell (PCM → VAD → ASR).
+//! Background runtime for Continuous Listening dialogue shell (PCM → VAD → ASR).
 
 use super::{DialogueControlState, DialogueStartError};
 use crate::settings::voice::VoiceSettingsValues;
@@ -38,6 +38,7 @@ pub(crate) struct DialogueListeningRuntime {
 
 pub(crate) fn start_dialogue_listening_runtime(
     values: VoiceSettingsValues,
+    model_root: std::path::PathBuf,
     input_device_id: Option<String>,
 ) -> Result<DialogueListeningRuntime, DialogueStartError> {
     tracing::info!(
@@ -45,17 +46,19 @@ pub(crate) fn start_dialogue_listening_runtime(
         input_device_selected = input_device_id.is_some(),
         "validating realtime voice provider"
     );
-    let provider = DialogueControlState::validate_dialogue_start(&values).map_err(|error| {
-        tracing::warn!(
-            target: "norma_voice",
-            stage = "provider_validation",
-            %error,
-            "realtime voice startup stage failed"
-        );
-        error
-    })?;
+    let provider =
+        DialogueControlState::validate_dialogue_start(&values, &model_root).map_err(|error| {
+            tracing::warn!(
+                target: "norma_voice",
+                stage = "provider_validation",
+                %error,
+                "realtime voice startup stage failed"
+            );
+            error
+        })?;
     tracing::info!(
         target: "norma_voice",
+        model_id = provider.available_model().descriptor().id().as_str(),
         model_dir = %provider.model_dir().display(),
         "realtime voice provider validated"
     );
@@ -85,9 +88,13 @@ pub(crate) fn start_dialogue_listening_runtime(
 
     let (event_tx, event_rx) = async_channel::bounded::<ListeningPipelineEvent>(64);
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
-    let model_dir = provider.model_dir().to_path_buf();
-    let pipeline_thread = spawn_listening_pipeline_loop(model_dir, pcm_chunks, event_tx, stop_rx)
-        .map_err(|error| {
+    let pipeline_thread = spawn_listening_pipeline_loop(
+        provider.available_model().clone(),
+        pcm_chunks,
+        event_tx,
+        stop_rx,
+    )
+    .map_err(|error| {
         tracing::warn!(
             target: "norma_voice",
             stage = "vad_asr_pipeline",

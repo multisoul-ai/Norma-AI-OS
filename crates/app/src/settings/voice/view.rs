@@ -1,15 +1,15 @@
-use self::always_listening::always_listening_group;
 pub(crate) use self::editable::VoiceSettingsInputs;
-use self::provider::agent_provider_group;
-use super::state::{VoiceSettingsField, VoiceSettingsState};
+use self::interaction::interaction_group;
+use self::model_catalog::model_catalog_row;
+use self::provider::{agent_provider_advanced_rows, agent_provider_group};
+use super::state::{VoiceInteractionMode, VoiceSettingsField, VoiceSettingsState};
 use crate::app::MultisoulApp;
-use gpui::{
-    div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, PathPromptOptions, Window,
-};
+use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, Window};
 use ui::Theme;
 
-mod always_listening;
 mod editable;
+mod interaction;
+mod model_catalog;
 mod provider;
 
 pub(crate) fn voice_settings(
@@ -24,57 +24,39 @@ pub(crate) fn voice_settings(
         .flex()
         .flex_col()
         .gap(px(20.0))
-        .child(agent_provider_group(theme, state, inputs, cx))
+        .child(interaction_group(theme, state, cx))
         .child(
             settings_group(theme, "Speech Recognition")
-                .child(model_dir_row(theme, state, cx))
-                .child(input_device_row(theme, state, cx)),
+                .child(input_device_row(theme, state, cx))
+                .child(model_catalog_row(theme, state, cx)),
         )
-        .child(always_listening_group(theme, state, cx))
-        .child(settings_group(theme, "Advanced").child(trace_row(theme, state, cx)))
+        .when(
+            state.values().interaction_mode() == VoiceInteractionMode::ContinuousListening,
+            |content| {
+                content
+                    .child(agent_provider_group(theme, state, inputs, cx))
+                    .child(settings_group(theme, "Spoken Reply").child(setting_row(
+                        theme,
+                        "Local TTS",
+                        "Continuous Listening replies use the configured local Matcha voice",
+                    )))
+            },
+        )
+        .when(
+            state.values().interaction_mode() == VoiceInteractionMode::Dictation,
+            |content| {
+                content.child(settings_group(theme, "Agent & Reply").child(setting_row(
+                    theme,
+                    "Used in Continuous Listening",
+                    "Switch interaction mode to configure Agent, LLM and spoken replies",
+                )))
+            },
+        )
+        .child(advanced_group(theme, state, inputs, cx))
         .children(status_message(theme, state))
 }
 
 impl MultisoulApp {
-    pub(crate) fn on_voice_settings_choose_model_dir(
-        &mut self,
-        _: &ClickEvent,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let receiver = cx.prompt_for_paths(PathPromptOptions {
-            files: false,
-            directories: true,
-            multiple: false,
-            prompt: Some("Choose Paraformer Model Directory".into()),
-        });
-
-        cx.spawn(async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = receiver.await {
-                if let Some(path) = paths.into_iter().next() {
-                    this.update(cx, |app, cx| {
-                        app.voice_settings.set_paraformer_model_dir(path);
-                        app.persist_voice_settings_in_background(cx);
-                        cx.notify();
-                    })?;
-                }
-            }
-            Ok::<(), anyhow::Error>(())
-        })
-        .detach();
-    }
-
-    pub(crate) fn on_voice_settings_use_default_model_dir(
-        &mut self,
-        _: &ClickEvent,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.voice_settings.clear_paraformer_model_dir();
-        self.persist_voice_settings_in_background(cx);
-        cx.notify();
-    }
-
     pub(crate) fn on_voice_settings_refresh_input_devices(
         &mut self,
         _: &ClickEvent,
@@ -107,6 +89,16 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    pub(crate) fn on_voice_settings_toggle_advanced(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings.toggle_advanced_expanded();
+        cx.notify();
+    }
+
     pub(crate) fn persist_voice_settings_in_background(&mut self, cx: &mut Context<Self>) {
         let writes = self.voice_settings.take_pending_writes();
         if writes.is_empty() {
@@ -128,6 +120,38 @@ impl MultisoulApp {
         })
         .detach();
     }
+}
+
+fn advanced_group(
+    theme: Theme,
+    state: &VoiceSettingsState,
+    inputs: &VoiceSettingsInputs,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
+    let expanded = state.advanced_expanded();
+    settings_group(theme, "Advanced")
+        .child(
+            setting_row(
+                theme,
+                "Diagnostics",
+                "Endpoints, trace output and recovery details for advanced users",
+            )
+            .child(
+                action_button(
+                    theme,
+                    if expanded { "Hide" } else { "Show" },
+                    theme.accent_cyan,
+                )
+                .id("settings-voice-advanced-toggle")
+                .debug_selector(|| "settings-voice-advanced-toggle".to_string())
+                .on_click(cx.listener(MultisoulApp::on_voice_settings_toggle_advanced)),
+            ),
+        )
+        .when(expanded, |group| {
+            group
+                .child(agent_provider_advanced_rows(theme, inputs, cx))
+                .child(trace_row(theme, state, cx))
+        })
 }
 
 pub(super) fn settings_group(theme: Theme, title: &'static str) -> Div {
@@ -161,52 +185,6 @@ pub(super) fn text_setting_row(
     setting_row(theme, title, hint).child(inputs.input(field))
 }
 
-fn model_dir_row(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<MultisoulApp>) -> Div {
-    let (path, ok) = model_dir_display(state);
-    div()
-        .w_full()
-        .flex()
-        .flex_col()
-        .gap(px(10.0))
-        .py(px(6.0))
-        .child(setting_label(
-            theme,
-            "Paraformer Model Directory",
-            "Local sherpa-onnx model used for streaming speech recognition",
-        ))
-        .child(
-            value_pill(theme, path, false)
-                .id("settings-voice-model-dir-path")
-                .w_full()
-                .max_w(px(520.0))
-                .text_color(rgba(if ok {
-                    theme.text_secondary
-                } else {
-                    theme.destructive
-                })),
-        )
-        .child(
-            div()
-                .flex()
-                .flex_row()
-                .flex_wrap()
-                .items_center()
-                .gap(px(10.0))
-                .child(
-                    action_button(theme, "Choose...", theme.accent_orange)
-                        .id("settings-voice-model-dir-choose")
-                        .on_click(cx.listener(MultisoulApp::on_voice_settings_choose_model_dir)),
-                )
-                .child(
-                    action_button(theme, "Use default", theme.accent_cyan)
-                        .id("settings-voice-model-dir-default")
-                        .on_click(
-                            cx.listener(MultisoulApp::on_voice_settings_use_default_model_dir),
-                        ),
-                ),
-        )
-}
-
 fn input_device_row(
     theme: Theme,
     state: &VoiceSettingsState,
@@ -216,6 +194,7 @@ fn input_device_row(
     let mut options = div().flex().flex_col().gap(px(8.0)).child(
         input_device_option(theme, "System Default".to_string(), selected_id.is_none())
             .id("settings-voice-input-device-default")
+            .debug_selector(|| "settings-voice-input-device-default".to_string())
             .on_click(cx.listener(MultisoulApp::on_voice_settings_use_default_input_device)),
     );
 
@@ -234,6 +213,7 @@ fn input_device_row(
         options = options.child(
             input_device_option(theme, label, selected)
                 .id(("settings-voice-input-device", index))
+                .debug_selector(move || format!("settings-voice-input-device-{index}"))
                 .on_click(cx.listener(move |app, _, _window, cx| {
                     app.voice_settings.select_input_device(Some(id.clone()));
                     app.persist_voice_settings_in_background(cx);
@@ -264,6 +244,7 @@ fn input_device_row(
                 .child(
                     action_button(theme, "Refresh", theme.accent_orange)
                         .id("settings-voice-input-device-refresh")
+                        .debug_selector(|| "settings-voice-input-device-refresh".to_string())
                         .on_click(
                             cx.listener(MultisoulApp::on_voice_settings_refresh_input_devices),
                         ),
@@ -271,6 +252,7 @@ fn input_device_row(
                 .child(
                     action_button(theme, "Use system default", theme.accent_cyan)
                         .id("settings-voice-input-device-clear")
+                        .debug_selector(|| "settings-voice-input-device-clear".to_string())
                         .on_click(
                             cx.listener(MultisoulApp::on_voice_settings_use_default_input_device),
                         ),
@@ -288,6 +270,7 @@ fn trace_row(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<Multisou
     .child(
         div()
             .id("settings-voice-trace-toggle")
+            .debug_selector(|| "settings-voice-trace-toggle".to_string())
             .w(px(54.0))
             .h(px(30.0))
             .rounded(px(15.0))
@@ -371,7 +354,7 @@ pub(super) fn setting_row(theme: Theme, title: &'static str, hint: &'static str)
         .child(setting_label(theme, title, hint))
 }
 
-fn setting_label(theme: Theme, title: &'static str, hint: &'static str) -> Div {
+pub(super) fn setting_label(theme: Theme, title: &'static str, hint: &'static str) -> Div {
     div()
         .w_full()
         .min_w(px(0.0))
@@ -393,31 +376,9 @@ fn setting_label(theme: Theme, title: &'static str, hint: &'static str) -> Div {
         )
 }
 
-pub(super) fn value_pill(theme: Theme, value: String, editing: bool) -> Div {
-    div()
-        .w_full()
-        .min_w(px(0.0))
-        .max_w(px(520.0))
-        .overflow_hidden()
-        .truncate()
-        .px(px(12.0))
-        .py(px(8.0))
-        .rounded(px(8.0))
-        .border_1()
-        .border_color(rgba(with_alpha(
-            if editing {
-                theme.accent_orange
-            } else {
-                theme.edge_highlight
-            },
-            0x60,
-        )))
-        .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
-        .text_size(px(13.0))
-        .text_color(rgba(theme.text_secondary))
-        .child(value)
-}
-
+/// Settings actions keep a GPUI `Div` because callers attach stable debug selectors after
+/// construction; gpui-component 0.5.1's `Button` does not expose that test seam or this compact
+/// accent variant. Keep this exception local instead of introducing another general button type.
 pub(super) fn action_button(_theme: Theme, label: &'static str, accent: u32) -> Div {
     div()
         .px(px(12.0))
@@ -446,31 +407,6 @@ fn status_message(theme: Theme, state: &VoiceSettingsState) -> Vec<Div> {
             theme.accent_cyan
         }))
         .child(message.to_string())]
-}
-
-fn model_dir_display(state: &VoiceSettingsState) -> (String, bool) {
-    if let Some(path) = state.values().paraformer_model_dir() {
-        return (
-            format!(
-                "{}{}",
-                path.display(),
-                if path.exists() { "" } else { " (missing)" }
-            ),
-            path.exists(),
-        );
-    }
-
-    match voice_sherpa::resolve_model_dir() {
-        Ok(path) => (
-            format!(
-                "{}{}",
-                path.display(),
-                if path.exists() { "" } else { " (missing)" }
-            ),
-            path.exists(),
-        ),
-        Err(error) => (error.to_string(), false),
-    }
 }
 
 pub(super) fn with_alpha(color: u32, alpha: u8) -> u32 {

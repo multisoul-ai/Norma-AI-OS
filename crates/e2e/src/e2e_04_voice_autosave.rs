@@ -5,7 +5,9 @@
 
 use std::time::Duration;
 
-use gpui::{Modifiers, TestAppContext, VisualTestContext};
+use gpui::{
+    point, px, Modifiers, ScrollDelta, ScrollWheelEvent, TestAppContext, VisualTestContext,
+};
 
 use crate::harness::{echo_factory, enter_canvas, make_app_with_settings_store};
 
@@ -33,6 +35,8 @@ fn e2e_04_voice_provider_text_auto_saves_without_enter_and_reloads() {
 
         click_debug(cx, "toolbar-settings");
         click_debug(cx, "settings-section-voice");
+        click_debug(cx, "settings-voice-mode-continuous");
+        scroll_debug(cx, "settings-content-scroll", -650.0);
         let before = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
         assert_ne!(
             before.agent_model, "autosaved-model",
@@ -44,6 +48,7 @@ fn e2e_04_voice_provider_text_auto_saves_without_enter_and_reloads() {
         );
         click_debug(cx, "settings-voice-field-agent-model");
         cx.simulate_input("autosaved-model");
+        open_voice_advanced(cx);
         click_debug(cx, "settings-voice-field-agent-base-url");
         cx.simulate_input("https://autosave.example.test/v1");
         cx.cx
@@ -118,6 +123,9 @@ fn e2e_04_voice_api_key_auto_save_shows_configured_after_blur_and_reload() {
 
         click_debug(cx, "toolbar-settings");
         click_debug(cx, "settings-section-voice");
+        click_debug(cx, "settings-voice-mode-continuous");
+        scroll_debug(cx, "settings-content-scroll", -650.0);
+        open_voice_advanced(cx);
         let before = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
         assert!(
             !before.agent_api_key_configured,
@@ -137,6 +145,7 @@ fn e2e_04_voice_api_key_auto_save_shows_configured_after_blur_and_reload() {
             timer_saved_api_key,
             "API Key 保持聚焦且不按 Enter 时，300ms 后也应自动写入 SQLite"
         );
+        scroll_debug(cx, "settings-content-scroll", 500.0);
         click_debug(cx, "settings-voice-field-agent-model");
         cx.run_until_parked();
         app.update(cx, |app, cx| app.settings_e2e_snapshot(cx))
@@ -175,6 +184,9 @@ fn e2e_04_voice_api_key_auto_save_shows_configured_after_blur_and_reload() {
         enter_canvas(&app, cx, workspace.path());
         click_debug(cx, "toolbar-settings");
         click_debug(cx, "settings-section-voice");
+        click_debug(cx, "settings-voice-mode-continuous");
+        scroll_debug(cx, "settings-content-scroll", -650.0);
+        open_voice_advanced(cx);
         app.update(cx, |app, cx| app.settings_e2e_snapshot(cx))
     };
     assert!(
@@ -191,13 +203,14 @@ fn e2e_04_voice_api_key_auto_save_shows_configured_after_blur_and_reload() {
 
 /// Tab 聚焦下一个真实文本框后，输入与自动保存必须切换到新的字段。
 ///
-/// 场景：用户点击 Base URL 后按 Tab 进入 Model，不再用鼠标点击 Model，随后直接输入；
+/// 场景：用户展开 Advanced，点击 Base URL 后按 Tab 进入 API Key，随后直接输入；
 /// 焦点移动不能只改变 GPUI 输入目标而让 Voice state 仍停留在 Base URL 编辑态。
-/// 数据构造：Model 输入为 `tab-autosaved-model`，临时 SettingsStore 隔离本机配置。
-/// 执行过程：点击 Base URL、发送真实 Tab 键、通过平台输入接口写入 Model，不按 Enter，
+/// 数据构造：API Key 输入为 `tab-autosaved-key`，临时 SettingsStore 隔离本机配置。
+/// 执行过程：展开 Advanced，点击 Base URL、发送真实 Tab 键、通过平台输入接口写入
+/// API Key，不按 Enter，
 /// 推进 300ms 自动保存窗口，再读取 App snapshot 与同一 SQLite。
-/// 预期结果：编辑字段为 Model，当前值和 SQLite 重载值均精确等于新 Model；不得把输入
-/// 静默丢弃、追加到旧值或仍报告正在编辑 Base URL。
+/// 预期结果：编辑字段为 API Key，当前状态与 SQLite 均报告已配置；不得把输入静默
+/// 丢弃、仍报告正在编辑 Base URL，或在安全显示状态中暴露明文。
 #[test]
 fn e2e_04_voice_text_inputs_auto_save_when_reached_by_tab() {
     let data = tempfile::TempDir::new().expect("测试应创建临时 settings 目录");
@@ -208,11 +221,14 @@ fn e2e_04_voice_text_inputs_auto_save_when_reached_by_tab() {
     enter_canvas(&app, cx, workspace.path());
     click_debug(cx, "toolbar-settings");
     click_debug(cx, "settings-section-voice");
+    click_debug(cx, "settings-voice-mode-continuous");
+    scroll_debug(cx, "settings-content-scroll", -650.0);
+    open_voice_advanced(cx);
 
     click_debug(cx, "settings-voice-field-agent-base-url");
     cx.simulate_keystrokes("tab");
     cx.run_until_parked();
-    cx.simulate_input("tab-autosaved-model");
+    cx.simulate_input("tab-autosaved-key");
     cx.cx
         .background_executor
         .advance_clock(Duration::from_millis(300));
@@ -221,19 +237,25 @@ fn e2e_04_voice_text_inputs_auto_save_when_reached_by_tab() {
     let current = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
         current.voice_editing_field,
-        Some("agent_model"),
-        "Tab 聚焦后 Voice state 应切换到 Model 编辑态，snapshot: {:?}",
+        Some("agent_api_key"),
+        "Tab 聚焦后 Voice state 应切换到 API Key 编辑态，snapshot: {:?}",
         current
     );
-    assert_eq!(
-        current.agent_model, "tab-autosaved-model",
-        "Tab 到 Model 后平台输入应精确替换并更新当前配置"
+    assert!(
+        current.agent_api_key_configured,
+        "Tab 到 API Key 后平台输入应更新为 configured，snapshot: {:?}",
+        current
     );
-    let (_base_url, saved_model, _configured) =
+    assert_ne!(
+        current.agent_api_key_display_state,
+        app::ApiKeyDisplayState::Unsafe,
+        "API Key 安全显示状态不得暴露通过 Tab 输入的明文"
+    );
+    let (_base_url, _model, configured) =
         app::MultisoulApp::load_voice_provider_settings_for_e2e(store);
-    assert_eq!(
-        saved_model, "tab-autosaved-model",
-        "Tab 到 Model 后不按 Enter，300ms 后 SQLite 也应自动保存新值"
+    assert!(
+        configured,
+        "Tab 到 API Key 后不按 Enter，300ms 后 SQLite 也应保存 configured 状态"
     );
 }
 
@@ -256,6 +278,9 @@ fn e2e_04_voice_api_key_close_reopen_clears_editor_but_keeps_saved_value() {
     enter_canvas(&app, cx, workspace.path());
     click_debug(cx, "toolbar-settings");
     click_debug(cx, "settings-section-voice");
+    click_debug(cx, "settings-voice-mode-continuous");
+    scroll_debug(cx, "settings-content-scroll", -650.0);
+    open_voice_advanced(cx);
 
     click_debug(cx, "settings-voice-field-agent-api-key");
     cx.simulate_input("close-reopen-test-key");
@@ -269,6 +294,8 @@ fn e2e_04_voice_api_key_close_reopen_clears_editor_but_keeps_saved_value() {
 
     click_debug(cx, "toolbar-settings");
     click_debug(cx, "settings-section-voice");
+    click_debug(cx, "settings-voice-mode-continuous");
+    scroll_debug(cx, "settings-content-scroll", -650.0);
     let reopened = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
         reopened.voice_editing_field, None,
@@ -316,6 +343,9 @@ fn e2e_04_voice_api_key_can_be_reentered_immediately_after_clear() {
     enter_canvas(&app, cx, workspace.path());
     click_debug(cx, "toolbar-settings");
     click_debug(cx, "settings-section-voice");
+    click_debug(cx, "settings-voice-mode-continuous");
+    scroll_debug(cx, "settings-content-scroll", -650.0);
+    open_voice_advanced(cx);
 
     click_debug(cx, "settings-voice-field-agent-api-key");
     cx.simulate_input("before-clear-test-key");
@@ -366,4 +396,22 @@ fn click_debug(cx: &mut VisualTestContext, selector: &'static str) {
     cx.simulate_mouse_move(bounds.center(), None, Modifiers::none());
     cx.simulate_click(bounds.center(), Modifiers::none());
     cx.run_until_parked();
+}
+
+fn scroll_debug(cx: &mut VisualTestContext, selector: &'static str, delta_y: f32) {
+    cx.run_until_parked();
+    let bounds = cx
+        .debug_bounds(selector)
+        .unwrap_or_else(|| panic!("selector `{selector}` 在滚动前应存在 debug bounds"));
+    cx.simulate_event(ScrollWheelEvent {
+        position: bounds.center(),
+        delta: ScrollDelta::Pixels(point(px(0.0), px(delta_y))),
+        ..Default::default()
+    });
+    cx.run_until_parked();
+}
+
+fn open_voice_advanced(cx: &mut VisualTestContext) {
+    click_debug(cx, "settings-voice-advanced-toggle");
+    scroll_debug(cx, "settings-content-scroll", -500.0);
 }

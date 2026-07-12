@@ -25,21 +25,26 @@ impl MultisoulApp {
             || self.dialogue.microphone_settings_recovery_available()
     }
 
-    pub(crate) fn start_always_listening_shell(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn start_continuous_listening(&mut self, cx: &mut Context<Self>) {
         let values = self.voice_settings.values().clone();
+        let model_root = self.voice_settings.model_root().to_path_buf();
         let input_device_id = values.input_device_id().map(ToOwned::to_owned);
         let startup_attempt = self.dialogue.begin_startup_attempt();
         tracing::info!(
             target: "norma_voice",
             startup_attempt,
-            model_dir = ?values.paraformer_model_dir(),
+            selected_model = values
+                .asr_model_id()
+                .map(asr::AsrModelId::as_str)
+                .unwrap_or("<none>"),
+            model_root = %model_root.display(),
             input_device_selected = input_device_id.is_some(),
             "realtime voice startup requested"
         );
         let task = cx.spawn(async move |this, cx| {
-            let runtime_task = cx
-                .background_executor()
-                .spawn(async move { start_dialogue_listening_runtime(values, input_device_id) });
+            let runtime_task = cx.background_executor().spawn(async move {
+                start_dialogue_listening_runtime(values, model_root, input_device_id)
+            });
             let runtime = runtime_task.await;
             let _ = this.update(cx, |app, cx| {
                 let should_accept = app.dialogue.should_accept_startup_attempt(startup_attempt);
@@ -86,7 +91,7 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    pub(crate) fn stop_always_listening_shell(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn stop_continuous_listening(&mut self, cx: &mut Context<Self>) {
         tracing::info!(target: "norma_voice", "realtime voice stop requested");
         self.dialogue.stop_shell();
         cx.notify();
