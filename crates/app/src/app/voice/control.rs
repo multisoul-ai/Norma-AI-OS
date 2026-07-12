@@ -7,6 +7,7 @@ mod error;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum VoiceTrigger {
     Shortcut,
+    BottomBar,
 }
 
 /// 视觉分类：把 8 个 `VoicePhase` 压缩成 5 类外观，供 `chrome.rs` 决定
@@ -174,25 +175,23 @@ impl VoiceControlState {
     pub(crate) fn clear_speech_task(&mut self) {
         self.speech_task = None;
     }
+
     pub(crate) fn cancel_speech_task(&mut self) {
         self.speech_task = None;
         self.partials_task = None;
     }
+
     pub(crate) fn take_speech_session(&mut self) -> Option<voice_sherpa::SpeechSession> {
         self.speech_session.take()
     }
+
     pub(crate) fn cancel_speech_session(&mut self) {
         if let Some(session) = self.speech_session.take() {
             session.cancel();
         }
         self.partials_task = None;
     }
-    pub(crate) fn stop_for_model_switch(&mut self) {
-        self.cancel_speech_task();
-        self.cancel_speech_session();
-        self.phase = VoicePhase::Idle;
-        self.partial_text.clear();
-    }
+
     pub(crate) fn label(&self) -> String {
         match &self.phase {
             VoicePhase::Idle => "Voice".to_string(),
@@ -430,10 +429,12 @@ mod tests {
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. begin_recording(Shortcut) → Recording
     ///   2. 再次 begin_recording(Shortcut) → 保持 Recording，返回 false
-    ///   3. finish_recording(Shortcut) → Transcribing
+    ///   3. finish_recording(BottomBar) → trigger 不匹配，返回 false
+    ///   4. finish_recording(Shortcut) → Transcribing
     ///
     /// 预期结果：
     ///   - 正断言：第一次开始成功，第二次幂等忽略
+    ///   - 正断言：错误 trigger 不能结束录音
     ///   - 负断言：结束后不应仍处于 Recording
     #[test]
     fn test_voice_recording_state_is_idempotent_and_trigger_scoped() {
@@ -441,10 +442,15 @@ mod tests {
 
         let first = state.begin_recording(VoiceTrigger::Shortcut);
         let duplicate = state.begin_recording(VoiceTrigger::Shortcut);
+        let wrong_finish = state.finish_recording(VoiceTrigger::BottomBar);
         let right_finish = state.finish_recording(VoiceTrigger::Shortcut);
 
         assert!(first, "第一次 Shortcut keydown 应开始录音");
         assert!(!duplicate, "重复 keydown 不应重复启动录音");
+        assert!(
+            !wrong_finish,
+            "BottomBar trigger 不应结束 Shortcut 启动的录音"
+        );
         assert!(right_finish, "Shortcut keyup 应结束 Shortcut 录音");
         assert_ne!(
             state.phase(),

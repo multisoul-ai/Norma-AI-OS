@@ -61,23 +61,6 @@ Boundary rules:
 - `canvas` and `terminal` must not depend on `storage`.
 - Do not write SQLite from `Runtime::drain_all`, PTY output chunks, `canvas_view::on_mouse_move`, `runtime::route`, or `send_node_input`.
 
-## `asr`
-
-Purpose: own recognition-model identity and installation integrity without GPUI, Sherpa, network access, or app settings.
-
-Important files:
-
-- `model_id.rs` - validated immutable/versioned `AsrModelId`.
-- `catalog.rs` - curated Paraformer/Zipformer descriptors, capabilities, pinned URLs, sizes, hashes, and required files.
-- `installation.rs` - manifest validation, safe required-file extraction, atomic directory install, and delete protection.
-- `support.rs` - pinned shared Silero VAD artifact validation and atomic installation.
-- `model_root.rs` - stable Norma OS Application Support model root.
-
-Boundary rules:
-
-- `asr` must not depend on GPUI, Sherpa, app, runtime, storage, or UI.
-- Network download and progress live in `app`; Sherpa recognizer configuration lives in `voice_sherpa`.
-
 ## `ui` and `app`
 
 Purpose: GPUI shell and rendering.
@@ -119,7 +102,6 @@ crates/
 ├── terminal/src/     pty, grid, session
 ├── runtime/src/      route, focus, nodes/{term,agent}
 ├── storage/src/      *_store.rs
-├── asr/src/          catalog, installation, support        # 零 GPUI/Sherpa/network
 └── app/src/          GPUI 壳，按体验域分
     ├── main.rs       boot only
     ├── app/          MultisoulApp, keyboard, lifecycle

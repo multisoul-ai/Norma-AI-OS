@@ -3,7 +3,6 @@
 mod agent_task;
 pub(crate) mod bar;
 pub(crate) mod control;
-mod dictation;
 mod execution;
 mod history;
 pub(crate) mod log;
@@ -12,6 +11,7 @@ mod planning;
 pub(crate) mod playback;
 mod refine;
 
+use crate::app::dialogue::VoiceBarMouseDownAction;
 use crate::app::voice::control::{VoicePhase, VoiceTrigger};
 use crate::app::voice::log::{
     log_voice_confirmation_required, log_voice_executed, log_voice_executing,
@@ -19,7 +19,7 @@ use crate::app::voice::log::{
 };
 use crate::app::voice::planning::VoicePlanningOutcome;
 use crate::app::{AppScreen, MultisoulApp};
-use gpui::{ClickEvent, Context, Window};
+use gpui::{ClickEvent, Context, MouseDownEvent, MouseUpEvent, Window};
 use history::VoiceOutcome;
 #[cfg(test)]
 pub(crate) use planning::VoicePlanningJob;
@@ -53,41 +53,31 @@ impl MultisoulApp {
             voice_transcript_source(),
             VoiceTranscriptSource::AppleSpeech
         ) {
-            let values = self.voice_settings.values().clone();
-            let model_root = self.voice_settings.model_root().to_path_buf();
-            let input_device_id = voice_recording_input_device_id_from_value(
-                self.voice_settings.values().input_device_id(),
-            );
             // Two-step async to avoid CFRunLoop re-entrancy with GPUI's RefCell:
             //
-            //   Step 1 (background): validate the selected model before requesting microphone
-            //     permission, then request permission (which may block on the system dialog).
+            //   Step 1 (background): request_microphone_permission() — may block while
+            //     the user responds to the system dialog.
             //   Step 2 (main thread, via this.update): start_recording() — creates
             //     AVAudioEngine objects which are not Send. By this point the permission
             //     is already Authorized, so the call is non-blocking.
             let task = cx.spawn(async move |this, cx| {
-                let provider = cx
+                let perm = cx
                     .background_executor()
-                    .spawn(async move {
-                        let provider = crate::settings::voice::resolve_available_asr_model(
-                            &values,
-                            &model_root,
-                        )
-                        .map(voice_sherpa::SherpaProvider::new)?;
-                        voice_sherpa::request_microphone_permission()?;
-                        Ok(provider)
-                    })
+                    .spawn(async { voice_sherpa::request_microphone_permission() })
                     .await;
                 let _ = this.update(cx, |app, cx| {
-                    match provider {
+                    match perm {
                         Err(error) => {
                             app.voice.set_speech_error(&error);
                             app.save_voice_speech_error(error);
                         }
-                        Ok(provider) => {
-                            match provider
-                                .start_recording_with_input_device(input_device_id.as_deref())
-                            {
+                        Ok(()) => {
+                            let input_device_id = voice_recording_input_device_id_from_value(
+                                app.voice_settings.values().input_device_id(),
+                            );
+                            match app.voice_settings.sherpa_provider().and_then(|p| {
+                                p.start_recording_with_input_device(input_device_id.as_deref())
+                            }) {
                                 Ok((session, partials)) => {
                                     app.voice.set_speech_session(session);
                                     // Event-driven: wakes only when sherpa emits a partial,
@@ -165,11 +155,43 @@ impl MultisoulApp {
             });
     }
 
+    pub(crate) fn on_voice_bar_mouse_down(
+        &mut self,
+        _: &MouseDownEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match self
+            .dialogue
+            .voice_bar_mouse_down_action(self.voice_settings.values().realtime_enabled())
+        {
+            VoiceBarMouseDownAction::StartOneShotRecording => {
+                self.begin_voice_recording(VoiceTrigger::BottomBar, cx);
+            }
+            VoiceBarMouseDownAction::StartAlwaysListeningShell => {
+                self.start_always_listening_shell(cx);
+            }
+            VoiceBarMouseDownAction::Ignore => {}
+        }
+    }
+
+    pub(crate) fn on_voice_bar_mouse_up(
+        &mut self,
+        _: &MouseUpEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.dialogue.is_active() || self.voice_settings.values().realtime_enabled() {
+            return;
+        }
+        self.end_voice_recording(VoiceTrigger::BottomBar, window, cx);
+    }
+
     fn process_finished_voice_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match voice_transcript_source() {
             VoiceTranscriptSource::Environment(transcript) if !transcript.trim().is_empty() => {
                 let transcript = transcript.trim().to_string();
-                self.handle_final_voice_text(transcript, window, cx);
+                self.start_voice_planning(transcript, window, cx);
             }
             VoiceTranscriptSource::Environment(_) => {
                 self.record_empty_voice_transcript();
@@ -221,7 +243,7 @@ impl MultisoulApp {
         match result {
             Ok(transcript) if !transcript.trim().is_empty() => {
                 let raw_transcript = transcript.trim().to_string();
-                self.handle_final_voice_text(raw_transcript, window, cx);
+                self.start_voice_planning(raw_transcript, window, cx);
             }
             Ok(_) | Err(SpeechError::EmptyTranscript) => {
                 self.record_empty_voice_transcript();

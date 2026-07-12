@@ -25,15 +25,14 @@ impl MultisoulApp {
             || self.dialogue.microphone_settings_recovery_available()
     }
 
-    pub(crate) fn start_continuous_listening(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn start_always_listening_shell(&mut self, cx: &mut Context<Self>) {
         let values = self.voice_settings.values().clone();
-        let model_root = self.voice_settings.model_root().to_path_buf();
         let input_device_id = values.input_device_id().map(ToOwned::to_owned);
         let startup_attempt = self.dialogue.begin_startup_attempt();
         let task = cx.spawn(async move |this, cx| {
-            let runtime_task = cx.background_executor().spawn(async move {
-                start_dialogue_listening_runtime(values, model_root, input_device_id)
-            });
+            let runtime_task = cx
+                .background_executor()
+                .spawn(async move { start_dialogue_listening_runtime(values, input_device_id) });
             let runtime = runtime_task.await;
             let _ = this.update(cx, |app, cx| {
                 let should_accept = app.dialogue.should_accept_startup_attempt(startup_attempt);
@@ -70,7 +69,7 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    pub(crate) fn stop_continuous_listening(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn stop_always_listening_shell(&mut self, cx: &mut Context<Self>) {
         self.dialogue.stop_shell();
         cx.notify();
     }

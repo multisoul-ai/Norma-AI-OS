@@ -34,7 +34,7 @@ fn test_dialogue_llm_mode_defaults_to_mock() {
     );
 }
 
-/// DLG-12: Ollama 模式下 Continuous Listening 启动前应探测 readiness，失败时不进入 Listening。
+/// DLG-12: Ollama 模式下 Always Listening 启动前应探测 readiness，失败时不进入 Listening。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   dialogue_llm_mode = Ollama
@@ -54,19 +54,11 @@ fn test_dialogue_llm_mode_defaults_to_mock() {
 fn test_dialogue_start_blocks_listening_when_ollama_unavailable() {
     super::app_dialogue_shell_tests::with_dialogue_shell_test_guard(|| {
         let dir = tempdir().expect("temp model dir should be creatable");
-        let _installed = super::app_dialogue_shell_tests::continuous_listening_values(Some(
-            dir.path().to_path_buf(),
-        ));
         let saved = SavedVoiceSettings {
-            interaction_mode: Some(
-                crate::settings::voice::VoiceInteractionMode::ContinuousListening,
-            ),
-            asr_model_id: Some(
-                asr::AsrModelId::parse(asr::PARAFORMER_MODEL_ID)
-                    .expect("内置 Paraformer ID 应有效"),
-            ),
+            realtime_enabled: Some(true),
             dialogue_llm_mode: Some(DialogueLlmMode::Ollama),
             ollama_endpoint: Some("http://127.0.0.1:1".to_string()),
+            paraformer_model_dir: Some(dir.path().to_path_buf()),
             ..SavedVoiceSettings::default()
         };
         let values = VoiceSettingsValues::resolve(&saved, &EnvVoiceSettings::default());
@@ -74,7 +66,7 @@ fn test_dialogue_start_blocks_listening_when_ollama_unavailable() {
 
         DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
         let error = state
-            .begin_listening_sync_for_tests(&values, dir.path())
+            .begin_listening_sync_for_tests(&values)
             .expect_err("Ollama 不可达时启动应失败");
 
         assert!(

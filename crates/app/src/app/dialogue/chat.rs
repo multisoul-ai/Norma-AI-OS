@@ -1,4 +1,4 @@
-//! Background runtime for Continuous Listening dialogue shell (PCM → VAD → ASR).
+//! Background runtime for Always Listening dialogue shell (PCM → VAD → ASR).
 
 use super::{DialogueControlState, DialogueStartError};
 use crate::settings::voice::VoiceSettingsValues;
@@ -17,10 +17,9 @@ pub(crate) struct DialogueListeningRuntime {
 
 pub(crate) fn start_dialogue_listening_runtime(
     values: VoiceSettingsValues,
-    model_root: std::path::PathBuf,
     input_device_id: Option<String>,
 ) -> Result<DialogueListeningRuntime, DialogueStartError> {
-    let provider = DialogueControlState::validate_dialogue_start(&values, &model_root)?;
+    let provider = DialogueControlState::validate_dialogue_start(&values)?;
     super::check_mic_permission().map_err(DialogueStartError::Speech)?;
     let (pcm_stream, pcm_chunks) = provider
         .start_pcm_stream(input_device_id.as_deref())
@@ -28,13 +27,9 @@ pub(crate) fn start_dialogue_listening_runtime(
 
     let (event_tx, event_rx) = async_channel::bounded::<ListeningPipelineEvent>(64);
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
-    let pipeline_thread = spawn_listening_pipeline_loop(
-        provider.available_model().clone(),
-        pcm_chunks,
-        event_tx,
-        stop_rx,
-    )
-    .map_err(DialogueStartError::Speech)?;
+    let model_dir = provider.model_dir().to_path_buf();
+    let pipeline_thread = spawn_listening_pipeline_loop(model_dir, pcm_chunks, event_tx, stop_rx)
+        .map_err(DialogueStartError::Speech)?;
 
     Ok(DialogueListeningRuntime {
         pcm_stream,

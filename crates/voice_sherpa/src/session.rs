@@ -1,10 +1,10 @@
 use crate::audio::AudioCapture;
 pub(crate) use crate::finalizer::SpeechFinalizer;
 use crate::permissions::ensure_microphone_authorized;
-use crate::recognizer_config::build_online_recognizer_config;
 use crate::session_state::{SessionEvent, SessionState};
 use crate::SpeechError;
 use crossbeam_channel::bounded;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -121,7 +121,7 @@ impl Drop for InnerSession {
 }
 
 pub(crate) fn start(
-    model: asr::AvailableAsrModel,
+    model_dir: PathBuf,
     input_device_id: Option<String>,
 ) -> Result<(crate::SpeechSession, async_channel::Receiver<String>), SpeechError> {
     ensure_microphone_authorized()?;
@@ -140,7 +140,7 @@ pub(crate) fn start(
     let (abort_tx, abort_rx) = bounded::<()>(1);
     let stats = Arc::new(AudioQueueStats::default());
 
-    let config = build_online_recognizer_config(&model)?;
+    let config = build_recognizer_config(&model_dir)?;
     let recognizer_stats = Arc::clone(&stats);
 
     let thread_handle = std::thread::Builder::new()
@@ -168,6 +168,49 @@ pub(crate) fn start(
         },
         partial_rx,
     ))
+}
+
+fn build_recognizer_config(
+    model_dir: &Path,
+) -> Result<sherpa_onnx::OnlineRecognizerConfig, SpeechError> {
+    use sherpa_onnx::{OnlineModelConfig, OnlineParaformerModelConfig, OnlineRecognizerConfig};
+
+    // Try int8 first, then full precision.
+    let encoder = find_model_file(model_dir, &["encoder.int8.onnx", "encoder.onnx"])?;
+    let decoder = find_model_file(model_dir, &["decoder.int8.onnx", "decoder.onnx"])?;
+    let tokens = model_dir.join("tokens.txt");
+    if !tokens.exists() {
+        return Err(SpeechError::ModelNotFound(tokens.display().to_string()));
+    }
+
+    Ok(OnlineRecognizerConfig {
+        model_config: OnlineModelConfig {
+            paraformer: OnlineParaformerModelConfig {
+                encoder: Some(encoder.to_string_lossy().into_owned()),
+                decoder: Some(decoder.to_string_lossy().into_owned()),
+            },
+            tokens: Some(tokens.to_string_lossy().into_owned()),
+            num_threads: 2,
+            provider: Some("cpu".to_string()),
+            debug: false,
+            ..Default::default()
+        },
+        ..Default::default()
+    })
+}
+
+pub(crate) fn find_model_file(dir: &Path, candidates: &[&str]) -> Result<PathBuf, SpeechError> {
+    for name in candidates {
+        let path = dir.join(name);
+        if path.exists() {
+            return Ok(path);
+        }
+    }
+    Err(SpeechError::ModelNotFound(format!(
+        "none of {:?} found in {}",
+        candidates,
+        dir.display()
+    )))
 }
 
 fn recognizer_loop(

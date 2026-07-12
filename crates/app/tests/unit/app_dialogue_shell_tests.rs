@@ -1,4 +1,4 @@
-use super::{DialogueControlState, DialogueStartError};
+use super::{DialogueControlState, DialogueStartError, VoiceBarMouseDownAction};
 use crate::app::voice::control::VoiceVisual;
 use crate::settings::voice::{EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsValues};
 use dialogue::DialoguePhase;
@@ -21,54 +21,40 @@ pub(super) fn mic_ok() -> Result<(), SpeechError> {
     Ok(())
 }
 
-pub(super) fn continuous_listening_values(
-    model_root: Option<std::path::PathBuf>,
+pub(super) fn always_listening_values(
+    model_dir: Option<std::path::PathBuf>,
 ) -> VoiceSettingsValues {
-    let model_id =
-        asr::AsrModelId::parse(asr::PARAFORMER_MODEL_ID).expect("内置 Paraformer ID 应有效");
-    if let Some(model_root) = model_root.as_ref() {
-        let catalog = asr::builtin_model_catalog();
-        let descriptor = catalog.find(&model_id).expect("模型库应包含 Paraformer");
-        let install_root = model_root.join(model_id.as_str());
-        std::fs::create_dir_all(&install_root).expect("应创建测试模型安装目录");
-        for file in descriptor.artifact().required_files() {
-            std::fs::write(install_root.join(file), [1_u8]).expect("应写入测试模型必要文件");
-        }
-        asr::InstallationManifest::for_descriptor(descriptor)
-            .write_to(&install_root)
-            .expect("应写入测试安装清单");
-    }
     let saved = SavedVoiceSettings {
-        interaction_mode: Some(crate::settings::voice::VoiceInteractionMode::ContinuousListening),
-        asr_model_id: model_root.map(|_| model_id),
+        realtime_enabled: Some(true),
+        paraformer_model_dir: model_dir,
         ..SavedVoiceSettings::default()
     };
     VoiceSettingsValues::resolve(&saved, &EnvVoiceSettings::default())
 }
 
-/// DLG-1: Continuous Listening 启动校验不要求 OpenAI API key。
+/// DLG-1: Always Listening 启动校验不要求 OpenAI API key。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   model_root = tempfile 创建的受管根，含 Paraformer 必要文件与匹配安装清单
-///   interaction_mode = ContinuousListening（表示用户选择持续聆听模式）
+///   model_dir = tempfile 创建的现存目录（满足 SherpaProvider::new 存在性检查）
+///   realtime_enabled = true（表示用户已打开 Always Listening 开关）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 构造仅含本地 sherpa 配置的 VoiceSettingsValues
 ///   2. 调用 DialogueControlState::validate_start_provider
 ///
 /// 预期结果：
-///   - 正断言：validate_start_provider 返回 Ok，受管 Paraformer provider 可解析
+///   - 正断言：validate_start_provider 返回 Ok，本地 provider 可解析
 ///   - 负断言：校验结果不应因缺少 OpenAI 设置而失败
 #[test]
 fn test_dialogue_start_does_not_require_openai_api_key() {
     let dir = tempdir().expect("temp model dir should be creatable");
-    let values = continuous_listening_values(Some(dir.path().to_path_buf()));
+    let values = always_listening_values(Some(dir.path().to_path_buf()));
 
-    DialogueControlState::validate_start_provider(&values, dir.path())
-        .expect("完整受管 Paraformer 安装应通过启动校验，且不依赖 OpenAI 设置");
+    DialogueControlState::validate_start_provider(&values)
+        .expect("存在本地 model dir 时启动校验应成功，且不依赖 OpenAI 设置");
 }
 
-/// DLG-2: 停止 Continuous Listening 后 phase 回到 Idle，但 models_resident 仍为 true。
+/// DLG-2: 停止 Always Listening 后 phase 回到 Idle，但 models_resident 仍为 true。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   初始 phase = Idle
@@ -88,12 +74,12 @@ fn test_dialogue_start_does_not_require_openai_api_key() {
 fn test_dialogue_stop_returns_idle_but_models_remain_resident() {
     with_dialogue_shell_test_guard(|| {
         let dir = tempdir().expect("temp model dir should be creatable");
-        let values = continuous_listening_values(Some(dir.path().to_path_buf()));
+        let values = always_listening_values(Some(dir.path().to_path_buf()));
         let mut state = DialogueControlState::default();
 
         DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
         state
-            .begin_listening_sync_for_tests(&values, dir.path())
+            .begin_listening_sync_for_tests(&values)
             .expect("测试启动应成功进入 Listening");
 
         assert_eq!(
@@ -133,12 +119,12 @@ fn test_dialogue_stop_returns_idle_but_models_remain_resident() {
 ///   - 正断言：phase 保持 Idle
 ///   - 正断言：底栏 label/visual 映射到麦克风错误
 ///   - 正断言：错误态暴露麦克风系统设置恢复入口
-///   - 负断言：不应进入 Listening 或 Continuous Listening label
+///   - 负断言：不应进入 Listening 或 Always Listening label
 #[test]
 fn test_dialogue_start_fails_cleanly_when_mic_permission_denied() {
     with_dialogue_shell_test_guard(|| {
         let dir = tempdir().expect("temp model dir should be creatable");
-        let values = continuous_listening_values(Some(dir.path().to_path_buf()));
+        let values = always_listening_values(Some(dir.path().to_path_buf()));
         let mut state = DialogueControlState::default();
 
         DialogueControlState::set_mic_permission_check_for_tests(Some(|| {
@@ -146,7 +132,7 @@ fn test_dialogue_start_fails_cleanly_when_mic_permission_denied() {
         }));
 
         let error = state
-            .begin_listening_sync_for_tests(&values, dir.path())
+            .begin_listening_sync_for_tests(&values)
             .expect_err("麦克风被拒绝时启动应失败");
 
         assert!(
@@ -176,12 +162,12 @@ fn test_dialogue_start_fails_cleanly_when_mic_permission_denied() {
         );
         assert!(
             state.microphone_settings_recovery_available(),
-            "Continuous Listening 的 MicrophoneDenied 必须暴露与一次性录音相同的系统设置恢复入口"
+            "Always Listening 的 MicrophoneDenied 必须暴露与一次性录音相同的系统设置恢复入口"
         );
         assert_ne!(
             state.effective_voice_label("Voice"),
-            "Continuous Listening",
-            "权限拒绝时不应显示 Continuous Listening"
+            "Always Listening",
+            "权限拒绝时不应显示 Always Listening"
         );
     });
 }
@@ -197,7 +183,7 @@ fn test_dialogue_start_fails_cleanly_when_mic_permission_denied() {
 ///
 /// 预期结果：
 ///   - 正断言：Idle 时 effective label 为 Voice，visual 为 Idle
-///   - 负断言：Idle 时不应显示 Continuous Listening 或错误文案
+///   - 负断言：Idle 时不应显示 Always Listening 或错误文案
 #[test]
 fn test_dialogue_default_maps_bottom_bar_to_voice() {
     let state = DialogueControlState::default();
@@ -218,7 +204,7 @@ fn test_dialogue_default_maps_bottom_bar_to_voice() {
     );
 }
 
-/// DLG-5: Listening phase 映射 Continuous Listening label 与 Recording visual。
+/// DLG-5: Listening phase 映射 Always Listening label 与 Recording visual。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   model_dir = tempfile 目录
@@ -229,24 +215,24 @@ fn test_dialogue_default_maps_bottom_bar_to_voice() {
 ///   2. 读取 effective_voice_label / effective_voice_visual
 ///
 /// 预期结果：
-///   - 正断言：label 为 Continuous Listening
+///   - 正断言：label 为 Always Listening
 ///   - 正断言：visual 为 Recording
 #[test]
-fn test_dialogue_listening_maps_bottom_label_to_continuous_listening() {
+fn test_dialogue_listening_maps_bottom_label_to_always_listening() {
     with_dialogue_shell_test_guard(|| {
         let dir = tempdir().expect("temp model dir should be creatable");
-        let values = continuous_listening_values(Some(dir.path().to_path_buf()));
+        let values = always_listening_values(Some(dir.path().to_path_buf()));
         let mut state = DialogueControlState::default();
 
         DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
         state
-            .begin_listening_sync_for_tests(&values, dir.path())
+            .begin_listening_sync_for_tests(&values)
             .expect("测试启动应进入 Listening");
 
         assert_eq!(
             state.effective_voice_label("Voice"),
-            "Continuous Listening",
-            "Listening phase 底栏应显示 Continuous Listening"
+            "Always Listening",
+            "Listening phase 底栏应显示 Always Listening"
         );
         assert_eq!(
             state.effective_voice_visual(VoiceVisual::Idle),
@@ -254,6 +240,34 @@ fn test_dialogue_listening_maps_bottom_label_to_continuous_listening() {
             "Listening 状态应使用 Recording 视觉"
         );
     });
+}
+
+/// DLG-6: Always Listening 开关开启且未 active 时，底栏 mouse down 应启动 shell。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   always_listening_enabled = true
+///   phase = Idle
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 默认 state，realtime_enabled = true
+///   2. 调用 voice_bar_mouse_down_action
+///
+/// 预期结果：
+///   - 正断言：返回 StartAlwaysListeningShell
+#[test]
+fn test_dialogue_voice_bar_mouse_down_starts_shell_when_enabled() {
+    let state = DialogueControlState::default();
+
+    assert_eq!(
+        state.voice_bar_mouse_down_action(true),
+        VoiceBarMouseDownAction::StartAlwaysListeningShell,
+        "Always Listening 开启且 Idle 时底栏应启动 shell"
+    );
+    assert_eq!(
+        state.voice_bar_mouse_down_action(false),
+        VoiceBarMouseDownAction::StartOneShotRecording,
+        "Always Listening 关闭时应保留 one-shot 录音入口"
+    );
 }
 
 /// DLG-8: final transcript 应把 session 推进 Thinking 并保存 pending_transcript。
@@ -269,12 +283,12 @@ fn test_dialogue_listening_maps_bottom_label_to_continuous_listening() {
 fn test_dialogue_final_transcript_moves_to_thinking() {
     with_dialogue_shell_test_guard(|| {
         let dir = tempdir().expect("temp model dir should be creatable");
-        let values = continuous_listening_values(Some(dir.path().to_path_buf()));
+        let values = always_listening_values(Some(dir.path().to_path_buf()));
         let mut state = DialogueControlState::default();
 
         DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
         state
-            .begin_listening_sync_for_tests(&values, dir.path())
+            .begin_listening_sync_for_tests(&values)
             .expect("测试启动应进入 Listening");
 
         state
@@ -314,13 +328,13 @@ fn test_dialogue_final_transcript_moves_to_thinking() {
 fn test_dialogue_echo_turn_reply_text_reaches_speaking() {
     with_dialogue_shell_test_guard(|| {
         let dir = tempdir().expect("temp model dir should be creatable");
-        let values = continuous_listening_values(Some(dir.path().to_path_buf()));
+        let values = always_listening_values(Some(dir.path().to_path_buf()));
         let mut state = DialogueControlState::default();
         state.prepare_reply_test_fixtures();
 
         DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
         state
-            .begin_listening_sync_for_tests(&values, dir.path())
+            .begin_listening_sync_for_tests(&values)
             .expect("测试启动应进入 Listening");
         state
             .on_final_transcript("你好")
@@ -368,13 +382,13 @@ fn test_dialogue_echo_turn_reply_text_reaches_speaking() {
 fn test_dialogue_unclassified_speech_does_not_truncate_assistant_reply() {
     with_dialogue_shell_test_guard(|| {
         let dir = tempdir().expect("temp model dir should be creatable");
-        let values = continuous_listening_values(Some(dir.path().to_path_buf()));
+        let values = always_listening_values(Some(dir.path().to_path_buf()));
         let mut state = DialogueControlState::default();
         state.prepare_reply_test_fixtures();
 
         DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
         state
-            .begin_listening_sync_for_tests(&values, dir.path())
+            .begin_listening_sync_for_tests(&values)
             .expect("测试启动应进入 Listening");
         state
             .on_final_transcript("你好")
@@ -411,6 +425,27 @@ fn test_dialogue_unclassified_speech_does_not_truncate_assistant_reply() {
             "忽略 assistant 回声后 models_resident 应保持 true"
         );
     });
+}
+
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. resolve SavedVoiceSettings
+///   2. 读取 realtime_enabled()
+///
+/// 预期结果：
+///   - 正断言：values.realtime_enabled() == true
+#[test]
+fn test_dialogue_settings_still_resolve_always_listening_toggle() {
+    let saved = SavedVoiceSettings {
+        realtime_enabled: Some(true),
+        ..SavedVoiceSettings::default()
+    };
+    let values = VoiceSettingsValues::resolve(&saved, &EnvVoiceSettings::default());
+
+    assert!(
+        values.realtime_enabled(),
+        "Settings 仍应通过 realtime_enabled 字段表示 Always Listening 开关"
+    );
 }
 
 /// DLG-15：最终语音识别文本必须以 info 日志输出，便于默认日志级别直接观察。

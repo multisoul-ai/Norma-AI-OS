@@ -39,8 +39,6 @@ pub struct SettingsE2eSnapshot {
     pub agent_model_rendered_text: Option<String>,
     pub agent_api_key_display_state: ApiKeyDisplayState,
     pub voice_editing_field: Option<&'static str>,
-    pub voice_interaction_mode: &'static str,
-    pub dictation_trigger: &'static str,
 }
 
 /// 初始化动画的稳定 e2e 投影：不暴露 app 私有 MotionStore 或帧资源实现。
@@ -247,8 +245,6 @@ impl MultisoulApp {
                 .voice_settings
                 .editing_field()
                 .map(crate::settings::voice::VoiceSettingsField::stable_name),
-            voice_interaction_mode: self.voice_settings.values().interaction_mode().as_str(),
-            dictation_trigger: self.voice_settings.values().dictation_trigger().as_str(),
         }
     }
 }
