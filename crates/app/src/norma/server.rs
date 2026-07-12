@@ -267,15 +267,19 @@ fn create_card(
             })
         }
         CardKind::Agent { profile } => {
+            let profile = canvas_agent_profile(profile);
             let (cols, rows) = term_grid_size_for_card(NodeType::Agent, bounds, zoom);
             let node_id = runtime
-                .spawn_agent(canvas_agent_profile(profile), bounds, cols, rows)
+                .spawn_agent(profile, bounds, cols, rows)
                 .map_err(|error| CardCommandError::Runtime {
                     message: error.to_string(),
                 })?;
             activate_spawned_node(runtime, node_id);
             motion.spawn_node(node_id, bounds);
-            motion.start_initialization(node_id, crate::motion::InitializationAnimationKind::Agent);
+            motion.start_initialization(
+                node_id,
+                crate::motion::InitializationAnimationKind::for_agent_profile(profile),
+            );
             apply_layout_for_current_mode(master_layout, runtime, motion, area, zoom);
             Ok(NormaExecution {
                 result: CardCommandResult::Created { node_id },

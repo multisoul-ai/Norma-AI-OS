@@ -123,11 +123,11 @@ fn e2e_05_terminal_input_interrupts_intro_within_80ms() {
     app.update(cx, |app, _| app.runtime.kill_all());
 }
 
-/// E2E-05：从公开 Agent action 创建的卡片使用 Norma 双色 ASCII 初始化资源。
+/// E2E-05：从公开 Codex Agent action 创建的卡片使用 Codex 品牌初始化资源。
 ///
 /// 数据构造（含关键数值推导）：
-///   - 使用 `NewCodexAgent` 作为公开 action；profile 只影响真实终端命令，不影响
-///     本次固定的 Norma Agent 初始化资源。
+///   - 使用 `NewCodexAgent` 作为公开 action；profile=Codex 决定本次使用
+///     `codex-brand-ascii` 资源，而非通用 Norma ASCII 资源。
 ///   - 初始帧 index=0，覆盖层/内容层透明度分别应为 1000/0（毫值）。
 ///
 /// 执行过程：
@@ -136,11 +136,11 @@ fn e2e_05_terminal_input_interrupts_intro_within_80ms() {
 ///   3. 从公开 app snapshot 读取初始化状态。
 ///
 /// 预期结果：
-///   - 正断言：Agent 新建路径登记 kind="agent" 的第 0 帧。
+///   - 正断言：Codex 新建路径登记 kind="codex"、asset="codex-brand-ascii" 的第 0 帧。
 ///   - 正断言：第 0 帧仍完全覆盖真实 Agent terminal。
-///   - 负断言：Agent 卡片不应复用 Ghostty Terminal kind。
+///   - 负断言：Codex 卡片不应复用通用 Norma ASCII 或 Ghostty Terminal 资源。
 #[test]
-fn e2e_05_new_agent_starts_norma_duotone_intro() {
+fn e2e_05_new_codex_agent_starts_codex_brand_intro() {
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
     let workspace = tempfile::TempDir::new().expect("temporary workspace root should create");
@@ -151,12 +151,12 @@ fn e2e_05_new_agent_starts_norma_duotone_intro() {
         .update(cx, |app, _| app.initialization_e2e_snapshot(node_id))
         .expect("new Agent should expose its Norma initialization snapshot");
     assert_eq!(
-        snapshot.kind, "agent",
-        "Agent action 应登记 Norma Agent 初始化资源"
+        snapshot.kind, "codex",
+        "NewCodexAgent 应登记 Codex 专属初始化资源"
     );
     assert_eq!(
-        snapshot.asset, "norma-agent-duotone",
-        "Agent 初始化状态必须指向独立的 Norma 双色二进制资源"
+        snapshot.asset, "codex-brand-ascii",
+        "Codex 初始化状态必须指向由用户指定图标转化的 ASCII 资源"
     );
     assert_eq!(
         snapshot.frame_index, 0,
@@ -172,7 +172,7 @@ fn e2e_05_new_agent_starts_norma_duotone_intro() {
     );
     assert_ne!(
         snapshot.kind, "terminal",
-        "Agent 卡片不应错误复用 Ghostty Terminal 初始化资源"
+        "Codex 卡片不应错误复用 Ghostty Terminal 初始化资源"
     );
 
     app.update(cx, |app, cx| {
@@ -181,23 +181,17 @@ fn e2e_05_new_agent_starts_norma_duotone_intro() {
     let stable = app
         .update(cx, |app, _| app.initialization_e2e_snapshot(node_id))
         .expect("Agent 最后稳定帧仍应处于 992ms 自然播放窗口内");
-    assert!(
-        stable.neutral_visible_cells > 0,
-        "Norma 二进制资源第 31 帧必须含中性人物轮廓，实际可见格数为 {}",
-        stable.neutral_visible_cells
+    assert_eq!(
+        stable.asset, "codex-brand-ascii",
+        "动画推进到最后一帧时仍必须保留 Codex 品牌资源，不能切换回 ASCII 帧资源"
     );
-    assert!(
-        stable.accent_visible_cells > 0,
-        "Norma 二进制资源第 31 帧必须含紫色 X 发饰，实际可见格数为 {}",
-        stable.accent_visible_cells
+    assert_eq!(
+        stable.frame_index, 31,
+        "31 × 31ms 后应位于 Codex 初始化时间线的最后稳定帧"
     );
     assert_ne!(
-        stable.neutral_visible_cells, 0,
-        "Agent 资源不得退化为只有紫色 accent 的单色图形"
-    );
-    assert_ne!(
-        stable.accent_visible_cells, 0,
-        "Agent 资源不得退化为没有 X 发饰 accent 的纯中性图形"
+        stable.asset, "norma-agent-duotone",
+        "Codex 初始化期间不得回退到旧的 Norma ASCII 肖像资源"
     );
 
     app.update(cx, |app, _| app.runtime.kill_all());

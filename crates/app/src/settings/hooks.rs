@@ -119,7 +119,7 @@ fn toggle_status_for(target: HookTarget) -> HookInstallStatus {
 fn install_status_for(target: HookTarget) -> HookInstallStatus {
     match install_agent_hooks(target) {
         Ok(command_path) => HookInstallStatus {
-            message: Some(format!("Installed using {}", command_path.display())),
+            message: Some(hook_install_success_message(command_path.as_path())),
             is_error: false,
         },
         Err(error) => HookInstallStatus {
@@ -127,6 +127,13 @@ fn install_status_for(target: HookTarget) -> HookInstallStatus {
             is_error: true,
         },
     }
+}
+
+fn hook_install_success_message(command_path: &std::path::Path) -> String {
+    format!(
+        "Installed using {}. Codex reads hooks when a session starts; restart existing Agent cards or create a new Agent card to activate lifecycle status updates.",
+        command_path.display()
+    )
 }
 
 fn uninstall_status_for(target: HookTarget) -> HookInstallStatus {
@@ -242,6 +249,49 @@ fn status_message(theme: Theme, status: &HookInstallStatus) -> Vec<Div> {
             theme.accent_cyan
         }))
         .child(message.to_string())]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    /// 安装 hook 后，Settings 必须提示用户重启既有 Agent，避免旧 Codex 进程遗漏运行态事件。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   command_path = "/tmp/Norma OS Dev.app/Contents/MacOS/multisoul-agent-hook"
+    ///   该路径模拟 cargo run 开发 bundle 中刚安装的 bridge 二进制
+    ///   已运行 Agent 在安装前启动，Codex 只在会话启动时读取 hooks.json，不能热加载
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 将开发 bundle 的 hook command_path 传给安装成功消息生成函数
+    ///   2. 读取返回的 Settings 状态文本
+    ///   3. 检查文本同时说明安装位置与既有 Agent 的重启动作
+    ///
+    /// 预期结果：
+    ///   - 正断言：文本包含 command_path，用户可定位实际 bridge
+    ///   - 正断言：文本包含 restart，用户知道重新创建 Agent 后才会加载 hook
+    ///   - 负断言：文本不能只报告 Installed，否则用户会误以为旧进程已自动生效
+    #[test]
+    fn test_hook_install_success_message_requires_restarting_existing_agents() {
+        let command_path = Path::new("/tmp/Norma OS Dev.app/Contents/MacOS/multisoul-agent-hook");
+
+        let message = hook_install_success_message(command_path);
+
+        assert!(
+            message.contains(&command_path.display().to_string()),
+            "安装成功消息应显示实际 bridge 路径，便于定位 cargo run 的开发 bundle"
+        );
+        assert!(
+            message.contains("restart existing Agent cards"),
+            "安装成功消息应要求重启既有 Agent，确保 Codex 在会话启动时读取 hooks"
+        );
+        assert_ne!(
+            message,
+            format!("Installed using {}", command_path.display()),
+            "安装成功消息不能只报告 Installed，否则会遗漏旧 Agent 不会热加载 hooks 的关键事实"
+        );
+    }
 }
 
 fn with_alpha(color: u32, alpha: u8) -> u32 {

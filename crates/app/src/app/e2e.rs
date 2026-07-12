@@ -155,7 +155,9 @@ impl MultisoulApp {
                 InitializationAnimationE2eSnapshot {
                     kind: match presentation.kind {
                         crate::motion::InitializationAnimationKind::Terminal => "terminal",
-                        crate::motion::InitializationAnimationKind::Agent => "agent",
+                        crate::motion::InitializationAnimationKind::Codex => "codex",
+                        crate::motion::InitializationAnimationKind::Claude => "claude",
+                        crate::motion::InitializationAnimationKind::OpenCode => "opencode",
                     },
                     asset: crate::cards::intro::intro_asset_name(presentation.kind),
                     frame_index: presentation.frame_index,

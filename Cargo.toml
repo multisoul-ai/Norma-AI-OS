@@ -22,7 +22,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-version = "0.1.21"
+version = "0.1.23"
 license = "MIT"
 
 # 版本钉死见 Global Constraints。gpui/alacritty_terminal 精确 pin。

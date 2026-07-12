@@ -6,6 +6,8 @@
 
 use std::time::Duration;
 
+use canvas::AgentProfile;
+
 pub(crate) const INITIALIZATION_FRAME_COUNT: usize = 32;
 pub(crate) const INITIALIZATION_FRAME_INTERVAL: Duration = Duration::from_millis(31);
 pub(crate) const INITIALIZATION_CROSSFADE_START: Duration = Duration::from_millis(806);
@@ -16,7 +18,19 @@ pub(crate) const INITIALIZATION_INTERRUPT_DURATION: Duration = Duration::from_mi
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum InitializationAnimationKind {
     Terminal,
-    Agent,
+    Codex,
+    Claude,
+    OpenCode,
+}
+
+impl InitializationAnimationKind {
+    pub(crate) fn for_agent_profile(profile: AgentProfile) -> Self {
+        match profile {
+            AgentProfile::Codex => Self::Codex,
+            AgentProfile::Claude => Self::Claude,
+            AgentProfile::OpenCode => Self::OpenCode,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -23,6 +23,10 @@ const TERMINAL_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
     include_bytes!("../../../assets/init-animation/ghostty-terminal-16-47.bin");
 const AGENT_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
     include_bytes!("../../../assets/init-animation/norma-agent-duotone.bin");
+const CODEX_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
+    include_bytes!("../../../assets/init-animation/codex-brand-ascii.bin");
+const CLAUDE_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
+    include_bytes!("../../../assets/init-animation/claude-code-brand-ascii.bin");
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct IntroCell {
@@ -48,7 +52,9 @@ impl IntroFrame {
 pub(crate) fn intro_frame(kind: InitializationAnimationKind, frame_index: usize) -> IntroFrame {
     let frames = match kind {
         InitializationAnimationKind::Terminal => TERMINAL_FRAMES,
-        InitializationAnimationKind::Agent => AGENT_FRAMES,
+        InitializationAnimationKind::Codex => CODEX_FRAMES,
+        InitializationAnimationKind::Claude => CLAUDE_FRAMES,
+        InitializationAnimationKind::OpenCode => AGENT_FRAMES,
     };
     let index = frame_index.min(INTRO_ANIMATION_FRAME_COUNT - 1);
     let start = index * INTRO_ANIMATION_FRAME_BYTES;
@@ -60,7 +66,9 @@ pub(crate) fn intro_frame(kind: InitializationAnimationKind, frame_index: usize)
 pub(crate) fn intro_asset_name(kind: InitializationAnimationKind) -> &'static str {
     match kind {
         InitializationAnimationKind::Terminal => "ghostty-terminal-16-47",
-        InitializationAnimationKind::Agent => "norma-agent-duotone",
+        InitializationAnimationKind::Codex => "codex-brand-ascii",
+        InitializationAnimationKind::Claude => "claude-code-brand-ascii",
+        InitializationAnimationKind::OpenCode => "norma-agent-duotone",
     }
 }
 

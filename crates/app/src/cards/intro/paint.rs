@@ -16,6 +16,8 @@ const BASE_CELL_WIDTH: f32 = 8.0;
 const BASE_LINE_HEIGHT: f32 = 16.0;
 const BASE_FONT_SIZE: f32 = 13.0;
 const GHOSTTY_ACCENT: u32 = 0x3551f3ff;
+const CODEX_ACCENT: u32 = 0x7f94ffff;
+const CLAUDE_CODE_ACCENT: u32 = 0xdf7858ff;
 const NEUTRAL_GLYPH: u32 = 0xc3c3c4ff;
 const INTRO_BACKGROUND: u32 = 0x0f0f11ff;
 
@@ -186,7 +188,9 @@ fn intro_text_color(kind: InitializationAnimationKind, accent: bool, theme: Them
     }
     match kind {
         InitializationAnimationKind::Terminal => rgba(GHOSTTY_ACCENT).into(),
-        InitializationAnimationKind::Agent => rgba(theme.accent_violet).into(),
+        InitializationAnimationKind::Codex => rgba(CODEX_ACCENT).into(),
+        InitializationAnimationKind::Claude => rgba(CLAUDE_CODE_ACCENT).into(),
+        InitializationAnimationKind::OpenCode => rgba(theme.accent_violet).into(),
     }
 }
 

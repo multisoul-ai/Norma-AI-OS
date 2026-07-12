@@ -98,7 +98,7 @@ fn test_initialization_animation_uses_native_32_frame_timeline_and_crossfade() {
 ///   输入前 overlay=1、content=0；40ms 为快速退出的一半，故两层均应为 0.5。
 ///
 /// 执行过程：
-///   1. 创建 Agent 初始化动画并推进到第 5 帧。
+///   1. 创建 Codex 初始化动画并推进到第 5 帧。
 ///   2. 调用 interrupt()，再分别推进 40ms 与 40ms。
 ///   3. 读取中点和终点的 presentation。
 ///
@@ -108,7 +108,7 @@ fn test_initialization_animation_uses_native_32_frame_timeline_and_crossfade() {
 ///   - 负断言：被打断后不应回到自然播放的后续帧。
 #[test]
 fn test_initialization_animation_interrupts_into_real_content_within_80ms() {
-    let mut animation = InitializationAnimation::new(InitializationAnimationKind::Agent);
+    let mut animation = InitializationAnimation::new(InitializationAnimationKind::Codex);
     animation.tick(INITIALIZATION_FRAME_INTERVAL * 5);
     assert!(
         animation.interrupt(),

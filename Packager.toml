@@ -3,7 +3,7 @@
 # 若 schema 不符按 https://docs.crabnebula.dev/packager/ 校准。
 name = "app"
 product-name = "Norma OS"
-version = "0.1.21"
+version = "0.1.23"
 identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]

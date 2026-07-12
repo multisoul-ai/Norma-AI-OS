@@ -109,7 +109,7 @@ impl MultisoulApp {
                 self.motion.spawn_node(node_id, bounds);
                 self.motion.start_initialization(
                     node_id,
-                    crate::motion::InitializationAnimationKind::Agent,
+                    crate::motion::InitializationAnimationKind::for_agent_profile(profile),
                 );
                 self.apply_layout_for_current_mode(window);
                 self.mark_canvas_dirty();

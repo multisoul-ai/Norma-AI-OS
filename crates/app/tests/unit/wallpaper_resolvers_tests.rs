@@ -1,4 +1,7 @@
-use super::{builtin_wallpapers, bundle_resources_dir, resolve_builtin_asset, WallpaperKind};
+use super::{
+    builtin_wallpapers, bundle_resources_dir, resolve_builtin_asset,
+    resolve_builtin_asset_from_paths, WallpaperKind,
+};
 
 /// T-R1: 扩展名 → kind 判定覆盖三类，未知扩展返回 None。
 ///
@@ -223,6 +226,56 @@ fn test_resolve_builtin_asset_returns_none_for_missing_file() {
         got.is_none(),
         "resolve_builtin_asset must return None for a missing asset — got {:?}",
         got
+    );
+}
+
+/// T-R8: 开发 `.app` 同时拥有 bundle 资源与源码资源时，内置视频必须优先读取 bundle，避免请求“文稿”目录权限。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   rel = "wallpapers/1407174.mp4"
+///   bundle_root/wallpapers/1407174.mp4 = "bundle-video"（开发 `.app` 的 Contents/Resources）
+///   dev_root/wallpapers/1407174.mp4    = "source-video"（仓库源码，位于用户“文稿”目录）
+///   两个候选文件同名且均存在；优先级必须为 bundle(第 1 个) > dev(第 2 个)
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在临时目录分别构造 bundle 与源码两套同名视频资源
+///   2. 将 bundle_root 和 dev_root 传入资源解析边界
+///   3. 读取解析结果，比较它是否指向 bundle 文件而非源码文件
+///
+/// 预期结果：
+///   - 正断言：解析路径等于 bundle 中的文件，开发 `.app` 不依赖源码目录
+///   - 正断言：解析文件内容为 bundle-video，证明不是仅比较字符串前缀
+///   - 负断言：解析路径不能等于 dev_root 的文件，否则 macOS 会向用户请求“文稿”权限
+#[test]
+fn test_resolve_builtin_asset_prefers_bundle_resources_over_development_source() {
+    let temp = tempfile::tempdir().expect("应能创建临时资源目录");
+    let rel = "wallpapers/1407174.mp4";
+    let bundle_root = temp.path().join("Contents/Resources");
+    let dev_root = temp.path().join("crates/app/assets");
+    let bundle_file = bundle_root.join(rel);
+    let dev_file = dev_root.join(rel);
+    std::fs::create_dir_all(bundle_file.parent().expect("bundle 文件应有父目录"))
+        .expect("应能创建 bundle 壁纸目录");
+    std::fs::create_dir_all(dev_file.parent().expect("源码文件应有父目录"))
+        .expect("应能创建源码壁纸目录");
+    std::fs::write(&bundle_file, "bundle-video").expect("应能写入 bundle 视频夹具");
+    std::fs::write(&dev_file, "source-video").expect("应能写入源码视频夹具");
+
+    let resolved = resolve_builtin_asset_from_paths(rel, Some(&bundle_root), Some(&dev_root))
+        .expect("两个候选资源都存在时应解析到一个路径");
+
+    assert_eq!(
+        resolved, bundle_file,
+        "开发 .app 应优先使用 Contents/Resources 中的内置视频，避免访问源码目录"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&resolved).expect("解析路径应可读取"),
+        "bundle-video",
+        "解析结果应读取 bundle 副本，而不是同名源码副本"
+    );
+    assert_ne!(
+        resolved, dev_file,
+        "解析结果不能落到开发源码目录，否则会触发 macOS“文稿”访问授权"
     );
 }
 

@@ -6,7 +6,7 @@ use crate::motion::MotionStore;
 use crate::settings::agents::AgentDefinitionsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
-use canvas::NodeId;
+use canvas::{CanvasNodeKind, NodeId};
 use gpui::{Context, PathPromptOptions, Window};
 use runtime::Runtime;
 use std::path::{Path, PathBuf};
@@ -326,6 +326,7 @@ pub(crate) fn enter_workspace_for_path(
     agent_definitions.bind_project_store(agent_definition_store);
     motion.clear_transient();
     motion.retain_nodes(std::iter::empty::<NodeId>());
+    start_restored_card_initializations(runtime, motion);
     *screen = AppScreen::Canvas;
     mark_canvas_open_render_pending();
     tracing::info!(
@@ -338,6 +339,26 @@ pub(crate) fn enter_workspace_for_path(
     Ok(WorkspaceOpenResult {
         pending_live_restore,
     })
+}
+
+/// 恢复 workspace 时，卡片先以静态 document snapshot 呈现；PTY session 仍由后续任务
+/// 分批恢复。这里仅登记 UI 覆盖层，不做任何 session IO，因此不会延迟 Canvas 首帧。
+fn start_restored_card_initializations(runtime: &Runtime, motion: &mut MotionStore) {
+    for node in runtime.document.nodes() {
+        let kind = match &node.kind {
+            CanvasNodeKind::Term(_) => Some(crate::motion::InitializationAnimationKind::Terminal),
+            CanvasNodeKind::Agent(spec) => {
+                Some(crate::motion::InitializationAnimationKind::for_agent_profile(spec.profile))
+            }
+            CanvasNodeKind::Rect(_) | CanvasNodeKind::Preview(_) | CanvasNodeKind::Browser(_) => {
+                None
+            }
+        };
+        if let Some(kind) = kind {
+            motion.ensure_node(node.id, node.bounds);
+            motion.start_initialization(node.id, kind);
+        }
+    }
 }
 
 fn log_workspace_open_timing(

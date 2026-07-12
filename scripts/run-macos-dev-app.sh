@@ -31,6 +31,17 @@ bundle="$binary_dir/Norma OS Dev.app"
 bundle_binary="$bundle/Contents/MacOS/$binary_name"
 plist="$bundle/Contents/Info.plist"
 entitlements="$repo_root/packaging/macos/NormaOS.entitlements"
+hook_binary="$binary_dir/multisoul-agent-hook"
+bundle_hook="$bundle/Contents/MacOS/multisoul-agent-hook"
+wallpaper_resources="$repo_root/crates/app/assets/wallpapers"
+bundle_resources="$bundle/Contents/Resources"
+
+# `cargo run -p app` only builds the selected norma-os binary. The hook
+# installer resolves its bridge as a sibling of the running executable, so the
+# development bundle must explicitly build and carry the helper as well.
+if [ "$binary_name" = "norma-os" ] && [ ! -x "$hook_binary" ]; then
+  cargo build --quiet --manifest-path "$repo_root/crates/app/Cargo.toml" --bin multisoul-agent-hook
+fi
 
 # A previous Cargo target can leave a differently signed executable in the
 # shared development bundle. Rebuild from an empty bundle so codesign never
@@ -39,6 +50,20 @@ rm -rf "$bundle"
 mkdir -p "$bundle/Contents/MacOS"
 cp "$binary" "$bundle_binary"
 chmod u+x "$bundle_binary"
+if [ "$binary_name" = "norma-os" ]; then
+  if [ ! -x "$hook_binary" ]; then
+    echo "multisoul-agent-hook build did not produce $hook_binary" >&2
+    exit 1
+  fi
+  cp "$hook_binary" "$bundle_hook"
+  chmod u+x "$bundle_hook"
+  if [ ! -d "$wallpaper_resources" ]; then
+    echo "built-in wallpaper resources are missing: $wallpaper_resources" >&2
+    exit 1
+  fi
+  mkdir -p "$bundle_resources"
+  cp -R "$wallpaper_resources" "$bundle_resources/"
+fi
 cp "$repo_root/packaging/macos/DevInfo.plist" "$plist"
 /usr/libexec/PlistBuddy -c 'Delete :CFBundleExecutable' "$plist" >/dev/null 2>&1 || true
 /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string $binary_name" "$plist"

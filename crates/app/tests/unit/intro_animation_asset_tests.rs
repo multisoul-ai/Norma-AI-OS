@@ -5,6 +5,34 @@ fn approx(actual: f32, expected: f32) -> bool {
     (actual - expected).abs() < 0.001
 }
 
+fn visible_display_ratio(kind: InitializationAnimationKind, frame_index: usize) -> Option<f32> {
+    let frame = intro_frame(kind, frame_index);
+    let mut minimum_column = INTRO_ANIMATION_COLUMNS;
+    let mut maximum_column = 0usize;
+    let mut minimum_row = INTRO_ANIMATION_ROWS;
+    let mut maximum_row = 0usize;
+    let mut has_visible_cell = false;
+
+    for row in 0..INTRO_ANIMATION_ROWS {
+        for column in 0..INTRO_ANIMATION_COLUMNS {
+            if frame.cell(row, column).glyph == ' ' {
+                continue;
+            }
+            minimum_column = minimum_column.min(column);
+            maximum_column = maximum_column.max(column);
+            minimum_row = minimum_row.min(row);
+            maximum_row = maximum_row.max(row);
+            has_visible_cell = true;
+        }
+    }
+
+    has_visible_cell.then(|| {
+        let visible_columns = maximum_column - minimum_column + 1;
+        let visible_rows = maximum_row - minimum_row + 1;
+        visible_columns as f32 * 8.0 / (visible_rows as f32 * 16.0)
+    })
+}
+
 /// IA-A1：Terminal 资源保留 Ghostty 官方第 17 帧的原始蓝色边框字符。
 ///
 /// 数据构造（含关键数值推导）：
@@ -34,14 +62,14 @@ fn test_terminal_intro_asset_keeps_upstream_frame_17_blue_border_cell() {
     );
 }
 
-/// IA-A2：Agent 资源在最后稳定帧同时保留中性人物轮廓和紫色 X 发饰。
+/// IA-A2：OpenCode 继续使用现有 Norma 资源，最后稳定帧保留中性人物轮廓和紫色 X 发饰。
 ///
 /// 数据构造（含关键数值推导）：
 ///   帧数为 32，最后稳定帧 index = 32 - 1 = 31。
 ///   100×41 网格共 4100 格，需至少各有一个 normal/accent 非空格。
 ///
 /// 执行过程：
-///   1. 读取 Agent 第 31 帧。
+///   1. 读取 OpenCode 第 31 帧。
 ///   2. 遍历全部格子，统计中性和 accent 的可见字符数。
 ///
 /// 预期结果：
@@ -51,7 +79,7 @@ fn test_terminal_intro_asset_keeps_upstream_frame_17_blue_border_cell() {
 #[test]
 fn test_agent_intro_asset_stable_frame_contains_neutral_portrait_and_accent_x() {
     let frame = intro_frame(
-        InitializationAnimationKind::Agent,
+        InitializationAnimationKind::OpenCode,
         super::super::INTRO_ANIMATION_FRAME_COUNT - 1,
     );
     let mut neutral_visible = 0usize;
@@ -88,7 +116,121 @@ fn test_agent_intro_asset_stable_frame_contains_neutral_portrait_and_accent_x() 
     );
 }
 
-/// IA-A3：100×41 ASCII 画面按内容区等比居中，不借用或覆盖标题栏坐标。
+/// IA-A3：Codex 与 Claude Code 使用从各自品牌图标转化的独立双色 ASCII 帧。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   frame_index = 32 - 1 = 31（动画最后稳定帧）；每张图为 100×41 = 4100 个 ASCII 单元。
+///   Codex 输入图包含蓝紫终端轮廓；Claude Code 输入图包含橙色机器人和黑色眼睛。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 Codex、Claude Code 与 OpenCode 的第 31 帧，统计中性/强调字符数量。
+///   2. 读取三个资源名，验证 Codex/Claude Code 是独立 ASCII 资产而非通用 Norma 资源。
+///
+/// 预期结果：
+///   - 断言 A：Codex 与 Claude Code 各自都有中性与强调 ASCII 字符。
+///   - 断言 B：Codex 与 Claude Code 使用不同资源名。
+///   - 断言 C：两者均不应回退到 OpenCode 的 norma-agent-duotone 资源。
+#[test]
+fn test_brand_intro_assets_use_distinct_duotone_ascii_frames() {
+    let final_frame = super::super::INTRO_ANIMATION_FRAME_COUNT - 1;
+    let (codex_neutral, codex_accent) =
+        super::super::intro_visible_cell_counts(InitializationAnimationKind::Codex, final_frame);
+    let (claude_neutral, claude_accent) =
+        super::super::intro_visible_cell_counts(InitializationAnimationKind::Claude, final_frame);
+    let codex_asset = super::super::intro_asset_name(InitializationAnimationKind::Codex);
+    let claude_asset = super::super::intro_asset_name(InitializationAnimationKind::Claude);
+
+    assert!(
+        codex_neutral > 0,
+        "Codex ASCII 图标必须保留至少一个中性轮廓字符，实际为 {codex_neutral}"
+    );
+    assert!(
+        codex_accent > 0,
+        "Codex ASCII 图标必须保留至少一个蓝紫强调字符，实际为 {codex_accent}"
+    );
+    assert!(
+        claude_neutral > 0,
+        "Claude Code ASCII 图标必须保留至少一个黑色眼睛/轮廓字符，实际为 {claude_neutral}"
+    );
+    assert!(
+        claude_accent > 0,
+        "Claude Code ASCII 图标必须保留至少一个橙色强调字符，实际为 {claude_accent}"
+    );
+    assert_ne!(
+        codex_asset, claude_asset,
+        "Codex 与 Claude Code 必须映射到不同的 ASCII 资源，不能显示同一张图"
+    );
+    assert_eq!(
+        codex_asset, "codex-brand-ascii",
+        "Codex 必须使用从品牌图标生成的 codex-brand-ascii 紧凑帧资源"
+    );
+    assert_eq!(
+        claude_asset, "claude-code-brand-ascii",
+        "Claude Code 必须使用从品牌图标生成的 claude-code-brand-ascii 紧凑帧资源"
+    );
+    assert_ne!(
+        codex_asset, "norma-agent-duotone",
+        "Codex 不应回退到 OpenCode 使用的通用 Norma ASCII 肖像"
+    );
+    assert_ne!(
+        claude_asset, "norma-agent-duotone",
+        "Claude Code 不应回退到 OpenCode 使用的通用 Norma ASCII 肖像"
+    );
+}
+
+/// IA-A4：Codex 与 Claude Code 的 ASCII 品牌图按终端字符的真实 8×16 像素比例等比显示。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   最后稳定帧 index = 32 - 1 = 31；终端字符单元物理尺寸为 8×16px。
+///   Codex 源图的可见终端标志接近 1:1，允许离散 ASCII 采样误差后显示比例落在 [0.85, 1.15]。
+///   Claude Code 源图机器人约为 495:404 = 1.225，允许轮廓采样误差后显示比例落在 [0.95, 1.45]。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取两个品牌在稳定帧中的所有可见 ASCII 字符。
+///   2. 求其最小包围盒，并以 columns×8 / rows×16 计算屏幕显示比例。
+///   3. 将结果与各自源图的允许比例区间比较。
+///
+/// 预期结果：
+///   - 断言 A：Codex 可见区域存在，且不再被纵向拉伸。
+///   - 断言 B：Claude Code 可见区域存在，且不再被纵向拉伸。
+///   - 断言 C：两者均不得退化为无可见字符的空白帧。
+#[test]
+fn test_brand_ascii_frames_preserve_source_display_aspect_ratio() {
+    let final_frame = super::super::INTRO_ANIMATION_FRAME_COUNT - 1;
+    let codex_ratio = visible_display_ratio(InitializationAnimationKind::Codex, final_frame);
+    let claude_ratio = visible_display_ratio(InitializationAnimationKind::Claude, final_frame);
+
+    assert!(
+        codex_ratio.is_some(),
+        "Codex 稳定帧必须有可见 ASCII 字符，不能退化为空白画面"
+    );
+    assert!(
+        claude_ratio.is_some(),
+        "Claude Code 稳定帧必须有可见 ASCII 字符，不能退化为空白画面"
+    );
+
+    let codex_ratio = codex_ratio.expect("上方断言已确认 Codex 稳定帧含有可见字符");
+    let claude_ratio = claude_ratio.expect("上方断言已确认 Claude Code 稳定帧含有可见字符");
+
+    assert!(
+        (0.85..=1.15).contains(&codex_ratio),
+        "Codex 的显示比例应接近 1:1，实际为 {codex_ratio:.3}；偏小表示被纵向拉伸"
+    );
+    assert!(
+        (0.95..=1.45).contains(&claude_ratio),
+        "Claude Code 的显示比例应接近源图 1.225，实际为 {claude_ratio:.3}；偏小表示被纵向拉伸"
+    );
+    assert_ne!(
+        codex_ratio, 0.0,
+        "Codex 的可见包围盒比例不能为 0，否则说明没有宽度或高度"
+    );
+    assert_ne!(
+        claude_ratio, 0.0,
+        "Claude Code 的可见包围盒比例不能为 0，否则说明没有宽度或高度"
+    );
+}
+
+/// IA-A5：100×41 ASCII 画面按内容区等比居中，不借用或覆盖标题栏坐标。
 ///
 /// 数据构造（含关键数值推导）：
 ///   - 内容区 bounds = 800×400px（不包含 card 标题栏）。
