@@ -10,6 +10,17 @@ use dialogue::{
 #[cfg(target_os = "macos")]
 use llm::LlmClient;
 
+#[cfg(target_os = "macos")]
+fn installed_paraformer() -> asr::AvailableAsrModel {
+    let catalog = asr::builtin_model_catalog();
+    let id = asr::AsrModelId::parse(asr::PARAFORMER_MODEL_ID).expect("内置 Paraformer ID 应有效");
+    let descriptor = catalog.find(&id).expect("模型库应包含 Paraformer");
+    let model_root = asr::default_model_installation_root()
+        .expect("真实语音测试需要可用的 Application Support 目录");
+    asr::validate_installation(&model_root.join(id.as_str()), descriptor)
+        .expect("真实语音测试要求通过新清单安装 Paraformer")
+}
+
 fn test_pcm_chunk() -> PcmAudioChunk {
     PcmAudioChunk::new(PcmFormat::Pcm16, 16_000, 1, vec![0, 0, 0, 0])
         .expect("测试 PCM 块应通过校验")
@@ -201,8 +212,9 @@ fn test_real_end_to_end_voice_conversation_replies_audibly() {
         .samples::<i16>()
         .collect::<Result<Vec<_>, _>>()
         .expect("E2E WAV 应完整解码");
-    let mut pipeline =
-        SherpaListeningPipeline::from_model_dir(&model_dir).expect("真实 VAD/ASR 应加载");
+    let available = installed_paraformer();
+    let mut pipeline = SherpaListeningPipeline::from_available_model(&available)
+        .expect("真实 VAD/ASR 应通过可用模型加载");
     let mut events = Vec::new();
     for samples in samples.chunks(512) {
         events.extend(
@@ -296,7 +308,7 @@ fn pcm16_chunk(samples: &[i16]) -> PcmAudioChunk {
 ///   监听窗口 = 完整播放时长 + 500ms，覆盖 AEC 收敛与 VAD 150ms 起说阈值。
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 保持 Always Listening pipeline 运行；
+///   1. 保持 Continuous Listening pipeline 运行；
 ///   2. 通过设备扬声器播放 assistant TTS；
 ///   3. 将 pipeline 的原始 SpeechStart 按 UnclassifiedMicrophone 交给生产 speaking policy。
 ///
@@ -311,15 +323,19 @@ fn test_assistant_playback_echo_is_ignored_until_reply_completes() {
     use std::time::{Duration, Instant};
     use voice_sherpa::{spawn_listening_pipeline_loop, ListeningPipelineEvent, SherpaProvider};
 
-    let provider = SherpaProvider::from_env_or_default().expect("真实 Paraformer 模型应已安装");
-    let model_dir = provider.model_dir().to_path_buf();
+    let provider = SherpaProvider::new(installed_paraformer());
     let (pcm_stream, pcm_rx) = provider
         .start_pcm_stream(None)
         .expect("真实默认麦克风应可启动");
     let (event_tx, event_rx) = async_channel::bounded(64);
     let (stop_tx, stop_rx) = mpsc::channel();
-    let pipeline_thread = spawn_listening_pipeline_loop(model_dir, pcm_rx, event_tx, stop_rx)
-        .expect("真实 VAD/ASR pipeline 应可启动");
+    let pipeline_thread = spawn_listening_pipeline_loop(
+        provider.available_model().clone(),
+        pcm_rx,
+        event_tx,
+        stop_rx,
+    )
+    .expect("真实 VAD/ASR pipeline 应可启动");
     std::thread::sleep(Duration::from_millis(300));
 
     let mut tts =

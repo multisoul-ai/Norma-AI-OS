@@ -81,7 +81,6 @@ impl VoiceSettingsInputs {
             VoiceSettingsField::AgentBaseUrl => self.base_url.clone(),
             VoiceSettingsField::AgentModel => self.model.clone(),
             VoiceSettingsField::AgentApiKey => self.api_key.clone(),
-            _ => unreachable!("only Agent Provider fields use VoiceTextInput"),
         }
     }
 
