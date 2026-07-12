@@ -194,6 +194,7 @@ fn input_device_row(
     let mut options = div().flex().flex_col().gap(px(8.0)).child(
         input_device_option(theme, "System Default".to_string(), selected_id.is_none())
             .id("settings-voice-input-device-default")
+            .debug_selector(|| "settings-voice-input-device-default".to_string())
             .on_click(cx.listener(MultisoulApp::on_voice_settings_use_default_input_device)),
     );
 
@@ -212,6 +213,7 @@ fn input_device_row(
         options = options.child(
             input_device_option(theme, label, selected)
                 .id(("settings-voice-input-device", index))
+                .debug_selector(move || format!("settings-voice-input-device-{index}"))
                 .on_click(cx.listener(move |app, _, _window, cx| {
                     app.voice_settings.select_input_device(Some(id.clone()));
                     app.persist_voice_settings_in_background(cx);
@@ -242,6 +244,7 @@ fn input_device_row(
                 .child(
                     action_button(theme, "Refresh", theme.accent_orange)
                         .id("settings-voice-input-device-refresh")
+                        .debug_selector(|| "settings-voice-input-device-refresh".to_string())
                         .on_click(
                             cx.listener(MultisoulApp::on_voice_settings_refresh_input_devices),
                         ),
@@ -249,6 +252,7 @@ fn input_device_row(
                 .child(
                     action_button(theme, "Use system default", theme.accent_cyan)
                         .id("settings-voice-input-device-clear")
+                        .debug_selector(|| "settings-voice-input-device-clear".to_string())
                         .on_click(
                             cx.listener(MultisoulApp::on_voice_settings_use_default_input_device),
                         ),
@@ -266,6 +270,7 @@ fn trace_row(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<Multisou
     .child(
         div()
             .id("settings-voice-trace-toggle")
+            .debug_selector(|| "settings-voice-trace-toggle".to_string())
             .w(px(54.0))
             .h(px(30.0))
             .rounded(px(15.0))

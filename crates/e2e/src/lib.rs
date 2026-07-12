@@ -44,6 +44,11 @@ mod e2e_08_browser_address_input;
 // Browser 卡片：内容区选择与清除选择的画布状态闭环。
 mod e2e_09_browser_card_selection;
 
+// 语音全链路场景矩阵：快捷键、听写触发、配置持久化、模型切换与运行时路由。
+mod e2e_10_voice_config_matrix;
+mod e2e_10_voice_matrix;
+mod e2e_10_voice_model_matrix;
+
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。
 pub use harness::{

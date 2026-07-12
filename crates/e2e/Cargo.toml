@@ -12,6 +12,7 @@ license.workspace = true
 # 该 feature 仅在 e2e crate 激活，不会影响 `cargo build -p app` 的生产构建。
 [dependencies]
 agent.workspace = true
+asr.workspace = true
 audio.workspace = true
 app = { path = "../app" }
 card_task.workspace = true

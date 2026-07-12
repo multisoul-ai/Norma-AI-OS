@@ -41,6 +41,23 @@ pub struct SettingsE2eSnapshot {
     pub voice_editing_field: Option<&'static str>,
     pub voice_interaction_mode: &'static str,
     pub dictation_trigger: &'static str,
+    pub input_device_id: Option<String>,
+    pub trace_enabled: bool,
+    pub selected_asr_model_id: Option<String>,
+    pub asr_models: Vec<AsrModelE2eSnapshot>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AsrModelE2eSnapshot {
+    pub id: String,
+    pub display_name: String,
+    pub languages: Vec<String>,
+    pub streaming_partials: bool,
+    pub recommended: bool,
+    pub installation: &'static str,
+    pub selected: bool,
+    pub action: &'static str,
+    pub deletable: bool,
 }
 
 /// 初始化动画的稳定 e2e 投影：不暴露 app 私有 MotionStore 或帧资源实现。
@@ -61,6 +78,15 @@ pub struct VoiceWindowInsetE2eSnapshot {
     pub opacity_milli: u16,
     pub inset_px_milli: u16,
     pub corner_seam_guard_alpha_milli: u16,
+}
+
+/// 语音入口的稳定 e2e 投影：覆盖用户可见状态，不暴露录音或对话实现对象。
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VoiceE2eSnapshot {
+    pub phase: &'static str,
+    pub dialogue_phase: &'static str,
+    pub label: String,
+    pub microphone_recovery_available: bool,
 }
 
 impl MultisoulApp {
@@ -185,6 +211,29 @@ impl MultisoulApp {
         }
     }
 
+    pub fn voice_e2e_snapshot(&self) -> VoiceE2eSnapshot {
+        VoiceE2eSnapshot {
+            phase: match self.voice.phase() {
+                crate::app::voice::control::VoicePhase::Idle => "idle",
+                crate::app::voice::control::VoicePhase::Recording { .. } => "recording",
+                crate::app::voice::control::VoicePhase::Transcribing => "transcribing",
+                crate::app::voice::control::VoicePhase::Planning { .. } => "planning",
+                crate::app::voice::control::VoicePhase::Confirming { .. } => "confirming",
+                crate::app::voice::control::VoicePhase::Executed { .. } => "executed",
+                crate::app::voice::control::VoicePhase::TranscriptOnly { .. } => "transcript_only",
+                crate::app::voice::control::VoicePhase::Error { .. } => "error",
+            },
+            dialogue_phase: match self.dialogue.phase() {
+                dialogue::DialoguePhase::Idle => "idle",
+                dialogue::DialoguePhase::Listening => "listening",
+                dialogue::DialoguePhase::Thinking => "thinking",
+                dialogue::DialoguePhase::Speaking => "speaking",
+            },
+            label: self.effective_voice_label(),
+            microphone_recovery_available: self.can_open_microphone_privacy_settings(),
+        }
+    }
+
     pub fn enter_canvas_for_test(&mut self, root: &std::path::Path, cx: &mut Context<Self>) {
         self.runtime.set_workspace_root(root.to_path_buf());
         self.screen = AppScreen::Canvas;
@@ -196,6 +245,24 @@ impl MultisoulApp {
     /// 系统设置本身属于 L3 外部流程，不能由 headless GPUI 修改。
     pub fn show_microphone_permission_denied_for_e2e(&mut self, cx: &mut Context<Self>) {
         self.voice.set_speech_error(&SpeechError::MicrophoneDenied);
+        cx.notify();
+    }
+
+    /// 注入稳定的麦克风列表，避免 headless e2e 依赖当前测试机硬件枚举结果。
+    pub fn set_voice_input_devices_for_e2e(
+        &mut self,
+        devices: Vec<(String, String, bool)>,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings
+            .refresh_input_devices_from_result(Ok(devices
+                .into_iter()
+                .map(|(id, name, is_default)| voice_sherpa::AudioInputDevice {
+                    id,
+                    name,
+                    is_default,
+                })
+                .collect()));
         cx.notify();
     }
 
@@ -249,6 +316,61 @@ impl MultisoulApp {
                 .map(crate::settings::voice::VoiceSettingsField::stable_name),
             voice_interaction_mode: self.voice_settings.values().interaction_mode().as_str(),
             dictation_trigger: self.voice_settings.values().dictation_trigger().as_str(),
+            input_device_id: self
+                .voice_settings
+                .values()
+                .input_device_id()
+                .map(ToOwned::to_owned),
+            trace_enabled: self.voice_settings.values().trace_enabled(),
+            selected_asr_model_id: self
+                .voice_settings
+                .values()
+                .asr_model_id()
+                .map(|id| id.as_str().to_string()),
+            asr_models: self
+                .voice_settings
+                .model_manager()
+                .entries()
+                .iter()
+                .map(|entry| {
+                    let descriptor = entry.descriptor();
+                    let selected =
+                        self.voice_settings.values().asr_model_id() == Some(descriptor.id());
+                    AsrModelE2eSnapshot {
+                        id: descriptor.id().as_str().to_string(),
+                        display_name: descriptor.display_name().to_string(),
+                        languages: descriptor.capabilities().languages().to_vec(),
+                        streaming_partials: descriptor.capabilities().streaming_partials(),
+                        recommended: descriptor.recommended(),
+                        installation: match entry.installation() {
+                            crate::settings::voice::AsrModelInstallState::NotInstalled => {
+                                "not_installed"
+                            }
+                            crate::settings::voice::AsrModelInstallState::Installing { .. } => {
+                                "installing"
+                            }
+                            crate::settings::voice::AsrModelInstallState::Ready => "ready",
+                            crate::settings::voice::AsrModelInstallState::Failed(_) => "failed",
+                        },
+                        selected,
+                        action: match entry.installation() {
+                            crate::settings::voice::AsrModelInstallState::NotInstalled => "install",
+                            crate::settings::voice::AsrModelInstallState::Installing { .. } => {
+                                "progress"
+                            }
+                            crate::settings::voice::AsrModelInstallState::Ready if selected => {
+                                "selected"
+                            }
+                            crate::settings::voice::AsrModelInstallState::Ready => "select",
+                            crate::settings::voice::AsrModelInstallState::Failed(_) => "retry",
+                        },
+                        deletable: matches!(
+                            entry.installation(),
+                            crate::settings::voice::AsrModelInstallState::Ready
+                        ) && !selected,
+                    }
+                })
+                .collect(),
         }
     }
 }

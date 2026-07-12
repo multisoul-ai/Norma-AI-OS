@@ -1971,6 +1971,7 @@ version = "0.1.21"
 dependencies = [
  "agent",
  "app",
+ "asr",
  "audio",
  "canvas",
  "card_task",
