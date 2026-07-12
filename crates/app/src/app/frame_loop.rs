@@ -171,6 +171,9 @@ impl MultisoulApp {
                     let cursor_changed = app.advance_terminal_cursor_phase(animation_interval);
                     for event in app.dialogue.take_playback_events() {
                         match event {
+                            AssistantPlaybackEvent::PcmQueued(timeline) => {
+                                app.voice_window_inset.queue_energy_timeline(timeline);
+                            }
                             AssistantPlaybackEvent::Started => {
                                 app.voice_window_inset.begin_playback();
                             }

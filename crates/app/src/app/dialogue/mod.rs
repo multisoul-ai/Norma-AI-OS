@@ -81,8 +81,9 @@ pub(crate) enum VoiceShortcutKeyDownAction {
     Ignore,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub(super) enum AssistantPlaybackEvent {
+    PcmQueued(crate::app::voice_window_inset::PcmEnergyTimeline),
     Started,
     Finished,
     Interrupted,

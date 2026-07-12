@@ -1,4 +1,4 @@
-use super::reply_stream::StreamPlaybackBuffer;
+use super::reply_stream::{QueuedPlaybackChunk, StreamPlaybackBuffer};
 use audio::{PcmAudioChunk, PcmFormat};
 use std::time::Duration;
 
@@ -24,12 +24,15 @@ fn test_stream_playback_buffer_waits_for_120ms_then_releases_in_order() {
     let first = pcm16_mono_chunk(22_050, Duration::from_millis(60));
     let second = pcm16_mono_chunk(22_050, Duration::from_millis(60));
 
-    let before_threshold = buffer.push(first.clone());
-    let at_threshold = buffer.push(second.clone());
+    let before_threshold = buffer.push(QueuedPlaybackChunk::from_pcm(first.clone()));
+    let at_threshold = buffer.push(QueuedPlaybackChunk::from_pcm(second.clone()));
 
     assert!(before_threshold.is_empty(), "累计 60ms 时不得提前启动播放");
     assert_eq!(
-        at_threshold,
+        at_threshold
+            .into_iter()
+            .map(|chunk| chunk.pcm)
+            .collect::<Vec<_>>(),
         vec![first, second],
         "累计恰好 120ms 后必须按输入顺序释放所有预缓冲块"
     );
@@ -46,7 +49,7 @@ fn test_stream_playback_buffer_flushes_short_final_audio_without_fake_silence() 
     let mut buffer = StreamPlaybackBuffer::new(Duration::from_millis(120));
     let short_final = pcm16_mono_chunk(16_000, Duration::from_millis(80));
 
-    let before_finish = buffer.push(short_final.clone());
+    let before_finish = buffer.push(QueuedPlaybackChunk::from_pcm(short_final.clone()));
     let after_finish = buffer.finish();
 
     assert!(
@@ -54,7 +57,10 @@ fn test_stream_playback_buffer_flushes_short_final_audio_without_fake_silence() 
         "未结束时 80ms 不得突破 120ms 预缓冲门槛"
     );
     assert_eq!(
-        after_finish,
+        after_finish
+            .into_iter()
+            .map(|chunk| chunk.pcm)
+            .collect::<Vec<_>>(),
         vec![short_final],
         "最终短音频必须原样播放，不能补静音或被丢弃"
     );

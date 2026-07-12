@@ -58,6 +58,7 @@ pub struct VoiceWindowInsetE2eSnapshot {
     pub active: bool,
     pub opacity_milli: u16,
     pub inset_px_milli: u16,
+    pub corner_seam_guard_alpha_milli: u16,
 }
 
 impl MultisoulApp {
@@ -147,6 +148,16 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    /// 注入一块已成功排入播放时间线的助手 PCM，供 headless e2e 验证可见能量反馈。
+    pub fn queue_assistant_pcm_for_e2e(
+        &mut self,
+        chunk: audio::PcmAudioChunk,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_window_inset.queue_pcm_energy(&chunk);
+        cx.notify();
+    }
+
     pub fn finish_assistant_playback_for_e2e(&mut self, cx: &mut Context<Self>) {
         self.voice_window_inset.finish_playback();
         cx.notify();
@@ -158,11 +169,15 @@ impl MultisoulApp {
                 active: true,
                 opacity_milli: opacity_to_milli(visual.opacity),
                 inset_px_milli: (visual.inset_px * 1000.0).round() as u16,
+                corner_seam_guard_alpha_milli: opacity_to_milli(
+                    self.voice_window_inset.corner_seam_guard_alpha(),
+                ),
             },
             None => VoiceWindowInsetE2eSnapshot {
                 active: false,
                 opacity_milli: 0,
                 inset_px_milli: 0,
+                corner_seam_guard_alpha_milli: 0,
             },
         }
     }

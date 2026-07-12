@@ -3,6 +3,7 @@
 use super::reply::{create_tts_client, TtsClientBox};
 use super::DialogueControlState;
 use crate::app::voice::playback::pcm_chunk_duration;
+use crate::app::voice_window_inset::PcmEnergyTimeline;
 use audio::PcmAudioChunk;
 use dialogue::{DialoguePhase, TtsChunkSink, SHORT_SPEECH_MERGE_WINDOW};
 use gpui::Context;
@@ -16,15 +17,30 @@ use voice_sherpa::SpeechError;
 pub(super) struct StreamPlaybackBuffer {
     minimum_start_duration: Duration,
     buffered_duration: Duration,
-    chunks: VecDeque<PcmAudioChunk>,
+    chunks: VecDeque<QueuedPlaybackChunk>,
 }
 
 enum SpeechWorkerEvent {
-    Chunk(PcmAudioChunk),
+    Chunk(QueuedPlaybackChunk),
     Finished {
         tts: Option<TtsClientBox>,
         result: Result<(), SpeechError>,
     },
+}
+
+pub(super) struct QueuedPlaybackChunk {
+    pub(super) pcm: PcmAudioChunk,
+    energy_timeline: PcmEnergyTimeline,
+}
+
+impl QueuedPlaybackChunk {
+    pub(super) fn from_pcm(pcm: PcmAudioChunk) -> Self {
+        let energy_timeline = PcmEnergyTimeline::from_pcm(&pcm);
+        Self {
+            pcm,
+            energy_timeline,
+        }
+    }
 }
 
 struct ChannelTtsChunkSink {
@@ -37,7 +53,9 @@ impl TtsChunkSink for ChannelTtsChunkSink {
         !self.cancelled.load(Ordering::Acquire)
             && self
                 .events
-                .try_send(SpeechWorkerEvent::Chunk(chunk))
+                .try_send(SpeechWorkerEvent::Chunk(QueuedPlaybackChunk::from_pcm(
+                    chunk,
+                )))
                 .is_ok()
     }
 
@@ -101,6 +119,8 @@ impl DialogueControlState {
     }
 
     pub(super) fn abort_reply_stream(&mut self, mark_interrupted: bool) {
+        self.playback_events
+            .retain(|event| !matches!(event, super::AssistantPlaybackEvent::PcmQueued(_)));
         if self.playback_started {
             self.playback_events
                 .push(super::AssistantPlaybackEvent::Interrupted);
@@ -255,7 +275,7 @@ impl DialogueControlState {
 
     fn schedule_audio_chunks(
         &mut self,
-        chunks: Vec<PcmAudioChunk>,
+        chunks: Vec<QueuedPlaybackChunk>,
         generation: u64,
         cx: &mut Context<crate::app::MultisoulApp>,
     ) {
@@ -273,13 +293,17 @@ impl DialogueControlState {
             let (playback_started_tx, playback_started_rx) = async_channel::bounded(1);
             let (completion_tx, completion_rx) = async_channel::bounded(1);
             if let Err(error) = self.reply_playback.play_chunk_with_completion(
-                &chunk,
+                &chunk.pcm,
                 playback_started_tx,
                 completion_tx,
             ) {
                 self.recover_reply_failure(format!("Speech error: {error}"));
                 return;
             }
+            self.playback_events
+                .push(super::AssistantPlaybackEvent::PcmQueued(
+                    chunk.energy_timeline,
+                ));
             self.playback_chunks_pending = self.playback_chunks_pending.saturating_add(1);
             cx.spawn(async move |this, cx| {
                 if playback_started_rx.recv().await.is_ok()
@@ -355,10 +379,10 @@ impl StreamPlaybackBuffer {
     }
 
     /// Queues one chunk and releases the complete prebuffer once it is ready.
-    pub(super) fn push(&mut self, chunk: PcmAudioChunk) -> Vec<PcmAudioChunk> {
+    pub(super) fn push(&mut self, chunk: QueuedPlaybackChunk) -> Vec<QueuedPlaybackChunk> {
         self.buffered_duration = self
             .buffered_duration
-            .saturating_add(pcm_chunk_duration(&chunk));
+            .saturating_add(pcm_chunk_duration(&chunk.pcm));
         self.chunks.push_back(chunk);
         if self.buffered_duration < self.minimum_start_duration {
             return Vec::new();
@@ -367,7 +391,7 @@ impl StreamPlaybackBuffer {
     }
 
     /// Flushes audio after the TTS segment completes, even when it is short.
-    pub(super) fn finish(&mut self) -> Vec<PcmAudioChunk> {
+    pub(super) fn finish(&mut self) -> Vec<QueuedPlaybackChunk> {
         self.take_all()
     }
 
@@ -380,7 +404,7 @@ impl StreamPlaybackBuffer {
         self.buffered_duration = Duration::ZERO;
     }
 
-    fn take_all(&mut self) -> Vec<PcmAudioChunk> {
+    fn take_all(&mut self) -> Vec<QueuedPlaybackChunk> {
         self.buffered_duration = Duration::ZERO;
         self.chunks.drain(..).collect()
     }
