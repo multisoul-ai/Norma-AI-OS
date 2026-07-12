@@ -78,7 +78,7 @@ canvas/view.rs
 Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore Defaults。校验规则：
 
 - 不允许两个可编辑命令使用同一快捷键。
-- 不允许覆盖只读输入行为：`⌘V`、`⌘⇧V`、裸方向键、裸 `Space`。
+- 不允许覆盖只读输入行为：`⌘V`、`⌘E`、裸方向键、裸 `Space`。
 - 不允许裸可打印字符作为 app 命令快捷键，避免干扰 terminal 输入。
 - 录制非 Exit Focus 命令时，裸 `Esc` 取消录制；录制 Exit Focus 时，裸 `Esc` 可作为快捷键。
 
@@ -105,16 +105,16 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 
 | 快捷键 | 阶段 | 行为 |
 | --- | --- | --- |
-| `⌘⇧V` 按下 | `on_key_down` | 开始语音录音（`VoiceTrigger::Shortcut`） |
-| `⌘⇧V` 松开 | `on_key_up` | 结束录音并进入转写 |
-| 松开 `⌘` 或 `⇧`（录音仍由 Shortcut 触发） | `on_modifiers_changed` | 结束录音 |
+| `⌘E` 按下 | `on_key_down` | 按当前模式开始单次语音指令或持续聆听 |
+| `⌘E` 松开（单次 Hold） | `on_key_up` | 结束输入并提交最终转写 |
+| 松开 `⌘`（单次 Hold） | `on_modifiers_changed` | 结束输入 |
 
 实现：`crates/app/src/app/voice/control.rs` → `is_voice_hold_shortcut`。
 
 **冲突隔离：**
 
 - `⌘V`（粘贴）不匹配语音快捷键。
-- `⌘⇧N` 等其它 platform 组合不匹配语音快捷键。
+- `⌘N` 等其它 platform 组合不匹配语音快捷键。
 
 ### 4.2 粘贴（`⌘V`）
 
@@ -216,7 +216,7 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 
 | 项目 | 状态 |
 | --- | --- |
-| 输入路由类快捷键编辑 | `⌘V`、`⌘⇧V`、方向键、`Space`、PTY 输入在 Settings 中只读展示 |
+| 输入路由类快捷键编辑 | `⌘V`、`⌘E`、方向键、`Space`、PTY 输入在 Settings 中只读展示 |
 | 滚轮缩放 | 文档旧描述（`ARCHITECTURE.md` §5）已过时；当前滚轮不缩放 |
 
 ## 8. 源码索引
@@ -243,5 +243,5 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 4. 在 `app/keyboard.rs` 的 `dispatch_shortcut_command` 映射到处理器。
 5. 在 `MultisoulApp::render` 根元素 `.on_action(...)` 挂载菜单 Action 处理器（仅当需要菜单复用）。
 6. 若快捷键不应传入 PTY，确认 `keystroke_to_input` 对 `modifiers.platform` 的拦截已覆盖；必要时补测试（参考 `test_keystroke_to_input_platform_shortcut_is_not_sent_to_pty`）。
-7. 若与手写输入路由冲突（如 `⌘V` / `⌘⇧V`），先在 `shortcuts.rs` 保留输入行为，再在 `keyboard.rs` 或 `voice/control.rs` 明确优先级并补单元测试。
+7. 若与手写输入路由冲突（如 `⌘V` / `⌘E`），先在 `shortcuts.rs` 保留输入行为，再在 `keyboard.rs` 或 `voice/control.rs` 明确优先级并补单元测试。
 8. 更新本文档。

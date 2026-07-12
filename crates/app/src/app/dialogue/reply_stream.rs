@@ -356,7 +356,8 @@ impl DialogueControlState {
         {
             return false;
         }
-        self.session.on_playback_finished_or_interrupted(true);
+        self.session
+            .on_playback_finished_or_interrupted(self.reply_keeps_listening);
         self.reply_stream_started_at = None;
         self.dialogue_stream_finished = false;
         true

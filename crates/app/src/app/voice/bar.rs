@@ -13,7 +13,7 @@ use ui::Theme;
 /// 底部语音条与画布底部的间距。
 const VOICE_BAR_BOTTOM: f32 = 22.0;
 /// Idle 状态下显示的快捷键键帽序列（Apple 菜单风格）。
-const IDLE_KEYCAPS: &[&str] = &["⌘", "⇧", "V"];
+const IDLE_KEYCAPS: &[&str] = &["⌘", "E"];
 
 impl MultisoulApp {
     /// 渲染底部语音条：一个水平居中、宽度自适应内容的圆角胶囊。

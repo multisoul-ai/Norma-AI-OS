@@ -15,7 +15,7 @@ pub(super) fn interaction_group(
             setting_row(
                 theme,
                 "Mode",
-                "⌘⇧V starts dictation or a continuous Agent conversation",
+                "⌘E starts a single voice command or continuous Agent conversation",
             )
             .child(
                 div()
@@ -23,16 +23,20 @@ pub(super) fn interaction_group(
                     .flex_row()
                     .gap(px(8.0))
                     .child(
-                        mode_option(theme, "Dictation", mode == VoiceInteractionMode::Dictation)
-                            .id("settings-voice-mode-dictation")
-                            .debug_selector(|| "settings-voice-mode-dictation".to_string())
-                            .on_click(cx.listener(|app, _, _, cx| {
-                                app.stop_continuous_listening(cx);
-                                app.voice_settings
-                                    .select_interaction_mode(VoiceInteractionMode::Dictation);
-                                app.persist_voice_settings_in_background(cx);
-                                cx.notify();
-                            })),
+                        mode_option(
+                            theme,
+                            "Single Voice Command",
+                            mode == VoiceInteractionMode::SingleVoiceCommand,
+                        )
+                        .id("settings-voice-mode-dictation")
+                        .debug_selector(|| "settings-voice-mode-dictation".to_string())
+                        .on_click(cx.listener(|app, _, _, cx| {
+                            app.stop_continuous_listening(cx);
+                            app.voice_settings
+                                .select_interaction_mode(VoiceInteractionMode::SingleVoiceCommand);
+                            app.persist_voice_settings_in_background(cx);
+                            cx.notify();
+                        })),
                     )
                     .child(
                         mode_option(
@@ -52,7 +56,7 @@ pub(super) fn interaction_group(
                     ),
             ),
         )
-        .when(mode == VoiceInteractionMode::Dictation, |group| {
+        .when(mode == VoiceInteractionMode::SingleVoiceCommand, |group| {
             group.child(dictation_trigger_row(theme, state, cx))
         })
 }
@@ -65,8 +69,8 @@ fn dictation_trigger_row(
     let trigger = state.values().dictation_trigger();
     setting_row(
         theme,
-        "Dictation Trigger",
-        "Hold ends on shortcut release; Toggle ends on the next ⌘⇧V press",
+        "Single Voice Command Trigger",
+        "Hold ends on shortcut release; Toggle ends on the next ⌘E press",
     )
     .child(
         div()

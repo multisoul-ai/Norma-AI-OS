@@ -4,36 +4,36 @@ use canvas::CanvasNodeKind;
 use gpui::{KeyDownEvent, KeyUpEvent, Keystroke, Modifiers, TestAppContext, VisualTestContext};
 
 use crate::harness::{
-    create_terminal, drain_until, echo_factory, enter_canvas, make_app, read_grid, read_runtime,
+    create_terminal, echo_factory, enter_canvas, make_app, read_grid, read_runtime,
 };
 
 const TEST_TRANSCRIPT: &str = "voice-matrix-input";
 static VOICE_TRANSCRIPT_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// Voice 听写矩阵：Hold 与 Toggle 都必须经真实快捷键写入焦点卡片，且绕过 Agent。
+/// Voice 单次语音指令矩阵：Hold 与 Toggle 都必须经真实 ⌘E 快捷键进入共享 Agent 回合。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   interaction modes = 1（Dictation）
+///   interaction modes = 1（SingleVoiceCommand）
 ///   trigger variants  = 2（Hold + Toggle）
-///   terminal targets  = 2（每种触发各一个独立焦点 Terminal）
+///   terminal targets  = 2（用于验证 Final 不再直写焦点）
 ///   shortcut downs    = 3（Hold 1 次 + Toggle 启动/停止各 1 次）
 ///   shortcut ups      = 2（Hold 释放应停止；Toggle 释放不得停止）
-///   agent nodes       = 0（听写不得创建或调用 Agent）
+///   final routes      = 2（Hold 与 Toggle 均进入 Dialogue Thinking）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 在默认 Dictation + Hold 下按下 ⌘⇧V → Voice 进入 recording，Terminal 尚无文本
-///   2. 松开快捷键 → 隐藏测试 transcript 作为 final，经焦点输入路由写入第一个 Terminal
-///   3. 在 Settings 将听写触发改为 Toggle，新建并聚焦第二个 Terminal
-///   4. 第一次按下 ⌘⇧V → recording；松开按键 → 仍保持 recording 且没有提交文本
-///   5. 第二次按下 ⌘⇧V → 停止并将同一 final transcript 写入第二个 Terminal
+///   1. 在默认 SingleVoiceCommand + Hold 下按下 ⌘E → Voice 进入 recording，Terminal 尚无文本
+///   2. 松开快捷键 → 隐藏测试 transcript 作为 Final，Dialogue 进入 Thinking
+///   3. 在 Settings 将单次语音指令触发改为 Toggle，新建并聚焦第二个 Terminal
+///   4. 第一次按下 ⌘E → recording；松开按键 → 仍保持 recording 且没有提交文本
+///   5. 第二次按下 ⌘E → 停止、提交同一 Final，并进入 Dialogue Thinking
 ///
 /// 预期结果：
 ///   - 正断言：Hold 在 key-up 提交，Toggle 在第二次 key-down 提交
-///   - 正断言：两次听写都进入真实 Terminal 输入/PTY 回显闭环
+///   - 正断言：两次 Final 都进入共享 Agent 回合
 ///   - 负断言：Toggle 的第一次 key-up 不得提前提交
-///   - 负断言：听写全程不得创建 Agent 节点或进入持续聆听状态
+///   - 负断言：Final 不得再直写焦点 Terminal
 #[test]
-fn e2e_10_dictation_hold_and_toggle_shortcuts_insert_into_focused_terminal_only() {
+fn e2e_10_single_voice_command_hold_and_toggle_shortcuts_enter_shared_agent_turn() {
     let _transcript = VoiceTranscriptEnvGuard::set(TEST_TRANSCRIPT);
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
@@ -63,25 +63,20 @@ fn e2e_10_dictation_hold_and_toggle_shortcuts_insert_into_focused_terminal_only(
     voice_key_up(cx);
     let hold_finished = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
     assert_eq!(
-        hold_finished.label, "Dictation inserted",
-        "Hold final 应成功路由到焦点文本目标，snapshot: {:?}",
+        hold_finished.dialogue_phase, "thinking",
+        "Hold Final 应进入共享 Agent 回合，snapshot: {:?}",
         hold_finished
     );
     assert!(
-        drain_until(
-            &app,
-            cx,
-            |runtime| {
-                let grid = match runtime.node_view(hold_terminal) {
-                    Some(runtime::NodeView::Term { snapshot, .. }) => Some(snapshot),
-                    _ => None,
-                };
-                grid.filter(|grid| grid_contains(grid, TEST_TRANSCRIPT))
-            },
-            std::time::Duration::from_secs(1),
-        )
-        .is_some(),
-        "Hold 松开后 transcript 应经焦点输入和 PTY 回显出现在第一个 Terminal"
+        !read_grid(&app, cx, hold_terminal)
+            .expect("Hold 目标应保持可读的 Terminal grid")
+            .rows
+            .iter()
+            .flatten()
+            .map(|cell| cell.c)
+            .collect::<String>()
+            .contains(TEST_TRANSCRIPT),
+        "Hold Final 不得经焦点输入或 PTY 回显写入第一个 Terminal"
     );
     assert_ne!(
         hold_finished.phase, "recording",
@@ -126,72 +121,62 @@ fn e2e_10_dictation_hold_and_toggle_shortcuts_insert_into_focused_terminal_only(
     );
 
     voice_key_down(cx);
-    assert!(
-        drain_until(
-            &app,
-            cx,
-            |runtime| {
-                let grid = match runtime.node_view(toggle_terminal) {
-                    Some(runtime::NodeView::Term { snapshot, .. }) => Some(snapshot),
-                    _ => None,
-                };
-                grid.filter(|grid| grid_contains(grid, TEST_TRANSCRIPT))
-            },
-            std::time::Duration::from_secs(1),
-        )
-        .is_some(),
-        "Toggle 第二次 key-down 后 transcript 应出现在第二个 Terminal"
-    );
     let toggle_finished = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
+    assert_eq!(
+        toggle_finished.dialogue_phase, "thinking",
+        "Toggle 第二次 key-down 的 Final 应进入共享 Agent 回合，snapshot: {:?}",
+        toggle_finished
+    );
+    assert!(
+        !read_grid(&app, cx, toggle_terminal)
+            .expect("Toggle 目标应保持可读的 Terminal grid")
+            .rows
+            .iter()
+            .flatten()
+            .map(|cell| cell.c)
+            .collect::<String>()
+            .contains(TEST_TRANSCRIPT),
+        "Toggle Final 不得写入第二个焦点 Terminal"
+    );
     assert_ne!(
         toggle_finished.phase, "recording",
         "Toggle 第二次 key-down 提交后不得继续 recording，snapshot: {:?}",
         toggle_finished
     );
 
-    let (terminal_count, agent_count) = read_runtime(&app, cx, |runtime| {
+    let terminal_count = read_runtime(&app, cx, |runtime| {
         let terminals = runtime
             .document
             .nodes()
             .iter()
             .filter(|node| matches!(node.kind, CanvasNodeKind::Term(_)))
             .count();
-        let agents = runtime
-            .document
-            .nodes()
-            .iter()
-            .filter(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
-            .count();
-        (terminals, agents)
+        terminals
     });
     assert_eq!(terminal_count, 2, "两种听写触发应各保留一个目标 Terminal");
-    assert_eq!(
-        agent_count, 0,
-        "Dictation 不得创建 Agent 节点或转入 Agent 路径"
-    );
 }
 
-/// Voice 错误矩阵：无焦点听写与无模型持续聆听必须失败在正确边界并给出可恢复提示。
+/// Voice 错误矩阵：单次语音指令不依赖焦点卡片，无模型持续聆听仍必须显示可恢复提示。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   apps = 2（无焦点 Dictation + 无模型 Continuous Listening）
+///   apps = 2（无焦点 SingleVoiceCommand + 无模型 Continuous Listening）
 ///   focused text targets = 0
 ///   selected ASR models  = 0
 ///   implicit nodes       = 0（失败路径不得替用户创建卡片）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 在空 Canvas 以 Hold 触发听写 final → 焦点输入路由找不到文本目标
+///   1. 在空 Canvas 以 Hold 触发单次语音指令 final → 进入 Agent Thinking，不读取焦点
 ///   2. 读取底部语音状态与 runtime 文档
-///   3. 新建 fresh App，切到 Continuous Listening 后按下 ⌘⇧V
+///   3. 新建 fresh App，切到 Continuous Listening 后按下 ⌘E
 ///   4. 后台启动校验发现没有共享识别模型选择 → 返回设置提示，不请求麦克风
 ///
 /// 预期结果：
-///   - 正断言：无焦点听写显示 Focus a text-capable card 错误
+///   - 正断言：无焦点单次语音指令仍进入 Agent Thinking
 ///   - 正断言：无模型持续聆听显示 install/select model 提示并保持 dialogue Idle
 ///   - 负断言：两条失败路径都不得进入 recording/listening 或创建隐式节点
 ///   - 负断言：模型缺失不是 TCC 错误，不得显示麦克风设置恢复入口
 #[test]
-fn e2e_10_voice_errors_are_reported_at_focus_and_model_boundaries() {
+fn e2e_10_voice_errors_are_reported_at_single_command_and_model_boundaries() {
     let _transcript = VoiceTranscriptEnvGuard::set(TEST_TRANSCRIPT);
 
     let mut dictation_cx = TestAppContext::single();
@@ -202,15 +187,14 @@ fn e2e_10_voice_errors_are_reported_at_focus_and_model_boundaries() {
     voice_key_up(dictation_cx);
 
     let no_focus = dictation_app.update(dictation_cx, |app, _cx| app.voice_e2e_snapshot());
-    assert_eq!(no_focus.phase, "error", "无焦点听写应进入可见 Error 状态");
-    assert!(
-        no_focus.label.contains("Focus a text-capable card"),
-        "无焦点听写应告诉用户先聚焦文本卡片，snapshot: {:?}",
+    assert_eq!(
+        no_focus.dialogue_phase, "thinking",
+        "无焦点单次语音指令应进入 Agent Thinking，snapshot: {:?}",
         no_focus
     );
     assert_ne!(
         no_focus.phase, "recording",
-        "听写失败后不得继续占用 recording"
+        "单次语音指令提交后不得继续占用 recording"
     );
     assert_eq!(
         read_runtime(&dictation_app, dictation_cx, |runtime| runtime
@@ -218,7 +202,7 @@ fn e2e_10_voice_errors_are_reported_at_focus_and_model_boundaries() {
             .nodes()
             .len()),
         0,
-        "无焦点听写不得隐式创建 Terminal 或 Agent"
+        "无焦点单次语音指令不得隐式创建 Terminal 或 Agent"
     );
 
     let mut continuous_cx = TestAppContext::single();
@@ -257,10 +241,9 @@ fn voice_keystroke() -> Keystroke {
     Keystroke {
         modifiers: Modifiers {
             platform: true,
-            shift: true,
             ..Modifiers::default()
         },
-        key: "v".to_string(),
+        key: "e".to_string(),
         key_char: None,
     }
 }
@@ -287,15 +270,6 @@ fn click_debug(cx: &mut VisualTestContext, selector: &'static str) {
         .unwrap_or_else(|| panic!("selector `{selector}` 应有可点击 bounds"));
     cx.simulate_click(bounds.center(), Modifiers::none());
     cx.run_until_parked();
-}
-
-fn grid_contains(grid: &terminal::GridSnapshot, expected: &str) -> bool {
-    grid.rows
-        .iter()
-        .flatten()
-        .map(|cell| cell.c)
-        .collect::<String>()
-        .contains(expected)
 }
 
 struct VoiceTranscriptEnvGuard {

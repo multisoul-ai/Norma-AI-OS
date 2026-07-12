@@ -221,19 +221,19 @@ impl VoiceControlState {
 }
 
 pub(crate) fn is_voice_hold_shortcut(keystroke: &Keystroke) -> bool {
-    keystroke.key == "v"
+    keystroke.key == "e"
         && keystroke.modifiers.platform
-        && keystroke.modifiers.shift
         && !keystroke.modifiers.control
         && !keystroke.modifiers.alt
+        && !keystroke.modifiers.shift
 }
 
 pub(crate) fn is_voice_hold_release(keystroke: &Keystroke) -> bool {
-    keystroke.key == "v"
+    keystroke.key == "e"
 }
 
 pub(crate) fn is_voice_hold_modifier_release(modifiers: &Modifiers) -> bool {
-    !modifiers.platform || !modifiers.shift
+    !modifiers.platform
 }
 
 #[cfg(test)]
@@ -385,39 +385,33 @@ mod tests {
         );
     }
 
-    /// VC-1: Cmd+Shift+V 是语音长按快捷键，普通 Cmd+V 不应匹配。
+    /// VC-1: Cmd+E 是语音长按快捷键，普通 Cmd+V 不应匹配。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   voice key = key("v", platform=true, shift=true)
+    ///   voice key = key("e", platform=true, shift=false)
     ///   paste key = key("v", platform=true, shift=false)
-    ///   other key = key("n", platform=true, shift=true)
+    ///   other key = key("n", platform=true, shift=false)
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 检查 Cmd+Shift+V
+    ///   1. 检查 Cmd+E
     ///   2. 检查 Cmd+V
-    ///   3. 检查 Cmd+Shift+N
+    ///   3. 检查 Cmd+N
     ///
     /// 预期结果：
-    ///   - 正断言：Cmd+Shift+V 匹配语音长按
-    ///   - 负断言：Cmd+V 和 Cmd+Shift+N 不匹配，避免抢占粘贴/新建
+    ///   - 正断言：Cmd+E 匹配语音长按
+    ///   - 负断言：Cmd+V 和 Cmd+N 不匹配，避免抢占粘贴/新建
     #[test]
-    fn test_voice_hold_shortcut_matches_cmd_shift_v_only() {
-        let voice = key("v", true, true);
+    fn test_voice_hold_shortcut_matches_cmd_e_only() {
+        let voice = key("e", true, false);
         let paste = key("v", true, false);
-        let other = key("n", true, true);
+        let other = key("n", true, false);
 
-        assert!(
-            is_voice_hold_shortcut(&voice),
-            "Cmd+Shift+V 应匹配语音长按快捷键"
-        );
+        assert!(is_voice_hold_shortcut(&voice), "Cmd+E 应匹配语音长按快捷键");
         assert!(
             !is_voice_hold_shortcut(&paste),
             "Cmd+V 是粘贴，不应触发语音"
         );
-        assert!(
-            !is_voice_hold_shortcut(&other),
-            "Cmd+Shift+N 不是语音快捷键"
-        );
+        assert!(!is_voice_hold_shortcut(&other), "Cmd+N 不是语音快捷键");
     }
 
     /// VC-2: 重复 keydown 不重复启动录音，keyup 只结束对应 trigger。
@@ -455,38 +449,38 @@ mod tests {
         );
     }
 
-    /// VC-3: Cmd 或 Shift 任一松开时，快捷键录音应进入释放路径。
+    /// VC-3: Cmd 松开时，快捷键录音应进入释放路径。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   both_down = platform=true,  shift=true
-    ///   cmd_up    = platform=false, shift=true
-    ///   shift_up  = platform=true,  shift=false
+    ///   cmd_down = platform=true,  shift=false
+    ///   cmd_up   = platform=false, shift=false
+    ///   shift_up = platform=true,  shift=true
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 检查 Cmd+Shift 仍按住 → 不触发释放
+    ///   1. 检查 Cmd 仍按住 → 不触发释放
     ///   2. 检查 Cmd 已松开 → 触发释放
-    ///   3. 检查 Shift 已松开 → 触发释放
+    ///   3. 检查 Shift 状态变化但 Cmd 仍按住 → 不触发释放
     ///
     /// 预期结果：
-    ///   - 负断言：两个 modifier 都还按住时不结束录音
-    ///   - 正断言：Cmd 或 Shift 任一松开时结束录音，兜住缺失的 V keyup
+    ///   - 负断言：Cmd 仍按住时不结束录音
+    ///   - 正断言：Cmd 松开时结束录音，兜住缺失的 E keyup
     #[test]
-    fn test_voice_hold_modifier_release_matches_cmd_or_shift_up() {
-        let both_down = modifiers(true, true);
-        let cmd_up = modifiers(false, true);
-        let shift_up = modifiers(true, false);
+    fn test_voice_hold_modifier_release_matches_cmd_up_only() {
+        let cmd_down = modifiers(true, false);
+        let cmd_up = modifiers(false, false);
+        let shift_changed = modifiers(true, true);
 
         assert!(
-            !is_voice_hold_modifier_release(&both_down),
-            "Cmd+Shift 仍按住时不应结束快捷键录音"
+            !is_voice_hold_modifier_release(&cmd_down),
+            "Cmd 仍按住时不应结束快捷键录音"
         );
         assert!(
             is_voice_hold_modifier_release(&cmd_up),
             "Cmd 松开时应结束快捷键录音"
         );
         assert!(
-            is_voice_hold_modifier_release(&shift_up),
-            "Shift 松开时应结束快捷键录音"
+            !is_voice_hold_modifier_release(&shift_changed),
+            "Shift 状态变化但 Cmd 仍按住时不应结束快捷键录音"
         );
     }
 }

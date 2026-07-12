@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use storage::{AppStore, SettingsStore};
 use voice_sherpa::{AudioInputDevice, SpeechError};
 
+mod migration;
 mod model_selection;
 mod provider_values;
 mod values;
@@ -21,8 +22,8 @@ pub(crate) use values::{
     VoiceSettingsField, VoiceSettingsValues,
 };
 use values::{
-    KEY_ASR_MODEL_ID, KEY_DICTATION_TRIGGER, KEY_INPUT_DEVICE_ID, KEY_INTERACTION_MODE,
-    KEY_OPENAI_API_KEY, KEY_TRACE_ENABLED,
+    KEY_ASR_MODEL_ID, KEY_INPUT_DEVICE_ID, KEY_INTERACTION_MODE, KEY_OPENAI_API_KEY,
+    KEY_SINGLE_VOICE_COMMAND_TRIGGER, KEY_TRACE_ENABLED,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -100,6 +101,7 @@ impl VoiceSettingsState {
             Ok(saved) => {
                 let mut state = Self::from_sources(saved, EnvVoiceSettings::from_env());
                 state.storage = Some(store);
+                state.queue_legacy_single_voice_command_migration();
                 state
             }
             Err(error) => {
@@ -214,7 +216,7 @@ impl VoiceSettingsState {
 
     pub(crate) fn select_dictation_trigger(&mut self, trigger: DictationTrigger) {
         self.saved.dictation_trigger = Some(trigger);
-        self.persist_string(KEY_DICTATION_TRIGGER, trigger.as_str());
+        self.persist_string(KEY_SINGLE_VOICE_COMMAND_TRIGGER, trigger.as_str());
         self.refresh_values();
     }
 

@@ -136,6 +136,7 @@ pub(crate) struct DialogueControlState {
     dialogue_stream_cancellation: Option<Arc<AtomicBool>>,
     pub(super) reply_stream_started_at: Option<Instant>,
     pub(super) last_reply_interrupted: bool,
+    reply_keeps_listening: bool,
     playback_events: Vec<AssistantPlaybackEvent>,
     #[cfg(test)]
     recording_sink: Option<crate::app::voice::playback::RecordingAssistantAudioSink>,
@@ -174,6 +175,7 @@ impl Default for DialogueControlState {
             dialogue_stream_cancellation: None,
             reply_stream_started_at: None,
             last_reply_interrupted: false,
+            reply_keeps_listening: true,
             playback_events: Vec::new(),
             #[cfg(test)]
             recording_sink: None,
@@ -318,9 +320,21 @@ impl DialogueControlState {
         Ok(())
     }
 
+    pub(crate) fn begin_single_voice_command(&mut self, text: &str) -> Result<(), SpeechError> {
+        self.stop_shell();
+        self.error_message = None;
+        self.microphone_settings_recovery_available = false;
+        self.reply_keeps_listening = false;
+        self.session.on_listening_started();
+        self.on_final_transcript(text)?;
+        self.mark_voice_turn_pending();
+        Ok(())
+    }
+
     pub(crate) fn recover_reply_failure(&mut self, message: impl Into<String>) {
         self.abort_reply_stream(false);
-        self.session.on_playback_finished_or_interrupted(true);
+        self.session
+            .on_playback_finished_or_interrupted(self.reply_keeps_listening);
         self.error_message = Some(message.into());
         self.microphone_settings_recovery_available = false;
         self.reply_task = None;
@@ -350,6 +364,7 @@ impl DialogueControlState {
         self.startup_task = None;
         self.pcm_pump_task = None;
         self.pending_startup_attempt = None;
+        self.reply_keeps_listening = true;
     }
 
     pub(crate) fn on_window_closed(&mut self) {

@@ -16,7 +16,8 @@ pub(super) const KEY_DIALOGUE_LLM_MODE: &str = "voice.dialogue.llm_mode";
 pub(super) const KEY_DIALOGUE_MODEL: &str = "voice.dialogue.model";
 pub(super) const KEY_REFINE_MODEL: &str = "voice.refine.model";
 pub(super) const KEY_INTERACTION_MODE: &str = "voice.interaction.mode";
-pub(super) const KEY_DICTATION_TRIGGER: &str = "voice.dictation.trigger";
+pub(super) const KEY_SINGLE_VOICE_COMMAND_TRIGGER: &str = "voice.single_voice_command.trigger";
+pub(super) const LEGACY_KEY_DICTATION_TRIGGER: &str = "voice.dictation.trigger";
 pub(super) const KEY_ASR_MODEL_ID: &str = "voice.asr.model_id";
 pub(super) const KEY_INPUT_DEVICE_ID: &str = "voice.input_device_id";
 pub(super) const KEY_TRACE_ENABLED: &str = "voice.trace_enabled";
@@ -32,14 +33,14 @@ pub(crate) enum DialogueLlmMode {
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum VoiceInteractionMode {
     #[default]
-    Dictation,
+    SingleVoiceCommand,
     ContinuousListening,
 }
 
 impl VoiceInteractionMode {
     pub(crate) fn from_stored(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
-            "dictation" => Some(Self::Dictation),
+            "dictation" | "single_voice_command" => Some(Self::SingleVoiceCommand),
             "continuous_listening" => Some(Self::ContinuousListening),
             _ => None,
         }
@@ -47,7 +48,7 @@ impl VoiceInteractionMode {
 
     pub(crate) fn as_str(self) -> &'static str {
         match self {
-            Self::Dictation => "dictation",
+            Self::SingleVoiceCommand => "single_voice_command",
             Self::ContinuousListening => "continuous_listening",
         }
     }
@@ -411,7 +412,8 @@ impl SavedVoiceSettings {
                 .as_deref()
                 .and_then(VoiceInteractionMode::from_stored),
             dictation_trigger: store
-                .get_string(KEY_DICTATION_TRIGGER)?
+                .get_string(KEY_SINGLE_VOICE_COMMAND_TRIGGER)?
+                .or(store.get_string(LEGACY_KEY_DICTATION_TRIGGER)?)
                 .as_deref()
                 .and_then(DictationTrigger::from_stored),
             asr_model_id: non_empty_option(store.get_string(KEY_ASR_MODEL_ID)?)

@@ -107,7 +107,7 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
         "settings-shortcut-new-opencode-agent",
         "settings-shortcuts-restore-all",
         "Paste",
-        "Voice Recording",
+        "Voice Interaction",
         "Arrow Navigation",
         "Space Pan",
         "Terminal Input",

@@ -2,7 +2,7 @@ pub(crate) use self::editable::VoiceSettingsInputs;
 use self::interaction::interaction_group;
 use self::model_catalog::model_catalog_row;
 use self::provider::{agent_provider_advanced_rows, agent_provider_group};
-use super::state::{VoiceInteractionMode, VoiceSettingsField, VoiceSettingsState};
+use super::state::{VoiceSettingsField, VoiceSettingsState};
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, Window};
 use ui::Theme;
@@ -30,28 +30,12 @@ pub(crate) fn voice_settings(
                 .child(input_device_row(theme, state, cx))
                 .child(model_catalog_row(theme, state, cx)),
         )
-        .when(
-            state.values().interaction_mode() == VoiceInteractionMode::ContinuousListening,
-            |content| {
-                content
-                    .child(agent_provider_group(theme, state, inputs, cx))
-                    .child(settings_group(theme, "Spoken Reply").child(setting_row(
-                        theme,
-                        "Local TTS",
-                        "Continuous Listening replies use the configured local Matcha voice",
-                    )))
-            },
-        )
-        .when(
-            state.values().interaction_mode() == VoiceInteractionMode::Dictation,
-            |content| {
-                content.child(settings_group(theme, "Agent & Reply").child(setting_row(
-                    theme,
-                    "Used in Continuous Listening",
-                    "Switch interaction mode to configure Agent, LLM and spoken replies",
-                )))
-            },
-        )
+        .child(agent_provider_group(theme, state, inputs, cx))
+        .child(settings_group(theme, "Spoken Reply").child(setting_row(
+            theme,
+            "Local TTS",
+            "Both voice interaction modes use the configured local Matcha voice",
+        )))
         .child(advanced_group(theme, state, inputs, cx))
         .children(status_message(theme, state))
 }

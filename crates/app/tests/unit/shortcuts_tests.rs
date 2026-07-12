@@ -180,7 +180,7 @@ fn test_shortcut_preferences_ignore_invalid_json_and_invalid_keystrokes() {
 /// 数据构造（含关键数值的推导过程）：
 ///   duplicate candidate = cmd-o（OpenProject 默认已占用）
 ///   duplicate card candidate = cmd-d（DeleteCard 默认已占用）
-///   reserved candidates = cmd-v / cmd-shift-v / up / space
+///   reserved candidates = cmd-v / cmd-e / up / space
 ///   bare printable = a
 ///   valid candidate = cmd-t
 ///
@@ -190,7 +190,7 @@ fn test_shortcut_preferences_ignore_invalid_json_and_invalid_keystrokes() {
 ///
 /// 预期结果：
 ///   - 正断言：cmd-t 可用于 NewTerminal
-///   - 负断言：cmd-o / cmd-d / cmd-v / cmd-shift-v / up / space / a 均不允许
+///   - 负断言：cmd-o / cmd-d / cmd-v / cmd-e / up / space / a 均不允许
 #[test]
 fn test_shortcut_validation_rejects_duplicates_reserved_inputs_and_bare_printables() {
     let effective = effective_shortcuts(&ShortcutPreferences::default());
@@ -212,9 +212,8 @@ fn test_shortcut_validation_rejects_duplicates_reserved_inputs_and_bare_printabl
         "cmd-v 是 paste 保留输入，不应允许覆盖"
     );
     assert!(
-        validate_shortcut_change(ShortcutCommandId::NewTerminal, "cmd-shift-v", &effective)
-            .is_err(),
-        "cmd-shift-v 是 voice hold 保留输入，不应允许覆盖"
+        validate_shortcut_change(ShortcutCommandId::NewTerminal, "cmd-e", &effective).is_err(),
+        "cmd-e 是语音交互保留输入，不应允许覆盖"
     );
     assert!(
         validate_shortcut_change(ShortcutCommandId::NewTerminal, "up", &effective).is_err(),

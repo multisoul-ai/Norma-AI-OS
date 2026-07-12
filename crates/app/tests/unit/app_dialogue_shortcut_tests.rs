@@ -19,7 +19,7 @@ fn mic_ok() -> Result<(), SpeechError> {
 ///
 /// 预期结果：
 ///   - 正断言：模式精确为 ContinuousListening
-///   - 负断言：不得回退为 Dictation
+///   - 负断言：不得回退为 SingleVoiceCommand
 #[test]
 fn test_dialogue_settings_resolve_continuous_listening_mode() {
     use crate::settings::voice::{
@@ -39,12 +39,12 @@ fn test_dialogue_settings_resolve_continuous_listening_mode() {
     );
     assert_ne!(
         values.interaction_mode(),
-        VoiceInteractionMode::Dictation,
-        "持续聆听设置不得回退为听写模式"
+        VoiceInteractionMode::SingleVoiceCommand,
+        "持续聆听设置不得回退为单次语音指令模式"
     );
 }
 
-/// DLG-15: 开启 Continuous Listening 后，Cmd+Shift+V 应进入实时对话而不是旧 one-shot Planner。
+/// DLG-15: 开启 Continuous Listening 后，Cmd+E 应进入实时对话而不是单次语音指令。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   dialogue 初始 Idle；分别传入 continuous_listening_enabled = true / false
@@ -64,7 +64,7 @@ fn test_voice_shortcut_routes_to_dialogue_in_continuous_listening_mode() {
     assert_eq!(
         state.voice_shortcut_key_down_action(true),
         VoiceShortcutKeyDownAction::StartContinuousListening,
-        "Continuous Listening 开启时 Cmd+Shift+V 应启动实时对话 shell"
+        "Continuous Listening 开启时 Cmd+E 应启动实时对话 shell"
     );
     assert_eq!(
         state.voice_shortcut_key_down_action(false),

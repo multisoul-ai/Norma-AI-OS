@@ -6,45 +6,39 @@ use super::{
 };
 use voice_sherpa::SpeechError;
 
-/// AV-MODE-1：最终识别文本必须由交互模式路由到听写或 Agent，且两条路径互斥。
+/// AV-MODE-1：最终识别文本必须由两种新交互模式路由到共享 Agent 回合。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   interaction modes = 2（Dictation + ContinuousListening）
-///   destinations      = 2（focused target + Agent turn）
+///   interaction modes = 2（SingleVoiceCommand + ContinuousListening）
+///   destinations      = 1（共享 Agent turn）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. Dictation 进入 final_voice_text_action → InsertIntoFocusedTarget
+///   1. SingleVoiceCommand 进入 final_voice_text_action → StartAgentTurn
 ///   2. ContinuousListening 进入同一函数 → StartAgentTurn
 ///
 /// 预期结果：
-///   - 正断言：两种模式分别命中唯一目标
-///   - 负断言：Dictation 不得启动 Agent，Continuous 不得走直接听写
+///   - 正断言：两种模式均命中共享 Agent 目标
+///   - 负断言：任一新模式不得回退到焦点文本直写
 #[test]
-fn test_final_voice_text_routes_dictation_away_from_agent_turn() {
-    let dictation =
-        final_voice_text_action(crate::settings::voice::VoiceInteractionMode::Dictation);
+fn test_final_voice_text_routes_both_modes_to_shared_agent_turn() {
+    let single_voice_command =
+        final_voice_text_action(crate::settings::voice::VoiceInteractionMode::SingleVoiceCommand);
     let continuous =
         final_voice_text_action(crate::settings::voice::VoiceInteractionMode::ContinuousListening);
 
     assert_eq!(
-        dictation,
-        FinalVoiceTextAction::InsertIntoFocusedTarget,
-        "Dictation final 必须直接写入焦点目标"
+        single_voice_command,
+        FinalVoiceTextAction::StartAgentTurn,
+        "单次语音指令 final 必须进入共享 Agent 回合"
     );
     assert_eq!(
         continuous,
         FinalVoiceTextAction::StartAgentTurn,
-        "ContinuousListening final 必须进入 Agent 对话"
+        "ContinuousListening final 必须进入共享 Agent 回合"
     );
-    assert_ne!(
-        dictation,
-        FinalVoiceTextAction::StartAgentTurn,
-        "Dictation 不得调用 Agent 或后续 TTS"
-    );
-    assert_ne!(
-        continuous,
-        FinalVoiceTextAction::InsertIntoFocusedTarget,
-        "持续聆听不得被降级成一次性听写"
+    assert_eq!(
+        single_voice_command, continuous,
+        "两种模式的 Final Transcript 必须进入同一个 Agent/TTS 回合入口"
     );
 }
 

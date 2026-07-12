@@ -375,9 +375,9 @@ pub(crate) fn read_only_behaviors() -> &'static [ReadOnlyShortcutBehavior] {
             scope: "System",
         },
         ReadOnlyShortcutBehavior {
-            title: "Voice Recording",
-            hint: "Hold to record a voice command",
-            keystroke: "cmd-shift-v",
+            title: "Voice Interaction",
+            hint: "Use the active voice mode with the fixed Cmd+E shortcut",
+            keystroke: "cmd-e",
             scope: "System",
         },
         ReadOnlyShortcutBehavior {

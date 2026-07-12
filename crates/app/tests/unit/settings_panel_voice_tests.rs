@@ -3,7 +3,7 @@
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings panel/content + voice state/provider/view 拆分源码
 ///   nav anchor = Voice
-///   storage keys = mode + dictation trigger + immutable ASR model ID
+///   storage keys = mode + single voice command trigger + immutable ASR model ID
 ///   input anchors = default / refresh / clear（覆盖默认输入、设备刷新、清除选择）
 ///   continuous anchors = Continuous Listening / Agent Provider / Local TTS
 ///   hidden debug env = MULTISOUL_VOICE_TRANSCRIPT，不应暴露成设置项
@@ -47,9 +47,9 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("Voice");
     assert_anchor!("Speech Recognition");
     assert_anchor!("Voice Interaction");
-    assert_anchor!("Dictation");
+    assert_anchor!("Single Voice Command");
     assert_anchor!("Continuous Listening");
-    assert_anchor!("Dictation Trigger");
+    assert_anchor!("Single Voice Command Trigger");
     assert_anchor!("Agent Provider");
     assert_anchor!("Spoken Reply");
     assert_anchor!("Local TTS");
@@ -60,7 +60,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("voice.dialogue.model");
     assert_anchor!("voice.refine.model");
     assert_anchor!("voice.interaction.mode");
-    assert_anchor!("voice.dictation.trigger");
+    assert_anchor!("voice.single_voice_command.trigger");
     assert_anchor!("voice.asr.model_id");
     assert_anchor!("voice.input_device_id");
     assert_anchor!("voice.trace_enabled");

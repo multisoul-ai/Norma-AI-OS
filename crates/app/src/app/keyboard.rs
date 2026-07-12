@@ -259,6 +259,9 @@ impl MultisoulApp {
                 == crate::settings::voice::VoiceInteractionMode::ContinuousListening;
             match self.dialogue.voice_shortcut_key_down_action(continuous) {
                 VoiceShortcutKeyDownAction::StartOneShotRecording => {
+                    if self.dialogue.is_active() {
+                        self.stop_continuous_listening(cx);
+                    }
                     match dictation_shortcut_action(
                         self.voice_settings.values().dictation_trigger(),
                         self.is_voice_recording_shortcut(),

@@ -8,7 +8,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app_with_settings_store};
 /// Voice 配置矩阵：模式、触发、麦克风、Provider、密钥与诊断设置必须互相独立并持久化。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   interaction modes = 2（Dictation + Continuous Listening）
+///   interaction modes = 2（Single Voice Command + Continuous Listening）
 ///   dictation triggers = 2（Hold + Toggle）
 ///   microphone choices = 3（System Default + 内置麦克风 + USB 麦克风）
 ///   provider profiles  = 2（Ollama + OpenAI-compatible）
@@ -21,13 +21,13 @@ use crate::harness::{echo_factory, enter_canvas, make_app_with_settings_store};
 ///   3. 选择 Toggle 与 Continuous Listening，展开 Agent/Reply 配置
 ///   4. 切到 OpenAI，编辑 Base URL、Model、API Key，并开启 trace
 ///   5. 切回 Ollama 验证 profile 隔离，再切回 OpenAI 验证配置未丢失
-///   6. 切回 Dictation，关闭窗口；使用同一 SQLite store 创建新 App 并重新打开 Voice
+///   6. 切回 Single Voice Command，关闭窗口；使用同一 SQLite store 创建新 App 并重新打开 Voice
 ///
 /// 预期结果：
 ///   - 正断言：每种选择即时反映到稳定快照，重载后仍保留最终配置
 ///   - 正断言：API Key 只暴露 configured 状态，绝不渲染明文
 ///   - 负断言：Ollama 与 OpenAI profile 不得互相覆盖
-///   - 负断言：Dictation 页面不得展开 Continuous-only Provider 控件，也不得出现总开关
+///   - 负断言：两种模式都不得出现独立语音总开关
 #[test]
 fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
     let temp = tempfile::TempDir::new().expect("应创建隔离的 Voice Settings 数据目录");
@@ -60,8 +60,8 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
         click_debug(cx, "settings-section-voice");
         let defaults = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
         assert_eq!(
-            defaults.voice_interaction_mode, "dictation",
-            "fresh 配置应默认 Dictation"
+            defaults.voice_interaction_mode, "single_voice_command",
+            "fresh 配置应默认 Single Voice Command"
         );
         assert_eq!(defaults.dictation_trigger, "hold", "fresh 配置应默认 Hold");
         assert_eq!(
@@ -94,8 +94,8 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
             "新架构不得重新出现独立语音总开关"
         );
         assert!(
-            cx.debug_bounds("settings-agent-provider-openai").is_none(),
-            "Dictation 页面不得展开 Continuous-only Agent Provider"
+            cx.debug_bounds("settings-agent-provider-openai").is_some(),
+            "Single Voice Command 页面也必须配置共享 Agent Provider"
         );
 
         click_debug(cx, "settings-voice-input-device-1");
@@ -179,8 +179,8 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
         click_debug(cx, "settings-voice-mode-dictation");
         let final_state = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
         assert_eq!(
-            final_state.voice_interaction_mode, "dictation",
-            "最终模式应切回 Dictation"
+            final_state.voice_interaction_mode, "single_voice_command",
+            "最终模式应切回 Single Voice Command"
         );
         assert_eq!(
             final_state.dictation_trigger, "toggle",
@@ -201,8 +201,8 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
     click_debug(reload_cx, "settings-section-voice");
     let reloaded = reloaded_app.update(reload_cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
-        reloaded.voice_interaction_mode, "dictation",
-        "重载后应保留最终 Dictation"
+        reloaded.voice_interaction_mode, "single_voice_command",
+        "重载后应保留最终 Single Voice Command"
     );
     assert_eq!(reloaded.dictation_trigger, "toggle", "重载后应保留 Toggle");
     assert_eq!(
