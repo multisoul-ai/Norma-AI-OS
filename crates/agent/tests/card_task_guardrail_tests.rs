@@ -96,11 +96,11 @@ fn card_task_rejects_existing_card_operations_without_a_list_receipt() {
     );
 }
 
-/// G-3：CardTask 成功摘要必须来自成功工具回执，不能采用模型自由生成的完成文本。
+/// G-3：CardTask 成功播报必须来自成功工具回执，且保持十字以内的简洁话术。
 ///
 /// 数据构造：Subagent 先创建卡片并收到 node_id=1，随后返回虚假的“已发送到卡片 99”终态文本。
 /// 执行过程：完成 create 工具调用后取得无工具调用的终态响应，检查公开 TaskSucceeded 摘要。
-/// 预期结果：摘要只报告已创建的卡片 #1；不得保留模型虚构的卡片 99 或发送事实。
+/// 预期结果：摘要为“已创建卡片”；不得保留模型虚构的卡片 99 或发送事实，且不超过 10 个字符。
 #[test]
 fn card_task_success_summary_is_derived_from_tool_receipts_not_model_text() {
     let mut system = system(
@@ -129,12 +129,70 @@ fn card_task_success_summary_is_derived_from_tool_receipts_not_model_text() {
     });
     assert_eq!(
         summary,
-        Some(&"已完成：创建卡片 #1".to_string()),
-        "成功摘要必须只陈述 create 回执中的 node_id=1"
+        Some(&"已创建卡片".to_string()),
+        "创建卡片成功时，用户播报必须使用简洁且事实性的固定话术"
     );
     assert!(
         summary.is_some_and(|text| !text.contains("卡片 99") && !text.contains("发送")),
         "成功摘要不得采用模型虚构的卡片 99 或发送事实"
+    );
+    assert!(
+        summary.is_some_and(|text| text.chars().count() <= 10),
+        "成功播报必须不超过 10 个字符，实际摘要：{summary:?}"
+    );
+}
+
+/// G-3b：删除与其他成功操作并存时，简洁播报必须优先说明删除副作用。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   create_card 回执 = node_id 1（RecordingHost 对首个 create 的固定回执）
+///   delete_card 目标 = node_id 1（直接使用本任务 Created 回执）
+///   成功工具调用总数 = 2（create + delete）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. Subagent 创建卡片并收到 Created(#1)；
+///   2. Subagent 删除刚创建的 #1，收到 Deleted(#1)；
+///   3. Subagent 停止调用工具，运行时从两条成功回执生成终态播报。
+///
+/// 预期结果：
+///   - 断言 A：成功播报为“已删除卡片”，优先告知用户破坏性副作用；
+///   - 断言 B：播报不超过 10 个字符，继续满足简洁语音反馈限制。
+#[test]
+fn card_task_delete_takes_priority_in_compact_success_report() {
+    let mut system = system(
+        ScriptedProvider::default(),
+        ScriptedProvider::new([
+            response([tool("create-1", "create_card", r#"{"kind":"terminal"}"#)]),
+            response([tool("delete-1", "delete_card", r#"{"node_id":1}"#)]),
+            text_response("处理完毕"),
+        ]),
+        RecordingHost::default(),
+    );
+    let queued = system
+        .submit(AgentCommand::DirectCardTask("创建后删除终端".to_string()))
+        .expect("DirectCardTask 应成功入队");
+    let task_id = support::task_id_from(&queued);
+
+    let mut observed = Vec::new();
+    for _ in 0..5 {
+        observed.extend(system.pump());
+    }
+    let summary = observed.iter().find_map(|event| match event {
+        AgentEvent::TaskSucceeded {
+            task_id: id,
+            summary,
+        } if *id == task_id => Some(summary),
+        _ => None,
+    });
+
+    assert_eq!(
+        summary,
+        Some(&"已删除卡片".to_string()),
+        "删除成功时，成功播报必须优先说明该破坏性副作用"
+    );
+    assert!(
+        summary.is_some_and(|text| text.chars().count() <= 10),
+        "删除成功播报必须不超过 10 个字符，实际摘要：{summary:?}"
     );
 }
 
@@ -142,7 +200,7 @@ fn card_task_success_summary_is_derived_from_tool_receipts_not_model_text() {
 ///
 /// 数据构造：list 回执只包含 node_id=42 的终端卡片；Subagent 随后向同一节点提交 `pwd`。
 /// 执行过程：按 list、send_text、终态文本的三轮响应推进任务，并检查 host 调用顺序与最终摘要。
-/// 预期结果：list 后 send_text 可抵达 host；成功摘要只包含列出 1 张卡片和向 #42 提交文本两项真实回执。
+/// 预期结果：list 后 send_text 可抵达 host；成功播报仅表达已提交内容，不暴露内部查证步骤。
 #[test]
 fn card_task_allows_an_existing_card_after_its_list_receipt() {
     let mut host = RecordingHost::default();
@@ -201,9 +259,9 @@ fn card_task_allows_an_existing_card_after_its_list_receipt() {
     assert!(
         observed.contains(&AgentEvent::TaskSucceeded {
             task_id,
-            summary: "已完成：列出 1 张卡片；向卡片 #42 提交文本".to_string(),
+            summary: "已提交内容".to_string(),
         }),
-        "成功事件必须基于 list 与 send_text 的真实回执生成摘要"
+        "成功事件必须只用简洁话术表达真实的用户可见副作用"
     );
 }
 
@@ -368,7 +426,7 @@ fn card_task_can_recover_by_retrying_the_same_command_after_list() {
     assert!(
         observed.contains(&AgentEvent::TaskSucceeded {
             task_id,
-            summary: "已完成：创建卡片 #1；列出 1 张卡片；向卡片 #42 提交文本".to_string(),
+            summary: "已创建并提交".to_string(),
         }),
         "相同失败命令重试成功后任务应使用真实成功回执收口"
     );

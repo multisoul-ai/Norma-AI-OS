@@ -80,8 +80,8 @@ fn card_task_system_prompt_is_rigorous_and_persona_isolated() {
         "CardTask prompt 必须保留用户确认的自动提交策略"
     );
     assert!(
-        prompt.contains("不得把意图当作成功"),
-        "CardTask prompt 必须要求最终摘要基于真实工具回执"
+        prompt.contains("不生成用户可见总结"),
+        "CardTask prompt 必须把用户话术交给运行时的真实回执模板"
     );
     assert!(
         !prompt.contains("Norma 多人工智能助理"),

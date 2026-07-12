@@ -5,7 +5,7 @@ use super::{
     TERM_FONT_PX, TERM_LINE_PX, TERM_PADDING_PX,
 };
 use crate::cards::intro::render_intro_overlay;
-use crate::cards::term::cursor::TerminalCursorAnimation;
+use crate::cards::term::cursor::{cursor_animation_running, TerminalCursorAnimation};
 use crate::cards::term::paint::render_terminal_canvas;
 use gpui::{div, prelude::*, px, rgba, AnyElement, IntoElement};
 use runtime::NodeView;
@@ -25,6 +25,7 @@ pub(crate) fn render_terminal_node(
         reduce_motion,
         initialization,
         cursor_phase,
+        cursor_task_running,
     } = options;
     let content_opacity = initialization
         .map(|presentation| presentation.content_opacity)
@@ -35,7 +36,10 @@ pub(crate) fn render_terminal_node(
                 phase: cursor_phase,
                 focused,
                 reduce_motion,
-                running: matches!(status, TerminalStatus::Running),
+                running: cursor_animation_running(
+                    matches!(status, TerminalStatus::Running),
+                    cursor_task_running,
+                ),
                 display_offset: snapshot.display_offset,
             };
             let terminal_canvas = render_terminal_canvas(

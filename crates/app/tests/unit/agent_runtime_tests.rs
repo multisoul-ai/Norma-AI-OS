@@ -147,9 +147,9 @@ fn test_terminal_task_reports_cover_all_terminal_states_only() {
     assert_eq!(
         terminal_task_report(&AgentEvent::TaskSucceeded {
             task_id: 1,
-            summary: "已完成：创建卡片 #3".to_string(),
+            summary: "已创建卡片".to_string(),
         }),
-        Some("已完成：创建卡片 #3".to_string()),
+        Some("已创建卡片".to_string()),
         "成功报告必须直接采用真实工具回执摘要"
     );
     assert_eq!(

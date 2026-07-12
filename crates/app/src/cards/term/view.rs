@@ -26,6 +26,8 @@ pub struct TerminalNodeRenderOptions {
     pub reduce_motion: bool,
     pub initialization: Option<InitializationPresentation>,
     pub cursor_phase: f32,
+    /// Agent 卡片以任务状态覆盖 PTY 存活状态；普通 Terminal 保持 None。
+    pub cursor_task_running: Option<bool>,
 }
 
 pub fn terminal_render_metrics(zoom: f32) -> TerminalRenderMetrics {

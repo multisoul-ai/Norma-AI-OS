@@ -39,7 +39,43 @@ pub(super) fn record_successful_result(task: &mut ActiveTask, result: &CardComma
 }
 
 pub(super) fn successful_summary(task: &ActiveTask) -> String {
-    format!("已完成：{}", successful_operations(task))
+    let created = task
+        .successful_results
+        .iter()
+        .any(|result| matches!(result, CardCommandResult::Created { .. }));
+    let submitted = task
+        .successful_results
+        .iter()
+        .any(|result| matches!(result, CardCommandResult::Sent { .. }));
+    let deleted = task
+        .successful_results
+        .iter()
+        .any(|result| matches!(result, CardCommandResult::Deleted { .. }));
+    let focused = task
+        .successful_results
+        .iter()
+        .any(|result| matches!(result, CardCommandResult::Focused { .. }));
+    let listed = task
+        .successful_results
+        .iter()
+        .any(|result| matches!(result, CardCommandResult::Listed { .. }));
+
+    if deleted {
+        "已删除卡片"
+    } else if created && submitted {
+        "已创建并提交"
+    } else if created {
+        "已创建卡片"
+    } else if submitted {
+        "已提交内容"
+    } else if focused {
+        "已聚焦卡片"
+    } else if listed {
+        "已获取卡片"
+    } else {
+        "已完成操作"
+    }
+    .to_string()
 }
 
 pub(crate) fn failed_summary(task: &ActiveTask, reason: &str) -> String {

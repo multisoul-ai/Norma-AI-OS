@@ -11,6 +11,7 @@ use crate::canvas::master_layout::{
 };
 use crate::canvas::spawn_focus;
 use crate::canvas::view::render_canvas;
+use crate::cards::agent::card::agent_chase_intent;
 use crate::cards::term::cursor::advance_terminal_cursor_phase as advance_cursor_phase;
 use crate::motion::MotionStore;
 use crate::norma::server::NormaServer;
@@ -25,7 +26,7 @@ use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasNodeKind, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
-use runtime::{route, InputEvent, InputMode, NodeRunState, Route, Runtime};
+use runtime::{route, AgentTaskState, InputEvent, InputMode, NodeRunState, Route, Runtime};
 use std::time::Duration;
 use ui::Theme;
 use voice_window_inset::VoiceWindowInset;
@@ -161,12 +162,10 @@ impl MultisoulApp {
         let Some(node) = self.runtime.document.node(node_id) else {
             return false;
         };
-        if !matches!(node.kind.node_type(), NodeType::Term | NodeType::Agent) {
-            return false;
-        }
-        matches!(
+        focused_cursor_animation_active(
+            node.kind.node_type(),
             self.runtime.node_run_state(node_id),
-            Some(NodeRunState::Running)
+            self.runtime.agent_task_state(node_id),
         )
     }
 
@@ -400,6 +399,18 @@ impl MultisoulApp {
     }
 }
 
+fn focused_cursor_animation_active(
+    node_type: NodeType,
+    node_run_state: Option<NodeRunState>,
+    agent_task_state: Option<AgentTaskState>,
+) -> bool {
+    match node_type {
+        NodeType::Term => matches!(node_run_state, Some(NodeRunState::Running)),
+        NodeType::Agent => agent_chase_intent(agent_task_state),
+        NodeType::Rect | NodeType::Preview | NodeType::Browser => false,
+    }
+}
+
 impl Focusable for MultisoulApp {
     fn focus_handle(&self, _cx: &gpui::App) -> FocusHandle {
         self.focus_handle.clone()
@@ -465,6 +476,10 @@ impl Render for MultisoulApp {
 #[cfg(test)]
 #[path = "../../tests/unit/app_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_cursor_animation_tests.rs"]
+mod cursor_animation_tests;
 
 #[cfg(all(test, target_os = "macos"))]
 #[path = "../../tests/unit/video_decoder_tests.rs"]

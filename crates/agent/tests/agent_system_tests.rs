@@ -193,9 +193,9 @@ fn dialogue_start_is_queued_before_independent_subagent_execution() {
     assert!(
         observed.contains(&AgentEvent::TaskSucceeded {
             task_id,
-            summary: "已完成：创建卡片 #1；向卡片 #1 提交文本".to_string(),
+            summary: "已创建并提交".to_string(),
         }),
-        "只有 Subagent tool loop 完成且生成真实工具回执摘要后才能产生 Succeeded"
+        "只有 Subagent tool loop 完成且生成十字内的真实成功播报后才能产生 Succeeded"
     );
     assert_eq!(
         system.card_tool_host().commands.len(),

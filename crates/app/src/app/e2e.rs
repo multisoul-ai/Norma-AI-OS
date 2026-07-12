@@ -90,6 +90,14 @@ pub struct VoiceE2eSnapshot {
 }
 
 impl MultisoulApp {
+    /// 聚焦卡片当前是否应推进 terminal cursor 的运行中动画。
+    ///
+    /// 这是面向 headless e2e 的稳定投影：Agent 卡片会同时考虑 PTY 生命周期
+    /// 与 Agent task 状态，普通 Terminal 则只考虑 PTY 生命周期。
+    pub fn focused_terminal_cursor_animation_active_e2e(&self) -> bool {
+        self.focused_terminal_cursor_animation_active()
+    }
+
     pub fn new_with_pty_factory(cx: &mut Context<Self>, factory: runtime::PtyFactory) -> Self {
         let agent_hook_server = AgentHookServer::start();
         let mut runtime = Runtime::new();

@@ -45,6 +45,7 @@ impl Card for AgentCard {
             .text_selection
             .filter(|selection| selection.node_id == node.id && !selection.is_empty())
             .map(|selection| selection.range());
+        let cursor_task_running = agent_chase_intent(context.runtime.agent_task_state(node.id));
         render_terminal_node(
             context.runtime.node_view(node.id),
             TerminalNodeRenderOptions {
@@ -56,6 +57,7 @@ impl Card for AgentCard {
                 reduce_motion: context.reduce_motion,
                 initialization: context.initialization,
                 cursor_phase: context.terminal_cursor_phase,
+                cursor_task_running: Some(cursor_task_running),
             },
         )
     }
