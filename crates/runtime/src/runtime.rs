@@ -444,6 +444,9 @@ mod agent_alias_tests;
 #[path = "../tests/unit/agent_command_tests.rs"]
 mod agent_command_tests;
 #[cfg(test)]
+#[path = "../tests/unit/agent_manual_interrupt_tests.rs"]
+mod agent_manual_interrupt_tests;
+#[cfg(test)]
 #[path = "../tests/unit/agent_session_snapshot_tests.rs"]
 mod agent_session_snapshot_tests;
 #[cfg(test)]

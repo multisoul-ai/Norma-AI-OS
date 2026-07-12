@@ -189,6 +189,12 @@ impl RuntimeEvents {
         source_event: String,
     ) -> bool {
         let previous = self.agent_task_states.get(&node_id).cloned();
+        if previous == Some(AgentTaskState::Ended)
+            && is_active_agent_task_state(&to)
+            && source_event != "UserPromptSubmit"
+        {
+            return false;
+        }
         if previous.as_ref() == Some(&to) {
             return false;
         }
@@ -251,6 +257,15 @@ impl RuntimeEvents {
             }
         }
     }
+}
+
+fn is_active_agent_task_state(state: &AgentTaskState) -> bool {
+    matches!(
+        state,
+        AgentTaskState::Thinking
+            | AgentTaskState::RunningTool { .. }
+            | AgentTaskState::WaitingApproval { .. }
+    )
 }
 
 impl Runtime {

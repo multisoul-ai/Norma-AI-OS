@@ -36,6 +36,64 @@ bundle_hook="$bundle/Contents/MacOS/multisoul-agent-hook"
 wallpaper_resources="$repo_root/crates/app/assets/wallpapers"
 bundle_resources="$bundle/Contents/Resources"
 
+# TCC keys folder consent to the app's designated requirement. An ad-hoc
+# signature uses the binary CDHash as that requirement, so every Cargo rebuild
+# becomes a new app in TCC and repeatedly asks for Documents access. Prefer an
+# explicit identity for reproducibility; otherwise enumerate Apple Development
+# certificates whose display names occur only once in the Keychain, returning
+# their unique SHA-1 identity hashes. Repeated display names can map to
+# inaccessible keys and must be selected explicitly by hash.
+resolve_dev_signing_identities() {
+  if [ -n "${MULTISOUL_DEV_CODESIGN_IDENTITY:-}" ]; then
+    printf '%s\n' "$MULTISOUL_DEV_CODESIGN_IDENTITY"
+    return
+  fi
+
+  security find-identity -v -p codesigning 2>/dev/null \
+    | awk '
+        /"Apple Development: / {
+          hash = $2
+          label = $0
+          sub(/^[^"]*"/, "", label)
+          sub(/".*$/, "", label)
+          hashes[++count] = hash
+          labels[count] = label
+          label_counts[label] += 1
+        }
+        END {
+          for (position = 1; position <= count; position += 1) {
+            if (label_counts[labels[position]] == 1) {
+              print hashes[position]
+            }
+          }
+        }
+      '
+}
+
+sign_development_bundle() {
+  local identity
+  local attempted=false
+  while IFS= read -r identity; do
+    [ -n "$identity" ] || continue
+    attempted=true
+    if codesign --force --sign "$identity" --entitlements "$entitlements" "$bundle" >/dev/null 2>&1; then
+      printf '%s\n' "$identity"
+      return 0
+    fi
+    echo "Skipping unusable development signing identity: $identity" >&2
+  done < <(resolve_dev_signing_identities)
+
+  if [ "$attempted" = false ]; then
+    echo "No Apple Development signing identity is available for Norma OS Dev." >&2
+  else
+    echo "No listed Apple Development signing identity could sign Norma OS Dev." >&2
+  fi
+  echo "Set MULTISOUL_DEV_CODESIGN_IDENTITY to a usable SHA-1 identity from:" >&2
+  echo "  security find-identity -v -p codesigning" >&2
+  echo "Refusing ad-hoc signing because it causes macOS to re-prompt for Documents access after rebuilds." >&2
+  return 1
+}
+
 # `cargo run -p app` only builds the selected norma-os binary. The hook
 # installer resolves its bridge as a sibling of the running executable, so the
 # development bundle must explicitly build and carry the helper as well.
@@ -67,7 +125,8 @@ fi
 cp "$repo_root/packaging/macos/DevInfo.plist" "$plist"
 /usr/libexec/PlistBuddy -c 'Delete :CFBundleExecutable' "$plist" >/dev/null 2>&1 || true
 /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string $binary_name" "$plist"
-codesign --force --sign - --entitlements "$entitlements" "$bundle" >/dev/null
+signing_identity=$(sign_development_bundle) || exit 69
+echo "Norma OS Dev signed with identity: $signing_identity" >&2
 
 # `open -W -n` registers this exact development bundle with LaunchServices and
 # waits until it exits, preserving Cargo's foreground lifecycle. `-n` ensures a

@@ -34,12 +34,17 @@
 #   - Positive: the bundle contains Contents/Resources/wallpapers/1407174.mp4.
 #   - Positive: tracing output remains visible to terminal pipes such as `tee`.
 #   - Positive: INT and TERM terminate the specific app process launched by this runner.
+#   - Positive: the runner selects a unique-label SHA-1 identity when Apple Development labels duplicate.
 #   - Negative: stale executables must not survive into a newly signed bundle.
 #   - Negative: the hook installer must not fail because cargo run omitted the helper binary.
 #   - Negative: a development .app must not read built-in videos from the source checkout.
 #   - Negative: cargo run must not keep launching only target/debug/norma-os.
 #   - Negative: LaunchServices must not leave app stdout/stderr on `/dev/null`.
 #   - Negative: stopping Cargo must not leave Norma OS Dev visible after its runner exits.
+#   - Negative: the runner must not fall back to an ad-hoc signature, because its CDHash changes
+#               after every rebuild and invalidates macOS TCC folder authorization.
+#   - Negative: the runner must not pass an ambiguous certificate display name to codesign.
+#   - Negative: an ambiguous duplicate-label identity must not be passed to codesign automatically.
 
 set -euo pipefail
 
@@ -80,6 +85,14 @@ fi
 
 if ! grep -Fq -- '--entitlements "$entitlements"' "$runner"; then
   fail "development app runner must sign its main bundle with microphone entitlements"
+fi
+
+if ! grep -Fq 'MULTISOUL_DEV_CODESIGN_IDENTITY' "$runner"; then
+  fail "development app runner must accept a stable development signing identity override"
+fi
+
+if grep -Fq 'codesign --force --sign - ' "$runner"; then
+  fail "development app runner must not use an ad-hoc signature that changes TCC identity on rebuild"
 fi
 
 if ! grep -Fq '*/deps/*' "$runner"; then
@@ -153,6 +166,7 @@ fixture_input="$tmp_dir/norma-os"
 fixture_hook_source="$tmp_dir/multisoul-agent-hook-source"
 fixture_hook="$tmp_dir/multisoul-agent-hook"
 app_pid_file="$tmp_dir/app.pid"
+codesign_args_file="$tmp_dir/codesign-args"
 fixture_wallpaper_source="$fixture_root/crates/app/assets/wallpapers/1407174.mp4"
 mkdir -p "$fixture_bin" "$fixture_root/scripts" "$fixture_root/packaging/macos" \
   "$(dirname "$fixture_wallpaper_source")"
@@ -184,9 +198,20 @@ chmod +x "$fixture_bin/cargo"
 
 cat >"$fixture_bin/codesign" <<'CODESIGN'
 #!/usr/bin/env bash
+printf '%s\n' "$*" >>"$FAKE_CODESIGN_ARGS_FILE"
 exit 0
 CODESIGN
 chmod +x "$fixture_bin/codesign"
+
+cat >"$fixture_bin/security" <<'SECURITY'
+#!/usr/bin/env bash
+cat <<'IDENTITIES'
+  1) 1111111111111111111111111111111111111111 "Apple Development: Fixture (TEAMID)"
+  2) 2222222222222222222222222222222222222222 "Apple Development: Fixture (TEAMID)"
+  3) 3333333333333333333333333333333333333333 "Apple Development: Fixture Alternate (OTHERTEAM)"
+IDENTITIES
+SECURITY
+chmod +x "$fixture_bin/security"
 
 cat >"$fixture_bin/open" <<'OPEN'
 #!/usr/bin/env bash
@@ -214,6 +239,7 @@ chmod +x "$fixture_bin/open"
 
 PATH="$fixture_bin:$PATH" OPEN_APP_PID_FILE="$app_pid_file" \
   FAKE_HOOK_SOURCE="$fixture_hook_source" FAKE_HOOK_DEST="$fixture_hook" \
+  FAKE_CODESIGN_ARGS_FILE="$codesign_args_file" \
   "$fixture_runner" "$fixture_input" >"$tmp_dir/runner.log" 2>&1 &
 runner_pid=$!
 
@@ -255,6 +281,11 @@ fi
 
 if ! cmp -s "$fixture_wallpaper_source" "$bundle_wallpaper"; then
   fail "development bundle wallpaper must match the built-in source fixture"
+fi
+
+if ! grep -Fq -- '--sign 3333333333333333333333333333333333333333' "$codesign_args_file"; then
+  cat "$tmp_dir/runner.log" >&2
+  fail "development bundle must skip duplicate-label identities and sign with a unique-label SHA-1 identity"
 fi
 
 kill -TERM "$runner_pid"
