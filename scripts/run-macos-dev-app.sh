@@ -56,7 +56,51 @@ mkfifo "$stdout_pipe" "$stderr_pipe"
 
 stdout_reader=
 stderr_reader=
+open_pid=
+launched_app_pid=
+known_app_pids=$(pgrep -f "$bundle_binary" || true)
+
+remember_launched_app() {
+  local pid
+  while IFS= read -r pid; do
+    [ -n "$pid" ] || continue
+    case " $known_app_pids " in
+      *" $pid "*) ;;
+      *)
+        launched_app_pid=$pid
+        return
+        ;;
+    esac
+  done < <(pgrep -f "$bundle_binary" || true)
+}
+
+terminate_launched_app() {
+  if [ -z "$launched_app_pid" ]; then
+    # LaunchServices starts the .app asynchronously. Give a just-starting app
+    # a short chance to appear before the terminal signal is forwarded.
+    for _ in {1..10}; do
+      remember_launched_app
+      [ -n "$launched_app_pid" ] && break
+      sleep 0.1
+    done
+  fi
+
+  if [ -n "$launched_app_pid" ] && kill -0 "$launched_app_pid" >/dev/null 2>&1; then
+    kill -TERM "$launched_app_pid" >/dev/null 2>&1 || true
+  fi
+}
+
+cleanup_done=
 cleanup() {
+  if [ "$cleanup_done" = true ]; then
+    return
+  fi
+  cleanup_done=true
+
+  terminate_launched_app
+  if [ -n "$open_pid" ] && kill -0 "$open_pid" >/dev/null 2>&1; then
+    kill -TERM "$open_pid" >/dev/null 2>&1 || true
+  fi
   if [ -n "$stdout_reader" ]; then kill "$stdout_reader" >/dev/null 2>&1 || true; fi
   if [ -n "$stderr_reader" ]; then kill "$stderr_reader" >/dev/null 2>&1 || true; fi
   rm -rf "$stdio_dir"
@@ -69,7 +113,10 @@ cat "$stderr_pipe" >&2 &
 stderr_reader=$!
 
 set +e
-open -W -n -o "$stdout_pipe" --stderr "$stderr_pipe" "$bundle" --args "$@"
+open -W -n -o "$stdout_pipe" --stderr "$stderr_pipe" "$bundle" --args "$@" &
+open_pid=$!
+remember_launched_app
+wait "$open_pid"
 open_status=$?
 set -e
 
