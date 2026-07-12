@@ -42,6 +42,12 @@ impl Drop for PcmStreamSession {
 pub(crate) fn start(
     input_device_id: Option<String>,
 ) -> Result<(PcmStreamSession, async_channel::Receiver<PcmAudioChunk>), SpeechError> {
+    tracing::info!(
+        target: "norma_voice",
+        input_device_selected = input_device_id.is_some(),
+        sample_rate_hz = PCM_STREAM_SAMPLE_RATE_HZ,
+        "starting microphone PCM capture"
+    );
     ensure_microphone_authorized()?;
 
     let (pcm_tx, pcm_rx) = bounded::<PcmEvent>(PCM_QUEUE_CHUNKS);
@@ -53,6 +59,11 @@ pub(crate) fn start(
     match started_rx.recv() {
         Ok(Ok(())) => {}
         Ok(Err(error)) => {
+            tracing::warn!(
+                target: "norma_voice",
+                %error,
+                "microphone PCM capture failed to start"
+            );
             let _ = capture_thread.join();
             return Err(error);
         }
@@ -72,6 +83,8 @@ pub(crate) fn start(
             return Err(error);
         }
     };
+
+    tracing::info!(target: "norma_voice", "microphone PCM capture threads ready");
 
     Ok((
         PcmStreamSession {
@@ -95,17 +108,32 @@ fn spawn_capture_thread(
             let stats = Arc::new(AudioQueueStats::default());
             let capture = AudioCapture::start(
                 pcm_tx,
-                stats,
+                stats.clone(),
                 input_device_id.as_deref(),
                 PCM_STREAM_SAMPLE_RATE_HZ,
             );
             match capture {
                 Ok(capture) => {
+                    tracing::info!(
+                        target: "norma_voice",
+                        "AVAudioEngine microphone capture started"
+                    );
                     let _ = started_tx.send(Ok(()));
                     let _ = stop_rx.recv();
                     capture.stop();
+                    tracing::info!(
+                        target: "norma_voice",
+                        sent_chunks = stats.sent_chunks(),
+                        dropped_chunks = stats.dropped_chunks(),
+                        "AVAudioEngine microphone capture stopped"
+                    );
                 }
                 Err(error) => {
+                    tracing::warn!(
+                        target: "norma_voice",
+                        %error,
+                        "AVAudioEngine microphone capture initialization failed"
+                    );
                     let _ = started_tx.send(Err(error));
                 }
             }
@@ -131,6 +159,7 @@ fn forward_pcm_events(
     pcm_rx: crossbeam_channel::Receiver<PcmEvent>,
     chunk_tx: async_channel::Sender<PcmAudioChunk>,
 ) {
+    let mut first_chunk_forwarded = false;
     while let Ok(event) = pcm_rx.recv() {
         match event {
             PcmEvent::Samples(samples) => {
@@ -138,7 +167,16 @@ fn forward_pcm_events(
                     continue;
                 };
                 match chunk_tx.try_send(chunk) {
-                    Ok(()) => {}
+                    Ok(()) => {
+                        if !first_chunk_forwarded {
+                            first_chunk_forwarded = true;
+                            tracing::info!(
+                                target: "norma_voice",
+                                samples = samples.len(),
+                                "first microphone PCM chunk reached realtime pipeline"
+                            );
+                        }
+                    }
                     Err(async_channel::TrySendError::Full(_)) => {}
                     Err(async_channel::TrySendError::Closed(_)) => break,
                 }

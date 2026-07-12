@@ -490,3 +490,7 @@ mod voice_settings_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_persistence_tests.rs"]
 mod voice_settings_persistence_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_managed_model_tests.rs"]
+mod voice_settings_managed_model_tests;

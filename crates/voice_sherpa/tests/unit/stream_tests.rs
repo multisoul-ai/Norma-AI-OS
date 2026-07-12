@@ -153,3 +153,47 @@ fn test_start_pcm_stream_requires_microphone_authorization_without_recognizer() 
         "PCM stream path should not create a sherpa OnlineRecognizer"
     );
 }
+
+/// STREAM-4：完整 PcmStreamSession 启动后必须把 AVAudioEngine tap 数据转发到异步队列。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   input device       = None（使用系统默认麦克风，与当前 App 配置一致）
+///   poll interval      = 10ms
+///   max polls          = 200
+///   total timeout      = 10ms × 200 = 2,000ms
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 调用生产 `start(None)`，创建 capture thread、AVAudioEngine 与 forward thread。
+///   2. 每 10ms 从异步 PCM receiver 读取一次，最多等待 200 次。
+///   3. 收到首块 PCM 后取消 session，确保 capture/forward thread 正常回收。
+///
+/// 预期结果：
+///   - 正断言：2 秒内至少收到一块非空 PCM，证明完整实时链路持续产出。
+///   - 负断言：不得只报告 AVAudioEngine started，却始终没有 PCM chunk。
+#[test]
+#[ignore = "requires microphone hardware and permission"]
+fn test_pcm_stream_session_forwards_microphone_chunks() {
+    let (session, pcm_rx) =
+        super::start(None).expect("完整 PCM stream 应能使用已授权的系统默认麦克风启动");
+    let mut received = None;
+
+    for _ in 0..200 {
+        match pcm_rx.try_recv() {
+            Ok(chunk) => {
+                received = Some(chunk);
+                break;
+            }
+            Err(async_channel::TryRecvError::Empty) => {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            Err(async_channel::TryRecvError::Closed) => break,
+        }
+    }
+    session.cancel();
+
+    let chunk = received.expect("AVAudioEngine started 后 2 秒内应有 PCM 到达异步转发队列");
+    assert!(
+        !chunk.bytes.is_empty(),
+        "完整 PCM stream 收到的首块音频不得为空"
+    );
+}

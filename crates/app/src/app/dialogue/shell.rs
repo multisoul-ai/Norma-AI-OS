@@ -29,6 +29,13 @@ impl MultisoulApp {
         let values = self.voice_settings.values().clone();
         let input_device_id = values.input_device_id().map(ToOwned::to_owned);
         let startup_attempt = self.dialogue.begin_startup_attempt();
+        tracing::info!(
+            target: "norma_voice",
+            startup_attempt,
+            model_dir = ?values.paraformer_model_dir(),
+            input_device_selected = input_device_id.is_some(),
+            "realtime voice startup requested"
+        );
         let task = cx.spawn(async move |this, cx| {
             let runtime_task = cx
                 .background_executor()
@@ -39,6 +46,11 @@ impl MultisoulApp {
                 match runtime {
                     Ok(runtime) => {
                         if should_accept {
+                            tracing::info!(
+                                target: "norma_voice",
+                                startup_attempt,
+                                "realtime voice runtime ready; installing event pump"
+                            );
                             app.dialogue.install_listening_runtime(runtime, cx);
                         } else {
                             tracing::info!(
@@ -50,7 +62,12 @@ impl MultisoulApp {
                     }
                     Err(error) => {
                         if should_accept {
-                            tracing::warn!(%error, "failed to start dialogue listening shell");
+                            tracing::warn!(
+                                target: "norma_voice",
+                                startup_attempt,
+                                %error,
+                                "realtime voice startup failed"
+                            );
                             app.dialogue.mark_start_error(error);
                         } else {
                             tracing::info!(
@@ -70,6 +87,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn stop_always_listening_shell(&mut self, cx: &mut Context<Self>) {
+        tracing::info!(target: "norma_voice", "realtime voice stop requested");
         self.dialogue.stop_shell();
         cx.notify();
     }

@@ -19,6 +19,8 @@ pub(super) const KEY_PARAFORMER_MODEL_DIR: &str = "voice.paraformer.model_dir";
 pub(super) const KEY_INPUT_DEVICE_ID: &str = "voice.input_device_id";
 pub(super) const KEY_TRACE_ENABLED: &str = "voice.trace_enabled";
 pub(super) const KEY_REALTIME_ENABLED: &str = "voice.realtime.enabled";
+const KEY_ASR_MODEL_ID: &str = "voice.asr.model_id";
+const MANAGED_PARAFORMER_MODEL_ID: &str = "paraformer-bilingual-zh-en-int8";
 pub(super) const KEY_OPENAI_API_KEY: &str = "voice.openai.api_key";
 pub(super) const KEY_OPENAI_REALTIME_MODEL: &str = "voice.openai.realtime_model";
 pub(super) const KEY_OPENAI_CARD_PLANNER_MODEL: &str = "voice.openai.card_planner_model";
@@ -370,6 +372,14 @@ impl SavedVoiceSettings {
         let legacy_openai_api_key = non_empty_option(store.get_string(KEY_OPENAI_API_KEY)?);
         let legacy_openai_model =
             non_empty_option(store.get_string(KEY_OPENAI_CARD_PLANNER_MODEL)?);
+        let paraformer_model_dir = match non_empty_option(
+            store.get_string(KEY_PARAFORMER_MODEL_DIR)?,
+        )
+        .map(PathBuf::from)
+        {
+            Some(path) => Some(path),
+            None => managed_paraformer_model_dir(store)?,
+        };
         Ok(Self {
             agent_provider: store
                 .get_string(KEY_AGENT_PROVIDER)?
@@ -396,8 +406,7 @@ impl SavedVoiceSettings {
                 .and_then(DialogueLlmMode::from_stored),
             dialogue_model: non_empty_option(store.get_string(KEY_DIALOGUE_MODEL)?),
             refine_model: non_empty_option(store.get_string(KEY_REFINE_MODEL)?),
-            paraformer_model_dir: non_empty_option(store.get_string(KEY_PARAFORMER_MODEL_DIR)?)
-                .map(PathBuf::from),
+            paraformer_model_dir,
             input_device_id: non_empty_option(store.get_string(KEY_INPUT_DEVICE_ID)?),
             trace_enabled: store
                 .get_string(KEY_TRACE_ENABLED)?
@@ -409,6 +418,20 @@ impl SavedVoiceSettings {
                 .and_then(stored_bool),
         })
     }
+}
+
+fn managed_paraformer_model_dir(store: &SettingsStore) -> storage::StorageResult<Option<PathBuf>> {
+    let model_id = non_empty_option(store.get_string(KEY_ASR_MODEL_ID)?);
+    Ok(
+        (model_id.as_deref() == Some(MANAGED_PARAFORMER_MODEL_ID)).then(|| {
+            store
+                .path()
+                .parent()
+                .unwrap_or_else(|| Path::new("."))
+                .join("models")
+                .join(MANAGED_PARAFORMER_MODEL_ID)
+        }),
+    )
 }
 
 impl VoiceSettingsField {
