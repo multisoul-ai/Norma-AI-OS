@@ -4,6 +4,7 @@ mod card_tools;
 mod chat;
 mod error;
 mod error_state;
+mod preview;
 mod reply;
 mod reply_loop;
 mod reply_stream;
@@ -15,17 +16,13 @@ use dialogue::{
     apply_asr_final, handle_speaking_speech_start, DialoguePhase, DialogueSession,
     SpeakingSpeechSource, UtteranceCommitter,
 };
+pub(crate) use error::DialogueStartError;
 use gpui::{Context, Task};
+pub(crate) use preview::{TtsPreviewControl, TtsPreviewState};
 pub(crate) use reply::{configure_selected_tts_model, SelectedTtsModel};
 use reply::{create_assistant_audio_sink, ReplyPlayback, TtsClientBox};
-
-pub(crate) fn play_tts_preview(chunk: &audio::PcmAudioChunk) {
-    let mut sink = reply::create_assistant_audio_sink();
-    let _ = sink.write_chunk(chunk);
-}
 use reply_stream::StreamPlaybackBuffer;
 use std::collections::VecDeque;
-use std::fmt;
 use std::sync::atomic::AtomicBool;
 #[cfg(test)]
 use std::sync::atomic::Ordering;
@@ -49,25 +46,6 @@ pub(crate) fn check_mic_permission() -> Result<(), SpeechError> {
     }
     default_mic_permission_check()
 }
-
-#[derive(Debug)]
-pub(crate) enum DialogueStartError {
-    Speech(SpeechError),
-    Ollama(String),
-    Provider(String),
-}
-
-impl fmt::Display for DialogueStartError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Speech(error) => write!(f, "{error}"),
-            Self::Ollama(message) => write!(f, "Ollama unavailable: {message}"),
-            Self::Provider(message) => write!(f, "Agent provider unavailable: {message}"),
-        }
-    }
-}
-
-impl std::error::Error for DialogueStartError {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum VoiceShortcutKeyDownAction {
@@ -135,7 +113,9 @@ pub(crate) struct DialogueControlState {
     pub(super) playback_chunks_pending: usize,
     pub(super) playback_started: bool,
     pub(super) reply_generation: u64,
+    tts_configuration_generation: u64,
     pub(super) tts_cancelled: Arc<AtomicBool>,
+    preview_control: Option<Arc<TtsPreviewControl>>,
     dialogue_stream_cancellation: Option<Arc<AtomicBool>>,
     pub(super) reply_stream_started_at: Option<Instant>,
     pub(super) last_reply_interrupted: bool,
@@ -174,7 +154,9 @@ impl Default for DialogueControlState {
             playback_chunks_pending: 0,
             playback_started: false,
             reply_generation: 0,
+            tts_configuration_generation: 0,
             tts_cancelled: Arc::new(AtomicBool::new(false)),
+            preview_control: None,
             dialogue_stream_cancellation: None,
             reply_stream_started_at: None,
             last_reply_interrupted: false,
@@ -190,8 +172,25 @@ impl Default for DialogueControlState {
 
 impl DialogueControlState {
     pub(crate) fn cancel_tts_for_configuration_change(&mut self) {
+        self.tts_configuration_generation = self.tts_configuration_generation.wrapping_add(1);
+        self.cancel_tts_preview();
         self.abort_reply_stream(true);
         self.tts_client = None;
+    }
+
+    pub(crate) fn tts_configuration_generation(&self) -> u64 {
+        self.tts_configuration_generation
+    }
+
+    pub(crate) fn track_tts_preview(&mut self, control: Arc<TtsPreviewControl>) {
+        self.cancel_tts_preview();
+        self.preview_control = Some(control);
+    }
+
+    fn cancel_tts_preview(&mut self) {
+        if let Some(control) = self.preview_control.take() {
+            control.cancel();
+        }
     }
     pub(super) fn take_playback_events(&mut self) -> Vec<AssistantPlaybackEvent> {
         std::mem::take(&mut self.playback_events)

@@ -1,5 +1,24 @@
-use super::DialogueStartError;
+use std::fmt;
 use voice_sherpa::SpeechError;
+
+#[derive(Debug)]
+pub(crate) enum DialogueStartError {
+    Speech(SpeechError),
+    Ollama(String),
+    Provider(String),
+}
+
+impl fmt::Display for DialogueStartError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Speech(error) => write!(f, "{error}"),
+            Self::Ollama(message) => write!(f, "Ollama unavailable: {message}"),
+            Self::Provider(message) => write!(f, "Agent provider unavailable: {message}"),
+        }
+    }
+}
+
+impl std::error::Error for DialogueStartError {}
 
 pub(super) fn start_error_label(error: &DialogueStartError) -> String {
     match error {

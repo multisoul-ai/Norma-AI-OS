@@ -9,7 +9,7 @@ mod migration;
 mod model_selection;
 mod provider_values;
 mod values;
-pub(crate) use model_selection::{resolve_available_asr_model, selected_tts_model};
+pub(crate) use model_selection::resolve_available_asr_model;
 pub(crate) use provider_values::AgentProviderKind;
 #[cfg(test)]
 pub(crate) use provider_values::SavedProviderProfile;

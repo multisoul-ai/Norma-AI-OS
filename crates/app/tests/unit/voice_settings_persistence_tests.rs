@@ -292,3 +292,74 @@ fn test_voice_settings_clear_api_key_removes_legacy_fallback() {
         "重载后 legacy fallback 不得令已 Clear 的 API Key 复活"
     );
 }
+
+/// VS-TTS-1：模型与 Voice 必须作为两个不可变 ID 一起延迟持久化并在重启后精确恢复。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   model IDs      = 2（Matcha 与 Kokoro，最终选择 Kokoro）
+///   voice IDs      = 2（Matcha default 与 Kokoro af_bella，最终选择 af_bella）
+///   pending writes = 2（voice.tts.model_id + voice.tts.voice_id）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 从隔离 SQLite 建立初始无 TTS 选择的 Settings；
+///   2. 选择 Kokoro 与 af_bella，但在写队列执行前读取数据库；
+///   3. 执行两条后台写入、重建 Settings，并读取模型与 Voice ID。
+///
+/// 预期结果：
+///   - 断言 A：前台选择不应同步写入 SQLite；
+///   - 断言 B：重载后必须保留 Kokoro，而不能回退到 Matcha；
+///   - 断言 C：重载后必须保留 af_bella，而不能回退为 default。
+#[test]
+fn test_tts_model_and_voice_selection_persist_as_independent_ids() {
+    let temp = tempfile::tempdir().expect("应创建 TTS 持久化测试目录");
+    let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
+    let mut state = VoiceSettingsState::load_from_store(store.clone());
+    let matcha =
+        tts::TtsModelId::parse(tts::MATCHA_ZH_MODEL_ID).expect("内置 Matcha 模型 ID 应有效");
+    let kokoro = tts::TtsModelId::parse(tts::KOKORO_MULTI_LANG_MODEL_ID)
+        .expect("内置 Kokoro 模型 ID 应有效");
+    let default_voice = tts::TtsVoiceId::parse("default").expect("默认 Voice ID 应有效");
+    let bella = tts::TtsVoiceId::parse("af_bella").expect("Kokoro Bella Voice ID 应有效");
+
+    state.select_tts_model_and_voice(Some(kokoro.clone()), Some(bella.clone()));
+
+    assert!(
+        store
+            .get_string(super::values::KEY_TTS_MODEL_ID)
+            .expect("选择后但写入前应可查询模型 key")
+            .is_none(),
+        "选择 TTS 模型不得在 GPUI 状态变更路径同步写 SQLite"
+    );
+    let writes = state.take_pending_writes();
+    assert_eq!(
+        writes.len(),
+        2,
+        "模型与 Voice ID 应各产生一条独立的延迟写入"
+    );
+    for write in writes {
+        write.execute().expect("TTS 设置后台写入应成功");
+    }
+    state.record_persistence_result(Ok(()));
+
+    let reloaded = VoiceSettingsState::load_from_store(store);
+    assert_eq!(
+        reloaded.values().tts_model_id(),
+        Some(&kokoro),
+        "重载后必须保留用户最后选择的 Kokoro 模型 ID"
+    );
+    assert_ne!(
+        reloaded.values().tts_model_id(),
+        Some(&matcha),
+        "重载后不得错误回退到未选择的 Matcha 模型"
+    );
+    assert_eq!(
+        reloaded.values().tts_voice_id(),
+        Some(&bella),
+        "重载后必须保留模型内的 af_bella Voice ID"
+    );
+    assert_ne!(
+        reloaded.values().tts_voice_id(),
+        Some(&default_voice),
+        "重载后不得把 af_bella 静默替换为单 Voice 模型的 default"
+    );
+}

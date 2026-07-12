@@ -66,6 +66,7 @@ impl TtsChunkSink for ChannelTtsChunkSink {
 
 impl DialogueControlState {
     pub(super) fn begin_reply_stream(&mut self) {
+        self.cancel_tts_preview();
         self.abort_reply_stream(false);
         self.tts_cancelled = Arc::new(AtomicBool::new(false));
         self.utterance_committer = dialogue::UtteranceCommitter::new();

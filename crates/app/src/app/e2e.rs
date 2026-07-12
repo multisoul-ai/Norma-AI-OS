@@ -12,6 +12,9 @@ use runtime::Runtime;
 use std::time::Duration;
 use voice_sherpa::SpeechError;
 
+mod tts;
+use tts::{snapshot_tts_models, TtsModelE2eSnapshot};
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ApiKeyDisplayState {
     NotRendered,
@@ -46,7 +49,10 @@ pub struct SettingsE2eSnapshot {
     pub selected_asr_model_id: Option<String>,
     pub asr_models: Vec<AsrModelE2eSnapshot>,
     pub selected_tts_model_id: Option<String>,
-    pub tts_model_count: usize,
+    pub selected_tts_voice_id: Option<String>,
+    pub tts_models: Vec<TtsModelE2eSnapshot>,
+    pub tts_preview_active: bool,
+    pub tts_configuration_generation: u64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -388,7 +394,14 @@ impl MultisoulApp {
                 .values()
                 .tts_model_id()
                 .map(|id| id.as_str().to_string()),
-            tts_model_count: self.voice_settings.tts_model_manager().entries().len(),
+            selected_tts_voice_id: self
+                .voice_settings
+                .values()
+                .tts_voice_id()
+                .map(|id| id.as_str().to_string()),
+            tts_models: snapshot_tts_models(&self.voice_settings),
+            tts_preview_active: self.tts_preview.is_active(),
+            tts_configuration_generation: self.dialogue.tts_configuration_generation(),
         }
     }
 }

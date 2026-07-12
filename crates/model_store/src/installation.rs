@@ -82,6 +82,8 @@ impl SupplementalFile {
 pub enum InstallationError {
     #[error("model id cannot be blank")]
     BlankModelId,
+    #[error("model id must be a single safe directory name: {0}")]
+    UnsafeModelId(String),
     #[error("model installation I/O failed at {path}: {message}")]
     Io { path: PathBuf, message: String },
     #[error("invalid installation manifest: {0}")]
@@ -202,11 +204,19 @@ pub fn remove_installation(
 }
 
 fn validate_model_id(model_id: &str) -> Result<(), InstallationError> {
-    if model_id.trim().is_empty() {
-        Err(InstallationError::BlankModelId)
-    } else {
-        Ok(())
+    let trimmed = model_id.trim();
+    if trimmed.is_empty() {
+        return Err(InstallationError::BlankModelId);
     }
+    let mut components = Path::new(trimmed).components();
+    let safe_name = matches!(components.next(), Some(Component::Normal(_)))
+        && components.next().is_none()
+        && trimmed == model_id
+        && !trimmed.contains(['/', '\\']);
+    if !safe_name {
+        return Err(InstallationError::UnsafeModelId(model_id.to_string()));
+    }
+    Ok(())
 }
 
 fn sha256_file(path: &Path) -> Result<String, InstallationError> {

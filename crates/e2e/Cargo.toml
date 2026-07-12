@@ -14,7 +14,7 @@ license.workspace = true
 agent.workspace = true
 asr.workspace = true
 audio.workspace = true
-app = { path = "../app" }
+app = { path = "../app", features = ["e2e-test-support"] }
 card_task.workspace = true
 dialogue.workspace = true
 llm.workspace = true

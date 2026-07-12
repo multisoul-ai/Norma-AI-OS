@@ -122,6 +122,12 @@ pub(crate) fn default_assistant_audio_sink() -> Box<dyn AssistantAudioSink> {
     Box::<NoopAssistantAudioSink>::default()
 }
 
+/// Preview uses an independently-created sink. It intentionally does not reuse reply playback
+/// state, so it cannot emit assistant playback events or drive the voice-window inset.
+pub(crate) fn default_preview_audio_sink() -> Box<dyn AssistantAudioSink> {
+    default_assistant_audio_sink()
+}
+
 pub(crate) fn interrupt_assistant_playback(sink: &mut dyn AssistantAudioSink) {
     sink.stop();
 }

@@ -36,12 +36,7 @@ impl MultisoulApp {
         let focus_handle: FocusHandle = cx.focus_handle();
         let (voice_settings, voice_settings_inputs) =
             VoiceSettingsInputs::load_default(cx.weak_entity(), focus_handle.clone(), theme, cx);
-        crate::app::dialogue::configure_selected_tts_model(
-            crate::settings::voice::selected_tts_model(
-                voice_settings.values(),
-                voice_settings.model_root(),
-            ),
-        );
+        crate::app::dialogue::configure_selected_tts_model(None);
         let mut app = MultisoulApp {
             runtime,
             theme,
@@ -63,6 +58,10 @@ impl MultisoulApp {
             workspace_state: WorkspaceState::load_default(),
             voice: crate::app::voice::control::VoiceControlState::default(),
             dialogue: crate::app::dialogue::DialogueControlState::default(),
+            tts_preview: crate::app::dialogue::TtsPreviewState::default(),
+            tts_selection_generation: 0,
+            tts_scan_generation: 0,
+            tts_download_cancellations: std::collections::HashMap::new(),
             agent_runtime: None,
             pending_voice_commands: Vec::new(),
             focus_handle,

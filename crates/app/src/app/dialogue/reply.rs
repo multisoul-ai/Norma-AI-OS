@@ -1,7 +1,8 @@
 //! Stub reply synthesis and assistant playback for Plan 01.
 
 use crate::app::voice::playback::{
-    default_assistant_audio_sink, interrupt_assistant_playback, AssistantAudioSink,
+    default_assistant_audio_sink, default_preview_audio_sink, interrupt_assistant_playback,
+    AssistantAudioSink,
 };
 #[cfg(test)]
 use dialogue::DialoguePhase;
@@ -147,6 +148,10 @@ pub(crate) fn create_assistant_audio_sink() -> Box<dyn AssistantAudioSink> {
         return factory();
     }
     default_assistant_audio_sink()
+}
+
+pub(crate) fn create_preview_audio_sink() -> Box<dyn AssistantAudioSink> {
+    default_preview_audio_sink()
 }
 
 #[cfg(test)]

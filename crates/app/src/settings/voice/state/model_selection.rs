@@ -40,6 +40,14 @@ impl VoiceSettingsState {
     pub(crate) fn replace_tts_model_manager(&mut self, manager: TtsModelManagerState) {
         self.tts_model_manager = manager;
     }
+
+    pub(crate) fn report_tts_status(&mut self, message: impl Into<String>, is_error: bool) {
+        self.status = Some(if is_error {
+            super::error_status(message)
+        } else {
+            super::ok_status(message)
+        });
+    }
 }
 
 pub(crate) fn resolve_available_asr_model(
@@ -58,21 +66,4 @@ pub(crate) fn resolve_available_asr_model(
     let root = model_root.join(model_id.as_str());
     asr::validate_installation(&root, descriptor)
         .map_err(|error| SpeechError::ModelNotFound(error.to_string()))
-}
-
-pub(crate) fn selected_tts_model(
-    values: &VoiceSettingsValues,
-    model_root: &std::path::Path,
-) -> Option<crate::app::dialogue::SelectedTtsModel> {
-    let model_id = values.tts_model_id()?.clone();
-    let catalog = tts::builtin_model_catalog();
-    let descriptor = catalog.find(&model_id)?;
-    let voice_id = descriptor
-        .resolve_voice_id(values.tts_voice_id().map(tts::TtsVoiceId::as_str))
-        .clone();
-    Some(crate::app::dialogue::SelectedTtsModel {
-        root: model_root.join("tts"),
-        model_id,
-        voice_id,
-    })
 }

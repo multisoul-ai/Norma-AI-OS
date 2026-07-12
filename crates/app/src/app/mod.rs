@@ -27,6 +27,9 @@ use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasNodeKind, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
 use runtime::{route, AgentTaskState, InputEvent, InputMode, NodeRunState, Route, Runtime};
+use std::collections::HashMap;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::time::Duration;
 use ui::Theme;
 use voice_window_inset::VoiceWindowInset;
@@ -105,6 +108,10 @@ pub struct MultisoulApp {
     pub(crate) workspace_state: WorkspaceState,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
     pub(crate) dialogue: crate::app::dialogue::DialogueControlState,
+    pub(crate) tts_preview: crate::app::dialogue::TtsPreviewState,
+    pub(crate) tts_selection_generation: u64,
+    pub(crate) tts_scan_generation: u64,
+    pub(crate) tts_download_cancellations: HashMap<tts::TtsModelId, Arc<AtomicBool>>,
     pub(crate) agent_runtime: Option<agent_runtime::ProjectAgentRuntime>,
     pub(crate) pending_voice_commands: Vec<::voice::ExecutableCommand>,
     pub focus_handle: FocusHandle,

@@ -1,6 +1,6 @@
 use crate::{
-    install_archive, install_archive_with_support, ModelArtifact, SupplementalFile,
-    INSTALLATION_MANIFEST_FILE,
+    install_archive, install_archive_with_support, InstallationError, ModelArtifact,
+    SupplementalFile, INSTALLATION_MANIFEST_FILE,
 };
 use bzip2::write::BzEncoder;
 use bzip2::Compression;
@@ -142,6 +142,53 @@ fn test_install_archive_with_support_promotes_all_required_artifacts_together() 
         available.root(),
         support_path.as_path(),
         "最终受控模型根不得等于下载缓存文件路径"
+    );
+}
+
+/// MODEL-STORE-3：模型 ID 必须是一个受控目录名，不能穿越安装根目录。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   model id components = 2（`..` + `outside`，不是单一普通目录名）
+///   required files      = 2（model.onnx + tokens.txt）
+///   escape targets      = 2（模型根外的 outside 与安装根内的同名目录）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造一个哈希和必需文件都正确的最小归档；
+///   2. 以 `../outside` 作为模型 ID 请求安装；
+///   3. 检查 API 返回路径安全错误，并检查两类候选 Ready 目录。
+///
+/// 预期结果：
+///   - 断言 A：路径穿越 ID 必须被显式拒绝；
+///   - 断言 B：安装根外不得出现 outside 目录；
+///   - 断言 C：安装根内也不得把非法 ID 当作可用模型创建目录。
+#[test]
+fn test_install_archive_rejects_model_id_path_traversal() {
+    let archive = test_archive();
+    let digest = format!("{:x}", Sha256::digest(&archive));
+    let temp = tempfile::tempdir().expect("应创建路径安全测试目录");
+    let archive_path = temp.path().join("voice.tar.bz2");
+    fs::write(&archive_path, archive).expect("应写入路径安全测试归档");
+    let artifact = ModelArtifact::new(
+        "https://example.invalid/voice.tar.bz2",
+        digest,
+        11,
+        vec!["model.onnx", "tokens.txt"],
+    );
+    let install_root = temp.path().join("models");
+
+    let result = install_archive("../outside", &artifact, &archive_path, &install_root);
+
+    assert!(
+        matches!(result, Err(InstallationError::UnsafeModelId(_))),
+        "包含 `..` 的模型 ID 必须返回路径安全错误，而不是进入安装流程"
+    );
+    assert!(
+        !temp.path().join("outside").exists(),
+        "非法模型 ID 不得在受控安装根外创建 outside 目录"
+    );
+    assert!(
+        !install_root.join("outside").exists(),
+        "非法模型 ID 不得在受控安装根内伪装成合法 Ready 目录"
     );
 }
 

@@ -8,6 +8,7 @@ default-run = "norma-os"
 [features]
 default = []
 chromium-browser = ["dep:cef"]
+e2e-test-support = []
 
 [[bin]]
 name = "norma-os"
