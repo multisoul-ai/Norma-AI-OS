@@ -82,19 +82,31 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 - 不允许裸可打印字符作为 app 命令快捷键，避免干扰 terminal 输入。
 - 录制非 Exit Focus 命令时，裸 `Esc` 取消录制；录制 Exit Focus 时，裸 `Esc` 可作为快捷键。
 
-## 3. 菜单项与默认未设置命令
+## 3. 原生菜单栏与默认未设置命令
 
-`main.rs` 的 `Norma OS` 菜单仍注册 Action，菜单点击与快捷键分发共用同一批处理器。以下命令默认没有快捷键，但可在 Settings 中分配：
+`lib.rs` 注册 macOS 原生菜单栏；菜单点击、工具栏 ✚ 和可配置快捷键共用既有 Action/处理器，不复制创建逻辑。顶级层级固定为：
+
+```text
+Norma OS: Settings… / Services / Quit Norma OS (Cmd+Q)
+File:     New ▸ (Window / Cards / Agents) / Open Project…
+Edit:     Copy
+Layout:   Reflow Layout / Toggle Master Layout
+```
+
+`File → New` 的 Agent 命令默认没有快捷键，但可在 Settings 中分配：
 
 | 菜单项 | Action | 处理器 | 等效入口 |
 | --- | --- | --- | --- |
 | New Claude Agent | `NewClaudeAgent` | `on_new_claude_agent` | 顶部工具栏 ✚ 菜单 → Claude |
 | New Codex Agent | `NewCodexAgent` | `on_new_codex_agent` | 顶部工具栏 ✚ 菜单 → Codex |
+| New OpenCode Agent | `NewOpenCodeAgent` | `on_new_opencode_agent` | 顶部工具栏 ✚ 菜单 → OpenCode |
 
-顶部工具栏的 ✚（Plus）按钮不再是直接的新建终端入口，而是展开一个浮层菜单（Terminal / Claude / Codex / Preview）。菜单展开后：
+除固定的 `Cmd+Q` 外，原生菜单暂不显示快捷键提示：可配置按键的真值仍是 `ShortcutSettingsState`，避免菜单显示与用户 override 不同步。Launchpad 中 Canvas 专属菜单项按原生禁用状态显示；`New Window` 与 `Open Project…` 保持可用。
+
+顶部工具栏的 ✚（Plus）按钮不再是直接的新建终端入口，而是展开一个浮层菜单（Terminal / Claude / Codex / OpenCode / Preview / Browser）。菜单展开后：
 
 - ✚ 按钮高亮（accent 橙填充），再次点击收起。
-- 选择任一项执行对应动作（Terminal → `on_new_terminal`、Claude → `spawn_agent_card(Claude)`、Codex → `spawn_agent_card(Codex)`、Preview → `on_open_preview_file`）并自动收起菜单。
+- 选择任一项执行对应动作（Terminal → `on_new_terminal`、Claude/Codex/OpenCode → `spawn_agent_card(profile)`、Preview → `on_open_preview_file`、Browser → `on_new_browser`）并自动收起菜单。
 - 裸 `Esc` 优先收起菜单（不退焦、不传 PTY）。画布任意鼠标按下也会收起菜单。判定函数：`should_close_new_menu_on_escape`（`keyboard.rs`）。
 
 ## 4. 键事件路由（非 Action）

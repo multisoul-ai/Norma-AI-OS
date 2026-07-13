@@ -8,6 +8,7 @@ mod assets;
 mod canvas;
 mod cards;
 mod frame_diagnostics;
+mod menu_bar;
 mod motion;
 mod norma;
 mod preview;
@@ -15,15 +16,19 @@ mod settings;
 mod shortcuts;
 mod workspace;
 
+#[cfg(test)]
+#[path = "../tests/unit/menu_bar_tests.rs"]
+mod menu_bar_tests;
+
 pub use app::{
     ApiKeyDisplayState, AppScreen, CopyCardContent, ExitFocus, InitializationAnimationE2eSnapshot,
     MultisoulApp, NewBrowser, NewClaudeAgent, NewCodexAgent, NewOpenCodeAgent, NewTerminal,
-    NewWindow, OpenPreviewFile, OpenProject, ReflowLayout, SettingsE2eSnapshot, ToggleMasterLayout,
-    ToggleSettings,
+    NewWindow, OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
+    ToggleMasterLayout, ToggleSettings,
 };
 pub use assets::EmbeddedAssets;
 
-use gpui::{App, Application, Menu, MenuItem};
+use gpui::{App, Application, KeyBinding};
 use workspace::windowing::{open_multisoul_window, InitialWindowState};
 
 pub fn run_norma_os() {
@@ -42,24 +47,11 @@ pub fn run_norma_os() {
             // gpui-component：主题与组件 actions；须在开窗前初始化。
             ui::init_components(cx);
 
-            // 菜单（App 显示名 Norma OS）。
-            cx.set_menus(vec![Menu {
-                name: "Norma OS".into(),
-                items: vec![
-                    MenuItem::action("New Window", NewWindow),
-                    MenuItem::action("New Terminal", NewTerminal),
-                    MenuItem::action("New Browser", NewBrowser),
-                    MenuItem::action("Copy", CopyCardContent),
-                    MenuItem::action("Open Project", OpenProject),
-                    MenuItem::action("Preview File", OpenPreviewFile),
-                    MenuItem::action("New Claude Agent", NewClaudeAgent),
-                    MenuItem::action("New Codex Agent", NewCodexAgent),
-                    MenuItem::action("New OpenCode Agent", NewOpenCodeAgent),
-                    MenuItem::action("Reflow Layout", ReflowLayout),
-                    MenuItem::action("Toggle Master Layout", ToggleMasterLayout),
-                    MenuItem::action("Settings", ToggleSettings),
-                ],
-            }]);
+            // Quit 是唯一由 GPUI keymap 固定绑定的菜单快捷键；可配置命令仍由
+            // ShortcutSettingsState 统一处理，暂不在原生菜单中显示提示。
+            cx.on_action(|_: &QuitNormaOs, cx| cx.quit());
+            cx.bind_keys([KeyBinding::new("cmd-q", QuitNormaOs, None)]);
+            cx.set_menus(menu_bar::menu_bar());
 
             cx.on_window_closed(|cx| {
                 if cx.windows().is_empty() {

@@ -16,6 +16,9 @@ mod harness;
 // E2E-01（SPEC §4.2）：创建 Terminal 节点 + 焦点 + layout reflow 正/负断言矩阵。
 mod e2e_01_create_terminal;
 
+// 原生菜单中的 OpenCode Agent action：Canvas root 必须实际注册并创建对应 Agent 节点。
+mod e2e_01_menu_actions;
+
 // E2E-02（SPEC §4.3）：向 focused Term 节点写入输入 → 剧本后端回吐 → grid 含回吐内容。
 mod e2e_02_terminal_echo;
 

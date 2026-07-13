@@ -80,7 +80,8 @@ actions!(
         ExitFocus,
         ReflowLayout,
         ToggleMasterLayout,
-        ToggleSettings
+        ToggleSettings,
+        QuitNormaOs
     ]
 );
 const WALLPAPER_IMAGE_OPACITY: f32 = 1.0;
@@ -430,17 +431,8 @@ impl Render for MultisoulApp {
             .key_context("MultisoulApp")
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(Self::on_new_window))
-            .on_action(cx.listener(Self::on_new_terminal))
-            .on_action(cx.listener(Self::on_new_browser))
-            .on_action(cx.listener(Self::on_new_claude_agent))
-            .on_action(cx.listener(Self::on_new_codex_agent))
-            .on_action(cx.listener(Self::on_copy_card_content))
             .on_action(cx.listener(Self::on_open_project))
-            .on_action(cx.listener(Self::on_open_preview_file))
             .on_action(cx.listener(Self::on_exit_focus))
-            .on_action(cx.listener(Self::on_reflow_layout))
-            .on_action(cx.listener(Self::on_toggle_master_layout))
-            .on_action(cx.listener(Self::on_toggle_settings))
             .on_action(cx.listener(Self::on_browser_command))
             .on_key_down(cx.listener(Self::on_key_down))
             .on_key_up(cx.listener(Self::on_key_up))
@@ -449,6 +441,18 @@ impl Render for MultisoulApp {
             .relative()
             .bg(gpui::rgba(self.theme.graphite))
             .text_size(px(13.0))
+            .when(matches!(self.screen, AppScreen::Canvas), |root| {
+                root.on_action(cx.listener(Self::on_new_terminal))
+                    .on_action(cx.listener(Self::on_new_browser))
+                    .on_action(cx.listener(Self::on_new_claude_agent))
+                    .on_action(cx.listener(Self::on_new_codex_agent))
+                    .on_action(cx.listener(Self::on_new_opencode_agent))
+                    .on_action(cx.listener(Self::on_copy_card_content))
+                    .on_action(cx.listener(Self::on_open_preview_file))
+                    .on_action(cx.listener(Self::on_reflow_layout))
+                    .on_action(cx.listener(Self::on_toggle_master_layout))
+                    .on_action(cx.listener(Self::on_toggle_settings))
+            })
             .child(crate::app::ime::TerminalImeElement::new(
                 self.focus_handle.clone(),
                 cx.weak_entity(),
