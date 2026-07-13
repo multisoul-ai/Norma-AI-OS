@@ -1,22 +1,23 @@
 use super::*;
 
-/// 设置面板默认态：新建状态应关闭，并把 General 作为首次打开的默认分组。
+/// 设置面板默认态：新建状态应关闭，并把 Wallpaper 作为首次打开的可配置分组。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   initial open = false（启动后不应遮挡画布）
-///   section count = 7（General / Keyboard / Runtime / Voice / Agents / Skills / Hooks）
-///   default section = General（计划指定默认打开 General）
+///   visible section count = 5（Wallpaper / Keyboard / Voice / Agents / Hooks）
+///   hidden mock count = 3（General / Runtime / Skills，不应作为首次页面）
+///   default section = Wallpaper（Appearance 中唯一已实现的可配置页面）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 调用 SettingsPanelState::default() 构造初始状态
 ///   2. 读取 open 与 active_section
-///   3. 确认默认分组不是 Runtime，避免首次打开落到非 General 页面
+///   3. 确认默认分组不是 General，避免首次打开落到隐藏的 mock fallback
 ///
 /// 预期结果：
-///   - 正断言：open 为 false，active_section 为 General
-///   - 负断言：active_section 不应为 Runtime
+///   - 正断言：open 为 false，active_section 为 Wallpaper
+///   - 负断言：active_section 不应为 General
 #[test]
-fn test_settings_panel_defaults_closed_on_general() {
+fn test_settings_panel_defaults_closed_on_first_visible_section() {
     let panel = SettingsPanelState::default();
 
     assert!(
@@ -25,13 +26,13 @@ fn test_settings_panel_defaults_closed_on_general() {
     );
     assert_eq!(
         panel.active_section,
-        SettingsSection::General,
-        "设置面板默认分组应是 General"
+        SettingsSection::Wallpaper,
+        "设置面板默认分组应是首个可配置的 Wallpaper 页面"
     );
     assert_ne!(
         panel.active_section,
-        SettingsSection::Runtime,
-        "设置面板首次打开不应落到 Runtime 分组"
+        SettingsSection::General,
+        "设置面板首次打开不应落到隐藏的 General mock fallback"
     );
 }
 
@@ -88,8 +89,9 @@ fn test_settings_panel_layout_stays_inside_small_viewports() {
 #[test]
 fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() {
     let source = format!(
-        "{}{}{}{}",
+        "{}{}{}{}{}",
         include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/navigation.rs"),
         include_str!("../../src/settings/content.rs"),
         include_str!("../../src/settings/keyboard.rs"),
         include_str!("../../src/shortcuts.rs")
@@ -144,8 +146,9 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
 #[test]
 fn test_hooks_settings_panel_contains_install_actions() {
     let source = format!(
-        "{}{}{}",
+        "{}{}{}{}",
         include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/navigation.rs"),
         include_str!("../../src/settings/content.rs"),
         include_str!("../../src/settings/hooks.rs")
     );
@@ -300,8 +303,9 @@ fn test_settings_panel_selects_sections_without_closing() {
 #[test]
 fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
     let source = format!(
-        "{}{}",
+        "{}{}{}",
         include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/navigation.rs"),
         include_str!("../../src/settings/content.rs")
     );
     let visible_sections = [

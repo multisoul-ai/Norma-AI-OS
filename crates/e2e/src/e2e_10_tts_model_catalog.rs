@@ -22,7 +22,7 @@ const SETTINGS_SCROLL_MARGIN_PX: f32 = 24.0;
 ///   first entry actions = 1（Install）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. headless 打开 Canvas 与 Voice Settings；
+///   1. headless 打开 Canvas 与 Voice Settings，并滚动到 Spoken Reply 目录；
 ///   2. 读取 TTS 目录投影并查询第一个模型的安装按钮；
 ///   3. 保持未安装状态，不发起真实网络下载。
 ///
@@ -34,10 +34,19 @@ fn e2e_tts_catalog_exposes_explicit_install_without_auto_selection() {
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
     let workspace = tempfile::tempdir().expect("应创建 e2e workspace");
+    app.update(cx, |app, cx| {
+        app.set_voice_model_root_for_e2e(workspace.path().join("models"), cx)
+    });
     enter_canvas(&app, cx, workspace.path());
     cx.simulate_keystrokes("cmd-,");
     click(cx, "settings-section-voice");
     let snapshot = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        snapshot.active_section, "Voice",
+        "点击 Voice 导航后必须显示 Voice 内容，snapshot: {:?}",
+        snapshot
+    );
+    scroll_content_to_bottom(cx);
     assert_eq!(snapshot.tts_models.len(), 2, "TTS 目录应只包含两个精选模型");
     assert_eq!(
         snapshot.selected_tts_model_id, None,
@@ -99,11 +108,15 @@ fn e2e_tts_model_lifecycle_persists_voice_and_isolates_preview() {
     let store = storage::SettingsStore::new(temp.path().join("settings.sqlite"));
     let (app, cx) = make_app_with_settings_store(&mut cx, echo_factory(), store.clone());
     app.update(cx, |app, cx| {
+        app.set_voice_model_root_for_e2e(temp.path().join("models"), cx)
+    });
+    app.update(cx, |app, cx| {
         app.set_fake_tts_transport_for_e2e(true, false, cx)
     });
     enter_canvas(&app, cx, temp.path());
     cx.simulate_keystrokes("cmd-,");
     click(cx, "settings-section-voice");
+    scroll_content_to_bottom(cx);
 
     click(cx, "settings-tts-install-0");
     settle(cx);
@@ -270,6 +283,23 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
     cx.simulate_mouse_move(bounds.center(), None, Modifiers::none());
     cx.simulate_click(bounds.center(), Modifiers::none());
     cx.run_until_parked();
+}
+
+fn scroll_content_to_bottom(cx: &mut VisualTestContext) {
+    // Spoken Reply 位于 Voice 页最后一组；每次滚动 650px 与现有 Voice e2e 的稳定步长一致。
+    // 7 × 650 = 4550px，超过完整内容的最大预期高度，确保滚动到末尾而不依赖单次大 delta。
+    for _ in 0..7 {
+        let bounds = cx
+            .debug_bounds("settings-content-scroll")
+            .expect("Voice Settings 内容区域应存在，才能滚动到 Spoken Reply 目录");
+        cx.simulate_mouse_move(bounds.center(), None, Modifiers::none());
+        cx.simulate_event(ScrollWheelEvent {
+            position: bounds.center(),
+            delta: ScrollDelta::Pixels(point(px(0.0), px(-650.0))),
+            ..Default::default()
+        });
+        cx.run_until_parked();
+    }
 }
 
 fn scroll_settings_target_into_view(cx: &mut VisualTestContext, selector: &'static str) {

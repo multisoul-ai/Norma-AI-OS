@@ -26,6 +26,7 @@ pub(super) fn settings_content(
     div()
         .flex_1()
         .min_w(px(0.0))
+        .min_h(px(0.0))
         .h_full()
         .flex()
         .flex_col()
@@ -37,10 +38,11 @@ pub(super) fn settings_content(
                 .debug_selector(|| "settings-content-scroll".to_string())
                 .flex_1()
                 .min_w(px(0.0))
+                .min_h(px(0.0))
                 .overflow_y_scroll()
                 .overflow_x_hidden()
-                .px(px(18.0))
-                .pb(px(28.0))
+                .px(px(20.0))
+                .pb(px(32.0))
                 .child(match panel.active_section {
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
                     SettingsSection::Voice => voice_settings(theme, voice_state, voice_inputs, cx),
@@ -81,13 +83,16 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
     }
 
     div()
-        .h(px(100.0))
+        .min_h(px(88.0))
         .flex()
         .flex_row()
         .items_start()
         .justify_between()
-        .pt(px(34.0))
-        .px(px(18.0))
+        .pt(px(26.0))
+        .px(px(20.0))
+        .pb(px(18.0))
+        .border_b_1()
+        .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
         .child(title_column)
         .child(
             div()

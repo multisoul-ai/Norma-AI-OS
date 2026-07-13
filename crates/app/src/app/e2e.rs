@@ -9,6 +9,8 @@ use crate::shortcuts::ShortcutCommandId;
 use crate::shortcuts::ShortcutSettingsState;
 use gpui::{App, Context};
 use runtime::Runtime;
+#[cfg(feature = "e2e-test-support")]
+use std::path::PathBuf;
 use std::time::Duration;
 use voice_sherpa::SpeechError;
 
@@ -98,6 +100,13 @@ pub struct VoiceE2eSnapshot {
 }
 
 impl MultisoulApp {
+    #[cfg(feature = "e2e-test-support")]
+    pub fn set_voice_model_root_for_e2e(&mut self, model_root: PathBuf, cx: &mut Context<Self>) {
+        self.voice_settings.reset_model_root_for_e2e(model_root);
+        self.refresh_tts_model_states(cx);
+        cx.notify();
+    }
+
     /// 聚焦卡片当前是否应推进 terminal cursor 的运行中动画。
     ///
     /// 这是面向 headless e2e 的稳定投影：Agent 卡片会同时考虑 PTY 生命周期

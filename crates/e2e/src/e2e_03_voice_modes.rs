@@ -82,11 +82,16 @@ fn e2e_03_voice_modes_and_shared_model_catalog_are_clickable() {
 /// Settings 小窗口适配链路。
 ///
 /// 场景：窗口缩到 420×360 后打开 Voice Settings。
-/// 数据构造：420×360 小于旧面板 860×620 的设计尺寸；向上滚动 4200px，覆盖交互模式、
-/// 听写触发方式和共享模型目录，可把 Provider 下方的 Model 行移入内容区；侧栏再滚动 300px，
-/// 大于 5 个导航项总高度 5×42=210px，可把底部 Wallpaper 入口移入可点击区域。
-/// 执行过程：resize → 打开 Settings → 切到 Voice → 滚动内容 → 滚动侧栏并点击 Wallpaper。
-/// 预期结果：小窗口内仍能通过真实 hitbox 切换 Voice 与底部导航；Wallpaper 成为 active section。
+/// 数据构造：420×360 小于顶栏断点 580px；紧凑边距 = 12px，因此面板宽度
+/// = 420 - 2×12 = 396px，必须使用 `settings-navigation-topbar`。先向左横滚 360px，
+/// 将 Input & Controls 的 Voice 入口移入可点击范围；向上滚动 220px，可把
+/// Continuous Listening 移入 140px 高的内容区。Wallpaper 是 Appearance 的首个顶栏入口，
+/// 向右横滚 360px 后重新可点；最后再向左横滚 640px 到达 Agent Hooks。
+/// 执行过程：resize → 打开 Settings → 确认顶栏 → 横滚并切到 Voice → 滚动内容露出
+/// Continuous Listening → 选择该模式并继续滚动内容 → 横滚回首组并点击 Wallpaper →
+/// 顶栏横向滚动至末组 → 点击 Agent Hooks。
+/// 预期结果：小窗口内仍能通过真实 hitbox 切换 Voice、首个顶栏入口和横滚后的末组入口；
+/// Wallpaper 与 Agent Hooks 依次成为 active section。
 #[test]
 fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
     let mut cx = TestAppContext::single();
@@ -97,7 +102,19 @@ fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
     cx.run_until_parked();
 
     click_debug(cx, "toolbar-settings");
+    assert!(
+        cx.debug_bounds("settings-navigation-topbar").is_some(),
+        "420px 小窗口应渲染紧凑顶栏导航，而不是继续挤压侧栏"
+    );
+    scroll_debug_horizontal(cx, "settings-navigation-topbar", -360.0);
     click_debug(cx, "settings-section-voice");
+    let voice = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        voice.active_section, "Voice",
+        "小窗口点击 Voice 顶栏入口后应立即切换内容页，snapshot: {:?}",
+        voice
+    );
+    scroll_debug(cx, "settings-content-scroll", -220.0);
     click_debug(cx, "settings-voice-mode-continuous");
     scroll_debug(cx, "settings-content-scroll", -4200.0);
     let before = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
@@ -107,13 +124,27 @@ fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
         before
     );
 
-    scroll_debug(cx, "settings-sidebar-scroll", -300.0);
+    scroll_debug_horizontal(cx, "settings-navigation-topbar", 360.0);
     click_debug(cx, "settings-section-wallpaper");
     let wallpaper = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
         wallpaper.active_section, "Wallpaper",
-        "小窗口滚动侧栏后应能点击底部 Wallpaper 导航，snapshot: {:?}",
+        "小窗口顶栏中应能点击 Appearance 的 Wallpaper 导航，snapshot: {:?}",
         wallpaper
+    );
+
+    scroll_debug_horizontal(cx, "settings-navigation-topbar", -640.0);
+    click_debug(cx, "settings-section-hooks");
+    let hooks = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        hooks.active_section, "Agent Hooks",
+        "横向滚动顶栏后应能点击 AI & Automation 的 Agent Hooks，snapshot: {:?}",
+        hooks
+    );
+    assert_ne!(
+        hooks.active_section, "Wallpaper",
+        "点击 Agent Hooks 后不得继续停留在 Wallpaper，snapshot: {:?}",
+        hooks
     );
 }
 
@@ -137,6 +168,16 @@ fn scroll_debug(cx: &mut VisualTestContext, selector: &'static str, delta_y: f32
     cx.simulate_event(ScrollWheelEvent {
         position,
         delta: ScrollDelta::Pixels(point(px(0.0), px(delta_y))),
+        ..Default::default()
+    });
+    cx.run_until_parked();
+}
+
+fn scroll_debug_horizontal(cx: &mut VisualTestContext, selector: &'static str, delta_x: f32) {
+    let position = move_to_debug_target(cx, selector);
+    cx.simulate_event(ScrollWheelEvent {
+        position,
+        delta: ScrollDelta::Pixels(point(px(delta_x), px(0.0))),
         ..Default::default()
     });
     cx.run_until_parked();

@@ -19,6 +19,11 @@ pub const TOOLBAR_CODEX_ASSET: &str = "icons/toolbar-codex.svg";
 pub const TOOLBAR_OPENCODE_ASSET: &str = "icons/toolbar-opencode.svg";
 pub const TOOLBAR_PREVIEW_ASSET: &str = "icons/toolbar-preview.svg";
 pub const TOOLBAR_SETTINGS_ASSET: &str = "icons/toolbar-settings.svg";
+pub const SETTINGS_NAV_WALLPAPER_ASSET: &str = "icons/settings-nav-wallpaper.svg";
+pub const SETTINGS_NAV_KEYBOARD_ASSET: &str = "icons/settings-nav-keyboard.svg";
+pub const SETTINGS_NAV_VOICE_ASSET: &str = "icons/settings-nav-voice.svg";
+pub const SETTINGS_NAV_AGENTS_ASSET: &str = "icons/settings-nav-agents.svg";
+pub const SETTINGS_NAV_HOOKS_ASSET: &str = "icons/settings-nav-hooks.svg";
 
 const APP_ICON_BYTES: &[u8] = include_bytes!("../assets/icons/app-icon.png");
 const APP_LOGO_BYTES: &[u8] = include_bytes!("../assets/icons/logo.png");
@@ -58,6 +63,13 @@ const TOOLBAR_CODEX_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-codex
 const TOOLBAR_OPENCODE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-opencode.svg");
 const TOOLBAR_PREVIEW_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-preview.svg");
 const TOOLBAR_SETTINGS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-settings.svg");
+const SETTINGS_NAV_WALLPAPER_BYTES: &[u8] =
+    include_bytes!("../assets/icons/settings-nav-wallpaper.svg");
+const SETTINGS_NAV_KEYBOARD_BYTES: &[u8] =
+    include_bytes!("../assets/icons/settings-nav-keyboard.svg");
+const SETTINGS_NAV_VOICE_BYTES: &[u8] = include_bytes!("../assets/icons/settings-nav-voice.svg");
+const SETTINGS_NAV_AGENTS_BYTES: &[u8] = include_bytes!("../assets/icons/settings-nav-agents.svg");
+const SETTINGS_NAV_HOOKS_BYTES: &[u8] = include_bytes!("../assets/icons/settings-nav-hooks.svg");
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EmbeddedAssets;
@@ -76,6 +88,11 @@ impl AssetSource for EmbeddedAssets {
             TOOLBAR_OPENCODE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_OPENCODE_BYTES))),
             TOOLBAR_PREVIEW_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PREVIEW_BYTES))),
             TOOLBAR_SETTINGS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SETTINGS_BYTES))),
+            SETTINGS_NAV_WALLPAPER_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_WALLPAPER_BYTES))),
+            SETTINGS_NAV_KEYBOARD_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_KEYBOARD_BYTES))),
+            SETTINGS_NAV_VOICE_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_VOICE_BYTES))),
+            SETTINGS_NAV_AGENTS_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_AGENTS_BYTES))),
+            SETTINGS_NAV_HOOKS_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_HOOKS_BYTES))),
             _ => match image_builtin_bytes(path) {
                 Some(bytes) => Ok(Some(bytes)),
                 None => Ok(None),
@@ -101,6 +118,11 @@ impl AssetSource for EmbeddedAssets {
                 SharedString::from("toolbar-opencode.svg"),
                 SharedString::from("toolbar-preview.svg"),
                 SharedString::from("toolbar-settings.svg"),
+                SharedString::from("settings-nav-wallpaper.svg"),
+                SharedString::from("settings-nav-keyboard.svg"),
+                SharedString::from("settings-nav-voice.svg"),
+                SharedString::from("settings-nav-agents.svg"),
+                SharedString::from("settings-nav-hooks.svg"),
             ]),
             // 仅枚举 image 内置项（PNG/GIF）。视频文件不在 EmbeddedAssets 分发，
             // 由 builtin_wallpapers() 过滤掉 Video kind 后派生，避免与清单脱钩。
@@ -214,7 +236,7 @@ mod tests {
     /// 内置资产目录：GPUI 查询 icons 与 wallpapers 目录时应能枚举对应文件名。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   root = "" → 2 个顶层目录；icons → 11 个文件（2 PNG + 9 SVG）；
+    ///   root = "" → 2 个顶层目录；icons → 16 个文件（2 PNG + 9 toolbar SVG + 5 Settings SVG）；
     ///   wallpapers → 5 个 image built-in（3 PNG + 2 GIF），不含视频。
     ///
     /// 执行过程（逐步说明系统如何处理）：
@@ -263,8 +285,13 @@ mod tests {
                 SharedString::from("toolbar-opencode.svg"),
                 SharedString::from("toolbar-preview.svg"),
                 SharedString::from("toolbar-settings.svg"),
+                SharedString::from("settings-nav-wallpaper.svg"),
+                SharedString::from("settings-nav-keyboard.svg"),
+                SharedString::from("settings-nav-voice.svg"),
+                SharedString::from("settings-nav-agents.svg"),
+                SharedString::from("settings-nav-hooks.svg"),
             ],
-            "icons asset listing should expose the app icon, logo, and 9 toolbar SVGs in icons.rs order"
+            "icons asset listing should expose the app icon, logo, toolbar SVGs, and Settings navigation SVGs in deterministic order"
         );
         // 期望的 image built-in 文件名集合（由 builtin_wallpapers() 过滤掉 Video 派生）。
         let expected_image_filenames: Vec<&str> =

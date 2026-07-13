@@ -5,6 +5,9 @@ use std::path::PathBuf;
 use storage::{AppStore, SettingsStore};
 use tts::{TtsModelId, TtsVoiceId};
 use voice_sherpa::{AudioInputDevice, SpeechError};
+mod builders;
+#[cfg(feature = "e2e-test-support")]
+mod e2e;
 mod migration;
 mod model_selection;
 mod provider_values;
@@ -75,10 +78,6 @@ pub(crate) struct VoiceSettingsState {
     advanced_expanded: bool,
 }
 impl VoiceSettingsState {
-    pub(crate) fn in_memory_default() -> Self {
-        Self::from_sources(SavedVoiceSettings::default(), EnvVoiceSettings::default())
-    }
-
     pub(crate) fn load_default() -> Self {
         match AppStore::open_default() {
             Ok(store) => Self::load_from_store(store.settings_store()),
