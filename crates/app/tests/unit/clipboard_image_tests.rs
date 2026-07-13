@@ -98,6 +98,7 @@ fn test_accepts_clipboard_image_path_is_agent_only() {
         CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: None,
+            definition_id: None,
         }),
         CanvasRect::new(0.0, 0.0, 100.0, 80.0),
     );

@@ -107,6 +107,7 @@ pub(super) fn empty_turn_fallback() {
 
 fn command_name(command: &AgentCommand) -> &'static str {
     match command {
+        AgentCommand::UpdateAgentRoster(_) => "update_agent_roster",
         AgentCommand::UserTurn(_) => "user_turn",
         AgentCommand::DirectCardTask(_) => "direct_card_task",
         AgentCommand::CancelLatest => "cancel_latest",
@@ -119,6 +120,10 @@ fn command_name(command: &AgentCommand) -> &'static str {
 
 fn card_command_name(command: &CardCommand) -> &'static str {
     match command {
+        CardCommand::ListAgents => "list_agents",
+        CardCommand::CreateAgent { .. } => "create_agent",
+        CardCommand::ActivateAgent { .. } => "activate_agent",
+        CardCommand::DispatchAgentTasks { .. } => "dispatch_agent_tasks",
         CardCommand::List => "list_cards",
         CardCommand::Create { .. } => "create_card",
         CardCommand::Focus { .. } => "focus_card",

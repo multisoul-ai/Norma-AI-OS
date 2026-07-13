@@ -3,7 +3,9 @@ use agent::{
     CardToolResult, MemoryJournal, ProviderError, ProviderRequest, ProviderResponse,
     ProviderToolCall,
 };
-use norma::protocol::{CardCommand, CardCommandResult, CardSummary};
+use norma::protocol::{
+    AgentTaskReceipt, AgentTaskReceiptStatus, CardCommand, CardCommandResult, CardSummary,
+};
 use std::collections::VecDeque;
 use std::sync::Once;
 
@@ -72,6 +74,37 @@ impl CardToolHost for RecordingHost {
             CardCommand::List => CardCommandResult::Listed {
                 cards: self.listed_cards.clone(),
             },
+            CardCommand::ListAgents => CardCommandResult::AgentsListed { agents: Vec::new() },
+            CardCommand::CreateAgent { name, activate, .. } => {
+                self.next_node_id += 1;
+                CardCommandResult::AgentCreated {
+                    definition_id: self.next_node_id as i64,
+                    name: name.unwrap_or_else(|| "Alan".to_string()),
+                    node_id: activate.then_some(self.next_node_id),
+                }
+            }
+            CardCommand::ActivateAgent { name } => {
+                self.next_node_id += 1;
+                CardCommandResult::AgentActivated {
+                    definition_id: self.next_node_id as i64,
+                    name,
+                    node_id: self.next_node_id,
+                    reused: false,
+                }
+            }
+            CardCommand::DispatchAgentTasks { assignments, .. } => {
+                CardCommandResult::AgentTasksDispatched {
+                    receipts: assignments
+                        .into_iter()
+                        .map(|assignment| AgentTaskReceipt {
+                            name: assignment.name,
+                            node_id: 1,
+                            task: assignment.task,
+                            status: AgentTaskReceiptStatus::Submitted,
+                        })
+                        .collect(),
+                }
+            }
         };
         Ok(CardToolResult { result })
     }

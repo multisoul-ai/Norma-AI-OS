@@ -38,6 +38,8 @@ pub struct AgentSpec {
     pub profile: AgentProfile,
     #[serde(default)]
     pub alias: Option<String>,
+    #[serde(default)]
+    pub definition_id: Option<i64>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -177,14 +179,17 @@ mod tests {
         let claude = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Claude,
             alias: None,
+            definition_id: None,
         });
         let codex = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: None,
+            definition_id: None,
         });
         let opencode = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::OpenCode,
             alias: None,
+            definition_id: None,
         });
 
         assert_eq!(
@@ -258,6 +263,7 @@ mod tests {
         let aliased = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: Some("Alan".to_string()),
+            definition_id: None,
         });
 
         let NodeKind::Agent(legacy_spec) = &legacy else {

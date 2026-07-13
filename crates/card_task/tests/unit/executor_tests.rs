@@ -17,6 +17,14 @@ impl CardCommandRunner for FakeRunner {
             CardCommand::Focus { node_id } => CardCommandResult::Focused { node_id: *node_id },
             CardCommand::Delete { node_id } => CardCommandResult::Deleted { node_id: *node_id },
             CardCommand::List => CardCommandResult::Listed { cards: Vec::new() },
+            CardCommand::ListAgents
+            | CardCommand::CreateAgent { .. }
+            | CardCommand::ActivateAgent { .. }
+            | CardCommand::DispatchAgentTasks { .. } => {
+                return Err(CardCommandError::Unsupported {
+                    message: "legacy card_task runner does not execute Agent coordination".into(),
+                });
+            }
         };
         self.commands.push(command);
         Ok(result)

@@ -99,6 +99,48 @@ pub fn format_result(result: &CardCommandResult) -> String {
             .map(|card| format!("{}\t{:?}\t{}", card.node_id, card.kind, card.title))
             .collect::<Vec<_>>()
             .join("\n"),
+        CardCommandResult::AgentsListed { agents } => agents
+            .iter()
+            .map(|agent| {
+                format!(
+                    "{}\t{:?}\t{}\t{}",
+                    agent.definition_id,
+                    agent.profile,
+                    agent.name,
+                    if agent.enabled { "enabled" } else { "disabled" }
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n"),
+        CardCommandResult::AgentCreated {
+            definition_id,
+            name,
+            node_id,
+        } => format!(
+            "created agent {name} ({definition_id}){}",
+            node_id
+                .map(|node_id| format!(" on card {node_id}"))
+                .unwrap_or_default()
+        ),
+        CardCommandResult::AgentActivated {
+            definition_id,
+            name,
+            node_id,
+            reused,
+        } => format!(
+            "{} agent {name} ({definition_id}) on card {node_id}",
+            if *reused { "reused" } else { "activated" }
+        ),
+        CardCommandResult::AgentTasksDispatched { receipts } => receipts
+            .iter()
+            .map(|receipt| {
+                format!(
+                    "{}\t{}\t{:?}",
+                    receipt.name, receipt.node_id, receipt.status
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n"),
     }
 }
 
@@ -130,9 +172,13 @@ impl CreateArgs {
     fn into_command(self) -> CardCommand {
         let kind = match self.kind {
             CreateKind::Terminal { shell } => CardKind::Terminal { shell },
-            CreateKind::Agent { profile } => CardKind::Agent {
-                profile: profile.into(),
-            },
+            CreateKind::Agent { profile } => {
+                return CardCommand::CreateAgent {
+                    name: None,
+                    profile: profile.into(),
+                    activate: true,
+                }
+            }
             CreateKind::Preview {
                 path,
                 explicit_type,

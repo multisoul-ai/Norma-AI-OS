@@ -14,7 +14,9 @@ use std::path::PathBuf;
 use std::time::Duration;
 use voice_sherpa::SpeechError;
 
+mod agents;
 mod tts;
+pub use agents::{AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot};
 use tts::{snapshot_tts_models, TtsModelE2eSnapshot};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -267,6 +269,14 @@ impl MultisoulApp {
     }
 
     pub fn enter_canvas_for_test(&mut self, root: &std::path::Path, cx: &mut Context<Self>) {
+        let project_store = storage::ProjectStore::for_workspace(root)
+            .expect("e2e workspace root should initialize project storage");
+        project_store
+            .migrate()
+            .expect("e2e project storage should migrate");
+        self.agent_definitions
+            .bind_project_store(project_store.agent_definition_store());
+        self.persistence.set_project_store(project_store);
         self.runtime.set_workspace_root(root.to_path_buf());
         self.screen = AppScreen::Canvas;
         self.last_reflow_window_size = None;

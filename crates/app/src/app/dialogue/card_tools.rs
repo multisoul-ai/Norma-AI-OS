@@ -34,7 +34,14 @@ pub(crate) fn template_report_for_result(result: &CardCommandResult) -> Option<S
         CardCommandResult::Created { node_id } => Some(format_create_ok(*node_id)),
         CardCommandResult::Sent { node_id } => Some(format_send_text_ok(*node_id)),
         CardCommandResult::Focused { node_id } => Some(format_focus_ok(*node_id)),
-        CardCommandResult::Deleted { .. } | CardCommandResult::Listed { .. } => None,
+        CardCommandResult::AgentCreated { name, .. } => Some(format!("已创建 Agent {name}")),
+        CardCommandResult::AgentActivated { name, .. } => Some(format!("已激活 Agent {name}")),
+        CardCommandResult::AgentTasksDispatched { receipts } => {
+            Some(format!("已提交或排队 {} 项 Agent 任务", receipts.len()))
+        }
+        CardCommandResult::Deleted { .. }
+        | CardCommandResult::Listed { .. }
+        | CardCommandResult::AgentsListed { .. } => None,
     }
 }
 

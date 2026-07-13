@@ -136,7 +136,7 @@ fn ordinary_dialogue_delta_reaches_live_listener_before_provider_returns() {
 
 /// A-2：Dialogue 的 card_task start 只产生 queued receipt；CardTask 在后续 pump 中独立运行。
 ///
-/// 数据构造：Dialogue 返回一个 start intent；Subagent 依次返回 create、send_text、最终文本。
+/// 数据构造：Dialogue 返回一个 start intent；Subagent 依次返回 create_agent、dispatch_agent_tasks、最终文本。
 /// 执行过程：先提交 UserTurn，再逐次 pump，确保 queued 时尚无底层工具调用。
 /// 预期结果：task id 在 queued/running/succeeded 事件和 Journal 中一致，send_text 指向新节点。
 #[test]
@@ -150,13 +150,13 @@ fn dialogue_start_is_queued_before_independent_subagent_execution() {
     let card = ScriptedProvider::new([
         response([tool(
             "card-call-1",
-            "create_card",
-            r#"{"kind":"agent","profile":"codex"}"#,
+            "create_agent",
+            r#"{"name":"Alan","profile":"codex","activate":true}"#,
         )]),
         response([tool(
             "card-call-2",
-            "send_text",
-            r#"{"node_id":1,"text":"分析 README","submit":true}"#,
+            "dispatch_agent_tasks",
+            r#"{"assignments":[{"name":"Alan","task":"分析 README"}],"force_untracked":false}"#,
         )]),
         text_response("已完成卡片操作"),
     ]);
@@ -193,23 +193,25 @@ fn dialogue_start_is_queued_before_independent_subagent_execution() {
     assert!(
         observed.contains(&AgentEvent::TaskSucceeded {
             task_id,
-            summary: "已创建并提交".to_string(),
+            summary: "Agent 任务已提交或排队".to_string(),
         }),
         "只有 Subagent tool loop 完成且生成十字内的真实成功播报后才能产生 Succeeded"
     );
     assert_eq!(
         system.card_tool_host().commands.len(),
         2,
-        "同一 CardTask 应完成 create 与 send_text 两次底层调用"
+        "同一 CardTask 应完成 create_agent 与 dispatch_agent_tasks 两次高阶调用"
     );
     assert_eq!(
         system.card_tool_host().commands[1].command,
-        CardCommand::SendText {
-            node_id: 1,
-            text: "分析 README".to_string(),
-            submit: true,
+        CardCommand::DispatchAgentTasks {
+            assignments: vec![norma::protocol::AgentTaskAssignment {
+                name: "Alan".to_string(),
+                task: "分析 README".to_string(),
+            }],
+            force_untracked: false,
         },
-        "send_text 必须指向本任务创建的节点并保留 submit=true"
+        "dispatch_agent_tasks 必须按定义名称提交 README 分析任务"
     );
     assert!(
         system.journal().entries().iter().any(|entry| {

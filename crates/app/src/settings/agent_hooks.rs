@@ -17,6 +17,12 @@ pub(crate) struct AgentHookServer {
     token: Option<String>,
 }
 
+#[derive(Debug, Default, Eq, PartialEq)]
+pub(crate) struct AgentHookDrainReport {
+    pub(crate) changed: bool,
+    pub(crate) terminal_node_ids: Vec<u64>,
+}
+
 impl AgentHookServer {
     pub(crate) fn start() -> Self {
         let (sender, receiver) = unbounded();
@@ -70,14 +76,22 @@ impl AgentHookServer {
         })
     }
 
-    pub(crate) fn drain_into_runtime(&self, runtime: &mut Runtime) -> bool {
-        let mut changed = false;
+    pub(crate) fn drain_into_runtime(&self, runtime: &mut Runtime) -> AgentHookDrainReport {
+        let mut report = AgentHookDrainReport::default();
         while let Ok(event) = self.receiver.try_recv() {
+            let node_id = event.node_id;
+            let is_terminal = matches!(
+                agent_task_state_from_hook_event(&event),
+                Some(AgentTaskState::Done | AgentTaskState::Failed { .. } | AgentTaskState::Ended)
+            );
             if apply_agent_hook_event(runtime, event) {
-                changed = true;
+                report.changed = true;
+                if is_terminal {
+                    report.terminal_node_ids.push(node_id);
+                }
             }
         }
-        changed
+        report
     }
 }
 
@@ -267,6 +281,7 @@ mod tests {
             CanvasNodeKind::Agent(AgentSpec {
                 profile: CanvasAgentProfile::Codex,
                 alias: None,
+                definition_id: None,
             }),
             CanvasRect::new(0.0, 0.0, 640.0, 400.0),
         );
@@ -315,6 +330,7 @@ mod tests {
             CanvasNodeKind::Agent(AgentSpec {
                 profile: CanvasAgentProfile::Codex,
                 alias: None,
+                definition_id: None,
             }),
             CanvasRect::new(0.0, 0.0, 640.0, 400.0),
         );

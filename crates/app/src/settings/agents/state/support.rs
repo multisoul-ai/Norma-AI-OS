@@ -1,12 +1,7 @@
-use super::{
-    AgentDefinitionDraft, AgentDefinitionField, MAX_AGENT_NAME_CHARS,
-    MAX_WORKFLOW_DESCRIPTION_CHARS,
-};
+use super::{AgentDefinitionDraft, AgentDefinitionField, MAX_WORKFLOW_DESCRIPTION_CHARS};
 use canvas::AgentProfile;
 use gpui::Keystroke;
 use storage::AgentDefinition;
-
-pub(crate) const DEFAULT_AGENT_WORKFLOW: &str = "Describe this agent's workflow.";
 
 pub(crate) fn validate_agent_definition_text(
     name: &str,
@@ -15,15 +10,9 @@ pub(crate) fn validate_agent_definition_text(
     let name = name.trim();
     let workflow = workflow_description.trim();
 
-    if name.is_empty() {
-        return Err("Agent name is required".to_string());
-    }
-    if name.chars().count() > MAX_AGENT_NAME_CHARS {
-        return Err("Agent name must be 80 characters or fewer".to_string());
-    }
-    if workflow.is_empty() {
-        return Err("Workflow description is required".to_string());
-    }
+    agent::AgentName::parse(name).map_err(|_| {
+        "Agent name must be 2–16 English letters or 2–8 Chinese characters".to_string()
+    })?;
     if workflow.chars().count() > MAX_WORKFLOW_DESCRIPTION_CHARS {
         return Err("Workflow description must be 2000 characters or fewer".to_string());
     }
@@ -46,6 +35,9 @@ pub(super) fn display_value(field: AgentDefinitionField, value: &str) -> String 
 }
 
 pub(super) fn readable_agent_store_error(error: &storage::StorageError) -> String {
+    if matches!(error, storage::StorageError::AgentNameConflict { .. }) {
+        return "Agent name already exists in this project".to_string();
+    }
     let message = error.to_string();
     if message.contains("idx_agent_definitions_name_nocase")
         || message.contains("UNIQUE constraint failed")
@@ -73,25 +65,15 @@ pub(super) fn draft_matches_definition(
 }
 
 pub(super) fn next_default_agent_name(definitions: &[AgentDefinition]) -> String {
-    let base = "New Agent";
-    if !has_agent_name(definitions, base) {
-        return base.to_string();
-    }
-
-    let mut index = 2;
-    loop {
-        let candidate = format!("{base} {index}");
-        if !has_agent_name(definitions, &candidate) {
-            return candidate;
-        }
-        index += 1;
-    }
-}
-
-fn has_agent_name(definitions: &[AgentDefinition], name: &str) -> bool {
-    definitions
-        .iter()
-        .any(|definition| definition.name.eq_ignore_ascii_case(name))
+    agent::AgentNameRegistry::from_names(
+        definitions
+            .iter()
+            .map(|definition| definition.name.as_str()),
+    )
+    .ok()
+    .and_then(|registry| registry.next_available_builtin())
+    .map(|builtin| builtin.name().to_string())
+    .unwrap_or_default()
 }
 
 impl AgentDefinitionDraft {

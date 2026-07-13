@@ -27,7 +27,7 @@ impl Runtime {
         let sid = self.allocate_session_id();
         let live =
             TermLive::spawn_command(sid, command.with_cwd(self.workspace_root()), cols, rows)?;
-        let node_id = self.add_agent_node(profile, alias, bounds);
+        let node_id = self.add_agent_node(profile, None, alias, bounds);
         self.register_agent_live_node(node_id, live);
         Ok(node_id)
     }

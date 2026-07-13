@@ -2,12 +2,12 @@ use super::*;
 use canvas::AgentProfile;
 use storage::{AgentDefinitionUpdate, NewAgentDefinition, ProjectStore};
 
-/// AS-1: AgentDefinitionsState 应拒绝空名称、空 workflow，以及超长文本，避免无效草稿进入后续 UI/存储流程。
+/// AS-1: AgentDefinitionsState 应接受空 workflow，但拒绝不符合中英文规则的名称与超长 workflow。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   empty name                = ""，trim 后仍为空
-///   empty workflow            = ""，trim 后仍为空
-///   long name chars           = 81，超过上限 80 1 个字符
+///   empty workflow            = ""，workflow 为可选字段
+///   long English name chars   = 17，超过英文上限 16 1 个字符
 ///   long workflow chars       = 2001，超过上限 2000 1 个字符
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -16,55 +16,51 @@ use storage::{AgentDefinitionUpdate, NewAgentDefinition, ProjectStore};
 ///   3. 每次调用 validate_draft()，读取错误消息
 ///
 /// 预期结果：
-///   - 正断言：空名称返回 "Agent name is required"
-///   - 正断言：空 workflow 返回 "Workflow description is required"
-///   - 正断言：81 字符名称返回 80 字上限错误
+///   - 正断言：空名称返回统一名称格式错误
+///   - 正断言：合法名称配空 workflow 校验成功
+///   - 正断言：17 字符英文名称返回统一名称格式错误
 ///   - 正断言：2001 字 workflow 返回 2000 字上限错误
 ///   - 负断言：任一错误消息都不应误报成其他字段的错误
 #[test]
-fn test_agent_definitions_state_rejects_empty_name_and_workflow() {
+fn test_agent_definitions_state_validates_name_and_optional_workflow() {
     let mut state = AgentDefinitionsState::default();
 
     state.set_draft_name("");
     state.set_draft_workflow_description("valid workflow");
     let empty_name = state.validate_draft();
 
-    state.set_draft_name("Valid Agent");
+    state.set_draft_name("Valid");
     state.set_draft_workflow_description("");
     let empty_workflow = state.validate_draft();
 
-    state.set_draft_name("n".repeat(81));
+    state.set_draft_name("n".repeat(17));
     state.set_draft_workflow_description("valid workflow");
     let long_name = state.validate_draft();
 
-    state.set_draft_name("Valid Agent");
+    state.set_draft_name("Valid");
     state.set_draft_workflow_description("w".repeat(2001));
     let long_workflow = state.validate_draft();
 
     assert_eq!(
         empty_name,
-        Err("Agent name is required".to_string()),
-        "空名称应返回必填错误，避免 UI 保存匿名 agent"
+        Err("Agent name must be 2–16 English letters or 2–8 Chinese characters".to_string()),
+        "空名称应返回统一格式错误，避免 UI 保存匿名 agent"
     );
-    assert_ne!(
-        empty_name,
-        Err("Workflow description is required".to_string()),
-        "空名称错误不应误报为 workflow 错误"
-    );
+    assert_ne!(empty_name, Ok(()), "空名称错误不应误报成合法草稿");
     assert_eq!(
         empty_workflow,
-        Err("Workflow description is required".to_string()),
-        "空 workflow 应返回必填错误"
+        Ok(()),
+        "workflow 为可选字段，合法名称配空 workflow 应通过校验"
     );
     assert_ne!(
         empty_workflow,
-        Err("Agent name is required".to_string()),
-        "空 workflow 错误不应误报为名称错误"
+        Err("Agent name must be 2–16 English letters or 2–8 Chinese characters".to_string()),
+        "空 workflow 不应误报为名称错误"
     );
     assert_eq!(
         long_name,
-        Err("Agent name must be 80 characters or fewer".to_string()),
-        "81 字符名称应命中 80 字上限校验"
+        Err("Agent name must be 2–16 English letters or 2–8 Chinese characters".to_string()),
+        "17 字符英文名称应命中 16 字上限校验"
     );
     assert_eq!(
         long_workflow,
@@ -76,8 +72,8 @@ fn test_agent_definitions_state_rejects_empty_name_and_workflow() {
 /// AS-2: AgentDefinitionsState 绑定 project store 后应只加载当前 workspace 的本地 agent 定义，不能串库。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   workspace A defs = 1 条，name = "Workspace A Agent"
-///   workspace B defs = 1 条，name = "Workspace B Agent"
+///   workspace A defs = 1 条，name = "WorkspaceA"
+///   workspace B defs = 1 条，name = "WorkspaceB"
 ///   两个 workspace 各有独立 .multisoul/project.sqlite
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -111,7 +107,7 @@ fn test_agent_definitions_state_loads_project_local_definitions() {
     project_a
         .agent_definition_store()
         .create(&NewAgentDefinition {
-            name: "Workspace A Agent".to_string(),
+            name: "WorkspaceA".to_string(),
             runtime_profile: AgentProfile::Codex,
             workflow_description: "A workflow".to_string(),
         })
@@ -119,7 +115,7 @@ fn test_agent_definitions_state_loads_project_local_definitions() {
     project_b
         .agent_definition_store()
         .create(&NewAgentDefinition {
-            name: "Workspace B Agent".to_string(),
+            name: "WorkspaceB".to_string(),
             runtime_profile: AgentProfile::Claude,
             workflow_description: "B workflow".to_string(),
         })
@@ -138,11 +134,11 @@ fn test_agent_definitions_state_loads_project_local_definitions() {
         "绑定 workspace A 后应只加载 1 条本地 agent 定义"
     );
     assert_eq!(
-        workspace_a_definitions[0].name, "Workspace A Agent",
+        workspace_a_definitions[0].name, "WorkspaceA",
         "workspace A 结果应返回 A 自己的 agent 定义"
     );
     assert_ne!(
-        workspace_a_definitions[0].name, "Workspace B Agent",
+        workspace_a_definitions[0].name, "WorkspaceB",
         "workspace A 结果不应串到 workspace B 的 agent 名称"
     );
     assert_eq!(
@@ -151,11 +147,11 @@ fn test_agent_definitions_state_loads_project_local_definitions() {
         "绑定 workspace B 后应只加载 1 条本地 agent 定义"
     );
     assert_eq!(
-        workspace_b_definitions[0].name, "Workspace B Agent",
+        workspace_b_definitions[0].name, "WorkspaceB",
         "workspace B 结果应返回 B 自己的 agent 定义"
     );
     assert_ne!(
-        workspace_b_definitions[0].name, "Workspace A Agent",
+        workspace_b_definitions[0].name, "WorkspaceA",
         "workspace B 结果不应残留 workspace A 的 agent 名称"
     );
 }
@@ -189,14 +185,14 @@ fn test_agent_voice_context_includes_enabled_agents_only() {
 
     let enabled = store
         .create(&NewAgentDefinition {
-            name: "Enabled Agent".to_string(),
+            name: "Enabled".to_string(),
             runtime_profile: AgentProfile::Codex,
             workflow_description: "Enabled workflow".to_string(),
         })
         .expect("enabled definition should persist");
     let disabled = store
         .create(&NewAgentDefinition {
-            name: "Disabled Agent".to_string(),
+            name: "Disabled".to_string(),
             runtime_profile: AgentProfile::Claude,
             workflow_description: "Disabled workflow".to_string(),
         })
@@ -226,7 +222,7 @@ fn test_agent_voice_context_includes_enabled_agents_only() {
         "voice_context 返回的 agent id 应对应启用定义"
     );
     assert_eq!(
-        voice_context[0].name, "Enabled Agent",
+        voice_context[0].name, "Enabled",
         "voice_context 应保留启用 agent 的名称"
     );
     assert_eq!(
@@ -239,9 +235,7 @@ fn test_agent_voice_context_includes_enabled_agents_only() {
         "voice_context 应保留启用 agent 的 workflow 描述"
     );
     assert!(
-        !voice_context
-            .iter()
-            .any(|entry| entry.name == "Disabled Agent"),
+        !voice_context.iter().any(|entry| entry.name == "Disabled"),
         "禁用 agent 不应进入 voice_context，否则语音规划会看到已禁用定义"
     );
 }
@@ -271,7 +265,7 @@ fn test_agent_settings_facade_reexports_task2_types() {
     let field = AgentDefinitionField::Name;
     let voice_context = AgentVoiceContext {
         id: 42,
-        name: "Facade Agent".to_string(),
+        name: "Facade".to_string(),
         runtime_profile: AgentProfile::Codex,
         workflow_description: "Facade workflow".to_string(),
     };
@@ -291,7 +285,7 @@ fn test_agent_settings_facade_reexports_task2_types() {
         "voice context should be constructible from the settings::agents facade"
     );
     assert_eq!(
-        voice_context.name, "Facade Agent",
+        voice_context.name, "Facade",
         "voice context fields should remain readable after facade re-export"
     );
     assert_eq!(

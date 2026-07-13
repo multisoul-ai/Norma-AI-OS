@@ -9,7 +9,12 @@ pub(super) fn require_verified_target(
         CardCommand::Delete { node_id }
         | CardCommand::SendText { node_id, .. }
         | CardCommand::Focus { node_id } => *node_id,
-        CardCommand::Create { .. } | CardCommand::List => return Ok(()),
+        CardCommand::Create { .. }
+        | CardCommand::List
+        | CardCommand::ListAgents
+        | CardCommand::CreateAgent { .. }
+        | CardCommand::ActivateAgent { .. }
+        | CardCommand::DispatchAgentTasks { .. } => return Ok(()),
     };
     if task.created_node_ids.contains(&node_id) || task.verified_node_ids.contains(&node_id) {
         return Ok(());
@@ -33,7 +38,18 @@ pub(super) fn record_successful_result(task: &mut ActiveTask, result: &CardComma
             task.verified_node_ids
                 .extend(cards.iter().map(|card| card.node_id));
         }
-        CardCommandResult::Sent { .. } | CardCommandResult::Focused { .. } => {}
+        CardCommandResult::AgentCreated {
+            node_id: Some(node_id),
+            ..
+        }
+        | CardCommandResult::AgentActivated { node_id, .. } => {
+            task.created_node_ids.insert(*node_id);
+        }
+        CardCommandResult::Sent { .. }
+        | CardCommandResult::Focused { .. }
+        | CardCommandResult::AgentsListed { .. }
+        | CardCommandResult::AgentCreated { node_id: None, .. }
+        | CardCommandResult::AgentTasksDispatched { .. } => {}
     }
     task.successful_results.push(result.clone());
 }
@@ -59,8 +75,26 @@ pub(super) fn successful_summary(task: &ActiveTask) -> String {
         .successful_results
         .iter()
         .any(|result| matches!(result, CardCommandResult::Listed { .. }));
+    let agent_created = task
+        .successful_results
+        .iter()
+        .any(|result| matches!(result, CardCommandResult::AgentCreated { .. }));
+    let agent_activated = task
+        .successful_results
+        .iter()
+        .any(|result| matches!(result, CardCommandResult::AgentActivated { .. }));
+    let agent_dispatched = task
+        .successful_results
+        .iter()
+        .any(|result| matches!(result, CardCommandResult::AgentTasksDispatched { .. }));
 
-    if deleted {
+    if agent_dispatched {
+        "Agent 任务已提交或排队"
+    } else if agent_created {
+        "已创建 Agent"
+    } else if agent_activated {
+        "已激活 Agent"
+    } else if deleted {
         "已删除卡片"
     } else if created && submitted {
         "已创建并提交"
@@ -96,6 +130,18 @@ fn successful_operations(task: &ActiveTask) -> String {
             CardCommandResult::Sent { node_id } => format!("向卡片 #{node_id} 提交文本"),
             CardCommandResult::Focused { node_id } => format!("聚焦卡片 #{node_id}"),
             CardCommandResult::Listed { cards } => format!("列出 {} 张卡片", cards.len()),
+            CardCommandResult::AgentsListed { agents } => {
+                format!("列出 {} 个 Agent", agents.len())
+            }
+            CardCommandResult::AgentCreated { name, node_id, .. } => node_id
+                .map(|node_id| format!("创建 Agent {name}（卡片 #{node_id}）"))
+                .unwrap_or_else(|| format!("创建 Agent {name}")),
+            CardCommandResult::AgentActivated { name, node_id, .. } => {
+                format!("激活 Agent {name}（卡片 #{node_id}）")
+            }
+            CardCommandResult::AgentTasksDispatched { receipts } => {
+                format!("提交或排队 {} 项 Agent 任务", receipts.len())
+            }
         })
         .collect::<Vec<_>>()
         .join("；")

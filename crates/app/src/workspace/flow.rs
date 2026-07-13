@@ -241,6 +241,10 @@ pub(crate) fn enter_workspace_for_path(
     project_store
         .migrate()
         .map_err(|error| format!("Could not migrate project storage: {error}"))?;
+    project_store
+        .agent_dispatch_task_store()
+        .mark_incomplete_interrupted()
+        .map_err(|error| format!("Could not interrupt restored Agent tasks: {error}"))?;
     log_workspace_open_timing(
         "workspace_open_migrate",
         &root,
@@ -262,6 +266,10 @@ pub(crate) fn enter_workspace_for_path(
     next_runtime
         .load_canvas_snapshot(&project_store.canvas_store())
         .map_err(|error| format!("Could not restore canvas snapshot: {error}"))?;
+    crate::workspace::legacy_agent_migration::migrate_legacy_agent_cards(
+        &mut next_runtime,
+        &project_store,
+    )?;
     log_workspace_open_timing(
         "workspace_open_load_canvas_snapshot",
         &root,

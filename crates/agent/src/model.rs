@@ -47,6 +47,7 @@ pub struct ProviderResponse {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AgentCommand {
+    UpdateAgentRoster(Vec<crate::AgentRosterEntry>),
     UserTurn(String),
     DirectCardTask(String),
     CancelLatest,

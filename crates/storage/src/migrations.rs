@@ -99,6 +99,8 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
         CREATE TABLE IF NOT EXISTS agent_definitions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
+            name_key TEXT,
+            speech_alias TEXT,
             runtime_profile TEXT NOT NULL,
             workflow_description TEXT NOT NULL,
             enabled INTEGER NOT NULL DEFAULT 1,
@@ -146,6 +148,23 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
             FOREIGN KEY (project_id, task_id)
                 REFERENCES agent_tasks(project_id, task_id)
         );
+
+        CREATE TABLE IF NOT EXISTS agent_dispatch_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            definition_id INTEGER NOT NULL,
+            node_id INTEGER NOT NULL,
+            original_instruction TEXT NOT NULL,
+            task_text TEXT NOT NULL,
+            state TEXT NOT NULL,
+            tracking TEXT NOT NULL,
+            error TEXT,
+            created_at_unix INTEGER NOT NULL,
+            updated_at_unix INTEGER NOT NULL,
+            FOREIGN KEY (definition_id) REFERENCES agent_definitions(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_agent_dispatch_tasks_definition_state
+        ON agent_dispatch_tasks(definition_id, state, id);
         "#,
     )?;
     ensure_column(
@@ -178,6 +197,33 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
         "voice_history",
         "refined_transcript",
         "refined_transcript TEXT",
+    )?;
+    ensure_column(connection, "agent_definitions", "name_key", "name_key TEXT")?;
+    ensure_column(
+        connection,
+        "agent_definitions",
+        "speech_alias",
+        "speech_alias TEXT",
+    )?;
+    connection.execute(
+        "UPDATE agent_definitions SET name_key = lower(name) WHERE name_key IS NULL",
+        [],
+    )?;
+    for builtin in agent::builtin_agent_names() {
+        connection.execute(
+            "UPDATE agent_definitions SET speech_alias = ?1 \
+             WHERE name = ?2 COLLATE NOCASE AND speech_alias IS NULL",
+            rusqlite::params![builtin.speech_alias(), builtin.name()],
+        )?;
+    }
+    connection.execute_batch(
+        r#"
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_definitions_name_key
+        ON agent_definitions(name_key);
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_definitions_speech_alias
+        ON agent_definitions(speech_alias) WHERE speech_alias IS NOT NULL;
+        "#,
     )?;
     connection.pragma_update(None, "user_version", 1)?;
     Ok(())

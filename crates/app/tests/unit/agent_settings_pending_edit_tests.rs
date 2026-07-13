@@ -27,9 +27,9 @@ fn key(key: &str, key_char: Option<&str>) -> Keystroke {
 /// AS-9A: save_draft() 遇到正在编辑中的字段时，必须先提交可见 edit_buffer，再做校验和持久化，避免 Save 丢失用户眼前已输入但未按 Enter 的文本。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   seeded definitions        = 1 条，name = "Original Agent"
+///   seeded definitions        = 1 条，name = "Original"
 ///   visible pending name      = "Visible Draft Name"，长度 18 <= 80
-///   stored draft name before save = "Original Agent"，验证 save 前 self.draft 仍是旧值
+///   stored draft name before save = "Original"，验证 save 前 self.draft 仍是旧值
 ///   final persisted count     = 1 条，验证 update 而非 create
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -42,13 +42,13 @@ fn key(key: &str, key_char: Option<&str>) -> Keystroke {
 ///   - 正断言：save_draft() 返回 true，说明保存路径接受了当前可见输入
 ///   - 正断言：内存与持久化中的名称都更新为 "Visible Draft Name"
 ///   - 正断言：仍只有 1 条记录，说明是更新不是新增
-///   - 负断言：旧名称 "Original Agent" 不应继续留在内存或持久化列表中
+///   - 负断言：旧名称 "Original" 不应继续留在内存或持久化列表中
 #[test]
 fn test_agent_definitions_state_save_draft_commits_pending_active_edit_buffer() {
     let store = make_agent_definition_store("task-5-pending-edit-save");
     let original = store
         .create(&NewAgentDefinition {
-            name: "Original Agent".to_string(),
+            name: "Original".to_string(),
             runtime_profile: AgentProfile::Codex,
             workflow_description: "Original workflow".to_string(),
         })
@@ -58,10 +58,10 @@ fn test_agent_definitions_state_save_draft_commits_pending_active_edit_buffer() 
 
     let did_edit = state.edit_definition(original.id);
     state.begin_edit(AgentDefinitionField::Name);
-    for _ in 0.."Original Agent".chars().count() {
+    for _ in 0.."Original".chars().count() {
         state.handle_key_down(&key("backspace", None));
     }
-    for ch in "Visible Draft Name".chars() {
+    for ch in "VisibleDraft".chars() {
         let keystroke = if ch == ' ' {
             key("space", Some(" "))
         } else {
@@ -91,13 +91,13 @@ fn test_agent_definitions_state_save_draft_commits_pending_active_edit_buffer() 
         "state definitions should still contain one record after saving a pending in-place edit"
     );
     assert_eq!(
-        in_memory[0].name, "Visible Draft Name",
+        in_memory[0].name, "VisibleDraft",
         "state definitions should persist the visible edit buffer text instead of the stale draft name"
     );
     assert!(
         !in_memory
             .iter()
-            .any(|definition| definition.name == "Original Agent"),
+            .any(|definition| definition.name == "Original"),
         "state definitions should not retain the stale pre-edit name after save"
     );
     assert_eq!(
@@ -106,13 +106,13 @@ fn test_agent_definitions_state_save_draft_commits_pending_active_edit_buffer() 
         "project store should still contain one record after saving a pending in-place edit"
     );
     assert_eq!(
-        persisted[0].name, "Visible Draft Name",
+        persisted[0].name, "VisibleDraft",
         "project store should persist the visible edit buffer text instead of the stale draft name"
     );
     assert!(
         !persisted
             .iter()
-            .any(|definition| definition.name == "Original Agent"),
+            .any(|definition| definition.name == "Original"),
         "project store should not retain the stale pre-edit name after save"
     );
 }
@@ -120,7 +120,7 @@ fn test_agent_definitions_state_save_draft_commits_pending_active_edit_buffer() 
 /// AS-10: delete_definition() 应同时删除内存与底层 store 的 definition，并返回 true 表示删除成功。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   seeded definitions         = 2 条，分别命名 "Delete Me" 与 "Keep Me"
+///   seeded definitions         = 2 条，分别命名 "Delete" 与 "Keep"
 ///   delete target              = 1 条，验证只删目标记录
 ///   remaining definitions      = 1 条，验证非目标记录保留
 ///
@@ -131,21 +131,21 @@ fn test_agent_definitions_state_save_draft_commits_pending_active_edit_buffer() 
 ///
 /// 预期结果：
 ///   - 正断言：delete_definition() 返回 true
-///   - 正断言：内存与持久化都只剩下 "Keep Me"
-///   - 负断言："Delete Me" 不应继续出现在任一列表中
+///   - 正断言：内存与持久化都只剩下 "Keep"
+///   - 负断言："Delete" 不应继续出现在任一列表中
 #[test]
 fn test_agent_definitions_state_delete_removes_definition() {
     let store = make_agent_definition_store("task-5-delete");
     let deleted = store
         .create(&NewAgentDefinition {
-            name: "Delete Me".to_string(),
+            name: "Delete".to_string(),
             runtime_profile: AgentProfile::Codex,
             workflow_description: "Delete workflow".to_string(),
         })
         .expect("test should seed deletable definition");
     store
         .create(&NewAgentDefinition {
-            name: "Keep Me".to_string(),
+            name: "Keep".to_string(),
             runtime_profile: AgentProfile::Claude,
             workflow_description: "Keep workflow".to_string(),
         })
@@ -169,13 +169,13 @@ fn test_agent_definitions_state_delete_removes_definition() {
         "state definitions should contain exactly one record after deleting one of two definitions"
     );
     assert_eq!(
-        in_memory[0].name, "Keep Me",
+        in_memory[0].name, "Keep",
         "state definitions should preserve the non-deleted definition"
     );
     assert!(
         !in_memory
             .iter()
-            .any(|definition| definition.name == "Delete Me"),
+            .any(|definition| definition.name == "Delete"),
         "state definitions should not retain the deleted definition"
     );
     assert_eq!(
@@ -184,13 +184,13 @@ fn test_agent_definitions_state_delete_removes_definition() {
         "project store should contain exactly one record after deleting one of two definitions"
     );
     assert_eq!(
-        persisted[0].name, "Keep Me",
+        persisted[0].name, "Keep",
         "project store should preserve the non-deleted definition"
     );
     assert!(
         !persisted
             .iter()
-            .any(|definition| definition.name == "Delete Me"),
+            .any(|definition| definition.name == "Delete"),
         "project store should not retain the deleted definition"
     );
 }
@@ -216,7 +216,7 @@ fn test_agent_definitions_state_toggle_enabled_persists_to_store() {
     let store = make_agent_definition_store("task-5-toggle-enabled");
     let seeded = store
         .create(&NewAgentDefinition {
-            name: "Toggle Me".to_string(),
+            name: "Toggle".to_string(),
             runtime_profile: AgentProfile::Codex,
             workflow_description: "Toggle workflow".to_string(),
         })

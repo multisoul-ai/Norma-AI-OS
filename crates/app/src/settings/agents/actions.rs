@@ -43,7 +43,32 @@ impl MultisoulApp {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.agent_definitions.save_draft();
+        let draft = self.agent_definitions.draft().clone();
+        if let Some(id) = draft.id {
+            let active = self.runtime.has_active_agent_definition(id);
+            let persisted = self
+                .agent_definitions
+                .definitions()
+                .iter()
+                .find(|definition| definition.id == id);
+            let changes_runtime = persisted.is_some_and(|definition| {
+                definition.runtime_profile != draft.runtime_profile
+                    || definition.enabled != draft.enabled
+            });
+            if active && changes_runtime {
+                self.agent_definitions.set_status(
+                    "Close the active Agent card before changing its profile or enabled state.",
+                );
+                cx.notify();
+                return;
+            }
+        }
+        if self.agent_definitions.save_draft() {
+            let draft = self.agent_definitions.draft();
+            if let Some(id) = draft.id {
+                let _ = self.runtime.sync_agent_definition_name(id, &draft.name);
+            }
+        }
         cx.notify();
     }
 
@@ -115,6 +140,12 @@ impl MultisoulApp {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.runtime.has_active_agent_definition(id) {
+            self.agent_definitions
+                .set_status("Close the active Agent card before deleting this Agent.");
+            cx.notify();
+            return;
+        }
         self.agent_definitions.request_delete_definition(id);
         cx.notify();
     }

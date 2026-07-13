@@ -8,7 +8,9 @@ use agent::{
     CardToolRequest, CardToolResult, MemoryJournal, ProviderError, ProviderRequest,
     ProviderResponse, ProviderToolCall,
 };
-use norma::protocol::{CardCommand, CardCommandResult};
+use norma::protocol::{
+    AgentTaskAssignment, AgentTaskReceipt, AgentTaskReceiptStatus, CardCommand, CardCommandResult,
+};
 use std::collections::VecDeque;
 
 struct ScriptedProvider {
@@ -54,6 +56,34 @@ impl CardToolHost for RuntimeLikeHost {
             CardCommand::List => CardCommandResult::Listed { cards: Vec::new() },
             CardCommand::Focus { node_id } => CardCommandResult::Focused { node_id },
             CardCommand::Delete { node_id } => CardCommandResult::Deleted { node_id },
+            CardCommand::ListAgents => CardCommandResult::AgentsListed { agents: Vec::new() },
+            CardCommand::CreateAgent { name, activate, .. } => {
+                self.created += 1;
+                CardCommandResult::AgentCreated {
+                    definition_id: self.created as i64,
+                    name: name.unwrap_or_else(|| "Alan".to_string()),
+                    node_id: activate.then_some(self.created as u64),
+                }
+            }
+            CardCommand::ActivateAgent { name } => CardCommandResult::AgentActivated {
+                definition_id: 1,
+                name,
+                node_id: 1,
+                reused: true,
+            },
+            CardCommand::DispatchAgentTasks { assignments, .. } => {
+                CardCommandResult::AgentTasksDispatched {
+                    receipts: assignments
+                        .into_iter()
+                        .map(|assignment| AgentTaskReceipt {
+                            name: assignment.name,
+                            node_id: 1,
+                            task: assignment.task,
+                            status: AgentTaskReceiptStatus::Submitted,
+                        })
+                        .collect(),
+                }
+            }
         };
         Ok(CardToolResult { result })
     }
@@ -76,7 +106,7 @@ fn tools(calls: Vec<ProviderToolCall>) -> ProviderResponse {
 
 /// L1-A-1：明确语音意图应在 queued receipt 后完成 create + send_text submit，并落审计。
 ///
-/// 数据构造：Dialogue Provider 只返回确认文本，证明漏调用时会 fallback；Subagent 产生 create agent 与 send_text。
+/// 数据构造：Dialogue Provider 只返回确认文本，证明漏调用时会 fallback；Subagent 产生 create_agent 与 dispatch_agent_tasks。
 /// 执行过程：submit UserTurn 后 pump 直到无新事件，再观察 host 与 MemoryJournal。
 /// 预期结果：task 成功、runtime-like host 的节点数增加、提交标记为 true、审计 task id 一致。
 #[test]
@@ -88,13 +118,13 @@ fn voice_intent_reaches_runtime_like_host_and_journal() {
     let card = ScriptedProvider::new(vec![
         tools(vec![call(
             "card-1",
-            "create_card",
-            r#"{"kind":"agent","profile":"codex"}"#,
+            "create_agent",
+            r#"{"name":"Alan","profile":"codex","activate":true}"#,
         )]),
         tools(vec![call(
             "card-2",
-            "send_text",
-            r#"{"node_id":1,"text":"分析 README","submit":true}"#,
+            "dispatch_agent_tasks",
+            r#"{"assignments":[{"name":"Alan","task":"分析 README"}]}"#,
         )]),
         ProviderResponse {
             text: "完成".to_string(),
@@ -146,12 +176,14 @@ fn voice_intent_reaches_runtime_like_host_and_journal() {
     );
     assert_eq!(
         system.card_tool_host().commands[1],
-        CardCommand::SendText {
-            node_id: 1,
-            text: "分析 README".to_string(),
-            submit: true,
+        CardCommand::DispatchAgentTasks {
+            assignments: vec![AgentTaskAssignment {
+                name: "Alan".to_string(),
+                task: "分析 README".to_string(),
+            }],
+            force_untracked: false,
         },
-        "第二个卡片命令应指向新建节点并 submit=true"
+        "第二个高层命令应按定义名称委派 README 分析任务"
     );
     assert!(
         system

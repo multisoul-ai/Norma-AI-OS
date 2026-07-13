@@ -8,7 +8,6 @@ use canvas::AgentProfile;
 use gpui::Keystroke;
 use storage::{AgentDefinition, AgentDefinitionStore};
 
-pub(crate) const MAX_AGENT_NAME_CHARS: usize = 80;
 pub(crate) const MAX_WORKFLOW_DESCRIPTION_CHARS: usize = 2000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -43,6 +42,7 @@ pub(crate) struct AgentDefinitionsState {
     draft: AgentDefinitionDraft,
     selected_definition_id: Option<i64>,
     editing_card_id: Option<i64>,
+    creating_new: bool,
     delete_confirmation_id: Option<i64>,
     editing: Option<AgentDefinitionField>,
     edit_buffer: String,
@@ -57,6 +57,7 @@ impl Default for AgentDefinitionsState {
             draft: AgentDefinitionDraft::new(),
             selected_definition_id: None,
             editing_card_id: None,
+            creating_new: false,
             delete_confirmation_id: None,
             editing: None,
             edit_buffer: String::new(),
@@ -77,6 +78,51 @@ impl AgentDefinitionsState {
         &self.definitions
     }
 
+    pub(crate) fn create_definition(
+        &mut self,
+        requested_name: Option<String>,
+        runtime_profile: AgentProfile,
+    ) -> Result<AgentDefinition, String> {
+        let store = self
+            .store
+            .as_ref()
+            .ok_or_else(|| "Open a project before creating Agents.".to_string())?;
+        let name =
+            requested_name.unwrap_or_else(|| support::next_default_agent_name(&self.definitions));
+        if name.is_empty() {
+            return Err("All 30 built-in Agent names are in use; specify a custom name.".into());
+        }
+        agent::AgentName::parse(&name).map_err(|error| error.to_string())?;
+        let created = store
+            .create(&storage::NewAgentDefinition {
+                name,
+                runtime_profile,
+                workflow_description: String::new(),
+            })
+            .map_err(|error| support::readable_agent_store_error(&error))?;
+        self.reload();
+        self.select_after_reload(Some(created.id));
+        Ok(created)
+    }
+
+    pub(crate) fn definition_by_address(&self, address: &str) -> Option<&AgentDefinition> {
+        let normalized = agent::AgentName::parse(address.trim().trim_matches(|character: char| {
+            matches!(character, ',' | '，' | ':' | '：' | '。' | '!' | '！')
+        }))
+        .ok()?;
+        self.definitions.iter().find(|definition| {
+            if agent::AgentName::parse(&definition.name)
+                .is_ok_and(|name| name.match_key() == normalized.match_key())
+            {
+                return true;
+            }
+            agent::builtin_agent_names().iter().any(|builtin| {
+                builtin.name().eq_ignore_ascii_case(&definition.name)
+                    && builtin.speech_alias() == normalized.match_key()
+            })
+        })
+    }
+
     pub(crate) fn draft(&self) -> &AgentDefinitionDraft {
         &self.draft
     }
@@ -87,6 +133,10 @@ impl AgentDefinitionsState {
 
     pub(crate) fn editing_card_id(&self) -> Option<i64> {
         self.editing_card_id
+    }
+
+    pub(crate) fn is_creating_new(&self) -> bool {
+        self.creating_new
     }
 
     pub(crate) fn status(&self) -> Option<&str> {
@@ -123,6 +173,7 @@ impl AgentDefinitionsState {
         self.draft = AgentDefinitionDraft::new();
         self.selected_definition_id = None;
         self.editing_card_id = None;
+        self.creating_new = false;
         self.delete_confirmation_id = None;
         self.editing = None;
         self.edit_buffer.clear();
@@ -147,6 +198,7 @@ impl AgentDefinitionsState {
         };
         self.selected_definition_id = Some(definition.id);
         self.editing_card_id = None;
+        self.creating_new = false;
         self.delete_confirmation_id = None;
         self.editing = None;
         self.edit_buffer.clear();
@@ -208,6 +260,7 @@ impl AgentDefinitionsState {
         match result {
             Ok(saved_id) => {
                 self.editing_card_id = None;
+                self.creating_new = false;
                 self.editing = None;
                 self.edit_buffer.clear();
                 self.reload();
@@ -290,6 +343,10 @@ impl AgentDefinitionsState {
 
     pub(crate) fn clear_status(&mut self) {
         self.status = None;
+    }
+
+    pub(crate) fn set_status(&mut self, message: impl Into<String>) {
+        self.status = Some(message.into());
     }
 
     #[cfg(test)]

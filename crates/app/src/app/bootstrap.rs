@@ -63,6 +63,8 @@ impl MultisoulApp {
             tts_scan_generation: 0,
             tts_download_cancellations: std::collections::HashMap::new(),
             agent_runtime: None,
+            agent_task_coordinator: None,
+            pending_agent_close_confirmation: None,
             pending_voice_commands: Vec::new(),
             focus_handle,
             wallpaper_settings,

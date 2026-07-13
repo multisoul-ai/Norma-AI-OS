@@ -1,6 +1,6 @@
 use super::{
-    artifacts_from_agent_events, execute_agent_card_command, start_tool_pump, terminal_task_report,
-    AgentToolRequest, ProjectAgentRuntime,
+    agent_completion_report, artifacts_from_agent_events, execute_agent_card_command,
+    start_tool_pump, terminal_task_report, AgentToolRequest, ProjectAgentRuntime,
 };
 use agent::{AgentEvent, ProviderConfig, ProviderProtocol};
 use canvas::CanvasNodeKind;
@@ -342,5 +342,49 @@ fn test_agent_tool_pump_forwards_multiple_creates_to_real_runtime() {
             .iter()
             .all(|node| matches!(node.kind, CanvasNodeKind::Term(_))),
         "两个 bridge request 创建的节点都必须是 Terminal"
+    );
+}
+
+/// ART-8：Hook 终态通知必须区分完成、失败和中断，运行中状态不能提前播报。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Agent name = Alan
+///   terminal states = 3：Done、Failed("tests failed")、Ended
+///   non-terminal states = 1：Thinking
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 将 Alan 与三个终态交给完成通知格式化边界
+///   2. 将 Thinking 交给相同边界
+///   3. 比较可播报文本与 None
+///
+/// 预期结果：
+///   - 正断言：Done/Failed/Ended 分别返回完成、失败、中断文本
+///   - 负断言：Thinking 不得产生完成通知
+#[test]
+fn test_agent_completion_report_only_formats_real_hook_terminal_states() {
+    assert_eq!(
+        agent_completion_report("Alan", &runtime::AgentTaskState::Done),
+        Some("Alan 已完成任务".to_string()),
+        "Done 应生成明确的 Alan 完成通知"
+    );
+    assert_eq!(
+        agent_completion_report(
+            "Alan",
+            &runtime::AgentTaskState::Failed {
+                message: "tests failed".to_string(),
+            },
+        ),
+        Some("Alan 任务失败：tests failed".to_string()),
+        "Failed 应保留 Hook 的真实失败原因"
+    );
+    assert_eq!(
+        agent_completion_report("Alan", &runtime::AgentTaskState::Ended),
+        Some("Alan 任务已中断".to_string()),
+        "Ended 应生成中断通知，不能误报完成"
+    );
+    assert_eq!(
+        agent_completion_report("Alan", &runtime::AgentTaskState::Thinking),
+        None,
+        "Thinking 仍是运行中状态，不得提前生成终态通知"
     );
 }
