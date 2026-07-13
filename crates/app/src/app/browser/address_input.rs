@@ -6,12 +6,17 @@
 
 use gpui::{
     point, App, Bounds, ClipboardItem, Context, EntityInputHandler, EventEmitter, FocusHandle,
-    Focusable, KeyDownEvent, MouseDownEvent, Pixels, Point, ShapedLine, UTF16Selection, Window,
+    Focusable, KeyDownEvent, MouseDownEvent, Pixels, Point, ShapedLine, Task, UTF16Selection,
+    Window,
 };
 use std::ops::Range;
+use std::time::Duration;
 use ui::Theme;
 
 mod render;
+
+const CARET_BLINK_INTERVAL: Duration = Duration::from_millis(500);
+const CARET_BLINK_PAUSE_DELAY: Duration = Duration::from_millis(300);
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum BrowserAddressInputEvent {
@@ -28,6 +33,8 @@ pub(crate) struct BrowserAddressInput {
     theme: Theme,
     last_layout: Option<ShapedLine>,
     last_bounds: Option<Bounds<Pixels>>,
+    caret_visible: bool,
+    caret_blink_task: Task<()>,
 }
 
 impl EventEmitter<BrowserAddressInputEvent> for BrowserAddressInput {}
@@ -35,7 +42,7 @@ impl EventEmitter<BrowserAddressInputEvent> for BrowserAddressInput {}
 impl BrowserAddressInput {
     pub(crate) fn new(value: String, theme: Theme, cx: &mut Context<Self>) -> Self {
         let length = value.len();
-        Self {
+        let mut input = Self {
             content: value,
             selected_range: 0..length,
             selection_reversed: false,
@@ -44,21 +51,57 @@ impl BrowserAddressInput {
             theme,
             last_layout: None,
             last_bounds: None,
-        }
+            caret_visible: true,
+            caret_blink_task: Task::ready(()),
+        };
+        input.caret_blink_task = Self::spawn_caret_blink(CARET_BLINK_INTERVAL, cx);
+        input
     }
 
-    pub(crate) fn focus(&self, window: &mut Window) {
+    pub(crate) fn focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.focus_handle.focus(window);
+        self.restart_caret_blink(CARET_BLINK_INTERVAL, cx);
     }
 
     pub(crate) fn value(&self) -> String {
         self.content.clone()
     }
 
-    fn on_mouse_down(&mut self, _: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+    fn spawn_caret_blink(initial_delay: Duration, cx: &mut Context<Self>) -> Task<()> {
+        cx.spawn(async move |this, cx| {
+            let mut delay = initial_delay;
+            loop {
+                cx.background_executor().timer(delay).await;
+                let updated = this.update(cx, |input, cx| {
+                    input.caret_visible = !input.caret_visible;
+                    cx.notify();
+                });
+                if updated.is_err() {
+                    break;
+                }
+                delay = CARET_BLINK_INTERVAL;
+            }
+        })
+    }
+
+    fn restart_caret_blink(&mut self, initial_delay: Duration, cx: &mut Context<Self>) {
+        self.caret_visible = true;
+        self.caret_blink_task = Self::spawn_caret_blink(initial_delay, cx);
+        cx.notify();
+    }
+
+    fn on_mouse_down(
+        &mut self,
+        event: &MouseDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if !self.focus_handle.is_focused(window) {
             self.focus_handle.focus(window);
             self.select_all(cx);
+        } else if let (Some(bounds), Some(layout)) = (self.last_bounds, self.last_layout.as_ref()) {
+            let layout_offset = layout.closest_index_for_x(event.position.x - bounds.left());
+            self.move_to(utf8_boundary(&self.content, layout_offset), cx);
         }
         cx.stop_propagation();
     }
@@ -134,7 +177,7 @@ impl BrowserAddressInput {
     fn select_all(&mut self, cx: &mut Context<Self>) -> bool {
         self.selected_range = 0..self.content.len();
         self.selection_reversed = false;
-        cx.notify();
+        self.restart_caret_blink(CARET_BLINK_PAUSE_DELAY, cx);
         true
     }
 
@@ -165,7 +208,7 @@ impl BrowserAddressInput {
     fn move_to(&mut self, offset: usize, cx: &mut Context<Self>) -> bool {
         self.selected_range = offset..offset;
         self.selection_reversed = false;
-        cx.notify();
+        self.restart_caret_blink(CARET_BLINK_PAUSE_DELAY, cx);
         true
     }
 
@@ -179,7 +222,7 @@ impl BrowserAddressInput {
             self.selection_reversed = !self.selection_reversed;
             self.selected_range = self.selected_range.end..self.selected_range.start;
         }
-        cx.notify();
+        self.restart_caret_blink(CARET_BLINK_PAUSE_DELAY, cx);
         true
     }
 
@@ -354,7 +397,7 @@ impl BrowserAddressInput {
             cursor..cursor
         });
         self.selection_reversed = false;
-        cx.notify();
+        self.restart_caret_blink(CARET_BLINK_PAUSE_DELAY, cx);
     }
 }
 
@@ -390,3 +433,7 @@ fn utf8_boundary(text: &str, offset: usize) -> usize {
     }
     boundary
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/browser_address_blink_tests.rs"]
+mod blink_tests;

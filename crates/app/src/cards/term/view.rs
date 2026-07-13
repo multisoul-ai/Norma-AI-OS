@@ -17,6 +17,41 @@ pub const TERM_CELL_PX: f32 = 8.0;
 pub const TERM_PADDING_PX: f32 = 8.0;
 const TERM_SURFACE_TINT_ALPHA: u8 = 0x20;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum TerminalContentMode {
+    IntroOnly,
+    Crossfade { opacity: f32 },
+    ContentOnly,
+}
+
+impl TerminalContentMode {
+    pub(crate) fn requires_live_view(self) -> bool {
+        !matches!(self, Self::IntroOnly)
+    }
+
+    pub(crate) fn content_opacity(self) -> f32 {
+        match self {
+            Self::IntroOnly => 0.0,
+            Self::Crossfade { opacity } => opacity,
+            Self::ContentOnly => 1.0,
+        }
+    }
+}
+
+pub(crate) fn terminal_content_mode(
+    initialization: Option<InitializationPresentation>,
+) -> TerminalContentMode {
+    match initialization {
+        Some(presentation) if presentation.content_opacity <= f32::EPSILON => {
+            TerminalContentMode::IntroOnly
+        }
+        Some(presentation) => TerminalContentMode::Crossfade {
+            opacity: presentation.content_opacity.clamp(0.0, 1.0),
+        },
+        None => TerminalContentMode::ContentOnly,
+    }
+}
+
 pub struct TerminalNodeRenderOptions {
     pub theme: Theme,
     pub zoom: f32,
@@ -429,3 +464,7 @@ mod tests {
 #[cfg(test)]
 #[path = "../../../tests/unit/cards/term/view_enter_tests.rs"]
 mod enter_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/cards/term/render_mode_tests.rs"]
+mod render_mode_tests;

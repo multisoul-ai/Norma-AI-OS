@@ -44,6 +44,11 @@ if printf '%s\n' "$collect_body" | grep -qE 'find_(agent|codex)_session_id|read_
 fi
 
 forbid_pattern_in_file \
+  crates/runtime/src/session_restore.rs \
+  'find_(agent|codex)_session_id|discover_agent_session_id' \
+  "workspace live-session restore must use persisted node session IDs; no provider history discovery on the restore path."
+
+forbid_pattern_in_file \
   crates/app/src/canvas/events.rs \
   'rusqlite|Connection::open|ProjectStore|NodeSessionStore|SessionStore|CanvasStore|save_node_sessions|save_session_checkpoints|flush_persistence_now|find_(agent|codex)_session_id' \
   "canvas mouse/pointer event code must not call persistence or session discovery APIs."

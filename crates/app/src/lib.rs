@@ -40,6 +40,7 @@ pub fn run_norma_os() {
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
+    app::browser::initialize_safari_browser_identity();
 
     Application::new()
         .with_assets(EmbeddedAssets)

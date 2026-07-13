@@ -7,7 +7,7 @@
 
 use app::NewBrowser;
 use canvas::{CanvasNodeKind, NodeId};
-use gpui::{ClipboardItem, Modifiers, TestAppContext, VisualTestContext};
+use gpui::{point, px, ClipboardItem, Modifiers, TestAppContext, VisualTestContext};
 
 use crate::harness::{echo_factory, enter_canvas, make_app, read_runtime};
 
@@ -79,6 +79,57 @@ fn e2e_08_browser_address_accepts_ime_text_and_standard_editing_commands() {
     assert_ne!(
         saved_url, "https://www.google.com",
         "用户输入后 Browser URL 不应仍是默认首页"
+    );
+}
+
+/// E2E-08b：地址栏进入编辑态后，第二次点击文字末端必须落下 caret 并在该位置追加输入。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   - 默认 URL = `https://www.google.com`，长度为 22 bytes。
+///   - 地址栏水平 padding = 8px；第二次点击使用 `right - 10px`，即落在输入内容区
+///     右边缘内约 2px，文字布局应映射到 byte offset 22。
+///   - 追加文本 = `/cursor`，长度为 7 bytes；最终 URL 长度应为 22 + 7 = 29 bytes。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建 Browser 卡片并第一次点击地址栏，进入编辑态且默认 URL 处于全选状态。
+///   2. 在地址栏右侧内容区第二次点击，输入实体把全选折叠到文字末端并显示 caret。
+///   3. 通过平台文本输入追加 `/cursor`，再按 Enter 提交。
+///
+/// 预期结果：
+///   - 正断言：保存 URL 精确等于 `https://www.google.com/cursor`，证明点击落点生效。
+///   - 正断言：结果以 `/cursor` 结尾，证明输入发生在 caret 所在末端。
+///   - 负断言：结果不得退化成 `https:///cursor`，否则第二次点击仍保留了全选。
+#[test]
+fn e2e_08_browser_address_second_click_places_caret_at_text_end() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("temporary workspace root should create");
+    enter_canvas(&app, cx, workspace.path());
+    let node_id = create_browser(&app, cx);
+
+    click_debug(cx, "browser-address");
+    let address_bounds = cx
+        .debug_bounds("browser-address")
+        .expect("编辑态 Browser 地址栏必须保留 debug bounds，供第二次点击定位");
+    let caret_position = point(address_bounds.right() - px(10.0), address_bounds.center().y);
+    cx.simulate_mouse_move(caret_position, None, Modifiers::none());
+    cx.simulate_click(caret_position, Modifiers::none());
+    cx.simulate_input("/cursor");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+
+    let saved_url = read_runtime(&app, cx, |runtime| browser_url(runtime, node_id));
+    assert_eq!(
+        saved_url, "https://www.google.com/cursor",
+        "第二次点击文字末端后，平台文本应从 caret 位置追加，actual={saved_url}"
+    );
+    assert!(
+        saved_url.ends_with("/cursor"),
+        "caret 末端输入必须保留 `/cursor` 后缀，actual={saved_url}"
+    );
+    assert_ne!(
+        saved_url, "https:///cursor",
+        "第二次点击必须折叠初始全选；否则输入会替换整段默认 URL"
     );
 }
 

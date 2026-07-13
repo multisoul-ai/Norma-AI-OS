@@ -2,7 +2,9 @@
 
 use crate::cards::chrome::{CardChrome, CardChromeTaskBadge, CardChromeTaskTone};
 use crate::cards::term::card::term_resize;
-use crate::cards::term::view::{render_terminal_node, TerminalNodeRenderOptions};
+use crate::cards::term::view::{
+    render_terminal_node, terminal_content_mode, TerminalNodeRenderOptions,
+};
 use crate::cards::{Card, CardBodyContext};
 use crate::motion::breathing::BreathingIntent;
 use canvas::{CanvasNode, CanvasNodeKind, CanvasRect, NodeType};
@@ -41,13 +43,18 @@ impl Card for AgentCard {
     }
 
     fn body(&self, node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElement {
+        let content_mode = terminal_content_mode(context.initialization);
         let selection = context
             .text_selection
             .filter(|selection| selection.node_id == node.id && !selection.is_empty())
             .map(|selection| selection.range());
         let cursor_task_running = agent_chase_intent(context.runtime.agent_task_state(node.id));
+        let view = content_mode
+            .requires_live_view()
+            .then(|| context.runtime.node_view(node.id))
+            .flatten();
         render_terminal_node(
-            context.runtime.node_view(node.id),
+            view,
             TerminalNodeRenderOptions {
                 theme: context.theme,
                 zoom: context.zoom,

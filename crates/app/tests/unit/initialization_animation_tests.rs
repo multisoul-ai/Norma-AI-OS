@@ -312,3 +312,49 @@ fn test_initialization_scheduler_hits_31ms_806ms_and_992ms_boundaries_exactly() 
         "992ms 后初始化覆盖层必须被移除，不能因 12ms 量化多保留一帧"
     );
 }
+
+/// IA-6：ASCII 帧索引未变时不请求重绘，命中 31ms 边界时才报告可见变化。
+///
+/// 数据构造（含关键数值推导）：
+///   frame_interval = 31ms
+///   first_tick = 12ms < 31ms，帧索引仍为 0
+///   second_tick = 19ms，累计 12 + 19 = 31ms，帧索引应变为 1
+///
+/// 执行过程：
+///   1. 创建 Terminal 初始化动画。
+///   2. 推进 12ms，检查帧索引与 tick 返回值。
+///   3. 再推进 19ms 命中首个帧边界。
+///
+/// 预期结果：
+///   - 正断言：12ms 时仍显示第 0 帧，tick 返回 false。
+///   - 正断言：31ms 时显示第 1 帧，tick 返回 true。
+///   - 负断言：12ms 时不得提前显示第 1 帧。
+#[test]
+fn test_initialization_tick_notifies_only_when_presentation_changes() {
+    let mut animation = InitializationAnimation::new(InitializationAnimationKind::Terminal);
+
+    let changed_before_boundary = animation.tick(Duration::from_millis(12));
+    let before_boundary = animation.presentation().expect("12ms 时初始化动画应仍可见");
+    assert!(
+        !changed_before_boundary,
+        "12ms 未越过 31ms 帧边界，不应请求无效重绘"
+    );
+    assert_eq!(
+        before_boundary.frame_index, 0,
+        "12ms 小于 31ms，应仍显示第 0 帧"
+    );
+    assert_ne!(before_boundary.frame_index, 1, "12ms 时不得提前跳到第 1 帧");
+
+    let changed_at_boundary = animation.tick(Duration::from_millis(19));
+    let at_boundary = animation
+        .presentation()
+        .expect("31ms 时初始化动画应显示第 1 帧");
+    assert!(
+        changed_at_boundary,
+        "12ms + 19ms = 31ms 越过帧边界，应请求重绘"
+    );
+    assert_eq!(
+        at_boundary.frame_index, 1,
+        "31ms 恰好一帧，帧索引应从 0 推进到 1"
+    );
+}

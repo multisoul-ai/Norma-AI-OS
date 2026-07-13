@@ -263,25 +263,25 @@ fn test_task_title_cleared_on_node_remove() {
     );
 }
 
-/// Claude agent restore 在旧库 session_id 为空时，应允许通过 workspace 发现到的 session_id 兜底恢复。
+/// Claude agent restore 在旧库 session_id 为空时，不得在 Workspace 打开路径扫描会话目录。
 ///
 /// 数据构造（含关键数值推导）：
 ///   profile = Claude
 ///   NodeSession.kind = Agent
-///   NodeSession.session_id = None（旧库或之前路径编码错误导致没有写入）
-///   discovered_session_id = "real-claude-session"
+///   NodeSession.session_id = None（旧库未持久化 hook session id）
+///   discovered_session_id = "must-not-be-used"（模拟磁盘中可发现的历史会话）
 ///   workspace_root = "/tmp/multisoul-claude-workspace"
 ///
 /// 执行过程：
 ///   1. 构造 session_id=None 的 Claude NodeSession
-///   2. 调用 resolve_agent_restore_session_id_for_test，模拟 workspace 发现到 real-claude-session
-///   3. 检查 resolver 返回 discovered session id，而不是 None
+///   2. 调用 resolve_agent_restore_session_id_for_test，同时提供一个可发现的伪 session id
+///   3. 检查 resolver 仍返回 None，由恢复路径启动新 Session
 ///
 /// 预期结果：
-///   - 正断言：返回 real-claude-session，恢复阶段可生成 `claude --resume`
-///   - 负断言：不返回 None，否则已有空 node_sessions 的 workspace 仍无法恢复 Claude 会话
+///   - 正断言：返回 None，表示缺失持久化 ID 时启动新 Session
+///   - 负断言：不得返回 must-not-be-used，否则打开 Workspace 仍会进入同步磁盘发现
 #[test]
-fn test_restore_claude_agent_falls_back_to_discovered_session_id() {
+fn test_restore_claude_agent_without_saved_id_skips_session_discovery() {
     let workspace_root = std::path::Path::new("/tmp/multisoul-claude-workspace");
     let session = NodeSession {
         node_id: 10,
@@ -294,17 +294,17 @@ fn test_restore_claude_agent_falls_back_to_discovered_session_id() {
         Some(&session),
         AgentProfile::Claude,
         Some(workspace_root),
-        Some("real-claude-session"),
+        Some("must-not-be-used"),
     );
 
     assert_eq!(
-        resolved.as_deref(),
-        Some("real-claude-session"),
-        "Claude restore 应在保存值缺失时使用 workspace 发现到的 session id"
+        resolved, None,
+        "Claude restore 缺失持久化 session_id 时应启动新 Session，不得扫描会话目录"
     );
-    assert!(
-        resolved.is_some(),
-        "旧库 session_id=None 但 Claude jsonl 存在时不应继续返回 None"
+    assert_ne!(
+        resolved.as_deref(),
+        Some("must-not-be-used"),
+        "Workspace 打开路径不得消费磁盘发现结果"
     );
 }
 

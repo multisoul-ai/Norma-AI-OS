@@ -6,7 +6,7 @@ use crate::cards::{Card, CardBodyContext};
 use canvas::{CanvasNode, CanvasNodeKind, CanvasRect, NodeType};
 use gpui::{div, prelude::*, px, rgba, AnyElement, MouseButton};
 use runtime::{NodeResize, Runtime};
-use ui::icons::with_alpha;
+use ui::{icons::with_alpha, Theme};
 
 const BROWSER_PADDING_PX: f32 = 10.0;
 pub(crate) const BROWSER_TOOLBAR_H_PX: f32 = 34.0;
@@ -71,21 +71,21 @@ fn render_browser_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyEl
                     node_id,
                     BrowserCommandKind::Back,
                     "‹",
-                    theme.text_tertiary,
+                    theme,
                     zoom,
                 ))
                 .child(toolbar_button(
                     node_id,
                     BrowserCommandKind::Forward,
                     "›",
-                    theme.text_tertiary,
+                    theme,
                     zoom,
                 ))
                 .child(toolbar_button(
                     node_id,
                     BrowserCommandKind::Reload,
                     "R",
-                    theme.text_tertiary,
+                    theme,
                     zoom,
                 ))
                 .child(
@@ -150,20 +150,44 @@ fn toolbar_button(
     node_id: canvas::NodeId,
     command: BrowserCommandKind,
     label: &'static str,
-    color: u32,
+    theme: Theme,
     zoom: f32,
-) -> gpui::Div {
+) -> impl IntoElement {
     let size = (22.0 * zoom).clamp(18.0, 28.0);
+    let control_id = match command {
+        BrowserCommandKind::Back => "browser-back",
+        BrowserCommandKind::Forward => "browser-forward",
+        BrowserCommandKind::Reload => "browser-reload",
+        BrowserCommandKind::EditAddress => "browser-edit-address",
+    };
     div()
+        .id((control_id, node_id))
+        .debug_selector(move || control_id.to_string())
         .w(px(size))
         .h(px(size))
         .flex()
         .items_center()
         .justify_center()
         .rounded(px(6.0 * zoom))
+        .border_1()
+        .border_color(rgba(with_alpha(theme.edge_highlight, 0x16)))
+        .bg(rgba(with_alpha(theme.edge_highlight, 0x08)))
         .text_size(px((13.0 * zoom).clamp(10.0, 14.0)))
-        .text_color(rgba(color))
+        .text_color(rgba(theme.text_tertiary))
+        .cursor_pointer()
         .child(label)
+        .hover(move |style| {
+            style
+                .bg(rgba(with_alpha(theme.edge_highlight, 0x18)))
+                .border_color(rgba(with_alpha(theme.edge_highlight, 0x38)))
+                .text_color(rgba(theme.text_secondary))
+        })
+        .active(move |style| {
+            style
+                .bg(rgba(with_alpha(theme.accent_cyan, 0x2e)))
+                .border_color(rgba(with_alpha(theme.accent_cyan, 0x78)))
+                .text_color(rgba(theme.accent_cyan))
+        })
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .on_mouse_up(MouseButton::Left, move |_, window, cx| {
             window.dispatch_action(Box::new(BrowserCommand { node_id, command }), cx);

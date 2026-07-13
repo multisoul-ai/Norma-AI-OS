@@ -93,23 +93,23 @@ impl InitializationAnimation {
     }
 
     pub(crate) fn tick(&mut self, delta: Duration) -> bool {
+        let before = self.presentation();
         match &mut self.phase {
             InitializationPhase::Playing { elapsed } => {
                 *elapsed = elapsed.saturating_add(delta);
                 if *elapsed >= INITIALIZATION_TOTAL_DURATION {
                     self.phase = InitializationPhase::Finished;
                 }
-                true
             }
             InitializationPhase::Dismissing { elapsed, .. } => {
                 *elapsed = elapsed.saturating_add(delta);
                 if *elapsed >= INITIALIZATION_INTERRUPT_DURATION {
                     self.phase = InitializationPhase::Finished;
                 }
-                true
             }
-            InitializationPhase::Finished => false,
+            InitializationPhase::Finished => return false,
         }
+        before != self.presentation()
     }
 
     pub(crate) fn interrupt(&mut self) -> bool {

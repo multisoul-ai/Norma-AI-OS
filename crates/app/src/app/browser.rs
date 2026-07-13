@@ -21,6 +21,7 @@ use address_input::BrowserAddressInputEvent;
 pub(crate) use engine::BrowserEngineKind;
 pub(crate) use native::{browser_native_view_bounds, BrowserViewBounds, NativeBrowserView};
 pub(crate) use store::BrowserStore;
+pub(crate) use wry_backend::initialize_safari_browser_identity;
 
 const CEF_MESSAGE_PUMP_INTERVAL: Duration = Duration::from_millis(16);
 
@@ -49,6 +50,7 @@ pub(crate) struct BrowserAddressEdit {
 pub(crate) enum BrowserEvent {
     TitleChanged { node_id: NodeId, title: String },
     PageInteraction { node_id: NodeId },
+    NavigateCurrentCard { node_id: NodeId, url: String },
 }
 
 impl MultisoulApp {
@@ -138,6 +140,13 @@ impl MultisoulApp {
                         changed = true;
                     }
                 }
+                BrowserEvent::NavigateCurrentCard { node_id, url } => {
+                    if self.set_browser_url(node_id, url.clone()) {
+                        self.browsers.load_url(node_id, &url);
+                        self.mark_canvas_dirty();
+                        changed = true;
+                    }
+                }
             }
         }
         changed
@@ -172,7 +181,7 @@ impl MultisoulApp {
             .as_ref()
             .filter(|edit| edit.node_id == node_id)
         {
-            edit.input.update(cx, |input, _| input.focus(window));
+            edit.input.update(cx, |input, cx| input.focus(window, cx));
             return;
         }
         let Some(node) = self.runtime.document.node(node_id) else {
@@ -192,7 +201,7 @@ impl MultisoulApp {
             }
         });
         self.browsers.release_input(node_id);
-        input.update(cx, |input, _| input.focus(window));
+        input.update(cx, |input, cx| input.focus(window, cx));
         self.browser_address_edit = Some(BrowserAddressEdit {
             node_id,
             input,
@@ -296,3 +305,7 @@ mod cef_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/browser_view_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/browser_interaction_visual_tests.rs"]
+mod interaction_visual_tests;

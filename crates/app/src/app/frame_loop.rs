@@ -9,6 +9,23 @@ const RUNTIME_FRAME_INTERVAL: Duration = Duration::from_millis(12);
 const ANIMATION_FRAME_INTERVAL: Duration = Duration::from_millis(12);
 const PERSISTENCE_FRAME_INTERVAL: Duration = Duration::from_millis(120);
 
+#[derive(Clone, Copy, Debug)]
+struct AnimationFrameClock {
+    last_tick: Instant,
+}
+
+impl AnimationFrameClock {
+    fn new(now: Instant) -> Self {
+        Self { last_tick: now }
+    }
+
+    fn elapsed_at(&mut self, now: Instant) -> Duration {
+        let elapsed = now.saturating_duration_since(self.last_tick);
+        self.last_tick = now;
+        elapsed
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct RuntimeFrameReport {
     pub runtime_changed: bool,
@@ -163,12 +180,14 @@ impl MultisoulApp {
     fn start_animation_frame_loop(cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             let mut animation_interval = ANIMATION_FRAME_INTERVAL;
+            let mut frame_clock = AnimationFrameClock::new(Instant::now());
             loop {
                 cx.background_executor().timer(animation_interval).await;
+                let animation_delta = frame_clock.elapsed_at(Instant::now());
                 let go = this.update(cx, |app, cx| {
                     let tick_started_at = Instant::now();
-                    let motion_changed = app.motion.tick(animation_interval);
-                    let cursor_changed = app.advance_terminal_cursor_phase(animation_interval);
+                    let motion_changed = app.motion.tick(animation_delta);
+                    let cursor_changed = app.advance_terminal_cursor_phase(animation_delta);
                     for event in app.dialogue.take_playback_events() {
                         match event {
                             AssistantPlaybackEvent::PcmQueued(timeline) => {
@@ -185,8 +204,7 @@ impl MultisoulApp {
                             }
                         }
                     }
-                    let voice_window_inset_changed =
-                        app.voice_window_inset.tick(animation_interval);
+                    let voice_window_inset_changed = app.voice_window_inset.tick(animation_delta);
                     let diagnostics = app.motion.diagnostics();
                     crate::frame_diagnostics::log_motion_sample(diagnostics);
                     let report = AnimationFrameReport {

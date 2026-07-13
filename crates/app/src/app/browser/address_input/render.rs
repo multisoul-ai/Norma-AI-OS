@@ -101,36 +101,33 @@ impl Element for BrowserAddressInputElement {
             window
                 .text_system()
                 .shape_line(input.content.clone().into(), font_size, &runs, None);
-        let cursor_x = line.x_for_index(input.cursor());
-        let (selection, cursor) = if input.selected_range.is_empty() {
-            (
-                None,
-                Some(fill(
-                    Bounds::new(
-                        point(bounds.left() + cursor_x, bounds.top()),
-                        size(px(1.5), bounds.size.height),
+        let selection = (!input.selected_range.is_empty()).then(|| {
+            fill(
+                Bounds::from_corners(
+                    point(
+                        bounds.left() + line.x_for_index(input.selected_range.start),
+                        bounds.top(),
                     ),
-                    rgba((input.theme.accent_cyan & 0xffffff00) | 0xd8),
-                )),
-            )
-        } else {
-            (
-                Some(fill(
-                    Bounds::from_corners(
-                        point(
-                            bounds.left() + line.x_for_index(input.selected_range.start),
-                            bounds.top(),
-                        ),
-                        point(
-                            bounds.left() + line.x_for_index(input.selected_range.end),
-                            bounds.bottom(),
-                        ),
+                    point(
+                        bounds.left() + line.x_for_index(input.selected_range.end),
+                        bounds.bottom(),
                     ),
-                    rgba((input.theme.accent_cyan & 0xffffff00) | 0x35),
-                )),
-                None,
+                ),
+                rgba((input.theme.accent_cyan & 0xffffff00) | 0x35),
             )
-        };
+        });
+        let cursor = input.caret_visible.then(|| {
+            fill(
+                Bounds::new(
+                    point(
+                        bounds.left() + line.x_for_index(input.cursor()),
+                        bounds.top(),
+                    ),
+                    size(px(2.0), bounds.size.height),
+                ),
+                rgba((input.theme.accent_cyan & 0xffffff00) | 0xff),
+            )
+        });
         BrowserAddressInputPrepaintState {
             line: Some(line),
             cursor,

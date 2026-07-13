@@ -83,3 +83,38 @@ fn test_frame_loop_reports_keep_runtime_animation_and_persistence_separate() {
         "animation frame 不应包含 persistence_changed，否则 animation hot path 仍可能同步写库"
     );
 }
+
+/// FL-2：animation frame clock 必须使用两次实际唤醒时刻的差值。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   scheduled interval = 12ms（生产 animation loop 的常规间隔）
+///   foreground stall = 900ms
+///   actual wake time = started_at + 900ms
+///   actual delta = 900ms，而不是 12ms
+///
+/// 执行过程：
+///   1. 用 started_at 创建 AnimationFrameClock。
+///   2. 模拟 GPUI 前台阻塞 900ms 后才执行下一次 tick。
+///   3. 读取 clock 计算的 delta。
+///
+/// 预期结果：
+///   - 正断言：delta 等于真实经过的 900ms。
+///   - 负断言：delta 不等于调度器原计划的 12ms。
+#[test]
+fn test_animation_frame_clock_uses_actual_elapsed_time_after_foreground_stall() {
+    let started_at = std::time::Instant::now();
+    let mut clock = AnimationFrameClock::new(started_at);
+
+    let delta = clock.elapsed_at(started_at + std::time::Duration::from_millis(900));
+
+    assert_eq!(
+        delta,
+        std::time::Duration::from_millis(900),
+        "前台阻塞 900ms 后动画应按真实 900ms 推进"
+    );
+    assert_ne!(
+        delta,
+        std::time::Duration::from_millis(12),
+        "动画不得把实际 900ms 卡顿误认为计划的 12ms tick"
+    );
+}
