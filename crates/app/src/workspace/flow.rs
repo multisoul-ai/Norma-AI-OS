@@ -125,6 +125,7 @@ impl MultisoulApp {
         );
         match result {
             Ok(opened) => {
+                self.reset_agent_announcements();
                 self.dialogue.stop_shell();
                 self.focus_handle.focus(window);
                 self.clear_browser_views();

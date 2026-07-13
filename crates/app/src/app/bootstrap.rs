@@ -54,6 +54,9 @@ impl MultisoulApp {
             shortcuts: ShortcutSettingsState::load_default(),
             norma_server: NormaServer::start(),
             agent_hook_server,
+            agent_announcements: super::agent_announcements::AgentAnnouncements::default(),
+            agent_announcement_playback:
+                super::agent_announcements::AgentAnnouncementPlayback::default(),
             screen: AppScreen::Launchpad,
             workspace_state: WorkspaceState::load_default(),
             voice: crate::app::voice::control::VoiceControlState::default(),
@@ -72,6 +75,7 @@ impl MultisoulApp {
             terminal_cursor_phase: 0.0,
             terminal_cursor_repaint: FrameThrottle::default(),
             voice_window_inset: crate::app::voice_window_inset::VoiceWindowInset::default(),
+            voice_window_inset_window_visible: true,
         };
         app.refresh_tts_model_states(cx);
         app

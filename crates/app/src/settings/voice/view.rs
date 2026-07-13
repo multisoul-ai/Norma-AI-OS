@@ -2,7 +2,7 @@ pub(crate) use self::editable::VoiceSettingsInputs;
 use self::interaction::interaction_group;
 use self::model_catalog::model_catalog_row;
 use self::provider::{agent_provider_advanced_rows, agent_provider_group};
-use self::tts_catalog::tts_catalog_row;
+use self::spoken_reply::spoken_reply_group;
 use super::state::{VoiceSettingsField, VoiceSettingsState};
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, Window};
@@ -12,6 +12,7 @@ mod editable;
 mod interaction;
 mod model_catalog;
 mod provider;
+mod spoken_reply;
 mod tts_catalog;
 
 pub(crate) fn voice_settings(
@@ -34,7 +35,7 @@ pub(crate) fn voice_settings(
         )
         .child(agent_provider_group(theme, state, inputs, cx))
         .child(advanced_group(theme, state, inputs, cx))
-        .child(settings_group(theme, "Spoken Reply").child(tts_catalog_row(theme, state, cx)))
+        .child(spoken_reply_group(theme, state, cx))
         .children(status_message(theme, state))
 }
 
@@ -67,6 +68,36 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.voice_settings.toggle_trace();
+        self.persist_voice_settings_in_background(cx);
+        cx.notify();
+    }
+
+    pub(crate) fn on_voice_settings_toggle_agent_task_announcements(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings.toggle_agent_task_announcements();
+        if !self
+            .voice_settings
+            .values()
+            .agent_task_announcements_enabled()
+        {
+            self.cancel_agent_announcements();
+        }
+        self.persist_voice_settings_in_background(cx);
+        cx.notify();
+    }
+
+    pub(crate) fn on_voice_settings_toggle_window_inset(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings.toggle_voice_window_inset();
+        self.sync_voice_window_inset_enabled();
         self.persist_voice_settings_in_background(cx);
         cx.notify();
     }

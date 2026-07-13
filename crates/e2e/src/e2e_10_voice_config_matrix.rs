@@ -19,7 +19,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app_with_settings_store};
 ///   1. 打开 fresh Voice Settings，检查安全缺省、模型元数据及不存在独立总开关
 ///   2. 注入两个可见麦克风，选择 USB 后再恢复 System Default，最后保留 USB
 ///   3. 选择 Toggle 与 Continuous Listening，展开 Agent/Reply 配置
-///   4. 切到 OpenAI，编辑 Base URL、Model、API Key，并开启 trace
+///   4. 切到 OpenAI，编辑 Base URL、Model、API Key，开启 trace 并关闭 Agent 任务播报
 ///   5. 切回 Ollama 验证 profile 隔离，再切回 OpenAI 验证配置未丢失
 ///   6. 切回 Single Voice Command，关闭窗口；使用同一 SQLite store 创建新 App 并重新打开 Voice
 ///
@@ -71,6 +71,14 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
         assert!(
             !defaults.trace_enabled,
             "fresh 配置不应默认记录完整 prompt/response trace"
+        );
+        assert!(
+            defaults.agent_task_announcements_enabled,
+            "fresh 配置必须默认开启 Agent 任务终态播报"
+        );
+        assert!(
+            defaults.voice_window_inset_enabled,
+            "fresh 配置必须默认开启共享语音窗口内缘视觉"
         );
         assert_eq!(
             defaults.asr_models.len(),
@@ -129,6 +137,8 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
         scroll_debug(cx, "settings-content-scroll", -500.0);
         replace_text(cx, "settings-voice-field-agent-api-key", "matrix-secret");
         click_debug(cx, "settings-voice-trace-toggle");
+        click_debug(cx, "settings-agent-task-announcements-toggle");
+        click_debug(cx, "settings-voice-window-inset-toggle");
 
         let openai = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
         assert_eq!(
@@ -155,6 +165,14 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
         assert!(
             openai.trace_enabled,
             "点击 trace 开关后应启用完整诊断 trace"
+        );
+        assert!(
+            !openai.agent_task_announcements_enabled,
+            "点击 Agent 任务播报开关后应独立关闭播报"
+        );
+        assert!(
+            !openai.voice_window_inset_enabled,
+            "点击窗口内缘视觉开关后应独立关闭视觉但不改变其他 Voice 设置"
         );
         assert_eq!(
             openai.input_device_id.as_deref(),
@@ -227,6 +245,14 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
         "重载后 API Key 应保持 configured"
     );
     assert!(reloaded.trace_enabled, "重载后 trace 应保持启用");
+    assert!(
+        !reloaded.agent_task_announcements_enabled,
+        "重载后 Agent 任务播报应保持关闭"
+    );
+    assert!(
+        !reloaded.voice_window_inset_enabled,
+        "重载后窗口内缘视觉应保持关闭"
+    );
     assert_ne!(
         reloaded.agent_api_key_display_state,
         ApiKeyDisplayState::Unsafe,

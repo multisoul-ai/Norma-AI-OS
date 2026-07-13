@@ -40,6 +40,11 @@ if [[ "$run_real_models" == true ]]; then
   cargo test -p voice_sherpa \
     test_zipformer_real_wav_produces_partial_and_final_transcripts \
     -- --ignored
+
+  echo "[voice-e2e] real Agent completion utterance through macOS audio output"
+  cargo test -p app \
+    test_real_agent_done_utterance_plays_through_macos_default_sink \
+    -- --ignored
 fi
 
 echo "[voice-e2e] all requested scenarios passed"

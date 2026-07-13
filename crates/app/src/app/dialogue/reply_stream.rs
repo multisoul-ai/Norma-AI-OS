@@ -117,11 +117,19 @@ impl DialogueControlState {
             self.speech_queue.len(),
             self.playback_chunks_pending,
         );
-        self.playback_events
-            .retain(|event| !matches!(event, super::AssistantPlaybackEvent::PcmQueued(_)));
+        self.playback_events.retain(|event| {
+            !matches!(
+                event,
+                crate::app::voice_window_inset::TtsPlaybackEvent::PcmQueued(_)
+                    | crate::app::voice_window_inset::TtsPlaybackEvent::Started
+            )
+        });
         if self.playback_started {
             self.playback_events
-                .push(super::AssistantPlaybackEvent::Interrupted);
+                .push(crate::app::voice_window_inset::TtsPlaybackEvent::Interrupted);
+        } else {
+            self.playback_events
+                .push(crate::app::voice_window_inset::TtsPlaybackEvent::DiscardQueued);
         }
         self.reply_generation = self.reply_generation.wrapping_add(1);
         self.tts_cancelled.store(true, Ordering::Release);
@@ -321,7 +329,7 @@ impl DialogueControlState {
             self.pcm_capture.append(&chunk.pcm);
             trace::playback_accepted(generation, &chunk, pcm_duration);
             self.playback_events
-                .push(super::AssistantPlaybackEvent::PcmQueued(
+                .push(crate::app::voice_window_inset::TtsPlaybackEvent::PcmQueued(
                     chunk.energy_timeline,
                 ));
             self.playback_chunks_pending = self.playback_chunks_pending.saturating_add(1);
@@ -380,7 +388,7 @@ impl DialogueControlState {
         }
         self.playback_started = true;
         self.playback_events
-            .push(super::AssistantPlaybackEvent::Started);
+            .push(crate::app::voice_window_inset::TtsPlaybackEvent::Started);
     }
 
     fn on_playback_chunk_finished(
@@ -403,7 +411,7 @@ impl DialogueControlState {
         if self.finish_reply_stream_if_ready() && self.playback_started {
             self.playback_started = false;
             self.playback_events
-                .push(super::AssistantPlaybackEvent::Finished);
+                .push(crate::app::voice_window_inset::TtsPlaybackEvent::Finished);
         }
     }
 

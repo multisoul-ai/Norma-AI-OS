@@ -1,5 +1,5 @@
 use audio::{PcmAudioChunk, PcmFormat};
-use gpui::TestAppContext;
+use gpui::{Modifiers, TestAppContext, VisualTestContext};
 use std::time::Duration;
 
 use crate::harness::{echo_factory, enter_canvas, make_app};
@@ -26,14 +26,15 @@ fn pcm16_mono_chunk(amplitude: i16, duration: Duration) -> PcmAudioChunk {
 ///   1. 进入 Canvas，注入播放开始和 120ms 静音 PCM，再推进 120ms 使底光完成淡入。
 ///   2. 注入 128ms 满幅 PCM 并连续推进 7 个 16ms 动画帧，读取响亮语音时的可视快照。
 ///   3. 打开 Settings，验证增强后的内缘光仍在根级渲染树且位于 Settings 下层。
-///   4. 完成播放并推进 220ms，验证内缘光收束消失。
+///   4. 进入 Voice 设置并关闭窗口内缘视觉，验证活动音频不再渲染视觉。
+///   5. 完成播放并推进 220ms，验证内缘光保持消失。
 ///
 /// 预期结果：
 ///   - 正断言：120ms 后白光激活、透明度为 12%、总内扩为 30px。
 ///   - 正断言：满幅 PCM 会把透明度与内扩提升到静态底光以上。
 ///   - 正断言：满幅 PCM 时角部抗锯齿补偿必须激活，但弱于完整边，避免暗缝或亮线。
 ///   - 正断言：Settings 打开后白光仍存在，但 Settings 面板正常显示。
-///   - 负断言：响亮 PCM 不得超过 55% / 38px；正常结束 220ms 后透明度、内扩和角部补偿都归零。
+///   - 负断言：响亮 PCM 不得超过 55% / 38px；视觉开关关闭后及正常结束后都不得残留内缘光。
 #[test]
 fn e2e_06_voice_window_inset_tracks_pcm_energy_without_obscuring_settings() {
     let mut cx = TestAppContext::single();
@@ -103,6 +104,23 @@ fn e2e_06_voice_window_inset_tracks_pcm_energy_without_obscuring_settings() {
         "Settings 打开时窗口内缘光应仍存在于根级渲染树，供其作为面板下层反馈"
     );
 
+    click_debug(cx, "settings-section-voice");
+    click_debug(cx, "settings-voice-window-inset-toggle");
+    let visual_disabled = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert!(
+        !visual_disabled.voice_window_inset_enabled,
+        "关闭窗口内缘视觉后设置快照必须立即变为 false"
+    );
+    let inset_disabled = app.read_with(cx, |app, _cx| app.voice_window_inset_e2e_snapshot());
+    assert!(
+        !inset_disabled.active,
+        "视觉开关关闭后即使助手播放仍处于活动流程也必须把内缘光解析为 inactive"
+    );
+    assert_eq!(
+        inset_disabled.opacity_milli, 0,
+        "视觉开关关闭后不得保留不可见但仍参与重绘的透明度状态"
+    );
+
     app.update(cx, |app, cx| {
         app.finish_assistant_playback_for_e2e(cx);
         app.advance_animations_for_e2e(Duration::from_millis(220), cx);
@@ -117,5 +135,109 @@ fn e2e_06_voice_window_inset_tracks_pcm_energy_without_obscuring_settings() {
     assert_eq!(
         finished.corner_seam_guard_alpha_milli, 0,
         "播放结束后不得残留角部补偿，以免形成静止的斜线伪影"
+    );
+}
+
+fn click_debug(cx: &mut VisualTestContext, selector: &'static str) {
+    cx.run_until_parked();
+    scroll_settings_target_into_view(cx, selector);
+    let bounds = cx
+        .debug_bounds(selector)
+        .unwrap_or_else(|| panic!("selector `{selector}` 应可点击"));
+    cx.simulate_click(bounds.center(), Modifiers::none());
+    cx.run_until_parked();
+}
+
+fn scroll_settings_target_into_view(cx: &mut VisualTestContext, selector: &'static str) {
+    for _ in 0..3 {
+        let Some(content) = cx.debug_bounds("settings-content-scroll") else {
+            return;
+        };
+        let Some(target) = cx.debug_bounds(selector) else {
+            return;
+        };
+        let margin = 24.0;
+        let visible_top = f32::from(content.origin.y) + margin;
+        let visible_bottom = f32::from(content.origin.y) + f32::from(content.size.height) - margin;
+        let target_top = f32::from(target.origin.y);
+        let target_bottom = target_top + f32::from(target.size.height);
+        let delta = if target_top < visible_top {
+            visible_top - target_top
+        } else if target_bottom > visible_bottom {
+            visible_bottom - target_bottom
+        } else {
+            return;
+        };
+        scroll_debug(cx, delta);
+    }
+}
+
+fn scroll_debug(cx: &mut VisualTestContext, delta_y: f32) {
+    use gpui::{point, px, ScrollDelta, ScrollWheelEvent};
+    let bounds = cx
+        .debug_bounds("settings-content-scroll")
+        .expect("Settings 内容区应可滚动");
+    cx.simulate_mouse_move(bounds.center(), None, Modifiers::none());
+    cx.simulate_event(ScrollWheelEvent {
+        position: bounds.center(),
+        delta: ScrollDelta::Pixels(point(px(0.0), px(delta_y))),
+        ..Default::default()
+    });
+    cx.run_until_parked();
+}
+
+/// E2E-06 Preview：Voice Preview 的实际 PCM 必须复用同一内缘光且保持 Dialogue 隔离。
+///
+/// 数据构造（含关键数值推导）：
+///   preview PCM = 16_000Hz × 100ms = 1_600 frames，amplitude=8_000
+///   fade-in checkpoint = 60ms / 120ms = 50%
+///   normal fade-out = 220ms
+///
+/// 执行过程：
+///   1. 通过可控 preview playback seam 注入 100ms PCM 的 queued + actual started。
+///   2. 推进 60ms 并读取内缘光与 Dialogue 快照。
+///   3. 注入 actual finished，再推进 220ms。
+///
+/// 预期结果：
+///   - 正断言：实际开始后的 Preview 会激活共享内缘光。
+///   - 正断言：正常完成 220ms 后内缘光消失。
+///   - 负断言：Preview 始终不进入 Dialogue Speaking/Replying。
+#[test]
+fn e2e_06_tts_preview_actual_pcm_reuses_shared_inset_without_dialogue_state() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("e2e preview workspace tempdir should create");
+    enter_canvas(&app, cx, workspace.path());
+
+    let generation = app.update(cx, |app, cx| {
+        let generation = app
+            .begin_tts_preview_pcm_for_e2e(pcm16_mono_chunk(8_000, Duration::from_millis(100)), cx);
+        app.advance_animations_for_e2e(Duration::from_millis(60), cx);
+        generation
+    });
+    let playing = app.read_with(cx, |app, _cx| app.voice_window_inset_e2e_snapshot());
+    let voice = app.read_with(cx, |app, _cx| app.voice_e2e_snapshot());
+    assert!(
+        playing.active,
+        "Voice Preview 收到 actual started 并淡入 60ms 后必须激活共享内缘光"
+    );
+    assert_eq!(
+        voice.dialogue_phase, "idle",
+        "Voice Preview 不得把 Dialogue phase 改为 Speaking/Replying"
+    );
+
+    app.update(cx, |app, cx| {
+        app.finish_tts_preview_for_e2e(generation, cx);
+        app.advance_animations_for_e2e(Duration::from_millis(220), cx);
+    });
+    let finished = app.read_with(cx, |app, _cx| app.voice_window_inset_e2e_snapshot());
+    let final_voice = app.read_with(cx, |app, _cx| app.voice_e2e_snapshot());
+    assert!(
+        !finished.active,
+        "Voice Preview 正常完成并收束 220ms 后共享内缘光必须消失"
+    );
+    assert_eq!(
+        final_voice.dialogue_phase, "idle",
+        "Voice Preview 完成后 Dialogue 必须仍保持 idle"
     );
 }

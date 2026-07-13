@@ -46,6 +46,7 @@ impl MultisoulApp {
             cx.notify();
             return;
         }
+        self.cancel_agent_announcements();
         if !self.voice.begin_recording(trigger) {
             return;
         }

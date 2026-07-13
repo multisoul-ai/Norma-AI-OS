@@ -4,12 +4,11 @@ use super::provider_values::{
     KEY_AGENT_OLLAMA_MODEL, KEY_AGENT_OPENAI_API_KEY, KEY_AGENT_OPENAI_BASE_URL,
     KEY_AGENT_OPENAI_MODEL, KEY_AGENT_PROVIDER,
 };
-use super::VoiceSettingsState;
 use asr::AsrModelId;
-use std::fmt;
 use storage::SettingsStore;
 use tts::{TtsModelId, TtsVoiceId};
 use voice::OllamaVoicePlanner;
+mod debug;
 pub(super) const KEY_OLLAMA_ENDPOINT: &str = "voice.ollama.endpoint";
 pub(super) const KEY_OLLAMA_MODEL: &str = "voice.ollama.model";
 pub(super) const KEY_DIALOGUE_LLM_MODE: &str = "voice.dialogue.llm_mode";
@@ -23,6 +22,9 @@ pub(super) const KEY_TTS_MODEL_ID: &str = "voice.tts.model_id";
 pub(super) const KEY_TTS_VOICE_ID: &str = "voice.tts.voice_id";
 pub(super) const KEY_INPUT_DEVICE_ID: &str = "voice.input_device_id";
 pub(super) const KEY_TRACE_ENABLED: &str = "voice.trace_enabled";
+pub(super) const KEY_AGENT_TASK_ANNOUNCEMENTS_ENABLED: &str =
+    "voice.agent_task_announcements_enabled";
+pub(super) const KEY_VOICE_WINDOW_INSET_ENABLED: &str = "voice.window_inset_enabled";
 pub(super) const KEY_OPENAI_API_KEY: &str = "voice.openai.api_key";
 pub(super) const KEY_OPENAI_CARD_PLANNER_MODEL: &str = "voice.openai.card_planner_model";
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -98,6 +100,8 @@ pub(crate) struct SavedVoiceSettings {
     pub(crate) refine_model: Option<String>,
     pub(crate) input_device_id: Option<String>,
     pub(crate) trace_enabled: Option<bool>,
+    pub(crate) agent_task_announcements_enabled: Option<bool>,
+    pub(crate) voice_window_inset_enabled: Option<bool>,
 }
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct EnvVoiceSettings {
@@ -125,6 +129,8 @@ pub(crate) struct VoiceSettingsValues {
     pub(crate) refine_model: String,
     pub(crate) input_device_id: Option<String>,
     pub(crate) trace_enabled: bool,
+    pub(crate) agent_task_announcements_enabled: bool,
+    pub(crate) voice_window_inset_enabled: bool,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum VoiceSettingsField {
@@ -143,70 +149,6 @@ impl VoiceSettingsField {
     }
 }
 
-impl fmt::Debug for SavedVoiceSettings {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SavedVoiceSettings")
-            .field("interaction_mode", &self.interaction_mode)
-            .field("dictation_trigger", &self.dictation_trigger)
-            .field("asr_model_id", &self.asr_model_id)
-            .field("agent_provider", &self.agent_provider)
-            .field("ollama_profile", &self.ollama_profile)
-            .field("openai_profile_base_url", &self.openai_profile.base_url)
-            .field("openai_profile_model", &self.openai_profile.model)
-            .field(
-                "openai_profile_api_key",
-                &self.openai_profile.api_key.as_ref().map(|_| "<redacted>"),
-            )
-            .field("ollama_endpoint", &self.ollama_endpoint)
-            .field("planner_model", &self.planner_model)
-            .field("dialogue_llm_mode", &self.dialogue_llm_mode)
-            .field("dialogue_model", &self.dialogue_model)
-            .field("refine_model", &self.refine_model)
-            .field("input_device_id", &self.input_device_id)
-            .field("trace_enabled", &self.trace_enabled)
-            .finish()
-    }
-}
-
-impl fmt::Debug for VoiceSettingsValues {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("VoiceSettingsValues")
-            .field("interaction_mode", &self.interaction_mode)
-            .field("dictation_trigger", &self.dictation_trigger)
-            .field("asr_model_id", &self.asr_model_id)
-            .field("agent_provider", &self.agent_provider)
-            .field("ollama_profile", &self.ollama_profile)
-            .field("openai_profile", &self.openai_profile)
-            .field("ollama_endpoint", &self.ollama_endpoint)
-            .field("planner_model", &self.planner_model)
-            .field("dialogue_llm_mode", &self.dialogue_llm_mode)
-            .field("dialogue_model", &self.dialogue_model)
-            .field("refine_model", &self.refine_model)
-            .field("input_device_id", &self.input_device_id)
-            .field("trace_enabled", &self.trace_enabled)
-            .finish()
-    }
-}
-
-impl fmt::Debug for VoiceSettingsState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let draft = if self.editing == Some(VoiceSettingsField::AgentApiKey) {
-            "<redacted>"
-        } else {
-            self.draft.as_str()
-        };
-        f.debug_struct("VoiceSettingsState")
-            .field("values", &self.values)
-            .field("saved", &self.saved)
-            .field("env", &self.env)
-            .field("storage", &self.storage)
-            .field("input_devices", &self.input_devices)
-            .field("editing", &self.editing)
-            .field("draft", &draft)
-            .field("status", &self.status)
-            .finish()
-    }
-}
 impl VoiceSettingsValues {
     pub(crate) fn resolve(saved: &SavedVoiceSettings, env: &EnvVoiceSettings) -> Self {
         let interaction_mode = saved.interaction_mode.unwrap_or_default();
@@ -256,6 +198,9 @@ impl VoiceSettingsValues {
         let trace_enabled = saved
             .trace_enabled
             .unwrap_or_else(|| trace_enabled_from_value(env.trace_enabled.as_deref()));
+        let agent_task_announcements_enabled =
+            saved.agent_task_announcements_enabled.unwrap_or(true);
+        let voice_window_inset_enabled = saved.voice_window_inset_enabled.unwrap_or(true);
 
         let agent_provider = saved.agent_provider.unwrap_or_default();
         let ollama_profile = ProviderProfileValues {
@@ -311,6 +256,8 @@ impl VoiceSettingsValues {
             refine_model,
             input_device_id,
             trace_enabled,
+            agent_task_announcements_enabled,
+            voice_window_inset_enabled,
         }
     }
 
@@ -389,6 +336,14 @@ impl VoiceSettingsValues {
     pub(crate) fn trace_enabled(&self) -> bool {
         self.trace_enabled
     }
+
+    pub(crate) fn agent_task_announcements_enabled(&self) -> bool {
+        self.agent_task_announcements_enabled
+    }
+
+    pub(crate) fn voice_window_inset_enabled(&self) -> bool {
+        self.voice_window_inset_enabled
+    }
 }
 impl EnvVoiceSettings {
     pub(crate) fn from_env() -> Self {
@@ -452,6 +407,14 @@ impl SavedVoiceSettings {
             input_device_id: non_empty_option(store.get_string(KEY_INPUT_DEVICE_ID)?),
             trace_enabled: store
                 .get_string(KEY_TRACE_ENABLED)?
+                .as_deref()
+                .and_then(stored_bool),
+            agent_task_announcements_enabled: store
+                .get_string(KEY_AGENT_TASK_ANNOUNCEMENTS_ENABLED)?
+                .as_deref()
+                .and_then(stored_bool),
+            voice_window_inset_enabled: store
+                .get_string(KEY_VOICE_WINDOW_INSET_ENABLED)?
                 .as_deref()
                 .and_then(stored_bool),
         })

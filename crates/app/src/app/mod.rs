@@ -35,6 +35,7 @@ use ui::Theme;
 use voice_window_inset::VoiceWindowInset;
 
 mod agent_actions;
+mod agent_announcements;
 mod agent_runtime;
 mod bootstrap;
 pub(crate) mod browser;
@@ -53,6 +54,7 @@ mod keyboard;
 mod keyboard_settings;
 mod lifecycle;
 mod new_menu;
+mod state;
 #[cfg(target_os = "macos")]
 mod video_decoder;
 #[cfg(target_os = "macos")]
@@ -64,6 +66,8 @@ mod voice_window_inset;
 mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
 pub use e2e::{ApiKeyDisplayState, InitializationAnimationE2eSnapshot, SettingsE2eSnapshot};
+pub(crate) use state::mark_runtime_node_viewed_if_needed;
+pub use state::AppScreen;
 
 actions!(
     multisoul,
@@ -105,6 +109,8 @@ pub struct MultisoulApp {
     pub(crate) shortcuts: ShortcutSettingsState,
     pub(crate) norma_server: NormaServer,
     pub(crate) agent_hook_server: AgentHookServer,
+    agent_announcements: agent_announcements::AgentAnnouncements,
+    agent_announcement_playback: agent_announcements::AgentAnnouncementPlayback,
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
@@ -123,16 +129,7 @@ pub struct MultisoulApp {
     pub(crate) terminal_cursor_phase: f32,
     terminal_cursor_repaint: FrameThrottle,
     voice_window_inset: VoiceWindowInset,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum AppScreen {
-    Launchpad,
-    Canvas,
-}
-
-pub(crate) fn mark_runtime_node_viewed_if_needed(runtime: &mut Runtime, node_id: NodeId) -> bool {
-    runtime.mark_card_viewed(node_id)
+    voice_window_inset_window_visible: bool,
 }
 
 impl MultisoulApp {
@@ -427,6 +424,8 @@ impl Focusable for MultisoulApp {
 
 impl Render for MultisoulApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.voice_window_inset_window_visible = state::window_visible_for_voice_inset(window);
+        self.sync_voice_window_inset_enabled();
         let mut root = div()
             .key_context("MultisoulApp")
             .track_focus(&self.focus_handle)

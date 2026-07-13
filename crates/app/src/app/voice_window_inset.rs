@@ -7,9 +7,11 @@ use gpui::{
 };
 use std::time::Duration;
 
+mod events;
 mod meter;
 mod seam;
 
+pub(crate) use events::{TtsPlaybackEvent, TtsPlaybackSource};
 use meter::PcmEnergyFrame;
 pub(crate) use meter::PcmEnergyTimeline;
 use seam::corner_seam_compensation_alpha;
@@ -42,6 +44,8 @@ struct Transition {
 
 #[derive(Debug, Default)]
 pub(crate) struct VoiceWindowInset {
+    disabled: bool,
+    playback_source: Option<TtsPlaybackSource>,
     pending_playbacks: usize,
     intensity: f32,
     transition: Option<Transition>,
@@ -53,6 +57,21 @@ pub(crate) struct VoiceWindowInset {
 }
 
 impl VoiceWindowInset {
+    pub(crate) fn set_enabled(&mut self, enabled: bool) -> bool {
+        if self.disabled != enabled {
+            return false;
+        }
+        self.disabled = !enabled;
+        if !enabled {
+            self.playback_source = None;
+            self.pending_playbacks = 0;
+            self.intensity = 0.0;
+            self.transition = None;
+            self.clear_energy();
+        }
+        true
+    }
+
     pub(crate) fn begin_playback(&mut self) {
         self.pending_playbacks = self.pending_playbacks.saturating_add(1);
         if self.pending_playbacks == 1 {
@@ -74,6 +93,7 @@ impl VoiceWindowInset {
         }
         self.pending_playbacks = self.pending_playbacks.saturating_sub(1);
         if self.pending_playbacks == 0 {
+            self.clear_energy();
             self.transition_to(0.0, NORMAL_FADE_OUT);
         }
     }
@@ -85,13 +105,16 @@ impl VoiceWindowInset {
     }
 
     pub(crate) fn tick(&mut self, delta: Duration) -> bool {
+        if self.disabled {
+            return false;
+        }
         let transition_changed = self.tick_transition(delta);
         let energy_changed = self.tick_energy(delta);
         transition_changed || energy_changed
     }
 
     pub(crate) fn visual(&self) -> Option<VoiceWindowInsetVisual> {
-        (self.intensity > EPSILON).then_some(VoiceWindowInsetVisual {
+        (!self.disabled && self.intensity > EPSILON).then_some(VoiceWindowInsetVisual {
             opacity: lerp(QUIET_OPACITY, PEAK_OPACITY, self.smoothed_energy) * self.intensity,
             inset_px: lerp(QUIET_INSET_PX, PEAK_INSET_PX, self.smoothed_energy) * self.intensity,
         })

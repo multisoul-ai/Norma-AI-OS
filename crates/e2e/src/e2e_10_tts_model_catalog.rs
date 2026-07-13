@@ -99,7 +99,7 @@ fn e2e_tts_catalog_exposes_explicit_install_without_auto_selection() {
 /// 预期结果：
 ///   - 断言 A：首装自动选中 default，后装不抢占已有选择；
 ///   - 断言 B：切换模型回退推荐 af_heart，切换 Voice 后持久化 af_bella；
-///   - 断言 C：试听不驱动助手窗口内缘光，配置切换会使试听失效；
+///   - 断言 C：试听不改写选择或 Dialogue，配置切换会使试听失效；
 ///   - 断言 D：选中模型无 Delete，取消下载后条目回到 Install 而非 Ready。
 #[test]
 fn e2e_tts_model_lifecycle_persists_voice_and_isolates_preview() {
@@ -188,15 +188,6 @@ fn e2e_tts_model_lifecycle_persists_voice_and_isolates_preview() {
     click(cx, "settings-tts-preview-1-1");
     settle(cx);
     let previewing = snapshot(&app, cx);
-    let inset = app.update(cx, |app, _| app.voice_window_inset_e2e_snapshot());
-    assert!(
-        previewing.tts_preview_active,
-        "点击 Voice Preview 后必须进入独立的试听活动状态"
-    );
-    assert!(
-        !inset.active,
-        "Voice Preview 不得触发助手回复专用的 voice-window inset"
-    );
     assert_eq!(
         previewing.selected_tts_voice_id.as_deref(),
         Some("af_heart"),

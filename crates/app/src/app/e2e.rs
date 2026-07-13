@@ -14,6 +14,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 use voice_sherpa::SpeechError;
 
+#[cfg(feature = "e2e-test-support")]
+mod agent_announcements;
 mod tts;
 use tts::{snapshot_tts_models, TtsModelE2eSnapshot};
 
@@ -48,6 +50,8 @@ pub struct SettingsE2eSnapshot {
     pub dictation_trigger: &'static str,
     pub input_device_id: Option<String>,
     pub trace_enabled: bool,
+    pub agent_task_announcements_enabled: bool,
+    pub voice_window_inset_enabled: bool,
     pub selected_asr_model_id: Option<String>,
     pub asr_models: Vec<AsrModelE2eSnapshot>,
     pub selected_tts_model_id: Option<String>,
@@ -354,6 +358,11 @@ impl MultisoulApp {
                 .input_device_id()
                 .map(ToOwned::to_owned),
             trace_enabled: self.voice_settings.values().trace_enabled(),
+            agent_task_announcements_enabled: self
+                .voice_settings
+                .values()
+                .agent_task_announcements_enabled(),
+            voice_window_inset_enabled: self.voice_settings.values().voice_window_inset_enabled(),
             selected_asr_model_id: self
                 .voice_settings
                 .values()

@@ -328,3 +328,108 @@ fn completed_playback_settles_window_inset_over_220ms() {
         "正常结束累计 220ms 后窗口内缘光必须完全消失"
     );
 }
+
+/// VWI-4：已排入但未开始或已正常结束的 PCM 能量不得污染下一段 TTS 动画。
+///
+/// 数据构造（含关键数值推导）：
+///   queued PCM = 128ms 满幅单声道音频
+///   first playback visible time = 120ms 淡入 + 16ms 能量消费
+///   second playback = 无 PCM，仅推进 120ms 到安静底光
+///
+/// 执行过程：
+///   1. 排入第一段 PCM 后在 Started 前发送 DiscardQueued，再开始无 PCM 播放。
+///   2. 验证底光没有继承已撤回 PCM，随后正常完成并推进 220ms。
+///   3. 再开始一段无 PCM 播放，验证正常完成也清除了剩余能量。
+///
+/// 预期结果：
+///   - 正断言：两次无 PCM 播放都只显示 12% 安静底光。
+///   - 负断言：撤回或完成后的旧满幅 PCM 不得把后续透明度提升到 12% 以上。
+#[test]
+fn discarded_or_finished_pcm_energy_does_not_leak_into_next_playback() {
+    let mut inset = VoiceWindowInset::default();
+    inset.apply_playback_event(
+        TtsPlaybackSource::Preview,
+        TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(&pcm16_mono_chunk(
+            i16::MAX,
+            Duration::from_millis(128),
+        ))),
+    );
+    inset.apply_playback_event(TtsPlaybackSource::Preview, TtsPlaybackEvent::DiscardQueued);
+    inset.begin_playback();
+    inset.tick(Duration::from_millis(120));
+    let after_discard = inset
+        .visual()
+        .expect("撤回 queued PCM 后的新播放仍应显示安静底光");
+
+    assert_eq!(
+        after_discard.opacity, 0.12,
+        "DiscardQueued 必须清除已 drain 的 PCM，后续播放只能显示 12% 底光"
+    );
+    assert!(
+        after_discard.opacity <= 0.12,
+        "已撤回的满幅 PCM 不得把后续播放透明度提升到底光以上"
+    );
+
+    inset.queue_pcm_energy(&pcm16_mono_chunk(i16::MAX, Duration::from_millis(128)));
+    inset.tick(Duration::from_millis(16));
+    inset.finish_playback();
+    inset.tick(Duration::from_millis(220));
+    inset.begin_playback();
+    inset.tick(Duration::from_millis(120));
+    let after_finish = inset
+        .visual()
+        .expect("正常完成后的下一段播放仍应显示安静底光");
+
+    assert_eq!(
+        after_finish.opacity, 0.12,
+        "Finished 必须清除上一段剩余 PCM，下一段应回到 12% 底光"
+    );
+    assert!(
+        after_finish.opacity <= 0.12,
+        "正常完成后的旧满幅 PCM 不得污染下一段播放动画"
+    );
+}
+
+/// VWI-5：旧 Preview 的迟到取消事件不得清除已开始的助手回复内缘光。
+///
+/// 数据构造（含关键数值推导）：
+///   assistant PCM = 128ms 满幅单声道音频
+///   fade-in = 120ms，故推进 120ms 后必须已有可见内缘光
+///   stale preview events = DiscardQueued + Interrupted，各 1 次
+///
+/// 执行过程：
+///   1. 助手先排入 PCM 并开始播放，建立 Assistant purpose 时间线。
+///   2. 随后注入上一轮 Preview 的迟到撤回和中断事件。
+///   3. 推进完整 120ms 淡入并读取视觉状态。
+///
+/// 预期结果：
+///   - 正断言：助手内缘光仍然可见。
+///   - 负断言：旧 Preview 事件不能把助手播放计数和 PCM 时间线清零。
+#[test]
+fn stale_preview_cancellation_does_not_clear_new_assistant_timeline() {
+    let mut inset = VoiceWindowInset::default();
+    inset.apply_playback_event(
+        TtsPlaybackSource::Assistant,
+        TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(&pcm16_mono_chunk(
+            i16::MAX,
+            Duration::from_millis(128),
+        ))),
+    );
+    inset.apply_playback_event(TtsPlaybackSource::Assistant, TtsPlaybackEvent::Started);
+    inset.apply_playback_event(TtsPlaybackSource::Preview, TtsPlaybackEvent::DiscardQueued);
+    inset.apply_playback_event(TtsPlaybackSource::Preview, TtsPlaybackEvent::Interrupted);
+    inset.tick(Duration::from_millis(120));
+
+    let visual = inset
+        .visual()
+        .expect("旧 Preview 取消到达后，新的助手回复内缘光仍应可见");
+    assert!(
+        visual.opacity >= 0.12,
+        "助手播放必须保留至少 12% 底光，旧 Preview 事件不得清空它，实际为 {}",
+        visual.opacity
+    );
+    assert!(
+        visual.inset_px > 0.0,
+        "旧 Preview 事件不得把助手内缘光内扩重置为零"
+    );
+}

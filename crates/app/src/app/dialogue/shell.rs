@@ -26,6 +26,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn start_continuous_listening(&mut self, cx: &mut Context<Self>) {
+        self.cancel_agent_announcements();
         let values = self.voice_settings.values().clone();
         let model_root = self.voice_settings.model_root().to_path_buf();
         let input_device_id = values.input_device_id().map(ToOwned::to_owned);
@@ -109,7 +110,7 @@ impl MultisoulApp {
             let go = this.update_in(cx, |app, window, cx| {
                 if app.dialogue.take_pending_voice_turn() {
                     app.dialogue.begin_voice_turn_reply(window, cx);
-                } else {
+                } else if app.agent_announcement_audio_idle() {
                     app.dialogue.begin_queued_agent_report(window, cx);
                 }
             });

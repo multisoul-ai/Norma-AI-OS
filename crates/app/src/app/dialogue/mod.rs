@@ -10,6 +10,7 @@ mod reply_stream;
 mod shell;
 mod turn;
 use crate::app::voice::control::VoiceVisual;
+use crate::app::voice_window_inset::TtsPlaybackEvent;
 use crate::settings::voice::{resolve_available_asr_model, VoiceSettingsValues};
 use dialogue::{
     apply_asr_final, handle_speaking_speech_start, DialoguePhase, DialogueSession,
@@ -18,8 +19,13 @@ use dialogue::{
 pub(crate) use error::DialogueStartError;
 use gpui::{Context, Task};
 pub(crate) use preview::{TtsPreviewControl, TtsPreviewState};
+#[cfg(test)]
+pub(crate) use reply::fake_tts_client_for_tests;
 pub(crate) use reply::{configure_selected_tts_model, SelectedTtsModel};
-use reply::{create_assistant_audio_sink, ReplyPlayback, TtsClientBox};
+pub(super) use reply::{
+    create_assistant_audio_sink, create_tts_client, selected_tts_model_matches, synthesize_reply,
+    ReplyPlayback, TtsClientBox,
+};
 use reply_stream::StreamPlaybackBuffer;
 use std::collections::VecDeque;
 use std::sync::atomic::AtomicBool;
@@ -53,14 +59,6 @@ pub(crate) enum VoiceShortcutKeyDownAction {
     StopContinuousListening,
     InterruptAssistantReply,
     Ignore,
-}
-
-#[derive(Debug)]
-pub(super) enum AssistantPlaybackEvent {
-    PcmQueued(crate::app::voice_window_inset::PcmEnergyTimeline),
-    Started,
-    Finished,
-    Interrupted,
 }
 
 pub(crate) trait CardTaskCancelHook: Send {
@@ -120,7 +118,7 @@ pub(crate) struct DialogueControlState {
     pub(super) reply_stream_started_at: Option<Instant>,
     pub(super) last_reply_interrupted: bool,
     reply_keeps_listening: bool,
-    playback_events: Vec<AssistantPlaybackEvent>,
+    playback_events: Vec<TtsPlaybackEvent>,
     #[cfg(test)]
     recording_sink: Option<crate::app::voice::playback::RecordingAssistantAudioSink>,
     #[cfg(test)]
@@ -193,7 +191,7 @@ impl DialogueControlState {
             control.cancel();
         }
     }
-    pub(super) fn take_playback_events(&mut self) -> Vec<AssistantPlaybackEvent> {
+    pub(super) fn take_playback_events(&mut self) -> Vec<TtsPlaybackEvent> {
         std::mem::take(&mut self.playback_events)
     }
     pub(crate) fn validate_start_provider(

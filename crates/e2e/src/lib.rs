@@ -40,6 +40,7 @@ mod e2e_05_card_initialization_animation;
 mod e2e_05_agent_task_cursor_animation;
 
 // 语音驱动窗口内缘光：PCM 能量、Settings 层级与正常收束。
+mod e2e_06_agent_announcements;
 mod e2e_06_voice_window_inset;
 
 // 麦克风权限被拒绝后：语音栏提供 macOS 隐私设置恢复入口。

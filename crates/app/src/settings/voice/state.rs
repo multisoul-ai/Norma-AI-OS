@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use storage::{AppStore, SettingsStore};
 use tts::{TtsModelId, TtsVoiceId};
 use voice_sherpa::{AudioInputDevice, SpeechError};
+mod announcements;
 mod builders;
 #[cfg(feature = "e2e-test-support")]
 mod e2e;

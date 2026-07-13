@@ -132,10 +132,10 @@ fn test_macos_default_sink_schedules_matcha_pcm() {
     assert_ne!(duration.as_nanos(), 0, "默认 sink 不得返回零时长伪成功");
 }
 
-/// PB-4: 生产 Matcha TTS 音频必须能由 macOS 默认 sink 完整调度播放。
+/// PB-4: Agent 完成回执的真实 Matcha TTS 必须能由 macOS 默认 sink 完整播放。
 ///
 /// 数据构造：
-///   文本 =「多灵魂桌面本地语音播放验证完成」；
+///   文本 = `Raya, Done`（Agent 完成回执的精确 V1 短语）；
 ///   TTS = scripts/download-matcha-tts-model.sh 安装的中文真实模型；
 ///   sink = default_assistant_audio_sink（AVFoundation 后端）。
 ///
@@ -151,12 +151,12 @@ fn test_macos_default_sink_schedules_matcha_pcm() {
 #[cfg(target_os = "macos")]
 #[test]
 #[ignore = "plays audible speech; requires downloaded Matcha TTS model and macOS audio output"]
-fn test_real_matcha_chinese_tts_plays_through_macos_default_sink() {
+fn test_real_agent_done_utterance_plays_through_macos_default_sink() {
     let mut tts =
         voice_sherpa::SherpaTtsClient::from_env_or_default().expect("真实 Matcha TTS 模型应已安装");
     let chunk = tts
-        .synthesize("多灵魂桌面本地语音播放验证完成")
-        .expect("真实 Matcha TTS 应合成中文 PCM");
+        .synthesize("Raya, Done")
+        .expect("真实 Matcha TTS 应合成 Agent 完成回执 PCM");
     assert_eq!(
         chunk.sample_rate_hz, 22_050,
         "官方 Matcha 输出应保持 22050Hz"

@@ -3,7 +3,7 @@
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings panel/content + voice state/provider/view 拆分源码
 ///   nav anchor = Voice
-///   storage keys = mode + single voice command trigger + immutable ASR model ID
+///   storage keys = mode + trigger + immutable ASR model ID + Agent task announcement toggle
 ///   input anchors = default / refresh / clear（覆盖默认输入、设备刷新、清除选择）
 ///   continuous anchors = Continuous Listening / Agent Provider / Local TTS
 ///   hidden debug env = MULTISOUL_VOICE_TRANSCRIPT，不应暴露成设置项
@@ -15,7 +15,7 @@
 ///
 /// 预期结果：
 ///   - 正断言：Voice 页面包含新模式、模型库、Agent/TTS 与 Advanced
-///   - 正断言：页面包含受控模型安装、输入设备和 trace 锚点
+///   - 正断言：页面包含受控模型安装、输入设备、Agent 任务播报和 trace 锚点
 ///   - 负断言：不应保留旧模型目录、realtime 总开关或暴露 API Key 明文
 #[test]
 fn test_voice_settings_panel_contains_voice_configuration_anchors() {
@@ -33,6 +33,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         include_str!("../../src/settings/voice/view/interaction.rs"),
         include_str!("../../src/settings/voice/view/model_catalog.rs"),
         include_str!("../../src/settings/voice/view/tts_catalog.rs"),
+        include_str!("../../src/settings/voice/view/spoken_reply.rs"),
         include_str!("../../src/settings/voice/view/provider.rs"),
         include_str!("../../../asr/src/catalog.rs")
     );
@@ -65,6 +66,8 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("voice.asr.model_id");
     assert_anchor!("voice.input_device_id");
     assert_anchor!("voice.trace_enabled");
+    assert_anchor!("voice.agent_task_announcements_enabled");
+    assert_anchor!("voice.window_inset_enabled");
     assert_anchor!("settings-voice-mode-dictation");
     assert_anchor!("settings-voice-mode-continuous");
     assert_anchor!("settings-asr-model");
@@ -86,6 +89,10 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("Base URL");
     assert_anchor!("API Key");
     assert_anchor!("settings-voice-trace-toggle");
+    assert_anchor!("settings-agent-task-announcements-toggle");
+    assert_anchor!("Agent task announcements");
+    assert_anchor!("settings-voice-window-inset-toggle");
+    assert_anchor!("Voice-driven window inset");
     assert_anchor!("on_mouse_down");
     assert_anchor!("begin_edit");
     assert!(

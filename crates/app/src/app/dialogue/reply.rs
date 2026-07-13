@@ -37,6 +37,20 @@ pub(crate) fn selected_tts_model_configured() -> bool {
         .is_some()
 }
 
+pub(crate) fn selected_tts_model_matches(
+    model_id: Option<&tts::TtsModelId>,
+    voice_id: Option<&tts::TtsVoiceId>,
+) -> bool {
+    let (Some(model_id), Some(voice_id)) = (model_id, voice_id) else {
+        return false;
+    };
+    SELECTED_TTS_MODEL
+        .lock()
+        .expect("selected TTS model lock should not be poisoned")
+        .as_ref()
+        .is_some_and(|selected| &selected.model_id == model_id && &selected.voice_id == voice_id)
+}
+
 pub(crate) fn default_tts_client() -> Result<TtsClientBox, SpeechError> {
     let selected = SELECTED_TTS_MODEL
         .lock()

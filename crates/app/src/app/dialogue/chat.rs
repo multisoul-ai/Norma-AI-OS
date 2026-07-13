@@ -151,6 +151,7 @@ pub(crate) fn start_pipeline_event_pump(
                     let (phase, should_notify) = this
                         .update(cx, |app, _cx| {
                             let phase = app.dialogue.phase();
+                            app.cancel_agent_announcements();
                             (phase, app.dialogue.on_unclassified_speech_start())
                         })
                         .unwrap_or((DialoguePhase::Idle, false));

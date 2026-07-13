@@ -2,7 +2,6 @@ use std::time::{Duration, Instant};
 
 use gpui::Context;
 
-use super::dialogue::AssistantPlaybackEvent;
 use super::MultisoulApp;
 
 const RUNTIME_FRAME_INTERVAL: Duration = Duration::from_millis(12);
@@ -155,6 +154,7 @@ impl MultisoulApp {
                 let browser_changed = app.drain_browser_events();
                 let agent_hook_changed = app.agent_hook_server.drain_into_runtime(&mut app.runtime);
                 let runtime_events = app.runtime.take_events();
+                app.handle_agent_runtime_events(&runtime_events, cx);
                 for event in &runtime_events {
                     tracing::debug!(?event, "runtime event");
                 }
@@ -188,22 +188,27 @@ impl MultisoulApp {
                     let tick_started_at = Instant::now();
                     let motion_changed = app.motion.tick(animation_delta);
                     let cursor_changed = app.advance_terminal_cursor_phase(animation_delta);
+                    app.sync_voice_window_inset_enabled();
+                    app.tts_preview.synchronize_external_cancellation();
                     for event in app.dialogue.take_playback_events() {
-                        match event {
-                            AssistantPlaybackEvent::PcmQueued(timeline) => {
-                                app.voice_window_inset.queue_energy_timeline(timeline);
-                            }
-                            AssistantPlaybackEvent::Started => {
-                                app.voice_window_inset.begin_playback();
-                            }
-                            AssistantPlaybackEvent::Finished => {
-                                app.voice_window_inset.finish_playback();
-                            }
-                            AssistantPlaybackEvent::Interrupted => {
-                                app.voice_window_inset.interrupt_playback();
-                            }
-                        }
+                        app.voice_window_inset.apply_playback_event(
+                            crate::app::voice_window_inset::TtsPlaybackSource::Assistant,
+                            event,
+                        );
                     }
+                    for event in app.agent_announcement_playback.take_playback_events() {
+                        app.voice_window_inset.apply_playback_event(
+                            crate::app::voice_window_inset::TtsPlaybackSource::AgentAnnouncement,
+                            event,
+                        );
+                    }
+                    for event in app.tts_preview.take_playback_events() {
+                        app.voice_window_inset.apply_playback_event(
+                            crate::app::voice_window_inset::TtsPlaybackSource::Preview,
+                            event,
+                        );
+                    }
+                    app.start_next_agent_announcement(cx);
                     let voice_window_inset_changed = app.voice_window_inset.tick(animation_delta);
                     let diagnostics = app.motion.diagnostics();
                     crate::frame_diagnostics::log_motion_sample(diagnostics);
