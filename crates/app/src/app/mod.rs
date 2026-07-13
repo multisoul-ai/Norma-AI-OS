@@ -459,6 +459,8 @@ impl Render for MultisoulApp {
                 root = root.child(self.render_launchpad(window, cx));
             }
             AppScreen::Canvas => {
+                #[cfg(target_os = "macos")]
+                self.sync_canvas_video_wallpaper(cx);
                 self.reflow_if_window_size_changed(window);
                 root = root
                     .child(self.render_workspace_backdrop())

@@ -11,7 +11,7 @@
 use super::MultisoulApp;
 use crate::app::video_decoder::{DecodedVideoFrame, VideoDecoder};
 use crate::app::wallpaper_resolvers::WallpaperKind;
-use gpui::{prelude::*, px, surface, Context, ObjectFit, Surface};
+use gpui::{div, prelude::*, px, surface, Context, Div, ObjectFit, Surface};
 use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -168,6 +168,33 @@ pub(crate) fn decide_video_sync(
 }
 
 impl MultisoulApp {
+    /// Sync Canvas video before rendering its backdrop so an outgoing
+    /// Launchpad frame cannot appear during the screen transition.
+    pub(super) fn sync_canvas_video_wallpaper(&mut self, cx: &mut Context<Self>) {
+        let canvas_video = (self.wallpaper_settings.current_kind() == WallpaperKind::Video)
+            .then(|| self.wallpaper_settings.resolve_path())
+            .flatten();
+        self.sync_video_wallpaper(canvas_video.as_deref(), cx);
+    }
+
+    /// Render the Launchpad-owned video layer. Its decoder path is chosen by
+    /// `render_launchpad`, independently from `WallpaperSettingsState`.
+    pub(crate) fn render_launchpad_video_layer(&self) -> Div {
+        let host = div()
+            .absolute()
+            .top(px(0.0))
+            .left(px(0.0))
+            .right(px(0.0))
+            .bottom(px(0.0))
+            .size_full()
+            .overflow_hidden();
+
+        match self.render_video_wallpaper_surface() {
+            Some(frame) => host.child(frame),
+            None => host,
+        }
+    }
+
     pub(super) fn render_video_wallpaper_surface(&self) -> Option<Surface> {
         let state = self.video_wallpaper.as_ref()?;
         let frame = match state {
@@ -186,10 +213,16 @@ impl MultisoulApp {
         )
     }
 
-    pub(crate) fn sync_video_wallpaper(&mut self, cx: &mut Context<Self>) {
-        let is_video = self.wallpaper_settings.current_kind() == WallpaperKind::Video;
-        let resolved = self.wallpaper_settings.resolve_path();
-        match decide_video_sync(self.video_wallpaper.as_ref(), is_video, resolved.as_deref()) {
+    pub(crate) fn sync_video_wallpaper(
+        &mut self,
+        video_path: Option<&Path>,
+        cx: &mut Context<Self>,
+    ) {
+        match decide_video_sync(
+            self.video_wallpaper.as_ref(),
+            video_path.is_some(),
+            video_path,
+        ) {
             VideoSyncAction::Keep => {}
             VideoSyncAction::Clear => {
                 if let Some(state) = self.video_wallpaper.take() {
@@ -248,14 +281,6 @@ impl MultisoulApp {
     }
 
     fn poll_video_wallpaper_update(&mut self, my_path: &Path, cx: &mut Context<Self>) -> bool {
-        if self.wallpaper_settings.current_kind() != WallpaperKind::Video {
-            if let Some(state) = self.video_wallpaper.take() {
-                state.cancel();
-                cx.notify();
-            }
-            return false;
-        }
-
         let Some(state) = self.video_wallpaper.as_ref() else {
             return false;
         };

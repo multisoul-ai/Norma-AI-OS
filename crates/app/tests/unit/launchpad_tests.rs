@@ -356,59 +356,6 @@ fn test_launchpad_drops_static_top_toolbar_preview() {
     }
 }
 
-/// L-9: Launchpad 背景应复用画布的视频感知壁纸层，而非静态 `img()`。
-///
-/// 背景：画布 chrome 通过 `render_wallpaper_layer()` 按 `WallpaperKind` 分支
-/// （Video→`surface()`，Static/Gif→`img()` + 源派生 id），并在每帧调用
-/// `sync_video_wallpaper(cx)` 驱动视频解码器生命周期。Launchpad 此前只渲染
-/// 单个 `img(image_source_for_render())`，而该工厂对 Video 故意回退静态 PNG，
-/// 导致 launchpad 不支持 mp4/mov，且 gif 切换存在 `frame_index` 越界 panic
-/// 隐患。此测试守护「launchpad 与画布走同一条壁纸渲染路径」这一不变量。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   source_mod      = launchpad/mod.rs（render_launchpad 组装入口）
-///   source_backdrop = launchpad/backdrop.rs（背景层构建）
-///   复用契约        = render_launchpad 调 render_wallpaper_layer + sync_video_wallpaper
-///   解耦契约        = backdrop 不再内联 img() / 不再接收 ImageSource
-///
-/// 执行过程：
-///   1. 读取 launchpad/mod.rs，确认 render_launchpad 调用 render_wallpaper_layer
-///   2. 读取 launchpad/mod.rs，确认 render_launchpad 调用 sync_video_wallpaper
-///   3. 读取 launchpad/backdrop.rs，确认不再内联 img() 渲染静态图片
-///   4. 读取 launchpad/backdrop.rs，确认签名不再接收 ImageSource
-///
-/// 预期结果：
-///   - 正断言：mod.rs 包含 render_wallpaper_layer（走共享视频感知渲染路径）
-///   - 正断言：mod.rs 包含 sync_video_wallpaper（驱动视频解码生命周期）
-///   - 负断言：backdrop.rs 不应包含 img(（不再内联静态图片元素，否则 mp4 不支持）
-///   - 负断言：backdrop.rs 不应包含 ImageSource（签名改为接收上层构建的壁纸层 Div）
-#[test]
-fn test_launchpad_backdrop_reuses_video_aware_wallpaper_layer() {
-    let source_mod = include_str!("../../src/workspace/launchpad/mod.rs");
-    let source_backdrop = include_str!("../../src/workspace/launchpad/backdrop.rs");
-
-    assert!(
-        source_mod.contains("render_wallpaper_layer"),
-        "Launchpad render_launchpad 应复用画布的 render_wallpaper_layer，\
-         否则 Video 类型无法走 surface() 渲染路径"
-    );
-    assert!(
-        source_mod.contains("sync_video_wallpaper"),
-        "Launchpad render_launchpad 应每帧调用 sync_video_wallpaper 驱动视频解码器，\
-         否则 mp4/mov 永远不会有解码帧可渲染"
-    );
-    assert!(
-        !source_backdrop.contains("img("),
-        "Launchpad backdrop 不应再内联 img() 渲染静态图片——这会让 Video 回退到 PNG，\
-         且 gif 切换时缺少源派生 id 触发 frame_index 越界 panic"
-    );
-    assert!(
-        !source_backdrop.contains("ImageSource"),
-        "Launchpad backdrop 签名不应再接收 ImageSource——壁纸层应由上层 \
-         render_wallpaper_layer 构建，backdrop 只负责挂载与遮罩"
-    );
-}
-
 /// L-10: Workspace/Launchpad 页面不应再挂载右侧静态卡片预览模块。
 ///
 /// 数据构造（含关键数值的推导过程）：

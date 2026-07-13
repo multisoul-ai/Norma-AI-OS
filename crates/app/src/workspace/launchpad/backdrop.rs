@@ -2,13 +2,10 @@ use super::with_alpha;
 use gpui::{div, linear_color_stop, linear_gradient, prelude::*, px, rgba, Div};
 use ui::Theme;
 
-/// Build the launchpad backdrop: the wallpaper layer is passed in pre-built by
-/// `render_launchpad` (via the canvas's shared `render_wallpaper_layer`), so it
-/// shares the canvas's video-aware render path — a live `surface()` for Video,
-/// the static image element with a source-derived id for Static/Gif. Receiving
-/// the wallpaper as an already-built `Div` (rather than as a raw image source)
-/// is what lets mp4/mov render here exactly as on the canvas.
-pub(super) fn launchpad_backdrop(theme: Theme, wallpaper: Div) -> Div {
+/// Build the launchpad backdrop from its dedicated video layer. The caller
+/// never passes the canvas wallpaper layer here, keeping Launchpad's home.mp4
+/// independent from the user's Canvas wallpaper setting.
+pub(super) fn launchpad_backdrop(theme: Theme, video: Div) -> Div {
     div()
         .absolute()
         .top(px(0.0))
@@ -17,7 +14,7 @@ pub(super) fn launchpad_backdrop(theme: Theme, wallpaper: Div) -> Div {
         .bottom(px(0.0))
         .overflow_hidden()
         .bg(rgba(theme.graphite))
-        .child(wallpaper)
+        .child(video)
         .child(
             div()
                 .absolute()

@@ -148,12 +148,6 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
-        // Task 10: keep the video decoder lifecycle synced with the current
-        // wallpaper kind once per render. Lives here (not in backdrop) because
-        // the backdrop builder only has &self, while sync needs &mut self + cx.
-        #[cfg(target_os = "macos")]
-        self.sync_video_wallpaper(cx);
-
         let theme = self.theme;
 
         let mut chrome = div()

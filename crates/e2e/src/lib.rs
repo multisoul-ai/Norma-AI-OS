@@ -53,6 +53,9 @@ mod e2e_10_voice_config_matrix;
 mod e2e_10_voice_matrix;
 mod e2e_10_voice_model_matrix;
 
+// Launchpad：启动页固定视频与 Canvas 壁纸设置解耦。
+mod e2e_11_launchpad_video;
+
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。
 pub use harness::{

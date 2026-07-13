@@ -148,6 +148,11 @@ impl MultisoulApp {
         self.screen
     }
 
+    /// Launchpad 的固定背景资源；Canvas 的 Wallpaper 设置不会改变此值。
+    pub fn launchpad_video_asset_e2e(&self) -> &'static str {
+        crate::workspace::launchpad::launchpad_default_video_asset()
+    }
+
     pub fn initialization_e2e_snapshot(
         &self,
         node_id: canvas::NodeId,

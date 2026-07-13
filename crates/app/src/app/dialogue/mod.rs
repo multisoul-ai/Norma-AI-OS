@@ -1,5 +1,4 @@
 //! App-layer shell state for Continuous Listening local voice dialogue.
-
 mod card_tools;
 mod chat;
 mod error;
@@ -113,6 +112,7 @@ pub(crate) struct DialogueControlState {
     pub(super) playback_chunks_pending: usize,
     pub(super) playback_started: bool,
     pub(super) reply_generation: u64,
+    pcm_capture: reply_stream::capture::TtsPcmCapture,
     tts_configuration_generation: u64,
     pub(super) tts_cancelled: Arc<AtomicBool>,
     preview_control: Option<Arc<TtsPreviewControl>>,
@@ -154,6 +154,7 @@ impl Default for DialogueControlState {
             playback_chunks_pending: 0,
             playback_started: false,
             reply_generation: 0,
+            pcm_capture: reply_stream::capture::TtsPcmCapture::default(),
             tts_configuration_generation: 0,
             tts_cancelled: Arc::new(AtomicBool::new(false)),
             preview_control: None,

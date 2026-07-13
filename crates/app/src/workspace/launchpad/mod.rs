@@ -12,22 +12,37 @@ use self::layout::launchpad_layout_for_window;
 use self::layout::LaunchpadLayoutMode;
 #[cfg(test)]
 use self::recent::recent_project_records_for_launchpad;
+use crate::app::wallpaper_resolvers::resolve_builtin_asset;
 use crate::app::MultisoulApp;
 use gpui::{div, point, prelude::*, px, rgba, BoxShadow, ClickEvent, Context, Div, Window};
+use std::path::PathBuf;
 use ui::Theme;
+
+const LAUNCHPAD_DEFAULT_VIDEO_ASSET: &str = "wallpapers/home.mp4";
+
+pub(crate) fn launchpad_default_video_asset() -> &'static str {
+    LAUNCHPAD_DEFAULT_VIDEO_ASSET
+}
+
+fn launchpad_default_video_path() -> Option<PathBuf> {
+    resolve_builtin_asset(launchpad_default_video_asset())
+}
 
 impl MultisoulApp {
     pub(crate) fn render_launchpad(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Div {
-        // Mirror `render_workspace_chrome`: drive the video decoder lifecycle once
-        // per render so an mp4/mov wallpaper decodes on the launchpad too. Idempotent
-        // (`decide_video_sync` returns `Keep` for an already-running Active slot), so
-        // launchpad↔canvas transitions never double-spawn the decode loop.
+        // Launchpad owns a fixed video background. It intentionally does not use
+        // `wallpaper_settings`: Canvas wallpaper selection must not alter the
+        // startup screen's home.mp4 playback.
         #[cfg(target_os = "macos")]
-        self.sync_video_wallpaper(cx);
+        self.sync_video_wallpaper(launchpad_default_video_path().as_deref(), cx);
 
         let theme = self.theme;
         let win = window.viewport_size();
         let layout = launchpad_layout_for_window(f32::from(win.width), f32::from(win.height));
+        #[cfg(target_os = "macos")]
+        let launchpad_video = self.render_launchpad_video_layer();
+        #[cfg(not(target_os = "macos"))]
+        let launchpad_video = div().size_full();
 
         div()
             .absolute()
@@ -37,7 +52,7 @@ impl MultisoulApp {
             .bottom(px(0.0))
             .overflow_hidden()
             .bg(rgba(theme.graphite))
-            .child(launchpad_backdrop(theme, self.render_wallpaper_layer()))
+            .child(launchpad_backdrop(theme, launchpad_video))
             .child(
                 div()
                     .absolute()
@@ -120,3 +135,7 @@ pub(super) fn with_alpha(color: u32, alpha: u8) -> u32 {
 #[cfg(test)]
 #[path = "../../../tests/unit/launchpad_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/launchpad_video_tests.rs"]
+mod video_tests;

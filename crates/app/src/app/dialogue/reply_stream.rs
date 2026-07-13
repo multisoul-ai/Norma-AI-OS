@@ -3,15 +3,27 @@
 use super::reply::{create_tts_client, selected_tts_model_configured, TtsClientBox};
 use super::DialogueControlState;
 use crate::app::voice::playback::pcm_chunk_duration;
-use crate::app::voice_window_inset::PcmEnergyTimeline;
-use audio::PcmAudioChunk;
-use dialogue::{DialoguePhase, TtsChunkSink, SHORT_SPEECH_MERGE_WINDOW};
+use dialogue::{DialoguePhase, SHORT_SPEECH_MERGE_WINDOW};
 use gpui::Context;
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use voice_sherpa::SpeechError;
+
+#[path = "reply_stream/capture.rs"]
+pub(super) mod capture;
+#[path = "reply_stream/pcm.rs"]
+mod pcm;
+#[path = "reply_stream/trace.rs"]
+mod trace;
+
+#[cfg(test)]
+pub(super) use pcm::pcm_trace_fingerprint;
+use pcm::ChannelTtsChunkSink;
+pub(super) use pcm::QueuedPlaybackChunk;
+
+static NEXT_TTS_REQUEST_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 /// Holds streamed PCM until enough audio exists to start a continuous reply.
 pub(super) struct StreamPlaybackBuffer {
@@ -26,42 +38,6 @@ enum SpeechWorkerEvent {
         tts: Option<TtsClientBox>,
         result: Result<(), SpeechError>,
     },
-}
-
-pub(super) struct QueuedPlaybackChunk {
-    pub(super) pcm: PcmAudioChunk,
-    energy_timeline: PcmEnergyTimeline,
-}
-
-impl QueuedPlaybackChunk {
-    pub(super) fn from_pcm(pcm: PcmAudioChunk) -> Self {
-        let energy_timeline = PcmEnergyTimeline::from_pcm(&pcm);
-        Self {
-            pcm,
-            energy_timeline,
-        }
-    }
-}
-
-struct ChannelTtsChunkSink {
-    events: async_channel::Sender<SpeechWorkerEvent>,
-    cancelled: Arc<AtomicBool>,
-}
-
-impl TtsChunkSink for ChannelTtsChunkSink {
-    fn send(&self, chunk: PcmAudioChunk) -> bool {
-        !self.cancelled.load(Ordering::Acquire)
-            && self
-                .events
-                .try_send(SpeechWorkerEvent::Chunk(QueuedPlaybackChunk::from_pcm(
-                    chunk,
-                )))
-                .is_ok()
-    }
-
-    fn is_cancelled(&self) -> bool {
-        self.cancelled.load(Ordering::Acquire)
-    }
 }
 
 impl DialogueControlState {
@@ -79,6 +55,8 @@ impl DialogueControlState {
         self.reply_stream_started_at = Some(Instant::now());
         self.last_reply_text = Some(String::new());
         self.last_reply_interrupted = false;
+        self.pcm_capture = capture::TtsPcmCapture::start(self.reply_generation);
+        trace::reply_stream_started(self.reply_generation);
     }
 
     pub(super) fn begin_static_reply_stream(
@@ -102,6 +80,13 @@ impl DialogueControlState {
         self.last_reply_text
             .get_or_insert_with(String::new)
             .push_str(text);
+        trace::dialogue_delta(
+            self.reply_generation,
+            text,
+            self.last_reply_text
+                .as_ref()
+                .map_or(0, |reply| reply.chars().count()),
+        );
         let segments = self
             .utterance_committer
             .push_delta(text, self.stream_elapsed());
@@ -115,11 +100,23 @@ impl DialogueControlState {
         }
         self.dialogue_stream_finished = true;
         let final_segments = self.utterance_committer.finish();
+        trace::dialogue_finished(
+            self.reply_generation,
+            self.last_reply_text.as_deref().unwrap_or_default(),
+            final_segments.len(),
+        );
         self.enqueue_speech_segments(final_segments, cx);
         self.finish_reply_stream_if_ready();
     }
 
     pub(super) fn abort_reply_stream(&mut self, mark_interrupted: bool) {
+        self.pcm_capture.finish();
+        trace::reply_stream_aborted(
+            self.reply_generation,
+            mark_interrupted,
+            self.speech_queue.len(),
+            self.playback_chunks_pending,
+        );
         self.playback_events
             .retain(|event| !matches!(event, super::AssistantPlaybackEvent::PcmQueued(_)));
         if self.playback_started {
@@ -153,6 +150,9 @@ impl DialogueControlState {
         segments: Vec<String>,
         cx: &mut Context<crate::app::MultisoulApp>,
     ) {
+        for segment in &segments {
+            trace::speech_segment_queued(self.reply_generation, segment);
+        }
         self.speech_queue.extend(segments);
         self.start_next_speech_synthesis(cx);
     }
@@ -193,10 +193,17 @@ impl DialogueControlState {
             return;
         }
         let generation = self.reply_generation;
+        let tts_request_sequence = NEXT_TTS_REQUEST_SEQUENCE.fetch_add(1, Ordering::Relaxed);
         let text = self
             .speech_queue
             .pop_front()
             .expect("speech queue was checked before starting synthesis");
+        trace::synthesis_requested(
+            generation,
+            tts_request_sequence,
+            &text,
+            self.speech_queue.len(),
+        );
         let existing_tts = self.tts_client.take();
         let cancelled = Arc::clone(&self.tts_cancelled);
         let (events_tx, events_rx) = async_channel::unbounded();
@@ -223,10 +230,13 @@ impl DialogueControlState {
                     let sink = Arc::new(ChannelTtsChunkSink {
                         events: worker_events.clone(),
                         cancelled,
+                        tts_request_sequence,
+                        next_chunk_sequence: AtomicU64::new(0),
                     });
                     let result = tts
                         .synthesize_stream(&text, sink)
                         .map_err(|error| SpeechError::Recognizer(error.to_string()));
+                    trace::synthesis_finished(generation, tts_request_sequence, &result);
                     let _ = worker_events
                         .send(SpeechWorkerEvent::Finished {
                             tts: Some(tts),
@@ -258,6 +268,7 @@ impl DialogueControlState {
         }
         match event {
             SpeechWorkerEvent::Chunk(chunk) => {
+                trace::pcm_received(generation, &chunk);
                 let ready_chunks = self.playback_buffer.push(chunk);
                 self.schedule_audio_chunks(ready_chunks, generation, cx);
                 true
@@ -286,6 +297,7 @@ impl DialogueControlState {
         cx: &mut Context<crate::app::MultisoulApp>,
     ) {
         for chunk in chunks {
+            let pcm_duration = pcm_chunk_duration(&chunk.pcm);
             if self.session.phase() == DialoguePhase::Thinking
                 && self.session.on_reply_ready().is_err()
             {
@@ -306,16 +318,26 @@ impl DialogueControlState {
                 self.recover_reply_failure(format!("Speech error: {error}"));
                 return;
             }
+            self.pcm_capture.append(&chunk.pcm);
+            trace::playback_accepted(generation, &chunk, pcm_duration);
             self.playback_events
                 .push(super::AssistantPlaybackEvent::PcmQueued(
                     chunk.energy_timeline,
                 ));
             self.playback_chunks_pending = self.playback_chunks_pending.saturating_add(1);
+            let tts_request_sequence = chunk.tts_request_sequence;
+            let chunk_sequence = chunk.chunk_sequence;
+            let pcm_fingerprint = chunk.pcm_fingerprint;
             cx.spawn(async move |this, cx| {
                 if playback_started_rx.recv().await.is_ok()
                     && this
                         .update(cx, |app, _cx| {
-                            app.dialogue.on_playback_chunk_started(generation);
+                            app.dialogue.on_playback_chunk_started(
+                                generation,
+                                tts_request_sequence,
+                                chunk_sequence,
+                                pcm_fingerprint,
+                            );
                         })
                         .is_err()
                 {
@@ -323,7 +345,12 @@ impl DialogueControlState {
                 }
                 if completion_rx.recv().await.is_ok() {
                     let _ = this.update(cx, |app, cx| {
-                        app.dialogue.on_playback_chunk_finished(generation);
+                        app.dialogue.on_playback_chunk_finished(
+                            generation,
+                            tts_request_sequence,
+                            chunk_sequence,
+                            pcm_fingerprint,
+                        );
                         cx.notify();
                     });
                 }
@@ -332,8 +359,23 @@ impl DialogueControlState {
         }
     }
 
-    fn on_playback_chunk_started(&mut self, generation: u64) {
-        if generation != self.reply_generation || self.playback_started {
+    fn on_playback_chunk_started(
+        &mut self,
+        generation: u64,
+        tts_request_sequence: u64,
+        chunk_sequence: u64,
+        pcm_fingerprint: u64,
+    ) {
+        if generation != self.reply_generation {
+            return;
+        }
+        trace::playback_started(
+            generation,
+            tts_request_sequence,
+            chunk_sequence,
+            pcm_fingerprint,
+        );
+        if self.playback_started {
             return;
         }
         self.playback_started = true;
@@ -341,10 +383,22 @@ impl DialogueControlState {
             .push(super::AssistantPlaybackEvent::Started);
     }
 
-    fn on_playback_chunk_finished(&mut self, generation: u64) {
+    fn on_playback_chunk_finished(
+        &mut self,
+        generation: u64,
+        tts_request_sequence: u64,
+        chunk_sequence: u64,
+        pcm_fingerprint: u64,
+    ) {
         if generation != self.reply_generation {
             return;
         }
+        trace::playback_finished(
+            generation,
+            tts_request_sequence,
+            chunk_sequence,
+            pcm_fingerprint,
+        );
         self.playback_chunks_pending = self.playback_chunks_pending.saturating_sub(1);
         if self.finish_reply_stream_if_ready() && self.playback_started {
             self.playback_started = false;
@@ -364,6 +418,7 @@ impl DialogueControlState {
         }
         self.session
             .on_playback_finished_or_interrupted(self.reply_keeps_listening);
+        self.pcm_capture.finish();
         self.reply_stream_started_at = None;
         self.dialogue_stream_finished = false;
         true

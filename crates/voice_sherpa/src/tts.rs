@@ -1,69 +1,16 @@
 use crate::audio::pcm16_bytes_from_f32_samples;
 use crate::SpeechError;
 use audio::{PcmAudioChunk, PcmFormat};
-use dialogue::{DialogueError, TtsChunkSink, TtsClient};
+use dialogue::{DialogueError, TtsClient};
 use sherpa_onnx::{
     GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsKokoroModelConfig,
     OfflineTtsMatchaModelConfig, OfflineTtsModelConfig,
 };
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
 
 /// Energy-free silent PCM for unit tests.
 pub struct FakeTtsClient {
     sample_rate_hz: u32,
-}
-
-/// Converts sherpa's cumulative callback samples into non-overlapping PCM chunks.
-pub struct ProgressivePcmEncoder {
-    sample_rate_hz: u32,
-    emitted_samples: usize,
-    total_emitted_samples: usize,
-    emitted_callback_audio: bool,
-}
-
-impl ProgressivePcmEncoder {
-    pub fn new(sample_rate_hz: u32) -> Result<Self, DialogueError> {
-        validate_tts_sample_rate(sample_rate_hz)?;
-        Ok(Self {
-            sample_rate_hz,
-            emitted_samples: 0,
-            total_emitted_samples: 0,
-            emitted_callback_audio: false,
-        })
-    }
-
-    pub fn take_new_chunk(
-        &mut self,
-        cumulative_samples: &[f32],
-    ) -> Result<Option<PcmAudioChunk>, DialogueError> {
-        if cumulative_samples.len() < self.emitted_samples {
-            // sherpa-onnx documents cumulative callbacks, but Matcha may reset the slice for a
-            // later phrase. A shorter snapshot is therefore a fresh ordered audio piece.
-            self.emitted_samples = 0;
-        }
-        let new_samples = &cumulative_samples[self.emitted_samples..];
-        self.emitted_samples = cumulative_samples.len();
-        if new_samples.is_empty() {
-            return Ok(None);
-        }
-        self.emitted_callback_audio = true;
-        self.total_emitted_samples = self.total_emitted_samples.saturating_add(new_samples.len());
-        pcm_chunk_from_f32_samples(new_samples, self.sample_rate_hz).map(Some)
-    }
-
-    pub fn emitted_callback_audio(&self) -> bool {
-        self.emitted_callback_audio
-    }
-
-    pub fn trailing_samples_from_final<'a>(&self, final_samples: &'a [f32]) -> &'a [f32] {
-        final_samples
-            .len()
-            .checked_sub(self.total_emitted_samples)
-            .map(|missing| &final_samples[final_samples.len() - missing..])
-            .unwrap_or_default()
-    }
 }
 
 impl FakeTtsClient {
@@ -233,95 +180,6 @@ impl TtsClient for SherpaTtsClient {
             .ok_or_else(|| DialogueError::Message("TTS synthesis failed".to_string()))?;
         let sample_rate_hz = sample_rate_from_sherpa(audio.sample_rate())?;
         pcm_chunk_from_f32_samples(audio.samples(), sample_rate_hz)
-    }
-
-    fn synthesize_stream(
-        &mut self,
-        text: &str,
-        sink: Arc<dyn TtsChunkSink>,
-    ) -> Result<(), DialogueError> {
-        if text.trim().is_empty() {
-            return Err(DialogueError::Message("empty TTS text".to_string()));
-        }
-        if sink.is_cancelled() {
-            return Ok(());
-        }
-
-        let sample_rate_hz = sample_rate_from_sherpa(self.inner.sample_rate())?;
-        let encoder = Arc::new(Mutex::new(ProgressivePcmEncoder::new(sample_rate_hz)?));
-        let callback_encoder = Arc::clone(&encoder);
-        let callback_sink = Arc::clone(&sink);
-        let stopped = Arc::new(AtomicBool::new(false));
-        let callback_stopped = Arc::clone(&stopped);
-        let callback_error = Arc::new(Mutex::new(None));
-        let callback_error_slot = Arc::clone(&callback_error);
-
-        let audio = self.inner.generate_with_config(
-            text,
-            &self.generation,
-            Some(move |samples: &[f32], _: f32| {
-                if callback_sink.is_cancelled() {
-                    callback_stopped.store(true, Ordering::Release);
-                    return false;
-                }
-                let chunk = match callback_encoder
-                    .lock()
-                    .map_err(|_| {
-                        DialogueError::Message("TTS stream encoder lock poisoned".to_string())
-                    })
-                    .and_then(|mut encoder| encoder.take_new_chunk(samples))
-                {
-                    Ok(chunk) => chunk,
-                    Err(error) => {
-                        if let Ok(mut slot) = callback_error_slot.lock() {
-                            *slot = Some(error);
-                        }
-                        callback_stopped.store(true, Ordering::Release);
-                        return false;
-                    }
-                };
-                match chunk {
-                    Some(chunk) => {
-                        if callback_sink.send(chunk) {
-                            true
-                        } else {
-                            callback_stopped.store(true, Ordering::Release);
-                            false
-                        }
-                    }
-                    None => true,
-                }
-            }),
-        );
-
-        if let Some(error) = callback_error
-            .lock()
-            .map_err(|_| DialogueError::Message("TTS stream error lock poisoned".to_string()))?
-            .take()
-        {
-            return Err(error);
-        }
-        if sink.is_cancelled() || stopped.load(Ordering::Acquire) {
-            return Ok(());
-        }
-
-        let audio =
-            audio.ok_or_else(|| DialogueError::Message("TTS synthesis failed".to_string()))?;
-        let mut encoder = encoder
-            .lock()
-            .map_err(|_| DialogueError::Message("TTS stream encoder lock poisoned".to_string()))?;
-        if !encoder.emitted_callback_audio() {
-            if let Some(chunk) = encoder.take_new_chunk(audio.samples())? {
-                let _ = sink.send(chunk);
-            }
-        } else {
-            let trailing_samples = encoder.trailing_samples_from_final(audio.samples());
-            if !trailing_samples.is_empty() {
-                let chunk = pcm_chunk_from_f32_samples(trailing_samples, sample_rate_hz)?;
-                let _ = sink.send(chunk);
-            }
-        }
-        Ok(())
     }
 }
 

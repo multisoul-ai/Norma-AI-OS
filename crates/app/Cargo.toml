@@ -45,6 +45,7 @@ crossbeam-channel.workspace = true
 async-channel.workspace = true
 pulldown-cmark.workspace = true
 ureq.workspace = true
+hound = "3.5"
 
 # Native file picker for wallpaper import (Task 8). AsyncFileDialog is awaited
 # inside a cx.spawn task so it never blocks the GPUI event loop.
@@ -52,7 +53,6 @@ rfd = "0.16"
 
 [dev-dependencies]
 tempfile.workspace = true
-hound = "3.5"
 
 # Video wallpaper spike (Task 1): objc2 + AVAssetReader → 420f CVPixelBuffer.
 # All AVFoundation interop is macOS-only; on other targets these crates are

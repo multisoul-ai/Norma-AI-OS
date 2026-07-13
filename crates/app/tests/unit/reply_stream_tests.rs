@@ -1,4 +1,5 @@
-use super::reply_stream::{QueuedPlaybackChunk, StreamPlaybackBuffer};
+use super::reply_stream::capture::write_pcm_chunks_to_wav;
+use super::reply_stream::{pcm_trace_fingerprint, QueuedPlaybackChunk, StreamPlaybackBuffer};
 use super::{DialogueControlState, TtsPreviewControl};
 use audio::{PcmAudioChunk, PcmFormat};
 use std::sync::Arc;
@@ -13,6 +14,95 @@ fn pcm16_mono_chunk(sample_rate_hz: u32, duration: Duration) -> PcmAudioChunk {
         vec![0; frame_count * 2],
     )
     .expect("测试 PCM 应满足 PCM16 mono 格式约束")
+}
+
+/// STR-TRACE-1：诊断日志必须用稳定的 PCM 指纹区分“同一块被重复播放”和“不同音频块”。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   first  = 4 bytes = 2 个 16-bit PCM 样本（字节为 [1, 2, 3, 4]）
+///   clone  = 4 bytes = first 的逐字节副本
+///   second = 4 bytes = 仅最后 1 byte 与 first 不同（字节为 [1, 2, 3, 5]）
+///   Total  = 3 个相同格式、各 2 samples 的最小 PCM 块
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 分别计算 first、clone 与 second 的日志指纹；
+///   2. 比较 first 与 clone，验证相同音频在同一次复现中可关联；
+///   3. 比较 first 与 second，验证单字节变化不会被误报成同一块音频。
+///
+/// 预期结果：
+///   - 断言 A：first 与 clone 的指纹相同，因为两者 PCM 字节完全一致；
+///   - 断言 B：first 与 second 的指纹不同，因为它们不是同一段 PCM。
+#[test]
+fn test_pcm_trace_fingerprint_is_stable_and_distinguishes_changed_audio() {
+    let first = PcmAudioChunk::new(PcmFormat::Pcm16, 16_000, 1, vec![1, 2, 3, 4])
+        .expect("first 测试 PCM 应满足 PCM16 mono 格式约束");
+    let clone = PcmAudioChunk::new(PcmFormat::Pcm16, 16_000, 1, vec![1, 2, 3, 4])
+        .expect("clone 测试 PCM 应满足 PCM16 mono 格式约束");
+    let second = PcmAudioChunk::new(PcmFormat::Pcm16, 16_000, 1, vec![1, 2, 3, 5])
+        .expect("second 测试 PCM 应满足 PCM16 mono 格式约束");
+
+    assert_eq!(
+        pcm_trace_fingerprint(&first),
+        pcm_trace_fingerprint(&clone),
+        "完全相同的 PCM 必须有相同指纹，否则无法在日志中识别重复播放"
+    );
+    assert_ne!(
+        pcm_trace_fingerprint(&first),
+        pcm_trace_fingerprint(&second),
+        "字节不同的 PCM 不得复用指纹，否则日志会把不同音频误判为重复"
+    );
+}
+
+/// STR-CAPTURE-1：开启诊断时，播放前的 PCM 必须按原格式写入可复听的 WAV 文件。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   sample rate = 16_000 Hz（诊断用合法单声道 PCM 采样率）
+///   PCM bytes   = 4 bytes = 2 个 i16 样本（[1, 0]、[2, 0]）
+///   chunks      = 1（最小可验证的一段回复音频）
+///   WAV samples = 4 bytes / 2 bytes 每样本 = 2 samples
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造一个 16kHz、单声道、含两个 PCM16 样本的块；
+///   2. 调用诊断 WAV 写入函数，把块写到隔离临时文件；
+///   3. 用 WAV reader 重新打开文件并读取格式与样本数。
+///
+/// 预期结果：
+///   - 断言 A：文件必须存在，供人工复听合成输出；
+///   - 断言 B：WAV 必须保留 16kHz mono，不能被诊断层改采样；
+///   - 断言 C：WAV 必须恰有 2 个样本，不能重复或丢弃 PCM 数据。
+#[test]
+fn test_pcm_capture_writes_playable_wav_without_duplicate_samples() {
+    let temp = tempfile::tempdir().expect("测试应能创建隔离的临时目录");
+    let path = temp.path().join("reply.wav");
+    let chunk = PcmAudioChunk::new(PcmFormat::Pcm16, 16_000, 1, vec![1, 0, 2, 0])
+        .expect("测试 PCM 应满足 PCM16 mono 格式约束");
+
+    write_pcm_chunks_to_wav(&path, &[chunk]).expect("诊断捕获应能写入临时 WAV 文件");
+
+    let reader = hound::WavReader::open(&path).expect("写出的 WAV 应能被标准 reader 打开");
+    let spec = reader.spec();
+    let sample_count = reader
+        .into_samples::<i16>()
+        .collect::<Result<Vec<_>, _>>()
+        .expect("测试 WAV 中的 PCM16 样本应完整可读")
+        .len();
+
+    assert!(
+        path.is_file(),
+        "诊断 WAV 文件必须存在，才能用于判断重复是否已在合成阶段出现"
+    );
+    assert_eq!(
+        spec.sample_rate, 16_000,
+        "诊断 WAV 必须保留原始 16kHz 采样率"
+    );
+    assert_eq!(
+        spec.channels, 1,
+        "诊断 WAV 必须保留单声道，不能改变原始声道数"
+    );
+    assert_eq!(
+        sample_count, 2,
+        "4 bytes PCM16 必须恰好写出 2 个样本，不能重复或丢失"
+    );
 }
 
 /// STR-1：流式 TTS 必须在累计至少 120ms 后才启动第一块播放。
