@@ -4,6 +4,7 @@ members = [
   "crates/model_store",
   "crates/tts",
   "crates/asr",
+  "crates/license",
   "crates/audio",
   "crates/agent",
   "crates/llm",
@@ -56,6 +57,7 @@ audio = { path = "crates/audio" }
 model_store = { path = "crates/model_store" }
 tts = { path = "crates/tts" }
 asr = { path = "crates/asr" }
+license = { path = "crates/license" }
 agent = { path = "crates/agent" }
 llm = { path = "crates/llm" }
 dialogue = { path = "crates/dialogue" }
