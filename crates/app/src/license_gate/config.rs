@@ -1,35 +1,62 @@
-//! Env / compile-time configuration for Keygate client wiring.
+//! License client defaults: embedded files + optional env overrides.
+//!
+//! **换默认 URL / 公钥：编辑 `embed/` 目录下的文本文件**（见 `embed/README.md`）。
+//! 勿把签发私钥放进仓库。
 
 pub const SKIP_LICENSE_ENV: &str = "NORMA_SKIP_LICENSE";
 pub const LICENSE_URL_ENV: &str = "NORMA_LICENSE_URL";
 pub const LICENSE_PUBKEY_ENV: &str = "NORMA_LICENSE_PUBKEY_HEX";
 
-/// Default Keygate base URL (local spike). Override with `NORMA_LICENSE_URL`.
-pub const DEFAULT_LICENSE_BASE_URL: &str = "http://localhost:9000";
-
-/// Compile-time embedded verifying key (64 hex chars). Empty until release wiring.
-const EMBEDDED_PUBKEY_HEX: &str = match option_env!("NORMA_LICENSE_PUBKEY_HEX") {
-    Some(value) => value,
-    None => "",
-};
+/// Maintainer-editable defaults shipped in the binary (`embed/`).
+const EMBEDDED_BASE_URL: &str = include_str!("embed/base_url.txt");
+const EMBEDDED_PUBKEY_HEX: &str = include_str!("embed/public_key.hex");
 
 pub fn skip_license_enabled() -> bool {
     parse_truthy_env(std::env::var_os(SKIP_LICENSE_ENV).and_then(|v| v.into_string().ok()))
 }
 
+/// Runtime `NORMA_LICENSE_URL` > compile-time `option_env!` > `embed/base_url.txt`.
 pub fn license_base_url() -> String {
-    std::env::var(LICENSE_URL_ENV).unwrap_or_else(|_| DEFAULT_LICENSE_BASE_URL.to_string())
-}
-
-/// Prefer runtime env (spike/dev), then compile-time embed.
-pub fn public_key_hex() -> String {
-    if let Ok(value) = std::env::var(LICENSE_PUBKEY_ENV) {
-        let trimmed = value.trim().to_string();
+    if let Ok(value) = std::env::var(LICENSE_URL_ENV) {
+        let trimmed = value.trim();
         if !trimmed.is_empty() {
-            return trimmed;
+            return trimmed.trim_end_matches('/').to_string();
         }
     }
-    EMBEDDED_PUBKEY_HEX.trim().to_string()
+    if let Some(value) = option_env!("NORMA_LICENSE_URL") {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() {
+            return trimmed.trim_end_matches('/').to_string();
+        }
+    }
+    normalize_embedded_line(EMBEDDED_BASE_URL)
+        .trim_end_matches('/')
+        .to_string()
+}
+
+/// Runtime `NORMA_LICENSE_PUBKEY_HEX` > compile-time `option_env!` > `embed/public_key.hex`.
+pub fn public_key_hex() -> String {
+    if let Ok(value) = std::env::var(LICENSE_PUBKEY_ENV) {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    if let Some(value) = option_env!("NORMA_LICENSE_PUBKEY_HEX") {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    normalize_embedded_line(EMBEDDED_PUBKEY_HEX)
+}
+
+fn normalize_embedded_line(raw: &str) -> String {
+    raw.lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty() && !line.starts_with('#'))
+        .unwrap_or("")
+        .to_string()
 }
 
 pub fn parse_truthy_env(raw: Option<String>) -> bool {
@@ -42,7 +69,10 @@ pub fn parse_truthy_env(raw: Option<String>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_truthy_env;
+    use super::{
+        normalize_embedded_line, parse_truthy_env, public_key_hex, EMBEDDED_BASE_URL,
+        EMBEDDED_PUBKEY_HEX,
+    };
 
     #[test]
     fn test_truthy_env_parsing() {
@@ -51,5 +81,38 @@ mod tests {
         assert!(!parse_truthy_env(Some("0".into())), "0 应为假");
         assert!(!parse_truthy_env(None), "缺失应为假");
         assert!(!parse_truthy_env(Some("".into())), "空串应为假");
+    }
+
+    /// embed/public_key.hex 必须是可维护的 64 hex，避免空公钥导致「激活成功本地校验失败」。
+    #[test]
+    fn test_embedded_pubkey_is_64_hex() {
+        let key = normalize_embedded_line(EMBEDDED_PUBKEY_HEX);
+        assert_eq!(
+            key.len(),
+            64,
+            "embed/public_key.hex 必须正好 64 个 hex 字符"
+        );
+        assert!(
+            key.chars().all(|c| c.is_ascii_hexdigit()),
+            "embed/public_key.hex 只能包含 0-9a-fA-F"
+        );
+        // When runtime env is unset in unit tests, public_key_hex should resolve to embed.
+        if std::env::var_os(super::LICENSE_PUBKEY_ENV).is_none() {
+            assert_eq!(
+                public_key_hex(),
+                key,
+                "无 NORMA_LICENSE_PUBKEY_HEX 时应回落到嵌入公钥"
+            );
+        }
+    }
+
+    #[test]
+    fn test_embedded_base_url_nonempty() {
+        let url = normalize_embedded_line(EMBEDDED_BASE_URL);
+        assert!(!url.is_empty(), "embed/base_url.txt 不能为空");
+        assert!(
+            url.starts_with("http://") || url.starts_with("https://"),
+            "embed/base_url.txt 应以 http(s):// 开头，当前={url}"
+        );
     }
 }

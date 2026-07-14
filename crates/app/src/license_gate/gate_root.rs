@@ -115,7 +115,8 @@ impl GateRoot {
             );
             if !matches!(status, license::LocalLicenseStatus::Activated { .. }) {
                 return Err(
-                    "激活成功但本地校验失败（请检查公钥 NORMA_LICENSE_PUBKEY_HEX）".to_string(),
+                    "激活成功但本地校验失败（公钥与签发服务不匹配；请更新 embed/public_key.hex 或 NORMA_LICENSE_PUBKEY_HEX）"
+                        .to_string(),
                 );
             }
             Ok(())
