@@ -197,21 +197,11 @@ fn execute_high_level_agent_command(
                 let status = match receipt.state {
                     agent::AgentDispatchState::Queued => AgentTaskReceiptStatus::Queued,
                     agent::AgentDispatchState::SubmittedManaged => {
-                        app.runtime
-                            .send_node_input(
-                                receipt.node_id,
-                                runtime::NodeInput::Text(format!("{}\n", receipt.task)),
-                            )
-                            .map_err(|error| error.to_string())?;
+                        submit_agent_task(&mut app.runtime, receipt.node_id, &receipt.task)?;
                         AgentTaskReceiptStatus::Submitted
                     }
                     agent::AgentDispatchState::SubmittedUntracked => {
-                        app.runtime
-                            .send_node_input(
-                                receipt.node_id,
-                                runtime::NodeInput::Text(format!("{}\n", receipt.task)),
-                            )
-                            .map_err(|error| error.to_string())?;
+                        submit_agent_task(&mut app.runtime, receipt.node_id, &receipt.task)?;
                         AgentTaskReceiptStatus::Untracked
                     }
                 };
@@ -228,6 +218,26 @@ fn execute_high_level_agent_command(
         }
         _ => Err("not a high-level Agent command".to_string()),
     }
+}
+
+fn submit_agent_task(
+    runtime: &mut runtime::Runtime,
+    node_id: canvas::NodeId,
+    task: &str,
+) -> Result<(), String> {
+    runtime
+        .send_node_input(node_id, runtime::NodeInput::Text(task.to_string()))
+        .map_err(|error| error.to_string())?;
+    runtime
+        .send_node_input(
+            node_id,
+            runtime::NodeInput::Key(terminal::KeyInput {
+                key: terminal::Key::Enter,
+                ctrl: false,
+                alt: false,
+            }),
+        )
+        .map_err(|error| error.to_string())
 }
 
 fn activate_definition(

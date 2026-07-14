@@ -468,3 +468,7 @@ fn is_current_runtime(app: &MultisoulApp, runtime_id: u64) -> bool {
 #[cfg(test)]
 #[path = "../../tests/unit/agent_runtime_tests.rs"]
 mod agent_runtime_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/agent_dispatch_submit_tests.rs"]
+mod agent_dispatch_submit_tests;
