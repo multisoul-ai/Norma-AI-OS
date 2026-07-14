@@ -156,3 +156,81 @@ fn test_zipformer_available_model_builds_only_transducer_config() {
         "统一 factory 应让 Zipformer 使用 2 线程 CPU 配置"
     );
 }
+
+/// SHERPA-CONFIG-3：Zipformer CTC 可用模型必须只填充 Zipformer2 CTC 配置分支。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   required files       = 2，model.int8.onnx + tokens.txt
+///   Zipformer2 CTC 分支  = 1，model 有精确路径
+///   Paraformer/Transducer = 0，相关路径均必须为 None
+///   recognizer threads   = 2，与现有本地 CPU 配置一致
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 从受控模型库定位 Zipformer CTC descriptor 并构造完整安装
+///   2. validate_installation → AvailableAsrModel
+///   3. build_online_recognizer_config → Sherpa OnlineRecognizerConfig
+///
+/// 预期结果：
+///   - 正断言：zipformer2_ctc.model 与 tokens 来自已校验根目录
+///   - 负断言：不得填充 Paraformer 或 Transducer 分支
+#[test]
+fn test_zipformer_ctc_available_model_builds_only_ctc_config() {
+    let temp = tempfile::tempdir().expect("应可创建 Zipformer CTC 配置临时目录");
+    let zipformer_ctc_id = asr::AsrModelId::parse(asr::ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID)
+        .expect("内置 Zipformer CTC ID 应有效");
+    let descriptor = builtin_model_catalog()
+        .find(&zipformer_ctc_id)
+        .expect("受控模型库应包含 Zipformer Streaming CTC ZH")
+        .clone();
+    for file in descriptor.artifact().required_files() {
+        fs::write(temp.path().join(file), [1_u8]).expect("应可写入模型占位文件");
+    }
+    InstallationManifest::for_descriptor(&descriptor)
+        .write_to(temp.path())
+        .expect("应可写入 Zipformer CTC 安装清单");
+    let available = validate_installation(temp.path(), &descriptor)
+        .expect("完整 Zipformer CTC 安装应转为可用模型");
+
+    let config = build_online_recognizer_config(&available)
+        .expect("可用 Zipformer CTC 应能生成 Sherpa CTC 配置");
+
+    assert_eq!(
+        config.model_config.zipformer2_ctc.model.as_deref(),
+        Some(
+            temp.path()
+                .join("model.int8.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "Zipformer CTC model 必须来自已校验安装根目录"
+    );
+    assert_eq!(
+        config.model_config.tokens.as_deref(),
+        Some(temp.path().join("tokens.txt").to_string_lossy().as_ref()),
+        "tokens 必须来自已校验安装根目录"
+    );
+    assert!(
+        config.model_config.paraformer.encoder.is_none(),
+        "Zipformer CTC 配置不得填充 Paraformer encoder"
+    );
+    assert!(
+        config.model_config.paraformer.decoder.is_none(),
+        "Zipformer CTC 配置不得填充 Paraformer decoder"
+    );
+    assert!(
+        config.model_config.transducer.encoder.is_none(),
+        "Zipformer CTC 配置不得填充 Transducer encoder"
+    );
+    assert!(
+        config.model_config.transducer.decoder.is_none(),
+        "Zipformer CTC 配置不得填充 Transducer decoder"
+    );
+    assert!(
+        config.model_config.transducer.joiner.is_none(),
+        "Zipformer CTC 配置不得填充 Transducer joiner"
+    );
+    assert_eq!(
+        config.model_config.num_threads, 2,
+        "统一 factory 应让 Zipformer CTC 使用 2 线程 CPU 配置"
+    );
+}

@@ -4,6 +4,8 @@ pub const PARAFORMER_MODEL_ID: &str = "paraformer-bilingual-zh-en-int8";
 pub const PARAFORMER_ARCHIVE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2";
 pub const ZIPFORMER_STREAMING_ZH_MODEL_ID: &str = "zipformer-streaming-zh-int8-2025-06-30";
 pub const ZIPFORMER_STREAMING_ZH_ARCHIVE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30.tar.bz2";
+pub const ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID: &str = "zipformer-streaming-ctc-zh-int8-2025-06-30";
+pub const ZIPFORMER_STREAMING_CTC_ZH_ARCHIVE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-ctc-zh-int8-2025-06-30.tar.bz2";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AsrCapabilities {
@@ -134,6 +136,8 @@ pub fn builtin_model_catalog() -> AsrModelCatalog {
         AsrModelId::parse(PARAFORMER_MODEL_ID).expect("built-in Paraformer model id must be valid");
     let zipformer_id = AsrModelId::parse(ZIPFORMER_STREAMING_ZH_MODEL_ID)
         .expect("built-in Zipformer model id must be valid");
+    let zipformer_ctc_id = AsrModelId::parse(ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID)
+        .expect("built-in Zipformer CTC model id must be valid");
     AsrModelCatalog {
         entries: vec![
             AsrModelDescriptor::new(
@@ -161,6 +165,17 @@ pub fn builtin_model_catalog() -> AsrModelCatalog {
                         "joiner.int8.onnx",
                         "tokens.txt",
                     ],
+                ),
+            ),
+            AsrModelDescriptor::new(
+                zipformer_ctc_id,
+                "Zipformer Streaming CTC ZH",
+                AsrCapabilities::new(vec!["zh"], true),
+                AsrArtifact::new(
+                    ZIPFORMER_STREAMING_CTC_ZH_ARCHIVE_URL,
+                    "f2ab7a5deb02717801f6a5b26c751b42f8a2db891b07f5b095e6da7442081448",
+                    127_965_713,
+                    vec!["model.int8.onnx", "tokens.txt"],
                 ),
             ),
         ],

@@ -4,10 +4,11 @@ use gpui::{Modifiers, TestAppContext, VisualTestContext};
 
 use crate::harness::{echo_factory, enter_canvas, make_app_with_settings_store};
 
-/// 两个受管 ASR 模型必须经 UI 与真实运行时加载切换，并由两种模式共享同一选择。
+/// 受控 ASR 模型必须经 UI 与真实运行时加载切换，并由两种模式共享同一选择。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   managed models = 2（Paraformer Bilingual + Zipformer Streaming ZH）
+///   managed models = 3（Paraformer + Zipformer Streaming ZH + Zipformer Streaming CTC ZH）
+///   L2 installed    = 2（本用例真实加载 Paraformer 与 Zipformer Transducer）
 ///   runtime loads  = 2（每次点击 Select 都真实构造对应 Sherpa recognizer）
 ///   mode switches  = 2（Dictation → Continuous → Dictation）
 ///   app reloads    = 1（同一 SQLite store 创建第二个 App）
@@ -20,7 +21,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app_with_settings_store};
 ///   5. 切回 Dictation，关闭 App；使用同一 SQLite store 重载并重新扫描模型
 ///
 /// 预期结果：
-///   - 正断言：两个模型均为 Ready，且分别能成为唯一 Selected 模型
+///   - 正断言：已安装的两个模型均为 Ready，且分别能成为唯一 Selected 模型
 ///   - 正断言：模式切换和 App 重载后都保留最后选择的 Zipformer 不可变 ID
 ///   - 负断言：切换后旧 Paraformer 不得继续报告 Selected
 ///   - 负断言：当前 Zipformer 不得暴露 Delete 动作
@@ -54,14 +55,18 @@ fn e2e_10_real_paraformer_and_zipformer_selection_is_shared_and_persistent() {
         click_debug(cx, "settings-section-voice");
 
         let initial = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
-        assert_eq!(initial.asr_models.len(), 2, "模型库应精确包含两个受控模型");
+        assert_eq!(initial.asr_models.len(), 3, "模型库应精确包含三个受控模型");
         assert_eq!(
             initial.asr_models[0].installation, "ready",
             "Paraformer 应为 Ready"
         );
         assert_eq!(
             initial.asr_models[1].installation, "ready",
-            "Zipformer 应为 Ready"
+            "Zipformer Streaming ZH 应为 Ready"
+        );
+        assert_eq!(
+            initial.asr_models[2].display_name, "Zipformer Streaming CTC ZH",
+            "第三张模型卡应为 Zipformer Streaming CTC ZH"
         );
         assert_eq!(
             initial.selected_asr_model_id, None,

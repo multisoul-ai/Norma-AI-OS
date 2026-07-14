@@ -1,5 +1,8 @@
 use crate::SpeechError;
-use asr::{AvailableAsrModel, PARAFORMER_MODEL_ID, ZIPFORMER_STREAMING_ZH_MODEL_ID};
+use asr::{
+    AvailableAsrModel, PARAFORMER_MODEL_ID, ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID,
+    ZIPFORMER_STREAMING_ZH_MODEL_ID,
+};
 
 pub fn build_online_recognizer_config(
     model: &AvailableAsrModel,
@@ -7,6 +10,7 @@ pub fn build_online_recognizer_config(
     match model.descriptor().id().as_str() {
         PARAFORMER_MODEL_ID => build_paraformer_config(model.root()),
         ZIPFORMER_STREAMING_ZH_MODEL_ID => build_transducer_config(model.root()),
+        ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID => build_zipformer2_ctc_config(model.root()),
         other => Err(SpeechError::Recognizer(format!(
             "unsupported ASR model: {other}"
         ))),
@@ -28,6 +32,28 @@ fn build_transducer_config(
                 encoder: Some(path_string(&encoder)),
                 decoder: Some(path_string(&decoder)),
                 joiner: Some(path_string(&joiner)),
+            },
+            tokens: Some(path_string(&tokens)),
+            num_threads: 2,
+            provider: Some("cpu".to_string()),
+            debug: false,
+            ..Default::default()
+        },
+        ..Default::default()
+    })
+}
+
+fn build_zipformer2_ctc_config(
+    root: &std::path::Path,
+) -> Result<sherpa_onnx::OnlineRecognizerConfig, SpeechError> {
+    use sherpa_onnx::{OnlineModelConfig, OnlineRecognizerConfig, OnlineZipformer2CtcModelConfig};
+
+    let model = required_model_file(root, "model.int8.onnx")?;
+    let tokens = required_model_file(root, "tokens.txt")?;
+    Ok(OnlineRecognizerConfig {
+        model_config: OnlineModelConfig {
+            zipformer2_ctc: OnlineZipformer2CtcModelConfig {
+                model: Some(path_string(&model)),
             },
             tokens: Some(path_string(&tokens)),
             num_threads: 2,

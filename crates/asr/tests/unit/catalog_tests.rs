@@ -1,17 +1,18 @@
 use crate::{
-    builtin_model_catalog, AsrModelId, PARAFORMER_MODEL_ID, ZIPFORMER_STREAMING_ZH_MODEL_ID,
+    builtin_model_catalog, AsrModelId, PARAFORMER_MODEL_ID, ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID,
+    ZIPFORMER_STREAMING_ZH_MODEL_ID,
 };
 
 /// ASR-CAT-1：受控模型库必须按不可变 ID 返回 Paraformer 的用户能力描述。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   catalog entry count = 2，Paraformer + Zipformer Streaming ZH
+///   catalog entry count = 3，Paraformer + Zipformer Streaming ZH + Zipformer Streaming CTC ZH
 ///   language count      = 2，中文 zh + 英文 en
 ///   required files      = 3，encoder + decoder + tokens
 ///   unknown id          = "unknown-asr-model-2099"，不在受控模型库
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 获取内置模型库 → 包含 Paraformer 和 Zipformer Streaming ZH
+///   1. 获取内置模型库 → 包含 Paraformer、Zipformer Streaming ZH 与 Zipformer Streaming CTC ZH
 ///   2. 按 PARAFORMER_MODEL_ID 查询 → 返回显示信息与流式能力
 ///   3. 按 unknown id 查询 → 返回 None
 ///
@@ -29,8 +30,8 @@ fn test_builtin_catalog_finds_paraformer_and_rejects_unknown_id() {
 
     assert_eq!(
         catalog.entries().len(),
-        2,
-        "首发受控模型库应同时包含 Paraformer 与 Zipformer"
+        3,
+        "受控模型库应包含 Paraformer、Zipformer Streaming ZH 与 Zipformer Streaming CTC ZH"
     );
     assert_eq!(
         paraformer.display_name(),
@@ -126,5 +127,78 @@ fn test_zipformer_catalog_entry_pins_official_artifact_without_recommendation() 
     assert!(
         !zipformer.recommended(),
         "未完成中文质量与 Apple Silicon 性能门禁前不得标记 Zipformer 为推荐"
+    );
+}
+
+/// ASR-CAT-3：Zipformer Streaming CTC ZH 必须固定官方 CTC 归档与必要文件。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   language count = 1，仅中文 zh
+///   required files = 2，model.int8.onnx + tokens.txt（无 encoder/decoder/joiner）
+///   archive bytes  = 127,965,713，来自官方 GitHub release 资产元数据
+///   pinned SHA-256 = f2ab7a5deb02717801f6a5b26c751b42f8a2db891b07f5b095e6da7442081448
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 按不可变 Zipformer CTC ID 查询受控模型库
+///   2. 读取显示名、语言、流式能力、归档 URL/大小/哈希与必要文件
+///   3. 检查推荐标记 → 质量门禁前保持 false
+///
+/// 预期结果：
+///   - 正断言：条目指向 streaming-zipformer-ctc 官方资产且要求 model.int8.onnx
+///   - 负断言：不得要求 Transducer 的 joiner；未门禁前不得推荐
+#[test]
+fn test_zipformer_ctc_catalog_entry_pins_official_ctc_artifact() {
+    let catalog = builtin_model_catalog();
+    let id = AsrModelId::parse(ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID)
+        .expect("内置 Zipformer CTC ID 应有效");
+    let zipformer_ctc = catalog
+        .find(&id)
+        .expect("受控模型库应包含 Zipformer Streaming CTC ZH");
+
+    assert_eq!(
+        zipformer_ctc.display_name(),
+        "Zipformer Streaming CTC ZH",
+        "Settings 应显示可与 Transducer Zipformer 区分的友好名称"
+    );
+    assert_eq!(
+        zipformer_ctc.capabilities().languages(),
+        &["zh"],
+        "Zipformer CTC ZH 只能声明已知的中文能力"
+    );
+    assert!(
+        zipformer_ctc.capabilities().streaming_partials(),
+        "Zipformer Streaming CTC ZH 必须声明支持流式 partial"
+    );
+    assert_eq!(
+        zipformer_ctc.artifact().url(),
+        "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-ctc-zh-int8-2025-06-30.tar.bz2",
+        "下载 URL 必须钉死官方 streaming-zipformer-ctc 归档"
+    );
+    assert_eq!(
+        zipformer_ctc.artifact().archive_bytes(),
+        127_965_713,
+        "下载大小必须匹配固定官方 CTC 归档字节数"
+    );
+    assert_eq!(
+        zipformer_ctc.artifact().sha256(),
+        "f2ab7a5deb02717801f6a5b26c751b42f8a2db891b07f5b095e6da7442081448",
+        "Zipformer CTC 官方归档 SHA-256 必须固定"
+    );
+    assert_eq!(
+        zipformer_ctc.artifact().required_files(),
+        &["model.int8.onnx".to_string(), "tokens.txt".to_string()],
+        "CTC 安装只应要求 model.int8.onnx 与 tokens.txt"
+    );
+    assert!(
+        !zipformer_ctc
+            .artifact()
+            .required_files()
+            .iter()
+            .any(|file| file.contains("joiner")),
+        "CTC 条目不得要求 Transducer joiner"
+    );
+    assert!(
+        !zipformer_ctc.recommended(),
+        "未完成中文质量与 Apple Silicon 性能门禁前不得标记 Zipformer CTC 为推荐"
     );
 }
