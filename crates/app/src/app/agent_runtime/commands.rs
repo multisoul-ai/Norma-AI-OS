@@ -220,7 +220,7 @@ fn execute_high_level_agent_command(
     }
 }
 
-fn submit_agent_task(
+pub(super) fn submit_agent_task(
     runtime: &mut runtime::Runtime,
     node_id: canvas::NodeId,
     task: &str,

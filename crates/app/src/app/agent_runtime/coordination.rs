@@ -1,7 +1,7 @@
 use canvas::{CanvasNodeKind, NodeId};
-use runtime::NodeInput;
 
 use super::super::MultisoulApp;
+use super::commands::submit_agent_task;
 
 impl MultisoulApp {
     pub(super) fn agent_roster_for_provider(&self) -> Vec<agent::AgentRosterEntry> {
@@ -85,10 +85,7 @@ impl MultisoulApp {
                 tracing::error!(definition_id, %error, "failed to persist queued Agent submission");
             }
         }
-        match self
-            .runtime
-            .send_node_input(next.node_id, NodeInput::Text(format!("{}\n", next.task)))
-        {
+        match submit_agent_task(&mut self.runtime, next.node_id, &next.task) {
             Ok(()) => true,
             Err(error) => {
                 tracing::error!(

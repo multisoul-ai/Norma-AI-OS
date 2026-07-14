@@ -1,6 +1,8 @@
 use super::execute_agent_card_command;
 use gpui::TestAppContext;
-use norma::protocol::{AgentProfile, AgentTaskAssignment, CardCommand, CardCommandResult};
+use norma::protocol::{
+    AgentProfile, AgentTaskAssignment, AgentTaskReceiptStatus, CardCommand, CardCommandResult,
+};
 use std::sync::{Arc, Mutex};
 use terminal::{PtyBackend, PtyError};
 
@@ -122,5 +124,149 @@ fn test_agent_dispatch_writes_text_then_real_enter_key() {
         actual_writes,
         vec!["开发贪吃蛇\n".as_bytes().to_vec()],
         "不得用单次 Text 写入正文加 LF；该路径只会让 Agent CLI 显示文字而不发布"
+    );
+}
+
+/// ART-7c：忙碌 Agent 的排队任务自动推进时，也必须写入正文后发送真实 Enter。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Agent definition = Alan/Codex 1 条，Hook server 使其使用 managed queue
+///   task-1 = "先检查项目"，5 个汉字 × 3 UTF-8 bytes = 15 bytes
+///   task-2 = "再开发贪吃蛇"，6 个汉字 × 3 UTF-8 bytes = 18 bytes
+///   每个已提交任务 = 正文 write 1 次 + Enter CR(0x0d) write 1 次
+///   expected PTY writes = 2 tasks × 2 writes/task = 4 次
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建并激活 Alan，第一次 dispatch 立即提交 task-1，使 Alan 进入 busy
+///   2. 第二次 dispatch task-2 → managed coordinator 将其标为 Queued，不写 PTY
+///   3. 调用生产队列完成边界 advance_agent_task_queue → 取出 task-2 并自动提交
+///   4. 读取 PTY 分段写入，验证两项任务都使用正文与真实 Enter 的相同协议
+///
+/// 预期结果：
+///   - 正断言：task-1 为 Submitted、task-2 初始为 Queued，队列推进返回 true
+///   - 正断言：四次写入依次为 task-1、CR、task-2、CR
+///   - 负断言：task-2 不得退回单次 `正文 + LF` 写入，否则 CLI 只显示而不发布
+#[test]
+fn test_queued_agent_task_advances_with_text_then_real_enter_key() {
+    let writes = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
+    let factory_writes = Arc::clone(&writes);
+    let factory: runtime::PtyFactory = Box::new(move |_cmd, _cols, _rows, _tx| {
+        Ok(Box::new(RecordingPtyBackend {
+            writes: Arc::clone(&factory_writes),
+        }) as Box<dyn PtyBackend>)
+    });
+    let mut gpui = TestAppContext::single();
+    let workspace = tempfile::TempDir::new()
+        .expect("Agent queue regression test should create a temp workspace");
+    let (app, cx) = gpui
+        .add_window_view(|_window, cx| crate::app::MultisoulApp::new_with_pty_factory(cx, factory));
+    app.update(cx, |app, cx| {
+        app.enter_canvas_for_test(workspace.path(), cx)
+    });
+
+    let create_result = cx.update(|window, app_cx| {
+        app.update(app_cx, |app, _cx| {
+            execute_agent_card_command(
+                app,
+                window,
+                CardCommand::CreateAgent {
+                    name: Some("Alan".to_string()),
+                    profile: AgentProfile::Codex,
+                    activate: true,
+                },
+            )
+        })
+    });
+    let first_dispatch = cx.update(|window, app_cx| {
+        app.update(app_cx, |app, _cx| {
+            execute_agent_card_command(
+                app,
+                window,
+                CardCommand::DispatchAgentTasks {
+                    assignments: vec![AgentTaskAssignment {
+                        name: "Alan".to_string(),
+                        task: "先检查项目".to_string(),
+                    }],
+                    force_untracked: false,
+                },
+            )
+        })
+    });
+    let second_dispatch = cx.update(|window, app_cx| {
+        app.update(app_cx, |app, _cx| {
+            execute_agent_card_command(
+                app,
+                window,
+                CardCommand::DispatchAgentTasks {
+                    assignments: vec![AgentTaskAssignment {
+                        name: "Alan".to_string(),
+                        task: "再开发贪吃蛇".to_string(),
+                    }],
+                    force_untracked: false,
+                },
+            )
+        })
+    });
+    let node_id = match &first_dispatch {
+        Ok(CardCommandResult::AgentTasksDispatched { receipts }) => receipts[0].node_id,
+        other => panic!("首次任务必须成功提交并返回 node_id，实际结果：{other:?}"),
+    };
+    let queue_advanced = app.update(cx, |app, _cx| app.advance_agent_task_queue(node_id));
+    let actual_writes = writes
+        .lock()
+        .expect("recording PTY writes mutex should remain readable")
+        .clone();
+
+    assert!(
+        matches!(create_result, Ok(CardCommandResult::AgentCreated { .. })),
+        "测试前置条件必须成功创建并激活 Alan；实际结果：{create_result:?}"
+    );
+    assert!(
+        matches!(
+            &first_dispatch,
+            Ok(CardCommandResult::AgentTasksDispatched { receipts })
+                if receipts.len() == 1
+                    && receipts[0].status == AgentTaskReceiptStatus::Submitted
+        ),
+        "首项 managed 任务应立即提交，实际结果：{first_dispatch:?}"
+    );
+    assert!(
+        matches!(
+            &second_dispatch,
+            Ok(CardCommandResult::AgentTasksDispatched { receipts })
+                if receipts.len() == 1 && receipts[0].status == AgentTaskReceiptStatus::Queued
+        ),
+        "忙碌 Agent 的第二项任务应先进入队列，实际结果：{second_dispatch:?}"
+    );
+    assert!(queue_advanced, "完成首项后应成功推进并提交下一项排队任务");
+    assert_eq!(
+        actual_writes.len(),
+        4,
+        "两项任务都必须产生正文与 Enter 两次写入；实际：{actual_writes:?}"
+    );
+    assert_eq!(
+        actual_writes[0],
+        "先检查项目".as_bytes(),
+        "首次提交的第一次写入应只包含 task-1 正文"
+    );
+    assert_eq!(
+        actual_writes[1],
+        vec![0x0d],
+        "首次提交的第二次写入应是 Enter CR(0x0d)"
+    );
+    assert_eq!(
+        actual_writes[2],
+        "再开发贪吃蛇".as_bytes(),
+        "队列推进的第一次写入应只包含 task-2 正文"
+    );
+    assert_eq!(
+        actual_writes[3],
+        vec![0x0d],
+        "队列推进的第二次写入应是 Enter CR(0x0d)"
+    );
+    assert_ne!(
+        &actual_writes[2..],
+        &["再开发贪吃蛇\n".as_bytes().to_vec()],
+        "排队任务不得退回单次正文加 LF 的旧提交协议"
     );
 }
