@@ -10,11 +10,16 @@ pub fn parse_hook_event(
     let provider_event = string_field(&raw_json, "hook_event_name")
         .or_else(|| string_field(&raw_json, "event_name"))
         .ok_or(AgentHookError::MissingEventName)?;
+    let provider_event = normalize_provider_event(source, provider_event);
     Ok(AgentHookEvent {
         node_id,
         profile: profile_for_source(source),
         provider_event,
-        session_id: string_field(&raw_json, "session_id"),
+        session_id: string_field(&raw_json, "session_id").or_else(|| {
+            (source == HookSource::Cursor)
+                .then(|| string_field(&raw_json, "conversation_id"))
+                .flatten()
+        }),
         turn_id: string_field(&raw_json, "turn_id"),
         tool_name: string_field(&raw_json, "tool_name"),
         message: string_field(&raw_json, "message")
@@ -75,6 +80,15 @@ pub fn hook_events_for_source(source: HookSource) -> &'static [&'static str] {
             "SubagentStart",
             "SubagentStop",
         ],
+        HookSource::Cursor => &[
+            "sessionStart",
+            "beforeSubmitPrompt",
+            "preToolUse",
+            "postToolUse",
+            "postToolUseFailure",
+            "stop",
+            "sessionEnd",
+        ],
         HookSource::OpenCode => &[
             "SessionStart",
             "UserPromptSubmit",
@@ -86,6 +100,23 @@ pub fn hook_events_for_source(source: HookSource) -> &'static [&'static str] {
             "SessionEnd",
         ],
     }
+}
+
+fn normalize_provider_event(source: HookSource, provider_event: String) -> String {
+    if source != HookSource::Cursor {
+        return provider_event;
+    }
+    match provider_event.as_str() {
+        "sessionStart" => "SessionStart",
+        "beforeSubmitPrompt" => "UserPromptSubmit",
+        "preToolUse" => "PreToolUse",
+        "postToolUse" => "PostToolUse",
+        "postToolUseFailure" => "PostToolUseFailure",
+        "stop" => "Stop",
+        "sessionEnd" => "SessionEnd",
+        _ => return provider_event,
+    }
+    .to_string()
 }
 
 /// Extract user prompt text from a UserPromptSubmit raw_json.

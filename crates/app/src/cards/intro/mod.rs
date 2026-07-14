@@ -27,6 +27,8 @@ const CODEX_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
     include_bytes!("../../../assets/init-animation/codex-brand-ascii.bin");
 const CLAUDE_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
     include_bytes!("../../../assets/init-animation/claude-code-brand-ascii.bin");
+const CURSOR_FRAMES: &[u8; INTRO_ANIMATION_TOTAL_BYTES] =
+    include_bytes!("../../../assets/init-animation/cursor-brand-ascii.bin");
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct IntroCell {
@@ -54,6 +56,7 @@ pub(crate) fn intro_frame(kind: InitializationAnimationKind, frame_index: usize)
         InitializationAnimationKind::Terminal => TERMINAL_FRAMES,
         InitializationAnimationKind::Codex => CODEX_FRAMES,
         InitializationAnimationKind::Claude => CLAUDE_FRAMES,
+        InitializationAnimationKind::Cursor => CURSOR_FRAMES,
         InitializationAnimationKind::OpenCode => AGENT_FRAMES,
     };
     let index = frame_index.min(INTRO_ANIMATION_FRAME_COUNT - 1);
@@ -68,6 +71,7 @@ pub(crate) fn intro_asset_name(kind: InitializationAnimationKind) -> &'static st
         InitializationAnimationKind::Terminal => "ghostty-terminal-16-47",
         InitializationAnimationKind::Codex => "codex-brand-ascii",
         InitializationAnimationKind::Claude => "claude-code-brand-ascii",
+        InitializationAnimationKind::Cursor => "cursor-brand-ascii",
         InitializationAnimationKind::OpenCode => "norma-agent-duotone",
     }
 }

@@ -7,7 +7,9 @@ use std::time::Duration;
 
 use gpui::{point, px, ClipboardItem, Modifiers, ScrollDelta, ScrollWheelEvent, TestAppContext};
 
-use crate::harness::{create_codex_agent, create_terminal, echo_factory, enter_canvas, make_app};
+use crate::harness::{
+    create_codex_agent, create_cursor_agent, create_terminal, echo_factory, enter_canvas, make_app,
+};
 
 /// E2E-05：用户新建 Terminal 后从 Ghostty 第 17 帧开始，31ms 后推进一帧。
 ///
@@ -192,6 +194,64 @@ fn e2e_05_new_codex_agent_starts_codex_brand_intro() {
     assert_ne!(
         stable.asset, "norma-agent-duotone",
         "Codex 初始化期间不得回退到旧的 Norma ASCII 肖像资源"
+    );
+
+    app.update(cx, |app, _| app.runtime.kill_all());
+}
+
+/// E2E-05：从公开 Cursor action 创建的卡片使用 Cursor 六边形箭头初始化资源。
+///
+/// 数据构造（含关键数值推导）：
+///   `NewCursorAgent` 创建 1 张 Agent 卡片；初始帧 index=0。
+///   覆盖层/内容层的初始透明度分别为 1000/0（毫值），保证品牌动画先于真实 PTY 显示。
+///
+/// 执行过程：
+///   1. 用确定性 PTY 工厂启动 app 并进入空 Canvas。
+///   2. dispatch `NewCursorAgent`，读取新节点的公开初始化动画 snapshot。
+///   3. 对比 kind、资源名与透明度，验证 profile 到动画资源的完整映射。
+///
+/// 预期结果：
+///   - 断言 A：Cursor 卡片登记 kind="cursor"、asset="cursor-brand-ascii"。
+///   - 断言 B：第 0 帧覆盖层完全不透明，真实内容不提前透出。
+///   - 断言 C：资源不得回退为 Codex 或通用 Norma Agent 动画。
+#[test]
+fn e2e_05_new_cursor_agent_starts_cursor_brand_intro() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("Cursor 动画测试应创建临时 workspace");
+    enter_canvas(&app, cx, workspace.path());
+    let node_id = create_cursor_agent(&app, cx);
+
+    let snapshot = app
+        .update(cx, |app, _| app.initialization_e2e_snapshot(node_id))
+        .expect("new Cursor Agent should expose its initialization snapshot");
+    assert_eq!(
+        snapshot.kind, "cursor",
+        "NewCursorAgent 应登记 Cursor 专属初始化资源"
+    );
+    assert_eq!(
+        snapshot.asset, "cursor-brand-ascii",
+        "Cursor 初始化状态必须指向由六边形箭头图标生成的 ASCII 资源"
+    );
+    assert_eq!(
+        snapshot.frame_index, 0,
+        "新建 Cursor Agent 应从品牌动画第 0 帧开始"
+    );
+    assert_eq!(
+        snapshot.overlay_opacity_milli, 1000,
+        "Cursor 第 0 帧应完全显示初始化覆盖层"
+    );
+    assert_eq!(
+        snapshot.content_opacity_milli, 0,
+        "Cursor 第 0 帧不应提前透出真实 Agent terminal"
+    );
+    assert_ne!(
+        snapshot.asset, "codex-brand-ascii",
+        "Cursor 卡片不应错误复用 Codex 品牌动画"
+    );
+    assert_ne!(
+        snapshot.asset, "norma-agent-duotone",
+        "Cursor 卡片不应回退到通用 Norma Agent 动画"
     );
 
     app.update(cx, |app, _| app.runtime.kill_all());

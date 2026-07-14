@@ -183,6 +183,7 @@ fn parse_profile(value: Option<&Value>) -> Result<AgentProfile, CardToolError> {
     match value.and_then(Value::as_str).unwrap_or("codex") {
         "claude" => Ok(AgentProfile::Claude),
         "codex" => Ok(AgentProfile::Codex),
+        "cursor" => Ok(AgentProfile::Cursor),
         "opencode" => Ok(AgentProfile::OpenCode),
         profile => Err(CardToolError::InvalidArguments(format!(
             "unsupported agent profile: {profile}"

@@ -82,6 +82,46 @@ fn test_parse_create_codex_agent_command() {
     );
 }
 
+/// Norma CLI：`card create agent --profile cursor` 应生成 Cursor Agent 创建命令。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   argv profile = "cursor"（小写命令行输入）；创建次数 = 1。
+///   AgentProfile::Cursor 是协议枚举，app 会将它映射为 canvas::AgentProfile。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. `parse_command_from` 解析 CLI 子命令和 `--profile` 值。
+///   2. 读取生成的 `CardKind::Agent`，检查 profile 枚举值。
+///
+/// 预期结果：
+///   - 断言 A：profile 精确解析为 Cursor，CLI 可创建 Cursor Agent。
+///   - 断言 B：profile 不得误解析为 Codex，避免启动错误的 Agent CLI。
+#[test]
+fn test_parse_create_cursor_agent_command() {
+    let command = parse_command_from(["norma", "card", "create", "agent", "--profile", "cursor"])
+        .expect("Cursor agent create CLI 应解析成功");
+
+    assert_eq!(
+        command,
+        CardCommand::Create {
+            kind: CardKind::Agent {
+                profile: AgentProfile::Cursor,
+            },
+            placement: Placement::VisibleArea,
+        },
+        "card create agent --profile cursor 应生成 Cursor Agent"
+    );
+    assert_ne!(
+        command,
+        CardCommand::Create {
+            kind: CardKind::Agent {
+                profile: AgentProfile::Codex,
+            },
+            placement: Placement::VisibleArea,
+        },
+        "cursor profile 不应被误解析为 Codex"
+    );
+}
+
 /// Norma CLI：`card create agent --profile opencode` 应生成 OpenCode Agent 创建命令。
 ///
 /// 数据构造（含关键数值的推导过程）：

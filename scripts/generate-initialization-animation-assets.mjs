@@ -54,6 +54,10 @@ fs.writeFileSync(
   path.join(outputDirectory, "claude-code-brand-ascii.bin"),
   buildClaudeCodeBrandFrames(claudeCodeBrandPath),
 );
+fs.writeFileSync(
+  path.join(outputDirectory, "cursor-brand-ascii.bin"),
+  buildCursorBrandFrames(),
+);
 
 function buildGhosttyFrames(websiteRoot) {
   const revision = execFileSync("git", ["-C", websiteRoot, "rev-parse", "HEAD"], {
@@ -141,6 +145,32 @@ function buildClaudeCodeBrandFrames(sourcePath) {
     50,
     claudeCodeBrandCell,
   );
+}
+
+function buildCursorBrandFrames() {
+  const base = Array.from({ length: rows }, () => Array(columns).fill(encodeCell(" ", false)));
+  const left = 20;
+  const width = 60;
+  const height = rows;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const nx = (x + 0.5) / width;
+      const ny = (y + 0.5) / height;
+      const hex = ny >= Math.abs(nx - 0.5) * 0.56 && ny <= 1 - Math.abs(nx - 0.5) * 0.56;
+      if (!hex) continue;
+      const arrow = nx > 0.12 && nx < 0.85 && ny > 0.20 && ny < 0.83
+        && ny < 0.46 + (nx - 0.12) * 0.52
+        && ny > 0.32 - (nx - 0.12) * 0.04;
+      const boundary = Math.min(
+        ny - Math.abs(nx - 0.5) * 0.56,
+        1 - Math.abs(nx - 0.5) * 0.56 - ny,
+      ) < 0.075;
+      const glyphs = "·.:=+*#%@";
+      const glyph = glyphs[Math.min(glyphs.length - 1, Math.floor((1 - ny * 0.35) * glyphs.length))];
+      base[y][x + left] = encodeCell(glyph, arrow && !boundary);
+    }
+  }
+  return buildAsciiMorphFramesFromBase(base);
 }
 
 function resizePngRgba(input, targetWidth, targetHeight, options = {}) {
@@ -262,6 +292,10 @@ function buildAsciiMorphFrames(pixels, sourceWidth, cellForPixel) {
     }
   }
 
+  return buildAsciiMorphFramesFromBase(base);
+}
+
+function buildAsciiMorphFramesFromBase(base) {
   const output = Buffer.alloc(frames * rows * columns);
   for (let frame = 0; frame < frames; frame += 1) {
     for (let y = 0; y < rows; y += 1) {

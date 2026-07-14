@@ -19,6 +19,7 @@ pub struct TermSpec;
 pub enum AgentProfile {
     Claude,
     Codex,
+    Cursor,
     OpenCode,
 }
 
@@ -27,6 +28,7 @@ impl AgentProfile {
         match self {
             AgentProfile::Claude => "Claude",
             AgentProfile::Codex => "Codex",
+            AgentProfile::Cursor => "Cursor",
             AgentProfile::OpenCode => "OpenCode",
         }
     }
@@ -186,6 +188,10 @@ mod tests {
             profile: AgentProfile::OpenCode,
             alias: None,
         });
+        let cursor = NodeKind::Agent(AgentSpec {
+            profile: AgentProfile::Cursor,
+            alias: None,
+        });
 
         assert_eq!(
             claude.node_type(),
@@ -203,6 +209,11 @@ mod tests {
             "OpenCode Agent 应暴露 NodeType::Agent，供 runtime/app registry dispatch"
         );
         assert_eq!(
+            cursor.node_type(),
+            NodeType::Agent,
+            "Cursor Agent 应暴露 NodeType::Agent，供 runtime/app registry dispatch"
+        );
+        assert_eq!(
             claude.display_title(),
             "Claude",
             "Claude Agent 标题应显示为 Claude"
@@ -216,6 +227,11 @@ mod tests {
             opencode.display_title(),
             "OpenCode",
             "OpenCode Agent 标题应显示为 OpenCode"
+        );
+        assert_eq!(
+            cursor.display_title(),
+            "Cursor",
+            "Cursor Agent 标题应显示为 Cursor"
         );
         assert_ne!(
             claude.display_title(),
@@ -231,6 +247,11 @@ mod tests {
             opencode.display_title(),
             "Terminal",
             "OpenCode Agent 不应退化显示为普通 Terminal"
+        );
+        assert_ne!(
+            cursor.display_title(),
+            "Terminal",
+            "Cursor Agent 不应退化显示为普通 Terminal"
         );
     }
 

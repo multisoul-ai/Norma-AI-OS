@@ -178,7 +178,50 @@ fn test_brand_intro_assets_use_distinct_duotone_ascii_frames() {
     );
 }
 
-/// IA-A4：Codex 与 Claude Code 的 ASCII 品牌图按终端字符的真实 8×16 像素比例等比显示。
+/// IA-A4：Cursor 使用由黑色六边形箭头图标生成的独立双色 ASCII 初始化资源。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   最后稳定帧 index = 32 - 1 = 31；资源网格为 100×41 = 4100 个 ASCII 单元。
+///   Cursor 图标由中性六边形轮廓和 accent 箭头两层组成，均至少应有 1 个可见字符。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 Cursor 稳定帧并统计中性/强调字符数。
+///   2. 读取 Cursor 的资源名，与通用 OpenCode 资源名比较。
+///
+/// 预期结果：
+///   - 断言 A：中性六边形和 accent 箭头都保留为可见字符。
+///   - 断言 B：Cursor 精确使用 `cursor-brand-ascii` 资源。
+///   - 断言 C：Cursor 不得回退到通用 Norma Agent 或 Codex 资源。
+#[test]
+fn test_cursor_intro_asset_uses_distinct_hexagon_arrow_frames() {
+    let final_frame = super::super::INTRO_ANIMATION_FRAME_COUNT - 1;
+    let (neutral, accent) =
+        super::super::intro_visible_cell_counts(InitializationAnimationKind::Cursor, final_frame);
+    let asset = super::super::intro_asset_name(InitializationAnimationKind::Cursor);
+
+    assert!(
+        neutral > 0,
+        "Cursor 稳定帧必须保留至少一个六边形中性轮廓字符，实际为 {neutral}"
+    );
+    assert!(
+        accent > 0,
+        "Cursor 稳定帧必须保留至少一个箭头 accent 字符，实际为 {accent}"
+    );
+    assert_eq!(
+        asset, "cursor-brand-ascii",
+        "Cursor 必须使用由指定图标生成的 cursor-brand-ascii 紧凑帧资源"
+    );
+    assert_ne!(
+        asset, "norma-agent-duotone",
+        "Cursor 不应回退到 OpenCode 使用的通用 Norma ASCII 肖像"
+    );
+    assert_ne!(
+        asset, "codex-brand-ascii",
+        "Cursor 不应错误复用 Codex 的品牌初始化资源"
+    );
+}
+
+/// IA-A5：Codex 与 Claude Code 的 ASCII 品牌图按终端字符的真实 8×16 像素比例等比显示。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   最后稳定帧 index = 32 - 1 = 31；终端字符单元物理尺寸为 8×16px。

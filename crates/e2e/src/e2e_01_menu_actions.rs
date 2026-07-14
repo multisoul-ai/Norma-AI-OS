@@ -1,6 +1,6 @@
-//! 原生菜单 Action 的 L1 验收：OpenCode 创建命令必须到达 Canvas root。
+//! 原生菜单 Action 的 L1 验收：OpenCode 与 Cursor 创建命令必须到达 Canvas root。
 
-use app::NewOpenCodeAgent;
+use app::{NewCursorAgent, NewOpenCodeAgent};
 use canvas::{AgentProfile, CanvasNodeKind};
 use gpui::TestAppContext;
 
@@ -66,6 +66,67 @@ fn e2e_menu_new_opencode_agent_dispatches_to_canvas_root() {
     assert_eq!(
         terminal_count, 0,
         "NewOpenCodeAgent 不应创建 Terminal 节点，实际 Terminal 数为 {}",
+        terminal_count
+    );
+}
+
+/// E2E-MENU-02：从 File › New 共享的 `NewCursorAgent` Action 创建 Cursor Agent 节点。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   初始 Agent 节点数 = 0，公开 action dispatch 次数 = 1。
+///   预期 Agent 节点数 = 0 + 1 = 1，profile = Cursor。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建带确定性 PTY 的 headless app 并进入 Canvas。
+///   2. dispatch `NewCursorAgent`，经真实 Action 路由进入 `spawn_agent_card`。
+///   3. 读取 Runtime document 中创建的节点。
+///
+/// 预期结果：
+///   - 正断言：仅创建一个 Agent 节点。
+///   - 正断言：节点 profile 为 Cursor。
+///   - 负断言：节点不是 Codex，且没有创建 Terminal。
+#[test]
+fn e2e_menu_new_cursor_agent_dispatches_to_canvas_root() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("Cursor 菜单 Action 测试应创建临时 workspace");
+    enter_canvas(&app, cx, workspace.path());
+
+    cx.dispatch_action(NewCursorAgent);
+    cx.run_until_parked();
+
+    let nodes = read_runtime(&app, cx, |runtime| runtime.document.nodes().to_vec());
+    let agent_nodes: Vec<_> = nodes
+        .iter()
+        .filter_map(|node| match &node.kind {
+            CanvasNodeKind::Agent(spec) => Some(spec),
+            _ => None,
+        })
+        .collect();
+    let terminal_count = nodes
+        .iter()
+        .filter(|node| matches!(node.kind, CanvasNodeKind::Term(_)))
+        .count();
+
+    assert_eq!(
+        agent_nodes.len(),
+        1,
+        "dispatch NewCursorAgent 后应恰好创建 1 个 Agent 节点，实际为 {}",
+        agent_nodes.len()
+    );
+    assert_eq!(
+        agent_nodes[0].profile,
+        AgentProfile::Cursor,
+        "NewCursorAgent 必须创建 Cursor profile"
+    );
+    assert_ne!(
+        agent_nodes[0].profile,
+        AgentProfile::Codex,
+        "NewCursorAgent 不能错误复用 Codex profile"
+    );
+    assert_eq!(
+        terminal_count, 0,
+        "NewCursorAgent 不应创建 Terminal 节点，实际 Terminal 数为 {}",
         terminal_count
     );
 }

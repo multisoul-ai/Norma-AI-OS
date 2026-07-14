@@ -76,6 +76,7 @@ actions!(
         NewTerminal,
         NewClaudeAgent,
         NewCodexAgent,
+        NewCursorAgent,
         NewOpenCodeAgent,
         NewBrowser,
         CopyCardContent,
@@ -445,6 +446,7 @@ impl Render for MultisoulApp {
                     .on_action(cx.listener(Self::on_new_browser))
                     .on_action(cx.listener(Self::on_new_claude_agent))
                     .on_action(cx.listener(Self::on_new_codex_agent))
+                    .on_action(cx.listener(Self::on_new_cursor_agent))
                     .on_action(cx.listener(Self::on_new_opencode_agent))
                     .on_action(cx.listener(Self::on_copy_card_content))
                     .on_action(cx.listener(Self::on_open_preview_file))

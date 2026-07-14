@@ -16,6 +16,7 @@ pub(super) fn hooks_settings(
     let paths = default_install_paths();
     let codex_installed = agent_hooks_installed(HookTarget::Codex, &paths);
     let claude_installed = agent_hooks_installed(HookTarget::Claude, &paths);
+    let cursor_installed = agent_hooks_installed(HookTarget::Cursor, &paths);
     let opencode_installed = agent_hooks_installed(HookTarget::OpenCode, &paths);
 
     div()
@@ -47,6 +48,19 @@ pub(super) fn hooks_settings(
             },
             cx,
             MultisoulApp::on_toggle_claude_hooks,
+        ))
+        .child(hook_provider_row(
+            theme,
+            &HookProviderRowSpec {
+                title: "Cursor Agent CLI",
+                hint: "Manage lifecycle hooks in ~/.cursor/hooks.json",
+                config_path: paths.cursor_hooks.display().to_string(),
+                installed: cursor_installed,
+                status: &panel.cursor_hook_status,
+                button_id: "settings-install-cursor-hooks",
+            },
+            cx,
+            MultisoulApp::on_toggle_cursor_hooks,
         ))
         .child(hook_provider_row(
             theme,
@@ -103,6 +117,16 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.settings_panel.opencode_hook_status = toggle_status_for(HookTarget::OpenCode);
+        cx.notify();
+    }
+
+    pub(super) fn on_toggle_cursor_hooks(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.settings_panel.cursor_hook_status = toggle_status_for(HookTarget::Cursor);
         cx.notify();
     }
 }

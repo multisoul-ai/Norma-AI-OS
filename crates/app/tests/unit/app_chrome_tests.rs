@@ -335,8 +335,8 @@ fn test_top_toolbar_includes_canvas_scroll_icon_toggle() {
 ///   top_toolbar_start = render_source 中首个 ".top(px(30.0))" 的下标（顶部工具栏锚点）
 ///   top_toolbar_end   = render_source 中 ".when(workspace_left_rail_visible()" 的下标（左侧菜单分支起点）
 ///   top_toolbar       = render_source[top_toolbar_start..top_toolbar_end]（仅顶部工具栏区段）
-///   分隔符调用次数    = top_toolbar 中 "chrome_divider(" 出现次数 = 3（Scroll|Plus|Claude·Codex·OpenCode|Settings）
-///   图标按钮调用次数  = top_toolbar 中 "chrome_icon_button(" 出现次数 = 6（Scroll/Plus/Claude/Codex/OpenCode/Settings）
+///   分隔符调用次数    = top_toolbar 中 "chrome_divider(" 出现次数 = 3（Scroll|Plus|四种 Agent|Settings）
+///   图标按钮调用次数  = top_toolbar 中 "chrome_icon_button(" 出现次数 = 7（Scroll/Plus/Claude/Codex/Cursor/OpenCode/Settings）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 截取顶部工具栏区段（排除左侧菜单分支与函数定义，避免误命中）
@@ -377,14 +377,13 @@ fn test_top_toolbar_uses_icon_buttons_and_drops_canvas_literal() {
     );
     assert_eq!(
         icon_button_calls,
-        6,
-        "顶部工具栏应恰好含 6 个 chrome_icon_button 调用 (Scroll/Plus/Claude/Codex/OpenCode/Settings)，实际 {}",
+        7,
+        "顶部工具栏应恰好含 7 个 chrome_icon_button 调用 (Scroll/Plus/Claude/Codex/Cursor/OpenCode/Settings)，实际 {}",
         icon_button_calls
     );
     assert_eq!(
-        divider_calls,
-        3,
-        "顶部工具栏应恰好含 3 个 chrome_divider 分隔符 (Scroll|Plus|Claude·Codex·OpenCode|Settings)，实际 {}",
+        divider_calls, 3,
+        "顶部工具栏应恰好含 3 个 chrome_divider 分隔符 (Scroll|Plus|四种 Agent|Settings)，实际 {}",
         divider_calls
     );
     assert!(

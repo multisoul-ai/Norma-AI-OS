@@ -156,6 +156,7 @@ fn parse_agent_profile(value: Option<&Value>) -> Result<AgentProfile, LlmError> 
     match profile {
         "claude" => Ok(AgentProfile::Claude),
         "codex" => Ok(AgentProfile::Codex),
+        "cursor" => Ok(AgentProfile::Cursor),
         "opencode" => Ok(AgentProfile::OpenCode),
         other => Err(LlmError::Message(format!("unknown agent profile: {other}"))),
     }

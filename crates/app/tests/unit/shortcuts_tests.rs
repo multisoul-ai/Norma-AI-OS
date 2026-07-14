@@ -3,11 +3,11 @@ use super::*;
 /// 快捷键默认注册表：当前 app 命令应全部从 registry 暴露，Settings 入口采用 macOS 习惯的 Cmd+,。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   editable command count = 13
+///   editable command count = 14
 ///     NewWindow / NewTerminal / CopyCardContent / OpenProject / OpenPreviewFile /
-///     NewClaudeAgent / NewCodexAgent / NewOpenCodeAgent / DeleteCard / ReflowLayout / ToggleMasterLayout /
+///     NewClaudeAgent / NewCodexAgent / NewCursorAgent / NewOpenCodeAgent / DeleteCard / ReflowLayout / ToggleMasterLayout /
 ///     ExitFocus / ToggleSettings
-///   default assigned count = 11（Claude/Codex/OpenCode agent 默认未设置；ExitFocus 默认 cmd-escape）
+///   default assigned count = 12（Cursor 默认 cmd-shift-c；Claude/Codex/OpenCode 默认未设置）
 ///   read-only behavior count >= 5（Paste / Voice / Arrow navigation / Space pan / PTY input）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -17,7 +17,7 @@ use super::*;
 ///
 /// 预期结果：
 ///   - 正断言：NewWindow、NewTerminal、DeleteCard、ToggleSettings 等命令存在且默认键位正确
-///   - 正断言：NewClaudeAgent / NewCodexAgent / NewOpenCodeAgent 存在但默认未设置
+///   - 正断言：Cursor Agent 有明确的默认创建快捷键，其他现有 Agent 保持未设置
 ///   - 负断言：Cmd+V 不应作为可编辑命令出现，避免覆盖 paste 路由
 #[test]
 fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
@@ -73,6 +73,11 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
         "New Codex Agent 应出现在可配置命令中，但默认不占用快捷键"
     );
     assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::NewCursorAgent),
+        Some("cmd-shift-c"),
+        "New Cursor Agent 默认应使用 Cmd+Shift+C，且可在 Settings 中重新录制"
+    );
+    assert_eq!(
         shortcut_for(&effective, ShortcutCommandId::NewOpenCodeAgent),
         None,
         "New OpenCode Agent 应出现在可配置命令中，但默认不占用快捷键"
@@ -88,6 +93,11 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
             .iter()
             .all(|entry| entry.current_keystroke.as_deref() != Some("cmd-v")),
         "Cmd+V 不应成为可编辑命令默认值，否则会覆盖 paste 路由"
+    );
+    assert_ne!(
+        shortcut_for(&effective, ShortcutCommandId::NewCursorAgent),
+        Some("cmd-c"),
+        "Cursor 创建快捷键不能占用 Cmd+C，否则会破坏复制选区"
     );
 }
 

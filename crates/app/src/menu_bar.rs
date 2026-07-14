@@ -1,9 +1,9 @@
 //! macOS 原生菜单栏的信息架构：先用纯描述表达产品层级，再转换为 GPUI `Menu`。
 
 use crate::app::{
-    CopyCardContent, NewBrowser, NewClaudeAgent, NewCodexAgent, NewOpenCodeAgent, NewTerminal,
-    NewWindow, OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, ToggleMasterLayout,
-    ToggleSettings,
+    CopyCardContent, NewBrowser, NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewOpenCodeAgent,
+    NewTerminal, NewWindow, OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout,
+    ToggleMasterLayout, ToggleSettings,
 };
 use gpui::{Menu, MenuItem, SystemMenuType};
 
@@ -37,6 +37,7 @@ pub(crate) enum MenuAction {
     OpenPreviewFile,
     NewClaudeAgent,
     NewCodexAgent,
+    NewCursorAgent,
     NewOpenCodeAgent,
     OpenProject,
     CopyCardContent,
@@ -71,6 +72,7 @@ pub(crate) fn menu_bar_spec() -> Vec<MenuSpec> {
                         MenuItemSpec::Separator,
                         action("New Claude Agent", MenuAction::NewClaudeAgent),
                         action("New Codex Agent", MenuAction::NewCodexAgent),
+                        action("New Cursor Agent", MenuAction::NewCursorAgent),
                         action("New OpenCode Agent", MenuAction::NewOpenCodeAgent),
                     ],
                 },
@@ -129,6 +131,7 @@ fn action_item(label: &'static str, action: MenuAction) -> MenuItem {
         MenuAction::OpenPreviewFile => MenuItem::action(label, OpenPreviewFile),
         MenuAction::NewClaudeAgent => MenuItem::action(label, NewClaudeAgent),
         MenuAction::NewCodexAgent => MenuItem::action(label, NewCodexAgent),
+        MenuAction::NewCursorAgent => MenuItem::action(label, NewCursorAgent),
         MenuAction::NewOpenCodeAgent => MenuItem::action(label, NewOpenCodeAgent),
         MenuAction::OpenProject => MenuItem::action(label, OpenProject),
         MenuAction::CopyCardContent => MenuItem::action(label, CopyCardContent),

@@ -17,6 +17,7 @@ pub enum ToolbarIcon {
     Browser,
     Claude,
     Codex,
+    Cursor,
     OpenCode,
     Preview,
     Settings,
@@ -32,6 +33,7 @@ impl ToolbarIcon {
             ToolbarIcon::Browser => "icons/toolbar-browser.svg",
             ToolbarIcon::Claude => "icons/toolbar-claude.svg",
             ToolbarIcon::Codex => "icons/toolbar-codex.svg",
+            ToolbarIcon::Cursor => "icons/toolbar-cursor.svg",
             ToolbarIcon::OpenCode => "icons/toolbar-opencode.svg",
             ToolbarIcon::Preview => "icons/toolbar-preview.svg",
             ToolbarIcon::Settings => "icons/toolbar-settings.svg",
@@ -58,7 +60,7 @@ mod tests {
     /// 顶栏图标 asset 路径：每个 ToolbarIcon 变体都映射到唯一的、命名规范的 SVG 路径。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   变体总数 = 9（Scroll / Plus / Terminal / Browser / Claude / Codex / OpenCode / Preview / Settings）
+    ///   变体总数 = 10（Scroll / Plus / Terminal / Browser / Claude / Codex / Cursor / OpenCode / Preview / Settings）
     ///   命名前缀 = "icons/toolbar-"
     ///   命名后缀 = ".svg"
     ///   期望路径表（variant -> asset_path）：
@@ -92,18 +94,20 @@ mod tests {
             ToolbarIcon::Browser,
             ToolbarIcon::Claude,
             ToolbarIcon::Codex,
+            ToolbarIcon::Cursor,
             ToolbarIcon::OpenCode,
             ToolbarIcon::Preview,
             ToolbarIcon::Settings,
         ];
-        // expected len = 9（与 ToolbarIcon 变体数一致，手工推导）
-        let expected: [(&ToolbarIcon, &str); 9] = [
+        // expected len = 10（与 ToolbarIcon 变体数一致，手工推导）
+        let expected: [(&ToolbarIcon, &str); 10] = [
             (&ToolbarIcon::Scroll, "icons/toolbar-scroll.svg"),
             (&ToolbarIcon::Plus, "icons/toolbar-plus.svg"),
             (&ToolbarIcon::Terminal, "icons/toolbar-terminal.svg"),
             (&ToolbarIcon::Browser, "icons/toolbar-browser.svg"),
             (&ToolbarIcon::Claude, "icons/toolbar-claude.svg"),
             (&ToolbarIcon::Codex, "icons/toolbar-codex.svg"),
+            (&ToolbarIcon::Cursor, "icons/toolbar-cursor.svg"),
             (&ToolbarIcon::OpenCode, "icons/toolbar-opencode.svg"),
             (&ToolbarIcon::Preview, "icons/toolbar-preview.svg"),
             (&ToolbarIcon::Settings, "icons/toolbar-settings.svg"),

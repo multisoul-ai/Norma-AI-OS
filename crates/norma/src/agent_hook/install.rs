@@ -1,3 +1,5 @@
+use super::cursor::{cursor_hooks_installed_at, install_cursor_hooks, uninstall_cursor_hooks};
+use super::opencode::{install_opencode_plugin, uninstall_opencode_plugin};
 use super::{
     build_hook_command, hook_events_for_source, hook_source_arg, AgentHookError, HookInstallPaths,
     HookSource, HookTarget, AGENT_HOOK_BINARY_NAME, OPENCODE_PLUGIN_MARKER,
@@ -31,10 +33,12 @@ pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bo
     match target {
         HookTarget::Claude => agent_hooks_installed_for_source(HookSource::Claude, paths),
         HookTarget::Codex => agent_hooks_installed_for_source(HookSource::Codex, paths),
+        HookTarget::Cursor => agent_hooks_installed_for_source(HookSource::Cursor, paths),
         HookTarget::OpenCode => agent_hooks_installed_for_source(HookSource::OpenCode, paths),
         HookTarget::All => {
             agent_hooks_installed_for_source(HookSource::Claude, paths)
                 && agent_hooks_installed_for_source(HookSource::Codex, paths)
+                && agent_hooks_installed_for_source(HookSource::Cursor, paths)
                 && agent_hooks_installed_for_source(HookSource::OpenCode, paths)
         }
     }
@@ -48,6 +52,9 @@ pub fn agent_hooks_installed_at(path: &Path, source: HookSource) -> bool {
     if source == HookSource::OpenCode {
         return fs::read_to_string(path)
             .is_ok_and(|source| source.contains(OPENCODE_PLUGIN_MARKER));
+    }
+    if source == HookSource::Cursor {
+        return cursor_hooks_installed_at(path);
     }
     let Ok(root) = read_json_or_empty(path) else {
         return false;
@@ -66,6 +73,9 @@ pub fn uninstall_hook_config(
     }
     if matches!(target, HookTarget::Codex | HookTarget::All) {
         uninstall_for_source(paths.codex_hooks.as_path(), HookSource::Codex)?;
+    }
+    if matches!(target, HookTarget::Cursor | HookTarget::All) {
+        uninstall_cursor_hooks(paths.cursor_hooks.as_path())?;
     }
     if matches!(target, HookTarget::OpenCode | HookTarget::All) {
         uninstall_opencode_plugin(paths.opencode_plugin.as_path())?;
@@ -87,6 +97,9 @@ pub fn install_hook_config(
     }
     if matches!(target, HookTarget::Codex | HookTarget::All) {
         install_for_source(paths.codex_hooks.as_path(), command_path, HookSource::Codex)?;
+    }
+    if matches!(target, HookTarget::Cursor | HookTarget::All) {
+        install_cursor_hooks(paths.cursor_hooks.as_path(), command_path)?;
     }
     if matches!(target, HookTarget::OpenCode | HookTarget::All) {
         install_opencode_plugin(paths.opencode_plugin.as_path())?;
@@ -111,14 +124,6 @@ fn install_for_source(
     Ok(())
 }
 
-fn install_opencode_plugin(path: &Path) -> Result<(), AgentHookError> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, opencode_plugin_source())?;
-    Ok(())
-}
-
 fn uninstall_for_source(path: &Path, source: HookSource) -> Result<(), AgentHookError> {
     if !path.exists() {
         return Ok(());
@@ -137,21 +142,11 @@ fn uninstall_for_source(path: &Path, source: HookSource) -> Result<(), AgentHook
     Ok(())
 }
 
-fn uninstall_opencode_plugin(path: &Path) -> Result<(), AgentHookError> {
-    if !path.exists() {
-        return Ok(());
-    }
-    let source = fs::read_to_string(path)?;
-    if source.contains(OPENCODE_PLUGIN_MARKER) {
-        fs::remove_file(path)?;
-    }
-    Ok(())
-}
-
 fn config_path_for_source(source: HookSource, paths: &HookInstallPaths) -> &Path {
     match source {
         HookSource::Claude => paths.claude_settings.as_path(),
         HookSource::Codex => paths.codex_hooks.as_path(),
+        HookSource::Cursor => paths.cursor_hooks.as_path(),
         HookSource::OpenCode => paths.opencode_plugin.as_path(),
     }
 }
@@ -181,7 +176,7 @@ fn group_has_multisoul_hook(group: &Value, source: HookSource) -> bool {
         })
 }
 
-fn is_multisoul_hook_command(command: &str, source: HookSource) -> bool {
+pub(super) fn is_multisoul_hook_command(command: &str, source: HookSource) -> bool {
     command.contains(AGENT_HOOK_BINARY_NAME)
         && command.contains(&format!("forward --source {}", hook_source_arg(source)))
 }
@@ -291,26 +286,26 @@ fn command_exists(event_hooks: &Value, command: &str) -> bool {
     })
 }
 
-fn read_json_or_empty(path: &Path) -> Result<Value, AgentHookError> {
+pub(super) fn read_json_or_empty(path: &Path) -> Result<Value, AgentHookError> {
     if !path.exists() {
         return Ok(json!({}));
     }
     Ok(serde_json::from_str(&fs::read_to_string(path)?)?)
 }
 
-fn ensure_object(value: &mut Value) {
+pub(super) fn ensure_object(value: &mut Value) {
     if !value.is_object() {
         *value = json!({});
     }
 }
 
-fn ensure_array(value: &mut Value) {
+pub(super) fn ensure_array(value: &mut Value) {
     if !value.is_array() {
         *value = json!([]);
     }
 }
 
-fn opencode_plugin_source() -> &'static str {
+pub(super) fn opencode_plugin_source() -> &'static str {
     r#"// multisoul-opencode-plugin-marker
 // Auto-generated by Norma OS. Forwards OpenCode Agent lifecycle events to the local Norma app.
 

@@ -99,6 +99,7 @@ fn agent_profile_name(profile: AgentProfile) -> &'static str {
     match profile {
         AgentProfile::Claude => "Claude",
         AgentProfile::Codex => "Codex",
+        AgentProfile::Cursor => "Cursor",
         AgentProfile::OpenCode => "OpenCode",
     }
 }
@@ -109,6 +110,7 @@ Allowed commands:
 {"type":"create","kind":{"kind":"terminal"}}
 {"type":"create","kind":{"kind":"agent","profile":"Codex"}}
 {"type":"create","kind":{"kind":"agent","profile":"Claude"}}
+{"type":"create","kind":{"kind":"agent","profile":"Cursor"}}
 {"type":"create","kind":{"kind":"agent","profile":"OpenCode"}}
 {"type":"focus","target":{"type":"node_id","node_id":1}}
 {"type":"send_text","target":{"type":"previous_step","step":0},"text":"hello","submit":false}

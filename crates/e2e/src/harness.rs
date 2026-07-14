@@ -8,7 +8,7 @@
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use app::{MultisoulApp, NewCodexAgent, NewTerminal};
+use app::{MultisoulApp, NewCodexAgent, NewCursorAgent, NewTerminal};
 use canvas::{CanvasNodeKind, NodeId};
 use gpui::{Entity, TestAppContext, VisualTestContext};
 use runtime::{NodeView, PtyFactory, Runtime};
@@ -173,6 +173,36 @@ pub fn create_codex_agent(view: &Entity<MultisoulApp>, cx: &mut VisualTestContex
             .max()
             .filter(|id| *id > max_before)
             .expect("NewCodexAgent should have spawned an Agent node with a larger id")
+    })
+}
+
+/// Dispatch `NewCursorAgent` 并返回新建 Agent 节点的 id。
+///
+/// 测试 PTY 工厂接管底层 live node，因此该 helper 仅验证公开 Cursor action 的
+/// 创建链路，不要求本机安装 Cursor Agent CLI。
+pub fn create_cursor_agent(view: &Entity<MultisoulApp>, cx: &mut VisualTestContext) -> NodeId {
+    let max_before = read_runtime(view, cx, |runtime| {
+        runtime
+            .document
+            .nodes()
+            .iter()
+            .filter(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
+            .map(|node| node.id)
+            .max()
+            .unwrap_or(0)
+    });
+    cx.dispatch_action(NewCursorAgent);
+    cx.run_until_parked();
+    read_runtime(view, cx, |runtime| {
+        runtime
+            .document
+            .nodes()
+            .iter()
+            .filter(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
+            .map(|node| node.id)
+            .max()
+            .filter(|id| *id > max_before)
+            .expect("NewCursorAgent should have spawned an Agent node with a larger id")
     })
 }
 

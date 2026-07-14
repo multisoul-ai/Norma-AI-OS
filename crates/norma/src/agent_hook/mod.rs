@@ -1,8 +1,10 @@
 pub mod cli;
 
+mod cursor;
 mod event;
 mod forward;
 mod install;
+mod opencode;
 
 use crate::protocol::{AgentProfile, NodeId};
 use serde::{Deserialize, Serialize};
@@ -31,6 +33,7 @@ pub const OPENCODE_PLUGIN_MARKER: &str = "multisoul-opencode-plugin-marker";
 pub enum HookSource {
     Claude,
     Codex,
+    Cursor,
     OpenCode,
 }
 
@@ -38,6 +41,7 @@ pub enum HookSource {
 pub enum HookTarget {
     Claude,
     Codex,
+    Cursor,
     OpenCode,
     All,
 }
@@ -69,6 +73,7 @@ pub enum AgentHookTaskState {
 pub struct HookInstallPaths {
     pub claude_settings: PathBuf,
     pub codex_hooks: PathBuf,
+    pub cursor_hooks: PathBuf,
     pub opencode_plugin: PathBuf,
 }
 
@@ -125,6 +130,7 @@ pub fn parse_hook_source(value: &str) -> Option<HookSource> {
     match value {
         "claude" | "Claude" => Some(HookSource::Claude),
         "codex" | "Codex" => Some(HookSource::Codex),
+        "cursor" | "Cursor" => Some(HookSource::Cursor),
         "opencode" | "OpenCode" => Some(HookSource::OpenCode),
         _ => None,
     }
@@ -134,6 +140,7 @@ pub fn parse_hook_target(value: &str) -> Option<HookTarget> {
     match value {
         "claude" | "Claude" => Some(HookTarget::Claude),
         "codex" | "Codex" => Some(HookTarget::Codex),
+        "cursor" | "Cursor" => Some(HookTarget::Cursor),
         "opencode" | "OpenCode" => Some(HookTarget::OpenCode),
         "all" | "All" => Some(HookTarget::All),
         _ => None,
@@ -155,6 +162,7 @@ pub fn hook_source_arg(source: HookSource) -> &'static str {
     match source {
         HookSource::Claude => "claude",
         HookSource::Codex => "codex",
+        HookSource::Cursor => "cursor",
         HookSource::OpenCode => "opencode",
     }
 }
@@ -163,6 +171,7 @@ pub fn profile_for_source(source: HookSource) -> AgentProfile {
     match source {
         HookSource::Claude => AgentProfile::Claude,
         HookSource::Codex => AgentProfile::Codex,
+        HookSource::Cursor => AgentProfile::Cursor,
         HookSource::OpenCode => AgentProfile::OpenCode,
     }
 }
@@ -182,6 +191,7 @@ pub fn default_install_paths() -> HookInstallPaths {
     HookInstallPaths {
         claude_settings: home.join(".claude").join("settings.json"),
         codex_hooks: home.join(".codex").join("hooks.json"),
+        cursor_hooks: home.join(".cursor").join("hooks.json"),
         opencode_plugin: home
             .join(".config")
             .join("opencode")

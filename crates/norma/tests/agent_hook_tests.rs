@@ -194,6 +194,7 @@ fn test_install_hook_config_is_idempotent_for_claude_and_codex() {
     let paths = HookInstallPaths {
         claude_settings: claude_path.clone(),
         codex_hooks: codex_path.clone(),
+        cursor_hooks: temp.path().join("cursor-hooks.json"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
@@ -360,6 +361,7 @@ fn test_uninstall_hook_config_removes_only_multisoul_hooks() {
     let paths = HookInstallPaths {
         claude_settings: temp.path().join("claude-settings.json"),
         codex_hooks: codex_path.clone(),
+        cursor_hooks: temp.path().join("cursor-hooks.json"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
@@ -426,6 +428,7 @@ fn test_uninstall_hook_config_is_idempotent_when_missing_or_clean() {
     let paths = HookInstallPaths {
         claude_settings: temp.path().join("claude-settings.json"),
         codex_hooks: temp.path().join("codex-hooks.json"),
+        cursor_hooks: temp.path().join("cursor-hooks.json"),
         opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
     };
 

@@ -301,7 +301,10 @@ fn resolve_agent_restore_session_id(
     profile: AgentProfile,
     _workspace_root: Option<&Path>,
 ) -> Option<String> {
-    if !matches!(profile, AgentProfile::Claude | AgentProfile::Codex) {
+    if !matches!(
+        profile,
+        AgentProfile::Claude | AgentProfile::Codex | AgentProfile::Cursor
+    ) {
         return None;
     }
     node_session

@@ -227,6 +227,16 @@ impl MultisoulApp {
                             .child(
                                 chrome_icon_button(
                                     theme,
+                                    ToolbarIcon::Cursor,
+                                    false,
+                                    "toolbar-new-cursor-agent",
+                                    "Cursor",
+                                )
+                                .on_click(cx.listener(Self::on_toolbar_new_cursor_agent)),
+                            )
+                            .child(
+                                chrome_icon_button(
+                                    theme,
                                     ToolbarIcon::OpenCode,
                                     false,
                                     "toolbar-new-opencode-agent",
@@ -425,3 +435,7 @@ impl Render for TooltipView {
 #[cfg(test)]
 #[path = "../../tests/unit/app_chrome_tests.rs"]
 mod app_chrome_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_chrome_cursor_tests.rs"]
+mod app_chrome_cursor_tests;

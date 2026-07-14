@@ -363,6 +363,13 @@ fn profile_buttons(theme: Theme, selected: AgentProfile, cx: &mut Context<Multis
                 ))
                 .child(profile_button(
                     theme,
+                    "Cursor",
+                    AgentProfile::Cursor,
+                    selected,
+                    cx,
+                ))
+                .child(profile_button(
+                    theme,
                     "OpenCode",
                     AgentProfile::OpenCode,
                     selected,
@@ -381,6 +388,7 @@ fn profile_button(
     let button_id = match profile {
         AgentProfile::Claude => "settings-agent-profile-claude",
         AgentProfile::Codex => "settings-agent-profile-codex",
+        AgentProfile::Cursor => "settings-agent-profile-cursor",
         AgentProfile::OpenCode => "settings-agent-profile-opencode",
     };
 

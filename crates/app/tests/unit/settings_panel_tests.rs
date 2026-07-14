@@ -89,12 +89,13 @@ fn test_settings_panel_layout_stays_inside_small_viewports() {
 #[test]
 fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() {
     let source = format!(
-        "{}{}{}{}{}",
+        "{}{}{}{}{}{}",
         include_str!("../../src/settings/panel.rs"),
         include_str!("../../src/settings/navigation.rs"),
         include_str!("../../src/settings/content.rs"),
         include_str!("../../src/settings/keyboard.rs"),
-        include_str!("../../src/shortcuts.rs")
+        include_str!("../../src/shortcuts.rs"),
+        include_str!("../../src/shortcuts/catalog.rs")
     );
     let required = [
         "SettingsSection::Keyboard",
@@ -106,6 +107,7 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
         "settings-shortcut-restore-delete-card",
         "settings-shortcut-new-claude-agent",
         "settings-shortcut-new-codex-agent",
+        "settings-shortcut-new-cursor-agent",
         "settings-shortcut-new-opencode-agent",
         "settings-shortcuts-restore-all",
         "Paste",
@@ -129,19 +131,19 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
     );
 }
 
-/// Hooks 页面锚点：Settings 应提供 Codex / Claude / OpenCode 一键安装入口。
+/// Hooks 页面锚点：Settings 应提供 Codex / Claude / Cursor / OpenCode 一键安装入口。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings_panel.rs + settings_content.rs + settings_hooks.rs
 ///   nav anchor = Hooks
-///   action anchors = settings-install-codex-hooks / settings-install-claude-hooks / settings-install-opencode-hooks
+///   action anchors = Codex / Claude / Cursor / OpenCode 四个 install button id
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 拼接 Settings 生产渲染源码
 ///   2. 检查 Hooks 分组与安装按钮 id 是否存在
 ///
 /// 预期结果：
-///   - 正断言：Hooks 导航与 Codex/Claude/OpenCode 安装按钮锚点都存在
+///   - 正断言：Hooks 导航与 Codex/Claude/Cursor/OpenCode 安装按钮锚点都存在
 ///   - 负断言：Hooks 页面不应仍只是 Runtime mock 文案
 #[test]
 fn test_hooks_settings_panel_contains_install_actions() {
@@ -157,6 +159,7 @@ fn test_hooks_settings_panel_contains_install_actions() {
         "Agent Hooks",
         "settings-install-codex-hooks",
         "settings-install-claude-hooks",
+        "settings-install-cursor-hooks",
         "settings-install-opencode-hooks",
         "Install hooks",
         "Uninstall hooks",
@@ -177,6 +180,10 @@ fn test_hooks_settings_panel_contains_install_actions() {
     assert!(
         source.contains("Manage lifecycle hooks in ~/.claude/settings.json"),
         "Hooks 页面应包含 Claude 管理说明"
+    );
+    assert!(
+        source.contains("Manage lifecycle hooks in ~/.cursor/hooks.json"),
+        "Hooks 页面应包含 Cursor CLI 管理说明"
     );
     assert!(
         source.contains("Manage lifecycle hooks in ~/.config/opencode/plugins"),

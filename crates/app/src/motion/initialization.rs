@@ -20,6 +20,7 @@ pub(crate) enum InitializationAnimationKind {
     Terminal,
     Codex,
     Claude,
+    Cursor,
     OpenCode,
 }
 
@@ -28,6 +29,7 @@ impl InitializationAnimationKind {
         match profile {
             AgentProfile::Codex => Self::Codex,
             AgentProfile::Claude => Self::Claude,
+            AgentProfile::Cursor => Self::Cursor,
             AgentProfile::OpenCode => Self::OpenCode,
         }
     }

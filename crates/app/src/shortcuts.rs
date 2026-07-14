@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use storage::{AppStore, SettingsStore};
 
+mod catalog;
+pub(crate) use catalog::{default_shortcut_entries, read_only_behaviors};
+
 const SHORTCUT_PREFS_KEY: &str = "keyboard.shortcuts.v1";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -18,6 +21,7 @@ pub(crate) enum ShortcutCommandId {
     OpenPreviewFile,
     NewClaudeAgent,
     NewCodexAgent,
+    NewCursorAgent,
     NewOpenCodeAgent,
     DeleteCard,
     ReflowLayout,
@@ -247,158 +251,6 @@ impl fmt::Display for ShortcutValidationError {
             Self::BarePrintable => write!(f, "Use a modifier key for text shortcuts"),
         }
     }
-}
-
-pub(crate) fn default_shortcut_entries() -> &'static [ShortcutEntry] {
-    &[
-        ShortcutEntry {
-            command: ShortcutCommandId::NewWindow,
-            category: "Workspace",
-            title: "New Window",
-            hint: "Open a new project launcher window",
-            default_keystroke: Some("cmd-shift-n"),
-            editable: true,
-        },
-        ShortcutEntry {
-            command: ShortcutCommandId::NewTerminal,
-            category: "Workspace",
-            title: "New Terminal",
-            hint: "Create a terminal card in the visible canvas",
-            default_keystroke: Some("cmd-n"),
-            editable: true,
-        },
-        ShortcutEntry {
-            command: ShortcutCommandId::NewBrowser,
-            category: "Workspace",
-            title: "New Browser",
-            hint: "Create a lightweight browser card in the visible canvas",
-            default_keystroke: None,
-            editable: true,
-        },
-        ShortcutEntry {
-            command: ShortcutCommandId::OpenProject,
-            category: "Workspace",
-            title: "Open Project",
-            hint: "Choose a workspace folder",
-            default_keystroke: Some("cmd-o"),
-            editable: true,
-        },
-        ShortcutEntry {
-            command: ShortcutCommandId::OpenPreviewFile,
-            category: "Workspace",
-            title: "Open Preview File",
-            hint: "Create a preview card from a local file",
-            default_keystroke: Some("cmd-shift-o"),
-            editable: true,
-        },
-        ShortcutEntry {
-            command: ShortcutCommandId::NewClaudeAgent,
-            category: "Cards",
-            title: "New Claude Agent",
-            hint: "Create a Claude Code live agent card",
-            default_keystroke: None,
-            editable: true,
-        },
-        ShortcutEntry {
-            command: ShortcutCommandId::NewCodexAgent,
-            category: "Cards",
-            title: "New Codex Agent",
-            hint: "Create a Codex live agent card",
-            default_keystroke: None,
-            editable: true,
-        },
-        ShortcutEntry {
-            command: ShortcutCommandId::NewOpenCodeAgent,
-            category: "Cards",
-            title: "New OpenCode Agent",
-            hint: "Create an OpenCode live agent card",
-            default_keystroke: None,
-            editable: true,
-        },
-        ShortcutEntry {
-            command: ShortcutCommandId::CopyCardContent,
-            category: "Cards",
-            title: "Copy Selection",
-            hint: "Copy the active terminal text selection",
-            default_keystroke: Some("cmd-c"),
-            editable: true,
-        },
-        ShortcutEntry {
-            command: ShortcutCommandId::DeleteCard,
-            category: "Cards",
-            title: "Delete Card",
-            hint: "Delete the focused or single selected card",
-            default_keystroke: Some("cmd-d"),
-            editable: true,
-        },
-        ShortcutEntry {
-            command: ShortcutCommandId::ReflowLayout,
-            category: "Layout",
-            title: "Reflow Layout",
-            hint: "Tile all cards in the visible workspace",
-            default_keystroke: Some("cmd-shift-l"),
-            editable: true,
-        },
-        ShortcutEntry {
-            command: ShortcutCommandId::ToggleMasterLayout,
-            category: "Layout",
-            title: "Toggle Master Layout",
-            hint: "Switch between master/detail and tiled layout",
-            default_keystroke: Some("cmd-m"),
-            editable: true,
-        },
-        ShortcutEntry {
-            command: ShortcutCommandId::ExitFocus,
-            category: "Layout",
-            title: "Exit Focus",
-            hint: "Return keyboard control to the canvas. When a card is focused, bare Esc always reaches the terminal — use this shortcut or click outside to exit.",
-            default_keystroke: Some("cmd-escape"),
-            editable: true,
-        },
-        ShortcutEntry {
-            command: ShortcutCommandId::ToggleSettings,
-            category: "Settings",
-            title: "Open Settings",
-            hint: "Show or hide the Settings panel",
-            default_keystroke: Some("cmd-,"),
-            editable: true,
-        },
-    ]
-}
-
-pub(crate) fn read_only_behaviors() -> &'static [ReadOnlyShortcutBehavior] {
-    &[
-        ReadOnlyShortcutBehavior {
-            title: "Paste",
-            hint: "Send clipboard text to the focused or keyboard-selected node",
-            keystroke: "cmd-v",
-            scope: "System",
-        },
-        ReadOnlyShortcutBehavior {
-            title: "Voice Interaction",
-            hint: "Use the active voice mode with the fixed Cmd+E shortcut",
-            keystroke: "cmd-e",
-            scope: "System",
-        },
-        ReadOnlyShortcutBehavior {
-            title: "Arrow Navigation",
-            hint: "Move selection across visible canvas cards",
-            keystroke: "up",
-            scope: "Canvas behavior",
-        },
-        ReadOnlyShortcutBehavior {
-            title: "Space Pan",
-            hint: "Hold Space and drag to pan the canvas",
-            keystroke: "space",
-            scope: "Canvas behavior",
-        },
-        ReadOnlyShortcutBehavior {
-            title: "Terminal Input",
-            hint: "Printable keys, Enter, Tab, Ctrl, and Alt are forwarded to PTY",
-            keystroke: "ctrl-* / alt-*",
-            scope: "Node behavior",
-        },
-    ]
 }
 
 pub(crate) fn effective_shortcuts(prefs: &ShortcutPreferences) -> Vec<EffectiveShortcutEntry> {

@@ -212,6 +212,7 @@ fn most_recent_input_target_step(commands: &[PlannedCommand]) -> Option<usize> {
                                 profile:
                                     AgentProfile::Codex
                                     | AgentProfile::Claude
+                                    | AgentProfile::Cursor
                                     | AgentProfile::OpenCode,
                             },
                     } => Some(index),

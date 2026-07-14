@@ -56,6 +56,7 @@ pub enum CardKind {
 pub enum AgentProfile {
     Claude,
     Codex,
+    Cursor,
     OpenCode,
 }
 

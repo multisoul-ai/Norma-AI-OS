@@ -38,6 +38,7 @@ pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEn
             }
             PtyCommand::new("/bin/zsh").arg("-ic").arg(exec_command)
         }
+        AgentProfile::Cursor => PtyCommand::new("/bin/zsh").args(["-ic", "exec cursor-agent"]),
         AgentProfile::OpenCode => {
             PtyCommand::new("/bin/zsh").args(["-lic", "exec \"${OPENCODE_BIN:-opencode}\""])
         }
@@ -72,6 +73,7 @@ mod tests {
     fn test_agent_command_maps_profile_to_expected_cli() {
         let claude = agent_command(AgentProfile::Claude, None);
         let codex = agent_command(AgentProfile::Codex, None);
+        let cursor = agent_command(AgentProfile::Cursor, None);
 
         assert_eq!(
             claude.program, "/bin/zsh",
@@ -86,6 +88,10 @@ mod tests {
             "Claude Agent 应使用 zsh -ic 执行 CLI"
         );
         assert_eq!(codex.args[0], "-ic", "Codex Agent 应使用 zsh -ic 执行 CLI");
+        assert_eq!(
+            cursor.args[0], "-ic",
+            "Cursor Agent 应使用 zsh -ic 执行 CLI"
+        );
         assert!(
             claude.args[1].contains("claude"),
             "Claude Agent 命令应包含 claude CLI"
@@ -93,6 +99,10 @@ mod tests {
         assert!(
             codex.args[1].contains("codex"),
             "Codex Agent 命令应包含 codex CLI"
+        );
+        assert!(
+            cursor.args[1].contains("cursor-agent"),
+            "Cursor Agent 命令应包含兼容的 cursor-agent CLI 入口"
         );
         assert!(
             !claude.args[1].contains("codex"),
@@ -103,12 +113,20 @@ mod tests {
             "Codex Agent 命令不应误用 claude CLI"
         );
         assert!(
+            !cursor.args[1].contains("codex"),
+            "Cursor Agent 命令不应误用 codex CLI"
+        );
+        assert!(
             claude.env.iter().all(|(key, _)| key != "MULTISOUL_NODE_ID"),
             "未传 hook env 时 Claude 命令不应注入 MULTISOUL_NODE_ID"
         );
         assert!(
             codex.env.iter().all(|(key, _)| key != "MULTISOUL_NODE_ID"),
             "未传 hook env 时 Codex 命令不应注入 MULTISOUL_NODE_ID"
+        );
+        assert!(
+            cursor.env.iter().all(|(key, _)| key != "MULTISOUL_NODE_ID"),
+            "未传 hook env 时 Cursor 命令不应注入 MULTISOUL_NODE_ID"
         );
     }
 
