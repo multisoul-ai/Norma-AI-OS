@@ -12,7 +12,7 @@ Norma OS 允许多个 Agent 在不同的活跃 Agent 卡片中并行执行任务
 
 为所有活跃 Agent 卡片增加设置可控的任务终态 TTS 播报。每次 `UserPromptSubmit` 打开一个新的 Agent 任务轮次；该轮第一次收到可信的正常完成或整轮失败证据时，应用快照 Agent 呼叫名并创建一条内存通知：正常完成朗读 `<Agent Name>, Done`，整轮失败朗读 `<Agent Name>, Failed`。没有 Agent 呼叫名的兼容场景回退到 Agent 运行时类型名称，例如 `Codex, Done`。
 
-Agent 播报复用当前全局选择的本地 TTS 模型、Voice、音频输出和实际播放时钟，但不进入 Voice Turn，不改变 Dialogue phase，也不生成聊天气泡或对话历史。播报通过有界 FIFO 队列与其他音频目的协调：普通助手回复不被 Agent 通知打断；用户开始语音输入、主动 Voice Preview 或关闭播报开关时，当前 Agent 通知立即停止，尚未播放的通知全部清空。
+Agent 播报复用当前全局选择的本地 TTS 模型、Voice、音频输出和实际播放时钟，但不进入 Voice Turn，不改变 Dialogue phase，也不生成聊天气泡或对话历史。名称与终态词分别合成，并在两段 PCM 之间插入固定 250ms 静音后作为一条音频播放；该节奏只用于 Agent 任务终态播报，不改变 Dialogue、Voice Preview 或其他 TTS。播报通过有界 FIFO 队列与其他音频目的协调：普通助手回复不被 Agent 通知打断；用户开始语音输入、主动 Voice Preview 或关闭播报开关时，当前 Agent 通知立即停止，尚未播放的通知全部清空。
 
 Agent 播报和 Voice Preview 的实际 PCM 播放复用现有语音驱动窗口内缘光。视觉仍由真实 PCM 能量与播放回调驱动，不能由 TTS 请求、合成完成或排队状态提前触发。窗口不可见时音频仍可播报，但不得为了不可见动画持续制造重绘工作。
 
@@ -74,7 +74,7 @@ Agent 播报和 Voice Preview 的实际 PCM 播放复用现有语音驱动窗口
 - A non-zero PTY/process exit claims `Failed` only when that Agent node has an active round and no terminal outcome has already been claimed. Idle exits, zero exits, ordinary `Ended` transitions and manual interruption do not create an announcement.
 - Hook and PTY fallback evidence share the same terminal claim. Whichever valid terminal source arrives first wins; later sources for that round are ignored for speech.
 - Snapshot the spoken name when the terminal outcome is accepted. Trim surrounding whitespace; if no valid Agent 呼叫名 is available, use the Agent runtime type display name. Never include the task title, prompt, tool name, provider message or failure details.
-- The exact V1 utterances are `<Agent Name>, Done` and `<Agent Name>, Failed`, including the comma as a short TTS pause. V1 does not localize the terminal words or vary phrasing by provider.
+- The exact V1 utterance identities are `<Agent Name>, Done` and `<Agent Name>, Failed` for logs and observable queue state. For playback, synthesize the Agent name and terminal word separately, insert exactly 250ms of zero-value PCM between them, then submit the merged PCM as one queue item. V1 does not expose a pause setting, localize the terminal words or vary phrasing by provider.
 - Add a global, immediately effective and asynchronously persisted Voice setting named `Agent task announcements`. Its default is enabled. Turning it off cancels active Agent announcement synthesis/playback, clears all pending Agent announcements and prevents new events from entering the queue.
 - Treat the announcement as skipped at event time when announcements are disabled or no selected, installed and valid Local TTS model/Voice is available. Skipped events are not retained for later model installation or re-enablement.
 - Reuse the globally selected Local TTS model, Voice and validated local engine. Do not automatically download a model, invoke macOS speech synthesis, call a cloud service or silently select a different installed model.
@@ -105,6 +105,7 @@ Agent 播报和 Voice Preview 的实际 PCM 播放复用现有语音驱动窗口
 - Test unavailable TTS behavior: disabled announcements, no selected model, invalid installation and missing Voice each produce no queued speech, no automatic install/fallback and no later replay after configuration becomes available.
 - Extend the existing window-inset e2e seam with known-amplitude PCM for Agent announcement and Voice Preview purposes. Assert that queued-but-not-started audio does not light the inset, actual playback does, PCM energy changes the visual, normal completion settles, interruption fades quickly and the visual setting independently disables the effect.
 - Test conversational isolation: Agent announcements leave Dialogue phase, assistant messages, history and `Replying...` unchanged before, during and after playback.
+- Test Agent-only pacing with deterministic PCM: at 16,000Hz mono PCM16, derive the fixed pause as `16,000 × 250 / 1,000 × 1 channel × 2 bytes = 8,000 bytes`; assert the TTS requests are the separate name and terminal word, the middle 8,000 bytes are zero, and Dialogue/Voice Preview synthesis remains unchanged.
 - Test lifecycle cleanup: deleting a card removes its pending items; beginning a new round preserves the prior queued terminal item; app shutdown/reconstruction does not replay in-memory notifications; one synthesis/playback failure advances to the next item without retry.
 - Add or update headless GPUI e2e because Voice Settings, active Agent cards and the window-level visual are user-observable acceptance flows. Headless tests must be described as render-tree/application-state evidence, not proof of real speaker output.
 - Add an ignored L3 macOS runner or equivalent packaged-app smoke path using a real selected Local TTS model. Verify audible `Raya, Done` and `Raya, Failed`, serial playback for two Agent cards, background-window playback, user interruption and synchronized window-inset behavior. The acceptance report must distinguish this real-app/audio evidence from headless e2e.
@@ -125,6 +126,7 @@ Agent 播报和 Voice Preview 的实际 PCM 播放复用现有语音驱动窗口
 - Showing `Replying...`, creating a new Voice Turn or changing the semantic state of持续聆听/单次语音指令 for a notification.
 - Adding a new animation, notification badge or card motion. This feature reuses the existing语音驱动窗口内缘光.
 - Changing TTS model quality, pronunciation, language support, sample rate, buffering policy or the exact visual design/timing of the existing window inset.
+- Adding a configurable announcement pause or changing global TTS speed, Dialogue pacing, Voice Preview pacing or any non-Agent-terminal TTS path.
 - OS-level notifications, menu-bar status, mobile push notifications or speech while Norma OS is not running.
 
 ## Further Notes

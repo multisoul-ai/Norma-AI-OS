@@ -1,6 +1,6 @@
 //! Agent task terminal announcement policy and playback coordination.
 
-use super::dialogue::{create_tts_client, synthesize_reply, TtsClientBox};
+use super::dialogue::{create_tts_client, TtsClientBox};
 use super::voice_window_inset::{PcmEnergyTimeline, TtsPlaybackEvent};
 use super::MultisoulApp;
 use canvas::{CanvasNodeKind, NodeId};
@@ -11,8 +11,10 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 mod playback;
+mod synthesis;
 pub(crate) use playback::AgentAnnouncementPlayback;
 use playback::{AgentAnnouncementAudioControl, AgentAnnouncementPlaybackPhase};
+use synthesis::synthesize_agent_terminal_announcement;
 
 const MAX_PENDING_ANNOUNCEMENTS: usize = 32;
 
@@ -39,6 +41,8 @@ impl AnnouncementEligibility {
 pub(super) struct AgentAnnouncement {
     node_id: NodeId,
     text: String,
+    agent_name: String,
+    outcome_word: String,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -60,15 +64,6 @@ impl AgentAnnouncementOutcome {
         match self {
             Self::Done => "Done",
             Self::Failed => "Failed",
-        }
-    }
-}
-
-impl AgentAnnouncement {
-    fn new(node_id: NodeId, text: impl Into<String>) -> Self {
-        Self {
-            node_id,
-            text: text.into(),
         }
     }
 }
@@ -153,10 +148,8 @@ impl AgentAnnouncements {
                 "agent announcement queue is full; dropped the oldest pending announcement"
             );
         }
-        self.pending.push_back(AgentAnnouncement::new(
-            node_id,
-            format!("{agent_name}, {}", outcome.spoken_word()),
-        ));
+        self.pending
+            .push_back(AgentAnnouncement::terminal(node_id, agent_name, outcome));
     }
 
     fn take_next_ready(&mut self) -> Option<AgentAnnouncement> {
@@ -262,7 +255,8 @@ impl MultisoulApp {
         self.agent_announcement_playback.generation =
             self.agent_announcement_playback.generation.wrapping_add(1);
         let generation = self.agent_announcement_playback.generation;
-        let text = announcement.text.clone();
+        let agent_name = announcement.agent_name.clone();
+        let outcome_word = announcement.outcome_word.clone();
         let existing_tts = self.agent_announcement_playback.tts_client.take();
         self.agent_announcement_playback.phase =
             AgentAnnouncementPlaybackPhase::Synthesizing(announcement);
@@ -271,7 +265,8 @@ impl MultisoulApp {
                 Some(tts) => tts,
                 None => create_tts_client()?,
             };
-            let chunk = synthesize_reply(tts.as_mut(), &text)?;
+            let chunk =
+                synthesize_agent_terminal_announcement(tts.as_mut(), &agent_name, &outcome_word)?;
             Ok::<_, voice_sherpa::SpeechError>((tts, chunk))
         });
         cx.spawn(async move |this, cx| {
