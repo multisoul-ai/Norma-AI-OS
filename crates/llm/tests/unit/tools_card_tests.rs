@@ -1,4 +1,4 @@
-use norma::protocol::{AgentProfile, CardCommand, CardCommandResult, CardKind, Placement};
+use norma::protocol::{CardCommand, CardCommandResult, CardKind, Placement};
 use serde_json::Value;
 
 use super::{
@@ -34,7 +34,7 @@ fn test_parse_create_terminal_tool_call() {
     );
 }
 
-/// CARD-TOOL-2: Create agent 工具调用应解析 profile，缺省为 Codex。
+/// CARD-TOOL-2: 通用 Create 工具不得创建匿名 Agent 卡片。
 ///
 /// 数据构造：
 ///   两条 ToolCall：显式 profile=codex；仅 kind=agent 无 profile。
@@ -43,11 +43,10 @@ fn test_parse_create_terminal_tool_call() {
 ///   1. 分别 parse 两条 Create agent 调用
 ///
 /// 预期结果：
-///   - 正断言：显式 codex → AgentProfile::Codex
-///   - 正断言：缺省 profile → AgentProfile::Codex
-///   - 负断言：不应回落到 Terminal
+///   - 正断言：两条调用都返回 Agent definition workflow 错误
+///   - 负断言：任一调用都不应产生匿名 CardCommand::Create
 #[test]
-fn test_parse_create_agent_tool_call_with_default_profile() {
+fn test_parse_create_agent_tool_call_rejects_generic_bypass() {
     let explicit = ToolCall {
         id: "call_2".into(),
         name: "Create".into(),
@@ -58,27 +57,26 @@ fn test_parse_create_agent_tool_call_with_default_profile() {
         name: "Create".into(),
         arguments_json: r#"{"kind":"agent"}"#.into(),
     };
-    let explicit_cmd = parse_card_tool_call(&explicit).expect("显式 codex Create 应解析成功");
-    let defaulted_cmd = parse_card_tool_call(&defaulted).expect("缺省 profile Create 应解析成功");
-    assert_eq!(
-        explicit_cmd,
-        CardCommand::Create {
-            kind: CardKind::Agent {
-                profile: AgentProfile::Codex,
-            },
-            placement: Placement::VisibleArea,
-        },
-        "显式 codex 应映射为 Agent(Codex)"
+    let explicit_error = parse_card_tool_call(&explicit)
+        .expect_err("显式 profile 也不得绕过 Agent definition workflow");
+    let defaulted_error =
+        parse_card_tool_call(&defaulted).expect_err("缺省 profile 也不得创建匿名 Agent 卡片");
+    assert!(
+        explicit_error
+            .to_string()
+            .contains("Agent definition workflow"),
+        "显式 profile 的拒绝错误应指向 Agent definition workflow"
     );
-    assert_eq!(
-        defaulted_cmd,
-        CardCommand::Create {
-            kind: CardKind::Agent {
-                profile: AgentProfile::Codex,
-            },
-            placement: Placement::VisibleArea,
-        },
-        "缺省 profile 应默认为 Codex"
+    assert!(
+        defaulted_error
+            .to_string()
+            .contains("Agent definition workflow"),
+        "缺省 profile 的拒绝错误应指向 Agent definition workflow"
+    );
+    assert_ne!(
+        explicit_error.to_string(),
+        String::new(),
+        "显式匿名 Agent 创建不得被静默接受"
     );
 }
 

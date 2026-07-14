@@ -14,8 +14,8 @@ fn key(key: &str, key_char: Option<&str>) -> Keystroke {
 /// AS-2A: bind_project_store() 切换到另一个 project store 时，必须清空前一个项目留下的 draft/edit buffer，避免把 Project A 的草稿误保存进 Project B。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   store A seeded rows        = 1 条，name = "Alpha Agent"
-///   store B seeded rows        = 1 条，name = "Beta Agent"
+///   store A seeded rows        = 1 条，name = "Alpha"
+///   store B seeded rows        = 1 条，name = "Beta"
 ///   overlapping ids           = A/B 首条记录都预计为 id=1，用于暴露“按旧 draft.id 更新到新 store”风险
 ///   pending visible name      = "Leaked Agent Name"，长度 17 <= 80
 ///   pending visible workflow  = "Leaked workflow from A"，长度 22 <= 2000
@@ -56,14 +56,14 @@ fn test_agent_definitions_state_bind_project_store_clears_stale_draft_before_sav
     let store_b = project_b.agent_definition_store();
     let alpha = store_a
         .create(&NewAgentDefinition {
-            name: "Alpha Agent".to_string(),
+            name: "Alpha".to_string(),
             runtime_profile: AgentProfile::Codex,
             workflow_description: "Alpha workflow".to_string(),
         })
         .expect("test should seed project A definition");
     let beta = store_b
         .create(&NewAgentDefinition {
-            name: "Beta Agent".to_string(),
+            name: "Beta".to_string(),
             runtime_profile: AgentProfile::Claude,
             workflow_description: "Beta workflow".to_string(),
         })
@@ -73,7 +73,7 @@ fn test_agent_definitions_state_bind_project_store_clears_stale_draft_before_sav
 
     let did_edit = state.edit_definition(alpha.id);
     state.begin_edit(AgentDefinitionField::Name);
-    for _ in 0.."Alpha Agent".chars().count() {
+    for _ in 0.."Alpha".chars().count() {
         state.handle_key_down(&key("backspace", None));
     }
     for ch in "Leaked Agent Name".chars() {
@@ -122,7 +122,7 @@ fn test_agent_definitions_state_bind_project_store_clears_stale_draft_before_sav
         "切换到 Project B 后应自动选中 Project B 的首条 definition，而不是保留 Project A selected id"
     );
     assert_eq!(
-        draft_after_bind.name, "Beta Agent",
+        draft_after_bind.name, "Beta",
         "切换到 Project B 后 draft 应加载 Project B 名称，避免 Project A pending edit 泄漏"
     );
     assert!(
@@ -139,7 +139,7 @@ fn test_agent_definitions_state_bind_project_store_clears_stale_draft_before_sav
         "state definitions should stay scoped to Project B after rebinding the store"
     );
     assert_eq!(
-        in_memory[0].name, "Beta Agent",
+        in_memory[0].name, "Beta",
         "state definitions should preserve Project B's original agent name after the failed save"
     );
     assert_eq!(
@@ -152,7 +152,7 @@ fn test_agent_definitions_state_bind_project_store_clears_stale_draft_before_sav
         "project A should still contain the original definition id after switching stores"
     );
     assert_eq!(
-        persisted_a[0].name, "Alpha Agent",
+        persisted_a[0].name, "Alpha",
         "project A should retain its original agent name after switching stores"
     );
     assert_eq!(
@@ -169,7 +169,7 @@ fn test_agent_definitions_state_bind_project_store_clears_stale_draft_before_sav
         "project B should still contain the original definition id after switching stores"
     );
     assert_eq!(
-        persisted_b[0].name, "Beta Agent",
+        persisted_b[0].name, "Beta",
         "project B should retain its original agent name instead of Project A's stale draft"
     );
     assert_eq!(

@@ -1,7 +1,9 @@
 //! Unified, GPUI-free Agent runtime for dialogue and serial card subagents.
 
+mod coordination;
 mod diagnostics;
 mod host;
+mod identity;
 mod journal;
 mod lifecycle;
 mod model;
@@ -13,7 +15,14 @@ mod system;
 mod system_types;
 mod tools;
 
+pub use coordination::{
+    render_agent_roster, AgentAssignment, AgentCoordinationError, AgentDispatchReceipt,
+    AgentDispatchState, AgentRosterEntry, AgentTaskCoordinator, AgentTrackingMode,
+};
 pub use host::{CardToolError, CardToolHost};
+pub use identity::{
+    builtin_agent_names, AgentName, AgentNameError, AgentNameRegistry, BuiltinAgentName,
+};
 pub use journal::{AuditEntry, CardTaskJournal, MemoryJournal};
 pub use model::{
     AgentCommand, AgentEvent, AgentMessage, CardToolRequest, CardToolResult, MessageRole,
@@ -21,7 +30,8 @@ pub use model::{
     TaskState, ToolCallRecord, ToolErrorRecord,
 };
 pub use prompts::{
-    card_task_system_prompt, dialogue_persona, dialogue_system_prompt, MAX_DIALOGUE_HISTORY_TURNS,
+    card_task_system_prompt, card_task_system_prompt_with_roster, dialogue_persona,
+    dialogue_system_prompt, dialogue_system_prompt_with_roster, MAX_DIALOGUE_HISTORY_TURNS,
 };
 pub use protocol::{
     build_ollama_chat_request, build_openai_chat_request, parse_ollama_response,

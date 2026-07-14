@@ -1,4 +1,4 @@
-use norma::protocol::{AgentProfile, CardCommand, CardCommandResult, CardKind, Placement};
+use norma::protocol::{CardCommand, CardCommandResult, CardKind, Placement};
 use serde_json::{json, Value};
 
 use crate::{LlmError, ToolCall, ToolSpec};
@@ -7,19 +7,14 @@ pub fn card_tool_specs() -> Vec<ToolSpec> {
     vec![
         ToolSpec {
             name: "Create".into(),
-            description: "Create a new terminal or agent card on the canvas.".into(),
+            description: "Create a new terminal card on the canvas.".into(),
             parameters_json_schema: json!({
                 "type": "object",
                 "properties": {
                     "kind": {
                         "type": "string",
-                        "enum": ["terminal", "agent"],
+                        "enum": ["terminal"],
                         "description": "Card kind to create."
-                    },
-                    "profile": {
-                        "type": "string",
-                        "enum": ["claude", "codex", "opencode"],
-                        "description": "Agent profile when kind is agent. Defaults to codex."
                     }
                 },
                 "required": ["kind"],
@@ -43,7 +38,7 @@ pub fn card_tool_specs() -> Vec<ToolSpec> {
         },
         ToolSpec {
             name: "SendText".into(),
-            description: "Send text input to a terminal or agent card.".into(),
+            description: "Send text input to a terminal card.".into(),
             parameters_json_schema: json!({
                 "type": "object",
                 "properties": {
@@ -99,6 +94,36 @@ pub fn tool_result_json_for_command_result(result: &CardCommandResult) -> String
             "status": "listed",
             "cards": cards,
         }),
+        CardCommandResult::AgentsListed { agents } => json!({
+            "status": "agents_listed",
+            "agents": agents,
+        }),
+        CardCommandResult::AgentCreated {
+            definition_id,
+            name,
+            node_id,
+        } => json!({
+            "status": "agent_created",
+            "definition_id": definition_id,
+            "name": name,
+            "node_id": node_id,
+        }),
+        CardCommandResult::AgentActivated {
+            definition_id,
+            name,
+            node_id,
+            reused,
+        } => json!({
+            "status": "agent_activated",
+            "definition_id": definition_id,
+            "name": name,
+            "node_id": node_id,
+            "reused": reused,
+        }),
+        CardCommandResult::AgentTasksDispatched { receipts } => json!({
+            "status": "agent_tasks_dispatched",
+            "receipts": receipts,
+        }),
     };
     value.to_string()
 }
@@ -113,8 +138,10 @@ fn parse_create(args: &Value) -> Result<CardCommand, LlmError> {
     let card_kind = match kind {
         "terminal" => CardKind::Terminal { shell: None },
         "agent" => {
-            let profile = parse_agent_profile(args.get("profile"))?;
-            CardKind::Agent { profile }
+            return Err(LlmError::Message(
+                "generic Create cannot create Agent cards; use the Agent definition workflow"
+                    .into(),
+            ))
         }
         other => {
             return Err(LlmError::Message(format!("unknown create kind: {other}")));
@@ -144,22 +171,6 @@ fn parse_send_text(args: &Value) -> Result<CardCommand, LlmError> {
         text,
         submit,
     })
-}
-
-fn parse_agent_profile(value: Option<&Value>) -> Result<AgentProfile, LlmError> {
-    let Some(value) = value else {
-        return Ok(AgentProfile::Codex);
-    };
-    let profile = value
-        .as_str()
-        .ok_or_else(|| LlmError::Message("profile must be a string".into()))?;
-    match profile {
-        "claude" => Ok(AgentProfile::Claude),
-        "codex" => Ok(AgentProfile::Codex),
-        "cursor" => Ok(AgentProfile::Cursor),
-        "opencode" => Ok(AgentProfile::OpenCode),
-        other => Err(LlmError::Message(format!("unknown agent profile: {other}"))),
-    }
 }
 
 fn required_str<'a>(args: &'a Value, field: &str) -> Result<&'a str, LlmError> {

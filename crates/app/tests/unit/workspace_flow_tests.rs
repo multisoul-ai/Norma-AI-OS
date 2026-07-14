@@ -174,6 +174,7 @@ fn test_enter_workspace_starts_profile_specific_intro_for_restored_live_cards() 
                 kind: CanvasNodeKind::Agent(AgentSpec {
                     profile: AgentProfile::Codex,
                     alias: None,
+                    definition_id: None,
                 }),
                 bounds: CanvasRect::new(20.0, 30.0, 640.0, 360.0),
                 z_index: 2,
@@ -183,6 +184,7 @@ fn test_enter_workspace_starts_profile_specific_intro_for_restored_live_cards() 
                 kind: CanvasNodeKind::Agent(AgentSpec {
                     profile: AgentProfile::Claude,
                     alias: None,
+                    definition_id: None,
                 }),
                 bounds: CanvasRect::new(30.0, 40.0, 640.0, 360.0),
                 z_index: 3,

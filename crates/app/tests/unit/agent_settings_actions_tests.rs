@@ -41,7 +41,7 @@ fn test_agent_definitions_state_save_draft_creates_definition() {
     let mut state = AgentDefinitionsState::default();
     state.bind_project_store(store.clone());
 
-    state.set_draft_name("Catalog Agent");
+    state.set_draft_name("Catalog");
     state.set_draft_runtime_profile(AgentProfile::Claude);
     state.set_draft_workflow_description("Handle project catalog actions");
 
@@ -58,7 +58,7 @@ fn test_agent_definitions_state_save_draft_creates_definition() {
         "state definitions should contain exactly one created definition after save"
     );
     assert_eq!(
-        in_memory[0].name, "Catalog Agent",
+        in_memory[0].name, "Catalog",
         "state definitions should include the saved agent name"
     );
     assert_eq!(
@@ -76,7 +76,7 @@ fn test_agent_definitions_state_save_draft_creates_definition() {
         "project store should persist exactly one definition after save"
     );
     assert_eq!(
-        persisted[0].name, "Catalog Agent",
+        persisted[0].name, "Catalog",
         "project store should persist the created agent name"
     );
     assert_eq!(
@@ -95,7 +95,7 @@ fn test_agent_definitions_state_save_draft_creates_definition() {
     );
     assert_eq!(
         state.draft().name,
-        "Catalog Agent",
+        "Catalog",
         "保存新建 definition 后详情 draft 应显示已保存名称"
     );
     assert!(!state.is_dirty(), "保存成功后 draft 不应保持 dirty 状态");
@@ -104,8 +104,8 @@ fn test_agent_definitions_state_save_draft_creates_definition() {
 /// AS-9: edit_definition() 加载已有 definition 后，再次 save_draft() 应更新原记录，而不是新增重复记录。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   initial definitions        = 1 条，name = "Original Agent"
-///   edited name                = "Edited Agent"，长度 12 <= 80
+///   initial definitions        = 1 条，name = "Original"
+///   edited name                = "Edited"，长度 6 <= 16
 ///   edited workflow            = "Updated workflow"，长度 16 <= 2000
 ///   final persisted count      = 1 条，验证 update 而非 create
 ///
@@ -118,13 +118,13 @@ fn test_agent_definitions_state_save_draft_creates_definition() {
 ///   - 正断言：edit_definition() 返回 true 并把旧 definition 装入 draft
 ///   - 正断言：save_draft() 返回 true，内存与持久化都只保留 1 条更新后的记录
 ///   - 正断言：更新后记录仍使用同一个 id
-///   - 负断言：旧名称 "Original Agent" 不应继续留在内存或持久化列表里
+///   - 负断言：旧名称 "Original" 不应继续留在内存或持久化列表里
 #[test]
 fn test_agent_definitions_state_edit_and_save_updates_definition() {
     let store = make_agent_definition_store("task-5-edit-save");
     let original = store
         .create(&NewAgentDefinition {
-            name: "Original Agent".to_string(),
+            name: "Original".to_string(),
             runtime_profile: AgentProfile::Codex,
             workflow_description: "Original workflow".to_string(),
         })
@@ -133,7 +133,7 @@ fn test_agent_definitions_state_edit_and_save_updates_definition() {
     state.bind_project_store(store.clone());
 
     let did_edit = state.edit_definition(original.id);
-    state.set_draft_name("Edited Agent");
+    state.set_draft_name("Edited");
     state.set_draft_runtime_profile(AgentProfile::Claude);
     state.set_draft_workflow_description("Updated workflow");
     let did_save = state.save_draft();
@@ -160,7 +160,7 @@ fn test_agent_definitions_state_edit_and_save_updates_definition() {
         "updated in-memory definition should keep the original id"
     );
     assert_eq!(
-        in_memory[0].name, "Edited Agent",
+        in_memory[0].name, "Edited",
         "updated in-memory definition should use the edited name"
     );
     assert_eq!(
@@ -182,19 +182,19 @@ fn test_agent_definitions_state_edit_and_save_updates_definition() {
         "persisted update should keep the original definition id"
     );
     assert_eq!(
-        persisted[0].name, "Edited Agent",
+        persisted[0].name, "Edited",
         "project store should persist the edited name instead of creating a second row"
     );
     assert!(
         !persisted
             .iter()
-            .any(|definition| definition.name == "Original Agent"),
+            .any(|definition| definition.name == "Original"),
         "project store should not retain the original name after update"
     );
     assert!(
         !in_memory
             .iter()
-            .any(|definition| definition.name == "Original Agent"),
+            .any(|definition| definition.name == "Original"),
         "state definitions should not retain the original name after update"
     );
 }
@@ -202,8 +202,8 @@ fn test_agent_definitions_state_edit_and_save_updates_definition() {
 /// AS-11: 当草稿名称与同项目已有 definition 重名时，save_draft() 应失败并暴露可读错误消息，而不是底层 SQLite 文本。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   existing definition        = 1 条，name = "Duplicate Agent"
-///   duplicate draft name       = "Duplicate Agent"，与现有记录完全相同
+///   existing definition        = 1 条，name = "Duplicate"
+///   duplicate draft name       = "Duplicate"，与现有记录完全相同
 ///   duplicate workflow         = "Another workflow"，长度 16 <= 2000
 ///   expected persisted count   = 1 条，验证失败不会写入第二条记录
 ///
@@ -222,7 +222,7 @@ fn test_agent_definitions_state_duplicate_name_sets_readable_error() {
     let store = make_agent_definition_store("task-5-duplicate");
     store
         .create(&NewAgentDefinition {
-            name: "Duplicate Agent".to_string(),
+            name: "Duplicate".to_string(),
             runtime_profile: AgentProfile::Codex,
             workflow_description: "Original workflow".to_string(),
         })
@@ -231,7 +231,7 @@ fn test_agent_definitions_state_duplicate_name_sets_readable_error() {
     state.bind_project_store(store.clone());
 
     let did_begin_new = state.begin_new_definition();
-    state.set_draft_name("Duplicate Agent");
+    state.set_draft_name("Duplicate");
     state.set_draft_runtime_profile(AgentProfile::Claude);
     state.set_draft_workflow_description("Another workflow");
 
@@ -266,7 +266,7 @@ fn test_agent_definitions_state_duplicate_name_sets_readable_error() {
         "project store should not create a second row after a duplicate-name save failure"
     );
     assert_eq!(
-        persisted[0].name, "Duplicate Agent",
+        persisted[0].name, "Duplicate",
         "project store should retain only the original definition after duplicate-name rejection"
     );
     assert!(

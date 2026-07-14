@@ -29,7 +29,7 @@ where
         while self.dialogue_turns.len() >= MAX_DIALOGUE_HISTORY_TURNS {
             self.dialogue_turns.pop_front();
         }
-        let routing_decision = super::dialogue_policy::route_user_turn(&text);
+        let routing_decision = super::dialogue_policy::route_user_turn(&text, &self.agent_roster);
         let live_event_sink = (routing_decision == DialogueRoutingDecision::ModelOnly)
             .then(|| self.live_event_sink.clone())
             .flatten();
@@ -157,7 +157,9 @@ where
     fn dialogue_request_messages(&self, current_turn: &[AgentMessage]) -> Vec<AgentMessage> {
         let history_message_count = self.dialogue_turns.iter().map(Vec::len).sum::<usize>();
         let mut messages = Vec::with_capacity(1 + history_message_count + current_turn.len());
-        messages.push(system_message(crate::dialogue_system_prompt()));
+        messages.push(system_message(crate::dialogue_system_prompt_with_roster(
+            &self.agent_roster_prompt,
+        )));
         for turn in &self.dialogue_turns {
             messages.extend(turn.iter().cloned());
         }

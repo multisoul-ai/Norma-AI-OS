@@ -6,9 +6,15 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc};
 
 mod artifacts;
+mod commands;
+mod coordination;
 mod diagnostics;
 
 pub(crate) use artifacts::artifacts_from_agent_events;
+#[cfg(test)]
+use commands::execute_agent_card_command;
+#[cfg(test)]
+use coordination::agent_completion_report;
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -370,11 +376,13 @@ impl MultisoulApp {
             start_tool_pump(tools, runtime_id, window, cx);
             start_event_pump(events, runtime_id, cx);
         }
-        Ok(self
+        let roster = self.agent_roster_for_provider();
+        let runtime = self
             .agent_runtime
             .as_ref()
-            .expect("agent runtime should exist after initialization")
-            .submit(command))
+            .expect("agent runtime should exist after initialization");
+        let _ = runtime.submit(AgentCommand::UpdateAgentRoster(roster));
+        Ok(runtime.submit(command))
     }
 }
 
@@ -392,7 +400,7 @@ fn start_tool_pump(
                 if !is_current_runtime(app, runtime_id) {
                     return Err("stale project agent runtime".to_string());
                 }
-                execute_agent_card_command(app, window, command)
+                commands::execute_agent_card_command(app, window, command)
             });
             let result = match result {
                 Ok(result) => result,
@@ -403,27 +411,6 @@ fn start_tool_pump(
         }
     })
     .detach();
-}
-
-fn execute_agent_card_command(
-    app: &mut MultisoulApp,
-    window: &mut Window,
-    command: CardCommand,
-) -> Result<CardCommandResult, String> {
-    let area = app.visible_canvas_rect(window);
-    let zoom = app.runtime.document.viewport.zoom;
-    let execution = crate::norma::server::execute_card_command_for_area(
-        &mut app.runtime,
-        &mut app.motion,
-        &mut app.master_layout,
-        command,
-        area,
-        zoom,
-    )
-    .map_err(|error| error.to_string())?;
-    let result = execution.result.clone();
-    app.apply_voice_execution_effects(execution);
-    Ok(result)
 }
 
 fn start_event_pump(
@@ -481,3 +468,7 @@ fn is_current_runtime(app: &MultisoulApp, runtime_id: u64) -> bool {
 #[cfg(test)]
 #[path = "../../tests/unit/agent_runtime_tests.rs"]
 mod agent_runtime_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/agent_dispatch_submit_tests.rs"]
+mod agent_dispatch_submit_tests;

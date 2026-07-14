@@ -20,6 +20,8 @@ use storage::{
 use terminal::PtyCommand;
 use terminal::{PtyError, TerminalSessionId};
 
+mod definition_identity;
+
 pub const DEFAULT_TERMINAL_SHELL: &str = "/bin/zsh";
 pub(crate) const DEFAULT_SESSION_COLS: u16 = 80;
 pub(crate) const DEFAULT_SESSION_ROWS: u16 = 24;
@@ -234,7 +236,19 @@ impl Runtime {
         cols: u16,
         rows: u16,
     ) -> Result<NodeId, PtyError> {
-        let node_id = self.add_agent_node(profile, alias, bounds);
+        self.spawn_agent_with_identity(profile, None, alias, bounds, cols, rows)
+    }
+
+    fn spawn_agent_with_identity(
+        &mut self,
+        profile: AgentProfile,
+        definition_id: Option<i64>,
+        alias: Option<String>,
+        bounds: CanvasRect,
+        cols: u16,
+        rows: u16,
+    ) -> Result<NodeId, PtyError> {
+        let node_id = self.add_agent_node(profile, definition_id, alias, bounds);
         let sid = self.allocate_session_id();
         let live = self
             .spawn_agent_live_for_profile(node_id, sid, profile, cols, rows)
@@ -275,11 +289,18 @@ impl Runtime {
     fn add_agent_node(
         &mut self,
         profile: AgentProfile,
+        definition_id: Option<i64>,
         alias: Option<String>,
         bounds: CanvasRect,
     ) -> NodeId {
-        self.document
-            .add_node(CanvasNodeKind::Agent(AgentSpec { profile, alias }), bounds)
+        self.document.add_node(
+            CanvasNodeKind::Agent(AgentSpec {
+                profile,
+                alias,
+                definition_id,
+            }),
+            bounds,
+        )
     }
 
     fn register_agent_live_node(&mut self, node_id: NodeId, live: TermLive) {

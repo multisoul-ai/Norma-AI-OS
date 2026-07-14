@@ -1,8 +1,9 @@
 use crate::{
     current_unix_timestamp, migrations::open_project_connection, StorageError, StorageResult,
 };
+use agent::AgentName;
 use canvas::AgentProfile;
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 use std::path::PathBuf;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -43,20 +44,32 @@ impl AgentDefinitionStore {
     }
 
     pub fn create(&self, input: &NewAgentDefinition) -> StorageResult<AgentDefinition> {
-        let connection = open_project_connection(&self.path)?;
+        let mut connection = open_project_connection(&self.path)?;
         let now = current_unix_timestamp()?;
-        connection.execute(
+        let (name_key, speech_alias) = agent_name_metadata(&input.name)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        reject_name_conflict(
+            &transaction,
+            &input.name,
+            &name_key,
+            speech_alias.as_deref(),
+            None,
+        )?;
+        transaction.execute(
             "INSERT INTO agent_definitions \
-             (name, runtime_profile, workflow_description, enabled, sort_order, created_at_unix, updated_at_unix) \
-             VALUES (?1, ?2, ?3, 1, 0, ?4, ?4)",
+             (name, name_key, speech_alias, runtime_profile, workflow_description, enabled, sort_order, created_at_unix, updated_at_unix) \
+             VALUES (?1, ?2, ?3, ?4, ?5, 1, 0, ?6, ?6)",
             params![
                 input.name,
+                name_key,
+                speech_alias,
                 encode_agent_profile(input.runtime_profile),
                 input.workflow_description,
                 now,
             ],
         )?;
-        let id = connection.last_insert_rowid();
+        let id = transaction.last_insert_rowid();
+        transaction.commit()?;
         self.get(id)?
             .ok_or(StorageError::AgentDefinitionNotFound(id))
     }
@@ -85,14 +98,25 @@ impl AgentDefinitionStore {
     }
 
     pub fn update(&self, input: &AgentDefinitionUpdate) -> StorageResult<AgentDefinition> {
-        let connection = open_project_connection(&self.path)?;
-        let changed = connection.execute(
+        let mut connection = open_project_connection(&self.path)?;
+        let (name_key, speech_alias) = agent_name_metadata(&input.name)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        reject_name_conflict(
+            &transaction,
+            &input.name,
+            &name_key,
+            speech_alias.as_deref(),
+            Some(input.id),
+        )?;
+        let changed = transaction.execute(
             "UPDATE agent_definitions SET \
-             name = ?1, runtime_profile = ?2, workflow_description = ?3, enabled = ?4, \
-             sort_order = ?5, updated_at_unix = ?6 \
-             WHERE id = ?7",
+             name = ?1, name_key = ?2, speech_alias = ?3, runtime_profile = ?4, \
+             workflow_description = ?5, enabled = ?6, sort_order = ?7, updated_at_unix = ?8 \
+             WHERE id = ?9",
             params![
                 input.name,
+                name_key,
+                speech_alias,
                 encode_agent_profile(input.runtime_profile),
                 input.workflow_description,
                 if input.enabled { 1 } else { 0 },
@@ -104,13 +128,22 @@ impl AgentDefinitionStore {
         if changed == 0 {
             return Err(StorageError::AgentDefinitionNotFound(input.id));
         }
+        transaction.commit()?;
         self.get(input.id)?
             .ok_or(StorageError::AgentDefinitionNotFound(input.id))
     }
 
     pub fn delete(&self, id: i64) -> StorageResult<bool> {
-        let connection = open_project_connection(&self.path)?;
-        Ok(connection.execute("DELETE FROM agent_definitions WHERE id = ?1", params![id])? > 0)
+        let mut connection = open_project_connection(&self.path)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        transaction.execute(
+            "DELETE FROM agent_dispatch_tasks WHERE definition_id = ?1",
+            params![id],
+        )?;
+        let deleted =
+            transaction.execute("DELETE FROM agent_definitions WHERE id = ?1", params![id])? > 0;
+        transaction.commit()?;
+        Ok(deleted)
     }
 
     fn get(&self, id: i64) -> StorageResult<Option<AgentDefinition>> {
@@ -146,6 +179,44 @@ impl AgentDefinitionStore {
             None => Ok(None),
         }
     }
+}
+
+fn agent_name_metadata(name: &str) -> StorageResult<(String, Option<String>)> {
+    let name_key = AgentName::parse(name)
+        .map_err(|_| StorageError::InvalidAgentName(name.to_string()))?
+        .match_key()
+        .to_string();
+    let speech_alias = agent::builtin_agent_names()
+        .iter()
+        .find(|builtin| builtin.name().eq_ignore_ascii_case(&name_key))
+        .map(|builtin| builtin.speech_alias().to_string());
+    Ok((name_key, speech_alias))
+}
+
+fn reject_name_conflict(
+    transaction: &Transaction<'_>,
+    requested: &str,
+    name_key: &str,
+    speech_alias: Option<&str>,
+    excluding_id: Option<i64>,
+) -> StorageResult<()> {
+    let existing = transaction
+        .query_row(
+            "SELECT name FROM agent_definitions \
+             WHERE (?3 IS NULL OR id != ?3) AND (name_key = ?1 OR speech_alias = ?1 \
+             OR (?2 IS NOT NULL AND (name_key = ?2 OR speech_alias = ?2))) \
+             ORDER BY id ASC LIMIT 1",
+            params![name_key, speech_alias, excluding_id],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()?;
+    if let Some(existing) = existing {
+        return Err(StorageError::AgentNameConflict {
+            requested: requested.to_string(),
+            existing,
+        });
+    }
+    Ok(())
 }
 
 fn decode_agent_definition_row(

@@ -1,5 +1,7 @@
 use crate::app::browser::{BrowserAddressEdit, BrowserStore};
-use crate::app::frame_throttle::{FrameThrottle, CURSOR_REPAINT_INTERVAL};
+use crate::app::frame_throttle::FrameThrottle;
+#[cfg(test)]
+use crate::app::frame_throttle::CURSOR_REPAINT_INTERVAL;
 use crate::canvas::interaction::InteractionState;
 use crate::canvas::master_layout::{
     apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
@@ -12,7 +14,6 @@ use crate::canvas::master_layout::{
 use crate::canvas::spawn_focus;
 use crate::canvas::view::render_canvas;
 use crate::cards::agent::card::agent_chase_intent;
-use crate::cards::term::cursor::advance_terminal_cursor_phase as advance_cursor_phase;
 use crate::motion::MotionStore;
 use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
@@ -26,16 +27,18 @@ use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasNodeKind, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
-use runtime::{route, AgentTaskState, InputEvent, InputMode, NodeRunState, Route, Runtime};
+use runtime::{route, AgentTaskState, InputEvent, NodeRunState, Route, Runtime};
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+#[cfg(test)]
 use std::time::Duration;
 use ui::Theme;
 use voice_window_inset::VoiceWindowInset;
 
 mod agent_actions;
 mod agent_announcements;
+mod agent_close;
 mod agent_runtime;
 mod bootstrap;
 pub(crate) mod browser;
@@ -43,6 +46,7 @@ pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 pub(crate) mod cef_process;
 mod chrome;
 mod clipboard_image;
+mod cursor_animation;
 pub(crate) mod dialogue;
 mod e2e;
 mod file_picker;
@@ -65,7 +69,10 @@ mod voice;
 mod voice_window_inset;
 mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
-pub use e2e::{ApiKeyDisplayState, InitializationAnimationE2eSnapshot, SettingsE2eSnapshot};
+pub use e2e::{
+    AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState,
+    InitializationAnimationE2eSnapshot, SettingsE2eSnapshot,
+};
 pub(crate) use state::mark_runtime_node_viewed_if_needed;
 pub use state::AppScreen;
 
@@ -121,6 +128,8 @@ pub struct MultisoulApp {
     pub(crate) tts_scan_generation: u64,
     pub(crate) tts_download_cancellations: HashMap<tts::TtsModelId, Arc<AtomicBool>>,
     pub(crate) agent_runtime: Option<agent_runtime::ProjectAgentRuntime>,
+    pub(crate) agent_task_coordinator: Option<agent::AgentTaskCoordinator>,
+    pub(crate) pending_agent_close_confirmation: Option<NodeId>,
     pub(crate) pending_voice_commands: Vec<::voice::ExecutableCommand>,
     pub focus_handle: FocusHandle,
     pub(crate) wallpaper_settings: WallpaperSettingsState,
@@ -139,40 +148,6 @@ impl MultisoulApp {
         let mut runtime = Runtime::new();
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
         Self::build(cx, runtime, agent_hook_server)
-    }
-
-    fn advance_terminal_cursor_phase(&mut self, delta: Duration) -> bool {
-        if !self.focused_terminal_cursor_animation_active() {
-            self.terminal_cursor_repaint.reset();
-            return false;
-        }
-        let Some(delta) = self
-            .terminal_cursor_repaint
-            .tick(delta, CURSOR_REPAINT_INTERVAL)
-        else {
-            return false;
-        };
-        let next = advance_cursor_phase(self.terminal_cursor_phase, delta);
-        let changed = (next - self.terminal_cursor_phase).abs() > f32::EPSILON;
-        self.terminal_cursor_phase = next;
-        changed
-    }
-
-    fn focused_terminal_cursor_animation_active(&self) -> bool {
-        if self.motion.reduce_motion {
-            return false;
-        }
-        let InputMode::NodeFocused(node_id) = self.runtime.focus.mode() else {
-            return false;
-        };
-        let Some(node) = self.runtime.document.node(node_id) else {
-            return false;
-        };
-        focused_cursor_animation_active(
-            node.kind.node_type(),
-            self.runtime.node_run_state(node_id),
-            self.runtime.agent_task_state(node_id),
-        )
     }
 
     fn on_new_terminal(&mut self, _: &NewTerminal, window: &mut Window, cx: &mut Context<Self>) {
@@ -321,6 +296,9 @@ impl MultisoulApp {
         node_id: NodeId,
         window: &mut Window,
     ) -> bool {
+        if !self.confirm_agent_close_if_needed(node_id) {
+            return false;
+        }
         self.release_all_browser_input();
         let event = InputEvent::CloseNode { node: node_id };
         let Route::RemoveNode(node_id) = route(&self.runtime.focus.mode(), &event) else {

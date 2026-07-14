@@ -14,8 +14,16 @@ pub enum StorageError {
     InvalidSessionKind(String),
     #[error("invalid agent profile stored in sqlite: {0}")]
     InvalidAgentProfile(String),
+    #[error("invalid agent name: {0}")]
+    InvalidAgentName(String),
     #[error("agent definition not found: {0}")]
     AgentDefinitionNotFound(i64),
+    #[error("agent dispatch task not found: {0}")]
+    AgentDispatchTaskNotFound(i64),
+    #[error("invalid agent dispatch value stored in sqlite: {0}")]
+    InvalidAgentDispatchValue(String),
+    #[error("agent name {requested:?} conflicts with existing agent {existing:?}")]
+    AgentNameConflict { requested: String, existing: String },
     #[error("invalid node session kind: {0}")]
     InvalidNodeSessionKind(String),
     #[error("invalid layout mode stored in sqlite: {0}")]

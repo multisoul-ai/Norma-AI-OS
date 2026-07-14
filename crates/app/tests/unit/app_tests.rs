@@ -113,6 +113,7 @@ fn test_mark_runtime_node_viewed_if_needed_marks_done_attention_viewed() {
         CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: None,
+            definition_id: None,
         }),
         CanvasRect::new(0.0, 0.0, 100.0, 80.0),
     );
@@ -242,7 +243,7 @@ fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   workspace path = temp/launchpad-opened，真实目录，因此 path.is_dir() = true
-///   project-local agent defs = 1 条，name = "Workspace Agent"
+///   project-local agent defs = 1 条，name = "Workspace"
 ///   storage path = temp/state/app.sqlite
 ///   初始 screen = Launchpad，runtime.workspace_root = None，recent count = 0，agent_definitions 未绑定
 ///
@@ -278,7 +279,7 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     project_store
         .agent_definition_store()
         .create(&NewAgentDefinition {
-            name: "Workspace Agent".to_string(),
+            name: "Workspace".to_string(),
             runtime_profile: AgentProfile::Codex,
             workflow_description: "Workspace-local workflow".to_string(),
         })
@@ -334,7 +335,7 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     );
     assert_eq!(
         agent_definitions.definitions()[0].name,
-        "Workspace Agent",
+        "Workspace",
         "agent state 应绑定到当前 workspace 的 project store，而不是保持空状态"
     );
     assert_ne!(

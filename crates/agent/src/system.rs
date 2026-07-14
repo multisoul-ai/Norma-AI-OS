@@ -17,6 +17,7 @@ use std::time::Instant;
 pub(crate) mod card_task;
 mod dialogue;
 mod dialogue_policy;
+mod roster;
 pub(crate) struct PendingTask {
     pub(crate) task_id: TaskId,
 }
@@ -61,6 +62,8 @@ where
     events: Vec<AgentEvent>,
     live_event_sink: Option<Arc<dyn Fn(AgentEvent) + Send + Sync>>,
     live_dialogue_cancellation: Option<Arc<AtomicBool>>,
+    agent_roster: Vec<crate::AgentRosterEntry>,
+    agent_roster_prompt: String,
 }
 impl<D, C, H, J> AgentSystem<D, C, H, J>
 where
@@ -98,6 +101,8 @@ where
                 .collect(),
             live_event_sink: None,
             live_dialogue_cancellation: None,
+            agent_roster: Vec::new(),
+            agent_roster_prompt: String::new(),
         }
     }
 
@@ -119,6 +124,9 @@ where
     pub fn submit(&mut self, command: AgentCommand) -> Result<Vec<AgentEvent>, AgentError> {
         let start = self.events.len();
         match command {
+            AgentCommand::UpdateAgentRoster(roster) => self
+                .set_agent_roster(roster)
+                .map_err(|error| AgentError::InvalidCommand(error.to_string()))?,
             AgentCommand::UserTurn(text) => self.handle_user_turn(text)?,
             AgentCommand::DirectCardTask(intent) => {
                 self.enqueue_task(intent);
@@ -148,7 +156,9 @@ where
             self.active = Some(ActiveTask {
                 task_id,
                 messages: vec![
-                    system_message(crate::card_task_system_prompt()),
+                    system_message(crate::card_task_system_prompt_with_roster(
+                        &self.agent_roster_prompt,
+                    )),
                     user_message(self.task_intent(task_id)),
                 ],
                 pending_tool_calls: VecDeque::new(),

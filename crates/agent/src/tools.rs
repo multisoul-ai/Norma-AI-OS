@@ -1,5 +1,5 @@
 use crate::{CardToolError, ProviderToolSpec};
-use norma::protocol::{AgentProfile, CardCommand, CardKind, Placement};
+use norma::protocol::{AgentProfile, AgentTaskAssignment, CardCommand, CardKind, Placement};
 use serde_json::{json, Value};
 
 pub const CARD_TASK_TOOL: &str = "card_task";
@@ -25,18 +25,59 @@ pub fn dialogue_tool_specs() -> Vec<ProviderToolSpec> {
 pub fn card_subagent_tool_specs() -> Vec<ProviderToolSpec> {
     vec![
         tool_spec(
+            "list_agents",
+            "List persistent project Agents, including canonical name, speech alias, runtime profile, enabled state, active card, tracking, and busy state. Use this instead of list_cards for Agent routing.",
+            json!({"type":"object","additionalProperties":false}),
+        ),
+        tool_spec(
+            "create_agent",
+            "Create a persistent named Agent definition. Profile is required; name is optional and uses the deterministic built-in pool when omitted. Voice and quick-create requests normally set activate=true.",
+            json!({
+                "type":"object",
+                "properties": {
+                    "name":{"type":"string"},
+                    "profile":{"type":"string","enum":["claude","codex","opencode"]},
+                    "activate":{"type":"boolean"}
+                },
+                "required":["profile"],"additionalProperties":false
+            }),
+        ),
+        tool_spec(
+            "activate_agent",
+            "Open or focus the single active card for an existing enabled Agent, addressed by exact canonical name or preset speech alias.",
+            json!({"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}),
+        ),
+        tool_spec(
+            "dispatch_agent_tasks",
+            "Atomically validate and dispatch one or more explicit Agent assignments. Different Agents may run in parallel; the same managed Agent queues FIFO. Set force_untracked only when the user explicitly says to send anyway.",
+            json!({
+                "type":"object",
+                "properties": {
+                    "assignments": {
+                        "type":"array","minItems":1,
+                        "items": {
+                            "type":"object",
+                            "properties":{"name":{"type":"string"},"task":{"type":"string"}},
+                            "required":["name","task"],"additionalProperties":false
+                        }
+                    },
+                    "force_untracked":{"type":"boolean"}
+                },
+                "required":["assignments"],"additionalProperties":false
+            }),
+        ),
+        tool_spec(
             "list_cards",
-            "List the current cards before choosing or re-checking a target.",
+            "List non-Agent cards before choosing or re-checking a target.",
             json!({"type":"object","additionalProperties":false}),
         ),
         tool_spec(
             "create_card",
-            "Create a terminal or agent card.",
+            "Create a terminal card. Agent cards must use create_agent or activate_agent.",
             json!({
                 "type":"object",
                 "properties": {
-                    "kind":{"type":"string","enum":["terminal","agent"]},
-                    "profile":{"type":"string","enum":["claude","codex","opencode"]}
+                    "kind":{"type":"string","enum":["terminal"]}
                 },
                 "required":["kind"],"additionalProperties":false
             }),
@@ -48,7 +89,7 @@ pub fn card_subagent_tool_specs() -> Vec<ProviderToolSpec> {
         ),
         tool_spec(
             "send_text",
-            "Send text to a terminal or agent card. Set submit true for a command or prompt.",
+            "Send text to a non-Agent terminal card. Agent tasks must use dispatch_agent_tasks.",
             json!({"type":"object","properties":{"node_id":{"type":"integer"},"text":{"type":"string"},"submit":{"type":"boolean"}},"required":["node_id","text"],"additionalProperties":false}),
         ),
         tool_spec(
@@ -91,6 +132,20 @@ pub fn parse_card_subagent_tool_call(
 ) -> Result<CardCommand, CardToolError> {
     let value = parse_object(arguments_json)?;
     match name {
+        "list_agents" => Ok(CardCommand::ListAgents),
+        "create_agent" => Ok(CardCommand::CreateAgent {
+            name: optional_string(&value, "name")?.map(str::to_string),
+            profile: parse_required_profile(&value)?,
+            activate: value
+                .get("activate")
+                .map(parse_bool)
+                .transpose()?
+                .unwrap_or(true),
+        }),
+        "activate_agent" => Ok(CardCommand::ActivateAgent {
+            name: required_string(&value, "name")?.to_string(),
+        }),
+        "dispatch_agent_tasks" => parse_agent_dispatch(&value),
         "list_cards" => Ok(CardCommand::List),
         "create_card" => parse_create(&value),
         "focus_card" => Ok(CardCommand::Focus {
@@ -116,9 +171,11 @@ fn parse_create(value: &Value) -> Result<CardCommand, CardToolError> {
     let kind = required_string(value, "kind")?;
     let kind = match kind {
         "terminal" => CardKind::Terminal { shell: None },
-        "agent" => CardKind::Agent {
-            profile: parse_profile(value.get("profile"))?,
-        },
+        "agent" => {
+            return Err(CardToolError::InvalidArguments(
+                "Agent cards must use create_agent".to_string(),
+            ))
+        }
         other => {
             return Err(CardToolError::InvalidArguments(format!(
                 "unsupported card kind: {other}"
@@ -128,6 +185,30 @@ fn parse_create(value: &Value) -> Result<CardCommand, CardToolError> {
     Ok(CardCommand::Create {
         kind,
         placement: Placement::VisibleArea,
+    })
+}
+
+fn parse_agent_dispatch(value: &Value) -> Result<CardCommand, CardToolError> {
+    let assignments = value
+        .get("assignments")
+        .and_then(Value::as_array)
+        .filter(|assignments| !assignments.is_empty())
+        .ok_or_else(|| CardToolError::InvalidArguments("missing or invalid assignments".into()))?
+        .iter()
+        .map(|assignment| {
+            Ok(AgentTaskAssignment {
+                name: required_string(assignment, "name")?.to_string(),
+                task: required_string(assignment, "task")?.to_string(),
+            })
+        })
+        .collect::<Result<Vec<_>, CardToolError>>()?;
+    Ok(CardCommand::DispatchAgentTasks {
+        assignments,
+        force_untracked: value
+            .get("force_untracked")
+            .map(parse_bool)
+            .transpose()?
+            .unwrap_or(false),
     })
 }
 
@@ -159,6 +240,17 @@ fn required_string<'a>(value: &'a Value, name: &str) -> Result<&'a str, CardTool
         .ok_or_else(|| CardToolError::InvalidArguments(format!("missing or invalid {name}")))
 }
 
+fn optional_string<'a>(value: &'a Value, name: &str) -> Result<Option<&'a str>, CardToolError> {
+    match value.get(name) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => value
+            .as_str()
+            .filter(|value| !value.trim().is_empty())
+            .map(Some)
+            .ok_or_else(|| CardToolError::InvalidArguments(format!("invalid {name}"))),
+    }
+}
+
 fn required_u64(value: &Value, name: &str) -> Result<u64, CardToolError> {
     value
         .get(name)
@@ -179,13 +271,16 @@ fn parse_bool(value: &Value) -> Result<bool, CardToolError> {
         .ok_or_else(|| CardToolError::InvalidArguments("expected a boolean".into()))
 }
 
-fn parse_profile(value: Option<&Value>) -> Result<AgentProfile, CardToolError> {
-    match value.and_then(Value::as_str).unwrap_or("codex") {
-        "claude" => Ok(AgentProfile::Claude),
-        "codex" => Ok(AgentProfile::Codex),
-        "cursor" => Ok(AgentProfile::Cursor),
-        "opencode" => Ok(AgentProfile::OpenCode),
-        profile => Err(CardToolError::InvalidArguments(format!(
+fn parse_required_profile(value: &Value) -> Result<AgentProfile, CardToolError> {
+    match value.get("profile").and_then(Value::as_str) {
+        None => Err(CardToolError::InvalidArguments(
+            "missing or invalid profile".to_string(),
+        )),
+        Some("claude") => Ok(AgentProfile::Claude),
+        Some("codex") => Ok(AgentProfile::Codex),
+        Some("cursor") => Ok(AgentProfile::Cursor),
+        Some("opencode") => Ok(AgentProfile::OpenCode),
+        Some(profile) => Err(CardToolError::InvalidArguments(format!(
             "unsupported agent profile: {profile}"
         ))),
     }

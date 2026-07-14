@@ -1,6 +1,7 @@
 mod support;
 
-use agent::{AgentCommand, AgentEvent};
+use agent::{AgentCommand, AgentEvent, AgentRosterEntry, AgentTrackingMode};
+use norma::protocol::AgentProfile;
 use support::{system, text_response, RecordingHost, ScriptedProvider};
 
 /// DP-1：明确且信息充分的创建卡片指令在模型只追问确认时必须确定性入队。
@@ -166,5 +167,91 @@ fn how_to_create_terminal_question_stays_in_dialogue() {
     assert!(
         agent_system.card_tool_host().commands.is_empty(),
         "知识问答不得产生卡片副作用"
+    );
+}
+
+fn alan_roster() -> Vec<AgentRosterEntry> {
+    vec![AgentRosterEntry {
+        definition_id: 1,
+        name: "Alan".to_string(),
+        speech_alias: Some("艾伦".to_string()),
+        profile: AgentProfile::Codex,
+        enabled: true,
+        active_node_id: Some(101),
+        tracking: AgentTrackingMode::Managed,
+        busy: false,
+    }]
+}
+
+/// DP-3：模型漏调工具时，明确双语呼叫应 fallback；普通提及同名 Agent 不得误派发。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   roster = 1 个 Alan，中文语音别名 = 艾伦
+///   explicit = “艾伦，开发一个贪吃蛇”，含 1 个名称开头呼叫与非空任务正文
+///   mention = “总结 Alan 昨天的工作”，名称位于普通宾语位置
+///   两个 Dialogue Provider 都返回纯文本、工具调用数 = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 向第一个 AgentSystem 注入 roster 并提交 explicit → 路由策略补一次 card_task
+///   2. 向第二个 AgentSystem 注入相同 roster 并提交 mention → 保持 ModelOnly
+///   3. 分别观察公开 AgentEvent
+///
+/// 预期结果：
+///   - 正断言：明确“艾伦，”呼叫恰好产生 1 个 TaskQueued
+///   - 正断言：普通提及保留 DialogueTextDelta
+///   - 负断言：普通提及不能产生 TaskQueued，明确呼叫不能播报模型的漏调用文本
+#[test]
+fn explicit_agent_address_falls_back_but_ordinary_mention_stays_in_dialogue() {
+    let mut explicit_system = system(
+        ScriptedProvider::new([text_response("你可以自己打开 Codex")]),
+        ScriptedProvider::default(),
+        RecordingHost::default(),
+    );
+    explicit_system
+        .set_agent_roster(alan_roster())
+        .expect("Alan/艾伦 名册应可用于确定性路由");
+    let explicit_events = explicit_system
+        .submit(AgentCommand::UserTurn("艾伦，开发一个贪吃蛇".to_string()))
+        .expect("明确呼叫应在模型漏调工具时进入 CardTask");
+
+    let mut mention_system = system(
+        ScriptedProvider::new([text_response("我可以帮你整理 Alan 的工作记录")]),
+        ScriptedProvider::default(),
+        RecordingHost::default(),
+    );
+    mention_system
+        .set_agent_roster(alan_roster())
+        .expect("相同名册应可用于普通提及保护");
+    let mention_events = mention_system
+        .submit(AgentCommand::UserTurn("总结 Alan 昨天的工作".to_string()))
+        .expect("普通提及应作为 Dialogue 处理");
+
+    assert_eq!(
+        explicit_events
+            .iter()
+            .filter(|event| matches!(event, AgentEvent::TaskQueued { .. }))
+            .count(),
+        1,
+        "明确中文语音别名呼叫必须且只能 fallback 一次"
+    );
+    assert!(
+        !explicit_events.iter().any(|event| matches!(
+            event,
+            AgentEvent::DialogueTextDelta { text } if text.contains("自己打开")
+        )),
+        "明确呼叫 fallback 后不得继续播报模型漏调用工具的建议文本"
+    );
+    assert!(
+        mention_events.iter().any(|event| matches!(
+            event,
+            AgentEvent::DialogueTextDelta { text } if text.contains("整理 Alan")
+        )),
+        "普通提及必须保留 Dialogue Provider 的正常回答"
+    );
+    assert!(
+        !mention_events
+            .iter()
+            .any(|event| matches!(event, AgentEvent::TaskQueued { .. })),
+        "普通宾语位置提及 Alan 不得产生执行任务"
     );
 }

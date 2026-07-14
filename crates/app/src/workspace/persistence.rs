@@ -103,6 +103,12 @@ impl PersistenceScheduler {
             .save_entry(entry)
             .map(Some)
     }
+
+    pub(crate) fn agent_dispatch_task_store(&self) -> Option<storage::AgentDispatchTaskStore> {
+        self.project_store
+            .as_ref()
+            .map(ProjectStore::agent_dispatch_task_store)
+    }
 }
 
 impl MultisoulApp {

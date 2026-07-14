@@ -13,6 +13,7 @@ pub(crate) fn agent_spec_from_definition(definition: &AgentDefinition) -> AgentS
     AgentSpec {
         profile: definition.runtime_profile,
         alias: Some(definition.name.clone()),
+        definition_id: Some(definition.id),
     }
 }
 
@@ -79,7 +80,15 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.spawn_agent_card_with_alias(profile, None, window, cx);
+        match self.agent_definitions.create_definition(None, profile) {
+            Ok(definition) => {
+                self.spawn_agent_card_from_spec(agent_spec_from_definition(&definition), window, cx)
+            }
+            Err(message) => {
+                self.workspace_state.error = Some(message);
+                cx.notify();
+            }
+        }
     }
 
     pub(crate) fn spawn_agent_card_from_definition(
@@ -100,13 +109,12 @@ impl MultisoulApp {
             return;
         };
         let spec = agent_spec_from_definition(&definition);
-        self.spawn_agent_card_with_alias(spec.profile, spec.alias, window, cx);
+        self.spawn_agent_card_from_spec(spec, window, cx);
     }
 
-    fn spawn_agent_card_with_alias(
+    fn spawn_agent_card_from_spec(
         &mut self,
-        profile: AgentProfile,
-        alias: Option<String>,
+        spec: AgentSpec,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -115,10 +123,21 @@ impl MultisoulApp {
             .inset(self.layout_gap_canvas());
         let (cols, rows) =
             term_grid_size_for_card(NodeType::Agent, bounds, self.runtime.document.viewport.zoom);
-        match self
-            .runtime
-            .spawn_agent_with_alias(profile, alias, bounds, cols, rows)
-        {
+        let profile = spec.profile;
+        let spawn = match (spec.definition_id, spec.alias) {
+            (Some(definition_id), Some(alias)) => self.runtime.spawn_agent_for_definition(
+                profile,
+                definition_id,
+                alias,
+                bounds,
+                cols,
+                rows,
+            ),
+            (_, alias) => self
+                .runtime
+                .spawn_agent_with_alias(profile, alias, bounds, cols, rows),
+        };
+        match spawn {
             Ok(node_id) => {
                 tracing::info!(?node_id, ?profile, "spawned agent node");
                 spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
