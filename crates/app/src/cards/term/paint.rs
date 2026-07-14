@@ -96,7 +96,10 @@ fn build_layout(
     let mut text_runs = Vec::new();
 
     for (row_index, row) in snapshot.rows.iter().enumerate() {
-        let row_layout = layout_row(row_index, row, palette);
+        let link_columns = snapshot.link_columns_for_row(row_index);
+        let row_layout = layout_row_with_links(row_index, row, palette, |col| {
+            link_columns.get(col).copied().unwrap_or(false)
+        });
         backgrounds.extend(row_layout.backgrounds);
         text_runs.extend(row_layout.text_runs);
     }
@@ -130,7 +133,17 @@ fn build_layout_with_selection(
     layout
 }
 
+#[cfg(test)]
 fn layout_row(row_index: usize, row: &[Cell], palette: TerminalPalette) -> TerminalRowLayout {
+    layout_row_with_links(row_index, row, palette, |_| false)
+}
+
+fn layout_row_with_links(
+    row_index: usize,
+    row: &[Cell],
+    palette: TerminalPalette,
+    mut is_link_at: impl FnMut(usize) -> bool,
+) -> TerminalRowLayout {
     let mut layout = TerminalRowLayout::default();
     let mut current_bg: Option<TerminalBackgroundRect> = None;
     let mut current_text: Option<TerminalTextRun> = None;
@@ -152,7 +165,11 @@ fn layout_row(row_index: usize, row: &[Cell], palette: TerminalPalette) -> Termi
             continue;
         }
 
-        let text_style = style.text_style();
+        let text_style = if is_link_at(col) {
+            terminal_link_text_style(style.text_style(), palette)
+        } else {
+            style.text_style()
+        };
         match current_text.as_mut() {
             Some(run) if run.style == text_style && run.end_col == col => {
                 run.text.push(ch);
@@ -183,6 +200,15 @@ fn layout_row(row_index: usize, row: &[Cell], palette: TerminalPalette) -> Termi
     flush_background(&mut layout.backgrounds, &mut current_bg);
     flush_text(&mut layout.text_runs, &mut current_text);
     layout
+}
+
+fn terminal_link_text_style(
+    mut text_style: TerminalTextStyle,
+    palette: TerminalPalette,
+) -> TerminalTextStyle {
+    text_style.fg = palette.resolve(TerminalColor::Named(TerminalNamedColor::Cyan));
+    text_style.underline = true;
+    text_style
 }
 
 fn push_background(
@@ -428,3 +454,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/cards/term/paint_geometry_tests.rs"]
 mod geometry_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/cards/term/paint_link_tests.rs"]
+mod link_tests;

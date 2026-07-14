@@ -64,6 +64,9 @@ mod e2e_11_launchpad_video;
 // 可语音呼叫 Agent：Settings 未保存草稿与快速创建的定义/卡片闭环。
 mod e2e_12_voice_addressable_agents;
 
+// Agent/terminal 输出链接：点击后新建 Browser 并仅在该路径进入 master/detail 布局。
+mod e2e_13_terminal_links;
+
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。
 pub use harness::{
