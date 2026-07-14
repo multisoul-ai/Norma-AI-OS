@@ -4,4 +4,4 @@
 
 ## Outcome（2026-07-14）
 
-**GO.** `spikes/keygate-mvp/scripts/check.sh` 通过。已知需绕过的 Keygate v0.1.1 问题见 spike README（`setup/initialize` 的 `checkout_id`、GHCR 匿名拉取、Postgres 16）。下一决策：薄接入 App，不换 Keygen CE。
+**GO.** `spikes/keygate-mvp/scripts/check.sh` 通过。已知需绕过的 Keygate v0.1.1 问题见 spike README（`setup/initialize` 的 `checkout_id`、GHCR 匿名拉取、Postgres 16）。下一决策：硬门控接入 App（见 ADR 0015 与 SPEC），不换 Keygen CE。
