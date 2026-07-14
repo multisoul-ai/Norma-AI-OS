@@ -110,20 +110,30 @@ pub fn evaluate_local_license(
         }
     }
 
-    if let Some(did) = payload.get("did").and_then(Value::as_str) {
-        if did != machine_id {
-            return LocalLicenseStatus::Invalid {
-                reason: LicenseInvalidReason::DidMismatch,
-            };
-        }
+    let Some(did) = payload
+        .get("did")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+    else {
+        return LocalLicenseStatus::Invalid {
+            reason: LicenseInvalidReason::DidMismatch,
+        };
+    };
+    if did != machine_id {
+        return LocalLicenseStatus::Invalid {
+            reason: LicenseInvalidReason::DidMismatch,
+        };
     }
 
-    if let Some(status) = payload.get("sts").and_then(Value::as_str) {
-        if status != "active" {
-            return LocalLicenseStatus::Invalid {
-                reason: LicenseInvalidReason::BadStatus,
-            };
-        }
+    let Some(status) = payload.get("sts").and_then(Value::as_str) else {
+        return LocalLicenseStatus::Invalid {
+            reason: LicenseInvalidReason::BadStatus,
+        };
+    };
+    if status != "active" {
+        return LocalLicenseStatus::Invalid {
+            reason: LicenseInvalidReason::BadStatus,
+        };
     }
 
     LocalLicenseStatus::Activated {

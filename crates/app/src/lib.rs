@@ -8,6 +8,7 @@ mod assets;
 mod canvas;
 mod cards;
 mod frame_diagnostics;
+mod license_gate;
 mod menu_bar;
 mod motion;
 mod norma;
@@ -30,7 +31,6 @@ pub use app::{
 pub use assets::EmbeddedAssets;
 
 use gpui::{App, Application, KeyBinding};
-use workspace::windowing::{open_multisoul_window, InitialWindowState};
 
 pub fn run_norma_os() {
     app::cef_process::exit_if_cef_subprocess();
@@ -62,8 +62,9 @@ pub fn run_norma_os() {
             })
             .detach();
 
-            open_multisoul_window(InitialWindowState::Launchpad, cx)
-                .expect("failed to open window");
+            // Hard gate: Activation shell or Workbench via GateRoot (ADR 0015).
+            // Developers: NORMA_SKIP_LICENSE=1. E2E still constructs MultisoulApp directly.
+            license_gate::open_gated_window(cx).expect("failed to open window");
             cx.activate(true);
         });
 }

@@ -81,7 +81,7 @@ pub(crate) fn title_for_initial_state(state: &InitialWindowState) -> String {
     }
 }
 
-fn window_options(title: String, bounds: Bounds<gpui::Pixels>) -> WindowOptions {
+pub(crate) fn window_options(title: String, bounds: Bounds<gpui::Pixels>) -> WindowOptions {
     WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(bounds)),
         titlebar: Some(TitlebarOptions {

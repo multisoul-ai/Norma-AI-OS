@@ -34,6 +34,7 @@ dialogue.workspace = true
 llm.workspace = true
 audio.workspace = true
 asr.workspace = true
+license.workspace = true
 tts.workspace = true
 agent.workspace = true
 anyhow.workspace = true

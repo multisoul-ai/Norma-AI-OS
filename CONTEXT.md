@@ -129,9 +129,21 @@ _Avoid_: 每次启动联网校验、无离线凭证的纯在线门禁
 
 **Keygate 本机 spike 环境**：
 可行性验证阶段仅在本机用 Docker Compose 运行 Keygate（及依赖如 Postgres），客户端指向 localhost；不上云、不要求公网域名与生产级备份。时间盒尽量压到约半天（上限 1 个工作日）：起服务、后台发证、脚本激活、断网复验；过则薄接入 App，不过则停 Keygate 改评其他方案，不追加沉没成本。spike 客户端为脚本级（shell/curl），材料放在仓库 `spikes/keygate-mvp/`，不进 `crates/`。若判定 no-go，下一手优先试 Keygen CE（脚本/API 验证；Portal 可后补），再不行才考虑自建 Ed25519。
-**2026-07-14 结论：GO**（详见 `spikes/keygate-mvp/README.md` 与 ADR 0014 Outcome）；下一手薄接入。
+**2026-07-14 结论：GO**（详见 `spikes/keygate-mvp/README.md` 与 ADR 0014 Outcome）；下一手硬门控接入。
 _Avoid_: spike 阶段上 VPS、生产 HTTPS 与收款联调、多日打磨 spike、spike 内先做 Rust/GPUI、no-go 后无默认换道方案
 
-**Keygate 薄接入**：
-spike 过关后在主 App 增加的最小激活入口：粘贴 License、复用 spike 校验契约、本地持久化激活态、启动时离线可读；可有未激活提示，但不做全功能门控、精美商业化激活页或账号体系；可用环境变量跳过以便开发自用。
-_Avoid_: 一上来强制未激活不可用、深耦合支付与门控
+**硬门控**：
+未激活且未开发跳过时，用户不能进入工作台（画布、Terminal、Settings 等）；只能停留在激活壳。
+_Avoid_: 软提示仍可完整使用、工作台已启动再用遮罩假装未激活
+
+**激活壳**：
+硬门控下的唯一主界面：粘贴 License Key、发起首次联网激活、退出；激活成功前不构造工作台。
+_Avoid_: 半透明挡在画布上的拦截层、未激活仍创建 Runtime/PTY
+
+**GateRoot**：
+同窗根状态：激活壳或工作台二者之一；激活成功后在同一窗口切换到工作台，而不是关窗再开第二扇窗。
+_Avoid_: 激活窗与工作台窗两套生命周期接力
+
+**Keygate 客户端接入**：
+主 App 复用 Keygate activate / 离线 token 契约：公钥内嵌（或 `NORMA_LICENSE_PUBKEY_HEX`）、token 落盘、启动时本地验签（含过期与机器 `did` 绑定）；`NORMA_SKIP_LICENSE` 可跳过门控，`NORMA_LICENSE_URL` 可覆盖服务地址；不在 Settings 做完整 License 管理页（一期）；不落盘保存 License Key；不接支付。
+_Avoid_: 每次启动强制联网、以落盘公钥为信任根、Settings 暴露改服务器地址、深耦合支付

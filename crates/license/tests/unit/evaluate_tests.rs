@@ -178,6 +178,32 @@ fn test_did_mismatch_rejected() {
     );
 }
 
+/// payload 缺少 did 时必须拒绝（不能默认放行）。
+///
+/// 数据构造：JSON 无 did 字段；其余字段合法且签名正确。
+/// 预期：Invalid(DidMismatch)；负断言：不是 Activated。
+#[test]
+fn test_missing_did_rejected() {
+    let signing_key = generate_signing_key();
+    let pubkey = public_key_hex(&signing_key);
+    let now = 1_700_000_000_i64;
+    let exp = now + 3600;
+    let json = format!(
+        r#"{{"exp":{exp},"grc":0,"iat":1,"lid":"lic-1","nce":"n","pid":"p","pln":"pl","sts":"active"}}"#
+    );
+    let token = sign_token_json(&json, &signing_key);
+
+    let status = evaluate_local_license(Some(&token), &pubkey, MACHINE_ID, now);
+
+    assert_eq!(
+        status,
+        LocalLicenseStatus::Invalid {
+            reason: LicenseInvalidReason::DidMismatch
+        },
+        "缺少 did 时必须 DidMismatch，不得 Activated"
+    );
+}
+
 /// 缺失 token（None 或空白）应 Missing。
 ///
 /// 预期结果：

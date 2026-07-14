@@ -194,6 +194,7 @@ dependencies = [
  "gpui",
  "hound",
  "image",
+ "license",
  "llm",
  "norma",
  "objc2",
