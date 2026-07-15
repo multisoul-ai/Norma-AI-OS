@@ -2,7 +2,8 @@
 
 use crate::cards::chrome::{CardChrome, TITLE_BAR_H};
 use crate::cards::term::view::{
-    render_terminal_node, TerminalNodeRenderOptions, TERM_CELL_PX, TERM_LINE_PX, TERM_PADDING_PX,
+    render_terminal_node, terminal_content_mode, TerminalNodeRenderOptions, TERM_CELL_PX,
+    TERM_LINE_PX, TERM_PADDING_PX,
 };
 use crate::cards::{Card, CardBodyContext};
 use canvas::{CanvasNode, CanvasRect, NodeType};
@@ -30,12 +31,17 @@ impl Card for TermCard {
     }
 
     fn body(&self, node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElement {
+        let content_mode = terminal_content_mode(context.initialization);
         let selection = context
             .text_selection
             .filter(|selection| selection.node_id == node.id && !selection.is_empty())
             .map(|selection| selection.range());
+        let view = content_mode
+            .requires_live_view()
+            .then(|| context.runtime.node_view(node.id))
+            .flatten();
         render_terminal_node(
-            context.runtime.node_view(node.id),
+            view,
             TerminalNodeRenderOptions {
                 theme: context.theme,
                 zoom: context.zoom,
@@ -43,7 +49,9 @@ impl Card for TermCard {
                 selection,
                 focused: context.focused,
                 reduce_motion: context.reduce_motion,
+                initialization: context.initialization,
                 cursor_phase: context.terminal_cursor_phase,
+                cursor_task_running: None,
             },
         )
     }

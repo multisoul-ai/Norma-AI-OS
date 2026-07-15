@@ -43,6 +43,118 @@ fn test_ansi_escape_does_not_crash_and_char_lands() {
     assert_eq!(snap.rows[0][0].c, 'X', "ANSI 颜色转义后 'X' 应正常落在首格");
 }
 
+/// OSC 8 链接：解析器应把链接目标保留到中性快照，供 UI 按单元格坐标命中。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   grid = 80 cols × 24 lines
+///   OSC 8 open  = ESC ] 8 ; ; https://example.com/docs ESC \\（目标 URI）
+///   visible text = "docs"，占第 0 行 col 0..3 四个单元格
+///   OSC 8 close = ESC ] 8 ; ; ESC \\（后续文本不应继承链接）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 输入 OSC 8 open、文本 "docs"、OSC 8 close 与普通字符 "!"
+///   2. `TerminalGrid` 解析上游终端单元格的 hyperlink metadata
+///   3. `snapshot.hyperlink_at` 分别查询链接文字与关闭后的普通字符
+///
+/// 预期结果：
+///   - 断言 A："docs" 首格可查询到精确目标 URI，证明链接元数据未在快照边界丢失
+///   - 断言 B：关闭后的 "!" 查询不到链接，证明目标不会泄漏到后续文本
+#[test]
+fn test_snapshot_preserves_osc8_hyperlink_target_by_cell_position() {
+    let mut g = TerminalGrid::new(80, 24);
+    g.advance(b"\x1b]8;;https://example.com/docs\x1b\\docs\x1b]8;;\x1b\\!");
+    let snap = g.snapshot();
+
+    assert_eq!(
+        snap.hyperlink_at(0, 0),
+        Some("https://example.com/docs"),
+        "OSC 8 链接文字 docs 的首格应保留精确目标 URI"
+    );
+    assert_eq!(
+        snap.hyperlink_at(0, 4),
+        None,
+        "OSC 8 close 后的普通字符 ! 不应继承前一个链接目标"
+    );
+}
+
+/// 裸 http(s) URL 与 OSC 8 目标：快照只应返回经协议校验的安全网页链接。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   row 0 = "Read https://example.com/docs. file:///private"，共 46 个 ASCII cells
+///   URL 起始 col = len("Read ") = 5
+///   末尾句点 `.` 是 prose 标点，不属于 URI
+///   `file:///private` 是非 http(s) scheme，按产品约定不得成为可点击目标
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 向 80 列 terminal 写入同一行可见文本，不提供 OSC 8 控制序列
+///   2. 在 http URL 的首格与 file URL 的首格调用 `link_at`
+///   3. 再输入一个目标为 `javascript:`、可见文字却是 https URL 的 OSC 8 链接，并查询首格
+///
+/// 预期结果：
+///   - 断言 A：http URL 可识别且会去掉句末标点
+///   - 断言 B：file URL 不可识别，避免打开本地文件或非网页 scheme
+///   - 断言 C：OSC 8 的 javascript 目标也不可识别，避免控制序列绕过协议校验
+#[test]
+fn test_snapshot_detects_bare_https_url_and_rejects_unsafe_schemes() {
+    let mut g = TerminalGrid::new(80, 24);
+    g.advance(b"Read https://example.com/docs. file:///private");
+    let snap = g.snapshot();
+
+    assert_eq!(
+        snap.link_at(0, 5).as_deref(),
+        Some("https://example.com/docs"),
+        "裸 https URL 应可点击且不应把句末句点纳入目标"
+    );
+    assert_eq!(
+        snap.link_at(0, 31),
+        None,
+        "file:///private 不应成为可点击链接，避免非网页 scheme 被打开"
+    );
+
+    let mut osc_grid = TerminalGrid::new(80, 24);
+    osc_grid.advance(b"\x1b]8;;javascript:alert(1)\x1b\\https://visible.example\x1b]8;;\x1b\\");
+    let osc_snapshot = osc_grid.snapshot();
+    assert_eq!(
+        osc_snapshot.link_at(0, 0),
+        None,
+        "OSC 8 的 javascript 目标不应被可见 https 文本回退绕过协议校验"
+    );
+}
+
+/// 工作区相对 Markdown 路径：终端输出应识别为 Preview 候选，父目录穿越不得识别。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   安全路径 = "docs/adr/0015-license-hard-gate-outside-workbench.md"，首格 col=0
+///   非法路径 = "../secrets.md"，首格 col=0，含一个 `..` 父目录分量
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 分别写入安全相对 Markdown 路径和父目录穿越路径
+///   2. 对首格调用 `preview_path_at`
+///
+/// 预期结果：
+///   - 断言 A：安全路径返回完整相对路径，供 app 在 workspace root 下创建 Preview
+///   - 断言 B：`..` 路径返回 None，不能越过当前项目根目录
+#[test]
+fn test_snapshot_detects_safe_relative_preview_path_and_rejects_parent_traversal() {
+    let mut safe_grid = TerminalGrid::new(100, 24);
+    safe_grid.advance(b"docs/adr/0015-license-hard-gate-outside-workbench.md");
+    let safe = safe_grid.snapshot();
+    let mut unsafe_grid = TerminalGrid::new(100, 24);
+    unsafe_grid.advance(b"../secrets.md");
+    let unsafe_path = unsafe_grid.snapshot();
+
+    assert_eq!(
+        safe.preview_path_at(0, 0).as_deref(),
+        Some("docs/adr/0015-license-hard-gate-outside-workbench.md"),
+        "workspace 内的相对 Markdown 路径应保留完整值，以便创建 Preview 卡片"
+    );
+    assert_eq!(
+        unsafe_path.preview_path_at(0, 0),
+        None,
+        "带 .. 的路径不得成为 Preview 候选，避免越过 workspace root"
+    );
+}
+
 /// ANSI 前景色进入快照，reset 后回到默认前景色。
 ///
 /// 数据构造：
@@ -177,8 +289,8 @@ fn test_snapshot_preserves_text_attrs_and_reset() {
     g.advance(b"\x1b[1;3;4;9mS\x1b[0mN");
     let snap = g.snapshot();
 
-    let styled = snap.rows[0][0];
-    let reset = snap.rows[0][1];
+    let styled = &snap.rows[0][0];
+    let reset = &snap.rows[0][1];
 
     assert_eq!(styled.c, 'S', "第 0 格应是带属性字符 'S'");
     assert!(styled.attrs.bold, "'S' 应保留 bold 属性");

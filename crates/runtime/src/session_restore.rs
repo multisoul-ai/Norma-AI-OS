@@ -199,8 +199,8 @@ pub fn restore_live_sessions_with_node_sessions(
                     .unwrap_or(spec.profile);
                 let hook_env = ctx.make_hook_env(node_id, profile);
 
-                // Use profile-specific resume command if a saved or discoverable session id
-                // is available.
+                // Resume only from the session id persisted for this node. Workspace opening
+                // must never scan provider history directories on the foreground thread.
                 let use_resume =
                     resolve_agent_restore_session_id(node_session, profile, ctx.workspace_root);
 
@@ -299,44 +299,19 @@ pub fn save_node_sessions(
 fn resolve_agent_restore_session_id(
     node_session: Option<&NodeSession>,
     profile: AgentProfile,
-    workspace_root: Option<&Path>,
+    _workspace_root: Option<&Path>,
 ) -> Option<String> {
-    resolve_agent_restore_session_id_with_discovery(
-        node_session,
+    if !matches!(
         profile,
-        workspace_root,
-        discover_agent_session_id,
-    )
-}
-
-fn resolve_agent_restore_session_id_with_discovery<F>(
-    node_session: Option<&NodeSession>,
-    profile: AgentProfile,
-    workspace_root: Option<&Path>,
-    discover: F,
-) -> Option<String>
-where
-    F: FnOnce(AgentProfile, &Path) -> Option<String>,
-{
-    if !matches!(profile, AgentProfile::Claude | AgentProfile::Codex) {
+        AgentProfile::Claude | AgentProfile::Codex | AgentProfile::Cursor
+    ) {
         return None;
     }
-    if let Some(saved) = node_session
+    node_session
         .filter(|s| s.kind == NodeSessionKind::Agent)
         .and_then(|s| s.session_id.as_deref())
         .filter(|session_id| !session_id.is_empty())
-    {
-        return Some(saved.to_string());
-    }
-    workspace_root.and_then(|root| discover(profile, root))
-}
-
-fn discover_agent_session_id(profile: AgentProfile, workspace_root: &Path) -> Option<String> {
-    match profile {
-        AgentProfile::Claude => session_snapshot::find_agent_session_id(workspace_root),
-        AgentProfile::Codex => session_snapshot::find_codex_session_id(workspace_root),
-        AgentProfile::OpenCode => None,
-    }
+        .map(ToString::to_string)
 }
 
 // ── Internal attach helpers ────────────────────────────────────────────────
@@ -409,6 +384,7 @@ fn attach_agent_live(
         hook_env.as_ref(),
         cols,
         rows,
+        None,
     ) {
         Ok(live) => {
             ctx.live.insert(node_id, Box::new(live));
@@ -459,12 +435,7 @@ pub fn build_agent_restore_command_for_test(
     hook_env: Option<&AgentHookEnv>,
     workspace_root: Option<&Path>,
 ) -> PtyCommand {
-    let session_id = resolve_agent_restore_session_id_with_discovery(
-        Some(session),
-        profile,
-        workspace_root,
-        |_, _| None,
-    );
+    let session_id = resolve_agent_restore_session_id(Some(session), profile, workspace_root);
     match session_id.as_deref() {
         Some(id) => session_snapshot::build_agent_resume_command(
             profile,
@@ -482,11 +453,9 @@ pub fn resolve_agent_restore_session_id_for_test(
     session: Option<&NodeSession>,
     profile: AgentProfile,
     workspace_root: Option<&Path>,
-    discovered_session_id: Option<&str>,
+    _discovered_session_id: Option<&str>,
 ) -> Option<String> {
-    resolve_agent_restore_session_id_with_discovery(session, profile, workspace_root, |_, _| {
-        discovered_session_id.map(ToString::to_string)
-    })
+    resolve_agent_restore_session_id(session, profile, workspace_root)
 }
 
 #[cfg(test)]

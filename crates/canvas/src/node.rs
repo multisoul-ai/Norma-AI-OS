@@ -19,6 +19,7 @@ pub struct TermSpec;
 pub enum AgentProfile {
     Claude,
     Codex,
+    Cursor,
     OpenCode,
 }
 
@@ -27,6 +28,7 @@ impl AgentProfile {
         match self {
             AgentProfile::Claude => "Claude",
             AgentProfile::Codex => "Codex",
+            AgentProfile::Cursor => "Cursor",
             AgentProfile::OpenCode => "OpenCode",
         }
     }
@@ -38,6 +40,8 @@ pub struct AgentSpec {
     pub profile: AgentProfile,
     #[serde(default)]
     pub alias: Option<String>,
+    #[serde(default)]
+    pub definition_id: Option<i64>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -159,32 +163,42 @@ mod tests {
     /// 数据构造（含关键数值推导）：
     ///   Claude Agent: profile=Claude
     ///   Codex Agent:  profile=Codex
+    ///   Cursor Agent: profile=Cursor
     ///   OpenCode Agent: profile=OpenCode
     ///   runtime session 不在 canvas 层构造，因此这里没有 session_id 字段
     ///
     /// 执行过程：
     ///   1. 构造 NodeKind::Agent(Claude)
     ///   2. 构造 NodeKind::Agent(Codex)
-    ///   3. 构造 NodeKind::Agent(OpenCode)
-    ///   3. 调用 node_type / display_title
+    ///   3. 构造 NodeKind::Agent(Cursor)
+    ///   4. 构造 NodeKind::Agent(OpenCode)
+    ///   5. 调用 node_type / display_title
     ///
     /// 预期结果：
-    ///   - 正断言：Claude/Codex/OpenCode Agent 类型都是 NodeType::Agent
-    ///   - 正断言：标题分别为 "Claude"、"Codex" 和 "OpenCode"
+    ///   - 正断言：Claude/Codex/Cursor/OpenCode Agent 类型都是 NodeType::Agent
+    ///   - 正断言：标题分别为 "Claude"、"Codex"、"Cursor" 和 "OpenCode"
     ///   - 负断言：Agent 标题不应退化为普通 "Terminal"
     #[test]
     fn test_agent_kind_is_description_only_and_exposes_profile_title() {
         let claude = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Claude,
             alias: None,
+            definition_id: None,
         });
         let codex = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: None,
+            definition_id: None,
         });
         let opencode = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::OpenCode,
             alias: None,
+            definition_id: None,
+        });
+        let cursor = NodeKind::Agent(AgentSpec {
+            profile: AgentProfile::Cursor,
+            alias: None,
+            definition_id: None,
         });
 
         assert_eq!(
@@ -203,6 +217,11 @@ mod tests {
             "OpenCode Agent 应暴露 NodeType::Agent，供 runtime/app registry dispatch"
         );
         assert_eq!(
+            cursor.node_type(),
+            NodeType::Agent,
+            "Cursor Agent 应暴露 NodeType::Agent，供 runtime/app registry dispatch"
+        );
+        assert_eq!(
             claude.display_title(),
             "Claude",
             "Claude Agent 标题应显示为 Claude"
@@ -216,6 +235,11 @@ mod tests {
             opencode.display_title(),
             "OpenCode",
             "OpenCode Agent 标题应显示为 OpenCode"
+        );
+        assert_eq!(
+            cursor.display_title(),
+            "Cursor",
+            "Cursor Agent 标题应显示为 Cursor"
         );
         assert_ne!(
             claude.display_title(),
@@ -231,6 +255,11 @@ mod tests {
             opencode.display_title(),
             "Terminal",
             "OpenCode Agent 不应退化显示为普通 Terminal"
+        );
+        assert_ne!(
+            cursor.display_title(),
+            "Terminal",
+            "Cursor Agent 不应退化显示为普通 Terminal"
         );
     }
 
@@ -258,6 +287,7 @@ mod tests {
         let aliased = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: Some("Alan".to_string()),
+            definition_id: None,
         });
 
         let NodeKind::Agent(legacy_spec) = &legacy else {

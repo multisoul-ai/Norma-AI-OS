@@ -225,6 +225,12 @@ pub(crate) fn execute_card_command_for_area(
             },
             effects: NormaCommandEffects::NONE,
         }),
+        CardCommand::ListAgents
+        | CardCommand::CreateAgent { .. }
+        | CardCommand::ActivateAgent { .. }
+        | CardCommand::DispatchAgentTasks { .. } => Err(CardCommandError::Unsupported {
+            message: "high-level Agent commands require the project Agent coordinator".into(),
+        }),
     }
 }
 
@@ -256,27 +262,19 @@ fn create_card(
                 })?;
             activate_spawned_node(runtime, node_id);
             motion.spawn_node(node_id, bounds);
+            motion.start_initialization(
+                node_id,
+                crate::motion::InitializationAnimationKind::Terminal,
+            );
             apply_layout_for_current_mode(master_layout, runtime, motion, area, zoom);
             Ok(NormaExecution {
                 result: CardCommandResult::Created { node_id },
                 effects: NormaCommandEffects::CANVAS_SESSION,
             })
         }
-        CardKind::Agent { profile } => {
-            let (cols, rows) = term_grid_size_for_card(NodeType::Agent, bounds, zoom);
-            let node_id = runtime
-                .spawn_agent(canvas_agent_profile(profile), bounds, cols, rows)
-                .map_err(|error| CardCommandError::Runtime {
-                    message: error.to_string(),
-                })?;
-            activate_spawned_node(runtime, node_id);
-            motion.spawn_node(node_id, bounds);
-            apply_layout_for_current_mode(master_layout, runtime, motion, area, zoom);
-            Ok(NormaExecution {
-                result: CardCommandResult::Created { node_id },
-                effects: NormaCommandEffects::CANVAS_SESSION,
-            })
-        }
+        CardKind::Agent { .. } => Err(CardCommandError::Unsupported {
+            message: "Agent cards must be created through create_agent".into(),
+        }),
         CardKind::Preview {
             path,
             explicit_type,
@@ -332,6 +330,15 @@ fn send_text(
     node_id: NodeId,
     text: String,
 ) -> Result<NormaExecution, CardCommandError> {
+    if runtime
+        .document
+        .node(node_id)
+        .is_some_and(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
+    {
+        return Err(CardCommandError::Unsupported {
+            message: "Agent text must be submitted through dispatch_agent_tasks".into(),
+        });
+    }
     runtime
         .send_node_input(node_id, NodeInput::Text(text))
         .map_err(|error| node_error(node_id, error))?;
@@ -433,18 +440,11 @@ fn node_error(node_id: NodeId, error: NodeError) -> CardCommandError {
     }
 }
 
-fn canvas_agent_profile(value: AgentProfile) -> CanvasAgentProfile {
-    match value {
-        AgentProfile::Claude => CanvasAgentProfile::Claude,
-        AgentProfile::Codex => CanvasAgentProfile::Codex,
-        AgentProfile::OpenCode => CanvasAgentProfile::OpenCode,
-    }
-}
-
 fn norma_agent_profile(value: CanvasAgentProfile) -> AgentProfile {
     match value {
         CanvasAgentProfile::Claude => AgentProfile::Claude,
         CanvasAgentProfile::Codex => AgentProfile::Codex,
+        CanvasAgentProfile::Cursor => AgentProfile::Cursor,
         CanvasAgentProfile::OpenCode => AgentProfile::OpenCode,
     }
 }

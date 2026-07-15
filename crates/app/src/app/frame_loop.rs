@@ -8,6 +8,23 @@ const RUNTIME_FRAME_INTERVAL: Duration = Duration::from_millis(12);
 const ANIMATION_FRAME_INTERVAL: Duration = Duration::from_millis(12);
 const PERSISTENCE_FRAME_INTERVAL: Duration = Duration::from_millis(120);
 
+#[derive(Clone, Copy, Debug)]
+struct AnimationFrameClock {
+    last_tick: Instant,
+}
+
+impl AnimationFrameClock {
+    fn new(now: Instant) -> Self {
+        Self { last_tick: now }
+    }
+
+    fn elapsed_at(&mut self, now: Instant) -> Duration {
+        let elapsed = now.saturating_duration_since(self.last_tick);
+        self.last_tick = now;
+        elapsed
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct RuntimeFrameReport {
     pub runtime_changed: bool,
@@ -70,12 +87,16 @@ pub(super) struct AnimationFrameReport {
     pub motion_changed: bool,
     pub cursor_changed: bool,
     pub visible_working_snake: bool,
+    pub voice_window_inset_changed: bool,
     pub elapsed: Duration,
 }
 
 impl AnimationFrameReport {
     pub(super) fn should_notify(self) -> bool {
-        self.motion_changed || self.cursor_changed || self.visible_working_snake
+        self.motion_changed
+            || self.cursor_changed
+            || self.visible_working_snake
+            || self.voice_window_inset_changed
     }
 
     pub(super) fn notify_reason_labels(self) -> String {
@@ -88,6 +109,9 @@ impl AnimationFrameReport {
         }
         if self.visible_working_snake {
             labels.push("visible_working_snake");
+        }
+        if self.voice_window_inset_changed {
+            labels.push("voice_window_inset_changed");
         }
         if labels.is_empty() {
             "none".to_string()
@@ -128,15 +152,28 @@ impl MultisoulApp {
                 let tick_started_at = Instant::now();
                 let runtime_changed = app.runtime.drain_all();
                 let browser_changed = app.drain_browser_events();
-                let agent_hook_changed = app.agent_hook_server.drain_into_runtime(&mut app.runtime);
+                let agent_hook_report = app.agent_hook_server.drain_into_runtime(&mut app.runtime);
+                let mut queue_changed = false;
+                let speak_agent_completions = app.dialogue.is_active()
+                    && app.voice_settings.values().interaction_mode()
+                        == crate::settings::voice::VoiceInteractionMode::ContinuousListening;
+                for node_id in agent_hook_report.terminal_node_ids {
+                    if speak_agent_completions {
+                        if let Some(report) = app.agent_completion_report_for_node(node_id) {
+                            app.dialogue.queue_agent_report(report);
+                        }
+                    }
+                    queue_changed |= app.advance_agent_task_queue(node_id);
+                }
                 let runtime_events = app.runtime.take_events();
+                app.handle_agent_runtime_events(&runtime_events, cx);
                 for event in &runtime_events {
                     tracing::debug!(?event, "runtime event");
                 }
                 let report = RuntimeFrameReport {
                     runtime_changed: runtime_changed || browser_changed,
                     runtime_event_count: runtime_events.len(),
-                    agent_hook_changed,
+                    agent_hook_changed: agent_hook_report.changed || queue_changed,
                     agent_hook_pending: app.agent_hook_server.has_pending(),
                     elapsed: tick_started_at.elapsed(),
                 };
@@ -153,29 +190,58 @@ impl MultisoulApp {
     }
 
     fn start_animation_frame_loop(cx: &mut Context<Self>) {
-        cx.spawn(async move |this, cx| loop {
-            cx.background_executor()
-                .timer(ANIMATION_FRAME_INTERVAL)
-                .await;
-            let go = this.update(cx, |app, cx| {
-                let tick_started_at = Instant::now();
-                let motion_changed = app.motion.tick(ANIMATION_FRAME_INTERVAL);
-                let cursor_changed = app.advance_terminal_cursor_phase(ANIMATION_FRAME_INTERVAL);
-                let diagnostics = app.motion.diagnostics();
-                crate::frame_diagnostics::log_motion_sample(diagnostics);
-                let report = AnimationFrameReport {
-                    motion_changed,
-                    cursor_changed,
-                    visible_working_snake: diagnostics.chase_visible_nodes > 0,
-                    elapsed: tick_started_at.elapsed(),
-                };
-                if report.should_notify() {
-                    cx.notify();
+        cx.spawn(async move |this, cx| {
+            let mut animation_interval = ANIMATION_FRAME_INTERVAL;
+            let mut frame_clock = AnimationFrameClock::new(Instant::now());
+            loop {
+                cx.background_executor().timer(animation_interval).await;
+                let animation_delta = frame_clock.elapsed_at(Instant::now());
+                let go = this.update(cx, |app, cx| {
+                    let tick_started_at = Instant::now();
+                    let motion_changed = app.motion.tick(animation_delta);
+                    let cursor_changed = app.advance_terminal_cursor_phase(animation_delta);
+                    app.sync_voice_window_inset_enabled();
+                    app.tts_preview.synchronize_external_cancellation();
+                    for event in app.dialogue.take_playback_events() {
+                        app.voice_window_inset.apply_playback_event(
+                            crate::app::voice_window_inset::TtsPlaybackSource::Assistant,
+                            event,
+                        );
+                    }
+                    for event in app.agent_announcement_playback.take_playback_events() {
+                        app.voice_window_inset.apply_playback_event(
+                            crate::app::voice_window_inset::TtsPlaybackSource::AgentAnnouncement,
+                            event,
+                        );
+                    }
+                    for event in app.tts_preview.take_playback_events() {
+                        app.voice_window_inset.apply_playback_event(
+                            crate::app::voice_window_inset::TtsPlaybackSource::Preview,
+                            event,
+                        );
+                    }
+                    app.start_next_agent_announcement(cx);
+                    let voice_window_inset_changed = app.voice_window_inset.tick(animation_delta);
+                    let diagnostics = app.motion.diagnostics();
+                    crate::frame_diagnostics::log_motion_sample(diagnostics);
+                    let report = AnimationFrameReport {
+                        motion_changed,
+                        cursor_changed,
+                        visible_working_snake: diagnostics.chase_visible_nodes > 0,
+                        voice_window_inset_changed,
+                        elapsed: tick_started_at.elapsed(),
+                    };
+                    if report.should_notify() {
+                        cx.notify();
+                    }
+                    report.log_if_enabled();
+                    app.motion
+                        .next_animation_tick_interval(ANIMATION_FRAME_INTERVAL)
+                });
+                match go {
+                    Ok(next_interval) => animation_interval = next_interval,
+                    Err(_) => break,
                 }
-                report.log_if_enabled();
-            });
-            if go.is_err() {
-                break;
             }
         })
         .detach();

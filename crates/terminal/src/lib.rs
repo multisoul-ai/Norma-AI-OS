@@ -4,6 +4,7 @@ pub mod input;
 pub mod message;
 pub mod pty;
 pub mod session;
+pub mod test_backend;
 
 pub use grid::{
     terminal_wheel_action, Cell, CellAttrs, GridSnapshot, TerminalColor, TerminalGrid,
@@ -11,5 +12,6 @@ pub use grid::{
 };
 pub use input::{encode, Key, KeyInput};
 pub use message::PtyEvent;
-pub use pty::{PtyCommand, PtyError, PtyHandle};
+pub use pty::{PtyBackend, PtyCommand, PtyError, PtyHandle};
 pub use session::{TerminalSession, TerminalSessionId, TerminalStatus};
+pub use test_backend::{ScriptRule, TestPtyBackend};

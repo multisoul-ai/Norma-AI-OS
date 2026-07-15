@@ -117,7 +117,81 @@ fn test_resolve_audio_input_device_missing_saved_id_returns_error() {
     );
 }
 
-/// D-4: 空白输入源 ID 应等价于 System Default。
+/// D-4: 麦克风枚举必须使用 macOS 12+ 可用的 AVFoundation 符号。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Packager minimum-system-version = 12.0
+///   AVCaptureDeviceTypeMicrophone 仅在 macOS 14+ 的 AVFoundation 中导出
+///   BuiltInMicrophone 字符串值在 Ventura 及更早版本可用
+///   两个 AVFoundation 静态符号引用数 = 0，避免新符号缺失与旧符号弃用
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 devices.rs 源码
+///   2. 确认 discovery session 通过 NSString 运行时构造 BuiltInMicrophone 类型
+///   3. 确认未静态引用旧 BuiltInMicrophone 或 macOS 14+ Microphone 符号
+///   4. macOS 上实际调用设备枚举，确保生产函数进入并执行于测试产物
+///   5. 用 nm 扫描当前测试二进制的未解析符号，验证链接产物没有这两个静态符号
+///
+/// 预期结果：
+///   - 正断言：源码通过 NSString::from_str 构造 BuiltInMicrophone 类型
+///   - 正断言：AVFoundation discovery 在当前受支持 macOS 上成功返回（允许设备列表为空）
+///   - 正断言：nm 成功读取实际测试产物的未解析符号表
+///   - 负断言：源码和链接产物均不引用旧弃用符号或 macOS 14+ discovery 符号
+#[test]
+fn test_list_audio_input_devices_uses_macos_12_compatible_capture_device_type() {
+    let source = include_str!("../../src/devices.rs");
+
+    assert!(
+        source.contains("NSString::from_str(\"AVCaptureDeviceTypeBuiltInMicrophone\")"),
+        "microphone discovery should construct the macOS 12-compatible device type at runtime"
+    );
+    assert!(
+        !source.contains("AVCaptureDeviceTypeBuiltInMicrophone, AVMediaTypeAudio")
+            && !source.contains("unsafe { AVCaptureDeviceTypeBuiltInMicrophone }"),
+        "the deprecated BuiltInMicrophone static must not be linked or Clippy will fail"
+    );
+    assert!(
+        !source.contains("AVCaptureDeviceTypeMicrophone,")
+            && !source.contains("AVCaptureDeviceTypeMicrophone }"),
+        "macOS 14+ microphone discovery symbol breaks startup on Ventura"
+    );
+
+    #[cfg(target_os = "macos")]
+    {
+        let devices = list_audio_input_devices();
+        assert!(
+            devices.is_ok(),
+            "受支持 macOS 上的 AVFoundation microphone discovery 应成功返回，允许列表为空；实际错误={devices:?}"
+        );
+        let output = std::process::Command::new("nm")
+            .arg("-u")
+            .arg(std::env::current_exe().expect("测试应能定位当前 voice_sherpa 测试二进制"))
+            .output()
+            .expect("macOS 测试环境应提供 nm 以扫描最终链接产物");
+        assert!(
+            output.status.success(),
+            "nm 必须成功读取 voice_sherpa 测试二进制，stderr={}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let undefined_symbols = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            !undefined_symbols
+                .lines()
+                .any(|line| line.split_whitespace().last()
+                    == Some("_AVCaptureDeviceTypeMicrophone")),
+            "链接产物不得依赖 macOS 14+ _AVCaptureDeviceTypeMicrophone，否则 Ventura 会在启动时 dyld 失败"
+        );
+        assert!(
+            !undefined_symbols
+                .lines()
+                .any(|line| line.split_whitespace().last()
+                    == Some("_AVCaptureDeviceTypeBuiltInMicrophone")),
+            "链接产物不得依赖已弃用的 _AVCaptureDeviceTypeBuiltInMicrophone 静态符号"
+        );
+    }
+}
+
+/// D-5: 空白输入源 ID 应等价于 System Default。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   devices.len() = 2

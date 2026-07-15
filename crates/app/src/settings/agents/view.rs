@@ -64,6 +64,7 @@ fn toolbar(theme: Theme, cx: &mut Context<MultisoulApp>) -> Div {
         .child(
             action_button(theme, "+ New", theme.accent_orange)
                 .id("settings-agent-new")
+                .debug_selector(|| "settings-agent-new".to_string())
                 .on_click(cx.listener(MultisoulApp::on_agent_settings_new_definition)),
         )
 }
@@ -77,15 +78,16 @@ fn agent_cards(
 
     div()
         .id("settings-agents-list")
+        .debug_selector(|| "settings-agents-list".to_string())
         .flex()
         .flex_col()
         .gap(px(12.0))
-        .when(definitions.is_empty(), |this| {
+        .when(definitions.is_empty() && !state.is_creating_new(), |this| {
             this.child(empty_list_message(theme, "No project agents saved yet."))
         })
         .children(definitions.iter().map(|definition| {
             if state.editing_card_id() == Some(definition.id) {
-                editing_agent_card(theme, state, definition.id, cx)
+                editing_agent_card(theme, state, Some(definition.id), cx)
             } else {
                 readonly_agent_card(
                     theme,
@@ -95,6 +97,9 @@ fn agent_cards(
                 )
             }
         }))
+        .when(state.is_creating_new(), |this| {
+            this.child(editing_agent_card(theme, state, None, cx))
+        })
         .into_any_element()
 }
 
@@ -188,18 +193,18 @@ fn readonly_agent_card(
 fn editing_agent_card(
     theme: Theme,
     state: &AgentDefinitionsState,
-    id: i64,
+    id: Option<i64>,
     cx: &mut Context<MultisoulApp>,
 ) -> AnyElement {
     let draft = state.draft();
-    let delete_label = if state.is_delete_confirmation_pending(id) {
+    let delete_label = if id.is_some_and(|id| state.is_delete_confirmation_pending(id)) {
         "Confirm Delete"
     } else {
         "Delete"
     };
 
     div()
-        .id(("settings-agent-card-editing", id as u64))
+        .id(("settings-agent-card-editing", id.unwrap_or(0) as u64))
         .flex()
         .flex_col()
         .gap(px(14.0))
@@ -255,6 +260,7 @@ fn editing_agent_card(
                 .child(
                     action_button(theme, "Save", theme.accent_orange)
                         .id("settings-agent-save")
+                        .debug_selector(|| "settings-agent-save".to_string())
                         .on_click(cx.listener(MultisoulApp::on_agent_settings_save)),
                 )
                 .child(
@@ -262,13 +268,17 @@ fn editing_agent_card(
                         .id("settings-agent-cancel-edit")
                         .on_click(cx.listener(MultisoulApp::on_agent_settings_cancel_card_edit)),
                 )
-                .child(
-                    action_button(theme, delete_label, theme.destructive)
-                        .id(("settings-agent-delete-confirm", id as u64))
-                        .on_click(cx.listener(move |app, event, window, cx| {
-                            app.on_agent_settings_request_delete_definition(id, event, window, cx);
-                        })),
-                ),
+                .when_some(id, |this, id| {
+                    this.child(
+                        action_button(theme, delete_label, theme.destructive)
+                            .id(("settings-agent-delete-confirm", id as u64))
+                            .on_click(cx.listener(move |app, event, window, cx| {
+                                app.on_agent_settings_request_delete_definition(
+                                    id, event, window, cx,
+                                );
+                            })),
+                    )
+                }),
         )
         .into_any_element()
 }
@@ -363,6 +373,13 @@ fn profile_buttons(theme: Theme, selected: AgentProfile, cx: &mut Context<Multis
                 ))
                 .child(profile_button(
                     theme,
+                    "Cursor",
+                    AgentProfile::Cursor,
+                    selected,
+                    cx,
+                ))
+                .child(profile_button(
+                    theme,
                     "OpenCode",
                     AgentProfile::OpenCode,
                     selected,
@@ -381,11 +398,13 @@ fn profile_button(
     let button_id = match profile {
         AgentProfile::Claude => "settings-agent-profile-claude",
         AgentProfile::Codex => "settings-agent-profile-codex",
+        AgentProfile::Cursor => "settings-agent-profile-cursor",
         AgentProfile::OpenCode => "settings-agent-profile-opencode",
     };
 
     action_button(theme, label, profile_accent(theme, selected == profile))
         .id(button_id)
+        .debug_selector(move || button_id.to_string())
         .on_click(cx.listener(move |app, event, window, cx| {
             app.on_agent_settings_select_profile(profile, event, window, cx);
         }))

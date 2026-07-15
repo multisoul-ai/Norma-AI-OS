@@ -8,6 +8,7 @@ default-run = "norma-os"
 [features]
 default = []
 chromium-browser = ["dep:cef"]
+e2e-test-support = []
 
 [[bin]]
 name = "norma-os"
@@ -18,7 +19,7 @@ name = "multisoul-agent-hook"
 path = "src/bin/multisoul_agent_hook.rs"
 
 [dependencies]
-gpui.workspace = true
+gpui = { workspace = true, features = ["test-support"] }
 ui.workspace = true
 runtime.workspace = true
 canvas.workspace = true
@@ -28,6 +29,13 @@ workspace.workspace = true
 norma.workspace = true
 voice.workspace = true
 voice_sherpa.workspace = true
+card_task.workspace = true
+dialogue.workspace = true
+llm.workspace = true
+audio.workspace = true
+asr.workspace = true
+tts.workspace = true
+agent.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -36,6 +44,8 @@ tracing-subscriber.workspace = true
 crossbeam-channel.workspace = true
 async-channel.workspace = true
 pulldown-cmark.workspace = true
+ureq.workspace = true
+hound = "3.5"
 
 # Native file picker for wallpaper import (Task 8). AsyncFileDialog is awaited
 # inside a cx.spawn task so it never blocks the GPUI event loop.
@@ -53,7 +63,18 @@ core-video = { version = "=0.4.3", features = ["metal"] }
 core-foundation = "0.10"
 objc2 = "0.6"
 objc2-foundation = "0.3"
-objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSView"] }
+objc2-web-kit = { version = "0.3", default-features = false, features = ["WKWebViewConfiguration"] }
+objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSView", "NSWindow"] }
+objc2-avf-audio = { version = "0.3.2", features = [
+    "AVAudioBuffer",
+    "AVAudioEngine",
+    "AVAudioFormat",
+    "AVAudioMixerNode",
+    "AVAudioNode",
+    "AVAudioPlayerNode",
+    "AVAudioTypes",
+    "block2",
+] }
 objc2-quartz-core = { version = "0.3", features = ["CALayer"] }
 objc2-av-foundation = { version = "0.3", features = [
     "AVAsset",

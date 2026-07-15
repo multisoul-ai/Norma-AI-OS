@@ -1,61 +1,69 @@
-use gpui::Keystroke;
+use super::models::AsrModelManagerState;
+use super::tts_models::TtsModelManagerState;
+use asr::AsrModelId;
 use std::path::PathBuf;
 use storage::{AppStore, SettingsStore};
-use voice::OllamaVoicePlanner;
-use voice_sherpa::{AudioInputDevice, SherpaProvider, SpeechError};
-
-pub(crate) const DEFAULT_OLLAMA_ENDPOINT: &str = "http://127.0.0.1:11434";
-const KEY_OLLAMA_ENDPOINT: &str = "voice.ollama.endpoint";
-const KEY_OLLAMA_MODEL: &str = "voice.ollama.model";
-const KEY_REFINE_MODEL: &str = "voice.refine.model";
-const KEY_PARAFORMER_MODEL_DIR: &str = "voice.paraformer.model_dir";
-const KEY_INPUT_DEVICE_ID: &str = "voice.input_device_id";
-const KEY_TRACE_ENABLED: &str = "voice.trace_enabled";
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub(crate) struct SavedVoiceSettings {
-    pub(crate) ollama_endpoint: Option<String>,
-    pub(crate) planner_model: Option<String>,
-    pub(crate) refine_model: Option<String>,
-    pub(crate) paraformer_model_dir: Option<PathBuf>,
-    pub(crate) input_device_id: Option<String>,
-    pub(crate) trace_enabled: Option<bool>,
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub(crate) struct EnvVoiceSettings {
-    pub(crate) ollama_endpoint: Option<String>,
-    pub(crate) planner_model: Option<String>,
-    pub(crate) refine_model: Option<String>,
-    pub(crate) paraformer_model_dir: Option<PathBuf>,
-    pub(crate) input_device_id: Option<String>,
-    pub(crate) trace_enabled: Option<String>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct VoiceSettingsValues {
-    ollama_endpoint: String,
-    planner_model: String,
-    refine_model: String,
-    paraformer_model_dir: Option<PathBuf>,
-    input_device_id: Option<String>,
-    trace_enabled: bool,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum VoiceSettingsField {
-    OllamaEndpoint,
-    PlannerModel,
-    RefineModel,
-}
-
+use tts::{TtsModelId, TtsVoiceId};
+use voice_sherpa::{AudioInputDevice, SpeechError};
+mod announcements;
+mod builders;
+#[cfg(feature = "e2e-test-support")]
+mod e2e;
+mod migration;
+mod model_selection;
+mod provider_values;
+mod values;
+pub(crate) use model_selection::resolve_available_asr_model;
+pub(crate) use provider_values::AgentProviderKind;
+#[cfg(test)]
+pub(crate) use provider_values::SavedProviderProfile;
+use provider_values::{
+    KEY_AGENT_OLLAMA_API_KEY, KEY_AGENT_OLLAMA_BASE_URL, KEY_AGENT_OLLAMA_MODEL,
+    KEY_AGENT_OPENAI_API_KEY, KEY_AGENT_OPENAI_BASE_URL, KEY_AGENT_OPENAI_MODEL,
+    KEY_AGENT_PROVIDER,
+};
+#[cfg(test)]
+pub(crate) use values::DialogueLlmMode;
+pub(crate) use values::{
+    DictationTrigger, EnvVoiceSettings, SavedVoiceSettings, VoiceInteractionMode,
+    VoiceSettingsField, VoiceSettingsValues,
+};
+use values::{
+    KEY_ASR_MODEL_ID, KEY_INPUT_DEVICE_ID, KEY_INTERACTION_MODE, KEY_OPENAI_API_KEY,
+    KEY_SINGLE_VOICE_COMMAND_TRIGGER, KEY_TRACE_ENABLED, KEY_TTS_MODEL_ID, KEY_TTS_VOICE_ID,
+};
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct VoiceSettingsStatus {
     message: String,
     is_error: bool,
 }
+#[derive(Clone)]
+pub(crate) enum PendingVoiceSettingWrite {
+    Set {
+        store: SettingsStore,
+        key: String,
+        value: String,
+    },
+    Delete {
+        store: SettingsStore,
+        key: String,
+    },
+}
+impl PendingVoiceSettingWrite {
+    pub(crate) fn execute(self) -> storage::StorageResult<()> {
+        match self {
+            Self::Set { store, key, value } => store.set_string(&key, &value),
+            Self::Delete { store, key } => store.delete_string(&key),
+        }
+    }
 
-#[derive(Clone, Debug)]
+    fn key(&self) -> &str {
+        match self {
+            Self::Set { key, .. } | Self::Delete { key, .. } => key,
+        }
+    }
+}
+#[derive(Clone)]
 pub(crate) struct VoiceSettingsState {
     values: VoiceSettingsValues,
     saved: SavedVoiceSettings,
@@ -65,101 +73,13 @@ pub(crate) struct VoiceSettingsState {
     editing: Option<VoiceSettingsField>,
     draft: String,
     status: Option<VoiceSettingsStatus>,
+    pending_writes: Vec<PendingVoiceSettingWrite>,
+    persistence_running: bool,
+    model_root: PathBuf,
+    model_manager: AsrModelManagerState,
+    tts_model_manager: TtsModelManagerState,
+    advanced_expanded: bool,
 }
-
-impl VoiceSettingsValues {
-    pub(crate) fn resolve(saved: &SavedVoiceSettings, env: &EnvVoiceSettings) -> Self {
-        let endpoint = first_non_empty(
-            saved.ollama_endpoint.as_deref(),
-            env.ollama_endpoint.as_deref(),
-            DEFAULT_OLLAMA_ENDPOINT,
-        );
-        let planner_model = first_non_empty(
-            saved.planner_model.as_deref(),
-            env.planner_model.as_deref(),
-            OllamaVoicePlanner::default_model(),
-        );
-        let refine_model = saved
-            .refine_model
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-            .or_else(|| {
-                env.refine_model
-                    .as_deref()
-                    .filter(|value| !value.trim().is_empty())
-            })
-            .map(str::trim)
-            .map(ToOwned::to_owned)
-            .unwrap_or_else(|| planner_model.clone());
-        let paraformer_model_dir = saved
-            .paraformer_model_dir
-            .clone()
-            .or_else(|| env.paraformer_model_dir.clone());
-        let input_device_id = saved
-            .input_device_id
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-            .or_else(|| {
-                env.input_device_id
-                    .as_deref()
-                    .filter(|value| !value.trim().is_empty())
-            })
-            .map(str::trim)
-            .map(ToOwned::to_owned);
-        let trace_enabled = saved
-            .trace_enabled
-            .unwrap_or_else(|| trace_enabled_from_value(env.trace_enabled.as_deref()));
-
-        Self {
-            ollama_endpoint: endpoint,
-            planner_model,
-            refine_model,
-            paraformer_model_dir,
-            input_device_id,
-            trace_enabled,
-        }
-    }
-
-    pub(crate) fn ollama_endpoint(&self) -> &str {
-        &self.ollama_endpoint
-    }
-
-    pub(crate) fn planner_model(&self) -> &str {
-        &self.planner_model
-    }
-
-    pub(crate) fn refine_model(&self) -> &str {
-        &self.refine_model
-    }
-
-    pub(crate) fn paraformer_model_dir(&self) -> Option<&std::path::Path> {
-        self.paraformer_model_dir.as_deref()
-    }
-
-    pub(crate) fn input_device_id(&self) -> Option<&str> {
-        self.input_device_id.as_deref()
-    }
-
-    pub(crate) fn trace_enabled(&self) -> bool {
-        self.trace_enabled
-    }
-}
-
-impl EnvVoiceSettings {
-    fn from_env() -> Self {
-        Self {
-            ollama_endpoint: std::env::var("MULTISOUL_OLLAMA_ENDPOINT").ok(),
-            planner_model: std::env::var("MULTISOUL_OLLAMA_MODEL").ok(),
-            refine_model: std::env::var("MULTISOUL_REFINE_MODEL").ok(),
-            paraformer_model_dir: std::env::var("MULTISOUL_PARAFORMER_MODEL_DIR")
-                .ok()
-                .map(PathBuf::from),
-            input_device_id: std::env::var("MULTISOUL_VOICE_INPUT_DEVICE_ID").ok(),
-            trace_enabled: std::env::var("MULTISOUL_VOICE_TRACE").ok(),
-        }
-    }
-}
-
 impl VoiceSettingsState {
     pub(crate) fn load_default() -> Self {
         match AppStore::open_default() {
@@ -180,6 +100,7 @@ impl VoiceSettingsState {
             Ok(saved) => {
                 let mut state = Self::from_sources(saved, EnvVoiceSettings::from_env());
                 state.storage = Some(store);
+                state.queue_legacy_single_voice_command_migration();
                 state
             }
             Err(error) => {
@@ -195,7 +116,18 @@ impl VoiceSettingsState {
     }
 
     pub(crate) fn from_sources(saved: SavedVoiceSettings, env: EnvVoiceSettings) -> Self {
+        let model_root = asr::default_model_installation_root().unwrap_or_default();
+        Self::from_sources_with_model_root(saved, env, model_root)
+    }
+
+    pub(crate) fn from_sources_with_model_root(
+        saved: SavedVoiceSettings,
+        env: EnvVoiceSettings,
+        model_root: PathBuf,
+    ) -> Self {
         let values = VoiceSettingsValues::resolve(&saved, &env);
+        let model_manager = AsrModelManagerState::unscanned(&asr::builtin_model_catalog());
+        let tts_model_manager = TtsModelManagerState::unscanned(&tts::builtin_model_catalog());
         Self {
             values,
             saved,
@@ -205,6 +137,12 @@ impl VoiceSettingsState {
             editing: None,
             draft: String::new(),
             status: None,
+            pending_writes: Vec::new(),
+            persistence_running: false,
+            model_root,
+            model_manager,
+            tts_model_manager,
+            advanced_expanded: false,
         }
     }
 
@@ -212,64 +150,101 @@ impl VoiceSettingsState {
         &self.values
     }
 
+    pub(crate) fn editing_field(&self) -> Option<VoiceSettingsField> {
+        self.editing
+    }
+
+    pub(crate) fn active_agent_model(&self) -> &str {
+        self.values.active_provider_profile().model()
+    }
+
     pub(crate) fn input_devices(&self) -> &[AudioInputDevice] {
         &self.input_devices
     }
 
-    pub(crate) fn sherpa_provider(&self) -> Result<SherpaProvider, SpeechError> {
-        match self.values.paraformer_model_dir.as_deref() {
-            Some(path) => SherpaProvider::new(path),
-            None => SherpaProvider::from_env_or_default(),
-        }
-    }
-
+    #[cfg(test)]
     pub(crate) fn begin_edit(&mut self, field: VoiceSettingsField) {
-        self.draft = self.field_value(field).to_string();
+        self.draft = self.field_value(field);
         self.editing = Some(field);
         self.status = None;
     }
 
-    pub(crate) fn handle_key_down(&mut self, keystroke: &Keystroke) -> bool {
-        let Some(field) = self.editing else {
-            return false;
-        };
+    pub(crate) fn begin_edit_with_value(&mut self, field: VoiceSettingsField, value: String) {
+        self.editing = Some(field);
+        self.draft = value;
+        self.status = None;
+    }
 
-        match keystroke.key.as_ref() {
-            "escape" => {
-                self.cancel_edit();
-                true
-            }
-            "enter" => {
-                self.commit_edit(field);
-                true
-            }
-            "backspace" => {
-                self.draft.pop();
-                true
-            }
-            "space" if no_command_modifiers(keystroke) => {
-                self.draft.push(' ');
-                true
-            }
-            _ if no_command_modifiers(keystroke) => {
-                if let Some(text) = keystroke.key_char.as_deref() {
-                    self.draft.push_str(text);
-                }
-                true
-            }
-            _ => true,
+    pub(crate) fn update_edit_value(&mut self, field: VoiceSettingsField, value: String) {
+        if self.editing == Some(field) {
+            self.draft = value;
         }
     }
 
-    pub(crate) fn set_paraformer_model_dir(&mut self, path: PathBuf) {
-        self.saved.paraformer_model_dir = Some(path.clone());
-        self.persist_string(KEY_PARAFORMER_MODEL_DIR, &path.display().to_string());
+    pub(crate) fn auto_save_edit_value(
+        &mut self,
+        field: VoiceSettingsField,
+        value: String,
+    ) -> Option<String> {
+        if self.editing != Some(field) {
+            return None;
+        }
+        self.draft = value;
+        self.save_edit(field, false)
+    }
+
+    pub(crate) fn commit_edit_value(
+        &mut self,
+        field: VoiceSettingsField,
+        value: String,
+    ) -> Option<String> {
+        self.editing = Some(field);
+        self.draft = value;
+        self.commit_edit(field)
+    }
+
+    pub(crate) fn cancel_edit_field(&mut self, field: VoiceSettingsField) {
+        if self.editing == Some(field) {
+            self.cancel_edit();
+        }
+    }
+
+    pub(crate) fn select_interaction_mode(&mut self, mode: VoiceInteractionMode) {
+        self.saved.interaction_mode = Some(mode);
+        self.persist_string(KEY_INTERACTION_MODE, mode.as_str());
         self.refresh_values();
     }
 
-    pub(crate) fn clear_paraformer_model_dir(&mut self) {
-        self.saved.paraformer_model_dir = None;
-        self.delete_string(KEY_PARAFORMER_MODEL_DIR);
+    pub(crate) fn select_dictation_trigger(&mut self, trigger: DictationTrigger) {
+        self.saved.dictation_trigger = Some(trigger);
+        self.persist_string(KEY_SINGLE_VOICE_COMMAND_TRIGGER, trigger.as_str());
+        self.refresh_values();
+    }
+
+    pub(crate) fn select_asr_model(&mut self, model_id: Option<AsrModelId>) {
+        self.saved.asr_model_id = model_id.clone();
+        match model_id {
+            Some(model_id) => self.persist_string(KEY_ASR_MODEL_ID, model_id.as_str()),
+            None => self.delete_string(KEY_ASR_MODEL_ID),
+        }
+        self.refresh_values();
+    }
+
+    pub(crate) fn select_tts_model_and_voice(
+        &mut self,
+        model_id: Option<TtsModelId>,
+        voice_id: Option<TtsVoiceId>,
+    ) {
+        self.saved.tts_model_id = model_id.clone();
+        self.saved.tts_voice_id = voice_id.clone();
+        match model_id {
+            Some(id) => self.persist_string(KEY_TTS_MODEL_ID, id.as_str()),
+            None => self.delete_string(KEY_TTS_MODEL_ID),
+        }
+        match voice_id {
+            Some(id) => self.persist_string(KEY_TTS_VOICE_ID, id.as_str()),
+            None => self.delete_string(KEY_TTS_VOICE_ID),
+        }
         self.refresh_values();
     }
 
@@ -312,15 +287,46 @@ impl VoiceSettingsState {
         self.refresh_values();
     }
 
-    pub(super) fn is_editing(&self, field: VoiceSettingsField) -> bool {
-        self.editing == Some(field)
+    pub(crate) fn select_agent_provider(&mut self, provider: AgentProviderKind) {
+        self.saved.agent_provider = Some(provider);
+        self.persist_string(KEY_AGENT_PROVIDER, provider.as_str());
+        self.cancel_edit();
+        self.refresh_values();
     }
 
+    pub(crate) fn clear_agent_api_key(&mut self) {
+        self.cancel_edit_field(VoiceSettingsField::ApiKey);
+        let (key, legacy_key) = match self.values.agent_provider() {
+            AgentProviderKind::Ollama => {
+                self.saved.ollama_profile.api_key = None;
+                (KEY_AGENT_OLLAMA_API_KEY, None)
+            }
+            AgentProviderKind::OpenAiCompatible => {
+                self.saved.openai_profile.api_key = None;
+                (KEY_AGENT_OPENAI_API_KEY, Some(KEY_OPENAI_API_KEY))
+            }
+        };
+        self.delete_string(key);
+        if let Some(legacy_key) = legacy_key {
+            self.delete_string(legacy_key);
+        }
+        self.refresh_values();
+    }
+
+    #[cfg(test)]
     pub(super) fn row_value(&self, field: VoiceSettingsField) -> String {
-        if self.editing == Some(field) {
+        if self.editing == Some(field) && field == VoiceSettingsField::ApiKey {
+            format!("{}|", "•".repeat(self.draft.chars().count()))
+        } else if self.editing == Some(field) {
             format!("{}|", self.draft)
+        } else if field == VoiceSettingsField::ApiKey {
+            if self.values.active_provider_profile().api_key().is_some() {
+                "Configured ••••••••".to_string()
+            } else {
+                "Not configured".to_string()
+            }
         } else {
-            self.field_value(field).to_string()
+            self.field_value(field)
         }
     }
 
@@ -330,133 +336,141 @@ impl VoiceSettingsState {
             .map(|status| (status.message.as_str(), status.is_error))
     }
 
+    pub(crate) fn take_pending_writes(&mut self) -> Vec<PendingVoiceSettingWrite> {
+        if self.persistence_running || self.pending_writes.is_empty() {
+            return Vec::new();
+        }
+        self.persistence_running = true;
+        std::mem::take(&mut self.pending_writes)
+    }
+
+    pub(crate) fn record_persistence_result(&mut self, result: Result<(), String>) {
+        self.persistence_running = false;
+        self.status = Some(match result {
+            Ok(()) => ok_status("Saved"),
+            Err(error) => error_status(format!("Could not save setting: {error}")),
+        });
+    }
+
     fn cancel_edit(&mut self) {
         self.editing = None;
         self.draft.clear();
         self.status = None;
     }
 
-    fn commit_edit(&mut self, field: VoiceSettingsField) {
+    fn commit_edit(&mut self, field: VoiceSettingsField) -> Option<String> {
+        self.save_edit(field, true)
+    }
+
+    fn save_edit(&mut self, field: VoiceSettingsField, finish_editing: bool) -> Option<String> {
         let value = self.draft.trim().to_string();
         if value.is_empty() {
-            self.status = Some(error_status("Value cannot be empty"));
-            return;
+            if field == VoiceSettingsField::ApiKey {
+                if finish_editing {
+                    self.editing = None;
+                    self.draft.clear();
+                }
+                self.status = Some(ok_status("API Key unchanged; use Clear to remove it"));
+            } else {
+                self.status = Some(error_status("Value cannot be empty"));
+            }
+            return None;
         }
 
         let key = match field {
-            VoiceSettingsField::OllamaEndpoint => {
-                self.saved.ollama_endpoint = Some(value.clone());
-                KEY_OLLAMA_ENDPOINT
-            }
-            VoiceSettingsField::PlannerModel => {
-                self.saved.planner_model = Some(value.clone());
-                KEY_OLLAMA_MODEL
-            }
-            VoiceSettingsField::RefineModel => {
-                self.saved.refine_model = Some(value.clone());
-                KEY_REFINE_MODEL
-            }
+            VoiceSettingsField::BaseUrl => match self.values.agent_provider() {
+                AgentProviderKind::Ollama => {
+                    self.saved.ollama_profile.base_url = Some(value.clone());
+                    KEY_AGENT_OLLAMA_BASE_URL
+                }
+                AgentProviderKind::OpenAiCompatible => {
+                    self.saved.openai_profile.base_url = Some(value.clone());
+                    KEY_AGENT_OPENAI_BASE_URL
+                }
+            },
+            VoiceSettingsField::Model => match self.values.agent_provider() {
+                AgentProviderKind::Ollama => {
+                    self.saved.ollama_profile.model = Some(value.clone());
+                    KEY_AGENT_OLLAMA_MODEL
+                }
+                AgentProviderKind::OpenAiCompatible => {
+                    self.saved.openai_profile.model = Some(value.clone());
+                    KEY_AGENT_OPENAI_MODEL
+                }
+            },
+            VoiceSettingsField::ApiKey => match self.values.agent_provider() {
+                AgentProviderKind::Ollama => {
+                    self.saved.ollama_profile.api_key = non_empty(value.clone());
+                    KEY_AGENT_OLLAMA_API_KEY
+                }
+                AgentProviderKind::OpenAiCompatible => {
+                    self.saved.openai_profile.api_key = non_empty(value.clone());
+                    KEY_AGENT_OPENAI_API_KEY
+                }
+            },
         };
         self.persist_string(key, &value);
-        self.editing = None;
-        self.draft.clear();
+        if finish_editing {
+            self.editing = None;
+            self.draft.clear();
+        }
         self.refresh_values();
+        Some(value)
     }
 
     fn persist_string(&mut self, key: &str, value: &str) {
-        self.status = match &self.storage {
-            Some(store) => match store.set_string(key, value) {
-                Ok(()) => Some(ok_status("Saved")),
-                Err(error) => Some(error_status(format!("Could not save setting: {error}"))),
-            },
-            None => Some(ok_status("Saved for this session")),
-        };
+        if let Some(store) = self.storage.clone() {
+            self.queue_pending_write(PendingVoiceSettingWrite::Set {
+                store,
+                key: key.to_string(),
+                value: value.to_string(),
+            });
+            self.status = Some(ok_status("Saving..."));
+        } else {
+            self.status = Some(ok_status("Saved for this session"));
+        }
     }
 
     fn delete_string(&mut self, key: &str) {
-        self.status = match &self.storage {
-            Some(store) => match store.delete_string(key) {
-                Ok(()) => Some(ok_status("Using default")),
-                Err(error) => Some(error_status(format!("Could not clear setting: {error}"))),
-            },
-            None => Some(ok_status("Using default for this session")),
-        };
+        if let Some(store) = self.storage.clone() {
+            self.queue_pending_write(PendingVoiceSettingWrite::Delete {
+                store,
+                key: key.to_string(),
+            });
+            self.status = Some(ok_status("Saving..."));
+        } else {
+            self.status = Some(ok_status("Using default for this session"));
+        }
+    }
+
+    fn queue_pending_write(&mut self, write: PendingVoiceSettingWrite) {
+        self.pending_writes
+            .retain(|pending| pending.key() != write.key());
+        self.pending_writes.push(write);
     }
 
     fn refresh_values(&mut self) {
         self.values = VoiceSettingsValues::resolve(&self.saved, &self.env);
     }
 
-    fn field_value(&self, field: VoiceSettingsField) -> &str {
+    fn field_value(&self, field: VoiceSettingsField) -> String {
         match field {
-            VoiceSettingsField::OllamaEndpoint => self.values.ollama_endpoint(),
-            VoiceSettingsField::PlannerModel => self.values.planner_model(),
-            VoiceSettingsField::RefineModel => self.values.refine_model(),
+            VoiceSettingsField::BaseUrl => {
+                self.values.active_provider_profile().base_url().to_string()
+            }
+            VoiceSettingsField::Model => self.values.active_provider_profile().model().to_string(),
+            VoiceSettingsField::ApiKey => String::new(),
         }
     }
-}
 
-impl SavedVoiceSettings {
-    fn load(store: &SettingsStore) -> storage::StorageResult<Self> {
-        Ok(Self {
-            ollama_endpoint: non_empty_option(store.get_string(KEY_OLLAMA_ENDPOINT)?),
-            planner_model: non_empty_option(store.get_string(KEY_OLLAMA_MODEL)?),
-            refine_model: non_empty_option(store.get_string(KEY_REFINE_MODEL)?),
-            paraformer_model_dir: non_empty_option(store.get_string(KEY_PARAFORMER_MODEL_DIR)?)
-                .map(PathBuf::from),
-            input_device_id: non_empty_option(store.get_string(KEY_INPUT_DEVICE_ID)?),
-            trace_enabled: store
-                .get_string(KEY_TRACE_ENABLED)?
-                .as_deref()
-                .and_then(stored_bool),
-        })
+    pub(crate) fn editor_value(&self, field: VoiceSettingsField) -> String {
+        self.field_value(field)
     }
 }
 
-impl VoiceSettingsField {
-    pub(super) fn index(self) -> usize {
-        match self {
-            Self::OllamaEndpoint => 0,
-            Self::PlannerModel => 1,
-            Self::RefineModel => 2,
-        }
-    }
-}
-
-fn first_non_empty(saved: Option<&str>, env: Option<&str>, default: &str) -> String {
-    saved
-        .filter(|value| !value.trim().is_empty())
-        .or_else(|| env.filter(|value| !value.trim().is_empty()))
-        .map(str::trim)
-        .unwrap_or(default)
-        .to_string()
-}
-
-fn non_empty_option(value: Option<String>) -> Option<String> {
-    value
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-}
-
-fn stored_bool(value: &str) -> Option<bool> {
-    match value.trim().to_ascii_lowercase().as_str() {
-        "1" | "true" | "yes" | "on" => Some(true),
-        "0" | "false" | "no" | "off" => Some(false),
-        _ => None,
-    }
-}
-
-fn trace_enabled_from_value(value: Option<&str>) -> bool {
-    value.is_some_and(|value| {
-        matches!(
-            value.trim().to_ascii_lowercase().as_str(),
-            "1" | "true" | "yes" | "on"
-        )
-    })
-}
-
-fn no_command_modifiers(keystroke: &Keystroke) -> bool {
-    !keystroke.modifiers.platform && !keystroke.modifiers.control && !keystroke.modifiers.alt
+fn non_empty(value: String) -> Option<String> {
+    let value = value.trim().to_string();
+    (!value.is_empty()).then_some(value)
 }
 
 fn ok_status(message: impl Into<String>) -> VoiceSettingsStatus {
@@ -475,4 +489,12 @@ fn error_status(message: impl Into<String>) -> VoiceSettingsStatus {
 
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_tests.rs"]
-mod tests;
+mod voice_settings_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_asr_tests.rs"]
+mod voice_settings_asr_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_persistence_tests.rs"]
+mod voice_settings_persistence_tests;

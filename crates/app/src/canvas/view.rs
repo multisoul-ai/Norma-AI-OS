@@ -57,6 +57,7 @@ pub fn render_canvas(
 
     // 先收集需要渲染的节点数据（避免借用冲突）。
     let swap_candidate = app.interaction.drag.as_ref().and_then(|d| d.swap_candidate);
+    let hovered_terminal_link = app.interaction.hovered_terminal_link.clone();
     let mut node_elems: Vec<AnyElement> = Vec::new();
     let mut visible_browser_nodes = HashSet::new();
     let mut visible_nodes = 0usize;
@@ -111,6 +112,7 @@ pub fn render_canvas(
         let node = app.runtime.document.node(id).unwrap().clone();
         let card = card_for(node_type);
         let chrome = card.chrome(&node, &app.runtime);
+        let initialization = app.motion.initialization_presentation(id);
         let title = chrome.title;
         let task_badge = chrome.task_badge;
         let refreshable = chrome.refreshable;
@@ -142,6 +144,14 @@ pub fn render_canvas(
                 app.motion.set_hover(id, *hovered);
                 cx.notify();
             }));
+
+        if hovered_terminal_link
+            .as_ref()
+            .map(|link| link.node_id == id)
+            .unwrap_or(false)
+        {
+            node_div = node_div.cursor_pointer();
+        }
 
         node_div = if visual.border_is_emphasized {
             node_div.border_2()
@@ -261,9 +271,9 @@ pub fn render_canvas(
                 text_selection: app.interaction.active_text_selection,
                 focused,
                 reduce_motion: app.motion.reduce_motion,
+                initialization,
                 terminal_cursor_phase: app.terminal_cursor_phase,
-                browser_address_draft: app.browser_address_draft_for(id),
-                app_focus_handle: app.focus_handle.clone(),
+                browser_address_input: app.browser_address_input_for(id),
                 theme,
                 zoom: vp.zoom,
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),
@@ -340,8 +350,13 @@ pub fn render_canvas(
     .log_if_enabled();
     app.finish_browser_view_sync(&visible_browser_nodes);
 
+    if let Some(link) = hovered_terminal_link {
+        node_elems.push(render_terminal_link_tooltip(link, theme, win_w, win_h));
+    }
+
     div()
         .id("canvas")
+        .debug_selector(|| "canvas".to_string())
         .size_full()
         .relative()
         .on_scroll_wheel(cx.listener(events::on_scroll))
@@ -351,6 +366,33 @@ pub fn render_canvas(
         .on_mouse_up(MouseButton::Left, cx.listener(events::on_mouse_up))
         .on_mouse_up(MouseButton::Middle, cx.listener(events::on_mouse_up))
         .children(node_elems)
+}
+
+fn render_terminal_link_tooltip(
+    link: crate::canvas::interaction::HoveredTerminalLink,
+    theme: ui::Theme,
+    window_width: f32,
+    window_height: f32,
+) -> AnyElement {
+    let left = (link.screen_x as f32 + 12.0).clamp(8.0, (window_width - 360.0).max(8.0));
+    let top = (link.screen_y as f32 + 18.0).clamp(8.0, (window_height - 34.0).max(8.0));
+    div()
+        .absolute()
+        .left(px(left))
+        .top(px(top))
+        .max_w(px(352.0))
+        .px(px(8.0))
+        .py(px(5.0))
+        .rounded(px(6.0))
+        .border_1()
+        .border_color(rgba(with_alpha(theme.accent_cyan, 0x72)))
+        .bg(rgba(with_alpha(theme.panel, 0xf2)))
+        .text_size(px(11.0))
+        .text_color(rgba(theme.text_primary))
+        .overflow_hidden()
+        .truncate()
+        .child(link.url)
+        .into_any_element()
 }
 
 fn swap_highlight_overlay(

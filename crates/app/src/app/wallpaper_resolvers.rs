@@ -91,26 +91,40 @@ pub(crate) fn builtin_wallpapers() -> &'static [(&'static str, &'static str, Wal
 /// 把内置相对资源名（如 `wallpapers/1350954.png`）解析为运行时可读的绝对路径。
 ///
 /// 解析顺序：
-/// 1. **开发态**：`CARGO_MANIFEST_DIR/assets/<rel>` —— `cargo run` / `cargo test`
-///    时 ManifestDir 即 `crates/app`，对应 `crates/app/assets/wallpapers/<rel>`。
-/// 2. **打包态**：`bundle_resources_dir()/<rel>` —— `Foo.app/Contents/Resources`。
+/// 1. **App bundle**：`bundle_resources_dir()/<rel>` —— `Foo.app/Contents/Resources`。
+///    即使开发时由 `cargo run` 启动了临时 `.app`，也必须先用这一份，避免应用
+///    读取位于用户“文稿”目录的源码 checkout 并触发 TCC 授权。
+/// 2. **未打包开发态**：`CARGO_MANIFEST_DIR/assets/<rel>` —— `cargo test` 或直接运行
+///    目标二进制时 ManifestDir 即 `crates/app`，对应 `crates/app/assets/wallpapers/<rel>`。
 ///
 /// 任一来源命中且 `is_file()` 为真即返回；均不命中返回 None。
 /// 调用方应对 None 回退到默认壁纸（`DEFAULT_WALLPAPER_ASSET`）。
 pub(crate) fn resolve_builtin_asset(rel: &str) -> Option<PathBuf> {
-    // 1) 开发态优先：CARGO_MANIFEST_DIR 在编译期注入，dev 构建一定有。
-    if let Some(manifest) = option_env!("CARGO_MANIFEST_DIR") {
-        let dev = Path::new(manifest).join("assets").join(rel);
-        if dev.is_file() {
-            return Some(dev);
-        }
-    }
-    // 2) 打包态：app bundle 的 Contents/Resources/<rel>。
-    if let Some(res) = bundle_resources_dir() {
-        let packed = res.join(rel);
-        if packed.is_file() {
-            return Some(packed);
-        }
-    }
-    None
+    let dev_assets =
+        option_env!("CARGO_MANIFEST_DIR").map(|manifest| Path::new(manifest).join("assets"));
+    resolve_builtin_asset_from_paths(
+        rel,
+        bundle_resources_dir().as_deref(),
+        dev_assets.as_deref(),
+    )
 }
+
+/// 根据已知的 bundle 与未打包开发资源根目录解析一个内置壁纸。
+///
+/// 这个边界接受显式根目录，便于在不启动 macOS App 的情况下验证优先级：bundle
+/// 资源始终高于源码资源；仅当 bundle 不存在或缺文件时，才允许回退到源码。
+pub(crate) fn resolve_builtin_asset_from_paths(
+    rel: &str,
+    bundle_resources: Option<&Path>,
+    dev_assets: Option<&Path>,
+) -> Option<PathBuf> {
+    bundle_resources
+        .into_iter()
+        .chain(dev_assets)
+        .map(|root| root.join(rel))
+        .find(|candidate| candidate.is_file())
+}
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_resolvers_tests.rs"]
+mod tests;

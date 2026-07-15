@@ -157,6 +157,63 @@ fn test_scrollback_cursor_uses_static_dim_alpha() {
     );
 }
 
+/// Agent 任务结束但底层 PTY 仍存活时，cursor 必须使用结束后的静态样式。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   terminal_running = true，表示承载 Agent 的交互式 shell 仍等待下一轮输入
+///   task_running = Some(false)，表示 Agent 当前任务已失败、完成或被手动中断
+///   phase=0.25 是呼吸峰值；若错误保留运行态，该相位会把 cursor 绘制得最亮
+///   phase=0.75 是呼吸谷值；结束态必须忽略两个相位差异
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用 terminal_running=true、task_running=Some(false) 解析 cursor 运行意图
+///   2. 将该意图分别代入 phase=0.25 和 phase=0.75 的 TerminalCursorAnimation
+///   3. 比较两次绘制模型的 fill/stroke/highlight alpha
+///
+/// 预期结果：
+///   - 正断言：解析结果为 false，任务结束应压过仍存活的 PTY
+///   - 正断言：两个 phase 的三个 alpha 都相等，光标进入静态结束效果
+///   - 负断言：fill alpha 不应等于运行态峰值 0.52，避免残留运行中高亮
+#[test]
+fn test_ended_agent_task_overrides_running_pty_cursor_animation() {
+    let running = cursor_animation_running(true, Some(false));
+    let first = resolve_cursor_style(
+        test_glass_style(),
+        TerminalCursorAnimation {
+            running,
+            ..animated_cursor(0.25)
+        },
+    );
+    let second = resolve_cursor_style(
+        test_glass_style(),
+        TerminalCursorAnimation {
+            running,
+            ..animated_cursor(0.75)
+        },
+    );
+
+    assert!(
+        !running,
+        "Agent 任务结束时 cursor 运行意图应为 false，即使底层 PTY 仍在运行"
+    );
+    assert_eq!(
+        first.fill.a, second.fill.a,
+        "结束态 cursor fill 不应随 phase 呼吸"
+    );
+    assert_eq!(
+        first.stroke.a, second.stroke.a,
+        "结束态 cursor stroke 不应随 phase 呼吸"
+    );
+    assert_eq!(
+        first.highlight.a, second.highlight.a,
+        "结束态 cursor highlight 不应随 phase 呼吸"
+    );
+    assert_ne!(
+        first.fill.a, 0.52,
+        "结束态 cursor fill 不应保留运行态峰值，否则仍会看起来在执行"
+    );
+}
+
 /// terminal cursor phase 按 1200ms 周期前进并回绕。
 ///
 /// 数据构造（含关键数值推导）：

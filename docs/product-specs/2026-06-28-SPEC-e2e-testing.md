@@ -3,6 +3,10 @@
 > 日期：2026-06-28 · 状态：已确认，待实施
 > 来源：采访式需求梳理（interview-spec）+ GPUI 0.2.2 源码可行性验证
 
+> 当前状态（2026-07-07）：仓库已经新增最小 `crates/e2e`，但当前落地的是
+> domain-level e2e：使用公开 crate API 验证跨 crate 闭环。本文下面描述的
+> app/headless GPUI L1、真 PTY L2、视觉 L3 方案仍是历史目标方案，尚未完整落地。
+
 ## 1. 背景与目标
 
 Multisoul Desktop 当前测试体系分两层：

@@ -7,20 +7,20 @@
 
 use super::control::VoiceVisual;
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, MouseButton, Window};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Window};
 use ui::Theme;
 
 /// 底部语音条与画布底部的间距。
 const VOICE_BAR_BOTTOM: f32 = 22.0;
 /// Idle 状态下显示的快捷键键帽序列（Apple 菜单风格）。
-const IDLE_KEYCAPS: &[&str] = &["⌘", "⇧", "V"];
+const IDLE_KEYCAPS: &[&str] = &["⌘", "E"];
 
 impl MultisoulApp {
     /// 渲染底部语音条：一个水平居中、宽度自适应内容的圆角胶囊。
     /// 外层是全宽锚点（仅做水平居中），内层才是真正可见的 pill。
     pub(crate) fn render_voice_bar(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> Div {
         let theme = self.theme;
-        let visual = self.voice.visual();
+        let visual = self.effective_voice_visual();
 
         // 外层全宽锚点，仅负责把 pill 水平居中并固定在底部。
         div()
@@ -43,7 +43,6 @@ fn voice_pill(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let palette = voice_palette(theme, visual);
-
     div()
         .h(px(42.0))
         .min_w(px(168.0))
@@ -60,16 +59,8 @@ fn voice_pill(
         .bg(rgba(palette.fill))
         .text_color(rgba(palette.text))
         .text_size(px(13.0))
-        .on_mouse_down(
-            MouseButton::Left,
-            cx.listener(MultisoulApp::on_voice_bar_mouse_down),
-        )
-        .on_mouse_up(
-            MouseButton::Left,
-            cx.listener(MultisoulApp::on_voice_bar_mouse_up),
-        )
         .child(status_glyph(theme, visual))
-        .child(voice_content(theme, visual, app))
+        .child(voice_content(theme, visual, app, cx))
 }
 
 /// 按 `visual` 取色：图标色、文字色、pill 填充与描边。Idle 一律弱化。
@@ -161,7 +152,12 @@ fn static_waveform(theme: Theme) -> Div {
 
 /// pill 右侧的内容区，按 `visual` 分支：
 /// Idle = 键帽提示；Recording = 波形 + 转写；其余 = 状态文字。
-fn voice_content(theme: Theme, visual: VoiceVisual, app: &mut MultisoulApp) -> Div {
+fn voice_content(
+    theme: Theme,
+    visual: VoiceVisual,
+    app: &mut MultisoulApp,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
     match visual {
         VoiceVisual::Idle => div()
             .flex()
@@ -182,12 +178,44 @@ fn voice_content(theme: Theme, visual: VoiceVisual, app: &mut MultisoulApp) -> D
                 div()
                     .max_w(px(360.0))
                     .text_color(rgba(theme.text_primary))
-                    .child(app.voice_label()),
+                    .child(app.effective_voice_label()),
             ),
-        VoiceVisual::Processing | VoiceVisual::Success | VoiceVisual::Error => {
-            div().max_w(px(420.0)).child(app.voice_label())
+        VoiceVisual::Processing | VoiceVisual::Success => {
+            div().max_w(px(420.0)).child(app.effective_voice_label())
+        }
+        VoiceVisual::Error => {
+            let mut content = div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .max_w(px(460.0))
+                .child(app.effective_voice_label());
+            if app.can_open_microphone_privacy_settings() {
+                content = content.child(microphone_settings_button(theme, cx));
+            }
+            content
         }
     }
+}
+
+fn microphone_settings_button(theme: Theme, cx: &mut Context<MultisoulApp>) -> impl IntoElement {
+    div()
+        .id("voice-open-microphone-settings")
+        .debug_selector(|| "voice-open-microphone-settings".to_string())
+        .h(px(26.0))
+        .px(px(9.0))
+        .flex()
+        .items_center()
+        .rounded(px(7.0))
+        .border_1()
+        .border_color(rgba(with_alpha(theme.destructive, 0x70)))
+        .bg(rgba(with_alpha(theme.destructive, 0x18)))
+        .text_size(px(12.0))
+        .text_color(rgba(theme.text_primary))
+        .cursor_pointer()
+        .on_click(cx.listener(MultisoulApp::on_voice_open_microphone_privacy_settings))
+        .child("Open Microphone Settings")
 }
 
 /// Idle 用的小键帽，风格参照 `settings/keyboard.rs` 的 `keycap()` 但更克制：

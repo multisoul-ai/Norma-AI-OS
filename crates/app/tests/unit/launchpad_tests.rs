@@ -130,26 +130,28 @@ fn test_launchpad_layout_short_window_moves_content_up() {
     );
 }
 
-/// L-4: Recent Projects 数据源应只取前 6 条并保持 RecentWorkspaces 的排序结果。
+/// L-4: Recent Projects 数据源应保留全部已持久化记录，让超过可视区的项目可滚动访问。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   构造 7 条记录，timestamp 从 100 到 106 递增
+///   构造 14 条记录，timestamp 从 100 到 113 递增
 ///   RecentWorkspaces 会按 last_opened_at_unix 降序排序
-///   top(6) 应保留 project-6、project-5、project-4、project-3、project-2、project-1
+///   每行高度 = 36px，行间距 = 10px
+///   14 行自然高度 = 14 * 36 + 13 * 10 = 634px，超过 Launchpad Recent 区的可视高度，
+///   因此必须将全部记录交给 overflow_scroll 容器，而不是在数据源阶段截为 6 条
 ///
 /// 执行过程：
-///   1. 依次 record_opened_at 7 个 workspace
+///   1. 依次 record_opened_at 14 个 workspace
 ///   2. 调用 recent_project_records_for_launchpad
-///   3. 检查返回数量、顺序和被截断项
+///   3. 检查返回数量、首尾顺序和第 7 条之后的记录
 ///
 /// 预期结果：
-///   - 正断言：返回 6 条，第一条是最新 project-6
-///   - 正断言：第六条是 project-1
-///   - 负断言：project-0 不应出现在 Launchpad 列表中（top(6) 截断）
+///   - 正断言：返回 14 条，第一条是最新 project-13
+///   - 正断言：第 7 条 project-7 与最后一条 project-0 都存在，供滚动后访问
+///   - 负断言：数据源不应截断为 6 条，否则 overflow_scroll 没有可滚动内容
 #[test]
-fn test_recent_project_records_for_launchpad_keeps_top_six() {
+fn test_recent_project_records_for_launchpad_keeps_all_records_for_scrolling() {
     let mut recent = RecentWorkspaces::default();
-    for index in 0..7 {
+    for index in 0..14 {
         recent.record_opened_at(
             PathBuf::from(format!("/tmp/project-{index}")),
             WorkspaceSource::Open,
@@ -161,22 +163,25 @@ fn test_recent_project_records_for_launchpad_keeps_top_six() {
 
     assert_eq!(
         records.len(),
+        14,
+        "Launchpad recent list 应保留全部 14 条记录，供滚动容器渲染"
+    );
+    assert_eq!(
+        records[0].display_name, "project-13",
+        "最新的 project-13 应排在 Launchpad recent 第一条"
+    );
+    assert_eq!(
+        records[6].display_name, "project-7",
+        "第 7 条 project-7 应保留，滚动后必须可访问"
+    );
+    assert_eq!(
+        records[13].display_name, "project-0",
+        "最早的 project-0 应保留在列表末尾，滚动到底部后必须可访问"
+    );
+    assert_ne!(
+        records.len(),
         6,
-        "Launchpad recent list 应只渲染 top(6) 记录"
-    );
-    assert_eq!(
-        records[0].display_name, "project-6",
-        "最新的 project-6 应排在 Launchpad recent 第一条"
-    );
-    assert_eq!(
-        records[5].display_name, "project-1",
-        "第 6 条应是 top(6) 中最后保留的 project-1"
-    );
-    assert!(
-        records
-            .iter()
-            .all(|record| record.display_name != "project-0"),
-        "project-0 超出 top(6)，不应出现在 Launchpad recent 列表"
+        "Recent Projects 不应截断为 6 条，否则列表没有足够内容产生滚动"
     );
 }
 
@@ -354,59 +359,6 @@ fn test_launchpad_drops_static_top_toolbar_preview() {
             "Launchpad backdrop 不应继续保留旧顶部菜单文案: {label}"
         );
     }
-}
-
-/// L-9: Launchpad 背景应复用画布的视频感知壁纸层，而非静态 `img()`。
-///
-/// 背景：画布 chrome 通过 `render_wallpaper_layer()` 按 `WallpaperKind` 分支
-/// （Video→`surface()`，Static/Gif→`img()` + 源派生 id），并在每帧调用
-/// `sync_video_wallpaper(cx)` 驱动视频解码器生命周期。Launchpad 此前只渲染
-/// 单个 `img(image_source_for_render())`，而该工厂对 Video 故意回退静态 PNG，
-/// 导致 launchpad 不支持 mp4/mov，且 gif 切换存在 `frame_index` 越界 panic
-/// 隐患。此测试守护「launchpad 与画布走同一条壁纸渲染路径」这一不变量。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   source_mod      = launchpad/mod.rs（render_launchpad 组装入口）
-///   source_backdrop = launchpad/backdrop.rs（背景层构建）
-///   复用契约        = render_launchpad 调 render_wallpaper_layer + sync_video_wallpaper
-///   解耦契约        = backdrop 不再内联 img() / 不再接收 ImageSource
-///
-/// 执行过程：
-///   1. 读取 launchpad/mod.rs，确认 render_launchpad 调用 render_wallpaper_layer
-///   2. 读取 launchpad/mod.rs，确认 render_launchpad 调用 sync_video_wallpaper
-///   3. 读取 launchpad/backdrop.rs，确认不再内联 img() 渲染静态图片
-///   4. 读取 launchpad/backdrop.rs，确认签名不再接收 ImageSource
-///
-/// 预期结果：
-///   - 正断言：mod.rs 包含 render_wallpaper_layer（走共享视频感知渲染路径）
-///   - 正断言：mod.rs 包含 sync_video_wallpaper（驱动视频解码生命周期）
-///   - 负断言：backdrop.rs 不应包含 img(（不再内联静态图片元素，否则 mp4 不支持）
-///   - 负断言：backdrop.rs 不应包含 ImageSource（签名改为接收上层构建的壁纸层 Div）
-#[test]
-fn test_launchpad_backdrop_reuses_video_aware_wallpaper_layer() {
-    let source_mod = include_str!("../../src/workspace/launchpad/mod.rs");
-    let source_backdrop = include_str!("../../src/workspace/launchpad/backdrop.rs");
-
-    assert!(
-        source_mod.contains("render_wallpaper_layer"),
-        "Launchpad render_launchpad 应复用画布的 render_wallpaper_layer，\
-         否则 Video 类型无法走 surface() 渲染路径"
-    );
-    assert!(
-        source_mod.contains("sync_video_wallpaper"),
-        "Launchpad render_launchpad 应每帧调用 sync_video_wallpaper 驱动视频解码器，\
-         否则 mp4/mov 永远不会有解码帧可渲染"
-    );
-    assert!(
-        !source_backdrop.contains("img("),
-        "Launchpad backdrop 不应再内联 img() 渲染静态图片——这会让 Video 回退到 PNG，\
-         且 gif 切换时缺少源派生 id 触发 frame_index 越界 panic"
-    );
-    assert!(
-        !source_backdrop.contains("ImageSource"),
-        "Launchpad backdrop 签名不应再接收 ImageSource——壁纸层应由上层 \
-         render_wallpaper_layer 构建，backdrop 只负责挂载与遮罩"
-    );
 }
 
 /// L-10: Workspace/Launchpad 页面不应再挂载右侧静态卡片预览模块。

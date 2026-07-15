@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, dev]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -37,6 +37,9 @@ jobs:
 
       - name: Video wallpaper performance guardrail
         run: python3 scripts/check-video-wallpaper-performance.py
+
+      - name: Domain contract consistency
+        run: python3 scripts/check-domain-contracts.py
 
       - name: Check
         run: cargo check --workspace

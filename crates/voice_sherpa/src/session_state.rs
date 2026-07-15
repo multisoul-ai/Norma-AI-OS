@@ -2,7 +2,7 @@ use crate::SpeechError;
 
 #[cfg(test)]
 #[path = "../tests/unit/session_state_tests.rs"]
-mod tests;
+mod session_state_tests;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum SessionPhase {

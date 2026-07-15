@@ -1,5 +1,6 @@
 //! Keyboard routing for the root GPUI view.
 
+use crate::app::dialogue::VoiceShortcutKeyDownAction;
 use crate::app::voice::control::{
     is_voice_hold_modifier_release, is_voice_hold_release, is_voice_hold_shortcut, VoiceTrigger,
 };
@@ -16,6 +17,27 @@ use gpui::{
 use runtime::{route, InputEvent, InputMode, NodeInput, NodeView, Route, Runtime};
 #[cfg(test)]
 use terminal::{Cell, GridSnapshot};
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum DictationShortcutAction {
+    Start,
+    Stop,
+}
+
+mod agent_interrupt;
+mod shortcuts;
+use agent_interrupt::end_active_agent_task_for_manual_interrupt;
+
+fn dictation_shortcut_action(
+    trigger: crate::settings::voice::DictationTrigger,
+    is_recording: bool,
+) -> DictationShortcutAction {
+    if trigger == crate::settings::voice::DictationTrigger::Toggle && is_recording {
+        DictationShortcutAction::Stop
+    } else {
+        DictationShortcutAction::Start
+    }
+}
 
 #[cfg(test)]
 pub(crate) fn current_copy_node_id(runtime: &Runtime) -> Option<NodeId> {
@@ -163,6 +185,7 @@ impl MultisoulApp {
                 match clipboard_image::save_clipboard_image_to_system_temp(&image) {
                     Ok(saved) => {
                         self.interaction.clear_text_selection_for_node(node_id);
+                        self.motion.interrupt_initialization(node_id);
                         if let Err(error) = self
                             .runtime
                             .send_node_input(node_id, NodeInput::Text(saved.text))
@@ -181,6 +204,7 @@ impl MultisoulApp {
 
         if let Some(text) = item.and_then(|item| item.text()) {
             self.interaction.clear_text_selection_for_node(node_id);
+            self.motion.interrupt_initialization(node_id);
             if let Err(error) = self.runtime.send_node_input(node_id, NodeInput::Text(text)) {
                 tracing::error!(%error, "paste send_node_input failed");
             }
@@ -225,23 +249,47 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.handle_browser_address_key_down(ev, cx) {
-            return;
-        }
-
-        if self.settings_panel.open
-            && (self.voice_settings.handle_key_down(&ev.keystroke)
-                || self.agent_definitions.handle_key_down(&ev.keystroke)
-                || (self.shortcuts.recording.is_some()
-                    && self.shortcuts.record_keystroke(&ev.keystroke)))
-        {
-            cx.stop_propagation();
-            cx.notify();
-            return;
+        if self.settings_panel.open {
+            if self.handle_settings_text_key_down(ev, cx) {
+                return;
+            }
+            if self.voice_settings_inputs.is_focused(window, cx) {
+                return;
+            }
         }
 
         if is_voice_hold_shortcut(&ev.keystroke) {
-            self.begin_voice_recording(VoiceTrigger::Shortcut, cx);
+            let continuous = self.voice_settings.values().interaction_mode()
+                == crate::settings::voice::VoiceInteractionMode::ContinuousListening;
+            match self.dialogue.voice_shortcut_key_down_action(continuous) {
+                VoiceShortcutKeyDownAction::StartOneShotRecording => {
+                    if self.dialogue.is_active() {
+                        self.stop_continuous_listening(cx);
+                    }
+                    match dictation_shortcut_action(
+                        self.voice_settings.values().dictation_trigger(),
+                        self.is_voice_recording_shortcut(),
+                    ) {
+                        DictationShortcutAction::Start => {
+                            self.begin_voice_recording(VoiceTrigger::Shortcut, cx)
+                        }
+                        DictationShortcutAction::Stop => {
+                            self.end_voice_recording(VoiceTrigger::Shortcut, window, cx)
+                        }
+                    }
+                }
+                VoiceShortcutKeyDownAction::StartContinuousListening => {
+                    self.start_continuous_listening(cx);
+                }
+                VoiceShortcutKeyDownAction::StopContinuousListening => {
+                    self.stop_continuous_listening(cx);
+                }
+                VoiceShortcutKeyDownAction::InterruptAssistantReply => {
+                    if self.dialogue.interrupt_assistant_reply_for_user_action() {
+                        cx.notify();
+                    }
+                }
+            }
             return;
         }
 
@@ -315,6 +363,7 @@ impl MultisoulApp {
                     }
                     if let Some(input) = keystroke_to_input(&ev.keystroke) {
                         self.interaction.clear_text_selection_for_node(node_id);
+                        self.motion.interrupt_initialization(node_id);
                         if let Err(e) = self.runtime.send_node_input(node_id, NodeInput::Key(input))
                         {
                             tracing::error!(error = %e, "send_node_input failed");
@@ -341,7 +390,9 @@ impl MultisoulApp {
                     return;
                 }
                 if let Some(input) = keystroke_to_input(&ev.keystroke) {
+                    end_active_agent_task_for_manual_interrupt(&mut self.runtime, node_id, &input);
                     self.interaction.clear_text_selection_for_node(node_id);
+                    self.motion.interrupt_initialization(node_id);
                     if let Err(e) = self.runtime.send_node_input(node_id, NodeInput::Key(input)) {
                         tracing::error!(error = %e, "send_node_input failed");
                     }
@@ -351,57 +402,17 @@ impl MultisoulApp {
         }
     }
 
-    fn dispatch_shortcut_command(
-        &mut self,
-        command: ShortcutCommandId,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        match command {
-            ShortcutCommandId::NewWindow => self.on_new_window(&crate::app::NewWindow, window, cx),
-            ShortcutCommandId::NewTerminal => {
-                self.on_new_terminal(&crate::app::NewTerminal, window, cx)
-            }
-            ShortcutCommandId::NewBrowser => {
-                self.on_new_browser(&crate::app::NewBrowser, window, cx)
-            }
-            ShortcutCommandId::CopyCardContent => {
-                self.on_copy_card_content(&crate::app::CopyCardContent, window, cx)
-            }
-            ShortcutCommandId::OpenProject => {
-                self.on_open_project(&crate::app::OpenProject, window, cx)
-            }
-            ShortcutCommandId::OpenPreviewFile => {
-                self.on_open_preview_file(&crate::app::OpenPreviewFile, window, cx)
-            }
-            ShortcutCommandId::NewClaudeAgent => {
-                self.on_new_claude_agent(&crate::app::NewClaudeAgent, window, cx)
-            }
-            ShortcutCommandId::NewCodexAgent => {
-                self.on_new_codex_agent(&crate::app::NewCodexAgent, window, cx)
-            }
-            ShortcutCommandId::NewOpenCodeAgent => {
-                self.on_new_opencode_agent(&crate::app::NewOpenCodeAgent, window, cx)
-            }
-            ShortcutCommandId::DeleteCard => self.on_delete_card_shortcut(window, cx),
-            ShortcutCommandId::ReflowLayout => {
-                self.on_reflow_layout(&crate::app::ReflowLayout, window, cx)
-            }
-            ShortcutCommandId::ToggleMasterLayout => {
-                self.on_toggle_master_layout(&crate::app::ToggleMasterLayout, window, cx)
-            }
-            ShortcutCommandId::ExitFocus => self.on_exit_focus(&crate::app::ExitFocus, window, cx),
-            ShortcutCommandId::ToggleSettings => self.toggle_settings_panel(cx),
-        }
-    }
-
     pub(crate) fn on_key_up(
         &mut self,
         ev: &KeyUpEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.is_voice_recording_shortcut() && is_voice_hold_release(&ev.keystroke) {
+        if self.voice_settings.values().dictation_trigger()
+            == crate::settings::voice::DictationTrigger::Hold
+            && self.is_voice_recording_shortcut()
+            && is_voice_hold_release(&ev.keystroke)
+        {
             self.end_voice_recording(VoiceTrigger::Shortcut, window, cx);
             return;
         }
@@ -422,7 +433,11 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.is_voice_recording_shortcut() && is_voice_hold_modifier_release(&ev.modifiers) {
+        if self.voice_settings.values().dictation_trigger()
+            == crate::settings::voice::DictationTrigger::Hold
+            && self.is_voice_recording_shortcut()
+            && is_voice_hold_modifier_release(&ev.modifiers)
+        {
             self.end_voice_recording(VoiceTrigger::Shortcut, window, cx);
         }
     }
@@ -431,6 +446,10 @@ impl MultisoulApp {
 #[cfg(test)]
 #[path = "../../tests/unit/app_keyboard_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_keyboard_voice_tests.rs"]
+mod voice_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/app_keyboard_delete_tests.rs"]

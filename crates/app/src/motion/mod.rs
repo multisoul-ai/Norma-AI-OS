@@ -1,6 +1,8 @@
 //! App 层卡片动效状态：只影响渲染连续性，不改变 canvas/runtime 的真实状态。
 pub(crate) mod breathing;
 pub(crate) mod diagnostics;
+pub(crate) mod initialization;
+pub(crate) mod node_visual;
 pub(crate) mod scalar;
 #[cfg(test)]
 mod tests;
@@ -8,20 +10,29 @@ pub(crate) mod tokens;
 pub(crate) mod util;
 pub(crate) mod visual;
 pub(crate) mod working;
-use crate::motion::breathing::{
-    breathing_color_for_phase, resolve_corner_glow, BreathingIntent, BreathingState,
-};
+#[cfg(test)]
+use crate::motion::breathing::breathing_color_for_phase;
+use crate::motion::breathing::{BreathingIntent, BreathingState};
 pub(crate) use crate::motion::diagnostics::MotionDiagnostics;
+pub(crate) use crate::motion::initialization::{
+    InitializationAnimation, InitializationAnimationKind, InitializationPresentation,
+};
+#[cfg(test)]
+pub(crate) use crate::motion::initialization::{
+    INITIALIZATION_CROSSFADE_DURATION, INITIALIZATION_CROSSFADE_START,
+    INITIALIZATION_FRAME_INTERVAL, INITIALIZATION_INTERRUPT_DURATION,
+    INITIALIZATION_TOTAL_DURATION,
+};
 use crate::motion::scalar::AnimatedScalar;
 use crate::motion::tokens::MotionTokens;
+#[cfg(test)]
+use crate::motion::util::mix_color;
 use crate::motion::util::{
-    alpha, approx_rect, duration_progress, ease_out_cubic, lerp_rect, mix_color,
-    reduce_motion_from_env_value, visual_priority, with_alpha, EPSILON,
+    approx_rect, duration_progress, ease_out_cubic, lerp_rect, reduce_motion_from_env_value,
+    EPSILON,
 };
 pub use crate::motion::visual::{ResolvedNodeVisual, VisualPriority};
-use crate::motion::working::{
-    resolve_working_visual, WorkingVisualInput, WORKING_SNAKE_PERIOD_SECS,
-};
+use crate::motion::working::WORKING_SNAKE_PERIOD_SECS;
 use canvas::{CanvasRect, NodeId};
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
@@ -33,6 +44,7 @@ pub struct MotionStore {
     tokens: MotionTokens,
     pub(crate) reduce_motion: bool,
     nodes: BTreeMap<NodeId, NodeMotion>,
+    initializations: BTreeMap<NodeId, InitializationAnimation>,
 }
 impl MotionStore {
     pub fn from_env() -> Self {
@@ -45,6 +57,7 @@ impl MotionStore {
             tokens: MotionTokens::default(),
             reduce_motion,
             nodes: BTreeMap::new(),
+            initializations: BTreeMap::new(),
         }
     }
     pub fn tick(&mut self, delta: Duration) -> bool {
@@ -52,11 +65,28 @@ impl MotionStore {
         for node in self.nodes.values_mut() {
             changed |= node.tick(delta, self.tokens, self.reduce_motion);
         }
+        for initialization in self.initializations.values_mut() {
+            changed |= initialization.tick(delta);
+        }
+        self.initializations
+            .retain(|_, initialization| initialization.presentation().is_some());
         changed
+    }
+    /// 返回下一次 app 动画循环应等待的时长。
+    ///
+    /// 不活动时保留既有默认刷新率；活动初始化动画在常规刷新前临近 31ms 帧边界
+    /// 时缩短 tick，从而准确到达 31ms / 806ms / 992ms 时间线节点。
+    pub(crate) fn next_animation_tick_interval(&self, default: Duration) -> Duration {
+        self.initializations
+            .values()
+            .filter_map(|animation| animation.next_visual_boundary_after())
+            .filter(|duration| !duration.is_zero())
+            .fold(default, |nearest, duration| nearest.min(duration))
     }
     pub fn retain_nodes(&mut self, live_nodes: impl IntoIterator<Item = NodeId>) {
         let live_nodes: BTreeSet<NodeId> = live_nodes.into_iter().collect();
         self.nodes.retain(|id, _| live_nodes.contains(id));
+        self.initializations.retain(|id, _| live_nodes.contains(id));
     }
     pub fn ensure_node(&mut self, id: NodeId, rect: CanvasRect) {
         self.nodes
@@ -68,6 +98,27 @@ impl MotionStore {
         node.opacity.value = if self.reduce_motion { 1.0 } else { 0.0 };
         node.opacity.target = 1.0;
         self.nodes.insert(id, node);
+    }
+    pub(crate) fn start_initialization(&mut self, id: NodeId, kind: InitializationAnimationKind) {
+        if self.nodes.contains_key(&id) {
+            self.initializations
+                .insert(id, InitializationAnimation::new(kind));
+        }
+    }
+    pub(crate) fn initialization_presentation(
+        &self,
+        id: NodeId,
+    ) -> Option<InitializationPresentation> {
+        self.initializations
+            .get(&id)
+            .copied()
+            .and_then(InitializationAnimation::presentation)
+    }
+    pub(crate) fn interrupt_initialization(&mut self, id: NodeId) -> bool {
+        self.initializations
+            .get_mut(&id)
+            .map(InitializationAnimation::interrupt)
+            .unwrap_or(false)
     }
     pub fn set_layout_target(&mut self, id: NodeId, target_rect: CanvasRect) {
         let node = self
@@ -354,136 +405,7 @@ impl NodeMotion {
         theme: Theme,
         now: Option<Instant>,
     ) -> ResolvedNodeVisual {
-        if self.dragging.target > 0.0 {
-            self.current_rect = canonical_rect;
-            self.target_rect = canonical_rect;
-            self.layout_from = canonical_rect;
-            self.layout_active = false;
-        }
-
-        let priority = visual_priority(
-            self.hover.value,
-            self.pressed.value,
-            self.dragging.value,
-            self.selected.value,
-            self.focused.value,
-        );
-        let focus = self.focused.value;
-        let selected = self.selected.value;
-        let dragging = self.dragging.value;
-        let pressed = self.pressed.value;
-        let hover = self.hover.value;
-        let emphasis = focus
-            .max(selected * 0.88)
-            .max(dragging * 0.76)
-            .max(pressed * 0.42)
-            .max(hover * 0.28)
-            .clamp(0.0, 1.0);
-
-        let accent_color = match priority {
-            VisualPriority::Focused => theme.focused_stroke,
-            VisualPriority::Selected => theme.selected_stroke,
-            VisualPriority::Dragging => theme.focused_stroke,
-            VisualPriority::Pressed => theme.selected_stroke,
-            VisualPriority::Hover => theme.edge_highlight,
-            VisualPriority::Idle => theme.node_stroke,
-        };
-
-        let accent_mix = match priority {
-            VisualPriority::Focused => focus.max(selected * 0.72),
-            VisualPriority::Selected => selected,
-            VisualPriority::Dragging => dragging * 0.72,
-            VisualPriority::Pressed => pressed * 0.54,
-            VisualPriority::Hover => hover * 0.36,
-            VisualPriority::Idle => 0.0,
-        }
-        .clamp(0.0, 1.0);
-
-        let fill_alpha = alpha(theme.node_fill).saturating_add((22.0 * emphasis) as u8);
-        let title_alpha = alpha(theme.title_bar).saturating_add((18.0 * emphasis) as u8);
-        let edge_alpha = alpha(theme.edge_highlight).saturating_add((82.0 * emphasis) as u8);
-        let shadow_alpha = alpha(theme.shadow_color).saturating_add((36.0 * emphasis) as u8);
-        let lift = focus
-            .max(selected * 0.58)
-            .max(dragging)
-            .max(hover * 0.28)
-            .clamp(0.0, 1.0);
-        let press_sink = pressed * (1.0 - dragging).clamp(0.0, 1.0);
-
-        let base_stroke = mix_color(theme.node_stroke, accent_color, accent_mix);
-        let stroke_color = if self.breathing_fade.value > EPSILON
-            && self.breathing_display_state != BreathingState::Inactive
-        {
-            let breathing = breathing_color_for_phase(
-                self.breathing_phase,
-                self.breathing_display_state,
-                theme,
-            );
-            mix_color(base_stroke, breathing, self.breathing_fade.value)
-        } else {
-            base_stroke
-        };
-        let corner_glow = resolve_corner_glow(
-            self.breathing_phase,
-            self.breathing_fade.value,
-            self.breathing_display_state,
-        );
-        let settle = self.completion_settle.value.clamp(0.0, 1.0);
-        let settle_color = with_alpha(
-            theme.accent_green,
-            (0x54 as f32 + settle * 0xab as f32) as u8,
-        );
-        let stroke_color = mix_color(stroke_color, settle_color, settle * 0.88);
-        let done_mix = (self.breathing_intent == BreathingIntent::Done) as u8 as f32 * 0.86;
-        let completion_mix = done_mix.max(settle * 0.94);
-        let edge_highlight_color = mix_color(
-            with_alpha(theme.edge_highlight, edge_alpha),
-            with_alpha(theme.accent_green, 0x8a),
-            settle * 0.72,
-        );
-        let base_shadow_alpha = shadow_alpha.saturating_add((24.0 * settle) as u8);
-        let base_shadow_y =
-            (theme.shadow_y + lift * 6.0 - press_sink * 5.0 - settle * 4.0).max(8.0);
-        let base_shadow_blur =
-            (theme.shadow_blur + lift * 18.0 - press_sink * 6.0 + settle * 10.0).max(20.0);
-        let base_shadow_spread = theme.shadow_spread - lift * 5.0 + press_sink * 2.0 - settle * 3.0;
-        let working_visual = resolve_working_visual(WorkingVisualInput {
-            theme,
-            stroke_color,
-            edge_highlight_color,
-            shadow_alpha: base_shadow_alpha,
-            shadow_y: base_shadow_y,
-            shadow_blur: base_shadow_blur,
-            shadow_spread: base_shadow_spread,
-            border_is_emphasized: focus > 0.25 || selected > 0.35 || settle > 0.45,
-            fade: self.chase_fade.value,
-            phase: self.chase_phase_at(now),
-        });
-
-        ResolvedNodeVisual {
-            priority,
-            rect: self.current_rect,
-            fill_color: with_alpha(theme.node_fill, fill_alpha),
-            stroke_color: working_visual.stroke_color,
-            status_color: mix_color(
-                mix_color(theme.text_tertiary, accent_color, accent_mix),
-                theme.accent_green,
-                completion_mix,
-            ),
-            title_bar_color: with_alpha(
-                theme.title_bar,
-                title_alpha.saturating_add((10.0 * settle) as u8),
-            ),
-            edge_highlight_color: working_visual.edge_highlight_color,
-            shadow_color: working_visual.shadow_color,
-            shadow_y: working_visual.shadow_y,
-            shadow_blur: working_visual.shadow_blur,
-            shadow_spread: working_visual.shadow_spread,
-            border_is_emphasized: working_visual.border_is_emphasized,
-            opacity: self.opacity.value,
-            corner_glow,
-            working_snake: working_visual.working_snake,
-        }
+        node_visual::resolve(self, canonical_rect, theme, now)
     }
 
     fn chase_phase_at(&self, now: Option<Instant>) -> f32 {

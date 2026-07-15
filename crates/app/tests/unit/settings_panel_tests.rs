@@ -1,22 +1,23 @@
 use super::*;
 
-/// 设置面板默认态：新建状态应关闭，并把 General 作为首次打开的默认分组。
+/// 设置面板默认态：新建状态应关闭，并把 Wallpaper 作为首次打开的可配置分组。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   initial open = false（启动后不应遮挡画布）
-///   section count = 7（General / Keyboard / Runtime / Voice / Agents / Skills / Hooks）
-///   default section = General（计划指定默认打开 General）
+///   visible section count = 5（Wallpaper / Keyboard / Voice / Agents / Hooks）
+///   hidden mock count = 3（General / Runtime / Skills，不应作为首次页面）
+///   default section = Wallpaper（Appearance 中唯一已实现的可配置页面）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 调用 SettingsPanelState::default() 构造初始状态
 ///   2. 读取 open 与 active_section
-///   3. 确认默认分组不是 Runtime，避免首次打开落到非 General 页面
+///   3. 确认默认分组不是 General，避免首次打开落到隐藏的 mock fallback
 ///
 /// 预期结果：
-///   - 正断言：open 为 false，active_section 为 General
-///   - 负断言：active_section 不应为 Runtime
+///   - 正断言：open 为 false，active_section 为 Wallpaper
+///   - 负断言：active_section 不应为 General
 #[test]
-fn test_settings_panel_defaults_closed_on_general() {
+fn test_settings_panel_defaults_closed_on_first_visible_section() {
     let panel = SettingsPanelState::default();
 
     assert!(
@@ -25,13 +26,45 @@ fn test_settings_panel_defaults_closed_on_general() {
     );
     assert_eq!(
         panel.active_section,
-        SettingsSection::General,
-        "设置面板默认分组应是 General"
+        SettingsSection::Wallpaper,
+        "设置面板默认分组应是首个可配置的 Wallpaper 页面"
     );
     assert_ne!(
         panel.active_section,
-        SettingsSection::Runtime,
-        "设置面板首次打开不应落到 Runtime 分组"
+        SettingsSection::General,
+        "设置面板首次打开不应落到隐藏的 General mock fallback"
+    );
+}
+
+/// 设置面板响应式布局：小窗口和极窄窗口都不应把面板或侧栏推出 viewport。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   常见小窗口 = 420×360；紧凑边距 = 12px，因此面板 = 396×336。
+///   极窄窗口 = 120×100；紧凑边距 = 12px，因此面板 = 96×76，侧栏上限 = 96×45%=43.2px。
+///
+/// 执行过程：分别计算两个 viewport 的纯布局，并读取面板四边与侧栏宽度。
+///
+/// 预期结果：面板四边均在 viewport 内；侧栏小于面板宽度且为内容保留至少 55% 宽度。
+#[test]
+fn test_settings_panel_layout_stays_inside_small_viewports() {
+    let small = SettingsPanelLayout::for_viewport(420.0, 360.0);
+    assert_eq!(small.left, 12.0, "420px 宽窗口应保留 12px 左边距");
+    assert_eq!(small.top, 12.0, "360px 高窗口应保留 12px 上边距");
+    assert_eq!(small.width, 396.0, "面板宽度应为 420-2×12=396px");
+    assert_eq!(small.height, 336.0, "面板高度应为 360-2×12=336px");
+    assert!(
+        small.left + small.width <= 420.0 && small.top + small.height <= 360.0,
+        "小窗口面板不得越过 viewport 右边或底边，layout={small:?}"
+    );
+
+    let narrow = SettingsPanelLayout::for_viewport(120.0, 100.0);
+    assert!(
+        narrow.left + narrow.width <= 120.0 && narrow.top + narrow.height <= 100.0,
+        "极窄窗口面板仍不得溢出 viewport，layout={narrow:?}"
+    );
+    assert!(
+        narrow.sidebar_width <= narrow.width * 0.45,
+        "侧栏最多占面板 45%，应为内容保留至少 55%，layout={narrow:?}"
     );
 }
 
@@ -56,11 +89,13 @@ fn test_settings_panel_defaults_closed_on_general() {
 #[test]
 fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() {
     let source = format!(
-        "{}{}{}{}",
+        "{}{}{}{}{}{}",
         include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/navigation.rs"),
         include_str!("../../src/settings/content.rs"),
         include_str!("../../src/settings/keyboard.rs"),
-        include_str!("../../src/shortcuts.rs")
+        include_str!("../../src/shortcuts.rs"),
+        include_str!("../../src/shortcuts/catalog.rs")
     );
     let required = [
         "SettingsSection::Keyboard",
@@ -72,10 +107,11 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
         "settings-shortcut-restore-delete-card",
         "settings-shortcut-new-claude-agent",
         "settings-shortcut-new-codex-agent",
+        "settings-shortcut-new-cursor-agent",
         "settings-shortcut-new-opencode-agent",
         "settings-shortcuts-restore-all",
         "Paste",
-        "Voice Recording",
+        "Voice Interaction",
         "Arrow Navigation",
         "Space Pan",
         "Terminal Input",
@@ -95,25 +131,26 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
     );
 }
 
-/// Hooks 页面锚点：Settings 应提供 Codex / Claude / OpenCode 一键安装入口。
+/// Hooks 页面锚点：Settings 应提供 Codex / Claude / Cursor / OpenCode 一键安装入口。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings_panel.rs + settings_content.rs + settings_hooks.rs
 ///   nav anchor = Hooks
-///   action anchors = settings-install-codex-hooks / settings-install-claude-hooks / settings-install-opencode-hooks
+///   action anchors = Codex / Claude / Cursor / OpenCode 四个 install button id
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 拼接 Settings 生产渲染源码
 ///   2. 检查 Hooks 分组与安装按钮 id 是否存在
 ///
 /// 预期结果：
-///   - 正断言：Hooks 导航与 Codex/Claude/OpenCode 安装按钮锚点都存在
+///   - 正断言：Hooks 导航与 Codex/Claude/Cursor/OpenCode 安装按钮锚点都存在
 ///   - 负断言：Hooks 页面不应仍只是 Runtime mock 文案
 #[test]
 fn test_hooks_settings_panel_contains_install_actions() {
     let source = format!(
-        "{}{}{}",
+        "{}{}{}{}",
         include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/navigation.rs"),
         include_str!("../../src/settings/content.rs"),
         include_str!("../../src/settings/hooks.rs")
     );
@@ -122,6 +159,7 @@ fn test_hooks_settings_panel_contains_install_actions() {
         "Agent Hooks",
         "settings-install-codex-hooks",
         "settings-install-claude-hooks",
+        "settings-install-cursor-hooks",
         "settings-install-opencode-hooks",
         "Install hooks",
         "Uninstall hooks",
@@ -142,6 +180,10 @@ fn test_hooks_settings_panel_contains_install_actions() {
     assert!(
         source.contains("Manage lifecycle hooks in ~/.claude/settings.json"),
         "Hooks 页面应包含 Claude 管理说明"
+    );
+    assert!(
+        source.contains("Manage lifecycle hooks in ~/.cursor/hooks.json"),
+        "Hooks 页面应包含 Cursor CLI 管理说明"
     );
     assert!(
         source.contains("Manage lifecycle hooks in ~/.config/opencode/plugins"),
@@ -250,122 +292,46 @@ fn test_settings_panel_selects_sections_without_closing() {
     );
 }
 
-/// Voice 页面锚点：Settings 应提供语音识别、输入设备、规划模型和 trace 配置入口。
+/// Settings 导航只暴露已实现的可配置页面，隐藏旧 General/Runtime/Skills mock 分组。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = settings_panel.rs + settings_content.rs + settings_voice.rs
-///   nav anchor = Voice
-///   storage keys = 6 个 voice.* key（endpoint/model/refine/model_dir/input_device/trace）
-///   input anchors = default / refresh / clear（覆盖默认输入、设备刷新、清除选择）
-///   hidden debug env = MULTISOUL_VOICE_TRANSCRIPT，不应暴露成设置项
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 拼接 Settings 生产渲染源码
-///   2. 检查 Voice 导航、分区标题、持久化 key、输入设备锚点与按钮锚点
-///   3. 检查隐藏 transcript fallback 没有出现在 Settings UI
-///
-/// 预期结果：
-///   - 正断言：Voice 页面包含 Speech Recognition / Command Planning / Advanced
-///   - 正断言：页面包含模型目录选择、输入设备、恢复默认和 trace toggle 锚点
-///   - 负断言：不应暴露 MULTISOUL_VOICE_TRANSCRIPT
-#[test]
-fn test_voice_settings_panel_contains_voice_configuration_anchors() {
-    let source = format!(
-        "{}{}{}{}{}",
-        include_str!("../../src/settings/panel.rs"),
-        include_str!("../../src/settings/content.rs"),
-        include_str!("../../src/settings/voice.rs"),
-        include_str!("../../src/settings/voice/state.rs"),
-        include_str!("../../src/settings/voice/view.rs")
-    );
-    let anchors = [
-        "SettingsSection::Voice",
-        "Voice",
-        "Speech Recognition",
-        "Command Planning",
-        "Advanced",
-        "voice.ollama.endpoint",
-        "voice.ollama.model",
-        "voice.refine.model",
-        "voice.paraformer.model_dir",
-        "voice.input_device_id",
-        "voice.trace_enabled",
-        "settings-voice-model-dir-choose",
-        "settings-voice-model-dir-default",
-        "settings-voice-input-device-default",
-        "settings-voice-input-device-refresh",
-        "settings-voice-input-device-clear",
-        "settings-voice-trace-toggle",
-    ];
-
-    for anchor in anchors {
-        assert!(
-            source.contains(anchor),
-            "Voice 设置页应包含配置锚点: {anchor}"
-        );
-    }
-    assert!(
-        !source.contains("MULTISOUL_VOICE_TRANSCRIPT"),
-        "Voice Settings 不应暴露测试用 transcript 注入环境变量"
-    );
-}
-
-/// General 页面还原锚点：设置面板应包含图一中的 Appearance 风格结构与关键文案。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   source = settings_panel.rs + settings_content.rs + settings_appearance.rs
-///            （检查生产渲染源码与拆分后的内容模块）
-///   nav anchors = General + Language & Region + Appearance + Date & Time + Keyboard Shortcuts
-///   content anchors = Themes + Light Mode + Dark Mode + System Preferences + Accent Colors
-///   lower anchors = Show Animations + Tables View
+///   source = settings_panel.rs + settings_content.rs（生产侧栏与内容路由）；
+///   visible sections = Keyboard + Voice + Agents + Hooks + Wallpaper，共 5 个；
+///   hidden mock sections = General + Runtime + Skills，共 3 个。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 settings_panel.rs 生产源码
-///   2. 检查左侧 General 展开子项是否存在
-///   3. 检查右侧 Appearance 页面关键模块是否存在
+///   2. 检查侧栏接线的 5 个可配置页面
+///   3. 检查内容路由明确把 3 个旧 mock 分组收敛为空白 fallback
 ///
 /// 预期结果：
-///   - 正断言：图一中的导航与内容锚点都存在
-///   - 负断言：General 页面不应只停留在 Workspace Path 这类旧泛化 mock 内容
+///   - 正断言：所有实际可配置页面均在侧栏和内容路由中存在
+///   - 负断言：旧 mock 页面不得重新接入内容渲染
 #[test]
-fn test_general_settings_panel_contains_reference_appearance_anchors() {
+fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
     let source = format!(
         "{}{}{}",
         include_str!("../../src/settings/panel.rs"),
-        include_str!("../../src/settings/content.rs"),
-        include_str!("../../src/settings/appearance.rs")
+        include_str!("../../src/settings/navigation.rs"),
+        include_str!("../../src/settings/content.rs")
     );
-    let nav_anchors = [
-        "Language & Region",
-        "Appearance",
-        "Date & Time",
-        "Keyboard Shortcuts",
-    ];
-    let content_anchors = [
-        "Themes",
-        "Light Mode",
-        "Dark Mode",
-        "System Preferences",
-        "Accent Colors",
-        "Show Animations",
-        "Tables View",
+    let visible_sections = [
+        "SettingsSection::Keyboard",
+        "SettingsSection::Voice",
+        "SettingsSection::Agents",
+        "SettingsSection::Hooks",
+        "SettingsSection::Wallpaper",
     ];
 
-    for anchor in nav_anchors {
+    for section in visible_sections {
         assert!(
-            source.contains(anchor),
-            "General 左侧展开导航应包含图一锚点: {anchor}"
-        );
-    }
-    for anchor in content_anchors {
-        assert!(
-            source.contains(anchor),
-            "General 右侧内容应包含图一 Appearance 锚点: {anchor}"
+            source.contains(section),
+            "已实现的 Settings 分组必须保持侧栏/内容路由接线: {section}"
         );
     }
     assert!(
-        !source.contains("Workspace Path"),
-        "General 页面不应继续以 Workspace Path 泛化 mock 作为主要内容"
+        source.contains("SettingsSection::General\n                    | SettingsSection::Runtime\n                    | SettingsSection::Skills => div()"),
+        "旧 General/Runtime/Skills 分组必须保留为空白 fallback，不能恢复为 mock 内容"
     );
 }
 

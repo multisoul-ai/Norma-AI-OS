@@ -1,5 +1,7 @@
 # Launchpad Static Visual Implementation Plan
 
+> **Superseded for background behavior (2026-07-15):** Launchpad now uses the dedicated `wallpapers/home.mp4` video rather than the Canvas/app wallpaper. See [`2026-07-15-launchpad-dedicated-video.md`](../design-docs/2026-07-15-launchpad-dedicated-video.md). The module split and static-content steps remain historical context only.
+
 ## Source Of Truth
 
 - Product spec: `docs/product-specs/2026-06-28-SPEC-launchpad-static-visual.md`

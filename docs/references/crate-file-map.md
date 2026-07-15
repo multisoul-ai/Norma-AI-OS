@@ -23,6 +23,7 @@ Important files:
 
 - `pty.rs` - `portable-pty` wrapper, read thread, output channel, resize/write/kill.
 - `grid.rs` - `alacritty_terminal` wrapper producing `GridSnapshot` with neutral `Cell` values.
+- `grid/links.rs` - OSC-8 and bare `http(s)` URL discovery plus lexically safe relative Preview paths.
 - `input.rs` - `KeyInput` to PTY byte encoding, including Ctrl, Alt, Enter, arrows.
 - `session.rs` - `TerminalSession`, drain loop, status, resize, snapshots, cleanup.
 - `message.rs` - PTY channel events.
@@ -54,12 +55,57 @@ Important files:
 - `settings_store.rs` - string settings.
 - `canvas_store.rs` - `DocumentSnapshot` round-trip.
 - `session_store.rs` - coalesced session checkpoints by `node_id`.
+- `agent_definition_store.rs` - persistent project Agent identities, names, runtime profiles, and enabled state.
+- `agent_dispatch_store.rs` - durable Agent task journal and queued/submitted/terminal state transitions.
 
 Boundary rules:
 
 - `storage` must not depend on `app`, `runtime`, or `ui`.
 - `canvas` and `terminal` must not depend on `storage`.
 - Do not write SQLite from `Runtime::drain_all`, PTY output chunks, `canvas_view::on_mouse_move`, `runtime::route`, or `send_node_input`.
+
+## `agent`
+
+Purpose: own Dialogue/CardTask execution and persistent-Agent coordination rules without GPUI or Storage.
+
+Important files:
+
+- `coordination.rs` - per-definition FIFO, managed/untracked dispatch policy, atomic preflight, and structured receipts.
+- `identity.rs` - validated Agent call names, preset speech aliases, and deterministic built-in allocation.
+- `system/` - Dialogue/CardTask orchestration and dynamic Agent roster injection.
+- `tools.rs` - high-level Agent/Card tool schemas and command parsing.
+
+## `asr`
+
+Purpose: own recognition-model identity and installation integrity without GPUI, Sherpa, network access, or app settings.
+
+Important files:
+
+- `model_id.rs` - validated immutable/versioned `AsrModelId`.
+- `catalog.rs` - curated Paraformer, Transducer Zipformer, and Zipformer2 CTC descriptors, capabilities, pinned URLs, sizes, hashes, and required files.
+- `installation.rs` - manifest validation, safe required-file extraction, atomic directory install, and delete protection.
+- `support.rs` - pinned shared Silero VAD artifact validation and atomic installation.
+- `model_root.rs` - stable Norma OS Application Support model root.
+
+Boundary rules:
+
+- `asr` must not depend on GPUI, Sherpa, app, runtime, storage, or UI.
+- Network download and progress live in `app`; Sherpa recognizer configuration lives in `voice_sherpa`.
+
+## `model_store` and `tts`
+
+Purpose: keep common local-model installation mechanics separate from engine-neutral TTS policy.
+
+- `model_store/src/lib.rs` and `installation.rs` - archive SHA-256, safe extraction, manifest validation, supplemental artifacts, and atomic promotion. It has no GPUI, network, app, runtime, storage, or Sherpa dependency.
+- `tts/src/model_id.rs` - stable `TtsModelId` and `TtsVoiceId`.
+- `tts/src/catalog.rs` - curated model packages, capability metadata, backend family, and recommended voices.
+- `tts/src/installation.rs` - TTS-specific root paths and validation over `model_store` primitives.
+
+Boundary rules:
+
+- `tts -> model_store`; neither crate depends on GPUI, app, runtime, storage, or UI.
+- `tts` does not depend on Sherpa; `voice_sherpa` consumes validated TTS models to create the engine adapter.
+- Network transfer, progress, cancellation, selection, and deletion orchestration live in `app`.
 
 ## `ui` and `app`
 
@@ -81,7 +127,7 @@ Important files:
 
 **Crate 分能力，文件夹分职责，逻辑沉底、适配上浮。**
 
-1. Pure logic → domain crate (`canvas`, `terminal`, `runtime`, `storage`, `voice`).
+1. Pure logic → domain crate (`canvas`, `terminal`, `runtime`, `storage`, `model_store`, `tts`, `voice`).
 2. GPUI binding / side effects → `app` or `ui`.
 3. Folder names = responsibility (`route`, `settings`), not tech layer (`handlers`, `views`).
 
@@ -102,6 +148,9 @@ crates/
 ├── terminal/src/     pty, grid, session
 ├── runtime/src/      route, focus, nodes/{term,agent}
 ├── storage/src/      *_store.rs
+├── asr/src/          catalog, installation, support        # 零 GPUI/Sherpa/network
+├── model_store/src/  installation                             # 零 GPUI/network
+├── tts/src/          model_id, catalog, installation          # 零 GPUI/Sherpa
 └── app/src/          GPUI 壳，按体验域分
     ├── main.rs       boot only
     ├── app/          MultisoulApp, keyboard, lifecycle

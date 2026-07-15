@@ -37,6 +37,7 @@ mod tests {
             CanvasNodeKind::Agent(AgentSpec {
                 profile: AgentProfile::Claude,
                 alias: None,
+                definition_id: None,
             }),
             CanvasRect::new(0.0, 0.0, 640.0, 360.0),
         );
@@ -44,6 +45,7 @@ mod tests {
             CanvasNodeKind::Agent(AgentSpec {
                 profile: AgentProfile::Codex,
                 alias: None,
+                definition_id: None,
             }),
             CanvasRect::new(720.0, 0.0, 640.0, 360.0),
         );

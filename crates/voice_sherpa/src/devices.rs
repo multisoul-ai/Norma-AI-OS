@@ -35,8 +35,7 @@ pub fn list_audio_input_devices() -> Result<Vec<AudioInputDevice>, SpeechError> 
 mod platform {
     use super::*;
     use objc2_av_foundation::{
-        AVCaptureDevice, AVCaptureDeviceDiscoverySession, AVCaptureDevicePosition,
-        AVCaptureDeviceTypeMicrophone, AVMediaTypeAudio,
+        AVCaptureDevice, AVCaptureDeviceDiscoverySession, AVCaptureDevicePosition, AVMediaTypeAudio,
     };
     use objc2_foundation::{NSArray, NSString};
     use std::ffi::CStr;
@@ -48,7 +47,11 @@ mod platform {
             AVCaptureDevice::defaultDeviceWithMediaType(media_type)
                 .map(|device| ns_string_to_string(&device.uniqueID()))
         };
-        let device_types = NSArray::from_slice(&[unsafe { AVCaptureDeviceTypeMicrophone }]);
+        // Build the macOS 12-compatible type from its stable string value. Referencing
+        // the macOS 14+ Microphone symbol aborts under dyld on Ventura, while the old
+        // BuiltInMicrophone static is deprecated by newer SDKs.
+        let built_in_microphone_type = NSString::from_str("AVCaptureDeviceTypeBuiltInMicrophone");
+        let device_types = NSArray::from_slice(&[&*built_in_microphone_type]);
         let discovery = unsafe {
             AVCaptureDeviceDiscoverySession::discoverySessionWithDeviceTypes_mediaType_position(
                 &device_types,

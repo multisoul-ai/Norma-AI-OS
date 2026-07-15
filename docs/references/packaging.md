@@ -1,6 +1,6 @@
 # Packaging Notes
 
-`Packager.toml` configures a macOS app and DMG with entitlements + (staged) Developer ID signing/notarize:
+`Packager.toml` configures a macOS app and DMG with entitlements + Developer ID signing:
 
 - product name: `Norma OS`
 - bundle id: `com.norma.os`
@@ -14,7 +14,36 @@ Release workflow:
 ```bash
 cargo install cargo-packager --locked
 cargo packager --release -c Packager.toml
+cargo packager --notarize --release -c Packager.toml
+./scripts/release-local.sh
+./scripts/release-local.sh --notarize
 ```
+
+仓库里的 `.cargo/config.toml` 会把 `cargo packager ...` 路由到
+`tools/cargo-packager-wrapper`，再由 wrapper 调用真实的 `cargo-packager`。
+默认执行 `cargo packager --release -c Packager.toml` 时，wrapper 会清掉
+`APPLE_API_*`、`APPLE_KEYCHAIN_PROFILE`、`APPLE_ID`、`APPLE_PASSWORD`、
+`APPLE_TEAM_ID`，因此只做 Developer ID 签名打包，不提交 Apple 公证。
+
+需要真实发版公证时，显式传 `--notarize`：
+
+```bash
+cargo packager --notarize --release -c Packager.toml
+```
+
+wrapper 会把
+`APP_STORE_CONNECT_API_KEY_ID` / `APP_STORE_CONNECT_API_ISSUER_ID` /
+`APP_STORE_CONNECT_API_KEY_PATH` 映射成 cargo-packager 读取的 `APPLE_API_*`，
+并移除个人 Apple ID 方式的 notary 凭证，避免账号串用。
+
+`./scripts/release-local.sh` 保留为完整本地 release 流程入口：它会先做
+codesign readiness 检查和 `git lfs pull`，再调用同一个 `cargo packager` 入口。
+`./scripts/release-local.sh --notarize` 与 `cargo packager --notarize ...` 使用同一组
+`APP_STORE_CONNECT_*` 凭证约定。
+
+注意：这里依赖项目内 `.cargo/config.toml` 的 Cargo alias。如果绕过 Cargo alias 直接执行
+`cargo-packager --release -c Packager.toml`，上游 cargo-packager 0.11.8 仍会直接读取当前
+shell 的 `APPLE_*` notary 环境变量。
 
 `Packager.toml` runs a `before-packaging-command` that first calls
 `scripts/bump-release-version.sh`, then builds both release binaries before the
@@ -28,8 +57,9 @@ config for the current process. The persisted files are advanced before the
 release build, and the next `cargo packager --release -c Packager.toml`
 invocation starts from that bumped version.
 
-Codesigning and notarization 配置见 `packaging/macos/NormaOS.entitlements` 与
-`Packager.toml` 的 `[macos]` 段；本地发版用 `scripts/release-local.sh`，详见
+Codesigning 配置见 `packaging/macos/NormaOS.entitlements` 与
+`Packager.toml` 的 `[macos]` 段；notarization 只通过
+`cargo packager --notarize ...` 或 `scripts/release-local.sh --notarize` 显式开启，详见
 `docs/design-docs/2026-07-05-developer-id-notarize-design.md`。
 
 ## Wallpaper resources
@@ -39,12 +69,16 @@ The MP4s are tracked by **git-lfs** (see root `.gitattributes`)；commit 的是 
 指针，`git lfs pull` 后工作树才有真实字节（~141 MB），打包前 `release-local.sh`
 会强制 lfs pull。
 
-`Packager.toml` 的 `resources` glob 在签名前把整个目录拷进 app bundle 的
-`Contents/Resources/wallpapers/`：
+`Packager.toml` / `Packager.dev.toml` 的 `resources` glob 在签名前把 wallpapers 目录拷进 app bundle 的
+`Contents/Resources/wallpapers/`，并把 realtime card planner helper 拷进
+`Contents/Resources/openai-card-planner.mjs`：
 
 ```toml
-resources = ["crates/app/assets/wallpapers"]
+resources = [
+  "crates/app/assets/wallpapers",
+  "sidecars/openai-card-planner/openai-card-planner.mjs",
+]
 ```
 
 不再需要手动 `copy-wallpaper-resources.sh`——`resources` glob 在 cargo-packager
-签名 pass 之前执行，确保 wallpapers 进入已签名 bundle。
+签名 pass 之前执行，确保 wallpapers 和 card planner helper 进入已签名 bundle。

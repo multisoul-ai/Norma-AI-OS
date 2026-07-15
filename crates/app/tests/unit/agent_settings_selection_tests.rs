@@ -23,7 +23,7 @@ fn make_agent_definition_store(workspace_name: &str) -> storage::AgentDefinition
 ///   selected id expected        = first.id（第一条 definition）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 创建 populated project store，并写入 "First Agent" 与 "Second Agent"
+///   1. 创建 populated project store，并写入 "First" 与 "Second"
 ///   2. bind_project_store(populated) 后读取 selected_definition_id() 与 draft()
 ///   3. 创建 empty project store，bind 后再次读取 selected_definition_id() 与 draft()
 ///
@@ -37,14 +37,14 @@ fn test_agent_definitions_state_bind_selects_first_definition_or_new_mode() {
     let populated_store = make_agent_definition_store("task-6-selected-populated");
     let first = populated_store
         .create(&NewAgentDefinition {
-            name: "First Agent".to_string(),
+            name: "First".to_string(),
             runtime_profile: AgentProfile::Codex,
             workflow_description: "First workflow".to_string(),
         })
         .expect("test should seed first definition");
     populated_store
         .create(&NewAgentDefinition {
-            name: "Second Agent".to_string(),
+            name: "Second".to_string(),
             runtime_profile: AgentProfile::Claude,
             workflow_description: "Second workflow".to_string(),
         })
@@ -66,7 +66,7 @@ fn test_agent_definitions_state_bind_selects_first_definition_or_new_mode() {
         "绑定已有 definitions 的项目后应自动选中第一条，供右侧详情直接显示"
     );
     assert_eq!(
-        populated_draft.name, "First Agent",
+        populated_draft.name, "First",
         "自动选中后 draft 应加载第一条 definition 的名称"
     );
     assert_eq!(
@@ -78,7 +78,7 @@ fn test_agent_definitions_state_bind_selects_first_definition_or_new_mode() {
         "绑定空项目后应进入新建模式，而不是保留旧项目 selected id"
     );
     assert_ne!(
-        empty_draft.name, "First Agent",
+        empty_draft.name, "First",
         "绑定空项目后不应残留前一个项目的 draft 名称"
     );
 }
@@ -87,7 +87,7 @@ fn test_agent_definitions_state_bind_selects_first_definition_or_new_mode() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   definitions              = 2 条，first.id 与 second.id 都存在
-///   dirty edit               = draft.name 从 "First Agent" 改成 "Unsaved Name"
+///   dirty edit               = draft.name 从 "First" 改成 "Unsaved Name"
 ///   expected selected id     = first.id，切换失败后仍保持原选中项
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -107,14 +107,14 @@ fn test_agent_definitions_state_dirty_draft_blocks_selection_and_new_agent() {
     let store = make_agent_definition_store("task-6-dirty-guard");
     let first = store
         .create(&NewAgentDefinition {
-            name: "First Agent".to_string(),
+            name: "First".to_string(),
             runtime_profile: AgentProfile::Codex,
             workflow_description: "First workflow".to_string(),
         })
         .expect("test should seed first definition");
     let second = store
         .create(&NewAgentDefinition {
-            name: "Second Agent".to_string(),
+            name: "Second".to_string(),
             runtime_profile: AgentProfile::Claude,
             workflow_description: "Second workflow".to_string(),
         })
@@ -152,7 +152,7 @@ fn test_agent_definitions_state_dirty_draft_blocks_selection_and_new_agent() {
         "dirty 切换失败后 draft 应保留用户未保存名称"
     );
     assert_ne!(
-        draft_after.name, "Second Agent",
+        draft_after.name, "Second",
         "dirty 切换失败后 draft 不应被 second definition 覆盖"
     );
     assert_eq!(
@@ -186,7 +186,7 @@ fn test_agent_definitions_state_save_new_draft_selects_created_definition() {
     let mut state = AgentDefinitionsState::default();
     state.bind_project_store(store);
 
-    state.set_draft_name("New Detail Agent");
+    state.set_draft_name("Detail");
     state.set_draft_runtime_profile(AgentProfile::Claude);
     state.set_draft_workflow_description("New detail workflow");
     let did_save = state.save_draft();
@@ -209,7 +209,7 @@ fn test_agent_definitions_state_save_new_draft_selects_created_definition() {
         "保存新建草稿后应选中新建 definition，右侧详情继续显示该对象"
     );
     assert_eq!(
-        draft.name, "New Detail Agent",
+        draft.name, "Detail",
         "保存新建草稿后 draft 应显示新建 definition 名称"
     );
     assert_ne!(
@@ -221,9 +221,9 @@ fn test_agent_definitions_state_save_new_draft_selects_created_definition() {
 /// AS-16: Revert 应恢复当前选中 definition 的持久化字段，并清除 dirty 状态。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   seeded definition name     = "Persisted Agent"
+///   seeded definition name     = "Persisted"
 ///   dirty draft name           = "Temporary Name"
-///   expected reverted name     = "Persisted Agent"
+///   expected reverted name     = "Persisted"
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建 project store 并写入 1 条 definition
@@ -240,7 +240,7 @@ fn test_agent_definitions_state_revert_restores_selected_definition() {
     let store = make_agent_definition_store("task-6-revert");
     store
         .create(&NewAgentDefinition {
-            name: "Persisted Agent".to_string(),
+            name: "Persisted".to_string(),
             runtime_profile: AgentProfile::Codex,
             workflow_description: "Persisted workflow".to_string(),
         })
@@ -263,7 +263,7 @@ fn test_agent_definitions_state_revert_restores_selected_definition() {
         "选中已有 definition 时 revert_draft() 应返回 true"
     );
     assert_eq!(
-        draft_after.name, "Persisted Agent",
+        draft_after.name, "Persisted",
         "revert 后 draft 名称应恢复为持久化 definition 名称"
     );
     assert!(
@@ -279,35 +279,35 @@ fn test_agent_definitions_state_revert_restores_selected_definition() {
 /// AS-17: 删除选中 Agent 必须两次确认；确认删除后选择下一条可用 definition。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   definitions before delete = 2 条，Delete Me 与 Keep Me
+///   definitions before delete = 2 条，Delete 与 Keep
 ///   first delete click        = 只设置 confirmation，不删除
-///   second delete click       = 删除 Delete Me
+///   second delete click       = 删除 Delete
 ///   definitions after delete  = 1 条，Keep Me 被选中
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 创建 project store 并写入 Delete Me 与 Keep Me
-///   2. bind 后选中 Delete Me
-///   3. 连续调用 request_delete_definition(Delete Me.id) 两次
+///   1. 创建 project store 并写入 Delete 与 Keep
+///   2. bind 后选中 Delete
+///   3. 连续调用 request_delete_definition(Delete.id) 两次
 ///   4. 读取 definitions()、selected_definition_id() 与 draft()
 ///
 /// 预期结果：
 ///   - 正断言：第一次 delete 返回 false 且不删除记录
 ///   - 正断言：第二次 delete 返回 true 且删除目标记录
 ///   - 正断言：删除后 selected id 指向 Keep Me
-///   - 负断言：Delete Me 不应继续出现在内存列表或 draft 中
+///   - 负断言：Delete 不应继续出现在内存列表或 draft 中
 #[test]
 fn test_agent_definitions_state_delete_requires_confirmation_and_selects_next() {
     let store = make_agent_definition_store("task-6-confirm-delete");
     let deleted = store
         .create(&NewAgentDefinition {
-            name: "Delete Me".to_string(),
+            name: "Delete".to_string(),
             runtime_profile: AgentProfile::Codex,
             workflow_description: "Delete workflow".to_string(),
         })
         .expect("test should seed deleted definition");
     let kept = store
         .create(&NewAgentDefinition {
-            name: "Keep Me".to_string(),
+            name: "Keep".to_string(),
             runtime_profile: AgentProfile::Claude,
             workflow_description: "Keep workflow".to_string(),
         })
@@ -345,41 +345,42 @@ fn test_agent_definitions_state_delete_requires_confirmation_and_selects_next() 
         "删除当前选中 definition 后应自动选中下一条可用 definition"
     );
     assert_eq!(
-        draft_after.name, "Keep Me",
-        "删除后 draft 应加载新选中的 Keep Me 详情"
+        draft_after.name, "Keep",
+        "删除后 draft 应加载新选中的 Keep 详情"
     );
     assert!(
         !definitions_after
             .iter()
-            .any(|definition| definition.name == "Delete Me"),
-        "确认删除后 Delete Me 不应继续出现在 definitions 列表中"
+            .any(|definition| definition.name == "Delete"),
+        "确认删除后 Delete 不应继续出现在 definitions 列表中"
     );
     assert_ne!(
-        draft_after.name, "Delete Me",
+        draft_after.name, "Delete",
         "确认删除后 draft 不应继续显示已删除 definition"
     );
 }
 
-/// AS-19: 点击 + New 应立即创建一张持久化 Agent 卡片，并让该卡片进入编辑模式。
+/// AS-19: 点击 + New 应创建未保存草稿，并预填名称池中的下一个名称与 Codex profile。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   initial definitions       = 0 条
-///   default name              = "New Agent"，长度 9 <= 80
-///   default workflow          = "Describe this agent's workflow."，非空且长度 31 <= 2000
-///   final definitions         = 1 条，创建后应被选中并进入 editing_card_id
+///   default name              = "Alan"，名称池中第 1 个未占用名称
+///   default profile           = Codex
+///   default workflow          = ""，可选字段保持为空
+///   final persisted rows      = 0 条，保存前不得落库
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建空 project store 并 bind
 ///   2. 调用 create_new_card()
-///   3. 读取 definitions()、selected_definition_id()、editing_card_id() 与 store.list()
+///   3. 读取 definitions()、draft()、is_creating_new() 与 store.list()
 ///
 /// 预期结果：
 ///   - 正断言：create_new_card() 返回 true
-///   - 正断言：内存与持久化都新增 1 条默认 Agent definition
-///   - 正断言：selected_definition_id() 与 editing_card_id() 都指向新 definition
-///   - 负断言：新 definition 不应停留在空名称或空 workflow，避免违反保存校验
+///   - 正断言：草稿预填 Alan、Codex 与空 workflow
+///   - 正断言：state 进入 creating_new 状态
+///   - 负断言：保存前内存定义、持久化记录、selected id 与 editing id 均不应出现
 #[test]
-fn test_agent_definitions_state_create_new_card_persists_and_enters_edit_mode() {
+fn test_agent_definitions_state_create_new_card_prepares_unsaved_draft() {
     let store = make_agent_definition_store("task-7-create-card-inline-edit");
     let mut state = AgentDefinitionsState::default();
     state.bind_project_store(store.clone());
@@ -391,37 +392,40 @@ fn test_agent_definitions_state_create_new_card_persists_and_enters_edit_mode() 
         .expect("store list should load auto-created card definition");
     let selected = state.selected_definition_id();
     let editing = state.editing_card_id();
+    let draft = state.draft().clone();
+    let is_creating_new = state.is_creating_new();
 
-    assert!(
-        did_create,
-        "+ New 应立即创建默认 Agent definition，而不是只打开空草稿"
-    );
+    assert!(did_create, "+ New 应成功创建可编辑草稿");
     assert_eq!(
         definitions.len(),
-        1,
-        "+ New 后内存 definitions 应新增 1 张 Agent 卡片"
+        0,
+        "+ New 后保存前不应把草稿加入持久化 definitions"
     );
     assert_eq!(
         persisted.len(),
-        1,
-        "+ New 后 project store 应持久化 1 条 Agent definition"
+        0,
+        "+ New 后保存前 project store 不应出现 Agent definition"
     );
     assert_eq!(
-        selected,
-        Some(definitions[0].id),
-        "+ New 后应选中新创建的 Agent 卡片"
+        selected, None,
+        "+ New 草稿尚无持久化 id，因此不应设置 selected_definition_id"
     );
     assert_eq!(
-        editing,
-        Some(definitions[0].id),
-        "+ New 后新卡片应立即进入内联编辑模式"
+        editing, None,
+        "+ New 草稿尚无持久化 id，因此不应设置 editing_card_id"
     );
-    assert_ne!(
-        definitions[0].name, "",
-        "自动创建的 Agent definition 不应使用空名称，否则保存校验会失败"
+    assert_eq!(
+        draft.name, "Alan",
+        "自动创建草稿应预填名称池中的第一个未占用名称 Alan"
     );
-    assert_ne!(
-        definitions[0].workflow_description, "",
-        "自动创建的 Agent definition 不应使用空 workflow，否则保存校验会失败"
+    assert_eq!(
+        draft.workflow_description, "",
+        "workflow 是可选字段，新草稿应保持为空"
     );
+    assert_eq!(
+        draft.runtime_profile,
+        AgentProfile::Codex,
+        "新草稿应默认选择 Codex profile"
+    );
+    assert!(is_creating_new, "+ New 后 state 应显式标记未保存草稿状态");
 }

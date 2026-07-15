@@ -1,6 +1,4 @@
 //! portable-pty 封装：spawn 默认 shell、读线程桥接、resize、write、kill。
-//! 不引 tokio —— 读线程是普通 std::thread，数据经 crossbeam 通道回 app。
-
 use crate::message::PtyEvent;
 use crossbeam_channel::Sender;
 use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, PtySize};
@@ -67,6 +65,15 @@ impl PtyCommand {
         let mut command = self.clone();
         command.cwd = path.map(Path::to_path_buf);
         command
+    }
+}
+
+pub trait PtyBackend {
+    fn write(&mut self, bytes: &[u8]) -> Result<(), PtyError>;
+    fn resize(&mut self, cols: u16, rows: u16) -> Result<(), PtyError>;
+    fn kill(&mut self);
+    fn child_pid(&self) -> Option<u32> {
+        None
     }
 }
 
@@ -195,6 +202,25 @@ impl PtyHandle {
     /// 杀掉子进程（窗口关闭时调用，确保不留僵尸进程）。
     pub fn kill(&mut self) {
         let _ = self.child.kill();
+    }
+}
+
+/// 默认实现：PtyHandle 即真实 PTY 后端，全限定委托固有方法，不改动其公开 API。
+impl PtyBackend for PtyHandle {
+    fn write(&mut self, bytes: &[u8]) -> Result<(), PtyError> {
+        PtyHandle::write(self, bytes)
+    }
+
+    fn resize(&mut self, cols: u16, rows: u16) -> Result<(), PtyError> {
+        PtyHandle::resize(self, cols, rows)
+    }
+
+    fn kill(&mut self) {
+        PtyHandle::kill(self)
+    }
+
+    fn child_pid(&self) -> Option<u32> {
+        self.child_pid
     }
 }
 

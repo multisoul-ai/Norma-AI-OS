@@ -16,6 +16,7 @@ pub(super) fn keyboard_settings(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     div()
+        .w_full()
         .flex()
         .flex_col()
         .gap(px(18.0))
@@ -60,6 +61,7 @@ fn command_group(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     div()
+        .w_full()
         .flex()
         .flex_col()
         .gap(px(10.0))
@@ -109,6 +111,7 @@ fn command_row(
     let mut controls = div().flex().flex_row().items_center().gap(px(10.0)).child(
         keycap(theme, &label)
             .id(shortcut_row_id(command))
+            .debug_selector(move || shortcut_row_id(command).to_string())
             .cursor_pointer()
             .hover(move |style| style.bg(rgba(with_alpha(theme.accent_orange, 0x1e))))
             .on_click(cx.listener(move |app, _, _window, cx| {
@@ -135,6 +138,7 @@ fn restore_button(
 ) -> impl IntoElement {
     div()
         .id(shortcut_restore_id(command))
+        .debug_selector(move || shortcut_restore_id(command).to_string())
         .px(px(10.0))
         .py(px(7.0))
         .rounded(px(7.0))
@@ -198,6 +202,7 @@ fn group_title(theme: Theme, title: &'static str) -> Div {
 
 fn row_shell(theme: Theme) -> Div {
     div()
+        .w_full()
         .min_h(px(58.0))
         .flex()
         .flex_row()
@@ -212,6 +217,7 @@ fn row_shell(theme: Theme) -> Div {
 
 fn label_block(theme: Theme, title: &'static str, hint: &'static str) -> Div {
     div()
+        .flex_1()
         .flex()
         .flex_col()
         .gap(px(4.0))
@@ -280,6 +286,7 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::OpenPreviewFile => "settings-shortcut-open-preview-file",
         ShortcutCommandId::NewClaudeAgent => "settings-shortcut-new-claude-agent",
         ShortcutCommandId::NewCodexAgent => "settings-shortcut-new-codex-agent",
+        ShortcutCommandId::NewCursorAgent => "settings-shortcut-new-cursor-agent",
         ShortcutCommandId::NewOpenCodeAgent => "settings-shortcut-new-opencode-agent",
         ShortcutCommandId::DeleteCard => "settings-shortcut-delete-card",
         ShortcutCommandId::ReflowLayout => "settings-shortcut-reflow-layout",
@@ -299,6 +306,7 @@ fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::OpenPreviewFile => "settings-shortcut-restore-open-preview-file",
         ShortcutCommandId::NewClaudeAgent => "settings-shortcut-restore-new-claude-agent",
         ShortcutCommandId::NewCodexAgent => "settings-shortcut-restore-new-codex-agent",
+        ShortcutCommandId::NewCursorAgent => "settings-shortcut-restore-new-cursor-agent",
         ShortcutCommandId::NewOpenCodeAgent => "settings-shortcut-restore-new-opencode-agent",
         ShortcutCommandId::DeleteCard => "settings-shortcut-restore-delete-card",
         ShortcutCommandId::ReflowLayout => "settings-shortcut-restore-reflow-layout",

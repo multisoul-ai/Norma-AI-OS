@@ -32,7 +32,6 @@ fn test_norma_create_terminal_spawns_live_node_and_marks_dirty() {
     let mut master_layout = MasterLayoutState::default();
     let area = CanvasRect::new(0.0, 0.0, 1200.0, 900.0);
     let zoom = 1.0;
-
     let execution = execute_card_command_for_area(
         &mut runtime,
         &mut motion,
@@ -45,7 +44,6 @@ fn test_norma_create_terminal_spawns_live_node_and_marks_dirty() {
         zoom,
     )
     .expect("Norma Terminal create 应执行成功");
-
     assert_eq!(
         execution.result,
         CardCommandResult::Created { node_id: 1 },
@@ -231,6 +229,7 @@ fn test_norma_list_summary_includes_agent_alias() {
         CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: Some("Alan".to_string()),
+            definition_id: None,
         }),
         CanvasRect::new(0.0, 0.0, 640.0, 360.0),
     );
@@ -293,6 +292,7 @@ fn test_norma_list_summary_preserves_opencode_agent_profile() {
         CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::OpenCode,
             alias: None,
+            definition_id: None,
         }),
         CanvasRect::new(0.0, 0.0, 640.0, 360.0),
     );

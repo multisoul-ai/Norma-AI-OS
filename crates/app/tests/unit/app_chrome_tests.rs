@@ -27,42 +27,42 @@ fn test_workspace_left_rail_is_temporarily_hidden() {
     );
 }
 
-/// 底部语音输入菜单：sherpa-onnx 接入后入口已开启，BottomBar 功能代码完整保留。
+/// 底部语音状态条：保持可见并提示快捷键，但不得成为第二个语音激活入口。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   bottom_voice_bar_visible() = true（voice_sherpa 接入后恢复显示）
 ///   app_voice.rs 源码 = include_str!("../../src/app/voice/mod.rs")
-///   voice_control.rs 源码 = include_str!("../../src/app/voice/control.rs")
+///   voice_bar.rs 源码 = include_str!("../../src/app/voice/bar.rs")
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 bottom_voice_bar_visible() → true，render_workspace_chrome 挂载底部语音菜单
-///   2. 检查 app_voice.rs 仍保留 on_voice_bar_mouse_down / on_voice_bar_mouse_up
-///   3. 检查 voice_control.rs 仍保留 BottomBar trigger
+///   2. 检查 voice_bar.rs 显示 ⌘E 键帽
+///   3. 检查 app_voice.rs 不再注册底栏 mouse down/up 激活处理
 ///
 /// 预期结果：
 ///   - 正断言：底部语音菜单开关为 true（voice_sherpa 接入后已启用）
-///   - 正断言：底部语音处理函数与 BottomBar trigger 完整保留
+///   - 正断言：底栏保持状态反馈与快捷键提示
+///   - 负断言：底栏不得保留第二套鼠标激活入口
 #[test]
 fn test_bottom_voice_bar_is_visible_with_sherpa_provider() {
     let bottom_voice_visible = bottom_voice_bar_visible();
     let app_voice_source = include_str!("../../src/app/voice/mod.rs");
-    let voice_control_source = include_str!("../../src/app/voice/control.rs");
-
+    let voice_bar_source = include_str!("../../src/app/voice/bar.rs");
     assert!(
         bottom_voice_visible,
         "voice_sherpa 接入后底部语音输入菜单应通过 bottom_voice_bar_visible() 开启"
     );
     assert!(
-        app_voice_source.contains("on_voice_bar_mouse_down"),
-        "底部语音 mouse down 处理函数应保留"
+        voice_bar_source.contains("IDLE_KEYCAPS"),
+        "底部状态条应继续提示唯一的 ⌘E 激活快捷键"
     );
     assert!(
-        app_voice_source.contains("on_voice_bar_mouse_up"),
-        "底部语音 mouse up 处理函数应保留"
+        !app_voice_source.contains("on_voice_bar_mouse_down"),
+        "底部状态条不得保留 mouse down 语音激活入口"
     );
     assert!(
-        voice_control_source.contains("BottomBar"),
-        "VoiceTrigger::BottomBar 功能分支应保留"
+        !app_voice_source.contains("on_voice_bar_mouse_up"),
+        "底部状态条不得保留 mouse up 听写提交入口"
     );
 }
 
@@ -335,8 +335,8 @@ fn test_top_toolbar_includes_canvas_scroll_icon_toggle() {
 ///   top_toolbar_start = render_source 中首个 ".top(px(30.0))" 的下标（顶部工具栏锚点）
 ///   top_toolbar_end   = render_source 中 ".when(workspace_left_rail_visible()" 的下标（左侧菜单分支起点）
 ///   top_toolbar       = render_source[top_toolbar_start..top_toolbar_end]（仅顶部工具栏区段）
-///   分隔符调用次数    = top_toolbar 中 "chrome_divider(" 出现次数 = 3（Scroll|Plus|Claude·Codex·OpenCode|Settings）
-///   图标按钮调用次数  = top_toolbar 中 "chrome_icon_button(" 出现次数 = 6（Scroll/Plus/Claude/Codex/OpenCode/Settings）
+///   分隔符调用次数    = top_toolbar 中 "chrome_divider(" 出现次数 = 3（Scroll|Plus|四种 Agent|Settings）
+///   图标按钮调用次数  = top_toolbar 中 "chrome_icon_button(" 出现次数 = 7（Scroll/Plus/Claude/Codex/Cursor/OpenCode/Settings）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 截取顶部工具栏区段（排除左侧菜单分支与函数定义，避免误命中）
@@ -377,14 +377,13 @@ fn test_top_toolbar_uses_icon_buttons_and_drops_canvas_literal() {
     );
     assert_eq!(
         icon_button_calls,
-        6,
-        "顶部工具栏应恰好含 6 个 chrome_icon_button 调用 (Scroll/Plus/Claude/Codex/OpenCode/Settings)，实际 {}",
+        7,
+        "顶部工具栏应恰好含 7 个 chrome_icon_button 调用 (Scroll/Plus/Claude/Codex/Cursor/OpenCode/Settings)，实际 {}",
         icon_button_calls
     );
     assert_eq!(
-        divider_calls,
-        3,
-        "顶部工具栏应恰好含 3 个 chrome_divider 分隔符 (Scroll|Plus|Claude·Codex·OpenCode|Settings)，实际 {}",
+        divider_calls, 3,
+        "顶部工具栏应恰好含 3 个 chrome_divider 分隔符 (Scroll|Plus|四种 Agent|Settings)，实际 {}",
         divider_calls
     );
     assert!(

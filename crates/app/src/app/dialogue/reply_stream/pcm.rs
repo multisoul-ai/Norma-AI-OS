@@ -1,0 +1,77 @@
+use crate::app::voice_window_inset::PcmEnergyTimeline;
+use audio::PcmAudioChunk;
+use dialogue::TtsChunkSink;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
+
+use super::SpeechWorkerEvent;
+
+pub(crate) struct QueuedPlaybackChunk {
+    pub(crate) pcm: PcmAudioChunk,
+    pub(crate) tts_request_sequence: u64,
+    pub(crate) chunk_sequence: u64,
+    pub(crate) pcm_fingerprint: u64,
+    pub(crate) energy_timeline: PcmEnergyTimeline,
+}
+
+impl QueuedPlaybackChunk {
+    #[cfg(test)]
+    pub(crate) fn from_pcm(pcm: PcmAudioChunk) -> Self {
+        Self::from_tts_stream(pcm, 0, 0)
+    }
+
+    fn from_tts_stream(pcm: PcmAudioChunk, tts_request_sequence: u64, chunk_sequence: u64) -> Self {
+        let energy_timeline = PcmEnergyTimeline::from_pcm(&pcm);
+        let pcm_fingerprint = pcm_trace_fingerprint(&pcm);
+        Self {
+            pcm,
+            tts_request_sequence,
+            chunk_sequence,
+            pcm_fingerprint,
+            energy_timeline,
+        }
+    }
+}
+
+/// Stable, dependency-free fingerprint used only to correlate PCM blocks in diagnostic logs.
+pub(crate) fn pcm_trace_fingerprint(chunk: &PcmAudioChunk) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for value in chunk
+        .sample_rate_hz
+        .to_le_bytes()
+        .into_iter()
+        .chain(chunk.channels.to_le_bytes())
+        .chain(chunk.bytes.iter().copied())
+    {
+        hash ^= u64::from(value);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    hash
+}
+
+pub(super) struct ChannelTtsChunkSink {
+    pub(super) events: async_channel::Sender<SpeechWorkerEvent>,
+    pub(super) cancelled: Arc<AtomicBool>,
+    pub(super) tts_request_sequence: u64,
+    pub(super) next_chunk_sequence: AtomicU64,
+}
+
+impl TtsChunkSink for ChannelTtsChunkSink {
+    fn send(&self, chunk: PcmAudioChunk) -> bool {
+        !self.cancelled.load(Ordering::Acquire)
+            && self
+                .events
+                .try_send(SpeechWorkerEvent::Chunk(
+                    QueuedPlaybackChunk::from_tts_stream(
+                        chunk,
+                        self.tts_request_sequence,
+                        self.next_chunk_sequence.fetch_add(1, Ordering::Relaxed),
+                    ),
+                ))
+                .is_ok()
+    }
+
+    fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Acquire)
+    }
+}

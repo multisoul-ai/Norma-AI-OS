@@ -21,6 +21,7 @@ fn test_agent_card_chrome_uses_profile_title() {
         kind: CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Claude,
             alias: None,
+            definition_id: None,
         }),
         bounds: CanvasRect::new(0.0, 0.0, 100.0, 80.0),
         z_index: 1,
@@ -31,6 +32,7 @@ fn test_agent_card_chrome_uses_profile_title() {
         kind: CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: None,
+            definition_id: None,
         }),
         bounds: CanvasRect::new(0.0, 0.0, 100.0, 80.0),
         z_index: 2,
@@ -41,6 +43,7 @@ fn test_agent_card_chrome_uses_profile_title() {
         kind: CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::OpenCode,
             alias: None,
+            definition_id: None,
         }),
         bounds: CanvasRect::new(0.0, 0.0, 100.0, 80.0),
         z_index: 3,
@@ -95,6 +98,7 @@ fn test_agent_card_chrome_prefers_alias_over_profile_title() {
         kind: CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: Some("Alan".to_string()),
+            definition_id: None,
         }),
         bounds: CanvasRect::new(0.0, 0.0, 100.0, 80.0),
         z_index: 3,
@@ -130,6 +134,7 @@ fn test_agent_card_chrome_shows_task_badge() {
         CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: None,
+            definition_id: None,
         }),
         CanvasRect::new(0.0, 0.0, 100.0, 80.0),
     );
@@ -182,6 +187,7 @@ fn test_agent_card_chrome_uses_task_title_when_set() {
         CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Claude,
             alias: None,
+            definition_id: None,
         }),
         CanvasRect::new(0.0, 0.0, 100.0, 80.0),
     );
@@ -226,6 +232,7 @@ fn test_agent_card_chrome_falls_back_to_profile_when_no_task_title() {
         kind: CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: None,
+            definition_id: None,
         }),
         bounds: CanvasRect::new(0.0, 0.0, 100.0, 80.0),
         z_index: 1,
@@ -257,6 +264,7 @@ fn test_agent_card_chrome_task_title_beats_alias() {
         CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Claude,
             alias: Some("Alan".to_string()),
+            definition_id: None,
         }),
         CanvasRect::new(0.0, 0.0, 100.0, 80.0),
     );

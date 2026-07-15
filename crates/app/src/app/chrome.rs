@@ -148,12 +148,6 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
-        // Task 10: keep the video decoder lifecycle synced with the current
-        // wallpaper kind once per render. Lives here (not in backdrop) because
-        // the backdrop builder only has &self, while sync needs &mut self + cx.
-        #[cfg(target_os = "macos")]
-        self.sync_video_wallpaper(cx);
-
         let theme = self.theme;
 
         let mut chrome = div()
@@ -229,6 +223,16 @@ impl MultisoulApp {
                                     "Codex",
                                 )
                                 .on_click(cx.listener(Self::on_toolbar_new_codex_agent)),
+                            )
+                            .child(
+                                chrome_icon_button(
+                                    theme,
+                                    ToolbarIcon::Cursor,
+                                    false,
+                                    "toolbar-new-cursor-agent",
+                                    "Cursor",
+                                )
+                                .on_click(cx.listener(Self::on_toolbar_new_cursor_agent)),
                             )
                             .child(
                                 chrome_icon_button(
@@ -376,6 +380,7 @@ fn chrome_icon_button(
 
     div()
         .id(id)
+        .debug_selector(move || id.to_string())
         .w(px(30.0))
         .h(px(30.0))
         .flex()
@@ -429,4 +434,8 @@ impl Render for TooltipView {
 
 #[cfg(test)]
 #[path = "../../tests/unit/app_chrome_tests.rs"]
-mod tests;
+mod app_chrome_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/app_chrome_cursor_tests.rs"]
+mod app_chrome_cursor_tests;

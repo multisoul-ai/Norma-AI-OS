@@ -2,7 +2,7 @@
 
 本文汇总 Norma OS 当前可配置快捷键与键盘/指针交互契约。macOS 上 `Cmd` 对应 GPUI 的 `platform` 修饰键（⌘）。
 
-最后对照源码：`crates/app/src/shortcuts.rs`、`crates/app/src/app/keyboard.rs`、`crates/app/src/settings/keyboard.rs`、`crates/app/src/canvas/view.rs`、`crates/app/src/app/new_menu.rs`（2026-06-28）。
+最后对照源码：`crates/app/src/shortcuts.rs`、`crates/app/src/app/keyboard.rs`、`crates/app/src/settings/keyboard.rs`、`crates/app/src/canvas/view.rs`、`crates/app/src/app/new_menu.rs`（2026-07-15）。
 
 ## 1. 注册机制
 
@@ -34,12 +34,16 @@ canvas/view.rs
 
 | 默认快捷键 | Command | 处理器 | 生效界面 | 行为 |
 | --- | --- | --- | --- | --- |
+| `⌘⇧N` | `NewWindow` | `on_new_window` | 全局 | 打开新的 Launchpad 窗口，不创建画布节点 |
 | `⌘N` | `NewTerminal` | `on_new_terminal` | Canvas | 在可见画布区域新建 Terminal 节点，激活选中并触发当前布局 reflow |
+| 未设置 | `NewBrowser` | `on_new_browser` | Canvas | 在可见画布区域创建 Browser 卡片 |
 | `⌘C` | `CopyCardContent` | `on_copy_card_content` | Canvas | 复制当前终端文本选区到剪贴板；无选区时不写入 |
 | `⌘O` | `OpenProject` | `on_open_project` | 全局 | 弹出目录选择器打开 workspace（Launchpad / Canvas 均可用） |
 | `⌘⇧O` | `OpenPreviewFile` | `on_open_preview_file` | Canvas | 弹出文件选择器，创建 Preview 卡片 |
 | 未设置 | `NewClaudeAgent` | `on_new_claude_agent` | Canvas | 创建 Claude Code agent 卡片 |
 | 未设置 | `NewCodexAgent` | `on_new_codex_agent` | Canvas | 创建 Codex agent 卡片 |
+| `⌘⇧C` | `NewCursorAgent` | `on_new_cursor_agent` | Canvas | 创建 Cursor Agent CLI 卡片 |
+| 未设置 | `NewOpenCodeAgent` | `on_new_opencode_agent` | Canvas | 创建 OpenCode Agent CLI 卡片 |
 | `⌘D` | `DeleteCard` | `on_delete_card_shortcut` | Canvas | 删除当前聚焦卡片；无聚焦时仅删除唯一选中的画布卡片 |
 | `⌘M` | `ToggleMasterLayout` | `on_toggle_master_layout` | Canvas | 切换 master/detail 布局；无选中时忽略 |
 | `⌘⇧L` | `ReflowLayout` | `on_reflow_layout` | Canvas | 退出 master 模式并按最多三列平铺网格重排全部节点 |
@@ -68,33 +72,46 @@ canvas/view.rs
 
 以下命令在 `AppScreen::Launchpad` 下会直接返回或设置错误提示，不执行画布操作：
 
-- `NewTerminal`、`OpenPreviewFile`、`NewClaudeAgent`、`NewCodexAgent`、`DeleteCard`、`ToggleMasterLayout`、`ReflowLayout`、`ToggleSettings`
+- `NewTerminal`、`NewBrowser`、`OpenPreviewFile`、`NewClaudeAgent`、`NewCodexAgent`、`NewCursorAgent`、`NewOpenCodeAgent`、`DeleteCard`、`ToggleMasterLayout`、`ReflowLayout`、`ToggleSettings`
 - `CopyCardContent`（静默忽略）
 
-`OpenProject`、`ExitFocus` 不受 Canvas 限制。
+`NewWindow`、`OpenProject`、`ExitFocus` 不受 Canvas 限制。
 
 ### Settings 页面校验规则
 
 Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore Defaults。校验规则：
 
 - 不允许两个可编辑命令使用同一快捷键。
-- 不允许覆盖只读输入行为：`⌘V`、`⌘⇧V`、裸方向键、裸 `Space`。
+- 不允许覆盖只读输入行为：`⌘V`、`⌘E`、裸方向键、裸 `Space`。
 - 不允许裸可打印字符作为 app 命令快捷键，避免干扰 terminal 输入。
 - 录制非 Exit Focus 命令时，裸 `Esc` 取消录制；录制 Exit Focus 时，裸 `Esc` 可作为快捷键。
 
-## 3. 菜单项与默认未设置命令
+## 3. 原生菜单栏与默认未设置命令
 
-`main.rs` 的 `Norma OS` 菜单仍注册 Action，菜单点击与快捷键分发共用同一批处理器。以下命令默认没有快捷键，但可在 Settings 中分配：
+`lib.rs` 注册 macOS 原生菜单栏；菜单点击、工具栏 ✚ 和可配置快捷键共用既有 Action/处理器，不复制创建逻辑。顶级层级固定为：
+
+```text
+Norma OS: Settings… / Services / Quit Norma OS (Cmd+Q)
+File:     New ▸ (Window / Cards / Agents) / Open Project…
+Edit:     Copy
+Layout:   Reflow Layout / Toggle Master Layout
+```
+
+`File → New` 的 Agent 命令默认没有快捷键，但可在 Settings 中分配：
 
 | 菜单项 | Action | 处理器 | 等效入口 |
 | --- | --- | --- | --- |
 | New Claude Agent | `NewClaudeAgent` | `on_new_claude_agent` | 顶部工具栏 ✚ 菜单 → Claude |
 | New Codex Agent | `NewCodexAgent` | `on_new_codex_agent` | 顶部工具栏 ✚ 菜单 → Codex |
+| New Cursor Agent | `NewCursorAgent` | `on_new_cursor_agent` | 顶部工具栏 ✚ 菜单 → Cursor |
+| New OpenCode Agent | `NewOpenCodeAgent` | `on_new_opencode_agent` | 顶部工具栏 ✚ 菜单 → OpenCode |
 
-顶部工具栏的 ✚（Plus）按钮不再是直接的新建终端入口，而是展开一个浮层菜单（Terminal / Claude / Codex / Preview）。菜单展开后：
+除固定的 `Cmd+Q` 外，原生菜单暂不显示快捷键提示：可配置按键的真值仍是 `ShortcutSettingsState`，避免菜单显示与用户 override 不同步。Launchpad 中 Canvas 专属菜单项按原生禁用状态显示；`New Window` 与 `Open Project…` 保持可用。
+
+顶部工具栏的 ✚（Plus）按钮不再是直接的新建终端入口，而是展开一个浮层菜单（Terminal / Claude / Codex / Cursor / OpenCode / Preview / Browser）。菜单展开后：
 
 - ✚ 按钮高亮（accent 橙填充），再次点击收起。
-- 选择任一项执行对应动作（Terminal → `on_new_terminal`、Claude → `spawn_agent_card(Claude)`、Codex → `spawn_agent_card(Codex)`、Preview → `on_open_preview_file`）并自动收起菜单。
+- 选择任一项执行对应动作（Terminal → `on_new_terminal`、Claude/Codex/Cursor/OpenCode → `spawn_agent_card(profile)`、Preview → `on_open_preview_file`、Browser → `on_new_browser`）并自动收起菜单。
 - 裸 `Esc` 优先收起菜单（不退焦、不传 PTY）。画布任意鼠标按下也会收起菜单。判定函数：`should_close_new_menu_on_escape`（`keyboard.rs`）。
 
 ## 4. 键事件路由（非 Action）
@@ -105,16 +122,16 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 
 | 快捷键 | 阶段 | 行为 |
 | --- | --- | --- |
-| `⌘⇧V` 按下 | `on_key_down` | 开始语音录音（`VoiceTrigger::Shortcut`） |
-| `⌘⇧V` 松开 | `on_key_up` | 结束录音并进入转写 |
-| 松开 `⌘` 或 `⇧`（录音仍由 Shortcut 触发） | `on_modifiers_changed` | 结束录音 |
+| `⌘E` 按下 | `on_key_down` | 按当前模式开始单次语音指令或持续聆听 |
+| `⌘E` 松开（单次 Hold） | `on_key_up` | 结束输入并提交最终转写 |
+| 松开 `⌘`（单次 Hold） | `on_modifiers_changed` | 结束输入 |
 
 实现：`crates/app/src/app/voice/control.rs` → `is_voice_hold_shortcut`。
 
 **冲突隔离：**
 
 - `⌘V`（粘贴）不匹配语音快捷键。
-- `⌘⇧N` 等其它 platform 组合不匹配语音快捷键。
+- `⌘N` 等其它 platform 组合不匹配语音快捷键。
 
 ### 4.2 粘贴（`⌘V`）
 
@@ -216,7 +233,7 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 
 | 项目 | 状态 |
 | --- | --- |
-| 输入路由类快捷键编辑 | `⌘V`、`⌘⇧V`、方向键、`Space`、PTY 输入在 Settings 中只读展示 |
+| 输入路由类快捷键编辑 | `⌘V`、`⌘E`、方向键、`Space`、PTY 输入在 Settings 中只读展示 |
 | 滚轮缩放 | 文档旧描述（`ARCHITECTURE.md` §5）已过时；当前滚轮不缩放 |
 
 ## 8. 源码索引
@@ -243,5 +260,5 @@ Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore 
 4. 在 `app/keyboard.rs` 的 `dispatch_shortcut_command` 映射到处理器。
 5. 在 `MultisoulApp::render` 根元素 `.on_action(...)` 挂载菜单 Action 处理器（仅当需要菜单复用）。
 6. 若快捷键不应传入 PTY，确认 `keystroke_to_input` 对 `modifiers.platform` 的拦截已覆盖；必要时补测试（参考 `test_keystroke_to_input_platform_shortcut_is_not_sent_to_pty`）。
-7. 若与手写输入路由冲突（如 `⌘V` / `⌘⇧V`），先在 `shortcuts.rs` 保留输入行为，再在 `keyboard.rs` 或 `voice/control.rs` 明确优先级并补单元测试。
+7. 若与手写输入路由冲突（如 `⌘V` / `⌘E`），先在 `shortcuts.rs` 保留输入行为，再在 `keyboard.rs` 或 `voice/control.rs` 明确优先级并补单元测试。
 8. 更新本文档。

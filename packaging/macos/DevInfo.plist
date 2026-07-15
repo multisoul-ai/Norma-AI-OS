@@ -11,8 +11,10 @@
   <string>com.norma.os.dev</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
+  <key>CFBundleDisplayName</key>
+  <string>Norma OS Dev</string>
   <key>CFBundleName</key>
-  <string>Norma OS</string>
+  <string>Norma OS Dev</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>

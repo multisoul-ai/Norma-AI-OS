@@ -1,7 +1,7 @@
 use super::{with_alpha, SettingsPanelState, SettingsSection};
 use crate::app::MultisoulApp;
 use crate::settings::agents::{agents_settings, AgentDefinitionsState};
-use crate::settings::voice::{voice_settings, VoiceSettingsState};
+use crate::settings::voice::{voice_settings, VoiceSettingsInputs, VoiceSettingsState};
 use crate::settings::wallpaper::{wallpaper_settings, WallpaperSettingsState};
 use crate::shortcuts::ShortcutSettingsState;
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
@@ -13,17 +13,24 @@ mod keyboard;
 use self::hooks::hooks_settings;
 use self::keyboard::keyboard_settings;
 
+pub(super) struct VoiceSettingsContent<'a> {
+    pub(super) state: &'a VoiceSettingsState,
+    pub(super) inputs: &'a VoiceSettingsInputs,
+}
+
 pub(super) fn settings_content(
     theme: Theme,
     panel: &SettingsPanelState,
     agent_definitions: &AgentDefinitionsState,
-    voice_state: &VoiceSettingsState,
+    voice: VoiceSettingsContent<'_>,
     wallpaper_state: &WallpaperSettingsState,
     shortcuts: &ShortcutSettingsState,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     div()
         .flex_1()
+        .min_w(px(0.0))
+        .min_h(px(0.0))
         .h_full()
         .flex()
         .flex_col()
@@ -32,18 +39,23 @@ pub(super) fn settings_content(
         .child(
             div()
                 .id("settings-content-scroll")
+                .debug_selector(|| "settings-content-scroll".to_string())
                 .flex_1()
-                .overflow_scroll()
-                .px(px(26.0))
-                .pb(px(28.0))
+                .min_w(px(0.0))
+                .min_h(px(0.0))
+                .overflow_y_scroll()
+                .overflow_x_hidden()
+                .px(px(20.0))
+                .pb(px(32.0))
                 .child(match panel.active_section {
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
-                    SettingsSection::Voice => voice_settings(theme, voice_state, cx),
+                    SettingsSection::Voice => voice_settings(theme, voice.state, voice.inputs, cx),
                     SettingsSection::Agents => agents_settings(theme, agent_definitions, cx),
                     SettingsSection::Hooks => hooks_settings(theme, panel, cx),
                     SettingsSection::Wallpaper => wallpaper_settings(theme, wallpaper_state, cx),
                     // Mock-only sections are hidden from the sidebar; keep a blank
                     // fallback so stale state or tests cannot route to old placeholders.
+                    #[cfg(test)]
                     SettingsSection::General
                     | SettingsSection::Runtime
                     | SettingsSection::Skills => div(),
@@ -53,13 +65,19 @@ pub(super) fn settings_content(
 
 fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<MultisoulApp>) -> Div {
     let subtitle = content_subtitle(section);
-    let mut title_column = div().flex().flex_col().gap(px(3.0)).child(
-        div()
-            .text_size(px(21.0))
-            .font_weight(FontWeight::BOLD)
-            .text_color(rgba(theme.text_primary))
-            .child(content_title(section)),
-    );
+    let mut title_column = div()
+        .flex_1()
+        .min_w(px(0.0))
+        .flex()
+        .flex_col()
+        .gap(px(3.0))
+        .child(
+            div()
+                .text_size(px(21.0))
+                .font_weight(FontWeight::BOLD)
+                .text_color(rgba(theme.text_primary))
+                .child(content_title(section)),
+        );
     if !subtitle.is_empty() {
         title_column = title_column.child(
             div()
@@ -70,17 +88,21 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
     }
 
     div()
-        .h(px(100.0))
+        .min_h(px(88.0))
         .flex()
         .flex_row()
         .items_start()
         .justify_between()
-        .pt(px(34.0))
-        .px(px(26.0))
+        .pt(px(26.0))
+        .px(px(20.0))
+        .pb(px(18.0))
+        .border_b_1()
+        .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
         .child(title_column)
         .child(
             div()
                 .id("settings-close")
+                .debug_selector(|| "settings-close".to_string())
                 .w(px(34.0))
                 .h(px(34.0))
                 .flex()
@@ -101,11 +123,14 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
 
 fn content_title(section: SettingsSection) -> &'static str {
     match section {
+        #[cfg(test)]
         SettingsSection::General => "Themes",
         SettingsSection::Keyboard => "Keyboard Shortcuts",
+        #[cfg(test)]
         SettingsSection::Runtime => "Runtime",
         SettingsSection::Voice => "Voice",
         SettingsSection::Agents => "Agents",
+        #[cfg(test)]
         SettingsSection::Skills => "Skills",
         SettingsSection::Hooks => "Agent Hooks",
         SettingsSection::Wallpaper => "Wallpaper",
@@ -114,11 +139,14 @@ fn content_title(section: SettingsSection) -> &'static str {
 
 fn content_subtitle(section: SettingsSection) -> &'static str {
     match section {
+        #[cfg(test)]
         SettingsSection::General => "Choose your style or customize your theme",
         SettingsSection::Keyboard => "Customize app commands and review system input behavior",
+        #[cfg(test)]
         SettingsSection::Runtime => "Configure shell behavior and live sessions",
         SettingsSection::Voice => "Configure local speech recognition and command planning",
         SettingsSection::Agents => "Choose default agents, permissions, and profiles",
+        #[cfg(test)]
         SettingsSection::Skills => "Manage installed skills and project skill sources",
         SettingsSection::Hooks => "",
         SettingsSection::Wallpaper => "Choose a background",

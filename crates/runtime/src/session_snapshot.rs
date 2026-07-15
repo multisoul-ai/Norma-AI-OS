@@ -161,6 +161,9 @@ pub(crate) fn build_agent_resume_command(
             command.push_str(&shell_quote(session_id));
             command
         }
+        AgentProfile::Cursor => {
+            format!("exec cursor-agent --resume {}", shell_quote(session_id))
+        }
         AgentProfile::OpenCode => {
             format!(
                 "exec \"${{OPENCODE_BIN:-opencode}}\" resume {}",

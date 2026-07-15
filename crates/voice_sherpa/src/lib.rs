@@ -1,27 +1,48 @@
 pub mod permissions;
 pub mod session_state;
 
+mod asr_stream;
 mod audio;
 mod devices;
 mod finalizer;
-mod model;
+mod listening_pipeline;
+mod recognizer_config;
 mod resample;
+mod samples;
 mod session;
+mod stream;
+mod tts;
+mod vad;
+
+#[cfg(test)]
+pub fn resolve_model_dir_for_test() -> Result<std::path::PathBuf, SpeechError> {
+    if let Ok(path) = std::env::var("MULTISOUL_PARAFORMER_MODEL_DIR") {
+        return Ok(path.into());
+    }
+    let id = asr::AsrModelId::parse(asr::PARAFORMER_MODEL_ID)
+        .map_err(|error| SpeechError::ModelNotFound(error.to_string()))?;
+    asr::default_model_installation_root()
+        .map(|root| root.join(id.as_str()))
+        .map_err(|error| SpeechError::ModelNotFound(error.to_string()))
+}
 
 #[cfg(test)]
 #[path = "../tests/unit/device_tests.rs"]
 mod device_tests;
-
-#[cfg(test)]
-pub fn resolve_model_dir_for_test() -> Result<std::path::PathBuf, SpeechError> {
-    model::resolve_model_dir()
-}
 
 use session::{InnerSession, SpeechFinalizer as InnerSpeechFinalizer};
 
 pub use devices::{
     list_audio_input_devices, resolve_audio_input_device_selection, AudioInputDevice,
 };
+pub use listening_pipeline::{
+    apply_final_transcript_to_session, spawn_listening_pipeline_loop, ListeningPipelineEvent,
+    SherpaListeningPipeline,
+};
+pub use recognizer_config::build_online_recognizer_config;
+pub use stream::PcmStreamSession;
+pub use tts::{FakeTtsClient, SherpaTtsClient};
+pub use vad::{FakeEnergyVadClient, SherpaVadClient};
 
 /// Check and (if not yet determined) request microphone permission.
 ///
@@ -32,8 +53,11 @@ pub fn request_microphone_permission() -> Result<(), SpeechError> {
     permissions::ensure_microphone_authorized()
 }
 
-pub fn resolve_model_dir() -> Result<std::path::PathBuf, SpeechError> {
-    model::resolve_model_dir()
+pub fn validate_model_load(model: &asr::AvailableAsrModel) -> Result<(), SpeechError> {
+    let config = build_online_recognizer_config(model)?;
+    sherpa_onnx::OnlineRecognizer::create(&config)
+        .map(|_| ())
+        .ok_or_else(|| SpeechError::Recognizer("failed to load selected ASR model".to_string()))
 }
 
 #[derive(Debug, Eq, PartialEq, thiserror::Error)]
@@ -57,7 +81,7 @@ pub enum SpeechError {
 }
 
 pub struct SherpaProvider {
-    model_dir: std::path::PathBuf,
+    model: asr::AvailableAsrModel,
 }
 
 pub struct SpeechSession {
@@ -69,18 +93,16 @@ pub struct SpeechFinalizer {
 }
 
 impl SherpaProvider {
-    pub fn new(model_dir: &std::path::Path) -> Result<Self, SpeechError> {
-        if !model_dir.exists() {
-            return Err(SpeechError::ModelNotFound(model_dir.display().to_string()));
-        }
-        Ok(Self {
-            model_dir: model_dir.to_owned(),
-        })
+    pub fn new(model: asr::AvailableAsrModel) -> Self {
+        Self { model }
     }
 
-    pub fn from_env_or_default() -> Result<Self, SpeechError> {
-        let dir = model::resolve_model_dir()?;
-        Self::new(&dir)
+    pub fn model_dir(&self) -> &std::path::Path {
+        self.model.root()
+    }
+
+    pub fn available_model(&self) -> &asr::AvailableAsrModel {
+        &self.model
     }
 
     pub fn start_recording(
@@ -93,10 +115,20 @@ impl SherpaProvider {
         &self,
         input_device_id: Option<&str>,
     ) -> Result<(SpeechSession, async_channel::Receiver<String>), SpeechError> {
-        session::start(
-            self.model_dir.clone(),
-            input_device_id.map(ToOwned::to_owned),
-        )
+        session::start(self.model.clone(), input_device_id.map(ToOwned::to_owned))
+    }
+
+    pub fn start_pcm_stream(
+        &self,
+        input_device_id: Option<&str>,
+    ) -> Result<
+        (
+            PcmStreamSession,
+            async_channel::Receiver<::audio::PcmAudioChunk>,
+        ),
+        SpeechError,
+    > {
+        stream::start(input_device_id.map(ToOwned::to_owned))
     }
 }
 

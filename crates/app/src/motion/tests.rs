@@ -2,7 +2,7 @@ use super::*;
 
 #[cfg(test)]
 #[path = "../../tests/unit/motion_tests.rs"]
-mod tests;
+mod motion_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/motion_completion_tests.rs"]
@@ -19,3 +19,7 @@ mod working_snake_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/working_snake_realtime_tests.rs"]
 mod working_snake_realtime_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/initialization_animation_tests.rs"]
+mod initialization_animation_tests;

@@ -7,7 +7,9 @@ use canvas::NodeId;
 use crossbeam_channel::Sender;
 use gpui::Window;
 
-const BROWSER_NATIVE_BORDER_INSET_PX: f64 = 1.0;
+// Browser 卡片在 selected/focused 时绘制 2px GPUI 边框；原生子视图必须完整避让它，
+// 否则 AppKit 的子层会盖住蓝色选中态。
+const BROWSER_NATIVE_BORDER_INSET_PX: f64 = 2.0;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct BrowserViewBounds {
@@ -28,9 +30,9 @@ pub(crate) fn browser_native_view_bounds(
 ) -> BrowserViewBounds {
     BrowserViewBounds {
         x: card_x + BROWSER_NATIVE_BORDER_INSET_PX,
-        y: card_y + header_height,
+        y: card_y + header_height + BROWSER_NATIVE_BORDER_INSET_PX,
         width: (card_width - BROWSER_NATIVE_BORDER_INSET_PX * 2.0).max(0.0),
-        height: (card_height - header_height - BROWSER_NATIVE_BORDER_INSET_PX).max(0.0),
+        height: (card_height - header_height - BROWSER_NATIVE_BORDER_INSET_PX * 2.0).max(0.0),
         bottom_corner_radius_px,
     }
 }
@@ -123,6 +125,15 @@ impl NativeBrowserView {
             Self::Wry(view) => view.set_visible(visible),
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(view) => view.set_visible(visible),
+        }
+    }
+
+    pub(crate) fn release_input(&mut self) {
+        match self {
+            #[cfg(target_os = "macos")]
+            Self::Wry(view) => view.release_input(),
+            #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
+            Self::Cef(view) => view.release_input(),
         }
     }
 }

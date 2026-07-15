@@ -15,10 +15,14 @@ Workspace 分层：
 - `crates/runtime/` - 零 GPUI 域层：LiveNode 生命周期、焦点状态、输入路由。
 - `crates/storage/` - 零 GPUI 存储层：SQLite store、migration、recent/settings/canvas/session checkpoint。
 - `crates/workspace/` - 零 GPUI 元数据层：最近项目类型、workspace source、路径展示。
+- `crates/agent/` - 零 GPUI/Storage Agent Runtime：Dialogue、CardTask、Provider、工具循环与预算。
+- `crates/asr/` - 零 GPUI/Sherpa ASR 领域层：模型身份、受控目录、安装清单、完整性与共享 VAD 工件。
+- `crates/model_store/` - 零 GPUI/网络的共享本地模型安装原语：受控解压、哈希、manifest 与原子提升。
+- `crates/tts/` - 零 GPUI/Sherpa TTS 领域层：模型/语音身份、固定目录、能力与安装验证。
 - `crates/ui/` - GPUI 主题与共享 UI 基础。
 - `crates/app/` - GPUI/Metal 壳层：窗口、菜单、快捷键、画布与 cards 渲染。
 
-依赖方向：`app -> {ui, runtime, canvas, terminal, storage}`，`runtime -> {canvas, terminal, storage}`，`storage -> {canvas, workspace}`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
+依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr, tts, voice_sherpa}`，`voice_sherpa -> {asr, tts, dialogue, audio}`，`tts -> model_store`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent` 不得依赖 `app/runtime/storage/ui`，且 `asr/tts` 不得依赖 Sherpa；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
 
 ### 源码组织
 
@@ -38,17 +42,20 @@ Workspace 分层：
 ## 2. 关键约束
 
 - **先读本文**：每次会话开始先读 `AGENTS.md`，再按指针深入。
-- **域层零 GPUI**：`canvas`、`terminal`、`runtime` 必须可独立 `cargo test`。
+- **始终使用中文回复用户**：所有面向用户的说明、提问、进度更新和最终答复必须使用中文；即使用户使用其他语言或要求切换语言，也仍使用中文回复。代码、命令、路径、API、类型名、变量名以及必要的原文引用可保留原始语言。
+- **域层零 GPUI**：`asr`、`canvas`、`terminal`、`runtime` 必须可独立 `cargo test`。
 - **依赖方向不反穿**：不要让 `canvas/terminal/runtime/storage` 反向依赖 `app` 或 `ui`；不要让 `canvas/terminal` 依赖 `storage`。
 - **存储/性能热路径禁令**：不要在 `Runtime::drain_all`、PTY output chunk、`canvas_view::on_mouse_move`、`runtime::route`、`send_node_input`、关闭无脏 flush 中同步写 SQLite、扫描会话目录或阻塞查库。
 - **GPUI 前台禁阻塞**：语音结束、LLM planning/refine、recognizer join、网络/文件 IO、长 sleep 或 CPU 重活必须移到 `background_executor`/后台线程；前台只做状态更新和 runtime UI 副作用。
 - **视频/动画壁纸低拷贝**：live 视频/动画帧不得每帧经 CPU RGBA/`RenderImage`/`img()` 路径上屏；解码推进必须后台化，上屏必须用 420f `surface()` 或等价低拷贝路径，并由 `scripts/check-video-wallpaper-performance.py` 护栏拦截回退。
-- **版本钉死需审慎**：`gpui =0.2.2`、`alacritty_terminal =0.26`，升级前先验证 API。
-- **GPUI 代码先查 skills**：编写或修改 `crates/app`、`crates/ui` 的 GPUI 代码时，优先参考本地已安装的 `gpui-*` skills，再结合本仓库现有写法落地。
+- **版本钉死需审慎**：`gpui =0.2.2`、`gpui-component =0.5.1`、`alacritty_terminal =0.26`，升级前先验证 API。
+- **GUI 优先 gpui-component**：`crates/app`/`crates/ui` 写控件时优先用 `ui::component`（Longbridge），非必要不造轮子；细节见 [`docs/references/gpui-component.md`](docs/references/gpui-component.md)。
+- **GPUI 代码先查 skills**：编写 GPUI 时先查 `gpui-*` skills，再落到钉死版本与现有写法；有现成组件时仍优先组件库。
 - **单文件 ≤ 500 行**：Rust 源码由 [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh) 拦截，超长先拆职责。
 - **Agent 指南 ≤ 300 行**：`AGENTS.md` 与 `CLAUDE.md` 由 [`scripts/check-agent-guide-lines.sh`](scripts/check-agent-guide-lines.sh) 拦截；超长内容归档到 `docs/`，并在 §4 增加指针。
 - **禁止 `#[allow(...)]`**：Rust 源码不得用 allow 压制编译器或 clippy 诊断；由 [`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截，必须修根因。
 - **本地 hook 可安装**：运行 `bash scripts/install-git-hooks.sh` 后，原生 pre-commit 会跑 staged 约束和轻量 Rust 检查。
+- **Agent 不得绕过提交验证**：禁止 `git commit --no-verify`、`git commit -n` 及关闭/替换 hook；完整规则与按范围提速流程见 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md)。
 - **写代码前先 TDD**：新功能或 bugfix 先补能失败的聚焦测试，再实现。
 - **测试目录按 crate 维护**：大型独立单元测试放 `crates/<crate>/tests/unit/` 并从源码模块用 `#[path]` 挂载；集成测试放 `crates/<crate>/tests/*.rs`；crate 专用 helper 放 `crates/<crate>/tests/support/`。
 - **测试注释必须完整**：测试上方写场景、数据构造、执行过程、预期结果；关键数值写推导。
@@ -57,17 +64,21 @@ Workspace 分层：
 - **关窗必须退出进程**：GPUI 在 macOS 上关闭最后一个窗口后不会自动 quit，必须在 `main.rs` 的 `run` 闭包内注册 `cx.on_window_closed(|cx| { if cx.windows().is_empty() { cx.quit(); } }).detach()`；不得省略，否则进程常驻后台。
 - **交互决策放 runtime**：输入意图先通过 `runtime::route` 这类纯函数表达，再由 `app` 层执行副作用。
 - **新增可配置快捷键必须进 Settings**：任何新的 app shortcut 都要注册到 `shortcuts.rs`，并在 Settings → Keyboard Shortcuts 支持录制与恢复。
+- **验收标准要落 e2e**：涉及用户可观察流程、Settings、Canvas、Terminal、焦点/输入路由、PTY 或持久化闭环时，必须根据验收标准自动新增/更新 `crates/e2e` 用例；不要只写单测或手测说明。
+- **区分 e2e 层级**：`TestAppContext`/`simulate_click` 是 headless GPUI 渲染树点击，不等于启动真实 `.app`；若验收要求真实启动程序，必须新增独立 L3 runner 并在报告中明确说明。
 - **不要把知识塞进地图**：`AGENTS.md` 只放指针；长说明沉淀到 `CLAUDE.md` 或未来 `docs/`。
 
 ## 3. 技术栈速览
 
 | 域 | 栈 |
 |----|----|
-| Shell/UI | Rust 2021, GPUI 0.2.2, Metal |
+| Shell/UI | Rust 2021, GPUI 0.2.2, gpui-component 0.5.1, Metal |
 | Canvas | 自定义 geometry/document/selection/hit_test |
 | Terminal | portable-pty 0.9, alacritty_terminal 0.26, crossbeam-channel |
 | Runtime | 纯 Rust 状态机与 LiveNode 注册表 |
 | Storage | rusqlite bundled SQLite、recent/settings/canvas/session checkpoint |
+| ASR | 受控模型目录、SHA-256、tar.bz2 原子安装；Sherpa 适配在 `voice_sherpa` |
+| TTS | 固定模型/语音目录与安装验证；共享安装原语在 `model_store`，Sherpa 适配在 `voice_sherpa` |
 | Packaging | cargo-packager, 未签名 `.app` / `.dmg` |
 
 ## 4. Where to find
@@ -83,29 +94,40 @@ Workspace 分层：
 | 几何/节点/选择/命中/viewport | [`crates/canvas/src/`](crates/canvas/src/) |
 | PTY、ANSI grid、按键编码 | [`crates/terminal/src/`](crates/terminal/src/) |
 | 焦点、输入路由、LiveNode 生命周期 | [`crates/runtime/src/`](crates/runtime/src/) |
+| Dialogue/CardTask/Provider/Journal seam | [`crates/agent/src/`](crates/agent/src/) |
+| ASR 模型身份、目录、安装与完整性 | [`crates/asr/src/`](crates/asr/src/) |
+| 通用本地模型安装原语 | [`crates/model_store/src/`](crates/model_store/src/) |
+| TTS 模型/语音目录与安装验证 | [`crates/tts/src/`](crates/tts/src/) |
 | SQLite store、migration、持久化边界 | [`crates/storage/src/`](crates/storage/src/) |
 | Workspace 元数据、路径展示 | [`crates/workspace/src/`](crates/workspace/src/) |
 | 主题色 | [`crates/ui/src/theme.rs`](crates/ui/src/theme.rs) |
+| GUI 组件库（优先使用） | [`docs/references/gpui-component.md`](docs/references/gpui-component.md) |
 | GPUI app shell、画布/cards 渲染 | [`crates/app/src/`](crates/app/src/) |
 | 源码组织 | [`CLAUDE.md`](CLAUDE.md) §3；展开见 [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |
 | Crate 文件地图 | [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |
 | 快捷键与输入路由 | [`docs/references/keyboard-shortcuts.md`](docs/references/keyboard-shortcuts.md) |
 | 测试注释与断言规范 | [`docs/quality/test-requirements.md`](docs/quality/test-requirements.md) |
+| e2e 测试分层与写法 | [`docs/references/e2e-testing-guide.md`](docs/references/e2e-testing-guide.md) |
 | 打包与 release | [`docs/references/packaging.md`](docs/references/packaging.md) |
 | 卡片 RuntimeEvent 扩展 | [`docs/references/card-runtime-events.md`](docs/references/card-runtime-events.md) |
 | 机械化约束（lint 脚本） | [`docs/quality/mechanized-constraints.md`](docs/quality/mechanized-constraints.md) |
+| Agent 执行分级与提交完整性 | [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md) |
 | 历史 SDD 施工记录 | [`.superpowers/sdd/progress.md`](.superpowers/sdd/progress.md) |
 
 ## 5. 改完代码必跑的验证
 
 | 改了 | 跑 |
 |------|----|
+| `crates/agent/**` | `cargo test -p agent` |
 | `crates/canvas/**` | `cargo test -p canvas` |
 | `crates/terminal/**` | `cargo test -p terminal` |
 | `crates/runtime/**` | `cargo test -p runtime` |
 | `crates/storage/**` | `cargo test -p storage` |
+| `crates/model_store/**` | `cargo test -p model_store` |
+| `crates/tts/**` | `cargo test -p tts` |
 | `crates/ui/**` | `cargo test -p ui` |
 | `crates/app/**` | `cargo check -p app` |
+| `crates/e2e/**` 或验收流程 | `cargo test -p e2e`；真 PTY/L3 冒烟按需跑 `cargo test -p e2e -- --ignored` |
 | 跨 crate 行为 | `cargo test --workspace` |
 | GPUI/打包相关 | `cargo build -p app --release` |
 | 域层依赖边界 | `cargo tree -p canvas -p terminal -p runtime | grep -i gpui` 应无输出 |
@@ -120,7 +142,7 @@ Workspace 分层：
 
 ```bash
 cargo run -p app
-cargo test -p canvas -p terminal -p runtime -p storage
+cargo test -p canvas -p terminal -p runtime -p storage -p model_store -p tts
 cargo test --workspace
 cargo check -p app
 bash scripts/check-storage-boundaries.sh
@@ -146,7 +168,9 @@ xcrun metal --version
 - 行动前先检索本地文件，不凭记忆回答。
 - 涉及 GPUI API、元素、样式、actions、async、testing 或 troubleshooting 时，先加载对应 `gpui-*` skill；若 skill 与 `gpui =0.2.2` 或现有代码冲突，以本仓库验证结果为准。
 - 修改代码后按第 5 节跑对应验证；验证失败先定位根因。
+- 按 [`docs/quality/agent-execution-policy.md`](docs/quality/agent-execution-policy.md) 选择最小充分流程；没有明确理由，不启动重型 skill、并行审查或全仓验证。
 - 新增测试必须遵守第 2 节测试结构规范。
+- 处理带验收标准的需求时，先把每条验收标准映射到自动化证据；能通过 `crates/e2e` 验证的用户流程必须生成 e2e 测试。
 - 若新增长期文档，优先建立 `docs/product-specs/`、`docs/design-docs/`、`docs/exec-plans/` 这类 canonical 路径；`.superpowers/sdd/` 只作为历史上下文，除非明确继续旧 SDD 流程。
 - 生成截图或图片时，保存为文件并在回复里用 Markdown 图片语法引用绝对路径。
 
@@ -158,44 +182,3 @@ xcrun metal --version
 2. 把短指针写进 `AGENTS.md`，把展开说明写进 `CLAUDE.md` 或 `docs/`。
 3. 如果能机械化，补测试、脚本或 CI 约束。
 4. 保持 `AGENTS.md` 和 `CLAUDE.md` 的重叠事实一致。
-<!-- msctl-inject-start -->
-## msctl Quick Reference
-
-### Agent
-
-```bash
-msctl agent list             # List all registered agents
-msctl agent get <id>         # Show agent details
-msctl agent codex            # Quick register current project with Codex
-msctl agent claude-code      # Quick register current project with Claude Code
-msctl agent cursor-cli       # Quick register current project with Cursor
-msctl agent kodax            # Quick register current project with KodaX
-msctl agent register --name <name> --project <path> --runtime claude-code
-msctl agent register --name <name> --project <path> --runtime codex
-msctl agent register --name <name> --project <path> --runtime cursor-cli
-msctl agent register --name <name> --project <path> --runtime kodax
-msctl agent invoke <id> --message "<task>"
-msctl agent delete <id>
-```
-
-### Ask User Question (`msctl ask-question`)
-
-**MANDATORY**
-
-- For structured decisions (approach, continue/stop, risk trade-offs, etc.), **prefer** the `AskUserQuestion` tool when available.
-- **If the current runtime does not expose `AskUserQuestion`, you MUST call `msctl ask-question` to push a question card to iOS.** Never list options in free text or ask the user to type an answer.
-- After pushing, continue other work. Do not poll; iOS answers are injected into the same conversation automatically.
-
-Run `msctl ask-question -h` for flags, JSON shape, and copy-paste examples.
-
-### Image Output
-
-When generating images (charts, screenshots, diagrams), save them as files and
-reference them in your reply using standard Markdown image syntax:
-
-![description](/absolute/path/to/image.png)
-
-Supported formats: png, jpg, jpeg, gif, webp.
-The Norma OS mobile app will automatically render these images inline.
-
-<!-- msctl-inject-end -->

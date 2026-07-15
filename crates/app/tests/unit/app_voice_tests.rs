@@ -1,35 +1,80 @@
+use super::dictation::{final_voice_text_action, FinalVoiceTextAction};
 use super::{
+    microphone_permission_recovery_url, microphone_privacy_settings_url,
     voice_recording_input_device_id_from_value, voice_transcript_source_from_value,
-    VoicePlanningJob, VoicePlanningResult, VoiceTranscriptSource, DEFAULT_MAX_VOICE_STEPS,
+    VoiceTranscriptSource,
 };
+use voice_sherpa::SpeechError;
 
-/// AV-0: 默认 voice planner 步数应覆盖“四张卡片 + 一次输入”的复合语音。
+/// AV-MODE-1：最终识别文本必须由两种新交互模式路由到共享 Agent 回合。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   Codex card      = 1 create command
-///   Claude Code card = 1 create command
-///   Terminal cards  = 2 create commands
-///   input hi        = 1 send_text command
-///   Total           = 1 + 1 + 2 + 1 = 5 commands
+///   interaction modes = 2（SingleVoiceCommand + ContinuousListening）
+///   destinations      = 1（共享 Agent turn）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 app 传给 VoicePlanningRequest 的 DEFAULT_MAX_VOICE_STEPS
-///   2. 与复合语音所需 5 步比较
+///   1. SingleVoiceCommand 进入 final_voice_text_action → StartAgentTurn
+///   2. ContinuousListening 进入同一函数 → StartAgentTurn
 ///
 /// 预期结果：
-///   - 正断言：默认 max steps 至少为 5，能表达用户的四卡片加输入场景
-///   - 负断言：默认 max steps 不应继续是旧的 2，否则 LLM 被 prompt 限死
+///   - 正断言：两种模式均命中共享 Agent 目标
+///   - 负断言：任一新模式不得回退到焦点文本直写
 #[test]
-fn test_default_voice_steps_cover_four_cards_then_input() {
-    let required_steps = 1 + 1 + 2 + 1;
+fn test_final_voice_text_routes_both_modes_to_shared_agent_turn() {
+    let single_voice_command =
+        final_voice_text_action(crate::settings::voice::VoiceInteractionMode::SingleVoiceCommand);
+    let continuous =
+        final_voice_text_action(crate::settings::voice::VoiceInteractionMode::ContinuousListening);
 
-    assert!(
-        DEFAULT_MAX_VOICE_STEPS >= required_steps,
-        "默认 voice planner 步数至少应覆盖 4 个 create + 1 个 send_text"
+    assert_eq!(
+        single_voice_command,
+        FinalVoiceTextAction::StartAgentTurn,
+        "单次语音指令 final 必须进入共享 Agent 回合"
     );
-    assert_ne!(
-        DEFAULT_MAX_VOICE_STEPS, 2,
-        "默认 voice planner 步数不应继续是旧的两步限制"
+    assert_eq!(
+        continuous,
+        FinalVoiceTextAction::StartAgentTurn,
+        "ContinuousListening final 必须进入共享 Agent 回合"
+    );
+    assert_eq!(
+        single_voice_command, continuous,
+        "两种模式的 Final Transcript 必须进入同一个 Agent/TTS 回合入口"
+    );
+}
+
+/// AV-5：仅在 macOS 已拒绝麦克风权限时，语音错误应提供系统设置恢复入口。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   denied error      = SpeechError::MicrophoneDenied（TCC 已记录拒绝，不能再次弹窗）
+///   restricted error  = SpeechError::MicrophoneRestricted（受系统策略限制，用户不能自行授权）
+///   audio error       = SpeechError::Audio("capture failed")（设备/采集失败，非 TCC 拒绝）
+///   expected URL      = x-apple.systempreferences:...Privacy_Microphone（macOS 麦克风页）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 将 MicrophoneDenied 传入 recovery helper → 返回麦克风隐私设置 URL。
+///   2. 将 MicrophoneRestricted 传入 recovery helper → 返回 None，避免承诺用户可解除策略限制。
+///   3. 将普通 Audio 错误传入 recovery helper → 返回 None，避免把设备故障误报为权限问题。
+///
+/// 预期结果：
+///   - 断言 A：Denied 必须提供准确的系统设置 URL，用户可恢复授权。
+///   - 断言 B：Restricted 不应提供该 URL，避免无效跳转。
+///   - 断言 C：普通音频错误不应提供该 URL，避免错误的恢复建议。
+#[test]
+fn test_microphone_permission_denied_offers_only_the_microphone_settings_recovery() {
+    assert_eq!(
+        microphone_permission_recovery_url(&SpeechError::MicrophoneDenied),
+        Some(microphone_privacy_settings_url()),
+        "已拒绝的麦克风权限必须引导用户打开 macOS 麦克风隐私设置"
+    );
+    assert_eq!(
+        microphone_permission_recovery_url(&SpeechError::MicrophoneRestricted),
+        None,
+        "受系统策略限制时不应显示可由用户自行恢复的麦克风设置入口"
+    );
+    assert_eq!(
+        microphone_permission_recovery_url(&SpeechError::Audio("capture failed".to_string())),
+        None,
+        "普通音频采集错误不应误显示麦克风权限恢复入口"
     );
 }
 
@@ -91,30 +136,6 @@ fn test_voice_source_uses_env_transcript_as_hidden_fallback() {
         VoiceTranscriptSource::AppleSpeech,
         "设置 env fallback 时不应打开 Apple Speech 麦克风 provider"
     );
-}
-
-fn assert_send<T: Send>() {}
-
-/// AV-3: 语音 planning job 的输入与输出必须可跨线程移动。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   finalizer 在 background executor 完成后，会把 raw transcript 交给 planning job
-///   planning job 内含 VoicePlanningRequest + VoiceSettingsValues + transcript 字符串
-///   background executor 要求 job capture 和 result 都满足 Send
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 编译期调用 assert_send::<VoicePlanningJob>()
-///   2. 编译期调用 assert_send::<VoicePlanningResult>()
-///   3. 若 job/result 捕获 Window、Context、MultisoulApp 或非 Send 状态，测试无法编译
-///
-/// 预期结果：
-///   - 正断言：VoicePlanningJob 可 Send，可进入 background executor
-///   - 正断言：VoicePlanningResult 可 Send，可从后台返回 UI task
-///   - 负断言：planning job 不应携带 GPUI Window/Context 或整个 app 状态
-#[test]
-fn test_voice_planning_job_and_result_are_send() {
-    assert_send::<VoicePlanningJob>();
-    assert_send::<VoicePlanningResult>();
 }
 
 /// AV-3: 录音启动参数应保留 Settings 中选定的输入设备 ID。

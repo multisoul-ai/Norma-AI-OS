@@ -1,12 +1,16 @@
-# cargo-packager 配置：Developer ID 签名 + notarize（signing-identity 阶段 0 启用）。字段以 cargo-packager 文档为准，
+# cargo-packager 配置：Developer ID 签名。公证由 scripts/release-local.sh --notarize 显式开启；
+# 裸 cargo-packager 会读取当前 shell 的 APPLE_* notary 环境变量，日常打包请优先用 release-local.sh。
 # 若 schema 不符按 https://docs.crabnebula.dev/packager/ 校准。
 name = "app"
 product-name = "Norma OS"
-version = "0.1.15"
+version = "0.1.29"
 identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
-resources = ["crates/app/assets/wallpapers"]
+resources = [
+  "crates/app/assets/wallpapers",
+  "sidecars/openai-card-planner/openai-card-planner.mjs",
+]
 icons = ["assets/AppIcon.icns"]
 out-dir = "build"
 binaries-dir = "."

@@ -85,7 +85,12 @@ impl CefBrowserView {
     pub(crate) fn set_visible(&mut self, visible: bool) {
         if let Some(host) = self.browser.host() {
             host.was_hidden((!visible) as i32);
-            host.set_focus(visible as i32);
+        }
+    }
+
+    pub(crate) fn release_input(&mut self) {
+        if let Some(host) = self.browser.host() {
+            host.set_focus(0);
         }
     }
 }

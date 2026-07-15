@@ -1,4 +1,4 @@
-use super::support::{draft_matches_definition, next_default_agent_name, DEFAULT_AGENT_WORKFLOW};
+use super::support::{draft_matches_definition, next_default_agent_name};
 use super::{AgentDefinitionDraft, AgentDefinitionField, AgentDefinitionsState};
 use canvas::AgentProfile;
 
@@ -8,7 +8,7 @@ impl AgentDefinitionsState {
         if !self.ensure_clean_for_navigation() {
             return false;
         }
-        self.reset_draft();
+        self.prepare_new_draft();
         self.status = None;
         true
     }
@@ -44,6 +44,11 @@ impl AgentDefinitionsState {
     }
 
     pub(crate) fn cancel_card_edit(&mut self) -> bool {
+        if self.creating_new {
+            self.reset_draft();
+            self.status = None;
+            return true;
+        }
         let did_revert = self.revert_draft();
         self.editing_card_id = None;
         did_revert
@@ -53,30 +58,12 @@ impl AgentDefinitionsState {
         if !self.ensure_clean_for_navigation() {
             return false;
         }
-        let Some(store) = self.store.as_ref() else {
+        if self.store.is_none() {
             self.status = Some("Open a project before editing Agents.".to_string());
             return false;
-        };
-
-        let name = next_default_agent_name(&self.definitions);
-        match store.create(&storage::NewAgentDefinition {
-            name,
-            runtime_profile: AgentProfile::Codex,
-            workflow_description: DEFAULT_AGENT_WORKFLOW.to_string(),
-        }) {
-            Ok(created) => {
-                let created_id = created.id;
-                self.reload();
-                self.select_after_reload(Some(created_id));
-                self.editing_card_id = Some(created_id);
-                self.status = None;
-                true
-            }
-            Err(error) => {
-                self.status = Some(format!("Could not create project agent: {error}"));
-                false
-            }
         }
+        self.prepare_new_draft();
+        !self.draft.name.is_empty()
     }
 
     pub(crate) fn revert_draft(&mut self) -> bool {
@@ -203,5 +190,27 @@ impl AgentDefinitionsState {
 
     pub(super) fn clear_delete_confirmation(&mut self) {
         self.delete_confirmation_id = None;
+    }
+
+    fn prepare_new_draft(&mut self) {
+        let name = next_default_agent_name(&self.definitions);
+        self.reset_draft();
+        if name.is_empty() {
+            self.status =
+                Some("All 30 built-in Agent names are in use; enter a custom name.".into());
+            return;
+        }
+        self.draft = AgentDefinitionDraft {
+            id: None,
+            name,
+            runtime_profile: AgentProfile::Codex,
+            workflow_description: String::new(),
+            enabled: true,
+            sort_order: 0,
+        };
+        self.creating_new = true;
+        self.selected_definition_id = None;
+        self.editing_card_id = None;
+        self.status = None;
     }
 }

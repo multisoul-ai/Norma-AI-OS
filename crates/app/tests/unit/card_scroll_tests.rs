@@ -22,6 +22,7 @@ fn agent_kind(profile: AgentProfile) -> CanvasNodeKind {
     CanvasNodeKind::Agent(AgentSpec {
         profile,
         alias: None,
+        definition_id: None,
     })
 }
 

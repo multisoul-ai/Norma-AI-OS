@@ -4,7 +4,7 @@ use crate::events::RuntimeEvents;
 use crate::focus::{FocusState, InputMode};
 use crate::live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
 use crate::nodes::agent::spawn_agent_live;
-use crate::nodes::term::TermLive;
+use crate::nodes::term::{spawn_term_live, PtyFactory, TermLive};
 use crate::runtime_support::terminal_shell_command;
 use canvas::{
     AgentProfile, AgentSpec, BrowserSpec, CanvasNodeKind, CanvasRect, Document, DocumentSnapshot,
@@ -19,6 +19,8 @@ use storage::{
 #[cfg(test)]
 use terminal::PtyCommand;
 use terminal::{PtyError, TerminalSessionId};
+
+mod definition_identity;
 
 pub const DEFAULT_TERMINAL_SHELL: &str = "/bin/zsh";
 pub(crate) const DEFAULT_SESSION_COLS: u16 = 80;
@@ -37,6 +39,7 @@ pub struct Runtime {
     test_agent_spawn_command: Option<PtyCommand>,
     next_session_id: TerminalSessionId,
     workspace_root: Option<PathBuf>,
+    pty_factory: Option<PtyFactory>,
 }
 
 impl Default for Runtime {
@@ -60,6 +63,7 @@ impl Runtime {
             test_agent_spawn_command: None,
             next_session_id: 1,
             workspace_root: None,
+            pty_factory: None,
         }
     }
 
@@ -69,8 +73,19 @@ impl Runtime {
         runtime
     }
 
+    /// Inject a test PTY factory so e2e tests can exercise terminal flows
+    /// without launching a real child process.
+    pub fn set_pty_factory(&mut self, factory: PtyFactory) {
+        self.pty_factory = Some(factory);
+    }
+
     pub fn workspace_root(&self) -> Option<&Path> {
         self.workspace_root.as_deref()
+    }
+
+    /// 测试用：设置 workspace root（供 e2e 进入 Canvas 后注入 cwd，生产不调用）。
+    pub fn set_workspace_root(&mut self, root: std::path::PathBuf) {
+        self.workspace_root = Some(root);
     }
 
     pub fn collect_canvas_snapshot(&self) -> DocumentSnapshot {
@@ -189,10 +204,11 @@ impl Runtime {
     ) -> Result<NodeId, PtyError> {
         let sid = self.allocate_session_id();
         let command = terminal_shell_command(shell).with_cwd(self.workspace_root());
-        let live = TermLive::spawn_command(sid, command, cols, rows).inspect_err(|error| {
-            self.events
-                .operation_failed(None, "spawn_terminal", error.to_string());
-        })?;
+        let live = spawn_term_live(self.pty_factory.as_ref(), sid, command, cols, rows)
+            .inspect_err(|error| {
+                self.events
+                    .operation_failed(None, "spawn_terminal", error.to_string());
+            })?;
         let node_id = self
             .document
             .add_node(CanvasNodeKind::Term(TermSpec), bounds);
@@ -220,7 +236,19 @@ impl Runtime {
         cols: u16,
         rows: u16,
     ) -> Result<NodeId, PtyError> {
-        let node_id = self.add_agent_node(profile, alias, bounds);
+        self.spawn_agent_with_identity(profile, None, alias, bounds, cols, rows)
+    }
+
+    fn spawn_agent_with_identity(
+        &mut self,
+        profile: AgentProfile,
+        definition_id: Option<i64>,
+        alias: Option<String>,
+        bounds: CanvasRect,
+        cols: u16,
+        rows: u16,
+    ) -> Result<NodeId, PtyError> {
+        let node_id = self.add_agent_node(profile, definition_id, alias, bounds);
         let sid = self.allocate_session_id();
         let live = self
             .spawn_agent_live_for_profile(node_id, sid, profile, cols, rows)
@@ -258,54 +286,21 @@ impl Runtime {
             .add_node(CanvasNodeKind::Browser(BrowserSpec { url, title }), bounds)
     }
 
-    #[cfg(test)]
-    fn spawn_agent_with_command(
-        &mut self,
-        profile: AgentProfile,
-        bounds: CanvasRect,
-        command: PtyCommand,
-        cols: u16,
-        rows: u16,
-    ) -> Result<NodeId, PtyError> {
-        self.spawn_agent_with_command_and_alias(profile, None, bounds, command, cols, rows)
-    }
-
-    #[cfg(test)]
-    fn spawn_agent_with_command_and_alias(
-        &mut self,
-        profile: AgentProfile,
-        alias: Option<String>,
-        bounds: CanvasRect,
-        command: PtyCommand,
-        cols: u16,
-        rows: u16,
-    ) -> Result<NodeId, PtyError> {
-        let sid = self.allocate_session_id();
-        let live =
-            TermLive::spawn_command(sid, command.with_cwd(self.workspace_root()), cols, rows)?;
-        let node_id = self.add_agent_node(profile, alias, bounds);
-        self.register_agent_live_node(node_id, live);
-        Ok(node_id)
-    }
-
-    #[cfg(test)]
-    fn agent_command(profile: AgentProfile) -> PtyCommand {
-        crate::nodes::agent::agent_command(profile, None)
-    }
-
-    #[cfg(test)]
-    fn set_test_agent_spawn_command(&mut self, command: PtyCommand) {
-        self.test_agent_spawn_command = Some(command);
-    }
-
     fn add_agent_node(
         &mut self,
         profile: AgentProfile,
+        definition_id: Option<i64>,
         alias: Option<String>,
         bounds: CanvasRect,
     ) -> NodeId {
-        self.document
-            .add_node(CanvasNodeKind::Agent(AgentSpec { profile, alias }), bounds)
+        self.document.add_node(
+            CanvasNodeKind::Agent(AgentSpec {
+                profile,
+                alias,
+                definition_id,
+            }),
+            bounds,
+        )
     }
 
     fn register_agent_live_node(&mut self, node_id: NodeId, live: TermLive) {
@@ -339,6 +334,7 @@ impl Runtime {
             hook_env.as_ref(),
             cols,
             rows,
+            self.pty_factory.as_ref(),
         )
     }
 
@@ -469,6 +465,9 @@ mod agent_alias_tests;
 #[path = "../tests/unit/agent_command_tests.rs"]
 mod agent_command_tests;
 #[cfg(test)]
+#[path = "../tests/unit/agent_manual_interrupt_tests.rs"]
+mod agent_manual_interrupt_tests;
+#[cfg(test)]
 #[path = "../tests/unit/agent_session_snapshot_tests.rs"]
 mod agent_session_snapshot_tests;
 #[cfg(test)]
@@ -480,6 +479,9 @@ mod event_tests;
 #[cfg(test)]
 #[path = "../tests/unit/preview_tests.rs"]
 mod preview_tests;
+#[cfg(test)]
+#[path = "runtime_test_helpers.rs"]
+mod runtime_test_helpers;
 #[cfg(test)]
 #[path = "../tests/unit/runtime_scroll_tests.rs"]
 mod scroll_tests;

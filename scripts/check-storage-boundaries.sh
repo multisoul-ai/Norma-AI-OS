@@ -54,9 +54,20 @@ if printf '%s\n' "$drain_body" | grep -qE "$hot_path_pattern"; then
   record_failure "Runtime::drain_all must not contain direct persistence work"
 fi
 
-frame_loop=$(sed -n '/let runtime_changed = app.runtime.drain_all()/,/if runtime_changed/p' crates/app/src/app/mod.rs)
+frame_loop=$(sed -n '/let runtime_changed = app.runtime.drain_all()/,/if report.should_notify()/p' crates/app/src/app/frame_loop.rs)
 if printf '%s\n' "$frame_loop" | grep -qE "$hot_path_pattern"; then
   record_failure "app frame loop must not call direct SQLite store APIs"
+fi
+
+agent_dispatch_foreground=$(
+  cat \
+    crates/app/src/app/agent_runtime/commands.rs \
+    crates/app/src/app/agent_runtime/coordination.rs \
+    crates/app/src/app/agent_close.rs \
+    crates/app/src/workspace/flow.rs
+)
+if printf '%s\n' "$agent_dispatch_foreground" | grep -q 'agent_dispatch_task_store'; then
+  record_failure "Agent dispatch foreground paths must enqueue background persistence instead of opening SQLite stores"
 fi
 
 if [ -n "$failures" ]; then

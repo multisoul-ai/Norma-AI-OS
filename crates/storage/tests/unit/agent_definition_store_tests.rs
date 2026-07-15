@@ -80,8 +80,8 @@ fn test_agent_definitions_migration_creates_table_and_unique_index() {
 /// AD-1: AgentDefinitionStore 应支持 create/list/update/delete 的完整往返。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   初始 agent = 1 条：Code Reviewer / Codex / "Review code correctness, performance, and tests."
-///   update 后 name = "Code Review Lead"
+///   初始 agent = 1 条：CodeReviewer / Codex / "Review code correctness, performance, and tests."
+///   update 后 name = "ReviewLead"
 ///   update 后 runtime_profile = Claude
 ///   update 后 enabled = false，sort_order = 9
 ///
@@ -103,7 +103,7 @@ fn test_agent_definition_store_create_list_update_delete_round_trips() {
     let store = AgentDefinitionStore::new(temp.path().join("project.sqlite"));
     let created = store
         .create(&NewAgentDefinition {
-            name: "Code Reviewer".to_string(),
+            name: "CodeReviewer".to_string(),
             runtime_profile: AgentProfile::Codex,
             workflow_description: "Review code correctness, performance, and tests.".to_string(),
         })
@@ -115,7 +115,7 @@ fn test_agent_definition_store_create_list_update_delete_round_trips() {
     let updated = store
         .update(&AgentDefinitionUpdate {
             id: created.id,
-            name: "Code Review Lead".to_string(),
+            name: "ReviewLead".to_string(),
             runtime_profile: AgentProfile::Claude,
             workflow_description: "Lead review workflow, triage risk, and request follow-up fixes."
                 .to_string(),
@@ -144,10 +144,7 @@ fn test_agent_definition_store_create_list_update_delete_round_trips() {
         listed[0], created,
         "首次 list() 读回的记录应与 create 返回值完全一致"
     );
-    assert_eq!(
-        updated.name, "Code Review Lead",
-        "update 后名称应改为 Code Review Lead"
-    );
+    assert_eq!(updated.name, "ReviewLead", "update 后名称应改为 ReviewLead");
     assert_eq!(
         updated.runtime_profile,
         AgentProfile::Claude,
@@ -216,11 +213,79 @@ fn test_agent_definition_store_rejects_case_insensitive_duplicate_names() {
     );
 }
 
+/// AD-5：Agent 定义持久化应让正式名称与预设语音别名共享唯一命名空间。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   first = Alan / Codex / 空 Workflow Description
+///   conflicting = 艾伦 / Claude / 空 Workflow Description
+///   Alan 的名称键数量 = 2：正式键 alan + 语音别名键 艾伦
+///   冲突写入前记录数 = 1，拒绝后记录数仍应 = 1
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. create("Alan") → 保存正式名，并登记预设语音别名艾伦
+///   2. create("艾伦") → 预检命中 Alan 的语音别名占用，返回 typed conflict
+///   3. list() → 确认失败写入没有产生部分记录
+///
+/// 预期结果：
+///   - 正断言：首条 Alan 创建成功且空 Workflow Description 被保留
+///   - 正断言：第二条返回 requested=艾伦、existing=Alan 的名称冲突
+///   - 负断言：列表中不应存在名为艾伦的第二条定义
+#[test]
+fn test_agent_definition_store_rejects_cross_namespace_speech_alias_conflict() {
+    let temp = tempfile::tempdir().expect("test should create temp dir");
+    let store = AgentDefinitionStore::new(temp.path().join("project.sqlite"));
+
+    let alan = store
+        .create(&NewAgentDefinition {
+            name: "Alan".to_string(),
+            runtime_profile: AgentProfile::Codex,
+            workflow_description: String::new(),
+        })
+        .expect("Alan 应成功写入并占用正式名与预设语音别名");
+    let conflicting = store.create(&NewAgentDefinition {
+        name: "艾伦".to_string(),
+        runtime_profile: AgentProfile::Claude,
+        workflow_description: String::new(),
+    });
+    let definitions = store.list().expect("名称冲突后 list 仍应正常读取既有定义");
+
+    assert_eq!(
+        alan.workflow_description, "",
+        "Workflow Description 首版可选，空文本应原样持久化"
+    );
+    match conflicting {
+        Err(StorageError::AgentNameConflict {
+            requested,
+            existing,
+        }) => {
+            assert_eq!(requested, "艾伦", "冲突错误应回传用户请求的中文名称");
+            assert_eq!(existing, "Alan", "冲突错误应指出占用语音别名的既有 Alan");
+        }
+        Err(other) => panic!("艾伦应返回 AgentNameConflict，实际得到 {other:?}"),
+        Ok(value) => panic!("艾伦不应绕过 Alan 的语音别名占用，实际创建了 {value:?}"),
+    }
+    assert_eq!(
+        definitions.len(),
+        1,
+        "冲突写入应零副作用，数据库仍只能包含 1 条 Alan 定义"
+    );
+    assert_eq!(
+        definitions[0].name, "Alan",
+        "冲突拒绝后保留的唯一记录必须是先创建的 Alan"
+    );
+    assert!(
+        !definitions
+            .iter()
+            .any(|definition| definition.name == "艾伦"),
+        "列表中不应出现被拒绝的中文名称艾伦"
+    );
+}
+
 /// AD-4: update() 遇到不存在的 id 时，必须返回 typed storage error，不能伪造成功写入。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   existing rows = 0 条，确保要更新的 id=4242 在 project DB 中不存在
-///   updated payload = "Missing Reviewer" / Claude / "Should not be persisted."
+///   updated payload = "MissingReviewer" / Claude / "Should not be persisted."
 ///   target id = 4242，选取一个远离 AUTOINCREMENT 初始值的固定整数，避免和自动生成主键碰撞
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -238,7 +303,7 @@ fn test_agent_definition_store_update_missing_id_returns_typed_error() {
 
     let result = store.update(&AgentDefinitionUpdate {
         id: 4242,
-        name: "Missing Reviewer".to_string(),
+        name: "MissingReviewer".to_string(),
         runtime_profile: AgentProfile::Claude,
         workflow_description: "Should not be persisted.".to_string(),
         enabled: true,
@@ -316,4 +381,115 @@ fn test_agent_definition_store_invalid_runtime_profile_returns_typed_error() {
             definitions
         ),
     }
+}
+
+/// AD-6：定义仓库本身必须拒绝非法呼叫名，不能只依赖 Settings 或语音入口校验。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   invalid name = "Alan 2"，共 6 个字符但包含 1 个空格和 1 个数字
+///   合法英文规则 = 2–16 个 ASCII 字母，因此该名称不满足字符集合约束
+///   初始 definitions = 0，失败后仍应 = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 直接调用 AgentDefinitionStore::create，绕过 app 层输入校验
+///   2. 仓库在打开写事务前解析 AgentName
+///   3. list() 检查数据库未产生部分写入
+///
+/// 预期结果：
+///   - 正断言：create 返回 InvalidAgentName("Alan 2")
+///   - 正断言：失败后 definitions 仍为空
+///   - 负断言：非法名称不得被持久化为定义
+#[test]
+fn test_agent_definition_store_rejects_invalid_name_at_storage_boundary() {
+    let temp = tempfile::tempdir().expect("测试应创建临时目录");
+    let store = AgentDefinitionStore::new(temp.path().join("project.sqlite"));
+
+    let result = store.create(&NewAgentDefinition {
+        name: "Alan 2".to_string(),
+        runtime_profile: AgentProfile::Codex,
+        workflow_description: String::new(),
+    });
+    let definitions = store.list().expect("非法名称拒绝后仍应能读取定义列表");
+
+    match result {
+        Err(StorageError::InvalidAgentName(name)) => {
+            assert_eq!(name, "Alan 2", "typed error 应保留原始非法名称 Alan 2");
+        }
+        Err(other) => panic!("非法名称应返回 InvalidAgentName，实际得到 {other:?}"),
+        Ok(definition) => panic!("非法名称不应创建成功，实际得到 {definition:?}"),
+    }
+    assert_eq!(definitions.len(), 0, "非法名称失败后定义列表必须仍为 0 条");
+    assert!(
+        !definitions
+            .iter()
+            .any(|definition| definition.name == "Alan 2"),
+        "非法名称 Alan 2 不得出现在持久化定义中"
+    );
+}
+
+/// AD-7：删除已关闭 Agent 时应同时清理其委派记录并释放名称。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   definitions = 1 条 Alan；dispatch tasks = 1 条 Done
+///   active cards = 0，调用方已满足“先关闭卡片”前置条件
+///   删除事务涉及 2 张表：agent_dispatch_tasks + agent_definitions
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建 Alan 定义并写入一条已完成委派记录
+///   2. delete(Alan.id) 在同一事务先清理关联记录，再删除定义
+///   3. 再次创建同名 Alan，验证名称已释放
+///
+/// 预期结果：
+///   - 正断言：delete 返回 true，定义和委派记录都为空
+///   - 正断言：同名 Alan 可以再次创建
+///   - 负断言：历史外键不得阻止删除或继续占用名称
+#[test]
+fn test_agent_definition_store_delete_clears_dispatch_history_and_releases_name() {
+    let temp = tempfile::tempdir().expect("测试应创建临时目录");
+    let path = temp.path().join("project.sqlite");
+    let store = AgentDefinitionStore::new(path.clone());
+    let alan = store
+        .create(&NewAgentDefinition {
+            name: "Alan".to_string(),
+            runtime_profile: AgentProfile::Codex,
+            workflow_description: String::new(),
+        })
+        .expect("测试应创建 Alan 定义");
+    crate::AgentDispatchTaskStore::new(path.clone())
+        .create(&crate::NewAgentDispatchTask {
+            definition_id: alan.id,
+            node_id: 77,
+            original_instruction: "Alan，检查测试".to_string(),
+            task_text: "检查测试".to_string(),
+            state: crate::AgentDispatchTaskState::Done,
+            tracking: crate::AgentDispatchTracking::Managed,
+        })
+        .expect("测试应写入一条已完成委派记录");
+
+    let deleted = store
+        .delete(alan.id)
+        .expect("历史委派不应阻止删除已关闭 Agent");
+    let definitions = store.list().expect("删除后应能读取空定义列表");
+    let tasks = crate::AgentDispatchTaskStore::new(path)
+        .list()
+        .expect("删除后应能读取空委派列表");
+    let recreated = store
+        .create(&NewAgentDefinition {
+            name: "Alan".to_string(),
+            runtime_profile: AgentProfile::Claude,
+            workflow_description: String::new(),
+        })
+        .expect("删除定义后 Alan 名称应立即释放并可复用");
+
+    assert!(deleted, "存在的 Alan 定义应返回 deleted=true");
+    assert_eq!(definitions.len(), 0, "删除事务后旧定义列表必须为空");
+    assert_eq!(tasks.len(), 0, "删除事务必须清理旧 Alan 的委派记录");
+    assert_eq!(
+        recreated.name, "Alan",
+        "释放后的名称应可用于新 Claude Agent"
+    );
+    assert_ne!(
+        recreated.id, alan.id,
+        "重新创建的 Alan 必须获得新的稳定定义 id"
+    );
 }

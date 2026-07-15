@@ -145,6 +145,7 @@ fn test_terminal_snapshot_copy_text_trims_padding_and_blank_tail() {
             fg: TerminalColor::Named(TerminalNamedColor::Foreground),
             bg: TerminalColor::Named(TerminalNamedColor::Background),
             attrs: CellAttrs::default(),
+            hyperlink: None,
         }
     }
 

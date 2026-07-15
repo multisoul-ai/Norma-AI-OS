@@ -17,6 +17,19 @@ pub struct WireResponse {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum CardCommand {
+    ListAgents,
+    CreateAgent {
+        name: Option<String>,
+        profile: AgentProfile,
+        activate: bool,
+    },
+    ActivateAgent {
+        name: String,
+    },
+    DispatchAgentTasks {
+        assignments: Vec<AgentTaskAssignment>,
+        force_untracked: bool,
+    },
     Create {
         kind: CardKind,
         placement: Placement,
@@ -33,6 +46,12 @@ pub enum CardCommand {
         node_id: NodeId,
     },
     List,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AgentTaskAssignment {
+    pub name: String,
+    pub task: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -56,6 +75,7 @@ pub enum CardKind {
 pub enum AgentProfile {
     Claude,
     Codex,
+    Cursor,
     OpenCode,
 }
 
@@ -86,11 +106,65 @@ impl Eq for CardBounds {}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum CardCommandResult {
-    Created { node_id: NodeId },
-    Deleted { node_id: NodeId },
-    Sent { node_id: NodeId },
-    Focused { node_id: NodeId },
-    Listed { cards: Vec<CardSummary> },
+    Created {
+        node_id: NodeId,
+    },
+    Deleted {
+        node_id: NodeId,
+    },
+    Sent {
+        node_id: NodeId,
+    },
+    Focused {
+        node_id: NodeId,
+    },
+    Listed {
+        cards: Vec<CardSummary>,
+    },
+    AgentsListed {
+        agents: Vec<AgentSummary>,
+    },
+    AgentCreated {
+        definition_id: i64,
+        name: String,
+        node_id: Option<NodeId>,
+    },
+    AgentActivated {
+        definition_id: i64,
+        name: String,
+        node_id: NodeId,
+        reused: bool,
+    },
+    AgentTasksDispatched {
+        receipts: Vec<AgentTaskReceipt>,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AgentSummary {
+    pub definition_id: i64,
+    pub name: String,
+    pub speech_alias: Option<String>,
+    pub profile: AgentProfile,
+    pub enabled: bool,
+    pub active_node_id: Option<NodeId>,
+    pub busy: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AgentTaskReceipt {
+    pub name: String,
+    pub node_id: NodeId,
+    pub task: String,
+    pub status: AgentTaskReceiptStatus,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum AgentTaskReceiptStatus {
+    Submitted,
+    Queued,
+    Untracked,
+    Failed,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

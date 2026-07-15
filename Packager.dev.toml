@@ -10,7 +10,16 @@ formats = ["app", "dmg"]
 icons = ["assets/AppIcon.icns"]
 out-dir = "build/dev"
 binaries-dir = "."
-resources = ["crates/app/assets/wallpapers"]
+resources = [
+  "crates/app/assets/wallpapers",
+  "sidecars/openai-card-planner/openai-card-planner.mjs",
+]
+
+[dmg]
+background = "assets/dmg-background.png"
+window-size = { width = 640, height = 400 }
+app-position = { x = 180, y = 200 }
+application-folder-position = { x = 460, y = 200 }
 
 [[binaries]]
 path = "target/release/norma-os"

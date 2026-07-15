@@ -1,80 +1,97 @@
-use crate::app::{AppScreen, MultisoulApp, ToggleSettings};
-use gpui::{
-    div, point, prelude::*, px, rgba, BoxShadow, ClickEvent, Context, Div, FontWeight, MouseButton,
-    Window,
-};
-use ui::Theme;
+use crate::app::MultisoulApp;
+use gpui::{div, prelude::*, px, rgba, Context, KeyDownEvent, MouseButton, Window};
 
 #[path = "content.rs"]
 mod content;
+#[path = "navigation.rs"]
+mod navigation;
+#[path = "panel_style.rs"]
+mod panel_style;
 
-use self::content::settings_content;
+use self::content::{settings_content, VoiceSettingsContent};
+use self::navigation::{settings_navigation, SettingsNavigationMode};
+use self::panel_style::{settings_shadow, with_alpha};
+
+pub(crate) use self::navigation::SettingsSection;
 
 const PANEL_MIN_W: f32 = 860.0;
 const PANEL_MAX_W: f32 = 1180.0;
 const PANEL_MIN_H: f32 = 620.0;
 const PANEL_MAX_H: f32 = 760.0;
-const SIDEBAR_W: f32 = 330.0;
+const SIDEBAR_MIN_W: f32 = 160.0;
+const SIDEBAR_MAX_W: f32 = 280.0;
+const COMPACT_SIDEBAR_MIN_W: f32 = 144.0;
+const COMPACT_SIDEBAR_MAX_W: f32 = 188.0;
+const COMPACT_SIDEBAR_BREAKPOINT: f32 = 760.0;
+const TOP_BAR_BREAKPOINT: f32 = 580.0;
+const TOP_BAR_NAV_HEIGHT: f32 = 84.0;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub(crate) enum SettingsSection {
-    General,
-    Keyboard,
-    Runtime,
-    Voice,
-    Agents,
-    Skills,
-    Hooks,
-    Wallpaper,
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct SettingsPanelLayout {
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+    sidebar_width: f32,
+    navigation_mode: SettingsNavigationMode,
 }
 
-const SETTINGS_SECTION_ORDER: [SettingsSection; 8] = [
-    SettingsSection::General,
-    SettingsSection::Keyboard,
-    SettingsSection::Runtime,
-    SettingsSection::Voice,
-    SettingsSection::Agents,
-    SettingsSection::Skills,
-    SettingsSection::Hooks,
-    SettingsSection::Wallpaper,
-];
+impl SettingsPanelLayout {
+    fn for_viewport(width: f32, height: f32) -> Self {
+        let margin = if width < 640.0 || height < 520.0 {
+            12.0
+        } else {
+            32.0
+        };
+        let available_width = (width - margin * 2.0).max(1.0);
+        let available_height = (height - margin * 2.0).max(1.0);
+        let panel_width = available_width
+            .min(PANEL_MAX_W)
+            .max(PANEL_MIN_W.min(available_width));
+        let panel_height = available_height
+            .min(PANEL_MAX_H)
+            .max(PANEL_MIN_H.min(available_height));
+        let navigation_mode = if panel_width < TOP_BAR_BREAKPOINT {
+            SettingsNavigationMode::TopBar
+        } else if panel_width < COMPACT_SIDEBAR_BREAKPOINT {
+            SettingsNavigationMode::CompactSidebar
+        } else {
+            SettingsNavigationMode::Sidebar
+        };
+        let sidebar_width = match navigation_mode {
+            SettingsNavigationMode::Sidebar => (panel_width * 0.28)
+                .clamp(SIDEBAR_MIN_W, SIDEBAR_MAX_W)
+                .min((panel_width * 0.45).max(1.0)),
+            SettingsNavigationMode::CompactSidebar => (panel_width * 0.26)
+                .clamp(COMPACT_SIDEBAR_MIN_W, COMPACT_SIDEBAR_MAX_W)
+                .min((panel_width * 0.38).max(1.0)),
+            SettingsNavigationMode::TopBar => 0.0,
+        };
 
-impl SettingsSection {
-    fn title(self) -> &'static str {
-        match self {
-            Self::General => "General",
-            Self::Keyboard => "Keyboard Shortcuts",
-            Self::Runtime => "Runtime",
-            Self::Voice => "Voice",
-            Self::Agents => "Agents",
-            Self::Skills => "Skills",
-            Self::Hooks => "Hooks",
-            Self::Wallpaper => "Wallpaper",
+        Self {
+            left: ((width - panel_width) * 0.5).max(0.0),
+            top: ((height - panel_height) * 0.5).max(0.0),
+            width: panel_width,
+            height: panel_height,
+            sidebar_width,
+            navigation_mode,
         }
     }
 
-    fn icon(self) -> &'static str {
-        match self {
-            Self::General => "⚙",
-            Self::Keyboard => "⌘",
-            Self::Runtime => ">_",
-            Self::Voice => "V",
-            Self::Agents => "A",
-            Self::Skills => "✦",
-            Self::Hooks => "⛓",
-            // 🖼 emoji is risky in the bundled icon font; reuse the single-ASCII
-            // letter convention used by Voice/Agents for consistency.
-            Self::Wallpaper => "W",
-        }
-    }
-
-    fn index(self) -> usize {
-        for (index, section) in SETTINGS_SECTION_ORDER.iter().enumerate() {
-            if *section == self {
-                return index;
+    fn content_width(self) -> f32 {
+        match self.navigation_mode {
+            SettingsNavigationMode::TopBar => self.width,
+            SettingsNavigationMode::Sidebar | SettingsNavigationMode::CompactSidebar => {
+                self.width - self.sidebar_width
             }
         }
-        0
+    }
+
+    fn content_height(self) -> f32 {
+        match self.navigation_mode {
+            SettingsNavigationMode::TopBar => (self.height - TOP_BAR_NAV_HEIGHT).max(0.0),
+            SettingsNavigationMode::Sidebar | SettingsNavigationMode::CompactSidebar => self.height,
+        }
     }
 }
 
@@ -90,6 +107,7 @@ pub(crate) struct SettingsPanelState {
     pub(crate) active_section: SettingsSection,
     pub(crate) codex_hook_status: HookInstallStatus,
     pub(crate) claude_hook_status: HookInstallStatus,
+    pub(crate) cursor_hook_status: HookInstallStatus,
     pub(crate) opencode_hook_status: HookInstallStatus,
 }
 
@@ -97,9 +115,10 @@ impl Default for SettingsPanelState {
     fn default() -> Self {
         Self {
             open: false,
-            active_section: SettingsSection::General,
+            active_section: SettingsSection::Wallpaper,
             codex_hook_status: HookInstallStatus::default(),
             claude_hook_status: HookInstallStatus::default(),
+            cursor_hook_status: HookInstallStatus::default(),
             opencode_hook_status: HookInstallStatus::default(),
         }
     }
@@ -128,40 +147,22 @@ impl SettingsPanelState {
 }
 
 impl MultisoulApp {
-    pub(crate) fn on_toolbar_settings(
+    /// Settings 面板 KeyDown 入口。
+    pub(crate) fn on_settings_panel_key_down(
         &mut self,
-        _: &ClickEvent,
-        _window: &mut Window,
+        ev: &KeyDownEvent,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.toggle_settings_panel(cx);
-    }
-
-    pub(crate) fn on_toggle_settings(
-        &mut self,
-        _: &ToggleSettings,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.toggle_settings_panel(cx);
-    }
-
-    pub(crate) fn toggle_settings_panel(&mut self, cx: &mut Context<Self>) {
-        if !matches!(self.screen, AppScreen::Canvas) {
+        if self.handle_settings_text_key_down(ev, cx) {
             return;
         }
-        let was_open = self.settings_panel.open;
-        self.settings_panel.toggle();
-        if was_open {
-            self.shortcuts.recording = None;
+        if self.voice_settings_inputs.is_focused(window, cx) {
+            return;
         }
-        cx.notify();
-    }
-
-    pub(crate) fn close_settings_panel(&mut self, cx: &mut Context<Self>) {
-        self.settings_panel.close();
-        self.shortcuts.recording = None;
-        cx.notify();
+        if self.shortcuts.recording.is_some() {
+            cx.stop_propagation();
+        }
     }
 
     pub(crate) fn render_settings_panel(
@@ -173,19 +174,20 @@ impl MultisoulApp {
         let win = window.viewport_size();
         let win_w = f32::from(win.width);
         let win_h = f32::from(win.height);
-        let available_w = (win_w - 64.0).max(360.0);
-        let available_h = (win_h - 64.0).max(360.0);
-        let panel_w = available_w
-            .min(PANEL_MAX_W)
-            .max(PANEL_MIN_W.min(available_w));
-        let panel_h = available_h
-            .min(PANEL_MAX_H)
-            .max(PANEL_MIN_H.min(available_h));
-        let left = ((win_w - panel_w) * 0.5).max(24.0);
-        let top = ((win_h - panel_h) * 0.5).max(38.0);
+        let layout = SettingsPanelLayout::for_viewport(win_w, win_h);
+        debug_assert!(
+            layout.content_width() > 0.0,
+            "settings layout must reserve positive content width"
+        );
+        debug_assert!(
+            layout.content_height() > 0.0,
+            "settings layout must reserve positive content height"
+        );
 
+        // overlay 挡住自动聚焦；点击时显式 focus。
         div()
             .id("settings-overlay")
+            .debug_selector(|| "settings-overlay".to_string())
             .absolute()
             .top(px(0.0))
             .left(px(0.0))
@@ -193,190 +195,82 @@ impl MultisoulApp {
             .bottom(px(0.0))
             .occlude()
             .bg(rgba(with_alpha(theme.graphite, 0x46)))
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_mouse_down(MouseButton::Left, {
+                let focus = self.focus_handle.clone();
+                move |_, window, cx| {
+                    focus.focus(window);
+                    cx.stop_propagation();
+                }
+            })
             .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
             .on_click(|_, _, cx| cx.stop_propagation())
             .child(
                 div()
                     .id("settings-panel")
+                    .debug_selector(|| "settings-panel".to_string())
+                    .track_focus(&self.focus_handle)
                     .absolute()
-                    .left(px(left))
-                    .top(px(top))
-                    .w(px(panel_w))
-                    .h(px(panel_h))
+                    .left(px(layout.left))
+                    .top(px(layout.top))
+                    .w(px(layout.width))
+                    .h(px(layout.height))
                     .flex()
-                    .flex_row()
+                    .when(
+                        layout.navigation_mode == SettingsNavigationMode::TopBar,
+                        |panel| panel.flex_col(),
+                    )
+                    .when(
+                        layout.navigation_mode != SettingsNavigationMode::TopBar,
+                        |panel| panel.flex_row(),
+                    )
                     .overflow_hidden()
                     .rounded(px(18.0))
                     .border_1()
                     .border_color(rgba(with_alpha(theme.edge_highlight, 0x46)))
                     .shadow(settings_shadow(theme))
                     .bg(rgba(with_alpha(theme.panel, 0xf4)))
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_mouse_down(MouseButton::Left, {
+                        let focus = self.focus_handle.clone();
+                        move |_, window, cx| {
+                            focus.focus(window);
+                            cx.stop_propagation();
+                        }
+                    })
                     .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
                     .on_click(|_, _, cx| cx.stop_propagation())
-                    .child(self.render_settings_sidebar(theme, cx))
+                    .on_key_down(cx.listener(Self::on_settings_panel_key_down))
+                    .child(settings_navigation(
+                        theme,
+                        self.settings_panel.active_section,
+                        layout.navigation_mode,
+                        layout.sidebar_width,
+                        cx,
+                    ))
                     .child(settings_content(
                         theme,
                         &self.settings_panel,
                         &self.agent_definitions,
-                        &self.voice_settings,
+                        VoiceSettingsContent {
+                            state: &self.voice_settings,
+                            inputs: &self.voice_settings_inputs,
+                        },
                         &self.wallpaper_settings,
                         &self.shortcuts,
                         cx,
                     )),
             )
     }
-
-    fn render_settings_sidebar(&mut self, theme: Theme, cx: &mut Context<Self>) -> Div {
-        let active = self.settings_panel.active_section;
-
-        div()
-            .w(px(SIDEBAR_W))
-            .h_full()
-            .flex()
-            .flex_col()
-            .gap(px(8.0))
-            .px(px(22.0))
-            .py(px(26.0))
-            .border_r_1()
-            .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
-            .bg(rgba(with_alpha(theme.node_fill, 0xf2)))
-            .child(
-                div()
-                    .mb(px(16.0))
-                    .text_size(px(28.0))
-                    .font_weight(FontWeight::BOLD)
-                    .text_color(rgba(theme.text_primary))
-                    .child("Settings"),
-            )
-            // [MOCK] General/Themes 是占位实现（appearance.rs 无 on_click、硬编码选中），暂时屏蔽。
-            // .child(section_button(theme, SettingsSection::General, active, cx))
-            // .child(sidebar_child(theme, "Language & Region", false))
-            // .child(sidebar_child(
-            //     theme,
-            //     "Appearance",
-            //     active == SettingsSection::General,
-            // ))
-            // .child(sidebar_child(theme, "Date & Time", false))
-            .child(section_button(theme, SettingsSection::Keyboard, active, cx))
-            .child(sidebar_gap())
-            // [MOCK] Runtime/Agents/Skills 走 mock_section + 硬编码假数据，暂时屏蔽。
-            // .child(section_button(theme, SettingsSection::Runtime, active, cx))
-            .child(section_button(theme, SettingsSection::Voice, active, cx))
-            .child(section_button(theme, SettingsSection::Agents, active, cx))
-            // [MOCK] .child(section_button(theme, SettingsSection::Skills, active, cx))
-            .child(section_button(theme, SettingsSection::Hooks, active, cx))
-            .child(section_button(
-                theme,
-                SettingsSection::Wallpaper,
-                active,
-                cx,
-            ))
-    }
-}
-
-fn section_button(
-    theme: Theme,
-    section: SettingsSection,
-    active: SettingsSection,
-    cx: &mut Context<MultisoulApp>,
-) -> impl IntoElement {
-    let is_active = section == active;
-    let (bg, text, chevron) = if is_active {
-        (
-            with_alpha(theme.accent_orange, 0x18),
-            theme.accent_orange,
-            if section == SettingsSection::General {
-                "^"
-            } else {
-                ">"
-            },
-        )
-    } else {
-        (0x00000000, theme.text_secondary, ">")
-    };
-
-    div()
-        .id(("settings-section", section.index()))
-        .h(px(42.0))
-        .w_full()
-        .flex()
-        .flex_row()
-        .items_center()
-        .justify_between()
-        .px(px(18.0))
-        .rounded(px(7.0))
-        .bg(rgba(bg))
-        .text_color(rgba(text))
-        .cursor_pointer()
-        .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xa6))))
-        .on_click(cx.listener(move |app, _, _window, cx| {
-            app.settings_panel.select(section);
-            cx.notify();
-        }))
-        .child(
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap(px(12.0))
-                .child(section_icon(theme, section, is_active))
-                .child(
-                    div()
-                        .text_size(px(15.0))
-                        .font_weight(FontWeight::MEDIUM)
-                        .child(section.title()),
-                ),
-        )
-        .child(
-            div()
-                .text_size(px(18.0))
-                .text_color(rgba(theme.text_tertiary))
-                .child(chevron),
-        )
-}
-
-fn section_icon(theme: Theme, section: SettingsSection, active: bool) -> Div {
-    div()
-        .w(px(22.0))
-        .h(px(22.0))
-        .flex()
-        .items_center()
-        .justify_center()
-        .text_size(px(if section == SettingsSection::Runtime {
-            11.0
-        } else {
-            18.0
-        }))
-        .font_weight(FontWeight::BOLD)
-        .text_color(rgba(if active {
-            theme.accent_orange
-        } else {
-            theme.text_secondary
-        }))
-        .child(section.icon())
-}
-
-fn sidebar_gap() -> Div {
-    div().h(px(8.0))
-}
-
-fn settings_shadow(theme: Theme) -> Vec<BoxShadow> {
-    vec![BoxShadow {
-        color: rgba(with_alpha(theme.shadow_color, 0x9a)).into(),
-        offset: point(px(0.0), px(26.0)),
-        blur_radius: px(58.0),
-        spread_radius: px(-22.0),
-    }]
-}
-
-fn with_alpha(color: u32, alpha: u8) -> u32 {
-    (color & 0xffffff00) | u32::from(alpha)
 }
 
 #[cfg(test)]
 #[path = "../../tests/unit/settings_panel_tests.rs"]
-mod tests;
+mod settings_panel_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/settings_panel_layout_tests.rs"]
+mod settings_panel_layout_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/settings_panel_voice_tests.rs"]
+mod settings_panel_tests_voice;

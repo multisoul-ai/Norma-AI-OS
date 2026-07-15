@@ -1,6 +1,8 @@
 //! Agent card creation actions for toolbar, menu, and shortcuts.
 
-use super::{AppScreen, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewOpenCodeAgent};
+use super::{
+    AppScreen, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewOpenCodeAgent,
+};
 use crate::canvas::master_layout::term_grid_size_for_card;
 use crate::canvas::spawn_focus;
 use canvas::{AgentProfile, AgentSpec, NodeType};
@@ -11,6 +13,7 @@ pub(crate) fn agent_spec_from_definition(definition: &AgentDefinition) -> AgentS
     AgentSpec {
         profile: definition.runtime_profile,
         alias: Some(definition.name.clone()),
+        definition_id: Some(definition.id),
     }
 }
 
@@ -57,13 +60,35 @@ impl MultisoulApp {
         self.spawn_agent_card(AgentProfile::OpenCode, window, cx);
     }
 
+    pub(crate) fn on_new_cursor_agent(
+        &mut self,
+        _: &NewCursorAgent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error = Some("Open a project before creating agents.".into());
+            cx.notify();
+            return;
+        }
+        self.spawn_agent_card(AgentProfile::Cursor, window, cx);
+    }
+
     pub(crate) fn spawn_agent_card(
         &mut self,
         profile: AgentProfile,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.spawn_agent_card_with_alias(profile, None, window, cx);
+        match self.agent_definitions.create_definition(None, profile) {
+            Ok(definition) => {
+                self.spawn_agent_card_from_spec(agent_spec_from_definition(&definition), window, cx)
+            }
+            Err(message) => {
+                self.workspace_state.error = Some(message);
+                cx.notify();
+            }
+        }
     }
 
     pub(crate) fn spawn_agent_card_from_definition(
@@ -84,13 +109,12 @@ impl MultisoulApp {
             return;
         };
         let spec = agent_spec_from_definition(&definition);
-        self.spawn_agent_card_with_alias(spec.profile, spec.alias, window, cx);
+        self.spawn_agent_card_from_spec(spec, window, cx);
     }
 
-    fn spawn_agent_card_with_alias(
+    fn spawn_agent_card_from_spec(
         &mut self,
-        profile: AgentProfile,
-        alias: Option<String>,
+        spec: AgentSpec,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -99,14 +123,29 @@ impl MultisoulApp {
             .inset(self.layout_gap_canvas());
         let (cols, rows) =
             term_grid_size_for_card(NodeType::Agent, bounds, self.runtime.document.viewport.zoom);
-        match self
-            .runtime
-            .spawn_agent_with_alias(profile, alias, bounds, cols, rows)
-        {
+        let profile = spec.profile;
+        let spawn = match (spec.definition_id, spec.alias) {
+            (Some(definition_id), Some(alias)) => self.runtime.spawn_agent_for_definition(
+                profile,
+                definition_id,
+                alias,
+                bounds,
+                cols,
+                rows,
+            ),
+            (_, alias) => self
+                .runtime
+                .spawn_agent_with_alias(profile, alias, bounds, cols, rows),
+        };
+        match spawn {
             Ok(node_id) => {
                 tracing::info!(?node_id, ?profile, "spawned agent node");
                 spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
                 self.motion.spawn_node(node_id, bounds);
+                self.motion.start_initialization(
+                    node_id,
+                    crate::motion::InitializationAnimationKind::for_agent_profile(profile),
+                );
                 self.apply_layout_for_current_mode(window);
                 self.mark_canvas_dirty();
                 self.mark_session_dirty();
@@ -144,6 +183,15 @@ impl MultisoulApp {
     ) {
         self.spawn_agent_card(AgentProfile::OpenCode, window, cx);
     }
+
+    pub(crate) fn on_toolbar_new_cursor_agent(
+        &mut self,
+        _: &ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.spawn_agent_card(AgentProfile::Cursor, window, cx);
+    }
 }
 
 #[cfg(test)]
@@ -172,6 +220,7 @@ mod tests {
         let definition = AgentDefinition {
             id: 7,
             name: "Code Reviewer".to_string(),
+            speech_alias: None,
             runtime_profile: AgentProfile::Codex,
             workflow_description: "Review code.".to_string(),
             enabled: true,

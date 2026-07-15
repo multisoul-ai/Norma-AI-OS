@@ -16,9 +16,15 @@ pub const TOOLBAR_TERMINAL_ASSET: &str = "icons/toolbar-terminal.svg";
 pub const TOOLBAR_BROWSER_ASSET: &str = "icons/toolbar-browser.svg";
 pub const TOOLBAR_CLAUDE_ASSET: &str = "icons/toolbar-claude.svg";
 pub const TOOLBAR_CODEX_ASSET: &str = "icons/toolbar-codex.svg";
+pub const TOOLBAR_CURSOR_ASSET: &str = "icons/toolbar-cursor.svg";
 pub const TOOLBAR_OPENCODE_ASSET: &str = "icons/toolbar-opencode.svg";
 pub const TOOLBAR_PREVIEW_ASSET: &str = "icons/toolbar-preview.svg";
 pub const TOOLBAR_SETTINGS_ASSET: &str = "icons/toolbar-settings.svg";
+pub const SETTINGS_NAV_WALLPAPER_ASSET: &str = "icons/settings-nav-wallpaper.svg";
+pub const SETTINGS_NAV_KEYBOARD_ASSET: &str = "icons/settings-nav-keyboard.svg";
+pub const SETTINGS_NAV_VOICE_ASSET: &str = "icons/settings-nav-voice.svg";
+pub const SETTINGS_NAV_AGENTS_ASSET: &str = "icons/settings-nav-agents.svg";
+pub const SETTINGS_NAV_HOOKS_ASSET: &str = "icons/settings-nav-hooks.svg";
 
 const APP_ICON_BYTES: &[u8] = include_bytes!("../assets/icons/app-icon.png");
 const APP_LOGO_BYTES: &[u8] = include_bytes!("../assets/icons/logo.png");
@@ -55,9 +61,17 @@ const TOOLBAR_TERMINAL_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-te
 const TOOLBAR_BROWSER_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-browser.svg");
 const TOOLBAR_CLAUDE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-claude.svg");
 const TOOLBAR_CODEX_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-codex.svg");
+const TOOLBAR_CURSOR_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-cursor.svg");
 const TOOLBAR_OPENCODE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-opencode.svg");
 const TOOLBAR_PREVIEW_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-preview.svg");
 const TOOLBAR_SETTINGS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-settings.svg");
+const SETTINGS_NAV_WALLPAPER_BYTES: &[u8] =
+    include_bytes!("../assets/icons/settings-nav-wallpaper.svg");
+const SETTINGS_NAV_KEYBOARD_BYTES: &[u8] =
+    include_bytes!("../assets/icons/settings-nav-keyboard.svg");
+const SETTINGS_NAV_VOICE_BYTES: &[u8] = include_bytes!("../assets/icons/settings-nav-voice.svg");
+const SETTINGS_NAV_AGENTS_BYTES: &[u8] = include_bytes!("../assets/icons/settings-nav-agents.svg");
+const SETTINGS_NAV_HOOKS_BYTES: &[u8] = include_bytes!("../assets/icons/settings-nav-hooks.svg");
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EmbeddedAssets;
@@ -73,9 +87,15 @@ impl AssetSource for EmbeddedAssets {
             TOOLBAR_BROWSER_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_BROWSER_BYTES))),
             TOOLBAR_CLAUDE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_CLAUDE_BYTES))),
             TOOLBAR_CODEX_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_CODEX_BYTES))),
+            TOOLBAR_CURSOR_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_CURSOR_BYTES))),
             TOOLBAR_OPENCODE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_OPENCODE_BYTES))),
             TOOLBAR_PREVIEW_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PREVIEW_BYTES))),
             TOOLBAR_SETTINGS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SETTINGS_BYTES))),
+            SETTINGS_NAV_WALLPAPER_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_WALLPAPER_BYTES))),
+            SETTINGS_NAV_KEYBOARD_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_KEYBOARD_BYTES))),
+            SETTINGS_NAV_VOICE_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_VOICE_BYTES))),
+            SETTINGS_NAV_AGENTS_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_AGENTS_BYTES))),
+            SETTINGS_NAV_HOOKS_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_HOOKS_BYTES))),
             _ => match image_builtin_bytes(path) {
                 Some(bytes) => Ok(Some(bytes)),
                 None => Ok(None),
@@ -98,9 +118,15 @@ impl AssetSource for EmbeddedAssets {
                 SharedString::from("toolbar-browser.svg"),
                 SharedString::from("toolbar-claude.svg"),
                 SharedString::from("toolbar-codex.svg"),
+                SharedString::from("toolbar-cursor.svg"),
                 SharedString::from("toolbar-opencode.svg"),
                 SharedString::from("toolbar-preview.svg"),
                 SharedString::from("toolbar-settings.svg"),
+                SharedString::from("settings-nav-wallpaper.svg"),
+                SharedString::from("settings-nav-keyboard.svg"),
+                SharedString::from("settings-nav-voice.svg"),
+                SharedString::from("settings-nav-agents.svg"),
+                SharedString::from("settings-nav-hooks.svg"),
             ]),
             // 仅枚举 image 内置项（PNG/GIF）。视频文件不在 EmbeddedAssets 分发，
             // 由 builtin_wallpapers() 过滤掉 Video kind 后派生，避免与清单脱钩。
@@ -121,6 +147,10 @@ impl AssetSource for EmbeddedAssets {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/unit/assets_tests.rs"]
+mod assets_tests;
 
 #[cfg(test)]
 mod tests {
@@ -207,65 +237,10 @@ mod tests {
         );
     }
 
-    /// 内置产品 Logo 资产：workspace 启动页品牌图应读取独立 logo PNG，而不是复用 App icon。
-    ///
-    /// 数据构造（含关键数值的推导过程）：
-    ///   logo asset path = APP_LOGO_ASSET = "icons/logo.png"
-    ///   icon asset path = "icons/app-icon.png"
-    ///   PNG signature   = 8 bytes（89 50 4E 47 0D 0A 1A 0A）
-    ///   unknown path    = "icons/logo-missing.png"
-    ///
-    /// 执行过程（逐步说明系统如何处理）：
-    ///   1. EmbeddedAssets.load(APP_LOGO_ASSET) → 应返回 Some(bytes)
-    ///   2. EmbeddedAssets.load(APP_ICON_ASSET) → 应返回 Some(icon_bytes)
-    ///   3. 检查 logo bytes 前 8 字节 → 匹配 PNG signature
-    ///   4. 比较 APP_LOGO_ASSET 与 APP_ICON_ASSET → 两者路径不应相同
-    ///   5. EmbeddedAssets.load("icons/logo-missing.png") → 返回 None
-    ///
-    /// 预期结果：
-    ///   - 正断言：Logo asset 存在且字节非空
-    ///   - 正断言：Logo asset 是 PNG
-    ///   - 负断言：Logo asset path 不应与 App icon asset path 相同
-    ///   - 负断言：未知 logo 路径不应返回 Logo 字节
-    #[test]
-    fn test_embedded_assets_load_app_logo_png() {
-        let assets = EmbeddedAssets;
-        let logo = assets
-            .load(APP_LOGO_ASSET)
-            .expect("embedded app logo lookup should not fail")
-            .expect("app logo asset should be present");
-        let icon = assets
-            .load(APP_ICON_ASSET)
-            .expect("embedded app icon lookup should not fail")
-            .expect("app icon asset should be present");
-
-        assert!(!logo.is_empty(), "embedded app logo should contain bytes");
-        assert_eq!(
-            &logo[..8],
-            &[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a],
-            "embedded app logo should be a PNG file"
-        );
-        assert_ne!(
-            APP_LOGO_ASSET, APP_ICON_ASSET,
-            "embedded app logo must have a separate asset path from the app icon"
-        );
-        assert!(
-            !icon.is_empty(),
-            "embedded app icon should still load bytes"
-        );
-        assert!(
-            assets
-                .load("icons/logo-missing.png")
-                .expect("unknown logo lookup should not fail")
-                .is_none(),
-            "unknown logo path must not return the app logo bytes"
-        );
-    }
-
     /// 内置资产目录：GPUI 查询 icons 与 wallpapers 目录时应能枚举对应文件名。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   root = "" → 2 个顶层目录；icons → 11 个文件（2 PNG + 9 SVG）；
+    ///   root = "" → 2 个顶层目录；icons → 17 个文件（2 PNG + 10 toolbar SVG + 5 Settings SVG）；
     ///   wallpapers → 5 个 image built-in（3 PNG + 2 GIF），不含视频。
     ///
     /// 执行过程（逐步说明系统如何处理）：
@@ -311,13 +286,18 @@ mod tests {
                 SharedString::from("toolbar-browser.svg"),
                 SharedString::from("toolbar-claude.svg"),
                 SharedString::from("toolbar-codex.svg"),
+                SharedString::from("toolbar-cursor.svg"),
                 SharedString::from("toolbar-opencode.svg"),
                 SharedString::from("toolbar-preview.svg"),
                 SharedString::from("toolbar-settings.svg"),
+                SharedString::from("settings-nav-wallpaper.svg"),
+                SharedString::from("settings-nav-keyboard.svg"),
+                SharedString::from("settings-nav-voice.svg"),
+                SharedString::from("settings-nav-agents.svg"),
+                SharedString::from("settings-nav-hooks.svg"),
             ],
-            "icons asset listing should expose the app icon, logo, and 9 toolbar SVGs in icons.rs order"
+            "icons asset listing should expose the app icon, logo, toolbar SVGs, and Settings navigation SVGs in deterministic order"
         );
-
         // 期望的 image built-in 文件名集合（由 builtin_wallpapers() 过滤掉 Video 派生）。
         let expected_image_filenames: Vec<&str> =
             crate::app::wallpaper_resolvers::builtin_wallpapers()
