@@ -164,6 +164,7 @@ pub enum AgentTaskReceiptStatus {
     Submitted,
     Queued,
     Untracked,
+    Failed,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

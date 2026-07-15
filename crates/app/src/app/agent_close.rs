@@ -42,10 +42,8 @@ impl MultisoulApp {
             if let Some(coordinator) = self.agent_task_coordinator.as_mut() {
                 let _ = coordinator.cancel_all(definition_id);
             }
-            if let Some(store) = self.persistence.agent_dispatch_task_store() {
-                if let Err(error) = store.interrupt_definition(definition_id) {
-                    tracing::error!(definition_id, %error, "failed to interrupt Agent tasks");
-                }
+            if let Some(writer) = self.persistence.agent_dispatch_writer() {
+                writer.interrupt_definition(definition_id);
             }
         }
         self.pending_agent_close_confirmation = None;

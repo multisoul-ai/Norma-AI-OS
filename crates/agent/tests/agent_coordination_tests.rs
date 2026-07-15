@@ -268,3 +268,40 @@ fn coordinator_cancel_all_clears_running_slot_and_waiting_queue() {
         "取消后等待数不得保持原来的 2"
     );
 }
+
+/// AC-5：持久化别名为空时，不得重新生成会与另一正式名冲突的内置别名。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   roster = Alan(id=1, speech_alias=None) + 艾伦(id=2, speech_alias=None)
+///   assignment = 对正式名“艾伦”提交 1 项任务
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用迁移后的两条 roster 建立 coordinator；
+///   2. 不为 Alan 补回内置“艾伦”别名；
+///   3. 按正式名“艾伦”派发并读取 definition_id。
+///
+/// 预期结果：
+///   - 正断言：协调器建立成功，任务发给 definition_id=2；
+///   - 负断言：不得因 Alan 的隐式内置别名产生 DuplicateName 或路由到 id=1。
+#[test]
+fn coordinator_uses_persisted_alias_none_without_builtin_fallback() {
+    let mut coordinator = AgentTaskCoordinator::new(vec![
+        roster_entry(1, "Alan", AgentProfile::Codex, false),
+        roster_entry(2, "艾伦", AgentProfile::Claude, false),
+    ])
+    .expect("持久化别名为空时 Alan 与正式名 艾伦 应能同时进入 roster");
+
+    let receipts = coordinator
+        .dispatch(vec![AgentAssignment::new("艾伦", "检查迁移")], false)
+        .expect("正式名 艾伦 应唯一解析到第二条定义");
+
+    assert_eq!(receipts.len(), 1, "单项派发应只返回一条回执");
+    assert_eq!(
+        receipts[0].definition_id, 2,
+        "正式名 艾伦 必须路由到 definition_id=2"
+    );
+    assert_ne!(
+        receipts[0].definition_id, 1,
+        "不得为 Alan 补回冲突别名并错误路由到 definition_id=1"
+    );
+}

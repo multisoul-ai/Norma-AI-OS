@@ -76,6 +76,11 @@ impl AgentHookServer {
         })
     }
 
+    pub(crate) fn disable_for_test(&mut self) {
+        self.endpoint = None;
+        self.token = None;
+    }
+
     pub(crate) fn drain_into_runtime(&self, runtime: &mut Runtime) -> AgentHookDrainReport {
         let mut report = AgentHookDrainReport::default();
         while let Ok(event) = self.receiver.try_recv() {

@@ -137,6 +137,29 @@ impl AgentDispatchTaskStore {
         Ok(id)
     }
 
+    pub fn fail_next_queued(&self, definition_id: i64, error: &str) -> StorageResult<Option<i64>> {
+        let mut connection = open_project_connection(&self.path)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let id = transaction
+            .query_row(
+                "SELECT id FROM agent_dispatch_tasks
+                 WHERE definition_id = ?1 AND state = 'queued'
+                 ORDER BY id LIMIT 1",
+                [definition_id],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()?;
+        if let Some(id) = id {
+            transaction.execute(
+                "UPDATE agent_dispatch_tasks
+                 SET state = 'failed', error = ?1, updated_at_unix = ?2 WHERE id = ?3",
+                params![error, current_unix_timestamp()?, id],
+            )?;
+        }
+        transaction.commit()?;
+        Ok(id)
+    }
+
     pub fn mark_incomplete_interrupted(&self) -> StorageResult<Vec<i64>> {
         let connection = open_project_connection(&self.path)?;
         let mut statement = connection.prepare(

@@ -125,6 +125,7 @@ impl MultisoulApp {
         );
         match result {
             Ok(opened) => {
+                self.agent_task_coordinator = None;
                 self.reset_agent_announcements();
                 self.dialogue.stop_shell();
                 self.focus_handle.focus(window);
@@ -242,10 +243,6 @@ pub(crate) fn enter_workspace_for_path(
     project_store
         .migrate()
         .map_err(|error| format!("Could not migrate project storage: {error}"))?;
-    project_store
-        .agent_dispatch_task_store()
-        .mark_incomplete_interrupted()
-        .map_err(|error| format!("Could not interrupt restored Agent tasks: {error}"))?;
     log_workspace_open_timing(
         "workspace_open_migrate",
         &root,

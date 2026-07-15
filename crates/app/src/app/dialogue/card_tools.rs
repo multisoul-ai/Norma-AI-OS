@@ -6,7 +6,7 @@ use crate::norma::server::{execute_card_command_for_area, NormaExecution};
 use canvas::CanvasRect;
 #[cfg(test)]
 use dialogue::{DialogueError, ToolExecutor};
-use norma::protocol::{CardCommand, CardCommandResult, NodeId};
+use norma::protocol::{AgentTaskReceiptStatus, CardCommand, CardCommandResult, NodeId};
 use runtime::Runtime;
 
 pub(crate) fn format_create_ok(node_id: NodeId) -> String {
@@ -37,7 +37,18 @@ pub(crate) fn template_report_for_result(result: &CardCommandResult) -> Option<S
         CardCommandResult::AgentCreated { name, .. } => Some(format!("已创建 Agent {name}")),
         CardCommandResult::AgentActivated { name, .. } => Some(format!("已激活 Agent {name}")),
         CardCommandResult::AgentTasksDispatched { receipts } => {
-            Some(format!("已提交或排队 {} 项 Agent 任务", receipts.len()))
+            let failed = receipts
+                .iter()
+                .filter(|receipt| receipt.status == AgentTaskReceiptStatus::Failed)
+                .count();
+            let accepted = receipts.len() - failed;
+            match (accepted, failed) {
+                (0, failed) => Some(format!("Agent 任务提交失败 {failed} 项")),
+                (accepted, 0) => Some(format!("已提交或排队 {accepted} 项 Agent 任务")),
+                (accepted, failed) => Some(format!(
+                    "已提交或排队 {accepted} 项 Agent 任务，失败 {failed} 项"
+                )),
+            }
         }
         CardCommandResult::Deleted { .. }
         | CardCommandResult::Listed { .. }

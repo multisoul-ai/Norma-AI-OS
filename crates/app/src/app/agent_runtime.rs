@@ -472,3 +472,15 @@ mod agent_runtime_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/agent_dispatch_submit_tests.rs"]
 mod agent_dispatch_submit_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/agent_dispatch_workspace_tests.rs"]
+mod agent_dispatch_workspace_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/agent_dispatch_queue_failure_tests.rs"]
+mod agent_dispatch_queue_failure_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/agent_dispatch_unsafe_failure_tests.rs"]
+mod agent_dispatch_unsafe_failure_tests;

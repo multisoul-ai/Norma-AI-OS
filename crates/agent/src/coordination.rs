@@ -1,4 +1,4 @@
-use crate::{builtin_agent_names, AgentName};
+use crate::AgentName;
 use norma::protocol::AgentProfile;
 use std::collections::{HashMap, VecDeque};
 use thiserror::Error;
@@ -225,6 +225,21 @@ impl AgentTaskCoordinator {
         }
     }
 
+    pub fn reject_dispatch(&mut self, definition_id: i64, task_ids: &[u64]) -> bool {
+        let Some(agent) = self
+            .agents
+            .iter_mut()
+            .find(|agent| agent.roster.definition_id == definition_id)
+        else {
+            return false;
+        };
+        agent
+            .queue
+            .retain(|queued| !task_ids.contains(&queued.task_id));
+        agent.roster.busy = false;
+        true
+    }
+
     pub fn queued_task_count(&self, definition_id: i64) -> usize {
         self.agents
             .iter()
@@ -297,12 +312,7 @@ fn insert_lookup_key(
 }
 
 fn effective_speech_alias(entry: &AgentRosterEntry) -> Option<&str> {
-    entry.speech_alias.as_deref().or_else(|| {
-        builtin_agent_names()
-            .iter()
-            .find(|builtin| builtin.name().eq_ignore_ascii_case(&entry.name))
-            .map(|builtin| builtin.speech_alias())
-    })
+    entry.speech_alias.as_deref()
 }
 
 fn trim_address_punctuation(value: &str) -> &str {

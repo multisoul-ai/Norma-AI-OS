@@ -10,6 +10,7 @@ use std::path::PathBuf;
 pub struct AgentDefinition {
     pub id: i64,
     pub name: String,
+    pub speech_alias: Option<String>,
     pub runtime_profile: AgentProfile,
     pub workflow_description: String,
     pub enabled: bool,
@@ -77,17 +78,26 @@ impl AgentDefinitionStore {
     pub fn list(&self) -> StorageResult<Vec<AgentDefinition>> {
         let connection = open_project_connection(&self.path)?;
         let mut statement = connection.prepare(
-            "SELECT id, name, runtime_profile, workflow_description, enabled, sort_order \
+            "SELECT id, name, runtime_profile, workflow_description, enabled, sort_order, speech_alias \
              FROM agent_definitions \
              ORDER BY sort_order ASC, name COLLATE NOCASE ASC",
         )?;
         let rows = statement.query_map([], decode_agent_definition_row)?;
         let mut definitions = Vec::new();
         for row in rows {
-            let (id, name, runtime_profile, workflow_description, enabled, sort_order) = row?;
+            let (
+                id,
+                name,
+                runtime_profile,
+                workflow_description,
+                enabled,
+                sort_order,
+                speech_alias,
+            ) = row?;
             definitions.push(AgentDefinition {
                 id,
                 name,
+                speech_alias,
                 runtime_profile: decode_agent_profile(&runtime_profile)?,
                 workflow_description,
                 enabled: enabled != 0,
@@ -150,7 +160,7 @@ impl AgentDefinitionStore {
         let connection = open_project_connection(&self.path)?;
         let row = connection
             .query_row(
-                "SELECT id, name, runtime_profile, workflow_description, enabled, sort_order \
+                "SELECT id, name, runtime_profile, workflow_description, enabled, sort_order, speech_alias \
                  FROM agent_definitions WHERE id = ?1",
                 params![id],
                 |row| {
@@ -161,21 +171,29 @@ impl AgentDefinitionStore {
                         row.get::<_, String>(3)?,
                         row.get::<_, i64>(4)?,
                         row.get::<_, i64>(5)?,
+                        row.get::<_, Option<String>>(6)?,
                     ))
                 },
             )
             .optional()?;
         match row {
-            Some((id, name, runtime_profile, workflow_description, enabled, sort_order)) => {
-                Ok(Some(AgentDefinition {
-                    id,
-                    name,
-                    runtime_profile: decode_agent_profile(&runtime_profile)?,
-                    workflow_description,
-                    enabled: enabled != 0,
-                    sort_order,
-                }))
-            }
+            Some((
+                id,
+                name,
+                runtime_profile,
+                workflow_description,
+                enabled,
+                sort_order,
+                speech_alias,
+            )) => Ok(Some(AgentDefinition {
+                id,
+                name,
+                speech_alias,
+                runtime_profile: decode_agent_profile(&runtime_profile)?,
+                workflow_description,
+                enabled: enabled != 0,
+                sort_order,
+            })),
             None => Ok(None),
         }
     }
@@ -221,7 +239,7 @@ fn reject_name_conflict(
 
 fn decode_agent_definition_row(
     row: &rusqlite::Row<'_>,
-) -> rusqlite::Result<(i64, String, String, String, i64, i64)> {
+) -> rusqlite::Result<(i64, String, String, String, i64, i64, Option<String>)> {
     Ok((
         row.get(0)?,
         row.get(1)?,
@@ -229,6 +247,7 @@ fn decode_agent_definition_row(
         row.get(3)?,
         row.get(4)?,
         row.get(5)?,
+        row.get(6)?,
     ))
 }
 
@@ -254,3 +273,7 @@ fn decode_agent_profile(profile: &str) -> StorageResult<AgentProfile> {
 #[cfg(test)]
 #[path = "../tests/unit/agent_definition_store_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/agent_definition_migration_tests.rs"]
+mod migration_tests;

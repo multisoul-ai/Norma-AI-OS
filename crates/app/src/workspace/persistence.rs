@@ -10,6 +10,7 @@ const PERSISTENCE_DEBOUNCE: Duration = Duration::from_millis(360);
 #[derive(Debug, Default)]
 pub(crate) struct PersistenceScheduler {
     project_store: Option<ProjectStore>,
+    agent_dispatch_writer: Option<storage::BackgroundAgentDispatchStore>,
     canvas_dirty: bool,
     session_dirty: bool,
     dirty_for: Duration,
@@ -17,6 +18,11 @@ pub(crate) struct PersistenceScheduler {
 
 impl PersistenceScheduler {
     pub(crate) fn set_project_store(&mut self, store: ProjectStore) {
+        let previous_writer = self.agent_dispatch_writer.take();
+        self.agent_dispatch_writer = Some(storage::BackgroundAgentDispatchStore::new_after(
+            previous_writer,
+            store.agent_dispatch_task_store(),
+        ));
         self.project_store = Some(store);
         self.canvas_dirty = false;
         self.session_dirty = false;
@@ -104,10 +110,8 @@ impl PersistenceScheduler {
             .map(Some)
     }
 
-    pub(crate) fn agent_dispatch_task_store(&self) -> Option<storage::AgentDispatchTaskStore> {
-        self.project_store
-            .as_ref()
-            .map(ProjectStore::agent_dispatch_task_store)
+    pub(crate) fn agent_dispatch_writer(&self) -> Option<&storage::BackgroundAgentDispatchStore> {
+        self.agent_dispatch_writer.as_ref()
     }
 }
 
@@ -140,6 +144,11 @@ impl MultisoulApp {
             .flush_now(&self.runtime, &self.master_layout)
         {
             tracing::warn!(%error, "workspace persistence flush failed");
+        }
+        if let Some(writer) = self.persistence.agent_dispatch_writer() {
+            if let Err(error) = writer.flush() {
+                tracing::warn!(%error, "Agent dispatch persistence flush failed");
+            }
         }
     }
 }

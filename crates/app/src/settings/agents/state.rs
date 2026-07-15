@@ -116,10 +116,7 @@ impl AgentDefinitionsState {
             {
                 return true;
             }
-            agent::builtin_agent_names().iter().any(|builtin| {
-                builtin.name().eq_ignore_ascii_case(&definition.name)
-                    && builtin.speech_alias() == normalized.match_key()
-            })
+            definition.speech_alias.as_deref() == Some(normalized.match_key())
         })
     }
 

@@ -220,6 +220,7 @@ mod tests {
         let definition = AgentDefinition {
             id: 7,
             name: "Code Reviewer".to_string(),
+            speech_alias: None,
             runtime_profile: AgentProfile::Codex,
             workflow_description: "Review code.".to_string(),
             enabled: true,

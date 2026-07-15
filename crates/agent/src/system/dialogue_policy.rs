@@ -87,12 +87,6 @@ fn address_keys(agent: &crate::AgentRosterEntry) -> Vec<String> {
     let mut keys = vec![agent.name.clone()];
     if let Some(alias) = agent.speech_alias.as_ref() {
         keys.push(alias.clone());
-    } else if let Some(alias) = crate::builtin_agent_names()
-        .iter()
-        .find(|builtin| builtin.name().eq_ignore_ascii_case(&agent.name))
-        .map(|builtin| builtin.speech_alias())
-    {
-        keys.push(alias.to_string());
     }
     keys
 }

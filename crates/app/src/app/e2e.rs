@@ -135,6 +135,10 @@ impl MultisoulApp {
         app
     }
 
+    pub fn disable_agent_hook_for_test(&mut self) {
+        self.agent_hook_server.disable_for_test();
+    }
+
     pub fn new_with_pty_factory_and_voice_settings_store(
         cx: &mut Context<Self>,
         factory: runtime::PtyFactory,

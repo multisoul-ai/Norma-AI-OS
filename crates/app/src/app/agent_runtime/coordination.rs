@@ -26,10 +26,7 @@ impl MultisoulApp {
                 agent::AgentRosterEntry {
                     definition_id: definition.id,
                     name: definition.name.clone(),
-                    speech_alias: agent::builtin_agent_names()
-                        .iter()
-                        .find(|builtin| builtin.name().eq_ignore_ascii_case(&definition.name))
-                        .map(|builtin| builtin.speech_alias().to_string()),
+                    speech_alias: definition.speech_alias.clone(),
                     profile: norma_agent_profile(definition.runtime_profile),
                     enabled: definition.enabled,
                     active_node_id,
@@ -53,51 +50,57 @@ impl MultisoulApp {
         }) else {
             return false;
         };
-        if let Some(store) = self.persistence.agent_dispatch_task_store() {
-            let runtime_state = self.runtime.agent_task_state(node_id);
-            let (state, error) = match runtime_state {
-                Some(runtime::AgentTaskState::Done) => {
-                    (storage::AgentDispatchTaskState::Done, None)
-                }
-                Some(runtime::AgentTaskState::Failed { ref message }) => (
-                    storage::AgentDispatchTaskState::Failed,
-                    Some(message.as_str()),
-                ),
-                Some(runtime::AgentTaskState::Ended) => (
-                    storage::AgentDispatchTaskState::Interrupted,
-                    Some("Agent session ended"),
-                ),
-                _ => (storage::AgentDispatchTaskState::Interrupted, None),
-            };
-            if let Err(error) = store.finish_current(definition_id, state, error) {
-                tracing::error!(definition_id, %error, "failed to persist Agent terminal state");
-            }
-        }
-        let Some(next) = self
+        let (terminal_state, terminal_error) = match self.runtime.agent_task_state(node_id) {
+            Some(runtime::AgentTaskState::Done) => (storage::AgentDispatchTaskState::Done, None),
+            Some(runtime::AgentTaskState::Failed { ref message }) => (
+                storage::AgentDispatchTaskState::Failed,
+                Some(message.clone()),
+            ),
+            Some(runtime::AgentTaskState::Ended) => (
+                storage::AgentDispatchTaskState::Interrupted,
+                Some("Agent session ended".to_string()),
+            ),
+            _ => (storage::AgentDispatchTaskState::Interrupted, None),
+        };
+        let writer = self.persistence.agent_dispatch_writer().cloned();
+        let next = self
             .agent_task_coordinator
             .as_mut()
-            .and_then(|coordinator| coordinator.finish_current(definition_id))
-        else {
-            return false;
-        };
-        if let Some(store) = self.persistence.agent_dispatch_task_store() {
-            if let Err(error) = store.submit_next_queued(definition_id) {
-                tracing::error!(definition_id, %error, "failed to persist queued Agent submission");
+            .and_then(|coordinator| coordinator.finish_current(definition_id));
+        if let Some(writer) = writer.as_ref() {
+            writer.finish_current(definition_id, terminal_state, terminal_error);
+        }
+        let mut next = next;
+        while let Some(candidate) = next {
+            match submit_agent_task(&mut self.runtime, candidate.node_id, &candidate.task) {
+                Ok(()) => {
+                    if let Some(writer) = writer.as_ref() {
+                        writer.submit_next_queued(definition_id);
+                    }
+                    return true;
+                }
+                Err(error) => {
+                    if let Some(writer) = writer.as_ref() {
+                        writer.fail_next_queued(definition_id, error.to_string());
+                    }
+                    tracing::error!(
+                        definition_id,
+                        node_id = candidate.node_id,
+                        task_id = candidate.task_id,
+                        %error,
+                        "failed to submit next queued Agent task"
+                    );
+                    if !error.retry_safe() {
+                        return false;
+                    }
+                    next = self
+                        .agent_task_coordinator
+                        .as_mut()
+                        .and_then(|coordinator| coordinator.finish_current(definition_id));
+                }
             }
         }
-        match submit_agent_task(&mut self.runtime, next.node_id, &next.task) {
-            Ok(()) => true,
-            Err(error) => {
-                tracing::error!(
-                    definition_id,
-                    node_id = next.node_id,
-                    task_id = next.task_id,
-                    %error,
-                    "failed to submit next queued Agent task"
-                );
-                false
-            }
-        }
+        false
     }
 
     pub(crate) fn agent_completion_report_for_node(&self, node_id: NodeId) -> Option<String> {

@@ -2,7 +2,7 @@ use super::{
     format_create_ok, format_focus_ok, format_operation_failed, format_send_text_ok,
     template_report_for_error, template_report_for_result,
 };
-use norma::protocol::CardCommandResult;
+use norma::protocol::{AgentTaskReceipt, AgentTaskReceiptStatus, CardCommandResult};
 
 /// DCT-1: Create 成功模板应包含 node_id。
 ///
@@ -87,5 +87,52 @@ fn test_template_report_for_result_maps_success_outcomes_only() {
     assert!(
         template_report_for_result(&CardCommandResult::Deleted { node_id: 4 }).is_none(),
         "Deleted 不应生成语音模板"
+    );
+}
+
+/// DCT-6：Agent 派发回执包含失败时，语音模板必须明确失败数量。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   receipts = 2 项：Submitted 1 项 + Failed 1 项
+///   succeeded = 2 - 1 = 1 项
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造一项已提交、一项失败的 AgentTasksDispatched；
+///   2. 交给生产 template_report_for_result 生成播报文本；
+///   3. 检查文本是否区分成功与失败数量。
+///
+/// 预期结果：
+///   - 正断言：文本明确“已提交或排队 1 项”和“失败 1 项”；
+///   - 负断言：不得把 2 项全部表述为已提交或排队。
+#[test]
+fn test_template_report_for_result_reports_failed_agent_dispatches() {
+    let result = CardCommandResult::AgentTasksDispatched {
+        receipts: vec![
+            AgentTaskReceipt {
+                name: "Alan".into(),
+                node_id: 1,
+                task: "成功任务".into(),
+                status: AgentTaskReceiptStatus::Submitted,
+            },
+            AgentTaskReceipt {
+                name: "Bella".into(),
+                node_id: 2,
+                task: "失败任务".into(),
+                status: AgentTaskReceiptStatus::Failed,
+            },
+        ],
+    };
+
+    let report = template_report_for_result(&result);
+
+    assert_eq!(
+        report,
+        Some("已提交或排队 1 项 Agent 任务，失败 1 项".into()),
+        "混合回执必须分别报告已提交/排队和失败数量"
+    );
+    assert_ne!(
+        report,
+        Some("已提交或排队 2 项 Agent 任务".into()),
+        "失败回执不得计入已提交或排队数量"
     );
 }
