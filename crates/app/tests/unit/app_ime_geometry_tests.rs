@@ -136,10 +136,5 @@ fn test_terminal_ime_cursor_bounds_hidden_during_scrollback() {
         bounds.is_none(),
         "scrollback 回看历史时 IME bounds 应为 None，实际为 {bounds:?}"
     );
-    assert!(
-        bounds.is_none(),
-        "scrollback 下不应返回 Some(bounds)，否则候选窗会贴到错位 live cursor"
-    );
-
     runtime.kill_all();
 }
