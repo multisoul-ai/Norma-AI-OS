@@ -25,6 +25,16 @@
       --glass-shell-deep: rgba(238, 244, 252, .32);
       --glass-line: rgba(255, 255, 255, .72);
       --glass-shadow: 0 28px 72px rgba(38, 52, 78, .16), 0 3px 12px rgba(38, 52, 78, .07);
+      --card-shell: rgba(236, 242, 249, .70);
+      --card-titlebar: rgba(248, 250, 253, .78);
+      --card-surface-light: rgba(250, 251, 253, .90);
+      --card-surface-dark: rgba(9, 14, 22, .92);
+      --card-border: rgba(255, 255, 255, .68);
+      --card-inner-line: rgba(15, 23, 42, .09);
+      --card-radius: 22px;
+      --card-well-radius: 20px;
+      --card-well-inset: 0px;
+      --card-shadow: 0 22px 54px rgba(4, 9, 20, .2), 0 4px 14px rgba(4, 9, 20, .08);
       --ink-2: rgba(17, 18, 20, 0.64);
       --ink-3: rgba(17, 18, 20, 0.42);
       --line: rgba(17, 18, 20, 0.1);
@@ -973,19 +983,18 @@
     .canvas-command-dock .dock-voice { display: flex; width: auto; min-width: 88px; grid-template-columns: auto auto; gap: 8px; padding: 0 13px; color: white; font-size: 10px; font-weight: 650; }
 
     .canvas-object {
-      border-color: var(--theme-shell-line);
-      border-radius: 22px;
-      color: var(--theme-card-text);
-      background: var(--theme-shell);
-      box-shadow: 0 28px 70px var(--theme-shell-shadow), 0 5px 18px rgba(4, 9, 20, .11), inset 0 1px var(--theme-shell-highlight), inset 0 -1px var(--theme-shell-inner);
-      backdrop-filter: blur(30px) saturate(165%);
-      -webkit-backdrop-filter: blur(30px) saturate(165%);
+      border-color: var(--card-border);
+      border-radius: var(--card-radius);
+      background: var(--card-shell);
+      box-shadow: var(--card-shadow), inset 0 1px rgba(255, 255, 255, .72), inset 0 -1px rgba(15, 23, 42, .06);
+      backdrop-filter: blur(24px) saturate(118%);
+      -webkit-backdrop-filter: blur(24px) saturate(118%);
     }
 
-    .canvas-object::before { right: 9%; left: 9%; background: linear-gradient(90deg, transparent, var(--theme-shell-highlight), transparent); }
-    .canvas-object::after { position: absolute; inset: 1px; z-index: 0; border: 1px solid var(--theme-shell-inner); border-radius: 20px; content: ""; pointer-events: none; }
-    .canvas-object:hover { box-shadow: 0 34px 80px rgba(4, 9, 20, .3), 0 6px 20px rgba(4, 9, 20, .13), inset 0 1px rgba(255, 255, 255, .66); }
-    .canvas-object.is-selected, .canvas-object.is-focused { border-color: rgba(var(--theme-accent-rgb), .82); box-shadow: 0 0 0 2px rgba(var(--theme-accent-rgb), .18), 0 34px 82px var(--theme-shell-shadow), inset 0 1px var(--theme-shell-highlight); }
+    .canvas-object::before { right: 12%; left: 12%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .62), transparent); }
+    .canvas-object::after { position: absolute; inset: 1px; z-index: 0; border: 1px solid rgba(255, 255, 255, .34); border-radius: calc(var(--card-radius) - 2px); content: ""; pointer-events: none; }
+    .canvas-object:hover { box-shadow: 0 26px 62px rgba(4, 9, 20, .23), 0 5px 16px rgba(4, 9, 20, .09), inset 0 1px rgba(255, 255, 255, .76); }
+    .canvas-object.is-selected, .canvas-object.is-focused { border-color: rgba(143, 196, 242, .92); box-shadow: 0 0 0 1px rgba(47, 128, 237, .38), var(--card-shadow), inset 0 1px rgba(255, 255, 255, .74); }
 
     .object-terminal { top: 13%; left: 4%; width: 42%; height: 45%; }
     .object-agent { top: 14%; right: 5%; left: auto; width: 38%; height: 37%; }
@@ -994,28 +1003,20 @@
 
     .object-titlebar {
       height: 44px;
-      border-bottom-color: var(--theme-shell-inner);
-      background: var(--theme-header);
-      box-shadow: inset 0 1px rgba(255, 255, 255, .18);
+      border-bottom-color: var(--card-inner-line);
+      background: var(--card-titlebar);
+      box-shadow: inset 0 1px rgba(255, 255, 255, .76);
     }
 
-    .object-type { color: var(--theme-card-text); }
-    .object-name { color: var(--theme-card-muted); }
-    .object-more { color: var(--theme-card-muted); }
-    .state-badge { color: var(--theme-card-muted); background: var(--theme-titlebar-control); box-shadow: inset 0 1px var(--theme-shell-inner); }
-    .content-well { height: calc(100% - 52px); margin: 0 8px 8px; border-color: var(--theme-shell-inner); border-radius: 16px; }
-    .terminal-well { background: var(--theme-terminal); backdrop-filter: blur(26px) saturate(130%); }
-    .agent-well { background: var(--theme-content); backdrop-filter: blur(25px) saturate(140%); }
-    .browser-well { background: var(--theme-content); backdrop-filter: blur(24px) saturate(140%); }
-    .preview-well { background: var(--theme-content-warm); backdrop-filter: blur(24px) saturate(135%); }
-    .browser-bar { color: var(--theme-card-muted); background: var(--theme-browser-bar); }
-    .agent-well, .preview-well { --graphite: var(--theme-card-text); --ink-2: var(--theme-card-muted); --ink-3: var(--theme-card-faint); --line: var(--theme-shell-inner); }
-    .agent-message, .agent-composer { border-color: var(--theme-shell-inner); color: var(--theme-card-muted); background: var(--theme-titlebar-control); box-shadow: inset 0 1px var(--theme-shell-inner); }
-    .tool-call { color: var(--theme-card-text); background: rgba(var(--theme-accent-rgb), .13); }
-    .tool-call strong, .agent-avatar { color: var(--theme-accent); }
-    .agent-avatar { background: rgba(var(--theme-accent-rgb), .15); }
-    .preview-copy code { color: rgba(255, 255, 255, .76); background: var(--theme-terminal); }
-    .browser-cta { background: var(--theme-success); }
+    .object-type { color: rgba(10, 16, 27, .86); }
+    .object-name { color: rgba(10, 16, 27, .58); }
+    .object-more { color: rgba(10, 16, 27, .5); }
+    .state-badge { color: rgba(10, 16, 27, .64); background: rgba(255, 255, 255, .58); box-shadow: inset 0 1px rgba(255, 255, 255, .72); }
+    .content-well { height: calc(100% - 44px); margin: 0 var(--card-well-inset) var(--card-well-inset); border-width: 0; border-radius: 0 0 var(--card-well-radius) var(--card-well-radius); box-shadow: inset 0 1px rgba(15, 23, 42, .08); }
+    .terminal-well { background: var(--card-surface-dark); backdrop-filter: blur(16px) saturate(108%); }
+    .agent-well, .browser-well, .preview-well { background: var(--card-surface-light); backdrop-filter: blur(16px) saturate(108%); }
+    .agent-message, .agent-composer { border-color: var(--card-inner-line); background: rgba(255, 255, 255, .72); box-shadow: inset 0 1px rgba(255, 255, 255, .82); }
+    .browser-bar { border: 1px solid var(--card-inner-line); background: rgba(255, 255, 255, .76); }
 
     .canvas-minimap {
       top: 74px;

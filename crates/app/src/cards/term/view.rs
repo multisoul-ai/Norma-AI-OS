@@ -15,7 +15,6 @@ pub const TERM_FONT_PX: f32 = 13.0;
 pub const TERM_LINE_PX: f32 = 16.0;
 pub const TERM_CELL_PX: f32 = 8.0;
 pub const TERM_PADDING_PX: f32 = 8.0;
-const TERM_SURFACE_TINT_ALPHA: u8 = 0x20;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum TerminalContentMode {
@@ -74,11 +73,7 @@ pub fn terminal_render_metrics(zoom: f32) -> TerminalRenderMetrics {
 }
 
 fn terminal_surface_bg(theme: Theme) -> u32 {
-    with_alpha(theme.term_bg, TERM_SURFACE_TINT_ALPHA)
-}
-
-fn with_alpha(color: u32, alpha: u8) -> u32 {
-    (color & 0xffffff00) | u32::from(alpha)
+    theme.term_bg
 }
 
 #[cfg(test)]
@@ -188,51 +183,45 @@ mod tests {
         assert!(!no_code.contains("code=1"), "无退出码标签不应误显示 code=1");
     }
 
-    /// 终端内容区使用轻量 tint，而不是再次铺满高不透明 term_bg。
+    /// 终端内容区使用统一深色内容井，避免壁纸色相穿透代码表面。
     ///
     /// 数据构造（含关键数值推导）：
-    ///   glass_dark.node_fill alpha = 0xcc / 0xff ≈ 80%
-    ///   glass_dark.term_bg alpha   = 0xfa / 0xff ≈ 98%
-    ///   terminal_surface_bg alpha  = 0x20 / 0xff ≈ 12%
-    ///   组合 alpha = 1 - (1 - 0xcc/255) * (1 - 0x20/255) ≈ 0.825 → 0xd2
-    ///   旧组合 alpha = 1 - (1 - 0xcc/255) * (1 - 0xfa/255) ≈ 0.996 → 0xfe
+    ///   glass_light.node_fill alpha = 0x54 / 0xff ≈ 33%
+    ///   glass_light.term_bg alpha   = 0xeb / 0xff ≈ 92%
+    ///   组合 alpha = 1 - (1 - 0x54/255) * (1 - 0xeb/255) ≈ 0.947 → 0xf2
+    ///   旧 surface alpha = 0x20 / 0xff ≈ 12%，组合后约 74%，仍明显吸收壁纸色相。
     ///
     /// 执行过程：
-    ///   1. 从 glass_dark 派生 terminal_surface_bg
-    ///   2. 比较 surface alpha、原始 term_bg alpha、与 node_fill 组合后的 alpha
-    ///   3. 对比旧的 node_fill + term_bg 组合，确认不再接近实心
+    ///   1. 从 glass_light 读取 terminal_surface_bg。
+    ///   2. 比较 surface 与原型深色内容井字面量。
+    ///   3. 计算和统一外壳组合后的 alpha，确认壁纸不会主导代码表面。
     ///
     /// 预期结果：
-    ///   - 正断言：surface alpha 为 0x20，明显低于 term_bg
-    ///   - 正断言：node_fill + surface 组合 alpha 不超过 0xd8，保留轻 tint 而非实心终端块
-    ///   - 负断言：node_fill + surface 不应等于旧的 node_fill + term_bg 近实心组合
+    ///   - 正断言：surface 精确复用 92% term_bg，和 HTML 原型一致。
+    ///   - 正断言：组合 alpha 至少为 0xf2，保证 Terminal/Agent 代码可读。
+    ///   - 负断言：surface 不得回退到 0x20 的旧轻 tint。
     #[test]
-    fn test_terminal_surface_bg_keeps_liquid_glass_transparency() {
-        let theme = Theme::glass_dark();
+    fn test_terminal_surface_bg_uses_cohesive_dark_content_well() {
+        let theme = Theme::glass_light();
         let surface = terminal_surface_bg(theme);
         let composed_surface = composited_alpha(theme.node_fill, surface);
-        let composed_old = composited_alpha(theme.node_fill, theme.term_bg);
 
         assert_eq!(
-            alpha(surface),
-            TERM_SURFACE_TINT_ALPHA,
-            "terminal surface 应使用轻量 tint alpha 0x20，而不是原始 term_bg alpha"
+            surface, theme.term_bg,
+            "terminal surface 应精确复用统一的 92% 深色内容井 token"
         );
         assert!(
-            alpha(surface) < alpha(theme.node_fill),
-            "terminal surface alpha 应低于 node_fill，避免内容区比玻璃外壳更实"
+            alpha(surface) > alpha(theme.node_fill),
+            "深色内容井必须比中性外壳更不透明，才能稳定代码表面"
         );
         assert!(
-            alpha(surface) < alpha(theme.term_bg),
-            "terminal surface alpha 应明显低于原始 term_bg，否则仍会像黑色实心块"
-        );
-        assert!(
-            composed_surface <= 0xd8,
-            "node_fill + terminal surface 组合 alpha 应保持在玻璃范围内，实际为 {composed_surface:#04x}"
+            composed_surface >= 0xf2,
+            "透明外壳与深色内容井组合后 alpha 至少应为 0xf2，实际为 {composed_surface:#04x}"
         );
         assert_ne!(
-            composed_surface, composed_old,
-            "terminal surface 不应退化为旧的 node_fill + term_bg 近实心组合"
+            alpha(surface),
+            0x20,
+            "terminal surface 不得回退到会吸收壁纸色相的旧 0x20 轻 tint"
         );
     }
 

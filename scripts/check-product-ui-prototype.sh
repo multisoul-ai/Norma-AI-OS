@@ -70,6 +70,22 @@ assert_contains 'class="dock-voice"' "Voice must be integrated into the command 
 assert_absent 'class="canvas-connection' "persistent diagram connections must be removed"
 assert_absent 'class="voice-bar"' "standalone Voice bar must be removed to prevent card overlap"
 
+# Canvas V4：四类 Live Node 共享统一的 Instrument Glass 卡片体系。
+assert_contains '--card-shell: rgba(236, 242, 249, .70);' "cohesive card shell token is missing"
+assert_contains '--card-titlebar: rgba(248, 250, 253, .78);' "stable card titlebar token is missing"
+assert_contains '--card-surface-light: rgba(250, 251, 253, .90);' "shared light content-well token is missing"
+assert_contains '--card-surface-dark: rgba(9, 14, 22, .92);' "terminal content-well token is missing"
+assert_contains '--card-radius: 22px;' "card outer radius token is missing"
+assert_contains '--card-well-radius: 20px;' "card inner radius token is missing"
+assert_contains '--card-well-inset: 0px;' "card content inset must match native content geometry"
+assert_contains 'background: var(--card-shell);' "Canvas cards do not consume the shared shell token"
+assert_contains 'background: var(--card-titlebar);' "Canvas titlebars do not consume the shared titlebar token"
+assert_contains 'background: var(--card-surface-dark);' "Terminal does not consume the dark content-well token"
+assert_contains 'background: var(--card-surface-light);' "light content wells do not consume one shared surface token"
+assert_contains 'height: calc(100% - 44px);' "content wells must begin directly below the 44px titlebar"
+assert_contains 'border-radius: 0 0 var(--card-well-radius) var(--card-well-radius);' "content wells must share the shell bottom geometry"
+assert_absent 'background: rgba(241, 247, 255, .22);' "V3 over-transparent card shell still allows wallpaper hue drift"
+
 # 品牌目标色来自 docs/design.md §3.1，逐项用已评审字面量校验，避免同源计算。
 assert_contains '--warm-white: #f7f5f2;' "warm-white token is missing or changed"
 assert_contains '--graphite: #111214;' "graphite token is missing or changed"

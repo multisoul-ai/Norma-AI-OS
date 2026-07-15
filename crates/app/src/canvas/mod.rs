@@ -2,6 +2,7 @@ mod events;
 pub mod geometry;
 pub mod interaction;
 pub mod master_layout;
+pub mod minimap;
 pub mod scroll;
 pub mod spawn_focus;
 pub mod terminal_hit;

@@ -36,34 +36,34 @@ pub struct Theme {
 impl Theme {
     pub fn glass_light() -> Theme {
         Theme {
-            graphite: 0x05090bff,
-            panel: 0x0e1b16cc,
-            panel_high: 0x1f372ab8,
-            canvas_from: 0xf8fbffff,
+            graphite: 0x111214ff,
+            panel: 0xf8fafd94,
+            panel_high: 0xffffff78,
+            canvas_from: 0xf7f5f2ff,
             canvas_to: 0xe8eef8d9,
-            node_fill: 0xffffffef,
-            node_stroke: 0xffffffd9,
-            selected_stroke: 0x0a84ffff,
-            focused_stroke: 0x006fe6ff,
-            edge_highlight: 0xfffffff2,
-            text_primary: 0xffffffff,
-            text_secondary: 0xffffffad,
-            text_tertiary: 0xffffff75,
-            accent_orange: 0xff7932ff,
+            node_fill: 0xe8eef854,
+            node_stroke: 0xffffffad,
+            selected_stroke: 0xa3d3ffd6,
+            focused_stroke: 0x56a6ffff,
+            edge_highlight: 0xffffff9e,
+            text_primary: 0x111214ff,
+            text_secondary: 0x111214a3,
+            text_tertiary: 0x1112146b,
+            accent_orange: 0x2f80edff,
             accent_cyan: 0x27d7eaff,
-            accent_green: 0x60f078ff,
-            accent_violet: 0x9b55ffff,
-            accent_blue: 0x4b70ffff,
-            accent_warm: 0xf2c26bff,
-            destructive: 0xff3c4dff,
+            accent_green: 0x64e0b5ff,
+            accent_violet: 0x6a5cffff,
+            accent_blue: 0x2f80edff,
+            accent_warm: 0xd6ff3bff,
+            destructive: 0xff6b7aff,
             term_fg: 0xe7edf5ff,
-            term_bg: 0x111827f6,
-            term_exit_fg: 0xff6961ff,
-            title_bar: 0xffffffe7,
-            text: 0x1f2937ff,
-            shadow_color: 0x38506a2e,
-            shadow_y: 18.0,
-            shadow_blur: 44.0,
+            term_bg: 0x090e16eb,
+            term_exit_fg: 0xff6b7aff,
+            title_bar: 0xf8fafd70,
+            text: 0x111214ff,
+            shadow_color: 0x04091433,
+            shadow_y: 22.0,
+            shadow_blur: 54.0,
             shadow_spread: -18.0,
         }
     }
@@ -120,26 +120,26 @@ mod tests {
     /// G-1: glass_light() 返回默认浅色玻璃主题 token
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   node_fill alpha  = 0xff - round((0xff - 0xd6) * 0.4) = 0xef ≈ 94%（透明度降低 60%）
-    ///   title_bar alpha  = 0xff - round((0xff - 0xc2) * 0.4) = 0xe7 ≈ 91%（标题栏同步降低透明度）
-    ///   term_bg alpha    = 0xf6 / 0xff ≈ 96%（终端内容区可读优先）
-    ///   selected/focused = Apple 蓝同色系（不再使用绿色聚焦）
+    ///   node_fill alpha  = 0x54 / 0xff ≈ 33%（透出壁纸的 Instrument Glass 外壳）
+    ///   title_bar alpha  = 0x70 / 0xff ≈ 44%（与外壳叠加后约 62%，保留环境感）
+    ///   term_bg alpha    = 0xeb / 0xff ≈ 92%（深色内容井，比外壳高 22%）
+    ///   selected/focused = Cobalt 蓝同色系（精确外描边）
     ///
     /// 执行过程：
     ///   1. 调用 Theme::glass_light() 创建浅色玻璃主题
-    ///   2. 逐项验证默认浅色、玻璃透明度、终端高不透明度与 Apple 蓝强调色
+    ///   2. 逐项验证中性外壳、稳定标题栏、深色内容井与 Cobalt 强调色
     ///
     /// 预期结果：
     ///   - canvas_from / canvas_to 存在且不同（雾面渐变）
-    ///   - node_fill / title_bar 不是不透明色（玻璃外壳）
+    ///   - node_fill / title_bar 保留环境感，但不会被壁纸色相主导
     ///   - term_bg 比 node_fill 更不透明（终端可读优先）
     ///   - focused_stroke 不是旧绿色（统一 Apple 蓝语言）
     #[test]
     fn test_glass_light_theme_tokens() {
         let theme = Theme::glass_light();
         assert_eq!(
-            theme.canvas_from, 0xf8fbffff,
-            "canvas_from should be a bright frosted glass start color"
+            theme.canvas_from, 0xf7f5f2ff,
+            "canvas_from should use the reviewed warm-white start color"
         );
         assert_eq!(
             theme.canvas_to, 0xe8eef8d9,
@@ -151,30 +151,34 @@ mod tests {
         );
         assert_eq!(
             alpha(theme.node_fill),
-            0xef,
-            "node_fill alpha should reduce remaining transparency by 60% from 0xd6"
+            0x54,
+            "node_fill alpha should match the reviewed 33% frosted-glass shell"
         );
         assert_eq!(
             alpha(theme.title_bar),
-            0xe7,
-            "title_bar alpha should reduce remaining transparency by 60% from 0xc2"
+            0x70,
+            "title_bar alpha should match the reviewed 44% frosted title surface"
         );
         assert_eq!(
             alpha(theme.term_bg),
-            0xf6,
-            "term_bg alpha should stay high for terminal readability"
+            0xeb,
+            "term_bg alpha should match the 92% dark content well"
         );
         assert!(
             alpha(theme.term_bg) > alpha(theme.node_fill),
             "terminal background should be more opaque than glass node fill"
         );
-        assert_eq!(
-            theme.selected_stroke, 0x0a84ffff,
-            "selected_stroke should use Apple blue"
+        assert_ne!(
+            theme.node_fill, 0xecf2f9b3,
+            "node_fill must not return to the 70% surface that made the title region nearly opaque"
         );
         assert_eq!(
-            theme.focused_stroke, 0x006fe6ff,
-            "focused_stroke should stay in the Apple blue family"
+            theme.selected_stroke, 0xa3d3ffd6,
+            "selected_stroke should use the reviewed pale Cobalt keyline"
+        );
+        assert_eq!(
+            theme.focused_stroke, 0x56a6ffff,
+            "focused_stroke should stay in the reviewed Cobalt family"
         );
         assert_ne!(
             theme.focused_stroke, 0x35d07fff,
@@ -432,3 +436,7 @@ mod tests {
         rgba.to_be_bytes()[3]
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/unit/product_ui_theme_tests.rs"]
+mod product_ui_theme_tests;

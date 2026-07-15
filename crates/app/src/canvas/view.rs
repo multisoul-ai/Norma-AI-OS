@@ -2,7 +2,7 @@
 //! 事件处理（pan、拖拽、单击）见 `events` 子模块。
 
 use super::events;
-use crate::app::browser::browser_native_view_bounds;
+use crate::app::browser::{browser_native_view_bounds, native_browser_views_visible};
 use crate::app::MultisoulApp;
 #[cfg(test)]
 use crate::canvas::events::{should_focus_app_root_for_mouse_down, should_notify_motion_frame};
@@ -18,6 +18,7 @@ use crate::canvas::geometry::{
 use crate::canvas::interaction::InteractionState;
 use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
 use crate::cards::browser::card::BROWSER_TOOLBAR_H_PX;
+use crate::cards::chrome::card_title_background;
 use crate::cards::chrome::{
     node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
 };
@@ -26,7 +27,7 @@ use crate::cards::{card_for, CardBodyContext};
 #[cfg(test)]
 use canvas::Vec2;
 use canvas::{CanvasNodeKind, NodeId, NodeType};
-use gpui::{div, prelude::*, px, rgba, AnyElement, Context, MouseButton, Window};
+use gpui::{div, prelude::*, px, rgba, AnyElement, Context, FontWeight, MouseButton, Window};
 use runtime::InputMode;
 #[cfg(test)]
 use runtime::{route, Route};
@@ -60,6 +61,7 @@ pub fn render_canvas(
     let hovered_terminal_link = app.interaction.hovered_terminal_link.clone();
     let mut node_elems: Vec<AnyElement> = Vec::new();
     let mut visible_browser_nodes = HashSet::new();
+    let native_browser_views_visible = native_browser_views_visible(app.settings_panel.open);
     let mut visible_nodes = 0usize;
     let mut snake_nodes = 0usize;
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
@@ -208,7 +210,7 @@ pub fn render_canvas(
                 .bg(rgba(with_alpha(theme.destructive, 0x12)))
                 .text_color(rgba(theme.text_tertiary))
                 .text_size(px((12.0 * vp.zoom).clamp(10.0, 13.0)))
-                .child("x")
+                .child("×")
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_click(cx.listener(move |app, _, window, cx| {
@@ -226,7 +228,9 @@ pub fn render_canvas(
             .items_center()
             .justify_between()
             .rounded_t(px(node_title_radius_px(vp.zoom)))
-            .bg(rgba(visual.title_bar_color))
+            .border_b_1()
+            .border_color(rgba(with_alpha(theme.edge_highlight, 0x70)))
+            .bg(card_title_background(visual.title_bar_color, theme))
             .text_color(rgba(theme.text_primary))
             .text_size(px((12.0 * vp.zoom).max(9.0)))
             .px(px(10.0 * vp.zoom))
@@ -241,11 +245,25 @@ pub fn render_canvas(
                     .gap_2()
                     .child(
                         div()
-                            .w(px(7.0 * vp.zoom))
-                            .h(px(7.0 * vp.zoom))
+                            .h(px((20.0 * vp.zoom).clamp(18.0, 22.0)))
                             .flex_none()
-                            .rounded(px(4.0 * vp.zoom))
-                            .bg(rgba(status)),
+                            .flex()
+                            .items_center()
+                            .gap(px(5.0 * vp.zoom))
+                            .px(px(7.0 * vp.zoom))
+                            .rounded(px((10.0 * vp.zoom).clamp(9.0, 11.0)))
+                            .bg(rgba(with_alpha(status, 0x18)))
+                            .text_color(rgba(status))
+                            .text_size(px((9.0 * vp.zoom).clamp(8.0, 10.0)))
+                            .font_weight(FontWeight::BOLD)
+                            .child(
+                                div()
+                                    .w(px(6.0 * vp.zoom))
+                                    .h(px(6.0 * vp.zoom))
+                                    .rounded(px(3.0 * vp.zoom))
+                                    .bg(rgba(status)),
+                            )
+                            .child(node_type_label(node_type)),
                     )
                     .child(
                         div()
@@ -280,25 +298,28 @@ pub fn render_canvas(
             },
         );
         if matches!(node_type, NodeType::Browser) {
-            visible_browser_nodes.insert(id);
-            if let CanvasNodeKind::Browser(spec) = &node.kind {
-                let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
-                app.sync_browser_view_for_node(
-                    id,
-                    &spec.url,
-                    browser_native_view_bounds(
-                        f64::from(top_left.x),
-                        f64::from(top_left.y),
-                        f64::from(w),
-                        f64::from(h),
-                        f64::from(browser_header_h),
-                        f64::from(node_terminal_radius_px(vp.zoom)),
-                    ),
-                    window,
-                );
+            if native_browser_views_visible {
+                visible_browser_nodes.insert(id);
+                if let CanvasNodeKind::Browser(spec) = &node.kind {
+                    let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
+                    app.sync_browser_view_for_node(
+                        id,
+                        &spec.url,
+                        browser_native_view_bounds(
+                            f64::from(top_left.x),
+                            f64::from(top_left.y),
+                            f64::from(w),
+                            f64::from(h),
+                            f64::from(browser_header_h),
+                            f64::from(node_terminal_radius_px(vp.zoom)),
+                        ),
+                        window,
+                    );
+                }
             }
         }
         node_div = node_div
+            .child(app.render_card_frosted_backdrop(id, top_left.x, top_left.y, win_w, win_h))
             .child(edge_highlight)
             .child(title_bar)
             .child(card_body);
@@ -419,6 +440,16 @@ fn with_alpha(color: u32, alpha: u8) -> u32 {
     (color & 0xffffff00) | u32::from(alpha)
 }
 
+fn node_type_label(node_type: NodeType) -> &'static str {
+    match node_type {
+        NodeType::Term => "TERMINAL",
+        NodeType::Agent => "AGENT",
+        NodeType::Preview => "PREVIEW",
+        NodeType::Browser => "BROWSER",
+        NodeType::Rect => "NODE",
+    }
+}
+
 #[cfg(test)]
 #[path = "../../tests/unit/canvas_view_tests.rs"]
 mod tests;
@@ -426,3 +457,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../../tests/unit/chase_canvas_view_contract_tests.rs"]
 mod chase_canvas_view_contract_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/product_ui_canvas_tests.rs"]
+mod product_ui_canvas_tests;

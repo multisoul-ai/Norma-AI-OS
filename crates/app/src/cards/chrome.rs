@@ -1,7 +1,10 @@
 //! Shared card chrome primitives.
 
 use canvas::{CanvasNode, CanvasRect, NodeType};
-use gpui::{div, point, prelude::*, px, rgba, AnyElement, BoxShadow, Div, FontWeight};
+use gpui::{
+    div, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, AnyElement, Background,
+    BoxShadow, Div, FontWeight,
+};
 use runtime::{NodeResize, Runtime};
 use ui::Theme;
 
@@ -12,7 +15,18 @@ use crate::motion::breathing::{
 };
 use crate::motion::{ResolvedNodeVisual, VisualPriority};
 
-pub const TITLE_BAR_H: f32 = 26.0;
+pub const TITLE_BAR_H: f32 = 44.0;
+
+/// A translucent cool-white gradient layered over the card shell. GPUI 0.2.2
+/// has no per-element backdrop blur, so the low-alpha shell, chromatic gradient,
+/// keyline and wallpaper beneath it cooperate to produce the frosted material.
+pub fn card_title_background(title_color: u32, theme: Theme) -> Background {
+    linear_gradient(
+        165.0,
+        linear_color_stop(rgba(title_color), 0.0),
+        linear_color_stop(rgba(with_alpha(theme.canvas_to, 0x38)), 1.0),
+    )
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CardChrome {

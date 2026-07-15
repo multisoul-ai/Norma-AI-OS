@@ -26,6 +26,10 @@ pub(crate) use wry_backend::initialize_safari_browser_identity;
 
 const CEF_MESSAGE_PUMP_INTERVAL: Duration = Duration::from_millis(16);
 
+pub(crate) fn native_browser_views_visible(settings_panel_open: bool) -> bool {
+    !settings_panel_open
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum BrowserCommandKind {
     Back,
@@ -358,6 +362,10 @@ mod cef_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/browser_view_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/browser_overlay_visibility_tests.rs"]
+mod overlay_visibility_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/browser_interaction_visual_tests.rs"]

@@ -141,11 +141,11 @@ fn test_canvas_wheel_scroll_does_not_move_viewport_when_disabled() {
 ///
 /// 数据构造（含关键数值推导）：
 ///   node_top_left = (80,40)
-///   screen = (100,120)
-///   zoom = 2，因此标题栏高度 = TITLE_BAR_H(26) * 2 = 52
+///   screen = (100,156)
+///   zoom = 2，因此标题栏高度 = TITLE_BAR_H(44) * 2 = 88
 ///   TERM_PADDING_PX = 8
 ///   local_x = 100 - 80 - 8 = 12
-///   local_y = 120 - 40 - 52 - 8 = 20
+///   local_y = 156 - 40 - 88 - 8 = 20
 ///
 /// 执行过程：
 ///   1. terminal_content_local_position(screen, node_top_left, zoom=2)
@@ -157,7 +157,7 @@ fn test_canvas_wheel_scroll_does_not_move_viewport_when_disabled() {
 #[test]
 fn test_terminal_content_local_position_offsets_title_bar_and_padding() {
     let local =
-        terminal_content_local_position(Vec2::new(100.0, 120.0), Vec2::new(80.0, 40.0), 2.0);
+        terminal_content_local_position(Vec2::new(100.0, 156.0), Vec2::new(80.0, 40.0), 2.0);
 
     assert_eq!(
         local.x,
@@ -167,11 +167,11 @@ fn test_terminal_content_local_position_offsets_title_bar_and_padding() {
     assert_eq!(
         local.y,
         px(20.0),
-        "terminal local y 应扣除 node.y、标题栏和 padding，即 120-40-52-8=20"
+        "terminal local y 应扣除 node.y、标题栏和 padding，即 156-40-88-8=20"
     );
     assert_ne!(
         local.y,
-        px(72.0),
+        px(108.0),
         "terminal local y 不应忘记扣 TITLE_BAR_H*zoom，否则选区会整体下移"
     );
 }
@@ -179,7 +179,7 @@ fn test_terminal_content_local_position_offsets_title_bar_and_padding() {
 /// 标题栏文本：长 task_title 应保持单行截断，不能换行撑高标题栏。
 ///
 /// 数据构造（含关键数值推导）：
-///   TITLE_BAR_H = 26px；标题栏高度固定为 TITLE_BAR_H * zoom
+///   TITLE_BAR_H = 44px；标题栏高度固定为 TITLE_BAR_H * zoom
 ///   长 task_title 来源于用户输入，可能远超卡片宽度
 ///   标题文本应在可用宽度内 flex_1 + min_w(0)，再 truncate 成单行
 ///
@@ -400,35 +400,35 @@ fn test_terminal_title_single_click_selects_for_drag() {
 ///
 /// 数据构造（含关键数值推导）：
 ///   node_top_screen_y = 100
-///   TITLE_BAR_H = 26
+///   TITLE_BAR_H = 44
 ///   zoom = 2
-///   title_bottom = 100 + 26 * 2 = 152
-///   y=151.5 在标题栏内，y=153 已进入正文
+///   title_bottom = 100 + 44 * 2 = 188
+///   y=187.5 在标题栏内，y=189 已进入正文
 ///
 /// 执行过程：
-///   1. is_title_bar_hit(151.5, 100, 2) → true
-///   2. is_title_bar_hit(153, 100, 2) → false
+///   1. is_title_bar_hit(187.5, 100, 2) → true
+///   2. is_title_bar_hit(189, 100, 2) → false
 ///
 /// 预期结果：
-///   - 正断言：151.5 被识别为标题栏
-///   - 正断言：153 被识别为正文
-///   - 负断言：正文 y=153 不应仍被当作标题栏
+///   - 正断言：187.5 被识别为标题栏
+///   - 正断言：189 被识别为正文
+///   - 负断言：正文 y=189 不应仍被当作标题栏
 #[test]
 fn test_title_bar_hit_scales_with_zoom() {
-    let in_title = is_title_bar_hit(151.5, 100.0, 2.0);
-    let in_body = is_title_bar_hit(153.0, 100.0, 2.0);
+    let in_title = is_title_bar_hit(187.5, 100.0, 2.0);
+    let in_body = is_title_bar_hit(189.0, 100.0, 2.0);
 
-    assert!(in_title, "y=151.5 <= 100 + 26 * 2，应被识别为标题栏命中");
-    assert!(!in_body, "y=153 > 100 + 26 * 2，应被识别为正文命中");
+    assert!(in_title, "y=187.5 <= 100 + 44 * 2，应被识别为标题栏命中");
+    assert!(!in_body, "y=189 > 100 + 44 * 2，应被识别为正文命中");
 }
 
 /// 卡片圆角 token 应统一用于外壳、标题栏和顶部高亮线。
 ///
 /// 数据构造（含关键数值推导）：
-///   base radius = 16px
-///   zoom=0.25 → raw radius = 16 * 0.25 = 4px，clamp 到最小 8px
-///   zoom=1.00 → raw radius = 16 * 1.00 = 16px，保持 16px
-///   zoom=2.00 → raw radius = 16 * 2.00 = 32px，clamp 到最大 22px
+///   base radius = 22px
+///   zoom=0.25 → raw radius = 22 * 0.25 = 5.5px，clamp 到最小 12px
+///   zoom=1.00 → raw radius = 22 * 1.00 = 22px，保持 22px
+///   zoom=2.00 → raw radius = 22 * 2.00 = 44px，clamp 到最大 28px
 ///   top highlight inset = card radius，避免 1px 高亮线画进圆角区域
 ///
 /// 执行过程：
@@ -436,7 +436,7 @@ fn test_title_bar_hit_scales_with_zoom() {
 ///   2. 计算 zoom=1.0 的标题栏圆角与顶部高亮线缩进
 ///
 /// 预期结果：
-///   - 正断言：卡片圆角随 zoom 缩放并保持在 8..=22px
+///   - 正断言：卡片圆角随 zoom 缩放并保持在 12..=28px
 ///   - 正断言：标题栏圆角复用卡片圆角，避免顶部背景填平圆角
 ///   - 正断言：顶部高亮线从 radius 内侧开始，避开左右顶角
 ///   - 负断言：高亮线缩进不应为 0，否则会再次画出直角顶边
@@ -449,13 +449,13 @@ fn test_node_card_radius_tokens_keep_children_inside_rounded_shell() {
     let highlight_inset = node_edge_highlight_inset_px(1.0);
 
     assert_eq!(
-        zoomed_out, 8.0,
-        "zoom=0.25 时 raw=4px，应 clamp 到 8px 最小卡片圆角"
+        zoomed_out, 12.0,
+        "zoom=0.25 时 raw=5.5px，应 clamp 到 12px 最小卡片圆角"
     );
-    assert_eq!(normal, 16.0, "zoom=1.0 时 raw=16px，应保持默认卡片圆角");
+    assert_eq!(normal, 22.0, "zoom=1.0 时 raw=22px，应保持默认卡片圆角");
     assert_eq!(
-        zoomed_in, 22.0,
-        "zoom=2.0 时 raw=32px，应 clamp 到 22px 最大卡片圆角"
+        zoomed_in, 28.0,
+        "zoom=2.0 时 raw=44px，应 clamp 到 28px 最大卡片圆角"
     );
     assert_eq!(
         title_radius, normal,
