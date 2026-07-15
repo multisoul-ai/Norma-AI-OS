@@ -92,6 +92,21 @@ Boundary rules:
 - `asr` must not depend on GPUI, Sherpa, app, runtime, storage, or UI.
 - Network download and progress live in `app`; Sherpa recognizer configuration lives in `voice_sherpa`.
 
+## `model_store` and `tts`
+
+Purpose: keep common local-model installation mechanics separate from engine-neutral TTS policy.
+
+- `model_store/src/lib.rs` and `installation.rs` - archive SHA-256, safe extraction, manifest validation, supplemental artifacts, and atomic promotion. It has no GPUI, network, app, runtime, storage, or Sherpa dependency.
+- `tts/src/model_id.rs` - stable `TtsModelId` and `TtsVoiceId`.
+- `tts/src/catalog.rs` - curated model packages, capability metadata, backend family, and recommended voices.
+- `tts/src/installation.rs` - TTS-specific root paths and validation over `model_store` primitives.
+
+Boundary rules:
+
+- `tts -> model_store`; neither crate depends on GPUI, app, runtime, storage, or UI.
+- `tts` does not depend on Sherpa; `voice_sherpa` consumes validated TTS models to create the engine adapter.
+- Network transfer, progress, cancellation, selection, and deletion orchestration live in `app`.
+
 ## `ui` and `app`
 
 Purpose: GPUI shell and rendering.
@@ -112,7 +127,7 @@ Important files:
 
 **Crate 分能力，文件夹分职责，逻辑沉底、适配上浮。**
 
-1. Pure logic → domain crate (`canvas`, `terminal`, `runtime`, `storage`, `voice`).
+1. Pure logic → domain crate (`canvas`, `terminal`, `runtime`, `storage`, `model_store`, `tts`, `voice`).
 2. GPUI binding / side effects → `app` or `ui`.
 3. Folder names = responsibility (`route`, `settings`), not tech layer (`handlers`, `views`).
 
@@ -134,6 +149,8 @@ crates/
 ├── runtime/src/      route, focus, nodes/{term,agent}
 ├── storage/src/      *_store.rs
 ├── asr/src/          catalog, installation, support        # 零 GPUI/Sherpa/network
+├── model_store/src/  installation                             # 零 GPUI/network
+├── tts/src/          model_id, catalog, installation          # 零 GPUI/Sherpa
 └── app/src/          GPUI 壳，按体验域分
     ├── main.rs       boot only
     ├── app/          MultisoulApp, keyboard, lifecycle

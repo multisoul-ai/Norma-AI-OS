@@ -17,6 +17,8 @@ Workspace crates:
 - `runtime` - domain crate for focus state, input routing, LiveNode registry, and node lifecycle glue.
 - `agent` - GPUI-free unified Dialogue/CardTask/Provider runtime with injected card tools and journal.
 - `asr` - GPUI/Sherpa-free model identity, curated catalog, installation manifest, integrity, and shared VAD support artifacts.
+- `model_store` - GPUI/network-free shared local-model archive, manifest, integrity, and atomic-install primitives.
+- `tts` - GPUI/Sherpa-free Local TTS model/voice identity, catalog, capability, and installation-validation domain.
 - `ui` - GPUI-facing shared UI: theme, icons, and `gpui-component` re-export (`ui::component`).
 - `app` - GPUI/Metal shell: window boot, menus, key bindings, canvas interaction, and terminal rendering.
 
@@ -24,14 +26,15 @@ Core Cargo dependency direction is:
 
 ```text
 agent -> norma
-app -> {ui, runtime, canvas, terminal, storage, asr} (AgentSystem adapter pending)
-voice_sherpa -> {asr, dialogue, audio}
+app -> {ui, runtime, canvas, terminal, storage, asr, tts, voice_sherpa}
+voice_sherpa -> {asr, tts, dialogue, audio}
+tts -> model_store
 runtime -> {canvas, terminal, storage}
 storage -> {agent, canvas, workspace, rusqlite}
 ui -> {gpui, gpui-component}
 ```
 
-`asr`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` also remains free of Sherpa; engine configuration belongs in `voice_sherpa`.
+`asr`, `model_store`, `tts`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` and `tts` also remain free of Sherpa; engine configuration belongs in `voice_sherpa`. `model_store` and `tts` must not depend on app/runtime/storage/ui.
 
 ## 2. Key Constraints
 
@@ -94,7 +97,7 @@ cargo run -p app
 Domain tests:
 
 ```bash
-cargo test -p canvas -p terminal -p runtime -p storage
+cargo test -p canvas -p terminal -p runtime -p storage -p model_store -p tts
 cargo test -p agent
 ```
 

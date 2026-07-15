@@ -2,7 +2,7 @@
 
 本文汇总 Norma OS 当前可配置快捷键与键盘/指针交互契约。macOS 上 `Cmd` 对应 GPUI 的 `platform` 修饰键（⌘）。
 
-最后对照源码：`crates/app/src/shortcuts.rs`、`crates/app/src/app/keyboard.rs`、`crates/app/src/settings/keyboard.rs`、`crates/app/src/canvas/view.rs`、`crates/app/src/app/new_menu.rs`（2026-06-28）。
+最后对照源码：`crates/app/src/shortcuts.rs`、`crates/app/src/app/keyboard.rs`、`crates/app/src/settings/keyboard.rs`、`crates/app/src/canvas/view.rs`、`crates/app/src/app/new_menu.rs`（2026-07-15）。
 
 ## 1. 注册机制
 
@@ -34,13 +34,16 @@ canvas/view.rs
 
 | 默认快捷键 | Command | 处理器 | 生效界面 | 行为 |
 | --- | --- | --- | --- | --- |
+| `⌘⇧N` | `NewWindow` | `on_new_window` | 全局 | 打开新的 Launchpad 窗口，不创建画布节点 |
 | `⌘N` | `NewTerminal` | `on_new_terminal` | Canvas | 在可见画布区域新建 Terminal 节点，激活选中并触发当前布局 reflow |
+| 未设置 | `NewBrowser` | `on_new_browser` | Canvas | 在可见画布区域创建 Browser 卡片 |
 | `⌘C` | `CopyCardContent` | `on_copy_card_content` | Canvas | 复制当前终端文本选区到剪贴板；无选区时不写入 |
 | `⌘O` | `OpenProject` | `on_open_project` | 全局 | 弹出目录选择器打开 workspace（Launchpad / Canvas 均可用） |
 | `⌘⇧O` | `OpenPreviewFile` | `on_open_preview_file` | Canvas | 弹出文件选择器，创建 Preview 卡片 |
 | 未设置 | `NewClaudeAgent` | `on_new_claude_agent` | Canvas | 创建 Claude Code agent 卡片 |
 | 未设置 | `NewCodexAgent` | `on_new_codex_agent` | Canvas | 创建 Codex agent 卡片 |
 | `⌘⇧C` | `NewCursorAgent` | `on_new_cursor_agent` | Canvas | 创建 Cursor Agent CLI 卡片 |
+| 未设置 | `NewOpenCodeAgent` | `on_new_opencode_agent` | Canvas | 创建 OpenCode Agent CLI 卡片 |
 | `⌘D` | `DeleteCard` | `on_delete_card_shortcut` | Canvas | 删除当前聚焦卡片；无聚焦时仅删除唯一选中的画布卡片 |
 | `⌘M` | `ToggleMasterLayout` | `on_toggle_master_layout` | Canvas | 切换 master/detail 布局；无选中时忽略 |
 | `⌘⇧L` | `ReflowLayout` | `on_reflow_layout` | Canvas | 退出 master 模式并按最多三列平铺网格重排全部节点 |
@@ -69,10 +72,10 @@ canvas/view.rs
 
 以下命令在 `AppScreen::Launchpad` 下会直接返回或设置错误提示，不执行画布操作：
 
-- `NewTerminal`、`OpenPreviewFile`、`NewClaudeAgent`、`NewCodexAgent`、`NewCursorAgent`、`DeleteCard`、`ToggleMasterLayout`、`ReflowLayout`、`ToggleSettings`
+- `NewTerminal`、`NewBrowser`、`OpenPreviewFile`、`NewClaudeAgent`、`NewCodexAgent`、`NewCursorAgent`、`NewOpenCodeAgent`、`DeleteCard`、`ToggleMasterLayout`、`ReflowLayout`、`ToggleSettings`
 - `CopyCardContent`（静默忽略）
 
-`OpenProject`、`ExitFocus` 不受 Canvas 限制。
+`NewWindow`、`OpenProject`、`ExitFocus` 不受 Canvas 限制。
 
 ### Settings 页面校验规则
 
