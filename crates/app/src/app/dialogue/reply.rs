@@ -6,6 +6,7 @@ use crate::app::voice::playback::{
 };
 #[cfg(test)]
 use dialogue::DialoguePhase;
+#[cfg(test)]
 use dialogue::DialogueSession;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -82,6 +83,7 @@ impl ReplyPlayback {
         Self { sink }
     }
 
+    #[cfg(test)]
     pub(crate) fn play_chunk(
         &mut self,
         chunk: &audio::PcmAudioChunk,
@@ -129,6 +131,7 @@ pub(crate) fn apply_reply_synthesis(
     schedule_reply_chunk(session, playback, &chunk)
 }
 
+#[cfg(test)]
 pub(crate) fn schedule_reply_chunk(
     session: &mut DialogueSession,
     playback: &mut ReplyPlayback,
@@ -137,12 +140,14 @@ pub(crate) fn schedule_reply_chunk(
     session
         .on_reply_ready()
         .map_err(|error| SpeechError::Recognizer(error.to_string()))?;
-    playback.play_chunk(&chunk)
+    playback.play_chunk(chunk)
 }
 
-static TTS_CLIENT_FACTORY: Mutex<Option<fn() -> Result<TtsClientBox, SpeechError>>> =
-    Mutex::new(None);
-static AUDIO_SINK_FACTORY: Mutex<Option<fn() -> Box<dyn AssistantAudioSink>>> = Mutex::new(None);
+type TtsClientFactory = fn() -> Result<TtsClientBox, SpeechError>;
+type AssistantAudioSinkFactory = fn() -> Box<dyn AssistantAudioSink>;
+
+static TTS_CLIENT_FACTORY: Mutex<Option<TtsClientFactory>> = Mutex::new(None);
+static AUDIO_SINK_FACTORY: Mutex<Option<AssistantAudioSinkFactory>> = Mutex::new(None);
 
 pub(crate) fn create_tts_client() -> Result<TtsClientBox, SpeechError> {
     if let Some(factory) = *TTS_CLIENT_FACTORY
@@ -169,18 +174,14 @@ pub(crate) fn create_preview_audio_sink() -> Box<dyn AssistantAudioSink> {
 }
 
 #[cfg(test)]
-pub(crate) fn set_tts_client_factory_for_tests(
-    factory: Option<fn() -> Result<TtsClientBox, SpeechError>>,
-) {
+pub(crate) fn set_tts_client_factory_for_tests(factory: Option<TtsClientFactory>) {
     *TTS_CLIENT_FACTORY
         .lock()
         .expect("tts client factory lock should not be poisoned") = factory;
 }
 
 #[cfg(test)]
-pub(crate) fn set_audio_sink_factory_for_tests(
-    factory: Option<fn() -> Box<dyn AssistantAudioSink>>,
-) {
+pub(crate) fn set_audio_sink_factory_for_tests(factory: Option<AssistantAudioSinkFactory>) {
     *AUDIO_SINK_FACTORY
         .lock()
         .expect("audio sink factory lock should not be poisoned") = factory;

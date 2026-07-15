@@ -16,11 +16,14 @@ pub(super) enum SettingsNavigationMode {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) enum SettingsSection {
+    #[cfg(test)]
     General,
     Keyboard,
+    #[cfg(test)]
     Runtime,
     Voice,
     Agents,
+    #[cfg(test)]
     Skills,
     Hooks,
     Wallpaper,
@@ -41,6 +44,7 @@ impl SettingsSection {
 
     fn metadata(self) -> SettingsSectionMetadata {
         match self {
+            #[cfg(test)]
             Self::General => SettingsSectionMetadata {
                 title: "General",
                 icon_asset: None,
@@ -53,6 +57,7 @@ impl SettingsSection {
                 index: 1,
                 debug_selector: "settings-section-keyboard",
             },
+            #[cfg(test)]
             Self::Runtime => SettingsSectionMetadata {
                 title: "Runtime",
                 icon_asset: None,
@@ -71,6 +76,7 @@ impl SettingsSection {
                 index: 4,
                 debug_selector: "settings-section-agents",
             },
+            #[cfg(test)]
             Self::Skills => SettingsSectionMetadata {
                 title: "Skills",
                 icon_asset: None,

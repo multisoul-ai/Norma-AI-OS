@@ -1,4 +1,4 @@
-mod support;
+pub mod support;
 
 use agent::{
     AgentCommand, AgentProvider, AgentRosterEntry, AgentSystem, AgentTrackingMode, CardTaskBudget,

@@ -35,8 +35,8 @@ impl VoiceSettingsInputs {
     ) -> Self {
         let base_url = new_input(
             VoiceInputConfig {
-                field: VoiceSettingsField::AgentBaseUrl,
-                value: state.editor_value(VoiceSettingsField::AgentBaseUrl),
+                field: VoiceSettingsField::BaseUrl,
+                value: state.editor_value(VoiceSettingsField::BaseUrl),
                 placeholder: "https://api.example.com/v1",
                 masked: false,
                 theme,
@@ -47,8 +47,8 @@ impl VoiceSettingsInputs {
         );
         let model = new_input(
             VoiceInputConfig {
-                field: VoiceSettingsField::AgentModel,
-                value: state.editor_value(VoiceSettingsField::AgentModel),
+                field: VoiceSettingsField::Model,
+                value: state.editor_value(VoiceSettingsField::Model),
                 placeholder: "Model name",
                 masked: false,
                 theme,
@@ -59,9 +59,9 @@ impl VoiceSettingsInputs {
         );
         let api_key = new_input(
             VoiceInputConfig {
-                field: VoiceSettingsField::AgentApiKey,
-                value: state.editor_value(VoiceSettingsField::AgentApiKey),
-                placeholder: status::input_placeholder(state, VoiceSettingsField::AgentApiKey),
+                field: VoiceSettingsField::ApiKey,
+                value: state.editor_value(VoiceSettingsField::ApiKey),
+                placeholder: status::input_placeholder(state, VoiceSettingsField::ApiKey),
                 masked: true,
                 theme,
             },
@@ -78,9 +78,9 @@ impl VoiceSettingsInputs {
 
     pub(crate) fn input(&self, field: VoiceSettingsField) -> Entity<VoiceTextInput> {
         match field {
-            VoiceSettingsField::AgentBaseUrl => self.base_url.clone(),
-            VoiceSettingsField::AgentModel => self.model.clone(),
-            VoiceSettingsField::AgentApiKey => self.api_key.clone(),
+            VoiceSettingsField::BaseUrl => self.base_url.clone(),
+            VoiceSettingsField::Model => self.model.clone(),
+            VoiceSettingsField::ApiKey => self.api_key.clone(),
         }
     }
 
@@ -90,9 +90,9 @@ impl VoiceSettingsInputs {
         cx: &mut Context<MultisoulApp>,
     ) {
         for field in [
-            VoiceSettingsField::AgentBaseUrl,
-            VoiceSettingsField::AgentModel,
-            VoiceSettingsField::AgentApiKey,
+            VoiceSettingsField::BaseUrl,
+            VoiceSettingsField::Model,
+            VoiceSettingsField::ApiKey,
         ] {
             self.sync_field_from_state(field, state, cx);
         }

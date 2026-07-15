@@ -1,4 +1,4 @@
-mod support;
+pub mod support;
 
 use agent::{parse_openai_stream, AgentCommand, AgentEvent, ProviderStreamEvent, ProviderToolCall};
 use norma::protocol::CardCommand;

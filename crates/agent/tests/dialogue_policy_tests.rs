@@ -1,4 +1,4 @@
-mod support;
+pub mod support;
 
 use agent::{AgentCommand, AgentEvent, AgentRosterEntry, AgentTrackingMode};
 use norma::protocol::AgentProfile;

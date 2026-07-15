@@ -75,8 +75,10 @@ fn test_enter_workspace_defers_live_terminal_restore_for_saved_card() {
 
     let opened = enter_workspace_for_path(
         &mut runtime,
-        &mut motion,
-        &mut master_layout,
+        WorkspaceCanvasState {
+            motion: &mut motion,
+            master_layout: &mut master_layout,
+        },
         &mut persistence,
         &mut agent_definitions,
         &mut screen,
@@ -210,8 +212,10 @@ fn test_enter_workspace_starts_profile_specific_intro_for_restored_live_cards() 
 
     enter_workspace_for_path(
         &mut runtime,
-        &mut motion,
-        &mut master_layout,
+        WorkspaceCanvasState {
+            motion: &mut motion,
+            master_layout: &mut master_layout,
+        },
         &mut persistence,
         &mut agent_definitions,
         &mut screen,
@@ -372,8 +376,10 @@ fn test_enter_workspace_restores_saved_master_layout_state() {
 
     let result = enter_workspace_for_path(
         &mut runtime,
-        &mut motion,
-        &mut master_layout,
+        WorkspaceCanvasState {
+            motion: &mut motion,
+            master_layout: &mut master_layout,
+        },
         &mut persistence,
         &mut agent_definitions,
         &mut screen,

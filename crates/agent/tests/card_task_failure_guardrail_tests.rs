@@ -1,4 +1,4 @@
-mod support;
+pub mod support;
 
 use agent::{AgentCommand, AgentEvent};
 use norma::protocol::{CardSummary, CardSummaryKind};
@@ -63,25 +63,27 @@ fn card_task_invalid_tool_call_remains_unresolved_after_an_unrelated_success() {
 /// 预期结果：focus_card(#43) 仍是未恢复失败，任务失败且不得因 #42 的恢复转为成功。
 #[test]
 fn card_task_requires_every_failed_operation_to_be_recovered() {
-    let mut host = RecordingHost::default();
-    host.listed_cards = vec![
-        CardSummary {
-            node_id: 42,
-            title: "terminal-a".to_string(),
-            alias: None,
-            kind: CardSummaryKind::Terminal,
-            selected: false,
-            focused: false,
-        },
-        CardSummary {
-            node_id: 43,
-            title: "terminal-b".to_string(),
-            alias: None,
-            kind: CardSummaryKind::Terminal,
-            selected: false,
-            focused: false,
-        },
-    ];
+    let host = RecordingHost {
+        listed_cards: vec![
+            CardSummary {
+                node_id: 42,
+                title: "terminal-a".to_string(),
+                alias: None,
+                kind: CardSummaryKind::Terminal,
+                selected: false,
+                focused: false,
+            },
+            CardSummary {
+                node_id: 43,
+                title: "terminal-b".to_string(),
+                alias: None,
+                kind: CardSummaryKind::Terminal,
+                selected: false,
+                focused: false,
+            },
+        ],
+        ..RecordingHost::default()
+    };
     let mut system = system(
         ScriptedProvider::default(),
         ScriptedProvider::new([

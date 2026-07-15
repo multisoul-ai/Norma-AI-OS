@@ -122,23 +122,29 @@ fn test_resolve_audio_input_device_missing_saved_id_returns_error() {
 /// 数据构造（含关键数值的推导过程）：
 ///   Packager minimum-system-version = 12.0
 ///   AVCaptureDeviceTypeMicrophone 仅在 macOS 14+ 的 AVFoundation 中导出
-///   BuiltInMicrophone 在 Ventura 及更早版本可用
+///   BuiltInMicrophone 字符串值在 Ventura 及更早版本可用
+///   两个 AVFoundation 静态符号引用数 = 0，避免新符号缺失与旧符号弃用
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 devices.rs 源码
-///   2. 确认 discovery session 使用 BuiltInMicrophone
-///   3. 确认未引用 macOS 14+ 专用 discovery 符号
+///   2. 确认 discovery session 通过 NSString 运行时构造 BuiltInMicrophone 类型
+///   3. 确认未静态引用旧 BuiltInMicrophone 或 macOS 14+ Microphone 符号
 ///
 /// 预期结果：
-///   - 正断言：源码包含 AVCaptureDeviceTypeBuiltInMicrophone
-///   - 负断言：源码不包含 macOS 14+ discovery 符号引用，避免 Ventura dyld abort
+///   - 正断言：源码通过 NSString::from_str 构造 BuiltInMicrophone 类型
+///   - 负断言：源码不静态引用旧弃用符号或 macOS 14+ discovery 符号
 #[test]
 fn test_list_audio_input_devices_uses_macos_12_compatible_capture_device_type() {
     let source = include_str!("../../src/devices.rs");
 
     assert!(
-        source.contains("AVCaptureDeviceTypeBuiltInMicrophone"),
-        "microphone discovery should use AVCaptureDeviceTypeBuiltInMicrophone for macOS 12+ compatibility"
+        source.contains("NSString::from_str(\"AVCaptureDeviceTypeBuiltInMicrophone\")"),
+        "microphone discovery should construct the macOS 12-compatible device type at runtime"
+    );
+    assert!(
+        !source.contains("AVCaptureDeviceTypeBuiltInMicrophone, AVMediaTypeAudio")
+            && !source.contains("unsafe { AVCaptureDeviceTypeBuiltInMicrophone }"),
+        "the deprecated BuiltInMicrophone static must not be linked or Clippy will fail"
     );
     assert!(
         !source.contains("AVCaptureDeviceTypeMicrophone,")

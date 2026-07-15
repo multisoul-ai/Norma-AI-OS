@@ -17,7 +17,7 @@ pub(super) fn agent_provider_group(
         .child(text_setting_row(
             theme,
             inputs,
-            VoiceSettingsField::AgentModel,
+            VoiceSettingsField::Model,
             "Model",
             "Model used by Dialogue and Card Subagent",
             cx,
@@ -37,7 +37,7 @@ pub(super) fn agent_provider_advanced_rows(
         .child(text_setting_row(
             theme,
             inputs,
-            VoiceSettingsField::AgentBaseUrl,
+            VoiceSettingsField::BaseUrl,
             "Base URL",
             "Base URL for the selected Ollama or OpenAI-compatible provider",
             cx,
@@ -155,7 +155,7 @@ fn api_key_row(theme: Theme, inputs: &VoiceSettingsInputs, cx: &mut Context<Mult
             .flex_wrap()
             .items_center()
             .gap(px(10.0))
-            .child(inputs.input(VoiceSettingsField::AgentApiKey))
+            .child(inputs.input(VoiceSettingsField::ApiKey))
             .child(
                 action_button(theme, "Clear", theme.destructive)
                     .id("settings-agent-provider-api-key-clear")

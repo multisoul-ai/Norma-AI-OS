@@ -134,17 +134,17 @@ pub(crate) struct VoiceSettingsValues {
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum VoiceSettingsField {
-    AgentBaseUrl,
-    AgentModel,
-    AgentApiKey,
+    BaseUrl,
+    Model,
+    ApiKey,
 }
 
 impl VoiceSettingsField {
     pub(crate) fn stable_name(self) -> &'static str {
         match self {
-            Self::AgentBaseUrl => "agent_base_url",
-            Self::AgentModel => "agent_model",
-            Self::AgentApiKey => "agent_api_key",
+            Self::BaseUrl => "agent_base_url",
+            Self::Model => "agent_model",
+            Self::ApiKey => "agent_api_key",
         }
     }
 }
@@ -309,6 +309,7 @@ impl VoiceSettingsValues {
         Ok(config)
     }
 
+    #[cfg(test)]
     pub(crate) fn ollama_endpoint(&self) -> &str {
         &self.ollama_endpoint
     }
@@ -317,14 +318,12 @@ impl VoiceSettingsValues {
         &self.planner_model
     }
 
+    #[cfg(test)]
     pub(crate) fn dialogue_llm_mode(&self) -> DialogueLlmMode {
         self.dialogue_llm_mode
     }
 
-    pub(crate) fn dialogue_model(&self) -> &str {
-        &self.dialogue_model
-    }
-
+    #[cfg(test)]
     pub(crate) fn refine_model(&self) -> &str {
         &self.refine_model
     }
@@ -423,9 +422,9 @@ impl SavedVoiceSettings {
 impl VoiceSettingsField {
     pub(crate) fn index(self) -> usize {
         match self {
-            Self::AgentBaseUrl => 0,
-            Self::AgentModel => 1,
-            Self::AgentApiKey => 2,
+            Self::BaseUrl => 0,
+            Self::Model => 1,
+            Self::ApiKey => 2,
         }
     }
 }

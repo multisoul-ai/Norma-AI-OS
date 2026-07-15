@@ -1,4 +1,4 @@
-mod support;
+pub mod support;
 
 use agent::{
     AgentCommand, AgentEvent, AgentProvider, AgentSystem, CardTaskBudget, MemoryJournal,
@@ -363,8 +363,10 @@ fn budget_exceeded_stops_before_next_tool_call() {
         tool("card-call-1", "create_card", r#"{"kind":"terminal"}"#),
         tool("card-call-2", "create_card", r#"{"kind":"terminal"}"#),
     ])]);
-    let mut budget = CardTaskBudget::default();
-    budget.max_tool_calls = 1;
+    let budget = CardTaskBudget {
+        max_tool_calls: 1,
+        ..CardTaskBudget::default()
+    };
     let mut system = AgentSystem::new(
         "project-a",
         dialogue,

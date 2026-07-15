@@ -130,6 +130,29 @@ impl TtsCapabilities {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TtsModelRecommendation {
+    recommended_voice_id: TtsVoiceId,
+    model_recommended: bool,
+}
+
+impl TtsModelRecommendation {
+    pub fn new(recommended_voice_id: TtsVoiceId, model_recommended: bool) -> Self {
+        Self {
+            recommended_voice_id,
+            model_recommended,
+        }
+    }
+
+    pub fn recommended_voice_id(&self) -> &TtsVoiceId {
+        &self.recommended_voice_id
+    }
+
+    pub fn model_recommended(&self) -> bool {
+        self.model_recommended
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TtsModelDescriptor {
     id: TtsModelId,
     display_name: String,
@@ -137,8 +160,7 @@ pub struct TtsModelDescriptor {
     capabilities: TtsCapabilities,
     package: TtsModelPackage,
     voices: Vec<TtsVoiceDescriptor>,
-    recommended_voice_id: TtsVoiceId,
-    recommended: bool,
+    recommendation: TtsModelRecommendation,
 }
 
 impl TtsModelDescriptor {
@@ -149,8 +171,7 @@ impl TtsModelDescriptor {
         capabilities: TtsCapabilities,
         package: TtsModelPackage,
         voices: Vec<TtsVoiceDescriptor>,
-        recommended_voice_id: TtsVoiceId,
-        recommended: bool,
+        recommendation: TtsModelRecommendation,
     ) -> Self {
         Self {
             id,
@@ -159,8 +180,7 @@ impl TtsModelDescriptor {
             capabilities,
             package,
             voices,
-            recommended_voice_id,
-            recommended,
+            recommendation,
         }
     }
 
@@ -183,7 +203,7 @@ impl TtsModelDescriptor {
         &self.voices
     }
     pub fn recommended(&self) -> bool {
-        self.recommended
+        self.recommendation.model_recommended()
     }
 
     pub fn resolve_voice_id(&self, requested: Option<&str>) -> &TtsVoiceId {
@@ -194,7 +214,7 @@ impl TtsModelDescriptor {
                     .find(|voice| voice.id().as_str() == requested)
             })
             .map(TtsVoiceDescriptor::id)
-            .unwrap_or(&self.recommended_voice_id)
+            .unwrap_or_else(|| self.recommendation.recommended_voice_id())
     }
 
     pub fn voice(&self, id: &TtsVoiceId) -> Option<&TtsVoiceDescriptor> {
@@ -250,8 +270,7 @@ pub fn builtin_model_catalog() -> TtsModelCatalog {
                     )],
                 ),
                 vec![default.clone()],
-                default.id().clone(),
-                true,
+                TtsModelRecommendation::new(default.id().clone(), true),
             ),
             descriptor(
                 KOKORO_MULTI_LANG_MODEL_ID,
@@ -268,8 +287,7 @@ pub fn builtin_model_catalog() -> TtsModelCatalog {
                     Vec::new(),
                 ),
                 vec![heart.clone(), bella],
-                heart.id().clone(),
-                false,
+                TtsModelRecommendation::new(heart.id().clone(), false),
             ),
         ],
     }
@@ -282,8 +300,7 @@ fn descriptor(
     capabilities: TtsCapabilities,
     package: TtsModelPackage,
     voices: Vec<TtsVoiceDescriptor>,
-    recommended_voice_id: TtsVoiceId,
-    recommended: bool,
+    recommendation: TtsModelRecommendation,
 ) -> TtsModelDescriptor {
     TtsModelDescriptor::new(
         TtsModelId::parse(id).expect("built-in TTS model id must be valid"),
@@ -292,8 +309,7 @@ fn descriptor(
         capabilities,
         package,
         voices,
-        recommended_voice_id,
-        recommended,
+        recommendation,
     )
 }
 

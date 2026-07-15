@@ -17,7 +17,7 @@ pub(crate) fn pcm16_chunk_to_f32_samples(chunk: &PcmAudioChunk) -> Result<Vec<f3
             chunk.channels
         ));
     }
-    if chunk.bytes.len() % 2 != 0 {
+    if !chunk.bytes.len().is_multiple_of(2) {
         return Err("PCM16 byte length must be even".to_string());
     }
     Ok(chunk

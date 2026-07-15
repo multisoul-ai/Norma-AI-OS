@@ -440,15 +440,6 @@ fn node_error(node_id: NodeId, error: NodeError) -> CardCommandError {
     }
 }
 
-fn canvas_agent_profile(value: AgentProfile) -> CanvasAgentProfile {
-    match value {
-        AgentProfile::Claude => CanvasAgentProfile::Claude,
-        AgentProfile::Codex => CanvasAgentProfile::Codex,
-        AgentProfile::Cursor => CanvasAgentProfile::Cursor,
-        AgentProfile::OpenCode => CanvasAgentProfile::OpenCode,
-    }
-}
-
 fn norma_agent_profile(value: CanvasAgentProfile) -> AgentProfile {
     match value {
         CanvasAgentProfile::Claude => AgentProfile::Claude,

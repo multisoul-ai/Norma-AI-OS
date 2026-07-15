@@ -34,7 +34,7 @@ impl PcmAudioChunk {
         if channels != 1 {
             return Err(PcmAudioError::InvalidChannels);
         }
-        if matches!(format, PcmFormat::Pcm16) && bytes.len() % 2 != 0 {
+        if matches!(format, PcmFormat::Pcm16) && !bytes.len().is_multiple_of(2) {
             return Err(PcmAudioError::InvalidPcm16Length);
         }
         Ok(Self {

@@ -68,7 +68,6 @@ impl MultisoulApp {
             agent_runtime: None,
             agent_task_coordinator: None,
             pending_agent_close_confirmation: None,
-            pending_voice_commands: Vec::new(),
             focus_handle,
             wallpaper_settings,
             #[cfg(target_os = "macos")]

@@ -6,6 +6,8 @@ use canvas::AgentProfile;
 use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 use std::path::PathBuf;
 
+type AgentDefinitionRow = (i64, String, String, String, i64, i64, Option<String>);
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentDefinition {
     pub id: i64,
@@ -237,9 +239,7 @@ fn reject_name_conflict(
     Ok(())
 }
 
-fn decode_agent_definition_row(
-    row: &rusqlite::Row<'_>,
-) -> rusqlite::Result<(i64, String, String, String, i64, i64, Option<String>)> {
+fn decode_agent_definition_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<AgentDefinitionRow> {
     Ok((
         row.get(0)?,
         row.get(1)?,

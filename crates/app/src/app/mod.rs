@@ -130,7 +130,6 @@ pub struct MultisoulApp {
     pub(crate) agent_runtime: Option<agent_runtime::ProjectAgentRuntime>,
     pub(crate) agent_task_coordinator: Option<agent::AgentTaskCoordinator>,
     pub(crate) pending_agent_close_confirmation: Option<NodeId>,
-    pub(crate) pending_voice_commands: Vec<::voice::ExecutableCommand>,
     pub focus_handle: FocusHandle,
     pub(crate) wallpaper_settings: WallpaperSettingsState,
     #[cfg(target_os = "macos")]
@@ -451,9 +450,6 @@ impl Render for MultisoulApp {
                     .child(self.render_workspace_chrome(window, cx));
                 if let Some(visual) = self.voice_window_inset.visual() {
                     root = root.child(voice_window_inset::render(visual));
-                }
-                if let Some(modal) = self.render_voice_confirmation_modal(cx) {
-                    root = root.child(modal);
                 }
                 if self.settings_panel.open {
                     root = root.child(self.render_settings_panel(window, cx));

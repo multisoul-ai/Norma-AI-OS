@@ -85,6 +85,7 @@ impl AsrModelManagerState {
         &self.entries
     }
 
+    #[cfg(test)]
     pub(crate) fn installation(&self, id: &AsrModelId) -> Option<&AsrModelInstallState> {
         self.entries
             .iter()

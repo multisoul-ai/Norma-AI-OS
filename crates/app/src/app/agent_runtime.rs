@@ -37,6 +37,17 @@ struct AgentToolRequest {
     result_tx: mpsc::Sender<Result<CardCommandResult, String>>,
 }
 
+struct ProjectAgentWorker {
+    project_id: String,
+    project_db_path: Option<std::path::PathBuf>,
+    config: agent::ProviderConfig,
+    tool_tx: async_channel::Sender<AgentToolRequest>,
+    requests: async_channel::Receiver<AgentRequest>,
+    events: async_channel::Sender<AgentEvent>,
+    cancelled: Arc<std::sync::atomic::AtomicBool>,
+    dialogue_cancelled: Arc<std::sync::atomic::AtomicBool>,
+}
+
 impl AgentToolRequest {
     fn complete(self, result: Result<CardCommandResult, String>) {
         let _ = self.result_tx.send(result);
@@ -148,16 +159,16 @@ impl ProjectAgentRuntime {
         std::thread::Builder::new()
             .name("norma-project-agent".to_string())
             .spawn(move || {
-                run_project_agent(
-                    worker_project_id,
+                run_project_agent(ProjectAgentWorker {
+                    project_id: worker_project_id,
                     project_db_path,
-                    worker_config,
+                    config: worker_config,
                     tool_tx,
-                    request_rx,
-                    event_tx,
-                    worker_cancelled,
-                    worker_dialogue_cancelled,
-                )
+                    requests: request_rx,
+                    events: event_tx,
+                    cancelled: worker_cancelled,
+                    dialogue_cancelled: worker_dialogue_cancelled,
+                })
             })
             .map_err(|error| format!("could not start project agent: {error}"))?;
         Ok((
@@ -214,16 +225,17 @@ impl Drop for ProjectAgentRuntime {
     }
 }
 
-fn run_project_agent(
-    project_id: String,
-    project_db_path: Option<std::path::PathBuf>,
-    config: agent::ProviderConfig,
-    tool_tx: async_channel::Sender<AgentToolRequest>,
-    requests: async_channel::Receiver<AgentRequest>,
-    events: async_channel::Sender<AgentEvent>,
-    cancelled: Arc<std::sync::atomic::AtomicBool>,
-    dialogue_cancelled: Arc<std::sync::atomic::AtomicBool>,
-) {
+fn run_project_agent(worker: ProjectAgentWorker) {
+    let ProjectAgentWorker {
+        project_id,
+        project_db_path,
+        config,
+        tool_tx,
+        requests,
+        events,
+        cancelled,
+        dialogue_cancelled,
+    } = worker;
     let dialogue = match agent::ConfiguredProvider::new(config.clone()) {
         Ok(provider) => provider,
         Err(error) => return reject_startup(requests, events, error.to_string()),

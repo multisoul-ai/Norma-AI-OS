@@ -134,13 +134,13 @@ pub(super) fn on_mouse_down(
         if !is_title_bar {
             if let Some(point) = terminal_link_point_for_screen(app, id, screen) {
                 app.motion.interrupt_initialization(id);
-                let intent = app.runtime.node_view(id).and_then(|view| match view {
-                    runtime::NodeView::Term { snapshot, .. } => Some(terminal_link_intent(
+                let intent = app.runtime.node_view(id).map(|view| match view {
+                    runtime::NodeView::Term { snapshot, .. } => terminal_link_intent(
                         &snapshot,
                         point,
                         ev.modifiers.platform,
                         ev.click_count,
-                    )),
+                    ),
                 });
                 match intent.unwrap_or(TerminalLinkIntent::BeginTextSelection) {
                     intent @ (TerminalLinkIntent::OpenBrowserCard { .. }

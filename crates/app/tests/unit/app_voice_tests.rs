@@ -2,7 +2,7 @@ use super::dictation::{final_voice_text_action, FinalVoiceTextAction};
 use super::{
     microphone_permission_recovery_url, microphone_privacy_settings_url,
     voice_recording_input_device_id_from_value, voice_transcript_source_from_value,
-    VoicePlanningJob, VoicePlanningResult, VoiceTranscriptSource, DEFAULT_MAX_VOICE_STEPS,
+    VoiceTranscriptSource,
 };
 use voice_sherpa::SpeechError;
 
@@ -78,36 +78,6 @@ fn test_microphone_permission_denied_offers_only_the_microphone_settings_recover
     );
 }
 
-/// AV-0: 默认 voice planner 步数应覆盖“四张卡片 + 一次输入”的复合语音。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   Codex card      = 1 create command
-///   Claude Code card = 1 create command
-///   Terminal cards  = 2 create commands
-///   input hi        = 1 send_text command
-///   Total           = 1 + 1 + 2 + 1 = 5 commands
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 app 传给 VoicePlanningRequest 的 DEFAULT_MAX_VOICE_STEPS
-///   2. 与复合语音所需 5 步比较
-///
-/// 预期结果：
-///   - 正断言：默认 max steps 至少为 5，能表达用户的四卡片加输入场景
-///   - 负断言：默认 max steps 不应继续是旧的 2，否则 LLM 被 prompt 限死
-#[test]
-fn test_default_voice_steps_cover_four_cards_then_input() {
-    let required_steps = 1 + 1 + 2 + 1;
-
-    assert!(
-        DEFAULT_MAX_VOICE_STEPS >= required_steps,
-        "默认 voice planner 步数至少应覆盖 4 个 create + 1 个 send_text"
-    );
-    assert_ne!(
-        DEFAULT_MAX_VOICE_STEPS, 2,
-        "默认 voice planner 步数不应继续是旧的两步限制"
-    );
-}
-
 /// AV-1: 未设置开发 fallback 时，语音入口应选择真实 Apple Speech。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -166,30 +136,6 @@ fn test_voice_source_uses_env_transcript_as_hidden_fallback() {
         VoiceTranscriptSource::AppleSpeech,
         "设置 env fallback 时不应打开 Apple Speech 麦克风 provider"
     );
-}
-
-fn assert_send<T: Send>() {}
-
-/// AV-3: 语音 planning job 的输入与输出必须可跨线程移动。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   finalizer 在 background executor 完成后，会把 raw transcript 交给 planning job
-///   planning job 内含 VoicePlanningRequest + VoiceSettingsValues + transcript 字符串
-///   background executor 要求 job capture 和 result 都满足 Send
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 编译期调用 assert_send::<VoicePlanningJob>()
-///   2. 编译期调用 assert_send::<VoicePlanningResult>()
-///   3. 若 job/result 捕获 Window、Context、MultisoulApp 或非 Send 状态，测试无法编译
-///
-/// 预期结果：
-///   - 正断言：VoicePlanningJob 可 Send，可进入 background executor
-///   - 正断言：VoicePlanningResult 可 Send，可从后台返回 UI task
-///   - 负断言：planning job 不应携带 GPUI Window/Context 或整个 app 状态
-#[test]
-fn test_voice_planning_job_and_result_are_send() {
-    assert_send::<VoicePlanningJob>();
-    assert_send::<VoicePlanningResult>();
 }
 
 /// AV-3: 录音启动参数应保留 Settings 中选定的输入设备 ID。

@@ -289,7 +289,6 @@ impl MultisoulApp {
                         cx.notify();
                     }
                 }
-                VoiceShortcutKeyDownAction::Ignore => {}
             }
             return;
         }

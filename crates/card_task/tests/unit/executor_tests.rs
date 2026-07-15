@@ -51,7 +51,7 @@ impl CardCommandRunner for FakeRunner {
 ///   - 正断言：第四条命令是 Focus(node_id=41)
 #[test]
 fn test_execute_card_task_step_resolves_previous_created_node_and_preserves_submit_flags() {
-    let steps = vec![
+    let steps = [
         CardTaskStep::Command(CardCommand::Create {
             kind: CardKind::Terminal { shell: None },
             placement: Placement::VisibleArea,
@@ -153,7 +153,7 @@ fn test_execute_card_task_step_fails_when_previous_step_is_missing() {
 ///   - 正断言：step1 返回 PreviousStepDidNotCreateNode { step: 0 }
 #[test]
 fn test_execute_card_task_step_fails_when_previous_step_did_not_create_node() {
-    let steps = vec![
+    let steps = [
         CardTaskStep::Command(CardCommand::Focus { node_id: 9 }),
         CardTaskStep::SendTextToPrevious {
             previous_step: 0,

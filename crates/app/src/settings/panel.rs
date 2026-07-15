@@ -8,7 +8,7 @@ mod navigation;
 #[path = "panel_style.rs"]
 mod panel_style;
 
-use self::content::settings_content;
+use self::content::{settings_content, VoiceSettingsContent};
 use self::navigation::{settings_navigation, SettingsNavigationMode};
 use self::panel_style::{settings_shadow, with_alpha};
 
@@ -251,8 +251,10 @@ impl MultisoulApp {
                         theme,
                         &self.settings_panel,
                         &self.agent_definitions,
-                        &self.voice_settings,
-                        &self.voice_settings_inputs,
+                        VoiceSettingsContent {
+                            state: &self.voice_settings,
+                            inputs: &self.voice_settings_inputs,
+                        },
                         &self.wallpaper_settings,
                         &self.shortcuts,
                         cx,

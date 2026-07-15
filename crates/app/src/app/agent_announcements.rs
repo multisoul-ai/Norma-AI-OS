@@ -170,7 +170,7 @@ impl MultisoulApp {
     fn agent_announcement_playback_e2e_enabled(&self) -> bool {
         #[cfg(feature = "e2e-test-support")]
         {
-            return self.agent_announcement_playback.e2e_enabled;
+            self.agent_announcement_playback.e2e_enabled
         }
         #[cfg(not(feature = "e2e-test-support"))]
         false

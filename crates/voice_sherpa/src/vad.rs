@@ -66,10 +66,7 @@ impl VadClient for SherpaVadClient {
             events.push(VadEvent::SpeechEnd);
         }
 
-        if !detected
-            && self.was_detected
-            && !events.iter().any(|event| *event == VadEvent::SpeechEnd)
-        {
+        if !detected && self.was_detected && !events.contains(&VadEvent::SpeechEnd) {
             events.push(VadEvent::SpeechEnd);
         }
 

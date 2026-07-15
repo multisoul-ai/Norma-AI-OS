@@ -260,8 +260,6 @@ impl MultisoulApp {
                 crate::app::voice::control::VoicePhase::Idle => "idle",
                 crate::app::voice::control::VoicePhase::Recording { .. } => "recording",
                 crate::app::voice::control::VoicePhase::Transcribing => "transcribing",
-                crate::app::voice::control::VoicePhase::Planning { .. } => "planning",
-                crate::app::voice::control::VoicePhase::Confirming { .. } => "confirming",
                 crate::app::voice::control::VoicePhase::Executed { .. } => "executed",
                 crate::app::voice::control::VoicePhase::TranscriptOnly { .. } => "transcript_only",
                 crate::app::voice::control::VoicePhase::Error { .. } => "error",
@@ -346,19 +344,19 @@ impl MultisoulApp {
                 .is_some(),
             agent_base_url_input_surface_size: self
                 .voice_settings_inputs
-                .input_surface_size(crate::settings::voice::VoiceSettingsField::AgentBaseUrl, cx),
+                .input_surface_size(crate::settings::voice::VoiceSettingsField::BaseUrl, cx),
             agent_model_input_surface_size: self
                 .voice_settings_inputs
-                .input_surface_size(crate::settings::voice::VoiceSettingsField::AgentModel, cx),
+                .input_surface_size(crate::settings::voice::VoiceSettingsField::Model, cx),
             agent_base_url_rendered_text: self
                 .voice_settings_inputs
-                .rendered_text(crate::settings::voice::VoiceSettingsField::AgentBaseUrl, cx),
+                .rendered_text(crate::settings::voice::VoiceSettingsField::BaseUrl, cx),
             agent_model_rendered_text: self
                 .voice_settings_inputs
-                .rendered_text(crate::settings::voice::VoiceSettingsField::AgentModel, cx),
+                .rendered_text(crate::settings::voice::VoiceSettingsField::Model, cx),
             agent_api_key_display_state: classify_api_key_display(
                 self.voice_settings_inputs
-                    .rendered_text(crate::settings::voice::VoiceSettingsField::AgentApiKey, cx)
+                    .rendered_text(crate::settings::voice::VoiceSettingsField::ApiKey, cx)
                     .as_deref(),
             ),
             voice_editing_field: self

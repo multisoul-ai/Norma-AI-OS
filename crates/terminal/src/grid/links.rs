@@ -165,7 +165,7 @@ fn starts_uri_scheme(chars: &[char]) -> bool {
 }
 
 fn trim_url_trailing_punctuation(url: &str) -> &str {
-    url.trim_end_matches(|ch| matches!(ch, '.' | ',' | ';' | ':' | '!' | ')' | ']' | '}'))
+    url.trim_end_matches(['.', ',', ';', ':', '!', ')', ']', '}'])
 }
 
 fn is_safe_preview_path(path: &str) -> bool {

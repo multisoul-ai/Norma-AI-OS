@@ -1,15 +1,13 @@
 //! Voice turn orchestration: Mock LLM chat, inline tools, template reports.
 
+use super::artifacts::{TemplateReportItem, VoiceTurnArtifacts};
 #[cfg(test)]
 use super::card_tools::AppCardToolExecutor;
-use super::card_tools::{template_report_for_result, CanvasInlineCardRunner, CardCommandRunner};
-use crate::app::MultisoulApp;
-use crate::settings::voice::DialogueLlmMode;
+use super::card_tools::{template_report_for_result, CardCommandRunner};
 use dialogue::{
     decide_template_report, run_voice_turn, DialogueError, DialoguePhase, ReportPlayDecision,
     ToolExecutor,
 };
-use gpui::Window;
 use llm::{LlmClient, MockLlmClient, MockStep, OllamaLlmClient};
 use norma::protocol::{CardCommand, CardCommandResult};
 use std::sync::mpsc;
@@ -17,20 +15,6 @@ use std::sync::Mutex;
 
 pub(crate) const DIALOGUE_SYSTEM_PROMPT: &str = "你是 Norma 语音助手。请用一到三句简短中文直接回答用户问题，给出与问题相关的实质信息，不能只回复“好的”或“收到”。需要操作画布时调用工具，工具完成后说明具体结果。回复将由语音合成播报，不要使用表情符号、Markdown、列表或代码块。";
 pub(crate) const MAX_TOOL_ROUNDS: usize = 5;
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct TemplateReportItem {
-    pub(crate) text: String,
-    pub(crate) decision: ReportPlayDecision,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct VoiceTurnArtifacts {
-    pub(crate) reply_text: String,
-    pub(crate) executed_commands: Vec<CardCommand>,
-    pub(crate) template_reports: Vec<TemplateReportItem>,
-    pub(crate) queued_template_reports: Vec<String>,
-}
 
 pub(crate) struct VoiceTurnJob {
     transcript: String,
@@ -174,43 +158,6 @@ pub(crate) fn run_voice_turn_job(
                 false,
             )
         }
-    }
-}
-
-impl MultisoulApp {
-    pub(crate) fn build_voice_turn_job(&self) -> Result<VoiceTurnJob, DialogueError> {
-        let transcript = self.dialogue.pending_transcript_or_err()?.to_string();
-        let llm = if self.voice_settings.values().dialogue_llm_mode() == DialogueLlmMode::Ollama {
-            VoiceTurnLlm::Ollama {
-                endpoint: self.voice_settings.values().ollama_endpoint().to_string(),
-                model: self.voice_settings.values().dialogue_model().to_string(),
-            }
-        } else {
-            VoiceTurnLlm::Mock(mock_script_for_transcript(&transcript))
-        };
-        Ok(VoiceTurnJob { transcript, llm })
-    }
-
-    pub(crate) fn execute_dialogue_card_command(
-        &mut self,
-        window: &mut Window,
-        command: CardCommand,
-    ) -> Result<CardCommandResult, String> {
-        let area = self.visible_canvas_rect(window);
-        let zoom = self.runtime.document.viewport.zoom;
-        let mut runner = CanvasInlineCardRunner {
-            runtime: &mut self.runtime,
-            motion: &mut self.motion,
-            master_layout: &mut self.master_layout,
-            area,
-            zoom,
-            executions: Vec::new(),
-        };
-        let result = runner.execute(command)?;
-        for execution in runner.take_executions() {
-            self.apply_voice_execution_effects(execution);
-        }
-        Ok(result)
     }
 }
 

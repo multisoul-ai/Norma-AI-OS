@@ -23,7 +23,7 @@ use crate::harness::{
 /// 场景：用户从 Launchpad 进入 Canvas，按 Cmd+N 创建第一个 Terminal 节点。
 /// 验证整个脚手架（harness + echo PTY 注入 + screen 状态机 + spawn_terminal
 /// + activate_spawned_node + apply_layout_for_current_mode）协同产出 SPEC §4.2
-/// 要求的最终状态。
+///   要求的最终状态。
 ///
 /// 数据构造（含关键数值推导）：
 ///   - `echo_factory()`：同步回吐 PTY 工厂。`write(bytes)` 立刻在 drain 通道
@@ -53,10 +53,11 @@ use crate::harness::{
 ///      `screen = Canvas` 并 `set_workspace_root(root)`，不替换 runtime，
 ///      echo 工厂得以保留。
 ///   3. `create_terminal(app, cx)` → dispatch `NewTerminal`（第一个终端）：
-///        a. `on_new_terminal` 检查 `screen == Canvas`（通过）。
-///        b. `runtime.spawn_terminal` 走注入工厂 → echo backend → 返回 node_id。
-///        c. `activate_spawned_node`：select_only(node_id) + focus_node(node_id)。
-///        d. `apply_layout_for_current_mode`：单节点 reflow 写入 document.bounds。
+///      - `on_new_terminal` 检查 `screen == Canvas`（通过）。
+///      - `runtime.spawn_terminal` 走注入工厂 → echo backend → 返回 node_id。
+///      - `activate_spawned_node`：select_only(node_id) + focus_node(node_id)。
+///      - `apply_layout_for_current_mode`：单节点 reflow 写入 document.bounds。
+///
 ///      helper 内部 `run_until_parked` 收敛同步回吐与状态变更。
 ///   4. 在第一节点上做 PRIMARY 1-node 断言（live_len==1、kind==Term、focus、
 ///      bounds 非零、Term 视图可读）—— 这是 SPEC §4.2 E2E-01 的主契约。

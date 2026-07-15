@@ -13,12 +13,16 @@ mod keyboard;
 use self::hooks::hooks_settings;
 use self::keyboard::keyboard_settings;
 
+pub(super) struct VoiceSettingsContent<'a> {
+    pub(super) state: &'a VoiceSettingsState,
+    pub(super) inputs: &'a VoiceSettingsInputs,
+}
+
 pub(super) fn settings_content(
     theme: Theme,
     panel: &SettingsPanelState,
     agent_definitions: &AgentDefinitionsState,
-    voice_state: &VoiceSettingsState,
-    voice_inputs: &VoiceSettingsInputs,
+    voice: VoiceSettingsContent<'_>,
     wallpaper_state: &WallpaperSettingsState,
     shortcuts: &ShortcutSettingsState,
     cx: &mut Context<MultisoulApp>,
@@ -45,12 +49,13 @@ pub(super) fn settings_content(
                 .pb(px(32.0))
                 .child(match panel.active_section {
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
-                    SettingsSection::Voice => voice_settings(theme, voice_state, voice_inputs, cx),
+                    SettingsSection::Voice => voice_settings(theme, voice.state, voice.inputs, cx),
                     SettingsSection::Agents => agents_settings(theme, agent_definitions, cx),
                     SettingsSection::Hooks => hooks_settings(theme, panel, cx),
                     SettingsSection::Wallpaper => wallpaper_settings(theme, wallpaper_state, cx),
                     // Mock-only sections are hidden from the sidebar; keep a blank
                     // fallback so stale state or tests cannot route to old placeholders.
+                    #[cfg(test)]
                     SettingsSection::General
                     | SettingsSection::Runtime
                     | SettingsSection::Skills => div(),
@@ -118,11 +123,14 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
 
 fn content_title(section: SettingsSection) -> &'static str {
     match section {
+        #[cfg(test)]
         SettingsSection::General => "Themes",
         SettingsSection::Keyboard => "Keyboard Shortcuts",
+        #[cfg(test)]
         SettingsSection::Runtime => "Runtime",
         SettingsSection::Voice => "Voice",
         SettingsSection::Agents => "Agents",
+        #[cfg(test)]
         SettingsSection::Skills => "Skills",
         SettingsSection::Hooks => "Agent Hooks",
         SettingsSection::Wallpaper => "Wallpaper",
@@ -131,11 +139,14 @@ fn content_title(section: SettingsSection) -> &'static str {
 
 fn content_subtitle(section: SettingsSection) -> &'static str {
     match section {
+        #[cfg(test)]
         SettingsSection::General => "Choose your style or customize your theme",
         SettingsSection::Keyboard => "Customize app commands and review system input behavior",
+        #[cfg(test)]
         SettingsSection::Runtime => "Configure shell behavior and live sessions",
         SettingsSection::Voice => "Configure local speech recognition and command planning",
         SettingsSection::Agents => "Choose default agents, permissions, and profiles",
+        #[cfg(test)]
         SettingsSection::Skills => "Manage installed skills and project skill sources",
         SettingsSection::Hooks => "",
         SettingsSection::Wallpaper => "Choose a background",

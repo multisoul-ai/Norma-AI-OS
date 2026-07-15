@@ -77,8 +77,10 @@ fn test_workspace_reset_clears_pending_and_active_rounds() {
 ///   - 负断言：播放状态不得继续缓存旧模型/Voice client。
 #[test]
 fn test_tts_configuration_change_invalidates_cached_agent_client() {
-    let mut playback = AgentAnnouncementPlayback::default();
-    playback.tts_client = Some(crate::app::dialogue::fake_tts_client_for_tests());
+    let mut playback = AgentAnnouncementPlayback {
+        tts_client: Some(crate::app::dialogue::fake_tts_client_for_tests()),
+        ..AgentAnnouncementPlayback::default()
+    };
 
     let stale_client = playback.take_tts_client_for_configuration_change();
 

@@ -31,12 +31,12 @@ pub(crate) fn window_visible_for_voice_inset(window: &Window) -> bool {
             return true;
         };
         let view = unsafe { &*handle.ns_view.as_ptr().cast::<NSView>() };
-        return view.window().is_none_or(|native_window| {
+        view.window().is_none_or(|native_window| {
             native_window_allows_voice_inset(
                 native_window.isVisible(),
                 native_window.isMiniaturized(),
             )
-        });
+        })
     }
     #[cfg(all(not(target_os = "macos"), not(any(test, feature = "e2e-test-support"))))]
     {
@@ -44,6 +44,7 @@ pub(crate) fn window_visible_for_voice_inset(window: &Window) -> bool {
     }
 }
 
+#[cfg(any(test, all(target_os = "macos", not(feature = "e2e-test-support"))))]
 pub(crate) fn native_window_allows_voice_inset(visible: bool, minimized: bool) -> bool {
     visible && !minimized
 }

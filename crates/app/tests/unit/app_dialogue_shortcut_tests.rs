@@ -114,8 +114,8 @@ fn test_continuous_listening_shortcut_stops_an_active_session() {
         );
         assert_ne!(
             action,
-            VoiceShortcutKeyDownAction::Ignore,
-            "第二次显式快捷键不得被忽略"
+            VoiceShortcutKeyDownAction::StartContinuousListening,
+            "第二次显式快捷键不得重新启动已运行的持续聆听"
         );
     });
 }
@@ -231,8 +231,8 @@ fn test_voice_shortcut_interrupts_assistant_reply_during_speaking() {
         );
         assert_ne!(
             action,
-            VoiceShortcutKeyDownAction::Ignore,
-            "Speaking 时不得忽略用户的显式打断快捷键"
+            VoiceShortcutKeyDownAction::StopContinuousListening,
+            "Speaking 时不得把显式打断降级为普通停止"
         );
     });
 }

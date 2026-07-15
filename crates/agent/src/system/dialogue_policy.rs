@@ -55,10 +55,10 @@ pub(super) fn route_user_turn(
     {
         return DialogueRoutingDecision::ModelOnly;
     }
-    if contains_any(&normalized, CREATE_ACTIONS) && contains_any(&normalized, CONCRETE_CARD_TARGETS)
+    if (contains_any(&normalized, CREATE_ACTIONS)
+        && contains_any(&normalized, CONCRETE_CARD_TARGETS))
+        || has_explicit_agent_address(text, roster)
     {
-        DialogueRoutingDecision::RequireCardTaskFallback
-    } else if has_explicit_agent_address(text, roster) {
         DialogueRoutingDecision::RequireCardTaskFallback
     } else {
         DialogueRoutingDecision::ModelOnly

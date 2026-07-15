@@ -251,7 +251,7 @@ fn coordinator_cancel_all_clears_running_slot_and_waiting_queue() {
         .cancel_all(1)
         .expect("definition_id=1 应存在并可取消");
 
-    assert_eq!(cancelled.0, true, "取消前 Alan 应占用一个运行槽");
+    assert!(cancelled.0, "取消前 Alan 应占用一个运行槽");
     assert_eq!(cancelled.1, 2, "确认关闭应取消两项 FIFO 等待任务");
     assert!(
         !coordinator.is_busy(1),
