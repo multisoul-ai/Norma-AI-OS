@@ -4,7 +4,15 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(feature = "e2e-test-support")]
 use std::sync::Mutex;
+use std::time::Duration;
 use tts::{TtsModelCatalog, TtsModelDescriptor, TtsModelId};
+
+// connect = 15s：本地网络/DNS 短暂抖动可恢复，但不无限占用安装任务。
+// response headers = 30s：release 服务重定向与首包建立可有额外延迟。
+// response body = 20min：最大内置包约 147MiB；按 1Mbit/s 约 20min，覆盖低速网络。
+const TTS_DOWNLOAD_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+const TTS_DOWNLOAD_RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
+const TTS_DOWNLOAD_BODY_TIMEOUT: Duration = Duration::from_secs(20 * 60);
 
 #[cfg(feature = "e2e-test-support")]
 static E2E_FAKE_TTS_TRANSPORT: AtomicBool = AtomicBool::new(false);
@@ -239,11 +247,36 @@ fn download_file(
     expected: u64,
     final_path: PathBuf,
     cancelled: &AtomicBool,
+    progress: impl FnMut(u64),
+) -> Result<PathBuf, String> {
+    download_file_with_body_timeout(
+        url,
+        expected,
+        final_path,
+        cancelled,
+        progress,
+        TTS_DOWNLOAD_BODY_TIMEOUT,
+    )
+}
+
+fn download_file_with_body_timeout(
+    url: &str,
+    expected: u64,
+    final_path: PathBuf,
+    cancelled: &AtomicBool,
     mut progress: impl FnMut(u64),
+    body_timeout: Duration,
 ) -> Result<PathBuf, String> {
     let partial = final_path.with_extension("partial");
     let result = (|| {
-        let mut response = ureq::get(url)
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .timeout_connect(Some(TTS_DOWNLOAD_CONNECT_TIMEOUT))
+            .timeout_recv_response(Some(TTS_DOWNLOAD_RESPONSE_TIMEOUT))
+            .timeout_recv_body(Some(body_timeout))
+            .build()
+            .into();
+        let mut response = agent
+            .get(url)
             .call()
             .map_err(|error| format!("TTS download failed: {error}"))?;
         let total = response
