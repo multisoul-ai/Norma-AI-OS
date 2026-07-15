@@ -79,12 +79,53 @@ assert_contains '--acid: #d6ff3b;' "acid token is missing or changed"
 assert_contains '--coral: #ff6b7a;' "coral token is missing or changed"
 assert_contains '--mint: #64e0b5;' "mint token is missing or changed"
 
+# 场景：评审者可以在同一份桌面原型中切换 6 套品牌配色。
+#
+# 数据构造（主题数量来自产品验收）：
+#   light_theme_count = Ceramic Mist(1) + Pearl Lilac(1) + Sand Coral(1) = 3
+#   dark_theme_count  = Sapphire Night(1) + Midnight Violet(1) + Forest Mint(1) = 3
+#   total_theme_count = light_theme_count(3) + dark_theme_count(3) = 6
+#
+# 执行过程：
+#   1. 从 HTML 公共文档读取 6 个主题选择按钮。
+#   2. 分别统计 light / dark 模式标记，确认两组数量各为 3。
+#   3. 通过 URL 的 theme 参数渲染指定主题，观察根节点公开的 data-theme 状态。
+#
+# 预期结果：
+#   - 6 个已评审主题都存在；任何一个缺失时失败。
+#   - 浅色必须恰好 3 个，深色必须恰好 3 个，避免模式分组失衡。
+#   - URL 可直接定位主题，方便截图和设计评审。
+assert_contains 'data-theme-option="ceramic-mist"' "Ceramic Mist light theme is missing"
+assert_contains 'data-theme-option="pearl-lilac"' "Pearl Lilac light theme is missing"
+assert_contains 'data-theme-option="sand-coral"' "Sand Coral light theme is missing"
+assert_contains 'data-theme-option="sapphire-night"' "Sapphire Night dark theme is missing"
+assert_contains 'data-theme-option="midnight-violet"' "Midnight Violet dark theme is missing"
+assert_contains 'data-theme-option="forest-mint"' "Forest Mint dark theme is missing"
+
+light_theme_count="$(rg -o 'data-theme-option="[^"]+" data-theme-mode="light"' "$PROTOTYPE" | wc -l | tr -d ' ')"
+dark_theme_count="$(rg -o 'data-theme-option="[^"]+" data-theme-mode="dark"' "$PROTOTYPE" | wc -l | tr -d ' ')"
+test "$light_theme_count" -eq 3 || fail "expected exactly 3 light themes, found $light_theme_count"
+test "$dark_theme_count" -eq 3 || fail "expected exactly 3 dark themes, found $dark_theme_count"
+
 test -n "$CHROME" && test -x "$CHROME" || fail "Chrome Headless Shell is unavailable for rendered checks"
 
 for screen in launchpad canvas settings; do
   rendered="$($CHROME --headless --disable-gpu --no-first-run --no-default-browser-check --dump-dom "file://$PROTOTYPE#$screen" 2>/dev/null)"
   printf '%s' "$rendered" | rg -q "<section[^>]*class=\"[^\"]*is-active[^\"]*\"[^>]*data-screen=\"$screen\"[^>]*aria-hidden=\"false\"" \
     || fail "#$screen does not activate its target screen"
+done
+
+for theme_spec in \
+  "ceramic-mist light" \
+  "pearl-lilac light" \
+  "sand-coral light" \
+  "sapphire-night dark" \
+  "midnight-violet dark" \
+  "forest-mint dark"; do
+  read -r theme mode <<< "$theme_spec"
+  rendered_theme="$($CHROME --headless --disable-gpu --no-first-run --no-default-browser-check --dump-dom "file://$PROTOTYPE?theme=$theme#canvas" 2>/dev/null)"
+  rg -q "<html[^>]*data-theme=\"$theme\"[^>]*data-theme-mode=\"$mode\"" <<< "$rendered_theme" \
+    || fail "theme query does not activate $theme in $mode mode"
 done
 
 printf 'product-ui prototype checks passed\n'

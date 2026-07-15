@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Norma OS 核心产品页面 V2 高保真交互原型">
-  <title>Norma OS — Core Product UI V2</title>
+  <meta name="description" content="Norma OS 核心产品页面与六套品牌配色高保真交互原型">
+  <title>Norma OS — Product Color Studies</title>
   <script>document.documentElement.classList.add('js')</script>
   <style>
     :root {
@@ -36,6 +36,166 @@
       --shadow-card: 0 24px 70px rgba(47, 62, 88, 0.14), 0 2px 8px rgba(30, 40, 58, 0.06);
       --shadow-float: 0 34px 90px rgba(25, 35, 53, 0.2), 0 4px 16px rgba(25, 35, 53, 0.08);
       --ease: cubic-bezier(.2, .78, .28, 1);
+
+      /* Default theme: Ceramic Mist */
+      --theme-canvas-overlay: linear-gradient(135deg, rgba(247, 245, 242, .78), rgba(224, 235, 247, .72) 48%, rgba(235, 242, 247, .68));
+      --theme-canvas-vignette: radial-gradient(circle at 50% 42%, transparent 34%, rgba(74, 94, 120, .12) 100%);
+      --theme-titlebar-bg: rgba(247, 249, 251, .54);
+      --theme-titlebar-line: rgba(27, 42, 60, .11);
+      --theme-titlebar-text: rgba(17, 18, 20, .88);
+      --theme-titlebar-muted: rgba(17, 18, 20, .5);
+      --theme-titlebar-control: rgba(255, 255, 255, .38);
+      --theme-shell: rgba(247, 251, 255, .32);
+      --theme-shell-line: rgba(255, 255, 255, .72);
+      --theme-shell-inner: rgba(255, 255, 255, .24);
+      --theme-shell-highlight: rgba(255, 255, 255, .94);
+      --theme-shell-shadow: rgba(38, 57, 78, .19);
+      --theme-header: rgba(248, 252, 255, .38);
+      --theme-card-text: rgba(15, 24, 34, .9);
+      --theme-card-muted: rgba(15, 24, 34, .55);
+      --theme-card-faint: rgba(15, 24, 34, .4);
+      --theme-content: rgba(251, 253, 255, .7);
+      --theme-content-warm: rgba(255, 253, 249, .72);
+      --theme-browser-bar: rgba(255, 255, 255, .72);
+      --theme-terminal: rgba(14, 21, 29, .8);
+      --theme-dock: rgba(20, 29, 38, .7);
+      --theme-dock-line: rgba(255, 255, 255, .34);
+      --theme-minimap: rgba(245, 249, 252, .52);
+      --theme-minimap-text: rgba(17, 18, 20, .68);
+      --theme-accent: #2f80ed;
+      --theme-accent-rgb: 47, 128, 237;
+      --theme-success: #64e0b5;
+    }
+
+    html[data-theme-mode="light"] { color-scheme: light; }
+    html[data-theme-mode="dark"] { color-scheme: dark; }
+
+    html[data-theme="ceramic-mist"] {
+      --theme-canvas-overlay: linear-gradient(135deg, rgba(247, 245, 242, .8), rgba(218, 232, 247, .74) 50%, rgba(238, 244, 247, .7));
+      --theme-accent: #2f80ed;
+      --theme-accent-rgb: 47, 128, 237;
+      --theme-success: #64e0b5;
+    }
+
+    html[data-theme="pearl-lilac"] {
+      --theme-canvas-overlay: linear-gradient(135deg, rgba(248, 245, 250, .8), rgba(227, 221, 247, .75) 48%, rgba(217, 238, 235, .69));
+      --theme-canvas-vignette: radial-gradient(circle at 48% 40%, transparent 32%, rgba(81, 70, 126, .13) 100%);
+      --theme-titlebar-bg: rgba(246, 243, 251, .56);
+      --theme-titlebar-line: rgba(67, 53, 108, .12);
+      --theme-shell: rgba(246, 241, 255, .33);
+      --theme-shell-shadow: rgba(62, 50, 101, .2);
+      --theme-header: rgba(247, 243, 255, .4);
+      --theme-content: rgba(251, 249, 255, .7);
+      --theme-content-warm: rgba(253, 251, 255, .72);
+      --theme-dock: rgba(38, 31, 57, .72);
+      --theme-minimap: rgba(247, 243, 255, .52);
+      --theme-accent: #6a5cff;
+      --theme-accent-rgb: 106, 92, 255;
+      --theme-success: #64e0b5;
+    }
+
+    html[data-theme="sand-coral"] {
+      --theme-canvas-overlay: linear-gradient(135deg, rgba(250, 243, 234, .82), rgba(244, 222, 214, .72) 48%, rgba(225, 236, 221, .7));
+      --theme-canvas-vignette: radial-gradient(circle at 50% 42%, transparent 31%, rgba(118, 74, 59, .12) 100%);
+      --theme-titlebar-bg: rgba(250, 246, 238, .58);
+      --theme-titlebar-line: rgba(92, 59, 47, .12);
+      --theme-shell: rgba(255, 247, 239, .34);
+      --theme-shell-shadow: rgba(102, 67, 49, .18);
+      --theme-header: rgba(255, 247, 240, .42);
+      --theme-content: rgba(255, 250, 245, .72);
+      --theme-content-warm: rgba(255, 249, 241, .76);
+      --theme-dock: rgba(48, 37, 33, .73);
+      --theme-minimap: rgba(255, 248, 240, .54);
+      --theme-accent: #ff6b7a;
+      --theme-accent-rgb: 255, 107, 122;
+      --theme-success: #64b998;
+    }
+
+    html[data-theme="sapphire-night"] {
+      --theme-canvas-overlay: linear-gradient(135deg, rgba(7, 19, 36, .78), rgba(10, 35, 67, .69) 50%, rgba(10, 22, 38, .76));
+      --theme-canvas-vignette: radial-gradient(circle at 49% 41%, transparent 26%, rgba(0, 4, 12, .42) 100%);
+      --theme-titlebar-bg: rgba(7, 16, 29, .5);
+      --theme-titlebar-line: rgba(151, 202, 255, .15);
+      --theme-titlebar-text: rgba(244, 249, 255, .92);
+      --theme-titlebar-muted: rgba(220, 235, 250, .52);
+      --theme-titlebar-control: rgba(185, 220, 255, .1);
+      --theme-shell: rgba(14, 35, 56, .36);
+      --theme-shell-line: rgba(175, 218, 255, .3);
+      --theme-shell-inner: rgba(197, 226, 255, .1);
+      --theme-shell-highlight: rgba(206, 234, 255, .58);
+      --theme-shell-shadow: rgba(0, 6, 16, .48);
+      --theme-header: rgba(24, 49, 72, .42);
+      --theme-card-text: rgba(239, 247, 255, .92);
+      --theme-card-muted: rgba(220, 235, 249, .6);
+      --theme-card-faint: rgba(203, 220, 237, .43);
+      --theme-content: rgba(11, 29, 46, .7);
+      --theme-content-warm: rgba(13, 30, 45, .72);
+      --theme-browser-bar: rgba(204, 229, 250, .1);
+      --theme-terminal: rgba(3, 12, 22, .82);
+      --theme-dock: rgba(4, 14, 26, .76);
+      --theme-minimap: rgba(10, 29, 47, .56);
+      --theme-minimap-text: rgba(227, 241, 255, .72);
+      --theme-accent: #54a2ff;
+      --theme-accent-rgb: 84, 162, 255;
+      --theme-success: #64e0b5;
+    }
+
+    html[data-theme="midnight-violet"] {
+      --theme-canvas-overlay: linear-gradient(135deg, rgba(12, 12, 27, .82), rgba(21, 25, 49, .72) 47%, rgba(35, 24, 58, .76));
+      --theme-canvas-vignette: radial-gradient(circle at 50% 39%, transparent 26%, rgba(4, 3, 14, .5) 100%);
+      --theme-titlebar-bg: rgba(12, 12, 27, .54);
+      --theme-titlebar-line: rgba(190, 176, 255, .16);
+      --theme-titlebar-text: rgba(249, 246, 255, .93);
+      --theme-titlebar-muted: rgba(229, 220, 247, .5);
+      --theme-titlebar-control: rgba(202, 190, 255, .1);
+      --theme-shell: rgba(35, 31, 60, .38);
+      --theme-shell-line: rgba(196, 184, 255, .3);
+      --theme-shell-inner: rgba(215, 205, 255, .1);
+      --theme-shell-highlight: rgba(220, 211, 255, .56);
+      --theme-shell-shadow: rgba(2, 1, 12, .5);
+      --theme-header: rgba(52, 45, 82, .42);
+      --theme-card-text: rgba(248, 245, 255, .92);
+      --theme-card-muted: rgba(228, 220, 245, .6);
+      --theme-card-faint: rgba(211, 201, 232, .43);
+      --theme-content: rgba(25, 22, 45, .72);
+      --theme-content-warm: rgba(28, 23, 43, .74);
+      --theme-browser-bar: rgba(226, 217, 255, .1);
+      --theme-terminal: rgba(7, 7, 19, .84);
+      --theme-dock: rgba(10, 8, 24, .78);
+      --theme-minimap: rgba(29, 25, 49, .58);
+      --theme-minimap-text: rgba(237, 232, 255, .72);
+      --theme-accent: #8b7cff;
+      --theme-accent-rgb: 139, 124, 255;
+      --theme-success: #64e0b5;
+    }
+
+    html[data-theme="forest-mint"] {
+      --theme-canvas-overlay: linear-gradient(135deg, rgba(9, 23, 22, .82), rgba(17, 47, 42, .72) 48%, rgba(21, 31, 27, .78));
+      --theme-canvas-vignette: radial-gradient(circle at 49% 40%, transparent 27%, rgba(2, 11, 9, .49) 100%);
+      --theme-titlebar-bg: rgba(8, 22, 20, .54);
+      --theme-titlebar-line: rgba(153, 231, 207, .16);
+      --theme-titlebar-text: rgba(242, 253, 249, .92);
+      --theme-titlebar-muted: rgba(207, 235, 225, .51);
+      --theme-titlebar-control: rgba(172, 235, 214, .1);
+      --theme-shell: rgba(17, 45, 39, .38);
+      --theme-shell-line: rgba(157, 228, 205, .29);
+      --theme-shell-inner: rgba(190, 239, 221, .1);
+      --theme-shell-highlight: rgba(199, 244, 228, .55);
+      --theme-shell-shadow: rgba(1, 12, 9, .5);
+      --theme-header: rgba(29, 61, 53, .43);
+      --theme-card-text: rgba(241, 252, 248, .92);
+      --theme-card-muted: rgba(210, 235, 226, .6);
+      --theme-card-faint: rgba(193, 220, 210, .43);
+      --theme-content: rgba(14, 38, 33, .72);
+      --theme-content-warm: rgba(18, 39, 33, .74);
+      --theme-browser-bar: rgba(204, 239, 226, .1);
+      --theme-terminal: rgba(4, 17, 14, .84);
+      --theme-dock: rgba(5, 20, 16, .78);
+      --theme-minimap: rgba(17, 43, 37, .58);
+      --theme-minimap-text: rgba(225, 246, 238, .72);
+      --theme-accent: #64e0b5;
+      --theme-accent-rgb: 100, 224, 181;
+      --theme-success: #d6ff3b;
     }
 
     * { box-sizing: border-box; }
@@ -123,6 +283,56 @@
     .prototype-nav button:hover { color: var(--graphite); background: rgba(17, 18, 20, 0.05); }
     .prototype-nav button[aria-selected="true"] { color: white; background: var(--graphite); }
     .clean .prototype-nav { display: none; }
+
+    .theme-picker {
+      position: fixed;
+      top: 84px;
+      right: 20px;
+      z-index: 60;
+      display: none;
+      width: 218px;
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, .46);
+      border-radius: 18px;
+      color: rgba(255, 255, 255, .88);
+      background: rgba(16, 20, 27, .66);
+      box-shadow: 0 24px 70px rgba(5, 9, 17, .3), inset 0 1px rgba(255, 255, 255, .18);
+      backdrop-filter: blur(32px) saturate(155%);
+    }
+
+    .review .theme-picker { display: block; }
+    .clean .theme-picker { display: none; }
+    .theme-picker-header { display: flex; align-items: center; justify-content: space-between; padding: 2px 3px 9px; }
+    .theme-picker-header strong { font-size: 10px; letter-spacing: .03em; }
+    .theme-picker-header span { color: rgba(255, 255, 255, .44); font: 8px var(--mono); }
+    .theme-picker-group + .theme-picker-group { margin-top: 7px; padding-top: 7px; border-top: 1px solid rgba(255, 255, 255, .12); }
+    .theme-picker-label { display: block; margin: 0 3px 5px; color: rgba(255, 255, 255, .42); font: 7px var(--mono); letter-spacing: .1em; }
+    .theme-option { display: grid; width: 100%; grid-template-columns: 34px 1fr 12px; align-items: center; gap: 9px; padding: 6px; border: 0; border-radius: 10px; color: rgba(255, 255, 255, .72); background: transparent; cursor: pointer; text-align: left; }
+    .theme-option:hover { color: white; background: rgba(255, 255, 255, .08); }
+    .theme-option[aria-pressed="true"] { color: white; background: rgba(255, 255, 255, .12); }
+    .theme-option[aria-pressed="true"]::after { content: "✓"; color: var(--mint); font-size: 10px; }
+    .theme-option-swatch { display: flex; width: 34px; height: 22px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .24); border-radius: 7px; box-shadow: inset 0 1px rgba(255, 255, 255, .22); }
+    .theme-option-swatch i { flex: 1; }
+    .theme-option-copy strong { display: block; font-size: 9px; font-weight: 650; }
+    .theme-option-copy small { display: block; margin-top: 2px; color: rgba(255, 255, 255, .4); font: 7px var(--mono); }
+    [data-theme-option="ceramic-mist"] .theme-option-swatch i:nth-child(1) { background: #f7f5f2; }
+    [data-theme-option="ceramic-mist"] .theme-option-swatch i:nth-child(2) { background: #dbe8f5; }
+    [data-theme-option="ceramic-mist"] .theme-option-swatch i:nth-child(3) { background: #2f80ed; }
+    [data-theme-option="pearl-lilac"] .theme-option-swatch i:nth-child(1) { background: #f8f5fa; }
+    [data-theme-option="pearl-lilac"] .theme-option-swatch i:nth-child(2) { background: #e3ddf7; }
+    [data-theme-option="pearl-lilac"] .theme-option-swatch i:nth-child(3) { background: #6a5cff; }
+    [data-theme-option="sand-coral"] .theme-option-swatch i:nth-child(1) { background: #faf3ea; }
+    [data-theme-option="sand-coral"] .theme-option-swatch i:nth-child(2) { background: #f4ded6; }
+    [data-theme-option="sand-coral"] .theme-option-swatch i:nth-child(3) { background: #ff6b7a; }
+    [data-theme-option="sapphire-night"] .theme-option-swatch i:nth-child(1) { background: #071324; }
+    [data-theme-option="sapphire-night"] .theme-option-swatch i:nth-child(2) { background: #0d3152; }
+    [data-theme-option="sapphire-night"] .theme-option-swatch i:nth-child(3) { background: #54a2ff; }
+    [data-theme-option="midnight-violet"] .theme-option-swatch i:nth-child(1) { background: #0c0c1b; }
+    [data-theme-option="midnight-violet"] .theme-option-swatch i:nth-child(2) { background: #23203c; }
+    [data-theme-option="midnight-violet"] .theme-option-swatch i:nth-child(3) { background: #8b7cff; }
+    [data-theme-option="forest-mint"] .theme-option-swatch i:nth-child(1) { background: #091716; }
+    [data-theme-option="forest-mint"] .theme-option-swatch i:nth-child(2) { background: #173f38; }
+    [data-theme-option="forest-mint"] .theme-option-swatch i:nth-child(3) { background: #64e0b5; }
 
     .mac-titlebar {
       position: absolute;
@@ -683,7 +893,7 @@
     /* Canvas V3 — desktop wallpaper + optical glass */
     .canvas-screen {
       background:
-        linear-gradient(180deg, rgba(8, 13, 24, .12), rgba(8, 13, 24, .28)),
+        var(--theme-canvas-overlay),
         url("../crates/app/assets/wallpapers/1331865.png") center / cover no-repeat;
     }
 
@@ -692,9 +902,7 @@
       inset: 0;
       content: "";
       opacity: 1;
-      background:
-        radial-gradient(circle at 50% 42%, transparent 30%, rgba(5, 10, 22, .12) 100%),
-        linear-gradient(180deg, rgba(255, 255, 255, .06), transparent 20%, rgba(4, 9, 18, .08));
+      background: var(--theme-canvas-vignette);
       pointer-events: none;
     }
 
@@ -713,17 +921,17 @@
     }
 
     .canvas-screen .mac-titlebar {
-      color: white;
-      border-bottom-color: rgba(255, 255, 255, .16);
-      background: rgba(13, 19, 31, .3);
-      box-shadow: inset 0 1px rgba(255, 255, 255, .16), 0 8px 30px rgba(5, 10, 20, .08);
+      color: var(--theme-titlebar-text);
+      border-bottom-color: var(--theme-titlebar-line);
+      background: var(--theme-titlebar-bg);
+      box-shadow: inset 0 1px rgba(255, 255, 255, .18), 0 8px 30px rgba(5, 10, 20, .08);
       backdrop-filter: blur(30px) saturate(150%);
     }
 
-    .canvas-screen .mac-window-title { color: rgba(255, 255, 255, .9); }
-    .canvas-screen .workspace-path { color: rgba(255, 255, 255, .48); }
-    .canvas-screen .sync-state { color: rgba(255, 255, 255, .74); background: rgba(255, 255, 255, .12); box-shadow: inset 0 1px rgba(255, 255, 255, .16); }
-    .canvas-screen .quiet-icon-button { color: white; border-color: rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .1); }
+    .canvas-screen .mac-window-title { color: var(--theme-titlebar-text); }
+    .canvas-screen .workspace-path { color: var(--theme-titlebar-muted); }
+    .canvas-screen .sync-state { color: var(--theme-titlebar-text); background: var(--theme-titlebar-control); box-shadow: inset 0 1px rgba(255, 255, 255, .16); }
+    .canvas-screen .quiet-icon-button { color: var(--theme-titlebar-text); border-color: var(--theme-titlebar-line); background: var(--theme-titlebar-control); }
 
     .canvas-command-dock {
       position: absolute;
@@ -735,9 +943,9 @@
       align-items: center;
       gap: 3px;
       padding: 6px;
-      border: 1px solid rgba(255, 255, 255, .42);
+      border: 1px solid var(--theme-dock-line);
       border-radius: 18px;
-      background: rgba(21, 28, 39, .34);
+      background: var(--theme-dock);
       box-shadow: 0 20px 55px rgba(4, 9, 18, .28), inset 0 1px rgba(255, 255, 255, .24), inset 0 -1px rgba(255, 255, 255, .08);
       backdrop-filter: blur(34px) saturate(175%);
       -webkit-backdrop-filter: blur(34px) saturate(175%);
@@ -765,18 +973,19 @@
     .canvas-command-dock .dock-voice { display: flex; width: auto; min-width: 88px; grid-template-columns: auto auto; gap: 8px; padding: 0 13px; color: white; font-size: 10px; font-weight: 650; }
 
     .canvas-object {
-      border-color: rgba(255, 255, 255, .46);
+      border-color: var(--theme-shell-line);
       border-radius: 22px;
-      background: rgba(241, 247, 255, .22);
-      box-shadow: 0 28px 70px rgba(4, 9, 20, .25), 0 5px 18px rgba(4, 9, 20, .11), inset 0 1px rgba(255, 255, 255, .56), inset 0 -1px rgba(255, 255, 255, .12);
+      color: var(--theme-card-text);
+      background: var(--theme-shell);
+      box-shadow: 0 28px 70px var(--theme-shell-shadow), 0 5px 18px rgba(4, 9, 20, .11), inset 0 1px var(--theme-shell-highlight), inset 0 -1px var(--theme-shell-inner);
       backdrop-filter: blur(30px) saturate(165%);
       -webkit-backdrop-filter: blur(30px) saturate(165%);
     }
 
-    .canvas-object::before { right: 9%; left: 9%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .9), transparent); }
-    .canvas-object::after { position: absolute; inset: 1px; z-index: 0; border: 1px solid rgba(255, 255, 255, .13); border-radius: 20px; content: ""; pointer-events: none; }
+    .canvas-object::before { right: 9%; left: 9%; background: linear-gradient(90deg, transparent, var(--theme-shell-highlight), transparent); }
+    .canvas-object::after { position: absolute; inset: 1px; z-index: 0; border: 1px solid var(--theme-shell-inner); border-radius: 20px; content: ""; pointer-events: none; }
     .canvas-object:hover { box-shadow: 0 34px 80px rgba(4, 9, 20, .3), 0 6px 20px rgba(4, 9, 20, .13), inset 0 1px rgba(255, 255, 255, .66); }
-    .canvas-object.is-selected, .canvas-object.is-focused { border-color: rgba(163, 211, 255, .84); box-shadow: 0 0 0 2px rgba(86, 166, 255, .2), 0 34px 82px rgba(4, 9, 20, .3), inset 0 1px rgba(255, 255, 255, .68); }
+    .canvas-object.is-selected, .canvas-object.is-focused { border-color: rgba(var(--theme-accent-rgb), .82); box-shadow: 0 0 0 2px rgba(var(--theme-accent-rgb), .18), 0 34px 82px var(--theme-shell-shadow), inset 0 1px var(--theme-shell-highlight); }
 
     .object-terminal { top: 13%; left: 4%; width: 42%; height: 45%; }
     .object-agent { top: 14%; right: 5%; left: auto; width: 38%; height: 37%; }
@@ -785,36 +994,43 @@
 
     .object-titlebar {
       height: 44px;
-      border-bottom-color: rgba(255, 255, 255, .24);
-      background: rgba(248, 251, 255, .27);
+      border-bottom-color: var(--theme-shell-inner);
+      background: var(--theme-header);
       box-shadow: inset 0 1px rgba(255, 255, 255, .18);
     }
 
-    .object-type { color: rgba(10, 16, 27, .86); }
-    .object-name { color: rgba(10, 16, 27, .58); }
-    .object-more { color: rgba(10, 16, 27, .5); }
-    .state-badge { color: rgba(10, 16, 27, .64); background: rgba(255, 255, 255, .32); box-shadow: inset 0 1px rgba(255, 255, 255, .42); }
-    .content-well { height: calc(100% - 52px); margin: 0 8px 8px; border-color: rgba(255, 255, 255, .26); border-radius: 16px; }
-    .terminal-well { background: rgba(10, 15, 23, .76); backdrop-filter: blur(26px) saturate(130%); }
-    .agent-well { background: rgba(247, 249, 255, .62); backdrop-filter: blur(25px) saturate(140%); }
-    .browser-well { background: rgba(245, 248, 252, .58); backdrop-filter: blur(24px) saturate(140%); }
-    .preview-well { background: rgba(255, 254, 250, .64); backdrop-filter: blur(24px) saturate(135%); }
-    .browser-bar { background: rgba(255, 255, 255, .66); }
+    .object-type { color: var(--theme-card-text); }
+    .object-name { color: var(--theme-card-muted); }
+    .object-more { color: var(--theme-card-muted); }
+    .state-badge { color: var(--theme-card-muted); background: var(--theme-titlebar-control); box-shadow: inset 0 1px var(--theme-shell-inner); }
+    .content-well { height: calc(100% - 52px); margin: 0 8px 8px; border-color: var(--theme-shell-inner); border-radius: 16px; }
+    .terminal-well { background: var(--theme-terminal); backdrop-filter: blur(26px) saturate(130%); }
+    .agent-well { background: var(--theme-content); backdrop-filter: blur(25px) saturate(140%); }
+    .browser-well { background: var(--theme-content); backdrop-filter: blur(24px) saturate(140%); }
+    .preview-well { background: var(--theme-content-warm); backdrop-filter: blur(24px) saturate(135%); }
+    .browser-bar { color: var(--theme-card-muted); background: var(--theme-browser-bar); }
+    .agent-well, .preview-well { --graphite: var(--theme-card-text); --ink-2: var(--theme-card-muted); --ink-3: var(--theme-card-faint); --line: var(--theme-shell-inner); }
+    .agent-message, .agent-composer { border-color: var(--theme-shell-inner); color: var(--theme-card-muted); background: var(--theme-titlebar-control); box-shadow: inset 0 1px var(--theme-shell-inner); }
+    .tool-call { color: var(--theme-card-text); background: rgba(var(--theme-accent-rgb), .13); }
+    .tool-call strong, .agent-avatar { color: var(--theme-accent); }
+    .agent-avatar { background: rgba(var(--theme-accent-rgb), .15); }
+    .preview-copy code { color: rgba(255, 255, 255, .76); background: var(--theme-terminal); }
+    .browser-cta { background: var(--theme-success); }
 
     .canvas-minimap {
       top: 74px;
       right: 18px;
       bottom: auto;
       width: 110px;
-      border-color: rgba(255, 255, 255, .32);
-      color: white;
-      background: rgba(15, 22, 33, .25);
+      border-color: var(--theme-shell-line);
+      color: var(--theme-minimap-text);
+      background: var(--theme-minimap);
       box-shadow: 0 18px 48px rgba(4, 9, 18, .2), inset 0 1px rgba(255, 255, 255, .18);
       backdrop-filter: blur(28px) saturate(160%);
     }
 
-    .canvas-minimap .minimap-field { border-color: rgba(255, 255, 255, .16); background-image: radial-gradient(rgba(255, 255, 255, .34) .55px, transparent .55px); }
-    .canvas-minimap .minimap-controls { color: rgba(255, 255, 255, .7); }
+    .canvas-minimap .minimap-field { border-color: var(--theme-shell-inner); background-image: radial-gradient(var(--theme-minimap-text) .55px, transparent .55px); }
+    .canvas-minimap .minimap-controls { color: var(--theme-minimap-text); }
 
     /* Settings */
     .settings-screen { background: #e9eef6; }
@@ -922,6 +1138,22 @@
     <button type="button" role="tab" data-open-screen="canvas">Canvas</button>
     <button type="button" role="tab" data-open-screen="settings">Settings</button>
   </nav>
+
+  <aside class="theme-picker" aria-label="Norma 品牌配色">
+    <div class="theme-picker-header"><strong>Color studies</strong><span>6 PALETTES</span></div>
+    <div class="theme-picker-group">
+      <span class="theme-picker-label">LIGHT</span>
+      <button class="theme-option" type="button" data-theme-option="ceramic-mist" data-theme-mode="light" aria-pressed="false"><span class="theme-option-swatch"><i></i><i></i><i></i></span><span class="theme-option-copy"><strong>Ceramic Mist</strong><small>Warm white · cobalt</small></span></button>
+      <button class="theme-option" type="button" data-theme-option="pearl-lilac" data-theme-mode="light" aria-pressed="false"><span class="theme-option-swatch"><i></i><i></i><i></i></span><span class="theme-option-copy"><strong>Pearl Lilac</strong><small>Pearl · violet · mint</small></span></button>
+      <button class="theme-option" type="button" data-theme-option="sand-coral" data-theme-mode="light" aria-pressed="false"><span class="theme-option-swatch"><i></i><i></i><i></i></span><span class="theme-option-copy"><strong>Sand Coral</strong><small>Warm sand · coral</small></span></button>
+    </div>
+    <div class="theme-picker-group">
+      <span class="theme-picker-label">DARK</span>
+      <button class="theme-option" type="button" data-theme-option="sapphire-night" data-theme-mode="dark" aria-pressed="false"><span class="theme-option-swatch"><i></i><i></i><i></i></span><span class="theme-option-copy"><strong>Sapphire Night</strong><small>Graphite · cobalt</small></span></button>
+      <button class="theme-option" type="button" data-theme-option="midnight-violet" data-theme-mode="dark" aria-pressed="false"><span class="theme-option-swatch"><i></i><i></i><i></i></span><span class="theme-option-copy"><strong>Midnight Violet</strong><small>Midnight · violet</small></span></button>
+      <button class="theme-option" type="button" data-theme-option="forest-mint" data-theme-mode="dark" aria-pressed="false"><span class="theme-option-swatch"><i></i><i></i><i></i></span><span class="theme-option-copy"><strong>Forest Mint</strong><small>Deep sage · mint</small></span></button>
+    </div>
+  </aside>
 
   <main>
     <section class="screen launchpad" data-screen="launchpad" aria-label="项目开始页面">
@@ -1134,12 +1366,36 @@ Finished in 4.26s</pre></article>
     const screenNodes = [...document.querySelectorAll('[data-screen]')];
     const screenButtons = [...document.querySelectorAll('[data-open-screen]')];
     const prototypeTabs = [...document.querySelectorAll('.prototype-nav [data-open-screen]')];
+    const themeOptions = [...document.querySelectorAll('[data-theme-option]')];
     const toast = document.querySelector('.toast');
     let toastTimer;
 
     const query = new URLSearchParams(location.search);
     if (query.has('clean')) document.documentElement.classList.add('clean');
     if (query.has('review')) document.documentElement.classList.add('review');
+
+    const themeModes = new Map(themeOptions.map(option => [option.dataset.themeOption, option.dataset.themeMode]));
+    const defaultTheme = 'ceramic-mist';
+
+    function activateTheme(theme) {
+      const activeTheme = themeModes.has(theme) ? theme : defaultTheme;
+      const mode = themeModes.get(activeTheme);
+      document.documentElement.dataset.theme = activeTheme;
+      document.documentElement.dataset.themeMode = mode;
+      themeOptions.forEach(option => option.setAttribute('aria-pressed', String(option.dataset.themeOption === activeTheme)));
+      return activeTheme;
+    }
+
+    activateTheme(query.get('theme'));
+
+    themeOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        const activeTheme = activateTheme(option.dataset.themeOption);
+        query.set('theme', activeTheme);
+        history.replaceState(null, '', `${location.pathname}?${query.toString()}${location.hash}`);
+        showToast(`已切换到 ${option.querySelector('strong').textContent}`);
+      });
+    });
 
     function currentScreen() {
       const requested = location.hash.slice(1);

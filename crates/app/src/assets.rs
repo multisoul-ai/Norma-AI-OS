@@ -29,11 +29,11 @@ pub const SETTINGS_NAV_HOOKS_ASSET: &str = "icons/settings-nav-hooks.svg";
 const APP_ICON_BYTES: &[u8] = include_bytes!("../assets/icons/app-icon.png");
 const APP_LOGO_BYTES: &[u8] = include_bytes!("../assets/icons/logo.png");
 
-/// 为所有内置 image 壁纸（3 PNG + 2 GIF）生成 `include_bytes!` 常量与按相对路径
+/// 为所有内置 image 壁纸（6 PNG + 3 JPEG + 2 GIF）生成 `include_bytes!` 常量与按相对路径
 /// 查询的 `image_builtin_bytes` 辅助函数。
 ///
 /// `include_bytes!(concat!("../assets/", $rel))` 在编译期把字面量拼成
-/// `../assets/wallpapers/<name>.{png|gif}`，相对 `crates/app/src/assets.rs` 解析。
+/// `../assets/wallpapers/<name>.{png|jpg|gif}`，相对 `crates/app/src/assets.rs` 解析。
 /// 视频不在其中：MP4 文件较大，走 Task 9 的 git-lfs + bundle Resources 流程，
 /// 不打进二进制。
 macro_rules! image_builtins {
@@ -51,6 +51,12 @@ image_builtins! {
     ("wallpapers/1331865.png", DEFAULT_WALLPAPER_BYTES),
     ("wallpapers/1350954.png", WALLPAPER_1350954_BYTES),
     ("wallpapers/1358524.png", WALLPAPER_1358524_BYTES),
+    ("wallpapers/74174.png", WALLPAPER_74174_BYTES),
+    ("wallpapers/74176.jpg", WALLPAPER_74176_BYTES),
+    ("wallpapers/718916.jpg", WALLPAPER_718916_BYTES),
+    ("wallpapers/1411492.png", WALLPAPER_1411492_BYTES),
+    ("wallpapers/379352.jpg", WALLPAPER_379352_BYTES),
+    ("wallpapers/1411385.png", WALLPAPER_1411385_BYTES),
     ("wallpapers/215824.gif",  WALLPAPER_215824_BYTES),
     ("wallpapers/220240.gif",  WALLPAPER_220240_BYTES),
 }
@@ -128,7 +134,7 @@ impl AssetSource for EmbeddedAssets {
                 SharedString::from("settings-nav-agents.svg"),
                 SharedString::from("settings-nav-hooks.svg"),
             ]),
-            // 仅枚举 image 内置项（PNG/GIF）。视频文件不在 EmbeddedAssets 分发，
+            // 仅枚举 image 内置项（PNG/JPEG/GIF）。视频文件不在 EmbeddedAssets 分发，
             // 由 builtin_wallpapers() 过滤掉 Video kind 后派生，避免与清单脱钩。
             "wallpapers" => Ok(crate::app::wallpaper_resolvers::builtin_wallpapers()
                 .iter()
@@ -241,7 +247,7 @@ mod tests {
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   root = "" → 2 个顶层目录；icons → 17 个文件（2 PNG + 10 toolbar SVG + 5 Settings SVG）；
-    ///   wallpapers → 5 个 image built-in（3 PNG + 2 GIF），不含视频。
+    ///   wallpapers → 11 个 image built-in（6 PNG + 3 JPEG + 2 GIF），不含视频。
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. list root/icons/wallpapers/missing
@@ -313,8 +319,8 @@ mod tests {
                 .collect();
         assert_eq!(
             expected_image_filenames.len(),
-            5,
-            "there should be exactly 5 image built-ins (3 PNG + 2 GIF): got {:?}",
+            11,
+            "there should be exactly 11 image built-ins (6 PNG + 3 JPEG + 2 GIF): got {:?}",
             expected_image_filenames
         );
         for fname in &expected_image_filenames {
@@ -350,15 +356,15 @@ mod tests {
     /// 内置 image 资产：EmbeddedAssets.load/list 应覆盖所有 Static 与 GIF 内置项（不含视频）。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   builtin_wallpapers() = 10 项 → 5 项 image（3 PNG + 2 GIF）+ 5 项 Video。
+    ///   builtin_wallpapers() = 16 项 → 11 项 image（6 PNG + 3 JPEG + 2 GIF）+ 5 项 Video。
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. 对每个 image builtin 调 EmbeddedAssets.load(rel)
-    ///   2. 校验 PNG/GIF magic，并确认 list("wallpapers") 包含文件名
+    ///   2. 按扩展名校验 PNG/JPEG/GIF magic，并确认 list("wallpapers") 包含文件名
     ///
     /// 预期结果：
-    ///   - 正断言：5 个 image builtin 均能 load 且 magic 正确
-    ///   - 正断言：list("wallpapers") 包含全部 5 个 image 文件名
+    ///   - 正断言：11 个 image builtin 均能 load 且 magic 正确
+    ///   - 正断言：list("wallpapers") 包含全部 11 个 image 文件名
     #[test]
     fn test_embedded_assets_serve_all_image_builtins() {
         let assets = EmbeddedAssets;
@@ -378,11 +384,22 @@ mod tests {
 
             match kind {
                 crate::app::wallpaper_resolvers::WallpaperKind::Static => {
-                    assert_eq!(
-                        &bytes[..8],
-                        &[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a],
-                        "static builtin {rel} must start with PNG signature"
-                    );
+                    match rel.rsplit_once('.').map(|(_, extension)| extension) {
+                        Some("png") => assert_eq!(
+                            &bytes[..8],
+                            &[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a],
+                            "PNG static builtin {rel} must start with a PNG signature"
+                        ),
+                        Some("jpg") | Some("jpeg") => assert_eq!(
+                            &bytes[..3],
+                            &[0xff, 0xd8, 0xff],
+                            "JPEG static builtin {rel} must start with an SOI marker"
+                        ),
+                        Some(extension) => panic!(
+                            "Static builtin {rel} has unsupported test extension .{extension}"
+                        ),
+                        None => panic!("Static builtin {rel} must include a file extension"),
+                    }
                 }
                 crate::app::wallpaper_resolvers::WallpaperKind::Gif => {
                     assert_eq!(
