@@ -5,7 +5,7 @@ use gpui::{point, px, Pixels, Point};
 use runtime::InputEvent;
 
 pub(crate) fn node_card_radius_px(zoom: f32) -> f32 {
-    (16.0 * zoom).clamp(8.0, 22.0)
+    (22.0 * zoom).clamp(12.0, 28.0)
 }
 
 pub(crate) fn node_title_radius_px(zoom: f32) -> f32 {

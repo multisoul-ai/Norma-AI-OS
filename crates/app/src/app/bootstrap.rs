@@ -32,7 +32,7 @@ impl MultisoulApp {
         .detach();
         Self::start_frame_loops(cx);
         let wallpaper_settings = WallpaperSettingsState::load_default();
-        let theme = Theme::dark();
+        let theme = Theme::glass_light();
         let focus_handle: FocusHandle = cx.focus_handle();
         let (voice_settings, voice_settings_inputs) =
             VoiceSettingsInputs::load_default(cx.weak_entity(), focus_handle.clone(), theme, cx);

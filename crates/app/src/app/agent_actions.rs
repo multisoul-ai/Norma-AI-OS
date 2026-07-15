@@ -157,15 +157,6 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    pub(crate) fn on_toolbar_new_claude_agent(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.spawn_agent_card(AgentProfile::Claude, window, cx);
-    }
-
     pub(crate) fn on_toolbar_new_codex_agent(
         &mut self,
         _: &ClickEvent,
@@ -173,24 +164,6 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.spawn_agent_card(AgentProfile::Codex, window, cx);
-    }
-
-    pub(crate) fn on_toolbar_new_opencode_agent(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.spawn_agent_card(AgentProfile::OpenCode, window, cx);
-    }
-
-    pub(crate) fn on_toolbar_new_cursor_agent(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.spawn_agent_card(AgentProfile::Cursor, window, cx);
     }
 }
 

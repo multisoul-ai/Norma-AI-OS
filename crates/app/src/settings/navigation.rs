@@ -136,12 +136,12 @@ fn sidebar_navigation(
         .overflow_x_hidden()
         .flex()
         .flex_col()
-        .gap(px(if compact { 14.0 } else { 18.0 }))
-        .px(px(if compact { 12.0 } else { 18.0 }))
-        .py(px(if compact { 16.0 } else { 22.0 }))
+        .gap(px(if compact { 14.0 } else { 22.0 }))
+        .px(px(if compact { 12.0 } else { 20.0 }))
+        .py(px(if compact { 16.0 } else { 28.0 }))
         .border_r_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
-        .bg(rgba(with_alpha(theme.node_fill, 0xf2)))
+        .bg(rgba(with_alpha(theme.canvas_to, 0xc8)))
         .child(
             div()
                 .mb(px(if compact { 2.0 } else { 6.0 }))
@@ -246,7 +246,7 @@ fn navigation_item(
     let metadata = section.metadata();
     let is_active = section == active;
     let background = if is_active {
-        with_alpha(theme.accent_orange, 0x1c)
+        with_alpha(theme.panel_high, 0xee)
     } else {
         0x00000000
     };
@@ -270,7 +270,13 @@ fn navigation_item(
         .items_center()
         .gap(px(9.0))
         .px(px(10.0))
-        .rounded(px(9.0))
+        .rounded(px(12.0))
+        .border_1()
+        .border_color(rgba(if is_active {
+            with_alpha(theme.node_stroke, 0xd8)
+        } else {
+            0x00000000
+        }))
         .bg(rgba(background))
         .text_color(rgba(text))
         .cursor_pointer()
@@ -284,11 +290,11 @@ fn navigation_item(
         }))
         .child(
             div()
-                .w(px(2.0))
+                .w(px(3.0))
                 .h(px(18.0))
                 .rounded(px(2.0))
                 .bg(rgba(if is_active {
-                    theme.accent_orange
+                    theme.accent_blue
                 } else {
                     0x00000000
                 })),

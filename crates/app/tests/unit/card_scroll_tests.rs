@@ -42,9 +42,9 @@ fn screen_point(viewport: Viewport, canvas_x: f32, canvas_y: f32) -> Vec2 {
 ///   preview bounds = origin(100,50) size(300x220)
 ///   viewport.pan=(20,10), zoom=2
 ///   node_top_screen_y = 50*2 + 10 = 110
-///   title_bottom_screen_y = 110 + TITLE_BAR_H(26)*2 = 162
-///   正文命中点 canvas=(130,80) → screen=(130*2+20, 80*2+10)=(280,170)
-///   170 > 162，因此命中正文区而非标题栏
+///   title_bottom_screen_y = 110 + TITLE_BAR_H(44)*2 = 198
+///   正文命中点 canvas=(130,100) → screen=(130*2+20, 100*2+10)=(280,210)
+///   210 > 198，因此命中正文区而非标题栏
 ///
 /// 执行过程：
 ///   1. add Preview 节点并 select_only(preview)
@@ -62,7 +62,7 @@ fn test_selected_preview_body_scroll_belongs_to_native_element() {
     };
     let preview = doc.add_node(preview_kind(), CanvasRect::new(100.0, 50.0, 300.0, 220.0));
     let selection = selected_selection(preview);
-    let point = screen_point(doc.viewport, 130.0, 80.0);
+    let point = screen_point(doc.viewport, 130.0, 100.0);
 
     let owner = wheel_scroll_owner_for_point(doc.nodes(), &selection, point, doc.viewport);
 
@@ -84,9 +84,9 @@ fn test_selected_preview_body_scroll_belongs_to_native_element() {
 ///   preview bounds = origin(100,50) size(300x220)
 ///   viewport.pan=(20,10), zoom=2
 ///   node_top_screen_y = 50*2 + 10 = 110
-///   title_bottom_screen_y = 110 + 26*2 = 162
+///   title_bottom_screen_y = 110 + 44*2 = 198
 ///   标题栏命中点 canvas=(130,60) → screen=(280,130)
-///   130 <= 162，因此命中标题栏区域
+///   130 <= 198，因此命中标题栏区域
 ///
 /// 执行过程：
 ///   1. add Preview 节点并 select_only(preview)
@@ -249,8 +249,8 @@ fn test_selected_preview_outside_scroll_belongs_to_canvas() {
 ///   terminal bounds = origin(100,50) size(300x220)
 ///   viewport.pan=(20,10), zoom=2
 ///   node_top_screen_y = 50*2 + 10 = 110
-///   title_bottom_screen_y = 110 + 26*2 = 162
-///   正文命中点 canvas=(130,80) → screen=(280,170)，170 > 162
+///   title_bottom_screen_y = 110 + 44*2 = 198
+///   正文命中点 canvas=(130,100) → screen=(280,210)，210 > 198
 ///
 /// 执行过程：
 ///   1. add Term 节点并 select_only(term)
@@ -268,7 +268,7 @@ fn test_selected_terminal_body_scroll_belongs_to_terminal_scrollback() {
     };
     let term = doc.add_node(term_kind(), CanvasRect::new(100.0, 50.0, 300.0, 220.0));
     let selection = selected_selection(term);
-    let point = screen_point(doc.viewport, 130.0, 80.0);
+    let point = screen_point(doc.viewport, 130.0, 100.0);
 
     let owner = wheel_scroll_owner_for_point(doc.nodes(), &selection, point, doc.viewport);
 
@@ -291,8 +291,8 @@ fn test_selected_terminal_body_scroll_belongs_to_terminal_scrollback() {
 ///   Codex bounds  = origin(500,50) size(300x220)
 ///   OpenCode bounds = origin(900,50) size(300x220)
 ///   viewport.pan=(20,10), zoom=2
-///   正文 y=80 → screen_y = 80*2 + 10 = 170
-///   title_bottom_screen_y = 50*2 + 10 + 26*2 = 162，因此三个点都在正文区
+///   正文 y=100 → screen_y = 100*2 + 10 = 210
+///   title_bottom_screen_y = 50*2 + 10 + 44*2 = 198，因此三个点都在正文区
 ///
 /// 执行过程：
 ///   1. add Claude/Codex/OpenCode 三个 Agent 节点
@@ -326,9 +326,9 @@ fn test_selected_agent_bodies_scroll_belong_to_terminal_scrollback() {
     let claude_selection = selected_selection(claude);
     let codex_selection = selected_selection(codex);
     let opencode_selection = selected_selection(opencode);
-    let claude_point = screen_point(doc.viewport, 130.0, 80.0);
-    let codex_point = screen_point(doc.viewport, 530.0, 80.0);
-    let opencode_point = screen_point(doc.viewport, 930.0, 80.0);
+    let claude_point = screen_point(doc.viewport, 130.0, 100.0);
+    let codex_point = screen_point(doc.viewport, 530.0, 100.0);
+    let opencode_point = screen_point(doc.viewport, 930.0, 100.0);
 
     let claude_owner =
         wheel_scroll_owner_for_point(doc.nodes(), &claude_selection, claude_point, doc.viewport);

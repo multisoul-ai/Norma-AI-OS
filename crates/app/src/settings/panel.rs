@@ -15,11 +15,11 @@ use self::panel_style::{settings_shadow, with_alpha};
 pub(crate) use self::navigation::SettingsSection;
 
 const PANEL_MIN_W: f32 = 860.0;
-const PANEL_MAX_W: f32 = 1180.0;
+const PANEL_MAX_W: f32 = 1280.0;
 const PANEL_MIN_H: f32 = 620.0;
-const PANEL_MAX_H: f32 = 760.0;
+const PANEL_MAX_H: f32 = 820.0;
 const SIDEBAR_MIN_W: f32 = 160.0;
-const SIDEBAR_MAX_W: f32 = 280.0;
+const SIDEBAR_MAX_W: f32 = 286.0;
 const COMPACT_SIDEBAR_MIN_W: f32 = 144.0;
 const COMPACT_SIDEBAR_MAX_W: f32 = 188.0;
 const COMPACT_SIDEBAR_BREAKPOINT: f32 = 760.0;
@@ -194,7 +194,7 @@ impl MultisoulApp {
             .right(px(0.0))
             .bottom(px(0.0))
             .occlude()
-            .bg(rgba(with_alpha(theme.graphite, 0x46)))
+            .bg(rgba(with_alpha(theme.graphite, 0x34)))
             .on_mouse_down(MouseButton::Left, {
                 let focus = self.focus_handle.clone();
                 move |_, window, cx| {
@@ -225,11 +225,11 @@ impl MultisoulApp {
                         |panel| panel.flex_row(),
                     )
                     .overflow_hidden()
-                    .rounded(px(18.0))
+                    .rounded(px(24.0))
                     .border_1()
-                    .border_color(rgba(with_alpha(theme.edge_highlight, 0x46)))
+                    .border_color(rgba(with_alpha(theme.node_stroke, 0xd8)))
                     .shadow(settings_shadow(theme))
-                    .bg(rgba(with_alpha(theme.panel, 0xf4)))
+                    .bg(rgba(with_alpha(theme.panel, 0xf2)))
                     .on_mouse_down(MouseButton::Left, {
                         let focus = self.focus_handle.clone();
                         move |_, window, cx| {

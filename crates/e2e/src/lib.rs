@@ -67,6 +67,9 @@ mod e2e_12_voice_addressable_agents;
 // Agent/terminal 输出链接：点击后新建 Browser 并仅在该路径进入 master/detail 布局。
 mod e2e_13_terminal_links;
 
+// Product UI V2：底部 Dock 真实点击不应断开 Terminal reflow 与 Settings 流程。
+mod e2e_14_product_ui_contract;
+
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。
 pub use harness::{
