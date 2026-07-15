@@ -130,26 +130,28 @@ fn test_launchpad_layout_short_window_moves_content_up() {
     );
 }
 
-/// L-4: Recent Projects 数据源应只取前 6 条并保持 RecentWorkspaces 的排序结果。
+/// L-4: Recent Projects 数据源应保留全部已持久化记录，让超过可视区的项目可滚动访问。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   构造 7 条记录，timestamp 从 100 到 106 递增
+///   构造 14 条记录，timestamp 从 100 到 113 递增
 ///   RecentWorkspaces 会按 last_opened_at_unix 降序排序
-///   top(6) 应保留 project-6、project-5、project-4、project-3、project-2、project-1
+///   每行高度 = 36px，行间距 = 10px
+///   14 行自然高度 = 14 * 36 + 13 * 10 = 634px，超过 Launchpad Recent 区的可视高度，
+///   因此必须将全部记录交给 overflow_scroll 容器，而不是在数据源阶段截为 6 条
 ///
 /// 执行过程：
-///   1. 依次 record_opened_at 7 个 workspace
+///   1. 依次 record_opened_at 14 个 workspace
 ///   2. 调用 recent_project_records_for_launchpad
-///   3. 检查返回数量、顺序和被截断项
+///   3. 检查返回数量、首尾顺序和第 7 条之后的记录
 ///
 /// 预期结果：
-///   - 正断言：返回 6 条，第一条是最新 project-6
-///   - 正断言：第六条是 project-1
-///   - 负断言：project-0 不应出现在 Launchpad 列表中（top(6) 截断）
+///   - 正断言：返回 14 条，第一条是最新 project-13
+///   - 正断言：第 7 条 project-7 与最后一条 project-0 都存在，供滚动后访问
+///   - 负断言：数据源不应截断为 6 条，否则 overflow_scroll 没有可滚动内容
 #[test]
-fn test_recent_project_records_for_launchpad_keeps_top_six() {
+fn test_recent_project_records_for_launchpad_keeps_all_records_for_scrolling() {
     let mut recent = RecentWorkspaces::default();
-    for index in 0..7 {
+    for index in 0..14 {
         recent.record_opened_at(
             PathBuf::from(format!("/tmp/project-{index}")),
             WorkspaceSource::Open,
@@ -161,22 +163,25 @@ fn test_recent_project_records_for_launchpad_keeps_top_six() {
 
     assert_eq!(
         records.len(),
+        14,
+        "Launchpad recent list 应保留全部 14 条记录，供滚动容器渲染"
+    );
+    assert_eq!(
+        records[0].display_name, "project-13",
+        "最新的 project-13 应排在 Launchpad recent 第一条"
+    );
+    assert_eq!(
+        records[6].display_name, "project-7",
+        "第 7 条 project-7 应保留，滚动后必须可访问"
+    );
+    assert_eq!(
+        records[13].display_name, "project-0",
+        "最早的 project-0 应保留在列表末尾，滚动到底部后必须可访问"
+    );
+    assert_ne!(
+        records.len(),
         6,
-        "Launchpad recent list 应只渲染 top(6) 记录"
-    );
-    assert_eq!(
-        records[0].display_name, "project-6",
-        "最新的 project-6 应排在 Launchpad recent 第一条"
-    );
-    assert_eq!(
-        records[5].display_name, "project-1",
-        "第 6 条应是 top(6) 中最后保留的 project-1"
-    );
-    assert!(
-        records
-            .iter()
-            .all(|record| record.display_name != "project-0"),
-        "project-0 超出 top(6)，不应出现在 Launchpad recent 列表"
+        "Recent Projects 不应截断为 6 条，否则列表没有足够内容产生滚动"
     );
 }
 

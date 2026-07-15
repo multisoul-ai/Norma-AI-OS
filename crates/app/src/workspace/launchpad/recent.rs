@@ -75,12 +75,10 @@ impl MultisoulApp {
     }
 }
 
-pub(crate) const LAUNCHPAD_RECENT_LIMIT: usize = 6;
-
 pub(crate) fn recent_project_records_for_launchpad(
     recent: &RecentWorkspaces,
 ) -> Vec<WorkspaceRecord> {
-    recent.top(LAUNCHPAD_RECENT_LIMIT).to_vec()
+    recent.records.clone()
 }
 
 fn recent_project_row(
