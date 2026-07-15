@@ -1,14 +1,15 @@
 # ASR 模型推荐发布门槛
 
-本文记录 Paraformer Bilingual 与 Zipformer Streaming ZH 的推荐资格。模型出现在 Voice
+本文记录受控 ASR 模型目录中所有模型的推荐资格。模型出现在 Voice
 Settings 中不等于获得“推荐”标记；推荐状态只能由可重复的中文识别质量与目标硬件性能证据推动。
 
-## 当前结论（2026-07-11）
+## 当前结论（2026-07-15）
 
-| 模型 | 可安装/选择 | 运行时适配 | 推荐 | 原因 |
-|---|---:|---:|---:|---|
-| Paraformer Bilingual | 是 | Online Paraformer | 否 | 作为迁移基线保留，尚未建立本轮统一评测数据 |
-| Zipformer Streaming ZH | 是 | Online Transducer | 否 | 尚未完成固定中文语料与目标 Apple Silicon 性能评测 |
+| 模型 | 不可变 ID | 可安装/选择 | 运行时适配 | 推荐 | 原因 |
+|---|---|---:|---:|---:|---|
+| Paraformer Bilingual | `paraformer-bilingual-zh-en-int8` | 是 | Online Paraformer | 否 | 作为迁移基线保留，尚未建立本轮统一评测数据 |
+| Zipformer Streaming ZH | `zipformer-streaming-zh-int8-2025-06-30` | 是 | Online Transducer | 否 | 尚未完成固定中文语料与目标 Apple Silicon 性能评测 |
+| Zipformer Streaming CTC ZH | `zipformer-streaming-ctc-zh-int8-2025-06-30` | 是 | Online Zipformer2 CTC | 否 | 仅完成受控工件与配置 lower seam，尚无真实模型质量、性能与许可结论 |
 
 代码中的 `recommended = false` 是发布护栏，不得仅因为模型能够加载或单条语音能够识别就改为
 `true`。
@@ -21,7 +22,7 @@ Settings 中不等于获得“推荐”标记；推荐状态只能由可重复�
 - 中英混合、数字、路径和同音词；
 - 每条关键命令的具体正断言与易混淆命令的负断言。
 
-同一份语料依次运行两种模型。Zipformer 必须满足：
+同一份语料依次运行目录中的全部模型。两个 Zipformer 候选都必须满足：
 
 1. 关键产品命令逐条全部正确；
 2. 固定集准确率不低于 Paraformer；
@@ -32,7 +33,7 @@ Settings 中不等于获得“推荐”标记；推荐状态只能由可重复�
 
 ## 性能门槛
 
-在实际支持的 Apple Silicon 机型分别冷启动、热启动并连续运行两种模型，记录：
+在实际支持的 Apple Silicon 机型分别冷启动、热启动并连续运行目录中的全部模型，记录：
 
 - 模型加载耗时；
 - 首个 partial 延迟与 final 延迟；
@@ -52,12 +53,14 @@ cargo test -p voice_sherpa test_real_wav_reaches_final_transcript_and_thinking -
 cargo test -p voice_sherpa test_zipformer_real_wav_produces_partial_and_final_transcripts -- --ignored --nocapture
 ```
 
-Zipformer 推荐评测必须使用受管目录中的
-`zipformer-streaming-zh-int8-2025-06-30`，并在报告中同时记录 partial 与 final。单元测试、
-headless GPUI e2e 和真实麦克风/L3 证据必须分别报告，不能相互替代。
+Transducer Zipformer 推荐评测必须使用受管目录中的
+`zipformer-streaming-zh-int8-2025-06-30`，并在报告中同时记录 partial 与 final。CTC 候选
+`zipformer-streaming-ctc-zh-int8-2025-06-30` 当前没有真实模型 smoke 命令；补齐独立的 ignored
+真实模型测试、固定 WAV 结果与目标 Apple Silicon 基线前不得推荐。单元测试、headless GPUI e2e
+和真实麦克风/L3 证据必须分别报告，不能相互替代。
 
 ## 工件与许可
 
-两种模型均从受控模型库中钉死的官方 URL 由用户主动下载，不打入 `.app` 或 DMG。Sherpa
+三个模型均从受控模型库中钉死的官方 URL 由用户主动下载，不打入 `.app` 或 DMG。Sherpa
 代码库的许可证不能自动证明每个预训练模型工件的再分发权；在 Zipformer 工件许可明确前，不得
 随安装包再分发其归档或解压文件。

@@ -109,7 +109,7 @@
 ### 6.1 数据来源与提取
 
 **Agent 任务标题来源：`UserPromptSubmit` hook 事件**
-- Claude/Codex hook 触发 `UserPromptSubmit` 时，`raw_json` 中包含用户 prompt 内容
+- Claude、Codex、Cursor 或 OpenCode hook 归一化为 `UserPromptSubmit` 时，从 provider `raw_json` 尝试提取用户 prompt 内容
 - 字段名需在实现前验证（候选：`"prompt"`、`"message"`、`"user_message"`）
 - 首次收到时提取并写入 runtime 侧的 `task_title` 字段，后续不覆盖
 - 若卡片创建后从未收到 `UserPromptSubmit`，标题回退显示 `alias`（若有）或 profile 名
@@ -156,7 +156,7 @@ app::agent_card          →  GPUI 定时器驱动运行时长
 | 风险 | 应对 |
 |------|------|
 | `UserPromptSubmit` 的 raw_json prompt 字段名因 provider 不同而异 | 实现前先用 debug 日志打印 raw_json，验证字段名 |
-| 若 Claude/Codex hook 不传 prompt 内容 | 回退到 alias/profile 名策略，功能可降级 |
+| 若 provider hook 不传 prompt 内容 | 回退到 alias/profile 名策略，功能可降级 |
 | 运行时长精度（GPUI 定时器精度） | 1s 精度足够，不需要毫秒级 |
 
 ---

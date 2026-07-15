@@ -1,5 +1,7 @@
 # 可扩展 ASR 模型框架与 Zipformer Streaming ZH SPEC
 
+> 2026-07-15 目录更新：受控目录新增非推荐候选 `Zipformer Streaming CTC ZH`。它复用本文的不可变 ID、安装完整性和发布门槛，但通过 Sherpa `OnlineZipformer2Ctc` 适配；推荐资格统一记录在 [`../quality/asr-model-release-gate.md`](../quality/asr-model-release-gate.md)。
+
 ## Problem Statement
 
 当前 Norma OS 的本地语音识别与 Paraformer 的文件目录和 Sherpa 配置直接绑定。用户在 Voice Settings 中看到的是模型路径而不是可理解的识别模型；听写、持续聆听、Agent Provider 和工程配置也混在一起，缺少清晰的语音交互模式。
@@ -68,7 +70,7 @@ Voice Settings 将以“语音交互”为顶层概念，提供互斥的听写�
 - The ASR domain will not depend on the dialogue contract, Sherpa adapter, storage layer or application UI.
 - The existing dialogue ASR client remains the engine-neutral PCM-to-partial/final boundary used by both voice interaction modes.
 - Recognition model IDs are immutable and versioned. The user-facing display name omits version detail, while installation manifests and Settings store the exact ID.
-- The first curated model library contains Paraformer Bilingual and Zipformer Streaming ZH. Additional models arrive with application releases, not from a remote model market.
+- The curated model library ships with application releases rather than a remote market. It currently contains Paraformer Bilingual, Zipformer Streaming ZH (Transducer) and Zipformer Streaming CTC ZH; every added ID must be registered in the ASR release gate before shipping.
 - Settings persists a shared current model ID only. Model paths, versions and integrity are owned by model installations.
 - Installation state is sourced from a colocated filesystem manifest plus required model files. SQLite is not an installation source of truth.
 - A model can be current only after installation validation and runtime loading succeed.
@@ -80,6 +82,7 @@ Voice Settings 将以“语音交互”为顶层概念，提供互斥的听写�
 - A single Sherpa recognizer factory replaces the duplicate Paraformer configuration builders.
 - Paraformer uses an online Paraformer configuration requiring encoder, decoder and tokens.
 - Zipformer Streaming ZH uses an online Transducer configuration requiring encoder, decoder, joiner and tokens.
+- Zipformer Streaming CTC ZH uses an online Zipformer2 CTC configuration requiring one model file and tokens; it remains non-recommended until independent real-model quality, performance and license evidence exists.
 - Both supported models reuse the existing 16 kHz PCM, VAD, partial/final event and dialogue client contracts.
 - Voice interaction has two mutually exclusive modes: dictation and continuous listening.
 - Dictation writes final text to the focused target and does not invoke Agent or TTS.
@@ -97,7 +100,7 @@ Voice Settings 将以“语音交互”为顶层概念，提供互斥的听写�
 - Tests verify externally observable behavior through the highest practical seam and avoid assertions tied only to private helpers or source text.
 - The primary seam is the existing application e2e harness: it exercises Voice Settings, interaction-mode selection, model installation states, `⌘⇧V` routing, model switching, failure recovery and persistence from the user's perspective.
 - The first necessary lower seam is the public ASR domain API. It verifies immutable identities, curated lookup, manifest validation, required-file validation, archive integrity, safe extraction, atomic installation and deletion rules without network access.
-- The second necessary lower seam is the Sherpa runtime factory. It verifies that an available Paraformer model selects Paraformer configuration and an available Zipformer model selects Transducer configuration with a required joiner.
+- The second necessary lower seam is the Sherpa runtime factory. It verifies that Paraformer selects Paraformer configuration, Transducer Zipformer requires encoder/decoder/joiner/tokens, and CTC Zipformer selects only Zipformer2 CTC plus tokens.
 - The existing dialogue ASR client tests remain the contract evidence for PCM input, partial/final text and reset behavior; they must not be duplicated in each model adapter.
 - Application settings tests verify defaults, mode and trigger persistence, shared model selection, ignored legacy ASR keys and preservation of Agent/LLM configuration.
 - Application dialogue tests verify that dictation bypasses Agent/TTS, continuous listening reaches Agent/TTS, and the shortcut is routed by interaction mode.
@@ -124,6 +127,7 @@ Voice Settings 将以“语音交互”为顶层概念，提供互斥的听写�
 ## Further Notes
 
 - The exact Zipformer candidate is `sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30`, an online Chinese Transducer model compatible with the existing Sherpa Rust dependency.
+- The additional CTC candidate is `sherpa-onnx-streaming-zipformer-ctc-zh-int8-2025-06-30`; its presence in Settings does not imply recommendation or redistribution approval.
 - The official archive is approximately 160 MB and requires encoder, decoder, joiner and token files. UI download size must come from the pinned artifact rather than parameter-count marketing text.
 - The Sherpa codebase license does not by itself establish redistribution rights for every pretrained model archive. Until the Zipformer artifact license is clarified, the product only facilitates explicit user download from the pinned official source.
 - Default settings when new keys are absent are dictation mode, hold trigger and no current model. With no ready model, the shortcut shows a recoverable setup prompt instead of starting the microphone.

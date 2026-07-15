@@ -145,6 +145,22 @@ For staged-compatible feedback:
 python3 scripts/check-video-wallpaper-performance.py --staged
 ```
 
+## R6 · Domain Catalogs And Public Contracts Stay Aligned
+
+| | |
+|---|---|
+| Script | [`scripts/check-domain-contracts.py`](../../scripts/check-domain-contracts.py) |
+| Scope | ASR catalog/release gate and Agent profile enum/schema/Storage codec |
+| Rule | Every built-in ASR model ID must have a release-gate entry; every `AgentProfile` variant must be represented by the Canvas enum, `create_agent` schema/parser, and Storage encoder/decoder. |
+| Failure signal | `ERROR: domain contract violations found.` |
+| Fix | Register new ASR models with an explicit recommendation state, or update all Agent profile contract surfaces in the same change. |
+
+Run it manually or in CI:
+
+```bash
+python3 scripts/check-domain-contracts.py
+```
+
 ## Local Pre-Commit Hook
 
 Install the tracked native Git hook:

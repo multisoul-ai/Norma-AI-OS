@@ -1,5 +1,7 @@
 # Local TTS 官方模型库 SPEC
 
+> 2026-07-15 对齐说明：Voice Preview 的实际 PCM 现在与 Agent 终态通知共同驱动语音窗口内缘光；该行为由 [`2026-07-14-SPEC-agent-task-tts-announcements.md`](2026-07-14-SPEC-agent-task-tts-announcements.md) 取代本文早期的 Preview 视觉隔离规则。
+
 ## Problem Statement
 
 Norma OS 的 Local TTS 目前以单一 Matcha 模型为默认实现，通过仅供测试的环境变量或固定目录加载。用户无法在 Voice Settings 中看见可用的本地语音模型，无法自主下载、验证、选择、删除模型，也无法在一个多 Voice 模型中选择和试听具体声音。
@@ -75,7 +77,7 @@ Norma OS 的 Local TTS 目前以单一 Matcha 模型为默认实现，通过仅�
 - The selected TTS engine is owned by a background runtime and lazy-loaded on first synthesis or preview need. It is reused for subsequent assistant replies. Installed but unselected models remain on disk only.
 - Model or Voice selection changes cancel active assistant synthesis, pending TTS chunks and assistant playback, then release the old engine. The interrupted reply is not automatically replayed. Future replies use the new selection.
 - TTS runtime work is serialized or otherwise explicitly coordinated so a Voice preview cannot mutate, replace or interleave with the assistant-reply engine or playback queue.
-- Distinguish audio purpose at least between assistant reply and Voice preview. Voice preview is cancellable and uses a fixed short sample. It does not alter dialogue phase, trigger assistant playback effects, drive the voice-window inset, or interrupt an active assistant reply.
+- Distinguish audio purpose at least between assistant reply, Voice Preview and Agent task announcement. Voice Preview is cancellable and uses a fixed short sample. It does not alter dialogue phase, create assistant messages or interrupt an active assistant reply; its actual audible PCM does drive the shared voice-window inset through the same playback-clock seam.
 - Every background TTS operation carries a monotonically increasing configuration generation. Model/Voice changes, disabling TTS, shutdown and relevant voice-runtime cancellation increment the generation. Completion, chunk, validation and preview events apply only if their generation remains current.
 - The runtime accepts catalog-validated mono PCM16 outputs without the existing fixed three-rate whitelist. Playback configures itself from the chunk's verified sample rate. Every added sample rate requires real playback validation before catalog release.
 - Existing assistant reply semantics remain intact: barge-in applies to assistant replies, playback clock continues to be the source of truth for voice-window inset, and background work never blocks GPUI.
@@ -86,7 +88,7 @@ Norma OS 的 Local TTS 目前以单一 Matcha 模型为默认实现，通过仅�
 
 - The primary acceptance seam is the existing `crates/e2e` voice flow. It must exercise user-observable Voice Settings model states, installation results, model/Voice selection, a deterministic Agent reply, assistant playback cancellation and text-only fallback without asserting private implementation details.
 - The e2e harness uses deterministic fake model archives, fake download transport, deterministic TTS clients and deterministic audio sinks. Daily tests must not download from GitHub, require real model artifacts, depend on microphone access or emit audible audio.
-- The highest seam must cover: no model produces text-only reply and prompt; first install selects default Voice; later install remains unselected; Voice fallback on model switch; selected-model deletion protection; failed/cancelled install leaves no ready selection; corrupted selected installation falls back to text; switching during synthesis/playback prevents stale audio; preview remains separate from assistant reply.
+- The highest seam must cover: no model produces text-only reply and prompt; first install selects default Voice; later install remains unselected; Voice fallback on model switch; selected-model deletion protection; failed/cancelled install leaves no ready selection; corrupted selected installation falls back to text; switching during synthesis/playback prevents stale audio; Preview remains separate from assistant reply state while its actual PCM drives the shared voice-window inset.
 - Model-store unit tests verify only public lifecycle behavior: immutable IDs, category-separated roots, pinned checksum verification, archive traversal rejection, required files, manifest-last order, atomic promotion, cancellation cleanup, scan results and deletion rules.
 - TTS-domain unit tests verify public descriptor behavior: catalog lookup, immutable model and Voice IDs, default Voice resolution, model-specific required files, output-format declaration and invalid Voice rejection.
 - Sherpa adapter tests verify that an available model selects its declared backend and Voice configuration, emits valid mono PCM16 at its declared sample rate, and propagates cancellation without further chunks.

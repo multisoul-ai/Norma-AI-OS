@@ -23,6 +23,7 @@ Important files:
 
 - `pty.rs` - `portable-pty` wrapper, read thread, output channel, resize/write/kill.
 - `grid.rs` - `alacritty_terminal` wrapper producing `GridSnapshot` with neutral `Cell` values.
+- `grid/links.rs` - OSC-8 and bare `http(s)` URL discovery plus lexically safe relative Preview paths.
 - `input.rs` - `KeyInput` to PTY byte encoding, including Ctrl, Alt, Enter, arrows.
 - `session.rs` - `TerminalSession`, drain loop, status, resize, snapshots, cleanup.
 - `message.rs` - PTY channel events.
@@ -54,12 +55,25 @@ Important files:
 - `settings_store.rs` - string settings.
 - `canvas_store.rs` - `DocumentSnapshot` round-trip.
 - `session_store.rs` - coalesced session checkpoints by `node_id`.
+- `agent_definition_store.rs` - persistent project Agent identities, names, runtime profiles, and enabled state.
+- `agent_dispatch_store.rs` - durable Agent task journal and queued/submitted/terminal state transitions.
 
 Boundary rules:
 
 - `storage` must not depend on `app`, `runtime`, or `ui`.
 - `canvas` and `terminal` must not depend on `storage`.
 - Do not write SQLite from `Runtime::drain_all`, PTY output chunks, `canvas_view::on_mouse_move`, `runtime::route`, or `send_node_input`.
+
+## `agent`
+
+Purpose: own Dialogue/CardTask execution and persistent-Agent coordination rules without GPUI or Storage.
+
+Important files:
+
+- `coordination.rs` - per-definition FIFO, managed/untracked dispatch policy, atomic preflight, and structured receipts.
+- `identity.rs` - validated Agent call names, preset speech aliases, and deterministic built-in allocation.
+- `system/` - Dialogue/CardTask orchestration and dynamic Agent roster injection.
+- `tools.rs` - high-level Agent/Card tool schemas and command parsing.
 
 ## `asr`
 
@@ -68,7 +82,7 @@ Purpose: own recognition-model identity and installation integrity without GPUI,
 Important files:
 
 - `model_id.rs` - validated immutable/versioned `AsrModelId`.
-- `catalog.rs` - curated Paraformer/Zipformer descriptors, capabilities, pinned URLs, sizes, hashes, and required files.
+- `catalog.rs` - curated Paraformer, Transducer Zipformer, and Zipformer2 CTC descriptors, capabilities, pinned URLs, sizes, hashes, and required files.
 - `installation.rs` - manifest validation, safe required-file extraction, atomic directory install, and delete protection.
 - `support.rs` - pinned shared Silero VAD artifact validation and atomic installation.
 - `model_root.rs` - stable Norma OS Application Support model root.

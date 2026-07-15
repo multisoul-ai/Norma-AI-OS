@@ -14,6 +14,7 @@ macOS Window（GPUI + Metal）
     │   ├── canvas：几何、节点、选择与命中
     │   ├── terminal：PTY、ANSI grid 与输入编码 ──> /bin/zsh
     │   └── storage：SQLite store 与 migration ──> workspace 元数据
+    ├── agent：Dialogue/CardTask、持久 Agent 协调规则与高层工具
     ├── asr：模型 ID、受控目录、清单、哈希与原子安装
     └── voice_sherpa：Sherpa recognizer、VAD、PCM partial/final adapter
         ├── asr：消费已校验的 AvailableAsrModel
@@ -24,25 +25,32 @@ macOS Window（GPUI + Metal）
 核心 Cargo 依赖方向：
 
 ```text
-app -> {ui, runtime, canvas, terminal, storage, asr, voice_sherpa}
+app -> {ui, runtime, canvas, terminal, storage, agent, asr, voice_sherpa}
 voice_sherpa -> {asr, dialogue, audio}
 runtime -> {canvas, terminal, storage}
-storage -> {canvas, workspace, rusqlite}
+storage -> {agent, canvas, workspace, rusqlite}
+agent -> norma
 ui -> gpui
 canvas -> {serde, thiserror}
 terminal -> {portable-pty, alacritty_terminal, crossbeam-channel}
 asr -> {serde, sha2, tar, bzip2, tempfile}
 ```
 
-`asr`、`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`asr` 还保持零 Sherpa/网络依赖，识别器适配归 `voice_sherpa`，下载编排归 `app`。`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
+`agent`、`asr`、`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`agent` 还保持零 Storage 依赖，`asr` 保持零 Sherpa/网络依赖。识别器适配归 `voice_sherpa`，下载和 Runtime/Storage 副作用编排归 `app`。`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
 
 ## 2. 代码结构
 
 ### `crates/asr/`
 
 零 GPUI/Sherpa/网络的 ASR 领域层，负责不可变模型 ID、受控目录、安装清单、SHA-256、
-安全解压、原子安装和共享 Silero VAD 支持工件。Sherpa 的 Paraformer/Transducer 分支只存在于
+安全解压、原子安装和共享 Silero VAD 支持工件。Sherpa 的 Paraformer/Transducer/Zipformer2 CTC 分支只存在于
 `crates/voice_sherpa/`；Settings 下载、进度、选择和删除编排只存在于 `crates/app/`。
+
+### `crates/agent/`
+
+零 GPUI/Storage 的 Agent 领域层，负责 Dialogue、CardTask、Provider 工具循环、Agent 呼叫名、
+动态名册和按定义隔离的 FIFO 协调规则。它只计算高层命令与结构化回执；卡片激活、PTY 输入和
+SQLite journal 由 `app` adapters 执行。
 
 ### `crates/canvas/`
 
@@ -75,6 +83,7 @@ crates/terminal/src/
 ├── lib.rs          # 对外导出 TerminalSession、TerminalGrid、KeyInput 等
 ├── pty.rs          # portable-pty 封装：spawn/read thread/write/resize/kill
 ├── grid.rs         # alacritty_terminal 封装，输出中性 GridSnapshot
+├── grid/links.rs   # OSC-8、裸 http(s) URL 与安全相对预览路径识别
 ├── input.rs        # KeyInput -> PTY bytes
 ├── session.rs      # PtyHandle + TerminalGrid + channel receiver
 └── message.rs      # PtyEvent::Output / Exited
@@ -99,14 +108,16 @@ crates/storage/src/
 ├── recent_store.rs    # 最近项目
 ├── settings_store.rs  # 全局设置
 ├── canvas_store.rs    # DocumentSnapshot
-└── session_store.rs   # session checkpoint（按 node_id 覆盖）
+├── session_store.rs   # session checkpoint（按 node_id 覆盖）
+├── agent_definition_store.rs # 项目级持久 Agent 定义
+└── agent_dispatch_store.rs   # 委派任务 journal 与状态转换
 ```
 
 主要职责：
 
 - 管理用户级 `~/Library/Application Support/Norma OS/app.sqlite`
 - 管理项目级 `<workspace>/.multisoul/project.sqlite`
-- 读写 recent/settings/canvas snapshot/session checkpoint
+- 读写 recent/settings/canvas snapshot/session checkpoint、Agent 定义与委派 journal
 - 保持底层依赖，不反向依赖 `app/runtime/ui`
 
 热路径禁令：`Runtime::drain_all`、PTY output chunk、`canvas_view::on_mouse_move`、`runtime::route`、`send_node_input` 不得同步写 SQLite 或阻塞查库。
@@ -204,10 +215,12 @@ canvas_point = (screen_point - viewport.pan) / viewport.zoom
 - `PtyHandle`: 持有 master PTY、writer、child process
 - `PtyEvent`: `Output(Vec<u8>)` 或 `Exited { code }`
 - `TerminalGrid`: 持有 `alacritty_terminal::Term` 和 ANSI `Processor`
-- `GridSnapshot`: 中性 rows/cursor/cols/lines，不暴露 alacritty 类型给 UI
+- `GridSnapshot`: 中性 rows/cursor/cols/lines 与每个 Cell 的可选 OSC-8 hyperlink，不暴露 alacritty 类型给 UI
 - `TerminalSession`: `PtyHandle` + `TerminalGrid` + channel receiver + status
 
 PTY 输出通过 `crossbeam-channel` 从读线程传到 session。`TerminalSession::drain` 将输出批量喂给 grid，并在有变化时返回 `dirty = true`。
+
+`terminal` 只负责从 snapshot 解析可点击事实：OSC-8 和裸文本仅接受 `http://`/`https://`，相对预览路径拒绝绝对路径与 `.`/`..`。是否打开 Browser 卡片、系统浏览器或 Preview 卡片属于 `app` 副作用；点击与文本选择优先级也由 `app/canvas` 决定。
 
 ### Runtime
 
@@ -226,7 +239,7 @@ PTY 输出通过 `crossbeam-channel` 从读线程传到 session。`TerminalSessi
 后续卡片状态扩展应通过统一的 `RuntimeEvent` 契约表达，而不是让每个 card 自己发散状态来源。事件层分两类：
 
 - **进程运行状态**：来自 `LiveNode` / `TerminalSession`，用于描述卡片底层进程是否 `Running`、`Finished`、`Error` 或 `Stopped`。
-- **Agent 任务状态**：来自 Claude/Codex command hooks，描述 Agent 当前是否 `Thinking`、`RunningTool`、`WaitingApproval`、`Done` 或 `Failed`。
+- **Agent 任务状态**：来自 Claude、Codex、Cursor、OpenCode hooks，描述 Agent 当前是否 `Thinking`、`RunningTool`、`WaitingApproval`、`Done` 或 `Failed`。
 
 事件消费采用 `drain_all()` 后 `take_events()` 的拉取模型；hook 事件先进入 app 层的本地 ingest，再归一化为卡片事件。不得把 PTY output chunk 当成 `RuntimeEvent`，不得在 `Runtime::drain_all`、hook ingest、PTY output 热路径中同步写 SQLite。
 

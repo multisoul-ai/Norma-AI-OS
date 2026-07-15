@@ -1,5 +1,7 @@
 # ASR 模型框架与语音交互设置设计
 
+> 2026-07-15 更新：受控目录现包含第三个非推荐候选 Zipformer Streaming CTC ZH；其运行时分支与发布状态如下补充，推荐证据以 [`../quality/asr-model-release-gate.md`](../quality/asr-model-release-gate.md) 为准。
+
 **Status:** Accepted
 **Date:** 2026-07-11
 
@@ -116,8 +118,9 @@ Paraformer 与 Zipformer 必须共用一个 recognizer config factory，删除 `
 
 - Paraformer：`OnlineParaformerModelConfig { encoder, decoder }`
 - Zipformer Streaming ZH：`OnlineTransducerModelConfig { encoder, decoder, joiner }`
-- 两者共用 `tokens`、16 kHz PCM、VAD、partial/final 事件和 `AsrClient`。
-- 两者共用一个固定 SHA-256 的 `silero_vad.onnx` 支持工件，安装在模型根的
+- Zipformer Streaming CTC ZH：`OnlineZipformer2CtcModelConfig { model }`
+- 三者共用 `tokens`、16 kHz PCM、VAD、partial/final 事件和 `AsrClient`。
+- 三者共用一个固定 SHA-256 的 `silero_vad.onnx` 支持工件，安装在模型根的
   `silero_vad/` 目录；首个模型安装时后台下载，后续模型复用。ASR 完整但共享 VAD 缺失或
   损坏时不得显示 Ready。
 
@@ -138,6 +141,7 @@ Paraformer 与 Zipformer 必须共用一个 recognizer config factory，删除 `
 |---|---|---|---|
 | Paraformer Bilingual | `paraformer-bilingual-zh-en-int8` | Online Paraformer | 第一阶段基准 |
 | Zipformer Streaming ZH | `zipformer-streaming-zh-int8-2025-06-30` | Online Transducer | 中文推荐候选 |
+| Zipformer Streaming CTC ZH | `zipformer-streaming-ctc-zh-int8-2025-06-30` | Online Zipformer2 CTC | 非推荐候选，等待真实质量/性能/许可证据 |
 
 Zipformer 模型许可证未在官方归档中明确时，只允许用户主动从官方地址下载，不随应用再分发。
 
@@ -197,10 +201,10 @@ voice.asr.model_id           = <immutable model id>
 1. Paraformer 在不使用裸路径 Settings 的情况下完成听写和持续聆听。
 2. 模型库、安装、选择和运行时在代码中是独立边界。
 3. 新增 Zipformer 时，Settings 不需要 Zipformer 专属分支。
-4. Zipformer 能使用 Transducer 配置产生 partial/final 文本，Paraformer 仍使用 Paraformer 配置。
+4. Transducer Zipformer 使用 encoder/decoder/joiner 配置，CTC Zipformer 只使用 model/tokens，Paraformer 仍使用 Paraformer 配置；三者都必须产生 partial/final 文本。
 5. 下载、校验、安装、切换、失败回退和删除保护有自动化证据。
 6. 固定中文命令集上，Zipformer 不低于 Paraformer，关键产品命令全部正确。
-7. 目标 Apple Silicon 机型上记录两模型的首次 partial、final、CPU 和内存基线后，才决定是否将 Zipformer 标记为推荐。
+7. 目标 Apple Silicon 机型上记录三个模型的首次 partial、final、CPU 和内存基线后，才决定是否将任一 Zipformer 标记为推荐。
 
 ## 11. 决策记录
 

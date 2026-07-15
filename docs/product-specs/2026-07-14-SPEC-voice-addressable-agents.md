@@ -3,10 +3,11 @@
 - 日期：2026-07-14
 - 状态：Ready for Agent
 - 范围：Agent 定义、呼叫名、活跃 Agent 卡片、任务委派、CardTask 提示词、单次语音指令、持续聆听、任务跟踪与迁移
+- 2026-07-15 对齐说明：Cursor 已进入正式 Agent runtime profile；任务终态播报规则由 [`2026-07-14-SPEC-agent-task-tts-announcements.md`](2026-07-14-SPEC-agent-task-tts-announcements.md) 取代本文早期的“仅持续聆听播报”限制。
 
 ## Problem Statement
 
-用户已经可以在 Settings 中维护项目级 Agent 定义，也可以在画布上创建 Codex、Claude 或 OpenCode Agent 卡片，并通过语音 CardTask 操作卡片。但这三种能力尚未形成同一个产品模型：快速创建和语音创建仍可能产生没有持久定义、没有稳定名称的匿名 Agent 卡片；Settings 中的 Agent 名称只被复制成卡片 alias，卡片没有保存定义身份；语音只能让模型先列出卡片、猜测目标 node id，再发送文本。
+用户已经可以在 Settings 中维护项目级 Agent 定义，也可以在画布上创建 Codex、Claude、Cursor 或 OpenCode Agent 卡片，并通过语音 CardTask 操作卡片。但这些能力尚未形成同一个产品模型：快速创建和语音创建仍可能产生没有持久定义、没有稳定名称的匿名 Agent 卡片；Settings 中的 Agent 名称只被复制成卡片 alias，卡片没有保存定义身份；语音只能让模型先列出卡片、猜测目标 node id，再发送文本。
 
 因此，用户无法可靠地说“Alan，帮我开发一个贪吃蛇”并确信任务会进入名为 Alan 的持久 Agent。模型可能不知道 Alan 是否为当前项目 Agent，可能创建另一张匿名 Codex 卡片，可能模糊匹配错误名称，也可能把“已写入卡片”误报为“任务已完成”。同一个 Agent 忙碌时，后续指令还可能直接注入正在运行的 CLI，破坏当前任务。
 
@@ -18,7 +19,7 @@
 
 建立一个项目级 Agent 协调模块，作为 Agent 定义、名称分配、活跃卡片、任务队列、任务跟踪和真实回执的唯一业务入口。Settings、工具栏、菜单、快捷键、单次语音指令、持续聆听和 CardTask subagent 都调用这个模块，不再各自拼装“查卡片、创建卡片、发送文本”的流程。
 
-Agent 定义是持久身份，包含项目内唯一的呼叫名、Codex/Claude/OpenCode 运行时类型、可用状态和可选的 Workflow Description。同一个定义可以暂时没有活跃卡片，但同一时间最多拥有一张活跃 Agent 卡片；每张 Agent 卡片必须绑定一个定义。删除或关闭卡片不删除定义，再次呼叫时自动激活新卡片。活跃期间允许重命名，名称立即同步且会话不中断；运行时类型、禁用和删除必须等卡片关闭后执行。
+Agent 定义是持久身份，包含项目内唯一的呼叫名、Codex/Claude/Cursor/OpenCode 运行时类型、可用状态和可选的 Workflow Description。同一个定义可以暂时没有活跃卡片，但同一时间最多拥有一张活跃 Agent 卡片；每张 Agent 卡片必须绑定一个定义。删除或关闭卡片不删除定义，再次呼叫时自动激活新卡片。活跃期间允许重命名，名称立即同步且会话不中断；运行时类型、禁用和删除必须等卡片关闭后执行。
 
 呼叫名支持纯中文或纯英文。中文名为 2–8 个汉字，英文名为 2–16 个英文字母；首版不支持中英文混用、数字、空白和标点。英文忽略大小写，中文按原文匹配。正式名称与预设语音别名共享唯一命名空间，禁止任何会让一次语音同时匹配两个 Agent 的配置。
 
@@ -45,7 +46,7 @@ CardTask subagent 新增高层 Agent 工具：列出 Agent、创建 Agent、激�
 - Hooks 存在时，Alan 忙碌期间的第二项任务保持排队，收到 Done/Failed 后再自动提交。
 - Hooks 不存在时，首项任务仍可提交；第二项只有在用户明确说“仍然发送给 Alan”时才发送。
 - 已提交、已排队、已完成、失败、中断和部分成功使用不同回执，不得把接收误报为完成。
-- 持续聆听期间可以 TTS 播报真实终态；单次语音结束后只显示非打扰式 UI 通知。
+- 启用 `Agent task announcements` 且本地 TTS 可用时，单次语音、持续聆听及其他交互入口产生的可信 Done/Failed 终态都可以播报；关闭开关或 TTS 不可用时只保留卡片状态与非打扰式 UI 反馈。
 
 ## User Stories
 
@@ -53,7 +54,7 @@ CardTask subagent 新增高层 Agent 工具：列出 Agent、创建 Agent、激�
 2. 作为项目用户，我想让 Agent 定义在卡片关闭后继续存在，以便关闭窗口不会丢失身份。
 3. 作为项目用户，我想让一个 Agent 定义最多拥有一张活跃卡片，以便名称始终指向唯一会话。
 4. 作为项目用户，我想让每张 Agent 卡片都绑定定义，以便 Settings、画布和语音看到的是同一个 Agent。
-5. 作为项目用户，我想创建 Codex、Claude 或 OpenCode Agent，以便选择适合任务的执行环境。
+5. 作为项目用户，我想创建 Codex、Claude、Cursor 或 OpenCode Agent，以便选择适合任务的执行环境。
 6. 作为语音用户，我想说“创建一个 Codex Agent”，以便系统自动命名、持久化并打开卡片。
 7. 作为语音用户，我想在创建时指定中文或英文名，以便使用自己容易呼叫的名称。
 8. 作为语音用户，我想在未指定运行时类型时得到明确提示，以免系统静默选择错误执行环境。
@@ -174,7 +175,7 @@ CardTask subagent 新增高层 Agent 工具：列出 Agent、创建 Agent、激�
 - Settings 保存只创建定义，不自动打开卡片；Open Card 通过协调模块激活定义。
 - 工具栏、菜单和快捷键保留类型专用快速入口，自动分配名称、创建定义并立即打开唯一卡片。
 - Settings 展示活跃保护错误、名称冲突、名称池耗尽、禁用状态和部分激活失败。
-- 持续聆听期间真实 Done/Failed 可以排入 TTS 通知；其他模式只更新卡片状态和非打扰式 UI 通知。
+- 启用 `Agent task announcements` 且本地 TTS 可用时，所有交互模式产生的可信 Done/Failed 都可以排入同一有界 TTS 通知队列；未跟踪、手动中断和普通会话结束只更新状态，不播报。
 
 ### Persistence and migration
 
@@ -196,7 +197,7 @@ CardTask subagent 新增高层 Agent 工具：列出 Agent、创建 Agent、激�
 - Canvas/Runtime 测试验证定义 id 随 snapshot 往返、旧 snapshot 兼容、一个定义只对应一个 live node、名称同步、Hook 终态推进以及关闭中断。Runtime 保持零 GPUI。
 - App 单元测试验证 Settings 草稿不提前占名、快速创建调用统一协调 seam、活跃保护、简短回执、TTS 模式差异和 untracked 强制发送 UI。
 - Headless GPUI e2e 至少覆盖：Settings 手动保存定义但不打开；工具栏快速创建定义与卡片；单次语音呼叫已有 Agent；持续聆听呼叫非活跃 Agent；未知/禁用名称零副作用；managed FIFO；untracked 二次提交拒绝与强制发送；旧卡片迁移。
-- L1/L2 e2e 不声称启动真实 `.app` 或真实 CLI。新增 ignored L3 runner，使用真实 PTY 与已安装的 Agent Hook 验证任务文本进入 Codex/Claude/OpenCode 卡片、Hook Done/Failed 推进队列以及完成通知；报告必须明确环境前置条件和跳过原因。
+- L1/L2 e2e 不声称启动真实 `.app` 或真实 CLI。新增 ignored L3 runner，使用真实 PTY 与已安装的 Agent Hook 验证任务文本进入 Codex/Claude/Cursor/OpenCode 卡片、Hook Done/Failed 推进队列以及完成通知；报告必须明确环境前置条件和跳过原因。
 - 所有用户可观察验收都必须映射到自动化证据。无法在无真实 CLI 环境稳定验证的部分使用 ignored L3，而不是只写手测说明。
 - 所有新增 Rust 测试遵守仓库强制结构：完整场景、数据构造与数值推导、逐步执行过程、预期结果；每个断言带失败说明，关键状态逐一包含具体正断言和负断言，不用循环代替关键验收。
 - 实现期间使用垂直 TDD：一个失败测试、最小实现、聚焦验证，再进入下一切片；禁止先批量写完所有测试或所有实现。
@@ -212,7 +213,7 @@ CardTask subagent 新增高层 Agent 工具：列出 Agent、创建 Agent、激�
 - 同一 Agent 定义同时打开多张卡片或并行执行多个任务。
 - 语音创建缺少运行时类型时静默默认 Codex。
 - 可恢复的 AwaitingClarification 状态、跨回合澄清任务或自动保留未完成槽位。
-- 自动安装、修改或强制要求 Codex、Claude、OpenCode hooks。
+- 在用户未授权的情况下自动安装、修改或强制要求 Codex、Claude、Cursor、OpenCode hooks。
 - 无 hooks 时猜测 CLI 是否空闲、扫描终端提示符或用定时器自动推进队列。
 - 应用重启后自动恢复或重新执行未完成任务。
 - 将提示词作为唯一业务约束；确定性规则必须保留在协调模块。
