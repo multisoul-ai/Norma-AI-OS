@@ -17,6 +17,7 @@ use voice_sherpa::SpeechError;
 #[cfg(feature = "e2e-test-support")]
 mod agent_announcements;
 mod agents;
+mod recent_projects;
 mod tts;
 pub use agents::{AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot};
 use tts::{snapshot_tts_models, TtsModelE2eSnapshot};
@@ -288,6 +289,19 @@ impl MultisoulApp {
         self.screen = AppScreen::Canvas;
         self.last_reflow_window_size = None;
         cx.notify();
+    }
+
+    pub fn show_workspace_error_for_e2e(
+        &mut self,
+        message: impl Into<String>,
+        cx: &mut Context<Self>,
+    ) {
+        self.workspace_state.error = Some(message.into());
+        cx.notify();
+    }
+
+    pub fn workspace_error_for_e2e(&self) -> Option<String> {
+        self.workspace_state.error.clone()
     }
 
     /// 注入已被 TCC 拒绝的麦克风错误，供 L1 e2e 验证应用内恢复 UI。

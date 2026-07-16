@@ -13,7 +13,10 @@ use std::sync::Arc;
 mod playback;
 mod synthesis;
 pub(crate) use playback::AgentAnnouncementPlayback;
-use playback::{AgentAnnouncementAudioControl, AgentAnnouncementPlaybackPhase};
+use playback::{
+    await_playback_completion_or_timeout, completion_timeout_for_chunk,
+    AgentAnnouncementAudioControl, AgentAnnouncementPlaybackPhase,
+};
 use synthesis::synthesize_agent_terminal_announcement;
 
 const MAX_PENDING_ANNOUNCEMENTS: usize = 32;
@@ -361,13 +364,24 @@ impl MultisoulApp {
             announcement,
             started: false,
         };
+        let completion_timeout = completion_timeout_for_chunk(&chunk);
+        let executor = cx.background_executor().clone();
         cx.spawn(async move |this, cx| {
             if started_rx.recv().await.is_ok() {
                 let _ = this.update(cx, |app, _cx| {
                     app.mark_agent_announcement_started(generation);
                 });
             }
-            let completed = finished_rx.recv().await.is_ok();
+            let completed =
+                await_playback_completion_or_timeout(executor, finished_rx, completion_timeout)
+                    .await;
+            if !completed {
+                tracing::warn!(
+                    generation,
+                    watchdog_ms = completion_timeout.as_millis(),
+                    "agent announcement playback ended without a completion callback"
+                );
+            }
             let _ = this.update(cx, |app, cx| {
                 app.finish_agent_announcement_playback(generation, completed, cx);
             });

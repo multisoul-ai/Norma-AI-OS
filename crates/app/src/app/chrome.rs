@@ -10,14 +10,13 @@ use crate::app::wallpaper_resolvers::WallpaperKind;
 use crate::canvas::minimap::render_canvas_minimap;
 use gpui::{
     div, img, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, BoxShadow, Context,
-    Div, ObjectFit, Window,
+    Div, ObjectFit, Stateful, Window,
 };
 use ui::icons::with_alpha;
 use ui::Theme;
 
 const WORKSPACE_LEFT_RAIL_VISIBLE: bool = false;
 const BOTTOM_VOICE_BAR_VISIBLE: bool = true;
-const WALLPAPER_FROST_SAMPLE_ALPHA: u8 = 0x24;
 const FROST_SAMPLE_OFFSETS: [(f32, f32); 5] = [
     (0.0, 0.0),
     (-5.0, -3.0),
@@ -26,10 +25,120 @@ const FROST_SAMPLE_OFFSETS: [(f32, f32); 5] = [
     (3.0, -5.0),
 ];
 
+/// Incremental source-over alpha that keeps every accumulated spatial sample
+/// equally weighted. Starting with an opaque first sample prevents the card's
+/// cool-white shell from replacing wallpaper energy; sample `n` then mixes at
+/// `1 / (n + 1)`, leaving all accumulated samples with the same final weight.
+fn frost_sample_opacity(sample_index: usize) -> f32 {
+    1.0 / (sample_index as f32 + 1.0)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct FrostedBackdropRegion {
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+}
+
+/// GPUI 0.2.2 只能矩形裁剪子元素。将毛玻璃拆为中间横条与上下内缩横条，
+/// 让四个圆角方块继续显示底下同位置的原始壁纸，而不被矩形采样盖住。
+fn frosted_backdrop_regions(
+    card_width: f32,
+    card_height: f32,
+    card_radius: f32,
+) -> [FrostedBackdropRegion; 3] {
+    let width = card_width.max(0.0);
+    let height = card_height.max(0.0);
+    let radius = card_radius.max(0.0).min(width * 0.5).min(height * 0.5);
+    let inner_width = (width - radius * 2.0).max(0.0);
+    let inner_height = (height - radius * 2.0).max(0.0);
+
+    [
+        FrostedBackdropRegion {
+            left: radius,
+            top: 0.0,
+            width: inner_width,
+            height: radius,
+        },
+        FrostedBackdropRegion {
+            left: 0.0,
+            top: radius,
+            width,
+            height: inner_height,
+        },
+        FrostedBackdropRegion {
+            left: radius,
+            top: height - radius,
+            width: inner_width,
+            height: radius,
+        },
+    ]
+}
+
 impl MultisoulApp {
-    pub(super) fn render_workspace_backdrop(&self) -> Div {
+    pub(super) fn render_workspace_error_banner(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) -> Option<Stateful<Div>> {
+        let error = self.workspace_state.error.clone()?;
+        let theme = self.theme;
+        Some(
+            div()
+                .id("workspace-error-layer")
+                .absolute()
+                .top(px(66.0))
+                .left(px(0.0))
+                .right(px(0.0))
+                .flex()
+                .justify_center()
+                .child(
+                    div()
+                        .id("workspace-error-banner")
+                        .debug_selector(|| "workspace-error-banner".to_string())
+                        .mx(px(24.0))
+                        .max_w(px(720.0))
+                        .min_h(px(42.0))
+                        .flex()
+                        .items_center()
+                        .gap(px(12.0))
+                        .px(px(14.0))
+                        .py(px(10.0))
+                        .rounded(px(12.0))
+                        .border_1()
+                        .border_color(rgba(with_alpha(theme.destructive, 0x70)))
+                        .bg(rgba(with_alpha(theme.graphite, 0xf0)))
+                        .text_color(rgba(theme.text_primary))
+                        .text_size(px(12.0))
+                        .child(div().flex_1().child(error))
+                        .child(
+                            div()
+                                .id("workspace-error-dismiss")
+                                .debug_selector(|| "workspace-error-dismiss".to_string())
+                                .w(px(28.0))
+                                .h(px(28.0))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .rounded(px(8.0))
+                                .cursor_pointer()
+                                .text_color(rgba(theme.text_secondary))
+                                .hover(|style| style.bg(rgba(with_alpha(theme.destructive, 0x24))))
+                                .child("×")
+                                .on_click(cx.listener(|app, _, _window, cx| {
+                                    app.workspace_state.error = None;
+                                    cx.notify();
+                                })),
+                        ),
+                ),
+        )
+    }
+
+    pub(super) fn render_workspace_backdrop(&self) -> Stateful<Div> {
         let theme = self.theme;
         let mut backdrop = div()
+            .id("workspace-backdrop")
+            .debug_selector(|| "workspace-backdrop".to_string())
             .absolute()
             .top(px(0.0))
             .left(px(0.0))
@@ -44,57 +153,25 @@ impl MultisoulApp {
 
         backdrop = backdrop.child(self.render_wallpaper_layer());
 
-        backdrop
-            .child(
-                div()
-                    .absolute()
-                    .top(px(0.0))
-                    .left(px(0.0))
-                    .right(px(0.0))
-                    .bottom(px(0.0))
-                    .bg(linear_gradient(
-                        180.0,
-                        linear_color_stop(
-                            rgba(with_alpha(theme.graphite, WALLPAPER_SHADE_TOP_ALPHA)),
-                            0.0,
-                        ),
-                        linear_color_stop(
-                            rgba(with_alpha(theme.graphite, WALLPAPER_SHADE_BOTTOM_ALPHA)),
-                            1.0,
-                        ),
-                    )),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .left(px(-160.0))
-                    .top(px(54.0))
-                    .w(px(520.0))
-                    .h(px(520.0))
-                    .rounded(px(260.0))
-                    .border_1()
-                    .border_color(rgba(with_alpha(theme.accent_cyan, 0x24))),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .right(px(-180.0))
-                    .bottom(px(-120.0))
-                    .w(px(620.0))
-                    .h(px(620.0))
-                    .rounded(px(310.0))
-                    .border_1()
-                    .border_color(rgba(with_alpha(theme.accent_orange, 0x2e))),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .left(px(90.0))
-                    .right(px(90.0))
-                    .bottom(px(84.0))
-                    .h(px(1.0))
-                    .bg(rgba(with_alpha(theme.accent_cyan, 0x18))),
-            )
+        backdrop.child(
+            div()
+                .absolute()
+                .top(px(0.0))
+                .left(px(0.0))
+                .right(px(0.0))
+                .bottom(px(0.0))
+                .bg(linear_gradient(
+                    180.0,
+                    linear_color_stop(
+                        rgba(with_alpha(theme.graphite, WALLPAPER_SHADE_TOP_ALPHA)),
+                        0.0,
+                    ),
+                    linear_color_stop(
+                        rgba(with_alpha(theme.graphite, WALLPAPER_SHADE_BOTTOM_ALPHA)),
+                        1.0,
+                    ),
+                )),
+        )
     }
 
     /// Render the wallpaper layer, branching on the current [`WallpaperKind`].
@@ -156,33 +233,68 @@ impl MultisoulApp {
     }
 
     /// Crop the active wallpaper to a card's screen-space bounds and blend
-    /// five nearby samples. This mirrors a CSS backdrop blur's spatial mixing
-    /// without reading pixels back to the CPU. Static/GIF samples reuse GPUI's
-    /// image cache; video samples reuse the current 420f CVPixelBuffer surface.
+    /// five nearby samples with normalized incremental weights. This mirrors a
+    /// CSS backdrop blur's spatial mixing without reading pixels back to the
+    /// CPU, while keeping the blurred wallpaper fully present beneath the tint.
+    /// Static/GIF samples reuse GPUI's image cache; video samples reuse the
+    /// current 420f CVPixelBuffer surface.
     pub(crate) fn render_card_frosted_backdrop(
         &self,
         node_id: canvas::NodeId,
         card_left: f32,
         card_top: f32,
+        card_width: f32,
+        card_height: f32,
+        card_radius: f32,
+        viewport_width: f32,
+        viewport_height: f32,
+    ) -> Div {
+        let mut backdrop = div()
+            .absolute()
+            .top(px(card_top))
+            .left(px(card_left))
+            .w(px(card_width))
+            .h(px(card_height))
+            .overflow_hidden();
+
+        for region in frosted_backdrop_regions(card_width, card_height, card_radius) {
+            backdrop = backdrop.child(self.render_frosted_backdrop_region(
+                node_id,
+                card_left,
+                card_top,
+                region,
+                viewport_width,
+                viewport_height,
+            ));
+        }
+
+        backdrop
+    }
+
+    fn render_frosted_backdrop_region(
+        &self,
+        node_id: canvas::NodeId,
+        card_left: f32,
+        card_top: f32,
+        region: FrostedBackdropRegion,
         viewport_width: f32,
         viewport_height: f32,
     ) -> Div {
         let kind = self.wallpaper_settings.current_kind();
         let source = self.wallpaper_settings.image_source_for_render();
         let render_key = self.wallpaper_settings.render_id_key();
-        let sample_opacity = f32::from(WALLPAPER_FROST_SAMPLE_ALPHA) / 255.0;
-        let mut backdrop = div()
+        let mut patch = div()
             .absolute()
-            .top(px(0.0))
-            .left(px(0.0))
-            .right(px(0.0))
-            .bottom(px(0.0))
-            .size_full()
+            .left(px(region.left))
+            .top(px(region.top))
+            .w(px(region.width))
+            .h(px(region.height))
             .overflow_hidden();
 
         for (sample_index, (dx, dy)) in FROST_SAMPLE_OFFSETS.into_iter().enumerate() {
-            let sample_left = -card_left + dx;
-            let sample_top = -card_top + dy;
+            let sample_left = -card_left + dx - region.left;
+            let sample_top = -card_top + dy - region.top;
+            let sample_opacity = frost_sample_opacity(sample_index);
 
             #[cfg(target_os = "macos")]
             if kind == WallpaperKind::Video {
@@ -193,15 +305,16 @@ impl MultisoulApp {
                     viewport_height,
                     sample_opacity,
                 ) {
-                    backdrop = backdrop.child(sample);
+                    patch = patch.child(sample);
                     continue;
                 }
             }
 
-            backdrop = backdrop.child(
+            patch = patch.child(
                 img(source.clone())
                     .id(gpui::SharedString::from(format!(
-                        "card-frost:{render_key}:{node_id}:{sample_index}"
+                        "card-frost:{render_key}:{node_id}:{sample_index}:{}:{}",
+                        region.left, region.top
                     )))
                     .absolute()
                     .left(px(sample_left))
@@ -213,7 +326,7 @@ impl MultisoulApp {
             );
         }
 
-        backdrop.child(
+        patch.child(
             div()
                 .absolute()
                 .top(px(0.0))
@@ -338,3 +451,7 @@ mod app_chrome_cursor_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/product_ui_chrome_tests.rs"]
 mod product_ui_chrome_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/workspace_backdrop_tests.rs"]
+mod workspace_backdrop_tests;

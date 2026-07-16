@@ -5,8 +5,9 @@ use crate::workspace::persistence::PersistenceSaveState;
 use gpui::{
     div, point, prelude::*, px, rgba, BoxShadow, Context, Div, Stateful, WindowControlArea,
 };
+use std::path::Path;
 use ui::component::StyledExt;
-use workspace::compact_path;
+use workspace::display_name_for_path;
 
 pub(super) const TOP_BAR_HEIGHT: f32 = 54.0;
 pub(super) const TOP_BAR_FILL: u32 = 0x0d131f4d;
@@ -41,12 +42,7 @@ pub(super) fn canvas_save_visual(pending: bool, failed: bool) -> CanvasSaveVisua
 
 impl MultisoulApp {
     pub(super) fn render_workspace_top_bar(&mut self, cx: &mut Context<Self>) -> Stateful<Div> {
-        let project_path = self
-            .workspace_state
-            .current_root
-            .as_deref()
-            .map(compact_path)
-            .unwrap_or_default();
+        let project_name = workspace_top_bar_title(self.workspace_state.current_root.as_deref());
         let save = match self.persistence.save_state() {
             PersistenceSaveState::Clean => canvas_save_visual(false, false),
             PersistenceSaveState::Pending => canvas_save_visual(true, false),
@@ -69,7 +65,7 @@ impl MultisoulApp {
             .bg(rgba(TOP_BAR_FILL))
             .shadow(top_bar_shadow())
             .window_control_area(WindowControlArea::Drag)
-            .child(workspace_title(project_path))
+            .child(workspace_title(project_name))
             .child(self.workspace_top_bar_actions(save, cx))
     }
 
@@ -89,6 +85,10 @@ impl MultisoulApp {
             )
             .child(save_status(save))
     }
+}
+
+fn workspace_top_bar_title(path: Option<&Path>) -> String {
+    path.map(display_name_for_path).unwrap_or_default()
 }
 
 fn workspace_title(path: String) -> Div {
@@ -180,4 +180,39 @@ fn top_bar_shadow() -> Vec<BoxShadow> {
         blur_radius: px(30.0),
         spread_radius: px(0.0),
     }]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    /// 顶部工作区标题：绝对工作区根目录只显示末级项目名称。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   workspace root = `/Users/alan/Documents/mybook/multisoul-desktop`
+    ///   路径层级数 = 5（Users / alan / Documents / mybook / multisoul-desktop）
+    ///   project name = 最末级目录 `multisoul-desktop`
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 将完整绝对工作区路径传入顶部栏标题的展示边界。
+    ///   2. 展示边界提取路径的末级目录名，供 GPUI 标题元素渲染。
+    ///
+    /// 预期结果：
+    ///   - 正断言：标题为 `multisoul-desktop`，让用户识别当前项目。
+    ///   - 负断言：标题不应保留 `/Users/alan/Documents/mybook/` 等绝对路径前缀。
+    #[test]
+    fn test_workspace_top_bar_title_uses_project_name_not_absolute_path() {
+        let workspace_root = Path::new("/Users/alan/Documents/mybook/multisoul-desktop");
+        let title = workspace_top_bar_title(Some(workspace_root));
+
+        assert_eq!(
+            title, "multisoul-desktop",
+            "顶部栏应只显示工作区的末级项目名称"
+        );
+        assert_ne!(
+            title, "/Users/alan/Documents/mybook/multisoul-desktop",
+            "顶部栏不应泄露完整绝对工作区路径"
+        );
+    }
 }

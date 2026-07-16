@@ -172,7 +172,7 @@ GPUI/Metal 壳层，负责窗口、菜单、快捷键、鼠标事件、渲染和
 
 ```text
 crates/app/src/
-├── main.rs          # tracing、GPUI boot、菜单、Cmd+N、Esc
+├── main.rs          # tracing、GPUI boot、菜单、Cmd+1..5、Esc
 ├── assets.rs        # 内嵌 icon / wallpaper
 ├── app/             # MultisoulApp 壳层、keyboard、IME、voice、chrome
 ├── canvas/          # pan/zoom/drag、master layout、interaction
@@ -191,7 +191,7 @@ crates/app/src/
 主要职责：
 
 - 启动 GPUI 应用窗口
-- 处理 `Cmd+N`、`Esc`、鼠标拖拽、滚轮缩放
+- 处理 `Cmd+1..5`、`Esc`、鼠标拖拽、滚轮缩放
 - 将用户输入转换为 `runtime::route` 能理解的事件
 - 根据 Runtime 状态渲染画布节点；具体卡片内容按 `NodeType -> Card` 分发
 
@@ -258,7 +258,7 @@ PTY 输出通过 `crossbeam-channel` 从读线程传到 session。`TerminalSessi
 ### 新建 Terminal 节点
 
 ```text
-用户按 Cmd+N
+用户按 Cmd+1
   ↓
 app::MultisoulApp::on_new_terminal
   ↓
@@ -373,7 +373,8 @@ child.kill() + child.wait()
 
 | 操作 | 当前行为 |
 |------|----------|
-| `Cmd+N` | 新建 Terminal 节点，并将全部节点按最多三列的平铺网格重排 |
+| `Cmd+1` | 新建 Terminal 节点，并按当前布局重排全部节点 |
+| `Cmd+2`～`Cmd+5` | 依次新建 Claude、Codex、Cursor、OpenCode Agent 节点，并按当前布局重排全部节点 |
 | 单击节点 | 选中节点并退出终端聚焦 |
 | 单击空白 | 清空选择并退出终端聚焦 |
 | 双击 Terminal | 聚焦该终端，后续按键写入 PTY |

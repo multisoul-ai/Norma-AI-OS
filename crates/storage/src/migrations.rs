@@ -105,6 +105,7 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
             workflow_description TEXT NOT NULL,
             enabled INTEGER NOT NULL DEFAULT 1,
             sort_order INTEGER NOT NULL DEFAULT 0,
+            origin TEXT NOT NULL DEFAULT 'explicit',
             created_at_unix INTEGER NOT NULL,
             updated_at_unix INTEGER NOT NULL
         );
@@ -204,6 +205,12 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
         "agent_definitions",
         "speech_alias",
         "speech_alias TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "agent_definitions",
+        "origin",
+        "origin TEXT NOT NULL DEFAULT 'explicit'",
     )?;
     connection.execute(
         "UPDATE agent_definitions SET name_key = lower(name) WHERE name_key IS NULL",

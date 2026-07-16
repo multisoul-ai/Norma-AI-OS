@@ -53,7 +53,7 @@ cargo test -p e2e test_local_voice_create_then_send_text_pipeline
 ## 2.1 初始化动画 L3 截图
 
 `scripts/run-card-init-animation-l3.sh` 是独立 L3 runner：它会启动实际打包的
-`.app`，通过 `Cmd+O` 进入指定 workspace，再以 `Cmd+N`（Terminal）或应用菜单
+`.app`，通过 `Cmd+O` 进入指定 workspace，再以 `Cmd+1`（Terminal）或应用菜单
 （Codex Agent）创建卡片，并保存 `<kind>-000ms.png`、`-500ms.png` 与 `-1000ms.png`。
 截图默认落在 `artifacts/l3-card-init-animation/`。它要求运行 shell 具有 macOS
 Accessibility 与 Screen Recording 权限；受这些机器权限影响，不进入 CI 默认集。首张

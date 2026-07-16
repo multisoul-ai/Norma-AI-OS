@@ -80,7 +80,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        match self.agent_definitions.create_definition(None, profile) {
+        match self.agent_definitions.create_quick_definition(profile) {
             Ok(definition) => {
                 self.spawn_agent_card_from_spec(agent_spec_from_definition(&definition), window, cx)
             }
@@ -198,6 +198,7 @@ mod tests {
             workflow_description: "Review code.".to_string(),
             enabled: true,
             sort_order: 0,
+            origin: storage::AgentDefinitionOrigin::Explicit,
         };
 
         let spec = agent_spec_from_definition(&definition);

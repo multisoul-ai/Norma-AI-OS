@@ -59,6 +59,7 @@ impl MultisoulApp {
                 super::agent_announcements::AgentAnnouncementPlayback::default(),
             screen: AppScreen::Launchpad,
             workspace_state: WorkspaceState::load_default(),
+            recent_project_context_path: None,
             voice: crate::app::voice::control::VoiceControlState::default(),
             dialogue: crate::app::dialogue::DialogueControlState::default(),
             tts_preview: crate::app::dialogue::TtsPreviewState::default(),

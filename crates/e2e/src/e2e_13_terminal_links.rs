@@ -196,8 +196,8 @@ fn terminal_first_cell_point(
             .document
             .viewport
             .canvas_to_screen(node.bounds.origin);
-        // x = padding(8) + half cell(4)；y = title(44) + padding(8) + half line(8)。
-        let cell_center = Vec2::new(top_left.x + 12.0 * zoom, top_left.y + 60.0 * zoom);
+        // x = padding(8) + half cell(4)；y = title(32) + padding(8) + half line(8)。
+        let cell_center = Vec2::new(top_left.x + 12.0 * zoom, top_left.y + 48.0 * zoom);
         point(px(cell_center.x), px(cell_center.y))
     })
 }

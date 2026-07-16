@@ -15,7 +15,7 @@ use crate::motion::breathing::{
 };
 use crate::motion::{ResolvedNodeVisual, VisualPriority};
 
-pub const TITLE_BAR_H: f32 = 44.0;
+pub const TITLE_BAR_H: f32 = 32.0;
 
 /// A translucent cool-white gradient layered over the card shell. GPUI 0.2.2
 /// has no per-element backdrop blur, so the low-alpha shell, chromatic gradient,

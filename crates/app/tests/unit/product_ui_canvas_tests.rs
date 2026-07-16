@@ -1,11 +1,11 @@
 use super::*;
 
-/// Product UI V2 卡片外壳：1× 缩放时应使用 22px 圆角与 44px 标题栏。
+/// Product UI V2 卡片外壳：1× 缩放时应使用 22px 圆角与 32px 标题栏。
 ///
 /// 数据构造（含关键数值推导）：
 ///   zoom = 1.0
 ///   目标 card radius = 22px（Canvas V3 `.canvas-object`）
-///   目标 title bar   = 44px（Canvas V3 `.object-titlebar`）
+///   目标 title bar   = 32px（紧凑 Canvas 标题栏）
 ///   旧值分别为 16px / 26px，无法形成参考图中的光学玻璃比例
 ///
 /// 执行过程：
@@ -14,20 +14,17 @@ use super::*;
 ///   3. 与旧 16/26px 做负断言，防止视觉回退。
 ///
 /// 预期结果：
-///   - 正断言：card radius=22px、TITLE_BAR_H=44px。
+///   - 正断言：card radius=22px、TITLE_BAR_H=32px。
 ///   - 负断言：两者都不再是旧尺寸。
 #[test]
-fn test_product_ui_v2_card_shell_uses_22px_radius_and_44px_titlebar() {
+fn test_product_ui_v2_card_shell_uses_22px_radius_and_32px_titlebar() {
     let radius = node_card_radius_px(1.0);
 
     assert_eq!(
         radius, 22.0,
         "1× Canvas card radius 应匹配 Product UI V2 的 22px"
     );
-    assert_eq!(
-        TITLE_BAR_H, 44.0,
-        "Canvas card 标题栏应匹配 Product UI V2 的 44px"
-    );
+    assert_eq!(TITLE_BAR_H, 32.0, "Canvas card 标题栏应匹配紧凑布局的 32px");
     assert_ne!(radius, 16.0, "卡片圆角不得回退到旧 16px 外壳");
     assert_ne!(TITLE_BAR_H, 26.0, "标题栏不得回退到旧 26px 高度");
 }
@@ -122,8 +119,9 @@ fn test_product_ui_v2_card_titlebar_uses_layered_frosted_material() {
 /// 用户提供的 CSS 毛玻璃参考：原生卡片必须裁切并重复采样当前壁纸，而不能只叠半透明白色。
 ///
 /// 数据构造（含关键数值推导）：
-///   空间采样数 = 5（中心 + 4 个对角偏移），每层 alpha = 0x24 / 0xff ≈ 14%。
-///   组合采样 alpha = 1 - (1 - 0x24/255)^5 ≈ 53%，保留壁纸色彩同时混合相邻像素。
+///   空间采样数 = 5（中心 + 4 个对角偏移）。
+///   增量 alpha = 1、1/2、1/3、1/4、1/5；递推后每个样本最终权重均为 1/5。
+///   最终覆盖率 = 5 × 1/5 = 100%，壁纸色彩不会被冷白底色替代。
 ///   采样偏移半径 = 5px，对应用户 CSS 示例的 `filter: blur(5px)` 视觉尺度。
 ///
 /// 执行过程：
@@ -133,9 +131,9 @@ fn test_product_ui_v2_card_titlebar_uses_layered_frosted_material() {
 ///   4. 检查 Canvas 节点先挂载毛玻璃背景，再绘制标题栏和业务内容。
 ///
 /// 预期结果：
-///   - 正断言：存在 5 点偏移采样、卡片裁切层和视频 surface 采样。
+///   - 正断言：存在 5 点偏移、等权全覆盖混合、卡片裁切层和视频 surface 采样。
 ///   - 正断言：Canvas 节点渲染顺序为 frosted backdrop → title bar → card body。
-///   - 负断言：毛玻璃路径不得使用 CPU 帧拷贝或只保留单层纯色背景。
+///   - 负断言：毛玻璃路径不得使用旧 0x24 固定透明度、CPU 帧拷贝或单层纯色背景。
 #[test]
 fn test_product_ui_card_glass_crops_and_spatially_samples_live_wallpaper() {
     let chrome = include_str!("../../src/app/chrome.rs");
@@ -145,9 +143,12 @@ fn test_product_ui_card_glass_crops_and_spatially_samples_live_wallpaper() {
     assert!(
         chrome.contains("FROST_SAMPLE_OFFSETS")
             && chrome.contains("render_card_frosted_backdrop")
-            && chrome.contains("WALLPAPER_FROST_SAMPLE_ALPHA")
-            && chrome.contains("0x24"),
-        "卡片毛玻璃应使用 5 点空间采样与 0x24 单层透明度，而不是纯色遮罩"
+            && chrome.contains("frost_sample_opacity(sample_index)"),
+        "卡片毛玻璃应使用 5 点空间采样与逐层归一混合，而不是纯色遮罩"
+    );
+    assert!(
+        !chrome.contains("WALLPAPER_FROST_SAMPLE_ALPHA"),
+        "卡片毛玻璃不得继续使用 0x24 固定透明度，否则五层组合后仍会丢失约 47% 背景能量"
     );
     assert!(
         chrome.contains("image_source_for_render")

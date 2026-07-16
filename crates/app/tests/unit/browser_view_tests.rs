@@ -96,15 +96,15 @@ fn test_browser_webview_applies_native_corner_clipping() {
 /// 数据构造（含关键数值的推导过程）：
 ///   card_top_left = (40, 70)，来自截图中卡片位于窗口内的屏幕坐标；
 ///   card_size = 1180 x 840，代表一个大尺寸 Browser 卡片；
-///   header_h = TITLE_BAR_H(44) + BROWSER_TOOLBAR_H_PX(34) = 78；
+///   header_h = TITLE_BAR_H(32) + BROWSER_TOOLBAR_H_PX(34) = 66；
 ///   border_inset = 2px，四边均避让 selected 状态的 GPUI `border_2`；
 ///   bottom_radius = 22px，等同 zoom=1 时 node_card_radius_px(1.0)。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 将卡片屏幕坐标、尺寸、header 高度和底部圆角传入 bounds 计算函数
-///   2. 函数把 WebView y 移到 header 和顶部边框下方，即 70 + 78 + 2 = 150
+///   2. 函数把 WebView y 移到 header 和顶部边框下方，即 70 + 66 + 2 = 138
 ///   3. 函数左右各内缩 2px，宽度 1180 - 4 = 1176
-///   4. 函数上下各避让 2px，高度 840 - 78 - 2 - 2 = 758
+///   4. 函数上下各避让 2px，高度 840 - 66 - 2 - 2 = 770
 ///
 /// 预期结果：
 ///   - 正断言：x/y/width/height 精确匹配内容区 bounds
@@ -112,14 +112,14 @@ fn test_browser_webview_applies_native_corner_clipping() {
 ///   - 负断言：WebView 不应等于整张卡片 bounds，否则原生视图会盖住边框和圆角
 #[test]
 fn test_browser_native_view_bounds_inset_under_browser_toolbar() {
-    let bounds = browser_native_view_bounds(40.0, 70.0, 1180.0, 840.0, 78.0, 22.0);
+    let bounds = browser_native_view_bounds(40.0, 70.0, 1180.0, 840.0, 66.0, 22.0);
 
     assert_eq!(
         bounds.x, 42.0,
         "native WebView x should inset by 2px so it does not cover the selected card's 2px left border"
     );
     assert_eq!(
-        bounds.y, 150.0,
+        bounds.y, 138.0,
         "native WebView y should start below the browser header and selected card's 2px top border"
     );
     assert_eq!(
@@ -127,7 +127,7 @@ fn test_browser_native_view_bounds_inset_under_browser_toolbar() {
         "native WebView width should preserve both 2px horizontal selected borders"
     );
     assert_eq!(
-        bounds.height, 758.0,
+        bounds.height, 770.0,
         "native WebView height should preserve both 2px vertical selected borders"
     );
     assert_eq!(
@@ -150,9 +150,9 @@ fn test_browser_native_view_bounds_inset_under_browser_toolbar() {
 /// B-6: 极小 Browser 卡片计算原生 bounds 时必须把尺寸钳制到 0，避免负尺寸传给 wry。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   card_size = 1 x 30，宽度小于左右边框 2px，总高度小于 header_h(78) + bottom_inset(1)；
+///   card_size = 1 x 30，宽度小于左右边框 2px，总高度小于 header_h(66) + bottom_inset(1)；
 ///   width  = max(0, 1 - 2) = 0；
-///   height = max(0, 30 - 78 - 1) = 0。
+///   height = max(0, 30 - 66 - 1) = 0。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 传入极小卡片尺寸
@@ -164,7 +164,7 @@ fn test_browser_native_view_bounds_inset_under_browser_toolbar() {
 ///   - 负断言：width 和 height 不应为负数
 #[test]
 fn test_browser_native_view_bounds_clamps_tiny_cards_to_zero_size() {
-    let bounds = browser_native_view_bounds(10.0, 20.0, 1.0, 30.0, 78.0, 22.0);
+    let bounds = browser_native_view_bounds(10.0, 20.0, 1.0, 30.0, 66.0, 22.0);
 
     assert_eq!(
         bounds.width, 0.0,

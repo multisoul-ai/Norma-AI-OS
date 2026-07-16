@@ -10,10 +10,7 @@ use crate::canvas::events::{should_focus_app_root_for_mouse_down, should_notify_
 use crate::canvas::geometry::terminal_content_local_position;
 #[cfg(test)]
 use crate::canvas::geometry::{apply_canvas_wheel_scroll, click_event_for_node, is_title_bar_hit};
-use crate::canvas::geometry::{
-    node_card_radius_px, node_edge_highlight_inset_px, node_terminal_radius_px,
-    node_title_radius_px,
-};
+use crate::canvas::geometry::{node_card_radius_px, node_terminal_radius_px, node_title_radius_px};
 #[cfg(test)]
 use crate::canvas::interaction::InteractionState;
 use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
@@ -138,7 +135,6 @@ pub fn render_canvas(
                 w >= CORNER_GLOW_MIN_SCREEN_PX && h >= CORNER_GLOW_MIN_SCREEN_PX,
             ))
             .border_color(rgba(stroke))
-            .bg(rgba(visual.fill_color))
             .opacity(visual.opacity)
             .rounded(px(node_radius))
             .overflow_hidden()
@@ -160,14 +156,6 @@ pub fn render_canvas(
         } else {
             node_div.border_1()
         };
-
-        let edge_highlight = div()
-            .absolute()
-            .top(px(0.0))
-            .left(px(node_edge_highlight_inset_px(vp.zoom)))
-            .right(px(node_edge_highlight_inset_px(vp.zoom)))
-            .h(px(1.0))
-            .bg(rgba(visual.edge_highlight_color));
 
         // 标题栏
         let mut title_actions = div()
@@ -318,11 +306,20 @@ pub fn render_canvas(
                 }
             }
         }
-        node_div = node_div
-            .child(app.render_card_frosted_backdrop(id, top_left.x, top_left.y, win_w, win_h))
-            .child(edge_highlight)
-            .child(title_bar)
-            .child(card_body);
+        node_elems.push(
+            app.render_card_frosted_backdrop(
+                id,
+                top_left.x,
+                top_left.y,
+                w,
+                h,
+                node_radius,
+                win_w,
+                win_h,
+            )
+            .into_any_element(),
+        );
+        node_div = node_div.child(title_bar).child(card_body);
         if let Some(working_snake) = visual.working_snake {
             snake_nodes += 1;
             node_div = node_div.child(render_working_snake_border(

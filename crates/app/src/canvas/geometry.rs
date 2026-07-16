@@ -16,10 +16,6 @@ pub(crate) fn node_terminal_radius_px(zoom: f32) -> f32 {
     node_card_radius_px(zoom)
 }
 
-pub(crate) fn node_edge_highlight_inset_px(zoom: f32) -> f32 {
-    node_card_radius_px(zoom)
-}
-
 pub(crate) fn pt_to_vec(p: Point<Pixels>) -> Vec2 {
     Vec2::new(f32::from(p.x), f32::from(p.y))
 }

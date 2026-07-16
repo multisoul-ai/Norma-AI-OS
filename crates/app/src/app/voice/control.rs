@@ -338,28 +338,28 @@ mod tests {
     /// 数据构造（含关键数值的推导过程）：
     ///   voice key = key("e", platform=true, shift=false)
     ///   paste key = key("v", platform=true, shift=false)
-    ///   other key = key("n", platform=true, shift=false)
+    ///   other key = key("1", platform=true, shift=false)
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. 检查 Cmd+E
     ///   2. 检查 Cmd+V
-    ///   3. 检查 Cmd+N
+    ///   3. 检查 Cmd+1
     ///
     /// 预期结果：
     ///   - 正断言：Cmd+E 匹配语音长按
-    ///   - 负断言：Cmd+V 和 Cmd+N 不匹配，避免抢占粘贴/新建
+    ///   - 负断言：Cmd+V 和 Cmd+1 不匹配，避免抢占粘贴/新建
     #[test]
     fn test_voice_hold_shortcut_matches_cmd_e_only() {
         let voice = key("e", true, false);
         let paste = key("v", true, false);
-        let other = key("n", true, false);
+        let other = key("1", true, false);
 
         assert!(is_voice_hold_shortcut(&voice), "Cmd+E 应匹配语音长按快捷键");
         assert!(
             !is_voice_hold_shortcut(&paste),
             "Cmd+V 是粘贴，不应触发语音"
         );
-        assert!(!is_voice_hold_shortcut(&other), "Cmd+N 不是语音快捷键");
+        assert!(!is_voice_hold_shortcut(&other), "Cmd+1 不是语音快捷键");
     }
 
     /// VC-2: 重复 keydown 不重复启动录音，keyup 只结束对应 trigger。

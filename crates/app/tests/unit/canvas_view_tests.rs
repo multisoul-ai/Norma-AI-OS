@@ -141,11 +141,11 @@ fn test_canvas_wheel_scroll_does_not_move_viewport_when_disabled() {
 ///
 /// 数据构造（含关键数值推导）：
 ///   node_top_left = (80,40)
-///   screen = (100,156)
-///   zoom = 2，因此标题栏高度 = TITLE_BAR_H(44) * 2 = 88
+///   screen = (100,132)
+///   zoom = 2，因此标题栏高度 = TITLE_BAR_H(32) * 2 = 64
 ///   TERM_PADDING_PX = 8
 ///   local_x = 100 - 80 - 8 = 12
-///   local_y = 156 - 40 - 88 - 8 = 20
+///   local_y = 132 - 40 - 64 - 8 = 20
 ///
 /// 执行过程：
 ///   1. terminal_content_local_position(screen, node_top_left, zoom=2)
@@ -157,7 +157,7 @@ fn test_canvas_wheel_scroll_does_not_move_viewport_when_disabled() {
 #[test]
 fn test_terminal_content_local_position_offsets_title_bar_and_padding() {
     let local =
-        terminal_content_local_position(Vec2::new(100.0, 156.0), Vec2::new(80.0, 40.0), 2.0);
+        terminal_content_local_position(Vec2::new(100.0, 132.0), Vec2::new(80.0, 40.0), 2.0);
 
     assert_eq!(
         local.x,
@@ -167,7 +167,7 @@ fn test_terminal_content_local_position_offsets_title_bar_and_padding() {
     assert_eq!(
         local.y,
         px(20.0),
-        "terminal local y 应扣除 node.y、标题栏和 padding，即 156-40-88-8=20"
+        "terminal local y 应扣除 node.y、标题栏和 padding，即 132-40-64-8=20"
     );
     assert_ne!(
         local.y,
@@ -179,7 +179,7 @@ fn test_terminal_content_local_position_offsets_title_bar_and_padding() {
 /// 标题栏文本：长 task_title 应保持单行截断，不能换行撑高标题栏。
 ///
 /// 数据构造（含关键数值推导）：
-///   TITLE_BAR_H = 44px；标题栏高度固定为 TITLE_BAR_H * zoom
+///   TITLE_BAR_H = 32px；标题栏高度固定为 TITLE_BAR_H * zoom
 ///   长 task_title 来源于用户输入，可能远超卡片宽度
 ///   标题文本应在可用宽度内 flex_1 + min_w(0)，再 truncate 成单行
 ///
@@ -400,10 +400,10 @@ fn test_terminal_title_single_click_selects_for_drag() {
 ///
 /// 数据构造（含关键数值推导）：
 ///   node_top_screen_y = 100
-///   TITLE_BAR_H = 44
+///   TITLE_BAR_H = 32
 ///   zoom = 2
-///   title_bottom = 100 + 44 * 2 = 188
-///   y=187.5 在标题栏内，y=189 已进入正文
+///   title_bottom = 100 + 32 * 2 = 164
+///   y=163.5 在标题栏内，y=165 已进入正文
 ///
 /// 执行过程：
 ///   1. is_title_bar_hit(187.5, 100, 2) → true
@@ -415,38 +415,34 @@ fn test_terminal_title_single_click_selects_for_drag() {
 ///   - 负断言：正文 y=189 不应仍被当作标题栏
 #[test]
 fn test_title_bar_hit_scales_with_zoom() {
-    let in_title = is_title_bar_hit(187.5, 100.0, 2.0);
-    let in_body = is_title_bar_hit(189.0, 100.0, 2.0);
+    let in_title = is_title_bar_hit(163.5, 100.0, 2.0);
+    let in_body = is_title_bar_hit(165.0, 100.0, 2.0);
 
-    assert!(in_title, "y=187.5 <= 100 + 44 * 2，应被识别为标题栏命中");
-    assert!(!in_body, "y=189 > 100 + 44 * 2，应被识别为正文命中");
+    assert!(in_title, "y=163.5 <= 100 + 32 * 2，应被识别为标题栏命中");
+    assert!(!in_body, "y=165 > 100 + 32 * 2，应被识别为正文命中");
 }
 
-/// 卡片圆角 token 应统一用于外壳、标题栏和顶部高亮线。
+/// 卡片圆角 token 应统一用于外壳和标题栏。
 ///
 /// 数据构造（含关键数值推导）：
 ///   base radius = 22px
 ///   zoom=0.25 → raw radius = 22 * 0.25 = 5.5px，clamp 到最小 12px
 ///   zoom=1.00 → raw radius = 22 * 1.00 = 22px，保持 22px
 ///   zoom=2.00 → raw radius = 22 * 2.00 = 44px，clamp 到最大 28px
-///   top highlight inset = card radius，避免 1px 高亮线画进圆角区域
 ///
 /// 执行过程：
 ///   1. 分别计算 zoom=0.25、1.0、2.0 的卡片圆角
-///   2. 计算 zoom=1.0 的标题栏圆角与顶部高亮线缩进
+///   2. 计算 zoom=1.0 的标题栏圆角
 ///
 /// 预期结果：
 ///   - 正断言：卡片圆角随 zoom 缩放并保持在 12..=28px
 ///   - 正断言：标题栏圆角复用卡片圆角，避免顶部背景填平圆角
-///   - 正断言：顶部高亮线从 radius 内侧开始，避开左右顶角
-///   - 负断言：高亮线缩进不应为 0，否则会再次画出直角顶边
 #[test]
-fn test_node_card_radius_tokens_keep_children_inside_rounded_shell() {
+fn test_node_card_radius_tokens_keep_title_inside_rounded_shell() {
     let zoomed_out = node_card_radius_px(0.25);
     let normal = node_card_radius_px(1.0);
     let zoomed_in = node_card_radius_px(2.0);
     let title_radius = node_title_radius_px(1.0);
-    let highlight_inset = node_edge_highlight_inset_px(1.0);
 
     assert_eq!(
         zoomed_out, 12.0,
@@ -461,12 +457,42 @@ fn test_node_card_radius_tokens_keep_children_inside_rounded_shell() {
         title_radius, normal,
         "标题栏顶部圆角必须复用卡片圆角，否则矩形标题栏会填平顶角"
     );
-    assert_eq!(
-        highlight_inset, normal,
-        "顶部高亮线应从卡片圆角内侧开始，避免覆盖圆角弧线"
+}
+
+/// 卡片外壳只负责圆角描边，背景填充必须交给各自拥有圆角的标题栏和正文。
+///
+/// 数据构造（含关键数值推导）：
+///   GPUI 0.2.2 的 content mask = 矩形；card radius = 22px。
+///   外壳若绘制 100% 宽高背景，会覆盖四个 22×22px 角区并露出直角底色。
+///
+/// 执行过程：
+///   1. 截取 `node_div` 外壳构造链。
+///   2. 检查外壳保留 rounded/overflow 结构，但不再绘制全尺寸背景。
+///   3. 检查标题栏仍自行绘制顶部圆角与背景。
+///
+/// 预期结果：
+///   - 正断言：外壳保留圆角，标题栏保留圆角背景。
+///   - 负断言：外壳不得包含 `.bg(...)`，否则圆角外会再次出现矩形色块。
+#[test]
+fn test_node_card_shell_does_not_paint_behind_rounded_child_surfaces() {
+    let source = include_str!("../../src/canvas/view.rs");
+    let shell = source
+        .split("let mut node_div = div()")
+        .nth(1)
+        .and_then(|source| source.split("if hovered_terminal_link").next())
+        .expect("应能定位 node_div 外壳构造链，否则无法验证圆角背景所有权");
+
+    assert!(
+        shell.contains(".rounded(px(node_radius))"),
+        "卡片外壳必须保留 22px 圆角描边结构"
     );
-    assert_ne!(
-        highlight_inset, 0.0,
-        "顶部高亮线缩进不能为 0，否则 w_full 的 1px 线会重新制造直角"
+    assert!(
+        !shell.contains(".bg("),
+        "卡片外壳不得绘制全尺寸背景，否则 GPUI 会在圆角外留下矩形色块"
+    );
+    assert!(
+        source.contains(".rounded_t(px(node_title_radius_px(vp.zoom)))")
+            && source.contains(".bg(card_title_background("),
+        "标题栏必须同时保留顶部圆角与毛玻璃背景"
     );
 }

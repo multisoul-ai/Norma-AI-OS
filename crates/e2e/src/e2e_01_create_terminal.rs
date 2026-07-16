@@ -20,7 +20,7 @@ use crate::harness::{
 
 /// E2E-01：`NewTerminal` 后恰好 1 个 Term 节点、焦点指向它、layout 已 reflow。
 ///
-/// 场景：用户从 Launchpad 进入 Canvas，按 Cmd+N 创建第一个 Terminal 节点。
+/// 场景：用户从 Launchpad 进入 Canvas，通过 `NewTerminal` action 创建第一个 Terminal 节点。
 /// 验证整个脚手架（harness + echo PTY 注入 + screen 状态机 + spawn_terminal
 /// + activate_spawned_node + apply_layout_for_current_mode）协同产出 SPEC §4.2
 ///   要求的最终状态。

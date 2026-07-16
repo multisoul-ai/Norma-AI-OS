@@ -89,9 +89,9 @@ mod tests {
     /// 数据构造（含关键数值推导）：
     ///   bounds = size(800x426)，zoom=1
     ///   padding = 8px * 2 = 16px
-    ///   title bar = 44px
+    ///   title bar = 32px
     ///   content_w = 800 - 16 = 784；TERM_CELL_PX=8 → cols=floor(784/8)=98
-    ///   content_h = 426 - 44 - 16 = 366；TERM_LINE_PX=16 → rows=floor(366/16)=22
+    ///   content_h = 426 - 32 - 16 = 378；TERM_LINE_PX=16 → rows=floor(378/16)=23
     ///
     /// 执行过程：
     ///   1. term_resize(bounds, 1.0)
@@ -106,7 +106,7 @@ mod tests {
         let NodeResize::TermGrid { cols, rows } = resize;
 
         assert_eq!(cols, 98, "800px 宽卡片应换算为 98 列");
-        assert_eq!(rows, 22, "426px 高卡片应在 44px 标题栏下换算为 22 行");
+        assert_eq!(rows, 23, "426px 高卡片应在 32px 标题栏下换算为 23 行");
         assert_ne!(cols, 20, "宽度充足时 cols 不应退回最小值 20");
         assert_ne!(rows, 3, "高度充足时 rows 不应退回最小值 3");
     }

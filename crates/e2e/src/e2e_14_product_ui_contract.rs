@@ -4,23 +4,69 @@ use gpui::{Modifiers, TestAppContext, VisualTestContext};
 
 use crate::harness::{echo_factory, enter_canvas, make_app, read_runtime};
 
+/// 用户进入 Canvas 后，移除装饰细线不能连带删除或缩小工作台背景。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Canvas bounds = headless GPUI 当前完整工作区 bounds。
+///   Workspace backdrop bounds = 四边均为 0px inset，因此应与 Canvas 同 origin、同 size。
+///   装饰线数量 = 0（两个圆环 + 一条基线均由 app 单元回归测试验证不存在）。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. `make_app + enter_canvas` 进入真实 headless Canvas 渲染树。
+///   2. 读取 Canvas 与 workspace backdrop 的 debug bounds。
+///   3. 比较两者的 origin 和 size，确认背景仍完整覆盖工作区。
+///
+/// 预期结果：
+///   - 正断言：workspace backdrop 继续存在，并与 Canvas 等大。
+///   - 负断言：背景不得因删除装饰子层而缩成局部区域或偏离 Canvas 原点。
+#[test]
+fn e2e_14_workspace_backdrop_remains_full_canvas_after_decorative_lines_removed() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("测试应创建临时 workspace");
+    enter_canvas(&app, cx, workspace.path());
+
+    let canvas = cx
+        .debug_bounds("canvas")
+        .expect("Canvas 应暴露 debug bounds 供工作台背景覆盖范围验收");
+    let backdrop = cx
+        .debug_bounds("workspace-backdrop")
+        .expect("移除装饰细线后 workspace-backdrop 仍应存在");
+
+    assert_eq!(
+        backdrop.origin, canvas.origin,
+        "workspace-backdrop 应与 Canvas 同原点，不能因删除装饰子层发生偏移"
+    );
+    assert_eq!(
+        backdrop.size, canvas.size,
+        "workspace-backdrop 应完整覆盖 Canvas，不能因删除装饰子层缩小"
+    );
+    assert!(
+        f32::from(backdrop.size.width) > 0.0 && f32::from(backdrop.size.height) > 0.0,
+        "workspace-backdrop 宽高必须为正，不能退化为空背景"
+    );
+}
+
 /// 用户从底部 Command Dock 打开新建菜单并创建两个 Terminal，再从同一 Dock 打开 Settings。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   headless viewport 由 TestAppContext::single 提供，Canvas debug bounds 为完整工作区。
 ///   Command Dock 高度 = 52px，底部间距 = 22px，因此 dock center 必须位于 Canvas 下半区。
+///   minimap 宽高 = 128x112px；右侧间距 = 18px；底部间距 = 22px。
+///   minimap right = Canvas right - 18px；minimap bottom = Canvas bottom - 22px。
 ///   新建 Terminal 数量 = 2；若 reflow 未执行，两次 spawn 使用同一初始 origin。
 ///   reflow 执行后，两张卡片由 responsive grid 分配到不同 origin。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. `make_app + enter_canvas` 进入真实 headless Canvas 渲染树。
-///   2. 读取 `workspace-command-dock` 与 `canvas-minimap` bounds，验证 UI 层级。
+///   2. 读取 `workspace-command-dock` 与 `canvas-minimap` bounds，验证右下角定位且互不遮挡。
 ///   3. 连续两次点击 `toolbar-new-terminal` → `new-menu-terminal` 创建 Terminal。
 ///   4. 从 runtime 公开快照读取两张卡片 bounds，验证自动 reflow。
 ///   5. 点击 `toolbar-settings`，验证 Settings panel 在 Dock 之上打开。
 ///
 /// 预期结果：
-///   - 正断言：Dock 位于 Canvas 下半区，minimap 位于 Dock 上方。
+///   - 正断言：Dock 位于 Canvas 下半区，minimap 固定在 Canvas 右下角。
+///   - 负断言：minimap 不得回到右上角，也不得与底部居中的 Dock 重叠。
 ///   - 正断言：创建两张 Terminal 后节点数为 2，且 origin 不同。
 ///   - 正断言：Settings panel 可通过 Dock 打开。
 ///   - 负断言：两张 Terminal 不得重叠在同一 origin，证明自动布局未被 UI 改造绕过。
@@ -41,6 +87,11 @@ fn e2e_14_bottom_dock_preserves_terminal_reflow_and_settings_flow() {
         .debug_bounds("canvas-minimap")
         .expect("Product UI V2 应渲染 canvas-minimap");
     let canvas_mid_y = f32::from(canvas.origin.y) + f32::from(canvas.size.height) / 2.0;
+    // minimap right = Canvas right - 18px；minimap bottom = Canvas bottom - 22px。
+    let expected_minimap_right = f32::from(canvas.origin.x) + f32::from(canvas.size.width) - 18.0;
+    let expected_minimap_bottom = f32::from(canvas.origin.y) + f32::from(canvas.size.height) - 22.0;
+    let actual_minimap_right = f32::from(minimap.origin.x) + f32::from(minimap.size.width);
+    let actual_minimap_bottom = f32::from(minimap.origin.y) + f32::from(minimap.size.height);
 
     assert!(
         f32::from(dock.center().y) > canvas_mid_y,
@@ -48,9 +99,22 @@ fn e2e_14_bottom_dock_preserves_terminal_reflow_and_settings_flow() {
         f32::from(dock.center().y),
         canvas_mid_y
     );
+    assert_eq!(
+        actual_minimap_right, expected_minimap_right,
+        "minimap 右边缘应距 Canvas 右侧 18px，actual={actual_minimap_right} expected={expected_minimap_right}"
+    );
+    assert_eq!(
+        actual_minimap_bottom, expected_minimap_bottom,
+        "minimap 底边应距 Canvas 底部 22px，actual={actual_minimap_bottom} expected={expected_minimap_bottom}"
+    );
     assert!(
-        f32::from(minimap.origin.y) < f32::from(dock.origin.y),
-        "minimap 应位于底部 Dock 上方，避免遮挡命令区"
+        f32::from(minimap.origin.y) > canvas_mid_y,
+        "minimap 应位于 Canvas 下半区，不能回到右上角，actual={} mid={canvas_mid_y}",
+        f32::from(minimap.origin.y)
+    );
+    assert!(
+        f32::from(minimap.origin.x) >= f32::from(dock.origin.x) + f32::from(dock.size.width),
+        "右下角 minimap 不得与底部居中的 Command Dock 重叠"
     );
 
     click_debug(cx, "toolbar-new-terminal");

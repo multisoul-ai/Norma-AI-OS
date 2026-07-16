@@ -16,6 +16,9 @@ mod harness;
 // E2E-01（SPEC §4.2）：创建 Terminal 节点 + 焦点 + layout reflow 正/负断言矩阵。
 mod e2e_01_create_terminal;
 
+// Cards 数字快捷键：Cmd+1..Cmd+5 必须创建 Terminal 与四种 Agent profile。
+mod e2e_01_card_shortcuts;
+
 // 原生菜单中的 OpenCode Agent action：Canvas root 必须实际注册并创建对应 Agent 节点。
 mod e2e_01_menu_actions;
 
@@ -69,6 +72,12 @@ mod e2e_13_terminal_links;
 
 // Product UI V2：底部 Dock 真实点击不应断开 Terminal reflow 与 Settings 流程。
 mod e2e_14_product_ui_contract;
+
+// Launchpad：Recent projects 的原生右键菜单删除及 SQLite 持久化闭环。
+mod e2e_15_recent_project_menu;
+
+// Canvas：创建/清理失败必须渲染可见、可关闭的工作区错误横幅。
+mod e2e_16_canvas_error_feedback;
 
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。

@@ -36,6 +36,41 @@ fn test_settings_panel_defaults_closed_on_first_visible_section() {
     );
 }
 
+/// Settings 外壳的两个不透明子面必须各自绘制外侧圆角，不能只依赖父级矩形 overflow 裁剪。
+///
+/// 数据构造（含关键数值推导）：
+///   panel radius = 24px；Sidebar 模式下 navigation 位于左侧、content 位于右侧；
+///   TopBar 模式下 navigation 位于顶部、content 位于底部。
+///   GPUI 0.2.2 的 ContentMask 为矩形，因此子面若无自身 24px 外侧圆角，会填平方角。
+///
+/// 执行过程：
+///   1. 读取 Settings panel 生产渲染源码。
+///   2. 检查 Sidebar/CompactSidebar 为 navigation 设置 left radius、content 设置 right radius。
+///   3. 检查 TopBar 为 navigation 设置 top radius、content 设置 bottom radius。
+///
+/// 预期结果：
+///   - 正断言：四种外侧圆角修饰均存在，所有响应式布局都保持 24px 外轮廓。
+///   - 负断言：不应只依赖 settings-panel 的 overflow_hidden + rounded 组合裁剪子面。
+#[test]
+fn test_settings_panel_children_own_their_outer_corner_radii() {
+    let source = include_str!("../../src/settings/panel.rs");
+
+    assert!(
+        source.contains("navigation.rounded_l(px(24.0))")
+            && source.contains("content.rounded_r(px(24.0))"),
+        "侧栏布局必须让 navigation/content 分别绘制左侧和右侧 24px 圆角"
+    );
+    assert!(
+        source.contains("navigation.rounded_t(px(24.0))")
+            && source.contains("content.rounded_b(px(24.0))"),
+        "顶栏布局必须让 navigation/content 分别绘制顶部和底部 24px 圆角"
+    );
+    assert!(
+        !source.contains(".child(settings_navigation("),
+        "Settings 不得直接挂载未修饰的 navigation，否则又会只依赖父级矩形裁剪"
+    );
+}
+
 /// 设置面板响应式布局：小窗口和极窄窗口都不应把面板或侧栏推出 viewport。
 ///
 /// 数据构造（含关键数值的推导过程）：

@@ -23,6 +23,10 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
 
+#[cfg(test)]
+#[path = "../../tests/unit/norma_agent_lifecycle_tests.rs"]
+mod agent_lifecycle_tests;
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct NormaCommandEffects {
     pub(crate) canvas_dirty: bool,
@@ -60,6 +64,7 @@ impl NormaCommandEffects {
 pub(crate) struct NormaExecution {
     pub(crate) result: CardCommandResult,
     pub(crate) effects: NormaCommandEffects,
+    pub(crate) removed_agent_definition_id: Option<i64>,
 }
 
 pub(crate) struct NormaServer {
@@ -164,6 +169,7 @@ impl MultisoulApp {
                 Ok(NormaExecution {
                     result: CardCommandResult::Created { node_id },
                     effects: NormaCommandEffects::NONE,
+                    removed_agent_definition_id: None,
                 })
             }
             command => {
@@ -190,6 +196,14 @@ impl MultisoulApp {
             }
             if execution.effects.session_dirty {
                 self.mark_session_dirty();
+            }
+            if let Some(definition_id) = execution.removed_agent_definition_id {
+                if let Err(message) = self
+                    .agent_definitions
+                    .cleanup_quick_definition(definition_id)
+                {
+                    self.workspace_state.error = Some(message);
+                }
             }
             execution.result
         });
@@ -224,6 +238,7 @@ pub(crate) fn execute_card_command_for_area(
                 cards: summarize_cards(runtime),
             },
             effects: NormaCommandEffects::NONE,
+            removed_agent_definition_id: None,
         }),
         CardCommand::ListAgents
         | CardCommand::CreateAgent { .. }
@@ -270,6 +285,7 @@ fn create_card(
             Ok(NormaExecution {
                 result: CardCommandResult::Created { node_id },
                 effects: NormaCommandEffects::CANVAS_SESSION,
+                removed_agent_definition_id: None,
             })
         }
         CardKind::Agent { .. } => Err(CardCommandError::Unsupported {
@@ -291,6 +307,7 @@ fn create_card(
             Ok(NormaExecution {
                 result: CardCommandResult::Created { node_id },
                 effects: NormaCommandEffects::CANVAS,
+                removed_agent_definition_id: None,
             })
         }
         CardKind::Browser { url } => {
@@ -302,6 +319,7 @@ fn create_card(
             Ok(NormaExecution {
                 result: CardCommandResult::Created { node_id },
                 effects: NormaCommandEffects::CANVAS,
+                removed_agent_definition_id: None,
             })
         }
     }
@@ -315,6 +333,12 @@ fn delete_card(
     area: CanvasRect,
     zoom: f32,
 ) -> Result<NormaExecution, CardCommandError> {
+    let removed_agent_definition_id = runtime.document.node(node_id).and_then(|node| {
+        let CanvasNodeKind::Agent(spec) = &node.kind else {
+            return None;
+        };
+        spec.definition_id
+    });
     if !close_node_and_update_layout_for_area(runtime, motion, master_layout, node_id, area, zoom) {
         return Err(CardCommandError::NotFound { node_id });
     }
@@ -322,6 +346,7 @@ fn delete_card(
     Ok(NormaExecution {
         result: CardCommandResult::Deleted { node_id },
         effects: NormaCommandEffects::CANVAS_SESSION,
+        removed_agent_definition_id,
     })
 }
 
@@ -345,6 +370,7 @@ fn send_text(
     Ok(NormaExecution {
         result: CardCommandResult::Sent { node_id },
         effects: NormaCommandEffects::NOTIFY,
+        removed_agent_definition_id: None,
     })
 }
 
@@ -362,6 +388,7 @@ fn focus_card(runtime: &mut Runtime, node_id: NodeId) -> Result<NormaExecution, 
     Ok(NormaExecution {
         result: CardCommandResult::Focused { node_id },
         effects: NormaCommandEffects::NOTIFY,
+        removed_agent_definition_id: None,
     })
 }
 

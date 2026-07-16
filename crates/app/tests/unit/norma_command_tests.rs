@@ -119,11 +119,8 @@ fn test_norma_delete_missing_node_returns_not_found_without_side_effects() {
         result,
         Ok(crate::norma::server::NormaExecution {
             result: CardCommandResult::Deleted { node_id: 99 },
-            effects: NormaCommandEffects {
-                canvas_dirty: true,
-                session_dirty: true,
-                notify: true,
-            },
+            effects: NormaCommandEffects::CANVAS_SESSION,
+            removed_agent_definition_id: None,
         }),
         "删除缺失节点不应伪造成 Deleted 成功"
     );

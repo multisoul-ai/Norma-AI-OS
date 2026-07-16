@@ -42,9 +42,9 @@ fn screen_point(viewport: Viewport, canvas_x: f32, canvas_y: f32) -> Vec2 {
 ///   preview bounds = origin(100,50) size(300x220)
 ///   viewport.pan=(20,10), zoom=2
 ///   node_top_screen_y = 50*2 + 10 = 110
-///   title_bottom_screen_y = 110 + TITLE_BAR_H(44)*2 = 198
+///   title_bottom_screen_y = 110 + TITLE_BAR_H(32)*2 = 174
 ///   正文命中点 canvas=(130,100) → screen=(130*2+20, 100*2+10)=(280,210)
-///   210 > 198，因此命中正文区而非标题栏
+///   210 > 174，因此命中正文区而非标题栏
 ///
 /// 执行过程：
 ///   1. add Preview 节点并 select_only(preview)
@@ -84,9 +84,9 @@ fn test_selected_preview_body_scroll_belongs_to_native_element() {
 ///   preview bounds = origin(100,50) size(300x220)
 ///   viewport.pan=(20,10), zoom=2
 ///   node_top_screen_y = 50*2 + 10 = 110
-///   title_bottom_screen_y = 110 + 44*2 = 198
+///   title_bottom_screen_y = 110 + 32*2 = 174
 ///   标题栏命中点 canvas=(130,60) → screen=(280,130)
-///   130 <= 198，因此命中标题栏区域
+///   130 <= 174，因此命中标题栏区域
 ///
 /// 执行过程：
 ///   1. add Preview 节点并 select_only(preview)
@@ -249,8 +249,8 @@ fn test_selected_preview_outside_scroll_belongs_to_canvas() {
 ///   terminal bounds = origin(100,50) size(300x220)
 ///   viewport.pan=(20,10), zoom=2
 ///   node_top_screen_y = 50*2 + 10 = 110
-///   title_bottom_screen_y = 110 + 44*2 = 198
-///   正文命中点 canvas=(130,100) → screen=(280,210)，210 > 198
+///   title_bottom_screen_y = 110 + 32*2 = 174
+///   正文命中点 canvas=(130,100) → screen=(280,210)，210 > 174
 ///
 /// 执行过程：
 ///   1. add Term 节点并 select_only(term)
@@ -292,7 +292,7 @@ fn test_selected_terminal_body_scroll_belongs_to_terminal_scrollback() {
 ///   OpenCode bounds = origin(900,50) size(300x220)
 ///   viewport.pan=(20,10), zoom=2
 ///   正文 y=100 → screen_y = 100*2 + 10 = 210
-///   title_bottom_screen_y = 50*2 + 10 + 44*2 = 198，因此三个点都在正文区
+///   title_bottom_screen_y = 50*2 + 10 + 32*2 = 174，因此三个点都在正文区
 ///
 /// 执行过程：
 ///   1. add Claude/Codex/OpenCode 三个 Agent 节点

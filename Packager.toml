@@ -3,7 +3,7 @@
 # 若 schema 不符按 https://docs.crabnebula.dev/packager/ 校准。
 name = "app"
 product-name = "Norma OS"
-version = "0.1.29"
+version = "0.1.35"
 identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
@@ -19,8 +19,10 @@ before-packaging-command = "scripts/bump-release-version.sh && cargo build --rel
 [dmg]
 background = "assets/dmg-background.png"
 window-size = { width = 640, height = 400 }
-app-position = { x = 180, y = 200 }
-application-folder-position = { x = 460, y = 200 }
+# Finder renders 16pt item labels below these anchors. y=175 keeps both labels
+# inside their wells without touching the bottom border; y=200 overlaps it.
+app-position = { x = 180, y = 175 }
+application-folder-position = { x = 460, y = 175 }
 
 # 指向 release 二进制
 [[binaries]]

@@ -183,6 +183,33 @@ impl MultisoulApp {
             layout.content_height() > 0.0,
             "settings layout must reserve positive content height"
         );
+        let navigation = settings_navigation(
+            theme,
+            self.settings_panel.active_section,
+            layout.navigation_mode,
+            layout.sidebar_width,
+            cx,
+        );
+        let content = settings_content(
+            theme,
+            &self.settings_panel,
+            &self.agent_definitions,
+            VoiceSettingsContent {
+                state: &self.voice_settings,
+                inputs: &self.voice_settings_inputs,
+            },
+            &self.wallpaper_settings,
+            &self.shortcuts,
+            cx,
+        );
+        let (navigation, content) = match layout.navigation_mode {
+            SettingsNavigationMode::TopBar => {
+                (navigation.rounded_t(px(24.0)), content.rounded_b(px(24.0)))
+            }
+            SettingsNavigationMode::Sidebar | SettingsNavigationMode::CompactSidebar => {
+                (navigation.rounded_l(px(24.0)), content.rounded_r(px(24.0)))
+            }
+        };
 
         // overlay 挡住自动聚焦；点击时显式 focus。
         div()
@@ -240,25 +267,8 @@ impl MultisoulApp {
                     .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_click(|_, _, cx| cx.stop_propagation())
                     .on_key_down(cx.listener(Self::on_settings_panel_key_down))
-                    .child(settings_navigation(
-                        theme,
-                        self.settings_panel.active_section,
-                        layout.navigation_mode,
-                        layout.sidebar_width,
-                        cx,
-                    ))
-                    .child(settings_content(
-                        theme,
-                        &self.settings_panel,
-                        &self.agent_definitions,
-                        VoiceSettingsContent {
-                            state: &self.voice_settings,
-                            inputs: &self.voice_settings_inputs,
-                        },
-                        &self.wallpaper_settings,
-                        &self.shortcuts,
-                        cx,
-                    )),
+                    .child(navigation)
+                    .child(content),
             )
     }
 }

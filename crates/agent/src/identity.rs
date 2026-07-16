@@ -97,6 +97,17 @@ impl AgentNameRegistry {
             .find(|candidate| !self.builtin_is_occupied(*candidate))
     }
 
+    pub fn next_available_name(&self) -> Option<String> {
+        if let Some(builtin) = self.next_available_builtin() {
+            return Some(builtin.name().to_string());
+        }
+
+        (0..=self.occupied_keys.len()).find_map(|index| {
+            let candidate = fallback_agent_name(index)?;
+            (!self.occupied_keys.contains(&candidate.to_ascii_lowercase())).then_some(candidate)
+        })
+    }
+
     fn reserve(&mut self, name: &AgentName) {
         self.occupied_keys.insert(name.match_key.clone());
         if let Some(builtin) = builtin_for_canonical_key(name.match_key()) {
@@ -110,6 +121,22 @@ impl AgentNameRegistry {
             .contains(&candidate.name().to_ascii_lowercase())
             || self.occupied_keys.contains(candidate.speech_alias())
     }
+}
+
+fn fallback_agent_name(mut index: usize) -> Option<String> {
+    let mut suffix = Vec::new();
+    loop {
+        let letter = char::from(b'A' + u8::try_from(index % 26).ok()?);
+        suffix.push(letter);
+        if index < 26 {
+            break;
+        }
+        index = (index / 26).checked_sub(1)?;
+    }
+    suffix.reverse();
+    let suffix = suffix.into_iter().collect::<String>();
+    let candidate = format!("Agent{suffix}");
+    (candidate.len() <= 16).then_some(candidate)
 }
 
 impl AgentName {

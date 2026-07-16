@@ -71,8 +71,7 @@ pub(super) fn next_default_agent_name(definitions: &[AgentDefinition]) -> String
             .map(|definition| definition.name.as_str()),
     )
     .ok()
-    .and_then(|registry| registry.next_available_builtin())
-    .map(|builtin| builtin.name().to_string())
+    .and_then(|registry| registry.next_available_name())
     .unwrap_or_default()
 }
 

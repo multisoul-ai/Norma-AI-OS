@@ -1,3 +1,4 @@
+mod lifecycle;
 mod selection;
 mod support;
 
@@ -76,33 +77,6 @@ impl AgentDefinitionsState {
 
     pub(crate) fn definitions(&self) -> &[AgentDefinition] {
         &self.definitions
-    }
-
-    pub(crate) fn create_definition(
-        &mut self,
-        requested_name: Option<String>,
-        runtime_profile: AgentProfile,
-    ) -> Result<AgentDefinition, String> {
-        let store = self
-            .store
-            .as_ref()
-            .ok_or_else(|| "Open a project before creating Agents.".to_string())?;
-        let name =
-            requested_name.unwrap_or_else(|| support::next_default_agent_name(&self.definitions));
-        if name.is_empty() {
-            return Err("All 30 built-in Agent names are in use; specify a custom name.".into());
-        }
-        agent::AgentName::parse(&name).map_err(|error| error.to_string())?;
-        let created = store
-            .create(&storage::NewAgentDefinition {
-                name,
-                runtime_profile,
-                workflow_description: String::new(),
-            })
-            .map_err(|error| support::readable_agent_store_error(&error))?;
-        self.reload();
-        self.select_after_reload(Some(created.id));
-        Ok(created)
     }
 
     pub(crate) fn definition_by_address(&self, address: &str) -> Option<&AgentDefinition> {
