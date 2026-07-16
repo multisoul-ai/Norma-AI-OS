@@ -314,8 +314,8 @@ fn test_tts_model_and_voice_selection_persist_as_independent_ids() {
     let temp = tempfile::tempdir().expect("应创建 TTS 持久化测试目录");
     let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
     let mut state = VoiceSettingsState::load_from_store(store.clone());
-    let matcha =
-        tts::TtsModelId::parse(tts::MATCHA_ZH_MODEL_ID).expect("内置 Matcha 模型 ID 应有效");
+    let matcha = tts::TtsModelId::parse(tts::MATCHA_ZH_EN_MODEL_ID)
+        .expect("内置 Matcha zh-en 模型 ID 应有效");
     let kokoro = tts::TtsModelId::parse(tts::KOKORO_MULTI_LANG_MODEL_ID)
         .expect("内置 Kokoro 模型 ID 应有效");
     let default_voice = tts::TtsVoiceId::parse("default").expect("默认 Voice ID 应有效");

@@ -3,7 +3,6 @@
 mod actions;
 mod backdrop;
 mod layout;
-mod preview;
 mod recent;
 
 use self::actions::{action_card, launchpad_brand};
@@ -11,7 +10,6 @@ use self::backdrop::launchpad_backdrop;
 use self::layout::launchpad_layout_for_window;
 #[cfg(test)]
 use self::layout::LaunchpadLayoutMode;
-use self::preview::workspace_preview;
 #[cfg(test)]
 use self::recent::recent_project_records_for_launchpad;
 use crate::app::wallpaper_resolvers::resolve_builtin_asset;
@@ -20,7 +18,25 @@ use gpui::{div, point, prelude::*, px, rgba, BoxShadow, ClickEvent, Context, Div
 use std::path::PathBuf;
 use ui::Theme;
 
-const LAUNCHPAD_DEFAULT_VIDEO_ASSET: &str = "wallpapers/home.mp4";
+const LAUNCHPAD_DEFAULT_VIDEO_ASSET: &str = "wallpapers/1406443.mp4";
+
+/// Production overlay values selected by the fixed-frame HD benchmark.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) struct LaunchpadBackdropOverlay {
+    horizontal_start: u8,
+    horizontal_end: u8,
+    vertical_start: u8,
+    vertical_end: u8,
+}
+
+impl LaunchpadBackdropOverlay {
+    const BALANCED: Self = Self {
+        horizontal_start: 0x28,
+        horizontal_end: 0x18,
+        vertical_start: 0x18,
+        vertical_end: 0x30,
+    };
+}
 
 pub(crate) fn launchpad_default_video_asset() -> &'static str {
     LAUNCHPAD_DEFAULT_VIDEO_ASSET
@@ -34,7 +50,7 @@ impl MultisoulApp {
     pub(crate) fn render_launchpad(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Div {
         // Launchpad owns a fixed video background. It intentionally does not use
         // `wallpaper_settings`: Canvas wallpaper selection must not alter the
-        // startup screen's home.mp4 playback.
+        // startup screen's verified 4K playback.
         #[cfg(target_os = "macos")]
         self.sync_video_wallpaper(launchpad_default_video_path().as_deref(), cx);
 
@@ -45,6 +61,7 @@ impl MultisoulApp {
         let launchpad_video = self.render_launchpad_video_layer();
         #[cfg(not(target_os = "macos"))]
         let launchpad_video = div().size_full();
+        let overlay = LaunchpadBackdropOverlay::BALANCED;
 
         div()
             .absolute()
@@ -54,10 +71,7 @@ impl MultisoulApp {
             .bottom(px(0.0))
             .overflow_hidden()
             .bg(rgba(theme.canvas_from))
-            .child(launchpad_backdrop(theme, launchpad_video))
-            .when(layout.preview_visible, |root| {
-                root.child(workspace_preview(theme, layout))
-            })
+            .child(launchpad_backdrop(theme, launchpad_video, overlay))
             .child(
                 div()
                     .absolute()

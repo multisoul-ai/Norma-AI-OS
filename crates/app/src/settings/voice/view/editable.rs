@@ -98,6 +98,15 @@ impl VoiceSettingsInputs {
         }
     }
 
+    pub(crate) fn set_theme(&self, theme: Theme, cx: &mut Context<MultisoulApp>) {
+        self.base_url
+            .update(cx, |input, cx| input.set_theme(theme, cx));
+        self.model
+            .update(cx, |input, cx| input.set_theme(theme, cx));
+        self.api_key
+            .update(cx, |input, cx| input.set_theme(theme, cx));
+    }
+
     pub(crate) fn is_focused(&self, window: &Window, cx: &App) -> bool {
         self.base_url.read(cx).focus_handle.is_focused(window)
             || self.model.read(cx).focus_handle.is_focused(window)
@@ -200,6 +209,11 @@ impl VoiceTextInput {
         self.last_layout = None;
         self.last_bounds = None;
         self.auto_save_task = None;
+        cx.notify();
+    }
+
+    fn set_theme(&mut self, theme: Theme, cx: &mut Context<Self>) {
+        self.theme = theme;
         cx.notify();
     }
 

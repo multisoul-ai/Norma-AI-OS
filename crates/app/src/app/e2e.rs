@@ -5,8 +5,7 @@
 
 use super::{AppScreen, MultisoulApp};
 use crate::settings::agent_hooks::AgentHookServer;
-use crate::shortcuts::ShortcutCommandId;
-use crate::shortcuts::ShortcutSettingsState;
+use crate::shortcuts::{ShortcutCommandId, ShortcutSettingsState};
 use gpui::{App, Context};
 use runtime::Runtime;
 #[cfg(feature = "e2e-test-support")]
@@ -35,6 +34,10 @@ pub enum ApiKeyDisplayState {
 pub struct SettingsE2eSnapshot {
     pub settings_open: bool,
     pub active_section: &'static str,
+    pub active_theme_id: &'static str,
+    pub theme_is_dark: bool,
+    pub theme_canvas_from: u32,
+    pub theme_accent: u32,
     pub recording_command: Option<&'static str>,
     pub new_terminal_shortcut: Option<String>,
     pub new_terminal_modified: bool,
@@ -338,6 +341,10 @@ impl MultisoulApp {
         SettingsE2eSnapshot {
             settings_open: self.settings_panel.open,
             active_section: self.settings_panel.active_section.title(),
+            active_theme_id: self.theme_id.as_str(),
+            theme_is_dark: self.theme_id.is_dark(),
+            theme_canvas_from: self.theme.canvas_from,
+            theme_accent: self.theme.accent,
             recording_command: self.shortcuts.recording.map(shortcut_command_name),
             new_terminal_shortcut: new_terminal.and_then(|entry| entry.current_keystroke.clone()),
             new_terminal_modified: new_terminal.map(|entry| entry.modified).unwrap_or(false),

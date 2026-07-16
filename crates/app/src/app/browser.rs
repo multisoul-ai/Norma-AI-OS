@@ -47,7 +47,7 @@ pub(crate) struct BrowserCommand {
 
 pub(crate) struct BrowserAddressEdit {
     pub(crate) node_id: NodeId,
-    input: Entity<BrowserAddressInput>,
+    pub(crate) input: Entity<BrowserAddressInput>,
     _subscription: Subscription,
 }
 

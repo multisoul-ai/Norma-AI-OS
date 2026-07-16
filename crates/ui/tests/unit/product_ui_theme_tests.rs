@@ -1,84 +1,112 @@
-use super::Theme;
+use super::{Theme, ThemeId};
 
-/// G-7: Product UI V2 默认主题必须使用已评审品牌字面量与浅色文字层级。
+/// Product UI V2 默认主题：Paper Blue 必须保持中性纸白、Cobalt 焦点与深色 Terminal。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   graphite       = #111214ff（原型 `--graphite`）
-///   canvas_from    = #f7f5f2ff（原型 `--warm-white`）
-///   canvas_to      = #e8eef8d9（原型 `--canvas-mist`，alpha=0xd9≈85%）
-///   node_fill      = #e8eef854（Instrument Glass shell，alpha=0x54≈33%）
-///   title_bar      = #f8fafd70（冷白标题层，alpha=0x70≈44%）
-///   term_bg        = #090e16eb（深色内容井，alpha=0xeb≈92%）
-///   node_stroke    = #ffffffad（中性外壳描边，alpha=0xad≈68%）
-///   text_secondary = #111214a3（graphite 64%，round(255×0.64)=163=0xa3）
-///   text_tertiary  = #1112146b（graphite 42%，round(255×0.42)=107=0x6b）
+///   shell alpha       = 0x66 / 0xff = 40%（玻璃壳，不承载长文本）
+///   canvas overlay A  = 0xeb / 0xff ≈ 92%（压低壁纸彩度）
+///   terminal alpha    = 0xeb / 0xff ≈ 92%（独立深色内容井）
+///   terminal-shell 差 = 0xeb - 0x66 = 0x85 = 133 alpha levels
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 调用 Theme::default()，走产品默认 `glass_light()`。
-///   2. 对照 `docs/product-ui.html` 的独立字面量检查基础面、玻璃面与状态色。
-///   3. 比较三层文字 alpha，确保浅色界面层级从 primary 递减。
+///   1. 用默认 id 构造 Paper Blue。
+///   2. 检查环境 overlay、玻璃 shell、文字、Cobalt 与 Mint。
+///   3. 比较 Terminal 与 shell 的不透明度，确认两层没有合并。
 ///
 /// 预期结果：
-///   - 正断言：基础面、统一卡片层级、Cobalt/Violet/Acid/Coral/Mint 精确匹配原型。
-///   - 正断言：primary > secondary > tertiary，浅色界面正文保持清晰层级。
-///   - 负断言：卡片外壳不得回退到 70% 不透明度，让标题区双层叠白接近实色。
+///   - 正断言：默认色值与 Core UI V2 设计基线精确匹配。
+///   - 正断言：Terminal 明显比玻璃 shell 更不透明。
+///   - 负断言：默认主题不应回退到旧 `#111214` 文字或绿色焦点。
 #[test]
-fn test_product_ui_v2_brand_tokens_match_reviewed_literals() {
-    let theme = Theme::default();
+fn test_paper_blue_material_roles_match_core_ui_v2() {
+    let theme = Theme::for_id(ThemeId::default());
 
-    assert_eq!(theme.graphite, 0x111214ff, "graphite must match #111214");
     assert_eq!(
-        theme.canvas_from, 0xf7f5f2ff,
-        "canvas_from must match warm-white"
+        theme.canvas_from, 0xfffefbff,
+        "Paper Blue Base 应为 #FFFEFB"
     );
     assert_eq!(
-        theme.canvas_to, 0xe8eef8d9,
-        "canvas_to must match canvas-mist"
+        theme.canvas_to, 0xf5f4f1ff,
+        "Paper Blue 第二 Base 应为 #F5F4F1"
     );
     assert_eq!(
-        theme.node_fill, 0xe8eef854,
-        "node_fill must use the reviewed 33% frosted-glass shell"
+        theme.canvas_overlay_to, 0xd4eaf7d6,
+        "Paper Blue Environment 应为 #D4EAF7"
     );
     assert_eq!(
-        theme.title_bar, 0xf8fafd70,
-        "title_bar must use the reviewed 44% frosted title surface"
+        theme.text_primary, 0x313d44ff,
+        "Paper Blue Text 应为 #313D44"
     );
     assert_eq!(
-        theme.term_bg, 0x090e16eb,
-        "term_bg must use the reviewed 92% dark content well"
+        theme.accent, 0x2f80edff,
+        "Paper Blue Accent 应为 Cobalt #2F80ED"
     );
     assert_eq!(
-        theme.node_stroke, 0xffffffad,
-        "node_stroke must use the shared 68% neutral shell border"
+        theme.success, 0x64e0b5ff,
+        "Paper Blue Signal 应为 Mint #64E0B5"
     );
     assert_eq!(
-        theme.accent_blue, 0x2f80edff,
-        "accent_blue must match Cobalt"
+        alpha(theme.node_fill),
+        0x66,
+        "Paper Blue shell 应保持 40% 玻璃透明度"
     );
     assert_eq!(
-        theme.accent_violet, 0x6a5cffff,
-        "accent_violet must match Violet"
-    );
-    assert_eq!(theme.accent_warm, 0xd6ff3bff, "accent_warm must match Acid");
-    assert_eq!(
-        theme.destructive, 0xff6b7aff,
-        "destructive must match Coral"
-    );
-    assert_eq!(
-        theme.accent_green, 0x64e0b5ff,
-        "accent_green must match Mint"
+        alpha(theme.term_bg),
+        0xeb,
+        "Paper Blue Terminal 应保持约 92% 不透明"
     );
     assert!(
-        alpha(theme.text_primary) > alpha(theme.text_secondary),
-        "primary text alpha must exceed secondary text alpha"
-    );
-    assert!(
-        alpha(theme.text_secondary) > alpha(theme.text_tertiary),
-        "secondary text alpha must exceed tertiary text alpha"
+        alpha(theme.term_bg) > alpha(theme.node_fill) + 100,
+        "Terminal 内容井必须显著比 shell 更不透明"
     );
     assert_ne!(
-        theme.node_fill, 0xecf2f9b3,
-        "Canvas card shell must not return to the 70% surface that made card headers nearly opaque"
+        theme.text_primary, 0x111214ff,
+        "默认文字不应回退到旧 Graphite 字面量"
+    );
+    assert_ne!(theme.focused_stroke, 0x35d07fff, "默认焦点不应回退到旧绿色");
+}
+
+/// Dark 入口分层：用户主题走 Sapphire Night，历史 `glass_dark/dark` 保持动画兼容。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Sapphire Base      = #071324（用户可选主题）
+///   Legacy Dark Base   = #101722（旧运动测试与内部调用）
+///   Legacy Accent      = #FF7932
+///   Legacy Terminal α  = 0xfa / 0xff ≈ 98%
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 通过 `ThemeId::SapphireNight` 构造用户可选主题。
+///   2. 分别调用 `glass_dark` 与 `dark`，比较历史 Base、Accent 和 Terminal。
+///
+/// 预期结果：
+///   - 正断言：Sapphire id 仍精确映射新的 Sapphire Night。
+///   - 正断言：两个历史入口彼此一致并保留旧色值。
+///   - 负断言：历史 Dark 不得冒充 Sapphire Night，避免改变无关动画契约。
+#[test]
+fn test_theme_id_sapphire_and_legacy_dark_keep_separate_contracts() {
+    let sapphire = Theme::for_id(ThemeId::SapphireNight);
+    let glass_dark = Theme::glass_dark();
+    let dark = Theme::dark();
+
+    assert_eq!(
+        sapphire.canvas_from, 0x071324ff,
+        "SapphireNight id 应映射 Core UI V2 Sapphire Base"
+    );
+    assert_eq!(
+        glass_dark.canvas_from, 0x101722f2,
+        "glass_dark 应保留历史暗色 Base"
+    );
+    assert_eq!(
+        dark.accent_orange, 0xff7932ff,
+        "dark 应保留历史动画使用的 Orange Accent"
+    );
+    assert_eq!(
+        dark.term_bg, glass_dark.term_bg,
+        "dark 与 glass_dark 的历史 Terminal 契约应一致"
+    );
+    assert_ne!(
+        dark.canvas_from, sapphire.canvas_from,
+        "历史 Dark 不应冒充用户可选的 Sapphire Night"
     );
 }
 

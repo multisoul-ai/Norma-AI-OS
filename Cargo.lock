@@ -3982,7 +3982,7 @@ dependencies = [
 
 [[package]]
 name = "license"
-version = "0.1.26"
+version = "0.1.35"
 dependencies = [
  "base64",
  "ed25519-dalek",

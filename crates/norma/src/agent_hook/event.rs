@@ -147,6 +147,90 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    /// Agent 启动事件：Claude、Codex、Cursor、OpenCode 都必须归一化为 Ready。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   provider 数 = 4；每个 provider 各构造 1 个启动事件；
+    ///   Claude/Codex/OpenCode 使用 `SessionStart`，Cursor 使用原生 `sessionStart`；
+    ///   node_id 依次为 1、2、3、4，避免不同 provider 的事件互相混淆。
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 分别解析四种 provider 的原生启动事件；
+    ///   2. Cursor 的小写事件名被归一化为 `SessionStart`；
+    ///   3. 将四个标准事件分别映射为 Agent task state。
+    ///
+    /// 预期结果：
+    ///   - 正断言：四种 provider 都分别得到 Ready；
+    ///   - 负断言：任何启动事件都不应误映射为 Thinking。
+    #[test]
+    fn session_start_from_every_agent_provider_maps_to_ready() {
+        let claude = parse_hook_event(
+            HookSource::Claude,
+            1,
+            json!({"hook_event_name": "SessionStart", "session_id": "claude-1"}),
+        )
+        .expect("Claude SessionStart 应可解析");
+        let codex = parse_hook_event(
+            HookSource::Codex,
+            2,
+            json!({"hook_event_name": "SessionStart", "session_id": "codex-2"}),
+        )
+        .expect("Codex SessionStart 应可解析");
+        let cursor = parse_hook_event(
+            HookSource::Cursor,
+            3,
+            json!({"hook_event_name": "sessionStart", "conversation_id": "cursor-3"}),
+        )
+        .expect("Cursor sessionStart 应可解析");
+        let opencode = parse_hook_event(
+            HookSource::OpenCode,
+            4,
+            json!({"hook_event_name": "SessionStart", "session_id": "opencode-4"}),
+        )
+        .expect("OpenCode SessionStart 应可解析");
+
+        assert_eq!(
+            task_state_for_provider_event(&claude),
+            Some(AgentHookTaskState::Ready),
+            "Claude SessionStart 应映射为 Ready"
+        );
+        assert_eq!(
+            task_state_for_provider_event(&codex),
+            Some(AgentHookTaskState::Ready),
+            "Codex SessionStart 应映射为 Ready"
+        );
+        assert_eq!(
+            task_state_for_provider_event(&cursor),
+            Some(AgentHookTaskState::Ready),
+            "Cursor sessionStart 应归一化并映射为 Ready"
+        );
+        assert_eq!(
+            task_state_for_provider_event(&opencode),
+            Some(AgentHookTaskState::Ready),
+            "OpenCode SessionStart 应映射为 Ready"
+        );
+        assert_ne!(
+            task_state_for_provider_event(&claude),
+            Some(AgentHookTaskState::Thinking),
+            "Claude 启动事件不得误映射为 Thinking"
+        );
+        assert_ne!(
+            task_state_for_provider_event(&codex),
+            Some(AgentHookTaskState::Thinking),
+            "Codex 启动事件不得误映射为 Thinking"
+        );
+        assert_ne!(
+            task_state_for_provider_event(&cursor),
+            Some(AgentHookTaskState::Thinking),
+            "Cursor 启动事件不得误映射为 Thinking"
+        );
+        assert_ne!(
+            task_state_for_provider_event(&opencode),
+            Some(AgentHookTaskState::Thinking),
+            "OpenCode 启动事件不得误映射为 Thinking"
+        );
+    }
+
     /// extract_prompt_text: UserPromptSubmit raw_json 中有 "prompt" 字段时返回截断后的文本。
     ///
     /// 数据构造：

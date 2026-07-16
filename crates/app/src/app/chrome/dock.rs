@@ -44,9 +44,9 @@ impl MultisoulApp {
                     .p(px(6.0))
                     .rounded(px(18.0))
                     .border_1()
-                    .border_color(rgba(0xffffff6b))
+                    .border_color(rgba(theme.dock_line))
                     .shadow(command_dock_shadow())
-                    .bg(rgba(0x151c2757))
+                    .bg(rgba(theme.dock))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .child(
                         chrome_icon_button(
@@ -168,8 +168,11 @@ fn chrome_icon_button(
 }
 
 /// Vertical 1×22 separator between toolbar icon groups.
-fn chrome_divider(_theme: Theme) -> Div {
-    div().w(px(1.0)).h(px(22.0)).bg(rgba(0xffffff20))
+fn chrome_divider(theme: Theme) -> Div {
+    div()
+        .w(px(1.0))
+        .h(px(22.0))
+        .bg(rgba(with_alpha(theme.dock_line, 0x38)))
 }
 
 fn command_button_shadow(active: bool) -> Vec<BoxShadow> {

@@ -3,26 +3,24 @@ use super::*;
 use std::path::PathBuf;
 use workspace::{RecentWorkspaces, WorkspaceSource};
 
-/// L-1: 1440x900 宽屏 Launchpad 应显示右侧工作区预览，紧凑窗口仍可隐藏预览。
+/// L-1: 1440x900 宽屏与 960x700 紧凑 Launchpad 都应稳定放置主内容列。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   window = 1440x900
-///   spec 锚点：content left ≈118、top ≈186、width ≈560
-///   右侧预览宽度预算 = 1440 - content_left(≈96) - content_width(≈500) - gap(≈56) - right(≈64)
-///                      ≈ 724px，应足够容纳工作区预览
-///   Compact 960px：总宽不足双栏，preview_visible 必须为 false
+///   spec 锚点：content left ≈96、top ≈92、width ≈500
+///   Compact 960px：内容列居中，宽度仍为 min(500, 960 - 24×2) = 500px
 ///
 /// 执行过程：
 ///   1. 调用 launchpad_layout_for_window(1440, 900)
-///   2. 检查布局模式、左侧内容锚点与右侧预览可见性
-///   3. 对 960x700 再计算一次，验证紧凑模式隐藏预览
+///   2. 检查 Wide 布局模式与主内容锚点
+///   3. 对 960x700 再计算一次，验证 Compact 布局仍保留主内容宽度
 ///
 /// 预期结果：
-///   - 正断言：Wide 模式显示预览，预览宽高均为正
-///   - 正断言：Compact 模式隐藏预览，主入口仍可独立工作
-///   - 负断言：Wide 模式不得继续把预览宽度压成 0
+///   - 正断言：Wide 模式使用 96/92/500px 主内容锚点
+///   - 正断言：Compact 模式仍保留 500px 主内容宽度
+///   - 负断言：Compact 模式不得错误沿用 Wide 模式
 #[test]
-fn test_launchpad_layout_wide_shows_workspace_preview_and_compact_hides_it() {
+fn test_launchpad_layout_wide_and_compact_keep_main_content_stable() {
     let layout = launchpad_layout_for_window(1440.0, 900.0);
     let compact = launchpad_layout_for_window(960.0, 700.0);
 
@@ -47,25 +45,18 @@ fn test_launchpad_layout_wide_shows_workspace_preview_and_compact_hides_it() {
         layout.content_width,
         500.0,
         4.0,
-        "content_width 应接近目标左侧主列 500px，给右侧预览留出空间",
+        "content_width 应接近目标主内容列 500px",
     );
-    assert!(
-        layout.preview_visible,
-        "1440px Wide Launchpad 应显示右侧工作区预览"
-    );
-    assert!(
-        layout.preview_width > 0.0 && layout.preview_height > 0.0,
-        "Wide 工作区预览宽高必须为正，actual={}x{}",
-        layout.preview_width,
-        layout.preview_height
-    );
-    assert!(
-        !compact.preview_visible,
-        "960px Compact Launchpad 应隐藏右侧预览，避免挤压项目入口"
+    assert_close(
+        compact.content_width,
+        500.0,
+        0.5,
+        "960px Compact Launchpad 仍应保留 500px 主内容宽度",
     );
     assert_ne!(
-        layout.preview_width, 0.0,
-        "Wide 模式不得继续把右侧预览宽度压成 0"
+        compact.mode,
+        LaunchpadLayoutMode::Wide,
+        "960px Compact Launchpad 不得错误沿用 Wide 模式"
     );
 }
 
@@ -85,7 +76,7 @@ fn test_launchpad_layout_wide_shows_workspace_preview_and_compact_hides_it() {
 ///   - 正断言：content 左右边界都在 24px 安全边距内
 ///   - 负断言：content_width 不应超过 912px
 #[test]
-fn test_launchpad_layout_compact_hides_preview_and_keeps_content_safe() {
+fn test_launchpad_layout_compact_keeps_content_safe() {
     let layout = launchpad_layout_for_window(960.0, 700.0);
     let safe_left = 24.0;
     let safe_right = 960.0 - 24.0;
@@ -361,40 +352,38 @@ fn test_launchpad_drops_static_top_toolbar_preview() {
     }
 }
 
-/// L-10: Product UI V2 宽屏 Launchpad 应挂载新的工作区预览，但不得恢复旧 preview_cluster。
+/// L-10: Product UI V2 Launchpad 应完全移除右侧 Workspace preview 区域。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source_mod = launchpad/mod.rs（真实 render_launchpad 组装入口）
-///   新右侧模块 = preview.rs
-///   新挂载函数 = workspace_preview（受 layout.preview_visible 控制）
-///   旧挂载函数 = preview_cluster（必须保持 0 次）
+///   右侧 preview 模块数量 = 0
+///   preview 挂载函数数量 = 0
+///   旧 preview_cluster 数量 = 0
 ///
 /// 执行过程：
-///   1. 读取 launchpad/mod.rs，确认声明 preview 模块并挂载 workspace_preview。
-///   2. 读取 preview.rs，确认公开稳定的 launchpad-workspace-preview selector。
-///   3. 搜索旧 preview_cluster，防止旧设计与新预览重复挂载。
+///   1. 读取 launchpad/mod.rs，确认品牌与主入口仍存在。
+///   2. 搜索 preview 模块声明和 workspace_preview 挂载。
+///   3. 搜索旧 preview_cluster，防止任何右侧示意区回流。
 ///
 /// 预期结果：
-///   - 正断言：Launchpad 保留品牌区并挂载 workspace_preview。
-///   - 正断言：新预览有稳定 selector，宽屏可做视觉/E2E 验证。
-///   - 负断言：不得恢复旧 preview_cluster，避免双重静态卡片区。
+///   - 正断言：Launchpad 继续渲染品牌和主入口区域。
+///   - 负断言：不得声明或挂载 workspace_preview。
+///   - 负断言：不得恢复旧 preview_cluster。
 #[test]
-fn test_launchpad_mounts_product_ui_workspace_preview_without_legacy_cluster() {
+fn test_launchpad_removes_entire_workspace_preview_region() {
     let source_mod = include_str!("../../src/workspace/launchpad/mod.rs");
-    let source_preview = include_str!("../../src/workspace/launchpad/preview.rs");
 
     assert!(
         source_mod.contains("launchpad_brand"),
         "Launchpad 应继续渲染品牌和主入口区域"
     );
     assert!(
-        source_mod.contains("mod preview")
-            && source_mod.contains("workspace_preview(theme, layout)"),
-        "宽屏 Launchpad 应声明并挂载 Product UI workspace_preview"
+        !source_mod.contains("mod preview"),
+        "Launchpad 不应继续声明用户要求删除的 preview 模块"
     );
     assert!(
-        source_preview.contains("launchpad-workspace-preview"),
-        "Product UI workspace preview 应暴露稳定 selector"
+        !source_mod.contains("workspace_preview("),
+        "Launchpad render_launchpad 不应继续挂载 Workspace preview 区域"
     );
     assert!(
         !source_mod.contains("preview_cluster"),

@@ -1,4 +1,5 @@
 use crate::app::MultisoulApp;
+use crate::assets::SETTINGS_NAV_THEMES_ASSET;
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, Stateful, Styled};
 use ui::{
     component::{Icon, Sizable as _},
@@ -16,8 +17,7 @@ pub(super) enum SettingsNavigationMode {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) enum SettingsSection {
-    #[cfg(test)]
-    General,
+    Themes,
     Keyboard,
     #[cfg(test)]
     Runtime,
@@ -44,12 +44,11 @@ impl SettingsSection {
 
     fn metadata(self) -> SettingsSectionMetadata {
         match self {
-            #[cfg(test)]
-            Self::General => SettingsSectionMetadata {
-                title: "General",
-                icon_asset: None,
+            Self::Themes => SettingsSectionMetadata {
+                title: "Themes",
+                icon_asset: Some(SETTINGS_NAV_THEMES_ASSET),
                 index: 0,
-                debug_selector: "settings-section-general",
+                debug_selector: "settings-section-themes",
             },
             Self::Keyboard => SettingsSectionMetadata {
                 title: "Keyboard Shortcuts",
@@ -99,7 +98,8 @@ impl SettingsSection {
     }
 }
 
-const APPEARANCE_SECTIONS: &[SettingsSection] = &[SettingsSection::Wallpaper];
+const APPEARANCE_SECTIONS: &[SettingsSection] =
+    &[SettingsSection::Themes, SettingsSection::Wallpaper];
 const INPUT_SECTIONS: &[SettingsSection] = &[SettingsSection::Keyboard, SettingsSection::Voice];
 const AUTOMATION_SECTIONS: &[SettingsSection] = &[SettingsSection::Agents, SettingsSection::Hooks];
 

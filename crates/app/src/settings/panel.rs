@@ -115,7 +115,7 @@ impl Default for SettingsPanelState {
     fn default() -> Self {
         Self {
             open: false,
-            active_section: SettingsSection::Wallpaper,
+            active_section: SettingsSection::Themes,
             codex_hook_status: HookInstallStatus::default(),
             claude_hook_status: HookInstallStatus::default(),
             cursor_hook_status: HookInstallStatus::default(),
@@ -192,6 +192,7 @@ impl MultisoulApp {
         );
         let content = settings_content(
             theme,
+            self.theme_id,
             &self.settings_panel,
             &self.agent_definitions,
             VoiceSettingsContent {

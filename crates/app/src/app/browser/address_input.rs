@@ -67,6 +67,11 @@ impl BrowserAddressInput {
         self.content.clone()
     }
 
+    pub(crate) fn set_theme(&mut self, theme: Theme, cx: &mut Context<Self>) {
+        self.theme = theme;
+        cx.notify();
+    }
+
     fn spawn_caret_blink(initial_delay: Duration, cx: &mut Context<Self>) -> Task<()> {
         cx.spawn(async move |this, cx| {
             let mut delay = initial_delay;

@@ -53,25 +53,39 @@ impl PtyBackend for RecordingPtyBackend {
     fn kill(&mut self) {}
 }
 
-/// ART-7b：Agent 任务委派必须把正文粘贴与 Enter 键拆成两个 PTY 输入，确保 CLI 真正提交。
+fn created_agent_node_id(result: &Result<CardCommandResult, String>) -> u64 {
+    match result {
+        Ok(CardCommandResult::AgentCreated {
+            node_id: Some(node_id),
+            ..
+        }) => *node_id,
+        other => panic!("测试前置必须创建活跃 Agent，实际：{other:?}"),
+    }
+}
+
+/// ART-7b：新激活 Agent 先等待就绪，收到 SessionStart 后自动写入正文与真实 Enter。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Agent definition = Alan/Codex 1 条
 ///   task text = "开发贪吃蛇"，5 个汉字 × 3 UTF-8 bytes = 15 bytes
-///   Enter = terminal::Key::Enter 编码后的 CR 1 byte（0x0d）
-///   expected PTY writes = 2 次：正文一次 + Enter 一次
+///   CLI ready events = 先 0 次，随后注入 1 次 Codex SessionStart
+///   waiting PTY writes = 0 次；ready PTY writes = 正文 1 次 + Enter CR(0x0d) 1 次 = 2 次
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 用记录每次 write(bytes) 的 PTY 后端启动 headless App
 ///   2. 通过生产 execute_agent_card_command 创建并激活 Alan
 ///   3. 通过同一生产入口执行 dispatch_agent_tasks
-///   4. 读取 PTY 的分段写入记录，区分文本粘贴与真实 Enter 键
+///   4. 不注入 SessionStart，立即读取公开回执与 PTY 写入记录
+///   5. 注入同一 node 的 Codex SessionStart，并调用生产 pending 提交入口
+///   6. 再读取 PTY 分段写入，区分正文与真实 Enter
 ///
 /// 预期结果：
-///   - 正断言：第一次写入只有任务正文，第二次写入只有 CR
-///   - 负断言：不得把正文与 LF 合成一次 Text 写入，否则交互式 Agent CLI 只显示文字而不提交
+///   - 正断言：任务回执为 Queued，表示仍在等待 CLI 就绪
+///   - 正断言：等待阶段 PTY 写入次数为 0
+///   - 正断言：SessionStart 后依次写入正文和 CR，共 2 次
+///   - 负断言：不得在等待阶段返回 Submitted，也不得把正文与 LF 合并写入
 #[test]
-fn test_agent_dispatch_writes_text_then_real_enter_key() {
+fn test_new_agent_dispatch_waits_then_submits_after_session_start() {
     let writes = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
     let factory_writes = Arc::clone(&writes);
     let factory: runtime::PtyFactory = Box::new(move |_cmd, _cols, _rows, _tx| {
@@ -116,7 +130,7 @@ fn test_agent_dispatch_writes_text_then_real_enter_key() {
             )
         })
     });
-    let actual_writes = writes
+    let waiting_writes = writes
         .lock()
         .expect("recording PTY writes mutex should remain readable")
         .clone();
@@ -128,29 +142,68 @@ fn test_agent_dispatch_writes_text_then_real_enter_key() {
     assert!(
         matches!(
             dispatch_result,
-            Ok(CardCommandResult::AgentTasksDispatched { .. })
+            Ok(CardCommandResult::AgentTasksDispatched { ref receipts })
+                if receipts.len() == 1
+                    && receipts[0].status == AgentTaskReceiptStatus::Queued
         ),
-        "生产 dispatch_agent_tasks 应返回任务回执；实际结果：{dispatch_result:?}"
+        "新激活 Agent 未就绪时应返回唯一 Queued 回执；实际结果：{dispatch_result:?}"
     );
     assert_eq!(
-        actual_writes.len(),
-        2,
-        "任务委派必须产生正文与 Enter 两次独立 PTY write；实际：{actual_writes:?}"
+        waiting_writes.len(),
+        0,
+        "CLI 未就绪时不得写入任务正文或 Enter；实际：{waiting_writes:?}"
+    );
+    assert!(
+        !matches!(
+            dispatch_result,
+            Ok(CardCommandResult::AgentTasksDispatched { ref receipts })
+                if receipts.iter().any(|receipt| {
+                    matches!(
+                        receipt.status,
+                        AgentTaskReceiptStatus::Submitted | AgentTaskReceiptStatus::Untracked
+                    )
+                })
+        ),
+        "CLI 未就绪时不得误报 Submitted 或 Untracked；实际结果：{dispatch_result:?}"
+    );
+
+    let node_id = match &dispatch_result {
+        Ok(CardCommandResult::AgentTasksDispatched { receipts }) => receipts[0].node_id,
+        other => panic!("Queued 回执前置条件已断言成功，实际：{other:?}"),
+    };
+    let ready_event = norma::agent_hook::parse_hook_event(
+        norma::agent_hook::HookSource::Codex,
+        node_id,
+        serde_json::json!({
+            "hook_event_name": "SessionStart",
+            "session_id": "codex-ready-session"
+        }),
+    )
+    .expect("Codex SessionStart 测试事件应解析成功");
+    let submitted_after_ready = app.update(cx, |app, _cx| {
+        let changed =
+            crate::settings::agent_hooks::apply_agent_hook_event(&mut app.runtime, ready_event);
+        assert!(changed, "SessionStart 必须把目标 Agent 状态更新为 Ready");
+        app.submit_pending_agent_task_for_ready_node(node_id)
+    });
+    let ready_writes = writes
+        .lock()
+        .expect("ready PTY writes mutex should remain readable")
+        .clone();
+
+    assert!(
+        submitted_after_ready,
+        "SessionStart 后必须找到并自动提交等待中的 Agent 任务"
     );
     assert_eq!(
-        actual_writes[0],
-        "开发贪吃蛇".as_bytes(),
-        "第一次 PTY write 应只粘贴任务正文，不应携带控制字符"
-    );
-    assert_eq!(
-        actual_writes[1],
-        vec![0x0d],
-        "第二次 PTY write 应是 Key::Enter 编码得到的 CR(0x0d)"
+        ready_writes,
+        vec!["开发贪吃蛇".as_bytes().to_vec(), vec![0x0d]],
+        "就绪后必须先写 15-byte 正文，再写真实 Enter CR(0x0d)"
     );
     assert_ne!(
-        actual_writes,
+        ready_writes,
         vec!["开发贪吃蛇\n".as_bytes().to_vec()],
-        "不得用单次 Text 写入正文加 LF；该路径只会让 Agent CLI 显示文字而不发布"
+        "不得把正文与 LF 合并成一次粘贴，否则 TUI 可能只保留输入而不提交"
     );
 }
 
@@ -205,6 +258,11 @@ fn test_agent_dispatch_enter_failure_returns_failed_receipt_and_allows_retry() {
             )
         })
     });
+    let ready_node_id = created_agent_node_id(&create_result);
+    let marked_ready = app.update(cx, |app, _cx| {
+        app.pending_agent_submissions.mark_ready(ready_node_id)
+    });
+    assert!(marked_ready, "Enter 失败测试必须先把既有 Agent 标记为就绪");
 
     let failed_dispatch = cx.update(|window, app_cx| {
         app.update(app_cx, |app, _cx| {
@@ -334,6 +392,11 @@ fn test_queued_agent_task_advances_with_text_then_real_enter_key() {
             )
         })
     });
+    let ready_node_id = created_agent_node_id(&create_result);
+    let marked_ready = app.update(cx, |app, _cx| {
+        app.pending_agent_submissions.mark_ready(ready_node_id)
+    });
+    assert!(marked_ready, "队列推进测试必须先把既有 Agent 标记为就绪");
     let first_dispatch = cx.update(|window, app_cx| {
         app.update(app_cx, |app, _cx| {
             execute_agent_card_command(

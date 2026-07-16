@@ -4,7 +4,7 @@
 pub mod icons;
 pub mod theme;
 
-pub use theme::Theme;
+pub use theme::{Theme, ThemeId};
 
 /// Longbridge [`gpui-component`](https://longbridge.github.io/gpui-component/) 组件库。
 ///

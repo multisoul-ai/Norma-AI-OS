@@ -62,6 +62,11 @@ impl SherpaTtsClient {
             ..Default::default()
         };
         match model.descriptor().backend() {
+            tts::TtsBackend::Matcha
+                if model.descriptor().id().as_str() == tts::MATCHA_ZH_EN_MODEL_ID =>
+            {
+                Self::from_matcha_zh_en_model_dir_with_generation(model.root(), generation)
+            }
             tts::TtsBackend::Matcha => Self::from_model_dir_with_generation(
                 model.root(),
                 &model.root().join("vocos-22khz-univ.onnx"),
@@ -114,6 +119,53 @@ impl SherpaTtsClient {
 
     pub fn from_model_dir(model_dir: &Path, vocoder_path: &Path) -> Result<Self, SpeechError> {
         Self::from_model_dir_with_generation(model_dir, vocoder_path, generation_config_from_env())
+    }
+
+    fn from_matcha_zh_en_model_dir_with_generation(
+        model_dir: &Path,
+        generation: GenerationConfig,
+    ) -> Result<Self, SpeechError> {
+        if !model_dir.exists() {
+            return Err(SpeechError::ModelNotFound(model_dir.display().to_string()));
+        }
+        let vocoder_path = model_dir.join("vocos-16khz-univ.onnx");
+        if !vocoder_path.exists() {
+            return Err(SpeechError::ModelNotFound(
+                vocoder_path.display().to_string(),
+            ));
+        }
+
+        let config = OfflineTtsConfig {
+            model: OfflineTtsModelConfig {
+                matcha: OfflineTtsMatchaModelConfig {
+                    acoustic_model: Some(path_string(&model_dir.join("model-steps-3.onnx"))),
+                    vocoder: Some(path_string(&vocoder_path)),
+                    lexicon: Some(path_string(&model_dir.join("lexicon.txt"))),
+                    tokens: Some(path_string(&model_dir.join("tokens.txt"))),
+                    data_dir: Some(path_string(&model_dir.join("espeak-ng-data"))),
+                    noise_scale: 0.667,
+                    length_scale: 1.0,
+                    ..Default::default()
+                },
+                num_threads: 2,
+                provider: Some("cpu".to_string()),
+                debug: false,
+                ..Default::default()
+            },
+            rule_fsts: Some(format!(
+                "{},{},{}",
+                path_string(&model_dir.join("phone-zh.fst")),
+                path_string(&model_dir.join("date-zh.fst")),
+                path_string(&model_dir.join("number-zh.fst"))
+            )),
+            ..Default::default()
+        };
+        let inner = OfflineTts::create(&config).ok_or_else(|| {
+            SpeechError::Recognizer(
+                "failed to create OfflineTts with Matcha zh-en model".to_string(),
+            )
+        })?;
+        Ok(Self { inner, generation })
     }
 
     fn from_model_dir_with_generation(

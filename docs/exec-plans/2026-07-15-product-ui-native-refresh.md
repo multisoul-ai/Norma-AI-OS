@@ -6,7 +6,7 @@
 
 ## 参考基线
 
-- 视觉参考：源工作区 `docs/product-ui.html` 及 `docs/design-docs/core-ui-v2/{launchpad,canvas,settings}.png`。
+- 视觉参考：`docs/design-docs/core-ui-v2/README.md`（主题规范与素材清单）、`docs/product-ui.html`（交互原型）及 `docs/design-docs/core-ui-v2/{launchpad,canvas,settings}.png`（核心页面基线）。
 - 设计 token：`docs/design.md` §3–§9。
 - 当前业务 seam：`MultisoulApp` 的既有 action、`Runtime`、`MasterLayoutState`、`WallpaperSettingsState` 与 Voice 状态机。
 

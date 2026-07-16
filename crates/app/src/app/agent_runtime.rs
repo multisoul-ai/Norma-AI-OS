@@ -9,6 +9,7 @@ mod artifacts;
 mod commands;
 mod coordination;
 mod diagnostics;
+pub(super) mod pending;
 
 pub(crate) use artifacts::artifacts_from_agent_events;
 #[cfg(test)]

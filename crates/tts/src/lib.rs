@@ -7,7 +7,7 @@ mod model_id;
 pub use catalog::{
     builtin_model_catalog, TtsBackend, TtsCapabilities, TtsModelCatalog, TtsModelDescriptor,
     TtsModelPackage, TtsModelRecommendation, TtsSupportArtifact, TtsVoiceDescriptor,
-    KOKORO_MULTI_LANG_MODEL_ID, MATCHA_ZH_MODEL_ID,
+    KOKORO_MULTI_LANG_MODEL_ID, MATCHA_ZH_EN_MODEL_ID, MATCHA_ZH_MODEL_ID,
 };
 pub use installation::{
     default_model_installation_root, install_downloaded_package, model_installation_root,

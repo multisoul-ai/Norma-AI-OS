@@ -1,21 +1,21 @@
 use super::*;
 
-/// 设置面板默认态：新建状态应关闭，并把 Wallpaper 作为首次打开的可配置分组。
+/// 设置面板默认态：新建状态应关闭，并把 Themes 作为首次打开的可配置分组。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   initial open = false（启动后不应遮挡画布）
-///   visible section count = 5（Wallpaper / Keyboard / Voice / Agents / Hooks）
-///   hidden mock count = 3（General / Runtime / Skills，不应作为首次页面）
-///   default section = Wallpaper（Appearance 中唯一已实现的可配置页面）
+///   visible section count = 6（Themes / Wallpaper / Keyboard / Voice / Agents / Hooks）
+///   hidden mock count = 2（Runtime / Skills，不应作为首次页面）
+///   default section = Themes（Appearance 中首个已实现的可配置页面）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 调用 SettingsPanelState::default() 构造初始状态
 ///   2. 读取 open 与 active_section
-///   3. 确认默认分组不是 General，避免首次打开落到隐藏的 mock fallback
+///   3. 确认默认分组不是 Wallpaper，证明主题切换是首个 Appearance 入口
 ///
 /// 预期结果：
-///   - 正断言：open 为 false，active_section 为 Wallpaper
-///   - 负断言：active_section 不应为 General
+///   - 正断言：open 为 false，active_section 为 Themes
+///   - 负断言：active_section 不应为 Wallpaper
 #[test]
 fn test_settings_panel_defaults_closed_on_first_visible_section() {
     let panel = SettingsPanelState::default();
@@ -26,13 +26,13 @@ fn test_settings_panel_defaults_closed_on_first_visible_section() {
     );
     assert_eq!(
         panel.active_section,
-        SettingsSection::Wallpaper,
-        "设置面板默认分组应是首个可配置的 Wallpaper 页面"
+        SettingsSection::Themes,
+        "设置面板默认分组应是首个可配置的 Themes 页面"
     );
     assert_ne!(
         panel.active_section,
-        SettingsSection::General,
-        "设置面板首次打开不应落到隐藏的 General mock fallback"
+        SettingsSection::Wallpaper,
+        "Themes 已实现后，首次打开不应继续落到 Wallpaper"
     );
 }
 
@@ -242,7 +242,7 @@ fn test_hooks_settings_panel_contains_install_actions() {
 /// 预期结果：
 ///   - 正断言：open / close / toggle 按预期改变 open
 ///   - 正断言：关闭后 Agents 选择保留
-///   - 负断言：关闭不应把 active_section 重置为 General
+///   - 负断言：关闭不应把 active_section 重置为 Themes
 #[test]
 fn test_settings_panel_open_close_toggle_preserve_section() {
     let mut panel = SettingsPanelState::default();
@@ -260,8 +260,8 @@ fn test_settings_panel_open_close_toggle_preserve_section() {
     );
     assert_ne!(
         panel.active_section,
-        SettingsSection::General,
-        "关闭设置面板不应把分组重置回 General"
+        SettingsSection::Themes,
+        "关闭设置面板不应把用户选择重置回 Themes"
     );
 
     panel.toggle();
@@ -273,7 +273,7 @@ fn test_settings_panel_open_close_toggle_preserve_section() {
 /// 设置面板分组选择：点击 Runtime / Voice / Skills 应切换右侧内容并保持弹窗打开。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   section count = 7（General / Keyboard / Runtime / Voice / Agents / Skills / Hooks）
+///   section count = 8（Themes / Wallpaper / Keyboard / Runtime / Voice / Agents / Skills / Hooks）
 ///   initial open = true（模拟用户已经打开设置弹窗）
 ///   target sequence = Runtime → Voice → Skills（覆盖三个非默认分组）
 ///
@@ -327,17 +327,17 @@ fn test_settings_panel_selects_sections_without_closing() {
     );
 }
 
-/// Settings 导航只暴露已实现的可配置页面，隐藏旧 General/Runtime/Skills mock 分组。
+/// Settings 导航暴露六个已实现页面，并继续隐藏 Runtime/Skills mock 分组。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings_panel.rs + settings_content.rs（生产侧栏与内容路由）；
-///   visible sections = Keyboard + Voice + Agents + Hooks + Wallpaper，共 5 个；
-///   hidden mock sections = General + Runtime + Skills，共 3 个。
+///   visible sections = Themes + Keyboard + Voice + Agents + Hooks + Wallpaper，共 6 个；
+///   hidden mock sections = Runtime + Skills，共 2 个。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 settings_panel.rs 生产源码
-///   2. 检查侧栏接线的 5 个可配置页面
-///   3. 检查内容路由明确把 3 个旧 mock 分组收敛为空白 fallback
+///   2. 检查侧栏接线的 6 个可配置页面
+///   3. 检查内容路由明确把 2 个旧 mock 分组收敛为空白 fallback
 ///
 /// 预期结果：
 ///   - 正断言：所有实际可配置页面均在侧栏和内容路由中存在
@@ -351,6 +351,7 @@ fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
         include_str!("../../src/settings/content.rs")
     );
     let visible_sections = [
+        "SettingsSection::Themes",
         "SettingsSection::Keyboard",
         "SettingsSection::Voice",
         "SettingsSection::Agents",
@@ -365,64 +366,9 @@ fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
         );
     }
     assert!(
-        source.contains("SettingsSection::General\n                    | SettingsSection::Runtime\n                    | SettingsSection::Skills => div()"),
-        "旧 General/Runtime/Skills 分组必须保留为空白 fallback，不能恢复为 mock 内容"
+        source.contains("SettingsSection::Runtime | SettingsSection::Skills => div()"),
+        "旧 Runtime/Skills 分组必须保留为空白 fallback，不能恢复为 mock 内容"
     );
-}
-
-/// 设置面板主题色：Settings 视觉应跟随重点卡片的暗色玻璃 token，而不是独立白色面板。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   source = settings_panel.rs + settings_content.rs + settings_appearance.rs
-///   required tokens = panel / panel_high / node_fill / term_bg
-///                     （来自重点卡片的暗色玻璃底色层级）
-///   required accents = accent_orange / accent_cyan / accent_violet
-///                      （当前项目选中、聚焦与强调色）
-///   banned colors = 0xfffffff8 / 0xfbfbfdff / 0xe9e9efff / 0x24213dff
-///                   （上一版参考图白色 Settings 面板残留）
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 拼接 Settings 生产渲染源码
-///   2. 检查主题层级是否改为项目 token 驱动
-///   3. 检查旧白底/深蓝文字常量是否被移除
-///
-/// 预期结果：
-///   - 正断言：Settings 源码引用重点卡片使用的主题 token 与强调色
-///   - 负断言：Settings 源码不应继续保留上一版白色面板硬编码常量
-#[test]
-fn test_settings_panel_uses_card_theme_tokens_not_light_mock_palette() {
-    let source = format!(
-        "{}{}{}",
-        include_str!("../../src/settings/panel.rs"),
-        include_str!("../../src/settings/content.rs"),
-        include_str!("../../src/settings/appearance.rs")
-    );
-    let required_tokens = [
-        "theme.panel",
-        "theme.panel_high",
-        "theme.node_fill",
-        "theme.term_bg",
-        "theme.text_primary",
-        "theme.text_secondary",
-        "theme.text_tertiary",
-        "theme.accent_orange",
-        "theme.accent_cyan",
-        "theme.accent_violet",
-    ];
-    let banned_light_palette = ["0xfffffff8", "0xfbfbfdff", "0xe9e9efff", "0x24213dff"];
-
-    for token in required_tokens {
-        assert!(
-            source.contains(token),
-            "Settings 主题色应参考重点卡片主题 token: {token}"
-        );
-    }
-    for color in banned_light_palette {
-        assert!(
-            !source.contains(color),
-            "Settings 不应继续保留上一版白色 mock 调色常量: {color}"
-        );
-    }
 }
 
 /// T-W5: Settings 侧栏必须新增 Wallpaper 项，并在 content 分发里渲染它。
