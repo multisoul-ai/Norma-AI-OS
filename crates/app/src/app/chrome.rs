@@ -3,9 +3,7 @@
 mod dock;
 mod top_bar;
 
-use super::{
-    MultisoulApp, WALLPAPER_IMAGE_OPACITY, WALLPAPER_SHADE_BOTTOM_ALPHA, WALLPAPER_SHADE_TOP_ALPHA,
-};
+use super::{MultisoulApp, WALLPAPER_IMAGE_OPACITY};
 use crate::app::wallpaper_resolvers::WallpaperKind;
 use crate::canvas::minimap::render_canvas_minimap;
 use gpui::{
@@ -136,7 +134,7 @@ impl MultisoulApp {
 
     pub(super) fn render_workspace_backdrop(&self) -> Stateful<Div> {
         let theme = self.theme;
-        let mut backdrop = div()
+        let backdrop = div()
             .id("workspace-backdrop")
             .debug_selector(|| "workspace-backdrop".to_string())
             .absolute()
@@ -151,27 +149,7 @@ impl MultisoulApp {
                 linear_color_stop(rgba(theme.graphite), 1.0),
             ));
 
-        backdrop = backdrop.child(self.render_wallpaper_layer());
-
-        backdrop.child(
-            div()
-                .absolute()
-                .top(px(0.0))
-                .left(px(0.0))
-                .right(px(0.0))
-                .bottom(px(0.0))
-                .bg(linear_gradient(
-                    180.0,
-                    linear_color_stop(
-                        rgba(with_alpha(theme.graphite, WALLPAPER_SHADE_TOP_ALPHA)),
-                        0.0,
-                    ),
-                    linear_color_stop(
-                        rgba(with_alpha(theme.graphite, WALLPAPER_SHADE_BOTTOM_ALPHA)),
-                        1.0,
-                    ),
-                )),
-        )
+        backdrop.child(self.render_wallpaper_layer())
     }
 
     /// Render the wallpaper layer, branching on the current [`WallpaperKind`].
@@ -335,8 +313,8 @@ impl MultisoulApp {
                 .bottom(px(0.0))
                 .bg(linear_gradient(
                     155.0,
-                    linear_color_stop(rgba(0xf8fafd24), 0.0),
-                    linear_color_stop(rgba(0xe8eef82e), 1.0),
+                    linear_color_stop(rgba(with_alpha(self.theme.title_bar, 0x24)), 0.0),
+                    linear_color_stop(rgba(with_alpha(self.theme.node_fill, 0x2e)), 1.0),
                 )),
         )
     }

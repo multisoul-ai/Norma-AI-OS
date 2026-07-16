@@ -5,40 +5,48 @@ use canvas::{compute_responsive_grid_layout, AgentProfile, AgentSpec, CanvasNode
 use runtime::{AgentTaskState, AgentTaskUpdate, CardAttentionKind, CardAttentionState};
 use storage::{NewAgentDefinition, ProjectStore, RecentStore};
 
-/// 壁纸亮度：默认画布壁纸应按原图亮度显示，不额外压暗。
+/// 壁纸主题隔离：原图完整绘制，主题切换不得追加任何环境色覆盖层。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   image opacity = 1.0（原图亮度需要完整不透明绘制，0.78 会混入深色底色）
-///   top shade alpha = 0x00 / 0xff = 0%（顶部遮罩不压暗）
-///   bottom shade alpha = 0x00 / 0xff = 0%（底部遮罩不压暗；旧值 0xd8 ≈ 85% 会明显变暗）
+///   image opacity = 1.0（先保留完整壁纸像素）
+///   wallpaper layer = 1 层
+///   theme overlay layers = 0 层
+///   overlay angle = 135°（旧实现；必须不存在）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 渲染壁纸图片 → 使用 WALLPAPER_IMAGE_OPACITY
-///   2. 渲染遮罩层 → 使用 WALLPAPER_SHADE_TOP_ALPHA 与 WALLPAPER_SHADE_BOTTOM_ALPHA
-///   3. 两个 alpha 都为 0 → 遮罩透明，图片亮度不被 graphite 混色改变
+///   1. 渲染壁纸图片 → 使用 WALLPAPER_IMAGE_OPACITY=1.0。
+///   2. 读取 `render_workspace_backdrop` 生产源码。
+///   3. 确认背景挂载壁纸层，但不读取 canvas overlay token 或构造旧 135° 遮罩。
 ///
 /// 预期结果：
-///   - 正断言：图片 opacity 为 1.0
-///   - 正断言：顶部遮罩 alpha 为 0x00
-///   - 正断言：底部遮罩 alpha 为 0x00
-///   - 负断言：底部遮罩不再是旧的 0xd8 暗化值
+///   - 正断言：图片 opacity 为 1.0。
+///   - 正断言：工作台背景仍挂载真实壁纸层。
+///   - 负断言：不得读取 canvas overlay 起止色。
+///   - 负断言：不得追加旧 135° 全屏渐变遮罩。
 #[test]
-fn test_wallpaper_brightness_uses_original_image_luminance() {
+fn test_wallpaper_renders_fully_opaque_without_theme_overlay() {
+    let chrome = include_str!("../../src/app/chrome.rs");
+    let backdrop = chrome
+        .split("pub(crate) fn render_wallpaper_layer")
+        .next()
+        .unwrap_or(chrome);
+
     assert_eq!(
         WALLPAPER_IMAGE_OPACITY, 1.0,
         "wallpaper image should render fully opaque to preserve original brightness"
     );
-    assert_eq!(
-        WALLPAPER_SHADE_TOP_ALPHA, 0x00,
-        "wallpaper top shade alpha should be transparent"
+    assert!(
+        backdrop.contains("render_wallpaper_layer()"),
+        "工作台背景必须继续挂载真实壁纸层"
     );
-    assert_eq!(
-        WALLPAPER_SHADE_BOTTOM_ALPHA, 0x00,
-        "wallpaper bottom shade alpha should be transparent"
+    assert!(
+        !backdrop.contains("theme.canvas_overlay_from")
+            && !backdrop.contains("theme.canvas_overlay_to"),
+        "主题切换不得读取壁纸 overlay token"
     );
-    assert_ne!(
-        WALLPAPER_SHADE_BOTTOM_ALPHA, 0xd8,
-        "wallpaper bottom shade must not keep the old darkening alpha"
+    assert!(
+        !backdrop.contains("linear_gradient(\n                    135.0"),
+        "工作台背景不得追加旧 135° 全屏主题渐变遮罩"
     );
 }
 

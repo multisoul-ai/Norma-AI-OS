@@ -55,28 +55,29 @@ fn test_product_ui_command_dock_uses_grouped_icons_and_embedded_voice() {
     );
 }
 
-/// Product UI 启动主题：应用必须实际选择浅色玻璃主题，而不是只定义未使用的 token。
+/// Product UI 启动主题：应用必须以 Core UI V2 的 Paper Blue 作为默认主题。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   bootstrap source = `app/bootstrap.rs`
-///   主题选择调用数 = 1；该调用会同时影响 Launchpad、Canvas 卡片与 Settings。
-///   参考稿主背景 = warm white / mist，因此启动主题必须为 `glass_light()`。
+///   主题 id 初始化数 = 1；该 id 会同时影响 Launchpad、Canvas 卡片与 Settings。
+///   参考稿默认主题 = Paper Blue，因此启动主题必须来自 `ThemeId::default()`。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取生产 bootstrap 源码。
-///   2. 检查唯一的主题初始化使用 `Theme::glass_light()`。
+///   2. 检查唯一的主题初始化使用 `ThemeId::default()` 与 `Theme::for_id(theme_id)`。
 ///   3. 排除 `Theme::dark()`，避免浅色 token 仅存在于 Theme 定义却从未生效。
 ///
 /// 预期结果：
-///   - 正断言：bootstrap 使用 `Theme::glass_light()`。
+///   - 正断言：bootstrap 使用默认主题 id 构造主题。
 ///   - 负断言：bootstrap 不得继续硬编码 `Theme::dark()`。
 #[test]
 fn test_product_ui_bootstrap_activates_light_glass_theme() {
     let bootstrap = include_str!("../../src/app/bootstrap.rs");
 
     assert!(
-        bootstrap.contains("let theme = Theme::glass_light();"),
-        "Product UI 启动时必须实际激活 glass_light 主题"
+        bootstrap.contains("let theme_id = ThemeId::default();")
+            && bootstrap.contains("let theme = Theme::for_id(theme_id);"),
+        "Product UI 启动时必须通过默认 ThemeId 激活 Paper Blue"
     );
     assert!(
         !bootstrap.contains("let theme = Theme::dark();"),
@@ -123,22 +124,21 @@ fn test_product_ui_dark_dock_keeps_light_foreground_under_light_theme() {
     );
 }
 
-/// Product UI Dock 材质：原生实现必须复用目标稿的半透明蓝灰外壳，而不是近黑实心胶囊。
+/// Product UI Dock 材质：外壳必须消费当前主题的 Dock token，而不是固定单一蓝灰色。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   target fill = rgba(21, 28, 39, .34) → 0x151c2757（round(.34 × 255)=87=0x57）。
-///   target border = rgba(255,255,255,.42) → 0xffffff6b（round(.42 × 255)=107=0x6b）。
+///   theme.dock = 六套主题各自的 Dock 玻璃色；theme.dock_line = 对应边线色。
 ///   active fill = rgba(255,255,255,.92) → 0xffffffeb（round(.92 × 255)=235=0xeb）。
 ///   外壳 radius=18px；按钮 radius=12px；按钮 size=38px；分隔线 height=22px。
 ///   active shadow = y 7px / blur 18px / rgba(4,9,18,.2) → 0x04091233。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 截取 Command Dock 与 chrome_icon_button 生产源码。
-///   2. 检查外壳填充、描边、圆角和 spacing 的已审字面量。
+///   2. 检查外壳消费主题填充/描边 token，并保留已审圆角和 spacing。
 ///   3. 检查按钮尺寸、选中态浅色填充/投影、分隔线高度及旧近黑填充是否仍存在。
 ///
 /// 预期结果：
-///   - 正断言：Dock 使用 34% 蓝灰玻璃、42% 白描边和 18px 圆角。
+///   - 正断言：Dock 使用主题玻璃色、主题边线色和 18px 圆角。
 ///   - 正断言：按钮为 38px/12px，选中态为 92% 白色并带目标投影。
 ///   - 正断言：分隔线高 22px，不得回退到旧 20px。
 ///   - 负断言：Dock 不得继续使用旧 `theme.graphite` 0xe8 近黑填充。
@@ -169,8 +169,9 @@ fn test_product_ui_command_dock_matches_reviewed_glass_material_literals() {
         "Dock 应复用目标稿 3px gap、6px padding 与 18px 圆角"
     );
     assert!(
-        dock.contains(".border_color(rgba(0xffffff6b))") && dock.contains(".bg(rgba(0x151c2757))"),
-        "Dock 应使用目标稿 42% 白描边与 34% 蓝灰玻璃填充"
+        dock.contains(".border_color(rgba(theme.dock_line))")
+            && dock.contains(".bg(rgba(theme.dock))"),
+        "Dock 应使用当前主题的 dock 与 dock_line token"
     );
     assert!(
         button.contains(".w(px(38.0))")

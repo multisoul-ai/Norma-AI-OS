@@ -16,7 +16,7 @@ use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use gpui::{Context, FocusHandle};
 use runtime::Runtime;
-use ui::Theme;
+use ui::{Theme, ThemeId};
 
 impl MultisoulApp {
     pub(super) fn build(
@@ -32,13 +32,15 @@ impl MultisoulApp {
         .detach();
         Self::start_frame_loops(cx);
         let wallpaper_settings = WallpaperSettingsState::load_default();
-        let theme = Theme::glass_light();
+        let theme_id = ThemeId::default();
+        let theme = Theme::for_id(theme_id);
         let focus_handle: FocusHandle = cx.focus_handle();
         let (voice_settings, voice_settings_inputs) =
             VoiceSettingsInputs::load_default(cx.weak_entity(), focus_handle.clone(), theme, cx);
         crate::app::dialogue::configure_selected_tts_model(None);
         let mut app = MultisoulApp {
             runtime,
+            theme_id,
             theme,
             interaction: InteractionState::default(),
             motion: MotionStore::from_env(),

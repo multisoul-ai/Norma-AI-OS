@@ -54,3 +54,56 @@ fn test_embedded_assets_load_app_logo_png() {
         "unknown logo path must not return the app logo bytes"
     );
 }
+
+/// Themes 导航图标：导航引用的 SVG 必须由 EmbeddedAssets 加载并出现在图标目录。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   visible Themes icons = 1
+///   asset path = "icons/settings-nav-themes.svg"
+///   SVG prefix = "<svg"（文本矢量资源，不是 PNG/JPEG）
+///   unknown path = "icons/settings-nav-themes-missing.svg"
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. EmbeddedAssets.load(Themes path) → 应返回 Some(bytes)。
+///   2. 将 bytes 解码为 UTF-8，确认包含 SVG 根元素。
+///   3. EmbeddedAssets.list("icons") → 应包含 themes 文件名。
+///   4. 查询 unknown path → 应返回 None，防止未知路径误命中 Themes 字节。
+///
+/// 预期结果：
+///   - 正断言：Themes SVG 存在、可解码且被 icons 目录枚举。
+///   - 负断言：Themes SVG 不得为空，也不得由未知路径返回。
+#[test]
+fn test_embedded_assets_load_themes_navigation_svg() {
+    let assets = EmbeddedAssets;
+    let themes_path = "icons/settings-nav-themes.svg";
+    let themes = assets
+        .load(themes_path)
+        .expect("Themes navigation icon lookup should not fail")
+        .expect("Themes navigation icon must be embedded");
+    let svg = std::str::from_utf8(&themes).expect("Themes navigation icon must be valid UTF-8 SVG");
+    let icons = assets
+        .list("icons")
+        .expect("embedded icon directory listing should not fail");
+
+    assert!(
+        !themes.is_empty(),
+        "Themes navigation SVG must contain bytes"
+    );
+    assert!(
+        svg.contains("<svg"),
+        "Themes navigation asset must contain an SVG root element"
+    );
+    assert!(
+        icons
+            .iter()
+            .any(|name| name.as_ref() == "settings-nav-themes.svg"),
+        "icons directory must enumerate settings-nav-themes.svg"
+    );
+    assert!(
+        assets
+            .load("icons/settings-nav-themes-missing.svg")
+            .expect("unknown Themes icon lookup should not fail")
+            .is_none(),
+        "unknown Themes icon path must not return embedded SVG bytes"
+    );
+}

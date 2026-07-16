@@ -34,7 +34,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 #[cfg(test)]
 use std::time::Duration;
-use ui::Theme;
+use ui::{Theme, ThemeId};
 use voice_window_inset::VoiceWindowInset;
 mod agent_actions;
 mod agent_announcements;
@@ -97,11 +97,10 @@ actions!(
     ]
 );
 const WALLPAPER_IMAGE_OPACITY: f32 = 1.0;
-const WALLPAPER_SHADE_TOP_ALPHA: u8 = 0x00;
-const WALLPAPER_SHADE_BOTTOM_ALPHA: u8 = 0x00;
 
 pub struct MultisoulApp {
     pub runtime: Runtime,
+    pub theme_id: ThemeId,
     pub theme: Theme,
     pub interaction: InteractionState,
     pub(crate) motion: MotionStore,

@@ -20,6 +20,7 @@ pub const TOOLBAR_CURSOR_ASSET: &str = "icons/toolbar-cursor.svg";
 pub const TOOLBAR_OPENCODE_ASSET: &str = "icons/toolbar-opencode.svg";
 pub const TOOLBAR_PREVIEW_ASSET: &str = "icons/toolbar-preview.svg";
 pub const TOOLBAR_SETTINGS_ASSET: &str = "icons/toolbar-settings.svg";
+pub const SETTINGS_NAV_THEMES_ASSET: &str = "icons/settings-nav-themes.svg";
 pub const SETTINGS_NAV_WALLPAPER_ASSET: &str = "icons/settings-nav-wallpaper.svg";
 pub const SETTINGS_NAV_KEYBOARD_ASSET: &str = "icons/settings-nav-keyboard.svg";
 pub const SETTINGS_NAV_VOICE_ASSET: &str = "icons/settings-nav-voice.svg";
@@ -71,6 +72,7 @@ const TOOLBAR_CURSOR_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-curs
 const TOOLBAR_OPENCODE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-opencode.svg");
 const TOOLBAR_PREVIEW_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-preview.svg");
 const TOOLBAR_SETTINGS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-settings.svg");
+const SETTINGS_NAV_THEMES_BYTES: &[u8] = include_bytes!("../assets/icons/settings-nav-themes.svg");
 const SETTINGS_NAV_WALLPAPER_BYTES: &[u8] =
     include_bytes!("../assets/icons/settings-nav-wallpaper.svg");
 const SETTINGS_NAV_KEYBOARD_BYTES: &[u8] =
@@ -97,6 +99,7 @@ impl AssetSource for EmbeddedAssets {
             TOOLBAR_OPENCODE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_OPENCODE_BYTES))),
             TOOLBAR_PREVIEW_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PREVIEW_BYTES))),
             TOOLBAR_SETTINGS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SETTINGS_BYTES))),
+            SETTINGS_NAV_THEMES_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_THEMES_BYTES))),
             SETTINGS_NAV_WALLPAPER_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_WALLPAPER_BYTES))),
             SETTINGS_NAV_KEYBOARD_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_KEYBOARD_BYTES))),
             SETTINGS_NAV_VOICE_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_VOICE_BYTES))),
@@ -128,6 +131,7 @@ impl AssetSource for EmbeddedAssets {
                 SharedString::from("toolbar-opencode.svg"),
                 SharedString::from("toolbar-preview.svg"),
                 SharedString::from("toolbar-settings.svg"),
+                SharedString::from("settings-nav-themes.svg"),
                 SharedString::from("settings-nav-wallpaper.svg"),
                 SharedString::from("settings-nav-keyboard.svg"),
                 SharedString::from("settings-nav-voice.svg"),
@@ -246,7 +250,7 @@ mod tests {
     /// 内置资产目录：GPUI 查询 icons 与 wallpapers 目录时应能枚举对应文件名。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   root = "" → 2 个顶层目录；icons → 17 个文件（2 PNG + 10 toolbar SVG + 5 Settings SVG）；
+    ///   root = "" → 2 个顶层目录；icons → 18 个文件（2 PNG + 10 toolbar SVG + 6 Settings SVG）；
     ///   wallpapers → 11 个 image built-in（6 PNG + 3 JPEG + 2 GIF），不含视频。
     ///
     /// 执行过程（逐步说明系统如何处理）：
@@ -296,6 +300,7 @@ mod tests {
                 SharedString::from("toolbar-opencode.svg"),
                 SharedString::from("toolbar-preview.svg"),
                 SharedString::from("toolbar-settings.svg"),
+                SharedString::from("settings-nav-themes.svg"),
                 SharedString::from("settings-nav-wallpaper.svg"),
                 SharedString::from("settings-nav-keyboard.svg"),
                 SharedString::from("settings-nav-voice.svg"),

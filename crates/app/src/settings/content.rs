@@ -1,11 +1,12 @@
 use super::{with_alpha, SettingsPanelState, SettingsSection};
 use crate::app::MultisoulApp;
 use crate::settings::agents::{agents_settings, AgentDefinitionsState};
+use crate::settings::appearance::theme_appearance;
 use crate::settings::voice::{voice_settings, VoiceSettingsInputs, VoiceSettingsState};
 use crate::settings::wallpaper::{wallpaper_settings, WallpaperSettingsState};
 use crate::shortcuts::ShortcutSettingsState;
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
-use ui::Theme;
+use ui::{Theme, ThemeId};
 
 mod hooks;
 mod keyboard;
@@ -20,6 +21,7 @@ pub(super) struct VoiceSettingsContent<'a> {
 
 pub(super) fn settings_content(
     theme: Theme,
+    theme_id: ThemeId,
     panel: &SettingsPanelState,
     agent_definitions: &AgentDefinitionsState,
     voice: VoiceSettingsContent<'_>,
@@ -48,6 +50,7 @@ pub(super) fn settings_content(
                 .px(px(28.0))
                 .pb(px(40.0))
                 .child(match panel.active_section {
+                    SettingsSection::Themes => theme_appearance(theme_id, theme, cx),
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
                     SettingsSection::Voice => voice_settings(theme, voice.state, voice.inputs, cx),
                     SettingsSection::Agents => agents_settings(theme, agent_definitions, cx),
@@ -56,9 +59,7 @@ pub(super) fn settings_content(
                     // Mock-only sections are hidden from the sidebar; keep a blank
                     // fallback so stale state or tests cannot route to old placeholders.
                     #[cfg(test)]
-                    SettingsSection::General
-                    | SettingsSection::Runtime
-                    | SettingsSection::Skills => div(),
+                    SettingsSection::Runtime | SettingsSection::Skills => div(),
                 }),
         )
 }
@@ -123,8 +124,7 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
 
 fn content_title(section: SettingsSection) -> &'static str {
     match section {
-        #[cfg(test)]
-        SettingsSection::General => "Themes",
+        SettingsSection::Themes => "Themes",
         SettingsSection::Keyboard => "Keyboard Shortcuts",
         #[cfg(test)]
         SettingsSection::Runtime => "Runtime",
@@ -139,8 +139,7 @@ fn content_title(section: SettingsSection) -> &'static str {
 
 fn content_subtitle(section: SettingsSection) -> &'static str {
     match section {
-        #[cfg(test)]
-        SettingsSection::General => "Choose your style or customize your theme",
+        SettingsSection::Themes => "Choose one of the six reviewed Core UI V2 palettes",
         SettingsSection::Keyboard => "Customize app commands and review system input behavior",
         #[cfg(test)]
         SettingsSection::Runtime => "Configure shell behavior and live sessions",
