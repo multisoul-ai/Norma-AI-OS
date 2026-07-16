@@ -62,6 +62,11 @@ impl PendingAgentSubmissions {
         due
     }
 
+    pub(crate) fn remove_node(&mut self, node_id: NodeId) {
+        self.ready_after.remove(&node_id);
+        self.submissions.remove(&node_id);
+    }
+
     pub(crate) fn clear(&mut self) {
         self.ready_after.clear();
         self.submissions.clear();

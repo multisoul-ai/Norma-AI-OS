@@ -17,7 +17,7 @@ const SETTINGS_SCROLL_MARGIN_PX: f32 = 24.0;
 /// E2E-TTS-1：Voice Settings 必须展示官方 TTS 下载、选择、删除与试听入口。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   catalog entries = 2（Matcha + Kokoro）
+///   catalog entries = 2（Matcha zh-en + Kokoro）
 ///   initial selected = 0（新用户没有自动下载模型）
 ///   first entry actions = 1（Install）
 ///
@@ -52,6 +52,14 @@ fn e2e_tts_catalog_exposes_explicit_install_without_auto_selection() {
         snapshot.selected_tts_model_id, None,
         "新用户不应自动选择或下载 TTS 模型"
     );
+    assert_eq!(
+        snapshot.tts_models[0].id, "matcha-icefall-zh-en",
+        "第一个推荐目录项必须是不可变 ID 的 Matcha zh-en，而不是旧 Baker 模型"
+    );
+    assert_ne!(
+        snapshot.tts_models[0].id, "matcha-icefall-zh-baker",
+        "Voice Settings 不得继续向用户暴露旧 Matcha Baker 模型"
+    );
     assert!(
         cx.debug_bounds("settings-tts-install-0").is_some(),
         "第一个未安装模型应提供 Install 按钮"
@@ -84,8 +92,8 @@ fn e2e_tts_catalog_exposes_explicit_install_without_auto_selection() {
 /// 删除与隔离试听，而不依赖 GitHub、真实 ONNX 或声卡。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   catalog models         = 2（Matcha 单 Voice + Kokoro 双 Voice）
-///   first install          = 1（无选择时自动选择 Matcha/default）
+///   catalog models         = 2（Matcha zh-en 单 Voice + Kokoro 双 Voice）
+///   first install          = 1（无选择时自动选择 Matcha zh-en/default）
 ///   second install         = 1（已有选择时保持未选择）
 ///   Kokoro voices          = 2（af_heart 推荐 + af_bella）
 ///   persisted settings IDs = 2（模型 ID + Voice ID）
@@ -127,8 +135,8 @@ fn e2e_tts_model_lifecycle_persists_voice_and_isolates_preview() {
     );
     assert_eq!(
         first.selected_tts_model_id.as_deref(),
-        Some("matcha-icefall-zh-baker"),
-        "首次安装后必须保存 Matcha 的不可变模型 ID"
+        Some("matcha-icefall-zh-en"),
+        "首次安装后必须保存 Matcha zh-en 的不可变模型 ID"
     );
     assert_eq!(
         first.selected_tts_voice_id.as_deref(),
@@ -161,8 +169,8 @@ fn e2e_tts_model_lifecycle_persists_voice_and_isolates_preview() {
     );
     assert_eq!(
         deleted.selected_tts_model_id.as_deref(),
-        Some("matcha-icefall-zh-baker"),
-        "删除未选中 Kokoro 不得清除当前 Matcha 选择"
+        Some("matcha-icefall-zh-en"),
+        "删除未选中 Kokoro 不得清除当前 Matcha zh-en 选择"
     );
 
     click(cx, "settings-tts-install-1");

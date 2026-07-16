@@ -121,6 +121,34 @@ fn test_builtin_catalog_declares_matcha_zh_en_installation_contract() {
         "安装校验必须要求英文前端所需的 eSpeak 数据"
     );
     assert!(
+        archive
+            .required_files()
+            .iter()
+            .any(|path| path == "espeak-ng-data/phondata"),
+        "安装校验必须要求 eSpeak 音素数据"
+    );
+    assert!(
+        archive
+            .required_files()
+            .iter()
+            .any(|path| path == "espeak-ng-data/phonindex"),
+        "安装校验必须要求 eSpeak 音素索引"
+    );
+    assert!(
+        archive
+            .required_files()
+            .iter()
+            .any(|path| path == "espeak-ng-data/en_dict"),
+        "安装校验必须要求 eSpeak 英文词典"
+    );
+    assert!(
+        archive
+            .required_files()
+            .iter()
+            .any(|path| path == "espeak-ng-data/lang/gmw/en"),
+        "安装校验必须要求 eSpeak 英文语言定义"
+    );
+    assert!(
         !archive
             .required_files()
             .iter()

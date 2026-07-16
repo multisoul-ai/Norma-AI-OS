@@ -266,6 +266,10 @@ pub fn builtin_model_catalog() -> TtsModelCatalog {
                             "date-zh.fst",
                             "number-zh.fst",
                             "espeak-ng-data/phontab",
+                            "espeak-ng-data/phondata",
+                            "espeak-ng-data/phonindex",
+                            "espeak-ng-data/en_dict",
+                            "espeak-ng-data/lang/gmw/en",
                         ],
                     ),
                     vec![TtsSupportArtifact::new(
