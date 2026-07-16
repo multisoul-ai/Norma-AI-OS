@@ -2,6 +2,7 @@ use crate::{TtsModelId, TtsVoiceId};
 use model_store::ModelArtifact;
 
 pub const MATCHA_ZH_MODEL_ID: &str = "matcha-icefall-zh-baker";
+pub const MATCHA_ZH_EN_MODEL_ID: &str = "matcha-icefall-zh-en";
 pub const KOKORO_MULTI_LANG_MODEL_ID: &str = "kokoro-int8-multi-lang-v1_1";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -242,31 +243,36 @@ impl TtsModelCatalog {
 }
 
 pub fn builtin_model_catalog() -> TtsModelCatalog {
-    let default = voice("default", "Default Chinese Voice", 0);
+    let default = voice("default", "Default Bilingual Voice", 0);
     let heart = voice("af_heart", "Heart", 0);
     let bella = voice("af_bella", "Bella", 1);
     TtsModelCatalog {
         entries: vec![
             descriptor(
-                MATCHA_ZH_MODEL_ID,
-                "Matcha Chinese",
+                MATCHA_ZH_EN_MODEL_ID,
+                "Matcha Chinese-English",
                 TtsBackend::Matcha,
-                TtsCapabilities::new(vec!["zh"], 22_050),
+                TtsCapabilities::new(vec!["zh", "en"], 16_000),
                 TtsModelPackage::new(
                     ModelArtifact::new(
-                        "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/matcha-icefall-zh-baker.tar.bz2",
-                        "e5f9bf228ccdf270f058a53523372c24edfae13b698d6d6fa3f39ece4d61e125",
-                        75_462_909,
+                        "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/matcha-icefall-zh-en.tar.bz2",
+                        "271b804af570400d3bcdcb53bf6e53cc9f75180ee763b9f13eb5eaf2b0d086ef",
+                        79_033_838,
                         vec![
-                            "model-steps-3.onnx", "lexicon.txt", "tokens.txt", "phone.fst",
-                            "date.fst", "number.fst", "dict/stop_words.utf8",
+                            "model-steps-3.onnx",
+                            "lexicon.txt",
+                            "tokens.txt",
+                            "phone-zh.fst",
+                            "date-zh.fst",
+                            "number-zh.fst",
+                            "espeak-ng-data/phontab",
                         ],
                     ),
                     vec![TtsSupportArtifact::new(
-                        "https://github.com/k2-fsa/sherpa-onnx/releases/download/vocoder-models/vocos-22khz-univ.onnx",
-                        "0574a135aa1db2de6e181050db2ec528496cacd4a4701fc5d7faf9f9804c0081",
-                        53_884_024,
-                        "vocos-22khz-univ.onnx",
+                        "https://github.com/k2-fsa/sherpa-onnx/releases/download/vocoder-models/vocos-16khz-univ.onnx",
+                        "b599142a1fb8ff03de3e84ac35ff537c619e56f4267a6fe894851a42844acf9e",
+                        53_882_848,
+                        "vocos-16khz-univ.onnx",
                     )],
                 ),
                 vec![default.clone()],

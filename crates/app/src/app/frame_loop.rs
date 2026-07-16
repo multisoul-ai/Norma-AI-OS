@@ -154,6 +154,10 @@ impl MultisoulApp {
                 let browser_changed = app.drain_browser_events();
                 let agent_hook_report = app.agent_hook_server.drain_into_runtime(&mut app.runtime);
                 let mut queue_changed = false;
+                for node_id in agent_hook_report.ready_node_ids {
+                    queue_changed |= app.submit_pending_agent_task_for_ready_node(node_id);
+                }
+                queue_changed |= app.submit_due_pending_agent_tasks(Instant::now());
                 let speak_agent_completions = app.dialogue.is_active()
                     && app.voice_settings.values().interaction_mode()
                         == crate::settings::voice::VoiceInteractionMode::ContinuousListening;

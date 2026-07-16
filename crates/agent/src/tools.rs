@@ -7,7 +7,7 @@ pub const CARD_TASK_TOOL: &str = "card_task";
 pub fn dialogue_tool_specs() -> Vec<ProviderToolSpec> {
     vec![ProviderToolSpec {
         name: CARD_TASK_TOOL.to_string(),
-        description: "Required for every requested Norma OS canvas/card operation. Start immediately for explicit create terminal, create agent, focus, send text, or delete requests; do not merely explain or ask for confirmation when the intent is already actionable. Also cancel or query an existing background card task."
+        description: "Required for every requested Norma OS canvas/card operation. Start immediately for explicit create terminal, create agent, focus, send text, delete, or Agent delegation requests; do not merely explain or ask for confirmation when the intent is already actionable. For delegation, pass a lightly polished intent that removes only addressing and conversational filler while preserving every goal, scope, order, constraint, deliverable, and explicit command; do not summarize or invent requirements. Also cancel or query an existing background card task."
             .to_string(),
         parameters_json_schema: json!({
             "type": "object",

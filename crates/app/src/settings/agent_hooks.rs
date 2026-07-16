@@ -20,6 +20,7 @@ pub(crate) struct AgentHookServer {
 #[derive(Debug, Default, Eq, PartialEq)]
 pub(crate) struct AgentHookDrainReport {
     pub(crate) changed: bool,
+    pub(crate) ready_node_ids: Vec<u64>,
     pub(crate) terminal_node_ids: Vec<u64>,
 }
 
@@ -85,12 +86,19 @@ impl AgentHookServer {
         let mut report = AgentHookDrainReport::default();
         while let Ok(event) = self.receiver.try_recv() {
             let node_id = event.node_id;
+            let is_ready = matches!(
+                agent_task_state_from_hook_event(&event),
+                Some(AgentTaskState::Ready)
+            );
             let is_terminal = matches!(
                 agent_task_state_from_hook_event(&event),
                 Some(AgentTaskState::Done | AgentTaskState::Failed { .. } | AgentTaskState::Ended)
             );
             if apply_agent_hook_event(runtime, event) {
                 report.changed = true;
+                if is_ready {
+                    report.ready_node_ids.push(node_id);
+                }
                 if is_terminal {
                     report.terminal_node_ids.push(node_id);
                 }

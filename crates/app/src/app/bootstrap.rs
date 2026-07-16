@@ -70,6 +70,8 @@ impl MultisoulApp {
             tts_download_cancellations: std::collections::HashMap::new(),
             agent_runtime: None,
             agent_task_coordinator: None,
+            pending_agent_submissions:
+                super::agent_runtime::pending::PendingAgentSubmissions::default(),
             pending_agent_close_confirmation: None,
             focus_handle,
             wallpaper_settings,

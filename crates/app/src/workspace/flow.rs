@@ -133,6 +133,7 @@ impl MultisoulApp {
         match result {
             Ok(opened) => {
                 self.agent_task_coordinator = None;
+                self.pending_agent_submissions.clear();
                 self.reset_agent_announcements();
                 self.dialogue.stop_shell();
                 self.focus_handle.focus(window);

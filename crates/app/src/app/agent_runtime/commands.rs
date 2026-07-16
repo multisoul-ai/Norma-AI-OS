@@ -181,6 +181,7 @@ fn execute_high_level_agent_command(
                 )
                 .map_err(|error| error.to_string())?;
             let mut failed_tasks = HashMap::<u64, AgentTaskSubmitError>::new();
+            let mut waiting_tasks = HashSet::<u64>::new();
             let mut retry_safe_managed_failures = HashSet::<i64>::new();
             let mut retry_safe_untracked_failures = HashSet::<i64>::new();
             for receipt in &receipts {
@@ -189,6 +190,11 @@ fn execute_high_level_agent_command(
                     agent::AgentDispatchState::SubmittedManaged
                         | agent::AgentDispatchState::SubmittedUntracked
                 ) {
+                    if app.pending_agent_submissions.should_wait(receipt.node_id) {
+                        app.pending_agent_submissions.enqueue(receipt.clone());
+                        waiting_tasks.insert(receipt.task_id);
+                        continue;
+                    }
                     if let Err(error) =
                         submit_agent_task(&mut app.runtime, receipt.node_id, &receipt.task)
                     {
@@ -244,9 +250,23 @@ fn execute_high_level_agent_command(
             for receipt in receipts {
                 let submission_failed = failed_tasks.contains_key(&receipt.task_id)
                     || retry_safe_managed_failures.contains(&receipt.definition_id);
+                let submission_waiting = waiting_tasks.contains(&receipt.task_id);
                 let (persisted_state, persisted_tracking) = if submission_failed {
                     (
                         storage::AgentDispatchTaskState::Failed,
+                        match receipt.state {
+                            agent::AgentDispatchState::SubmittedUntracked => {
+                                storage::AgentDispatchTracking::Untracked
+                            }
+                            agent::AgentDispatchState::Queued
+                            | agent::AgentDispatchState::SubmittedManaged => {
+                                storage::AgentDispatchTracking::Managed
+                            }
+                        },
+                    )
+                } else if submission_waiting {
+                    (
+                        storage::AgentDispatchTaskState::Queued,
                         match receipt.state {
                             agent::AgentDispatchState::SubmittedUntracked => {
                                 storage::AgentDispatchTracking::Untracked
@@ -285,6 +305,8 @@ fn execute_high_level_agent_command(
                 }
                 let status = if submission_failed {
                     AgentTaskReceiptStatus::Failed
+                } else if submission_waiting {
+                    AgentTaskReceiptStatus::Queued
                 } else {
                     match receipt.state {
                         agent::AgentDispatchState::Queued => AgentTaskReceiptStatus::Queued,
@@ -391,6 +413,7 @@ fn activate_definition(
         node_id,
         crate::motion::InitializationAnimationKind::for_agent_profile(definition.runtime_profile),
     );
+    app.pending_agent_submissions.mark_starting(node_id);
     app.mark_canvas_dirty();
     app.mark_session_dirty();
     Ok((node_id, false))

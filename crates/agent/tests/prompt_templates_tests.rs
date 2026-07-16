@@ -92,3 +92,44 @@ fn card_task_system_prompt_is_rigorous_and_persona_isolated() {
         "CardTask prompt 不得泄漏 Dialogue persona 的角色资料"
     );
 }
+
+/// P-4：Agent 委派提示词必须要求轻量润色并完整保留用户任务语义。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   prompt layers = Dialogue 产品规则 1 层 + CardTask 执行规则 1 层，共 2 层；
+///   semantic fields = 目标、范围、先后顺序、约束、交付要求、明确命令，共 6 类；
+///   context rule = 指代候选恰好 1 个时可展开，候选数不等于 1 时不得猜测。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取生产 Dialogue system prompt；
+///   2. 读取生产 CardTask system prompt；
+///   3. 检查两层都约束轻量润色，且分别覆盖上下文指代与最终任务正文。
+///
+/// 预期结果：
+///   - 正断言：两层都明确要求轻量润色和 6 类语义保留；
+///   - 正断言：Dialogue 只允许展开唯一明确的上下文指代；
+///   - 负断言：CardTask 不得扩写成长篇结构化简报或新增用户未提出的要求。
+#[test]
+fn agent_delegation_prompts_require_light_polish_without_semantic_loss() {
+    let dialogue = agent::dialogue_system_prompt();
+    let card_task = agent::card_task_system_prompt();
+    let semantic_fields = "目标、范围、先后顺序、约束、交付要求和明确命令";
+
+    assert!(
+        dialogue.contains("轻量润色") && dialogue.contains(semantic_fields),
+        "Dialogue prompt 必须要求轻量润色并保留全部 6 类任务语义"
+    );
+    assert!(
+        dialogue.contains("唯一明确") && dialogue.contains("不得猜测"),
+        "Dialogue prompt 只有在上下文指代唯一明确时才可展开，否则必须停止猜测"
+    );
+    assert!(
+        card_task.contains("轻量润色") && card_task.contains(semantic_fields),
+        "CardTask prompt 必须把 Dialogue 意图整理成不丢语义的轻量润色任务"
+    );
+    assert!(
+        card_task.contains("不得扩写成长篇结构化简报")
+            && card_task.contains("不得新增用户未提出的要求"),
+        "CardTask 不得把轻量润色退化为重型模板或臆造额外要求"
+    );
+}

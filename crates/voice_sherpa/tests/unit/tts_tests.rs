@@ -2,6 +2,7 @@ use super::{resolve_matcha_model_dir, resolve_matcha_vocoder_path, SherpaTtsClie
 use crate::FakeTtsClient;
 use audio::{PcmAudioChunk, PcmFormat};
 use dialogue::{DialogueError, TtsClient};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -99,6 +100,73 @@ fn test_real_matcha_tts_client_accepts_official_22050hz_output() {
     assert_ne!(
         chunk.sample_rate_hz, 24_000,
         "官方 Matcha 不应被伪装为 24kHz，否则播放速度会错误"
+    );
+}
+
+/// TTS-7：已安装的 Matcha zh-en 必须经模型目录生产入口合成中文和英文。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   archive          = 79,033,838 bytes（官方 matcha-icefall-zh-en 发布包）
+///   vocoder          = 53,882,848 bytes（官方 vocos-16khz-univ.onnx）
+///   installed inputs = 79,033,838 + 53,882,848 = 132,916,686 bytes
+///   Chinese text     =「你好，我是诺玛。」（7 个汉字与 2 个标点）
+///   English text     = "Hello, I am Norma."（18 个 ASCII 字符）
+///   expected format  = PCM16 mono，16,000 Hz，即每 frame 2 bytes
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 从内置目录取得 `matcha-icefall-zh-en` 描述符；
+///   2. 通过 TTS 公共安装 API 校验哈希、解包模型并安装 16 kHz Vocos；
+///   3. 通过 `SherpaTtsClient::from_available_model` 加载用户可选模型；
+///   4. 使用同一 Voice 依次合成中文和英文，并检查中立 PCM 输出。
+///
+/// 预期结果：
+///   - 正断言：中文和英文都返回非空的 16 kHz mono PCM16；
+///   - 负断言：不得沿用 Baker 的 22.05 kHz，也不得伪装成 Kokoro 的 24 kHz；
+///   - 负断言：中英文输入不得产生完全相同的 PCM 字节。
+#[test]
+#[ignore = "requires downloaded Matcha zh-en candidate artifacts under target/tts-candidates"]
+fn test_real_available_matcha_zh_en_synthesizes_chinese_and_english() {
+    let archive = matcha_zh_en_candidate_path("matcha-icefall-zh-en.tar.bz2");
+    let vocoder = matcha_zh_en_candidate_path("vocos-16khz-univ.onnx");
+    assert!(archive.is_file(), "Matcha zh-en 测试归档必须已下载");
+    assert!(vocoder.is_file(), "Matcha zh-en 的 16 kHz Vocos 必须已下载");
+
+    let catalog = tts::builtin_model_catalog();
+    let descriptor = catalog
+        .find_by_str(tts::MATCHA_ZH_EN_MODEL_ID)
+        .expect("内置目录必须包含 Matcha zh-en");
+    let model_root = tempfile::tempdir().expect("应能创建隔离的 TTS 安装目录");
+    let available = tts::install_downloaded_package(
+        descriptor,
+        &archive,
+        std::slice::from_ref(&vocoder),
+        model_root.path(),
+    )
+    .expect("Matcha zh-en 发布包与 16 kHz Vocos 应通过安装校验");
+    let voice_id = descriptor.resolve_voice_id(None).clone();
+    let mut client = SherpaTtsClient::from_available_model(&available, &voice_id)
+        .expect("生产入口应能加载已安装的 Matcha zh-en");
+
+    let chinese = client
+        .synthesize("你好，我是诺玛。")
+        .expect("Matcha zh-en 应能合成中文");
+    let english = client
+        .synthesize("Hello, I am Norma.")
+        .expect("Matcha zh-en 应能合成英文");
+
+    assert_valid_pcm_chunk(&chinese, 16_000, "Matcha zh-en Chinese TTS");
+    assert_valid_pcm_chunk(&english, 16_000, "Matcha zh-en English TTS");
+    assert_ne!(
+        chinese.sample_rate_hz, 22_050,
+        "Matcha zh-en 不得沿用 Baker 模型的 22.05 kHz 格式"
+    );
+    assert_ne!(
+        english.sample_rate_hz, 24_000,
+        "Matcha zh-en 不得伪装成 Kokoro 的 24 kHz 格式"
+    );
+    assert_ne!(
+        chinese.bytes, english.bytes,
+        "不同语言的不同文本不得生成完全相同的 PCM"
     );
 }
 
@@ -242,4 +310,11 @@ fn assert_valid_pcm_chunk(chunk: &PcmAudioChunk, expected_rate: u32, label: &str
     assert_eq!(chunk.channels, 1, "{label} 应为 mono");
     assert!(!chunk.bytes.is_empty(), "{label} bytes 不应为空");
     assert_eq!(chunk.bytes.len() % 2, 0, "{label} PCM16 字节数应为偶数");
+}
+
+fn matcha_zh_en_candidate_path(filename: &str) -> PathBuf {
+    super::repo_root()
+        .join("target")
+        .join("tts-candidates")
+        .join(filename)
 }

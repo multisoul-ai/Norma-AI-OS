@@ -116,6 +116,71 @@ fn real_dialogue_provider_meets_card_task_recall_and_false_dispatch_contract() {
     );
 }
 
+/// RPC-2：真实 Dialogue Provider 生成 Agent 委派 intent 时必须轻量润色且保留关键语义。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   explicit request = 1 条创建 Codex Agent 并委派的完整中文指令；
+///   required semantics = 登录超时、先复现、再修复、公开 API、回归测试、
+///   `cargo test -p agent`，共 6 类不可丢要求；
+///   forbidden inventions = 重构、迁移，共 2 类用户未提出的扩大范围词。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 把完整生产 prompt、用户指令和 card_task schema 发送给真实 Provider；
+///   2. 解析唯一 `card_task start` 的 intent；
+///   3. 检查 intent 保留全部关键语义且没有扩大为重构或迁移。
+///
+/// 预期结果：
+///   - 正断言：恰好生成 1 个 start，并保留目标、顺序、约束、测试与明确命令；
+///   - 负断言：不得新增“重构”或“迁移”等用户未提出的工作。
+#[test]
+#[ignore = "requires an explicitly configured real OpenAI-compatible Provider"]
+fn real_dialogue_provider_lightly_polishes_agent_delegation_without_semantic_loss() {
+    let input = "创建 Codex Agent Alan，让他检查登录超时；先复现再修复，不修改公开 API，补回归测试并运行 cargo test -p agent";
+    let actions = provider_actions(compliance_config(), input);
+    let intents = actions
+        .iter()
+        .filter_map(|action| match action {
+            DialogueToolAction::Start { intent } => Some(intent.as_str()),
+            DialogueToolAction::Cancel { .. } | DialogueToolAction::Status { .. } => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        intents.len(),
+        1,
+        "明确 Agent 委派必须产生唯一 card_task start，实际 actions：{actions:?}"
+    );
+    let intent = intents[0];
+    assert!(
+        intent.contains("登录超时"),
+        "轻量润色不得丢失登录超时目标，实际：{intent:?}"
+    );
+    assert!(
+        intent.contains("复现"),
+        "轻量润色不得丢失先复现要求，实际：{intent:?}"
+    );
+    assert!(
+        intent.contains("修复"),
+        "轻量润色不得丢失后修复要求，实际：{intent:?}"
+    );
+    assert!(
+        intent.contains("API"),
+        "轻量润色不得丢失公开 API 约束，实际：{intent:?}"
+    );
+    assert!(
+        intent.contains("回归测试"),
+        "轻量润色不得丢失回归测试交付要求，实际：{intent:?}"
+    );
+    assert!(
+        intent.contains("cargo test -p agent"),
+        "轻量润色不得丢失明确测试命令，实际：{intent:?}"
+    );
+    assert!(
+        !intent.contains("重构") && !intent.contains("迁移"),
+        "轻量润色不得新增重构或迁移范围，实际：{intent:?}"
+    );
+}
+
 fn compliance_config() -> ProviderConfig {
     let base_url = required_env(BASE_URL_ENV);
     let model = required_env(MODEL_ENV);

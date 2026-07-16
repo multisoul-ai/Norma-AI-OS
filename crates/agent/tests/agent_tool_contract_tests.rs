@@ -1,4 +1,4 @@
-use agent::{card_subagent_tool_specs, parse_card_subagent_tool_call};
+use agent::{card_subagent_tool_specs, dialogue_tool_specs, parse_card_subagent_tool_call};
 use norma::protocol::{AgentProfile, CardCommand};
 
 /// AT-1：CardTask ProviderRequest 应暴露四个高层 Agent 工具，并保留普通卡片工具。
@@ -117,5 +117,43 @@ fn high_level_agent_tool_calls_parse_structured_commands_and_require_profile() {
     assert!(
         missing_profile.is_err(),
         "缺少 runtime profile 的创建请求必须拒绝，不能默认 Codex"
+    );
+}
+
+/// AT-3：Dialogue 的 card_task 工具说明必须约束 intent 轻量润色且不丢任务要求。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Dialogue tools = 生产 `dialogue_tool_specs()` 返回的工具集合；
+///   target tool = 名称恰好为 `card_task` 的 1 个工具；
+///   preserved semantics = goal/scope/order/constraint/deliverable/explicit command 共 6 类。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取生产 Dialogue 工具 schema；
+///   2. 精确找到 `card_task`；
+///   3. 检查说明要求轻量整理、保留 6 类语义并禁止摘要或臆造。
+///
+/// 预期结果：
+///   - 正断言：工具说明要求 lightly polished intent 与完整语义保留；
+///   - 负断言：说明不得允许 summarize 或 invent requirements。
+#[test]
+fn dialogue_card_task_tool_description_preserves_delegation_semantics() {
+    let tools = dialogue_tool_specs();
+    let card_task = tools
+        .iter()
+        .find(|tool| tool.name == "card_task")
+        .expect("Dialogue 生产工具集合必须包含唯一 card_task 入口");
+
+    assert!(
+        card_task.description.contains("lightly polished")
+            && card_task
+                .description
+                .contains("goal, scope, order, constraint, deliverable")
+            && card_task.description.contains("explicit command"),
+        "card_task 工具说明必须要求轻量润色并完整保留 6 类任务语义"
+    );
+    assert!(
+        card_task.description.contains("do not summarize")
+            && card_task.description.contains("invent requirements"),
+        "card_task 工具说明必须禁止摘要化删减和臆造新要求"
     );
 }
