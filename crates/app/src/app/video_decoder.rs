@@ -37,6 +37,7 @@ use objc2_av_foundation::{
 use objc2_foundation::{NSDictionary, NSNumber, NSString, NSURL};
 use std::ffi::c_void;
 use std::path::Path;
+use std::time::Duration;
 
 /// NSString value of CoreVideo's `kCVPixelBufferPixelFormatTypeKey` output
 /// settings key. NSDictionary compares by string value, so a literal NSString
@@ -55,10 +56,19 @@ extern "C-unwind" {
 /// format GPUI 0.2.2's surface renderer accepts.
 pub(crate) struct DecodedVideoFrame {
     buffer: CVPixelBuffer,
+    presentation_time: Option<Duration>,
 }
 
 impl DecodedVideoFrame {
+    #[cfg(test)]
     pub(crate) fn from_buffer(buffer: CVPixelBuffer) -> Result<Self> {
+        Self::from_buffer_with_presentation_time(buffer, None)
+    }
+
+    fn from_buffer_with_presentation_time(
+        buffer: CVPixelBuffer,
+        presentation_time: Option<Duration>,
+    ) -> Result<Self> {
         let actual = buffer.get_pixel_format();
         ensure!(
             actual == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
@@ -74,11 +84,18 @@ impl DecodedVideoFrame {
             Self::buffer_has_io_surface(&buffer),
             "decoded live video frame must be IOSurface-backed for low-copy gpui::surface rendering"
         );
-        Ok(Self { buffer })
+        Ok(Self {
+            buffer,
+            presentation_time,
+        })
     }
 
     pub(crate) fn buffer(&self) -> &CVPixelBuffer {
         &self.buffer
+    }
+
+    pub(crate) fn presentation_time(&self) -> Option<Duration> {
+        self.presentation_time
     }
 
     pub(crate) fn buffer_has_io_surface(buffer: &CVPixelBuffer) -> bool {
@@ -126,6 +143,8 @@ impl VideoDecoder {
             let next = unsafe { self.output.copyNextSampleBuffer() };
             match next {
                 Some(sb) => {
+                    let presentation_seconds = unsafe { sb.presentation_time_stamp().seconds() };
+                    let presentation_time = Duration::try_from_secs_f64(presentation_seconds).ok();
                     let sbuf_ptr = Retained::as_ptr(&sb) as *mut c_void;
                     let img_ptr = unsafe { CMSampleBufferGetImageBuffer(sbuf_ptr) };
                     if img_ptr.is_null() {
@@ -134,7 +153,10 @@ impl VideoDecoder {
                     let buffer = unsafe {
                         <CVPixelBuffer as TCFType>::wrap_under_get_rule(img_ptr as CVPixelBufferRef)
                     };
-                    return DecodedVideoFrame::from_buffer(buffer);
+                    return DecodedVideoFrame::from_buffer_with_presentation_time(
+                        buffer,
+                        presentation_time,
+                    );
                 }
                 None => {
                     let status = unsafe { self.reader.status() };

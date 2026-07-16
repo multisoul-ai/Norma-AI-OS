@@ -107,3 +107,100 @@ fn test_embedded_assets_load_themes_navigation_svg() {
         "unknown Themes icon path must not return embedded SVG bytes"
     );
 }
+
+/// HD-BENCH-I1：使用项目锁定的 `image` 解码器测量静态壁纸的真实一次性解码成本。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   path            = `$NORMA_HD_BENCHMARK_IMAGE`（同源 PNG/JPEG 实验矩阵）
+///   expected_width  = `$NORMA_HD_EXPECTED_WIDTH`（1280 / 1920 / 2560 / 3840）
+///   expected_height = `$NORMA_HD_EXPECTED_HEIGHT`（720 / 1080 / 1440 / 2160）
+///   repetitions     = 12 次（1 次预热 + 11 次采样，中位数取第 6 个采样）
+///   RGBA bytes       = width × height × 4，例如 3840 × 2160 × 4 = 33,177,600 bytes
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在计时外一次性读取压缩文件，模拟内置 `include_bytes!` 已在内存中的状态
+///   2. 预热解码 1 次，排除首次格式注册和页错误
+///   3. 连续解码 11 次并逐次验证尺寸，把耗时排序后取中位数
+///   4. 打印格式、文件大小、RGBA 展开大小和中位解码耗时
+///
+/// 预期结果：
+///   - 正断言：每次解码尺寸精确等于实验声明
+///   - 正断言：压缩输入和 RGBA 展开数据都非空
+///   - 负断言：不得把 4K 输入静默降采样成更低尺寸
+///   - 正断言：打印 `NORMA_HD_IMAGE_RESULT` 供实验报告采集
+#[test]
+#[ignore = "HD 实验：需要 NORMA_HD_BENCHMARK_IMAGE 与预期尺寸环境变量"]
+fn benchmark_static_wallpaper_decode_matrix() {
+    use std::time::Instant;
+
+    let path = std::path::PathBuf::from(
+        std::env::var("NORMA_HD_BENCHMARK_IMAGE")
+            .expect("HD image benchmark requires NORMA_HD_BENCHMARK_IMAGE"),
+    );
+    let expected_width: u32 = std::env::var("NORMA_HD_EXPECTED_WIDTH")
+        .expect("HD image benchmark requires NORMA_HD_EXPECTED_WIDTH")
+        .parse()
+        .expect("NORMA_HD_EXPECTED_WIDTH must be a positive integer");
+    let expected_height: u32 = std::env::var("NORMA_HD_EXPECTED_HEIGHT")
+        .expect("HD image benchmark requires NORMA_HD_EXPECTED_HEIGHT")
+        .parse()
+        .expect("NORMA_HD_EXPECTED_HEIGHT must be a positive integer");
+    let bytes = std::fs::read(&path).expect("HD image benchmark should read the candidate file");
+
+    assert!(
+        !bytes.is_empty(),
+        "HD image benchmark input must contain compressed image bytes"
+    );
+    assert!(
+        expected_width > 0 && expected_height > 0,
+        "HD image benchmark expected dimensions must both be positive"
+    );
+
+    let warmup = image::load_from_memory(&bytes)
+        .expect("HD image benchmark warmup should decode the candidate");
+    assert_eq!(
+        (warmup.width(), warmup.height()),
+        (expected_width, expected_height),
+        "warmup decode must preserve the declared source dimensions"
+    );
+
+    let mut elapsed_micros = Vec::with_capacity(11);
+    let mut rgba_bytes = 0usize;
+    for _ in 0..11 {
+        let started = Instant::now();
+        let decoded = image::load_from_memory(&bytes)
+            .expect("every HD image benchmark sample should decode successfully");
+        elapsed_micros.push(started.elapsed().as_secs_f64() * 1_000_000.0);
+        assert_eq!(
+            (decoded.width(), decoded.height()),
+            (expected_width, expected_height),
+            "sample decode must not silently resize the candidate"
+        );
+        rgba_bytes = decoded.to_rgba8().as_raw().len();
+        std::hint::black_box(rgba_bytes);
+    }
+    elapsed_micros.sort_by(f64::total_cmp);
+    let median_ms = elapsed_micros[5] / 1_000.0;
+
+    assert!(
+        rgba_bytes > 0,
+        "decoded HD image must expand to a non-empty RGBA buffer"
+    );
+    assert_eq!(
+        rgba_bytes,
+        expected_width as usize * expected_height as usize * 4,
+        "decoded RGBA allocation must equal width × height × four channels"
+    );
+
+    println!(
+        "NORMA_HD_IMAGE_RESULT\tfile={}\twidth={}\theight={}\tcompressed_bytes={}\trgba_bytes={}\tmedian_decode_ms={:.3}",
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("unknown"),
+        expected_width,
+        expected_height,
+        bytes.len(),
+        rgba_bytes,
+        median_ms,
+    );
+}
