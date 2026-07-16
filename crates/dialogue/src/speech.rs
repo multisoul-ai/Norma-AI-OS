@@ -183,8 +183,8 @@ fn first_sufficient_strong_boundary(text: &str) -> Option<usize> {
     strong_boundaries(text)
         .into_iter()
         .find_map(|(character_count, boundary)| {
-            (character_count >= MIN_SPEECH_SEGMENT_CHARS
-                && character_count <= MAX_SPEECH_SEGMENT_CHARS)
+            (MIN_SPEECH_SEGMENT_CHARS..=MAX_SPEECH_SEGMENT_CHARS)
+                .contains(&character_count)
                 .then_some(boundary)
         })
 }
@@ -214,8 +214,7 @@ fn forced_boundary(text: &str) -> Option<usize> {
     for (byte_index, character) in text.char_indices() {
         character_count += 1;
         if matches!(character, '，' | '；' | '：' | ',' | ';' | ':')
-            && character_count >= MIN_SPEECH_SEGMENT_CHARS
-            && character_count <= MAX_SPEECH_SEGMENT_CHARS
+            && (MIN_SPEECH_SEGMENT_CHARS..=MAX_SPEECH_SEGMENT_CHARS).contains(&character_count)
         {
             last_weak_boundary = Some(byte_index + character.len_utf8());
         }
@@ -242,8 +241,7 @@ fn trim_display_prefix(line: &str) -> &str {
 fn strip_markdown_emphasis_and_code(text: &str) -> String {
     text.replace("**", "")
         .replace("__", "")
-        .replace('`', "")
-        .replace('*', "")
+        .replace(['`', '*'], "")
 }
 
 fn replace_urls(text: &str) -> String {

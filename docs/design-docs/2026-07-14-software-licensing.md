@@ -1,9 +1,9 @@
 # 软件 License 与商业化收款设计
 
 日期：2026-07-14  
-状态：Keygate 脚本 spike **GO**（2026-07-14）；下一手薄接入 App；路径二（港企收款）延后  
-ADR：[`docs/adr/0014-spike-keygate-before-app-licensing.md`](../adr/0014-spike-keygate-before-app-licensing.md)  
-Spike README：[`spikes/keygate-mvp/README.md`](../../spikes/keygate-mvp/README.md)
+状态：Keygate spike **GO**；硬门控接入 SPEC 已定案 → [`2026-07-14-SPEC-software-licensing.md`](../product-specs/2026-07-14-SPEC-software-licensing.md)  
+ADR：[`0014`](../adr/0014-spike-keygate-before-app-licensing.md)、[`0015`](../adr/0015-license-hard-gate-outside-workbench.md)  
+Spike：[`spikes/keygate-mvp/README.md`](../../spikes/keygate-mvp/README.md)
 
 ## 1. 目标与边界
 
@@ -19,8 +19,8 @@ Spike README：[`spikes/keygate-mvp/README.md`](../../spikes/keygate-mvp/README.
 
 | 阶段 | 内容 | 状态 |
 |------|------|------|
-| **Spike** | 本机 Docker 起 Keygate；`spikes/keygate-mvp/` 脚本：发证→激活→断网复验 | **GO**（`./scripts/check.sh`） |
-| **薄接入** | App 粘贴 License + 本地激活态 + 未激活提示（可 env 跳过）；无全门控 | **下一步** |
+| **Spike** | 本机 Docker 起 Keygate；`spikes/keygate-mvp/` 脚本：发证→激活→断网复验 | **GO** |
+| **硬门控接入** | GateRoot + `license` crate + 激活壳；env 可跳过 | **下一步**（见 SPEC） |
 | **路径二** | 港企 + Lemon Squeezy 收款 | 延后 |
 | **no-go 换道** | 优先 Keygen CE → 再自建 Ed25519 | 仅 spike 失败时 |
 

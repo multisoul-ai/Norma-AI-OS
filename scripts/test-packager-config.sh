@@ -30,7 +30,9 @@
 #   - Negative: a config that builds without bumping the version fails.
 #   - Negative: a config that bumps after building fails.
 #   - Positive: release and dev DMG configs use the Norma OS background and
-#     matching window/icon positions.
+#     matching window/icon positions, with the labels clear of the well border.
+#   - Negative: the old y=200 icon positions that overlap the well border are
+#     not retained.
 #   - Positive: the 1024 app icon source has a tight alpha bbox so Finder and
 #     DMG icons do not render visually undersized.
 #   - Positive: the DMG background has a 2x Retina pixel buffer and 144 DPI
@@ -111,6 +113,10 @@ esac
 #   background bitmap = 1280x800 @ 144 DPI (2x), which Finder displays as a
 #                       sharp 640x400-point background instead of upscaling
 #   app/drop targets = x=180 and x=460, centered on the left/right wells
+#   vertical layout  = y=175; the previous y=200 placed Finder's 16pt labels
+#                      across the well's bottom border. Moving both icons up by
+#                      200 - 175 = 25pt preserves their horizontal alignment
+#                      and leaves a clear label-to-border gap.
 #   dev config       = same [dmg] values, so local test packages match release
 for cfg in "$config" "$dev_config"; do
   if ! grep -Fq '[dmg]' "$cfg"; then
@@ -125,12 +131,16 @@ for cfg in "$config" "$dev_config"; do
     fail "$(basename "$cfg") DMG window must stay 640x400 logical points"
   fi
 
-  if ! grep -Fq 'app-position = { x = 180, y = 200 }' "$cfg"; then
-    fail "$(basename "$cfg") must place the app icon at x=180 y=200"
+  if ! grep -Fq 'app-position = { x = 180, y = 175 }' "$cfg"; then
+    fail "$(basename "$cfg") must place the app icon at x=180 y=175 so its label clears the well border"
   fi
 
-  if ! grep -Fq 'application-folder-position = { x = 460, y = 200 }' "$cfg"; then
-    fail "$(basename "$cfg") must place the Applications link at x=460 y=200"
+  if ! grep -Fq 'application-folder-position = { x = 460, y = 175 }' "$cfg"; then
+    fail "$(basename "$cfg") must place the Applications link at x=460 y=175 so its label clears the well border"
+  fi
+
+  if grep -Eq '(app-position|application-folder-position) = \{ x = (180|460), y = 200 \}' "$cfg"; then
+    fail "$(basename "$cfg") must not retain y=200 because Finder labels overlap the well border there"
   fi
 done
 

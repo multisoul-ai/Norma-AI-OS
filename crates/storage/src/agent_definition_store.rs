@@ -6,14 +6,33 @@ use canvas::AgentProfile;
 use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 use std::path::PathBuf;
 
+type AgentDefinitionRow = (
+    i64,
+    String,
+    String,
+    String,
+    i64,
+    i64,
+    Option<String>,
+    String,
+);
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AgentDefinitionOrigin {
+    Explicit,
+    QuickCard,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentDefinition {
     pub id: i64,
     pub name: String,
+    pub speech_alias: Option<String>,
     pub runtime_profile: AgentProfile,
     pub workflow_description: String,
     pub enabled: bool,
     pub sort_order: i64,
+    pub origin: AgentDefinitionOrigin,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -44,6 +63,18 @@ impl AgentDefinitionStore {
     }
 
     pub fn create(&self, input: &NewAgentDefinition) -> StorageResult<AgentDefinition> {
+        self.create_with_origin(input, AgentDefinitionOrigin::Explicit)
+    }
+
+    pub fn create_quick(&self, input: &NewAgentDefinition) -> StorageResult<AgentDefinition> {
+        self.create_with_origin(input, AgentDefinitionOrigin::QuickCard)
+    }
+
+    fn create_with_origin(
+        &self,
+        input: &NewAgentDefinition,
+        origin: AgentDefinitionOrigin,
+    ) -> StorageResult<AgentDefinition> {
         let mut connection = open_project_connection(&self.path)?;
         let now = current_unix_timestamp()?;
         let (name_key, speech_alias) = agent_name_metadata(&input.name)?;
@@ -57,14 +88,15 @@ impl AgentDefinitionStore {
         )?;
         transaction.execute(
             "INSERT INTO agent_definitions \
-             (name, name_key, speech_alias, runtime_profile, workflow_description, enabled, sort_order, created_at_unix, updated_at_unix) \
-             VALUES (?1, ?2, ?3, ?4, ?5, 1, 0, ?6, ?6)",
+             (name, name_key, speech_alias, runtime_profile, workflow_description, enabled, sort_order, origin, created_at_unix, updated_at_unix) \
+             VALUES (?1, ?2, ?3, ?4, ?5, 1, 0, ?6, ?7, ?7)",
             params![
                 input.name,
                 name_key,
                 speech_alias,
                 encode_agent_profile(input.runtime_profile),
                 input.workflow_description,
+                encode_agent_definition_origin(origin),
                 now,
             ],
         )?;
@@ -77,21 +109,32 @@ impl AgentDefinitionStore {
     pub fn list(&self) -> StorageResult<Vec<AgentDefinition>> {
         let connection = open_project_connection(&self.path)?;
         let mut statement = connection.prepare(
-            "SELECT id, name, runtime_profile, workflow_description, enabled, sort_order \
+            "SELECT id, name, runtime_profile, workflow_description, enabled, sort_order, speech_alias, origin \
              FROM agent_definitions \
              ORDER BY sort_order ASC, name COLLATE NOCASE ASC",
         )?;
         let rows = statement.query_map([], decode_agent_definition_row)?;
         let mut definitions = Vec::new();
         for row in rows {
-            let (id, name, runtime_profile, workflow_description, enabled, sort_order) = row?;
+            let (
+                id,
+                name,
+                runtime_profile,
+                workflow_description,
+                enabled,
+                sort_order,
+                speech_alias,
+                origin,
+            ) = row?;
             definitions.push(AgentDefinition {
                 id,
                 name,
+                speech_alias,
                 runtime_profile: decode_agent_profile(&runtime_profile)?,
                 workflow_description,
                 enabled: enabled != 0,
                 sort_order,
+                origin: decode_agent_definition_origin(&origin)?,
             });
         }
         Ok(definitions)
@@ -146,11 +189,44 @@ impl AgentDefinitionStore {
         Ok(deleted)
     }
 
+    pub fn delete_if_quick(&self, id: i64) -> StorageResult<bool> {
+        let mut connection = open_project_connection(&self.path)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let origin = transaction
+            .query_row(
+                "SELECT origin FROM agent_definitions WHERE id = ?1",
+                params![id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        if origin.as_deref()
+            != Some(encode_agent_definition_origin(
+                AgentDefinitionOrigin::QuickCard,
+            ))
+        {
+            transaction.commit()?;
+            return Ok(false);
+        }
+        transaction.execute(
+            "DELETE FROM agent_dispatch_tasks WHERE definition_id = ?1",
+            params![id],
+        )?;
+        let deleted = transaction.execute(
+            "DELETE FROM agent_definitions WHERE id = ?1 AND origin = ?2",
+            params![
+                id,
+                encode_agent_definition_origin(AgentDefinitionOrigin::QuickCard)
+            ],
+        )? > 0;
+        transaction.commit()?;
+        Ok(deleted)
+    }
+
     fn get(&self, id: i64) -> StorageResult<Option<AgentDefinition>> {
         let connection = open_project_connection(&self.path)?;
         let row = connection
             .query_row(
-                "SELECT id, name, runtime_profile, workflow_description, enabled, sort_order \
+                "SELECT id, name, runtime_profile, workflow_description, enabled, sort_order, speech_alias, origin \
                  FROM agent_definitions WHERE id = ?1",
                 params![id],
                 |row| {
@@ -161,21 +237,32 @@ impl AgentDefinitionStore {
                         row.get::<_, String>(3)?,
                         row.get::<_, i64>(4)?,
                         row.get::<_, i64>(5)?,
+                        row.get::<_, Option<String>>(6)?,
+                        row.get::<_, String>(7)?,
                     ))
                 },
             )
             .optional()?;
         match row {
-            Some((id, name, runtime_profile, workflow_description, enabled, sort_order)) => {
-                Ok(Some(AgentDefinition {
-                    id,
-                    name,
-                    runtime_profile: decode_agent_profile(&runtime_profile)?,
-                    workflow_description,
-                    enabled: enabled != 0,
-                    sort_order,
-                }))
-            }
+            Some((
+                id,
+                name,
+                runtime_profile,
+                workflow_description,
+                enabled,
+                sort_order,
+                speech_alias,
+                origin,
+            )) => Ok(Some(AgentDefinition {
+                id,
+                name,
+                speech_alias,
+                runtime_profile: decode_agent_profile(&runtime_profile)?,
+                workflow_description,
+                enabled: enabled != 0,
+                sort_order,
+                origin: decode_agent_definition_origin(&origin)?,
+            })),
             None => Ok(None),
         }
     }
@@ -219,9 +306,7 @@ fn reject_name_conflict(
     Ok(())
 }
 
-fn decode_agent_definition_row(
-    row: &rusqlite::Row<'_>,
-) -> rusqlite::Result<(i64, String, String, String, i64, i64)> {
+fn decode_agent_definition_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<AgentDefinitionRow> {
     Ok((
         row.get(0)?,
         row.get(1)?,
@@ -229,7 +314,26 @@ fn decode_agent_definition_row(
         row.get(3)?,
         row.get(4)?,
         row.get(5)?,
+        row.get(6)?,
+        row.get(7)?,
     ))
+}
+
+fn encode_agent_definition_origin(origin: AgentDefinitionOrigin) -> &'static str {
+    match origin {
+        AgentDefinitionOrigin::Explicit => "explicit",
+        AgentDefinitionOrigin::QuickCard => "quick_card",
+    }
+}
+
+fn decode_agent_definition_origin(origin: &str) -> StorageResult<AgentDefinitionOrigin> {
+    match origin {
+        "explicit" => Ok(AgentDefinitionOrigin::Explicit),
+        "quick_card" => Ok(AgentDefinitionOrigin::QuickCard),
+        other => Err(StorageError::InvalidAgentDefinitionOrigin(
+            other.to_string(),
+        )),
+    }
 }
 
 fn encode_agent_profile(profile: AgentProfile) -> &'static str {
@@ -254,3 +358,11 @@ fn decode_agent_profile(profile: &str) -> StorageResult<AgentProfile> {
 #[cfg(test)]
 #[path = "../tests/unit/agent_definition_store_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/agent_definition_origin_tests.rs"]
+mod origin_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/agent_definition_migration_tests.rs"]
+mod migration_tests;

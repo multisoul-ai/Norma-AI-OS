@@ -1,33 +1,17 @@
 //! Voice entrypoint glue for the app shell.
 
-mod agent_task;
 pub(crate) mod bar;
 pub(crate) mod control;
 mod dictation;
 mod execution;
 mod history;
-pub(crate) mod log;
-pub(crate) mod modal;
-mod planning;
 pub(crate) mod playback;
-mod refine;
 
 use crate::app::voice::control::{VoicePhase, VoiceTrigger};
-use crate::app::voice::log::{
-    log_voice_confirmation_required, log_voice_executed, log_voice_executing,
-    log_voice_planner_rejected, log_voice_runtime_failed, log_voice_transcript_only,
-};
-use crate::app::voice::planning::VoicePlanningOutcome;
 use crate::app::{AppScreen, MultisoulApp};
 use gpui::{ClickEvent, Context, Window};
-use history::VoiceOutcome;
-#[cfg(test)]
-pub(crate) use planning::VoicePlanningJob;
-pub(crate) use planning::VoicePlanningResult;
-use voice::{CardRef, RiskLevel, VoiceCardKind, VoicePlanningRequest};
 use voice_sherpa::SpeechError;
 
-const DEFAULT_MAX_VOICE_STEPS: usize = 8;
 const MICROPHONE_PRIVACY_SETTINGS_URL: &str =
     "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
 
@@ -232,212 +216,6 @@ impl MultisoulApp {
                 self.save_voice_speech_error(error);
             }
         }
-    }
-
-    fn start_voice_planning(
-        &mut self,
-        raw_transcript: String,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        agent_task::start_direct_agent_task(self, raw_transcript, window, cx);
-    }
-
-    fn apply_voice_planning_result(
-        &mut self,
-        result: VoicePlanningResult,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let raw_transcript = result.raw_transcript;
-        let refined_transcript = result.refined_transcript;
-        let transcript = result.transcript;
-
-        match result.outcome {
-            VoicePlanningOutcome::ProviderError { error } => {
-                self.voice
-                    .set_error(format!("Voice planner failed: {error}"));
-                self.save_voice_history(
-                    raw_transcript,
-                    refined_transcript,
-                    "{}".into(),
-                    0.0,
-                    VoiceOutcome::new("low", "provider_error"),
-                    Some(error),
-                );
-            }
-            VoicePlanningOutcome::Rejected {
-                planner_json,
-                confidence,
-                risk,
-                error,
-            } => {
-                log_voice_planner_rejected(&transcript, &planner_json, &error);
-                self.voice.set_transcript_only(
-                    transcript.clone(),
-                    format!("planner output rejected: {error}"),
-                );
-                self.save_voice_history(
-                    raw_transcript,
-                    refined_transcript,
-                    planner_json,
-                    confidence,
-                    VoiceOutcome::new(risk_label(risk), "planner_rejected"),
-                    Some(error),
-                );
-            }
-            VoicePlanningOutcome::TranscriptOnly {
-                planner_json,
-                confidence,
-                risk,
-                reason,
-            } => {
-                let risk = risk_label(risk);
-                log_voice_transcript_only(&transcript, &reason, confidence, risk);
-                self.voice.set_transcript_only(transcript.clone(), reason);
-                self.save_voice_history(
-                    raw_transcript,
-                    refined_transcript,
-                    planner_json,
-                    confidence,
-                    VoiceOutcome::new(risk, "transcript_only"),
-                    None,
-                );
-            }
-            VoicePlanningOutcome::ConfirmationRequired {
-                planner_json,
-                confidence,
-                risk,
-                compiled,
-            } => {
-                let reason = compiled
-                    .reason
-                    .clone()
-                    .unwrap_or_else(|| "Plan requires confirmation.".to_string());
-                let risk = risk_label(risk);
-                log_voice_confirmation_required(
-                    &transcript,
-                    compiled.commands.len(),
-                    &reason,
-                    confidence,
-                    risk,
-                );
-                self.pending_voice_commands = compiled.commands;
-                self.voice.set_confirming(transcript.clone(), reason);
-                self.save_voice_history(
-                    raw_transcript,
-                    refined_transcript,
-                    planner_json,
-                    confidence,
-                    VoiceOutcome::new(risk, "confirmation_required"),
-                    None,
-                );
-            }
-            VoicePlanningOutcome::Execute {
-                planner_json,
-                confidence,
-                risk,
-                compiled,
-            } => {
-                let risk = risk_label(risk);
-                log_voice_executing(&transcript, compiled.commands.len(), confidence, risk);
-                self.pending_voice_commands.clear();
-                let result = self.execute_compiled_voice_plan(compiled.commands, window);
-                match result {
-                    Ok(message) => {
-                        log_voice_executed(&transcript, &message);
-                        self.voice.set_executed(message);
-                        self.save_voice_history(
-                            raw_transcript.clone(),
-                            refined_transcript.clone(),
-                            planner_json,
-                            confidence,
-                            VoiceOutcome::new(risk, "executed"),
-                            None,
-                        );
-                    }
-                    Err(error) => {
-                        log_voice_runtime_failed(&transcript, &error);
-                        self.voice
-                            .set_error(format!("Voice command failed: {error}"));
-                        self.save_voice_history(
-                            raw_transcript.clone(),
-                            refined_transcript.clone(),
-                            planner_json,
-                            confidence,
-                            VoiceOutcome::new(risk, "runtime_error"),
-                            Some(error),
-                        );
-                    }
-                }
-            }
-        }
-        cx.notify();
-    }
-
-    fn voice_planning_request(&self, transcript: String) -> VoicePlanningRequest {
-        let selected_node_ids = self
-            .runtime
-            .document
-            .nodes()
-            .iter()
-            .filter(|node| self.runtime.selection.contains(node.id))
-            .map(|node| node.id)
-            .collect();
-        VoicePlanningRequest {
-            transcript,
-            cards: self
-                .runtime
-                .document
-                .nodes()
-                .iter()
-                .map(|node| CardRef {
-                    node_id: node.id,
-                    title: node.kind.display_title(),
-                    alias: match &node.kind {
-                        canvas::CanvasNodeKind::Agent(spec) => spec.alias.clone(),
-                        _ => None,
-                    },
-                    kind: voice_card_kind(&node.kind),
-                    selected: self.runtime.selection.contains(node.id),
-                    focused: matches!(
-                        self.runtime.focus.mode(),
-                        runtime::InputMode::NodeFocused(id) if id == node.id
-                    ),
-                })
-                .collect(),
-            focused_node_id: match self.runtime.focus.mode() {
-                runtime::InputMode::NodeFocused(id) => Some(id),
-                runtime::InputMode::CanvasSelect => None,
-            },
-            selected_node_ids,
-            max_steps: DEFAULT_MAX_VOICE_STEPS,
-        }
-    }
-}
-
-fn risk_label(risk: RiskLevel) -> &'static str {
-    match risk {
-        RiskLevel::Low => "low",
-        RiskLevel::Medium => "medium",
-        RiskLevel::High => "high",
-    }
-}
-
-fn voice_card_kind(kind: &canvas::CanvasNodeKind) -> VoiceCardKind {
-    match kind {
-        canvas::CanvasNodeKind::Term(_) => VoiceCardKind::Terminal,
-        canvas::CanvasNodeKind::Agent(spec) => VoiceCardKind::Agent {
-            profile: match spec.profile {
-                canvas::AgentProfile::Claude => norma::protocol::AgentProfile::Claude,
-                canvas::AgentProfile::Codex => norma::protocol::AgentProfile::Codex,
-                canvas::AgentProfile::Cursor => norma::protocol::AgentProfile::Cursor,
-                canvas::AgentProfile::OpenCode => norma::protocol::AgentProfile::OpenCode,
-            },
-        },
-        canvas::CanvasNodeKind::Preview(_) => VoiceCardKind::Preview,
-        canvas::CanvasNodeKind::Browser(_) => VoiceCardKind::Browser,
-        canvas::CanvasNodeKind::Rect(_) => VoiceCardKind::Rect,
     }
 }
 

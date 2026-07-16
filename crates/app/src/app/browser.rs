@@ -1,6 +1,7 @@
 //! Browser card state, commands, and native WebView lifecycle.
 
 use super::MultisoulApp;
+use crate::canvas::master_layout::{enter_master_layout_for_area, switch_master_layout_for_area};
 use crate::cards::browser::normalize_browser_url;
 use canvas::{CanvasNodeKind, NodeId};
 use gpui::{Action, AppContext as _, Context, Entity, Subscription, Window};
@@ -24,6 +25,10 @@ pub(crate) use store::BrowserStore;
 pub(crate) use wry_backend::initialize_safari_browser_identity;
 
 const CEF_MESSAGE_PUMP_INTERVAL: Duration = Duration::from_millis(16);
+
+pub(crate) fn native_browser_views_visible(settings_panel_open: bool) -> bool {
+    !settings_panel_open
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum BrowserCommandKind {
@@ -54,6 +59,58 @@ pub(crate) enum BrowserEvent {
 }
 
 impl MultisoulApp {
+    pub(crate) fn open_terminal_link_in_browser_card(&mut self, url: String, window: &mut Window) {
+        let bounds = self
+            .visible_canvas_rect(window)
+            .inset(self.layout_gap_canvas());
+        let node_id = self.runtime.spawn_browser(url, None, bounds);
+        self.motion.spawn_node(node_id, bounds);
+        let area = self.visible_canvas_rect(window);
+        let zoom = self.runtime.document.viewport.zoom;
+        let arranged = if self.master_layout.is_active() {
+            switch_master_layout_for_area(
+                &mut self.master_layout,
+                &mut self.runtime,
+                &mut self.motion,
+                node_id,
+                area,
+                zoom,
+            )
+        } else {
+            enter_master_layout_for_area(
+                &mut self.master_layout,
+                &mut self.runtime,
+                &mut self.motion,
+                node_id,
+                area,
+                zoom,
+            )
+        };
+        if arranged {
+            self.mark_canvas_dirty();
+        } else {
+            self.workspace_state.error = Some("Could not arrange browser link card.".to_string());
+        }
+    }
+
+    pub(crate) fn open_url_in_default_browser(&mut self, url: String) {
+        #[cfg(target_os = "macos")]
+        {
+            let _ = std::thread::Builder::new()
+                .name("open_terminal_link_in_default_browser".to_string())
+                .spawn(move || {
+                    if let Err(error) = std::process::Command::new("open").arg(url).spawn() {
+                        tracing::warn!(%error, "failed to open terminal link in default browser");
+                    }
+                });
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            self.workspace_state.error =
+                Some("Opening terminal links externally is only available on macOS.".to_string());
+        }
+    }
+
     pub(crate) fn start_cef_message_pump_loop(
         &mut self,
         window: &mut Window,
@@ -305,6 +362,10 @@ mod cef_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/browser_view_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/browser_overlay_visibility_tests.rs"]
+mod overlay_visibility_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/browser_interaction_visual_tests.rs"]

@@ -3,6 +3,7 @@
 mod actions;
 mod backdrop;
 mod layout;
+mod preview;
 mod recent;
 
 use self::actions::{action_card, launchpad_brand};
@@ -10,6 +11,7 @@ use self::backdrop::launchpad_backdrop;
 use self::layout::launchpad_layout_for_window;
 #[cfg(test)]
 use self::layout::LaunchpadLayoutMode;
+use self::preview::workspace_preview;
 #[cfg(test)]
 use self::recent::recent_project_records_for_launchpad;
 use crate::app::wallpaper_resolvers::resolve_builtin_asset;
@@ -51,8 +53,11 @@ impl MultisoulApp {
             .right(px(0.0))
             .bottom(px(0.0))
             .overflow_hidden()
-            .bg(rgba(theme.graphite))
+            .bg(rgba(theme.canvas_from))
             .child(launchpad_backdrop(theme, launchpad_video))
+            .when(layout.preview_visible, |root| {
+                root.child(workspace_preview(theme, layout))
+            })
             .child(
                 div()
                     .absolute()
@@ -62,7 +67,7 @@ impl MultisoulApp {
                     .h(px(layout.content_max_height))
                     .flex()
                     .flex_col()
-                    .gap(px(20.0))
+                    .gap(px(24.0))
                     .child(launchpad_brand(theme))
                     .child(
                         div()
@@ -116,15 +121,6 @@ pub(super) fn launchpad_shadow(theme: Theme) -> Vec<BoxShadow> {
         offset: point(px(0.0), px(16.0)),
         blur_radius: px(34.0),
         spread_radius: px(-22.0),
-    }]
-}
-
-pub(super) fn launchpad_logo_shadow(theme: Theme) -> Vec<BoxShadow> {
-    vec![BoxShadow {
-        color: rgba(with_alpha(theme.shadow_color, 0x8c)).into(),
-        offset: point(px(0.0), px(12.0)),
-        blur_radius: px(24.0),
-        spread_radius: px(-14.0),
     }]
 }
 

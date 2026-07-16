@@ -105,6 +105,7 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
             workflow_description TEXT NOT NULL,
             enabled INTEGER NOT NULL DEFAULT 1,
             sort_order INTEGER NOT NULL DEFAULT 0,
+            origin TEXT NOT NULL DEFAULT 'explicit',
             created_at_unix INTEGER NOT NULL,
             updated_at_unix INTEGER NOT NULL
         );
@@ -205,14 +206,33 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
         "speech_alias",
         "speech_alias TEXT",
     )?;
+    ensure_column(
+        connection,
+        "agent_definitions",
+        "origin",
+        "origin TEXT NOT NULL DEFAULT 'explicit'",
+    )?;
     connection.execute(
         "UPDATE agent_definitions SET name_key = lower(name) WHERE name_key IS NULL",
+        [],
+    )?;
+    connection.execute(
+        "UPDATE agent_definitions AS owner SET speech_alias = NULL
+         WHERE speech_alias IS NOT NULL AND EXISTS (
+             SELECT 1 FROM agent_definitions AS other
+             WHERE other.id != owner.id AND other.name_key = owner.speech_alias
+         )",
         [],
     )?;
     for builtin in agent::builtin_agent_names() {
         connection.execute(
             "UPDATE agent_definitions SET speech_alias = ?1 \
-             WHERE name = ?2 COLLATE NOCASE AND speech_alias IS NULL",
+             WHERE name = ?2 COLLATE NOCASE AND speech_alias IS NULL \
+             AND NOT EXISTS ( \
+                 SELECT 1 FROM agent_definitions AS other \
+                 WHERE other.id != agent_definitions.id \
+                 AND (other.name_key = ?1 OR other.speech_alias = ?1) \
+             )",
             rusqlite::params![builtin.speech_alias(), builtin.name()],
         )?;
     }

@@ -1,5 +1,5 @@
 use super::*;
-use crate::workspace::flow::enter_workspace_for_path;
+use crate::workspace::flow::{enter_workspace_for_path, WorkspaceCanvasState};
 use crate::workspace::persistence::PersistenceScheduler;
 use canvas::{compute_responsive_grid_layout, AgentProfile, AgentSpec, CanvasNodeKind, RectNode};
 use runtime::{AgentTaskState, AgentTaskUpdate, CardAttentionKind, CardAttentionState};
@@ -295,8 +295,10 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
 
     let result = enter_workspace_for_path(
         &mut runtime,
-        &mut motion,
-        &mut master_layout,
+        WorkspaceCanvasState {
+            motion: &mut motion,
+            master_layout: &mut master_layout,
+        },
         &mut persistence,
         &mut agent_definitions,
         &mut screen,
@@ -385,8 +387,10 @@ fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
 
     let result = enter_workspace_for_path(
         &mut runtime,
-        &mut motion,
-        &mut master_layout,
+        WorkspaceCanvasState {
+            motion: &mut motion,
+            master_layout: &mut master_layout,
+        },
         &mut persistence,
         &mut agent_definitions,
         &mut screen,

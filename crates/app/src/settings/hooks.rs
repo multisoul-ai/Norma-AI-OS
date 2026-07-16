@@ -275,6 +275,10 @@ fn status_message(theme: Theme, status: &HookInstallStatus) -> Vec<Div> {
         .child(message.to_string())]
 }
 
+fn with_alpha(color: u32, alpha: u8) -> u32 {
+    (color & 0xffffff00) | u32::from(alpha)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -316,8 +320,4 @@ mod tests {
             "安装成功消息不能只报告 Installed，否则会遗漏旧 Agent 不会热加载 hooks 的关键事实"
         );
     }
-}
-
-fn with_alpha(color: u32, alpha: u8) -> u32 {
-    (color & 0xffffff00) | u32::from(alpha)
 }

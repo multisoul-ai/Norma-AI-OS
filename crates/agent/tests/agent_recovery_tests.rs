@@ -1,4 +1,4 @@
-mod support;
+pub mod support;
 
 use agent::{AgentCommand, AgentEvent, AgentSystem, AuditEntry, CardTaskBudget, CardTaskJournal};
 use support::{task_id_from, RecordingHost, ScriptedProvider};

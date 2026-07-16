@@ -1,4 +1,6 @@
 //! App-layer shell state for Continuous Listening local voice dialogue.
+mod artifacts;
+#[cfg(test)]
 mod card_tools;
 mod chat;
 mod error;
@@ -8,10 +10,12 @@ mod reply;
 mod reply_loop;
 mod reply_stream;
 mod shell;
+#[cfg(test)]
 mod turn;
 use crate::app::voice::control::VoiceVisual;
 use crate::app::voice_window_inset::TtsPlaybackEvent;
 use crate::settings::voice::{resolve_available_asr_model, VoiceSettingsValues};
+pub(crate) use artifacts::VoiceTurnArtifacts;
 use dialogue::{
     apply_asr_final, handle_speaking_speech_start, DialoguePhase, DialogueSession,
     SpeakingSpeechSource, UtteranceCommitter,
@@ -33,7 +37,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-pub(crate) use turn::VoiceTurnArtifacts;
 use voice_sherpa::{PcmStreamSession, SherpaProvider, SpeechError};
 type MicPermissionCheck = fn() -> Result<(), SpeechError>;
 
@@ -58,7 +61,6 @@ pub(crate) enum VoiceShortcutKeyDownAction {
     StartContinuousListening,
     StopContinuousListening,
     InterruptAssistantReply,
-    Ignore,
 }
 
 pub(crate) trait CardTaskCancelHook: Send {

@@ -66,7 +66,3 @@ impl AsrClient for SherpaAsrStreamClient {
         self.last_partial.clear();
     }
 }
-
-#[cfg(test)]
-#[path = "../tests/unit/asr_stream_tests.rs"]
-mod asr_stream_tests;

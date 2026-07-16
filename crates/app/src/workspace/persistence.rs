@@ -7,20 +7,35 @@ use storage::{ProjectStore, StorageError};
 
 const PERSISTENCE_DEBOUNCE: Duration = Duration::from_millis(360);
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum PersistenceSaveState {
+    Clean,
+    Pending,
+    Failed,
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct PersistenceScheduler {
     project_store: Option<ProjectStore>,
+    agent_dispatch_writer: Option<storage::BackgroundAgentDispatchStore>,
     canvas_dirty: bool,
     session_dirty: bool,
     dirty_for: Duration,
+    last_save_failed: bool,
 }
 
 impl PersistenceScheduler {
     pub(crate) fn set_project_store(&mut self, store: ProjectStore) {
+        let previous_writer = self.agent_dispatch_writer.take();
+        self.agent_dispatch_writer = Some(storage::BackgroundAgentDispatchStore::new_after(
+            previous_writer,
+            store.agent_dispatch_task_store(),
+        ));
         self.project_store = Some(store);
         self.canvas_dirty = false;
         self.session_dirty = false;
         self.dirty_for = Duration::ZERO;
+        self.last_save_failed = false;
     }
 
     pub(crate) fn mark_canvas_dirty(&mut self) {
@@ -56,6 +71,15 @@ impl PersistenceScheduler {
         runtime: &Runtime,
         master_layout: &MasterLayoutState,
     ) -> Result<bool, StorageError> {
+        let result = self.flush_pending(runtime, master_layout);
+        self.track_flush_result(result)
+    }
+
+    fn flush_pending(
+        &mut self,
+        runtime: &Runtime,
+        master_layout: &MasterLayoutState,
+    ) -> Result<bool, StorageError> {
         let Some(project_store) = self.project_store.as_ref() else {
             self.canvas_dirty = false;
             self.session_dirty = false;
@@ -87,7 +111,25 @@ impl PersistenceScheduler {
         Ok(had_pending_work)
     }
 
-    fn has_pending_work(&self) -> bool {
+    fn track_flush_result(
+        &mut self,
+        result: Result<bool, StorageError>,
+    ) -> Result<bool, StorageError> {
+        self.last_save_failed = result.is_err();
+        result
+    }
+
+    pub(crate) fn save_state(&self) -> PersistenceSaveState {
+        if self.last_save_failed {
+            PersistenceSaveState::Failed
+        } else if self.has_pending_work() {
+            PersistenceSaveState::Pending
+        } else {
+            PersistenceSaveState::Clean
+        }
+    }
+
+    pub(crate) fn has_pending_work(&self) -> bool {
         self.canvas_dirty || self.session_dirty
     }
 
@@ -104,10 +146,8 @@ impl PersistenceScheduler {
             .map(Some)
     }
 
-    pub(crate) fn agent_dispatch_task_store(&self) -> Option<storage::AgentDispatchTaskStore> {
-        self.project_store
-            .as_ref()
-            .map(ProjectStore::agent_dispatch_task_store)
+    pub(crate) fn agent_dispatch_writer(&self) -> Option<&storage::BackgroundAgentDispatchStore> {
+        self.agent_dispatch_writer.as_ref()
     }
 }
 
@@ -128,7 +168,6 @@ impl MultisoulApp {
             Ok(changed) => changed,
             Err(error) => {
                 tracing::warn!(%error, "workspace persistence tick failed");
-                self.workspace_state.error = Some(format!("Could not save workspace: {error}"));
                 true
             }
         }
@@ -140,6 +179,11 @@ impl MultisoulApp {
             .flush_now(&self.runtime, &self.master_layout)
         {
             tracing::warn!(%error, "workspace persistence flush failed");
+        }
+        if let Some(writer) = self.persistence.agent_dispatch_writer() {
+            if let Err(error) = writer.flush() {
+                tracing::warn!(%error, "Agent dispatch persistence flush failed");
+            }
         }
     }
 }
@@ -302,6 +346,66 @@ mod tests {
             sessions[0].cwd.as_deref(),
             Some("/tmp/stale"),
             "保留下来的 node session 应保持原 cwd，不应被空 runtime 覆盖"
+        );
+    }
+
+    /// P-3: 保存失败状态必须由 PersistenceScheduler 独立维护，并在下一次成功 flush 后恢复。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   初始 dirty 数 = 0，因此 save_state=Clean。
+    ///   第一次 flush result = Err(MissingHomeDirectory)，因此 save_state=Failed。
+    ///   第二次 flush result = Ok(true)，并清除 1 个 canvas dirty 标记，因此 save_state=Clean。
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 新建默认 scheduler，确认初始状态为 Clean。
+    ///   2. 标记 canvas dirty，并记录一次失败 flush。
+    ///   3. 模拟成功 flush 清除 dirty，再记录 Ok(true)。
+    ///   4. 检查失败状态已恢复，不依赖 workspace_state.error 的字符串内容。
+    ///
+    /// 预期结果：
+    ///   - 正断言：失败后为 Failed，成功后恢复 Clean。
+    ///   - 正断言：有 dirty 且无失败时为 Pending。
+    ///   - 负断言：成功后不得残留 Failed，否则顶部会永久显示 Save issue。
+    #[test]
+    fn test_save_state_recovers_after_successful_flush() {
+        let mut scheduler = PersistenceScheduler::default();
+
+        assert_eq!(
+            scheduler.save_state(),
+            PersistenceSaveState::Clean,
+            "默认 scheduler 无脏数据且无错误，应显示 Clean"
+        );
+        scheduler.mark_canvas_dirty();
+        assert_eq!(
+            scheduler.save_state(),
+            PersistenceSaveState::Pending,
+            "标记一个 canvas dirty 后应显示 Pending"
+        );
+
+        let failed = scheduler.track_flush_result(Err(StorageError::MissingHomeDirectory));
+        assert!(failed.is_err(), "失败的 flush 结果必须原样返回给调用方");
+        assert_eq!(
+            scheduler.save_state(),
+            PersistenceSaveState::Failed,
+            "记录失败 flush 后应显示 Failed"
+        );
+
+        scheduler.canvas_dirty = false;
+        let recovered = scheduler.track_flush_result(Ok(true));
+        assert_eq!(
+            recovered.expect("成功 flush 结果应原样返回"),
+            true,
+            "成功 flush 应保留 had_pending_work=true"
+        );
+        assert_eq!(
+            scheduler.save_state(),
+            PersistenceSaveState::Clean,
+            "下一次成功 flush 后必须清除 Failed，恢复 Clean"
+        );
+        assert_ne!(
+            scheduler.save_state(),
+            PersistenceSaveState::Failed,
+            "成功 flush 后不得永久残留 Save issue"
         );
     }
 }

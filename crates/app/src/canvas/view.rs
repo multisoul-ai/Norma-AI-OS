@@ -2,7 +2,7 @@
 //! 事件处理（pan、拖拽、单击）见 `events` 子模块。
 
 use super::events;
-use crate::app::browser::browser_native_view_bounds;
+use crate::app::browser::{browser_native_view_bounds, native_browser_views_visible};
 use crate::app::MultisoulApp;
 #[cfg(test)]
 use crate::canvas::events::{should_focus_app_root_for_mouse_down, should_notify_motion_frame};
@@ -10,14 +10,12 @@ use crate::canvas::events::{should_focus_app_root_for_mouse_down, should_notify_
 use crate::canvas::geometry::terminal_content_local_position;
 #[cfg(test)]
 use crate::canvas::geometry::{apply_canvas_wheel_scroll, click_event_for_node, is_title_bar_hit};
-use crate::canvas::geometry::{
-    node_card_radius_px, node_edge_highlight_inset_px, node_terminal_radius_px,
-    node_title_radius_px,
-};
+use crate::canvas::geometry::{node_card_radius_px, node_terminal_radius_px, node_title_radius_px};
 #[cfg(test)]
 use crate::canvas::interaction::InteractionState;
 use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
 use crate::cards::browser::card::BROWSER_TOOLBAR_H_PX;
+use crate::cards::chrome::card_title_background;
 use crate::cards::chrome::{
     node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
 };
@@ -26,7 +24,7 @@ use crate::cards::{card_for, CardBodyContext};
 #[cfg(test)]
 use canvas::Vec2;
 use canvas::{CanvasNodeKind, NodeId, NodeType};
-use gpui::{div, prelude::*, px, rgba, AnyElement, Context, MouseButton, Window};
+use gpui::{div, prelude::*, px, rgba, AnyElement, Context, FontWeight, MouseButton, Window};
 use runtime::InputMode;
 #[cfg(test)]
 use runtime::{route, Route};
@@ -57,8 +55,10 @@ pub fn render_canvas(
 
     // 先收集需要渲染的节点数据（避免借用冲突）。
     let swap_candidate = app.interaction.drag.as_ref().and_then(|d| d.swap_candidate);
+    let hovered_terminal_link = app.interaction.hovered_terminal_link.clone();
     let mut node_elems: Vec<AnyElement> = Vec::new();
     let mut visible_browser_nodes = HashSet::new();
+    let native_browser_views_visible = native_browser_views_visible(app.settings_panel.open);
     let mut visible_nodes = 0usize;
     let mut snake_nodes = 0usize;
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
@@ -135,7 +135,6 @@ pub fn render_canvas(
                 w >= CORNER_GLOW_MIN_SCREEN_PX && h >= CORNER_GLOW_MIN_SCREEN_PX,
             ))
             .border_color(rgba(stroke))
-            .bg(rgba(visual.fill_color))
             .opacity(visual.opacity)
             .rounded(px(node_radius))
             .overflow_hidden()
@@ -144,19 +143,19 @@ pub fn render_canvas(
                 cx.notify();
             }));
 
+        if hovered_terminal_link
+            .as_ref()
+            .map(|link| link.node_id == id)
+            .unwrap_or(false)
+        {
+            node_div = node_div.cursor_pointer();
+        }
+
         node_div = if visual.border_is_emphasized {
             node_div.border_2()
         } else {
             node_div.border_1()
         };
-
-        let edge_highlight = div()
-            .absolute()
-            .top(px(0.0))
-            .left(px(node_edge_highlight_inset_px(vp.zoom)))
-            .right(px(node_edge_highlight_inset_px(vp.zoom)))
-            .h(px(1.0))
-            .bg(rgba(visual.edge_highlight_color));
 
         // 标题栏
         let mut title_actions = div()
@@ -199,7 +198,7 @@ pub fn render_canvas(
                 .bg(rgba(with_alpha(theme.destructive, 0x12)))
                 .text_color(rgba(theme.text_tertiary))
                 .text_size(px((12.0 * vp.zoom).clamp(10.0, 13.0)))
-                .child("x")
+                .child("×")
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_click(cx.listener(move |app, _, window, cx| {
@@ -217,7 +216,9 @@ pub fn render_canvas(
             .items_center()
             .justify_between()
             .rounded_t(px(node_title_radius_px(vp.zoom)))
-            .bg(rgba(visual.title_bar_color))
+            .border_b_1()
+            .border_color(rgba(with_alpha(theme.edge_highlight, 0x70)))
+            .bg(card_title_background(visual.title_bar_color, theme))
             .text_color(rgba(theme.text_primary))
             .text_size(px((12.0 * vp.zoom).max(9.0)))
             .px(px(10.0 * vp.zoom))
@@ -232,11 +233,25 @@ pub fn render_canvas(
                     .gap_2()
                     .child(
                         div()
-                            .w(px(7.0 * vp.zoom))
-                            .h(px(7.0 * vp.zoom))
+                            .h(px((20.0 * vp.zoom).clamp(18.0, 22.0)))
                             .flex_none()
-                            .rounded(px(4.0 * vp.zoom))
-                            .bg(rgba(status)),
+                            .flex()
+                            .items_center()
+                            .gap(px(5.0 * vp.zoom))
+                            .px(px(7.0 * vp.zoom))
+                            .rounded(px((10.0 * vp.zoom).clamp(9.0, 11.0)))
+                            .bg(rgba(with_alpha(status, 0x18)))
+                            .text_color(rgba(status))
+                            .text_size(px((9.0 * vp.zoom).clamp(8.0, 10.0)))
+                            .font_weight(FontWeight::BOLD)
+                            .child(
+                                div()
+                                    .w(px(6.0 * vp.zoom))
+                                    .h(px(6.0 * vp.zoom))
+                                    .rounded(px(3.0 * vp.zoom))
+                                    .bg(rgba(status)),
+                            )
+                            .child(node_type_label(node_type)),
                     )
                     .child(
                         div()
@@ -271,28 +286,40 @@ pub fn render_canvas(
             },
         );
         if matches!(node_type, NodeType::Browser) {
-            visible_browser_nodes.insert(id);
-            if let CanvasNodeKind::Browser(spec) = &node.kind {
-                let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
-                app.sync_browser_view_for_node(
-                    id,
-                    &spec.url,
-                    browser_native_view_bounds(
-                        f64::from(top_left.x),
-                        f64::from(top_left.y),
-                        f64::from(w),
-                        f64::from(h),
-                        f64::from(browser_header_h),
-                        f64::from(node_terminal_radius_px(vp.zoom)),
-                    ),
-                    window,
-                );
+            if native_browser_views_visible {
+                visible_browser_nodes.insert(id);
+                if let CanvasNodeKind::Browser(spec) = &node.kind {
+                    let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
+                    app.sync_browser_view_for_node(
+                        id,
+                        &spec.url,
+                        browser_native_view_bounds(
+                            f64::from(top_left.x),
+                            f64::from(top_left.y),
+                            f64::from(w),
+                            f64::from(h),
+                            f64::from(browser_header_h),
+                            f64::from(node_terminal_radius_px(vp.zoom)),
+                        ),
+                        window,
+                    );
+                }
             }
         }
-        node_div = node_div
-            .child(edge_highlight)
-            .child(title_bar)
-            .child(card_body);
+        node_elems.push(
+            app.render_card_frosted_backdrop(
+                id,
+                top_left.x,
+                top_left.y,
+                w,
+                h,
+                node_radius,
+                win_w,
+                win_h,
+            )
+            .into_any_element(),
+        );
+        node_div = node_div.child(title_bar).child(card_body);
         if let Some(working_snake) = visual.working_snake {
             snake_nodes += 1;
             node_div = node_div.child(render_working_snake_border(
@@ -341,6 +368,10 @@ pub fn render_canvas(
     .log_if_enabled();
     app.finish_browser_view_sync(&visible_browser_nodes);
 
+    if let Some(link) = hovered_terminal_link {
+        node_elems.push(render_terminal_link_tooltip(link, theme, win_w, win_h));
+    }
+
     div()
         .id("canvas")
         .debug_selector(|| "canvas".to_string())
@@ -353,6 +384,33 @@ pub fn render_canvas(
         .on_mouse_up(MouseButton::Left, cx.listener(events::on_mouse_up))
         .on_mouse_up(MouseButton::Middle, cx.listener(events::on_mouse_up))
         .children(node_elems)
+}
+
+fn render_terminal_link_tooltip(
+    link: crate::canvas::interaction::HoveredTerminalLink,
+    theme: ui::Theme,
+    window_width: f32,
+    window_height: f32,
+) -> AnyElement {
+    let left = (link.screen_x as f32 + 12.0).clamp(8.0, (window_width - 360.0).max(8.0));
+    let top = (link.screen_y as f32 + 18.0).clamp(8.0, (window_height - 34.0).max(8.0));
+    div()
+        .absolute()
+        .left(px(left))
+        .top(px(top))
+        .max_w(px(352.0))
+        .px(px(8.0))
+        .py(px(5.0))
+        .rounded(px(6.0))
+        .border_1()
+        .border_color(rgba(with_alpha(theme.accent_cyan, 0x72)))
+        .bg(rgba(with_alpha(theme.panel, 0xf2)))
+        .text_size(px(11.0))
+        .text_color(rgba(theme.text_primary))
+        .overflow_hidden()
+        .truncate()
+        .child(link.url)
+        .into_any_element()
 }
 
 fn swap_highlight_overlay(
@@ -379,6 +437,16 @@ fn with_alpha(color: u32, alpha: u8) -> u32 {
     (color & 0xffffff00) | u32::from(alpha)
 }
 
+fn node_type_label(node_type: NodeType) -> &'static str {
+    match node_type {
+        NodeType::Term => "TERMINAL",
+        NodeType::Agent => "AGENT",
+        NodeType::Preview => "PREVIEW",
+        NodeType::Browser => "BROWSER",
+        NodeType::Rect => "NODE",
+    }
+}
+
 #[cfg(test)]
 #[path = "../../tests/unit/canvas_view_tests.rs"]
 mod tests;
@@ -386,3 +454,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../../tests/unit/chase_canvas_view_contract_tests.rs"]
 mod chase_canvas_view_contract_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/product_ui_canvas_tests.rs"]
+mod product_ui_canvas_tests;

@@ -63,6 +63,11 @@ pub(crate) struct WorkspaceOpenResult {
     pending_live_restore: PendingLiveSessionRestore,
 }
 
+pub(crate) struct WorkspaceCanvasState<'a> {
+    pub(crate) motion: &'a mut MotionStore,
+    pub(crate) master_layout: &'a mut crate::canvas::master_layout::MasterLayoutState,
+}
+
 impl MultisoulApp {
     pub(crate) fn prompt_open_project(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let receiver = cx.prompt_for_paths(PathPromptOptions {
@@ -115,8 +120,10 @@ impl MultisoulApp {
         self.agent_runtime = None;
         let result = enter_workspace_for_path(
             &mut self.runtime,
-            &mut self.motion,
-            &mut self.master_layout,
+            WorkspaceCanvasState {
+                motion: &mut self.motion,
+                master_layout: &mut self.master_layout,
+            },
             &mut self.persistence,
             &mut self.agent_definitions,
             &mut self.screen,
@@ -125,6 +132,7 @@ impl MultisoulApp {
         );
         match result {
             Ok(opened) => {
+                self.agent_task_coordinator = None;
                 self.reset_agent_announcements();
                 self.dialogue.stop_shell();
                 self.focus_handle.focus(window);
@@ -214,14 +222,17 @@ impl MultisoulApp {
 
 pub(crate) fn enter_workspace_for_path(
     runtime: &mut Runtime,
-    motion: &mut MotionStore,
-    master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
+    canvas: WorkspaceCanvasState<'_>,
     persistence: &mut PersistenceScheduler,
     agent_definitions: &mut AgentDefinitionsState,
     screen: &mut AppScreen,
     workspace_state: &mut WorkspaceState,
     path: &Path,
 ) -> Result<WorkspaceOpenResult, String> {
+    let WorkspaceCanvasState {
+        motion,
+        master_layout,
+    } = canvas;
     let total_start = Instant::now();
     let mut stage_start = total_start;
     let root = workspace_state.open_workspace(path, WorkspaceSource::Open)?;
@@ -242,10 +253,6 @@ pub(crate) fn enter_workspace_for_path(
     project_store
         .migrate()
         .map_err(|error| format!("Could not migrate project storage: {error}"))?;
-    project_store
-        .agent_dispatch_task_store()
-        .mark_incomplete_interrupted()
-        .map_err(|error| format!("Could not interrupt restored Agent tasks: {error}"))?;
     log_workspace_open_timing(
         "workspace_open_migrate",
         &root,

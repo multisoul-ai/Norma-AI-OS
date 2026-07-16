@@ -4,6 +4,7 @@ pub mod agent_definition_store;
 pub mod agent_dispatch_store;
 pub mod agent_task_store;
 pub mod app_store;
+pub mod background_agent_dispatch;
 pub mod background_agent_journal;
 pub mod canvas_store;
 pub mod error;
@@ -17,7 +18,8 @@ pub mod settings_store;
 pub mod voice_history_store;
 
 pub use agent_definition_store::{
-    AgentDefinition, AgentDefinitionStore, AgentDefinitionUpdate, NewAgentDefinition,
+    AgentDefinition, AgentDefinitionOrigin, AgentDefinitionStore, AgentDefinitionUpdate,
+    NewAgentDefinition,
 };
 pub use agent_dispatch_store::{
     AgentDispatchTaskState, AgentDispatchTaskStore, AgentDispatchTracking, NewAgentDispatchTask,
@@ -25,6 +27,7 @@ pub use agent_dispatch_store::{
 };
 pub use agent_task_store::{AgentTaskStore, StoredAgentTask};
 pub use app_store::{default_app_data_dir, default_app_db_path, legacy_app_data_dir, AppStore};
+pub use background_agent_dispatch::BackgroundAgentDispatchStore;
 pub use background_agent_journal::BackgroundAgentTaskJournal;
 pub use canvas_store::CanvasStore;
 pub use error::{StorageError, StorageResult};

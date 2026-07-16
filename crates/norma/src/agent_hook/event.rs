@@ -40,7 +40,8 @@ pub fn task_state_for_provider_event(event: &AgentHookEvent) -> Option<AgentHook
         "PermissionRequest" => Some(AgentHookTaskState::WaitingApproval {
             tool_name: event.tool_name.clone(),
         }),
-        "PostToolUseFailure" | "StopFailure" => Some(AgentHookTaskState::Failed {
+        "PostToolUseFailure" => Some(AgentHookTaskState::Thinking),
+        "StopFailure" => Some(AgentHookTaskState::Failed {
             message: event
                 .message
                 .clone()

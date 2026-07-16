@@ -56,15 +56,15 @@ fn test_voice_settings_auto_save_coalesces_latest_value_and_reloads() {
     let temp = tempfile::tempdir().expect("测试应创建临时目录");
     let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
     let mut state = VoiceSettingsState::load_from_store(store.clone());
-    state.begin_edit(VoiceSettingsField::AgentModel);
+    state.begin_edit(VoiceSettingsField::Model);
 
-    state.auto_save_edit_value(VoiceSettingsField::AgentModel, "a".to_string());
-    state.auto_save_edit_value(VoiceSettingsField::AgentModel, "ab".to_string());
-    state.auto_save_edit_value(VoiceSettingsField::AgentModel, "abc".to_string());
+    state.auto_save_edit_value(VoiceSettingsField::Model, "a".to_string());
+    state.auto_save_edit_value(VoiceSettingsField::Model, "ab".to_string());
+    state.auto_save_edit_value(VoiceSettingsField::Model, "abc".to_string());
 
     assert_eq!(
         state.editing_field(),
-        Some(VoiceSettingsField::AgentModel),
+        Some(VoiceSettingsField::Model),
         "自动保存期间必须保持 Model 编辑态"
     );
     assert_eq!(
@@ -111,9 +111,9 @@ fn test_voice_settings_auto_save_rejects_empty_required_value() {
     let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
     let mut state = VoiceSettingsState::load_from_store(store);
     let original = state.active_agent_model().to_string();
-    state.begin_edit(VoiceSettingsField::AgentModel);
+    state.begin_edit(VoiceSettingsField::Model);
 
-    let saved = state.auto_save_edit_value(VoiceSettingsField::AgentModel, String::new());
+    let saved = state.auto_save_edit_value(VoiceSettingsField::Model, String::new());
 
     assert_eq!(saved, None, "空 Model 不应被自动保存为有效设置");
     assert_eq!(
@@ -123,7 +123,7 @@ fn test_voice_settings_auto_save_rejects_empty_required_value() {
     );
     assert_eq!(
         state.editing_field(),
-        Some(VoiceSettingsField::AgentModel),
+        Some(VoiceSettingsField::Model),
         "拒绝空值后应继续保持 Model 编辑态"
     );
     assert!(
@@ -147,9 +147,9 @@ fn test_voice_settings_auto_save_empty_api_key_preserves_saved_secret() {
     let temp = tempfile::tempdir().expect("测试应创建临时目录");
     let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
     let mut state = VoiceSettingsState::load_from_store(store.clone());
-    state.begin_edit(VoiceSettingsField::AgentApiKey);
+    state.begin_edit(VoiceSettingsField::ApiKey);
     let configured =
-        state.auto_save_edit_value(VoiceSettingsField::AgentApiKey, "test-api-key".to_string());
+        state.auto_save_edit_value(VoiceSettingsField::ApiKey, "test-api-key".to_string());
     assert!(configured.is_some(), "测试前置 API Key 应被状态层接受");
     let setup_writes = state.take_pending_writes();
     assert_eq!(setup_writes.len(), 1, "测试前置应产生一个 API Key 写入");
@@ -158,8 +158,8 @@ fn test_voice_settings_auto_save_empty_api_key_preserves_saved_secret() {
     }
     state.record_persistence_result(Ok(()));
 
-    state.begin_edit(VoiceSettingsField::AgentApiKey);
-    let saved = state.auto_save_edit_value(VoiceSettingsField::AgentApiKey, String::new());
+    state.begin_edit(VoiceSettingsField::ApiKey);
+    let saved = state.auto_save_edit_value(VoiceSettingsField::ApiKey, String::new());
 
     assert_eq!(saved, None, "空 API Key 不应被自动保存为删除操作");
     assert!(
@@ -213,7 +213,7 @@ fn test_voice_settings_auto_save_empty_api_key_preserves_saved_secret() {
 fn test_voice_settings_clear_api_key_cancels_edit_and_draft() {
     let mut state = VoiceSettingsState::in_memory_default();
     state.begin_edit_with_value(
-        VoiceSettingsField::AgentApiKey,
+        VoiceSettingsField::ApiKey,
         "replacement-test-key".to_string(),
     );
 

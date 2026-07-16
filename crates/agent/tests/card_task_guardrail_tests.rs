@@ -1,4 +1,4 @@
-mod support;
+pub mod support;
 
 use agent::{AgentCommand, AgentEvent};
 use norma::protocol::{CardCommand, CardSummary, CardSummaryKind};
@@ -203,15 +203,17 @@ fn card_task_delete_takes_priority_in_compact_success_report() {
 /// 预期结果：list 后 send_text 可抵达 host；成功播报仅表达已提交内容，不暴露内部查证步骤。
 #[test]
 fn card_task_allows_an_existing_card_after_its_list_receipt() {
-    let mut host = RecordingHost::default();
-    host.listed_cards = vec![CardSummary {
-        node_id: 42,
-        title: "shell".to_string(),
-        alias: None,
-        kind: CardSummaryKind::Terminal,
-        selected: false,
-        focused: false,
-    }];
+    let host = RecordingHost {
+        listed_cards: vec![CardSummary {
+            node_id: 42,
+            title: "shell".to_string(),
+            alias: None,
+            kind: CardSummaryKind::Terminal,
+            selected: false,
+            focused: false,
+        }],
+        ..RecordingHost::default()
+    };
     let mut system = system(
         ScriptedProvider::default(),
         ScriptedProvider::new([
@@ -376,15 +378,17 @@ fn card_task_list_does_not_resolve_a_different_failed_operation() {
 /// 预期结果：重试 send_text 抵达 host；任务成功，摘要只列三个成功回执而不把第一次失败说成已执行。
 #[test]
 fn card_task_can_recover_by_retrying_the_same_command_after_list() {
-    let mut host = RecordingHost::default();
-    host.listed_cards = vec![CardSummary {
-        node_id: 42,
-        title: "existing shell".to_string(),
-        alias: None,
-        kind: CardSummaryKind::Terminal,
-        selected: false,
-        focused: false,
-    }];
+    let host = RecordingHost {
+        listed_cards: vec![CardSummary {
+            node_id: 42,
+            title: "existing shell".to_string(),
+            alias: None,
+            kind: CardSummaryKind::Terminal,
+            selected: false,
+            focused: false,
+        }],
+        ..RecordingHost::default()
+    };
     let send_arguments = r#"{"node_id":42,"text":"pwd","submit":true}"#;
     let mut system = system(
         ScriptedProvider::default(),

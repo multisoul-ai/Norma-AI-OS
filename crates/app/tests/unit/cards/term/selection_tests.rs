@@ -9,6 +9,7 @@ fn default_cell(c: char) -> Cell {
         fg: TerminalColor::Named(TerminalNamedColor::Foreground),
         bg: TerminalColor::Named(TerminalNamedColor::Background),
         attrs: CellAttrs::default(),
+        hyperlink: None,
     }
 }
 

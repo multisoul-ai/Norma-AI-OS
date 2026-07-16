@@ -25,6 +25,7 @@ terminal = { path = "../terminal" }
 norma.workspace = true
 serde_json.workspace = true
 voice.workspace = true
+workspace.workspace = true
 gpui = { workspace = true, features = ["test-support"] }
 crossbeam-channel = { workspace = true }
 tempfile = { workspace = true }

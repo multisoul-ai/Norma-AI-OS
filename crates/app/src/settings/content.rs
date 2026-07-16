@@ -13,12 +13,16 @@ mod keyboard;
 use self::hooks::hooks_settings;
 use self::keyboard::keyboard_settings;
 
+pub(super) struct VoiceSettingsContent<'a> {
+    pub(super) state: &'a VoiceSettingsState,
+    pub(super) inputs: &'a VoiceSettingsInputs,
+}
+
 pub(super) fn settings_content(
     theme: Theme,
     panel: &SettingsPanelState,
     agent_definitions: &AgentDefinitionsState,
-    voice_state: &VoiceSettingsState,
-    voice_inputs: &VoiceSettingsInputs,
+    voice: VoiceSettingsContent<'_>,
     wallpaper_state: &WallpaperSettingsState,
     shortcuts: &ShortcutSettingsState,
     cx: &mut Context<MultisoulApp>,
@@ -30,7 +34,7 @@ pub(super) fn settings_content(
         .h_full()
         .flex()
         .flex_col()
-        .bg(rgba(with_alpha(theme.term_bg, 0x72)))
+        .bg(rgba(with_alpha(theme.panel_high, 0xd4)))
         .child(content_header(theme, panel.active_section, cx))
         .child(
             div()
@@ -41,16 +45,17 @@ pub(super) fn settings_content(
                 .min_h(px(0.0))
                 .overflow_y_scroll()
                 .overflow_x_hidden()
-                .px(px(20.0))
-                .pb(px(32.0))
+                .px(px(28.0))
+                .pb(px(40.0))
                 .child(match panel.active_section {
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
-                    SettingsSection::Voice => voice_settings(theme, voice_state, voice_inputs, cx),
+                    SettingsSection::Voice => voice_settings(theme, voice.state, voice.inputs, cx),
                     SettingsSection::Agents => agents_settings(theme, agent_definitions, cx),
                     SettingsSection::Hooks => hooks_settings(theme, panel, cx),
                     SettingsSection::Wallpaper => wallpaper_settings(theme, wallpaper_state, cx),
                     // Mock-only sections are hidden from the sidebar; keep a blank
                     // fallback so stale state or tests cannot route to old placeholders.
+                    #[cfg(test)]
                     SettingsSection::General
                     | SettingsSection::Runtime
                     | SettingsSection::Skills => div(),
@@ -68,7 +73,7 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
         .gap(px(3.0))
         .child(
             div()
-                .text_size(px(21.0))
+                .text_size(px(24.0))
                 .font_weight(FontWeight::BOLD)
                 .text_color(rgba(theme.text_primary))
                 .child(content_title(section)),
@@ -76,20 +81,20 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
     if !subtitle.is_empty() {
         title_column = title_column.child(
             div()
-                .text_size(px(16.0))
+                .text_size(px(14.0))
                 .text_color(rgba(theme.text_tertiary))
                 .child(subtitle),
         );
     }
 
     div()
-        .min_h(px(88.0))
+        .min_h(px(104.0))
         .flex()
         .flex_row()
         .items_start()
         .justify_between()
-        .pt(px(26.0))
-        .px(px(20.0))
+        .pt(px(30.0))
+        .px(px(28.0))
         .pb(px(18.0))
         .border_b_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
@@ -103,8 +108,8 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(px(8.0))
-                .text_size(px(25.0))
+                .rounded(px(17.0))
+                .text_size(px(22.0))
                 .line_height(px(26.0))
                 .text_color(rgba(theme.text_secondary))
                 .cursor_pointer()
@@ -112,17 +117,20 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
                 .on_click(cx.listener(|app, _, _window, cx| {
                     app.close_settings_panel(cx);
                 }))
-                .child("x"),
+                .child("×"),
         )
 }
 
 fn content_title(section: SettingsSection) -> &'static str {
     match section {
+        #[cfg(test)]
         SettingsSection::General => "Themes",
         SettingsSection::Keyboard => "Keyboard Shortcuts",
+        #[cfg(test)]
         SettingsSection::Runtime => "Runtime",
         SettingsSection::Voice => "Voice",
         SettingsSection::Agents => "Agents",
+        #[cfg(test)]
         SettingsSection::Skills => "Skills",
         SettingsSection::Hooks => "Agent Hooks",
         SettingsSection::Wallpaper => "Wallpaper",
@@ -131,11 +139,14 @@ fn content_title(section: SettingsSection) -> &'static str {
 
 fn content_subtitle(section: SettingsSection) -> &'static str {
     match section {
+        #[cfg(test)]
         SettingsSection::General => "Choose your style or customize your theme",
         SettingsSection::Keyboard => "Customize app commands and review system input behavior",
+        #[cfg(test)]
         SettingsSection::Runtime => "Configure shell behavior and live sessions",
         SettingsSection::Voice => "Configure local speech recognition and command planning",
         SettingsSection::Agents => "Choose default agents, permissions, and profiles",
+        #[cfg(test)]
         SettingsSection::Skills => "Manage installed skills and project skill sources",
         SettingsSection::Hooks => "",
         SettingsSection::Wallpaper => "Choose a background",

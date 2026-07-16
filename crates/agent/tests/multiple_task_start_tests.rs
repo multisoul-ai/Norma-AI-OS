@@ -1,4 +1,4 @@
-mod support;
+pub mod support;
 
 use agent::{AgentCommand, AgentEvent, ProviderResponse};
 use support::{system, tool, RecordingHost, ScriptedProvider};

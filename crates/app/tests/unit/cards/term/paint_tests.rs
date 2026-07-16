@@ -6,7 +6,13 @@ fn test_palette() -> TerminalPalette {
 }
 
 fn test_cell(c: char, fg: TerminalColor, bg: TerminalColor, attrs: CellAttrs) -> Cell {
-    Cell { c, fg, bg, attrs }
+    Cell {
+        c,
+        fg,
+        bg,
+        attrs,
+        hyperlink: None,
+    }
 }
 
 fn test_metrics() -> TerminalRenderMetrics {

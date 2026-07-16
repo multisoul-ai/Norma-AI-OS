@@ -123,7 +123,7 @@ fn test_speech_end_final_transcript_moves_session_to_thinking() {
         "final transcript 后应进入 Thinking"
     );
     assert_eq!(
-        session.pending_transcript().as_deref(),
+        session.pending_transcript(),
         Some("你好"),
         "Thinking 前应保存 pending_transcript"
     );

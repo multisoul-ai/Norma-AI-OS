@@ -36,7 +36,7 @@ pub fn card_subagent_tool_specs() -> Vec<ProviderToolSpec> {
                 "type":"object",
                 "properties": {
                     "name":{"type":"string"},
-                    "profile":{"type":"string","enum":["claude","codex","opencode"]},
+                    "profile":{"type":"string","enum":["claude","codex","cursor","opencode"]},
                     "activate":{"type":"boolean"}
                 },
                 "required":["profile"],"additionalProperties":false

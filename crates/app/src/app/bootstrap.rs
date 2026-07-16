@@ -32,7 +32,7 @@ impl MultisoulApp {
         .detach();
         Self::start_frame_loops(cx);
         let wallpaper_settings = WallpaperSettingsState::load_default();
-        let theme = Theme::dark();
+        let theme = Theme::glass_light();
         let focus_handle: FocusHandle = cx.focus_handle();
         let (voice_settings, voice_settings_inputs) =
             VoiceSettingsInputs::load_default(cx.weak_entity(), focus_handle.clone(), theme, cx);
@@ -59,6 +59,7 @@ impl MultisoulApp {
                 super::agent_announcements::AgentAnnouncementPlayback::default(),
             screen: AppScreen::Launchpad,
             workspace_state: WorkspaceState::load_default(),
+            recent_project_context_path: None,
             voice: crate::app::voice::control::VoiceControlState::default(),
             dialogue: crate::app::dialogue::DialogueControlState::default(),
             tts_preview: crate::app::dialogue::TtsPreviewState::default(),
@@ -68,7 +69,6 @@ impl MultisoulApp {
             agent_runtime: None,
             agent_task_coordinator: None,
             pending_agent_close_confirmation: None,
-            pending_voice_commands: Vec::new(),
             focus_handle,
             wallpaper_settings,
             #[cfg(target_os = "macos")]

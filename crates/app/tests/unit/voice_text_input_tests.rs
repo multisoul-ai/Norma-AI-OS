@@ -23,13 +23,12 @@ fn test_voice_text_input_maps_ime_selection_relative_to_marked_text() {
     let (app, cx) = test_cx
         .add_window_view(|_window, cx| MultisoulApp::new_with_pty_factory(cx, echo_factory()));
     let input = app.read_with(cx, |app, _cx| {
-        app.voice_settings_inputs
-            .input(VoiceSettingsField::AgentModel)
+        app.voice_settings_inputs.input(VoiceSettingsField::Model)
     });
 
     app.update(cx, |app, cx| {
-        app.commit_voice_text_input(VoiceSettingsField::AgentModel, "abc".to_string(), cx);
-        app.begin_voice_text_input(VoiceSettingsField::AgentModel, "abc".to_string(), cx);
+        app.commit_voice_text_input(VoiceSettingsField::Model, "abc".to_string(), cx);
+        app.begin_voice_text_input(VoiceSettingsField::Model, "abc".to_string(), cx);
     });
     input.update(cx, |input, cx| input.sync_value("abc".to_string(), cx));
     cx.update(|window, cx| {
@@ -140,13 +139,12 @@ fn test_voice_text_input_auto_saves_only_after_ime_unmark() {
     let (app, cx) = test_cx
         .add_window_view(|_window, cx| MultisoulApp::new_with_pty_factory(cx, echo_factory()));
     let input = app.read_with(cx, |app, _cx| {
-        app.voice_settings_inputs
-            .input(VoiceSettingsField::AgentModel)
+        app.voice_settings_inputs.input(VoiceSettingsField::Model)
     });
 
     app.update(cx, |app, cx| {
-        app.commit_voice_text_input(VoiceSettingsField::AgentModel, "abc".to_string(), cx);
-        app.begin_voice_text_input(VoiceSettingsField::AgentModel, "abc".to_string(), cx);
+        app.commit_voice_text_input(VoiceSettingsField::Model, "abc".to_string(), cx);
+        app.begin_voice_text_input(VoiceSettingsField::Model, "abc".to_string(), cx);
     });
     input.update(cx, |input, cx| input.sync_value("abc".to_string(), cx));
     cx.update(|window, cx| {
@@ -225,9 +223,9 @@ fn test_voice_text_input_untouched_api_key_enter_preserves_saved_secret() {
     let data = tempfile::TempDir::new().expect("测试应创建临时 settings 目录");
     let store = storage::SettingsStore::new(data.path().join("app.sqlite"));
     let mut initial = VoiceSettingsState::load_from_store(store.clone());
-    initial.begin_edit(VoiceSettingsField::AgentApiKey);
+    initial.begin_edit(VoiceSettingsField::ApiKey);
     let accepted =
-        initial.commit_edit_value(VoiceSettingsField::AgentApiKey, "test-api-key".to_string());
+        initial.commit_edit_value(VoiceSettingsField::ApiKey, "test-api-key".to_string());
     assert!(accepted.is_some(), "测试前置 API Key 应被状态层接受");
     let writes = initial.take_pending_writes();
     assert_eq!(writes.len(), 1, "测试前置 API Key 应产生一个持久化写入");
@@ -245,11 +243,10 @@ fn test_voice_text_input_untouched_api_key_enter_preserves_saved_secret() {
         )
     });
     let input = app.read_with(cx, |app, _cx| {
-        app.voice_settings_inputs
-            .input(VoiceSettingsField::AgentApiKey)
+        app.voice_settings_inputs.input(VoiceSettingsField::ApiKey)
     });
     app.update(cx, |app, cx| {
-        app.begin_voice_text_input(VoiceSettingsField::AgentApiKey, String::new(), cx)
+        app.begin_voice_text_input(VoiceSettingsField::ApiKey, String::new(), cx)
     });
     cx.update(|window, cx| {
         input.update(cx, |input, cx| {
@@ -270,7 +267,7 @@ fn test_voice_text_input_untouched_api_key_enter_preserves_saved_secret() {
     );
 
     app.update(cx, |app, cx| {
-        app.begin_voice_text_input(VoiceSettingsField::AgentApiKey, String::new(), cx)
+        app.begin_voice_text_input(VoiceSettingsField::ApiKey, String::new(), cx)
     });
     cx.update(|window, cx| {
         input.update(cx, |input, cx| {
@@ -313,11 +310,10 @@ fn test_voice_text_input_escape_clears_api_key_entity_after_autosave() {
     let (app, cx) = test_cx
         .add_window_view(|_window, cx| MultisoulApp::new_with_pty_factory(cx, echo_factory()));
     let input = app.read_with(cx, |app, _cx| {
-        app.voice_settings_inputs
-            .input(VoiceSettingsField::AgentApiKey)
+        app.voice_settings_inputs.input(VoiceSettingsField::ApiKey)
     });
     app.update(cx, |app, cx| {
-        app.begin_voice_text_input(VoiceSettingsField::AgentApiKey, String::new(), cx)
+        app.begin_voice_text_input(VoiceSettingsField::ApiKey, String::new(), cx)
     });
     cx.update(|window, cx| {
         input.update(cx, |input, cx| {
@@ -382,14 +378,13 @@ fn test_settings_programmatic_close_clears_api_key_input_entity() {
     let (app, cx) = test_cx
         .add_window_view(|_window, cx| MultisoulApp::new_with_pty_factory(cx, echo_factory()));
     let input = app.read_with(cx, |app, _cx| {
-        app.voice_settings_inputs
-            .input(VoiceSettingsField::AgentApiKey)
+        app.voice_settings_inputs.input(VoiceSettingsField::ApiKey)
     });
     let workspace = tempfile::TempDir::new().expect("测试应创建临时 workspace");
     app.update(cx, |app, cx| {
         app.enter_canvas_for_test(workspace.path(), cx);
         app.settings_panel.open();
-        app.begin_voice_text_input(VoiceSettingsField::AgentApiKey, String::new(), cx);
+        app.begin_voice_text_input(VoiceSettingsField::ApiKey, String::new(), cx);
     });
     cx.update(|window, cx| {
         input.update(cx, |input, cx| {
@@ -432,11 +427,10 @@ fn test_voice_text_input_empty_required_submit_keeps_focus_and_valid_baseline() 
         .add_window_view(|_window, cx| MultisoulApp::new_with_pty_factory(cx, echo_factory()));
     let baseline = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx).agent_model);
     let input = app.read_with(cx, |app, _cx| {
-        app.voice_settings_inputs
-            .input(VoiceSettingsField::AgentModel)
+        app.voice_settings_inputs.input(VoiceSettingsField::Model)
     });
     app.update(cx, |app, cx| {
-        app.begin_voice_text_input(VoiceSettingsField::AgentModel, baseline.clone(), cx)
+        app.begin_voice_text_input(VoiceSettingsField::Model, baseline.clone(), cx)
     });
     input.update(cx, |input, cx| input.sync_value(baseline.clone(), cx));
 

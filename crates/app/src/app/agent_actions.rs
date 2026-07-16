@@ -80,7 +80,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        match self.agent_definitions.create_definition(None, profile) {
+        match self.agent_definitions.create_quick_definition(profile) {
             Ok(definition) => {
                 self.spawn_agent_card_from_spec(agent_spec_from_definition(&definition), window, cx)
             }
@@ -157,15 +157,6 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    pub(crate) fn on_toolbar_new_claude_agent(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.spawn_agent_card(AgentProfile::Claude, window, cx);
-    }
-
     pub(crate) fn on_toolbar_new_codex_agent(
         &mut self,
         _: &ClickEvent,
@@ -173,24 +164,6 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.spawn_agent_card(AgentProfile::Codex, window, cx);
-    }
-
-    pub(crate) fn on_toolbar_new_opencode_agent(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.spawn_agent_card(AgentProfile::OpenCode, window, cx);
-    }
-
-    pub(crate) fn on_toolbar_new_cursor_agent(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.spawn_agent_card(AgentProfile::Cursor, window, cx);
     }
 }
 
@@ -220,10 +193,12 @@ mod tests {
         let definition = AgentDefinition {
             id: 7,
             name: "Code Reviewer".to_string(),
+            speech_alias: None,
             runtime_profile: AgentProfile::Codex,
             workflow_description: "Review code.".to_string(),
             enabled: true,
             sort_order: 0,
+            origin: storage::AgentDefinitionOrigin::Explicit,
         };
 
         let spec = agent_spec_from_definition(&definition);

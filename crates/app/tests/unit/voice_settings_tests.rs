@@ -425,11 +425,11 @@ fn test_agent_api_key_editing_state_is_masked_everywhere() {
         SavedVoiceSettings::default(),
         EnvVoiceSettings::default(),
     );
-    state.begin_edit(VoiceSettingsField::AgentApiKey);
+    state.begin_edit(VoiceSettingsField::ApiKey);
     state.draft = "top-secret".to_string();
 
     let debug = format!("{state:?}");
-    let row = state.row_value(VoiceSettingsField::AgentApiKey);
+    let row = state.row_value(VoiceSettingsField::ApiKey);
 
     assert!(
         !debug.contains("top-secret"),

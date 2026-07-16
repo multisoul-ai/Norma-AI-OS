@@ -17,6 +17,7 @@ use voice_sherpa::SpeechError;
 #[cfg(feature = "e2e-test-support")]
 mod agent_announcements;
 mod agents;
+mod recent_projects;
 mod tts;
 pub use agents::{AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot};
 use tts::{snapshot_tts_models, TtsModelE2eSnapshot};
@@ -133,6 +134,10 @@ impl MultisoulApp {
         app.voice_settings_inputs
             .sync_from_state(&app.voice_settings, cx);
         app
+    }
+
+    pub fn disable_agent_hook_for_test(&mut self) {
+        self.agent_hook_server.disable_for_test();
     }
 
     pub fn new_with_pty_factory_and_voice_settings_store(
@@ -256,8 +261,6 @@ impl MultisoulApp {
                 crate::app::voice::control::VoicePhase::Idle => "idle",
                 crate::app::voice::control::VoicePhase::Recording { .. } => "recording",
                 crate::app::voice::control::VoicePhase::Transcribing => "transcribing",
-                crate::app::voice::control::VoicePhase::Planning { .. } => "planning",
-                crate::app::voice::control::VoicePhase::Confirming { .. } => "confirming",
                 crate::app::voice::control::VoicePhase::Executed { .. } => "executed",
                 crate::app::voice::control::VoicePhase::TranscriptOnly { .. } => "transcript_only",
                 crate::app::voice::control::VoicePhase::Error { .. } => "error",
@@ -286,6 +289,19 @@ impl MultisoulApp {
         self.screen = AppScreen::Canvas;
         self.last_reflow_window_size = None;
         cx.notify();
+    }
+
+    pub fn show_workspace_error_for_e2e(
+        &mut self,
+        message: impl Into<String>,
+        cx: &mut Context<Self>,
+    ) {
+        self.workspace_state.error = Some(message.into());
+        cx.notify();
+    }
+
+    pub fn workspace_error_for_e2e(&self) -> Option<String> {
+        self.workspace_state.error.clone()
     }
 
     /// 注入已被 TCC 拒绝的麦克风错误，供 L1 e2e 验证应用内恢复 UI。
@@ -342,19 +358,19 @@ impl MultisoulApp {
                 .is_some(),
             agent_base_url_input_surface_size: self
                 .voice_settings_inputs
-                .input_surface_size(crate::settings::voice::VoiceSettingsField::AgentBaseUrl, cx),
+                .input_surface_size(crate::settings::voice::VoiceSettingsField::BaseUrl, cx),
             agent_model_input_surface_size: self
                 .voice_settings_inputs
-                .input_surface_size(crate::settings::voice::VoiceSettingsField::AgentModel, cx),
+                .input_surface_size(crate::settings::voice::VoiceSettingsField::Model, cx),
             agent_base_url_rendered_text: self
                 .voice_settings_inputs
-                .rendered_text(crate::settings::voice::VoiceSettingsField::AgentBaseUrl, cx),
+                .rendered_text(crate::settings::voice::VoiceSettingsField::BaseUrl, cx),
             agent_model_rendered_text: self
                 .voice_settings_inputs
-                .rendered_text(crate::settings::voice::VoiceSettingsField::AgentModel, cx),
+                .rendered_text(crate::settings::voice::VoiceSettingsField::Model, cx),
             agent_api_key_display_state: classify_api_key_display(
                 self.voice_settings_inputs
-                    .rendered_text(crate::settings::voice::VoiceSettingsField::AgentApiKey, cx)
+                    .rendered_text(crate::settings::voice::VoiceSettingsField::ApiKey, cx)
                     .as_deref(),
             ),
             voice_editing_field: self

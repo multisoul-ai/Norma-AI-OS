@@ -267,7 +267,7 @@ fn test_cleanup_expired_clipboard_images_removes_only_older_than_one_day() {
         modified
             .get(&name)
             .copied()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "missing test metadata"))
+            .ok_or_else(|| io::Error::other("missing test metadata"))
     })
     .expect("cleanup should continue despite per-file metadata errors");
 

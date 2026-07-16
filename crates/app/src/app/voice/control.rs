@@ -9,7 +9,7 @@ pub(crate) enum VoiceTrigger {
     Shortcut,
 }
 
-/// 视觉分类：把 8 个 `VoicePhase` 压缩成 5 类外观，供 `chrome.rs` 决定
+/// 视觉分类：把 `VoicePhase` 压缩成 5 类外观，供 `chrome.rs` 决定
 /// 底部语音条的图标、颜色与布局分支。语义"这里应该长什么样"，与具体
 /// `VoicePhase` 解耦，避免渲染层重复 match 8 个 arm。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -31,8 +31,6 @@ pub(crate) enum VoicePhase {
     Idle,
     Recording { trigger: VoiceTrigger },
     Transcribing,
-    Planning { transcript: String },
-    Confirming { transcript: String, reason: String },
     Executed { message: String },
     TranscriptOnly { transcript: String, reason: String },
     Error { message: String },
@@ -81,9 +79,7 @@ impl VoiceControlState {
         match self.phase {
             VoicePhase::Idle | VoicePhase::Executed { .. } => VoiceVisual::Idle,
             VoicePhase::Recording { .. } => VoiceVisual::Recording,
-            VoicePhase::Transcribing
-            | VoicePhase::Planning { .. }
-            | VoicePhase::Confirming { .. } => VoiceVisual::Processing,
+            VoicePhase::Transcribing => VoiceVisual::Processing,
             VoicePhase::TranscriptOnly { .. } => VoiceVisual::Success,
             VoicePhase::Error { .. } => VoiceVisual::Error,
         }
@@ -91,11 +87,8 @@ impl VoiceControlState {
 
     pub(crate) fn begin_recording(&mut self, trigger: VoiceTrigger) -> bool {
         match self.phase {
-            VoicePhase::Recording { .. }
-            | VoicePhase::Transcribing
-            | VoicePhase::Planning { .. } => false,
+            VoicePhase::Recording { .. } | VoicePhase::Transcribing => false,
             VoicePhase::Idle
-            | VoicePhase::Confirming { .. }
             | VoicePhase::Executed { .. }
             | VoicePhase::TranscriptOnly { .. }
             | VoicePhase::Error { .. } => {
@@ -118,12 +111,6 @@ impl VoiceControlState {
         matches!(self.phase, VoicePhase::Recording { trigger: active } if active == trigger)
     }
 
-    pub(crate) fn set_planning(&mut self, transcript: impl Into<String>) {
-        self.phase = VoicePhase::Planning {
-            transcript: transcript.into(),
-        };
-    }
-
     pub(crate) fn set_executed(&mut self, message: impl Into<String>) {
         self.phase = VoicePhase::Executed {
             message: message.into(),
@@ -136,17 +123,6 @@ impl VoiceControlState {
         reason: impl Into<String>,
     ) {
         self.phase = VoicePhase::TranscriptOnly {
-            transcript: transcript.into(),
-            reason: reason.into(),
-        };
-    }
-
-    pub(crate) fn set_confirming(
-        &mut self,
-        transcript: impl Into<String>,
-        reason: impl Into<String>,
-    ) {
-        self.phase = VoicePhase::Confirming {
             transcript: transcript.into(),
             reason: reason.into(),
         };
@@ -204,18 +180,9 @@ impl VoiceControlState {
                 }
             }
             VoicePhase::Transcribing => "Transcribing...".to_string(),
-            VoicePhase::Planning { .. } => "Planning...".to_string(),
-            VoicePhase::Confirming { .. } => "Confirmation required".to_string(),
             VoicePhase::Executed { message } => message.clone(),
             VoicePhase::TranscriptOnly { transcript, .. } => transcript.clone(),
             VoicePhase::Error { message } => message.clone(),
-        }
-    }
-
-    pub(crate) fn confirmation(&self) -> Option<(&str, &str)> {
-        match &self.phase {
-            VoicePhase::Confirming { transcript, reason } => Some((transcript, reason)),
-            _ => None,
         }
     }
 }
@@ -273,10 +240,6 @@ mod tests {
                 state.begin_recording(VoiceTrigger::Shortcut);
                 state.finish_recording(VoiceTrigger::Shortcut);
             }
-            VoicePhase::Planning { transcript } => state.set_planning(transcript),
-            VoicePhase::Confirming { transcript, reason } => {
-                state.set_confirming(transcript, reason)
-            }
             VoicePhase::Executed { message } => state.set_executed(message),
             VoicePhase::TranscriptOnly { transcript, reason } => {
                 state.set_transcript_only(transcript, reason)
@@ -286,14 +249,12 @@ mod tests {
         state
     }
 
-    /// VV-1: 8 个 VoicePhase 全部映射到正确的 VoiceVisual 分类。
+    /// VV-1: 每个 VoicePhase 全部映射到正确的 VoiceVisual 分类。
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   Idle             → 期望 Idle
     ///   Recording(Shortcut) → 期望 Recording
     ///   Transcribing     → 期望 Processing（finish_recording 后进入）
-    ///   Planning         → 期望 Processing
-    ///   Confirming       → 期望 Processing（待确认仍属处理中，不是 Error）
     ///   Executed         → 期望 Idle（成功执行静默回 idle，不显示成功反馈）
     ///   TranscriptOnly   → 期望 Success（planner 拒绝/无命令，保留反馈）
     ///   Error            → 期望 Error
@@ -305,8 +266,8 @@ mod tests {
     ///
     /// 预期结果：
     ///   - 正断言：每个 phase 的视觉分类与上表一致
-    ///   - 负断言：Confirming 不应被误判为 Error；Executed 不应显示 Success 反馈，
-    ///     而是静默回 Idle；TranscriptOnly 不应被误判为 Processing。
+    ///   - 负断言：Executed 不应显示 Success 反馈，而是静默回 Idle；
+    ///     TranscriptOnly 不应被误判为 Processing。
     #[test]
     fn test_visual_maps_every_phase_correctly() {
         let cases = [
@@ -318,19 +279,6 @@ mod tests {
                 VoiceVisual::Recording,
             ),
             (VoicePhase::Transcribing, VoiceVisual::Processing),
-            (
-                VoicePhase::Planning {
-                    transcript: "new terminal".into(),
-                },
-                VoiceVisual::Processing,
-            ),
-            (
-                VoicePhase::Confirming {
-                    transcript: "rm -rf".into(),
-                    reason: "destructive".into(),
-                },
-                VoiceVisual::Processing,
-            ),
             // 成功执行：静默回 Idle，不显示专门的"成功"反馈。
             (
                 VoicePhase::Executed {
@@ -390,28 +338,28 @@ mod tests {
     /// 数据构造（含关键数值的推导过程）：
     ///   voice key = key("e", platform=true, shift=false)
     ///   paste key = key("v", platform=true, shift=false)
-    ///   other key = key("n", platform=true, shift=false)
+    ///   other key = key("1", platform=true, shift=false)
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. 检查 Cmd+E
     ///   2. 检查 Cmd+V
-    ///   3. 检查 Cmd+N
+    ///   3. 检查 Cmd+1
     ///
     /// 预期结果：
     ///   - 正断言：Cmd+E 匹配语音长按
-    ///   - 负断言：Cmd+V 和 Cmd+N 不匹配，避免抢占粘贴/新建
+    ///   - 负断言：Cmd+V 和 Cmd+1 不匹配，避免抢占粘贴/新建
     #[test]
     fn test_voice_hold_shortcut_matches_cmd_e_only() {
         let voice = key("e", true, false);
         let paste = key("v", true, false);
-        let other = key("n", true, false);
+        let other = key("1", true, false);
 
         assert!(is_voice_hold_shortcut(&voice), "Cmd+E 应匹配语音长按快捷键");
         assert!(
             !is_voice_hold_shortcut(&paste),
             "Cmd+V 是粘贴，不应触发语音"
         );
-        assert!(!is_voice_hold_shortcut(&other), "Cmd+N 不是语音快捷键");
+        assert!(!is_voice_hold_shortcut(&other), "Cmd+1 不是语音快捷键");
     }
 
     /// VC-2: 重复 keydown 不重复启动录音，keyup 只结束对应 trigger。

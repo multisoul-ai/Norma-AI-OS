@@ -57,6 +57,19 @@ config for the current process. The persisted files are advanced before the
 release build, and the next `cargo packager --release -c Packager.toml`
 invocation starts from that bumped version.
 
+## DMG Finder layout
+
+The release and development configurations use the same 640x400-point Finder
+layout. The app and Applications anchors are `(180, 175)` and `(460, 175)`.
+Finder draws its 16pt item labels below those anchors; the previous `y=200`
+positions put both labels across the bottom border of the background wells.
+
+Finder owns the item-label rendering. Its icon-view scripting interface exposes
+icon size, text size, label position, background picture, and background color,
+but not label text color. `cargo-packager`/`create-dmg` therefore cannot force
+these two labels to white. Keep the background readable with Finder's native
+label color and verify actual appearance on the supported macOS versions.
+
 Codesigning 配置见 `packaging/macos/NormaOS.entitlements` 与
 `Packager.toml` 的 `[macos]` 段；notarization 只通过
 `cargo packager --notarize ...` 或 `scripts/release-local.sh --notarize` 显式开启，详见

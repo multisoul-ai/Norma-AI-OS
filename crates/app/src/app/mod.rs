@@ -29,13 +29,13 @@ use canvas::{CanvasNodeKind, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
 use runtime::{route, AgentTaskState, InputEvent, NodeRunState, Route, Runtime};
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 #[cfg(test)]
 use std::time::Duration;
 use ui::Theme;
 use voice_window_inset::VoiceWindowInset;
-
 mod agent_actions;
 mod agent_announcements;
 mod agent_close;
@@ -121,6 +121,7 @@ pub struct MultisoulApp {
     agent_announcement_playback: agent_announcements::AgentAnnouncementPlayback,
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
+    pub(crate) recent_project_context_path: Option<PathBuf>,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
     pub(crate) dialogue: crate::app::dialogue::DialogueControlState,
     pub(crate) tts_preview: crate::app::dialogue::TtsPreviewState,
@@ -130,7 +131,6 @@ pub struct MultisoulApp {
     pub(crate) agent_runtime: Option<agent_runtime::ProjectAgentRuntime>,
     pub(crate) agent_task_coordinator: Option<agent::AgentTaskCoordinator>,
     pub(crate) pending_agent_close_confirmation: Option<NodeId>,
-    pub(crate) pending_voice_commands: Vec<::voice::ExecutableCommand>,
     pub focus_handle: FocusHandle,
     pub(crate) wallpaper_settings: WallpaperSettingsState,
     #[cfg(target_os = "macos")]
@@ -246,6 +246,12 @@ impl MultisoulApp {
     pub(crate) fn remove_node_and_reflow(&mut self, node_id: NodeId, window: &mut Window) -> bool {
         let area = self.visible_canvas_rect(window);
         let zoom = self.runtime.document.viewport.zoom;
+        let removed_agent_definition_id = self.runtime.document.node(node_id).and_then(|node| {
+            let CanvasNodeKind::Agent(spec) = &node.kind else {
+                return None;
+            };
+            spec.definition_id
+        });
         if self.interaction.keyboard_selected_node == Some(node_id) {
             self.interaction.keyboard_selected_node = None;
         }
@@ -276,6 +282,14 @@ impl MultisoulApp {
             self.remove_browser_view(node_id);
             self.mark_canvas_dirty();
             self.mark_session_dirty();
+            if let Some(definition_id) = removed_agent_definition_id {
+                if let Err(message) = self
+                    .agent_definitions
+                    .cleanup_quick_definition(definition_id)
+                {
+                    self.workspace_state.error = Some(message);
+                }
+            }
 
             match next_id {
                 Some(next) if self.runtime.document.node(next).is_some() => {
@@ -381,6 +395,14 @@ impl MultisoulApp {
         self.interaction.canvas_scroll_enabled = !self.interaction.canvas_scroll_enabled;
         cx.notify();
     }
+
+    pub(crate) fn remove_recent_project(&mut self, path: &Path, cx: &mut Context<Self>) {
+        if let Err(error) = self.workspace_state.remove_recent_workspace(path) {
+            tracing::warn!(%error, path = %path.display(), "failed to remove recent project");
+        }
+        self.recent_project_context_path = None;
+        cx.notify();
+    }
 }
 
 fn focused_cursor_animation_active(
@@ -449,11 +471,11 @@ impl Render for MultisoulApp {
                     .child(self.render_workspace_backdrop())
                     .child(render_canvas(self, window, cx))
                     .child(self.render_workspace_chrome(window, cx));
+                if let Some(error_banner) = self.render_workspace_error_banner(cx) {
+                    root = root.child(error_banner);
+                }
                 if let Some(visual) = self.voice_window_inset.visual() {
                     root = root.child(voice_window_inset::render(visual));
-                }
-                if let Some(modal) = self.render_voice_confirmation_modal(cx) {
-                    root = root.child(modal);
                 }
                 if self.settings_panel.open {
                     root = root.child(self.render_settings_panel(window, cx));

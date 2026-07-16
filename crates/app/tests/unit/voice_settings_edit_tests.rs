@@ -28,7 +28,7 @@ fn test_voice_provider_field_accepts_keydown_text_and_replaces_draft() {
         },
         EnvVoiceSettings::default(),
     );
-    state.begin_edit(VoiceSettingsField::AgentBaseUrl);
+    state.begin_edit(VoiceSettingsField::BaseUrl);
     let old = state.draft.clone();
 
     assert!(
@@ -55,7 +55,7 @@ fn test_voice_provider_field_accepts_keydown_text_and_replaces_draft() {
     );
     assert_eq!(state.draft, "ha ", "KeyDown 路径应得到 ha + 空格");
     assert_eq!(
-        state.row_value(VoiceSettingsField::AgentBaseUrl),
+        state.row_value(VoiceSettingsField::BaseUrl),
         "ha |",
         "编辑行应显示 KeyDown 草稿和光标"
     );

@@ -17,10 +17,12 @@ Workspace 分层：
 - `crates/workspace/` - 零 GPUI 元数据层：最近项目类型、workspace source、路径展示。
 - `crates/agent/` - 零 GPUI/Storage Agent Runtime：Dialogue、CardTask、Provider、工具循环与预算。
 - `crates/asr/` - 零 GPUI/Sherpa ASR 领域层：模型身份、受控目录、安装清单、完整性与共享 VAD 工件。
+- `crates/model_store/` - 零 GPUI/网络的共享本地模型安装原语：受控解压、哈希、manifest 与原子提升。
+- `crates/tts/` - 零 GPUI/Sherpa TTS 领域层：模型/语音身份、固定目录、能力与安装验证。
 - `crates/ui/` - GPUI 主题与共享 UI 基础。
 - `crates/app/` - GPUI/Metal 壳层：窗口、菜单、快捷键、画布与 cards 渲染。
 
-依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr}`（后续 AgentSystem adapter 接入 `agent`），`voice_sherpa -> {asr, dialogue, audio}`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/agent` 不得依赖 `app/runtime/storage/ui`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
+依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr, tts, voice_sherpa}`，`voice_sherpa -> {asr, tts, dialogue, audio}`，`tts -> model_store`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent` 不得依赖 `app/runtime/storage/ui`，且 `asr/tts` 不得依赖 Sherpa；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
 
 ### 源码组织
 
@@ -49,6 +51,7 @@ Workspace 分层：
 - **版本钉死需审慎**：`gpui =0.2.2`、`gpui-component =0.5.1`、`alacritty_terminal =0.26`，升级前先验证 API。
 - **GUI 优先 gpui-component**：`crates/app`/`crates/ui` 写控件时优先用 `ui::component`（Longbridge），非必要不造轮子；细节见 [`docs/references/gpui-component.md`](docs/references/gpui-component.md)。
 - **GPUI 代码先查 skills**：编写 GPUI 时先查 `gpui-*` skills，再落到钉死版本与现有写法；有现成组件时仍优先组件库。
+- **GPUI 圆角子层不可只靠 overflow**：GPUI 0.2.2 的 `overflow_hidden()` 仅矩形裁剪；圆角容器内的全尺寸不透明 `div`/`img`/`surface` 必须自身绘制外侧圆角，或避开四角分区渲染，并用自动化测试守住。
 - **单文件 ≤ 500 行**：Rust 源码由 [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh) 拦截，超长先拆职责。
 - **Agent 指南 ≤ 300 行**：`AGENTS.md` 与 `CLAUDE.md` 由 [`scripts/check-agent-guide-lines.sh`](scripts/check-agent-guide-lines.sh) 拦截；超长内容归档到 `docs/`，并在 §4 增加指针。
 - **禁止 `#[allow(...)]`**：Rust 源码不得用 allow 压制编译器或 clippy 诊断；由 [`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截，必须修根因。
@@ -76,6 +79,7 @@ Workspace 分层：
 | Runtime | 纯 Rust 状态机与 LiveNode 注册表 |
 | Storage | rusqlite bundled SQLite、recent/settings/canvas/session checkpoint |
 | ASR | 受控模型目录、SHA-256、tar.bz2 原子安装；Sherpa 适配在 `voice_sherpa` |
+| TTS | 固定模型/语音目录与安装验证；共享安装原语在 `model_store`，Sherpa 适配在 `voice_sherpa` |
 | Packaging | cargo-packager, 未签名 `.app` / `.dmg` |
 
 ## 4. Where to find
@@ -93,6 +97,8 @@ Workspace 分层：
 | 焦点、输入路由、LiveNode 生命周期 | [`crates/runtime/src/`](crates/runtime/src/) |
 | Dialogue/CardTask/Provider/Journal seam | [`crates/agent/src/`](crates/agent/src/) |
 | ASR 模型身份、目录、安装与完整性 | [`crates/asr/src/`](crates/asr/src/) |
+| 通用本地模型安装原语 | [`crates/model_store/src/`](crates/model_store/src/) |
+| TTS 模型/语音目录与安装验证 | [`crates/tts/src/`](crates/tts/src/) |
 | SQLite store、migration、持久化边界 | [`crates/storage/src/`](crates/storage/src/) |
 | Workspace 元数据、路径展示 | [`crates/workspace/src/`](crates/workspace/src/) |
 | 主题色 | [`crates/ui/src/theme.rs`](crates/ui/src/theme.rs) |
@@ -118,6 +124,8 @@ Workspace 分层：
 | `crates/terminal/**` | `cargo test -p terminal` |
 | `crates/runtime/**` | `cargo test -p runtime` |
 | `crates/storage/**` | `cargo test -p storage` |
+| `crates/model_store/**` | `cargo test -p model_store` |
+| `crates/tts/**` | `cargo test -p tts` |
 | `crates/ui/**` | `cargo test -p ui` |
 | `crates/app/**` | `cargo check -p app` |
 | `crates/e2e/**` 或验收流程 | `cargo test -p e2e`；真 PTY/L3 冒烟按需跑 `cargo test -p e2e -- --ignored` |
@@ -135,7 +143,7 @@ Workspace 分层：
 
 ```bash
 cargo run -p app
-cargo test -p canvas -p terminal -p runtime -p storage
+cargo test -p canvas -p terminal -p runtime -p storage -p model_store -p tts
 cargo test --workspace
 cargo check -p app
 bash scripts/check-storage-boundaries.sh

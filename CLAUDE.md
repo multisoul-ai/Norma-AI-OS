@@ -17,6 +17,8 @@ Workspace crates:
 - `runtime` - domain crate for focus state, input routing, LiveNode registry, and node lifecycle glue.
 - `agent` - GPUI-free unified Dialogue/CardTask/Provider runtime with injected card tools and journal.
 - `asr` - GPUI/Sherpa-free model identity, curated catalog, installation manifest, integrity, and shared VAD support artifacts.
+- `model_store` - GPUI/network-free shared local-model archive, manifest, integrity, and atomic-install primitives.
+- `tts` - GPUI/Sherpa-free Local TTS model/voice identity, catalog, capability, and installation-validation domain.
 - `ui` - GPUI-facing shared UI: theme, icons, and `gpui-component` re-export (`ui::component`).
 - `app` - GPUI/Metal shell: window boot, menus, key bindings, canvas interaction, and terminal rendering.
 
@@ -24,14 +26,15 @@ Core Cargo dependency direction is:
 
 ```text
 agent -> norma
-app -> {ui, runtime, canvas, terminal, storage, asr} (AgentSystem adapter pending)
-voice_sherpa -> {asr, dialogue, audio}
+app -> {ui, runtime, canvas, terminal, storage, asr, tts, voice_sherpa}
+voice_sherpa -> {asr, tts, dialogue, audio}
+tts -> model_store
 runtime -> {canvas, terminal, storage}
 storage -> {agent, canvas, workspace, rusqlite}
 ui -> {gpui, gpui-component}
 ```
 
-`asr`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` also remains free of Sherpa; engine configuration belongs in `voice_sherpa`.
+`asr`, `model_store`, `tts`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` and `tts` also remain free of Sherpa; engine configuration belongs in `voice_sherpa`. `model_store` and `tts` must not depend on app/runtime/storage/ui.
 
 ## 2. Key Constraints
 
@@ -46,6 +49,7 @@ ui -> {gpui, gpui-component}
 - **Pinned libraries require verification**: `gpui =0.2.2`, `gpui-component =0.5.1`, and `alacritty_terminal =0.26` are pinned. Upgrade only after checking API compatibility.
 - **Prefer gpui-component for GUI**: in `crates/app` / `crates/ui`, use `ui::component` (Longbridge) before hand-rolling controls with bare `div()`; see [`docs/references/gpui-component.md`](docs/references/gpui-component.md). Call `ui::init_components(cx)` at app entry (already done in `run_norma_os` / `MultisoulApp::build`).
 - **Consult GPUI skills first**: when writing GPUI code, load local `gpui-*` skills, then adapt to the pinned GPUI version; still prefer the component library when it covers the need.
+- **Rounded child surfaces need explicit ownership**: GPUI 0.2.2's `overflow_hidden()` uses a rectangular content mask. An opaque full-size `div`, `img`, or `surface` inside a rounded container must draw its exposed outer radii itself, or be partitioned away from the corner squares; protect the behavior with an automated test.
 - **New configurable app shortcuts must appear in Settings**: register them in `shortcuts.rs` and support recording/restoring them in Settings → Keyboard Shortcuts.
 - **Acceptance criteria must drive e2e coverage**: for user-visible flows involving Settings, Canvas, Terminal, focus/input routing, PTY, or persistence, derive `crates/e2e` cases from the acceptance criteria instead of relying only on unit tests or manual notes.
 - **Do not blur e2e levels**: GPUI `TestAppContext` + `VisualTestContext::simulate_click` is headless rendered-tree interaction. It does not launch the real `.app`. If acceptance criteria require a real app process/window, add a separate L3 runner and document that requirement explicitly.
@@ -71,7 +75,7 @@ At a glance:
 
 ## 4. Current User-Facing Behavior
 
-- `Cmd+N` creates a terminal node, then reflows all nodes into a row-major tiled grid with at most three columns.
+- `Cmd+1` creates a Terminal node; `Cmd+2` through `Cmd+5` create Claude, Codex, Cursor, and OpenCode cards. Each creation reflows the current layout.
 - Drag a node by its title bar.
 - Single-click selects a node; clicking blank canvas clears selection.
 - Double-click a focusable node, or click a terminal/agent body, to focus it.
@@ -94,7 +98,7 @@ cargo run -p app
 Domain tests:
 
 ```bash
-cargo test -p canvas -p terminal -p runtime -p storage
+cargo test -p canvas -p terminal -p runtime -p storage -p model_store -p tts
 cargo test -p agent
 ```
 

@@ -1,13 +1,70 @@
 use super::*;
 
+/// Cards 快速创建默认键位：五类可运行卡片必须按产品顺序占用 Cmd+1 到 Cmd+5。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   card shortcut count = 5（Terminal + Claude + Codex + Cursor + OpenCode）
+///   first slot          = 1（Terminal）
+///   last slot           = 5（OpenCode）
+///   expected range      = Cmd+1..Cmd+5（5 - 1 + 1 = 5 个连续键位）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 使用空偏好构造 effective_shortcuts，确保没有用户 override 干扰。
+///   2. 逐一读取五类卡片创建命令的 current_keystroke。
+///   3. 同时检查 Terminal 与 Cursor 不再占用旧的 Cmd+N / Cmd+Shift+C。
+///
+/// 预期结果：
+///   - 正断言：Terminal、Claude、Codex、Cursor、OpenCode 依次为 Cmd+1 到 Cmd+5。
+///   - 负断言：Terminal 不再是 Cmd+N，Cursor 不再是 Cmd+Shift+C。
+#[test]
+fn test_card_creation_defaults_use_cmd_1_through_cmd_5_in_product_order() {
+    let effective = effective_shortcuts(&ShortcutPreferences::default());
+
+    assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::NewTerminal),
+        Some("cmd-1"),
+        "Terminal 默认应使用 Cmd+1，作为第一类可运行卡片"
+    );
+    assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::NewClaudeAgent),
+        Some("cmd-2"),
+        "Claude 默认应使用 Cmd+2，紧随 Terminal"
+    );
+    assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::NewCodexAgent),
+        Some("cmd-3"),
+        "Codex 默认应使用 Cmd+3，不能与 Claude 对调"
+    );
+    assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::NewCursorAgent),
+        Some("cmd-4"),
+        "Cursor 默认应使用 Cmd+4，不能继续占用复制相关组合键"
+    );
+    assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::NewOpenCodeAgent),
+        Some("cmd-5"),
+        "OpenCode 默认应使用 Cmd+5，补齐连续的五个创建键位"
+    );
+    assert_ne!(
+        shortcut_for(&effective, ShortcutCommandId::NewTerminal),
+        Some("cmd-n"),
+        "Terminal 切换到 Cmd+1 后不应继续报告旧默认 Cmd+N"
+    );
+    assert_ne!(
+        shortcut_for(&effective, ShortcutCommandId::NewCursorAgent),
+        Some("cmd-shift-c"),
+        "Cursor 切换到 Cmd+4 后不应继续报告旧默认 Cmd+Shift+C"
+    );
+}
+
 /// 快捷键默认注册表：当前 app 命令应全部从 registry 暴露，Settings 入口采用 macOS 习惯的 Cmd+,。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   editable command count = 14
-///     NewWindow / NewTerminal / CopyCardContent / OpenProject / OpenPreviewFile /
+///   editable command count = 15
+///     NewWindow / NewTerminal / NewBrowser / CopyCardContent / OpenProject / OpenPreviewFile /
 ///     NewClaudeAgent / NewCodexAgent / NewCursorAgent / NewOpenCodeAgent / DeleteCard / ReflowLayout / ToggleMasterLayout /
 ///     ExitFocus / ToggleSettings
-///   default assigned count = 12（Cursor 默认 cmd-shift-c；Claude/Codex/OpenCode 默认未设置）
+///   default assigned count = 14（除 NewBrowser 外均有默认键位）
 ///   read-only behavior count >= 5（Paste / Voice / Arrow navigation / Space pan / PTY input）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -17,7 +74,7 @@ use super::*;
 ///
 /// 预期结果：
 ///   - 正断言：NewWindow、NewTerminal、DeleteCard、ToggleSettings 等命令存在且默认键位正确
-///   - 正断言：Cursor Agent 有明确的默认创建快捷键，其他现有 Agent 保持未设置
+///   - 正断言：四种 Agent 均有连续的 Cmd+2 到 Cmd+5 默认创建快捷键
 ///   - 负断言：Cmd+V 不应作为可编辑命令出现，避免覆盖 paste 路由
 #[test]
 fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
@@ -31,8 +88,8 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
     );
     assert_eq!(
         shortcut_for(&effective, ShortcutCommandId::NewTerminal),
-        Some("cmd-n"),
-        "New Terminal 默认应保留 Cmd+N"
+        Some("cmd-1"),
+        "New Terminal 默认应使用 Cmd+1"
     );
     assert_eq!(
         shortcut_for(&effective, ShortcutCommandId::DeleteCard),
@@ -64,23 +121,23 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
     );
     assert_eq!(
         shortcut_for(&effective, ShortcutCommandId::NewClaudeAgent),
-        None,
-        "New Claude Agent 应出现在可配置命令中，但默认不占用快捷键"
+        Some("cmd-2"),
+        "New Claude Agent 默认应使用 Cmd+2，且可在 Settings 中重新录制"
     );
     assert_eq!(
         shortcut_for(&effective, ShortcutCommandId::NewCodexAgent),
-        None,
-        "New Codex Agent 应出现在可配置命令中，但默认不占用快捷键"
+        Some("cmd-3"),
+        "New Codex Agent 默认应使用 Cmd+3，且可在 Settings 中重新录制"
     );
     assert_eq!(
         shortcut_for(&effective, ShortcutCommandId::NewCursorAgent),
-        Some("cmd-shift-c"),
-        "New Cursor Agent 默认应使用 Cmd+Shift+C，且可在 Settings 中重新录制"
+        Some("cmd-4"),
+        "New Cursor Agent 默认应使用 Cmd+4，且可在 Settings 中重新录制"
     );
     assert_eq!(
         shortcut_for(&effective, ShortcutCommandId::NewOpenCodeAgent),
-        None,
-        "New OpenCode Agent 应出现在可配置命令中，但默认不占用快捷键"
+        Some("cmd-5"),
+        "New OpenCode Agent 默认应使用 Cmd+5，且可在 Settings 中重新录制"
     );
     assert!(
         read_only_behaviors()
@@ -106,7 +163,7 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
 /// 数据构造（含关键数值的推导过程）：
 ///   override count = 1
 ///   target = NewTerminal
-///   old default = cmd-n
+///   old default = cmd-1
 ///   new value = cmd-t
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -117,7 +174,7 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
 /// 预期结果：
 ///   - 正断言：NewTerminal 有效键位变为 cmd-t
 ///   - 正断言：OpenProject 仍为 cmd-o
-///   - 负断言：NewTerminal 不应继续显示旧默认 cmd-n
+///   - 负断言：NewTerminal 不应继续显示旧默认 cmd-1
 #[test]
 fn test_shortcut_preferences_override_one_command_without_touching_others() {
     let mut prefs = ShortcutPreferences::default();
@@ -137,8 +194,8 @@ fn test_shortcut_preferences_override_one_command_without_touching_others() {
     );
     assert_ne!(
         shortcut_for(&effective, ShortcutCommandId::NewTerminal),
-        Some("cmd-n"),
-        "覆盖生效后 NewTerminal 不应继续显示旧默认 cmd-n"
+        Some("cmd-1"),
+        "覆盖生效后 NewTerminal 不应继续显示默认 cmd-1"
     );
 }
 
@@ -147,7 +204,7 @@ fn test_shortcut_preferences_override_one_command_without_touching_others() {
 /// 数据构造（含关键数值的推导过程）：
 ///   invalid json = "{"
 ///   invalid keystroke override = "cmd-shift"（只有修饰键，GPUI parser 不接受）
-///   fallback default for NewTerminal = cmd-n
+///   fallback default for NewTerminal = cmd-1
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. ShortcutPreferences::from_json("{") → default
@@ -156,7 +213,7 @@ fn test_shortcut_preferences_override_one_command_without_touching_others() {
 ///
 /// 预期结果：
 ///   - 正断言：坏 JSON 回退 default
-///   - 正断言：坏 keystroke 被忽略，NewTerminal 仍为 cmd-n
+///   - 正断言：坏 keystroke 被忽略，NewTerminal 仍为 cmd-1
 ///   - 负断言：NewTerminal 不应显示无法解析的 cmd-shift
 #[test]
 fn test_shortcut_preferences_ignore_invalid_json_and_invalid_keystrokes() {
@@ -170,12 +227,12 @@ fn test_shortcut_preferences_ignore_invalid_json_and_invalid_keystrokes() {
 
     assert_eq!(
         shortcut_for(&bad_json_effective, ShortcutCommandId::NewTerminal),
-        Some("cmd-n"),
-        "无法解析的 JSON 应回退默认 NewTerminal=cmd-n"
+        Some("cmd-1"),
+        "无法解析的 JSON 应回退默认 NewTerminal=cmd-1"
     );
     assert_eq!(
         shortcut_for(&bad_keystroke_effective, ShortcutCommandId::NewTerminal),
-        Some("cmd-n"),
+        Some("cmd-1"),
         "无法解析的 keystroke override 应被忽略并回退默认"
     );
     assert_ne!(
@@ -254,7 +311,7 @@ fn test_shortcut_validation_rejects_duplicates_reserved_inputs_and_bare_printabl
 ///   3. restore_all_defaults()
 ///
 /// 预期结果：
-///   - 正断言：单项恢复后 NewTerminal 回到 cmd-n，OpenProject 保持 cmd-p
+///   - 正断言：单项恢复后 NewTerminal 回到 cmd-1，OpenProject 保持 cmd-p
 ///   - 正断言：全部恢复后 OpenProject 回到 cmd-o
 ///   - 负断言：单项恢复不应误删 OpenProject override
 #[test]
@@ -268,8 +325,8 @@ fn test_shortcut_restore_one_and_restore_all_defaults() {
 
     assert_eq!(
         shortcut_for(&after_one, ShortcutCommandId::NewTerminal),
-        Some("cmd-n"),
-        "单项恢复 NewTerminal 后应回到默认 cmd-n"
+        Some("cmd-1"),
+        "单项恢复 NewTerminal 后应回到默认 cmd-1"
     );
     assert_eq!(
         shortcut_for(&after_one, ShortcutCommandId::OpenProject),

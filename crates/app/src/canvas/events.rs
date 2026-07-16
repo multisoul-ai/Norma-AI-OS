@@ -5,11 +5,13 @@ use crate::canvas::geometry::{
     apply_canvas_wheel_scroll, click_event_for_node, is_title_bar_hit, pt_to_vec,
 };
 use crate::canvas::interaction::DragState;
+use crate::canvas::interaction::HoveredTerminalLink;
 use crate::canvas::scroll::{
     terminal_scroll_for_text_point, terminal_scroll_lines_from_pixel_delta,
     wheel_scroll_owner_for_point, WheelScrollOwner,
 };
-use crate::canvas::terminal_hit::terminal_text_point_for_screen;
+use crate::canvas::terminal_hit::{terminal_link_point_for_screen, terminal_text_point_for_screen};
+use crate::canvas::terminal_link::{terminal_link_intent, TerminalLinkIntent};
 use canvas::{hit_test, Vec2};
 use gpui::{
     px, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ScrollWheelEvent,
@@ -19,6 +21,7 @@ use runtime::{route, Route};
 use std::time::{Duration, Instant};
 
 const MOTION_NOTIFY_INTERVAL: Duration = Duration::from_millis(16);
+const TERMINAL_LINK_DRAG_THRESHOLD_PX: f32 = 3.0;
 
 /// 滚轮/触控板平移画布；卡片内部滚动优先于画布滚动。
 pub(super) fn on_scroll(
@@ -129,13 +132,41 @@ pub(super) fn on_mouse_down(
 
     if let Some(id) = hit {
         if !is_title_bar {
-            if let Some(point) = terminal_text_point_for_screen(app, id, screen) {
+            if let Some(point) = terminal_link_point_for_screen(app, id, screen) {
                 app.motion.interrupt_initialization(id);
-                app.runtime.focus.focus_node(id);
-                app.runtime.selection.select_only(id);
-                app.mark_node_viewed_if_needed(id);
-                app.motion.set_pressed(id, true);
-                app.interaction.begin_text_selection(id, point);
+                let intent = app.runtime.node_view(id).map(|view| match view {
+                    runtime::NodeView::Term { snapshot, .. } => terminal_link_intent(
+                        &snapshot,
+                        point,
+                        ev.modifiers.platform,
+                        ev.click_count,
+                    ),
+                });
+                match intent.unwrap_or(TerminalLinkIntent::BeginTextSelection) {
+                    intent @ (TerminalLinkIntent::OpenBrowserCard { .. }
+                    | TerminalLinkIntent::OpenDefaultBrowser { .. }
+                    | TerminalLinkIntent::OpenPreviewCard { .. }) => {
+                        app.interaction
+                            .begin_terminal_link(id, point, screen, intent);
+                    }
+                    TerminalLinkIntent::BeginTextSelection => {
+                        app.runtime.focus.focus_node(id);
+                        app.runtime.selection.select_only(id);
+                        app.mark_node_viewed_if_needed(id);
+                        app.motion.set_pressed(id, true);
+                        app.interaction.begin_text_selection(id, point);
+                    }
+                    TerminalLinkIntent::InvalidLink => {
+                        app.runtime.focus.focus_node(id);
+                        app.runtime.selection.select_only(id);
+                        app.mark_node_viewed_if_needed(id);
+                        app.interaction.begin_text_selection(id, point);
+                        app.workspace_state.error = Some(
+                            "Only valid http(s) links can be opened from the terminal.".to_string(),
+                        );
+                    }
+                    TerminalLinkIntent::Ignore => {}
+                }
                 cx.stop_propagation();
                 cx.notify();
                 return;
@@ -199,6 +230,25 @@ pub(super) fn on_mouse_move(
     cx: &mut Context<MultisoulApp>,
 ) {
     let screen = pt_to_vec(ev.position);
+
+    if let Some(pending) = app.interaction.pending_terminal_link.clone() {
+        if let Some(point) = terminal_text_point_for_screen(app, pending.node_id, screen) {
+            if terminal_link_dragged(pending.pressed_screen, screen) {
+                app.interaction
+                    .begin_text_selection(pending.node_id, pending.anchor);
+                if app
+                    .interaction
+                    .update_text_selection_head(pending.node_id, point)
+                {
+                    cx.notify();
+                }
+            }
+        } else {
+            app.interaction.take_pending_terminal_link();
+            cx.notify();
+        }
+        return;
+    }
 
     if let Some(selection) = app.interaction.active_text_selection {
         if selection.dragging {
@@ -268,15 +318,69 @@ pub(super) fn on_mouse_move(
             app.interaction.last_motion_notify = Some(now);
             cx.notify();
         }
+        return;
+    }
+
+    let canvas_pt = app.runtime.document.viewport.screen_to_canvas(screen);
+    let hovered_link = hit_test(app.runtime.document.nodes(), canvas_pt).and_then(|node_id| {
+        let point = terminal_link_point_for_screen(app, node_id, screen)?;
+        let runtime::NodeView::Term { snapshot, .. } = app.runtime.node_view(node_id)?;
+        let url = snapshot
+            .link_at(point.row, point.col)
+            .or_else(|| snapshot.preview_path_at(point.row, point.col))?;
+        Some(HoveredTerminalLink {
+            node_id,
+            url,
+            screen_x: screen.x.round() as i32,
+            screen_y: screen.y.round() as i32,
+        })
+    });
+    if app.interaction.update_hovered_terminal_link(hovered_link) {
+        cx.notify();
     }
 }
 
 pub(super) fn on_mouse_up(
     app: &mut MultisoulApp,
-    _ev: &MouseUpEvent,
+    ev: &MouseUpEvent,
     w: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) {
+    if let Some(pending) = app.interaction.take_pending_terminal_link() {
+        let release_screen = pt_to_vec(ev.position);
+        if terminal_link_dragged(pending.pressed_screen, release_screen) {
+            if let Some(point) =
+                terminal_text_point_for_screen(app, pending.node_id, release_screen)
+            {
+                app.interaction
+                    .begin_text_selection(pending.node_id, pending.anchor);
+                app.interaction
+                    .update_text_selection_head(pending.node_id, point);
+                app.interaction.finish_text_selection();
+            }
+            cx.notify();
+            return;
+        }
+        match pending.intent {
+            TerminalLinkIntent::OpenBrowserCard { url } => {
+                app.interaction.update_hovered_terminal_link(None);
+                app.open_terminal_link_in_browser_card(url, w)
+            }
+            TerminalLinkIntent::OpenDefaultBrowser { url } => {
+                app.interaction.update_hovered_terminal_link(None);
+                app.open_url_in_default_browser(url)
+            }
+            TerminalLinkIntent::OpenPreviewCard { path } => {
+                app.interaction.update_hovered_terminal_link(None);
+                app.open_terminal_path_in_preview_card(path, w, cx)
+            }
+            TerminalLinkIntent::InvalidLink
+            | TerminalLinkIntent::BeginTextSelection
+            | TerminalLinkIntent::Ignore => {}
+        }
+        cx.notify();
+        return;
+    }
     let should_persist_canvas = app.interaction.panning || app.interaction.drag.is_some();
     let was_text_selecting = app
         .interaction
@@ -306,4 +410,10 @@ pub(super) fn on_mouse_up(
         app.mark_canvas_dirty();
     }
     cx.notify();
+}
+
+fn terminal_link_dragged(pressed: Vec2, current: Vec2) -> bool {
+    let delta = current - pressed;
+    delta.x * delta.x + delta.y * delta.y
+        >= TERMINAL_LINK_DRAG_THRESHOLD_PX * TERMINAL_LINK_DRAG_THRESHOLD_PX
 }

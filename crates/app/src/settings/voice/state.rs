@@ -22,8 +22,10 @@ use provider_values::{
     KEY_AGENT_OPENAI_API_KEY, KEY_AGENT_OPENAI_BASE_URL, KEY_AGENT_OPENAI_MODEL,
     KEY_AGENT_PROVIDER,
 };
+#[cfg(test)]
+pub(crate) use values::DialogueLlmMode;
 pub(crate) use values::{
-    DialogueLlmMode, DictationTrigger, EnvVoiceSettings, SavedVoiceSettings, VoiceInteractionMode,
+    DictationTrigger, EnvVoiceSettings, SavedVoiceSettings, VoiceInteractionMode,
     VoiceSettingsField, VoiceSettingsValues,
 };
 use values::{
@@ -293,7 +295,7 @@ impl VoiceSettingsState {
     }
 
     pub(crate) fn clear_agent_api_key(&mut self) {
-        self.cancel_edit_field(VoiceSettingsField::AgentApiKey);
+        self.cancel_edit_field(VoiceSettingsField::ApiKey);
         let (key, legacy_key) = match self.values.agent_provider() {
             AgentProviderKind::Ollama => {
                 self.saved.ollama_profile.api_key = None;
@@ -313,11 +315,11 @@ impl VoiceSettingsState {
 
     #[cfg(test)]
     pub(super) fn row_value(&self, field: VoiceSettingsField) -> String {
-        if self.editing == Some(field) && field == VoiceSettingsField::AgentApiKey {
+        if self.editing == Some(field) && field == VoiceSettingsField::ApiKey {
             format!("{}|", "•".repeat(self.draft.chars().count()))
         } else if self.editing == Some(field) {
             format!("{}|", self.draft)
-        } else if field == VoiceSettingsField::AgentApiKey {
+        } else if field == VoiceSettingsField::ApiKey {
             if self.values.active_provider_profile().api_key().is_some() {
                 "Configured ••••••••".to_string()
             } else {
@@ -363,7 +365,7 @@ impl VoiceSettingsState {
     fn save_edit(&mut self, field: VoiceSettingsField, finish_editing: bool) -> Option<String> {
         let value = self.draft.trim().to_string();
         if value.is_empty() {
-            if field == VoiceSettingsField::AgentApiKey {
+            if field == VoiceSettingsField::ApiKey {
                 if finish_editing {
                     self.editing = None;
                     self.draft.clear();
@@ -376,7 +378,7 @@ impl VoiceSettingsState {
         }
 
         let key = match field {
-            VoiceSettingsField::AgentBaseUrl => match self.values.agent_provider() {
+            VoiceSettingsField::BaseUrl => match self.values.agent_provider() {
                 AgentProviderKind::Ollama => {
                     self.saved.ollama_profile.base_url = Some(value.clone());
                     KEY_AGENT_OLLAMA_BASE_URL
@@ -386,7 +388,7 @@ impl VoiceSettingsState {
                     KEY_AGENT_OPENAI_BASE_URL
                 }
             },
-            VoiceSettingsField::AgentModel => match self.values.agent_provider() {
+            VoiceSettingsField::Model => match self.values.agent_provider() {
                 AgentProviderKind::Ollama => {
                     self.saved.ollama_profile.model = Some(value.clone());
                     KEY_AGENT_OLLAMA_MODEL
@@ -396,7 +398,7 @@ impl VoiceSettingsState {
                     KEY_AGENT_OPENAI_MODEL
                 }
             },
-            VoiceSettingsField::AgentApiKey => match self.values.agent_provider() {
+            VoiceSettingsField::ApiKey => match self.values.agent_provider() {
                 AgentProviderKind::Ollama => {
                     self.saved.ollama_profile.api_key = non_empty(value.clone());
                     KEY_AGENT_OLLAMA_API_KEY
@@ -453,13 +455,11 @@ impl VoiceSettingsState {
 
     fn field_value(&self, field: VoiceSettingsField) -> String {
         match field {
-            VoiceSettingsField::AgentBaseUrl => {
+            VoiceSettingsField::BaseUrl => {
                 self.values.active_provider_profile().base_url().to_string()
             }
-            VoiceSettingsField::AgentModel => {
-                self.values.active_provider_profile().model().to_string()
-            }
-            VoiceSettingsField::AgentApiKey => String::new(),
+            VoiceSettingsField::Model => self.values.active_provider_profile().model().to_string(),
+            VoiceSettingsField::ApiKey => String::new(),
         }
     }
 

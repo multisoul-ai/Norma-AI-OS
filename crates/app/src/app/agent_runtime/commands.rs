@@ -3,6 +3,25 @@ use gpui::Window;
 use norma::protocol::{
     AgentSummary, AgentTaskReceipt, AgentTaskReceiptStatus, CardCommand, CardCommandResult,
 };
+use std::collections::{HashMap, HashSet};
+
+#[derive(Debug)]
+pub(super) struct AgentTaskSubmitError {
+    message: String,
+    retry_safe: bool,
+}
+
+impl AgentTaskSubmitError {
+    pub(super) fn retry_safe(&self) -> bool {
+        self.retry_safe
+    }
+}
+
+impl std::fmt::Display for AgentTaskSubmitError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
 
 pub(super) fn execute_agent_card_command(
     app: &mut MultisoulApp,
@@ -161,48 +180,120 @@ fn execute_high_level_agent_command(
                     force_untracked,
                 )
                 .map_err(|error| error.to_string())?;
+            let mut failed_tasks = HashMap::<u64, AgentTaskSubmitError>::new();
+            let mut retry_safe_managed_failures = HashSet::<i64>::new();
+            let mut retry_safe_untracked_failures = HashSet::<i64>::new();
+            for receipt in &receipts {
+                if matches!(
+                    receipt.state,
+                    agent::AgentDispatchState::SubmittedManaged
+                        | agent::AgentDispatchState::SubmittedUntracked
+                ) {
+                    if let Err(error) =
+                        submit_agent_task(&mut app.runtime, receipt.node_id, &receipt.task)
+                    {
+                        tracing::error!(
+                            definition_id = receipt.definition_id,
+                            task_id = receipt.task_id,
+                            %error,
+                            "failed to submit Agent task"
+                        );
+                        if receipt.state == agent::AgentDispatchState::SubmittedManaged
+                            && error.retry_safe()
+                        {
+                            retry_safe_managed_failures.insert(receipt.definition_id);
+                        }
+                        if receipt.state == agent::AgentDispatchState::SubmittedUntracked
+                            && error.retry_safe()
+                        {
+                            retry_safe_untracked_failures.insert(receipt.definition_id);
+                        }
+                        failed_tasks.insert(receipt.task_id, error);
+                    }
+                }
+            }
+            for &definition_id in &retry_safe_managed_failures {
+                let task_ids = receipts
+                    .iter()
+                    .filter(|receipt| receipt.definition_id == definition_id)
+                    .map(|receipt| receipt.task_id)
+                    .collect::<Vec<_>>();
+                if let Some(coordinator) = app.agent_task_coordinator.as_mut() {
+                    coordinator.reject_dispatch(definition_id, &task_ids);
+                }
+            }
+            retry_safe_untracked_failures.retain(|definition_id| {
+                receipts
+                    .iter()
+                    .filter(|receipt| {
+                        receipt.definition_id == *definition_id
+                            && receipt.state == agent::AgentDispatchState::SubmittedUntracked
+                    })
+                    .all(|receipt| {
+                        failed_tasks
+                            .get(&receipt.task_id)
+                            .is_some_and(AgentTaskSubmitError::retry_safe)
+                    })
+            });
+            for &definition_id in &retry_safe_untracked_failures {
+                if let Some(coordinator) = app.agent_task_coordinator.as_mut() {
+                    coordinator.reject_dispatch(definition_id, &[]);
+                }
+            }
             let mut wire_receipts = Vec::with_capacity(receipts.len());
             for receipt in receipts {
-                let (persisted_state, persisted_tracking) = match receipt.state {
-                    agent::AgentDispatchState::Queued => (
-                        storage::AgentDispatchTaskState::Queued,
-                        storage::AgentDispatchTracking::Managed,
-                    ),
-                    agent::AgentDispatchState::SubmittedManaged => (
-                        storage::AgentDispatchTaskState::Submitted,
-                        storage::AgentDispatchTracking::Managed,
-                    ),
-                    agent::AgentDispatchState::SubmittedUntracked => (
-                        storage::AgentDispatchTaskState::Untracked,
-                        storage::AgentDispatchTracking::Untracked,
-                    ),
+                let submission_failed = failed_tasks.contains_key(&receipt.task_id)
+                    || retry_safe_managed_failures.contains(&receipt.definition_id);
+                let (persisted_state, persisted_tracking) = if submission_failed {
+                    (
+                        storage::AgentDispatchTaskState::Failed,
+                        match receipt.state {
+                            agent::AgentDispatchState::SubmittedUntracked => {
+                                storage::AgentDispatchTracking::Untracked
+                            }
+                            agent::AgentDispatchState::Queued
+                            | agent::AgentDispatchState::SubmittedManaged => {
+                                storage::AgentDispatchTracking::Managed
+                            }
+                        },
+                    )
+                } else {
+                    match receipt.state {
+                        agent::AgentDispatchState::Queued => (
+                            storage::AgentDispatchTaskState::Queued,
+                            storage::AgentDispatchTracking::Managed,
+                        ),
+                        agent::AgentDispatchState::SubmittedManaged => (
+                            storage::AgentDispatchTaskState::Submitted,
+                            storage::AgentDispatchTracking::Managed,
+                        ),
+                        agent::AgentDispatchState::SubmittedUntracked => (
+                            storage::AgentDispatchTaskState::Untracked,
+                            storage::AgentDispatchTracking::Untracked,
+                        ),
+                    }
                 };
-                if let Some(store) = app.persistence.agent_dispatch_task_store() {
-                    if let Err(error) = store.create(&storage::NewAgentDispatchTask {
+                if let Some(writer) = app.persistence.agent_dispatch_writer() {
+                    writer.create(storage::NewAgentDispatchTask {
                         definition_id: receipt.definition_id,
                         node_id: receipt.node_id,
                         original_instruction: receipt.task.clone(),
                         task_text: receipt.task.clone(),
                         state: persisted_state,
                         tracking: persisted_tracking,
-                    }) {
-                        tracing::error!(
-                            definition_id = receipt.definition_id,
-                            task_id = receipt.task_id,
-                            %error,
-                            "failed to persist Agent dispatch task"
-                        );
-                    }
+                    });
                 }
-                let status = match receipt.state {
-                    agent::AgentDispatchState::Queued => AgentTaskReceiptStatus::Queued,
-                    agent::AgentDispatchState::SubmittedManaged => {
-                        submit_agent_task(&mut app.runtime, receipt.node_id, &receipt.task)?;
-                        AgentTaskReceiptStatus::Submitted
-                    }
-                    agent::AgentDispatchState::SubmittedUntracked => {
-                        submit_agent_task(&mut app.runtime, receipt.node_id, &receipt.task)?;
-                        AgentTaskReceiptStatus::Untracked
+                let status = if submission_failed {
+                    AgentTaskReceiptStatus::Failed
+                } else {
+                    match receipt.state {
+                        agent::AgentDispatchState::Queued => AgentTaskReceiptStatus::Queued,
+                        agent::AgentDispatchState::SubmittedManaged => {
+                            AgentTaskReceiptStatus::Submitted
+                        }
+                        agent::AgentDispatchState::SubmittedUntracked => {
+                            AgentTaskReceiptStatus::Untracked
+                        }
                     }
                 };
                 wire_receipts.push(AgentTaskReceipt {
@@ -220,24 +311,47 @@ fn execute_high_level_agent_command(
     }
 }
 
-fn submit_agent_task(
+pub(super) fn submit_agent_task(
     runtime: &mut runtime::Runtime,
     node_id: canvas::NodeId,
     task: &str,
-) -> Result<(), String> {
+) -> Result<(), AgentTaskSubmitError> {
     runtime
         .send_node_input(node_id, runtime::NodeInput::Text(task.to_string()))
-        .map_err(|error| error.to_string())?;
-    runtime
-        .send_node_input(
+        .map_err(|error| AgentTaskSubmitError {
+            message: error.to_string(),
+            retry_safe: true,
+        })?;
+    if let Err(error) = runtime.send_node_input(
+        node_id,
+        runtime::NodeInput::Key(terminal::KeyInput {
+            key: terminal::Key::Enter,
+            ctrl: false,
+            alt: false,
+        }),
+    ) {
+        let cleanup = runtime.send_node_input(
             node_id,
             runtime::NodeInput::Key(terminal::KeyInput {
-                key: terminal::Key::Enter,
-                ctrl: false,
+                key: terminal::Key::Char('u'),
+                ctrl: true,
                 alt: false,
             }),
-        )
-        .map_err(|error| error.to_string())
+        );
+        return match cleanup {
+            Ok(()) => Err(AgentTaskSubmitError {
+                message: error.to_string(),
+                retry_safe: true,
+            }),
+            Err(cleanup_error) => Err(AgentTaskSubmitError {
+                message: format!(
+                    "{error}; failed to clear unsubmitted Agent task input: {cleanup_error}"
+                ),
+                retry_safe: false,
+            }),
+        };
+    }
+    Ok(())
 }
 
 fn activate_definition(

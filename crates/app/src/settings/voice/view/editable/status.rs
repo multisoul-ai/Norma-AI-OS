@@ -10,14 +10,14 @@ pub(super) fn input_placeholder(
     field: VoiceSettingsField,
 ) -> &'static str {
     match field {
-        VoiceSettingsField::AgentBaseUrl => "https://api.example.com/v1",
-        VoiceSettingsField::AgentModel => "Model name",
-        VoiceSettingsField::AgentApiKey
+        VoiceSettingsField::BaseUrl => "https://api.example.com/v1",
+        VoiceSettingsField::Model => "Model name",
+        VoiceSettingsField::ApiKey
             if state.values().active_provider_profile().api_key().is_some() =>
         {
             CONFIGURED_API_KEY_PLACEHOLDER
         }
-        VoiceSettingsField::AgentApiKey => UNCONFIGURED_API_KEY_PLACEHOLDER,
+        VoiceSettingsField::ApiKey => UNCONFIGURED_API_KEY_PLACEHOLDER,
     }
 }
 

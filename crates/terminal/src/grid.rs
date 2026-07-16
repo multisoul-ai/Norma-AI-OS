@@ -19,6 +19,8 @@ use alacritty_terminal::vte::ansi::{
     Color as AlacrittyColor, NamedColor as AlacrittyNamedColor, Processor, Rgb as AlacrittyRgb,
 };
 
+mod links;
+
 /// 中性终端颜色（不含 alacritty 类型）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TerminalColor {
@@ -75,12 +77,32 @@ pub struct CellAttrs {
 }
 
 /// 中性单元格（不含 alacritty 类型）。fg/bg 保留终端颜色语义。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cell {
     pub c: char,
     pub fg: TerminalColor,
     pub bg: TerminalColor,
     pub attrs: CellAttrs,
+    /// OSC 8 目标 URI；`None` 表示这个字符不是语义链接的一部分。
+    pub hyperlink: Option<TerminalHyperlink>,
+}
+
+/// 与渲染库解耦的终端链接目标。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TerminalHyperlink {
+    uri: String,
+}
+
+impl TerminalHyperlink {
+    fn from_alacritty(link: alacritty_terminal::term::cell::Hyperlink) -> Self {
+        Self {
+            uri: link.uri().to_string(),
+        }
+    }
+
+    pub fn uri(&self) -> &str {
+        &self.uri
+    }
 }
 
 /// 当前屏幕的中性快照，供 UI 渲染使用。
@@ -174,6 +196,7 @@ impl TerminalGrid {
                     fg: TerminalColor::Named(TerminalNamedColor::Foreground),
                     bg: TerminalColor::Named(TerminalNamedColor::Background),
                     attrs: CellAttrs::default(),
+                    hyperlink: None,
                 };
                 self.dims.columns
             ];
@@ -189,6 +212,7 @@ impl TerminalGrid {
                     fg: terminal_color(cell.fg),
                     bg: terminal_color(cell.bg),
                     attrs: cell_attrs(cell.flags),
+                    hyperlink: cell.hyperlink().map(TerminalHyperlink::from_alacritty),
                 };
             }
         }

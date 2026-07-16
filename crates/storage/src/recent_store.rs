@@ -92,6 +92,15 @@ impl RecentStore {
         self.save(&recent)?;
         Ok(recent)
     }
+
+    pub fn remove(&self, path: &Path) -> StorageResult<bool> {
+        let connection = open_app_connection(&self.path)?;
+        let deleted = connection.execute(
+            "DELETE FROM recent_workspaces WHERE path = ?1",
+            params![path.to_string_lossy()],
+        )?;
+        Ok(deleted > 0)
+    }
 }
 
 fn encode_source(source: WorkspaceSource) -> &'static str {

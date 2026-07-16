@@ -4,7 +4,7 @@
 use super::reply::{apply_reply_synthesis, create_tts_client};
 #[cfg(test)]
 use super::turn;
-use super::{turn::VoiceTurnArtifacts, DialogueControlState};
+use super::{artifacts::VoiceTurnArtifacts, DialogueControlState};
 use dialogue::DialoguePhase;
 use gpui::Context;
 #[cfg(test)]
@@ -191,7 +191,7 @@ impl DialogueControlState {
             .or_else(|| {
                 self.session
                     .pending_transcript()
-                    .map(|text| turn::default_echo_mock_script(text))
+                    .map(turn::default_echo_mock_script)
                     .and_then(|steps| {
                         steps.into_iter().next().and_then(|step| match step {
                             llm::MockStep::Text(text) => Some(text),

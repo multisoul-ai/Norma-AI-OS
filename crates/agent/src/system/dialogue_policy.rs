@@ -55,10 +55,10 @@ pub(super) fn route_user_turn(
     {
         return DialogueRoutingDecision::ModelOnly;
     }
-    if contains_any(&normalized, CREATE_ACTIONS) && contains_any(&normalized, CONCRETE_CARD_TARGETS)
+    if (contains_any(&normalized, CREATE_ACTIONS)
+        && contains_any(&normalized, CONCRETE_CARD_TARGETS))
+        || has_explicit_agent_address(text, roster)
     {
-        DialogueRoutingDecision::RequireCardTaskFallback
-    } else if has_explicit_agent_address(text, roster) {
         DialogueRoutingDecision::RequireCardTaskFallback
     } else {
         DialogueRoutingDecision::ModelOnly
@@ -87,12 +87,6 @@ fn address_keys(agent: &crate::AgentRosterEntry) -> Vec<String> {
     let mut keys = vec![agent.name.clone()];
     if let Some(alias) = agent.speech_alias.as_ref() {
         keys.push(alias.clone());
-    } else if let Some(alias) = crate::builtin_agent_names()
-        .iter()
-        .find(|builtin| builtin.name().eq_ignore_ascii_case(&agent.name))
-        .map(|builtin| builtin.speech_alias())
-    {
-        keys.push(alias.to_string());
     }
     keys
 }

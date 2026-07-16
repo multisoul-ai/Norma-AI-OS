@@ -1,5 +1,51 @@
 use super::*;
+use crate::canvas::interaction::HoveredTerminalLink;
 use crate::canvas::text_selection::TextPoint;
+
+/// 终端链接悬停：同一链接内移动不应反复触发重绘，离开链接时必须清除预览状态。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   首次 hover = node_id=7, url="https://example.com", screen=(100,120)
+///   同链接移动 = 相同 node/url，但 screen=(130,140)
+///   离开链接 = None
+///   因 tooltip 只需在进入链接时锚定一次，同链接移动的状态变化数 = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 首次更新 hover，状态从 None 变为链接
+///   2. 在同一链接内移动，保留原 tooltip 锚点并避免 notify
+///   3. 传入 None，清除链接预览
+///
+/// 预期结果：
+///   - 断言 A：首次进入返回 true 且保存完整 URL
+///   - 断言 B：同一链接移动返回 false，避免 `on_mouse_move` 热路径持续重绘
+///   - 断言 C：离开后返回 true 且状态为 None，不应残留旧 URL 提示
+#[test]
+fn test_hovered_terminal_link_anchors_once_and_clears_on_leave() {
+    let mut state = InteractionState::default();
+    let first = HoveredTerminalLink {
+        node_id: 7,
+        url: "https://example.com".to_string(),
+        screen_x: 100,
+        screen_y: 120,
+    };
+    let moved_within_same_link = HoveredTerminalLink {
+        screen_x: 130,
+        screen_y: 140,
+        ..first.clone()
+    };
+
+    let entered = state.update_hovered_terminal_link(Some(first));
+    let moved = state.update_hovered_terminal_link(Some(moved_within_same_link));
+    let left = state.update_hovered_terminal_link(None);
+
+    assert!(entered, "首次进入链接应更新状态，以渲染 URL 预览提示");
+    assert!(!moved, "同一链接内移动不应反复触发重绘，避免鼠标热路径抖动");
+    assert!(left, "离开链接应更新状态，以移除悬停 URL 预览");
+    assert_eq!(
+        state.hovered_terminal_link, None,
+        "离开链接后不应保留旧的 hover URL，否则 tooltip 会显示过期目标"
+    );
+}
 
 /// 文本选区拖动性能：鼠标仍在同一 cell 时不应报告状态变化。
 ///

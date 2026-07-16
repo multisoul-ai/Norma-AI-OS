@@ -1,23 +1,144 @@
 //! Workspace overlay chrome for the GPUI app shell.
 
+mod dock;
+mod top_bar;
+
 use super::{
     MultisoulApp, WALLPAPER_IMAGE_OPACITY, WALLPAPER_SHADE_BOTTOM_ALPHA, WALLPAPER_SHADE_TOP_ALPHA,
 };
 use crate::app::wallpaper_resolvers::WallpaperKind;
+use crate::canvas::minimap::render_canvas_minimap;
 use gpui::{
-    div, img, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, AnyView, App,
-    BoxShadow, Context, Div, ObjectFit, Stateful, Window,
+    div, img, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, BoxShadow, Context,
+    Div, ObjectFit, Stateful, Window,
 };
-use ui::icons::{toolbar_icon, with_alpha, ToolbarIcon};
+use ui::icons::with_alpha;
 use ui::Theme;
 
 const WORKSPACE_LEFT_RAIL_VISIBLE: bool = false;
 const BOTTOM_VOICE_BAR_VISIBLE: bool = true;
+const FROST_SAMPLE_OFFSETS: [(f32, f32); 5] = [
+    (0.0, 0.0),
+    (-5.0, -3.0),
+    (5.0, 3.0),
+    (-3.0, 5.0),
+    (3.0, -5.0),
+];
+
+/// Incremental source-over alpha that keeps every accumulated spatial sample
+/// equally weighted. Starting with an opaque first sample prevents the card's
+/// cool-white shell from replacing wallpaper energy; sample `n` then mixes at
+/// `1 / (n + 1)`, leaving all accumulated samples with the same final weight.
+fn frost_sample_opacity(sample_index: usize) -> f32 {
+    1.0 / (sample_index as f32 + 1.0)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct FrostedBackdropRegion {
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+}
+
+/// GPUI 0.2.2 只能矩形裁剪子元素。将毛玻璃拆为中间横条与上下内缩横条，
+/// 让四个圆角方块继续显示底下同位置的原始壁纸，而不被矩形采样盖住。
+fn frosted_backdrop_regions(
+    card_width: f32,
+    card_height: f32,
+    card_radius: f32,
+) -> [FrostedBackdropRegion; 3] {
+    let width = card_width.max(0.0);
+    let height = card_height.max(0.0);
+    let radius = card_radius.max(0.0).min(width * 0.5).min(height * 0.5);
+    let inner_width = (width - radius * 2.0).max(0.0);
+    let inner_height = (height - radius * 2.0).max(0.0);
+
+    [
+        FrostedBackdropRegion {
+            left: radius,
+            top: 0.0,
+            width: inner_width,
+            height: radius,
+        },
+        FrostedBackdropRegion {
+            left: 0.0,
+            top: radius,
+            width,
+            height: inner_height,
+        },
+        FrostedBackdropRegion {
+            left: radius,
+            top: height - radius,
+            width: inner_width,
+            height: radius,
+        },
+    ]
+}
 
 impl MultisoulApp {
-    pub(super) fn render_workspace_backdrop(&self) -> Div {
+    pub(super) fn render_workspace_error_banner(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) -> Option<Stateful<Div>> {
+        let error = self.workspace_state.error.clone()?;
+        let theme = self.theme;
+        Some(
+            div()
+                .id("workspace-error-layer")
+                .absolute()
+                .top(px(66.0))
+                .left(px(0.0))
+                .right(px(0.0))
+                .flex()
+                .justify_center()
+                .child(
+                    div()
+                        .id("workspace-error-banner")
+                        .debug_selector(|| "workspace-error-banner".to_string())
+                        .mx(px(24.0))
+                        .max_w(px(720.0))
+                        .min_h(px(42.0))
+                        .flex()
+                        .items_center()
+                        .gap(px(12.0))
+                        .px(px(14.0))
+                        .py(px(10.0))
+                        .rounded(px(12.0))
+                        .border_1()
+                        .border_color(rgba(with_alpha(theme.destructive, 0x70)))
+                        .bg(rgba(with_alpha(theme.graphite, 0xf0)))
+                        .text_color(rgba(theme.text_primary))
+                        .text_size(px(12.0))
+                        .child(div().flex_1().child(error))
+                        .child(
+                            div()
+                                .id("workspace-error-dismiss")
+                                .debug_selector(|| "workspace-error-dismiss".to_string())
+                                .w(px(28.0))
+                                .h(px(28.0))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .rounded(px(8.0))
+                                .cursor_pointer()
+                                .text_color(rgba(theme.text_secondary))
+                                .hover(|style| style.bg(rgba(with_alpha(theme.destructive, 0x24))))
+                                .child("×")
+                                .on_click(cx.listener(|app, _, _window, cx| {
+                                    app.workspace_state.error = None;
+                                    cx.notify();
+                                })),
+                        ),
+                ),
+        )
+    }
+
+    pub(super) fn render_workspace_backdrop(&self) -> Stateful<Div> {
         let theme = self.theme;
         let mut backdrop = div()
+            .id("workspace-backdrop")
+            .debug_selector(|| "workspace-backdrop".to_string())
             .absolute()
             .top(px(0.0))
             .left(px(0.0))
@@ -32,57 +153,25 @@ impl MultisoulApp {
 
         backdrop = backdrop.child(self.render_wallpaper_layer());
 
-        backdrop
-            .child(
-                div()
-                    .absolute()
-                    .top(px(0.0))
-                    .left(px(0.0))
-                    .right(px(0.0))
-                    .bottom(px(0.0))
-                    .bg(linear_gradient(
-                        180.0,
-                        linear_color_stop(
-                            rgba(with_alpha(theme.graphite, WALLPAPER_SHADE_TOP_ALPHA)),
-                            0.0,
-                        ),
-                        linear_color_stop(
-                            rgba(with_alpha(theme.graphite, WALLPAPER_SHADE_BOTTOM_ALPHA)),
-                            1.0,
-                        ),
-                    )),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .left(px(-160.0))
-                    .top(px(54.0))
-                    .w(px(520.0))
-                    .h(px(520.0))
-                    .rounded(px(260.0))
-                    .border_1()
-                    .border_color(rgba(with_alpha(theme.accent_cyan, 0x24))),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .right(px(-180.0))
-                    .bottom(px(-120.0))
-                    .w(px(620.0))
-                    .h(px(620.0))
-                    .rounded(px(310.0))
-                    .border_1()
-                    .border_color(rgba(with_alpha(theme.accent_orange, 0x2e))),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .left(px(90.0))
-                    .right(px(90.0))
-                    .bottom(px(84.0))
-                    .h(px(1.0))
-                    .bg(rgba(with_alpha(theme.accent_cyan, 0x18))),
-            )
+        backdrop.child(
+            div()
+                .absolute()
+                .top(px(0.0))
+                .left(px(0.0))
+                .right(px(0.0))
+                .bottom(px(0.0))
+                .bg(linear_gradient(
+                    180.0,
+                    linear_color_stop(
+                        rgba(with_alpha(theme.graphite, WALLPAPER_SHADE_TOP_ALPHA)),
+                        0.0,
+                    ),
+                    linear_color_stop(
+                        rgba(with_alpha(theme.graphite, WALLPAPER_SHADE_BOTTOM_ALPHA)),
+                        1.0,
+                    ),
+                )),
+        )
     }
 
     /// Render the wallpaper layer, branching on the current [`WallpaperKind`].
@@ -143,6 +232,115 @@ impl MultisoulApp {
             .opacity(WALLPAPER_IMAGE_OPACITY)
     }
 
+    /// Crop the active wallpaper to a card's screen-space bounds and blend
+    /// five nearby samples with normalized incremental weights. This mirrors a
+    /// CSS backdrop blur's spatial mixing without reading pixels back to the
+    /// CPU, while keeping the blurred wallpaper fully present beneath the tint.
+    /// Static/GIF samples reuse GPUI's image cache; video samples reuse the
+    /// current 420f CVPixelBuffer surface.
+    pub(crate) fn render_card_frosted_backdrop(
+        &self,
+        node_id: canvas::NodeId,
+        card_left: f32,
+        card_top: f32,
+        card_width: f32,
+        card_height: f32,
+        card_radius: f32,
+        viewport_width: f32,
+        viewport_height: f32,
+    ) -> Div {
+        let mut backdrop = div()
+            .absolute()
+            .top(px(card_top))
+            .left(px(card_left))
+            .w(px(card_width))
+            .h(px(card_height))
+            .overflow_hidden();
+
+        for region in frosted_backdrop_regions(card_width, card_height, card_radius) {
+            backdrop = backdrop.child(self.render_frosted_backdrop_region(
+                node_id,
+                card_left,
+                card_top,
+                region,
+                viewport_width,
+                viewport_height,
+            ));
+        }
+
+        backdrop
+    }
+
+    fn render_frosted_backdrop_region(
+        &self,
+        node_id: canvas::NodeId,
+        card_left: f32,
+        card_top: f32,
+        region: FrostedBackdropRegion,
+        viewport_width: f32,
+        viewport_height: f32,
+    ) -> Div {
+        let kind = self.wallpaper_settings.current_kind();
+        let source = self.wallpaper_settings.image_source_for_render();
+        let render_key = self.wallpaper_settings.render_id_key();
+        let mut patch = div()
+            .absolute()
+            .left(px(region.left))
+            .top(px(region.top))
+            .w(px(region.width))
+            .h(px(region.height))
+            .overflow_hidden();
+
+        for (sample_index, (dx, dy)) in FROST_SAMPLE_OFFSETS.into_iter().enumerate() {
+            let sample_left = -card_left + dx - region.left;
+            let sample_top = -card_top + dy - region.top;
+            let sample_opacity = frost_sample_opacity(sample_index);
+
+            #[cfg(target_os = "macos")]
+            if kind == WallpaperKind::Video {
+                if let Some(sample) = self.render_video_wallpaper_frost_sample(
+                    sample_left,
+                    sample_top,
+                    viewport_width,
+                    viewport_height,
+                    sample_opacity,
+                ) {
+                    patch = patch.child(sample);
+                    continue;
+                }
+            }
+
+            patch = patch.child(
+                img(source.clone())
+                    .id(gpui::SharedString::from(format!(
+                        "card-frost:{render_key}:{node_id}:{sample_index}:{}:{}",
+                        region.left, region.top
+                    )))
+                    .absolute()
+                    .left(px(sample_left))
+                    .top(px(sample_top))
+                    .w(px(viewport_width))
+                    .h(px(viewport_height))
+                    .object_fit(ObjectFit::Cover)
+                    .opacity(sample_opacity),
+            );
+        }
+
+        patch.child(
+            div()
+                .absolute()
+                .top(px(0.0))
+                .left(px(0.0))
+                .right(px(0.0))
+                .bottom(px(0.0))
+                .bg(linear_gradient(
+                    155.0,
+                    linear_color_stop(rgba(0xf8fafd24), 0.0),
+                    linear_color_stop(rgba(0xe8eef82e), 1.0),
+                )),
+        )
+    }
+
     pub(super) fn render_workspace_chrome(
         &mut self,
         window: &mut Window,
@@ -150,113 +348,15 @@ impl MultisoulApp {
     ) -> Div {
         let theme = self.theme;
 
-        let mut chrome = div()
+        div()
             .absolute()
             .top(px(0.0))
             .left(px(0.0))
             .right(px(0.0))
             .bottom(px(0.0))
-            .child(
-                div()
-                    .absolute()
-                    .top(px(30.0))
-                    .left(px(0.0))
-                    .right(px(0.0))
-                    .h(px(46.0))
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .justify_center()
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .gap_2()
-                            .px(px(12.0))
-                            .h(px(46.0))
-                            .rounded(px(23.0))
-                            .border_1()
-                            .border_color(rgba(with_alpha(theme.edge_highlight, 0x34)))
-                            .shadow(chrome_shadow(theme))
-                            .bg(rgba(with_alpha(theme.panel, 0xdc)))
-                            .text_color(rgba(theme.text_primary))
-                            .text_size(px(12.0))
-                            .child(
-                                chrome_icon_button(
-                                    theme,
-                                    ToolbarIcon::Scroll,
-                                    self.interaction.canvas_scroll_enabled,
-                                    "toolbar-canvas-scroll",
-                                    "Scroll mode",
-                                )
-                                .on_click(cx.listener(Self::on_toolbar_canvas_scroll)),
-                            )
-                            .child(chrome_divider(theme))
-                            .child(
-                                chrome_icon_button(
-                                    theme,
-                                    ToolbarIcon::Plus,
-                                    self.interaction.new_menu_open,
-                                    "toolbar-new-terminal",
-                                    "New",
-                                )
-                                .on_click(cx.listener(Self::on_toolbar_toggle_new_menu)),
-                            )
-                            .child(chrome_divider(theme))
-                            .child(
-                                chrome_icon_button(
-                                    theme,
-                                    ToolbarIcon::Claude,
-                                    false,
-                                    "toolbar-new-claude-agent",
-                                    "Claude",
-                                )
-                                .on_click(cx.listener(Self::on_toolbar_new_claude_agent)),
-                            )
-                            .child(
-                                chrome_icon_button(
-                                    theme,
-                                    ToolbarIcon::Codex,
-                                    false,
-                                    "toolbar-new-codex-agent",
-                                    "Codex",
-                                )
-                                .on_click(cx.listener(Self::on_toolbar_new_codex_agent)),
-                            )
-                            .child(
-                                chrome_icon_button(
-                                    theme,
-                                    ToolbarIcon::Cursor,
-                                    false,
-                                    "toolbar-new-cursor-agent",
-                                    "Cursor",
-                                )
-                                .on_click(cx.listener(Self::on_toolbar_new_cursor_agent)),
-                            )
-                            .child(
-                                chrome_icon_button(
-                                    theme,
-                                    ToolbarIcon::OpenCode,
-                                    false,
-                                    "toolbar-new-opencode-agent",
-                                    "OpenCode",
-                                )
-                                .on_click(cx.listener(Self::on_toolbar_new_opencode_agent)),
-                            )
-                            .child(chrome_divider(theme))
-                            .child(
-                                chrome_icon_button(
-                                    theme,
-                                    ToolbarIcon::Settings,
-                                    false,
-                                    "toolbar-settings",
-                                    "Settings",
-                                )
-                                .on_click(cx.listener(Self::on_toolbar_settings)),
-                            ),
-                    ),
-            )
+            .child(render_canvas_minimap(&self.runtime, theme, window))
+            .child(self.render_command_dock(window, cx))
+            .child(self.render_workspace_top_bar(cx))
             .when(workspace_left_rail_visible(), |chrome| {
                 chrome.child(
                     div()
@@ -286,13 +386,7 @@ impl MultisoulApp {
             })
             .when(self.interaction.new_menu_open, |chrome| {
                 chrome.child(self.render_new_menu(cx))
-            });
-
-        if bottom_voice_bar_visible() {
-            chrome = chrome.child(self.render_voice_bar(window, cx));
-        }
-
-        chrome
+            })
     }
 }
 
@@ -307,20 +401,16 @@ pub(super) fn chrome_shadow(theme: Theme) -> Vec<BoxShadow> {
 
 fn chrome_button(theme: Theme, label: &'static str, active: bool) -> Div {
     let fill = if active {
-        with_alpha(theme.accent_orange, 0x36)
+        with_alpha(theme.accent_blue, 0x72)
     } else {
-        with_alpha(theme.edge_highlight, 0x08)
+        0xffffff0a
     };
     let stroke = if active {
-        with_alpha(theme.accent_orange, 0x78)
+        with_alpha(theme.accent_cyan, 0x8c)
     } else {
-        with_alpha(theme.edge_highlight, 0x20)
+        0xffffff18
     };
-    let text = if active {
-        theme.accent_orange
-    } else {
-        theme.text_primary
-    };
+    let text = if active { 0xffffffff } else { 0xffffffc8 };
 
     div()
         .w(px(chrome_button_width(label)))
@@ -350,88 +440,6 @@ fn bottom_voice_bar_visible() -> bool {
     BOTTOM_VOICE_BAR_VISIBLE
 }
 
-/// Toolbar icon button: a 30×30 stateful square holding one SVG icon with
-/// hover/active/tooltip feedback. `active` swaps the rest tint for the accent
-/// orange tint (mirror of the old text `chrome_button`).
-///
-/// Returns a `Stateful<Div>` so the caller only needs to chain `.on_click(...)`.
-fn chrome_icon_button(
-    theme: Theme,
-    icon: ToolbarIcon,
-    active: bool,
-    id: &'static str,
-    tooltip: &'static str,
-) -> Stateful<Div> {
-    let fill = if active {
-        with_alpha(theme.accent_orange, 0x36)
-    } else {
-        with_alpha(theme.edge_highlight, 0x08)
-    };
-    let stroke = if active {
-        with_alpha(theme.accent_orange, 0x78)
-    } else {
-        with_alpha(theme.edge_highlight, 0x20)
-    };
-    let icon_color = if active {
-        theme.accent_orange
-    } else {
-        theme.text_primary
-    };
-
-    div()
-        .id(id)
-        .debug_selector(move || id.to_string())
-        .w(px(30.0))
-        .h(px(30.0))
-        .flex()
-        .items_center()
-        .justify_center()
-        .rounded(px(8.0))
-        .border_1()
-        .border_color(rgba(stroke))
-        .bg(rgba(fill))
-        .child(toolbar_icon(icon, icon_color, 16.0))
-        .hover(move |s| s.bg(rgba(with_alpha(theme.edge_highlight, 0x14))))
-        .active(move |s| s.bg(rgba(with_alpha(theme.edge_highlight, 0x28))))
-        .tooltip(move |_, cx| tooltip_view(theme, tooltip, cx))
-}
-
-/// Vertical 1×20 separator between toolbar icon groups.
-fn chrome_divider(theme: Theme) -> Div {
-    div()
-        .w(px(1.0))
-        .h(px(20.0))
-        .bg(rgba(with_alpha(theme.edge_highlight, 0x18)))
-}
-
-/// Build the hover tooltip `AnyView`. GPUI's `tooltip` closure must return an
-/// `AnyView`; a stateless styled `Div` alone does not satisfy that, so we wrap
-/// the pill in a tiny `Render` view entity via `App::new`.
-fn tooltip_view(theme: Theme, text: &'static str, cx: &mut App) -> AnyView {
-    cx.new(|_| TooltipView { theme, text }).into()
-}
-
-/// Stateless view backing [`tooltip_view`]: a small glass pill rendering `text`.
-struct TooltipView {
-    theme: Theme,
-    text: &'static str,
-}
-
-impl Render for TooltipView {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .px(px(8.0))
-            .py(px(4.0))
-            .rounded(px(6.0))
-            .bg(rgba(with_alpha(self.theme.panel, 0xf0)))
-            .border_1()
-            .border_color(rgba(with_alpha(self.theme.edge_highlight, 0x40)))
-            .text_color(rgba(self.theme.text_primary))
-            .text_size(px(11.0))
-            .child(self.text)
-    }
-}
-
 #[cfg(test)]
 #[path = "../../tests/unit/app_chrome_tests.rs"]
 mod app_chrome_tests;
@@ -439,3 +447,11 @@ mod app_chrome_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/app_chrome_cursor_tests.rs"]
 mod app_chrome_cursor_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/product_ui_chrome_tests.rs"]
+mod product_ui_chrome_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/workspace_backdrop_tests.rs"]
+mod workspace_backdrop_tests;
