@@ -3,7 +3,6 @@
 mod actions;
 mod backdrop;
 mod layout;
-mod preview;
 mod recent;
 
 use self::actions::{action_card, launchpad_brand};
@@ -11,7 +10,6 @@ use self::backdrop::launchpad_backdrop;
 use self::layout::launchpad_layout_for_window;
 #[cfg(test)]
 use self::layout::LaunchpadLayoutMode;
-use self::preview::workspace_preview;
 #[cfg(test)]
 use self::recent::recent_project_records_for_launchpad;
 use crate::app::wallpaper_resolvers::resolve_builtin_asset;
@@ -55,9 +53,6 @@ impl MultisoulApp {
             .overflow_hidden()
             .bg(rgba(theme.canvas_from))
             .child(launchpad_backdrop(theme, launchpad_video))
-            .when(layout.preview_visible, |root| {
-                root.child(workspace_preview(theme, layout))
-            })
             .child(
                 div()
                     .absolute()

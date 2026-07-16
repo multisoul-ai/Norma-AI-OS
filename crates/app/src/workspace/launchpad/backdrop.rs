@@ -2,6 +2,8 @@ use super::with_alpha;
 use gpui::{div, linear_color_stop, linear_gradient, prelude::*, px, rgba, Div};
 use ui::Theme;
 
+pub(super) const LAUNCHPAD_OVERLAY_ALPHA: u8 = 0xcc;
+
 /// Build the launchpad backdrop from its dedicated video layer. The caller
 /// never passes the canvas wallpaper layer here, keeping Launchpad's home.mp4
 /// independent from the user's Canvas wallpaper setting.
@@ -24,21 +26,14 @@ pub(super) fn launchpad_backdrop(theme: Theme, video: Div) -> Div {
                 .bottom(px(0.0))
                 .bg(linear_gradient(
                     90.0,
-                    linear_color_stop(rgba(with_alpha(theme.canvas_from, 0xf4)), 0.0),
-                    linear_color_stop(rgba(with_alpha(theme.canvas_to, 0xc8)), 1.0),
-                )),
-        )
-        .child(
-            div()
-                .absolute()
-                .top(px(0.0))
-                .left(px(0.0))
-                .right(px(0.0))
-                .bottom(px(0.0))
-                .bg(linear_gradient(
-                    180.0,
-                    linear_color_stop(rgba(with_alpha(theme.canvas_from, 0x94)), 0.0),
-                    linear_color_stop(rgba(with_alpha(theme.panel_high, 0xdf)), 1.0),
+                    linear_color_stop(
+                        rgba(with_alpha(theme.canvas_from, LAUNCHPAD_OVERLAY_ALPHA)),
+                        0.0,
+                    ),
+                    linear_color_stop(
+                        rgba(with_alpha(theme.canvas_to, LAUNCHPAD_OVERLAY_ALPHA)),
+                        1.0,
+                    ),
                 )),
         )
         .child(

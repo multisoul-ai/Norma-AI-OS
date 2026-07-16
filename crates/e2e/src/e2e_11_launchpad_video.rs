@@ -1,7 +1,7 @@
 //! E2E-11：Launchpad 固定视频背景。
 
 use app::AppScreen;
-use gpui::TestAppContext;
+use gpui::{px, size, TestAppContext};
 
 use crate::harness::{echo_factory, make_app};
 
@@ -42,5 +42,46 @@ fn e2e_11_launchpad_boots_with_dedicated_home_video() {
     assert_ne!(
         video_asset, "wallpapers/1331865.png",
         "Launchpad 不得继承 Canvas 的默认 PNG 背景"
+    );
+}
+
+/// E2E-11b：宽屏 Launchpad 应完全移除右侧 Workspace preview 区域。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   headless window = 1440×900px，旧实现会在该 Wide 模式尺寸挂载右侧预览
+///   旧右侧区域组件数 = 1 个容器 + 1 个内容层
+///   目标右侧区域组件数 = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. make_app 装配真实 Launchpad 渲染树，并将窗口调整为 1440×900。
+///   2. 确认应用仍处于 Launchpad，避免因页面未渲染造成假阴性。
+///   3. 查询旧预览容器与内容层的稳定 debug selector。
+///
+/// 预期结果：
+///   - 正断言：宽屏调整后仍渲染 Launchpad 主页面。
+///   - 负断言：Workspace preview 根容器不得出现在渲染树中。
+///   - 负断言：Workspace preview 内容层不得作为孤儿残留。
+#[test]
+fn e2e_11_launchpad_removes_entire_workspace_preview_region() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    cx.simulate_resize(size(px(1440.0), px(900.0)));
+    cx.run_until_parked();
+
+    let screen = app.update(cx, |app, _cx| app.screen());
+
+    assert_eq!(
+        screen,
+        AppScreen::Launchpad,
+        "宽屏调整后应用仍应处于 Launchpad，确保预览缺失不是页面未渲染造成的假阴性"
+    );
+    assert!(
+        cx.debug_bounds("launchpad-workspace-preview").is_none(),
+        "用户框选的整个 Workspace preview 根容器应从宽屏 Launchpad 删除"
+    );
+    assert!(
+        cx.debug_bounds("launchpad-workspace-preview-content")
+            .is_none(),
+        "Workspace preview 内容层不得脱离根容器后作为孤儿残留"
     );
 }

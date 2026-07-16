@@ -86,3 +86,41 @@ fn test_launchpad_backdrop_uses_dedicated_video_layer() {
         "Launchpad backdrop 签名不应再接收 ImageSource，避免重新与 Canvas 的图片管线耦合"
     );
 }
+
+/// L-12: Launchpad 视频上方应只叠加一层 80% opacity 遮罩。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   opacity = 80% = 0.80 × 255 = 204 = 0xCC
+///   视频可见比例 = 1 - 0.80 = 20%
+///   遮罩层数量 = 1；若叠加两层 80%，综合 opacity = 1 - (1 - 0.8)² = 96%
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 backdrop 模块定义的遮罩 alpha。
+///   2. 读取真实 backdrop.rs 元素树，统计全屏 linear-gradient 遮罩数量。
+///   3. 确认渐变两端都复用同一个 80% alpha 常量。
+///
+/// 预期结果：
+///   - 正断言：遮罩 alpha 精确为 0xCC，即 80% opacity。
+///   - 正断言：只保留一个渐变遮罩，背景视频仍有 20% 可见度。
+///   - 负断言：不得保留两层遮罩形成 96% 的过度遮蔽。
+#[test]
+fn test_launchpad_backdrop_uses_single_eighty_percent_overlay() {
+    let source_backdrop = include_str!("../../src/workspace/launchpad/backdrop.rs");
+    let gradient_count = source_backdrop.matches(".bg(linear_gradient(").count();
+    let alpha_usage_count = source_backdrop.matches("LAUNCHPAD_OVERLAY_ALPHA").count();
+
+    assert_eq!(
+        super::backdrop::LAUNCHPAD_OVERLAY_ALPHA,
+        0xcc,
+        "Launchpad 覆盖层应精确使用 0xCC，即 204/255 = 80% opacity"
+    );
+    assert_eq!(
+        gradient_count, 1,
+        "Launchpad 视频上方应只保留一个渐变遮罩，避免两层 80% 叠加为 96%"
+    );
+    assert_eq!(
+        alpha_usage_count, 3,
+        "80% alpha 常量应出现 3 次：定义 1 次、渐变两端各使用 1 次"
+    );
+    assert_ne!(gradient_count, 2, "Launchpad 不得继续保留两层全屏渐变遮罩");
+}
