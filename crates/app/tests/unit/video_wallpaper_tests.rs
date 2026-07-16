@@ -227,3 +227,124 @@ fn test_slot_path_matches_different_path() {
         "different video wallpaper paths must not be treated as the active worker"
     );
 }
+
+/// V-PTS-1：视频 worker 必须按相邻帧 PTS 等待，并扣除本帧已经消耗的解码时间。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   previous_pts = 2,000,000µs
+///   current_pts  = 2,033,333µs（约 30fps，帧间隔 33,333µs）
+///   decode_time  = 5,000µs
+///   expected     = 33,333 - 5,000 = 28,333µs
+///   first_frame  = previous None + current 0ms → 0ms（首帧立即显示）
+///   fallback     = 40ms - 10ms = 30ms（缺少 PTS 时保持旧约 25fps 行为）
+///   max_gap      = 1,000ms，安全上限 = 250ms
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 计算正常 30fps 相邻帧的剩余等待时间
+///   2. 模拟第一帧只有 current PTS，检查立即显示
+///   3. 模拟视频循环后 PTS 从 14.9s 回到 0，检查立即重建时钟
+///   4. 模拟无 PTS 输入，检查回退到旧 40ms cadence
+///   5. 模拟 1 秒异常间隙，检查等待被限制到 250ms
+///
+/// 预期结果：
+///   - 正断言：30fps 帧等待精确为 28,333µs，不再固定 sleep 40ms
+///   - 正断言：第一帧等待为零
+///   - 正断言：循环 PTS 回退时等待为零
+///   - 正断言：无 PTS 时回退等待为 30ms
+///   - 负断言：异常 1 秒 PTS 间隙不得阻塞 worker 超过 250ms
+#[test]
+fn test_video_frame_delay_tracks_pts_without_adding_decode_time() {
+    let normal = video_frame_delay(
+        Some(Duration::from_micros(2_000_000)),
+        Some(Duration::from_micros(2_033_333)),
+        Duration::from_micros(5_000),
+    );
+    let first_frame = video_frame_delay(None, Some(Duration::ZERO), Duration::ZERO);
+    let loop_reset = video_frame_delay(
+        Some(Duration::from_millis(14_900)),
+        Some(Duration::ZERO),
+        Duration::from_millis(5),
+    );
+    let fallback = video_frame_delay(None, None, Duration::from_millis(10));
+    let capped = video_frame_delay(
+        Some(Duration::from_secs(1)),
+        Some(Duration::from_secs(2)),
+        Duration::ZERO,
+    );
+
+    assert_eq!(
+        normal,
+        Duration::from_micros(28_333),
+        "30fps PTS 等待必须扣除 5ms 解码时间，避免每帧额外累积处理耗时"
+    );
+    assert_eq!(
+        first_frame,
+        Duration::ZERO,
+        "携带有效 PTS 的首帧必须立即进入 mailbox，不能额外等待旧 40ms cadence"
+    );
+    assert_eq!(
+        loop_reset,
+        Duration::ZERO,
+        "视频循环导致 PTS 回退时必须立即展示新首帧并重建时钟"
+    );
+    assert_eq!(
+        fallback,
+        Duration::from_millis(30),
+        "缺少 PTS 时必须从旧 40ms cadence 扣除已经过去的 10ms"
+    );
+    assert_eq!(
+        capped,
+        Duration::from_millis(250),
+        "异常 PTS 间隙必须限制为 250ms，不能让后台 worker 长时间假死"
+    );
+    assert_ne!(
+        normal,
+        Duration::from_millis(VIDEO_PTS_FALLBACK_INTERVAL_MS),
+        "有效 30fps PTS 不得继续无条件使用固定 40ms sleep"
+    );
+}
+
+/// V-PTS-3：后台视频循环必须消费解码帧 PTS，不得继续在每帧后固定 sleep 40ms。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   production source = video_wallpaper.rs
+///   正向锚点 = frame.presentation_time() + video_frame_delay
+///   worker 函数体边界 = `fn decode_video_wallpaper_frames` 到 `#[cfg(test)]`
+///   旧错误锚点 = std::thread::sleep(Duration::from_millis(VIDEO_PTS_FALLBACK_INTERVAL_MS))
+///   30fps 旧时长倍率 = 40ms / 33.33ms ≈ 1.20（约慢放 20%）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取真实后台 worker 源码
+///   2. 截取 `decode_video_wallpaper_frames` 函数体，排除同文件函数定义造成的假阳性
+///   3. 确认 worker 从每个 DecodedVideoFrame 读取 PTS
+///   4. 确认 worker 调用已验证的剩余延迟计算
+///   5. 排除旧固定 40ms thread sleep
+///
+/// 预期结果：
+///   - 正断言：worker 同时包含 PTS 读取和 `video_frame_delay` 调用
+///   - 负断言：worker 不得保留固定 40ms sleep，否则 29.93fps 4K 源会慢放
+#[test]
+fn test_video_wallpaper_worker_uses_frame_pts_instead_of_fixed_sleep() {
+    let source = include_str!("../../src/app/video_wallpaper.rs");
+    let (_, worker_and_tail) = source
+        .split_once("fn decode_video_wallpaper_frames(")
+        .expect("生产源码必须包含视频后台 worker 函数");
+    let (worker, _) = worker_and_tail
+        .split_once("\n#[cfg(test)]")
+        .expect("视频后台 worker 后必须保留测试模块边界");
+
+    assert!(
+        worker.contains("frame.presentation_time()"),
+        "视频 worker 必须读取真实解码帧 PTS，不能忽略媒体时间轴"
+    );
+    assert!(
+        worker
+            .contains("video_frame_delay(previous_pts, current_pts, elapsed_since_previous_frame)"),
+        "视频 worker 必须通过已验证的延迟函数扣除解码时间并处理循环回退"
+    );
+    assert!(
+        !worker
+            .contains("std::thread::sleep(Duration::from_millis(VIDEO_PTS_FALLBACK_INTERVAL_MS))"),
+        "视频 worker 不得继续固定 sleep 40ms，否则 29.93fps 素材会累计约 20% 慢放"
+    );
+}
