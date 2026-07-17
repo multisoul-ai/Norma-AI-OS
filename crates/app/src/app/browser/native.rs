@@ -1,11 +1,17 @@
 #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
 use super::cef_backend::CefBrowserView;
+use super::chrome_auth::BrowserCookie;
 #[cfg(target_os = "macos")]
 use super::wry_backend::WryBrowserView;
 use super::{BrowserEngineKind, BrowserEvent};
 use canvas::NodeId;
 use crossbeam_channel::Sender;
 use gpui::Window;
+
+pub(crate) enum CookieImportStatus {
+    Complete(usize),
+    Pending,
+}
 
 // Browser 卡片在 selected/focused 时绘制 2px GPUI 边框；原生子视图必须完整避让它，
 // 否则 AppKit 的子层会盖住蓝色选中态。
@@ -134,6 +140,25 @@ impl NativeBrowserView {
             Self::Wry(view) => view.release_input(),
             #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
             Self::Cef(view) => view.release_input(),
+        }
+    }
+
+    pub(crate) fn import_cookies(
+        &mut self,
+        node_id: NodeId,
+        source_url: &str,
+        cookies: &[BrowserCookie],
+        skipped: usize,
+    ) -> Result<CookieImportStatus, String> {
+        #[cfg(not(all(target_os = "macos", feature = "chromium-browser")))]
+        let _ = source_url;
+        match self {
+            #[cfg(target_os = "macos")]
+            Self::Wry(view) => view.import_cookies(node_id, source_url, cookies, skipped),
+            #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
+            Self::Cef(view) => view
+                .import_cookies(source_url, cookies)
+                .map(CookieImportStatus::Complete),
         }
     }
 }

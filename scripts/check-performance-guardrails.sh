@@ -68,6 +68,11 @@ forbid_pattern_in_file \
   'run_dialogue_turn_after_final' \
   "Voice reply scheduling must not run synchronous LLM turns inside a GPUI entity update."
 
+forbid_pattern_in_file \
+  crates/app/src/app/browser/wry_backend.rs \
+  '\.set_cookie\(' \
+  "Browser Chrome auth must use asynchronous WKHTTPCookieStore completion handlers; Wry set_cookie synchronously waits on the GPUI thread."
+
 codex_body=$(
   awk '
     /^fn codex_session_id_for_workspace\(/ { inside=1 }

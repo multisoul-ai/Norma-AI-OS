@@ -1,6 +1,8 @@
 use canvas::AgentProfile as CanvasAgentProfile;
 #[cfg(test)]
 use canvas::CanvasNodeKind;
+#[cfg(feature = "e2e-test-support")]
+use crossbeam_channel::Sender;
 use crossbeam_channel::{unbounded, Receiver};
 use norma::agent_hook::{
     extract_prompt_text, task_state_for_provider_event, AgentHookEvent, AgentHookTaskState,
@@ -13,6 +15,8 @@ use std::thread;
 
 pub(crate) struct AgentHookServer {
     receiver: Receiver<AgentHookEvent>,
+    #[cfg(feature = "e2e-test-support")]
+    event_sender: Sender<AgentHookEvent>,
     endpoint: Option<String>,
     token: Option<String>,
 }
@@ -27,6 +31,8 @@ pub(crate) struct AgentHookDrainReport {
 impl AgentHookServer {
     pub(crate) fn start() -> Self {
         let (sender, receiver) = unbounded();
+        #[cfg(feature = "e2e-test-support")]
+        let event_sender = sender.clone();
         let token = random_token();
         let listener = match TcpListener::bind(("127.0.0.1", 0)) {
             Ok(listener) => listener,
@@ -34,6 +40,8 @@ impl AgentHookServer {
                 tracing::warn!(%error, "failed to bind agent hook server");
                 return Self {
                     receiver,
+                    #[cfg(feature = "e2e-test-support")]
+                    event_sender,
                     endpoint: None,
                     token: None,
                 };
@@ -43,6 +51,8 @@ impl AgentHookServer {
         let Some(port) = port else {
             return Self {
                 receiver,
+                #[cfg(feature = "e2e-test-support")]
+                event_sender,
                 endpoint: None,
                 token: None,
             };
@@ -55,12 +65,16 @@ impl AgentHookServer {
             tracing::warn!(%error, "failed to spawn agent hook server thread");
             return Self {
                 receiver,
+                #[cfg(feature = "e2e-test-support")]
+                event_sender,
                 endpoint: None,
                 token: None,
             };
         }
         Self {
             receiver,
+            #[cfg(feature = "e2e-test-support")]
+            event_sender,
             endpoint: Some(format!("http://127.0.0.1:{port}/agent-hooks")),
             token: Some(token),
         }
@@ -68,6 +82,13 @@ impl AgentHookServer {
 
     pub(crate) fn has_pending(&self) -> bool {
         !self.receiver.is_empty()
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub(crate) fn enqueue_event_for_e2e(&self, event: AgentHookEvent) -> Result<(), String> {
+        self.event_sender
+            .send(event)
+            .map_err(|_| "Agent Hook e2e event queue is closed".to_string())
     }
 
     pub(crate) fn runtime_config(&self) -> Option<AgentHookRuntimeConfig> {

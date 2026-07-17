@@ -280,6 +280,7 @@ pub fn render_canvas(
                 initialization,
                 terminal_cursor_phase: app.terminal_cursor_phase,
                 browser_address_input: app.browser_address_input_for(id),
+                browser_auth_state: app.browser_chrome_auth_state_for(id),
                 theme,
                 zoom: vp.zoom,
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),

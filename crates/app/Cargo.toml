@@ -18,6 +18,10 @@ path = "src/main.rs"
 name = "multisoul-agent-hook"
 path = "src/bin/multisoul_agent_hook.rs"
 
+[[bin]]
+name = "norma-browser-auth-host"
+path = "src/bin/norma_browser_auth_host.rs"
+
 [dependencies]
 gpui = { workspace = true, features = ["test-support"] }
 ui.workspace = true
@@ -40,6 +44,7 @@ agent.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+url = "2.5"
 tracing.workspace = true
 tracing-subscriber.workspace = true
 crossbeam-channel.workspace = true
@@ -64,7 +69,11 @@ core-video = { version = "=0.4.3", features = ["metal"] }
 core-foundation = "0.10"
 objc2 = "0.6"
 objc2-foundation = "0.3"
-objc2-web-kit = { version = "0.3", default-features = false, features = ["WKWebViewConfiguration"] }
+objc2-web-kit = { version = "0.3", default-features = false, features = [
+    "WKHTTPCookieStore",
+    "WKWebViewConfiguration",
+    "WKWebsiteDataStore",
+] }
 objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSView", "NSWindow"] }
 objc2-avf-audio = { version = "0.3.2", features = [
     "AVAudioBuffer",

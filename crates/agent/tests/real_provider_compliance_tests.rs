@@ -11,9 +11,20 @@ const REPETITIONS_ENV: &str = "NORMA_OPENAI_COMPLIANCE_REPETITIONS";
 
 /// RPC-1：真实 OpenAI-compatible Dialogue Provider 必须对画布任务保持高召回，同时不误派发普通聊天。
 ///
-/// 数据构造：从环境变量读取真实 Provider 配置；任务集覆盖明确创建、取消、状态查询，负样本覆盖普通聊天、设计讨论与含糊表达。
-/// 执行过程：每条语料独立发送完整 system prompt、用户消息与生产 `card_task` schema；可通过 repetitions 重复采样。
-/// 预期结果：明确创建、取消、状态查询分别返回合法动作，普通/含糊负样本零 `card_task`；输出召回率与误派发率。
+/// 数据构造（含关键数值的推导过程）：
+///   create cases = 5 条；cancel cases = 2 条；status cases = 2 条；
+///   ordinary negative cases = 4 条；ambiguous cases = 3 条；
+///   per repetition total = 5 + 2 + 2 + 4 + 3 = 16 条；
+///   actual total = 16 × repetitions；每类期望命中数 = 该类样本数 × repetitions。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 每条语料独立发送完整 system prompt、用户消息与生产 `card_task` schema；
+///   2. 按 repetitions 重复采样，并按 start/cancel/status/错误派发分别累计；
+///   3. 用各类样本数 × repetitions 计算期望命中数和负样本总数。
+///
+/// 预期结果：
+///   - 正断言：5 条创建、2 条取消、2 条状态查询在每轮都返回对应合法动作；
+///   - 负断言：4 条普通聊天与 3 条核心意图含糊语料都不得调用 `card_task`。
 ///
 /// 运行示例：
 /// `NORMA_OPENAI_COMPLIANCE_BASE_URL=https://api.minimax.io/v1 NORMA_OPENAI_COMPLIANCE_MODEL=MiniMax-M2.5 NORMA_OPENAI_COMPLIANCE_API_KEY=... cargo test -p agent --test real_provider_compliance_tests -- --ignored --nocapture`
@@ -36,6 +47,7 @@ fn real_dialogue_provider_meets_card_task_recall_and_false_dispatch_contract() {
         "在画布上新建一个 Codex Agent 卡片",
         "帮我打开一个终端并运行 pwd",
         "创建 Claude 卡片，让它分析 README",
+        "创建 Codex Agent Alan，让它修复登录问题",
     ];
     let cancel_cases = ["取消任务 7", "取消编号为 42 的卡片任务"];
     let status_cases = ["刚才的卡片任务进度如何", "查询最新卡片任务的状态"];
@@ -45,7 +57,11 @@ fn real_dialogue_provider_meets_card_task_recall_and_false_dispatch_contract() {
         "我们讨论一下终端卡片的交互设计",
         "解释一下 Codex 和 Claude 的区别",
     ];
-    let ambiguous_cases = ["帮我处理一下画布", "把刚才那张卡片弄一下"];
+    let ambiguous_cases = [
+        "帮我处理一下画布",
+        "把刚才那张卡片弄一下",
+        "创建 Codex Agent Alan 和 Claude Agent Bob，让它分析 README",
+    ];
 
     let mut create_hits = 0_usize;
     let mut cancel_hits = 0_usize;
@@ -119,15 +135,16 @@ fn real_dialogue_provider_meets_card_task_recall_and_false_dispatch_contract() {
 /// RPC-2：真实 Dialogue Provider 生成 Agent 委派 intent 时必须轻量润色且保留关键语义。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   explicit request = 1 条创建 Codex Agent 并委派的完整中文指令；
-///   required semantics = 登录超时、先复现、再修复、公开 API、回归测试、
-///   `cargo test -p agent`，共 6 类不可丢要求；
+///   explicit request = 1 条创建唯一 Codex Agent Alan 并委派的完整中文指令；
+///   required semantics = Alan、登录超时、先复现、再修复、公开 API、回归测试、
+///   `cargo test -p agent`，共 7 类不可丢要求；
 ///   forbidden inventions = 重构、迁移，共 2 类用户未提出的扩大范围词。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 把完整生产 prompt、用户指令和 card_task schema 发送给真实 Provider；
 ///   2. 解析唯一 `card_task start` 的 intent；
-///   3. 检查 intent 保留全部关键语义且没有扩大为重构或迁移。
+///   3. 检查唯一指代展开为 Alan，且“复现”仍先于“修复”；
+///   4. 检查 intent 保留其他关键语义且没有扩大为重构或迁移。
 ///
 /// 预期结果：
 ///   - 正断言：恰好生成 1 个 start，并保留目标、顺序、约束、测试与明确命令；
@@ -135,7 +152,7 @@ fn real_dialogue_provider_meets_card_task_recall_and_false_dispatch_contract() {
 #[test]
 #[ignore = "requires an explicitly configured real OpenAI-compatible Provider"]
 fn real_dialogue_provider_lightly_polishes_agent_delegation_without_semantic_loss() {
-    let input = "创建 Codex Agent Alan，让他检查登录超时；先复现再修复，不修改公开 API，补回归测试并运行 cargo test -p agent";
+    let input = "创建唯一一个 Codex Agent Alan，让它检查登录超时；先复现再修复，不修改公开 API，补回归测试并运行 cargo test -p agent";
     let actions = provider_actions(compliance_config(), input);
     let intents = actions
         .iter()
@@ -152,6 +169,10 @@ fn real_dialogue_provider_lightly_polishes_agent_delegation_without_semantic_los
     );
     let intent = intents[0];
     assert!(
+        intent.contains("Alan"),
+        "唯一指代“它”必须展开为唯一候选 Alan，实际：{intent:?}"
+    );
+    assert!(
         intent.contains("登录超时"),
         "轻量润色不得丢失登录超时目标，实际：{intent:?}"
     );
@@ -162,6 +183,16 @@ fn real_dialogue_provider_lightly_polishes_agent_delegation_without_semantic_los
     assert!(
         intent.contains("修复"),
         "轻量润色不得丢失后修复要求，实际：{intent:?}"
+    );
+    let reproduce_position = intent
+        .find("复现")
+        .expect("前一断言已确认 intent 包含“复现”");
+    let fix_position = intent
+        .find("修复")
+        .expect("前一断言已确认 intent 包含“修复”");
+    assert!(
+        reproduce_position < fix_position,
+        "轻量润色必须保留“先复现、再修复”的顺序，实际：{intent:?}"
     );
     assert!(
         intent.contains("API"),

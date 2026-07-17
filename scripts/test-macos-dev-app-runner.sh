@@ -11,6 +11,8 @@
 #   dev plist      = packaging/macos/DevInfo.plist
 #   bundle layout  = <target-dir>/Norma OS Dev.app/Contents/{MacOS,Info.plist}
 #   hook helper    = <target-dir>/multisoul-agent-hook, built by the app crate
+#   auth helper    = <target-dir>/norma-browser-auth-host, built by the app crate
+#   auth extension = crates/app/assets/browser-auth-extension → bundle Resources
 #   wallpaper      = crates/app/assets/wallpapers/1407174.mp4 → bundle Resources
 #   signal fixture = fake `open -W` that starts an independently living app
 #                    process, mirroring LaunchServices parent detachment.
@@ -21,22 +23,26 @@
 #   3. Check the runner clears stale bundle contents before copying the binary.
 #   4. Check the runner installs the development microphone usage description.
 #   5. Check the runner copies the sibling hook helper into the same app bundle.
-#   6. Check the runner copies built-in wallpaper resources into the app bundle.
-#   7. Check the LaunchServices process forwards stdout/stderr to the caller.
-#   8. Check the runner executes the binary from inside that bundle.
-#   9. Check Ctrl+C / terminal termination also stops the detached app process.
+#   6. Check the runner copies the Chrome authorization helper and extension.
+#   7. Check the runner copies built-in wallpaper resources into the app bundle.
+#   8. Check the LaunchServices process forwards stdout/stderr to the caller.
+#   9. Check the runner executes the binary from inside that bundle.
+#   10. Check Ctrl+C / terminal termination also stops the detached app process.
 #
 # Expected result:
 #   - Positive: aarch64 macOS cargo runs use the development app runner.
 #   - Positive: the runner copies DevInfo.plist into Contents/Info.plist.
 #   - Positive: the runner executes Contents/MacOS/<binary>.
 #   - Positive: the bundle contains Contents/MacOS/multisoul-agent-hook.
+#   - Positive: the bundle contains Contents/MacOS/norma-browser-auth-host.
+#   - Positive: the bundle contains Contents/Resources/browser-auth-extension/manifest.json.
 #   - Positive: the bundle contains Contents/Resources/wallpapers/1407174.mp4.
 #   - Positive: tracing output remains visible to terminal pipes such as `tee`.
 #   - Positive: INT and TERM terminate the specific app process launched by this runner.
 #   - Positive: the runner selects a unique-label SHA-1 identity when Apple Development labels duplicate.
 #   - Negative: stale executables must not survive into a newly signed bundle.
 #   - Negative: the hook installer must not fail because cargo run omitted the helper binary.
+#   - Negative: Chrome authorization must not fail because the dev app omitted its helper or extension.
 #   - Negative: a development .app must not read built-in videos from the source checkout.
 #   - Negative: cargo run must not keep launching only target/debug/norma-os.
 #   - Negative: LaunchServices must not leave app stdout/stderr on `/dev/null`.
@@ -165,15 +171,19 @@ fixture_runner="$fixture_root/scripts/run-macos-dev-app.sh"
 fixture_input="$tmp_dir/norma-os"
 fixture_hook_source="$tmp_dir/multisoul-agent-hook-source"
 fixture_hook="$tmp_dir/multisoul-agent-hook"
+fixture_auth_host_source="$tmp_dir/norma-browser-auth-host-source"
+fixture_auth_host="$tmp_dir/norma-browser-auth-host"
 app_pid_file="$tmp_dir/app.pid"
 codesign_args_file="$tmp_dir/codesign-args"
 fixture_wallpaper_source="$fixture_root/crates/app/assets/wallpapers/1407174.mp4"
+fixture_auth_extension_manifest="$fixture_root/crates/app/assets/browser-auth-extension/manifest.json"
 mkdir -p "$fixture_bin" "$fixture_root/scripts" "$fixture_root/packaging/macos" \
-  "$(dirname "$fixture_wallpaper_source")"
+  "$(dirname "$fixture_wallpaper_source")" "$(dirname "$fixture_auth_extension_manifest")"
 cp "$runner" "$fixture_runner"
 cp "$dev_plist" "$fixture_root/packaging/macos/DevInfo.plist"
 cp "$entitlements" "$fixture_root/packaging/macos/NormaOS.entitlements"
 printf 'fixture bundle wallpaper\n' >"$fixture_wallpaper_source"
+printf '{"name":"fixture-browser-auth-extension"}\n' >"$fixture_auth_extension_manifest"
 
 cat >"$fixture_input" <<'APP'
 #!/usr/bin/env bash
@@ -188,11 +198,19 @@ exit 0
 HOOK
 chmod +x "$fixture_hook_source"
 
+cat >"$fixture_auth_host_source" <<'AUTH_HOST'
+#!/usr/bin/env bash
+exit 0
+AUTH_HOST
+chmod +x "$fixture_auth_host_source"
+
 cat >"$fixture_bin/cargo" <<'CARGO'
 #!/usr/bin/env bash
 set -euo pipefail
 cp "$FAKE_HOOK_SOURCE" "$FAKE_HOOK_DEST"
 chmod +x "$FAKE_HOOK_DEST"
+cp "$FAKE_AUTH_HOST_SOURCE" "$FAKE_AUTH_HOST_DEST"
+chmod +x "$FAKE_AUTH_HOST_DEST"
 CARGO
 chmod +x "$fixture_bin/cargo"
 
@@ -239,6 +257,7 @@ chmod +x "$fixture_bin/open"
 
 PATH="$fixture_bin:$PATH" OPEN_APP_PID_FILE="$app_pid_file" \
   FAKE_HOOK_SOURCE="$fixture_hook_source" FAKE_HOOK_DEST="$fixture_hook" \
+  FAKE_AUTH_HOST_SOURCE="$fixture_auth_host_source" FAKE_AUTH_HOST_DEST="$fixture_auth_host" \
   FAKE_CODESIGN_ARGS_FILE="$codesign_args_file" \
   "$fixture_runner" "$fixture_input" >"$tmp_dir/runner.log" 2>&1 &
 runner_pid=$!
@@ -271,6 +290,31 @@ fi
 
 if ! cmp -s "$fixture_hook_source" "$bundle_hook"; then
   fail "development bundle hook helper must match the sibling Cargo-built multisoul-agent-hook"
+fi
+
+bundle_auth_host="$tmp_dir/Norma OS Dev.app/Contents/MacOS/norma-browser-auth-host"
+if [ ! -x "$fixture_auth_host" ]; then
+  cat "$tmp_dir/runner.log" >&2
+  fail "runner must build norma-browser-auth-host when cargo run selected only norma-os"
+fi
+
+if [ ! -x "$bundle_auth_host" ]; then
+  cat "$tmp_dir/runner.log" >&2
+  fail "cargo run development bundle must include executable norma-browser-auth-host beside norma-os"
+fi
+
+if ! cmp -s "$fixture_auth_host_source" "$bundle_auth_host"; then
+  fail "development bundle auth helper must match the sibling Cargo-built norma-browser-auth-host"
+fi
+
+bundle_auth_extension_manifest="$tmp_dir/Norma OS Dev.app/Contents/Resources/browser-auth-extension/manifest.json"
+if [ ! -f "$bundle_auth_extension_manifest" ]; then
+  cat "$tmp_dir/runner.log" >&2
+  fail "cargo run development bundle must include the Chrome authorization extension"
+fi
+
+if ! cmp -s "$fixture_auth_extension_manifest" "$bundle_auth_extension_manifest"; then
+  fail "development bundle Chrome authorization extension must match the source fixture"
 fi
 
 bundle_wallpaper="$tmp_dir/Norma OS Dev.app/Contents/Resources/wallpapers/1407174.mp4"

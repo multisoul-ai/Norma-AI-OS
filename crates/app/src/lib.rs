@@ -5,6 +5,7 @@
 //! 下方 `pub use` 释放 e2e / bin 所需的公开 API，避免泄漏 `pub(crate)` 类型。
 mod app;
 mod assets;
+mod browser_auth_host;
 mod canvas;
 mod cards;
 mod frame_diagnostics;
@@ -29,6 +30,7 @@ pub use app::{
     ToggleMasterLayout, ToggleSettings,
 };
 pub use assets::EmbeddedAssets;
+pub use browser_auth_host::run_browser_auth_native_host;
 
 #[cfg(feature = "e2e-test-support")]
 pub use license_gate::build_activation_root_e2e;

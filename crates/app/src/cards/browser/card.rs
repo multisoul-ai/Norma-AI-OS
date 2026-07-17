@@ -1,5 +1,6 @@
 //! Browser card renderer.
 
+use crate::app::browser::BrowserAuthUiState;
 use crate::app::{BrowserCommand, BrowserCommandKind};
 use crate::cards::chrome::CardChrome;
 use crate::cards::{Card, CardBodyContext};
@@ -88,6 +89,13 @@ fn render_browser_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyEl
                     theme,
                     zoom,
                 ))
+                .child(toolbar_button(
+                    node_id,
+                    BrowserCommandKind::ImportChromeAuth,
+                    chrome_auth_label(context.browser_auth_state),
+                    theme,
+                    zoom,
+                ))
                 .child(
                     div()
                         .id(("browser-address", node_id))
@@ -154,16 +162,21 @@ fn toolbar_button(
     zoom: f32,
 ) -> impl IntoElement {
     let size = (22.0 * zoom).clamp(18.0, 28.0);
+    let width = match command {
+        BrowserCommandKind::ImportChromeAuth => (70.0 * zoom).clamp(56.0, 84.0),
+        _ => size,
+    };
     let control_id = match command {
         BrowserCommandKind::Back => "browser-back",
         BrowserCommandKind::Forward => "browser-forward",
         BrowserCommandKind::Reload => "browser-reload",
         BrowserCommandKind::EditAddress => "browser-edit-address",
+        BrowserCommandKind::ImportChromeAuth => "browser-chrome-auth",
     };
     div()
         .id((control_id, node_id))
         .debug_selector(move || control_id.to_string())
-        .w(px(size))
+        .w(px(width))
         .h(px(size))
         .flex()
         .items_center()
@@ -192,6 +205,15 @@ fn toolbar_button(
         .on_mouse_up(MouseButton::Left, move |_, window, cx| {
             window.dispatch_action(Box::new(BrowserCommand { node_id, command }), cx);
         })
+}
+
+fn chrome_auth_label(state: BrowserAuthUiState) -> &'static str {
+    match state {
+        BrowserAuthUiState::Idle => "Chrome",
+        BrowserAuthUiState::Waiting => "Sync…",
+        BrowserAuthUiState::Ready => "Chrome ✓",
+        BrowserAuthUiState::Failed => "Retry",
+    }
 }
 
 fn browser_url(node: &CanvasNode) -> String {

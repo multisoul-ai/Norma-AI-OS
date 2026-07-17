@@ -8,14 +8,17 @@
 
 - 任务正文只移除呼叫词、口语冗余并调整语序，不扩写为结构化长简报。
 - 保留目标、范围、先后顺序、约束、交付要求和明确命令，不新增要求。
-- 上下文指代仅在候选唯一时展开；否则澄清。
-- 信息充分时不确认，直接派发。
-- 新 Agent 未就绪时回执为等待/排队；就绪后自动提交。超时不得误报 Submitted，并继续安全重试。
+- 委派层只做文字润色和中转，不代替目标 Agent 分析需求或补全规格。
+- 目标 Agent 和动作可识别时直接派发，不因任务简短或缺少实现细节、背景、偏好、验收标准而确认。
+- 只有目标、动作或多候选指代导致核心意图无法识别时才问一个最小问题；不得反复确认。用户只回答一个 Agent 名称、动作或类型时，结合上一轮原任务恢复完整意图并直接派发，不要求重述。
+- 新 Agent 未就绪时回执为等待/排队；收到 Hook Ready 或经过 30 秒保守启动窗口后，先写正文，再于 100ms 稳定窗口后独立发送 Enter。超时不得误报 Submitted，并继续安全重试。
+- Codex 启动与恢复命令关闭 paste burst，避免快速输入被 TUI 识别为只粘贴不提交；Claude、Cursor、OpenCode 复用同一两阶段提交路径。
+- 输入区状态不确定时不得盲目重写；明确引导连续关闭两次卡片以清空会话，再重新激活后派发。
 
 ## TDD seams
 
 1. `AgentSystem` prompt/tool 边界：生产 prompt 明确约束轻量润色、语义保留和唯一指代；真实 Provider 合规语料检查生成的 `intent` 保留关键要求。
-2. App 生产委派入口：新激活 Agent 初始不写 PTY、不返回 Submitted；收到 SessionStart/安全就绪兜底后写入正文与 Enter；既有就绪 Agent 保持立即提交。
+2. App 生产委派入口：新激活 Agent 初始不写 PTY、不返回 Submitted；收到 SessionStart/安全就绪兜底后分两阶段写入正文与 Enter；既有就绪 Agent 同样经过短暂稳定窗口自动提交。
 3. 用户流程 e2e：明确 Agent 指派经 Dialogue → CardTask → `dispatch_agent_tasks` 保留关键任务正文；新 Agent 等待后提交。
 
 ## 切片
@@ -32,10 +35,10 @@
 cargo test -p agent
 cargo test -p app agent_dispatch
 cargo test -p e2e
+NORMA_E2E_AGENT_CLI=codex cargo test -p e2e real_agent_cli_receives_and_submits_prompt -- --ignored --nocapture
 cargo check -p app
 bash scripts/check-storage-boundaries.sh
 bash scripts/check-performance-guardrails.sh
 bash scripts/check-max-file-lines.sh
 bash scripts/check-no-allow.sh
 ```
-

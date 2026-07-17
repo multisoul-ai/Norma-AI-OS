@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Norma OS Browser Session Bridge",
+  "description": "Shares cookies for a user-requested URL with a running Norma OS Browser card.",
+  "version": "1.0.0",
+  "minimum_chrome_version": "119",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1jMPOzE23iD5SaGR3D0zQ9YuxwgE0E/+ySNurByeVCX+Ou0K4qTKfDUz54ETgWlgS03Loq5QQU5WKX8ezEmteQKO/YNITdkmUPWjqV+KqlIo7E1L+qeTBUhlPWHXakAYLeHNdGXChpY7A8/aRLmtZ3keb8yTfj1g7IWzUMse8AMDd3/pJpPvhGbcfPj0iDFmFObakkdejCpSFMV/FtMuWReKlgtMW6mfiDEkXWGCqereqDm1kcpjRvnxyf1UYeCWCL559mAmT3TU9s3BjxuFl4EEryKAVhfjc6BLAxYytcNnYxLZmKyJyJn9q7MSMh+zvJCzNe8mI10PnrFenYybxwIDAQAB",
+  "permissions": [
+    "cookies",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "service_worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Norma OS Browser session bridge"
+  }
+}

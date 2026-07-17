@@ -7,7 +7,7 @@ use storage::{NodeSession, NodeSessionKind};
 ///
 /// 数据构造（含关键数值推导）：
 ///   Claude profile → /bin/zsh -ic "exec claude --dangerously-skip-permissions"
-///   Codex profile  → /bin/zsh -ic "exec codex --dangerously-bypass-approvals-and-sandbox"
+///   Codex profile  → /bin/zsh -ic "exec codex -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox"
 ///   OpenCode profile → /bin/zsh -lic "exec \"${OPENCODE_BIN:-opencode}\""
 ///   使用 -lic：login shell 先读 ~/.zprofile，再以交互模式读取 ~/.zshrc，exec 替换 shell 进程
 ///
@@ -48,9 +48,9 @@ fn test_agent_command_specs_are_exact() {
         codex.args,
         vec![
             "-ic",
-            "exec codex --dangerously-bypass-approvals-and-sandbox"
+            "exec codex -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox"
         ],
-        "Codex Agent args 必须精确匹配计划中的高权限命令"
+        "Codex Agent args 必须精确匹配高权限命令，并关闭会吞掉自动 Enter 的 paste-burst 启发式"
     );
     assert_eq!(
         opencode.args,

@@ -1,7 +1,6 @@
 use canvas::{CanvasNodeKind, NodeId};
 
 use super::super::MultisoulApp;
-use super::commands::submit_agent_task;
 
 impl MultisoulApp {
     pub(super) fn agent_roster_for_provider(&self) -> Vec<agent::AgentRosterEntry> {
@@ -70,35 +69,9 @@ impl MultisoulApp {
         if let Some(writer) = writer.as_ref() {
             writer.finish_current(definition_id, terminal_state, terminal_error);
         }
-        let mut next = next;
-        while let Some(candidate) = next {
-            match submit_agent_task(&mut self.runtime, candidate.node_id, &candidate.task) {
-                Ok(()) => {
-                    if let Some(writer) = writer.as_ref() {
-                        writer.submit_next_queued(definition_id);
-                    }
-                    return true;
-                }
-                Err(error) => {
-                    if let Some(writer) = writer.as_ref() {
-                        writer.fail_next_queued(definition_id, error.to_string());
-                    }
-                    tracing::error!(
-                        definition_id,
-                        node_id = candidate.node_id,
-                        task_id = candidate.task_id,
-                        %error,
-                        "failed to submit next queued Agent task"
-                    );
-                    if !error.retry_safe() {
-                        return false;
-                    }
-                    next = self
-                        .agent_task_coordinator
-                        .as_mut()
-                        .and_then(|coordinator| coordinator.finish_current(definition_id));
-                }
-            }
+        if let Some(candidate) = next {
+            self.pending_agent_submissions.enqueue_immediate(candidate);
+            return true;
         }
         false
     }

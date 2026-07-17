@@ -5,6 +5,8 @@ use norma::protocol::{
 };
 use std::collections::{HashMap, HashSet};
 
+use super::pending::unsafe_submission_recovery_message;
+
 #[derive(Debug)]
 pub(super) struct AgentTaskSubmitError {
     message: String,
@@ -23,7 +25,7 @@ impl std::fmt::Display for AgentTaskSubmitError {
     }
 }
 
-pub(super) fn execute_agent_card_command(
+pub(crate) fn execute_agent_card_command(
     app: &mut MultisoulApp,
     window: &mut Window,
     command: CardCommand,
@@ -133,6 +135,19 @@ fn execute_high_level_agent_command(
                 })
                 .collect::<Result<Vec<_>, String>>()?;
             let current_roster = app.agent_roster_for_provider();
+            let mut seen_untracked_definitions = HashSet::new();
+            for definition in &definitions {
+                let is_untracked = current_roster.iter().any(|entry| {
+                    entry.definition_id == definition.id
+                        && entry.tracking == agent::AgentTrackingMode::Untracked
+                });
+                if is_untracked && !seen_untracked_definitions.insert(definition.id) {
+                    return Err(format!(
+                        "Agent {} has no Hook tracking; dispatch only one task at a time",
+                        definition.name
+                    ));
+                }
+            }
             if !force_untracked {
                 for definition in &definitions {
                     if current_roster.iter().any(|entry| {
@@ -195,28 +210,37 @@ fn execute_high_level_agent_command(
                         waiting_tasks.insert(receipt.task_id);
                         continue;
                     }
-                    if let Err(error) =
-                        submit_agent_task(&mut app.runtime, receipt.node_id, &receipt.task)
-                    {
-                        tracing::error!(
-                            definition_id = receipt.definition_id,
-                            task_id = receipt.task_id,
-                            %error,
-                            "failed to submit Agent task"
-                        );
-                        if receipt.state == agent::AgentDispatchState::SubmittedManaged
-                            && error.retry_safe()
-                        {
-                            retry_safe_managed_failures.insert(receipt.definition_id);
+                    match type_agent_task(&mut app.runtime, receipt.node_id, &receipt.task) {
+                        Ok(()) => {
+                            app.pending_agent_submissions
+                                .schedule_enter(receipt.clone());
+                            waiting_tasks.insert(receipt.task_id);
                         }
-                        if receipt.state == agent::AgentDispatchState::SubmittedUntracked
-                            && error.retry_safe()
-                        {
-                            retry_safe_untracked_failures.insert(receipt.definition_id);
+                        Err(error) => {
+                            tracing::error!(
+                                definition_id = receipt.definition_id,
+                                task_id = receipt.task_id,
+                                %error,
+                                "failed to type Agent task"
+                            );
+                            if receipt.state == agent::AgentDispatchState::SubmittedManaged
+                                && error.retry_safe()
+                            {
+                                retry_safe_managed_failures.insert(receipt.definition_id);
+                            }
+                            if receipt.state == agent::AgentDispatchState::SubmittedUntracked
+                                && error.retry_safe()
+                            {
+                                retry_safe_untracked_failures.insert(receipt.definition_id);
+                            }
+                            failed_tasks.insert(receipt.task_id, error);
                         }
-                        failed_tasks.insert(receipt.task_id, error);
                     }
                 }
+            }
+            if let Some(error) = failed_tasks.values().find(|error| !error.retry_safe()) {
+                app.workspace_state.error =
+                    Some(unsafe_submission_recovery_message(&error.message));
             }
             for &definition_id in &retry_safe_managed_failures {
                 let task_ids = receipts
@@ -333,7 +357,7 @@ fn execute_high_level_agent_command(
     }
 }
 
-pub(super) fn submit_agent_task(
+pub(super) fn type_agent_task(
     runtime: &mut runtime::Runtime,
     node_id: canvas::NodeId,
     task: &str,
@@ -343,7 +367,13 @@ pub(super) fn submit_agent_task(
         .map_err(|error| AgentTaskSubmitError {
             message: error.to_string(),
             retry_safe: true,
-        })?;
+        })
+}
+
+pub(super) fn submit_agent_enter(
+    runtime: &mut runtime::Runtime,
+    node_id: canvas::NodeId,
+) -> Result<(), AgentTaskSubmitError> {
     if let Err(error) = runtime.send_node_input(
         node_id,
         runtime::NodeInput::Key(terminal::KeyInput {

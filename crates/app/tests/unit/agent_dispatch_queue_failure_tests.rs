@@ -55,25 +55,25 @@ fn dispatch(
     })
 }
 
-/// ART-7e：排队任务提交失败后必须继续 FIFO，不能让后续任务永久搁置。
+/// ART-7e：排队任务 Enter 失败且安全清行后，必须重试队首而不越过 FIFO。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   tasks = 3 项：task-1 Submitted，task-2/task-3 Queued
-///   injected failure = 第 2 次 Enter，即 task-2 自动推进时失败
-///   expected writes = task-1 + CR + task-2 + Ctrl+U + task-3 + CR，共 6 次
+///   injected failure = 第 2 次 Enter，即 task-2 自动推进时失败；
+///   expected writes = task-1 + CR + task-2 + Ctrl+U + task-2 + CR，共 6 次。
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 提交 task-1 占用 Alan，再依次排队 task-2 与 task-3；
-///   2. 完成 task-1 并推进队列，task-2 的 Enter 注入失败；
-///   3. 系统清除 task-2 未提交正文，将其标记失败并继续取 task-3；
-///   4. task-3 写入正文与 Enter，成为新的运行中任务。
+///   1. 创建 Alan 并显式标记 CLI Ready，提交 task-1 占用 Alan，再依次排队 task-2 与 task-3；
+///   2. 发送 task-1 的延迟 Enter，再完成 task-1 并推进队列；
+///   3. 写入 task-2，随后其 Enter 注入失败并安全清行；
+///   4. 自动重写 task-2 并再次发送 Enter。
 ///
 /// 预期结果：
-///   - 正断言：两项后续任务最初都为 Queued，推进最终返回 true；
-///   - 正断言：写入顺序包含 task-2 后的 Ctrl+U 和完整 task-3；
-///   - 负断言：task-3 不得因 task-2 失败而永久留在队列。
+///   - 正断言：两项后续任务最初都为 Queued，task-2 自动重试成功；
+///   - 正断言：写入顺序包含 task-2 后的 Ctrl+U 和完整 task-2 重写；
+///   - 负断言：task-3 不得越过仍可安全重试的 task-2。
 #[test]
-fn test_queued_submission_failure_skips_failed_head_and_submits_next_fifo_task() {
+fn test_queued_submission_failure_retries_same_fifo_head_before_next_task() {
     let writes = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
     let enter_count = Arc::new(AtomicUsize::new(0));
     let factory_writes = Arc::clone(&writes);
@@ -104,6 +104,17 @@ fn test_queued_submission_failure_skips_failed_head_and_submits_next_fifo_task()
             )
         })
     });
+    let ready_node_id = match &create_result {
+        Ok(CardCommandResult::AgentCreated {
+            node_id: Some(node_id),
+            ..
+        }) => *node_id,
+        other => panic!("测试前置必须创建活跃 Alan，实际：{other:?}"),
+    };
+    let marked_ready = app.update(cx, |app, _cx| {
+        app.pending_agent_submissions.mark_ready(ready_node_id)
+    });
+    assert!(marked_ready, "FIFO 失败测试必须先把 Alan 标记为 CLI Ready");
 
     let first = dispatch(&app, cx, "task-1");
     let second = dispatch(&app, cx, "task-2");
@@ -112,7 +123,22 @@ fn test_queued_submission_failure_skips_failed_head_and_submits_next_fifo_task()
         Ok(CardCommandResult::AgentTasksDispatched { receipts }) => receipts[0].node_id,
         other => panic!("首项任务应返回 node_id，实际：{other:?}"),
     };
+    let first_submitted = app.update(cx, |app, _cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id)
+    });
     let advanced = app.update(cx, |app, _cx| app.advance_agent_task_queue(node_id));
+    let second_typed = app.update(cx, |app, _cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id)
+    });
+    let second_enter_failed = app.update(cx, |app, _cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id)
+    });
+    let second_retyped = app.update(cx, |app, _cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id)
+    });
+    let second_submitted = app.update(cx, |app, _cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id)
+    });
     let actual_writes = writes.lock().expect("队列失败写入记录应可读取").clone();
 
     assert!(
@@ -135,7 +161,15 @@ fn test_queued_submission_failure_skips_failed_head_and_submits_next_fifo_task()
         ),
         "task-3 应排在 task-2 之后，实际：{third:?}"
     );
-    assert!(advanced, "task-2 提交失败后应继续推进并成功提交 task-3");
+    assert!(first_submitted, "task-1 正文后必须发送延迟 Enter");
+    assert!(advanced, "task-1 完成后应推进到 task-2");
+    assert!(second_typed, "队列推进后必须写入 task-2 正文");
+    assert!(
+        !second_enter_failed,
+        "task-2 第一次 Enter 注入失败时不得报告成功"
+    );
+    assert!(second_retyped, "task-2 安全清行后必须自动重写");
+    assert!(second_submitted, "task-2 重写后必须再次发送 Enter 并成功");
     assert_eq!(
         actual_writes,
         vec![
@@ -143,14 +177,18 @@ fn test_queued_submission_failure_skips_failed_head_and_submits_next_fifo_task()
             vec![0x0d],
             b"task-2".to_vec(),
             vec![0x15],
-            b"task-3".to_vec(),
+            b"task-2".to_vec(),
             vec![0x0d],
         ],
-        "FIFO 推进应清除失败队首，再完整提交下一项"
+        "FIFO 推进应清除失败输入并完整重试同一队首"
     );
     assert_ne!(
         actual_writes.last(),
         Some(&vec![0x15]),
-        "队列不得停在 task-2 的失败清行，task-3 必须继续提交"
+        "队列不得停在 task-2 的失败清行，task-2 必须完成自动重试"
+    );
+    assert!(
+        !actual_writes.iter().any(|bytes| bytes == b"task-3"),
+        "task-2 成功终态前 task-3 不得越过 FIFO 提前写入"
     );
 }
