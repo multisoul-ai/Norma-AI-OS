@@ -77,7 +77,20 @@ const DIRECT_ADDRESS_MODIFIERS: &[&str] = &[
     "你们", "你", "都", "一起", "去", "帮我", "帮忙", "请", "麻烦",
 ];
 const AGENT_GROUP_SEPARATORS: &[&str] = &["和", "与", "、", ",", "，", "and"];
-const NON_COMMAND_PREFIXES: &[&str] = &["写得", "做得", "看起来", "is ", "was ", "seems "];
+const NON_COMMAND_PREFIXES: &[&str] = &["看起来", "is ", "was ", "seems "];
+const NON_COMMAND_ACTION_REMAINDERS: &[&str] = &[
+    "的",
+    "得",
+    "能力",
+    "结束",
+    "完成",
+    "状态",
+    "进度",
+    "怎么样",
+    "如何",
+    "了吗",
+    "了没",
+];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) enum DialogueRoutingDecision {
@@ -108,16 +121,17 @@ pub(super) fn route_user_turn(
     roster: &[crate::AgentRosterEntry],
 ) -> DialogueRoutingDecision {
     let normalized = strip_execution_modifiers(text.trim().to_lowercase());
-    if normalized.is_empty()
-        || contains_any(&normalized, EXPLANATION_MARKERS)
-        || contains_any(&normalized, EXPLANATION_NOUN_PHRASES)
-        || contains_any(&normalized, CREATE_NEGATIONS)
-    {
+    if normalized.is_empty() || contains_any(&normalized, CREATE_NEGATIONS) {
         return DialogueRoutingDecision::ModelOnly;
     }
     let delegation_targets = explicit_agent_targets(text, roster);
     if !delegation_targets.is_empty() {
         return DialogueRoutingDecision::RequireCardTaskFallback { delegation_targets };
+    }
+    if contains_any(&normalized, EXPLANATION_MARKERS)
+        || contains_any(&normalized, EXPLANATION_NOUN_PHRASES)
+    {
+        return DialogueRoutingDecision::ModelOnly;
     }
     if contains_any(&normalized, CREATE_ACTIONS) && contains_any(&normalized, CONCRETE_CARD_TARGETS)
     {
@@ -282,11 +296,19 @@ fn starts_with_task_action(text: &str) -> bool {
                         .chars()
                         .next()
                         .is_some_and(|character| character.is_ascii_alphabetic())
+                    && !starts_with_non_command_remainder(&text[action.len()..])
             })
         } else {
-            text.starts_with(action)
+            text.strip_prefix(action)
+                .is_some_and(|remainder| !starts_with_non_command_remainder(remainder))
         }
     })
+}
+
+fn starts_with_non_command_remainder(remainder: &str) -> bool {
+    NON_COMMAND_ACTION_REMAINDERS
+        .iter()
+        .any(|prefix| remainder.starts_with(prefix))
 }
 
 fn push_unique(targets: &mut Vec<String>, target: String) {

@@ -379,3 +379,71 @@ fn task_body_agent_mention_is_rejected_as_an_additional_target_before_side_effec
         "任务正文中的 Alan 不得作为 assignment 到达画布 host"
     );
 }
+
+/// L1-DELEGATION-04：逗号后“Alan 写的部分”是任务范围，不是第二个委派目标。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   addressed agents = 1：句首 Bella
+///   mentioned source clause = 1：“Alan 写的部分也要覆盖”
+///   expected assignments = 1：仅 Bella
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 提交含逗号来源从句的 Bella 指令
+///   2. Dialogue 漏调工具后进入带结构化目标的 CardTask
+///   3. CardTask 向 Bella 派发完整原始范围
+///
+/// 预期结果：
+///   - 正断言：Bella-only assignment 到达 host 且保留 Alan 来源从句
+///   - 负断言：执行边界不得要求或产生 Alan assignment
+#[test]
+fn comma_separated_agent_source_clause_does_not_expand_target_set() {
+    let dialogue = ScriptedProvider::new(vec![text_response("请确认是否也要派给 Alan")]);
+    let card = ScriptedProvider::new(vec![
+        response_with_tool(
+            r#"{"assignments":[{"name":"Bella","task":"检查代码，Alan 写的部分也要覆盖"}]}"#,
+        ),
+        text_response("已交给 Bella"),
+    ]);
+    let mut system = AgentSystem::new(
+        "natural-delegation-source-clause",
+        dialogue,
+        card,
+        RecordingHost::default(),
+        MemoryJournal::default(),
+        CardTaskBudget::default(),
+    );
+    system
+        .submit(AgentCommand::UpdateAgentRoster(roster()))
+        .expect("有效 Bella/Alan 名册应成功注入");
+
+    system
+        .submit(AgentCommand::UserTurn(
+            "Bella 检查代码，Alan 写的部分也要覆盖".to_string(),
+        ))
+        .expect("来源从句不应阻止 Bella 任务进入 CardTask");
+    run_to_completion(&mut system);
+
+    assert_eq!(
+        system.card_tool_host().commands,
+        vec![CardCommand::DispatchAgentTasks {
+            assignments: vec![AgentTaskAssignment {
+                name: "Bella".to_string(),
+                task: "检查代码，Alan 写的部分也要覆盖".to_string(),
+            }],
+            force_untracked: false,
+        }],
+        "逗号后的 Alan 来源从句必须保留在 Bella 任务正文，而非扩展目标集"
+    );
+    assert!(
+        !system
+            .card_tool_host()
+            .commands
+            .iter()
+            .any(|command| matches!(
+                command,
+                CardCommand::DispatchAgentTasks { assignments, .. }
+                    if assignments.iter().any(|assignment| assignment.name == "Alan")
+            )),
+        "来源从句中的 Alan 不得成为 assignment"
+    );
+}
