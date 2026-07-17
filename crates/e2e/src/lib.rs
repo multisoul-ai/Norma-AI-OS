@@ -55,6 +55,7 @@ mod e2e_08_browser_address_input;
 
 // Browser 卡片：内容区选择与清除选择的画布状态闭环。
 mod e2e_09_browser_card_selection;
+mod e2e_09_browser_chrome_auth;
 
 // 语音全链路场景矩阵：快捷键、听写触发、配置持久化、模型切换与运行时路由。
 mod e2e_10_tts_model_catalog;

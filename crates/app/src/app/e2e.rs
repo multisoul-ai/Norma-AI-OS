@@ -1,7 +1,4 @@
-//! Public e2e-facing app snapshots.
-//!
-//! These accessors keep external e2e tests on stable, primitive state without
-//! exposing the full private settings model.
+//! Stable, primitive e2e projections that do not expose private settings models.
 
 use super::{AppScreen, MultisoulApp};
 use crate::settings::agent_hooks::AgentHookServer;
@@ -16,6 +13,8 @@ use voice_sherpa::SpeechError;
 #[cfg(feature = "e2e-test-support")]
 mod agent_announcements;
 mod agents;
+#[cfg(feature = "e2e-test-support")]
+mod browser;
 mod recent_projects;
 mod tts;
 pub use agents::{AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot};

@@ -1,14 +1,22 @@
 //! Wry/WebKit backend for Browser cards.
 
+use super::chrome_auth::{BrowserCookie, SameSitePolicy};
 use super::{BrowserEvent, BrowserViewBounds};
 use canvas::NodeId;
 use crossbeam_channel::Sender;
 use gpui::Window;
+use objc2::runtime::AnyObject;
 use objc2::MainThreadMarker;
-use objc2_foundation::{NSBundle, NSString};
+use objc2_foundation::{
+    ns_string, NSArray, NSBundle, NSDate, NSHTTPCookie, NSHTTPCookieDomain, NSHTTPCookieExpires,
+    NSHTTPCookieName, NSHTTPCookiePath, NSHTTPCookiePropertyKey, NSHTTPCookieSecure,
+    NSHTTPCookieValue, NSMutableDictionary, NSString,
+};
 use objc2_web_kit::WKWebViewConfiguration;
 use std::sync::OnceLock;
-use wry::WebViewBuilderExtMacos;
+use wry::{WebViewBuilderExtMacos, WebViewExtMacOS};
+
+use super::native::CookieImportStatus;
 
 const BROWSER_PAGE_INTERACTION_MESSAGE: &str = "multisoul:browser-page-interaction";
 static SAFARI_APPLICATION_NAME: OnceLock<Option<String>> = OnceLock::new();
@@ -22,6 +30,7 @@ const BROWSER_PAGE_INTERACTION_SCRIPT: &str = r#"
 
 pub(crate) struct WryBrowserView {
     webview: wry::WebView,
+    event_sender: Sender<BrowserEvent>,
 }
 
 impl WryBrowserView {
@@ -32,6 +41,7 @@ impl WryBrowserView {
         window: &mut Window,
         event_sender: Sender<BrowserEvent>,
     ) -> wry::Result<Self> {
+        let browser_event_sender = event_sender.clone();
         let title_sender = event_sender.clone();
         let new_window_sender = event_sender.clone();
         let webview = with_safari_browser_identity(wry::WebViewBuilder::new())
@@ -51,7 +61,10 @@ impl WryBrowserView {
             })
             .build_as_child(window)?;
         clip_native_webview_to_bottom_corners(&webview, bounds.bottom_corner_radius_px);
-        Ok(Self { webview })
+        Ok(Self {
+            webview,
+            event_sender: browser_event_sender,
+        })
     }
 
     pub(crate) fn load_url(&mut self, url: &str) {
@@ -82,6 +95,128 @@ impl WryBrowserView {
     pub(crate) fn release_input(&mut self) {
         let _ = self.webview.focus_parent();
     }
+
+    pub(crate) fn import_cookies(
+        &mut self,
+        node_id: NodeId,
+        source_url: &str,
+        cookies: &[BrowserCookie],
+        skipped: usize,
+    ) -> Result<CookieImportStatus, String> {
+        if cookies.is_empty() {
+            return Ok(CookieImportStatus::Complete(0));
+        }
+        let native_cookies = cookies
+            .iter()
+            .map(wk_cookie_from_browser_cookie)
+            .collect::<Result<Vec<_>, _>>()?;
+        let native_cookies = NSArray::from_retained_slice(&native_cookies);
+        let imported = cookies.len();
+        let sender = self.event_sender.clone();
+        let url = source_url.to_string();
+        let completion = block2::RcBlock::new(move || {
+            let _ = sender.send(BrowserEvent::ChromeAuthImported {
+                node_id,
+                url: url.clone(),
+                imported,
+                skipped,
+            });
+        });
+        let webview = self.webview.webview();
+        // SAFETY: Wry WebViews and their persistent data store are created and accessed on
+        // the GPUI main thread. WebKit copies the completion block and invokes it after the
+        // whole NSArray has been stored, so this call schedules work without waiting here.
+        unsafe {
+            webview
+                .configuration()
+                .websiteDataStore()
+                .httpCookieStore()
+                .setCookies_completionHandler(&native_cookies, Some(&completion));
+        }
+        Ok(CookieImportStatus::Pending)
+    }
+}
+
+fn wk_cookie_from_browser_cookie(
+    cookie: &BrowserCookie,
+) -> Result<objc2::rc::Retained<NSHTTPCookie>, String> {
+    let portable_cookie = wry_cookie_from_browser_cookie(cookie)?;
+    let name = NSString::from_str(portable_cookie.name());
+    let value = NSString::from_str(portable_cookie.value());
+    let normalized_domain = cookie.domain.trim_start_matches('.');
+    let native_domain = if cookie.host_only {
+        normalized_domain.to_string()
+    } else {
+        format!(".{normalized_domain}")
+    };
+    let domain = NSString::from_str(&native_domain);
+    let path = NSString::from_str(portable_cookie.path().unwrap_or("/"));
+    // SAFETY: Foundation exports these immutable NSHTTPCookie property keys for the
+    // lifetime of the process; reading their references does not mutate global state.
+    let (name_key, value_key, domain_key, path_key, secure_key, expires_key) = unsafe {
+        (
+            NSHTTPCookieName,
+            NSHTTPCookieValue,
+            NSHTTPCookieDomain,
+            NSHTTPCookiePath,
+            NSHTTPCookieSecure,
+            NSHTTPCookieExpires,
+        )
+    };
+    let properties: objc2::rc::Retained<NSMutableDictionary<NSHTTPCookiePropertyKey, AnyObject>> =
+        NSMutableDictionary::from_slices(
+            &[name_key, value_key, domain_key, path_key],
+            &[&name, &value, &domain, &path],
+        );
+    if portable_cookie.secure() == Some(true) {
+        properties.insert(secure_key, ns_string!("TRUE"));
+    }
+    if portable_cookie.http_only() == Some(true) {
+        properties.insert(ns_string!("HttpOnly"), ns_string!("TRUE"));
+    }
+    if let Some(expires) = portable_cookie.expires_datetime() {
+        let expires = NSDate::dateWithTimeIntervalSince1970(expires.unix_timestamp() as f64);
+        properties.insert(expires_key, &expires);
+    }
+    if let Some(same_site) = portable_cookie.same_site() {
+        match same_site {
+            wry::cookie::SameSite::Lax => {
+                properties.insert(ns_string!("SameSite"), ns_string!("lax"));
+            }
+            wry::cookie::SameSite::Strict => {
+                properties.insert(ns_string!("SameSite"), ns_string!("strict"));
+            }
+            wry::cookie::SameSite::None => {}
+        }
+    }
+    // SAFETY: The dictionary contains Foundation objects for every required
+    // NSHTTPCookie property and only documented string/date optional values.
+    unsafe { NSHTTPCookie::cookieWithProperties(&properties) }
+        .ok_or_else(|| "WKWebView rejected an imported Chrome Cookie".to_string())
+}
+
+pub(crate) fn wry_cookie_from_browser_cookie(
+    cookie: &BrowserCookie,
+) -> Result<wry::cookie::Cookie<'static>, String> {
+    let mut builder = wry::cookie::CookieBuilder::new(cookie.name.clone(), cookie.value.clone())
+        .path(cookie.path.clone())
+        .secure(cookie.secure)
+        .http_only(cookie.http_only);
+    if !cookie.host_only {
+        builder = builder.domain(cookie.domain.clone());
+    }
+    builder = match cookie.same_site {
+        SameSitePolicy::Unspecified => builder,
+        SameSitePolicy::NoRestriction => builder.same_site(wry::cookie::SameSite::None),
+        SameSitePolicy::Lax => builder.same_site(wry::cookie::SameSite::Lax),
+        SameSitePolicy::Strict => builder.same_site(wry::cookie::SameSite::Strict),
+    };
+    if let Some(expires) = cookie.expires_unix_seconds {
+        let expires = wry::cookie::time::OffsetDateTime::from_unix_timestamp(expires)
+            .map_err(|_| "Chrome Cookie expiry was outside the WebView time range".to_string())?;
+        builder = builder.expires(expires);
+    }
+    Ok(builder.build())
 }
 
 fn forward_new_window_to_current_card(

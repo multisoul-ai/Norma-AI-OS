@@ -217,6 +217,7 @@ dependencies = [
  "tts",
  "ui",
  "ureq 3.3.0",
+ "url",
  "voice",
  "voice_sherpa",
  "workspace",

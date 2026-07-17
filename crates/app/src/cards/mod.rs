@@ -8,7 +8,7 @@ pub mod preview;
 pub(crate) mod snake;
 pub mod term;
 
-use crate::app::browser::BrowserAddressInput;
+use crate::app::browser::{BrowserAddressInput, BrowserAuthUiState};
 use crate::canvas::text_selection::TextSelection;
 use crate::motion::InitializationPresentation;
 use crate::preview::PreviewLoadState;
@@ -44,6 +44,7 @@ pub struct CardBodyContext<'a> {
     pub initialization: Option<InitializationPresentation>,
     pub terminal_cursor_phase: f32,
     pub browser_address_input: Option<gpui::Entity<BrowserAddressInput>>,
+    pub browser_auth_state: BrowserAuthUiState,
     pub theme: Theme,
     pub zoom: f32,
     pub bottom_radius_px: f32,

@@ -15,6 +15,8 @@ use ui::Theme;
 
 const WORKSPACE_LEFT_RAIL_VISIBLE: bool = false;
 const BOTTOM_VOICE_BAR_VISIBLE: bool = true;
+const WORKSPACE_ERROR_FOREGROUND: u32 = 0xfffffff5;
+const WORKSPACE_ERROR_MUTED: u32 = 0xffffffb8;
 const FROST_SAMPLE_OFFSETS: [(f32, f32); 5] = [
     (0.0, 0.0),
     (-5.0, -3.0),
@@ -22,6 +24,21 @@ const FROST_SAMPLE_OFFSETS: [(f32, f32); 5] = [
     (-3.0, 5.0),
     (3.0, -5.0),
 ];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct WorkspaceErrorBannerColors {
+    background: u32,
+    foreground: u32,
+    muted: u32,
+}
+
+fn workspace_error_banner_colors(theme: Theme) -> WorkspaceErrorBannerColors {
+    WorkspaceErrorBannerColors {
+        background: with_alpha(theme.graphite, 0xf0),
+        foreground: WORKSPACE_ERROR_FOREGROUND,
+        muted: WORKSPACE_ERROR_MUTED,
+    }
+}
 
 /// Incremental source-over alpha that keeps every accumulated spatial sample
 /// equally weighted. Starting with an opaque first sample prevents the card's
@@ -81,6 +98,7 @@ impl MultisoulApp {
     ) -> Option<Stateful<Div>> {
         let error = self.workspace_state.error.clone()?;
         let theme = self.theme;
+        let colors = workspace_error_banner_colors(theme);
         Some(
             div()
                 .id("workspace-error-layer")
@@ -95,6 +113,7 @@ impl MultisoulApp {
                         .id("workspace-error-banner")
                         .debug_selector(|| "workspace-error-banner".to_string())
                         .mx(px(24.0))
+                        .w_full()
                         .max_w(px(720.0))
                         .min_h(px(42.0))
                         .flex()
@@ -105,14 +124,24 @@ impl MultisoulApp {
                         .rounded(px(12.0))
                         .border_1()
                         .border_color(rgba(with_alpha(theme.destructive, 0x70)))
-                        .bg(rgba(with_alpha(theme.graphite, 0xf0)))
-                        .text_color(rgba(theme.text_primary))
+                        .bg(rgba(colors.background))
+                        .text_color(rgba(colors.foreground))
                         .text_size(px(12.0))
-                        .child(div().flex_1().child(error))
+                        .child(
+                            div()
+                                .id("workspace-error-message")
+                                .debug_selector(|| "workspace-error-message".to_string())
+                                .min_w(px(0.0))
+                                .flex_1()
+                                .overflow_hidden()
+                                .whitespace_normal()
+                                .child(error),
+                        )
                         .child(
                             div()
                                 .id("workspace-error-dismiss")
                                 .debug_selector(|| "workspace-error-dismiss".to_string())
+                                .flex_none()
                                 .w(px(28.0))
                                 .h(px(28.0))
                                 .flex()
@@ -120,7 +149,7 @@ impl MultisoulApp {
                                 .justify_center()
                                 .rounded(px(8.0))
                                 .cursor_pointer()
-                                .text_color(rgba(theme.text_secondary))
+                                .text_color(rgba(colors.muted))
                                 .hover(|style| style.bg(rgba(with_alpha(theme.destructive, 0x24))))
                                 .child("×")
                                 .on_click(cx.listener(|app, _, _window, cx| {
@@ -433,3 +462,7 @@ mod product_ui_chrome_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/workspace_backdrop_tests.rs"]
 mod workspace_backdrop_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/workspace_error_banner_tests.rs"]
+mod workspace_error_banner_tests;

@@ -10,6 +10,12 @@ use std::time::Duration;
 
 mod address_input;
 
+mod chrome_auth;
+mod chrome_auth_broker;
+#[cfg(test)]
+#[path = "../../tests/unit/browser_chrome_auth_tests.rs"]
+mod chrome_auth_tests;
+
 #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
 mod cef_backend;
 mod engine;
@@ -19,6 +25,7 @@ mod wry_backend;
 
 pub(crate) use address_input::BrowserAddressInput;
 use address_input::BrowserAddressInputEvent;
+pub(crate) use chrome_auth::BrowserAuthUiState;
 pub(crate) use engine::BrowserEngineKind;
 pub(crate) use native::{browser_native_view_bounds, BrowserViewBounds, NativeBrowserView};
 pub(crate) use store::BrowserStore;
@@ -36,6 +43,7 @@ pub(crate) enum BrowserCommandKind {
     Forward,
     Reload,
     EditAddress,
+    ImportChromeAuth,
 }
 
 #[derive(Clone, Debug, PartialEq, Action)]
@@ -53,9 +61,32 @@ pub(crate) struct BrowserAddressEdit {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum BrowserEvent {
-    TitleChanged { node_id: NodeId, title: String },
-    PageInteraction { node_id: NodeId },
-    NavigateCurrentCard { node_id: NodeId, url: String },
+    TitleChanged {
+        node_id: NodeId,
+        title: String,
+    },
+    PageInteraction {
+        node_id: NodeId,
+    },
+    NavigateCurrentCard {
+        node_id: NodeId,
+        url: String,
+    },
+    ChromeAuthCookies {
+        node_id: NodeId,
+        url: String,
+        batch: chrome_auth::CookieImportBatch,
+    },
+    ChromeAuthImported {
+        node_id: NodeId,
+        url: String,
+        imported: usize,
+        skipped: usize,
+    },
+    ChromeAuthFailed {
+        node_id: NodeId,
+        message: String,
+    },
 }
 
 impl MultisoulApp {
@@ -140,6 +171,10 @@ impl MultisoulApp {
             .map(|edit| edit.input.clone())
     }
 
+    pub(crate) fn browser_chrome_auth_state_for(&self, node_id: NodeId) -> BrowserAuthUiState {
+        self.browsers.chrome_auth_state(node_id)
+    }
+
     pub(crate) fn sync_browser_view_for_node(
         &mut self,
         node_id: NodeId,
@@ -204,9 +239,49 @@ impl MultisoulApp {
                         changed = true;
                     }
                 }
+                BrowserEvent::ChromeAuthCookies {
+                    node_id,
+                    url,
+                    batch,
+                } => match self.browsers.apply_chrome_auth(node_id, &url, batch) {
+                    Ok(Some((imported, skipped))) => {
+                        tracing::info!(node_id, imported, skipped, "Chrome Browser auth imported");
+                        changed = true;
+                    }
+                    Ok(None) => changed = true,
+                    Err(message) => {
+                        self.report_chrome_auth_failure(node_id, &message);
+                        changed = true;
+                    }
+                },
+                BrowserEvent::ChromeAuthImported {
+                    node_id,
+                    url,
+                    imported,
+                    skipped,
+                } => {
+                    if self.browsers.complete_chrome_auth(node_id, &url) {
+                        tracing::info!(
+                            node_id,
+                            imported,
+                            skipped,
+                            "Chrome Browser auth imported asynchronously"
+                        );
+                        changed = true;
+                    }
+                }
+                BrowserEvent::ChromeAuthFailed { node_id, message } => {
+                    self.report_chrome_auth_failure(node_id, &message);
+                    changed = true;
+                }
             }
         }
         changed
+    }
+
+    fn report_chrome_auth_failure(&mut self, node_id: NodeId, message: &str) {
+        self.browsers.fail_chrome_auth(node_id, message);
+        self.workspace_state.error = Some(format!("Chrome session sync failed: {message}"));
     }
 
     pub(crate) fn on_browser_command(
@@ -222,6 +297,13 @@ impl MultisoulApp {
             BrowserCommandKind::Reload => self.browsers.reload(action.node_id),
             BrowserCommandKind::EditAddress => {
                 self.begin_browser_address_edit(action.node_id, window, cx)
+            }
+            BrowserCommandKind::ImportChromeAuth => {
+                if let Some(node) = self.runtime.document.node(action.node_id) {
+                    if let CanvasNodeKind::Browser(spec) = &node.kind {
+                        self.browsers.request_chrome_auth(action.node_id, &spec.url);
+                    }
+                }
             }
         }
         cx.notify();

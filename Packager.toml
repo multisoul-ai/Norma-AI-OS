@@ -9,6 +9,7 @@ authors = ["multisoul"]
 formats = ["app", "dmg"]
 resources = [
   "crates/app/assets/wallpapers",
+  "crates/app/assets/browser-auth-extension",
   "sidecars/openai-card-planner/openai-card-planner.mjs",
 ]
 icons = ["assets/AppIcon.icns"]
@@ -31,6 +32,10 @@ main = true
 
 [[binaries]]
 path = "target/release/multisoul-agent-hook"
+main = false
+
+[[binaries]]
+path = "target/release/norma-browser-auth-host"
 main = false
 
 [macos]
