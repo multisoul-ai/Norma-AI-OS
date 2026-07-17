@@ -8,6 +8,9 @@ use gpui::{Modifiers, TestAppContext, VisualTestContext};
 
 use crate::harness::{create_codex_agent, echo_factory, enter_canvas, make_app, read_runtime};
 
+#[path = "e2e_12_voice_addressable_agents/current_context.rs"]
+mod current_context;
+
 /// E2E-A-1：Settings 的 Add Agent 应先创建未保存草稿，Save 只保存定义而不打开卡片。
 ///
 /// 数据构造（含关键数值的推导过程）：

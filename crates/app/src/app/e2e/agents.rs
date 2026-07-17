@@ -22,6 +22,10 @@ pub struct AgentSettingsE2eSnapshot {
 }
 
 impl MultisoulApp {
+    pub fn current_canvas_context_e2e(&self) -> Option<agent::CurrentCanvasContext> {
+        self.current_canvas_context_for_provider()
+    }
+
     #[cfg(feature = "e2e-test-support")]
     pub fn execute_agent_card_command_for_e2e(
         &mut self,

@@ -1,8 +1,42 @@
 use canvas::{CanvasNodeKind, NodeId};
+use runtime::InputMode;
 
 use super::super::MultisoulApp;
 
 impl MultisoulApp {
+    pub(crate) fn current_canvas_context_for_provider(
+        &self,
+    ) -> Option<agent::CurrentCanvasContext> {
+        let workspace_root = self.runtime.workspace_root()?;
+        let project_name = workspace_root
+            .file_name()
+            .and_then(|name| name.to_str())
+            .filter(|name| !name.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| workspace_root.display().to_string());
+        let cards = self
+            .runtime
+            .document
+            .nodes()
+            .iter()
+            .map(|node| agent::CanvasCardContext {
+                node_id: node.id,
+                kind: canvas_card_kind(&node.kind),
+                title: node.kind.display_title(),
+                selected: self.runtime.selection.contains(node.id),
+                focused: matches!(
+                    self.runtime.focus.mode(),
+                    InputMode::NodeFocused(node_id) if node_id == node.id
+                ),
+            })
+            .collect();
+        Some(agent::CurrentCanvasContext {
+            project_name,
+            workspace_root: workspace_root.display().to_string(),
+            cards,
+        })
+    }
+
     pub(super) fn agent_roster_for_provider(&self) -> Vec<agent::AgentRosterEntry> {
         self.agent_definitions
             .definitions()
@@ -92,6 +126,16 @@ impl MultisoulApp {
             .as_str();
         let state = self.runtime.agent_task_state(node_id)?;
         agent_completion_report(name, &state)
+    }
+}
+
+fn canvas_card_kind(kind: &CanvasNodeKind) -> agent::CanvasCardKind {
+    match kind {
+        CanvasNodeKind::Rect(_) => agent::CanvasCardKind::Rect,
+        CanvasNodeKind::Term(_) => agent::CanvasCardKind::Terminal,
+        CanvasNodeKind::Agent(_) => agent::CanvasCardKind::Agent,
+        CanvasNodeKind::Preview(_) => agent::CanvasCardKind::Preview,
+        CanvasNodeKind::Browser(_) => agent::CanvasCardKind::Browser,
     }
 }
 

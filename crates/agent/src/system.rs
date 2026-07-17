@@ -64,6 +64,7 @@ where
     live_dialogue_cancellation: Option<Arc<AtomicBool>>,
     agent_roster: Vec<crate::AgentRosterEntry>,
     agent_roster_prompt: String,
+    current_canvas_context_prompt: String,
 }
 impl<D, C, H, J> AgentSystem<D, C, H, J>
 where
@@ -103,6 +104,7 @@ where
             live_dialogue_cancellation: None,
             agent_roster: Vec::new(),
             agent_roster_prompt: String::new(),
+            current_canvas_context_prompt: String::new(),
         }
     }
 
@@ -127,6 +129,9 @@ where
             AgentCommand::UpdateAgentRoster(roster) => self
                 .set_agent_roster(roster)
                 .map_err(|error| AgentError::InvalidCommand(error.to_string()))?,
+            AgentCommand::UpdateCurrentCanvasContext(context) => {
+                self.current_canvas_context_prompt = crate::render_current_canvas_context(&context);
+            }
             AgentCommand::UserTurn(text) => self.handle_user_turn(text)?,
             AgentCommand::DirectCardTask(intent) => {
                 self.enqueue_task(intent);

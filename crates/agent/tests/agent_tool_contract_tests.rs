@@ -166,3 +166,56 @@ fn dialogue_card_task_tool_description_preserves_delegation_semantics() {
         "card_task 工具说明必须限定为润色中转，不能因缺少非必要细节而追问"
     );
 }
+
+/// AT-4：Dialogue 与 CardTask 工具说明应传递自然多 Agent 目标语义。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   inspected tools = 2：Dialogue `card_task` + CardTask `dispatch_agent_tasks`
+///   required semantics = 3：句首直接寻址 + 同一任务多目标 + 正文名称非目标
+///   obsolete confirmation requirement = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 Dialogue 工具列表并定位 card_task
+///   2. 读取 CardTask 工具列表并定位 dispatch_agent_tasks
+///   3. 检查两个说明的目标集合与共同任务契约
+///
+/// 预期结果：
+///   - 正断言：card_task 说明将句首精确寻址当作委派
+///   - 正断言：dispatch_agent_tasks 允许同一任务分别派发给多目标
+///   - 负断言：任务正文里的 Agent 名称不得被加入目标集
+#[test]
+fn agent_tool_descriptions_express_natural_shared_task_targeting() {
+    let dialogue_tools = dialogue_tool_specs();
+    let card_task = dialogue_tools
+        .iter()
+        .find(|tool| tool.name == "card_task")
+        .expect("Dialogue 生产工具集合必须包含 card_task");
+    let card_tools = card_subagent_tool_specs();
+    let dispatch = card_tools
+        .iter()
+        .find(|tool| tool.name == "dispatch_agent_tasks")
+        .expect("CardTask 生产工具集合必须包含 dispatch_agent_tasks");
+
+    assert!(
+        card_task
+            .description
+            .contains("sentence-initial exact Agent address"),
+        "card_task 工具说明应将句首精确 Agent 寻址定义为委派"
+    );
+    assert!(
+        card_task.description.contains("same task to each target")
+            && dispatch
+                .description
+                .contains("same task to multiple Agents"),
+        "Dialogue 与 CardTask 工具说明都应支持同一任务的多 Agent 独立派发"
+    );
+    assert!(
+        card_task
+            .description
+            .contains("Agent names mentioned inside task text are not additional targets")
+            && dispatch
+                .description
+                .contains("Do not add Agents merely mentioned inside task text"),
+        "工具说明必须防止把任务正文中的 Agent 名称误当目标"
+    );
+}

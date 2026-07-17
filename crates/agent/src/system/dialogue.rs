@@ -157,8 +157,9 @@ where
     fn dialogue_request_messages(&self, current_turn: &[AgentMessage]) -> Vec<AgentMessage> {
         let history_message_count = self.dialogue_turns.iter().map(Vec::len).sum::<usize>();
         let mut messages = Vec::with_capacity(1 + history_message_count + current_turn.len());
-        messages.push(system_message(crate::dialogue_system_prompt_with_roster(
+        messages.push(system_message(crate::dialogue_system_prompt_with_context(
             &self.agent_roster_prompt,
+            &self.current_canvas_context_prompt,
         )));
         for turn in &self.dialogue_turns {
             messages.extend(turn.iter().cloned());

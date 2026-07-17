@@ -36,6 +36,47 @@ const CONCRETE_CARD_TARGETS: &[&str] = &[
     "agent card",
     "智能体卡片",
 ];
+const AGENT_TASK_ACTIONS: &[&str] = &[
+    "搜索",
+    "查找",
+    "分析",
+    "检查",
+    "审查",
+    "运行",
+    "测试",
+    "修复",
+    "实现",
+    "开发",
+    "编写",
+    "写",
+    "重构",
+    "调查",
+    "整理",
+    "更新",
+    "创建",
+    "执行",
+    "查看",
+    "阅读",
+    "search",
+    "find",
+    "analyze",
+    "analyse",
+    "check",
+    "review",
+    "run",
+    "test",
+    "fix",
+    "implement",
+    "build",
+    "write",
+    "refactor",
+    "update",
+    "create",
+];
+const DIRECT_ADDRESS_MODIFIERS: &[&str] = &[
+    "你们", "你", "都", "一起", "去", "帮我", "帮忙", "请", "麻烦",
+];
+const AGENT_GROUP_SEPARATORS: &[&str] = &["和", "与", "、", ",", "，", "and"];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum DialogueRoutingDecision {
@@ -70,6 +111,7 @@ fn has_explicit_agent_address(text: &str, roster: &[crate::AgentRosterEntry]) ->
     roster.iter().any(|agent| {
         address_keys(agent).into_iter().any(|key| {
             starts_with_punctuated_name(trimmed, &key)
+                || starts_with_unpunctuated_instruction(trimmed, &key)
                 || ["让", "请", "交给", "打开"].iter().any(|prefix| {
                     trimmed.strip_prefix(prefix).is_some_and(|remainder| {
                         starts_with_named_instruction(
@@ -80,7 +122,7 @@ fn has_explicit_agent_address(text: &str, roster: &[crate::AgentRosterEntry]) ->
                     })
                 })
         })
-    })
+    }) || starts_with_agent_group_instruction(trimmed, roster)
 }
 
 fn address_keys(agent: &crate::AgentRosterEntry) -> Vec<String> {
@@ -108,6 +150,84 @@ fn starts_with_named_instruction(text: &str, name: &str, allow_empty: bool) -> b
             character.is_whitespace() || matches!(character, ',' | '，' | ':' | '：')
         });
         !remainder.is_empty() || allow_empty
+    })
+}
+
+fn starts_with_unpunctuated_instruction(text: &str, name: &str) -> bool {
+    strip_name_prefix(text, name)
+        .map(str::trim_start)
+        .map(strip_direct_address_modifiers)
+        .is_some_and(starts_with_task_action)
+}
+
+fn starts_with_agent_group_instruction(text: &str, roster: &[crate::AgentRosterEntry]) -> bool {
+    let keys = roster
+        .iter()
+        .flat_map(address_keys)
+        .collect::<Vec<String>>();
+    let Some(mut remainder) = strip_any_name_prefix(text, &keys) else {
+        return false;
+    };
+    let mut addressed_count = 1usize;
+    loop {
+        remainder = remainder.trim_start();
+        let Some(after_separator) = strip_any_prefix(remainder, AGENT_GROUP_SEPARATORS) else {
+            break;
+        };
+        let Some(after_name) = strip_any_name_prefix(after_separator.trim_start(), &keys) else {
+            break;
+        };
+        addressed_count += 1;
+        remainder = after_name;
+    }
+    if addressed_count < 2 {
+        return false;
+    }
+    let instruction = remainder.trim_start_matches(|character: char| {
+        character.is_whitespace() || matches!(character, ',' | '，' | ':' | '：')
+    });
+    starts_with_task_action(strip_direct_address_modifiers(instruction))
+}
+
+fn strip_any_name_prefix<'a>(text: &'a str, keys: &[String]) -> Option<&'a str> {
+    keys.iter()
+        .filter_map(|key| {
+            strip_name_prefix(text, key).map(|remainder| (key.chars().count(), remainder))
+        })
+        .max_by_key(|(character_count, _)| *character_count)
+        .map(|(_, remainder)| remainder)
+}
+
+fn strip_any_prefix<'a>(text: &'a str, prefixes: &[&str]) -> Option<&'a str> {
+    prefixes.iter().find_map(|prefix| {
+        if prefix.is_ascii() {
+            text.get(..prefix.len())
+                .filter(|candidate| candidate.eq_ignore_ascii_case(prefix))?;
+            text.get(prefix.len()..)
+        } else {
+            text.strip_prefix(prefix)
+        }
+    })
+}
+
+fn strip_direct_address_modifiers(mut text: &str) -> &str {
+    loop {
+        let trimmed = text.trim_start();
+        let Some(remainder) = strip_any_prefix(trimmed, DIRECT_ADDRESS_MODIFIERS) else {
+            return trimmed;
+        };
+        text = remainder;
+    }
+}
+
+fn starts_with_task_action(text: &str) -> bool {
+    AGENT_TASK_ACTIONS.iter().any(|action| {
+        if action.is_ascii() {
+            text.get(..action.len())
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(action))
+        } else {
+            text.starts_with(action)
+        }
     })
 }
 

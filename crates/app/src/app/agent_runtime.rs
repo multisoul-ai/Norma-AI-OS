@@ -390,11 +390,15 @@ impl MultisoulApp {
             start_event_pump(events, runtime_id, cx);
         }
         let roster = self.agent_roster_for_provider();
+        let current_canvas_context = self.current_canvas_context_for_provider();
         let runtime = self
             .agent_runtime
             .as_ref()
             .expect("agent runtime should exist after initialization");
         let _ = runtime.submit(AgentCommand::UpdateAgentRoster(roster));
+        if let Some(context) = current_canvas_context {
+            let _ = runtime.submit(AgentCommand::UpdateCurrentCanvasContext(context));
+        }
         Ok(runtime.submit(command))
     }
 }
@@ -479,21 +483,5 @@ fn is_current_runtime(app: &MultisoulApp, runtime_id: u64) -> bool {
 }
 
 #[cfg(test)]
-#[path = "../../tests/unit/agent_runtime_tests.rs"]
-mod agent_runtime_tests;
-
-#[cfg(test)]
-#[path = "../../tests/unit/agent_dispatch_submit_tests.rs"]
-mod agent_dispatch_submit_tests;
-
-#[cfg(test)]
-#[path = "../../tests/unit/agent_dispatch_workspace_tests.rs"]
-mod agent_dispatch_workspace_tests;
-
-#[cfg(test)]
-#[path = "../../tests/unit/agent_dispatch_queue_failure_tests.rs"]
-mod agent_dispatch_queue_failure_tests;
-
-#[cfg(test)]
-#[path = "../../tests/unit/agent_dispatch_unsafe_failure_tests.rs"]
-mod agent_dispatch_unsafe_failure_tests;
+#[path = "agent_runtime/tests.rs"]
+mod tests;

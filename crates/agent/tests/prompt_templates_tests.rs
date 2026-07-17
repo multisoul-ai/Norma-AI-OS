@@ -206,3 +206,53 @@ fn agent_delegation_prompts_only_polish_and_relay_actionable_tasks() {
         "CardTask 不得保留会诱导二次需求分析和过度确认的宽泛指令"
     );
 }
+
+/// P-6：Dialogue 与 CardTask Prompt 应共享自然单/多 Agent 委派与当前项目语义。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   prompt layers = 2：Dialogue 产品规则 + CardTask 执行规则
+///   delegation forms = 3：句首直接寻址 + 共同任务 + 独立分工
+///   project references = 3：当前项目 + 这个项目 + 我们的项目
+///   obsolete restriction count = 0：不再要求每个 Agent 必须有不同任务
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取生产 Dialogue Prompt
+///   2. 读取生产 CardTask Prompt
+///   3. 检查两层对目标集合、任务正文名称和共同任务的契约
+///
+/// 预期结果：
+///   - 正断言：两层都支持句首点名和同一任务多目标派发
+///   - 正断言：两层都保护任务正文里的 Agent 名称不成为新目标
+///   - 正断言：Dialogue 将三种项目指代解析到当前 workspace
+///   - 负断言：两层都不得保留“必须每个目标独立任务”的旧限制
+#[test]
+fn natural_multi_agent_delegation_prompts_share_target_and_project_semantics() {
+    let dialogue = agent::dialogue_system_prompt();
+    let card_task = agent::card_task_system_prompt();
+
+    assert!(
+        dialogue.contains("句首点名") && card_task.contains("句首点名"),
+        "Dialogue 与 CardTask Prompt 都应把句首点名定义为自然委派"
+    );
+    assert!(
+        dialogue.contains("同一任务分别派发") && card_task.contains("同一任务分别派发"),
+        "Dialogue 与 CardTask Prompt 都应允许多 Agent 独立接收同一任务"
+    );
+    assert!(
+        dialogue.contains("任务正文里提及的其他 Agent")
+            && card_task.contains("任务正文里提及的其他 Agent"),
+        "Dialogue 与 CardTask Prompt 都应防止把任务正文中的 Agent 名称误当目标"
+    );
+    assert!(
+        dialogue.contains("当前项目")
+            && dialogue.contains("这个项目")
+            && dialogue.contains("我们的项目")
+            && dialogue.contains("workspace root"),
+        "Dialogue Prompt 应将三种项目指代解析到当前 workspace root"
+    );
+    assert!(
+        !dialogue.contains("多 Agent 指令只有每个 Agent 都有独立任务正文时才派发")
+            && !card_task.contains("多 Agent 委派必须为每个目标给出独立任务正文"),
+        "Prompt 不得保留拒绝明确共同任务的旧限制"
+    );
+}
