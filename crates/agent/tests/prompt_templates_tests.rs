@@ -99,15 +99,18 @@ fn card_task_system_prompt_is_rigorous_and_persona_isolated() {
 ///   prompt layers = Dialogue 产品规则 1 层 + CardTask 执行规则 1 层，共 2 层；
 ///   semantic fields = 目标、范围、先后顺序、约束、交付要求、明确命令，共 6 类；
 ///   context rule = 指代候选恰好 1 个时可展开，候选数不等于 1 时不得猜测。
+///   supported Agent profiles = Codex、Claude、Cursor、OpenCode，共 4 种。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取生产 Dialogue system prompt；
 ///   2. 读取生产 CardTask system prompt；
-///   3. 检查两层都约束轻量润色，且分别覆盖上下文指代与最终任务正文。
+///   3. 检查两层都约束轻量润色，且分别覆盖上下文指代与最终任务正文；
+///   4. 检查 Dialogue 明确支持全部 4 种 Agent profile。
 ///
 /// 预期结果：
 ///   - 正断言：两层都明确要求轻量润色和 6 类语义保留；
 ///   - 正断言：Dialogue 只允许展开唯一明确的上下文指代；
+///   - 正断言：Dialogue 同时列出 Codex、Claude、Cursor、OpenCode；
 ///   - 负断言：CardTask 不得扩写成长篇结构化简报或新增用户未提出的要求。
 #[test]
 fn agent_delegation_prompts_require_light_polish_without_semantic_loss() {
@@ -124,6 +127,11 @@ fn agent_delegation_prompts_require_light_polish_without_semantic_loss() {
         "Dialogue prompt 只有在上下文指代唯一明确时才可展开，否则必须停止猜测"
     );
     assert!(
+        dialogue.contains("Codex、Claude、Cursor 或 OpenCode")
+            && dialogue.contains("Codex/Claude/Cursor/OpenCode"),
+        "Dialogue prompt 必须一致支持 Codex、Claude、Cursor、OpenCode 四种 Agent"
+    );
+    assert!(
         card_task.contains("轻量润色") && card_task.contains(semantic_fields),
         "CardTask prompt 必须把 Dialogue 意图整理成不丢语义的轻量润色任务"
     );
@@ -131,5 +139,70 @@ fn agent_delegation_prompts_require_light_polish_without_semantic_loss() {
         card_task.contains("不得扩写成长篇结构化简报")
             && card_task.contains("不得新增用户未提出的要求"),
         "CardTask 不得把轻量润色退化为重型模板或臆造额外要求"
+    );
+}
+
+/// P-5：Agent 委派只能做文字润色和中转，不得把任务简略误判为需要确认。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   prompt layers = Dialogue 产品规则 1 层 + CardTask 执行规则 1 层，共 2 层；
+///   dispatch threshold = 目标 Agent 1 个 + 可识别动作 1 个，共 2 项最低条件；
+///   allowed clarification = 核心意图无法识别时最多 1 个最小必要问题。
+///   missing profile = 缺少 1 个 Agent 类型时，只询问 1 个类型问题；
+///   terse answer = Agent 名称、动作或类型中的任意 1 项，可与上一轮原任务合并。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取生产 Dialogue system prompt；
+///   2. 读取生产 CardTask system prompt；
+///   3. 检查两层都把职责限定为润色与中转，并明确任务简短不构成澄清理由；
+///   4. 检查澄清仅限目标、动作或多候选指代无法确定，且禁止反复确认；
+///   5. 检查缺少 profile 时只问类型，用户简短回答后结合原任务直接派发。
+///
+/// 预期结果：
+///   - 正断言：目标 Agent 和动作可识别时必须直接派发；
+///   - 正断言：只有核心意图不明时才可提出一次最小澄清；
+///   - 正断言：缺少 profile 时只问类型，简短回答无需重述原任务；
+///   - 负断言：不得因缺少实现细节、背景或验收标准而拦截任务。
+#[test]
+fn agent_delegation_prompts_only_polish_and_relay_actionable_tasks() {
+    let dialogue = agent::dialogue_system_prompt();
+    let card_task = agent::card_task_system_prompt();
+
+    assert!(
+        dialogue.contains("职责仅限文字润色和中转")
+            && dialogue.contains("目标 Agent 和要做的动作可以识别"),
+        "Dialogue 必须把 Agent 委派限定为润色与中转，并以目标和动作可识别作为直接派发门槛"
+    );
+    assert!(
+        dialogue.contains("不得因任务简短、缺少实现细节、背景或验收标准而确认")
+            && dialogue.contains("不得反复确认"),
+        "Dialogue 不得把任务不够详细误判为需要确认，也不得反复追问用户"
+    );
+    assert!(
+        card_task.contains("只负责文字润色和中转")
+            && card_task.contains("不得重新评审任务是否足够完整"),
+        "CardTask 必须直接中转 Dialogue 已识别的任务，不能再次评审需求完整度"
+    );
+    assert!(
+        card_task.contains("目标 Agent、要做的动作或多候选指代")
+            && card_task.contains("一个最小必要问题"),
+        "CardTask 只有在核心意图无法识别时才可提出一次最小澄清"
+    );
+    assert!(
+        dialogue.contains("使用哪种 Agent 类型")
+            && card_task.contains("使用哪种 Agent 类型")
+            && dialogue.contains("不得要求用户重新完整表达")
+            && card_task.contains("不得要求用户重新完整表达"),
+        "缺少创建类型时只能询问一个最小问题，不能要求用户重新描述整个任务"
+    );
+    assert!(
+        dialogue.contains("用户可只回答一个 Agent 名称、动作或类型")
+            && dialogue.contains("结合上一轮原任务恢复完整意图并直接派发")
+            && card_task.contains("不得要求用户复述任务"),
+        "用户用 Agent 名称、动作或类型解除歧义后，必须结合原任务派发而不是要求重述"
+    );
+    assert!(
+        !card_task.contains("先理解任务目标"),
+        "CardTask 不得保留会诱导二次需求分析和过度确认的宽泛指令"
     );
 }

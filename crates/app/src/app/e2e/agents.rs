@@ -1,4 +1,8 @@
 use crate::app::MultisoulApp;
+#[cfg(feature = "e2e-test-support")]
+use gpui::Window;
+#[cfg(feature = "e2e-test-support")]
+use norma::protocol::{CardCommand, CardCommandResult};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentDefinitionE2eSnapshot {
@@ -18,6 +22,28 @@ pub struct AgentSettingsE2eSnapshot {
 }
 
 impl MultisoulApp {
+    #[cfg(feature = "e2e-test-support")]
+    pub fn execute_agent_card_command_for_e2e(
+        &mut self,
+        window: &mut Window,
+        command: CardCommand,
+    ) -> Result<CardCommandResult, String> {
+        crate::app::agent_runtime::execute_agent_card_command(self, window, command)
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn enqueue_agent_hook_event_for_e2e(
+        &self,
+        event: norma::agent_hook::AgentHookEvent,
+    ) -> Result<(), String> {
+        self.agent_hook_server.enqueue_event_for_e2e(event)
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn agent_submission_waiting_for_e2e(&self, node_id: canvas::NodeId) -> bool {
+        self.pending_agent_submissions.is_waiting(node_id)
+    }
+
     pub fn agent_settings_e2e_snapshot(&self) -> AgentSettingsE2eSnapshot {
         let profile_name = |profile| match profile {
             canvas::AgentProfile::Claude => "claude",

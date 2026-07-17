@@ -130,10 +130,12 @@ fn high_level_agent_tool_calls_parse_structured_commands_and_require_profile() {
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取生产 Dialogue 工具 schema；
 ///   2. 精确找到 `card_task`；
-///   3. 检查说明要求轻量整理、保留 6 类语义并禁止摘要或臆造。
+///   3. 检查说明要求轻量整理、保留 6 类语义并禁止摘要或臆造；
+///   4. 检查目标 Agent 与动作可识别时直接中转，不因缺少实现细节而确认。
 ///
 /// 预期结果：
 ///   - 正断言：工具说明要求 lightly polished intent 与完整语义保留；
+///   - 正断言：工具说明把职责限制为 polish and relay，并禁止追问实现细节；
 ///   - 负断言：说明不得允许 summarize 或 invent requirements。
 #[test]
 fn dialogue_card_task_tool_description_preserves_delegation_semantics() {
@@ -155,5 +157,12 @@ fn dialogue_card_task_tool_description_preserves_delegation_semantics() {
         card_task.description.contains("do not summarize")
             && card_task.description.contains("invent requirements"),
         "card_task 工具说明必须禁止摘要化删减和臆造新要求"
+    );
+    assert!(
+        card_task.description.contains("only polish and relay")
+            && card_task
+                .description
+                .contains("do not ask for implementation details, background, preferences, or acceptance criteria"),
+        "card_task 工具说明必须限定为润色中转，不能因缺少非必要细节而追问"
     );
 }

@@ -29,7 +29,8 @@ pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEn
         }
         AgentProfile::Codex => {
             let mut exec_command =
-                "exec codex --dangerously-bypass-approvals-and-sandbox".to_string();
+                "exec codex -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox"
+                    .to_string();
             if hook_env.is_some() {
                 // Codex 要求每个 hook 命令先经交互式信任确认才会执行；Multisoul 的
                 // hook bridge 命令是非交互启动的，永远没机会走那个确认流程，所以
@@ -57,7 +58,7 @@ mod tests {
     ///
     /// 数据构造（含关键数值推导）：
     ///   Claude profile → /bin/zsh -ic "exec claude --dangerously-skip-permissions"
-    ///   Codex profile  → /bin/zsh -ic "exec codex --dangerously-bypass-approvals-and-sandbox"
+    ///   Codex profile  → /bin/zsh -ic "exec codex -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox"
     ///   两个命令都使用 3 段 argv：program + "-ic" + exec 命令
     ///
     /// 执行过程：
@@ -99,6 +100,10 @@ mod tests {
         assert!(
             codex.args[1].contains("codex"),
             "Codex Agent 命令应包含 codex CLI"
+        );
+        assert!(
+            codex.args[1].contains("-c disable_paste_burst=true"),
+            "Codex Agent 必须关闭 paste-burst 启发式，否则自动输入后的 Enter 会先于正文落定"
         );
         assert!(
             cursor.args[1].contains("cursor-agent"),

@@ -255,3 +255,95 @@ fn explicit_agent_address_falls_back_but_ordinary_mention_stays_in_dialogue() {
         "普通宾语位置提及 Alan 不得产生执行任务"
     );
 }
+
+/// DP-4：用户完整明确目标后，模型的多余追问必须被确定性 fallback 屏蔽。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   roster = 2 个 Agent：Alan(id=1) + Bob(id=2)；
+///   dialogue responses = 2 条：首次最小澄清 1 条 + 第二次多余追问 1 条；
+///   first turn = “让它分析 README”，目标候选数 = 2，不能唯一寻址；
+///   second turn = “让 Alan 分析 README”，精确目标数 = 1，动作数 = 1。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 提交第一轮多候选指代 → 保留 Provider 的一次澄清，不产生 CardTask；
+///   2. 用户用完整指令明确 Alan → 确定性路由要求 CardTask；
+///   3. Provider 仍返回追问文本 → fallback 丢弃追问并补入唯一 TaskQueued。
+///
+/// 预期结果：
+///   - 正断言：第一轮显示一次包含 Alan/Bob 的最小澄清；
+///   - 正断言：第二轮完整明确目标后恰好产生一个 TaskQueued；
+///   - 负断言：第一轮不得派发，第二轮不得继续显示确认或补充细节文本。
+#[test]
+fn clarified_agent_target_dispatches_without_repeated_confirmation() {
+    let dialogue = ScriptedProvider::new([
+        text_response("请确认让 Alan 还是 Bob 分析 README"),
+        text_response("请再补充分析范围和验收标准"),
+    ]);
+    let mut agent_system = system(
+        dialogue,
+        ScriptedProvider::default(),
+        RecordingHost::default(),
+    );
+    agent_system
+        .set_agent_roster(vec![
+            AgentRosterEntry {
+                definition_id: 1,
+                name: "Alan".to_string(),
+                speech_alias: Some("艾伦".to_string()),
+                profile: AgentProfile::Codex,
+                enabled: true,
+                active_node_id: Some(101),
+                tracking: AgentTrackingMode::Managed,
+                busy: false,
+            },
+            AgentRosterEntry {
+                definition_id: 2,
+                name: "Bob".to_string(),
+                speech_alias: None,
+                profile: AgentProfile::Claude,
+                enabled: true,
+                active_node_id: Some(202),
+                tracking: AgentTrackingMode::Managed,
+                busy: false,
+            },
+        ])
+        .expect("Alan 与 Bob 的唯一名册应可用于多候选澄清测试");
+
+    let ambiguous_events = agent_system
+        .submit(AgentCommand::UserTurn("让它分析 README".to_string()))
+        .expect("多候选指代应由 Dialogue 返回最小澄清");
+    let clarified_events = agent_system
+        .submit(AgentCommand::UserTurn("让 Alan 分析 README".to_string()))
+        .expect("用户明确 Alan 后必须直接进入 CardTask 队列");
+
+    assert!(
+        ambiguous_events.iter().any(|event| matches!(
+            event,
+            AgentEvent::DialogueTextDelta { text }
+                if text == "请确认让 Alan 还是 Bob 分析 README"
+        )),
+        "多候选指代时应保留一次同时列出 Alan 与 Bob 的最小澄清"
+    );
+    assert!(
+        !ambiguous_events
+            .iter()
+            .any(|event| matches!(event, AgentEvent::TaskQueued { .. })),
+        "目标仍有 Alan/Bob 两个候选时不得猜测派发"
+    );
+    assert_eq!(
+        clarified_events
+            .iter()
+            .filter(|event| matches!(event, AgentEvent::TaskQueued { .. }))
+            .count(),
+        1,
+        "用户明确 Alan 与分析动作后必须且只能产生一个 TaskQueued"
+    );
+    assert!(
+        !clarified_events.iter().any(|event| matches!(
+            event,
+            AgentEvent::DialogueTextDelta { text }
+                if text.contains("补充") || text.contains("确认")
+        )),
+        "用户解除目标歧义后必须屏蔽模型的第二次确认或补充细节请求"
+    );
+}

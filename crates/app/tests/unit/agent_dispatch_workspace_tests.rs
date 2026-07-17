@@ -7,6 +7,16 @@ use terminal::{PtyBackend, PtyError};
 
 struct AcceptingPtyBackend;
 
+fn created_agent_node_id(result: &Result<CardCommandResult, String>) -> u64 {
+    match result {
+        Ok(CardCommandResult::AgentCreated {
+            node_id: Some(node_id),
+            ..
+        }) => *node_id,
+        other => panic!("测试前置必须创建活跃 Agent，实际：{other:?}"),
+    }
+}
+
 impl PtyBackend for AcceptingPtyBackend {
     fn write(&mut self, _bytes: &[u8]) -> Result<(), PtyError> {
         Ok(())
@@ -28,9 +38,9 @@ impl PtyBackend for AcceptingPtyBackend {
 ///   workspace B tasks       = 1 项 "检查新项目"，应返回 Submitted 而不是 Queued
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 在 workspace A 创建 Alan，提交第一项并排队包含旧项目文本的第二项；
+///   1. 在 workspace A 创建并标记 Alan Ready，提交第一项并排队包含旧项目文本的第二项；
 ///   2. 通过生产 workspace 入口切换到 workspace B；
-///   3. 在 workspace B 创建同为 definition_id=1 的 Bella，再提交新项目任务；
+///   3. 在 workspace B 创建同为 definition_id=1 的 Bella，标记 Ready 后提交新项目任务；
 ///   4. 读取结构化回执，确认新项目没有继承旧 busy/queue。
 ///
 /// 预期结果：
@@ -64,6 +74,11 @@ fn test_workspace_switch_discards_previous_project_agent_queue() {
             )
         })
     });
+    let ready_a = created_agent_node_id(&create_a);
+    let marked_a_ready = app.update(cx, |app, _cx| {
+        app.pending_agent_submissions.mark_ready(ready_a)
+    });
+    assert!(marked_a_ready, "workspace A 的 Alan 必须先标记为 CLI Ready");
     let first_a = cx.update(|window, app_cx| {
         app.update(app_cx, |app, _cx| {
             execute_agent_card_command(
@@ -113,6 +128,14 @@ fn test_workspace_switch_discards_previous_project_agent_queue() {
             )
         })
     });
+    let ready_b = created_agent_node_id(&create_b);
+    let marked_b_ready = app.update(cx, |app, _cx| {
+        app.pending_agent_submissions.mark_ready(ready_b)
+    });
+    assert!(
+        marked_b_ready,
+        "workspace B 的 Bella 必须先标记为 CLI Ready"
+    );
     let dispatch_b = cx.update(|window, app_cx| {
         app.update(app_cx, |app, _cx| {
             execute_agent_card_command(
@@ -165,16 +188,15 @@ fn test_workspace_switch_discards_previous_project_agent_queue() {
         matches!(
             dispatch_b,
             Ok(CardCommandResult::AgentTasksDispatched { ref receipts })
-                if receipts.len() == 1 && receipts[0].status == AgentTaskReceiptStatus::Submitted
+                if receipts.len() == 1 && receipts[0].status == AgentTaskReceiptStatus::Queued
         ),
-        "workspace B 的 Bella 不得继承 Alan 的 busy/queue，应立即 Submitted，实际：{dispatch_b:?}"
+        "workspace B 的 Bella 不得继承 Alan 的旧队列；新任务仅因等待 Enter 而 Queued，实际：{dispatch_b:?}"
     );
     assert!(
-        !matches!(
-            dispatch_b,
-            Ok(CardCommandResult::AgentTasksDispatched { ref receipts })
-                if receipts.iter().any(|receipt| receipt.status == AgentTaskReceiptStatus::Queued)
-        ),
-        "workspace A 的排队文本不得让 workspace B 的同 id Agent 继续保持 busy/queued"
+        app.update(cx, |app, _cx| app
+            .agent_task_coordinator
+            .as_ref()
+            .is_some_and(|coordinator| coordinator.queued_task_count(1) == 0)),
+        "workspace A 的排队文本不得进入 workspace B 同 id Agent 的协调队列"
     );
 }

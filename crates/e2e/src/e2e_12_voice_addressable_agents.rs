@@ -394,7 +394,7 @@ fn quick_agent_creation_continues_after_thirty_builtin_definitions() {
 /// L3-A-1：真实 Agent CLI/Hook 冒烟入口，仅在显式配置环境后运行。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   required env=1 个：NORMA_E2E_AGENT_CLI=codex|claude|opencode
+///   required env=1 个：NORMA_E2E_AGENT_CLI=codex|claude|cursor|opencode
 ///   本默认测试环境不假设已安装 CLI、有效凭据或 Provider Hook
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -405,13 +405,13 @@ fn quick_agent_creation_continues_after_thirty_builtin_definitions() {
 ///   - 正断言：显式配置值必须是受支持 CLI
 ///   - 负断言：默认 `cargo test -p e2e` 不得误启动真实 CLI 或消费用户凭据
 #[test]
-#[ignore = "L3 需要真实 Codex/Claude/OpenCode CLI、凭据与已安装 Agent Hook"]
+#[ignore = "L3 需要真实 Codex/Claude/Cursor/OpenCode CLI、凭据与已安装 Agent Hook"]
 fn real_agent_cli_and_hook_environment_preflight() {
     let profile = std::env::var("NORMA_E2E_AGENT_CLI")
-        .expect("运行 ignored L3 前必须设置 NORMA_E2E_AGENT_CLI=codex|claude|opencode");
+        .expect("运行 ignored L3 前必须设置 NORMA_E2E_AGENT_CLI=codex|claude|cursor|opencode");
     assert!(
-        matches!(profile.as_str(), "codex" | "claude" | "opencode"),
-        "NORMA_E2E_AGENT_CLI 必须选择 codex、claude 或 opencode"
+        matches!(profile.as_str(), "codex" | "claude" | "cursor" | "opencode"),
+        "NORMA_E2E_AGENT_CLI 必须选择 codex、claude、cursor 或 opencode"
     );
     assert_ne!(profile, "", "L3 profile 不得为空，否则无法选择真实 CLI");
 }

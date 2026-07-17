@@ -12,8 +12,8 @@ mod diagnostics;
 pub(super) mod pending;
 
 pub(crate) use artifacts::artifacts_from_agent_events;
-#[cfg(test)]
-use commands::execute_agent_card_command;
+#[cfg(any(test, feature = "e2e-test-support"))]
+pub(crate) use commands::execute_agent_card_command;
 #[cfg(test)]
 use coordination::agent_completion_report;
 

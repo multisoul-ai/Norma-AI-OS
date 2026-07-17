@@ -149,7 +149,9 @@ pub(crate) fn build_agent_resume_command(
             shell_quote(session_id)
         ),
         AgentProfile::Codex => {
-            let mut command = "exec codex --dangerously-bypass-approvals-and-sandbox".to_string();
+            let mut command =
+                "exec codex -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox"
+                    .to_string();
             if hook_env.is_some() {
                 command.push_str(" --dangerously-bypass-hook-trust");
             }

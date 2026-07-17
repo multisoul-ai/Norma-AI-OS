@@ -6,7 +6,6 @@ use norma::protocol::{
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use terminal::{PtyBackend, PtyError};
-
 struct RecordingPtyBackend {
     writes: Arc<Mutex<Vec<Vec<u8>>>>,
 }
@@ -180,10 +179,13 @@ fn test_new_agent_dispatch_waits_then_submits_after_session_start() {
         }),
     )
     .expect("Codex SessionStart 测试事件应解析成功");
-    let submitted_after_ready = app.update(cx, |app, _cx| {
+    let typed_after_ready = app.update(cx, |app, _cx| {
         let changed =
             crate::settings::agent_hooks::apply_agent_hook_event(&mut app.runtime, ready_event);
         assert!(changed, "SessionStart 必须把目标 Agent 状态更新为 Ready");
+        app.submit_pending_agent_task_for_ready_node(node_id)
+    });
+    let submitted_after_delay = app.update(cx, |app, _cx| {
         app.submit_pending_agent_task_for_ready_node(node_id)
     });
     let ready_writes = writes
@@ -192,8 +194,12 @@ fn test_new_agent_dispatch_waits_then_submits_after_session_start() {
         .clone();
 
     assert!(
-        submitted_after_ready,
-        "SessionStart 后必须找到并自动提交等待中的 Agent 任务"
+        typed_after_ready,
+        "SessionStart 后必须先找到并写入等待中的 Agent 任务正文"
+    );
+    assert!(
+        submitted_after_delay,
+        "正文写入批次稳定后必须发送 Enter 完成提交"
     );
     assert_eq!(
         ready_writes,
@@ -207,26 +213,27 @@ fn test_new_agent_dispatch_waits_then_submits_after_session_start() {
     );
 }
 
-/// ART-7d：PTY 提交失败必须返回结构化失败回执并释放 Agent 运行槽。
+/// ART-7d：Enter 写入失败且清行成功时，必须自动重写同一任务并重试提交。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   first task writes = 正文 1 次成功 + Enter 1 次注入失败
-///   retry writes      = 正文 1 次成功 + Enter 1 次成功
+///   retry writes      = 同一正文 1 次成功 + Enter 1 次成功
 ///   recovery write    = Ctrl+U 1 次，用于清除未提交的 first 正文
 ///   expected successful writes = first 正文 + Ctrl+U + retry 正文 + retry Enter，共 4 次
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建 Alan，并让测试 PTY 仅在第一次 Enter 写入时返回错误；
-///   2. 派发 "第一次任务" → 正文进入 PTY，但 Enter 失败；
-///   3. 再派发 "重试任务" → 若 coordinator 已回滚，应立即重新提交；
-///   4. 读取两次公开回执和成功写入记录。
+///   2. 派发 "第一次任务" → 回执保持 Queued，正文进入 PTY；
+///   3. 推进 Enter 阶段，制造失败并用 Ctrl+U 清行；
+///   4. 推进自动重试的正文与 Enter 两阶段；
+///   5. 读取公开回执和成功写入记录。
 ///
 /// 预期结果：
-///   - 正断言：第一次返回 Failed，第二次返回 Submitted；
-///   - 正断言：Enter 失败后先写 Ctrl+U，再写重试正文与 Enter，证明旧正文不会污染重试；
-///   - 负断言：第一次不得返回整个命令 Err，也不得误报 Submitted/Queued。
+///   - 正断言：初始回执为 Queued，失败后同一任务自动重写并最终提交；
+///   - 正断言：Enter 失败后先写 Ctrl+U，再写原正文与 Enter，证明旧正文不会污染重试；
+///   - 负断言：不得要求用户再次派发，也不得在 Enter 成功前误报 Submitted。
 #[test]
-fn test_agent_dispatch_enter_failure_returns_failed_receipt_and_allows_retry() {
+fn test_agent_dispatch_enter_failure_queues_and_automatically_retries() {
     let writes = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
     let failed_enter = Arc::new(AtomicBool::new(false));
     let factory_writes = Arc::clone(&writes);
@@ -279,20 +286,14 @@ fn test_agent_dispatch_enter_failure_returns_failed_receipt_and_allows_retry() {
             )
         })
     });
-    let retry_dispatch = cx.update(|window, app_cx| {
-        app.update(app_cx, |app, _cx| {
-            execute_agent_card_command(
-                app,
-                window,
-                CardCommand::DispatchAgentTasks {
-                    assignments: vec![AgentTaskAssignment {
-                        name: "Alan".to_string(),
-                        task: "重试任务".to_string(),
-                    }],
-                    force_untracked: false,
-                },
-            )
-        })
+    let failed_enter = app.update(cx, |app, _cx| {
+        app.submit_pending_agent_task_for_ready_node(ready_node_id)
+    });
+    let retry_typed = app.update(cx, |app, _cx| {
+        app.submit_pending_agent_task_for_ready_node(ready_node_id)
+    });
+    let retry_submitted = app.update(cx, |app, _cx| {
+        app.submit_pending_agent_task_for_ready_node(ready_node_id)
     });
     let actual_writes = writes
         .lock()
@@ -307,27 +308,22 @@ fn test_agent_dispatch_enter_failure_returns_failed_receipt_and_allows_retry() {
         matches!(
             failed_dispatch,
             Ok(CardCommandResult::AgentTasksDispatched { ref receipts })
-                if receipts.len() == 1 && receipts[0].status == AgentTaskReceiptStatus::Failed
+                if receipts.len() == 1 && receipts[0].status == AgentTaskReceiptStatus::Queued
         ),
-        "Enter 写入失败应成为结构化 Failed 回执而非整条命令 Err，实际：{failed_dispatch:?}"
+        "Enter 成功前任务必须保持 Queued，实际：{failed_dispatch:?}"
     );
-    assert!(
-        matches!(
-            retry_dispatch,
-            Ok(CardCommandResult::AgentTasksDispatched { ref receipts })
-                if receipts.len() == 1 && receipts[0].status == AgentTaskReceiptStatus::Submitted
-        ),
-        "失败后 coordinator 应释放 busy 槽，使重试立即 Submitted，实际：{retry_dispatch:?}"
-    );
+    assert!(!failed_enter, "第一次 Enter 写入失败时不得报告提交成功");
+    assert!(retry_typed, "安全清行后必须自动重写同一任务正文");
+    assert!(retry_submitted, "自动重写后必须再次发送 Enter 并提交成功");
     assert_eq!(
         actual_writes,
         vec![
             "第一次任务".as_bytes().to_vec(),
             vec![0x15],
-            "重试任务".as_bytes().to_vec(),
+            "第一次任务".as_bytes().to_vec(),
             vec![0x0d],
         ],
-        "第一次正文后必须用 Ctrl+U(0x15) 清行；重试再完整写入正文与 Enter"
+        "第一次正文后必须用 Ctrl+U(0x15) 清行；自动重试再写同一正文与 Enter"
     );
     assert!(
         !matches!(
@@ -335,10 +331,10 @@ fn test_agent_dispatch_enter_failure_returns_failed_receipt_and_allows_retry() {
             Ok(CardCommandResult::AgentTasksDispatched { ref receipts })
                 if receipts.iter().any(|receipt| matches!(
                     receipt.status,
-                    AgentTaskReceiptStatus::Submitted | AgentTaskReceiptStatus::Queued
+                    AgentTaskReceiptStatus::Submitted | AgentTaskReceiptStatus::Untracked
                 ))
         ),
-        "PTY 未提交成功时不得误报 Submitted 或 Queued"
+        "PTY 未提交成功时不得误报 Submitted 或 Untracked"
     );
 }
 
@@ -412,6 +408,9 @@ fn test_queued_agent_task_advances_with_text_then_real_enter_key() {
             )
         })
     });
+    let first_submitted = app.update(cx, |app, _cx| {
+        app.submit_pending_agent_task_for_ready_node(ready_node_id)
+    });
     let second_dispatch = cx.update(|window, app_cx| {
         app.update(app_cx, |app, _cx| {
             execute_agent_card_command(
@@ -432,6 +431,12 @@ fn test_queued_agent_task_advances_with_text_then_real_enter_key() {
         other => panic!("首次任务必须成功提交并返回 node_id，实际结果：{other:?}"),
     };
     let queue_advanced = app.update(cx, |app, _cx| app.advance_agent_task_queue(node_id));
+    let second_typed = app.update(cx, |app, _cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id)
+    });
+    let second_submitted = app.update(cx, |app, _cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id)
+    });
     let actual_writes = writes
         .lock()
         .expect("recording PTY writes mutex should remain readable")
@@ -446,9 +451,9 @@ fn test_queued_agent_task_advances_with_text_then_real_enter_key() {
             &first_dispatch,
             Ok(CardCommandResult::AgentTasksDispatched { receipts })
                 if receipts.len() == 1
-                    && receipts[0].status == AgentTaskReceiptStatus::Submitted
+                    && receipts[0].status == AgentTaskReceiptStatus::Queued
         ),
-        "首项 managed 任务应立即提交，实际结果：{first_dispatch:?}"
+        "首项 managed 任务在 Enter 成功前应保持 Queued，实际结果：{first_dispatch:?}"
     );
     assert!(
         matches!(
@@ -458,7 +463,10 @@ fn test_queued_agent_task_advances_with_text_then_real_enter_key() {
         ),
         "忙碌 Agent 的第二项任务应先进入队列，实际结果：{second_dispatch:?}"
     );
+    assert!(first_submitted, "首项正文写入后必须发送 Enter 完成提交");
     assert!(queue_advanced, "完成首项后应成功推进并提交下一项排队任务");
+    assert!(second_typed, "队列推进后必须先写入第二项正文");
+    assert!(second_submitted, "第二项正文稳定后必须发送 Enter 完成提交");
     assert_eq!(
         actual_writes.len(),
         4,
