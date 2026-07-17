@@ -204,3 +204,104 @@ fn multi_agent_address_prefers_longest_overlapping_name() {
         "名称前缀冲突不得导致明确共同任务退化为确认文本"
     );
 }
+
+/// DP-8：句首名称后的普通陈述不得因标点、中文动词前缀或英文词缀触发任务。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   roster agents = 2：Bella + Alan
+///   ordinary statements = 3：带逗号属性陈述 + “写得”评价 + testing 英文名词化表达
+///   actionable requests = 0
+///   provider tool calls = 0，每个系统只返回普通 Dialogue 文本
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 分别提交“Bella，是一个好名字”“Bella 写得很好”“Bella testing is important”
+///   2. 路由去除句首名称后检查是否存在完整可执行动作
+///   3. 观察每轮公开 AgentEvent
+///
+/// 预期结果：
+///   - 正断言：三条陈述都保留各自 DialogueTextDelta
+///   - 负断言：三条陈述均不得产生 TaskQueued
+#[test]
+fn sentence_initial_name_statements_with_punctuation_or_verb_prefix_stay_in_dialogue() {
+    let agents = roster(&[
+        ("Bella", AgentProfile::Claude),
+        ("Alan", AgentProfile::Codex),
+    ]);
+    let mut punctuated_system = system(
+        ScriptedProvider::new([text_response("这是普通属性陈述")]),
+        ScriptedProvider::default(),
+        RecordingHost::default(),
+    );
+    punctuated_system
+        .set_agent_roster(agents.clone())
+        .expect("Bella/Alan 名册应可用于带标点陈述保护");
+    let punctuated_events = punctuated_system
+        .submit(AgentCommand::UserTurn("Bella，是一个好名字".to_string()))
+        .expect("带逗号的名称属性陈述应保留在 Dialogue");
+
+    let mut chinese_system = system(
+        ScriptedProvider::new([text_response("这是普通中文评价")]),
+        ScriptedProvider::default(),
+        RecordingHost::default(),
+    );
+    chinese_system
+        .set_agent_roster(agents.clone())
+        .expect("Bella/Alan 名册应可用于中文动词前缀保护");
+    let chinese_events = chinese_system
+        .submit(AgentCommand::UserTurn("Bella 写得很好".to_string()))
+        .expect("“写得”评价应保留在 Dialogue");
+
+    let mut english_system = system(
+        ScriptedProvider::new([text_response("This is an ordinary statement")]),
+        ScriptedProvider::default(),
+        RecordingHost::default(),
+    );
+    english_system
+        .set_agent_roster(agents)
+        .expect("Bella/Alan 名册应可用于英文动作词边界保护");
+    let english_events = english_system
+        .submit(AgentCommand::UserTurn(
+            "Bella testing is important".to_string(),
+        ))
+        .expect("testing 名词化陈述应保留在 Dialogue");
+
+    assert!(
+        punctuated_events.iter().any(|event| matches!(
+            event,
+            AgentEvent::DialogueTextDelta { text } if text == "这是普通属性陈述"
+        )),
+        "带逗号属性陈述必须保留 Dialogue Provider 文本"
+    );
+    assert!(
+        chinese_events.iter().any(|event| matches!(
+            event,
+            AgentEvent::DialogueTextDelta { text } if text == "这是普通中文评价"
+        )),
+        "“写得”评价必须保留 Dialogue Provider 文本"
+    );
+    assert!(
+        english_events.iter().any(|event| matches!(
+            event,
+            AgentEvent::DialogueTextDelta { text } if text == "This is an ordinary statement"
+        )),
+        "testing 名词化陈述必须保留 Dialogue Provider 文本"
+    );
+    assert!(
+        !punctuated_events
+            .iter()
+            .any(|event| matches!(event, AgentEvent::TaskQueued { .. })),
+        "带逗号的名称属性陈述不得产生 TaskQueued"
+    );
+    assert!(
+        !chinese_events
+            .iter()
+            .any(|event| matches!(event, AgentEvent::TaskQueued { .. })),
+        "“写得”评价不得因“写”动作前缀产生 TaskQueued"
+    );
+    assert!(
+        !english_events
+            .iter()
+            .any(|event| matches!(event, AgentEvent::TaskQueued { .. })),
+        "testing 不得因 test 动作前缀产生 TaskQueued"
+    );
+}

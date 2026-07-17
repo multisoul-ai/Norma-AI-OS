@@ -1,5 +1,81 @@
 use super::ActiveTask;
+use crate::AgentRosterEntry;
 use norma::protocol::{AgentTaskReceiptStatus, CardCommand, CardCommandResult};
+
+pub(super) fn require_delegation_targets(
+    task: &ActiveTask,
+    roster: &[AgentRosterEntry],
+    command: &CardCommand,
+) -> Result<(), String> {
+    let Some(expected) = task.delegation_targets.as_ref() else {
+        return Ok(());
+    };
+    match command {
+        CardCommand::DispatchAgentTasks { assignments, .. } => {
+            let resolved = assignments
+                .iter()
+                .map(|assignment| resolve_canonical_name(&assignment.name, roster))
+                .collect::<Option<Vec<_>>>()
+                .ok_or_else(|| {
+                    "DelegationTargetMismatch: assignment contains an unknown addressed Agent"
+                        .to_string()
+                })?;
+            let unique_resolved = resolved.iter().fold(Vec::<&str>::new(), |mut names, name| {
+                if !names.contains(name) {
+                    names.push(name);
+                }
+                names
+            });
+            if assignments.len() != expected.len()
+                || unique_resolved.len() != expected.len()
+                || expected
+                    .iter()
+                    .any(|name| !unique_resolved.contains(&name.as_str()))
+            {
+                return Err(format!(
+                    "DelegationTargetMismatch: expected exactly [{}] from the user's addressed set",
+                    expected.join(", ")
+                ));
+            }
+            Ok(())
+        }
+        CardCommand::ActivateAgent { name } => {
+            let canonical = resolve_canonical_name(name, roster).ok_or_else(|| {
+                format!("DelegationTargetMismatch: cannot activate unaddressed Agent {name}")
+            })?;
+            if expected.iter().any(|target| target == canonical) {
+                Ok(())
+            } else {
+                Err(format!(
+                    "DelegationTargetMismatch: cannot activate unaddressed Agent {name}"
+                ))
+            }
+        }
+        CardCommand::CreateAgent { .. } => Err(
+            "DelegationTargetMismatch: direct address must not create another Agent".to_string(),
+        ),
+        _ => Ok(()),
+    }
+}
+
+fn resolve_canonical_name<'a>(name: &str, roster: &'a [AgentRosterEntry]) -> Option<&'a str> {
+    roster.iter().find_map(|entry| {
+        (names_match(name, &entry.name)
+            || entry
+                .speech_alias
+                .as_deref()
+                .is_some_and(|alias| names_match(name, alias)))
+        .then_some(entry.name.as_str())
+    })
+}
+
+fn names_match(left: &str, right: &str) -> bool {
+    if left.is_ascii() && right.is_ascii() {
+        left.eq_ignore_ascii_case(right)
+    } else {
+        left == right
+    }
+}
 
 pub(super) fn require_verified_target(
     task: &ActiveTask,
@@ -22,6 +98,22 @@ pub(super) fn require_verified_target(
     Err(format!(
         "TargetUnverified: node_id={node_id} requires a successful list_cards receipt or a Created receipt from this task"
     ))
+}
+
+pub(super) fn same_recoverable_operation(
+    failed: &CardCommand,
+    failed_error: &str,
+    succeeded: &CardCommand,
+) -> bool {
+    failed == succeeded
+        || (failed_error.contains("DelegationTargetMismatch")
+            && matches!(
+                (failed, succeeded),
+                (
+                    CardCommand::DispatchAgentTasks { .. },
+                    CardCommand::DispatchAgentTasks { .. }
+                )
+            ))
 }
 
 pub(super) fn record_successful_result(task: &mut ActiveTask, result: &CardCommandResult) {

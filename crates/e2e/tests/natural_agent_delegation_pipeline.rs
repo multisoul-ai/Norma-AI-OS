@@ -65,10 +65,14 @@ impl CardToolHost for RecordingHost {
 }
 
 fn response_with_tool(arguments_json: &str) -> ProviderResponse {
+    response_with_tool_id("dispatch-1", arguments_json)
+}
+
+fn response_with_tool_id(id: &str, arguments_json: &str) -> ProviderResponse {
     ProviderResponse {
         text: String::new(),
         tool_calls: vec![ProviderToolCall {
-            id: "dispatch-1".to_string(),
+            id: id.to_string(),
             name: "dispatch_agent_tasks".to_string(),
             arguments_json: arguments_json.to_string(),
         }],
@@ -111,6 +115,7 @@ fn canvas_context() -> CurrentCanvasContext {
     CurrentCanvasContext {
         project_name: "norma-ai-os".to_string(),
         workspace_root: "/workspace/norma-ai-os".to_string(),
+        total_cards: 1,
         cards: vec![CanvasCardContext {
             node_id: 101,
             kind: CanvasCardKind::Agent,
@@ -284,5 +289,93 @@ fn multi_agent_shared_task_dispatches_one_assignment_per_target() {
                 if text.contains("分别说明") || text.contains("实时协作")
         )),
         "明确共享任务不得退回补充分工，也不得虚构实时协作"
+    );
+}
+
+/// L1-DELEGATION-03：任务正文提及 Alan 时，Bella 应是唯一允许的派发目标。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   addressed agents = 1：句首 Bella
+///   mentioned sources = 1：任务正文中的 Alan
+///   first assignments = 2：错误 Bella + Alan，应在 host 前拒绝
+///   retry assignments = 1：仅 Bella，保留“Alan 写的代码”正文
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. Dialogue 漏调工具，确定性 fallback 解析唯一目标 Bella
+///   2. CardTask 首次错误地把 Alan 也作为目标，执行边界返回失败
+///   3. CardTask 根据回执重试，仅向 Bella 派发原任务
+///
+/// 预期结果：
+///   - 正断言：最终只有 Bella assignment 到达 host，正文完整保留 Alan
+///   - 正断言：任务可在安全重试后成功
+///   - 负断言：Alan assignment 不得产生任何画布副作用
+#[test]
+fn task_body_agent_mention_is_rejected_as_an_additional_target_before_side_effects() {
+    let dialogue = ScriptedProvider::new(vec![text_response("请确认是否也要派给 Alan")]);
+    let card = ScriptedProvider::new(vec![
+        response_with_tool(
+            r#"{"assignments":[{"name":"Bella","task":"检查 Alan 写的代码"},{"name":"Alan","task":"检查自己的代码"}]}"#,
+        ),
+        response_with_tool_id(
+            "dispatch-2",
+            r#"{"assignments":[{"name":"Bella","task":"检查 Alan 写的代码"}]}"#,
+        ),
+        text_response("已交给 Bella"),
+    ]);
+    let mut system = AgentSystem::new(
+        "natural-delegation-body-mention",
+        dialogue,
+        card,
+        RecordingHost::default(),
+        MemoryJournal::default(),
+        CardTaskBudget::default(),
+    );
+    system
+        .submit(AgentCommand::UpdateAgentRoster(roster()))
+        .expect("有效 Bella/Alan 名册应成功注入");
+    system
+        .submit(AgentCommand::UpdateCurrentCanvasContext(canvas_context()))
+        .expect("当前项目画布上下文应成功注入");
+
+    system
+        .submit(AgentCommand::UserTurn(
+            "Bella，检查 Alan 写的代码".to_string(),
+        ))
+        .expect("句首 Bella 应进入带唯一目标约束的 CardTask");
+    // 6 = 启动首轮(1) + 拒绝错误工具(1) + 请求重试(1) + 执行正确工具(1)
+    //   + 读取终轮文本(1) + 保护 tick(1)。
+    for _ in 0..6 {
+        let _ = system.pump();
+    }
+
+    assert_eq!(
+        system.card_tool_host().commands,
+        vec![CardCommand::DispatchAgentTasks {
+            assignments: vec![AgentTaskAssignment {
+                name: "Bella".to_string(),
+                task: "检查 Alan 写的代码".to_string(),
+            }],
+            force_untracked: false,
+        }],
+        "执行边界必须拒绝正文中的 Alan 目标，只允许 Bella assignment 到达 host"
+    );
+    assert!(
+        system
+            .events()
+            .iter()
+            .any(|event| matches!(event, AgentEvent::TaskSucceeded { .. })),
+        "CardTask 修正目标后应到达 Succeeded 终态"
+    );
+    assert!(
+        !system
+            .card_tool_host()
+            .commands
+            .iter()
+            .any(|command| matches!(
+                command,
+                CardCommand::DispatchAgentTasks { assignments, .. }
+                    if assignments.iter().any(|assignment| assignment.name == "Alan")
+            )),
+        "任务正文中的 Alan 不得作为 assignment 到达画布 host"
     );
 }

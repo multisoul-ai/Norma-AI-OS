@@ -77,11 +77,30 @@ const DIRECT_ADDRESS_MODIFIERS: &[&str] = &[
     "你们", "你", "都", "一起", "去", "帮我", "帮忙", "请", "麻烦",
 ];
 const AGENT_GROUP_SEPARATORS: &[&str] = &["和", "与", "、", ",", "，", "and"];
+const NON_COMMAND_PREFIXES: &[&str] = &["写得", "做得", "看起来", "is ", "was ", "seems "];
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) enum DialogueRoutingDecision {
     ModelOnly,
-    RequireCardTaskFallback,
+    RequireCardTaskFallback { delegation_targets: Vec<String> },
+}
+
+impl DialogueRoutingDecision {
+    pub(super) fn requires_card_task_fallback(&self) -> bool {
+        matches!(self, Self::RequireCardTaskFallback { .. })
+    }
+
+    pub(super) fn delegation_targets(&self) -> Option<&[String]> {
+        match self {
+            Self::ModelOnly => None,
+            Self::RequireCardTaskFallback { delegation_targets }
+                if delegation_targets.is_empty() =>
+            {
+                None
+            }
+            Self::RequireCardTaskFallback { delegation_targets } => Some(delegation_targets),
+        }
+    }
 }
 
 pub(super) fn route_user_turn(
@@ -96,52 +115,78 @@ pub(super) fn route_user_turn(
     {
         return DialogueRoutingDecision::ModelOnly;
     }
-    if (contains_any(&normalized, CREATE_ACTIONS)
-        && contains_any(&normalized, CONCRETE_CARD_TARGETS))
-        || has_explicit_agent_address(text, roster)
+    let delegation_targets = explicit_agent_targets(text, roster);
+    if !delegation_targets.is_empty() {
+        return DialogueRoutingDecision::RequireCardTaskFallback { delegation_targets };
+    }
+    if contains_any(&normalized, CREATE_ACTIONS) && contains_any(&normalized, CONCRETE_CARD_TARGETS)
     {
-        DialogueRoutingDecision::RequireCardTaskFallback
-    } else {
-        DialogueRoutingDecision::ModelOnly
+        return DialogueRoutingDecision::RequireCardTaskFallback {
+            delegation_targets: Vec::new(),
+        };
     }
+    DialogueRoutingDecision::ModelOnly
 }
 
-fn has_explicit_agent_address(text: &str, roster: &[crate::AgentRosterEntry]) -> bool {
+fn explicit_agent_targets(text: &str, roster: &[crate::AgentRosterEntry]) -> Vec<String> {
     let trimmed = text.trim();
-    roster.iter().any(|agent| {
-        address_keys(agent).into_iter().any(|key| {
-            starts_with_punctuated_name(trimmed, &key)
-                || starts_with_unpunctuated_instruction(trimmed, &key)
-                || ["让", "请", "交给", "打开"].iter().any(|prefix| {
-                    trimmed.strip_prefix(prefix).is_some_and(|remainder| {
-                        starts_with_named_instruction(
-                            remainder.trim_start(),
-                            &key,
-                            *prefix == "打开",
-                        )
-                    })
-                })
-        })
-    }) || starts_with_agent_group_instruction(trimmed, roster)
+    if let Some(targets) = agent_group_targets(trimmed, roster) {
+        return targets;
+    }
+    let keys = sorted_address_keys(roster);
+    let mut targets = direct_target(trimmed, &keys)
+        .into_iter()
+        .collect::<Vec<_>>();
+    for clause in trimmed.split([',', '，', ';', '；']).skip(1) {
+        if let Some(target) = unpunctuated_target(clause.trim_start(), &keys) {
+            push_unique(&mut targets, target);
+        }
+    }
+    targets
 }
 
-fn address_keys(agent: &crate::AgentRosterEntry) -> Vec<String> {
-    let mut keys = vec![agent.name.clone()];
-    if let Some(alias) = agent.speech_alias.as_ref() {
-        keys.push(alias.clone());
+fn sorted_address_keys(roster: &[crate::AgentRosterEntry]) -> Vec<(String, String)> {
+    let mut keys = Vec::new();
+    for agent in roster {
+        keys.push((agent.name.clone(), agent.name.clone()));
+        if let Some(alias) = agent.speech_alias.as_ref() {
+            keys.push((alias.clone(), agent.name.clone()));
+        }
     }
+    keys.sort_by_key(|(key, _)| std::cmp::Reverse(key.chars().count()));
     keys
 }
 
-fn starts_with_punctuated_name(text: &str, name: &str) -> bool {
-    strip_name_prefix(text, name).is_some_and(|remainder| {
-        let remainder = remainder.trim_start();
-        let Some(punctuation) = remainder.chars().next() else {
-            return false;
-        };
-        matches!(punctuation, ',' | '，' | ':' | '：')
-            && !remainder[punctuation.len_utf8()..].trim().is_empty()
+fn direct_target(text: &str, keys: &[(String, String)]) -> Option<String> {
+    keys.iter().find_map(|(key, canonical)| {
+        (starts_with_punctuated_instruction(text, key)
+            || starts_with_unpunctuated_instruction(text, key)
+            || ["让", "请", "交给", "打开"].iter().any(|prefix| {
+                text.strip_prefix(prefix).is_some_and(|remainder| {
+                    starts_with_named_instruction(remainder.trim_start(), key, *prefix == "打开")
+                })
+            }))
+        .then(|| canonical.clone())
     })
+}
+
+fn unpunctuated_target(text: &str, keys: &[(String, String)]) -> Option<String> {
+    keys.iter().find_map(|(key, canonical)| {
+        starts_with_unpunctuated_instruction(text, key).then(|| canonical.clone())
+    })
+}
+
+fn starts_with_punctuated_instruction(text: &str, name: &str) -> bool {
+    strip_name_prefix(text, name)
+        .and_then(|remainder| {
+            let remainder = remainder.trim_start();
+            let punctuation = remainder.chars().next()?;
+            matches!(punctuation, ',' | '，' | ':' | '：')
+                .then(|| &remainder[punctuation.len_utf8()..])
+        })
+        .map(str::trim_start)
+        .map(strip_direct_address_modifiers)
+        .is_some_and(starts_with_task_action)
 }
 
 fn starts_with_named_instruction(text: &str, name: &str, allow_empty: bool) -> bool {
@@ -160,42 +205,44 @@ fn starts_with_unpunctuated_instruction(text: &str, name: &str) -> bool {
         .is_some_and(starts_with_task_action)
 }
 
-fn starts_with_agent_group_instruction(text: &str, roster: &[crate::AgentRosterEntry]) -> bool {
-    let keys = roster
-        .iter()
-        .flat_map(address_keys)
-        .collect::<Vec<String>>();
-    let Some(mut remainder) = strip_any_name_prefix(text, &keys) else {
-        return false;
+fn agent_group_targets(text: &str, roster: &[crate::AgentRosterEntry]) -> Option<Vec<String>> {
+    let keys = sorted_address_keys(roster);
+    let Some((first_target, mut remainder)) = strip_any_name_prefix(text, &keys) else {
+        return None;
     };
-    let mut addressed_count = 1usize;
+    let mut targets = vec![first_target.to_string()];
     loop {
         remainder = remainder.trim_start();
         let Some(after_separator) = strip_any_prefix(remainder, AGENT_GROUP_SEPARATORS) else {
             break;
         };
-        let Some(after_name) = strip_any_name_prefix(after_separator.trim_start(), &keys) else {
+        let Some((target, after_name)) = strip_any_name_prefix(after_separator.trim_start(), &keys)
+        else {
             break;
         };
-        addressed_count += 1;
+        push_unique(&mut targets, target.to_string());
         remainder = after_name;
     }
-    if addressed_count < 2 {
-        return false;
+    if targets.len() < 2 {
+        return None;
     }
     let instruction = remainder.trim_start_matches(|character: char| {
         character.is_whitespace() || matches!(character, ',' | '，' | ':' | '：')
     });
-    starts_with_task_action(strip_direct_address_modifiers(instruction))
+    starts_with_task_action(strip_direct_address_modifiers(instruction)).then_some(targets)
 }
 
-fn strip_any_name_prefix<'a>(text: &'a str, keys: &[String]) -> Option<&'a str> {
+fn strip_any_name_prefix<'a, 'b>(
+    text: &'a str,
+    keys: &'b [(String, String)],
+) -> Option<(&'b str, &'a str)> {
     keys.iter()
-        .filter_map(|key| {
-            strip_name_prefix(text, key).map(|remainder| (key.chars().count(), remainder))
+        .filter_map(|(key, canonical)| {
+            strip_name_prefix(text, key)
+                .map(|remainder| (key.chars().count(), canonical.as_str(), remainder))
         })
-        .max_by_key(|(character_count, _)| *character_count)
-        .map(|(_, remainder)| remainder)
+        .max_by_key(|(character_count, _, _)| *character_count)
+        .map(|(_, canonical, remainder)| (canonical, remainder))
 }
 
 fn strip_any_prefix<'a>(text: &'a str, prefixes: &[&str]) -> Option<&'a str> {
@@ -221,14 +268,31 @@ fn strip_direct_address_modifiers(mut text: &str) -> &str {
 }
 
 fn starts_with_task_action(text: &str) -> bool {
+    if NON_COMMAND_PREFIXES
+        .iter()
+        .any(|prefix| text.starts_with(prefix))
+    {
+        return false;
+    }
     AGENT_TASK_ACTIONS.iter().any(|action| {
         if action.is_ascii() {
-            text.get(..action.len())
-                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(action))
+            text.get(..action.len()).is_some_and(|prefix| {
+                prefix.eq_ignore_ascii_case(action)
+                    && !text[action.len()..]
+                        .chars()
+                        .next()
+                        .is_some_and(|character| character.is_ascii_alphabetic())
+            })
         } else {
             text.starts_with(action)
         }
     })
+}
+
+fn push_unique(targets: &mut Vec<String>, target: String) {
+    if !targets.iter().any(|existing| existing == &target) {
+        targets.push(target);
+    }
 }
 
 fn strip_name_prefix<'a>(text: &'a str, name: &str) -> Option<&'a str> {

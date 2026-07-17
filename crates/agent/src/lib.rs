@@ -22,6 +22,7 @@ pub use coordination::{
 };
 pub use current_context::{
     render_current_canvas_context, CanvasCardContext, CanvasCardKind, CurrentCanvasContext,
+    MAX_CURRENT_CANVAS_CARDS,
 };
 pub use host::{CardToolError, CardToolHost};
 pub use identity::{

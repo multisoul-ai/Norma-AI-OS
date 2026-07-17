@@ -7,6 +7,7 @@ use std::sync::{mpsc, Arc};
 
 mod artifacts;
 mod commands;
+mod context_commands;
 mod coordination;
 mod diagnostics;
 pub(super) mod pending;
@@ -14,6 +15,7 @@ pub(super) mod pending;
 pub(crate) use artifacts::artifacts_from_agent_events;
 #[cfg(any(test, feature = "e2e-test-support"))]
 pub(crate) use commands::execute_agent_card_command;
+use context_commands::contextualized_agent_commands;
 #[cfg(test)]
 use coordination::agent_completion_report;
 
@@ -391,13 +393,16 @@ impl MultisoulApp {
         }
         let roster = self.agent_roster_for_provider();
         let current_canvas_context = self.current_canvas_context_for_provider();
+        let mut commands = contextualized_agent_commands(roster, current_canvas_context, command);
+        let command = commands
+            .pop()
+            .expect("contextualized command batch always includes the requested command");
         let runtime = self
             .agent_runtime
             .as_ref()
             .expect("agent runtime should exist after initialization");
-        let _ = runtime.submit(AgentCommand::UpdateAgentRoster(roster));
-        if let Some(context) = current_canvas_context {
-            let _ = runtime.submit(AgentCommand::UpdateCurrentCanvasContext(context));
+        for context_update in commands {
+            let _ = runtime.submit(context_update);
         }
         Ok(runtime.submit(command))
     }

@@ -32,17 +32,19 @@ pub struct CanvasCardContext {
 pub struct CurrentCanvasContext {
     pub project_name: String,
     pub workspace_root: String,
+    pub total_cards: usize,
     pub cards: Vec<CanvasCardContext>,
 }
 
-const MAX_CURRENT_CANVAS_CARDS: usize = 64;
+pub const MAX_CURRENT_CANVAS_CARDS: usize = 64;
 const MAX_CARD_TITLE_CHARS: usize = 80;
 
 pub fn render_current_canvas_context(context: &CurrentCanvasContext) -> String {
     let mut cards = context.cards.iter().collect::<Vec<_>>();
     cards.sort_by_key(|card| (card_priority(card), card.node_id));
     cards.truncate(MAX_CURRENT_CANVAS_CARDS);
-    let omitted_cards = context.cards.len().saturating_sub(cards.len());
+    let total_cards = context.total_cards.max(context.cards.len());
+    let omitted_cards = total_cards.saturating_sub(cards.len());
     let mut lines = vec![
         "<current-canvas-context>".to_string(),
         format!(
@@ -52,7 +54,7 @@ pub fn render_current_canvas_context(context: &CurrentCanvasContext) -> String {
         ),
         format!(
             "total_cards={} included_cards={} omitted_cards={}",
-            context.cards.len(),
+            total_cards,
             cards.len(),
             omitted_cards
         ),

@@ -30,6 +30,9 @@ where
             self.dialogue_turns.pop_front();
         }
         let routing_decision = super::dialogue_policy::route_user_turn(&text, &self.agent_roster);
+        let delegation_targets = routing_decision
+            .delegation_targets()
+            .map(|targets| targets.to_vec());
         let live_event_sink = (routing_decision == DialogueRoutingDecision::ModelOnly)
             .then(|| self.live_event_sink.clone())
             .flatten();
@@ -55,7 +58,7 @@ where
             },
         )?;
         crate::diagnostics::dialogue_response(&self.project_id, &response);
-        if routing_decision == DialogueRoutingDecision::RequireCardTaskFallback
+        if routing_decision.requires_card_task_fallback()
             && !response.tool_calls.iter().any(|call| {
                 call.name == CARD_TASK_TOOL
                     && matches!(
@@ -112,7 +115,7 @@ where
             }
             let receipt = match action {
                 DialogueToolAction::Start { intent } => {
-                    let task_id = self.enqueue_task(intent);
+                    let task_id = self.enqueue_task(intent, delegation_targets.clone());
                     format!(r#"{{"status":"queued","task_id":{task_id}}}"#)
                 }
                 DialogueToolAction::Cancel { task_id } => match self.cancel_task(task_id) {

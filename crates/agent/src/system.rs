@@ -18,8 +18,10 @@ pub(crate) mod card_task;
 mod dialogue;
 mod dialogue_policy;
 mod roster;
+mod task_queue;
 pub(crate) struct PendingTask {
     pub(crate) task_id: TaskId,
+    delegation_targets: Option<Vec<String>>,
 }
 struct UnresolvedToolFailure {
     command: Option<CardCommand>,
@@ -27,6 +29,7 @@ struct UnresolvedToolFailure {
 }
 pub(crate) struct ActiveTask {
     pub(crate) task_id: TaskId,
+    delegation_targets: Option<Vec<String>>,
     messages: Vec<AgentMessage>,
     pending_tool_calls: VecDeque<ProviderToolCall>,
     cached_results: HashMap<String, Result<CardCommandResult, String>>,
@@ -134,7 +137,7 @@ where
             }
             AgentCommand::UserTurn(text) => self.handle_user_turn(text)?,
             AgentCommand::DirectCardTask(intent) => {
-                self.enqueue_task(intent);
+                self.enqueue_task(intent, None);
             }
             AgentCommand::CancelLatest => self.cancel_latest()?,
             AgentCommand::CancelTask { task_id } => {
@@ -160,6 +163,7 @@ where
             self.emit_event(AgentEvent::TaskRunning { task_id });
             self.active = Some(ActiveTask {
                 task_id,
+                delegation_targets: task.delegation_targets,
                 messages: vec![
                     system_message(crate::card_task_system_prompt_with_roster(
                         &self.agent_roster_prompt,
@@ -247,34 +251,6 @@ where
 
     pub fn task_record(&self, task_id: TaskId) -> Option<&TaskRecord> {
         self.records.get(&task_id)
-    }
-
-    fn enqueue_task(&mut self, intent: String) -> TaskId {
-        let task_id = self.next_task_id;
-        self.next_task_id += 1;
-        let record = TaskRecord {
-            project_id: self.project_id.clone(),
-            task_id,
-            intent: intent.clone(),
-            state: TaskState::Queued,
-            summary: None,
-            error: None,
-            completed_tool_calls: 0,
-        };
-        self.journal.append(AuditEntry::Task(record.clone()));
-        self.records.insert(task_id, record);
-        self.pending.push_back(PendingTask { task_id });
-        tracing::info!(
-            project_id = %self.project_id,
-            task_id,
-            intent_chars = intent.chars().count(),
-            "[DEBUG-agent-flow-7c1e] card task queued by dialogue"
-        );
-        self.emit_event(AgentEvent::TaskQueued {
-            task_id,
-            summary: intent,
-        });
-        task_id
     }
 
     fn request_next_card_response(&mut self) {
@@ -375,13 +351,18 @@ where
                         command,
                     };
                     attempted_command = Some(request.command.clone());
-                    let result = card_task::require_verified_target(&active, &request.command)
-                        .and_then(|()| {
-                            self.card_tool_host
-                                .execute(request.clone())
-                                .map(|value: CardToolResult| value.result)
-                                .map_err(|error| error.to_string())
-                        });
+                    let result = card_task::require_delegation_targets(
+                        &active,
+                        &self.agent_roster,
+                        &request.command,
+                    )
+                    .and_then(|()| card_task::require_verified_target(&active, &request.command))
+                    .and_then(|()| {
+                        self.card_tool_host
+                            .execute(request.clone())
+                            .map(|value: CardToolResult| value.result)
+                            .map_err(|error| error.to_string())
+                    });
                     self.journal.append(AuditEntry::ToolCall(ToolCallRecord {
                         project_id: self.project_id.clone(),
                         task_id: active.task_id,
@@ -419,9 +400,11 @@ where
                 active.completed_tool_calls += 1;
                 active.consecutive_failures = 0;
                 if let Some(command) = attempted_command.as_ref() {
-                    active
-                        .unresolved_tool_failures
-                        .retain(|failure| failure.command.as_ref() != Some(command));
+                    active.unresolved_tool_failures.retain(|failure| {
+                        failure.command.as_ref().is_none_or(|failed| {
+                            !card_task::same_recoverable_operation(failed, &failure.error, command)
+                        })
+                    });
                 }
             }
             Err(error) => {

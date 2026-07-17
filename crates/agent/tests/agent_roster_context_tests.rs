@@ -30,7 +30,7 @@ impl AgentProvider for RecordingDialogueProvider {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   roster = 1 个 Alan：alias=艾伦、profile=Codex、enabled=true、active node=77
-///   允许动态字段数 = 5：name/alias/profile/enabled/active
+///   允许动态字段数 = 7：name/alias/profile/enabled/active/tracking/busy
 ///   workflow marker = "SECRET_WORKFLOW"，不属于 roster 数据且不得进入 prompt
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -39,7 +39,7 @@ impl AgentProvider for RecordingDialogueProvider {
 ///   3. 读取首条 system message → 检查紧凑字段和隐私边界
 ///
 /// 预期结果：
-///   - 正断言：system prompt 包含 Alan、艾伦、Codex、enabled、active
+///   - 正断言：system prompt 包含 Alan、艾伦、Codex、enabled、active、tracking、busy
 ///   - 正断言：名册使用明确的 agent-roster 边界
 ///   - 负断言：prompt 不得包含 SECRET_WORKFLOW 或 workflow_description 字段
 #[test]
@@ -93,6 +93,11 @@ fn dialogue_request_injects_compact_dynamic_agent_roster() {
     );
     assert!(prompt.contains("enabled=true"), "动态名册应包含启用状态");
     assert!(prompt.contains("active=true"), "动态名册应包含活跃卡片状态");
+    assert!(
+        prompt.contains("tracking=Managed"),
+        "动态名册应包含 Managed 跟踪状态"
+    );
+    assert!(prompt.contains("busy=false"), "动态名册应包含空闲状态");
     assert!(
         !prompt.contains("SECRET_WORKFLOW") && !prompt.contains("workflow_description"),
         "动态名册不得注入 Workflow Description 或其他自由文本"

@@ -14,25 +14,50 @@ impl MultisoulApp {
             .filter(|name| !name.is_empty())
             .map(str::to_string)
             .unwrap_or_else(|| workspace_root.display().to_string());
-        let cards = self
-            .runtime
-            .document
-            .nodes()
-            .iter()
-            .map(|node| agent::CanvasCardContext {
-                node_id: node.id,
-                kind: canvas_card_kind(&node.kind),
-                title: node.kind.display_title(),
-                selected: self.runtime.selection.contains(node.id),
-                focused: matches!(
-                    self.runtime.focus.mode(),
-                    InputMode::NodeFocused(node_id) if node_id == node.id
-                ),
-            })
+        let nodes = self.runtime.document.nodes();
+        let total_cards = nodes.len();
+        let mut candidates = Vec::with_capacity(agent::MAX_CURRENT_CANVAS_CARDS);
+        for node in nodes {
+            let kind = canvas_card_kind(&node.kind);
+            let selected = self.runtime.selection.contains(node.id);
+            let focused = matches!(
+                self.runtime.focus.mode(),
+                InputMode::NodeFocused(node_id) if node_id == node.id
+            );
+            let key = (canvas_card_priority(kind, selected, focused), node.id);
+            let candidate = (key, node, kind, selected, focused);
+            if candidates.len() < agent::MAX_CURRENT_CANVAS_CARDS {
+                candidates.push(candidate);
+                continue;
+            }
+            let Some((worst_index, worst)) = candidates
+                .iter()
+                .enumerate()
+                .max_by_key(|(_, current)| current.0)
+            else {
+                continue;
+            };
+            if key < worst.0 {
+                candidates[worst_index] = candidate;
+            }
+        }
+        candidates.sort_by_key(|candidate| candidate.0);
+        let cards = candidates
+            .into_iter()
+            .map(
+                |(_, node, kind, selected, focused)| agent::CanvasCardContext {
+                    node_id: node.id,
+                    kind,
+                    title: node.kind.display_title(),
+                    selected,
+                    focused,
+                },
+            )
             .collect();
         Some(agent::CurrentCanvasContext {
             project_name,
             workspace_root: workspace_root.display().to_string(),
+            total_cards,
             cards,
         })
     }
@@ -136,6 +161,18 @@ fn canvas_card_kind(kind: &CanvasNodeKind) -> agent::CanvasCardKind {
         CanvasNodeKind::Agent(_) => agent::CanvasCardKind::Agent,
         CanvasNodeKind::Preview(_) => agent::CanvasCardKind::Preview,
         CanvasNodeKind::Browser(_) => agent::CanvasCardKind::Browser,
+    }
+}
+
+fn canvas_card_priority(kind: agent::CanvasCardKind, selected: bool, focused: bool) -> u8 {
+    if focused {
+        0
+    } else if kind == agent::CanvasCardKind::Agent {
+        1
+    } else if selected {
+        2
+    } else {
+        3
     }
 }
 

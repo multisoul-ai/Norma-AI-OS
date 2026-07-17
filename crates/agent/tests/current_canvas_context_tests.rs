@@ -62,6 +62,7 @@ fn dialogue_request_injects_bounded_current_canvas_context_without_card_contents
             CurrentCanvasContext {
                 project_name: "norma-ai-os".to_string(),
                 workspace_root: "/workspace/norma-ai-os".to_string(),
+                total_cards: 2,
                 cards: vec![
                     CanvasCardContext {
                         node_id: 11,
@@ -177,6 +178,7 @@ fn current_canvas_context_prioritizes_focused_and_agent_cards_when_truncated() {
             CurrentCanvasContext {
                 project_name: "norma-ai-os".to_string(),
                 workspace_root: "/workspace/norma-ai-os".to_string(),
+                total_cards: 66,
                 cards,
             },
         ))

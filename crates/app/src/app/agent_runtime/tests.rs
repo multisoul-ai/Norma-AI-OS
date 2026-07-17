@@ -14,3 +14,6 @@ mod agent_dispatch_queue_failure_tests;
 
 #[path = "../../../tests/unit/agent_dispatch_unsafe_failure_tests.rs"]
 mod agent_dispatch_unsafe_failure_tests;
+
+#[path = "../../../tests/unit/agent_context_command_tests.rs"]
+mod agent_context_command_tests;

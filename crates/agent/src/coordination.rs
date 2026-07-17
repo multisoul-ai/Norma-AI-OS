@@ -95,12 +95,14 @@ pub fn render_agent_roster(roster: &[AgentRosterEntry]) -> String {
     for entry in roster {
         let alias = effective_speech_alias(entry).unwrap_or("-");
         lines.push(format!(
-            "name={} alias={} profile={:?} enabled={} active={}",
+            "name={} alias={} profile={:?} enabled={} active={} tracking={:?} busy={}",
             entry.name,
             alias,
             entry.profile,
             entry.enabled,
-            entry.active_node_id.is_some()
+            entry.active_node_id.is_some(),
+            entry.tracking,
+            entry.busy
         ));
     }
     lines.push("</agent-roster>".to_string());
