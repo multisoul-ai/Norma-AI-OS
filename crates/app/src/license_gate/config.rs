@@ -115,4 +115,26 @@ mod tests {
             "embed/base_url.txt 应以 http(s):// 开头，当前={url}"
         );
     }
+
+    /// 生产 Keygate 默认地址：验证发行包不需环境变量即可连接已部署服务。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   EMBEDDED_BASE_URL = embed/base_url.txt 的首个非空、非注释行
+    ///   expected          = https://soulvoiceai.com/keygate
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 解析嵌入文本 → 得到发行包的 Keygate 默认 Base URL
+    ///   2. 与线上部署根路径比较 → 确保 activate 会请求 `/keygate/api/v1/license/activate`
+    ///
+    /// 预期结果：
+    ///   - 正断言：默认地址必须等于线上 Keygate 根路径
+    ///   - 负验收：不得继续指向 localhost 或缺少 `/keygate` 前缀
+    #[test]
+    fn test_embedded_base_url_points_to_production_keygate() {
+        let url = normalize_embedded_line(EMBEDDED_BASE_URL);
+        assert_eq!(
+            url, "https://soulvoiceai.com/keygate",
+            "embed/base_url.txt 必须指向已部署的生产 Keygate，不得保留 localhost 或丢失 /keygate 前缀"
+        );
+    }
 }

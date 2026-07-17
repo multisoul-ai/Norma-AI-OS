@@ -13,7 +13,25 @@ impl std::fmt::Display for ActivateHttpError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Transport(msg) => write!(f, "network error: {msg}"),
-            Self::Api { status, body } => write!(f, "activate failed HTTP {status}: {body}"),
+            Self::Api { status, body } => {
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(body) {
+                    let error = parsed.get("error");
+                    if error
+                        .and_then(|value| value.get("code"))
+                        .and_then(|value| value.as_str())
+                        == Some("LICENSE_NOT_FOUND")
+                    {
+                        return write!(f, "激活失败：License Key 不存在");
+                    }
+                    if let Some(message) = error
+                        .and_then(|value| value.get("message"))
+                        .and_then(|value| value.as_str())
+                    {
+                        return write!(f, "激活失败（HTTP {status}）：{message}");
+                    }
+                }
+                write!(f, "激活失败（HTTP {status}）：{}", body.trim())
+            }
             Self::Decode(msg) => write!(f, "activate response decode error: {msg}"),
         }
     }
@@ -27,7 +45,12 @@ pub fn activate_license(
     let key_fp = short_key_fingerprint(&request.license_key);
     let idem = format!("norma-activate-{}-{}", request.identifier, key_fp);
 
-    let response = ureq::post(&url)
+    let agent = ureq::Agent::config_builder()
+        .http_status_as_error(false)
+        .build()
+        .new_agent();
+    let response = agent
+        .post(&url)
         .header("Content-Type", "application/json")
         .header("Idempotency-Key", &idem)
         .send_json(request)

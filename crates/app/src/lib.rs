@@ -30,6 +30,9 @@ pub use app::{
 };
 pub use assets::EmbeddedAssets;
 
+#[cfg(feature = "e2e-test-support")]
+pub use license_gate::build_activation_root_e2e;
+
 use gpui::{App, Application, KeyBinding};
 
 pub fn run_norma_os() {

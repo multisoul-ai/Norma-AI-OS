@@ -121,14 +121,17 @@ def main() -> int:
     video_wallpaper = root / "crates/app/src/app/video_wallpaper.rs"
     video_decoder = root / "crates/app/src/app/video_decoder.rs"
     chrome = root / "crates/app/src/app/chrome.rs"
+    license_gate = root / "crates/app/src/license_gate/gate_root.rs"
 
     failures: list[str] = []
     wall_raw = video_wallpaper.read_text()
     decoder_raw = video_decoder.read_text()
     chrome_raw = chrome.read_text()
+    license_gate_raw = license_gate.read_text()
     wall_code = strip_rust_comments(wall_raw)
     decoder_code = strip_rust_comments(decoder_raw)
     chrome_code = strip_rust_comments(chrome_raw)
+    license_gate_code = strip_rust_comments(license_gate_raw)
 
     for token in (
         "RenderImage",
@@ -224,6 +227,31 @@ def main() -> int:
             "chrome must not call the old CPU image video wallpaper path",
             "remove render_video_wallpaper_image() from live wallpaper rendering.",
         )
+
+    require_contains(
+        failures,
+        license_gate,
+        license_gate_code,
+        "video_wallpaper_surface",
+        "license gate must mount the shared low-copy video wallpaper surface",
+        "reuse video_wallpaper_surface() instead of introducing a CPU image frame path.",
+    )
+    require_contains(
+        failures,
+        license_gate,
+        license_gate_code,
+        "sync_license_video_background",
+        "license gate must start its video background outside the GPUI foreground decoder path",
+        "sync the shared video wallpaper worker before rendering the activation shell.",
+    )
+    for token in ("RenderImage", "render_image_from_rgba", "next_frame_rgba"):
+        if token in license_gate_code:
+            add_failure(
+                failures,
+                license_gate,
+                f"license gate video background must not contain `{token}`",
+                "keep license live frames on the shared CVPixelBuffer/gpui::surface path.",
+            )
 
     if failures:
         print("ERROR: video wallpaper performance guardrail violations found.", file=sys.stderr)

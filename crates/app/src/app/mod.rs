@@ -64,7 +64,7 @@ mod video_decoder;
 #[cfg(target_os = "macos")]
 pub(crate) mod video_thumbnails;
 #[cfg(target_os = "macos")]
-mod video_wallpaper;
+pub(crate) mod video_wallpaper;
 mod voice;
 mod voice_window_inset;
 mod wallpaper_actions;
