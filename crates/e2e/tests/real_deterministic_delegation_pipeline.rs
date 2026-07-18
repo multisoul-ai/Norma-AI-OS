@@ -64,7 +64,7 @@ impl CardToolHost for DispatchHost {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 从显式环境变量构造真实 OpenAI-compatible Dialogue Provider
-///   2. 向完整 AgentSystem 提交“Bella 查看当前项目的功能”
+///   2. 向完整 AgentSystem 提交“我想让贝拉查看当前项目的目录结构”
 ///   3. 无论模型选择文字还是 card_task，确定性路由都形成 Bella assignment
 ///   4. CardTask 绕过第二次模型规划并由记录型 Host 返回 Submitted 回执
 ///
@@ -74,7 +74,7 @@ impl CardToolHost for DispatchHost {
 ///   - 负断言：NeverCardProvider 不得被调用，否则任务会失败
 #[test]
 #[ignore = "requires an explicitly configured real OpenAI-compatible Provider"]
-fn real_dialogue_provider_reaches_deterministic_agent_dispatch_end_to_end() {
+fn real_intent_prefixed_dialogue_reaches_deterministic_agent_dispatch_end_to_end() {
     let config = ProviderConfig::new(
         ProviderProtocol::OpenAiCompatible,
         required_env("NORMA_OPENAI_COMPLIANCE_BASE_URL"),
@@ -105,9 +105,9 @@ fn real_dialogue_provider_reaches_deterministic_agent_dispatch_end_to_end() {
 
     system
         .submit(AgentCommand::UserTurn(
-            "Bella 查看当前项目的功能".to_string(),
+            "我想让贝拉查看当前项目的目录结构".to_string(),
         ))
-        .expect("真实 Dialogue Provider 必须成功处理明确 Bella 委派");
+        .expect("真实 Dialogue Provider 必须成功处理带自然意图前缀的 Bella 委派");
     // 快路径最多需要：启动(1) + 派发(1) + 聚合(1) + 保护 tick(1) = 4。
     for _ in 0..4 {
         let _ = system.pump();
@@ -118,7 +118,7 @@ fn real_dialogue_provider_reaches_deterministic_agent_dispatch_end_to_end() {
         vec![CardCommand::DispatchAgentTasks {
             assignments: vec![AgentTaskAssignment {
                 name: "Bella".to_string(),
-                task: "查看当前项目的功能".to_string(),
+                task: "查看当前项目的目录结构".to_string(),
             }],
             force_untracked: false,
         }],

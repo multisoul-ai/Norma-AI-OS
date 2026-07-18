@@ -41,8 +41,21 @@ const DIRECT_ADDRESS_MODIFIERS: &[&str] = &[
 const AGENT_GROUP_SEPARATORS: &[&str] = &["和", "与", "、", ",", "，", "and"];
 const AGENT_PROFILE_MARKERS: &[&str] = &["codex", "claude", "cursor", "opencode"];
 const AMBIGUOUS_AGENT_PRONOUNS: &[&str] = &["让它", "让他", "让她", "交给它", "交给他", "交给她"];
-const DELEGATION_CLAUSE_MODIFIERS: &[&str] =
-    &["然后", "接着", "随后", "再", "并且", "同时", "帮我", "麻烦"];
+const DELEGATION_CLAUSE_MODIFIERS: &[&str] = &[
+    "我想要",
+    "我希望",
+    "我需要",
+    "我想",
+    "我要",
+    "然后",
+    "接着",
+    "随后",
+    "再",
+    "并且",
+    "同时",
+    "帮我",
+    "麻烦",
+];
 const NON_COMMAND_PREFIXES: &[&str] = &["看起来", "is ", "was ", "seems "];
 const NON_COMMAND_ACTION_REMAINDERS: &[&str] = &[
     "的",
@@ -134,7 +147,7 @@ pub(super) fn explicit_agent_targets(
 }
 
 pub(super) fn delegation_task_text(intent: &str, roster: &[crate::AgentRosterEntry]) -> String {
-    let original = intent.trim();
+    let original = strip_delegation_clause_modifiers(intent.trim());
     let mut remainder = ["让", "请", "交给"]
         .iter()
         .find_map(|prefix| original.strip_prefix(prefix).map(str::trim_start))
