@@ -15,7 +15,7 @@ Workspace 分层：
 - `crates/runtime/` - 零 GPUI 域层：LiveNode 生命周期、焦点状态、输入路由。
 - `crates/storage/` - 零 GPUI 存储层：SQLite store、migration、recent/settings/canvas/session checkpoint。
 - `crates/workspace/` - 零 GPUI 元数据层：最近项目类型、workspace source、路径展示。
-- `crates/agent/` - 零 GPUI/Storage Agent Runtime：Dialogue、CardTask、Provider、工具循环与预算。
+- `crates/agent/` - 零 GPUI/Storage Agent Runtime：NormaSession、Rig Provider、typed tools、AgentCardAdapter 与预算。
 - `crates/asr/` - 零 GPUI/Sherpa ASR 领域层：模型身份、受控目录、安装清单、完整性与共享 VAD 工件。
 - `crates/model_store/` - 零 GPUI/网络的共享本地模型安装原语：受控解压、哈希、manifest 与原子提升。
 - `crates/tts/` - 零 GPUI/Sherpa TTS 领域层：模型/语音身份、固定目录、能力与安装验证。
@@ -97,7 +97,7 @@ Workspace 分层：
 | 几何/节点/选择/命中/viewport | [`crates/canvas/src/`](crates/canvas/src/) |
 | PTY、ANSI grid、按键编码 | [`crates/terminal/src/`](crates/terminal/src/) |
 | 焦点、输入路由、LiveNode 生命周期 | [`crates/runtime/src/`](crates/runtime/src/) |
-| Dialogue/CardTask/Provider/Journal seam | [`crates/agent/src/`](crates/agent/src/) |
+| NormaSession/Rig/AgentCardAdapter seam | [`crates/agent/src/`](crates/agent/src/) |
 | ASR 模型身份、目录、安装与完整性 | [`crates/asr/src/`](crates/asr/src/) |
 | 通用本地模型安装原语 | [`crates/model_store/src/`](crates/model_store/src/) |
 | TTS 模型/语音目录与安装验证 | [`crates/tts/src/`](crates/tts/src/) |

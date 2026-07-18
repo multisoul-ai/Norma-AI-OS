@@ -1,7 +1,8 @@
 # 可语音呼叫的持久 Agent 与高层委派工具 SPEC
 
 - 日期：2026-07-14
-- 状态：Ready for Agent
+- 状态：Partially superseded
+- 对齐说明：Agent 身份与 FIFO 规则继续有效；Dialogue/CardTask 路由已由 [`2026-07-18-SPEC-norma-master-agent-runtime.md`](2026-07-18-SPEC-norma-master-agent-runtime.md) 的 Norma/Rig 单循环取代。
 - 范围：Agent 定义、呼叫名、活跃 Agent 卡片、任务委派、CardTask 提示词、单次语音指令、持续聆听、任务跟踪与迁移
 - 2026-07-15 对齐说明：Cursor 已进入正式 Agent runtime profile；任务终态播报规则由 [`2026-07-14-SPEC-agent-task-tts-announcements.md`](2026-07-14-SPEC-agent-task-tts-announcements.md) 取代本文早期的“仅持续聆听播报”限制。
 

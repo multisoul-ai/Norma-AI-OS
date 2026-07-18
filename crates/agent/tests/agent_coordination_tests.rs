@@ -1,5 +1,6 @@
 use agent::{
-    AgentAssignment, AgentDispatchState, AgentRosterEntry, AgentTaskCoordinator, AgentTrackingMode,
+    AgentAssignment, AgentDispatchState, AgentRosterEntry, AgentTaskCancellation,
+    AgentTaskCoordinator, AgentTrackingMode,
 };
 use norma::protocol::AgentProfile;
 
@@ -19,6 +20,144 @@ fn roster_entry(
         tracking: AgentTrackingMode::Managed,
         busy,
     }
+}
+
+/// COORD-CANCEL-1：排队任务立即取消，运行任务只进入 cancel_requested
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Agent 数量 = 1（Alan，managed）
+///   派发任务数 = 2（第 1 个运行，第 2 个排队）
+///   Expected remaining queued = 2 - 1 cancelled = 1 active + 0 queued
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 连续向 Alan 派发两个任务，得到 active task_id 与 queued task_id
+///   2. 按 queued task_id 取消，队列立即移除该项
+///   3. 按 active task_id 请求取消，只标记 cancel_requested
+///
+/// 预期结果：
+///   - 正断言：排队任务返回 Cancelled，队列数量降为 0
+///   - 正断言：运行任务返回 CancelRequested，仍保留为 active
+///   - 负断言：运行任务在 AgentCard 确认停止前不返回 Cancelled
+#[test]
+fn coordinator_distinguishes_queued_cancellation_from_running_request() {
+    let mut coordinator =
+        AgentTaskCoordinator::new(vec![roster_entry(1, "Alan", AgentProfile::Codex, false)])
+            .expect("a single valid managed Agent should initialize");
+    let dispatched = coordinator
+        .dispatch(
+            vec![
+                AgentAssignment::new("Alan", "first task"),
+                AgentAssignment::new("Alan", "second task"),
+            ],
+            false,
+        )
+        .expect("two valid tasks should dispatch into active plus FIFO queue");
+    let active_task_id = dispatched[0].task_id;
+    let queued_task_id = dispatched[1].task_id;
+
+    let queued_result = coordinator.cancel_task(queued_task_id);
+
+    assert_eq!(
+        queued_result,
+        AgentTaskCancellation::Cancelled,
+        "a queued task should be removed and cancelled immediately"
+    );
+    assert_eq!(
+        coordinator.queued_task_count(1),
+        0,
+        "the cancelled queued task must no longer remain in Alan's FIFO"
+    );
+
+    let active_result = coordinator.cancel_task(active_task_id);
+
+    assert_eq!(
+        active_result,
+        AgentTaskCancellation::CancelRequested,
+        "a running task should only enter cancel_requested before AgentCard confirmation"
+    );
+    assert!(
+        coordinator.is_busy(1),
+        "Alan must remain busy until the running task confirms termination"
+    );
+    let remaining_tasks = coordinator.tasks();
+    assert_eq!(
+        remaining_tasks[0].state, "cancel_requested",
+        "find_agent_tasks must expose the running task's pending cancellation state"
+    );
+    assert!(
+        remaining_tasks[0].state != "running",
+        "a cancellation request must not remain externally indistinguishable from running"
+    );
+    assert_eq!(
+        remaining_tasks[1].state, "cancelled",
+        "find_agent_tasks must retain the queued task's terminal cancelled state"
+    );
+    assert_ne!(
+        remaining_tasks[1].state, "queued",
+        "a cancelled queued task must not remain externally visible as queued"
+    );
+}
+
+/// COORD-HISTORY-1：AgentCard 完成后应保留可查询的终态任务，并继续释放 FIFO 下一项。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   dispatched tasks = 2（task-1 运行 + task-2 排队）
+///   terminal events = 2（task-1 succeeded + task-2 failed）
+///   expected history = 2 terminal tasks，active/queue = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 向空闲 Alan 连续派发两项任务
+///   2. 以 succeeded 完成第一项并释放第二项
+///   3. 以 failed 完成第二项，读取协调器任务历史
+///
+/// 预期结果：
+///   - 正断言：两项任务分别保留 succeeded 与 failed 终态
+///   - 负断言：终态任务不再显示为 running 或 queued
+#[test]
+fn coordinator_retains_terminal_task_history() {
+    let mut coordinator =
+        AgentTaskCoordinator::new(vec![roster_entry(1, "Alan", AgentProfile::Codex, false)])
+            .expect("a single valid managed Agent should initialize");
+    let receipts = coordinator
+        .dispatch(
+            vec![
+                AgentAssignment::new("Alan", "first task"),
+                AgentAssignment::new("Alan", "second task"),
+            ],
+            false,
+        )
+        .expect("two valid tasks should dispatch into active plus FIFO queue");
+
+    let released = coordinator
+        .finish_current_with_state(1, "succeeded")
+        .expect("finishing the first task should release the queued second task");
+    let no_more = coordinator.finish_current_with_state(1, "failed");
+    let history = coordinator.tasks();
+
+    assert_eq!(
+        released.task_id, receipts[1].task_id,
+        "the first terminal event must release exactly the second FIFO task"
+    );
+    assert!(
+        no_more.is_none(),
+        "finishing the second task must not invent a third queued task"
+    );
+    assert_eq!(
+        history[0].state, "succeeded",
+        "the first completed Agent task must remain queryable as succeeded"
+    );
+    assert_eq!(
+        history[1].state, "failed",
+        "the second completed Agent task must remain queryable as failed"
+    );
+    assert_ne!(
+        history[0].state, "running",
+        "the first terminal task must not remain visible as running"
+    );
+    assert_ne!(
+        history[1].state, "queued",
+        "the second terminal task must not remain visible as queued"
+    );
 }
 
 /// AC-1：批量委派应整体预检，并让忙碌 Agent 排队、空闲 Agent 立即并行提交。

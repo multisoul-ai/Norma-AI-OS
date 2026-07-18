@@ -319,6 +319,7 @@ fn execute_high_level_agent_command(
                 };
                 if let Some(writer) = app.persistence.agent_dispatch_writer() {
                     writer.create(storage::NewAgentDispatchTask {
+                        runtime_task_id: receipt.task_id,
                         definition_id: receipt.definition_id,
                         node_id: receipt.node_id,
                         original_instruction: receipt.task.clone(),
@@ -404,6 +405,22 @@ pub(super) fn submit_agent_enter(
         };
     }
     Ok(())
+}
+
+pub(super) fn clear_agent_task_input(
+    runtime: &mut runtime::Runtime,
+    node_id: canvas::NodeId,
+) -> Result<(), String> {
+    runtime
+        .send_node_input(
+            node_id,
+            runtime::NodeInput::Key(terminal::KeyInput {
+                key: terminal::Key::Char('u'),
+                ctrl: true,
+                alt: false,
+            }),
+        )
+        .map_err(|error| error.to_string())
 }
 
 fn activate_definition(

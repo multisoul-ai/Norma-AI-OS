@@ -69,6 +69,8 @@ pub fn builtin_agent_names() -> &'static [BuiltinAgentName] {
 pub enum AgentNameError {
     #[error("Agent 名称必须是 2–16 个英文字母，或 2–8 个汉字")]
     UnsupportedFormat,
+    #[error("Norma 是 Master Agent 的保留身份名")]
+    ReservedMasterIdentity,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -141,6 +143,9 @@ fn fallback_agent_name(mut index: usize) -> Option<String> {
 
 impl AgentName {
     pub fn parse(input: &str) -> Result<Self, AgentNameError> {
+        if input.eq_ignore_ascii_case("Norma") {
+            return Err(AgentNameError::ReservedMasterIdentity);
+        }
         let character_count = input.chars().count();
         let is_english = (2..=16).contains(&character_count)
             && input

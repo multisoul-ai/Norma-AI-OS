@@ -79,6 +79,7 @@ mod e2e_11_launchpad_video;
 // 可语音呼叫 Agent：Settings 未保存草稿与快速创建的定义/卡片闭环。
 mod e2e_12_agent_settings_ime;
 mod e2e_12_agent_submit;
+mod e2e_12_norma_master;
 mod e2e_12_voice_addressable_agents;
 
 // Agent/terminal 输出链接：点击后新建 Browser 并仅在该路径进入 master/detail 布局。

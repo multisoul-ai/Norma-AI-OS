@@ -43,6 +43,40 @@ fn agent_name_accepts_supported_english_and_chinese_names() {
     );
 }
 
+/// AN-5：Master 固定身份名 Norma 必须保留，不能被 Canvas AgentCard 占用。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   reserved names = 1（Norma，大小写不敏感）
+///   attempts = 2（"Norma" + "norma"）
+///   expected accepted = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 尝试解析显示名 Norma
+///   2. 再以小写 norma 尝试绕过保留规则
+///
+/// 预期结果：
+///   - 正断言：两种大小写都返回名称错误
+///   - 负断言：任何 AgentCard 都不能获得 Master 的固定身份名
+#[test]
+fn norma_identity_is_reserved_for_the_master_agent() {
+    let canonical = AgentName::parse("Norma");
+    let lowercase = AgentName::parse("norma");
+
+    assert!(
+        canonical.is_err(),
+        "the canonical Norma identity must be rejected for AgentCard names"
+    );
+    assert!(
+        lowercase.is_err(),
+        "the reserved Norma identity must remain rejected regardless of ASCII case"
+    );
+    assert_ne!(
+        canonical.ok().map(|name| name.match_key().to_string()),
+        Some("norma".to_string()),
+        "a Canvas AgentCard must never acquire the Master Agent's match key"
+    );
+}
+
 /// AN-2：内置名称目录应固定提供 30 组英文正式名与中文语音别名。
 ///
 /// 数据构造（含关键数值的推导过程）：

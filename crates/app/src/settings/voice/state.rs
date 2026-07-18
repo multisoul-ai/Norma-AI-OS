@@ -29,8 +29,6 @@ use provider_values::{
     KEY_AGENT_OLLAMA_BASE_URL, KEY_AGENT_OLLAMA_MODEL, KEY_AGENT_OPENAI_BASE_URL,
     KEY_AGENT_OPENAI_MODEL, KEY_AGENT_PROVIDER,
 };
-#[cfg(test)]
-pub(crate) use values::DialogueLlmMode;
 pub(crate) use values::{
     DictationTrigger, EnvVoiceSettings, SavedVoiceSettings, VoiceInteractionMode,
     VoiceSettingsField, VoiceSettingsValues,

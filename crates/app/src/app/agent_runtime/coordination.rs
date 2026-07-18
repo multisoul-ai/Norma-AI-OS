@@ -108,23 +108,53 @@ impl MultisoulApp {
         }) else {
             return false;
         };
-        let (terminal_state, terminal_error) = match self.runtime.agent_task_state(node_id) {
-            Some(runtime::AgentTaskState::Done) => (storage::AgentDispatchTaskState::Done, None),
-            Some(runtime::AgentTaskState::Failed { ref message }) => (
-                storage::AgentDispatchTaskState::Failed,
-                Some(message.clone()),
-            ),
-            Some(runtime::AgentTaskState::Ended) => (
-                storage::AgentDispatchTaskState::Interrupted,
-                Some("Agent session ended".to_string()),
-            ),
-            _ => (storage::AgentDispatchTaskState::Interrupted, None),
+        let cancellation_confirmed =
+            self.agent_task_coordinator
+                .as_ref()
+                .is_some_and(|coordinator| {
+                    coordinator.tasks().into_iter().any(|task| {
+                        task.definition_id == definition_id && task.state == "cancel_requested"
+                    })
+                })
+                && matches!(
+                    self.runtime.agent_task_state(node_id),
+                    Some(runtime::AgentTaskState::Ended)
+                );
+        let (terminal_state, coordinator_state, terminal_error) = if cancellation_confirmed {
+            (
+                storage::AgentDispatchTaskState::Cancelled,
+                "cancelled",
+                None,
+            )
+        } else {
+            match self.runtime.agent_task_state(node_id) {
+                Some(runtime::AgentTaskState::Done) => {
+                    (storage::AgentDispatchTaskState::Done, "succeeded", None)
+                }
+                Some(runtime::AgentTaskState::Failed { ref message }) => (
+                    storage::AgentDispatchTaskState::Failed,
+                    "failed",
+                    Some(message.clone()),
+                ),
+                Some(runtime::AgentTaskState::Ended) => (
+                    storage::AgentDispatchTaskState::Interrupted,
+                    "interrupted",
+                    Some("Agent session ended".to_string()),
+                ),
+                _ => (
+                    storage::AgentDispatchTaskState::Interrupted,
+                    "interrupted",
+                    None,
+                ),
+            }
         };
         let writer = self.persistence.agent_dispatch_writer().cloned();
         let next = self
             .agent_task_coordinator
             .as_mut()
-            .and_then(|coordinator| coordinator.finish_current(definition_id));
+            .and_then(|coordinator| {
+                coordinator.finish_current_with_state(definition_id, coordinator_state)
+            });
         if let Some(writer) = writer.as_ref() {
             writer.finish_current(definition_id, terminal_state, terminal_error);
         }

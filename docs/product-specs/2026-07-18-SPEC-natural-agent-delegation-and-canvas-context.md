@@ -1,7 +1,8 @@
 # 自然 Agent 委派、画布感知与任务接力 SPEC
 
 - 日期：2026-07-18
-- 状态：Ready for Agent
+- 状态：Partially superseded
+- 对齐说明：自然寻址与画布上下文语义继续有效；Dialogue/CardTask 实现路线已由 [`2026-07-18-SPEC-norma-master-agent-runtime.md`](2026-07-18-SPEC-norma-master-agent-runtime.md) 取代。
 - 范围：Dialogue、当前画布上下文、当前项目、Agent 呼叫、多 Agent 委派、CardTask、Agent 工作上下文与任务接力
 - 交付策略：一期交付自然委派与画布感知；二期交付跨 Agent 任务接力与按需查询
 

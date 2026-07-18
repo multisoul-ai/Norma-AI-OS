@@ -1,7 +1,5 @@
 //! App-layer shell state for Continuous Listening local voice dialogue.
 mod artifacts;
-#[cfg(test)]
-mod card_tools;
 mod chat;
 mod error;
 mod error_state;
@@ -10,8 +8,6 @@ mod reply;
 mod reply_loop;
 mod reply_stream;
 mod shell;
-#[cfg(test)]
-mod turn;
 use crate::app::voice::control::VoiceVisual;
 use crate::app::voice_window_inset::TtsPlaybackEvent;
 use crate::settings::voice::{resolve_available_asr_model, VoiceSettingsValues};
@@ -33,8 +29,6 @@ pub(super) use reply::{
 use reply_stream::StreamPlaybackBuffer;
 use std::collections::VecDeque;
 use std::sync::atomic::AtomicBool;
-#[cfg(test)]
-use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use voice_sherpa::{PcmStreamSession, SherpaProvider, SpeechError};
@@ -63,34 +57,9 @@ pub(crate) enum VoiceShortcutKeyDownAction {
     InterruptAssistantReply,
 }
 
-pub(crate) trait CardTaskCancelHook: Send {
-    fn cancel_all(&mut self);
-}
-
-#[cfg(test)]
-#[derive(Clone)]
-struct TrackingCardTaskCancelHook {
-    cancelled: Arc<AtomicBool>,
-}
-
-#[cfg(test)]
-impl CardTaskCancelHook for TrackingCardTaskCancelHook {
-    fn cancel_all(&mut self) {
-        self.cancelled.store(true, Ordering::SeqCst);
-    }
-}
-
-#[derive(Default)]
-struct NoopCardTaskCancelHook;
-
-impl CardTaskCancelHook for NoopCardTaskCancelHook {
-    fn cancel_all(&mut self) {}
-}
-
 pub(crate) struct DialogueControlState {
     pub(super) session: DialogueSession,
     pcm_stream: Option<PcmStreamSession>,
-    card_task_cancel: Box<dyn CardTaskCancelHook>,
     pub(super) reply_playback: ReplyPlayback,
     pub(super) tts_client: Option<TtsClientBox>,
     startup_task: Option<Task<()>>,
@@ -123,8 +92,6 @@ pub(crate) struct DialogueControlState {
     playback_events: Vec<TtsPlaybackEvent>,
     #[cfg(test)]
     recording_sink: Option<crate::app::voice::playback::RecordingAssistantAudioSink>,
-    #[cfg(test)]
-    card_cancel_flag: Option<Arc<AtomicBool>>,
 }
 
 impl Default for DialogueControlState {
@@ -132,7 +99,6 @@ impl Default for DialogueControlState {
         Self {
             session: DialogueSession::new(),
             pcm_stream: None,
-            card_task_cancel: Box::new(NoopCardTaskCancelHook),
             reply_playback: ReplyPlayback::new(create_assistant_audio_sink()),
             tts_client: None,
             startup_task: None,
@@ -165,8 +131,6 @@ impl Default for DialogueControlState {
             playback_events: Vec::new(),
             #[cfg(test)]
             recording_sink: None,
-            #[cfg(test)]
-            card_cancel_flag: None,
         }
     }
 }
@@ -210,13 +174,9 @@ impl DialogueControlState {
         model_root: &std::path::Path,
     ) -> Result<SherpaProvider, DialogueStartError> {
         let provider = Self::validate_start_provider(values, model_root)?;
-        let agent_config = values
+        values
             .agent_provider_config()
             .map_err(|error| DialogueStartError::Provider(error.to_string()))?;
-        if agent_config.protocol() == agent::ProviderProtocol::Ollama {
-            llm::probe_ollama_ready(agent_config.endpoint())
-                .map_err(|error| DialogueStartError::Ollama(error.to_string()))?;
-        }
         Ok(provider)
     }
 
@@ -359,7 +319,6 @@ impl DialogueControlState {
     }
 
     pub(crate) fn stop_shell(&mut self) {
-        self.card_task_cancel.cancel_all();
         self.abort_reply_stream(false);
         self.reply_task = None;
         self.stop_pcm_stream();
@@ -383,9 +342,7 @@ impl DialogueControlState {
     pub(crate) fn reset_test_seams_for_tests() {
         reply::set_tts_client_factory_for_tests(None);
         reply::set_audio_sink_factory_for_tests(None);
-        turn::set_mock_script_factory_for_tests(None);
         Self::set_mic_permission_check_for_tests(None);
-        Self::set_test_turn_runner_for_tests(None);
     }
 
     #[cfg(test)]
@@ -446,9 +403,6 @@ impl DialogueControlState {
         self.recording_sink = Some(sink.clone());
         self.reply_playback = ReplyPlayback::new(Box::new(sink));
         reply::set_tts_client_factory_for_tests(Some(|| Ok(reply::fake_tts_client_for_tests())));
-        let flag = Arc::new(AtomicBool::new(false));
-        self.card_cancel_flag = Some(Arc::clone(&flag));
-        self.card_task_cancel = Box::new(TrackingCardTaskCancelHook { cancelled: flag });
     }
 
     #[cfg(test)]
@@ -463,13 +417,6 @@ impl DialogueControlState {
     #[cfg(test)]
     pub(crate) fn on_unclassified_speech_start_for_tests(&mut self) -> bool {
         self.on_unclassified_speech_start()
-    }
-
-    #[cfg(test)]
-    pub(crate) fn card_tasks_were_cancelled_for_tests(&self) -> bool {
-        self.card_cancel_flag
-            .as_ref()
-            .is_some_and(|flag| flag.load(Ordering::SeqCst))
     }
 
     fn stop_pcm_stream(&mut self) {
@@ -490,10 +437,6 @@ mod agent_report_queue_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/reply_stream_tests.rs"]
 mod reply_stream_tests;
-
-#[cfg(test)]
-#[path = "../../../tests/unit/app_dialogue_ollama_gate_tests.rs"]
-mod app_dialogue_ollama_gate_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/unit/app_dialogue_shortcut_tests.rs"]

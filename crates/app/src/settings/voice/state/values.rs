@@ -12,7 +12,6 @@ mod debug;
 mod load;
 pub(super) const KEY_OLLAMA_ENDPOINT: &str = "voice.ollama.endpoint";
 pub(super) const KEY_OLLAMA_MODEL: &str = "voice.ollama.model";
-pub(super) const KEY_DIALOGUE_LLM_MODE: &str = "voice.dialogue.llm_mode";
 pub(super) const KEY_DIALOGUE_MODEL: &str = "voice.dialogue.model";
 pub(super) const KEY_REFINE_MODEL: &str = "voice.refine.model";
 pub(super) const KEY_INTERACTION_MODE: &str = "voice.interaction.mode";
@@ -29,11 +28,6 @@ pub(super) const KEY_VOICE_WINDOW_INSET_ENABLED: &str = "voice.window_inset_enab
 pub(super) const KEY_VOICE_SETUP_COMPLETED: &str = "voice.setup.completed";
 pub(super) const KEY_OPENAI_API_KEY: &str = "voice.openai.api_key";
 pub(super) const KEY_OPENAI_CARD_PLANNER_MODEL: &str = "voice.openai.card_planner_model";
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum DialogueLlmMode {
-    Mock,
-    Ollama,
-}
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum VoiceInteractionMode {
     #[default]
@@ -76,15 +70,6 @@ impl DictationTrigger {
         }
     }
 }
-impl DialogueLlmMode {
-    pub(crate) fn from_stored(value: &str) -> Option<Self> {
-        match value.trim().to_ascii_lowercase().as_str() {
-            "mock" => Some(Self::Mock),
-            "ollama" => Some(Self::Ollama),
-            _ => None,
-        }
-    }
-}
 #[derive(Clone, Default, Eq, PartialEq)]
 pub(crate) struct SavedVoiceSettings {
     pub(crate) interaction_mode: Option<VoiceInteractionMode>,
@@ -97,7 +82,6 @@ pub(crate) struct SavedVoiceSettings {
     pub(crate) openai_profile: SavedProviderProfile,
     pub(crate) ollama_endpoint: Option<String>,
     pub(crate) planner_model: Option<String>,
-    pub(crate) dialogue_llm_mode: Option<DialogueLlmMode>,
     pub(crate) dialogue_model: Option<String>,
     pub(crate) refine_model: Option<String>,
     pub(crate) input_device_id: Option<String>,
@@ -127,7 +111,6 @@ pub(crate) struct VoiceSettingsValues {
     pub(crate) openai_profile: ProviderProfileValues,
     pub(crate) ollama_endpoint: String,
     pub(crate) planner_model: String,
-    pub(crate) dialogue_llm_mode: DialogueLlmMode,
     pub(crate) dialogue_model: String,
     pub(crate) refine_model: String,
     pub(crate) input_device_id: Option<String>,
@@ -169,7 +152,6 @@ impl VoiceSettingsValues {
             env.planner_model.as_deref(),
             OllamaVoicePlanner::default_model(),
         );
-        let dialogue_llm_mode = saved.dialogue_llm_mode.unwrap_or(DialogueLlmMode::Mock);
         let dialogue_model = first_non_empty(
             saved.dialogue_model.as_deref(),
             env.dialogue_model.as_deref(),
@@ -272,7 +254,6 @@ impl VoiceSettingsValues {
             openai_profile,
             ollama_endpoint: endpoint,
             planner_model,
-            dialogue_llm_mode,
             dialogue_model,
             refine_model,
             input_device_id,
@@ -337,11 +318,6 @@ impl VoiceSettingsValues {
 
     pub(crate) fn planner_model(&self) -> &str {
         &self.planner_model
-    }
-
-    #[cfg(test)]
-    pub(crate) fn dialogue_llm_mode(&self) -> DialogueLlmMode {
-        self.dialogue_llm_mode
     }
 
     #[cfg(test)]

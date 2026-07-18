@@ -2,20 +2,11 @@
 
 #[cfg(test)]
 use super::reply::{apply_reply_synthesis, create_tts_client};
-#[cfg(test)]
-use super::turn;
 use super::{artifacts::VoiceTurnArtifacts, DialogueControlState};
 use dialogue::DialoguePhase;
 use gpui::Context;
 #[cfg(test)]
 use voice_sherpa::SpeechError;
-
-#[cfg(test)]
-type TestTurnRunner =
-    fn(&str, Vec<llm::MockStep>) -> Result<VoiceTurnArtifacts, dialogue::DialogueError>;
-
-#[cfg(test)]
-static TEST_TURN_RUNNER: std::sync::Mutex<Option<TestTurnRunner>> = std::sync::Mutex::new(None);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct QueuedAgentReport {
@@ -197,20 +188,6 @@ impl DialogueControlState {
     }
 
     #[cfg(test)]
-    pub(crate) fn set_test_turn_runner_for_tests(runner: Option<TestTurnRunner>) {
-        *TEST_TURN_RUNNER
-            .lock()
-            .expect("test turn runner lock should not be poisoned") = runner;
-    }
-
-    #[cfg(test)]
-    pub(crate) fn test_turn_runner_for_tests() -> Option<TestTurnRunner> {
-        *TEST_TURN_RUNNER
-            .lock()
-            .expect("test turn runner lock should not be poisoned")
-    }
-
-    #[cfg(test)]
     pub(crate) fn run_voice_turn_for_tests(
         &mut self,
     ) -> Result<VoiceTurnArtifacts, dialogue::DialogueError> {
@@ -219,13 +196,13 @@ impl DialogueControlState {
             .pending_transcript()
             .ok_or_else(|| dialogue::DialogueError::Message("missing pending_transcript".into()))?
             .to_string();
-        let mock_script = turn::mock_script_for_transcript(&transcript);
-        if let Some(runner) = Self::test_turn_runner_for_tests() {
-            let artifacts = runner(&transcript, mock_script)?;
-            self.store_turn_artifacts(&artifacts);
-            return Ok(artifacts);
-        }
-        let artifacts = turn::run_dialogue_turn_with_recording_runner(&transcript, mock_script)?;
+        let artifacts = VoiceTurnArtifacts {
+            reply_text: format!("收到：{transcript}"),
+            play_reply: true,
+            executed_commands: Vec::new(),
+            template_reports: Vec::new(),
+            queued_template_reports: Vec::new(),
+        };
         self.store_turn_artifacts(&artifacts);
         Ok(artifacts)
     }
@@ -238,13 +215,7 @@ impl DialogueControlState {
             .or_else(|| {
                 self.session
                     .pending_transcript()
-                    .map(turn::default_echo_mock_script)
-                    .and_then(|steps| {
-                        steps.into_iter().next().and_then(|step| match step {
-                            llm::MockStep::Text(text) => Some(text),
-                            _ => None,
-                        })
-                    })
+                    .map(|transcript| format!("收到：{transcript}"))
             })
             .ok_or_else(|| SpeechError::Recognizer("missing reply text".to_string()))?;
         if self.tts_client.is_none() {

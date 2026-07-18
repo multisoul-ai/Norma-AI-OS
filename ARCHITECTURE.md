@@ -14,7 +14,7 @@ macOS Window（GPUI + Metal）
     │   ├── canvas：几何、节点、选择与命中
     │   ├── terminal：PTY、ANSI grid 与输入编码 ──> /bin/zsh
     │   └── storage：SQLite store 与 migration ──> workspace 元数据
-    ├── agent：Dialogue/CardTask、持久 Agent 协调规则与高层工具
+    ├── agent：NormaSession、Rig Provider、typed tools 与 Agent 协调规则
     ├── asr：ASR 模型 ID、受控目录、清单、哈希与原子安装
     ├── tts：TTS 模型/语音目录、能力与安装验证
     │   └── model_store：共享 archive/manifest/哈希/原子安装原语
@@ -33,7 +33,7 @@ voice_sherpa -> {asr, tts, dialogue, audio}
 tts -> model_store
 runtime -> {canvas, terminal, storage}
 storage -> {agent, canvas, workspace, rusqlite}
-agent -> norma
+agent -> {norma, rig-core, tokio, tokio-util, reqwest}
 ui -> gpui
 canvas -> {serde, thiserror}
 terminal -> {portable-pty, alacritty_terminal, crossbeam-channel}
@@ -52,9 +52,10 @@ asr -> {serde, sha2, tar, bzip2, tempfile}
 
 ### `crates/agent/`
 
-零 GPUI/Storage 的 Agent 领域层，负责 Dialogue、CardTask、Provider 工具循环、Agent 呼叫名、
-动态名册和按定义隔离的 FIFO 协调规则。它只计算高层命令与结构化回执；卡片激活、PTY 输入和
-SQLite journal 由 `app` adapters 执行。
+零 GPUI/Storage 的 Agent 领域层，负责固定身份的 `NormaSession`、Rig Provider/多轮工具循环、
+八个 typed tools、`AgentCardAdapter` seam、动态环境、Agent 呼叫名和按定义隔离的 FIFO 协调规则。
+Rig 类型不扩散到其他 crate；卡片激活、PTY 输入和 SQLite 审计由 `app` adapter 执行。
+`dialogue` 只保留 VAD/ASR/TTS 与语音状态，不再拥有 LLM 路由；仓库不再包含第二套 CardTask 模型循环。
 
 ### `crates/model_store/` 与 `crates/tts/`
 

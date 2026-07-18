@@ -22,6 +22,10 @@ enum AgentDispatchWrite {
     InterruptDefinition {
         definition_id: i64,
     },
+    PersistCancellation {
+        runtime_task_id: u64,
+        running: bool,
+    },
     MarkIncompleteInterrupted,
     Flush(SyncSender<()>),
 }
@@ -92,6 +96,16 @@ impl BackgroundAgentDispatchStore {
                                 tracing::error!(%error, "failed to persist background Agent interruption");
                             }
                         }
+                        AgentDispatchWrite::PersistCancellation {
+                            runtime_task_id,
+                            running,
+                        } => {
+                            if let Err(error) =
+                                store.persist_cancellation(runtime_task_id, running)
+                            {
+                                tracing::error!(%error, "failed to persist Agent task cancellation");
+                            }
+                        }
                         AgentDispatchWrite::MarkIncompleteInterrupted => {
                             if let Err(error) = store.mark_incomplete_interrupted() {
                                 tracing::error!(%error, "failed to interrupt background Agent tasks");
@@ -141,6 +155,13 @@ impl BackgroundAgentDispatchStore {
         let _ = self
             .sender
             .send(AgentDispatchWrite::InterruptDefinition { definition_id });
+    }
+
+    pub fn persist_cancellation(&self, runtime_task_id: u64, running: bool) {
+        let _ = self.sender.send(AgentDispatchWrite::PersistCancellation {
+            runtime_task_id,
+            running,
+        });
     }
 
     pub fn mark_incomplete_interrupted(&self) {

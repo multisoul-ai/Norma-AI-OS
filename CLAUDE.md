@@ -15,7 +15,7 @@ Workspace crates:
 - `canvas` - domain crate for geometry, document state, node models, selection, hit testing, and viewport transforms.
 - `terminal` - domain crate for PTY process handling, ANSI terminal grid parsing, input encoding, and terminal sessions.
 - `runtime` - domain crate for focus state, input routing, LiveNode registry, and node lifecycle glue.
-- `agent` - GPUI-free unified Dialogue/CardTask/Provider runtime with injected card tools and journal.
+- `agent` - GPUI/Storage-free NormaSession runtime using Rig providers, typed tools, and an injected AgentCardAdapter.
 - `asr` - GPUI/Sherpa-free model identity, curated catalog, installation manifest, integrity, and shared VAD support artifacts.
 - `model_store` - GPUI/network-free shared local-model archive, manifest, integrity, and atomic-install primitives.
 - `tts` - GPUI/Sherpa-free Local TTS model/voice identity, catalog, capability, and installation-validation domain.

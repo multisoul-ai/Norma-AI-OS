@@ -1,7 +1,8 @@
 # 实时对话 Agent 与卡片 Subagent 统一架构规格
 
 - 日期：2026-07-10
-- 状态：Ready for Agent
+- 状态：Superseded
+- 取代者：[`2026-07-18-SPEC-norma-master-agent-runtime.md`](2026-07-18-SPEC-norma-master-agent-runtime.md)。本文的 Dialogue/CardTask 双模型架构不再实施，仅保留历史背景。
 - 范围：实时语音对话、一次性语音指令、卡片任务派发、Card Subagent、模型 Provider 与任务审计
 - 2026-07-15 对齐说明：持久 Agent 身份、Cursor runtime profile 与高层委派规则以后续 [`2026-07-14-SPEC-voice-addressable-agents.md`](2026-07-14-SPEC-voice-addressable-agents.md) 为准。
 

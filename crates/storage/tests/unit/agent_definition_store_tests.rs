@@ -462,6 +462,7 @@ fn test_agent_definition_store_delete_clears_dispatch_history_and_releases_name(
         .expect("测试应创建 Alan 定义");
     crate::AgentDispatchTaskStore::new(path.clone())
         .create(&crate::NewAgentDispatchTask {
+            runtime_task_id: 1,
             definition_id: alan.id,
             node_id: 77,
             original_instruction: "Alan，检查测试".to_string(),
@@ -485,7 +486,6 @@ fn test_agent_definition_store_delete_clears_dispatch_history_and_releases_name(
             workflow_description: String::new(),
         })
         .expect("删除定义后 Alan 名称应立即释放并可复用");
-
     assert!(deleted, "存在的 Alan 定义应返回 deleted=true");
     assert_eq!(definitions.len(), 0, "删除事务后旧定义列表必须为空");
     assert_eq!(tasks.len(), 0, "删除事务必须清理旧 Alan 的委派记录");

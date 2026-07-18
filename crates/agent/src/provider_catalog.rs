@@ -1,8 +1,11 @@
 use crate::{
-    AgentMessage, AgentProvider, ConfiguredProvider, MessageRole, ProviderConfig, ProviderProtocol,
-    ProviderRequest,
+    AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter, NormaSession, ProviderConfig,
+    ProviderProtocol, ToolContext,
 };
+use futures::future::BoxFuture;
 use std::fmt;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 const CATALOG_TIMEOUT: Duration = Duration::from_secs(15);
@@ -91,19 +94,52 @@ pub fn normalize_provider_models(
 }
 
 pub fn validate_provider_model(config: ProviderConfig) -> Result<(), String> {
-    let mut provider = ConfiguredProvider::new(config).map_err(|error| error.to_string())?;
-    provider
-        .complete(&ProviderRequest {
-            messages: vec![AgentMessage {
-                role: MessageRole::User,
-                content: "Reply with OK.".to_string(),
-                tool_call_id: None,
-                tool_calls: Vec::new(),
-            }],
-            tools: Vec::new(),
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|error| format!("Could not start model validation runtime: {error}"))?;
+    runtime.block_on(async move {
+        let adapter = Arc::new(ValidationAdapter::default());
+        let mut session = NormaSession::new("provider-validation", &config, adapter.clone())
+            .map_err(|error| format!("Could not initialize the selected model: {error}"))?;
+        let result = session
+            .turn("创建一个 Terminal。必须调用 create_terminal，不要只回复文字。")
+            .await
+            .map_err(|error| format!("Could not validate the selected model: {error}"))?;
+        if result.tool_calls == 0 || !adapter.called.load(Ordering::Acquire) {
+            return Err(
+                "The selected model did not execute a structured tool call and cannot run Norma."
+                    .to_string(),
+            );
+        }
+        Ok(())
+    })
+}
+
+#[derive(Default)]
+struct ValidationAdapter {
+    called: AtomicBool,
+}
+
+impl AgentCardAdapter for ValidationAdapter {
+    fn execute<'a>(
+        &'a self,
+        command: AdapterCommand,
+        _context: &'a ToolContext,
+    ) -> BoxFuture<'a, Result<AdapterResult, AdapterError>> {
+        Box::pin(async move {
+            if command != AdapterCommand::CreateTerminal {
+                return Err(AdapterError::Rejected(
+                    "model validation only permits create_terminal".to_string(),
+                ));
+            }
+            self.called.store(true, Ordering::Release);
+            Ok(AdapterResult::succeeded(
+                "structured tool validation succeeded without a real side effect",
+            )
+            .with_node_id(1))
         })
-        .map(|_| ())
-        .map_err(|error| format!("Could not validate the selected model: {error}"))
+    }
 }
 
 fn classify_catalog_request_error(error: ureq::Error) -> ProviderCatalogError {

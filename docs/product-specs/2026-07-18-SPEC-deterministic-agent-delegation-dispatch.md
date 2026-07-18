@@ -1,7 +1,8 @@
 # 确定性 Agent 委派快路径与真实回执 SPEC
 
 - 日期：2026-07-18
-- 状态：Ready for Agent
+- 状态：Superseded
+- 取代者：[`2026-07-18-SPEC-norma-master-agent-runtime.md`](2026-07-18-SPEC-norma-master-agent-runtime.md)。确定性真实回执原则继续有效，旧 Dialogue/CardTask 快路径不再保留。
 - 范围：Dialogue 委派结构、CardTask 委派快路径、多 Agent 原子接收、真实回执、TraceId、现有语音反馈
 - 交付原则：只收紧委派分支，不改造普通对话和流式 TTS
 

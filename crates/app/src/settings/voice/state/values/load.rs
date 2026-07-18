@@ -64,10 +64,6 @@ impl SavedVoiceSettings {
             },
             ollama_endpoint: legacy_ollama_endpoint,
             planner_model: non_empty_option(store.get_string(KEY_OLLAMA_MODEL)?),
-            dialogue_llm_mode: store
-                .get_string(KEY_DIALOGUE_LLM_MODE)?
-                .as_deref()
-                .and_then(DialogueLlmMode::from_stored),
             dialogue_model: non_empty_option(store.get_string(KEY_DIALOGUE_MODEL)?),
             refine_model: non_empty_option(store.get_string(KEY_REFINE_MODEL)?),
             input_device_id: non_empty_option(store.get_string(KEY_INPUT_DEVICE_ID)?),

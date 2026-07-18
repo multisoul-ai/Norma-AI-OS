@@ -13,8 +13,6 @@ pub(crate) use readiness::{
     evaluate_voice_readiness, VoiceEntryState, VoiceReadinessInputs, VoiceRequirement,
     VoiceRequirementState,
 };
-#[cfg(test)]
-pub(crate) use state::DialogueLlmMode;
 pub(crate) use state::ProviderDiscoveryStatus;
 pub(crate) use state::{
     resolve_available_asr_model, DictationTrigger, VoiceInteractionMode, VoiceSettingsField,

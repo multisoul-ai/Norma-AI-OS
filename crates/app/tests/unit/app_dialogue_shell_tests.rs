@@ -351,10 +351,6 @@ fn test_dialogue_echo_turn_reply_text_reaches_speaking() {
             DialoguePhase::Speaking,
             "TTS 合成后应进入 Speaking"
         );
-        assert!(
-            !state.card_tasks_were_cancelled_for_tests(),
-            "echo turn 不应取消 card tasks"
-        );
     });
 }
 
@@ -367,7 +363,6 @@ fn test_dialogue_echo_turn_reply_text_reaches_speaking() {
 /// 预期结果：
 ///   - 正断言：phase 仍为 Speaking
 ///   - 负断言：recording sink 不得 stop
-///   - 负断言：card task cancel hook 未被调用
 #[test]
 fn test_dialogue_unclassified_speech_does_not_truncate_assistant_reply() {
     with_dialogue_shell_test_guard(|| {
@@ -390,10 +385,6 @@ fn test_dialogue_unclassified_speech_does_not_truncate_assistant_reply() {
 
         let sink = state.assistant_audio_sink_for_tests();
         assert!(!sink.stopped(), "前置：Speaking 播放尚未被 stop");
-        assert!(
-            !state.card_tasks_were_cancelled_for_tests(),
-            "前置：card tasks 尚未被取消"
-        );
 
         assert!(
             !state.on_unclassified_speech_start_for_tests(),
@@ -406,10 +397,6 @@ fn test_dialogue_unclassified_speech_does_not_truncate_assistant_reply() {
             "忽略 assistant 回声候选后应继续 Speaking"
         );
         assert!(!sink.stopped(), "assistant 回声不得停止正在播放的完整回复");
-        assert!(
-            !state.card_tasks_were_cancelled_for_tests(),
-            "assistant 回声不应取消 card tasks"
-        );
         assert!(
             state.models_resident(),
             "忽略 assistant 回声后 models_resident 应保持 true"

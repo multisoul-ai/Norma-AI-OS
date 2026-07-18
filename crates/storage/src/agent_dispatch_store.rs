@@ -11,6 +11,8 @@ pub enum AgentDispatchTaskState {
     Untracked,
     Done,
     Failed,
+    CancelRequested,
+    Cancelled,
     Interrupted,
 }
 
@@ -22,6 +24,7 @@ pub enum AgentDispatchTracking {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewAgentDispatchTask {
+    pub runtime_task_id: u64,
     pub definition_id: i64,
     pub node_id: u64,
     pub original_instruction: String,
@@ -33,6 +36,7 @@ pub struct NewAgentDispatchTask {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StoredAgentDispatchTask {
     pub id: i64,
+    pub runtime_task_id: u64,
     pub definition_id: i64,
     pub node_id: u64,
     pub original_instruction: String,
@@ -57,10 +61,11 @@ impl AgentDispatchTaskStore {
         let now = current_unix_timestamp()?;
         connection.execute(
             "INSERT INTO agent_dispatch_tasks
-             (definition_id, node_id, original_instruction, task_text, state, tracking,
+             (runtime_task_id, definition_id, node_id, original_instruction, task_text, state, tracking,
               created_at_unix, updated_at_unix)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
             params![
+                task.runtime_task_id,
                 task.definition_id,
                 task.node_id,
                 task.original_instruction,
@@ -78,7 +83,7 @@ impl AgentDispatchTaskStore {
     pub fn list(&self) -> StorageResult<Vec<StoredAgentDispatchTask>> {
         let connection = open_project_connection(&self.path)?;
         let mut statement = connection.prepare(
-            "SELECT id, definition_id, node_id, original_instruction, task_text, state,
+            "SELECT id, runtime_task_id, definition_id, node_id, original_instruction, task_text, state,
                     tracking, error
              FROM agent_dispatch_tasks ORDER BY id",
         )?;
@@ -97,7 +102,7 @@ impl AgentDispatchTaskStore {
         let id = transaction
             .query_row(
                 "SELECT id FROM agent_dispatch_tasks
-                 WHERE definition_id = ?1 AND state = 'submitted'
+                 WHERE definition_id = ?1 AND state IN ('submitted', 'untracked', 'cancel_requested')
                  ORDER BY id LIMIT 1",
                 [definition_id],
                 |row| row.get::<_, i64>(0),
@@ -111,6 +116,38 @@ impl AgentDispatchTaskStore {
             )?;
         }
         transaction.commit()?;
+        Ok(id)
+    }
+
+    pub fn persist_cancellation(
+        &self,
+        runtime_task_id: u64,
+        running: bool,
+    ) -> StorageResult<Option<i64>> {
+        let connection = open_project_connection(&self.path)?;
+        let (source_states, target_state) = if running {
+            ("'submitted', 'untracked'", "cancel_requested")
+        } else {
+            ("'queued'", "cancelled")
+        };
+        let id = connection
+            .query_row(
+                &format!(
+                    "SELECT id FROM agent_dispatch_tasks
+                     WHERE runtime_task_id = ?1 AND state IN ({source_states})
+                     ORDER BY id DESC LIMIT 1"
+                ),
+                [runtime_task_id],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()?;
+        if let Some(id) = id {
+            connection.execute(
+                "UPDATE agent_dispatch_tasks
+                 SET state = ?1, updated_at_unix = ?2 WHERE id = ?3",
+                params![target_state, current_unix_timestamp()?, id],
+            )?;
+        }
         Ok(id)
     }
 
@@ -164,7 +201,7 @@ impl AgentDispatchTaskStore {
         let connection = open_project_connection(&self.path)?;
         let mut statement = connection.prepare(
             "SELECT id FROM agent_dispatch_tasks
-             WHERE state IN ('submitted', 'queued', 'untracked') ORDER BY id",
+             WHERE state IN ('submitted', 'queued', 'untracked', 'cancel_requested') ORDER BY id",
         )?;
         let ids = statement
             .query_map([], |row| row.get::<_, i64>(0))?
@@ -174,7 +211,7 @@ impl AgentDispatchTaskStore {
             connection.execute(
                 "UPDATE agent_dispatch_tasks
                  SET state = 'interrupted', updated_at_unix = ?1
-                 WHERE state IN ('submitted', 'queued', 'untracked')",
+                 WHERE state IN ('submitted', 'queued', 'untracked', 'cancel_requested')",
                 [current_unix_timestamp()?],
             )?;
         }
@@ -186,7 +223,8 @@ impl AgentDispatchTaskStore {
         Ok(connection.execute(
             "UPDATE agent_dispatch_tasks
              SET state = 'interrupted', updated_at_unix = ?1
-             WHERE definition_id = ?2 AND state IN ('submitted', 'queued', 'untracked')",
+             WHERE definition_id = ?2
+               AND state IN ('submitted', 'queued', 'untracked', 'cancel_requested')",
             params![current_unix_timestamp()?, definition_id],
         )?)
     }
@@ -195,7 +233,7 @@ impl AgentDispatchTaskStore {
         let connection = open_project_connection(&self.path)?;
         connection
             .query_row(
-                "SELECT id, definition_id, node_id, original_instruction, task_text, state,
+                "SELECT id, runtime_task_id, definition_id, node_id, original_instruction, task_text, state,
                         tracking, error
                  FROM agent_dispatch_tasks WHERE id = ?1",
                 [id],
@@ -207,17 +245,18 @@ impl AgentDispatchTaskStore {
 }
 
 fn decode_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredAgentDispatchTask> {
-    let state: String = row.get(5)?;
-    let tracking: String = row.get(6)?;
+    let state: String = row.get(6)?;
+    let tracking: String = row.get(7)?;
     Ok(StoredAgentDispatchTask {
         id: row.get(0)?,
-        definition_id: row.get(1)?,
-        node_id: row.get(2)?,
-        original_instruction: row.get(3)?,
-        task_text: row.get(4)?,
+        runtime_task_id: row.get(1)?,
+        definition_id: row.get(2)?,
+        node_id: row.get(3)?,
+        original_instruction: row.get(4)?,
+        task_text: row.get(5)?,
         state: decode_state(&state)?,
         tracking: decode_tracking(&tracking)?,
-        error: row.get(7)?,
+        error: row.get(8)?,
     })
 }
 
@@ -228,6 +267,8 @@ fn encode_state(state: AgentDispatchTaskState) -> &'static str {
         AgentDispatchTaskState::Untracked => "untracked",
         AgentDispatchTaskState::Done => "done",
         AgentDispatchTaskState::Failed => "failed",
+        AgentDispatchTaskState::CancelRequested => "cancel_requested",
+        AgentDispatchTaskState::Cancelled => "cancelled",
         AgentDispatchTaskState::Interrupted => "interrupted",
     }
 }
@@ -239,6 +280,8 @@ fn decode_state(value: &str) -> rusqlite::Result<AgentDispatchTaskState> {
         "untracked" => Ok(AgentDispatchTaskState::Untracked),
         "done" => Ok(AgentDispatchTaskState::Done),
         "failed" => Ok(AgentDispatchTaskState::Failed),
+        "cancel_requested" => Ok(AgentDispatchTaskState::CancelRequested),
+        "cancelled" => Ok(AgentDispatchTaskState::Cancelled),
         "interrupted" => Ok(AgentDispatchTaskState::Interrupted),
         other => Err(invalid_text(other)),
     }

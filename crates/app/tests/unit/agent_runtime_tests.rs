@@ -1,14 +1,11 @@
 use super::{
     agent_completion_report, artifacts_from_agent_events, execute_agent_card_command,
-    start_tool_pump, terminal_task_report, AgentToolRequest, ProjectAgentRuntime,
+    execute_norma_adapter_command, terminal_task_report,
 };
-use agent::{AgentEvent, ProviderConfig, ProviderProtocol};
+use agent::AgentEvent;
 use canvas::CanvasNodeKind;
 use gpui::TestAppContext;
 use norma::protocol::{CardCommand, CardCommandResult, CardKind, Placement};
-use std::sync::atomic::AtomicBool;
-use std::sync::{mpsc, Arc};
-use std::time::Duration;
 use terminal::{PtyBackend, TestPtyBackend};
 
 fn echo_factory() -> runtime::PtyFactory {
@@ -279,97 +276,116 @@ fn test_agent_card_command_adapter_creates_multiple_terminals_in_real_runtime() 
     );
 }
 
-/// ART-7：生产 Agent tool pump 必须连续转发多个 Runtime 请求，不能在第一个完成后丢弃第二个。
+/// ART-NORMA-1：生产 AgentCardAdapter 创建内置 Agent 后，可直接派发并返回真实 task_id
 ///
-/// 数据构造：headless MultisoulApp 注入 echo PTY 并进入临时画布；向生产 async channel 连续发送
-/// 两条带独立 tool_call_id 的 Terminal Create 请求，runtime_id=77 与当前 ProjectAgentRuntime 一致。
-/// 执行过程：启动生产 `start_tool_pump`，驱动 TestAppContext 直到两个同步结果 channel 都收到回执。
-/// 预期结果：两个回执均为 Created；真实 Runtime 的 live/document 都有两个 Terminal，第二请求不得丢失。
+/// 数据构造（含关键数值的推导过程）：
+///   Initial Agent definitions = 0
+///   `create_agent(codex)` calls = 1 → definitions=1、AgentCard=1
+///   `assign_agent_task` calls = 1 → active tasks=1、expected task_id=1
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在 headless GPUI 的真实 MultisoulApp 上执行 Norma `CreateAgent`
+///   2. 读取系统分配的内置 Agent 名称，不让模型提供名称
+///   3. 对该名称立即执行 `AssignAgentTask`，由生产 FIFO 接收任务
+///
+/// 预期结果：
+///   - 正断言：创建回执含唯一 AgentCard node_id，派发回执为 accepted/task_id=1
+///   - 正断言：Coordinator 中存在同一 Agent 的运行任务
+///   - 负断言：画布中不出现名为 Norma 的 Agent，也不产生第二张 AgentCard
 #[test]
-fn test_agent_tool_pump_forwards_multiple_creates_to_real_runtime() {
-    const RUNTIME_ID: u64 = 77;
+fn test_norma_adapter_creates_builtin_agent_and_dispatches_without_confirmation() {
     let mut gpui = TestAppContext::single();
-    let workspace = tempfile::TempDir::new().expect("tool pump temp workspace should be creatable");
+    let workspace =
+        tempfile::TempDir::new().expect("Norma Adapter temp workspace should be creatable");
     let (app, cx) = gpui.add_window_view(|_window, cx| {
         crate::app::MultisoulApp::new_with_pty_factory(cx, echo_factory())
     });
-    let (tool_tx, tool_rx) = async_channel::unbounded();
-    let (agent_request_tx, _agent_request_rx) = async_channel::bounded(1);
     app.update(cx, |app, cx| {
-        app.enter_canvas_for_test(workspace.path(), cx);
-        app.agent_runtime = Some(ProjectAgentRuntime {
-            id: RUNTIME_ID,
-            project_id: "tool-pump-test".to_string(),
-            config: ProviderConfig::new(
-                ProviderProtocol::Ollama,
-                "http://127.0.0.1:11434",
-                "test-model",
-                None,
-            ),
-            request_tx: agent_request_tx,
-            cancelled: Arc::new(AtomicBool::new(false)),
-            dialogue_cancelled: Arc::new(AtomicBool::new(false)),
-        });
-    });
-    cx.update(|window, app_cx| {
-        app.update(app_cx, |_app, cx| {
-            start_tool_pump(tool_rx, RUNTIME_ID, window, cx);
-        });
+        app.enter_canvas_for_test(workspace.path(), cx)
     });
 
-    let (first_result_tx, first_result_rx) = mpsc::channel();
-    let (second_result_tx, second_result_rx) = mpsc::channel();
-    for (task_id, tool_call_id, result_tx) in [
-        (1, "tool-create-1", first_result_tx),
-        (2, "tool-create-2", second_result_tx),
-    ] {
-        tool_tx
-            .send_blocking(AgentToolRequest {
-                trace_id: format!("trace-tool-{task_id}"),
-                task_id,
-                tool_call_id: tool_call_id.to_string(),
-                command: CardCommand::Create {
-                    kind: CardKind::Terminal { shell: None },
-                    placement: Placement::VisibleArea,
+    let created = cx.update(|window, app_cx| {
+        app.update(app_cx, |app, _cx| {
+            execute_norma_adapter_command(
+                app,
+                window,
+                agent::AdapterCommand::CreateAgent {
+                    profile: norma::protocol::AgentProfile::Codex,
                 },
-                result_tx,
-            })
-            .expect("生产 tool pump receiver 在测试期间必须保持连接");
-    }
-    cx.run_until_parked();
+            )
+        })
+    });
+    let created = created.expect("create_agent should execute on the production App Adapter");
+    let name = app.read_with(cx, |app, _cx| {
+        app.agent_definitions.definitions()[0].name.clone()
+    });
+    let assigned = cx.update(|window, app_cx| {
+        app.update(app_cx, |app, _cx| {
+            execute_norma_adapter_command(
+                app,
+                window,
+                agent::AdapterCommand::AssignAgentTask {
+                    agent: name.clone(),
+                    task: "检查当前项目有哪些技术栈。".to_string(),
+                },
+            )
+        })
+    });
+    let assigned = assigned.expect("assign_agent_task should execute without confirmation");
 
-    // 1s = 本用例没有网络、真实 PTY 或计时器，仅等待一次 headless executor 调度；
-    // 该余量远高于正常毫秒级 channel/GPUI 交接，同时把 bridge 死锁限制为快速、确定的失败。
-    let first_result = first_result_rx
-        .recv_timeout(Duration::from_secs(1))
-        .expect("第一条 tool request 必须在一秒内获得 Runtime receipt");
-    let second_result = second_result_rx
-        .recv_timeout(Duration::from_secs(1))
-        .expect("第二条 tool request 必须在一秒内获得 Runtime receipt");
-    assert!(
-        matches!(first_result, Ok(CardCommandResult::Created { .. })),
-        "第一条 Create 必须成功；实际结果：{first_result:?}"
+    assert_eq!(
+        created.status, "succeeded",
+        "create_agent should report the actual successful App side effect"
     );
     assert!(
-        matches!(second_result, Ok(CardCommandResult::Created { .. })),
-        "第二条 Create 不得在 tool pump 中丢失；实际结果：{second_result:?}"
+        created.node_id.is_some(),
+        "create_agent should return the activated AgentCard node id"
     );
-    let (live_len, nodes) = app.read_with(cx, |app, _cx| {
-        (
-            app.runtime.live_len(),
-            app.runtime.document.nodes().to_vec(),
-        )
+    assert_eq!(
+        assigned.status, "accepted",
+        "assign_agent_task should report AgentCard acceptance, not completion"
+    );
+    assert_eq!(
+        assigned.task_id,
+        Some(1),
+        "the first production AgentCard task should return deterministic task_id=1"
+    );
+    let (agent_nodes, tasks, has_norma) = app.read_with(cx, |app, _cx| {
+        let agent_nodes = app
+            .runtime
+            .document
+            .nodes()
+            .iter()
+            .filter(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
+            .count();
+        let tasks = app
+            .agent_task_coordinator
+            .as_ref()
+            .map(agent::AgentTaskCoordinator::tasks)
+            .unwrap_or_default();
+        let has_norma = app
+            .agent_definitions
+            .definitions()
+            .iter()
+            .any(|definition| definition.name.eq_ignore_ascii_case("Norma"));
+        (agent_nodes, tasks, has_norma)
     });
     assert_eq!(
-        live_len, 2,
-        "两个 bridge request 必须注册两个 live terminal"
+        agent_nodes, 1,
+        "create plus assignment should reuse one unique AgentCard"
     );
-    assert_eq!(nodes.len(), 2, "两个 bridge request 必须创建两个画布节点");
+    assert_eq!(
+        tasks.len(),
+        1,
+        "the direct assignment should create exactly one tracked FIFO task"
+    );
+    assert_eq!(
+        tasks[0].task, "检查当前项目有哪些技术栈。",
+        "the production coordinator should retain the complete delegated task"
+    );
     assert!(
-        nodes
-            .iter()
-            .all(|node| matches!(node.kind, CanvasNodeKind::Term(_))),
-        "两个 bridge request 创建的节点都必须是 Terminal"
+        !has_norma,
+        "the Master identity Norma must never be persisted as a Canvas Agent"
     );
 }
 
