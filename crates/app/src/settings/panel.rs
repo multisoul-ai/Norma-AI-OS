@@ -201,6 +201,7 @@ impl MultisoulApp {
             },
             &self.wallpaper_settings,
             &self.shortcuts,
+            window,
             cx,
         );
         let (navigation, content) = match layout.navigation_mode {

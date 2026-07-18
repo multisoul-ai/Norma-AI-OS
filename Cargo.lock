@@ -2038,6 +2038,7 @@ dependencies = [
  "storage",
  "tempfile",
  "terminal",
+ "ui",
  "voice",
  "workspace",
 ]

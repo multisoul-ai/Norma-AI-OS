@@ -22,6 +22,7 @@ runtime = { path = "../runtime" }
 storage.workspace = true
 canvas = { path = "../canvas" }
 terminal = { path = "../terminal" }
+ui.workspace = true
 norma.workspace = true
 serde_json.workspace = true
 voice.workspace = true

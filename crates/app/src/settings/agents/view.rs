@@ -1,9 +1,11 @@
 use super::components::{action_button, empty_list_message, status_block, status_chip, with_alpha};
+use super::text_input::editable_field;
 use super::{AgentDefinitionField, AgentDefinitionsState};
 use crate::app::MultisoulApp;
 use canvas::AgentProfile;
 use gpui::{
     div, prelude::*, px, rgba, AnyElement, Context, Div, FontWeight, MouseButton, MouseDownEvent,
+    Window,
 };
 use storage::AgentDefinition;
 use ui::Theme;
@@ -11,6 +13,7 @@ use ui::Theme;
 pub(crate) fn agents_settings(
     theme: Theme,
     state: &AgentDefinitionsState,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     if !state.has_project_store() {
@@ -29,7 +32,7 @@ pub(crate) fn agents_settings(
         .gap(px(16.0))
         .pt(px(8.0))
         .child(toolbar(theme, cx))
-        .child(agent_cards(theme, state, cx))
+        .child(agent_cards(theme, state, window, cx))
         .when_some(state.status(), |this, status| {
             this.child(status_block(theme, status, status.starts_with("Could not")))
         })
@@ -72,6 +75,7 @@ fn toolbar(theme: Theme, cx: &mut Context<MultisoulApp>) -> Div {
 fn agent_cards(
     theme: Theme,
     state: &AgentDefinitionsState,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> AnyElement {
     let definitions = state.definitions();
@@ -87,7 +91,7 @@ fn agent_cards(
         })
         .children(definitions.iter().map(|definition| {
             if state.editing_card_id() == Some(definition.id) {
-                editing_agent_card(theme, state, Some(definition.id), cx)
+                editing_agent_card(theme, state, Some(definition.id), window, cx)
             } else {
                 readonly_agent_card(
                     theme,
@@ -98,7 +102,7 @@ fn agent_cards(
             }
         }))
         .when(state.is_creating_new(), |this| {
-            this.child(editing_agent_card(theme, state, None, cx))
+            this.child(editing_agent_card(theme, state, None, window, cx))
         })
         .into_any_element()
 }
@@ -194,6 +198,7 @@ fn editing_agent_card(
     theme: Theme,
     state: &AgentDefinitionsState,
     id: Option<i64>,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> AnyElement {
     let draft = state.draft();
@@ -240,6 +245,7 @@ fn editing_agent_card(
             state,
             AgentDefinitionField::Name,
             "Name",
+            window,
             cx,
         ))
         .child(profile_buttons(theme, draft.runtime_profile, cx))
@@ -248,6 +254,7 @@ fn editing_agent_card(
             state,
             AgentDefinitionField::WorkflowDescription,
             "Workflow",
+            window,
             cx,
         ))
         .child(
@@ -281,62 +288,6 @@ fn editing_agent_card(
                 }),
         )
         .into_any_element()
-}
-
-fn editable_field(
-    theme: Theme,
-    state: &AgentDefinitionsState,
-    field: AgentDefinitionField,
-    label: &'static str,
-    cx: &mut Context<MultisoulApp>,
-) -> Div {
-    let (id, min_height) = match field {
-        AgentDefinitionField::Name => ("settings-agent-name-input", 42.0),
-        AgentDefinitionField::WorkflowDescription => ("settings-agent-workflow-input", 120.0),
-    };
-
-    div()
-        .flex()
-        .flex_col()
-        .gap(px(8.0))
-        .child(
-            div()
-                .text_size(px(13.0))
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(rgba(theme.text_secondary))
-                .child(label),
-        )
-        .child(
-            div()
-                .id(id)
-                .w_full()
-                .min_h(px(min_height))
-                .p(px(12.0))
-                .rounded(px(8.0))
-                .border_1()
-                .border_color(rgba(with_alpha(
-                    if state.is_editing(field) {
-                        theme.accent_orange
-                    } else {
-                        theme.edge_highlight
-                    },
-                    0x54,
-                )))
-                .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
-                .text_size(px(13.0))
-                .text_color(rgba(if state.is_editing(field) {
-                    theme.accent_orange
-                } else {
-                    theme.text_primary
-                }))
-                .line_height(px(20.0))
-                .cursor_pointer()
-                .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xd4))))
-                .on_click(cx.listener(move |app, event, window, cx| {
-                    app.on_agent_settings_begin_edit(field, event, window, cx);
-                }))
-                .child(state.row_value(field)),
-        )
 }
 
 fn profile_buttons(theme: Theme, selected: AgentProfile, cx: &mut Context<MultisoulApp>) -> Div {

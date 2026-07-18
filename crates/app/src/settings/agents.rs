@@ -3,6 +3,7 @@
 mod actions;
 mod components;
 mod state;
+mod text_input;
 mod view;
 
 #[cfg(test)]

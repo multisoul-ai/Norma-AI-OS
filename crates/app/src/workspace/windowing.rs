@@ -1,23 +1,24 @@
 use crate::app::{AppScreen, MultisoulApp};
 use gpui::{
-    px, size, App, AppContext as _, Bounds, Context, Global, TitlebarOptions,
+    px, size, App, AppContext as _, Bounds, Context, Entity, Global, TitlebarOptions,
     WindowBackgroundAppearance, WindowBounds, WindowHandle, WindowOptions,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+use ui::component::Root;
 
 const APP_DISPLAY_NAME: &str = "Norma OS";
 
 #[derive(Default)]
 pub(crate) struct WorkspaceWindowRegistry {
-    windows_by_root: HashMap<PathBuf, WindowHandle<MultisoulApp>>,
+    windows_by_root: HashMap<PathBuf, WindowHandle<Root>>,
 }
 
 impl Global for WorkspaceWindowRegistry {}
 
 impl WorkspaceWindowRegistry {
-    pub(crate) fn register(&mut self, root: PathBuf, handle: WindowHandle<MultisoulApp>) {
+    pub(crate) fn register(&mut self, root: PathBuf, handle: WindowHandle<Root>) {
         self.windows_by_root.insert(root, handle);
     }
 
@@ -30,7 +31,7 @@ impl WorkspaceWindowRegistry {
         self.windows_by_root.contains_key(root)
     }
 
-    pub(crate) fn window_for(&self, root: &Path) -> Option<WindowHandle<MultisoulApp>> {
+    pub(crate) fn window_for(&self, root: &Path) -> Option<WindowHandle<Root>> {
         self.windows_by_root.get(root).copied()
     }
 
@@ -46,14 +47,20 @@ pub(crate) enum InitialWindowState {
     Workspace(PathBuf),
 }
 
-pub(crate) fn open_multisoul_window(
+struct OpenedMultisoulWindow {
+    root_handle: WindowHandle<Root>,
+    app: Entity<MultisoulApp>,
+}
+
+fn open_multisoul_window(
     state: InitialWindowState,
     cx: &mut App,
-) -> anyhow::Result<WindowHandle<MultisoulApp>> {
+) -> anyhow::Result<OpenedMultisoulWindow> {
     let title = title_for_initial_state(&state);
     let bounds = Bounds::centered(None, size(px(1280.0), px(800.0)), cx);
-    let handle = cx.open_window(window_options(title, bounds), |window, cx| {
-        cx.new(|cx| {
+    let mut app_entity = None;
+    let root_handle = cx.open_window(window_options(title, bounds), |window, cx| {
+        let app = cx.new(|cx| {
             let mut app = MultisoulApp::new(cx);
             app.start_norma_drain_loop(window, cx);
             app.start_dialogue_turn_loop(window, cx);
@@ -62,9 +69,14 @@ pub(crate) fn open_multisoul_window(
                 app.open_workspace_path(path, window, cx);
             }
             app
-        })
+        });
+        app_entity = Some(app.clone());
+        cx.new(|cx| Root::new(app, window, cx))
     })?;
-    Ok(handle)
+    let app = app_entity.ok_or_else(|| {
+        anyhow::anyhow!("production window should create a nested MultisoulApp entity")
+    })?;
+    Ok(OpenedMultisoulWindow { root_handle, app })
 }
 
 pub(crate) fn title_for_initial_state(state: &InitialWindowState) -> String {
@@ -125,7 +137,7 @@ impl MultisoulApp {
             .window_for(root.as_path());
         if let Some(handle) = existing {
             let activated = handle
-                .update(cx, |_app, window, _cx| window.activate_window())
+                .update(cx, |_root, window, _cx| window.activate_window())
                 .is_ok();
             if !activated {
                 cx.default_global::<WorkspaceWindowRegistry>()
@@ -141,20 +153,23 @@ impl MultisoulApp {
 
         let open_start = Instant::now();
         match open_multisoul_window(InitialWindowState::Workspace(root.clone()), cx) {
-            Ok(handle) => {
+            Ok(opened_window) => {
                 tracing::info!(
                     stage = "workspace_open_project_window",
                     path = %root.display(),
                     elapsed_ms = open_start.elapsed().as_secs_f64() * 1000.0,
                     "workspace_open_timing"
                 );
-                let opened = handle
+                let opened = opened_window
+                    .app
                     .read(cx)
-                    .map(|app| app.workspace_state.current_root.as_deref() == Some(root.as_path()))
-                    .unwrap_or(false);
+                    .workspace_state
+                    .current_root
+                    .as_deref()
+                    == Some(root.as_path());
                 if opened {
                     cx.default_global::<WorkspaceWindowRegistry>()
-                        .register(root, handle);
+                        .register(root, opened_window.root_handle);
                     if close_current_launchpad && matches!(self.screen, AppScreen::Launchpad) {
                         window.remove_window();
                     }
@@ -225,7 +240,7 @@ mod tests {
         assert!(!registry.contains(&root_a), "空 registry 不应命中 root_a");
         assert_eq!(registry.len(), 0, "空 registry 的窗口数量应为 0");
 
-        let handle = WindowHandle::<MultisoulApp>::new(gpui::WindowId::from(7));
+        let handle = WindowHandle::<Root>::new(gpui::WindowId::from(7));
         registry.register(root_a.clone(), handle);
 
         assert!(
@@ -320,5 +335,49 @@ mod tests {
             error
         );
         assert_ne!(root, Some(missing), "缺失路径不应被当作可打开项目 root");
+    }
+
+    /// WN-4：生产窗口必须以 gpui-component Root 为第一层，供 Settings 原生输入安全绘制。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   production windows = 1 个（通过 `open_multisoul_window` 创建 Launchpad）
+    ///   expected component roots = 1 个
+    ///   expected raw MultisoulApp roots = 0 个
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 初始化 gpui-component，并调用生产窗口工厂创建 Launchpad 窗口。
+    ///   2. 从真实 Window 查询第一层是否为 `ui::component::Root`。
+    ///   3. 同时查询第一层是否错误地直接暴露 `MultisoulApp`。
+    ///
+    /// 预期结果：
+    ///   - 正断言：生产窗口第一层必须存在 gpui-component Root，Input 绘制才能读取上下文。
+    ///   - 负断言：MultisoulApp 不得继续直接成为窗口第一层，否则点击 Input 会 panic。
+    #[test]
+    fn test_production_window_wraps_multisoul_app_in_component_root() {
+        let mut test_cx = gpui::TestAppContext::single();
+        let opened_window = test_cx.update(|cx| {
+            ui::init_components(cx);
+            open_multisoul_window(InitialWindowState::Launchpad, cx)
+                .expect("生产窗口 Root 回归测试应创建 Launchpad 窗口")
+        });
+
+        let (has_component_root, has_raw_app_root) = opened_window
+            .root_handle
+            .update(&mut test_cx, |_app, window, _cx| {
+                (
+                    window.root::<ui::component::Root>().flatten().is_some(),
+                    window.root::<MultisoulApp>().flatten().is_some(),
+                )
+            })
+            .expect("生产窗口 Root 回归测试应读取窗口第一层");
+
+        assert!(
+            has_component_root,
+            "生产窗口必须由 gpui-component Root 包裹，否则 Settings Input 绘制会 panic"
+        );
+        assert!(
+            !has_raw_app_root,
+            "MultisoulApp 不得直接作为生产窗口第一层，否则组件 Root 上下文缺失"
+        );
     }
 }

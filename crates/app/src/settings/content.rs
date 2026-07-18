@@ -5,7 +5,7 @@ use crate::settings::appearance::theme_appearance;
 use crate::settings::voice::{voice_settings, VoiceSettingsInputs, VoiceSettingsState};
 use crate::settings::wallpaper::{wallpaper_settings, WallpaperSettingsState};
 use crate::shortcuts::ShortcutSettingsState;
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
+use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, Window};
 use ui::{Theme, ThemeId};
 
 mod hooks;
@@ -27,6 +27,7 @@ pub(super) fn settings_content(
     voice: VoiceSettingsContent<'_>,
     wallpaper_state: &WallpaperSettingsState,
     shortcuts: &ShortcutSettingsState,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     div()
@@ -53,7 +54,9 @@ pub(super) fn settings_content(
                     SettingsSection::Themes => theme_appearance(theme_id, theme, cx),
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
                     SettingsSection::Voice => voice_settings(theme, voice.state, voice.inputs, cx),
-                    SettingsSection::Agents => agents_settings(theme, agent_definitions, cx),
+                    SettingsSection::Agents => {
+                        agents_settings(theme, agent_definitions, window, cx)
+                    }
                     SettingsSection::Hooks => hooks_settings(theme, panel, cx),
                     SettingsSection::Wallpaper => wallpaper_settings(theme, wallpaper_state, cx),
                     // Mock-only sections are hidden from the sidebar; keep a blank
