@@ -1,6 +1,6 @@
 //! Clipboard image paste support for terminal-backed Agent cards.
 
-use canvas::{CanvasNodeKind, NodeId};
+use canvas::{AgentProfile, CanvasNodeKind, NodeId};
 use gpui::{ClipboardEntry, ClipboardItem, Image, ImageFormat};
 use runtime::Runtime;
 use std::fs::{self, DirEntry};
@@ -26,11 +26,26 @@ pub(crate) struct SavedClipboardImage {
     pub(crate) text: String,
 }
 
-pub(crate) fn accepts_clipboard_image_path(runtime: &Runtime, node_id: NodeId) -> bool {
-    runtime
-        .document
-        .node(node_id)
-        .is_some_and(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ClipboardImagePasteMode {
+    NativeShortcut,
+    PathFallback,
+}
+
+pub(crate) fn clipboard_image_paste_mode(
+    runtime: &Runtime,
+    node_id: NodeId,
+) -> Option<ClipboardImagePasteMode> {
+    let node = runtime.document.node(node_id)?;
+    match &node.kind {
+        CanvasNodeKind::Agent(spec)
+            if matches!(spec.profile, AgentProfile::Claude | AgentProfile::Codex) =>
+        {
+            Some(ClipboardImagePasteMode::NativeShortcut)
+        }
+        CanvasNodeKind::Agent(_) => Some(ClipboardImagePasteMode::PathFallback),
+        _ => None,
+    }
 }
 
 pub(crate) fn clipboard_image_extension(format: ImageFormat) -> &'static str {

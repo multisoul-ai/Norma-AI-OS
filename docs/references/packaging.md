@@ -64,6 +64,20 @@ layout. The app and Applications anchors are `(180, 175)` and `(460, 175)`.
 Finder draws its 16pt item labels below those anchors; the previous `y=200`
 positions put both labels across the bottom border of the background wells.
 
+The Retina background is authored in `assets/dmg-background.svg` and rendered
+to the packaged `assets/dmg-background.png` with:
+
+```bash
+bash scripts/render-dmg-background.sh
+```
+
+The renderer composites the real app icon into the header, emits a 1280x800 PNG
+at 144 DPI, and keeps the release asset reproducible. The two Finder label
+landing zones use light backing plates so the system-owned dark labels remain
+readable over the dark installer background. `scripts/test-packager-config.sh`
+checks the exact label zones for sufficient luminance and verifies that the
+header mark was not dropped during SVG rendering.
+
 Finder owns the item-label rendering. Its icon-view scripting interface exposes
 icon size, text size, label position, background picture, and background color,
 but not label text color. `cargo-packager`/`create-dmg` therefore cannot force

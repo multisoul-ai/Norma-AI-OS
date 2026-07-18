@@ -17,6 +17,7 @@ use gpui::{
 use runtime::{route, InputEvent, InputMode, NodeInput, NodeView, Route, Runtime};
 #[cfg(test)]
 use terminal::{Cell, GridSnapshot};
+use terminal::{Key, KeyInput};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum DictationShortcutAction {
@@ -180,8 +181,23 @@ fn should_auto_focus_keyboard_selection(keystroke: &Keystroke) -> bool {
 impl MultisoulApp {
     fn paste_clipboard_to_node(&mut self, node_id: NodeId, cx: &mut Context<Self>) -> bool {
         let item = cx.read_from_clipboard();
-        if clipboard_image::accepts_clipboard_image_path(&self.runtime, node_id) {
+        if let Some(mode) = clipboard_image::clipboard_image_paste_mode(&self.runtime, node_id) {
             if let Some(image) = clipboard_image::read_clipboard_image_first(item.as_ref()) {
+                if mode == clipboard_image::ClipboardImagePasteMode::NativeShortcut {
+                    self.interaction.clear_text_selection_for_node(node_id);
+                    self.motion.interrupt_initialization(node_id);
+                    if let Err(error) = self.runtime.send_node_input(
+                        node_id,
+                        NodeInput::Key(KeyInput {
+                            key: Key::Char('v'),
+                            ctrl: true,
+                            alt: false,
+                        }),
+                    ) {
+                        tracing::error!(%error, "native clipboard image paste failed");
+                    }
+                    return true;
+                }
                 match clipboard_image::save_clipboard_image_to_system_temp(&image) {
                     Ok(saved) => {
                         self.interaction.clear_text_selection_for_node(node_id);

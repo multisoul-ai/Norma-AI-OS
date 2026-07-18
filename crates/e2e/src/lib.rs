@@ -25,6 +25,9 @@ mod e2e_01_menu_actions;
 // E2E-02（SPEC §4.3）：向 focused Term 节点写入输入 → 剧本后端回吐 → grid 含回吐内容。
 mod e2e_02_terminal_echo;
 
+// Agent 图片粘贴按 CLI 协议分流：Cursor 路径回退，Codex/Claude 原生附件快捷键。
+mod e2e_02_agent_image_paste;
+
 // E2E-02-real（SPEC §3.4，L2 `#[ignore]`）：真实 portable_pty 后端，本地 `--ignored` 跑。
 mod e2e_02_real_pty;
 
@@ -33,6 +36,7 @@ mod e2e_03_settings_clicks;
 mod e2e_03_settings_navigation;
 mod e2e_03_theme_switching;
 mod e2e_03_voice_modes;
+mod e2e_03_wallpaper_badges;
 
 // Settings E2E：Voice Provider 文本输入无需 Enter 即自动保存。
 mod e2e_04_voice_autosave;
@@ -88,9 +92,9 @@ mod e2e_17_license_gate_startup;
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。
 pub use harness::{
-    create_codex_agent, create_cursor_agent, create_terminal, drain_until, echo_factory,
-    enter_canvas, make_app, make_app_real, make_app_with_settings_store, read_grid, read_runtime,
-    scripted_factory,
+    create_claude_agent, create_codex_agent, create_cursor_agent, create_terminal, drain_until,
+    echo_factory, enter_canvas, make_app, make_app_real, make_app_with_settings_store, read_grid,
+    read_runtime, scripted_factory,
 };
 
 /// Smoke：headless GPUI 启动 `MultisoulApp`，初始屏幕应为 `Launchpad`。

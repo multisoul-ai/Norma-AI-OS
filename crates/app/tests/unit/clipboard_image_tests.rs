@@ -74,27 +74,30 @@ fn test_clipboard_image_extension_matches_original_format() {
     );
 }
 
-/// Agent-only 目标判断：只有 Agent 卡片应把图片剪切板转换为路径粘贴。
+/// Agent 图片粘贴协议：Codex/Claude 走原生快捷键，Cursor/OpenCode 保留路径回退。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   agent node_id = 1，CanvasNodeKind::Agent(Codex)
-///   rect node_id  = 2，CanvasNodeKind::Rect
+///   agent nodes = 4：Codex、Claude、Cursor、OpenCode 各 1 个
+///   native profiles = 2：Codex + Claude
+///   path profiles = 2：Cursor + OpenCode
+///   rect node = 1 个，非 Agent
 ///   missing id    = 99，不存在于 document
-///   共 3 个候选目标，其中仅 1 个应启用图片路径粘贴
+///   共 6 个候选目标，其中 4 个有图片协议、2 个返回 None
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. Runtime document 加入 Agent 与 Rect 节点
-///   2. 分别调用 accepts_clipboard_image_path
-///   3. 检查非 Agent 和失效 id 都不会触发图片落盘
+///   1. Runtime document 加入四种 Agent profile 与一个 Rect 节点
+///   2. 对每个 node id 调用 clipboard_image_paste_mode
+///   3. 对比原生快捷键、路径回退和不支持三类结果
 ///
 /// 预期结果：
-///   - 正断言：Agent 节点返回 true
-///   - 负断言：Rect 节点返回 false
-///   - 负断言：不存在节点返回 false
+///   - 正断言：Codex/Claude 精确返回 NativeShortcut
+///   - 正断言：Cursor/OpenCode 精确返回 PathFallback
+///   - 负断言：Cursor 不得误用 NativeShortcut，Codex 不得误用 PathFallback
+///   - 负断言：Rect 与不存在节点都返回 None
 #[test]
-fn test_accepts_clipboard_image_path_is_agent_only() {
+fn test_clipboard_image_paste_mode_matches_agent_profile_protocol() {
     let mut runtime = Runtime::new();
-    let agent = runtime.document.add_node(
+    let codex = runtime.document.add_node(
         CanvasNodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: None,
@@ -102,22 +105,74 @@ fn test_accepts_clipboard_image_path_is_agent_only() {
         }),
         CanvasRect::new(0.0, 0.0, 100.0, 80.0),
     );
-    let rect = runtime.document.add_node(
-        CanvasNodeKind::Rect(RectNode { color: 0x4080ff }),
+    let claude = runtime.document.add_node(
+        CanvasNodeKind::Agent(AgentSpec {
+            profile: AgentProfile::Claude,
+            alias: None,
+            definition_id: None,
+        }),
         CanvasRect::new(120.0, 0.0, 100.0, 80.0),
     );
+    let cursor = runtime.document.add_node(
+        CanvasNodeKind::Agent(AgentSpec {
+            profile: AgentProfile::Cursor,
+            alias: None,
+            definition_id: None,
+        }),
+        CanvasRect::new(240.0, 0.0, 100.0, 80.0),
+    );
+    let opencode = runtime.document.add_node(
+        CanvasNodeKind::Agent(AgentSpec {
+            profile: AgentProfile::OpenCode,
+            alias: None,
+            definition_id: None,
+        }),
+        CanvasRect::new(360.0, 0.0, 100.0, 80.0),
+    );
+    let rect = runtime.document.add_node(
+        CanvasNodeKind::Rect(RectNode { color: 0x4080ff }),
+        CanvasRect::new(480.0, 0.0, 100.0, 80.0),
+    );
 
-    assert!(
-        accepts_clipboard_image_path(&runtime, agent),
-        "Agent 节点应启用图片剪切板转路径粘贴"
+    assert_eq!(
+        clipboard_image_paste_mode(&runtime, codex),
+        Some(ClipboardImagePasteMode::NativeShortcut),
+        "Codex 图片应交给 CLI 原生 Ctrl+V 附件入口"
     );
-    assert!(
-        !accepts_clipboard_image_path(&runtime, rect),
-        "普通 Rect 节点不应启用图片剪切板转路径粘贴"
+    assert_eq!(
+        clipboard_image_paste_mode(&runtime, claude),
+        Some(ClipboardImagePasteMode::NativeShortcut),
+        "Claude 图片应交给 CLI 原生 Ctrl+V 附件入口"
     );
-    assert!(
-        !accepts_clipboard_image_path(&runtime, 99),
-        "不存在的节点不应触发图片落盘或路径粘贴"
+    assert_eq!(
+        clipboard_image_paste_mode(&runtime, cursor),
+        Some(ClipboardImagePasteMode::PathFallback),
+        "Cursor 应保持当前可用的临时路径输入格式"
+    );
+    assert_eq!(
+        clipboard_image_paste_mode(&runtime, opencode),
+        Some(ClipboardImagePasteMode::PathFallback),
+        "OpenCode 没有故障证据，应保留路径回退格式"
+    );
+    assert_ne!(
+        clipboard_image_paste_mode(&runtime, cursor),
+        Some(ClipboardImagePasteMode::NativeShortcut),
+        "Cursor 不得被误切到 Codex/Claude 的原生快捷键协议"
+    );
+    assert_ne!(
+        clipboard_image_paste_mode(&runtime, codex),
+        Some(ClipboardImagePasteMode::PathFallback),
+        "Codex 不得继续显示临时图片路径"
+    );
+    assert_eq!(
+        clipboard_image_paste_mode(&runtime, rect),
+        None,
+        "普通 Rect 节点不应接受图片粘贴"
+    );
+    assert_eq!(
+        clipboard_image_paste_mode(&runtime, 99),
+        None,
+        "不存在的节点不应触发图片落盘或原生快捷键"
     );
 }
 

@@ -63,6 +63,14 @@ impl WallpaperKind {
             _ => None,
         }
     }
+
+    /// 用户可见的运动状态标签。GIF 与视频都归入 Dynamic，避免用户必须先理解文件格式。
+    pub(crate) const fn badge_label(self) -> &'static str {
+        match self {
+            Self::Static => "Static",
+            Self::Gif | Self::Video => "Dynamic",
+        }
+    }
 }
 
 /// 内置壁纸清单：固定 16 项，每项 `(相对资源路径, 显示名, kind)`。

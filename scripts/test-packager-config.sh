@@ -37,6 +37,12 @@
 #     DMG icons do not render visually undersized.
 #   - Positive: the DMG background has a 2x Retina pixel buffer and 144 DPI
 #     metadata, so Finder displays it sharply at 640x400 logical points.
+#   - Positive: both Finder label landing zones use a light backing plate with
+#     mean luminance >= 0.76, keeping Finder-owned dark labels readable.
+#   - Positive: the checked-in SVG source and renderer make the visual asset
+#     deterministic instead of leaving an untraceable hand-edited bitmap.
+#   - Positive: the colorful 102x102 Retina header mark is present instead of
+#     being silently dropped by an SVG renderer that blocks linked images.
 #   - Negative: the app icon source must not contain near-white edge pixels
 #     that show up as a strange border on dark backgrounds.
 #   - Negative: the dev config must not fall back to cargo-packager's default
@@ -49,6 +55,8 @@ config="$repo_root/Packager.toml"
 dev_config="$repo_root/Packager.dev.toml"
 icon_source="$repo_root/assets/app-icon-source.png"
 dmg_background="$repo_root/assets/dmg-background.png"
+dmg_background_source="$repo_root/assets/dmg-background.svg"
+dmg_background_renderer="$repo_root/scripts/render-dmg-background.sh"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -158,8 +166,62 @@ if [ "$background_dpi" != "144.000x144.000" ]; then
   fail "assets/dmg-background.png must set 144 DPI Retina metadata, got $background_dpi"
 fi
 
-if ! command -v magick >/dev/null 2>&1; then
+if [ ! -f "$dmg_background_source" ]; then
+  fail "assets/dmg-background.svg must preserve the editable DMG design source"
+fi
+
+if [ ! -x "$dmg_background_renderer" ]; then
+  fail "scripts/render-dmg-background.sh must be executable so the PNG can be reproduced"
+fi
+
+magick_bin=$(command -v magick || true)
+if [ -z "$magick_bin" ] && [ -x /opt/homebrew/bin/magick ]; then
+  magick_bin=/opt/homebrew/bin/magick
+fi
+
+if [ -z "$magick_bin" ]; then
   fail "ImageMagick 'magick' is required to verify the app icon asset"
+fi
+
+# Finder label contrast guard:
+#   Retina background                    = 1280x800 px
+#   left label plate                     = 248x56 px at +236+486
+#   right label plate                    = 272x56 px at +784+486
+#   required mean relative luminance     >= 0.76
+#
+# Execution:
+#   1. Crop the two exact label landing zones used by Finder.
+#   2. Convert each crop to grayscale and calculate its normalized mean.
+#   3. Reject either zone if the backing plate is too dark for Finder's
+#      system-owned black item labels.
+#
+# Expected result:
+#   - Positive: both label zones remain visibly light.
+#   - Negative: the previous charcoal label wells fail this threshold.
+for label_spec in \
+  "Norma OS 248x56+236+486" \
+  "Applications 272x56+784+486"
+do
+  label_name=${label_spec% *}
+  label_crop=${label_spec##* }
+  label_luminance=$("$magick_bin" "$dmg_background" -crop "$label_crop" +repage \
+    -colorspace Gray -format '%[fx:mean]' info:)
+
+  if ! awk -v luminance="$label_luminance" 'BEGIN { exit !(luminance >= 0.76) }'; then
+    fail "$label_name Finder label zone must have mean luminance >= 0.76, got $label_luminance"
+  fi
+done
+
+# Header mark guard:
+#   expected crop             = 102x102 px at +430+66
+#   required mean saturation >= 0.28
+# The empty backdrop in this crop is nearly monochrome (about 0.09 saturation),
+# while the Norma icon is intentionally colorful. This gives the test a
+# concrete positive threshold and catches the negative missing-image case.
+header_mark_saturation=$("$magick_bin" "$dmg_background" -crop 102x102+430+66 +repage \
+  -colorspace HSL -channel G -separate -format '%[fx:mean]' info:)
+if ! awk -v saturation="$header_mark_saturation" 'BEGIN { exit !(saturation >= 0.28) }'; then
+  fail "DMG header mark must be present with mean saturation >= 0.28, got $header_mark_saturation"
 fi
 
 # App icon whitespace guard:
@@ -169,12 +231,12 @@ fi
 #   upper-left offset <= 45px on both axes, so the icon is optically centered
 #   edge-white count  <= 16 pixels on each outer strip; larger counts indicate
 #                       an antialiased white border or leftover drop shadow
-icon_geometry=$(magick identify -format '%wx%h' "$icon_source")
+icon_geometry=$("$magick_bin" identify -format '%wx%h' "$icon_source")
 if [ "$icon_geometry" != "1024x1024" ]; then
   fail "assets/app-icon-source.png must remain a 1024x1024 PNG, got $icon_geometry"
 fi
 
-icon_bbox=$(magick identify -format '%@' "$icon_source")
+icon_bbox=$("$magick_bin" identify -format '%@' "$icon_source")
 case "$icon_bbox" in
   *x*+*+*) ;;
   *) fail "could not read alpha bounding box for assets/app-icon-source.png: $icon_bbox" ;;
@@ -210,7 +272,7 @@ do
   # Count visible near-white pixels only on the outer edge. This ignores the
   # interior white X and small square marks, but catches the previous white
   # fringe/drop-shadow around the rounded rectangle.
-  edge_white=$(magick "$icon_source" -crop "$edge_crop" +repage -alpha on \
+  edge_white=$("$magick_bin" "$icon_source" -crop "$edge_crop" +repage -alpha on \
     -fx 'a>0.10 && r>0.82 && g>0.82 && b>0.82 ? 1 : 0' \
     -format '%[fx:mean*w*h]' info:)
   edge_white=${edge_white%.*}

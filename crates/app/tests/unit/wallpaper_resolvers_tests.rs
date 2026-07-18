@@ -86,6 +86,55 @@ fn test_kind_from_extension_classifies_three_types_and_rejects_unknown() {
     );
 }
 
+/// T-R9: Wallpaper 标签文案必须把静态图与两类动态资源明确区分。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Static = PNG / JPG / JPEG，共 3 种静态扩展归一后的类别
+///   Gif    = GIF，共 1 种逐帧动画类别
+///   Video  = MP4 / MOV，共 2 种视频扩展归一后的类别
+///   motion groups = static(1 类) + dynamic(2 类) = 2 组
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 分别读取 Static、Gif、Video 的 badge_label。
+///   2. 确认 Static 显示为静态语义。
+///   3. 确认 Gif 与 Video 都显示为动态语义。
+///
+/// 预期结果：
+///   - 正断言：Static 精确显示 `Static`，用户可以识别静态壁纸。
+///   - 正断言：Gif 与 Video 精确显示 `Dynamic`，用户可以识别动态壁纸。
+///   - 负断言：Static 不得误标为 Dynamic；Gif / Video 不得误标为 Static。
+#[test]
+fn test_wallpaper_badge_labels_distinguish_static_and_dynamic_media() {
+    let static_label = WallpaperKind::Static.badge_label();
+    let gif_label = WallpaperKind::Gif.badge_label();
+    let video_label = WallpaperKind::Video.badge_label();
+
+    assert_eq!(
+        static_label, "Static",
+        "静态图片的 Wallpaper 胶囊标签必须精确显示 Static"
+    );
+    assert_ne!(
+        static_label, "Dynamic",
+        "静态图片不得显示 Dynamic，否则用户会误判其会运动"
+    );
+    assert_eq!(
+        gif_label, "Dynamic",
+        "GIF Wallpaper 胶囊标签必须精确显示 Dynamic"
+    );
+    assert_ne!(
+        gif_label, "Static",
+        "GIF 不得显示 Static，否则动态属性会被隐藏"
+    );
+    assert_eq!(
+        video_label, "Dynamic",
+        "视频 Wallpaper 胶囊标签必须精确显示 Dynamic"
+    );
+    assert_ne!(
+        video_label, "Static",
+        "视频不得显示 Static，否则动态属性会被隐藏"
+    );
+}
+
 /// T-R2: 内置清单恰为 16 项 = 9 static（含既有默认和 mut/v2 的 6 张）
 /// + 2 gif + 5 video；所有路径位于 wallpapers/ 前缀下。
 ///

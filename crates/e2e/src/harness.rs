@@ -8,7 +8,7 @@
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use app::{MultisoulApp, NewCodexAgent, NewCursorAgent, NewTerminal};
+use app::{MultisoulApp, NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewTerminal};
 use canvas::{CanvasNodeKind, NodeId};
 use gpui::{Entity, TestAppContext, VisualTestContext};
 use runtime::{NodeView, PtyFactory, Runtime};
@@ -173,6 +173,36 @@ pub fn create_codex_agent(view: &Entity<MultisoulApp>, cx: &mut VisualTestContex
             .max()
             .filter(|id| *id > max_before)
             .expect("NewCodexAgent should have spawned an Agent node with a larger id")
+    })
+}
+
+/// Dispatch `NewClaudeAgent` 并返回新建 Agent 节点的 id。
+///
+/// 测试 PTY 工厂接管底层 live node，因此该 helper 只覆盖公开 Claude action 的
+/// 创建与聚焦链路，不要求测试机安装 Claude Code。
+pub fn create_claude_agent(view: &Entity<MultisoulApp>, cx: &mut VisualTestContext) -> NodeId {
+    let max_before = read_runtime(view, cx, |runtime| {
+        runtime
+            .document
+            .nodes()
+            .iter()
+            .filter(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
+            .map(|node| node.id)
+            .max()
+            .unwrap_or(0)
+    });
+    cx.dispatch_action(NewClaudeAgent);
+    cx.run_until_parked();
+    read_runtime(view, cx, |runtime| {
+        runtime
+            .document
+            .nodes()
+            .iter()
+            .filter(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
+            .map(|node| node.id)
+            .max()
+            .filter(|id| *id > max_before)
+            .expect("NewClaudeAgent should have spawned an Agent node with a larger id")
     })
 }
 

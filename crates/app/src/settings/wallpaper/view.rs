@@ -124,6 +124,11 @@ fn builtin_cell(
             kind,
             selected,
             builtin_thumbnail(kind, rel, cx),
+            idx,
+            format!(
+                "settings-wallpaper-badge-{idx}-{}",
+                kind.badge_label().to_ascii_lowercase()
+            ),
             None,
             cx,
         ))
@@ -169,6 +174,11 @@ fn custom_cell(
             kind,
             selected,
             thumb,
+            builtin_wallpapers().len() + idx,
+            format!(
+                "settings-wallpaper-custom-badge-{idx}-{}",
+                kind.badge_label().to_ascii_lowercase()
+            ),
             Some((idx, delete_filename)),
             cx,
         ))
@@ -180,9 +190,11 @@ fn custom_cell(
 /// for builtins (they are never deletable).
 fn thumbnail_box(
     theme: Theme,
-    _kind: WallpaperKind,
+    kind: WallpaperKind,
     selected: bool,
     thumb: Div,
+    badge_id: usize,
+    badge_selector: String,
     delete: Option<(usize, String)>,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
@@ -201,12 +213,57 @@ fn thumbnail_box(
         .border_1()
         .border_color(rgba(border))
         .bg(rgba(with_alpha(theme.panel_high, 0x80)))
-        .child(thumb);
+        .child(thumb)
+        .child(wallpaper_badge(theme, kind, badge_id, badge_selector));
 
     if let Some((idx, filename)) = delete {
         frame = frame.child(delete_button(theme, idx, filename, cx));
     }
     frame
+}
+
+/// Compact, material-like media badge inspired by macOS thumbnail overlays.
+/// A neutral capsule keeps the label legible over any image; only the dot uses
+/// semantic color so a grid of wallpapers stays calm and easy to scan.
+fn wallpaper_badge(
+    theme: Theme,
+    kind: WallpaperKind,
+    badge_id: usize,
+    selector: String,
+) -> Stateful<Div> {
+    let is_dynamic = matches!(kind, WallpaperKind::Gif | WallpaperKind::Video);
+    div()
+        .id(("wallpaper-kind-badge", badge_id))
+        .debug_selector(move || selector.clone())
+        .absolute()
+        .left(px(7.0))
+        .bottom(px(7.0))
+        .h(px(20.0))
+        .px(px(7.0))
+        .flex()
+        .items_center()
+        .gap(px(5.0))
+        .rounded(px(10.0))
+        .border_1()
+        .border_color(rgba(0xffffff38))
+        .bg(rgba(0x151515c2))
+        .text_size(px(10.0))
+        .line_height(px(12.0))
+        .font_weight(FontWeight::MEDIUM)
+        .text_color(rgba(0xffffffff))
+        .child(
+            div()
+                .w(px(5.0))
+                .h(px(5.0))
+                .flex_none()
+                .rounded(px(2.5))
+                .bg(rgba(if is_dynamic {
+                    with_alpha(theme.accent_cyan, 0xff)
+                } else {
+                    0xffffff80
+                })),
+        )
+        .child(kind.badge_label())
 }
 
 /// Hover-only delete affordance for a custom cell. Stops propagation so the
