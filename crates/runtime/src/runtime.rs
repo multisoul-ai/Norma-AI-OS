@@ -176,6 +176,7 @@ impl Runtime {
         node_id: NodeId,
         checkpoints: &[SessionCheckpoint],
         node_sessions: &[NodeSession],
+        discovered_session_id: Option<&str>,
     ) -> bool {
         let mut ctx = crate::session_restore::RestoreCtx {
             live: &mut self.live,
@@ -189,6 +190,7 @@ impl Runtime {
             node_id,
             checkpoints,
             node_sessions,
+            discovered_session_id,
             &self.document,
             &mut ctx,
         )

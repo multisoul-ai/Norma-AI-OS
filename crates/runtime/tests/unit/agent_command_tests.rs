@@ -76,17 +76,19 @@ fn test_agent_command_specs_are_exact() {
 /// 数据构造（含关键数值推导）：
 ///   profile = Codex
 ///   session_id = "019f1bdb-40df-7813-8057-60f429c38986"
+///   discovered_session_id = "019f-latest-but-wrong"（同工作空间最新文件，不属于此卡片）
 ///   workspace_root = "/tmp/multisoul-codex-workspace"
 ///   NodeSession.kind = Agent，因此应允许 profile-specific resume
 ///
 /// 执行过程：
 ///   1. 构造带 Codex session_id 的 NodeSession
-///   2. 调用 build_agent_restore_command_for_test(session, Codex, None, workspace_root)
-///   3. 检查 args 中 Codex 使用 `resume <session_id>`，并包含 workspace `--cd`
+///   2. 调用 Agent 恢复命令构造边界，同时传入冲突的后台发现结果
+///   3. 检查 args 中 Codex 使用持久化的 `resume <session_id>`，并包含 workspace `--cd`
 ///
 /// 预期结果：
 ///   - 正断言：命令包含 `codex`、`resume`、session_id、`--cd`
 ///   - 负断言：Codex restore 不应回退到 fresh command（即缺少 resume）
+///   - 负断言：不得使用 discovered_session_id 覆盖卡片精确持久化的 session_id
 #[test]
 fn test_restore_codex_agent_uses_saved_session_id_for_resume() {
     let workspace_root = std::path::Path::new("/tmp/multisoul-codex-workspace");
@@ -97,11 +99,12 @@ fn test_restore_codex_agent_uses_saved_session_id_for_resume() {
         session_id: Some("019f1bdb-40df-7813-8057-60f429c38986".into()),
     };
 
-    let cmd = crate::session_restore::build_agent_restore_command_for_test(
+    let cmd = crate::session_restore::build_agent_restore_command_with_discovery_for_test(
         &session,
         AgentProfile::Codex,
         None,
         Some(workspace_root),
+        Some("019f-latest-but-wrong"),
     );
     let args_str = cmd.args.join(" ");
 
@@ -124,6 +127,10 @@ fn test_restore_codex_agent_uses_saved_session_id_for_resume() {
     assert!(
         !args_str.ends_with("codex --dangerously-bypass-approvals-and-sandbox"),
         "Codex restore must not fall back to a fresh agent command"
+    );
+    assert!(
+        !args_str.contains("019f-latest-but-wrong"),
+        "Codex restore 必须优先使用该卡片持久化 session_id，不得误绑后台扫描到的其他会话，实际: {args_str}"
     );
 }
 
@@ -266,25 +273,26 @@ fn test_task_title_cleared_on_node_remove() {
     );
 }
 
-/// Claude agent restore 在旧库 session_id 为空时，不得在 Workspace 打开路径扫描会话目录。
+/// Claude Agent 恢复在持久化 session_id 缺失时，应使用后台发现的工作空间历史会话。
 ///
 /// 数据构造（含关键数值推导）：
 ///   profile = Claude
 ///   NodeSession.kind = Agent
 ///   NodeSession.session_id = None（旧库未持久化 hook session id）
-///   discovered_session_id = "must-not-be-used"（模拟磁盘中可发现的历史会话）
+///   discovered_session_id = "claude-session-from-history"（后台扫描发现的历史会话）
 ///   workspace_root = "/tmp/multisoul-claude-workspace"
 ///
 /// 执行过程：
 ///   1. 构造 session_id=None 的 Claude NodeSession
-///   2. 调用 resolve_agent_restore_session_id_for_test，同时提供一个可发现的伪 session id
-///   3. 检查 resolver 仍返回 None，由恢复路径启动新 Session
+///   2. 后台会话发现返回 claude-session-from-history
+///   3. 调用 Agent 恢复命令构造边界，合并持久化值与后台发现结果
+///   4. 检查命令进入 `claude --resume claude-session-from-history`
 ///
 /// 预期结果：
-///   - 正断言：返回 None，表示缺失持久化 ID 时启动新 Session
-///   - 负断言：不得返回 must-not-be-used，否则打开 Workspace 仍会进入同步磁盘发现
+///   - 正断言：命令包含 `--resume` 与 claude-session-from-history
+///   - 负断言：命令不得退回不带 `--resume` 的全新 Claude Session
 #[test]
-fn test_restore_claude_agent_without_saved_id_skips_session_discovery() {
+fn test_restore_claude_agent_without_saved_id_uses_background_discovery() {
     let workspace_root = std::path::Path::new("/tmp/multisoul-claude-workspace");
     let session = NodeSession {
         node_id: 10,
@@ -293,21 +301,22 @@ fn test_restore_claude_agent_without_saved_id_skips_session_discovery() {
         session_id: None,
     };
 
-    let resolved = crate::session_restore::resolve_agent_restore_session_id_for_test(
-        Some(&session),
+    let command = crate::session_restore::build_agent_restore_command_with_discovery_for_test(
+        &session,
         AgentProfile::Claude,
+        None,
         Some(workspace_root),
-        Some("must-not-be-used"),
+        Some("claude-session-from-history"),
     );
+    let args = command.args.join(" ");
 
-    assert_eq!(
-        resolved, None,
-        "Claude restore 缺失持久化 session_id 时应启动新 Session，不得扫描会话目录"
+    assert!(
+        args.contains("--resume 'claude-session-from-history'"),
+        "Claude restore 缺失持久化 session_id 时应使用后台发现结果生成 --resume 命令，实际: {args}"
     );
-    assert_ne!(
-        resolved.as_deref(),
-        Some("must-not-be-used"),
-        "Workspace 打开路径不得消费磁盘发现结果"
+    assert!(
+        args != "-ic exec claude --dangerously-skip-permissions",
+        "后台已发现匹配工作空间的 Claude session 时不得退回全新会话命令，实际: {args}"
     );
 }
 

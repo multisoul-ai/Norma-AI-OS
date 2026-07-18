@@ -110,6 +110,19 @@ pub fn find_codex_session_id(workspace_root: &Path) -> Option<String> {
     find_codex_session_id_inner(workspace_root, &Path::new(&home).join(".codex"))
 }
 
+/// Discover the provider-owned session for a workspace when the project database does not
+/// contain a cached hook session id. Callers must run this filesystem scan off the UI thread.
+pub fn find_agent_session_id_for_profile(
+    profile: AgentProfile,
+    workspace_root: &Path,
+) -> Option<String> {
+    match profile {
+        AgentProfile::Claude => find_agent_session_id(workspace_root),
+        AgentProfile::Codex => find_codex_session_id(workspace_root),
+        AgentProfile::Cursor | AgentProfile::OpenCode => None,
+    }
+}
+
 /// Testable inner function that accepts an explicit CODEX_HOME directory.
 pub fn find_codex_session_id_inner(workspace_root: &Path, codex_home: &Path) -> Option<String> {
     let sessions_dir = codex_home.join("sessions");

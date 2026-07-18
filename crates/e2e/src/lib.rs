@@ -28,6 +28,9 @@ mod e2e_02_terminal_echo;
 // Agent 图片粘贴按 CLI 协议分流：Cursor 路径回退，Codex/Claude 原生附件快捷键。
 mod e2e_02_agent_image_paste;
 
+// Agent 卡片重开项目时，应从 Provider 本地历史恢复缺失的持久化 session id。
+mod e2e_02_agent_session_restore;
+
 // E2E-02-real（SPEC §3.4，L2 `#[ignore]`）：真实 portable_pty 后端，本地 `--ignored` 跑。
 mod e2e_02_real_pty;
 
