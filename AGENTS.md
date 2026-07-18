@@ -50,6 +50,7 @@ Workspace 分层：
 - **视频/动画壁纸低拷贝**：live 视频/动画帧不得每帧经 CPU RGBA/`RenderImage`/`img()` 路径上屏；解码推进必须后台化，上屏必须用 420f `surface()` 或等价低拷贝路径，并由 `scripts/check-video-wallpaper-performance.py` 护栏拦截回退。
 - **版本钉死需审慎**：`gpui =0.2.2`、`gpui-component =0.5.1`、`alacritty_terminal =0.26`，升级前先验证 API。
 - **GUI 优先 gpui-component**：`crates/app`/`crates/ui` 写控件时优先用 `ui::component`（Longbridge），非必要不造轮子；细节见 [`docs/references/gpui-component.md`](docs/references/gpui-component.md)。
+- **页面与交互遵循 Apple 设计哲学**：以 Apple Human Interface Guidelines 和 macOS 原生体验为设计基线，优先清晰层级、内容优先、直接操作、即时反馈、一致性与可访问性；新增或改版 UI 时须在方案和验收标准中说明这些原则如何落地，展开要求见 [`CLAUDE.md`](CLAUDE.md) §8。
 - **GPUI 代码先查 skills**：编写 GPUI 时先查 `gpui-*` skills，再落到钉死版本与现有写法；有现成组件时仍优先组件库。
 - **GPUI 圆角子层不可只靠 overflow**：GPUI 0.2.2 的 `overflow_hidden()` 仅矩形裁剪；圆角容器内的全尺寸不透明 `div`/`img`/`surface` 必须自身绘制外侧圆角，或避开四角分区渲染，并用自动化测试守住。
 - **单文件 ≤ 500 行**：Rust 源码由 [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh) 拦截，超长先拆职责。
@@ -67,6 +68,7 @@ Workspace 分层：
 - **新增可配置快捷键必须进 Settings**：任何新的 app shortcut 都要注册到 `shortcuts.rs`，并在 Settings → Keyboard Shortcuts 支持录制与恢复。
 - **验收标准要落 e2e**：涉及用户可观察流程、Settings、Canvas、Terminal、焦点/输入路由、PTY 或持久化闭环时，必须根据验收标准自动新增/更新 `crates/e2e` 用例；不要只写单测或手测说明。
 - **区分 e2e 层级**：`TestAppContext`/`simulate_click` 是 headless GPUI 渲染树点击，不等于启动真实 `.app`；若验收要求真实启动程序，必须新增独立 L3 runner 并在报告中明确说明。
+- **页面/样式验收必须用 Computer Use**：凡编写或修改页面、布局、样式或视觉状态，进入检查与验收时必须使用 `computer-use:computer-use` 操作真实 App 完成 E2E；headless GPUI、单测和静态截图只能作为补充，不能替代 Computer Use。
 - **不要把知识塞进地图**：`AGENTS.md` 只放指针；长说明沉淀到 `CLAUDE.md` 或未来 `docs/`。
 
 ## 3. 技术栈速览
