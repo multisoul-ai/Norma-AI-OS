@@ -11,6 +11,7 @@ mod model;
 mod prompts;
 mod protocol;
 mod provider;
+mod provider_catalog;
 mod providers;
 mod system;
 mod system_types;
@@ -44,6 +45,10 @@ pub use protocol::{
     parse_openai_response, ProviderConfig, ProviderProtocol, RedactedProviderConfig,
 };
 pub use provider::{AgentProvider, ProviderError, ProviderStreamEvent};
+pub use provider_catalog::{
+    discover_provider_models, normalize_provider_models, validate_provider_model,
+    ProviderCatalogError,
+};
 pub use providers::{
     parse_ollama_stream, parse_openai_stream, ConfiguredProvider, OllamaProvider,
     OpenAiCompatibleProvider,

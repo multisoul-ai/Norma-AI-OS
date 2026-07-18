@@ -2,7 +2,7 @@ use super::{VoiceSettingsField, VoiceSettingsInputs, VoiceSettingsState, VoiceTe
 use crate::app::MultisoulApp;
 use gpui::Context;
 
-pub(super) const CONFIGURED_API_KEY_PLACEHOLDER: &str = "Configured ••••••••";
+pub(super) const CONFIGURED_API_KEY_PLACEHOLDER: &str = "*********";
 const UNCONFIGURED_API_KEY_PLACEHOLDER: &str = "Not configured";
 
 pub(super) fn input_placeholder(
@@ -13,7 +13,10 @@ pub(super) fn input_placeholder(
         VoiceSettingsField::BaseUrl => "https://api.example.com/v1",
         VoiceSettingsField::Model => "Model name",
         VoiceSettingsField::ApiKey
-            if state.values().active_provider_profile().api_key().is_some() =>
+            if state
+                .values()
+                .active_provider_profile()
+                .credential_configured() =>
         {
             CONFIGURED_API_KEY_PLACEHOLDER
         }

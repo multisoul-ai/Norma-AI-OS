@@ -61,6 +61,7 @@ impl MultisoulApp {
                         );
                     }
                 }
+                app.complete_voice_setup_if_ready(cx);
                 cx.notify();
             });
         })
@@ -69,6 +70,14 @@ impl MultisoulApp {
 
     pub(crate) fn install_tts_model(&mut self, id: tts::TtsModelId, cx: &mut Context<Self>) {
         if self.tts_download_cancellations.contains_key(&id) {
+            return;
+        }
+        if matches!(
+            self.voice_settings.tts_model_manager().installation(&id),
+            Some(TtsModelInstallState::Ready)
+                | Some(TtsModelInstallState::Installing { .. })
+                | Some(TtsModelInstallState::Cancelling { .. })
+        ) {
             return;
         }
         let catalog = tts::builtin_model_catalog();
@@ -88,7 +97,7 @@ impl MultisoulApp {
             .spawn(async move {
                 let outcome =
                     install_tts_package(&descriptor, &root, &cancelled, |downloaded, total| {
-                        let _ = tx.try_send(TtsInstallEvent::Progress(downloaded, total));
+                        let _ = tx.send_blocking(TtsInstallEvent::Progress(downloaded, total));
                     })
                     .await;
                 let _ = tx.send_blocking(TtsInstallEvent::Finished(outcome));
@@ -370,6 +379,7 @@ impl MultisoulApp {
             Some(selected.voice_id.clone()),
         );
         crate::app::dialogue::configure_selected_tts_model(Some(selected));
+        self.complete_voice_setup_if_ready(cx);
         self.persist_voice_settings_in_background(cx);
     }
 

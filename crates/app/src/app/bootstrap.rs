@@ -8,7 +8,7 @@ use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::agents::AgentDefinitionsState;
-use crate::settings::panel::SettingsPanelState;
+use crate::settings::panel::{SettingsPanelState, SettingsViewportState};
 use crate::settings::voice::VoiceSettingsInputs;
 use crate::settings::wallpaper::WallpaperSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
@@ -17,6 +17,9 @@ use crate::workspace::state::WorkspaceState;
 use gpui::{Context, FocusHandle};
 use runtime::Runtime;
 use ui::{Theme, ThemeId};
+
+#[cfg(feature = "e2e-test-support")]
+mod visual_preview;
 
 impl MultisoulApp {
     pub(super) fn build(
@@ -50,6 +53,7 @@ impl MultisoulApp {
             master_layout: MasterLayoutState::default(),
             persistence: PersistenceScheduler::default(),
             settings_panel: SettingsPanelState::default(),
+            settings_viewport: SettingsViewportState::default(),
             agent_definitions: AgentDefinitionsState::default(),
             voice_settings,
             voice_settings_inputs,
@@ -67,7 +71,9 @@ impl MultisoulApp {
             tts_preview: crate::app::dialogue::TtsPreviewState::default(),
             tts_selection_generation: 0,
             tts_scan_generation: 0,
+            asr_download_cancellations: std::collections::HashMap::new(),
             tts_download_cancellations: std::collections::HashMap::new(),
+            voice_ready_notification_visible: false,
             agent_runtime: None,
             agent_task_coordinator: None,
             pending_agent_submissions:
@@ -83,7 +89,14 @@ impl MultisoulApp {
             voice_window_inset: crate::app::voice_window_inset::VoiceWindowInset::default(),
             voice_window_inset_window_visible: true,
         };
+        app.refresh_asr_model_states(cx);
         app.refresh_tts_model_states(cx);
+        app.refresh_voice_microphone_requirement(cx);
+        app.refresh_voice_provider_credentials(cx);
+        app.validate_saved_voice_provider(cx);
+        app.persist_voice_settings_in_background(cx);
+        #[cfg(feature = "e2e-test-support")]
+        visual_preview::configure_from_env(&mut app, cx);
         app
     }
 }

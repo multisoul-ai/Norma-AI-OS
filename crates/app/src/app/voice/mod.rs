@@ -24,6 +24,28 @@ pub(crate) fn microphone_permission_recovery_url(error: &SpeechError) -> Option<
 }
 
 impl MultisoulApp {
+    pub(crate) fn complete_voice_setup_if_ready(&mut self, cx: &mut Context<Self>) {
+        if !self.voice_settings.reconcile_setup_completion() {
+            return;
+        }
+        self.persist_voice_settings_in_background(cx);
+        if self.settings_panel.open {
+            return;
+        }
+        self.voice_ready_notification_visible = true;
+        cx.spawn(async move |this, cx| {
+            cx.background_executor()
+                .timer(std::time::Duration::from_secs(5))
+                .await;
+            let _ = this.update(cx, |app, cx| {
+                app.voice_ready_notification_visible = false;
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
     pub(crate) fn begin_voice_recording(&mut self, trigger: VoiceTrigger, cx: &mut Context<Self>) {
         if !matches!(self.screen, AppScreen::Canvas) {
             self.voice.set_error("Open a project before using voice.");

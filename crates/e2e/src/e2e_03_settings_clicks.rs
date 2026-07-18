@@ -1,8 +1,6 @@
 //! E2E-03：Settings 模块真实点击覆盖。
-//!
-//! 本测试不直接调用 `toggle_settings_panel`、`settings_panel.select`、
-//! `begin_recording` 或 `restore_default` 等处理函数；它只通过
-//! `VisualTestContext::simulate_click` 点击已渲染控件的 debug bounds，并通过
+//! 本测试不直接调用 Settings/Voice 状态处理函数；它只通过真实渲染控件的 debug bounds，
+//! 使用 `VisualTestContext::simulate_click` 点击，并通过
 //! `simulate_keystrokes` 或 `simulate_input` 输入真实按键与文本。Voice 文本输入必须经过
 //! GPUI 当前聚焦节点及平台 `InputHandler`，测试不得直接调用 Voice state 或输入 helper。
 
@@ -348,6 +346,7 @@ fn e2e_03_voice_provider_field_accepts_text_after_single_click() {
     click_debug(cx, "settings-section-voice");
     click_debug(cx, "settings-voice-mode-continuous");
     scroll_debug(cx, "settings-content-scroll", -650.0);
+    open_voice_advanced(cx);
     click_debug(cx, "settings-voice-field-agent-model");
 
     let editing = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
@@ -393,6 +392,7 @@ fn e2e_03_voice_provider_text_input_select_all_replaces_content() {
     click_debug(cx, "settings-section-voice");
     click_debug(cx, "settings-voice-mode-continuous");
     scroll_debug(cx, "settings-content-scroll", -650.0);
+    open_voice_advanced(cx);
     click_debug(cx, "settings-voice-field-agent-model");
 
     cx.simulate_input("first-model");
@@ -428,11 +428,43 @@ fn click_debug(cx: &mut VisualTestContext, selector: &'static str) {
 
 fn move_to_debug_target(cx: &mut VisualTestContext, selector: &'static str) -> Point<Pixels> {
     cx.run_until_parked();
+    scroll_settings_target_into_view(cx, selector);
     let bounds = cx
         .debug_bounds(selector)
         .unwrap_or_else(|| panic!("selector `{selector}` should have debug bounds before click"));
     cx.simulate_mouse_move(bounds.center(), None, Modifiers::none());
     bounds.center()
+}
+
+fn scroll_settings_target_into_view(cx: &mut VisualTestContext, selector: &'static str) {
+    if selector == "settings-content-scroll" {
+        return;
+    }
+    for _ in 0..3 {
+        let (Some(content), Some(target)) = (
+            cx.debug_bounds("settings-content-scroll"),
+            cx.debug_bounds(selector),
+        ) else {
+            return;
+        };
+        let visible_top = f32::from(content.origin.y) + 24.0;
+        let visible_bottom = f32::from(content.origin.y) + f32::from(content.size.height) - 24.0;
+        let target_top = f32::from(target.origin.y);
+        let target_bottom = target_top + f32::from(target.size.height);
+        let delta = if target_top < visible_top {
+            visible_top - target_top
+        } else if target_bottom > visible_bottom {
+            visible_bottom - target_bottom
+        } else {
+            return;
+        };
+        cx.simulate_event(ScrollWheelEvent {
+            position: content.center(),
+            delta: ScrollDelta::Pixels(point(px(0.0), px(delta))),
+            ..Default::default()
+        });
+        cx.run_until_parked();
+    }
 }
 
 fn double_click_debug(cx: &mut VisualTestContext, selector: &'static str) {
@@ -464,6 +496,5 @@ fn scroll_debug(cx: &mut VisualTestContext, selector: &'static str, delta_y: f32
 }
 
 fn open_voice_advanced(cx: &mut VisualTestContext) {
-    click_debug(cx, "settings-voice-advanced-toggle");
     scroll_debug(cx, "settings-content-scroll", -500.0);
 }

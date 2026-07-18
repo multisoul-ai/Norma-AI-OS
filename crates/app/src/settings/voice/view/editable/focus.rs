@@ -17,6 +17,7 @@ impl VoiceTextInput {
     }
 
     fn focus_entered(&mut self, _: &mut Window, cx: &mut Context<Self>) {
+        self.revealed = false;
         self.original_content = if self.masked {
             "".into()
         } else {

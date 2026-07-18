@@ -208,6 +208,7 @@ dependencies = [
  "raw-window-handle",
  "rfd",
  "runtime",
+ "security-framework",
  "serde",
  "serde_json",
  "storage",

@@ -39,6 +39,7 @@ pub use listening_pipeline::{
     apply_final_transcript_to_session, spawn_listening_pipeline_loop, ListeningPipelineEvent,
     SherpaListeningPipeline,
 };
+pub use permissions::{microphone_authorization_status, MicrophoneAuthorization};
 pub use recognizer_config::build_online_recognizer_config;
 pub use stream::PcmStreamSession;
 pub use tts::{FakeTtsClient, SherpaTtsClient};

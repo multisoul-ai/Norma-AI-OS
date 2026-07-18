@@ -1,5 +1,5 @@
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, KeyDownEvent, MouseButton, Window};
+use gpui::{div, prelude::*, px, rgba, Context, KeyDownEvent, MouseButton, ScrollHandle, Window};
 
 #[path = "content.rs"]
 mod content;
@@ -9,10 +9,9 @@ mod navigation;
 mod panel_style;
 
 use self::content::{settings_content, VoiceSettingsContent};
+pub(crate) use self::navigation::SettingsSection;
 use self::navigation::{settings_navigation, SettingsNavigationMode};
 use self::panel_style::{settings_shadow, with_alpha};
-
-pub(crate) use self::navigation::SettingsSection;
 
 const PANEL_MIN_W: f32 = 860.0;
 const PANEL_MAX_W: f32 = 1280.0;
@@ -93,6 +92,28 @@ impl SettingsPanelLayout {
             SettingsNavigationMode::Sidebar | SettingsNavigationMode::CompactSidebar => self.height,
         }
     }
+
+    fn with_width_cap(mut self, viewport_width: f32, max_width: f32) -> Self {
+        self.width = self.width.min(max_width);
+        self.left = ((viewport_width - self.width) * 0.5).max(0.0);
+        self.navigation_mode = if self.width < TOP_BAR_BREAKPOINT {
+            SettingsNavigationMode::TopBar
+        } else if self.width < COMPACT_SIDEBAR_BREAKPOINT {
+            SettingsNavigationMode::CompactSidebar
+        } else {
+            SettingsNavigationMode::Sidebar
+        };
+        self.sidebar_width = match self.navigation_mode {
+            SettingsNavigationMode::Sidebar => (self.width * 0.28)
+                .clamp(SIDEBAR_MIN_W, SIDEBAR_MAX_W)
+                .min((self.width * 0.45).max(1.0)),
+            SettingsNavigationMode::CompactSidebar => (self.width * 0.26)
+                .clamp(COMPACT_SIDEBAR_MIN_W, COMPACT_SIDEBAR_MAX_W)
+                .min((self.width * 0.38).max(1.0)),
+            SettingsNavigationMode::TopBar => 0.0,
+        };
+        self
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -109,6 +130,12 @@ pub(crate) struct SettingsPanelState {
     pub(crate) claude_hook_status: HookInstallStatus,
     pub(crate) cursor_hook_status: HookInstallStatus,
     pub(crate) opencode_hook_status: HookInstallStatus,
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct SettingsViewportState {
+    pub(crate) content_scroll: ScrollHandle,
+    pub(crate) pending_voice_setup_scroll: Option<crate::settings::voice::VoiceSetupDestination>,
 }
 
 impl Default for SettingsPanelState {
@@ -175,6 +202,11 @@ impl MultisoulApp {
         let win_w = f32::from(win.width);
         let win_h = f32::from(win.height);
         let layout = SettingsPanelLayout::for_viewport(win_w, win_h);
+        let layout = if self.settings_panel.active_section == SettingsSection::Voice {
+            layout.with_width_cap(win_w, 1020.0)
+        } else {
+            layout
+        };
         debug_assert!(
             layout.content_width() > 0.0,
             "settings layout must reserve positive content width"
@@ -190,6 +222,7 @@ impl MultisoulApp {
             layout.sidebar_width,
             cx,
         );
+        let setup_scroll_target = self.settings_viewport.pending_voice_setup_scroll.take();
         let content = settings_content(
             theme,
             self.theme_id,
@@ -198,7 +231,9 @@ impl MultisoulApp {
             VoiceSettingsContent {
                 state: &self.voice_settings,
                 inputs: &self.voice_settings_inputs,
+                setup_scroll_target,
             },
+            &self.settings_viewport.content_scroll,
             &self.wallpaper_settings,
             &self.shortcuts,
             window,

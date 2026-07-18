@@ -64,6 +64,7 @@ tempfile.workspace = true
 # All AVFoundation interop is macOS-only; on other targets these crates are
 # neither compiled against nor linked.
 [target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "3.7"
 image = "0.25"
 core-video = { version = "=0.4.3", features = ["metal"] }
 core-foundation = "0.10"

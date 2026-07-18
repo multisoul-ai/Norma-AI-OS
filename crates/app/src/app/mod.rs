@@ -19,7 +19,7 @@ use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::agents::AgentDefinitionsState;
-use crate::settings::panel::SettingsPanelState;
+use crate::settings::panel::{SettingsPanelState, SettingsViewportState};
 use crate::settings::voice::{VoiceSettingsInputs, VoiceSettingsState};
 use crate::settings::wallpaper::WallpaperSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
@@ -30,8 +30,7 @@ use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focus
 use runtime::{route, AgentTaskState, InputEvent, NodeRunState, Route, Runtime};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{atomic::AtomicBool, Arc};
 #[cfg(test)]
 use std::time::Duration;
 use ui::{Theme, ThemeId};
@@ -75,7 +74,6 @@ pub use e2e::{
 };
 pub(crate) use state::mark_runtime_node_viewed_if_needed;
 pub use state::AppScreen;
-
 actions!(
     multisoul,
     [
@@ -110,6 +108,7 @@ pub struct MultisoulApp {
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) persistence: PersistenceScheduler,
     pub(crate) settings_panel: SettingsPanelState,
+    pub(crate) settings_viewport: SettingsViewportState,
     pub(crate) agent_definitions: AgentDefinitionsState,
     pub(crate) voice_settings: VoiceSettingsState,
     pub(crate) voice_settings_inputs: VoiceSettingsInputs,
@@ -126,7 +125,9 @@ pub struct MultisoulApp {
     pub(crate) tts_preview: crate::app::dialogue::TtsPreviewState,
     pub(crate) tts_selection_generation: u64,
     pub(crate) tts_scan_generation: u64,
+    pub(crate) asr_download_cancellations: HashMap<asr::AsrModelId, Arc<AtomicBool>>,
     pub(crate) tts_download_cancellations: HashMap<tts::TtsModelId, Arc<AtomicBool>>,
+    pub(crate) voice_ready_notification_visible: bool,
     pub(crate) agent_runtime: Option<agent_runtime::ProjectAgentRuntime>,
     pub(crate) agent_task_coordinator: Option<agent::AgentTaskCoordinator>,
     pub(crate) pending_agent_submissions: agent_runtime::pending::PendingAgentSubmissions,
@@ -141,7 +142,6 @@ pub struct MultisoulApp {
     voice_window_inset: VoiceWindowInset,
     voice_window_inset_window_visible: bool,
 }
-
 impl MultisoulApp {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let agent_hook_server = AgentHookServer::start();

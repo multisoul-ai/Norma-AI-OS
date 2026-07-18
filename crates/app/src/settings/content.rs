@@ -2,10 +2,12 @@ use super::{with_alpha, SettingsPanelState, SettingsSection};
 use crate::app::MultisoulApp;
 use crate::settings::agents::{agents_settings, AgentDefinitionsState};
 use crate::settings::appearance::theme_appearance;
-use crate::settings::voice::{voice_settings, VoiceSettingsInputs, VoiceSettingsState};
+use crate::settings::voice::{
+    voice_settings, VoiceSettingsInputs, VoiceSettingsState, VoiceSetupDestination,
+};
 use crate::settings::wallpaper::{wallpaper_settings, WallpaperSettingsState};
 use crate::shortcuts::ShortcutSettingsState;
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, Window};
+use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, ScrollHandle, Window};
 use ui::{Theme, ThemeId};
 
 mod hooks;
@@ -17,6 +19,7 @@ use self::keyboard::keyboard_settings;
 pub(super) struct VoiceSettingsContent<'a> {
     pub(super) state: &'a VoiceSettingsState,
     pub(super) inputs: &'a VoiceSettingsInputs,
+    pub(super) setup_scroll_target: Option<VoiceSetupDestination>,
 }
 
 pub(super) fn settings_content(
@@ -25,6 +28,7 @@ pub(super) fn settings_content(
     panel: &SettingsPanelState,
     agent_definitions: &AgentDefinitionsState,
     voice: VoiceSettingsContent<'_>,
+    content_scroll: &ScrollHandle,
     wallpaper_state: &WallpaperSettingsState,
     shortcuts: &ShortcutSettingsState,
     window: &mut Window,
@@ -48,12 +52,20 @@ pub(super) fn settings_content(
                 .min_h(px(0.0))
                 .overflow_y_scroll()
                 .overflow_x_hidden()
+                .track_scroll(content_scroll)
                 .px(px(28.0))
                 .pb(px(40.0))
                 .child(match panel.active_section {
                     SettingsSection::Themes => theme_appearance(theme_id, theme, cx),
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
-                    SettingsSection::Voice => voice_settings(theme, voice.state, voice.inputs, cx),
+                    SettingsSection::Voice => voice_settings(
+                        theme,
+                        voice.state,
+                        voice.inputs,
+                        content_scroll,
+                        voice.setup_scroll_target,
+                        cx,
+                    ),
                     SettingsSection::Agents => {
                         agents_settings(theme, agent_definitions, window, cx)
                     }
@@ -146,7 +158,7 @@ fn content_subtitle(section: SettingsSection) -> &'static str {
         SettingsSection::Keyboard => "Customize app commands and review system input behavior",
         #[cfg(test)]
         SettingsSection::Runtime => "Configure shell behavior and live sessions",
-        SettingsSection::Voice => "Configure local speech recognition and command planning",
+        SettingsSection::Voice => "Use ⌘E to talk to Norma",
         SettingsSection::Agents => "Choose default agents, permissions, and profiles",
         #[cfg(test)]
         SettingsSection::Skills => "Manage installed skills and project skill sources",

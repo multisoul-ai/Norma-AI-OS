@@ -17,6 +17,9 @@ mod agents;
 mod browser;
 mod recent_projects;
 mod tts;
+mod voice;
+#[cfg(feature = "e2e-test-support")]
+mod voice_setup;
 pub use agents::{AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot};
 use tts::{snapshot_tts_models, TtsModelE2eSnapshot};
 
@@ -25,6 +28,7 @@ pub enum ApiKeyDisplayState {
     NotRendered,
     NotConfigured,
     Configured,
+    Revealed,
     MaskedEditing,
     Unsafe,
 }
@@ -99,15 +103,6 @@ pub struct VoiceWindowInsetE2eSnapshot {
     pub corner_seam_guard_alpha_milli: u16,
 }
 
-/// 语音入口的稳定 e2e 投影：覆盖用户可见状态，不暴露录音或对话实现对象。
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VoiceE2eSnapshot {
-    pub phase: &'static str,
-    pub dialogue_phase: &'static str,
-    pub label: String,
-    pub microphone_recovery_available: bool,
-}
-
 impl MultisoulApp {
     #[cfg(feature = "e2e-test-support")]
     pub fn set_voice_model_root_for_e2e(&mut self, model_root: PathBuf, cx: &mut Context<Self>) {
@@ -133,6 +128,8 @@ impl MultisoulApp {
         app.browsers.disable_native_views();
         app.shortcuts = ShortcutSettingsState::default();
         app.voice_settings = crate::settings::voice::VoiceSettingsState::in_memory_default();
+        #[cfg(feature = "e2e-test-support")]
+        app.voice_settings.assume_legacy_ready_for_e2e();
         app.voice_settings_inputs
             .sync_from_state(&app.voice_settings, cx);
         app
@@ -149,6 +146,8 @@ impl MultisoulApp {
     ) -> Self {
         let mut app = Self::new_with_pty_factory(cx, factory);
         app.voice_settings = crate::settings::voice::VoiceSettingsState::load_from_store(store);
+        #[cfg(feature = "e2e-test-support")]
+        app.voice_settings.assume_legacy_ready_for_e2e();
         app.voice_settings_inputs
             .sync_from_state(&app.voice_settings, cx);
         app
@@ -162,7 +161,7 @@ impl MultisoulApp {
         (
             profile.base_url().to_string(),
             profile.model().to_string(),
-            profile.api_key().is_some(),
+            profile.credential_configured(),
         )
     }
 
@@ -257,27 +256,6 @@ impl MultisoulApp {
         }
     }
 
-    pub fn voice_e2e_snapshot(&self) -> VoiceE2eSnapshot {
-        VoiceE2eSnapshot {
-            phase: match self.voice.phase() {
-                crate::app::voice::control::VoicePhase::Idle => "idle",
-                crate::app::voice::control::VoicePhase::Recording { .. } => "recording",
-                crate::app::voice::control::VoicePhase::Transcribing => "transcribing",
-                crate::app::voice::control::VoicePhase::Executed { .. } => "executed",
-                crate::app::voice::control::VoicePhase::TranscriptOnly { .. } => "transcript_only",
-                crate::app::voice::control::VoicePhase::Error { .. } => "error",
-            },
-            dialogue_phase: match self.dialogue.phase() {
-                dialogue::DialoguePhase::Idle => "idle",
-                dialogue::DialoguePhase::Listening => "listening",
-                dialogue::DialoguePhase::Thinking => "thinking",
-                dialogue::DialoguePhase::Speaking => "speaking",
-            },
-            label: self.effective_voice_label(),
-            microphone_recovery_available: self.can_open_microphone_privacy_settings(),
-        }
-    }
-
     pub fn enter_canvas_for_test(&mut self, root: &std::path::Path, cx: &mut Context<Self>) {
         let project_store = storage::ProjectStore::for_workspace(root)
             .expect("e2e workspace root should initialize project storage");
@@ -337,6 +315,10 @@ impl MultisoulApp {
             .effective
             .iter()
             .find(|entry| entry.command == ShortcutCommandId::NewTerminal);
+        let api_key_text = self
+            .voice_settings_inputs
+            .rendered_text(crate::settings::voice::VoiceSettingsField::ApiKey, cx);
+        let api_key_profile = self.voice_settings.values().active_provider_profile();
         SettingsE2eSnapshot {
             settings_open: self.settings_panel.open,
             active_section: self.settings_panel.active_section.title(),
@@ -360,8 +342,7 @@ impl MultisoulApp {
                 .voice_settings
                 .values()
                 .active_provider_profile()
-                .api_key()
-                .is_some(),
+                .credential_configured(),
             agent_base_url_input_surface_size: self
                 .voice_settings_inputs
                 .input_surface_size(crate::settings::voice::VoiceSettingsField::BaseUrl, cx),
@@ -375,9 +356,9 @@ impl MultisoulApp {
                 .voice_settings_inputs
                 .rendered_text(crate::settings::voice::VoiceSettingsField::Model, cx),
             agent_api_key_display_state: classify_api_key_display(
-                self.voice_settings_inputs
-                    .rendered_text(crate::settings::voice::VoiceSettingsField::ApiKey, cx)
-                    .as_deref(),
+                api_key_text.as_deref(),
+                self.voice_settings_inputs.api_key_revealed(cx),
+                api_key_profile.api_key(),
             ),
             voice_editing_field: self
                 .voice_settings
@@ -466,11 +447,17 @@ fn opacity_to_milli(opacity: f32) -> u16 {
     (opacity.clamp(0.0, 1.0) * 1000.0).round() as u16
 }
 
-fn classify_api_key_display(text: Option<&str>) -> ApiKeyDisplayState {
+fn classify_api_key_display(
+    text: Option<&str>,
+    revealed: bool,
+    expected_secret: Option<&str>,
+) -> ApiKeyDisplayState {
     match text {
         None => ApiKeyDisplayState::NotRendered,
+        Some(value) if revealed && expected_secret == Some(value) => ApiKeyDisplayState::Revealed,
+        Some(_) if revealed => ApiKeyDisplayState::Unsafe,
         Some("Not configured") => ApiKeyDisplayState::NotConfigured,
-        Some("Configured ••••••••") => ApiKeyDisplayState::Configured,
+        Some("*********") => ApiKeyDisplayState::Configured,
         Some(value) if !value.is_empty() && value.chars().all(|character| character == '•') => {
             ApiKeyDisplayState::MaskedEditing
         }

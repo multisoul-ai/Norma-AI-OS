@@ -364,6 +364,9 @@ impl MultisoulApp {
             .child(render_canvas_minimap(&self.runtime, theme, window))
             .child(self.render_command_dock(window, cx))
             .child(self.render_workspace_top_bar(cx))
+            .when(self.voice_ready_notification_visible, |chrome| {
+                chrome.child(self.render_voice_ready_notification(cx))
+            })
             .when(workspace_left_rail_visible(), |chrome| {
                 chrome.child(
                     div()

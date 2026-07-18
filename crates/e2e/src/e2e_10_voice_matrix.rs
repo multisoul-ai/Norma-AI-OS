@@ -5,10 +5,10 @@ use gpui::{KeyDownEvent, KeyUpEvent, Keystroke, Modifiers, TestAppContext, Visua
 
 use crate::harness::{
     create_terminal, echo_factory, enter_canvas, make_app, read_grid, read_runtime,
+    VoiceTranscriptEnvGuard,
 };
 
 const TEST_TRANSCRIPT: &str = "voice-matrix-input";
-static VOICE_TRANSCRIPT_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// Voice 单次语音指令矩阵：Hold 与 Toggle 都必须经真实 ⌘E 快捷键进入共享 Agent 回合。
 ///
@@ -270,33 +270,4 @@ fn click_debug(cx: &mut VisualTestContext, selector: &'static str) {
         .unwrap_or_else(|| panic!("selector `{selector}` 应有可点击 bounds"));
     cx.simulate_click(bounds.center(), Modifiers::none());
     cx.run_until_parked();
-}
-
-struct VoiceTranscriptEnvGuard {
-    _lock: std::sync::MutexGuard<'static, ()>,
-    previous: Option<std::ffi::OsString>,
-}
-
-impl VoiceTranscriptEnvGuard {
-    fn set(transcript: &str) -> Self {
-        let lock = VOICE_TRANSCRIPT_ENV_LOCK
-            .lock()
-            .expect("语音 transcript 环境变量测试锁不应中毒");
-        let previous = std::env::var_os("MULTISOUL_VOICE_TRANSCRIPT");
-        std::env::set_var("MULTISOUL_VOICE_TRANSCRIPT", transcript);
-        Self {
-            _lock: lock,
-            previous,
-        }
-    }
-}
-
-impl Drop for VoiceTranscriptEnvGuard {
-    fn drop(&mut self) {
-        if let Some(previous) = self.previous.take() {
-            std::env::set_var("MULTISOUL_VOICE_TRANSCRIPT", previous);
-        } else {
-            std::env::remove_var("MULTISOUL_VOICE_TRANSCRIPT");
-        }
-    }
 }

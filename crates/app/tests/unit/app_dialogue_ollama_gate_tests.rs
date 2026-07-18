@@ -1,7 +1,7 @@
 use super::{DialogueControlState, DialogueStartError};
 use crate::app::voice::control::VoiceVisual;
 use crate::settings::voice::{
-    DialogueLlmMode, EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsValues,
+    AgentProviderKind, DialogueLlmMode, EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsValues,
 };
 use dialogue::DialoguePhase;
 use tempfile::tempdir;
@@ -38,6 +38,7 @@ fn test_dialogue_llm_mode_defaults_to_mock() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   dialogue_llm_mode = Ollama
+///   agent_provider = Ollama（显式选择被探测的 Provider）
 ///   ollama endpoint = http://127.0.0.1:1（无服务监听）
 ///   model_dir = tempfile 现存目录
 ///
@@ -66,6 +67,7 @@ fn test_dialogue_start_blocks_listening_when_ollama_unavailable() {
                     .expect("内置 Paraformer ID 应有效"),
             ),
             dialogue_llm_mode: Some(DialogueLlmMode::Ollama),
+            agent_provider: Some(AgentProviderKind::Ollama),
             ollama_endpoint: Some("http://127.0.0.1:1".to_string()),
             ..SavedVoiceSettings::default()
         };
