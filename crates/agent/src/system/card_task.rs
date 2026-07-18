@@ -106,7 +106,7 @@ fn delegation_receipt_summary(receipts: &[norma::protocol::AgentTaskReceipt]) ->
         .map(|receipt| {
             let result = match receipt.status {
                 AgentTaskReceiptStatus::Submitted => "已派发",
-                AgentTaskReceiptStatus::Queued => "已排队",
+                AgentTaskReceiptStatus::Queued => "正在执行",
                 AgentTaskReceiptStatus::Untracked => "已派发（无法跟踪）",
                 AgentTaskReceiptStatus::Failed => "派发失败",
             };
