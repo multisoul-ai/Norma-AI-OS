@@ -114,6 +114,30 @@ pub(super) fn delegation_assignments(
     })
 }
 
+pub(super) fn validate_delegation_assignments(
+    assignments: &[norma::protocol::AgentTaskAssignment],
+    roster: &[crate::AgentRosterEntry],
+) -> Result<(), String> {
+    let mut seen = Vec::<&str>::new();
+    for assignment in assignments {
+        let entry = roster
+            .iter()
+            .find(|entry| entry.name.eq_ignore_ascii_case(&assignment.name))
+            .ok_or_else(|| format!("Agent {} is unknown", assignment.name))?;
+        if !entry.enabled {
+            return Err(format!("Agent {} is disabled", entry.name));
+        }
+        if seen
+            .iter()
+            .any(|name| name.eq_ignore_ascii_case(&entry.name))
+        {
+            return Err(format!("Agent {} is duplicated", entry.name));
+        }
+        seen.push(&entry.name);
+    }
+    Ok(())
+}
+
 fn divided_delegation_assignments(
     intent: &str,
     targets: &[String],
@@ -289,9 +313,7 @@ fn starts_with_unpunctuated_instruction(text: &str, name: &str) -> bool {
 
 fn agent_group_targets(text: &str, roster: &[crate::AgentRosterEntry]) -> Option<Vec<String>> {
     let keys = sorted_address_keys(roster);
-    let Some((first_target, mut remainder)) = strip_any_name_prefix(text, &keys) else {
-        return None;
-    };
+    let (first_target, mut remainder) = strip_any_name_prefix(text, &keys)?;
     let mut targets = vec![first_target.to_string()];
     loop {
         remainder = remainder.trim_start();

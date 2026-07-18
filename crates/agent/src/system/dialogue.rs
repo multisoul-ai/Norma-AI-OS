@@ -123,6 +123,13 @@ where
                             &self.agent_roster,
                         )
                     });
+                    if let Some(assignments) = assignments.as_deref() {
+                        super::dialogue_policy::validate_delegation_assignments(
+                            assignments,
+                            &self.agent_roster,
+                        )
+                        .map_err(AgentError::InvalidCommand)?;
+                    }
                     let task_id = self.enqueue_task(trace_id.clone(), intent, assignments);
                     format!(r#"{{"status":"queued","task_id":{task_id}}}"#)
                 }

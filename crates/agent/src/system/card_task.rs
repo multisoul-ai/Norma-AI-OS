@@ -47,12 +47,8 @@ pub(super) fn delegation_completion(task: &ActiveTask) -> Option<DelegationCompl
             "TaskIncomplete: deterministic dispatch failed: {errors}"
         )));
     };
-    if receipts.len() != expected.len() {
-        return Some(DelegationCompletion::Failed(format!(
-            "TaskIncomplete: expected {} Agent dispatch receipts but received {}",
-            expected.len(),
-            receipts.len()
-        )));
+    if let Err(error) = require_matching_delegation_receipts(expected, receipts) {
+        return Some(DelegationCompletion::Failed(error));
     }
     let failed = receipts
         .iter()
@@ -70,6 +66,38 @@ pub(super) fn delegation_completion(task: &ActiveTask) -> Option<DelegationCompl
     } else {
         Some(DelegationCompletion::Succeeded(summary))
     }
+}
+
+fn require_matching_delegation_receipts(
+    expected: &[norma::protocol::AgentTaskAssignment],
+    receipts: &[norma::protocol::AgentTaskReceipt],
+) -> Result<(), String> {
+    let mut matched_receipts = vec![false; receipts.len()];
+    let mut missing = Vec::new();
+    for assignment in expected {
+        let match_index = receipts.iter().enumerate().find_map(|(index, receipt)| {
+            (!matched_receipts[index] && names_match(&assignment.name, &receipt.name))
+                .then_some(index)
+        });
+        if let Some(index) = match_index {
+            matched_receipts[index] = true;
+        } else {
+            missing.push(assignment.name.as_str());
+        }
+    }
+    let unexpected = receipts
+        .iter()
+        .zip(matched_receipts)
+        .filter_map(|(receipt, matched)| (!matched).then_some(receipt.name.as_str()))
+        .collect::<Vec<_>>();
+    if missing.is_empty() && unexpected.is_empty() {
+        return Ok(());
+    }
+    Err(format!(
+        "TaskIncomplete: Agent dispatch receipt identity mismatch; missing=[{}]; unexpected=[{}]",
+        missing.join(", "),
+        unexpected.join(", ")
+    ))
 }
 
 fn delegation_receipt_summary(receipts: &[norma::protocol::AgentTaskReceipt]) -> String {
@@ -131,7 +159,7 @@ pub(super) fn require_delegation_targets(
             let canonical = resolve_canonical_name(name, roster).ok_or_else(|| {
                 format!("DelegationTargetMismatch: cannot activate unaddressed Agent {name}")
             })?;
-            if expected.iter().any(|target| *target == canonical) {
+            if expected.contains(&canonical) {
                 Ok(())
             } else {
                 Err(format!(
