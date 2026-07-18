@@ -20,6 +20,14 @@ impl MultisoulApp {
         self.dialogue.queue_agent_report(report.into());
     }
 
+    pub fn queue_single_voice_dialogue_agent_report_for_e2e(&mut self, report: impl Into<String>) {
+        self.dialogue.queue_single_voice_agent_report(report.into());
+    }
+
+    pub fn begin_next_dialogue_agent_report_for_e2e(&mut self) -> Option<String> {
+        self.dialogue.begin_next_agent_report()
+    }
+
     pub fn finish_agent_announcement_for_e2e(&mut self, cx: &mut Context<Self>) {
         let generation = self.agent_announcement_playback.generation;
         self.finish_agent_announcement_playback(generation, true, cx);

@@ -138,10 +138,10 @@ fn e2e_06_agent_task_terminal_announcements_use_name_dedupe_and_shared_inset() {
     );
 }
 
-/// E2E-06-B：单次语音或文字委派遗留的模板回执不得阻塞后续 Agent 终态播报。
+/// E2E-06-B：文字委派遗留的模板回执不得阻塞后续 Agent 终态播报。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   voice interaction = single voice command，Dialogue phase = Idle
+///   interaction source = text，Dialogue phase = Idle
 ///   queued template reports = 1 条派发回执；Idle 阶段无法消费该回执
 ///   Agent profile = Codex，呼叫名 = Bella
 ///   task events = 2：UserPromptSubmit + Stop
@@ -200,5 +200,63 @@ fn e2e_06_idle_delegation_report_does_not_block_terminal_announcement() {
     assert_eq!(
         voice.dialogue_phase, "idle",
         "Agent 终态播报不得把单次委派后的 Dialogue 改成 Speaking"
+    );
+}
+
+/// E2E-06-C：只有单次语音来源的派发回执可以从 Idle 进入播报准备。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Dialogue phase = Idle：单次语音的静默入队回复已经结束
+///   voice reports = 1 条“任务已派发给 Bella”
+///   text reports = 1 条“文字任务已完成”
+///   expected eligible reports = 1：只有队首单次语音回执获得播放资格
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在真实 MultisoulApp 对话状态中排入单次语音回执。
+///   2. 从 Idle 尝试取得下一条可播报回执。
+///   3. 新建第二个应用状态并排入普通文字回执，再从 Idle 尝试取得。
+///
+/// 预期结果：
+///   - 正断言：单次语音回执从 Idle 返回“任务已派发给 Bella”并进入 Thinking。
+///   - 负断言：普通文字回执从 Idle 不得返回内容，且会话保持 Idle。
+#[test]
+fn e2e_06_single_voice_report_is_the_only_idle_eligible_dialogue_report() {
+    let mut voice_cx = TestAppContext::single();
+    let (voice_app, voice_cx) = make_app(&mut voice_cx, echo_factory());
+    voice_app.update(voice_cx, |app, _cx| {
+        app.queue_single_voice_dialogue_agent_report_for_e2e("任务已派发给 Bella");
+    });
+
+    let voice_report = voice_app.update(voice_cx, |app, _cx| {
+        app.begin_next_dialogue_agent_report_for_e2e()
+    });
+    let voice_snapshot = voice_app.read_with(voice_cx, |app, _cx| app.voice_e2e_snapshot());
+    assert_eq!(
+        voice_report,
+        Some("任务已派发给 Bella".to_string()),
+        "明确来自单次语音的派发回执必须可以从 Idle 进入播报准备"
+    );
+    assert_eq!(
+        voice_snapshot.dialogue_phase, "thinking",
+        "单次语音回执取得播放资格后必须进入 Thinking"
+    );
+
+    let mut text_cx = TestAppContext::single();
+    let (text_app, text_cx) = make_app(&mut text_cx, echo_factory());
+    text_app.update(text_cx, |app, _cx| {
+        app.queue_dialogue_agent_report_for_e2e("文字任务已完成");
+    });
+
+    let text_report = text_app.update(text_cx, |app, _cx| {
+        app.begin_next_dialogue_agent_report_for_e2e()
+    });
+    let text_snapshot = text_app.read_with(text_cx, |app, _cx| app.voice_e2e_snapshot());
+    assert_eq!(
+        text_report, None,
+        "普通文字任务回执不得在 Idle 主动占用语音播报"
+    );
+    assert_eq!(
+        text_snapshot.dialogue_phase, "idle",
+        "普通文字任务回执被拒绝后 Dialogue 必须保持 Idle"
     );
 }

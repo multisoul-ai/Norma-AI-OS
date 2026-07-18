@@ -17,11 +17,16 @@ type TestTurnRunner =
 #[cfg(test)]
 static TEST_TURN_RUNNER: std::sync::Mutex<Option<TestTurnRunner>> = std::sync::Mutex::new(None);
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct QueuedAgentReport {
+    text: String,
+    play_from_idle: bool,
+}
+
 impl DialogueControlState {
     pub(crate) fn has_pending_spoken_reply(&self) -> bool {
         self.pending_voice_turn
-            || (self.session.phase() == DialoguePhase::Listening
-                && !self.queued_template_reports.is_empty())
+            || self.can_begin_queued_agent_report()
             || self.reply_task.is_some()
             || self.speech_task.is_some()
     }
@@ -37,19 +42,53 @@ impl DialogueControlState {
     }
 
     pub(crate) fn queue_agent_report(&mut self, report: String) {
-        self.queued_template_reports.push(report);
+        self.queued_template_reports.push(QueuedAgentReport {
+            text: report,
+            play_from_idle: false,
+        });
+    }
+
+    pub(crate) fn queue_agent_report_for_current_voice_source(&mut self, report: String) {
+        if self.reply_keeps_listening {
+            self.queue_agent_report(report);
+        } else {
+            self.queue_single_voice_agent_report(report);
+        }
+    }
+
+    pub(crate) fn queue_single_voice_agent_report(&mut self, report: String) {
+        self.queued_template_reports.push(QueuedAgentReport {
+            text: report,
+            play_from_idle: true,
+        });
     }
 
     pub(crate) fn begin_next_agent_report(&mut self) -> Option<String> {
-        if self.session.phase() != DialoguePhase::Listening
-            || self.reply_task.is_some()
-            || self.speech_task.is_some()
-            || self.queued_template_reports.is_empty()
-        {
+        if !self.can_begin_queued_agent_report() {
             return None;
         }
-        self.session.on_report_pending().ok()?;
-        self.queued_template_reports.first().cloned()
+        match self.session.phase() {
+            DialoguePhase::Listening => self.session.on_report_pending().ok()?,
+            DialoguePhase::Idle => self
+                .session
+                .on_deferred_single_voice_report_pending()
+                .ok()?,
+            DialoguePhase::Thinking | DialoguePhase::Speaking => return None,
+        }
+        self.queued_template_reports
+            .first()
+            .map(|report| report.text.clone())
+    }
+
+    fn can_begin_queued_agent_report(&self) -> bool {
+        if self.reply_task.is_some() || self.speech_task.is_some() {
+            return false;
+        }
+        let Some(report) = self.queued_template_reports.first() else {
+            return false;
+        };
+        self.session.phase() == DialoguePhase::Listening
+            || (self.session.phase() == DialoguePhase::Idle && report.play_from_idle)
     }
 
     pub(crate) fn complete_current_agent_report(&mut self) {
@@ -139,8 +178,9 @@ impl DialogueControlState {
 
     pub(crate) fn store_turn_artifacts(&mut self, artifacts: &VoiceTurnArtifacts) {
         self.last_reply_text = Some(artifacts.reply_text.clone());
-        self.queued_template_reports
-            .extend(artifacts.queued_template_reports.clone());
+        for report in &artifacts.queued_template_reports {
+            self.queue_agent_report(report.clone());
+        }
     }
 
     #[cfg(test)]
@@ -149,8 +189,11 @@ impl DialogueControlState {
     }
 
     #[cfg(test)]
-    pub(crate) fn queued_template_reports_for_tests(&self) -> &[String] {
-        &self.queued_template_reports
+    pub(crate) fn queued_template_reports_for_tests(&self) -> Vec<String> {
+        self.queued_template_reports
+            .iter()
+            .map(|report| report.text.clone())
+            .collect()
     }
 
     #[cfg(test)]

@@ -201,6 +201,46 @@ fn test_background_report_from_idle_is_rejected() {
     );
 }
 
+/// DS-4d：明确来自单次语音指令的延迟报告可以从 Idle 占用回复播放槽。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   initial phase = Idle：单次语音的静默入队回复已经结束
+///   deferred reports = 1：真实 Agent 派发回执
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 新建会话并保持 Idle
+///   2. 调用 on_deferred_single_voice_report_pending
+///   3. 调用 on_reply_ready 复用正常 TTS 状态迁移
+///
+/// 预期结果：
+///   - 正断言：明确的延迟单次语音报告从 Idle 进入 Thinking，再进入 Speaking
+///   - 负断言：通用 on_report_pending 的 Idle 拒绝规则仍由 DS-4c 保持
+#[test]
+fn test_deferred_single_voice_report_can_start_from_idle() {
+    let mut session = DialogueSession::new();
+
+    assert_eq!(
+        session.on_deferred_single_voice_report_pending(),
+        Ok(()),
+        "明确来自单次语音的延迟报告必须可以从 Idle 占用播放槽"
+    );
+    assert_eq!(
+        session.phase(),
+        DialoguePhase::Thinking,
+        "延迟单次语音报告开始合成前必须进入 Thinking"
+    );
+    assert_eq!(
+        session.on_reply_ready(),
+        Ok(()),
+        "延迟单次语音报告必须复用正常的 TTS ready 迁移"
+    );
+    assert_eq!(
+        session.phase(),
+        DialoguePhase::Speaking,
+        "延迟单次语音报告音频就绪后必须进入 Speaking"
+    );
+}
+
 /// DS-5: 播放结束且 keep_listening=true 时回到 Listening。
 ///
 /// 数据构造：

@@ -101,7 +101,7 @@ pub(crate) struct DialogueControlState {
     pending_startup_attempt: Option<u64>,
     error_message: Option<String>,
     microphone_settings_recovery_available: bool,
-    pub(super) queued_template_reports: Vec<String>,
+    queued_template_reports: Vec<reply_loop::QueuedAgentReport>,
     pub(super) last_reply_text: Option<String>,
     pub(super) pending_voice_turn: bool,
     pub(super) utterance_committer: UtteranceCommitter,

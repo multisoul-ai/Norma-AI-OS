@@ -458,7 +458,8 @@ fn start_event_pump(
                     }
                     _ => {
                         if let Some(report) = terminal_task_report(&event) {
-                            app.dialogue.queue_agent_report(report);
+                            app.dialogue
+                                .queue_agent_report_for_current_voice_source(report);
                         }
                     }
                 }
