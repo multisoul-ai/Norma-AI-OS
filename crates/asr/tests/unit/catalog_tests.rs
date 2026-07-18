@@ -6,13 +6,13 @@ use crate::{
 /// ASR-CAT-1：受控模型库必须按不可变 ID 返回 Paraformer 的用户能力描述。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   catalog entry count = 3，Paraformer + Zipformer Streaming ZH + Zipformer Streaming CTC ZH
+///   catalog entry count = 4，Paraformer + Zipformer Bilingual + 两个中文 Zipformer
 ///   language count      = 2，中文 zh + 英文 en
 ///   required files      = 3，encoder + decoder + tokens
 ///   unknown id          = "unknown-asr-model-2099"，不在受控模型库
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 获取内置模型库 → 包含 Paraformer、Zipformer Streaming ZH 与 Zipformer Streaming CTC ZH
+///   1. 获取内置模型库 → 包含 Paraformer、Zipformer Bilingual 与两个中文 Zipformer
 ///   2. 按 PARAFORMER_MODEL_ID 查询 → 返回显示信息与流式能力
 ///   3. 按 unknown id 查询 → 返回 None
 ///
@@ -30,8 +30,8 @@ fn test_builtin_catalog_finds_paraformer_and_rejects_unknown_id() {
 
     assert_eq!(
         catalog.entries().len(),
-        3,
-        "受控模型库应包含 Paraformer、Zipformer Streaming ZH 与 Zipformer Streaming CTC ZH"
+        4,
+        "受控模型库应包含 Paraformer、Zipformer Bilingual 与两个中文 Zipformer"
     );
     assert_eq!(
         paraformer.display_name(),
@@ -200,5 +200,86 @@ fn test_zipformer_ctc_catalog_entry_pins_official_ctc_artifact() {
     assert!(
         !zipformer_ctc.recommended(),
         "未完成中文质量与 Apple Silicon 性能门禁前不得标记 Zipformer CTC 为推荐"
+    );
+}
+
+/// ASR-CAT-4：Zipformer Bilingual 必须以独立不可变条目提供中英流式识别。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   catalog entry count = 4，现有 3 个模型 + Zipformer Bilingual
+///   language count      = 2，中文 zh + 英文 en
+///   required files      = 4，int8 encoder + fp32 decoder + int8 joiner + tokens
+///   archive bytes       = 511,274,346，来自官方 GitHub release 资产元数据
+///   pinned SHA-256      = 27ffbd9ee24ad186d99acc2f6354d7992b27bcab490812510665fa8f9389c5f8
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用版本化模型 ID 查询受控模型库 → 返回独立 Zipformer Bilingual 条目
+///   2. 读取中英能力、固定归档元数据与 Transducer 文件布局
+///   3. 检查推荐状态 → 未完成双语质量与性能门禁前保持 false
+///
+/// 预期结果：
+///   - 正断言：条目支持 zh/en 流式 partial，且精确固定官方归档和四个必要文件
+///   - 负断言：不得复用纯中文 ID，也不得在未完成发布门禁时标记为推荐
+#[test]
+fn test_zipformer_bilingual_catalog_entry_pins_official_transducer_artifact() {
+    let catalog = builtin_model_catalog();
+    let bilingual_id = AsrModelId::parse("zipformer-bilingual-zh-en-int8-2023-02-20")
+        .expect("版本化 Zipformer Bilingual ID 应有效");
+    let bilingual = catalog
+        .find(&bilingual_id)
+        .expect("受控模型库应包含独立的 Zipformer Bilingual 条目");
+
+    assert_eq!(
+        catalog.entries().len(),
+        4,
+        "新增 Zipformer Bilingual 后，受控模型库应精确包含四个模型"
+    );
+    assert_eq!(
+        bilingual.display_name(),
+        "Zipformer Bilingual",
+        "Settings 应显示不含版本噪音的双语 Zipformer 名称"
+    );
+    assert_eq!(
+        bilingual.capabilities().languages(),
+        &["zh", "en"],
+        "Zipformer Bilingual 必须明确声明中文与英文能力"
+    );
+    assert!(
+        bilingual.capabilities().streaming_partials(),
+        "Zipformer Bilingual 必须声明支持流式 partial"
+    );
+    assert_eq!(
+        bilingual.artifact().url(),
+        "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20.tar.bz2",
+        "下载 URL 必须钉死官方非 small 的 Zipformer Bilingual 归档"
+    );
+    assert_eq!(
+        bilingual.artifact().archive_bytes(),
+        511_274_346,
+        "下载大小必须使用完整官方归档字节数，不能使用截图估算值"
+    );
+    assert_eq!(
+        bilingual.artifact().sha256(),
+        "27ffbd9ee24ad186d99acc2f6354d7992b27bcab490812510665fa8f9389c5f8",
+        "Zipformer Bilingual 官方归档 SHA-256 必须固定"
+    );
+    assert_eq!(
+        bilingual.artifact().required_files(),
+        &[
+            "encoder-epoch-99-avg-1.int8.onnx".to_string(),
+            "decoder-epoch-99-avg-1.onnx".to_string(),
+            "joiner-epoch-99-avg-1.int8.onnx".to_string(),
+            "tokens.txt".to_string(),
+        ],
+        "双语 Transducer 必须要求官方 int8 encoder、fp32 decoder、int8 joiner 与 tokens"
+    );
+    assert_ne!(
+        bilingual.id().as_str(),
+        ZIPFORMER_STREAMING_ZH_MODEL_ID,
+        "双语模型不得复用纯中文 Zipformer 的不可变 ID"
+    );
+    assert!(
+        !bilingual.recommended(),
+        "未完成中英混说质量与 Apple Silicon 性能门禁前不得推荐双语 Zipformer"
     );
 }

@@ -71,6 +71,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("settings-voice-mode-dictation");
     assert_anchor!("settings-voice-mode-continuous");
     assert_anchor!("settings-asr-model");
+    assert_anchor!("Zipformer Bilingual");
     assert_anchor!("Zipformer Streaming ZH");
     assert_anchor!("Zipformer Streaming CTC ZH");
     assert_anchor!("Recommendation pending");

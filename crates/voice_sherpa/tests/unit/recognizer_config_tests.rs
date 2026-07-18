@@ -234,3 +234,93 @@ fn test_zipformer_ctc_available_model_builds_only_ctc_config() {
         "统一 factory 应让 Zipformer CTC 使用 2 线程 CPU 配置"
     );
 }
+
+/// SHERPA-CONFIG-4：Zipformer Bilingual 可用模型必须使用其版本化文件名构造 Transducer。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   required files       = 4，int8 encoder + fp32 decoder + int8 joiner + tokens
+///   Transducer branches  = 3，encoder/decoder/joiner 均有精确路径
+///   non-target branches  = 0，Paraformer 与 Zipformer2 CTC 均必须为空
+///   recognizer threads   = 2，与现有本地 CPU 配置一致
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 从受控模型库定位 Zipformer Bilingual descriptor 并构造完整安装
+///   2. validate_installation → AvailableAsrModel
+///   3. build_online_recognizer_config → 使用双语工件文件名的 Sherpa Transducer 配置
+///
+/// 预期结果：
+///   - 正断言：三个 Transducer 路径与 tokens 精确指向已校验的双语模型文件
+///   - 负断言：不得填充 Paraformer 或 Zipformer2 CTC 分支
+#[test]
+fn test_zipformer_bilingual_available_model_builds_versioned_transducer_config() {
+    let temp = tempfile::tempdir().expect("应可创建 Zipformer Bilingual 配置临时目录");
+    let bilingual_id = asr::AsrModelId::parse(asr::ZIPFORMER_BILINGUAL_MODEL_ID)
+        .expect("内置 Zipformer Bilingual ID 应有效");
+    let descriptor = builtin_model_catalog()
+        .find(&bilingual_id)
+        .expect("受控模型库应包含 Zipformer Bilingual")
+        .clone();
+    for file in descriptor.artifact().required_files() {
+        fs::write(temp.path().join(file), [1_u8]).expect("应可写入双语模型占位文件");
+    }
+    InstallationManifest::for_descriptor(&descriptor)
+        .write_to(temp.path())
+        .expect("应可写入 Zipformer Bilingual 安装清单");
+    let available = validate_installation(temp.path(), &descriptor)
+        .expect("完整 Zipformer Bilingual 安装应转为可用模型");
+
+    let config = build_online_recognizer_config(&available)
+        .expect("可用 Zipformer Bilingual 应能生成 Sherpa Transducer 配置");
+
+    assert_eq!(
+        config.model_config.transducer.encoder.as_deref(),
+        Some(
+            temp.path()
+                .join("encoder-epoch-99-avg-1.int8.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "双语 Zipformer encoder 必须使用官方版本化 int8 文件"
+    );
+    assert_eq!(
+        config.model_config.transducer.decoder.as_deref(),
+        Some(
+            temp.path()
+                .join("decoder-epoch-99-avg-1.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "双语 Zipformer decoder 必须使用官方 fp32 文件"
+    );
+    assert_eq!(
+        config.model_config.transducer.joiner.as_deref(),
+        Some(
+            temp.path()
+                .join("joiner-epoch-99-avg-1.int8.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "双语 Zipformer joiner 必须使用官方版本化 int8 文件"
+    );
+    assert_eq!(
+        config.model_config.tokens.as_deref(),
+        Some(temp.path().join("tokens.txt").to_string_lossy().as_ref()),
+        "双语 Zipformer tokens 必须来自已校验安装根目录"
+    );
+    assert!(
+        config.model_config.paraformer.encoder.is_none(),
+        "双语 Zipformer 配置不得填充 Paraformer encoder"
+    );
+    assert!(
+        config.model_config.paraformer.decoder.is_none(),
+        "双语 Zipformer 配置不得填充 Paraformer decoder"
+    );
+    assert!(
+        config.model_config.zipformer2_ctc.model.is_none(),
+        "双语 Transducer 不得误填充 Zipformer2 CTC model"
+    );
+    assert_eq!(
+        config.model_config.num_threads, 2,
+        "统一 factory 应让双语 Zipformer 使用 2 线程 CPU 配置"
+    );
+}

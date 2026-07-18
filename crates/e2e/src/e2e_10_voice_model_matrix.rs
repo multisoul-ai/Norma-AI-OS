@@ -7,7 +7,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app_with_settings_store};
 /// 受控 ASR 模型必须经 UI 与真实运行时加载切换，并由两种模式共享同一选择。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   managed models = 3（Paraformer + Zipformer Streaming ZH + Zipformer Streaming CTC ZH）
+///   managed models = 4（Paraformer + Zipformer Bilingual + 两个中文 Zipformer）
 ///   L2 installed    = 2（本用例真实加载 Paraformer 与 Zipformer Transducer）
 ///   runtime loads  = 2（每次点击 Select 都真实构造对应 Sherpa recognizer）
 ///   mode switches  = 2（Dictation → Continuous → Dictation）
@@ -55,18 +55,22 @@ fn e2e_10_real_paraformer_and_zipformer_selection_is_shared_and_persistent() {
         click_debug(cx, "settings-section-voice");
 
         let initial = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
-        assert_eq!(initial.asr_models.len(), 3, "模型库应精确包含三个受控模型");
+        assert_eq!(initial.asr_models.len(), 4, "模型库应精确包含四个受控模型");
         assert_eq!(
             initial.asr_models[0].installation, "ready",
             "Paraformer 应为 Ready"
         );
         assert_eq!(
-            initial.asr_models[1].installation, "ready",
+            initial.asr_models[2].installation, "ready",
             "Zipformer Streaming ZH 应为 Ready"
         );
         assert_eq!(
-            initial.asr_models[2].display_name, "Zipformer Streaming CTC ZH",
-            "第三张模型卡应为 Zipformer Streaming CTC ZH"
+            initial.asr_models[1].display_name, "Zipformer Bilingual",
+            "第二张模型卡应为 Zipformer Bilingual"
+        );
+        assert_eq!(
+            initial.asr_models[3].display_name, "Zipformer Streaming CTC ZH",
+            "第四张模型卡应为 Zipformer Streaming CTC ZH"
         );
         assert_eq!(
             initial.selected_asr_model_id, None,
@@ -85,7 +89,7 @@ fn e2e_10_real_paraformer_and_zipformer_selection_is_shared_and_persistent() {
             "Paraformer 应显示 Selected"
         );
         assert_ne!(
-            paraformer.asr_models[1].action, "selected",
+            paraformer.asr_models[2].action, "selected",
             "Zipformer 此时不得被误选"
         );
 
@@ -97,7 +101,7 @@ fn e2e_10_real_paraformer_and_zipformer_selection_is_shared_and_persistent() {
             "切到 Continuous Listening 后应共享 Paraformer 选择"
         );
 
-        click_debug(cx, "settings-asr-select-1");
+        click_debug(cx, "settings-asr-select-2");
         let zipformer = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
         assert_eq!(
             zipformer.selected_asr_model_id.as_deref(),
@@ -105,7 +109,7 @@ fn e2e_10_real_paraformer_and_zipformer_selection_is_shared_and_persistent() {
             "点击并通过 Transducer 加载后应选择 Zipformer"
         );
         assert_eq!(
-            zipformer.asr_models[1].action, "selected",
+            zipformer.asr_models[2].action, "selected",
             "Zipformer 应显示 Selected"
         );
         assert_ne!(
@@ -113,7 +117,7 @@ fn e2e_10_real_paraformer_and_zipformer_selection_is_shared_and_persistent() {
             "切换后 Paraformer 不得仍为 Selected"
         );
         assert!(
-            !zipformer.asr_models[1].deletable,
+            !zipformer.asr_models[2].deletable,
             "当前 Zipformer 不得暴露 Delete 动作"
         );
 
@@ -140,11 +144,11 @@ fn e2e_10_real_paraformer_and_zipformer_selection_is_shared_and_persistent() {
         "App 重载后应从 SQLite 恢复 Zipformer 不可变 ID"
     );
     assert_eq!(
-        reloaded.asr_models[1].installation, "ready",
+        reloaded.asr_models[2].installation, "ready",
         "重载扫描后 Zipformer 仍应 Ready"
     );
     assert_eq!(
-        reloaded.asr_models[1].action, "selected",
+        reloaded.asr_models[2].action, "selected",
         "重载后 Zipformer 应恢复 Selected 动作"
     );
     assert_ne!(

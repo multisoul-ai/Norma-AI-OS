@@ -4,7 +4,7 @@ use asr::{builtin_model_catalog, InstallationManifest, ZIPFORMER_STREAMING_ZH_MO
 /// ASR-MANAGER-1：后台扫描只能把清单与必要文件完整的模型标记为 Ready。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   catalog entries = 3（Paraformer + Zipformer Streaming ZH + Zipformer Streaming CTC ZH）
+///   catalog entries = 4（Paraformer + Zipformer Bilingual + 两个中文 Zipformer）
 ///   complete installs = 1（仅 Zipformer）
 ///   Zipformer required files = 4（encoder + decoder + joiner + tokens）
 ///   shared VAD files = 1（silero_vad/silero_vad.onnx）
@@ -74,7 +74,7 @@ fn test_model_manager_scan_derives_ready_only_from_valid_installations() {
 /// ASR-MANAGER-3：存在但损坏的受管模型必须显示 Failed，而不是伪装成未安装。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   catalog entries = 3
+///   catalog entries = 4
 ///   corrupt installs = 1（Zipformer 目录存在但 installation.json 缺失）
 ///   absent installs = 1（Paraformer 目录不存在）
 ///

@@ -1,7 +1,7 @@
 use crate::SpeechError;
 use asr::{
-    AvailableAsrModel, PARAFORMER_MODEL_ID, ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID,
-    ZIPFORMER_STREAMING_ZH_MODEL_ID,
+    AvailableAsrModel, PARAFORMER_MODEL_ID, ZIPFORMER_BILINGUAL_MODEL_ID,
+    ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID, ZIPFORMER_STREAMING_ZH_MODEL_ID,
 };
 
 pub fn build_online_recognizer_config(
@@ -9,7 +9,18 @@ pub fn build_online_recognizer_config(
 ) -> Result<sherpa_onnx::OnlineRecognizerConfig, SpeechError> {
     match model.descriptor().id().as_str() {
         PARAFORMER_MODEL_ID => build_paraformer_config(model.root()),
-        ZIPFORMER_STREAMING_ZH_MODEL_ID => build_transducer_config(model.root()),
+        ZIPFORMER_BILINGUAL_MODEL_ID => build_transducer_config(
+            model.root(),
+            "encoder-epoch-99-avg-1.int8.onnx",
+            "decoder-epoch-99-avg-1.onnx",
+            "joiner-epoch-99-avg-1.int8.onnx",
+        ),
+        ZIPFORMER_STREAMING_ZH_MODEL_ID => build_transducer_config(
+            model.root(),
+            "encoder.int8.onnx",
+            "decoder.onnx",
+            "joiner.int8.onnx",
+        ),
         ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID => build_zipformer2_ctc_config(model.root()),
         other => Err(SpeechError::Recognizer(format!(
             "unsupported ASR model: {other}"
@@ -19,12 +30,15 @@ pub fn build_online_recognizer_config(
 
 fn build_transducer_config(
     root: &std::path::Path,
+    encoder_name: &str,
+    decoder_name: &str,
+    joiner_name: &str,
 ) -> Result<sherpa_onnx::OnlineRecognizerConfig, SpeechError> {
     use sherpa_onnx::{OnlineModelConfig, OnlineRecognizerConfig, OnlineTransducerModelConfig};
 
-    let encoder = required_model_file(root, "encoder.int8.onnx")?;
-    let decoder = required_model_file(root, "decoder.onnx")?;
-    let joiner = required_model_file(root, "joiner.int8.onnx")?;
+    let encoder = required_model_file(root, encoder_name)?;
+    let decoder = required_model_file(root, decoder_name)?;
+    let joiner = required_model_file(root, joiner_name)?;
     let tokens = required_model_file(root, "tokens.txt")?;
     Ok(OnlineRecognizerConfig {
         model_config: OnlineModelConfig {

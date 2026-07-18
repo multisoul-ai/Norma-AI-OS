@@ -12,7 +12,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app_with_settings_store};
 ///   dictation triggers = 2（Hold + Toggle）
 ///   microphone choices = 3（System Default + 内置麦克风 + USB 麦克风）
 ///   provider profiles  = 2（Ollama + OpenAI-compatible）
-///   ASR catalog entries = 3（Paraformer + Zipformer Streaming ZH + Zipformer Streaming CTC ZH）
+///   ASR catalog entries = 4（两个双语模型 + 两个中文 Zipformer）
 ///   settings reloads    = 1（同一 SQLite store 创建第二个 App）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -80,25 +80,38 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
             defaults.voice_window_inset_enabled,
             "fresh 配置必须默认开启共享语音窗口内缘视觉"
         );
-        assert_eq!(defaults.asr_models.len(), 3, "受控模型库应精确展示三个模型");
+        assert_eq!(defaults.asr_models.len(), 4, "受控模型库应精确展示四个模型");
         assert_eq!(
             defaults.asr_models[0].display_name, "Paraformer Bilingual",
             "第一张模型卡应展示 Paraformer 的友好名称"
         );
         assert_eq!(
-            defaults.asr_models[1].display_name, "Zipformer Streaming ZH",
-            "第二张模型卡应展示 Zipformer Streaming ZH 的友好名称"
+            defaults.asr_models[1].display_name, "Zipformer Bilingual",
+            "第二张模型卡应展示 Zipformer Bilingual 的友好名称"
         );
         assert_eq!(
-            defaults.asr_models[2].display_name, "Zipformer Streaming CTC ZH",
-            "第三张模型卡应展示 Zipformer Streaming CTC ZH 的友好名称"
+            defaults.asr_models[1].languages,
+            &["zh", "en"],
+            "Zipformer Bilingual 卡片必须明确展示中文与英文能力"
+        );
+        assert_eq!(
+            defaults.asr_models[2].display_name, "Zipformer Streaming ZH",
+            "第三张模型卡应展示 Zipformer Streaming ZH 的友好名称"
+        );
+        assert_eq!(
+            defaults.asr_models[3].display_name, "Zipformer Streaming CTC ZH",
+            "第四张模型卡应展示 Zipformer Streaming CTC ZH 的友好名称"
         );
         assert!(
             defaults.asr_models[1].streaming_partials,
-            "Zipformer 卡片必须声明流式 partial 能力"
+            "Zipformer Bilingual 卡片必须声明流式 partial 能力"
         );
         assert!(
             defaults.asr_models[2].streaming_partials,
+            "Zipformer Streaming ZH 卡片必须声明流式 partial 能力"
+        );
+        assert!(
+            defaults.asr_models[3].streaming_partials,
             "Zipformer CTC 卡片必须声明流式 partial 能力"
         );
         assert!(

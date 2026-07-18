@@ -6,7 +6,8 @@ mod support;
 
 pub use catalog::{
     builtin_model_catalog, AsrArtifact, AsrCapabilities, AsrModelCatalog, AsrModelDescriptor,
-    PARAFORMER_MODEL_ID, ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID, ZIPFORMER_STREAMING_ZH_MODEL_ID,
+    PARAFORMER_MODEL_ID, ZIPFORMER_BILINGUAL_ARCHIVE_URL, ZIPFORMER_BILINGUAL_MODEL_ID,
+    ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID, ZIPFORMER_STREAMING_ZH_MODEL_ID,
 };
 pub use installation::{
     install_model_archive, remove_installation, validate_installation, AsrInstallationError,
