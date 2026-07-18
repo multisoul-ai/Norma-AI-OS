@@ -87,16 +87,17 @@ fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
 ///   harness readiness = Ready（4 / 4 hard gates）
 ///   Settings clicks = toolbar(1) + Voice navigation(1) = 2
 ///   summary rows = recognition(1) + connection(1) + spoken replies(1) = 3
+///   collapsed microphone picker = 1
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建默认 Ready App 并进入 Canvas
 ///   2. 依次点击 Settings 与 Voice 导航
 ///   3. 检查 ready banner、三行摘要和独立 Review Setup 按钮
-///   4. 检查 Ready 页面仍保留普通 Settings 导航
+///   4. 检查 Ready 页面保留 Settings 导航与紧凑麦克风选择器
 ///
 /// 预期结果：
 ///   - 正断言：Ready 横幅、配置摘要、三行状态、Review Setup 与侧栏均可见
-///   - 负断言：横幅不再混入设计稿之外的 Try Voice 按钮
+///   - 负断言：横幅无额外 Try Voice，麦克风完整列表默认不展开
 #[test]
 fn ready_voice_page_matches_the_approved_summary_structure() {
     let mut cx = TestAppContext::single();
@@ -142,7 +143,17 @@ fn ready_voice_page_matches_the_approved_summary_structure() {
         "ready Voice configuration must remain inside normal Settings navigation"
     );
     assert!(
+        cx.debug_bounds("settings-voice-input-device-picker")
+            .is_some(),
+        "ready Voice Input card must show one compact microphone picker"
+    );
+    assert!(
         cx.debug_bounds("voice-try-now").is_none(),
         "the approved ready banner must not contain an extra Try Voice action"
+    );
+    assert!(
+        cx.debug_bounds("settings-voice-input-device-default")
+            .is_none(),
+        "ready Voice Input card must keep the full device list collapsed by default"
     );
 }

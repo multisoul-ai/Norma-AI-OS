@@ -168,6 +168,15 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - 真实 macOS Keychain 读写、系统麦克风权限、受管模型安装与端到端真实语音保留为 ignored L3 smoke，并在报告中与确定性 L1/L2 证据分开说明。
 - 所有新增 Rust 测试必须遵守仓库规定的场景、数据构造、执行过程、预期结果注释结构；每个断言包含失败说明，关键保留与删除状态逐一断言，数值预算写明推导。
 
+## Visual Verification Evidence
+
+- [Voice Setup 主视图](../verification/voice-settings-setup-final.jpg)
+- [Voice Setup 下半页与 Finish Setup](../verification/voice-settings-setup-lower-final.jpg)
+- [Voice Ready 主视图](../verification/voice-settings-ready-final.jpg)
+- [Voice Ready Input 区](../verification/voice-settings-ready-input-final.jpg)
+
+以上截图来自启用确定性预览状态的隔离开发版 `.app`，通过真实 macOS 窗口启动、滚动和截图完成；预览 seam 仅在 `e2e-test-support` feature 下编译，不进入默认生产构建。
+
 ## Out of Scope
 
 - 阻塞整个应用的首次启动向导或强制启动弹窗。

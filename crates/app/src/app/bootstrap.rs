@@ -18,6 +18,9 @@ use gpui::{Context, FocusHandle};
 use runtime::Runtime;
 use ui::{Theme, ThemeId};
 
+#[cfg(feature = "e2e-test-support")]
+mod visual_preview;
+
 impl MultisoulApp {
     pub(super) fn build(
         cx: &mut Context<Self>,
@@ -91,6 +94,8 @@ impl MultisoulApp {
         app.refresh_voice_provider_credentials(cx);
         app.validate_saved_voice_provider(cx);
         app.persist_voice_settings_in_background(cx);
+        #[cfg(feature = "e2e-test-support")]
+        visual_preview::configure_from_env(&mut app, cx);
         app
     }
 }

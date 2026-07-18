@@ -439,19 +439,28 @@ fn provider_selector(
 }
 
 fn provider_button(theme: Theme, label: &'static str, active: bool) -> Div {
-    let accent = if active {
+    let text_color = if active {
         theme.accent_orange
     } else {
-        theme.edge_highlight
+        theme.text_secondary
     };
-    action_button(theme, label, accent).bg(rgba(with_alpha(
-        if active {
-            theme.accent_orange
-        } else {
-            theme.panel_high
-        },
-        if active { 0x28 } else { 0x98 },
-    )))
+    action_button(theme, label, text_color)
+        .border_color(rgba(with_alpha(
+            if active {
+                theme.accent_orange
+            } else {
+                theme.text_primary
+            },
+            if active { 0x90 } else { 0x28 },
+        )))
+        .bg(rgba(with_alpha(
+            if active {
+                theme.accent_orange
+            } else {
+                theme.text_primary
+            },
+            if active { 0x28 } else { 0x06 },
+        )))
 }
 
 fn api_key_row(theme: Theme, inputs: &VoiceSettingsInputs, cx: &mut Context<MultisoulApp>) -> Div {

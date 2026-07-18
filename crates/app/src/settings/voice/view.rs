@@ -1,4 +1,5 @@
 pub(crate) use self::editable::VoiceSettingsInputs;
+use self::input_device::input_device_row;
 use self::interaction::interaction_group;
 use self::model_catalog::model_catalog_row;
 use self::provider::{agent_provider_advanced_rows, agent_provider_group};
@@ -12,6 +13,7 @@ use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, Shar
 use ui::Theme;
 
 mod editable;
+mod input_device;
 mod interaction;
 mod model_catalog;
 mod provider;
@@ -87,6 +89,16 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    pub(crate) fn on_voice_settings_toggle_input_device_picker(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings.toggle_input_device_picker();
+        cx.notify();
+    }
+
     pub(crate) fn on_voice_settings_use_default_input_device(
         &mut self,
         _: &ClickEvent,
@@ -94,6 +106,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.voice_settings.select_input_device(None);
+        self.voice_settings.close_input_device_picker();
         self.persist_voice_settings_in_background(cx);
         cx.notify();
     }
@@ -222,8 +235,8 @@ pub(super) fn settings_group(theme: Theme, title: &'static str) -> Div {
         .p(px(16.0))
         .rounded(px(14.0))
         .border_1()
-        .border_color(rgba(with_alpha(theme.node_stroke, 0x88)))
-        .bg(rgba(with_alpha(theme.panel_high, 0x78)))
+        .border_color(rgba(with_alpha(theme.text_primary, 0x24)))
+        .bg(rgba(with_alpha(theme.text_primary, 0x08)))
         .child(
             div()
                 .text_size(px(14.0))
@@ -243,81 +256,6 @@ pub(super) fn text_setting_row(
 ) -> Div {
     let _ = cx;
     setting_row(theme, title, hint).child(inputs.input(field))
-}
-
-fn input_device_row(
-    theme: Theme,
-    state: &VoiceSettingsState,
-    cx: &mut Context<MultisoulApp>,
-) -> Div {
-    let selected_id = state.values().input_device_id();
-    let mut options = div().flex().flex_col().gap(px(8.0)).child(
-        input_device_option(theme, "System Default".to_string(), selected_id.is_none())
-            .id("settings-voice-input-device-default")
-            .debug_selector(|| "settings-voice-input-device-default".to_string())
-            .on_click(cx.listener(MultisoulApp::on_voice_settings_use_default_input_device)),
-    );
-
-    for (index, device) in state.input_devices().iter().enumerate() {
-        let id = device.id.clone();
-        let selected = selected_id == Some(device.id.as_str());
-        let label = format!(
-            "{}{}",
-            device.name,
-            if device.is_default {
-                " (System Default)"
-            } else {
-                ""
-            }
-        );
-        options = options.child(
-            input_device_option(theme, label, selected)
-                .id(("settings-voice-input-device", index))
-                .debug_selector(move || format!("settings-voice-input-device-{index}"))
-                .on_click(cx.listener(move |app, _, _window, cx| {
-                    app.voice_settings.select_input_device(Some(id.clone()));
-                    app.persist_voice_settings_in_background(cx);
-                    cx.notify();
-                })),
-        );
-    }
-
-    div()
-        .w_full()
-        .flex()
-        .flex_col()
-        .gap(px(10.0))
-        .py(px(6.0))
-        .child(setting_label(
-            theme,
-            "Microphone Input",
-            "Recognition ready · select the microphone used for speech recognition",
-        ))
-        .child(options)
-        .child(
-            div()
-                .flex()
-                .flex_row()
-                .flex_wrap()
-                .items_center()
-                .gap(px(10.0))
-                .child(
-                    action_button(theme, "Refresh", theme.accent_orange)
-                        .id("settings-voice-input-device-refresh")
-                        .debug_selector(|| "settings-voice-input-device-refresh".to_string())
-                        .on_click(
-                            cx.listener(MultisoulApp::on_voice_settings_refresh_input_devices),
-                        ),
-                )
-                .child(
-                    action_button(theme, "Use system default", theme.accent_cyan)
-                        .id("settings-voice-input-device-clear")
-                        .debug_selector(|| "settings-voice-input-device-clear".to_string())
-                        .on_click(
-                            cx.listener(MultisoulApp::on_voice_settings_use_default_input_device),
-                        ),
-                ),
-        )
 }
 
 fn trace_row(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<MultisoulApp>) -> Div {
@@ -367,39 +305,6 @@ fn trace_row(theme: Theme, state: &VoiceSettingsState, cx: &mut Context<Multisou
             )
             .on_click(cx.listener(MultisoulApp::on_voice_settings_toggle_trace)),
     )
-}
-
-fn input_device_option(theme: Theme, label: String, selected: bool) -> Div {
-    let accent = if selected {
-        theme.accent_orange
-    } else {
-        theme.edge_highlight
-    };
-    div()
-        .w_full()
-        .max_w(px(520.0))
-        .px(px(12.0))
-        .py(px(9.0))
-        .rounded(px(8.0))
-        .border_1()
-        .border_color(rgba(with_alpha(accent, if selected { 0x90 } else { 0x45 })))
-        .bg(rgba(with_alpha(
-            if selected {
-                theme.accent_orange
-            } else {
-                theme.panel_high
-            },
-            if selected { 0x18 } else { 0xa8 },
-        )))
-        .text_size(px(13.0))
-        .text_color(rgba(if selected {
-            theme.accent_orange
-        } else {
-            theme.text_secondary
-        }))
-        .cursor_pointer()
-        .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xd0))))
-        .child(label)
 }
 
 pub(super) fn setting_row(theme: Theme, title: &'static str, hint: &'static str) -> Div {

@@ -17,7 +17,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app_with_settings_store};
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 打开 fresh Voice Settings，检查安全缺省、模型元数据及不存在独立总开关
-///   2. 注入两个可见麦克风，选择 USB 后再恢复 System Default，最后保留 USB
+///   2. 注入两个可见麦克风，每次展开紧凑选择器，选择 USB、恢复默认并最终保留 USB
 ///   3. 选择 Toggle 与 Continuous Listening，展开 Agent/Reply 配置
 ///   4. 切到 OpenAI，编辑 Base URL、Model、API Key，开启 trace 并关闭 Agent 任务播报
 ///   5. 切回 Ollama 验证 profile 隔离，再切回 OpenAI 验证配置未丢失
@@ -123,6 +123,7 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
             "Single Voice Command 页面也必须配置共享 Agent Provider"
         );
 
+        click_debug(cx, "settings-voice-input-device-picker");
         click_debug(cx, "settings-voice-input-device-1");
         let usb = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
         assert_eq!(
@@ -130,12 +131,14 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
             Some("usb-mic"),
             "点击 USB 麦克风后应保存稳定 device id"
         );
+        click_debug(cx, "settings-voice-input-device-picker");
         click_debug(cx, "settings-voice-input-device-default");
         let system_default = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
         assert_eq!(
             system_default.input_device_id, None,
             "System Default 应清除固定 device id"
         );
+        click_debug(cx, "settings-voice-input-device-picker");
         click_debug(cx, "settings-voice-input-device-1");
 
         click_debug(cx, "settings-voice-trigger-toggle");

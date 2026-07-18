@@ -69,8 +69,8 @@ fn ready_summary(theme: Theme, cx: &mut Context<MultisoulApp>) -> Stateful<Div> 
         .p(px(14.0))
         .rounded(px(14.0))
         .border_1()
-        .border_color(rgba(with_alpha(theme.node_stroke, 0x88)))
-        .bg(rgba(with_alpha(theme.panel_high, 0x8c)))
+        .border_color(rgba(with_alpha(theme.text_primary, 0x24)))
+        .bg(rgba(with_alpha(theme.text_primary, 0x08)))
         .child(summary_row(
             theme,
             "voice-ready-summary-recognition",

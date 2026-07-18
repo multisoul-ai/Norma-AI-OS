@@ -7,6 +7,11 @@ use gpui::{
 };
 use ui::Theme;
 
+#[path = "setup/components.rs"]
+mod components;
+
+use self::components::compact_setup_row;
+
 pub(super) fn voice_setup(
     theme: Theme,
     state: &VoiceSettingsState,
@@ -171,8 +176,8 @@ fn setup_progress(theme: Theme, completed: usize) -> Stateful<Div> {
         .py(px(9.0))
         .rounded(px(12.0))
         .border_1()
-        .border_color(rgba(with_alpha(theme.node_stroke, 0x70)))
-        .bg(rgba(with_alpha(theme.panel_high, 0x88)))
+        .border_color(rgba(with_alpha(theme.text_primary, 0x20)))
+        .bg(rgba(with_alpha(theme.text_primary, 0x08)))
         .child(
             div()
                 .text_size(px(11.0))
@@ -246,8 +251,8 @@ fn setup_step(
                 .p(px(18.0))
                 .rounded(px(14.0))
                 .border_1()
-                .border_color(rgba(with_alpha(theme.node_stroke, 0xa0)))
-                .bg(rgba(with_alpha(theme.panel_high, 0x8c)))
+                .border_color(rgba(with_alpha(theme.text_primary, 0x24)))
+                .bg(rgba(with_alpha(theme.text_primary, 0x08)))
                 .child(
                     div()
                         .w_full()
@@ -257,6 +262,7 @@ fn setup_step(
                         .gap(px(14.0))
                         .child(
                             div()
+                                .flex_1()
                                 .min_w(px(0.0))
                                 .flex()
                                 .flex_col()
@@ -301,12 +307,10 @@ fn microphone_detail(
     state: VoiceRequirementState,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    setting_row(
+    compact_setup_row(
         theme,
         "Microphone permission",
-        "Required before local speech recognition can listen.",
-    )
-    .child(
+        "Required for local recognition",
         action_button(
             theme,
             if state == VoiceRequirementState::Ready {
@@ -342,12 +346,10 @@ fn recommended_package_detail(
         state.requirement_state(VoiceRequirement::SpokenReplies),
         VoiceRequirementState::Installing { .. }
     );
-    setting_row(
+    compact_setup_row(
         theme,
         "Chinese + English · Recommended · 644 MB",
-        "Includes Zipformer speech recognition and the required Matcha spoken voice.",
-    )
-    .child(
+        "Zipformer recognition + Matcha spoken voice",
         action_button(
             theme,
             if installing {
@@ -419,7 +421,7 @@ fn finish_setup_button(
             if reviewing {
                 theme.accent_blue
             } else {
-                theme.node_stroke
+                theme.text_primary
             },
             0x72,
         )))
@@ -427,9 +429,9 @@ fn finish_setup_button(
             if reviewing {
                 theme.accent_blue
             } else {
-                theme.panel_high
+                theme.text_primary
             },
-            if reviewing { 0x24 } else { 0x74 },
+            if reviewing { 0x24 } else { 0x0c },
         )))
         .font_weight(FontWeight::MEDIUM)
         .text_color(rgba(if reviewing {

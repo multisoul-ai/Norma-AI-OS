@@ -7,6 +7,12 @@ impl VoiceSettingsState {
         self.advanced_expanded = true;
     }
 
+    pub(crate) fn assume_visual_preview_ready_for_e2e(&mut self) {
+        self.readiness_override = Some(crate::settings::voice::VoiceEntryState::Ready);
+        self.reviewing_setup = false;
+        self.advanced_expanded = false;
+    }
+
     pub(crate) fn reset_voice_setup_for_e2e(&mut self) {
         self.readiness_override = None;
         self.advanced_expanded = false;

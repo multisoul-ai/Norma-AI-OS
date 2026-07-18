@@ -67,6 +67,7 @@ pub(crate) struct VoiceSettingsState {
     #[cfg(feature = "e2e-test-support")]
     readiness_override: Option<super::VoiceEntryState>,
     reviewing_setup: bool,
+    input_device_picker_expanded: bool,
     advanced_expanded: bool,
 }
 impl VoiceSettingsState {
@@ -142,6 +143,7 @@ impl VoiceSettingsState {
             #[cfg(feature = "e2e-test-support")]
             readiness_override: None,
             reviewing_setup: false,
+            input_device_picker_expanded: false,
             advanced_expanded: false,
         }
     }
@@ -168,6 +170,18 @@ impl VoiceSettingsState {
 
     pub(crate) fn input_devices(&self) -> &[AudioInputDevice] {
         &self.input_devices
+    }
+
+    pub(crate) fn input_device_picker_expanded(&self) -> bool {
+        self.input_device_picker_expanded
+    }
+
+    pub(crate) fn toggle_input_device_picker(&mut self) {
+        self.input_device_picker_expanded = !self.input_device_picker_expanded;
+    }
+
+    pub(crate) fn close_input_device_picker(&mut self) {
+        self.input_device_picker_expanded = false;
     }
 
     #[cfg(test)]
