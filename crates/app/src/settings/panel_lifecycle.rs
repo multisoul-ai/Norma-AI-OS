@@ -117,6 +117,7 @@ impl MultisoulApp {
 
     fn finish_voice_settings_inputs(&mut self, cx: &mut Context<Self>) {
         self.flush_voice_text_input_autosave(cx);
+        self.voice_settings.set_reviewing_setup(false);
         if let Some(field) = self.voice_settings.editing_field() {
             self.voice_settings.cancel_edit_field(field);
         }

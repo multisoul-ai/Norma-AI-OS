@@ -29,7 +29,6 @@ fn cmd_e_opens_voice_setup_before_required_models_are_configured() {
     let workspace = tempfile::TempDir::new().expect("Voice setup workspace should create");
     enter_canvas(&app, cx, workspace.path());
     app.update(cx, |app, _cx| app.reset_voice_setup_for_e2e());
-
     let before = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
     assert_eq!(
         before.entry_state, "set_up",
@@ -39,7 +38,6 @@ fn cmd_e_opens_voice_setup_before_required_models_are_configured() {
         before.phase, "idle",
         "fresh Voice must be idle before cmd-e"
     );
-
     cx.simulate_keystrokes("cmd-e");
     cx.run_until_parked();
 
@@ -402,13 +400,13 @@ fn recommended_package_installs_and_selects_all_required_local_models() {
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 打开 fresh Setup，注入麦克风与 Provider Ready
 ///   2. 启动推荐包，并让 TTS 假传输停在后台安装中
-///   3. 确认底部入口进入 setting_up，而不是继续显示普通 set_up
+///   3. 确认页内显示聚合下载进度，底部入口进入 setting_up 而不是普通 set_up
 ///   4. 真实点击 Settings Close，确认面板关闭
 ///   5. 释放 TTS 安装，等待 setup completion 与通知渲染
 ///
 /// 预期结果：
-///   - 正断言：Settings 关闭后 Voice 仍完成为 ready，Ready 通知可见
-///   - 负断言：通知不得开始录音或重新打开 Settings
+///   - 正断言：打开的 Setup 显示下载进度，Settings 关闭后仍完成为 ready
+///   - 负断言：下载中不得退回普通 set_up，完成通知不得开始录音或重新打开 Settings
 #[test]
 fn background_setup_completion_shows_a_nonblocking_ready_notification() {
     let _install_guard = VoiceModelInstallE2eGuard::acquire();
@@ -433,7 +431,6 @@ fn background_setup_completion_shows_a_nonblocking_ready_notification() {
         app.set_voice_setup_requirements_for_e2e(true, true)
     });
     cx.run_until_parked();
-
     let install = cx
         .debug_bounds("voice-setup-install-recommended")
         .expect("background setup test must expose recommended install");
@@ -449,6 +446,13 @@ fn background_setup_completion_shows_a_nonblocking_ready_notification() {
         installing.entry_state, "set_up",
         "active recommended download must not keep showing the generic Set up Voice label"
     );
+    let setup_progress_visible = cx
+        .debug_bounds("voice-setup-download-values-79-511-644")
+        .is_some();
+    assert!(
+        setup_progress_visible,
+        "active download must show the exact aggregate Setup percent and MB values"
+    );
     let close = cx
         .debug_bounds("settings-close")
         .expect("open Voice Setup must expose Settings close");
@@ -456,7 +460,6 @@ fn background_setup_completion_shows_a_nonblocking_ready_notification() {
     cx.simulate_click(close.center(), Modifiers::none());
     cx.run_until_parked();
     app.update(cx, |app, cx| app.release_fake_tts_transport_for_e2e(cx));
-
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
     let final_voice = loop {
         cx.run_until_parked();
@@ -470,7 +473,6 @@ fn background_setup_completion_shows_a_nonblocking_ready_notification() {
     app.update(cx, |app, _cx| {
         app.set_voice_setup_install_fakes_for_e2e(false)
     });
-
     assert_eq!(
         final_voice.entry_state, "ready",
         "background model completion must finish Voice readiness"

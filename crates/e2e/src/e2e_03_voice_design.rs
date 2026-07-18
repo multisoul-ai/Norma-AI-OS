@@ -9,16 +9,18 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///   visual steps = recognition(1) + connection(1) + replies(1) = 3
 ///   ready gates = 0 / 4
 ///   setup entry = 1 次 `cmd-e`
+///   model catalog disclosure = 1 次点击后同时展示 ASR + TTS 两个目录
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建 fresh App、进入 Canvas，并清空四项 Voice readiness
 ///   2. 分发一次 `cmd-e` → 打开 Settings → Voice 内的 Setup 内容
 ///   3. 检查 Settings 侧栏、Voice 页头、页内进度、纵向步骤轨道和三张步骤卡
 ///   4. 检查麦克风操作位于 Speech Recognition 内，AI Connection 无需展开即可配置
+///   5. 点击“选择其他模型”，确认 ASR 与 TTS 目录在同一 Setup 页面内可达
 ///
 /// 预期结果：
-///   - 正断言：Voice Settings 外壳、三步、四项进度和全部必需操作均可见
-///   - 负断言：Setup 不得脱离 Settings 外壳，也不再渲染独立的第四张麦克风卡
+///   - 正断言：Voice Settings 外壳、三步、四项进度、推荐包和可选模型入口均可见
+///   - 负断言：Setup 不得脱离 Settings 外壳，模型目录在用户主动展开前不得铺满页面
 #[test]
 fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
     let mut cx = TestAppContext::single();
@@ -63,6 +65,33 @@ fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
         "Speech Recognition step must expose the recommended local model package"
     );
     assert!(
+        cx.debug_bounds("voice-setup-alternative-models-toggle")
+            .is_some(),
+        "fresh Setup must expose an explicit path to alternative ASR and TTS models"
+    );
+    assert!(
+        cx.debug_bounds("voice-setup-alternative-models").is_none(),
+        "alternative model catalogs must stay collapsed until the user explicitly requests them"
+    );
+    let alternative_models = cx
+        .debug_bounds("voice-setup-alternative-models-toggle")
+        .expect("fresh Setup must render the alternative model disclosure action");
+    cx.simulate_mouse_move(alternative_models.center(), None, Modifiers::none());
+    cx.simulate_click(alternative_models.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("voice-setup-alternative-models").is_some(),
+        "clicking the disclosure must render the alternative model catalogs inside Voice Setup"
+    );
+    assert!(
+        cx.debug_bounds("settings-asr-model-0").is_some(),
+        "expanded Setup must expose the ASR catalog so recognition models remain configurable"
+    );
+    assert!(
+        cx.debug_bounds("settings-tts-model-0").is_some(),
+        "expanded Setup must expose the TTS catalog so spoken-reply models remain configurable"
+    );
+    assert!(
         cx.debug_bounds("voice-setup-provider-connect").is_some(),
         "AI Connection must be configurable immediately without expanding a card"
     );
@@ -92,16 +121,18 @@ fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
 ///   Settings clicks = toolbar(1) + Voice navigation(1) = 2
 ///   summary rows = recognition(1) + connection(1) + spoken replies(1) = 3
 ///   collapsed microphone picker = 1
+///   direct model actions = ASR Change(1) + TTS Change(1) = 2
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建默认 Ready App 并进入 Canvas
 ///   2. 依次点击 Settings 与 Voice 导航
-///   3. 检查 ready banner、三行摘要和独立 Review Setup 按钮
+///   3. 检查 ready banner、三行摘要、两个模型更换入口和独立 Review Setup 按钮
 ///   4. 检查 Ready 页面保留 Settings 导航与紧凑麦克风选择器
+///   5. 点击 ASR Change，确认进入同一 Setup 并自动展开模型目录
 ///
 /// 预期结果：
-///   - 正断言：Ready 横幅、配置摘要、三行状态、Review Setup 与侧栏均可见
-///   - 负断言：横幅无额外 Try Voice，麦克风完整列表默认不展开
+///   - 正断言：Ready 横幅、配置摘要、模型更换入口、Review Setup 与侧栏均可见
+///   - 负断言：横幅无额外 Try Voice；更换模型不启动录音；麦克风列表默认不展开
 #[test]
 fn ready_voice_page_matches_the_approved_summary_structure() {
     let mut cx = TestAppContext::single();
@@ -139,6 +170,14 @@ fn ready_voice_page_matches_the_approved_summary_structure() {
         "ready summary must show required Spoken Replies status"
     );
     assert!(
+        cx.debug_bounds("voice-ready-change-asr").is_some(),
+        "ready summary must expose a direct Change action for the selected ASR model"
+    );
+    assert!(
+        cx.debug_bounds("voice-ready-change-tts").is_some(),
+        "ready summary must expose a direct Change action for the selected TTS model and voice"
+    );
+    assert!(
         cx.debug_bounds("voice-review-setup").is_some(),
         "ready summary must expose the full-width Review Setup action"
     );
@@ -159,5 +198,28 @@ fn ready_voice_page_matches_the_approved_summary_structure() {
         cx.debug_bounds("settings-voice-input-device-default")
             .is_none(),
         "ready Voice Input card must keep the full device list collapsed by default"
+    );
+    let change_asr = cx
+        .debug_bounds("voice-ready-change-asr")
+        .expect("ready summary must keep the ASR Change action clickable");
+    cx.simulate_mouse_move(change_asr.center(), None, Modifiers::none());
+    cx.simulate_click(change_asr.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("voice-setup-alternative-models").is_some(),
+        "ASR Change must open the shared Voice Setup with alternative models expanded"
+    );
+    assert!(
+        cx.debug_bounds("settings-asr-model-0").is_some(),
+        "ASR Change must expose the ASR model catalog at its destination"
+    );
+    assert!(
+        cx.debug_bounds("settings-tts-model-0").is_some(),
+        "the shared model manager must keep TTS choices reachable alongside ASR choices"
+    );
+    assert_ne!(
+        app.update(cx, |app, _cx| app.voice_e2e_snapshot().phase),
+        "recording",
+        "opening model management from Ready must not capture microphone input"
     );
 }

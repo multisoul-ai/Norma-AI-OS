@@ -66,6 +66,27 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    pub(crate) fn on_voice_manage_models(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings.set_reviewing_setup(true);
+        self.voice_settings.set_setup_models_expanded(true);
+        cx.notify();
+    }
+
+    pub(crate) fn on_voice_setup_toggle_models(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings.toggle_setup_models_expanded();
+        cx.notify();
+    }
+
     pub(crate) fn on_voice_setup_request_microphone(
         &mut self,
         event: &ClickEvent,

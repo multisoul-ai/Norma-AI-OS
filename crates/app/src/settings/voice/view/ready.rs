@@ -59,6 +59,14 @@ fn ready_banner(theme: Theme) -> Stateful<Div> {
 }
 
 fn ready_summary(theme: Theme, cx: &mut Context<MultisoulApp>) -> Stateful<Div> {
+    let change_asr = action_button(theme, "Change", theme.accent_blue)
+        .id("voice-ready-change-asr")
+        .debug_selector(|| "voice-ready-change-asr".to_string())
+        .on_click(cx.listener(MultisoulApp::on_voice_manage_models));
+    let change_tts = action_button(theme, "Change", theme.accent_blue)
+        .id("voice-ready-change-tts")
+        .debug_selector(|| "voice-ready-change-tts".to_string())
+        .on_click(cx.listener(MultisoulApp::on_voice_manage_models));
     div()
         .id("voice-ready-summary")
         .debug_selector(|| "voice-ready-summary".to_string())
@@ -77,6 +85,7 @@ fn ready_summary(theme: Theme, cx: &mut Context<MultisoulApp>) -> Stateful<Div> 
             "Speech Recognition",
             "●  Ready",
             theme.accent_green,
+            Some(change_asr),
         ))
         .child(summary_row(
             theme,
@@ -84,6 +93,7 @@ fn ready_summary(theme: Theme, cx: &mut Context<MultisoulApp>) -> Stateful<Div> 
             "AI Connection",
             "●  Connected",
             theme.accent_green,
+            None,
         ))
         .child(summary_row(
             theme,
@@ -91,6 +101,7 @@ fn ready_summary(theme: Theme, cx: &mut Context<MultisoulApp>) -> Stateful<Div> 
             "Spoken Replies",
             "●  Ready",
             theme.accent_green,
+            Some(change_tts),
         ))
         .child(
             action_button(theme, "Review Setup", theme.accent_blue)
@@ -111,6 +122,7 @@ fn summary_row(
     label: &'static str,
     status: &'static str,
     status_color: u32,
+    action: Option<Stateful<Div>>,
 ) -> Stateful<Div> {
     div()
         .id(selector)
@@ -132,9 +144,16 @@ fn summary_row(
         )
         .child(
             div()
-                .text_size(px(12.0))
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(rgba(status_color))
-                .child(status),
+                .flex()
+                .items_center()
+                .gap(px(10.0))
+                .child(
+                    div()
+                        .text_size(px(12.0))
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(rgba(status_color))
+                        .child(status),
+                )
+                .when_some(action, |row, action| row.child(action)),
         )
 }

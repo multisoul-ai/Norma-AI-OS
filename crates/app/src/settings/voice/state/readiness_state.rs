@@ -48,6 +48,7 @@ impl VoiceSettingsState {
             return false;
         }
         self.setup_was_completed = true;
+        self.setup_models_expanded = false;
         self.saved.setup_completed = Some(true);
         self.persist_string(super::KEY_VOICE_SETUP_COMPLETED, "true");
         true
@@ -97,7 +98,7 @@ impl VoiceSettingsState {
         }
     }
 
-    fn selected_model_install_progress(&self) -> Option<(u64, u64)> {
+    pub(crate) fn selected_model_install_progress(&self) -> Option<(u64, u64)> {
         let asr_state = self.selected_asr_requirement();
         let tts_state = self.selected_tts_requirement();
         if !matches!(asr_state, VoiceRequirementState::Installing { .. })

@@ -68,6 +68,7 @@ pub(crate) struct VoiceSettingsState {
     readiness_override: Option<super::VoiceEntryState>,
     reviewing_setup: bool,
     input_device_picker_expanded: bool,
+    setup_models_expanded: bool,
     advanced_expanded: bool,
 }
 impl VoiceSettingsState {
@@ -144,6 +145,7 @@ impl VoiceSettingsState {
             readiness_override: None,
             reviewing_setup: false,
             input_device_picker_expanded: false,
+            setup_models_expanded: false,
             advanced_expanded: false,
         }
     }
@@ -151,27 +153,24 @@ impl VoiceSettingsState {
     pub(crate) fn values(&self) -> &VoiceSettingsValues {
         &self.values
     }
-
     pub(crate) fn editing_field(&self) -> Option<VoiceSettingsField> {
         self.editing
     }
-
     pub(crate) fn active_agent_model(&self) -> &str {
         self.values.active_provider_profile().model()
     }
-
     pub(crate) fn reviewing_setup(&self) -> bool {
         self.reviewing_setup
     }
-
     pub(crate) fn set_reviewing_setup(&mut self, reviewing: bool) {
         self.reviewing_setup = reviewing;
+        if !reviewing {
+            self.setup_models_expanded = false;
+        }
     }
-
     pub(crate) fn input_devices(&self) -> &[AudioInputDevice] {
         &self.input_devices
     }
-
     pub(crate) fn input_device_picker_expanded(&self) -> bool {
         self.input_device_picker_expanded
     }
@@ -495,3 +494,7 @@ mod voice_settings_persistence_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_provider_persistence_tests.rs"]
 mod voice_settings_provider_persistence_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_disclosure_tests.rs"]
+mod voice_settings_disclosure_tests;

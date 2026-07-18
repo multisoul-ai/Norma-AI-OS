@@ -12,6 +12,18 @@ impl VoiceSettingsState {
         self.advanced_expanded = !self.advanced_expanded;
     }
 
+    pub(crate) fn setup_models_expanded(&self) -> bool {
+        self.setup_models_expanded
+    }
+
+    pub(crate) fn toggle_setup_models_expanded(&mut self) {
+        self.setup_models_expanded = !self.setup_models_expanded;
+    }
+
+    pub(crate) fn set_setup_models_expanded(&mut self, expanded: bool) {
+        self.setup_models_expanded = expanded;
+    }
+
     pub(crate) fn model_root(&self) -> &std::path::Path {
         &self.model_root
     }

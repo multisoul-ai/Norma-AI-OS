@@ -17,14 +17,14 @@ OpenAI-compatible 将成为全新 Voice Setup 的默认 Provider，API Key 因�
 
 ## Solution
 
-Settings → Voice 改为任务导向的双态页面：未就绪时显示 `Set Up Voice` 单页状态清单；就绪后显示简化 Voice 设置。完整模型目录、Provider 细节和诊断进入 Advanced Settings，不再默认铺满主页面。
+Settings → Voice 改为任务导向的双态页面：未就绪时显示 `Set Up Voice` 单页状态清单；就绪后显示简化 Voice 设置。完整模型目录、Provider 细节和诊断不再默认铺满主页面，但 Setup 必须提供明确的“选择其他模型”入口，Ready 摘要必须提供 ASR/TTS 的直接更换入口。
 
 底部语音入口投影 Voice 的当前可用状态：
 
 | 状态 | 底部入口 | 点击或 `⌘E` |
 |---|---|---|
 | 从未完成必需配置 | `Set up Voice` | 打开 Settings → Voice 的首次设置清单，不开始收音 |
-| 推荐语音包正在下载 | `Setting up Voice · N%` | 打开当前安装进度，不开始收音 |
+| 推荐语音包正在下载 | `Setting up Voice · N%` | 打开显示百分比与容量的当前安装进度，不开始收音 |
 | 必需能力完整且可用 | `Voice` | 按当前语音交互模式启动 `⌘E` 业务路径 |
 | 曾经就绪但必需能力失效 | `Voice unavailable` | 打开修复清单并展开失效项，不开始收音 |
 
@@ -48,7 +48,7 @@ Voice Ready 有四个硬条件：麦克风权限已授权、识别模型可用�
 
 API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider 配置及不可反查明文的凭据引用。界面默认显示固定掩码 `*********`，并提供显隐和 Remove，点击输入框可直接替换；只有用户主动点击眼睛按钮时才在当前输入实体中临时显示已加载的 Key，关闭显隐、切换 Provider、失焦或关闭 Settings 后立即清除明文展示。
 
-四项硬条件验证通过后即完成设置。用户随后通过既有 `⌘E` 路径使用或验证 Voice，不在 Ready 横幅中新增第二个 `Try Voice` 入口。若用户关闭 Settings，进行中的模型安装继续在后台运行，底部入口显示下载进度；后台完成时显示一次不抢焦点、不自动发声的 `Voice is ready` 通知。
+四项硬条件验证通过后即完成设置。用户随后通过既有 `⌘E` 路径使用或验证 Voice，不在 Ready 横幅中新增第二个 `Try Voice` 入口。Settings 打开时，推荐包行直接显示聚合百分比、已下载容量和总容量；用户关闭 Settings 后，模型安装继续在后台运行，底部入口继续显示下载进度。后台完成时显示一次不抢焦点、不自动发声的 `Voice is ready` 通知。
 
 完成后的 Voice 主页面只保留普通用户需要经常理解或调整的内容：
 
@@ -73,15 +73,15 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 11. 作为拒绝麦克风权限的用户，我想看到明确的失败状态与系统设置恢复入口，以便知道如何修复。
 12. 作为普通用户，我想一次安装推荐语音包，以便不理解 ASR、TTS 和音色目录也能完成配置。
 13. 作为中英文用户，我想默认获得中英文识别与回复能力，以便无需自行比较模型语言能力。
-14. 作为网络较慢的用户，我想看到推荐语音包的总大小和下载进度，以便判断等待时间。
+14. 作为网络较慢的用户，我想在 Voice Setup 内直接看到推荐语音包的总大小、百分比和已下载容量，以便判断等待时间。
 15. 作为模型下载中的用户，我想关闭 Settings 后继续下载，以便不必一直停留在设置页。
 16. 作为模型下载中的用户，我想在底部入口看到 `Setting up Voice · N%`，以便随时知道后台进度。
 17. 作为模型下载中的用户，我想重新按 `⌘E` 回到当前安装进度，以便不丢失上下文。
 18. 作为不想继续下载的用户，我想显式取消下载，以便控制网络与磁盘使用。
 19. 作为退出应用的用户，我想安装安全中断，以便不会留下伪装为 Ready 的半安装模型。
 20. 作为重新启动应用的用户，我想保留已完整安装的模型并只重试未完成项，以便不重复下载有效内容。
-21. 作为高级用户，我想选择其他识别模型、TTS 模型或音色，以便覆盖推荐组合。
-22. 作为普通用户，我不想在首次 Setup 中看到完整模型目录，以便避免无关选择。
+21. 作为高级用户，我想从 Setup 或 Ready 摘要直接进入其他识别模型、TTS 模型或音色，以便覆盖推荐组合。
+22. 作为普通用户，我不想在首次 Setup 中默认看到完整模型目录，但必须能通过一个明确入口主动展开，以便兼顾简单与可达性。
 23. 作为已有 Provider 配置的用户，我想 Setup 自动复用并验证现有连接，以便不重复输入配置。
 24. 作为全新用户，我想默认配置 OpenAI-compatible，以便进入明确且一致的 AI 连接流程。
 25. 作为使用官方 OpenAI endpoint 的用户，我想看到预填的 Base URL，以便只需输入凭据。
@@ -124,12 +124,12 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - 建立单一 Voice readiness 投影，至少表达 `SetupRequired`、`SettingUp`、`Ready` 和 `Unavailable`；`Unavailable` 必须携带可定位到麦克风、ASR、Provider 或 TTS 的失败原因，Settings 和 `⌘E` 路由消费同一投影。
 - `SetupRequired` 表示从未满足全部硬条件；`Unavailable` 表示曾经 Ready 但硬条件后来失效。不得用一个布尔 `enabled` 混合两种语义。
 - `⌘E` 路由先检查 readiness：非 Ready 时打开 Settings → Voice 并聚焦待处理项，不启动录音、持续聆听、Agent 回合或 TTS；Ready 时保持现有 Single Voice Command / Continuous Listening 路由。
-- Settings → Voice 是 Setup 与日常配置的唯一产品入口。未就绪时在同一 Voice Settings 弹窗内容区渲染三步 Setup，并持续保留 Settings 导航与 Voice 页头；就绪时在原位渲染简化主页面；Advanced Settings 承载完整模型目录、Provider 细节和 Diagnostics。
+- Settings → Voice 是 Setup 与日常配置的唯一产品入口。未就绪时在同一 Voice Settings 弹窗内容区渲染三步 Setup，并持续保留 Settings 导航与 Voice 页头；就绪时在原位渲染简化主页面。Setup 的“选择其他模型”和 Ready 摘要的 ASR/TTS `Change` 均进入同一页内模型目录；Advanced Settings 继续承载完整模型目录、Provider 细节和 Diagnostics。
 - 首次 Setup 的逻辑硬条件为麦克风授权、可用 ASR、可用 Agent Provider + 模型、可用 TTS + 音色。视觉固定为三步：麦克风并入 Speech Recognition，ASR 与 TTS 可合并显示为推荐语音包，但 readiness 仍逐项判断。
 - 三步卡片必须同时呈现内容，并用左侧编号与纵向连接线表达顺序；不得回退成四张独立卡或默认折叠 Provider/TTS。`Finish Setup` 在未完成时保持不可用，Review 模式下同一位置提供返回 Ready 页的明确操作。
 - 推荐语音包固定为 `Zipformer Bilingual`、`Matcha Chinese-English` 与 `Default Bilingual Voice`。一键安装必须分别沿用受管安装、哈希校验、manifest 和原子提升边界；不得用一个新的非受管目录绕过现有模型完整性约束。
-- 推荐语音包安装由一个上层协调器聚合两个既有模型安装任务。两项可独立成功、失败、取消或重试；只有两项均验证通过并已选中，语音包才为 Ready。
-- 下载进度 `N%` 表示推荐语音包当前需下载字节的聚合进度，不把麦克风授权或 Provider 表单伪装成百分比。没有活跃下载时，入口显示 `Set up Voice` 或 `Voice unavailable`，不显示虚假进度。
+- 推荐语音包安装由一个上层协调器聚合两个既有模型安装任务。两项可独立成功、失败、取消或重试；只有两项均验证通过并已选中，语音包才为 Ready。安装期间 Setup 推荐包行直接显示聚合百分比、已下载 MB、总 MB 和取消操作。
+- 下载进度 `N%` 表示推荐语音包当前需下载字节的聚合进度，不把麦克风授权或 Provider 表单伪装成百分比。没有活跃下载时，Setup 和底部入口均不显示虚假进度；关闭 Settings 后只由底部入口继续反馈后台进度。
 - 关闭 Settings 不拥有也不取消模型安装任务；安装生命周期归应用级后台协调器。应用退出时中断未完成任务，完整安装继续以 manifest 为事实来源，半安装不得成为可用模型。
 - 麦克风权限从首次录音延后错误改为 Setup 中的显式必需项。授权和系统设置恢复仍通过现有 macOS 权限边界执行，任何可能阻塞的权限等待不得占用 GPUI 前台。
 - 全新 Agent Provider 默认选择 OpenAI-compatible，默认 Base URL 为 `https://api.openai.com/v1`，但允许用户修改。Ollama 配置与运行时支持继续保留。
@@ -143,7 +143,7 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - Provider 的临时失联、模型被移除、凭据失效、麦克风权限撤销、ASR/TTS 安装损坏都会把曾经 Ready 的投影变为 `Unavailable`，并保留精确修复目标。
 - 四项硬条件通过后立即完成 Setup，不要求真实录音。Ready 页面不提供额外 `Try Voice` 按钮，真实使用与验证统一走现有 `⌘E` 端到端路径。
 - 后台完成 Setup 时只发送一次非阻塞完成通知；通知不抢焦点、不自动调用 TTS，也不替用户启动语音。
-- 简化主页面保留当前模式、单次触发方式、麦克风、任务播报、窗口光效、当前音色和 Preview。模型安装/删除/切换、Provider Base URL/API Key/模型管理和完整 trace 进入 Advanced Settings。
+- 简化主页面保留当前模式、单次触发方式、麦克风、任务播报、窗口光效、当前音色和 Preview；Ready 摘要中的识别与播报状态各提供一个 `Change`，直接进入已展开的同页模型目录。完整安装/删除、Provider Base URL/API Key/模型管理和 trace 仍可从 Advanced Settings 进入。
 - 普通配置继续即时生效并异步持久化，不新增全局 Save / Cancel。模型安装、Provider 验证和 Keychain 写入以各自状态和错误反馈收口。
 - 任何模式、麦克风、ASR、Provider、模型、TTS 或音色变更继续遵守既有取消 generation 与共享 Voice Runtime 约束，陈旧异步结果不得恢复旧配置或自动重启麦克风。
 - 该规格不改变 `⌘E` 的固定快捷键、Single Voice Command / Continuous Listening 语义、Agent 工具执行或 TTS 播放业务状态机；改变的是使用这些路径前的 readiness 门槛与 Settings 信息架构。
@@ -155,12 +155,12 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - e2e 覆盖 fresh store：底部显示 `Set up Voice`；按 `⌘E` 打开 Settings → Voice；录音、Dialogue 和 TTS 均未启动。
 - e2e 覆盖三步视觉结构与四项逻辑状态：Settings 侧栏、Voice 页头、三步编号、纵向轨道、麦克风内嵌、Provider 直接可见、底部 Finish、Ready 三行摘要均有具体正断言；独立 Setup 窗口、独立麦克风卡和 Ready `Try Voice` 均有具体负断言。
 - 麦克风权限通过现有权限 seam 注入 authorized、denied、restricted；验证授权恢复入口、Ready 门槛和 `⌘E` 不误启动。
-- 推荐语音包通过现有假模型 transport 与安装管理 seam 覆盖一次点击、双模型并行进度、单项失败、Retry、Cancel、关闭 Settings 后继续、重新打开恢复、退出后重扫和两项均选中。
+- 推荐语音包通过现有假模型 transport 与安装管理 seam 覆盖一次点击、双模型并行进度、页内百分比与容量反馈、单项失败、Retry、Cancel、关闭 Settings 后继续、重新打开恢复、退出后重扫和两项均选中。
 - Provider 通过本地假 OpenAI-compatible server 覆盖 endpoint 失败、认证失败、模型列表成功、模型列表不支持、手动模型验证、所选模型失效和现有配置自动通过；测试不得访问真实付费 API。
 - Keychain 使用窄凭据存储接口的内存替身做日常单测/e2e；断言保存后 UI 默认显示 `*********`，眼睛按钮只在显式点击期间显示内存中的 Key，再次点击恢复掩码；Replace 更新引用，Remove 清除凭据，SQLite 快照不包含 API Key 明文。
 - 单独覆盖旧 SQLite API Key → Keychain 的成功迁移、Keychain 写入失败时不清旧值、重载后 Keychain 优先三个场景。
 - readiness 纯逻辑测试覆盖 `SetupRequired → SettingUp → Ready → Unavailable → Ready`，并逐项验证麦克风、ASR、Provider、TTS 哪一项失效会产生哪个修复目标。
-- Settings e2e 覆盖 Ready 主页面只显示常用配置，完整 ASR/TTS 目录、Base URL、API Key 与 trace 默认不可见；进入 Advanced Settings 后这些能力仍可达。
+- Settings e2e 覆盖 Setup 与 Ready 主页面默认不铺开完整 ASR/TTS 目录；点击“选择其他模型”或 Ready 摘要 `Change` 后目录在同一页面可达。Base URL、API Key 与 trace 默认不可见，进入 Advanced Settings 后仍可达。
 - 快捷键 e2e 覆盖 Ready 状态下既有 Single Voice Command Hold/Toggle 与 Continuous Listening 行为不变，防止 readiness 门槛破坏已确认业务路径。
 - 通知 e2e 覆盖 Settings 关闭后后台完成只通知一次、入口切换为 `Voice`、不抢焦点、不自动播放 TTS，重新载入不重复发送旧完成通知。
 - `Unavailable` e2e 分别覆盖权限撤销、ASR 损坏、Provider 失效和 TTS 损坏；每个场景按 `⌘E` 必须打开正确修复项，且不得启动录音。
@@ -173,7 +173,9 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - [Voice Setup 主视图](../verification/voice-settings-setup-final.jpg)
 - [Voice Setup 下半页与 Finish Setup](../verification/voice-settings-setup-lower-final.jpg)
 - [Voice Ready 主视图](../verification/voice-settings-ready-final.jpg)
+- [Voice Ready 模型更换入口](../verification/voice-settings-ready-model-change-final.png)
 - [Voice Ready Input 区](../verification/voice-settings-ready-input-final.jpg)
+- [Voice Setup 展开的 ASR/TTS 模型目录](../verification/voice-settings-alternative-model-catalogs-final.png)
 - [API Key 默认遮罩与显隐按钮](../verification/voice-settings-api-key-masked-final.png)
 - [API Key 主动点击后的临时显示](../verification/voice-settings-api-key-revealed-final.png)
 

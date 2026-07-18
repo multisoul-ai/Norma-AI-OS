@@ -9,8 +9,11 @@ use ui::Theme;
 
 #[path = "setup/components.rs"]
 mod components;
+#[path = "setup/models.rs"]
+mod models;
 
 use self::components::compact_setup_row;
+use self::models::{alternative_models_detail, recommended_package_detail};
 
 pub(super) fn voice_setup(
     theme: Theme,
@@ -279,6 +282,7 @@ fn recognition_detail(
         .gap(px(10.0))
         .child(microphone_detail(theme, microphone, cx))
         .child(recommended_package_detail(theme, state, cx))
+        .child(alternative_models_detail(theme, state, cx))
 }
 
 fn microphone_detail(
@@ -309,42 +313,6 @@ fn microphone_detail(
         .debug_selector(|| "voice-setup-microphone-action".to_string())
         .when(state != VoiceRequirementState::Ready, |button| {
             button.on_click(cx.listener(MultisoulApp::on_voice_setup_request_microphone))
-        }),
-    )
-}
-
-fn recommended_package_detail(
-    theme: Theme,
-    state: &VoiceSettingsState,
-    cx: &mut Context<MultisoulApp>,
-) -> Div {
-    let installing = matches!(
-        state.requirement_state(VoiceRequirement::SpeechRecognition),
-        VoiceRequirementState::Installing { .. }
-    ) || matches!(
-        state.requirement_state(VoiceRequirement::SpokenReplies),
-        VoiceRequirementState::Installing { .. }
-    );
-    compact_setup_row(
-        theme,
-        "Chinese + English · Recommended · 644 MB",
-        "Zipformer recognition + Matcha spoken voice",
-        action_button(
-            theme,
-            if installing {
-                "Cancel Download"
-            } else {
-                "Install"
-            },
-            theme.accent_blue,
-        )
-        .id("voice-setup-install-recommended")
-        .debug_selector(|| "voice-setup-install-recommended".to_string())
-        .when(!installing, |button| {
-            button.on_click(cx.listener(MultisoulApp::on_voice_setup_install_recommended))
-        })
-        .when(installing, |button| {
-            button.on_click(cx.listener(MultisoulApp::on_voice_setup_cancel_recommended))
         }),
     )
 }
