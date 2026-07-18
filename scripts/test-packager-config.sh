@@ -33,8 +33,12 @@
 #     matching window/icon positions, with the labels clear of the well border.
 #   - Negative: the old y=200 icon positions that overlap the well border are
 #     not retained.
-#   - Positive: the 1024 app icon source has a tight alpha bbox so Finder and
-#     DMG icons do not render visually undersized.
+#   - Positive: the 1024 brand artwork source stays tightly cropped for reuse
+#     in product surfaces and the DMG header.
+#   - Positive: the macOS app icon uses an approximately 824px visual safe area
+#     inside its 1024px canvas so it matches neighboring Dock icons.
+#   - Negative: the old nearly edge-to-edge macOS icon is not retained.
+#   - Positive: the checked-in PNG and ICNS are reproducible from one renderer.
 #   - Positive: the DMG background has a 2x Retina pixel buffer and 144 DPI
 #     metadata, so Finder displays it sharply at 640x400 logical points.
 #   - Positive: both Finder label landing zones use a light backing plate with
@@ -54,6 +58,9 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config="$repo_root/Packager.toml"
 dev_config="$repo_root/Packager.dev.toml"
 icon_source="$repo_root/assets/app-icon-source.png"
+macos_icon="$repo_root/assets/app-icon-macos.png"
+app_icon="$repo_root/assets/AppIcon.icns"
+app_icon_renderer="$repo_root/scripts/render-app-icon.sh"
 dmg_background="$repo_root/assets/dmg-background.png"
 dmg_background_source="$repo_root/assets/dmg-background.svg"
 dmg_background_renderer="$repo_root/scripts/render-dmg-background.sh"
@@ -224,13 +231,14 @@ if ! awk -v saturation="$header_mark_saturation" 'BEGIN { exit !(saturation >= 0
   fail "DMG header mark must be present with mean saturation >= 0.28, got $header_mark_saturation"
 fi
 
-# App icon whitespace guard:
-#   image size        = 1024x1024
-#   old alpha bbox    = 931x868+25+78, leaving visible transparent slack
-#   required bbox     >= 950px wide and >= 900px tall after trimming/repadding
-#   upper-left offset <= 45px on both axes, so the icon is optically centered
-#   edge-white count  <= 16 pixels on each outer strip; larger counts indicate
-#                       an antialiased white border or leftover drop shadow
+# App icon artwork guard:
+#   source image size  = 1024x1024
+#   source alpha bbox  = 1010x942+7+41, intentionally tight for reuse in the
+#                        DMG header and product surfaces
+#   required bbox      >= 950px wide and >= 900px tall
+#   upper-left offset  <= 45px on both axes
+#   edge-white count   <= 16 pixels on each outer strip; larger counts indicate
+#                        an antialiased white border or leftover drop shadow
 icon_geometry=$("$magick_bin" identify -format '%wx%h' "$icon_source")
 if [ "$icon_geometry" != "1024x1024" ]; then
   fail "assets/app-icon-source.png must remain a 1024x1024 PNG, got $icon_geometry"
@@ -281,5 +289,99 @@ do
     fail "assets/app-icon-source.png has $edge_white near-white pixels on the $edge_name edge; white border not removed"
   fi
 done
+
+# macOS Dock icon safe-area guard:
+#
+# Scenario:
+#   The tightly cropped 1010px-wide brand artwork previously went straight into
+#   AppIcon.icns. Dock therefore rendered Norma OS about 1010 / 824 = 1.23x the
+#   visual width of neighboring icons.
+#
+# Data construction (including the key numeric derivation):
+#   macOS canvas             = 1024x1024 px
+#   target visible width     = 824 px
+#   source visible bbox      = 1010x942 px
+#   scale                    = 824 / 1010 ≈ 0.816
+#   expected visible height  = round(942 * 0.816) ≈ 769 px
+#   expected horizontal inset = (1024 - 824) / 2 = 100 px
+#   expected vertical inset   = (1024 - 769) / 2 ≈ 127.5 px
+#
+# Execution:
+#   1. Verify the deterministic renderer and its PNG/ICNS outputs exist.
+#   2. Measure the macOS PNG's alpha bounding box.
+#   3. Verify the visual bounds are centered and stay near 824x769.
+#   4. Extract the 1024px representation from ICNS and compare it pixel-for-pixel
+#      with the checked-in macOS PNG (iconutil may rewrite PNG metadata).
+#
+# Expected result:
+#   - Positive: visible width is 820..828px and height is 765..773px.
+#   - Positive: opposite transparent insets differ by no more than 2px.
+#   - Positive: ICNS contains the exact checked-in 1024px macOS PNG.
+#   - Negative: a nearly edge-to-edge icon wider than 828px must fail.
+if [ ! -x "$app_icon_renderer" ]; then
+  fail "scripts/render-app-icon.sh must be executable so the macOS icon can be reproduced"
+fi
+
+if [ ! -f "$macos_icon" ]; then
+  fail "assets/app-icon-macos.png must exist as the reviewable 1024px macOS icon"
+fi
+
+if [ ! -f "$app_icon" ]; then
+  fail "assets/AppIcon.icns must exist for cargo-packager"
+fi
+
+macos_icon_geometry=$("$magick_bin" identify -format '%wx%h' "$macos_icon")
+if [ "$macos_icon_geometry" != "1024x1024" ]; then
+  fail "assets/app-icon-macos.png must remain a 1024x1024 PNG, got $macos_icon_geometry"
+fi
+
+macos_icon_bbox=$("$magick_bin" identify -format '%@' "$macos_icon")
+case "$macos_icon_bbox" in
+  *x*+*+*) ;;
+  *) fail "could not read alpha bounding box for assets/app-icon-macos.png: $macos_icon_bbox" ;;
+esac
+
+macos_bbox_w=${macos_icon_bbox%%x*}
+macos_bbox_rest=${macos_icon_bbox#*x}
+macos_bbox_h=${macos_bbox_rest%%+*}
+macos_bbox_offsets=${macos_bbox_rest#*+}
+macos_bbox_x=${macos_bbox_offsets%%+*}
+macos_bbox_y=${macos_bbox_offsets#*+}
+macos_bbox_right=$((1024 - macos_bbox_x - macos_bbox_w))
+macos_bbox_bottom=$((1024 - macos_bbox_y - macos_bbox_h))
+
+if [ "$macos_bbox_w" -lt 820 ] || [ "$macos_bbox_w" -gt 828 ]; then
+  fail "assets/app-icon-macos.png visible width must be 820..828px, got $macos_bbox_w ($macos_icon_bbox)"
+fi
+
+if [ "$macos_bbox_h" -lt 765 ] || [ "$macos_bbox_h" -gt 773 ]; then
+  fail "assets/app-icon-macos.png visible height must be 765..773px, got $macos_bbox_h ($macos_icon_bbox)"
+fi
+
+if [ $((macos_bbox_x - macos_bbox_right)) -lt -2 ] || [ $((macos_bbox_x - macos_bbox_right)) -gt 2 ]; then
+  fail "assets/app-icon-macos.png must be horizontally centered, got left=$macos_bbox_x right=$macos_bbox_right ($macos_icon_bbox)"
+fi
+
+if [ $((macos_bbox_y - macos_bbox_bottom)) -lt -2 ] || [ $((macos_bbox_y - macos_bbox_bottom)) -gt 2 ]; then
+  fail "assets/app-icon-macos.png must be vertically centered, got top=$macos_bbox_y bottom=$macos_bbox_bottom ($macos_icon_bbox)"
+fi
+
+icon_extract_dir=$(mktemp -d "${TMPDIR:-/tmp}/norma-app-icon-test.XXXXXX")
+trap 'rm -rf "$icon_extract_dir"' EXIT
+iconutil -c iconset "$app_icon" -o "$icon_extract_dir/AppIcon.iconset"
+extracted_icon="$icon_extract_dir/AppIcon.iconset/icon_512x512@2x.png"
+
+if [ ! -f "$extracted_icon" ]; then
+  fail "assets/AppIcon.icns must contain a 1024px icon_512x512@2x.png representation"
+fi
+
+icon_pixel_difference=$("$magick_bin" compare -metric AE \
+  "$macos_icon" "$extracted_icon" null: 2>&1 || true)
+if [ "$icon_pixel_difference" != "0 (0)" ]; then
+  fail "assets/AppIcon.icns 1024px representation must match assets/app-icon-macos.png pixel-for-pixel, got $icon_pixel_difference differing pixels"
+fi
+
+rm -rf "$icon_extract_dir"
+trap - EXIT
 
 echo "packager config test passed"

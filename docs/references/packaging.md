@@ -84,6 +84,27 @@ but not label text color. `cargo-packager`/`create-dmg` therefore cannot force
 these two labels to white. Keep the background readable with Finder's native
 label color and verify actual appearance on the supported macOS versions.
 
+## macOS app icon
+
+`assets/app-icon-source.png` is the tightly cropped brand artwork used by
+product surfaces and the DMG header. It is not packaged directly as the Dock
+icon. macOS needs additional transparent optical padding: the generated
+`assets/app-icon-macos.png` keeps the visible artwork at approximately
+824×769 px on a 1024×1024 canvas, then `assets/AppIcon.icns` supplies the
+standard 16–1024 px representations consumed by `cargo-packager`.
+
+Regenerate both macOS assets after changing the brand artwork:
+
+```bash
+bash scripts/render-app-icon.sh
+bash scripts/test-packager-config.sh
+```
+
+The packaging test checks the safe-area dimensions, centering, and pixel-level
+agreement between the reviewable 1024 px PNG and the largest ICNS entry. This
+prevents a tightly cropped source from making the Dock icon appear larger than
+neighboring apps.
+
 Codesigning 配置见 `packaging/macos/NormaOS.entitlements` 与
 `Packager.toml` 的 `[macos]` 段；notarization 只通过
 `cargo packager --notarize ...` 或 `scripts/release-local.sh --notarize` 显式开启，详见
