@@ -121,37 +121,47 @@ fn test_snapshot_detects_bare_https_url_and_rejects_unsafe_schemes() {
     );
 }
 
-/// 工作区相对 Markdown 路径：终端输出应识别为 Preview 候选，父目录穿越不得识别。
+/// 本机 Markdown 路径：工作区内外的文件都应识别，非文件 URI scheme 不得识别。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   安全路径 = "docs/adr/0015-license-hard-gate-outside-workbench.md"，首格 col=0
-///   非法路径 = "../secrets.md"，首格 col=0，含一个 `..` 父目录分量
+///   工作区内路径 = "docs/adr/0015-license-hard-gate-outside-workbench.md"，首格 col=0
+///   工作区外路径 = "../shared/result.md"，首格 col=0，含一个 `..` 父目录分量
+///   非文件 URI = "ssh://example.com/shared/result.md"，首格 col=0
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 分别写入安全相对 Markdown 路径和父目录穿越路径
-///   2. 对首格调用 `preview_path_at`
+///   1. 分别写入工作区内路径、工作区外路径和非文件 URI
+///   2. 对三者首格调用 `preview_path_at`
 ///
 /// 预期结果：
-///   - 断言 A：安全路径返回完整相对路径，供 app 在 workspace root 下创建 Preview
-///   - 断言 B：`..` 路径返回 None，不能越过当前项目根目录
+///   - 正断言：工作区内路径返回完整相对路径
+///   - 正断言：`..` 路径也返回完整目标，允许只读预览工作区外文件
+///   - 负断言：ssh URI 不得冒充本机 Preview 文件
 #[test]
-fn test_snapshot_detects_safe_relative_preview_path_and_rejects_parent_traversal() {
-    let mut safe_grid = TerminalGrid::new(100, 24);
-    safe_grid.advance(b"docs/adr/0015-license-hard-gate-outside-workbench.md");
-    let safe = safe_grid.snapshot();
-    let mut unsafe_grid = TerminalGrid::new(100, 24);
-    unsafe_grid.advance(b"../secrets.md");
-    let unsafe_path = unsafe_grid.snapshot();
+fn test_snapshot_detects_local_preview_paths_inside_and_outside_workspace() {
+    let mut inside_grid = TerminalGrid::new(100, 24);
+    inside_grid.advance(b"docs/adr/0015-license-hard-gate-outside-workbench.md");
+    let inside = inside_grid.snapshot();
+    let mut outside_grid = TerminalGrid::new(100, 24);
+    outside_grid.advance(b"../shared/result.md");
+    let outside = outside_grid.snapshot();
+    let mut remote_grid = TerminalGrid::new(100, 24);
+    remote_grid.advance(b"ssh://example.com/shared/result.md");
+    let remote = remote_grid.snapshot();
 
     assert_eq!(
-        safe.preview_path_at(0, 0).as_deref(),
+        inside.preview_path_at(0, 0).as_deref(),
         Some("docs/adr/0015-license-hard-gate-outside-workbench.md"),
         "workspace 内的相对 Markdown 路径应保留完整值，以便创建 Preview 卡片"
     );
     assert_eq!(
-        unsafe_path.preview_path_at(0, 0),
+        outside.preview_path_at(0, 0).as_deref(),
+        Some("../shared/result.md"),
+        "含 .. 的路径应保留完整值，允许只读预览 workspace 外文件"
+    );
+    assert_eq!(
+        remote.preview_path_at(0, 0),
         None,
-        "带 .. 的路径不得成为 Preview 候选，避免越过 workspace root"
+        "ssh URI 不是本机文件路径，不得成为 Preview 候选"
     );
 }
 
