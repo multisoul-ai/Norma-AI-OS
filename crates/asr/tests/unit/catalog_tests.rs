@@ -208,7 +208,7 @@ fn test_zipformer_ctc_catalog_entry_pins_official_ctc_artifact() {
 /// 数据构造（含关键数值的推导过程）：
 ///   catalog entry count = 4，现有 3 个模型 + Zipformer Bilingual
 ///   language count      = 2，中文 zh + 英文 en
-///   required files      = 4，int8 encoder + fp32 decoder + int8 joiner + tokens
+///   required files      = 5，int8 encoder + fp32 decoder + int8 joiner + tokens + bpe.vocab
 ///   archive bytes       = 511,274,346，来自官方 GitHub release 资产元数据
 ///   pinned SHA-256      = 27ffbd9ee24ad186d99acc2f6354d7992b27bcab490812510665fa8f9389c5f8
 ///
@@ -218,7 +218,7 @@ fn test_zipformer_ctc_catalog_entry_pins_official_ctc_artifact() {
 ///   3. 检查推荐状态 → 未完成双语质量与性能门禁前保持 false
 ///
 /// 预期结果：
-///   - 正断言：条目支持 zh/en 流式 partial，且精确固定官方归档和四个必要文件
+///   - 正断言：条目支持 zh/en 流式 partial，且精确固定官方归档和五个必要文件
 ///   - 负断言：不得复用纯中文 ID，也不得在未完成发布门禁时标记为推荐
 #[test]
 fn test_zipformer_bilingual_catalog_entry_pins_official_transducer_artifact() {
@@ -270,8 +270,9 @@ fn test_zipformer_bilingual_catalog_entry_pins_official_transducer_artifact() {
             "decoder-epoch-99-avg-1.onnx".to_string(),
             "joiner-epoch-99-avg-1.int8.onnx".to_string(),
             "tokens.txt".to_string(),
+            "bpe.vocab".to_string(),
         ],
-        "双语 Transducer 必须要求官方 int8 encoder、fp32 decoder、int8 joiner 与 tokens"
+        "双语 Transducer 必须要求官方模型文件、tokens 与热词分词所需 bpe.vocab"
     );
     assert_ne!(
         bilingual.id().as_str(),

@@ -238,7 +238,7 @@ fn test_zipformer_ctc_available_model_builds_only_ctc_config() {
 /// SHERPA-CONFIG-4：Zipformer Bilingual 可用模型必须使用其版本化文件名构造 Transducer。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   required files       = 4，int8 encoder + fp32 decoder + int8 joiner + tokens
+///   required files       = 5，int8 encoder + fp32 decoder + int8 joiner + tokens + bpe.vocab
 ///   Transducer branches  = 3，encoder/decoder/joiner 均有精确路径
 ///   non-target branches  = 0，Paraformer 与 Zipformer2 CTC 均必须为空
 ///   recognizer threads   = 2，与现有本地 CPU 配置一致
@@ -322,5 +322,77 @@ fn test_zipformer_bilingual_available_model_builds_versioned_transducer_config()
     assert_eq!(
         config.model_config.num_threads, 2,
         "统一 factory 应让双语 Zipformer 使用 2 线程 CPU 配置"
+    );
+}
+
+/// SHERPA-CONFIG-5：选择双语 Zipformer 时默认启用已验证的开发者热词参数。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   required model files = 5，四个双语 Transducer 工件加 `bpe.vocab`；
+///   hotword phrases      = 2，`JAVA` + `KOTLIN`，每行一个短语；
+///   score                = 2.0，来自固定录音与公共集非劣实验的胜出参数；
+///   max active paths     = 8，在准确率与解码延迟之间保留实验通过的搜索宽度。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造包含完整五文件安装清单的可用双语模型；
+///   2. 调用公开的 `build_online_recognizer_config`；
+///   3. 观察传给 Sherpa 的解码方法、分词模式、BPE 路径和热词参数。
+///
+/// 预期结果：
+///   - 正断言：使用 `modified_beam_search`、`cjkchar+bpe`、score 2.0、paths 8；
+///   - 正断言：热词缓冲区精确包含 `JAVA` 与 `KOTLIN`；
+///   - 负断言：不得继续使用无 BPE 路径、无热词缓冲区的普通 Transducer 配置。
+#[test]
+fn test_zipformer_bilingual_defaults_to_developer_hotwords() {
+    let temp = tempfile::tempdir().expect("应可创建双语热词配置临时目录");
+    let bilingual_id = asr::AsrModelId::parse(asr::ZIPFORMER_BILINGUAL_MODEL_ID)
+        .expect("内置 Zipformer Bilingual ID 应有效");
+    let descriptor = builtin_model_catalog()
+        .find(&bilingual_id)
+        .expect("受控模型库应包含 Zipformer Bilingual")
+        .clone();
+    for file in descriptor.artifact().required_files() {
+        fs::write(temp.path().join(file), [1_u8]).expect("应可写入双语模型占位文件");
+    }
+    InstallationManifest::for_descriptor(&descriptor)
+        .write_to(temp.path())
+        .expect("应可写入 Zipformer Bilingual 安装清单");
+    let available = validate_installation(temp.path(), &descriptor)
+        .expect("完整 Zipformer Bilingual 安装应转为可用模型");
+
+    let config = build_online_recognizer_config(&available)
+        .expect("双语模型应能生成带默认开发者热词的 Sherpa 配置");
+
+    assert_eq!(
+        config.decoding_method.as_deref(),
+        Some("modified_beam_search"),
+        "双语 Zipformer 热词必须使用 Sherpa 支持的 modified_beam_search"
+    );
+    assert_eq!(
+        config.model_config.modeling_unit.as_deref(),
+        Some("cjkchar+bpe"),
+        "中英混合热词必须使用 cjkchar+bpe 分词"
+    );
+    assert_eq!(
+        config.model_config.bpe_vocab.as_deref(),
+        Some(temp.path().join("bpe.vocab").to_string_lossy().as_ref()),
+        "热词配置必须使用当前受管模型内的 bpe.vocab"
+    );
+    assert_eq!(
+        config.hotwords_score, 2.0,
+        "双语 Zipformer 默认热词分数必须使用实验通过的 2.0"
+    );
+    assert_eq!(
+        config.max_active_paths, 8,
+        "双语 Zipformer 默认搜索宽度必须使用实验通过的 8"
+    );
+    assert_eq!(
+        config.hotwords_buf.as_deref(),
+        Some("JAVA\nKOTLIN\n".as_bytes()),
+        "默认热词缓冲区必须精确包含 JAVA 与 KOTLIN"
+    );
+    assert!(
+        config.hotwords_buf.is_some(),
+        "双语 Zipformer 不得退回没有热词缓冲区的普通 Transducer 配置"
     );
 }

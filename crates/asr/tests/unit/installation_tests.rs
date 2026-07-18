@@ -1,6 +1,7 @@
 use crate::{
     builtin_model_catalog, remove_installation, validate_installation, AsrModelId,
     InstallationManifest, INSTALLATION_MANIFEST_FILE, PARAFORMER_MODEL_ID,
+    ZIPFORMER_BILINGUAL_MODEL_ID,
 };
 
 /// ASR-INSTALL-ROOT-1：受管 ASR 模型必须落在应用数据根下的稳定专用目录。
@@ -144,5 +145,69 @@ fn test_remove_installation_protects_selected_model_then_removes_unselected_mode
     assert!(
         !temp.path().exists(),
         "未选中的模型删除后安装根目录不应残留"
+    );
+}
+
+/// ASR-INSTALL-3：旧版双语 Zipformer 四文件安装必须进入明确、可恢复的升级状态。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   current required files = 5（encoder + decoder + joiner + tokens + bpe.vocab）；
+///   legacy installed files = 5 - 1 = 4（历史安装器尚未提取 bpe.vocab）；
+///   matching manifest      = 1，模型 ID 与官方归档 SHA 均仍匹配当前 catalog。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 写入双语 Zipformer 的四个历史必要文件与匹配 installation.json；
+///   2. 不写新增的 bpe.vocab，模拟从旧版 Norma OS 升级后的真实目录；
+///   3. 调用 validate_installation，检查错误身份与面向用户的恢复动作。
+///
+/// 预期结果：
+///   - 正断言：返回 UpgradeRequired，精确指出双语模型与 bpe.vocab；
+///   - 正断言：错误消息明确提示在 Voice Settings 点击 Retry 完成受控重装；
+///   - 负断言：旧安装不得被误报成普通 Ready，也不得只返回不可行动的缺文件错误。
+#[test]
+fn test_legacy_bilingual_installation_reports_recoverable_update() {
+    let temp = tempfile::tempdir().expect("应可创建旧版双语模型临时目录");
+    let bilingual_id =
+        AsrModelId::parse(ZIPFORMER_BILINGUAL_MODEL_ID).expect("内置双语模型 ID 应有效");
+    let catalog = builtin_model_catalog();
+    let descriptor = catalog
+        .find(&bilingual_id)
+        .expect("受控模型库应包含双语 Zipformer");
+    for file in descriptor
+        .artifact()
+        .required_files()
+        .iter()
+        .filter(|file| file.as_str() != "bpe.vocab")
+    {
+        std::fs::write(temp.path().join(file), [1_u8]).expect("应可写入旧版模型占位文件");
+    }
+    InstallationManifest::for_descriptor(descriptor)
+        .write_to(temp.path())
+        .expect("应可写入与官方归档匹配的旧版安装清单");
+
+    let result = validate_installation(temp.path(), descriptor);
+    let message = result
+        .as_ref()
+        .expect_err("缺少新 BPE 工件的旧安装必须要求升级")
+        .to_string();
+
+    assert!(
+        matches!(
+            &result,
+            Err(crate::AsrInstallationError::UpgradeRequired {
+                model_id,
+                missing_file,
+            }) if model_id == ZIPFORMER_BILINGUAL_MODEL_ID
+                && missing_file.ends_with("bpe.vocab")
+        ),
+        "旧双语安装应返回精确 UpgradeRequired(bpe.vocab)，实际结果: {result:?}"
+    );
+    assert!(
+        message.contains("Voice Settings") && message.contains("Retry"),
+        "升级错误必须给出可执行的 Voice Settings → Retry 恢复动作，实际消息: {message}"
+    );
+    assert!(
+        !matches!(result, Ok(_)),
+        "缺少 bpe.vocab 的旧安装不得继续被误判为 Ready"
     );
 }

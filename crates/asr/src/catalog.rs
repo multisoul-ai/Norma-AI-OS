@@ -168,6 +168,7 @@ pub fn builtin_model_catalog() -> AsrModelCatalog {
                         "decoder-epoch-99-avg-1.onnx",
                         "joiner-epoch-99-avg-1.int8.onnx",
                         "tokens.txt",
+                        "bpe.vocab",
                     ],
                 ),
             ),
