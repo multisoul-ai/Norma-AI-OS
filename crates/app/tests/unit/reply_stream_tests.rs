@@ -2,6 +2,7 @@ use super::reply_stream::capture::write_pcm_chunks_to_wav;
 use super::reply_stream::{pcm_trace_fingerprint, QueuedPlaybackChunk, StreamPlaybackBuffer};
 use super::{DialogueControlState, TtsPreviewControl};
 use audio::{PcmAudioChunk, PcmFormat};
+use dialogue::DialoguePhase;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -14,6 +15,61 @@ fn pcm16_mono_chunk(sample_rate_hz: u32, duration: Duration) -> PcmAudioChunk {
         vec![0; frame_count * 2],
     )
     .expect("测试 PCM 应满足 PCM16 mono 格式约束")
+}
+
+/// STR-SILENT-1：TaskQueued 的静默临时回复必须完整结束生命周期且不启动音频工作。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   initial phase          = Thinking：Listening 经 1 次 utterance final 后得到
+///   display replies        = 1：“任务处理中：检查当前项目”
+///   expected speech items  = 0
+///   expected PCM chunks    = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 把 DialogueSession 从 Idle 切到 Listening，再以 utterance final 进入 Thinking
+///   2. 调用 finish_silent_reply 保存临时文字并结束当前 reply stream
+///   3. 读取 phase、显示文本、TTS task、speech queue 与 PCM pending 数
+///
+/// 预期结果：
+///   - 正断言：phase 回到 Listening，处理中临时文字仍可显示
+///   - 负断言：不得创建 speech task、speech segment 或 PCM 播放块
+#[test]
+fn test_silent_queued_reply_returns_to_listening_without_tts_or_pcm() {
+    let mut dialogue = DialogueControlState::default();
+    dialogue.session.on_listening_started();
+    dialogue
+        .session
+        .on_utterance_final()
+        .expect("Listening 收到 final 后必须进入 Thinking");
+
+    dialogue.finish_silent_reply("任务处理中：检查当前项目".to_string());
+
+    assert_eq!(
+        dialogue.phase(),
+        DialoguePhase::Listening,
+        "静默完成 TaskQueued 临时回复后必须回到 Listening，不能卡在 Thinking"
+    );
+    assert_eq!(
+        dialogue.last_reply_text.as_deref(),
+        Some("任务处理中：检查当前项目"),
+        "静默只抑制播报，不得丢失界面需要显示的处理中状态"
+    );
+    assert!(
+        dialogue.speech_task.is_none(),
+        "静默 TaskQueued 不得创建 TTS synthesis task"
+    );
+    assert!(
+        dialogue.speech_queue.is_empty(),
+        "静默 TaskQueued 不得排入任何 speech segment"
+    );
+    assert_eq!(
+        dialogue.playback_chunks_pending, 0,
+        "静默 TaskQueued 不得产生待播放 PCM chunk"
+    );
+    assert!(
+        dialogue.reply_stream_started_at.is_none(),
+        "静默回复完成后必须清理 reply stream 计时状态"
+    );
 }
 
 /// STR-TRACE-1：诊断日志必须用稳定的 PCM 指纹区分“同一块被重复播放”和“不同音频块”。
