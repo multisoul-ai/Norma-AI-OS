@@ -14,6 +14,37 @@ use gpui::{Entity, TestAppContext, VisualTestContext};
 use runtime::{NodeView, PtyFactory, Runtime};
 use terminal::{GridSnapshot, PtyBackend, ScriptRule, TestPtyBackend};
 
+static VOICE_TRANSCRIPT_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+pub(crate) struct VoiceTranscriptEnvGuard {
+    _lock: std::sync::MutexGuard<'static, ()>,
+    previous: Option<std::ffi::OsString>,
+}
+
+impl VoiceTranscriptEnvGuard {
+    pub(crate) fn set(transcript: &str) -> Self {
+        let lock = VOICE_TRANSCRIPT_ENV_LOCK
+            .lock()
+            .expect("语音 transcript 环境变量测试锁不应中毒");
+        let previous = std::env::var_os("MULTISOUL_VOICE_TRANSCRIPT");
+        std::env::set_var("MULTISOUL_VOICE_TRANSCRIPT", transcript);
+        Self {
+            _lock: lock,
+            previous,
+        }
+    }
+}
+
+impl Drop for VoiceTranscriptEnvGuard {
+    fn drop(&mut self) {
+        if let Some(previous) = self.previous.take() {
+            std::env::set_var("MULTISOUL_VOICE_TRANSCRIPT", previous);
+        } else {
+            std::env::remove_var("MULTISOUL_VOICE_TRANSCRIPT");
+        }
+    }
+}
+
 /// 构造一个 echo PTY 工厂：`write(bytes)` → 同步回吐 `PtyEvent::Output(bytes)`。
 ///
 /// 供 `make_app` / `enter_canvas` 注入，使 `NewTerminal` 走 `TestPtyBackend` 而非

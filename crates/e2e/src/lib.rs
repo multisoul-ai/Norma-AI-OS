@@ -36,6 +36,8 @@ mod e2e_03_settings_clicks;
 mod e2e_03_settings_navigation;
 mod e2e_03_theme_switching;
 mod e2e_03_voice_modes;
+mod e2e_03_voice_setup;
+mod e2e_03_voice_setup_cancel;
 mod e2e_03_wallpaper_badges;
 
 // Settings E2E：Voice Provider 文本输入无需 Enter 即自动保存。

@@ -212,8 +212,9 @@ fn test_voice_text_input_auto_saves_only_after_ime_unmark() {
 ///
 /// 场景：SettingsStore 已有 API Key；出于安全考虑输入实体不回填密钥明文，用户只聚焦
 /// 空白输入框并按 Enter；随后再次聚焦，开始组合 `n` 后取消为原空内容，再按 Enter。
-/// 数据构造：临时 SQLite 先通过 VoiceSettingsState 写入测试密钥；断言仅使用 configured
-/// 布尔值，失败消息和快照都不暴露密钥明文。
+/// 数据构造：临时 SQLite 先通过 VoiceSettingsState 写入测试密钥；后台操作数 = 4：
+/// Keychain Set + credential_ref Set + canonical plaintext Delete + legacy plaintext Delete；
+/// 断言仅使用 configured 布尔值，失败消息和快照都不暴露密钥明文。
 /// 执行过程：从临时 store 构造 App，先走一次未修改 submit；再进入编辑态，通过真实
 /// marked-text handler 执行 `n → 空` 的组合取消并 submit，最后重新加载 Provider 配置。
 /// 预期结果：两次操作后当前 App 与重新加载结果都保持 API Key configured；不得因安全
@@ -228,7 +229,11 @@ fn test_voice_text_input_untouched_api_key_enter_preserves_saved_secret() {
         initial.commit_edit_value(VoiceSettingsField::ApiKey, "test-api-key".to_string());
     assert!(accepted.is_some(), "测试前置 API Key 应被状态层接受");
     let writes = initial.take_pending_writes();
-    assert_eq!(writes.len(), 1, "测试前置 API Key 应产生一个持久化写入");
+    assert_eq!(
+        writes.len(),
+        4,
+        "测试前置 API Key 应产生 Keychain Set、引用 Set 与两个明文 Delete"
+    );
     for write in writes {
         write.execute().expect("测试前置 API Key 写入应成功");
     }

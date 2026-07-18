@@ -143,7 +143,6 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
         scroll_debug(cx, "settings-content-scroll", -650.0);
         click_debug(cx, "settings-agent-provider-openai");
         scroll_debug(cx, "settings-content-scroll", -200.0);
-        click_debug(cx, "settings-voice-advanced-toggle");
         replace_text(
             cx,
             "settings-voice-field-agent-base-url",

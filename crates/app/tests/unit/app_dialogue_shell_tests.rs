@@ -1,6 +1,8 @@
 use super::{DialogueControlState, DialogueStartError};
 use crate::app::voice::control::VoiceVisual;
-use crate::settings::voice::{EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsValues};
+use crate::settings::voice::{
+    AgentProviderKind, EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsValues,
+};
 use dialogue::DialoguePhase;
 use std::sync::Mutex;
 use tempfile::tempdir;
@@ -41,6 +43,7 @@ pub(super) fn continuous_listening_values(
     let saved = SavedVoiceSettings {
         interaction_mode: Some(crate::settings::voice::VoiceInteractionMode::ContinuousListening),
         asr_model_id: model_root.map(|_| model_id),
+        agent_provider: Some(AgentProviderKind::Ollama),
         ..SavedVoiceSettings::default()
     };
     VoiceSettingsValues::resolve(&saved, &EnvVoiceSettings::default())
@@ -51,6 +54,7 @@ pub(super) fn continuous_listening_values(
 /// 数据构造（含关键数值的推导过程）：
 ///   model_root = tempfile 创建的受管根，含 Paraformer 必要文件与匹配安装清单
 ///   interaction_mode = ContinuousListening（表示用户选择持续聆听模式）
+///   agent_provider = Ollama（显式固定旧业务路径，不依赖产品默认 Provider）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 构造仅含本地 sherpa 配置的 VoiceSettingsValues

@@ -87,4 +87,10 @@ impl MultisoulApp {
         crate::settings::voice::tts_models::set_e2e_fake_tts_transport(enabled, hold_install);
         cx.notify();
     }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn release_fake_tts_transport_for_e2e(&mut self, cx: &mut Context<Self>) {
+        crate::settings::voice::tts_models::release_e2e_fake_tts_transport();
+        cx.notify();
+    }
 }

@@ -275,37 +275,15 @@ impl MultisoulApp {
         }
 
         if is_voice_hold_shortcut(&ev.keystroke) {
-            let continuous = self.voice_settings.values().interaction_mode()
-                == crate::settings::voice::VoiceInteractionMode::ContinuousListening;
-            match self.dialogue.voice_shortcut_key_down_action(continuous) {
-                VoiceShortcutKeyDownAction::StartOneShotRecording => {
-                    if self.dialogue.is_active() {
-                        self.stop_continuous_listening(cx);
-                    }
-                    match dictation_shortcut_action(
-                        self.voice_settings.values().dictation_trigger(),
-                        self.is_voice_recording_shortcut(),
-                    ) {
-                        DictationShortcutAction::Start => {
-                            self.begin_voice_recording(VoiceTrigger::Shortcut, cx)
-                        }
-                        DictationShortcutAction::Stop => {
-                            self.end_voice_recording(VoiceTrigger::Shortcut, window, cx)
-                        }
-                    }
-                }
-                VoiceShortcutKeyDownAction::StartContinuousListening => {
-                    self.start_continuous_listening(cx);
-                }
-                VoiceShortcutKeyDownAction::StopContinuousListening => {
-                    self.stop_continuous_listening(cx);
-                }
-                VoiceShortcutKeyDownAction::InterruptAssistantReply => {
-                    if self.dialogue.interrupt_assistant_reply_for_user_action() {
-                        cx.notify();
-                    }
-                }
+            if !matches!(
+                self.voice_settings.readiness(),
+                crate::settings::voice::VoiceEntryState::Ready
+            ) {
+                self.open_voice_settings(window, cx);
+                cx.stop_propagation();
+                return;
             }
+            self.activate_ready_voice(false, window, cx);
             return;
         }
 
@@ -414,6 +392,50 @@ impl MultisoulApp {
                     }
                 }
                 cx.notify();
+            }
+        }
+    }
+
+    pub(crate) fn activate_ready_voice(
+        &mut self,
+        pointer_toggle: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let continuous = self.voice_settings.values().interaction_mode()
+            == crate::settings::voice::VoiceInteractionMode::ContinuousListening;
+        match self.dialogue.voice_shortcut_key_down_action(continuous) {
+            VoiceShortcutKeyDownAction::StartOneShotRecording => {
+                if self.dialogue.is_active() {
+                    self.stop_continuous_listening(cx);
+                }
+                let action = if pointer_toggle && self.is_voice_recording_shortcut() {
+                    DictationShortcutAction::Stop
+                } else {
+                    dictation_shortcut_action(
+                        self.voice_settings.values().dictation_trigger(),
+                        self.is_voice_recording_shortcut(),
+                    )
+                };
+                match action {
+                    DictationShortcutAction::Start => {
+                        self.begin_voice_recording(VoiceTrigger::Shortcut, cx)
+                    }
+                    DictationShortcutAction::Stop => {
+                        self.end_voice_recording(VoiceTrigger::Shortcut, window, cx)
+                    }
+                }
+            }
+            VoiceShortcutKeyDownAction::StartContinuousListening => {
+                self.start_continuous_listening(cx);
+            }
+            VoiceShortcutKeyDownAction::StopContinuousListening => {
+                self.stop_continuous_listening(cx);
+            }
+            VoiceShortcutKeyDownAction::InterruptAssistantReply => {
+                if self.dialogue.interrupt_assistant_reply_for_user_action() {
+                    cx.notify();
+                }
             }
         }
     }

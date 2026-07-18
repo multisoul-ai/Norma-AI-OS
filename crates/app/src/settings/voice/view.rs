@@ -2,16 +2,21 @@ pub(crate) use self::editable::VoiceSettingsInputs;
 use self::interaction::interaction_group;
 use self::model_catalog::model_catalog_row;
 use self::provider::{agent_provider_advanced_rows, agent_provider_group};
+use self::ready::voice_ready_banner;
+use self::setup::voice_setup;
 use self::spoken_reply::spoken_reply_group;
+use self::tts_catalog::tts_catalog_row;
 use super::state::{VoiceSettingsField, VoiceSettingsState};
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, Window};
+use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, SharedString, Window};
 use ui::Theme;
 
 mod editable;
 mod interaction;
 mod model_catalog;
 mod provider;
+mod ready;
+mod setup;
 mod spoken_reply;
 mod tts_catalog;
 
@@ -21,25 +26,57 @@ pub(crate) fn voice_settings(
     inputs: &VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
+    if !matches!(state.readiness(), super::VoiceEntryState::Ready) || state.reviewing_setup() {
+        return voice_setup(theme, state, inputs, cx).children(status_message(theme, state));
+    }
     div()
         .w_full()
         .min_w(px(0.0))
         .flex()
         .flex_col()
         .gap(px(20.0))
+        .child(voice_ready_banner(theme, cx))
         .child(interaction_group(theme, state, cx))
-        .child(
-            settings_group(theme, "Speech Recognition")
-                .child(input_device_row(theme, state, cx))
-                .child(model_catalog_row(theme, state, cx)),
-        )
-        .child(agent_provider_group(theme, state, inputs, cx))
-        .child(advanced_group(theme, state, inputs, cx))
+        .child(settings_group(theme, "Input").child(input_device_row(theme, state, cx)))
         .child(spoken_reply_group(theme, state, cx))
+        .child(advanced_group(theme, state, inputs, cx))
         .children(status_message(theme, state))
 }
 
 impl MultisoulApp {
+    pub(crate) fn on_voice_review_setup(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings.set_reviewing_setup(true);
+        cx.notify();
+    }
+
+    pub(crate) fn on_voice_finish_review_setup(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings.set_reviewing_setup(false);
+        cx.notify();
+    }
+
+    pub(crate) fn on_voice_setup_request_microphone(
+        &mut self,
+        event: &ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.can_open_microphone_privacy_settings() {
+            self.on_voice_open_microphone_privacy_settings(event, window, cx);
+            return;
+        }
+        self.request_voice_microphone_access(cx);
+    }
+
     pub(crate) fn on_voice_settings_refresh_input_devices(
         &mut self,
         _: &ClickEvent,
@@ -126,8 +163,13 @@ impl MultisoulApp {
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
+                let credential_finished = app.voice_settings.credential_persistence_pending();
+                let credential_succeeded = result.is_ok();
                 app.voice_settings.record_persistence_result(result);
                 app.persist_voice_settings_in_background(cx);
+                if credential_finished && credential_succeeded {
+                    app.validate_saved_voice_provider(cx);
+                }
                 cx.notify();
             });
         })
@@ -142,12 +184,12 @@ fn advanced_group(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let expanded = state.advanced_expanded();
-    settings_group(theme, "Advanced")
+    settings_group(theme, "Advanced Settings")
         .child(
             setting_row(
                 theme,
-                "Diagnostics",
-                "Endpoints, trace output and recovery details for advanced users",
+                "Models, provider & diagnostics",
+                "Manage local catalogs, connection details and troubleshooting",
             )
             .child(
                 action_button(
@@ -162,7 +204,10 @@ fn advanced_group(
         )
         .when(expanded, |group| {
             group
+                .child(model_catalog_row(theme, state, cx))
+                .child(agent_provider_group(theme, state, inputs, cx))
                 .child(agent_provider_advanced_rows(theme, inputs, cx))
+                .child(tts_catalog_row(theme, state, cx))
                 .child(trace_row(theme, state, cx))
         })
 }
@@ -244,7 +289,7 @@ fn input_device_row(
         .child(setting_label(
             theme,
             "Microphone Input",
-            "Select the microphone used for speech recognition",
+            "Recognition ready · select the microphone used for speech recognition",
         ))
         .child(options)
         .child(
@@ -392,7 +437,7 @@ pub(super) fn setting_label(theme: Theme, title: &'static str, hint: &'static st
 /// Settings actions keep a GPUI `Div` because callers attach stable debug selectors after
 /// construction; gpui-component 0.5.1's `Button` does not expose that test seam or this compact
 /// accent variant. Keep this exception local instead of introducing another general button type.
-pub(super) fn action_button(_theme: Theme, label: &'static str, accent: u32) -> Div {
+pub(super) fn action_button(_theme: Theme, label: impl Into<SharedString>, accent: u32) -> Div {
     div()
         .px(px(12.0))
         .py(px(8.0))
@@ -405,7 +450,7 @@ pub(super) fn action_button(_theme: Theme, label: &'static str, accent: u32) -> 
         .text_color(rgba(accent))
         .cursor_pointer()
         .hover(move |style| style.bg(rgba(with_alpha(accent, 0x28))))
-        .child(label)
+        .child(label.into())
 }
 
 fn status_message(theme: Theme, state: &VoiceSettingsState) -> Vec<Div> {

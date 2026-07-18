@@ -329,3 +329,78 @@ fn test_model_download_interruption_removes_partial_and_never_finalizes() {
         "中断下载应清理 partial 文件，允许后续干净重试"
     );
 }
+
+/// ASR-DOWNLOAD-3：用户取消下载必须清理 partial，且绝不提升为最终归档
+///
+/// 数据构造（含关键数值的推导过程）：
+///   HTTP body = 70,000 bytes
+///   cancellation flag = true（读取首个 64 KiB chunk 前已取消）
+///   expected finalized archives = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 本地假 server 返回完整 70,000 字节响应
+///   2. cancellable downloader 在读取循环前观察到取消标记
+///   3. 下载返回取消错误并执行统一 partial 清理
+///
+/// 预期结果：
+///   - 正断言：结果明确为错误，调用方可回到可重试状态
+///   - 负断言：最终归档与 partial 文件都不得存在
+#[test]
+fn cancelled_model_download_removes_partial_and_never_finalizes() {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::atomic::AtomicBool;
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("应绑定取消下载假 server");
+    let address = listener.local_addr().expect("应读取取消下载 server 地址");
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("取消下载 server 应接受连接");
+        let mut request = [0_u8; 1024];
+        let _ = stream
+            .read(&mut request)
+            .expect("取消下载 server 应读取请求");
+        write!(
+            stream,
+            "HTTP/1.1 200 OK\r\nContent-Length: 70000\r\nConnection: close\r\n\r\n"
+        )
+        .expect("取消下载 server 应写响应头");
+        let _ = stream.write_all(&[0x5a_u8; 70_000]);
+    });
+    let descriptor = asr::AsrModelDescriptor::new(
+        asr::AsrModelId::parse("cancelled-download-model").expect("测试模型 ID 应有效"),
+        "Cancelled Download Model",
+        asr::AsrCapabilities::new(vec!["zh"], true),
+        asr::AsrArtifact::new(
+            format!("http://{address}/model.tar.bz2"),
+            "unused-by-download-layer",
+            70_000,
+            vec!["tokens.txt"],
+        ),
+    );
+    let temp = tempfile::tempdir().expect("应创建取消下载目录");
+    let cancelled = AtomicBool::new(true);
+
+    let result = download_model_archive_cancellable(
+        &descriptor,
+        temp.path(),
+        &cancelled,
+        |_downloaded, _total| {},
+    );
+    server.join().expect("取消下载 server 线程应结束");
+
+    assert!(result.is_err(), "已取消的 ASR 下载必须返回可重试错误");
+    assert!(
+        !temp
+            .path()
+            .join("cancelled-download-model.tar.bz2")
+            .exists(),
+        "取消下载不得提升为最终 ASR 归档"
+    );
+    assert!(
+        !temp
+            .path()
+            .join("cancelled-download-model.tar.bz2.partial")
+            .exists(),
+        "取消下载必须清理 ASR partial 文件"
+    );
+}

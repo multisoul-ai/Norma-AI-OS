@@ -52,6 +52,8 @@ fn voice_pill(
         .bg(rgba(palette.fill))
         .text_color(rgba(palette.text))
         .text_size(px(11.0))
+        .cursor_pointer()
+        .on_click(cx.listener(MultisoulApp::on_voice_bar_click))
         .child(status_glyph(theme, visual))
         .child(voice_content(theme, visual, app, cx))
 }
@@ -166,11 +168,27 @@ fn voice_content(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     match visual {
-        VoiceVisual::Idle => div()
-            .flex()
-            .items_center()
-            .text_color(rgba(0xffffffff))
-            .child(format!("Voice  {}", IDLE_KEYCAPS.concat())),
+        VoiceVisual::Idle => {
+            let label = match app.voice_settings.readiness() {
+                crate::settings::voice::VoiceEntryState::SetUp { .. } => {
+                    format!("Set up Voice  {}", IDLE_KEYCAPS.concat())
+                }
+                crate::settings::voice::VoiceEntryState::SettingUp { percent } => {
+                    format!("Setting up Voice · {percent}%")
+                }
+                crate::settings::voice::VoiceEntryState::Ready => {
+                    format!("Voice  {}", IDLE_KEYCAPS.concat())
+                }
+                crate::settings::voice::VoiceEntryState::Unavailable { .. } => {
+                    "Voice unavailable".to_string()
+                }
+            };
+            div()
+                .flex()
+                .items_center()
+                .text_color(rgba(0xffffffff))
+                .child(label)
+        }
         VoiceVisual::Recording => div()
             .flex()
             .flex_row()
@@ -200,6 +218,72 @@ fn voice_content(
             }
             content
         }
+    }
+}
+
+impl MultisoulApp {
+    fn on_voice_bar_click(
+        &mut self,
+        _: &gpui::ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if matches!(
+            self.voice_settings.readiness(),
+            crate::settings::voice::VoiceEntryState::Ready
+        ) {
+            self.activate_ready_voice(true, window, cx);
+        } else {
+            self.open_voice_settings(window, cx);
+        }
+    }
+
+    pub(crate) fn render_voice_ready_notification(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let theme = self.theme;
+        div()
+            .id("voice-ready-notification")
+            .debug_selector(|| "voice-ready-notification".to_string())
+            .absolute()
+            .top(px(22.0))
+            .right(px(22.0))
+            .max_w(px(320.0))
+            .flex()
+            .items_center()
+            .gap(px(10.0))
+            .p(px(13.0))
+            .rounded(px(12.0))
+            .border_1()
+            .border_color(rgba(with_alpha(theme.accent_green, 0x70)))
+            .bg(rgba(with_alpha(theme.panel, 0xf2)))
+            .text_color(rgba(theme.text_primary))
+            .child(glyph_cell("✓", theme.accent_green))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(2.0))
+                    .child("Voice is ready")
+                    .child(
+                        div()
+                            .text_size(px(11.0))
+                            .text_color(rgba(theme.text_secondary))
+                            .child("Press ⌘E to start a voice command."),
+                    ),
+            )
+            .child(
+                div()
+                    .id("voice-ready-notification-close")
+                    .cursor_pointer()
+                    .text_color(rgba(theme.text_secondary))
+                    .child("×")
+                    .on_click(cx.listener(|app, _, _, cx| {
+                        app.voice_ready_notification_visible = false;
+                        cx.notify();
+                    })),
+            )
     }
 }
 
