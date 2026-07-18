@@ -9,11 +9,9 @@ mod navigation;
 mod panel_style;
 
 use self::content::{settings_content, VoiceSettingsContent};
+pub(crate) use self::navigation::SettingsSection;
 use self::navigation::{settings_navigation, SettingsNavigationMode};
 use self::panel_style::{settings_shadow, with_alpha};
-use crate::settings::voice::VoiceEntryState;
-
-pub(crate) use self::navigation::SettingsSection;
 
 const PANEL_MIN_W: f32 = 860.0;
 const PANEL_MAX_W: f32 = 1280.0;
@@ -197,13 +195,8 @@ impl MultisoulApp {
         let win = window.viewport_size();
         let win_w = f32::from(win.width);
         let win_h = f32::from(win.height);
-        let voice_setup_mode = self.settings_panel.active_section == SettingsSection::Voice
-            && (!matches!(self.voice_settings.readiness(), VoiceEntryState::Ready)
-                || self.voice_settings.reviewing_setup());
         let layout = SettingsPanelLayout::for_viewport(win_w, win_h);
-        let layout = if voice_setup_mode {
-            layout.with_width_cap(win_w, 860.0)
-        } else if self.settings_panel.active_section == SettingsSection::Voice {
+        let layout = if self.settings_panel.active_section == SettingsSection::Voice {
             layout.with_width_cap(win_w, 1020.0)
         } else {
             layout
@@ -231,7 +224,6 @@ impl MultisoulApp {
             VoiceSettingsContent {
                 state: &self.voice_settings,
                 inputs: &self.voice_settings_inputs,
-                setup_mode: voice_setup_mode,
             },
             &self.wallpaper_settings,
             &self.shortcuts,
@@ -302,7 +294,7 @@ impl MultisoulApp {
                     .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_click(|_, _, cx| cx.stop_propagation())
                     .on_key_down(cx.listener(Self::on_settings_panel_key_down))
-                    .when(!voice_setup_mode, |panel| panel.child(navigation))
+                    .child(navigation)
                     .child(content),
             )
     }

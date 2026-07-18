@@ -17,7 +17,6 @@ use self::keyboard::keyboard_settings;
 pub(super) struct VoiceSettingsContent<'a> {
     pub(super) state: &'a VoiceSettingsState,
     pub(super) inputs: &'a VoiceSettingsInputs,
-    pub(super) setup_mode: bool,
 }
 
 pub(super) fn settings_content(
@@ -38,9 +37,7 @@ pub(super) fn settings_content(
         .flex()
         .flex_col()
         .bg(rgba(with_alpha(theme.panel_high, 0xd4)))
-        .when(!voice.setup_mode, |content| {
-            content.child(content_header(theme, panel.active_section, cx))
-        })
+        .child(content_header(theme, panel.active_section, cx))
         .child(
             div()
                 .id("settings-content-scroll")
@@ -50,8 +47,7 @@ pub(super) fn settings_content(
                 .min_h(px(0.0))
                 .overflow_y_scroll()
                 .overflow_x_hidden()
-                .px(px(if voice.setup_mode { 54.0 } else { 28.0 }))
-                .pt(px(if voice.setup_mode { 20.0 } else { 0.0 }))
+                .px(px(28.0))
                 .pb(px(40.0))
                 .child(match panel.active_section {
                     SettingsSection::Themes => theme_appearance(theme_id, theme, cx),

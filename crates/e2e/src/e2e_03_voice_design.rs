@@ -12,13 +12,13 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建 fresh App、进入 Canvas，并清空四项 Voice readiness
-///   2. 分发一次 `cmd-e` → 打开专注的 Voice Setup 页面
-///   3. 检查页头进度、纵向步骤轨道、三张步骤卡及底部完成操作
+///   2. 分发一次 `cmd-e` → 打开 Settings → Voice 内的 Setup 内容
+///   3. 检查 Settings 侧栏、Voice 页头、页内进度、纵向步骤轨道和三张步骤卡
 ///   4. 检查麦克风操作位于 Speech Recognition 内，AI Connection 无需展开即可配置
 ///
 /// 预期结果：
-///   - 正断言：三步、四项进度、麦克风动作、模型安装、Provider 连接和 Finish 均可见
-///   - 负断言：Setup 不显示 Settings 导航，也不再渲染独立的第四张麦克风卡
+///   - 正断言：Voice Settings 外壳、三步、四项进度和全部必需操作均可见
+///   - 负断言：Setup 不得脱离 Settings 外壳，也不再渲染独立的第四张麦克风卡
 #[test]
 fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
     let mut cx = TestAppContext::single();
@@ -71,8 +71,12 @@ fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
         "the setup flow must keep the approved full-width Finish Setup affordance"
     );
     assert!(
-        cx.debug_bounds("settings-sidebar-scroll").is_none(),
-        "first-run Setup must not compete with the normal Settings sidebar"
+        cx.debug_bounds("settings-sidebar-scroll").is_some(),
+        "first-run Setup must remain inside the normal Settings sidebar shell"
+    );
+    assert!(
+        cx.debug_bounds("settings-section-voice").is_some(),
+        "first-run Setup must keep Voice selected in the Settings navigation"
     );
     assert!(
         cx.debug_bounds("voice-setup-requirement-microphone")

@@ -15,6 +15,21 @@ use runtime::{NodeView, PtyFactory, Runtime};
 use terminal::{GridSnapshot, PtyBackend, ScriptRule, TestPtyBackend};
 
 static VOICE_TRANSCRIPT_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+static VOICE_MODEL_INSTALL_E2E_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+pub(crate) struct VoiceModelInstallE2eGuard {
+    _lock: std::sync::MutexGuard<'static, ()>,
+}
+
+impl VoiceModelInstallE2eGuard {
+    pub(crate) fn acquire() -> Self {
+        Self {
+            _lock: VOICE_MODEL_INSTALL_E2E_LOCK
+                .lock()
+                .expect("Voice model install e2e lock should not be poisoned"),
+        }
+    }
+}
 
 pub(crate) struct VoiceTranscriptEnvGuard {
     _lock: std::sync::MutexGuard<'static, ()>,

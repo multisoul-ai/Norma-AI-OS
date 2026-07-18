@@ -1,6 +1,8 @@
 use gpui::{Modifiers, TestAppContext};
 
-use crate::harness::{echo_factory, enter_canvas, make_app, VoiceTranscriptEnvGuard};
+use crate::harness::{
+    echo_factory, enter_canvas, make_app, VoiceModelInstallE2eGuard, VoiceTranscriptEnvGuard,
+};
 
 /// Voice 尚未配置时按下 Cmd+E：必须打开 Settings → Voice 设置页，且不得开始录音
 ///
@@ -310,6 +312,7 @@ fn ready_voice_page_can_review_setup_and_return() {
 ///   TTS package = 79,033,838 + 53,882,848 = 132,916,686 bytes ≈ 133 MB
 ///   推荐包总量 = 511,274,346 + 132,916,686 = 644,191,032 bytes ≈ 644 MB
 ///   麦克风和 Provider 通过稳定测试缝预置为 Ready
+///   model root = workspace/models（与用户模型和其他测试隔离）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 启用 ASR/TTS 假传输，避免测试依赖公网与真实模型文件
@@ -322,11 +325,16 @@ fn ready_voice_page_can_review_setup_and_return() {
 ///   - 负断言：最终入口不得仍为 set_up 或 setting_up
 #[test]
 fn recommended_package_installs_and_selects_all_required_local_models() {
+    let _install_guard = VoiceModelInstallE2eGuard::acquire();
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
     let workspace = tempfile::TempDir::new().expect("Voice setup workspace should create");
     enter_canvas(&app, cx, workspace.path());
     app.update(cx, |app, _cx| app.reset_voice_setup_for_e2e());
+    app.update(cx, |app, cx| {
+        app.set_voice_model_root_for_e2e(workspace.path().join("models"), cx)
+    });
+    cx.run_until_parked();
     app.update(cx, |app, _cx| {
         app.set_voice_setup_install_fakes_for_e2e(true)
     });
@@ -389,6 +397,7 @@ fn recommended_package_installs_and_selects_all_required_local_models() {
 ///   TTS fake completion = held until Settings closes
 ///   notification timeout = 5s，测试观察窗口 = 3s < 5s
 ///   expected audio starts = 0（Voice phase 保持 idle）
+///   model root = workspace/models（与用户模型和其他测试隔离）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 打开 fresh Setup，注入麦克风与 Provider Ready
@@ -402,11 +411,16 @@ fn recommended_package_installs_and_selects_all_required_local_models() {
 ///   - 负断言：通知不得开始录音或重新打开 Settings
 #[test]
 fn background_setup_completion_shows_a_nonblocking_ready_notification() {
+    let _install_guard = VoiceModelInstallE2eGuard::acquire();
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
     let workspace = tempfile::TempDir::new().expect("Voice setup workspace should create");
     enter_canvas(&app, cx, workspace.path());
     app.update(cx, |app, _cx| app.reset_voice_setup_for_e2e());
+    app.update(cx, |app, cx| {
+        app.set_voice_model_root_for_e2e(workspace.path().join("models"), cx)
+    });
+    cx.run_until_parked();
     app.update(cx, |app, _cx| {
         app.set_voice_setup_install_fakes_for_e2e(true)
     });

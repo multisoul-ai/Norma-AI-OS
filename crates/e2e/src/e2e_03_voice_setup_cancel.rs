@@ -1,6 +1,6 @@
 use gpui::{Modifiers, TestAppContext};
 
-use crate::harness::{echo_factory, enter_canvas, make_app};
+use crate::harness::{echo_factory, enter_canvas, make_app, VoiceModelInstallE2eGuard};
 
 /// 推荐语音包取消：一次点击必须同时停止仍活跃的本地模型任务，并回到可重试设置态
 ///
@@ -9,6 +9,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///   ASR fake = immediate completion
 ///   TTS fake = held installation（保证取消按钮可观察）
 ///   cancel clicks = 1
+///   model root = workspace/models（与用户模型和其他测试隔离）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 打开 fresh Voice Setup，并注入麦克风与 Provider Ready
@@ -21,11 +22,16 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///   - 负断言：入口不得保持 setting_up 或错误进入 Ready
 #[test]
 fn recommended_voice_package_can_be_cancelled_and_retried() {
+    let _install_guard = VoiceModelInstallE2eGuard::acquire();
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
     let workspace = tempfile::TempDir::new().expect("Voice cancel workspace should create");
     enter_canvas(&app, cx, workspace.path());
     app.update(cx, |app, _cx| app.reset_voice_setup_for_e2e());
+    app.update(cx, |app, cx| {
+        app.set_voice_model_root_for_e2e(workspace.path().join("models"), cx)
+    });
+    cx.run_until_parked();
     app.update(cx, |app, _cx| {
         app.set_voice_setup_install_fakes_for_e2e(true)
     });

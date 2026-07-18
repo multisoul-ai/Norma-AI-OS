@@ -30,7 +30,7 @@ Settings → Voice 改为任务导向的双态页面：未就绪时显示 `Set U
 
 Voice Ready 有四个硬条件：麦克风权限已授权、识别模型可用、Agent Provider 与所选模型可用、本地 TTS 模型与音色可用。TTS 是完整 Voice 业务闭环的一部分，不允许跳过 TTS 后以纯文字回复完成首次设置。
 
-首次设置复用 Settings → Voice，不新增独立向导弹窗，但进入专注式 Setup 视觉状态：隐藏普通 Settings 导航，居中显示 `Voice Setup` 标题、四项硬条件进度和三步纵向引导。三步固定映射为：
+首次设置复用 Settings → Voice，不新增独立窗口或独立向导弹窗。Setup 始终呈现在现有 Voice Settings 弹窗内容区内，保留 Settings 导航、Voice 页头和统一关闭入口；内容区显示 `Voice Setup` 标题、四项硬条件进度和三步纵向引导。三步固定映射为：
 
 1. Speech Recognition：同卡显示麦克风授权前置状态与推荐 ASR/TTS 包安装。
 2. AI Connection：显示 OpenAI-compatible 配置与连接状态。
@@ -124,7 +124,7 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - 建立单一 Voice readiness 投影，至少表达 `SetupRequired`、`SettingUp`、`Ready` 和 `Unavailable`；`Unavailable` 必须携带可定位到麦克风、ASR、Provider 或 TTS 的失败原因，Settings 和 `⌘E` 路由消费同一投影。
 - `SetupRequired` 表示从未满足全部硬条件；`Unavailable` 表示曾经 Ready 但硬条件后来失效。不得用一个布尔 `enabled` 混合两种语义。
 - `⌘E` 路由先检查 readiness：非 Ready 时打开 Settings → Voice 并聚焦待处理项，不启动录音、持续聆听、Agent 回合或 TTS；Ready 时保持现有 Single Voice Command / Continuous Listening 路由。
-- Settings → Voice 是 Setup 与日常配置的唯一产品入口。未就绪时隐藏普通 Settings 导航并渲染专注式三步 Setup；就绪时恢复导航并渲染简化主页面；Advanced Settings 承载完整模型目录、Provider 细节和 Diagnostics。
+- Settings → Voice 是 Setup 与日常配置的唯一产品入口。未就绪时在同一 Voice Settings 弹窗内容区渲染三步 Setup，并持续保留 Settings 导航与 Voice 页头；就绪时在原位渲染简化主页面；Advanced Settings 承载完整模型目录、Provider 细节和 Diagnostics。
 - 首次 Setup 的逻辑硬条件为麦克风授权、可用 ASR、可用 Agent Provider + 模型、可用 TTS + 音色。视觉固定为三步：麦克风并入 Speech Recognition，ASR 与 TTS 可合并显示为推荐语音包，但 readiness 仍逐项判断。
 - 三步卡片必须同时呈现内容，并用左侧编号与纵向连接线表达顺序；不得回退成四张独立卡或默认折叠 Provider/TTS。`Finish Setup` 在未完成时保持不可用，Review 模式下同一位置提供返回 Ready 页的明确操作。
 - 推荐语音包固定为 `Zipformer Bilingual`、`Matcha Chinese-English` 与 `Default Bilingual Voice`。一键安装必须分别沿用受管安装、哈希校验、manifest 和原子提升边界；不得用一个新的非受管目录绕过现有模型完整性约束。
@@ -153,7 +153,7 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - 最高层主 seam 使用现有 headless GPUI e2e：真实打开 Settings、真实点击带稳定 selector 的控件、真实发送 `⌘E` 键盘事件，并从统一 Settings/Voice e2e snapshot 观察用户可见状态。不要为每个子模块各建一套 UI 测试入口。
 - 主 e2e snapshot 扩展 readiness、待修复项、推荐语音包进度、Provider 连接阶段和凭据显示状态；测试断言外部状态与可见控件，不断言内部任务数量或私有字段布局。
 - e2e 覆盖 fresh store：底部显示 `Set up Voice`；按 `⌘E` 打开 Settings → Voice；录音、Dialogue 和 TTS 均未启动。
-- e2e 覆盖三步视觉结构与四项逻辑状态：三步编号、纵向轨道、麦克风内嵌、Provider 直接可见、底部 Finish、Ready 三行摘要均有具体正断言；独立麦克风卡、首次 Setup 侧栏和 Ready `Try Voice` 均有具体负断言。
+- e2e 覆盖三步视觉结构与四项逻辑状态：Settings 侧栏、Voice 页头、三步编号、纵向轨道、麦克风内嵌、Provider 直接可见、底部 Finish、Ready 三行摘要均有具体正断言；独立 Setup 窗口、独立麦克风卡和 Ready `Try Voice` 均有具体负断言。
 - 麦克风权限通过现有权限 seam 注入 authorized、denied、restricted；验证授权恢复入口、Ready 门槛和 `⌘E` 不误启动。
 - 推荐语音包通过现有假模型 transport 与安装管理 seam 覆盖一次点击、双模型并行进度、单项失败、Retry、Cancel、关闭 Settings 后继续、重新打开恢复、退出后重扫和两项均选中。
 - Provider 通过本地假 OpenAI-compatible server 覆盖 endpoint 失败、认证失败、模型列表成功、模型列表不支持、手动模型验证、所选模型失效和现有配置自动通过；测试不得访问真实付费 API。

@@ -37,7 +37,7 @@ pub(super) fn voice_setup(
         .flex_col()
         .items_center()
         .gap(px(18.0))
-        .child(setup_title_bar(theme, cx))
+        .child(setup_title_bar(theme))
         .child(setup_progress(theme, completed))
         .child(
             div()
@@ -125,9 +125,8 @@ impl MultisoulApp {
     }
 }
 
-fn setup_title_bar(theme: Theme, cx: &mut Context<MultisoulApp>) -> Div {
+fn setup_title_bar(theme: Theme) -> Div {
     div()
-        .relative()
         .w_full()
         .h(px(42.0))
         .flex()
@@ -141,26 +140,6 @@ fn setup_title_bar(theme: Theme, cx: &mut Context<MultisoulApp>) -> Div {
                 .font_weight(FontWeight::BOLD)
                 .text_color(rgba(theme.text_primary))
                 .child("Voice Setup"),
-        )
-        .child(
-            div()
-                .id("settings-close")
-                .debug_selector(|| "settings-close".to_string())
-                .absolute()
-                .right(px(0.0))
-                .top(px(2.0))
-                .w(px(34.0))
-                .h(px(34.0))
-                .flex()
-                .items_center()
-                .justify_center()
-                .rounded(px(17.0))
-                .text_size(px(22.0))
-                .text_color(rgba(theme.text_secondary))
-                .cursor_pointer()
-                .hover(move |style| style.bg(rgba(with_alpha(theme.destructive, 0x10))))
-                .on_click(cx.listener(|app, _, _window, cx| app.close_settings_panel(cx)))
-                .child("×"),
         )
 }
 
