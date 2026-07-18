@@ -7,7 +7,10 @@ use crate::settings::voice::ProviderDiscoveryStatus;
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, Window};
 use ui::Theme;
 
+mod api_key;
 mod controller;
+
+use self::api_key::api_key_row;
 
 pub(super) fn agent_provider_group(
     theme: Theme,
@@ -29,6 +32,7 @@ pub(super) fn agent_provider_group(
 
 pub(super) fn agent_provider_advanced_rows(
     theme: Theme,
+    state: &VoiceSettingsState,
     inputs: &VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
@@ -45,7 +49,7 @@ pub(super) fn agent_provider_advanced_rows(
             "Base URL for the selected Ollama or OpenAI-compatible provider",
             cx,
         ))
-        .child(api_key_row(theme, inputs, cx))
+        .child(api_key_row(theme, state, inputs, cx))
 }
 
 pub(super) fn agent_provider_setup_group(
@@ -68,7 +72,7 @@ pub(super) fn agent_provider_setup_group(
             "OpenAI-compatible defaults to https://api.openai.com/v1",
             cx,
         ))
-        .child(api_key_row(theme, inputs, cx))
+        .child(api_key_row(theme, state, inputs, cx))
         .child(
             setting_row(
                 theme,
@@ -341,6 +345,23 @@ impl MultisoulApp {
         self.persist_voice_settings_in_background(cx);
         cx.notify();
     }
+
+    pub(crate) fn on_voice_settings_toggle_api_key_visibility(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let secret = self
+            .voice_settings
+            .values()
+            .active_provider_profile()
+            .api_key()
+            .map(ToOwned::to_owned);
+        self.voice_settings_inputs
+            .toggle_api_key_visibility(secret.as_deref(), cx);
+        cx.notify();
+    }
 }
 
 fn provider_model_choices(
@@ -461,28 +482,4 @@ fn provider_button(theme: Theme, label: &'static str, active: bool) -> Div {
             },
             if active { 0x28 } else { 0x06 },
         )))
-}
-
-fn api_key_row(theme: Theme, inputs: &VoiceSettingsInputs, cx: &mut Context<MultisoulApp>) -> Div {
-    setting_row(
-        theme,
-        "API Key",
-        "Stored in macOS Keychain and always masked in UI and logs; optional for local providers",
-    )
-    .child(
-        div()
-            .w_full()
-            .flex()
-            .flex_row()
-            .flex_wrap()
-            .items_center()
-            .gap(px(10.0))
-            .child(inputs.input(VoiceSettingsField::ApiKey))
-            .child(
-                action_button(theme, "Remove", theme.destructive)
-                    .id("settings-agent-provider-api-key-clear")
-                    .debug_selector(|| "settings-agent-provider-api-key-clear".to_string())
-                    .on_click(cx.listener(MultisoulApp::on_voice_settings_clear_api_key)),
-            ),
-    )
 }

@@ -2,7 +2,7 @@ use super::{VoiceSettingsField, VoiceSettingsInputs, VoiceSettingsState, VoiceTe
 use crate::app::MultisoulApp;
 use gpui::Context;
 
-pub(super) const CONFIGURED_API_KEY_PLACEHOLDER: &str = "Configured ••••••••";
+pub(super) const CONFIGURED_API_KEY_PLACEHOLDER: &str = "*********";
 const UNCONFIGURED_API_KEY_PLACEHOLDER: &str = "Not configured";
 
 pub(super) fn input_placeholder(

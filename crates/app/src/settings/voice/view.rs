@@ -219,7 +219,7 @@ fn advanced_group(
             group
                 .child(model_catalog_row(theme, state, cx))
                 .child(agent_provider_group(theme, state, inputs, cx))
-                .child(agent_provider_advanced_rows(theme, inputs, cx))
+                .child(agent_provider_advanced_rows(theme, state, inputs, cx))
                 .child(tts_catalog_row(theme, state, cx))
                 .child(trace_row(theme, state, cx))
         })

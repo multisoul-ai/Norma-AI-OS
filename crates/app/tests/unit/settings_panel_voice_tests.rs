@@ -30,12 +30,14 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         include_str!("../../src/settings/voice/view.rs"),
         include_str!("../../src/settings/voice/view/editable.rs"),
         include_str!("../../src/settings/voice/view/editable/native.rs"),
+        include_str!("../../src/settings/voice/view/editable/visibility.rs"),
         include_str!("../../src/settings/voice/view/input_device.rs"),
         include_str!("../../src/settings/voice/view/interaction.rs"),
         include_str!("../../src/settings/voice/view/model_catalog.rs"),
         include_str!("../../src/settings/voice/view/tts_catalog.rs"),
         include_str!("../../src/settings/voice/view/spoken_reply.rs"),
         include_str!("../../src/settings/voice/view/provider.rs"),
+        include_str!("../../src/settings/voice/view/provider/api_key.rs"),
         include_str!("../../src/settings/voice/view/setup.rs"),
         include_str!("../../src/settings/voice/view/setup/components.rs"),
         include_str!("../../src/settings/voice/credentials.rs"),
@@ -92,6 +94,8 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("agent_model");
     assert_anchor!("agent_api_key");
     assert_anchor!("settings-agent-provider-api-key-clear");
+    assert_anchor!("settings-agent-provider-api-key-visibility");
+    assert_anchor!("*********");
     assert_anchor!("Stored in macOS Keychain");
     assert_anchor!("voice-setup-provider-connect");
     assert_anchor!("Base URL");

@@ -157,6 +157,7 @@ pub(crate) struct VoiceTextInput {
     original_content: SharedString,
     placeholder: SharedString,
     masked: bool,
+    revealed: bool,
     selected_range: Range<usize>,
     selection_reversed: bool,
     marked_range: Option<Range<usize>>,
@@ -185,6 +186,7 @@ impl VoiceTextInput {
             content,
             placeholder: config.placeholder.into(),
             masked: config.masked,
+            revealed: false,
             selected_range: cursor..cursor,
             selection_reversed: false,
             marked_range: None,
@@ -201,6 +203,7 @@ impl VoiceTextInput {
 
     fn sync_value(&mut self, value: String, cx: &mut Context<Self>) {
         let cursor = value.len();
+        self.revealed = false;
         self.content = value.into();
         self.original_content = self.content.clone();
         self.selected_range = cursor..cursor;
@@ -453,6 +456,7 @@ mod autosave;
 mod focus;
 mod native;
 mod status;
+mod visibility;
 
 fn single_line(text: &str) -> String {
     text.chars()

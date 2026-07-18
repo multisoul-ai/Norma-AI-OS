@@ -335,7 +335,7 @@ impl VoiceSettingsState {
                 .active_provider_profile()
                 .credential_configured()
             {
-                "Configured ••••••••".to_string()
+                "*********".to_string()
             } else {
                 "Not configured".to_string()
             }

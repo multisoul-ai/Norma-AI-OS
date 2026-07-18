@@ -1,4 +1,4 @@
-use super::{AsrModelManagerState, TtsModelManagerState, VoiceSettingsState};
+use super::{AgentProviderKind, AsrModelManagerState, TtsModelManagerState, VoiceSettingsState};
 use std::path::PathBuf;
 
 impl VoiceSettingsState {
@@ -11,6 +11,16 @@ impl VoiceSettingsState {
         self.readiness_override = Some(crate::settings::voice::VoiceEntryState::Ready);
         self.reviewing_setup = false;
         self.advanced_expanded = false;
+    }
+
+    pub(crate) fn assume_visual_preview_api_key_for_e2e(&mut self) {
+        self.readiness_override = Some(crate::settings::voice::VoiceEntryState::Ready);
+        self.reviewing_setup = true;
+        self.advanced_expanded = true;
+        self.saved.agent_provider = Some(AgentProviderKind::OpenAiCompatible);
+        self.saved.openai_profile.api_key = Some("synthetic-preview-key".to_string());
+        self.saved.openai_profile.credential_ref = Some("visual-preview".to_string());
+        self.refresh_values();
     }
 
     pub(crate) fn reset_voice_setup_for_e2e(&mut self) {

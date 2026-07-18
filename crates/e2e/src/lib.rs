@@ -32,6 +32,7 @@ mod e2e_02_agent_image_paste;
 mod e2e_02_real_pty;
 
 // Settings E2E：真实点击 Settings 面板控件、录制快捷键、恢复默认、关闭面板。
+mod e2e_03_api_key_visibility;
 mod e2e_03_settings_clicks;
 mod e2e_03_settings_navigation;
 mod e2e_03_theme_switching;

@@ -46,7 +46,7 @@ Voice Ready 有四个硬条件：麦克风权限已授权、识别模型可用�
 
 全新 Agent Provider 配置默认使用 OpenAI-compatible。Base URL 默认填入 `https://api.openai.com/v1`，用户可修改；用户输入 API Key 并连接成功后，从 Provider 返回的模型列表选择模型。只有 Provider 无法返回模型列表时才显示手动模型名输入。现有配置先自动验证，验证通过则直接完成该项，不要求重复填写。Ollama 继续保留为可选 Provider，但不是首次推荐路径。
 
-API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider 配置及不可反查明文的凭据引用。界面只显示凭据已保存，并提供 Replace 和 Remove，不提供读取原始 Key。
+API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider 配置及不可反查明文的凭据引用。界面默认显示固定掩码 `*********`，并提供显隐和 Remove，点击输入框可直接替换；只有用户主动点击眼睛按钮时才在当前输入实体中临时显示已加载的 Key，关闭显隐、切换 Provider、失焦或关闭 Settings 后立即清除明文展示。
 
 四项硬条件验证通过后即完成设置。用户随后通过既有 `⌘E` 路径使用或验证 Voice，不在 Ready 横幅中新增第二个 `Try Voice` 入口。若用户关闭 Settings，进行中的模型安装继续在后台运行，底部入口显示下载进度；后台完成时显示一次不抢焦点、不自动发声的 `Voice is ready` 通知。
 
@@ -92,7 +92,7 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 30. 作为配置 Provider 的用户，我想所选模型经过可用性验证后才显示 Ready，以便 Voice 不会在第一轮请求时才暴露错误。
 31. 作为不使用 OpenAI-compatible 的用户，我想仍能在 Provider 选择中使用 Ollama，以便现有本地路径不被删除。
 32. 作为安全敏感用户，我想 API Key 存入 macOS Keychain，以便应用数据库、备份或诊断材料不包含长期凭据明文。
-33. 作为返回设置页的用户，我想只看到 `API Key saved`，以便界面不会重新暴露原始 Key。
+33. 作为返回设置页的用户，我想默认看到 `*********`，并可按需点击眼睛按钮临时查看，以便兼顾确认配置与默认隐私保护。
 34. 作为需要轮换凭据的用户，我想替换已保存的 API Key，以便更新连接而不先读取旧 Key。
 35. 作为停止使用 Provider 的用户，我想移除已保存凭据，以便 Keychain 不保留无用密钥。
 36. 作为升级用户，我想现有数据库中的 API Key 安全迁移到 Keychain，以便升级不破坏已有 Voice 配置。
@@ -157,7 +157,7 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - 麦克风权限通过现有权限 seam 注入 authorized、denied、restricted；验证授权恢复入口、Ready 门槛和 `⌘E` 不误启动。
 - 推荐语音包通过现有假模型 transport 与安装管理 seam 覆盖一次点击、双模型并行进度、单项失败、Retry、Cancel、关闭 Settings 后继续、重新打开恢复、退出后重扫和两项均选中。
 - Provider 通过本地假 OpenAI-compatible server 覆盖 endpoint 失败、认证失败、模型列表成功、模型列表不支持、手动模型验证、所选模型失效和现有配置自动通过；测试不得访问真实付费 API。
-- Keychain 使用窄凭据存储接口的内存替身做日常单测/e2e；断言保存后 UI 只显示 saved，Replace 更新引用，Remove 清除凭据，SQLite 快照不包含 API Key 明文。
+- Keychain 使用窄凭据存储接口的内存替身做日常单测/e2e；断言保存后 UI 默认显示 `*********`，眼睛按钮只在显式点击期间显示内存中的 Key，再次点击恢复掩码；Replace 更新引用，Remove 清除凭据，SQLite 快照不包含 API Key 明文。
 - 单独覆盖旧 SQLite API Key → Keychain 的成功迁移、Keychain 写入失败时不清旧值、重载后 Keychain 优先三个场景。
 - readiness 纯逻辑测试覆盖 `SetupRequired → SettingUp → Ready → Unavailable → Ready`，并逐项验证麦克风、ASR、Provider、TTS 哪一项失效会产生哪个修复目标。
 - Settings e2e 覆盖 Ready 主页面只显示常用配置，完整 ASR/TTS 目录、Base URL、API Key 与 trace 默认不可见；进入 Advanced Settings 后这些能力仍可达。
@@ -174,6 +174,8 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - [Voice Setup 下半页与 Finish Setup](../verification/voice-settings-setup-lower-final.jpg)
 - [Voice Ready 主视图](../verification/voice-settings-ready-final.jpg)
 - [Voice Ready Input 区](../verification/voice-settings-ready-input-final.jpg)
+- [API Key 默认遮罩与显隐按钮](../verification/voice-settings-api-key-masked-final.png)
+- [API Key 主动点击后的临时显示](../verification/voice-settings-api-key-revealed-final.png)
 
 以上截图来自启用确定性预览状态的隔离开发版 `.app`，通过真实 macOS 窗口启动、滚动和截图完成；预览 seam 仅在 `e2e-test-support` feature 下编译，不进入默认生产构建。
 
@@ -189,7 +191,7 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - 强制用户完成真实语音测试，或在 Setup 完成时自动播放声音。
 - 对 Voice 之外的 Settings 页面进行新的视觉重构。
 - 跨平台凭据存储实现；当前产品目标为 macOS，凭据边界使用 macOS Keychain。
-- 把 API Key 回显、导出或复制回剪贴板。
+- 自动回显、导出或在未点击眼睛按钮时暴露 API Key；显式临时查看不提供独立复制或导出动作。
 - 在 GPUI 前台同步执行网络探测、Keychain 调用、模型扫描、下载或完整性校验。
 
 ## Further Notes

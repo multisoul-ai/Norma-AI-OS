@@ -28,6 +28,7 @@ pub enum ApiKeyDisplayState {
     NotRendered,
     NotConfigured,
     Configured,
+    Revealed,
     MaskedEditing,
     Unsafe,
 }
@@ -314,6 +315,10 @@ impl MultisoulApp {
             .effective
             .iter()
             .find(|entry| entry.command == ShortcutCommandId::NewTerminal);
+        let api_key_text = self
+            .voice_settings_inputs
+            .rendered_text(crate::settings::voice::VoiceSettingsField::ApiKey, cx);
+        let api_key_profile = self.voice_settings.values().active_provider_profile();
         SettingsE2eSnapshot {
             settings_open: self.settings_panel.open,
             active_section: self.settings_panel.active_section.title(),
@@ -351,9 +356,9 @@ impl MultisoulApp {
                 .voice_settings_inputs
                 .rendered_text(crate::settings::voice::VoiceSettingsField::Model, cx),
             agent_api_key_display_state: classify_api_key_display(
-                self.voice_settings_inputs
-                    .rendered_text(crate::settings::voice::VoiceSettingsField::ApiKey, cx)
-                    .as_deref(),
+                api_key_text.as_deref(),
+                self.voice_settings_inputs.api_key_revealed(cx),
+                api_key_profile.api_key(),
             ),
             voice_editing_field: self
                 .voice_settings
@@ -442,11 +447,17 @@ fn opacity_to_milli(opacity: f32) -> u16 {
     (opacity.clamp(0.0, 1.0) * 1000.0).round() as u16
 }
 
-fn classify_api_key_display(text: Option<&str>) -> ApiKeyDisplayState {
+fn classify_api_key_display(
+    text: Option<&str>,
+    revealed: bool,
+    expected_secret: Option<&str>,
+) -> ApiKeyDisplayState {
     match text {
         None => ApiKeyDisplayState::NotRendered,
+        Some(value) if revealed && expected_secret == Some(value) => ApiKeyDisplayState::Revealed,
+        Some(_) if revealed => ApiKeyDisplayState::Unsafe,
         Some("Not configured") => ApiKeyDisplayState::NotConfigured,
-        Some("Configured ••••••••") => ApiKeyDisplayState::Configured,
+        Some("*********") => ApiKeyDisplayState::Configured,
         Some(value) if !value.is_empty() && value.chars().all(|character| character == '•') => {
             ApiKeyDisplayState::MaskedEditing
         }
