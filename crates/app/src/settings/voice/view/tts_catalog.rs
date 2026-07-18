@@ -1,14 +1,17 @@
 use super::{action_button, setting_label, with_alpha};
 use crate::app::MultisoulApp;
 use crate::settings::voice::TtsModelInstallState;
-use gpui::{div, prelude::*, px, rgba, Context, Div};
+use gpui::{div, prelude::*, px, rgba, Context, Div, Window};
 use ui::Theme;
 
 mod controller;
+mod reference;
+use reference::zipvoice_reference_controls;
 
 pub(super) fn tts_catalog_row(
     theme: Theme,
     state: &crate::settings::voice::VoiceSettingsState,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let selected = state.values().tts_model_id();
@@ -54,11 +57,13 @@ pub(super) fn tts_catalog_row(
                                 .flex()
                                 .flex_col()
                                 .gap(px(4.0))
-                                .child(
-                                    div()
-                                        .text_color(rgba(theme.text_primary))
-                                        .child(descriptor.display_name().to_string()),
-                                )
+                                .child(div().text_color(rgba(theme.text_primary)).child(
+                                    if descriptor.experimental() {
+                                        format!("{} · Experimental", descriptor.display_name())
+                                    } else {
+                                        descriptor.display_name().to_string()
+                                    },
+                                ))
                                 .child(
                                     div()
                                         .text_size(px(12.0))
@@ -77,19 +82,31 @@ pub(super) fn tts_catalog_row(
                         )
                         .child(model_action(
                             theme,
+                            &descriptor,
                             entry.installation(),
                             selected_here,
+                            state.zipvoice_reference_ready(),
                             id.clone(),
                             index,
                             cx,
                         )),
                 )
+                .children(zipvoice_reference_controls(
+                    theme,
+                    state,
+                    &descriptor,
+                    entry.installation(),
+                    index,
+                    window,
+                    cx,
+                ))
                 .children(voice_controls(
                     theme,
                     &descriptor,
                     entry.installation(),
                     selected_here,
                     selected_voice,
+                    state.zipvoice_reference_ready(),
                     index,
                     cx,
                 )),
@@ -111,8 +128,10 @@ pub(super) fn tts_catalog_row(
 
 fn model_action(
     theme: Theme,
+    descriptor: &tts::TtsModelDescriptor,
     installation: &TtsModelInstallState,
     selected: bool,
+    zipvoice_reference_ready: bool,
     id: tts::TtsModelId,
     index: usize,
     cx: &mut Context<MultisoulApp>,
@@ -154,6 +173,32 @@ fn model_action(
             .py(px(8.0))
             .text_color(rgba(theme.accent_cyan))
             .child("Selected"),
+        TtsModelInstallState::Ready
+            if descriptor.capabilities().requires_voice_reference()
+                && !zipvoice_reference_ready =>
+        {
+            let delete_id = id;
+            div()
+                .flex()
+                .items_center()
+                .gap(px(6.0))
+                .child(
+                    div()
+                        .px(px(10.0))
+                        .py(px(8.0))
+                        .text_size(px(12.0))
+                        .text_color(rgba(theme.text_tertiary))
+                        .child("Reference required"),
+                )
+                .child(
+                    action_button(theme, "Delete", theme.destructive)
+                        .id(("settings-tts-delete", index))
+                        .debug_selector(move || format!("settings-tts-delete-{index}"))
+                        .on_click(cx.listener(move |app, _, _, cx| {
+                            app.delete_tts_model(delete_id.clone(), cx)
+                        })),
+                )
+        }
         TtsModelInstallState::Ready => {
             let select_id = id.clone();
             let delete_id = id;
@@ -192,10 +237,14 @@ fn voice_controls(
     installation: &TtsModelInstallState,
     selected_model: bool,
     selected_voice: Option<&tts::TtsVoiceId>,
+    zipvoice_reference_ready: bool,
     model_index: usize,
     cx: &mut Context<MultisoulApp>,
 ) -> Option<Div> {
     if !matches!(installation, TtsModelInstallState::Ready) {
+        return None;
+    }
+    if descriptor.capabilities().requires_voice_reference() && !zipvoice_reference_ready {
         return None;
     }
     if descriptor.voices().len() == 1 {

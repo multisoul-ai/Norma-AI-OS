@@ -4,6 +4,7 @@ use gpui::Context;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+mod reference;
 mod work;
 use work::{install_tts_package, synthesize_tts_preview, validate_tts_selection};
 
@@ -33,10 +34,11 @@ impl MultisoulApp {
             let configured = selected_model
                 .map(|model_id| validate_tts_selection(&root, model_id, selected_voice))
                 .transpose();
-            (manager, configured)
+            let reference = tts::load_zipvoice_reference(&root);
+            (manager, configured, reference)
         });
         cx.spawn(async move |this, cx| {
-            let (manager, configured) = work.await;
+            let (manager, configured, reference) = work.await;
             let _ = this.update(cx, |app, cx| {
                 if scan_generation != app.tts_scan_generation {
                     return;
@@ -61,6 +63,7 @@ impl MultisoulApp {
                         );
                     }
                 }
+                app.voice_settings.apply_zipvoice_reference_scan(reference);
                 app.complete_voice_setup_if_ready(cx);
                 cx.notify();
             });

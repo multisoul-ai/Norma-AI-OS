@@ -30,6 +30,7 @@ pub(crate) fn voice_settings(
     inputs: &VoiceSettingsInputs,
     content_scroll: &ScrollHandle,
     setup_scroll_target: Option<VoiceSetupDestination>,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     if !matches!(state.readiness(), super::VoiceEntryState::Ready) || state.reviewing_setup() {
@@ -39,6 +40,7 @@ pub(crate) fn voice_settings(
             inputs,
             content_scroll,
             setup_scroll_target,
+            window,
             cx,
         )
         .children(status_message(theme, state));

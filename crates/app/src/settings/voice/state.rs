@@ -17,6 +17,7 @@ mod provider_discovery;
 mod provider_values;
 mod readiness_state;
 mod values;
+mod zipvoice_reference;
 use credentials::CredentialWriteRollback;
 pub(crate) use model_selection::{resolve_available_asr_model, VoiceSetupDestination};
 pub(crate) use persistence::PendingVoiceSettingWrite;
@@ -38,6 +39,7 @@ use values::{
     KEY_ASR_MODEL_ID, KEY_INPUT_DEVICE_ID, KEY_INTERACTION_MODE, KEY_SINGLE_VOICE_COMMAND_TRIGGER,
     KEY_TRACE_ENABLED, KEY_TTS_MODEL_ID, KEY_TTS_VOICE_ID, KEY_VOICE_SETUP_COMPLETED,
 };
+use zipvoice_reference::ZipVoiceReferenceSettings;
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct VoiceSettingsStatus {
     message: String,
@@ -59,6 +61,7 @@ pub(crate) struct VoiceSettingsState {
     model_root: PathBuf,
     model_manager: AsrModelManagerState,
     tts_model_manager: TtsModelManagerState,
+    zipvoice_reference: ZipVoiceReferenceSettings,
     microphone_requirement: super::VoiceRequirementState,
     provider_requirement: super::VoiceRequirementState,
     provider_discovery: ProviderDiscoveryStatus,
@@ -85,7 +88,6 @@ impl VoiceSettingsState {
             }
         }
     }
-
     pub(crate) fn load_from_store(store: SettingsStore) -> Self {
         match SavedVoiceSettings::load(&store) {
             Ok(saved) => {
@@ -106,12 +108,10 @@ impl VoiceSettingsState {
             }
         }
     }
-
     pub(crate) fn from_sources(saved: SavedVoiceSettings, env: EnvVoiceSettings) -> Self {
         let model_root = asr::default_model_installation_root().unwrap_or_default();
         Self::from_sources_with_model_root(saved, env, model_root)
     }
-
     pub(crate) fn from_sources_with_model_root(
         saved: SavedVoiceSettings,
         env: EnvVoiceSettings,
@@ -136,6 +136,7 @@ impl VoiceSettingsState {
             model_root,
             model_manager,
             tts_model_manager,
+            zipvoice_reference: ZipVoiceReferenceSettings::default(),
             microphone_requirement: super::VoiceRequirementState::Missing,
             provider_requirement: super::VoiceRequirementState::Missing,
             provider_discovery: ProviderDiscoveryStatus::Idle,
@@ -149,7 +150,6 @@ impl VoiceSettingsState {
             advanced_expanded: false,
         }
     }
-
     pub(crate) fn values(&self) -> &VoiceSettingsValues {
         &self.values
     }

@@ -7,6 +7,7 @@ use crate::settings::voice::{
 };
 use gpui::{
     div, point, prelude::*, px, relative, rgba, Context, Div, FontWeight, ScrollHandle, Stateful,
+    Window,
 };
 use ui::Theme;
 
@@ -24,6 +25,7 @@ pub(super) fn voice_setup(
     inputs: &VoiceSettingsInputs,
     content_scroll: &ScrollHandle,
     setup_scroll_target: Option<VoiceSetupDestination>,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let microphone = state.requirement_state(VoiceRequirement::Microphone);
@@ -99,6 +101,7 @@ pub(super) fn voice_setup(
                         state,
                         content_scroll,
                         setup_scroll_target == Some(VoiceSetupDestination::SpokenReplies),
+                        window,
                         cx,
                     ),
                 )),
@@ -300,11 +303,12 @@ fn spoken_replies_detail(
     state: &VoiceSettingsState,
     content_scroll: &ScrollHandle,
     focus_spoken_replies: bool,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     div().w_full().child(
         setup_detail_with_scroll_focus(
-            tts_catalog_row(theme, state, cx),
+            tts_catalog_row(theme, state, window, cx),
             content_scroll,
             focus_spoken_replies,
         )

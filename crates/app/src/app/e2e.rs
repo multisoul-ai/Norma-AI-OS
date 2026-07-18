@@ -65,6 +65,10 @@ pub struct SettingsE2eSnapshot {
     pub asr_models: Vec<AsrModelE2eSnapshot>,
     pub selected_tts_model_id: Option<String>,
     pub selected_tts_voice_id: Option<String>,
+    pub zipvoice_reference_ready: bool,
+    pub zipvoice_reference_importing: bool,
+    pub zipvoice_reference_draft_path: String,
+    pub zipvoice_reference_draft_transcript: String,
     pub tts_models: Vec<TtsModelE2eSnapshot>,
     pub tts_preview_active: bool,
     pub tts_configuration_generation: u64,
@@ -436,6 +440,16 @@ impl MultisoulApp {
                 .values()
                 .tts_voice_id()
                 .map(|id| id.as_str().to_string()),
+            zipvoice_reference_ready: self.voice_settings.zipvoice_reference_ready(),
+            zipvoice_reference_importing: self.voice_settings.zipvoice_reference_importing(),
+            zipvoice_reference_draft_path: self
+                .voice_settings
+                .zipvoice_reference_draft_path()
+                .to_string(),
+            zipvoice_reference_draft_transcript: self
+                .voice_settings
+                .zipvoice_reference_draft_transcript()
+                .to_string(),
             tts_models: snapshot_tts_models(&self.voice_settings),
             tts_preview_active: self.tts_preview.is_active(),
             tts_configuration_generation: self.dialogue.tts_configuration_generation(),

@@ -48,7 +48,7 @@ mod clipboard_image;
 mod cursor_animation;
 pub(crate) mod dialogue;
 mod e2e;
-mod file_picker;
+pub(crate) mod file_picker;
 mod frame_loop;
 mod frame_throttle;
 mod ime;

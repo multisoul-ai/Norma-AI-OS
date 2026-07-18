@@ -42,7 +42,7 @@ pub use listening_pipeline::{
 pub use permissions::{microphone_authorization_status, MicrophoneAuthorization};
 pub use recognizer_config::build_online_recognizer_config;
 pub use stream::PcmStreamSession;
-pub use tts::{FakeTtsClient, SherpaTtsClient};
+pub use tts::{build_zipvoice_tts_config, FakeTtsClient, SherpaTtsClient};
 pub use vad::{FakeEnergyVadClient, SherpaVadClient};
 
 /// Check and (if not yet determined) request microphone permission.

@@ -65,8 +65,18 @@ pub(crate) fn default_tts_client() -> Result<TtsClientBox, SpeechError> {
     let available =
         tts::validate_installation(&selected.root.join(selected.model_id.as_str()), descriptor)
             .map_err(|error| SpeechError::ModelNotFound(error.to_string()))?;
-    SherpaTtsClient::from_available_model(&available, &selected.voice_id)
-        .map(|client| Box::new(client) as TtsClientBox)
+    let reference = descriptor
+        .capabilities()
+        .requires_voice_reference()
+        .then(|| tts::load_zipvoice_reference(&selected.root))
+        .transpose()
+        .map_err(|error| SpeechError::ModelNotFound(error.to_string()))?;
+    SherpaTtsClient::from_available_model_with_reference(
+        &available,
+        &selected.voice_id,
+        reference.as_ref(),
+    )
+    .map(|client| Box::new(client) as TtsClientBox)
 }
 
 #[cfg(test)]

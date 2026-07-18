@@ -1,4 +1,7 @@
-use super::{resolve_matcha_model_dir, resolve_matcha_vocoder_path, SherpaTtsClient};
+use super::{
+    build_zipvoice_tts_config, resolve_matcha_model_dir, resolve_matcha_vocoder_path,
+    SherpaTtsClient,
+};
 use crate::FakeTtsClient;
 use audio::{PcmAudioChunk, PcmFormat};
 use dialogue::{DialogueError, TtsClient};
@@ -167,6 +170,123 @@ fn test_real_available_matcha_zh_en_synthesizes_chinese_and_english() {
     assert_ne!(
         chinese.bytes, english.bytes,
         "不同语言的不同文本不得生成完全相同的 PCM"
+    );
+}
+
+/// TTS-8：ZipVoice adapter 必须按官方 Distill 示例构造模型路径与参考声音生成参数。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   reference rate    = 16,000 Hz
+///   reference seconds = 3 s
+///   reference samples = 16,000 × 3 = 48,000 mono samples
+///   distill steps     = 4（官方 Rust 示例将默认 5 步改为 4 步）
+///   model threads     = 2（与现有本地 TTS CPU 路径一致）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 通过 `tts` 公共 API 导入合法参考 WAV 与准确转写；
+///   2. 调用公共 ZipVoice config builder，传入隔离模型目录；
+///   3. 读取 encoder/decoder/vocoder、官方声学参数和请求级 reference 配置。
+///
+/// 预期结果：
+///   - 正断言：INT8 模型路径、官方四个缩放参数、4 steps、48,000 PCM 与准确转写全部存在；
+///   - 负断言：不得使用 FP32 文件名、默认 5 steps 或空 reference 输入。
+#[test]
+fn test_zipvoice_builder_uses_distill_int8_and_reference_generation_contract() {
+    let temp = tempfile::tempdir().expect("测试应创建隔离 ZipVoice 配置目录");
+    let source = temp.path().join("reference.wav");
+    let spec = hound::WavSpec {
+        channels: 1,
+        sample_rate: 16_000,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+    let mut writer =
+        hound::WavWriter::create(&source, spec).expect("测试应创建 16 kHz 单声道 PCM WAV");
+    for _ in 0..48_000 {
+        writer
+            .write_sample(0i16)
+            .expect("测试应写入 48,000 个参考样本");
+    }
+    writer.finalize().expect("测试 WAV header 应成功收口");
+    let reference = tts::import_zipvoice_reference(
+        &source,
+        "这段文字与参考声音完全一致。",
+        &temp.path().join("models"),
+    )
+    .expect("合法参考声音应成功导入");
+    let model_dir = temp.path().join(tts::ZIPVOICE_DISTILL_INT8_MODEL_ID);
+
+    let (config, generation) = build_zipvoice_tts_config(&model_dir, &reference);
+    let zipvoice = &config.model.zipvoice;
+
+    assert_eq!(
+        zipvoice.encoder.as_deref(),
+        Some(
+            model_dir
+                .join("encoder.int8.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "ZipVoice 必须加载 INT8 encoder，不能回退到未量化模型"
+    );
+    assert_eq!(
+        zipvoice.decoder.as_deref(),
+        Some(
+            model_dir
+                .join("decoder.int8.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "ZipVoice 必须加载 INT8 decoder，不能回退到未量化模型"
+    );
+    assert_eq!(
+        zipvoice.vocoder.as_deref(),
+        Some(
+            model_dir
+                .join("vocos_24khz.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "ZipVoice 必须加载随模型安装的 24 kHz Vocos"
+    );
+    assert_eq!(
+        zipvoice.feat_scale, 0.1,
+        "feat_scale 必须匹配官方 Rust 示例"
+    );
+    assert_eq!(zipvoice.t_shift, 0.5, "t_shift 必须匹配官方 Rust 示例");
+    assert_eq!(
+        zipvoice.target_rms, 0.1,
+        "target_rms 必须匹配官方 Rust 示例"
+    );
+    assert_eq!(
+        zipvoice.guidance_scale, 1.0,
+        "guidance_scale 必须匹配官方 Rust 示例"
+    );
+    assert_eq!(
+        config.model.num_threads, 2,
+        "ZipVoice CPU 路径必须固定使用 2 个线程"
+    );
+    assert_eq!(
+        generation.num_steps, 4,
+        "Distill 模型必须使用官方建议的 4 steps"
+    );
+    assert_ne!(
+        generation.num_steps, 5,
+        "ZipVoice-Distill 不得沿用 binding 的默认 5 steps"
+    );
+    assert_eq!(
+        generation.reference_sample_rate, 16_000,
+        "生成请求必须声明参考 PCM 的真实 16 kHz 采样率"
+    );
+    assert_eq!(
+        generation.reference_audio.as_ref().map(Vec::len),
+        Some(48_000),
+        "生成请求必须携带完整 3 秒单声道参考 PCM"
+    );
+    assert_eq!(
+        generation.reference_text.as_deref(),
+        Some("这段文字与参考声音完全一致。"),
+        "生成请求必须携带与参考音频完全一致的转写"
     );
 }
 

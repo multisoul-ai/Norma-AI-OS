@@ -13,6 +13,7 @@ use std::path::PathBuf;
 
 /// Accepted wallpaper extensions, shared by the filter and import validation.
 pub(crate) const WALLPAPER_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "mp4", "mov"];
+pub(crate) const ZIPVOICE_REFERENCE_EXTENSIONS: &[&str] = &["wav"];
 
 /// Open a native "Choose a wallpaper" panel and await the user's selection.
 ///
@@ -25,6 +26,15 @@ pub(crate) async fn pick_wallpaper_image() -> Option<PathBuf> {
     rfd::AsyncFileDialog::new()
         .set_title("Choose a wallpaper")
         .add_filter("Images & Video", WALLPAPER_EXTENSIONS)
+        .pick_file()
+        .await
+        .map(|handle| handle.path().to_path_buf())
+}
+
+pub(crate) async fn pick_zipvoice_reference_audio() -> Option<PathBuf> {
+    rfd::AsyncFileDialog::new()
+        .set_title("Choose a ZipVoice reference WAV")
+        .add_filter("16 kHz mono PCM WAV", ZIPVOICE_REFERENCE_EXTENSIONS)
         .pick_file()
         .await
         .map(|handle| handle.path().to_path_buf())

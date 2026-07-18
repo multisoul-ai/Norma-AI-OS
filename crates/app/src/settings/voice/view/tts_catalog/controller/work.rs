@@ -16,9 +16,18 @@ pub(super) fn synthesize_tts_preview(
     let available =
         tts::validate_installation(&selected.root.join(selected.model_id.as_str()), descriptor)
             .map_err(|error| error.to_string())?;
-    let mut client =
-        voice_sherpa::SherpaTtsClient::from_available_model(&available, &selected.voice_id)
-            .map_err(|error| error.to_string())?;
+    let reference = descriptor
+        .capabilities()
+        .requires_voice_reference()
+        .then(|| tts::load_zipvoice_reference(&selected.root))
+        .transpose()
+        .map_err(|error| error.to_string())?;
+    let mut client = voice_sherpa::SherpaTtsClient::from_available_model_with_reference(
+        &available,
+        &selected.voice_id,
+        reference.as_ref(),
+    )
+    .map_err(|error| error.to_string())?;
     dialogue::TtsClient::synthesize(&mut client, "你好，这是当前语音的试听。")
         .map_err(|error| error.to_string())
 }
@@ -35,6 +44,12 @@ pub(super) fn validate_tts_selection(
     let voice_id = descriptor
         .resolve_voice_id(requested_voice.as_ref().map(tts::TtsVoiceId::as_str))
         .clone();
+    let reference = descriptor
+        .capabilities()
+        .requires_voice_reference()
+        .then(|| tts::load_zipvoice_reference(root))
+        .transpose()
+        .map_err(|error| error.to_string())?;
     #[cfg(feature = "e2e-test-support")]
     if crate::settings::voice::tts_models::e2e_fake_tts_transport_enabled() {
         return Ok(crate::app::dialogue::SelectedTtsModel {
@@ -45,8 +60,12 @@ pub(super) fn validate_tts_selection(
     }
     let available = tts::validate_installation(&root.join(model_id.as_str()), descriptor)
         .map_err(|error| error.to_string())?;
-    voice_sherpa::SherpaTtsClient::from_available_model(&available, &voice_id)
-        .map_err(|error| error.to_string())?;
+    voice_sherpa::SherpaTtsClient::from_available_model_with_reference(
+        &available,
+        &voice_id,
+        reference.as_ref(),
+    )
+    .map_err(|error| error.to_string())?;
     Ok(crate::app::dialogue::SelectedTtsModel {
         root: root.to_path_buf(),
         model_id,

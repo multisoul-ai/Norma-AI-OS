@@ -89,14 +89,18 @@ impl MultisoulApp {
             voice_window_inset: crate::app::voice_window_inset::VoiceWindowInset::default(),
             voice_window_inset_window_visible: true,
         };
+        #[cfg(feature = "e2e-test-support")]
+        let visual_preview = visual_preview::configure_from_env(&mut app, cx);
+        #[cfg(not(feature = "e2e-test-support"))]
+        let visual_preview = false;
         app.refresh_asr_model_states(cx);
-        app.refresh_tts_model_states(cx);
+        if !visual_preview {
+            app.refresh_tts_model_states(cx);
+        }
         app.refresh_voice_microphone_requirement(cx);
         app.refresh_voice_provider_credentials(cx);
         app.validate_saved_voice_provider(cx);
         app.persist_voice_settings_in_background(cx);
-        #[cfg(feature = "e2e-test-support")]
-        visual_preview::configure_from_env(&mut app, cx);
         app
     }
 }

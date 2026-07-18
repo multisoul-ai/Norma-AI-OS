@@ -13,6 +13,7 @@ asr.workspace = true
 tts.workspace = true
 dialogue.workspace = true
 async-channel.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 hound = "3.5"

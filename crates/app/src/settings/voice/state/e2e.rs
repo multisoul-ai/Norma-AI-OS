@@ -29,6 +29,16 @@ impl VoiceSettingsState {
         self.refresh_values();
     }
 
+    pub(crate) fn assume_visual_preview_zipvoice_reference_for_e2e(&mut self) {
+        self.readiness_override = Some(crate::settings::voice::VoiceEntryState::Ready);
+        self.reviewing_setup = true;
+        self.setup_destination = VoiceSetupDestination::SpokenReplies;
+        self.advanced_expanded = false;
+        let id = tts::TtsModelId::parse(tts::ZIPVOICE_DISTILL_INT8_MODEL_ID)
+            .expect("built-in ZipVoice model ID must remain valid");
+        self.tts_model_manager.mark_ready(&id);
+    }
+
     pub(crate) fn reset_voice_setup_for_e2e(&mut self) {
         self.readiness_override = None;
         self.setup_destination = VoiceSetupDestination::Overview;

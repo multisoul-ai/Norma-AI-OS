@@ -67,4 +67,8 @@ impl MultisoulApp {
         self.tts_preview.finish_playback(generation);
         self.flush_tts_playback_events_for_e2e(cx);
     }
+
+    pub fn tts_preview_pcm_queue_count_for_e2e(&self) -> u64 {
+        self.tts_preview.pcm_queue_count()
+    }
 }

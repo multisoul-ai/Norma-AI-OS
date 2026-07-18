@@ -7803,6 +7803,7 @@ name = "tts"
 version = "0.1.36"
 dependencies = [
  "dirs 6.0.0",
+ "hound",
  "model_store",
  "serde",
  "tempfile",
@@ -8166,6 +8167,7 @@ dependencies = [
  "objc2-avf-audio",
  "objc2-core-foundation",
  "objc2-foundation",
+ "serde_json",
  "sherpa-onnx",
  "tempfile",
  "thiserror 2.0.18",

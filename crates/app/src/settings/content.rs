@@ -64,6 +64,7 @@ pub(super) fn settings_content(
                         voice.inputs,
                         content_scroll,
                         voice.setup_scroll_target,
+                        window,
                         cx,
                     ),
                     SettingsSection::Agents => {

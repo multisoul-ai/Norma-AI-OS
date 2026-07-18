@@ -3,7 +3,7 @@ use super::*;
 /// TTS-MANAGER-1：取消中的模型不能继续被展示或使用为 Ready。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   catalog entries = 2（精选 Matcha 与 Kokoro）
+///   catalog entries = 3（Matcha、Kokoro 与实验性 ZipVoice）
 ///   download total  = 100 bytes（便于观察 40% 的已下载进度）
 ///   target entry    = 1（第一个 Matcha 条目）
 ///
