@@ -54,6 +54,7 @@ pub(super) fn worker_pump(events: &[AgentEvent], pending_task_count: usize) {
 
 pub(super) fn tool_bridge_send(request: &CardToolRequest) {
     tracing::debug!(
+        trace_id = %request.trace_id,
         task_id = request.task_id,
         tool_call_id = request.tool_call_id,
         tool = card_command_name(&request.command),
@@ -64,6 +65,7 @@ pub(super) fn tool_bridge_send(request: &CardToolRequest) {
 pub(super) fn tool_bridge_receive(runtime_id: u64, request: &AgentToolRequest) {
     tracing::debug!(
         runtime_id,
+        trace_id = %request.trace_id,
         task_id = request.task_id,
         tool_call_id = request.tool_call_id,
         tool = card_command_name(&request.command),
@@ -74,6 +76,7 @@ pub(super) fn tool_bridge_receive(runtime_id: u64, request: &AgentToolRequest) {
 pub(super) fn tool_bridge_complete(runtime_id: u64, request: &AgentToolRequest, success: bool) {
     tracing::debug!(
         runtime_id,
+        trace_id = %request.trace_id,
         task_id = request.task_id,
         tool_call_id = request.tool_call_id,
         tool = card_command_name(&request.command),
@@ -148,6 +151,7 @@ fn event_name(event: &AgentEvent) -> &'static str {
         AgentEvent::ToolFinished { .. } => "tool_finished",
         AgentEvent::TaskCancelRequested { .. } => "task_cancel_requested",
         AgentEvent::TaskSucceeded { .. } => "task_succeeded",
+        AgentEvent::TaskPartiallyDispatched { .. } => "task_partially_dispatched",
         AgentEvent::TaskFailed { .. } => "task_failed",
         AgentEvent::TaskCancelled { .. } => "task_cancelled",
         AgentEvent::TaskInterrupted { .. } => "task_interrupted",
@@ -165,6 +169,7 @@ fn event_task_id(event: &AgentEvent) -> Option<u64> {
         | AgentEvent::ToolFinished { task_id, .. }
         | AgentEvent::TaskCancelRequested { task_id }
         | AgentEvent::TaskSucceeded { task_id, .. }
+        | AgentEvent::TaskPartiallyDispatched { task_id, .. }
         | AgentEvent::TaskFailed { task_id, .. }
         | AgentEvent::TaskCancelled { task_id, .. }
         | AgentEvent::TaskInterrupted { task_id } => Some(*task_id),

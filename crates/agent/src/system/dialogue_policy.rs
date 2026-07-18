@@ -92,6 +92,74 @@ const NON_COMMAND_ACTION_REMAINDERS: &[&str] = &[
     "了没",
 ];
 
+pub(super) fn delegation_assignments(
+    intent: &str,
+    targets: &[String],
+    roster: &[crate::AgentRosterEntry],
+) -> Option<Vec<norma::protocol::AgentTaskAssignment>> {
+    if targets.len() > 1 {
+        if let Some(assignments) = divided_delegation_assignments(intent, targets, roster) {
+            return Some(assignments);
+        }
+    }
+    let task = delegation_task_text(intent, roster);
+    (!task.is_empty()).then(|| {
+        targets
+            .iter()
+            .map(|name| norma::protocol::AgentTaskAssignment {
+                name: name.clone(),
+                task: task.clone(),
+            })
+            .collect()
+    })
+}
+
+fn divided_delegation_assignments(
+    intent: &str,
+    targets: &[String],
+    roster: &[crate::AgentRosterEntry],
+) -> Option<Vec<norma::protocol::AgentTaskAssignment>> {
+    let keys = sorted_address_keys(roster);
+    let mut divided = Vec::<(String, String)>::new();
+    for clause in intent.split([',', '，', ';', '；']) {
+        let clause = ["让", "请", "交给"]
+            .iter()
+            .find_map(|prefix| clause.trim().strip_prefix(prefix).map(str::trim_start))
+            .unwrap_or_else(|| clause.trim());
+        let Some((name, remainder)) = strip_any_name_prefix(clause, &keys) else {
+            continue;
+        };
+        if !targets.iter().any(|target| target == name) {
+            continue;
+        }
+        let task =
+            strip_direct_address_modifiers(remainder.trim_start_matches(|character: char| {
+                character.is_whitespace() || matches!(character, ':' | '：')
+            }))
+            .trim()
+            .to_string();
+        if task.is_empty() || divided.iter().any(|(existing, _)| existing == name) {
+            return None;
+        }
+        divided.push((name.to_string(), task));
+    }
+    if divided.len() != targets.len() {
+        return None;
+    }
+    targets
+        .iter()
+        .map(|target| {
+            divided
+                .iter()
+                .find(|(name, _)| name == target)
+                .map(|(_, task)| norma::protocol::AgentTaskAssignment {
+                    name: target.clone(),
+                    task: task.clone(),
+                })
+        })
+        .collect()
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) enum DialogueRoutingDecision {
     ModelOnly,
@@ -348,6 +416,38 @@ fn strip_execution_modifiers(mut text: String) -> String {
         text = text.replace(modifier, "");
     }
     text
+}
+
+fn delegation_task_text(intent: &str, roster: &[crate::AgentRosterEntry]) -> String {
+    let original = intent.trim();
+    let mut remainder = ["让", "请", "交给"]
+        .iter()
+        .find_map(|prefix| original.strip_prefix(prefix).map(str::trim_start))
+        .unwrap_or(original);
+    let keys = sorted_address_keys(roster);
+    let Some((_, after_first_name)) = strip_any_name_prefix(remainder, &keys) else {
+        return strip_direct_address_modifiers(original)
+            .trim_matches(|character: char| {
+                character.is_whitespace() || matches!(character, ',' | '，' | ':' | '：')
+            })
+            .to_string();
+    };
+    remainder = after_first_name;
+    loop {
+        let trimmed = remainder.trim_start();
+        let Some(after_separator) = strip_any_prefix(trimmed, AGENT_GROUP_SEPARATORS) else {
+            break;
+        };
+        let Some((_, after_name)) = strip_any_name_prefix(after_separator.trim_start(), &keys)
+        else {
+            break;
+        };
+        remainder = after_name;
+    }
+    let remainder = remainder.trim_start_matches(|character: char| {
+        character.is_whitespace() || matches!(character, ',' | '，' | ':' | '：')
+    });
+    strip_direct_address_modifiers(remainder).trim().to_string()
 }
 
 fn contains_any(text: &str, candidates: &[&str]) -> bool {

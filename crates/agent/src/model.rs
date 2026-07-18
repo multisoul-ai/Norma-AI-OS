@@ -1,7 +1,19 @@
 use norma::protocol::{CardCommand, CardCommandResult};
 use std::fmt;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub type TaskId = u64;
+
+static NEXT_TRACE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+
+pub(crate) fn new_trace_id() -> String {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_nanos());
+    let sequence = NEXT_TRACE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    format!("trace-{timestamp:032x}-{sequence:016x}")
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentMessage {
@@ -93,6 +105,10 @@ pub enum AgentEvent {
         task_id: TaskId,
         summary: String,
     },
+    TaskPartiallyDispatched {
+        task_id: TaskId,
+        summary: String,
+    },
     TaskFailed {
         task_id: TaskId,
         reason: String,
@@ -119,6 +135,7 @@ pub enum TaskState {
     Queued,
     Running,
     Succeeded,
+    PartiallyDispatched,
     Failed { reason: String },
     CancelledWithPartialEffects,
     Cancelled,
@@ -128,6 +145,7 @@ pub enum TaskState {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CardToolRequest {
     pub project_id: String,
+    pub trace_id: String,
     pub task_id: TaskId,
     pub tool_call_id: String,
     pub command: CardCommand,
@@ -141,6 +159,7 @@ pub struct CardToolResult {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TaskRecord {
     pub project_id: String,
+    pub trace_id: String,
     pub task_id: TaskId,
     pub intent: String,
     pub state: TaskState,
@@ -174,6 +193,7 @@ impl fmt::Display for TaskState {
             Self::Queued => write!(f, "queued"),
             Self::Running => write!(f, "running"),
             Self::Succeeded => write!(f, "succeeded"),
+            Self::PartiallyDispatched => write!(f, "partially_dispatched"),
             Self::Failed { reason } => write!(f, "failed: {reason}"),
             Self::CancelledWithPartialEffects => write!(f, "cancelled_with_partial_effects"),
             Self::Cancelled => write!(f, "cancelled"),
@@ -188,6 +208,7 @@ impl TaskState {
             Self::Queued => "queued",
             Self::Running => "running",
             Self::Succeeded => "succeeded",
+            Self::PartiallyDispatched => "partially_dispatched",
             Self::Failed { .. } => "failed",
             Self::CancelledWithPartialEffects => "cancelled_with_partial_effects",
             Self::Cancelled => "cancelled",

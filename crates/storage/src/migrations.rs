@@ -115,6 +115,7 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
 
         CREATE TABLE IF NOT EXISTS agent_tasks (
             project_id TEXT NOT NULL,
+            trace_id TEXT NOT NULL DEFAULT '',
             task_id INTEGER NOT NULL,
             intent TEXT NOT NULL,
             state TEXT NOT NULL,
@@ -167,6 +168,12 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
         CREATE INDEX IF NOT EXISTS idx_agent_dispatch_tasks_definition_state
         ON agent_dispatch_tasks(definition_id, state, id);
         "#,
+    )?;
+    ensure_column(
+        connection,
+        "agent_tasks",
+        "trace_id",
+        "trace_id TEXT NOT NULL DEFAULT ''",
     )?;
     ensure_column(
         connection,

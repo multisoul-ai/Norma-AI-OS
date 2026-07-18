@@ -29,6 +29,7 @@ where
         while self.dialogue_turns.len() >= MAX_DIALOGUE_HISTORY_TURNS {
             self.dialogue_turns.pop_front();
         }
+        let trace_id = crate::model::new_trace_id();
         let routing_decision = super::dialogue_policy::route_user_turn(&text, &self.agent_roster);
         let delegation_targets = routing_decision
             .delegation_targets()
@@ -41,7 +42,7 @@ where
             messages: self.dialogue_request_messages(&turn),
             tools: dialogue_tool_specs(),
         };
-        crate::diagnostics::dialogue_request(&self.project_id, &request);
+        crate::diagnostics::dialogue_request(&self.project_id, &trace_id, &request);
         let mut streamed = Vec::new();
         let mut response = self.dialogue_provider.stream_with_cancellation(
             &request,
@@ -57,7 +58,7 @@ where
                 }
             },
         )?;
-        crate::diagnostics::dialogue_response(&self.project_id, &response);
+        crate::diagnostics::dialogue_response(&self.project_id, &trace_id, &response);
         if routing_decision.requires_card_task_fallback()
             && !response.tool_calls.iter().any(|call| {
                 call.name == CARD_TASK_TOOL
@@ -115,7 +116,14 @@ where
             }
             let receipt = match action {
                 DialogueToolAction::Start { intent } => {
-                    let task_id = self.enqueue_task(intent, delegation_targets.clone());
+                    let assignments = delegation_targets.as_deref().and_then(|targets| {
+                        super::dialogue_policy::delegation_assignments(
+                            &intent,
+                            targets,
+                            &self.agent_roster,
+                        )
+                    });
+                    let task_id = self.enqueue_task(trace_id.clone(), intent, assignments);
                     format!(r#"{{"status":"queued","task_id":{task_id}}}"#)
                 }
                 DialogueToolAction::Cancel { task_id } => match self.cancel_task(task_id) {

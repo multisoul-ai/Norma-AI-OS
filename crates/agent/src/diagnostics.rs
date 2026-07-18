@@ -2,7 +2,7 @@ use crate::{MessageRole, ProviderRequest, ProviderResponse, CARD_TASK_TOOL};
 
 const FLOW_MARKER: &str = "[DEBUG-agent-flow-7c1e]";
 
-pub(crate) fn dialogue_request(project_id: &str, request: &ProviderRequest) {
+pub(crate) fn dialogue_request(project_id: &str, trace_id: &str, request: &ProviderRequest) {
     let has_system_message = request
         .messages
         .iter()
@@ -10,6 +10,7 @@ pub(crate) fn dialogue_request(project_id: &str, request: &ProviderRequest) {
     let tool_names = tool_spec_names(request);
     tracing::debug!(
         project_id,
+        trace_id,
         message_count = request.messages.len(),
         has_system_message,
         tool_names,
@@ -18,12 +19,13 @@ pub(crate) fn dialogue_request(project_id: &str, request: &ProviderRequest) {
     if !has_system_message {
         tracing::warn!(
             project_id,
+            trace_id,
             "{FLOW_MARKER} dialogue provider request has no system message"
         );
     }
 }
 
-pub(crate) fn dialogue_response(project_id: &str, response: &ProviderResponse) {
+pub(crate) fn dialogue_response(project_id: &str, trace_id: &str, response: &ProviderResponse) {
     let tool_names = response_tool_names(response);
     let recognized_tool_calls = response
         .tool_calls
@@ -32,6 +34,7 @@ pub(crate) fn dialogue_response(project_id: &str, response: &ProviderResponse) {
         .count();
     tracing::debug!(
         project_id,
+        trace_id,
         text_chars = response.text.chars().count(),
         tool_call_count = response.tool_calls.len(),
         recognized_tool_calls,
@@ -41,6 +44,7 @@ pub(crate) fn dialogue_response(project_id: &str, response: &ProviderResponse) {
     if !response.tool_calls.is_empty() && recognized_tool_calls == 0 {
         tracing::warn!(
             project_id,
+            trace_id,
             tool_names,
             "{FLOW_MARKER} dialogue response tool calls do not match card_task"
         );
@@ -49,6 +53,7 @@ pub(crate) fn dialogue_response(project_id: &str, response: &ProviderResponse) {
 
 pub(crate) fn card_request(
     project_id: &str,
+    trace_id: &str,
     task_id: u64,
     round: usize,
     request: &ProviderRequest,
@@ -59,6 +64,7 @@ pub(crate) fn card_request(
         .any(|message| message.role == MessageRole::System);
     tracing::debug!(
         project_id,
+        trace_id,
         task_id,
         round,
         message_count = request.messages.len(),
@@ -69,6 +75,7 @@ pub(crate) fn card_request(
     if !has_system_message {
         tracing::warn!(
             project_id,
+            trace_id,
             task_id,
             round,
             "{FLOW_MARKER} card subagent provider request has no system message"
@@ -78,6 +85,7 @@ pub(crate) fn card_request(
 
 pub(crate) fn card_response(
     project_id: &str,
+    trace_id: &str,
     task_id: u64,
     round: usize,
     completed_tool_calls: usize,
@@ -85,6 +93,7 @@ pub(crate) fn card_response(
 ) {
     tracing::debug!(
         project_id,
+        trace_id,
         task_id,
         round,
         completed_tool_calls,
@@ -96,6 +105,7 @@ pub(crate) fn card_response(
     if response.tool_calls.is_empty() && completed_tool_calls == 0 {
         tracing::warn!(
             project_id,
+            trace_id,
             task_id,
             round,
             "{FLOW_MARKER} card subagent returned text without executing any card tool"

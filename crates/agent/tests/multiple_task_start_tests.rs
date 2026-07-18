@@ -5,9 +5,20 @@ use support::{system, tool, RecordingHost, ScriptedProvider};
 
 /// MTS-1：模型在同一轮返回多个 card_task start 时，系统必须按返回顺序全部入队。
 ///
-/// 数据构造：同一 Dialogue response 含两次 start 与一段虚假的完成文本。
-/// 执行过程：提交单个 UserTurn，观察文本事件和 queued 任务数量。
-/// 预期结果：两个任务均有 TaskQueued 回执；不产生 DialogueTextDelta，避免未执行的成功声明。
+/// 数据构造（含关键数值的推导过程）：
+///   user turns       = 1
+///   card_task starts = 2
+///   queued tasks     = 1 turn × 2 starts = 2
+///   trace ids        = 1：同一完整用户意图共享
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. Dialogue response 返回两次 start 与一段虚假的完成文本
+///   2. 系统按工具调用顺序创建 task_id=1、2
+///   3. 读取两条任务记录并比较 TraceId
+///
+/// 预期结果：
+///   - 正断言：两个任务均有 TaskQueued 且共享非空 TraceId
+///   - 负断言：不产生 DialogueTextDelta，避免未执行的成功声明
 #[test]
 fn dialogue_multiple_task_starts_queue_all_without_premature_completion_text() {
     let dialogue = ScriptedProvider::new([ProviderResponse {
@@ -59,6 +70,22 @@ fn dialogue_multiple_task_starts_queue_all_without_premature_completion_text() {
             .iter()
             .any(|event| matches!(event, AgentEvent::DialogueTextDelta { .. })),
         "任务尚未进入终态时不得播报模型虚假的完成文本"
+    );
+    let first_trace_id = system
+        .task_record(1)
+        .map(|record| record.trace_id.as_str())
+        .expect("同一回合的首个 start 必须创建 task_id=1");
+    let second_trace_id = system
+        .task_record(2)
+        .map(|record| record.trace_id.as_str())
+        .expect("同一回合的第二个 start 必须创建 task_id=2");
+    assert!(
+        !first_trace_id.is_empty(),
+        "一次完整用户意图必须生成非空 TraceId"
+    );
+    assert_eq!(
+        first_trace_id, second_trace_id,
+        "同一 UserTurn 内的多个 CardTask 必须共享一个 TraceId"
     );
 }
 
@@ -112,10 +139,20 @@ fn duplicate_dialogue_tool_call_id_queues_only_once() {
 
 /// MTS-3：不同用户回合重用同名 Provider call id 时，两个合法 start 仍须分别入队。
 ///
-/// 数据构造：Dialogue Provider 的两份独立 response 都使用 `dialogue-call-1`，但 intent 分别为
-/// 创建第一个和第二个终端，模拟 Provider 只保证单个 response 内 id 唯一的行为。
-/// 执行过程：连续提交两个 UserTurn，读取每轮事件及累计 pending 数。
-/// 预期结果：两轮都产生新的 TaskQueued，累计两项任务；当前回合去重不得污染后续回合。
+/// 数据构造（含关键数值的推导过程）：
+///   user turns        = 2
+///   reused call ids   = 1：两轮都使用 dialogue-call-1
+///   queued tasks      = 2 turns × 1 start = 2
+///   expected trace ids = 2：每个独立用户意图一个
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 连续提交两个 UserTurn，Provider 在两轮复用同名 call id
+///   2. 分别读取每轮 TaskQueued 与累计 pending 数
+///   3. 比较 task_id=1、2 的 TraceId
+///
+/// 预期结果：
+///   - 正断言：两轮各产生新 TaskQueued 和不同 TraceId
+///   - 负断言：当前回合去重不得污染后续回合或复用前一轮任务
 #[test]
 fn reused_provider_call_id_in_later_turn_queues_a_new_task() {
     let dialogue = ScriptedProvider::new([
@@ -169,5 +206,21 @@ fn reused_provider_call_id_in_later_turn_queues_a_new_task() {
         system.pending_task_count(),
         2,
         "两个独立用户回合的合法 start 必须积累为两项待执行任务"
+    );
+    let first_trace_id = system
+        .task_record(1)
+        .map(|record| record.trace_id.as_str())
+        .expect("首轮必须创建 task_id=1");
+    let second_trace_id = system
+        .task_record(2)
+        .map(|record| record.trace_id.as_str())
+        .expect("第二轮必须创建 task_id=2");
+    assert!(
+        !first_trace_id.is_empty() && !second_trace_id.is_empty(),
+        "每个独立用户意图都必须生成非空 TraceId"
+    );
+    assert_ne!(
+        first_trace_id, second_trace_id,
+        "不同 UserTurn 不得复用同一个 TraceId"
     );
 }

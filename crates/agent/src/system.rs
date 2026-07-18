@@ -1,12 +1,10 @@
 use crate::journal::{AuditEntry, CardTaskJournal};
-use crate::provider::{
-    assistant_message, system_message, tool_message, user_message, AgentProvider,
-};
+use crate::provider::{system_message, tool_message, user_message, AgentProvider};
 use crate::tools::parse_card_subagent_tool_call;
 use crate::{
     AgentCommand, AgentError, AgentEvent, AgentMessage, CardTaskBudget, CardToolHost,
-    CardToolRequest, CardToolResult, ProviderRequest, ProviderToolCall, TaskId, TaskRecord,
-    TaskState, ToolCallRecord, ToolErrorRecord,
+    CardToolRequest, CardToolResult, ProviderToolCall, TaskId, TaskRecord, TaskState,
+    ToolCallRecord, ToolErrorRecord,
 };
 use norma::protocol::{CardCommand, CardCommandResult};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -14,6 +12,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Instant;
 
+mod card_response;
 pub(crate) mod card_task;
 mod dialogue;
 mod dialogue_policy;
@@ -21,7 +20,8 @@ mod roster;
 mod task_queue;
 pub(crate) struct PendingTask {
     pub(crate) task_id: TaskId,
-    delegation_targets: Option<Vec<String>>,
+    trace_id: String,
+    delegation_assignments: Option<Vec<norma::protocol::AgentTaskAssignment>>,
 }
 struct UnresolvedToolFailure {
     command: Option<CardCommand>,
@@ -29,7 +29,8 @@ struct UnresolvedToolFailure {
 }
 pub(crate) struct ActiveTask {
     pub(crate) task_id: TaskId,
-    delegation_targets: Option<Vec<String>>,
+    trace_id: String,
+    delegation_assignments: Option<Vec<norma::protocol::AgentTaskAssignment>>,
     messages: Vec<AgentMessage>,
     pending_tool_calls: VecDeque<ProviderToolCall>,
     cached_results: HashMap<String, Result<CardCommandResult, String>>,
@@ -137,7 +138,7 @@ where
             }
             AgentCommand::UserTurn(text) => self.handle_user_turn(text)?,
             AgentCommand::DirectCardTask(intent) => {
-                self.enqueue_task(intent, None);
+                self.enqueue_task(crate::model::new_trace_id(), intent, None);
             }
             AgentCommand::CancelLatest => self.cancel_latest()?,
             AgentCommand::CancelTask { task_id } => {
@@ -161,16 +162,23 @@ where
             let task_id = task.task_id;
             self.update_task_state(task_id, TaskState::Running, None, None);
             self.emit_event(AgentEvent::TaskRunning { task_id });
+            let pending_tool_calls = card_task::deterministic_delegation_call(
+                task_id,
+                task.delegation_assignments.as_deref(),
+            )
+            .into_iter()
+            .collect();
             self.active = Some(ActiveTask {
                 task_id,
-                delegation_targets: task.delegation_targets,
+                trace_id: task.trace_id,
+                delegation_assignments: task.delegation_assignments,
                 messages: vec![
                     system_message(crate::card_task_system_prompt_with_roster(
                         &self.agent_roster_prompt,
                     )),
                     user_message(self.task_intent(task_id)),
                 ],
-                pending_tool_calls: VecDeque::new(),
+                pending_tool_calls,
                 cached_results: HashMap::new(),
                 created_node_ids: HashSet::new(),
                 verified_node_ids: HashSet::new(),
@@ -183,7 +191,13 @@ where
                 cancel_requested: false,
                 started_at: Instant::now(),
             });
-            self.request_next_card_response();
+            if self
+                .active
+                .as_ref()
+                .is_some_and(|task| task.delegation_assignments.is_none())
+            {
+                self.request_next_card_response();
+            }
             return self.events[start..].to_vec();
         }
 
@@ -253,65 +267,6 @@ where
         self.records.get(&task_id)
     }
 
-    fn request_next_card_response(&mut self) {
-        let Some(active) = self.active.as_mut() else {
-            return;
-        };
-        active.round_count += 1;
-        let request = ProviderRequest {
-            messages: active.messages.clone(),
-            tools: crate::card_subagent_tool_specs(),
-        };
-        crate::diagnostics::card_request(
-            &self.project_id,
-            active.task_id,
-            active.round_count,
-            &request,
-        );
-        let response = match self.card_provider.complete(&request) {
-            Ok(response) => response,
-            Err(error) => {
-                self.finish_failed(error.to_string());
-                return;
-            }
-        };
-        crate::diagnostics::card_response(
-            &self.project_id,
-            active.task_id,
-            active.round_count,
-            active.completed_tool_calls,
-            &response,
-        );
-        if response.tool_calls.is_empty() {
-            let task_id = active.task_id;
-            if active.completed_tool_calls == 0 {
-                self.finish_failed("TaskIncomplete: no successful card-tool receipt".to_string());
-                return;
-            }
-            if !active.unresolved_tool_failures.is_empty() {
-                let errors = active
-                    .unresolved_tool_failures
-                    .iter()
-                    .map(|failure| failure.error.as_str())
-                    .collect::<Vec<_>>()
-                    .join("; ");
-                self.finish_failed(format!(
-                    "TaskIncomplete: unresolved card-tool failures: {errors}"
-                ));
-                return;
-            }
-            let summary = card_task::successful_summary(active);
-            self.update_task_state(task_id, TaskState::Succeeded, Some(summary.clone()), None);
-            self.emit_event(AgentEvent::TaskSucceeded { task_id, summary });
-            self.active = None;
-            return;
-        }
-        active
-            .messages
-            .push(assistant_message(&response.text, &response.tool_calls));
-        active.pending_tool_calls.extend(response.tool_calls);
-    }
-
     fn execute_next_tool_call(&mut self) {
         let Some(mut active) = self.active.take() else {
             return;
@@ -331,6 +286,7 @@ where
         });
         tracing::info!(
             project_id = %self.project_id,
+            trace_id = %active.trace_id,
             task_id = active.task_id,
             tool_call_id = %call.id,
             tool = %call.name,
@@ -346,6 +302,7 @@ where
                 Ok(command) => {
                     let request = CardToolRequest {
                         project_id: self.project_id.clone(),
+                        trace_id: active.trace_id.clone(),
                         task_id: active.task_id,
                         tool_call_id: call.id.clone(),
                         command,
@@ -427,6 +384,7 @@ where
         });
         tracing::info!(
             project_id = %self.project_id,
+            trace_id = %active.trace_id,
             task_id = active.task_id,
             tool = %call.name,
             success = result.is_ok(),

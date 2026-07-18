@@ -1,15 +1,105 @@
 use super::ActiveTask;
 use crate::AgentRosterEntry;
+use crate::ProviderToolCall;
 use norma::protocol::{AgentTaskReceiptStatus, CardCommand, CardCommandResult};
+
+pub(super) enum DelegationCompletion {
+    Succeeded(String),
+    PartiallyDispatched(String),
+    Failed(String),
+}
+
+pub(super) fn deterministic_delegation_call(
+    task_id: u64,
+    assignments: Option<&[norma::protocol::AgentTaskAssignment]>,
+) -> Option<ProviderToolCall> {
+    assignments.map(|assignments| ProviderToolCall {
+        id: format!("delegation-dispatch-{task_id}"),
+        name: "dispatch_agent_tasks".to_string(),
+        arguments_json: serde_json::json!({
+            "assignments": assignments,
+            "force_untracked": false,
+        })
+        .to_string(),
+    })
+}
+
+pub(super) fn delegation_completion(task: &ActiveTask) -> Option<DelegationCompletion> {
+    let expected = task.delegation_assignments.as_ref()?;
+    let receipts = task
+        .successful_results
+        .iter()
+        .find_map(|result| match result {
+            CardCommandResult::AgentTasksDispatched { receipts } => Some(receipts),
+            _ => None,
+        });
+    let Some(receipts) = receipts else {
+        if task.unresolved_tool_failures.is_empty() {
+            return None;
+        }
+        let errors = task
+            .unresolved_tool_failures
+            .iter()
+            .map(|failure| failure.error.as_str())
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Some(DelegationCompletion::Failed(format!(
+            "TaskIncomplete: deterministic dispatch failed: {errors}"
+        )));
+    };
+    if receipts.len() != expected.len() {
+        return Some(DelegationCompletion::Failed(format!(
+            "TaskIncomplete: expected {} Agent dispatch receipts but received {}",
+            expected.len(),
+            receipts.len()
+        )));
+    }
+    let failed = receipts
+        .iter()
+        .filter(|receipt| receipt.status == AgentTaskReceiptStatus::Failed)
+        .count();
+    if failed == receipts.len() {
+        return Some(DelegationCompletion::Failed(format!(
+            "Agent task dispatch failed: {}",
+            delegation_receipt_summary(receipts)
+        )));
+    }
+    let summary = delegation_receipt_summary(receipts);
+    if failed > 0 {
+        Some(DelegationCompletion::PartiallyDispatched(summary))
+    } else {
+        Some(DelegationCompletion::Succeeded(summary))
+    }
+}
+
+fn delegation_receipt_summary(receipts: &[norma::protocol::AgentTaskReceipt]) -> String {
+    receipts
+        .iter()
+        .map(|receipt| {
+            let result = match receipt.status {
+                AgentTaskReceiptStatus::Submitted => "已派发",
+                AgentTaskReceiptStatus::Queued => "已排队",
+                AgentTaskReceiptStatus::Untracked => "已派发（无法跟踪）",
+                AgentTaskReceiptStatus::Failed => "派发失败",
+            };
+            format!("{} {result}", receipt.name)
+        })
+        .collect::<Vec<_>>()
+        .join("；")
+}
 
 pub(super) fn require_delegation_targets(
     task: &ActiveTask,
     roster: &[AgentRosterEntry],
     command: &CardCommand,
 ) -> Result<(), String> {
-    let Some(expected) = task.delegation_targets.as_ref() else {
+    let Some(expected_assignments) = task.delegation_assignments.as_ref() else {
         return Ok(());
     };
+    let expected = expected_assignments
+        .iter()
+        .map(|assignment| assignment.name.as_str())
+        .collect::<Vec<_>>();
     match command {
         CardCommand::DispatchAgentTasks { assignments, .. } => {
             let resolved = assignments
@@ -28,9 +118,7 @@ pub(super) fn require_delegation_targets(
             });
             if assignments.len() != expected.len()
                 || unique_resolved.len() != expected.len()
-                || expected
-                    .iter()
-                    .any(|name| !unique_resolved.contains(&name.as_str()))
+                || expected.iter().any(|name| !unique_resolved.contains(name))
             {
                 return Err(format!(
                     "DelegationTargetMismatch: expected exactly [{}] from the user's addressed set",
@@ -43,7 +131,7 @@ pub(super) fn require_delegation_targets(
             let canonical = resolve_canonical_name(name, roster).ok_or_else(|| {
                 format!("DelegationTargetMismatch: cannot activate unaddressed Agent {name}")
             })?;
-            if expected.iter().any(|target| target == canonical) {
+            if expected.iter().any(|target| *target == canonical) {
                 Ok(())
             } else {
                 Err(format!(

@@ -10,8 +10,9 @@ pub(crate) fn artifacts_from_agent_events(
         match event {
             AgentEvent::DialogueTextDelta { text } => reply.push_str(&text),
             AgentEvent::DialogueStreamFinished => {}
-            AgentEvent::TaskQueued { summary, .. } => reply = format!("任务已派发：{summary}"),
+            AgentEvent::TaskQueued { summary, .. } => reply = format!("任务处理中：{summary}"),
             AgentEvent::TaskSucceeded { summary, .. } => reply = summary,
+            AgentEvent::TaskPartiallyDispatched { summary, .. } => reply = summary,
             AgentEvent::TaskFailed { reason, .. } => reply = format!("任务失败：{reason}"),
             AgentEvent::TaskCancelled { .. } => reply = "任务已取消".to_string(),
             AgentEvent::TaskInterrupted { .. } => reply = "任务已中断".to_string(),

@@ -26,18 +26,19 @@ impl AgentTaskStore {
         let connection = open_project_connection(&self.path)?;
         let mut tasks = Vec::new();
         let mut statement = connection.prepare(
-            "SELECT task_id, intent, state, summary, error, completed_tool_calls
+            "SELECT task_id, trace_id, intent, state, summary, error, completed_tool_calls
              FROM agent_tasks WHERE project_id = ?1 ORDER BY task_id",
         )?;
         let rows = statement.query_map([project_id], |row| {
             Ok(TaskRecord {
                 project_id: project_id.to_string(),
+                trace_id: row.get(1)?,
                 task_id: row.get(0)?,
-                intent: row.get(1)?,
-                state: parse_task_state(&row.get::<_, String>(2)?, row.get(4)?)?,
-                summary: row.get(3)?,
-                error: row.get(4)?,
-                completed_tool_calls: row.get::<_, i64>(5)? as usize,
+                intent: row.get(2)?,
+                state: parse_task_state(&row.get::<_, String>(3)?, row.get(5)?)?,
+                summary: row.get(4)?,
+                error: row.get(5)?,
+                completed_tool_calls: row.get::<_, i64>(6)? as usize,
             })
         })?;
         for row in rows {
@@ -170,16 +171,18 @@ impl AgentTaskStore {
             AuditEntry::Task(task) => {
                 connection.execute(
                     "INSERT INTO agent_tasks
-                        (project_id, task_id, intent, state, summary, error,
+                        (project_id, trace_id, task_id, intent, state, summary, error,
                          completed_tool_calls, updated_at_unix)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
                      ON CONFLICT(project_id, task_id) DO UPDATE SET
-                        intent = excluded.intent, state = excluded.state,
+                        trace_id = excluded.trace_id, intent = excluded.intent,
+                        state = excluded.state,
                         summary = excluded.summary, error = excluded.error,
                         completed_tool_calls = excluded.completed_tool_calls,
                         updated_at_unix = excluded.updated_at_unix",
                     params![
                         task.project_id,
+                        task.trace_id,
                         task.task_id,
                         task.intent,
                         task.state.storage_name(),
@@ -233,6 +236,7 @@ fn parse_task_state(state: &str, error: Option<String>) -> rusqlite::Result<Task
         "queued" => Ok(TaskState::Queued),
         "running" => Ok(TaskState::Running),
         "succeeded" => Ok(TaskState::Succeeded),
+        "partially_dispatched" => Ok(TaskState::PartiallyDispatched),
         "failed" => Ok(TaskState::Failed {
             reason: error.unwrap_or_else(|| "unknown failure".to_string()),
         }),

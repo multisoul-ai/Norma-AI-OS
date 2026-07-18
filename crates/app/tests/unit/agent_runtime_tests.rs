@@ -73,25 +73,25 @@ fn test_empty_agent_events_never_claim_task_was_dispatched() {
     );
 }
 
-/// ART-3：只有真实 `TaskQueued` 才能生成“任务已派发”语义。
+/// ART-3：内部 `TaskQueued` 只能表达处理中，不能冒充目标 Agent 派发回执。
 ///
 /// 数据构造：单个 task_id=7 的 TaskQueued，summary 为明确创建意图。
 /// 执行过程：将事件转换为当前语音回合产物。
-/// 预期结果：回复同时包含已派发状态和真实意图；不得声称任务已经完成。
+/// 预期结果：回复同时包含处理中状态和真实意图；不得声称任务已派发或已完成。
 #[test]
-fn test_task_queued_event_generates_dispatch_receipt() {
+fn test_task_queued_event_only_reports_processing() {
     let artifacts = artifacts_from_agent_events(vec![AgentEvent::TaskQueued {
         task_id: 7,
         summary: "创建一个终端卡片".to_string(),
     }]);
 
     assert_eq!(
-        artifacts.reply_text, "任务已派发：创建一个终端卡片",
-        "TaskQueued 应转换为明确、可核对的派发回执"
+        artifacts.reply_text, "任务处理中：创建一个终端卡片",
+        "TaskQueued 只能转换为内部处理中状态"
     );
     assert!(
-        !artifacts.reply_text.contains("已完成"),
-        "queued 状态不得被提升为完成状态"
+        !artifacts.reply_text.contains("已派发") && !artifacts.reply_text.contains("已完成"),
+        "queued 状态不得被提升为派发或完成状态"
     );
 }
 
@@ -137,11 +137,22 @@ fn test_task_status_event_generates_status_reply() {
     );
 }
 
-/// ART-5：后台事件泵只把真实终态转换为待播报文本，并区分部分副作用取消。
+/// ART-5：后台事件泵只把真实终态转换为待播报文本，并保留部分派发与取消事实。
 ///
-/// 数据构造：成功、失败、无副作用取消、部分副作用取消、中断和非终态 Running 事件。
-/// 执行过程：逐个调用事件泵使用的终态报告映射。
-/// 预期结果：五种终态得到准确文本；Running 不生成主动语音报告。
+/// 数据构造（含关键数值的推导过程）：
+///   dispatch terminal states = 3：成功 + 部分派发 + 失败
+///   lifecycle terminal states = 3：无副作用取消 + 部分副作用取消 + 中断
+///   non-terminal states       = 1：Running
+///   total cases               = 3 + 3 + 1 = 7
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 逐个调用后台事件泵使用的终态报告映射
+///   2. 核对成功、混合回执、失败、取消与中断的用户可听文本
+///   3. 用 Running 验证中间态不会主动进入待播报队列
+///
+/// 预期结果：
+///   - 正断言：六种终态得到准确文本，部分派发同时保留成功与失败 Agent
+///   - 负断言：Running 不生成主动语音报告
 #[test]
 fn test_terminal_task_reports_cover_all_terminal_states_only() {
     assert_eq!(
@@ -153,8 +164,16 @@ fn test_terminal_task_reports_cover_all_terminal_states_only() {
         "成功报告必须直接采用真实工具回执摘要"
     );
     assert_eq!(
-        terminal_task_report(&AgentEvent::TaskFailed {
+        terminal_task_report(&AgentEvent::TaskPartiallyDispatched {
             task_id: 2,
+            summary: "Bella 已派发；Alan 派发失败".to_string(),
+        }),
+        Some("Bella 已派发；Alan 派发失败".to_string()),
+        "部分派发报告必须同时保留已派发与失败的逐 Agent 事实"
+    );
+    assert_eq!(
+        terminal_task_report(&AgentEvent::TaskFailed {
+            task_id: 3,
             reason: "Provider timeout".to_string(),
         }),
         Some("任务失败：Provider timeout".to_string()),
@@ -162,7 +181,7 @@ fn test_terminal_task_reports_cover_all_terminal_states_only() {
     );
     assert_eq!(
         terminal_task_report(&AgentEvent::TaskCancelled {
-            task_id: 3,
+            task_id: 4,
             partial_effects: false,
             completed_tool_calls: 0,
         }),
@@ -171,7 +190,7 @@ fn test_terminal_task_reports_cover_all_terminal_states_only() {
     );
     assert_eq!(
         terminal_task_report(&AgentEvent::TaskCancelled {
-            task_id: 4,
+            task_id: 5,
             partial_effects: true,
             completed_tool_calls: 1,
         }),
@@ -179,12 +198,12 @@ fn test_terminal_task_reports_cover_all_terminal_states_only() {
         "部分副作用取消必须提醒用户已发生操作不会回滚"
     );
     assert_eq!(
-        terminal_task_report(&AgentEvent::TaskInterrupted { task_id: 5 }),
+        terminal_task_report(&AgentEvent::TaskInterrupted { task_id: 6 }),
         Some("任务已中断".to_string()),
         "中断终态必须得到独立回报"
     );
     assert_eq!(
-        terminal_task_report(&AgentEvent::TaskRunning { task_id: 6 }),
+        terminal_task_report(&AgentEvent::TaskRunning { task_id: 7 }),
         None,
         "Running 中间态不得主动打断语音对话"
     );
@@ -298,6 +317,7 @@ fn test_agent_tool_pump_forwards_multiple_creates_to_real_runtime() {
     ] {
         tool_tx
             .send_blocking(AgentToolRequest {
+                trace_id: format!("trace-tool-{task_id}"),
                 task_id,
                 tool_call_id: tool_call_id.to_string(),
                 command: CardCommand::Create {

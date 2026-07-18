@@ -34,6 +34,7 @@ struct AgentRequest {
 }
 
 struct AgentToolRequest {
+    trace_id: String,
     task_id: u64,
     tool_call_id: String,
     command: CardCommand,
@@ -70,6 +71,7 @@ impl agent::CardToolHost for ChannelCardToolHost {
         let (result_tx, result_rx) = mpsc::channel();
         self.sender
             .send_blocking(AgentToolRequest {
+                trace_id: request.trace_id,
                 task_id: request.task_id,
                 tool_call_id: request.tool_call_id,
                 command: request.command,
@@ -470,6 +472,7 @@ fn start_event_pump(
 fn terminal_task_report(event: &AgentEvent) -> Option<String> {
     match event {
         AgentEvent::TaskSucceeded { summary, .. } => Some(summary.clone()),
+        AgentEvent::TaskPartiallyDispatched { summary, .. } => Some(summary.clone()),
         AgentEvent::TaskFailed { reason, .. } => Some(format!("任务失败：{reason}")),
         AgentEvent::TaskCancelled {
             partial_effects: true,
