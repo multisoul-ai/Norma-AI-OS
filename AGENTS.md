@@ -99,6 +99,7 @@ Workspace 分层：
 | 焦点、输入路由、LiveNode 生命周期 | [`crates/runtime/src/`](crates/runtime/src/) |
 | NormaSession/Rig/AgentCardAdapter seam | [`crates/agent/src/`](crates/agent/src/) |
 | ASR 模型身份、目录、安装与完整性 | [`crates/asr/src/`](crates/asr/src/) |
+| ASR Hotword 加载、扩展与调优 | [`docs/references/asr-hotwords.md`](docs/references/asr-hotwords.md) |
 | 通用本地模型安装原语 | [`crates/model_store/src/`](crates/model_store/src/) |
 | TTS 模型/语音目录与安装验证 | [`crates/tts/src/`](crates/tts/src/) |
 | SQLite store、migration、持久化边界 | [`crates/storage/src/`](crates/storage/src/) |
