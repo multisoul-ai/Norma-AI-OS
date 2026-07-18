@@ -69,6 +69,13 @@ impl DialogueControlState {
         self.finish_agent_text_stream(cx);
     }
 
+    pub(super) fn finish_silent_reply(&mut self, display_text: String) {
+        self.begin_reply_stream();
+        self.last_reply_text = Some(display_text);
+        self.dialogue_stream_finished = true;
+        self.finish_reply_stream_if_ready();
+    }
+
     pub(crate) fn on_agent_text_delta(
         &mut self,
         text: &str,

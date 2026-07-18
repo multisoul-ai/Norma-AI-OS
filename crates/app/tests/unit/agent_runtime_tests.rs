@@ -52,6 +52,10 @@ fn test_agent_reply_strips_thinking_block_without_dropping_english_answer() {
         "内部推理不得作为 TTS 输入；实际 reply: {:?}",
         artifacts.reply_text
     );
+    assert!(
+        artifacts.play_reply,
+        "普通 Dialogue 正文必须继续进入现有流式/静态 TTS 路径"
+    );
 }
 
 /// ART-2：没有任何 AgentEvent 时不得伪造“任务已派发”。
@@ -92,6 +96,10 @@ fn test_task_queued_event_only_reports_processing() {
     assert!(
         !artifacts.reply_text.contains("已派发") && !artifacts.reply_text.contains("已完成"),
         "queued 状态不得被提升为派发或完成状态"
+    );
+    assert!(
+        !artifacts.play_reply,
+        "TaskQueued 的处理中占位只更新文字，不得抢在真实派发回执前播报"
     );
 }
 

@@ -114,9 +114,12 @@ impl DialogueControlState {
                     let _ = this.update(cx, |app, cx| {
                         app.dialogue.store_turn_artifacts(&artifacts);
                         app.dialogue.reply_task = None;
-                        if !has_live_dialogue {
+                        if !has_live_dialogue && artifacts.play_reply {
                             app.dialogue
                                 .begin_static_reply_stream(artifacts.reply_text.clone(), cx);
+                        } else if !has_live_dialogue {
+                            app.dialogue
+                                .finish_silent_reply(artifacts.reply_text.clone());
                         }
                         cx.notify();
                     });

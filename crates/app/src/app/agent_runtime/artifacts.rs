@@ -5,6 +5,13 @@ pub(crate) fn artifacts_from_agent_events(
     events: Vec<AgentEvent>,
 ) -> crate::app::dialogue::VoiceTurnArtifacts {
     diagnostics::turn_events(&events);
+    let play_reply = events.is_empty()
+        || !events.iter().all(|event| {
+            matches!(
+                event,
+                AgentEvent::TaskQueued { .. } | AgentEvent::DialogueStreamFinished
+            )
+        });
     let mut reply = String::new();
     for event in events {
         match event {
@@ -38,6 +45,7 @@ pub(crate) fn artifacts_from_agent_events(
     };
     crate::app::dialogue::VoiceTurnArtifacts {
         reply_text: reply,
+        play_reply,
         executed_commands: Vec::new(),
         template_reports: Vec::new(),
         queued_template_reports: Vec::new(),

@@ -106,6 +106,7 @@ pub(crate) fn run_dialogue_turn<L: LlmClient, E: ToolExecutor>(
 
     Ok(VoiceTurnArtifacts {
         reply_text: outcome.reply_text,
+        play_reply: true,
         executed_commands: outcome.executed_commands,
         template_reports,
         queued_template_reports,
