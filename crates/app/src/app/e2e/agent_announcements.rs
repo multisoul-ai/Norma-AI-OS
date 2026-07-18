@@ -16,6 +16,10 @@ impl MultisoulApp {
         self.agent_announcement_playback.e2e_spoken.clone()
     }
 
+    pub fn queue_dialogue_agent_report_for_e2e(&mut self, report: impl Into<String>) {
+        self.dialogue.queue_agent_report(report.into());
+    }
+
     pub fn finish_agent_announcement_for_e2e(&mut self, cx: &mut Context<Self>) {
         let generation = self.agent_announcement_playback.generation;
         self.finish_agent_announcement_playback(generation, true, cx);

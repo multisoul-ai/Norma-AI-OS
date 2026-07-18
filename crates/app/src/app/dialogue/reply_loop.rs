@@ -20,7 +20,8 @@ static TEST_TURN_RUNNER: std::sync::Mutex<Option<TestTurnRunner>> = std::sync::M
 impl DialogueControlState {
     pub(crate) fn has_pending_spoken_reply(&self) -> bool {
         self.pending_voice_turn
-            || !self.queued_template_reports.is_empty()
+            || (self.session.phase() == DialoguePhase::Listening
+                && !self.queued_template_reports.is_empty())
             || self.reply_task.is_some()
             || self.speech_task.is_some()
     }

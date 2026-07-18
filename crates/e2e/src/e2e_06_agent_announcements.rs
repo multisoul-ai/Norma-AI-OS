@@ -137,3 +137,68 @@ fn e2e_06_agent_task_terminal_announcements_use_name_dedupe_and_shared_inset() {
         "连续两轮 Agent 播报都不得进入 Dialogue Speaking 状态"
     );
 }
+
+/// E2E-06-B：单次语音或文字委派遗留的模板回执不得阻塞后续 Agent 终态播报。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   voice interaction = single voice command，Dialogue phase = Idle
+///   queued template reports = 1 条派发回执；Idle 阶段无法消费该回执
+///   Agent profile = Codex，呼叫名 = Bella
+///   task events = 2：UserPromptSubmit + Stop
+///   expected announcements = 1：`Bella, Done`
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建 Bella Agent 并启用可控 e2e TTS，保持 Dialogue 为 Idle。
+///   2. 模拟自然语言委派完成后遗留 1 条模板回执。
+///   3. 注入可信任务开始与 Stop 终态，触发生产 Agent announcement 协调器。
+///   4. 读取可控音频出口和 Dialogue 状态。
+///
+/// 预期结果：
+///   - 正断言：即使存在 Idle 阶段无法消费的模板回执，也必须播报一次 `Bella, Done`。
+///   - 负断言：不得因模板回执永久等待而得到空播报列表。
+///   - 负断言：终态播报不得把 Dialogue 从 Idle 改成 Speaking。
+#[test]
+fn e2e_06_idle_delegation_report_does_not_block_terminal_announcement() {
+    let mut test_cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut test_cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("应创建单次委派播报 e2e workspace");
+    enter_canvas(&app, cx, workspace.path());
+    let node_id = create_codex_agent(&app, cx);
+    app.update(cx, |app, _cx| {
+        let node = app
+            .runtime
+            .document
+            .node_mut(node_id)
+            .expect("新建的 Bella Agent 节点必须仍存在");
+        let CanvasNodeKind::Agent(spec) = &mut node.kind else {
+            panic!("新建节点必须是 Agent 类型");
+        };
+        spec.alias = Some("Bella".to_string());
+        app.enable_agent_announcement_test_audio_for_e2e();
+        app.queue_dialogue_agent_report_for_e2e("任务已派发给 Bella");
+    });
+
+    app.update(cx, |app, cx| {
+        app.inject_runtime_event_for_e2e(
+            task_event(node_id, AgentTaskState::Thinking, "UserPromptSubmit"),
+            cx,
+        );
+        app.inject_runtime_event_for_e2e(task_event(node_id, AgentTaskState::Done, "Stop"), cx);
+    });
+
+    let spoken = app.read_with(cx, |app, _cx| app.spoken_agent_announcements_for_e2e());
+    let voice = app.read_with(cx, |app, _cx| app.voice_e2e_snapshot());
+    assert_eq!(
+        spoken,
+        vec!["Bella, Done".to_string()],
+        "Idle 阶段无法消费的派发回执不得阻塞可信终态播报，实际：{spoken:?}"
+    );
+    assert!(
+        !spoken.is_empty(),
+        "Agent 已可信完成时播报列表不得因遗留模板回执保持为空"
+    );
+    assert_eq!(
+        voice.dialogue_phase, "idle",
+        "Agent 终态播报不得把单次委派后的 Dialogue 改成 Speaking"
+    );
+}
