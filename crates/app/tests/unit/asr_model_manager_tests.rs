@@ -184,18 +184,20 @@ fn test_model_manager_install_failure_can_retry_with_fresh_progress() {
 /// ASR-DOWNLOAD-1：应用下载层必须流式写入临时文件并报告确定进度。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   response bytes = 70,000（64 KiB buffer + 4,464 bytes，确保至少两次读取）
-///   Content-Length = 70,000
+///   response bytes = 8.5 MiB = 8 × 1,048,576 + 524,288 = 8,912,896 bytes
+///   minimum reads  = 8,912,896 / 65,536 = 136 次（TCP 分段可能产生更多次读取）
+///   UI budget      = 4 MiB(1) + 8 MiB(1) + 非整步长尾段最终值(1) = callbacks <= 3
 ///   expected final path suffix = test-download-model.tar.bz2
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 本地 TcpListener 返回固定 Content-Length 与 70,000 字节响应体
+///   1. 本地 TcpListener 返回固定 Content-Length 与 8.5 MiB 响应体
 ///   2. download_model_archive 读取响应并回调累计进度
 ///   3. 下载完成后读取最终文件并检查 `.partial` 已消失
 ///
 /// 预期结果：
 ///   - 正断言：最终字节、最后进度和稳定文件名精确匹配
 ///   - 负断言：成功后不得遗留 `.partial` 文件
+///   - 负断言：至少 136 次底层读取不得产生同量级的 UI 进度回调
 #[test]
 fn test_model_download_streams_local_http_response_and_finalizes_atomically() {
     use std::io::{Read, Write};
@@ -203,7 +205,9 @@ fn test_model_download_streams_local_http_response_and_finalizes_atomically() {
 
     let listener = TcpListener::bind("127.0.0.1:0").expect("应绑定本地假 HTTP server");
     let address = listener.local_addr().expect("应读取假 server 地址");
-    let body = vec![0x5a_u8; 70_000];
+    // total = 8 MiB + 512 KiB = 8,912,896 bytes，故最终值不会落在 4 MiB 步长上。
+    let total = 8 * 1024 * 1024 + 512 * 1024;
+    let body = vec![0x5a_u8; total];
     let server_body = body.clone();
     let server = std::thread::spawn(move || {
         let (mut stream, _) = listener.accept().expect("假 server 应接受一个连接");
@@ -226,7 +230,7 @@ fn test_model_download_streams_local_http_response_and_finalizes_atomically() {
         asr::AsrArtifact::new(
             format!("http://{address}/model.tar.bz2"),
             "unused-by-download-layer",
-            70_000,
+            total as u64,
             vec!["tokens.txt"],
         ),
     );
@@ -243,7 +247,7 @@ fn test_model_download_streams_local_http_response_and_finalizes_atomically() {
     assert_eq!(downloaded, body, "最终归档必须逐字节匹配 HTTP 响应体");
     assert_eq!(
         progress.last().copied(),
-        Some((70_000, 70_000)),
+        Some((total as u64, total as u64)),
         "最后一次进度必须精确达到 Content-Length"
     );
     assert_eq!(
@@ -258,9 +262,11 @@ fn test_model_download_streams_local_http_response_and_finalizes_atomically() {
             .exists(),
         "成功下载后不得遗留 partial 文件"
     );
+    assert!(!progress.is_empty(), "8.5 MiB 下载必须至少报告一次最终进度");
     assert!(
-        progress.len() >= 2,
-        "70,000 字节响应超过 64 KiB buffer，应产生至少两次进度更新"
+        progress.len() <= 3,
+        "8.5 MiB 的至少 136 次底层读取最多允许 3 次 UI 进度回调，实际为 {} 次",
+        progress.len()
     );
 }
 

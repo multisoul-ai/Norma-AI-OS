@@ -5,7 +5,7 @@ use crate::settings::appearance::theme_appearance;
 use crate::settings::voice::{voice_settings, VoiceSettingsInputs, VoiceSettingsState};
 use crate::settings::wallpaper::{wallpaper_settings, WallpaperSettingsState};
 use crate::shortcuts::ShortcutSettingsState;
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
+use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, ScrollHandle};
 use ui::{Theme, ThemeId};
 
 mod hooks;
@@ -17,6 +17,7 @@ use self::keyboard::keyboard_settings;
 pub(super) struct VoiceSettingsContent<'a> {
     pub(super) state: &'a VoiceSettingsState,
     pub(super) inputs: &'a VoiceSettingsInputs,
+    pub(super) focus_spoken_replies: bool,
 }
 
 pub(super) fn settings_content(
@@ -25,6 +26,7 @@ pub(super) fn settings_content(
     panel: &SettingsPanelState,
     agent_definitions: &AgentDefinitionsState,
     voice: VoiceSettingsContent<'_>,
+    content_scroll: &ScrollHandle,
     wallpaper_state: &WallpaperSettingsState,
     shortcuts: &ShortcutSettingsState,
     cx: &mut Context<MultisoulApp>,
@@ -47,12 +49,20 @@ pub(super) fn settings_content(
                 .min_h(px(0.0))
                 .overflow_y_scroll()
                 .overflow_x_hidden()
+                .track_scroll(content_scroll)
                 .px(px(28.0))
                 .pb(px(40.0))
                 .child(match panel.active_section {
                     SettingsSection::Themes => theme_appearance(theme_id, theme, cx),
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
-                    SettingsSection::Voice => voice_settings(theme, voice.state, voice.inputs, cx),
+                    SettingsSection::Voice => voice_settings(
+                        theme,
+                        voice.state,
+                        voice.inputs,
+                        content_scroll,
+                        voice.focus_spoken_replies,
+                        cx,
+                    ),
                     SettingsSection::Agents => agents_settings(theme, agent_definitions, cx),
                     SettingsSection::Hooks => hooks_settings(theme, panel, cx),
                     SettingsSection::Wallpaper => wallpaper_settings(theme, wallpaper_state, cx),

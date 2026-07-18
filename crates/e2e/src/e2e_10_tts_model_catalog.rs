@@ -22,7 +22,7 @@ const SETTINGS_SCROLL_MARGIN_PX: f32 = 24.0;
 ///   first entry actions = 1（Install）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. headless 打开 Canvas 与 Voice Settings，并滚动到 Spoken Reply 目录；
+///   1. headless 打开 Canvas 与 Voice Settings，从 Ready 摘要点击 TTS Change 进入 Spoken Replies；
 ///   2. 读取 TTS 目录投影并查询第一个模型的安装按钮；
 ///   3. 保持未安装状态，不发起真实网络下载。
 ///
@@ -39,14 +39,15 @@ fn e2e_tts_catalog_exposes_explicit_install_without_auto_selection() {
     });
     enter_canvas(&app, cx, workspace.path());
     cx.simulate_keystrokes("cmd-,");
-    click(cx, "settings-section-voice");
+    click(&app, cx, "settings-section-voice");
     let snapshot = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
         snapshot.active_section, "Voice",
         "点击 Voice 导航后必须显示 Voice 内容，snapshot: {:?}",
         snapshot
     );
-    scroll_content_to_bottom(cx);
+    click(&app, cx, "voice-ready-change-tts");
+    settle(cx);
     assert_eq!(snapshot.tts_models.len(), 2, "TTS 目录应只包含两个精选模型");
     assert_eq!(
         snapshot.selected_tts_model_id, None,
@@ -99,7 +100,7 @@ fn e2e_tts_catalog_exposes_explicit_install_without_auto_selection() {
 ///   persisted settings IDs = 2（模型 ID + Voice ID）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 启用确定性假下载/假运行时校验，真实点击第一、第二个 Install；
+///   1. 通过 Ready 摘要的 TTS Change 进入 Spoken Replies，启用确定性假下载/假运行时校验，真实点击第一、第二个 Install；
 ///   2. 删除并重新安装未选中模型，再选择 Kokoro，验证默认 Voice 回退；
 ///   3. 试听 Bella 后切换到 Bella，检查试听代际失效、选择持久化及选中模型删除保护；
 ///   4. 删除未选中的 Matcha，注入进行中的假下载并点击 Cancel，确认没有 Ready 残留。
@@ -123,10 +124,11 @@ fn e2e_tts_model_lifecycle_persists_voice_and_isolates_preview() {
     });
     enter_canvas(&app, cx, temp.path());
     cx.simulate_keystrokes("cmd-,");
-    click(cx, "settings-section-voice");
-    scroll_content_to_bottom(cx);
+    click(&app, cx, "settings-section-voice");
+    click(&app, cx, "voice-ready-change-tts");
+    settle(cx);
 
-    click(cx, "settings-tts-install-0");
+    click(&app, cx, "settings-tts-install-0");
     settle(cx);
     let first = snapshot(&app, cx);
     assert_eq!(
@@ -144,7 +146,7 @@ fn e2e_tts_model_lifecycle_persists_voice_and_isolates_preview() {
         "单 Voice Matcha 首装后必须自动选择其 default Voice"
     );
 
-    click(cx, "settings-tts-install-1");
+    click(&app, cx, "settings-tts-install-1");
     settle(cx);
     let second = snapshot(&app, cx);
     assert_eq!(
@@ -160,7 +162,7 @@ fn e2e_tts_model_lifecycle_persists_voice_and_isolates_preview() {
         "未选中的 Ready Kokoro 模型必须可删除以回收磁盘空间"
     );
 
-    click(cx, "settings-tts-delete-1");
+    click(&app, cx, "settings-tts-delete-1");
     settle(cx);
     let deleted = snapshot(&app, cx);
     assert_eq!(
@@ -173,9 +175,9 @@ fn e2e_tts_model_lifecycle_persists_voice_and_isolates_preview() {
         "删除未选中 Kokoro 不得清除当前 Matcha zh-en 选择"
     );
 
-    click(cx, "settings-tts-install-1");
+    click(&app, cx, "settings-tts-install-1");
     settle(cx);
-    click(cx, "settings-tts-select-1");
+    click(&app, cx, "settings-tts-select-1");
     settle(cx);
     let switched = snapshot(&app, cx);
     assert_eq!(
@@ -193,7 +195,7 @@ fn e2e_tts_model_lifecycle_persists_voice_and_isolates_preview() {
         "已选中的模型必须在用户可见状态投影中禁用 Delete，避免产生无效选择"
     );
 
-    click(cx, "settings-tts-preview-1-1");
+    click(&app, cx, "settings-tts-preview-1-1");
     settle(cx);
     let previewing = snapshot(&app, cx);
     assert_eq!(
@@ -203,7 +205,7 @@ fn e2e_tts_model_lifecycle_persists_voice_and_isolates_preview() {
     );
 
     let preview_generation = previewing.tts_configuration_generation;
-    click(cx, "settings-tts-voice-1-1");
+    click(&app, cx, "settings-tts-voice-1-1");
     settle(cx);
     let bella = snapshot(&app, cx);
     assert_eq!(
@@ -231,19 +233,19 @@ fn e2e_tts_model_lifecycle_persists_voice_and_isolates_preview() {
         "后台持久化后 SQLite 必须保留 Bella Voice ID"
     );
 
-    click(cx, "settings-tts-delete-0");
+    click(&app, cx, "settings-tts-delete-0");
     settle(cx);
     app.update(cx, |app, cx| {
         app.set_fake_tts_transport_for_e2e(true, true, cx)
     });
-    click(cx, "settings-tts-install-0");
+    click(&app, cx, "settings-tts-install-0");
     settle(cx);
     let cancelling = snapshot(&app, cx);
     assert_eq!(
         cancelling.tts_models[0].action, "cancel",
         "下载进行中必须公开 Cancel 控件，而不能显示 Ready 或 Select"
     );
-    click(cx, "settings-tts-cancel-0");
+    click(&app, cx, "settings-tts-cancel-0");
     settle(cx);
     app.update(cx, |app, cx| {
         app.set_fake_tts_transport_for_e2e(false, false, cx)
@@ -273,9 +275,11 @@ fn settle(cx: &mut VisualTestContext) {
     }
 }
 
-fn click(cx: &mut VisualTestContext, selector: &'static str) {
+fn click(app: &gpui::Entity<MultisoulApp>, cx: &mut VisualTestContext, selector: &'static str) {
     cx.run_until_parked();
-    scroll_settings_target_into_view(cx, selector);
+    scroll_settings_target_into_view(app, cx, selector);
+    app.update(cx, |_app, cx| cx.notify());
+    cx.run_until_parked();
     let bounds = cx
         .debug_bounds(selector)
         .unwrap_or_else(|| panic!("{selector} 应可点击"));
@@ -284,25 +288,14 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
     cx.run_until_parked();
 }
 
-fn scroll_content_to_bottom(cx: &mut VisualTestContext) {
-    // Spoken Reply 位于 Voice 页最后一组；每次滚动 650px 与现有 Voice e2e 的稳定步长一致。
-    // 7 × 650 = 4550px，超过完整内容的最大预期高度，确保滚动到末尾而不依赖单次大 delta。
-    for _ in 0..7 {
-        let bounds = cx
-            .debug_bounds("settings-content-scroll")
-            .expect("Voice Settings 内容区域应存在，才能滚动到 Spoken Reply 目录");
-        cx.simulate_mouse_move(bounds.center(), None, Modifiers::none());
-        cx.simulate_event(ScrollWheelEvent {
-            position: bounds.center(),
-            delta: ScrollDelta::Pixels(point(px(0.0), px(-650.0))),
-            ..Default::default()
-        });
-        cx.run_until_parked();
-    }
-}
-
-fn scroll_settings_target_into_view(cx: &mut VisualTestContext, selector: &'static str) {
+fn scroll_settings_target_into_view(
+    app: &gpui::Entity<MultisoulApp>,
+    cx: &mut VisualTestContext,
+    selector: &'static str,
+) {
     for _ in 0..SETTINGS_SCROLL_ATTEMPTS {
+        app.update(cx, |_app, cx| cx.notify());
+        cx.run_until_parked();
         let Some(content) = cx.debug_bounds("settings-content-scroll") else {
             return;
         };

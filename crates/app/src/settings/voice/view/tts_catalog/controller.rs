@@ -97,7 +97,7 @@ impl MultisoulApp {
             .spawn(async move {
                 let outcome =
                     install_tts_package(&descriptor, &root, &cancelled, |downloaded, total| {
-                        let _ = tx.try_send(TtsInstallEvent::Progress(downloaded, total));
+                        let _ = tx.send_blocking(TtsInstallEvent::Progress(downloaded, total));
                     })
                     .await;
                 let _ = tx.send_blocking(TtsInstallEvent::Finished(outcome));

@@ -1,4 +1,4 @@
-use super::VoiceSettingsState;
+use super::{VoiceSettingsState, VoiceSetupDestination};
 use crate::settings::voice::{
     evaluate_voice_readiness, AsrModelInstallState, TtsModelInstallState, VoiceEntryState,
     VoiceReadinessInputs, VoiceRequirement, VoiceRequirementState,
@@ -48,7 +48,7 @@ impl VoiceSettingsState {
             return false;
         }
         self.setup_was_completed = true;
-        self.setup_models_expanded = false;
+        self.setup_destination = VoiceSetupDestination::Overview;
         self.saved.setup_completed = Some(true);
         self.persist_string(super::KEY_VOICE_SETUP_COMPLETED, "true");
         true

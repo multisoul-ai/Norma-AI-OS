@@ -1,22 +1,23 @@
 use super::*;
 
-/// VS-D1：Setup 模型目录与 Ready Advanced 必须是两个互不影响的展开状态。
+/// VS-D1：Setup 的语义目的地与 Ready Advanced 必须互不影响。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   初始 Setup 展开状态 = false
+///   Setup 目的地 = Overview(1) / AsrModels(1) / SpokenReplies(1)
 ///   初始 Advanced 展开状态 = false
-///   两次操作分别只切换其中 1 个布尔状态
+///   Advanced 展开操作 = 1 次
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 构造默认 VoiceSettingsState → 两个区域都折叠
-///   2. 展开 Setup 模型目录 → Advanced 仍折叠
-///   3. 展开 Ready Advanced → Setup 模型目录保持展开
-///   4. 结束 Setup review → Setup 模型目录恢复折叠，Advanced 状态不被改写
+///   2. 切换至 AsrModels → Advanced 仍折叠
+///   3. 展开 Ready Advanced → Setup 仍指向 AsrModels
+///   4. 切换至 SpokenReplies → ASR 目录折叠，TTS 焦点成立
+///   5. 结束 Setup review → 目的地恢复 Overview，Advanced 状态不被改写
 ///
 /// 预期结果：
-///   - 正断言：每个区域都能独立展开
+///   - 正断言：ASR 和 Spoken Replies 都能成为明确的 Setup 目的地
 ///   - 负断言：展开 Setup 不得连带展开 Advanced
-///   - 负断言：离开 Setup 后不得残留 Setup 模型目录展开状态
+///   - 负断言：Spoken Replies 目的地不得同时展开 ASR；离开 Setup 后不得残留目的地
 #[test]
 fn test_setup_model_disclosure_is_independent_from_ready_advanced() {
     let mut state = VoiceSettingsState::from_sources(
@@ -48,6 +49,16 @@ fn test_setup_model_disclosure_is_independent_from_ready_advanced() {
     assert!(
         state.setup_models_expanded(),
         "展开 Ready Advanced 不得关闭已展开的 Setup 模型目录"
+    );
+
+    state.open_setup_destination(VoiceSetupDestination::SpokenReplies);
+    assert!(
+        state.setup_focuses_spoken_replies(),
+        "Spoken Replies Change 必须记录明确的 TTS 目的地"
+    );
+    assert!(
+        !state.setup_models_expanded(),
+        "Spoken Replies 成为目的地时不得同时展开 ASR 目录"
     );
 
     state.set_reviewing_setup(false);

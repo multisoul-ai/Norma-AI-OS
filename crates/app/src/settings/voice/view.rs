@@ -6,10 +6,12 @@ use self::provider::{agent_provider_advanced_rows, agent_provider_group};
 use self::ready::voice_ready_overview;
 use self::setup::voice_setup;
 use self::spoken_reply::spoken_reply_group;
-use self::tts_catalog::tts_catalog_row;
-use super::state::{VoiceSettingsField, VoiceSettingsState};
+use super::state::{VoiceSettingsField, VoiceSettingsState, VoiceSetupDestination};
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, SharedString, Window};
+use gpui::{
+    div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, ScrollHandle, SharedString,
+    Window,
+};
 use ui::Theme;
 
 mod editable;
@@ -26,10 +28,20 @@ pub(crate) fn voice_settings(
     theme: Theme,
     state: &VoiceSettingsState,
     inputs: &VoiceSettingsInputs,
+    content_scroll: &ScrollHandle,
+    focus_spoken_replies: bool,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     if !matches!(state.readiness(), super::VoiceEntryState::Ready) || state.reviewing_setup() {
-        return voice_setup(theme, state, inputs, cx).children(status_message(theme, state));
+        return voice_setup(
+            theme,
+            state,
+            inputs,
+            content_scroll,
+            focus_spoken_replies,
+            cx,
+        )
+        .children(status_message(theme, state));
     }
     div()
         .w_full()
@@ -66,14 +78,32 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    pub(crate) fn on_voice_manage_models(
+    pub(crate) fn on_voice_manage_asr_models(
         &mut self,
         _: &ClickEvent,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         self.voice_settings.set_reviewing_setup(true);
-        self.voice_settings.set_setup_models_expanded(true);
+        self.voice_settings
+            .open_setup_destination(VoiceSetupDestination::AsrModels);
+        self.settings_viewport
+            .content_scroll
+            .set_offset(gpui::Point::default());
+        cx.notify();
+    }
+
+    pub(crate) fn on_voice_manage_tts_models(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings.set_reviewing_setup(true);
+        self.voice_settings
+            .open_setup_destination(VoiceSetupDestination::SpokenReplies);
+        self.settings_viewport.pending_voice_setup_scroll =
+            Some(VoiceSetupDestination::SpokenReplies);
         cx.notify();
     }
 
@@ -222,8 +252,8 @@ fn advanced_group(
         .child(
             setting_row(
                 theme,
-                "Models, provider & diagnostics",
-                "Manage local catalogs, connection details and troubleshooting",
+                "Recognition models, provider & diagnostics",
+                "Manage the ASR catalog, connection details and troubleshooting",
             )
             .child(
                 action_button(
@@ -241,7 +271,6 @@ fn advanced_group(
                 .child(model_catalog_row(theme, state, cx))
                 .child(agent_provider_group(theme, state, inputs, cx))
                 .child(agent_provider_advanced_rows(theme, state, inputs, cx))
-                .child(tts_catalog_row(theme, state, cx))
                 .child(trace_row(theme, state, cx))
         })
 }

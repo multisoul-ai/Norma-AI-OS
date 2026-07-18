@@ -1,5 +1,4 @@
 use super::super::model_catalog::model_catalog_row;
-use super::super::tts_catalog::tts_catalog_row;
 use super::super::{action_button, with_alpha};
 use super::components::compact_setup_row;
 use crate::app::MultisoulApp;
@@ -118,8 +117,8 @@ pub(super) fn alternative_models_detail(
         .gap(px(12.0))
         .child(compact_setup_row(
             theme,
-            "Prefer another local model?",
-            "Choose any installed ASR, TTS model or voice without leaving Voice Setup",
+            "Prefer another recognition model?",
+            "Choose any installed ASR model without leaving Voice Setup",
             action_button(
                 theme,
                 if expanded {
@@ -142,8 +141,7 @@ pub(super) fn alternative_models_detail(
                     .flex()
                     .flex_col()
                     .gap(px(14.0))
-                    .child(model_catalog_row(theme, state, cx))
-                    .child(tts_catalog_row(theme, state, cx)),
+                    .child(model_catalog_row(theme, state, cx)),
             )
         })
 }

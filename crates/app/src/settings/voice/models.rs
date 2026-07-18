@@ -222,6 +222,7 @@ fn download_file(
         let mut output = fs::File::create(&partial_path)
             .map_err(|error| format!("could not create partial model archive: {error}"))?;
         let mut downloaded = 0_u64;
+        let mut progress_gate = super::download_progress::DownloadProgressGate::new(total);
         let mut buffer = [0_u8; 64 * 1024];
         loop {
             if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
@@ -237,7 +238,12 @@ fn download_file(
                 .write_all(&buffer[..count])
                 .map_err(|error| format!("could not write model archive: {error}"))?;
             downloaded += count as u64;
-            progress(downloaded, total);
+            if progress_gate.should_publish(downloaded) {
+                progress(downloaded.min(total), total);
+            }
+        }
+        if progress_gate.should_publish_final(downloaded) {
+            progress(downloaded.min(total), total);
         }
         output
             .sync_all()

@@ -8,7 +8,7 @@ use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::agents::AgentDefinitionsState;
-use crate::settings::panel::SettingsPanelState;
+use crate::settings::panel::{SettingsPanelState, SettingsViewportState};
 use crate::settings::voice::VoiceSettingsInputs;
 use crate::settings::wallpaper::WallpaperSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
@@ -53,6 +53,7 @@ impl MultisoulApp {
             master_layout: MasterLayoutState::default(),
             persistence: PersistenceScheduler::default(),
             settings_panel: SettingsPanelState::default(),
+            settings_viewport: SettingsViewportState::default(),
             agent_definitions: AgentDefinitionsState::default(),
             voice_settings,
             voice_settings_inputs,

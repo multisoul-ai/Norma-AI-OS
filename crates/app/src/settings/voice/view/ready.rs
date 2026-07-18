@@ -62,11 +62,11 @@ fn ready_summary(theme: Theme, cx: &mut Context<MultisoulApp>) -> Stateful<Div> 
     let change_asr = action_button(theme, "Change", theme.accent_blue)
         .id("voice-ready-change-asr")
         .debug_selector(|| "voice-ready-change-asr".to_string())
-        .on_click(cx.listener(MultisoulApp::on_voice_manage_models));
+        .on_click(cx.listener(MultisoulApp::on_voice_manage_asr_models));
     let change_tts = action_button(theme, "Change", theme.accent_blue)
         .id("voice-ready-change-tts")
         .debug_selector(|| "voice-ready-change-tts".to_string())
-        .on_click(cx.listener(MultisoulApp::on_voice_manage_models));
+        .on_click(cx.listener(MultisoulApp::on_voice_manage_tts_models));
     div()
         .id("voice-ready-summary")
         .debug_selector(|| "voice-ready-summary".to_string())

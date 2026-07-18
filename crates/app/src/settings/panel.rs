@@ -1,5 +1,5 @@
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, KeyDownEvent, MouseButton, Window};
+use gpui::{div, prelude::*, px, rgba, Context, KeyDownEvent, MouseButton, ScrollHandle, Window};
 
 #[path = "content.rs"]
 mod content;
@@ -132,6 +132,12 @@ pub(crate) struct SettingsPanelState {
     pub(crate) opencode_hook_status: HookInstallStatus,
 }
 
+#[derive(Debug, Default)]
+pub(crate) struct SettingsViewportState {
+    pub(crate) content_scroll: ScrollHandle,
+    pub(crate) pending_voice_setup_scroll: Option<crate::settings::voice::VoiceSetupDestination>,
+}
+
 impl Default for SettingsPanelState {
     fn default() -> Self {
         Self {
@@ -216,6 +222,10 @@ impl MultisoulApp {
             layout.sidebar_width,
             cx,
         );
+        let focus_spoken_replies = matches!(
+            self.settings_viewport.pending_voice_setup_scroll.take(),
+            Some(crate::settings::voice::VoiceSetupDestination::SpokenReplies)
+        );
         let content = settings_content(
             theme,
             self.theme_id,
@@ -224,7 +234,9 @@ impl MultisoulApp {
             VoiceSettingsContent {
                 state: &self.voice_settings,
                 inputs: &self.voice_settings_inputs,
+                focus_spoken_replies,
             },
+            &self.settings_viewport.content_scroll,
             &self.wallpaper_settings,
             &self.shortcuts,
             cx,

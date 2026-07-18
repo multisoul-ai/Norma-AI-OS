@@ -18,7 +18,7 @@ mod provider_values;
 mod readiness_state;
 mod values;
 use credentials::CredentialWriteRollback;
-pub(crate) use model_selection::resolve_available_asr_model;
+pub(crate) use model_selection::{resolve_available_asr_model, VoiceSetupDestination};
 pub(crate) use persistence::PendingVoiceSettingWrite;
 pub(crate) use provider_discovery::ProviderDiscoveryStatus;
 pub(crate) use provider_values::AgentProviderKind;
@@ -68,7 +68,7 @@ pub(crate) struct VoiceSettingsState {
     readiness_override: Option<super::VoiceEntryState>,
     reviewing_setup: bool,
     input_device_picker_expanded: bool,
-    setup_models_expanded: bool,
+    setup_destination: VoiceSetupDestination,
     advanced_expanded: bool,
 }
 impl VoiceSettingsState {
@@ -145,7 +145,7 @@ impl VoiceSettingsState {
             readiness_override: None,
             reviewing_setup: false,
             input_device_picker_expanded: false,
-            setup_models_expanded: false,
+            setup_destination: VoiceSetupDestination::Overview,
             advanced_expanded: false,
         }
     }
@@ -165,7 +165,7 @@ impl VoiceSettingsState {
     pub(crate) fn set_reviewing_setup(&mut self, reviewing: bool) {
         self.reviewing_setup = reviewing;
         if !reviewing {
-            self.setup_models_expanded = false;
+            self.setup_destination = VoiceSetupDestination::Overview;
         }
     }
     pub(crate) fn input_devices(&self) -> &[AudioInputDevice] {

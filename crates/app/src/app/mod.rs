@@ -19,7 +19,7 @@ use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::agents::AgentDefinitionsState;
-use crate::settings::panel::SettingsPanelState;
+use crate::settings::panel::{SettingsPanelState, SettingsViewportState};
 use crate::settings::voice::{VoiceSettingsInputs, VoiceSettingsState};
 use crate::settings::wallpaper::WallpaperSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
@@ -108,6 +108,7 @@ pub struct MultisoulApp {
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) persistence: PersistenceScheduler,
     pub(crate) settings_panel: SettingsPanelState,
+    pub(crate) settings_viewport: SettingsViewportState,
     pub(crate) agent_definitions: AgentDefinitionsState,
     pub(crate) voice_settings: VoiceSettingsState,
     pub(crate) voice_settings_inputs: VoiceSettingsInputs,
@@ -141,7 +142,6 @@ pub struct MultisoulApp {
     voice_window_inset: VoiceWindowInset,
     voice_window_inset_window_visible: bool,
 }
-
 impl MultisoulApp {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let agent_hook_server = AgentHookServer::start();

@@ -248,8 +248,8 @@ impl MultisoulApp {
                     &model_root,
                     &cancelled,
                     |downloaded, total| {
-                        let _ =
-                            event_tx.try_send(ModelInstallEvent::Progress { downloaded, total });
+                        let _ = event_tx
+                            .send_blocking(ModelInstallEvent::Progress { downloaded, total });
                     },
                 );
                 let outcome = match result {

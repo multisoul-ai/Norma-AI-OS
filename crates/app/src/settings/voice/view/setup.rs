@@ -1,9 +1,11 @@
 use super::provider::agent_provider_setup_group;
-use super::{action_button, setting_row, with_alpha, VoiceSettingsInputs};
+use super::tts_catalog::tts_catalog_row;
+use super::{action_button, with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
 use crate::settings::voice::{VoiceRequirement, VoiceRequirementState, VoiceSettingsState};
 use gpui::{
-    div, prelude::*, px, relative, rgba, ClickEvent, Context, Div, FontWeight, Stateful, Window,
+    div, point, prelude::*, px, relative, rgba, ClickEvent, Context, Div, FontWeight, ScrollHandle,
+    Stateful, Window,
 };
 use ui::Theme;
 
@@ -19,6 +21,8 @@ pub(super) fn voice_setup(
     theme: Theme,
     state: &VoiceSettingsState,
     inputs: &VoiceSettingsInputs,
+    content_scroll: &ScrollHandle,
+    focus_spoken_replies: bool,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let microphone = state.requirement_state(VoiceRequirement::Microphone);
@@ -85,7 +89,7 @@ pub(super) fn voice_setup(
                     "Spoken Replies",
                     "Install the required local voice so Norma can reply out loud.",
                     tts,
-                    spoken_replies_detail(theme, tts),
+                    spoken_replies_detail(theme, state, content_scroll, focus_spoken_replies, cx),
                 )),
         )
         .child(finish_setup_button(theme, state.reviewing_setup(), cx));
@@ -317,28 +321,36 @@ fn microphone_detail(
     )
 }
 
-fn spoken_replies_detail(theme: Theme, state: VoiceRequirementState) -> Div {
-    setting_row(
-        theme,
-        "Matcha Chinese-English · Default Bilingual Voice",
-        "Required for spoken answers and Agent completion announcements.",
-    )
-    .child(
-        div()
-            .flex()
-            .items_center()
-            .gap(px(7.0))
-            .text_size(px(12.0))
-            .text_color(rgba(if state == VoiceRequirementState::Ready {
-                theme.accent_green
-            } else {
-                theme.text_secondary
-            }))
-            .child(if state == VoiceRequirementState::Ready {
-                "●  Voice installed and selected"
-            } else {
-                "○  Included in the recommended package above"
-            }),
+fn spoken_replies_detail(
+    theme: Theme,
+    state: &VoiceSettingsState,
+    content_scroll: &ScrollHandle,
+    focus_spoken_replies: bool,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
+    let mut models = div().w_full().child(tts_catalog_row(theme, state, cx));
+    if focus_spoken_replies {
+        let scroll = content_scroll.clone();
+        models = models.on_children_prepainted(move |children, window, _cx| {
+            let Some(target) = children.first() else {
+                return;
+            };
+            let viewport = scroll.bounds();
+            let current = scroll.offset();
+            let unscrolled_target_top = target.top() - current.y;
+            let desired_y = (viewport.top() + px(16.0) - unscrolled_target_top)
+                .clamp(-scroll.max_offset().height, px(0.0));
+            if f32::from(current.y - desired_y).abs() <= 0.5 {
+                return;
+            }
+            scroll.set_offset(point(current.x, desired_y));
+            window.request_animation_frame();
+        });
+    }
+    div().w_full().child(
+        models
+            .id("voice-setup-spoken-replies-models")
+            .debug_selector(|| "voice-setup-spoken-replies-models".to_string()),
     )
 }
 
