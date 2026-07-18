@@ -68,55 +68,36 @@ fn settings_state_requires_all_four_runtime_capabilities() {
     );
 }
 
-/// 推荐模型包分阶段完成：已完成 ASR 的字节仍必须计入 TTS 下载期间的总进度
+/// 独立模型安装进度：尚未选中的 TTS 下载也必须让底部入口显示 SettingUp
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   ASR total = Zipformer catalog archive_bytes
-///   ASR completed = ASR total（状态 Ready）
 ///   TTS total = Matcha catalog download_bytes
 ///   TTS completed = TTS total / 2
-///   expected% = (ASR total + TTS total / 2) * 100 / (ASR total + TTS total)
+///   expected% = (TTS total / 2) * 100 / TTS total = 50%
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 选中推荐 ASR、TTS 和默认音色
-///   2. 将 ASR 标记 Ready，将 TTS 标记为下载一半
-///   3. 从完整推荐包固定总字节计算入口进度
+///   1. 保持 ASR、TTS 都未选择
+///   2. 从 Spoken Replies 独立启动 Matcha 下载并推进到一半
+///   3. 从所有活跃模型任务计算入口进度
 ///
 /// 预期结果：
-///   - 正断言：SettingUp 百分比包含已经完成的 ASR 字节
-///   - 负断言：不得退化成只看剩余 TTS 下载的 50%
+///   - 正断言：入口显示 SettingUp 50%
+///   - 负断言：不得因为模型尚未选中而退回 SetUp
 #[test]
-fn completed_asr_bytes_remain_in_recommended_package_progress() {
+fn unselected_independent_tts_install_projects_bottom_entry_progress() {
     let mut state = VoiceSettingsState::from_sources(
         SavedVoiceSettings::default(),
         EnvVoiceSettings::default(),
     );
-    state.set_microphone_requirement(VoiceRequirementState::Ready);
-    state.set_provider_requirement(VoiceRequirementState::Ready);
-    let asr_id = asr::AsrModelId::parse(asr::ZIPFORMER_BILINGUAL_MODEL_ID)
-        .expect("built-in Zipformer model id should parse");
     let tts_id = tts::TtsModelId::parse(tts::MATCHA_ZH_EN_MODEL_ID)
         .expect("built-in Matcha model id should parse");
-    let voice_id =
-        tts::TtsVoiceId::parse("default").expect("built-in bilingual voice id should parse");
-    let asr_catalog = asr::builtin_model_catalog();
     let tts_catalog = tts::builtin_model_catalog();
-    let asr_total = asr_catalog
-        .find(&asr_id)
-        .expect("recommended ASR must exist in catalog")
-        .artifact()
-        .archive_bytes();
     let tts_total = tts_catalog
         .find(&tts_id)
-        .expect("recommended TTS must exist in catalog")
+        .expect("built-in Matcha TTS must exist in catalog")
         .package()
         .download_bytes();
-    // completed = asr_total + tts_total / 2; package_total = asr_total + tts_total.
-    let expected_percent = ((asr_total + tts_total / 2) * 100 / (asr_total + tts_total)) as u8;
-
-    state.select_asr_model(Some(asr_id.clone()));
-    state.model_manager_mut().mark_ready(&asr_id);
-    state.select_tts_model_and_voice(Some(tts_id.clone()), Some(voice_id));
+    // completed = tts_total / 2; active_total = tts_total; percent = 50%.
     state
         .tts_model_manager_mut()
         .begin_install(&tts_id, tts_total);
@@ -126,14 +107,14 @@ fn completed_asr_bytes_remain_in_recommended_package_progress() {
 
     assert_eq!(
         state.readiness(),
-        VoiceEntryState::SettingUp {
-            percent: expected_percent,
-        },
-        "recommended package progress must retain completed ASR bytes while TTS downloads"
+        VoiceEntryState::SettingUp { percent: 50 },
+        "an active independent TTS download must project its exact progress into the bottom entry"
     );
     assert_ne!(
         state.readiness(),
-        VoiceEntryState::SettingUp { percent: 50 },
-        "TTS-only progress must not replace the full recommended package progress"
+        VoiceEntryState::SetUp {
+            first_incomplete: VoiceRequirement::Microphone,
+        },
+        "an unselected model download must not be hidden behind the generic setup entry"
     );
 }

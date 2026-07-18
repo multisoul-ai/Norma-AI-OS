@@ -67,6 +67,10 @@ fn ready_summary(theme: Theme, cx: &mut Context<MultisoulApp>) -> Stateful<Div> 
         .id("voice-ready-change-tts")
         .debug_selector(|| "voice-ready-change-tts".to_string())
         .on_click(cx.listener(MultisoulApp::on_voice_manage_tts_models));
+    let change_provider = action_button(theme, "Change", theme.accent_blue)
+        .id("voice-ready-change-provider")
+        .debug_selector(|| "voice-ready-change-provider".to_string())
+        .on_click(cx.listener(MultisoulApp::on_voice_manage_provider));
     div()
         .id("voice-ready-summary")
         .debug_selector(|| "voice-ready-summary".to_string())
@@ -93,7 +97,7 @@ fn ready_summary(theme: Theme, cx: &mut Context<MultisoulApp>) -> Stateful<Div> 
             "AI Connection",
             "●  Connected",
             theme.accent_green,
-            None,
+            Some(change_provider),
         ))
         .child(summary_row(
             theme,

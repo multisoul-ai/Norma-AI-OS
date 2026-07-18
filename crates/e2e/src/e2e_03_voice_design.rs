@@ -20,8 +20,8 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///   5. 确认 TTS 目录归属 Spoken Replies，再点击“选择其他识别模型”展开 ASR 目录
 ///
 /// 预期结果：
-///   - 正断言：Voice Settings 外壳、三步、推荐包、Spoken Replies TTS 目录均可见
-///   - 负断言：Setup 不得脱离 Settings 外壳，ASR 目录在用户主动展开前不得铺满页面
+///   - 正断言：Voice Settings 外壳、三步、Spoken Replies TTS 目录均可见
+///   - 负断言：Setup 不得脱离 Settings 外壳；644 MB 推荐包卡片不得存在；ASR 目录在用户主动展开前不得铺满页面
 #[test]
 fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
     let mut cx = TestAppContext::single();
@@ -62,8 +62,8 @@ fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
         "Speech Recognition step must expose its required microphone prerequisite"
     );
     assert!(
-        cx.debug_bounds("voice-setup-install-recommended").is_some(),
-        "Speech Recognition step must expose the recommended local model package"
+        cx.debug_bounds("voice-setup-install-recommended").is_none(),
+        "Voice Setup must not render the removed 644 MB recommended package card"
     );
     assert!(
         cx.debug_bounds("voice-setup-alternative-models-toggle")
@@ -127,7 +127,7 @@ fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
 ///   Settings clicks = toolbar(1) + Voice navigation(1) = 2
 ///   summary rows = recognition(1) + connection(1) + spoken replies(1) = 3
 ///   collapsed microphone picker = 1
-///   direct model actions = ASR Change(1) + TTS Change(1) = 2
+///   direct configuration actions = ASR Change(1) + Provider Change(1) + TTS Change(1) = 3
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建默认 Ready App 并进入 Canvas
@@ -183,6 +183,10 @@ fn ready_voice_page_matches_the_approved_summary_structure() {
     assert!(
         cx.debug_bounds("voice-ready-change-tts").is_some(),
         "ready summary must expose a direct Change action for the selected TTS model and voice"
+    );
+    assert!(
+        cx.debug_bounds("voice-ready-change-provider").is_some(),
+        "ready summary must align AI Connection with a direct Change action"
     );
     assert!(
         cx.debug_bounds("voice-review-setup").is_some(),
@@ -307,5 +311,69 @@ fn ready_tts_change_routes_to_spoken_replies_without_expanding_asr() {
         app.update(cx, |app, _cx| app.voice_e2e_snapshot().phase),
         "recording",
         "TTS Change must not capture microphone input"
+    );
+}
+
+/// Voice Ready 的 AI Connection Change：必须进入同一 Setup 并定位到 Provider。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   harness readiness = Ready（4 / 4 hard gates）
+///   Settings clicks = toolbar(1) + Voice navigation(1) = 2
+///   Provider Change clicks = 1
+///   expected expanded ASR catalogs = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建独立 Ready App 并进入 Settings → Voice
+///   2. 点击 AI Connection 行的 Change
+///   3. 强制绘制滚动后视口，检查 Provider Connect 操作的绘制边界
+///   4. 检查 ASR 目录折叠且语音仍为 idle
+///
+/// 预期结果：
+///   - 正断言：AI Connection 的 Connect 操作位于 Settings 视口内
+///   - 负断言：Provider Change 不得展开 ASR 目录，也不得开始录音
+#[test]
+fn ready_provider_change_routes_to_visible_ai_connection() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("Provider Change workspace should create");
+    enter_canvas(&app, cx, workspace.path());
+
+    for selector in ["toolbar-settings", "settings-section-voice"] {
+        let bounds = cx
+            .debug_bounds(selector)
+            .unwrap_or_else(|| panic!("Provider Change test must render {selector}"));
+        cx.simulate_mouse_move(bounds.center(), None, Modifiers::none());
+        cx.simulate_click(bounds.center(), Modifiers::none());
+        cx.run_until_parked();
+    }
+    let change_provider = cx
+        .debug_bounds("voice-ready-change-provider")
+        .expect("ready summary must keep the Provider Change action clickable");
+    cx.simulate_mouse_move(change_provider.center(), None, Modifiers::none());
+    cx.simulate_click(change_provider.center(), Modifiers::none());
+    for _ in 0..3 {
+        cx.run_until_parked();
+    }
+    app.update(cx, |_app, cx| cx.notify());
+    cx.run_until_parked();
+
+    let viewport = cx
+        .debug_bounds("settings-content-scroll")
+        .expect("Provider Change must keep the shared Settings scroll viewport");
+    let connect = cx
+        .debug_bounds("voice-setup-provider-connect")
+        .expect("Provider Change must render the AI Connection action");
+    assert!(
+        connect.center().y >= viewport.top() && connect.center().y <= viewport.bottom(),
+        "Provider Change must scroll AI Connection into the Settings viewport; viewport={viewport:?}, connect={connect:?}"
+    );
+    assert!(
+        cx.debug_bounds("voice-setup-alternative-models").is_none(),
+        "Provider Change must not expand the unrelated ASR model catalog"
+    );
+    assert_eq!(
+        app.update(cx, |app, _cx| app.voice_e2e_snapshot().phase),
+        "idle",
+        "Provider Change must keep Voice idle instead of capturing microphone input"
     );
 }

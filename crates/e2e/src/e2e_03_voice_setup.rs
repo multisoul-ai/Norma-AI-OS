@@ -181,7 +181,7 @@ fn ready_bottom_voice_entry_clicks_toggle_one_shot_recording() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 从 fresh Voice state 用 `⌘E` 打开 Setup
-///   2. 确认 Speech Recognition 内的 Microphone 与推荐安装操作可见
+///   2. 确认 Speech Recognition 内的 Microphone 与模型目录入口可见
 ///   3. 检查 AI Connection 的 Provider 连接控件同时可见
 ///   4. 检查入口仍保持 set_up 且没有启动录音
 ///
@@ -204,8 +204,13 @@ fn setup_cards_allow_out_of_order_provider_configuration() {
         "fresh Setup must show microphone permission inside Speech Recognition"
     );
     assert!(
-        cx.debug_bounds("voice-setup-install-recommended").is_some(),
-        "fresh Setup must show the recommended model package without expanding a card"
+        cx.debug_bounds("voice-setup-alternative-models-toggle")
+            .is_some(),
+        "fresh Setup must expose the recognition model catalog entry"
+    );
+    assert!(
+        cx.debug_bounds("voice-setup-install-recommended").is_none(),
+        "fresh Setup must not restore the removed recommended package card"
     );
     assert!(
         cx.debug_bounds("voice-setup-provider-connect").is_some(),
@@ -303,92 +308,7 @@ fn ready_voice_page_can_review_setup_and_return() {
     );
 }
 
-/// 推荐语音包一键安装：同时安装并选择 Zipformer、Matcha 与默认双语音色
-///
-/// 数据构造（含关键数值的推导过程）：
-///   ASR archive = 511,274,346 bytes ≈ 511 MB
-///   TTS package = 79,033,838 + 53,882,848 = 132,916,686 bytes ≈ 133 MB
-///   推荐包总量 = 511,274,346 + 132,916,686 = 644,191,032 bytes ≈ 644 MB
-///   麦克风和 Provider 通过稳定测试缝预置为 Ready
-///   model root = workspace/models（与用户模型和其他测试隔离）
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 启用 ASR/TTS 假传输，避免测试依赖公网与真实模型文件
-///   2. 通过 cmd-e 打开 Voice Setup，并注入麦克风、Provider 已就绪
-///   3. 真实点击 Install Recommended
-///   4. 等待两个后台安装任务完成和 TTS 默认音色提交
-///
-/// 预期结果：
-///   - 正断言：选中推荐 ASR、推荐 TTS 和 default 音色，Voice 进入 ready
-///   - 负断言：最终入口不得仍为 set_up 或 setting_up
-#[test]
-fn recommended_package_installs_and_selects_all_required_local_models() {
-    let _install_guard = VoiceModelInstallE2eGuard::acquire();
-    let mut cx = TestAppContext::single();
-    let (app, cx) = make_app(&mut cx, echo_factory());
-    let workspace = tempfile::TempDir::new().expect("Voice setup workspace should create");
-    enter_canvas(&app, cx, workspace.path());
-    app.update(cx, |app, _cx| app.reset_voice_setup_for_e2e());
-    app.update(cx, |app, cx| {
-        app.set_voice_model_root_for_e2e(workspace.path().join("models"), cx)
-    });
-    cx.run_until_parked();
-    app.update(cx, |app, _cx| {
-        app.set_voice_setup_install_fakes_for_e2e(true)
-    });
-
-    cx.simulate_keystrokes("cmd-e");
-    cx.run_until_parked();
-    app.update(cx, |app, _cx| {
-        app.set_voice_setup_requirements_for_e2e(true, true)
-    });
-    cx.run_until_parked();
-    let install = cx
-        .debug_bounds("voice-setup-install-recommended")
-        .expect("ASR setup step must expose the recommended package action");
-    cx.simulate_mouse_move(install.center(), None, Modifiers::none());
-    cx.simulate_click(install.center(), Modifiers::none());
-
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
-    let final_snapshot = loop {
-        cx.run_until_parked();
-        let voice = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
-        if voice.entry_state == "ready" || std::time::Instant::now() >= deadline {
-            break app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
-        }
-        std::thread::sleep(std::time::Duration::from_millis(5));
-    };
-    let final_voice = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
-    app.update(cx, |app, _cx| {
-        app.set_voice_setup_install_fakes_for_e2e(false)
-    });
-
-    assert_eq!(
-        final_snapshot.selected_asr_model_id.as_deref(),
-        Some(asr::ZIPFORMER_BILINGUAL_MODEL_ID),
-        "recommended package must select Zipformer Bilingual"
-    );
-    assert_eq!(
-        final_snapshot.selected_tts_model_id.as_deref(),
-        Some("matcha-icefall-zh-en"),
-        "recommended package must select Matcha Chinese-English"
-    );
-    assert_eq!(
-        final_snapshot.selected_tts_voice_id.as_deref(),
-        Some("default"),
-        "recommended package must select Default Bilingual Voice"
-    );
-    assert_eq!(
-        final_voice.entry_state, "ready",
-        "all four completed requirements must transition Voice to ready"
-    );
-    assert_ne!(
-        final_voice.entry_state, "setting_up",
-        "completed recommended installs must not leave progress stuck"
-    );
-}
-
-/// Settings 关闭后推荐包完成：后台继续安装并显示一次不抢焦点、不发声的 Ready 通知
+/// Settings 关闭后独立模型安装完成：后台继续安装并显示一次不抢焦点、不发声的 Ready 通知
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   ASR fake completion = immediate
@@ -399,13 +319,13 @@ fn recommended_package_installs_and_selects_all_required_local_models() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 打开 fresh Setup，注入麦克风与 Provider Ready
-///   2. 启动推荐包，并让 TTS 假传输停在后台安装中
-///   3. 确认页内显示聚合下载进度，底部入口进入 setting_up 而不是普通 set_up
+///   2. 通过稳定 e2e 缝分别启动 Recognition 与 Spoken Replies 模型安装，并让 TTS 假传输停在后台安装中
+///   3. 确认 TTS 目录显示 Cancel，底部入口进入 setting_up 而不是普通 set_up
 ///   4. 真实点击 Settings Close，确认面板关闭
 ///   5. 释放 TTS 安装，等待 setup completion 与通知渲染
 ///
 /// 预期结果：
-///   - 正断言：打开的 Setup 显示下载进度，Settings 关闭后仍完成为 ready
+///   - 正断言：打开的 TTS 目录显示下载动作，Settings 关闭后仍完成为 ready
 ///   - 负断言：下载中不得退回普通 set_up，完成通知不得开始录音或重新打开 Settings
 #[test]
 fn background_setup_completion_shows_a_nonblocking_ready_notification() {
@@ -431,27 +351,22 @@ fn background_setup_completion_shows_a_nonblocking_ready_notification() {
         app.set_voice_setup_requirements_for_e2e(true, true)
     });
     cx.run_until_parked();
-    let install = cx
-        .debug_bounds("voice-setup-install-recommended")
-        .expect("background setup test must expose recommended install");
-    cx.simulate_mouse_move(install.center(), None, Modifiers::none());
-    cx.simulate_click(install.center(), Modifiers::none());
+    app.update(cx, |app, cx| {
+        app.start_required_voice_model_installs_for_e2e(cx)
+    });
     cx.run_until_parked();
     let installing = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
     assert_eq!(
         installing.entry_state, "setting_up",
-        "recommended package must project active model installation into the bottom Voice entry"
+        "active local model installation must project into the bottom Voice entry"
     );
     assert_ne!(
         installing.entry_state, "set_up",
-        "active recommended download must not keep showing the generic Set up Voice label"
+        "active model download must not keep showing the generic Set up Voice label"
     );
-    let setup_progress_visible = cx
-        .debug_bounds("voice-setup-download-values-79-511-644")
-        .is_some();
     assert!(
-        setup_progress_visible,
-        "active download must show the exact aggregate Setup percent and MB values"
+        cx.debug_bounds("settings-tts-cancel-0").is_some(),
+        "active TTS download must expose its own visible progress and cancel action"
     );
     let close = cx
         .debug_bounds("settings-close")

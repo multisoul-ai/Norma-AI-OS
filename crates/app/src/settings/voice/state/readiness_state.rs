@@ -15,7 +15,7 @@ impl VoiceSettingsState {
             speech_recognition: self.selected_asr_requirement(),
             agent_provider: self.provider_requirement,
             spoken_replies: self.selected_tts_requirement(),
-            model_install_progress: self.selected_model_install_progress(),
+            model_install_progress: self.active_model_install_progress(),
             setup_was_completed: self.setup_was_completed,
         })
     }
@@ -98,39 +98,34 @@ impl VoiceSettingsState {
         }
     }
 
-    pub(crate) fn selected_model_install_progress(&self) -> Option<(u64, u64)> {
-        let asr_state = self.selected_asr_requirement();
-        let tts_state = self.selected_tts_requirement();
-        if !matches!(asr_state, VoiceRequirementState::Installing { .. })
-            && !matches!(tts_state, VoiceRequirementState::Installing { .. })
-        {
-            return None;
+    pub(crate) fn active_model_install_progress(&self) -> Option<(u64, u64)> {
+        let mut completed = 0_u64;
+        let mut total = 0_u64;
+        for entry in self.model_manager.entries() {
+            if let AsrModelInstallState::Installing {
+                downloaded,
+                total: model_total,
+            } = entry.installation()
+            {
+                completed = completed.saturating_add(*downloaded);
+                total = total.saturating_add(*model_total);
+            }
         }
-        let asr_catalog = asr::builtin_model_catalog();
-        let tts_catalog = tts::builtin_model_catalog();
-        let asr_total = self
-            .values
-            .asr_model_id()
-            .and_then(|id| asr_catalog.find(id))
-            .map(|model| model.artifact().archive_bytes())
-            .unwrap_or(0);
-        let tts_total = self
-            .values
-            .tts_model_id()
-            .and_then(|id| tts_catalog.find(id))
-            .map(|model| model.package().download_bytes())
-            .unwrap_or(0);
-        let completed = install_progress_bytes(asr_state, asr_total)
-            .saturating_add(install_progress_bytes(tts_state, tts_total));
-        Some((completed, asr_total.saturating_add(tts_total)))
-    }
-}
-
-fn install_progress_bytes(state: VoiceRequirementState, expected_total: u64) -> u64 {
-    match state {
-        VoiceRequirementState::Ready => expected_total,
-        VoiceRequirementState::Installing { completed, .. } => completed.min(expected_total),
-        VoiceRequirementState::Missing | VoiceRequirementState::Failed => 0,
+        for entry in self.tts_model_manager.entries() {
+            if let TtsModelInstallState::Installing {
+                downloaded,
+                total: model_total,
+            }
+            | TtsModelInstallState::Cancelling {
+                downloaded,
+                total: model_total,
+            } = entry.installation()
+            {
+                completed = completed.saturating_add(*downloaded);
+                total = total.saturating_add(*model_total);
+            }
+        }
+        (total > 0).then_some((completed, total))
     }
 }
 

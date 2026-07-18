@@ -2,7 +2,9 @@ use super::{with_alpha, SettingsPanelState, SettingsSection};
 use crate::app::MultisoulApp;
 use crate::settings::agents::{agents_settings, AgentDefinitionsState};
 use crate::settings::appearance::theme_appearance;
-use crate::settings::voice::{voice_settings, VoiceSettingsInputs, VoiceSettingsState};
+use crate::settings::voice::{
+    voice_settings, VoiceSettingsInputs, VoiceSettingsState, VoiceSetupDestination,
+};
 use crate::settings::wallpaper::{wallpaper_settings, WallpaperSettingsState};
 use crate::shortcuts::ShortcutSettingsState;
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, ScrollHandle};
@@ -17,7 +19,7 @@ use self::keyboard::keyboard_settings;
 pub(super) struct VoiceSettingsContent<'a> {
     pub(super) state: &'a VoiceSettingsState,
     pub(super) inputs: &'a VoiceSettingsInputs,
-    pub(super) focus_spoken_replies: bool,
+    pub(super) setup_scroll_target: Option<VoiceSetupDestination>,
 }
 
 pub(super) fn settings_content(
@@ -60,7 +62,7 @@ pub(super) fn settings_content(
                         voice.state,
                         voice.inputs,
                         content_scroll,
-                        voice.focus_spoken_replies,
+                        voice.setup_scroll_target,
                         cx,
                     ),
                     SettingsSection::Agents => agents_settings(theme, agent_definitions, cx),

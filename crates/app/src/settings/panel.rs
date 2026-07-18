@@ -222,10 +222,7 @@ impl MultisoulApp {
             layout.sidebar_width,
             cx,
         );
-        let focus_spoken_replies = matches!(
-            self.settings_viewport.pending_voice_setup_scroll.take(),
-            Some(crate::settings::voice::VoiceSetupDestination::SpokenReplies)
-        );
+        let setup_scroll_target = self.settings_viewport.pending_voice_setup_scroll.take();
         let content = settings_content(
             theme,
             self.theme_id,
@@ -234,7 +231,7 @@ impl MultisoulApp {
             VoiceSettingsContent {
                 state: &self.voice_settings,
                 inputs: &self.voice_settings_inputs,
-                focus_spoken_replies,
+                setup_scroll_target,
             },
             &self.settings_viewport.content_scroll,
             &self.wallpaper_settings,

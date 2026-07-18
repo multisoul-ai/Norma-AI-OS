@@ -8,6 +8,7 @@ pub(crate) enum VoiceSetupDestination {
     #[default]
     Overview,
     AsrModels,
+    AgentProvider,
     SpokenReplies,
 }
 

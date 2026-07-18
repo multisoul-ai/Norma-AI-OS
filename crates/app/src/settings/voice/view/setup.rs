@@ -2,10 +2,11 @@ use super::provider::agent_provider_setup_group;
 use super::tts_catalog::tts_catalog_row;
 use super::{action_button, with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
-use crate::settings::voice::{VoiceRequirement, VoiceRequirementState, VoiceSettingsState};
+use crate::settings::voice::{
+    VoiceRequirement, VoiceRequirementState, VoiceSettingsState, VoiceSetupDestination,
+};
 use gpui::{
-    div, point, prelude::*, px, relative, rgba, ClickEvent, Context, Div, FontWeight, ScrollHandle,
-    Stateful, Window,
+    div, point, prelude::*, px, relative, rgba, Context, Div, FontWeight, ScrollHandle, Stateful,
 };
 use ui::Theme;
 
@@ -15,14 +16,14 @@ mod components;
 mod models;
 
 use self::components::compact_setup_row;
-use self::models::{alternative_models_detail, recommended_package_detail};
+use self::models::alternative_models_detail;
 
 pub(super) fn voice_setup(
     theme: Theme,
     state: &VoiceSettingsState,
     inputs: &VoiceSettingsInputs,
     content_scroll: &ScrollHandle,
-    focus_spoken_replies: bool,
+    setup_scroll_target: Option<VoiceSetupDestination>,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let microphone = state.requirement_state(VoiceRequirement::Microphone);
@@ -80,7 +81,11 @@ pub(super) fn voice_setup(
                     "AI Connection",
                     "Connect the OpenAI-compatible model that understands your request.",
                     provider,
-                    agent_provider_setup_group(theme, state, inputs, cx),
+                    setup_detail_with_scroll_focus(
+                        agent_provider_setup_group(theme, state, inputs, cx),
+                        content_scroll,
+                        setup_scroll_target == Some(VoiceSetupDestination::AgentProvider),
+                    ),
                 ))
                 .child(setup_step(
                     theme,
@@ -89,47 +94,17 @@ pub(super) fn voice_setup(
                     "Spoken Replies",
                     "Install the required local voice so Norma can reply out loud.",
                     tts,
-                    spoken_replies_detail(theme, state, content_scroll, focus_spoken_replies, cx),
+                    spoken_replies_detail(
+                        theme,
+                        state,
+                        content_scroll,
+                        setup_scroll_target == Some(VoiceSetupDestination::SpokenReplies),
+                        cx,
+                    ),
                 )),
         )
         .child(finish_setup_button(theme, state.reviewing_setup(), cx));
     div().w_full().child(page)
-}
-
-impl MultisoulApp {
-    pub(crate) fn on_voice_setup_install_recommended(
-        &mut self,
-        _: &ClickEvent,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let asr_id = asr::AsrModelId::parse(asr::ZIPFORMER_BILINGUAL_MODEL_ID)
-            .expect("built-in recommended ASR id must parse");
-        let tts_id = tts::TtsModelId::parse(tts::MATCHA_ZH_EN_MODEL_ID)
-            .expect("built-in recommended TTS id must parse");
-        let voice_id =
-            tts::TtsVoiceId::parse("default").expect("built-in recommended voice id must parse");
-        self.voice_settings.select_asr_model(Some(asr_id.clone()));
-        self.voice_settings
-            .select_tts_model_and_voice(Some(tts_id.clone()), Some(voice_id));
-        self.persist_voice_settings_in_background(cx);
-        self.install_asr_model(asr_id, cx);
-        self.install_tts_model(tts_id, cx);
-    }
-
-    pub(crate) fn on_voice_setup_cancel_recommended(
-        &mut self,
-        _: &ClickEvent,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let asr_id = asr::AsrModelId::parse(asr::ZIPFORMER_BILINGUAL_MODEL_ID)
-            .expect("built-in recommended ASR id must parse");
-        let tts_id = tts::TtsModelId::parse(tts::MATCHA_ZH_EN_MODEL_ID)
-            .expect("built-in recommended TTS id must parse");
-        self.cancel_asr_install(asr_id, cx);
-        self.cancel_tts_install(tts_id, cx);
-    }
 }
 
 fn setup_title_bar(theme: Theme) -> Div {
@@ -285,7 +260,6 @@ fn recognition_detail(
         .flex_col()
         .gap(px(10.0))
         .child(microphone_detail(theme, microphone, cx))
-        .child(recommended_package_detail(theme, state, cx))
         .child(alternative_models_detail(theme, state, cx))
 }
 
@@ -328,10 +302,22 @@ fn spoken_replies_detail(
     focus_spoken_replies: bool,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    let mut models = div().w_full().child(tts_catalog_row(theme, state, cx));
-    if focus_spoken_replies {
+    div().w_full().child(
+        setup_detail_with_scroll_focus(
+            tts_catalog_row(theme, state, cx),
+            content_scroll,
+            focus_spoken_replies,
+        )
+        .id("voice-setup-spoken-replies-models")
+        .debug_selector(|| "voice-setup-spoken-replies-models".to_string()),
+    )
+}
+
+fn setup_detail_with_scroll_focus(content: Div, content_scroll: &ScrollHandle, focus: bool) -> Div {
+    let mut detail = div().w_full().child(content);
+    if focus {
         let scroll = content_scroll.clone();
-        models = models.on_children_prepainted(move |children, window, _cx| {
+        detail = detail.on_children_prepainted(move |children, window, _cx| {
             let Some(target) = children.first() else {
                 return;
             };
@@ -347,11 +333,7 @@ fn spoken_replies_detail(
             window.request_animation_frame();
         });
     }
-    div().w_full().child(
-        models
-            .id("voice-setup-spoken-replies-models")
-            .debug_selector(|| "voice-setup-spoken-replies-models".to_string()),
-    )
+    detail
 }
 
 fn finish_setup_button(

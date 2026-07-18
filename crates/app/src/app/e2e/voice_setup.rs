@@ -1,4 +1,5 @@
 use crate::app::MultisoulApp;
+use gpui::Context;
 
 impl MultisoulApp {
     pub fn reset_voice_setup_for_e2e(&mut self) {
@@ -17,5 +18,14 @@ impl MultisoulApp {
     ) {
         self.voice_settings
             .set_setup_requirements_for_e2e(microphone_ready, provider_ready);
+    }
+
+    pub fn start_required_voice_model_installs_for_e2e(&mut self, cx: &mut Context<Self>) {
+        let asr = asr::AsrModelId::parse(asr::ZIPFORMER_BILINGUAL_MODEL_ID)
+            .expect("built-in Zipformer model id must be valid");
+        let tts = tts::TtsModelId::parse(tts::MATCHA_ZH_EN_MODEL_ID)
+            .expect("built-in Matcha model id must be valid");
+        self.install_asr_model(asr, cx);
+        self.install_tts_model(tts, cx);
     }
 }

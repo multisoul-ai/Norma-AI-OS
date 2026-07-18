@@ -29,7 +29,7 @@ pub(crate) fn voice_settings(
     state: &VoiceSettingsState,
     inputs: &VoiceSettingsInputs,
     content_scroll: &ScrollHandle,
-    focus_spoken_replies: bool,
+    setup_scroll_target: Option<VoiceSetupDestination>,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     if !matches!(state.readiness(), super::VoiceEntryState::Ready) || state.reviewing_setup() {
@@ -38,7 +38,7 @@ pub(crate) fn voice_settings(
             state,
             inputs,
             content_scroll,
-            focus_spoken_replies,
+            setup_scroll_target,
             cx,
         )
         .children(status_message(theme, state));
@@ -104,6 +104,20 @@ impl MultisoulApp {
             .open_setup_destination(VoiceSetupDestination::SpokenReplies);
         self.settings_viewport.pending_voice_setup_scroll =
             Some(VoiceSetupDestination::SpokenReplies);
+        cx.notify();
+    }
+
+    pub(crate) fn on_voice_manage_provider(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings.set_reviewing_setup(true);
+        self.voice_settings
+            .open_setup_destination(VoiceSetupDestination::AgentProvider);
+        self.settings_viewport.pending_voice_setup_scroll =
+            Some(VoiceSetupDestination::AgentProvider);
         cx.notify();
     }
 
