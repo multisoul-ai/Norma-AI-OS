@@ -13,7 +13,6 @@ impl VoiceSettingsState {
         self.microphone_requirement = crate::settings::voice::VoiceRequirementState::Missing;
         self.provider_requirement = crate::settings::voice::VoiceRequirementState::Missing;
         self.setup_was_completed = false;
-        self.setup_expanded_requirement = None;
         self.reviewing_setup = false;
     }
 

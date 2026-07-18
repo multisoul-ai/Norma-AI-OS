@@ -66,7 +66,6 @@ pub(crate) struct VoiceSettingsState {
     setup_was_completed: bool,
     #[cfg(feature = "e2e-test-support")]
     readiness_override: Option<super::VoiceEntryState>,
-    setup_expanded_requirement: Option<super::VoiceRequirement>,
     reviewing_setup: bool,
     advanced_expanded: bool,
 }
@@ -142,7 +141,6 @@ impl VoiceSettingsState {
             setup_was_completed,
             #[cfg(feature = "e2e-test-support")]
             readiness_override: None,
-            setup_expanded_requirement: None,
             reviewing_setup: false,
             advanced_expanded: false,
         }
@@ -166,9 +164,6 @@ impl VoiceSettingsState {
 
     pub(crate) fn set_reviewing_setup(&mut self, reviewing: bool) {
         self.reviewing_setup = reviewing;
-        if reviewing {
-            self.setup_expanded_requirement = None;
-        }
     }
 
     pub(crate) fn input_devices(&self) -> &[AudioInputDevice] {

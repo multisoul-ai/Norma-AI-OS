@@ -171,22 +171,22 @@ fn ready_bottom_voice_entry_clicks_toggle_one_shot_recording() {
     );
 }
 
-/// 首次设置清单的非线性访问：默认展开首个缺失项，同时允许直接打开后续 Provider 配置
+/// 首次设置清单的非线性访问：三步内容同时可见，可直接配置后续 Provider
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   必需项总数 = 4
 ///   初始 Ready 项数 = 0
-///   默认展开项 = 1（Microphone）
-///   用户目标项索引 = 3rd requirement（AI Connection）
+///   visual steps = 3（Speech Recognition、AI Connection、Spoken Replies）
+///   可直接访问的 Provider 配置 = 1
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 从 fresh Voice state 用 `⌘E` 打开 Setup
-///   2. 确认默认只展开首个缺失的 Microphone
-///   3. 点击折叠的 AI Connection 卡片
-///   4. 重新检查 Provider 连接控件与推荐安装控件的可见性
+///   2. 确认 Speech Recognition 内的 Microphone 与推荐安装操作可见
+///   3. 检查 AI Connection 的 Provider 连接控件同时可见
+///   4. 检查入口仍保持 set_up 且没有启动录音
 ///
 /// 预期结果：
-///   - 正断言：AI Connection 可被直接展开并显示连接按钮
+///   - 正断言：AI Connection 无需展开即可显示连接按钮
 ///   - 负断言：用户不需要先授权麦克风或安装 ASR 才能配置 Provider
 #[test]
 fn setup_cards_allow_out_of_order_provider_configuration() {
@@ -201,23 +201,15 @@ fn setup_cards_allow_out_of_order_provider_configuration() {
 
     assert!(
         cx.debug_bounds("voice-setup-microphone-action").is_some(),
-        "fresh Setup must automatically expand the first incomplete microphone requirement"
+        "fresh Setup must show microphone permission inside Speech Recognition"
     );
     assert!(
-        cx.debug_bounds("voice-setup-provider-connect").is_none(),
-        "collapsed Provider requirement must not clutter the initial focused setup state"
+        cx.debug_bounds("voice-setup-install-recommended").is_some(),
+        "fresh Setup must show the recommended model package without expanding a card"
     );
-
-    let provider_card = cx
-        .debug_bounds("voice-setup-requirement-provider")
-        .expect("fresh Setup must render the AI Connection requirement card");
-    cx.simulate_mouse_move(provider_card.center(), None, Modifiers::none());
-    cx.simulate_click(provider_card.center(), Modifiers::none());
-    cx.run_until_parked();
-
     assert!(
         cx.debug_bounds("voice-setup-provider-connect").is_some(),
-        "clicking AI Connection must expose Provider configuration without prerequisite steps"
+        "AI Connection must expose Provider configuration without prerequisite steps"
     );
     assert_eq!(
         app.update(cx, |app, _cx| app.voice_e2e_snapshot().phase),
@@ -268,8 +260,8 @@ fn ready_voice_page_can_review_setup_and_return() {
         cx.run_until_parked();
     }
     assert!(
-        cx.debug_bounds("voice-try-now").is_some(),
-        "ready Voice page must expose an optional end-to-end Try Voice action"
+        cx.debug_bounds("voice-ready-summary").is_some(),
+        "ready Voice page must expose the approved setup summary card"
     );
     let review = cx
         .debug_bounds("voice-review-setup")

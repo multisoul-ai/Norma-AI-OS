@@ -2,7 +2,7 @@ pub(crate) use self::editable::VoiceSettingsInputs;
 use self::interaction::interaction_group;
 use self::model_catalog::model_catalog_row;
 use self::provider::{agent_provider_advanced_rows, agent_provider_group};
-use self::ready::voice_ready_banner;
+use self::ready::voice_ready_overview;
 use self::setup::voice_setup;
 use self::spoken_reply::spoken_reply_group;
 use self::tts_catalog::tts_catalog_row;
@@ -35,7 +35,7 @@ pub(crate) fn voice_settings(
         .flex()
         .flex_col()
         .gap(px(20.0))
-        .child(voice_ready_banner(theme, cx))
+        .child(voice_ready_overview(theme, cx))
         .child(interaction_group(theme, state, cx))
         .child(settings_group(theme, "Input").child(input_device_row(theme, state, cx)))
         .child(spoken_reply_group(theme, state, cx))
@@ -219,14 +219,16 @@ pub(super) fn settings_group(theme: Theme, title: &'static str) -> Div {
         .flex()
         .flex_col()
         .gap(px(12.0))
-        .pt(px(20.0))
-        .border_t_1()
-        .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
+        .p(px(16.0))
+        .rounded(px(14.0))
+        .border_1()
+        .border_color(rgba(with_alpha(theme.node_stroke, 0x88)))
+        .bg(rgba(with_alpha(theme.panel_high, 0x78)))
         .child(
             div()
-                .text_size(px(13.0))
+                .text_size(px(14.0))
                 .font_weight(FontWeight::BOLD)
-                .text_color(rgba(theme.accent_cyan))
+                .text_color(rgba(theme.text_primary))
                 .child(title),
         )
 }
@@ -421,14 +423,14 @@ pub(super) fn setting_label(theme: Theme, title: &'static str, hint: &'static st
         .gap(px(4.0))
         .child(
             div()
-                .text_size(px(17.0))
+                .text_size(px(14.0))
                 .font_weight(FontWeight::BOLD)
                 .text_color(rgba(theme.text_primary))
                 .child(title),
         )
         .child(
             div()
-                .text_size(px(14.0))
+                .text_size(px(12.0))
                 .text_color(rgba(theme.text_tertiary))
                 .child(hint),
         )

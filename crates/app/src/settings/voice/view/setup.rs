@@ -1,8 +1,10 @@
 use super::provider::agent_provider_setup_group;
-use super::{action_button, setting_row, VoiceSettingsInputs};
+use super::{action_button, setting_row, with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
 use crate::settings::voice::{VoiceRequirement, VoiceRequirementState, VoiceSettingsState};
-use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, Window};
+use gpui::{
+    div, prelude::*, px, relative, rgba, ClickEvent, Context, Div, FontWeight, Stateful, Window,
+};
 use ui::Theme;
 
 pub(super) fn voice_setup(
@@ -11,40 +13,74 @@ pub(super) fn voice_setup(
     inputs: &VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    let requirements = [
-        VoiceRequirement::Microphone,
-        VoiceRequirement::SpeechRecognition,
-        VoiceRequirement::AgentProvider,
-        VoiceRequirement::SpokenReplies,
-    ];
-    let completed = requirements
-        .iter()
-        .filter(|requirement| {
-            state.requirement_state(**requirement) == VoiceRequirementState::Ready
-        })
+    let microphone = state.requirement_state(VoiceRequirement::Microphone);
+    let asr = state.requirement_state(VoiceRequirement::SpeechRecognition);
+    let provider = state.requirement_state(VoiceRequirement::AgentProvider);
+    let tts = state.requirement_state(VoiceRequirement::SpokenReplies);
+    let recognition = combined_requirement_state(microphone, asr);
+    let completed = [microphone, asr, provider, tts]
+        .into_iter()
+        .filter(|requirement| *requirement == VoiceRequirementState::Ready)
         .count();
-    let expanded_requirement = state.setup_expanded_requirement();
-    let mut page = div()
+
+    let page = div()
         .id("voice-setup-page")
         .debug_selector(|| "voice-setup-page".to_string())
         .w_full()
         .min_w(px(0.0))
         .flex()
         .flex_col()
-        .gap(px(14.0))
-        .child(setup_header(theme, completed, state.reviewing_setup(), cx));
-
-    for requirement in requirements {
-        page = page.child(requirement_card(
-            theme,
-            requirement,
-            state.requirement_state(requirement),
-            expanded_requirement == Some(requirement),
-            state,
-            inputs,
-            cx,
-        ));
-    }
+        .items_center()
+        .gap(px(18.0))
+        .child(setup_title_bar(theme, cx))
+        .child(setup_progress(theme, completed))
+        .child(
+            div()
+                .id("voice-setup-stepper")
+                .debug_selector(|| "voice-setup-stepper".to_string())
+                .relative()
+                .w_full()
+                .max_w(px(760.0))
+                .flex()
+                .flex_col()
+                .child(
+                    div()
+                        .absolute()
+                        .left(px(21.0))
+                        .top(px(42.0))
+                        .bottom(px(62.0))
+                        .w(px(1.0))
+                        .bg(rgba(with_alpha(theme.text_tertiary, 0x58))),
+                )
+                .child(setup_step(
+                    theme,
+                    1,
+                    "voice-setup-requirement-asr",
+                    "Speech Recognition",
+                    "Let Norma hear you with a private bilingual model.",
+                    recognition,
+                    recognition_detail(theme, microphone, state, cx),
+                ))
+                .child(setup_step(
+                    theme,
+                    2,
+                    "voice-setup-requirement-provider",
+                    "AI Connection",
+                    "Connect the OpenAI-compatible model that understands your request.",
+                    provider,
+                    agent_provider_setup_group(theme, state, inputs, cx),
+                ))
+                .child(setup_step(
+                    theme,
+                    3,
+                    "voice-setup-requirement-tts",
+                    "Spoken Replies",
+                    "Install the required local voice so Norma can reply out loud.",
+                    tts,
+                    spoken_replies_detail(theme, tts),
+                )),
+        )
+        .child(finish_setup_button(theme, state.reviewing_setup(), cx));
     div().w_full().child(page)
 }
 
@@ -84,151 +120,180 @@ impl MultisoulApp {
     }
 }
 
-fn setup_header(
+fn setup_title_bar(theme: Theme, cx: &mut Context<MultisoulApp>) -> Div {
+    div()
+        .relative()
+        .w_full()
+        .h(px(42.0))
+        .flex()
+        .items_center()
+        .justify_center()
+        .child(
+            div()
+                .id("voice-setup-title")
+                .debug_selector(|| "voice-setup-title".to_string())
+                .text_size(px(22.0))
+                .font_weight(FontWeight::BOLD)
+                .text_color(rgba(theme.text_primary))
+                .child("Voice Setup"),
+        )
+        .child(
+            div()
+                .id("settings-close")
+                .debug_selector(|| "settings-close".to_string())
+                .absolute()
+                .right(px(0.0))
+                .top(px(2.0))
+                .w(px(34.0))
+                .h(px(34.0))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded(px(17.0))
+                .text_size(px(22.0))
+                .text_color(rgba(theme.text_secondary))
+                .cursor_pointer()
+                .hover(move |style| style.bg(rgba(with_alpha(theme.destructive, 0x10))))
+                .on_click(cx.listener(|app, _, _window, cx| app.close_settings_panel(cx)))
+                .child("×"),
+        )
+}
+
+fn setup_progress(theme: Theme, completed: usize) -> Stateful<Div> {
+    div()
+        .id("voice-setup-progress")
+        .debug_selector(|| "voice-setup-progress".to_string())
+        .w(px(310.0))
+        .flex()
+        .flex_col()
+        .gap(px(7.0))
+        .px(px(14.0))
+        .py(px(9.0))
+        .rounded(px(12.0))
+        .border_1()
+        .border_color(rgba(with_alpha(theme.node_stroke, 0x70)))
+        .bg(rgba(with_alpha(theme.panel_high, 0x88)))
+        .child(
+            div()
+                .text_size(px(11.0))
+                .text_color(rgba(theme.text_secondary))
+                .child(format!("{completed} of 4 requirements complete")),
+        )
+        .child(
+            div()
+                .w_full()
+                .h(px(4.0))
+                .rounded(px(2.0))
+                .bg(rgba(with_alpha(theme.node_stroke, 0x48)))
+                .child(
+                    div()
+                        .h_full()
+                        .w(relative(completed as f32 / 4.0))
+                        .rounded(px(2.0))
+                        .bg(rgba(theme.accent_blue)),
+                ),
+        )
+}
+
+fn setup_step(
     theme: Theme,
-    completed: usize,
-    reviewing: bool,
+    index: usize,
+    card_selector: &'static str,
+    title: &'static str,
+    hint: &'static str,
+    requirement: VoiceRequirementState,
+    content: Div,
+) -> Stateful<Div> {
+    let step_selector = format!("voice-setup-step-{index}");
+    let marker_color = if requirement == VoiceRequirementState::Ready {
+        theme.accent_green
+    } else {
+        theme.accent_blue
+    };
+    div()
+        .id(("voice-setup-step", index))
+        .debug_selector(move || step_selector.clone())
+        .relative()
+        .w_full()
+        .pl(px(60.0))
+        .pb(px(18.0))
+        .child(
+            div()
+                .absolute()
+                .left(px(0.0))
+                .top(px(10.0))
+                .w(px(42.0))
+                .h(px(42.0))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded(px(21.0))
+                .border_1()
+                .border_color(rgba(with_alpha(marker_color, 0xb8)))
+                .bg(rgba(with_alpha(theme.panel, 0xff)))
+                .font_weight(FontWeight::BOLD)
+                .text_color(rgba(marker_color))
+                .child(index.to_string()),
+        )
+        .child(
+            div()
+                .id(card_selector)
+                .debug_selector(move || card_selector.to_string())
+                .w_full()
+                .flex()
+                .flex_col()
+                .gap(px(14.0))
+                .p(px(18.0))
+                .rounded(px(14.0))
+                .border_1()
+                .border_color(rgba(with_alpha(theme.node_stroke, 0xa0)))
+                .bg(rgba(with_alpha(theme.panel_high, 0x8c)))
+                .child(
+                    div()
+                        .w_full()
+                        .flex()
+                        .items_start()
+                        .justify_between()
+                        .gap(px(14.0))
+                        .child(
+                            div()
+                                .min_w(px(0.0))
+                                .flex()
+                                .flex_col()
+                                .gap(px(4.0))
+                                .child(
+                                    div()
+                                        .text_size(px(16.0))
+                                        .font_weight(FontWeight::BOLD)
+                                        .text_color(rgba(theme.text_primary))
+                                        .child(title),
+                                )
+                                .child(
+                                    div()
+                                        .text_size(px(12.0))
+                                        .text_color(rgba(theme.text_secondary))
+                                        .child(hint),
+                                ),
+                        )
+                        .child(status_badge(theme, requirement)),
+                )
+                .child(content),
+        )
+}
+
+fn recognition_detail(
+    theme: Theme,
+    microphone: VoiceRequirementState,
+    state: &VoiceSettingsState,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     div()
         .w_full()
         .flex()
         .flex_col()
-        .gap(px(8.0))
-        .pb(px(8.0))
-        .child(
-            div()
-                .text_size(px(22.0))
-                .font_weight(FontWeight::BOLD)
-                .text_color(rgba(theme.text_primary))
-                .child("Set up Voice"),
-        )
-        .child(
-            div()
-                .text_size(px(13.0))
-                .text_color(rgba(theme.text_secondary))
-                .child(
-                    "Complete these four requirements once, then use ⌘E anywhere on the canvas.",
-                ),
-        )
-        .child(
-            div()
-                .w_full()
-                .h(px(6.0))
-                .rounded(px(3.0))
-                .bg(rgba(with_alpha(theme.node_stroke, 0x38)))
-                .child(
-                    div()
-                        .h_full()
-                        .w(gpui::relative(completed as f32 / 4.0))
-                        .rounded(px(3.0))
-                        .bg(rgba(theme.accent_blue)),
-                ),
-        )
-        .child(
-            div()
-                .text_size(px(11.0))
-                .text_color(rgba(theme.text_secondary))
-                .child(format!("{completed} of 4 required steps complete")),
-        )
-        .when(reviewing, |header| {
-            header.child(
-                action_button(theme, "Done Reviewing", theme.accent_cyan)
-                    .id("voice-review-setup-done")
-                    .debug_selector(|| "voice-review-setup-done".to_string())
-                    .on_click(cx.listener(MultisoulApp::on_voice_finish_review_setup)),
-            )
-        })
-}
-
-fn requirement_card(
-    theme: Theme,
-    requirement: VoiceRequirement,
-    state_value: VoiceRequirementState,
-    expanded: bool,
-    state: &VoiceSettingsState,
-    inputs: &VoiceSettingsInputs,
-    cx: &mut Context<MultisoulApp>,
-) -> Div {
-    let ready = state_value == VoiceRequirementState::Ready;
-    let (title, hint) = requirement_copy(requirement);
-    let mut card = div()
-        .id(("voice-setup-requirement", requirement_index(requirement)))
-        .debug_selector(move || requirement_selector(requirement).to_string())
-        .w_full()
-        .flex()
-        .flex_col()
         .gap(px(10.0))
-        .p(px(14.0))
-        .rounded(px(14.0))
-        .border_1()
-        .border_color(rgba(if expanded {
-            with_alpha(theme.accent_blue, 0x88)
-        } else {
-            with_alpha(theme.node_stroke, 0xb0)
-        }))
-        .bg(rgba(with_alpha(theme.panel_high, 0x8c)))
-        .child(
-            div()
-                .w_full()
-                .flex()
-                .items_center()
-                .justify_between()
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap(px(3.0))
-                        .child(
-                            div()
-                                .text_size(px(14.0))
-                                .font_weight(FontWeight::BOLD)
-                                .text_color(rgba(theme.text_primary))
-                                .child(title),
-                        )
-                        .child(
-                            div()
-                                .text_size(px(12.0))
-                                .text_color(rgba(theme.text_secondary))
-                                .child(hint),
-                        ),
-                )
-                .child(status_badge(theme, state_value)),
-        );
-
-    if !expanded && !ready {
-        card = card
-            .cursor_pointer()
-            .on_click(cx.listener(move |app, _, _, cx| {
-                app.voice_settings.expand_setup_requirement(requirement);
-                cx.notify();
-            }));
-    }
-
-    if expanded || ready {
-        card = match requirement {
-            VoiceRequirement::Microphone => card.child(microphone_detail(theme, state_value, cx)),
-            VoiceRequirement::SpeechRecognition => {
-                card.child(recommended_package_detail(theme, state, cx))
-            }
-            VoiceRequirement::AgentProvider => {
-                card.child(agent_provider_setup_group(theme, state, inputs, cx))
-            }
-            VoiceRequirement::SpokenReplies => card.child(
-                setting_row(
-                    theme,
-                    "Local spoken replies",
-                    "Matcha Chinese-English and Default Bilingual Voice are required.",
-                )
-                .child(div().text_size(px(12.0)).child(if ready {
-                    "Default Bilingual Voice selected"
-                } else {
-                    "Install the recommended voice package above"
-                })),
-            ),
-        };
-    }
-    div().w_full().child(card)
+        .child(microphone_detail(theme, microphone, cx))
+        .child(recommended_package_detail(theme, state, cx))
 }
 
 fn microphone_detail(
@@ -239,7 +304,7 @@ fn microphone_detail(
     setting_row(
         theme,
         "Microphone permission",
-        "Audio stays on this Mac for local recognition.",
+        "Required before local speech recognition can listen.",
     )
     .child(
         action_button(
@@ -279,8 +344,8 @@ fn recommended_package_detail(
     );
     setting_row(
         theme,
-        "Recommended Voice Package · about 644 MB",
-        "Zipformer Bilingual + Matcha Chinese-English + Default Bilingual Voice",
+        "Chinese + English · Recommended · 644 MB",
+        "Includes Zipformer speech recognition and the required Matcha spoken voice.",
     )
     .child(
         action_button(
@@ -288,7 +353,7 @@ fn recommended_package_detail(
             if installing {
                 "Cancel Download"
             } else {
-                "Install Recommended"
+                "Install"
             },
             theme.accent_blue,
         )
@@ -303,6 +368,87 @@ fn recommended_package_detail(
     )
 }
 
+fn spoken_replies_detail(theme: Theme, state: VoiceRequirementState) -> Div {
+    setting_row(
+        theme,
+        "Matcha Chinese-English · Default Bilingual Voice",
+        "Required for spoken answers and Agent completion announcements.",
+    )
+    .child(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(7.0))
+            .text_size(px(12.0))
+            .text_color(rgba(if state == VoiceRequirementState::Ready {
+                theme.accent_green
+            } else {
+                theme.text_secondary
+            }))
+            .child(if state == VoiceRequirementState::Ready {
+                "●  Voice installed and selected"
+            } else {
+                "○  Included in the recommended package above"
+            }),
+    )
+}
+
+fn finish_setup_button(
+    theme: Theme,
+    reviewing: bool,
+    cx: &mut Context<MultisoulApp>,
+) -> Stateful<Div> {
+    let selector = if reviewing {
+        "voice-review-setup-done"
+    } else {
+        "voice-setup-finish"
+    };
+    div()
+        .id(selector)
+        .debug_selector(move || selector.to_string())
+        .w_full()
+        .max_w(px(700.0))
+        .flex()
+        .items_center()
+        .justify_center()
+        .px(px(16.0))
+        .py(px(12.0))
+        .rounded(px(10.0))
+        .border_1()
+        .border_color(rgba(with_alpha(
+            if reviewing {
+                theme.accent_blue
+            } else {
+                theme.node_stroke
+            },
+            0x72,
+        )))
+        .bg(rgba(with_alpha(
+            if reviewing {
+                theme.accent_blue
+            } else {
+                theme.panel_high
+            },
+            if reviewing { 0x24 } else { 0x74 },
+        )))
+        .font_weight(FontWeight::MEDIUM)
+        .text_color(rgba(if reviewing {
+            theme.accent_blue
+        } else {
+            theme.text_tertiary
+        }))
+        .when(reviewing, |button| {
+            button
+                .cursor_pointer()
+                .on_click(cx.listener(MultisoulApp::on_voice_finish_review_setup))
+        })
+        .child(if reviewing {
+            "Done Reviewing"
+        } else {
+            "Finish Setup"
+        })
+}
+
 fn status_badge(theme: Theme, state: VoiceRequirementState) -> Div {
     let (label, color) = match state {
         VoiceRequirementState::Ready => ("Ready", theme.accent_green),
@@ -311,6 +457,7 @@ fn status_badge(theme: Theme, state: VoiceRequirementState) -> Div {
         VoiceRequirementState::Missing => ("Required", theme.accent_orange),
     };
     div()
+        .flex_none()
         .px(px(8.0))
         .py(px(4.0))
         .rounded(px(7.0))
@@ -322,42 +469,19 @@ fn status_badge(theme: Theme, state: VoiceRequirementState) -> Div {
         .child(label)
 }
 
-fn requirement_copy(requirement: VoiceRequirement) -> (&'static str, &'static str) {
-    match requirement {
-        VoiceRequirement::Microphone => ("1  Microphone", "Allow Norma to hear a voice command."),
-        VoiceRequirement::SpeechRecognition => (
-            "2  Speech Recognition",
-            "Install the recommended bilingual local model.",
-        ),
-        VoiceRequirement::AgentProvider => (
-            "3  AI Connection",
-            "Connect an OpenAI-compatible provider and select a model.",
-        ),
-        VoiceRequirement::SpokenReplies => (
-            "4  Spoken Replies",
-            "Install the required local TTS model and voice.",
-        ),
+fn combined_requirement_state(
+    first: VoiceRequirementState,
+    second: VoiceRequirementState,
+) -> VoiceRequirementState {
+    if first == VoiceRequirementState::Failed || second == VoiceRequirementState::Failed {
+        VoiceRequirementState::Failed
+    } else if let VoiceRequirementState::Installing { .. } = first {
+        first
+    } else if let VoiceRequirementState::Installing { .. } = second {
+        second
+    } else if first == VoiceRequirementState::Ready && second == VoiceRequirementState::Ready {
+        VoiceRequirementState::Ready
+    } else {
+        VoiceRequirementState::Missing
     }
-}
-
-fn requirement_index(requirement: VoiceRequirement) -> usize {
-    match requirement {
-        VoiceRequirement::Microphone => 0,
-        VoiceRequirement::SpeechRecognition => 1,
-        VoiceRequirement::AgentProvider => 2,
-        VoiceRequirement::SpokenReplies => 3,
-    }
-}
-
-fn requirement_selector(requirement: VoiceRequirement) -> &'static str {
-    match requirement {
-        VoiceRequirement::Microphone => "voice-setup-requirement-microphone",
-        VoiceRequirement::SpeechRecognition => "voice-setup-requirement-asr",
-        VoiceRequirement::AgentProvider => "voice-setup-requirement-provider",
-        VoiceRequirement::SpokenReplies => "voice-setup-requirement-tts",
-    }
-}
-
-fn with_alpha(color: u32, alpha: u8) -> u32 {
-    (color & 0xffffff00) | u32::from(alpha)
 }

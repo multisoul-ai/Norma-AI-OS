@@ -43,32 +43,11 @@ impl VoiceSettingsState {
         }
     }
 
-    pub(crate) fn first_incomplete_requirement(&self) -> Option<VoiceRequirement> {
-        [
-            VoiceRequirement::Microphone,
-            VoiceRequirement::SpeechRecognition,
-            VoiceRequirement::AgentProvider,
-            VoiceRequirement::SpokenReplies,
-        ]
-        .into_iter()
-        .find(|requirement| self.requirement_state(*requirement) != VoiceRequirementState::Ready)
-    }
-
-    pub(crate) fn setup_expanded_requirement(&self) -> Option<VoiceRequirement> {
-        self.setup_expanded_requirement
-            .or_else(|| self.first_incomplete_requirement())
-    }
-
-    pub(crate) fn expand_setup_requirement(&mut self, requirement: VoiceRequirement) {
-        self.setup_expanded_requirement = Some(requirement);
-    }
-
     pub(crate) fn reconcile_setup_completion(&mut self) -> bool {
         if self.setup_was_completed || self.readiness() != VoiceEntryState::Ready {
             return false;
         }
         self.setup_was_completed = true;
-        self.setup_expanded_requirement = None;
         self.saved.setup_completed = Some(true);
         self.persist_string(super::KEY_VOICE_SETUP_COMPLETED, "true");
         true

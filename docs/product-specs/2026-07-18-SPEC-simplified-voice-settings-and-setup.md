@@ -30,7 +30,13 @@ Settings → Voice 改为任务导向的双态页面：未就绪时显示 `Set U
 
 Voice Ready 有四个硬条件：麦克风权限已授权、识别模型可用、Agent Provider 与所选模型可用、本地 TTS 模型与音色可用。TTS 是完整 Voice 业务闭环的一部分，不允许跳过 TTS 后以纯文字回复完成首次设置。
 
-首次设置复用 Settings → Voice，不新增独立向导弹窗。页面以单页清单显示全部状态并自动展开第一个需要用户处理的项目，各项不强制线性完成。模型下载可以与 Provider 配置并行进行。
+首次设置复用 Settings → Voice，不新增独立向导弹窗，但进入专注式 Setup 视觉状态：隐藏普通 Settings 导航，居中显示 `Voice Setup` 标题、四项硬条件进度和三步纵向引导。三步固定映射为：
+
+1. Speech Recognition：同卡显示麦克风授权前置状态与推荐 ASR/TTS 包安装。
+2. AI Connection：显示 OpenAI-compatible 配置与连接状态。
+3. Spoken Replies：显示必需 TTS 模型与音色状态。
+
+三个步骤内容同时可见，不使用折叠卡，也不强制线性完成；模型下载可以与 Provider 配置并行进行。页面底部保留 `Finish Setup` 视觉收口，在条件未满足时为不可用状态；四项硬条件仍独立计算，不因视觉合并为三步而减少。
 
 默认提供约 644 MB 的推荐语音包，一次操作安装、校验并选中：
 
@@ -42,11 +48,11 @@ Voice Ready 有四个硬条件：麦克风权限已授权、识别模型可用�
 
 API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider 配置及不可反查明文的凭据引用。界面只显示凭据已保存，并提供 Replace 和 Remove，不提供读取原始 Key。
 
-四项硬条件验证通过后即完成设置。真实语音测试作为推荐动作提供，但不作为完成门槛。若用户关闭 Settings，进行中的模型安装继续在后台运行，底部入口显示下载进度；后台完成时显示一次不抢焦点、不自动发声的 `Voice is ready` 通知。
+四项硬条件验证通过后即完成设置。用户随后通过既有 `⌘E` 路径使用或验证 Voice，不在 Ready 横幅中新增第二个 `Try Voice` 入口。若用户关闭 Settings，进行中的模型安装继续在后台运行，底部入口显示下载进度；后台完成时显示一次不抢焦点、不自动发声的 `Voice is ready` 通知。
 
 完成后的 Voice 主页面只保留普通用户需要经常理解或调整的内容：
 
-- Voice 状态与 `Review Setup`。
+- Voice 状态横幅，以及独立的三行配置摘要卡：Speech Recognition、AI Connection、Spoken Replies；`Review Setup` 位于摘要卡底部。
 - Voice Interaction：Single Voice Command / Continuous Listening；单次模式下显示 Hold / Toggle。
 - Input：紧凑麦克风选择与识别就绪状态。
 - Spoken Replies：Agent task announcements、Voice-driven window inset、当前音色与 Preview。
@@ -60,8 +66,8 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 4. 作为首次启动应用的用户，我不想被强制弹窗打断，以便可以先完成当前工作。
 5. 作为 Voice 用户，我想点击底部 `Set up Voice` 进入同一个设置入口，以便不需要在导航中寻找配置页面。
 6. 作为 Voice 用户，我想在一张清单中看到所有必需状态，以便理解距离可用还缺什么。
-7. 作为 Voice 用户，我想页面自动展开第一个未完成项，以便不判断下一步应该做什么。
-8. 作为 Voice 用户，我想按任意顺序处理麦克风、模型和 Provider，以便模型下载期间还能完成其他配置。
+7. 作为 Voice 用户，我想一次看到三个步骤及其处理入口，以便不需要逐张展开卡片寻找下一项。
+8. 作为 Voice 用户，我想按任意顺序处理识别、Provider 和回复配置，以便模型下载期间还能完成其他配置。
 9. 作为 Voice 用户，我想明确看到麦克风权限是必需项，以便 Voice Ready 代表可以真正收音。
 10. 作为 Voice 用户，我想从 Setup 直接触发 macOS 麦克风授权，以便不等第一次录音时才处理权限。
 11. 作为拒绝麦克风权限的用户，我想看到明确的失败状态与系统设置恢复入口，以便知道如何修复。
@@ -91,8 +97,8 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 35. 作为停止使用 Provider 的用户，我想移除已保存凭据，以便 Keychain 不保留无用密钥。
 36. 作为升级用户，我想现有数据库中的 API Key 安全迁移到 Keychain，以便升级不破坏已有 Voice 配置。
 37. 作为 Voice 用户，我想 TTS 模型和音色成为必需项，以便 Voice Ready 始终包含可听回复能力。
-38. 作为 Voice 用户，我想在完成配置后选择运行一次真实语音测试，以便验证收音、识别、Agent 和播报闭环。
-39. 作为暂时不方便说话的用户，我想跳过真实语音测试仍完成设置，以便环境限制不会卡住我。
+38. 作为 Voice 用户，我想完成配置后直接使用既有 `⌘E` 路径，以便验证收音、识别、Agent 和播报闭环时不学习第二个入口。
+39. 作为暂时不方便说话的用户，我想不执行真实语音仍能完成设置，以便环境限制不会卡住我。
 40. 作为后台等待安装的用户，我想在完成时收到一次 `Voice is ready` 通知，以便知道现在可以使用 `⌘E`。
 41. 作为不希望被打扰的用户，我想完成通知不抢焦点、不自动播报，以便当前工作不被中断。
 42. 作为已就绪用户，我想底部入口恢复为 `Voice`，以便状态清晰且 `⌘E` 行为回归正常。
@@ -118,8 +124,9 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - 建立单一 Voice readiness 投影，至少表达 `SetupRequired`、`SettingUp`、`Ready` 和 `Unavailable`；`Unavailable` 必须携带可定位到麦克风、ASR、Provider 或 TTS 的失败原因，Settings 和 `⌘E` 路由消费同一投影。
 - `SetupRequired` 表示从未满足全部硬条件；`Unavailable` 表示曾经 Ready 但硬条件后来失效。不得用一个布尔 `enabled` 混合两种语义。
 - `⌘E` 路由先检查 readiness：非 Ready 时打开 Settings → Voice 并聚焦待处理项，不启动录音、持续聆听、Agent 回合或 TTS；Ready 时保持现有 Single Voice Command / Continuous Listening 路由。
-- Settings → Voice 是 Setup 与日常配置的唯一产品入口。未就绪时渲染状态清单；就绪时渲染简化主页面；Advanced Settings 承载完整模型目录、Provider 细节和 Diagnostics。
-- 首次 Setup 的逻辑硬条件为麦克风授权、可用 ASR、可用 Agent Provider + 模型、可用 TTS + 音色。界面可以把 ASR 与 TTS 合并显示为推荐语音包，但 readiness 仍逐项判断。
+- Settings → Voice 是 Setup 与日常配置的唯一产品入口。未就绪时隐藏普通 Settings 导航并渲染专注式三步 Setup；就绪时恢复导航并渲染简化主页面；Advanced Settings 承载完整模型目录、Provider 细节和 Diagnostics。
+- 首次 Setup 的逻辑硬条件为麦克风授权、可用 ASR、可用 Agent Provider + 模型、可用 TTS + 音色。视觉固定为三步：麦克风并入 Speech Recognition，ASR 与 TTS 可合并显示为推荐语音包，但 readiness 仍逐项判断。
+- 三步卡片必须同时呈现内容，并用左侧编号与纵向连接线表达顺序；不得回退成四张独立卡或默认折叠 Provider/TTS。`Finish Setup` 在未完成时保持不可用，Review 模式下同一位置提供返回 Ready 页的明确操作。
 - 推荐语音包固定为 `Zipformer Bilingual`、`Matcha Chinese-English` 与 `Default Bilingual Voice`。一键安装必须分别沿用受管安装、哈希校验、manifest 和原子提升边界；不得用一个新的非受管目录绕过现有模型完整性约束。
 - 推荐语音包安装由一个上层协调器聚合两个既有模型安装任务。两项可独立成功、失败、取消或重试；只有两项均验证通过并已选中，语音包才为 Ready。
 - 下载进度 `N%` 表示推荐语音包当前需下载字节的聚合进度，不把麦克风授权或 Provider 表单伪装成百分比。没有活跃下载时，入口显示 `Set up Voice` 或 `Voice unavailable`，不显示虚假进度。
@@ -134,7 +141,7 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - Keychain 中已有凭据优先于旧数据库值。界面不回填原始 Key，只提供 saved、Replace 和 Remove 状态与操作。
 - readiness 的本地模型与权限检查必须后台化或由安装/权限事件增量更新；不得在渲染、鼠标热路径或每次状态读取中扫描模型目录。
 - Provider 的临时失联、模型被移除、凭据失效、麦克风权限撤销、ASR/TTS 安装损坏都会把曾经 Ready 的投影变为 `Unavailable`，并保留精确修复目标。
-- 四项硬条件通过后立即完成 Setup，不要求真实录音。`Try Voice` 显式运行一次现有 `⌘E` 端到端路径，不引入第二套测试专用业务管线。
+- 四项硬条件通过后立即完成 Setup，不要求真实录音。Ready 页面不提供额外 `Try Voice` 按钮，真实使用与验证统一走现有 `⌘E` 端到端路径。
 - 后台完成 Setup 时只发送一次非阻塞完成通知；通知不抢焦点、不自动调用 TTS，也不替用户启动语音。
 - 简化主页面保留当前模式、单次触发方式、麦克风、任务播报、窗口光效、当前音色和 Preview。模型安装/删除/切换、Provider Base URL/API Key/模型管理和完整 trace 进入 Advanced Settings。
 - 普通配置继续即时生效并异步持久化，不新增全局 Save / Cancel。模型安装、Provider 验证和 Keychain 写入以各自状态和错误反馈收口。
@@ -146,7 +153,7 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - 最高层主 seam 使用现有 headless GPUI e2e：真实打开 Settings、真实点击带稳定 selector 的控件、真实发送 `⌘E` 键盘事件，并从统一 Settings/Voice e2e snapshot 观察用户可见状态。不要为每个子模块各建一套 UI 测试入口。
 - 主 e2e snapshot 扩展 readiness、待修复项、推荐语音包进度、Provider 连接阶段和凭据显示状态；测试断言外部状态与可见控件，不断言内部任务数量或私有字段布局。
 - e2e 覆盖 fresh store：底部显示 `Set up Voice`；按 `⌘E` 打开 Settings → Voice；录音、Dialogue 和 TTS 均未启动。
-- e2e 覆盖四项清单的正负状态：每项 Ready 时有具体正断言，每项缺失或失效时有具体负断言，禁止使用“所有状态一致”一类泛化断言。
+- e2e 覆盖三步视觉结构与四项逻辑状态：三步编号、纵向轨道、麦克风内嵌、Provider 直接可见、底部 Finish、Ready 三行摘要均有具体正断言；独立麦克风卡、首次 Setup 侧栏和 Ready `Try Voice` 均有具体负断言。
 - 麦克风权限通过现有权限 seam 注入 authorized、denied、restricted；验证授权恢复入口、Ready 门槛和 `⌘E` 不误启动。
 - 推荐语音包通过现有假模型 transport 与安装管理 seam 覆盖一次点击、双模型并行进度、单项失败、Retry、Cancel、关闭 Settings 后继续、重新打开恢复、退出后重扫和两项均选中。
 - Provider 通过本地假 OpenAI-compatible server 覆盖 endpoint 失败、认证失败、模型列表成功、模型列表不支持、手动模型验证、所选模型失效和现有配置自动通过；测试不得访问真实付费 API。
@@ -183,4 +190,4 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - 现有 Voice 配置矩阵、Settings 点击、麦克风权限恢复、ASR 模型目录、TTS 模型目录与快捷键模式 e2e 是优先复用的测试先例。
 - `Voice unavailable` 是配置后失效，不等同于首次未配置；错误文案和修复入口必须保留这一差异。
 - Advanced Settings 是渐进披露，不是删除能力。现有可选模型、Ollama、Base URL、手动模型、Trace、安装、删除、切换与 Preview 仍需可达。
-- 规格已按 Markdown 写入仓库；本次没有创建外部 issue，也没有修改实现代码。后续若进入施工，应先拆分为可独立验收的 tracer-bullet tickets，再按 TDD 与 code review 流程逐项实施。
+- 规格已按 Markdown 写入仓库，并以批准的 Voice Setup / Voice Ready 设计稿作为视觉基线完成实现；后续视觉调整必须同时更新本规格与对应 GPUI e2e 结构契约。

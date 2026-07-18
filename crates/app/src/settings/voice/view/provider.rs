@@ -54,7 +54,11 @@ pub(super) fn agent_provider_setup_group(
     inputs: &VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    let mut group = settings_group(theme, "AI Connection")
+    let mut group = div()
+        .w_full()
+        .flex()
+        .flex_col()
+        .gap(px(10.0))
         .child(provider_selector(theme, state, cx))
         .child(text_setting_row(
             theme,

@@ -11,6 +11,7 @@ mod panel_style;
 use self::content::{settings_content, VoiceSettingsContent};
 use self::navigation::{settings_navigation, SettingsNavigationMode};
 use self::panel_style::{settings_shadow, with_alpha};
+use crate::settings::voice::VoiceEntryState;
 
 pub(crate) use self::navigation::SettingsSection;
 
@@ -175,6 +176,9 @@ impl MultisoulApp {
         let win_w = f32::from(win.width);
         let win_h = f32::from(win.height);
         let layout = SettingsPanelLayout::for_viewport(win_w, win_h);
+        let voice_setup_mode = self.settings_panel.active_section == SettingsSection::Voice
+            && (!matches!(self.voice_settings.readiness(), VoiceEntryState::Ready)
+                || self.voice_settings.reviewing_setup());
         debug_assert!(
             layout.content_width() > 0.0,
             "settings layout must reserve positive content width"
@@ -198,6 +202,7 @@ impl MultisoulApp {
             VoiceSettingsContent {
                 state: &self.voice_settings,
                 inputs: &self.voice_settings_inputs,
+                setup_mode: voice_setup_mode,
             },
             &self.wallpaper_settings,
             &self.shortcuts,
@@ -268,7 +273,7 @@ impl MultisoulApp {
                     .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_click(|_, _, cx| cx.stop_propagation())
                     .on_key_down(cx.listener(Self::on_settings_panel_key_down))
-                    .child(navigation)
+                    .when(!voice_setup_mode, |panel| panel.child(navigation))
                     .child(content),
             )
     }

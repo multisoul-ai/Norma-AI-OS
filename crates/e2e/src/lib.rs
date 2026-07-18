@@ -35,6 +35,7 @@ mod e2e_02_real_pty;
 mod e2e_03_settings_clicks;
 mod e2e_03_settings_navigation;
 mod e2e_03_theme_switching;
+mod e2e_03_voice_design;
 mod e2e_03_voice_modes;
 mod e2e_03_voice_setup;
 mod e2e_03_voice_setup_cancel;
