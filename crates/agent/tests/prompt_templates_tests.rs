@@ -256,3 +256,58 @@ fn natural_multi_agent_delegation_prompts_share_target_and_project_semantics() {
         "Prompt 不得保留拒绝明确共同任务的旧限制"
     );
 }
+
+/// P-7：Dialogue 必须区分现有 Agent 委派、Agent 创建流程与说明性问题。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   existing-agent path = 1：名册中已有目标 → agent_delegation
+///   creation path       = 1：需要新建/激活目标 → card_operation
+///   dialogue-only paths = 2：说明性问题 + 多候选单数指代 → 不调用 card_task
+///   lifecycle paths     = 2：status + cancel 必须继续调用 card_task
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取生产 Dialogue system prompt
+///   2. 检查结构化 assignments 仅用于名册中已存在的目标
+///   3. 检查创建后再执行任务仍交给 CardTask Agent Loop
+///   4. 检查说明性问题和多候选单数指代明确禁止产生工具副作用
+///   5. 检查 status/cancel 与 start 的结构化字段互不混用
+///
+/// 预期结果：
+///   - 正断言：创建、委派、对话、status/cancel 都有明确、互斥的选择规则
+///   - 负断言：不得把创建新 Agent 或“如何创建”问题伪装成现有 Agent assignments
+#[test]
+fn dialogue_prompt_separates_existing_delegation_creation_and_explanation() {
+    let dialogue = agent::dialogue_system_prompt();
+
+    assert!(
+        dialogue.contains("`<agent-roster>` 中已存在")
+            && dialogue.contains("task_kind=agent_delegation"),
+        "agent_delegation 必须只用于名册中已存在的接收 Agent"
+    );
+    assert!(
+        dialogue.contains("新建或激活 Agent")
+            && dialogue.contains("task_kind=card_operation")
+            && dialogue.contains("Agent Loop"),
+        "创建后再执行任务必须保留在 card_operation 的 CardTask Agent Loop"
+    );
+    assert!(
+        dialogue.contains("如何、怎么、方案或解释") && dialogue.contains("不得调用 `card_task`"),
+        "说明性问题必须明确留在 Dialogue，不能产生画布副作用"
+    );
+    assert!(
+        dialogue.contains("多个候选 Agent")
+            && dialogue.contains("单数指代")
+            && dialogue.contains("不得猜测或部分执行"),
+        "多候选单数指代必须先澄清，不能只执行模型选中的一部分"
+    );
+    assert!(
+        dialogue.contains("action=status")
+            && dialogue.contains("action=cancel")
+            && dialogue.contains("不得携带 task_kind、intent 或 assignments"),
+        "状态与取消必须继续使用 card_task，且不得误填 start 专用字段"
+    );
+    assert!(
+        !dialogue.contains("新建或激活 Agent 时使用 task_kind=agent_delegation"),
+        "新 Agent 创建流程不得误用现有 Agent assignments 快路径"
+    );
+}

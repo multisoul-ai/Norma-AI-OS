@@ -1,5 +1,8 @@
-use agent::{card_subagent_tool_specs, dialogue_tool_specs, parse_card_subagent_tool_call};
-use norma::protocol::{AgentProfile, CardCommand};
+use agent::{
+    card_subagent_tool_specs, dialogue_tool_specs, parse_card_subagent_tool_call,
+    parse_dialogue_tool_call, DialogueToolAction,
+};
+use norma::protocol::{AgentProfile, AgentTaskAssignment, CardCommand};
 
 /// AT-1：CardTask ProviderRequest 应暴露四个高层 Agent 工具，并保留普通卡片工具。
 ///
@@ -217,5 +220,106 @@ fn agent_tool_descriptions_express_natural_shared_task_targeting() {
                 .description
                 .contains("Do not add Agents merely mentioned inside task text"),
         "工具说明必须防止把任务正文中的 Agent 名称误当目标"
+    );
+}
+
+/// AT-5：结构化 start 参数足以唯一判定动作时，可确定性修复 Provider 偶发遗漏的 action。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   explicit task_kind = 1：agent_delegation
+///   intent fields      = 1：查看当前项目用途
+///   assignments       = 1：Bella × 1 个任务
+///   action fields      = 0：重放 MiniMax 偶发遗漏
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 解析缺少 action、但包含 task_kind/intent/assignments 的完整参数
+///   2. 由 task_kind 与 intent 唯一推断这是 start，而不是 cancel/status
+///   3. 保留 Bella 的结构化 assignment 供确定性 CardTask 使用
+///
+/// 预期结果：
+///   - 正断言：解析结果为唯一 Start，且 intent 与 Bella task 原样保留
+///   - 负断言：不得丢弃 assignments 或退化成无目标的普通 CardTask
+#[test]
+fn structured_task_kind_repairs_missing_start_action_without_losing_assignments() {
+    let parsed = parse_dialogue_tool_call(
+        r#"{
+            "task_kind":"agent_delegation",
+            "intent":"查看当前项目用途",
+            "assignments":[{"name":"Bella","task":"查看当前项目用途"}]
+        }"#,
+    )
+    .expect("明确 task_kind 与 intent 应能确定性修复缺失的 start action");
+
+    assert_eq!(
+        parsed,
+        DialogueToolAction::Start {
+            intent: "查看当前项目用途".to_string(),
+            assignments: Some(vec![AgentTaskAssignment {
+                name: "Bella".to_string(),
+                task: "查看当前项目用途".to_string(),
+            }]),
+        },
+        "缺失 action 的完整结构化委派必须保留 Bella assignment"
+    );
+    assert!(
+        !matches!(
+            parsed,
+            DialogueToolAction::Start {
+                assignments: None,
+                ..
+            }
+        ),
+        "确定性修复不得把结构化委派退化为无 assignments 的普通任务"
+    );
+}
+
+/// AT-6：结构化委派只有 assignments 时，可恢复 start 与轻量 intent。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   task_kind fields = 1：agent_delegation
+///   assignments      = 1：Bella × “查看当前项目用途”
+///   action fields     = 0：MiniMax 偶发遗漏
+///   intent fields     = 0：MiniMax 偶发遗漏
+///   recoverable text  = 1：唯一 assignment.task
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 解析仅含 agent_delegation 与 Bella assignment 的参数
+///   2. 由 task_kind 唯一判定 start
+///   3. 从唯一 assignment.task 恢复用于任务记录的轻量 intent
+///   4. 保留原结构化 assignment 供名册验证和确定性派发
+///
+/// 预期结果：
+///   - 正断言：得到 Bella 的 Start，intent 与 task 均为“查看当前项目用途”
+///   - 负断言：不得退化成无 assignments 的普通 CardTask
+#[test]
+fn structured_delegation_recovers_missing_action_and_intent_from_assignment() {
+    let parsed = parse_dialogue_tool_call(
+        r#"{
+            "task_kind":"agent_delegation",
+            "assignments":[{"name":"Bella","task":"查看当前项目用途"}]
+        }"#,
+    )
+    .expect("结构化委派应能从唯一 assignment 恢复缺失的 start 与 intent");
+
+    assert_eq!(
+        parsed,
+        DialogueToolAction::Start {
+            intent: "查看当前项目用途".to_string(),
+            assignments: Some(vec![AgentTaskAssignment {
+                name: "Bella".to_string(),
+                task: "查看当前项目用途".to_string(),
+            }]),
+        },
+        "缺少 action/intent 的结构化委派必须完整保留 Bella 任务"
+    );
+    assert!(
+        !matches!(
+            parsed,
+            DialogueToolAction::Start {
+                assignments: None,
+                ..
+            }
+        ),
+        "恢复 intent 时不得丢弃用于确定性派发的 assignments"
     );
 }

@@ -170,6 +170,133 @@ fn how_to_create_terminal_question_stays_in_dialogue() {
     );
 }
 
+/// DP-2c：说明性问题即使被 Provider 误写成非法 start，也必须由本地策略阻止副作用。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   user questions       = 1：“如何创建终端卡片？”
+///   provider tool calls  = 1：错误的 card_task start
+///   invalid assignments = 1：card_operation 错带“操作执行”assignment
+///   expected tasks       = 0：说明性问题不得创建 CardTask
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 重放 MiniMax 对说明性问题返回的错误 card_task 参数
+///   2. 本地 Dialogue 路由先把该轮标记为只允许对话
+///   3. 在解析错误参数或创建任务之前丢弃该工具调用
+///   4. 保留 Provider 同一响应中的说明文本
+///
+/// 预期结果：
+///   - 正断言：用户仍收到说明性 DialogueTextDelta
+///   - 负断言：不得返回参数错误、产生 TaskQueued 或触碰 CardToolHost
+#[test]
+fn explanatory_question_rejects_provider_false_start_before_parsing_or_side_effects() {
+    let dialogue = ScriptedProvider::new([agent::ProviderResponse {
+        text: "可以从画布工具栏创建终端卡片".to_string(),
+        tool_calls: vec![support::tool(
+            "false-start-1",
+            agent::CARD_TASK_TOOL,
+            r#"{
+                "action":"start",
+                "task_kind":"card_operation",
+                "assignments":[{"name":"操作执行","task":"创建一个终端卡片"}]
+            }"#,
+        )],
+    }]);
+    let mut agent_system = system(
+        dialogue,
+        ScriptedProvider::default(),
+        RecordingHost::default(),
+    );
+
+    let result = agent_system.submit(AgentCommand::UserTurn("如何创建终端卡片？".to_string()));
+
+    assert!(
+        result.is_ok(),
+        "说明性问题中的 Provider 错误工具调用必须被本地策略拦截，实际：{result:?}"
+    );
+    let events = result.expect("前一断言已确认说明性问题不会返回工具参数错误");
+    assert!(
+        events.iter().any(|event| matches!(
+            event,
+            AgentEvent::DialogueTextDelta { text }
+                if text == "可以从画布工具栏创建终端卡片"
+        )),
+        "拦截错误 start 后必须保留同一响应中的说明文本"
+    );
+    assert!(
+        !events
+            .iter()
+            .any(|event| matches!(event, AgentEvent::TaskQueued { .. })),
+        "说明性问题不得因 Provider 误调用而产生 TaskQueued"
+    );
+    assert!(
+        agent_system.card_tool_host().commands.is_empty(),
+        "说明性问题不得触碰 CardToolHost 或产生画布副作用"
+    );
+}
+
+/// DP-2d：创建多个 Agent 后使用单数指代时，必须先澄清接收者而不是部分执行。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   agent candidates    = 2：Codex Alan + Claude Bob
+///   singular references = 1：“让它分析 README”
+///   provider starts     = 1：错误地只创建 Alan
+///   expected tasks      = 0：候选数 2 > 唯一候选 1，不能猜测
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用户在同一句中要求创建两个 Agent，后续只使用单数“它”
+///   2. Provider 错误选择 Alan 并返回 card_task start
+///   3. 本地策略识别多候选单数指代，在解析和入队前拒绝工具调用
+///   4. 保留 Provider 的最小澄清文本
+///
+/// 预期结果：
+///   - 正断言：用户收到“请指定 Alan 或 Bob”的澄清文本
+///   - 负断言：不得只创建 Alan、产生 TaskQueued 或调用 CardToolHost
+#[test]
+fn ambiguous_multi_agent_pronoun_rejects_provider_partial_start() {
+    let dialogue = ScriptedProvider::new([agent::ProviderResponse {
+        text: "请指定由 Alan 还是 Bob 分析 README".to_string(),
+        tool_calls: vec![support::tool(
+            "ambiguous-start-1",
+            agent::CARD_TASK_TOOL,
+            r#"{
+                "action":"start",
+                "task_kind":"card_operation",
+                "intent":"创建 Codex Agent Alan"
+            }"#,
+        )],
+    }]);
+    let mut agent_system = system(
+        dialogue,
+        ScriptedProvider::default(),
+        RecordingHost::default(),
+    );
+
+    let events = agent_system
+        .submit(AgentCommand::UserTurn(
+            "创建 Codex Agent Alan 和 Claude Agent Bob，让它分析 README".to_string(),
+        ))
+        .expect("多候选单数指代应进入澄清，而不是返回工具参数错误");
+
+    assert!(
+        events.iter().any(|event| matches!(
+            event,
+            AgentEvent::DialogueTextDelta { text }
+                if text == "请指定由 Alan 还是 Bob 分析 README"
+        )),
+        "多候选单数指代必须保留最小澄清文本"
+    );
+    assert!(
+        !events
+            .iter()
+            .any(|event| matches!(event, AgentEvent::TaskQueued { .. })),
+        "多候选单数指代不得部分创建 Alan 或产生 TaskQueued"
+    );
+    assert!(
+        agent_system.card_tool_host().commands.is_empty(),
+        "澄清完成前不得调用 CardToolHost 或产生部分副作用"
+    );
+}
+
 fn alan_roster() -> Vec<AgentRosterEntry> {
     vec![AgentRosterEntry {
         definition_id: 1,

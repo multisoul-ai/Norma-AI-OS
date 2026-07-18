@@ -1,4 +1,3 @@
-use super::dialogue_policy::DialogueRoutingDecision;
 use super::AgentSystem;
 use crate::journal::CardTaskJournal;
 use crate::lifecycle::TaskCancelOutcome;
@@ -34,7 +33,8 @@ where
         let delegation_targets = routing_decision
             .delegation_targets()
             .map(|targets| targets.to_vec());
-        let live_event_sink = (routing_decision == DialogueRoutingDecision::ModelOnly)
+        let live_event_sink = routing_decision
+            .streams_dialogue_text()
             .then(|| self.live_event_sink.clone())
             .flatten();
         let mut turn = vec![user_message(&text)];
@@ -59,13 +59,22 @@ where
             },
         )?;
         crate::diagnostics::dialogue_response(&self.project_id, &trace_id, &response);
+        if routing_decision.rejects_card_task() {
+            response
+                .tool_calls
+                .retain(|call| call.name != CARD_TASK_TOOL);
+        }
+        let requires_structured_delegation = delegation_targets.is_some();
         if routing_decision.requires_card_task_fallback()
             && !response.tool_calls.iter().any(|call| {
-                call.name == CARD_TASK_TOOL
-                    && matches!(
-                        parse_dialogue_tool_call(&call.arguments_json),
-                        Ok(DialogueToolAction::Start { .. })
-                    )
+                if call.name != CARD_TASK_TOOL {
+                    return false;
+                }
+                matches!(
+                    parse_dialogue_tool_call(&call.arguments_json),
+                    Ok(DialogueToolAction::Start { assignments, .. })
+                        if !requires_structured_delegation || assignments.is_some()
+                )
             })
         {
             response
@@ -115,20 +124,40 @@ where
                 continue;
             }
             let receipt = match action {
-                DialogueToolAction::Start { intent } => {
-                    let assignments = delegation_targets.as_deref().and_then(|targets| {
-                        super::dialogue_policy::delegation_assignments(
-                            &intent,
-                            targets,
-                            &self.agent_roster,
-                        )
+                DialogueToolAction::Start {
+                    intent,
+                    assignments: provider_assignments,
+                } => {
+                    let has_provider_assignments = provider_assignments.is_some();
+                    let assignments = provider_assignments.or_else(|| {
+                        delegation_targets.as_deref().and_then(|targets| {
+                            super::dialogue_policy::delegation_assignments(
+                                &intent,
+                                targets,
+                                &self.agent_roster,
+                            )
+                        })
                     });
-                    if let Some(assignments) = assignments.as_deref() {
-                        super::dialogue_policy::validate_delegation_assignments(
-                            assignments,
-                            &self.agent_roster,
-                        )
+                    let mut assignments = assignments
+                        .map(|assignments| {
+                            super::dialogue_policy::validate_delegation_assignments(
+                                &assignments,
+                                &self.agent_roster,
+                                delegation_targets.as_deref(),
+                            )
+                        })
+                        .transpose()
                         .map_err(AgentError::InvalidCommand)?;
+                    if has_provider_assignments {
+                        let lightweight_intent = intent.trim();
+                        if lightweight_intent.is_empty() {
+                            return Err(AgentError::InvalidCommand(
+                                "delegation intent must not be empty".to_string(),
+                            ));
+                        }
+                        if let Some([assignment]) = assignments.as_mut().map(Vec::as_mut_slice) {
+                            assignment.task = lightweight_intent.to_string();
+                        }
                     }
                     let task_id = self.enqueue_task(trace_id.clone(), intent, assignments);
                     format!(r#"{{"status":"queued","task_id":{task_id}}}"#)

@@ -157,7 +157,7 @@ fn real_dialogue_provider_lightly_polishes_agent_delegation_without_semantic_los
     let intents = actions
         .iter()
         .filter_map(|action| match action {
-            DialogueToolAction::Start { intent } => Some(intent.as_str()),
+            DialogueToolAction::Start { intent, .. } => Some(intent.as_str()),
             DialogueToolAction::Cancel { .. } | DialogueToolAction::Status { .. } => None,
         })
         .collect::<Vec<_>>();

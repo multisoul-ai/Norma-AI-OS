@@ -7,13 +7,28 @@ pub const CARD_TASK_TOOL: &str = "card_task";
 pub fn dialogue_tool_specs() -> Vec<ProviderToolSpec> {
     vec![ProviderToolSpec {
         name: CARD_TASK_TOOL.to_string(),
-        description: "Required for every requested Norma OS canvas/card operation. Start immediately for explicit create terminal, create agent, focus, send text, delete, or Agent delegation requests; do not merely explain or ask for confirmation when the target Agent and requested action are identifiable. A sentence-initial exact Agent address followed by an actionable request is delegation even without words such as assign or delegate. For multiple Agents, targets come only from the sentence-initial addressed set or explicit per-Agent assignments: an explicit shared request may relay the same task to each target, while Agent names mentioned inside task text are not additional targets. For delegation, only polish and relay: pass a lightly polished intent that removes only addressing and conversational filler while preserving every goal, scope, order, constraint, deliverable, and explicit command; do not summarize, invent requirements, or analyze the task on the target Agent's behalf; do not ask for implementation details, background, preferences, or acceptance criteria. Clarify only when the target Agent, requested action, or a multi-candidate reference makes the core intent unidentifiable; ask one minimal question and do not repeatedly confirm. A clarification answer may contain only an Agent name, action, or profile; combine it with the prior task and dispatch without asking the user to restate it. Also cancel or query an existing background card task."
+        description: "Required for every requested Norma OS canvas/card operation and for every request to query or cancel a background card task. Use action=status for task status/progress and action=cancel for cancellation; neither uses task_kind, intent, or assignments. Never call this tool for questions asking how, why, for a design, or for an explanation. Start immediately for explicit create terminal, create agent, focus, send text, delete, or Agent delegation requests; do not merely explain or ask for confirmation when the target Agent and requested action are identifiable. For delegation to an Agent already present in <agent-roster>, set task_kind=agent_delegation and include one structured assignment per addressed target; never remove the target from intent without preserving it in assignments. If an Agent must be created or activated before receiving work, use task_kind=card_operation without assignments so the CardTask Agent Loop can perform the sequence. Every start must include intent. A sentence-initial exact Agent address followed by an actionable request is delegation even without words such as assign or delegate. For multiple Agents, targets come only from the sentence-initial addressed set or explicit per-Agent assignments: an explicit shared request may relay the same task to each target, while Agent names mentioned inside task text are not additional targets. If multiple candidate Agents are followed by a singular it/he/she reference that cannot be resolved uniquely, ask one clarification and do not call this tool or execute only part of the request. For delegation, only polish and relay: pass a lightly polished intent that removes only addressing and conversational filler while preserving every goal, scope, order, constraint, deliverable, and explicit command; do not summarize, invent requirements, or analyze the task on the target Agent's behalf; do not ask for implementation details, background, preferences, or acceptance criteria. Clarify only when the target Agent, requested action, or a multi-candidate reference makes the core intent unidentifiable; ask one minimal question and do not repeatedly confirm. A clarification answer may contain only an Agent name, action, or profile; combine it with the prior task and dispatch without asking the user to restate it."
             .to_string(),
         parameters_json_schema: json!({
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["start", "cancel", "status"]},
-                "intent": {"type": "string"},
+                "action": {"type": "string", "enum": ["start", "cancel", "status"], "description": "start executes a new request; status queries progress; cancel cancels an existing task."},
+                "intent": {"type": "string", "description": "Required for action=start. Preserve the complete requested operation."},
+                "task_kind": {"type": "string", "enum": ["card_operation", "agent_delegation"], "description": "Required for action=start. agent_delegation is only for recipients already present in <agent-roster>."},
+                "assignments": {
+                    "type": "array",
+                    "description": "Only for task_kind=agent_delegation. Never include for card_operation.",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "task": {"type": "string"}
+                        },
+                        "required": ["name", "task"],
+                        "additionalProperties": false
+                    }
+                },
                 "task_id": {"type": "integer"}
             },
             "required": ["action"],
@@ -102,11 +117,21 @@ pub fn card_subagent_tool_specs() -> Vec<ProviderToolSpec> {
 
 pub fn parse_dialogue_tool_call(arguments_json: &str) -> Result<DialogueToolAction, CardToolError> {
     let value = parse_object(arguments_json)?;
-    let action = required_string(&value, "action")?;
+    let action = match value.get("action") {
+        Some(action) => action.as_str().ok_or_else(|| {
+            CardToolError::InvalidArguments("action must be a string".to_string())
+        })?,
+        None if has_inferable_start_fields(&value) => {
+            return parse_dialogue_start(&value);
+        }
+        None => {
+            return Err(CardToolError::InvalidArguments(
+                "missing or invalid action".to_string(),
+            ));
+        }
+    };
     match action {
-        "start" => Ok(DialogueToolAction::Start {
-            intent: required_string(&value, "intent")?.to_string(),
-        }),
+        "start" => parse_dialogue_start(&value),
         "cancel" => Ok(DialogueToolAction::Cancel {
             task_id: required_u64(&value, "task_id")?,
         }),
@@ -121,9 +146,101 @@ pub fn parse_dialogue_tool_call(arguments_json: &str) -> Result<DialogueToolActi
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DialogueToolAction {
-    Start { intent: String },
-    Cancel { task_id: u64 },
-    Status { task_id: Option<u64> },
+    Start {
+        intent: String,
+        assignments: Option<Vec<AgentTaskAssignment>>,
+    },
+    Cancel {
+        task_id: u64,
+    },
+    Status {
+        task_id: Option<u64>,
+    },
+}
+
+fn parse_dialogue_start(value: &Value) -> Result<DialogueToolAction, CardToolError> {
+    let task_kind = value
+        .get("task_kind")
+        .map(|value| {
+            value.as_str().ok_or_else(|| {
+                CardToolError::InvalidArguments("task_kind must be a string".to_string())
+            })
+        })
+        .transpose()?;
+    let assignments = match task_kind {
+        Some("agent_delegation") => Some(parse_agent_assignments(value)?),
+        Some("card_operation") | None => {
+            if value.get("assignments").is_some() {
+                return Err(CardToolError::InvalidArguments(
+                    "assignments require task_kind=agent_delegation".to_string(),
+                ));
+            }
+            None
+        }
+        Some(other) => {
+            return Err(CardToolError::InvalidArguments(format!(
+                "unknown task_kind: {other}"
+            )))
+        }
+    };
+    let intent = match value.get("intent") {
+        Some(_) => required_string(value, "intent")?.to_string(),
+        None if task_kind == Some("agent_delegation") => {
+            inferred_delegation_intent(assignments.as_deref().unwrap_or_default())?
+        }
+        None => {
+            return Err(CardToolError::InvalidArguments(
+                "missing or invalid intent".to_string(),
+            ));
+        }
+    };
+    Ok(DialogueToolAction::Start {
+        intent,
+        assignments,
+    })
+}
+
+fn has_inferable_start_fields(value: &Value) -> bool {
+    match value.get("task_kind").and_then(Value::as_str) {
+        Some("agent_delegation") => {
+            value.get("intent").and_then(Value::as_str).is_some()
+                || value
+                    .get("assignments")
+                    .and_then(Value::as_array)
+                    .is_some_and(|assignments| !assignments.is_empty())
+        }
+        Some(_) => value.get("intent").and_then(Value::as_str).is_some(),
+        None => false,
+    }
+}
+
+fn inferred_delegation_intent(
+    assignments: &[AgentTaskAssignment],
+) -> Result<String, CardToolError> {
+    if assignments
+        .iter()
+        .any(|assignment| assignment.task.trim().is_empty())
+    {
+        return Err(CardToolError::InvalidArguments(
+            "delegation assignment task must not be empty".to_string(),
+        ));
+    }
+    let Some(first) = assignments.first() else {
+        return Err(CardToolError::InvalidArguments(
+            "agent_delegation requires non-empty assignments".to_string(),
+        ));
+    };
+    if assignments
+        .iter()
+        .all(|assignment| assignment.task.trim() == first.task.trim())
+    {
+        return Ok(first.task.trim().to_string());
+    }
+    Ok(assignments
+        .iter()
+        .map(|assignment| format!("{}: {}", assignment.name, assignment.task.trim()))
+        .collect::<Vec<_>>()
+        .join("；"))
 }
 
 pub fn parse_card_subagent_tool_call(
@@ -189,7 +306,19 @@ fn parse_create(value: &Value) -> Result<CardCommand, CardToolError> {
 }
 
 fn parse_agent_dispatch(value: &Value) -> Result<CardCommand, CardToolError> {
-    let assignments = value
+    let assignments = parse_agent_assignments(value)?;
+    Ok(CardCommand::DispatchAgentTasks {
+        assignments,
+        force_untracked: value
+            .get("force_untracked")
+            .map(parse_bool)
+            .transpose()?
+            .unwrap_or(false),
+    })
+}
+
+fn parse_agent_assignments(value: &Value) -> Result<Vec<AgentTaskAssignment>, CardToolError> {
+    value
         .get("assignments")
         .and_then(Value::as_array)
         .filter(|assignments| !assignments.is_empty())
@@ -201,15 +330,7 @@ fn parse_agent_dispatch(value: &Value) -> Result<CardCommand, CardToolError> {
                 task: required_string(assignment, "task")?.to_string(),
             })
         })
-        .collect::<Result<Vec<_>, CardToolError>>()?;
-    Ok(CardCommand::DispatchAgentTasks {
-        assignments,
-        force_untracked: value
-            .get("force_untracked")
-            .map(parse_bool)
-            .transpose()?
-            .unwrap_or(false),
-    })
+        .collect::<Result<Vec<_>, CardToolError>>()
 }
 
 fn tool_spec(name: &str, description: &str, schema: Value) -> ProviderToolSpec {
