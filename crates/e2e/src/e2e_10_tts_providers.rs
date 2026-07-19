@@ -1,11 +1,83 @@
 //! Built-in TTS Provider Settings user-flow acceptance.
 
-use crate::harness::{echo_factory, enter_canvas, make_app, make_app_with_settings_store};
+use crate::harness::{
+    echo_factory, enter_canvas, make_app, make_app_with_settings_store, VoiceModelInstallE2eGuard,
+};
 use gpui::{
     point, px, Modifiers, ScrollDelta, ScrollWheelEvent, TestAppContext, VisualTestContext,
 };
 
-/// E2E-TTS-PROVIDER-1：MiniMax 必须支持目录搜索、手填 Voice ID、Preview 校验与显式激活。
+/// E2E-TTS-PICKER-1：Spoken Replies 默认只显示 Active 摘要，Change 后才渐进披露统一选择器。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   default TTS surfaces = 1（Current Voice 摘要）
+///   built-in Provider entries = 2（On-device + MiniMax）
+///   unrelated controls = 3（Agent announcements + window inset + input device）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 打开已就绪的 Voice Settings，停留在日常配置页面。
+///   2. 检查 Spoken Replies 当前声音摘要，并确认 Provider 选择器默认隐藏。
+///   3. 点击 Change Voice，等待统一选择器绘制 On-device 与 MiniMax 两个入口。
+///   4. 检查 Voice 其余配置仍在同一 Settings 页面可达。
+///
+/// 预期结果：
+///   - 正断言：默认页显示 Current Voice 与 Change，打开后显示统一 Provider 选择器。
+///   - 正断言：On-device 与 MiniMax 为同级入口，非 TTS 配置仍存在。
+///   - 负断言：默认页不得铺开 API Key、Voice 目录或旧的 Provider 按钮墙。
+#[test]
+fn e2e_spoken_replies_progressively_discloses_unified_tts_picker() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::tempdir().expect("应创建 Spoken Replies 选择器 e2e workspace");
+    app.update(cx, |app, cx| app.assume_minimax_connected_for_e2e(cx));
+    enter_canvas(&app, cx, workspace.path());
+    cx.simulate_keystrokes("cmd-,");
+    click(cx, "settings-section-voice");
+
+    scroll_and_assert_visible(cx, "settings-tts-current-voice");
+    scroll_and_assert_visible(cx, "settings-tts-change-voice");
+    assert!(
+        cx.debug_bounds("settings-tts-picker").is_none(),
+        "默认 Spoken Replies 页面不得提前展开统一 TTS 选择器"
+    );
+    assert!(
+        cx.debug_bounds("settings-voice-field-tts-minimax-api-key")
+            .is_none(),
+        "默认 Spoken Replies 页面不得暴露 MiniMax API Key"
+    );
+    assert!(
+        cx.debug_bounds("settings-tts-provider-local").is_none(),
+        "默认页面不得保留旧的 On-device Provider 按钮墙"
+    );
+
+    click(cx, "settings-tts-change-voice");
+
+    scroll_and_assert_visible(cx, "settings-tts-picker");
+    scroll_and_assert_visible(cx, "settings-tts-picker-provider-local");
+    scroll_and_assert_visible(cx, "settings-tts-picker-provider-minimax");
+    assert!(
+        cx.debug_bounds("settings-tts-picker-current-notice")
+            .is_some(),
+        "统一选择器必须明确说明当前声音在 Apply 前继续生效"
+    );
+    assert!(
+        cx.debug_bounds("settings-agent-task-announcements-toggle")
+            .is_some(),
+        "重构 Spoken Replies 不得移除 Agent task announcements"
+    );
+    assert!(
+        cx.debug_bounds("settings-voice-window-inset-toggle")
+            .is_some(),
+        "重构 Spoken Replies 不得移除 Voice-driven window inset"
+    );
+    assert!(
+        cx.debug_bounds("settings-voice-input-device-picker")
+            .is_some(),
+        "重构 Spoken Replies 不得影响 Input device 配置入口"
+    );
+}
+
+/// E2E-TTS-PROVIDER-1：MiniMax Draft 必须支持目录搜索、手填 Voice ID、Preview 校验与显式激活。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   built-in providers = 2（On-device + MiniMax）
@@ -18,8 +90,8 @@ use gpui::{
 ///   1. 打开 Voice → Spoken Replies，注入确定性的已连接 MiniMax 账户与三组目录。
 ///   2. 在搜索框输入 cloned，确认只剩 Cloned 目录 Voice，再清除搜索。
 ///   3. 在真实 Voice ID 输入框写入目录外 ID，确认状态要求 Preview 校验。
-///   4. 通过 e2e 假 PCM 执行 Preview，等待后台完成，再点击 Use MiniMax。
-///   5. 激活后选择目录 System Voice，确认实际 runtime 同步切换而非继续使用旧手动 Voice。
+///   4. 通过 e2e 假 PCM 执行 Verify & Preview，等待后台完成，再点击 Use This Voice。
+///   5. 激活后重新打开选择器选择目录 System Voice，确认 Apply 前 runtime 不变、Apply 后切换。
 ///
 /// 预期结果：
 ///   - 正断言：两种 Provider、两个模型、搜索、三组 Voice 和手填 Voice ID 控件均可见。
@@ -28,6 +100,7 @@ use gpui::{
 ///   - 负断言：搜索 Cloned 时 System Voice 不可见；Preview 前 MiniMax 不得处于 Ready。
 #[test]
 fn e2e_minimax_manual_voice_validates_before_explicit_activation() {
+    let _tts_guard = VoiceModelInstallE2eGuard::acquire();
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
     let workspace = tempfile::tempdir().expect("应创建 TTS Provider e2e workspace");
@@ -39,10 +112,11 @@ fn e2e_minimax_manual_voice_validates_before_explicit_activation() {
     cx.simulate_keystrokes("cmd-,");
     click(cx, "settings-section-voice");
     click(cx, "voice-ready-change-tts");
+    click(cx, "settings-tts-picker-provider-minimax");
 
     for selector in [
-        "settings-tts-provider-local",
-        "settings-tts-provider-minimax",
+        "settings-tts-picker-provider-local",
+        "settings-tts-picker-provider-minimax",
         "settings-tts-minimax-model-turbo",
         "settings-tts-minimax-model-hd",
         "settings-voice-field-tts-minimax-voice-id",
@@ -88,16 +162,16 @@ fn e2e_minimax_manual_voice_validates_before_explicit_activation() {
     cx.run_until_parked();
     let manual = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
-        manual.tts_provider.minimax_voice_id.as_deref(),
+        manual.tts_provider.picker_minimax_voice_id.as_deref(),
         Some("external_voice_e2e"),
         "真实 Voice ID 输入必须进入 MiniMax Profile"
     );
     assert_eq!(
-        manual.tts_provider.minimax_voice_provenance, "manual",
-        "目录外 Voice ID 必须标记为 manual"
+        manual.tts_provider.picker_minimax_voice_provenance, "manual",
+        "目录外 Voice ID 必须标记为 manual Draft"
     );
     assert_eq!(
-        manual.tts_provider.minimax_readiness, "voice_validation_required",
+        manual.tts_provider.picker_minimax_readiness, "voice_validation_required",
         "手填 Voice 在 Preview 前不得被误判为 Ready"
     );
     assert_ne!(
@@ -110,10 +184,11 @@ fn e2e_minimax_manual_voice_validates_before_explicit_activation() {
     settle(cx);
     let validated = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
-        validated.tts_provider.minimax_readiness, "ready",
+        validated.tts_provider.picker_minimax_readiness, "ready",
         "成功 Preview 必须校验当前 credential/model/Voice 三元组"
     );
-    click(cx, "settings-tts-minimax-activate");
+    click(cx, "settings-tts-picker-apply");
+    settle(cx);
     let active = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
         active.tts_provider.active_provider_id.as_deref(),
@@ -131,8 +206,23 @@ fn e2e_minimax_manual_voice_validates_before_explicit_activation() {
         "激活后实际 runtime 必须使用已验证的手动 Voice"
     );
 
+    click(cx, "settings-tts-change-voice");
+    click(cx, "settings-tts-picker-provider-minimax");
     scroll_and_assert_visible(cx, "settings-tts-minimax-voice-0-0");
     click(cx, "settings-tts-minimax-voice-0-0");
+    settle(cx);
+    let pending_switch = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        pending_switch.runtime_tts_voice_id.as_deref(),
+        Some("external_voice_e2e"),
+        "只选择目录 Voice 时 active runtime 必须继续使用旧手动 Voice"
+    );
+    assert_ne!(
+        pending_switch.runtime_tts_voice_id.as_deref(),
+        Some("system_voice_e2e"),
+        "目录 Voice Draft 在 Apply 前不得提前重配 runtime"
+    );
+    click(cx, "settings-tts-picker-apply");
     settle(cx);
     let switched = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
@@ -152,30 +242,32 @@ fn e2e_minimax_manual_voice_validates_before_explicit_activation() {
     );
 }
 
-/// E2E-TTS-PROVIDER-2：新 API Key 草稿点击 Preview / Validate 必须自动连接并产生试听。
+/// E2E-TTS-PROVIDER-2：新 API Key 必须先显式连接，再以 Verify & Preview 校验手动 Voice。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   credential drafts = 1（synthetic-preview-draft-key）
 ///   manual Voice edits = 1（manual_preview_voice_e2e）
-///   provider validation clicks = 1（Preview / Validate）
+///   provider actions = 3（连接前 Preview 被拒绝 + Connect + Verify & Preview）
 ///   expected PCM queue delta = 1（一次成功试听至少排入一个 PCM chunk）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 打开 Voice → Spoken Replies，启用确定性的 e2e MiniMax 与 PCM transport。
-///   2. 选择 Turbo、输入手动 Voice ID，再提交一个全新 API Key 草稿。
-///   3. 确认本地状态为 Configured，随后只点击一次 Preview / Validate。
-///   4. 等待连接、凭据保存、合成与播放任务收束，再读取 readiness 与 PCM 计数。
+///   2. 输入全新 API Key、Turbo 与手动 Voice ID，先点击 Preview，确认它不会代替 Connect。
+///   3. 显式点击 Connect，等待账户验证与 Keychain 保存完成。
+///   4. 点击 Verify & Preview，等待合成与播放任务收束，再读取 readiness 与 PCM 计数。
 ///
 /// 预期结果：
-///   - 正断言：单次点击必须完成远端验证并把当前手动 Voice 证明推进到 Ready。
+///   - 正断言：Connect 后账户可配置；Verify & Preview 把当前手动 Voice 推进到 Ready。
 ///   - 正断言：试听必须实际排入 PCM，而不只是更新状态文本。
-///   - 负断言：点击后不得仍停留在 Configured，也不得隐式激活 MiniMax。
+///   - 负断言：Connect 前 Preview 不得保存凭据；试听不得隐式激活 MiniMax。
 #[test]
-fn e2e_minimax_preview_connects_new_credential_draft_before_synthesis() {
+fn e2e_minimax_connects_account_before_manual_voice_preview() {
+    let _tts_guard = VoiceModelInstallE2eGuard::acquire();
     let mut cx = TestAppContext::single();
     let workspace = tempfile::tempdir().expect("应创建 MiniMax 一步 Preview e2e workspace");
     let settings = tempfile::tempdir().expect("应创建 MiniMax Preview 持久化 e2e 目录");
     let store = storage::SettingsStore::new(settings.path().join("app.sqlite"));
+    let inspection_store = store.clone();
     let (app, cx) = make_app_with_settings_store(&mut cx, echo_factory(), store);
     app.update(cx, |app, cx| {
         app.set_fake_tts_transport_for_e2e(true, false, cx);
@@ -184,24 +276,45 @@ fn e2e_minimax_preview_connects_new_credential_draft_before_synthesis() {
     cx.simulate_keystrokes("cmd-,");
     click(cx, "settings-section-voice");
     click(cx, "voice-ready-change-tts");
-    click(cx, "settings-tts-minimax-model-turbo");
-
-    click(cx, "settings-voice-field-tts-minimax-voice-id");
-    cx.simulate_input("manual_preview_voice_e2e");
-    cx.simulate_keystrokes("enter");
+    click(cx, "settings-tts-picker-provider-minimax");
     click(cx, "settings-voice-field-tts-minimax-api-key");
     cx.simulate_input("synthetic-preview-draft-key");
     cx.simulate_keystrokes("enter");
+    click(cx, "settings-tts-minimax-model-turbo");
+    click(cx, "settings-voice-field-tts-minimax-voice-id");
+    cx.simulate_input("manual_preview_voice_e2e");
+    cx.simulate_keystrokes("enter");
     cx.run_until_parked();
+
+    let pcm_before_rejected_preview =
+        app.update(cx, |app, _| app.tts_preview_pcm_queue_count_for_e2e());
+    click(cx, "settings-tts-minimax-preview");
+    settle(cx);
+    let credential_before_connect = inspection_store
+        .get_string("voice.tts.minimax.credential_ref")
+        .expect("Connect 前应可查询 MiniMax credential reference");
+    let pcm_after_rejected_preview =
+        app.update(cx, |app, _| app.tts_preview_pcm_queue_count_for_e2e());
+    assert!(
+        credential_before_connect.is_none(),
+        "Preview 不得代替 Connect 保存未验证的 API Key 候选"
+    );
+    assert_eq!(
+        pcm_after_rejected_preview, pcm_before_rejected_preview,
+        "账户未 Connect 时 Preview 不得排入假 PCM"
+    );
+
+    click(cx, "settings-tts-minimax-connect");
+    settle(cx);
 
     let configured = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
-        configured.tts_provider.minimax_readiness, "configured",
-        "提交 API Key 草稿与完整 Profile 后必须显示 Configured"
+        configured.tts_provider.picker_minimax_readiness, "voice_validation_required",
+        "连接账户并填写手动 Voice 后必须明确要求 Verify & Preview"
     );
     assert_ne!(
-        configured.tts_provider.minimax_readiness, "unconfigured",
-        "非空 API Key 草稿不得保存后立刻退回 Not Configured"
+        configured.tts_provider.picker_minimax_readiness, "unconfigured",
+        "成功 Connect 后不得退回 Not Configured"
     );
     let pcm_before = app.update(cx, |app, _| app.tts_preview_pcm_queue_count_for_e2e());
 
@@ -211,11 +324,11 @@ fn e2e_minimax_preview_connects_new_credential_draft_before_synthesis() {
     let validated = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     let pcm_after = app.update(cx, |app, _| app.tts_preview_pcm_queue_count_for_e2e());
     assert_eq!(
-        validated.tts_provider.minimax_readiness, "ready",
-        "Preview / Validate 必须先连接新凭据，再校验当前手动 Voice"
+        validated.tts_provider.picker_minimax_readiness, "ready",
+        "Verify & Preview 必须校验已连接账户下的当前手动 Voice"
     );
     assert_ne!(
-        validated.tts_provider.minimax_readiness, "configured",
+        validated.tts_provider.picker_minimax_readiness, "configured",
         "点击后不得无反馈地停留在 Configured"
     );
     assert_eq!(
@@ -226,9 +339,9 @@ fn e2e_minimax_preview_connects_new_credential_draft_before_synthesis() {
     assert_ne!(
         validated.tts_provider.active_provider_id.as_deref(),
         Some(tts::MINIMAX_TTS_PROVIDER_ID),
-        "Preview / Validate 只验证配置，不得隐式激活 MiniMax"
+        "Verify & Preview 只验证配置，不得隐式激活 MiniMax"
     );
-    click(cx, "settings-tts-minimax-activate");
+    click(cx, "settings-tts-picker-apply");
     settle(cx);
     let active = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(

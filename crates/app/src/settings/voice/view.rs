@@ -105,6 +105,9 @@ impl MultisoulApp {
         self.voice_settings.set_reviewing_setup(true);
         self.voice_settings
             .open_setup_destination(VoiceSetupDestination::SpokenReplies);
+        self.voice_settings.open_tts_picker();
+        self.voice_settings_inputs
+            .sync_from_state(&self.voice_settings, cx);
         self.settings_viewport.pending_voice_setup_scroll =
             Some(VoiceSetupDestination::SpokenReplies);
         cx.notify();
@@ -231,13 +234,20 @@ impl MultisoulApp {
     }
 
     pub(crate) fn persist_voice_settings_in_background(&mut self, cx: &mut Context<Self>) {
+        let tts_activation_batch = self.pending_tts_activation.is_some();
         let writes = self.voice_settings.take_pending_writes();
         if writes.is_empty() {
             return;
         }
         let work = cx.background_executor().spawn(async move {
-            for write in writes {
-                write.execute().map_err(|error| error.to_string())?;
+            if tts_activation_batch {
+                crate::settings::voice::PendingVoiceSettingWrite::execute_settings_atomically(
+                    writes,
+                )?;
+            } else {
+                for write in writes {
+                    write.execute().map_err(|error| error.to_string())?;
+                }
             }
             Ok::<(), String>(())
         });
@@ -268,26 +278,28 @@ impl MultisoulApp {
                     crate::app::dialogue::configure_selected_tts_model(None);
                 }
                 if let Some(activation) = app.pending_tts_activation.take() {
-                    if credential_succeeded {
-                        app.cancel_agent_announcements();
-                        app.tts_preview.cancel();
-                        app.stop_continuous_listening(cx);
-                        app.voice.stop_for_model_switch();
-                        app.invalidate_tts_for_configuration_change(cx);
-                        crate::app::dialogue::configure_selected_tts_model(Some(
-                            activation.selected,
-                        ));
-                        app.complete_voice_setup_if_ready(cx);
+                    let selected = &activation.selected;
+                    let picker_accepts_activation = app.voice_settings.tts_picker_accepts_activation(
+                        &selected.provider_id,
+                        &selected.model_id,
+                        &selected.voice_id,
+                    );
+                    if credential_succeeded && tts_activation_batch && picker_accepts_activation {
+                        app.complete_tts_activation(activation, cx);
                     } else {
-                        app.voice_settings
-                            .select_tts_provider(activation.previous_provider_id);
+                        app.voice_settings.restore_tts_activation(activation.rollback);
+                        app.voice_settings.fail_tts_picker_apply(
+                            "Could not save the selected Voice. The previous Voice is still active.",
+                        );
                     }
                 }
                 app.persist_voice_settings_in_background(cx);
                 if completion.agent_credential && credential_succeeded {
                     app.validate_saved_voice_provider(cx);
                 }
-                if completion.minimax_credential || completion.minimax_validation {
+                if !tts_activation_batch
+                    && (completion.minimax_credential || completion.minimax_validation)
+                {
                     app.configure_active_minimax_tts_if_ready(cx);
                 }
                 if start_minimax_preview.is_some() {

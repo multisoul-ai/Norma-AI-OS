@@ -154,18 +154,26 @@ impl VoiceSettingsState {
                     }
                 };
                 let model_id = self
-                    .values
-                    .minimax_tts_model_id()
+                    .tts_picker_minimax_model_id()
+                    .or_else(|| self.values.minimax_tts_model_id())
                     .cloned()
                     .unwrap_or_else(|| {
                         TtsModelId::parse(tts::MINIMAX_SPEECH_TURBO_MODEL_ID)
                             .expect("built-in MiniMax Turbo model ID must be valid")
                     });
-                self.set_minimax_tts_selection(
-                    model_id,
-                    voice_id,
-                    tts::VoiceSelectionProvenance::Manual,
-                );
+                if self.tts_picker_provider_id() == Some(tts::MINIMAX_TTS_PROVIDER_ID) {
+                    self.set_tts_picker_minimax_selection(
+                        model_id,
+                        voice_id,
+                        tts::VoiceSelectionProvenance::Manual,
+                    );
+                } else {
+                    self.set_minimax_tts_selection(
+                        model_id,
+                        voice_id,
+                        tts::VoiceSelectionProvenance::Manual,
+                    );
+                }
                 self.finish_editing_if_requested(finish_editing);
                 return Some(value);
             }
@@ -195,8 +203,8 @@ impl VoiceSettingsState {
             VoiceSettingsField::Model => self.values.active_provider_profile().model().to_string(),
             VoiceSettingsField::ApiKey | VoiceSettingsField::MiniMaxApiKey => String::new(),
             VoiceSettingsField::MiniMaxVoiceId => self
-                .values
-                .minimax_tts_voice_id()
+                .tts_picker_minimax_voice_id()
+                .or_else(|| self.values.minimax_tts_voice_id())
                 .map(TtsVoiceId::as_str)
                 .unwrap_or_default()
                 .to_string(),

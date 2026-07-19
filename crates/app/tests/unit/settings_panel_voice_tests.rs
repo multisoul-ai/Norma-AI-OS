@@ -39,6 +39,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         include_str!("../../src/settings/voice/view/model_catalog.rs"),
         include_str!("../../src/settings/voice/view/tts_catalog.rs"),
         include_str!("../../src/settings/voice/view/tts_provider.rs"),
+        include_str!("../../src/settings/voice/view/tts_provider/picker.rs"),
         include_str!("../../src/settings/voice/view/tts_provider/controller.rs"),
         include_str!("../../src/settings/voice/view/spoken_reply.rs"),
         include_str!("../../src/settings/voice/view/provider.rs"),
@@ -64,8 +65,11 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("Continuous Listening");
     assert_anchor!("Shortcut");
     assert_anchor!("Agent Provider");
-    assert_anchor!("Spoken Reply");
+    assert_anchor!("Spoken Replies");
     assert_anchor!("Local TTS");
+    assert_anchor!("Current Voice");
+    assert_anchor!("Use This Voice");
+    assert_anchor!("Manage Models");
     assert_anchor!("Advanced");
     assert_anchor!("voice.ollama.endpoint");
     assert_anchor!("voice.ollama.model");

@@ -47,6 +47,12 @@ impl VoiceSettingsState {
         self.provider_requirement = crate::settings::voice::VoiceRequirementState::Missing;
         self.setup_was_completed = false;
         self.reviewing_setup = false;
+        self.saved.asr_model_id = None;
+        self.saved.tts_model_id = None;
+        self.saved.tts_voice_id = None;
+        self.saved.active_tts_provider_id = None;
+        self.tts_picker = None;
+        self.refresh_values();
     }
 
     pub(crate) fn set_setup_requirements_for_e2e(

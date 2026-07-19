@@ -1,6 +1,11 @@
-use super::{E2E_SETTLE_PASSES, SETTINGS_SCROLL_ATTEMPTS, SETTINGS_SCROLL_MARGIN_PX};
 use app::MultisoulApp;
 use gpui::{point, px, Modifiers, ScrollDelta, ScrollWheelEvent, VisualTestContext};
+
+// 每次用户操作最多派生 4 层任务；8 次收口留出两轮余量。
+const E2E_SETTLE_PASSES: usize = 8;
+// 3 次校正覆盖上下方与重排补偿；24px 避免目标贴住裁剪边缘。
+const SETTINGS_SCROLL_ATTEMPTS: usize = 3;
+const SETTINGS_SCROLL_MARGIN_PX: f32 = 24.0;
 
 pub(super) fn snapshot(
     app: &gpui::Entity<MultisoulApp>,

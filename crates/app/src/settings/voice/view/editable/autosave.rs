@@ -44,6 +44,7 @@ impl MultisoulApp {
         let profile_generation = self.voice_settings.minimax_profile_generation();
         let saved = self.voice_settings.auto_save_edit_value(field, value);
         if field == VoiceSettingsField::MiniMaxVoiceId
+            && !self.voice_settings.tts_picker_open()
             && self.voice_settings.minimax_profile_generation() != profile_generation
         {
             self.configure_active_minimax_tts_if_ready(cx);
@@ -67,6 +68,7 @@ impl MultisoulApp {
         if saved.is_some() {
             self.persist_voice_settings_in_background(cx);
             if field == VoiceSettingsField::MiniMaxVoiceId
+                && !self.voice_settings.tts_picker_open()
                 && self.voice_settings.minimax_profile_generation() != profile_generation
             {
                 self.configure_active_minimax_tts_if_ready(cx);

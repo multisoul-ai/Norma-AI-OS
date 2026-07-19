@@ -60,6 +60,41 @@ impl PendingVoiceSettingWrite {
         }
     }
 
+    pub(crate) fn execute_settings_atomically(writes: Vec<Self>) -> Result<(), String> {
+        let mut store = None;
+        let mut changes = Vec::with_capacity(writes.len());
+        for write in writes {
+            match write {
+                Self::Set {
+                    store: write_store,
+                    key,
+                    value,
+                } => {
+                    store.get_or_insert(write_store);
+                    changes.push((key, Some(value)));
+                }
+                Self::Delete {
+                    store: write_store,
+                    key,
+                } => {
+                    store.get_or_insert(write_store);
+                    changes.push((key, None));
+                }
+                Self::StoreCredential { .. } | Self::DeleteCredential { .. } => {
+                    return Err(
+                        "TTS activation transaction cannot contain credential writes.".to_string(),
+                    );
+                }
+            }
+        }
+        let Some(store) = store else {
+            return Ok(());
+        };
+        store
+            .apply_string_changes(&changes)
+            .map_err(|error| error.to_string())
+    }
+
     pub(super) fn key(&self) -> &str {
         match self {
             Self::Set { key, .. } | Self::Delete { key, .. } => key,

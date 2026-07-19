@@ -20,7 +20,8 @@ pub(crate) type TtsClientBox = Box<dyn tts::TtsClient>;
 
 pub(crate) struct PendingTtsActivation {
     pub(crate) selected: SelectedTtsModel,
-    pub(crate) previous_provider_id: Option<tts::TtsProviderId>,
+    pub(crate) rollback: crate::settings::voice::TtsActivationRollback,
+    pub(crate) close_picker_on_success: bool,
 }
 
 #[derive(Clone, Eq)]

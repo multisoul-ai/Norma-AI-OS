@@ -17,6 +17,14 @@ pub struct TtsModelE2eSnapshot {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TtsProviderE2eSnapshot {
     pub active_provider_id: Option<String>,
+    pub picker_open: bool,
+    pub picker_provider_id: Option<String>,
+    pub picker_local_model_id: Option<String>,
+    pub picker_local_voice_id: Option<String>,
+    pub picker_minimax_model_id: Option<String>,
+    pub picker_minimax_voice_id: Option<String>,
+    pub picker_minimax_voice_provenance: &'static str,
+    pub picker_minimax_readiness: &'static str,
     pub minimax_model_id: Option<String>,
     pub minimax_voice_id: Option<String>,
     pub minimax_voice_provenance: &'static str,
@@ -30,6 +38,25 @@ pub(super) fn snapshot_tts_provider(state: &VoiceSettingsState) -> TtsProviderE2
             .values()
             .active_tts_provider_id()
             .map(|id| id.as_str().to_string()),
+        picker_open: state.tts_picker_open(),
+        picker_provider_id: state.tts_picker_provider_id().map(ToOwned::to_owned),
+        picker_local_model_id: state
+            .tts_picker_local_model_id()
+            .map(|id| id.as_str().to_string()),
+        picker_local_voice_id: state
+            .tts_picker_local_voice_id()
+            .map(|id| id.as_str().to_string()),
+        picker_minimax_model_id: state
+            .tts_picker_minimax_model_id()
+            .map(|id| id.as_str().to_string()),
+        picker_minimax_voice_id: state
+            .tts_picker_minimax_voice_id()
+            .map(|id| id.as_str().to_string()),
+        picker_minimax_voice_provenance: match state.tts_picker_minimax_provenance() {
+            tts::VoiceSelectionProvenance::Catalog => "catalog",
+            tts::VoiceSelectionProvenance::Manual => "manual",
+        },
+        picker_minimax_readiness: readiness_name(state.tts_picker_minimax_readiness()),
         minimax_model_id: state
             .values()
             .minimax_tts_model_id()
@@ -42,21 +69,25 @@ pub(super) fn snapshot_tts_provider(state: &VoiceSettingsState) -> TtsProviderE2
             tts::VoiceSelectionProvenance::Catalog => "catalog",
             tts::VoiceSelectionProvenance::Manual => "manual",
         },
-        minimax_readiness: match state.minimax_readiness() {
-            tts::RemoteTtsReadiness::Unconfigured => "unconfigured",
-            tts::RemoteTtsReadiness::Configured => "configured",
-            tts::RemoteTtsReadiness::Checking => "checking",
-            tts::RemoteTtsReadiness::Ready => "ready",
-            tts::RemoteTtsReadiness::TemporarilyUnavailable => "temporarily_unavailable",
-            tts::RemoteTtsReadiness::InvalidCredential => "invalid_credential",
-            tts::RemoteTtsReadiness::VoiceUnavailable => "voice_unavailable",
-            tts::RemoteTtsReadiness::VoiceValidationRequired => "voice_validation_required",
-        },
+        minimax_readiness: readiness_name(state.minimax_readiness()),
         minimax_visible_voice_ids: state
             .filtered_minimax_voices()
             .into_iter()
             .map(|voice| voice.id().as_str().to_string())
             .collect(),
+    }
+}
+
+fn readiness_name(readiness: tts::RemoteTtsReadiness) -> &'static str {
+    match readiness {
+        tts::RemoteTtsReadiness::Unconfigured => "unconfigured",
+        tts::RemoteTtsReadiness::Configured => "configured",
+        tts::RemoteTtsReadiness::Checking => "checking",
+        tts::RemoteTtsReadiness::Ready => "ready",
+        tts::RemoteTtsReadiness::TemporarilyUnavailable => "temporarily_unavailable",
+        tts::RemoteTtsReadiness::InvalidCredential => "invalid_credential",
+        tts::RemoteTtsReadiness::VoiceUnavailable => "voice_unavailable",
+        tts::RemoteTtsReadiness::VoiceValidationRequired => "voice_validation_required",
     }
 }
 
@@ -67,7 +98,11 @@ pub(super) fn snapshot_tts_models(state: &VoiceSettingsState) -> Vec<TtsModelE2e
         .iter()
         .map(|entry| {
             let descriptor = entry.descriptor();
-            let selected = state.values().tts_model_id() == Some(descriptor.id());
+            let selected = if state.tts_picker_provider_id() == Some(tts::LOCAL_TTS_PROVIDER_ID) {
+                state.tts_picker_local_model_id() == Some(descriptor.id())
+            } else {
+                state.values().tts_model_id() == Some(descriptor.id())
+            };
             TtsModelE2eSnapshot {
                 id: descriptor.id().as_str().to_string(),
                 display_name: descriptor.display_name().to_string(),

@@ -1,5 +1,5 @@
 use super::tts_provider::tts_provider_settings;
-use super::{action_button, setting_row, settings_group, with_alpha, VoiceSettingsInputs};
+use super::{setting_row, settings_group, with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
 use crate::settings::voice::VoiceSettingsState;
 use gpui::{div, prelude::*, px, rgba, Context, Div};
@@ -11,7 +11,7 @@ pub(super) fn spoken_reply_group(
     inputs: &VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    settings_group(theme, "Spoken Reply")
+    settings_group(theme, "Spoken Replies")
         .child(tts_provider_settings(theme, state, inputs, cx))
         .child(toggle_row(
             theme,
@@ -29,63 +29,6 @@ pub(super) fn spoken_reply_group(
             "settings-voice-window-inset-toggle",
             cx.listener(MultisoulApp::on_voice_settings_toggle_window_inset),
         ))
-        .child(selected_voice_row(theme, state, cx))
-}
-
-fn selected_voice_row(
-    theme: Theme,
-    state: &VoiceSettingsState,
-    cx: &mut Context<MultisoulApp>,
-) -> Div {
-    let local_active = state
-        .values()
-        .active_tts_provider_id()
-        .is_some_and(|provider| provider.as_str() == tts::LOCAL_TTS_PROVIDER_ID);
-    let selection = local_active
-        .then(|| state.values().tts_model_id())
-        .flatten()
-        .and_then(|model_id| tts::builtin_model_catalog().find(model_id).cloned())
-        .and_then(|model| {
-            state
-                .values()
-                .tts_voice_id()
-                .and_then(|voice_id| model.voice(voice_id).cloned())
-                .map(|voice| (model.id().clone(), voice))
-        });
-    let minimax_label = state
-        .values()
-        .active_tts_provider_id()
-        .is_some_and(|provider| provider.as_str() == tts::MINIMAX_TTS_PROVIDER_ID)
-        .then(|| {
-            state
-                .values()
-                .minimax_tts_voice_id()
-                .map(|voice| format!("MiniMax · {}", voice.as_str()))
-        })
-        .flatten();
-    let label = selection
-        .as_ref()
-        .map(|(_, voice)| voice.display_name().to_string())
-        .or(minimax_label)
-        .unwrap_or_else(|| "No voice selected".to_string());
-    let mut row = setting_row(
-        theme,
-        "Voice",
-        "Active Provider voice used for replies, Preview and task announcements",
-    )
-    .child(div().text_color(rgba(theme.text_primary)).child(label));
-    if let Some((model_id, voice)) = selection {
-        let voice_id = voice.id().clone();
-        row = row.child(
-            action_button(theme, "Preview", theme.accent_blue)
-                .id("settings-voice-preview-selected")
-                .debug_selector(|| "settings-voice-preview-selected".to_string())
-                .on_click(cx.listener(move |app, _, _, cx| {
-                    app.preview_tts_voice(model_id.clone(), voice_id.clone(), cx)
-                })),
-        );
-    }
-    row
 }
 
 fn toggle_row(

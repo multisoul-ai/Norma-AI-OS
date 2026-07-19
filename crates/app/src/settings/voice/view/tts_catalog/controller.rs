@@ -4,6 +4,7 @@ use gpui::Context;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+mod maintenance;
 mod reference;
 mod work;
 pub(crate) use work::synthesize_tts_preview;
@@ -143,7 +144,11 @@ impl MultisoulApp {
                                 }
                                 TtsInstallOutcome::Ready => {
                                     app.voice_settings.tts_model_manager_mut().mark_ready(&id);
-                                    if !app.has_valid_selected_tts_model() {
+                                    let picker_needs_local_selection =
+                                        app.voice_settings.tts_picker_provider_id()
+                                            == Some(tts::LOCAL_TTS_PROVIDER_ID)
+                                            && !app.voice_settings.tts_picker_ready();
+                                    if picker_needs_local_selection {
                                         app.select_tts_model(id.clone(), None, cx);
                                     }
                                 }
@@ -237,6 +242,50 @@ impl MultisoulApp {
         requested_voice: Option<tts::TtsVoiceId>,
         cx: &mut Context<Self>,
     ) {
+        if self.voice_settings.tts_picker_apply_pending() {
+            self.voice_settings.report_tts_status(
+                "Wait for the selected Voice to finish applying before changing the Draft.",
+                false,
+            );
+            cx.notify();
+            return;
+        }
+        self.select_tts_model_work(model_id, requested_voice, false, cx);
+    }
+
+    pub(crate) fn apply_tts_picker_model(
+        &mut self,
+        model_id: tts::TtsModelId,
+        voice_id: tts::TtsVoiceId,
+        cx: &mut Context<Self>,
+    ) {
+        self.select_tts_model_work(model_id, Some(voice_id), true, cx);
+    }
+
+    fn select_tts_model_work(
+        &mut self,
+        model_id: tts::TtsModelId,
+        requested_voice: Option<tts::TtsVoiceId>,
+        picker_apply: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let picker_selecting_local = self.voice_settings.tts_picker_provider_id()
+            == Some(tts::LOCAL_TTS_PROVIDER_ID)
+            && !picker_apply;
+        if picker_selecting_local {
+            let catalog = tts::builtin_model_catalog();
+            let Some(descriptor) = catalog.find(&model_id) else {
+                return;
+            };
+            let voice_id = descriptor
+                .resolve_voice_id(requested_voice.as_ref().map(tts::TtsVoiceId::as_str))
+                .clone();
+            self.tts_preview.cancel();
+            self.voice_settings
+                .set_tts_picker_local_selection(model_id, voice_id);
+            cx.notify();
+            return;
+        }
         self.cancel_agent_announcements();
         self.tts_preview.cancel();
         self.invalidate_tts_for_configuration_change(cx);
@@ -253,12 +302,17 @@ impl MultisoulApp {
                 if selection_generation != app.tts_selection_generation {
                     return;
                 }
+                if !app.voice_settings.tts_picker_apply_pending()
+                    || app.voice_settings.tts_picker_provider_id()
+                        != Some(tts::LOCAL_TTS_PROVIDER_ID)
+                {
+                    return;
+                }
                 match result {
                     Ok(selected) => app.commit_tts_selection(selected, cx),
-                    Err(error) => app.voice_settings.report_tts_status(
-                        format!("Could not select Local TTS model: {error}"),
-                        true,
-                    ),
+                    Err(error) => app.voice_settings.fail_tts_picker_apply(format!(
+                        "Could not select Local TTS model: {error}"
+                    )),
                 }
                 cx.notify();
             });
@@ -418,66 +472,6 @@ impl MultisoulApp {
                             .report_tts_status(format!("Voice preview failed: {error}"), true);
                     }
                     Err(_) => {}
-                }
-                cx.notify();
-            });
-        })
-        .detach();
-    }
-
-    fn has_valid_selected_tts_model(&self) -> bool {
-        let Some(id) = self.voice_settings.values().tts_model_id() else {
-            return false;
-        };
-        matches!(
-            self.voice_settings.tts_model_manager().installation(id),
-            Some(TtsModelInstallState::Ready)
-        )
-    }
-
-    fn commit_tts_selection(
-        &mut self,
-        selected: crate::app::dialogue::SelectedTtsModel,
-        cx: &mut Context<Self>,
-    ) {
-        self.stop_continuous_listening(cx);
-        self.voice.stop_for_model_switch();
-        self.voice_settings.select_tts_model_and_voice(
-            Some(selected.model_id.clone()),
-            Some(selected.voice_id.clone()),
-        );
-        self.voice_settings.select_tts_provider(Some(
-            tts::TtsProviderId::parse(tts::LOCAL_TTS_PROVIDER_ID)
-                .expect("built-in On-device TTS Provider ID must be valid"),
-        ));
-        crate::app::dialogue::configure_selected_tts_model(Some(selected));
-        self.complete_voice_setup_if_ready(cx);
-        self.persist_voice_settings_in_background(cx);
-    }
-
-    fn invalidate_tts_scan(&mut self) {
-        self.tts_scan_generation = self.tts_scan_generation.wrapping_add(1);
-    }
-
-    fn remove_cancelled_tts_install(&mut self, id: tts::TtsModelId, cx: &mut Context<Self>) {
-        let catalog = tts::builtin_model_catalog();
-        let Some(descriptor) = catalog.find(&id).cloned() else {
-            return;
-        };
-        let root = self.voice_settings.tts_model_root().join(id.as_str());
-        let work = cx.background_executor().spawn(async move {
-            tts::remove_installation(&root, &descriptor, None).map_err(|error| error.to_string())
-        });
-        cx.spawn(async move |this, cx| {
-            let result = work.await;
-            let _ = this.update(cx, |app, cx| {
-                app.invalidate_tts_scan();
-                match result {
-                    Ok(()) => app
-                        .voice_settings
-                        .tts_model_manager_mut()
-                        .mark_not_installed(&id),
-                    Err(error) => app.voice_settings.report_tts_status(error, true),
                 }
                 cx.notify();
             });

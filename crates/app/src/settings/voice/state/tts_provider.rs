@@ -64,6 +64,26 @@ impl VoiceSettingsState {
         self.minimax_api_key_draft.is_some()
     }
 
+    pub(super) fn discard_minimax_credential_candidate(&mut self) {
+        if self.minimax_api_key_draft.take().is_none() {
+            return;
+        }
+        self.minimax_connection_generation = self.minimax_connection_generation.wrapping_add(1);
+        self.minimax_profile_generation = self.minimax_profile_generation.wrapping_add(1);
+        self.minimax_account_status = if self.saved.minimax_tts_credential_ref.is_some()
+            && self.saved.minimax_tts_api_key.is_some()
+        {
+            if self.minimax_account_status == RemoteAccountStatus::Checking {
+                self.minimax_connection_previous_status
+            } else {
+                self.minimax_account_status
+            }
+        } else {
+            RemoteAccountStatus::Unchecked
+        };
+        self.refresh_values();
+    }
+
     pub(crate) fn minimax_persistence_blocks_preview(&self) -> bool {
         self.minimax_credential_write_rollback.is_some()
             || self.minimax_credential_clear_rollback.is_some()
@@ -298,13 +318,18 @@ impl VoiceSettingsState {
     }
 
     pub(crate) fn minimax_profile_generation(&self) -> u64 {
-        self.minimax_profile_generation
+        self.tts_picker_profile_generation()
+            .unwrap_or(self.minimax_profile_generation)
     }
 
     pub(crate) fn mark_minimax_manual_voice_validated(
         &mut self,
         expected_profile_generation: u64,
     ) -> bool {
+        if let Some(validated) = self.mark_tts_picker_minimax_validated(expected_profile_generation)
+        {
+            return validated;
+        }
         if expected_profile_generation != self.minimax_profile_generation {
             return false;
         }

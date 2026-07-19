@@ -10,17 +10,17 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///   ready gates = 0 / 4
 ///   setup entry = 1 次 `cmd-e`
 ///   ASR catalog disclosure = 1 次点击后展示识别模型目录
-///   TTS catalog placement = Spoken Replies 内直接展示 1 个本地声音目录
+///   TTS disclosure = Spoken Replies 内展示 1 个当前声音摘要，详细目录默认折叠
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建 fresh App、进入 Canvas，并清空四项 Voice readiness
 ///   2. 分发一次 `cmd-e` → 打开 Settings → Voice 内的 Setup 内容
 ///   3. 检查 Settings 侧栏、Voice 页头、页内进度、纵向步骤轨道和三张步骤卡
 ///   4. 检查麦克风操作位于 Speech Recognition 内，AI Connection 无需展开即可配置
-///   5. 确认 TTS 目录归属 Spoken Replies，再点击“选择其他识别模型”展开 ASR 目录
+///   5. 确认当前声音摘要归属 Spoken Replies，且 TTS/ASR 详细目录都保持折叠
 ///
 /// 预期结果：
-///   - 正断言：Voice Settings 外壳、三步、Spoken Replies TTS 目录均可见
+///   - 正断言：Voice Settings 外壳、三步、Spoken Replies 当前声音摘要均可见
 ///   - 负断言：Setup 不得脱离 Settings 外壳；644 MB 推荐包卡片不得存在；ASR 目录在用户主动展开前不得铺满页面
 #[test]
 fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
@@ -80,8 +80,12 @@ fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
         "Local TTS Model selection must live inside the Spoken Replies setup step"
     );
     assert!(
-        cx.debug_bounds("settings-tts-model-0").is_some(),
-        "Spoken Replies must directly expose the first local TTS model without opening ASR options"
+        cx.debug_bounds("settings-tts-current-voice").is_some(),
+        "Spoken Replies must directly expose the compact current voice summary"
+    );
+    assert!(
+        cx.debug_bounds("settings-tts-model-0").is_none(),
+        "Spoken Replies must keep the detailed local model catalog collapsed until Change and Manage Models"
     );
     let alternative_models = cx
         .debug_bounds("voice-setup-alternative-models-toggle")
@@ -229,8 +233,12 @@ fn ready_voice_page_matches_the_approved_summary_structure() {
         "ASR Change must expose the ASR model catalog at its destination"
     );
     assert!(
-        cx.debug_bounds("settings-tts-model-0").is_some(),
-        "Spoken Replies must keep TTS choices reachable while reviewing ASR models"
+        cx.debug_bounds("settings-tts-current-voice").is_some(),
+        "Spoken Replies must keep the current voice summary reachable while reviewing ASR models"
+    );
+    assert!(
+        cx.debug_bounds("settings-tts-model-0").is_none(),
+        "Reviewing ASR models must not implicitly expand the unrelated TTS model catalog"
     );
     assert_ne!(
         app.update(cx, |app, _cx| app.voice_e2e_snapshot().phase),
@@ -245,16 +253,18 @@ fn ready_voice_page_matches_the_approved_summary_structure() {
 ///   harness readiness = Ready（4 / 4 hard gates）
 ///   Settings clicks = toolbar(1) + Voice navigation(1) = 2
 ///   TTS Change clicks = 1
+///   Manage Models clicks = 1
 ///   expected expanded ASR catalogs = 0
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建独立 Ready App 并进入 Settings → Voice
 ///   2. 点击 Spoken Replies 行的 TTS Change
-///   3. 检查 Setup 中的 Provider 选择、Local TTS 首项和 ASR 折叠状态
-///   4. 对比 On-device Provider 与 Settings 滚动视口边界，确认目标已被定位到可见范围
+///   3. 检查统一 Provider 选择器可见，但本地模型目录仍渐进折叠
+///   4. 点击 Manage Models，再检查 Local TTS 首项和 ASR 折叠状态
+///   5. 对比 On-device Provider 与 Settings 滚动视口边界，确认目标已被定位到可见范围
 ///
 /// 预期结果：
-///   - 正断言：Provider 与 Local TTS Model 都位于 Spoken Replies，且 Provider 在视口内
+///   - 正断言：Provider 位于 Spoken Replies 且在视口内，模型目录仅在 Manage 后出现
 ///   - 负断言：TTS Change 不得展开无关的 ASR 目录，也不得开始录音
 #[test]
 fn ready_tts_change_routes_to_spoken_replies_without_expanding_asr() {
@@ -289,23 +299,34 @@ fn ready_tts_change_routes_to_spoken_replies_without_expanding_asr() {
         "TTS Change must route to Local TTS Model selection inside Spoken Replies"
     );
     assert!(
-        cx.debug_bounds("settings-tts-model-0").is_some(),
-        "TTS Change must expose the first local TTS model"
+        cx.debug_bounds("settings-tts-model-0").is_none(),
+        "TTS Change must keep the detailed local model catalog collapsed initially"
     );
     assert!(
-        cx.debug_bounds("settings-tts-provider-minimax").is_some(),
+        cx.debug_bounds("settings-tts-picker-provider-minimax")
+            .is_some(),
         "TTS Change must expose the built-in MiniMax Provider alongside On-device"
     );
     let viewport = cx
         .debug_bounds("settings-content-scroll")
         .expect("TTS Change must keep the shared Settings scroll viewport");
     let on_device_provider = cx
-        .debug_bounds("settings-tts-provider-local")
+        .debug_bounds("settings-tts-picker-provider-local")
         .expect("TTS Change must render On-device Provider before checking visibility");
     assert!(
         on_device_provider.center().y >= viewport.top()
             && on_device_provider.center().y <= viewport.bottom(),
         "TTS Change must scroll the Provider selector into the Settings viewport; viewport={viewport:?}, provider={on_device_provider:?}"
+    );
+    let manage_models = cx
+        .debug_bounds("settings-tts-picker-manage-models")
+        .expect("On-device picker must expose Manage Models for progressive disclosure");
+    cx.simulate_mouse_move(manage_models.center(), None, Modifiers::none());
+    cx.simulate_click(manage_models.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("settings-tts-model-0").is_some(),
+        "Manage Models must expose the first local TTS model inside Spoken Replies"
     );
     assert!(
         cx.debug_bounds("voice-setup-alternative-models").is_none(),

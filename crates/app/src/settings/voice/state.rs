@@ -17,6 +17,7 @@ mod persistence;
 mod provider_discovery;
 mod provider_values;
 mod readiness_state;
+mod tts_picker;
 mod tts_provider;
 mod tts_provider_persistence;
 mod values;
@@ -29,6 +30,7 @@ pub(crate) use provider_values::AgentProviderKind;
 #[cfg(test)]
 pub(crate) use provider_values::SavedProviderProfile;
 use provider_values::KEY_AGENT_PROVIDER;
+pub(crate) use tts_picker::TtsActivationRollback;
 pub(crate) use tts_provider::MiniMaxConnectionFailureDisposition;
 pub(crate) use values::{
     DictationTrigger, EnvVoiceSettings, SavedVoiceSettings, VoiceInteractionMode,
@@ -70,6 +72,7 @@ pub(crate) struct VoiceSettingsState {
     minimax_connection_previous_status: tts::RemoteAccountStatus,
     minimax_profile_generation: u64,
     minimax_preview_generation: Option<u64>,
+    tts_picker: Option<tts_picker::TtsPickerDraft>,
     model_root: PathBuf,
     model_manager: AsrModelManagerState,
     tts_model_manager: TtsModelManagerState,
@@ -174,6 +177,7 @@ impl VoiceSettingsState {
             minimax_connection_previous_status: tts::RemoteAccountStatus::Unchecked,
             minimax_profile_generation: 0,
             minimax_preview_generation: None,
+            tts_picker: None,
             model_root,
             model_manager,
             tts_model_manager,
@@ -395,6 +399,14 @@ mod voice_settings_disclosure_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_tts_provider_tests.rs"]
 mod voice_settings_tts_provider_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_tts_picker_tests.rs"]
+mod voice_settings_tts_picker_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_tts_activation_tests.rs"]
+mod voice_settings_tts_activation_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_tts_credential_tests.rs"]
