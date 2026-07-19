@@ -148,6 +148,17 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    #[cfg(feature = "e2e-test-support")]
+    pub fn assume_minimax_connected_with_system_voices_for_e2e(
+        &mut self,
+        count: usize,
+        cx: &mut Context<Self>,
+    ) {
+        self.voice_settings
+            .assume_minimax_connected_with_system_voices_for_e2e(count);
+        cx.notify();
+    }
+
     pub fn load_tts_selection_for_e2e(
         store: storage::SettingsStore,
     ) -> (Option<String>, Option<String>) {

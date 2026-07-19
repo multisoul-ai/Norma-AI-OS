@@ -7,6 +7,8 @@ use gpui::{
     point, px, Modifiers, ScrollDelta, ScrollWheelEvent, TestAppContext, VisualTestContext,
 };
 
+mod voice_list;
+
 /// E2E-TTS-PICKER-1：Spoken Replies 默认只显示 Active 摘要，Change 后才渐进披露统一选择器。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -382,8 +384,11 @@ fn scroll_and_assert_visible(cx: &mut VisualTestContext, selector: &'static str)
         } else {
             visible_bottom - target_bottom
         };
+        // Settings content has 28px horizontal padding; x + 8px remains in its empty gutter.
+        // Scrolling there explicitly targets the outer page instead of a nested voice list.
+        let outer_scroll_position = point(content.left() + px(8.0), content.center().y);
         cx.simulate_event(ScrollWheelEvent {
-            position: content.center(),
+            position: outer_scroll_position,
             delta: ScrollDelta::Pixels(point(px(0.0), px(delta))),
             ..Default::default()
         });

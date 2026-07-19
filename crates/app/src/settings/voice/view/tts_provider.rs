@@ -6,6 +6,7 @@ use ui::Theme;
 
 mod controller;
 mod picker;
+mod voice_list;
 
 pub(super) fn tts_provider_settings(
     theme: Theme,
@@ -150,7 +151,7 @@ pub(super) fn minimax_configuration(
                             "Search this account by name or Voice ID",
                             cx,
                         ))
-                        .child(minimax_voice_catalog(theme, state, cx))
+                        .child(voice_list::minimax_voice_catalog(theme, state, cx))
                 },
             )
             .child(
@@ -258,124 +259,6 @@ fn minimax_model_selector(
     )
 }
 
-fn minimax_voice_catalog(
-    theme: Theme,
-    state: &VoiceSettingsState,
-    cx: &mut Context<MultisoulApp>,
-) -> Div {
-    let selected = state.tts_picker_minimax_voice_id();
-    let mut catalog = div().w_full().flex().flex_col().gap(px(8.0));
-    for origin in [
-        tts::TtsVoiceOrigin::System,
-        tts::TtsVoiceOrigin::Cloned,
-        tts::TtsVoiceOrigin::Generated,
-    ] {
-        let voices = state
-            .filtered_minimax_voices()
-            .into_iter()
-            .filter(|voice| voice.origin() == origin)
-            .collect::<Vec<_>>();
-        if voices.is_empty() {
-            continue;
-        }
-        let mut group = div().w_full().flex().flex_col().gap(px(6.0)).child(
-            div()
-                .text_size(px(10.0))
-                .font_weight(FontWeight::BOLD)
-                .text_color(rgba(theme.text_tertiary))
-                .child(origin_label(origin)),
-        );
-        for (index, voice) in voices.into_iter().enumerate() {
-            let voice_id = voice.id().clone();
-            let preview_voice_id = voice_id.clone();
-            let selected_here = selected == Some(&voice_id);
-            let display_name = voice.display_name().to_string();
-            let voice_id_label = voice_id.as_str().to_string();
-            group = group.child(
-                div()
-                    .id((
-                        "settings-tts-minimax-voice",
-                        origin_index(origin) * 10_000 + index,
-                    ))
-                    .debug_selector(move || {
-                        format!(
-                            "settings-tts-minimax-voice-{}-{index}",
-                            origin_index(origin)
-                        )
-                    })
-                    .w_full()
-                    .flex()
-                    .items_center()
-                    .gap(px(8.0))
-                    .px(px(10.0))
-                    .py(px(8.0))
-                    .rounded(px(8.0))
-                    .border_1()
-                    .border_color(rgba(with_alpha(
-                        if selected_here {
-                            theme.accent_blue
-                        } else {
-                            theme.edge_highlight
-                        },
-                        if selected_here { 0x72 } else { 0x32 },
-                    )))
-                    .cursor_pointer()
-                    .child(
-                        action_button(theme, "▶", theme.accent_blue)
-                            .id((
-                                "settings-tts-minimax-preview-voice",
-                                origin_index(origin) * 10_000 + index,
-                            ))
-                            .debug_selector(move || {
-                                format!(
-                                    "settings-tts-minimax-preview-voice-{}-{index}",
-                                    origin_index(origin)
-                                )
-                            })
-                            .on_click(cx.listener(move |app, _, _, cx| {
-                                cx.stop_propagation();
-                                app.preview_minimax_catalog_voice(preview_voice_id.clone(), cx)
-                            })),
-                    )
-                    .child(
-                        div()
-                            .min_w(px(0.0))
-                            .flex_1()
-                            .flex()
-                            .flex_col()
-                            .gap(px(2.0))
-                            .child(
-                                div()
-                                    .font_weight(FontWeight::BOLD)
-                                    .text_color(rgba(theme.text_primary))
-                                    .child(display_name),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(10.0))
-                                    .text_color(rgba(theme.text_tertiary))
-                                    .child(voice_id_label),
-                            ),
-                    )
-                    .when(selected_here, |row| {
-                        row.child(
-                            div()
-                                .text_size(px(10.0))
-                                .font_weight(FontWeight::BOLD)
-                                .text_color(rgba(theme.accent_blue))
-                                .child("DRAFT"),
-                        )
-                    })
-                    .on_click(cx.listener(move |app, _, _, cx| {
-                        app.on_voice_select_minimax_catalog_voice(voice_id.clone(), cx)
-                    })),
-            );
-        }
-        catalog = catalog.child(group);
-    }
-    catalog
-}
-
 fn readiness_label(readiness: tts::RemoteTtsReadiness) -> &'static str {
     match readiness {
         tts::RemoteTtsReadiness::Unconfigured => {
@@ -396,21 +279,5 @@ fn readiness_label(readiness: tts::RemoteTtsReadiness) -> &'static str {
         tts::RemoteTtsReadiness::VoiceValidationRequired => {
             "Manual Voice ID requires Verify & Preview before it can be used."
         }
-    }
-}
-
-fn origin_label(origin: tts::TtsVoiceOrigin) -> &'static str {
-    match origin {
-        tts::TtsVoiceOrigin::System => "System",
-        tts::TtsVoiceOrigin::Cloned => "Cloned",
-        tts::TtsVoiceOrigin::Generated => "Generated",
-    }
-}
-
-fn origin_index(origin: tts::TtsVoiceOrigin) -> usize {
-    match origin {
-        tts::TtsVoiceOrigin::System => 0,
-        tts::TtsVoiceOrigin::Cloned => 1,
-        tts::TtsVoiceOrigin::Generated => 2,
     }
 }

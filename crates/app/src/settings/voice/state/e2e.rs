@@ -114,4 +114,28 @@ impl VoiceSettingsState {
         ]);
         self.refresh_values();
     }
+
+    pub(crate) fn assume_minimax_connected_with_system_voices_for_e2e(&mut self, count: usize) {
+        let model_id = tts::TtsModelId::parse(tts::MINIMAX_SPEECH_TURBO_MODEL_ID)
+            .expect("built-in MiniMax Turbo model ID must remain valid");
+        let voices = (0..count)
+            .map(|index| {
+                let voice_id = tts::TtsVoiceId::parse(format!("system_voice_{index:03}"))
+                    .expect("generated e2e System Voice ID must be valid");
+                tts::ProviderVoiceDescriptor::new(
+                    voice_id,
+                    format!("System Voice {index:03}"),
+                    tts::TtsVoiceOrigin::System,
+                )
+            })
+            .collect::<Vec<_>>();
+        self.saved.minimax_tts_credential_ref = Some("e2e-minimax-account".to_string());
+        self.saved.minimax_tts_api_key = Some("synthetic-e2e-minimax-key".to_string());
+        self.saved.minimax_tts_model_id = Some(model_id);
+        self.saved.minimax_tts_voice_id = voices.first().map(|voice| voice.id().clone());
+        self.saved.minimax_tts_voice_provenance = Some(tts::VoiceSelectionProvenance::Catalog);
+        self.minimax_account_status = tts::RemoteAccountStatus::Ready;
+        self.minimax_voice_catalog = tts::ProviderVoiceCatalog::new(voices);
+        self.refresh_values();
+    }
 }
