@@ -1,23 +1,23 @@
 use super::*;
 
-/// Cards 快速创建默认键位：五类可运行卡片必须按产品顺序占用 Cmd+1 到 Cmd+5。
+/// Cards 快速创建默认键位：六类可运行卡片必须按产品顺序占用 Cmd+1 到 Cmd+6。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   card shortcut count = 5（Terminal + Claude + Codex + Cursor + OpenCode）
+///   card shortcut count = 6（Terminal + Claude + Codex + Cursor + OpenCode + Grok）
 ///   first slot          = 1（Terminal）
-///   last slot           = 5（OpenCode）
-///   expected range      = Cmd+1..Cmd+5（5 - 1 + 1 = 5 个连续键位）
+///   last slot           = 6（Grok）
+///   expected range      = Cmd+1..Cmd+6（6 - 1 + 1 = 6 个连续键位）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 使用空偏好构造 effective_shortcuts，确保没有用户 override 干扰。
-///   2. 逐一读取五类卡片创建命令的 current_keystroke。
+///   2. 逐一读取六类卡片创建命令的 current_keystroke。
 ///   3. 同时检查 Terminal 与 Cursor 不再占用旧的 Cmd+N / Cmd+Shift+C。
 ///
 /// 预期结果：
-///   - 正断言：Terminal、Claude、Codex、Cursor、OpenCode 依次为 Cmd+1 到 Cmd+5。
+///   - 正断言：Terminal、Claude、Codex、Cursor、OpenCode、Grok 依次为 Cmd+1 到 Cmd+6。
 ///   - 负断言：Terminal 不再是 Cmd+N，Cursor 不再是 Cmd+Shift+C。
 #[test]
-fn test_card_creation_defaults_use_cmd_1_through_cmd_5_in_product_order() {
+fn test_card_creation_defaults_use_cmd_1_through_cmd_6_in_product_order() {
     let effective = effective_shortcuts(&ShortcutPreferences::default());
 
     assert_eq!(
@@ -43,7 +43,12 @@ fn test_card_creation_defaults_use_cmd_1_through_cmd_5_in_product_order() {
     assert_eq!(
         shortcut_for(&effective, ShortcutCommandId::NewOpenCodeAgent),
         Some("cmd-5"),
-        "OpenCode 默认应使用 Cmd+5，补齐连续的五个创建键位"
+        "OpenCode 默认应使用 Cmd+5"
+    );
+    assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::NewGrokAgent),
+        Some("cmd-6"),
+        "Grok 默认应使用 Cmd+6，补齐连续的六个创建键位"
     );
     assert_ne!(
         shortcut_for(&effective, ShortcutCommandId::NewTerminal),
@@ -60,11 +65,11 @@ fn test_card_creation_defaults_use_cmd_1_through_cmd_5_in_product_order() {
 /// 快捷键默认注册表：当前 app 命令应全部从 registry 暴露，Settings 入口采用 macOS 习惯的 Cmd+,。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   editable command count = 15
+///   editable command count = 16
 ///     NewWindow / NewTerminal / NewBrowser / CopyCardContent / OpenProject / OpenPreviewFile /
-///     NewClaudeAgent / NewCodexAgent / NewCursorAgent / NewOpenCodeAgent / DeleteCard / ReflowLayout / ToggleMasterLayout /
+///     NewClaudeAgent / NewCodexAgent / NewCursorAgent / NewOpenCodeAgent / NewGrokAgent / DeleteCard / ReflowLayout / ToggleMasterLayout /
 ///     ExitFocus / ToggleSettings
-///   default assigned count = 14（除 NewBrowser 外均有默认键位）
+///   default assigned count = 15（除 NewBrowser 外均有默认键位）
 ///   read-only behavior count >= 5（Paste / Voice / Arrow navigation / Space pan / PTY input）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -74,7 +79,7 @@ fn test_card_creation_defaults_use_cmd_1_through_cmd_5_in_product_order() {
 ///
 /// 预期结果：
 ///   - 正断言：NewWindow、NewTerminal、DeleteCard、ToggleSettings 等命令存在且默认键位正确
-///   - 正断言：四种 Agent 均有连续的 Cmd+2 到 Cmd+5 默认创建快捷键
+///   - 正断言：五种 Agent 均有连续的 Cmd+2 到 Cmd+6 默认创建快捷键
 ///   - 负断言：Cmd+V 不应作为可编辑命令出现，避免覆盖 paste 路由
 #[test]
 fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
@@ -138,6 +143,11 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
         shortcut_for(&effective, ShortcutCommandId::NewOpenCodeAgent),
         Some("cmd-5"),
         "New OpenCode Agent 默认应使用 Cmd+5，且可在 Settings 中重新录制"
+    );
+    assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::NewGrokAgent),
+        Some("cmd-6"),
+        "New Grok Agent 默认应使用 Cmd+6，且可在 Settings 中重新录制"
     );
     assert!(
         read_only_behaviors()

@@ -25,6 +25,15 @@ mod e2e_01_menu_actions;
 // E2E-02（SPEC §4.3）：向 focused Term 节点写入输入 → 剧本后端回吐 → grid 含回吐内容。
 mod e2e_02_terminal_echo;
 
+// E2E-02：用户删除 live 卡片时，必须沿统一关闭路由请求终止 PTY 后端。
+mod e2e_02_process_cleanup;
+
+// E2E-02：终端应用输出 DSR 查询时，卡片必须将坐标报告写回同一 PTY。
+mod e2e_02_terminal_dsr;
+
+// E2E-02：component Root 不得拦截 Terminal / Agent 卡片需要发送给 PTY 的 Tab。
+mod e2e_02_card_tab_input;
+
 // Agent 图片粘贴按 CLI 协议分流：Cursor 路径回退，Codex/Claude 原生附件快捷键。
 mod e2e_02_agent_image_paste;
 

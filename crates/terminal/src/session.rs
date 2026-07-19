@@ -5,9 +5,7 @@ use crate::input::{encode, KeyInput};
 use crate::message::PtyEvent;
 use crate::pty::{PtyBackend, PtyCommand, PtyError, PtyHandle};
 use crossbeam_channel::{unbounded, Receiver, TryRecvError};
-
 pub type TerminalSessionId = u64;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TerminalStatus {
     Running,
@@ -77,14 +75,16 @@ impl TerminalSession {
         }
     }
 
-    /// 批量排空通道：把这一批 PTY 输出一次性喂给 grid（8–16ms 批处理由 app 定时调用实现）。
-    /// 返回是否 dirty（需要 repaint）。
+    /// 批量排空通道：把这一批 PTY 输出一次性喂给 grid（8–16ms 批处理由 app 定时调用实现），返回是否 dirty。
     pub fn drain(&mut self) -> bool {
         let mut dirty = false;
         loop {
             match self.rx.try_recv() {
                 Ok(PtyEvent::Output(bytes)) => {
-                    self.grid.advance(&bytes);
+                    let replies = self.grid.advance(&bytes);
+                    if !replies.is_empty() {
+                        let _ = self.pty.write(&replies);
+                    }
                     dirty = true;
                 }
                 Ok(PtyEvent::Exited { code }) => {

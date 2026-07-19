@@ -57,6 +57,7 @@ pub(crate) fn intro_frame(kind: InitializationAnimationKind, frame_index: usize)
         InitializationAnimationKind::Codex => CODEX_FRAMES,
         InitializationAnimationKind::Claude => CLAUDE_FRAMES,
         InitializationAnimationKind::Cursor => CURSOR_FRAMES,
+        InitializationAnimationKind::Grok => AGENT_FRAMES,
         InitializationAnimationKind::OpenCode => AGENT_FRAMES,
     };
     let index = frame_index.min(INTRO_ANIMATION_FRAME_COUNT - 1);
@@ -72,6 +73,7 @@ pub(crate) fn intro_asset_name(kind: InitializationAnimationKind) -> &'static st
         InitializationAnimationKind::Codex => "codex-brand-ascii",
         InitializationAnimationKind::Claude => "claude-code-brand-ascii",
         InitializationAnimationKind::Cursor => "cursor-brand-ascii",
+        InitializationAnimationKind::Grok => "norma-agent-duotone",
         InitializationAnimationKind::OpenCode => "norma-agent-duotone",
     }
 }

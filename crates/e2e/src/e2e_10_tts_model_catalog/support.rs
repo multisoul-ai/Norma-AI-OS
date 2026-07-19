@@ -1,21 +1,12 @@
-use super::{
-    E2E_SETTLE_PASSES, SETTINGS_SCROLL_ATTEMPTS, SETTINGS_SCROLL_MARGIN_PX, TTS_FAKE_TRANSPORT_LOCK,
-};
+use super::{E2E_SETTLE_PASSES, SETTINGS_SCROLL_ATTEMPTS, SETTINGS_SCROLL_MARGIN_PX};
 use app::MultisoulApp;
 use gpui::{point, px, Modifiers, ScrollDelta, ScrollWheelEvent, VisualTestContext};
-use std::sync::MutexGuard;
 
 pub(super) fn snapshot(
     app: &gpui::Entity<MultisoulApp>,
     cx: &mut VisualTestContext,
 ) -> app::SettingsE2eSnapshot {
     app.update(cx, |app, cx| app.settings_e2e_snapshot(cx))
-}
-
-pub(super) fn lock_tts_fake_transport() -> MutexGuard<'static, ()> {
-    TTS_FAKE_TRANSPORT_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 pub(super) fn settle(cx: &mut VisualTestContext) {

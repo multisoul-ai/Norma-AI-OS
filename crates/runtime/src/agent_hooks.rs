@@ -56,6 +56,7 @@ fn agent_profile_env(profile: AgentProfile) -> &'static str {
         AgentProfile::Claude => "claude",
         AgentProfile::Codex => "codex",
         AgentProfile::Cursor => "cursor",
+        AgentProfile::Grok => "grok",
         AgentProfile::OpenCode => "opencode",
     }
 }

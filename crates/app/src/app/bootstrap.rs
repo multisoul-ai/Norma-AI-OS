@@ -1,4 +1,4 @@
-use super::{AppScreen, MultisoulApp};
+use super::{keyboard::init_multisoul_key_bindings, AppScreen, MultisoulApp};
 use crate::app::browser::BrowserStore;
 use crate::app::frame_throttle::FrameThrottle;
 use crate::canvas::interaction::InteractionState;
@@ -11,12 +11,13 @@ use crate::settings::agents::AgentDefinitionsState;
 use crate::settings::panel::{SettingsPanelState, SettingsViewportState};
 use crate::settings::voice::VoiceSettingsInputs;
 use crate::settings::wallpaper::WallpaperSettingsState;
+use crate::settings::ThemeSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use gpui::{Context, FocusHandle};
 use runtime::Runtime;
-use ui::{Theme, ThemeId};
+use ui::Theme;
 
 #[cfg(feature = "e2e-test-support")]
 mod visual_preview;
@@ -29,13 +30,14 @@ impl MultisoulApp {
     ) -> Self {
         // 测试 / e2e 不经 `run_norma_os` 时也要装好组件库（幂等）。
         ui::init_components(cx);
+        init_multisoul_key_bindings(cx);
         cx.on_release(|app, cx| {
             app.unregister_workspace_window_if_needed(cx);
         })
         .detach();
         Self::start_frame_loops(cx);
         let wallpaper_settings = WallpaperSettingsState::load_default();
-        let theme_id = ThemeId::default();
+        let (theme_id, theme_settings) = ThemeSettingsState::load_default();
         let theme = Theme::for_id(theme_id);
         let focus_handle: FocusHandle = cx.focus_handle();
         let (voice_settings, voice_settings_inputs) =
@@ -45,6 +47,7 @@ impl MultisoulApp {
             runtime,
             theme_id,
             theme,
+            theme_settings,
             interaction: InteractionState::default(),
             motion: MotionStore::from_env(),
             previews: PreviewStore::default(),
@@ -86,6 +89,7 @@ impl MultisoulApp {
             last_reflow_window_size: None,
             terminal_cursor_phase: 0.0,
             terminal_cursor_repaint: FrameThrottle::default(),
+            window_active: true,
             voice_window_inset: crate::app::voice_window_inset::VoiceWindowInset::default(),
             voice_window_inset_window_visible: true,
         };

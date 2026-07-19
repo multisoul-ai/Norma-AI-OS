@@ -1,7 +1,7 @@
 //! Stable, primitive e2e projections that do not expose private settings models.
 
 use super::{AppScreen, MultisoulApp};
-use crate::settings::agent_hooks::AgentHookServer;
+use crate::settings::{agent_hooks::AgentHookServer, ThemeSettingsState};
 use crate::shortcuts::{ShortcutCommandId, ShortcutSettingsState};
 use gpui::{App, Context};
 use runtime::Runtime;
@@ -16,11 +16,13 @@ mod agents;
 #[cfg(feature = "e2e-test-support")]
 mod browser;
 mod recent_projects;
+mod shortcuts;
 mod tts;
 mod voice;
 #[cfg(feature = "e2e-test-support")]
 mod voice_setup;
 pub use agents::{AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot};
+use shortcuts::shortcut_command_name;
 use tts::{snapshot_tts_models, TtsModelE2eSnapshot};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -115,9 +117,7 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    /// 聚焦卡片当前是否应推进 terminal cursor 的运行中动画。
-    ///
-    /// 这是面向 headless e2e 的稳定投影：Agent 卡片会同时考虑 PTY 生命周期
+    /// 聚焦卡片当前是否应推进 terminal cursor 的运行中动画。Agent 卡片会同时考虑 PTY 生命周期
     /// 与 Agent task 状态，普通 Terminal 则只考虑 PTY 生命周期。
     pub fn focused_terminal_cursor_animation_active_e2e(&self) -> bool {
         self.focused_terminal_cursor_animation_active()
@@ -130,6 +130,8 @@ impl MultisoulApp {
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
         let mut app = Self::build(cx, runtime, agent_hook_server);
         app.browsers.disable_native_views();
+        let (theme_id, theme_settings) = ThemeSettingsState::in_memory_default();
+        app.configure_theme_settings(theme_id, theme_settings, cx);
         app.shortcuts = ShortcutSettingsState::default();
         app.voice_settings = crate::settings::voice::VoiceSettingsState::in_memory_default();
         #[cfg(feature = "e2e-test-support")]
@@ -149,6 +151,8 @@ impl MultisoulApp {
         store: storage::SettingsStore,
     ) -> Self {
         let mut app = Self::new_with_pty_factory(cx, factory);
+        let (theme_id, theme_settings) = ThemeSettingsState::load_from_store(store.clone());
+        app.configure_theme_settings(theme_id, theme_settings, cx);
         app.voice_settings = crate::settings::voice::VoiceSettingsState::load_from_store(store);
         #[cfg(feature = "e2e-test-support")]
         app.voice_settings.assume_legacy_ready_for_e2e();
@@ -196,6 +200,7 @@ impl MultisoulApp {
                         crate::motion::InitializationAnimationKind::Codex => "codex",
                         crate::motion::InitializationAnimationKind::Claude => "claude",
                         crate::motion::InitializationAnimationKind::Cursor => "cursor",
+                        crate::motion::InitializationAnimationKind::Grok => "grok",
                         crate::motion::InitializationAnimationKind::OpenCode => "opencode",
                     },
                     asset: crate::cards::intro::intro_asset_name(presentation.kind),
@@ -208,9 +213,7 @@ impl MultisoulApp {
             })
     }
 
-    /// 以精确的逻辑时长推进 app 动效，供 headless e2e 验证帧边界使用。
-    ///
-    /// 真实窗口由 12ms 帧循环驱动；测试必须能直接验证 31ms 初始化帧和 80ms
+    /// 以精确逻辑时长推进 app 动效。真实窗口由 12ms 帧循环驱动；测试必须能直接验证 31ms 初始化帧和 80ms
     /// 用户中断边界，不能让帧循环量化误差改变产品时间线。
     pub fn advance_animations_for_e2e(&mut self, delta: Duration, cx: &mut Context<Self>) {
         let motion_changed = self.motion.tick(delta);
@@ -288,8 +291,7 @@ impl MultisoulApp {
         self.workspace_state.error.clone()
     }
 
-    /// 注入已被 TCC 拒绝的麦克风错误，供 L1 e2e 验证应用内恢复 UI。
-    /// 系统设置本身属于 L3 外部流程，不能由 headless GPUI 修改。
+    /// 注入 TCC 拒绝错误供 L1 验证应用内恢复 UI；系统设置属于 L3，不能由 headless GPUI 修改。
     pub fn show_microphone_permission_denied_for_e2e(&mut self, cx: &mut Context<Self>) {
         self.voice.set_speech_error(&SpeechError::MicrophoneDenied);
         cx.notify();
@@ -476,25 +478,5 @@ fn classify_api_key_display(
             ApiKeyDisplayState::MaskedEditing
         }
         Some(_) => ApiKeyDisplayState::Unsafe,
-    }
-}
-
-fn shortcut_command_name(command: ShortcutCommandId) -> &'static str {
-    match command {
-        ShortcutCommandId::NewWindow => "new_window",
-        ShortcutCommandId::NewTerminal => "new_terminal",
-        ShortcutCommandId::NewBrowser => "new_browser",
-        ShortcutCommandId::CopyCardContent => "copy_card_content",
-        ShortcutCommandId::OpenProject => "open_project",
-        ShortcutCommandId::OpenPreviewFile => "open_preview_file",
-        ShortcutCommandId::NewClaudeAgent => "new_claude_agent",
-        ShortcutCommandId::NewCodexAgent => "new_codex_agent",
-        ShortcutCommandId::NewCursorAgent => "new_cursor_agent",
-        ShortcutCommandId::NewOpenCodeAgent => "new_opencode_agent",
-        ShortcutCommandId::DeleteCard => "delete_card",
-        ShortcutCommandId::ReflowLayout => "reflow_layout",
-        ShortcutCommandId::ToggleMasterLayout => "toggle_master_layout",
-        ShortcutCommandId::ExitFocus => "exit_focus",
-        ShortcutCommandId::ToggleSettings => "toggle_settings",
     }
 }

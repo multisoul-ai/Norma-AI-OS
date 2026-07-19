@@ -25,8 +25,8 @@ mod menu_bar_tests;
 pub use app::{
     AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState, AppScreen,
     CopyCardContent, ExitFocus, InitializationAnimationE2eSnapshot, MultisoulApp, NewBrowser,
-    NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewOpenCodeAgent, NewTerminal, NewWindow,
-    OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
+    NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewGrokAgent, NewOpenCodeAgent, NewTerminal,
+    NewWindow, OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
     ToggleMasterLayout, ToggleSettings,
 };
 pub use assets::EmbeddedAssets;

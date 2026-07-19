@@ -12,18 +12,20 @@ fn echo_factory() -> runtime::PtyFactory {
     Box::new(|_cmd, _cols, _rows, tx| Ok(Box::new(TestPtyBackend::echo(tx)) as Box<dyn PtyBackend>))
 }
 
-/// ART-1: 对话模型把内部推理包在 `<think>` 标签中时，TTS 只能收到标签外的正文。
+/// ART-1: 对话模型把内部推理包在 `<think>` 标签中时，可见回复只保留标签外正文并受十五字符上限约束。
 ///
-/// 数据构造：
-///   流式事件按真实网络分块拆开：第一个分块含 `<think>` 和英文内部推理，第二个分块闭合
-///   标签，第三个分块为用户可听到的英文答复。
+/// 数据构造（含关键数值的推导过程）：
+///   标签外英文正文 = 49 个 Unicode 字符
+///   可见字符预算   = 15 = 前 14 个正文字符 + 1 个省略号
+///   流式事件按真实网络分为 3 块：开始 think、结束 think、英文正文
 ///
 /// 执行过程：
 ///   1. 将三个 DialogueTextDelta 交给 Agent 运行时的 reply 提取边界；
-///   2. 读取产出的 VoiceTurnArtifacts.reply_text。
+///   2. 移除完整 `<think>` 区段；
+///   3. 对剩余正文应用 Norma 的十五字符可见回复边界。
 ///
 /// 预期结果：
-///   - 正断言：标签外的英文正文逐字保留，不能因为是英文而被过滤；
+///   - 正断言：标签外英文正文保留前 14 字符并追加省略号；
 ///   - 负断言：内部 `<think>` 推理及其标签不得进入中文 TTS，避免产生 OOV 警告。
 #[test]
 fn test_agent_reply_strips_thinking_block_without_dropping_english_answer() {
@@ -40,8 +42,8 @@ fn test_agent_reply_strips_thinking_block_without_dropping_english_answer() {
     ]);
 
     assert_eq!(
-        artifacts.reply_text, "Please open README.md and follow the setup steps.",
-        "清洗只能移除 think 块，标签外英文答复必须完整保留"
+        artifacts.reply_text, "Please open RE…",
+        "清洗后的英文正文必须按前 14 字符加省略号收口到十五字符"
     );
     assert!(
         !artifacts.reply_text.contains("<think>")
@@ -119,11 +121,19 @@ fn test_task_interrupted_event_reports_interruption() {
     );
 }
 
-/// ART-4b：用户主动查询任务状态时必须得到结构化状态回报，不能落入空回复兜底。
+/// ART-4b：用户主动查询任务状态时必须得到受十五字符边界约束的状态回报，不能落入空回复兜底。
 ///
-/// 数据构造：task_id=12、state=Running、已完成两个工具调用的 TaskStatus。
-/// 执行过程：将状态事件转换为当前语音回合产物。
-/// 预期结果：回复包含任务 id、running 状态和完成工具数；不得声称已派发或已完成。
+/// 数据构造（含关键数值的推导过程）：
+///   task_id = 12，state = Running，completed_tool_calls = 2
+///   可见字符预算 = 15 = 前 14 个状态字符 + 1 个省略号
+///
+/// 执行过程：
+///   1. 将状态事件转换为完整内部状态文本；
+///   2. 对面向用户的状态文本应用十五字符边界。
+///
+/// 预期结果：
+///   - 正断言：回复保留任务 id 与 running 状态前缀，并以省略号明确表示截断；
+///   - 负断言：Running 状态不得声称已派发或已成功完成。
 #[test]
 fn test_task_status_event_generates_status_reply() {
     let artifacts = artifacts_from_agent_events(vec![AgentEvent::TaskStatus {
@@ -133,8 +143,8 @@ fn test_task_status_event_generates_status_reply() {
     }]);
 
     assert_eq!(
-        artifacts.reply_text, "任务 #12 状态：running；已完成 2 次工具调用",
-        "TaskStatus 必须转换为可听懂、可核对的主动查询结果"
+        artifacts.reply_text, "任务 #12 状态：runn…",
+        "TaskStatus 必须保留可核对的任务与状态前缀，并收口到十五字符"
     );
     assert!(
         !artifacts.reply_text.contains("已派发") && !artifacts.reply_text.contains("已完成："),
@@ -305,10 +315,11 @@ fn test_norma_adapter_creates_builtin_agent_and_dispatches_without_confirmation(
     });
 
     let created = cx.update(|window, app_cx| {
-        app.update(app_cx, |app, _cx| {
+        app.update(app_cx, |app, cx| {
             execute_norma_adapter_command(
                 app,
                 window,
+                cx,
                 agent::AdapterCommand::CreateAgent {
                     profile: norma::protocol::AgentProfile::Codex,
                 },
@@ -320,10 +331,11 @@ fn test_norma_adapter_creates_builtin_agent_and_dispatches_without_confirmation(
         app.agent_definitions.definitions()[0].name.clone()
     });
     let assigned = cx.update(|window, app_cx| {
-        app.update(app_cx, |app, _cx| {
+        app.update(app_cx, |app, cx| {
             execute_norma_adapter_command(
                 app,
                 window,
+                cx,
                 agent::AdapterCommand::AssignAgentTask {
                     agent: name.clone(),
                     task: "检查当前项目有哪些技术栈。".to_string(),

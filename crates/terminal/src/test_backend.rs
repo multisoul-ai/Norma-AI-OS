@@ -4,6 +4,7 @@
 use crate::message::PtyEvent;
 use crate::pty::{PtyBackend, PtyError};
 use crossbeam_channel::Sender;
+use std::sync::{Arc, Mutex};
 
 /// 剧本规则：trigger 子串 → 回吐 output。`write` 的字节若包含某 trigger 子串，
 /// 则吐对应 output。
@@ -15,6 +16,8 @@ enum EchoMode {
     Echo,
     /// 剧本：`write` 含某 trigger 子串 → 吐对应 output；无匹配则静默。
     Scripted(Vec<ScriptRule>),
+    /// 仅记录写入，不回吐；用于验证终端模拟器把协议响应写回 PTY 的方向。
+    Recording(Arc<Mutex<Vec<Vec<u8>>>>),
 }
 
 /// 测试用 PTY 后端。实现 `PtyBackend`，不启动任何子进程；
@@ -46,6 +49,18 @@ impl TestPtyBackend {
         }
     }
 
+    /// 记录模式：`write(bytes)` 追加到共享记录，不生成 `PtyEvent::Output`。
+    ///
+    /// 这与 echo 不同：PTY 回写不会被重灌为子进程输出，测试可精确验证
+    /// TerminalSession 是否把 DSR 等终端协议响应发向正确方向。
+    pub fn recording(tx: Sender<PtyEvent>, writes: Arc<Mutex<Vec<Vec<u8>>>>) -> Self {
+        TestPtyBackend {
+            tx,
+            mode: EchoMode::Recording(writes),
+            killed: false,
+        }
+    }
+
     /// `kill` 是否曾被调用（测试可观察）。
     pub fn was_killed(&self) -> bool {
         self.killed
@@ -70,6 +85,10 @@ impl PtyBackend for TestPtyBackend {
                 }
                 Ok(())
             }
+            EchoMode::Recording(writes) => writes
+                .lock()
+                .map_err(|_| PtyError::Spawn("test backend write recorder lock poisoned".into()))
+                .map(|mut writes| writes.push(bytes.to_vec())),
         }
     }
 

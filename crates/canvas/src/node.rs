@@ -3,6 +3,10 @@
 use crate::geometry::CanvasRect;
 use serde::{Deserialize, Serialize};
 
+#[path = "node/agent_profile.rs"]
+mod agent_profile;
+pub use agent_profile::AgentProfile;
+
 pub type NodeId = u64;
 
 /// 普通矩形节点（本切片用于验证拖拽/选中）。color 为 0xRRGGBB。
@@ -14,25 +18,6 @@ pub struct RectNode {
 /// 终端节点的可持久化描述。实际 PTY/session 存在 runtime 层。
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 pub struct TermSpec;
-
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
-pub enum AgentProfile {
-    Claude,
-    Codex,
-    Cursor,
-    OpenCode,
-}
-
-impl AgentProfile {
-    pub fn display_title(self) -> &'static str {
-        match self {
-            AgentProfile::Claude => "Claude",
-            AgentProfile::Codex => "Codex",
-            AgentProfile::Cursor => "Cursor",
-            AgentProfile::OpenCode => "OpenCode",
-        }
-    }
-}
 
 /// Agent 节点的可持久化描述。实际进程/session 存在 runtime 层。
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]

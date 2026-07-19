@@ -268,3 +268,45 @@ fn test_json_repair_prompt_is_bounded_to_voice_plan_json() {
         "repair prompt 不应鼓励 markdown 包装"
     );
 }
+
+/// OP-6：语音 Planner 的输出契约必须允许创建 Grok Build Agent 卡片。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   transcript = `打开 Grok`，显式实体数 = 1
+///   期望 create 数 = 1，profile = `Grok`
+///   旧 profile 数 = 4；新增 Grok 后允许的 Agent profile 数 = 5
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造要求创建 Grok 的 VoicePlanningRequest；
+///   2. `planner_prompt` 拼接输出 JSON 契约和 profile 识别规则；
+///   3. 检查 Grok create 形状与自然语言规则都进入提示词。
+///
+/// 预期结果：
+///   - 正断言：输出契约包含 `profile":"Grok"`；
+///   - 正断言：规则明确 Grok/open grok 映射到 Grok Agent；
+///   - 负断言：不得把 Grok 指令映射为 Codex profile。
+#[test]
+fn planner_prompt_allows_voice_creation_of_grok_agent() {
+    let request = VoicePlanningRequest {
+        transcript: "打开 Grok".to_string(),
+        cards: Vec::new(),
+        focused_node_id: None,
+        selected_node_ids: Vec::new(),
+        max_steps: 1,
+    };
+
+    let prompt = planner_prompt(&request).expect("Grok 语音创建请求应能生成 planner prompt");
+
+    assert!(
+        prompt.contains(r#"{"type":"create","kind":{"kind":"agent","profile":"Grok"}}"#),
+        "语音 Planner 输出契约必须允许创建 Grok Agent"
+    );
+    assert!(
+        prompt.contains("open/create Grok means create a new agent profile Grok card"),
+        "语音 Planner 必须明确 Grok 自然语言到 Grok profile 的映射"
+    );
+    assert!(
+        !prompt.contains("open/create Grok means create a new agent profile Codex card"),
+        "语音 Planner 不得把 Grok 错误映射为 Codex profile"
+    );
+}

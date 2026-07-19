@@ -2,6 +2,7 @@ use super::TtsInstallOutcome;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub(super) fn synthesize_tts_preview(
+    runtime: &crate::app::dialogue::SharedTtsRuntime,
     selected: &crate::app::dialogue::SelectedTtsModel,
 ) -> Result<audio::PcmAudioChunk, String> {
     #[cfg(feature = "e2e-test-support")]
@@ -9,30 +10,22 @@ pub(super) fn synthesize_tts_preview(
         return audio::PcmAudioChunk::new(audio::PcmFormat::Pcm16, 16_000, 1, vec![0; 320])
             .map_err(|error| format!("invalid fake preview PCM: {error:?}"));
     }
-    let catalog = tts::builtin_model_catalog();
-    let descriptor = catalog
-        .find(&selected.model_id)
-        .ok_or_else(|| format!("unknown TTS model {}", selected.model_id.as_str()))?;
-    let available =
-        tts::validate_installation(&selected.root.join(selected.model_id.as_str()), descriptor)
-            .map_err(|error| error.to_string())?;
-    let reference = descriptor
-        .capabilities()
-        .requires_voice_reference()
-        .then(|| tts::load_zipvoice_reference(&selected.root))
-        .transpose()
-        .map_err(|error| error.to_string())?;
-    let mut client = voice_sherpa::SherpaTtsClient::from_available_model_with_reference(
-        &available,
-        &selected.voice_id,
-        reference.as_ref(),
+    let selection_for_create = selected.clone();
+    runtime.with_client(
+        Some(selected.clone()),
+        || {
+            crate::app::dialogue::create_tts_client_for_selected(&selection_for_create)
+                .map_err(|error| error.to_string())
+        },
+        |client| {
+            client
+                .synthesize("你好，这是当前语音的试听。")
+                .map_err(|error| error.to_string())
+        },
     )
-    .map_err(|error| error.to_string())?;
-    dialogue::TtsClient::synthesize(&mut client, "你好，这是当前语音的试听。")
-        .map_err(|error| error.to_string())
 }
 
-pub(super) fn validate_tts_selection(
+pub(super) fn resolve_tts_selection(
     root: &std::path::Path,
     model_id: tts::TtsModelId,
     requested_voice: Option<tts::TtsVoiceId>,
@@ -44,7 +37,7 @@ pub(super) fn validate_tts_selection(
     let voice_id = descriptor
         .resolve_voice_id(requested_voice.as_ref().map(tts::TtsVoiceId::as_str))
         .clone();
-    let reference = descriptor
+    descriptor
         .capabilities()
         .requires_voice_reference()
         .then(|| tts::load_zipvoice_reference(root))
@@ -58,19 +51,25 @@ pub(super) fn validate_tts_selection(
             voice_id,
         });
     }
-    let available = tts::validate_installation(&root.join(model_id.as_str()), descriptor)
+    tts::validate_installation(&root.join(model_id.as_str()), descriptor)
         .map_err(|error| error.to_string())?;
-    voice_sherpa::SherpaTtsClient::from_available_model_with_reference(
-        &available,
-        &voice_id,
-        reference.as_ref(),
-    )
-    .map_err(|error| error.to_string())?;
     Ok(crate::app::dialogue::SelectedTtsModel {
         root: root.to_path_buf(),
         model_id,
         voice_id,
     })
+}
+
+pub(super) fn validate_tts_selection(
+    root: &std::path::Path,
+    model_id: tts::TtsModelId,
+    requested_voice: Option<tts::TtsVoiceId>,
+) -> Result<crate::app::dialogue::SelectedTtsModel, String> {
+    let selected = resolve_tts_selection(root, model_id, requested_voice)?;
+    #[cfg(not(feature = "e2e-test-support"))]
+    crate::app::dialogue::create_tts_client_for_selected(&selected)
+        .map_err(|error| error.to_string())?;
+    Ok(selected)
 }
 
 pub(super) async fn install_tts_package(

@@ -181,15 +181,16 @@ fn new_agent_task_waits_for_ready_then_types_and_submits() {
 #[ignore = "L3 会启动真实 Agent CLI；需显式设置 NORMA_E2E_AGENT_CLI"]
 fn real_agent_cli_receives_and_submits_prompt() {
     let (profile, agent_name) = match std::env::var("NORMA_E2E_AGENT_CLI")
-        .expect("运行 L3 前必须设置 NORMA_E2E_AGENT_CLI=codex|claude|cursor|opencode")
+        .expect("运行 L3 前必须设置 NORMA_E2E_AGENT_CLI=codex|claude|cursor|opencode|grok")
         .as_str()
     {
         "codex" => (WireAgentProfile::Codex, "CodexProbe"),
         "claude" => (WireAgentProfile::Claude, "ClaudeProbe"),
         "cursor" => (WireAgentProfile::Cursor, "CursorProbe"),
         "opencode" => (WireAgentProfile::OpenCode, "OpenCodeProbe"),
+        "grok" => (WireAgentProfile::Grok, "GrokProbe"),
         other => {
-            panic!("NORMA_E2E_AGENT_CLI 必须是 codex、claude、cursor 或 opencode，实际：{other:?}")
+            panic!("NORMA_E2E_AGENT_CLI 必须是 codex、claude、cursor、opencode 或 grok，实际：{other:?}")
         }
     };
     let mut test_cx = TestAppContext::single();

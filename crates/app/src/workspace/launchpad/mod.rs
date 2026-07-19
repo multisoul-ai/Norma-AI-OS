@@ -18,7 +18,7 @@ use gpui::{div, point, prelude::*, px, rgba, BoxShadow, ClickEvent, Context, Div
 use std::path::PathBuf;
 use ui::Theme;
 
-const LAUNCHPAD_DEFAULT_VIDEO_ASSET: &str = "wallpapers/1406443.mp4";
+const LAUNCHPAD_DEFAULT_VIDEO_ASSET: &str = "wallpapers/home.mp4";
 
 /// Production overlay values selected by the fixed-frame HD benchmark.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -50,7 +50,7 @@ impl MultisoulApp {
     pub(crate) fn render_launchpad(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Div {
         // Launchpad owns a fixed video background. It intentionally does not use
         // `wallpaper_settings`: Canvas wallpaper selection must not alter the
-        // startup screen's verified 4K playback.
+        // startup screen's dedicated home video playback.
         #[cfg(target_os = "macos")]
         self.sync_video_wallpaper(launchpad_default_video_path().as_deref(), cx);
 

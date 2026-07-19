@@ -13,7 +13,6 @@ use crate::canvas::master_layout::{
 };
 use crate::canvas::spawn_focus;
 use crate::canvas::view::render_canvas;
-use crate::cards::agent::card::agent_chase_intent;
 use crate::motion::MotionStore;
 use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
@@ -22,12 +21,13 @@ use crate::settings::agents::AgentDefinitionsState;
 use crate::settings::panel::{SettingsPanelState, SettingsViewportState};
 use crate::settings::voice::{VoiceSettingsInputs, VoiceSettingsState};
 use crate::settings::wallpaper::WallpaperSettingsState;
+use crate::settings::ThemeSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasNodeKind, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
-use runtime::{route, AgentTaskState, InputEvent, NodeRunState, Route, Runtime};
+use runtime::{route, InputEvent, Route, Runtime};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
@@ -46,6 +46,8 @@ pub(crate) mod cef_process;
 mod chrome;
 mod clipboard_image;
 mod cursor_animation;
+#[cfg(test)]
+use cursor_animation::focused_cursor_animation_active;
 pub(crate) mod dialogue;
 mod e2e;
 pub(crate) mod file_picker;
@@ -82,6 +84,7 @@ actions!(
         NewClaudeAgent,
         NewCodexAgent,
         NewCursorAgent,
+        NewGrokAgent,
         NewOpenCodeAgent,
         NewBrowser,
         CopyCardContent,
@@ -94,12 +97,12 @@ actions!(
         QuitNormaOs
     ]
 );
-const WALLPAPER_IMAGE_OPACITY: f32 = 1.0;
 
 pub struct MultisoulApp {
     pub runtime: Runtime,
     pub theme_id: ThemeId,
     pub theme: Theme,
+    pub(crate) theme_settings: ThemeSettingsState,
     pub interaction: InteractionState,
     pub(crate) motion: MotionStore,
     pub(crate) previews: PreviewStore,
@@ -139,6 +142,7 @@ pub struct MultisoulApp {
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
     pub(crate) terminal_cursor_phase: f32,
     terminal_cursor_repaint: FrameThrottle,
+    window_active: bool,
     voice_window_inset: VoiceWindowInset,
     voice_window_inset_window_visible: bool,
 }
@@ -405,18 +409,6 @@ impl MultisoulApp {
     }
 }
 
-fn focused_cursor_animation_active(
-    node_type: NodeType,
-    node_run_state: Option<NodeRunState>,
-    agent_task_state: Option<AgentTaskState>,
-) -> bool {
-    match node_type {
-        NodeType::Term => matches!(node_run_state, Some(NodeRunState::Running)),
-        NodeType::Agent => agent_chase_intent(agent_task_state),
-        NodeType::Rect | NodeType::Preview | NodeType::Browser => false,
-    }
-}
-
 impl Focusable for MultisoulApp {
     fn focus_handle(&self, _cx: &gpui::App) -> FocusHandle {
         self.focus_handle.clone()
@@ -425,6 +417,7 @@ impl Focusable for MultisoulApp {
 
 impl Render for MultisoulApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.window_active = window.is_window_active();
         self.voice_window_inset_window_visible = state::window_visible_for_voice_inset(window);
         self.sync_voice_window_inset_enabled();
         let mut root = div()
@@ -434,6 +427,7 @@ impl Render for MultisoulApp {
             .on_action(cx.listener(Self::on_open_project))
             .on_action(cx.listener(Self::on_exit_focus))
             .on_action(cx.listener(Self::on_browser_command))
+            .on_action(cx.listener(Self::on_send_tab_to_focused_pty))
             .on_key_down(cx.listener(Self::on_key_down))
             .on_key_up(cx.listener(Self::on_key_up))
             .on_modifiers_changed(cx.listener(Self::on_modifiers_changed))
@@ -447,6 +441,7 @@ impl Render for MultisoulApp {
                     .on_action(cx.listener(Self::on_new_claude_agent))
                     .on_action(cx.listener(Self::on_new_codex_agent))
                     .on_action(cx.listener(Self::on_new_cursor_agent))
+                    .on_action(cx.listener(Self::on_new_grok_agent))
                     .on_action(cx.listener(Self::on_new_opencode_agent))
                     .on_action(cx.listener(Self::on_copy_card_content))
                     .on_action(cx.listener(Self::on_open_preview_file))

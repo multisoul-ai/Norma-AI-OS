@@ -71,5 +71,6 @@ impl VoiceSettingsState {
         self.model_root = model_root;
         self.model_manager = AsrModelManagerState::unscanned(&asr::builtin_model_catalog());
         self.tts_model_manager = TtsModelManagerState::unscanned(&tts::builtin_model_catalog());
+        self.zipvoice_reference = super::ZipVoiceReferenceSettings::default();
     }
 }

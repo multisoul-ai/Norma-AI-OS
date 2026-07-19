@@ -43,6 +43,53 @@ fn test_ansi_escape_does_not_crash_and_char_lands() {
     assert_eq!(snap.rows[0][0].c, 'X', "ANSI 颜色转义后 'X' 应正常落在首格");
 }
 
+/// DSR 光标位置查询：TerminalGrid 必须按查询发生时的 1-based 坐标回写 CSI 响应。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   可见文本 = b"abc" = 3 个 ASCII 单元格，写入后 cursor 为 0-based (line=0, col=3)
+///   查询序列 = ESC [ 6 n = [0x1b, b'[', b'6', b'n']，共 4 字节
+///   终端协议坐标 = (line + 1, col + 1) = (0 + 1, 3 + 1) = (1, 4)
+///   期望响应 = ESC [ 1 ; 4 R = b"\x1b[1;4R"，共 6 字节
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. `advance(b"abc")` → ANSI parser 在第 0 行写入三格，光标移动到第 3 列
+///   2. `advance(ESC[6n)` → parser 识别 Device Status Report 的 cursor-position 查询
+///   3. TerminalGrid 从 parser event 取出 PTY 回写字节，供 TerminalSession 发回子进程
+///   4. snapshot() → 保留 abc，查询控制序列不应变成可见文本
+///
+/// 预期结果：
+///   - 断言 A：响应精确为 `ESC[1;4R`，使 Grok 等 TUI 能读取当前光标坐标
+///   - 断言 B：响应不是原点 `ESC[1;1R`，避免错误地忽略已写入的三列
+///   - 断言 C：首行仍含 abc，DSR 查询不得污染终端网格
+#[test]
+fn test_dsr_cursor_position_query_returns_current_cursor_to_pty() {
+    let mut g = TerminalGrid::new(80, 24);
+    let initial_reply = g.advance(b"abc");
+    let reply = g.advance(b"\x1b[6n");
+    let snap = g.snapshot();
+    let first_row: String = snap.rows[0].iter().map(|cell| cell.c).collect();
+
+    assert!(
+        initial_reply.is_empty(),
+        "普通可见文本不应触发 PTY 回写，实际: {:?}",
+        initial_reply
+    );
+    assert_eq!(
+        reply, b"\x1b[1;4R",
+        "abc 后的 DSR 查询应回传 1-based 光标坐标 ESC[1;4R，实际: {:?}",
+        reply
+    );
+    assert_ne!(
+        reply, b"\x1b[1;1R",
+        "DSR 响应不应错误地报告原点 ESC[1;1R，abc 已把光标右移三列"
+    );
+    assert!(
+        first_row.starts_with("abc"),
+        "DSR 查询不应污染已写入的 abc，实际首行: {:?}",
+        first_row
+    );
+}
+
 /// OSC 8 链接：解析器应把链接目标保留到中性快照，供 UI 按单元格坐标命中。
 ///
 /// 数据构造（含关键数值的推导过程）：

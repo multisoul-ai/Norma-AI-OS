@@ -6,7 +6,9 @@ use std::sync::Arc;
 
 mod reference;
 mod work;
-use work::{install_tts_package, synthesize_tts_preview, validate_tts_selection};
+use work::{
+    install_tts_package, resolve_tts_selection, synthesize_tts_preview, validate_tts_selection,
+};
 
 enum TtsInstallEvent {
     Progress(u64, u64),
@@ -225,9 +227,8 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.cancel_agent_announcements();
-        self.invalidate_agent_announcement_tts_client(cx);
         self.tts_preview.cancel();
-        self.dialogue.cancel_tts_for_configuration_change();
+        self.invalidate_tts_for_configuration_change(cx);
         self.tts_selection_generation = self.tts_selection_generation.wrapping_add(1);
         self.invalidate_tts_scan();
         let selection_generation = self.tts_selection_generation;
@@ -273,9 +274,10 @@ impl MultisoulApp {
         let configuration_generation = self.dialogue.tts_configuration_generation();
         let (preview_generation, control) = self.tts_preview.start();
         self.dialogue.track_tts_preview(Arc::clone(&control));
+        let tts_runtime = self.dialogue.shared_tts_runtime();
         let work = cx.background_executor().spawn(async move {
-            let selected = validate_tts_selection(&root, model_id, Some(voice_id))?;
-            synthesize_tts_preview(&selected)
+            let selected = resolve_tts_selection(&root, model_id, Some(voice_id))?;
+            synthesize_tts_preview(&tts_runtime, &selected)
         });
         cx.spawn(async move |this, cx| {
             let result = work.await;

@@ -40,6 +40,7 @@ pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEn
             PtyCommand::new("/bin/zsh").arg("-ic").arg(exec_command)
         }
         AgentProfile::Cursor => PtyCommand::new("/bin/zsh").args(["-ic", "exec cursor-agent"]),
+        AgentProfile::Grok => PtyCommand::new("/bin/zsh").args(["-lic", "exec grok"]),
         AgentProfile::OpenCode => {
             PtyCommand::new("/bin/zsh").args(["-lic", "exec \"${OPENCODE_BIN:-opencode}\""])
         }

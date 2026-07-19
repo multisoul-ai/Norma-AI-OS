@@ -3,7 +3,7 @@
 mod dock;
 mod top_bar;
 
-use super::{MultisoulApp, WALLPAPER_IMAGE_OPACITY};
+use super::MultisoulApp;
 use crate::app::wallpaper_resolvers::WallpaperKind;
 use crate::canvas::minimap::render_canvas_minimap;
 use gpui::{
@@ -15,6 +15,7 @@ use ui::Theme;
 
 const WORKSPACE_LEFT_RAIL_VISIBLE: bool = false;
 const BOTTOM_VOICE_BAR_VISIBLE: bool = true;
+pub(super) const WALLPAPER_IMAGE_OPACITY: f32 = 1.0;
 const WORKSPACE_ERROR_FOREGROUND: u32 = 0xfffffff5;
 const WORKSPACE_ERROR_MUTED: u32 = 0xffffffb8;
 const FROST_SAMPLE_OFFSETS: [(f32, f32); 5] = [

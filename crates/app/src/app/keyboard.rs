@@ -27,7 +27,9 @@ enum DictationShortcutAction {
 
 mod agent_interrupt;
 mod shortcuts;
+mod tab;
 use agent_interrupt::end_active_agent_task_for_manual_interrupt;
+pub(super) use tab::init_multisoul_key_bindings;
 
 fn dictation_shortcut_action(
     trigger: crate::settings::voice::DictationTrigger,

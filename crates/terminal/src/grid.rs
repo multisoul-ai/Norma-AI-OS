@@ -8,9 +8,9 @@
 //! - 网格索引：`grid[Point::new(Line(i32), Column(usize))]`
 //! - Cell 字段：`cell.c: char`（确认为 `.c`，非 `.character`）
 //! - Cursor：通过 `term.grid().cursor.point` 获取
-//! - 事件监听器：直接使用 `alacritty_terminal::event::VoidListener`（库内置）
+//! - 事件监听器：捕获 `Event::PtyWrite`，由 session 写回 PTY（DSR 等协议查询）
 
-use alacritty_terminal::event::VoidListener;
+use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::Dimensions;
 use alacritty_terminal::index::{Column, Line, Point};
 use alacritty_terminal::term::cell::Flags;
@@ -18,6 +18,7 @@ use alacritty_terminal::term::{Config, Term, TermMode};
 use alacritty_terminal::vte::ansi::{
     Color as AlacrittyColor, NamedColor as AlacrittyNamedColor, Processor, Rgb as AlacrittyRgb,
 };
+use crossbeam_channel::{unbounded, Receiver, Sender};
 
 mod links;
 
@@ -146,11 +147,30 @@ impl Dimensions for TermDimensions {
     }
 }
 
+/// 把 alacritty 请求的 PTY 回写事件转发给 TerminalGrid。
+///
+/// alacritty 对 DSR（CSI 6 n）等查询不会直接写 PTY，而是通过 EventListener
+/// 发布 `Event::PtyWrite`。域层将该事件放入同步通道，交由 TerminalSession 在
+/// 同一次输出 drain 中写回真实子进程。
+#[derive(Clone)]
+struct PtyWriteListener {
+    tx: Sender<Vec<u8>>,
+}
+
+impl EventListener for PtyWriteListener {
+    fn send_event(&self, event: Event) {
+        if let Event::PtyWrite(text) = event {
+            let _ = self.tx.send(text.into_bytes());
+        }
+    }
+}
+
 /// alacritty_terminal 封装：持有 Term + ANSI Processor，支持字节输入和屏幕快照。
 pub struct TerminalGrid {
-    term: Term<VoidListener>,
+    term: Term<PtyWriteListener>,
     processor: Processor,
     dims: TermDimensions,
+    pty_write_rx: Receiver<Vec<u8>>,
 }
 
 impl TerminalGrid {
@@ -160,17 +180,24 @@ impl TerminalGrid {
             columns: cols as usize,
             screen_lines: lines as usize,
         };
-        let term = Term::new(Config::default(), &dims, VoidListener);
+        let (pty_write_tx, pty_write_rx) = unbounded();
+        let term = Term::new(
+            Config::default(),
+            &dims,
+            PtyWriteListener { tx: pty_write_tx },
+        );
         TerminalGrid {
             term,
             processor: Processor::new(),
             dims,
+            pty_write_rx,
         }
     }
 
-    /// 喂一批字节给 ANSI 解析器，更新 grid 状态。
-    pub fn advance(&mut self, bytes: &[u8]) {
+    /// 喂一批字节给 ANSI 解析器，更新 grid，并返回需要回写 PTY 的协议响应。
+    pub fn advance(&mut self, bytes: &[u8]) -> Vec<u8> {
         self.processor.advance(&mut self.term, bytes);
+        self.pty_write_rx.try_iter().flatten().collect()
     }
 
     /// 调整终端尺寸。

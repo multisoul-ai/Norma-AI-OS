@@ -17,6 +17,7 @@ pub(super) fn hooks_settings(
     let codex_installed = agent_hooks_installed(HookTarget::Codex, &paths);
     let claude_installed = agent_hooks_installed(HookTarget::Claude, &paths);
     let cursor_installed = agent_hooks_installed(HookTarget::Cursor, &paths);
+    let grok_installed = agent_hooks_installed(HookTarget::Grok, &paths);
     let opencode_installed = agent_hooks_installed(HookTarget::OpenCode, &paths);
 
     div()
@@ -61,6 +62,19 @@ pub(super) fn hooks_settings(
             },
             cx,
             MultisoulApp::on_toggle_cursor_hooks,
+        ))
+        .child(hook_provider_row(
+            theme,
+            &HookProviderRowSpec {
+                title: "Grok Build",
+                hint: "Manage lifecycle hooks in ~/.grok/hooks",
+                config_path: paths.grok_hooks.display().to_string(),
+                installed: grok_installed,
+                status: &panel.grok_hook_status,
+                button_id: "settings-install-grok-hooks",
+            },
+            cx,
+            MultisoulApp::on_toggle_grok_hooks,
         ))
         .child(hook_provider_row(
             theme,
@@ -129,6 +143,16 @@ impl MultisoulApp {
         self.settings_panel.cursor_hook_status = toggle_status_for(HookTarget::Cursor);
         cx.notify();
     }
+
+    pub(super) fn on_toggle_grok_hooks(
+        &mut self,
+        _: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.settings_panel.grok_hook_status = toggle_status_for(HookTarget::Grok);
+        cx.notify();
+    }
 }
 
 fn toggle_status_for(target: HookTarget) -> HookInstallStatus {
@@ -143,7 +167,7 @@ fn toggle_status_for(target: HookTarget) -> HookInstallStatus {
 fn install_status_for(target: HookTarget) -> HookInstallStatus {
     match install_agent_hooks(target) {
         Ok(command_path) => HookInstallStatus {
-            message: Some(hook_install_success_message(command_path.as_path())),
+            message: Some(hook_install_success_message(target, command_path.as_path())),
             is_error: false,
         },
         Err(error) => HookInstallStatus {
@@ -153,9 +177,17 @@ fn install_status_for(target: HookTarget) -> HookInstallStatus {
     }
 }
 
-fn hook_install_success_message(command_path: &std::path::Path) -> String {
+fn hook_install_success_message(target: HookTarget, command_path: &std::path::Path) -> String {
+    let provider = match target {
+        HookTarget::Claude => "Claude Code",
+        HookTarget::Codex => "Codex",
+        HookTarget::Cursor => "Cursor Agent CLI",
+        HookTarget::Grok => "Grok Build",
+        HookTarget::OpenCode => "OpenCode",
+        HookTarget::All => "agent providers",
+    };
     format!(
-        "Installed using {}. Codex reads hooks when a session starts; restart existing Agent cards or create a new Agent card to activate lifecycle status updates.",
+        "Installed using {}. {provider} reads hooks when a session starts; restart existing Agent cards or create a new Agent card to activate lifecycle status updates.",
         command_path.display()
     )
 }
@@ -304,7 +336,7 @@ mod tests {
     fn test_hook_install_success_message_requires_restarting_existing_agents() {
         let command_path = Path::new("/tmp/Norma OS Dev.app/Contents/MacOS/multisoul-agent-hook");
 
-        let message = hook_install_success_message(command_path);
+        let message = hook_install_success_message(HookTarget::Codex, command_path);
 
         assert!(
             message.contains(&command_path.display().to_string()),

@@ -472,11 +472,12 @@ fn norma_agent_profile(value: CanvasAgentProfile) -> AgentProfile {
         CanvasAgentProfile::Claude => AgentProfile::Claude,
         CanvasAgentProfile::Codex => AgentProfile::Codex,
         CanvasAgentProfile::Cursor => AgentProfile::Cursor,
+        CanvasAgentProfile::Grok => AgentProfile::Grok,
         CanvasAgentProfile::OpenCode => AgentProfile::OpenCode,
     }
 }
 
-fn canvas_preview_type(value: NormaPreviewType) -> CanvasPreviewType {
+pub(crate) fn canvas_preview_type(value: NormaPreviewType) -> CanvasPreviewType {
     match value {
         NormaPreviewType::Markdown => CanvasPreviewType::Markdown,
         NormaPreviewType::Text => CanvasPreviewType::Text,

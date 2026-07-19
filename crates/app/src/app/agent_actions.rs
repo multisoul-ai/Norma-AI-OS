@@ -1,7 +1,8 @@
 //! Agent card creation actions for toolbar, menu, and shortcuts.
 
 use super::{
-    AppScreen, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewOpenCodeAgent,
+    AppScreen, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewGrokAgent,
+    NewOpenCodeAgent,
 };
 use crate::canvas::master_layout::term_grid_size_for_card;
 use crate::canvas::spawn_focus;
@@ -58,6 +59,20 @@ impl MultisoulApp {
             return;
         }
         self.spawn_agent_card(AgentProfile::OpenCode, window, cx);
+    }
+
+    pub(crate) fn on_new_grok_agent(
+        &mut self,
+        _: &NewGrokAgent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error = Some("Open a project before creating agents.".into());
+            cx.notify();
+            return;
+        }
+        self.spawn_agent_card(AgentProfile::Grok, window, cx);
     }
 
     pub(crate) fn on_new_cursor_agent(

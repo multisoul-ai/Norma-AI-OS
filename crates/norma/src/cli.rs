@@ -69,6 +69,7 @@ enum AgentProfileValue {
     Claude,
     Codex,
     Cursor,
+    Grok,
     #[value(name = "opencode")]
     OpenCode,
 }
@@ -201,6 +202,7 @@ impl From<AgentProfileValue> for AgentProfile {
             AgentProfileValue::Claude => AgentProfile::Claude,
             AgentProfileValue::Codex => AgentProfile::Codex,
             AgentProfileValue::Cursor => AgentProfile::Cursor,
+            AgentProfileValue::Grok => AgentProfile::Grok,
             AgentProfileValue::OpenCode => AgentProfile::OpenCode,
         }
     }

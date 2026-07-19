@@ -36,6 +36,9 @@ impl MultisoulApp {
             ShortcutCommandId::NewOpenCodeAgent => {
                 self.on_new_opencode_agent(&crate::app::NewOpenCodeAgent, window, cx)
             }
+            ShortcutCommandId::NewGrokAgent => {
+                self.on_new_grok_agent(&crate::app::NewGrokAgent, window, cx)
+            }
             ShortcutCommandId::DeleteCard => self.on_delete_card_shortcut(window, cx),
             ShortcutCommandId::ReflowLayout => {
                 self.on_reflow_layout(&crate::app::ReflowLayout, window, cx)

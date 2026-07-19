@@ -8,6 +8,7 @@ mod reply;
 mod reply_loop;
 mod reply_stream;
 mod shell;
+mod tts_runtime;
 use crate::app::voice::control::VoiceVisual;
 use crate::app::voice_window_inset::TtsPlaybackEvent;
 use crate::settings::voice::{resolve_available_asr_model, VoiceSettingsValues};
@@ -21,16 +22,19 @@ use gpui::{Context, Task};
 pub(crate) use preview::{TtsPreviewControl, TtsPreviewState};
 #[cfg(test)]
 pub(crate) use reply::fake_tts_client_for_tests;
-pub(crate) use reply::{configure_selected_tts_model, SelectedTtsModel};
+pub(crate) use reply::{
+    configure_selected_tts_model, create_tts_client_for_selected, SelectedTtsModel,
+};
 pub(super) use reply::{
-    create_assistant_audio_sink, create_tts_client, selected_tts_model_matches, synthesize_reply,
-    ReplyPlayback, TtsClientBox,
+    create_assistant_audio_sink, create_tts_client_for_selection, selected_tts_model,
+    selected_tts_model_matches, synthesize_reply, ReplyPlayback,
 };
 use reply_stream::StreamPlaybackBuffer;
 use std::collections::VecDeque;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+pub(crate) use tts_runtime::SharedTtsRuntime;
 use voice_sherpa::{PcmStreamSession, SherpaProvider, SpeechError};
 type MicPermissionCheck = fn() -> Result<(), SpeechError>;
 
@@ -61,7 +65,7 @@ pub(crate) struct DialogueControlState {
     pub(super) session: DialogueSession,
     pcm_stream: Option<PcmStreamSession>,
     pub(super) reply_playback: ReplyPlayback,
-    pub(super) tts_client: Option<TtsClientBox>,
+    pub(super) shared_tts_runtime: SharedTtsRuntime,
     startup_task: Option<Task<()>>,
     pub(super) pcm_pump_task: Option<Task<()>>,
     pub(super) reply_task: Option<Task<()>>,
@@ -100,7 +104,7 @@ impl Default for DialogueControlState {
             session: DialogueSession::new(),
             pcm_stream: None,
             reply_playback: ReplyPlayback::new(create_assistant_audio_sink()),
-            tts_client: None,
+            shared_tts_runtime: SharedTtsRuntime::default(),
             startup_task: None,
             pcm_pump_task: None,
             reply_task: None,
@@ -136,15 +140,19 @@ impl Default for DialogueControlState {
 }
 
 impl DialogueControlState {
-    pub(crate) fn cancel_tts_for_configuration_change(&mut self) {
+    pub(crate) fn cancel_tts_for_configuration_change(&mut self) -> SharedTtsRuntime {
         self.tts_configuration_generation = self.tts_configuration_generation.wrapping_add(1);
         self.cancel_tts_preview();
         self.abort_reply_stream(true);
-        self.tts_client = None;
+        self.shared_tts_runtime.invalidate()
     }
 
     pub(crate) fn tts_configuration_generation(&self) -> u64 {
         self.tts_configuration_generation
+    }
+
+    pub(crate) fn shared_tts_runtime(&self) -> SharedTtsRuntime {
+        self.shared_tts_runtime.clone()
     }
 
     pub(crate) fn track_tts_preview(&mut self, control: Arc<TtsPreviewControl>) {

@@ -2,7 +2,7 @@
 
 use gpui::{Modifiers, TestAppContext, VisualTestContext};
 
-use crate::harness::{echo_factory, enter_canvas, make_app};
+use crate::harness::{echo_factory, enter_canvas, make_app, make_app_with_settings_store};
 
 /// Settings → Themes：六套设计主题均可见，点击深浅主题会立即更新全局配色且不关闭面板。
 ///
@@ -101,6 +101,77 @@ fn e2e_03_settings_switches_all_core_ui_v2_theme_styles() {
     assert!(
         paper.settings_open,
         "切回 Paper Blue 后 Settings 仍应保持打开"
+    );
+}
+
+/// Settings → Themes 自动保存：选择非默认主题后，重启 App 仍恢复同一主题。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   settings stores = 1（两个 App 复用同一 SQLite 文件）
+///   app launches    = 2（首次选择 + 重载验证）
+///   theme changes   = 1（paper-blue → forest-mint）
+///   默认主题         = paper-blue（用于负断言，避免“重载为默认值”误判通过）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 使用隔离 SettingsStore 启动第一个 headless App，进入 Canvas 并打开 Themes。
+///   2. 点击 `settings-theme-forest-mint`，等待异步保存任务完成。
+///   3. 销毁第一个 App 上下文，使用同一 SettingsStore 启动第二个 App。
+///   4. 进入 Canvas、重新打开 Themes，通过公开 snapshot 读取恢复后的全局主题。
+///
+/// 预期结果：
+///   - 正断言：首次点击后主题即时变为 Forest Mint。
+///   - 正断言：第二次启动后稳定主题 id、dark mode 与 Accent 均恢复为 Forest Mint。
+///   - 负断言：第二次启动不得回退到默认 Paper Blue。
+#[test]
+fn e2e_03_theme_selection_persists_across_app_reload() {
+    let temp = tempfile::TempDir::new().expect("应创建隔离的 Themes Settings 数据目录");
+    let store = storage::SettingsStore::new(temp.path().join("themes.sqlite"));
+    let workspace = tempfile::TempDir::new().expect("应创建隔离的 Themes workspace");
+
+    {
+        let mut cx = TestAppContext::single();
+        let (app, cx) = make_app_with_settings_store(&mut cx, echo_factory(), store.clone());
+        enter_canvas(&app, cx, workspace.path());
+
+        click_debug(cx, "toolbar-settings");
+        click_debug(cx, "settings-section-themes");
+        click_debug(cx, "settings-theme-forest-mint");
+
+        let selected = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+        assert_eq!(
+            selected.active_theme_id, "forest-mint",
+            "首次点击后应立即应用 Forest Mint"
+        );
+        assert_ne!(
+            selected.active_theme_id, "paper-blue",
+            "首次点击后不得继续使用默认 Paper Blue"
+        );
+        cx.run_until_parked();
+    }
+
+    let mut reload_cx = TestAppContext::single();
+    let (reloaded_app, reload_cx) =
+        make_app_with_settings_store(&mut reload_cx, echo_factory(), store);
+    enter_canvas(&reloaded_app, reload_cx, workspace.path());
+    click_debug(reload_cx, "toolbar-settings");
+    click_debug(reload_cx, "settings-section-themes");
+
+    let reloaded = reloaded_app.update(reload_cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        reloaded.active_theme_id, "forest-mint",
+        "重载后应从 SettingsStore 恢复 Forest Mint"
+    );
+    assert!(
+        reloaded.theme_is_dark,
+        "重载后的 Forest Mint 必须保持 dark mode"
+    );
+    assert_eq!(
+        reloaded.theme_accent, 0x64e0b5ff,
+        "重载后的 Accent 应保持 Forest Mint 的 #64E0B5"
+    );
+    assert_ne!(
+        reloaded.active_theme_id, "paper-blue",
+        "重载后不得回退到默认 Paper Blue"
     );
 }
 

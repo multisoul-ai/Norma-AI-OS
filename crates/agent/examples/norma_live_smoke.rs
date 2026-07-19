@@ -32,6 +32,12 @@ impl AgentCardAdapter for LiveSmokeAdapter {
                 AdapterCommand::CreateTerminal => {
                     AdapterResult::succeeded("已创建 Terminal").with_node_id(23)
                 }
+                AdapterCommand::CreateBrowser { .. } => {
+                    AdapterResult::succeeded("已创建 Browser").with_node_id(24)
+                }
+                AdapterCommand::CreatePreview { .. } => {
+                    AdapterResult::succeeded("已创建 Preview").with_node_id(25)
+                }
                 AdapterCommand::FocusCard { node_id }
                 | AdapterCommand::SendTerminalInput { node_id, .. }
                 | AdapterCommand::DeleteCanvasCard { node_id } => {

@@ -297,6 +297,54 @@ fn test_utterance_committer_suppresses_split_thinking_block_and_repeated_conclus
     );
 }
 
+/// SPEECH-7b：跨越 60 字分段边界的 Markdown 代码块不能吞掉代码块后的回复结论。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   prefix              =「下面是诊断过程。」（8 个字符，达到即时提交下限）；
+///   code payload        = 65 个 `x`，大于 60 字硬分段上限；
+///   forced code chunks  = 至少 1 个，因此 opening fence 与 closing fence 落在不同分段；
+///   visible tail        =「最后结论必须完整朗读。」（用户应听到的后半段正文）。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 单次推入前缀、跨分段代码块和代码块后的结论；
+///   2. 收集即时提交的 speech segment；
+///   3. 调用 `finish` 刷出最后不足 60 字的尾段，并合并实际播报文本。
+///
+/// 预期结果：
+///   - 正断言：播报中保留代码块前的诊断前缀；
+///   - 正断言：代码块只转换为一次屏幕提示；
+///   - 正断言：代码块后的最后结论仍被完整朗读；
+///   - 负断言：65 个 `x` 的代码内容不得进入 TTS。
+#[test]
+fn test_utterance_committer_preserves_visible_tail_after_cross_segment_code_block() {
+    let mut committer = UtteranceCommitter::new();
+    let code_payload = "x".repeat(65);
+    let display_text =
+        format!("下面是诊断过程。\n```text\n{code_payload}\n```\n最后结论必须完整朗读。");
+
+    let mut spoken = committer.push_delta(&display_text, Duration::ZERO);
+    spoken.extend(committer.finish());
+    let joined = spoken.join(" ");
+
+    assert!(
+        joined.contains("下面是诊断过程。"),
+        "长回复播报必须保留代码块前的可见正文，实际：{joined:?}"
+    );
+    assert_eq!(
+        joined.matches("详细内容已显示在屏幕上").count(),
+        1,
+        "跨分段代码块只能产生一次屏幕提示，实际：{joined:?}"
+    );
+    assert!(
+        joined.contains("最后结论必须完整朗读。"),
+        "跨分段代码块不得吞掉 AI 回复后半段结论，实际：{joined:?}"
+    );
+    assert!(
+        !joined.contains(&code_payload),
+        "代码块内容不得作为普通正文进入 TTS，实际：{joined:?}"
+    );
+}
+
 /// SPEECH-8：旧式整句 TTS 实现通过默认适配仍可向流式播放端交付 PCM。
 ///
 /// 数据构造：

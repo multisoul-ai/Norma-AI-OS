@@ -55,33 +55,40 @@ fn test_product_ui_command_dock_uses_grouped_icons_and_embedded_voice() {
     );
 }
 
-/// Product UI 启动主题：应用必须以 Core UI V2 的 Paper Blue 作为默认主题。
+/// Product UI 启动主题：应用必须恢复已保存主题，并在没有保存值时回退到 Paper Blue。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   bootstrap source = `app/bootstrap.rs`
-///   主题 id 初始化数 = 1；该 id 会同时影响 Launchpad、Canvas 卡片与 Settings。
-///   参考稿默认主题 = Paper Blue，因此启动主题必须来自 `ThemeId::default()`。
+///   selection source = `settings/theme_selection.rs`
+///   主题 id 初始化数 = 1；该 id 会同时影响 Launchpad、Canvas 卡片与 Settings
+///   持久化优先级 = 已保存合法 ThemeId > `ThemeId::default()`（Paper Blue）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取生产 bootstrap 源码。
-///   2. 检查唯一的主题初始化使用 `ThemeId::default()` 与 `Theme::for_id(theme_id)`。
-///   3. 排除 `Theme::dark()`，避免浅色 token 仅存在于 Theme 定义却从未生效。
+///   2. 检查启动时通过 `ThemeSettingsState::load_default()` 同时恢复主题与持久化状态。
+///   3. 检查无合法保存值时使用 `unwrap_or_default()` 回退 Paper Blue。
+///   4. 排除 `Theme::dark()`，避免主题选择被硬编码暗色覆盖。
 ///
 /// 预期结果：
-///   - 正断言：bootstrap 使用默认主题 id 构造主题。
-///   - 负断言：bootstrap 不得继续硬编码 `Theme::dark()`。
+///   - 正断言：bootstrap 使用恢复出的主题 id 构造主题，缺省值仍为 Paper Blue。
+///   - 负断言：bootstrap 不得硬编码 `Theme::dark()` 或跳过持久化恢复。
 #[test]
 fn test_product_ui_bootstrap_activates_light_glass_theme() {
     let bootstrap = include_str!("../../src/app/bootstrap.rs");
+    let selection = include_str!("../../src/settings/theme_selection.rs");
 
     assert!(
-        bootstrap.contains("let theme_id = ThemeId::default();")
+        bootstrap.contains("let (theme_id, theme_settings) = ThemeSettingsState::load_default();")
             && bootstrap.contains("let theme = Theme::for_id(theme_id);"),
-        "Product UI 启动时必须通过默认 ThemeId 激活 Paper Blue"
+        "Product UI 启动时必须恢复持久化主题，并用恢复出的 ThemeId 构造主题"
+    );
+    assert!(
+        selection.contains(".unwrap_or_default();"),
+        "没有合法保存值时必须回退 ThemeId::default() 对应的 Paper Blue"
     );
     assert!(
         !bootstrap.contains("let theme = Theme::dark();"),
-        "bootstrap 不得继续硬编码旧暗色主题，否则参考稿浅色 token 不会生效"
+        "bootstrap 不得硬编码旧暗色主题，否则保存的选择与 Paper Blue 缺省值都不会生效"
     );
 }
 

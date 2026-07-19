@@ -280,10 +280,58 @@ fn preview_surface(
         .p(px(PREVIEW_PADDING_PX * zoom))
         .rounded_b(px(bottom_radius_px))
         .overflow_scroll()
-        .bg(rgba(with_alpha(theme.term_bg, 0x52)))
+        .bg(rgba(preview_surface_background(theme)))
         .text_color(rgba(theme.text_secondary))
+}
+
+fn preview_surface_background(theme: Theme) -> u32 {
+    with_alpha(theme.panel_high, 0xf2)
 }
 
 fn with_alpha(color: u32, alpha: u8) -> u32 {
     (color & 0xffffff00) | u32::from(alpha)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Preview 阅读面应使用高不透明的 panel_high，避免壁纸穿透后破坏正文对比度。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   Paper Blue panel_high = 0xfffefbd1
+    ///   阅读面目标 alpha       = 0xf2（242 / 255 ≈ 94.9%）
+    ///   旧实现 alpha           = 0x52（82 / 255 ≈ 32.2%）
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 构造 Paper Blue 主题。
+    ///   2. 解析 Preview 正文阅读面的背景色。
+    ///   3. 分别检查 RGB 来源、目标 alpha 与旧半透明背景的差异。
+    ///
+    /// 预期结果：
+    ///   - 正断言：RGB 必须来自 panel_high，保持主题一致性。
+    ///   - 正断言：alpha 必须精确为 0xf2，形成稳定阅读底色。
+    ///   - 负断言：不得回退到 term_bg + 0x52 的高穿透背景。
+    #[test]
+    fn preview_surface_background_is_theme_aware_and_high_opacity() {
+        let theme = Theme::paper_blue();
+
+        let background = preview_surface_background(theme);
+
+        assert_eq!(
+            background & 0xffffff00,
+            theme.panel_high & 0xffffff00,
+            "Preview 阅读面 RGB 应来自 panel_high，以匹配当前主题"
+        );
+        assert_eq!(
+            background & 0xff,
+            0xf2,
+            "Preview 阅读面 alpha 应为 0xf2（约 94.9%），确保壁纸不会干扰正文"
+        );
+        assert_ne!(
+            background,
+            with_alpha(theme.term_bg, 0x52),
+            "Preview 阅读面不得回退到旧的 term_bg + 0x52 高穿透背景"
+        );
+    }
 }

@@ -44,6 +44,7 @@ canvas/view.rs
 | `⌘3` | `NewCodexAgent` | `on_new_codex_agent` | Canvas | 创建 Codex agent 卡片 |
 | `⌘4` | `NewCursorAgent` | `on_new_cursor_agent` | Canvas | 创建 Cursor Agent CLI 卡片 |
 | `⌘5` | `NewOpenCodeAgent` | `on_new_opencode_agent` | Canvas | 创建 OpenCode Agent CLI 卡片 |
+| `⌘6` | `NewGrokAgent` | `on_new_grok_agent` | Canvas | 创建 Grok Build Agent CLI 卡片 |
 | `⌘D` | `DeleteCard` | `on_delete_card_shortcut` | Canvas | 删除当前聚焦卡片；无聚焦时仅删除唯一选中的画布卡片 |
 | `⌘M` | `ToggleMasterLayout` | `on_toggle_master_layout` | Canvas | 切换 master/detail 布局；无选中时忽略 |
 | `⌘⇧L` | `ReflowLayout` | `on_reflow_layout` | Canvas | 退出 master 模式并按最多三列平铺网格重排全部节点 |
@@ -72,7 +73,7 @@ canvas/view.rs
 
 以下命令在 `AppScreen::Launchpad` 下会直接返回或设置错误提示，不执行画布操作：
 
-- `NewTerminal`、`NewBrowser`、`OpenPreviewFile`、`NewClaudeAgent`、`NewCodexAgent`、`NewCursorAgent`、`NewOpenCodeAgent`、`DeleteCard`、`ToggleMasterLayout`、`ReflowLayout`、`ToggleSettings`
+- `NewTerminal`、`NewBrowser`、`OpenPreviewFile`、`NewClaudeAgent`、`NewCodexAgent`、`NewCursorAgent`、`NewOpenCodeAgent`、`NewGrokAgent`、`DeleteCard`、`ToggleMasterLayout`、`ReflowLayout`、`ToggleSettings`
 - `CopyCardContent`（静默忽略）
 
 `NewWindow`、`OpenProject`、`ExitFocus` 不受 Canvas 限制。
@@ -105,13 +106,14 @@ Layout:   Reflow Layout / Toggle Master Layout
 | New Codex Agent | `⌘3` | `NewCodexAgent` | `on_new_codex_agent` | 顶部工具栏 ✚ 菜单 → Codex |
 | New Cursor Agent | `⌘4` | `NewCursorAgent` | `on_new_cursor_agent` | 顶部工具栏 ✚ 菜单 → Cursor |
 | New OpenCode Agent | `⌘5` | `NewOpenCodeAgent` | `on_new_opencode_agent` | 顶部工具栏 ✚ 菜单 → OpenCode |
+| New Grok Agent | `⌘6` | `NewGrokAgent` | `on_new_grok_agent` | 顶部工具栏 ✚ 菜单 → Grok |
 
 除固定的 `Cmd+Q` 外，原生菜单暂不显示快捷键提示：可配置按键的真值仍是 `ShortcutSettingsState`，避免菜单显示与用户 override 不同步。Launchpad 中 Canvas 专属菜单项按原生禁用状态显示；`New Window` 与 `Open Project…` 保持可用。
 
-顶部工具栏的 ✚（Plus）按钮不再是直接的新建终端入口，而是展开一个浮层菜单（Terminal / Claude / Codex / Cursor / OpenCode / Preview / Browser）。菜单展开后：
+顶部工具栏的 ✚（Plus）按钮不再是直接的新建终端入口，而是展开一个浮层菜单（Terminal / Claude / Codex / Cursor / Grok / OpenCode / Preview / Browser）。菜单展开后：
 
 - ✚ 按钮高亮（accent 橙填充），再次点击收起。
-- 选择任一项执行对应动作（Terminal → `on_new_terminal`、Claude/Codex/Cursor/OpenCode → `spawn_agent_card(profile)`、Preview → `on_open_preview_file`、Browser → `on_new_browser`）并自动收起菜单。
+- 选择任一项执行对应动作（Terminal → `on_new_terminal`、Claude/Codex/Cursor/Grok/OpenCode → `spawn_agent_card(profile)`、Preview → `on_open_preview_file`、Browser → `on_new_browser`）并自动收起菜单。
 - 裸 `Esc` 优先收起菜单（不退焦、不传 PTY）。画布任意鼠标按下也会收起菜单。判定函数：`should_close_new_menu_on_escape`（`keyboard.rs`）。
 
 ## 4. 键事件路由（非 Action）

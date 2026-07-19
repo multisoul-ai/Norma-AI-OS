@@ -10,6 +10,7 @@ const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
         entry(ShortcutCommandId::NewCodexAgent, "Cards", "New Codex Agent", "Create a Codex live agent card", Some("cmd-3")),
         entry(ShortcutCommandId::NewCursorAgent, "Cards", "New Cursor Agent", "Create a Cursor Agent live agent card", Some("cmd-4")),
         entry(ShortcutCommandId::NewOpenCodeAgent, "Cards", "New OpenCode Agent", "Create an OpenCode live agent card", Some("cmd-5")),
+        entry(ShortcutCommandId::NewGrokAgent, "Cards", "New Grok Agent", "Create a Grok Build live agent card", Some("cmd-6")),
         entry(ShortcutCommandId::CopyCardContent, "Cards", "Copy Selection", "Copy the active terminal text selection", Some("cmd-c")),
         entry(ShortcutCommandId::DeleteCard, "Cards", "Delete Card", "Delete the focused or single selected card", Some("cmd-d")),
         entry(ShortcutCommandId::ReflowLayout, "Layout", "Reflow Layout", "Tile all cards in the visible workspace", Some("cmd-shift-l")),

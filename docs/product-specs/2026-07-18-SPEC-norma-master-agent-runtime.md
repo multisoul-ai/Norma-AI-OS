@@ -317,7 +317,7 @@ find_agent_tasks({
 
 ```ts
 create_agent({
-  profile: "codex" | "claude" | "opencode" | "cursor"
+  profile: "codex" | "claude" | "opencode" | "cursor" | "grok"
 })
 ```
 
@@ -336,6 +336,7 @@ Codex       → codex
 Claude Code → claude
 OpenCode    → opencode
 Cursor      → cursor
+Grok        → grok
 ```
 
 ### 8.3 分配任务

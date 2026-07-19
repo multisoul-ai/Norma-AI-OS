@@ -8,6 +8,7 @@ pub fn parse_hook_event(
     raw_json: Value,
 ) -> Result<AgentHookEvent, AgentHookError> {
     let provider_event = string_field(&raw_json, "hook_event_name")
+        .or_else(|| string_field(&raw_json, "hookEventName"))
         .or_else(|| string_field(&raw_json, "event_name"))
         .ok_or(AgentHookError::MissingEventName)?;
     let provider_event = normalize_provider_event(source, provider_event);
@@ -15,13 +16,16 @@ pub fn parse_hook_event(
         node_id,
         profile: profile_for_source(source),
         provider_event,
-        session_id: string_field(&raw_json, "session_id").or_else(|| {
-            (source == HookSource::Cursor)
-                .then(|| string_field(&raw_json, "conversation_id"))
-                .flatten()
-        }),
-        turn_id: string_field(&raw_json, "turn_id"),
-        tool_name: string_field(&raw_json, "tool_name"),
+        session_id: string_field(&raw_json, "session_id")
+            .or_else(|| string_field(&raw_json, "sessionId"))
+            .or_else(|| {
+                (source == HookSource::Cursor)
+                    .then(|| string_field(&raw_json, "conversation_id"))
+                    .flatten()
+            }),
+        turn_id: string_field(&raw_json, "turn_id").or_else(|| string_field(&raw_json, "turnId")),
+        tool_name: string_field(&raw_json, "tool_name")
+            .or_else(|| string_field(&raw_json, "toolName")),
         message: string_field(&raw_json, "message")
             .or_else(|| string_field(&raw_json, "error"))
             .or_else(|| string_field(&raw_json, "reason")),
@@ -40,7 +44,7 @@ pub fn task_state_for_provider_event(event: &AgentHookEvent) -> Option<AgentHook
         "PermissionRequest" => Some(AgentHookTaskState::WaitingApproval {
             tool_name: event.tool_name.clone(),
         }),
-        "PostToolUseFailure" => Some(AgentHookTaskState::Thinking),
+        "PostToolUseFailure" | "PermissionDenied" => Some(AgentHookTaskState::Thinking),
         "StopFailure" => Some(AgentHookTaskState::Failed {
             message: event
                 .message
@@ -89,6 +93,22 @@ pub fn hook_events_for_source(source: HookSource) -> &'static [&'static str] {
             "postToolUseFailure",
             "stop",
             "sessionEnd",
+        ],
+        HookSource::Grok => &[
+            "SessionStart",
+            "UserPromptSubmit",
+            "PreToolUse",
+            "PostToolUse",
+            "PostToolUseFailure",
+            "PermissionDenied",
+            "Notification",
+            "Stop",
+            "StopFailure",
+            "SessionEnd",
+            "SubagentStart",
+            "SubagentStop",
+            "PreCompact",
+            "PostCompact",
         ],
         HookSource::OpenCode => &[
             "SessionStart",

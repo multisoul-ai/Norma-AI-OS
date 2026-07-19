@@ -402,19 +402,22 @@ fn quick_agent_creation_continues_after_thirty_builtin_definitions() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取显式环境变量；缺失时用清楚原因跳过真实外部流程
-///   2. 环境存在时验证值属于三个受支持 profile，作为外部 runner 前置检查
+///   2. 环境存在时验证值属于五个受支持 profile，作为外部 runner 前置检查
 ///
 /// 预期结果：
 ///   - 正断言：显式配置值必须是受支持 CLI
 ///   - 负断言：默认 `cargo test -p e2e` 不得误启动真实 CLI 或消费用户凭据
 #[test]
-#[ignore = "L3 需要真实 Codex/Claude/Cursor/OpenCode CLI、凭据与已安装 Agent Hook"]
+#[ignore = "L3 需要真实 Codex/Claude/Cursor/OpenCode/Grok CLI、凭据与已安装 Agent Hook"]
 fn real_agent_cli_and_hook_environment_preflight() {
     let profile = std::env::var("NORMA_E2E_AGENT_CLI")
-        .expect("运行 ignored L3 前必须设置 NORMA_E2E_AGENT_CLI=codex|claude|cursor|opencode");
+        .expect("运行 ignored L3 前必须设置 NORMA_E2E_AGENT_CLI=codex|claude|cursor|opencode|grok");
     assert!(
-        matches!(profile.as_str(), "codex" | "claude" | "cursor" | "opencode"),
-        "NORMA_E2E_AGENT_CLI 必须选择 codex、claude、cursor 或 opencode"
+        matches!(
+            profile.as_str(),
+            "codex" | "claude" | "cursor" | "opencode" | "grok"
+        ),
+        "NORMA_E2E_AGENT_CLI 必须选择 codex、claude、cursor、opencode 或 grok"
     );
     assert_ne!(profile, "", "L3 profile 不得为空，否则无法选择真实 CLI");
 }

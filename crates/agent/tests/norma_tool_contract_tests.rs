@@ -49,24 +49,29 @@ impl AgentCardAdapter for RecordingAdapter {
     }
 }
 
-/// TOOL-1：Norma 只向模型暴露 SPEC 定义的八个窄工具及其精确必填参数
+/// TOOL-1：Norma 只向模型暴露十个窄工具及其精确必填参数。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   Expected tools = 8（查询、创建 Agent、派发、取消、建 Terminal、聚焦、输入、删除）
-///   Side-effect tools = 7（除 `find_agent_tasks` 外）
+///   Existing tools = 8（查询、创建 Agent、派发、取消、建 Terminal、聚焦、输入、删除）
+///   New card tools = 2（Browser + Preview）
+///   Expected tools = 8 + 2 = 10
+///   Side-effect tools = 10 - 1 个只读查询 = 9
 ///   `assign_agent_task` required fields = 2（agent + task）
+///   `create_browser` required fields = 0（无 URL 时使用产品默认首页）
+///   `create_preview` required fields = 1（path）
+///   `create_agent.profile` enum 数 = 5（Codex / Claude / OpenCode / Cursor / Grok）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 从生产工具注册表读取所有模型可见 definition
 ///   2. 按名称核对完整集合，避免旧的宽泛工具混入
-///   3. 检查 `assign_agent_task` 和 `create_agent` 的 JSON Schema
+///   3. 检查 `assign_agent_task` 和 `create_agent` 的 JSON Schema 及五种 profile
 ///
 /// 预期结果：
-///   - 正断言：八个工具全部存在且名称准确
-///   - 正断言：派发工具仅要求 agent 与 task，创建工具仅允许 profile
-///   - 负断言：不再暴露 `open_agent`，模型也不能提供 name/activate
+///   - 正断言：十个工具全部存在且名称准确
+///   - 正断言：派发工具仅要求 agent 与 task，创建 Agent 工具允许 Grok profile
+///   - 负断言：不再暴露 `open_agent`，模型也不能提供 name/activate 或未知 profile
 #[test]
-fn norma_exposes_exactly_eight_narrow_tool_schemas() {
+fn norma_exposes_exactly_ten_narrow_tool_schemas() {
     let definitions = norma_tool_definitions();
     let names = definitions
         .iter()
@@ -78,6 +83,8 @@ fn norma_exposes_exactly_eight_narrow_tool_schemas() {
         "assign_agent_task",
         "cancel_agent_task",
         "create_terminal",
+        "create_browser",
+        "create_preview",
         "focus_card",
         "send_terminal_input",
         "delete_canvas_card",
@@ -85,7 +92,7 @@ fn norma_exposes_exactly_eight_narrow_tool_schemas() {
 
     assert_eq!(
         names, expected,
-        "Norma should expose only the eight SPEC tools in deterministic order"
+        "Norma should expose only the ten supported narrow tools in deterministic order"
     );
     assert!(
         !names.contains(&"open_agent"),
@@ -116,6 +123,16 @@ fn norma_exposes_exactly_eight_narrow_tool_schemas() {
         json!(["profile"]),
         "create_agent should require only the built-in profile"
     );
+    assert_eq!(
+        create.parameters["properties"]["profile"]["enum"],
+        json!(["codex", "claude", "opencode", "cursor", "grok"]),
+        "create_agent profile enum 应包含且仅包含五种受支持 runtime，Grok 不得遗漏"
+    );
+    assert_ne!(
+        create.parameters["properties"]["profile"]["enum"],
+        json!(["codex", "claude", "opencode", "cursor"]),
+        "Grok 对接后 create_agent schema 不得继续停留在旧四种 profile"
+    );
     assert!(
         create.parameters["properties"].get("name").is_none(),
         "the model must not choose an Agent name"
@@ -126,7 +143,7 @@ fn norma_exposes_exactly_eight_narrow_tool_schemas() {
     );
 }
 
-/// TOOL-2：明确指派给 AgentCard 的任务直接进入 Adapter，不经过确认状态
+/// TOOL-3：明确指派给 AgentCard 的任务直接进入 Adapter，不经过确认状态
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Tool calls = 1（`assign_agent_task`）

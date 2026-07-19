@@ -341,6 +341,7 @@ fn encode_agent_profile(profile: AgentProfile) -> &'static str {
         AgentProfile::Claude => "claude",
         AgentProfile::Codex => "codex",
         AgentProfile::Cursor => "cursor",
+        AgentProfile::Grok => "grok",
         AgentProfile::OpenCode => "opencode",
     }
 }
@@ -350,6 +351,7 @@ fn decode_agent_profile(profile: &str) -> StorageResult<AgentProfile> {
         "claude" => Ok(AgentProfile::Claude),
         "codex" => Ok(AgentProfile::Codex),
         "cursor" => Ok(AgentProfile::Cursor),
+        "grok" => Ok(AgentProfile::Grok),
         "opencode" => Ok(AgentProfile::OpenCode),
         other => Err(StorageError::InvalidAgentProfile(other.to_string())),
     }

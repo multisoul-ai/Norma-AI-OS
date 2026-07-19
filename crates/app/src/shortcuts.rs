@@ -22,6 +22,7 @@ pub(crate) enum ShortcutCommandId {
     NewClaudeAgent,
     NewCodexAgent,
     NewCursorAgent,
+    NewGrokAgent,
     NewOpenCodeAgent,
     DeleteCard,
     ReflowLayout,

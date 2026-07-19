@@ -1,6 +1,7 @@
 use crate::rig_tools::{
-    AssignAgentTaskTool, CancelAgentTaskTool, CreateAgentTool, CreateTerminalTool,
-    DeleteCanvasCardTool, FindAgentTasksTool, FocusCardTool, RigToolContext, SendTerminalInputTool,
+    AssignAgentTaskTool, CancelAgentTaskTool, CreateAgentTool, CreateBrowserTool,
+    CreatePreviewTool, CreateTerminalTool, DeleteCanvasCardTool, FindAgentTasksTool, FocusCardTool,
+    RigToolContext, SendTerminalInputTool,
 };
 use crate::{
     norma_system_prompt, AgentCardAdapter, AgentRosterEntry, CurrentCanvasContext,
@@ -480,6 +481,8 @@ where
         .tool(AssignAgentTaskTool::new(tools.clone()))
         .tool(CancelAgentTaskTool::new(tools.clone()))
         .tool(CreateTerminalTool::new(tools.clone()))
+        .tool(CreateBrowserTool::new(tools.clone()))
+        .tool(CreatePreviewTool::new(tools.clone()))
         .tool(FocusCardTool::new(tools.clone()))
         .tool(SendTerminalInputTool::new(tools.clone()))
         .tool(DeleteCanvasCardTool::new(tools))

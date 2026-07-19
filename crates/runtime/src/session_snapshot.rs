@@ -110,6 +110,17 @@ pub fn find_codex_session_id(workspace_root: &Path) -> Option<String> {
     find_codex_session_id_inner(workspace_root, &Path::new(&home).join(".codex"))
 }
 
+/// Find the most recently active Grok Build session for a workspace.
+///
+/// Grok stores sessions below `~/.grok/sessions/<encodeURIComponent(cwd)>/<session-id>/`.
+/// This discovery reads directory metadata only; it never loads transcript JSONL files.
+pub fn find_grok_session_id(workspace_root: &Path) -> Option<String> {
+    let grok_home = std::env::var_os("GROK_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".grok")))?;
+    find_grok_session_id_inner(workspace_root, &grok_home)
+}
+
 /// Discover the provider-owned session for a workspace when the project database does not
 /// contain a cached hook session id. Callers must run this filesystem scan off the UI thread.
 pub fn find_agent_session_id_for_profile(
@@ -119,6 +130,7 @@ pub fn find_agent_session_id_for_profile(
     match profile {
         AgentProfile::Claude => find_agent_session_id(workspace_root),
         AgentProfile::Codex => find_codex_session_id(workspace_root),
+        AgentProfile::Grok => find_grok_session_id(workspace_root),
         AgentProfile::Cursor | AgentProfile::OpenCode => None,
     }
 }
@@ -141,6 +153,82 @@ pub fn find_codex_session_id_inner(workspace_root: &Path, codex_home: &Path) -> 
         }
     });
     best.map(|(_, session_id)| session_id)
+}
+
+/// Testable Grok discovery with an explicit provider home directory.
+pub fn find_grok_session_id_inner(workspace_root: &Path, grok_home: &Path) -> Option<String> {
+    let encoded_workspace = encode_uri_component(workspace_root.to_str()?);
+    let workspace_sessions = grok_home.join("sessions").join(encoded_workspace);
+    let entries = std::fs::read_dir(workspace_sessions).ok()?;
+    let mut best: Option<(std::time::SystemTime, String)> = None;
+
+    for entry in entries.flatten() {
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
+        if !metadata.is_dir() {
+            continue;
+        }
+        let Some(session_id) = entry.file_name().to_str().map(ToString::to_string) else {
+            continue;
+        };
+        if session_id.is_empty() {
+            continue;
+        }
+        let activity =
+            grok_session_activity_time(entry.path().as_path()).or_else(|| metadata.modified().ok());
+        let Some(activity) = activity else {
+            continue;
+        };
+        if best
+            .as_ref()
+            .map(|(best_activity, _)| activity > *best_activity)
+            .unwrap_or(true)
+        {
+            best = Some((activity, session_id));
+        }
+    }
+
+    best.map(|(_, session_id)| session_id)
+}
+
+fn grok_session_activity_time(session_dir: &Path) -> Option<std::time::SystemTime> {
+    [
+        "updates.jsonl",
+        "chat_history.jsonl",
+        "events.jsonl",
+        "summary.json",
+        "signals.json",
+        "plan.md",
+    ]
+    .into_iter()
+    .filter_map(|name| {
+        std::fs::metadata(session_dir.join(name))
+            .ok()?
+            .modified()
+            .ok()
+    })
+    .max()
+}
+
+fn encode_uri_component(value: &str) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric()
+            || matches!(
+                byte,
+                b'-' | b'_' | b'.' | b'!' | b'~' | b'*' | b'\'' | b'(' | b')'
+            )
+        {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push('%');
+            encoded.push(char::from(HEX[usize::from(byte >> 4)]));
+            encoded.push(char::from(HEX[usize::from(byte & 0x0f)]));
+        }
+    }
+    encoded
 }
 
 /// Build a PtyCommand for a terminal node that opens in the saved cwd.
@@ -179,6 +267,9 @@ pub(crate) fn build_agent_resume_command(
         AgentProfile::Cursor => {
             format!("exec cursor-agent --resume {}", shell_quote(session_id))
         }
+        AgentProfile::Grok => {
+            format!("exec grok --resume {}", shell_quote(session_id))
+        }
         AgentProfile::OpenCode => {
             format!(
                 "exec \"${{OPENCODE_BIN:-opencode}}\" resume {}",
@@ -186,7 +277,12 @@ pub(crate) fn build_agent_resume_command(
             )
         }
     };
-    let mut cmd = PtyCommand::new(shell).args(["-ic", &cmd_str]);
+    let shell_flag = if profile == AgentProfile::Grok {
+        "-lic"
+    } else {
+        "-ic"
+    };
+    let mut cmd = PtyCommand::new(shell).args([shell_flag, &cmd_str]);
     cmd = cmd.with_cwd(workspace_root);
     match hook_env {
         Some(env) => env.apply_to_command(cmd),
@@ -247,3 +343,7 @@ fn shell_quote(value: &str) -> String {
 #[cfg(test)]
 #[path = "../tests/unit/session_snapshot_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/session_snapshot_grok_tests.rs"]
+mod grok_tests;

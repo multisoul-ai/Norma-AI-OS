@@ -53,6 +53,18 @@ pub(super) fn zipvoice_reference_controls(
     let ready = state.zipvoice_reference_ready();
     let importing = state.zipvoice_reference_importing();
     let busy = state.zipvoice_reference_operation_busy();
+    let path_present = !state.zipvoice_reference_draft_path().trim().is_empty();
+    let transcript_present = !state
+        .zipvoice_reference_draft_transcript()
+        .trim()
+        .is_empty();
+    let transcript_required = path_present && !transcript_present;
+    let can_import = state.zipvoice_reference_can_import();
+    let import_selector = if can_import {
+        "settings-zipvoice-reference-import"
+    } else {
+        "settings-zipvoice-reference-import-disabled"
+    };
     let mut controls =
         div()
             .w_full()
@@ -71,33 +83,67 @@ pub(super) fn zipvoice_reference_controls(
             )
             .child(
                 div()
-                    .id("settings-zipvoice-reference-path")
-                    .debug_selector(|| "settings-zipvoice-reference-path".to_string())
                     .w_full()
-                    .min_h(px(38.0))
-                    .px(px(10.0))
-                    .py(px(6.0))
-                    .rounded(px(8.0))
-                    .border_1()
-                    .border_color(rgba(with_alpha(theme.edge_highlight, 0x58)))
-                    .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
-                    .on_click(cx.listener(move |_, _, window, _| path_focus.focus(window)))
-                    .child(Input::new(&path).appearance(false).cleanable(true)),
+                    .flex()
+                    .flex_col()
+                    .gap(px(4.0))
+                    .child(reference_field_label(theme, "Reference WAV"))
+                    .child(
+                        div()
+                            .id("settings-zipvoice-reference-path")
+                            .debug_selector(|| "settings-zipvoice-reference-path".to_string())
+                            .w_full()
+                            .min_h(px(38.0))
+                            .px(px(10.0))
+                            .py(px(6.0))
+                            .rounded(px(8.0))
+                            .border_1()
+                            .border_color(rgba(with_alpha(theme.edge_highlight, 0x58)))
+                            .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
+                            .on_click(cx.listener(move |_, _, window, _| path_focus.focus(window)))
+                            .child(Input::new(&path).appearance(false).cleanable(true)),
+                    ),
             )
             .child(
                 div()
-                    .id("settings-zipvoice-reference-transcript")
-                    .debug_selector(|| "settings-zipvoice-reference-transcript".to_string())
                     .w_full()
-                    .min_h(px(38.0))
-                    .px(px(10.0))
-                    .py(px(6.0))
-                    .rounded(px(8.0))
-                    .border_1()
-                    .border_color(rgba(with_alpha(theme.edge_highlight, 0x58)))
-                    .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
-                    .on_click(cx.listener(move |_, _, window, _| transcript_focus.focus(window)))
-                    .child(Input::new(&transcript).appearance(false).cleanable(true)),
+                    .flex()
+                    .flex_col()
+                    .gap(px(4.0))
+                    .child(reference_field_label(theme, "Exact transcript"))
+                    .child(
+                        div()
+                            .id("settings-zipvoice-reference-transcript")
+                            .debug_selector(|| "settings-zipvoice-reference-transcript".to_string())
+                            .w_full()
+                            .min_h(px(38.0))
+                            .px(px(10.0))
+                            .py(px(6.0))
+                            .rounded(px(8.0))
+                            .border_1()
+                            .border_color(rgba(if transcript_required {
+                                with_alpha(theme.destructive, 0x98)
+                            } else {
+                                with_alpha(theme.edge_highlight, 0x58)
+                            }))
+                            .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
+                            .on_click(
+                                cx.listener(move |_, _, window, _| transcript_focus.focus(window)),
+                            )
+                            .child(Input::new(&transcript).appearance(false).cleanable(true)),
+                    )
+                    .when(transcript_required, |field| {
+                        field.child(
+                            div()
+                                .id("settings-zipvoice-reference-transcript-required")
+                                .debug_selector(|| {
+                                    "settings-zipvoice-reference-transcript-required".to_string()
+                                })
+                                .text_size(px(11.0))
+                                .text_color(rgba(theme.destructive))
+                                .child("Required — enter the exact words spoken in the WAV."),
+                        )
+                    }),
             )
             .child(
                 div()
@@ -127,9 +173,10 @@ pub(super) fn zipvoice_reference_controls(
                             },
                             theme.accent_blue,
                         )
-                        .id("settings-zipvoice-reference-import")
-                        .debug_selector(|| "settings-zipvoice-reference-import".to_string())
-                        .when(!busy, |button| {
+                        .id(import_selector)
+                        .debug_selector(move || import_selector.to_string())
+                        .when(!can_import, |button| button.opacity(0.48).cursor_default())
+                        .when(can_import, |button| {
                             button.on_click(
                                 cx.listener(|app, _, _, cx| app.import_zipvoice_reference(cx)),
                             )
@@ -158,6 +205,17 @@ pub(super) fn zipvoice_reference_controls(
         );
     }
     Some(controls)
+}
+
+fn reference_field_label(theme: Theme, label: &'static str) -> Div {
+    div()
+        .flex()
+        .items_center()
+        .gap(px(5.0))
+        .text_size(px(11.0))
+        .text_color(rgba(theme.text_secondary))
+        .child(label)
+        .child(div().text_color(rgba(theme.destructive)).child("Required"))
 }
 
 fn reference_input(

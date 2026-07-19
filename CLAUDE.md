@@ -77,7 +77,7 @@ At a glance:
 
 ## 4. Current User-Facing Behavior
 
-- `Cmd+1` creates a Terminal node; `Cmd+2` through `Cmd+5` create Claude, Codex, Cursor, and OpenCode cards. Each creation reflows the current layout.
+- `Cmd+1` creates a Terminal node; `Cmd+2` through `Cmd+6` create Claude, Codex, Cursor, OpenCode, and Grok cards. Each creation reflows the current layout.
 - Drag a node by its title bar.
 - Single-click selects a node; clicking blank canvas clears selection.
 - Double-click a focusable node, or click a terminal/agent body, to focus it.

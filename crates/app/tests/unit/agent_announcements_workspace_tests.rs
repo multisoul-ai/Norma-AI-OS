@@ -60,7 +60,7 @@ fn test_workspace_reset_clears_pending_and_active_rounds() {
     );
 }
 
-/// TTS 配置切换：Agent 播报必须释放旧模型/Voice client，下一轮重新创建。
+/// TTS 配置切换：共享 runtime 必须释放旧模型/Voice client，下一轮重新创建。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   cached clients = 1 个 FakeTtsClient
@@ -68,28 +68,44 @@ fn test_workspace_reset_clears_pending_and_active_rounds() {
 ///   expected cached clients after invalidation = 1 - 1 = 0
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 向 Agent 播放状态注入一个代表旧模型/Voice 的缓存 client。
-///   2. 执行配置切换专用失效操作并取出旧 client。
-///   3. 检查播放状态内不再保留旧 client。
+///   1. 向共享 runtime 注入一个代表旧模型/Voice 的缓存 client。
+///   2. 执行 Dialogue 配置切换失效操作并替换 resident runtime。
+///   3. 检查新 runtime 为空，旧 runtime handle 仍持有 client、可整体移到后台释放。
 ///
 /// 预期结果：
-///   - 正断言：失效操作返回旧 client，供调用方后台释放。
-///   - 负断言：播放状态不得继续缓存旧模型/Voice client。
+///   - 正断言：失效前共享 runtime 恰好有一个 client。
+///   - 正断言：失效操作返回旧 runtime handle，供调用方移到后台线程释放。
+///   - 负断言：失效后共享 runtime 不得继续缓存旧模型/Voice client。
 #[test]
-fn test_tts_configuration_change_invalidates_cached_agent_client() {
-    let mut playback = AgentAnnouncementPlayback {
-        tts_client: Some(crate::app::dialogue::fake_tts_client_for_tests()),
-        ..AgentAnnouncementPlayback::default()
-    };
+fn test_tts_configuration_change_invalidates_shared_client() {
+    let mut dialogue = crate::app::dialogue::DialogueControlState::default();
+    dialogue
+        .shared_tts_runtime
+        .with_client(
+            None,
+            || Ok::<_, String>(crate::app::dialogue::fake_tts_client_for_tests()),
+            |_tts| Ok::<_, String>(()),
+        )
+        .expect("Fake TTS runtime 初始化不应失败");
 
-    let stale_client = playback.take_tts_client_for_configuration_change();
-
-    assert!(
-        stale_client.is_some(),
-        "配置切换必须取出旧 Agent TTS client，供后台线程释放"
+    assert_eq!(
+        dialogue
+            .shared_tts_runtime
+            .resident_client_count_for_tests(),
+        1,
+        "配置切换前共享 runtime 必须恰好缓存一个旧 TTS client"
     );
-    assert!(
-        playback.tts_client.is_none(),
-        "配置切换后播放状态不得继续缓存旧模型或旧 Voice client"
+    let stale_runtime = dialogue.cancel_tts_for_configuration_change();
+    assert_eq!(
+        stale_runtime.resident_client_count_for_tests(),
+        1,
+        "配置切换必须返回持有旧 client 的 runtime，供调用方在后台释放"
+    );
+    assert_eq!(
+        dialogue
+            .shared_tts_runtime
+            .resident_client_count_for_tests(),
+        0,
+        "配置切换后共享 runtime 不得继续缓存旧模型或旧 Voice client"
     );
 }

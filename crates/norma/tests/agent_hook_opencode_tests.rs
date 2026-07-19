@@ -83,6 +83,7 @@ fn test_opencode_install_writes_and_removes_plugin_file() {
         claude_settings: temp.path().join("claude-settings.json"),
         codex_hooks: temp.path().join("codex-hooks.json"),
         cursor_hooks: temp.path().join("cursor-hooks.json"),
+        grok_hooks: temp.path().join("grok-hooks.json"),
         opencode_plugin: plugin_path.clone(),
     };
     let command_path = temp.path().join("multisoul-agent-hook");

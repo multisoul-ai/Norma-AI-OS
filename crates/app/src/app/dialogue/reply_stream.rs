@@ -1,6 +1,8 @@
 //! Streaming reply state shared by the dialogue controller and playback bridge.
 
-use super::reply::{create_tts_client, selected_tts_model_configured, TtsClientBox};
+use super::reply::{
+    create_tts_client_for_selection, selected_tts_model, selected_tts_model_configured,
+};
 use super::DialogueControlState;
 use crate::app::voice::playback::pcm_chunk_duration;
 use dialogue::{DialoguePhase, SHORT_SPEECH_MERGE_WINDOW};
@@ -34,10 +36,7 @@ pub(super) struct StreamPlaybackBuffer {
 
 enum SpeechWorkerEvent {
     Chunk(QueuedPlaybackChunk),
-    Finished {
-        tts: Option<TtsClientBox>,
-        result: Result<(), SpeechError>,
-    },
+    Finished(Result<(), SpeechError>),
 }
 
 impl DialogueControlState {
@@ -219,7 +218,9 @@ impl DialogueControlState {
             &text,
             self.speech_queue.len(),
         );
-        let existing_tts = self.tts_client.take();
+        let tts_runtime = self.shared_tts_runtime.clone();
+        let selected = selected_tts_model();
+        let selected_for_create = selected.clone();
         let cancelled = Arc::clone(&self.tts_cancelled);
         let (events_tx, events_rx) = async_channel::unbounded();
         self.speech_synthesis_active = true;
@@ -227,36 +228,23 @@ impl DialogueControlState {
             let worker_events = events_tx.clone();
             cx.background_executor()
                 .spawn(async move {
-                    let mut tts = match existing_tts {
-                        Some(tts) => tts,
-                        None => match create_tts_client() {
-                            Ok(tts) => tts,
-                            Err(error) => {
-                                let _ = worker_events
-                                    .send(SpeechWorkerEvent::Finished {
-                                        tts: None,
-                                        result: Err(error),
-                                    })
-                                    .await;
-                                return;
-                            }
-                        },
-                    };
                     let sink = Arc::new(ChannelTtsChunkSink {
                         events: worker_events.clone(),
                         cancelled,
                         tts_request_sequence,
                         next_chunk_sequence: AtomicU64::new(0),
                     });
-                    let result = tts
-                        .synthesize_stream(&text, sink)
-                        .map_err(|error| SpeechError::Recognizer(error.to_string()));
+                    let result = tts_runtime.with_client(
+                        selected,
+                        || create_tts_client_for_selection(selected_for_create.as_ref()),
+                        |tts| {
+                            tts.synthesize_stream(&text, sink)
+                                .map_err(|error| SpeechError::Recognizer(error.to_string()))
+                        },
+                    );
                     trace::synthesis_finished(generation, tts_request_sequence, &result);
                     let _ = worker_events
-                        .send(SpeechWorkerEvent::Finished {
-                            tts: Some(tts),
-                            result,
-                        })
+                        .send(SpeechWorkerEvent::Finished(result))
                         .await;
                 })
                 .detach();
@@ -288,8 +276,7 @@ impl DialogueControlState {
                 self.schedule_audio_chunks(ready_chunks, generation, cx);
                 true
             }
-            SpeechWorkerEvent::Finished { tts, result } => {
-                self.tts_client = tts;
+            SpeechWorkerEvent::Finished(result) => {
                 self.speech_synthesis_active = false;
                 self.speech_task = None;
                 let final_chunks = self.playback_buffer.finish();

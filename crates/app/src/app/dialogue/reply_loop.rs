@@ -218,19 +218,16 @@ impl DialogueControlState {
                     .map(|transcript| format!("收到：{transcript}"))
             })
             .ok_or_else(|| SpeechError::Recognizer("missing reply text".to_string()))?;
-        if self.tts_client.is_none() {
-            self.tts_client = Some(create_tts_client()?);
-        }
-        let tts = self
-            .tts_client
-            .as_mut()
-            .expect("tts client should exist after lazy init");
-        apply_reply_synthesis(
-            &mut self.session,
-            tts.as_mut(),
-            &mut self.reply_playback,
-            &reply_text,
-        )
-        .map(|_| ())
+        let tts_runtime = self.shared_tts_runtime.clone();
+        tts_runtime
+            .with_client(None, create_tts_client, |tts| {
+                apply_reply_synthesis(
+                    &mut self.session,
+                    tts,
+                    &mut self.reply_playback,
+                    &reply_text,
+                )
+            })
+            .map(|_| ())
     }
 }

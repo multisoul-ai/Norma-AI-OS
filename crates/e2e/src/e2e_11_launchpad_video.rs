@@ -5,12 +5,12 @@ use gpui::{px, size, TestAppContext};
 
 use crate::harness::{echo_factory, make_app};
 
-/// E2E-11：新窗口启动时 Launchpad 必须绑定验证过的 4K 视频，而不是旧 720p 或 Canvas 默认图片。
+/// E2E-11：新窗口启动时 Launchpad 必须绑定指定的 home 视频，而不是上一版视频或 Canvas 默认图片。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   headless window = 1 个（TestAppContext::single）
-///   Launchpad 视频 = "wallpapers/1406443.mp4"（3840×2160 固定应用资源）
-///   旧 Launchpad 视频 = "wallpapers/home.mp4"（1280×720）
+///   Launchpad 视频 = "wallpapers/home.mp4"（1280×720 固定应用资源）
+///   上一版 Launchpad 视频 = "wallpapers/1406443.mp4"（3840×2160）
 ///   Canvas 默认图 = "wallpapers/1331865.png"（不同扩展名与资源路径）
 ///   三个资源各 1 条，故生产资源必须与两个旧/画布资源都不相等。
 ///
@@ -21,11 +21,11 @@ use crate::harness::{echo_factory, make_app};
 ///
 /// 预期结果：
 ///   - 正断言：初始页面是 Launchpad
-///   - 正断言：Launchpad 背景资源精确为 wallpapers/1406443.mp4
-///   - 负断言：Launchpad 背景资源不再是 wallpapers/home.mp4
+///   - 正断言：Launchpad 背景资源精确为 wallpapers/home.mp4
+///   - 负断言：Launchpad 背景资源不再是 wallpapers/1406443.mp4
 ///   - 负断言：Launchpad 背景资源不应为 Canvas 默认的 1331865.png
 #[test]
-fn e2e_11_launchpad_boots_with_dedicated_4k_video() {
+fn e2e_11_launchpad_boots_with_dedicated_home_video() {
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
     let (screen, video_asset) = app.update(cx, |app, _cx| {
@@ -38,12 +38,12 @@ fn e2e_11_launchpad_boots_with_dedicated_4k_video() {
         "应用初始渲染应处于 Launchpad，才能展示启动页的固定视频"
     );
     assert_eq!(
-        video_asset, "wallpapers/1406443.mp4",
-        "Launchpad 默认背景必须播放实验验证过的 4K 视频"
+        video_asset, "wallpapers/home.mp4",
+        "Launchpad 默认背景必须播放用户指定的 home 视频"
     );
     assert_ne!(
-        video_asset, "wallpapers/home.mp4",
-        "Launchpad 默认背景不得继续使用会在 Retina 窗口放大的 720p home.mp4"
+        video_asset, "wallpapers/1406443.mp4",
+        "Launchpad 默认背景不得继续残留上一版 1406443.mp4"
     );
     assert_ne!(
         video_asset, "wallpapers/1331865.png",

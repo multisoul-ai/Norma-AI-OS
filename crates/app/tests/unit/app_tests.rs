@@ -32,7 +32,8 @@ fn test_wallpaper_renders_fully_opaque_without_theme_overlay() {
         .unwrap_or(chrome);
 
     assert_eq!(
-        WALLPAPER_IMAGE_OPACITY, 1.0,
+        chrome::WALLPAPER_IMAGE_OPACITY,
+        1.0,
         "wallpaper image should render fully opaque to preserve original brightness"
     );
     assert!(

@@ -15,13 +15,13 @@ fn start_adapter_pump(
             );
             let command = request.command.clone();
             let result = this
-                .update_in(cx, |app, window, _cx| {
+                .update_in(cx, |app, window, cx| {
                     if !is_current_runtime(app, runtime_id) {
                         return Err(AdapterError::Failed(
                             "Norma Adapter 属于已失效项目".to_string(),
                         ));
                     }
-                    execute_norma_adapter_command(app, window, command)
+                    execute_norma_adapter_command(app, window, cx, command)
                 })
                 .unwrap_or_else(|_| {
                     Err(AdapterError::Failed(
@@ -37,6 +37,7 @@ fn start_adapter_pump(
 pub(crate) fn execute_norma_adapter_command(
     app: &mut MultisoulApp,
     window: &mut Window,
+    cx: &mut Context<MultisoulApp>,
     command: AdapterCommand,
 ) -> Result<AdapterResult, AdapterError> {
     match command {
@@ -273,6 +274,46 @@ pub(crate) fn execute_norma_adapter_command(
             ),
             "已创建 Terminal",
         ),
+        AdapterCommand::CreateBrowser { url } => {
+            let url = crate::cards::browser::normalize_browser_url(url.as_deref().unwrap_or(""));
+            map_card_result(
+                commands::execute_agent_card_command(
+                    app,
+                    window,
+                    CardCommand::Create {
+                        kind: CardKind::Browser { url },
+                        placement: Placement::VisibleArea,
+                    },
+                ),
+                "已创建 Browser",
+            )
+        }
+        AdapterCommand::CreatePreview {
+            path,
+            explicit_type,
+        } => {
+            let workspace_root = app
+                .runtime
+                .workspace_root()
+                .ok_or_else(|| AdapterError::Rejected("当前没有打开的项目".to_string()))?;
+            let path = crate::preview::resolve_preview_path(
+                workspace_root,
+                path.to_string_lossy().as_ref(),
+            )
+            .map_err(|error| AdapterError::Rejected(error.to_string()))?;
+            let area = app.visible_canvas_rect(window);
+            let zoom = app.runtime.document.viewport.zoom;
+            let bounds = area.inset(crate::canvas::master_layout::layout_gap_for_zoom(zoom));
+            let node_id = app.spawn_preview_from_path(
+                path,
+                explicit_type.map(crate::norma::server::canvas_preview_type),
+                bounds,
+                area,
+                zoom,
+                cx,
+            );
+            Ok(AdapterResult::succeeded("已创建 Preview").with_node_id(node_id))
+        }
         AdapterCommand::FocusCard { node_id } => map_card_result(
             commands::execute_agent_card_command(app, window, CardCommand::Focus { node_id }),
             "已聚焦卡片",

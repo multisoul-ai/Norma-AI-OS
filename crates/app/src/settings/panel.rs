@@ -129,6 +129,7 @@ pub(crate) struct SettingsPanelState {
     pub(crate) codex_hook_status: HookInstallStatus,
     pub(crate) claude_hook_status: HookInstallStatus,
     pub(crate) cursor_hook_status: HookInstallStatus,
+    pub(crate) grok_hook_status: HookInstallStatus,
     pub(crate) opencode_hook_status: HookInstallStatus,
 }
 
@@ -146,6 +147,7 @@ impl Default for SettingsPanelState {
             codex_hook_status: HookInstallStatus::default(),
             claude_hook_status: HookInstallStatus::default(),
             cursor_hook_status: HookInstallStatus::default(),
+            grok_hook_status: HookInstallStatus::default(),
             opencode_hook_status: HookInstallStatus::default(),
         }
     }

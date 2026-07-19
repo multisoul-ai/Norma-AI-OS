@@ -23,7 +23,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-version = "0.1.36"
+version = "0.1.41"
 license = "MIT"
 
 # 版本钉死见 Global Constraints。gpui/alacritty_terminal 精确 pin。
@@ -72,6 +72,13 @@ voice = { path = "crates/voice" }
 voice_sherpa = { path = "crates/voice_sherpa" }
 ui = { path = "crates/ui" }
 norma = { path = "crates/norma" }
+
+# GPUI 0.2.2 intentionally leaks a stopped CVDisplayLink in Drop to avoid a
+# CoreVideo callback race. Norma's patch keeps that safety behavior but reuses
+# the same link across synchronous displayLayer paints instead of dropping and
+# recreating it on every repaint. See vendor/gpui-0.2.2/NORMA_PATCH.md.
+[patch.crates-io]
+gpui = { path = "vendor/gpui-0.2.2" }
 
 [profile.dev]
 opt-level = 1          # gpui/alacritty 在 opt-level=0 下交互偏卡，地基级折中

@@ -53,7 +53,7 @@ asr -> {serde, sha2, tar, bzip2, tempfile}
 ### `crates/agent/`
 
 零 GPUI/Storage 的 Agent 领域层，负责固定身份的 `NormaSession`、Rig Provider/多轮工具循环、
-八个 typed tools、`AgentCardAdapter` seam、动态环境、Agent 呼叫名和按定义隔离的 FIFO 协调规则。
+十个 typed tools（含 Browser/Preview 创建）、`AgentCardAdapter` seam、动态环境、Agent 呼叫名和按定义隔离的 FIFO 协调规则。
 Rig 类型不扩散到其他 crate；卡片激活、PTY 输入和 SQLite 审计由 `app` adapter 执行。
 `dialogue` 只保留 VAD/ASR/TTS 与语音状态，不再拥有 LLM 路由；仓库不再包含第二套 CardTask 模型循环。
 

@@ -303,7 +303,7 @@ fn resolve_agent_restore_session_id(
 ) -> Option<String> {
     if !matches!(
         profile,
-        AgentProfile::Claude | AgentProfile::Codex | AgentProfile::Cursor
+        AgentProfile::Claude | AgentProfile::Codex | AgentProfile::Cursor | AgentProfile::Grok
     ) {
         return None;
     }

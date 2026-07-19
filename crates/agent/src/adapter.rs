@@ -3,9 +3,13 @@ use norma::protocol::AgentProfile;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 use tokio_util::sync::CancellationToken;
+
+mod commands;
+use commands::parse_adapter_command;
 
 #[derive(Clone, Debug)]
 pub struct ToolContext {
@@ -36,6 +40,13 @@ pub enum AdapterCommand {
         task_id: u64,
     },
     CreateTerminal,
+    CreateBrowser {
+        url: Option<String>,
+    },
+    CreatePreview {
+        path: PathBuf,
+        explicit_type: Option<norma::protocol::PreviewType>,
+    },
     FocusCard {
         node_id: u64,
     },
@@ -270,7 +281,7 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
             "创建并立即打开一个内置类型的 AgentCard；仅在用户明确要求创建时使用。",
             object_schema(
                 json!({
-                    "profile": {"type": "string", "enum": ["codex", "claude", "opencode", "cursor"]}
+                    "profile": {"type": "string", "enum": ["codex", "claude", "opencode", "cursor", "grok"]}
                 }),
                 &["profile"],
             ),
@@ -298,6 +309,25 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
             "create_terminal",
             "直接创建一张 Terminal 卡片。",
             object_schema(json!({}), &[]),
+        ),
+        definition(
+            "create_browser",
+            "创建一张浏览器标签页卡片；用户未指定网址时省略 url，使用产品默认首页。",
+            object_schema(json!({"url": {"type": "string", "minLength": 1}}), &[]),
+        ),
+        definition(
+            "create_preview",
+            "创建一张只读文件 Preview 卡片（用户也可能称 REVIEW 卡片）；path 可使用当前工作区中的相对路径或绝对路径。",
+            object_schema(
+                json!({
+                    "path": {"type": "string", "minLength": 1},
+                    "preview_type": {
+                        "type": "string",
+                        "enum": ["markdown", "text", "image"]
+                    }
+                }),
+                &["path"],
+            ),
         ),
         definition(
             "focus_card",
@@ -345,151 +375,4 @@ fn object_schema(properties: Value, required: &[&str]) -> Value {
         "required": required,
         "additionalProperties": false
     })
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct FindAgentTasksArgs {
-    task_id: Option<u64>,
-    agent: Option<String>,
-    #[serde(default)]
-    states: Vec<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct CreateAgentArgs {
-    profile: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct AssignAgentTaskArgs {
-    agent: String,
-    task: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct TaskIdArgs {
-    task_id: u64,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct EmptyArgs {}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct NodeIdArgs {
-    node_id: u64,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct TerminalInputArgs {
-    node_id: u64,
-    text: String,
-    submit: bool,
-}
-
-fn parse_adapter_command(name: &str, arguments: Value) -> Result<AdapterCommand, AdapterError> {
-    match name {
-        "find_agent_tasks" => {
-            let args: FindAgentTasksArgs = parse(arguments)?;
-            Ok(AdapterCommand::FindAgentTasks {
-                task_id: args.task_id,
-                agent: clean_optional(args.agent),
-                states: args.states,
-            })
-        }
-        "create_agent" => {
-            let args: CreateAgentArgs = parse(arguments)?;
-            let profile = match args.profile.as_str() {
-                "codex" => AgentProfile::Codex,
-                "claude" => AgentProfile::Claude,
-                "opencode" => AgentProfile::OpenCode,
-                "cursor" => AgentProfile::Cursor,
-                other => {
-                    return Err(AdapterError::InvalidArguments(format!(
-                        "unsupported Agent profile: {other}"
-                    )));
-                }
-            };
-            Ok(AdapterCommand::CreateAgent { profile })
-        }
-        "assign_agent_task" => {
-            let args: AssignAgentTaskArgs = parse(arguments)?;
-            let agent = require_text("agent", args.agent)?;
-            let task = require_text("task", args.task)?;
-            Ok(AdapterCommand::AssignAgentTask { agent, task })
-        }
-        "cancel_agent_task" => {
-            let args: TaskIdArgs = parse(arguments)?;
-            require_positive("task_id", args.task_id)?;
-            Ok(AdapterCommand::CancelAgentTask {
-                task_id: args.task_id,
-            })
-        }
-        "create_terminal" => {
-            let _: EmptyArgs = parse(arguments)?;
-            Ok(AdapterCommand::CreateTerminal)
-        }
-        "focus_card" => {
-            let args: NodeIdArgs = parse(arguments)?;
-            require_positive("node_id", args.node_id)?;
-            Ok(AdapterCommand::FocusCard {
-                node_id: args.node_id,
-            })
-        }
-        "send_terminal_input" => {
-            let args: TerminalInputArgs = parse(arguments)?;
-            require_positive("node_id", args.node_id)?;
-            Ok(AdapterCommand::SendTerminalInput {
-                node_id: args.node_id,
-                text: args.text,
-                submit: args.submit,
-            })
-        }
-        "delete_canvas_card" => {
-            let args: NodeIdArgs = parse(arguments)?;
-            require_positive("node_id", args.node_id)?;
-            Ok(AdapterCommand::DeleteCanvasCard {
-                node_id: args.node_id,
-            })
-        }
-        other => Err(AdapterError::InvalidArguments(format!(
-            "unknown Norma tool: {other}"
-        ))),
-    }
-}
-
-fn parse<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T, AdapterError> {
-    serde_json::from_value(value).map_err(|error| AdapterError::InvalidArguments(error.to_string()))
-}
-
-fn clean_optional(value: Option<String>) -> Option<String> {
-    value.and_then(|text| {
-        let trimmed = text.trim();
-        (!trimmed.is_empty()).then(|| trimmed.to_string())
-    })
-}
-
-fn require_text(field: &str, value: String) -> Result<String, AdapterError> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return Err(AdapterError::InvalidArguments(format!(
-            "{field} must not be empty"
-        )));
-    }
-    Ok(trimmed.to_string())
-}
-
-fn require_positive(field: &str, value: u64) -> Result<(), AdapterError> {
-    if value == 0 {
-        return Err(AdapterError::InvalidArguments(format!(
-            "{field} must be greater than zero"
-        )));
-    }
-    Ok(())
 }

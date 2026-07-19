@@ -1,9 +1,10 @@
 //! Local TTS 模型库的 Settings 用户可观察合约。
 
-use crate::harness::{echo_factory, enter_canvas, make_app, make_app_with_settings_store};
+use crate::harness::{
+    echo_factory, enter_canvas, make_app, make_app_with_settings_store, VoiceModelInstallE2eGuard,
+};
 use app::MultisoulApp;
 use gpui::TestAppContext;
-use std::sync::Mutex;
 
 mod support;
 use support::*;
@@ -15,7 +16,6 @@ const E2E_SETTLE_PASSES: usize = 8;
 // 上方、下方与布局重排后的补偿。24px 使目标不贴住裁剪边缘。
 const SETTINGS_SCROLL_ATTEMPTS: usize = 3;
 const SETTINGS_SCROLL_MARGIN_PX: f32 = 24.0;
-static TTS_FAKE_TRANSPORT_LOCK: Mutex<()> = Mutex::new(());
 
 /// E2E-TTS-1：Voice Settings 必须展示官方 TTS 下载、选择、删除与试听入口。
 ///
@@ -108,21 +108,23 @@ fn e2e_tts_catalog_exposes_explicit_install_without_auto_selection() {
 ///   reference seconds = 3 s
 ///   reference samples = 16,000 × 3 × 1 = 48,000 mono samples
 ///   reference bytes   = 48,000 × 2 = 96,000 PCM bytes
+///   empty transcripts = 1（路径已填、准确转写仍为空）
 ///   preview PCM queues = before(0) + successful preview(1) = 1
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 先安装并选中 Matcha，再用确定性假运输安装缺少参考声音的 ZipVoice；
 ///   2. 确认 ZipVoice 不抢占 Matcha，且 Settings 显示路径、转写和导入入口；
-///   3. 输入合法路径与准确转写，确认输入期不创建副本，再按 Enter 导入；
-///   4. 试听并选择 ZipVoice，随后点击 Replace，确认 TTS 配置代际推进；
-///   5. 点击 Remove，确认受控副本消失且当前 ZipVoice 选择被清除。
+///   3. 仅输入合法路径，确认必填提示、禁用导入且不创建副本；
+///   4. 补充准确转写后按 Enter 导入；
+///   5. 试听并选择 ZipVoice，随后点击 Replace，确认 TTS 配置代际推进；
+///   6. 点击 Remove，确认受控副本消失且当前 ZipVoice 选择被清除。
 ///
 /// 预期结果：
 ///   - 正断言：Enter、Import、Preview、Select 与 Replace 都走同一受控参考配置；
-///   - 负断言：输入期不得读盘，缺少参考不得替换 Matcha，移除后不得残留配置。
+///   - 负断言：空转写不得提交或读盘，缺少参考不得替换 Matcha，移除后不得残留配置。
 #[test]
 fn e2e_zipvoice_reference_gates_selection_and_remove_invalidates_it() {
-    let _transport_guard = lock_tts_fake_transport();
+    let _transport_guard = VoiceModelInstallE2eGuard::acquire();
     let mut cx = TestAppContext::single();
     let temp = tempfile::tempdir().expect("应创建隔离 ZipVoice e2e 数据目录");
     let reference_path = temp.path().join("speaker.wav");
@@ -189,6 +191,31 @@ fn e2e_zipvoice_reference_gates_selection_and_remove_invalidates_it() {
         .join("zipvoice-distill-int8-zh-en-emilia");
     click(&app, cx, "settings-zipvoice-reference-path");
     cx.simulate_input(reference_path.to_string_lossy().as_ref());
+    let missing_transcript = snapshot(&app, cx);
+    assert_eq!(
+        missing_transcript.zipvoice_reference_draft_transcript, "",
+        "仅填写 WAV 路径时准确转写草稿必须保持为空"
+    );
+    assert!(
+        cx.debug_bounds("settings-zipvoice-reference-transcript-required")
+            .is_some(),
+        "路径已填但转写为空时必须就地显示 Required 提示"
+    );
+    assert!(
+        cx.debug_bounds("settings-zipvoice-reference-import-disabled")
+            .is_some(),
+        "路径已填但转写为空时 Import 必须显示为禁用态"
+    );
+    click(&app, cx, "settings-zipvoice-reference-import-disabled");
+    let rejected = snapshot(&app, cx);
+    assert!(
+        !rejected.zipvoice_reference_ready,
+        "点击禁用态 Import 不得把空转写参考声音标记为 ready"
+    );
+    assert!(
+        !controlled_root.exists(),
+        "点击禁用态 Import 不得创建受控参考目录或读取源 WAV"
+    );
     click(&app, cx, "settings-zipvoice-reference-transcript");
     cx.simulate_input("这段文字与参考声音完全一致。");
     let drafted = snapshot(&app, cx);
@@ -311,7 +338,7 @@ fn e2e_zipvoice_reference_gates_selection_and_remove_invalidates_it() {
 ///   - 断言 D：选中模型无 Delete，取消下载后条目回到 Install 而非 Ready。
 #[test]
 fn e2e_tts_model_lifecycle_persists_voice_and_isolates_preview() {
-    let _transport_guard = lock_tts_fake_transport();
+    let _transport_guard = VoiceModelInstallE2eGuard::acquire();
     let mut cx = TestAppContext::single();
     let temp = tempfile::tempdir().expect("应创建隔离 TTS e2e 数据目录");
     let store = storage::SettingsStore::new(temp.path().join("settings.sqlite"));

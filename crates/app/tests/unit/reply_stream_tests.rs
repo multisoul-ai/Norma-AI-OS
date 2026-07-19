@@ -1,10 +1,66 @@
 use super::reply_stream::capture::write_pcm_chunks_to_wav;
 use super::reply_stream::{pcm_trace_fingerprint, QueuedPlaybackChunk, StreamPlaybackBuffer};
-use super::{DialogueControlState, TtsPreviewControl};
+use super::{DialogueControlState, SharedTtsRuntime, TtsPreviewControl};
 use audio::{PcmAudioChunk, PcmFormat};
 use dialogue::DialoguePhase;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+
+/// MEM-TTS-1：Dialogue 与 Agent announcement 顺序使用 TTS 后只能保留一个模型实例。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   initial clients     = 1 个 FakeTtsClient（代表已加载的 Kokoro/ONNX runtime）
+///   sequential users    = 2 个（Dialogue、Agent announcement）
+///   expected residents  = 1 个，而不是 1 × 2 = 2 个
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. Dialogue 通过共享 runtime 合成一次；factory 创建第 1 个 FakeTtsClient。
+///   2. Agent announcement 再通过同一 runtime 合成；应复用 resident client。
+///   3. 检查两次业务调用的 PCM 和最终 resident/factory 计数。
+///
+/// 预期结果：
+///   - 正断言：两条业务路径都能得到非空 PCM。
+///   - 正断言：两次顺序使用后共享 runtime 仍恰好保留 1 个 client。
+///   - 负断言：factory 不得执行第 2 次，否则同配置被重复加载。
+#[test]
+fn test_dialogue_and_agent_announcement_share_one_resident_tts_client() {
+    let runtime = SharedTtsRuntime::default();
+    let creations = Arc::new(AtomicUsize::new(0));
+    let synthesize = |text: &str| {
+        let creations_for_factory = Arc::clone(&creations);
+        runtime
+            .with_client(
+                None,
+                move || {
+                    creations_for_factory.fetch_add(1, Ordering::SeqCst);
+                    Ok::<_, String>(super::fake_tts_client_for_tests())
+                },
+                |tts| tts.synthesize(text).map_err(|error| error.to_string()),
+            )
+            .expect("Fake TTS 合成不应失败")
+    };
+
+    let dialogue_pcm = synthesize("Dialogue reply");
+    let announcement_pcm = synthesize("Agent done");
+
+    assert!(!dialogue_pcm.bytes.is_empty(), "Dialogue 必须得到非空 PCM");
+    assert!(
+        !announcement_pcm.bytes.is_empty(),
+        "Agent announcement 必须复用 runtime 并得到非空 PCM"
+    );
+
+    assert_eq!(
+        runtime.resident_client_count_for_tests(),
+        1,
+        "两条业务路径顺序完成后必须只保留一个 resident TTS client"
+    );
+    assert_eq!(
+        creations.load(Ordering::SeqCst),
+        1,
+        "同一配置下 Dialogue 与 Agent announcement 不得创建第二个 TTS client"
+    );
+}
 
 fn pcm16_mono_chunk(sample_rate_hz: u32, duration: Duration) -> PcmAudioChunk {
     let frame_count = (duration.as_secs_f64() * f64::from(sample_rate_hz)) as usize;

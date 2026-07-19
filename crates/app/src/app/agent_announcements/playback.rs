@@ -1,5 +1,5 @@
 use super::AgentAnnouncement;
-use crate::app::dialogue::{create_assistant_audio_sink, TtsClientBox};
+use crate::app::dialogue::create_assistant_audio_sink;
 use crate::app::voice::playback::AssistantAudioSink;
 use crate::app::voice_window_inset::TtsPlaybackEvent;
 use canvas::NodeId;
@@ -103,7 +103,6 @@ pub(crate) struct AgentAnnouncementPlayback {
     pub(crate) generation: u64,
     pub(super) phase: AgentAnnouncementPlaybackPhase,
     pub(super) control: Option<Arc<AgentAnnouncementAudioControl>>,
-    pub(super) tts_client: Option<TtsClientBox>,
     pub(super) playback_events: Vec<TtsPlaybackEvent>,
     #[cfg(feature = "e2e-test-support")]
     pub(crate) e2e_enabled: bool,
@@ -117,7 +116,6 @@ impl Default for AgentAnnouncementPlayback {
             generation: 0,
             phase: AgentAnnouncementPlaybackPhase::Idle,
             control: None,
-            tts_client: None,
             playback_events: Vec::new(),
             #[cfg(feature = "e2e-test-support")]
             e2e_enabled: false,
@@ -168,10 +166,6 @@ impl AgentAnnouncementPlayback {
 
     pub(crate) fn take_playback_events(&mut self) -> Vec<TtsPlaybackEvent> {
         std::mem::take(&mut self.playback_events)
-    }
-
-    pub(super) fn take_tts_client_for_configuration_change(&mut self) -> Option<TtsClientBox> {
-        self.tts_client.take()
     }
 }
 

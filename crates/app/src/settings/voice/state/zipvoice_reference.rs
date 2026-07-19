@@ -24,6 +24,12 @@ impl VoiceSettingsState {
         self.zipvoice_reference.importing || self.zipvoice_reference.removing
     }
 
+    pub(crate) fn zipvoice_reference_can_import(&self) -> bool {
+        !self.zipvoice_reference_operation_busy()
+            && !self.zipvoice_reference.draft_path.trim().is_empty()
+            && !self.zipvoice_reference.draft_transcript.trim().is_empty()
+    }
+
     pub(crate) fn zipvoice_reference_draft_path(&self) -> &str {
         &self.zipvoice_reference.draft_path
     }
@@ -54,7 +60,7 @@ impl VoiceSettingsState {
     }
 
     pub(crate) fn begin_zipvoice_reference_import(&mut self) -> Option<(u64, String, String)> {
-        if self.zipvoice_reference_operation_busy() {
+        if !self.zipvoice_reference_can_import() {
             return None;
         }
         self.zipvoice_reference.operation_generation =
@@ -162,3 +168,7 @@ impl VoiceSettingsState {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/zipvoice_reference_state_tests.rs"]
+mod zipvoice_reference_state_tests;

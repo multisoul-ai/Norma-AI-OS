@@ -77,6 +77,17 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    pub(super) fn on_new_menu_grok(
+        &mut self,
+        _: &ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.interaction.close_new_menu();
+        self.spawn_agent_card(AgentProfile::Grok, window, cx);
+        cx.notify();
+    }
+
     pub(super) fn on_new_menu_preview(
         &mut self,
         _: &ClickEvent,
@@ -151,6 +162,13 @@ impl MultisoulApp {
                         "Cursor",
                         "new-menu-cursor",
                         cx.listener(Self::on_new_menu_cursor),
+                    ))
+                    .child(new_menu_item(
+                        theme,
+                        ToolbarIcon::Grok,
+                        "Grok",
+                        "new-menu-grok",
+                        cx.listener(Self::on_new_menu_grok),
                     ))
                     .child(new_menu_item(
                         theme,

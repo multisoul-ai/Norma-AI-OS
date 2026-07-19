@@ -10,6 +10,8 @@ const MIN_SPEECH_SEGMENT_CHARS: usize = 8;
 pub const MAX_SPEECH_SEGMENT_CHARS: usize = 60;
 const THINKING_BLOCK_START: &str = "<think>";
 const THINKING_BLOCK_END: &str = "</think>";
+const CODE_BLOCK_FENCE: &str = "```";
+const CODE_BLOCK_SPOKEN_PLACEHOLDER: &str = "详细内容已显示在屏幕上。";
 
 /// Converts a display reply into text that is safe and natural to speak.
 pub struct SpokenTextNormalizer;
@@ -50,12 +52,19 @@ pub struct UtteranceCommitter {
     pending: String,
     short_sentence_deadline: Option<Duration>,
     thinking_filter: ThinkingBlockFilter,
+    code_block_filter: CodeBlockFilter,
 }
 
 #[derive(Default)]
 struct ThinkingBlockFilter {
     pending: String,
     inside_thinking: bool,
+}
+
+#[derive(Default)]
+struct CodeBlockFilter {
+    pending: String,
+    inside_code_block: bool,
 }
 
 impl UtteranceCommitter {
@@ -66,7 +75,8 @@ impl UtteranceCommitter {
     /// Appends a model text delta and returns every speech segment now safe to synthesize.
     pub fn push_delta(&mut self, delta: &str, now: Duration) -> Vec<String> {
         let visible = self.thinking_filter.push_delta(delta);
-        self.pending.push_str(&visible);
+        self.pending
+            .push_str(&self.code_block_filter.push_delta(&visible));
         self.drain_complete_segments(now)
     }
 
@@ -92,7 +102,10 @@ impl UtteranceCommitter {
     /// Flushes all remaining text after the model marks the response complete.
     pub fn finish(&mut self) -> Vec<String> {
         self.short_sentence_deadline = None;
-        self.pending.push_str(&self.thinking_filter.finish());
+        let thinking_tail = self.thinking_filter.finish();
+        self.pending
+            .push_str(&self.code_block_filter.push_delta(&thinking_tail));
+        self.pending.push_str(&self.code_block_filter.finish());
         speech_segment_from_display_text(std::mem::take(&mut self.pending))
             .into_iter()
             .collect()
@@ -163,6 +176,51 @@ impl ThinkingBlockFilter {
         };
         self.pending.clear();
         self.inside_thinking = false;
+        visible
+    }
+}
+
+impl CodeBlockFilter {
+    fn push_delta(&mut self, delta: &str) -> String {
+        self.pending.push_str(delta);
+        let mut visible = String::new();
+
+        loop {
+            if self.inside_code_block {
+                if let Some(end) = self.pending.find(CODE_BLOCK_FENCE) {
+                    self.pending.drain(..end + CODE_BLOCK_FENCE.len());
+                    self.inside_code_block = false;
+                    continue;
+                }
+                let retained = partial_tag_suffix_len(&self.pending, CODE_BLOCK_FENCE);
+                self.pending.drain(..self.pending.len() - retained);
+                return visible;
+            }
+
+            if let Some(start) = self.pending.find(CODE_BLOCK_FENCE) {
+                visible.push_str(&self.pending[..start]);
+                visible.push_str(CODE_BLOCK_SPOKEN_PLACEHOLDER);
+                self.pending.drain(..start + CODE_BLOCK_FENCE.len());
+                self.inside_code_block = true;
+                continue;
+            }
+
+            let retained = partial_tag_suffix_len(&self.pending, CODE_BLOCK_FENCE);
+            let visible_end = self.pending.len() - retained;
+            visible.push_str(&self.pending[..visible_end]);
+            self.pending.drain(..visible_end);
+            return visible;
+        }
+    }
+
+    fn finish(&mut self) -> String {
+        let visible = if self.inside_code_block {
+            String::new()
+        } else {
+            std::mem::take(&mut self.pending)
+        };
+        self.pending.clear();
+        self.inside_code_block = false;
         visible
     }
 }

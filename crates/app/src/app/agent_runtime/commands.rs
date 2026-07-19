@@ -471,6 +471,7 @@ fn canvas_agent_profile(profile: norma::protocol::AgentProfile) -> canvas::Agent
         norma::protocol::AgentProfile::Claude => canvas::AgentProfile::Claude,
         norma::protocol::AgentProfile::Codex => canvas::AgentProfile::Codex,
         norma::protocol::AgentProfile::Cursor => canvas::AgentProfile::Cursor,
+        norma::protocol::AgentProfile::Grok => canvas::AgentProfile::Grok,
         norma::protocol::AgentProfile::OpenCode => canvas::AgentProfile::OpenCode,
     }
 }

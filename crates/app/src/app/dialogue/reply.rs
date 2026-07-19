@@ -16,7 +16,7 @@ use voice_sherpa::{SherpaTtsClient, SpeechError};
 
 pub(crate) type TtsClientBox = Box<dyn dialogue::TtsClient>;
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub(crate) struct SelectedTtsModel {
     pub(crate) root: std::path::PathBuf,
     pub(crate) model_id: tts::TtsModelId,
@@ -38,6 +38,13 @@ pub(crate) fn selected_tts_model_configured() -> bool {
         .is_some()
 }
 
+pub(crate) fn selected_tts_model() -> Option<SelectedTtsModel> {
+    SELECTED_TTS_MODEL
+        .lock()
+        .expect("selected TTS model lock should not be poisoned")
+        .clone()
+}
+
 pub(crate) fn selected_tts_model_matches(
     model_id: Option<&tts::TtsModelId>,
     voice_id: Option<&tts::TtsVoiceId>,
@@ -52,12 +59,9 @@ pub(crate) fn selected_tts_model_matches(
         .is_some_and(|selected| &selected.model_id == model_id && &selected.voice_id == voice_id)
 }
 
-pub(crate) fn default_tts_client() -> Result<TtsClientBox, SpeechError> {
-    let selected = SELECTED_TTS_MODEL
-        .lock()
-        .expect("selected TTS model lock should not be poisoned")
-        .clone()
-        .ok_or_else(|| SpeechError::ModelNotFound("no Local TTS model selected".to_string()))?;
+pub(crate) fn create_tts_client_for_selected(
+    selected: &SelectedTtsModel,
+) -> Result<TtsClientBox, SpeechError> {
     let catalog = tts::builtin_model_catalog();
     let descriptor = catalog.find(&selected.model_id).ok_or_else(|| {
         SpeechError::ModelNotFound(format!("unknown TTS model {}", selected.model_id.as_str()))
@@ -159,14 +163,24 @@ type AssistantAudioSinkFactory = fn() -> Box<dyn AssistantAudioSink>;
 static TTS_CLIENT_FACTORY: Mutex<Option<TtsClientFactory>> = Mutex::new(None);
 static AUDIO_SINK_FACTORY: Mutex<Option<AssistantAudioSinkFactory>> = Mutex::new(None);
 
+#[cfg(test)]
 pub(crate) fn create_tts_client() -> Result<TtsClientBox, SpeechError> {
+    let selected = selected_tts_model();
+    create_tts_client_for_selection(selected.as_ref())
+}
+
+pub(crate) fn create_tts_client_for_selection(
+    selected: Option<&SelectedTtsModel>,
+) -> Result<TtsClientBox, SpeechError> {
     if let Some(factory) = *TTS_CLIENT_FACTORY
         .lock()
         .expect("tts client factory lock should not be poisoned")
     {
         return factory();
     }
-    default_tts_client()
+    let selected = selected
+        .ok_or_else(|| SpeechError::ModelNotFound("no Local TTS model selected".to_string()))?;
+    create_tts_client_for_selected(selected)
 }
 
 pub(crate) fn create_assistant_audio_sink() -> Box<dyn AssistantAudioSink> {

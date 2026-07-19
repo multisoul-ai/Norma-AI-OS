@@ -1,6 +1,6 @@
 use crate::app::MultisoulApp;
 #[cfg(feature = "e2e-test-support")]
-use gpui::Window;
+use gpui::{Context, Window};
 #[cfg(feature = "e2e-test-support")]
 use norma::protocol::{CardCommand, CardCommandResult};
 
@@ -39,9 +39,10 @@ impl MultisoulApp {
     pub fn execute_norma_adapter_command_for_e2e(
         &mut self,
         window: &mut Window,
+        cx: &mut Context<Self>,
         command: agent::AdapterCommand,
     ) -> Result<agent::AdapterResult, String> {
-        crate::app::agent_runtime::execute_norma_adapter_command(self, window, command)
+        crate::app::agent_runtime::execute_norma_adapter_command(self, window, cx, command)
             .map_err(|error| error.to_string())
     }
 
@@ -63,6 +64,7 @@ impl MultisoulApp {
             canvas::AgentProfile::Claude => "claude",
             canvas::AgentProfile::Codex => "codex",
             canvas::AgentProfile::Cursor => "cursor",
+            canvas::AgentProfile::Grok => "grok",
             canvas::AgentProfile::OpenCode => "opencode",
         };
         AgentSettingsE2eSnapshot {
