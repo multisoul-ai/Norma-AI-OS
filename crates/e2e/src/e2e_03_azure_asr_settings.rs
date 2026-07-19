@@ -20,12 +20,13 @@ use support::*;
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 打开 Voice Settings，确认 fresh 用户仍以 Local Sherpa 为当前 Provider
-///   2. 通过真实输入控件填写 eastus 与 fake Key，未验证时点击 Azure 不切换
-///   3. 点击 Validate，后台经 fake Azure HTTP 验证认证并将相同 profile 标记 Ready
-///   4. 保持 Local 激活时点击 Test Recognition，确定性 PCM 经公共 pipeline 得到 Final
-///   5. 真实 ⌘E 驱动 Single 与 Continuous，确定性 PCM 分别进入同一 Azure factory/pipeline
-///   6. 送入精确 60 秒 PCM，观察 Transcribing 上限提示及已录音频提交
-///   7. 注入 401，确认错误可见且不回退 Local；再以 Provider 切换使迟到结果失效
+///   2. 在原 Speech Recognition 卡片点击 Azure Speech，确认本地模型区域被 Azure 配置替换
+///   3. 通过真实输入控件填写 eastus 与 fake Key，未验证时 Use Azure 不可用
+///   4. 点击 Validate，后台经 fake Azure HTTP 验证认证并将相同 profile 标记 Ready
+///   5. 保持 Local 激活时点击 Test Recognition，确定性 PCM 经公共 pipeline 得到 Final
+///   6. 点击 Use Azure 后，真实 ⌘E 驱动 Single 与 Continuous 进入同一 Azure pipeline
+///   7. 送入精确 60 秒 PCM，观察 Transcribing 上限提示及已录音频提交
+///   8. 注入 401，确认错误可见且不回退 Local；再以 Provider 切换使迟到结果失效
 ///
 /// 预期结果：
 ///   - 正断言：验证与识别测试走真实按钮、后台任务、Keychain seam 和 Azure transport
@@ -57,18 +58,31 @@ fn azure_asr_requires_real_validation_and_supports_test_and_round_trip_switching
         "Azure profile must not start Ready before real validation"
     );
 
+    click(cx, "voice-setup-asr-source-azure");
+    assert!(
+        cx.debug_bounds("voice-setup-asr-azure-detail").is_some(),
+        "Azure source must expand inside the existing Speech Recognition setup card"
+    );
+    assert_eq!(
+        app.read_with(cx, |app, _cx| app.setup_asr_source_for_e2e()),
+        "cloud_azure",
+        "Azure source must replace the On-device Setup projection instead of stacking providers"
+    );
+
     input_text(cx, "settings-voice-field-azure-region", "eastus");
     input_secret(
         cx,
         "settings-voice-field-azure-api-key",
         "fake-e2e-azure-key",
     );
-    click(cx, "settings-asr-provider-azure");
-
     assert_eq!(
         app.read_with(cx, |app, _cx| app.active_asr_provider_for_e2e()),
         "local_sherpa",
         "unvalidated Azure draft must not replace Local Sherpa"
+    );
+    assert!(
+        cx.debug_bounds("voice-setup-asr-use-azure").is_none(),
+        "unvalidated Azure draft must not expose the activation action"
     );
 
     click(cx, "settings-asr-azure-validate");
@@ -132,7 +146,7 @@ fn azure_asr_requires_real_validation_and_supports_test_and_round_trip_switching
         "Test Recognition must not implicitly activate Azure"
     );
 
-    click(cx, "settings-asr-provider-azure");
+    click(cx, "voice-setup-asr-use-azure");
     assert_eq!(
         app.read_with(cx, |app, _cx| app.active_asr_provider_for_e2e()),
         "cloud_azure",

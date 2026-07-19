@@ -91,7 +91,7 @@ impl MultisoulApp {
     ) {
         self.voice_settings.set_reviewing_setup(true);
         self.voice_settings
-            .open_setup_destination(VoiceSetupDestination::AsrModels);
+            .open_setup_destination(VoiceSetupDestination::Overview);
         self.settings_viewport
             .content_scroll
             .set_offset(gpui::Point::default());

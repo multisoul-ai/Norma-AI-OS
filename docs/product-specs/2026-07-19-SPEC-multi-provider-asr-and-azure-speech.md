@@ -104,6 +104,9 @@ Settings 将 ASR 从“一个本地模型选择”扩展为“一个当前 ASR �
 - Azure Provider 声明单次输入上限 60 秒。RecognitionPipeline 达到该上限时停止接收当前片段、产生 DurationLimit 输入结束原因并提交已有音频；不得静默截断后继续录音，也不得丢弃整段输入。
 - Provider 能力显式表达 partial 是否可用和单次输入时长上限。App 可以据此展示状态，但不得为每个厂商增加业务分支。
 - ASR 设置模型为一个当前 Provider ID，加每个 Provider 独立的 profile。Local profile 保存现有模型选择；Azure profile 保存 region、locale 和 opaque credential reference。非当前 profile 保留但不参与识别。
+- Voice Setup 保持既有单页纵向步骤模式：Speech Recognition 卡片只增加一行 Recognition source，On-device 与 Azure Speech 使用同一位置互斥投影各自配置，不新增侧栏、独立窗口或嵌套 Provider 大卡。浏览某个来源只改变 Setup 投影，不改变当前 Provider。
+- On-device 投影先显示当前模型和 `Choose Other Models`；目录展开后在原卡片内提供 Download、进度、Cancel、Retry、Use 与非当前模型删除。首次成功安装可建立初始模型选择；已有当前模型时，额外下载只进入 Ready，必须显式 Use，后台完成不得打断或替换当前识别器。
+- Azure 投影只显示 region、locale、Keychain 凭据、Validate、Test Recognition 和 Ready 后的显式 Use Azure Speech。Azure 与 On-device 配置不得同时铺开，Ready 与 Active 必须用不同状态表达。
 - 当新的当前 Provider ID 缺失时，迁移结果必须是 Local Sherpa；现有本地模型 ID、模型安装、Hotword、输入设备和交互模式保持不变。
 - Azure locale 默认 `zh-CN`，从随 App 发布的可搜索完整 Azure 短音频支持目录选择。目录由 App 版本更新，不从运行时远程加载；首版不做自动语言检测，不接受目录外自由输入。
 - Azure 配置区分 Configured 与 Ready。字段完整只表示 Configured；region 和凭据通过 Azure 认证验证后才表示 Ready。普通用户不需要完成真实录音才能 Ready。

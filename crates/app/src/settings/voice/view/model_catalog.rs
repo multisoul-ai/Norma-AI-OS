@@ -1,4 +1,5 @@
-use super::{action_button, setting_label, with_alpha};
+use super::setup::models::model_action_control;
+use super::{setting_label, with_alpha};
 use crate::app::MultisoulApp;
 use crate::settings::voice::{AsrModelInstallState, AsrModelManagerState, VoiceSettingsState};
 use asr::{AsrModelDescriptor, AsrModelId};
@@ -29,78 +30,17 @@ pub(super) fn model_catalog_row(
         let descriptor = entry.descriptor().clone();
         let id = descriptor.id().clone();
         let is_selected = selected == Some(&id);
-        let action = match entry.installation() {
-            AsrModelInstallState::NotInstalled => div().child(
-                action_button(theme, "Install", theme.accent_orange)
-                    .id(("settings-asr-install", index))
-                    .debug_selector(move || format!("settings-asr-install-{index}"))
-                    .on_click(
-                        cx.listener(move |app, _, _, cx| app.install_asr_model(id.clone(), cx)),
-                    ),
-            ),
-            AsrModelInstallState::Installing { downloaded, total } => {
-                let percent = if *total == 0 {
-                    0
-                } else {
-                    downloaded.saturating_mul(100) / total
-                };
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(6.0))
-                    .child(
-                        div()
-                            .px(px(8.0))
-                            .text_color(rgba(theme.accent_cyan))
-                            .child(format!("{percent}%")),
-                    )
-                    .child(
-                        action_button(theme, "Cancel", theme.destructive)
-                            .id(("settings-asr-cancel", index))
-                            .debug_selector(move || format!("settings-asr-cancel-{index}"))
-                            .on_click(cx.listener(move |app, _, _, cx| {
-                                app.cancel_asr_install(id.clone(), cx)
-                            })),
-                    )
-            }
-            AsrModelInstallState::Ready if is_selected => div()
-                .px(px(12.0))
-                .py(px(8.0))
-                .text_color(rgba(theme.accent_cyan))
-                .child("Selected"),
-            AsrModelInstallState::Ready => {
-                let select_id = id.clone();
-                let delete_id = id.clone();
-                div()
-                    .flex()
-                    .flex_row()
-                    .gap(px(6.0))
-                    .child(
-                        action_button(theme, "Select", theme.accent_cyan)
-                            .id(("settings-asr-select", index))
-                            .debug_selector(move || format!("settings-asr-select-{index}"))
-                            .on_click(cx.listener(move |app, _, _, cx| {
-                                app.select_ready_asr_model(select_id.clone(), cx)
-                            })),
-                    )
-                    .child(
-                        action_button(theme, "Delete", theme.destructive)
-                            .id(("settings-asr-delete", index))
-                            .debug_selector(move || format!("settings-asr-delete-{index}"))
-                            .on_click(cx.listener(move |app, _, _, cx| {
-                                app.delete_asr_model(delete_id.clone(), cx)
-                            })),
-                    )
-            }
-            AsrModelInstallState::Failed(_) => div().child(
-                action_button(theme, "Retry", theme.destructive)
-                    .id(("settings-asr-retry", index))
-                    .debug_selector(move || format!("settings-asr-retry-{index}"))
-                    .on_click(
-                        cx.listener(move |app, _, _, cx| app.install_asr_model(id.clone(), cx)),
-                    ),
-            ),
-        };
+        let action = model_action_control(
+            theme,
+            index,
+            &id,
+            entry.installation(),
+            is_selected,
+            "Selected",
+            "Install",
+            "Select",
+            cx,
+        );
         let status =
             install_state_label(entry.installation(), descriptor.artifact().archive_bytes());
         let recommendation = if descriptor.recommended() {
@@ -272,10 +212,7 @@ impl MultisoulApp {
                             .update_progress(&id, downloaded, total),
                         ModelInstallEvent::Finished(ModelInstallOutcome::Ready) => {
                             app.asr_download_cancellations.remove(&id);
-                            app.stop_continuous_listening(cx);
-                            app.voice.stop_for_model_switch();
-                            app.voice_settings.model_manager_mut().mark_ready(&id);
-                            app.voice_settings.select_asr_model(Some(id.clone()));
+                            app.voice_settings.complete_asr_model_install(id.clone());
                             app.complete_voice_setup_if_ready(cx);
                             app.persist_voice_settings_in_background(cx);
                         }
@@ -310,8 +247,7 @@ impl MultisoulApp {
     }
 
     pub(crate) fn select_ready_asr_model(&mut self, id: AsrModelId, cx: &mut Context<Self>) {
-        self.stop_continuous_listening(cx);
-        self.voice.stop_for_model_switch();
+        let generation = self.voice_settings.begin_asr_model_selection();
         let model_root = self.voice_settings.model_root().to_path_buf();
         let requested_id = id.clone();
         let work = cx.background_executor().spawn(async move {
@@ -327,8 +263,21 @@ impl MultisoulApp {
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
+                if !app
+                    .voice_settings
+                    .accepts_asr_model_selection_generation(generation)
+                {
+                    return;
+                }
                 match result {
                     Ok(id) => {
+                        if app
+                            .voice_settings
+                            .should_restart_for_asr_model_selection(&id)
+                        {
+                            app.stop_continuous_listening(cx);
+                            app.voice.stop_for_model_switch();
+                        }
                         app.voice_settings.select_asr_model(Some(id));
                         app.persist_voice_settings_in_background(cx);
                     }

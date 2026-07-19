@@ -171,7 +171,7 @@ pub(super) fn asr_provider_group(
         })
 }
 
-fn locale_catalog(
+pub(super) fn locale_catalog(
     theme: Theme,
     state: &VoiceSettingsState,
     cx: &mut Context<MultisoulApp>,

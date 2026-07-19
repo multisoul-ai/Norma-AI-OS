@@ -6,6 +6,10 @@ impl MultisoulApp {
         self.voice_settings.values().asr_provider().as_str()
     }
 
+    pub fn setup_asr_source_for_e2e(&self) -> &'static str {
+        self.voice_settings.setup_asr_source().as_str()
+    }
+
     pub fn azure_asr_ready_for_e2e(&self) -> bool {
         self.voice_settings.values().azure_asr_profile().is_ready()
     }

@@ -1,13 +1,16 @@
 use super::super::models::AsrModelManagerState;
 use super::super::tts_models::TtsModelManagerState;
 use super::{VoiceSettingsState, VoiceSettingsValues};
+use asr::AsrModelId;
 use voice_sherpa::SpeechError;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum VoiceSetupDestination {
     #[default]
     Overview,
+    AsrOnDevice,
     AsrModels,
+    AsrAzure,
     AgentProvider,
     SpokenReplies,
 }
@@ -25,6 +28,18 @@ impl VoiceSettingsState {
         self.setup_destination == VoiceSetupDestination::AsrModels
     }
 
+    pub(crate) fn setup_asr_source(&self) -> asr::AsrProviderId {
+        match self.setup_destination {
+            VoiceSetupDestination::AsrOnDevice | VoiceSetupDestination::AsrModels => {
+                asr::AsrProviderId::LocalSherpa
+            }
+            VoiceSetupDestination::AsrAzure => asr::AsrProviderId::CloudAzure,
+            VoiceSetupDestination::Overview
+            | VoiceSetupDestination::AgentProvider
+            | VoiceSetupDestination::SpokenReplies => self.values.asr_provider(),
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn setup_focuses_spoken_replies(&self) -> bool {
         self.setup_destination == VoiceSetupDestination::SpokenReplies
@@ -32,7 +47,7 @@ impl VoiceSettingsState {
 
     pub(crate) fn toggle_setup_models_expanded(&mut self) {
         self.setup_destination = if self.setup_models_expanded() {
-            VoiceSetupDestination::Overview
+            VoiceSetupDestination::AsrOnDevice
         } else {
             VoiceSetupDestination::AsrModels
         };
@@ -56,6 +71,32 @@ impl VoiceSettingsState {
 
     pub(crate) fn model_manager_mut(&mut self) -> &mut AsrModelManagerState {
         &mut self.model_manager
+    }
+
+    pub(crate) fn complete_asr_model_install(&mut self, id: AsrModelId) -> bool {
+        self.model_manager.mark_ready(&id);
+        if self.values.asr_model_id().is_some() {
+            return false;
+        }
+        self.select_asr_model(Some(id));
+        true
+    }
+
+    pub(crate) fn should_restart_for_asr_model_selection(&self, next: &AsrModelId) -> bool {
+        self.values.asr_provider() == asr::AsrProviderId::LocalSherpa
+            && self
+                .values
+                .asr_model_id()
+                .is_some_and(|current| current != next)
+    }
+
+    pub(crate) fn begin_asr_model_selection(&mut self) -> u64 {
+        self.asr_model_selection_generation = self.asr_model_selection_generation.wrapping_add(1);
+        self.asr_model_selection_generation
+    }
+
+    pub(crate) fn accepts_asr_model_selection_generation(&self, generation: u64) -> bool {
+        self.asr_model_selection_generation == generation
     }
 
     pub(crate) fn tts_model_root(&self) -> std::path::PathBuf {
