@@ -130,6 +130,12 @@ pub(super) fn encode_message(value: &impl Serialize) -> Result<String, TtsError>
 }
 
 pub(super) fn provider_status_error(status_code: i64) -> TtsError {
+    if status_code == 1008 {
+        return TtsError::new(
+            TtsErrorKind::QuotaExceeded,
+            "MiniMax account balance is insufficient. Add balance or switch to an On-device voice.",
+        );
+    }
     let kind = match status_code {
         1004 | 2049 => TtsErrorKind::Authentication,
         1002 | 1039 | 1041 | 2056 | 2205 => TtsErrorKind::RateLimit,

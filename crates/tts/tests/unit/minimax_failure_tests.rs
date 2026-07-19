@@ -145,16 +145,18 @@ fn task_finished_without_pcm_fails_safely() {
 /// 官方错误码必须映射为可操作的稳定错误类别。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   status codes = auth(2049) + invalid Voice(20132) + rate limit(2056) + server(1024)
-///   expected classes = 4
+///   status codes = auth(2049) + balance(1008) + invalid Voice(20132) + rate limit(2056) + server(1024)
+///   expected classes = 5
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 分别解析四个只有 base_resp 的响应帧。
+///   1. 分别解析五个只有 base_resp 的响应帧。
 ///   2. 读取每个公共 TtsErrorKind。
+///   3. 读取余额不足错误的用户可见消息与重试标记。
 ///
 /// 预期结果：
-///   - 正断言：四个错误精确映射到 Authentication、InvalidParameter、RateLimit、Transport。
-///   - 负断言：无效 API Key 不得落为临时 Protocol 错误。
+///   - 正断言：五个错误精确映射到 Authentication、QuotaExceeded、InvalidParameter、RateLimit、Transport。
+///   - 正断言：余额不足消息明确建议充值或切换本地音色。
+///   - 负断言：无效 API Key 和余额不足不得落为 Protocol；余额不足不得自动重试。
 #[test]
 fn official_status_codes_map_to_actionable_error_kinds() {
     fn kind(code: i64) -> TtsErrorKind {
@@ -167,6 +169,24 @@ fn official_status_codes_map_to_actionable_error_kinds() {
         kind(2049),
         TtsErrorKind::Authentication,
         "2049 必须表示无效 API Key"
+    );
+    let balance_error = super::protocol::parse_incoming(
+        "{\"base_resp\":{\"status_code\":1008,\"status_msg\":\"insufficient balance\"}}",
+    )
+    .expect_err("1008 余额不足必须终止当前 MiniMax 请求");
+    assert_eq!(
+        balance_error.kind(),
+        TtsErrorKind::QuotaExceeded,
+        "1008 必须表示账户额度不足"
+    );
+    assert_eq!(
+        balance_error.to_string(),
+        "MiniMax account balance is insufficient. Add balance or switch to an On-device voice.",
+        "1008 必须给出充值或切换本地音色的可操作提示"
+    );
+    assert!(
+        !balance_error.retryable(),
+        "余额不足不会因立即重试恢复，任务不得自动重试"
     );
     assert_eq!(
         kind(20132),
@@ -187,6 +207,11 @@ fn official_status_codes_map_to_actionable_error_kinds() {
         kind(2049),
         TtsErrorKind::Protocol,
         "无效 API Key 不得显示为临时协议错误"
+    );
+    assert_ne!(
+        balance_error.kind(),
+        TtsErrorKind::Protocol,
+        "余额不足不得显示为协议错误"
     );
 }
 

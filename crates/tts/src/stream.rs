@@ -5,6 +5,7 @@ use std::sync::Arc;
 pub enum TtsErrorKind {
     Configuration,
     Authentication,
+    QuotaExceeded,
     RateLimit,
     InvalidParameter,
     Transport,
