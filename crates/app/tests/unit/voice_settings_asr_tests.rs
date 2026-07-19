@@ -258,3 +258,214 @@ fn test_legacy_asr_and_realtime_keys_are_ignored_while_agent_settings_survive() 
         "旧 realtime=true 不得启用新持续聆听模式"
     );
 }
+
+/// VS-ASR-6：旧 Azure profile 的迟到验证成功不得把已编辑的新草稿标记 Ready。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   original profile = eastus + zh-CN + credential-old
+///   edited profile = westus2 + en-US + 同一 credential
+///   validation completions = 1（只完成 original）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 建立 original Draft 并保存其不可变快照
+///   2. 在请求返回前把 region/locale 改成 edited Draft
+///   3. 尝试把 original 的成功结果写回当前状态
+///
+/// 预期结果：
+///   - 正断言：写回被拒绝，当前 profile 仍是 westus2/en-US
+///   - 负断言：未经验证的新草稿不得进入 Ready 或激活 Azure
+#[test]
+fn test_stale_azure_validation_cannot_mark_edited_profile_ready() {
+    let saved = SavedVoiceSettings {
+        azure_asr_region: Some("eastus".to_string()),
+        azure_asr_locale: Some("zh-CN".to_string()),
+        azure_asr_credential_ref: Some("credential-old".to_string()),
+        azure_asr_ready: Some(false),
+        ..SavedVoiceSettings::default()
+    };
+    let mut state = VoiceSettingsState::from_sources(saved, EnvVoiceSettings::default());
+    let validated_profile = state.values().azure_asr_profile().clone();
+
+    state.update_azure_asr_draft("westus2", "en-US", Some("credential-old".to_string()));
+    let accepted = state.record_azure_asr_validation_result(&validated_profile, Ok(()));
+
+    assert!(
+        !accepted,
+        "旧 profile 的迟到验证结果必须被 generation/fingerprint 拒绝"
+    );
+    assert_eq!(
+        state.values().azure_asr_profile().region(),
+        "westus2",
+        "拒绝迟到结果后必须保留用户最新 region"
+    );
+    assert_eq!(
+        state.values().azure_asr_profile().locale(),
+        "en-US",
+        "拒绝迟到结果后必须保留用户最新 locale"
+    );
+    assert!(
+        !state.values().azure_asr_profile().is_ready(),
+        "未经验证的新 Azure 草稿不得被旧成功结果标记 Ready"
+    );
+    assert!(
+        !state.activate_azure_asr(),
+        "未经验证的新 Azure 草稿不得成为活动 Provider"
+    );
+}
+
+/// VS-ASR-4：升级后必须默认保留 Local Sherpa，并独立保存 Azure 草稿。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   provider keys       = 0，模拟升级前没有多 Provider 设置
+///   local model ids     = 1，保留现有 Zipformer 选择
+///   Azure draft fields  = 3（region + locale + credential reference）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. resolve 旧设置 → 当前 Provider 缺省为 Local Sherpa
+///   2. 保存 Azure 草稿但不激活 → 当前 Provider 仍为 Local Sherpa
+///   3. 将草稿标记 Ready 并显式激活 → 当前 Provider 原子切换为 Azure
+///
+/// 预期结果：
+///   - 正断言：Azure profile 与原 Local model 都被保留
+///   - 负断言：仅编辑 Azure 草稿不得隐式切换当前 Provider
+#[test]
+fn test_azure_draft_does_not_replace_local_until_ready_and_explicitly_activated() {
+    let local_model = asr::AsrModelId::parse(asr::ZIPFORMER_STREAMING_ZH_MODEL_ID)
+        .expect("内置 Zipformer ID 应有效");
+    let saved = SavedVoiceSettings {
+        asr_model_id: Some(local_model.clone()),
+        ..SavedVoiceSettings::default()
+    };
+    let mut state = VoiceSettingsState::from_sources(saved, EnvVoiceSettings::default());
+
+    assert_eq!(
+        state.values().asr_provider(),
+        asr::AsrProviderId::LocalSherpa,
+        "缺少新 Provider key 的升级用户必须继续使用 Local Sherpa"
+    );
+
+    state.update_azure_asr_draft("eastus", "zh-CN", Some("azure-test-ref".to_string()));
+
+    assert_eq!(
+        state.values().asr_provider(),
+        asr::AsrProviderId::LocalSherpa,
+        "编辑 Azure 草稿不得隐式替换当前 Local Sherpa"
+    );
+    assert_eq!(
+        state.values().azure_asr_profile().region(),
+        "eastus",
+        "Azure 草稿必须独立保留 region"
+    );
+    assert_eq!(
+        state.values().asr_model_id(),
+        Some(&local_model),
+        "编辑 Azure 草稿不得清除 Local Sherpa 模型选择"
+    );
+    assert!(
+        !state.activate_azure_asr(),
+        "未验证 Ready 的 Azure 草稿不得被激活"
+    );
+
+    state.mark_azure_asr_ready(true);
+
+    assert!(state.activate_azure_asr(), "Ready 后的显式激活动作应成功");
+    assert_eq!(
+        state.values().asr_provider(),
+        asr::AsrProviderId::CloudAzure,
+        "显式激活后当前 Provider 必须原子切换为 Azure"
+    );
+    assert_ne!(
+        state.values().asr_provider(),
+        asr::AsrProviderId::LocalSherpa,
+        "Azure 激活成功后不得仍报告 Local Sherpa"
+    );
+}
+
+/// VS-ASR-5：Azure locale 必须来自内置目录且缺省为 zh-CN。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   default locale      = zh-CN（中文用户缺省）
+///   accepted locale     = en-US（目录内不同语言）
+///   rejected locale     = xx-NOT-REAL（目录外值）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. resolve 空设置 → Azure profile 使用 zh-CN
+///   2. 查询内置目录并选择 en-US → 校验成功
+///   3. 校验目录外 locale → 明确拒绝
+///
+/// 预期结果：
+///   - 正断言：zh-CN 与 en-US 均存在且可选择
+///   - 负断言：目录外 locale 不得进入可激活 profile
+#[test]
+fn test_azure_locale_catalog_defaults_to_zh_cn_and_rejects_unknown_locale() {
+    let values =
+        VoiceSettingsValues::resolve(&SavedVoiceSettings::default(), &EnvVoiceSettings::default());
+
+    assert_eq!(
+        values.azure_asr_profile().locale(),
+        "zh-CN",
+        "Azure locale 缺省必须为 zh-CN"
+    );
+    assert!(
+        asr::azure_speech_locales().contains(&"zh-CN"),
+        "内置 Azure locale 目录必须包含 zh-CN"
+    );
+    assert!(
+        asr::azure_speech_locales().contains(&"en-US"),
+        "内置 Azure locale 目录必须包含 en-US"
+    );
+    assert!(
+        asr::validate_azure_speech_locale("en-US").is_ok(),
+        "目录内 en-US 必须通过 typed profile 校验"
+    );
+    assert!(
+        asr::validate_azure_speech_locale("xx-NOT-REAL").is_err(),
+        "目录外 locale 必须被拒绝，不能自由输入任意值"
+    );
+}
+
+/// VS-ASR-6：Azure Keychain 写入失败必须恢复旧引用并撤销 Ready。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   previous reference  = azure-old-account（1 个可恢复引用）
+///   replacement secret  = fake-new-secret（只进入待执行 Keychain 写）
+///   persistence result  = Err 1 次（模拟 Keychain 拒绝）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 以旧引用 + Ready profile 构造 Azure 设置
+///   2. 提交替换密钥 → 内存暂时指向新 opaque reference
+///   3. 注入后台持久化失败 → 回滚到旧引用并撤销 Ready
+///
+/// 预期结果：
+///   - 正断言：旧引用被恢复，可供用户重试
+///   - 负断言：失败的新引用不得保持 Ready 或激活 Azure
+#[test]
+fn test_failed_azure_keychain_replacement_restores_previous_reference() {
+    let saved = SavedVoiceSettings {
+        asr_provider: Some(asr::AsrProviderId::LocalSherpa),
+        azure_asr_region: Some("eastus".to_string()),
+        azure_asr_locale: Some("zh-CN".to_string()),
+        azure_asr_credential_ref: Some("azure-old-account".to_string()),
+        azure_asr_ready: Some(true),
+        ..SavedVoiceSettings::default()
+    };
+    let mut state = VoiceSettingsState::from_sources(saved, EnvVoiceSettings::default());
+
+    state.save_azure_asr_credential("fake-new-secret".to_string());
+    state.record_persistence_result(Err("simulated Keychain denial".to_string()));
+
+    assert_eq!(
+        state.values().azure_asr_profile().credential_ref(),
+        Some("azure-old-account"),
+        "Azure Keychain 替换失败后必须恢复原 opaque reference"
+    );
+    assert!(
+        !state.values().azure_asr_profile().is_ready(),
+        "替换失败后 Azure profile 不得继续声称 Ready"
+    );
+    assert_eq!(
+        state.values().asr_provider(),
+        asr::AsrProviderId::LocalSherpa,
+        "失败不得隐式激活 Azure 或改变当前 Local Provider"
+    );
+}

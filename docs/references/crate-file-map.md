@@ -150,7 +150,8 @@ crates/
 ├── terminal/src/     pty, grid, session
 ├── runtime/src/      route, focus, nodes/{term,agent}
 ├── storage/src/      *_store.rs
-├── asr/src/          catalog, installation, support        # 零 GPUI/Sherpa/network
+├── asr/src/          providers, recognition, installation  # 零 GPUI/Storage/Keychain
+├── voice_input/src/  microphone, PCM, resample, VAD        # provider 中立
 ├── model_store/src/  installation                             # 零 GPUI/network
 ├── tts/src/          model_id, catalog, installation          # 零 GPUI/Sherpa
 └── app/src/          GPUI 壳，按体验域分

@@ -1,68 +1,141 @@
-use crate::recognizer_config::build_online_recognizer_config;
-use crate::samples::pcm16_chunk_to_f32_samples;
-use crate::SpeechError;
+use asr::{
+    InputEndReason, RecognitionCancellation, RecognitionEvent, RecognitionPipeline,
+    RecognitionSession, RecognizerFactory,
+};
 use audio::PcmAudioChunk;
-use dialogue::{AsrClient, AsrEvent, DialogueError};
+use dialogue::{AsrClient, AsrEvent, AsrInputEndReason, DialogueError};
 
-pub struct SherpaAsrStreamClient {
-    recognizer: sherpa_onnx::OnlineRecognizer,
-    stream: sherpa_onnx::OnlineStream,
-    last_partial: String,
+#[cfg(test)]
+#[path = "../tests/unit/asr_stream_tests.rs"]
+mod asr_stream_tests;
+
+pub(crate) struct PipelineAsrStreamClient {
+    factory: Box<dyn RecognizerFactory>,
+    session: RecognitionSession,
+    cancellation: RecognitionCancellation,
+    terminal_consumed: bool,
 }
 
-impl SherpaAsrStreamClient {
-    pub fn from_available_model(model: &asr::AvailableAsrModel) -> Result<Self, SpeechError> {
-        let config = build_online_recognizer_config(model)?;
-        let recognizer = sherpa_onnx::OnlineRecognizer::create(&config)
-            .ok_or_else(|| SpeechError::Recognizer("failed to create OnlineRecognizer".into()))?;
-        let stream = recognizer.create_stream();
+impl PipelineAsrStreamClient {
+    pub(crate) fn new(factory: Box<dyn RecognizerFactory>) -> Result<Self, DialogueError> {
+        let cancellation = RecognitionCancellation::new();
+        let session = start_session(factory.as_ref(), cancellation.child())?;
         Ok(Self {
-            recognizer,
-            stream,
-            last_partial: String::new(),
+            factory,
+            session,
+            cancellation,
+            terminal_consumed: false,
         })
+    }
+
+    pub(crate) fn cancellation(&self) -> RecognitionCancellation {
+        self.cancellation.clone()
+    }
+
+    fn collect_available(
+        &mut self,
+        block_until_terminal: bool,
+    ) -> Result<Vec<AsrEvent>, DialogueError> {
+        let events = if block_until_terminal {
+            self.session.collect_events()
+        } else {
+            let receiver = self.session.events();
+            let mut events = Vec::new();
+            while let Ok(event) = receiver.try_recv() {
+                events.push(event);
+            }
+            events
+        };
+        translate_events(events, &mut self.terminal_consumed)
+    }
+
+    fn replace_session(&mut self) -> Result<(), DialogueError> {
+        let _ = self.session.cancel();
+        self.session = start_session(self.factory.as_ref(), self.cancellation.child())?;
+        self.terminal_consumed = false;
+        Ok(())
     }
 }
 
-impl AsrClient for SherpaAsrStreamClient {
+impl AsrClient for PipelineAsrStreamClient {
     fn push_pcm(&mut self, chunk: &PcmAudioChunk) -> Result<Vec<AsrEvent>, DialogueError> {
-        let samples = pcm16_chunk_to_f32_samples(chunk).map_err(DialogueError::Message)?;
-        self.stream.accept_waveform(16_000, &samples);
-        let mut events = Vec::new();
-        while self.recognizer.is_ready(&self.stream) {
-            self.recognizer.decode(&self.stream);
-            let text = self
-                .recognizer
-                .get_result(&self.stream)
-                .map(|result| result.text.trim().to_string())
-                .unwrap_or_default();
-            if !text.is_empty() && text != self.last_partial {
-                self.last_partial = text.clone();
-                events.push(AsrEvent::Partial(text));
-            }
+        if self.terminal_consumed {
+            return Ok(Vec::new());
         }
-        Ok(events)
+        match self.session.push_pcm(chunk.clone()) {
+            Ok(()) => {}
+            Err(asr::AsrError::SessionClosed) if self.session.reached_duration_limit() => {}
+            Err(error) => return Err(DialogueError::Message(error.to_string())),
+        }
+        self.collect_available(self.session.reached_duration_limit())
     }
 
     fn end_utterance(&mut self) -> Result<Option<String>, DialogueError> {
-        self.stream.input_finished();
-        while self.recognizer.is_ready(&self.stream) {
-            self.recognizer.decode(&self.stream);
+        if self.terminal_consumed {
+            return Ok(None);
         }
-        let text = self
-            .recognizer
-            .get_result(&self.stream)
-            .map(|result| result.text.trim().to_string())
-            .unwrap_or_default();
-        if text.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(text))
+        if let Err(error) = self.session.finish(InputEndReason::Vad) {
+            if error != asr::AsrError::SessionClosed {
+                return Err(DialogueError::Message(error.to_string()));
+            }
         }
+        let events = self.collect_available(true)?;
+        Ok(events.into_iter().find_map(|event| match event {
+            AsrEvent::Final(text) => Some(text),
+            AsrEvent::Partial(_) | AsrEvent::InputEnded(_) => None,
+        }))
     }
 
     fn reset(&mut self) {
-        self.stream = self.recognizer.create_stream();
-        self.last_partial.clear();
+        if let Err(error) = self.replace_session() {
+            tracing::warn!(target: "norma_voice", %error, "failed to reset ASR pipeline");
+        }
     }
+}
+
+fn start_session(
+    factory: &dyn RecognizerFactory,
+    cancellation: RecognitionCancellation,
+) -> Result<RecognitionSession, DialogueError> {
+    let recognizer = factory
+        .create()
+        .map_err(|error| DialogueError::Message(error.to_string()))?;
+    Ok(RecognitionPipeline::new(factory.capabilities())
+        .start_with_cancellation(recognizer, cancellation))
+}
+
+fn translate_events(
+    events: Vec<RecognitionEvent>,
+    terminal_consumed: &mut bool,
+) -> Result<Vec<AsrEvent>, DialogueError> {
+    let mut translated = Vec::new();
+    for event in events {
+        match event {
+            RecognitionEvent::Partial(text) => translated.push(AsrEvent::Partial(text)),
+            RecognitionEvent::InputEnded(reason) => {
+                let reason = match reason {
+                    InputEndReason::User => AsrInputEndReason::User,
+                    InputEndReason::Vad => AsrInputEndReason::Vad,
+                    InputEndReason::DurationLimit => AsrInputEndReason::DurationLimit,
+                };
+                translated.push(AsrEvent::InputEnded(reason));
+            }
+            RecognitionEvent::Final(text) => {
+                *terminal_consumed = true;
+                translated.push(AsrEvent::Final(text));
+            }
+            RecognitionEvent::Empty => *terminal_consumed = true,
+            RecognitionEvent::Failed(error) => {
+                *terminal_consumed = true;
+                return Err(DialogueError::Message(error.to_string()));
+            }
+            RecognitionEvent::Cancelled => {
+                *terminal_consumed = true;
+                return Err(DialogueError::Message(
+                    "recognition was cancelled".to_string(),
+                ));
+            }
+        }
+    }
+    Ok(translated)
 }

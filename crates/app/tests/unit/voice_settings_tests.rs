@@ -1,4 +1,4 @@
-use super::provider_values::DEFAULT_OLLAMA_ENDPOINT;
+use super::provider_values::{DEFAULT_OLLAMA_ENDPOINT, DEFAULT_OLLAMA_MODEL};
 use super::*;
 
 /// VS-1: 已保存的 voice 设置应优先于环境变量，避免 Settings UI 被 env 覆盖。
@@ -129,7 +129,7 @@ fn test_voice_settings_env_fallback_and_refine_follows_planner() {
     assert!(values.trace_enabled(), "env trace=on 应被识别为开启");
     assert_ne!(
         values.refine_model(),
-        voice::OllamaVoicePlanner::default_model(),
+        DEFAULT_OLLAMA_MODEL,
         "refine 不应在 planner env 存在时退回硬编码默认模型"
     );
 }
@@ -167,12 +167,12 @@ fn test_voice_settings_defaults_when_saved_and_env_are_missing() {
     );
     assert_eq!(
         values.planner_model(),
-        voice::OllamaVoicePlanner::default_model(),
+        DEFAULT_OLLAMA_MODEL,
         "缺少保存设置和 env 时 planner model 应使用 voice crate 默认模型"
     );
     assert_eq!(
         values.refine_model(),
-        voice::OllamaVoicePlanner::default_model(),
+        DEFAULT_OLLAMA_MODEL,
         "缺少保存设置和 env 时 refine model 应跟随默认 planner model"
     );
     assert!(

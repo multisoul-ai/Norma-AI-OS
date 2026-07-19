@@ -11,6 +11,11 @@ impl VoiceSettingsState {
         self.advanced_expanded = true;
     }
 
+    pub(crate) fn assume_agent_provider_ready_for_e2e(&mut self) {
+        self.saved.agent_provider = Some(AgentProviderKind::Ollama);
+        self.refresh_values();
+    }
+
     pub(crate) fn assume_visual_preview_ready_for_e2e(&mut self) {
         self.readiness_override = Some(crate::settings::voice::VoiceEntryState::Ready);
         self.reviewing_setup = false;
@@ -26,6 +31,18 @@ impl VoiceSettingsState {
         self.saved.agent_provider = Some(AgentProviderKind::OpenAiCompatible);
         self.saved.openai_profile.api_key = Some("synthetic-preview-key".to_string());
         self.saved.openai_profile.credential_ref = Some("visual-preview".to_string());
+        self.refresh_values();
+    }
+
+    pub(crate) fn assume_visual_preview_azure_asr_ready_for_e2e(&mut self) {
+        self.readiness_override = Some(crate::settings::voice::VoiceEntryState::Ready);
+        self.reviewing_setup = true;
+        self.setup_destination = VoiceSetupDestination::Overview;
+        self.advanced_expanded = true;
+        self.saved.azure_asr_region = Some("eastus".to_string());
+        self.saved.azure_asr_locale = Some("zh-CN".to_string());
+        self.saved.azure_asr_credential_ref = Some("visual-preview".to_string());
+        self.saved.azure_asr_ready = Some(true);
         self.refresh_values();
     }
 

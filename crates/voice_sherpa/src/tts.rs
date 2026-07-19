@@ -1,4 +1,3 @@
-use crate::audio::pcm16_bytes_from_f32_samples;
 use crate::SpeechError;
 use audio::{PcmAudioChunk, PcmFormat};
 use dialogue::{DialogueError, TtsClient};
@@ -8,6 +7,7 @@ use sherpa_onnx::{
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use voice_input::pcm16_bytes_from_f32_samples;
 
 /// Energy-free silent PCM for unit tests.
 pub struct FakeTtsClient {

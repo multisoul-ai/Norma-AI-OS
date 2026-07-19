@@ -1,21 +1,20 @@
 use audio::PcmAudioChunk;
 use std::sync::Arc;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum VadEvent {
-    SpeechStart,
-    SpeechEnd,
-}
-
-pub trait VadClient: Send {
-    fn push_pcm(&mut self, chunk: &PcmAudioChunk) -> Result<Vec<VadEvent>, DialogueError>;
-    fn reset(&mut self);
-}
+pub use voice_input::{VadClient, VadEvent};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AsrEvent {
     Partial(String),
     Final(String),
+    InputEnded(AsrInputEndReason),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AsrInputEndReason {
+    User,
+    Vad,
+    DurationLimit,
 }
 
 pub trait AsrClient: Send {

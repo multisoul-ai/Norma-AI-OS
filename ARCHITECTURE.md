@@ -15,11 +15,13 @@ macOS Window（GPUI + Metal）
     │   ├── terminal：PTY、ANSI grid 与输入编码 ──> /bin/zsh
     │   └── storage：SQLite store 与 migration ──> workspace 元数据
     ├── agent：NormaSession、Rig Provider、typed tools 与 Agent 协调规则
-    ├── asr：ASR 模型 ID、受控目录、清单、哈希与原子安装
+    ├── asr：provider registry、统一识别协议、Local Sherpa、Cloud Azure 与模型安装
+    ├── voice_input：麦克风权限/设备、采集、重采样、PCM 流与共享 VAD
     ├── tts：TTS 模型/语音目录、能力与安装验证
     │   └── model_store：共享 archive/manifest/哈希/原子安装原语
-    └── voice_sherpa：Sherpa recognizer、VAD、PCM partial/final adapter
-        ├── asr：消费已校验的 AvailableAsrModel
+    └── voice_sherpa：Sherpa TTS 与既有连续对话调用方的兼容门面
+        ├── asr：消费 provider-neutral 识别协议
+        ├── voice_input：消费 provider-neutral PCM/VAD
         ├── tts：消费已校验的 AvailableTtsModel
         ├── dialogue：消费引擎中立的语音协议
         └── audio：消费共享 PCM 类型
@@ -28,8 +30,9 @@ macOS Window（GPUI + Metal）
 核心 Cargo 依赖方向：
 
 ```text
-app -> {ui, runtime, canvas, terminal, storage, agent, asr, tts, voice_sherpa}
-voice_sherpa -> {asr, tts, dialogue, audio}
+app -> {ui, runtime, canvas, terminal, storage, agent, asr, voice_input, tts, voice_sherpa}
+voice_sherpa -> {asr, voice_input, tts, dialogue, audio}
+dialogue -> voice_input
 tts -> model_store
 runtime -> {canvas, terminal, storage}
 storage -> {agent, canvas, workspace, rusqlite}
@@ -37,18 +40,23 @@ agent -> {norma, rig-core, tokio, tokio-util, reqwest}
 ui -> gpui
 canvas -> {serde, thiserror}
 terminal -> {portable-pty, alacritty_terminal, crossbeam-channel}
-asr -> {serde, sha2, tar, bzip2, tempfile}
+asr -> {serde, sha2, tar, bzip2, tempfile, ureq, sherpa-onnx}
 ```
 
-`agent`、`asr`、`model_store`、`tts`、`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`agent` 还保持零 Storage 依赖，`asr` 与 `tts` 保持零 Sherpa/网络依赖。识别器/TTS 引擎适配归 `voice_sherpa`，下载和 Runtime/Storage 副作用编排归 `app`。`model_store` 与 `tts` 不得依赖 `app/runtime/storage/ui`，`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
+`agent`、`asr`、`voice_input`、`model_store`、`tts`、`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`agent` 还保持零 Storage 依赖。`asr` 可以承载 provider 所需的 Sherpa/网络实现，但不得访问 Storage/Keychain；`voice_input` 不得选择 provider。TTS 引擎兼容适配暂归 `voice_sherpa`，下载和 Runtime/Storage 副作用编排归 `app`。`model_store` 与 `tts` 不得依赖 `app/runtime/storage/ui`，`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
 
 ## 2. 代码结构
 
 ### `crates/asr/`
 
-零 GPUI/Sherpa/网络的 ASR 领域层，负责不可变模型 ID、受控目录、安装清单、SHA-256、
-安全解压、原子安装和共享 Silero VAD 支持工件。Sherpa 的 Paraformer/Transducer/Zipformer2 CTC 分支只存在于
-`crates/voice_sherpa/`；Settings 下载、进度、选择和删除编排只存在于 `crates/app/`。
+零 GPUI/Storage/Keychain 的 ASR 领域层，统一负责 provider registry、能力描述、规范化识别事件、
+`RecognitionPipeline`、Local Sherpa、Cloud Azure，以及模型目录、安装清单、SHA-256、安全解压和原子安装。
+Settings、Keychain、下载进度与运行时副作用编排只存在于 `crates/app/`。
+
+### `crates/voice_input/`
+
+provider 中立的音频输入层，负责麦克风权限、设备枚举、采集、重采样、PCM 流和共享 Silero VAD。
+它既不选择 ASR provider，也不保存 provider 凭据。
 
 ### `crates/agent/`
 

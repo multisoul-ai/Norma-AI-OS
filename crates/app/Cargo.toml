@@ -8,7 +8,11 @@ default-run = "norma-os"
 [features]
 default = []
 chromium-browser = ["dep:cef"]
-e2e-test-support = []
+e2e-test-support = [
+    "asr/test-support",
+    "voice_input/test-support",
+    "voice_sherpa/test-support",
+]
 
 [[bin]]
 name = "norma-os"
@@ -31,8 +35,8 @@ storage.workspace = true
 terminal.workspace = true
 workspace.workspace = true
 norma.workspace = true
-voice.workspace = true
 voice_sherpa.workspace = true
+voice_input.workspace = true
 dialogue.workspace = true
 audio.workspace = true
 asr.workspace = true

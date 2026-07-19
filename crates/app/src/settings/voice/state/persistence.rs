@@ -60,6 +60,7 @@ impl VoiceSettingsState {
     pub(crate) fn record_persistence_result(&mut self, result: Result<(), String>) {
         self.persistence_running = false;
         self.finish_credential_persistence(&result);
+        self.finish_azure_credential_persistence(&result);
         self.status = Some(match result {
             Ok(()) => ok_status("Saved"),
             Err(error) => error_status(format!("Could not save setting: {error}")),

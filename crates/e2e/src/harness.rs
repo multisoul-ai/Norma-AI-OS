@@ -49,6 +49,18 @@ impl VoiceTranscriptEnvGuard {
             previous,
         }
     }
+
+    pub(crate) fn clear() -> Self {
+        let lock = VOICE_TRANSCRIPT_ENV_LOCK
+            .lock()
+            .expect("语音 transcript 环境变量测试锁不应中毒");
+        let previous = std::env::var_os("MULTISOUL_VOICE_TRANSCRIPT");
+        std::env::remove_var("MULTISOUL_VOICE_TRANSCRIPT");
+        Self {
+            _lock: lock,
+            previous,
+        }
+    }
 }
 
 impl Drop for VoiceTranscriptEnvGuard {

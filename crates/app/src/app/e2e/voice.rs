@@ -9,6 +9,7 @@ pub struct VoiceE2eSnapshot {
     pub microphone_recovery_available: bool,
     pub entry_state: &'static str,
     pub ready_notification_visible: bool,
+    pub duration_limit_feedback: Option<String>,
 }
 
 impl MultisoulApp {
@@ -37,6 +38,10 @@ impl MultisoulApp {
                 crate::settings::voice::VoiceEntryState::Unavailable { .. } => "unavailable",
             },
             ready_notification_visible: self.voice_ready_notification_visible,
+            duration_limit_feedback: self
+                .voice
+                .last_duration_limit_feedback()
+                .map(ToOwned::to_owned),
         }
     }
 }

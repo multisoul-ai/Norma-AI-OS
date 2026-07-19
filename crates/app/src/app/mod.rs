@@ -67,6 +67,8 @@ pub(crate) mod video_thumbnails;
 #[cfg(target_os = "macos")]
 pub(crate) mod video_wallpaper;
 mod voice;
+#[cfg(not(feature = "e2e-test-support"))]
+pub(crate) use voice::recognition::AsrRecordingSession;
 mod voice_window_inset;
 mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;

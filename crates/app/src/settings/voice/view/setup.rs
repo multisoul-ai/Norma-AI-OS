@@ -1,3 +1,4 @@
+use super::asr_provider::asr_provider_group;
 use super::provider::agent_provider_setup_group;
 use super::tts_catalog::tts_catalog_row;
 use super::{action_button, with_alpha, VoiceSettingsInputs};
@@ -74,7 +75,7 @@ pub(super) fn voice_setup(
                     "Speech Recognition",
                     "Let Norma hear you with a private bilingual model.",
                     recognition,
-                    recognition_detail(theme, microphone, state, cx),
+                    recognition_detail(theme, microphone, state, inputs, cx),
                 ))
                 .child(setup_step(
                     theme,
@@ -255,6 +256,7 @@ fn recognition_detail(
     theme: Theme,
     microphone: VoiceRequirementState,
     state: &VoiceSettingsState,
+    inputs: &VoiceSettingsInputs,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     div()
@@ -264,6 +266,7 @@ fn recognition_detail(
         .gap(px(10.0))
         .child(microphone_detail(theme, microphone, cx))
         .child(alternative_models_detail(theme, state, cx))
+        .child(asr_provider_group(theme, state, inputs, cx))
 }
 
 fn microphone_detail(

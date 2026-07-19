@@ -1,3 +1,4 @@
+use self::asr_provider::asr_provider_group;
 pub(crate) use self::editable::VoiceSettingsInputs;
 use self::input_device::input_device_row;
 use self::interaction::interaction_group;
@@ -14,6 +15,7 @@ use gpui::{
 };
 use ui::Theme;
 
+mod asr_provider;
 mod editable;
 mod input_device;
 mod interaction;
@@ -55,6 +57,7 @@ pub(crate) fn voice_settings(
         .child(interaction_group(theme, state, cx))
         .child(settings_group(theme, "Input").child(input_device_row(theme, state, cx)))
         .child(spoken_reply_group(theme, state, cx))
+        .child(asr_provider_group(theme, state, inputs, cx))
         .child(advanced_group(theme, state, inputs, cx))
         .children(status_message(theme, state))
 }

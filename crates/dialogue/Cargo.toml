@@ -8,3 +8,4 @@ license.workspace = true
 audio.workspace = true
 norma.workspace = true
 thiserror.workspace = true
+voice_input.workspace = true

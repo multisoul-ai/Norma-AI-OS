@@ -1,138 +1,12 @@
 use crate::app::MultisoulApp;
 use crate::settings::voice::state::{VoiceSettingsField, VoiceSettingsState};
 use gpui::{
-    App, AppContext, Bounds, ClipboardItem, Context, Entity, EntityInputHandler, FocusHandle,
+    AppContext, Bounds, ClipboardItem, Context, Entity, EntityInputHandler, FocusHandle,
     KeyDownEvent, MouseDownEvent, Pixels, ShapedLine, SharedString, Subscription, Task, WeakEntity,
     Window,
 };
 use std::ops::Range;
 use ui::Theme;
-
-pub(crate) struct VoiceSettingsInputs {
-    base_url: Entity<VoiceTextInput>,
-    model: Entity<VoiceTextInput>,
-    api_key: Entity<VoiceTextInput>,
-}
-
-impl VoiceSettingsInputs {
-    pub(crate) fn load_default(
-        app: WeakEntity<MultisoulApp>,
-        root_focus: FocusHandle,
-        theme: Theme,
-        cx: &mut Context<MultisoulApp>,
-    ) -> (VoiceSettingsState, Self) {
-        let state = VoiceSettingsState::load_default();
-        let inputs = Self::new(app, root_focus, &state, theme, cx);
-        (state, inputs)
-    }
-
-    pub(crate) fn new(
-        app: WeakEntity<MultisoulApp>,
-        root_focus: FocusHandle,
-        state: &VoiceSettingsState,
-        theme: Theme,
-        cx: &mut Context<MultisoulApp>,
-    ) -> Self {
-        let base_url = new_input(
-            VoiceInputConfig {
-                field: VoiceSettingsField::BaseUrl,
-                value: state.editor_value(VoiceSettingsField::BaseUrl),
-                placeholder: "https://api.example.com/v1",
-                masked: false,
-                theme,
-            },
-            app.clone(),
-            root_focus.clone(),
-            cx,
-        );
-        let model = new_input(
-            VoiceInputConfig {
-                field: VoiceSettingsField::Model,
-                value: state.editor_value(VoiceSettingsField::Model),
-                placeholder: "Model name",
-                masked: false,
-                theme,
-            },
-            app.clone(),
-            root_focus.clone(),
-            cx,
-        );
-        let api_key = new_input(
-            VoiceInputConfig {
-                field: VoiceSettingsField::ApiKey,
-                value: state.editor_value(VoiceSettingsField::ApiKey),
-                placeholder: status::input_placeholder(state, VoiceSettingsField::ApiKey),
-                masked: true,
-                theme,
-            },
-            app,
-            root_focus,
-            cx,
-        );
-        Self {
-            base_url,
-            model,
-            api_key,
-        }
-    }
-
-    pub(crate) fn input(&self, field: VoiceSettingsField) -> Entity<VoiceTextInput> {
-        match field {
-            VoiceSettingsField::BaseUrl => self.base_url.clone(),
-            VoiceSettingsField::Model => self.model.clone(),
-            VoiceSettingsField::ApiKey => self.api_key.clone(),
-        }
-    }
-
-    pub(crate) fn sync_from_state(
-        &self,
-        state: &VoiceSettingsState,
-        cx: &mut Context<MultisoulApp>,
-    ) {
-        for field in [
-            VoiceSettingsField::BaseUrl,
-            VoiceSettingsField::Model,
-            VoiceSettingsField::ApiKey,
-        ] {
-            self.sync_field_from_state(field, state, cx);
-        }
-    }
-
-    pub(crate) fn set_theme(&self, theme: Theme, cx: &mut Context<MultisoulApp>) {
-        self.base_url
-            .update(cx, |input, cx| input.set_theme(theme, cx));
-        self.model
-            .update(cx, |input, cx| input.set_theme(theme, cx));
-        self.api_key
-            .update(cx, |input, cx| input.set_theme(theme, cx));
-    }
-
-    pub(crate) fn is_focused(&self, window: &Window, cx: &App) -> bool {
-        self.base_url.read(cx).focus_handle.is_focused(window)
-            || self.model.read(cx).focus_handle.is_focused(window)
-            || self.api_key.read(cx).focus_handle.is_focused(window)
-    }
-
-    pub(crate) fn input_surface_size(
-        &self,
-        field: VoiceSettingsField,
-        cx: &App,
-    ) -> Option<(u32, u32)> {
-        self.input(field).read(cx).last_bounds.map(|bounds| {
-            let width = (bounds.size.width / gpui::px(1.0)).max(0.0).round() as u32;
-            let height = (bounds.size.height / gpui::px(1.0)).max(0.0).round() as u32;
-            (width, height)
-        })
-    }
-
-    pub(crate) fn rendered_text(&self, field: VoiceSettingsField, cx: &App) -> Option<String> {
-        self.input(field)
-            .read(cx)
-            .last_layout
-            .as_ref()
-            .map(|layout| layout.text.to_string())
-    }
-}
 
 struct VoiceInputConfig {
     field: VoiceSettingsField,
@@ -454,9 +328,11 @@ impl VoiceTextInput {
 
 mod autosave;
 mod focus;
+mod inputs;
 mod native;
 mod status;
 mod visibility;
+pub(crate) use inputs::VoiceSettingsInputs;
 
 fn single_line(text: &str) -> String {
     text.chars()

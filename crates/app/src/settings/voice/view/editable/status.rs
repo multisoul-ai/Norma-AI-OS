@@ -20,7 +20,20 @@ pub(super) fn input_placeholder(
         {
             CONFIGURED_API_KEY_PLACEHOLDER
         }
-        VoiceSettingsField::ApiKey => UNCONFIGURED_API_KEY_PLACEHOLDER,
+        VoiceSettingsField::AzureApiKey
+            if state
+                .values()
+                .azure_asr_profile()
+                .credential_ref()
+                .is_some() =>
+        {
+            CONFIGURED_API_KEY_PLACEHOLDER
+        }
+        VoiceSettingsField::ApiKey | VoiceSettingsField::AzureApiKey => {
+            UNCONFIGURED_API_KEY_PLACEHOLDER
+        }
+        VoiceSettingsField::AzureRegion => "eastus",
+        VoiceSettingsField::AzureLocale => "zh-CN",
     }
 }
 

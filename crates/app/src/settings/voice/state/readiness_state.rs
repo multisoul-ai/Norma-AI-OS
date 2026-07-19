@@ -55,6 +55,15 @@ impl VoiceSettingsState {
     }
 
     fn selected_asr_requirement(&self) -> VoiceRequirementState {
+        if self.values.asr_provider() == asr::AsrProviderId::CloudAzure {
+            return if self.values.azure_asr_profile().is_ready()
+                && asr::validate_silero_vad_installation(&self.model_root).is_ok()
+            {
+                VoiceRequirementState::Ready
+            } else {
+                VoiceRequirementState::Missing
+            };
+        }
         let Some(model_id) = self.values.asr_model_id() else {
             return VoiceRequirementState::Missing;
         };

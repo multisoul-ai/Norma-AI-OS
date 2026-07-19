@@ -8,6 +8,14 @@ impl fmt::Debug for SavedVoiceSettings {
             .field("interaction_mode", &self.interaction_mode)
             .field("dictation_trigger", &self.dictation_trigger)
             .field("asr_model_id", &self.asr_model_id)
+            .field("asr_provider", &self.asr_provider)
+            .field("azure_asr_region", &self.azure_asr_region)
+            .field("azure_asr_locale", &self.azure_asr_locale)
+            .field(
+                "azure_asr_credential_ref",
+                &self.azure_asr_credential_ref.as_ref().map(|_| "<opaque>"),
+            )
+            .field("azure_asr_ready", &self.azure_asr_ready)
             .field("agent_provider", &self.agent_provider)
             .field("ollama_profile", &self.ollama_profile)
             .field("openai_profile_base_url", &self.openai_profile.base_url)
@@ -40,6 +48,8 @@ impl fmt::Debug for VoiceSettingsValues {
             .field("interaction_mode", &self.interaction_mode)
             .field("dictation_trigger", &self.dictation_trigger)
             .field("asr_model_id", &self.asr_model_id)
+            .field("asr_provider", &self.asr_provider)
+            .field("azure_asr_profile", &self.azure_asr_profile)
             .field("agent_provider", &self.agent_provider)
             .field("ollama_profile", &self.ollama_profile)
             .field("openai_profile", &self.openai_profile)
@@ -63,7 +73,10 @@ impl fmt::Debug for VoiceSettingsValues {
 
 impl fmt::Debug for VoiceSettingsState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let draft = if self.editing == Some(VoiceSettingsField::ApiKey) {
+        let draft = if matches!(
+            self.editing,
+            Some(VoiceSettingsField::ApiKey | VoiceSettingsField::AzureApiKey)
+        ) {
             "<redacted>"
         } else {
             self.draft.as_str()

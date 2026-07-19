@@ -13,9 +13,11 @@ pub(crate) use readiness::{
     evaluate_voice_readiness, VoiceEntryState, VoiceReadinessInputs, VoiceRequirement,
     VoiceRequirementState,
 };
+#[cfg(test)]
+pub(crate) use state::resolve_available_asr_model;
 pub(crate) use state::ProviderDiscoveryStatus;
 pub(crate) use state::{
-    resolve_available_asr_model, DictationTrigger, VoiceInteractionMode, VoiceSettingsField,
+    resolve_builtin_asr_profile, DictationTrigger, VoiceInteractionMode, VoiceSettingsField,
     VoiceSettingsState, VoiceSettingsValues, VoiceSetupDestination,
 };
 pub(crate) use tts_models::{TtsModelInstallState, TtsModelManagerState};
