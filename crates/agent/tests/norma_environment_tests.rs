@@ -177,3 +177,50 @@ fn norma_system_prompt_combines_identity_direct_assignment_and_environment() {
         "a clear Agent assignment must not introduce a confirmation step"
     );
 }
+
+/// PROMPT-2：Norma 的固定提示词必须定义十五字上限与柔软口语人格。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   可见回复上限 = 15 个 Unicode 字符
+///   语气词示例 = 3 个（“哦”“呢”“啦”）
+///   自称候选 = 1 个（“诺诺”，仅偶尔使用）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 使用空画布与空 Agent roster 构建完整 system prompt
+///   2. 读取固定表达规则，不依赖动态环境内容
+///   3. 核对字数、口语、尾音、自称和格式约束
+///
+/// 预期结果：
+///   - 正断言：提示词明确要求十五字以内、柔软口语和可选“诺诺”自称
+///   - 负断言：提示词不得鼓励书面长句、Markdown 或每句强制自称
+#[test]
+fn norma_system_prompt_defines_short_soft_spoken_persona() {
+    let prompt = norma_system_prompt(
+        &CurrentCanvasContext {
+            project_name: "norma-ai-os".to_string(),
+            workspace_root: "/workspace/norma-ai-os".to_string(),
+            total_cards: 0,
+            cards: Vec::new(),
+        },
+        &[],
+    );
+
+    assert!(
+        prompt.contains("最终面向用户的可见回复不得超过 15 个 Unicode 字符"),
+        "提示词必须给出可机械验证的十五字符上限"
+    );
+    assert!(
+        prompt.contains("语气柔软、自然、口语化")
+            && prompt.contains("“哦”“呢”“啦”")
+            && prompt.contains("偶尔可以自称“诺诺”"),
+        "提示词必须完整描述柔软尾音与偶尔使用的诺诺自称"
+    );
+    assert!(
+        prompt.contains("不使用 Markdown") && prompt.contains("不要写书面长句"),
+        "短口语回复必须禁止 Markdown 和书面长句"
+    );
+    assert!(
+        !prompt.contains("每句都自称“诺诺”"),
+        "诺诺只能偶尔自称，不能变成每句重复的固定前缀"
+    );
+}

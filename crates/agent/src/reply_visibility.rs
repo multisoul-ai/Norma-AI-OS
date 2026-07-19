@@ -1,3 +1,5 @@
+const MAX_VISIBLE_REPLY_CHARS: usize = 15;
+
 pub fn visible_norma_reply(text: &str) -> String {
     let mut visible = String::with_capacity(text.len());
     let mut remaining = text;
@@ -5,12 +7,28 @@ pub fn visible_norma_reply(text: &str) -> String {
         visible.push_str(&remaining[..start]);
         let after_start = &remaining[start + "<think>".len()..];
         let Some(end) = after_start.find("</think>") else {
-            return visible.trim().to_string();
+            return cap_visible_reply(visible.trim());
         };
         remaining = &after_start[end + "</think>".len()..];
     }
     visible.push_str(remaining);
-    visible.trim().to_string()
+    cap_visible_reply(visible.trim())
+}
+
+fn cap_visible_reply(text: &str) -> String {
+    let mut characters = text.chars();
+    let prefix = characters
+        .by_ref()
+        .take(MAX_VISIBLE_REPLY_CHARS)
+        .collect::<String>();
+    if characters.next().is_none() {
+        return prefix;
+    }
+    prefix
+        .chars()
+        .take(MAX_VISIBLE_REPLY_CHARS - 1)
+        .chain(std::iter::once('…'))
+        .collect()
 }
 
 pub(crate) fn finalize_stream_deltas(
