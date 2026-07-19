@@ -52,6 +52,7 @@ tokio-util.workspace = true
 futures.workspace = true
 pulldown-cmark.workspace = true
 ureq.workspace = true
+rustls.workspace = true
 hound = "3.5"
 
 # Native file picker for wallpaper import (Task 8). AsyncFileDialog is awaited
