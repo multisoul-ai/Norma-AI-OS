@@ -390,12 +390,44 @@ fn e2e_04_voice_api_key_can_be_reentered_immediately_after_clear() {
 
 fn click_debug(cx: &mut VisualTestContext, selector: &'static str) {
     cx.run_until_parked();
+    scroll_settings_target_into_view(cx, selector);
     let bounds = cx
         .debug_bounds(selector)
         .unwrap_or_else(|| panic!("selector `{selector}` 在点击前应存在 debug bounds"));
     cx.simulate_mouse_move(bounds.center(), None, Modifiers::none());
     cx.simulate_click(bounds.center(), Modifiers::none());
     cx.run_until_parked();
+}
+
+fn scroll_settings_target_into_view(cx: &mut VisualTestContext, selector: &'static str) {
+    if selector == "settings-content-scroll" {
+        return;
+    }
+    for _ in 0..3 {
+        let (Some(content), Some(target)) = (
+            cx.debug_bounds("settings-content-scroll"),
+            cx.debug_bounds(selector),
+        ) else {
+            return;
+        };
+        let visible_top = f32::from(content.origin.y) + 24.0;
+        let visible_bottom = f32::from(content.origin.y) + f32::from(content.size.height) - 24.0;
+        let target_top = f32::from(target.origin.y);
+        let target_bottom = target_top + f32::from(target.size.height);
+        let delta = if target_top < visible_top {
+            visible_top - target_top
+        } else if target_bottom > visible_bottom {
+            visible_bottom - target_bottom
+        } else {
+            return;
+        };
+        cx.simulate_event(ScrollWheelEvent {
+            position: content.center(),
+            delta: ScrollDelta::Pixels(point(px(0.0), px(delta))),
+            ..Default::default()
+        });
+        cx.run_until_parked();
+    }
 }
 
 fn scroll_debug(cx: &mut VisualTestContext, selector: &'static str, delta_y: f32) {
@@ -412,6 +444,5 @@ fn scroll_debug(cx: &mut VisualTestContext, selector: &'static str, delta_y: f32
 }
 
 fn open_voice_advanced(cx: &mut VisualTestContext) {
-    click_debug(cx, "settings-voice-advanced-toggle");
     scroll_debug(cx, "settings-content-scroll", -500.0);
 }

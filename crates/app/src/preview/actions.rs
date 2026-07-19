@@ -1,4 +1,4 @@
-use super::load_preview_content;
+use super::{load_preview_content, resolve_preview_path};
 use crate::app::{AppScreen, MultisoulApp};
 use crate::canvas::master_layout::{
     apply_workspace_reflow_for_area, enter_master_layout_for_area, reapply_master_layout_for_area,
@@ -11,7 +11,7 @@ use std::path::PathBuf;
 impl MultisoulApp {
     pub(crate) fn open_terminal_path_in_preview_card(
         &mut self,
-        relative_path: String,
+        target: String,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -20,7 +20,13 @@ impl MultisoulApp {
                 Some("Open a project before previewing terminal file links.".into());
             return;
         };
-        let path = root.join(relative_path);
+        let path = match resolve_preview_path(root, &target) {
+            Ok(path) => path,
+            Err(error) => {
+                self.workspace_state.error = Some(error.to_string());
+                return;
+            }
+        };
         let area = self.visible_canvas_rect(window);
         let bounds = area.inset(self.layout_gap_canvas());
         let zoom = self.runtime.document.viewport.zoom;

@@ -1,7 +1,8 @@
 //! Agent card creation actions for toolbar, menu, and shortcuts.
 
 use super::{
-    AppScreen, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewOpenCodeAgent,
+    AppScreen, MultisoulApp, NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewGrokAgent,
+    NewOpenCodeAgent,
 };
 use crate::canvas::master_layout::term_grid_size_for_card;
 use crate::canvas::spawn_focus;
@@ -60,6 +61,20 @@ impl MultisoulApp {
         self.spawn_agent_card(AgentProfile::OpenCode, window, cx);
     }
 
+    pub(crate) fn on_new_grok_agent(
+        &mut self,
+        _: &NewGrokAgent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error = Some("Open a project before creating agents.".into());
+            cx.notify();
+            return;
+        }
+        self.spawn_agent_card(AgentProfile::Grok, window, cx);
+    }
+
     pub(crate) fn on_new_cursor_agent(
         &mut self,
         _: &NewCursorAgent,
@@ -80,7 +95,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        match self.agent_definitions.create_definition(None, profile) {
+        match self.agent_definitions.create_quick_definition(profile) {
             Ok(definition) => {
                 self.spawn_agent_card_from_spec(agent_spec_from_definition(&definition), window, cx)
             }
@@ -157,15 +172,6 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    pub(crate) fn on_toolbar_new_claude_agent(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.spawn_agent_card(AgentProfile::Claude, window, cx);
-    }
-
     pub(crate) fn on_toolbar_new_codex_agent(
         &mut self,
         _: &ClickEvent,
@@ -173,24 +179,6 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.spawn_agent_card(AgentProfile::Codex, window, cx);
-    }
-
-    pub(crate) fn on_toolbar_new_opencode_agent(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.spawn_agent_card(AgentProfile::OpenCode, window, cx);
-    }
-
-    pub(crate) fn on_toolbar_new_cursor_agent(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.spawn_agent_card(AgentProfile::Cursor, window, cx);
     }
 }
 
@@ -225,6 +213,7 @@ mod tests {
             workflow_description: "Review code.".to_string(),
             enabled: true,
             sort_order: 0,
+            origin: storage::AgentDefinitionOrigin::Explicit,
         };
 
         let spec = agent_spec_from_definition(&definition);

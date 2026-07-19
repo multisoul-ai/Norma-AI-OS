@@ -4,18 +4,18 @@ members = [
   "crates/model_store",
   "crates/tts",
   "crates/asr",
+  "crates/license",
   "crates/audio",
   "crates/agent",
-  "crates/llm",
   "crates/dialogue",
   "crates/canvas",
-  "crates/card_task",
   "crates/storage",
   "crates/workspace",
   "crates/terminal",
   "crates/runtime",
   "crates/e2e",
   "crates/voice",
+  "crates/voice_azure",
   "crates/voice_sherpa",
   "crates/ui",
   "crates/norma",
@@ -24,7 +24,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-version = "0.1.29"
+version = "0.1.41"
 license = "MIT"
 
 # 版本钉死见 Global Constraints。gpui/alacritty_terminal 精确 pin。
@@ -38,6 +38,11 @@ portable-pty = "0.9"
 alacritty_terminal = "=0.26"
 crossbeam-channel = "0.5"
 async-channel = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+tokio-util = "0.7"
+rig-core = { version = "=0.40.0", default-features = false, features = ["reqwest", "rustls"] }
+futures = "0.3"
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 # 通用
 anyhow = "1"
 thiserror = "2"
@@ -56,8 +61,8 @@ audio = { path = "crates/audio" }
 model_store = { path = "crates/model_store" }
 tts = { path = "crates/tts" }
 asr = { path = "crates/asr" }
+license = { path = "crates/license" }
 agent = { path = "crates/agent" }
-llm = { path = "crates/llm" }
 dialogue = { path = "crates/dialogue" }
 canvas = { path = "crates/canvas" }
 storage = { path = "crates/storage" }
@@ -65,10 +70,17 @@ workspace = { path = "crates/workspace" }
 terminal = { path = "crates/terminal" }
 runtime = { path = "crates/runtime" }
 voice = { path = "crates/voice" }
+voice_azure = { path = "crates/voice_azure" }
 voice_sherpa = { path = "crates/voice_sherpa" }
 ui = { path = "crates/ui" }
 norma = { path = "crates/norma" }
-card_task = { path = "crates/card_task" }
+
+# GPUI 0.2.2 intentionally leaks a stopped CVDisplayLink in Drop to avoid a
+# CoreVideo callback race. Norma's patch keeps that safety behavior but reuses
+# the same link across synchronous displayLayer paints instead of dropping and
+# recreating it on every repaint. See vendor/gpui-0.2.2/NORMA_PATCH.md.
+[patch.crates-io]
+gpui = { path = "vendor/gpui-0.2.2" }
 
 [profile.dev]
 opt-level = 1          # gpui/alacritty 在 opt-level=0 下交互偏卡，地基级折中

@@ -104,6 +104,19 @@ pub(crate) enum PreviewReadError {
     ReadFailed(String),
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum PreviewPathError {
+    InvalidFileUri,
+}
+
+impl std::fmt::Display for PreviewPathError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidFileUri => write!(f, "Invalid local file URI"),
+        }
+    }
+}
+
 impl std::fmt::Display for PreviewReadError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -113,6 +126,26 @@ impl std::fmt::Display for PreviewReadError {
             Self::ReadFailed(error) => write!(f, "Could not read file: {error}"),
         }
     }
+}
+
+pub(crate) fn resolve_preview_path(
+    workspace_root: &Path,
+    target: &str,
+) -> Result<PathBuf, PreviewPathError> {
+    if target.starts_with("file://") {
+        return url::Url::parse(target)
+            .ok()
+            .filter(|url| url.scheme() == "file")
+            .and_then(|url| url.to_file_path().ok())
+            .ok_or(PreviewPathError::InvalidFileUri);
+    }
+
+    let path = PathBuf::from(target);
+    Ok(if path.is_absolute() {
+        path
+    } else {
+        workspace_root.join(path)
+    })
 }
 
 pub(crate) fn infer_preview_type(

@@ -100,6 +100,7 @@ fn agent_profile_name(profile: AgentProfile) -> &'static str {
         AgentProfile::Claude => "Claude",
         AgentProfile::Codex => "Codex",
         AgentProfile::Cursor => "Cursor",
+        AgentProfile::Grok => "Grok",
         AgentProfile::OpenCode => "OpenCode",
     }
 }
@@ -111,6 +112,7 @@ Allowed commands:
 {"type":"create","kind":{"kind":"agent","profile":"Codex"}}
 {"type":"create","kind":{"kind":"agent","profile":"Claude"}}
 {"type":"create","kind":{"kind":"agent","profile":"Cursor"}}
+{"type":"create","kind":{"kind":"agent","profile":"Grok"}}
 {"type":"create","kind":{"kind":"agent","profile":"OpenCode"}}
 {"type":"focus","target":{"type":"node_id","node_id":1}}
 {"type":"send_text","target":{"type":"previous_step","step":0},"text":"hello","submit":false}
@@ -124,16 +126,17 @@ fn planning_rules_prompt() -> &'static str {
      4. 打开codex, 开启codex, 创建codex, or open/create Codex means create a new agent profile Codex card.\n\
      5. Claude Code, 打开claude code, 开启claude code, or open/create Claude means create a new agent profile Claude card.\n\
      6. OpenCode, opencode, 打开opencode, 开启opencode, or open/create OpenCode means create a new agent profile OpenCode card.\n\
-     7. Terminal, terminal, 终端, 命令行 mean create terminal.\n\
-     8. 输入, 发送, 发给, send, input, type mean send_text.\n\
-     9. If send_text happens after newly created cards and no explicit target is named, target the most recently created compatible card with previous_step.\n\
-     10. Use TARGETS only for existing-card routing by node_id, alias/name, focused, or selected.\n\
-     11. 不要提交 or 不执行 means submit=false. 提交, 执行, or 回车 means submit=true.\n\
-     12. target and kind must be single objects, never arrays.\n\
-     13. Do not output delete, list, unsupported commands, or natural-language-only plans.\n\
-     14. Chinese ASR may insert spaces between every character; ignore those spaces when identifying commands.\n\
-     15. If ASR says 合 between requested cards, treat it as 和 when the sentence means and.\n\
-     16. If uncertain, set confidence below 0.65."
+     7. Grok, 打开grok, 开启grok, or open/create Grok means create a new agent profile Grok card.\n\
+     8. Terminal, terminal, 终端, 命令行 mean create terminal.\n\
+     9. 输入, 发送, 发给, send, input, type mean send_text.\n\
+     10. If send_text happens after newly created cards and no explicit target is named, target the most recently created compatible card with previous_step.\n\
+     11. Use TARGETS only for existing-card routing by node_id, alias/name, focused, or selected.\n\
+     12. 不要提交 or 不执行 means submit=false. 提交, 执行, or 回车 means submit=true.\n\
+     13. target and kind must be single objects, never arrays.\n\
+     14. Do not output delete, list, unsupported commands, or natural-language-only plans.\n\
+     15. Chinese ASR may insert spaces between every character; ignore those spaces when identifying commands.\n\
+     16. If ASR says 合 between requested cards, treat it as 和 when the sentence means and.\n\
+     17. If uncertain, set confidence below 0.65."
 }
 
 fn repair_rules_prompt() -> &'static str {

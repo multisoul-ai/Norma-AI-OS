@@ -2,6 +2,7 @@
 pub mod grid;
 pub mod input;
 pub mod message;
+mod process_tree;
 pub mod pty;
 pub mod session;
 pub mod test_backend;

@@ -5,9 +5,11 @@
 //! 下方 `pub use` 释放 e2e / bin 所需的公开 API，避免泄漏 `pub(crate)` 类型。
 mod app;
 mod assets;
+mod browser_auth_host;
 mod canvas;
 mod cards;
 mod frame_diagnostics;
+mod license_gate;
 mod menu_bar;
 mod motion;
 mod norma;
@@ -23,14 +25,17 @@ mod menu_bar_tests;
 pub use app::{
     AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState, AppScreen,
     CopyCardContent, ExitFocus, InitializationAnimationE2eSnapshot, MultisoulApp, NewBrowser,
-    NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewOpenCodeAgent, NewTerminal, NewWindow,
-    OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
+    NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewGrokAgent, NewOpenCodeAgent, NewTerminal,
+    NewWindow, OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
     ToggleMasterLayout, ToggleSettings,
 };
 pub use assets::EmbeddedAssets;
+pub use browser_auth_host::run_browser_auth_native_host;
+
+#[cfg(feature = "e2e-test-support")]
+pub use license_gate::build_activation_root_e2e;
 
 use gpui::{App, Application, KeyBinding};
-use workspace::windowing::{open_multisoul_window, InitialWindowState};
 
 pub fn run_norma_os() {
     app::cef_process::exit_if_cef_subprocess();
@@ -62,8 +67,9 @@ pub fn run_norma_os() {
             })
             .detach();
 
-            open_multisoul_window(InitialWindowState::Launchpad, cx)
-                .expect("failed to open window");
+            // Hard gate: Activation shell or Workbench via GateRoot (ADR 0015).
+            // Developers: NORMA_SKIP_LICENSE=1. E2E still constructs MultisoulApp directly.
+            license_gate::open_gated_window(cx).expect("failed to open window");
             cx.activate(true);
         });
 }

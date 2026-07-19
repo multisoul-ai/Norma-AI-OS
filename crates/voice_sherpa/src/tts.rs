@@ -4,8 +4,9 @@ use audio::{PcmAudioChunk, PcmFormat};
 use dialogue::{DialogueError, TtsClient};
 use sherpa_onnx::{
     GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsKokoroModelConfig,
-    OfflineTtsMatchaModelConfig, OfflineTtsModelConfig,
+    OfflineTtsMatchaModelConfig, OfflineTtsModelConfig, OfflineTtsZipvoiceModelConfig,
 };
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// Energy-free silent PCM for unit tests.
@@ -49,6 +50,14 @@ impl SherpaTtsClient {
         model: &tts::AvailableTtsModel,
         voice_id: &tts::TtsVoiceId,
     ) -> Result<Self, SpeechError> {
+        Self::from_available_model_with_reference(model, voice_id, None)
+    }
+
+    pub fn from_available_model_with_reference(
+        model: &tts::AvailableTtsModel,
+        voice_id: &tts::TtsVoiceId,
+        reference: Option<&tts::ZipVoiceReference>,
+    ) -> Result<Self, SpeechError> {
         let voice = model.descriptor().voice(voice_id).ok_or_else(|| {
             SpeechError::ModelNotFound(format!(
                 "voice {} is unavailable for TTS model {}",
@@ -62,6 +71,11 @@ impl SherpaTtsClient {
             ..Default::default()
         };
         match model.descriptor().backend() {
+            tts::TtsBackend::Matcha
+                if model.descriptor().id().as_str() == tts::MATCHA_ZH_EN_MODEL_ID =>
+            {
+                Self::from_matcha_zh_en_model_dir_with_generation(model.root(), generation)
+            }
             tts::TtsBackend::Matcha => Self::from_model_dir_with_generation(
                 model.root(),
                 &model.root().join("vocos-22khz-univ.onnx"),
@@ -70,7 +84,30 @@ impl SherpaTtsClient {
             tts::TtsBackend::Kokoro => {
                 Self::from_kokoro_model_dir_with_generation(model.root(), generation)
             }
+            tts::TtsBackend::ZipVoice => {
+                let reference = reference.ok_or_else(|| {
+                    SpeechError::ModelNotFound(
+                        "ZipVoice requires an imported reference WAV and exact transcript"
+                            .to_string(),
+                    )
+                })?;
+                Self::from_zipvoice_model_dir(model.root(), reference)
+            }
         }
+    }
+
+    fn from_zipvoice_model_dir(
+        model_dir: &Path,
+        reference: &tts::ZipVoiceReference,
+    ) -> Result<Self, SpeechError> {
+        if !model_dir.exists() {
+            return Err(SpeechError::ModelNotFound(model_dir.display().to_string()));
+        }
+        let (config, generation) = build_zipvoice_tts_config(model_dir, reference);
+        let inner = OfflineTts::create(&config).ok_or_else(|| {
+            SpeechError::Recognizer("failed to create OfflineTts with ZipVoice model".to_string())
+        })?;
+        Ok(Self { inner, generation })
     }
 
     pub fn from_kokoro_model_dir(model_dir: &Path) -> Result<Self, SpeechError> {
@@ -114,6 +151,53 @@ impl SherpaTtsClient {
 
     pub fn from_model_dir(model_dir: &Path, vocoder_path: &Path) -> Result<Self, SpeechError> {
         Self::from_model_dir_with_generation(model_dir, vocoder_path, generation_config_from_env())
+    }
+
+    fn from_matcha_zh_en_model_dir_with_generation(
+        model_dir: &Path,
+        generation: GenerationConfig,
+    ) -> Result<Self, SpeechError> {
+        if !model_dir.exists() {
+            return Err(SpeechError::ModelNotFound(model_dir.display().to_string()));
+        }
+        let vocoder_path = model_dir.join("vocos-16khz-univ.onnx");
+        if !vocoder_path.exists() {
+            return Err(SpeechError::ModelNotFound(
+                vocoder_path.display().to_string(),
+            ));
+        }
+
+        let config = OfflineTtsConfig {
+            model: OfflineTtsModelConfig {
+                matcha: OfflineTtsMatchaModelConfig {
+                    acoustic_model: Some(path_string(&model_dir.join("model-steps-3.onnx"))),
+                    vocoder: Some(path_string(&vocoder_path)),
+                    lexicon: Some(path_string(&model_dir.join("lexicon.txt"))),
+                    tokens: Some(path_string(&model_dir.join("tokens.txt"))),
+                    data_dir: Some(path_string(&model_dir.join("espeak-ng-data"))),
+                    noise_scale: 0.667,
+                    length_scale: 1.0,
+                    ..Default::default()
+                },
+                num_threads: 2,
+                provider: Some("cpu".to_string()),
+                debug: false,
+                ..Default::default()
+            },
+            rule_fsts: Some(format!(
+                "{},{},{}",
+                path_string(&model_dir.join("phone-zh.fst")),
+                path_string(&model_dir.join("date-zh.fst")),
+                path_string(&model_dir.join("number-zh.fst"))
+            )),
+            ..Default::default()
+        };
+        let inner = OfflineTts::create(&config).ok_or_else(|| {
+            SpeechError::Recognizer(
+                "failed to create OfflineTts with Matcha zh-en model".to_string(),
+            )
+        })?;
+        Ok(Self { inner, generation })
     }
 
     fn from_model_dir_with_generation(
@@ -167,6 +251,45 @@ impl SherpaTtsClient {
             &resolve_matcha_vocoder_path()?,
         )
     }
+}
+
+pub fn build_zipvoice_tts_config(
+    model_dir: &Path,
+    reference: &tts::ZipVoiceReference,
+) -> (OfflineTtsConfig, GenerationConfig) {
+    let config = OfflineTtsConfig {
+        model: OfflineTtsModelConfig {
+            zipvoice: OfflineTtsZipvoiceModelConfig {
+                tokens: Some(path_string(&model_dir.join("tokens.txt"))),
+                encoder: Some(path_string(&model_dir.join("encoder.int8.onnx"))),
+                decoder: Some(path_string(&model_dir.join("decoder.int8.onnx"))),
+                vocoder: Some(path_string(&model_dir.join("vocos_24khz.onnx"))),
+                data_dir: Some(path_string(&model_dir.join("espeak-ng-data"))),
+                lexicon: Some(path_string(&model_dir.join("lexicon.txt"))),
+                feat_scale: 0.1,
+                t_shift: 0.5,
+                target_rms: 0.1,
+                guidance_scale: 1.0,
+            },
+            num_threads: 2,
+            provider: Some("cpu".to_string()),
+            debug: false,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let mut extra = HashMap::new();
+    extra.insert("min_char_in_sentence".to_string(), serde_json::json!(10));
+    let generation = GenerationConfig {
+        speed: 1.0,
+        reference_audio: Some(reference.samples().to_vec()),
+        reference_sample_rate: reference.sample_rate_hz() as i32,
+        reference_text: Some(reference.transcript().to_string()),
+        num_steps: 4,
+        extra: Some(extra),
+        ..Default::default()
+    };
+    (config, generation)
 }
 
 impl TtsClient for SherpaTtsClient {
@@ -288,3 +411,7 @@ fn generation_config_from_env() -> GenerationConfig {
 #[cfg(test)]
 #[path = "../tests/unit/tts_tests.rs"]
 mod tts_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/zipvoice_real_tts_tests.rs"]
+mod zipvoice_real_tts_tests;

@@ -9,6 +9,7 @@ model_store.workspace = true
 dirs.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+hound = "3.5"
 
 [dev-dependencies]
 tempfile.workspace = true

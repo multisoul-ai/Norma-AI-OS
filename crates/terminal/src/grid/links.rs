@@ -68,11 +68,11 @@ impl GridSnapshot {
                 .unwrap_or(false)
     }
 
-    /// 返回当前工作区内可预览的相对文件路径；拒绝绝对路径与父目录穿越。
+    /// 返回可预览的本机文件目标；具体路径解析与文件校验由 app 后台加载链路负责。
     pub fn preview_path_at(&self, row: usize, col: usize) -> Option<String> {
         let token = terminal_token_at(self.rows.get(row)?, col)?;
         let path = trim_url_trailing_punctuation(&token);
-        is_safe_preview_path(path).then(|| path.to_string())
+        is_preview_path_candidate(path).then(|| path.to_string())
     }
 }
 
@@ -168,18 +168,34 @@ fn trim_url_trailing_punctuation(url: &str) -> &str {
     url.trim_end_matches(['.', ',', ';', ':', '!', ')', ']', '}'])
 }
 
-fn is_safe_preview_path(path: &str) -> bool {
-    let extension = path.rsplit_once('.').map(|(_, extension)| extension);
-    !path.is_empty()
-        && !path.starts_with('/')
-        && path.contains('/')
-        && !path
-            .split('/')
-            .any(|part| part.is_empty() || part == "." || part == "..")
-        && matches!(
-            extension,
-            Some("md" | "markdown" | "txt" | "png" | "jpg" | "jpeg")
+fn is_preview_path_candidate(path: &str) -> bool {
+    let extension = path
+        .rsplit_once('.')
+        .map(|(_, extension)| extension.to_ascii_lowercase());
+    let supported_extension = matches!(
+        extension.as_deref(),
+        Some(
+            "md" | "markdown"
+                | "mdown"
+                | "mkd"
+                | "txt"
+                | "text"
+                | "log"
+                | "png"
+                | "jpg"
+                | "jpeg"
+                | "gif"
+                | "webp"
+                | "bmp"
+                | "tif"
+                | "tiff"
+                | "svg"
         )
+    );
+    if path.starts_with("file://") {
+        return supported_extension;
+    }
+    !path.is_empty() && !path.contains("://") && path.contains('/') && supported_extension
 }
 
 fn is_valid_web_url(url: &str) -> bool {

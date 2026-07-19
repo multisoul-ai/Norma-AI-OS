@@ -1,12 +1,8 @@
-//! Public e2e-facing app snapshots.
-//!
-//! These accessors keep external e2e tests on stable, primitive state without
-//! exposing the full private settings model.
+//! Stable, primitive e2e projections that do not expose private settings models.
 
 use super::{AppScreen, MultisoulApp};
-use crate::settings::agent_hooks::AgentHookServer;
-use crate::shortcuts::ShortcutCommandId;
-use crate::shortcuts::ShortcutSettingsState;
+use crate::settings::{agent_hooks::AgentHookServer, ThemeSettingsState};
+use crate::shortcuts::{ShortcutCommandId, ShortcutSettingsState};
 use gpui::{App, Context};
 use runtime::Runtime;
 #[cfg(feature = "e2e-test-support")]
@@ -17,8 +13,16 @@ use voice_sherpa::SpeechError;
 #[cfg(feature = "e2e-test-support")]
 mod agent_announcements;
 mod agents;
+#[cfg(feature = "e2e-test-support")]
+mod browser;
+mod recent_projects;
+mod shortcuts;
 mod tts;
+mod voice;
+#[cfg(feature = "e2e-test-support")]
+mod voice_setup;
 pub use agents::{AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot};
+use shortcuts::shortcut_command_name;
 use tts::{snapshot_tts_models, TtsModelE2eSnapshot};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -26,6 +30,7 @@ pub enum ApiKeyDisplayState {
     NotRendered,
     NotConfigured,
     Configured,
+    Revealed,
     MaskedEditing,
     Unsafe,
 }
@@ -34,6 +39,10 @@ pub enum ApiKeyDisplayState {
 pub struct SettingsE2eSnapshot {
     pub settings_open: bool,
     pub active_section: &'static str,
+    pub active_theme_id: &'static str,
+    pub theme_is_dark: bool,
+    pub theme_canvas_from: u32,
+    pub theme_accent: u32,
     pub recording_command: Option<&'static str>,
     pub new_terminal_shortcut: Option<String>,
     pub new_terminal_modified: bool,
@@ -58,6 +67,10 @@ pub struct SettingsE2eSnapshot {
     pub asr_models: Vec<AsrModelE2eSnapshot>,
     pub selected_tts_model_id: Option<String>,
     pub selected_tts_voice_id: Option<String>,
+    pub zipvoice_reference_ready: bool,
+    pub zipvoice_reference_importing: bool,
+    pub zipvoice_reference_draft_path: String,
+    pub zipvoice_reference_draft_transcript: String,
     pub tts_models: Vec<TtsModelE2eSnapshot>,
     pub tts_preview_active: bool,
     pub tts_configuration_generation: u64,
@@ -96,15 +109,6 @@ pub struct VoiceWindowInsetE2eSnapshot {
     pub corner_seam_guard_alpha_milli: u16,
 }
 
-/// 语音入口的稳定 e2e 投影：覆盖用户可见状态，不暴露录音或对话实现对象。
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VoiceE2eSnapshot {
-    pub phase: &'static str,
-    pub dialogue_phase: &'static str,
-    pub label: String,
-    pub microphone_recovery_available: bool,
-}
-
 impl MultisoulApp {
     #[cfg(feature = "e2e-test-support")]
     pub fn set_voice_model_root_for_e2e(&mut self, model_root: PathBuf, cx: &mut Context<Self>) {
@@ -113,9 +117,7 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    /// 聚焦卡片当前是否应推进 terminal cursor 的运行中动画。
-    ///
-    /// 这是面向 headless e2e 的稳定投影：Agent 卡片会同时考虑 PTY 生命周期
+    /// 聚焦卡片当前是否应推进 terminal cursor 的运行中动画。Agent 卡片会同时考虑 PTY 生命周期
     /// 与 Agent task 状态，普通 Terminal 则只考虑 PTY 生命周期。
     pub fn focused_terminal_cursor_animation_active_e2e(&self) -> bool {
         self.focused_terminal_cursor_animation_active()
@@ -128,8 +130,12 @@ impl MultisoulApp {
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
         let mut app = Self::build(cx, runtime, agent_hook_server);
         app.browsers.disable_native_views();
+        let (theme_id, theme_settings) = ThemeSettingsState::in_memory_default();
+        app.configure_theme_settings(theme_id, theme_settings, cx);
         app.shortcuts = ShortcutSettingsState::default();
         app.voice_settings = crate::settings::voice::VoiceSettingsState::in_memory_default();
+        #[cfg(feature = "e2e-test-support")]
+        app.voice_settings.assume_legacy_ready_for_e2e();
         app.voice_settings_inputs
             .sync_from_state(&app.voice_settings, cx);
         app
@@ -145,7 +151,11 @@ impl MultisoulApp {
         store: storage::SettingsStore,
     ) -> Self {
         let mut app = Self::new_with_pty_factory(cx, factory);
+        let (theme_id, theme_settings) = ThemeSettingsState::load_from_store(store.clone());
+        app.configure_theme_settings(theme_id, theme_settings, cx);
         app.voice_settings = crate::settings::voice::VoiceSettingsState::load_from_store(store);
+        #[cfg(feature = "e2e-test-support")]
+        app.voice_settings.assume_legacy_ready_for_e2e();
         app.voice_settings_inputs
             .sync_from_state(&app.voice_settings, cx);
         app
@@ -159,7 +169,7 @@ impl MultisoulApp {
         (
             profile.base_url().to_string(),
             profile.model().to_string(),
-            profile.api_key().is_some(),
+            profile.credential_configured(),
         )
     }
 
@@ -190,6 +200,7 @@ impl MultisoulApp {
                         crate::motion::InitializationAnimationKind::Codex => "codex",
                         crate::motion::InitializationAnimationKind::Claude => "claude",
                         crate::motion::InitializationAnimationKind::Cursor => "cursor",
+                        crate::motion::InitializationAnimationKind::Grok => "grok",
                         crate::motion::InitializationAnimationKind::OpenCode => "opencode",
                     },
                     asset: crate::cards::intro::intro_asset_name(presentation.kind),
@@ -202,9 +213,7 @@ impl MultisoulApp {
             })
     }
 
-    /// 以精确的逻辑时长推进 app 动效，供 headless e2e 验证帧边界使用。
-    ///
-    /// 真实窗口由 12ms 帧循环驱动；测试必须能直接验证 31ms 初始化帧和 80ms
+    /// 以精确逻辑时长推进 app 动效。真实窗口由 12ms 帧循环驱动；测试必须能直接验证 31ms 初始化帧和 80ms
     /// 用户中断边界，不能让帧循环量化误差改变产品时间线。
     pub fn advance_animations_for_e2e(&mut self, delta: Duration, cx: &mut Context<Self>) {
         let motion_changed = self.motion.tick(delta);
@@ -254,27 +263,6 @@ impl MultisoulApp {
         }
     }
 
-    pub fn voice_e2e_snapshot(&self) -> VoiceE2eSnapshot {
-        VoiceE2eSnapshot {
-            phase: match self.voice.phase() {
-                crate::app::voice::control::VoicePhase::Idle => "idle",
-                crate::app::voice::control::VoicePhase::Recording { .. } => "recording",
-                crate::app::voice::control::VoicePhase::Transcribing => "transcribing",
-                crate::app::voice::control::VoicePhase::Executed { .. } => "executed",
-                crate::app::voice::control::VoicePhase::TranscriptOnly { .. } => "transcript_only",
-                crate::app::voice::control::VoicePhase::Error { .. } => "error",
-            },
-            dialogue_phase: match self.dialogue.phase() {
-                dialogue::DialoguePhase::Idle => "idle",
-                dialogue::DialoguePhase::Listening => "listening",
-                dialogue::DialoguePhase::Thinking => "thinking",
-                dialogue::DialoguePhase::Speaking => "speaking",
-            },
-            label: self.effective_voice_label(),
-            microphone_recovery_available: self.can_open_microphone_privacy_settings(),
-        }
-    }
-
     pub fn enter_canvas_for_test(&mut self, root: &std::path::Path, cx: &mut Context<Self>) {
         let project_store = storage::ProjectStore::for_workspace(root)
             .expect("e2e workspace root should initialize project storage");
@@ -290,8 +278,20 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    /// 注入已被 TCC 拒绝的麦克风错误，供 L1 e2e 验证应用内恢复 UI。
-    /// 系统设置本身属于 L3 外部流程，不能由 headless GPUI 修改。
+    pub fn show_workspace_error_for_e2e(
+        &mut self,
+        message: impl Into<String>,
+        cx: &mut Context<Self>,
+    ) {
+        self.workspace_state.error = Some(message.into());
+        cx.notify();
+    }
+
+    pub fn workspace_error_for_e2e(&self) -> Option<String> {
+        self.workspace_state.error.clone()
+    }
+
+    /// 注入 TCC 拒绝错误供 L1 验证应用内恢复 UI；系统设置属于 L3，不能由 headless GPUI 修改。
     pub fn show_microphone_permission_denied_for_e2e(&mut self, cx: &mut Context<Self>) {
         self.voice.set_speech_error(&SpeechError::MicrophoneDenied);
         cx.notify();
@@ -321,9 +321,17 @@ impl MultisoulApp {
             .effective
             .iter()
             .find(|entry| entry.command == ShortcutCommandId::NewTerminal);
+        let api_key_text = self
+            .voice_settings_inputs
+            .rendered_text(crate::settings::voice::VoiceSettingsField::ApiKey, cx);
+        let api_key_profile = self.voice_settings.values().active_provider_profile();
         SettingsE2eSnapshot {
             settings_open: self.settings_panel.open,
             active_section: self.settings_panel.active_section.title(),
+            active_theme_id: self.theme_id.as_str(),
+            theme_is_dark: self.theme_id.is_dark(),
+            theme_canvas_from: self.theme.canvas_from,
+            theme_accent: self.theme.accent,
             recording_command: self.shortcuts.recording.map(shortcut_command_name),
             new_terminal_shortcut: new_terminal.and_then(|entry| entry.current_keystroke.clone()),
             new_terminal_modified: new_terminal.map(|entry| entry.modified).unwrap_or(false),
@@ -340,8 +348,7 @@ impl MultisoulApp {
                 .voice_settings
                 .values()
                 .active_provider_profile()
-                .api_key()
-                .is_some(),
+                .credential_configured(),
             agent_base_url_input_surface_size: self
                 .voice_settings_inputs
                 .input_surface_size(crate::settings::voice::VoiceSettingsField::BaseUrl, cx),
@@ -355,9 +362,9 @@ impl MultisoulApp {
                 .voice_settings_inputs
                 .rendered_text(crate::settings::voice::VoiceSettingsField::Model, cx),
             agent_api_key_display_state: classify_api_key_display(
-                self.voice_settings_inputs
-                    .rendered_text(crate::settings::voice::VoiceSettingsField::ApiKey, cx)
-                    .as_deref(),
+                api_key_text.as_deref(),
+                self.voice_settings_inputs.api_key_revealed(cx),
+                api_key_profile.api_key(),
             ),
             voice_editing_field: self
                 .voice_settings
@@ -435,6 +442,16 @@ impl MultisoulApp {
                 .values()
                 .tts_voice_id()
                 .map(|id| id.as_str().to_string()),
+            zipvoice_reference_ready: self.voice_settings.zipvoice_reference_ready(),
+            zipvoice_reference_importing: self.voice_settings.zipvoice_reference_importing(),
+            zipvoice_reference_draft_path: self
+                .voice_settings
+                .zipvoice_reference_draft_path()
+                .to_string(),
+            zipvoice_reference_draft_transcript: self
+                .voice_settings
+                .zipvoice_reference_draft_transcript()
+                .to_string(),
             tts_models: snapshot_tts_models(&self.voice_settings),
             tts_preview_active: self.tts_preview.is_active(),
             tts_configuration_generation: self.dialogue.tts_configuration_generation(),
@@ -446,34 +463,20 @@ fn opacity_to_milli(opacity: f32) -> u16 {
     (opacity.clamp(0.0, 1.0) * 1000.0).round() as u16
 }
 
-fn classify_api_key_display(text: Option<&str>) -> ApiKeyDisplayState {
+fn classify_api_key_display(
+    text: Option<&str>,
+    revealed: bool,
+    expected_secret: Option<&str>,
+) -> ApiKeyDisplayState {
     match text {
         None => ApiKeyDisplayState::NotRendered,
+        Some(value) if revealed && expected_secret == Some(value) => ApiKeyDisplayState::Revealed,
+        Some(_) if revealed => ApiKeyDisplayState::Unsafe,
         Some("Not configured") => ApiKeyDisplayState::NotConfigured,
-        Some("Configured ••••••••") => ApiKeyDisplayState::Configured,
+        Some("*********") => ApiKeyDisplayState::Configured,
         Some(value) if !value.is_empty() && value.chars().all(|character| character == '•') => {
             ApiKeyDisplayState::MaskedEditing
         }
         Some(_) => ApiKeyDisplayState::Unsafe,
-    }
-}
-
-fn shortcut_command_name(command: ShortcutCommandId) -> &'static str {
-    match command {
-        ShortcutCommandId::NewWindow => "new_window",
-        ShortcutCommandId::NewTerminal => "new_terminal",
-        ShortcutCommandId::NewBrowser => "new_browser",
-        ShortcutCommandId::CopyCardContent => "copy_card_content",
-        ShortcutCommandId::OpenProject => "open_project",
-        ShortcutCommandId::OpenPreviewFile => "open_preview_file",
-        ShortcutCommandId::NewClaudeAgent => "new_claude_agent",
-        ShortcutCommandId::NewCodexAgent => "new_codex_agent",
-        ShortcutCommandId::NewCursorAgent => "new_cursor_agent",
-        ShortcutCommandId::NewOpenCodeAgent => "new_opencode_agent",
-        ShortcutCommandId::DeleteCard => "delete_card",
-        ShortcutCommandId::ReflowLayout => "reflow_layout",
-        ShortcutCommandId::ToggleMasterLayout => "toggle_master_layout",
-        ShortcutCommandId::ExitFocus => "exit_focus",
-        ShortcutCommandId::ToggleSettings => "toggle_settings",
     }
 }

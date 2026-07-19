@@ -8,10 +8,10 @@ use ui::Theme;
 
 pub(super) fn settings_shadow(theme: Theme) -> Vec<BoxShadow> {
     vec![BoxShadow {
-        color: rgba(with_alpha(theme.shadow_color, 0x9a)).into(),
-        offset: point(px(0.0), px(26.0)),
-        blur_radius: px(58.0),
-        spread_radius: px(-22.0),
+        color: rgba(with_alpha(theme.shadow_color, 0xb0)).into(),
+        offset: point(px(0.0), px(32.0)),
+        blur_radius: px(72.0),
+        spread_radius: px(-24.0),
     }]
 }
 

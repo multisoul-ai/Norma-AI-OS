@@ -1,10 +1,12 @@
+mod lifecycle;
 mod selection;
 mod support;
 
-use self::support::{
-    display_value, no_command_modifiers, readable_agent_store_error, validate_agent_definition_text,
-};
+#[cfg(test)]
+use self::support::no_command_modifiers;
+use self::support::{display_value, readable_agent_store_error, validate_agent_definition_text};
 use canvas::AgentProfile;
+#[cfg(test)]
 use gpui::Keystroke;
 use storage::{AgentDefinition, AgentDefinitionStore};
 
@@ -76,33 +78,6 @@ impl AgentDefinitionsState {
 
     pub(crate) fn definitions(&self) -> &[AgentDefinition] {
         &self.definitions
-    }
-
-    pub(crate) fn create_definition(
-        &mut self,
-        requested_name: Option<String>,
-        runtime_profile: AgentProfile,
-    ) -> Result<AgentDefinition, String> {
-        let store = self
-            .store
-            .as_ref()
-            .ok_or_else(|| "Open a project before creating Agents.".to_string())?;
-        let name =
-            requested_name.unwrap_or_else(|| support::next_default_agent_name(&self.definitions));
-        if name.is_empty() {
-            return Err("All 30 built-in Agent names are in use; specify a custom name.".into());
-        }
-        agent::AgentName::parse(&name).map_err(|error| error.to_string())?;
-        let created = store
-            .create(&storage::NewAgentDefinition {
-                name,
-                runtime_profile,
-                workflow_description: String::new(),
-            })
-            .map_err(|error| support::readable_agent_store_error(&error))?;
-        self.reload();
-        self.select_after_reload(Some(created.id));
-        Ok(created)
     }
 
     pub(crate) fn definition_by_address(&self, address: &str) -> Option<&AgentDefinition> {
@@ -352,12 +327,16 @@ impl AgentDefinitionsState {
     }
 
     pub(crate) fn begin_edit(&mut self, field: AgentDefinitionField) {
+        if self.editing.is_some_and(|editing| editing != field) {
+            self.commit_pending_edit();
+        }
         self.edit_buffer = self.field_value(field).to_string();
         self.editing = Some(field);
         self.status = None;
         self.clear_delete_confirmation();
     }
 
+    #[cfg(test)]
     pub(crate) fn handle_key_down(&mut self, keystroke: &Keystroke) -> bool {
         let Some(field) = self.editing else {
             return false;
@@ -395,6 +374,31 @@ impl AgentDefinitionsState {
 
     pub(super) fn is_editing(&self, field: AgentDefinitionField) -> bool {
         self.editing == Some(field)
+    }
+
+    pub(super) fn edit_buffer(&self) -> &str {
+        &self.edit_buffer
+    }
+
+    pub(crate) fn replace_edit_buffer(
+        &mut self,
+        field: AgentDefinitionField,
+        value: impl Into<String>,
+    ) -> bool {
+        if self.editing != Some(field) {
+            return false;
+        }
+        self.edit_buffer = value.into();
+        self.clear_delete_confirmation();
+        true
+    }
+
+    pub(crate) fn commit_active_edit(&mut self, field: AgentDefinitionField) -> bool {
+        if self.editing != Some(field) {
+            return false;
+        }
+        self.commit_edit(field);
+        true
     }
 
     pub(super) fn row_value(&self, field: AgentDefinitionField) -> String {

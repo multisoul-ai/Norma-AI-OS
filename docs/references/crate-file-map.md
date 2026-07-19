@@ -92,6 +92,16 @@ Boundary rules:
 - `asr` must not depend on GPUI, Sherpa, app, runtime, storage, or UI.
 - Network download and progress live in `app`; Sherpa recognizer configuration lives in `voice_sherpa`.
 
+## `voice_azure`
+
+Purpose: adapt Azure Speech short-audio REST recognition without adding network access to `asr`.
+
+Important files:
+
+- `src/lib.rs` - region-specific STT endpoint construction, redacted credentials, request execution, and response parsing.
+- `tests/unit/client_tests.rs` - deterministic HTTP contract and error tests using a local fake server.
+- `tests/azure_speech_live.rs` - ignored real-service smoke test with macOS M4A/WAV normalization via `afconvert`.
+
 ## `model_store` and `tts`
 
 Purpose: keep common local-model installation mechanics separate from engine-neutral TTS policy.
@@ -122,6 +132,8 @@ Important files:
 - `crates/app/src/cards/chrome.rs` - shared card chrome helpers.
 - `crates/app/src/cards/term/` - terminal card renderer, terminal view, and grid painter.
 - `crates/app/src/cards/agent/` - agent card renderer.
+- `crates/app/src/app/browser/` - Browser state, Wry/CEF adapters, and explicit Chrome Cookie import broker/protocol.
+- `crates/app/src/browser_auth_host.rs` - Chrome Native Messaging framing, user-level host manifest, and bundled extension discovery.
 
 ## Source Organization
 

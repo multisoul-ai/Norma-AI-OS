@@ -168,6 +168,45 @@ fn test_parse_create_opencode_agent_command() {
     );
 }
 
+/// Norma CLI：`card create agent --profile grok` 应创建持久 Grok Agent 并激活卡片。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   argv profile = "grok"（Grok Build 官方 CLI 名称）
+///   name=None → app 从内置名称池分配唯一名称
+///   activate=true → 定义创建后同时生成唯一活跃卡片
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. parse_command_from(argv)
+///   2. 检查 CreateAgent 的 profile/name/activate
+///
+/// 预期结果：
+///   - 正断言：生成 name=None、profile=Grok、activate=true 的高层命令
+///   - 负断言：不应误生成 Codex 高层命令
+#[test]
+fn test_parse_create_grok_agent_command() {
+    let command = parse_command_from(["norma", "card", "create", "agent", "--profile", "grok"])
+        .expect("Grok agent create CLI 应解析成功");
+
+    assert_eq!(
+        command,
+        CardCommand::CreateAgent {
+            name: None,
+            profile: AgentProfile::Grok,
+            activate: true,
+        },
+        "card create agent --profile grok 应生成持久 Grok Agent 定义并激活卡片"
+    );
+    assert_ne!(
+        command,
+        CardCommand::CreateAgent {
+            name: None,
+            profile: AgentProfile::Codex,
+            activate: true,
+        },
+        "grok profile 不应被误解析为 Codex"
+    );
+}
+
 /// Norma CLI：`card create preview PATH --type markdown` 应生成 Preview 创建命令。
 ///
 /// 数据构造（含关键数值的推导过程）：

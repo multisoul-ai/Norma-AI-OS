@@ -13,14 +13,14 @@ pub(crate) struct LaunchpadLayout {
     pub content_max_height: f32,
 }
 
-pub(crate) const CONTENT_WIDTH: f32 = 560.0;
-pub(crate) const ACTION_CARD_WIDTH: f32 = 180.0;
-pub(crate) const ACTION_CARD_HEIGHT: f32 = 92.0;
+pub(crate) const CONTENT_WIDTH: f32 = 500.0;
+pub(crate) const ACTION_CARD_WIDTH: f32 = 168.0;
+pub(crate) const ACTION_CARD_HEIGHT: f32 = 44.0;
 
 const SAFE_EDGE: f32 = 24.0;
 const WIDE_THRESHOLD: f32 = 1180.0;
-const OPTION_ONE_CONTENT_LEFT: f32 = 118.0;
-const OPTION_ONE_CONTENT_TOP: f32 = 186.0;
+const REVIEWED_CONTENT_LEFT: f32 = 96.0;
+const REVIEWED_CONTENT_TOP: f32 = 92.0;
 const MIN_SHORT_TOP: f32 = 84.0;
 
 pub(crate) fn launchpad_layout_for_window(width: f32, height: f32) -> LaunchpadLayout {
@@ -30,13 +30,14 @@ pub(crate) fn launchpad_layout_for_window(width: f32, height: f32) -> LaunchpadL
         LaunchpadLayoutMode::Compact
     };
     let content_width = CONTENT_WIDTH.min((width - SAFE_EDGE * 2.0).max(280.0));
-    let content_top = ((height - 512.0) * 0.48).clamp(MIN_SHORT_TOP, OPTION_ONE_CONTENT_TOP);
+    let content_top = (MIN_SHORT_TOP + (height - 640.0).max(0.0) * 0.031)
+        .clamp(MIN_SHORT_TOP, REVIEWED_CONTENT_TOP);
     let content_max_height = (height - content_top - SAFE_EDGE).max(320.0);
 
     match mode {
         LaunchpadLayoutMode::Wide => {
             let wide_t = ((width - WIDE_THRESHOLD) / (1440.0 - WIDE_THRESHOLD)).clamp(0.0, 1.0);
-            let content_left = SAFE_EDGE + (OPTION_ONE_CONTENT_LEFT - SAFE_EDGE) * wide_t;
+            let content_left = SAFE_EDGE + (REVIEWED_CONTENT_LEFT - SAFE_EDGE) * wide_t;
 
             LaunchpadLayout {
                 mode,

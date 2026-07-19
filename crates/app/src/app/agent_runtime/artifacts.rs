@@ -5,13 +5,21 @@ pub(crate) fn artifacts_from_agent_events(
     events: Vec<AgentEvent>,
 ) -> crate::app::dialogue::VoiceTurnArtifacts {
     diagnostics::turn_events(&events);
+    let play_reply = events.is_empty()
+        || !events.iter().all(|event| {
+            matches!(
+                event,
+                AgentEvent::TaskQueued { .. } | AgentEvent::DialogueStreamFinished
+            )
+        });
     let mut reply = String::new();
     for event in events {
         match event {
             AgentEvent::DialogueTextDelta { text } => reply.push_str(&text),
             AgentEvent::DialogueStreamFinished => {}
-            AgentEvent::TaskQueued { summary, .. } => reply = format!("任务已派发：{summary}"),
+            AgentEvent::TaskQueued { summary, .. } => reply = format!("任务处理中：{summary}"),
             AgentEvent::TaskSucceeded { summary, .. } => reply = summary,
+            AgentEvent::TaskPartiallyDispatched { summary, .. } => reply = summary,
             AgentEvent::TaskFailed { reason, .. } => reply = format!("任务失败：{reason}"),
             AgentEvent::TaskCancelled { .. } => reply = "任务已取消".to_string(),
             AgentEvent::TaskInterrupted { .. } => reply = "任务已中断".to_string(),
@@ -28,7 +36,7 @@ pub(crate) fn artifacts_from_agent_events(
             _ => {}
         }
     }
-    let reply = strip_thinking_blocks(&reply);
+    let reply = agent::visible_norma_reply(&reply);
     let reply = if reply.trim().is_empty() {
         diagnostics::empty_turn_fallback();
         "我没有收到有效回复，请再试一次。".to_string()
@@ -37,23 +45,9 @@ pub(crate) fn artifacts_from_agent_events(
     };
     crate::app::dialogue::VoiceTurnArtifacts {
         reply_text: reply,
+        play_reply,
         executed_commands: Vec::new(),
         template_reports: Vec::new(),
         queued_template_reports: Vec::new(),
     }
-}
-
-fn strip_thinking_blocks(text: &str) -> String {
-    let mut visible = String::with_capacity(text.len());
-    let mut remaining = text;
-    while let Some(start) = remaining.find("<think>") {
-        visible.push_str(&remaining[..start]);
-        let after_start = &remaining[start + "<think>".len()..];
-        let Some(end) = after_start.find("</think>") else {
-            return visible.trim().to_string();
-        };
-        remaining = &after_start[end + "</think>".len()..];
-    }
-    visible.push_str(remaining);
-    visible.trim().to_string()
 }

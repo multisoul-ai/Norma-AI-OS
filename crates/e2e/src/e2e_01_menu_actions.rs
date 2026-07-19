@@ -1,10 +1,73 @@
 //! 原生菜单 Action 的 L1 验收：OpenCode 与 Cursor 创建命令必须到达 Canvas root。
 
-use app::{NewCursorAgent, NewOpenCodeAgent};
+use app::{NewCursorAgent, NewGrokAgent, NewOpenCodeAgent};
 use canvas::{AgentProfile, CanvasNodeKind};
 use gpui::TestAppContext;
 
 use crate::harness::{echo_factory, enter_canvas, make_app, read_runtime};
+
+/// E2E-MENU-GROK：File › New 共享的 `NewGrokAgent` Action 应创建 Grok Build 卡片。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   初始 Agent 节点数 = 0（fresh Launchpad + 临时 workspace）
+///   dispatch 次数 = 1（唯一一次 NewGrokAgent）
+///   预期 Agent 节点数 = 0 + 1 = 1
+///   预期 profile = AgentProfile::Grok（Grok Build 独立 runtime profile）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用确定性 echo PTY 构造 headless GPUI app 并进入 Canvas；
+///   2. dispatch 公开 `NewGrokAgent` Action；
+///   3. Action 经 root handler 调用 `spawn_agent_card(Grok)`；
+///   4. 读取 Runtime document 中的新节点。
+///
+/// 预期结果：
+///   - 正断言：恰好创建一张 Grok Agent 卡片；
+///   - 负断言：不得误建 Codex profile，也不得额外创建 Terminal。
+#[test]
+fn e2e_menu_new_grok_agent_dispatches_to_canvas_root() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("Grok 菜单 Action 测试应创建临时 workspace");
+    enter_canvas(&app, cx, workspace.path());
+
+    cx.dispatch_action(NewGrokAgent);
+    cx.run_until_parked();
+
+    let nodes = read_runtime(&app, cx, |runtime| runtime.document.nodes().to_vec());
+    let agent_nodes: Vec<_> = nodes
+        .iter()
+        .filter_map(|node| match &node.kind {
+            CanvasNodeKind::Agent(spec) => Some(spec),
+            _ => None,
+        })
+        .collect();
+    let terminal_count = nodes
+        .iter()
+        .filter(|node| matches!(node.kind, CanvasNodeKind::Term(_)))
+        .count();
+
+    assert_eq!(
+        agent_nodes.len(),
+        1,
+        "dispatch NewGrokAgent 后应恰好创建 1 个 Agent 节点，实际为 {}",
+        agent_nodes.len()
+    );
+    assert_eq!(
+        agent_nodes[0].profile,
+        AgentProfile::Grok,
+        "NewGrokAgent 必须创建 Grok profile"
+    );
+    assert_ne!(
+        agent_nodes[0].profile,
+        AgentProfile::Codex,
+        "NewGrokAgent 不能错误复用 Codex profile"
+    );
+    assert_eq!(
+        terminal_count, 0,
+        "NewGrokAgent 不应创建 Terminal 节点，实际 Terminal 数为 {}",
+        terminal_count
+    );
+}
 
 /// E2E-MENU-01：从 File › New 共享的 `NewOpenCodeAgent` Action 创建 OpenCode Agent 节点。
 ///

@@ -1,5 +1,6 @@
 use super::{AgentDefinitionDraft, AgentDefinitionField, MAX_WORKFLOW_DESCRIPTION_CHARS};
 use canvas::AgentProfile;
+#[cfg(test)]
 use gpui::Keystroke;
 use storage::AgentDefinition;
 
@@ -48,6 +49,7 @@ pub(super) fn readable_agent_store_error(error: &storage::StorageError) -> Strin
     }
 }
 
+#[cfg(test)]
 pub(super) fn no_command_modifiers(keystroke: &Keystroke) -> bool {
     !keystroke.modifiers.platform && !keystroke.modifiers.control && !keystroke.modifiers.alt
 }
@@ -71,8 +73,7 @@ pub(super) fn next_default_agent_name(definitions: &[AgentDefinition]) -> String
             .map(|definition| definition.name.as_str()),
     )
     .ok()
-    .and_then(|registry| registry.next_available_builtin())
-    .map(|builtin| builtin.name().to_string())
+    .and_then(|registry| registry.next_available_name())
     .unwrap_or_default()
 }
 

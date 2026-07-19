@@ -43,6 +43,53 @@ fn test_ansi_escape_does_not_crash_and_char_lands() {
     assert_eq!(snap.rows[0][0].c, 'X', "ANSI 颜色转义后 'X' 应正常落在首格");
 }
 
+/// DSR 光标位置查询：TerminalGrid 必须按查询发生时的 1-based 坐标回写 CSI 响应。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   可见文本 = b"abc" = 3 个 ASCII 单元格，写入后 cursor 为 0-based (line=0, col=3)
+///   查询序列 = ESC [ 6 n = [0x1b, b'[', b'6', b'n']，共 4 字节
+///   终端协议坐标 = (line + 1, col + 1) = (0 + 1, 3 + 1) = (1, 4)
+///   期望响应 = ESC [ 1 ; 4 R = b"\x1b[1;4R"，共 6 字节
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. `advance(b"abc")` → ANSI parser 在第 0 行写入三格，光标移动到第 3 列
+///   2. `advance(ESC[6n)` → parser 识别 Device Status Report 的 cursor-position 查询
+///   3. TerminalGrid 从 parser event 取出 PTY 回写字节，供 TerminalSession 发回子进程
+///   4. snapshot() → 保留 abc，查询控制序列不应变成可见文本
+///
+/// 预期结果：
+///   - 断言 A：响应精确为 `ESC[1;4R`，使 Grok 等 TUI 能读取当前光标坐标
+///   - 断言 B：响应不是原点 `ESC[1;1R`，避免错误地忽略已写入的三列
+///   - 断言 C：首行仍含 abc，DSR 查询不得污染终端网格
+#[test]
+fn test_dsr_cursor_position_query_returns_current_cursor_to_pty() {
+    let mut g = TerminalGrid::new(80, 24);
+    let initial_reply = g.advance(b"abc");
+    let reply = g.advance(b"\x1b[6n");
+    let snap = g.snapshot();
+    let first_row: String = snap.rows[0].iter().map(|cell| cell.c).collect();
+
+    assert!(
+        initial_reply.is_empty(),
+        "普通可见文本不应触发 PTY 回写，实际: {:?}",
+        initial_reply
+    );
+    assert_eq!(
+        reply, b"\x1b[1;4R",
+        "abc 后的 DSR 查询应回传 1-based 光标坐标 ESC[1;4R，实际: {:?}",
+        reply
+    );
+    assert_ne!(
+        reply, b"\x1b[1;1R",
+        "DSR 响应不应错误地报告原点 ESC[1;1R，abc 已把光标右移三列"
+    );
+    assert!(
+        first_row.starts_with("abc"),
+        "DSR 查询不应污染已写入的 abc，实际首行: {:?}",
+        first_row
+    );
+}
+
 /// OSC 8 链接：解析器应把链接目标保留到中性快照，供 UI 按单元格坐标命中。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -121,37 +168,47 @@ fn test_snapshot_detects_bare_https_url_and_rejects_unsafe_schemes() {
     );
 }
 
-/// 工作区相对 Markdown 路径：终端输出应识别为 Preview 候选，父目录穿越不得识别。
+/// 本机 Markdown 路径：工作区内外的文件都应识别，非文件 URI scheme 不得识别。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   安全路径 = "docs/adr/0015-license-hard-gate-outside-workbench.md"，首格 col=0
-///   非法路径 = "../secrets.md"，首格 col=0，含一个 `..` 父目录分量
+///   工作区内路径 = "docs/adr/0015-license-hard-gate-outside-workbench.md"，首格 col=0
+///   工作区外路径 = "../shared/result.md"，首格 col=0，含一个 `..` 父目录分量
+///   非文件 URI = "ssh://example.com/shared/result.md"，首格 col=0
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 分别写入安全相对 Markdown 路径和父目录穿越路径
-///   2. 对首格调用 `preview_path_at`
+///   1. 分别写入工作区内路径、工作区外路径和非文件 URI
+///   2. 对三者首格调用 `preview_path_at`
 ///
 /// 预期结果：
-///   - 断言 A：安全路径返回完整相对路径，供 app 在 workspace root 下创建 Preview
-///   - 断言 B：`..` 路径返回 None，不能越过当前项目根目录
+///   - 正断言：工作区内路径返回完整相对路径
+///   - 正断言：`..` 路径也返回完整目标，允许只读预览工作区外文件
+///   - 负断言：ssh URI 不得冒充本机 Preview 文件
 #[test]
-fn test_snapshot_detects_safe_relative_preview_path_and_rejects_parent_traversal() {
-    let mut safe_grid = TerminalGrid::new(100, 24);
-    safe_grid.advance(b"docs/adr/0015-license-hard-gate-outside-workbench.md");
-    let safe = safe_grid.snapshot();
-    let mut unsafe_grid = TerminalGrid::new(100, 24);
-    unsafe_grid.advance(b"../secrets.md");
-    let unsafe_path = unsafe_grid.snapshot();
+fn test_snapshot_detects_local_preview_paths_inside_and_outside_workspace() {
+    let mut inside_grid = TerminalGrid::new(100, 24);
+    inside_grid.advance(b"docs/adr/0015-license-hard-gate-outside-workbench.md");
+    let inside = inside_grid.snapshot();
+    let mut outside_grid = TerminalGrid::new(100, 24);
+    outside_grid.advance(b"../shared/result.md");
+    let outside = outside_grid.snapshot();
+    let mut remote_grid = TerminalGrid::new(100, 24);
+    remote_grid.advance(b"ssh://example.com/shared/result.md");
+    let remote = remote_grid.snapshot();
 
     assert_eq!(
-        safe.preview_path_at(0, 0).as_deref(),
+        inside.preview_path_at(0, 0).as_deref(),
         Some("docs/adr/0015-license-hard-gate-outside-workbench.md"),
         "workspace 内的相对 Markdown 路径应保留完整值，以便创建 Preview 卡片"
     );
     assert_eq!(
-        unsafe_path.preview_path_at(0, 0),
+        outside.preview_path_at(0, 0).as_deref(),
+        Some("../shared/result.md"),
+        "含 .. 的路径应保留完整值，允许只读预览 workspace 外文件"
+    );
+    assert_eq!(
+        remote.preview_path_at(0, 0),
         None,
-        "带 .. 的路径不得成为 Preview 候选，避免越过 workspace root"
+        "ssh URI 不是本机文件路径，不得成为 Preview 候选"
     );
 }
 

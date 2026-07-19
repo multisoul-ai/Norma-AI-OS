@@ -20,6 +20,24 @@ use ui::Theme;
 
 const LAUNCHPAD_DEFAULT_VIDEO_ASSET: &str = "wallpapers/home.mp4";
 
+/// Production overlay values selected by the fixed-frame HD benchmark.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) struct LaunchpadBackdropOverlay {
+    horizontal_start: u8,
+    horizontal_end: u8,
+    vertical_start: u8,
+    vertical_end: u8,
+}
+
+impl LaunchpadBackdropOverlay {
+    const BALANCED: Self = Self {
+        horizontal_start: 0x28,
+        horizontal_end: 0x18,
+        vertical_start: 0x18,
+        vertical_end: 0x30,
+    };
+}
+
 pub(crate) fn launchpad_default_video_asset() -> &'static str {
     LAUNCHPAD_DEFAULT_VIDEO_ASSET
 }
@@ -32,7 +50,7 @@ impl MultisoulApp {
     pub(crate) fn render_launchpad(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Div {
         // Launchpad owns a fixed video background. It intentionally does not use
         // `wallpaper_settings`: Canvas wallpaper selection must not alter the
-        // startup screen's home.mp4 playback.
+        // startup screen's dedicated home video playback.
         #[cfg(target_os = "macos")]
         self.sync_video_wallpaper(launchpad_default_video_path().as_deref(), cx);
 
@@ -43,6 +61,7 @@ impl MultisoulApp {
         let launchpad_video = self.render_launchpad_video_layer();
         #[cfg(not(target_os = "macos"))]
         let launchpad_video = div().size_full();
+        let overlay = LaunchpadBackdropOverlay::BALANCED;
 
         div()
             .absolute()
@@ -51,8 +70,8 @@ impl MultisoulApp {
             .right(px(0.0))
             .bottom(px(0.0))
             .overflow_hidden()
-            .bg(rgba(theme.graphite))
-            .child(launchpad_backdrop(theme, launchpad_video))
+            .bg(rgba(theme.canvas_from))
+            .child(launchpad_backdrop(theme, launchpad_video, overlay))
             .child(
                 div()
                     .absolute()
@@ -62,7 +81,7 @@ impl MultisoulApp {
                     .h(px(layout.content_max_height))
                     .flex()
                     .flex_col()
-                    .gap(px(20.0))
+                    .gap(px(24.0))
                     .child(launchpad_brand(theme))
                     .child(
                         div()
@@ -116,15 +135,6 @@ pub(super) fn launchpad_shadow(theme: Theme) -> Vec<BoxShadow> {
         offset: point(px(0.0), px(16.0)),
         blur_radius: px(34.0),
         spread_radius: px(-22.0),
-    }]
-}
-
-pub(super) fn launchpad_logo_shadow(theme: Theme) -> Vec<BoxShadow> {
-    vec![BoxShadow {
-        color: rgba(with_alpha(theme.shadow_color, 0x8c)).into(),
-        offset: point(px(0.0), px(12.0)),
-        blur_radius: px(24.0),
-        spread_radius: px(-14.0),
     }]
 }
 

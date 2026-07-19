@@ -201,8 +201,7 @@ pub fn restore_live_sessions_with_node_sessions(
 
                 // Resume only from the session id persisted for this node. Workspace opening
                 // must never scan provider history directories on the foreground thread.
-                let use_resume =
-                    resolve_agent_restore_session_id(node_session, profile, ctx.workspace_root);
+                let use_resume = resolve_agent_restore_session_id(node_session, profile, None);
 
                 let command = match use_resume.as_deref() {
                     Some(session_id) => session_snapshot::build_agent_resume_command(
@@ -229,6 +228,7 @@ pub fn restore_live_session_for_node_with_node_sessions(
     node_id: NodeId,
     checkpoints: &[SessionCheckpoint],
     node_sessions: &[NodeSession],
+    discovered_session_id: Option<&str>,
     document: &Document,
     ctx: &mut RestoreCtx<'_>,
 ) -> bool {
@@ -265,7 +265,7 @@ pub fn restore_live_session_for_node_with_node_sessions(
                 .unwrap_or(spec.profile);
             let hook_env = ctx.make_hook_env(node_id, profile);
             let use_resume =
-                resolve_agent_restore_session_id(node_session, profile, ctx.workspace_root);
+                resolve_agent_restore_session_id(node_session, profile, discovered_session_id);
             let command = match use_resume.as_deref() {
                 Some(session_id) => session_snapshot::build_agent_resume_command(
                     profile,
@@ -299,18 +299,20 @@ pub fn save_node_sessions(
 fn resolve_agent_restore_session_id(
     node_session: Option<&NodeSession>,
     profile: AgentProfile,
-    _workspace_root: Option<&Path>,
+    discovered_session_id: Option<&str>,
 ) -> Option<String> {
     if !matches!(
         profile,
-        AgentProfile::Claude | AgentProfile::Codex | AgentProfile::Cursor
+        AgentProfile::Claude | AgentProfile::Codex | AgentProfile::Cursor | AgentProfile::Grok
     ) {
         return None;
     }
-    node_session
+    let saved_session_id = node_session
         .filter(|s| s.kind == NodeSessionKind::Agent)
         .and_then(|s| s.session_id.as_deref())
-        .filter(|session_id| !session_id.is_empty())
+        .filter(|session_id| !session_id.is_empty());
+    saved_session_id
+        .or_else(|| discovered_session_id.filter(|session_id| !session_id.is_empty()))
         .map(ToString::to_string)
 }
 
@@ -435,7 +437,25 @@ pub fn build_agent_restore_command_for_test(
     hook_env: Option<&AgentHookEnv>,
     workspace_root: Option<&Path>,
 ) -> PtyCommand {
-    let session_id = resolve_agent_restore_session_id(Some(session), profile, workspace_root);
+    build_agent_restore_command_with_discovery_for_test(
+        session,
+        profile,
+        hook_env,
+        workspace_root,
+        None,
+    )
+}
+
+#[cfg(test)]
+pub fn build_agent_restore_command_with_discovery_for_test(
+    session: &NodeSession,
+    profile: AgentProfile,
+    hook_env: Option<&AgentHookEnv>,
+    workspace_root: Option<&Path>,
+    discovered_session_id: Option<&str>,
+) -> PtyCommand {
+    let session_id =
+        resolve_agent_restore_session_id(Some(session), profile, discovered_session_id);
     match session_id.as_deref() {
         Some(id) => session_snapshot::build_agent_resume_command(
             profile,
@@ -446,16 +466,6 @@ pub fn build_agent_restore_command_for_test(
         ),
         None => agent_command(profile, hook_env),
     }
-}
-
-#[cfg(test)]
-pub fn resolve_agent_restore_session_id_for_test(
-    session: Option<&NodeSession>,
-    profile: AgentProfile,
-    workspace_root: Option<&Path>,
-    _discovered_session_id: Option<&str>,
-) -> Option<String> {
-    resolve_agent_restore_session_id(session, profile, workspace_root)
 }
 
 #[cfg(test)]

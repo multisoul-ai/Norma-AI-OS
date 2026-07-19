@@ -1,4 +1,8 @@
 use crate::app::MultisoulApp;
+#[cfg(feature = "e2e-test-support")]
+use gpui::{Context, Window};
+#[cfg(feature = "e2e-test-support")]
+use norma::protocol::{CardCommand, CardCommandResult};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentDefinitionE2eSnapshot {
@@ -18,11 +22,49 @@ pub struct AgentSettingsE2eSnapshot {
 }
 
 impl MultisoulApp {
+    pub fn current_canvas_context_e2e(&self) -> Option<agent::CurrentCanvasContext> {
+        self.current_canvas_context_for_provider()
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn execute_agent_card_command_for_e2e(
+        &mut self,
+        window: &mut Window,
+        command: CardCommand,
+    ) -> Result<CardCommandResult, String> {
+        crate::app::agent_runtime::execute_agent_card_command(self, window, command)
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn execute_norma_adapter_command_for_e2e(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        command: agent::AdapterCommand,
+    ) -> Result<agent::AdapterResult, String> {
+        crate::app::agent_runtime::execute_norma_adapter_command(self, window, cx, command)
+            .map_err(|error| error.to_string())
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn enqueue_agent_hook_event_for_e2e(
+        &self,
+        event: norma::agent_hook::AgentHookEvent,
+    ) -> Result<(), String> {
+        self.agent_hook_server.enqueue_event_for_e2e(event)
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn agent_submission_waiting_for_e2e(&self, node_id: canvas::NodeId) -> bool {
+        self.pending_agent_submissions.is_waiting(node_id)
+    }
+
     pub fn agent_settings_e2e_snapshot(&self) -> AgentSettingsE2eSnapshot {
         let profile_name = |profile| match profile {
             canvas::AgentProfile::Claude => "claude",
             canvas::AgentProfile::Codex => "codex",
             canvas::AgentProfile::Cursor => "cursor",
+            canvas::AgentProfile::Grok => "grok",
             canvas::AgentProfile::OpenCode => "opencode",
         };
         AgentSettingsE2eSnapshot {

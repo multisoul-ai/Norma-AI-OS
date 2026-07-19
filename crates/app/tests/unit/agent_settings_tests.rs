@@ -297,7 +297,7 @@ fn test_agent_settings_facade_reexports_task2_types() {
 /// AS-5: Agents 设置页应从空白占位升级为真实内容，至少暴露列表、表单和保存入口锚点。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source files = content.rs + agents.rs + agents/view.rs（view.rs 在 Task 3 前不存在）
+///   source files = content.rs + agents.rs + agents/view.rs + agents/text_input.rs，共 4 个入口
 ///   required ids  = 6 个：
 ///     settings-agents-list
 ///     settings-agent-name-input
@@ -308,35 +308,46 @@ fn test_agent_settings_facade_reexports_task2_types() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 Settings content 与 agents facade 的源码
-///   2. 尝试读取 agents/view.rs 真实视图源码
-///   3. 断言关键 ids 已出现在实现中，证明 Agents 页面不再是空白占位
+///   2. 读取 agents/view.rs 与拆出的 agents/text_input.rs 真实视图源码
+///   3. 逐一断言 6 个关键 id 已出现在实现中，证明 Agents 页面不再是空白占位
 ///
 /// 预期结果：
 ///   - 正断言：所有 Agents 视图锚点都存在
-///   - 负断言：缺少 view.rs 时测试必须失败，证明 Task 3 尚未实现
+///   - 负断言：缺少 view.rs 或 text_input.rs 时测试必须失败，证明页面契约不完整
 #[test]
 fn test_agents_settings_section_renders_real_content() {
     let source = format!(
-        "{}{}{}",
+        "{}{}{}{}",
         include_str!("../../src/settings/content.rs"),
         include_str!("../../src/settings/agents.rs"),
-        include_str!("../../src/settings/agents/view.rs")
+        include_str!("../../src/settings/agents/view.rs"),
+        include_str!("../../src/settings/agents/text_input.rs")
     );
-    let required = [
-        "settings-agents-list",
-        "settings-agent-name-input",
-        "settings-agent-workflow-input",
-        "settings-agent-profile-codex",
-        "settings-agent-save",
-        "settings-agent-empty-project",
-    ];
 
-    for anchor in required {
-        assert!(
-            source.contains(anchor),
-            "Agents 设置页应包含真实内容锚点: {anchor}"
-        );
-    }
+    assert!(
+        source.contains("settings-agents-list"),
+        "Agents 设置页应包含列表锚点 settings-agents-list"
+    );
+    assert!(
+        source.contains("settings-agent-name-input"),
+        "Agents 设置页应包含原生名称输入锚点 settings-agent-name-input"
+    );
+    assert!(
+        source.contains("settings-agent-workflow-input"),
+        "Agents 设置页应包含原生工作流输入锚点 settings-agent-workflow-input"
+    );
+    assert!(
+        source.contains("settings-agent-profile-codex"),
+        "Agents 设置页应包含 Codex profile 锚点 settings-agent-profile-codex"
+    );
+    assert!(
+        source.contains("settings-agent-save"),
+        "Agents 设置页应包含保存入口锚点 settings-agent-save"
+    );
+    assert!(
+        source.contains("settings-agent-empty-project"),
+        "Agents 设置页应包含空项目锚点 settings-agent-empty-project"
+    );
 }
 
 /// AS-6: 没有 project store 时，Agents 设置页应显示空项目提示并禁用“创建可保存 agent”路径。
@@ -381,7 +392,7 @@ fn test_agents_settings_no_project_state_disables_create_controls() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings/content.rs
-///   target route = SettingsSection::Agents => agents_settings(...)
+///   target route = SettingsSection::Agents 分支调用 agents_settings(theme, agent_definitions, window, cx)
 ///   forbidden fallback = SettingsSection::Agents => div()
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -397,8 +408,9 @@ fn test_agents_settings_content_routes_agents_section_to_agents_view() {
     let source = include_str!("../../src/settings/content.rs");
 
     assert!(
-        source.contains("SettingsSection::Agents => agents_settings("),
-        "Settings content 应把 Agents 分组路由到 agents_settings"
+        source.contains("SettingsSection::Agents => {")
+            && source.contains("agents_settings(theme, agent_definitions, window, cx)"),
+        "Settings content 应把 Agents 分组路由到带 Window 上下文的 agents_settings"
     );
     assert!(
         !source.contains(

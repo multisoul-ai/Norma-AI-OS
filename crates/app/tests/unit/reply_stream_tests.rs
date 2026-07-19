@@ -1,9 +1,66 @@
 use super::reply_stream::capture::write_pcm_chunks_to_wav;
 use super::reply_stream::{pcm_trace_fingerprint, QueuedPlaybackChunk, StreamPlaybackBuffer};
-use super::{DialogueControlState, TtsPreviewControl};
+use super::{DialogueControlState, SharedTtsRuntime, TtsPreviewControl};
 use audio::{PcmAudioChunk, PcmFormat};
+use dialogue::DialoguePhase;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+
+/// MEM-TTS-1：Dialogue 与 Agent announcement 顺序使用 TTS 后只能保留一个模型实例。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   initial clients     = 1 个 FakeTtsClient（代表已加载的 Kokoro/ONNX runtime）
+///   sequential users    = 2 个（Dialogue、Agent announcement）
+///   expected residents  = 1 个，而不是 1 × 2 = 2 个
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. Dialogue 通过共享 runtime 合成一次；factory 创建第 1 个 FakeTtsClient。
+///   2. Agent announcement 再通过同一 runtime 合成；应复用 resident client。
+///   3. 检查两次业务调用的 PCM 和最终 resident/factory 计数。
+///
+/// 预期结果：
+///   - 正断言：两条业务路径都能得到非空 PCM。
+///   - 正断言：两次顺序使用后共享 runtime 仍恰好保留 1 个 client。
+///   - 负断言：factory 不得执行第 2 次，否则同配置被重复加载。
+#[test]
+fn test_dialogue_and_agent_announcement_share_one_resident_tts_client() {
+    let runtime = SharedTtsRuntime::default();
+    let creations = Arc::new(AtomicUsize::new(0));
+    let synthesize = |text: &str| {
+        let creations_for_factory = Arc::clone(&creations);
+        runtime
+            .with_client(
+                None,
+                move || {
+                    creations_for_factory.fetch_add(1, Ordering::SeqCst);
+                    Ok::<_, String>(super::fake_tts_client_for_tests())
+                },
+                |tts| tts.synthesize(text).map_err(|error| error.to_string()),
+            )
+            .expect("Fake TTS 合成不应失败")
+    };
+
+    let dialogue_pcm = synthesize("Dialogue reply");
+    let announcement_pcm = synthesize("Agent done");
+
+    assert!(!dialogue_pcm.bytes.is_empty(), "Dialogue 必须得到非空 PCM");
+    assert!(
+        !announcement_pcm.bytes.is_empty(),
+        "Agent announcement 必须复用 runtime 并得到非空 PCM"
+    );
+
+    assert_eq!(
+        runtime.resident_client_count_for_tests(),
+        1,
+        "两条业务路径顺序完成后必须只保留一个 resident TTS client"
+    );
+    assert_eq!(
+        creations.load(Ordering::SeqCst),
+        1,
+        "同一配置下 Dialogue 与 Agent announcement 不得创建第二个 TTS client"
+    );
+}
 
 fn pcm16_mono_chunk(sample_rate_hz: u32, duration: Duration) -> PcmAudioChunk {
     let frame_count = (duration.as_secs_f64() * f64::from(sample_rate_hz)) as usize;
@@ -14,6 +71,61 @@ fn pcm16_mono_chunk(sample_rate_hz: u32, duration: Duration) -> PcmAudioChunk {
         vec![0; frame_count * 2],
     )
     .expect("测试 PCM 应满足 PCM16 mono 格式约束")
+}
+
+/// STR-SILENT-1：TaskQueued 的静默临时回复必须完整结束生命周期且不启动音频工作。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   initial phase          = Thinking：Listening 经 1 次 utterance final 后得到
+///   display replies        = 1：“任务处理中：检查当前项目”
+///   expected speech items  = 0
+///   expected PCM chunks    = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 把 DialogueSession 从 Idle 切到 Listening，再以 utterance final 进入 Thinking
+///   2. 调用 finish_silent_reply 保存临时文字并结束当前 reply stream
+///   3. 读取 phase、显示文本、TTS task、speech queue 与 PCM pending 数
+///
+/// 预期结果：
+///   - 正断言：phase 回到 Listening，处理中临时文字仍可显示
+///   - 负断言：不得创建 speech task、speech segment 或 PCM 播放块
+#[test]
+fn test_silent_queued_reply_returns_to_listening_without_tts_or_pcm() {
+    let mut dialogue = DialogueControlState::default();
+    dialogue.session.on_listening_started();
+    dialogue
+        .session
+        .on_utterance_final()
+        .expect("Listening 收到 final 后必须进入 Thinking");
+
+    dialogue.finish_silent_reply("任务处理中：检查当前项目".to_string());
+
+    assert_eq!(
+        dialogue.phase(),
+        DialoguePhase::Listening,
+        "静默完成 TaskQueued 临时回复后必须回到 Listening，不能卡在 Thinking"
+    );
+    assert_eq!(
+        dialogue.last_reply_text.as_deref(),
+        Some("任务处理中：检查当前项目"),
+        "静默只抑制播报，不得丢失界面需要显示的处理中状态"
+    );
+    assert!(
+        dialogue.speech_task.is_none(),
+        "静默 TaskQueued 不得创建 TTS synthesis task"
+    );
+    assert!(
+        dialogue.speech_queue.is_empty(),
+        "静默 TaskQueued 不得排入任何 speech segment"
+    );
+    assert_eq!(
+        dialogue.playback_chunks_pending, 0,
+        "静默 TaskQueued 不得产生待播放 PCM chunk"
+    );
+    assert!(
+        dialogue.reply_stream_started_at.is_none(),
+        "静默回复完成后必须清理 reply stream 计时状态"
+    );
 }
 
 /// STR-TRACE-1：诊断日志必须用稳定的 PCM 指纹区分“同一块被重复播放”和“不同音频块”。

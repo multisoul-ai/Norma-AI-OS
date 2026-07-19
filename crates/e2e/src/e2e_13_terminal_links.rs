@@ -1,4 +1,4 @@
-//! E2E-13：终端（含 Agent PTY）输出网页链接后，点击在 Norma 内打开新的 Browser master 卡片。
+//! E2E-13：终端（含 Agent PTY）输出网页或本机文件链接后，点击创建 Browser 或 Preview 卡片。
 
 use std::time::Duration;
 
@@ -6,7 +6,8 @@ use canvas::{CanvasNodeKind, NodeId, Vec2};
 use gpui::{point, px, Modifiers, MouseButton, TestAppContext};
 
 use crate::harness::{
-    create_terminal, drain_until, echo_factory, enter_canvas, make_app, read_runtime,
+    create_codex_agent, create_terminal, drain_until, echo_factory, enter_canvas, make_app,
+    read_runtime,
 };
 
 /// E2E-13：点击终端中的裸 https URL 后，新 Browser 成为 master，原终端留在 detail，且不抢网页键盘焦点。
@@ -106,6 +107,122 @@ fn e2e_13_terminal_https_link_creates_selected_browser_master_card() {
     );
 }
 
+/// E2E-13 Preview：点击 Agent 输出的工作区外 file URI 后，应创建指向真实本机文件的 Preview。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   workspace = 独立 tempdir A
+///   external dir = `/tmp` 下独立 tempdir B，明确不在 workspace A 内
+///   图片 = 有效 Codex brand PNG fixture，复制为 "external output.png"
+///   file URI = `file://` + 绝对路径，其中空格编码为 `%20`
+///   点击位置 = Agent 内容区 row 0,col 0 的首格中心
+///   点击前 Preview 数 = 0；点击后期望 Preview 数 = 1、Browser 数 = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 使用 echo PTY 创建 Codex Agent，把工作区外 PNG 的 file URI 写入并等待 grid 回显。
+///   2. 点击 URI 首格；生产路由识别 Preview 目标并解析 percent-encoding。
+///   3. 创建 Preview node，异步读取真实绝对路径，并保持原 Agent 卡片存在。
+///
+/// 预期结果：
+///   - 正断言：唯一 Preview 的 spec.path 精确等于工作区外 PNG 的真实绝对路径。
+///   - 正断言：新 Preview 是唯一 selected 节点，原 Agent 仍存在。
+///   - 负断言：spec.path 不得保留 `file://`，也不得错误拼到 workspace 下。
+///   - 负断言：本机文件不得误建 Browser 卡片。
+#[test]
+fn e2e_13_agent_external_file_uri_creates_local_preview_card() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("应创建隔离的 Agent Preview workspace");
+    let external = tempfile::Builder::new()
+        .prefix("norma-preview-")
+        .tempdir_in("/tmp")
+        .expect("应在 /tmp 创建工作区外的 Preview fixture 目录");
+    let image_path = external.path().join("external output.png");
+    std::fs::write(
+        &image_path,
+        include_bytes!("../../app/assets/init-animation/source/codex-brand.png"),
+    )
+    .expect("应写入有效 PNG 作为工作区外 Preview fixture");
+    let file_uri = format!("file://{}", image_path.display()).replace(' ', "%20");
+    enter_canvas(&app, cx, workspace.path());
+    let agent_id = create_codex_agent(&app, cx);
+
+    cx.simulate_input(&file_uri);
+    let grid_ready = drain_until(
+        &app,
+        cx,
+        |runtime| {
+            runtime.node_view(agent_id).and_then(|view| match view {
+                runtime::NodeView::Term { snapshot, .. } => snapshot
+                    .preview_path_at(0, 0)
+                    .as_deref()
+                    .filter(|candidate| *candidate == file_uri)
+                    .map(|_| ()),
+            })
+        },
+        // available wall time = 200ms；L1 echo 通常 1 个 12ms drain step 即收敛，
+        // 额外 188ms = 15 个以上 step，用于吸收测试调度抖动。
+        Duration::from_millis(200),
+    );
+    assert_eq!(
+        grid_ready,
+        Some(()),
+        "Agent echo 后首格应识别完整的工作区外 file URI"
+    );
+
+    let click = terminal_first_cell_point(&app, cx, agent_id);
+    cx.simulate_click(click, Modifiers::none());
+    cx.run_until_parked();
+
+    let (previews, browser_count, agent_exists, selected) = read_runtime(&app, cx, |runtime| {
+        let previews = runtime
+            .document
+            .nodes()
+            .iter()
+            .filter_map(|node| match &node.kind {
+                CanvasNodeKind::Preview(spec) => {
+                    Some((node.id, std::path::PathBuf::from(&spec.path)))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let browser_count = runtime
+            .document
+            .nodes()
+            .iter()
+            .filter(|node| matches!(node.kind, CanvasNodeKind::Browser(_)))
+            .count();
+        let agent_exists = runtime.document.node(agent_id).is_some();
+        let selected = runtime.selection.iter().collect::<Vec<_>>();
+        (previews, browser_count, agent_exists, selected)
+    });
+
+    assert_eq!(
+        previews.len(),
+        1,
+        "点击一次工作区外 file URI 应只创建一张 Preview"
+    );
+    let (preview_id, preview_path) = &previews[0];
+    assert_eq!(
+        preview_path, &image_path,
+        "Preview spec.path 应是 percent-decoding 后的真实工作区外绝对路径"
+    );
+    assert!(
+        !preview_path.starts_with(workspace.path()),
+        "工作区外图片不得被错误拼接到 workspace root"
+    );
+    assert!(
+        !preview_path.to_string_lossy().starts_with("file://"),
+        "Preview spec.path 不得保留无法被 PathBuf 读取的 file URI scheme"
+    );
+    assert_eq!(
+        selected,
+        vec![*preview_id],
+        "file URI 创建的新 Preview 应成为唯一 selected 节点"
+    );
+    assert!(agent_exists, "打开 Preview 后原 Agent 卡片必须继续存在");
+    assert_eq!(browser_count, 0, "本机 file URI 不得误建 Browser 卡片");
+}
+
 /// E2E-13：从终端链接拖出文字选择时，不得把按下动作误判为打开页面。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -196,8 +313,8 @@ fn terminal_first_cell_point(
             .document
             .viewport
             .canvas_to_screen(node.bounds.origin);
-        // x = padding(8) + half cell(4)；y = title(26) + padding(8) + half line(8)。
-        let cell_center = Vec2::new(top_left.x + 12.0 * zoom, top_left.y + 42.0 * zoom);
+        // x = padding(8) + half cell(4)；y = title(32) + padding(8) + half line(8)。
+        let cell_center = Vec2::new(top_left.x + 12.0 * zoom, top_left.y + 48.0 * zoom);
         point(px(cell_center.x), px(cell_center.y))
     })
 }

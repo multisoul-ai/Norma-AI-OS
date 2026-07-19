@@ -11,7 +11,7 @@ impl VoiceTextInput {
     fn display_text(&self) -> SharedString {
         if self.content.is_empty() {
             self.placeholder.clone()
-        } else if self.masked {
+        } else if self.masked && !self.revealed {
             "•".repeat(self.content.chars().count()).into()
         } else {
             self.content.clone()

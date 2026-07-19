@@ -57,6 +57,54 @@ config for the current process. The persisted files are advanced before the
 release build, and the next `cargo packager --release -c Packager.toml`
 invocation starts from that bumped version.
 
+## DMG Finder layout
+
+The release and development configurations use the same 640x400-point Finder
+layout. The app and Applications anchors are `(180, 175)` and `(460, 175)`.
+Finder draws its 16pt item labels below those anchors; the previous `y=200`
+positions put both labels across the bottom border of the background wells.
+
+The Retina background is authored in `assets/dmg-background.svg` and rendered
+to the packaged `assets/dmg-background.png` with:
+
+```bash
+bash scripts/render-dmg-background.sh
+```
+
+The renderer composites the real app icon into the header, emits a 1280x800 PNG
+at 144 DPI, and keeps the release asset reproducible. The two Finder label
+landing zones use light backing plates so the system-owned dark labels remain
+readable over the dark installer background. `scripts/test-packager-config.sh`
+checks the exact label zones for sufficient luminance and verifies that the
+header mark was not dropped during SVG rendering.
+
+Finder owns the item-label rendering. Its icon-view scripting interface exposes
+icon size, text size, label position, background picture, and background color,
+but not label text color. `cargo-packager`/`create-dmg` therefore cannot force
+these two labels to white. Keep the background readable with Finder's native
+label color and verify actual appearance on the supported macOS versions.
+
+## macOS app icon
+
+`assets/app-icon-source.png` is the tightly cropped brand artwork used by
+product surfaces and the DMG header. It is not packaged directly as the Dock
+icon. macOS needs additional transparent optical padding: the generated
+`assets/app-icon-macos.png` keeps the visible artwork at approximately
+824×769 px on a 1024×1024 canvas, then `assets/AppIcon.icns` supplies the
+standard 16–1024 px representations consumed by `cargo-packager`.
+
+Regenerate both macOS assets after changing the brand artwork:
+
+```bash
+bash scripts/render-app-icon.sh
+bash scripts/test-packager-config.sh
+```
+
+The packaging test checks the safe-area dimensions, centering, and pixel-level
+agreement between the reviewable 1024 px PNG and the largest ICNS entry. This
+prevents a tightly cropped source from making the Dock icon appear larger than
+neighboring apps.
+
 Codesigning 配置见 `packaging/macos/NormaOS.entitlements` 与
 `Packager.toml` 的 `[macos]` 段；notarization 只通过
 `cargo packager --notarize ...` 或 `scripts/release-local.sh --notarize` 显式开启，详见

@@ -134,7 +134,7 @@ fn test_voice_settings_env_fallback_and_refine_follows_planner() {
     );
 }
 
-/// VS-3: 保存设置和环境变量都缺失时，应回到当前语音链路默认值。
+/// VS-3: 保存设置和环境变量都缺失时，首次配置应默认进入 OpenAI-compatible。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   saved = 全部 None
@@ -142,6 +142,8 @@ fn test_voice_settings_env_fallback_and_refine_follows_planner() {
 ///   default endpoint = http://127.0.0.1:11434
 ///   default planner = OllamaVoicePlanner::default_model()
 ///   default refine = default planner
+///   default Agent Provider = OpenAI-compatible
+///   default OpenAI Base URL = https://api.openai.com/v1
 ///   trace default = false
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -149,9 +151,10 @@ fn test_voice_settings_env_fallback_and_refine_follows_planner() {
 ///   2. 读取各字段默认值
 ///
 /// 预期结果：
-///   - 正断言：endpoint / planner / refine 使用现有默认
+///   - 正断言：endpoint / planner / refine 使用现有内部默认
+///   - 正断言：用户可见 Agent Provider 默认是 OpenAI-compatible
 ///   - 正断言：trace 默认关闭
-///   - 负断言：ASR model ID 不应被伪造
+///   - 负断言：Agent Provider 不得默认为 Ollama，ASR model ID 不应被伪造
 #[test]
 fn test_voice_settings_defaults_when_saved_and_env_are_missing() {
     let values =
@@ -175,6 +178,21 @@ fn test_voice_settings_defaults_when_saved_and_env_are_missing() {
     assert!(
         !values.trace_enabled(),
         "缺少保存设置和 env 时 trace 应默认关闭"
+    );
+    assert_eq!(
+        values.agent_provider(),
+        AgentProviderKind::OpenAiCompatible,
+        "全新 Voice 配置必须默认选择 OpenAI-compatible"
+    );
+    assert_ne!(
+        values.agent_provider(),
+        AgentProviderKind::Ollama,
+        "全新 Voice 配置不得默认选择 Ollama"
+    );
+    assert_eq!(
+        values.active_provider_profile().base_url(),
+        provider_values::DEFAULT_OPENAI_BASE_URL,
+        "全新 OpenAI-compatible 配置必须预填官方兼容 Base URL"
     );
     assert!(
         values.asr_model_id().is_none(),
@@ -289,11 +307,15 @@ fn test_agent_provider_profiles_are_retained_and_active_profile_is_exported() {
         ollama_profile: SavedProviderProfile {
             base_url: Some("http://127.0.0.1:11434".to_string()),
             api_key: Some("ollama-secret".to_string()),
+            legacy_api_key: None,
+            credential_ref: None,
             model: Some("qwen-local".to_string()),
         },
         openai_profile: SavedProviderProfile {
             base_url: Some("https://api.openai.com/v1".to_string()),
             api_key: Some("top-secret".to_string()),
+            legacy_api_key: None,
+            credential_ref: None,
             model: Some("gpt-test".to_string()),
         },
         ..SavedVoiceSettings::default()
@@ -442,37 +464,5 @@ fn test_agent_api_key_editing_state_is_masked_everywhere() {
     assert_eq!(
         row, "••••••••••|",
         "10 个 API Key 字符应显示为 10 个掩码字符和光标"
-    );
-}
-
-/// VS-10：Settings 状态变更只排队写操作，不得在 GPUI 调用路径同步写 SQLite。
-///
-/// 数据构造：临时 SettingsStore 初始无 active provider，加载 state 后选择 OpenAI。
-/// 执行过程：选择后先直接查库，再 drain pending write 并在测试线程执行，最后再次查库。
-/// 预期结果：执行 pending write 前数据库仍为空；执行后为 openai；队列只包含一次写入。
-#[test]
-fn test_agent_provider_persistence_is_deferred_until_background_write_executes() {
-    let temp = tempfile::tempdir().expect("测试应创建临时目录");
-    let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
-    let mut state = VoiceSettingsState::load_from_store(store.clone());
-
-    state.select_agent_provider(AgentProviderKind::OpenAiCompatible);
-    let before = store
-        .get_string(super::provider_values::KEY_AGENT_PROVIDER)
-        .expect("后台写入前查询应成功");
-    let writes = state.take_pending_writes();
-
-    assert!(before.is_none(), "状态更新不得在 GPUI 路径同步写 SQLite");
-    assert_eq!(writes.len(), 1, "一次 Provider 切换应只排队一次持久化");
-    for write in writes {
-        write.execute().expect("模拟后台写入应成功");
-    }
-    let after = store
-        .get_string(super::provider_values::KEY_AGENT_PROVIDER)
-        .expect("后台写入后查询应成功");
-    assert_eq!(
-        after.as_deref(),
-        Some("openai"),
-        "后台执行后应持久化 OpenAI"
     );
 }

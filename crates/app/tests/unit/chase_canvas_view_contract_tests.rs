@@ -68,3 +68,75 @@ fn test_working_state_does_not_mount_chase_border_layer() {
         "cards/snake.rs 应使用 arc_to 让 segment 沿圆角转弯，而不是直角折线"
     );
 }
+
+/// 卡片壁纸毛玻璃必须位于圆角外壳之后，不能作为外壳的矩形子元素覆盖圆角。
+///
+/// 数据构造（含关键数值推导）：
+///   card radius = node_card_radius_px(1.0) = 22px。
+///   GPUI 0.2.2 的 ContentMask 仅支持矩形；当 100% 不透明的壁纸采样成为
+///   node_div 子元素时，会覆盖 22px 圆角范围内本应透明的像素。
+///
+/// 执行过程：
+///   1. 读取 canvas/view.rs 的节点元素构造顺序。
+///   2. 查找独立的 render_card_frosted_backdrop 元素入栈位置。
+///   3. 查找 node_div 入栈位置，并检查毛玻璃不再作为 node_div.child(...)。
+///
+/// 预期结果：
+///   - 正断言：毛玻璃先入栈、卡片外壳后入栈，外壳可用自身圆角决定可见边界。
+///   - 负断言：node_div 子树不应直接挂载毛玻璃，避免矩形采样遮住四个圆角。
+#[test]
+fn test_frosted_backdrop_is_behind_the_rounded_card_shell() {
+    let source = include_str!("../../src/canvas/view.rs");
+    let backdrop_push = "node_elems.push(\n            app.render_card_frosted_backdrop";
+    let shell_push = "node_elems.push(node_div.into_any_element());";
+    let child_backdrop = ".child(app.render_card_frosted_backdrop";
+
+    let backdrop_index = source
+        .find(backdrop_push)
+        .expect("毛玻璃必须作为独立画布元素入栈，供圆角外壳覆盖");
+    let shell_index = source
+        .find(shell_push)
+        .expect("卡片外壳必须作为独立元素入栈，供圆角样式生效");
+
+    assert!(
+        backdrop_index < shell_index,
+        "毛玻璃应先于圆角卡片外壳绘制，否则不透明采样会遮住四角"
+    );
+    assert!(
+        !source.contains(child_backdrop),
+        "毛玻璃不得继续作为 node_div 子元素；GPUI 的矩形裁剪会使四角变直"
+    );
+}
+
+/// 卡片顶部不应再绘制独立的白色高光线，避免玻璃标题栏上方出现突兀横线。
+///
+/// 数据构造（含关键数值推导）：
+///   原高光为 height = 1px，left/right = node_card_radius_px(1.0) = 22px。
+///   它横跨标题栏顶部的中间区域，在浅色壁纸和 Ended 状态下会呈现为明显白线。
+///
+/// 执行过程：
+///   1. 读取 Canvas 卡片的生产渲染源码。
+///   2. 检查不再构造 edge_highlight 子元素。
+///   3. 检查卡片子树不再挂载该独立高光层。
+///
+/// 预期结果：
+///   - 正断言：卡片仍保留圆角外壳、标题分界和状态边框。
+///   - 负断言：不得存在 1px 的 edge_highlight 横线或其 child 挂载点。
+#[test]
+fn test_card_shell_does_not_render_a_top_edge_highlight_line() {
+    let source = include_str!("../../src/canvas/view.rs");
+
+    assert!(
+        source.contains(".rounded(px(node_radius))")
+            && source.contains(".border_color(rgba(stroke))"),
+        "移除顶部高光后，卡片仍必须保留圆角外壳和状态边框"
+    );
+    assert!(
+        !source.contains("let edge_highlight = div()"),
+        "卡片不得继续构造 1px edge_highlight 横线，否则标题顶部会出现白线"
+    );
+    assert!(
+        !source.contains(".child(edge_highlight)"),
+        "卡片不得继续挂载 edge_highlight 子元素，否则白线仍会被绘制"
+    );
+}

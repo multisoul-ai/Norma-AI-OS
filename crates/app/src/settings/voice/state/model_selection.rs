@@ -3,6 +3,15 @@ use super::super::tts_models::TtsModelManagerState;
 use super::{VoiceSettingsState, VoiceSettingsValues};
 use voice_sherpa::SpeechError;
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum VoiceSetupDestination {
+    #[default]
+    Overview,
+    AsrModels,
+    AgentProvider,
+    SpokenReplies,
+}
+
 impl VoiceSettingsState {
     pub(crate) fn advanced_expanded(&self) -> bool {
         self.advanced_expanded
@@ -10,6 +19,27 @@ impl VoiceSettingsState {
 
     pub(crate) fn toggle_advanced_expanded(&mut self) {
         self.advanced_expanded = !self.advanced_expanded;
+    }
+
+    pub(crate) fn setup_models_expanded(&self) -> bool {
+        self.setup_destination == VoiceSetupDestination::AsrModels
+    }
+
+    #[cfg(test)]
+    pub(crate) fn setup_focuses_spoken_replies(&self) -> bool {
+        self.setup_destination == VoiceSetupDestination::SpokenReplies
+    }
+
+    pub(crate) fn toggle_setup_models_expanded(&mut self) {
+        self.setup_destination = if self.setup_models_expanded() {
+            VoiceSetupDestination::Overview
+        } else {
+            VoiceSetupDestination::AsrModels
+        };
+    }
+
+    pub(crate) fn open_setup_destination(&mut self, destination: VoiceSetupDestination) {
+        self.setup_destination = destination;
     }
 
     pub(crate) fn model_root(&self) -> &std::path::Path {

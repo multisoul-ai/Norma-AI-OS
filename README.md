@@ -35,7 +35,7 @@ macOS 空间工作台脚手架（垂直切片）。核心抽象 **Live Node on I
 - `./scripts/release-local.sh --notarize` → 产出签名、公证并 staple 的发版包
 
 ## 快捷键
-- `Cmd+N` 新建 Terminal；`Cmd+D` 删除当前聚焦或唯一选中的卡片；`Cmd+Esc` 退出聚焦（裸 `Esc` 直达 PTY）
+- `Cmd+1`～`Cmd+5` 依次新建 Terminal、Claude、Codex、Cursor、OpenCode；`Cmd+D` 删除当前聚焦或唯一选中的卡片；`Cmd+Esc` 退出聚焦（裸 `Esc` 直达 PTY）
 - 拖标题栏移动；单击选中；双击终端聚焦；空格+拖 / 中键拖 = pan
 - 画布滚轮平移默认关闭，可在顶部工具栏开启；Terminal / Preview 卡片内部滚轮独立滚动
 

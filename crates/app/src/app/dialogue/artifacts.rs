@@ -12,6 +12,7 @@ pub(crate) struct TemplateReportItem {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct VoiceTurnArtifacts {
     pub(crate) reply_text: String,
+    pub(crate) play_reply: bool,
     pub(crate) executed_commands: Vec<CardCommand>,
     pub(crate) template_reports: Vec<TemplateReportItem>,
     pub(crate) queued_template_reports: Vec<String>,

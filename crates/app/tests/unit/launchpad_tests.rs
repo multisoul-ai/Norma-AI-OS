@@ -3,26 +3,26 @@ use super::*;
 use std::path::PathBuf;
 use workspace::{RecentWorkspaces, WorkspaceSource};
 
-/// L-1: 1440x900 宽屏 Launchpad 不应再显示右侧静态卡片区。
+/// L-1: 1440x900 宽屏与 960x700 紧凑 Launchpad 都应稳定放置主内容列。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   window = 1440x900
-///   spec 锚点：content left ≈118、top ≈186、width ≈560
-///   旧 preview 卡片数量 = 4（Terminal / Codex Agent / Preview / Workspace shape）
-///   目标 preview 卡片数量 = 0（用户要求去除右侧显示的卡片）
+///   spec 锚点：content left ≈96、top ≈92、width ≈500
+///   Compact 960px：内容列居中，宽度仍为 min(500, 960 - 24×2) = 500px
 ///
 /// 执行过程：
 ///   1. 调用 launchpad_layout_for_window(1440, 900)
-///   2. 检查布局模式、左侧内容锚点仍稳定、右侧卡片模块未接入
+///   2. 检查 Wide 布局模式与主内容锚点
+///   3. 对 960x700 再计算一次，验证 Compact 布局仍保留主内容宽度
 ///
 /// 预期结果：
-///   - 正断言：mode 为 Wide，主内容接近既有视觉锚点
-///   - 正断言：渲染入口不再声明 preview 模块或挂载 preview_cluster
-///   - 负断言：右侧卡片模块不应继续接入 Launchpad
+///   - 正断言：Wide 模式使用 96/92/500px 主内容锚点
+///   - 正断言：Compact 模式仍保留 500px 主内容宽度
+///   - 负断言：Compact 模式不得错误沿用 Wide 模式
 #[test]
-fn test_launchpad_layout_wide_hides_right_preview_cards() {
+fn test_launchpad_layout_wide_and_compact_keep_main_content_stable() {
     let layout = launchpad_layout_for_window(1440.0, 900.0);
-    let source_mod = include_str!("../../src/workspace/launchpad/mod.rs");
+    let compact = launchpad_layout_for_window(960.0, 700.0);
 
     assert_eq!(
         layout.mode,
@@ -31,29 +31,32 @@ fn test_launchpad_layout_wide_hides_right_preview_cards() {
     );
     assert_close(
         layout.content_left,
-        118.0,
-        2.0,
-        "content_left 应接近方案 1 原型 118px 锚点",
+        96.0,
+        3.0,
+        "content_left 应接近 Native Launchpad 原型 96px 锚点",
     );
     assert_close(
         layout.content_top,
-        186.0,
+        92.0,
         4.0,
-        "content_top 应接近方案 1 原型 186px 锚点",
+        "content_top 应接近 Native Launchpad 原型 92px 锚点",
     );
     assert_close(
         layout.content_width,
-        560.0,
+        500.0,
+        4.0,
+        "content_width 应接近目标主内容列 500px",
+    );
+    assert_close(
+        compact.content_width,
+        500.0,
         0.5,
-        "content_width 应保持 560px 主列宽，去除右侧卡片不应挤压主入口",
+        "960px Compact Launchpad 仍应保留 500px 主内容宽度",
     );
-    assert!(
-        !source_mod.contains("mod preview"),
-        "Launchpad 不应继续声明右侧静态卡片 preview 模块"
-    );
-    assert!(
-        !source_mod.contains("preview_cluster"),
-        "Launchpad render_launchpad 不应继续挂载右侧静态卡片 preview_cluster"
+    assert_ne!(
+        compact.mode,
+        LaunchpadLayoutMode::Wide,
+        "960px Compact Launchpad 不得错误沿用 Wide 模式"
     );
 }
 
@@ -73,7 +76,7 @@ fn test_launchpad_layout_wide_hides_right_preview_cards() {
 ///   - 正断言：content 左右边界都在 24px 安全边距内
 ///   - 负断言：content_width 不应超过 912px
 #[test]
-fn test_launchpad_layout_compact_hides_preview_and_keeps_content_safe() {
+fn test_launchpad_layout_compact_keeps_content_safe() {
     let layout = launchpad_layout_for_window(960.0, 700.0);
     let safe_left = 24.0;
     let safe_right = 960.0 - 24.0;
@@ -135,8 +138,8 @@ fn test_launchpad_layout_short_window_moves_content_up() {
 /// 数据构造（含关键数值的推导过程）：
 ///   构造 14 条记录，timestamp 从 100 到 113 递增
 ///   RecentWorkspaces 会按 last_opened_at_unix 降序排序
-///   每行高度 = 36px，行间距 = 10px
-///   14 行自然高度 = 14 * 36 + 13 * 10 = 634px，超过 Launchpad Recent 区的可视高度，
+///   每行高度 = 64px，13 条分隔线不改变滚动内容数量
+///   14 行自然高度 = 14 * 64 = 896px，超过 Launchpad Recent 区的可视高度，
 ///   因此必须将全部记录交给 overflow_scroll 容器，而不是在数据源阶段截为 6 条
 ///
 /// 执行过程：
@@ -147,7 +150,7 @@ fn test_launchpad_layout_short_window_moves_content_up() {
 /// 预期结果：
 ///   - 正断言：返回 14 条，第一条是最新 project-13
 ///   - 正断言：第 7 条 project-7 与最后一条 project-0 都存在，供滚动后访问
-///   - 负断言：数据源不应截断为 6 条，否则 overflow_scroll 没有可滚动内容
+///   - 负断言：数据源不应截断为 6 条，否则 overflow_scroll 没有完整内容
 #[test]
 fn test_recent_project_records_for_launchpad_keeps_all_records_for_scrolling() {
     let mut recent = RecentWorkspaces::default();
@@ -181,57 +184,45 @@ fn test_recent_project_records_for_launchpad_keeps_all_records_for_scrolling() {
     assert_ne!(
         records.len(),
         6,
-        "Recent Projects 不应截断为 6 条，否则列表没有足够内容产生滚动"
+        "Recent Projects 不应截断为 6 条，否则列表没有完整滚动内容"
     );
 }
 
-/// L-5: Launchpad action cards 应为图标、标题和副标题预留完整垂直空间。
+/// L-5: Launchpad action pills 应使用 44px 原生胶囊，并完整容纳图标与标题。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   icon line-height     = 20px（单行 glyph，不能吃掉标题空间）
-///   title line-height    = 20px（Open Project / Clone Repo 主标题）
-///   meta line-height     = 16px（Choose a local workspace / Remote setup soon）
-///   vertical gaps        = 6px + 6px（图标到标题、标题到副标题）
-///   vertical padding     = 12px * 2（上下可读安全边距）
-///   required height      = 20 + 20 + 16 + 6 + 6 + 24 = 92px
-///   action row width     = 180px * 2 + 14px = 374px，应小于 CONTENT_WIDTH 560px
+///   icon box             = 22px（单行 glyph）
+///   vertical padding     = 11px * 2
+///   required height      = 22 + 11*2 = 44px
+///   action row width     = 168px * 2 + 14px = 350px，应小于 CONTENT_WIDTH 500px
 ///
 /// 执行过程：
 ///   1. 读取 ACTION_CARD_HEIGHT / ACTION_CARD_WIDTH / CONTENT_WIDTH 常量
-///   2. 用固定排版预算计算 action card 最小高度
+///   2. 用固定排版预算计算 action pill 精确高度
 ///   3. 检查双卡片横排仍在主内容列宽内
 ///
 /// 预期结果：
-///   - 正断言：ACTION_CARD_HEIGHT 至少为 92px，副标题不会被底部裁剪
+///   - 正断言：ACTION_CARD_HEIGHT 精确为 44px，命中区与原型一致
 ///   - 正断言：两个 action card 加 14px 间距后仍可放入主内容列
-///   - 负断言：ACTION_CARD_HEIGHT 不应停留在 82px 这类会裁剪三行内容的高度
+///   - 负断言：ACTION_CARD_HEIGHT 不应继续使用旧 92px 大卡片
 #[test]
 fn test_launchpad_action_cards_reserve_text_budget() {
-    let icon_line_height = 20.0;
-    let title_line_height = 20.0;
-    let meta_line_height = 16.0;
-    let icon_to_title_gap = 6.0;
-    let title_to_meta_gap = 6.0;
-    let vertical_padding = 12.0 * 2.0;
-    let required_height = icon_line_height
-        + title_line_height
-        + meta_line_height
-        + icon_to_title_gap
-        + title_to_meta_gap
-        + vertical_padding;
+    let icon_box = 22.0;
+    let vertical_padding = 11.0 * 2.0;
+    let required_height = icon_box + vertical_padding;
     let action_row_width = ACTION_CARD_WIDTH * 2.0 + 14.0;
 
-    assert!(
-        ACTION_CARD_HEIGHT >= required_height,
-        "Action card height 应至少覆盖 20 + 20 + 16 + 6 + 6 + 24 = 92px 的三行排版预算"
+    assert_eq!(
+        ACTION_CARD_HEIGHT, required_height,
+        "Action pill height 应等于 22 + 11*2 = 44px 的单行排版预算"
     );
     assert!(
         action_row_width <= CONTENT_WIDTH,
-        "两个 action card 加 14px 间距后应小于 560px 主列宽，避免横向挤压"
+        "两个 action pill 加 14px 间距后应小于 500px 主列宽，避免横向挤压"
     );
     assert_ne!(
-        ACTION_CARD_HEIGHT, 82.0,
-        "Action card 不应继续使用 82px 高度，否则副标题容易被底部裁剪"
+        ACTION_CARD_HEIGHT, 92.0,
+        "Action pill 不应继续使用旧 92px 大卡片高度"
     );
 }
 
@@ -361,34 +352,38 @@ fn test_launchpad_drops_static_top_toolbar_preview() {
     }
 }
 
-/// L-10: Workspace/Launchpad 页面不应再挂载右侧静态卡片预览模块。
+/// L-10: Product UI V2 Launchpad 应完全移除右侧 Workspace preview 区域。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source_mod = launchpad/mod.rs（真实 render_launchpad 组装入口）
-///   旧右侧卡片模块 = preview.rs
-///   旧挂载函数数量 = 1（preview_cluster）
-///   目标挂载函数数量 = 0（右侧静态卡片区完全移除）
+///   右侧 preview 模块数量 = 0
+///   preview 挂载函数数量 = 0
+///   旧 preview_cluster 数量 = 0
 ///
 /// 执行过程：
-///   1. 读取 launchpad/mod.rs，确认不再声明 mod preview
-///   2. 读取 launchpad/mod.rs，确认不再 import / child(preview_cluster)
-///   3. 确认仍保留 launchpad_brand，避免测试因页面主体被整体删除而误通过
+///   1. 读取 launchpad/mod.rs，确认品牌与主入口仍存在。
+///   2. 搜索 preview 模块声明和 workspace_preview 挂载。
+///   3. 搜索旧 preview_cluster，防止任何右侧示意区回流。
 ///
 /// 预期结果：
-///   - 正断言：Launchpad 仍保留品牌和主入口区域
-///   - 负断言：Launchpad 不应继续声明 preview 模块
-///   - 负断言：Launchpad 不应继续调用 preview_cluster 挂载右侧卡片
+///   - 正断言：Launchpad 继续渲染品牌和主入口区域。
+///   - 负断言：不得声明或挂载 workspace_preview。
+///   - 负断言：不得恢复旧 preview_cluster。
 #[test]
-fn test_launchpad_drops_right_preview_card_cluster() {
+fn test_launchpad_removes_entire_workspace_preview_region() {
     let source_mod = include_str!("../../src/workspace/launchpad/mod.rs");
 
     assert!(
         source_mod.contains("launchpad_brand"),
-        "Launchpad 应继续渲染品牌和主入口区域，去除右侧卡片不应删除页面主体"
+        "Launchpad 应继续渲染品牌和主入口区域"
     );
     assert!(
         !source_mod.contains("mod preview"),
-        "Launchpad 不应继续声明右侧静态卡片 preview 模块"
+        "Launchpad 不应继续声明用户要求删除的 preview 模块"
+    );
+    assert!(
+        !source_mod.contains("workspace_preview("),
+        "Launchpad render_launchpad 不应继续挂载 Workspace preview 区域"
     );
     assert!(
         !source_mod.contains("preview_cluster"),

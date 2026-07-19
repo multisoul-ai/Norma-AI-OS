@@ -5,6 +5,20 @@ use asr::{
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+#[cfg(feature = "e2e-test-support")]
+static E2E_FAKE_ASR_INSTALL: AtomicBool = AtomicBool::new(false);
+
+#[cfg(feature = "e2e-test-support")]
+pub(crate) fn set_e2e_fake_asr_install(enabled: bool) {
+    E2E_FAKE_ASR_INSTALL.store(enabled, Ordering::Release);
+}
+
+#[cfg(feature = "e2e-test-support")]
+pub(crate) fn e2e_fake_asr_install_enabled() -> bool {
+    E2E_FAKE_ASR_INSTALL.load(Ordering::Acquire)
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum AsrModelInstallState {
@@ -85,7 +99,6 @@ impl AsrModelManagerState {
         &self.entries
     }
 
-    #[cfg(test)]
     pub(crate) fn installation(&self, id: &AsrModelId) -> Option<&AsrModelInstallState> {
         self.entries
             .iter()
@@ -130,6 +143,7 @@ impl AsrModelManagerState {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn download_model_archive(
     descriptor: &AsrModelDescriptor,
     download_root: &Path,
@@ -144,12 +158,34 @@ pub(crate) fn download_model_archive(
         descriptor.artifact().archive_bytes(),
         final_path,
         partial_path,
+        None,
         progress,
     )
 }
 
-pub(crate) fn download_silero_vad(
+pub(crate) fn download_model_archive_cancellable(
+    descriptor: &AsrModelDescriptor,
     download_root: &Path,
+    cancelled: &AtomicBool,
+    progress: impl FnMut(u64, u64),
+) -> Result<PathBuf, String> {
+    fs::create_dir_all(download_root)
+        .map_err(|error| format!("could not create model download directory: {error}"))?;
+    let final_path = download_root.join(format!("{}.tar.bz2", descriptor.id().as_str()));
+    let partial_path = download_root.join(format!("{}.tar.bz2.partial", descriptor.id().as_str()));
+    download_file(
+        descriptor.artifact().url(),
+        descriptor.artifact().archive_bytes(),
+        final_path,
+        partial_path,
+        Some(cancelled),
+        progress,
+    )
+}
+
+pub(crate) fn download_silero_vad_cancellable(
+    download_root: &Path,
+    cancelled: &AtomicBool,
     progress: impl FnMut(u64, u64),
 ) -> Result<PathBuf, String> {
     fs::create_dir_all(download_root)
@@ -159,6 +195,7 @@ pub(crate) fn download_silero_vad(
         asr::SILERO_VAD_ARCHIVE_BYTES,
         download_root.join(asr::SILERO_VAD_FILE),
         download_root.join(format!("{}.partial", asr::SILERO_VAD_FILE)),
+        Some(cancelled),
         progress,
     )
 }
@@ -168,6 +205,7 @@ fn download_file(
     expected_bytes: u64,
     final_path: PathBuf,
     partial_path: PathBuf,
+    cancelled: Option<&AtomicBool>,
     mut progress: impl FnMut(u64, u64),
 ) -> Result<PathBuf, String> {
     let result = (|| {
@@ -184,8 +222,12 @@ fn download_file(
         let mut output = fs::File::create(&partial_path)
             .map_err(|error| format!("could not create partial model archive: {error}"))?;
         let mut downloaded = 0_u64;
+        let mut progress_gate = super::download_progress::DownloadProgressGate::new(total);
         let mut buffer = [0_u8; 64 * 1024];
         loop {
+            if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+                return Err("model download cancelled".to_string());
+            }
             let count = reader
                 .read(&mut buffer)
                 .map_err(|error| format!("model download interrupted: {error}"))?;
@@ -196,7 +238,12 @@ fn download_file(
                 .write_all(&buffer[..count])
                 .map_err(|error| format!("could not write model archive: {error}"))?;
             downloaded += count as u64;
-            progress(downloaded, total);
+            if progress_gate.should_publish(downloaded) {
+                progress(downloaded.min(total), total);
+            }
+        }
+        if progress_gate.should_publish_final(downloaded) {
+            progress(downloaded.min(total), total);
         }
         output
             .sync_all()

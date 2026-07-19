@@ -14,10 +14,11 @@ macOS Window（GPUI + Metal）
     │   ├── canvas：几何、节点、选择与命中
     │   ├── terminal：PTY、ANSI grid 与输入编码 ──> /bin/zsh
     │   └── storage：SQLite store 与 migration ──> workspace 元数据
-    ├── agent：Dialogue/CardTask、持久 Agent 协调规则与高层工具
+    ├── agent：NormaSession、Rig Provider、typed tools 与 Agent 协调规则
     ├── asr：ASR 模型 ID、受控目录、清单、哈希与原子安装
     ├── tts：TTS 模型/语音目录、能力与安装验证
     │   └── model_store：共享 archive/manifest/哈希/原子安装原语
+    ├── voice_azure：Azure Speech 短音频 REST client（区域 Endpoint、鉴权、响应解析）
     └── voice_sherpa：Sherpa recognizer、VAD、PCM partial/final adapter
         ├── asr：消费已校验的 AvailableAsrModel
         ├── tts：消费已校验的 AvailableTtsModel
@@ -30,17 +31,18 @@ macOS Window（GPUI + Metal）
 ```text
 app -> {ui, runtime, canvas, terminal, storage, agent, asr, tts, voice_sherpa}
 voice_sherpa -> {asr, tts, dialogue, audio}
+voice_azure -> {ureq, serde}
 tts -> model_store
 runtime -> {canvas, terminal, storage}
 storage -> {agent, canvas, workspace, rusqlite}
-agent -> norma
+agent -> {norma, rig-core, tokio, tokio-util, reqwest}
 ui -> gpui
 canvas -> {serde, thiserror}
 terminal -> {portable-pty, alacritty_terminal, crossbeam-channel}
 asr -> {serde, sha2, tar, bzip2, tempfile}
 ```
 
-`agent`、`asr`、`model_store`、`tts`、`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`agent` 还保持零 Storage 依赖，`asr` 与 `tts` 保持零 Sherpa/网络依赖。识别器/TTS 引擎适配归 `voice_sherpa`，下载和 Runtime/Storage 副作用编排归 `app`。`model_store` 与 `tts` 不得依赖 `app/runtime/storage/ui`，`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
+`agent`、`asr`、`model_store`、`tts`、`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`agent` 还保持零 Storage 依赖，`asr` 与 `tts` 保持零 Sherpa/网络依赖。本地识别器/TTS 引擎适配归 `voice_sherpa`，Azure Speech HTTP 适配归 `voice_azure`，下载和 Runtime/Storage 副作用编排归 `app`。`model_store` 与 `tts` 不得依赖 `app/runtime/storage/ui`，`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
 
 ## 2. 代码结构
 
@@ -50,11 +52,16 @@ asr -> {serde, sha2, tar, bzip2, tempfile}
 安全解压、原子安装和共享 Silero VAD 支持工件。Sherpa 的 Paraformer/Transducer/Zipformer2 CTC 分支只存在于
 `crates/voice_sherpa/`；Settings 下载、进度、选择和删除编排只存在于 `crates/app/`。
 
+### `crates/voice_azure/`
+
+零 GPUI 的 Azure Speech 短音频 REST 适配层，负责按 region 构造专用 STT Endpoint、通过 header 鉴权、上传 16 kHz 单声道 PCM/WAV 并解析识别结果。它不承载本地模型安装，也不进入 GPUI 前台热路径；真实网络调用必须由上层放到后台执行。
+
 ### `crates/agent/`
 
-零 GPUI/Storage 的 Agent 领域层，负责 Dialogue、CardTask、Provider 工具循环、Agent 呼叫名、
-动态名册和按定义隔离的 FIFO 协调规则。它只计算高层命令与结构化回执；卡片激活、PTY 输入和
-SQLite journal 由 `app` adapters 执行。
+零 GPUI/Storage 的 Agent 领域层，负责固定身份的 `NormaSession`、Rig Provider/多轮工具循环、
+十个 typed tools（含 Browser/Preview 创建）、`AgentCardAdapter` seam、动态环境、Agent 呼叫名和按定义隔离的 FIFO 协调规则。
+Rig 类型不扩散到其他 crate；卡片激活、PTY 输入和 SQLite 审计由 `app` adapter 执行。
+`dialogue` 只保留 VAD/ASR/TTS 与语音状态，不再拥有 LLM 路由；仓库不再包含第二套 CardTask 模型循环。
 
 ### `crates/model_store/` 与 `crates/tts/`
 
@@ -172,7 +179,7 @@ GPUI/Metal 壳层，负责窗口、菜单、快捷键、鼠标事件、渲染和
 
 ```text
 crates/app/src/
-├── main.rs          # tracing、GPUI boot、菜单、Cmd+N、Esc
+├── main.rs          # tracing、GPUI boot、菜单、Cmd+1..5、Esc
 ├── assets.rs        # 内嵌 icon / wallpaper
 ├── app/             # MultisoulApp 壳层、keyboard、IME、voice、chrome
 ├── canvas/          # pan/zoom/drag、master layout、interaction
@@ -191,7 +198,7 @@ crates/app/src/
 主要职责：
 
 - 启动 GPUI 应用窗口
-- 处理 `Cmd+N`、`Esc`、鼠标拖拽、滚轮缩放
+- 处理 `Cmd+1..5`、`Esc`、鼠标拖拽、滚轮缩放
 - 将用户输入转换为 `runtime::route` 能理解的事件
 - 根据 Runtime 状态渲染画布节点；具体卡片内容按 `NodeType -> Card` 分发
 
@@ -258,7 +265,7 @@ PTY 输出通过 `crossbeam-channel` 从读线程传到 session。`TerminalSessi
 ### 新建 Terminal 节点
 
 ```text
-用户按 Cmd+N
+用户按 Cmd+1
   ↓
 app::MultisoulApp::on_new_terminal
   ↓
@@ -373,7 +380,8 @@ child.kill() + child.wait()
 
 | 操作 | 当前行为 |
 |------|----------|
-| `Cmd+N` | 新建 Terminal 节点，并将全部节点按最多三列的平铺网格重排 |
+| `Cmd+1` | 新建 Terminal 节点，并按当前布局重排全部节点 |
+| `Cmd+2`～`Cmd+5` | 依次新建 Claude、Codex、Cursor、OpenCode Agent 节点，并按当前布局重排全部节点 |
 | 单击节点 | 选中节点并退出终端聚焦 |
 | 单击空白 | 清空选择并退出终端聚焦 |
 | 双击 Terminal | 聚焦该终端，后续按键写入 PTY |

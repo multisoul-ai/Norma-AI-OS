@@ -105,6 +105,7 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
             workflow_description TEXT NOT NULL,
             enabled INTEGER NOT NULL DEFAULT 1,
             sort_order INTEGER NOT NULL DEFAULT 0,
+            origin TEXT NOT NULL DEFAULT 'explicit',
             created_at_unix INTEGER NOT NULL,
             updated_at_unix INTEGER NOT NULL
         );
@@ -112,45 +113,9 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
         CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_definitions_name_nocase
         ON agent_definitions(name COLLATE NOCASE);
 
-        CREATE TABLE IF NOT EXISTS agent_tasks (
-            project_id TEXT NOT NULL,
-            task_id INTEGER NOT NULL,
-            intent TEXT NOT NULL,
-            state TEXT NOT NULL,
-            summary TEXT,
-            error TEXT,
-            completed_tool_calls INTEGER NOT NULL DEFAULT 0,
-            updated_at_unix INTEGER NOT NULL,
-            PRIMARY KEY (project_id, task_id)
-        );
-
-        CREATE TABLE IF NOT EXISTS agent_tool_calls (
-            project_id TEXT NOT NULL,
-            task_id INTEGER NOT NULL,
-            tool_call_id TEXT NOT NULL,
-            command_json TEXT NOT NULL,
-            result_json TEXT NOT NULL,
-            created_at_unix INTEGER NOT NULL,
-            PRIMARY KEY (project_id, task_id, tool_call_id),
-            FOREIGN KEY (project_id, task_id)
-                REFERENCES agent_tasks(project_id, task_id)
-        );
-
-        CREATE TABLE IF NOT EXISTS agent_tool_errors (
-            project_id TEXT NOT NULL,
-            task_id INTEGER NOT NULL,
-            tool_call_id TEXT NOT NULL,
-            tool_name TEXT NOT NULL,
-            arguments_json TEXT NOT NULL,
-            error TEXT NOT NULL,
-            created_at_unix INTEGER NOT NULL,
-            PRIMARY KEY (project_id, task_id, tool_call_id),
-            FOREIGN KEY (project_id, task_id)
-                REFERENCES agent_tasks(project_id, task_id)
-        );
-
         CREATE TABLE IF NOT EXISTS agent_dispatch_tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            runtime_task_id INTEGER NOT NULL DEFAULT 0,
             definition_id INTEGER NOT NULL,
             node_id INTEGER NOT NULL,
             original_instruction TEXT NOT NULL,
@@ -204,6 +169,23 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
         "agent_definitions",
         "speech_alias",
         "speech_alias TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "agent_definitions",
+        "origin",
+        "origin TEXT NOT NULL DEFAULT 'explicit'",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "runtime_task_id",
+        "runtime_task_id INTEGER NOT NULL DEFAULT 0",
+    )?;
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_dispatch_tasks_runtime_task
+         ON agent_dispatch_tasks(runtime_task_id, id)",
+        [],
     )?;
     connection.execute(
         "UPDATE agent_definitions SET name_key = lower(name) WHERE name_key IS NULL",

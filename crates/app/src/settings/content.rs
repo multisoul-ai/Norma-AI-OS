@@ -1,11 +1,14 @@
 use super::{with_alpha, SettingsPanelState, SettingsSection};
 use crate::app::MultisoulApp;
 use crate::settings::agents::{agents_settings, AgentDefinitionsState};
-use crate::settings::voice::{voice_settings, VoiceSettingsInputs, VoiceSettingsState};
+use crate::settings::appearance::theme_appearance;
+use crate::settings::voice::{
+    voice_settings, VoiceSettingsInputs, VoiceSettingsState, VoiceSetupDestination,
+};
 use crate::settings::wallpaper::{wallpaper_settings, WallpaperSettingsState};
 use crate::shortcuts::ShortcutSettingsState;
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
-use ui::Theme;
+use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, ScrollHandle, Window};
+use ui::{Theme, ThemeId};
 
 mod hooks;
 mod keyboard;
@@ -16,17 +19,35 @@ use self::keyboard::keyboard_settings;
 pub(super) struct VoiceSettingsContent<'a> {
     pub(super) state: &'a VoiceSettingsState,
     pub(super) inputs: &'a VoiceSettingsInputs,
+    pub(super) setup_scroll_target: Option<VoiceSetupDestination>,
+}
+
+pub(super) struct SettingsContentContext<'a> {
+    pub(super) theme: Theme,
+    pub(super) theme_id: ThemeId,
+    pub(super) panel: &'a SettingsPanelState,
+    pub(super) agent_definitions: &'a AgentDefinitionsState,
+    pub(super) voice: VoiceSettingsContent<'a>,
+    pub(super) content_scroll: &'a ScrollHandle,
+    pub(super) wallpaper_state: &'a WallpaperSettingsState,
+    pub(super) shortcuts: &'a ShortcutSettingsState,
 }
 
 pub(super) fn settings_content(
-    theme: Theme,
-    panel: &SettingsPanelState,
-    agent_definitions: &AgentDefinitionsState,
-    voice: VoiceSettingsContent<'_>,
-    wallpaper_state: &WallpaperSettingsState,
-    shortcuts: &ShortcutSettingsState,
+    content: SettingsContentContext<'_>,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
+    let SettingsContentContext {
+        theme,
+        theme_id,
+        panel,
+        agent_definitions,
+        voice,
+        content_scroll,
+        wallpaper_state,
+        shortcuts,
+    } = content;
     div()
         .flex_1()
         .min_w(px(0.0))
@@ -34,7 +55,7 @@ pub(super) fn settings_content(
         .h_full()
         .flex()
         .flex_col()
-        .bg(rgba(with_alpha(theme.term_bg, 0x72)))
+        .bg(rgba(with_alpha(theme.panel_high, 0xd4)))
         .child(content_header(theme, panel.active_section, cx))
         .child(
             div()
@@ -45,20 +66,30 @@ pub(super) fn settings_content(
                 .min_h(px(0.0))
                 .overflow_y_scroll()
                 .overflow_x_hidden()
-                .px(px(20.0))
-                .pb(px(32.0))
+                .track_scroll(content_scroll)
+                .px(px(28.0))
+                .pb(px(40.0))
                 .child(match panel.active_section {
+                    SettingsSection::Themes => theme_appearance(theme_id, theme, cx),
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
-                    SettingsSection::Voice => voice_settings(theme, voice.state, voice.inputs, cx),
-                    SettingsSection::Agents => agents_settings(theme, agent_definitions, cx),
+                    SettingsSection::Voice => voice_settings(
+                        theme,
+                        voice.state,
+                        voice.inputs,
+                        content_scroll,
+                        voice.setup_scroll_target,
+                        window,
+                        cx,
+                    ),
+                    SettingsSection::Agents => {
+                        agents_settings(theme, agent_definitions, window, cx)
+                    }
                     SettingsSection::Hooks => hooks_settings(theme, panel, cx),
                     SettingsSection::Wallpaper => wallpaper_settings(theme, wallpaper_state, cx),
                     // Mock-only sections are hidden from the sidebar; keep a blank
                     // fallback so stale state or tests cannot route to old placeholders.
                     #[cfg(test)]
-                    SettingsSection::General
-                    | SettingsSection::Runtime
-                    | SettingsSection::Skills => div(),
+                    SettingsSection::Runtime | SettingsSection::Skills => div(),
                 }),
         )
 }
@@ -73,7 +104,7 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
         .gap(px(3.0))
         .child(
             div()
-                .text_size(px(21.0))
+                .text_size(px(24.0))
                 .font_weight(FontWeight::BOLD)
                 .text_color(rgba(theme.text_primary))
                 .child(content_title(section)),
@@ -81,20 +112,20 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
     if !subtitle.is_empty() {
         title_column = title_column.child(
             div()
-                .text_size(px(16.0))
+                .text_size(px(14.0))
                 .text_color(rgba(theme.text_tertiary))
                 .child(subtitle),
         );
     }
 
     div()
-        .min_h(px(88.0))
+        .min_h(px(104.0))
         .flex()
         .flex_row()
         .items_start()
         .justify_between()
-        .pt(px(26.0))
-        .px(px(20.0))
+        .pt(px(30.0))
+        .px(px(28.0))
         .pb(px(18.0))
         .border_b_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
@@ -108,8 +139,8 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(px(8.0))
-                .text_size(px(25.0))
+                .rounded(px(17.0))
+                .text_size(px(22.0))
                 .line_height(px(26.0))
                 .text_color(rgba(theme.text_secondary))
                 .cursor_pointer()
@@ -117,14 +148,13 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
                 .on_click(cx.listener(|app, _, _window, cx| {
                     app.close_settings_panel(cx);
                 }))
-                .child("x"),
+                .child("×"),
         )
 }
 
 fn content_title(section: SettingsSection) -> &'static str {
     match section {
-        #[cfg(test)]
-        SettingsSection::General => "Themes",
+        SettingsSection::Themes => "Themes",
         SettingsSection::Keyboard => "Keyboard Shortcuts",
         #[cfg(test)]
         SettingsSection::Runtime => "Runtime",
@@ -139,12 +169,11 @@ fn content_title(section: SettingsSection) -> &'static str {
 
 fn content_subtitle(section: SettingsSection) -> &'static str {
     match section {
-        #[cfg(test)]
-        SettingsSection::General => "Choose your style or customize your theme",
+        SettingsSection::Themes => "Choose one of the six reviewed Core UI V2 palettes",
         SettingsSection::Keyboard => "Customize app commands and review system input behavior",
         #[cfg(test)]
         SettingsSection::Runtime => "Configure shell behavior and live sessions",
-        SettingsSection::Voice => "Configure local speech recognition and command planning",
+        SettingsSection::Voice => "Use ⌘E to talk to Norma",
         SettingsSection::Agents => "Choose default agents, permissions, and profiles",
         #[cfg(test)]
         SettingsSection::Skills => "Manage installed skills and project skill sources",

@@ -1,5 +1,5 @@
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, KeyDownEvent, MouseButton, Window};
+use gpui::{div, prelude::*, px, rgba, Context, KeyDownEvent, MouseButton, ScrollHandle, Window};
 
 #[path = "content.rs"]
 mod content;
@@ -8,18 +8,17 @@ mod navigation;
 #[path = "panel_style.rs"]
 mod panel_style;
 
-use self::content::{settings_content, VoiceSettingsContent};
+use self::content::{settings_content, SettingsContentContext, VoiceSettingsContent};
+pub(crate) use self::navigation::SettingsSection;
 use self::navigation::{settings_navigation, SettingsNavigationMode};
 use self::panel_style::{settings_shadow, with_alpha};
 
-pub(crate) use self::navigation::SettingsSection;
-
 const PANEL_MIN_W: f32 = 860.0;
-const PANEL_MAX_W: f32 = 1180.0;
+const PANEL_MAX_W: f32 = 1280.0;
 const PANEL_MIN_H: f32 = 620.0;
-const PANEL_MAX_H: f32 = 760.0;
+const PANEL_MAX_H: f32 = 820.0;
 const SIDEBAR_MIN_W: f32 = 160.0;
-const SIDEBAR_MAX_W: f32 = 280.0;
+const SIDEBAR_MAX_W: f32 = 286.0;
 const COMPACT_SIDEBAR_MIN_W: f32 = 144.0;
 const COMPACT_SIDEBAR_MAX_W: f32 = 188.0;
 const COMPACT_SIDEBAR_BREAKPOINT: f32 = 760.0;
@@ -93,6 +92,28 @@ impl SettingsPanelLayout {
             SettingsNavigationMode::Sidebar | SettingsNavigationMode::CompactSidebar => self.height,
         }
     }
+
+    fn with_width_cap(mut self, viewport_width: f32, max_width: f32) -> Self {
+        self.width = self.width.min(max_width);
+        self.left = ((viewport_width - self.width) * 0.5).max(0.0);
+        self.navigation_mode = if self.width < TOP_BAR_BREAKPOINT {
+            SettingsNavigationMode::TopBar
+        } else if self.width < COMPACT_SIDEBAR_BREAKPOINT {
+            SettingsNavigationMode::CompactSidebar
+        } else {
+            SettingsNavigationMode::Sidebar
+        };
+        self.sidebar_width = match self.navigation_mode {
+            SettingsNavigationMode::Sidebar => (self.width * 0.28)
+                .clamp(SIDEBAR_MIN_W, SIDEBAR_MAX_W)
+                .min((self.width * 0.45).max(1.0)),
+            SettingsNavigationMode::CompactSidebar => (self.width * 0.26)
+                .clamp(COMPACT_SIDEBAR_MIN_W, COMPACT_SIDEBAR_MAX_W)
+                .min((self.width * 0.38).max(1.0)),
+            SettingsNavigationMode::TopBar => 0.0,
+        };
+        self
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -108,17 +129,25 @@ pub(crate) struct SettingsPanelState {
     pub(crate) codex_hook_status: HookInstallStatus,
     pub(crate) claude_hook_status: HookInstallStatus,
     pub(crate) cursor_hook_status: HookInstallStatus,
+    pub(crate) grok_hook_status: HookInstallStatus,
     pub(crate) opencode_hook_status: HookInstallStatus,
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct SettingsViewportState {
+    pub(crate) content_scroll: ScrollHandle,
+    pub(crate) pending_voice_setup_scroll: Option<crate::settings::voice::VoiceSetupDestination>,
 }
 
 impl Default for SettingsPanelState {
     fn default() -> Self {
         Self {
             open: false,
-            active_section: SettingsSection::Wallpaper,
+            active_section: SettingsSection::Themes,
             codex_hook_status: HookInstallStatus::default(),
             claude_hook_status: HookInstallStatus::default(),
             cursor_hook_status: HookInstallStatus::default(),
+            grok_hook_status: HookInstallStatus::default(),
             opencode_hook_status: HookInstallStatus::default(),
         }
     }
@@ -175,6 +204,11 @@ impl MultisoulApp {
         let win_w = f32::from(win.width);
         let win_h = f32::from(win.height);
         let layout = SettingsPanelLayout::for_viewport(win_w, win_h);
+        let layout = if self.settings_panel.active_section == SettingsSection::Voice {
+            layout.with_width_cap(win_w, 1020.0)
+        } else {
+            layout
+        };
         debug_assert!(
             layout.content_width() > 0.0,
             "settings layout must reserve positive content width"
@@ -183,6 +217,40 @@ impl MultisoulApp {
             layout.content_height() > 0.0,
             "settings layout must reserve positive content height"
         );
+        let navigation = settings_navigation(
+            theme,
+            self.settings_panel.active_section,
+            layout.navigation_mode,
+            layout.sidebar_width,
+            cx,
+        );
+        let setup_scroll_target = self.settings_viewport.pending_voice_setup_scroll.take();
+        let content = settings_content(
+            SettingsContentContext {
+                theme,
+                theme_id: self.theme_id,
+                panel: &self.settings_panel,
+                agent_definitions: &self.agent_definitions,
+                voice: VoiceSettingsContent {
+                    state: &self.voice_settings,
+                    inputs: &self.voice_settings_inputs,
+                    setup_scroll_target,
+                },
+                content_scroll: &self.settings_viewport.content_scroll,
+                wallpaper_state: &self.wallpaper_settings,
+                shortcuts: &self.shortcuts,
+            },
+            window,
+            cx,
+        );
+        let (navigation, content) = match layout.navigation_mode {
+            SettingsNavigationMode::TopBar => {
+                (navigation.rounded_t(px(24.0)), content.rounded_b(px(24.0)))
+            }
+            SettingsNavigationMode::Sidebar | SettingsNavigationMode::CompactSidebar => {
+                (navigation.rounded_l(px(24.0)), content.rounded_r(px(24.0)))
+            }
+        };
 
         // overlay 挡住自动聚焦；点击时显式 focus。
         div()
@@ -194,7 +262,7 @@ impl MultisoulApp {
             .right(px(0.0))
             .bottom(px(0.0))
             .occlude()
-            .bg(rgba(with_alpha(theme.graphite, 0x46)))
+            .bg(rgba(with_alpha(theme.graphite, 0x34)))
             .on_mouse_down(MouseButton::Left, {
                 let focus = self.focus_handle.clone();
                 move |_, window, cx| {
@@ -225,11 +293,11 @@ impl MultisoulApp {
                         |panel| panel.flex_row(),
                     )
                     .overflow_hidden()
-                    .rounded(px(18.0))
+                    .rounded(px(24.0))
                     .border_1()
-                    .border_color(rgba(with_alpha(theme.edge_highlight, 0x46)))
+                    .border_color(rgba(with_alpha(theme.node_stroke, 0xd8)))
                     .shadow(settings_shadow(theme))
-                    .bg(rgba(with_alpha(theme.panel, 0xf4)))
+                    .bg(rgba(with_alpha(theme.panel, 0xf2)))
                     .on_mouse_down(MouseButton::Left, {
                         let focus = self.focus_handle.clone();
                         move |_, window, cx| {
@@ -240,25 +308,8 @@ impl MultisoulApp {
                     .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_click(|_, _, cx| cx.stop_propagation())
                     .on_key_down(cx.listener(Self::on_settings_panel_key_down))
-                    .child(settings_navigation(
-                        theme,
-                        self.settings_panel.active_section,
-                        layout.navigation_mode,
-                        layout.sidebar_width,
-                        cx,
-                    ))
-                    .child(settings_content(
-                        theme,
-                        &self.settings_panel,
-                        &self.agent_definitions,
-                        VoiceSettingsContent {
-                            state: &self.voice_settings,
-                            inputs: &self.voice_settings_inputs,
-                        },
-                        &self.wallpaper_settings,
-                        &self.shortcuts,
-                        cx,
-                    )),
+                    .child(navigation)
+                    .child(content),
             )
     }
 }

@@ -19,14 +19,22 @@ pub fn microphone_authorization_from_raw(raw: i64) -> Option<MicrophoneAuthoriza
 }
 
 #[cfg(target_os = "macos")]
-pub(crate) fn ensure_microphone_authorized() -> Result<(), SpeechError> {
+pub fn microphone_authorization_status() -> Result<MicrophoneAuthorization, SpeechError> {
     use objc2_av_foundation::{AVCaptureDevice, AVMediaTypeAudio};
     let media_type = unsafe { AVMediaTypeAudio }
         .ok_or_else(|| SpeechError::Audio("audio media type unavailable".to_string()))?;
-    let status = microphone_authorization_from_raw(unsafe {
+    microphone_authorization_from_raw(unsafe {
         AVCaptureDevice::authorizationStatusForMediaType(media_type).0 as i64
     })
-    .ok_or_else(|| SpeechError::Audio("unknown microphone authorization status".to_string()))?;
+    .ok_or_else(|| SpeechError::Audio("unknown microphone authorization status".to_string()))
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn ensure_microphone_authorized() -> Result<(), SpeechError> {
+    use objc2_av_foundation::AVMediaTypeAudio;
+    let media_type = unsafe { AVMediaTypeAudio }
+        .ok_or_else(|| SpeechError::Audio("audio media type unavailable".to_string()))?;
+    let status = microphone_authorization_status()?;
     match status {
         MicrophoneAuthorization::Authorized => Ok(()),
         MicrophoneAuthorization::Denied => Err(SpeechError::MicrophoneDenied),
@@ -76,6 +84,13 @@ fn request_microphone_authorization(
 
 #[cfg(not(target_os = "macos"))]
 pub(crate) fn ensure_microphone_authorized() -> Result<(), SpeechError> {
+    Err(SpeechError::Audio(
+        "microphone not supported on this platform".to_string(),
+    ))
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn microphone_authorization_status() -> Result<MicrophoneAuthorization, SpeechError> {
     Err(SpeechError::Audio(
         "microphone not supported on this platform".to_string(),
     ))

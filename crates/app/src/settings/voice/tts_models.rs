@@ -290,6 +290,7 @@ fn download_file_with_body_timeout(
             .map_err(|error| format!("could not create partial TTS archive: {error}"))?;
         let mut buffer = [0_u8; 64 * 1024];
         let mut downloaded = 0_u64;
+        let mut progress_gate = super::download_progress::DownloadProgressGate::new(total);
         loop {
             if cancelled.load(Ordering::Acquire) {
                 return Err("TTS download cancelled".to_string());
@@ -304,6 +305,11 @@ fn download_file_with_body_timeout(
                 .write_all(&buffer[..count])
                 .map_err(|error| format!("could not write TTS archive: {error}"))?;
             downloaded += count as u64;
+            if progress_gate.should_publish(downloaded) {
+                progress(downloaded.min(total));
+            }
+        }
+        if progress_gate.should_publish_final(downloaded) {
             progress(downloaded.min(total));
         }
         output

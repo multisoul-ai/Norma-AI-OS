@@ -152,7 +152,11 @@ fn test_voice_settings_auto_save_empty_api_key_preserves_saved_secret() {
         state.auto_save_edit_value(VoiceSettingsField::ApiKey, "test-api-key".to_string());
     assert!(configured.is_some(), "测试前置 API Key 应被状态层接受");
     let setup_writes = state.take_pending_writes();
-    assert_eq!(setup_writes.len(), 1, "测试前置应产生一个 API Key 写入");
+    assert_eq!(
+        setup_writes.len(),
+        4,
+        "测试前置应产生 Keychain Set、credential ref Set 与两个旧明文键 Delete"
+    );
     for write in setup_writes {
         write.execute().expect("测试前置 API Key 写入应成功");
     }
@@ -175,9 +179,8 @@ fn test_voice_settings_auto_save_empty_api_key_preserves_saved_secret() {
         reloaded
             .values()
             .active_provider_profile()
-            .api_key()
-            .is_some(),
-        "从 SQLite 重新加载后 API Key 仍应保持 configured"
+            .credential_configured(),
+        "从 SQLite 重新加载 credential ref 后 API Key 仍应显示 configured"
     );
 
     state.clear_agent_api_key();
@@ -186,7 +189,11 @@ fn test_voice_settings_auto_save_empty_api_key_preserves_saved_secret() {
         "明确 Clear 后当前 Provider 应立即变为未配置"
     );
     let clear_writes = state.take_pending_writes();
-    assert_eq!(clear_writes.len(), 1, "明确 Clear 应产生一次 SQLite Delete");
+    assert_eq!(
+        clear_writes.len(),
+        4,
+        "明确 Clear 应删除 Keychain 项、credential ref 与两个旧明文键"
+    );
     for write in clear_writes {
         write.execute().expect("明确 Clear 的 Delete 写入应成功");
     }
@@ -314,8 +321,8 @@ fn test_tts_model_and_voice_selection_persist_as_independent_ids() {
     let temp = tempfile::tempdir().expect("应创建 TTS 持久化测试目录");
     let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
     let mut state = VoiceSettingsState::load_from_store(store.clone());
-    let matcha =
-        tts::TtsModelId::parse(tts::MATCHA_ZH_MODEL_ID).expect("内置 Matcha 模型 ID 应有效");
+    let matcha = tts::TtsModelId::parse(tts::MATCHA_ZH_EN_MODEL_ID)
+        .expect("内置 Matcha zh-en 模型 ID 应有效");
     let kokoro = tts::TtsModelId::parse(tts::KOKORO_MULTI_LANG_MODEL_ID)
         .expect("内置 Kokoro 模型 ID 应有效");
     let default_voice = tts::TtsVoiceId::parse("default").expect("默认 Voice ID 应有效");

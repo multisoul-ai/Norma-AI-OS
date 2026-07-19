@@ -112,6 +112,7 @@ fn test_enter_workspace_defers_live_terminal_restore_for_saved_card() {
             6,
             &opened.pending_live_restore.checkpoints,
             &opened.pending_live_restore.node_sessions,
+            None,
         ),
         "deferred restore 执行 node_id=6 时应成功恢复 terminal live node"
     );

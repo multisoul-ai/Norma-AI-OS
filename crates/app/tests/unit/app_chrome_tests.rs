@@ -66,14 +66,12 @@ fn test_bottom_voice_bar_is_visible_with_sherpa_provider() {
     );
 }
 
-/// 顶部 agent 菜单（第三步重设计后）：旧文本标签已被图标按钮取代，不得回退。
+/// Product UI Dock：Codex 保留直达入口，其余 Agent 入口收纳到 New 菜单且能力不丢失。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = include_str!("../../src/app/chrome.rs")（检查当前 chrome 渲染源码）
-///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
-///   new claude form = "ToolbarIcon::Claude"（图标按钮变体）
-///   new codex form  = "ToolbarIcon::Codex"（图标按钮变体）
-///   new opencode form = "ToolbarIcon::OpenCode"（图标按钮变体）
+///   chrome source = Command Dock 生产渲染源码
+///   menu source = New 菜单生产渲染源码
+///   Dock 直达 Agent = Codex 1 个；菜单 Agent = Claude/Codex/Cursor/OpenCode 4 个
 ///   forbidden_1 = "\"C" + "L\""（截图里的旧 Claude 缩写 literal）
 ///   forbidden_2 = "\"C" + "X\""（截图里的旧 Codex 缩写 literal）
 ///   forbidden_3 = "chrome_button(theme, \"Claude" + " Code\""（第三步前的文本按钮调用，现已被图标取代）
@@ -83,20 +81,19 @@ fn test_bottom_voice_bar_is_visible_with_sherpa_provider() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 app_chrome.rs 的生产渲染源码
-///   2. 确认 agent 入口用 ToolbarIcon 变体挂载，而非旧文本标签
-///   3. 搜索旧缩写 literal、旧完整文本标签与截图里的两个末尾无用按钮
+///   2. 确认 Codex 在 Dock 直达，Claude/Cursor/OpenCode 仍在 New 菜单
+///   3. 搜索旧缩写 literal、旧完整文本按钮与无用占位按钮
 ///
 /// 预期结果：
-///   - 正断言：Claude agent 入口以 ToolbarIcon::Claude 形式存在
-///   - 正断言：Codex agent 入口以 ToolbarIcon::Codex 形式存在
-///   - 正断言：OpenCode agent 入口以 ToolbarIcon::OpenCode 形式存在
+///   - 正断言：Codex 在 Dock，Claude/Cursor/OpenCode 在 New 菜单
 ///   - 负断言：CL/CX 旧缩写不应继续出现在生产渲染源码中
 ///   - 负断言：旧完整文本标签 "Claude Code" / "Codex" 不应继续作为 chrome_button 文案
 ///   - 负断言：[] reflow 按钮和 * 占位按钮不应继续挂载
 #[test]
 fn test_top_toolbar_agent_entries_use_icon_variants_not_text_labels() {
-    let source = include_str!("../../src/app/chrome.rs");
+    let source = include_str!("../../src/app/chrome/dock.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
+    let new_menu_source = include_str!("../../src/app/new_menu.rs");
     let claude_icon_variant = "ToolbarIcon::Claude";
     let codex_icon_variant = "ToolbarIcon::Codex";
     let opencode_icon_variant = "ToolbarIcon::OpenCode";
@@ -108,16 +105,20 @@ fn test_top_toolbar_agent_entries_use_icon_variants_not_text_labels() {
     let trailing_star_button = format!("{}{}", "chrome_button(theme, \"", "*\", false)");
 
     assert!(
-        render_source.contains(claude_icon_variant),
-        "顶部 Claude agent 入口应由 chrome_icon_button + ToolbarIcon::Claude 渲染"
+        new_menu_source.contains(claude_icon_variant),
+        "Claude agent 入口应保留在 New 菜单"
     );
     assert!(
         render_source.contains(codex_icon_variant),
         "顶部 Codex agent 入口应由 chrome_icon_button + ToolbarIcon::Codex 渲染"
     );
     assert!(
-        render_source.contains(opencode_icon_variant),
-        "顶部 OpenCode agent 入口应由 chrome_icon_button + ToolbarIcon::OpenCode 渲染"
+        new_menu_source.contains(opencode_icon_variant),
+        "OpenCode agent 入口应保留在 New 菜单"
+    );
+    assert!(
+        new_menu_source.contains("ToolbarIcon::Cursor"),
+        "Cursor agent 入口应保留在 New 菜单"
     );
     assert!(
         !render_source.contains(&legacy_claude_literal),
@@ -148,7 +149,7 @@ fn test_top_toolbar_agent_entries_use_icon_variants_not_text_labels() {
 /// 右上角反馈入口：workspace chrome 不应再挂载反馈按钮。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = include_str!("../../src/app/chrome.rs")（检查当前 chrome 源码）
+///   source = include_str!("../../src/app/chrome/dock.rs")（检查 Command Dock 源码）
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
 ///   toolbar id = "toolbar" + "-new-terminal"（应继续存在，证明顶部工具栏没有被误删）
 ///   forbidden label = "Feed" + "back"（用户要求删除的按钮文案）
@@ -165,7 +166,7 @@ fn test_top_toolbar_agent_entries_use_icon_variants_not_text_labels() {
 ///   - 负断言：旧反馈文案、id、handler 不应继续出现在 chrome 渲染源码中
 #[test]
 fn test_workspace_chrome_omits_feedback_entry() {
-    let source = include_str!("../../src/app/chrome.rs");
+    let source = include_str!("../../src/app/chrome/dock.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
     let toolbar_new_terminal_id = concat!("toolbar", "-new-terminal");
     let feedback_label = format!("{}{}", "Feed", "back");
@@ -190,20 +191,20 @@ fn test_workspace_chrome_omits_feedback_entry() {
     );
 }
 
-/// 顶部设置入口（第三步重设计后）：齿轮由 SVG 图标 ToolbarIcon::Settings 渲染，旧 ⚙ glyph 不再使用。
+/// 底部 Dock 设置入口：齿轮由 SVG 图标 ToolbarIcon::Settings 渲染，旧 ⚙ glyph 不再使用。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = include_str!("../../src/app/chrome.rs")（检查 chrome 渲染源码）
+///   source = include_str!("../../src/app/chrome/dock.rs")（检查 Command Dock 渲染源码）
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
 ///   expected id        = "toolbar" + "-settings"
 ///   expected icon form = "ToolbarIcon::Settings"（SVG 图标变体）
-///   existing icons     = ToolbarIcon::Plus、ToolbarIcon::Claude、ToolbarIcon::Codex、ToolbarIcon::OpenCode
+///   existing icons     = ToolbarIcon::Plus/Terminal/Codex/Browser/Preview
 ///   forbidden glyph    = "\"⚙\""（第三步前使用的 Unicode 字符）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 app_chrome.rs 的生产渲染源码
-///   2. 确认 toolbar-settings 与 ToolbarIcon::Settings 出现在顶部工具栏
-///   3. 确认其它入口（新终端、Claude、Codex）仍以图标形式存在
+///   2. 确认 toolbar-settings 与 ToolbarIcon::Settings 出现在底部 Dock
+///   3. 确认其它核心入口仍以图标形式存在
 ///   4. 搜索旧 ⚙ glyph literal，确认已被移除
 ///
 /// 预期结果：
@@ -212,14 +213,15 @@ fn test_workspace_chrome_omits_feedback_entry() {
 ///   - 负断言：旧 ⚙ glyph literal 不应继续出现
 #[test]
 fn test_top_toolbar_includes_settings_icon_entry() {
-    let source = include_str!("../../src/app/chrome.rs");
+    let source = include_str!("../../src/app/chrome/dock.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
     let settings_id = concat!("toolbar", "-settings");
     let settings_icon_variant = "ToolbarIcon::Settings";
     let plus_icon_variant = "ToolbarIcon::Plus";
-    let claude_icon_variant = "ToolbarIcon::Claude";
+    let terminal_icon_variant = "ToolbarIcon::Terminal";
     let codex_icon_variant = "ToolbarIcon::Codex";
-    let opencode_icon_variant = "ToolbarIcon::OpenCode";
+    let browser_icon_variant = "ToolbarIcon::Browser";
+    let preview_icon_variant = "ToolbarIcon::Preview";
     let legacy_settings_glyph = "\"⚙\"";
 
     assert!(
@@ -235,16 +237,20 @@ fn test_top_toolbar_includes_settings_icon_entry() {
         "新增设置入口不应移除顶部新终端按钮（ToolbarIcon::Plus）"
     );
     assert!(
-        render_source.contains(claude_icon_variant),
-        "新增设置入口不应移除 Claude 图标按钮"
+        render_source.contains(terminal_icon_variant),
+        "Settings 入口不应移除 Terminal 直达按钮"
     );
     assert!(
         render_source.contains(codex_icon_variant),
         "新增设置入口不应移除 Codex 图标按钮"
     );
     assert!(
-        render_source.contains(opencode_icon_variant),
-        "新增设置入口不应移除 OpenCode 图标按钮"
+        render_source.contains(browser_icon_variant),
+        "Settings 入口不应移除 Browser 直达按钮"
+    );
+    assert!(
+        render_source.contains(preview_icon_variant),
+        "Settings 入口不应移除 Preview 直达按钮"
     );
     assert!(
         !render_source.contains(legacy_settings_glyph),
@@ -259,7 +265,7 @@ fn test_top_toolbar_includes_settings_icon_entry() {
 /// 顶部画布滚动入口（第三步重设计后）：滚动开关由 ToolbarIcon::Scroll 图标渲染，旧 ↕ glyph 不再使用。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = include_str!("../../src/app/chrome.rs")（检查 chrome 渲染源码）
+///   source = include_str!("../../src/app/chrome/dock.rs")（检查 Command Dock 渲染源码）
 ///   render_source = source 中 #[cfg(test)] 前的生产渲染区，避免测试注释误命中
 ///   expected id        = "toolbar" + "-canvas-scroll"
 ///   expected icon form = "ToolbarIcon::Scroll"（第三步起的 SVG 图标变体）
@@ -281,7 +287,7 @@ fn test_top_toolbar_includes_settings_icon_entry() {
 ///   - 负断言：旧 ↕ glyph literal、旧静态 v 占位按钮、TOOLBAR_CANVAS_SCROLL_ICON 常量不应继续存在
 #[test]
 fn test_top_toolbar_includes_canvas_scroll_icon_toggle() {
-    let source = include_str!("../../src/app/chrome.rs");
+    let source = include_str!("../../src/app/chrome/dock.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
     let scroll_id = concat!("toolbar", "-canvas-scroll");
     let scroll_handler = format!("{}{}{}", "on_", "toolbar", "_canvas_scroll");
@@ -323,100 +329,6 @@ fn test_top_toolbar_includes_canvas_scroll_icon_toggle() {
     assert!(
         !render_source.contains(legacy_scroll_const),
         "第三步删除的 TOOLBAR_CANVAS_SCROLL_ICON 常量不应再出现"
-    );
-}
-
-/// 顶部工具栏整体形态（第三步重设计后）：4 个图标按钮 + 3 分隔符的分组 pill，
-/// 不再渲染 CANVAS 占位文字，且顶部工具栏区段内不再混用旧文本 chrome_button。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   source = include_str!("../../src/app/chrome.rs")
-///   render_source = source 中 #[cfg(test)] 前的生产渲染区
-///   top_toolbar_start = render_source 中首个 ".top(px(30.0))" 的下标（顶部工具栏锚点）
-///   top_toolbar_end   = render_source 中 ".when(workspace_left_rail_visible()" 的下标（左侧菜单分支起点）
-///   top_toolbar       = render_source[top_toolbar_start..top_toolbar_end]（仅顶部工具栏区段）
-///   分隔符调用次数    = top_toolbar 中 "chrome_divider(" 出现次数 = 3（Scroll|Plus|四种 Agent|Settings）
-///   图标按钮调用次数  = top_toolbar 中 "chrome_icon_button(" 出现次数 = 7（Scroll/Plus/Claude/Codex/Cursor/OpenCode/Settings）
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 截取顶部工具栏区段（排除左侧菜单分支与函数定义，避免误命中）
-///   2. 确认 render_source 含 chrome_icon_button 定义与 ToolbarIcon:: 使用
-///   3. 确认顶部区段含 6 个 chrome_icon_button 调用、3 个 chrome_divider 调用
-///   4. 确认 render_source 不再含 "CANVAS" 字面量
-///   5. 确认顶部区段不再含旧文本 chrome_button( 调用、旧文本标签与旧 glyph
-///
-/// 预期结果：
-///   - 正断言：render_source 含 chrome_icon_button( 与 ToolbarIcon::
-///   - 正断言：顶部区段含 6 个 chrome_icon_button 调用、3 个 chrome_divider 分隔符
-///   - 负断言：render_source 不含 "CANVAS" 字面量
-///   - 负断言：顶部区段不含 chrome_button( 调用（左侧菜单仍可用 chrome_button，故只截顶部区段）
-///   - 负断言：顶部区段不含旧文本标签 (+/Claude Code/Codex/Preview) 与旧 glyph (⚙/↕)
-#[test]
-fn test_top_toolbar_uses_icon_buttons_and_drops_canvas_literal() {
-    let source = include_str!("../../src/app/chrome.rs");
-    let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
-
-    let top_toolbar_start = render_source
-        .find(".top(px(30.0))")
-        .expect("顶部工具栏应以 .top(px(30.0)) 锚点起始");
-    let top_toolbar_end = render_source
-        .find(".when(workspace_left_rail_visible()")
-        .expect("左侧菜单分支应作为顶部工具栏区段的右界");
-    let top_toolbar = &render_source[top_toolbar_start..top_toolbar_end];
-
-    let icon_button_calls = top_toolbar.matches("chrome_icon_button(").count();
-    let divider_calls = top_toolbar.matches("chrome_divider(").count();
-
-    assert!(
-        render_source.contains("chrome_icon_button("),
-        "顶部工具栏应通过 chrome_icon_button 渲染图标按钮"
-    );
-    assert!(
-        render_source.contains("ToolbarIcon::"),
-        "顶部工具栏应使用 ToolbarIcon 枚举变体指定图标"
-    );
-    assert_eq!(
-        icon_button_calls,
-        7,
-        "顶部工具栏应恰好含 7 个 chrome_icon_button 调用 (Scroll/Plus/Claude/Codex/Cursor/OpenCode/Settings)，实际 {}",
-        icon_button_calls
-    );
-    assert_eq!(
-        divider_calls, 3,
-        "顶部工具栏应恰好含 3 个 chrome_divider 分隔符 (Scroll|Plus|四种 Agent|Settings)，实际 {}",
-        divider_calls
-    );
-    assert!(
-        !render_source.contains("\"CANVAS\""),
-        "第三步重设计后顶部不应继续渲染 \"CANVAS\" 占位文字"
-    );
-    assert!(
-        !top_toolbar.contains("chrome_button("),
-        "顶部工具栏区段不应继续混用旧文本 chrome_button（左侧菜单仍可使用，但顶部应全部图标化）"
-    );
-    assert!(
-        !top_toolbar.contains("\"+\""),
-        "顶部工具栏不应继续以 \"+\" 文本标签挂载新终端按钮"
-    );
-    assert!(
-        !top_toolbar.contains("chrome_button(theme, \"Claude Code\""),
-        "顶部工具栏不应继续以 chrome_button 文本标签形式挂载 Claude Code 按钮"
-    );
-    assert!(
-        !top_toolbar.contains("chrome_button(theme, \"Codex\""),
-        "顶部工具栏不应继续以 chrome_button 文本标签形式挂载 Codex 按钮（\"Codex\" 仅可作为 tooltip 文案）"
-    );
-    assert!(
-        !top_toolbar.contains("\"Preview\""),
-        "第三步将 Preview 移入 ✚ 菜单前，顶部工具栏不应继续渲染 Preview 按钮"
-    );
-    assert!(
-        !top_toolbar.contains("\"⚙\""),
-        "顶部工具栏不应继续使用 ⚙ glyph literal"
-    );
-    assert!(
-        !top_toolbar.contains("\"↕\""),
-        "顶部工具栏不应继续使用 ↕ glyph literal"
     );
 }
 
@@ -495,5 +407,92 @@ fn test_video_wallpaper_branch_uses_surface_not_render_images() {
     assert!(
         !video_src.contains("next_frame_rgba"),
         "live 视频壁纸不应调用 next_frame_rgba；该接口只适合首帧缩略图/离线图片路径"
+    );
+}
+
+/// 卡片毛玻璃的 5 个空间样本必须做等权、不丢失背景能量的增量混合。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   样本数 N = 5（中心 + 4 个对角偏移）。
+///   第 i 个样本（从 0 开始）的增量 alpha = 1 / (i + 1)：
+///   alpha[0] = 1/1 = 1.0，alpha[1] = 1/2 = 0.5，alpha[4] = 1/5 = 0.2。
+///   递推后每个样本的最终权重均为 1/5，且总权重 = 5 × 1/5 = 1.0。
+///   旧固定 alpha = 0x24 / 0xff ≈ 0.141，会让 5 层组合覆盖率只有
+///   1 - (1 - 0.141)^5 ≈ 0.53，剩余 47% 被冷白底色替代。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取第 0 个样本 alpha，作为完全覆盖的混合基底。
+///   2. 读取第 1 个样本 alpha，将前两个空间样本各保留 1/2。
+///   3. 读取最后一个样本 alpha，将 5 个空间样本归一为各 1/5。
+///
+/// 预期结果：
+///   - 正断言：首层为 1.0、第二层为 0.5、末层为 0.2。
+///   - 正断言：末层 alpha × 5 = 1.0，证明最终权重归一。
+///   - 负断言：末层不得继续使用旧的固定 0x24/0xff 低透明度。
+#[test]
+fn test_card_frost_samples_are_equal_weight_and_energy_preserving() {
+    let first = frost_sample_opacity(0);
+    let second = frost_sample_opacity(1);
+    let last = frost_sample_opacity(4);
+    let legacy_fixed_opacity = f32::from(0x24_u8) / 255.0;
+
+    assert_eq!(
+        first, 1.0,
+        "首个壁纸样本必须完全覆盖卡片底色，避免毛玻璃发白"
+    );
+    assert_eq!(second, 0.5, "第二个壁纸样本必须以 1/2 混入，保持前两层等权");
+    assert_eq!(
+        last, 0.2,
+        "第五个壁纸样本必须以 1/5 混入，使 5 个样本最终等权"
+    );
+    assert_eq!(
+        last * 5.0,
+        1.0,
+        "五个样本的最终权重之和必须为 1.0，背景能量不能被冷白底色吞掉"
+    );
+    assert_ne!(
+        last, legacy_fixed_opacity,
+        "毛玻璃采样不得继续使用 0x24/0xff 固定透明度，否则最终只保留约 53% 壁纸"
+    );
+}
+
+/// 毛玻璃采样区域必须避开卡片的四个圆角方块，避免矩形子元素重新露出直角。
+///
+/// 数据构造（含关键数值推导）：
+///   card = 320 x 220px；corner radius = 22px。
+///   顶部安全区 width = 320 - 2 × 22 = 276px；中央安全区 height = 220 - 2 × 22 = 176px；
+///   底部安全区 top = 220 - 22 = 198px。
+///
+/// 执行过程：
+///   1. 计算 320×220 卡片的毛玻璃安全区域。
+///   2. 分别读取顶部、中部和底部矩形。
+///   3. 检查它们只覆盖十字形安全区，不覆盖四个 22×22 的角落方块。
+///
+/// 预期结果：
+///   - 正断言：顶部/底部区域左右各内缩 22px，中央区域从 y=22 到 y=198。
+///   - 负断言：不存在从 (0,0) 覆盖整张卡片的矩形，否则圆角仍会被采样遮住。
+#[test]
+fn test_frosted_backdrop_regions_leave_card_corner_squares_unpainted() {
+    let regions = frosted_backdrop_regions(320.0, 220.0, 22.0);
+
+    assert_eq!(regions.len(), 3, "毛玻璃应拆为顶部、中部、底部三个安全区域");
+    assert_eq!(regions[0].left, 22.0, "顶部区域必须避开左上与右上圆角");
+    assert_eq!(
+        regions[0].width, 276.0,
+        "顶部安全区域宽度应为 320-2×22=276px"
+    );
+    assert_eq!(regions[1].top, 22.0, "中央区域必须从圆角半径以下开始");
+    assert_eq!(
+        regions[1].height, 176.0,
+        "中央安全区域高度应为 220-2×22=176px"
+    );
+    assert_eq!(regions[2].top, 198.0, "底部区域必须从 220-22=198px 开始");
+    assert_ne!(
+        regions[0].left, 0.0,
+        "顶部区域不得从 x=0 开始，否则会覆盖左上圆角方块"
+    );
+    assert_ne!(
+        regions[2].left, 0.0,
+        "底部区域不得从 x=0 开始，否则会覆盖左下圆角方块"
     );
 }

@@ -2,25 +2,22 @@
 
 #[cfg(test)]
 use super::reply::{apply_reply_synthesis, create_tts_client};
-#[cfg(test)]
-use super::turn;
 use super::{artifacts::VoiceTurnArtifacts, DialogueControlState};
 use dialogue::DialoguePhase;
 use gpui::Context;
 #[cfg(test)]
 use voice_sherpa::SpeechError;
 
-#[cfg(test)]
-type TestTurnRunner =
-    fn(&str, Vec<llm::MockStep>) -> Result<VoiceTurnArtifacts, dialogue::DialogueError>;
-
-#[cfg(test)]
-static TEST_TURN_RUNNER: std::sync::Mutex<Option<TestTurnRunner>> = std::sync::Mutex::new(None);
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct QueuedAgentReport {
+    text: String,
+    play_from_idle: bool,
+}
 
 impl DialogueControlState {
     pub(crate) fn has_pending_spoken_reply(&self) -> bool {
         self.pending_voice_turn
-            || !self.queued_template_reports.is_empty()
+            || self.can_begin_queued_agent_report()
             || self.reply_task.is_some()
             || self.speech_task.is_some()
     }
@@ -36,19 +33,53 @@ impl DialogueControlState {
     }
 
     pub(crate) fn queue_agent_report(&mut self, report: String) {
-        self.queued_template_reports.push(report);
+        self.queued_template_reports.push(QueuedAgentReport {
+            text: report,
+            play_from_idle: false,
+        });
+    }
+
+    pub(crate) fn queue_agent_report_for_current_voice_source(&mut self, report: String) {
+        if self.reply_keeps_listening {
+            self.queue_agent_report(report);
+        } else {
+            self.queue_single_voice_agent_report(report);
+        }
+    }
+
+    pub(crate) fn queue_single_voice_agent_report(&mut self, report: String) {
+        self.queued_template_reports.push(QueuedAgentReport {
+            text: report,
+            play_from_idle: true,
+        });
     }
 
     pub(crate) fn begin_next_agent_report(&mut self) -> Option<String> {
-        if self.session.phase() != DialoguePhase::Listening
-            || self.reply_task.is_some()
-            || self.speech_task.is_some()
-            || self.queued_template_reports.is_empty()
-        {
+        if !self.can_begin_queued_agent_report() {
             return None;
         }
-        self.session.on_report_pending().ok()?;
-        self.queued_template_reports.first().cloned()
+        match self.session.phase() {
+            DialoguePhase::Listening => self.session.on_report_pending().ok()?,
+            DialoguePhase::Idle => self
+                .session
+                .on_deferred_single_voice_report_pending()
+                .ok()?,
+            DialoguePhase::Thinking | DialoguePhase::Speaking => return None,
+        }
+        self.queued_template_reports
+            .first()
+            .map(|report| report.text.clone())
+    }
+
+    fn can_begin_queued_agent_report(&self) -> bool {
+        if self.reply_task.is_some() || self.speech_task.is_some() {
+            return false;
+        }
+        let Some(report) = self.queued_template_reports.first() else {
+            return false;
+        };
+        self.session.phase() == DialoguePhase::Listening
+            || (self.session.phase() == DialoguePhase::Idle && report.play_from_idle)
     }
 
     pub(crate) fn complete_current_agent_report(&mut self) {
@@ -113,9 +144,12 @@ impl DialogueControlState {
                     let _ = this.update(cx, |app, cx| {
                         app.dialogue.store_turn_artifacts(&artifacts);
                         app.dialogue.reply_task = None;
-                        if !has_live_dialogue {
+                        if !has_live_dialogue && artifacts.play_reply {
                             app.dialogue
                                 .begin_static_reply_stream(artifacts.reply_text.clone(), cx);
+                        } else if !has_live_dialogue {
+                            app.dialogue
+                                .finish_silent_reply(artifacts.reply_text.clone());
                         }
                         cx.notify();
                     });
@@ -135,8 +169,9 @@ impl DialogueControlState {
 
     pub(crate) fn store_turn_artifacts(&mut self, artifacts: &VoiceTurnArtifacts) {
         self.last_reply_text = Some(artifacts.reply_text.clone());
-        self.queued_template_reports
-            .extend(artifacts.queued_template_reports.clone());
+        for report in &artifacts.queued_template_reports {
+            self.queue_agent_report(report.clone());
+        }
     }
 
     #[cfg(test)]
@@ -145,22 +180,11 @@ impl DialogueControlState {
     }
 
     #[cfg(test)]
-    pub(crate) fn queued_template_reports_for_tests(&self) -> &[String] {
-        &self.queued_template_reports
-    }
-
-    #[cfg(test)]
-    pub(crate) fn set_test_turn_runner_for_tests(runner: Option<TestTurnRunner>) {
-        *TEST_TURN_RUNNER
-            .lock()
-            .expect("test turn runner lock should not be poisoned") = runner;
-    }
-
-    #[cfg(test)]
-    pub(crate) fn test_turn_runner_for_tests() -> Option<TestTurnRunner> {
-        *TEST_TURN_RUNNER
-            .lock()
-            .expect("test turn runner lock should not be poisoned")
+    pub(crate) fn queued_template_reports_for_tests(&self) -> Vec<String> {
+        self.queued_template_reports
+            .iter()
+            .map(|report| report.text.clone())
+            .collect()
     }
 
     #[cfg(test)]
@@ -172,13 +196,13 @@ impl DialogueControlState {
             .pending_transcript()
             .ok_or_else(|| dialogue::DialogueError::Message("missing pending_transcript".into()))?
             .to_string();
-        let mock_script = turn::mock_script_for_transcript(&transcript);
-        if let Some(runner) = Self::test_turn_runner_for_tests() {
-            let artifacts = runner(&transcript, mock_script)?;
-            self.store_turn_artifacts(&artifacts);
-            return Ok(artifacts);
-        }
-        let artifacts = turn::run_dialogue_turn_with_recording_runner(&transcript, mock_script)?;
+        let artifacts = VoiceTurnArtifacts {
+            reply_text: format!("收到：{transcript}"),
+            play_reply: true,
+            executed_commands: Vec::new(),
+            template_reports: Vec::new(),
+            queued_template_reports: Vec::new(),
+        };
         self.store_turn_artifacts(&artifacts);
         Ok(artifacts)
     }
@@ -191,28 +215,19 @@ impl DialogueControlState {
             .or_else(|| {
                 self.session
                     .pending_transcript()
-                    .map(turn::default_echo_mock_script)
-                    .and_then(|steps| {
-                        steps.into_iter().next().and_then(|step| match step {
-                            llm::MockStep::Text(text) => Some(text),
-                            _ => None,
-                        })
-                    })
+                    .map(|transcript| format!("收到：{transcript}"))
             })
             .ok_or_else(|| SpeechError::Recognizer("missing reply text".to_string()))?;
-        if self.tts_client.is_none() {
-            self.tts_client = Some(create_tts_client()?);
-        }
-        let tts = self
-            .tts_client
-            .as_mut()
-            .expect("tts client should exist after lazy init");
-        apply_reply_synthesis(
-            &mut self.session,
-            tts.as_mut(),
-            &mut self.reply_playback,
-            &reply_text,
-        )
-        .map(|_| ())
+        let tts_runtime = self.shared_tts_runtime.clone();
+        tts_runtime
+            .with_client(None, create_tts_client, |tts| {
+                apply_reply_synthesis(
+                    &mut self.session,
+                    tts,
+                    &mut self.reply_playback,
+                    &reply_text,
+                )
+            })
+            .map(|_| ())
     }
 }

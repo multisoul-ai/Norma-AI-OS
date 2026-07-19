@@ -46,6 +46,7 @@ impl MultisoulApp {
                 writer.interrupt_definition(definition_id);
             }
         }
+        self.pending_agent_submissions.remove_node(node_id);
         self.pending_agent_close_confirmation = None;
         true
     }

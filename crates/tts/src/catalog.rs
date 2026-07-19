@@ -2,12 +2,21 @@ use crate::{TtsModelId, TtsVoiceId};
 use model_store::ModelArtifact;
 
 pub const MATCHA_ZH_MODEL_ID: &str = "matcha-icefall-zh-baker";
+pub const MATCHA_ZH_EN_MODEL_ID: &str = "matcha-icefall-zh-en";
 pub const KOKORO_MULTI_LANG_MODEL_ID: &str = "kokoro-int8-multi-lang-v1_1";
+pub const ZIPVOICE_DISTILL_INT8_MODEL_ID: &str = "zipvoice-distill-int8-zh-en-emilia";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TtsBackend {
     Matcha,
     Kokoro,
+    ZipVoice,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TtsReleaseGate {
+    M4PerformancePending,
+    EmiliaDistributionAuditPending,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -43,6 +52,7 @@ impl TtsVoiceDescriptor {
 pub struct TtsCapabilities {
     languages: Vec<String>,
     sample_rate_hz: u32,
+    requires_voice_reference: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -117,7 +127,13 @@ impl TtsCapabilities {
         Self {
             languages: languages.into_iter().map(str::to_string).collect(),
             sample_rate_hz,
+            requires_voice_reference: false,
         }
+    }
+
+    pub fn with_voice_reference(mut self) -> Self {
+        self.requires_voice_reference = true;
+        self
     }
 
     pub fn languages(&self) -> &[String] {
@@ -126,6 +142,10 @@ impl TtsCapabilities {
 
     pub fn sample_rate_hz(&self) -> u32 {
         self.sample_rate_hz
+    }
+
+    pub fn requires_voice_reference(&self) -> bool {
+        self.requires_voice_reference
     }
 }
 
@@ -161,6 +181,7 @@ pub struct TtsModelDescriptor {
     package: TtsModelPackage,
     voices: Vec<TtsVoiceDescriptor>,
     recommendation: TtsModelRecommendation,
+    release_gates: Vec<TtsReleaseGate>,
 }
 
 impl TtsModelDescriptor {
@@ -181,7 +202,13 @@ impl TtsModelDescriptor {
             package,
             voices,
             recommendation,
+            release_gates: Vec::new(),
         }
+    }
+
+    pub fn with_release_gates(mut self, release_gates: Vec<TtsReleaseGate>) -> Self {
+        self.release_gates = release_gates;
+        self
     }
 
     pub fn id(&self) -> &TtsModelId {
@@ -204,6 +231,14 @@ impl TtsModelDescriptor {
     }
     pub fn recommended(&self) -> bool {
         self.recommendation.model_recommended()
+    }
+
+    pub fn experimental(&self) -> bool {
+        !self.release_gates.is_empty()
+    }
+
+    pub fn release_gates(&self) -> &[TtsReleaseGate] {
+        &self.release_gates
     }
 
     pub fn resolve_voice_id(&self, requested: Option<&str>) -> &TtsVoiceId {
@@ -242,31 +277,41 @@ impl TtsModelCatalog {
 }
 
 pub fn builtin_model_catalog() -> TtsModelCatalog {
-    let default = voice("default", "Default Chinese Voice", 0);
+    let default = voice("default", "Default Bilingual Voice", 0);
     let heart = voice("af_heart", "Heart", 0);
     let bella = voice("af_bella", "Bella", 1);
+    let cloned = voice("cloned_reference", "Cloned Reference Voice", 0);
     TtsModelCatalog {
         entries: vec![
             descriptor(
-                MATCHA_ZH_MODEL_ID,
-                "Matcha Chinese",
+                MATCHA_ZH_EN_MODEL_ID,
+                "Matcha Chinese-English",
                 TtsBackend::Matcha,
-                TtsCapabilities::new(vec!["zh"], 22_050),
+                TtsCapabilities::new(vec!["zh", "en"], 16_000),
                 TtsModelPackage::new(
                     ModelArtifact::new(
-                        "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/matcha-icefall-zh-baker.tar.bz2",
-                        "e5f9bf228ccdf270f058a53523372c24edfae13b698d6d6fa3f39ece4d61e125",
-                        75_462_909,
+                        "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/matcha-icefall-zh-en.tar.bz2",
+                        "271b804af570400d3bcdcb53bf6e53cc9f75180ee763b9f13eb5eaf2b0d086ef",
+                        79_033_838,
                         vec![
-                            "model-steps-3.onnx", "lexicon.txt", "tokens.txt", "phone.fst",
-                            "date.fst", "number.fst", "dict/stop_words.utf8",
+                            "model-steps-3.onnx",
+                            "lexicon.txt",
+                            "tokens.txt",
+                            "phone-zh.fst",
+                            "date-zh.fst",
+                            "number-zh.fst",
+                            "espeak-ng-data/phontab",
+                            "espeak-ng-data/phondata",
+                            "espeak-ng-data/phonindex",
+                            "espeak-ng-data/en_dict",
+                            "espeak-ng-data/lang/gmw/en",
                         ],
                     ),
                     vec![TtsSupportArtifact::new(
-                        "https://github.com/k2-fsa/sherpa-onnx/releases/download/vocoder-models/vocos-22khz-univ.onnx",
-                        "0574a135aa1db2de6e181050db2ec528496cacd4a4701fc5d7faf9f9804c0081",
-                        53_884_024,
-                        "vocos-22khz-univ.onnx",
+                        "https://github.com/k2-fsa/sherpa-onnx/releases/download/vocoder-models/vocos-16khz-univ.onnx",
+                        "b599142a1fb8ff03de3e84ac35ff537c619e56f4267a6fe894851a42844acf9e",
+                        53_882_848,
+                        "vocos-16khz-univ.onnx",
                     )],
                 ),
                 vec![default.clone()],
@@ -289,6 +334,40 @@ pub fn builtin_model_catalog() -> TtsModelCatalog {
                 vec![heart.clone(), bella],
                 TtsModelRecommendation::new(heart.id().clone(), false),
             ),
+            descriptor(
+                ZIPVOICE_DISTILL_INT8_MODEL_ID,
+                "ZipVoice-Distill INT8",
+                TtsBackend::ZipVoice,
+                TtsCapabilities::new(vec!["zh", "en"], 24_000).with_voice_reference(),
+                TtsModelPackage::new(
+                    ModelArtifact::new(
+                        "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-zipvoice-distill-int8-zh-en-emilia.tar.bz2",
+                        "77219c8b40f4ee8d73a7f902305ff6c1128ef9b54461c41b4ca6ed890b6c2803",
+                        109_162_785,
+                        vec![
+                            "encoder.int8.onnx",
+                            "decoder.int8.onnx",
+                            "tokens.txt",
+                            "lexicon.txt",
+                            "espeak-ng-data/phontab",
+                            "espeak-ng-data/phondata",
+                            "espeak-ng-data/phonindex",
+                        ],
+                    ),
+                    vec![TtsSupportArtifact::new(
+                        "https://github.com/k2-fsa/sherpa-onnx/releases/download/vocoder-models/vocos_24khz.onnx",
+                        "bcb3b970e384161c4d634f0bb9e999ff1c471b34c9bc0b1049a5014065ed3cc0",
+                        54_157_409,
+                        "vocos_24khz.onnx",
+                    )],
+                ),
+                vec![cloned.clone()],
+                TtsModelRecommendation::new(cloned.id().clone(), false),
+            )
+            .with_release_gates(vec![
+                TtsReleaseGate::M4PerformancePending,
+                TtsReleaseGate::EmiliaDistributionAuditPending,
+            ]),
         ],
     }
 }

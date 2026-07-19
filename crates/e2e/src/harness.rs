@@ -6,13 +6,60 @@
 //! 不触达 `pub(crate)` 字段或私有方法。
 
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use app::{MultisoulApp, NewCodexAgent, NewCursorAgent, NewTerminal};
+use app::{MultisoulApp, NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewTerminal};
 use canvas::{CanvasNodeKind, NodeId};
-use gpui::{Entity, TestAppContext, VisualTestContext};
+use gpui::{AppContext, Entity, TestAppContext, VisualTestContext};
 use runtime::{NodeView, PtyFactory, Runtime};
 use terminal::{GridSnapshot, PtyBackend, ScriptRule, TestPtyBackend};
+
+static VOICE_TRANSCRIPT_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+static VOICE_MODEL_INSTALL_E2E_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+pub(crate) struct VoiceModelInstallE2eGuard {
+    _lock: std::sync::MutexGuard<'static, ()>,
+}
+
+impl VoiceModelInstallE2eGuard {
+    pub(crate) fn acquire() -> Self {
+        Self {
+            _lock: VOICE_MODEL_INSTALL_E2E_LOCK
+                .lock()
+                .expect("Voice model install e2e lock should not be poisoned"),
+        }
+    }
+}
+
+pub(crate) struct VoiceTranscriptEnvGuard {
+    _lock: std::sync::MutexGuard<'static, ()>,
+    previous: Option<std::ffi::OsString>,
+}
+
+impl VoiceTranscriptEnvGuard {
+    pub(crate) fn set(transcript: &str) -> Self {
+        let lock = VOICE_TRANSCRIPT_ENV_LOCK
+            .lock()
+            .expect("语音 transcript 环境变量测试锁不应中毒");
+        let previous = std::env::var_os("MULTISOUL_VOICE_TRANSCRIPT");
+        std::env::set_var("MULTISOUL_VOICE_TRANSCRIPT", transcript);
+        Self {
+            _lock: lock,
+            previous,
+        }
+    }
+}
+
+impl Drop for VoiceTranscriptEnvGuard {
+    fn drop(&mut self) {
+        if let Some(previous) = self.previous.take() {
+            std::env::set_var("MULTISOUL_VOICE_TRANSCRIPT", previous);
+        } else {
+            std::env::remove_var("MULTISOUL_VOICE_TRANSCRIPT");
+        }
+    }
+}
 
 /// 构造一个 echo PTY 工厂：`write(bytes)` → 同步回吐 `PtyEvent::Output(bytes)`。
 ///
@@ -36,7 +83,7 @@ pub fn scripted_factory(rules: Vec<ScriptRule>) -> PtyFactory {
 
 /// 装配 headless GPUI 窗口 + `MultisoulApp`，注入测试 PTY 工厂，并 focus root view。
 ///
-/// 内部调用 `cx.add_window_view(|_w, cx| MultisoulApp::new_with_pty_factory(cx, factory))`。
+/// 内部创建 `MultisoulApp` entity，再像生产窗口一样用 `ui::component::Root` 包裹。
 /// `add_window_view` 末尾的 `run_until_parked` 会绘制初始帧（Launchpad），此时
 /// `render()` 中注册的 `.on_action(...)` 监听器已挂到 dispatch tree。随后显式
 /// `window.focus(&app.focus_handle)` + `activate_window()`，使后续
@@ -49,8 +96,18 @@ pub fn make_app(
     cx: &mut TestAppContext,
     factory: PtyFactory,
 ) -> (Entity<MultisoulApp>, &mut VisualTestContext) {
-    let (view, cx) =
-        cx.add_window_view(|_window, cx| MultisoulApp::new_with_pty_factory(cx, factory));
+    let view_slot = Arc::new(Mutex::new(None));
+    let capture = view_slot.clone();
+    let (_root, cx) = cx.add_window_view(move |window, cx| {
+        let view = cx.new(|cx| MultisoulApp::new_with_pty_factory(cx, factory));
+        *capture.lock().expect("e2e app capture mutex should lock") = Some(view.clone());
+        ui::component::Root::new(view, window, cx)
+    });
+    let view = view_slot
+        .lock()
+        .expect("e2e app capture mutex should lock")
+        .take()
+        .expect("component root should capture MultisoulApp entity");
     focus_root(&view, cx);
     (view, cx)
 }
@@ -61,9 +118,20 @@ pub fn make_app_with_settings_store(
     factory: PtyFactory,
     store: storage::SettingsStore,
 ) -> (Entity<MultisoulApp>, &mut VisualTestContext) {
-    let (view, cx) = cx.add_window_view(|_window, cx| {
-        MultisoulApp::new_with_pty_factory_and_voice_settings_store(cx, factory, store)
+    let view_slot = Arc::new(Mutex::new(None));
+    let capture = view_slot.clone();
+    let (_root, cx) = cx.add_window_view(move |window, cx| {
+        let view = cx.new(|cx| {
+            MultisoulApp::new_with_pty_factory_and_voice_settings_store(cx, factory, store)
+        });
+        *capture.lock().expect("e2e app capture mutex should lock") = Some(view.clone());
+        ui::component::Root::new(view, window, cx)
     });
+    let view = view_slot
+        .lock()
+        .expect("e2e app capture mutex should lock")
+        .take()
+        .expect("component root should capture MultisoulApp entity");
     focus_root(&view, cx);
     (view, cx)
 }
@@ -80,7 +148,18 @@ pub fn make_app_with_settings_store(
 /// 调用方应使用 `contains("hi")` 这类对 zsh prompt/rc 噪声鲁棒的断言，而非精确
 /// 行匹配。输出异步到达，必须用 `drain_until(predicate, timeout)` 轮询。
 pub fn make_app_real(cx: &mut TestAppContext) -> (Entity<MultisoulApp>, &mut VisualTestContext) {
-    let (view, cx) = cx.add_window_view(|_window, cx| MultisoulApp::new(cx));
+    let view_slot = Arc::new(Mutex::new(None));
+    let capture = view_slot.clone();
+    let (_root, cx) = cx.add_window_view(move |window, cx| {
+        let view = cx.new(MultisoulApp::new);
+        *capture.lock().expect("e2e app capture mutex should lock") = Some(view.clone());
+        ui::component::Root::new(view, window, cx)
+    });
+    let view = view_slot
+        .lock()
+        .expect("e2e app capture mutex should lock")
+        .take()
+        .expect("component root should capture MultisoulApp entity");
     focus_root(&view, cx);
     (view, cx)
 }
@@ -173,6 +252,36 @@ pub fn create_codex_agent(view: &Entity<MultisoulApp>, cx: &mut VisualTestContex
             .max()
             .filter(|id| *id > max_before)
             .expect("NewCodexAgent should have spawned an Agent node with a larger id")
+    })
+}
+
+/// Dispatch `NewClaudeAgent` 并返回新建 Agent 节点的 id。
+///
+/// 测试 PTY 工厂接管底层 live node，因此该 helper 只覆盖公开 Claude action 的
+/// 创建与聚焦链路，不要求测试机安装 Claude Code。
+pub fn create_claude_agent(view: &Entity<MultisoulApp>, cx: &mut VisualTestContext) -> NodeId {
+    let max_before = read_runtime(view, cx, |runtime| {
+        runtime
+            .document
+            .nodes()
+            .iter()
+            .filter(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
+            .map(|node| node.id)
+            .max()
+            .unwrap_or(0)
+    });
+    cx.dispatch_action(NewClaudeAgent);
+    cx.run_until_parked();
+    read_runtime(view, cx, |runtime| {
+        runtime
+            .document
+            .nodes()
+            .iter()
+            .filter(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
+            .map(|node| node.id)
+            .max()
+            .filter(|id| *id > max_before)
+            .expect("NewClaudeAgent should have spawned an Agent node with a larger id")
     })
 }
 

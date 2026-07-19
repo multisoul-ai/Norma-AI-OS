@@ -3,7 +3,7 @@
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings panel/content + voice state/provider/view 拆分源码
 ///   nav anchor = Voice
-///   storage keys = mode + trigger + immutable ASR model ID + Agent task announcement toggle
+///   storage keys = mode + trigger + immutable ASR model ID + Agent Provider + announcement toggle
 ///   input anchors = default / refresh / clear（覆盖默认输入、设备刷新、清除选择）
 ///   continuous anchors = Continuous Listening / Agent Provider / Local TTS
 ///   hidden debug env = MULTISOUL_VOICE_TRANSCRIPT，不应暴露成设置项
@@ -16,7 +16,7 @@
 /// 预期结果：
 ///   - 正断言：Voice 页面包含新模式、模型库、Agent/TTS 与 Advanced
 ///   - 正断言：页面包含受控模型安装、输入设备、Agent 任务播报和 trace 锚点
-///   - 负断言：不应保留旧模型目录、realtime 总开关或暴露 API Key 明文
+///   - 负断言：不应保留旧 Dialogue LLM mode、旧触发器文案、realtime 总开关或 API Key 明文
 #[test]
 fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     let source = concat!(
@@ -30,11 +30,17 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         include_str!("../../src/settings/voice/view.rs"),
         include_str!("../../src/settings/voice/view/editable.rs"),
         include_str!("../../src/settings/voice/view/editable/native.rs"),
+        include_str!("../../src/settings/voice/view/editable/visibility.rs"),
+        include_str!("../../src/settings/voice/view/input_device.rs"),
         include_str!("../../src/settings/voice/view/interaction.rs"),
         include_str!("../../src/settings/voice/view/model_catalog.rs"),
         include_str!("../../src/settings/voice/view/tts_catalog.rs"),
         include_str!("../../src/settings/voice/view/spoken_reply.rs"),
         include_str!("../../src/settings/voice/view/provider.rs"),
+        include_str!("../../src/settings/voice/view/provider/api_key.rs"),
+        include_str!("../../src/settings/voice/view/setup.rs"),
+        include_str!("../../src/settings/voice/view/setup/components.rs"),
+        include_str!("../../src/settings/voice/credentials.rs"),
         include_str!("../../../asr/src/catalog.rs")
     );
     macro_rules! assert_anchor {
@@ -51,14 +57,13 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("Voice Interaction");
     assert_anchor!("Single Voice Command");
     assert_anchor!("Continuous Listening");
-    assert_anchor!("Single Voice Command Trigger");
+    assert_anchor!("Shortcut");
     assert_anchor!("Agent Provider");
     assert_anchor!("Spoken Reply");
     assert_anchor!("Local TTS");
     assert_anchor!("Advanced");
     assert_anchor!("voice.ollama.endpoint");
     assert_anchor!("voice.ollama.model");
-    assert_anchor!("voice.dialogue.llm_mode");
     assert_anchor!("voice.dialogue.model");
     assert_anchor!("voice.refine.model");
     assert_anchor!("voice.interaction.mode");
@@ -71,6 +76,7 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("settings-voice-mode-dictation");
     assert_anchor!("settings-voice-mode-continuous");
     assert_anchor!("settings-asr-model");
+    assert_anchor!("Zipformer Bilingual");
     assert_anchor!("Zipformer Streaming ZH");
     assert_anchor!("Zipformer Streaming CTC ZH");
     assert_anchor!("Recommendation pending");
@@ -87,6 +93,10 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("agent_model");
     assert_anchor!("agent_api_key");
     assert_anchor!("settings-agent-provider-api-key-clear");
+    assert_anchor!("settings-agent-provider-api-key-visibility");
+    assert_anchor!("*********");
+    assert_anchor!("Stored in macOS Keychain");
+    assert_anchor!("voice-setup-provider-connect");
     assert_anchor!("Base URL");
     assert_anchor!("API Key");
     assert_anchor!("settings-voice-trace-toggle");
@@ -97,8 +107,16 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("on_mouse_down");
     assert_anchor!("begin_edit");
     assert!(
+        !source.contains("voice.dialogue.llm_mode"),
+        "Norma/Rig 单运行时不应继续持久化旧 Dialogue LLM mode"
+    );
+    assert!(
         !source.contains("MULTISOUL_VOICE_TRANSCRIPT"),
         "Voice Settings 不应暴露测试用 transcript 注入环境变量"
+    );
+    assert!(
+        !source.contains("Single Voice Command Trigger"),
+        "Voice Settings 不应保留设计稿已简化的旧触发器文案"
     );
     assert!(
         !source.contains("top-secret"),

@@ -70,7 +70,7 @@ on run argv
             key code 36
             delay 2
             if cardKind is "terminal" then
-                keystroke "n" using {command down}
+                keystroke "1" using {command down}
             else
                 click menu item "New Codex Agent" of menu 1 of menu bar item "Norma OS" of menu bar 1
             end if

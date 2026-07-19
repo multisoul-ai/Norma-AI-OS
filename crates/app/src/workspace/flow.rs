@@ -7,7 +7,7 @@ use crate::settings::agents::AgentDefinitionsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasNodeKind, NodeId};
-use gpui::{Context, PathPromptOptions, Window};
+use gpui::{AppContext, Context, PathPromptOptions, Window};
 use runtime::Runtime;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -133,6 +133,7 @@ impl MultisoulApp {
         match result {
             Ok(opened) => {
                 self.agent_task_coordinator = None;
+                self.pending_agent_submissions.clear();
                 self.reset_agent_announcements();
                 self.dialogue.stop_shell();
                 self.focus_handle.focus(window);
@@ -146,6 +147,37 @@ impl MultisoulApp {
         }
         self.last_reflow_window_size = None;
         cx.notify();
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn open_workspace_for_e2e(
+        &mut self,
+        path: &Path,
+        cx: &mut Context<Self>,
+    ) -> Result<(), String> {
+        self.agent_runtime = None;
+        let opened = enter_workspace_for_path(
+            &mut self.runtime,
+            WorkspaceCanvasState {
+                motion: &mut self.motion,
+                master_layout: &mut self.master_layout,
+            },
+            &mut self.persistence,
+            &mut self.agent_definitions,
+            &mut self.screen,
+            &mut self.workspace_state,
+            path,
+        )?;
+        self.agent_task_coordinator = None;
+        self.pending_agent_submissions.clear();
+        self.reset_agent_announcements();
+        self.dialogue.stop_shell();
+        self.clear_browser_views();
+        self.reload_all_previews(cx);
+        self.spawn_deferred_live_session_restore(opened.pending_live_restore, cx);
+        self.last_reflow_window_size = None;
+        cx.notify();
+        Ok(())
     }
 
     fn spawn_deferred_live_session_restore(
@@ -183,6 +215,41 @@ impl MultisoulApp {
                 let node_id = pending.node_ids[next_index];
                 next_index += 1;
                 let remaining = pending.node_ids.len().saturating_sub(next_index);
+                let discovery_profile = this.update(cx, |app, _cx| {
+                    if app.workspace_state.current_root.as_deref() != Some(root.as_path()) {
+                        return None;
+                    }
+                    if pending
+                        .node_sessions
+                        .iter()
+                        .find(|session| session.node_id == node_id)
+                        .and_then(|session| session.session_id.as_deref())
+                        .is_some_and(|session_id| !session_id.is_empty())
+                    {
+                        return None;
+                    }
+                    match app.runtime.document.node(node_id).map(|node| &node.kind) {
+                        Some(CanvasNodeKind::Agent(spec)) => Some(spec.profile),
+                        _ => None,
+                    }
+                });
+                let discovery_profile = match discovery_profile {
+                    Ok(profile) => profile,
+                    Err(_) => break,
+                };
+                let discovered_session_id = match discovery_profile {
+                    Some(profile) => {
+                        let discovery_root = root.clone();
+                        cx.background_spawn(async move {
+                            runtime::session_snapshot::find_agent_session_id_for_profile(
+                                profile,
+                                &discovery_root,
+                            )
+                        })
+                        .await
+                    }
+                    None => None,
+                };
                 let update = this.update(cx, |app, cx| {
                     if app.workspace_state.current_root.as_deref() != Some(root.as_path()) {
                         return false;
@@ -194,6 +261,7 @@ impl MultisoulApp {
                             node_id,
                             &pending.checkpoints,
                             &pending.node_sessions,
+                            discovered_session_id.as_deref(),
                         );
                     tracing::info!(
                         stage = "workspace_open_restore_live_session_node",

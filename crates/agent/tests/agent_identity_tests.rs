@@ -43,6 +43,40 @@ fn agent_name_accepts_supported_english_and_chinese_names() {
     );
 }
 
+/// AN-5：Master 固定身份名 Norma 必须保留，不能被 Canvas AgentCard 占用。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   reserved names = 1（Norma，大小写不敏感）
+///   attempts = 2（"Norma" + "norma"）
+///   expected accepted = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 尝试解析显示名 Norma
+///   2. 再以小写 norma 尝试绕过保留规则
+///
+/// 预期结果：
+///   - 正断言：两种大小写都返回名称错误
+///   - 负断言：任何 AgentCard 都不能获得 Master 的固定身份名
+#[test]
+fn norma_identity_is_reserved_for_the_master_agent() {
+    let canonical = AgentName::parse("Norma");
+    let lowercase = AgentName::parse("norma");
+
+    assert!(
+        canonical.is_err(),
+        "the canonical Norma identity must be rejected for AgentCard names"
+    );
+    assert!(
+        lowercase.is_err(),
+        "the reserved Norma identity must remain rejected regardless of ASCII case"
+    );
+    assert_ne!(
+        canonical.ok().map(|name| name.match_key().to_string()),
+        Some("norma".to_string()),
+        "a Canvas AgentCard must never acquire the Master Agent's match key"
+    );
+}
+
 /// AN-2：内置名称目录应固定提供 30 组英文正式名与中文语音别名。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -138,5 +172,52 @@ fn builtin_allocator_skips_canonical_and_speech_alias_conflicts() {
         allocated.name(),
         "Bella",
         "Bella 正式名称已占用，不能再次分配 Bella"
+    );
+}
+
+/// AN-4：30 个内置名称全部占用后，自动命名必须继续生成合法唯一名称而不是形成角色上限。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   builtin occupied = 30 条（Alan..Rowan 全部占用）
+///   generated occupied = 1 条（AgentA 已占用）
+///   Total occupied = 30 + 1 = 31 条
+///   首个后备候选 = AgentA，因冲突跳过；第二个后备候选 = AgentB
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用 30 个内置正式名和 AgentA 建立占用表。
+///   2. `next_available_name()` 先检查内置池，确认已无空位。
+///   3. 后备生成器依次检查 AgentA、AgentB，并返回首个未占用的 AgentB。
+///
+/// 预期结果：
+///   - 正断言：第 32 个角色名称为合法且唯一的 AgentB。
+///   - 正断言：AgentB 可通过 AgentName 规则解析。
+///   - 负断言：不得返回空值或重复的 AgentA，否则 30 个内置名称仍构成硬上限。
+#[test]
+fn automatic_name_allocation_continues_after_all_builtin_names_are_used() {
+    let occupied = builtin_agent_names()
+        .iter()
+        .map(|builtin| builtin.name())
+        .chain(std::iter::once("AgentA"));
+    let registry = AgentNameRegistry::from_names(occupied)
+        .expect("30 个内置名和 AgentA 均为合法英文名称，应能建立占用表");
+
+    let allocated = registry
+        .next_available_name()
+        .expect("内置名称耗尽后仍应生成后备名称，不能把角色限制为 30 个");
+    let parsed = AgentName::parse(&allocated).expect("生成的后备名称必须满足 AgentName 规则");
+
+    assert_eq!(
+        allocated, "AgentB",
+        "AgentA 已占用时应跳到 AgentB，而不是停止创建"
+    );
+    assert_eq!(
+        parsed.match_key(),
+        "agentb",
+        "AgentB 应生成稳定的小写匹配键 agentb"
+    );
+    assert_ne!(allocated, "AgentA", "后备名称不得与已占用的 AgentA 重复");
+    assert!(
+        !allocated.is_empty(),
+        "内置名称耗尽后不得返回空名称并形成 30 个角色的硬上限"
     );
 }

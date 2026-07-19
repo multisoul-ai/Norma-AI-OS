@@ -16,6 +16,18 @@ impl MultisoulApp {
         self.agent_announcement_playback.e2e_spoken.clone()
     }
 
+    pub fn queue_dialogue_agent_report_for_e2e(&mut self, report: impl Into<String>) {
+        self.dialogue.queue_agent_report(report.into());
+    }
+
+    pub fn queue_single_voice_dialogue_agent_report_for_e2e(&mut self, report: impl Into<String>) {
+        self.dialogue.queue_single_voice_agent_report(report.into());
+    }
+
+    pub fn begin_next_dialogue_agent_report_for_e2e(&mut self) -> Option<String> {
+        self.dialogue.begin_next_agent_report()
+    }
+
     pub fn finish_agent_announcement_for_e2e(&mut self, cx: &mut Context<Self>) {
         let generation = self.agent_announcement_playback.generation;
         self.finish_agent_announcement_playback(generation, true, cx);
@@ -54,5 +66,9 @@ impl MultisoulApp {
     pub fn finish_tts_preview_for_e2e(&mut self, generation: u64, cx: &mut Context<Self>) {
         self.tts_preview.finish_playback(generation);
         self.flush_tts_playback_events_for_e2e(cx);
+    }
+
+    pub fn tts_preview_pcm_queue_count_for_e2e(&self) -> u64 {
+        self.tts_preview.pcm_queue_count()
     }
 }

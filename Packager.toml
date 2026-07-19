@@ -3,12 +3,13 @@
 # 若 schema 不符按 https://docs.crabnebula.dev/packager/ 校准。
 name = "app"
 product-name = "Norma OS"
-version = "0.1.29"
+version = "0.1.41"
 identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
 resources = [
   "crates/app/assets/wallpapers",
+  "crates/app/assets/browser-auth-extension",
   "sidecars/openai-card-planner/openai-card-planner.mjs",
 ]
 icons = ["assets/AppIcon.icns"]
@@ -19,8 +20,10 @@ before-packaging-command = "scripts/bump-release-version.sh && cargo build --rel
 [dmg]
 background = "assets/dmg-background.png"
 window-size = { width = 640, height = 400 }
-app-position = { x = 180, y = 200 }
-application-folder-position = { x = 460, y = 200 }
+# Finder renders 16pt item labels below these anchors. y=175 keeps both labels
+# inside their wells without touching the bottom border; y=200 overlaps it.
+app-position = { x = 180, y = 175 }
+application-folder-position = { x = 460, y = 175 }
 
 # 指向 release 二进制
 [[binaries]]
@@ -29,6 +32,10 @@ main = true
 
 [[binaries]]
 path = "target/release/multisoul-agent-hook"
+main = false
+
+[[binaries]]
+path = "target/release/norma-browser-auth-host"
 main = false
 
 [macos]

@@ -1,6 +1,64 @@
 use super::*;
 use canvas::AgentProfile;
 
+/// Grok Agent checkpoint：关闭与恢复之间必须保留 Grok profile 和终端尺寸。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   checkpoint 数量 = 1
+///   node_id = 15
+///   grid = 100 列 × 28 行，共 2_800 个终端单元格
+///   profile = Grok，shell = None（Agent 不使用普通 Terminal shell 字段）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 保存 node_id=15 的 Grok Agent checkpoint
+///   2. 从公开 `load_checkpoints` 接口读回全部 checkpoint
+///   3. 对比 profile、尺寸与 shell 字段
+///
+/// 预期结果：
+///   - 正断言：恰好读回 1 条 Grok checkpoint
+///   - 正断言：100×28 尺寸完整保留
+///   - 负断言：不得错误恢复为 Codex 或携带 Terminal shell
+#[test]
+fn grok_session_checkpoint_round_trips_restore_metadata() {
+    let temp = tempfile::tempdir().expect("测试应创建临时项目目录");
+    let store = SessionStore::new(temp.path().join("project.sqlite"));
+    let grok = SessionCheckpoint {
+        node_id: 15,
+        kind: SessionCheckpointKind::Agent,
+        payload: "Grok".into(),
+        cols: 100,
+        rows: 28,
+        shell: None,
+        agent_profile: Some(AgentProfile::Grok),
+    };
+
+    store
+        .save_checkpoint(&grok)
+        .expect("Grok Agent checkpoint 应写入 SQLite");
+    let checkpoints = store
+        .load_checkpoints()
+        .expect("Grok Agent checkpoint 应能从 SQLite 读回");
+
+    assert_eq!(
+        checkpoints.len(),
+        1,
+        "保存 1 条 Grok checkpoint 后必须恰好读回 1 条"
+    );
+    assert_eq!(
+        checkpoints[0], grok,
+        "Grok checkpoint 的 profile、100×28 尺寸和 payload 必须完整往返"
+    );
+    assert_ne!(
+        checkpoints[0].agent_profile,
+        Some(AgentProfile::Codex),
+        "Grok checkpoint 不得错误恢复为 Codex"
+    );
+    assert_eq!(
+        checkpoints[0].shell, None,
+        "Grok Agent checkpoint 不得携带普通 Terminal shell"
+    );
+}
+
 /// SS-1: SessionStore 保存并读回重建 live session 所需的 checkpoint 元数据。
 ///
 /// 数据构造（含关键数值的推导过程）：

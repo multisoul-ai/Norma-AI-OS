@@ -4,8 +4,11 @@ use gpui::Context;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+mod reference;
 mod work;
-use work::{install_tts_package, synthesize_tts_preview, validate_tts_selection};
+use work::{
+    install_tts_package, resolve_tts_selection, synthesize_tts_preview, validate_tts_selection,
+};
 
 enum TtsInstallEvent {
     Progress(u64, u64),
@@ -33,10 +36,11 @@ impl MultisoulApp {
             let configured = selected_model
                 .map(|model_id| validate_tts_selection(&root, model_id, selected_voice))
                 .transpose();
-            (manager, configured)
+            let reference = tts::load_zipvoice_reference(&root);
+            (manager, configured, reference)
         });
         cx.spawn(async move |this, cx| {
-            let (manager, configured) = work.await;
+            let (manager, configured, reference) = work.await;
             let _ = this.update(cx, |app, cx| {
                 if scan_generation != app.tts_scan_generation {
                     return;
@@ -61,6 +65,8 @@ impl MultisoulApp {
                         );
                     }
                 }
+                app.voice_settings.apply_zipvoice_reference_scan(reference);
+                app.complete_voice_setup_if_ready(cx);
                 cx.notify();
             });
         })
@@ -69,6 +75,14 @@ impl MultisoulApp {
 
     pub(crate) fn install_tts_model(&mut self, id: tts::TtsModelId, cx: &mut Context<Self>) {
         if self.tts_download_cancellations.contains_key(&id) {
+            return;
+        }
+        if matches!(
+            self.voice_settings.tts_model_manager().installation(&id),
+            Some(TtsModelInstallState::Ready)
+                | Some(TtsModelInstallState::Installing { .. })
+                | Some(TtsModelInstallState::Cancelling { .. })
+        ) {
             return;
         }
         let catalog = tts::builtin_model_catalog();
@@ -88,7 +102,7 @@ impl MultisoulApp {
             .spawn(async move {
                 let outcome =
                     install_tts_package(&descriptor, &root, &cancelled, |downloaded, total| {
-                        let _ = tx.try_send(TtsInstallEvent::Progress(downloaded, total));
+                        let _ = tx.send_blocking(TtsInstallEvent::Progress(downloaded, total));
                     })
                     .await;
                 let _ = tx.send_blocking(TtsInstallEvent::Finished(outcome));
@@ -213,9 +227,8 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.cancel_agent_announcements();
-        self.invalidate_agent_announcement_tts_client(cx);
         self.tts_preview.cancel();
-        self.dialogue.cancel_tts_for_configuration_change();
+        self.invalidate_tts_for_configuration_change(cx);
         self.tts_selection_generation = self.tts_selection_generation.wrapping_add(1);
         self.invalidate_tts_scan();
         let selection_generation = self.tts_selection_generation;
@@ -261,9 +274,10 @@ impl MultisoulApp {
         let configuration_generation = self.dialogue.tts_configuration_generation();
         let (preview_generation, control) = self.tts_preview.start();
         self.dialogue.track_tts_preview(Arc::clone(&control));
+        let tts_runtime = self.dialogue.shared_tts_runtime();
         let work = cx.background_executor().spawn(async move {
-            let selected = validate_tts_selection(&root, model_id, Some(voice_id))?;
-            synthesize_tts_preview(&selected)
+            let selected = resolve_tts_selection(&root, model_id, Some(voice_id))?;
+            synthesize_tts_preview(&tts_runtime, &selected)
         });
         cx.spawn(async move |this, cx| {
             let result = work.await;
@@ -370,6 +384,7 @@ impl MultisoulApp {
             Some(selected.voice_id.clone()),
         );
         crate::app::dialogue::configure_selected_tts_model(Some(selected));
+        self.complete_voice_setup_if_ready(cx);
         self.persist_voice_settings_in_background(cx);
     }
 

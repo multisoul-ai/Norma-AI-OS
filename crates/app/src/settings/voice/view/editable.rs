@@ -98,6 +98,15 @@ impl VoiceSettingsInputs {
         }
     }
 
+    pub(crate) fn set_theme(&self, theme: Theme, cx: &mut Context<MultisoulApp>) {
+        self.base_url
+            .update(cx, |input, cx| input.set_theme(theme, cx));
+        self.model
+            .update(cx, |input, cx| input.set_theme(theme, cx));
+        self.api_key
+            .update(cx, |input, cx| input.set_theme(theme, cx));
+    }
+
     pub(crate) fn is_focused(&self, window: &Window, cx: &App) -> bool {
         self.base_url.read(cx).focus_handle.is_focused(window)
             || self.model.read(cx).focus_handle.is_focused(window)
@@ -148,6 +157,7 @@ pub(crate) struct VoiceTextInput {
     original_content: SharedString,
     placeholder: SharedString,
     masked: bool,
+    revealed: bool,
     selected_range: Range<usize>,
     selection_reversed: bool,
     marked_range: Option<Range<usize>>,
@@ -176,6 +186,7 @@ impl VoiceTextInput {
             content,
             placeholder: config.placeholder.into(),
             masked: config.masked,
+            revealed: false,
             selected_range: cursor..cursor,
             selection_reversed: false,
             marked_range: None,
@@ -192,6 +203,7 @@ impl VoiceTextInput {
 
     fn sync_value(&mut self, value: String, cx: &mut Context<Self>) {
         let cursor = value.len();
+        self.revealed = false;
         self.content = value.into();
         self.original_content = self.content.clone();
         self.selected_range = cursor..cursor;
@@ -200,6 +212,11 @@ impl VoiceTextInput {
         self.last_layout = None;
         self.last_bounds = None;
         self.auto_save_task = None;
+        cx.notify();
+    }
+
+    fn set_theme(&mut self, theme: Theme, cx: &mut Context<Self>) {
+        self.theme = theme;
         cx.notify();
     }
 
@@ -439,6 +456,7 @@ mod autosave;
 mod focus;
 mod native;
 mod status;
+mod visibility;
 
 fn single_line(text: &str) -> String {
     text.chars()

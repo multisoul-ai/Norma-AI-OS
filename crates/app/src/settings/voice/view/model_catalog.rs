@@ -3,11 +3,19 @@ use crate::app::MultisoulApp;
 use crate::settings::voice::{AsrModelInstallState, AsrModelManagerState, VoiceSettingsState};
 use asr::{AsrModelDescriptor, AsrModelId};
 use gpui::{div, prelude::*, px, rgba, Context, Div};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use ui::Theme;
 
 enum ModelInstallEvent {
     Progress { downloaded: u64, total: u64 },
-    Finished(Result<(), String>),
+    Finished(ModelInstallOutcome),
+}
+
+enum ModelInstallOutcome {
+    Ready,
+    Cancelled,
+    Failed(String),
 }
 
 pub(super) fn model_catalog_row(
@@ -37,10 +45,23 @@ pub(super) fn model_catalog_row(
                     downloaded.saturating_mul(100) / total
                 };
                 div()
-                    .px(px(12.0))
-                    .py(px(8.0))
-                    .text_color(rgba(theme.accent_cyan))
-                    .child(format!("{percent}%"))
+                    .flex()
+                    .items_center()
+                    .gap(px(6.0))
+                    .child(
+                        div()
+                            .px(px(8.0))
+                            .text_color(rgba(theme.accent_cyan))
+                            .child(format!("{percent}%")),
+                    )
+                    .child(
+                        action_button(theme, "Cancel", theme.destructive)
+                            .id(("settings-asr-cancel", index))
+                            .debug_selector(move || format!("settings-asr-cancel-{index}"))
+                            .on_click(cx.listener(move |app, _, _, cx| {
+                                app.cancel_asr_install(id.clone(), cx)
+                            })),
+                    )
             }
             AsrModelInstallState::Ready if is_selected => div()
                 .px(px(12.0))
@@ -194,6 +215,7 @@ impl MultisoulApp {
             let manager = work.await;
             let _ = this.update(cx, |app, cx| {
                 app.voice_settings.replace_model_manager(manager);
+                app.complete_voice_setup_if_ready(cx);
                 cx.notify();
             });
         })
@@ -201,6 +223,12 @@ impl MultisoulApp {
     }
 
     pub(crate) fn install_asr_model(&mut self, id: AsrModelId, cx: &mut Context<Self>) {
+        if matches!(
+            self.voice_settings.model_manager().installation(&id),
+            Some(AsrModelInstallState::Ready) | Some(AsrModelInstallState::Installing { .. })
+        ) {
+            return;
+        }
         let catalog = asr::builtin_model_catalog();
         let Some(descriptor) = catalog.find(&id).cloned() else {
             return;
@@ -209,15 +237,28 @@ impl MultisoulApp {
         self.voice_settings
             .model_manager_mut()
             .begin_install(&id, descriptor.artifact().archive_bytes());
+        let cancelled = Arc::new(AtomicBool::new(false));
+        self.asr_download_cancellations
+            .insert(id.clone(), Arc::clone(&cancelled));
         let (event_tx, event_rx) = async_channel::bounded::<ModelInstallEvent>(32);
         cx.background_executor()
             .spawn(async move {
-                let result =
-                    install_or_revalidate(&descriptor, &model_root, |downloaded, total| {
-                        let _ =
-                            event_tx.try_send(ModelInstallEvent::Progress { downloaded, total });
-                    });
-                let _ = event_tx.send_blocking(ModelInstallEvent::Finished(result));
+                let result = install_or_revalidate(
+                    &descriptor,
+                    &model_root,
+                    &cancelled,
+                    |downloaded, total| {
+                        let _ = event_tx
+                            .send_blocking(ModelInstallEvent::Progress { downloaded, total });
+                    },
+                );
+                let outcome = match result {
+                    Ok(()) if cancelled.load(Ordering::Acquire) => ModelInstallOutcome::Cancelled,
+                    Ok(()) => ModelInstallOutcome::Ready,
+                    Err(_) if cancelled.load(Ordering::Acquire) => ModelInstallOutcome::Cancelled,
+                    Err(error) => ModelInstallOutcome::Failed(error),
+                };
+                let _ = event_tx.send_blocking(ModelInstallEvent::Finished(outcome));
             })
             .detach();
         cx.spawn(async move |this, cx| {
@@ -229,17 +270,25 @@ impl MultisoulApp {
                             .voice_settings
                             .model_manager_mut()
                             .update_progress(&id, downloaded, total),
-                        ModelInstallEvent::Finished(Ok(())) => {
+                        ModelInstallEvent::Finished(ModelInstallOutcome::Ready) => {
+                            app.asr_download_cancellations.remove(&id);
                             app.stop_continuous_listening(cx);
                             app.voice.stop_for_model_switch();
                             app.voice_settings.model_manager_mut().mark_ready(&id);
                             app.voice_settings.select_asr_model(Some(id.clone()));
+                            app.complete_voice_setup_if_ready(cx);
                             app.persist_voice_settings_in_background(cx);
                         }
-                        ModelInstallEvent::Finished(Err(error)) => app
-                            .voice_settings
-                            .model_manager_mut()
-                            .mark_failed(&id, error),
+                        ModelInstallEvent::Finished(ModelInstallOutcome::Cancelled) => {
+                            app.asr_download_cancellations.remove(&id);
+                            app.refresh_asr_model_states(cx);
+                        }
+                        ModelInstallEvent::Finished(ModelInstallOutcome::Failed(error)) => {
+                            app.asr_download_cancellations.remove(&id);
+                            app.voice_settings
+                                .model_manager_mut()
+                                .mark_failed(&id, error);
+                        }
                     }
                     cx.notify();
                 });
@@ -249,6 +298,14 @@ impl MultisoulApp {
             }
         })
         .detach();
+        cx.notify();
+    }
+
+    pub(crate) fn cancel_asr_install(&mut self, id: AsrModelId, cx: &mut Context<Self>) {
+        let Some(cancelled) = self.asr_download_cancellations.get(&id) else {
+            return;
+        };
+        cancelled.store(true, Ordering::Release);
         cx.notify();
     }
 
@@ -326,8 +383,17 @@ impl MultisoulApp {
 fn install_or_revalidate(
     descriptor: &AsrModelDescriptor,
     model_root: &std::path::Path,
+    cancelled: &AtomicBool,
     mut progress: impl FnMut(u64, u64),
 ) -> Result<(), String> {
+    #[cfg(feature = "e2e-test-support")]
+    if crate::settings::voice::models::e2e_fake_asr_install_enabled() {
+        progress(
+            descriptor.artifact().archive_bytes(),
+            descriptor.artifact().archive_bytes(),
+        );
+        return Ok(());
+    }
     let install_root = model_root.join(descriptor.id().as_str());
     let available = match asr::validate_installation(&install_root, descriptor) {
         Ok(available) => available,
@@ -337,11 +403,16 @@ fn install_or_revalidate(
                     format!("could not clear invalid model installation: {error}")
                 })?;
             }
-            let archive = crate::settings::voice::models::download_model_archive(
+            let archive = crate::settings::voice::models::download_model_archive_cancellable(
                 descriptor,
                 &model_root.join(".downloads"),
+                cancelled,
                 &mut progress,
             )?;
+            if cancelled.load(Ordering::Acquire) {
+                let _ = std::fs::remove_file(archive);
+                return Err("model installation cancelled".to_string());
+            }
             let available = crate::settings::voice::models::install_downloaded_archive(
                 descriptor, &archive, model_root,
             )?;
@@ -355,10 +426,15 @@ fn install_or_revalidate(
             std::fs::remove_dir_all(&vad_root)
                 .map_err(|error| format!("could not clear invalid VAD installation: {error}"))?;
         }
-        let vad_file = crate::settings::voice::models::download_silero_vad(
+        let vad_file = crate::settings::voice::models::download_silero_vad_cancellable(
             &model_root.join(".downloads"),
+            cancelled,
             &mut progress,
         )?;
+        if cancelled.load(Ordering::Acquire) {
+            let _ = std::fs::remove_file(vad_file);
+            return Err("model installation cancelled".to_string());
+        }
         asr::install_silero_vad_file(&vad_file, model_root).map_err(|error| error.to_string())?;
         let _ = std::fs::remove_file(vad_file);
     }

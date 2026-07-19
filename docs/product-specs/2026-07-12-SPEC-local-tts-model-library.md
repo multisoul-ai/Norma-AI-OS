@@ -1,6 +1,8 @@
 # Local TTS 官方模型库 SPEC
 
 > 2026-07-15 对齐说明：Voice Preview 的实际 PCM 现在与 Agent 终态通知共同驱动语音窗口内缘光；该行为由 [`2026-07-14-SPEC-agent-task-tts-announcements.md`](2026-07-14-SPEC-agent-task-tts-announcements.md) 取代本文早期的 Preview 视觉隔离规则。
+>
+> 2026-07-16 模型对齐说明：首个推荐槽位固定为 `matcha-icefall-zh-en`，使用 `vocos-16khz-univ.onnx`，原生输出 16 kHz，并明确支持中文与英文。实测归档、哈希、RTF 与首块延迟见 [`../research/2026-07-16-local-tts-candidates.md`](../research/2026-07-16-local-tts-candidates.md)；发布前仍须完成训练数据来源与模型归档再分发许可复核。
 
 ## Problem Statement
 
@@ -16,7 +18,7 @@ Norma OS 的 Local TTS 目前以单一 Matcha 模型为默认实现，通过仅�
 
 用户在 Voice Settings 的 Local TTS 区块中下载、安装、选择和删除模型。模型与 Voice 分开选择：模型决定合成引擎与能力，Voice 决定该模型内具体说话人。已安装模型只占磁盘；只有当前选中的模型在后台按需加载并复用。任何模型或 Voice 配置变更都会统一取消旧 TTS 工作，并使旧异步结果失效。
 
-首批提供一款轻量、低延迟的中文推荐模型和一款支持多个 Voice 的模型。当前 Matcha 与 Kokoro Sherpa 适配能力可作为候选，但具体模型版本、下载 URL、许可、Voice 清单、自然度、RTF 与内存基准必须在实现前实测并固定。用户不需要也不能导入任意本地模型、远程 URL 或第三方插件。
+首批提供一款轻量、低延迟的中英双语推荐模型和一款支持多个 Voice 的模型。推荐槽位固定为 Matcha zh-en；Kokoro 保留为多 Voice 选择。具体模型版本、下载 URL、许可、Voice 清单、自然度、RTF 与内存基准必须实测并固定。用户不需要也不能导入任意本地模型、远程 URL 或第三方插件。
 
 ## User Stories
 
@@ -63,7 +65,7 @@ Norma OS 的 Local TTS 目前以单一 Matcha 模型为默认实现，通过仅�
 - Introduce a zero-GPUI TTS domain boundary. It owns immutable `TtsModelId`, immutable `TtsVoiceId`, curated TTS model descriptors, supported backend family, required-file validation, installation validation, capability metadata, recommended Voice and output audio contract.
 - Keep model store, ASR and TTS independent of GPUI, app, storage and Sherpa. The application orchestrates network I/O and persists user preferences; the Sherpa adapter only turns validated available models into engines.
 - The first catalog is compiled into each application release. It pins exact model IDs, artifact URLs, archive sizes, SHA-256 values, backend type, languages, Voice metadata and recommendation status. V1 has no dynamic remote catalog, automatic model updates or marketplace.
-- The initial catalog has two product slots: a lightweight recommended Chinese model and a multi-Voice model. Candidate model versions are not promoted until license, archive layout, Chinese quality, warm latency, RTF, memory and cancellation have been measured.
+- The initial catalog has two product slots: the lightweight recommended Chinese-English `matcha-icefall-zh-en` model and a multi-Voice Kokoro model. Matcha zh-en pins the official sherpa-onnx archive, 16 kHz Vocos artifact, required eSpeak data and Chinese FST layout; release remains gated on license/provenance review plus the remaining quality, memory and cancellation checks.
 - The catalog supports model-family-specific descriptors rather than treating all packages as the same file list. Matcha- and Kokoro-style loading may have different required files and Voice semantics while sharing the installation lifecycle.
 - Each selected model is identified by a versioned immutable ID; each selected Voice is identified within that model. Settings never persist raw model paths, raw speaker indices or environment-variable values as product configuration.
 - Persist two new Voice Settings values: selected TTS model ID and selected TTS Voice ID. Their defaults are no selected model and no selected Voice. The existing environment variables remain test-only and cannot override release Settings.

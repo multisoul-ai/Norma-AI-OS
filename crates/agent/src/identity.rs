@@ -69,6 +69,8 @@ pub fn builtin_agent_names() -> &'static [BuiltinAgentName] {
 pub enum AgentNameError {
     #[error("Agent 名称必须是 2–16 个英文字母，或 2–8 个汉字")]
     UnsupportedFormat,
+    #[error("Norma 是 Master Agent 的保留身份名")]
+    ReservedMasterIdentity,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -97,6 +99,17 @@ impl AgentNameRegistry {
             .find(|candidate| !self.builtin_is_occupied(*candidate))
     }
 
+    pub fn next_available_name(&self) -> Option<String> {
+        if let Some(builtin) = self.next_available_builtin() {
+            return Some(builtin.name().to_string());
+        }
+
+        (0..=self.occupied_keys.len()).find_map(|index| {
+            let candidate = fallback_agent_name(index)?;
+            (!self.occupied_keys.contains(&candidate.to_ascii_lowercase())).then_some(candidate)
+        })
+    }
+
     fn reserve(&mut self, name: &AgentName) {
         self.occupied_keys.insert(name.match_key.clone());
         if let Some(builtin) = builtin_for_canonical_key(name.match_key()) {
@@ -112,8 +125,27 @@ impl AgentNameRegistry {
     }
 }
 
+fn fallback_agent_name(mut index: usize) -> Option<String> {
+    let mut suffix = Vec::new();
+    loop {
+        let letter = char::from(b'A' + u8::try_from(index % 26).ok()?);
+        suffix.push(letter);
+        if index < 26 {
+            break;
+        }
+        index = (index / 26).checked_sub(1)?;
+    }
+    suffix.reverse();
+    let suffix = suffix.into_iter().collect::<String>();
+    let candidate = format!("Agent{suffix}");
+    (candidate.len() <= 16).then_some(candidate)
+}
+
 impl AgentName {
     pub fn parse(input: &str) -> Result<Self, AgentNameError> {
+        if input.eq_ignore_ascii_case("Norma") {
+            return Err(AgentNameError::ReservedMasterIdentity);
+        }
         let character_count = input.chars().count();
         let is_english = (2..=16).contains(&character_count)
             && input

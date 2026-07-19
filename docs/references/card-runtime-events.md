@@ -14,7 +14,7 @@ Card process state
   语义: 进程是否启动、运行、退出、异常
 
 Agent task state
-  来源: Claude/Codex/Cursor/OpenCode hooks
+  来源: Claude/Codex/Cursor/Grok/OpenCode hooks
   语义: 当前 turn 是否思考、运行工具、等待授权、完成、失败
 ```
 
@@ -119,7 +119,7 @@ PTY child process
 
 ## 4. Agent 任务状态来源
 
-Claude、Codex、Cursor 与 OpenCode hooks 会在 session、用户输入、工具调用、授权请求、停止等生命周期点执行命令。Norma OS 应追加自己的 hook bridge 命令或 OpenCode plugin，而不是替换用户已有配置。
+Claude、Codex、Cursor、Grok 与 OpenCode hooks 会在 session、用户输入、工具调用、授权请求、停止等生命周期点执行命令。Norma OS 应追加自己的 hook bridge 命令或 OpenCode plugin，而不是替换用户已有配置。Grok 使用 `~/.grok/hooks/*.json`，其官方 camelCase 事件字段会在 bridge 内归一化。Grok 卡片优先持久化 Hook 提供的精确 `sessionId`；缺失时只读扫描 `~/.grok/sessions/<URL-encoded-workspace>/`，按已知活动文件时间选择当前 workspace 的最近会话，再以 `grok --resume <ID>` 恢复。
 
 推荐命令：
 
@@ -127,6 +127,7 @@ Claude、Codex、Cursor 与 OpenCode hooks 会在 session、用户输入、工�
 multisoul-agent-hook --source claude
 multisoul-agent-hook --source codex
 multisoul-agent-hook --source cursor
+multisoul-agent-hook --source grok
 multisoul-agent-hook --source opencode
 ```
 
@@ -143,7 +144,7 @@ Agent PTY 启动时注入 per-node env：
 
 ```text
 MULTISOUL_NODE_ID=<node_id>
-MULTISOUL_AGENT_PROFILE=claude|codex|cursor|opencode
+MULTISOUL_AGENT_PROFILE=claude|codex|cursor|grok|opencode
 MULTISOUL_HOOK_ENDPOINT=http://127.0.0.1:<port>/agent-hooks
 MULTISOUL_HOOK_TOKEN=<random-token>
 ```

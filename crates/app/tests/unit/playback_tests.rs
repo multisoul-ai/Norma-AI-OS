@@ -7,8 +7,6 @@ use audio::{PcmAudioChunk, PcmFormat};
 use dialogue::{
     handle_speaking_speech_start, DialoguePhase, DialogueSession, SpeakingSpeechSource, TtsClient,
 };
-#[cfg(target_os = "macos")]
-use llm::LlmClient;
 
 #[cfg(target_os = "macos")]
 fn installed_paraformer() -> asr::AvailableAsrModel {
@@ -174,130 +172,6 @@ fn test_real_agent_done_utterance_plays_through_macos_default_sink() {
 
     assert!(duration.as_millis() > 0, "真实 TTS 播放时长应大于零");
     std::thread::sleep(duration + std::time::Duration::from_millis(100));
-}
-
-/// PB-L3-1: 真实语音对话必须贯通真实语音 fixture→ASR→Ollama→TTS→扬声器。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   输入 = Paraformer 官方 16kHz/mono/PCM16 `test_wavs/0.wav`；
-///   chunk = 512 samples，与 Silero window 对齐；尾部静音 = 1 秒，超过 250ms endpoint；
-///   Ollama/Matcha/播放均使用生产默认配置。
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 官方真实语音逐块送入 Silero VAD 与 Paraformer 得到 final transcript；
-///   2. 生产 OllamaLlmClient 携带 card tools 生成简短中文回复；
-///   3. 生产 SherpaTtsClient 合成回复，AVFoundation sink 调度并等待播完。
-///
-/// 预期结果：
-///   - 正断言：捕获非空 final、Ollama 返回非空文本、TTS PCM 非空且播放时长大于零；
-///   - 负断言：不得停在识别完成而没有回复，也不得落入 Noop sink。
-#[cfg(target_os = "macos")]
-#[test]
-#[ignore = "L3 integration smoke: plays audible speech and requires Ollama plus ASR/VAD/TTS models"]
-fn test_real_end_to_end_voice_conversation_replies_audibly() {
-    use std::time::Duration;
-    use voice_sherpa::{ListeningPipelineEvent, SherpaListeningPipeline};
-
-    let model_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(std::path::Path::parent)
-        .expect("app crate 应位于 workspace/crates/app")
-        .join("assets/models/paraformer");
-    let mut reader = hound::WavReader::open(model_dir.join("test_wavs/0.wav"))
-        .expect("Paraformer 官方测试 WAV 应存在");
-    let spec = reader.spec();
-    assert_eq!(spec.sample_rate, 16_000, "E2E WAV 应为 16kHz");
-    assert_eq!(spec.channels, 1, "E2E WAV 应为 mono");
-    let samples = reader
-        .samples::<i16>()
-        .collect::<Result<Vec<_>, _>>()
-        .expect("E2E WAV 应完整解码");
-    let available = installed_paraformer();
-    let mut pipeline = SherpaListeningPipeline::from_available_model(&available)
-        .expect("真实 VAD/ASR 应通过可用模型加载");
-    let mut events = Vec::new();
-    for samples in samples.chunks(512) {
-        events.extend(
-            pipeline
-                .process_chunk(&pcm16_chunk(samples))
-                .expect("真实语音 chunk 应通过 VAD/ASR"),
-        );
-    }
-    for samples in vec![0_i16; 16_000].chunks(512) {
-        events.extend(
-            pipeline
-                .process_chunk(&pcm16_chunk(samples))
-                .expect("尾部静音应触发 final"),
-        );
-    }
-    let transcript = events
-        .into_iter()
-        .find_map(|event| match event {
-            ListeningPipelineEvent::FinalTranscript(text) if !text.trim().is_empty() => Some(text),
-            _ => None,
-        })
-        .expect("真实 Silero/Paraformer 应产生非空 final transcript");
-    assert!(!transcript.trim().is_empty(), "ASR final 不得为空");
-
-    let endpoint = std::env::var("MULTISOUL_OLLAMA_ENDPOINT")
-        .unwrap_or_else(|_| "http://127.0.0.1:11434".to_string());
-    let model =
-        std::env::var("MULTISOUL_DIALOGUE_MODEL").unwrap_or_else(|_| "qwen3.5:0.8b".to_string());
-    llm::probe_ollama_model_ready(&endpoint, &model).expect("真实 Ollama 应运行且已安装对话模型");
-    let mut client = llm::OllamaLlmClient::new(endpoint, model);
-    let response = client
-        .chat(&llm::ChatRequest {
-            messages: vec![
-                llm::ChatMessage {
-                    role: llm::Role::System,
-                    content: "你是 Norma 语音助手。只用一句简短中文回答，不要使用表情符号。".into(),
-                    tool_call_id: None,
-                    tool_calls: vec![],
-                },
-                llm::ChatMessage {
-                    role: llm::Role::User,
-                    content: transcript.clone(),
-                    tool_call_id: None,
-                    tool_calls: vec![],
-                },
-            ],
-            tools: llm::card_tool_specs(),
-        })
-        .expect("真实 Ollama 应为 ASR final 生成回复");
-    assert!(
-        !response.assistant_text.trim().is_empty(),
-        "识别完成后 Ollama 必须返回可播报文本，实际: {response:?}"
-    );
-
-    let mut tts =
-        voice_sherpa::SherpaTtsClient::from_env_or_default().expect("真实 Matcha TTS 应已安装");
-    let chunk = tts
-        .synthesize(&response.assistant_text)
-        .expect("真实 Matcha TTS 应合成 Ollama 回复");
-    assert!(
-        !chunk.bytes.is_empty(),
-        "Ollama 回复合成的 TTS PCM 不得为空"
-    );
-    let mut sink = default_assistant_audio_sink();
-    let duration = sink
-        .write_chunk(&chunk)
-        .expect("生产 AVFoundation sink 应调度回复音频");
-    assert!(duration.as_nanos() > 0, "回复播放时长必须大于零");
-    eprintln!(
-        "real voice conversation: transcript={transcript:?}, reply={:?}, playback={duration:?}",
-        response.assistant_text
-    );
-    std::thread::sleep(duration + Duration::from_millis(100));
-}
-
-#[cfg(target_os = "macos")]
-fn pcm16_chunk(samples: &[i16]) -> PcmAudioChunk {
-    let bytes = samples
-        .iter()
-        .flat_map(|sample| sample.to_le_bytes())
-        .collect();
-    PcmAudioChunk::new(PcmFormat::Pcm16, 16_000, 1, bytes)
-        .expect("16kHz mono PCM16 fixture chunk 应合法")
 }
 
 /// PB-L3-2: assistant 扬声器回声即使被麦克风/VAD 捕获，也不得截断正在播放的回复。

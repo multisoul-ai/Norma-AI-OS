@@ -77,6 +77,17 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    pub(super) fn on_new_menu_grok(
+        &mut self,
+        _: &ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.interaction.close_new_menu();
+        self.spawn_agent_card(AgentProfile::Grok, window, cx);
+        cx.notify();
+    }
+
     pub(super) fn on_new_menu_preview(
         &mut self,
         _: &ClickEvent,
@@ -99,14 +110,13 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    /// ✚ 弹出菜单：在顶部工具栏下方居中悬浮的玻璃 pill，列出所有新建入口。
-    /// 绝对定位 `top(80)` 使其覆盖画布；菜单容器吞掉左键按下事件，避免穿透到画布。
+    /// ✚ 弹出菜单：在底部 Command Dock 上方居中悬浮，列出所有新建入口。
     pub(super) fn render_new_menu(&self, cx: &mut Context<Self>) -> Div {
         let theme = self.theme;
 
         div()
             .absolute()
-            .top(px(80.0))
+            .bottom(px(82.0))
             .left(px(0.0))
             .right(px(0.0))
             .flex()
@@ -155,6 +165,13 @@ impl MultisoulApp {
                     ))
                     .child(new_menu_item(
                         theme,
+                        ToolbarIcon::Grok,
+                        "Grok",
+                        "new-menu-grok",
+                        cx.listener(Self::on_new_menu_grok),
+                    ))
+                    .child(new_menu_item(
+                        theme,
                         ToolbarIcon::OpenCode,
                         "OpenCode",
                         "new-menu-opencode",
@@ -188,6 +205,7 @@ fn new_menu_item(
 ) -> Stateful<Div> {
     div()
         .id(id)
+        .debug_selector(move || id.to_string())
         .flex()
         .flex_row()
         .items_center()

@@ -7,61 +7,41 @@ use tts::{TtsModelId, TtsVoiceId};
 use voice_sherpa::{AudioInputDevice, SpeechError};
 mod announcements;
 mod builders;
+mod credentials;
 #[cfg(feature = "e2e-test-support")]
 mod e2e;
 mod migration;
 mod model_selection;
+mod persistence;
+mod provider_discovery;
 mod provider_values;
+mod readiness_state;
 mod values;
-pub(crate) use model_selection::resolve_available_asr_model;
+mod zipvoice_reference;
+use credentials::CredentialWriteRollback;
+pub(crate) use model_selection::{resolve_available_asr_model, VoiceSetupDestination};
+pub(crate) use persistence::PendingVoiceSettingWrite;
+pub(crate) use provider_discovery::ProviderDiscoveryStatus;
 pub(crate) use provider_values::AgentProviderKind;
 #[cfg(test)]
 pub(crate) use provider_values::SavedProviderProfile;
 use provider_values::{
-    KEY_AGENT_OLLAMA_API_KEY, KEY_AGENT_OLLAMA_BASE_URL, KEY_AGENT_OLLAMA_MODEL,
-    KEY_AGENT_OPENAI_API_KEY, KEY_AGENT_OPENAI_BASE_URL, KEY_AGENT_OPENAI_MODEL,
-    KEY_AGENT_PROVIDER,
+    KEY_AGENT_OLLAMA_BASE_URL, KEY_AGENT_OLLAMA_MODEL, KEY_AGENT_OPENAI_BASE_URL,
+    KEY_AGENT_OPENAI_MODEL, KEY_AGENT_PROVIDER,
 };
-#[cfg(test)]
-pub(crate) use values::DialogueLlmMode;
 pub(crate) use values::{
     DictationTrigger, EnvVoiceSettings, SavedVoiceSettings, VoiceInteractionMode,
     VoiceSettingsField, VoiceSettingsValues,
 };
 use values::{
-    KEY_ASR_MODEL_ID, KEY_INPUT_DEVICE_ID, KEY_INTERACTION_MODE, KEY_OPENAI_API_KEY,
-    KEY_SINGLE_VOICE_COMMAND_TRIGGER, KEY_TRACE_ENABLED, KEY_TTS_MODEL_ID, KEY_TTS_VOICE_ID,
+    KEY_ASR_MODEL_ID, KEY_INPUT_DEVICE_ID, KEY_INTERACTION_MODE, KEY_SINGLE_VOICE_COMMAND_TRIGGER,
+    KEY_TRACE_ENABLED, KEY_TTS_MODEL_ID, KEY_TTS_VOICE_ID, KEY_VOICE_SETUP_COMPLETED,
 };
+use zipvoice_reference::ZipVoiceReferenceSettings;
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct VoiceSettingsStatus {
     message: String,
     is_error: bool,
-}
-#[derive(Clone)]
-pub(crate) enum PendingVoiceSettingWrite {
-    Set {
-        store: SettingsStore,
-        key: String,
-        value: String,
-    },
-    Delete {
-        store: SettingsStore,
-        key: String,
-    },
-}
-impl PendingVoiceSettingWrite {
-    pub(crate) fn execute(self) -> storage::StorageResult<()> {
-        match self {
-            Self::Set { store, key, value } => store.set_string(&key, &value),
-            Self::Delete { store, key } => store.delete_string(&key),
-        }
-    }
-
-    fn key(&self) -> &str {
-        match self {
-            Self::Set { key, .. } | Self::Delete { key, .. } => key,
-        }
-    }
 }
 #[derive(Clone)]
 pub(crate) struct VoiceSettingsState {
@@ -75,9 +55,21 @@ pub(crate) struct VoiceSettingsState {
     status: Option<VoiceSettingsStatus>,
     pending_writes: Vec<PendingVoiceSettingWrite>,
     persistence_running: bool,
+    credential_write_rollback: Option<CredentialWriteRollback>,
     model_root: PathBuf,
     model_manager: AsrModelManagerState,
     tts_model_manager: TtsModelManagerState,
+    zipvoice_reference: ZipVoiceReferenceSettings,
+    microphone_requirement: super::VoiceRequirementState,
+    provider_requirement: super::VoiceRequirementState,
+    provider_discovery: ProviderDiscoveryStatus,
+    provider_discovery_generation: u64,
+    setup_was_completed: bool,
+    #[cfg(feature = "e2e-test-support")]
+    readiness_override: Option<super::VoiceEntryState>,
+    reviewing_setup: bool,
+    input_device_picker_expanded: bool,
+    setup_destination: VoiceSetupDestination,
     advanced_expanded: bool,
 }
 impl VoiceSettingsState {
@@ -94,13 +86,13 @@ impl VoiceSettingsState {
             }
         }
     }
-
     pub(crate) fn load_from_store(store: SettingsStore) -> Self {
         match SavedVoiceSettings::load(&store) {
             Ok(saved) => {
                 let mut state = Self::from_sources(saved, EnvVoiceSettings::from_env());
                 state.storage = Some(store);
                 state.queue_legacy_single_voice_command_migration();
+                state.queue_legacy_api_key_migrations();
                 state
             }
             Err(error) => {
@@ -114,18 +106,17 @@ impl VoiceSettingsState {
             }
         }
     }
-
     pub(crate) fn from_sources(saved: SavedVoiceSettings, env: EnvVoiceSettings) -> Self {
         let model_root = asr::default_model_installation_root().unwrap_or_default();
         Self::from_sources_with_model_root(saved, env, model_root)
     }
-
     pub(crate) fn from_sources_with_model_root(
         saved: SavedVoiceSettings,
         env: EnvVoiceSettings,
         model_root: PathBuf,
     ) -> Self {
         let values = VoiceSettingsValues::resolve(&saved, &env);
+        let setup_was_completed = saved.setup_completed.unwrap_or(false);
         let model_manager = AsrModelManagerState::unscanned(&asr::builtin_model_catalog());
         let tts_model_manager = TtsModelManagerState::unscanned(&tts::builtin_model_catalog());
         Self {
@@ -139,27 +130,55 @@ impl VoiceSettingsState {
             status: None,
             pending_writes: Vec::new(),
             persistence_running: false,
+            credential_write_rollback: None,
             model_root,
             model_manager,
             tts_model_manager,
+            zipvoice_reference: ZipVoiceReferenceSettings::default(),
+            microphone_requirement: super::VoiceRequirementState::Missing,
+            provider_requirement: super::VoiceRequirementState::Missing,
+            provider_discovery: ProviderDiscoveryStatus::Idle,
+            provider_discovery_generation: 0,
+            setup_was_completed,
+            #[cfg(feature = "e2e-test-support")]
+            readiness_override: None,
+            reviewing_setup: false,
+            input_device_picker_expanded: false,
+            setup_destination: VoiceSetupDestination::Overview,
             advanced_expanded: false,
         }
     }
-
     pub(crate) fn values(&self) -> &VoiceSettingsValues {
         &self.values
     }
-
     pub(crate) fn editing_field(&self) -> Option<VoiceSettingsField> {
         self.editing
     }
-
     pub(crate) fn active_agent_model(&self) -> &str {
         self.values.active_provider_profile().model()
     }
-
+    pub(crate) fn reviewing_setup(&self) -> bool {
+        self.reviewing_setup
+    }
+    pub(crate) fn set_reviewing_setup(&mut self, reviewing: bool) {
+        self.reviewing_setup = reviewing;
+        if !reviewing {
+            self.setup_destination = VoiceSetupDestination::Overview;
+        }
+    }
     pub(crate) fn input_devices(&self) -> &[AudioInputDevice] {
         &self.input_devices
+    }
+    pub(crate) fn input_device_picker_expanded(&self) -> bool {
+        self.input_device_picker_expanded
+    }
+
+    pub(crate) fn toggle_input_device_picker(&mut self) {
+        self.input_device_picker_expanded = !self.input_device_picker_expanded;
+    }
+
+    pub(crate) fn close_input_device_picker(&mut self) {
+        self.input_device_picker_expanded = false;
     }
 
     #[cfg(test)]
@@ -291,25 +310,13 @@ impl VoiceSettingsState {
         self.saved.agent_provider = Some(provider);
         self.persist_string(KEY_AGENT_PROVIDER, provider.as_str());
         self.cancel_edit();
+        self.invalidate_provider_requirement();
         self.refresh_values();
     }
 
     pub(crate) fn clear_agent_api_key(&mut self) {
         self.cancel_edit_field(VoiceSettingsField::ApiKey);
-        let (key, legacy_key) = match self.values.agent_provider() {
-            AgentProviderKind::Ollama => {
-                self.saved.ollama_profile.api_key = None;
-                (KEY_AGENT_OLLAMA_API_KEY, None)
-            }
-            AgentProviderKind::OpenAiCompatible => {
-                self.saved.openai_profile.api_key = None;
-                (KEY_AGENT_OPENAI_API_KEY, Some(KEY_OPENAI_API_KEY))
-            }
-        };
-        self.delete_string(key);
-        if let Some(legacy_key) = legacy_key {
-            self.delete_string(legacy_key);
-        }
+        self.clear_active_provider_credential();
         self.refresh_values();
     }
 
@@ -320,8 +327,12 @@ impl VoiceSettingsState {
         } else if self.editing == Some(field) {
             format!("{}|", self.draft)
         } else if field == VoiceSettingsField::ApiKey {
-            if self.values.active_provider_profile().api_key().is_some() {
-                "Configured ••••••••".to_string()
+            if self
+                .values
+                .active_provider_profile()
+                .credential_configured()
+            {
+                "*********".to_string()
             } else {
                 "Not configured".to_string()
             }
@@ -334,22 +345,6 @@ impl VoiceSettingsState {
         self.status
             .as_ref()
             .map(|status| (status.message.as_str(), status.is_error))
-    }
-
-    pub(crate) fn take_pending_writes(&mut self) -> Vec<PendingVoiceSettingWrite> {
-        if self.persistence_running || self.pending_writes.is_empty() {
-            return Vec::new();
-        }
-        self.persistence_running = true;
-        std::mem::take(&mut self.pending_writes)
-    }
-
-    pub(crate) fn record_persistence_result(&mut self, result: Result<(), String>) {
-        self.persistence_running = false;
-        self.status = Some(match result {
-            Ok(()) => ok_status("Saved"),
-            Err(error) => error_status(format!("Could not save setting: {error}")),
-        });
     }
 
     fn cancel_edit(&mut self) {
@@ -398,18 +393,18 @@ impl VoiceSettingsState {
                     KEY_AGENT_OPENAI_MODEL
                 }
             },
-            VoiceSettingsField::ApiKey => match self.values.agent_provider() {
-                AgentProviderKind::Ollama => {
-                    self.saved.ollama_profile.api_key = non_empty(value.clone());
-                    KEY_AGENT_OLLAMA_API_KEY
+            VoiceSettingsField::ApiKey => {
+                self.save_active_provider_credential(value.clone());
+                if finish_editing {
+                    self.editing = None;
+                    self.draft.clear();
                 }
-                AgentProviderKind::OpenAiCompatible => {
-                    self.saved.openai_profile.api_key = non_empty(value.clone());
-                    KEY_AGENT_OPENAI_API_KEY
-                }
-            },
+                self.refresh_values();
+                return Some(value);
+            }
         };
         self.persist_string(key, &value);
+        self.invalidate_provider_requirement();
         if finish_editing {
             self.editing = None;
             self.draft.clear();
@@ -468,11 +463,6 @@ impl VoiceSettingsState {
     }
 }
 
-fn non_empty(value: String) -> Option<String> {
-    let value = value.trim().to_string();
-    (!value.is_empty()).then_some(value)
-}
-
 fn ok_status(message: impl Into<String>) -> VoiceSettingsStatus {
     VoiceSettingsStatus {
         message: message.into(),
@@ -498,3 +488,11 @@ mod voice_settings_asr_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_persistence_tests.rs"]
 mod voice_settings_persistence_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_provider_persistence_tests.rs"]
+mod voice_settings_provider_persistence_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_disclosure_tests.rs"]
+mod voice_settings_disclosure_tests;

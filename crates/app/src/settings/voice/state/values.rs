@@ -1,17 +1,17 @@
 use super::provider_values::{
     AgentProviderKind, ProviderProfileValues, SavedProviderProfile, DEFAULT_OLLAMA_ENDPOINT,
     DEFAULT_OPENAI_BASE_URL, KEY_AGENT_OLLAMA_API_KEY, KEY_AGENT_OLLAMA_BASE_URL,
-    KEY_AGENT_OLLAMA_MODEL, KEY_AGENT_OPENAI_API_KEY, KEY_AGENT_OPENAI_BASE_URL,
-    KEY_AGENT_OPENAI_MODEL, KEY_AGENT_PROVIDER,
+    KEY_AGENT_OLLAMA_CREDENTIAL_REF, KEY_AGENT_OLLAMA_MODEL, KEY_AGENT_OPENAI_API_KEY,
+    KEY_AGENT_OPENAI_BASE_URL, KEY_AGENT_OPENAI_CREDENTIAL_REF, KEY_AGENT_OPENAI_MODEL,
+    KEY_AGENT_PROVIDER,
 };
 use asr::AsrModelId;
-use storage::SettingsStore;
 use tts::{TtsModelId, TtsVoiceId};
 use voice::OllamaVoicePlanner;
 mod debug;
+mod load;
 pub(super) const KEY_OLLAMA_ENDPOINT: &str = "voice.ollama.endpoint";
 pub(super) const KEY_OLLAMA_MODEL: &str = "voice.ollama.model";
-pub(super) const KEY_DIALOGUE_LLM_MODE: &str = "voice.dialogue.llm_mode";
 pub(super) const KEY_DIALOGUE_MODEL: &str = "voice.dialogue.model";
 pub(super) const KEY_REFINE_MODEL: &str = "voice.refine.model";
 pub(super) const KEY_INTERACTION_MODE: &str = "voice.interaction.mode";
@@ -25,13 +25,9 @@ pub(super) const KEY_TRACE_ENABLED: &str = "voice.trace_enabled";
 pub(super) const KEY_AGENT_TASK_ANNOUNCEMENTS_ENABLED: &str =
     "voice.agent_task_announcements_enabled";
 pub(super) const KEY_VOICE_WINDOW_INSET_ENABLED: &str = "voice.window_inset_enabled";
+pub(super) const KEY_VOICE_SETUP_COMPLETED: &str = "voice.setup.completed";
 pub(super) const KEY_OPENAI_API_KEY: &str = "voice.openai.api_key";
 pub(super) const KEY_OPENAI_CARD_PLANNER_MODEL: &str = "voice.openai.card_planner_model";
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum DialogueLlmMode {
-    Mock,
-    Ollama,
-}
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum VoiceInteractionMode {
     #[default]
@@ -74,15 +70,6 @@ impl DictationTrigger {
         }
     }
 }
-impl DialogueLlmMode {
-    pub(crate) fn from_stored(value: &str) -> Option<Self> {
-        match value.trim().to_ascii_lowercase().as_str() {
-            "mock" => Some(Self::Mock),
-            "ollama" => Some(Self::Ollama),
-            _ => None,
-        }
-    }
-}
 #[derive(Clone, Default, Eq, PartialEq)]
 pub(crate) struct SavedVoiceSettings {
     pub(crate) interaction_mode: Option<VoiceInteractionMode>,
@@ -95,13 +82,13 @@ pub(crate) struct SavedVoiceSettings {
     pub(crate) openai_profile: SavedProviderProfile,
     pub(crate) ollama_endpoint: Option<String>,
     pub(crate) planner_model: Option<String>,
-    pub(crate) dialogue_llm_mode: Option<DialogueLlmMode>,
     pub(crate) dialogue_model: Option<String>,
     pub(crate) refine_model: Option<String>,
     pub(crate) input_device_id: Option<String>,
     pub(crate) trace_enabled: Option<bool>,
     pub(crate) agent_task_announcements_enabled: Option<bool>,
     pub(crate) voice_window_inset_enabled: Option<bool>,
+    pub(crate) setup_completed: Option<bool>,
 }
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct EnvVoiceSettings {
@@ -124,7 +111,6 @@ pub(crate) struct VoiceSettingsValues {
     pub(crate) openai_profile: ProviderProfileValues,
     pub(crate) ollama_endpoint: String,
     pub(crate) planner_model: String,
-    pub(crate) dialogue_llm_mode: DialogueLlmMode,
     pub(crate) dialogue_model: String,
     pub(crate) refine_model: String,
     pub(crate) input_device_id: Option<String>,
@@ -166,7 +152,6 @@ impl VoiceSettingsValues {
             env.planner_model.as_deref(),
             OllamaVoicePlanner::default_model(),
         );
-        let dialogue_llm_mode = saved.dialogue_llm_mode.unwrap_or(DialogueLlmMode::Mock);
         let dialogue_model = first_non_empty(
             saved.dialogue_model.as_deref(),
             env.dialogue_model.as_deref(),
@@ -202,7 +187,21 @@ impl VoiceSettingsValues {
             saved.agent_task_announcements_enabled.unwrap_or(true);
         let voice_window_inset_enabled = saved.voice_window_inset_enabled.unwrap_or(true);
 
-        let agent_provider = saved.agent_provider.unwrap_or_default();
+        let has_legacy_ollama_configuration = saved.ollama_endpoint.is_some()
+            || saved.dialogue_model.is_some()
+            || saved.ollama_profile.base_url.is_some()
+            || saved.ollama_profile.model.is_some()
+            || saved.ollama_profile.api_key.is_some()
+            || saved.ollama_profile.credential_ref.is_some()
+            || env.ollama_endpoint.is_some()
+            || env.dialogue_model.is_some();
+        let agent_provider = saved.agent_provider.unwrap_or({
+            if has_legacy_ollama_configuration {
+                AgentProviderKind::Ollama
+            } else {
+                AgentProviderKind::OpenAiCompatible
+            }
+        });
         let ollama_profile = ProviderProfileValues {
             base_url: first_non_empty(
                 saved
@@ -214,6 +213,8 @@ impl VoiceSettingsValues {
                 DEFAULT_OLLAMA_ENDPOINT,
             ),
             api_key: non_empty_option(saved.ollama_profile.api_key.clone()),
+            credential_configured: saved.ollama_profile.api_key.is_some()
+                || saved.ollama_profile.credential_ref.is_some(),
             model: first_non_empty(
                 saved
                     .ollama_profile
@@ -231,6 +232,8 @@ impl VoiceSettingsValues {
                 DEFAULT_OPENAI_BASE_URL,
             ),
             api_key: non_empty_option(saved.openai_profile.api_key.clone()),
+            credential_configured: saved.openai_profile.api_key.is_some()
+                || saved.openai_profile.credential_ref.is_some(),
             model: saved
                 .openai_profile
                 .model
@@ -251,7 +254,6 @@ impl VoiceSettingsValues {
             openai_profile,
             ollama_endpoint: endpoint,
             planner_model,
-            dialogue_llm_mode,
             dialogue_model,
             refine_model,
             input_device_id,
@@ -319,11 +321,6 @@ impl VoiceSettingsValues {
     }
 
     #[cfg(test)]
-    pub(crate) fn dialogue_llm_mode(&self) -> DialogueLlmMode {
-        self.dialogue_llm_mode
-    }
-
-    #[cfg(test)]
     pub(crate) fn refine_model(&self) -> &str {
         &self.refine_model
     }
@@ -354,69 +351,6 @@ impl EnvVoiceSettings {
             input_device_id: std::env::var("MULTISOUL_VOICE_INPUT_DEVICE_ID").ok(),
             trace_enabled: std::env::var("MULTISOUL_VOICE_TRACE").ok(),
         }
-    }
-}
-impl SavedVoiceSettings {
-    pub(super) fn load(store: &SettingsStore) -> storage::StorageResult<Self> {
-        let legacy_ollama_endpoint = non_empty_option(store.get_string(KEY_OLLAMA_ENDPOINT)?);
-        let legacy_openai_api_key = non_empty_option(store.get_string(KEY_OPENAI_API_KEY)?);
-        let legacy_openai_model =
-            non_empty_option(store.get_string(KEY_OPENAI_CARD_PLANNER_MODEL)?);
-        Ok(Self {
-            interaction_mode: store
-                .get_string(KEY_INTERACTION_MODE)?
-                .as_deref()
-                .and_then(VoiceInteractionMode::from_stored),
-            dictation_trigger: store
-                .get_string(KEY_SINGLE_VOICE_COMMAND_TRIGGER)?
-                .or(store.get_string(LEGACY_KEY_DICTATION_TRIGGER)?)
-                .as_deref()
-                .and_then(DictationTrigger::from_stored),
-            asr_model_id: non_empty_option(store.get_string(KEY_ASR_MODEL_ID)?)
-                .and_then(|value| AsrModelId::parse(value).ok()),
-            tts_model_id: non_empty_option(store.get_string(KEY_TTS_MODEL_ID)?)
-                .and_then(|value| TtsModelId::parse(value).ok()),
-            tts_voice_id: non_empty_option(store.get_string(KEY_TTS_VOICE_ID)?)
-                .and_then(|value| TtsVoiceId::parse(value).ok()),
-            agent_provider: store
-                .get_string(KEY_AGENT_PROVIDER)?
-                .as_deref()
-                .and_then(AgentProviderKind::from_stored),
-            ollama_profile: SavedProviderProfile {
-                base_url: non_empty_option(store.get_string(KEY_AGENT_OLLAMA_BASE_URL)?)
-                    .or_else(|| legacy_ollama_endpoint.clone()),
-                api_key: non_empty_option(store.get_string(KEY_AGENT_OLLAMA_API_KEY)?),
-                model: non_empty_option(store.get_string(KEY_AGENT_OLLAMA_MODEL)?),
-            },
-            openai_profile: SavedProviderProfile {
-                base_url: non_empty_option(store.get_string(KEY_AGENT_OPENAI_BASE_URL)?),
-                api_key: non_empty_option(store.get_string(KEY_AGENT_OPENAI_API_KEY)?)
-                    .or(legacy_openai_api_key),
-                model: non_empty_option(store.get_string(KEY_AGENT_OPENAI_MODEL)?)
-                    .or(legacy_openai_model),
-            },
-            ollama_endpoint: legacy_ollama_endpoint,
-            planner_model: non_empty_option(store.get_string(KEY_OLLAMA_MODEL)?),
-            dialogue_llm_mode: store
-                .get_string(KEY_DIALOGUE_LLM_MODE)?
-                .as_deref()
-                .and_then(DialogueLlmMode::from_stored),
-            dialogue_model: non_empty_option(store.get_string(KEY_DIALOGUE_MODEL)?),
-            refine_model: non_empty_option(store.get_string(KEY_REFINE_MODEL)?),
-            input_device_id: non_empty_option(store.get_string(KEY_INPUT_DEVICE_ID)?),
-            trace_enabled: store
-                .get_string(KEY_TRACE_ENABLED)?
-                .as_deref()
-                .and_then(stored_bool),
-            agent_task_announcements_enabled: store
-                .get_string(KEY_AGENT_TASK_ANNOUNCEMENTS_ENABLED)?
-                .as_deref()
-                .and_then(stored_bool),
-            voice_window_inset_enabled: store
-                .get_string(KEY_VOICE_WINDOW_INSET_ENABLED)?
-                .as_deref()
-                .and_then(stored_bool),
-        })
     }
 }
 impl VoiceSettingsField {

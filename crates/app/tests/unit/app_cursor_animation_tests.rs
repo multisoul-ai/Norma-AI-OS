@@ -23,11 +23,13 @@ use runtime::AgentTaskState;
 fn test_agent_terminal_cursor_animation_stops_when_task_ends_before_pty_exits() {
     let agent_running = Some(runtime::NodeRunState::Running);
     let thinking = focused_cursor_animation_active(
+        true,
         canvas::NodeType::Agent,
         agent_running.clone(),
         Some(AgentTaskState::Thinking),
     );
     let failed = focused_cursor_animation_active(
+        true,
         canvas::NodeType::Agent,
         agent_running.clone(),
         Some(AgentTaskState::Failed {
@@ -35,16 +37,19 @@ fn test_agent_terminal_cursor_animation_stops_when_task_ends_before_pty_exits() 
         }),
     );
     let done = focused_cursor_animation_active(
+        true,
         canvas::NodeType::Agent,
         agent_running.clone(),
         Some(AgentTaskState::Done),
     );
     let ended = focused_cursor_animation_active(
+        true,
         canvas::NodeType::Agent,
         agent_running,
         Some(AgentTaskState::Ended),
     );
     let terminal_running = focused_cursor_animation_active(
+        true,
         canvas::NodeType::Term,
         Some(runtime::NodeRunState::Running),
         None,
@@ -64,5 +69,51 @@ fn test_agent_terminal_cursor_animation_stops_when_task_ends_before_pty_exits() 
     assert_ne!(
         failed, terminal_running,
         "Failed Agent 与运行中 Terminal 的 cursor 动画意图必须不同"
+    );
+}
+
+/// MEM-DISPLAY-1：应用窗口退到后台后必须暂停 Terminal cursor repaint。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   window states = 2 个（active=true、active=false）
+///   node type     = Term
+///   run state     = Running
+///   repaint rate  = 前台约 30fps；后台预算必须为 0fps
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 以 active=true 解析运行中 Terminal 的 cursor 动画意图。
+///   2. 保持相同节点和运行状态，仅把 window active 改为 false。
+///   3. 比较两种窗口状态的动画意图。
+///
+/// 预期结果：
+///   - 正断言：前台运行中 Terminal 仍保留 cursor 动画业务效果。
+///   - 负断言：后台窗口不得继续发起 cursor repaint。
+///   - 负断言：前后台结果不得相同，否则窗口状态没有参与资源决策。
+#[test]
+fn test_terminal_cursor_animation_pauses_when_window_is_inactive() {
+    let foreground = focused_cursor_animation_active(
+        true,
+        canvas::NodeType::Term,
+        Some(runtime::NodeRunState::Running),
+        None,
+    );
+    let background = focused_cursor_animation_active(
+        false,
+        canvas::NodeType::Term,
+        Some(runtime::NodeRunState::Running),
+        None,
+    );
+
+    assert!(
+        foreground,
+        "前台运行中 Terminal 必须继续显示 cursor 动画，不能为了省内存删除业务效果"
+    );
+    assert!(
+        !background,
+        "后台窗口必须暂停 cursor repaint，不能继续放大 GPUI DisplayLink 泄漏"
+    );
+    assert_ne!(
+        foreground, background,
+        "相同 Terminal 在前后台必须产生不同动画意图"
     );
 }

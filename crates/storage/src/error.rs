@@ -14,6 +14,8 @@ pub enum StorageError {
     InvalidSessionKind(String),
     #[error("invalid agent profile stored in sqlite: {0}")]
     InvalidAgentProfile(String),
+    #[error("invalid agent definition origin stored in sqlite: {0}")]
+    InvalidAgentDefinitionOrigin(String),
     #[error("invalid agent name: {0}")]
     InvalidAgentName(String),
     #[error("agent definition not found: {0}")]

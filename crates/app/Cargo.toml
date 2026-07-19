@@ -18,6 +18,10 @@ path = "src/main.rs"
 name = "multisoul-agent-hook"
 path = "src/bin/multisoul_agent_hook.rs"
 
+[[bin]]
+name = "norma-browser-auth-host"
+path = "src/bin/norma_browser_auth_host.rs"
+
 [dependencies]
 gpui = { workspace = true, features = ["test-support"] }
 ui.workspace = true
@@ -29,20 +33,23 @@ workspace.workspace = true
 norma.workspace = true
 voice.workspace = true
 voice_sherpa.workspace = true
-card_task.workspace = true
 dialogue.workspace = true
-llm.workspace = true
 audio.workspace = true
 asr.workspace = true
+license.workspace = true
 tts.workspace = true
 agent.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+url = "2.5"
 tracing.workspace = true
 tracing-subscriber.workspace = true
 crossbeam-channel.workspace = true
 async-channel.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+futures.workspace = true
 pulldown-cmark.workspace = true
 ureq.workspace = true
 hound = "3.5"
@@ -58,12 +65,17 @@ tempfile.workspace = true
 # All AVFoundation interop is macOS-only; on other targets these crates are
 # neither compiled against nor linked.
 [target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "3.7"
 image = "0.25"
 core-video = { version = "=0.4.3", features = ["metal"] }
 core-foundation = "0.10"
 objc2 = "0.6"
 objc2-foundation = "0.3"
-objc2-web-kit = { version = "0.3", default-features = false, features = ["WKWebViewConfiguration"] }
+objc2-web-kit = { version = "0.3", default-features = false, features = [
+    "WKHTTPCookieStore",
+    "WKWebViewConfiguration",
+    "WKWebsiteDataStore",
+] }
 objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSView", "NSWindow"] }
 objc2-avf-audio = { version = "0.3.2", features = [
     "AVAudioBuffer",

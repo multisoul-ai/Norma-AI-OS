@@ -13,29 +13,28 @@ use crate::canvas::master_layout::{
 };
 use crate::canvas::spawn_focus;
 use crate::canvas::view::render_canvas;
-use crate::cards::agent::card::agent_chase_intent;
 use crate::motion::MotionStore;
 use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::agents::AgentDefinitionsState;
-use crate::settings::panel::SettingsPanelState;
+use crate::settings::panel::{SettingsPanelState, SettingsViewportState};
 use crate::settings::voice::{VoiceSettingsInputs, VoiceSettingsState};
 use crate::settings::wallpaper::WallpaperSettingsState;
+use crate::settings::ThemeSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasNodeKind, CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
-use runtime::{route, AgentTaskState, InputEvent, NodeRunState, Route, Runtime};
+use runtime::{route, InputEvent, Route, Runtime};
 use std::collections::HashMap;
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::path::{Path, PathBuf};
+use std::sync::{atomic::AtomicBool, Arc};
 #[cfg(test)]
 use std::time::Duration;
-use ui::Theme;
+use ui::{Theme, ThemeId};
 use voice_window_inset::VoiceWindowInset;
-
 mod agent_actions;
 mod agent_announcements;
 mod agent_close;
@@ -45,11 +44,14 @@ pub(crate) mod browser;
 pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 pub(crate) mod cef_process;
 mod chrome;
+pub(crate) use chrome::FrostedBackdropGeometry;
 mod clipboard_image;
 mod cursor_animation;
+#[cfg(test)]
+use cursor_animation::focused_cursor_animation_active;
 pub(crate) mod dialogue;
 mod e2e;
-mod file_picker;
+pub(crate) mod file_picker;
 mod frame_loop;
 mod frame_throttle;
 mod ime;
@@ -64,7 +66,7 @@ mod video_decoder;
 #[cfg(target_os = "macos")]
 pub(crate) mod video_thumbnails;
 #[cfg(target_os = "macos")]
-mod video_wallpaper;
+pub(crate) mod video_wallpaper;
 mod voice;
 mod voice_window_inset;
 mod wallpaper_actions;
@@ -75,7 +77,6 @@ pub use e2e::{
 };
 pub(crate) use state::mark_runtime_node_viewed_if_needed;
 pub use state::AppScreen;
-
 actions!(
     multisoul,
     [
@@ -84,6 +85,7 @@ actions!(
         NewClaudeAgent,
         NewCodexAgent,
         NewCursorAgent,
+        NewGrokAgent,
         NewOpenCodeAgent,
         NewBrowser,
         CopyCardContent,
@@ -96,13 +98,12 @@ actions!(
         QuitNormaOs
     ]
 );
-const WALLPAPER_IMAGE_OPACITY: f32 = 1.0;
-const WALLPAPER_SHADE_TOP_ALPHA: u8 = 0x00;
-const WALLPAPER_SHADE_BOTTOM_ALPHA: u8 = 0x00;
 
 pub struct MultisoulApp {
     pub runtime: Runtime,
+    pub theme_id: ThemeId,
     pub theme: Theme,
+    pub(crate) theme_settings: ThemeSettingsState,
     pub interaction: InteractionState,
     pub(crate) motion: MotionStore,
     pub(crate) previews: PreviewStore,
@@ -111,6 +112,7 @@ pub struct MultisoulApp {
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) persistence: PersistenceScheduler,
     pub(crate) settings_panel: SettingsPanelState,
+    pub(crate) settings_viewport: SettingsViewportState,
     pub(crate) agent_definitions: AgentDefinitionsState,
     pub(crate) voice_settings: VoiceSettingsState,
     pub(crate) voice_settings_inputs: VoiceSettingsInputs,
@@ -121,14 +123,18 @@ pub struct MultisoulApp {
     agent_announcement_playback: agent_announcements::AgentAnnouncementPlayback,
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
+    pub(crate) recent_project_context_path: Option<PathBuf>,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
     pub(crate) dialogue: crate::app::dialogue::DialogueControlState,
     pub(crate) tts_preview: crate::app::dialogue::TtsPreviewState,
     pub(crate) tts_selection_generation: u64,
     pub(crate) tts_scan_generation: u64,
+    pub(crate) asr_download_cancellations: HashMap<asr::AsrModelId, Arc<AtomicBool>>,
     pub(crate) tts_download_cancellations: HashMap<tts::TtsModelId, Arc<AtomicBool>>,
+    pub(crate) voice_ready_notification_visible: bool,
     pub(crate) agent_runtime: Option<agent_runtime::ProjectAgentRuntime>,
     pub(crate) agent_task_coordinator: Option<agent::AgentTaskCoordinator>,
+    pub(crate) pending_agent_submissions: agent_runtime::pending::PendingAgentSubmissions,
     pub(crate) pending_agent_close_confirmation: Option<NodeId>,
     pub focus_handle: FocusHandle,
     pub(crate) wallpaper_settings: WallpaperSettingsState,
@@ -137,10 +143,10 @@ pub struct MultisoulApp {
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
     pub(crate) terminal_cursor_phase: f32,
     terminal_cursor_repaint: FrameThrottle,
+    window_active: bool,
     voice_window_inset: VoiceWindowInset,
     voice_window_inset_window_visible: bool,
 }
-
 impl MultisoulApp {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let agent_hook_server = AgentHookServer::start();
@@ -245,6 +251,12 @@ impl MultisoulApp {
     pub(crate) fn remove_node_and_reflow(&mut self, node_id: NodeId, window: &mut Window) -> bool {
         let area = self.visible_canvas_rect(window);
         let zoom = self.runtime.document.viewport.zoom;
+        let removed_agent_definition_id = self.runtime.document.node(node_id).and_then(|node| {
+            let CanvasNodeKind::Agent(spec) = &node.kind else {
+                return None;
+            };
+            spec.definition_id
+        });
         if self.interaction.keyboard_selected_node == Some(node_id) {
             self.interaction.keyboard_selected_node = None;
         }
@@ -275,6 +287,14 @@ impl MultisoulApp {
             self.remove_browser_view(node_id);
             self.mark_canvas_dirty();
             self.mark_session_dirty();
+            if let Some(definition_id) = removed_agent_definition_id {
+                if let Err(message) = self
+                    .agent_definitions
+                    .cleanup_quick_definition(definition_id)
+                {
+                    self.workspace_state.error = Some(message);
+                }
+            }
 
             match next_id {
                 Some(next) if self.runtime.document.node(next).is_some() => {
@@ -380,17 +400,13 @@ impl MultisoulApp {
         self.interaction.canvas_scroll_enabled = !self.interaction.canvas_scroll_enabled;
         cx.notify();
     }
-}
 
-fn focused_cursor_animation_active(
-    node_type: NodeType,
-    node_run_state: Option<NodeRunState>,
-    agent_task_state: Option<AgentTaskState>,
-) -> bool {
-    match node_type {
-        NodeType::Term => matches!(node_run_state, Some(NodeRunState::Running)),
-        NodeType::Agent => agent_chase_intent(agent_task_state),
-        NodeType::Rect | NodeType::Preview | NodeType::Browser => false,
+    pub(crate) fn remove_recent_project(&mut self, path: &Path, cx: &mut Context<Self>) {
+        if let Err(error) = self.workspace_state.remove_recent_workspace(path) {
+            tracing::warn!(%error, path = %path.display(), "failed to remove recent project");
+        }
+        self.recent_project_context_path = None;
+        cx.notify();
     }
 }
 
@@ -402,6 +418,7 @@ impl Focusable for MultisoulApp {
 
 impl Render for MultisoulApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.window_active = window.is_window_active();
         self.voice_window_inset_window_visible = state::window_visible_for_voice_inset(window);
         self.sync_voice_window_inset_enabled();
         let mut root = div()
@@ -411,6 +428,7 @@ impl Render for MultisoulApp {
             .on_action(cx.listener(Self::on_open_project))
             .on_action(cx.listener(Self::on_exit_focus))
             .on_action(cx.listener(Self::on_browser_command))
+            .on_action(cx.listener(Self::on_send_tab_to_focused_pty))
             .on_key_down(cx.listener(Self::on_key_down))
             .on_key_up(cx.listener(Self::on_key_up))
             .on_modifiers_changed(cx.listener(Self::on_modifiers_changed))
@@ -424,6 +442,7 @@ impl Render for MultisoulApp {
                     .on_action(cx.listener(Self::on_new_claude_agent))
                     .on_action(cx.listener(Self::on_new_codex_agent))
                     .on_action(cx.listener(Self::on_new_cursor_agent))
+                    .on_action(cx.listener(Self::on_new_grok_agent))
                     .on_action(cx.listener(Self::on_new_opencode_agent))
                     .on_action(cx.listener(Self::on_copy_card_content))
                     .on_action(cx.listener(Self::on_open_preview_file))
@@ -448,6 +467,9 @@ impl Render for MultisoulApp {
                     .child(self.render_workspace_backdrop())
                     .child(render_canvas(self, window, cx))
                     .child(self.render_workspace_chrome(window, cx));
+                if let Some(error_banner) = self.render_workspace_error_banner(cx) {
+                    root = root.child(error_banner);
+                }
                 if let Some(visual) = self.voice_window_inset.visual() {
                     root = root.child(voice_window_inset::render(visual));
                 }

@@ -15,7 +15,7 @@ Workspace crates:
 - `canvas` - domain crate for geometry, document state, node models, selection, hit testing, and viewport transforms.
 - `terminal` - domain crate for PTY process handling, ANSI terminal grid parsing, input encoding, and terminal sessions.
 - `runtime` - domain crate for focus state, input routing, LiveNode registry, and node lifecycle glue.
-- `agent` - GPUI-free unified Dialogue/CardTask/Provider runtime with injected card tools and journal.
+- `agent` - GPUI/Storage-free NormaSession runtime using Rig providers, typed tools, and an injected AgentCardAdapter.
 - `asr` - GPUI/Sherpa-free model identity, curated catalog, installation manifest, integrity, and shared VAD support artifacts.
 - `model_store` - GPUI/network-free shared local-model archive, manifest, integrity, and atomic-install primitives.
 - `tts` - GPUI/Sherpa-free Local TTS model/voice identity, catalog, capability, and installation-validation domain.
@@ -28,13 +28,14 @@ Core Cargo dependency direction is:
 agent -> norma
 app -> {ui, runtime, canvas, terminal, storage, asr, tts, voice_sherpa}
 voice_sherpa -> {asr, tts, dialogue, audio}
+voice_azure -> {ureq, serde}
 tts -> model_store
 runtime -> {canvas, terminal, storage}
 storage -> {agent, canvas, workspace, rusqlite}
 ui -> {gpui, gpui-component}
 ```
 
-`asr`, `model_store`, `tts`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` and `tts` also remain free of Sherpa; engine configuration belongs in `voice_sherpa`. `model_store` and `tts` must not depend on app/runtime/storage/ui.
+`asr`, `model_store`, `tts`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` and `tts` also remain free of Sherpa and network access; local engine configuration belongs in `voice_sherpa`, while Azure Speech HTTP adaptation belongs in `voice_azure`. `model_store` and `tts` must not depend on app/runtime/storage/ui.
 
 ## 2. Key Constraints
 
@@ -48,10 +49,13 @@ ui -> {gpui, gpui-component}
 - **Quit on last window close**: GPUI on macOS does not quit the process automatically when the last window closes. `main.rs` must register `cx.on_window_closed(|cx| { if cx.windows().is_empty() { cx.quit(); } }).detach()` inside the `Application::run` closure, before `open_window`. Omitting this leaves the process running invisibly in the background after the user closes the window.
 - **Pinned libraries require verification**: `gpui =0.2.2`, `gpui-component =0.5.1`, and `alacritty_terminal =0.26` are pinned. Upgrade only after checking API compatibility.
 - **Prefer gpui-component for GUI**: in `crates/app` / `crates/ui`, use `ui::component` (Longbridge) before hand-rolling controls with bare `div()`; see [`docs/references/gpui-component.md`](docs/references/gpui-component.md). Call `ui::init_components(cx)` at app entry (already done in `run_norma_os` / `MultisoulApp::build`).
+- **页面与交互遵循 Apple 设计哲学**：以 Apple Human Interface Guidelines 和 macOS 原生体验为设计基线，优先清晰层级、内容优先、直接操作、即时反馈、一致性与可访问性；新增或改版 UI 时须在方案和验收标准中说明这些原则如何落地，具体要求见 §8。
 - **Consult GPUI skills first**: when writing GPUI code, load local `gpui-*` skills, then adapt to the pinned GPUI version; still prefer the component library when it covers the need.
+- **Rounded child surfaces need explicit ownership**: GPUI 0.2.2's `overflow_hidden()` uses a rectangular content mask. An opaque full-size `div`, `img`, or `surface` inside a rounded container must draw its exposed outer radii itself, or be partitioned away from the corner squares; protect the behavior with an automated test.
 - **New configurable app shortcuts must appear in Settings**: register them in `shortcuts.rs` and support recording/restoring them in Settings → Keyboard Shortcuts.
 - **Acceptance criteria must drive e2e coverage**: for user-visible flows involving Settings, Canvas, Terminal, focus/input routing, PTY, or persistence, derive `crates/e2e` cases from the acceptance criteria instead of relying only on unit tests or manual notes.
 - **Do not blur e2e levels**: GPUI `TestAppContext` + `VisualTestContext::simulate_click` is headless rendered-tree interaction. It does not launch the real `.app`. If acceptance criteria require a real app process/window, add a separate L3 runner and document that requirement explicitly.
+- **页面/样式验收必须用 Computer Use**：凡编写或修改页面、布局、样式或视觉状态，进入检查与验收时必须使用 `computer-use:computer-use` 操作真实 App 完成 E2E；headless GPUI、单测和静态截图只能作为补充，不能替代 Computer Use。
 - **TDD before feature or bugfix work**: add a focused failing test first where the behavior can be tested below the GPUI layer.
 - **No `#[allow(...)]`**: do not hide Rust diagnostics with allow attributes. Fix root causes instead.
 - **Single Rust source files stay at or below 500 lines**: enforced by [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh); split responsibilities instead of raising the cap.
@@ -74,7 +78,7 @@ At a glance:
 
 ## 4. Current User-Facing Behavior
 
-- `Cmd+N` creates a terminal node, then reflows all nodes into a row-major tiled grid with at most three columns.
+- `Cmd+1` creates a Terminal node; `Cmd+2` through `Cmd+6` create Claude, Codex, Cursor, OpenCode, and Grok cards. Each creation reflows the current layout.
 - Drag a node by its title bar.
 - Single-click selects a node; clicking blank canvas clears selection.
 - Double-click a focusable node, or click a terminal/agent body, to focus it.
@@ -169,7 +173,7 @@ For any task with explicit acceptance criteria, create a checklist that maps eac
 
 - L1: headless GPUI sandbox with rendered-tree clicks/actions.
 - L2: ignored real PTY smoke tests.
-- L3: future real launched app/window automation when explicitly required.
+- L3: real launched app/window automation；页面、布局、样式或视觉状态的检查与验收必须通过 `computer-use:computer-use` 操作真实 App 完成。
 
 ## Agent Execution Sizing
 
@@ -177,6 +181,13 @@ Choose the smallest sufficient implementation and verification flow from [`docs/
 
 ## 8. UI And Interaction Notes
 
+- 页面设计与交互必须参考 Apple Human Interface Guidelines，并以“像一个原生 macOS 应用”为体验基准，而非只模仿视觉样式。
+- 信息层级保持清晰，内容优先于装饰；使用克制的颜色、材质、阴影和动效，避免无功能价值的视觉噪音。
+- 优先直接操作与符合平台习惯的行为；控件、术语、菜单、快捷键、焦点和窗口行为应与 macOS 约定一致，偏离时必须有明确的产品理由。
+- 每次用户操作都应获得及时、可感知且不打断流程的状态反馈；危险或不可逆操作必须明确提示，并尽可能提供取消、撤销或恢复路径。
+- 同类页面和状态使用一致的布局、间距、组件和交互模式；新增模式前先复用现有设计语言与 `ui::component`。
+- 可访问性是默认要求：保证可读对比度、完整键盘操作、明确焦点状态、足够点击区域，并尊重系统的减少动态效果等偏好。
+- 新增或改版 UI 的方案与验收标准必须逐项说明上述原则如何落地；涉及用户可观察流程时，按 §7 映射到自动化证据和 e2e 覆盖。
 - GPUI code belongs in `app` and `ui`.
 - Prefer `ui::component` (gpui-component) for buttons, inputs, dialogs, and similar controls; do not reinvent them unless the library lacks the capability or the surface is domain-specific (canvas/terminal).
 - Before changing GPUI API usage, elements, styling, actions, async tasks, entities, tests, troubleshooting, or code quality patterns, consult the installed skills from `cnwzhu/gpui-skills`: `gpui-fundamentals`, `gpui-init`, `gpui-elements`, `gpui-styling`, `gpui-actions`, `gpui-async`, `gpui-entities`, `gpui-testing`, `gpui-troubleshooting`, `gpui-patterns`, and `gpui-code-quality`.

@@ -1,6 +1,6 @@
 //! Agent task terminal announcement policy and playback coordination.
 
-use super::dialogue::{create_tts_client, TtsClientBox};
+use super::dialogue::{create_tts_client_for_selection, selected_tts_model};
 use super::voice_window_inset::{PcmEnergyTimeline, TtsPlaybackEvent};
 use super::MultisoulApp;
 use canvas::{CanvasNodeKind, NodeId};
@@ -13,7 +13,10 @@ use std::sync::Arc;
 mod playback;
 mod synthesis;
 pub(crate) use playback::AgentAnnouncementPlayback;
-use playback::{AgentAnnouncementAudioControl, AgentAnnouncementPlaybackPhase};
+use playback::{
+    await_playback_completion_or_timeout, completion_timeout_for_chunk,
+    AgentAnnouncementAudioControl, AgentAnnouncementPlaybackPhase,
+};
 use synthesis::synthesize_agent_terminal_announcement;
 
 const MAX_PENDING_ANNOUNCEMENTS: usize = 32;
@@ -213,17 +216,6 @@ impl MultisoulApp {
         self.agent_announcement_playback.cancel_active();
     }
 
-    pub(crate) fn invalidate_agent_announcement_tts_client(&mut self, cx: &mut Context<Self>) {
-        if let Some(tts) = self
-            .agent_announcement_playback
-            .take_tts_client_for_configuration_change()
-        {
-            cx.background_executor()
-                .spawn(async move { drop(tts) })
-                .detach();
-        }
-    }
-
     pub(crate) fn reset_agent_announcements(&mut self) {
         self.agent_announcements.reset();
         self.agent_announcement_playback.cancel_active();
@@ -257,17 +249,17 @@ impl MultisoulApp {
         let generation = self.agent_announcement_playback.generation;
         let agent_name = announcement.agent_name.clone();
         let outcome_word = announcement.outcome_word.clone();
-        let existing_tts = self.agent_announcement_playback.tts_client.take();
+        let tts_runtime = self.dialogue.shared_tts_runtime.clone();
+        let selected = selected_tts_model();
+        let selected_for_create = selected.clone();
         self.agent_announcement_playback.phase =
             AgentAnnouncementPlaybackPhase::Synthesizing(announcement);
         let work = cx.background_executor().spawn(async move {
-            let mut tts = match existing_tts {
-                Some(tts) => tts,
-                None => create_tts_client()?,
-            };
-            let chunk =
-                synthesize_agent_terminal_announcement(tts.as_mut(), &agent_name, &outcome_word)?;
-            Ok::<_, voice_sherpa::SpeechError>((tts, chunk))
+            tts_runtime.with_client(
+                selected,
+                || create_tts_client_for_selection(selected_for_create.as_ref()),
+                |tts| synthesize_agent_terminal_announcement(tts, &agent_name, &outcome_word),
+            )
         });
         cx.spawn(async move |this, cx| {
             let result = work.await;
@@ -281,7 +273,7 @@ impl MultisoulApp {
     fn finish_agent_announcement_synthesis(
         &mut self,
         generation: u64,
-        result: Result<(TtsClientBox, audio::PcmAudioChunk), voice_sherpa::SpeechError>,
+        result: Result<audio::PcmAudioChunk, voice_sherpa::SpeechError>,
         cx: &mut Context<Self>,
     ) {
         if generation != self.agent_announcement_playback.generation {
@@ -296,15 +288,14 @@ impl MultisoulApp {
         ) else {
             return;
         };
-        let (tts, chunk) = match result {
-            Ok(output) => output,
+        let chunk = match result {
+            Ok(chunk) => chunk,
             Err(error) => {
                 tracing::warn!(%error, "agent announcement synthesis failed");
                 self.start_next_agent_announcement(cx);
                 return;
             }
         };
-        self.agent_announcement_playback.tts_client = Some(tts);
         let control = Arc::new(AgentAnnouncementAudioControl::new());
         self.agent_announcement_playback.control = Some(Arc::clone(&control));
         self.agent_announcement_playback.phase =
@@ -361,13 +352,24 @@ impl MultisoulApp {
             announcement,
             started: false,
         };
+        let completion_timeout = completion_timeout_for_chunk(&chunk);
+        let executor = cx.background_executor().clone();
         cx.spawn(async move |this, cx| {
             if started_rx.recv().await.is_ok() {
                 let _ = this.update(cx, |app, _cx| {
                     app.mark_agent_announcement_started(generation);
                 });
             }
-            let completed = finished_rx.recv().await.is_ok();
+            let completed =
+                await_playback_completion_or_timeout(executor, finished_rx, completion_timeout)
+                    .await;
+            if !completed {
+                tracing::warn!(
+                    generation,
+                    watchdog_ms = completion_timeout.as_millis(),
+                    "agent announcement playback ended without a completion callback"
+                );
+            }
             let _ = this.update(cx, |app, cx| {
                 app.finish_agent_announcement_playback(generation, completed, cx);
             });

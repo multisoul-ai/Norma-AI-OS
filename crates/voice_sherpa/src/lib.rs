@@ -39,9 +39,12 @@ pub use listening_pipeline::{
     apply_final_transcript_to_session, spawn_listening_pipeline_loop, ListeningPipelineEvent,
     SherpaListeningPipeline,
 };
-pub use recognizer_config::build_online_recognizer_config;
+pub use permissions::{microphone_authorization_status, MicrophoneAuthorization};
+pub use recognizer_config::{
+    build_online_recognizer_config, build_online_recognizer_config_with_hotwords, AsrHotwordConfig,
+};
 pub use stream::PcmStreamSession;
-pub use tts::{FakeTtsClient, SherpaTtsClient};
+pub use tts::{build_zipvoice_tts_config, FakeTtsClient, SherpaTtsClient};
 pub use vad::{FakeEnergyVadClient, SherpaVadClient};
 
 /// Check and (if not yet determined) request microphone permission.

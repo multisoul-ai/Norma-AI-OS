@@ -15,14 +15,15 @@ Workspace 分层：
 - `crates/runtime/` - 零 GPUI 域层：LiveNode 生命周期、焦点状态、输入路由。
 - `crates/storage/` - 零 GPUI 存储层：SQLite store、migration、recent/settings/canvas/session checkpoint。
 - `crates/workspace/` - 零 GPUI 元数据层：最近项目类型、workspace source、路径展示。
-- `crates/agent/` - 零 GPUI/Storage Agent Runtime：Dialogue、CardTask、Provider、工具循环与预算。
+- `crates/agent/` - 零 GPUI/Storage Agent Runtime：NormaSession、Rig Provider、typed tools、AgentCardAdapter 与预算。
 - `crates/asr/` - 零 GPUI/Sherpa ASR 领域层：模型身份、受控目录、安装清单、完整性与共享 VAD 工件。
+- `crates/voice_azure/` - 零 GPUI 的 Azure Speech 短音频 REST 适配层：区域 Endpoint、鉴权、请求与响应解析。
 - `crates/model_store/` - 零 GPUI/网络的共享本地模型安装原语：受控解压、哈希、manifest 与原子提升。
 - `crates/tts/` - 零 GPUI/Sherpa TTS 领域层：模型/语音身份、固定目录、能力与安装验证。
 - `crates/ui/` - GPUI 主题与共享 UI 基础。
 - `crates/app/` - GPUI/Metal 壳层：窗口、菜单、快捷键、画布与 cards 渲染。
 
-依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr, tts, voice_sherpa}`，`voice_sherpa -> {asr, tts, dialogue, audio}`，`tts -> model_store`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent` 不得依赖 `app/runtime/storage/ui`，且 `asr/tts` 不得依赖 Sherpa；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
+依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr, tts, voice_sherpa}`，`voice_sherpa -> {asr, tts, dialogue, audio}`，`voice_azure -> {ureq, serde}`，`tts -> model_store`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent` 不得依赖 `app/runtime/storage/ui`，且 `asr/tts` 不得依赖 Sherpa/网络；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
 
 ### 源码组织
 
@@ -50,7 +51,9 @@ Workspace 分层：
 - **视频/动画壁纸低拷贝**：live 视频/动画帧不得每帧经 CPU RGBA/`RenderImage`/`img()` 路径上屏；解码推进必须后台化，上屏必须用 420f `surface()` 或等价低拷贝路径，并由 `scripts/check-video-wallpaper-performance.py` 护栏拦截回退。
 - **版本钉死需审慎**：`gpui =0.2.2`、`gpui-component =0.5.1`、`alacritty_terminal =0.26`，升级前先验证 API。
 - **GUI 优先 gpui-component**：`crates/app`/`crates/ui` 写控件时优先用 `ui::component`（Longbridge），非必要不造轮子；细节见 [`docs/references/gpui-component.md`](docs/references/gpui-component.md)。
+- **页面与交互遵循 Apple 设计哲学**：以 Apple Human Interface Guidelines 和 macOS 原生体验为设计基线，优先清晰层级、内容优先、直接操作、即时反馈、一致性与可访问性；新增或改版 UI 时须在方案和验收标准中说明这些原则如何落地，展开要求见 [`CLAUDE.md`](CLAUDE.md) §8。
 - **GPUI 代码先查 skills**：编写 GPUI 时先查 `gpui-*` skills，再落到钉死版本与现有写法；有现成组件时仍优先组件库。
+- **GPUI 圆角子层不可只靠 overflow**：GPUI 0.2.2 的 `overflow_hidden()` 仅矩形裁剪；圆角容器内的全尺寸不透明 `div`/`img`/`surface` 必须自身绘制外侧圆角，或避开四角分区渲染，并用自动化测试守住。
 - **单文件 ≤ 500 行**：Rust 源码由 [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh) 拦截，超长先拆职责。
 - **Agent 指南 ≤ 300 行**：`AGENTS.md` 与 `CLAUDE.md` 由 [`scripts/check-agent-guide-lines.sh`](scripts/check-agent-guide-lines.sh) 拦截；超长内容归档到 `docs/`，并在 §4 增加指针。
 - **禁止 `#[allow(...)]`**：Rust 源码不得用 allow 压制编译器或 clippy 诊断；由 [`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截，必须修根因。
@@ -66,6 +69,7 @@ Workspace 分层：
 - **新增可配置快捷键必须进 Settings**：任何新的 app shortcut 都要注册到 `shortcuts.rs`，并在 Settings → Keyboard Shortcuts 支持录制与恢复。
 - **验收标准要落 e2e**：涉及用户可观察流程、Settings、Canvas、Terminal、焦点/输入路由、PTY 或持久化闭环时，必须根据验收标准自动新增/更新 `crates/e2e` 用例；不要只写单测或手测说明。
 - **区分 e2e 层级**：`TestAppContext`/`simulate_click` 是 headless GPUI 渲染树点击，不等于启动真实 `.app`；若验收要求真实启动程序，必须新增独立 L3 runner 并在报告中明确说明。
+- **页面/样式验收必须用 Computer Use**：凡编写或修改页面、布局、样式或视觉状态，进入检查与验收时必须使用 `computer-use:computer-use` 操作真实 App 完成 E2E；headless GPUI、单测和静态截图只能作为补充，不能替代 Computer Use。
 - **不要把知识塞进地图**：`AGENTS.md` 只放指针；长说明沉淀到 `CLAUDE.md` 或未来 `docs/`。
 
 ## 3. 技术栈速览
@@ -77,7 +81,7 @@ Workspace 分层：
 | Terminal | portable-pty 0.9, alacritty_terminal 0.26, crossbeam-channel |
 | Runtime | 纯 Rust 状态机与 LiveNode 注册表 |
 | Storage | rusqlite bundled SQLite、recent/settings/canvas/session checkpoint |
-| ASR | 受控模型目录、SHA-256、tar.bz2 原子安装；Sherpa 适配在 `voice_sherpa` |
+| ASR | 本地模型安装在 `asr`、Sherpa 适配在 `voice_sherpa`、Azure REST 适配在 `voice_azure` |
 | TTS | 固定模型/语音目录与安装验证；共享安装原语在 `model_store`，Sherpa 适配在 `voice_sherpa` |
 | Packaging | cargo-packager, 未签名 `.app` / `.dmg` |
 
@@ -94,8 +98,10 @@ Workspace 分层：
 | 几何/节点/选择/命中/viewport | [`crates/canvas/src/`](crates/canvas/src/) |
 | PTY、ANSI grid、按键编码 | [`crates/terminal/src/`](crates/terminal/src/) |
 | 焦点、输入路由、LiveNode 生命周期 | [`crates/runtime/src/`](crates/runtime/src/) |
-| Dialogue/CardTask/Provider/Journal seam | [`crates/agent/src/`](crates/agent/src/) |
+| NormaSession/Rig/AgentCardAdapter seam | [`crates/agent/src/`](crates/agent/src/) |
 | ASR 模型身份、目录、安装与完整性 | [`crates/asr/src/`](crates/asr/src/) |
+| ASR Hotword 加载、扩展与调优 | [`docs/references/asr-hotwords.md`](docs/references/asr-hotwords.md) |
+| Azure Speech 短音频 REST 适配 | [`crates/voice_azure/src/`](crates/voice_azure/src/) |
 | 通用本地模型安装原语 | [`crates/model_store/src/`](crates/model_store/src/) |
 | TTS 模型/语音目录与安装验证 | [`crates/tts/src/`](crates/tts/src/) |
 | SQLite store、migration、持久化边界 | [`crates/storage/src/`](crates/storage/src/) |
@@ -124,6 +130,7 @@ Workspace 分层：
 | `crates/runtime/**` | `cargo test -p runtime` |
 | `crates/storage/**` | `cargo test -p storage` |
 | `crates/model_store/**` | `cargo test -p model_store` |
+| `crates/voice_azure/**` | `cargo test -p voice_azure`；真实服务按需跑 ignored test |
 | `crates/tts/**` | `cargo test -p tts` |
 | `crates/ui/**` | `cargo test -p ui` |
 | `crates/app/**` | `cargo check -p app` |

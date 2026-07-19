@@ -7,31 +7,23 @@
 
 use super::control::VoiceVisual;
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, Window};
+use gpui::{div, prelude::*, px, rgba, svg, Context, Div, SharedString, Stateful, Window};
 use ui::Theme;
 
-/// 底部语音条与画布底部的间距。
-const VOICE_BAR_BOTTOM: f32 = 22.0;
 /// Idle 状态下显示的快捷键键帽序列（Apple 菜单风格）。
 const IDLE_KEYCAPS: &[&str] = &["⌘", "E"];
 
 impl MultisoulApp {
-    /// 渲染底部语音条：一个水平居中、宽度自适应内容的圆角胶囊。
-    /// 外层是全宽锚点（仅做水平居中），内层才是真正可见的 pill。
-    pub(crate) fn render_voice_bar(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> Div {
+    /// 渲染 Command Dock 内的语音状态单元，保留原状态机与恢复入口。
+    pub(crate) fn render_voice_bar(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
         let theme = self.theme;
         let visual = self.effective_voice_visual();
 
-        // 外层全宽锚点，仅负责把 pill 水平居中并固定在底部。
-        div()
-            .absolute()
-            .left(px(0.0))
-            .right(px(0.0))
-            .bottom(px(VOICE_BAR_BOTTOM))
-            .flex()
-            .flex_row()
-            .justify_center()
-            .child(voice_pill(theme, visual, self, cx))
+        voice_pill(theme, visual, self, cx)
     }
 }
 
@@ -41,61 +33,62 @@ fn voice_pill(
     visual: VoiceVisual,
     app: &mut MultisoulApp,
     cx: &mut Context<MultisoulApp>,
-) -> Div {
+) -> Stateful<Div> {
     let palette = voice_palette(theme, visual);
     div()
-        .h(px(42.0))
-        .min_w(px(168.0))
+        .id("workspace-voice-control")
+        .debug_selector(|| "workspace-voice-control".to_string())
+        .h(px(38.0))
+        .min_w(px(88.0))
         .max_w(px(520.0))
         .flex()
         .flex_row()
         .items_center()
-        .gap_2()
-        .px(px(16.0))
-        .rounded(px(21.0))
+        .gap(px(8.0))
+        .px(px(13.0))
+        .rounded(px(12.0))
         .border_1()
         .border_color(rgba(palette.border))
-        .shadow(voice_shadow(theme))
         .bg(rgba(palette.fill))
         .text_color(rgba(palette.text))
-        .text_size(px(13.0))
+        .text_size(px(11.0))
+        .cursor_pointer()
+        .on_click(cx.listener(MultisoulApp::on_voice_bar_click))
         .child(status_glyph(theme, visual))
         .child(voice_content(theme, visual, app, cx))
 }
 
 /// 按 `visual` 取色：图标色、文字色、pill 填充与描边。Idle 一律弱化。
 fn voice_palette(theme: Theme, visual: VoiceVisual) -> VoicePalette {
-    let idle_border = with_alpha(theme.edge_highlight, 0x22);
-    let idle_fill = with_alpha(theme.panel, 0xc8);
     match visual {
         VoiceVisual::Idle => VoicePalette {
-            icon: theme.text_tertiary,
-            text: theme.text_tertiary,
-            fill: idle_fill,
-            border: idle_border,
+            icon: 0xffffffd6,
+            text: 0xffffffff,
+            fill: 0xffffff00,
+            border: 0xffffff00,
         },
         VoiceVisual::Recording => VoicePalette {
             icon: theme.accent_orange,
-            text: theme.text_primary,
-            fill: with_alpha(theme.panel, 0xe5),
+            text: 0xffffffff,
+            fill: 0xffffff12,
             border: with_alpha(theme.accent_orange, 0x55),
         },
         VoiceVisual::Processing => VoicePalette {
             icon: theme.accent_warm,
-            text: theme.text_primary,
-            fill: with_alpha(theme.panel, 0xe5),
+            text: 0xffffffff,
+            fill: 0xffffff12,
             border: with_alpha(theme.accent_warm, 0x4d),
         },
         VoiceVisual::Success => VoicePalette {
             icon: theme.accent_green,
-            text: theme.text_primary,
-            fill: with_alpha(theme.panel, 0xe5),
+            text: 0xffffffff,
+            fill: 0xffffff12,
             border: with_alpha(theme.accent_green, 0x4d),
         },
         VoiceVisual::Error => VoicePalette {
             icon: theme.destructive,
-            text: theme.text_primary,
-            fill: with_alpha(theme.panel, 0xe5),
+            text: 0xffffffff,
+            fill: 0xffffff12,
             border: with_alpha(theme.destructive, 0x55),
         },
     }
@@ -106,7 +99,7 @@ fn voice_palette(theme: Theme, visual: VoiceVisual) -> VoicePalette {
 fn status_glyph(theme: Theme, visual: VoiceVisual) -> Div {
     let palette = voice_palette(theme, visual);
     match visual {
-        VoiceVisual::Idle => glyph_cell("🎙", palette.icon),
+        VoiceVisual::Idle => voice_icon_cell(palette.icon),
         VoiceVisual::Recording => div().flex().flex_row().items_center().gap_2().child(
             div()
                 .w(px(8.0))
@@ -131,6 +124,22 @@ fn glyph_cell(glyph: &'static str, color: u32) -> Div {
         .text_color(rgba(color))
         .text_size(px(15.0))
         .child(glyph)
+}
+
+fn voice_icon_cell(color: u32) -> Div {
+    div()
+        .w(px(16.0))
+        .h(px(20.0))
+        .flex()
+        .items_center()
+        .justify_center()
+        .child(
+            svg()
+                .path(SharedString::from("icons/settings-nav-voice.svg"))
+                .text_color(rgba(color))
+                .w(px(16.0))
+                .h(px(16.0)),
+        )
 }
 
 /// 静态"正在收音"波形：3 根高度不同的圆角竖条，accent_orange 配不同透明度，
@@ -159,14 +168,27 @@ fn voice_content(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     match visual {
-        VoiceVisual::Idle => div()
-            .flex()
-            .flex_row()
-            .items_center()
-            .gap_1()
-            .text_color(rgba(theme.text_tertiary))
-            .child(div().text_size(px(12.0)).child("Voice"))
-            .children(IDLE_KEYCAPS.iter().map(|k| voice_keycap(theme, k))),
+        VoiceVisual::Idle => {
+            let label = match app.voice_settings.readiness() {
+                crate::settings::voice::VoiceEntryState::SetUp { .. } => {
+                    format!("Set up Voice  {}", IDLE_KEYCAPS.concat())
+                }
+                crate::settings::voice::VoiceEntryState::SettingUp { percent } => {
+                    format!("Setting up Voice · {percent}%")
+                }
+                crate::settings::voice::VoiceEntryState::Ready => {
+                    format!("Voice  {}", IDLE_KEYCAPS.concat())
+                }
+                crate::settings::voice::VoiceEntryState::Unavailable { .. } => {
+                    "Voice unavailable".to_string()
+                }
+            };
+            div()
+                .flex()
+                .items_center()
+                .text_color(rgba(0xffffffff))
+                .child(label)
+        }
         VoiceVisual::Recording => div()
             .flex()
             .flex_row()
@@ -177,7 +199,7 @@ fn voice_content(
             .child(
                 div()
                     .max_w(px(360.0))
-                    .text_color(rgba(theme.text_primary))
+                    .text_color(rgba(0xffffffff))
                     .child(app.effective_voice_label()),
             ),
         VoiceVisual::Processing | VoiceVisual::Success => {
@@ -199,6 +221,72 @@ fn voice_content(
     }
 }
 
+impl MultisoulApp {
+    fn on_voice_bar_click(
+        &mut self,
+        _: &gpui::ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if matches!(
+            self.voice_settings.readiness(),
+            crate::settings::voice::VoiceEntryState::Ready
+        ) {
+            self.activate_ready_voice(true, window, cx);
+        } else {
+            self.open_voice_settings(window, cx);
+        }
+    }
+
+    pub(crate) fn render_voice_ready_notification(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let theme = self.theme;
+        div()
+            .id("voice-ready-notification")
+            .debug_selector(|| "voice-ready-notification".to_string())
+            .absolute()
+            .top(px(22.0))
+            .right(px(22.0))
+            .max_w(px(320.0))
+            .flex()
+            .items_center()
+            .gap(px(10.0))
+            .p(px(13.0))
+            .rounded(px(12.0))
+            .border_1()
+            .border_color(rgba(with_alpha(theme.accent_green, 0x70)))
+            .bg(rgba(with_alpha(theme.panel, 0xf2)))
+            .text_color(rgba(theme.text_primary))
+            .child(glyph_cell("✓", theme.accent_green))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(2.0))
+                    .child("Voice is ready")
+                    .child(
+                        div()
+                            .text_size(px(11.0))
+                            .text_color(rgba(theme.text_secondary))
+                            .child("Press ⌘E to start a voice command."),
+                    ),
+            )
+            .child(
+                div()
+                    .id("voice-ready-notification-close")
+                    .cursor_pointer()
+                    .text_color(rgba(theme.text_secondary))
+                    .child("×")
+                    .on_click(cx.listener(|app, _, _, cx| {
+                        app.voice_ready_notification_visible = false;
+                        cx.notify();
+                    })),
+            )
+    }
+}
+
 fn microphone_settings_button(theme: Theme, cx: &mut Context<MultisoulApp>) -> impl IntoElement {
     div()
         .id("voice-open-microphone-settings")
@@ -212,39 +300,10 @@ fn microphone_settings_button(theme: Theme, cx: &mut Context<MultisoulApp>) -> i
         .border_color(rgba(with_alpha(theme.destructive, 0x70)))
         .bg(rgba(with_alpha(theme.destructive, 0x18)))
         .text_size(px(12.0))
-        .text_color(rgba(theme.text_primary))
+        .text_color(rgba(0xffffffff))
         .cursor_pointer()
         .on_click(cx.listener(MultisoulApp::on_voice_open_microphone_privacy_settings))
         .child("Open Microphone Settings")
-}
-
-/// Idle 用的小键帽，风格参照 `settings/keyboard.rs` 的 `keycap()` 但更克制：
-/// 更矮、更小圆角、半透明底、`text_tertiary` 描边与文字。
-fn voice_keycap(theme: Theme, label: &'static str) -> Div {
-    div()
-        .h(px(20.0))
-        .min_w(px(20.0))
-        .flex()
-        .items_center()
-        .justify_center()
-        .px(px(5.0))
-        .rounded(px(6.0))
-        .border_1()
-        .border_color(rgba(with_alpha(theme.edge_highlight, 0x33)))
-        .bg(rgba(with_alpha(theme.node_fill, 0x14)))
-        .text_size(px(11.0))
-        .text_color(rgba(theme.text_tertiary))
-        .child(label)
-}
-
-/// 底部语音条的阴影——比顶部 toolbar 略轻，避免在画布底部过重。
-fn voice_shadow(theme: Theme) -> Vec<gpui::BoxShadow> {
-    vec![gpui::BoxShadow {
-        color: rgba(theme.shadow_color).into(),
-        offset: gpui::point(px(0.0), px(14.0)),
-        blur_radius: px(28.0),
-        spread_radius: px(-14.0),
-    }]
 }
 
 struct VoicePalette {

@@ -79,6 +79,13 @@ pub enum AsrInstallationError {
     ArtifactHashMismatch,
     #[error("required model file is missing: {0}")]
     MissingRequiredFile(PathBuf),
+    #[error(
+        "model {model_id} requires an installation update because {missing_file} is missing; open Voice Settings and click Retry to reinstall the verified model archive"
+    )]
+    UpgradeRequired {
+        model_id: String,
+        missing_file: PathBuf,
+    },
     #[error("model archive SHA-256 does not match the catalog")]
     ArchiveHashMismatch,
     #[error("shared support artifact SHA-256 does not match the catalog")]
@@ -225,6 +232,12 @@ pub fn validate_installation(
     for required_file in descriptor.artifact().required_files() {
         let path = root.join(required_file);
         if !path.is_file() {
+            if is_legacy_bilingual_bpe_upgrade(root, descriptor, required_file) {
+                return Err(AsrInstallationError::UpgradeRequired {
+                    model_id: descriptor.id().as_str().to_string(),
+                    missing_file: path,
+                });
+            }
             return Err(AsrInstallationError::MissingRequiredFile(path));
         }
     }
@@ -232,4 +245,19 @@ pub fn validate_installation(
         descriptor: descriptor.clone(),
         root: root.to_path_buf(),
     })
+}
+
+fn is_legacy_bilingual_bpe_upgrade(
+    root: &Path,
+    descriptor: &AsrModelDescriptor,
+    missing_file: &str,
+) -> bool {
+    descriptor.id().as_str() == crate::ZIPFORMER_BILINGUAL_MODEL_ID
+        && missing_file == "bpe.vocab"
+        && descriptor
+            .artifact()
+            .required_files()
+            .iter()
+            .filter(|required| required.as_str() != "bpe.vocab")
+            .all(|required| root.join(required).is_file())
 }

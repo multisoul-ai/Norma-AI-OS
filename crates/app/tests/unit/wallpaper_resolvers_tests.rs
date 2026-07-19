@@ -86,35 +86,86 @@ fn test_kind_from_extension_classifies_three_types_and_rejects_unknown() {
     );
 }
 
-/// T-R2: 内置清单恰为 10 项 = 3 static (incl. default) + 2 gif + 5 video；
-/// 所有路径位于 wallpapers/ 前缀下；默认壁纸 1331865.png 必须出现。
+/// T-R9: Wallpaper 标签文案必须把静态图与两类动态资源明确区分。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Static = PNG / JPG / JPEG，共 3 种静态扩展归一后的类别
+///   Gif    = GIF，共 1 种逐帧动画类别
+///   Video  = MP4 / MOV，共 2 种视频扩展归一后的类别
+///   motion groups = static(1 类) + dynamic(2 类) = 2 组
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 分别读取 Static、Gif、Video 的 badge_label。
+///   2. 确认 Static 显示为静态语义。
+///   3. 确认 Gif 与 Video 都显示为动态语义。
+///
+/// 预期结果：
+///   - 正断言：Static 精确显示 `Static`，用户可以识别静态壁纸。
+///   - 正断言：Gif 与 Video 精确显示 `Dynamic`，用户可以识别动态壁纸。
+///   - 负断言：Static 不得误标为 Dynamic；Gif / Video 不得误标为 Static。
+#[test]
+fn test_wallpaper_badge_labels_distinguish_static_and_dynamic_media() {
+    let static_label = WallpaperKind::Static.badge_label();
+    let gif_label = WallpaperKind::Gif.badge_label();
+    let video_label = WallpaperKind::Video.badge_label();
+
+    assert_eq!(
+        static_label, "Static",
+        "静态图片的 Wallpaper 胶囊标签必须精确显示 Static"
+    );
+    assert_ne!(
+        static_label, "Dynamic",
+        "静态图片不得显示 Dynamic，否则用户会误判其会运动"
+    );
+    assert_eq!(
+        gif_label, "Dynamic",
+        "GIF Wallpaper 胶囊标签必须精确显示 Dynamic"
+    );
+    assert_ne!(
+        gif_label, "Static",
+        "GIF 不得显示 Static，否则动态属性会被隐藏"
+    );
+    assert_eq!(
+        video_label, "Dynamic",
+        "视频 Wallpaper 胶囊标签必须精确显示 Dynamic"
+    );
+    assert_ne!(
+        video_label, "Static",
+        "视频不得显示 Static，否则动态属性会被隐藏"
+    );
+}
+
+/// T-R2: 内置清单恰为 16 项 = 9 static（含既有默认和 mut/v2 的 6 张）
+/// + 2 gif + 5 video；所有路径位于 wallpapers/ 前缀下。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   内置清单 = 1331865.png(Static, default)
 ///            + 1350954.png(Static) + 1358524.png(Static)     = 3 static
+///            + 74174.png + 74176.jpg + 718916.jpg
+///              + 1411492.png + 379352.jpg + 1411385.png       = 6 static（mut/v2）
 ///            + 215824.gif(Gif) + 220240.gif(Gif)              = 2 gif
 ///            + 1403512.mp4 + 1404942.mp4 + 1406443.mp4
 ///              + 1406489.mp4 + 1407174.mp4                    = 5 video
-///   Total   = 3 + 2 + 5 = 10
-///   (counts = (static, gif, video) = (3, 2, 5))
+///   Total   = 3 + 6 + 2 + 5 = 16
+///   (counts = (static, gif, video) = (9, 2, 5))
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. builtin_wallpapers() 返回 &'static [(path, name, kind)] 切片
 ///   2. list.len() 校验总数
 ///   3. fold 按 kind 累加三类计数
-///   4. iter().any(...) 校验默认壁纸存在
+///   4. 分别校验 6 个 mut/v2 静态壁纸存在
 ///   5. for 循环校验每条路径前缀
 ///
 /// 预期结果：
-///   - 正断言：len==10；counts==(3,2,5)；含 1331865.png
+///   - 正断言：len==16；counts==(9,2,5)；6 个 mut/v2 文件逐一存在且为 Static
 ///   - 负断言：每条路径必须以 wallpapers/ 开头（非空相对资源名）
 #[test]
-fn test_builtin_wallpapers_contains_exactly_ten_with_correct_kinds() {
+fn test_builtin_wallpapers_contains_mut_v2_defaults_with_correct_kinds() {
     let list = builtin_wallpapers();
     assert_eq!(
         list.len(),
-        10,
-        "built-in library must contain exactly 10 entries"
+        16,
+        "built-in library must contain the 10 existing entries plus 6 mut/v2 defaults"
     );
     let counts = list.iter().fold((0, 0, 0), |(s, g, v), (_, _, k)| match k {
         WallpaperKind::Static => (s + 1, g, v),
@@ -123,13 +174,45 @@ fn test_builtin_wallpapers_contains_exactly_ten_with_correct_kinds() {
     });
     assert_eq!(
         counts,
-        (3, 2, 5),
-        "expected 3 static (incl. default), 2 gif, 5 video — got {:?}",
+        (9, 2, 5),
+        "expected 9 static (3 existing + 6 mut/v2), 2 gif, 5 video — got {:?}",
         counts
     );
     assert!(
-        list.iter().any(|(p, _, _)| p.ends_with("1331865.png")),
-        "default wallpaper 1331865.png must be present"
+        list.iter().any(|(path, _, kind)| {
+            *path == "wallpapers/74174.png" && *kind == WallpaperKind::Static
+        }),
+        "mut/v2 wallpaper 74174.png must be an embedded Static builtin"
+    );
+    assert!(
+        list.iter().any(|(path, _, kind)| {
+            *path == "wallpapers/74176.jpg" && *kind == WallpaperKind::Static
+        }),
+        "mut/v2 wallpaper 74176.jpg must be an embedded Static builtin"
+    );
+    assert!(
+        list.iter().any(|(path, _, kind)| {
+            *path == "wallpapers/718916.jpg" && *kind == WallpaperKind::Static
+        }),
+        "mut/v2 wallpaper 718916.jpg must be an embedded Static builtin"
+    );
+    assert!(
+        list.iter().any(|(path, _, kind)| {
+            *path == "wallpapers/1411492.png" && *kind == WallpaperKind::Static
+        }),
+        "mut/v2 wallpaper 1411492.png must be an embedded Static builtin"
+    );
+    assert!(
+        list.iter().any(|(path, _, kind)| {
+            *path == "wallpapers/379352.jpg" && *kind == WallpaperKind::Static
+        }),
+        "mut/v2 wallpaper 379352.jpg must be an embedded Static builtin"
+    );
+    assert!(
+        list.iter().any(|(path, _, kind)| {
+            *path == "wallpapers/1411385.png" && *kind == WallpaperKind::Static
+        }),
+        "mut/v2 wallpaper 1411385.png must be an embedded Static builtin"
     );
     for (p, _, _) in list {
         assert!(

@@ -8,11 +8,11 @@ use runtime::{InputMode, NodeScroll};
 /// 数据构造（含关键数值的推导过程）：
 ///   node bounds = origin(100, 50), size(640x360)
 ///   viewport 默认 zoom = 1, pan = (0,0)，因此 node screen top-left = (100,50)
-///   title height = TITLE_BAR_H(26) * zoom(1) = 26
+///   title height = TITLE_BAR_H(32) * zoom(1) = 32
 ///   terminal padding = TERM_PADDING_PX(8) * zoom(1) = 8
 ///   初始 terminal grid cursor = line 0, col 0
 ///   expected x = node_left(100) + padding(8) + col(0)*cell(8) = 108
-///   expected y = node_top(50) + title(26) + padding(8) + line(0)*line_height(16) = 84
+///   expected y = node_top(50) + title(32) + padding(8) + line(0)*line_height(16) = 90
 ///   expected size = cell_width(8) x line_height(16)
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -58,7 +58,7 @@ fn test_terminal_ime_cursor_bounds_uses_focused_terminal_cursor_cell() {
     );
     assert_eq!(
         bounds.origin.y,
-        px(84.0),
+        px(90.0),
         "IME bounds y 应等于 node_top + title height + terminal padding + cursor_line * line_height"
     );
     assert_eq!(

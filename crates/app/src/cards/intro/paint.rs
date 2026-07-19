@@ -192,6 +192,7 @@ fn intro_text_color(kind: InitializationAnimationKind, accent: bool, theme: Them
         InitializationAnimationKind::Codex => rgba(CODEX_ACCENT).into(),
         InitializationAnimationKind::Claude => rgba(CLAUDE_CODE_ACCENT).into(),
         InitializationAnimationKind::Cursor => rgba(CURSOR_ACCENT).into(),
+        InitializationAnimationKind::Grok => rgba(theme.accent_violet).into(),
         InitializationAnimationKind::OpenCode => rgba(theme.accent_violet).into(),
     }
 }

@@ -1,9 +1,67 @@
 use canvas::{CanvasNodeKind, NodeId};
+use runtime::InputMode;
 
 use super::super::MultisoulApp;
-use super::commands::submit_agent_task;
 
 impl MultisoulApp {
+    pub(crate) fn current_canvas_context_for_provider(
+        &self,
+    ) -> Option<agent::CurrentCanvasContext> {
+        let workspace_root = self.runtime.workspace_root()?;
+        let project_name = workspace_root
+            .file_name()
+            .and_then(|name| name.to_str())
+            .filter(|name| !name.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| workspace_root.display().to_string());
+        let nodes = self.runtime.document.nodes();
+        let total_cards = nodes.len();
+        let mut candidates = Vec::with_capacity(agent::MAX_CURRENT_CANVAS_CARDS);
+        for node in nodes {
+            let kind = canvas_card_kind(&node.kind);
+            let selected = self.runtime.selection.contains(node.id);
+            let focused = matches!(
+                self.runtime.focus.mode(),
+                InputMode::NodeFocused(node_id) if node_id == node.id
+            );
+            let key = (canvas_card_priority(kind, selected, focused), node.id);
+            let candidate = (key, node, kind, selected, focused);
+            if candidates.len() < agent::MAX_CURRENT_CANVAS_CARDS {
+                candidates.push(candidate);
+                continue;
+            }
+            let Some((worst_index, worst)) = candidates
+                .iter()
+                .enumerate()
+                .max_by_key(|(_, current)| current.0)
+            else {
+                continue;
+            };
+            if key < worst.0 {
+                candidates[worst_index] = candidate;
+            }
+        }
+        candidates.sort_by_key(|candidate| candidate.0);
+        let cards = candidates
+            .into_iter()
+            .map(
+                |(_, node, kind, selected, focused)| agent::CanvasCardContext {
+                    node_id: node.id,
+                    kind,
+                    title: node.kind.display_title(),
+                    selected,
+                    focused,
+                },
+            )
+            .collect();
+        Some(agent::CurrentCanvasContext {
+            project_name,
+            workspace_root: workspace_root.display().to_string(),
+            total_cards,
+            cards,
+        })
+    }
+
     pub(super) fn agent_roster_for_provider(&self) -> Vec<agent::AgentRosterEntry> {
         self.agent_definitions
             .definitions()
@@ -50,55 +108,59 @@ impl MultisoulApp {
         }) else {
             return false;
         };
-        let (terminal_state, terminal_error) = match self.runtime.agent_task_state(node_id) {
-            Some(runtime::AgentTaskState::Done) => (storage::AgentDispatchTaskState::Done, None),
-            Some(runtime::AgentTaskState::Failed { ref message }) => (
-                storage::AgentDispatchTaskState::Failed,
-                Some(message.clone()),
-            ),
-            Some(runtime::AgentTaskState::Ended) => (
-                storage::AgentDispatchTaskState::Interrupted,
-                Some("Agent session ended".to_string()),
-            ),
-            _ => (storage::AgentDispatchTaskState::Interrupted, None),
+        let cancellation_confirmed =
+            self.agent_task_coordinator
+                .as_ref()
+                .is_some_and(|coordinator| {
+                    coordinator.tasks().into_iter().any(|task| {
+                        task.definition_id == definition_id && task.state == "cancel_requested"
+                    })
+                })
+                && matches!(
+                    self.runtime.agent_task_state(node_id),
+                    Some(runtime::AgentTaskState::Ended)
+                );
+        let (terminal_state, coordinator_state, terminal_error) = if cancellation_confirmed {
+            (
+                storage::AgentDispatchTaskState::Cancelled,
+                "cancelled",
+                None,
+            )
+        } else {
+            match self.runtime.agent_task_state(node_id) {
+                Some(runtime::AgentTaskState::Done) => {
+                    (storage::AgentDispatchTaskState::Done, "succeeded", None)
+                }
+                Some(runtime::AgentTaskState::Failed { ref message }) => (
+                    storage::AgentDispatchTaskState::Failed,
+                    "failed",
+                    Some(message.clone()),
+                ),
+                Some(runtime::AgentTaskState::Ended) => (
+                    storage::AgentDispatchTaskState::Interrupted,
+                    "interrupted",
+                    Some("Agent session ended".to_string()),
+                ),
+                _ => (
+                    storage::AgentDispatchTaskState::Interrupted,
+                    "interrupted",
+                    None,
+                ),
+            }
         };
         let writer = self.persistence.agent_dispatch_writer().cloned();
         let next = self
             .agent_task_coordinator
             .as_mut()
-            .and_then(|coordinator| coordinator.finish_current(definition_id));
+            .and_then(|coordinator| {
+                coordinator.finish_current_with_state(definition_id, coordinator_state)
+            });
         if let Some(writer) = writer.as_ref() {
             writer.finish_current(definition_id, terminal_state, terminal_error);
         }
-        let mut next = next;
-        while let Some(candidate) = next {
-            match submit_agent_task(&mut self.runtime, candidate.node_id, &candidate.task) {
-                Ok(()) => {
-                    if let Some(writer) = writer.as_ref() {
-                        writer.submit_next_queued(definition_id);
-                    }
-                    return true;
-                }
-                Err(error) => {
-                    if let Some(writer) = writer.as_ref() {
-                        writer.fail_next_queued(definition_id, error.to_string());
-                    }
-                    tracing::error!(
-                        definition_id,
-                        node_id = candidate.node_id,
-                        task_id = candidate.task_id,
-                        %error,
-                        "failed to submit next queued Agent task"
-                    );
-                    if !error.retry_safe() {
-                        return false;
-                    }
-                    next = self
-                        .agent_task_coordinator
-                        .as_mut()
-                        .and_then(|coordinator| coordinator.finish_current(definition_id));
-                }
-            }
+        if let Some(candidate) = next {
+            self.pending_agent_submissions.enqueue_immediate(candidate);
+            return true;
         }
         false
     }
@@ -122,6 +184,28 @@ impl MultisoulApp {
     }
 }
 
+fn canvas_card_kind(kind: &CanvasNodeKind) -> agent::CanvasCardKind {
+    match kind {
+        CanvasNodeKind::Rect(_) => agent::CanvasCardKind::Rect,
+        CanvasNodeKind::Term(_) => agent::CanvasCardKind::Terminal,
+        CanvasNodeKind::Agent(_) => agent::CanvasCardKind::Agent,
+        CanvasNodeKind::Preview(_) => agent::CanvasCardKind::Preview,
+        CanvasNodeKind::Browser(_) => agent::CanvasCardKind::Browser,
+    }
+}
+
+fn canvas_card_priority(kind: agent::CanvasCardKind, selected: bool, focused: bool) -> u8 {
+    if focused {
+        0
+    } else if kind == agent::CanvasCardKind::Agent {
+        1
+    } else if selected {
+        2
+    } else {
+        3
+    }
+}
+
 pub(super) fn agent_completion_report(
     name: &str,
     state: &runtime::AgentTaskState,
@@ -142,6 +226,7 @@ fn norma_agent_profile(profile: canvas::AgentProfile) -> norma::protocol::AgentP
         canvas::AgentProfile::Claude => norma::protocol::AgentProfile::Claude,
         canvas::AgentProfile::Codex => norma::protocol::AgentProfile::Codex,
         canvas::AgentProfile::Cursor => norma::protocol::AgentProfile::Cursor,
+        canvas::AgentProfile::Grok => norma::protocol::AgentProfile::Grok,
         canvas::AgentProfile::OpenCode => norma::protocol::AgentProfile::OpenCode,
     }
 }

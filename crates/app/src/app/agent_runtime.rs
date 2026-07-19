@@ -1,199 +1,156 @@
 use crate::app::MultisoulApp;
-use agent::{AgentCommand, AgentEvent, CardTaskJournal};
+use agent::{AdapterCommand, AdapterError, AdapterResult, AgentCommand, AgentEvent};
+use futures::future::BoxFuture;
 use gpui::{Context, Window};
-use norma::protocol::{CardCommand, CardCommandResult};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{mpsc, Arc};
+use norma::protocol::{AgentTaskAssignment, CardCommand, CardCommandResult, CardKind, Placement};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 
 mod artifacts;
 mod commands;
+mod context_commands;
 mod coordination;
 mod diagnostics;
+pub(super) mod pending;
 
 pub(crate) use artifacts::artifacts_from_agent_events;
-#[cfg(test)]
-use commands::execute_agent_card_command;
+#[cfg(any(test, feature = "e2e-test-support"))]
+pub(crate) use commands::execute_agent_card_command;
+use context_commands::contextualized_agent_commands;
 #[cfg(test)]
 use coordination::agent_completion_report;
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
-
-type ProjectAgentSystem = agent::AgentSystem<
-    agent::ConfiguredProvider,
-    agent::ConfiguredProvider,
-    ChannelCardToolHost,
-    ProjectTaskJournal,
->;
+static TOKIO_RUNTIME: OnceLock<Result<tokio::runtime::Runtime, String>> = OnceLock::new();
 
 struct AgentRequest {
     command: AgentCommand,
     response: async_channel::Sender<Result<Vec<AgentEvent>, String>>,
 }
 
-struct AgentToolRequest {
-    task_id: u64,
-    tool_call_id: String,
-    command: CardCommand,
-    result_tx: mpsc::Sender<Result<CardCommandResult, String>>,
+struct NormaAdapterRequest {
+    context: agent::ToolContext,
+    command: AdapterCommand,
+    result_tx: tokio::sync::oneshot::Sender<Result<AdapterResult, AdapterError>>,
 }
 
-struct ProjectAgentWorker {
-    project_id: String,
-    project_db_path: Option<std::path::PathBuf>,
-    config: agent::ProviderConfig,
-    tool_tx: async_channel::Sender<AgentToolRequest>,
-    requests: async_channel::Receiver<AgentRequest>,
+#[derive(Clone)]
+struct TurnRuntime {
+    session: Arc<tokio::sync::Mutex<agent::NormaSession>>,
     events: async_channel::Sender<AgentEvent>,
-    cancelled: Arc<std::sync::atomic::AtomicBool>,
-    dialogue_cancelled: Arc<std::sync::atomic::AtomicBool>,
+    dialogue_cancelled: Arc<AtomicBool>,
+    generation: Arc<AtomicU64>,
 }
 
-impl AgentToolRequest {
-    fn complete(self, result: Result<CardCommandResult, String>) {
-        let _ = self.result_tx.send(result);
-    }
+#[derive(Clone)]
+struct ChannelAgentCardAdapter {
+    sender: async_channel::Sender<NormaAdapterRequest>,
 }
 
-struct ChannelCardToolHost {
-    sender: async_channel::Sender<AgentToolRequest>,
-}
-
-impl agent::CardToolHost for ChannelCardToolHost {
-    fn execute(
-        &mut self,
-        request: agent::CardToolRequest,
-    ) -> Result<agent::CardToolResult, agent::CardToolError> {
-        diagnostics::tool_bridge_send(&request);
-        let (result_tx, result_rx) = mpsc::channel();
-        self.sender
-            .send_blocking(AgentToolRequest {
-                task_id: request.task_id,
-                tool_call_id: request.tool_call_id,
-                command: request.command,
+impl agent::AgentCardAdapter for ChannelAgentCardAdapter {
+    fn execute<'a>(
+        &'a self,
+        command: AdapterCommand,
+        context: &'a agent::ToolContext,
+    ) -> BoxFuture<'a, Result<AdapterResult, AdapterError>> {
+        Box::pin(async move {
+            let (result_tx, result_rx) = tokio::sync::oneshot::channel();
+            let request = NormaAdapterRequest {
+                context: context.clone(),
+                command,
                 result_tx,
-            })
-            .map_err(|_| agent::CardToolError::Execution("agent tool bridge closed".into()))?;
-        let result = result_rx
-            .recv()
-            .map_err(|_| agent::CardToolError::Execution("agent tool result closed".into()))?
-            .map_err(agent::CardToolError::Execution)?;
-        Ok(agent::CardToolResult { result })
-    }
-}
-
-enum ProjectTaskJournalBackend {
-    Memory(agent::MemoryJournal),
-    Persistent(storage::BackgroundAgentTaskJournal),
-}
-
-struct ProjectTaskJournal {
-    backend: ProjectTaskJournalBackend,
-    cancelled: Arc<std::sync::atomic::AtomicBool>,
-}
-
-impl CardTaskJournal for ProjectTaskJournal {
-    fn append(&mut self, mut entry: agent::AuditEntry) {
-        if self.cancelled.load(Ordering::Acquire) {
-            if let agent::AuditEntry::Task(record) = &mut entry {
-                record.state = agent::TaskState::Interrupted;
-                record.summary = None;
+            };
+            tokio::select! {
+                biased;
+                _ = context.cancellation.cancelled() => return Err(AdapterError::Cancelled),
+                sent = self.sender.send(request) => {
+                    sent.map_err(|_| AdapterError::Failed("AgentCard Adapter 已关闭".to_string()))?;
+                }
             }
-        }
-        match &mut self.backend {
-            ProjectTaskJournalBackend::Memory(journal) => journal.append(entry),
-            ProjectTaskJournalBackend::Persistent(journal) => journal.append(entry),
-        }
-    }
-
-    fn recover_incomplete(&mut self, project_id: &str) -> Vec<u64> {
-        match &mut self.backend {
-            ProjectTaskJournalBackend::Memory(journal) => journal.recover_incomplete(project_id),
-            ProjectTaskJournalBackend::Persistent(journal) => {
-                journal.recover_incomplete(project_id)
+            match result_rx.await {
+                Ok(receipt) => receipt,
+                Err(_) => Ok(AdapterResult::unknown(
+                    "AgentCard Adapter 回执丢失，无法确认副作用是否发生",
+                )),
             }
-        }
-    }
-
-    fn next_task_id(&self, project_id: &str) -> u64 {
-        match &self.backend {
-            ProjectTaskJournalBackend::Memory(journal) => journal.next_task_id(project_id),
-            ProjectTaskJournalBackend::Persistent(journal) => journal.next_task_id(project_id),
-        }
+        })
     }
 }
 
 pub(crate) struct ProjectAgentRuntime {
     id: u64,
     project_id: String,
-    config: agent::ProviderConfig,
+    config: Arc<Mutex<agent::ProviderConfig>>,
     request_tx: async_channel::Sender<AgentRequest>,
-    cancelled: Arc<std::sync::atomic::AtomicBool>,
-    dialogue_cancelled: Arc<std::sync::atomic::AtomicBool>,
+    cancelled: Arc<AtomicBool>,
+    dialogue_cancelled: Arc<AtomicBool>,
 }
 
 impl ProjectAgentRuntime {
     fn spawn(
         project_id: String,
-        project_db_path: Option<std::path::PathBuf>,
         config: agent::ProviderConfig,
     ) -> Result<
         (
             Self,
-            async_channel::Receiver<AgentToolRequest>,
+            async_channel::Receiver<NormaAdapterRequest>,
             async_channel::Receiver<AgentEvent>,
         ),
         String,
     > {
-        config.validate().map_err(|error| error.to_string())?;
+        let runtime = shared_tokio_runtime()?;
         let id = NEXT_RUNTIME_ID.fetch_add(1, Ordering::Relaxed);
-        diagnostics::runtime_spawn(id, &config, project_db_path.is_some());
-        let (request_tx, request_rx) = async_channel::unbounded();
-        let (tool_tx, tool_rx) = async_channel::bounded(1);
-        let (event_tx, event_rx) = async_channel::unbounded();
-        let cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let dialogue_cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let worker_cancelled = cancelled.clone();
-        let worker_dialogue_cancelled = dialogue_cancelled.clone();
-        let worker_project_id = project_id.clone();
-        let worker_config = config.clone();
-        std::thread::Builder::new()
-            .name("norma-project-agent".to_string())
-            .spawn(move || {
-                run_project_agent(ProjectAgentWorker {
-                    project_id: worker_project_id,
-                    project_db_path,
-                    config: worker_config,
-                    tool_tx,
-                    requests: request_rx,
-                    events: event_tx,
-                    cancelled: worker_cancelled,
-                    dialogue_cancelled: worker_dialogue_cancelled,
-                })
-            })
-            .map_err(|error| format!("could not start project agent: {error}"))?;
+        diagnostics::runtime_spawn(id, &config, true);
+        let (request_tx, request_rx) = async_channel::bounded(16);
+        let (adapter_tx, adapter_rx) = async_channel::bounded(1);
+        let (event_tx, event_rx) = async_channel::bounded(32);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let dialogue_cancelled = Arc::new(AtomicBool::new(false));
+        let active_config = Arc::new(Mutex::new(config.clone()));
+        let session = agent::NormaSession::new(
+            project_id.clone(),
+            &config,
+            Arc::new(ChannelAgentCardAdapter { sender: adapter_tx }),
+        )
+        .map_err(|error| error.to_string())?;
+        runtime.spawn(run_project_agent(
+            session,
+            request_rx,
+            event_tx,
+            Arc::clone(&cancelled),
+            Arc::clone(&dialogue_cancelled),
+            Arc::clone(&active_config),
+        ));
         Ok((
             Self {
                 id,
                 project_id,
-                config,
+                config: active_config,
                 request_tx,
                 cancelled,
                 dialogue_cancelled,
             },
-            tool_rx,
+            adapter_rx,
             event_rx,
         ))
     }
 
-    fn matches(&self, project_id: &str, config: &agent::ProviderConfig) -> bool {
-        self.project_id == project_id && &self.config == config
+    fn matches_project(&self, project_id: &str) -> bool {
+        self.project_id == project_id
+    }
+
+    fn uses_config(&self, config: &agent::ProviderConfig) -> bool {
+        self.config
+            .lock()
+            .expect("Norma provider config lock should not be poisoned")
+            .eq(config)
     }
 
     fn id(&self) -> u64 {
         self.id
     }
 
-    fn dialogue_cancel_handle(&self) -> Arc<std::sync::atomic::AtomicBool> {
+    fn dialogue_cancel_handle(&self) -> Arc<AtomicBool> {
         Arc::clone(&self.dialogue_cancelled)
     }
 
@@ -203,12 +160,15 @@ impl ProjectAgentRuntime {
     ) -> async_channel::Receiver<Result<Vec<AgentEvent>, String>> {
         diagnostics::command_submit(self.id, &command);
         let (response_tx, response_rx) = async_channel::bounded(1);
-        let result = self.request_tx.try_send(AgentRequest {
-            command,
-            response: response_tx.clone(),
-        });
-        if result.is_err() {
-            let _ = response_tx.try_send(Err("project agent is unavailable".to_string()));
+        if self
+            .request_tx
+            .try_send(AgentRequest {
+                command,
+                response: response_tx.clone(),
+            })
+            .is_err()
+        {
+            let _ = response_tx.try_send(Err("Norma 当前不可用或请求队列已满".to_string()));
         }
         response_rx
     }
@@ -225,133 +185,217 @@ impl Drop for ProjectAgentRuntime {
     }
 }
 
-fn run_project_agent(worker: ProjectAgentWorker) {
-    let ProjectAgentWorker {
-        project_id,
-        project_db_path,
-        config,
-        tool_tx,
-        requests,
-        events,
-        cancelled,
-        dialogue_cancelled,
-    } = worker;
-    let dialogue = match agent::ConfiguredProvider::new(config.clone()) {
-        Ok(provider) => provider,
-        Err(error) => return reject_startup(requests, events, error.to_string()),
-    };
-    let card = match agent::ConfiguredProvider::new(config) {
-        Ok(provider) => provider,
-        Err(error) => return reject_startup(requests, events, error.to_string()),
-    };
-    let backend = match project_db_path {
-        Some(path) => ProjectTaskJournalBackend::Persistent(
-            storage::BackgroundAgentTaskJournal::new(storage::AgentTaskStore::new(path)),
-        ),
-        None => ProjectTaskJournalBackend::Memory(agent::MemoryJournal::default()),
-    };
-    let journal = ProjectTaskJournal {
-        backend,
-        cancelled: cancelled.clone(),
-    };
-    let live_events = events.clone();
-    let mut system = agent::AgentSystem::new(
-        project_id,
-        dialogue,
-        card,
-        ChannelCardToolHost { sender: tool_tx },
-        journal,
-        agent::CardTaskBudget::default(),
-    )
-    .with_live_event_sink(move |event| {
-        let _ = live_events.send_blocking(event);
-    })
-    .with_live_dialogue_cancellation(Arc::clone(&dialogue_cancelled));
-    publish_events(system.events().to_vec(), &events);
-    while let Ok(request) = requests.recv_blocking() {
-        diagnostics::worker_command(&request.command, system.pending_task_count());
-        let closing = matches!(request.command, AgentCommand::ProjectClosed);
-        handle_request(&mut system, request, &events, &dialogue_cancelled);
-        if closing {
-            break;
-        }
-        while system.pending_task_count() > 0 {
-            if interrupt_cancelled(&mut system, &events, &cancelled) {
-                return;
-            }
-            while let Ok(request) = requests.try_recv() {
-                handle_request(&mut system, request, &events, &dialogue_cancelled);
-            }
-            let produced = system.pump();
-            diagnostics::worker_pump(&produced, system.pending_task_count());
-            if interrupt_cancelled(&mut system, &events, &cancelled) {
-                return;
-            }
-            publish_events(produced, &events);
-        }
-    }
+fn shared_tokio_runtime() -> Result<&'static tokio::runtime::Runtime, String> {
+    TOKIO_RUNTIME
+        .get_or_init(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .thread_name("norma-agent-runtime")
+                .enable_all()
+                .build()
+                .map_err(|error| format!("无法启动 Norma async runtime：{error}"))
+        })
+        .as_ref()
+        .map_err(Clone::clone)
 }
 
-fn interrupt_cancelled(
-    system: &mut ProjectAgentSystem,
-    events: &async_channel::Sender<AgentEvent>,
-    cancelled: &std::sync::atomic::AtomicBool,
-) -> bool {
-    if !cancelled.load(Ordering::Acquire) {
-        return false;
-    }
-    if let Ok(produced) = system.submit(AgentCommand::ProjectClosed) {
-        publish_events(produced, events);
-    }
-    true
-}
-
-fn reject_startup(
+async fn run_project_agent(
+    session: agent::NormaSession,
     requests: async_channel::Receiver<AgentRequest>,
     events: async_channel::Sender<AgentEvent>,
-    message: String,
+    cancelled: Arc<AtomicBool>,
+    dialogue_cancelled: Arc<AtomicBool>,
+    active_config: Arc<Mutex<agent::ProviderConfig>>,
 ) {
-    let _ = events.send_blocking(AgentEvent::ProviderError {
-        message: message.clone(),
-    });
-    while let Ok(request) = requests.recv_blocking() {
-        let _ = request.response.send_blocking(Err(message.clone()));
-    }
-}
-
-fn handle_request(
-    system: &mut ProjectAgentSystem,
-    request: AgentRequest,
-    events: &async_channel::Sender<AgentEvent>,
-    dialogue_cancelled: &std::sync::atomic::AtomicBool,
-) {
-    let is_user_turn = matches!(request.command, AgentCommand::UserTurn(_));
-    if is_user_turn {
-        dialogue_cancelled.store(false, Ordering::Release);
-    }
-    let result = system
-        .submit(request.command)
-        .map_err(|error| error.to_string());
-    diagnostics::worker_result(&result, system.pending_task_count());
-    if let Ok(produced) = &result {
-        if is_user_turn {
-            let had_live_dialogue_text = produced
-                .iter()
-                .any(|event| matches!(event, AgentEvent::DialogueTextDelta { .. }));
-            if had_live_dialogue_text {
-                let _ = events.send_blocking(AgentEvent::DialogueStreamFinished);
+    let session = Arc::new(tokio::sync::Mutex::new(session));
+    let cancel_handle = session.lock().await.cancel_handle();
+    let mut roster = Vec::new();
+    let mut canvas = None;
+    let mut model_switch_error = None;
+    let generation = Arc::new(AtomicU64::new(0));
+    let turn_runtime = TurnRuntime {
+        session: Arc::clone(&session),
+        events: events.clone(),
+        dialogue_cancelled: Arc::clone(&dialogue_cancelled),
+        generation: Arc::clone(&generation),
+    };
+    while let Ok(request) = requests.recv().await {
+        if cancelled.load(Ordering::Acquire) {
+            cancel_handle.cancel();
+            let _ = request
+                .response
+                .send(Err("Norma Session 已关闭".to_string()))
+                .await;
+            break;
+        }
+        match request.command {
+            AgentCommand::UpdateAgentRoster(next) => {
+                roster = next;
+                let _ = request.response.send(Ok(Vec::new())).await;
             }
-        } else {
-            publish_events(produced.clone(), events);
+            AgentCommand::UpdateCurrentCanvasContext(next) => {
+                canvas = Some(next);
+                let _ = request.response.send(Ok(Vec::new())).await;
+            }
+            AgentCommand::SwitchModel(config) => {
+                cancel_handle.cancel();
+                generation.fetch_add(1, Ordering::AcqRel);
+                let result = session.lock().await.switch_model(&config);
+                match result {
+                    Ok(()) => {
+                        model_switch_error = None;
+                        *active_config
+                            .lock()
+                            .expect("Norma provider config lock should not be poisoned") = config;
+                        let _ = request.response.send(Ok(Vec::new())).await;
+                    }
+                    Err(error) => {
+                        let message = error.to_string();
+                        model_switch_error = Some(message.clone());
+                        let _ = request.response.send(Err(message)).await;
+                    }
+                }
+            }
+            AgentCommand::UserTurn(input) => {
+                if let Some(message) = model_switch_error.take() {
+                    let _ = events
+                        .send(AgentEvent::ProviderError {
+                            message: message.clone(),
+                        })
+                        .await;
+                    let _ = request.response.send(Err(message)).await;
+                    continue;
+                }
+                cancel_handle.cancel();
+                dialogue_cancelled.store(false, Ordering::Release);
+                let turn_generation = generation.fetch_add(1, Ordering::AcqRel) + 1;
+                let context = canvas.clone();
+                let roster = roster.clone();
+                spawn_turn(
+                    &turn_runtime,
+                    input,
+                    context,
+                    roster,
+                    request.response,
+                    turn_generation,
+                );
+            }
+            AgentCommand::CancelLatest => {
+                cancel_handle.cancel();
+                let _ = request.response.send(Ok(Vec::new())).await;
+            }
+            AgentCommand::CancelTask { task_id } => {
+                cancel_handle.cancel();
+                dialogue_cancelled.store(false, Ordering::Release);
+                spawn_turn(
+                    &turn_runtime,
+                    format!("取消 Agent 任务 #{task_id}"),
+                    canvas.clone(),
+                    roster.clone(),
+                    request.response,
+                    generation.fetch_add(1, Ordering::AcqRel) + 1,
+                );
+            }
+            AgentCommand::Status { task_id } => {
+                cancel_handle.cancel();
+                dialogue_cancelled.store(false, Ordering::Release);
+                let prompt = task_id.map_or_else(
+                    || "查询最近未完成的 Agent 任务".to_string(),
+                    |id| format!("查询 Agent 任务 #{id}"),
+                );
+                spawn_turn(
+                    &turn_runtime,
+                    prompt,
+                    canvas.clone(),
+                    roster.clone(),
+                    request.response,
+                    generation.fetch_add(1, Ordering::AcqRel) + 1,
+                );
+            }
+            AgentCommand::CardActivity { node_id, summary } => {
+                let event = AgentEvent::CardActivityNotification { node_id, summary };
+                let _ = events.send(event.clone()).await;
+                let _ = request.response.send(Ok(vec![event])).await;
+            }
+            AgentCommand::ProjectClosed => {
+                cancel_handle.cancel();
+                let _ = request.response.send(Ok(Vec::new())).await;
+                break;
+            }
         }
     }
-    let _ = request.response.send_blocking(result);
 }
 
-fn publish_events(produced: Vec<AgentEvent>, events: &async_channel::Sender<AgentEvent>) {
-    for event in produced {
-        let _ = events.send_blocking(event);
-    }
+fn spawn_turn(
+    runtime: &TurnRuntime,
+    input: String,
+    canvas: Option<agent::CurrentCanvasContext>,
+    roster: Vec<agent::AgentRosterEntry>,
+    response: async_channel::Sender<Result<Vec<AgentEvent>, String>>,
+    turn_generation: u64,
+) {
+    let runtime = runtime.clone();
+    shared_tokio_runtime()
+        .expect("Norma Tokio runtime was initialized before spawning a turn")
+        .spawn(async move {
+            let mut session = runtime.session.lock().await;
+            if runtime.generation.load(Ordering::Acquire) != turn_generation {
+                let _ = response
+                    .send(Err("Norma 回合已被新输入取代".to_string()))
+                    .await;
+                return;
+            }
+            if let Some(canvas) = canvas {
+                session.update_environment(canvas, roster);
+            }
+            let cancel = session.cancel_handle();
+            let dialogue_cancelled = Arc::clone(&runtime.dialogue_cancelled);
+            let watcher = tokio::spawn(async move {
+                while !dialogue_cancelled.load(Ordering::Acquire) {
+                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                }
+                cancel.cancel();
+            });
+            let (delta_tx, mut delta_rx) = tokio::sync::mpsc::channel(32);
+            let produced_deltas = Arc::new(Mutex::new(Vec::new()));
+            let collected_deltas = Arc::clone(&produced_deltas);
+            let live_events = runtime.events.clone();
+            let delta_forwarder = tokio::spawn(async move {
+                while let Some(text) = delta_rx.recv().await {
+                    let event = AgentEvent::DialogueTextDelta { text };
+                    collected_deltas
+                        .lock()
+                        .expect("Norma streamed event lock should not be poisoned")
+                        .push(event.clone());
+                    let _ = live_events.send(event).await;
+                }
+            });
+            let result = session.turn_streaming(&input, delta_tx.clone()).await;
+            drop(delta_tx);
+            let _ = delta_forwarder.await;
+            watcher.abort();
+            match result {
+                Ok(_result) => {
+                    let mut produced = produced_deltas
+                        .lock()
+                        .expect("Norma streamed event lock should not be poisoned")
+                        .clone();
+                    let finished = AgentEvent::DialogueStreamFinished;
+                    let _ = runtime.events.send(finished.clone()).await;
+                    produced.push(finished);
+                    let _ = response.send(Ok(produced)).await;
+                }
+                Err(error) => {
+                    let message = error.to_string();
+                    let _ = runtime
+                        .events
+                        .send(AgentEvent::ProviderError {
+                            message: message.clone(),
+                        })
+                        .await;
+                    let _ = response.send(Err(message)).await;
+                }
+            }
+        });
 }
 
 impl MultisoulApp {
@@ -370,129 +414,50 @@ impl MultisoulApp {
             .workspace_state
             .current_root
             .as_ref()
-            .ok_or_else(|| "open a project before using the agent".to_string())?;
+            .ok_or_else(|| "使用 Norma 前请先打开项目".to_string())?;
         let project_id = root.display().to_string();
         let must_replace = self
             .agent_runtime
             .as_ref()
-            .is_none_or(|runtime| !runtime.matches(&project_id, &config));
+            .is_none_or(|runtime| !runtime.matches_project(&project_id));
         if must_replace {
-            let project_db_path = Some(root.join(".multisoul").join("project.sqlite"));
-            let (runtime, tools, events) =
-                ProjectAgentRuntime::spawn(project_id, project_db_path, config)?;
+            let (runtime, adapter, events) = ProjectAgentRuntime::spawn(project_id, config)?;
             let runtime_id = runtime.id();
-            let dialogue_cancel_handle = runtime.dialogue_cancel_handle();
-            self.agent_runtime = Some(runtime);
             self.dialogue
-                .set_dialogue_stream_cancellation(dialogue_cancel_handle);
-            start_tool_pump(tools, runtime_id, window, cx);
+                .set_dialogue_stream_cancellation(runtime.dialogue_cancel_handle());
+            self.agent_runtime = Some(runtime);
+            start_adapter_pump(adapter, runtime_id, window, cx);
             start_event_pump(events, runtime_id, cx);
+        } else if self
+            .agent_runtime
+            .as_ref()
+            .is_some_and(|runtime| !runtime.uses_config(&config))
+        {
+            let runtime = self
+                .agent_runtime
+                .as_ref()
+                .expect("Norma runtime should exist while switching models");
+            let _ = runtime.submit(AgentCommand::SwitchModel(config));
         }
         let roster = self.agent_roster_for_provider();
+        let canvas = self.current_canvas_context_for_provider();
+        let mut commands = contextualized_agent_commands(roster, canvas, command);
+        let requested = commands
+            .pop()
+            .expect("contextualized command batch should include the requested command");
         let runtime = self
             .agent_runtime
             .as_ref()
-            .expect("agent runtime should exist after initialization");
-        let _ = runtime.submit(AgentCommand::UpdateAgentRoster(roster));
-        Ok(runtime.submit(command))
+            .expect("Norma runtime should exist after initialization");
+        for context in commands {
+            let _ = runtime.submit(context);
+        }
+        Ok(runtime.submit(requested))
     }
 }
 
-fn start_tool_pump(
-    tools: async_channel::Receiver<AgentToolRequest>,
-    runtime_id: u64,
-    window: &mut Window,
-    cx: &mut Context<MultisoulApp>,
-) {
-    cx.spawn_in(window, async move |this, cx| {
-        while let Ok(request) = tools.recv().await {
-            diagnostics::tool_bridge_receive(runtime_id, &request);
-            let command = request.command.clone();
-            let result = this.update_in(cx, |app, window, _cx| {
-                if !is_current_runtime(app, runtime_id) {
-                    return Err("stale project agent runtime".to_string());
-                }
-                commands::execute_agent_card_command(app, window, command)
-            });
-            let result = match result {
-                Ok(result) => result,
-                Err(_) => Err("agent tool app context closed".to_string()),
-            };
-            diagnostics::tool_bridge_complete(runtime_id, &request, result.is_ok());
-            request.complete(result);
-        }
-    })
-    .detach();
-}
-
-fn start_event_pump(
-    events: async_channel::Receiver<AgentEvent>,
-    runtime_id: u64,
-    cx: &mut Context<MultisoulApp>,
-) {
-    cx.spawn(async move |this, cx| {
-        while let Ok(event) = events.recv().await {
-            diagnostics::event_receive(runtime_id, &event);
-            let _ = this.update(cx, |app, cx| {
-                if !is_current_runtime(app, runtime_id) {
-                    return;
-                }
-                match event {
-                    AgentEvent::DialogueTextDelta { text } => {
-                        app.dialogue.on_agent_text_delta(&text, cx);
-                    }
-                    AgentEvent::DialogueStreamFinished => {
-                        app.dialogue.finish_agent_text_stream(cx);
-                    }
-                    _ => {
-                        if let Some(report) = terminal_task_report(&event) {
-                            app.dialogue.queue_agent_report(report);
-                        }
-                    }
-                }
-                cx.notify();
-            });
-        }
-    })
-    .detach();
-}
-
-fn terminal_task_report(event: &AgentEvent) -> Option<String> {
-    match event {
-        AgentEvent::TaskSucceeded { summary, .. } => Some(summary.clone()),
-        AgentEvent::TaskFailed { reason, .. } => Some(format!("任务失败：{reason}")),
-        AgentEvent::TaskCancelled {
-            partial_effects: true,
-            ..
-        } => Some("任务已取消；已发生的操作不会回滚".to_string()),
-        AgentEvent::TaskCancelled { .. } => Some("任务已取消".to_string()),
-        AgentEvent::TaskInterrupted { .. } => Some("任务已中断".to_string()),
-        _ => None,
-    }
-}
-
-fn is_current_runtime(app: &MultisoulApp, runtime_id: u64) -> bool {
-    app.agent_runtime
-        .as_ref()
-        .is_some_and(|runtime| runtime.id() == runtime_id)
-}
+include!("agent_runtime/adapter_pump.rs");
 
 #[cfg(test)]
-#[path = "../../tests/unit/agent_runtime_tests.rs"]
-mod agent_runtime_tests;
-
-#[cfg(test)]
-#[path = "../../tests/unit/agent_dispatch_submit_tests.rs"]
-mod agent_dispatch_submit_tests;
-
-#[cfg(test)]
-#[path = "../../tests/unit/agent_dispatch_workspace_tests.rs"]
-mod agent_dispatch_workspace_tests;
-
-#[cfg(test)]
-#[path = "../../tests/unit/agent_dispatch_queue_failure_tests.rs"]
-mod agent_dispatch_queue_failure_tests;
-
-#[cfg(test)]
-#[path = "../../tests/unit/agent_dispatch_unsafe_failure_tests.rs"]
-mod agent_dispatch_unsafe_failure_tests;
+#[path = "agent_runtime/tests.rs"]
+mod tests;

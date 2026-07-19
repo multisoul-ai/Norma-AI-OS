@@ -4,10 +4,21 @@ use tempfile::tempdir;
 
 /// DLG-10b：任务终态在 Idle 或合成未完成时保留，成功播报后才从队列确认消费。
 ///
-/// 数据构造：DialogueControlState 初始 Idle，先排入“已完成：创建卡片 #1”。
-/// 执行过程：Idle 时尝试开始报告；启动 Listening 后开始合成；模拟监听关闭再开启并重试；
-/// 最后模拟成功播报确认消费。
-/// 预期结果：Idle、合成中和监听关闭都不丢报告；成功确认后才清空队首。
+/// 数据构造（含关键数值的推导过程）：
+///   initial phase = Idle
+///   queued reports = 1 条“已完成：创建卡片 #1”
+///   successful consumptions = 1 次，因此最终 reports = 1 - 1 = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. Idle 时尝试开始报告 → 保留报告，但不占用其他独立 TTS 的优先级。
+///   2. 启动 Listening → 报告变为可消费并取得语音优先级。
+///   3. 模拟监听关闭再开启 → 同一报告仍可重试。
+///   4. 模拟成功播报确认 → 从队列移除唯一报告。
+///
+/// 预期结果：
+///   - 正断言：Listening 阶段的待播报告会阻止其他语音抢占。
+///   - 负断言：Idle 阶段无法消费的报告不阻塞 Agent 终态播报，也不会丢失。
+///   - 正断言：只有成功确认后报告队列才清空。
 #[test]
 fn test_agent_terminal_report_waits_for_listening_then_enters_playback_flow() {
     app_dialogue_shell_tests::with_dialogue_shell_test_guard(|| {
@@ -24,8 +35,12 @@ fn test_agent_terminal_report_waits_for_listening_then_enters_playback_flow() {
         );
         assert_eq!(
             state.queued_template_reports_for_tests(),
-            &["已完成：创建卡片 #1".to_string()],
+            vec!["已完成：创建卡片 #1".to_string()],
             "Idle 尝试不得丢失报告"
+        );
+        assert!(
+            !state.has_pending_spoken_reply(),
+            "Idle 阶段无法消费的 Continuous Listening 报告不得阻塞其他独立 TTS 播报"
         );
 
         DialogueControlState::set_mic_permission_check_for_tests(Some(
@@ -34,6 +49,10 @@ fn test_agent_terminal_report_waits_for_listening_then_enters_playback_flow() {
         state
             .begin_listening_sync_for_tests(&values, dir.path())
             .expect("测试启动应进入 Listening");
+        assert!(
+            state.has_pending_spoken_reply(),
+            "进入 Listening 后可消费的模板报告必须恢复语音优先级"
+        );
 
         assert_eq!(
             state.begin_next_agent_report(),
@@ -47,14 +66,14 @@ fn test_agent_terminal_report_waits_for_listening_then_enters_playback_flow() {
         );
         assert_eq!(
             state.queued_template_reports_for_tests(),
-            &["已完成：创建卡片 #1".to_string()],
+            vec!["已完成：创建卡片 #1".to_string()],
             "TTS 成功前必须保留报告，避免合成失败或监听关闭时永久丢失"
         );
 
         state.stop_shell();
         assert_eq!(
             state.queued_template_reports_for_tests(),
-            &["已完成：创建卡片 #1".to_string()],
+            vec!["已完成：创建卡片 #1".to_string()],
             "关闭 Continuous Listening 不得清除尚未播报的终态"
         );
 
@@ -75,4 +94,45 @@ fn test_agent_terminal_report_waits_for_listening_then_enters_playback_flow() {
             "只有成功播报确认后才能移除队首报告"
         );
     });
+}
+
+/// DLG-10c：单次语音委派的静默入队回复结束后，真实派发回执仍必须可以开始播报。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   voice turns       = 1：单次语音指令，reply_keeps_listening=false
+///   queued reports    = 1 条“Bella 已派发”，来源明确为单次语音任务
+///   expected playback = 1：真实派发回执必须获得一次播报资格
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. begin_single_voice_command 进入 Thinking
+///   2. TaskSucceeded 在当前语音回合结束前进入单次语音报告队列
+///   3. finish_silent_reply 结束 TaskQueued 的静默回复并回到 Idle
+///   4. 生产轮询调用 begin_next_agent_report 尝试开始真实回执播报
+///
+/// 预期结果：
+///   - 正断言：静默回复后仍能取得“Bella 已派发”并进入播报流程
+///   - 负断言：报告不得因为单次语音状态回到 Idle 而永久滞留
+#[test]
+fn test_single_voice_silent_queue_reply_does_not_starve_dispatch_report() {
+    let mut state = DialogueControlState::default();
+    state
+        .begin_single_voice_command("我想让贝拉查看当前项目的目录结构")
+        .expect("单次语音委派必须进入 Thinking");
+    state.queue_agent_report_for_current_voice_source("Bella 已派发".to_string());
+    state.finish_silent_reply("任务处理中：查看当前项目的目录结构".to_string());
+
+    assert_eq!(
+        state.phase(),
+        DialoguePhase::Idle,
+        "单次语音的静默入队回复结束后必须回到 Idle"
+    );
+    assert_eq!(
+        state.begin_next_agent_report(),
+        Some("Bella 已派发".to_string()),
+        "单次语音静默入队回复结束后，真实派发回执必须立即获得播报资格"
+    );
+    assert!(
+        !state.queued_template_reports_for_tests().is_empty(),
+        "开始播报前报告仍应保留，不能因 Idle 状态被静默丢弃"
+    );
 }

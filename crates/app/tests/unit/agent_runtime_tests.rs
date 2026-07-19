@@ -1,32 +1,31 @@
 use super::{
     agent_completion_report, artifacts_from_agent_events, execute_agent_card_command,
-    start_tool_pump, terminal_task_report, AgentToolRequest, ProjectAgentRuntime,
+    execute_norma_adapter_command, terminal_task_report,
 };
-use agent::{AgentEvent, ProviderConfig, ProviderProtocol};
+use agent::AgentEvent;
 use canvas::CanvasNodeKind;
 use gpui::TestAppContext;
 use norma::protocol::{CardCommand, CardCommandResult, CardKind, Placement};
-use std::sync::atomic::AtomicBool;
-use std::sync::{mpsc, Arc};
-use std::time::Duration;
 use terminal::{PtyBackend, TestPtyBackend};
 
 fn echo_factory() -> runtime::PtyFactory {
     Box::new(|_cmd, _cols, _rows, tx| Ok(Box::new(TestPtyBackend::echo(tx)) as Box<dyn PtyBackend>))
 }
 
-/// ART-1: 对话模型把内部推理包在 `<think>` 标签中时，TTS 只能收到标签外的正文。
+/// ART-1: 对话模型把内部推理包在 `<think>` 标签中时，可见回复只保留标签外正文并受十五字符上限约束。
 ///
-/// 数据构造：
-///   流式事件按真实网络分块拆开：第一个分块含 `<think>` 和英文内部推理，第二个分块闭合
-///   标签，第三个分块为用户可听到的英文答复。
+/// 数据构造（含关键数值的推导过程）：
+///   标签外英文正文 = 49 个 Unicode 字符
+///   可见字符预算   = 15 = 前 14 个正文字符 + 1 个省略号
+///   流式事件按真实网络分为 3 块：开始 think、结束 think、英文正文
 ///
 /// 执行过程：
 ///   1. 将三个 DialogueTextDelta 交给 Agent 运行时的 reply 提取边界；
-///   2. 读取产出的 VoiceTurnArtifacts.reply_text。
+///   2. 移除完整 `<think>` 区段；
+///   3. 对剩余正文应用 Norma 的十五字符可见回复边界。
 ///
 /// 预期结果：
-///   - 正断言：标签外的英文正文逐字保留，不能因为是英文而被过滤；
+///   - 正断言：标签外英文正文保留前 14 字符并追加省略号；
 ///   - 负断言：内部 `<think>` 推理及其标签不得进入中文 TTS，避免产生 OOV 警告。
 #[test]
 fn test_agent_reply_strips_thinking_block_without_dropping_english_answer() {
@@ -43,14 +42,18 @@ fn test_agent_reply_strips_thinking_block_without_dropping_english_answer() {
     ]);
 
     assert_eq!(
-        artifacts.reply_text, "Please open README.md and follow the setup steps.",
-        "清洗只能移除 think 块，标签外英文答复必须完整保留"
+        artifacts.reply_text, "Please open RE…",
+        "清洗后的英文正文必须按前 14 字符加省略号收口到十五字符"
     );
     assert!(
         !artifacts.reply_text.contains("<think>")
             && !artifacts.reply_text.contains("The user asked"),
         "内部推理不得作为 TTS 输入；实际 reply: {:?}",
         artifacts.reply_text
+    );
+    assert!(
+        artifacts.play_reply,
+        "普通 Dialogue 正文必须继续进入现有流式/静态 TTS 路径"
     );
 }
 
@@ -73,25 +76,29 @@ fn test_empty_agent_events_never_claim_task_was_dispatched() {
     );
 }
 
-/// ART-3：只有真实 `TaskQueued` 才能生成“任务已派发”语义。
+/// ART-3：内部 `TaskQueued` 只能表达处理中，不能冒充目标 Agent 派发回执。
 ///
 /// 数据构造：单个 task_id=7 的 TaskQueued，summary 为明确创建意图。
 /// 执行过程：将事件转换为当前语音回合产物。
-/// 预期结果：回复同时包含已派发状态和真实意图；不得声称任务已经完成。
+/// 预期结果：回复同时包含处理中状态和真实意图；不得声称任务已派发或已完成。
 #[test]
-fn test_task_queued_event_generates_dispatch_receipt() {
+fn test_task_queued_event_only_reports_processing() {
     let artifacts = artifacts_from_agent_events(vec![AgentEvent::TaskQueued {
         task_id: 7,
         summary: "创建一个终端卡片".to_string(),
     }]);
 
     assert_eq!(
-        artifacts.reply_text, "任务已派发：创建一个终端卡片",
-        "TaskQueued 应转换为明确、可核对的派发回执"
+        artifacts.reply_text, "任务处理中：创建一个终端卡片",
+        "TaskQueued 只能转换为内部处理中状态"
     );
     assert!(
-        !artifacts.reply_text.contains("已完成"),
-        "queued 状态不得被提升为完成状态"
+        !artifacts.reply_text.contains("已派发") && !artifacts.reply_text.contains("已完成"),
+        "queued 状态不得被提升为派发或完成状态"
+    );
+    assert!(
+        !artifacts.play_reply,
+        "TaskQueued 的处理中占位只更新文字，不得抢在真实派发回执前播报"
     );
 }
 
@@ -114,11 +121,19 @@ fn test_task_interrupted_event_reports_interruption() {
     );
 }
 
-/// ART-4b：用户主动查询任务状态时必须得到结构化状态回报，不能落入空回复兜底。
+/// ART-4b：用户主动查询任务状态时必须得到受十五字符边界约束的状态回报，不能落入空回复兜底。
 ///
-/// 数据构造：task_id=12、state=Running、已完成两个工具调用的 TaskStatus。
-/// 执行过程：将状态事件转换为当前语音回合产物。
-/// 预期结果：回复包含任务 id、running 状态和完成工具数；不得声称已派发或已完成。
+/// 数据构造（含关键数值的推导过程）：
+///   task_id = 12，state = Running，completed_tool_calls = 2
+///   可见字符预算 = 15 = 前 14 个状态字符 + 1 个省略号
+///
+/// 执行过程：
+///   1. 将状态事件转换为完整内部状态文本；
+///   2. 对面向用户的状态文本应用十五字符边界。
+///
+/// 预期结果：
+///   - 正断言：回复保留任务 id 与 running 状态前缀，并以省略号明确表示截断；
+///   - 负断言：Running 状态不得声称已派发或已成功完成。
 #[test]
 fn test_task_status_event_generates_status_reply() {
     let artifacts = artifacts_from_agent_events(vec![AgentEvent::TaskStatus {
@@ -128,8 +143,8 @@ fn test_task_status_event_generates_status_reply() {
     }]);
 
     assert_eq!(
-        artifacts.reply_text, "任务 #12 状态：running；已完成 2 次工具调用",
-        "TaskStatus 必须转换为可听懂、可核对的主动查询结果"
+        artifacts.reply_text, "任务 #12 状态：runn…",
+        "TaskStatus 必须保留可核对的任务与状态前缀，并收口到十五字符"
     );
     assert!(
         !artifacts.reply_text.contains("已派发") && !artifacts.reply_text.contains("已完成："),
@@ -137,11 +152,22 @@ fn test_task_status_event_generates_status_reply() {
     );
 }
 
-/// ART-5：后台事件泵只把真实终态转换为待播报文本，并区分部分副作用取消。
+/// ART-5：后台事件泵只把真实终态转换为待播报文本，并保留部分派发与取消事实。
 ///
-/// 数据构造：成功、失败、无副作用取消、部分副作用取消、中断和非终态 Running 事件。
-/// 执行过程：逐个调用事件泵使用的终态报告映射。
-/// 预期结果：五种终态得到准确文本；Running 不生成主动语音报告。
+/// 数据构造（含关键数值的推导过程）：
+///   dispatch terminal states = 3：成功 + 部分派发 + 失败
+///   lifecycle terminal states = 3：无副作用取消 + 部分副作用取消 + 中断
+///   non-terminal states       = 1：Running
+///   total cases               = 3 + 3 + 1 = 7
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 逐个调用后台事件泵使用的终态报告映射
+///   2. 核对成功、混合回执、失败、取消与中断的用户可听文本
+///   3. 用 Running 验证中间态不会主动进入待播报队列
+///
+/// 预期结果：
+///   - 正断言：六种终态得到准确文本，部分派发同时保留成功与失败 Agent
+///   - 负断言：Running 不生成主动语音报告
 #[test]
 fn test_terminal_task_reports_cover_all_terminal_states_only() {
     assert_eq!(
@@ -153,8 +179,16 @@ fn test_terminal_task_reports_cover_all_terminal_states_only() {
         "成功报告必须直接采用真实工具回执摘要"
     );
     assert_eq!(
-        terminal_task_report(&AgentEvent::TaskFailed {
+        terminal_task_report(&AgentEvent::TaskPartiallyDispatched {
             task_id: 2,
+            summary: "Bella 已派发；Alan 派发失败".to_string(),
+        }),
+        Some("Bella 已派发；Alan 派发失败".to_string()),
+        "部分派发报告必须同时保留已派发与失败的逐 Agent 事实"
+    );
+    assert_eq!(
+        terminal_task_report(&AgentEvent::TaskFailed {
+            task_id: 3,
             reason: "Provider timeout".to_string(),
         }),
         Some("任务失败：Provider timeout".to_string()),
@@ -162,7 +196,7 @@ fn test_terminal_task_reports_cover_all_terminal_states_only() {
     );
     assert_eq!(
         terminal_task_report(&AgentEvent::TaskCancelled {
-            task_id: 3,
+            task_id: 4,
             partial_effects: false,
             completed_tool_calls: 0,
         }),
@@ -171,7 +205,7 @@ fn test_terminal_task_reports_cover_all_terminal_states_only() {
     );
     assert_eq!(
         terminal_task_report(&AgentEvent::TaskCancelled {
-            task_id: 4,
+            task_id: 5,
             partial_effects: true,
             completed_tool_calls: 1,
         }),
@@ -179,12 +213,12 @@ fn test_terminal_task_reports_cover_all_terminal_states_only() {
         "部分副作用取消必须提醒用户已发生操作不会回滚"
     );
     assert_eq!(
-        terminal_task_report(&AgentEvent::TaskInterrupted { task_id: 5 }),
+        terminal_task_report(&AgentEvent::TaskInterrupted { task_id: 6 }),
         Some("任务已中断".to_string()),
         "中断终态必须得到独立回报"
     );
     assert_eq!(
-        terminal_task_report(&AgentEvent::TaskRunning { task_id: 6 }),
+        terminal_task_report(&AgentEvent::TaskRunning { task_id: 7 }),
         None,
         "Running 中间态不得主动打断语音对话"
     );
@@ -252,96 +286,118 @@ fn test_agent_card_command_adapter_creates_multiple_terminals_in_real_runtime() 
     );
 }
 
-/// ART-7：生产 Agent tool pump 必须连续转发多个 Runtime 请求，不能在第一个完成后丢弃第二个。
+/// ART-NORMA-1：生产 AgentCardAdapter 创建内置 Agent 后，可直接派发并返回真实 task_id
 ///
-/// 数据构造：headless MultisoulApp 注入 echo PTY 并进入临时画布；向生产 async channel 连续发送
-/// 两条带独立 tool_call_id 的 Terminal Create 请求，runtime_id=77 与当前 ProjectAgentRuntime 一致。
-/// 执行过程：启动生产 `start_tool_pump`，驱动 TestAppContext 直到两个同步结果 channel 都收到回执。
-/// 预期结果：两个回执均为 Created；真实 Runtime 的 live/document 都有两个 Terminal，第二请求不得丢失。
+/// 数据构造（含关键数值的推导过程）：
+///   Initial Agent definitions = 0
+///   `create_agent(codex)` calls = 1 → definitions=1、AgentCard=1
+///   `assign_agent_task` calls = 1 → active tasks=1、expected task_id=1
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在 headless GPUI 的真实 MultisoulApp 上执行 Norma `CreateAgent`
+///   2. 读取系统分配的内置 Agent 名称，不让模型提供名称
+///   3. 对该名称立即执行 `AssignAgentTask`，由生产 FIFO 接收任务
+///
+/// 预期结果：
+///   - 正断言：创建回执含唯一 AgentCard node_id，派发回执为 accepted/task_id=1
+///   - 正断言：Coordinator 中存在同一 Agent 的运行任务
+///   - 负断言：画布中不出现名为 Norma 的 Agent，也不产生第二张 AgentCard
 #[test]
-fn test_agent_tool_pump_forwards_multiple_creates_to_real_runtime() {
-    const RUNTIME_ID: u64 = 77;
+fn test_norma_adapter_creates_builtin_agent_and_dispatches_without_confirmation() {
     let mut gpui = TestAppContext::single();
-    let workspace = tempfile::TempDir::new().expect("tool pump temp workspace should be creatable");
+    let workspace =
+        tempfile::TempDir::new().expect("Norma Adapter temp workspace should be creatable");
     let (app, cx) = gpui.add_window_view(|_window, cx| {
         crate::app::MultisoulApp::new_with_pty_factory(cx, echo_factory())
     });
-    let (tool_tx, tool_rx) = async_channel::unbounded();
-    let (agent_request_tx, _agent_request_rx) = async_channel::bounded(1);
     app.update(cx, |app, cx| {
-        app.enter_canvas_for_test(workspace.path(), cx);
-        app.agent_runtime = Some(ProjectAgentRuntime {
-            id: RUNTIME_ID,
-            project_id: "tool-pump-test".to_string(),
-            config: ProviderConfig::new(
-                ProviderProtocol::Ollama,
-                "http://127.0.0.1:11434",
-                "test-model",
-                None,
-            ),
-            request_tx: agent_request_tx,
-            cancelled: Arc::new(AtomicBool::new(false)),
-            dialogue_cancelled: Arc::new(AtomicBool::new(false)),
-        });
-    });
-    cx.update(|window, app_cx| {
-        app.update(app_cx, |_app, cx| {
-            start_tool_pump(tool_rx, RUNTIME_ID, window, cx);
-        });
+        app.enter_canvas_for_test(workspace.path(), cx)
     });
 
-    let (first_result_tx, first_result_rx) = mpsc::channel();
-    let (second_result_tx, second_result_rx) = mpsc::channel();
-    for (task_id, tool_call_id, result_tx) in [
-        (1, "tool-create-1", first_result_tx),
-        (2, "tool-create-2", second_result_tx),
-    ] {
-        tool_tx
-            .send_blocking(AgentToolRequest {
-                task_id,
-                tool_call_id: tool_call_id.to_string(),
-                command: CardCommand::Create {
-                    kind: CardKind::Terminal { shell: None },
-                    placement: Placement::VisibleArea,
+    let created = cx.update(|window, app_cx| {
+        app.update(app_cx, |app, cx| {
+            execute_norma_adapter_command(
+                app,
+                window,
+                cx,
+                agent::AdapterCommand::CreateAgent {
+                    profile: norma::protocol::AgentProfile::Codex,
                 },
-                result_tx,
-            })
-            .expect("生产 tool pump receiver 在测试期间必须保持连接");
-    }
-    cx.run_until_parked();
+            )
+        })
+    });
+    let created = created.expect("create_agent should execute on the production App Adapter");
+    let name = app.read_with(cx, |app, _cx| {
+        app.agent_definitions.definitions()[0].name.clone()
+    });
+    let assigned = cx.update(|window, app_cx| {
+        app.update(app_cx, |app, cx| {
+            execute_norma_adapter_command(
+                app,
+                window,
+                cx,
+                agent::AdapterCommand::AssignAgentTask {
+                    agent: name.clone(),
+                    task: "检查当前项目有哪些技术栈。".to_string(),
+                },
+            )
+        })
+    });
+    let assigned = assigned.expect("assign_agent_task should execute without confirmation");
 
-    // 1s = 本用例没有网络、真实 PTY 或计时器，仅等待一次 headless executor 调度；
-    // 该余量远高于正常毫秒级 channel/GPUI 交接，同时把 bridge 死锁限制为快速、确定的失败。
-    let first_result = first_result_rx
-        .recv_timeout(Duration::from_secs(1))
-        .expect("第一条 tool request 必须在一秒内获得 Runtime receipt");
-    let second_result = second_result_rx
-        .recv_timeout(Duration::from_secs(1))
-        .expect("第二条 tool request 必须在一秒内获得 Runtime receipt");
-    assert!(
-        matches!(first_result, Ok(CardCommandResult::Created { .. })),
-        "第一条 Create 必须成功；实际结果：{first_result:?}"
+    assert_eq!(
+        created.status, "succeeded",
+        "create_agent should report the actual successful App side effect"
     );
     assert!(
-        matches!(second_result, Ok(CardCommandResult::Created { .. })),
-        "第二条 Create 不得在 tool pump 中丢失；实际结果：{second_result:?}"
+        created.node_id.is_some(),
+        "create_agent should return the activated AgentCard node id"
     );
-    let (live_len, nodes) = app.read_with(cx, |app, _cx| {
-        (
-            app.runtime.live_len(),
-            app.runtime.document.nodes().to_vec(),
-        )
+    assert_eq!(
+        assigned.status, "accepted",
+        "assign_agent_task should report AgentCard acceptance, not completion"
+    );
+    assert_eq!(
+        assigned.task_id,
+        Some(1),
+        "the first production AgentCard task should return deterministic task_id=1"
+    );
+    let (agent_nodes, tasks, has_norma) = app.read_with(cx, |app, _cx| {
+        let agent_nodes = app
+            .runtime
+            .document
+            .nodes()
+            .iter()
+            .filter(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
+            .count();
+        let tasks = app
+            .agent_task_coordinator
+            .as_ref()
+            .map(agent::AgentTaskCoordinator::tasks)
+            .unwrap_or_default();
+        let has_norma = app
+            .agent_definitions
+            .definitions()
+            .iter()
+            .any(|definition| definition.name.eq_ignore_ascii_case("Norma"));
+        (agent_nodes, tasks, has_norma)
     });
     assert_eq!(
-        live_len, 2,
-        "两个 bridge request 必须注册两个 live terminal"
+        agent_nodes, 1,
+        "create plus assignment should reuse one unique AgentCard"
     );
-    assert_eq!(nodes.len(), 2, "两个 bridge request 必须创建两个画布节点");
+    assert_eq!(
+        tasks.len(),
+        1,
+        "the direct assignment should create exactly one tracked FIFO task"
+    );
+    assert_eq!(
+        tasks[0].task, "检查当前项目有哪些技术栈。",
+        "the production coordinator should retain the complete delegated task"
+    );
     assert!(
-        nodes
-            .iter()
-            .all(|node| matches!(node.kind, CanvasNodeKind::Term(_))),
-        "两个 bridge request 创建的节点都必须是 Terminal"
+        !has_norma,
+        "the Master identity Norma must never be persisted as a Canvas Agent"
     );
 }
 

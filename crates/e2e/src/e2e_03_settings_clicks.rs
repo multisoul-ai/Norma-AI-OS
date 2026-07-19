@@ -1,8 +1,6 @@
 //! E2E-03：Settings 模块真实点击覆盖。
-//!
-//! 本测试不直接调用 `toggle_settings_panel`、`settings_panel.select`、
-//! `begin_recording` 或 `restore_default` 等处理函数；它只通过
-//! `VisualTestContext::simulate_click` 点击已渲染控件的 debug bounds，并通过
+//! 本测试不直接调用 Settings/Voice 状态处理函数；它只通过真实渲染控件的 debug bounds，
+//! 使用 `VisualTestContext::simulate_click` 点击，并通过
 //! `simulate_keystrokes` 或 `simulate_input` 输入真实按键与文本。Voice 文本输入必须经过
 //! GPUI 当前聚焦节点及平台 `InputHandler`，测试不得直接调用 Voice state 或输入 helper。
 
@@ -24,7 +22,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///   settings-panel                >= 860px × 620px（`PANEL_MIN_W/H`）
 ///   settings-section-keyboard     = 42px 高（settings sidebar section button）
 ///   settings-shortcut-new-terminal = 88px min-width × 32px 高（keycap）
-///   New Terminal 默认快捷键       = `cmd-n`
+///   New Terminal 默认快捷键       = `cmd-1`
 ///   测试覆盖快捷键                = `cmd-alt-n`（带 modifier，非 bare printable）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -33,7 +31,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///   3. 点击 `settings-section-keyboard` → active section 变为 Keyboard。
 ///   4. 点击 `settings-shortcut-new-terminal` → keycap on_click 开始录制。
 ///   5. 输入 `cmd-alt-n` → `ShortcutSettingsState::record_keystroke` 保存覆盖。
-///   6. 点击 `settings-shortcut-restore-new-terminal` → 恢复默认 `cmd-n`。
+///   6. 点击 `settings-shortcut-restore-new-terminal` → 恢复默认 `cmd-1`。
 ///   7. 点击 Voice → OpenAI，验证统一 Agent Provider 选择。
 ///   8. 点击 `settings-close` → Settings panel 关闭且 close hitbox 消失。
 ///
@@ -76,6 +74,12 @@ fn e2e_03_settings_keyboard_shortcut_can_be_changed_and_restored_by_clicks() {
         "New Terminal should start at its default shortcut, snapshot: {:?}",
         initial
     );
+    assert_eq!(
+        initial.new_terminal_shortcut.as_deref(),
+        Some("cmd-1"),
+        "New Terminal 的 Settings 默认键位应显示 cmd-1，snapshot: {:?}",
+        initial
+    );
 
     click_debug(cx, "settings-shortcut-new-terminal");
     let recording = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
@@ -108,6 +112,12 @@ fn e2e_03_settings_keyboard_shortcut_can_be_changed_and_restored_by_clicks() {
     assert!(
         !restored.new_terminal_modified,
         "clicking Restore should clear New Terminal modification, snapshot: {:?}",
+        restored
+    );
+    assert_eq!(
+        restored.new_terminal_shortcut.as_deref(),
+        Some("cmd-1"),
+        "恢复默认后 New Terminal 应回到 cmd-1，snapshot: {:?}",
         restored
     );
     assert!(
@@ -336,6 +346,7 @@ fn e2e_03_voice_provider_field_accepts_text_after_single_click() {
     click_debug(cx, "settings-section-voice");
     click_debug(cx, "settings-voice-mode-continuous");
     scroll_debug(cx, "settings-content-scroll", -650.0);
+    open_voice_advanced(cx);
     click_debug(cx, "settings-voice-field-agent-model");
 
     let editing = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
@@ -381,6 +392,7 @@ fn e2e_03_voice_provider_text_input_select_all_replaces_content() {
     click_debug(cx, "settings-section-voice");
     click_debug(cx, "settings-voice-mode-continuous");
     scroll_debug(cx, "settings-content-scroll", -650.0);
+    open_voice_advanced(cx);
     click_debug(cx, "settings-voice-field-agent-model");
 
     cx.simulate_input("first-model");
@@ -416,11 +428,43 @@ fn click_debug(cx: &mut VisualTestContext, selector: &'static str) {
 
 fn move_to_debug_target(cx: &mut VisualTestContext, selector: &'static str) -> Point<Pixels> {
     cx.run_until_parked();
+    scroll_settings_target_into_view(cx, selector);
     let bounds = cx
         .debug_bounds(selector)
         .unwrap_or_else(|| panic!("selector `{selector}` should have debug bounds before click"));
     cx.simulate_mouse_move(bounds.center(), None, Modifiers::none());
     bounds.center()
+}
+
+fn scroll_settings_target_into_view(cx: &mut VisualTestContext, selector: &'static str) {
+    if selector == "settings-content-scroll" {
+        return;
+    }
+    for _ in 0..3 {
+        let (Some(content), Some(target)) = (
+            cx.debug_bounds("settings-content-scroll"),
+            cx.debug_bounds(selector),
+        ) else {
+            return;
+        };
+        let visible_top = f32::from(content.origin.y) + 24.0;
+        let visible_bottom = f32::from(content.origin.y) + f32::from(content.size.height) - 24.0;
+        let target_top = f32::from(target.origin.y);
+        let target_bottom = target_top + f32::from(target.size.height);
+        let delta = if target_top < visible_top {
+            visible_top - target_top
+        } else if target_bottom > visible_bottom {
+            visible_bottom - target_bottom
+        } else {
+            return;
+        };
+        cx.simulate_event(ScrollWheelEvent {
+            position: content.center(),
+            delta: ScrollDelta::Pixels(point(px(0.0), px(delta))),
+            ..Default::default()
+        });
+        cx.run_until_parked();
+    }
 }
 
 fn double_click_debug(cx: &mut VisualTestContext, selector: &'static str) {
@@ -452,6 +496,5 @@ fn scroll_debug(cx: &mut VisualTestContext, selector: &'static str, delta_y: f32
 }
 
 fn open_voice_advanced(cx: &mut VisualTestContext) {
-    click_debug(cx, "settings-voice-advanced-toggle");
     scroll_debug(cx, "settings-content-scroll", -500.0);
 }

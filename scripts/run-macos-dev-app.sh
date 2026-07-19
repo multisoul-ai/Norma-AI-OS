@@ -33,7 +33,10 @@ plist="$bundle/Contents/Info.plist"
 entitlements="$repo_root/packaging/macos/NormaOS.entitlements"
 hook_binary="$binary_dir/multisoul-agent-hook"
 bundle_hook="$bundle/Contents/MacOS/multisoul-agent-hook"
+auth_host_binary="$binary_dir/norma-browser-auth-host"
+bundle_auth_host="$bundle/Contents/MacOS/norma-browser-auth-host"
 wallpaper_resources="$repo_root/crates/app/assets/wallpapers"
+browser_auth_extension="$repo_root/crates/app/assets/browser-auth-extension"
 bundle_resources="$bundle/Contents/Resources"
 
 # TCC keys folder consent to the app's designated requirement. An ad-hoc
@@ -94,11 +97,12 @@ sign_development_bundle() {
   return 1
 }
 
-# `cargo run -p app` only builds the selected norma-os binary. The hook
-# installer resolves its bridge as a sibling of the running executable, so the
-# development bundle must explicitly build and carry the helper as well.
-if [ "$binary_name" = "norma-os" ] && [ ! -x "$hook_binary" ]; then
-  cargo build --quiet --manifest-path "$repo_root/crates/app/Cargo.toml" --bin multisoul-agent-hook
+# `cargo run -p app` only builds the selected norma-os binary. Both installers
+# resolve their bridges as siblings of the running executable, so the
+# development bundle must explicitly build and carry both helpers.
+if [ "$binary_name" = "norma-os" ] && { [ ! -x "$hook_binary" ] || [ ! -x "$auth_host_binary" ]; }; then
+  cargo build --quiet --manifest-path "$repo_root/crates/app/Cargo.toml" \
+    --bin multisoul-agent-hook --bin norma-browser-auth-host
 fi
 
 # A previous Cargo target can leave a differently signed executable in the
@@ -115,12 +119,23 @@ if [ "$binary_name" = "norma-os" ]; then
   fi
   cp "$hook_binary" "$bundle_hook"
   chmod u+x "$bundle_hook"
+  if [ ! -x "$auth_host_binary" ]; then
+    echo "norma-browser-auth-host build did not produce $auth_host_binary" >&2
+    exit 1
+  fi
+  cp "$auth_host_binary" "$bundle_auth_host"
+  chmod u+x "$bundle_auth_host"
   if [ ! -d "$wallpaper_resources" ]; then
     echo "built-in wallpaper resources are missing: $wallpaper_resources" >&2
     exit 1
   fi
   mkdir -p "$bundle_resources"
   cp -R "$wallpaper_resources" "$bundle_resources/"
+  if [ ! -f "$browser_auth_extension/manifest.json" ]; then
+    echo "Chrome authorization extension is missing: $browser_auth_extension" >&2
+    exit 1
+  fi
+  cp -R "$browser_auth_extension" "$bundle_resources/"
 fi
 cp "$repo_root/packaging/macos/DevInfo.plist" "$plist"
 /usr/libexec/PlistBuddy -c 'Delete :CFBundleExecutable' "$plist" >/dev/null 2>&1 || true

@@ -1,4 +1,4 @@
-use super::{setting_row, settings_group, with_alpha};
+use super::{settings_group, with_alpha};
 use crate::app::MultisoulApp;
 use crate::settings::voice::{DictationTrigger, VoiceInteractionMode, VoiceSettingsState};
 use gpui::{div, prelude::*, px, rgba, Context, Div};
@@ -11,51 +11,47 @@ pub(super) fn interaction_group(
 ) -> Div {
     let mode = state.values().interaction_mode();
     settings_group(theme, "Voice Interaction")
-        .child(
-            setting_row(
-                theme,
-                "Mode",
-                "⌘E starts a single voice command or continuous Agent conversation",
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .gap(px(8.0))
-                    .child(
-                        mode_option(
-                            theme,
-                            "Single Voice Command",
-                            mode == VoiceInteractionMode::SingleVoiceCommand,
-                        )
-                        .id("settings-voice-mode-dictation")
-                        .debug_selector(|| "settings-voice-mode-dictation".to_string())
-                        .on_click(cx.listener(|app, _, _, cx| {
-                            app.stop_continuous_listening(cx);
-                            app.voice_settings
-                                .select_interaction_mode(VoiceInteractionMode::SingleVoiceCommand);
-                            app.persist_voice_settings_in_background(cx);
-                            cx.notify();
-                        })),
+        .child(compact_interaction_row(
+            theme,
+            "Mode",
+            "Choose how ⌘E starts Voice",
+            div()
+                .flex()
+                .flex_row()
+                .gap(px(8.0))
+                .child(
+                    mode_option(
+                        theme,
+                        "Single Voice Command",
+                        mode == VoiceInteractionMode::SingleVoiceCommand,
                     )
-                    .child(
-                        mode_option(
-                            theme,
-                            "Continuous Listening",
-                            mode == VoiceInteractionMode::ContinuousListening,
-                        )
-                        .id("settings-voice-mode-continuous")
-                        .debug_selector(|| "settings-voice-mode-continuous".to_string())
-                        .on_click(cx.listener(|app, _, _, cx| {
-                            app.voice.stop_for_model_switch();
-                            app.voice_settings
-                                .select_interaction_mode(VoiceInteractionMode::ContinuousListening);
-                            app.persist_voice_settings_in_background(cx);
-                            cx.notify();
-                        })),
-                    ),
-            ),
-        )
+                    .id("settings-voice-mode-dictation")
+                    .debug_selector(|| "settings-voice-mode-dictation".to_string())
+                    .on_click(cx.listener(|app, _, _, cx| {
+                        app.stop_continuous_listening(cx);
+                        app.voice_settings
+                            .select_interaction_mode(VoiceInteractionMode::SingleVoiceCommand);
+                        app.persist_voice_settings_in_background(cx);
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    mode_option(
+                        theme,
+                        "Continuous Listening",
+                        mode == VoiceInteractionMode::ContinuousListening,
+                    )
+                    .id("settings-voice-mode-continuous")
+                    .debug_selector(|| "settings-voice-mode-continuous".to_string())
+                    .on_click(cx.listener(|app, _, _, cx| {
+                        app.voice.stop_for_model_switch();
+                        app.voice_settings
+                            .select_interaction_mode(VoiceInteractionMode::ContinuousListening);
+                        app.persist_voice_settings_in_background(cx);
+                        cx.notify();
+                    })),
+                ),
+        ))
         .when(mode == VoiceInteractionMode::SingleVoiceCommand, |group| {
             group.child(dictation_trigger_row(theme, state, cx))
         })
@@ -67,12 +63,10 @@ fn dictation_trigger_row(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let trigger = state.values().dictation_trigger();
-    setting_row(
+    compact_interaction_row(
         theme,
-        "Single Voice Command Trigger",
-        "Hold ends on shortcut release; Toggle ends on the next ⌘E press",
-    )
-    .child(
+        "Shortcut",
+        "⌘E · Hold or toggle",
         div()
             .flex()
             .flex_row()
@@ -102,13 +96,52 @@ fn dictation_trigger_row(
     )
 }
 
+fn compact_interaction_row(
+    theme: Theme,
+    title: &'static str,
+    hint: &'static str,
+    control: Div,
+) -> Div {
+    div()
+        .w_full()
+        .min_w(px(0.0))
+        .flex()
+        .flex_row()
+        .items_center()
+        .justify_between()
+        .gap(px(16.0))
+        .py(px(5.0))
+        .child(
+            div()
+                .flex_1()
+                .min_w(px(0.0))
+                .flex()
+                .flex_col()
+                .gap(px(3.0))
+                .child(
+                    div()
+                        .text_size(px(13.0))
+                        .font_weight(gpui::FontWeight::BOLD)
+                        .text_color(rgba(theme.text_primary))
+                        .child(title),
+                )
+                .child(
+                    div()
+                        .text_size(px(11.0))
+                        .text_color(rgba(theme.text_tertiary))
+                        .child(hint),
+                ),
+        )
+        .child(control.flex_none())
+}
+
 /// This is a two-state segmented option, not a general button. The pinned component Button lacks
 /// the selected-state theme plus stable debug-selector seam required by the Settings e2e tests.
 fn mode_option(theme: Theme, label: &'static str, selected: bool) -> Div {
     let accent = if selected {
         theme.accent_orange
     } else {
-        theme.edge_highlight
+        theme.text_primary
     };
     div()
         .px(px(14.0))
@@ -120,9 +153,9 @@ fn mode_option(theme: Theme, label: &'static str, selected: bool) -> Div {
             if selected {
                 theme.accent_orange
             } else {
-                theme.panel_high
+                theme.text_primary
             },
-            if selected { 0x20 } else { 0xa8 },
+            if selected { 0x20 } else { 0x06 },
         )))
         .text_color(rgba(if selected {
             theme.accent_orange

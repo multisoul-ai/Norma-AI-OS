@@ -162,3 +162,37 @@ fn test_load_preview_content_reports_directory_and_unsupported_type_errors() {
         ".pdf 不应被作为 Text content 保存"
     );
 }
+
+/// Preview 路径解析：工作区外 file URI 应解码为真实绝对路径，不得拼接 workspace root。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   workspace root = "/workspace/project"
+///   file URI = "file:///tmp/Norma%20Images/%E6%88%90%E5%93%81.png"
+///   percent-decoding 后 = "/tmp/Norma Images/成品.png"
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 将工作区 root 与工作区外 file URI 传给 resolve_preview_path。
+///   2. 解析 file scheme，并对路径执行 percent-decoding。
+///   3. 比较结果是否为 URI 指向的真实绝对路径。
+///
+/// 预期结果：
+///   - 正断言：结果精确等于 "/tmp/Norma Images/成品.png"。
+///   - 负断言：结果不得落到 "/workspace/project" 下，否则外部路径仍被错误拼接。
+#[test]
+fn test_resolve_preview_path_decodes_external_file_uri() {
+    let workspace_root = std::path::Path::new("/workspace/project");
+    let uri = "file:///tmp/Norma%20Images/%E6%88%90%E5%93%81.png";
+
+    let resolved = resolve_preview_path(workspace_root, uri)
+        .expect("本机 file URI 应解析为可供 Preview 使用的绝对路径");
+
+    assert_eq!(
+        resolved,
+        std::path::PathBuf::from("/tmp/Norma Images/成品.png"),
+        "file URI 应完成空格和中文 percent-decoding，并保留工作区外绝对位置"
+    );
+    assert!(
+        !resolved.starts_with(workspace_root),
+        "工作区外 file URI 不得被拼接到 workspace root 下"
+    );
+}

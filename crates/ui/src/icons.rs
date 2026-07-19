@@ -18,6 +18,7 @@ pub enum ToolbarIcon {
     Claude,
     Codex,
     Cursor,
+    Grok,
     OpenCode,
     Preview,
     Settings,
@@ -34,6 +35,7 @@ impl ToolbarIcon {
             ToolbarIcon::Claude => "icons/toolbar-claude.svg",
             ToolbarIcon::Codex => "icons/toolbar-codex.svg",
             ToolbarIcon::Cursor => "icons/toolbar-cursor.svg",
+            ToolbarIcon::Grok => "icons/toolbar-grok.svg",
             ToolbarIcon::OpenCode => "icons/toolbar-opencode.svg",
             ToolbarIcon::Preview => "icons/toolbar-preview.svg",
             ToolbarIcon::Settings => "icons/toolbar-settings.svg",
@@ -60,7 +62,7 @@ mod tests {
     /// 顶栏图标 asset 路径：每个 ToolbarIcon 变体都映射到唯一的、命名规范的 SVG 路径。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   变体总数 = 10（Scroll / Plus / Terminal / Browser / Claude / Codex / Cursor / OpenCode / Preview / Settings）
+    ///   变体总数 = 11（Scroll / Plus / Terminal / Browser / Claude / Codex / Cursor / Grok / OpenCode / Preview / Settings）
     ///   命名前缀 = "icons/toolbar-"
     ///   命名后缀 = ".svg"
     ///   期望路径表（variant -> asset_path）：
@@ -75,16 +77,16 @@ mod tests {
     ///     Settings  -> "icons/toolbar-settings.svg"
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 遍历 8 个变体，调用 `ToolbarIcon::asset_path(variant)` 取得 &str
+    ///   1. 遍历 11 个变体，调用 `ToolbarIcon::asset_path(variant)` 取得 &str
     ///   2. 对每条路径检查前缀 "icons/toolbar-" 与后缀 ".svg"
     ///   3. 对每条路径与期望字面量做精确相等断言
-    ///   4. 将 8 条路径收集进 HashSet，断言去重后长度 == 8
+    ///   4. 将 11 条路径收集进 HashSet，断言去重后长度 == 11
     ///
     /// 预期结果：
     ///   - 正断言：每个变体的路径以 "icons/toolbar-" 开头
     ///   - 正断言：每个变体的路径以 ".svg" 结尾
     ///   - 正断言：每个变体的路径精确等于其期望字面量
-    ///   - 负断言：8 个变体之间不存在重复路径（集合大小 == 8）
+    ///   - 负断言：11 个变体之间不存在重复路径（集合大小 == 11）
     #[test]
     fn toolbar_icon_asset_paths_are_unique_and_well_formed() {
         let variants = [
@@ -95,12 +97,13 @@ mod tests {
             ToolbarIcon::Claude,
             ToolbarIcon::Codex,
             ToolbarIcon::Cursor,
+            ToolbarIcon::Grok,
             ToolbarIcon::OpenCode,
             ToolbarIcon::Preview,
             ToolbarIcon::Settings,
         ];
-        // expected len = 10（与 ToolbarIcon 变体数一致，手工推导）
-        let expected: [(&ToolbarIcon, &str); 10] = [
+        // expected len = 11（与 ToolbarIcon 变体数一致，手工推导）
+        let expected: [(&ToolbarIcon, &str); 11] = [
             (&ToolbarIcon::Scroll, "icons/toolbar-scroll.svg"),
             (&ToolbarIcon::Plus, "icons/toolbar-plus.svg"),
             (&ToolbarIcon::Terminal, "icons/toolbar-terminal.svg"),
@@ -108,6 +111,7 @@ mod tests {
             (&ToolbarIcon::Claude, "icons/toolbar-claude.svg"),
             (&ToolbarIcon::Codex, "icons/toolbar-codex.svg"),
             (&ToolbarIcon::Cursor, "icons/toolbar-cursor.svg"),
+            (&ToolbarIcon::Grok, "icons/toolbar-grok.svg"),
             (&ToolbarIcon::OpenCode, "icons/toolbar-opencode.svg"),
             (&ToolbarIcon::Preview, "icons/toolbar-preview.svg"),
             (&ToolbarIcon::Settings, "icons/toolbar-settings.svg"),
@@ -140,8 +144,8 @@ mod tests {
             );
         }
 
-        // 负断言：8 个变体之间无重复路径（任意两个变体不得共用同一 SVG）。
-        // 推导：variants.len() == 8；若集合大小 < 8 则存在重复。
+        // 负断言：11 个变体之间无重复路径（任意两个变体不得共用同一 SVG）。
+        // 推导：variants.len() == 11；若集合大小 < 11 则存在重复。
         let set: HashSet<&'static str> = variants.iter().map(|v| v.asset_path()).collect();
         assert_eq!(
             set.len(),

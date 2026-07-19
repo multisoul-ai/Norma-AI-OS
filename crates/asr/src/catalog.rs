@@ -2,6 +2,8 @@ use crate::AsrModelId;
 
 pub const PARAFORMER_MODEL_ID: &str = "paraformer-bilingual-zh-en-int8";
 pub const PARAFORMER_ARCHIVE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2";
+pub const ZIPFORMER_BILINGUAL_MODEL_ID: &str = "zipformer-bilingual-zh-en-int8-2023-02-20";
+pub const ZIPFORMER_BILINGUAL_ARCHIVE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20.tar.bz2";
 pub const ZIPFORMER_STREAMING_ZH_MODEL_ID: &str = "zipformer-streaming-zh-int8-2025-06-30";
 pub const ZIPFORMER_STREAMING_ZH_ARCHIVE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30.tar.bz2";
 pub const ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID: &str = "zipformer-streaming-ctc-zh-int8-2025-06-30";
@@ -134,6 +136,8 @@ impl AsrModelCatalog {
 pub fn builtin_model_catalog() -> AsrModelCatalog {
     let paraformer_id =
         AsrModelId::parse(PARAFORMER_MODEL_ID).expect("built-in Paraformer model id must be valid");
+    let zipformer_bilingual_id = AsrModelId::parse(ZIPFORMER_BILINGUAL_MODEL_ID)
+        .expect("built-in Zipformer Bilingual model id must be valid");
     let zipformer_id = AsrModelId::parse(ZIPFORMER_STREAMING_ZH_MODEL_ID)
         .expect("built-in Zipformer model id must be valid");
     let zipformer_ctc_id = AsrModelId::parse(ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID)
@@ -149,6 +153,23 @@ pub fn builtin_model_catalog() -> AsrModelCatalog {
                     "5462a1fce42693deae572af1e8c4687124b12aa85fe61ff4d3168bb5280e205f",
                     1_047_319_737,
                     vec!["encoder.int8.onnx", "decoder.int8.onnx", "tokens.txt"],
+                ),
+            ),
+            AsrModelDescriptor::new(
+                zipformer_bilingual_id,
+                "Zipformer Bilingual",
+                AsrCapabilities::new(vec!["zh", "en"], true),
+                AsrArtifact::new(
+                    ZIPFORMER_BILINGUAL_ARCHIVE_URL,
+                    "27ffbd9ee24ad186d99acc2f6354d7992b27bcab490812510665fa8f9389c5f8",
+                    511_274_346,
+                    vec![
+                        "encoder-epoch-99-avg-1.int8.onnx",
+                        "decoder-epoch-99-avg-1.onnx",
+                        "joiner-epoch-99-avg-1.int8.onnx",
+                        "tokens.txt",
+                        "bpe.vocab",
+                    ],
                 ),
             ),
             AsrModelDescriptor::new(

@@ -82,6 +82,7 @@ pub(crate) struct TtsPreviewState {
     current: Option<Arc<TtsPreviewControl>>,
     playback_started: bool,
     playback_events: Vec<TtsPlaybackEvent>,
+    pcm_queue_count: u64,
 }
 
 impl TtsPreviewState {
@@ -126,6 +127,10 @@ impl TtsPreviewState {
             .is_some_and(|control| !control.is_cancelled())
     }
 
+    pub(crate) fn pcm_queue_count(&self) -> u64 {
+        self.pcm_queue_count
+    }
+
     pub(crate) fn synchronize_external_cancellation(&mut self) {
         let externally_cancelled = self
             .current
@@ -138,6 +143,7 @@ impl TtsPreviewState {
 
     pub(crate) fn queue_pcm(&mut self, generation: u64, chunk: &PcmAudioChunk) {
         if self.is_current(generation) {
+            self.pcm_queue_count = self.pcm_queue_count.wrapping_add(1);
             self.playback_events
                 .push(TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(
                     chunk,

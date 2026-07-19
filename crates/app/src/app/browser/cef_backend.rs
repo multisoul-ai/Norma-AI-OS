@@ -3,14 +3,16 @@
 //! The backend is feature-gated because CEF requires native framework resources
 //! and helper processes that the default Wry/WebKit path must not depend on.
 
+use super::chrome_auth::{BrowserCookie, SameSitePolicy};
 use super::{BrowserEvent, BrowserViewBounds};
 use crate::app::cef_process::{
     cef_framework_dir_cef_string, cef_resources_dir_cef_string, load_cef_library,
 };
 use canvas::NodeId;
 use cef::{
-    browser_host_create_browser_sync, initialize, Browser, BrowserSettings, CefString, ImplBrowser,
-    ImplBrowserHost, ImplFrame, Rect, Settings, WindowInfo,
+    browser_host_create_browser_sync, cookie_manager_get_global_manager, initialize, Basetime,
+    Browser, BrowserSettings, CefString, Cookie, CookieSameSite, ImplBrowser, ImplBrowserHost,
+    ImplCookieManager, ImplFrame, Rect, Settings, WindowInfo,
 };
 use crossbeam_channel::Sender;
 use gpui::Window;
@@ -92,6 +94,23 @@ impl CefBrowserView {
         if let Some(host) = self.browser.host() {
             host.set_focus(0);
         }
+    }
+
+    pub(crate) fn import_cookies(
+        &mut self,
+        source_url: &str,
+        cookies: &[BrowserCookie],
+    ) -> Result<usize, String> {
+        let manager = cookie_manager_get_global_manager(None)
+            .ok_or_else(|| "CEF CookieManager was unavailable".to_string())?;
+        let source_url = CefString::from(source_url);
+        for cookie in cookies {
+            let cookie = cef_cookie_from_browser_cookie(cookie)?;
+            if manager.set_cookie(Some(&source_url), Some(&cookie), None) == 0 {
+                return Err("CEF rejected an imported Chrome Cookie".to_string());
+            }
+        }
+        Ok(cookies.len())
     }
 }
 
@@ -187,5 +206,47 @@ fn set_native_view_frame(native_view: cef::sys::cef_window_handle_t, bounds: Bro
     let native_view = native_view.cast::<NSView>();
     unsafe {
         (*native_view).setFrame(frame);
+    }
+}
+
+fn cef_cookie_from_browser_cookie(cookie: &BrowserCookie) -> Result<Cookie, String> {
+    let (has_expires, expires) = match cookie.expires_unix_seconds {
+        Some(unix_seconds) => {
+            // CEF basetime uses microseconds since 1601-01-01 UTC.
+            // Unix epoch offset = 11_644_473_600 seconds.
+            let windows_seconds = unix_seconds
+                .checked_add(11_644_473_600)
+                .ok_or_else(|| "Chrome Cookie expiry overflowed CEF basetime".to_string())?;
+            let value = windows_seconds
+                .checked_mul(1_000_000)
+                .ok_or_else(|| "Chrome Cookie expiry overflowed CEF microseconds".to_string())?;
+            (1, Basetime { val: value })
+        }
+        None => (0, Basetime::default()),
+    };
+    Ok(Cookie {
+        name: CefString::from(cookie.name.as_str()),
+        value: CefString::from(cookie.value.as_str()),
+        domain: CefString::from(cef_cookie_domain(cookie)),
+        path: CefString::from(cookie.path.as_str()),
+        secure: cookie.secure as i32,
+        httponly: cookie.http_only as i32,
+        has_expires,
+        expires,
+        same_site: match cookie.same_site {
+            SameSitePolicy::Unspecified => CookieSameSite::UNSPECIFIED,
+            SameSitePolicy::NoRestriction => CookieSameSite::NO_RESTRICTION,
+            SameSitePolicy::Lax => CookieSameSite::LAX_MODE,
+            SameSitePolicy::Strict => CookieSameSite::STRICT_MODE,
+        },
+        ..Cookie::default()
+    })
+}
+
+pub(super) fn cef_cookie_domain(cookie: &BrowserCookie) -> &str {
+    if cookie.host_only {
+        ""
+    } else {
+        cookie.domain.as_str()
     }
 }

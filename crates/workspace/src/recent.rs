@@ -54,6 +54,12 @@ impl RecentWorkspaces {
         &self.records[..end]
     }
 
+    pub fn remove_path(&mut self, path: &Path) -> bool {
+        let original_len = self.records.len();
+        self.records.retain(|record| record.path != path);
+        self.records.len() != original_len
+    }
+
     fn sort_and_truncate(&mut self) {
         self.records.sort_by(|left, right| {
             right

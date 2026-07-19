@@ -81,3 +81,45 @@ fn test_workspace_open_defers_live_session_restore() {
         "enter_workspace_for_path must not synchronously restore every live session before showing Canvas"
     );
 }
+
+/// Workspace 打开恢复 Agent 时，缺失持久化 session id 的历史发现必须在后台执行。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   production_source = workspace/flow.rs 的生产源码
+///   blocking discovery = 1 次 Provider 历史目录扫描，可能遍历多个 JSONL 文件
+///   foreground restore = 1 次 Runtime/GPUI 状态更新，只消费已发现的 session id
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 定位 `spawn_deferred_live_session_restore` 的生产实现
+///   2. 检查实现通过 `background_spawn` 调用 profile-specific session discovery
+///   3. 检查前台恢复入口消费 `discovered_session_id`，生成对应 resume 命令
+///
+/// 预期结果：
+///   - 正断言：Provider 历史发现由 background_spawn 承载，不阻塞 GPUI 前台
+///   - 正断言：发现结果传入 Runtime 单节点恢复入口
+///   - 负断言：不得退回只调用无 discovery 参数的旧恢复入口
+#[test]
+fn test_workspace_open_discovers_missing_agent_session_off_foreground() {
+    let flow = include_str!("../../src/workspace/flow.rs");
+    let production_source = flow
+        .split("\n#[cfg(test)]")
+        .next()
+        .expect("flow.rs should contain production source before tests");
+
+    assert!(
+        production_source.contains("cx.background_spawn(async move"),
+        "Agent session 历史发现必须通过 background_spawn 离开 GPUI 前台线程"
+    );
+    assert!(
+        production_source.contains("find_agent_session_id_for_profile"),
+        "Workspace 恢复缺失 session id 时必须调用 profile-specific 历史发现"
+    );
+    assert!(
+        production_source.contains("discovered_session_id.as_deref()"),
+        "后台发现到的 session id 必须传入 Runtime 单节点恢复入口"
+    );
+    assert!(
+        !production_source.contains("&pending.node_sessions,\n                        );"),
+        "Workspace 延迟恢复不得省略 discovery 参数而退回全新 Session"
+    );
+}

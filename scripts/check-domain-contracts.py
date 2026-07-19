@@ -54,7 +54,7 @@ def rust_enum_variants(source: str, enum_name: str) -> set[str]:
 
 
 def create_agent_schema_profiles(source: str) -> set[str]:
-    create_agent = source.split('"create_agent"', 1)[1].split('"activate_agent"', 1)[0]
+    create_agent = source.split('"create_agent"', 1)[1].split("definition(", 1)[0]
     profile = re.search(
         r'"profile"\s*:\s*\{[^{}]*"enum"\s*:\s*\[(?P<values>[^]]+)\]',
         create_agent,
@@ -65,12 +65,15 @@ def create_agent_schema_profiles(source: str) -> set[str]:
 
 
 def agent_profile_parser_mappings(source: str) -> dict[str, str]:
-    return dict(
-        re.findall(
-            r'Some\("([a-z0-9_]+)"\)\s*=>\s*Ok\(AgentProfile::([A-Za-z0-9_]+)\)',
-            source,
-        )
+    legacy = re.findall(
+        r'Some\("([a-z0-9_]+)"\)\s*=>\s*Ok\(AgentProfile::([A-Za-z0-9_]+)\)',
+        source,
     )
+    direct = re.findall(
+        r'"([a-z0-9_]+)"\s*=>\s*AgentProfile::([A-Za-z0-9_]+)',
+        source,
+    )
+    return dict([*legacy, *direct])
 
 
 def storage_profile_mappings(source: str) -> tuple[dict[str, str], dict[str, str]]:
@@ -92,15 +95,16 @@ def storage_profile_mappings(source: str) -> tuple[dict[str, str], dict[str, str
 
 def check_agent_profile_contract(root: Path) -> list[str]:
     protocol = root / "crates/norma/src/protocol.rs"
-    canvas = root / "crates/canvas/src/node.rs"
-    tools = root / "crates/agent/src/tools.rs"
+    canvas = root / "crates/canvas/src/node/agent_profile.rs"
+    schema = root / "crates/agent/src/adapter.rs"
+    parser = root / "crates/agent/src/adapter/commands.rs"
     storage = root / "crates/storage/src/agent_definition_store.rs"
 
     protocol_variants = rust_enum_variants(protocol.read_text(), "AgentProfile")
     canvas_variants = rust_enum_variants(canvas.read_text(), "AgentProfile")
     expected = {variant.lower(): variant for variant in protocol_variants}
-    schema_profiles = create_agent_schema_profiles(tools.read_text())
-    parser_profiles = agent_profile_parser_mappings(tools.read_text())
+    schema_profiles = create_agent_schema_profiles(schema.read_text())
+    parser_profiles = agent_profile_parser_mappings(parser.read_text())
     encoded_profiles, decoded_profiles = storage_profile_mappings(storage.read_text())
 
     failures: list[str] = []
@@ -113,12 +117,12 @@ def check_agent_profile_contract(root: Path) -> list[str]:
         )
     if schema_profiles != set(expected):
         failures.append(
-            f"{tools}: create_agent schema profiles {sorted(schema_profiles)} do not match "
+            f"{schema}: create_agent schema profiles {sorted(schema_profiles)} do not match "
             f"AgentProfile values {sorted(expected)}"
         )
     if parser_profiles != expected:
         failures.append(
-            f"{tools}: profile parser mappings {parser_profiles} do not match {expected}"
+            f"{parser}: profile parser mappings {parser_profiles} do not match {expected}"
         )
     if encoded_profiles != expected:
         failures.append(

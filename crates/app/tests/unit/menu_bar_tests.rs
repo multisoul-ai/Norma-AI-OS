@@ -5,7 +5,7 @@ use crate::menu_bar::{menu_bar_spec, MenuItemSpec};
 /// 数据构造（含关键数值的推导过程）：
 ///   顶级菜单数 = 4：Norma OS / File / Edit / Layout
 ///   File 直接项数 = 3：New 子菜单 + separator + Open Project…
-///   New 子菜单动作数 = 8：窗口 1 + 卡片 3 + Agent 4
+///   New 子菜单动作数 = 9：窗口 1 + 卡片 3 + Agent 5
 ///   New 子菜单 separator 数 = 2：Workspace→Cards、Cards→Agents
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -15,7 +15,7 @@ use crate::menu_bar::{menu_bar_spec, MenuItemSpec};
 ///
 /// 预期结果：
 ///   - 断言 A：顶级菜单严格为 Norma OS、File、Edit、Layout，不再只有扁平 Norma OS。
-///   - 断言 B：File › New 保留窗口、三类卡片和四类 Agent，且两条分隔线表达三组语义。
+///   - 断言 B：File › New 保留窗口、三类卡片和五类 Agent，且两条分隔线表达三组语义。
 ///   - 断言 C：Copy 只位于 Edit，布局命令只位于 Layout，避免与创建动作混排。
 ///   - 断言 D：旧的顶级 New Terminal、Copy、Settings 不应继续出现在 Norma OS。
 #[test]
@@ -68,9 +68,10 @@ fn test_menu_bar_groups_application_file_edit_and_layout_commands() {
             "New Claude Agent",
             "New Codex Agent",
             "New Cursor Agent",
+            "New Grok Agent",
             "New OpenCode Agent",
         ],
-        "New 子菜单必须按 Workspace、Cards、Agents 三组排列，且 Cursor/OpenCode 入口不能缺失"
+        "New 子菜单必须按 Workspace、Cards、Agents 三组排列，且 Cursor/Grok/OpenCode 入口不能缺失"
     );
     assert!(
         !item_labels(new_items).contains(&"Open Project…"),

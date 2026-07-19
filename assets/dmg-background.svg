@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <defs>
+    <radialGradient id="warm-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(194 96) rotate(54) scale(432 388)">
+      <stop offset="0" stop-color="#F7C94A" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#F7C94A" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cool-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1050 120) rotate(124) scale(470 520)">
+      <stop offset="0" stop-color="#2A9CC8" stop-opacity="0.19"/>
+      <stop offset="1" stop-color="#2A9CC8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="plum-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1015 735) rotate(-140) scale(480 360)">
+      <stop offset="0" stop-color="#A64168" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#A64168" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="card-fill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.085"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.035"/>
+    </linearGradient>
+    <linearGradient id="card-stroke-left" x1="206" y1="228" x2="514" y2="560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8D46A" stop-opacity="0.42"/>
+      <stop offset="0.42" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.1"/>
+    </linearGradient>
+    <linearGradient id="card-stroke-right" x1="766" y1="228" x2="1074" y2="560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#55BEE6" stop-opacity="0.4"/>
+      <stop offset="0.42" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#E37A9D" stop-opacity="0.2"/>
+    </linearGradient>
+    <linearGradient id="label-plate" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E9EDF2"/>
+    </linearGradient>
+    <filter id="card-shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="24" stdDeviation="30" flood-color="#000000" flood-opacity="0.22"/>
+    </filter>
+    <filter id="plate-shadow" x="-30%" y="-80%" width="160%" height="260%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="800" fill="#0B1119"/>
+  <rect width="1280" height="800" fill="url(#warm-glow)"/>
+  <rect width="1280" height="800" fill="url(#cool-glow)"/>
+  <rect width="1280" height="800" fill="url(#plum-glow)"/>
+
+  <g id="brand-header">
+    <rect id="brand-mark-slot" x="430" y="66" width="102" height="102" fill="none"/>
+    <text x="566" y="116" fill="#F8FAFC" font-family="Helvetica Neue, Helvetica, sans-serif" font-size="58" font-weight="600" letter-spacing="-1.4">Norma OS</text>
+    <text x="568" y="164" fill="#CAD3DF" font-family="Helvetica Neue, Helvetica, sans-serif" font-size="29" font-weight="400">Drag to Applications</text>
+  </g>
+
+  <g id="left-install-card" filter="url(#card-shadow)">
+    <rect x="206" y="228" width="308" height="332" rx="68" fill="url(#card-fill)" stroke="url(#card-stroke-left)" stroke-width="3"/>
+    <circle cx="360" cy="384" r="108" fill="#FFFFFF" fill-opacity="0.035"/>
+  </g>
+  <g id="right-install-card" filter="url(#card-shadow)">
+    <rect x="766" y="228" width="308" height="332" rx="68" fill="url(#card-fill)" stroke="url(#card-stroke-right)" stroke-width="3"/>
+    <circle cx="920" cy="384" r="108" fill="#FFFFFF" fill-opacity="0.035"/>
+  </g>
+
+  <g id="drag-arrow" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M582 390 H694" stroke="#F3F6FA" stroke-opacity="0.72" stroke-width="10"/>
+    <path d="M674 364 L706 390 L674 416" stroke="#F3F6FA" stroke-opacity="0.86" stroke-width="10"/>
+  </g>
+
+  <g filter="url(#plate-shadow)">
+    <rect id="left-label-plate" x="236" y="486" width="248" height="56" rx="28" fill="url(#label-plate)"/>
+    <rect id="right-label-plate" x="784" y="486" width="272" height="56" rx="28" fill="url(#label-plate)"/>
+  </g>
+
+  <path d="M486 703 H794" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="2"/>
+  <text x="640" y="739" fill="#AEB8C5" fill-opacity="0.82" text-anchor="middle" font-family="Helvetica Neue, Helvetica, sans-serif" font-size="22" font-weight="400">Move once. Work everywhere.</text>
+</svg>

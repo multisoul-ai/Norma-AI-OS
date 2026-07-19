@@ -12,12 +12,12 @@ use crate::harness::{echo_factory, enter_canvas, make_app_with_settings_store};
 ///   dictation triggers = 2（Hold + Toggle）
 ///   microphone choices = 3（System Default + 内置麦克风 + USB 麦克风）
 ///   provider profiles  = 2（Ollama + OpenAI-compatible）
-///   ASR catalog entries = 3（Paraformer + Zipformer Streaming ZH + Zipformer Streaming CTC ZH）
+///   ASR catalog entries = 4（两个双语模型 + 两个中文 Zipformer）
 ///   settings reloads    = 1（同一 SQLite store 创建第二个 App）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 打开 fresh Voice Settings，检查安全缺省、模型元数据及不存在独立总开关
-///   2. 注入两个可见麦克风，选择 USB 后再恢复 System Default，最后保留 USB
+///   2. 注入两个可见麦克风，每次展开紧凑选择器，选择 USB、恢复默认并最终保留 USB
 ///   3. 选择 Toggle 与 Continuous Listening，展开 Agent/Reply 配置
 ///   4. 切到 OpenAI，编辑 Base URL、Model、API Key，开启 trace 并关闭 Agent 任务播报
 ///   5. 切回 Ollama 验证 profile 隔离，再切回 OpenAI 验证配置未丢失
@@ -80,25 +80,38 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
             defaults.voice_window_inset_enabled,
             "fresh 配置必须默认开启共享语音窗口内缘视觉"
         );
-        assert_eq!(defaults.asr_models.len(), 3, "受控模型库应精确展示三个模型");
+        assert_eq!(defaults.asr_models.len(), 4, "受控模型库应精确展示四个模型");
         assert_eq!(
             defaults.asr_models[0].display_name, "Paraformer Bilingual",
             "第一张模型卡应展示 Paraformer 的友好名称"
         );
         assert_eq!(
-            defaults.asr_models[1].display_name, "Zipformer Streaming ZH",
-            "第二张模型卡应展示 Zipformer Streaming ZH 的友好名称"
+            defaults.asr_models[1].display_name, "Zipformer Bilingual",
+            "第二张模型卡应展示 Zipformer Bilingual 的友好名称"
         );
         assert_eq!(
-            defaults.asr_models[2].display_name, "Zipformer Streaming CTC ZH",
-            "第三张模型卡应展示 Zipformer Streaming CTC ZH 的友好名称"
+            defaults.asr_models[1].languages,
+            &["zh", "en"],
+            "Zipformer Bilingual 卡片必须明确展示中文与英文能力"
+        );
+        assert_eq!(
+            defaults.asr_models[2].display_name, "Zipformer Streaming ZH",
+            "第三张模型卡应展示 Zipformer Streaming ZH 的友好名称"
+        );
+        assert_eq!(
+            defaults.asr_models[3].display_name, "Zipformer Streaming CTC ZH",
+            "第四张模型卡应展示 Zipformer Streaming CTC ZH 的友好名称"
         );
         assert!(
             defaults.asr_models[1].streaming_partials,
-            "Zipformer 卡片必须声明流式 partial 能力"
+            "Zipformer Bilingual 卡片必须声明流式 partial 能力"
         );
         assert!(
             defaults.asr_models[2].streaming_partials,
+            "Zipformer Streaming ZH 卡片必须声明流式 partial 能力"
+        );
+        assert!(
+            defaults.asr_models[3].streaming_partials,
             "Zipformer CTC 卡片必须声明流式 partial 能力"
         );
         assert!(
@@ -110,6 +123,7 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
             "Single Voice Command 页面也必须配置共享 Agent Provider"
         );
 
+        click_debug(cx, "settings-voice-input-device-picker");
         click_debug(cx, "settings-voice-input-device-1");
         let usb = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
         assert_eq!(
@@ -117,12 +131,14 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
             Some("usb-mic"),
             "点击 USB 麦克风后应保存稳定 device id"
         );
+        click_debug(cx, "settings-voice-input-device-picker");
         click_debug(cx, "settings-voice-input-device-default");
         let system_default = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
         assert_eq!(
             system_default.input_device_id, None,
             "System Default 应清除固定 device id"
         );
+        click_debug(cx, "settings-voice-input-device-picker");
         click_debug(cx, "settings-voice-input-device-1");
 
         click_debug(cx, "settings-voice-trigger-toggle");
@@ -130,7 +146,6 @@ fn e2e_10_voice_configuration_matrix_persists_across_app_reload() {
         scroll_debug(cx, "settings-content-scroll", -650.0);
         click_debug(cx, "settings-agent-provider-openai");
         scroll_debug(cx, "settings-content-scroll", -200.0);
-        click_debug(cx, "settings-voice-advanced-toggle");
         replace_text(
             cx,
             "settings-voice-field-agent-base-url",

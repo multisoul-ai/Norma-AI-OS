@@ -7,7 +7,7 @@ use canvas::AgentProfile;
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   project.sqlite 位于 temp/workspace/.multisoul/project.sqlite
-///   agent_definitions 需要 8 个业务列：id/name/runtime_profile/workflow_description/enabled/sort_order/created_at_unix/updated_at_unix
+///   agent_definitions 需要 9 个业务字段：name/runtime_profile/workflow_description/enabled/sort_order/created_at_unix/updated_at_unix/origin，另含 id 主键
 ///   unique index = idx_agent_definitions_name_nocase，用于阻止 "Reviewer" 与 "reviewer" 同项目共存
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -17,6 +17,7 @@ use canvas::AgentProfile;
 ///
 /// 预期结果：
 ///   - 正断言：agent_definitions 表包含 name/runtime_profile/workflow_description/enabled
+///   - 正断言：agent_definitions 表包含 origin，用于区分快速 Card 与长期角色生命周期
 ///   - 正断言：存在 idx_agent_definitions_name_nocase
 ///   - 负断言：不应缺少 workflow_description，否则无法给未来语音规划提供上下文
 #[test]
@@ -64,6 +65,10 @@ fn test_agent_definitions_migration_creates_table_and_unique_index() {
     assert!(
         columns.iter().any(|column| column == "enabled"),
         "agent_definitions 必须包含 enabled 列以便未来语音上下文过滤禁用 Agent"
+    );
+    assert!(
+        columns.iter().any(|column| column == "origin"),
+        "agent_definitions 必须包含 origin 列以区分快速 Card 与长期角色"
     );
     assert!(
         indexes
@@ -457,6 +462,7 @@ fn test_agent_definition_store_delete_clears_dispatch_history_and_releases_name(
         .expect("测试应创建 Alan 定义");
     crate::AgentDispatchTaskStore::new(path.clone())
         .create(&crate::NewAgentDispatchTask {
+            runtime_task_id: 1,
             definition_id: alan.id,
             node_id: 77,
             original_instruction: "Alan，检查测试".to_string(),
@@ -480,7 +486,6 @@ fn test_agent_definition_store_delete_clears_dispatch_history_and_releases_name(
             workflow_description: String::new(),
         })
         .expect("删除定义后 Alan 名称应立即释放并可复用");
-
     assert!(deleted, "存在的 Alan 定义应返回 deleted=true");
     assert_eq!(definitions.len(), 0, "删除事务后旧定义列表必须为空");
     assert_eq!(tasks.len(), 0, "删除事务必须清理旧 Alan 的委派记录");

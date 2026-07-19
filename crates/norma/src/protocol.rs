@@ -76,6 +76,7 @@ pub enum AgentProfile {
     Claude,
     Codex,
     Cursor,
+    Grok,
     OpenCode,
 }
 

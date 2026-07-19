@@ -1,4 +1,5 @@
 use super::cursor::{cursor_hooks_installed_at, install_cursor_hooks, uninstall_cursor_hooks};
+use super::json_config::add_command_hook;
 use super::opencode::{install_opencode_plugin, uninstall_opencode_plugin};
 use super::{
     build_hook_command, hook_events_for_source, hook_source_arg, AgentHookError, HookInstallPaths,
@@ -34,11 +35,13 @@ pub fn agent_hooks_installed(target: HookTarget, paths: &HookInstallPaths) -> bo
         HookTarget::Claude => agent_hooks_installed_for_source(HookSource::Claude, paths),
         HookTarget::Codex => agent_hooks_installed_for_source(HookSource::Codex, paths),
         HookTarget::Cursor => agent_hooks_installed_for_source(HookSource::Cursor, paths),
+        HookTarget::Grok => agent_hooks_installed_for_source(HookSource::Grok, paths),
         HookTarget::OpenCode => agent_hooks_installed_for_source(HookSource::OpenCode, paths),
         HookTarget::All => {
             agent_hooks_installed_for_source(HookSource::Claude, paths)
                 && agent_hooks_installed_for_source(HookSource::Codex, paths)
                 && agent_hooks_installed_for_source(HookSource::Cursor, paths)
+                && agent_hooks_installed_for_source(HookSource::Grok, paths)
                 && agent_hooks_installed_for_source(HookSource::OpenCode, paths)
         }
     }
@@ -77,6 +80,9 @@ pub fn uninstall_hook_config(
     if matches!(target, HookTarget::Cursor | HookTarget::All) {
         uninstall_cursor_hooks(paths.cursor_hooks.as_path())?;
     }
+    if matches!(target, HookTarget::Grok | HookTarget::All) {
+        uninstall_for_source(paths.grok_hooks.as_path(), HookSource::Grok)?;
+    }
     if matches!(target, HookTarget::OpenCode | HookTarget::All) {
         uninstall_opencode_plugin(paths.opencode_plugin.as_path())?;
     }
@@ -101,6 +107,9 @@ pub fn install_hook_config(
     if matches!(target, HookTarget::Cursor | HookTarget::All) {
         install_cursor_hooks(paths.cursor_hooks.as_path(), command_path)?;
     }
+    if matches!(target, HookTarget::Grok | HookTarget::All) {
+        install_for_source(paths.grok_hooks.as_path(), command_path, HookSource::Grok)?;
+    }
     if matches!(target, HookTarget::OpenCode | HookTarget::All) {
         install_opencode_plugin(paths.opencode_plugin.as_path())?;
     }
@@ -115,7 +124,7 @@ fn install_for_source(
     let mut root = read_json_or_empty(path)?;
     let command = build_hook_command(command_path, source);
     for event_name in hook_events_for_source(source) {
-        add_command_hook(&mut root, event_name, &command);
+        add_command_hook(&mut root, event_name, &command, source);
     }
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -147,6 +156,7 @@ fn config_path_for_source(source: HookSource, paths: &HookInstallPaths) -> &Path
         HookSource::Claude => paths.claude_settings.as_path(),
         HookSource::Codex => paths.codex_hooks.as_path(),
         HookSource::Cursor => paths.cursor_hooks.as_path(),
+        HookSource::Grok => paths.grok_hooks.as_path(),
         HookSource::OpenCode => paths.opencode_plugin.as_path(),
     }
 }
@@ -239,51 +249,6 @@ fn cleanup_empty_hooks(root: &mut Value) {
             obj.remove("hooks");
         }
     }
-}
-
-fn add_command_hook(root: &mut Value, event_name: &str, command: &str) {
-    ensure_object(root);
-    let hooks = root
-        .as_object_mut()
-        .expect("object ensured")
-        .entry("hooks")
-        .or_insert_with(|| json!({}));
-    ensure_object(hooks);
-    let event_hooks = hooks
-        .as_object_mut()
-        .expect("object ensured")
-        .entry(event_name)
-        .or_insert_with(|| json!([]));
-    if command_exists(event_hooks, command) {
-        return;
-    }
-    ensure_array(event_hooks);
-    event_hooks
-        .as_array_mut()
-        .expect("array ensured")
-        .push(json!({
-            "matcher": "*",
-            "hooks": [{
-                "type": "command",
-                "command": command,
-                "timeout": 5
-            }]
-        }));
-}
-
-fn command_exists(event_hooks: &Value, command: &str) -> bool {
-    event_hooks.as_array().is_some_and(|groups| {
-        groups.iter().any(|group| {
-            group
-                .get("hooks")
-                .and_then(Value::as_array)
-                .is_some_and(|handlers| {
-                    handlers.iter().any(|handler| {
-                        handler.get("command").and_then(Value::as_str) == Some(command)
-                    })
-                })
-        })
-    })
 }
 
 pub(super) fn read_json_or_empty(path: &Path) -> Result<Value, AgentHookError> {
