@@ -4,6 +4,7 @@
 > 状态：implemented
 > 来源：`ask-matt` → `grill-with-docs` 交互梳理
 > 相关决策：`CONTEXT.md` 的「语音首次设置」「语音可用状态」；ADR-0017「Provider API Key 存入 macOS Keychain」
+> 后续修订：其中“本地 TTS 是唯一就绪条件”的表述已由 `2026-07-19-SPEC-built-in-streaming-tts-providers.md` 取代；当前条件是用户显式选择的 TTS Provider 已 Ready。
 
 ## Problem Statement
 

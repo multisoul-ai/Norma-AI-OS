@@ -2089,6 +2089,7 @@ dependencies = [
  "storage",
  "tempfile",
  "terminal",
+ "tts",
  "ui",
  "voice",
  "workspace",
@@ -8133,12 +8134,17 @@ dependencies = [
 name = "tts"
 version = "0.1.41"
 dependencies = [
+ "audio",
  "dirs 6.0.0",
+ "hex",
  "hound",
  "model_store",
  "serde",
+ "serde_json",
  "tempfile",
  "thiserror 2.0.18",
+ "tungstenite",
+ "ureq 3.3.0",
 ]
 
 [[package]]
@@ -8154,6 +8160,7 @@ dependencies = [
  "log",
  "rand 0.9.4",
  "rustls",
+ "rustls-native-certs",
  "rustls-pki-types",
  "sha1",
  "thiserror 2.0.18",

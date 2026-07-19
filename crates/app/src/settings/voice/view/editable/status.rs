@@ -21,11 +21,19 @@ pub(super) fn input_placeholder(
             CONFIGURED_API_KEY_PLACEHOLDER
         }
         VoiceSettingsField::ApiKey => UNCONFIGURED_API_KEY_PLACEHOLDER,
+        VoiceSettingsField::MiniMaxApiKey
+            if state.values().minimax_tts_credential_ref().is_some() =>
+        {
+            CONFIGURED_API_KEY_PLACEHOLDER
+        }
+        VoiceSettingsField::MiniMaxApiKey => UNCONFIGURED_API_KEY_PLACEHOLDER,
+        VoiceSettingsField::MiniMaxVoiceId => "Enter Voice ID",
+        VoiceSettingsField::MiniMaxVoiceSearch => "Search by name or Voice ID",
     }
 }
 
 impl VoiceSettingsInputs {
-    pub(super) fn sync_field_from_state(
+    pub(crate) fn sync_field_from_state(
         &self,
         field: VoiceSettingsField,
         state: &VoiceSettingsState,

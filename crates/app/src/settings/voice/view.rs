@@ -23,6 +23,7 @@ mod ready;
 mod setup;
 mod spoken_reply;
 mod tts_catalog;
+mod tts_provider;
 
 pub(crate) fn voice_settings(
     theme: Theme,
@@ -54,7 +55,7 @@ pub(crate) fn voice_settings(
         .child(voice_ready_overview(theme, cx))
         .child(interaction_group(theme, state, cx))
         .child(settings_group(theme, "Input").child(input_device_row(theme, state, cx)))
-        .child(spoken_reply_group(theme, state, cx))
+        .child(spoken_reply_group(theme, state, inputs, cx))
         .child(advanced_group(theme, state, inputs, cx))
         .children(status_message(theme, state))
 }
@@ -244,11 +245,35 @@ impl MultisoulApp {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
                 let credential_finished = app.voice_settings.credential_persistence_pending();
+                let minimax_clear_finished = app.voice_settings.minimax_credential_clear_pending();
                 let credential_succeeded = result.is_ok();
                 app.voice_settings.record_persistence_result(result);
+                if minimax_clear_finished && credential_succeeded {
+                    app.cancel_agent_announcements();
+                    app.tts_preview.cancel();
+                    app.invalidate_tts_for_configuration_change(cx);
+                    crate::app::dialogue::configure_selected_tts_model(None);
+                }
+                if let Some(activation) = app.pending_tts_activation.take() {
+                    if credential_succeeded {
+                        app.cancel_agent_announcements();
+                        app.tts_preview.cancel();
+                        app.stop_continuous_listening(cx);
+                        app.voice.stop_for_model_switch();
+                        app.invalidate_tts_for_configuration_change(cx);
+                        crate::app::dialogue::configure_selected_tts_model(Some(
+                            activation.selected,
+                        ));
+                        app.complete_voice_setup_if_ready(cx);
+                    } else {
+                        app.voice_settings
+                            .select_tts_provider(activation.previous_provider_id);
+                    }
+                }
                 app.persist_voice_settings_in_background(cx);
                 if credential_finished && credential_succeeded {
                     app.validate_saved_voice_provider(cx);
+                    app.configure_active_minimax_tts_if_ready(cx);
                 }
                 cx.notify();
             });

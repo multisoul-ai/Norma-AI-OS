@@ -1,8 +1,7 @@
 use crate::app::voice_window_inset::PcmEnergyTimeline;
 use audio::PcmAudioChunk;
-use dialogue::TtsChunkSink;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use super::SpeechWorkerEvent;
 
@@ -54,9 +53,19 @@ pub(super) struct ChannelTtsChunkSink {
     pub(super) cancelled: Arc<AtomicBool>,
     pub(super) tts_request_sequence: u64,
     pub(super) next_chunk_sequence: AtomicU64,
+    pub(super) terminal: Mutex<Option<Result<tts::TtsStreamSummary, tts::TtsError>>>,
 }
 
-impl TtsChunkSink for ChannelTtsChunkSink {
+impl ChannelTtsChunkSink {
+    pub(super) fn take_terminal(&self) -> Option<Result<tts::TtsStreamSummary, tts::TtsError>> {
+        self.terminal
+            .lock()
+            .expect("TTS stream terminal lock should not be poisoned")
+            .take()
+    }
+}
+
+impl tts::TtsChunkSink for ChannelTtsChunkSink {
     fn send(&self, chunk: PcmAudioChunk) -> bool {
         !self.cancelled.load(Ordering::Acquire)
             && self
@@ -73,5 +82,12 @@ impl TtsChunkSink for ChannelTtsChunkSink {
 
     fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::Acquire)
+    }
+
+    fn finish(&self, result: Result<tts::TtsStreamSummary, tts::TtsError>) {
+        *self
+            .terminal
+            .lock()
+            .expect("TTS stream terminal lock should not be poisoned") = Some(result);
     }
 }

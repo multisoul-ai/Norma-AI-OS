@@ -23,7 +23,8 @@ mod voice;
 mod voice_setup;
 pub use agents::{AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot};
 use shortcuts::shortcut_command_name;
-use tts::{snapshot_tts_models, TtsModelE2eSnapshot};
+pub use tts::TtsProviderE2eSnapshot;
+use tts::{snapshot_tts_models, snapshot_tts_provider, TtsModelE2eSnapshot};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ApiKeyDisplayState {
@@ -67,6 +68,7 @@ pub struct SettingsE2eSnapshot {
     pub asr_models: Vec<AsrModelE2eSnapshot>,
     pub selected_tts_model_id: Option<String>,
     pub selected_tts_voice_id: Option<String>,
+    pub tts_provider: TtsProviderE2eSnapshot,
     pub zipvoice_reference_ready: bool,
     pub zipvoice_reference_importing: bool,
     pub zipvoice_reference_draft_path: String,
@@ -442,6 +444,7 @@ impl MultisoulApp {
                 .values()
                 .tts_voice_id()
                 .map(|id| id.as_str().to_string()),
+            tts_provider: snapshot_tts_provider(&self.voice_settings),
             zipvoice_reference_ready: self.voice_settings.zipvoice_reference_ready(),
             zipvoice_reference_importing: self.voice_settings.zipvoice_reference_importing(),
             zipvoice_reference_draft_path: self

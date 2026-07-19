@@ -6,6 +6,7 @@ use ui::Theme;
 
 mod controller;
 mod reference;
+pub(crate) use controller::synthesize_tts_preview;
 use reference::zipvoice_reference_controls;
 
 pub(super) fn tts_catalog_row(

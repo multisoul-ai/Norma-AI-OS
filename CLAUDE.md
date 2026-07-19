@@ -18,7 +18,7 @@ Workspace crates:
 - `agent` - GPUI/Storage-free NormaSession runtime using Rig providers, typed tools, and an injected AgentCardAdapter.
 - `asr` - GPUI/Sherpa-free model identity, curated catalog, installation manifest, integrity, and shared VAD support artifacts.
 - `model_store` - GPUI/network-free shared local-model archive, manifest, integrity, and atomic-install primitives.
-- `tts` - GPUI/Sherpa-free Local TTS model/voice identity, catalog, capability, and installation-validation domain.
+- `tts` - GPUI/Storage/Sherpa-free TTS capability: built-in provider registry, reply-level streaming, local model policy, and remote provider protocols.
 - `ui` - GPUI-facing shared UI: theme, icons, and `gpui-component` re-export (`ui::component`).
 - `app` - GPUI/Metal shell: window boot, menus, key bindings, canvas interaction, and terminal rendering.
 
@@ -28,13 +28,13 @@ Core Cargo dependency direction is:
 agent -> norma
 app -> {ui, runtime, canvas, terminal, storage, asr, tts, voice_sherpa}
 voice_sherpa -> {asr, tts, dialogue, audio}
-tts -> model_store
+tts -> {model_store, audio}
 runtime -> {canvas, terminal, storage}
 storage -> {agent, canvas, workspace, rusqlite}
 ui -> {gpui, gpui-component}
 ```
 
-`asr`, `model_store`, `tts`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` and `tts` also remain free of Sherpa; engine configuration belongs in `voice_sherpa`. `model_store` and `tts` must not depend on app/runtime/storage/ui.
+`asr`, `model_store`, `tts`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` and `tts` also remain free of Sherpa; local engine configuration belongs in `voice_sherpa`. Remote TTS networking is allowed only below `tts::providers`. `model_store` and `tts` must not depend on app/runtime/storage/ui.
 
 ## 2. Key Constraints
 

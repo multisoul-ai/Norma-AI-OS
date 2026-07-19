@@ -78,6 +78,7 @@ mod e2e_09_browser_chrome_auth;
 
 // 语音全链路场景矩阵：快捷键、听写触发、配置持久化、模型切换与运行时路由。
 mod e2e_10_tts_model_catalog;
+mod e2e_10_tts_providers;
 mod e2e_10_voice_config_matrix;
 mod e2e_10_voice_matrix;
 mod e2e_10_voice_model_matrix;

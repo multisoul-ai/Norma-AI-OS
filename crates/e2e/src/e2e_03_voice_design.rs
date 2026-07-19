@@ -250,11 +250,11 @@ fn ready_voice_page_matches_the_approved_summary_structure() {
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建独立 Ready App 并进入 Settings → Voice
 ///   2. 点击 Spoken Replies 行的 TTS Change
-///   3. 检查 Setup 中的 Spoken Replies 模型区域、TTS 首项和 ASR 折叠状态
-///   4. 对比 TTS 首项与 Settings 滚动视口边界，确认目标已被定位到可见范围
+///   3. 检查 Setup 中的 Provider 选择、Local TTS 首项和 ASR 折叠状态
+///   4. 对比 On-device Provider 与 Settings 滚动视口边界，确认目标已被定位到可见范围
 ///
 /// 预期结果：
-///   - 正断言：Local TTS Model 与首个 TTS 模型直接位于 Spoken Replies，且首项在视口内
+///   - 正断言：Provider 与 Local TTS Model 都位于 Spoken Replies，且 Provider 在视口内
 ///   - 负断言：TTS Change 不得展开无关的 ASR 目录，也不得开始录音
 #[test]
 fn ready_tts_change_routes_to_spoken_replies_without_expanding_asr() {
@@ -292,16 +292,20 @@ fn ready_tts_change_routes_to_spoken_replies_without_expanding_asr() {
         cx.debug_bounds("settings-tts-model-0").is_some(),
         "TTS Change must expose the first local TTS model"
     );
+    assert!(
+        cx.debug_bounds("settings-tts-provider-minimax").is_some(),
+        "TTS Change must expose the built-in MiniMax Provider alongside On-device"
+    );
     let viewport = cx
         .debug_bounds("settings-content-scroll")
         .expect("TTS Change must keep the shared Settings scroll viewport");
-    let first_tts_model = cx
-        .debug_bounds("settings-tts-model-0")
-        .expect("TTS Change must render the first TTS model before checking visibility");
+    let on_device_provider = cx
+        .debug_bounds("settings-tts-provider-local")
+        .expect("TTS Change must render On-device Provider before checking visibility");
     assert!(
-        first_tts_model.center().y >= viewport.top()
-            && first_tts_model.center().y <= viewport.bottom(),
-        "TTS Change must scroll the first local TTS model into the Settings viewport; viewport={viewport:?}, painted_model={first_tts_model:?}"
+        on_device_provider.center().y >= viewport.top()
+            && on_device_provider.center().y <= viewport.bottom(),
+        "TTS Change must scroll the Provider selector into the Settings viewport; viewport={viewport:?}, provider={on_device_provider:?}"
     );
     assert!(
         cx.debug_bounds("voice-setup-alternative-models").is_none(),

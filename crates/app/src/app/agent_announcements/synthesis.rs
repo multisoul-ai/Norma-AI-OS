@@ -1,7 +1,6 @@
 use super::{AgentAnnouncement, AgentAnnouncementOutcome};
-use crate::app::dialogue::synthesize_reply;
+use crate::app::dialogue::collect_tts_segments;
 use audio::{PcmAudioChunk, PcmFormat};
-use dialogue::TtsClient;
 
 const AGENT_TERMINAL_PAUSE_MILLIS: usize = 250;
 const PCM16_BYTES_PER_SAMPLE: usize = 2;
@@ -37,13 +36,41 @@ impl AgentAnnouncement {
 }
 
 pub(super) fn synthesize_agent_terminal_announcement(
-    tts: &mut dyn TtsClient,
+    tts: &mut dyn tts::TtsClient,
     agent_name: &str,
     outcome_word: &str,
 ) -> Result<PcmAudioChunk, voice_sherpa::SpeechError> {
-    let name_pcm = synthesize_reply(tts, agent_name)?;
-    let outcome_pcm = synthesize_reply(tts, outcome_word)?;
+    let mut segments = collect_tts_segments(tts, &[agent_name, outcome_word])
+        .map_err(|error| voice_sherpa::SpeechError::Recognizer(error.to_string()))?;
+    let outcome_pcm = merge_segment_chunks(
+        segments
+            .pop()
+            .expect("outcome segment was requested from TTS"),
+    )?;
+    let name_pcm =
+        merge_segment_chunks(segments.pop().expect("name segment was requested from TTS"))?;
     join_with_agent_terminal_pause(name_pcm, outcome_pcm)
+}
+
+fn merge_segment_chunks(
+    chunks: Vec<PcmAudioChunk>,
+) -> Result<PcmAudioChunk, voice_sherpa::SpeechError> {
+    let mut chunks = chunks.into_iter();
+    let mut merged = chunks.next().ok_or_else(|| {
+        voice_sherpa::SpeechError::Audio("TTS segment returned no PCM audio".to_string())
+    })?;
+    for chunk in chunks {
+        if merged.format != chunk.format
+            || merged.sample_rate_hz != chunk.sample_rate_hz
+            || merged.channels != chunk.channels
+        {
+            return Err(voice_sherpa::SpeechError::Audio(
+                "TTS segment PCM chunks use incompatible formats".to_string(),
+            ));
+        }
+        merged.bytes.extend_from_slice(&chunk.bytes);
+    }
+    Ok(merged)
 }
 
 fn join_with_agent_terminal_pause(

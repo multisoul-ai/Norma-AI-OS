@@ -94,17 +94,22 @@ Boundary rules:
 
 ## `model_store` and `tts`
 
-Purpose: keep common local-model installation mechanics separate from engine-neutral TTS policy.
+Purpose: keep common local-model installation mechanics separate from provider-neutral TTS policy and built-in remote protocols.
 
 - `model_store/src/lib.rs` and `installation.rs` - archive SHA-256, safe extraction, manifest validation, supplemental artifacts, and atomic promotion. It has no GPUI, network, app, runtime, storage, or Sherpa dependency.
 - `tts/src/model_id.rs` - stable `TtsModelId` and `TtsVoiceId`.
 - `tts/src/catalog.rs` - curated model packages, capability metadata, backend family, and recommended voices.
 - `tts/src/installation.rs` - TTS-specific root paths and validation over `model_store` primitives.
+- `tts/src/provider.rs` - stable Provider IDs, built-in registry, and curated model descriptors.
+- `tts/src/profile.rs`, `voice_catalog.rs` - provider selections, validation-bound readiness, and dynamic Voice catalogs.
+- `tts/src/stream.rs` - reply-level start/push/finish/cancel seam and ordered PCM sink.
+- `tts/src/providers/minimax/` - MiniMax account Voice query plus one-WebSocket-per-reply protocol and transport.
 
 Boundary rules:
 
-- `tts -> model_store`; neither crate depends on GPUI, app, runtime, storage, or UI.
+- `tts -> {model_store, audio}`; neither model policy nor provider code depends on GPUI, app, runtime, storage, or UI.
 - `tts` does not depend on Sherpa; `voice_sherpa` consumes validated TTS models to create the engine adapter.
+- Network dependencies are contained below `tts::providers`; credentials and activation remain App responsibilities.
 - Network transfer, progress, cancellation, selection, and deletion orchestration live in `app`.
 
 ## `ui` and `app`

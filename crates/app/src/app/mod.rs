@@ -72,7 +72,7 @@ mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
 pub use e2e::{
     AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState,
-    InitializationAnimationE2eSnapshot, SettingsE2eSnapshot,
+    InitializationAnimationE2eSnapshot, SettingsE2eSnapshot, TtsProviderE2eSnapshot,
 };
 pub(crate) use state::mark_runtime_node_viewed_if_needed;
 pub use state::AppScreen;
@@ -126,6 +126,7 @@ pub struct MultisoulApp {
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
     pub(crate) dialogue: crate::app::dialogue::DialogueControlState,
     pub(crate) tts_preview: crate::app::dialogue::TtsPreviewState,
+    pub(crate) pending_tts_activation: Option<crate::app::dialogue::PendingTtsActivation>,
     pub(crate) tts_selection_generation: u64,
     pub(crate) tts_scan_generation: u64,
     pub(crate) asr_download_cancellations: HashMap<asr::AsrModelId, Arc<AtomicBool>>,
@@ -146,6 +147,7 @@ pub struct MultisoulApp {
     voice_window_inset: VoiceWindowInset,
     voice_window_inset_window_visible: bool,
 }
+
 impl MultisoulApp {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let agent_hook_server = AgentHookServer::start();

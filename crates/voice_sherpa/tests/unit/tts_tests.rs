@@ -4,7 +4,7 @@ use super::{
 };
 use crate::FakeTtsClient;
 use audio::{PcmAudioChunk, PcmFormat};
-use dialogue::{DialogueError, TtsClient};
+use dialogue::{DialogueError, LegacyTtsChunkSink, LegacyTtsClient};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -14,7 +14,7 @@ struct CollectingTtsSink {
     cancelled: AtomicBool,
 }
 
-impl dialogue::TtsChunkSink for CollectingTtsSink {
+impl LegacyTtsChunkSink for CollectingTtsSink {
     fn send(&self, chunk: PcmAudioChunk) -> bool {
         self.chunks
             .lock()

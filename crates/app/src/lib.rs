@@ -27,7 +27,7 @@ pub use app::{
     CopyCardContent, ExitFocus, InitializationAnimationE2eSnapshot, MultisoulApp, NewBrowser,
     NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewGrokAgent, NewOpenCodeAgent, NewTerminal,
     NewWindow, OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
-    ToggleMasterLayout, ToggleSettings,
+    ToggleMasterLayout, ToggleSettings, TtsProviderE2eSnapshot,
 };
 pub use assets::EmbeddedAssets;
 pub use browser_auth_host::run_browser_auth_native_host;

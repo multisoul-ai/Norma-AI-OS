@@ -14,6 +14,52 @@ pub struct TtsModelE2eSnapshot {
     pub deletable: bool,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TtsProviderE2eSnapshot {
+    pub active_provider_id: Option<String>,
+    pub minimax_model_id: Option<String>,
+    pub minimax_voice_id: Option<String>,
+    pub minimax_voice_provenance: &'static str,
+    pub minimax_readiness: &'static str,
+    pub minimax_visible_voice_ids: Vec<String>,
+}
+
+pub(super) fn snapshot_tts_provider(state: &VoiceSettingsState) -> TtsProviderE2eSnapshot {
+    TtsProviderE2eSnapshot {
+        active_provider_id: state
+            .values()
+            .active_tts_provider_id()
+            .map(|id| id.as_str().to_string()),
+        minimax_model_id: state
+            .values()
+            .minimax_tts_model_id()
+            .map(|id| id.as_str().to_string()),
+        minimax_voice_id: state
+            .values()
+            .minimax_tts_voice_id()
+            .map(|id| id.as_str().to_string()),
+        minimax_voice_provenance: match state.values().minimax_tts_voice_provenance() {
+            tts::VoiceSelectionProvenance::Catalog => "catalog",
+            tts::VoiceSelectionProvenance::Manual => "manual",
+        },
+        minimax_readiness: match state.minimax_readiness() {
+            tts::RemoteTtsReadiness::Unconfigured => "unconfigured",
+            tts::RemoteTtsReadiness::Configured => "configured",
+            tts::RemoteTtsReadiness::Checking => "checking",
+            tts::RemoteTtsReadiness::Ready => "ready",
+            tts::RemoteTtsReadiness::TemporarilyUnavailable => "temporarily_unavailable",
+            tts::RemoteTtsReadiness::InvalidCredential => "invalid_credential",
+            tts::RemoteTtsReadiness::VoiceUnavailable => "voice_unavailable",
+            tts::RemoteTtsReadiness::VoiceValidationRequired => "voice_validation_required",
+        },
+        minimax_visible_voice_ids: state
+            .filtered_minimax_voices()
+            .into_iter()
+            .map(|voice| voice.id().as_str().to_string())
+            .collect(),
+    }
+}
+
 pub(super) fn snapshot_tts_models(state: &VoiceSettingsState) -> Vec<TtsModelE2eSnapshot> {
     state
         .tts_model_manager()
@@ -61,6 +107,12 @@ fn installation_action(installation: &TtsModelInstallState, selected: bool) -> &
 }
 
 impl MultisoulApp {
+    #[cfg(feature = "e2e-test-support")]
+    pub fn assume_minimax_connected_for_e2e(&mut self, cx: &mut Context<Self>) {
+        self.voice_settings.assume_minimax_connected_for_e2e();
+        cx.notify();
+    }
+
     pub fn load_tts_selection_for_e2e(
         store: storage::SettingsStore,
     ) -> (Option<String>, Option<String>) {

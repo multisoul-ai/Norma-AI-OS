@@ -10,12 +10,14 @@ mod builders;
 mod credentials;
 #[cfg(feature = "e2e-test-support")]
 mod e2e;
+mod editing;
 mod migration;
 mod model_selection;
 mod persistence;
 mod provider_discovery;
 mod provider_values;
 mod readiness_state;
+mod tts_provider;
 mod values;
 mod zipvoice_reference;
 use credentials::CredentialWriteRollback;
@@ -25,10 +27,7 @@ pub(crate) use provider_discovery::ProviderDiscoveryStatus;
 pub(crate) use provider_values::AgentProviderKind;
 #[cfg(test)]
 pub(crate) use provider_values::SavedProviderProfile;
-use provider_values::{
-    KEY_AGENT_OLLAMA_BASE_URL, KEY_AGENT_OLLAMA_MODEL, KEY_AGENT_OPENAI_BASE_URL,
-    KEY_AGENT_OPENAI_MODEL, KEY_AGENT_PROVIDER,
-};
+use provider_values::KEY_AGENT_PROVIDER;
 pub(crate) use values::{
     DictationTrigger, EnvVoiceSettings, SavedVoiceSettings, VoiceInteractionMode,
     VoiceSettingsField, VoiceSettingsValues,
@@ -56,6 +55,14 @@ pub(crate) struct VoiceSettingsState {
     pending_writes: Vec<PendingVoiceSettingWrite>,
     persistence_running: bool,
     credential_write_rollback: Option<CredentialWriteRollback>,
+    minimax_credential_write_rollback: Option<tts_provider::MiniMaxCredentialWriteRollback>,
+    minimax_credential_clear_rollback: Option<tts_provider::MiniMaxCredentialClearRollback>,
+    minimax_api_key_draft: Option<String>,
+    minimax_account_status: tts::RemoteAccountStatus,
+    minimax_voice_catalog: tts::ProviderVoiceCatalog,
+    minimax_validated_selection: Option<tts::TtsValidatedSelection>,
+    minimax_voice_search: String,
+    minimax_connection_generation: u64,
     model_root: PathBuf,
     model_manager: AsrModelManagerState,
     tts_model_manager: TtsModelManagerState,
@@ -116,6 +123,22 @@ impl VoiceSettingsState {
         model_root: PathBuf,
     ) -> Self {
         let values = VoiceSettingsValues::resolve(&saved, &env);
+        let minimax_validated_selection = saved
+            .minimax_validated_credential_ref
+            .as_deref()
+            .zip(saved.minimax_validated_model_id.as_ref())
+            .zip(saved.minimax_validated_voice_id.as_ref())
+            .map(|((credential_ref, model_id), voice_id)| {
+                let provider_id = tts::TtsProviderId::parse(tts::MINIMAX_TTS_PROVIDER_ID)
+                    .expect("built-in MiniMax TTS Provider ID must be valid");
+                let profile = tts::TtsProviderProfile::new(
+                    provider_id,
+                    model_id.clone(),
+                    voice_id.clone(),
+                    tts::VoiceSelectionProvenance::Manual,
+                );
+                tts::TtsValidatedSelection::from_profile(credential_ref, &profile)
+            });
         let setup_was_completed = saved.setup_completed.unwrap_or(false);
         let model_manager = AsrModelManagerState::unscanned(&asr::builtin_model_catalog());
         let tts_model_manager = TtsModelManagerState::unscanned(&tts::builtin_model_catalog());
@@ -131,6 +154,14 @@ impl VoiceSettingsState {
             pending_writes: Vec::new(),
             persistence_running: false,
             credential_write_rollback: None,
+            minimax_credential_write_rollback: None,
+            minimax_credential_clear_rollback: None,
+            minimax_api_key_draft: None,
+            minimax_account_status: tts::RemoteAccountStatus::Unchecked,
+            minimax_voice_catalog: tts::ProviderVoiceCatalog::default(),
+            minimax_validated_selection,
+            minimax_voice_search: String::new(),
+            minimax_connection_generation: 0,
             model_root,
             model_manager,
             tts_model_manager,
@@ -179,53 +210,6 @@ impl VoiceSettingsState {
 
     pub(crate) fn close_input_device_picker(&mut self) {
         self.input_device_picker_expanded = false;
-    }
-
-    #[cfg(test)]
-    pub(crate) fn begin_edit(&mut self, field: VoiceSettingsField) {
-        self.draft = self.field_value(field);
-        self.editing = Some(field);
-        self.status = None;
-    }
-
-    pub(crate) fn begin_edit_with_value(&mut self, field: VoiceSettingsField, value: String) {
-        self.editing = Some(field);
-        self.draft = value;
-        self.status = None;
-    }
-
-    pub(crate) fn update_edit_value(&mut self, field: VoiceSettingsField, value: String) {
-        if self.editing == Some(field) {
-            self.draft = value;
-        }
-    }
-
-    pub(crate) fn auto_save_edit_value(
-        &mut self,
-        field: VoiceSettingsField,
-        value: String,
-    ) -> Option<String> {
-        if self.editing != Some(field) {
-            return None;
-        }
-        self.draft = value;
-        self.save_edit(field, false)
-    }
-
-    pub(crate) fn commit_edit_value(
-        &mut self,
-        field: VoiceSettingsField,
-        value: String,
-    ) -> Option<String> {
-        self.editing = Some(field);
-        self.draft = value;
-        self.commit_edit(field)
-    }
-
-    pub(crate) fn cancel_edit_field(&mut self, field: VoiceSettingsField) {
-        if self.editing == Some(field) {
-            self.cancel_edit();
-        }
     }
 
     pub(crate) fn select_interaction_mode(&mut self, mode: VoiceInteractionMode) {
@@ -320,97 +304,10 @@ impl VoiceSettingsState {
         self.refresh_values();
     }
 
-    #[cfg(test)]
-    pub(super) fn row_value(&self, field: VoiceSettingsField) -> String {
-        if self.editing == Some(field) && field == VoiceSettingsField::ApiKey {
-            format!("{}|", "•".repeat(self.draft.chars().count()))
-        } else if self.editing == Some(field) {
-            format!("{}|", self.draft)
-        } else if field == VoiceSettingsField::ApiKey {
-            if self
-                .values
-                .active_provider_profile()
-                .credential_configured()
-            {
-                "*********".to_string()
-            } else {
-                "Not configured".to_string()
-            }
-        } else {
-            self.field_value(field)
-        }
-    }
-
     pub(super) fn status(&self) -> Option<(&str, bool)> {
         self.status
             .as_ref()
             .map(|status| (status.message.as_str(), status.is_error))
-    }
-
-    fn cancel_edit(&mut self) {
-        self.editing = None;
-        self.draft.clear();
-        self.status = None;
-    }
-
-    fn commit_edit(&mut self, field: VoiceSettingsField) -> Option<String> {
-        self.save_edit(field, true)
-    }
-
-    fn save_edit(&mut self, field: VoiceSettingsField, finish_editing: bool) -> Option<String> {
-        let value = self.draft.trim().to_string();
-        if value.is_empty() {
-            if field == VoiceSettingsField::ApiKey {
-                if finish_editing {
-                    self.editing = None;
-                    self.draft.clear();
-                }
-                self.status = Some(ok_status("API Key unchanged; use Clear to remove it"));
-            } else {
-                self.status = Some(error_status("Value cannot be empty"));
-            }
-            return None;
-        }
-
-        let key = match field {
-            VoiceSettingsField::BaseUrl => match self.values.agent_provider() {
-                AgentProviderKind::Ollama => {
-                    self.saved.ollama_profile.base_url = Some(value.clone());
-                    KEY_AGENT_OLLAMA_BASE_URL
-                }
-                AgentProviderKind::OpenAiCompatible => {
-                    self.saved.openai_profile.base_url = Some(value.clone());
-                    KEY_AGENT_OPENAI_BASE_URL
-                }
-            },
-            VoiceSettingsField::Model => match self.values.agent_provider() {
-                AgentProviderKind::Ollama => {
-                    self.saved.ollama_profile.model = Some(value.clone());
-                    KEY_AGENT_OLLAMA_MODEL
-                }
-                AgentProviderKind::OpenAiCompatible => {
-                    self.saved.openai_profile.model = Some(value.clone());
-                    KEY_AGENT_OPENAI_MODEL
-                }
-            },
-            VoiceSettingsField::ApiKey => {
-                self.save_active_provider_credential(value.clone());
-                if finish_editing {
-                    self.editing = None;
-                    self.draft.clear();
-                }
-                self.refresh_values();
-                return Some(value);
-            }
-        };
-        self.persist_string(key, &value);
-        self.invalidate_provider_requirement();
-        if finish_editing {
-            self.editing = None;
-            self.draft.clear();
-        }
-        self.refresh_values();
-        Some(value)
     }
 
     fn persist_string(&mut self, key: &str, value: &str) {
@@ -447,20 +344,6 @@ impl VoiceSettingsState {
     fn refresh_values(&mut self) {
         self.values = VoiceSettingsValues::resolve(&self.saved, &self.env);
     }
-
-    fn field_value(&self, field: VoiceSettingsField) -> String {
-        match field {
-            VoiceSettingsField::BaseUrl => {
-                self.values.active_provider_profile().base_url().to_string()
-            }
-            VoiceSettingsField::Model => self.values.active_provider_profile().model().to_string(),
-            VoiceSettingsField::ApiKey => String::new(),
-        }
-    }
-
-    pub(crate) fn editor_value(&self, field: VoiceSettingsField) -> String {
-        self.field_value(field)
-    }
 }
 
 fn ok_status(message: impl Into<String>) -> VoiceSettingsStatus {
@@ -496,3 +379,11 @@ mod voice_settings_provider_persistence_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_disclosure_tests.rs"]
 mod voice_settings_disclosure_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_tts_provider_tests.rs"]
+mod voice_settings_tts_provider_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_tts_credential_tests.rs"]
+mod voice_settings_tts_credential_tests;

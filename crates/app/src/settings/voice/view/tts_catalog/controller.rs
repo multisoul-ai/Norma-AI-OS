@@ -6,9 +6,8 @@ use std::sync::Arc;
 
 mod reference;
 mod work;
-use work::{
-    install_tts_package, resolve_tts_selection, synthesize_tts_preview, validate_tts_selection,
-};
+pub(crate) use work::synthesize_tts_preview;
+use work::{install_tts_package, resolve_tts_selection, validate_tts_selection};
 
 enum TtsInstallEvent {
     Progress(u64, u64),
@@ -46,17 +45,29 @@ impl MultisoulApp {
                     return;
                 }
                 app.voice_settings.replace_tts_model_manager(manager);
+                let local_active = app
+                    .voice_settings
+                    .values()
+                    .active_tts_provider_id()
+                    .is_some_and(|provider| provider.as_str() == tts::LOCAL_TTS_PROVIDER_ID);
                 match configured {
-                    Ok(Some(model)) => crate::app::dialogue::configure_selected_tts_model(Some(model)),
+                    Ok(Some(model)) if local_active => {
+                        crate::app::dialogue::configure_selected_tts_model(Some(model))
+                    }
+                    Ok(Some(_)) => {}
                     Ok(None) => {
-                        crate::app::dialogue::configure_selected_tts_model(None);
+                        if local_active {
+                            crate::app::dialogue::configure_selected_tts_model(None);
+                        }
                         app.voice_settings.report_tts_status(
                             "No Local TTS model is selected; replies will stay text-only.",
                             false,
                         );
                     }
                     Err(error) => {
-                        crate::app::dialogue::configure_selected_tts_model(None);
+                        if local_active {
+                            crate::app::dialogue::configure_selected_tts_model(None);
+                        }
                         app.voice_settings.report_tts_status(
                             format!(
                                 "Saved Local TTS selection is unavailable; replies will stay text-only: {error}"
@@ -261,6 +272,28 @@ impl MultisoulApp {
         voice_id: tts::TtsVoiceId,
         cx: &mut Context<Self>,
     ) {
+        let root = self.voice_settings.tts_model_root();
+        self.preview_tts_selection_work(
+            move |tts_runtime, cancelled| {
+                let selected = resolve_tts_selection(&root, model_id, Some(voice_id))?;
+                synthesize_tts_preview(&tts_runtime, &selected, cancelled)
+            },
+            false,
+            cx,
+        );
+    }
+
+    pub(crate) fn preview_tts_selection_work(
+        &mut self,
+        synthesis: impl FnOnce(
+                crate::app::dialogue::SharedTtsRuntime,
+                Arc<AtomicBool>,
+            ) -> Result<audio::PcmAudioChunk, String>
+            + Send
+            + 'static,
+        validate_manual_minimax_voice: bool,
+        cx: &mut Context<Self>,
+    ) {
         if self.dialogue.phase() == dialogue::DialoguePhase::Speaking {
             self.voice_settings.report_tts_status(
                 "Voice preview is unavailable while an assistant reply is playing.",
@@ -270,15 +303,14 @@ impl MultisoulApp {
             return;
         }
         self.cancel_agent_announcements();
-        let root = self.voice_settings.tts_model_root();
         let configuration_generation = self.dialogue.tts_configuration_generation();
         let (preview_generation, control) = self.tts_preview.start();
         self.dialogue.track_tts_preview(Arc::clone(&control));
         let tts_runtime = self.dialogue.shared_tts_runtime();
-        let work = cx.background_executor().spawn(async move {
-            let selected = resolve_tts_selection(&root, model_id, Some(voice_id))?;
-            synthesize_tts_preview(&tts_runtime, &selected)
-        });
+        let cancelled = control.cancellation_flag();
+        let work = cx
+            .background_executor()
+            .spawn(async move { synthesis(tts_runtime, cancelled) });
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
@@ -291,6 +323,9 @@ impl MultisoulApp {
                             && same_configuration
                             && app.dialogue.phase() != dialogue::DialoguePhase::Speaking =>
                     {
+                        if validate_manual_minimax_voice {
+                            app.voice_settings.mark_minimax_manual_voice_validated();
+                        }
                         let control = Arc::clone(&control);
                         let playback_work = cx.background_executor().spawn(async move {
                             let result = control.play_with_completion(&chunk);
@@ -383,6 +418,10 @@ impl MultisoulApp {
             Some(selected.model_id.clone()),
             Some(selected.voice_id.clone()),
         );
+        self.voice_settings.select_tts_provider(Some(
+            tts::TtsProviderId::parse(tts::LOCAL_TTS_PROVIDER_ID)
+                .expect("built-in On-device TTS Provider ID must be valid"),
+        ));
         crate::app::dialogue::configure_selected_tts_model(Some(selected));
         self.complete_voice_setup_if_ready(cx);
         self.persist_voice_settings_in_background(cx);

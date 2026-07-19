@@ -20,6 +20,15 @@ pub(super) const LEGACY_KEY_DICTATION_TRIGGER: &str = "voice.dictation.trigger";
 pub(super) const KEY_ASR_MODEL_ID: &str = "voice.asr.model_id";
 pub(super) const KEY_TTS_MODEL_ID: &str = "voice.tts.model_id";
 pub(super) const KEY_TTS_VOICE_ID: &str = "voice.tts.voice_id";
+pub(super) const KEY_TTS_ACTIVE_PROVIDER_ID: &str = "voice.tts.active_provider_id";
+pub(super) const KEY_TTS_MINIMAX_MODEL_ID: &str = "voice.tts.minimax.model_id";
+pub(super) const KEY_TTS_MINIMAX_VOICE_ID: &str = "voice.tts.minimax.voice_id";
+pub(super) const KEY_TTS_MINIMAX_VOICE_PROVENANCE: &str = "voice.tts.minimax.voice_provenance";
+pub(super) const KEY_TTS_MINIMAX_CREDENTIAL_REF: &str = "voice.tts.minimax.credential_ref";
+pub(super) const KEY_TTS_MINIMAX_VALIDATED_CREDENTIAL_REF: &str =
+    "voice.tts.minimax.validated_credential_ref";
+pub(super) const KEY_TTS_MINIMAX_VALIDATED_MODEL_ID: &str = "voice.tts.minimax.validated_model_id";
+pub(super) const KEY_TTS_MINIMAX_VALIDATED_VOICE_ID: &str = "voice.tts.minimax.validated_voice_id";
 pub(super) const KEY_INPUT_DEVICE_ID: &str = "voice.input_device_id";
 pub(super) const KEY_TRACE_ENABLED: &str = "voice.trace_enabled";
 pub(super) const KEY_AGENT_TASK_ANNOUNCEMENTS_ENABLED: &str =
@@ -77,6 +86,15 @@ pub(crate) struct SavedVoiceSettings {
     pub(crate) asr_model_id: Option<AsrModelId>,
     pub(crate) tts_model_id: Option<TtsModelId>,
     pub(crate) tts_voice_id: Option<TtsVoiceId>,
+    pub(crate) active_tts_provider_id: Option<tts::TtsProviderId>,
+    pub(crate) minimax_tts_model_id: Option<TtsModelId>,
+    pub(crate) minimax_tts_voice_id: Option<TtsVoiceId>,
+    pub(crate) minimax_tts_voice_provenance: Option<tts::VoiceSelectionProvenance>,
+    pub(crate) minimax_tts_credential_ref: Option<String>,
+    pub(crate) minimax_tts_api_key: Option<String>,
+    pub(crate) minimax_validated_credential_ref: Option<String>,
+    pub(crate) minimax_validated_model_id: Option<TtsModelId>,
+    pub(crate) minimax_validated_voice_id: Option<TtsVoiceId>,
     pub(crate) agent_provider: Option<AgentProviderKind>,
     pub(crate) ollama_profile: SavedProviderProfile,
     pub(crate) openai_profile: SavedProviderProfile,
@@ -106,6 +124,12 @@ pub(crate) struct VoiceSettingsValues {
     pub(crate) asr_model_id: Option<AsrModelId>,
     pub(crate) tts_model_id: Option<TtsModelId>,
     pub(crate) tts_voice_id: Option<TtsVoiceId>,
+    pub(crate) active_tts_provider_id: Option<tts::TtsProviderId>,
+    pub(crate) minimax_tts_model_id: Option<TtsModelId>,
+    pub(crate) minimax_tts_voice_id: Option<TtsVoiceId>,
+    pub(crate) minimax_tts_voice_provenance: tts::VoiceSelectionProvenance,
+    pub(crate) minimax_tts_credential_ref: Option<String>,
+    pub(crate) minimax_tts_api_key: Option<String>,
     pub(crate) agent_provider: AgentProviderKind,
     pub(crate) ollama_profile: ProviderProfileValues,
     pub(crate) openai_profile: ProviderProfileValues,
@@ -123,6 +147,9 @@ pub(crate) enum VoiceSettingsField {
     BaseUrl,
     Model,
     ApiKey,
+    MiniMaxApiKey,
+    MiniMaxVoiceId,
+    MiniMaxVoiceSearch,
 }
 
 impl VoiceSettingsField {
@@ -131,6 +158,9 @@ impl VoiceSettingsField {
             Self::BaseUrl => "agent_base_url",
             Self::Model => "agent_model",
             Self::ApiKey => "agent_api_key",
+            Self::MiniMaxApiKey => "tts_minimax_api_key",
+            Self::MiniMaxVoiceId => "tts_minimax_voice_id",
+            Self::MiniMaxVoiceSearch => "tts_minimax_voice_search",
         }
     }
 }
@@ -142,6 +172,12 @@ impl VoiceSettingsValues {
         let asr_model_id = saved.asr_model_id.clone();
         let tts_model_id = saved.tts_model_id.clone();
         let tts_voice_id = saved.tts_voice_id.clone();
+        let active_tts_provider_id = saved.active_tts_provider_id.clone().or_else(|| {
+            (tts_model_id.is_some() && tts_voice_id.is_some()).then(|| {
+                tts::TtsProviderId::parse(tts::LOCAL_TTS_PROVIDER_ID)
+                    .expect("built-in On-device TTS Provider ID must be valid")
+            })
+        });
         let endpoint = first_non_empty(
             saved.ollama_endpoint.as_deref(),
             env.ollama_endpoint.as_deref(),
@@ -249,6 +285,14 @@ impl VoiceSettingsValues {
             asr_model_id,
             tts_model_id,
             tts_voice_id,
+            active_tts_provider_id,
+            minimax_tts_model_id: saved.minimax_tts_model_id.clone(),
+            minimax_tts_voice_id: saved.minimax_tts_voice_id.clone(),
+            minimax_tts_voice_provenance: saved
+                .minimax_tts_voice_provenance
+                .unwrap_or(tts::VoiceSelectionProvenance::Manual),
+            minimax_tts_credential_ref: saved.minimax_tts_credential_ref.clone(),
+            minimax_tts_api_key: non_empty_option(saved.minimax_tts_api_key.clone()),
             agent_provider,
             ollama_profile,
             openai_profile,
@@ -284,6 +328,46 @@ impl VoiceSettingsValues {
     }
     pub(crate) fn tts_voice_id(&self) -> Option<&TtsVoiceId> {
         self.tts_voice_id.as_ref()
+    }
+
+    pub(crate) fn active_tts_provider_id(&self) -> Option<&tts::TtsProviderId> {
+        self.active_tts_provider_id.as_ref()
+    }
+
+    pub(crate) fn minimax_tts_model_id(&self) -> Option<&TtsModelId> {
+        self.minimax_tts_model_id.as_ref()
+    }
+
+    pub(crate) fn minimax_tts_voice_id(&self) -> Option<&TtsVoiceId> {
+        self.minimax_tts_voice_id.as_ref()
+    }
+
+    pub(crate) fn minimax_tts_voice_provenance(&self) -> tts::VoiceSelectionProvenance {
+        self.minimax_tts_voice_provenance
+    }
+
+    pub(crate) fn minimax_tts_credential_ref(&self) -> Option<&str> {
+        self.minimax_tts_credential_ref.as_deref()
+    }
+
+    pub(crate) fn minimax_tts_api_key(&self) -> Option<&str> {
+        self.minimax_tts_api_key.as_deref()
+    }
+
+    pub(crate) fn active_tts_model_id(&self) -> Option<&TtsModelId> {
+        match self.active_tts_provider_id.as_ref()?.as_str() {
+            tts::LOCAL_TTS_PROVIDER_ID => self.tts_model_id(),
+            tts::MINIMAX_TTS_PROVIDER_ID => self.minimax_tts_model_id(),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn active_tts_voice_id(&self) -> Option<&TtsVoiceId> {
+        match self.active_tts_provider_id.as_ref()?.as_str() {
+            tts::LOCAL_TTS_PROVIDER_ID => self.tts_voice_id(),
+            tts::MINIMAX_TTS_PROVIDER_ID => self.minimax_tts_voice_id(),
+            _ => None,
+        }
     }
 
     pub(crate) fn active_provider_profile(&self) -> &ProviderProfileValues {
@@ -359,6 +443,9 @@ impl VoiceSettingsField {
             Self::BaseUrl => 0,
             Self::Model => 1,
             Self::ApiKey => 2,
+            Self::MiniMaxApiKey => 3,
+            Self::MiniMaxVoiceId => 4,
+            Self::MiniMaxVoiceSearch => 5,
         }
     }
 }

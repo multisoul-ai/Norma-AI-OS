@@ -36,7 +36,7 @@ fn test_dialogue_and_agent_announcement_share_one_resident_tts_client() {
                     creations_for_factory.fetch_add(1, Ordering::SeqCst);
                     Ok::<_, String>(super::fake_tts_client_for_tests())
                 },
-                |tts| tts.synthesize(text).map_err(|error| error.to_string()),
+                |tts| super::reply::synthesize_reply(tts, text).map_err(|error| error.to_string()),
             )
             .expect("Fake TTS 合成不应失败")
     };

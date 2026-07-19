@@ -1,0 +1,202 @@
+use super::{new_input, status, VoiceInputConfig, VoiceTextInput};
+use crate::app::MultisoulApp;
+use crate::settings::voice::state::{VoiceSettingsField, VoiceSettingsState};
+use gpui::{App, Context, Entity, FocusHandle, WeakEntity, Window};
+use ui::Theme;
+
+fn create_input(
+    field: VoiceSettingsField,
+    placeholder: &'static str,
+    masked: bool,
+    app: WeakEntity<MultisoulApp>,
+    root_focus: FocusHandle,
+    state: &VoiceSettingsState,
+    theme: Theme,
+    cx: &mut Context<MultisoulApp>,
+) -> Entity<VoiceTextInput> {
+    new_input(
+        VoiceInputConfig {
+            field,
+            value: state.editor_value(field),
+            placeholder,
+            masked,
+            theme,
+        },
+        app,
+        root_focus,
+        cx,
+    )
+}
+
+pub(crate) struct VoiceSettingsInputs {
+    base_url: Entity<VoiceTextInput>,
+    model: Entity<VoiceTextInput>,
+    pub(super) api_key: Entity<VoiceTextInput>,
+    minimax_api_key: Entity<VoiceTextInput>,
+    minimax_voice_id: Entity<VoiceTextInput>,
+    minimax_voice_search: Entity<VoiceTextInput>,
+}
+
+impl VoiceSettingsInputs {
+    pub(crate) fn load_default(
+        app: WeakEntity<MultisoulApp>,
+        root_focus: FocusHandle,
+        theme: Theme,
+        cx: &mut Context<MultisoulApp>,
+    ) -> (VoiceSettingsState, Self) {
+        let state = VoiceSettingsState::load_default();
+        let inputs = Self::new(app, root_focus, &state, theme, cx);
+        (state, inputs)
+    }
+
+    pub(crate) fn new(
+        app: WeakEntity<MultisoulApp>,
+        root_focus: FocusHandle,
+        state: &VoiceSettingsState,
+        theme: Theme,
+        cx: &mut Context<MultisoulApp>,
+    ) -> Self {
+        let base_url = create_input(
+            VoiceSettingsField::BaseUrl,
+            "https://api.example.com/v1",
+            false,
+            app.clone(),
+            root_focus.clone(),
+            state,
+            theme,
+            cx,
+        );
+        let model = create_input(
+            VoiceSettingsField::Model,
+            "Model name",
+            false,
+            app.clone(),
+            root_focus.clone(),
+            state,
+            theme,
+            cx,
+        );
+        let api_key = create_input(
+            VoiceSettingsField::ApiKey,
+            status::input_placeholder(state, VoiceSettingsField::ApiKey),
+            true,
+            app.clone(),
+            root_focus.clone(),
+            state,
+            theme,
+            cx,
+        );
+        let minimax_api_key = create_input(
+            VoiceSettingsField::MiniMaxApiKey,
+            status::input_placeholder(state, VoiceSettingsField::MiniMaxApiKey),
+            true,
+            app.clone(),
+            root_focus.clone(),
+            state,
+            theme,
+            cx,
+        );
+        let minimax_voice_id = create_input(
+            VoiceSettingsField::MiniMaxVoiceId,
+            "Enter Voice ID",
+            false,
+            app.clone(),
+            root_focus.clone(),
+            state,
+            theme,
+            cx,
+        );
+        let minimax_voice_search = create_input(
+            VoiceSettingsField::MiniMaxVoiceSearch,
+            "Search by name or Voice ID",
+            false,
+            app,
+            root_focus,
+            state,
+            theme,
+            cx,
+        );
+        Self {
+            base_url,
+            model,
+            api_key,
+            minimax_api_key,
+            minimax_voice_id,
+            minimax_voice_search,
+        }
+    }
+
+    pub(crate) fn input(&self, field: VoiceSettingsField) -> Entity<VoiceTextInput> {
+        match field {
+            VoiceSettingsField::BaseUrl => self.base_url.clone(),
+            VoiceSettingsField::Model => self.model.clone(),
+            VoiceSettingsField::ApiKey => self.api_key.clone(),
+            VoiceSettingsField::MiniMaxApiKey => self.minimax_api_key.clone(),
+            VoiceSettingsField::MiniMaxVoiceId => self.minimax_voice_id.clone(),
+            VoiceSettingsField::MiniMaxVoiceSearch => self.minimax_voice_search.clone(),
+        }
+    }
+
+    pub(crate) fn sync_from_state(
+        &self,
+        state: &VoiceSettingsState,
+        cx: &mut Context<MultisoulApp>,
+    ) {
+        for field in [
+            VoiceSettingsField::BaseUrl,
+            VoiceSettingsField::Model,
+            VoiceSettingsField::ApiKey,
+            VoiceSettingsField::MiniMaxApiKey,
+            VoiceSettingsField::MiniMaxVoiceId,
+            VoiceSettingsField::MiniMaxVoiceSearch,
+        ] {
+            self.sync_field_from_state(field, state, cx);
+        }
+    }
+
+    pub(crate) fn set_theme(&self, theme: Theme, cx: &mut Context<MultisoulApp>) {
+        for input in [
+            &self.base_url,
+            &self.model,
+            &self.api_key,
+            &self.minimax_api_key,
+            &self.minimax_voice_id,
+            &self.minimax_voice_search,
+        ] {
+            input.update(cx, |input, cx| input.set_theme(theme, cx));
+        }
+    }
+
+    pub(crate) fn is_focused(&self, window: &Window, cx: &App) -> bool {
+        [
+            &self.base_url,
+            &self.model,
+            &self.api_key,
+            &self.minimax_api_key,
+            &self.minimax_voice_id,
+            &self.minimax_voice_search,
+        ]
+        .into_iter()
+        .any(|input| input.read(cx).focus_handle.is_focused(window))
+    }
+
+    pub(crate) fn input_surface_size(
+        &self,
+        field: VoiceSettingsField,
+        cx: &App,
+    ) -> Option<(u32, u32)> {
+        self.input(field).read(cx).last_bounds.map(|bounds| {
+            let width = (bounds.size.width / gpui::px(1.0)).max(0.0).round() as u32;
+            let height = (bounds.size.height / gpui::px(1.0)).max(0.0).round() as u32;
+            (width, height)
+        })
+    }
+
+    pub(crate) fn rendered_text(&self, field: VoiceSettingsField, cx: &App) -> Option<String> {
+        self.input(field)
+            .read(cx)
+            .last_layout
+            .as_ref()
+            .map(|layout| layout.text.to_string())
+    }
+}

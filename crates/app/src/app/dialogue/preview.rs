@@ -10,14 +10,14 @@ use std::sync::{Arc, Mutex};
 /// A preview has its own sink and cancellation control, so it never enters the assistant
 /// reply queue or dialogue phase.
 pub(crate) struct TtsPreviewControl {
-    cancelled: AtomicBool,
+    cancelled: Arc<AtomicBool>,
     sink: Mutex<Option<Box<dyn AssistantAudioSink>>>,
 }
 
 impl TtsPreviewControl {
     pub(crate) fn new() -> Self {
         Self {
-            cancelled: AtomicBool::new(false),
+            cancelled: Arc::new(AtomicBool::new(false)),
             sink: Mutex::new(None),
         }
     }
@@ -36,6 +36,10 @@ impl TtsPreviewControl {
 
     pub(crate) fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn cancellation_flag(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.cancelled)
     }
 
     pub(crate) fn play_with_completion(
@@ -127,6 +131,7 @@ impl TtsPreviewState {
             .is_some_and(|control| !control.is_cancelled())
     }
 
+    #[cfg(feature = "e2e-test-support")]
     pub(crate) fn pcm_queue_count(&self) -> u64 {
         self.pcm_queue_count
     }

@@ -1,5 +1,6 @@
 use super::provider::agent_provider_setup_group;
 use super::tts_catalog::tts_catalog_row;
+use super::tts_provider::tts_provider_settings;
 use super::{action_button, with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
 use crate::settings::voice::{
@@ -99,6 +100,7 @@ pub(super) fn voice_setup(
                     spoken_replies_detail(
                         theme,
                         state,
+                        inputs,
                         content_scroll,
                         setup_scroll_target == Some(VoiceSetupDestination::SpokenReplies),
                         window,
@@ -301,6 +303,7 @@ fn microphone_detail(
 fn spoken_replies_detail(
     theme: Theme,
     state: &VoiceSettingsState,
+    inputs: &VoiceSettingsInputs,
     content_scroll: &ScrollHandle,
     focus_spoken_replies: bool,
     window: &mut Window,
@@ -308,7 +311,13 @@ fn spoken_replies_detail(
 ) -> Div {
     div().w_full().child(
         setup_detail_with_scroll_focus(
-            tts_catalog_row(theme, state, window, cx),
+            div()
+                .w_full()
+                .flex()
+                .flex_col()
+                .gap(px(14.0))
+                .child(tts_provider_settings(theme, state, inputs, cx))
+                .child(tts_catalog_row(theme, state, window, cx)),
             content_scroll,
             focus_spoken_replies,
         )

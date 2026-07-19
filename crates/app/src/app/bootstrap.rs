@@ -72,6 +72,7 @@ impl MultisoulApp {
             voice: crate::app::voice::control::VoiceControlState::default(),
             dialogue: crate::app::dialogue::DialogueControlState::default(),
             tts_preview: crate::app::dialogue::TtsPreviewState::default(),
+            pending_tts_activation: None,
             tts_selection_generation: 0,
             tts_scan_generation: 0,
             asr_download_cancellations: std::collections::HashMap::new(),

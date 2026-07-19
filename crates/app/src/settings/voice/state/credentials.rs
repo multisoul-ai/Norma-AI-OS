@@ -78,6 +78,8 @@ impl VoiceSettingsState {
 
     pub(crate) fn credential_persistence_pending(&self) -> bool {
         self.credential_write_rollback.is_some()
+            || self.minimax_credential_write_rollback.is_some()
+            || self.minimax_credential_clear_rollback.is_some()
     }
 
     pub(crate) fn load_credential(account: &str) -> Result<Option<String>, String> {

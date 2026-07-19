@@ -63,7 +63,10 @@ impl fmt::Debug for VoiceSettingsValues {
 
 impl fmt::Debug for VoiceSettingsState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let draft = if self.editing == Some(VoiceSettingsField::ApiKey) {
+        let draft = if matches!(
+            self.editing,
+            Some(VoiceSettingsField::ApiKey | VoiceSettingsField::MiniMaxApiKey)
+        ) {
             "<redacted>"
         } else {
             self.draft.as_str()

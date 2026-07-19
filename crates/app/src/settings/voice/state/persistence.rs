@@ -49,6 +49,10 @@ impl PendingVoiceSettingWrite {
 }
 
 impl VoiceSettingsState {
+    pub(crate) fn settings_persistence_pending(&self) -> bool {
+        self.persistence_running || !self.pending_writes.is_empty()
+    }
+
     pub(crate) fn take_pending_writes(&mut self) -> Vec<PendingVoiceSettingWrite> {
         if self.persistence_running || self.pending_writes.is_empty() {
             return Vec::new();
@@ -60,6 +64,7 @@ impl VoiceSettingsState {
     pub(crate) fn record_persistence_result(&mut self, result: Result<(), String>) {
         self.persistence_running = false;
         self.finish_credential_persistence(&result);
+        self.finish_minimax_credential_persistence(&result);
         self.status = Some(match result {
             Ok(()) => ok_status("Saved"),
             Err(error) => error_status(format!("Could not save setting: {error}")),

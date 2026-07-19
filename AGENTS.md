@@ -18,11 +18,11 @@ Workspace 分层：
 - `crates/agent/` - 零 GPUI/Storage Agent Runtime：NormaSession、Rig Provider、typed tools、AgentCardAdapter 与预算。
 - `crates/asr/` - 零 GPUI/Sherpa ASR 领域层：模型身份、受控目录、安装清单、完整性与共享 VAD 工件。
 - `crates/model_store/` - 零 GPUI/网络的共享本地模型安装原语：受控解压、哈希、manifest 与原子提升。
-- `crates/tts/` - 零 GPUI/Sherpa TTS 领域层：模型/语音身份、固定目录、能力与安装验证。
+- `crates/tts/` - 零 GPUI/Storage/Sherpa TTS 能力层：供应商注册表、回复级流接口、本地模型策略与内置远程 Providers。
 - `crates/ui/` - GPUI 主题与共享 UI 基础。
 - `crates/app/` - GPUI/Metal 壳层：窗口、菜单、快捷键、画布与 cards 渲染。
 
-依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr, tts, voice_sherpa}`，`voice_sherpa -> {asr, tts, dialogue, audio}`，`tts -> model_store`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent` 不得依赖 `app/runtime/storage/ui`，且 `asr/tts` 不得依赖 Sherpa；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
+依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr, tts, voice_sherpa}`，`voice_sherpa -> {asr, tts, dialogue, audio}`，`tts -> {model_store, audio}`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent` 不得依赖 `app/runtime/storage/ui`，且 `asr/tts` 不得依赖 Sherpa；`tts` 的网络协议只能位于 `tts::providers`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
 
 ### 源码组织
 
@@ -81,7 +81,7 @@ Workspace 分层：
 | Runtime | 纯 Rust 状态机与 LiveNode 注册表 |
 | Storage | rusqlite bundled SQLite、recent/settings/canvas/session checkpoint |
 | ASR | 受控模型目录、SHA-256、tar.bz2 原子安装；Sherpa 适配在 `voice_sherpa` |
-| TTS | 固定模型/语音目录与安装验证；共享安装原语在 `model_store`，Sherpa 适配在 `voice_sherpa` |
+| TTS | 内置 Provider 注册表、回复级 PCM 流、本地模型验证；远程协议在 `tts::providers`，Sherpa 适配在 `voice_sherpa` |
 | Packaging | cargo-packager, 未签名 `.app` / `.dmg` |
 
 ## 4. Where to find
@@ -101,7 +101,7 @@ Workspace 分层：
 | ASR 模型身份、目录、安装与完整性 | [`crates/asr/src/`](crates/asr/src/) |
 | ASR Hotword 加载、扩展与调优 | [`docs/references/asr-hotwords.md`](docs/references/asr-hotwords.md) |
 | 通用本地模型安装原语 | [`crates/model_store/src/`](crates/model_store/src/) |
-| TTS 模型/语音目录与安装验证 | [`crates/tts/src/`](crates/tts/src/) |
+| TTS Provider、流接口、模型/Voice 与安装验证 | [`crates/tts/src/`](crates/tts/src/) |
 | SQLite store、migration、持久化边界 | [`crates/storage/src/`](crates/storage/src/) |
 | Workspace 元数据、路径展示 | [`crates/workspace/src/`](crates/workspace/src/) |
 | 主题色 | [`crates/ui/src/theme.rs`](crates/ui/src/theme.rs) |
@@ -135,6 +135,7 @@ Workspace 分层：
 | 跨 crate 行为 | `cargo test --workspace` |
 | GPUI/打包相关 | `cargo build -p app --release` |
 | 域层依赖边界 | `cargo tree -p canvas -p terminal -p runtime | grep -i gpui` 应无输出 |
+| TTS Provider 网络边界 | `bash scripts/check-tts-provider-boundaries.sh` |
 | 存储层依赖与热路径边界 | `bash scripts/check-storage-boundaries.sh` |
 | 拖拽/关闭/session 扫描性能护栏 | `bash scripts/check-performance-guardrails.sh` |
 | 视频壁纸低拷贝护栏 | `python3 scripts/check-video-wallpaper-performance.py` |
@@ -151,6 +152,7 @@ cargo test --workspace
 cargo check -p app
 bash scripts/check-storage-boundaries.sh
 bash scripts/check-performance-guardrails.sh
+bash scripts/check-tts-provider-boundaries.sh
 python3 scripts/check-video-wallpaper-performance.py
 bash scripts/check-max-file-lines.sh
 bash scripts/check-no-allow.sh

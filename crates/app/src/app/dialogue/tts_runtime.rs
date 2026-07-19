@@ -23,7 +23,7 @@ impl SharedTtsRuntime {
         &self,
         selection: Option<SelectedTtsModel>,
         create: impl FnOnce() -> Result<TtsClientBox, E>,
-        operation: impl FnOnce(&mut dyn dialogue::TtsClient) -> Result<R, E>,
+        operation: impl FnOnce(&mut dyn tts::TtsClient) -> Result<R, E>,
     ) -> Result<R, E> {
         let mut resident = self
             .resident
