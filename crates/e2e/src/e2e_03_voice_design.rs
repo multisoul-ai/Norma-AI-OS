@@ -16,19 +16,24 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///   1. 创建 fresh App、进入 Canvas，并清空四项 Voice readiness
 ///   2. 分发一次 `cmd-e` → 打开 Settings → Voice 内的 Setup 内容
 ///   3. 检查 Settings 侧栏、Voice 页头、页内进度、纵向步骤轨道和三张步骤卡
-///   4. 检查麦克风操作位于 Speech Recognition 内，AI Connection 无需展开即可配置
-///   5. 确认 TTS 目录归属 Spoken Replies，再点击“选择其他识别模型”展开 ASR 目录
+///   4. 检查麦克风与 Recognition source 位于 Speech Recognition 内，默认只显示 On-device 摘要
+///   5. 点击 Azure Speech → 原卡片内只显示 Azure 配置；点击 On-device → 恢复本地模型摘要
+///   6. 确认 TTS 目录归属 Spoken Replies，再点击“选择其他识别模型”展开 ASR 目录
 ///
 /// 预期结果：
-///   - 正断言：Voice Settings 外壳、三步、Spoken Replies TTS 目录均可见
-///   - 负断言：Setup 不得脱离 Settings 外壳；644 MB 推荐包卡片不得存在；ASR 目录在用户主动展开前不得铺满页面
+///   - 正断言：Voice Settings 外壳、三步、来源切换、On-device 下载入口和 Spoken Replies TTS 目录均可见
+///   - 负断言：Setup 不得脱离 Settings 外壳；Azure 与本地模型配置不得同时铺开；切换配置不得开始录音
 #[test]
 fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
     let workspace = tempfile::TempDir::new().expect("Voice design workspace should create");
     enter_canvas(&app, cx, workspace.path());
-    app.update(cx, |app, _cx| app.reset_voice_setup_for_e2e());
+    app.update(cx, |app, cx| {
+        app.set_voice_model_root_for_e2e(workspace.path().join("models"), cx);
+        app.reset_voice_setup_for_e2e();
+    });
+    cx.run_until_parked();
 
     cx.simulate_keystrokes("cmd-e");
     cx.run_until_parked();
@@ -62,6 +67,22 @@ fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
         "Speech Recognition step must expose its required microphone prerequisite"
     );
     assert!(
+        cx.debug_bounds("voice-setup-asr-source-local").is_some(),
+        "Speech Recognition must expose On-device as a first-class source inside the existing step card"
+    );
+    assert!(
+        cx.debug_bounds("voice-setup-asr-source-azure").is_some(),
+        "Speech Recognition must expose Azure Speech beside On-device inside the existing step card"
+    );
+    assert!(
+        cx.debug_bounds("voice-setup-asr-local-detail").is_some(),
+        "fresh Local setup must render the compact On-device model summary"
+    );
+    assert!(
+        cx.debug_bounds("voice-setup-asr-azure-detail").is_none(),
+        "fresh Local setup must not also render Azure configuration"
+    );
+    assert!(
         cx.debug_bounds("voice-setup-install-recommended").is_none(),
         "Voice Setup must not render the removed 644 MB recommended package card"
     );
@@ -83,6 +104,62 @@ fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
         cx.debug_bounds("settings-tts-model-0").is_some(),
         "Spoken Replies must directly expose the first local TTS model without opening ASR options"
     );
+    let azure_source = cx
+        .debug_bounds("voice-setup-asr-source-azure")
+        .expect("fresh Setup must keep Azure Speech source clickable");
+    cx.simulate_mouse_move(azure_source.center(), None, Modifiers::none());
+    cx.simulate_click(azure_source.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("voice-setup-asr-azure-detail").is_some(),
+        "Azure Speech selection must reveal its configuration inside the existing Speech Recognition card"
+    );
+    assert_eq!(
+        app.read_with(cx, |app, _cx| app.setup_asr_source_for_e2e()),
+        "cloud_azure",
+        "Azure Speech selection must make Azure the only Setup source projection"
+    );
+    assert!(
+        cx.debug_bounds("settings-voice-field-azure-region")
+            .is_some(),
+        "Azure configuration must keep the existing editable region control reachable"
+    );
+    assert!(
+        cx.debug_bounds("settings-asr-azure-locale-catalog")
+            .is_some(),
+        "Azure configuration must reuse the supported locale catalog instead of relying on free-form input"
+    );
+    assert!(
+        cx.debug_bounds("settings-asr-azure-locale-0").is_some(),
+        "Azure locale catalog must expose at least one selectable supported locale"
+    );
+    assert!(
+        cx.debug_bounds("settings-voice-field-azure-api-key")
+            .is_some(),
+        "Azure configuration must keep the Keychain-backed credential control reachable"
+    );
+    assert_ne!(
+        app.update(cx, |app, _cx| app.voice_e2e_snapshot().phase),
+        "recording",
+        "browsing Azure configuration must not start recognition"
+    );
+
+    let local_source = cx
+        .debug_bounds("voice-setup-asr-source-local")
+        .expect("Azure Setup must keep the On-device source action visible");
+    cx.simulate_mouse_move(local_source.center(), None, Modifiers::none());
+    cx.simulate_click(local_source.center(), Modifiers::none());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("voice-setup-asr-local-detail").is_some(),
+        "returning to On-device must restore the local model summary in the same card"
+    );
+    assert_eq!(
+        app.read_with(cx, |app, _cx| app.setup_asr_source_for_e2e()),
+        "local_sherpa",
+        "returning to On-device must make Local Sherpa the only Setup source projection"
+    );
+
     let alternative_models = cx
         .debug_bounds("voice-setup-alternative-models-toggle")
         .expect("fresh Setup must render the alternative model disclosure action");
@@ -96,6 +173,10 @@ fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
     assert!(
         cx.debug_bounds("settings-asr-model-0").is_some(),
         "expanded Setup must expose the ASR catalog so recognition models remain configurable"
+    );
+    assert!(
+        cx.debug_bounds("settings-asr-install-0").is_some(),
+        "an uninstalled On-device model must expose its Download action inside the existing Setup card"
     );
     assert!(
         cx.debug_bounds("voice-setup-provider-connect").is_some(),
@@ -135,11 +216,11 @@ fn fresh_voice_setup_matches_the_approved_three_step_visual_structure() {
 ///   3. 检查 ready banner、三行摘要、两个模型更换入口和独立 Review Setup 按钮
 ///   4. 检查 Ready 页面保留 Settings 导航与紧凑麦克风选择器
 ///   5. 确认 Ready Advanced 不再重复 TTS 目录
-///   6. 点击 ASR Change，确认进入同一 Setup 并自动展开识别模型目录
+///   6. 点击 ASR Change，确认进入同一 Setup 的 Recognition Source 概览，模型目录保持折叠
 ///
 /// 预期结果：
-///   - 正断言：Ready 横幅、配置摘要、模型更换入口、Review Setup 与侧栏均可见
-///   - 负断言：横幅无额外 Try Voice；Advanced 无重复 TTS；更换模型不启动录音；麦克风列表默认不展开
+///   - 正断言：Ready 横幅、配置摘要、Recognition Source 入口、Review Setup 与侧栏均可见
+///   - 负断言：横幅无额外 Try Voice；Advanced 无重复 TTS；Change 不直接铺开模型目录或启动录音
 #[test]
 fn ready_voice_page_matches_the_approved_summary_structure() {
     let mut cx = TestAppContext::single();
@@ -221,12 +302,16 @@ fn ready_voice_page_matches_the_approved_summary_structure() {
     cx.simulate_click(change_asr.center(), Modifiers::none());
     cx.run_until_parked();
     assert!(
-        cx.debug_bounds("voice-setup-alternative-models").is_some(),
-        "ASR Change must open the shared Voice Setup with recognition models expanded"
+        cx.debug_bounds("voice-setup-asr-source-local").is_some(),
+        "ASR Change must open the shared Voice Setup with On-device source reachable"
     );
     assert!(
-        cx.debug_bounds("settings-asr-model-0").is_some(),
-        "ASR Change must expose the ASR model catalog at its destination"
+        cx.debug_bounds("voice-setup-asr-source-azure").is_some(),
+        "ASR Change must open the shared Voice Setup with Azure Speech source reachable"
+    );
+    assert!(
+        cx.debug_bounds("voice-setup-alternative-models").is_none(),
+        "ASR Change must preserve progressive disclosure instead of expanding local models"
     );
     assert!(
         cx.debug_bounds("settings-tts-model-0").is_some(),

@@ -1,15 +1,13 @@
-use crate::audio::AudioCapture;
 pub(crate) use crate::finalizer::SpeechFinalizer;
-use crate::permissions::ensure_microphone_authorized;
 use crate::recognizer_config::build_online_recognizer_config;
 use crate::session_state::{SessionEvent, SessionState};
 use crate::SpeechError;
 use crossbeam_channel::bounded;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use voice_input::{ensure_microphone_authorized, AudioCapture};
+pub(crate) use voice_input::{AudioQueueStats, PcmEvent, PCM_QUEUE_CHUNKS};
 
-pub(crate) const PCM_QUEUE_CHUNKS: usize = 30;
 pub(crate) const TAP_DRAIN_WAIT_MS: u64 = 200;
 pub(crate) const FINALIZE_TIMEOUT_MS: u64 = 3_000;
 const RECOGNIZER_IDLE_SLEEP_MS: u64 = 10;
@@ -21,36 +19,6 @@ pub(crate) struct InnerSession {
     pcm_tx: Option<crossbeam_channel::Sender<PcmEvent>>,
     abort_tx: crossbeam_channel::Sender<()>,
     stats: Arc<AudioQueueStats>,
-}
-
-#[derive(Debug)]
-pub(crate) enum PcmEvent {
-    Samples(Vec<f32>),
-    EndOfAudio,
-}
-
-#[derive(Debug, Default)]
-pub(crate) struct AudioQueueStats {
-    sent_chunks: AtomicUsize,
-    dropped_chunks: AtomicUsize,
-}
-
-impl AudioQueueStats {
-    pub(crate) fn record_sent_chunk(&self) {
-        self.sent_chunks.fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn record_dropped_chunk(&self) {
-        self.dropped_chunks.fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn sent_chunks(&self) -> usize {
-        self.sent_chunks.load(Ordering::Relaxed)
-    }
-
-    pub(crate) fn dropped_chunks(&self) -> usize {
-        self.dropped_chunks.load(Ordering::Relaxed)
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -152,7 +120,7 @@ pub(crate) fn start(
         pcm_tx.clone(),
         Arc::clone(&stats),
         input_device_id.as_deref(),
-        crate::audio::RECOGNIZER_SAMPLE_RATE_HZ,
+        voice_input::RECOGNIZER_SAMPLE_RATE_HZ,
     )?;
 
     Ok((

@@ -10,6 +10,7 @@ enum VisualPreview {
     VoiceSetup,
     VoiceReady,
     VoiceApiKey,
+    AzureAsrReady,
     ZipVoiceReference,
 }
 
@@ -19,6 +20,7 @@ impl VisualPreview {
             "voice-setup" => Some(Self::VoiceSetup),
             "voice-ready" => Some(Self::VoiceReady),
             "voice-api-key" => Some(Self::VoiceApiKey),
+            "azure-asr-ready" => Some(Self::AzureAsrReady),
             "zipvoice-reference" => Some(Self::ZipVoiceReference),
             _ => None,
         }
@@ -47,6 +49,10 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
         VisualPreview::VoiceApiKey => {
             app.voice_settings.assume_visual_preview_api_key_for_e2e();
         }
+        VisualPreview::AzureAsrReady => {
+            app.voice_settings
+                .assume_visual_preview_azure_asr_ready_for_e2e();
+        }
         VisualPreview::ZipVoiceReference => {
             app.voice_settings
                 .assume_visual_preview_zipvoice_reference_for_e2e();
@@ -65,19 +71,21 @@ mod tests {
     /// 视觉验收场景解析：只允许四个明确的 Voice 截图状态
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   supported values = setup(1) + ready(1) + api-key(1) + zipvoice-reference(1) = 4
+    ///   supported values = setup(1) + ready(1) + api-key(1) + azure-asr-ready(1)
+    ///                      + zipvoice-reference(1) = 5
     ///   unsupported values = empty(1) + unknown(1) = 2
-    ///   total cases = 4 + 2 = 6
+    ///   total cases = 5 + 2 = 7
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. 解析 `voice-setup` → VoiceSetup
     ///   2. 解析 `voice-ready` → VoiceReady
     ///   3. 解析 `voice-api-key` → VoiceApiKey
-    ///   4. 解析 `zipvoice-reference` → ZipVoiceReference
-    ///   5. 解析空字符串与未知值 → None
+    ///   4. 解析 `azure-asr-ready` → AzureAsrReady
+    ///   5. 解析 `zipvoice-reference` → ZipVoiceReference
+    ///   6. 解析空字符串与未知值 → None
     ///
     /// 预期结果：
-    ///   - 正断言：四个受支持值分别映射到唯一场景
+    ///   - 正断言：五个受支持值分别映射到唯一场景
     ///   - 负断言：空值和未知值不得意外开启视觉预览
     #[test]
     fn visual_preview_parser_accepts_only_explicit_voice_scenarios() {
@@ -95,6 +103,11 @@ mod tests {
             VisualPreview::parse("voice-api-key"),
             Some(VisualPreview::VoiceApiKey),
             "voice-api-key must select the configured API Key preview"
+        );
+        assert_eq!(
+            VisualPreview::parse("azure-asr-ready"),
+            Some(VisualPreview::AzureAsrReady),
+            "azure-asr-ready must select the Ready Azure Settings preview"
         );
         assert_eq!(
             VisualPreview::parse("zipvoice-reference"),

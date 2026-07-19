@@ -6,10 +6,12 @@ use storage::{AppStore, SettingsStore};
 use tts::{TtsModelId, TtsVoiceId};
 use voice_sherpa::{AudioInputDevice, SpeechError};
 mod announcements;
+mod asr_provider;
 mod builders;
 mod credentials;
 #[cfg(feature = "e2e-test-support")]
 mod e2e;
+mod editing;
 mod migration;
 mod model_selection;
 mod persistence;
@@ -18,6 +20,8 @@ mod provider_values;
 mod readiness_state;
 mod values;
 mod zipvoice_reference;
+pub(crate) use asr_provider::resolve_builtin_asr_profile;
+use asr_provider::AzureCredentialWriteRollback;
 use credentials::CredentialWriteRollback;
 pub(crate) use model_selection::{resolve_available_asr_model, VoiceSetupDestination};
 pub(crate) use persistence::PendingVoiceSettingWrite;
@@ -56,8 +60,10 @@ pub(crate) struct VoiceSettingsState {
     pending_writes: Vec<PendingVoiceSettingWrite>,
     persistence_running: bool,
     credential_write_rollback: Option<CredentialWriteRollback>,
+    azure_credential_write_rollback: Option<AzureCredentialWriteRollback>,
     model_root: PathBuf,
     model_manager: AsrModelManagerState,
+    asr_model_selection_generation: u64,
     tts_model_manager: TtsModelManagerState,
     zipvoice_reference: ZipVoiceReferenceSettings,
     microphone_requirement: super::VoiceRequirementState,
@@ -131,8 +137,10 @@ impl VoiceSettingsState {
             pending_writes: Vec::new(),
             persistence_running: false,
             credential_write_rollback: None,
+            azure_credential_write_rollback: None,
             model_root,
             model_manager,
+            asr_model_selection_generation: 0,
             tts_model_manager,
             zipvoice_reference: ZipVoiceReferenceSettings::default(),
             microphone_requirement: super::VoiceRequirementState::Missing,
@@ -179,53 +187,6 @@ impl VoiceSettingsState {
 
     pub(crate) fn close_input_device_picker(&mut self) {
         self.input_device_picker_expanded = false;
-    }
-
-    #[cfg(test)]
-    pub(crate) fn begin_edit(&mut self, field: VoiceSettingsField) {
-        self.draft = self.field_value(field);
-        self.editing = Some(field);
-        self.status = None;
-    }
-
-    pub(crate) fn begin_edit_with_value(&mut self, field: VoiceSettingsField, value: String) {
-        self.editing = Some(field);
-        self.draft = value;
-        self.status = None;
-    }
-
-    pub(crate) fn update_edit_value(&mut self, field: VoiceSettingsField, value: String) {
-        if self.editing == Some(field) {
-            self.draft = value;
-        }
-    }
-
-    pub(crate) fn auto_save_edit_value(
-        &mut self,
-        field: VoiceSettingsField,
-        value: String,
-    ) -> Option<String> {
-        if self.editing != Some(field) {
-            return None;
-        }
-        self.draft = value;
-        self.save_edit(field, false)
-    }
-
-    pub(crate) fn commit_edit_value(
-        &mut self,
-        field: VoiceSettingsField,
-        value: String,
-    ) -> Option<String> {
-        self.editing = Some(field);
-        self.draft = value;
-        self.commit_edit(field)
-    }
-
-    pub(crate) fn cancel_edit_field(&mut self, field: VoiceSettingsField) {
-        if self.editing == Some(field) {
-            self.cancel_edit();
-        }
     }
 
     pub(crate) fn select_interaction_mode(&mut self, mode: VoiceInteractionMode) {
@@ -279,7 +240,9 @@ impl VoiceSettingsState {
     }
 
     pub(crate) fn refresh_input_devices(&mut self) {
-        self.refresh_input_devices_from_result(voice_sherpa::list_audio_input_devices());
+        self.refresh_input_devices_from_result(
+            voice_sherpa::list_audio_input_devices().map_err(SpeechError::from),
+        );
     }
 
     pub(crate) fn refresh_input_devices_from_result(
@@ -320,97 +283,10 @@ impl VoiceSettingsState {
         self.refresh_values();
     }
 
-    #[cfg(test)]
-    pub(super) fn row_value(&self, field: VoiceSettingsField) -> String {
-        if self.editing == Some(field) && field == VoiceSettingsField::ApiKey {
-            format!("{}|", "•".repeat(self.draft.chars().count()))
-        } else if self.editing == Some(field) {
-            format!("{}|", self.draft)
-        } else if field == VoiceSettingsField::ApiKey {
-            if self
-                .values
-                .active_provider_profile()
-                .credential_configured()
-            {
-                "*********".to_string()
-            } else {
-                "Not configured".to_string()
-            }
-        } else {
-            self.field_value(field)
-        }
-    }
-
-    pub(super) fn status(&self) -> Option<(&str, bool)> {
+    pub(crate) fn status(&self) -> Option<(&str, bool)> {
         self.status
             .as_ref()
             .map(|status| (status.message.as_str(), status.is_error))
-    }
-
-    fn cancel_edit(&mut self) {
-        self.editing = None;
-        self.draft.clear();
-        self.status = None;
-    }
-
-    fn commit_edit(&mut self, field: VoiceSettingsField) -> Option<String> {
-        self.save_edit(field, true)
-    }
-
-    fn save_edit(&mut self, field: VoiceSettingsField, finish_editing: bool) -> Option<String> {
-        let value = self.draft.trim().to_string();
-        if value.is_empty() {
-            if field == VoiceSettingsField::ApiKey {
-                if finish_editing {
-                    self.editing = None;
-                    self.draft.clear();
-                }
-                self.status = Some(ok_status("API Key unchanged; use Clear to remove it"));
-            } else {
-                self.status = Some(error_status("Value cannot be empty"));
-            }
-            return None;
-        }
-
-        let key = match field {
-            VoiceSettingsField::BaseUrl => match self.values.agent_provider() {
-                AgentProviderKind::Ollama => {
-                    self.saved.ollama_profile.base_url = Some(value.clone());
-                    KEY_AGENT_OLLAMA_BASE_URL
-                }
-                AgentProviderKind::OpenAiCompatible => {
-                    self.saved.openai_profile.base_url = Some(value.clone());
-                    KEY_AGENT_OPENAI_BASE_URL
-                }
-            },
-            VoiceSettingsField::Model => match self.values.agent_provider() {
-                AgentProviderKind::Ollama => {
-                    self.saved.ollama_profile.model = Some(value.clone());
-                    KEY_AGENT_OLLAMA_MODEL
-                }
-                AgentProviderKind::OpenAiCompatible => {
-                    self.saved.openai_profile.model = Some(value.clone());
-                    KEY_AGENT_OPENAI_MODEL
-                }
-            },
-            VoiceSettingsField::ApiKey => {
-                self.save_active_provider_credential(value.clone());
-                if finish_editing {
-                    self.editing = None;
-                    self.draft.clear();
-                }
-                self.refresh_values();
-                return Some(value);
-            }
-        };
-        self.persist_string(key, &value);
-        self.invalidate_provider_requirement();
-        if finish_editing {
-            self.editing = None;
-            self.draft.clear();
-        }
-        self.refresh_values();
-        Some(value)
     }
 
     fn persist_string(&mut self, key: &str, value: &str) {
@@ -446,20 +322,6 @@ impl VoiceSettingsState {
 
     fn refresh_values(&mut self) {
         self.values = VoiceSettingsValues::resolve(&self.saved, &self.env);
-    }
-
-    fn field_value(&self, field: VoiceSettingsField) -> String {
-        match field {
-            VoiceSettingsField::BaseUrl => {
-                self.values.active_provider_profile().base_url().to_string()
-            }
-            VoiceSettingsField::Model => self.values.active_provider_profile().model().to_string(),
-            VoiceSettingsField::ApiKey => String::new(),
-        }
-    }
-
-    pub(crate) fn editor_value(&self, field: VoiceSettingsField) -> String {
-        self.field_value(field)
     }
 }
 

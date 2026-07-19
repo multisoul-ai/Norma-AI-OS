@@ -421,7 +421,7 @@ impl MultisoulApp {
                 };
                 match action {
                     DictationShortcutAction::Start => {
-                        self.begin_voice_recording(VoiceTrigger::Shortcut, cx)
+                        self.begin_voice_recording(VoiceTrigger::Shortcut, window, cx)
                     }
                     DictationShortcutAction::Stop => {
                         self.end_voice_recording(VoiceTrigger::Shortcut, window, cx)

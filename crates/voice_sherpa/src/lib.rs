@@ -1,18 +1,11 @@
-pub mod permissions;
 pub mod session_state;
 
 mod asr_stream;
-mod audio;
-mod devices;
 mod finalizer;
 mod listening_pipeline;
 mod recognizer_config;
-mod resample;
-mod samples;
 mod session;
-mod stream;
 mod tts;
-mod vad;
 
 #[cfg(test)]
 pub fn resolve_model_dir_for_test() -> Result<std::path::PathBuf, SpeechError> {
@@ -26,26 +19,23 @@ pub fn resolve_model_dir_for_test() -> Result<std::path::PathBuf, SpeechError> {
         .map_err(|error| SpeechError::ModelNotFound(error.to_string()))
 }
 
-#[cfg(test)]
-#[path = "../tests/unit/device_tests.rs"]
-mod device_tests;
-
 use session::{InnerSession, SpeechFinalizer as InnerSpeechFinalizer};
 
-pub use devices::{
-    list_audio_input_devices, resolve_audio_input_device_selection, AudioInputDevice,
-};
 pub use listening_pipeline::{
-    apply_final_transcript_to_session, spawn_listening_pipeline_loop, ListeningPipelineEvent,
+    apply_final_transcript_to_session, spawn_listening_pipeline_loop,
+    spawn_recognizer_listening_pipeline_loop, ListeningPipelineEvent, ListeningPipelineWorker,
     SherpaListeningPipeline,
 };
-pub use permissions::{microphone_authorization_status, MicrophoneAuthorization};
 pub use recognizer_config::{
     build_online_recognizer_config, build_online_recognizer_config_with_hotwords, AsrHotwordConfig,
 };
-pub use stream::PcmStreamSession;
 pub use tts::{build_zipvoice_tts_config, FakeTtsClient, SherpaTtsClient};
-pub use vad::{FakeEnergyVadClient, SherpaVadClient};
+pub use voice_input::PcmStreamSession;
+pub use voice_input::{
+    list_audio_input_devices, resolve_audio_input_device_selection, AudioInputDevice,
+};
+pub use voice_input::{microphone_authorization_status, MicrophoneAuthorization};
+pub use voice_input::{FakeEnergyVadClient, SherpaVadClient};
 
 /// Check and (if not yet determined) request microphone permission.
 ///
@@ -53,7 +43,7 @@ pub use vad::{FakeEnergyVadClient, SherpaVadClient};
 /// system dialog (up to 60 s). After this returns `Ok(())`, subsequent calls to
 /// `SherpaProvider::start_recording()` will not block on the permission check.
 pub fn request_microphone_permission() -> Result<(), SpeechError> {
-    permissions::ensure_microphone_authorized()
+    voice_input::request_microphone_permission().map_err(Into::into)
 }
 
 pub fn validate_model_load(model: &asr::AvailableAsrModel) -> Result<(), SpeechError> {
@@ -81,6 +71,24 @@ pub enum SpeechError {
     Recognizer(String),
     #[error("audio engine failed: {0}")]
     Audio(String),
+}
+
+impl From<asr::AsrError> for SpeechError {
+    fn from(error: asr::AsrError) -> Self {
+        Self::Recognizer(error.to_string())
+    }
+}
+
+impl From<voice_input::VoiceInputError> for SpeechError {
+    fn from(error: voice_input::VoiceInputError) -> Self {
+        match error {
+            voice_input::VoiceInputError::MicrophoneDenied => Self::MicrophoneDenied,
+            voice_input::VoiceInputError::MicrophoneRestricted => Self::MicrophoneRestricted,
+            voice_input::VoiceInputError::ModelNotFound(path) => Self::ModelNotFound(path),
+            voice_input::VoiceInputError::Recognizer(message) => Self::Recognizer(message),
+            voice_input::VoiceInputError::Audio(message) => Self::Audio(message),
+        }
+    }
 }
 
 pub struct SherpaProvider {
@@ -131,7 +139,7 @@ impl SherpaProvider {
         ),
         SpeechError,
     > {
-        stream::start(input_device_id.map(ToOwned::to_owned))
+        voice_input::start_pcm_stream(input_device_id.map(ToOwned::to_owned)).map_err(Into::into)
     }
 }
 

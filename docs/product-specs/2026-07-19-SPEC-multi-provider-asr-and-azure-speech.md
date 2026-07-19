@@ -1,7 +1,7 @@
 # 多供应商 ASR 架构与 Azure Speech 接入 SPEC
 
 > 日期：2026-07-19
-> 状态：Draft；仅记录已确认的长期方案，不授权实施
+> 状态：Implemented（2026-07-19）；由 ADR-0026 授权实施
 > 来源：`ask-matt` 架构讨论与 Azure Speech 真实语音验证
 
 ## Problem Statement
@@ -104,6 +104,9 @@ Settings 将 ASR 从“一个本地模型选择”扩展为“一个当前 ASR �
 - Azure Provider 声明单次输入上限 60 秒。RecognitionPipeline 达到该上限时停止接收当前片段、产生 DurationLimit 输入结束原因并提交已有音频；不得静默截断后继续录音，也不得丢弃整段输入。
 - Provider 能力显式表达 partial 是否可用和单次输入时长上限。App 可以据此展示状态，但不得为每个厂商增加业务分支。
 - ASR 设置模型为一个当前 Provider ID，加每个 Provider 独立的 profile。Local profile 保存现有模型选择；Azure profile 保存 region、locale 和 opaque credential reference。非当前 profile 保留但不参与识别。
+- Voice Setup 保持既有单页纵向步骤模式：Speech Recognition 卡片只增加一行 Recognition source，On-device 与 Azure Speech 使用同一位置互斥投影各自配置，不新增侧栏、独立窗口或嵌套 Provider 大卡。浏览某个来源只改变 Setup 投影，不改变当前 Provider。
+- On-device 投影先显示当前模型和 `Choose Other Models`；目录展开后在原卡片内提供 Download、进度、Cancel、Retry、Use 与非当前模型删除。首次成功安装可建立初始模型选择；已有当前模型时，额外下载只进入 Ready，必须显式 Use，后台完成不得打断或替换当前识别器。
+- Azure 投影只显示 region、locale、Keychain 凭据、Validate、Test Recognition 和 Ready 后的显式 Use Azure Speech。Azure 与 On-device 配置不得同时铺开，Ready 与 Active 必须用不同状态表达。
 - 当新的当前 Provider ID 缺失时，迁移结果必须是 Local Sherpa；现有本地模型 ID、模型安装、Hotword、输入设备和交互模式保持不变。
 - Azure locale 默认 `zh-CN`，从随 App 发布的可搜索完整 Azure 短音频支持目录选择。目录由 App 版本更新，不从运行时远程加载；首版不做自动语言检测，不接受目录外自由输入。
 - Azure 配置区分 Configured 与 Ready。字段完整只表示 Configured；region 和凭据通过 Azure 认证验证后才表示 Ready。普通用户不需要完成真实录音才能 Ready。
@@ -153,8 +156,6 @@ Settings 将 ASR 从“一个本地模型选择”扩展为“一个当前 ASR �
 - secret 验收必须扫描工作树与默认日志，确认没有真实 Azure API Key、Authorization Header 或可反查凭据明文；聊天中曾暴露的测试凭据应轮换，不作为长期测试资产。
 
 ## Out of Scope
-
-- 本次文档生成不实施任何代码、迁移、Settings、ADR、提交或 Issue Tracker 发布。
 - Azure Speech SDK、WebSocket 实时识别、Fast Transcription、Batch Transcription、Speech Translation 或 Custom Speech。
 - Azure 首版 partial 结果；UI 不通过伪文本、计时器或本地猜测模拟 Azure partial。
 - 自动语言检测、连续语言切换、目录外 locale 输入或运行时远程语言目录。
@@ -172,10 +173,9 @@ Settings 将 ASR 从“一个本地模型选择”扩展为“一个当前 ASR �
 
 ## Further Notes
 
-- 当前真实 Demo 已用标准公共 `eastus` 资源识别用户提供的中英混合 M4A，返回内容包含本规格真实验收所列四个稳定片段。这证明 Azure 服务、region-derived STT Endpoint、16 kHz mono WAV 转换和 `zh-CN` 对当前样本可用，但不等于 App 业务链已经集成。
+- 实现后的 ignored L3 测试已再次用标准公共 `eastus` 资源和公开 `RecognitionPipeline` 识别用户提供的中英混合 M4A，返回内容包含本规格真实验收所列四个稳定片段。
 - Azure 官方短音频 REST 约束见 [Speech-to-text REST API for short audio](https://learn.microsoft.com/azure/ai-services/speech-service/rest-speech-to-text-short)；语言与 locale 支持见 [Language and voice support](https://learn.microsoft.com/azure/ai-services/speech-service/language-support)。
 - Azure 自动语言识别要求候选语言并增加初始延迟，主要通过 Speech SDK 等能力提供；首版显式 locale 的取舍见 [Language identification](https://learn.microsoft.com/azure/ai-services/speech-service/language-identification)。
 - 旧 ASR 模型框架 SPEC 中“ASR 领域零 Sherpa/网络”和 Voice Settings SPEC 中“云端 ASR 不在范围内”的条款，在本规格实施并由 superseding ADR 生效后才被相应取代；模型身份、安装清单、完整性、共享模型选择与 Voice readiness 的其他契约继续有效。
 - 长期改动量仍预计覆盖约 30–45 个文件和 3,000–5,000 行 diff，其中大部分是职责移动、兼容测试与 E2E；真正新增的生产逻辑主要是 Provider 协议、选择/配置和组合层。该估算不应成为一次性大提交的理由。
-- 本规格要求逐阶段迁移，不要求一轮完成。每阶段的实现授权、执行计划和提交范围必须由用户另行明确确认。
-- 本次请求的交付物仅为仓库中的 canonical Markdown SPEC；未创建外部 Issue，也未添加 `ready-for-agent` 标签。
+- 本次实现由用户在独立 worktree 中明确授权；未创建外部 Issue，也未添加 `ready-for-agent` 标签。

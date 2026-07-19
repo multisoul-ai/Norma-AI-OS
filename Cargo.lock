@@ -226,7 +226,7 @@ dependencies = [
  "ui",
  "ureq 3.3.0",
  "url",
- "voice",
+ "voice_input",
  "voice_sherpa",
  "workspace",
  "wry",
@@ -364,14 +364,20 @@ dependencies = [
 name = "asr"
 version = "0.1.41"
 dependencies = [
+ "async-channel 2.5.0",
+ "audio",
  "bzip2 0.5.2",
  "dirs 6.0.0",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2",
+ "sherpa-onnx",
  "tar",
  "tempfile",
  "thiserror 2.0.18",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -1848,6 +1854,7 @@ dependencies = [
  "audio",
  "norma",
  "thiserror 2.0.18",
+ "voice_input",
 ]
 
 [[package]]
@@ -2090,7 +2097,6 @@ dependencies = [
  "tempfile",
  "terminal",
  "ui",
- "voice",
  "workspace",
 ]
 
@@ -8491,25 +8497,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
-name = "voice"
+name = "voice_input"
 version = "0.1.41"
 dependencies = [
- "norma",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tracing",
-]
-
-[[package]]
-name = "voice_azure"
-version = "0.1.41"
-dependencies = [
- "serde",
- "serde_json",
+ "asr",
+ "async-channel 2.5.0",
+ "audio",
+ "block2",
+ "crossbeam-channel",
+ "objc2",
+ "objc2-av-foundation",
+ "objc2-avf-audio",
+ "objc2-core-foundation",
+ "objc2-foundation",
+ "sherpa-onnx",
  "tempfile",
  "thiserror 2.0.18",
- "ureq 3.3.0",
+ "tracing",
 ]
 
 [[package]]
@@ -8519,21 +8523,16 @@ dependencies = [
  "asr",
  "async-channel 2.5.0",
  "audio",
- "block2",
  "crossbeam-channel",
  "dialogue",
  "hound",
- "objc2",
- "objc2-av-foundation",
- "objc2-avf-audio",
- "objc2-core-foundation",
- "objc2-foundation",
  "serde_json",
  "sherpa-onnx",
  "tempfile",
  "thiserror 2.0.18",
  "tracing",
  "tts",
+ "voice_input",
 ]
 
 [[package]]

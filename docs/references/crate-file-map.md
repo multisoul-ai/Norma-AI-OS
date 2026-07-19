@@ -77,7 +77,7 @@ Important files:
 
 ## `asr`
 
-Purpose: own recognition-model identity and installation integrity without GPUI, Sherpa, network access, or app settings.
+Purpose: own provider registry, recognition protocol, Local Sherpa, Cloud Azure, model identity, and installation integrity without GPUI, Storage, Keychain, or app settings.
 
 Important files:
 
@@ -86,21 +86,14 @@ Important files:
 - `installation.rs` - manifest validation, safe required-file extraction, atomic directory install, and delete protection.
 - `support.rs` - pinned shared Silero VAD artifact validation and atomic installation.
 - `model_root.rs` - stable Norma OS Application Support model root.
+- `providers/` - built-in Local Sherpa and Cloud Azure provider implementations and registry.
+- `recognition.rs` - provider-neutral bounded recognition pipeline and terminal event protocol.
 
 Boundary rules:
 
-- `asr` must not depend on GPUI, Sherpa, app, runtime, storage, or UI.
-- Network download and progress live in `app`; Sherpa recognizer configuration lives in `voice_sherpa`.
-
-## `voice_azure`
-
-Purpose: adapt Azure Speech short-audio REST recognition without adding network access to `asr`.
-
-Important files:
-
-- `src/lib.rs` - region-specific STT endpoint construction, redacted credentials, request execution, and response parsing.
-- `tests/unit/client_tests.rs` - deterministic HTTP contract and error tests using a local fake server.
-- `tests/azure_speech_live.rs` - ignored real-service smoke test with macOS M4A/WAV normalization via `afconvert`.
+- `asr` must not depend on GPUI, app, runtime, storage, UI, or Keychain.
+- Provider network execution belongs in `asr`; credential storage and runtime composition remain in `app`.
+- Provider-neutral microphone capture, PCM normalization, and VAD live in `voice_input`.
 
 ## `model_store` and `tts`
 
@@ -160,7 +153,8 @@ crates/
 ├── terminal/src/     pty, grid, session
 ├── runtime/src/      route, focus, nodes/{term,agent}
 ├── storage/src/      *_store.rs
-├── asr/src/          catalog, installation, support        # 零 GPUI/Sherpa/network
+├── asr/src/          providers, recognition, installation  # 零 GPUI/Storage/Keychain
+├── voice_input/src/  microphone, PCM, resample, VAD        # provider 中立
 ├── model_store/src/  installation                             # 零 GPUI/network
 ├── tts/src/          model_id, catalog, installation          # 零 GPUI/Sherpa
 └── app/src/          GPUI 壳，按体验域分

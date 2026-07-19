@@ -1,6 +1,7 @@
 use std::fmt;
 
 pub(crate) const DEFAULT_OLLAMA_ENDPOINT: &str = "http://127.0.0.1:11434";
+pub(crate) const DEFAULT_OLLAMA_MODEL: &str = "qwen3.5:0.8b";
 pub(crate) const DEFAULT_OPENAI_BASE_URL: &str = "https://api.openai.com/v1";
 pub(super) const KEY_AGENT_PROVIDER: &str = "agent.provider.active";
 pub(super) const KEY_AGENT_OLLAMA_BASE_URL: &str = "agent.provider.ollama.base_url";

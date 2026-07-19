@@ -1,13 +1,12 @@
 use super::provider_values::{
     AgentProviderKind, ProviderProfileValues, SavedProviderProfile, DEFAULT_OLLAMA_ENDPOINT,
-    DEFAULT_OPENAI_BASE_URL, KEY_AGENT_OLLAMA_API_KEY, KEY_AGENT_OLLAMA_BASE_URL,
-    KEY_AGENT_OLLAMA_CREDENTIAL_REF, KEY_AGENT_OLLAMA_MODEL, KEY_AGENT_OPENAI_API_KEY,
-    KEY_AGENT_OPENAI_BASE_URL, KEY_AGENT_OPENAI_CREDENTIAL_REF, KEY_AGENT_OPENAI_MODEL,
-    KEY_AGENT_PROVIDER,
+    DEFAULT_OLLAMA_MODEL, DEFAULT_OPENAI_BASE_URL, KEY_AGENT_OLLAMA_API_KEY,
+    KEY_AGENT_OLLAMA_BASE_URL, KEY_AGENT_OLLAMA_CREDENTIAL_REF, KEY_AGENT_OLLAMA_MODEL,
+    KEY_AGENT_OPENAI_API_KEY, KEY_AGENT_OPENAI_BASE_URL, KEY_AGENT_OPENAI_CREDENTIAL_REF,
+    KEY_AGENT_OPENAI_MODEL, KEY_AGENT_PROVIDER,
 };
 use asr::AsrModelId;
 use tts::{TtsModelId, TtsVoiceId};
-use voice::OllamaVoicePlanner;
 mod debug;
 mod load;
 pub(super) const KEY_OLLAMA_ENDPOINT: &str = "voice.ollama.endpoint";
@@ -18,6 +17,11 @@ pub(super) const KEY_INTERACTION_MODE: &str = "voice.interaction.mode";
 pub(super) const KEY_SINGLE_VOICE_COMMAND_TRIGGER: &str = "voice.single_voice_command.trigger";
 pub(super) const LEGACY_KEY_DICTATION_TRIGGER: &str = "voice.dictation.trigger";
 pub(super) const KEY_ASR_MODEL_ID: &str = "voice.asr.model_id";
+pub(super) const KEY_ASR_PROVIDER: &str = "voice.asr.provider";
+pub(super) const KEY_ASR_AZURE_REGION: &str = "voice.asr.azure.region";
+pub(super) const KEY_ASR_AZURE_LOCALE: &str = "voice.asr.azure.locale";
+pub(super) const KEY_ASR_AZURE_CREDENTIAL_REF: &str = "voice.asr.azure.credential_ref";
+pub(super) const KEY_ASR_AZURE_READY: &str = "voice.asr.azure.ready";
 pub(super) const KEY_TTS_MODEL_ID: &str = "voice.tts.model_id";
 pub(super) const KEY_TTS_VOICE_ID: &str = "voice.tts.voice_id";
 pub(super) const KEY_INPUT_DEVICE_ID: &str = "voice.input_device_id";
@@ -75,6 +79,11 @@ pub(crate) struct SavedVoiceSettings {
     pub(crate) interaction_mode: Option<VoiceInteractionMode>,
     pub(crate) dictation_trigger: Option<DictationTrigger>,
     pub(crate) asr_model_id: Option<AsrModelId>,
+    pub(crate) asr_provider: Option<asr::AsrProviderId>,
+    pub(crate) azure_asr_region: Option<String>,
+    pub(crate) azure_asr_locale: Option<String>,
+    pub(crate) azure_asr_credential_ref: Option<String>,
+    pub(crate) azure_asr_ready: Option<bool>,
     pub(crate) tts_model_id: Option<TtsModelId>,
     pub(crate) tts_voice_id: Option<TtsVoiceId>,
     pub(crate) agent_provider: Option<AgentProviderKind>,
@@ -90,6 +99,35 @@ pub(crate) struct SavedVoiceSettings {
     pub(crate) voice_window_inset_enabled: Option<bool>,
     pub(crate) setup_completed: Option<bool>,
 }
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct AzureAsrProfileValues {
+    region: String,
+    locale: String,
+    credential_ref: Option<String>,
+    ready: bool,
+}
+
+impl AzureAsrProfileValues {
+    pub(crate) fn region(&self) -> &str {
+        &self.region
+    }
+
+    pub(crate) fn locale(&self) -> &str {
+        &self.locale
+    }
+
+    pub(crate) fn credential_ref(&self) -> Option<&str> {
+        self.credential_ref.as_deref()
+    }
+
+    pub(crate) fn is_ready(&self) -> bool {
+        self.ready
+            && !self.region.is_empty()
+            && self.credential_ref.is_some()
+            && asr::validate_azure_speech_locale(&self.locale).is_ok()
+    }
+}
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct EnvVoiceSettings {
     pub(crate) ollama_endpoint: Option<String>,
@@ -104,6 +142,8 @@ pub(crate) struct VoiceSettingsValues {
     pub(crate) interaction_mode: VoiceInteractionMode,
     pub(crate) dictation_trigger: DictationTrigger,
     pub(crate) asr_model_id: Option<AsrModelId>,
+    pub(crate) asr_provider: asr::AsrProviderId,
+    pub(crate) azure_asr_profile: AzureAsrProfileValues,
     pub(crate) tts_model_id: Option<TtsModelId>,
     pub(crate) tts_voice_id: Option<TtsVoiceId>,
     pub(crate) agent_provider: AgentProviderKind,
@@ -123,6 +163,9 @@ pub(crate) enum VoiceSettingsField {
     BaseUrl,
     Model,
     ApiKey,
+    AzureRegion,
+    AzureLocale,
+    AzureApiKey,
 }
 
 impl VoiceSettingsField {
@@ -131,6 +174,9 @@ impl VoiceSettingsField {
             Self::BaseUrl => "agent_base_url",
             Self::Model => "agent_model",
             Self::ApiKey => "agent_api_key",
+            Self::AzureRegion => "azure_region",
+            Self::AzureLocale => "azure_locale",
+            Self::AzureApiKey => "azure_api_key",
         }
     }
 }
@@ -140,6 +186,25 @@ impl VoiceSettingsValues {
         let interaction_mode = saved.interaction_mode.unwrap_or_default();
         let dictation_trigger = saved.dictation_trigger.unwrap_or_default();
         let asr_model_id = saved.asr_model_id.clone();
+        let asr_provider = saved
+            .asr_provider
+            .unwrap_or(asr::AsrProviderId::LocalSherpa);
+        let azure_asr_profile = AzureAsrProfileValues {
+            region: saved
+                .azure_asr_region
+                .as_deref()
+                .map(str::trim)
+                .unwrap_or_default()
+                .to_string(),
+            locale: saved
+                .azure_asr_locale
+                .as_deref()
+                .filter(|locale| asr::validate_azure_speech_locale(locale).is_ok())
+                .unwrap_or("zh-CN")
+                .to_string(),
+            credential_ref: non_empty_option(saved.azure_asr_credential_ref.clone()),
+            ready: saved.azure_asr_ready.unwrap_or(false),
+        };
         let tts_model_id = saved.tts_model_id.clone();
         let tts_voice_id = saved.tts_voice_id.clone();
         let endpoint = first_non_empty(
@@ -150,12 +215,12 @@ impl VoiceSettingsValues {
         let planner_model = first_non_empty(
             saved.planner_model.as_deref(),
             env.planner_model.as_deref(),
-            OllamaVoicePlanner::default_model(),
+            DEFAULT_OLLAMA_MODEL,
         );
         let dialogue_model = first_non_empty(
             saved.dialogue_model.as_deref(),
             env.dialogue_model.as_deref(),
-            OllamaVoicePlanner::default_model(),
+            DEFAULT_OLLAMA_MODEL,
         );
         let refine_model = saved
             .refine_model
@@ -222,7 +287,7 @@ impl VoiceSettingsValues {
                     .as_deref()
                     .or(saved.dialogue_model.as_deref()),
                 env.dialogue_model.as_deref(),
-                OllamaVoicePlanner::default_model(),
+                DEFAULT_OLLAMA_MODEL,
             ),
         };
         let openai_profile = ProviderProfileValues {
@@ -247,6 +312,8 @@ impl VoiceSettingsValues {
             interaction_mode,
             dictation_trigger,
             asr_model_id,
+            asr_provider,
+            azure_asr_profile,
             tts_model_id,
             tts_voice_id,
             agent_provider,
@@ -277,6 +344,14 @@ impl VoiceSettingsValues {
 
     pub(crate) fn asr_model_id(&self) -> Option<&AsrModelId> {
         self.asr_model_id.as_ref()
+    }
+
+    pub(crate) fn asr_provider(&self) -> asr::AsrProviderId {
+        self.asr_provider
+    }
+
+    pub(crate) fn azure_asr_profile(&self) -> &AzureAsrProfileValues {
+        &self.azure_asr_profile
     }
 
     pub(crate) fn tts_model_id(&self) -> Option<&TtsModelId> {
@@ -359,6 +434,9 @@ impl VoiceSettingsField {
             Self::BaseUrl => 0,
             Self::Model => 1,
             Self::ApiKey => 2,
+            Self::AzureRegion => 3,
+            Self::AzureLocale => 4,
+            Self::AzureApiKey => 5,
         }
     }
 }

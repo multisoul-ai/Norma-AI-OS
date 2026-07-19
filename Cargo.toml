@@ -6,6 +6,7 @@ members = [
   "crates/asr",
   "crates/license",
   "crates/audio",
+  "crates/voice_input",
   "crates/agent",
   "crates/dialogue",
   "crates/canvas",
@@ -14,8 +15,6 @@ members = [
   "crates/terminal",
   "crates/runtime",
   "crates/e2e",
-  "crates/voice",
-  "crates/voice_azure",
   "crates/voice_sherpa",
   "crates/ui",
   "crates/norma",
@@ -58,6 +57,7 @@ pulldown-cmark = "0.10"
 ureq = { version = "3.3", features = ["json", "rustls"] }
 # 内部 crate（路径依赖）
 audio = { path = "crates/audio" }
+voice_input = { path = "crates/voice_input" }
 model_store = { path = "crates/model_store" }
 tts = { path = "crates/tts" }
 asr = { path = "crates/asr" }
@@ -69,8 +69,6 @@ storage = { path = "crates/storage" }
 workspace = { path = "crates/workspace" }
 terminal = { path = "crates/terminal" }
 runtime = { path = "crates/runtime" }
-voice = { path = "crates/voice" }
-voice_azure = { path = "crates/voice_azure" }
 voice_sherpa = { path = "crates/voice_sherpa" }
 ui = { path = "crates/ui" }
 norma = { path = "crates/norma" }

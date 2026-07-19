@@ -4,7 +4,13 @@ edition.workspace = true
 version.workspace = true
 license.workspace = true
 
+[features]
+default = []
+test-support = []
+
 [dependencies]
+async-channel.workspace = true
+audio.workspace = true
 bzip2 = "0.5"
 serde.workspace = true
 serde_json.workspace = true
@@ -13,6 +19,12 @@ tar = "0.4"
 tempfile.workspace = true
 dirs.workspace = true
 thiserror.workspace = true
+reqwest = { workspace = true, features = ["json"] }
+tokio.workspace = true
+tokio-util.workspace = true
 
 [dev-dependencies]
 sha2 = "0.10"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+sherpa-onnx = "1.13"

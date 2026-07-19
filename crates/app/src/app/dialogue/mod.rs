@@ -1,6 +1,7 @@
 //! App-layer shell state for Continuous Listening local voice dialogue.
 mod artifacts;
 mod chat;
+pub(crate) use chat::resolve_asr_recognizer_factory;
 mod error;
 mod error_state;
 mod preview;
@@ -11,6 +12,7 @@ mod shell;
 mod tts_runtime;
 use crate::app::voice::control::VoiceVisual;
 use crate::app::voice_window_inset::TtsPlaybackEvent;
+#[cfg(test)]
 use crate::settings::voice::{resolve_available_asr_model, VoiceSettingsValues};
 pub(crate) use artifacts::VoiceTurnArtifacts;
 use dialogue::{
@@ -35,7 +37,9 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 pub(crate) use tts_runtime::SharedTtsRuntime;
-use voice_sherpa::{PcmStreamSession, SherpaProvider, SpeechError};
+#[cfg(test)]
+use voice_sherpa::SherpaProvider;
+use voice_sherpa::{PcmStreamSession, SpeechError};
 type MicPermissionCheck = fn() -> Result<(), SpeechError>;
 
 static MIC_PERMISSION_CHECK: Mutex<Option<MicPermissionCheck>> = Mutex::new(None);
@@ -64,6 +68,7 @@ pub(crate) enum VoiceShortcutKeyDownAction {
 pub(crate) struct DialogueControlState {
     pub(super) session: DialogueSession,
     pcm_stream: Option<PcmStreamSession>,
+    asr_cancellation: Option<asr::RecognitionCancellation>,
     pub(super) reply_playback: ReplyPlayback,
     pub(super) shared_tts_runtime: SharedTtsRuntime,
     startup_task: Option<Task<()>>,
@@ -103,6 +108,7 @@ impl Default for DialogueControlState {
         Self {
             session: DialogueSession::new(),
             pcm_stream: None,
+            asr_cancellation: None,
             reply_playback: ReplyPlayback::new(create_assistant_audio_sink()),
             shared_tts_runtime: SharedTtsRuntime::default(),
             startup_task: None,
@@ -168,6 +174,7 @@ impl DialogueControlState {
     pub(super) fn take_playback_events(&mut self) -> Vec<TtsPlaybackEvent> {
         std::mem::take(&mut self.playback_events)
     }
+    #[cfg(test)]
     pub(crate) fn validate_start_provider(
         values: &VoiceSettingsValues,
         model_root: &std::path::Path,
@@ -177,6 +184,7 @@ impl DialogueControlState {
             .map_err(DialogueStartError::Speech)
     }
 
+    #[cfg(test)]
     pub(crate) fn validate_dialogue_start(
         values: &VoiceSettingsValues,
         model_root: &std::path::Path,
@@ -212,7 +220,12 @@ impl DialogueControlState {
         match self.session.phase() {
             DialoguePhase::Idle => None,
             DialoguePhase::Listening => Some("Continuous Listening".to_string()),
-            DialoguePhase::Thinking => Some("Thinking...".to_string()),
+            DialoguePhase::Thinking => self
+                .session
+                .pending_transcript()
+                .filter(|transcript| !transcript.trim().is_empty())
+                .map(ToOwned::to_owned)
+                .or_else(|| Some("Thinking...".to_string())),
             DialoguePhase::Speaking => Some("Replying...".to_string()),
         }
     }
@@ -284,6 +297,7 @@ impl DialogueControlState {
         self.error_message = None;
         self.microphone_settings_recovery_available = false;
         self.session.on_listening_started();
+        self.asr_cancellation = Some(runtime.cancellation());
         self.pcm_stream = Some(runtime.pcm_stream);
         chat::start_pipeline_event_pump(self, runtime.pipeline_events, cx);
     }
@@ -315,7 +329,7 @@ impl DialogueControlState {
         self.reply_task = None;
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "e2e-test-support"))]
     pub(crate) fn pending_transcript(&self) -> Option<&str> {
         self.session.pending_transcript()
     }
@@ -428,6 +442,9 @@ impl DialogueControlState {
     }
 
     fn stop_pcm_stream(&mut self) {
+        if let Some(cancellation) = self.asr_cancellation.take() {
+            cancellation.cancel();
+        }
         if let Some(stream) = self.pcm_stream.take() {
             stream.cancel();
         }

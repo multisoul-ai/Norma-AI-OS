@@ -6,6 +6,7 @@ mod dictation;
 mod execution;
 mod history;
 pub(crate) mod playback;
+pub(crate) mod recognition;
 
 use crate::app::voice::control::{VoicePhase, VoiceTrigger};
 use crate::app::{AppScreen, MultisoulApp};
@@ -46,7 +47,12 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    pub(crate) fn begin_voice_recording(&mut self, trigger: VoiceTrigger, cx: &mut Context<Self>) {
+    pub(crate) fn begin_voice_recording(
+        &mut self,
+        trigger: VoiceTrigger,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if !matches!(self.screen, AppScreen::Canvas) {
             self.voice.set_error("Open a project before using voice.");
             cx.notify();
@@ -56,6 +62,7 @@ impl MultisoulApp {
         if !self.voice.begin_recording(trigger) {
             return;
         }
+        let recording_generation = self.voice.recording_generation();
         if matches!(
             voice_transcript_source(),
             VoiceTranscriptSource::AppleSpeech
@@ -65,58 +72,51 @@ impl MultisoulApp {
             let input_device_id = voice_recording_input_device_id_from_value(
                 self.voice_settings.values().input_device_id(),
             );
-            // Two-step async to avoid CFRunLoop re-entrancy with GPUI's RefCell:
-            //
-            //   Step 1 (background): validate the selected model before requesting microphone
-            //     permission, then request permission (which may block on the system dialog).
-            //   Step 2 (main thread, via this.update): start_recording() — creates
-            //     AVAudioEngine objects which are not Send. By this point the permission
-            //     is already Authorized, so the call is non-blocking.
-            let task = cx.spawn(async move |this, cx| {
-                let provider = cx
+            // Provider resolution, permission and microphone startup all remain off the GPUI
+            // foreground. PcmStreamSession is Send because AVAudioEngine is owned by its capture
+            // thread, so only the completed session is installed on the UI state.
+            let task = cx.spawn_in(window, async move |this, cx| {
+                let startup = cx
                     .background_executor()
                     .spawn(async move {
-                        let provider = crate::settings::voice::resolve_available_asr_model(
+                        let factory = crate::app::dialogue::resolve_asr_recognizer_factory(
                             &values,
                             &model_root,
                         )
-                        .map(voice_sherpa::SherpaProvider::new)?;
-                        voice_sherpa::request_microphone_permission()?;
-                        Ok(provider)
+                        .map_err(|error| SpeechError::Recognizer(error.to_string()))?;
+                        voice_input::request_microphone_permission().map_err(SpeechError::from)?;
+                        recognition::AsrRecordingSession::start(input_device_id, factory.as_ref())
+                            .map_err(SpeechError::Recognizer)
                     })
                     .await;
-                let _ = this.update(cx, |app, cx| {
-                    match provider {
+                let _ = this.update_in(cx, |app, window, cx| {
+                    if !app.voice.accepts_recording_start(recording_generation) {
+                        if let Ok((session, _partials)) = startup {
+                            session.cancel();
+                        }
+                        return;
+                    }
+                    match startup {
                         Err(error) => {
                             app.voice.set_speech_error(&error);
                             app.save_voice_speech_error(error);
                         }
-                        Ok(provider) => {
-                            match provider
-                                .start_recording_with_input_device(input_device_id.as_deref())
-                            {
-                                Ok((session, partials)) => {
-                                    app.voice.set_speech_session(session);
-                                    // Event-driven: wakes only when sherpa emits a partial,
-                                    // exits automatically when the channel closes on session drop.
-                                    let partials_task = cx.spawn(async move |this, cx| {
-                                        while let Ok(text) = partials.recv().await {
-                                            let _ = this.update(cx, |app, cx| {
-                                                app.voice.partial_text = text;
-                                                cx.notify();
-                                            });
-                                        }
+                        Ok((session, partials)) => {
+                            app.voice.set_speech_session(session);
+                            app.start_asr_duration_limit_monitor(window, cx);
+                            // Event-driven: wakes only when the shared pipeline emits a partial,
+                            // exits automatically when the channel closes on session drop.
+                            let partials_task = cx.spawn(async move |this, cx| {
+                                while let Ok(text) = partials.recv().await {
+                                    let _ = this.update(cx, |app, cx| {
+                                        app.voice.partial_text = text;
+                                        cx.notify();
                                     });
-                                    // Store in the dedicated slot — NOT in speech_task — so that
-                                    // the outer permission task (already in speech_task) and the
-                                    // later finish task (set at key-up) never cancel the loop.
-                                    app.voice.set_partials_task(partials_task);
                                 }
-                                Err(error) => {
-                                    app.voice.set_speech_error(&error);
-                                    app.save_voice_speech_error(error);
-                                }
-                            }
+                            });
+                            // Store separately so permission/start and finish tasks cannot cancel
+                            // the partial event pump by replacing the main speech task.
+                            app.voice.set_partials_task(partials_task);
                         }
                     }
                     cx.notify();
@@ -125,6 +125,35 @@ impl MultisoulApp {
             self.voice.set_speech_task(task);
         }
         cx.notify();
+    }
+
+    fn start_asr_duration_limit_monitor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let task = cx.spawn_in(window, async move |this, cx| loop {
+            cx.background_executor()
+                .timer(std::time::Duration::from_millis(100))
+                .await;
+            let reached = this
+                .update(cx, |app, _cx| app.voice.asr_duration_limit_reached())
+                .unwrap_or(false);
+            if reached {
+                let _ = this.update_in(cx, |app, window, cx| {
+                    if app.voice.finish_recording_at_duration_limit() {
+                        app.process_finished_voice_recording(window, cx);
+                        cx.notify();
+                    }
+                });
+                break;
+            }
+            let still_recording = this
+                .update(cx, |app, _cx| {
+                    matches!(app.voice.phase(), VoicePhase::Recording { .. })
+                })
+                .unwrap_or(false);
+            if !still_recording {
+                break;
+            }
+        });
+        self.voice.set_duration_limit_task(task);
     }
 
     pub(crate) fn end_voice_recording(
@@ -182,62 +211,50 @@ impl MultisoulApp {
                 self.record_empty_voice_transcript();
             }
             VoiceTranscriptSource::AppleSpeech => {
-                self.process_sherpa_speech_recording(window, cx);
+                self.process_active_speech_recording(window, cx);
             }
         }
         cx.notify();
     }
 
-    fn process_sherpa_speech_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn process_active_speech_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(session) = self.voice.take_speech_session() else {
             let error = SpeechError::NotRecording;
             self.voice.set_speech_error(&error);
             self.save_voice_speech_error(error);
             return;
         };
+        let recording_generation = self.voice.recording_generation();
+        #[cfg(feature = "e2e-test-support")]
+        let result_application_delay = self.voice.result_application_delay();
         cx.notify();
-        // Stop AVAudioEngine on the UI side, then move the blocking final join off-thread.
-        let finalizer = match session.begin_finish() {
-            Ok(finalizer) => finalizer,
-            Err(error) => {
-                self.voice.set_speech_error(&error);
-                self.save_voice_speech_error(error);
-                return;
-            }
-        };
         let finalize_task = cx
             .background_executor()
-            .spawn(async move { finalizer.finish() });
+            .spawn(async move { session.finish() });
         let task = cx.spawn_in(window, async move |this, cx| {
             let result = finalize_task.await;
+            #[cfg(feature = "e2e-test-support")]
+            if let Some(delay) = result_application_delay {
+                cx.background_executor().timer(delay).await;
+            }
             let _ = this.update_in(cx, |app, window, cx| {
+                if !app.voice.accepts_recording_result(recording_generation) {
+                    return;
+                }
                 app.voice.clear_speech_task();
                 app.voice.partial_text.clear();
-                app.handle_sherpa_speech_result(result, window, cx);
+                match result {
+                    Ok(transcript) if !transcript.trim().is_empty() => {
+                        app.handle_final_voice_text(transcript.trim().to_string(), window, cx)
+                    }
+                    Ok(_) => app.record_empty_voice_transcript(),
+                    Err(error) => app
+                        .voice
+                        .set_error(format!("Speech recognition failed: {error}")),
+                }
             });
         });
         self.voice.set_speech_task(task);
-    }
-
-    fn handle_sherpa_speech_result(
-        &mut self,
-        result: Result<String, SpeechError>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        match result {
-            Ok(transcript) if !transcript.trim().is_empty() => {
-                let raw_transcript = transcript.trim().to_string();
-                self.handle_final_voice_text(raw_transcript, window, cx);
-            }
-            Ok(_) | Err(SpeechError::EmptyTranscript) => {
-                self.record_empty_voice_transcript();
-            }
-            Err(error) => {
-                self.voice.set_speech_error(&error);
-                self.save_voice_speech_error(error);
-            }
-        }
     }
 }
 
