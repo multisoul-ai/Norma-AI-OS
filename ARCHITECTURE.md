@@ -18,6 +18,7 @@ macOS Window（GPUI + Metal）
     ├── asr：ASR 模型 ID、受控目录、清单、哈希与原子安装
     ├── tts：TTS 模型/语音目录、能力与安装验证
     │   └── model_store：共享 archive/manifest/哈希/原子安装原语
+    ├── voice_azure：Azure Speech 短音频 REST client（区域 Endpoint、鉴权、响应解析）
     └── voice_sherpa：Sherpa recognizer、VAD、PCM partial/final adapter
         ├── asr：消费已校验的 AvailableAsrModel
         ├── tts：消费已校验的 AvailableTtsModel
@@ -30,6 +31,7 @@ macOS Window（GPUI + Metal）
 ```text
 app -> {ui, runtime, canvas, terminal, storage, agent, asr, tts, voice_sherpa}
 voice_sherpa -> {asr, tts, dialogue, audio}
+voice_azure -> {ureq, serde}
 tts -> model_store
 runtime -> {canvas, terminal, storage}
 storage -> {agent, canvas, workspace, rusqlite}
@@ -40,7 +42,7 @@ terminal -> {portable-pty, alacritty_terminal, crossbeam-channel}
 asr -> {serde, sha2, tar, bzip2, tempfile}
 ```
 
-`agent`、`asr`、`model_store`、`tts`、`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`agent` 还保持零 Storage 依赖，`asr` 与 `tts` 保持零 Sherpa/网络依赖。识别器/TTS 引擎适配归 `voice_sherpa`，下载和 Runtime/Storage 副作用编排归 `app`。`model_store` 与 `tts` 不得依赖 `app/runtime/storage/ui`，`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
+`agent`、`asr`、`model_store`、`tts`、`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`agent` 还保持零 Storage 依赖，`asr` 与 `tts` 保持零 Sherpa/网络依赖。本地识别器/TTS 引擎适配归 `voice_sherpa`，Azure Speech HTTP 适配归 `voice_azure`，下载和 Runtime/Storage 副作用编排归 `app`。`model_store` 与 `tts` 不得依赖 `app/runtime/storage/ui`，`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
 
 ## 2. 代码结构
 
@@ -49,6 +51,10 @@ asr -> {serde, sha2, tar, bzip2, tempfile}
 零 GPUI/Sherpa/网络的 ASR 领域层，负责不可变模型 ID、受控目录、安装清单、SHA-256、
 安全解压、原子安装和共享 Silero VAD 支持工件。Sherpa 的 Paraformer/Transducer/Zipformer2 CTC 分支只存在于
 `crates/voice_sherpa/`；Settings 下载、进度、选择和删除编排只存在于 `crates/app/`。
+
+### `crates/voice_azure/`
+
+零 GPUI 的 Azure Speech 短音频 REST 适配层，负责按 region 构造专用 STT Endpoint、通过 header 鉴权、上传 16 kHz 单声道 PCM/WAV 并解析识别结果。它不承载本地模型安装，也不进入 GPUI 前台热路径；真实网络调用必须由上层放到后台执行。
 
 ### `crates/agent/`
 

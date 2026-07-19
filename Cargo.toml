@@ -15,6 +15,7 @@ members = [
   "crates/runtime",
   "crates/e2e",
   "crates/voice",
+  "crates/voice_azure",
   "crates/voice_sherpa",
   "crates/ui",
   "crates/norma",
@@ -69,6 +70,7 @@ workspace = { path = "crates/workspace" }
 terminal = { path = "crates/terminal" }
 runtime = { path = "crates/runtime" }
 voice = { path = "crates/voice" }
+voice_azure = { path = "crates/voice_azure" }
 voice_sherpa = { path = "crates/voice_sherpa" }
 ui = { path = "crates/ui" }
 norma = { path = "crates/norma" }

@@ -28,13 +28,14 @@ Core Cargo dependency direction is:
 agent -> norma
 app -> {ui, runtime, canvas, terminal, storage, asr, tts, voice_sherpa}
 voice_sherpa -> {asr, tts, dialogue, audio}
+voice_azure -> {ureq, serde}
 tts -> model_store
 runtime -> {canvas, terminal, storage}
 storage -> {agent, canvas, workspace, rusqlite}
 ui -> {gpui, gpui-component}
 ```
 
-`asr`, `model_store`, `tts`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` and `tts` also remain free of Sherpa; engine configuration belongs in `voice_sherpa`. `model_store` and `tts` must not depend on app/runtime/storage/ui.
+`asr`, `model_store`, `tts`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` and `tts` also remain free of Sherpa and network access; local engine configuration belongs in `voice_sherpa`, while Azure Speech HTTP adaptation belongs in `voice_azure`. `model_store` and `tts` must not depend on app/runtime/storage/ui.
 
 ## 2. Key Constraints
 

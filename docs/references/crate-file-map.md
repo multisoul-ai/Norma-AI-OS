@@ -92,6 +92,16 @@ Boundary rules:
 - `asr` must not depend on GPUI, Sherpa, app, runtime, storage, or UI.
 - Network download and progress live in `app`; Sherpa recognizer configuration lives in `voice_sherpa`.
 
+## `voice_azure`
+
+Purpose: adapt Azure Speech short-audio REST recognition without adding network access to `asr`.
+
+Important files:
+
+- `src/lib.rs` - region-specific STT endpoint construction, redacted credentials, request execution, and response parsing.
+- `tests/unit/client_tests.rs` - deterministic HTTP contract and error tests using a local fake server.
+- `tests/azure_speech_live.rs` - ignored real-service smoke test with macOS M4A/WAV normalization via `afconvert`.
+
 ## `model_store` and `tts`
 
 Purpose: keep common local-model installation mechanics separate from engine-neutral TTS policy.

@@ -17,12 +17,13 @@ Workspace 分层：
 - `crates/workspace/` - 零 GPUI 元数据层：最近项目类型、workspace source、路径展示。
 - `crates/agent/` - 零 GPUI/Storage Agent Runtime：NormaSession、Rig Provider、typed tools、AgentCardAdapter 与预算。
 - `crates/asr/` - 零 GPUI/Sherpa ASR 领域层：模型身份、受控目录、安装清单、完整性与共享 VAD 工件。
+- `crates/voice_azure/` - 零 GPUI 的 Azure Speech 短音频 REST 适配层：区域 Endpoint、鉴权、请求与响应解析。
 - `crates/model_store/` - 零 GPUI/网络的共享本地模型安装原语：受控解压、哈希、manifest 与原子提升。
 - `crates/tts/` - 零 GPUI/Sherpa TTS 领域层：模型/语音身份、固定目录、能力与安装验证。
 - `crates/ui/` - GPUI 主题与共享 UI 基础。
 - `crates/app/` - GPUI/Metal 壳层：窗口、菜单、快捷键、画布与 cards 渲染。
 
-依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr, tts, voice_sherpa}`，`voice_sherpa -> {asr, tts, dialogue, audio}`，`tts -> model_store`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent` 不得依赖 `app/runtime/storage/ui`，且 `asr/tts` 不得依赖 Sherpa；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
+依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr, tts, voice_sherpa}`，`voice_sherpa -> {asr, tts, dialogue, audio}`，`voice_azure -> {ureq, serde}`，`tts -> model_store`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent` 不得依赖 `app/runtime/storage/ui`，且 `asr/tts` 不得依赖 Sherpa/网络；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
 
 ### 源码组织
 
@@ -80,7 +81,7 @@ Workspace 分层：
 | Terminal | portable-pty 0.9, alacritty_terminal 0.26, crossbeam-channel |
 | Runtime | 纯 Rust 状态机与 LiveNode 注册表 |
 | Storage | rusqlite bundled SQLite、recent/settings/canvas/session checkpoint |
-| ASR | 受控模型目录、SHA-256、tar.bz2 原子安装；Sherpa 适配在 `voice_sherpa` |
+| ASR | 本地模型安装在 `asr`、Sherpa 适配在 `voice_sherpa`、Azure REST 适配在 `voice_azure` |
 | TTS | 固定模型/语音目录与安装验证；共享安装原语在 `model_store`，Sherpa 适配在 `voice_sherpa` |
 | Packaging | cargo-packager, 未签名 `.app` / `.dmg` |
 
@@ -100,6 +101,7 @@ Workspace 分层：
 | NormaSession/Rig/AgentCardAdapter seam | [`crates/agent/src/`](crates/agent/src/) |
 | ASR 模型身份、目录、安装与完整性 | [`crates/asr/src/`](crates/asr/src/) |
 | ASR Hotword 加载、扩展与调优 | [`docs/references/asr-hotwords.md`](docs/references/asr-hotwords.md) |
+| Azure Speech 短音频 REST 适配 | [`crates/voice_azure/src/`](crates/voice_azure/src/) |
 | 通用本地模型安装原语 | [`crates/model_store/src/`](crates/model_store/src/) |
 | TTS 模型/语音目录与安装验证 | [`crates/tts/src/`](crates/tts/src/) |
 | SQLite store、migration、持久化边界 | [`crates/storage/src/`](crates/storage/src/) |
@@ -128,6 +130,7 @@ Workspace 分层：
 | `crates/runtime/**` | `cargo test -p runtime` |
 | `crates/storage/**` | `cargo test -p storage` |
 | `crates/model_store/**` | `cargo test -p model_store` |
+| `crates/voice_azure/**` | `cargo test -p voice_azure`；真实服务按需跑 ignored test |
 | `crates/tts/**` | `cargo test -p tts` |
 | `crates/ui/**` | `cargo test -p ui` |
 | `crates/app/**` | `cargo check -p app` |
