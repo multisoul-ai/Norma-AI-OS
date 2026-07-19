@@ -244,11 +244,24 @@ impl MultisoulApp {
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
-                let credential_finished = app.voice_settings.credential_persistence_pending();
-                let minimax_clear_finished = app.voice_settings.minimax_credential_clear_pending();
                 let credential_succeeded = result.is_ok();
-                app.voice_settings.record_persistence_result(result);
-                if minimax_clear_finished && credential_succeeded {
+                let completion = app.voice_settings.record_persistence_result(result);
+                let start_minimax_preview =
+                    if app.pending_minimax_preview_after_validation.is_some()
+                        && completion.minimax_credential
+                    {
+                        let generation = app.pending_minimax_preview_after_validation.take();
+                        credential_succeeded
+                            .then_some(generation)
+                            .flatten()
+                            .filter(|generation| {
+                                app.voice_settings
+                                    .accepts_minimax_connection_generation(*generation)
+                            })
+                    } else {
+                        None
+                    };
+                if completion.minimax_clear && credential_succeeded {
                     app.cancel_agent_announcements();
                     app.tts_preview.cancel();
                     app.invalidate_tts_for_configuration_change(cx);
@@ -271,9 +284,14 @@ impl MultisoulApp {
                     }
                 }
                 app.persist_voice_settings_in_background(cx);
-                if credential_finished && credential_succeeded {
+                if completion.agent_credential && credential_succeeded {
                     app.validate_saved_voice_provider(cx);
+                }
+                if completion.minimax_credential || completion.minimax_validation {
                     app.configure_active_minimax_tts_if_ready(cx);
+                }
+                if start_minimax_preview.is_some() {
+                    app.start_minimax_tts_preview(cx);
                 }
                 cx.notify();
             });

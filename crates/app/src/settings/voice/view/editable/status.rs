@@ -21,9 +21,7 @@ pub(super) fn input_placeholder(
             CONFIGURED_API_KEY_PLACEHOLDER
         }
         VoiceSettingsField::ApiKey => UNCONFIGURED_API_KEY_PLACEHOLDER,
-        VoiceSettingsField::MiniMaxApiKey
-            if state.values().minimax_tts_credential_ref().is_some() =>
-        {
+        VoiceSettingsField::MiniMaxApiKey if state.minimax_credential_configured() => {
             CONFIGURED_API_KEY_PLACEHOLDER
         }
         VoiceSettingsField::MiniMaxApiKey => UNCONFIGURED_API_KEY_PLACEHOLDER,

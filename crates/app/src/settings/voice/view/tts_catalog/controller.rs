@@ -279,6 +279,7 @@ impl MultisoulApp {
                 synthesize_tts_preview(&tts_runtime, &selected, cancelled)
             },
             false,
+            false,
             cx,
         );
     }
@@ -292,6 +293,7 @@ impl MultisoulApp {
             + Send
             + 'static,
         validate_manual_minimax_voice: bool,
+        minimax_preview: bool,
         cx: &mut Context<Self>,
     ) {
         if self.dialogue.phase() == dialogue::DialoguePhase::Speaking {
@@ -304,8 +306,15 @@ impl MultisoulApp {
         }
         self.cancel_agent_announcements();
         let configuration_generation = self.dialogue.tts_configuration_generation();
+        let minimax_profile_generation =
+            minimax_preview.then(|| self.voice_settings.minimax_profile_generation());
         let (preview_generation, control) = self.tts_preview.start();
+        if minimax_preview {
+            self.voice_settings
+                .begin_minimax_preview(preview_generation);
+        }
         self.dialogue.track_tts_preview(Arc::clone(&control));
+        cx.notify();
         let tts_runtime = self.dialogue.shared_tts_runtime();
         let cancelled = control.cancellation_flag();
         let work = cx
@@ -317,14 +326,33 @@ impl MultisoulApp {
                 let preview_is_current = app.tts_preview.is_current(preview_generation);
                 let same_configuration =
                     app.dialogue.tts_configuration_generation() == configuration_generation;
+                let same_minimax_profile = minimax_profile_generation.is_none_or(|generation| {
+                    app.voice_settings.minimax_profile_generation() == generation
+                });
+                if minimax_preview {
+                    app.voice_settings
+                        .finish_minimax_preview(preview_generation);
+                }
                 match result {
                     Ok(chunk)
                         if preview_is_current
                             && same_configuration
+                            && same_minimax_profile
                             && app.dialogue.phase() != dialogue::DialoguePhase::Speaking =>
                     {
                         if validate_manual_minimax_voice {
-                            app.voice_settings.mark_minimax_manual_voice_validated();
+                            let validation_recorded =
+                                app.voice_settings.mark_minimax_manual_voice_validated(
+                                    minimax_profile_generation.expect(
+                                        "manual MiniMax validation requires profile generation",
+                                    ),
+                                );
+                            app.persist_voice_settings_in_background(cx);
+                            if validation_recorded
+                                && !app.voice_settings.settings_persistence_pending()
+                            {
+                                app.configure_active_minimax_tts_if_ready(cx);
+                            }
                         }
                         let control = Arc::clone(&control);
                         let playback_work = cx.background_executor().spawn(async move {

@@ -127,6 +127,7 @@ pub struct MultisoulApp {
     pub(crate) dialogue: crate::app::dialogue::DialogueControlState,
     pub(crate) tts_preview: crate::app::dialogue::TtsPreviewState,
     pub(crate) pending_tts_activation: Option<crate::app::dialogue::PendingTtsActivation>,
+    pub(crate) pending_minimax_preview_after_validation: Option<u64>,
     pub(crate) tts_selection_generation: u64,
     pub(crate) tts_scan_generation: u64,
     pub(crate) asr_download_cancellations: HashMap<asr::AsrModelId, Arc<AtomicBool>>,

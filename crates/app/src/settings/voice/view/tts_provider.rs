@@ -113,21 +113,20 @@ fn minimax_configuration(
                         .debug_selector(|| "settings-tts-minimax-connect".to_string())
                         .on_click(cx.listener(MultisoulApp::on_voice_connect_minimax_tts)),
                     )
-                    .when(
-                        state.values().minimax_tts_credential_ref().is_some(),
-                        |actions| {
-                            actions.child(
-                                action_button(theme, "Clear Credential", theme.destructive)
-                                    .id("settings-tts-minimax-clear-credential")
-                                    .debug_selector(|| {
-                                        "settings-tts-minimax-clear-credential".to_string()
-                                    })
-                                    .on_click(cx.listener(
+                    .when(state.minimax_credential_configured(), |actions| {
+                        actions.child(
+                            action_button(theme, "Clear Credential", theme.destructive)
+                                .id("settings-tts-minimax-clear-credential")
+                                .debug_selector(|| {
+                                    "settings-tts-minimax-clear-credential".to_string()
+                                })
+                                .on_click(
+                                    cx.listener(
                                         MultisoulApp::on_voice_clear_minimax_tts_credential,
-                                    )),
-                            )
-                        },
-                    ),
+                                    ),
+                                ),
+                        )
+                    }),
             ),
         )
         .child(minimax_model_selector(theme, state, cx))
@@ -165,10 +164,20 @@ fn minimax_configuration(
                 .child(readiness_label(readiness)),
         )
         .child(
-            action_button(theme, "Preview / Validate", theme.accent_blue)
-                .id("settings-tts-minimax-preview")
-                .debug_selector(|| "settings-tts-minimax-preview".to_string())
-                .on_click(cx.listener(MultisoulApp::on_voice_preview_minimax_tts)),
+            action_button(
+                theme,
+                if state.minimax_preview_in_progress() {
+                    "Previewing…"
+                } else if state.minimax_account_status() == tts::RemoteAccountStatus::Checking {
+                    "Validating…"
+                } else {
+                    "Preview / Validate"
+                },
+                theme.accent_blue,
+            )
+            .id("settings-tts-minimax-preview")
+            .debug_selector(|| "settings-tts-minimax-preview".to_string())
+            .on_click(cx.listener(MultisoulApp::on_voice_preview_minimax_tts)),
         )
         .child(
             action_button(

@@ -207,7 +207,11 @@ fn test_manual_voice_validation_persists_only_for_exact_tuple() {
         ),
         "当前 generation 的成功连接必须被接纳"
     );
-    state.mark_minimax_manual_voice_validated();
+    let profile_generation = state.minimax_profile_generation();
+    assert!(
+        state.mark_minimax_manual_voice_validated(profile_generation),
+        "当前 generation 的手动 Voice 预览必须生成验证证明"
+    );
 
     let writes = state.take_pending_writes();
     assert_eq!(
@@ -264,16 +268,17 @@ fn test_manual_voice_validation_persists_only_for_exact_tuple() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   credentials = 2（working candidate + rejected replacement）
-///   accepted connections = 1；rejected connections = 1
+///   accepted connections = 1；replacement attempts = 2；rejected connections = 1
 ///   replacement persistence writes = 0（失败候选不得落盘）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 成功连接 working credential 并完成其延迟写入。
-///   2. 输入 replacement candidate，发起连接后返回 Authentication 错误。
+///   2. 输入 replacement candidate，连续发起两次连接，再让最新请求返回 Authentication 错误。
 ///   3. 再次读取已保存 credential ref、内存 secret 与待写入队列。
 ///
 /// 预期结果：
-///   - 正断言：状态明确为 InvalidCredential，旧 ref 与旧 secret 均保留。
+///   - 正断言：失败被识别为 rejected candidate，working account 继续保持 Ready。
+///   - 正断言：旧 ref 与旧 secret 均保留。
 ///   - 正断言：失败候选仍留在草稿，可供用户修正后重试。
 ///   - 负断言：失败候选不得产生任何 Keychain 或 SQLite 写入。
 #[test]
@@ -305,26 +310,38 @@ fn test_failed_minimax_key_replacement_preserves_working_credential() {
         .to_string();
 
     state.update_minimax_api_key_draft("rejected-test-key".to_string());
-    let (generation, rejected_key) = state
+    let (first_replacement_generation, rejected_key) = state
         .begin_minimax_connection()
         .expect("replacement candidate 应允许后台校验");
     assert_eq!(
         rejected_key, "rejected-test-key",
         "连接请求必须使用新草稿，而不是静默复用旧 secret"
     );
-    assert!(
+    let (generation, repeated_key) = state
+        .begin_minimax_connection()
+        .expect("Checking 期间重复点击必须启动新的当前请求");
+    assert_eq!(
+        repeated_key, "rejected-test-key",
+        "重复连接仍必须使用 replacement 草稿"
+    );
+    assert_ne!(
+        generation, first_replacement_generation,
+        "重复连接必须推进 generation，使前一请求失效"
+    );
+    assert_eq!(
         state.record_minimax_connection_failure(
             generation,
             tts::TtsErrorKind::Authentication,
             "MiniMax credential was rejected",
         ),
-        "当前 replacement 失败结果必须被接纳"
+        MiniMaxConnectionFailureDisposition::CandidateRejected,
+        "当前 replacement 失败必须只拒绝候选，不得标记 working credential 失效"
     );
 
     assert_eq!(
         state.minimax_account_status(),
-        tts::RemoteAccountStatus::InvalidCredential,
-        "认证失败必须显示 InvalidCredential，而不是暂时网络错误"
+        tts::RemoteAccountStatus::Ready,
+        "replacement 认证失败后 working account 必须继续保持 Ready"
     );
     assert_eq!(
         state.values().minimax_tts_credential_ref(),

@@ -18,6 +18,7 @@ mod provider_discovery;
 mod provider_values;
 mod readiness_state;
 mod tts_provider;
+mod tts_provider_persistence;
 mod values;
 mod zipvoice_reference;
 use credentials::CredentialWriteRollback;
@@ -28,6 +29,7 @@ pub(crate) use provider_values::AgentProviderKind;
 #[cfg(test)]
 pub(crate) use provider_values::SavedProviderProfile;
 use provider_values::KEY_AGENT_PROVIDER;
+pub(crate) use tts_provider::MiniMaxConnectionFailureDisposition;
 pub(crate) use values::{
     DictationTrigger, EnvVoiceSettings, SavedVoiceSettings, VoiceInteractionMode,
     VoiceSettingsField, VoiceSettingsValues,
@@ -54,15 +56,20 @@ pub(crate) struct VoiceSettingsState {
     status: Option<VoiceSettingsStatus>,
     pending_writes: Vec<PendingVoiceSettingWrite>,
     persistence_running: bool,
+    active_persistence_batch: Option<persistence::VoicePersistenceBatch>,
     credential_write_rollback: Option<CredentialWriteRollback>,
     minimax_credential_write_rollback: Option<tts_provider::MiniMaxCredentialWriteRollback>,
     minimax_credential_clear_rollback: Option<tts_provider::MiniMaxCredentialClearRollback>,
+    minimax_validation_write_rollback: Option<tts_provider::MiniMaxValidationWriteRollback>,
     minimax_api_key_draft: Option<String>,
     minimax_account_status: tts::RemoteAccountStatus,
     minimax_voice_catalog: tts::ProviderVoiceCatalog,
     minimax_validated_selection: Option<tts::TtsValidatedSelection>,
     minimax_voice_search: String,
     minimax_connection_generation: u64,
+    minimax_connection_previous_status: tts::RemoteAccountStatus,
+    minimax_profile_generation: u64,
+    minimax_preview_generation: Option<u64>,
     model_root: PathBuf,
     model_manager: AsrModelManagerState,
     tts_model_manager: TtsModelManagerState,
@@ -153,15 +160,20 @@ impl VoiceSettingsState {
             status: None,
             pending_writes: Vec::new(),
             persistence_running: false,
+            active_persistence_batch: None,
             credential_write_rollback: None,
             minimax_credential_write_rollback: None,
             minimax_credential_clear_rollback: None,
+            minimax_validation_write_rollback: None,
             minimax_api_key_draft: None,
             minimax_account_status: tts::RemoteAccountStatus::Unchecked,
             minimax_voice_catalog: tts::ProviderVoiceCatalog::default(),
             minimax_validated_selection,
             minimax_voice_search: String::new(),
             minimax_connection_generation: 0,
+            minimax_connection_previous_status: tts::RemoteAccountStatus::Unchecked,
+            minimax_profile_generation: 0,
+            minimax_preview_generation: None,
             model_root,
             model_manager,
             tts_model_manager,
@@ -387,3 +399,7 @@ mod voice_settings_tts_provider_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_tts_credential_tests.rs"]
 mod voice_settings_tts_credential_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_tts_persistence_tests.rs"]
+mod voice_settings_tts_persistence_tests;

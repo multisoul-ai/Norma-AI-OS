@@ -75,7 +75,7 @@ impl VoiceSettingsState {
                 "Not configured".to_string()
             }
         } else if field == VoiceSettingsField::MiniMaxApiKey {
-            if self.values.minimax_tts_credential_ref().is_some() {
+            if self.minimax_credential_configured() {
                 "*********".to_string()
             } else {
                 "Not configured".to_string()

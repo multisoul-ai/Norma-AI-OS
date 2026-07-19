@@ -11,26 +11,99 @@ use tts::{
 
 #[derive(Clone)]
 pub(super) struct MiniMaxCredentialWriteRollback {
-    previous_account: Option<String>,
-    previous_secret: Option<String>,
-    new_account: String,
+    pub(super) previous_account: Option<String>,
+    pub(super) previous_secret: Option<String>,
+    pub(super) previous_account_status: RemoteAccountStatus,
+    pub(super) previous_validation: Option<TtsValidatedSelection>,
+    pub(super) previous_validated_credential_ref: Option<String>,
+    pub(super) previous_validated_model_id: Option<TtsModelId>,
+    pub(super) previous_validated_voice_id: Option<TtsVoiceId>,
+    pub(super) new_account: String,
 }
 
 #[derive(Clone)]
 pub(super) struct MiniMaxCredentialClearRollback {
-    account: String,
+    pub(super) account: String,
+}
+
+#[derive(Clone)]
+pub(super) struct MiniMaxValidationWriteRollback {
+    pub(super) previous_validation: Option<TtsValidatedSelection>,
+    pub(super) previous_credential_ref: Option<String>,
+    pub(super) previous_model_id: Option<TtsModelId>,
+    pub(super) previous_voice_id: Option<TtsVoiceId>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MiniMaxConnectionFailureDisposition {
+    Stale,
+    CandidateRejected,
+    ActiveCredentialFailed,
 }
 
 impl VoiceSettingsState {
+    pub(super) fn minimax_credential_write_account(&self) -> Option<&str> {
+        self.minimax_credential_write_rollback
+            .as_ref()
+            .map(|rollback| rollback.new_account.as_str())
+    }
+
+    pub(super) fn minimax_credential_clear_account(&self) -> Option<&str> {
+        self.minimax_credential_clear_rollback
+            .as_ref()
+            .map(|rollback| rollback.account.as_str())
+    }
+
+    pub(crate) fn minimax_credential_configured(&self) -> bool {
+        self.minimax_api_key_draft.is_some()
+            || self.saved.minimax_tts_credential_ref.is_some()
+            || self.saved.minimax_tts_api_key.is_some()
+    }
+
+    pub(crate) fn minimax_credential_draft_pending(&self) -> bool {
+        self.minimax_api_key_draft.is_some()
+    }
+
+    pub(crate) fn minimax_persistence_blocks_preview(&self) -> bool {
+        self.minimax_credential_write_rollback.is_some()
+            || self.minimax_credential_clear_rollback.is_some()
+            || self.minimax_validation_write_rollback.is_some()
+    }
+
+    pub(crate) fn accepts_minimax_connection_generation(&self, generation: u64) -> bool {
+        generation == self.minimax_connection_generation
+    }
+
+    pub(crate) fn begin_minimax_preview(&mut self, generation: u64) {
+        self.minimax_preview_generation = Some(generation);
+        self.status = Some(super::ok_status("Generating MiniMax preview…"));
+    }
+
+    pub(crate) fn finish_minimax_preview(&mut self, generation: u64) {
+        if self.minimax_preview_generation == Some(generation) {
+            self.minimax_preview_generation = None;
+        }
+    }
+
+    pub(crate) fn minimax_preview_in_progress(&self) -> bool {
+        self.minimax_preview_generation.is_some()
+    }
+
+    #[cfg(test)]
     pub(crate) fn minimax_credential_clear_pending(&self) -> bool {
         self.minimax_credential_clear_rollback.is_some()
     }
 
-    pub(crate) fn set_minimax_tts_model(&mut self, model_id: TtsModelId) {
+    pub(crate) fn set_minimax_tts_model(&mut self, model_id: TtsModelId) -> bool {
+        if self.saved.minimax_tts_model_id.as_ref() == Some(&model_id) {
+            return false;
+        }
+        self.minimax_profile_generation = self.minimax_profile_generation.wrapping_add(1);
         self.saved.minimax_tts_model_id = Some(model_id.clone());
         self.clear_minimax_validation();
         self.persist_string(KEY_TTS_MINIMAX_MODEL_ID, model_id.as_str());
         self.refresh_values();
+        true
     }
 
     pub(crate) fn select_tts_provider(&mut self, provider_id: Option<TtsProviderId>) {
@@ -49,7 +122,14 @@ impl VoiceSettingsState {
         model_id: TtsModelId,
         voice_id: TtsVoiceId,
         provenance: VoiceSelectionProvenance,
-    ) {
+    ) -> bool {
+        let changed = self.saved.minimax_tts_model_id.as_ref() != Some(&model_id)
+            || self.saved.minimax_tts_voice_id.as_ref() != Some(&voice_id)
+            || self.saved.minimax_tts_voice_provenance != Some(provenance);
+        if !changed {
+            return false;
+        }
+        self.minimax_profile_generation = self.minimax_profile_generation.wrapping_add(1);
         self.saved.minimax_tts_model_id = Some(model_id.clone());
         self.saved.minimax_tts_voice_id = Some(voice_id.clone());
         self.saved.minimax_tts_voice_provenance = Some(provenance);
@@ -64,6 +144,7 @@ impl VoiceSettingsState {
             },
         );
         self.refresh_values();
+        true
     }
 
     pub(crate) fn minimax_voice_catalog(&self) -> &ProviderVoiceCatalog {
@@ -88,6 +169,9 @@ impl VoiceSettingsState {
     }
 
     pub(crate) fn minimax_readiness(&self) -> RemoteTtsReadiness {
+        if !self.minimax_credential_configured() {
+            return RemoteTtsReadiness::Unconfigured;
+        }
         let profile = self.minimax_profile();
         let validation = RemoteTtsValidation::new(
             self.minimax_account_status,
@@ -103,12 +187,41 @@ impl VoiceSettingsState {
     }
 
     pub(crate) fn update_minimax_api_key_draft(&mut self, value: String) {
-        self.minimax_api_key_draft = Some(value.trim().to_string()).filter(|key| !key.is_empty());
-        self.minimax_account_status = RemoteAccountStatus::Unchecked;
+        let draft = Some(value.trim().to_string()).filter(|key| !key.is_empty());
+        if draft != self.minimax_api_key_draft {
+            self.minimax_connection_generation = self.minimax_connection_generation.wrapping_add(1);
+            self.minimax_profile_generation = self.minimax_profile_generation.wrapping_add(1);
+            if self.minimax_account_status == RemoteAccountStatus::Checking
+                && self.saved.minimax_tts_credential_ref.is_some()
+                && self.saved.minimax_tts_api_key.is_some()
+            {
+                self.minimax_account_status = self.minimax_connection_previous_status;
+            }
+        }
+        self.minimax_api_key_draft = draft;
+        if self.saved.minimax_tts_credential_ref.is_none()
+            || self.saved.minimax_tts_api_key.is_none()
+        {
+            self.minimax_account_status = RemoteAccountStatus::Unchecked;
+        }
     }
 
     pub(crate) fn clear_minimax_credential(&mut self) {
+        if self.minimax_credential_write_rollback.is_some()
+            || self.minimax_credential_clear_rollback.is_some()
+        {
+            self.status = Some(super::error_status(
+                "Wait for the current MiniMax credential operation to finish.",
+            ));
+            return;
+        }
+        self.minimax_connection_generation = self.minimax_connection_generation.wrapping_add(1);
+        self.minimax_profile_generation = self.minimax_profile_generation.wrapping_add(1);
+        self.minimax_api_key_draft = None;
         let Some(account) = self.saved.minimax_tts_credential_ref.clone() else {
+            self.minimax_account_status = RemoteAccountStatus::Unchecked;
+            self.clear_minimax_validation();
+            self.refresh_values();
             return;
         };
         self.minimax_credential_clear_rollback = Some(MiniMaxCredentialClearRollback {
@@ -121,11 +234,19 @@ impl VoiceSettingsState {
     }
 
     pub(crate) fn begin_minimax_connection(&mut self) -> Result<(u64, String), String> {
+        if self.minimax_credential_write_rollback.is_some()
+            || self.minimax_credential_clear_rollback.is_some()
+        {
+            return Err("Wait for the current MiniMax credential operation to finish.".to_string());
+        }
         let api_key = self
             .minimax_api_key_draft
             .clone()
             .or_else(|| self.saved.minimax_tts_api_key.clone())
             .ok_or_else(|| "Add a MiniMax API Key before connecting.".to_string())?;
+        if self.minimax_account_status != RemoteAccountStatus::Checking {
+            self.minimax_connection_previous_status = self.minimax_account_status;
+        }
         self.minimax_connection_generation = self.minimax_connection_generation.wrapping_add(1);
         self.minimax_account_status = RemoteAccountStatus::Checking;
         Ok((self.minimax_connection_generation, api_key))
@@ -155,9 +276,17 @@ impl VoiceSettingsState {
         generation: u64,
         kind: tts::TtsErrorKind,
         message: impl Into<String>,
-    ) -> bool {
+    ) -> MiniMaxConnectionFailureDisposition {
         if generation != self.minimax_connection_generation {
-            return false;
+            return MiniMaxConnectionFailureDisposition::Stale;
+        }
+        let rejected_replacement = self.minimax_api_key_draft.is_some()
+            && self.saved.minimax_tts_credential_ref.is_some()
+            && self.saved.minimax_tts_api_key.is_some();
+        if rejected_replacement {
+            self.minimax_account_status = self.minimax_connection_previous_status;
+            self.status = Some(super::error_status(message));
+            return MiniMaxConnectionFailureDisposition::CandidateRejected;
         }
         self.minimax_account_status = if kind == tts::TtsErrorKind::Authentication {
             RemoteAccountStatus::InvalidCredential
@@ -165,20 +294,41 @@ impl VoiceSettingsState {
             RemoteAccountStatus::TemporarilyUnavailable
         };
         self.status = Some(super::error_status(message));
-        true
+        MiniMaxConnectionFailureDisposition::ActiveCredentialFailed
     }
 
-    pub(crate) fn mark_minimax_manual_voice_validated(&mut self) {
+    pub(crate) fn minimax_profile_generation(&self) -> u64 {
+        self.minimax_profile_generation
+    }
+
+    pub(crate) fn mark_minimax_manual_voice_validated(
+        &mut self,
+        expected_profile_generation: u64,
+    ) -> bool {
+        if expected_profile_generation != self.minimax_profile_generation {
+            return false;
+        }
         let Some(profile) = self.minimax_profile() else {
-            return;
+            return false;
         };
         let Some(credential_ref) = self
             .values
             .minimax_tts_credential_ref()
             .map(ToOwned::to_owned)
         else {
-            return;
+            return false;
         };
+        if self.storage.is_some() && self.minimax_validation_write_rollback.is_some() {
+            return false;
+        }
+        if self.storage.is_some() {
+            self.minimax_validation_write_rollback = Some(MiniMaxValidationWriteRollback {
+                previous_validation: self.minimax_validated_selection.clone(),
+                previous_credential_ref: self.saved.minimax_validated_credential_ref.clone(),
+                previous_model_id: self.saved.minimax_validated_model_id.clone(),
+                previous_voice_id: self.saved.minimax_validated_voice_id.clone(),
+            });
+        }
         self.minimax_validated_selection = Some(TtsValidatedSelection::from_profile(
             &credential_ref,
             &profile,
@@ -195,6 +345,7 @@ impl VoiceSettingsState {
             KEY_TTS_MINIMAX_VALIDATED_VOICE_ID,
             profile.voice_id().as_str(),
         );
+        true
     }
 
     pub(crate) fn minimax_credential_ref_to_load(&self) -> Option<String> {
@@ -232,44 +383,6 @@ impl VoiceSettingsState {
         self.saved.minimax_tts_api_key.is_some()
     }
 
-    pub(crate) fn finish_minimax_credential_persistence(&mut self, result: &Result<(), String>) {
-        if let Some(rollback) = self.minimax_credential_write_rollback.take() {
-            if result.is_ok() {
-                if let Some(previous_account) = rollback.previous_account {
-                    self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential {
-                        account: previous_account,
-                    });
-                }
-            } else {
-                self.saved.minimax_tts_credential_ref = rollback.previous_account.clone();
-                self.saved.minimax_tts_api_key = rollback.previous_secret;
-                match rollback.previous_account.as_deref() {
-                    Some(account) => self.persist_string(KEY_TTS_MINIMAX_CREDENTIAL_REF, account),
-                    None => self.delete_string(KEY_TTS_MINIMAX_CREDENTIAL_REF),
-                }
-                self.queue_pending_write(PendingVoiceSettingWrite::DeleteCredential {
-                    account: rollback.new_account,
-                });
-                self.minimax_account_status = RemoteAccountStatus::InvalidCredential;
-                self.refresh_values();
-            }
-        }
-        let Some(clear) = self.minimax_credential_clear_rollback.take() else {
-            return;
-        };
-        if result.is_ok() {
-            self.saved.minimax_tts_credential_ref = None;
-            self.saved.minimax_tts_api_key = None;
-            self.minimax_api_key_draft = None;
-            self.minimax_voice_catalog = ProviderVoiceCatalog::default();
-            self.minimax_account_status = RemoteAccountStatus::Unchecked;
-            self.clear_minimax_validation();
-            self.refresh_values();
-        } else {
-            self.persist_string(KEY_TTS_MINIMAX_CREDENTIAL_REF, &clear.account);
-        }
-    }
-
     fn minimax_profile(&self) -> Option<TtsProviderProfile> {
         let provider_id = TtsProviderId::parse(tts::MINIMAX_TTS_PROVIDER_ID)
             .expect("built-in MiniMax TTS Provider ID must be valid");
@@ -282,15 +395,25 @@ impl VoiceSettingsState {
     }
 
     fn save_minimax_credential(&mut self, secret: String) {
-        self.clear_minimax_validation();
         let previous_account = self.saved.minimax_tts_credential_ref.clone();
         let previous_secret = self.saved.minimax_tts_api_key.clone();
+        let previous_account_status = self.minimax_connection_previous_status;
+        let previous_validation = self.minimax_validated_selection.clone();
+        let previous_validated_credential_ref = self.saved.minimax_validated_credential_ref.clone();
+        let previous_validated_model_id = self.saved.minimax_validated_model_id.clone();
+        let previous_validated_voice_id = self.saved.minimax_validated_voice_id.clone();
+        self.clear_minimax_validation();
         let account = crate::settings::voice::credentials::new_account("tts-minimax");
         self.saved.minimax_tts_credential_ref = Some(account.clone());
         self.saved.minimax_tts_api_key = Some(secret.clone());
         self.minimax_credential_write_rollback = Some(MiniMaxCredentialWriteRollback {
             previous_account: previous_account.clone(),
             previous_secret,
+            previous_account_status,
+            previous_validation,
+            previous_validated_credential_ref,
+            previous_validated_model_id,
+            previous_validated_voice_id,
             new_account: account.clone(),
         });
         self.queue_pending_write(PendingVoiceSettingWrite::StoreCredential {
@@ -300,7 +423,7 @@ impl VoiceSettingsState {
         self.persist_string(KEY_TTS_MINIMAX_CREDENTIAL_REF, &account);
     }
 
-    fn clear_minimax_validation(&mut self) {
+    pub(super) fn clear_minimax_validation(&mut self) {
         let had_validation = self.minimax_validated_selection.is_some()
             || self.saved.minimax_validated_credential_ref.is_some()
             || self.saved.minimax_validated_model_id.is_some()

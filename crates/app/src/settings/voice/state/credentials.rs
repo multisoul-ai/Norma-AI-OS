@@ -14,6 +14,12 @@ pub(super) struct CredentialWriteRollback {
 }
 
 impl VoiceSettingsState {
+    pub(super) fn agent_credential_write_account(&self) -> Option<&str> {
+        self.credential_write_rollback
+            .as_ref()
+            .map(|rollback| rollback.new_account.as_str())
+    }
+
     pub(crate) fn credential_refs(&self) -> Vec<(AgentProviderKind, String)> {
         [
             (AgentProviderKind::Ollama, &self.saved.ollama_profile),

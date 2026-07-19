@@ -350,13 +350,15 @@ fn missing_keychain_item_clears_configured_state_and_fails_provider_gate() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   新 API Key = 1
+///   无 SettingsStore，因此后台批次 = Keychain store(1)
 ///   模拟后台持久化结果 = Err 1 次
 ///   先前已保存 credential_ref = 0
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. fresh state 提交新 API Key，进入 credential pending
-///   2. 模拟 Keychain 写入失败并触发 rollback
-///   3. 检查内存 profile 与 Provider readiness
+///   2. 取走包含一项 Keychain store 的后台批次。
+///   3. 模拟该批次写入失败并触发 rollback。
+///   4. 检查内存 profile 与 Provider readiness。
 ///
 /// 预期结果：
 ///   - 正断言：Provider 门槛为 Failed，提示用户修复保存问题
@@ -371,6 +373,12 @@ fn failed_keychain_write_rolls_back_unpersisted_credential() {
     assert!(
         state.credential_persistence_pending(),
         "new API Key must remain pending until background persistence finishes"
+    );
+    let writes = state.take_pending_writes();
+    assert_eq!(
+        writes.len(),
+        1,
+        "session-only state must produce exactly one Keychain store write"
     );
 
     state.record_persistence_result(Err("simulated Keychain denial".to_string()));
