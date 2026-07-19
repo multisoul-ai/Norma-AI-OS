@@ -8,7 +8,7 @@ mod navigation;
 #[path = "panel_style.rs"]
 mod panel_style;
 
-use self::content::{settings_content, VoiceSettingsContent};
+use self::content::{settings_content, SettingsContentContext, VoiceSettingsContent};
 pub(crate) use self::navigation::SettingsSection;
 use self::navigation::{settings_navigation, SettingsNavigationMode};
 use self::panel_style::{settings_shadow, with_alpha};
@@ -226,18 +226,20 @@ impl MultisoulApp {
         );
         let setup_scroll_target = self.settings_viewport.pending_voice_setup_scroll.take();
         let content = settings_content(
-            theme,
-            self.theme_id,
-            &self.settings_panel,
-            &self.agent_definitions,
-            VoiceSettingsContent {
-                state: &self.voice_settings,
-                inputs: &self.voice_settings_inputs,
-                setup_scroll_target,
+            SettingsContentContext {
+                theme,
+                theme_id: self.theme_id,
+                panel: &self.settings_panel,
+                agent_definitions: &self.agent_definitions,
+                voice: VoiceSettingsContent {
+                    state: &self.voice_settings,
+                    inputs: &self.voice_settings_inputs,
+                    setup_scroll_target,
+                },
+                content_scroll: &self.settings_viewport.content_scroll,
+                wallpaper_state: &self.wallpaper_settings,
+                shortcuts: &self.shortcuts,
             },
-            &self.settings_viewport.content_scroll,
-            &self.wallpaper_settings,
-            &self.shortcuts,
             window,
             cx,
         );

@@ -22,18 +22,32 @@ pub(super) struct VoiceSettingsContent<'a> {
     pub(super) setup_scroll_target: Option<VoiceSetupDestination>,
 }
 
+pub(super) struct SettingsContentContext<'a> {
+    pub(super) theme: Theme,
+    pub(super) theme_id: ThemeId,
+    pub(super) panel: &'a SettingsPanelState,
+    pub(super) agent_definitions: &'a AgentDefinitionsState,
+    pub(super) voice: VoiceSettingsContent<'a>,
+    pub(super) content_scroll: &'a ScrollHandle,
+    pub(super) wallpaper_state: &'a WallpaperSettingsState,
+    pub(super) shortcuts: &'a ShortcutSettingsState,
+}
+
 pub(super) fn settings_content(
-    theme: Theme,
-    theme_id: ThemeId,
-    panel: &SettingsPanelState,
-    agent_definitions: &AgentDefinitionsState,
-    voice: VoiceSettingsContent<'_>,
-    content_scroll: &ScrollHandle,
-    wallpaper_state: &WallpaperSettingsState,
-    shortcuts: &ShortcutSettingsState,
+    content: SettingsContentContext<'_>,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
+    let SettingsContentContext {
+        theme,
+        theme_id,
+        panel,
+        agent_definitions,
+        voice,
+        content_scroll,
+        wallpaper_state,
+        shortcuts,
+    } = content;
     div()
         .flex_1()
         .min_w(px(0.0))

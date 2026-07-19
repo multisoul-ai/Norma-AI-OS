@@ -203,33 +203,17 @@ impl NormaSession {
             cancellation: cancellation.clone(),
         };
         let history = self.protocol_history.clone();
+        let request = TurnRequest {
+            preamble,
+            input: input.to_string(),
+            history,
+            context,
+            cancellation,
+            deltas,
+        };
         let result = match &self.model {
-            NormaModel::OpenAi(model) => {
-                run_turn(
-                    model.clone(),
-                    self.tools.clone(),
-                    preamble,
-                    input,
-                    history,
-                    context,
-                    cancellation,
-                    deltas,
-                )
-                .await
-            }
-            NormaModel::Ollama(model) => {
-                run_turn(
-                    model.clone(),
-                    self.tools.clone(),
-                    preamble,
-                    input,
-                    history,
-                    context,
-                    cancellation,
-                    deltas,
-                )
-                .await
-            }
+            NormaModel::OpenAi(model) => run_turn(model.clone(), self.tools.clone(), request).await,
+            NormaModel::Ollama(model) => run_turn(model.clone(), self.tools.clone(), request).await,
         }?;
         self.replace_protocol_history(result.new_messages);
         let final_text = visible_norma_reply(&result.final_text);
@@ -341,20 +325,32 @@ pub enum NormaSessionError {
     UnknownSideEffect,
 }
 
-async fn run_turn<M>(
-    model: M,
-    tools: NormaToolRuntime,
+struct TurnRequest {
     preamble: String,
-    input: &str,
+    input: String,
     history: Vec<Message>,
     context: ToolContext,
     cancellation: CancellationToken,
     deltas: Option<tokio::sync::mpsc::Sender<String>>,
+}
+
+async fn run_turn<M>(
+    model: M,
+    tools: NormaToolRuntime,
+    request: TurnRequest,
 ) -> Result<InternalTurnResult, NormaSessionError>
 where
     M: CompletionModel + Clone + 'static,
     M::StreamingResponse: WasmCompatSend + WasmCompatSync + GetTokenUsage + Clone + Unpin,
 {
+    let TurnRequest {
+        preamble,
+        input,
+        history,
+        context,
+        cancellation,
+        deltas,
+    } = request;
     let future = async move {
         let rig_context = RigToolContext::new(context);
         let unknown_status = rig_context.clone();
@@ -362,7 +358,7 @@ where
         let mut extensions = ToolCallExtensions::new();
         extensions.insert(rig_context);
         let mut stream = agent
-            .stream_prompt(input)
+            .stream_prompt(&input)
             .history(history)
             .tool_extensions(extensions)
             .max_turns(MAX_MODEL_TURNS)

@@ -25,7 +25,7 @@ impl VoiceSettingsState {
         .into_iter()
         .filter_map(|(provider, profile)| {
             (profile.api_key.is_none())
-                .then(|| profile.credential_ref.as_ref())
+                .then_some(profile.credential_ref.as_ref())
                 .flatten()
                 .map(|account| (provider, account.clone()))
         })

@@ -120,16 +120,18 @@ fn builtin_cell(
             cx.notify();
         }))
         .child(thumbnail_box(
-            theme,
-            kind,
-            selected,
-            builtin_thumbnail(kind, rel, cx),
-            idx,
-            format!(
-                "settings-wallpaper-badge-{idx}-{}",
-                kind.badge_label().to_ascii_lowercase()
-            ),
-            None,
+            ThumbnailBoxContent {
+                theme,
+                kind,
+                selected,
+                thumbnail: builtin_thumbnail(kind, rel, cx),
+                badge_id: idx,
+                badge_selector: format!(
+                    "settings-wallpaper-badge-{idx}-{}",
+                    kind.badge_label().to_ascii_lowercase()
+                ),
+                delete: None,
+            },
             cx,
         ))
         .child(thumbnail_label(theme, name, selected))
@@ -170,16 +172,18 @@ fn custom_cell(
             cx.notify();
         }))
         .child(thumbnail_box(
-            theme,
-            kind,
-            selected,
-            thumb,
-            builtin_wallpapers().len() + idx,
-            format!(
-                "settings-wallpaper-custom-badge-{idx}-{}",
-                kind.badge_label().to_ascii_lowercase()
-            ),
-            Some((idx, delete_filename)),
+            ThumbnailBoxContent {
+                theme,
+                kind,
+                selected,
+                thumbnail: thumb,
+                badge_id: builtin_wallpapers().len() + idx,
+                badge_selector: format!(
+                    "settings-wallpaper-custom-badge-{idx}-{}",
+                    kind.badge_label().to_ascii_lowercase()
+                ),
+                delete: Some((idx, delete_filename)),
+            },
             cx,
         ))
         .child(thumbnail_label(theme, filename, selected))
@@ -188,16 +192,26 @@ fn custom_cell(
 /// The fixed-size thumbnail frame. `delete` carries `(idx, filename)` for
 /// custom cells so a hover delete affordance can be layered on top; `None`
 /// for builtins (they are never deletable).
-fn thumbnail_box(
+struct ThumbnailBoxContent {
     theme: Theme,
     kind: WallpaperKind,
     selected: bool,
-    thumb: Div,
+    thumbnail: Div,
     badge_id: usize,
     badge_selector: String,
     delete: Option<(usize, String)>,
-    cx: &mut Context<MultisoulApp>,
-) -> Div {
+}
+
+fn thumbnail_box(content: ThumbnailBoxContent, cx: &mut Context<MultisoulApp>) -> Div {
+    let ThumbnailBoxContent {
+        theme,
+        kind,
+        selected,
+        thumbnail,
+        badge_id,
+        badge_selector,
+        delete,
+    } = content;
     let border = if selected {
         with_alpha(theme.accent_orange, 0xff)
     } else {
@@ -213,7 +227,7 @@ fn thumbnail_box(
         .border_1()
         .border_color(rgba(border))
         .bg(rgba(with_alpha(theme.panel_high, 0x80)))
-        .child(thumb)
+        .child(thumbnail)
         .child(wallpaper_badge(theme, kind, badge_id, badge_selector));
 
     if let Some((idx, filename)) = delete {

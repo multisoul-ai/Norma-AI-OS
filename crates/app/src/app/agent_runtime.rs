@@ -35,6 +35,14 @@ struct NormaAdapterRequest {
 }
 
 #[derive(Clone)]
+struct TurnRuntime {
+    session: Arc<tokio::sync::Mutex<agent::NormaSession>>,
+    events: async_channel::Sender<AgentEvent>,
+    dialogue_cancelled: Arc<AtomicBool>,
+    generation: Arc<AtomicU64>,
+}
+
+#[derive(Clone)]
 struct ChannelAgentCardAdapter {
     sender: async_channel::Sender<NormaAdapterRequest>,
 }
@@ -204,6 +212,12 @@ async fn run_project_agent(
     let mut canvas = None;
     let mut model_switch_error = None;
     let generation = Arc::new(AtomicU64::new(0));
+    let turn_runtime = TurnRuntime {
+        session: Arc::clone(&session),
+        events: events.clone(),
+        dialogue_cancelled: Arc::clone(&dialogue_cancelled),
+        generation: Arc::clone(&generation),
+    };
     while let Ok(request) = requests.recv().await {
         if cancelled.load(Ordering::Acquire) {
             cancel_handle.cancel();
@@ -257,14 +271,11 @@ async fn run_project_agent(
                 let context = canvas.clone();
                 let roster = roster.clone();
                 spawn_turn(
-                    Arc::clone(&session),
+                    &turn_runtime,
                     input,
                     context,
                     roster,
                     request.response,
-                    events.clone(),
-                    Arc::clone(&dialogue_cancelled),
-                    Arc::clone(&generation),
                     turn_generation,
                 );
             }
@@ -276,14 +287,11 @@ async fn run_project_agent(
                 cancel_handle.cancel();
                 dialogue_cancelled.store(false, Ordering::Release);
                 spawn_turn(
-                    Arc::clone(&session),
+                    &turn_runtime,
                     format!("取消 Agent 任务 #{task_id}"),
                     canvas.clone(),
                     roster.clone(),
                     request.response,
-                    events.clone(),
-                    Arc::clone(&dialogue_cancelled),
-                    Arc::clone(&generation),
                     generation.fetch_add(1, Ordering::AcqRel) + 1,
                 );
             }
@@ -295,14 +303,11 @@ async fn run_project_agent(
                     |id| format!("查询 Agent 任务 #{id}"),
                 );
                 spawn_turn(
-                    Arc::clone(&session),
+                    &turn_runtime,
                     prompt,
                     canvas.clone(),
                     roster.clone(),
                     request.response,
-                    events.clone(),
-                    Arc::clone(&dialogue_cancelled),
-                    Arc::clone(&generation),
                     generation.fetch_add(1, Ordering::AcqRel) + 1,
                 );
             }
@@ -321,21 +326,19 @@ async fn run_project_agent(
 }
 
 fn spawn_turn(
-    session: Arc<tokio::sync::Mutex<agent::NormaSession>>,
+    runtime: &TurnRuntime,
     input: String,
     canvas: Option<agent::CurrentCanvasContext>,
     roster: Vec<agent::AgentRosterEntry>,
     response: async_channel::Sender<Result<Vec<AgentEvent>, String>>,
-    events: async_channel::Sender<AgentEvent>,
-    dialogue_cancelled: Arc<AtomicBool>,
-    generation: Arc<AtomicU64>,
     turn_generation: u64,
 ) {
+    let runtime = runtime.clone();
     shared_tokio_runtime()
         .expect("Norma Tokio runtime was initialized before spawning a turn")
         .spawn(async move {
-            let mut session = session.lock().await;
-            if generation.load(Ordering::Acquire) != turn_generation {
+            let mut session = runtime.session.lock().await;
+            if runtime.generation.load(Ordering::Acquire) != turn_generation {
                 let _ = response
                     .send(Err("Norma 回合已被新输入取代".to_string()))
                     .await;
@@ -345,6 +348,7 @@ fn spawn_turn(
                 session.update_environment(canvas, roster);
             }
             let cancel = session.cancel_handle();
+            let dialogue_cancelled = Arc::clone(&runtime.dialogue_cancelled);
             let watcher = tokio::spawn(async move {
                 while !dialogue_cancelled.load(Ordering::Acquire) {
                     tokio::time::sleep(std::time::Duration::from_millis(10)).await;
@@ -354,7 +358,7 @@ fn spawn_turn(
             let (delta_tx, mut delta_rx) = tokio::sync::mpsc::channel(32);
             let produced_deltas = Arc::new(Mutex::new(Vec::new()));
             let collected_deltas = Arc::clone(&produced_deltas);
-            let live_events = events.clone();
+            let live_events = runtime.events.clone();
             let delta_forwarder = tokio::spawn(async move {
                 while let Some(text) = delta_rx.recv().await {
                     let event = AgentEvent::DialogueTextDelta { text };
@@ -376,13 +380,14 @@ fn spawn_turn(
                         .expect("Norma streamed event lock should not be poisoned")
                         .clone();
                     let finished = AgentEvent::DialogueStreamFinished;
-                    let _ = events.send(finished.clone()).await;
+                    let _ = runtime.events.send(finished.clone()).await;
                     produced.push(finished);
                     let _ = response.send(Ok(produced)).await;
                 }
                 Err(error) => {
                     let message = error.to_string();
-                    let _ = events
+                    let _ = runtime
+                        .events
                         .send(AgentEvent::ProviderError {
                             message: message.clone(),
                         })

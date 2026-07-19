@@ -392,9 +392,8 @@ mod tests {
 
         scheduler.canvas_dirty = false;
         let recovered = scheduler.track_flush_result(Ok(true));
-        assert_eq!(
+        assert!(
             recovered.expect("成功 flush 结果应原样返回"),
-            true,
             "成功 flush 应保留 had_pending_work=true"
         );
         assert_eq!(

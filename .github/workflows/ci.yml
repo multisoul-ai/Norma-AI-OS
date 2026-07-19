@@ -39,7 +39,9 @@ jobs:
         run: python3 scripts/check-video-wallpaper-performance.py
 
       - name: Domain contract consistency
-        run: python3 scripts/check-domain-contracts.py
+        run: |
+          python3 scripts/test-check-domain-contracts.py
+          python3 scripts/check-domain-contracts.py
 
       - name: Check
         run: cargo check --workspace

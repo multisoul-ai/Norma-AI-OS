@@ -60,11 +60,16 @@ fn normalize_embedded_line(raw: &str) -> String {
 }
 
 pub fn parse_truthy_env(raw: Option<String>) -> bool {
-    match raw.as_deref().map(str::trim) {
-        Some("1") | Some("true") | Some("TRUE") | Some("yes") | Some("YES") | Some("on")
-        | Some("ON") => true,
-        _ => false,
-    }
+    matches!(
+        raw.as_deref().map(str::trim),
+        Some("1")
+            | Some("true")
+            | Some("TRUE")
+            | Some("yes")
+            | Some("YES")
+            | Some("on")
+            | Some("ON")
+    )
 }
 
 #[cfg(test)]

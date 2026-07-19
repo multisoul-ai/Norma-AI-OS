@@ -195,7 +195,7 @@ impl VoiceSettingsValues {
             || saved.ollama_profile.credential_ref.is_some()
             || env.ollama_endpoint.is_some()
             || env.dialogue_model.is_some();
-        let agent_provider = saved.agent_provider.unwrap_or_else(|| {
+        let agent_provider = saved.agent_provider.unwrap_or({
             if has_legacy_ollama_configuration {
                 AgentProviderKind::Ollama
             } else {

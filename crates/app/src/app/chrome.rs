@@ -57,6 +57,16 @@ struct FrostedBackdropRegion {
     height: f32,
 }
 
+pub(crate) struct FrostedBackdropGeometry {
+    pub(crate) left: f32,
+    pub(crate) top: f32,
+    pub(crate) width: f32,
+    pub(crate) height: f32,
+    pub(crate) radius: f32,
+    pub(crate) viewport_width: f32,
+    pub(crate) viewport_height: f32,
+}
+
 /// GPUI 0.2.2 只能矩形裁剪子元素。将毛玻璃拆为中间横条与上下内缩横条，
 /// 让四个圆角方块继续显示底下同位置的原始壁纸，而不被矩形采样盖住。
 fn frosted_backdrop_regions(
@@ -249,27 +259,30 @@ impl MultisoulApp {
     pub(crate) fn render_card_frosted_backdrop(
         &self,
         node_id: canvas::NodeId,
-        card_left: f32,
-        card_top: f32,
-        card_width: f32,
-        card_height: f32,
-        card_radius: f32,
-        viewport_width: f32,
-        viewport_height: f32,
+        geometry: FrostedBackdropGeometry,
     ) -> Div {
+        let FrostedBackdropGeometry {
+            left,
+            top,
+            width,
+            height,
+            radius,
+            viewport_width,
+            viewport_height,
+        } = geometry;
         let mut backdrop = div()
             .absolute()
-            .top(px(card_top))
-            .left(px(card_left))
-            .w(px(card_width))
-            .h(px(card_height))
+            .top(px(top))
+            .left(px(left))
+            .w(px(width))
+            .h(px(height))
             .overflow_hidden();
 
-        for region in frosted_backdrop_regions(card_width, card_height, card_radius) {
+        for region in frosted_backdrop_regions(width, height, radius) {
             backdrop = backdrop.child(self.render_frosted_backdrop_region(
                 node_id,
-                card_left,
-                card_top,
+                left,
+                top,
                 region,
                 viewport_width,
                 viewport_height,

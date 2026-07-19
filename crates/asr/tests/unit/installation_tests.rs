@@ -207,7 +207,7 @@ fn test_legacy_bilingual_installation_reports_recoverable_update() {
         "升级错误必须给出可执行的 Voice Settings → Retry 恢复动作，实际消息: {message}"
     );
     assert!(
-        !matches!(result, Ok(_)),
+        result.is_err(),
         "缺少 bpe.vocab 的旧安装不得继续被误判为 Ready"
     );
 }

@@ -135,11 +135,7 @@ fn legacy_api_key_migration_does_not_race_keychain_loading() {
     let writes = state.take_pending_writes();
 
     assert_eq!(
-        state
-            .values()
-            .active_provider_profile()
-            .api_key()
-            .as_deref(),
+        state.values().active_provider_profile().api_key(),
         Some("sk-legacy-migration-secret"),
         "legacy API Key must remain available in memory until Keychain migration finishes"
     );
@@ -156,8 +152,7 @@ fn legacy_api_key_migration_does_not_race_keychain_loading() {
         state
             .values()
             .active_provider_profile()
-            .api_key()
-            .as_deref(),
+            .api_key(),
         None,
         "migration must not clear the only usable provider credential before background persistence"
     );

@@ -8,6 +8,16 @@ mod controller;
 mod reference;
 use reference::zipvoice_reference_controls;
 
+struct TtsCatalogItem<'a> {
+    theme: Theme,
+    descriptor: &'a tts::TtsModelDescriptor,
+    installation: &'a TtsModelInstallState,
+    selected_model: bool,
+    selected_voice: Option<&'a tts::TtsVoiceId>,
+    zipvoice_reference_ready: bool,
+    model_index: usize,
+}
+
 pub(super) fn tts_catalog_row(
     theme: Theme,
     state: &crate::settings::voice::VoiceSettingsState,
@@ -21,6 +31,15 @@ pub(super) fn tts_catalog_row(
         let descriptor = entry.descriptor().clone();
         let id = descriptor.id().clone();
         let selected_here = selected == Some(&id);
+        let item = TtsCatalogItem {
+            theme,
+            descriptor: &descriptor,
+            installation: entry.installation(),
+            selected_model: selected_here,
+            selected_voice,
+            zipvoice_reference_ready: state.zipvoice_reference_ready(),
+            model_index: index,
+        };
         list = list.child(
             div()
                 .id(("settings-tts-model", index))
@@ -80,16 +99,7 @@ pub(super) fn tts_catalog_row(
                                         )),
                                 ),
                         )
-                        .child(model_action(
-                            theme,
-                            &descriptor,
-                            entry.installation(),
-                            selected_here,
-                            state.zipvoice_reference_ready(),
-                            id.clone(),
-                            index,
-                            cx,
-                        )),
+                        .child(model_action(&item, cx)),
                 )
                 .children(zipvoice_reference_controls(
                     theme,
@@ -100,16 +110,7 @@ pub(super) fn tts_catalog_row(
                     window,
                     cx,
                 ))
-                .children(voice_controls(
-                    theme,
-                    &descriptor,
-                    entry.installation(),
-                    selected_here,
-                    selected_voice,
-                    state.zipvoice_reference_ready(),
-                    index,
-                    cx,
-                )),
+                .children(voice_controls(&item, cx)),
         );
     }
     div()
@@ -126,16 +127,14 @@ pub(super) fn tts_catalog_row(
         .child(list)
 }
 
-fn model_action(
-    theme: Theme,
-    descriptor: &tts::TtsModelDescriptor,
-    installation: &TtsModelInstallState,
-    selected: bool,
-    zipvoice_reference_ready: bool,
-    id: tts::TtsModelId,
-    index: usize,
-    cx: &mut Context<MultisoulApp>,
-) -> Div {
+fn model_action(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> Div {
+    let theme = item.theme;
+    let descriptor = item.descriptor;
+    let installation = item.installation;
+    let selected = item.selected_model;
+    let zipvoice_reference_ready = item.zipvoice_reference_ready;
+    let id = descriptor.id().clone();
+    let index = item.model_index;
     match installation {
         TtsModelInstallState::NotInstalled => div().child(
             action_button(theme, "Install", theme.accent_orange)
@@ -231,16 +230,14 @@ fn model_action(
     }
 }
 
-fn voice_controls(
-    theme: Theme,
-    descriptor: &tts::TtsModelDescriptor,
-    installation: &TtsModelInstallState,
-    selected_model: bool,
-    selected_voice: Option<&tts::TtsVoiceId>,
-    zipvoice_reference_ready: bool,
-    model_index: usize,
-    cx: &mut Context<MultisoulApp>,
-) -> Option<Div> {
+fn voice_controls(item: &TtsCatalogItem<'_>, cx: &mut Context<MultisoulApp>) -> Option<Div> {
+    let theme = item.theme;
+    let descriptor = item.descriptor;
+    let installation = item.installation;
+    let selected_model = item.selected_model;
+    let selected_voice = item.selected_voice;
+    let zipvoice_reference_ready = item.zipvoice_reference_ready;
+    let model_index = item.model_index;
     if !matches!(installation, TtsModelInstallState::Ready) {
         return None;
     }

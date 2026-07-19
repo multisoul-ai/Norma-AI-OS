@@ -286,37 +286,37 @@ pub fn render_canvas(
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),
             },
         );
-        if matches!(node_type, NodeType::Browser) {
-            if native_browser_views_visible {
-                visible_browser_nodes.insert(id);
-                if let CanvasNodeKind::Browser(spec) = &node.kind {
-                    let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
-                    app.sync_browser_view_for_node(
-                        id,
-                        &spec.url,
-                        browser_native_view_bounds(
-                            f64::from(top_left.x),
-                            f64::from(top_left.y),
-                            f64::from(w),
-                            f64::from(h),
-                            f64::from(browser_header_h),
-                            f64::from(node_terminal_radius_px(vp.zoom)),
-                        ),
-                        window,
-                    );
-                }
+        if matches!(node_type, NodeType::Browser) && native_browser_views_visible {
+            visible_browser_nodes.insert(id);
+            if let CanvasNodeKind::Browser(spec) = &node.kind {
+                let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
+                app.sync_browser_view_for_node(
+                    id,
+                    &spec.url,
+                    browser_native_view_bounds(
+                        f64::from(top_left.x),
+                        f64::from(top_left.y),
+                        f64::from(w),
+                        f64::from(h),
+                        f64::from(browser_header_h),
+                        f64::from(node_terminal_radius_px(vp.zoom)),
+                    ),
+                    window,
+                );
             }
         }
         node_elems.push(
             app.render_card_frosted_backdrop(
                 id,
-                top_left.x,
-                top_left.y,
-                w,
-                h,
-                node_radius,
-                win_w,
-                win_h,
+                crate::app::FrostedBackdropGeometry {
+                    left: top_left.x,
+                    top: top_left.y,
+                    width: w,
+                    height: h,
+                    radius: node_radius,
+                    viewport_width: win_w,
+                    viewport_height: win_h,
+                },
             )
             .into_any_element(),
         );

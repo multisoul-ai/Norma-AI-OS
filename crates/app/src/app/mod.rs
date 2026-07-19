@@ -44,6 +44,7 @@ pub(crate) mod browser;
 pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 pub(crate) mod cef_process;
 mod chrome;
+pub(crate) use chrome::FrostedBackdropGeometry;
 mod clipboard_image;
 mod cursor_animation;
 #[cfg(test)]
