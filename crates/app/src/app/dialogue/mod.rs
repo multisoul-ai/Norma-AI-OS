@@ -220,7 +220,12 @@ impl DialogueControlState {
         match self.session.phase() {
             DialoguePhase::Idle => None,
             DialoguePhase::Listening => Some("Continuous Listening".to_string()),
-            DialoguePhase::Thinking => Some("Thinking...".to_string()),
+            DialoguePhase::Thinking => self
+                .session
+                .pending_transcript()
+                .filter(|transcript| !transcript.trim().is_empty())
+                .map(ToOwned::to_owned)
+                .or_else(|| Some("Thinking...".to_string())),
             DialoguePhase::Speaking => Some("Replying...".to_string()),
         }
     }

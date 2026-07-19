@@ -123,7 +123,9 @@ fn test_continuous_listening_shortcut_stops_an_active_session() {
 /// DLG-16: 对话轮次失败后应恢复 Listening，下一句可清除旧错误并重新进入 Thinking。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   session 经 Listening → final「你好」→ Thinking；注入 Ollama request failed
+///   final transcripts = 2（首轮「你好」+ 恢复轮「再试一次」）
+///   injected failures = 1（Ollama request failed）
+///   recovery cycles   = 1（Thinking → Listening → Thinking）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. recover_reply_failure 记录错误并恢复 Listening
@@ -131,7 +133,8 @@ fn test_continuous_listening_shortcut_stops_an_active_session() {
 ///
 /// 预期结果：
 ///   - 正断言：失败后 phase == Listening 且错误可见
-///   - 正断言：下一句进入 Thinking 并清除旧错误
+///   - 正断言：下一句进入 Thinking，顶部 Voice 入口显示「再试一次」
+///   - 负断言：下一轮不得继续显示旧错误
 ///   - 负断言：不得永久卡在 Thinking 导致后续识别无回复
 #[test]
 fn test_dialogue_turn_failure_recovers_for_next_utterance() {
@@ -171,10 +174,16 @@ fn test_dialogue_turn_failure_recovers_for_next_utterance() {
             DialoguePhase::Thinking,
             "下一句 final 应重新进入 Thinking"
         );
+        let recovered_label = state.dialogue_voice_label();
         assert_eq!(
-            state.dialogue_voice_label().as_deref(),
-            Some("Thinking..."),
-            "新一轮开始后应清除旧错误并显示 Thinking"
+            recovered_label.as_deref(),
+            Some("再试一次"),
+            "新一轮开始后应清除旧错误并显示当前 final transcript"
+        );
+        assert_ne!(
+            recovered_label.as_deref(),
+            Some("Turn error: Ollama request failed"),
+            "新一轮开始后不得继续显示上一轮错误"
         );
     });
 }
