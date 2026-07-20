@@ -6,6 +6,7 @@ use ui::Theme;
 
 mod controller;
 mod reference;
+pub(crate) use controller::synthesize_tts_preview;
 use reference::zipvoice_reference_controls;
 
 struct TtsCatalogItem<'a> {
@@ -24,8 +25,17 @@ pub(super) fn tts_catalog_row(
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    let selected = state.values().tts_model_id();
-    let selected_voice = state.values().tts_voice_id();
+    let picker_selecting_local = state.tts_picker_provider_id() == Some(tts::LOCAL_TTS_PROVIDER_ID);
+    let selected = if picker_selecting_local {
+        state.tts_picker_local_model_id()
+    } else {
+        state.values().tts_model_id()
+    };
+    let selected_voice = if picker_selecting_local {
+        state.tts_picker_local_voice_id()
+    } else {
+        state.values().tts_voice_id()
+    };
     let mut list = div().w_full().flex().flex_col().gap(px(8.0));
     for (index, entry) in state.tts_model_manager().entries().iter().enumerate() {
         let descriptor = entry.descriptor().clone();

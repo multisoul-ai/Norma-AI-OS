@@ -1,5 +1,7 @@
 # Agent 任务终态 TTS 播报 SPEC
 
+> 后续修订：其中“仅使用 Local TTS”的表述已由 `2026-07-19-SPEC-built-in-streaming-tts-providers.md` 取代；任务播报使用当前显式激活且 Ready 的 TTS Provider，失败时不跨 Provider fallback。
+
 ## Problem Statement
 
 Norma OS 允许多个 Agent 在不同的活跃 Agent 卡片中并行执行任务。用户切换到其他卡片、最小化窗口或在其他应用中工作后，虽然卡片会显示 `Done`、`Failed` 和完成提醒，但用户仍需要反复回到画布确认每个 Agent 是否结束。这削弱了并行 Agent 的价值，也让等待任务完成变成持续占用注意力的行为。

@@ -1,10 +1,14 @@
 use crate::app::voice_window_inset::PcmEnergyTimeline;
 use audio::PcmAudioChunk;
-use dialogue::TtsChunkSink;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use super::SpeechWorkerEvent;
+
+// The sink runs on the background synthesis worker. Polling every 2ms keeps cancellation
+// responsive while applying bounded backpressure instead of blocking GPUI's foreground thread.
+const BACKPRESSURE_POLL_INTERVAL: Duration = Duration::from_millis(2);
 
 pub(crate) struct QueuedPlaybackChunk {
     pub(crate) pcm: PcmAudioChunk,
@@ -54,24 +58,52 @@ pub(super) struct ChannelTtsChunkSink {
     pub(super) cancelled: Arc<AtomicBool>,
     pub(super) tts_request_sequence: u64,
     pub(super) next_chunk_sequence: AtomicU64,
+    pub(super) terminal: Mutex<Option<Result<tts::TtsStreamSummary, tts::TtsError>>>,
 }
 
-impl TtsChunkSink for ChannelTtsChunkSink {
+impl ChannelTtsChunkSink {
+    pub(super) fn take_terminal(&self) -> Option<Result<tts::TtsStreamSummary, tts::TtsError>> {
+        self.terminal
+            .lock()
+            .expect("TTS stream terminal lock should not be poisoned")
+            .take()
+    }
+}
+
+impl tts::TtsChunkSink for ChannelTtsChunkSink {
     fn send(&self, chunk: PcmAudioChunk) -> bool {
-        !self.cancelled.load(Ordering::Acquire)
-            && self
-                .events
-                .try_send(SpeechWorkerEvent::Chunk(
-                    QueuedPlaybackChunk::from_tts_stream(
-                        chunk,
-                        self.tts_request_sequence,
-                        self.next_chunk_sequence.fetch_add(1, Ordering::Relaxed),
-                    ),
-                ))
-                .is_ok()
+        let mut event = SpeechWorkerEvent::Chunk(QueuedPlaybackChunk::from_tts_stream(
+            chunk,
+            self.tts_request_sequence,
+            self.next_chunk_sequence.fetch_add(1, Ordering::Relaxed),
+        ));
+        loop {
+            if self.cancelled.load(Ordering::Acquire) {
+                return false;
+            }
+            match self.events.try_send(event) {
+                Ok(()) => return true,
+                Err(async_channel::TrySendError::Full(returned)) => {
+                    event = returned;
+                    std::thread::park_timeout(BACKPRESSURE_POLL_INTERVAL);
+                }
+                Err(async_channel::TrySendError::Closed(_)) => return false,
+            }
+        }
     }
 
     fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::Acquire)
     }
+
+    fn finish(&self, result: Result<tts::TtsStreamSummary, tts::TtsError>) {
+        *self
+            .terminal
+            .lock()
+            .expect("TTS stream terminal lock should not be poisoned") = Some(result);
+    }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/reply_stream_pcm_tests.rs"]
+mod tests;

@@ -4,11 +4,11 @@ use gpui::Context;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+mod maintenance;
 mod reference;
 mod work;
-use work::{
-    install_tts_package, resolve_tts_selection, synthesize_tts_preview, validate_tts_selection,
-};
+pub(crate) use work::synthesize_tts_preview;
+use work::{install_tts_package, resolve_tts_selection, validate_tts_selection};
 
 enum TtsInstallEvent {
     Progress(u64, u64),
@@ -46,17 +46,29 @@ impl MultisoulApp {
                     return;
                 }
                 app.voice_settings.replace_tts_model_manager(manager);
+                let local_active = app
+                    .voice_settings
+                    .values()
+                    .active_tts_provider_id()
+                    .is_some_and(|provider| provider.as_str() == tts::LOCAL_TTS_PROVIDER_ID);
                 match configured {
-                    Ok(Some(model)) => crate::app::dialogue::configure_selected_tts_model(Some(model)),
+                    Ok(Some(model)) if local_active => {
+                        crate::app::dialogue::configure_selected_tts_model(Some(model))
+                    }
+                    Ok(Some(_)) => {}
                     Ok(None) => {
-                        crate::app::dialogue::configure_selected_tts_model(None);
+                        if local_active {
+                            crate::app::dialogue::configure_selected_tts_model(None);
+                        }
                         app.voice_settings.report_tts_status(
                             "No Local TTS model is selected; replies will stay text-only.",
                             false,
                         );
                     }
                     Err(error) => {
-                        crate::app::dialogue::configure_selected_tts_model(None);
+                        if local_active {
+                            crate::app::dialogue::configure_selected_tts_model(None);
+                        }
                         app.voice_settings.report_tts_status(
                             format!(
                                 "Saved Local TTS selection is unavailable; replies will stay text-only: {error}"
@@ -132,7 +144,11 @@ impl MultisoulApp {
                                 }
                                 TtsInstallOutcome::Ready => {
                                     app.voice_settings.tts_model_manager_mut().mark_ready(&id);
-                                    if !app.has_valid_selected_tts_model() {
+                                    let picker_needs_local_selection =
+                                        app.voice_settings.tts_picker_provider_id()
+                                            == Some(tts::LOCAL_TTS_PROVIDER_ID)
+                                            && !app.voice_settings.tts_picker_ready();
+                                    if picker_needs_local_selection {
                                         app.select_tts_model(id.clone(), None, cx);
                                     }
                                 }
@@ -226,6 +242,50 @@ impl MultisoulApp {
         requested_voice: Option<tts::TtsVoiceId>,
         cx: &mut Context<Self>,
     ) {
+        if self.voice_settings.tts_picker_apply_pending() {
+            self.voice_settings.report_tts_status(
+                "Wait for the selected Voice to finish applying before changing the Draft.",
+                false,
+            );
+            cx.notify();
+            return;
+        }
+        self.select_tts_model_work(model_id, requested_voice, false, cx);
+    }
+
+    pub(crate) fn apply_tts_picker_model(
+        &mut self,
+        model_id: tts::TtsModelId,
+        voice_id: tts::TtsVoiceId,
+        cx: &mut Context<Self>,
+    ) {
+        self.select_tts_model_work(model_id, Some(voice_id), true, cx);
+    }
+
+    fn select_tts_model_work(
+        &mut self,
+        model_id: tts::TtsModelId,
+        requested_voice: Option<tts::TtsVoiceId>,
+        picker_apply: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let picker_selecting_local = self.voice_settings.tts_picker_provider_id()
+            == Some(tts::LOCAL_TTS_PROVIDER_ID)
+            && !picker_apply;
+        if picker_selecting_local {
+            let catalog = tts::builtin_model_catalog();
+            let Some(descriptor) = catalog.find(&model_id) else {
+                return;
+            };
+            let voice_id = descriptor
+                .resolve_voice_id(requested_voice.as_ref().map(tts::TtsVoiceId::as_str))
+                .clone();
+            self.tts_preview.cancel();
+            self.voice_settings
+                .set_tts_picker_local_selection(model_id, voice_id);
+            cx.notify();
+            return;
+        }
         self.cancel_agent_announcements();
         self.tts_preview.cancel();
         self.invalidate_tts_for_configuration_change(cx);
@@ -242,12 +302,17 @@ impl MultisoulApp {
                 if selection_generation != app.tts_selection_generation {
                     return;
                 }
+                if !app.voice_settings.tts_picker_apply_pending()
+                    || app.voice_settings.tts_picker_provider_id()
+                        != Some(tts::LOCAL_TTS_PROVIDER_ID)
+                {
+                    return;
+                }
                 match result {
                     Ok(selected) => app.commit_tts_selection(selected, cx),
-                    Err(error) => app.voice_settings.report_tts_status(
-                        format!("Could not select Local TTS model: {error}"),
-                        true,
-                    ),
+                    Err(error) => app.voice_settings.fail_tts_picker_apply(format!(
+                        "Could not select Local TTS model: {error}"
+                    )),
                 }
                 cx.notify();
             });
@@ -261,6 +326,30 @@ impl MultisoulApp {
         voice_id: tts::TtsVoiceId,
         cx: &mut Context<Self>,
     ) {
+        let root = self.voice_settings.tts_model_root();
+        self.preview_tts_selection_work(
+            move |tts_runtime, cancelled| {
+                let selected = resolve_tts_selection(&root, model_id, Some(voice_id))?;
+                synthesize_tts_preview(&tts_runtime, &selected, cancelled)
+            },
+            false,
+            false,
+            cx,
+        );
+    }
+
+    pub(crate) fn preview_tts_selection_work(
+        &mut self,
+        synthesis: impl FnOnce(
+                crate::app::dialogue::SharedTtsRuntime,
+                Arc<AtomicBool>,
+            ) -> Result<audio::PcmAudioChunk, String>
+            + Send
+            + 'static,
+        validate_manual_minimax_voice: bool,
+        minimax_preview: bool,
+        cx: &mut Context<Self>,
+    ) {
         if self.dialogue.phase() == dialogue::DialoguePhase::Speaking {
             self.voice_settings.report_tts_status(
                 "Voice preview is unavailable while an assistant reply is playing.",
@@ -270,27 +359,55 @@ impl MultisoulApp {
             return;
         }
         self.cancel_agent_announcements();
-        let root = self.voice_settings.tts_model_root();
         let configuration_generation = self.dialogue.tts_configuration_generation();
+        let minimax_profile_generation =
+            minimax_preview.then(|| self.voice_settings.minimax_profile_generation());
         let (preview_generation, control) = self.tts_preview.start();
+        if minimax_preview {
+            self.voice_settings
+                .begin_minimax_preview(preview_generation);
+        }
         self.dialogue.track_tts_preview(Arc::clone(&control));
+        cx.notify();
         let tts_runtime = self.dialogue.shared_tts_runtime();
-        let work = cx.background_executor().spawn(async move {
-            let selected = resolve_tts_selection(&root, model_id, Some(voice_id))?;
-            synthesize_tts_preview(&tts_runtime, &selected)
-        });
+        let cancelled = control.cancellation_flag();
+        let work = cx
+            .background_executor()
+            .spawn(async move { synthesis(tts_runtime, cancelled) });
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
                 let preview_is_current = app.tts_preview.is_current(preview_generation);
                 let same_configuration =
                     app.dialogue.tts_configuration_generation() == configuration_generation;
+                let same_minimax_profile = minimax_profile_generation.is_none_or(|generation| {
+                    app.voice_settings.minimax_profile_generation() == generation
+                });
+                if minimax_preview {
+                    app.voice_settings
+                        .finish_minimax_preview(preview_generation);
+                }
                 match result {
                     Ok(chunk)
                         if preview_is_current
                             && same_configuration
+                            && same_minimax_profile
                             && app.dialogue.phase() != dialogue::DialoguePhase::Speaking =>
                     {
+                        if validate_manual_minimax_voice {
+                            let validation_recorded =
+                                app.voice_settings.mark_minimax_manual_voice_validated(
+                                    minimax_profile_generation.expect(
+                                        "manual MiniMax validation requires profile generation",
+                                    ),
+                                );
+                            app.persist_voice_settings_in_background(cx);
+                            if validation_recorded
+                                && !app.voice_settings.settings_persistence_pending()
+                            {
+                                app.configure_active_minimax_tts_if_ready(cx);
+                            }
+                        }
                         let control = Arc::clone(&control);
                         let playback_work = cx.background_executor().spawn(async move {
                             let result = control.play_with_completion(&chunk);
@@ -355,62 +472,6 @@ impl MultisoulApp {
                             .report_tts_status(format!("Voice preview failed: {error}"), true);
                     }
                     Err(_) => {}
-                }
-                cx.notify();
-            });
-        })
-        .detach();
-    }
-
-    fn has_valid_selected_tts_model(&self) -> bool {
-        let Some(id) = self.voice_settings.values().tts_model_id() else {
-            return false;
-        };
-        matches!(
-            self.voice_settings.tts_model_manager().installation(id),
-            Some(TtsModelInstallState::Ready)
-        )
-    }
-
-    fn commit_tts_selection(
-        &mut self,
-        selected: crate::app::dialogue::SelectedTtsModel,
-        cx: &mut Context<Self>,
-    ) {
-        self.stop_continuous_listening(cx);
-        self.voice.stop_for_model_switch();
-        self.voice_settings.select_tts_model_and_voice(
-            Some(selected.model_id.clone()),
-            Some(selected.voice_id.clone()),
-        );
-        crate::app::dialogue::configure_selected_tts_model(Some(selected));
-        self.complete_voice_setup_if_ready(cx);
-        self.persist_voice_settings_in_background(cx);
-    }
-
-    fn invalidate_tts_scan(&mut self) {
-        self.tts_scan_generation = self.tts_scan_generation.wrapping_add(1);
-    }
-
-    fn remove_cancelled_tts_install(&mut self, id: tts::TtsModelId, cx: &mut Context<Self>) {
-        let catalog = tts::builtin_model_catalog();
-        let Some(descriptor) = catalog.find(&id).cloned() else {
-            return;
-        };
-        let root = self.voice_settings.tts_model_root().join(id.as_str());
-        let work = cx.background_executor().spawn(async move {
-            tts::remove_installation(&root, &descriptor, None).map_err(|error| error.to_string())
-        });
-        cx.spawn(async move |this, cx| {
-            let result = work.await;
-            let _ = this.update(cx, |app, cx| {
-                app.invalidate_tts_scan();
-                match result {
-                    Ok(()) => app
-                        .voice_settings
-                        .tts_model_manager_mut()
-                        .mark_not_installed(&id),
-                    Err(error) => app.voice_settings.report_tts_status(error, true),
                 }
                 cx.notify();
             });

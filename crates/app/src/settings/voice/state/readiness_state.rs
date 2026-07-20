@@ -81,6 +81,29 @@ impl VoiceSettingsState {
     }
 
     fn selected_tts_requirement(&self) -> VoiceRequirementState {
+        let Some(provider_id) = self.values.active_tts_provider_id() else {
+            return VoiceRequirementState::Missing;
+        };
+        if provider_id.as_str() == tts::MINIMAX_TTS_PROVIDER_ID {
+            return match self.minimax_readiness() {
+                tts::RemoteTtsReadiness::Ready => VoiceRequirementState::Ready,
+                tts::RemoteTtsReadiness::Checking => VoiceRequirementState::Installing {
+                    completed: 0,
+                    total: 1,
+                },
+                tts::RemoteTtsReadiness::TemporarilyUnavailable
+                | tts::RemoteTtsReadiness::InvalidCredential
+                | tts::RemoteTtsReadiness::VoiceUnavailable => VoiceRequirementState::Failed,
+                tts::RemoteTtsReadiness::Unconfigured
+                | tts::RemoteTtsReadiness::Configured
+                | tts::RemoteTtsReadiness::VoiceValidationRequired => {
+                    VoiceRequirementState::Missing
+                }
+            };
+        }
+        if provider_id.as_str() != tts::LOCAL_TTS_PROVIDER_ID {
+            return VoiceRequirementState::Failed;
+        }
         let (Some(model_id), Some(voice_id)) =
             (self.values.tts_model_id(), self.values.tts_voice_id())
         else {

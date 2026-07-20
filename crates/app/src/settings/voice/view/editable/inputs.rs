@@ -4,6 +4,30 @@ use crate::settings::voice::state::{VoiceSettingsField, VoiceSettingsState};
 use gpui::{App, Context, Entity, FocusHandle, WeakEntity, Window};
 use ui::Theme;
 
+fn create_input(
+    field: VoiceSettingsField,
+    placeholder: &'static str,
+    masked: bool,
+    app: WeakEntity<MultisoulApp>,
+    root_focus: FocusHandle,
+    state: &VoiceSettingsState,
+    theme: Theme,
+    cx: &mut Context<MultisoulApp>,
+) -> Entity<VoiceTextInput> {
+    new_input(
+        VoiceInputConfig {
+            field,
+            value: state.editor_value(field),
+            placeholder,
+            masked,
+            theme,
+        },
+        app,
+        root_focus,
+        cx,
+    )
+}
+
 pub(crate) struct VoiceSettingsInputs {
     base_url: Entity<VoiceTextInput>,
     model: Entity<VoiceTextInput>,
@@ -11,6 +35,9 @@ pub(crate) struct VoiceSettingsInputs {
     azure_region: Entity<VoiceTextInput>,
     azure_locale: Entity<VoiceTextInput>,
     azure_api_key: Entity<VoiceTextInput>,
+    minimax_api_key: Entity<VoiceTextInput>,
+    minimax_voice_id: Entity<VoiceTextInput>,
+    minimax_voice_search: Entity<VoiceTextInput>,
 }
 
 impl VoiceSettingsInputs {
@@ -32,76 +59,94 @@ impl VoiceSettingsInputs {
         theme: Theme,
         cx: &mut Context<MultisoulApp>,
     ) -> Self {
-        let base_url = new_input(
-            VoiceInputConfig {
-                field: VoiceSettingsField::BaseUrl,
-                value: state.editor_value(VoiceSettingsField::BaseUrl),
-                placeholder: "https://api.example.com/v1",
-                masked: false,
-                theme,
-            },
+        let base_url = create_input(
+            VoiceSettingsField::BaseUrl,
+            "https://api.example.com/v1",
+            false,
             app.clone(),
             root_focus.clone(),
+            state,
+            theme,
             cx,
         );
-        let model = new_input(
-            VoiceInputConfig {
-                field: VoiceSettingsField::Model,
-                value: state.editor_value(VoiceSettingsField::Model),
-                placeholder: "Model name",
-                masked: false,
-                theme,
-            },
+        let model = create_input(
+            VoiceSettingsField::Model,
+            "Model name",
+            false,
             app.clone(),
             root_focus.clone(),
+            state,
+            theme,
             cx,
         );
-        let api_key = new_input(
-            VoiceInputConfig {
-                field: VoiceSettingsField::ApiKey,
-                value: state.editor_value(VoiceSettingsField::ApiKey),
-                placeholder: status::input_placeholder(state, VoiceSettingsField::ApiKey),
-                masked: true,
-                theme,
-            },
+        let api_key = create_input(
+            VoiceSettingsField::ApiKey,
+            status::input_placeholder(state, VoiceSettingsField::ApiKey),
+            true,
             app.clone(),
             root_focus.clone(),
+            state,
+            theme,
             cx,
         );
-        let azure_region = new_input(
-            VoiceInputConfig {
-                field: VoiceSettingsField::AzureRegion,
-                value: state.editor_value(VoiceSettingsField::AzureRegion),
-                placeholder: "eastus",
-                masked: false,
-                theme,
-            },
+        let azure_region = create_input(
+            VoiceSettingsField::AzureRegion,
+            "eastus",
+            false,
             app.clone(),
             root_focus.clone(),
+            state,
+            theme,
             cx,
         );
-        let azure_locale = new_input(
-            VoiceInputConfig {
-                field: VoiceSettingsField::AzureLocale,
-                value: state.editor_value(VoiceSettingsField::AzureLocale),
-                placeholder: "zh-CN",
-                masked: false,
-                theme,
-            },
+        let azure_locale = create_input(
+            VoiceSettingsField::AzureLocale,
+            "zh-CN",
+            false,
             app.clone(),
             root_focus.clone(),
+            state,
+            theme,
             cx,
         );
-        let azure_api_key = new_input(
-            VoiceInputConfig {
-                field: VoiceSettingsField::AzureApiKey,
-                value: state.editor_value(VoiceSettingsField::AzureApiKey),
-                placeholder: status::input_placeholder(state, VoiceSettingsField::AzureApiKey),
-                masked: true,
-                theme,
-            },
+        let azure_api_key = create_input(
+            VoiceSettingsField::AzureApiKey,
+            status::input_placeholder(state, VoiceSettingsField::AzureApiKey),
+            true,
+            app.clone(),
+            root_focus.clone(),
+            state,
+            theme,
+            cx,
+        );
+        let minimax_api_key = create_input(
+            VoiceSettingsField::MiniMaxApiKey,
+            status::input_placeholder(state, VoiceSettingsField::MiniMaxApiKey),
+            true,
+            app.clone(),
+            root_focus.clone(),
+            state,
+            theme,
+            cx,
+        );
+        let minimax_voice_id = create_input(
+            VoiceSettingsField::MiniMaxVoiceId,
+            "Enter Voice ID",
+            false,
+            app.clone(),
+            root_focus.clone(),
+            state,
+            theme,
+            cx,
+        );
+        let minimax_voice_search = create_input(
+            VoiceSettingsField::MiniMaxVoiceSearch,
+            "Search by name or Voice ID",
+            false,
             app,
             root_focus,
+            state,
+            theme,
             cx,
         );
         Self {
@@ -111,6 +156,9 @@ impl VoiceSettingsInputs {
             azure_region,
             azure_locale,
             azure_api_key,
+            minimax_api_key,
+            minimax_voice_id,
+            minimax_voice_search,
         }
     }
 
@@ -122,6 +170,9 @@ impl VoiceSettingsInputs {
             VoiceSettingsField::AzureRegion => self.azure_region.clone(),
             VoiceSettingsField::AzureLocale => self.azure_locale.clone(),
             VoiceSettingsField::AzureApiKey => self.azure_api_key.clone(),
+            VoiceSettingsField::MiniMaxApiKey => self.minimax_api_key.clone(),
+            VoiceSettingsField::MiniMaxVoiceId => self.minimax_voice_id.clone(),
+            VoiceSettingsField::MiniMaxVoiceSearch => self.minimax_voice_search.clone(),
         }
     }
 
@@ -137,22 +188,27 @@ impl VoiceSettingsInputs {
             VoiceSettingsField::AzureRegion,
             VoiceSettingsField::AzureLocale,
             VoiceSettingsField::AzureApiKey,
+            VoiceSettingsField::MiniMaxApiKey,
+            VoiceSettingsField::MiniMaxVoiceId,
+            VoiceSettingsField::MiniMaxVoiceSearch,
         ] {
             self.sync_field_from_state(field, state, cx);
         }
     }
 
     pub(crate) fn set_theme(&self, theme: Theme, cx: &mut Context<MultisoulApp>) {
-        for field in [
-            VoiceSettingsField::BaseUrl,
-            VoiceSettingsField::Model,
-            VoiceSettingsField::ApiKey,
-            VoiceSettingsField::AzureRegion,
-            VoiceSettingsField::AzureLocale,
-            VoiceSettingsField::AzureApiKey,
+        for input in [
+            &self.base_url,
+            &self.model,
+            &self.api_key,
+            &self.azure_region,
+            &self.azure_locale,
+            &self.azure_api_key,
+            &self.minimax_api_key,
+            &self.minimax_voice_id,
+            &self.minimax_voice_search,
         ] {
-            self.input(field)
-                .update(cx, |input, cx| input.set_theme(theme, cx));
+            input.update(cx, |input, cx| input.set_theme(theme, cx));
         }
     }
 
@@ -164,6 +220,9 @@ impl VoiceSettingsInputs {
             &self.azure_region,
             &self.azure_locale,
             &self.azure_api_key,
+            &self.minimax_api_key,
+            &self.minimax_voice_id,
+            &self.minimax_voice_search,
         ]
         .into_iter()
         .any(|input| input.read(cx).focus_handle.is_focused(window))

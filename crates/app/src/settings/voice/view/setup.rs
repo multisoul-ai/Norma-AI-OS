@@ -1,5 +1,6 @@
 use super::provider::agent_provider_setup_group;
 use super::tts_catalog::tts_catalog_row;
+use super::tts_provider::tts_provider_settings;
 use super::{with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
 use crate::settings::voice::{
@@ -95,11 +96,12 @@ pub(super) fn voice_setup(
                     3,
                     "voice-setup-requirement-tts",
                     "Spoken Replies",
-                    "Install the required local voice so Norma can reply out loud.",
+                    "Choose an On-device or cloud voice so Norma can reply out loud.",
                     tts,
                     spoken_replies_detail(
                         theme,
                         state,
+                        inputs,
                         content_scroll,
                         setup_scroll_target == Some(VoiceSetupDestination::SpokenReplies),
                         window,
@@ -255,6 +257,7 @@ fn setup_step(
 fn spoken_replies_detail(
     theme: Theme,
     state: &VoiceSettingsState,
+    inputs: &VoiceSettingsInputs,
     content_scroll: &ScrollHandle,
     focus_spoken_replies: bool,
     window: &mut Window,
@@ -262,7 +265,15 @@ fn spoken_replies_detail(
 ) -> Div {
     div().w_full().child(
         setup_detail_with_scroll_focus(
-            tts_catalog_row(theme, state, window, cx),
+            div()
+                .w_full()
+                .flex()
+                .flex_col()
+                .gap(px(14.0))
+                .child(tts_provider_settings(theme, state, inputs, cx))
+                .when(state.tts_picker_models_expanded(), |content| {
+                    content.child(tts_catalog_row(theme, state, window, cx))
+                }),
             content_scroll,
             focus_spoken_replies,
         )

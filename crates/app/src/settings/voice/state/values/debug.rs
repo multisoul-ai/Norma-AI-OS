@@ -1,4 +1,5 @@
-use super::{SavedVoiceSettings, VoiceSettingsField, VoiceSettingsValues};
+use super::super::VoiceSettingsField;
+use super::{SavedVoiceSettings, VoiceSettingsValues};
 use crate::settings::voice::VoiceSettingsState;
 use std::fmt;
 
@@ -75,7 +76,11 @@ impl fmt::Debug for VoiceSettingsState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let draft = if matches!(
             self.editing,
-            Some(VoiceSettingsField::ApiKey | VoiceSettingsField::AzureApiKey)
+            Some(
+                VoiceSettingsField::ApiKey
+                    | VoiceSettingsField::AzureApiKey
+                    | VoiceSettingsField::MiniMaxApiKey
+            )
         ) {
             "<redacted>"
         } else {

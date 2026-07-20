@@ -23,7 +23,8 @@ mod voice;
 mod voice_setup;
 pub use agents::{AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot};
 use shortcuts::shortcut_command_name;
-use tts::{snapshot_tts_models, TtsModelE2eSnapshot};
+pub use tts::TtsProviderE2eSnapshot;
+use tts::{snapshot_tts_models, snapshot_tts_provider, TtsModelE2eSnapshot};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ApiKeyDisplayState {
@@ -67,6 +68,10 @@ pub struct SettingsE2eSnapshot {
     pub asr_models: Vec<AsrModelE2eSnapshot>,
     pub selected_tts_model_id: Option<String>,
     pub selected_tts_voice_id: Option<String>,
+    pub runtime_tts_provider_id: Option<String>,
+    pub runtime_tts_model_id: Option<String>,
+    pub runtime_tts_voice_id: Option<String>,
+    pub tts_provider: TtsProviderE2eSnapshot,
     pub zipvoice_reference_ready: bool,
     pub zipvoice_reference_importing: bool,
     pub zipvoice_reference_draft_path: String,
@@ -325,6 +330,7 @@ impl MultisoulApp {
             .voice_settings_inputs
             .rendered_text(crate::settings::voice::VoiceSettingsField::ApiKey, cx);
         let api_key_profile = self.voice_settings.values().active_provider_profile();
+        let runtime_tts = crate::app::dialogue::selected_tts_model();
         SettingsE2eSnapshot {
             settings_open: self.settings_panel.open,
             active_section: self.settings_panel.active_section.title(),
@@ -442,6 +448,16 @@ impl MultisoulApp {
                 .values()
                 .tts_voice_id()
                 .map(|id| id.as_str().to_string()),
+            runtime_tts_provider_id: runtime_tts
+                .as_ref()
+                .map(|selected| selected.provider_id.as_str().to_string()),
+            runtime_tts_model_id: runtime_tts
+                .as_ref()
+                .map(|selected| selected.model_id.as_str().to_string()),
+            runtime_tts_voice_id: runtime_tts
+                .as_ref()
+                .map(|selected| selected.voice_id.as_str().to_string()),
+            tts_provider: snapshot_tts_provider(&self.voice_settings),
             zipvoice_reference_ready: self.voice_settings.zipvoice_reference_ready(),
             zipvoice_reference_importing: self.voice_settings.zipvoice_reference_importing(),
             zipvoice_reference_draft_path: self

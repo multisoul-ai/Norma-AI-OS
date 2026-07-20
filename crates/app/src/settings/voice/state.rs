@@ -12,31 +12,34 @@ mod credentials;
 #[cfg(feature = "e2e-test-support")]
 mod e2e;
 mod editing;
+mod field;
 mod migration;
+mod mode;
 mod model_selection;
 mod persistence;
 mod provider_discovery;
 mod provider_values;
 mod readiness_state;
+mod tts_picker;
+mod tts_provider;
+mod tts_provider_persistence;
 mod values;
 mod zipvoice_reference;
 pub(crate) use asr_provider::resolve_builtin_asr_profile;
 use asr_provider::AzureCredentialWriteRollback;
 use credentials::CredentialWriteRollback;
+pub(crate) use field::VoiceSettingsField;
+pub(crate) use mode::{DictationTrigger, VoiceInteractionMode};
 pub(crate) use model_selection::{resolve_available_asr_model, VoiceSetupDestination};
 pub(crate) use persistence::PendingVoiceSettingWrite;
 pub(crate) use provider_discovery::ProviderDiscoveryStatus;
 pub(crate) use provider_values::AgentProviderKind;
 #[cfg(test)]
 pub(crate) use provider_values::SavedProviderProfile;
-use provider_values::{
-    KEY_AGENT_OLLAMA_BASE_URL, KEY_AGENT_OLLAMA_MODEL, KEY_AGENT_OPENAI_BASE_URL,
-    KEY_AGENT_OPENAI_MODEL, KEY_AGENT_PROVIDER,
-};
-pub(crate) use values::{
-    DictationTrigger, EnvVoiceSettings, SavedVoiceSettings, VoiceInteractionMode,
-    VoiceSettingsField, VoiceSettingsValues,
-};
+use provider_values::KEY_AGENT_PROVIDER;
+pub(crate) use tts_picker::TtsActivationRollback;
+pub(crate) use tts_provider::MiniMaxConnectionFailureDisposition;
+pub(crate) use values::{EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsValues};
 use values::{
     KEY_ASR_MODEL_ID, KEY_INPUT_DEVICE_ID, KEY_INTERACTION_MODE, KEY_SINGLE_VOICE_COMMAND_TRIGGER,
     KEY_TRACE_ENABLED, KEY_TTS_MODEL_ID, KEY_TTS_VOICE_ID, KEY_VOICE_SETUP_COMPLETED,
@@ -59,8 +62,22 @@ pub(crate) struct VoiceSettingsState {
     status: Option<VoiceSettingsStatus>,
     pending_writes: Vec<PendingVoiceSettingWrite>,
     persistence_running: bool,
+    active_persistence_batch: Option<persistence::VoicePersistenceBatch>,
     credential_write_rollback: Option<CredentialWriteRollback>,
     azure_credential_write_rollback: Option<AzureCredentialWriteRollback>,
+    minimax_credential_write_rollback: Option<tts_provider::MiniMaxCredentialWriteRollback>,
+    minimax_credential_clear_rollback: Option<tts_provider::MiniMaxCredentialClearRollback>,
+    minimax_validation_write_rollback: Option<tts_provider::MiniMaxValidationWriteRollback>,
+    minimax_api_key_draft: Option<String>,
+    minimax_account_status: tts::RemoteAccountStatus,
+    minimax_voice_catalog: tts::ProviderVoiceCatalog,
+    minimax_validated_selection: Option<tts::TtsValidatedSelection>,
+    minimax_voice_search: String,
+    minimax_connection_generation: u64,
+    minimax_connection_previous_status: tts::RemoteAccountStatus,
+    minimax_profile_generation: u64,
+    minimax_preview_generation: Option<u64>,
+    tts_picker: Option<tts_picker::TtsPickerDraft>,
     model_root: PathBuf,
     model_manager: AsrModelManagerState,
     asr_model_selection_generation: u64,
@@ -122,6 +139,22 @@ impl VoiceSettingsState {
         model_root: PathBuf,
     ) -> Self {
         let values = VoiceSettingsValues::resolve(&saved, &env);
+        let minimax_validated_selection = saved
+            .minimax_validated_credential_ref
+            .as_deref()
+            .zip(saved.minimax_validated_model_id.as_ref())
+            .zip(saved.minimax_validated_voice_id.as_ref())
+            .map(|((credential_ref, model_id), voice_id)| {
+                let provider_id = tts::TtsProviderId::parse(tts::MINIMAX_TTS_PROVIDER_ID)
+                    .expect("built-in MiniMax TTS Provider ID must be valid");
+                let profile = tts::TtsProviderProfile::new(
+                    provider_id,
+                    model_id.clone(),
+                    voice_id.clone(),
+                    tts::VoiceSelectionProvenance::Manual,
+                );
+                tts::TtsValidatedSelection::from_profile(credential_ref, &profile)
+            });
         let setup_was_completed = saved.setup_completed.unwrap_or(false);
         let model_manager = AsrModelManagerState::unscanned(&asr::builtin_model_catalog());
         let tts_model_manager = TtsModelManagerState::unscanned(&tts::builtin_model_catalog());
@@ -136,8 +169,22 @@ impl VoiceSettingsState {
             status: None,
             pending_writes: Vec::new(),
             persistence_running: false,
+            active_persistence_batch: None,
             credential_write_rollback: None,
             azure_credential_write_rollback: None,
+            minimax_credential_write_rollback: None,
+            minimax_credential_clear_rollback: None,
+            minimax_validation_write_rollback: None,
+            minimax_api_key_draft: None,
+            minimax_account_status: tts::RemoteAccountStatus::Unchecked,
+            minimax_voice_catalog: tts::ProviderVoiceCatalog::default(),
+            minimax_validated_selection,
+            minimax_voice_search: String::new(),
+            minimax_connection_generation: 0,
+            minimax_connection_previous_status: tts::RemoteAccountStatus::Unchecked,
+            minimax_profile_generation: 0,
+            minimax_preview_generation: None,
+            tts_picker: None,
             model_root,
             model_manager,
             asr_model_selection_generation: 0,
@@ -358,3 +405,23 @@ mod voice_settings_provider_persistence_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/voice_settings_disclosure_tests.rs"]
 mod voice_settings_disclosure_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_tts_provider_tests.rs"]
+mod voice_settings_tts_provider_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_tts_picker_tests.rs"]
+mod voice_settings_tts_picker_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_tts_activation_tests.rs"]
+mod voice_settings_tts_activation_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_tts_credential_tests.rs"]
+mod voice_settings_tts_credential_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/voice_settings_tts_persistence_tests.rs"]
+mod voice_settings_tts_persistence_tests;

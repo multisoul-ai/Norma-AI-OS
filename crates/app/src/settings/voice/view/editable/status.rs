@@ -34,11 +34,17 @@ pub(super) fn input_placeholder(
         }
         VoiceSettingsField::AzureRegion => "eastus",
         VoiceSettingsField::AzureLocale => "zh-CN",
+        VoiceSettingsField::MiniMaxApiKey if state.minimax_credential_configured() => {
+            CONFIGURED_API_KEY_PLACEHOLDER
+        }
+        VoiceSettingsField::MiniMaxApiKey => UNCONFIGURED_API_KEY_PLACEHOLDER,
+        VoiceSettingsField::MiniMaxVoiceId => "Enter Voice ID",
+        VoiceSettingsField::MiniMaxVoiceSearch => "Search by name or Voice ID",
     }
 }
 
 impl VoiceSettingsInputs {
-    pub(super) fn sync_field_from_state(
+    pub(crate) fn sync_field_from_state(
         &self,
         field: VoiceSettingsField,
         state: &VoiceSettingsState,

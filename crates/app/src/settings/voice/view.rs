@@ -7,6 +7,7 @@ use self::provider::{agent_provider_advanced_rows, agent_provider_group};
 use self::ready::voice_ready_overview;
 use self::setup::voice_setup;
 use self::spoken_reply::spoken_reply_group;
+use self::status::status_message;
 use super::state::{VoiceSettingsField, VoiceSettingsState, VoiceSetupDestination};
 use crate::app::MultisoulApp;
 use gpui::{
@@ -24,7 +25,9 @@ mod provider;
 mod ready;
 mod setup;
 mod spoken_reply;
+mod status;
 mod tts_catalog;
+mod tts_provider;
 
 pub(crate) fn voice_settings(
     theme: Theme,
@@ -56,7 +59,7 @@ pub(crate) fn voice_settings(
         .child(voice_ready_overview(theme, cx))
         .child(interaction_group(theme, state, cx))
         .child(settings_group(theme, "Input").child(input_device_row(theme, state, cx)))
-        .child(spoken_reply_group(theme, state, cx))
+        .child(spoken_reply_group(theme, state, inputs, cx))
         .child(asr_provider_group(theme, state, inputs, cx))
         .child(advanced_group(theme, state, inputs, cx))
         .children(status_message(theme, state))
@@ -107,6 +110,9 @@ impl MultisoulApp {
         self.voice_settings.set_reviewing_setup(true);
         self.voice_settings
             .open_setup_destination(VoiceSetupDestination::SpokenReplies);
+        self.voice_settings.open_tts_picker();
+        self.voice_settings_inputs
+            .sync_from_state(&self.voice_settings, cx);
         self.settings_viewport.pending_voice_setup_scroll =
             Some(VoiceSetupDestination::SpokenReplies);
         cx.notify();
@@ -233,25 +239,76 @@ impl MultisoulApp {
     }
 
     pub(crate) fn persist_voice_settings_in_background(&mut self, cx: &mut Context<Self>) {
+        let tts_activation_batch = self.pending_tts_activation.is_some();
         let writes = self.voice_settings.take_pending_writes();
         if writes.is_empty() {
             return;
         }
         let work = cx.background_executor().spawn(async move {
-            for write in writes {
-                write.execute().map_err(|error| error.to_string())?;
+            if tts_activation_batch {
+                crate::settings::voice::PendingVoiceSettingWrite::execute_settings_atomically(
+                    writes,
+                )?;
+            } else {
+                for write in writes {
+                    write.execute().map_err(|error| error.to_string())?;
+                }
             }
             Ok::<(), String>(())
         });
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
-                let credential_finished = app.voice_settings.credential_persistence_pending();
                 let credential_succeeded = result.is_ok();
-                app.voice_settings.record_persistence_result(result);
+                let completion = app.voice_settings.record_persistence_result(result);
+                let start_minimax_preview =
+                    if app.pending_minimax_preview_after_validation.is_some()
+                        && completion.minimax_credential
+                    {
+                        let generation = app.pending_minimax_preview_after_validation.take();
+                        credential_succeeded
+                            .then_some(generation)
+                            .flatten()
+                            .filter(|generation| {
+                                app.voice_settings
+                                    .accepts_minimax_connection_generation(*generation)
+                            })
+                    } else {
+                        None
+                    };
+                if completion.minimax_clear && credential_succeeded {
+                    app.cancel_agent_announcements();
+                    app.tts_preview.cancel();
+                    app.invalidate_tts_for_configuration_change(cx);
+                    crate::app::dialogue::configure_selected_tts_model(None);
+                }
+                if let Some(activation) = app.pending_tts_activation.take() {
+                    let selected = &activation.selected;
+                    let picker_accepts_activation = app.voice_settings.tts_picker_accepts_activation(
+                        &selected.provider_id,
+                        &selected.model_id,
+                        &selected.voice_id,
+                    );
+                    if credential_succeeded && tts_activation_batch && picker_accepts_activation {
+                        app.complete_tts_activation(activation, cx);
+                    } else {
+                        app.voice_settings.restore_tts_activation(activation.rollback);
+                        app.voice_settings.fail_tts_picker_apply(
+                            "Could not save the selected Voice. The previous Voice is still active.",
+                        );
+                    }
+                }
                 app.persist_voice_settings_in_background(cx);
-                if credential_finished && credential_succeeded {
+                if completion.agent_credential && credential_succeeded {
                     app.validate_saved_voice_provider(cx);
+                }
+                if !tts_activation_batch
+                    && (completion.minimax_credential || completion.minimax_validation)
+                {
+                    app.configure_active_minimax_tts_if_ready(cx);
+                }
+                if start_minimax_preview.is_some() {
+                    app.start_minimax_tts_preview(cx);
                 }
                 cx.notify();
             });
@@ -427,20 +484,6 @@ pub(super) fn action_button(_theme: Theme, label: impl Into<SharedString>, accen
         .cursor_pointer()
         .hover(move |style| style.bg(rgba(with_alpha(accent, 0x28))))
         .child(label.into())
-}
-
-fn status_message(theme: Theme, state: &VoiceSettingsState) -> Vec<Div> {
-    let Some((message, is_error)) = state.status() else {
-        return Vec::new();
-    };
-    vec![div()
-        .text_size(px(13.0))
-        .text_color(rgba(if is_error {
-            theme.destructive
-        } else {
-            theme.accent_cyan
-        }))
-        .child(message.to_string())]
 }
 
 pub(super) fn with_alpha(color: u32, alpha: u8) -> u32 {

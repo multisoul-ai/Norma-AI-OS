@@ -17,7 +17,7 @@ macOS Window（GPUI + Metal）
     ├── agent：NormaSession、Rig Provider、typed tools 与 Agent 协调规则
     ├── asr：provider registry、统一识别协议、Local Sherpa、Cloud Azure 与模型安装
     ├── voice_input：麦克风权限/设备、采集、重采样、PCM 流与共享 VAD
-    ├── tts：TTS 模型/语音目录、能力与安装验证
+    ├── tts：内置 TTS Provider、回复级流接口、模型/Voice 目录与安装验证
     │   └── model_store：共享 archive/manifest/哈希/原子安装原语
     └── voice_sherpa：Sherpa TTS 与既有连续对话调用方的兼容门面
         ├── asr：消费 provider-neutral 识别协议
@@ -33,7 +33,7 @@ macOS Window（GPUI + Metal）
 app -> {ui, runtime, canvas, terminal, storage, agent, asr, voice_input, tts, voice_sherpa}
 voice_sherpa -> {asr, voice_input, tts, dialogue, audio}
 dialogue -> voice_input
-tts -> model_store
+tts -> {model_store, audio}
 runtime -> {canvas, terminal, storage}
 storage -> {agent, canvas, workspace, rusqlite}
 agent -> {norma, rig-core, tokio, tokio-util, reqwest}
@@ -43,7 +43,7 @@ terminal -> {portable-pty, alacritty_terminal, crossbeam-channel}
 asr -> {serde, sha2, tar, bzip2, tempfile, ureq, sherpa-onnx}
 ```
 
-`agent`、`asr`、`voice_input`、`model_store`、`tts`、`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`agent` 还保持零 Storage 依赖。`asr` 可以承载 provider 所需的 Sherpa/网络实现，但不得访问 Storage/Keychain；`voice_input` 不得选择 provider。TTS 引擎兼容适配暂归 `voice_sherpa`，下载和 Runtime/Storage 副作用编排归 `app`。`model_store` 与 `tts` 不得依赖 `app/runtime/storage/ui`，`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
+`agent`、`asr`、`voice_input`、`model_store`、`tts`、`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`agent` 还保持零 Storage 依赖。`asr` 可以承载 provider 所需的 Sherpa/网络实现，但不得访问 Storage/Keychain；`voice_input` 不得选择 provider；`tts` 保持零 Sherpa 依赖，只允许内置 `providers` 子树持有受控网络协议，且仍保持零 Storage。本地 Sherpa TTS 引擎适配归 `voice_sherpa`，下载和 Runtime/Storage 副作用编排归 `app`。`model_store` 与 `tts` 不得依赖 `app/runtime/storage/ui`，`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
 
 ## 2. 代码结构
 
@@ -67,7 +67,7 @@ Rig 类型不扩散到其他 crate；卡片激活、PTY 输入和 SQLite 审计�
 
 ### `crates/model_store/` 与 `crates/tts/`
 
-`model_store` 是零 GPUI/网络的共享本地模型安装原语，负责 archive SHA-256、manifest、安全解压与原子提升；不得承载具体 ASR/TTS 目录或引擎配置。`tts` 是零 GPUI/Sherpa 的本地 TTS 领域层，负责稳定模型/语音 ID、固定目录、能力、所需文件与安装验证，并只依赖 `model_store`。下载进度、取消、选择和删除编排属于 `app`；Sherpa OfflineTts 构建属于 `voice_sherpa`。
+`model_store` 是零 GPUI/网络的共享本地模型安装原语，负责 archive SHA-256、manifest、安全解压与原子提升；不得承载具体 ASR/TTS 目录或引擎配置。`tts` 是零 GPUI/Storage/Sherpa 的供应商中立 TTS 能力层，负责稳定 Provider/model/Voice ID、内置 Provider 注册表、配置与就绪状态、回复级流生命周期、PCM 交付，以及本地模型的固定目录和安装验证。远程协议封装在 `tts::providers::<vendor>`；首个实现 MiniMax 使用账户 Voice 目录与单回复 WebSocket 任务。下载进度、凭据持久化、供应商激活和播放编排属于 `app`；API Key 只存 macOS Keychain；Sherpa OfflineTts 构建属于 `voice_sherpa`。
 
 ### `crates/canvas/`
 

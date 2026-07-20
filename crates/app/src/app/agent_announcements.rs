@@ -189,8 +189,8 @@ impl MultisoulApp {
                 .values()
                 .agent_task_announcements_enabled(),
             super::dialogue::selected_tts_model_matches(
-                self.voice_settings.values().tts_model_id(),
-                self.voice_settings.values().tts_voice_id(),
+                self.voice_settings.values().active_tts_model_id(),
+                self.voice_settings.values().active_tts_voice_id(),
             ) || cfg!(feature = "e2e-test-support")
                 && self.agent_announcement_playback_e2e_enabled(),
         );

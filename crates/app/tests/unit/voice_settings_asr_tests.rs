@@ -429,12 +429,15 @@ fn test_azure_locale_catalog_defaults_to_zh_cn_and_rejects_unknown_locale() {
 /// 数据构造（含关键数值的推导过程）：
 ///   previous reference  = azure-old-account（1 个可恢复引用）
 ///   replacement secret  = fake-new-secret（只进入待执行 Keychain 写）
+///   queued writes       = StoreCredential(1) + previous credential Delete(1) = 2
+///                         （本测试由 from_sources 构造，无 SQLite store，因此不产生 Set）
 ///   persistence result  = Err 1 次（模拟 Keychain 拒绝）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 以旧引用 + Ready profile 构造 Azure 设置
 ///   2. 提交替换密钥 → 内存暂时指向新 opaque reference
-///   3. 注入后台持久化失败 → 回滚到旧引用并撤销 Ready
+///   3. 领取包含 2 项 Keychain 写入的后台批次 → 将 Azure rollback 绑定到该批次
+///   4. 注入后台持久化失败 → 回滚到旧引用并撤销 Ready
 ///
 /// 预期结果：
 ///   - 正断言：旧引用被恢复，可供用户重试
@@ -452,6 +455,12 @@ fn test_failed_azure_keychain_replacement_restores_previous_reference() {
     let mut state = VoiceSettingsState::from_sources(saved, EnvVoiceSettings::default());
 
     state.save_azure_asr_credential("fake-new-secret".to_string());
+    let writes = state.take_pending_writes();
+    assert_eq!(
+        writes.len(),
+        2,
+        "无 SQLite store 的 Azure replacement 批次必须包含新 credential 存储和旧 credential 删除"
+    );
     state.record_persistence_result(Err("simulated Keychain denial".to_string()));
 
     assert_eq!(

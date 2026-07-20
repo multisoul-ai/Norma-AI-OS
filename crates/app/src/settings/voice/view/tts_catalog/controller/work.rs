@@ -1,9 +1,10 @@
 use super::TtsInstallOutcome;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-pub(super) fn synthesize_tts_preview(
+pub(crate) fn synthesize_tts_preview(
     runtime: &crate::app::dialogue::SharedTtsRuntime,
     selected: &crate::app::dialogue::SelectedTtsModel,
+    cancelled: std::sync::Arc<AtomicBool>,
 ) -> Result<audio::PcmAudioChunk, String> {
     #[cfg(feature = "e2e-test-support")]
     if crate::settings::voice::tts_models::e2e_fake_tts_transport_enabled() {
@@ -18,11 +19,37 @@ pub(super) fn synthesize_tts_preview(
                 .map_err(|error| error.to_string())
         },
         |client| {
-            client
-                .synthesize("你好，这是当前语音的试听。")
-                .map_err(|error| error.to_string())
+            let segments = crate::app::dialogue::collect_tts_segments_with_cancellation(
+                client,
+                &["你好，这是当前语音的试听。"],
+                Some(cancelled),
+            )
+            .map_err(|error| error.to_string())?;
+            merge_preview_chunks(
+                segments
+                    .into_iter()
+                    .next()
+                    .expect("one preview segment was requested"),
+            )
         },
     )
+}
+
+fn merge_preview_chunks(chunks: Vec<audio::PcmAudioChunk>) -> Result<audio::PcmAudioChunk, String> {
+    let mut chunks = chunks.into_iter();
+    let mut merged = chunks
+        .next()
+        .ok_or_else(|| "TTS preview returned no PCM audio".to_string())?;
+    for chunk in chunks {
+        if merged.format != chunk.format
+            || merged.sample_rate_hz != chunk.sample_rate_hz
+            || merged.channels != chunk.channels
+        {
+            return Err("TTS preview PCM chunks use incompatible formats".to_string());
+        }
+        merged.bytes.extend_from_slice(&chunk.bytes);
+    }
+    Ok(merged)
 }
 
 pub(super) fn resolve_tts_selection(
@@ -45,19 +72,19 @@ pub(super) fn resolve_tts_selection(
         .map_err(|error| error.to_string())?;
     #[cfg(feature = "e2e-test-support")]
     if crate::settings::voice::tts_models::e2e_fake_tts_transport_enabled() {
-        return Ok(crate::app::dialogue::SelectedTtsModel {
-            root: root.to_path_buf(),
+        return Ok(crate::app::dialogue::SelectedTtsModel::local(
+            root.to_path_buf(),
             model_id,
             voice_id,
-        });
+        ));
     }
     tts::validate_installation(&root.join(model_id.as_str()), descriptor)
         .map_err(|error| error.to_string())?;
-    Ok(crate::app::dialogue::SelectedTtsModel {
-        root: root.to_path_buf(),
+    Ok(crate::app::dialogue::SelectedTtsModel::local(
+        root.to_path_buf(),
         model_id,
         voice_id,
-    })
+    ))
 }
 
 pub(super) fn validate_tts_selection(

@@ -64,6 +64,12 @@ impl VoiceSettingsState {
         self.provider_requirement = crate::settings::voice::VoiceRequirementState::Missing;
         self.setup_was_completed = false;
         self.reviewing_setup = false;
+        self.saved.asr_model_id = None;
+        self.saved.tts_model_id = None;
+        self.saved.tts_voice_id = None;
+        self.saved.active_tts_provider_id = None;
+        self.tts_picker = None;
+        self.refresh_values();
     }
 
     pub(crate) fn set_setup_requirements_for_e2e(
@@ -89,5 +95,64 @@ impl VoiceSettingsState {
         self.model_manager = AsrModelManagerState::unscanned(&asr::builtin_model_catalog());
         self.tts_model_manager = TtsModelManagerState::unscanned(&tts::builtin_model_catalog());
         self.zipvoice_reference = super::ZipVoiceReferenceSettings::default();
+    }
+
+    pub(crate) fn assume_minimax_connected_for_e2e(&mut self) {
+        let model_id = tts::TtsModelId::parse(tts::MINIMAX_SPEECH_TURBO_MODEL_ID)
+            .expect("built-in MiniMax Turbo model ID must remain valid");
+        let system_voice =
+            tts::TtsVoiceId::parse("system_voice_e2e").expect("e2e System Voice ID must be valid");
+        let cloned_voice =
+            tts::TtsVoiceId::parse("cloned_voice_e2e").expect("e2e Cloned Voice ID must be valid");
+        let generated_voice = tts::TtsVoiceId::parse("generated_voice_e2e")
+            .expect("e2e Generated Voice ID must be valid");
+        self.saved.minimax_tts_credential_ref = Some("e2e-minimax-account".to_string());
+        self.saved.minimax_tts_api_key = Some("synthetic-e2e-minimax-key".to_string());
+        self.saved.minimax_tts_model_id = Some(model_id);
+        self.saved.minimax_tts_voice_id = Some(system_voice.clone());
+        self.saved.minimax_tts_voice_provenance = Some(tts::VoiceSelectionProvenance::Catalog);
+        self.minimax_account_status = tts::RemoteAccountStatus::Ready;
+        self.minimax_voice_catalog = tts::ProviderVoiceCatalog::new(vec![
+            tts::ProviderVoiceDescriptor::new(
+                system_voice,
+                "System Narrator",
+                tts::TtsVoiceOrigin::System,
+            ),
+            tts::ProviderVoiceDescriptor::new(
+                cloned_voice,
+                "Cloned Narrator",
+                tts::TtsVoiceOrigin::Cloned,
+            ),
+            tts::ProviderVoiceDescriptor::new(
+                generated_voice,
+                "Generated Narrator",
+                tts::TtsVoiceOrigin::Generated,
+            ),
+        ]);
+        self.refresh_values();
+    }
+
+    pub(crate) fn assume_minimax_connected_with_system_voices_for_e2e(&mut self, count: usize) {
+        let model_id = tts::TtsModelId::parse(tts::MINIMAX_SPEECH_TURBO_MODEL_ID)
+            .expect("built-in MiniMax Turbo model ID must remain valid");
+        let voices = (0..count)
+            .map(|index| {
+                let voice_id = tts::TtsVoiceId::parse(format!("system_voice_{index:03}"))
+                    .expect("generated e2e System Voice ID must be valid");
+                tts::ProviderVoiceDescriptor::new(
+                    voice_id,
+                    format!("System Voice {index:03}"),
+                    tts::TtsVoiceOrigin::System,
+                )
+            })
+            .collect::<Vec<_>>();
+        self.saved.minimax_tts_credential_ref = Some("e2e-minimax-account".to_string());
+        self.saved.minimax_tts_api_key = Some("synthetic-e2e-minimax-key".to_string());
+        self.saved.minimax_tts_model_id = Some(model_id);
+        self.saved.minimax_tts_voice_id = voices.first().map(|voice| voice.id().clone());
+        self.saved.minimax_tts_voice_provenance = Some(tts::VoiceSelectionProvenance::Catalog);
+        self.minimax_account_status = tts::RemoteAccountStatus::Ready;
+        self.minimax_voice_catalog = tts::ProviderVoiceCatalog::new(voices);
+        self.refresh_values();
     }
 }

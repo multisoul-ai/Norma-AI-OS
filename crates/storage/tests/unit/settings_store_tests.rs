@@ -95,3 +95,73 @@ fn test_settings_store_deletes_string_values() {
         "删除后不应继续返回旧 voice 模型目录"
     );
 }
+
+/// S-3: 一组关联设置必须在同一个 SQLite 事务中同时写入和删除。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   initial keys = 2（provider=local，legacy_voice=old）
+///   mutations = 3（provider=minimax，model=speech-2.8-turbo，删除 legacy_voice）
+///   final keys = 2（provider + model；legacy_voice 被删除）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 写入旧 provider 与旧 voice，构造切换前状态。
+///   2. 调用 apply_string_changes，一次提交完整的新 TTS tuple。
+///   3. 分别读取三个 key，验证事务后的最终快照。
+///
+/// 预期结果：
+///   - 正断言：provider 与 model 同时呈现新值。
+///   - 正断言：要求删除的 legacy_voice 返回 None。
+///   - 负断言：provider 不得继续保留 local，legacy_voice 不得残留 old。
+#[test]
+fn test_settings_store_applies_related_string_changes_atomically() {
+    let temp = tempfile::tempdir().expect("test should create temp dir");
+    let store = SettingsStore::new(temp.path().join("app.sqlite"));
+    store
+        .set_string("tts.provider", "local")
+        .expect("旧 TTS provider 应写入成功");
+    store
+        .set_string("tts.legacy_voice", "old")
+        .expect("旧 TTS voice 应写入成功");
+
+    store
+        .apply_string_changes(&[
+            ("tts.provider".to_string(), Some("minimax".to_string())),
+            (
+                "tts.model".to_string(),
+                Some("speech-2.8-turbo".to_string()),
+            ),
+            ("tts.legacy_voice".to_string(), None),
+        ])
+        .expect("关联 TTS 设置应在一个事务中提交成功");
+
+    let provider = store
+        .get_string("tts.provider")
+        .expect("事务后的 provider 应可读取");
+    let model = store
+        .get_string("tts.model")
+        .expect("事务后的 model 应可读取");
+    let legacy_voice = store
+        .get_string("tts.legacy_voice")
+        .expect("事务后的 legacy voice 应可查询");
+    assert_eq!(
+        provider.as_deref(),
+        Some("minimax"),
+        "事务提交后 provider 必须切换为 minimax"
+    );
+    assert_eq!(
+        model.as_deref(),
+        Some("speech-2.8-turbo"),
+        "事务提交后 model 必须与 provider 同批写入"
+    );
+    assert!(legacy_voice.is_none(), "事务提交后 legacy_voice 必须被删除");
+    assert_ne!(
+        provider.as_deref(),
+        Some("local"),
+        "事务提交后 provider 不得继续保留旧值 local"
+    );
+    assert_ne!(
+        legacy_voice.as_deref(),
+        Some("old"),
+        "事务提交后不得残留旧 voice"
+    );
+}

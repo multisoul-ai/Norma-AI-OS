@@ -27,18 +27,24 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         include_str!("../../src/settings/voice.rs"),
         include_str!("../../src/settings/voice/state.rs"),
         include_str!("../../src/settings/voice/state/editing.rs"),
+        include_str!("../../src/settings/voice/state/field.rs"),
         include_str!("../../src/settings/voice/state/model_selection.rs"),
+        include_str!("../../src/settings/voice/state/editing.rs"),
         include_str!("../../src/settings/voice/state/provider_values.rs"),
         include_str!("../../src/settings/voice/state/values.rs"),
         include_str!("../../src/settings/voice/view.rs"),
         include_str!("../../src/settings/voice/view/editable.rs"),
         include_str!("../../src/settings/voice/view/editable/inputs.rs"),
         include_str!("../../src/settings/voice/view/editable/native.rs"),
+        include_str!("../../src/settings/voice/view/editable/status.rs"),
         include_str!("../../src/settings/voice/view/editable/visibility.rs"),
         include_str!("../../src/settings/voice/view/input_device.rs"),
         include_str!("../../src/settings/voice/view/interaction.rs"),
         include_str!("../../src/settings/voice/view/model_catalog.rs"),
         include_str!("../../src/settings/voice/view/tts_catalog.rs"),
+        include_str!("../../src/settings/voice/view/tts_provider.rs"),
+        include_str!("../../src/settings/voice/view/tts_provider/picker.rs"),
+        include_str!("../../src/settings/voice/view/tts_provider/controller.rs"),
         include_str!("../../src/settings/voice/view/spoken_reply.rs"),
         include_str!("../../src/settings/voice/view/provider.rs"),
         include_str!("../../src/settings/voice/view/provider/api_key.rs"),
@@ -70,8 +76,11 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("Continuous Listening");
     assert_anchor!("Shortcut");
     assert_anchor!("Agent Provider");
-    assert_anchor!("Spoken Reply");
+    assert_anchor!("Spoken Replies");
     assert_anchor!("Local TTS");
+    assert_anchor!("Current Voice");
+    assert_anchor!("Use This Voice");
+    assert_anchor!("Manage Models");
     assert_anchor!("Advanced");
     assert_anchor!("voice.ollama.endpoint");
     assert_anchor!("voice.ollama.model");

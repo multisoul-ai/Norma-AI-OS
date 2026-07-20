@@ -17,8 +17,9 @@ pub(crate) use readiness::{
 pub(crate) use state::resolve_available_asr_model;
 pub(crate) use state::ProviderDiscoveryStatus;
 pub(crate) use state::{
-    resolve_builtin_asr_profile, DictationTrigger, VoiceInteractionMode, VoiceSettingsField,
-    VoiceSettingsState, VoiceSettingsValues, VoiceSetupDestination,
+    resolve_builtin_asr_profile, DictationTrigger, PendingVoiceSettingWrite, TtsActivationRollback,
+    VoiceInteractionMode, VoiceSettingsField, VoiceSettingsState, VoiceSettingsValues,
+    VoiceSetupDestination,
 };
 pub(crate) use tts_models::{TtsModelInstallState, TtsModelManagerState};
 pub(crate) use view::VoiceSettingsInputs;

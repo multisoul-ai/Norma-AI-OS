@@ -24,12 +24,14 @@ use gpui::{Context, Task};
 pub(crate) use preview::{TtsPreviewControl, TtsPreviewState};
 #[cfg(test)]
 pub(crate) use reply::fake_tts_client_for_tests;
+pub(crate) use reply::{collect_tts_segments, collect_tts_segments_with_cancellation};
 pub(crate) use reply::{
-    configure_selected_tts_model, create_tts_client_for_selected, SelectedTtsModel,
+    configure_selected_tts_model, create_tts_client_for_selected, PendingTtsActivation,
+    SelectedTtsModel,
 };
 pub(super) use reply::{
     create_assistant_audio_sink, create_tts_client_for_selection, selected_tts_model,
-    selected_tts_model_matches, synthesize_reply, ReplyPlayback,
+    selected_tts_model_matches, ReplyPlayback,
 };
 use reply_stream::StreamPlaybackBuffer;
 use std::collections::VecDeque;
@@ -84,6 +86,9 @@ pub(crate) struct DialogueControlState {
     pub(super) pending_voice_turn: bool,
     pub(super) utterance_committer: UtteranceCommitter,
     pub(super) speech_queue: VecDeque<String>,
+    speech_commands: Option<async_channel::Sender<reply_stream::SpeechCommand>>,
+    pub(super) speech_finish_queued: bool,
+    pub(super) speech_request_sequence: u64,
     playback_buffer: StreamPlaybackBuffer,
     pub(super) speech_synthesis_active: bool,
     pub(super) dialogue_stream_finished: bool,
@@ -124,6 +129,9 @@ impl Default for DialogueControlState {
             pending_voice_turn: false,
             utterance_committer: UtteranceCommitter::new(),
             speech_queue: VecDeque::new(),
+            speech_commands: None,
+            speech_finish_queued: false,
+            speech_request_sequence: 0,
             playback_buffer: StreamPlaybackBuffer::new(std::time::Duration::from_millis(120)),
             speech_synthesis_active: false,
             dialogue_stream_finished: false,

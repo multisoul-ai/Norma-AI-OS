@@ -14,6 +14,12 @@ pub(super) struct CredentialWriteRollback {
 }
 
 impl VoiceSettingsState {
+    pub(super) fn agent_credential_write_account(&self) -> Option<&str> {
+        self.credential_write_rollback
+            .as_ref()
+            .map(|rollback| rollback.new_account.as_str())
+    }
+
     pub(crate) fn credential_refs(&self) -> Vec<(AgentProviderKind, String)> {
         [
             (AgentProviderKind::Ollama, &self.saved.ollama_profile),
@@ -77,7 +83,10 @@ impl VoiceSettingsState {
     }
 
     pub(crate) fn credential_persistence_pending(&self) -> bool {
-        self.credential_write_rollback.is_some() || self.azure_credential_write_rollback.is_some()
+        self.credential_write_rollback.is_some()
+            || self.azure_credential_write_rollback.is_some()
+            || self.minimax_credential_write_rollback.is_some()
+            || self.minimax_credential_clear_rollback.is_some()
     }
 
     pub(crate) fn load_credential(account: &str) -> Result<Option<String>, String> {

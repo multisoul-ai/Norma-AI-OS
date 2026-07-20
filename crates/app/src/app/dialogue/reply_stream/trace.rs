@@ -1,6 +1,5 @@
 use super::QueuedPlaybackChunk;
 use std::time::Duration;
-use voice_sherpa::SpeechError;
 
 const TTS_TRACE_MARKER: &str = "[TTS-TRACE]";
 
@@ -13,7 +12,6 @@ pub(super) fn dialogue_delta(reply_generation: u64, text: &str, accumulated_char
         target: "norma_voice",
         reply_generation,
         delta_chars = text.chars().count(),
-        delta = %text,
         accumulated_chars,
         "{TTS_TRACE_MARKER} model dialogue delta received"
     );
@@ -24,7 +22,6 @@ pub(super) fn dialogue_finished(reply_generation: u64, reply: &str, final_segmen
         target: "norma_voice",
         reply_generation,
         reply_chars = reply.chars().count(),
-        reply = %reply,
         final_segment_count,
         "{TTS_TRACE_MARKER} model dialogue stream finished"
     );
@@ -51,7 +48,6 @@ pub(super) fn speech_segment_queued(reply_generation: u64, segment: &str) {
         target: "norma_voice",
         reply_generation,
         segment_chars = segment.chars().count(),
-        segment = %segment,
         "{TTS_TRACE_MARKER} speech segment queued"
     );
 }
@@ -67,28 +63,49 @@ pub(super) fn synthesis_requested(
         reply_generation,
         tts_request_sequence,
         text_chars = text.chars().count(),
-        text = %text,
         remaining_segment_count,
         "{TTS_TRACE_MARKER} TTS synthesis requested"
     );
 }
 
-pub(super) fn synthesis_finished(
-    reply_generation: u64,
-    tts_request_sequence: u64,
-    result: &Result<(), SpeechError>,
-) {
+pub(super) fn provider_stream_started(reply_generation: u64, provider_id: &str, model_id: &str) {
     tracing::info!(
         target: "norma_voice",
         reply_generation,
-        tts_request_sequence,
+        provider_id,
+        model_id,
+        phase = "stream_start",
+        "{TTS_TRACE_MARKER} provider stream starting"
+    );
+}
+
+pub(super) fn synthesis_finished(
+    reply_generation: u64,
+    result: &Result<tts::TtsStreamSummary, tts::TtsError>,
+    total_duration: Duration,
+) {
+    let summary = result.as_ref().ok();
+    tracing::info!(
+        target: "norma_voice",
+        reply_generation,
         success = result.is_ok(),
+        trace_id = summary.and_then(tts::TtsStreamSummary::trace_id),
+        session_id = summary.and_then(tts::TtsStreamSummary::session_id),
+        chunk_count = summary.map(tts::TtsStreamSummary::chunk_count),
+        byte_count = summary.map(tts::TtsStreamSummary::byte_count),
+        usage_characters = summary.map(tts::TtsStreamSummary::usage_characters),
+        total_duration_ms = total_duration.as_millis(),
+        phase = "stream_finished",
         error = ?result.as_ref().err(),
         "{TTS_TRACE_MARKER} TTS synthesis worker finished"
     );
 }
 
-pub(super) fn pcm_received(reply_generation: u64, chunk: &QueuedPlaybackChunk) {
+pub(super) fn pcm_received(
+    reply_generation: u64,
+    chunk: &QueuedPlaybackChunk,
+    stream_elapsed: Duration,
+) {
     tracing::info!(
         target: "norma_voice",
         reply_generation,
@@ -98,6 +115,9 @@ pub(super) fn pcm_received(reply_generation: u64, chunk: &QueuedPlaybackChunk) {
         sample_rate_hz = chunk.pcm.sample_rate_hz,
         channels = chunk.pcm.channels,
         pcm_fingerprint = format_args!("{:016x}", chunk.pcm_fingerprint),
+        stream_elapsed_ms = stream_elapsed.as_millis(),
+        first_pcm = chunk.chunk_sequence == 0,
+        phase = "pcm_received",
         "{TTS_TRACE_MARKER} TTS PCM chunk received"
     );
 }

@@ -19,7 +19,7 @@ Workspace crates:
 - `asr` - GPUI/Storage/Keychain-free provider registry, recognition protocol, Local Sherpa, Cloud Azure, model installation, and integrity.
 - `voice_input` - provider-neutral microphone permission/device/capture/resampling/PCM/VAD primitives.
 - `model_store` - GPUI/network-free shared local-model archive, manifest, integrity, and atomic-install primitives.
-- `tts` - GPUI/Sherpa-free Local TTS model/voice identity, catalog, capability, and installation-validation domain.
+- `tts` - GPUI/Storage/Sherpa-free TTS capability: built-in provider registry, reply-level streaming, local model policy, and remote provider protocols.
 - `ui` - GPUI-facing shared UI: theme, icons, and `gpui-component` re-export (`ui::component`).
 - `app` - GPUI/Metal shell: window boot, menus, key bindings, canvas interaction, and terminal rendering.
 
@@ -30,13 +30,13 @@ agent -> norma
 app -> {ui, runtime, canvas, terminal, storage, asr, voice_input, tts, voice_sherpa}
 voice_sherpa -> {asr, voice_input, tts, dialogue, audio}
 dialogue -> voice_input
-tts -> model_store
+tts -> {model_store, audio}
 runtime -> {canvas, terminal, storage}
 storage -> {agent, canvas, workspace, rusqlite}
 ui -> {gpui, gpui-component}
 ```
 
-`asr`, `voice_input`, `model_store`, `tts`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` may host engine/network-specific providers but must remain free of Storage and Keychain. `tts` remains free of Sherpa. `model_store` and `tts` must not depend on app/runtime/storage/ui.
+`asr`, `voice_input`, `model_store`, `tts`, `canvas`, `terminal`, and `runtime` must remain free of GPUI dependencies and should stay independently testable. `asr` may host engine/network-specific providers but must remain free of Storage and Keychain. `tts` remains free of Sherpa; local engine configuration belongs in `voice_sherpa`, and remote TTS networking is allowed only below `tts::providers`. `model_store` and `tts` must not depend on app/runtime/storage/ui.
 
 ## 2. Key Constraints
 

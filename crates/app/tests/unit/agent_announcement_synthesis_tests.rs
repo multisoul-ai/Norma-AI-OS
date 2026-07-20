@@ -1,19 +1,56 @@
 use super::*;
 use audio::{PcmAudioChunk, PcmFormat};
-use dialogue::{DialogueError, TtsClient};
 use std::collections::VecDeque;
+use std::sync::Arc;
 
 struct ScriptedTtsClient {
     requests: Vec<String>,
     chunks: VecDeque<PcmAudioChunk>,
+    sink: Option<Arc<dyn tts::TtsChunkSink>>,
 }
 
-impl TtsClient for ScriptedTtsClient {
-    fn synthesize(&mut self, text: &str) -> Result<PcmAudioChunk, DialogueError> {
+impl tts::TtsClient for ScriptedTtsClient {
+    fn start_stream(&mut self, sink: Arc<dyn tts::TtsChunkSink>) -> Result<(), tts::TtsError> {
+        self.sink = Some(sink);
+        Ok(())
+    }
+
+    fn push_text(&mut self, text: &str) -> Result<(), tts::TtsError> {
         self.requests.push(text.to_string());
-        self.chunks
-            .pop_front()
-            .ok_or_else(|| DialogueError::Message("missing scripted PCM chunk".to_string()))
+        let chunk = self.chunks.pop_front().ok_or_else(|| {
+            tts::TtsError::new(tts::TtsErrorKind::Protocol, "missing scripted PCM chunk")
+        })?;
+        let accepted = self
+            .sink
+            .as_ref()
+            .expect("scripted stream must be started before text is pushed")
+            .send(chunk);
+        if accepted {
+            Ok(())
+        } else {
+            Err(tts::TtsError::new(
+                tts::TtsErrorKind::Cancelled,
+                "scripted sink rejected PCM",
+            ))
+        }
+    }
+
+    fn finish_stream(&mut self) -> Result<(), tts::TtsError> {
+        let sink = self
+            .sink
+            .take()
+            .expect("scripted stream must be active before finish");
+        sink.finish(Ok(tts::TtsStreamSummary::default()));
+        Ok(())
+    }
+
+    fn cancel_stream(&mut self) {
+        if let Some(sink) = self.sink.take() {
+            sink.finish(Err(tts::TtsError::new(
+                tts::TtsErrorKind::Cancelled,
+                "scripted stream was cancelled",
+            )));
+        }
     }
 }
 
@@ -56,6 +93,7 @@ fn test_agent_terminal_announcement_inserts_250ms_pause_between_name_and_done() 
     let mut tts = ScriptedTtsClient {
         requests: Vec::new(),
         chunks: VecDeque::from([name_pcm, outcome_pcm]),
+        sink: None,
     };
 
     let merged = synthesize_agent_terminal_announcement(&mut tts, "Raya", "Done")

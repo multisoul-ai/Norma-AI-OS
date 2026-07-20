@@ -6,19 +6,26 @@ use gpui::Context;
 impl MultisoulApp {
     pub(crate) fn refresh_voice_provider_credentials(&mut self, cx: &mut Context<Self>) {
         let refs = self.voice_settings.credential_refs();
-        if refs.is_empty() {
+        let minimax_ref = self.voice_settings.minimax_credential_ref_to_load();
+        if refs.is_empty() && minimax_ref.is_none() {
             return;
         }
         let work = cx.background_executor().spawn(async move {
-            refs.into_iter()
+            let agent_credentials = refs
+                .into_iter()
                 .map(|(provider, account)| {
                     let result = VoiceSettingsState::load_credential(&account);
                     (provider, account, result)
                 })
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>();
+            let minimax_credential = minimax_ref.map(|account| {
+                let result = VoiceSettingsState::load_credential(&account);
+                (account, result)
+            });
+            (agent_credentials, minimax_credential)
         });
         cx.spawn(async move |this, cx| {
-            let result = work.await;
+            let (result, minimax_result) = work.await;
             let _ = this.update(cx, |app, cx| {
                 let mut should_validate = false;
                 for (provider, account, result) in result {
@@ -26,8 +33,15 @@ impl MultisoulApp {
                         .voice_settings
                         .apply_loaded_credential(provider, &account, result);
                 }
+                let should_validate_minimax = minimax_result.is_some_and(|(account, result)| {
+                    app.voice_settings
+                        .apply_loaded_minimax_credential(&account, result)
+                });
                 if should_validate {
                     app.validate_saved_voice_provider(cx);
+                }
+                if should_validate_minimax {
+                    app.validate_saved_minimax_tts(cx);
                 }
                 cx.notify();
             });

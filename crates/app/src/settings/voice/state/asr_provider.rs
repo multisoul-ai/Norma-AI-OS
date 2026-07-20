@@ -127,6 +127,13 @@ impl VoiceSettingsState {
         }
         self.refresh_values();
     }
+
+    pub(super) fn azure_credential_write_account(&self) -> Option<&str> {
+        self.azure_credential_write_rollback
+            .as_ref()
+            .map(|rollback| rollback.new_account.as_str())
+    }
+
     pub(crate) fn update_azure_asr_draft(
         &mut self,
         region: &str,

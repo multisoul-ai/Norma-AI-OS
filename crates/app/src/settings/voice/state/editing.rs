@@ -1,8 +1,9 @@
-use super::{
-    error_status, ok_status, AgentProviderKind, VoiceSettingsField, VoiceSettingsState,
-    KEY_AGENT_OLLAMA_BASE_URL, KEY_AGENT_OLLAMA_MODEL, KEY_AGENT_OPENAI_BASE_URL,
-    KEY_AGENT_OPENAI_MODEL,
+use super::provider_values::{
+    AgentProviderKind, KEY_AGENT_OLLAMA_BASE_URL, KEY_AGENT_OLLAMA_MODEL,
+    KEY_AGENT_OPENAI_BASE_URL, KEY_AGENT_OPENAI_MODEL,
 };
+use super::{error_status, ok_status, VoiceSettingsField, VoiceSettingsState};
+use tts::{TtsModelId, TtsVoiceId};
 
 impl VoiceSettingsState {
     #[cfg(test)]
@@ -43,7 +44,7 @@ impl VoiceSettingsState {
     ) -> Option<String> {
         self.editing = Some(field);
         self.draft = value;
-        self.commit_edit(field)
+        self.save_edit(field, true)
     }
 
     pub(crate) fn cancel_edit_field(&mut self, field: VoiceSettingsField) {
@@ -57,21 +58,32 @@ impl VoiceSettingsState {
         if self.editing == Some(field)
             && matches!(
                 field,
-                VoiceSettingsField::ApiKey | VoiceSettingsField::AzureApiKey
+                VoiceSettingsField::ApiKey
+                    | VoiceSettingsField::AzureApiKey
+                    | VoiceSettingsField::MiniMaxApiKey
             )
         {
             format!("{}|", "•".repeat(self.draft.chars().count()))
         } else if self.editing == Some(field) {
             format!("{}|", self.draft)
-        } else if matches!(
-            field,
-            VoiceSettingsField::ApiKey | VoiceSettingsField::AzureApiKey
-        ) {
+        } else if field == VoiceSettingsField::ApiKey {
             if self
                 .values
                 .active_provider_profile()
                 .credential_configured()
             {
+                "*********".to_string()
+            } else {
+                "Not configured".to_string()
+            }
+        } else if field == VoiceSettingsField::AzureApiKey {
+            if self.values.azure_asr_profile().credential_ref().is_some() {
+                "*********".to_string()
+            } else {
+                "Not configured".to_string()
+            }
+        } else if field == VoiceSettingsField::MiniMaxApiKey {
+            if self.minimax_credential_configured() {
                 "*********".to_string()
             } else {
                 "Not configured".to_string()
@@ -87,16 +99,19 @@ impl VoiceSettingsState {
         self.status = None;
     }
 
-    fn commit_edit(&mut self, field: VoiceSettingsField) -> Option<String> {
-        self.save_edit(field, true)
-    }
-
     fn save_edit(&mut self, field: VoiceSettingsField, finish_editing: bool) -> Option<String> {
         let value = self.draft.trim().to_string();
+        if field == VoiceSettingsField::MiniMaxVoiceSearch {
+            self.minimax_voice_search = value.clone();
+            self.finish_editing_if_requested(finish_editing);
+            return Some(value);
+        }
         if value.is_empty() {
             if matches!(
                 field,
-                VoiceSettingsField::ApiKey | VoiceSettingsField::AzureApiKey
+                VoiceSettingsField::ApiKey
+                    | VoiceSettingsField::AzureApiKey
+                    | VoiceSettingsField::MiniMaxApiKey
             ) {
                 if finish_editing {
                     self.editing = None;
@@ -108,7 +123,6 @@ impl VoiceSettingsState {
             }
             return None;
         }
-
         let key = match field {
             VoiceSettingsField::BaseUrl => match self.values.agent_provider() {
                 AgentProviderKind::Ollama => {
@@ -132,9 +146,49 @@ impl VoiceSettingsState {
             },
             VoiceSettingsField::ApiKey => {
                 self.save_active_provider_credential(value.clone());
-                self.finish_editing(finish_editing);
+                self.finish_editing_if_requested(finish_editing);
                 self.refresh_values();
                 return Some(value);
+            }
+            VoiceSettingsField::MiniMaxApiKey => {
+                self.update_minimax_api_key_draft(value.clone());
+                self.finish_editing_if_requested(finish_editing);
+                return Some(value);
+            }
+            VoiceSettingsField::MiniMaxVoiceId => {
+                let voice_id = match TtsVoiceId::parse(value.clone()) {
+                    Ok(voice_id) => voice_id,
+                    Err(_) => {
+                        self.status = Some(error_status("Voice ID cannot be empty"));
+                        return None;
+                    }
+                };
+                let model_id = self
+                    .tts_picker_minimax_model_id()
+                    .or_else(|| self.values.minimax_tts_model_id())
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        TtsModelId::parse(tts::MINIMAX_SPEECH_TURBO_MODEL_ID)
+                            .expect("built-in MiniMax Turbo model ID must be valid")
+                    });
+                if self.tts_picker_provider_id() == Some(tts::MINIMAX_TTS_PROVIDER_ID) {
+                    self.set_tts_picker_minimax_selection(
+                        model_id,
+                        voice_id,
+                        tts::VoiceSelectionProvenance::Manual,
+                    );
+                } else {
+                    self.set_minimax_tts_selection(
+                        model_id,
+                        voice_id,
+                        tts::VoiceSelectionProvenance::Manual,
+                    );
+                }
+                self.finish_editing_if_requested(finish_editing);
+                return Some(value);
+            }
+            VoiceSettingsField::MiniMaxVoiceSearch => {
+                unreachable!("MiniMax Voice search is handled before persistent setting validation")
             }
             VoiceSettingsField::AzureRegion => {
                 let locale = self.values.azure_asr_profile().locale().to_string();
@@ -144,7 +198,7 @@ impl VoiceSettingsState {
                     .credential_ref()
                     .map(ToOwned::to_owned);
                 self.update_azure_asr_draft(&value, &locale, credential_ref);
-                self.finish_editing(finish_editing);
+                self.finish_editing_if_requested(finish_editing);
                 return Some(value);
             }
             VoiceSettingsField::AzureLocale => {
@@ -159,24 +213,24 @@ impl VoiceSettingsState {
                     .credential_ref()
                     .map(ToOwned::to_owned);
                 self.update_azure_asr_draft(&region, &value, credential_ref);
-                self.finish_editing(finish_editing);
+                self.finish_editing_if_requested(finish_editing);
                 return Some(value);
             }
             VoiceSettingsField::AzureApiKey => {
                 self.save_azure_asr_credential(value.clone());
-                self.finish_editing(finish_editing);
+                self.finish_editing_if_requested(finish_editing);
                 self.refresh_values();
                 return Some(value);
             }
         };
         self.persist_string(key, &value);
         self.invalidate_provider_requirement();
-        self.finish_editing(finish_editing);
+        self.finish_editing_if_requested(finish_editing);
         self.refresh_values();
         Some(value)
     }
 
-    fn finish_editing(&mut self, finish_editing: bool) {
+    fn finish_editing_if_requested(&mut self, finish_editing: bool) {
         if finish_editing {
             self.editing = None;
             self.draft.clear();
@@ -189,11 +243,23 @@ impl VoiceSettingsState {
                 self.values.active_provider_profile().base_url().to_string()
             }
             VoiceSettingsField::Model => self.values.active_provider_profile().model().to_string(),
-            VoiceSettingsField::ApiKey => String::new(),
+            VoiceSettingsField::ApiKey
+            | VoiceSettingsField::AzureApiKey
+            | VoiceSettingsField::MiniMaxApiKey => String::new(),
             VoiceSettingsField::AzureRegion => self.values.azure_asr_profile().region().to_string(),
             VoiceSettingsField::AzureLocale => self.values.azure_asr_profile().locale().to_string(),
-            VoiceSettingsField::AzureApiKey => String::new(),
+            VoiceSettingsField::MiniMaxVoiceId => self
+                .tts_picker_minimax_voice_id()
+                .or_else(|| self.values.minimax_tts_voice_id())
+                .map(TtsVoiceId::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            VoiceSettingsField::MiniMaxVoiceSearch => self.minimax_voice_search.clone(),
         }
+    }
+
+    pub(crate) fn minimax_voice_search(&self) -> &str {
+        &self.minimax_voice_search
     }
 
     pub(crate) fn editor_value(&self, field: VoiceSettingsField) -> String {

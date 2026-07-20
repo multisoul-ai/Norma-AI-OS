@@ -28,6 +28,7 @@ impl MultisoulApp {
         runtime: Runtime,
         agent_hook_server: AgentHookServer,
     ) -> Self {
+        crate::network_crypto::install_network_crypto_provider();
         // 测试 / e2e 不经 `run_norma_os` 时也要装好组件库（幂等）。
         ui::init_components(cx);
         init_multisoul_key_bindings(cx);
@@ -72,6 +73,8 @@ impl MultisoulApp {
             voice: crate::app::voice::control::VoiceControlState::default(),
             dialogue: crate::app::dialogue::DialogueControlState::default(),
             tts_preview: crate::app::dialogue::TtsPreviewState::default(),
+            pending_tts_activation: None,
+            pending_minimax_preview_after_validation: None,
             tts_selection_generation: 0,
             tts_scan_generation: 0,
             asr_download_cancellations: std::collections::HashMap::new(),

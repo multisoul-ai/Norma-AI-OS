@@ -12,6 +12,7 @@ mod frame_diagnostics;
 mod license_gate;
 mod menu_bar;
 mod motion;
+mod network_crypto;
 mod norma;
 mod preview;
 mod settings;
@@ -27,7 +28,7 @@ pub use app::{
     CopyCardContent, ExitFocus, InitializationAnimationE2eSnapshot, MultisoulApp, NewBrowser,
     NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewGrokAgent, NewOpenCodeAgent, NewTerminal,
     NewWindow, OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
-    ToggleMasterLayout, ToggleSettings,
+    ToggleMasterLayout, ToggleSettings, TtsProviderE2eSnapshot,
 };
 pub use assets::EmbeddedAssets;
 pub use browser_auth_host::run_browser_auth_native_host;
@@ -39,6 +40,7 @@ use gpui::{App, Application, KeyBinding};
 
 pub fn run_norma_os() {
     app::cef_process::exit_if_cef_subprocess();
+    network_crypto::install_network_crypto_provider();
 
     // RUST_LOG 控制级别；frame-time / 热点路径打点见各 view。
     tracing_subscriber::fmt()

@@ -5,7 +5,8 @@ use super::{
 use audio::{PcmAudioChunk, PcmFormat};
 #[cfg(target_os = "macos")]
 use dialogue::{
-    handle_speaking_speech_start, DialoguePhase, DialogueSession, SpeakingSpeechSource, TtsClient,
+    handle_speaking_speech_start, DialoguePhase, DialogueSession, LegacyTtsClient,
+    SpeakingSpeechSource,
 };
 
 #[cfg(target_os = "macos")]

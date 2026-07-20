@@ -1,6 +1,6 @@
 use super::SherpaTtsClient;
 use audio::{PcmAudioChunk, PcmFormat};
-use dialogue::TtsClient;
+use dialogue::LegacyTtsClient;
 use std::path::{Path, PathBuf};
 
 /// TTS-9：官方 ZipVoice INT8 发布包必须经生产安装入口完成中英文克隆合成。
