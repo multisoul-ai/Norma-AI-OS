@@ -228,6 +228,38 @@ fn test_slot_path_matches_different_path() {
     );
 }
 
+/// VW-SETTINGS-1：Settings 遮住 Canvas 时，视频新帧不得请求整窗重绘。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   mailbox state_changed = true（后台解码器交付一帧新视频）
+///   settings states = 2（closed 作为正对照，open 验证遮罩降载）
+///   foreground cadence = 40ms（每秒约 1,000 / 40 = 25 次潜在 repaint）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 模拟视频 mailbox 已将新帧交换到 App state。
+///   2. 在 Settings 关闭时解析 repaint 决策。
+///   3. 保持新帧状态不变，仅打开 Settings，再次解析 repaint 决策。
+///
+/// 预期结果：
+///   - 正断言：Settings 关闭时新视频帧必须刷新可见壁纸。
+///   - 负断言：Settings 打开时新视频帧不得以约 25fps 重绘被遮住的 Canvas。
+///   - 负断言：打开与关闭状态不得产生相同结果，否则遮罩状态未参与视频策略。
+#[test]
+fn test_video_wallpaper_repaint_pauses_while_settings_occludes_canvas() {
+    let settings_closed = video_wallpaper_should_notify(true, false);
+    let settings_open = video_wallpaper_should_notify(true, true);
+
+    assert!(settings_closed, "Settings 关闭时新视频帧必须刷新可见壁纸");
+    assert!(
+        !settings_open,
+        "Settings 打开时视频帧不得刷新被遮住的 Canvas"
+    );
+    assert_ne!(
+        settings_closed, settings_open,
+        "Settings 遮罩状态必须改变视频壁纸 repaint 决策"
+    );
+}
+
 /// V-PTS-1：视频 worker 必须按相邻帧 PTS 等待，并扣除本帧已经消耗的解码时间。
 ///
 /// 数据构造（含关键数值的推导过程）：

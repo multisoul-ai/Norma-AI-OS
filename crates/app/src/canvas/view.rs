@@ -43,6 +43,10 @@ pub fn render_canvas(
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> impl IntoElement {
+    #[cfg(feature = "e2e-test-support")]
+    {
+        app.canvas_render_count_for_e2e += 1;
+    }
     let render_start = Instant::now();
     let total_nodes = app.runtime.document.nodes().len();
     let _span = tracing::trace_span!("render_canvas", nodes = total_nodes).entered();

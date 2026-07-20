@@ -38,7 +38,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 use ui::Theme;
 const BREATHING_REPAINT_INTERVAL: Duration = Duration::from_millis(33);
-const WORKING_SNAKE_REPAINT_INTERVAL: Duration = Duration::from_millis(12);
+const WORKING_SNAKE_REPAINT_INTERVAL: Duration = Duration::from_millis(33);
 #[derive(Debug, Clone)]
 pub struct MotionStore {
     tokens: MotionTokens,

@@ -147,11 +147,12 @@ pub struct MultisoulApp {
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
     pub(crate) terminal_cursor_phase: f32,
     terminal_cursor_repaint: FrameThrottle,
+    #[cfg(feature = "e2e-test-support")]
+    pub(crate) canvas_render_count_for_e2e: usize,
     window_active: bool,
     voice_window_inset: VoiceWindowInset,
     voice_window_inset_window_visible: bool,
 }
-
 impl MultisoulApp {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let agent_hook_server = AgentHookServer::start();
@@ -493,7 +494,6 @@ mod cursor_animation_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/app_tests.rs"]
 mod tests;
-
 #[cfg(all(test, target_os = "macos"))]
 #[path = "../../tests/unit/video_decoder_tests.rs"]
 mod video_decoder_tests;

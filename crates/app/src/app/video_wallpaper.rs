@@ -136,6 +136,10 @@ pub(crate) fn slot_path_matches(current: &Path, spawned: &Path) -> bool {
     current == spawned
 }
 
+pub(crate) fn video_wallpaper_should_notify(changed: bool, settings_open: bool) -> bool {
+    changed && !settings_open
+}
+
 fn video_frame_delay(
     previous_pts: Option<Duration>,
     current_pts: Option<Duration>,
@@ -371,7 +375,7 @@ impl MultisoulApp {
 
     fn poll_video_wallpaper_update(&mut self, my_path: &Path, cx: &mut Context<Self>) -> bool {
         let (keep_polling, changed) = poll_video_wallpaper(&mut self.video_wallpaper, my_path);
-        if changed {
+        if video_wallpaper_should_notify(changed, self.settings_panel.open) {
             cx.notify();
         }
         keep_polling

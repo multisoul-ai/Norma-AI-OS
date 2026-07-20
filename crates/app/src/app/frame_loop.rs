@@ -42,6 +42,10 @@ impl RuntimeFrameReport {
             || self.agent_hook_pending
     }
 
+    pub(super) fn should_notify_surface(self, settings_open: bool) -> bool {
+        !settings_open && self.should_notify()
+    }
+
     pub(super) fn notify_reason_labels(self) -> String {
         let mut labels = Vec::new();
         if self.runtime_changed {
@@ -93,10 +97,15 @@ pub(super) struct AnimationFrameReport {
 
 impl AnimationFrameReport {
     pub(super) fn should_notify(self) -> bool {
-        self.motion_changed
-            || self.cursor_changed
-            || self.visible_working_snake
-            || self.voice_window_inset_changed
+        self.motion_changed || self.cursor_changed || self.voice_window_inset_changed
+    }
+
+    pub(super) fn should_notify_surface(self, settings_open: bool) -> bool {
+        if settings_open {
+            self.voice_window_inset_changed
+        } else {
+            self.should_notify()
+        }
     }
 
     pub(super) fn notify_reason_labels(self) -> String {
@@ -181,7 +190,7 @@ impl MultisoulApp {
                     agent_hook_pending: app.agent_hook_server.has_pending(),
                     elapsed: tick_started_at.elapsed(),
                 };
-                if report.should_notify() {
+                if report.should_notify_surface(app.settings_panel.open) {
                     cx.notify();
                 }
                 report.log_if_enabled();
@@ -235,7 +244,7 @@ impl MultisoulApp {
                         voice_window_inset_changed,
                         elapsed: tick_started_at.elapsed(),
                     };
-                    if report.should_notify() {
+                    if report.should_notify_surface(app.settings_panel.open) {
                         cx.notify();
                     }
                     report.log_if_enabled();

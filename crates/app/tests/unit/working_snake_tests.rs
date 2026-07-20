@@ -79,36 +79,36 @@ fn test_agent_working_snake_uses_moving_segment_not_full_ring() {
     );
 }
 
-/// MWS-2: Agent 工作态 snake 稳定运行后应每个 app tick 推进并请求 repaint。
+/// MWS-2: Agent 工作态 snake 稳定运行后应推进真实相位，但只按约 30fps 请求 repaint。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   node_id = 42（任意稳定 id，与 MWS-1 区分）
 ///   完整绕行周期 = 1200ms
 ///   chase_fade token = 150ms，tick(150ms) 后 fade 完成且 phase = 150 / 1200 = 0.125
-///   running snake repaint 预算 = 12ms，与 app frame loop tick 对齐：
-///     第 1 个稳定 tick = 12ms，累计 12ms >= 12ms → 应 repaint
-///     第 2 个稳定 tick = 12ms，累计 12ms >= 12ms → 应 repaint
-///     第 3 个稳定 tick = 12ms，累计 12ms >= 12ms → 应 repaint
-///   中间 phase = (150 + 12 + 12) / 1200 = 0.145
+///   running snake repaint 预算 = 33ms（约 30fps）：
+///     第 1 个稳定 tick = 12ms，累计 12ms < 33ms → 不应 repaint
+///     第 2 个稳定 tick = 12ms，累计 24ms < 33ms → 不应 repaint
+///     第 3 个稳定 tick = 12ms，累计 36ms >= 33ms → 应 repaint
+///   节流期间 phase = (150 + 12 + 12) / 1200 = 0.145
 ///   最终 phase = (150 + 12 + 12 + 12) / 1200 = 0.155
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. ensure_node 创建空闲节点
 ///   2. set_chase_intent(true) 模拟 Agent Thinking/RunningTool 工作态
 ///   3. tick(150ms) 完成 snake 淡入
-///   4. 连续执行三个 12ms tick，验证每个稳定 tick 都请求 repaint 且 phase 持续推进
-///   5. resolve_node_visual 读取最终 working_snake 相位
+///   4. 连续执行两个 12ms tick，验证稳定期不 repaint 但 phase 持续推进
+///   5. 第三个 12ms tick 达到预算后放行 repaint，并读取最终 working_snake 相位
 ///
 /// 预期结果：
 ///   - 正断言：淡入 tick 返回 true，确保动画首次出现
-///   - 正断言：第 1 个 12ms 稳定 tick 应返回 true，避免 running snake 出现 33ms 采样空洞
-///   - 正断言：第 2 个 12ms 稳定 tick 应返回 true，避免长时间运行后周期性掉帧
-///   - 正断言：中间可渲染 head_phase 推进到 0.145，外部 repaint 不会看到旧相位
-///   - 正断言：第 3 个 12ms 稳定 tick 应返回 true，保持 running snake 连续
+///   - 负断言：第 1 个 12ms 稳定 tick 不应 repaint，避免整张 Canvas 以约 83fps 重绘
+///   - 负断言：第 2 个 12ms 稳定 tick 累计 24ms < 33ms，仍不应 repaint
+///   - 正断言：节流期间 head_phase 推进到 0.145，动画逻辑时间没有冻结
+///   - 正断言：第 3 个 12ms 稳定 tick 应返回 true，以约 30fps 更新画面
 ///   - 正断言：head_phase 推进到 0.155，证明节流没有冻结真实动画时间
 ///   - 负断言：head_phase 不应停在淡入完成时的 0.125
 #[test]
-fn test_stable_working_snake_repaints_each_tick_without_freezing_phase() {
+fn test_stable_working_snake_throttles_repaint_without_freezing_phase() {
     let mut store = MotionStore::new(false);
     let theme = Theme::glass_dark();
     let node_id = 42;
@@ -134,12 +134,12 @@ fn test_stable_working_snake_repaints_each_tick_without_freezing_phase() {
         "tick(150ms) 应完成 snake 淡入并触发首次 repaint"
     );
     assert!(
-        first_short_tick_changed,
-        "淡入完成后的第 1 个 12ms tick 应触发 repaint，否则 running snake 会出现采样空洞"
+        !first_short_tick_changed,
+        "淡入完成后的第 1 个 12ms tick 不应触发 repaint，否则整张 Canvas 仍是约 83fps"
     );
     assert!(
-        second_short_tick_changed,
-        "淡入完成后的第 2 个 12ms tick 应继续触发 repaint，避免周期性 33ms 掉帧"
+        !second_short_tick_changed,
+        "淡入完成后的第 2 个 12ms tick 累计 24ms < 33ms，仍不应触发 repaint"
     );
     assert!(
         approx(suppressed_snake.head_phase, 0.145),
@@ -148,7 +148,7 @@ fn test_stable_working_snake_repaints_each_tick_without_freezing_phase() {
     );
     assert!(
         third_short_tick_changed,
-        "淡入完成后的第 3 个 12ms tick 应继续触发 repaint，保持 running snake 连续"
+        "淡入完成后的第 3 个 12ms tick 累计 36ms >= 33ms，应触发约 30fps 的下一帧 repaint"
     );
     assert!(
         approx(snake.head_phase, 0.155),

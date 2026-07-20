@@ -7,7 +7,6 @@ use gpui::{App, Context};
 use runtime::Runtime;
 #[cfg(feature = "e2e-test-support")]
 use std::path::PathBuf;
-use std::time::Duration;
 use voice_sherpa::SpeechError;
 
 #[cfg(feature = "e2e-test-support")]
@@ -16,6 +15,8 @@ mod agents;
 #[cfg(feature = "e2e-test-support")]
 mod browser;
 mod recent_projects;
+#[cfg(feature = "e2e-test-support")]
+mod repaint;
 mod shortcuts;
 mod tts;
 mod voice;
@@ -216,17 +217,6 @@ impl MultisoulApp {
                     content_opacity_milli: opacity_to_milli(presentation.content_opacity),
                 }
             })
-    }
-
-    /// 以精确逻辑时长推进 app 动效。真实窗口由 12ms 帧循环驱动；测试必须能直接验证 31ms 初始化帧和 80ms
-    /// 用户中断边界，不能让帧循环量化误差改变产品时间线。
-    pub fn advance_animations_for_e2e(&mut self, delta: Duration, cx: &mut Context<Self>) {
-        let motion_changed = self.motion.tick(delta);
-        let cursor_changed = self.advance_terminal_cursor_phase(delta);
-        let voice_window_inset_changed = self.voice_window_inset.tick(delta);
-        if motion_changed || cursor_changed || voice_window_inset_changed {
-            cx.notify();
-        }
     }
 
     pub fn begin_assistant_playback_for_e2e(&mut self, cx: &mut Context<Self>) {
