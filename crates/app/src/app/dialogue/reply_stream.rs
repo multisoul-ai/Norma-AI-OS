@@ -1,9 +1,8 @@
 //! Streaming reply state shared by the dialogue controller and playback bridge.
 
-use super::reply::selected_tts_model_configured;
 use super::DialogueControlState;
 use crate::app::voice::playback::pcm_chunk_duration;
-use dialogue::{DialoguePhase, SHORT_SPEECH_MERGE_WINDOW};
+use dialogue::DialoguePhase;
 use gpui::Context;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -17,6 +16,8 @@ pub(super) mod capture;
 mod pcm;
 #[path = "reply_stream/runtime.rs"]
 mod runtime;
+#[path = "reply_stream/scheduling.rs"]
+mod scheduling;
 #[path = "reply_stream/trace.rs"]
 mod trace;
 
@@ -29,30 +30,32 @@ static NEXT_TTS_REQUEST_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 enum SpeechWorkerEvent {
     Chunk(QueuedPlaybackChunk),
-    CommandConsumed,
+    SegmentConsumed(dialogue::SpeechSegmentReceipt),
     Finished(Result<tts::TtsStreamSummary, tts::TtsError>),
 }
 
 pub(super) enum SpeechCommand {
-    Segment(String),
+    Segment {
+        text: String,
+        receipt: dialogue::SpeechSegmentReceipt,
+    },
     Finish,
 }
 
-// Command channel(8) + UI staging queue(8), each segment <= 60 committed characters:
-// total pending text <= 16 × 60 = 960 characters without blocking GPUI.
+// Eight commands bound the background handoff. The Dialogue-domain SpeechBacklog separately
+// bounds all pending plus submitted-but-unconsumed text to 10,000 active characters.
 const SPEECH_COMMAND_CAPACITY: usize = 8;
-const SPEECH_STAGING_CAPACITY: usize = 8;
 // 16 PCM events allow two chunks per command slot; a faster producer is cancelled instead of
 // growing memory without bound, while the terminal result uses a separate one-value handoff.
 const SPEECH_EVENT_CAPACITY: usize = 16;
 
 impl DialogueControlState {
-    pub(super) fn begin_reply_stream(&mut self) {
+    pub(crate) fn begin_reply_stream(&mut self) {
         self.cancel_tts_preview();
         self.abort_reply_stream(false);
         self.tts_cancelled = Arc::new(AtomicBool::new(false));
         self.utterance_committer = dialogue::UtteranceCommitter::new();
-        self.speech_queue.clear();
+        self.speech_backlog = dialogue::SpeechBacklog::default();
         self.speech_commands = None;
         self.speech_finish_queued = false;
         self.speech_request_sequence = 0;
@@ -68,7 +71,7 @@ impl DialogueControlState {
         trace::reply_stream_started(self.reply_generation);
     }
 
-    pub(super) fn begin_static_reply_stream(
+    pub(crate) fn begin_static_reply_stream(
         &mut self,
         display_text: String,
         cx: &mut Context<crate::app::MultisoulApp>,
@@ -122,6 +125,7 @@ impl DialogueControlState {
             final_segments.len(),
         );
         self.enqueue_speech_segments(final_segments, cx);
+        self.speech_backlog.close_input();
         self.drive_speech_stream(cx);
         self.finish_reply_stream_if_ready();
     }
@@ -131,8 +135,12 @@ impl DialogueControlState {
         trace::reply_stream_aborted(
             self.reply_generation,
             mark_interrupted,
-            self.speech_queue.len(),
+            self.speech_backlog.pending_len(),
             self.playback_chunks_pending,
+            self.speech_backlog.cumulative_accepted_chars(),
+            self.speech_backlog.cumulative_submitted_chars(),
+            self.speech_backlog.cumulative_consumed_chars(),
+            self.speech_backlog.active_chars_high_water(),
         );
         self.playback_events.retain(|event| {
             !matches!(
@@ -160,7 +168,9 @@ impl DialogueControlState {
         self.speech_commands = None;
         self.speech_finish_queued = false;
         self.speech_request_sequence = 0;
-        self.speech_queue.clear();
+        let capacity_exceeded = self.speech_backlog.capacity_exceeded();
+        self.speech_backlog.cancel();
+        self.speech_backlog = dialogue::SpeechBacklog::default();
         self.playback_buffer.clear();
         self.speech_synthesis_active = false;
         self.playback_chunks_pending = 0;
@@ -171,94 +181,8 @@ impl DialogueControlState {
         if mark_interrupted && self.last_reply_text.is_some() {
             self.last_reply_interrupted = true;
         }
-    }
-
-    fn enqueue_speech_segments(
-        &mut self,
-        segments: Vec<String>,
-        cx: &mut Context<crate::app::MultisoulApp>,
-    ) {
-        let oversized = segments
-            .iter()
-            .any(|segment| segment.chars().count() > dialogue::MAX_SPEECH_SEGMENT_CHARS);
-        if oversized || self.speech_queue.len() + segments.len() > SPEECH_STAGING_CAPACITY {
-            self.recover_reply_failure(
-                "Speech error: TTS provider is slower than the bounded reply queue",
-            );
-            return;
-        }
-        for segment in &segments {
-            trace::speech_segment_queued(self.reply_generation, segment);
-        }
-        self.speech_queue.extend(segments);
-        self.drive_speech_stream(cx);
-    }
-
-    fn schedule_merge_window_check(&self, cx: &mut Context<crate::app::MultisoulApp>) {
-        let generation = self.reply_generation;
-        cx.spawn(async move |this, cx| {
-            cx.background_executor()
-                .timer(SHORT_SPEECH_MERGE_WINDOW)
-                .await;
-            let _ = this.update(cx, |app, cx| {
-                app.dialogue.on_merge_window_elapsed(generation, cx);
-                cx.notify();
-            });
-        })
-        .detach();
-    }
-
-    fn on_merge_window_elapsed(
-        &mut self,
-        generation: u64,
-        cx: &mut Context<crate::app::MultisoulApp>,
-    ) {
-        if generation != self.reply_generation || self.dialogue_stream_finished {
-            return;
-        }
-        let segments = self.utterance_committer.on_idle(self.stream_elapsed());
-        self.enqueue_speech_segments(segments, cx);
-    }
-
-    fn drive_speech_stream(&mut self, cx: &mut Context<crate::app::MultisoulApp>) {
-        if self.speech_queue.is_empty() && !self.speech_synthesis_active {
-            self.finish_reply_stream_if_ready();
-            return;
-        }
-        if !selected_tts_model_configured() {
-            self.speech_queue.clear();
-            self.finish_reply_stream_if_ready();
-            return;
-        }
-        if !self.speech_synthesis_active {
-            self.start_speech_worker(cx);
-        }
-        self.flush_speech_commands();
-    }
-
-    fn flush_speech_commands(&mut self) {
-        let Some(commands) = self.speech_commands.as_ref() else {
-            return;
-        };
-        while let Some(text) = self.speech_queue.front().cloned() {
-            match commands.try_send(SpeechCommand::Segment(text.clone())) {
-                Ok(()) => {
-                    self.speech_queue.pop_front();
-                    trace::synthesis_requested(
-                        self.reply_generation,
-                        self.speech_request_sequence,
-                        &text,
-                        self.speech_queue.len(),
-                    );
-                }
-                Err(async_channel::TrySendError::Full(_)) => return,
-                Err(async_channel::TrySendError::Closed(_)) => return,
-            }
-        }
-        if self.dialogue_stream_finished && !self.speech_finish_queued {
-            if commands.try_send(SpeechCommand::Finish).is_ok() {
-                self.speech_finish_queued = true;
-            }
+        if mark_interrupted && capacity_exceeded {
+            self.error_message = None;
         }
     }
 
@@ -278,12 +202,24 @@ impl DialogueControlState {
                 self.schedule_audio_chunks(ready_chunks, generation, cx);
                 true
             }
-            SpeechWorkerEvent::CommandConsumed => {
+            SpeechWorkerEvent::SegmentConsumed(receipt) => {
+                if let Err(error) = self.speech_backlog.acknowledge_consumed(receipt) {
+                    self.recover_reply_failure(format!("Speech error: {error}"));
+                    return false;
+                }
                 self.drive_speech_stream(cx);
                 true
             }
             SpeechWorkerEvent::Finished(result) => {
-                trace::synthesis_finished(generation, &result, self.stream_elapsed());
+                trace::synthesis_finished(
+                    generation,
+                    &result,
+                    self.stream_elapsed(),
+                    self.speech_backlog.cumulative_accepted_chars(),
+                    self.speech_backlog.cumulative_submitted_chars(),
+                    self.speech_backlog.cumulative_consumed_chars(),
+                    self.speech_backlog.active_chars_high_water(),
+                );
                 self.speech_synthesis_active = false;
                 self.speech_task = None;
                 self.speech_commands = None;
@@ -393,7 +329,7 @@ impl DialogueControlState {
             .push(crate::app::voice_window_inset::TtsPlaybackEvent::Started);
     }
 
-    fn on_playback_chunk_finished(
+    pub(super) fn on_playback_chunk_finished(
         &mut self,
         generation: u64,
         tts_request_sequence: u64,
@@ -420,7 +356,7 @@ impl DialogueControlState {
     fn finish_reply_stream_if_ready(&mut self) -> bool {
         if !self.dialogue_stream_finished
             || self.speech_synthesis_active
-            || !self.speech_queue.is_empty()
+            || !self.speech_backlog.is_empty()
             || !self.playback_buffer.is_empty()
             || self.playback_chunks_pending != 0
         {

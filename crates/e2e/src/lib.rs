@@ -108,6 +108,9 @@ mod e2e_16_canvas_error_feedback;
 // License Gate：无凭证启动必须安全完成首帧，并展示可编辑的激活界面。
 mod e2e_17_license_gate_startup;
 
+// 长回复 TTS：慢速 Provider 下，完整显示、逐段合成与播放收束必须形成跨 crate 闭环。
+mod e2e_18_tts_reply_backlog;
+
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。
 pub use harness::{

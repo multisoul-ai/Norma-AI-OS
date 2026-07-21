@@ -219,6 +219,7 @@ MiniMax 首期采用 BYOK：用户输入自己的 MiniMax API Key，成功验证
 
 ## Further Notes
 
+- Reconciliation (2026-07-21): “bounded provider command queues” means the command channel stays bounded and non-blocking while a Provider-neutral, reply-scoped `SpeechBacklog` retains ordered unsent text up to a reusable 10,000-active-character budget. Temporary channel pressure is a scheduling state, not a TTS failure; it must not abort or truncate an otherwise healthy reply. See `2026-07-21-SPEC-lossless-long-reply-tts-backpressure.md`.
 - This specification follows the glossary changes and ADR 0021, 0022, 0023, 0024, and 0025 created during the design discussion. ADR 0017 remains authoritative for Keychain storage, and ADR 0019 remains authoritative for default diagnostic privacy.
 - MiniMax official references used for the contract are the [WebSocket T2A API](https://platform.minimaxi.com/docs/api-reference/speech-t2a-websocket), [available Voice query API](https://platform.minimaxi.com/docs/api-reference/voice-management-get), [speech model guide](https://platform.minimaxi.com/docs/guides/speech-t2a-websocket), [rate limits](https://platform.minimaxi.com/docs/guides/rate-limits), and [pay-as-you-go pricing](https://platform.minimaxi.com/docs/guides/pricing-paygo).
 - The essential performance decision is not merely setting a `stream` flag. It is changing the application seam from one request per committed text segment to one cancellable synthesis session per complete reply, while still allowing Dialogue to append normalized semantic segments as LLM output arrives.

@@ -12,6 +12,8 @@ enum VisualPreview {
     VoiceApiKey,
     AzureAsrReady,
     ZipVoiceReference,
+    TtsBacklogCapacity,
+    TtsBacklogRecovered,
 }
 
 impl VisualPreview {
@@ -22,6 +24,8 @@ impl VisualPreview {
             "voice-api-key" => Some(Self::VoiceApiKey),
             "azure-asr-ready" => Some(Self::AzureAsrReady),
             "zipvoice-reference" => Some(Self::ZipVoiceReference),
+            "tts-backlog-capacity" => Some(Self::TtsBacklogCapacity),
+            "tts-backlog-recovered" => Some(Self::TtsBacklogRecovered),
             _ => None,
         }
     }
@@ -57,6 +61,23 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
             app.voice_settings
                 .assume_visual_preview_zipvoice_reference_for_e2e();
         }
+        VisualPreview::TtsBacklogCapacity => {
+            app.settings_panel.close();
+            app.dialogue.recover_reply_failure(
+                crate::app::dialogue::spoken_reply_capacity_message(
+                    dialogue::MAX_ACTIVE_SPEECH_CHARS,
+                ),
+            );
+        }
+        VisualPreview::TtsBacklogRecovered => {
+            app.settings_panel.close();
+            app.dialogue.recover_reply_failure(
+                crate::app::dialogue::spoken_reply_capacity_message(
+                    dialogue::MAX_ACTIVE_SPEECH_CHARS,
+                ),
+            );
+            app.dialogue.stop_shell();
+        }
     }
     app.voice_settings_inputs
         .sync_from_state(&app.voice_settings, cx);
@@ -72,9 +93,10 @@ mod tests {
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   supported values = setup(1) + ready(1) + api-key(1) + azure-asr-ready(1)
-    ///                      + zipvoice-reference(1) = 5
+    ///                      + zipvoice-reference(1) + tts-backlog-capacity(1)
+    ///                      + tts-backlog-recovered(1) = 7
     ///   unsupported values = empty(1) + unknown(1) = 2
-    ///   total cases = 5 + 2 = 7
+    ///   total cases = 7 + 2 = 9
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. 解析 `voice-setup` → VoiceSetup
@@ -82,10 +104,12 @@ mod tests {
     ///   3. 解析 `voice-api-key` → VoiceApiKey
     ///   4. 解析 `azure-asr-ready` → AzureAsrReady
     ///   5. 解析 `zipvoice-reference` → ZipVoiceReference
-    ///   6. 解析空字符串与未知值 → None
+    ///   6. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
+    ///   7. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
+    ///   8. 解析空字符串与未知值 → None
     ///
     /// 预期结果：
-    ///   - 正断言：五个受支持值分别映射到唯一场景
+    ///   - 正断言：七个受支持值分别映射到唯一场景
     ///   - 负断言：空值和未知值不得意外开启视觉预览
     #[test]
     fn visual_preview_parser_accepts_only_explicit_voice_scenarios() {
@@ -113,6 +137,16 @@ mod tests {
             VisualPreview::parse("zipvoice-reference"),
             Some(VisualPreview::ZipVoiceReference),
             "zipvoice-reference must select the ready model with missing reference preview"
+        );
+        assert_eq!(
+            VisualPreview::parse("tts-backlog-capacity"),
+            Some(VisualPreview::TtsBacklogCapacity),
+            "tts-backlog-capacity must select the visible spoken-reply capacity warning"
+        );
+        assert_eq!(
+            VisualPreview::parse("tts-backlog-recovered"),
+            Some(VisualPreview::TtsBacklogRecovered),
+            "tts-backlog-recovered must select the stopped-shell recovery state"
         );
         assert_eq!(
             VisualPreview::parse(""),

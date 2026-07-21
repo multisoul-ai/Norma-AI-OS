@@ -17,7 +17,7 @@ use crate::settings::voice::{resolve_available_asr_model, VoiceSettingsValues};
 pub(crate) use artifacts::VoiceTurnArtifacts;
 use dialogue::{
     apply_asr_final, handle_speaking_speech_start, DialoguePhase, DialogueSession,
-    SpeakingSpeechSource, UtteranceCommitter,
+    SpeakingSpeechSource, SpeechBacklog, UtteranceCommitter,
 };
 pub(crate) use error::DialogueStartError;
 use gpui::{Context, Task};
@@ -34,7 +34,6 @@ pub(super) use reply::{
     selected_tts_model_matches, ReplyPlayback,
 };
 use reply_stream::StreamPlaybackBuffer;
-use std::collections::VecDeque;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -45,6 +44,10 @@ use voice_sherpa::{PcmStreamSession, SpeechError};
 type MicPermissionCheck = fn() -> Result<(), SpeechError>;
 
 static MIC_PERMISSION_CHECK: Mutex<Option<MicPermissionCheck>> = Mutex::new(None);
+pub(crate) fn spoken_reply_capacity_message(capacity_chars: usize) -> String {
+    format!("Spoken reply stopped after the speech backlog reached {capacity_chars} characters. The complete reply remains visible.")
+}
+
 pub(crate) fn default_mic_permission_check() -> Result<(), SpeechError> {
     voice_sherpa::request_microphone_permission()
 }
@@ -73,6 +76,8 @@ pub(crate) struct DialogueControlState {
     asr_cancellation: Option<asr::RecognitionCancellation>,
     pub(super) reply_playback: ReplyPlayback,
     pub(super) shared_tts_runtime: SharedTtsRuntime,
+    #[cfg(any(test, feature = "e2e-test-support"))]
+    pub(super) reply_tts_selection_override: Option<SelectedTtsModel>,
     startup_task: Option<Task<()>>,
     pub(super) pcm_pump_task: Option<Task<()>>,
     pub(super) reply_task: Option<Task<()>>,
@@ -85,7 +90,7 @@ pub(crate) struct DialogueControlState {
     pub(super) last_reply_text: Option<String>,
     pub(super) pending_voice_turn: bool,
     pub(super) utterance_committer: UtteranceCommitter,
-    pub(super) speech_queue: VecDeque<String>,
+    pub(super) speech_backlog: SpeechBacklog,
     speech_commands: Option<async_channel::Sender<reply_stream::SpeechCommand>>,
     pub(super) speech_finish_queued: bool,
     pub(super) speech_request_sequence: u64,
@@ -116,6 +121,8 @@ impl Default for DialogueControlState {
             asr_cancellation: None,
             reply_playback: ReplyPlayback::new(create_assistant_audio_sink()),
             shared_tts_runtime: SharedTtsRuntime::default(),
+            #[cfg(any(test, feature = "e2e-test-support"))]
+            reply_tts_selection_override: None,
             startup_task: None,
             pcm_pump_task: None,
             reply_task: None,
@@ -128,7 +135,7 @@ impl Default for DialogueControlState {
             last_reply_text: None,
             pending_voice_turn: false,
             utterance_committer: UtteranceCommitter::new(),
-            speech_queue: VecDeque::new(),
+            speech_backlog: SpeechBacklog::default(),
             speech_commands: None,
             speech_finish_queued: false,
             speech_request_sequence: 0,
@@ -470,6 +477,20 @@ mod agent_report_queue_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/reply_stream_tests.rs"]
 mod reply_stream_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/support/reply_tts.rs"]
+mod reply_stream_test_support;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/reply_stream_backlog_tests.rs"]
+mod reply_stream_backlog_tests;
+#[cfg(test)]
+#[path = "../../../tests/unit/reply_stream_cancellation_tests.rs"]
+mod reply_stream_cancellation_tests;
+#[cfg(test)]
+#[path = "../../../tests/unit/reply_stream_scheduler_tests.rs"]
+mod reply_stream_scheduler_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/unit/app_dialogue_shortcut_tests.rs"]

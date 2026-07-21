@@ -71,6 +71,8 @@ pub(crate) use voice::recognition::AsrRecordingSession;
 mod voice_window_inset;
 mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
+#[cfg(feature = "e2e-test-support")]
+pub use e2e::dialogue_tts::*;
 pub use e2e::{
     AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState,
     InitializationAnimationE2eSnapshot, SettingsE2eSnapshot, TtsProviderE2eSnapshot,

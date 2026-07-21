@@ -32,6 +32,10 @@ pub(super) fn reply_stream_aborted(
     mark_interrupted: bool,
     queued_segments: usize,
     playback_chunks_pending: usize,
+    cumulative_accepted_chars: usize,
+    cumulative_submitted_chars: usize,
+    cumulative_consumed_chars: usize,
+    active_chars_high_water: usize,
 ) {
     tracing::info!(
         target: "norma_voice",
@@ -39,16 +43,38 @@ pub(super) fn reply_stream_aborted(
         mark_interrupted,
         queued_segments,
         playback_chunks_pending,
+        cumulative_accepted_chars,
+        cumulative_submitted_chars,
+        cumulative_consumed_chars,
+        active_chars_high_water,
+        terminal_reason = "reply_stream_aborted",
         "{TTS_TRACE_MARKER} reply stream aborted"
     );
 }
 
-pub(super) fn speech_segment_queued(reply_generation: u64, segment: &str) {
+pub(super) fn speech_segment_queued(reply_generation: u64, segment_chars: usize) {
     tracing::info!(
         target: "norma_voice",
         reply_generation,
-        segment_chars = segment.chars().count(),
+        segment_chars,
         "{TTS_TRACE_MARKER} speech segment queued"
+    );
+}
+
+pub(super) fn speech_capacity_exceeded(
+    reply_generation: u64,
+    active_chars: usize,
+    incoming_chars: usize,
+    capacity_chars: usize,
+) {
+    tracing::warn!(
+        target: "norma_voice",
+        reply_generation,
+        active_chars,
+        incoming_chars,
+        capacity_chars,
+        terminal_reason = "speech_backlog_capacity_exceeded",
+        "{TTS_TRACE_MARKER} speech backlog capacity exceeded"
     );
 }
 
@@ -83,6 +109,10 @@ pub(super) fn synthesis_finished(
     reply_generation: u64,
     result: &Result<tts::TtsStreamSummary, tts::TtsError>,
     total_duration: Duration,
+    cumulative_accepted_chars: usize,
+    cumulative_submitted_chars: usize,
+    cumulative_consumed_chars: usize,
+    active_chars_high_water: usize,
 ) {
     let summary = result.as_ref().ok();
     tracing::info!(
@@ -94,8 +124,17 @@ pub(super) fn synthesis_finished(
         chunk_count = summary.map(tts::TtsStreamSummary::chunk_count),
         byte_count = summary.map(tts::TtsStreamSummary::byte_count),
         usage_characters = summary.map(tts::TtsStreamSummary::usage_characters),
+        cumulative_accepted_chars,
+        cumulative_submitted_chars,
+        cumulative_consumed_chars,
+        active_chars_high_water,
         total_duration_ms = total_duration.as_millis(),
         phase = "stream_finished",
+        terminal_reason = if result.is_ok() {
+            "provider_finished"
+        } else {
+            "provider_failed"
+        },
         error = ?result.as_ref().err(),
         "{TTS_TRACE_MARKER} TTS synthesis worker finished"
     );

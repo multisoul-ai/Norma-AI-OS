@@ -87,13 +87,6 @@ pub(crate) fn configure_selected_tts_model(model: Option<SelectedTtsModel>) {
         .expect("selected TTS model lock should not be poisoned") = model;
 }
 
-pub(crate) fn selected_tts_model_configured() -> bool {
-    SELECTED_TTS_MODEL
-        .lock()
-        .expect("selected TTS model lock should not be poisoned")
-        .is_some()
-}
-
 pub(crate) fn selected_tts_model() -> Option<SelectedTtsModel> {
     SELECTED_TTS_MODEL
         .lock()

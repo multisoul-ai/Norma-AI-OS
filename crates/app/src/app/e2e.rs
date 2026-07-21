@@ -14,6 +14,8 @@ mod agent_announcements;
 mod agents;
 #[cfg(feature = "e2e-test-support")]
 mod browser;
+#[cfg(feature = "e2e-test-support")]
+pub mod dialogue_tts;
 mod recent_projects;
 #[cfg(feature = "e2e-test-support")]
 mod repaint;

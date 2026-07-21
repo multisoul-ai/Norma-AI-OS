@@ -115,7 +115,7 @@ fn test_silent_queued_reply_returns_to_listening_without_tts_or_pcm() {
         "静默 TaskQueued 不得创建 TTS synthesis task"
     );
     assert!(
-        dialogue.speech_queue.is_empty(),
+        dialogue.speech_backlog.is_empty(),
         "静默 TaskQueued 不得排入任何 speech segment"
     );
     assert_eq!(
@@ -298,8 +298,9 @@ fn test_tts_configuration_change_invalidates_generation_and_preview() {
     let control = Arc::new(TtsPreviewControl::new());
     dialogue.track_tts_preview(Arc::clone(&control));
     dialogue
-        .speech_queue
-        .push_back("old voice segment".to_string());
+        .speech_backlog
+        .accept_batch(vec!["old voice segment".to_string()])
+        .expect("旧 Voice 测试 segment 必须进入 backlog");
     dialogue.speech_synthesis_active = true;
     let configuration_before = dialogue.tts_configuration_generation();
     let reply_before = dialogue.reply_generation;
@@ -326,7 +327,7 @@ fn test_tts_configuration_change_invalidates_generation_and_preview() {
         "配置变更必须推进 reply generation，使旧 synthesis/playback 事件被丢弃"
     );
     assert!(
-        dialogue.speech_queue.is_empty(),
+        dialogue.speech_backlog.is_empty(),
         "配置变更必须清空旧 Voice 的待合成片段，不能在新 Voice 下继续播报"
     );
     assert!(

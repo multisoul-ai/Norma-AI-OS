@@ -1,4 +1,4 @@
-use super::super::reply::{create_tts_client_for_selection, selected_tts_model, SelectedTtsModel};
+use super::super::reply::{create_tts_client_for_selection, SelectedTtsModel};
 use super::super::SharedTtsRuntime;
 use super::pcm::ChannelTtsChunkSink;
 use super::{
@@ -31,7 +31,7 @@ impl DialogueControlState {
         let generation = self.reply_generation;
         let tts_request_sequence = NEXT_TTS_REQUEST_SEQUENCE.fetch_add(1, Ordering::Relaxed);
         let tts_runtime = self.shared_tts_runtime.clone();
-        let selected = selected_tts_model();
+        let selected = self.reply_tts_selection();
         if let Some(selection) = selected.as_ref() {
             trace::provider_stream_started(
                 generation,
@@ -68,7 +68,7 @@ impl DialogueControlState {
                     }
                     while let Ok(command) = commands_rx.recv().await {
                         match command {
-                            SpeechCommand::Segment(text) => {
+                            SpeechCommand::Segment { text, receipt } => {
                                 if let Err(error) =
                                     with_tts_client(&tts_runtime, selected.clone(), |tts| {
                                         tts.push_text(&text)
@@ -80,8 +80,9 @@ impl DialogueControlState {
                                         .await;
                                     return;
                                 }
-                                let _ =
-                                    worker_events.send(SpeechWorkerEvent::CommandConsumed).await;
+                                let _ = worker_events
+                                    .send(SpeechWorkerEvent::SegmentConsumed(receipt))
+                                    .await;
                             }
                             SpeechCommand::Finish => {
                                 let result =

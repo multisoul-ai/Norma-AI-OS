@@ -1,6 +1,6 @@
 # 长回复 TTS 无损背压 SPEC
 
-**Status:** `ready-for-agent`
+**Status:** `implemented`
 
 ## Problem Statement
 
