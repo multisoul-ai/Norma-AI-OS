@@ -58,6 +58,77 @@ fn e2e_03_wallpaper_cards_show_compact_static_and_dynamic_badges() {
     );
 }
 
+/// Wallpaper 预览资源：三类媒体保持可见，缓存受 64 MiB 预算约束并随 Settings 关闭清空。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   built-in wallpapers = static(9) + gif(2) + video(5) = 16 张
+///   representative previews = Default(index 0) + Drift(index 9) + Tide(index 11) = 3 张
+///   cache budget = 64 × 1024 × 1024 = 67,108,864 bytes
+///   close target = Settings 右上角单个关闭按钮
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 启动 headless App、进入 Canvas，并打开 Settings → Wallpaper。
+///   2. 从真实 GPUI 渲染树读取 Static、GIF、Video 三张代表预览的 bounds。
+///   3. 读取公开 Settings snapshot，确认缓存总量没有突破 64 MiB。
+///   4. 点击 Settings 关闭按钮，再次读取 snapshot。
+///
+/// 预期结果：
+///   - 正断言：三类代表预览均存在，Settings 打开时缓存不超过 67,108,864 bytes。
+///   - 正断言：关闭后缓存条目和字节数均为 0。
+///   - 负断言：关闭后 Settings 不得继续打开，缓存不得残留任何预览资源。
+#[test]
+fn e2e_03_wallpaper_preview_cache_is_bounded_and_cleared_on_close() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let temporary_root = tempfile::TempDir::new().expect("应创建隔离的 Wallpaper 工作区");
+    enter_canvas(&app, cx, temporary_root.path());
+
+    click_debug(cx, "toolbar-settings");
+    click_debug(cx, "settings-section-wallpaper");
+
+    let static_preview = required_bounds(cx, "settings-wallpaper-preview-0");
+    let gif_preview = required_bounds(cx, "settings-wallpaper-preview-9");
+    let video_preview = required_bounds(cx, "settings-wallpaper-preview-11");
+    assert!(
+        f32::from(static_preview.size.width) > 0.0,
+        "Static 代表预览必须在真实渲染树中占据正宽度"
+    );
+    assert!(
+        f32::from(gif_preview.size.width) > 0.0,
+        "GIF 代表预览必须在真实渲染树中占据正宽度"
+    );
+    assert!(
+        f32::from(video_preview.size.width) > 0.0,
+        "Video 代表预览必须在真实渲染树中占据正宽度"
+    );
+
+    let open = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert!(
+        open.settings_open,
+        "Wallpaper 页面展示时 Settings 必须处于打开状态"
+    );
+    assert!(
+        open.wallpaper_preview_cache_bytes <= 67_108_864,
+        "Wallpaper 预览缓存不得超过 64×1024×1024 = 67,108,864 bytes，实际为 {}",
+        open.wallpaper_preview_cache_bytes
+    );
+
+    click_debug(cx, "settings-close");
+    let closed = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert!(
+        !closed.settings_open,
+        "点击关闭后 Settings 不得继续保持打开"
+    );
+    assert_eq!(
+        closed.wallpaper_preview_cache_entries, 0,
+        "关闭 Settings 后预览缓存条目必须归零"
+    );
+    assert_eq!(
+        closed.wallpaper_preview_cache_bytes, 0,
+        "关闭 Settings 后预览缓存字节数必须归零"
+    );
+}
+
 fn assert_compact_badge(bounds: Bounds<Pixels>, description: &str) {
     assert_eq!(
         f32::from(bounds.size.height),

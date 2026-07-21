@@ -406,38 +406,3 @@ fn test_settings_has_wallpaper_section() {
         );
     }
 }
-
-/// T-11: 视频缩略图必须用首帧解码（first_frame_bgra），而不是停在 VIDEO 占位。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   source = view.rs（网格渲染）+ video_thumbnails.rs（mac-gated 缓存/解码帮助）
-///   required anchors:
-///     - first_frame_bgra：必须调用 VideoDecoder::first_frame_bgra 解码首帧
-///     - video_thumb：缩略图渲染处必须携带可被测试锚定的 video_thumb id/source 标记
-///   banned = `"VIDEO"` 占位仍允许作为 mac 以外 / 解码中 的 fallback，但视频分支
-///            的主路径必须出现 first_frame_bgra 与 video_thumb 锚点。
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. include_str! 拼接 view.rs + video_thumbnails.rs
-///   2. 断言 first_frame_bgra 出现 → 视频缩略图确实走 AVAssetReader 首帧解码
-///   3. 断言 video_thumb 标记出现 → 视频缩略图渲染分支携带被锚定的标记
-///
-/// 预期结果：
-///   - 正断言：first_frame_bgra 存在
-///   - 正断言：video_thumb 标记存在
-#[test]
-fn test_video_thumbnail_uses_first_frame() {
-    let source = format!(
-        "{}{}",
-        include_str!("../../src/settings/wallpaper/view.rs"),
-        include_str!("../../src/app/video_thumbnails.rs"),
-    );
-    assert!(
-        source.contains("first_frame_bgra"),
-        "视频缩略图主路径必须调用 VideoDecoder::first_frame_bgra 解码首帧，而不是停在占位"
-    );
-    assert!(
-        source.contains("video_thumb"),
-        "视频缩略图渲染分支必须携带 video_thumb id/source 标记以便锚定"
-    );
-}

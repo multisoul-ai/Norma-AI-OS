@@ -238,6 +238,7 @@ impl MultisoulApp {
                 },
                 content_scroll: &self.settings_viewport.content_scroll,
                 wallpaper_state: &self.wallpaper_settings,
+                wallpaper_previews: &mut self.wallpaper_previews,
                 shortcuts: &self.shortcuts,
             },
             window,

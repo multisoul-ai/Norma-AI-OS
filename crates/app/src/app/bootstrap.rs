@@ -87,6 +87,7 @@ impl MultisoulApp {
             pending_agent_close_confirmation: None,
             focus_handle,
             wallpaper_settings,
+            wallpaper_previews: crate::settings::wallpaper::PreviewCache::default(),
             #[cfg(target_os = "macos")]
             video_wallpaper: None,
             last_reflow_window_size: None,

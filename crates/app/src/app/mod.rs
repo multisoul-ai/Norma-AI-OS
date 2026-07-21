@@ -62,9 +62,7 @@ mod lifecycle;
 mod new_menu;
 mod state;
 #[cfg(target_os = "macos")]
-mod video_decoder;
-#[cfg(target_os = "macos")]
-pub(crate) mod video_thumbnails;
+pub(crate) mod video_decoder;
 #[cfg(target_os = "macos")]
 pub(crate) mod video_wallpaper;
 mod voice;
@@ -142,6 +140,7 @@ pub struct MultisoulApp {
     pub(crate) pending_agent_close_confirmation: Option<NodeId>,
     pub focus_handle: FocusHandle,
     pub(crate) wallpaper_settings: WallpaperSettingsState,
+    pub(crate) wallpaper_previews: crate::settings::wallpaper::PreviewCache,
     #[cfg(target_os = "macos")]
     pub(crate) video_wallpaper: Option<video_wallpaper::VideoWallpaperState>,
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,

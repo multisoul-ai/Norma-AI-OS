@@ -80,6 +80,8 @@ pub struct SettingsE2eSnapshot {
     pub tts_models: Vec<TtsModelE2eSnapshot>,
     pub tts_preview_active: bool,
     pub tts_configuration_generation: u64,
+    pub wallpaper_preview_cache_entries: usize,
+    pub wallpaper_preview_cache_bytes: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -461,6 +463,8 @@ impl MultisoulApp {
             tts_models: snapshot_tts_models(&self.voice_settings),
             tts_preview_active: self.tts_preview.is_active(),
             tts_configuration_generation: self.dialogue.tts_configuration_generation(),
+            wallpaper_preview_cache_entries: self.wallpaper_previews.len(),
+            wallpaper_preview_cache_bytes: self.wallpaper_previews.total_bytes(),
         }
     }
 }

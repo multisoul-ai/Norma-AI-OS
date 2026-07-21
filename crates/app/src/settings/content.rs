@@ -5,7 +5,7 @@ use crate::settings::appearance::theme_appearance;
 use crate::settings::voice::{
     voice_settings, VoiceSettingsInputs, VoiceSettingsState, VoiceSetupDestination,
 };
-use crate::settings::wallpaper::{wallpaper_settings, WallpaperSettingsState};
+use crate::settings::wallpaper::{wallpaper_settings, PreviewCache, WallpaperSettingsState};
 use crate::shortcuts::ShortcutSettingsState;
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, ScrollHandle, Window};
 use ui::{Theme, ThemeId};
@@ -30,6 +30,7 @@ pub(super) struct SettingsContentContext<'a> {
     pub(super) voice: VoiceSettingsContent<'a>,
     pub(super) content_scroll: &'a ScrollHandle,
     pub(super) wallpaper_state: &'a WallpaperSettingsState,
+    pub(super) wallpaper_previews: &'a mut PreviewCache,
     pub(super) shortcuts: &'a ShortcutSettingsState,
 }
 
@@ -46,6 +47,7 @@ pub(super) fn settings_content(
         voice,
         content_scroll,
         wallpaper_state,
+        wallpaper_previews,
         shortcuts,
     } = content;
     div()
@@ -85,7 +87,9 @@ pub(super) fn settings_content(
                         agents_settings(theme, agent_definitions, window, cx)
                     }
                     SettingsSection::Hooks => hooks_settings(theme, panel, cx),
-                    SettingsSection::Wallpaper => wallpaper_settings(theme, wallpaper_state, cx),
+                    SettingsSection::Wallpaper => {
+                        wallpaper_settings(theme, wallpaper_state, wallpaper_previews, cx)
+                    }
                     // Mock-only sections are hidden from the sidebar; keep a blank
                     // fallback so stale state or tests cannot route to old placeholders.
                     #[cfg(test)]

@@ -37,14 +37,19 @@ impl MultisoulApp {
         if was_open {
             self.shortcuts.recording = None;
             self.finish_voice_settings_inputs(cx);
+            self.clear_wallpaper_previews(cx);
         }
         cx.notify();
     }
 
     pub(crate) fn close_settings_panel(&mut self, cx: &mut Context<Self>) {
+        let was_open = self.settings_panel.open;
         self.settings_panel.close();
         self.shortcuts.recording = None;
         self.finish_voice_settings_inputs(cx);
+        if was_open {
+            self.clear_wallpaper_previews(cx);
+        }
         cx.notify();
     }
 
@@ -123,5 +128,10 @@ impl MultisoulApp {
         }
         self.voice_settings_inputs
             .sync_from_state(&self.voice_settings, cx);
+    }
+
+    fn clear_wallpaper_previews(&mut self, cx: &mut Context<Self>) {
+        let released = self.wallpaper_previews.clear();
+        crate::settings::wallpaper::preview::release_images(released, cx);
     }
 }
