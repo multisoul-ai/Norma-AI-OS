@@ -1,6 +1,6 @@
 //! Settings 导航分组刷新：以真实渲染树点击六个可配置入口，锁定现有业务路由不变。
 
-use gpui::{Modifiers, TestAppContext, VisualTestContext};
+use gpui::{px, size, Modifiers, TestAppContext, VisualTestContext};
 
 use crate::harness::{echo_factory, enter_canvas, make_app};
 
@@ -98,6 +98,97 @@ fn e2e_03_task_oriented_settings_navigation_preserves_all_existing_routes() {
     assert_ne!(
         hooks.active_section, "Voice",
         "点击 Agent Hooks 后不得仍停留在 Voice 页面，snapshot: {hooks:?}"
+    );
+}
+
+/// Settings 菜单切换：所有已实现页面必须复用同一个外层面板宽高与位置。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   viewport = 1440×900px；常规边距 = 32px。
+///   available width = 1440 - 2×32 = 1376px；受 PANEL_MAX_W=1280px 限制，面板宽度 = 1280px。
+///   available height = 900 - 2×32 = 836px；受 PANEL_MAX_H=820px 限制，面板高度 = 820px。
+///   visible sections = 6（Themes / Wallpaper / Keyboard / Voice / Agents / Hooks）。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 把 headless viewport 调整为 1440×900px，进入 Canvas 并打开 Settings。
+///   2. 在 Themes 页面记录 `settings-panel` 的 1280×820px bounds 作为统一外壳基准。
+///   3. 依次切换 Wallpaper、Keyboard、Voice、Agents 与 Hooks，并读取每页外层 bounds。
+///   4. 逐页比较 origin 与 size，确认内容差异只由统一滚动区承载，不改变浮层外壳。
+///
+/// 预期结果：
+///   - 正断言：六个页面的 Settings panel 都保持 1280×820px，且 origin 完全一致。
+///   - 负断言：Voice 不得使用更窄的页面专属宽度，任何其他菜单也不得移动或缩放外壳。
+#[test]
+fn e2e_03_settings_sections_keep_one_stable_panel_frame() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let temporary_root = tempfile::TempDir::new().expect("测试应创建临时 workspace");
+    enter_canvas(&app, cx, temporary_root.path());
+
+    // available = (1440 - 2×32) × (900 - 2×32) = 1376×836px；
+    // panel = min(1376×836, 1280×820) = 1280×820px。
+    cx.simulate_resize(size(px(1440.0), px(900.0)));
+    cx.run_until_parked();
+    click_debug(cx, "toolbar-settings");
+
+    click_debug(cx, "settings-section-themes");
+    let themes = cx
+        .debug_bounds("settings-panel")
+        .expect("Themes 页面应渲染统一 settings-panel");
+    assert_eq!(
+        (f32::from(themes.size.width), f32::from(themes.size.height)),
+        (1280.0, 820.0),
+        "Themes 应建立 1280×820px 的统一 Settings 外壳基准"
+    );
+
+    click_debug(cx, "settings-section-wallpaper");
+    let wallpaper = cx
+        .debug_bounds("settings-panel")
+        .expect("Wallpaper 页面应继续渲染统一 settings-panel");
+    assert_eq!(
+        wallpaper, themes,
+        "Wallpaper 切页后 Settings origin 与 size 都必须保持不变"
+    );
+
+    click_debug(cx, "settings-section-keyboard");
+    let keyboard = cx
+        .debug_bounds("settings-panel")
+        .expect("Keyboard 页面应继续渲染统一 settings-panel");
+    assert_eq!(
+        keyboard, themes,
+        "Keyboard 切页后 Settings origin 与 size 都必须保持不变"
+    );
+
+    click_debug(cx, "settings-section-voice");
+    let voice = cx
+        .debug_bounds("settings-panel")
+        .expect("Voice 页面应继续渲染统一 settings-panel");
+    assert_eq!(
+        voice, themes,
+        "Voice 不得使用页面专属窄宽度；Settings origin 与 size 必须与 Themes 一致"
+    );
+    assert!(
+        f32::from(voice.size.width) > 1020.0,
+        "大 viewport 下 Voice 宽度不得回退到旧 1020px 上限，actual={}px",
+        f32::from(voice.size.width)
+    );
+
+    click_debug(cx, "settings-section-agents");
+    let agents = cx
+        .debug_bounds("settings-panel")
+        .expect("Agents 页面应继续渲染统一 settings-panel");
+    assert_eq!(
+        agents, themes,
+        "Agents 切页后 Settings origin 与 size 都必须保持不变"
+    );
+
+    click_debug(cx, "settings-section-hooks");
+    let hooks = cx
+        .debug_bounds("settings-panel")
+        .expect("Hooks 页面应继续渲染统一 settings-panel");
+    assert_eq!(
+        hooks, themes,
+        "Hooks 切页后 Settings origin 与 size 都必须保持不变"
     );
 }
 
