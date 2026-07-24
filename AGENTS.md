@@ -103,6 +103,7 @@ Workspace 分层：
 | ASR provider、识别协议、模型安装与完整性 | [`crates/asr/src/`](crates/asr/src/) |
 | 麦克风、PCM 与共享 VAD | [`crates/voice_input/src/`](crates/voice_input/src/) |
 | 多 provider ASR 与 Azure 决策 | [`docs/adr/0026-own-built-in-asr-providers-and-azure-speech-in-asr.md`](docs/adr/0026-own-built-in-asr-providers-and-azure-speech-in-asr.md) |
+| 日志持久化、轮转与历史清理 | [`docs/adr/0027-persist-and-retain-app-diagnostic-logs.md`](docs/adr/0027-persist-and-retain-app-diagnostic-logs.md) |
 | ASR Hotword 加载、扩展与调优 | [`docs/references/asr-hotwords.md`](docs/references/asr-hotwords.md) |
 | 通用本地模型安装原语 | [`crates/model_store/src/`](crates/model_store/src/) |
 | TTS Provider、流接口、模型/Voice 与安装验证 | [`crates/tts/src/`](crates/tts/src/) |

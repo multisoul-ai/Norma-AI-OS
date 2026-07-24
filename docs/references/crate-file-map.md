@@ -122,7 +122,8 @@ Purpose: GPUI shell and rendering.
 Important files:
 
 - `crates/ui/src/theme.rs` - dark theme colors as `0xRRGGBB`.
-- `crates/app/src/main.rs` - tracing, GPUI application boot, menus, global key bindings.
+- `crates/app/src/lib.rs` - logging initialization, GPUI application boot, menus, global key bindings.
+- `crates/app/src/logging.rs` - stderr/file tracing layers, daily rolling files, retention maintenance.
 - `crates/app/src/app/mod.rs` - `MultisoulApp`, background drain loop, keyboard routing, lifecycle cleanup.
 - `crates/app/src/canvas/view.rs` - pan, node drag, click/double-click, viewport culling, node chrome.
 - `crates/app/src/motion/mod.rs` - card motion state.
