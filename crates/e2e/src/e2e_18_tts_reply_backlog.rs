@@ -3,11 +3,12 @@ use gpui::TestAppContext;
 
 static REPLY_TTS_E2E_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// E2E-TTS-BACKLOG-1：慢速 TTS Provider 必须按序消费四十段回复且不截断显示文本。
+/// E2E-TTS-BACKLOG-1：慢速 TTS Provider 必须按序消费四十段长回复且不受历史十五字边界影响。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   speech segments       = 40
-///   characters/segment    = 60
+///   characters/segment    = 60 > historical 15-character boundary
+///   excess per segment    = 60 - 15 = 45 characters
 ///   active characters     = 40 × 60 = 2,400
 ///   active capacity       = 10,000
 ///   remaining capacity    = 10,000 - 2,400 = 7,600
@@ -19,9 +20,9 @@ static REPLY_TTS_E2E_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 ///   3. 释放四十个 permit，推进 background executor、TTS worker、PCM playback 到稳定状态。
 ///
 /// 预期结果：
-///   - 正断言：首段、中段、尾段严格按序各 push 一次，且只 start/finish 一次。
+///   - 正断言：每个超过十五字的首段、中段、尾段严格按序完整 push，且只 start/finish 一次。
 ///   - 正断言：四十块 PCM 全部进入播放 sink，完整显示文本保留并回到 Listening。
-///   - 负断言：不得 cancel、不得出现错误标签、不得丢失第 40 段。
+///   - 负断言：不得产生十五字省略号截断、cancel、错误标签或丢失第 40 段。
 #[test]
 fn slow_tts_provider_drains_complete_reply_through_headless_app() {
     let _guard = REPLY_TTS_E2E_LOCK
@@ -60,6 +61,15 @@ fn slow_tts_provider_drains_complete_reply_through_headless_app() {
     assert_eq!(calls.starts, 1, "一个模型回复必须只启动一个 TTS stream");
     assert_eq!(calls.pushes.len(), 40, "四十段文本必须恰好各 push 一次");
     assert_eq!(calls.pushes[0], segments[0], "第一段必须保持原始顺序");
+    assert_eq!(
+        calls.pushes[0].chars().count(),
+        60,
+        "首个 TTS push 必须保留完整 60 字，不能回退到历史十五字边界"
+    );
+    assert!(
+        !calls.pushes[0].ends_with('…'),
+        "首个长语音段不得被改写为十五字加省略号的截断内容"
+    );
     assert_eq!(calls.pushes[19], segments[19], "中间段必须保持原始顺序");
     assert_eq!(calls.pushes[39], segments[39], "最后一段不能被背压丢失");
     assert_eq!(calls.finishes, 1, "全部四十段消费后必须恰好 finish 一次");

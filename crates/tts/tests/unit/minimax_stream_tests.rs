@@ -144,19 +144,23 @@ fn config() -> MiniMaxTtsConfig {
 /// 数据构造（含关键数值的推导过程）：
 ///   connections = 1
 ///   text segments = first(1) + second(1) = 2
+///   first segment characters = 29 > historical 15-character boundary
+///   second segment characters = 26
 ///   PCM chunks = 4 bytes + 4 bytes = 8 bytes（PCM16 偶数字节）
 ///   sent events = start(1) + continue(2) + finish(1) = 4
 ///
 /// 执行过程：
 ///   1. 建立流并完成 connected_success → task_started。
-///   2. 顺序 push 两个文本段，各接收一个 task_continued PCM。
+///   2. 顺序 push 两个均超过十五字符的文本段，各接收一个 task_continued PCM。
 ///   3. 在调用 finish 前观察 sink，再发送 task_finish。
 ///
 /// 预期结果：
-///   - 正断言：两段共用一个连接/任务，PCM 有序且在完成前可见。
-///   - 负断言：不会为第二段建立新连接，也不会提前发送终态。
+///   - 正断言：两段完整文本共用一个连接/任务，PCM 有序且在完成前可见。
+///   - 负断言：长文本不会在十五字符处截断，不会为第二段建立新连接或提前发送终态。
 #[test]
 fn reply_stream_reuses_one_task_and_emits_pcm_before_finish() {
+    let first_text = "这是超过十五个字符且必须完整发送给MiniMax的第一段。";
+    let second_text = "这是第二段，也必须继续使用同一个MiniMax任务。";
     let sent = Arc::new(Mutex::new(Vec::new()));
     let transport = Arc::new(FakeTransport::new(vec![Ok(successful_connection(
         Arc::clone(&sent),
@@ -173,10 +177,10 @@ fn reply_stream_reuses_one_task_and_emits_pcm_before_finish() {
         .start_stream(sink.clone())
         .expect("stream setup should succeed");
     client
-        .push_text("第一段。")
+        .push_text(first_text)
         .expect("first segment should synthesize");
     client
-        .push_text("第二段。")
+        .push_text(second_text)
         .expect("second segment should synthesize on the same task");
 
     let chunks_before_finish = sink
@@ -225,8 +229,16 @@ fn reply_stream_reuses_one_task_and_emits_pcm_before_finish() {
         "首个事件必须是 task_start"
     );
     assert!(
-        sent[1].contains("第一段。") && sent[2].contains("第二段。"),
-        "两个 task_continue 必须保持语义段顺序"
+        sent[1].contains(first_text),
+        "第一个 task_continue 必须完整包含 29 字长文本，不能在十五字符处截断"
+    );
+    assert!(
+        sent[2].contains(second_text),
+        "第二个 task_continue 必须完整包含 26 字长文本并保持段落顺序"
+    );
+    assert!(
+        !sent[1].contains('…') && !sent[2].contains('…'),
+        "MiniMax Provider 不得把任一长文本改写为省略号结尾的十五字截断内容"
     );
     assert!(
         sent[3].contains("\"event\":\"task_finish\""),

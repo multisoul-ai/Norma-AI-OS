@@ -178,23 +178,24 @@ fn norma_system_prompt_combines_identity_direct_assignment_and_environment() {
     );
 }
 
-/// PROMPT-2：Norma 的固定提示词必须定义十五字上限与柔软口语人格。
+/// PROMPT-2：Norma 的固定提示词必须要求完整表达并保持柔软口语人格。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   可见回复上限 = 15 个 Unicode 字符
+///   固定字符上限 = 0 个
+///   完整表达规则 = 1 条
 ///   语气词示例 = 3 个（“哦”“呢”“啦”）
 ///   自称候选 = 1 个（“诺诺”，仅偶尔使用）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 使用空画布与空 Agent roster 构建完整 system prompt
 ///   2. 读取固定表达规则，不依赖动态环境内容
-///   3. 核对字数、口语、尾音、自称和格式约束
+///   3. 核对完整性、口语、尾音、自称和格式约束
 ///
 /// 预期结果：
-///   - 正断言：提示词明确要求十五字以内、柔软口语和可选“诺诺”自称
-///   - 负断言：提示词不得鼓励书面长句、Markdown 或每句强制自称
+///   - 正断言：提示词明确要求保留必要信息、柔软口语和可选“诺诺”自称
+///   - 负断言：提示词不得包含十五字符硬限制、书面长句、Markdown 或每句强制自称
 #[test]
-fn norma_system_prompt_defines_short_soft_spoken_persona() {
+fn norma_system_prompt_defines_complete_soft_spoken_persona() {
     let prompt = norma_system_prompt(
         &CurrentCanvasContext {
             project_name: "norma-ai-os".to_string(),
@@ -206,8 +207,12 @@ fn norma_system_prompt_defines_short_soft_spoken_persona() {
     );
 
     assert!(
-        prompt.contains("最终面向用户的可见回复不得超过 15 个 Unicode 字符"),
-        "提示词必须给出可机械验证的十五字符上限"
+        prompt.contains("完整表达必要信息") && prompt.contains("不要为了追求简短而省略关键事实"),
+        "提示词必须要求模型完整保留用户需要的事实"
+    );
+    assert!(
+        !prompt.contains("15 个 Unicode 字符") && !prompt.contains("十五字限制"),
+        "提示词不得继续诱导模型把最终回复压缩到十五字符"
     );
     assert!(
         prompt.contains("语气柔软、自然、口语化")
