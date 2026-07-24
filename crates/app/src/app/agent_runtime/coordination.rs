@@ -108,45 +108,48 @@ impl MultisoulApp {
         }) else {
             return false;
         };
-        let cancellation_confirmed =
-            self.agent_task_coordinator
-                .as_ref()
-                .is_some_and(|coordinator| {
-                    coordinator.tasks().into_iter().any(|task| {
-                        task.definition_id == definition_id && task.state == "cancel_requested"
-                    })
-                })
-                && matches!(
-                    self.runtime.agent_task_state(node_id),
-                    Some(runtime::AgentTaskState::Ended)
-                );
-        let (terminal_state, coordinator_state, terminal_error) = if cancellation_confirmed {
-            (
-                storage::AgentDispatchTaskState::Cancelled,
-                "cancelled",
-                None,
-            )
-        } else {
-            match self.runtime.agent_task_state(node_id) {
-                Some(runtime::AgentTaskState::Done) => {
-                    (storage::AgentDispatchTaskState::Done, "succeeded", None)
+        let runtime_state = self.runtime.agent_task_state(node_id);
+        if matches!(runtime_state, Some(runtime::AgentTaskState::Ended)) {
+            let cancellation_confirmed =
+                self.agent_task_coordinator
+                    .as_ref()
+                    .is_some_and(|coordinator| {
+                        coordinator.tasks().into_iter().any(|task| {
+                            task.definition_id == definition_id && task.state == "cancel_requested"
+                        })
+                    });
+            let coordinator_changed = self
+                .agent_task_coordinator
+                .as_mut()
+                .and_then(|coordinator| coordinator.cancel_all(definition_id))
+                .is_some_and(|(was_busy, cancelled_queued)| was_busy || cancelled_queued > 0);
+            self.pending_agent_submissions.remove_node(node_id);
+            if let Some(writer) = self.persistence.agent_dispatch_writer() {
+                if cancellation_confirmed {
+                    writer.finish_current(
+                        definition_id,
+                        storage::AgentDispatchTaskState::Cancelled,
+                        None,
+                    );
                 }
-                Some(runtime::AgentTaskState::Failed { ref message }) => (
-                    storage::AgentDispatchTaskState::Failed,
-                    "failed",
-                    Some(message.clone()),
-                ),
-                Some(runtime::AgentTaskState::Ended) => (
-                    storage::AgentDispatchTaskState::Interrupted,
-                    "interrupted",
-                    Some("Agent session ended".to_string()),
-                ),
-                _ => (
-                    storage::AgentDispatchTaskState::Interrupted,
-                    "interrupted",
-                    None,
-                ),
+                writer.interrupt_definition(definition_id);
             }
+            return coordinator_changed;
+        }
+        let (terminal_state, coordinator_state, terminal_error) = match runtime_state {
+            Some(runtime::AgentTaskState::Done) => {
+                (storage::AgentDispatchTaskState::Done, "succeeded", None)
+            }
+            Some(runtime::AgentTaskState::Failed { message }) => (
+                storage::AgentDispatchTaskState::Failed,
+                "failed",
+                Some(message),
+            ),
+            _ => (
+                storage::AgentDispatchTaskState::Interrupted,
+                "interrupted",
+                None,
+            ),
         };
         let writer = self.persistence.agent_dispatch_writer().cloned();
         let next = self

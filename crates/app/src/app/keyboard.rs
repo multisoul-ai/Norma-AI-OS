@@ -386,7 +386,7 @@ impl MultisoulApp {
                     return;
                 }
                 if let Some(input) = keystroke_to_input(&ev.keystroke) {
-                    end_active_agent_task_for_manual_interrupt(&mut self.runtime, node_id, &input);
+                    end_active_agent_task_for_manual_interrupt(self, node_id, &input);
                     self.interaction.clear_text_selection_for_node(node_id);
                     self.motion.interrupt_initialization(node_id);
                     if let Err(e) = self.runtime.send_node_input(node_id, NodeInput::Key(input)) {

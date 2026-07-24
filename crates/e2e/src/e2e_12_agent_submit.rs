@@ -8,7 +8,7 @@ use norma::protocol::{
 use std::time::Duration;
 
 use crate::harness::{
-    drain_until, enter_canvas, make_app, make_app_real, read_grid, scripted_factory,
+    drain_until, enter_canvas, make_app, read_grid, read_runtime, scripted_factory,
 };
 
 /// E2E-AGENT-SUBMIT-01：新 Agent 的任务必须等待 CLI Ready，随后自动写入文本并发送真实回车。
@@ -158,96 +158,96 @@ fn new_agent_task_waits_for_ready_then_types_and_submits() {
     );
 }
 
-/// E2E-AGENT-SUBMIT-L3：真实 Agent CLI 必须经生产 PTY 收到任务正文和回车。
+/// E2E-AGENT-SUBMIT-02：用户在 Agent 卡片按 Ctrl+C 终止会话后，旧等待队列必须清空，
+/// 下一次 Norma 派发必须立即执行。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   `NORMA_E2E_AGENT_CLI` = codex/claude/cursor/opencode 四选一；
-///   real PTY factory = None，任务正文包含唯一标记 `NORMA_SUBMITTED`；
-///   startup fallback = 30,000ms；observation timeout = 90,000ms = 3 × fallback，
-///   可覆盖 CLI 启动、无 Hook 兜底提交、PTY 回写三段异步链路。
+///   Agent definitions = 1（Alan/Codex），active cards = 1；
+///   终止前任务 = task-1（当前）+ task-2（等待）= 2 项；
+///   终止后任务 = task-3 = 1 项；
+///   scripted PTY 回执 = task-1 → TASK_1，task-2 → TASK_2，task-3 → TASK_3；
+///   每次提交 Enter = SUBMITTED，预期终止前后各 1 次，因此总计 2 次；
+///   每段 observation timeout = 1,000ms ÷ 12ms/frame ≈ 83 帧。
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 使用生产 `MultisoulApp::new` 与真实 `portable_pty` 进入临时 workspace；
-///   2. 关闭测试进程的 Hook 回传，按环境变量创建未激活 Agent，并派发固定回复任务；
-///   3. 等待 30 秒保守兜底，避免 SessionStart 早于全屏 TUI 可输入状态；
-///   4. 等待 grid 中 `NORMA_SUBMITTED` 出现两次（输入一次、回复一次），并检查 pending 已清空；
-///   5. 显式 kill 所有 live PTY，避免遗留 Agent 子进程。
+///   1. 创建未激活 Alan，派发 task-1，注入 SessionStart 使其完成正文与 Enter 提交；
+///   2. 注入 UserPromptSubmit 进入 Thinking，再派发 task-2 进入 managed FIFO；
+///   3. 经真实 GPUI keyboard seam 发送 Ctrl+C，触发 Agent 卡片直接终止；
+///   4. 再经 Norma command seam 派发 task-3，推进生产 frame loop；
+///   5. 从 runtime 状态与 terminal grid 验证终止收口和新任务提交。
 ///
 /// 预期结果：
-///   - 正断言：初始回执为 Queued，真实 grid 最终同时包含输入与 Agent 固定回复；
-///   - 正断言：正文与回车写入成功后 pending 状态清空；
-///   - 负断言：Ready 前不得误报 Submitted，测试结束不得保留 live 子进程。
+///   - 正断言：Ctrl+C 后 runtime 立即进入 Ended，task-3 最终写入并提交；
+///   - 正断言：grid 中 task-1 与 task-3 各出现 1 次，SUBMITTED 共出现 2 次；
+///   - 负断言：已清除的 task-2 不得写入 grid；
+///   - 负断言：task-3 不得继续卡在终止前的旧队列后面。
 #[test]
-#[ignore = "L3 会启动真实 Agent CLI；需显式设置 NORMA_E2E_AGENT_CLI"]
-fn real_agent_cli_receives_and_submits_prompt() {
-    let (profile, agent_name) = match std::env::var("NORMA_E2E_AGENT_CLI")
-        .expect("运行 L3 前必须设置 NORMA_E2E_AGENT_CLI=codex|claude|cursor|opencode|grok")
-        .as_str()
-    {
-        "codex" => (WireAgentProfile::Codex, "CodexProbe"),
-        "claude" => (WireAgentProfile::Claude, "ClaudeProbe"),
-        "cursor" => (WireAgentProfile::Cursor, "CursorProbe"),
-        "opencode" => (WireAgentProfile::OpenCode, "OpenCodeProbe"),
-        "grok" => (WireAgentProfile::Grok, "GrokProbe"),
-        other => {
-            panic!("NORMA_E2E_AGENT_CLI 必须是 codex、claude、cursor、opencode 或 grok，实际：{other:?}")
-        }
-    };
+fn ctrl_c_termination_clears_queue_before_next_norma_dispatch() {
     let mut test_cx = TestAppContext::single();
-    let (app, cx) = make_app_real(&mut test_cx);
-    let workspace = tempfile::tempdir().expect("真实 Agent L3 应创建临时 workspace");
+    let rules = vec![
+        (b"task-1".to_vec(), b"TASK_1\r\n".to_vec()),
+        (b"task-2".to_vec(), b"TASK_2\r\n".to_vec()),
+        (b"task-3".to_vec(), b"TASK_3\r\n".to_vec()),
+        (b"\r".to_vec(), b"SUBMITTED\r\n".to_vec()),
+    ];
+    let (app, cx) = make_app(&mut test_cx, scripted_factory(rules));
+    let workspace = tempfile::tempdir().expect("Agent Ctrl+C e2e 应创建临时 workspace");
     enter_canvas(&app, cx, workspace.path());
-    app.update(cx, |app, _cx| {
-        app.disable_agent_hook_for_test();
-        app.runtime
-            .set_agent_hook_config(Some(runtime::AgentHookRuntimeConfig {
-                endpoint: "http://127.0.0.1:9/agent-hooks".to_string(),
-                token: "e2e-unreachable-hook".to_string(),
-            }));
-    });
 
-    cx.update(|window, cx| {
+    let created = cx.update(|window, cx| {
         app.update(cx, |app, _cx| {
             app.execute_agent_card_command_for_e2e(
                 window,
                 CardCommand::CreateAgent {
-                    name: Some(agent_name.to_string()),
-                    profile,
+                    name: Some("Alan".to_string()),
+                    profile: WireAgentProfile::Codex,
                     activate: false,
                 },
             )
         })
-    })
-    .expect("真实 Agent L3 应创建未激活定义");
-    let dispatched = cx
-        .update(|window, cx| {
-            app.update(cx, |app, _cx| {
-                app.execute_agent_card_command_for_e2e(
-                    window,
-                    CardCommand::DispatchAgentTasks {
-                        assignments: vec![AgentTaskAssignment {
-                            name: agent_name.to_string(),
-                            task: "Reply exactly NORMA_SUBMITTED".to_string(),
-                        }],
-                        force_untracked: false,
-                    },
-                )
-            })
-        })
-        .expect("真实 Agent L3 派发应成功");
-    let CardCommandResult::AgentTasksDispatched { receipts } = dispatched else {
-        panic!("真实 Agent L3 派发必须返回 AgentTasksDispatched");
-    };
-    assert_eq!(receipts.len(), 1, "真实 Agent L3 单项派发应产生 1 个回执");
-    let receipt = &receipts[0];
-    assert_eq!(
-        receipt.status,
-        AgentTaskReceiptStatus::Queued,
-        "真实 CLI 尚未 Ready 时不得误报 Submitted"
+    });
+    assert!(
+        matches!(
+            created,
+            Ok(CardCommandResult::AgentCreated { node_id: None, .. })
+        ),
+        "Ctrl+C 队列 e2e 前置必须创建未激活 Alan，实际：{created:?}"
     );
-    let node_id = receipt.node_id;
 
-    let observed = drain_until(
+    let first = cx.update(|window, cx| {
+        app.update(cx, |app, _cx| {
+            app.execute_agent_card_command_for_e2e(
+                window,
+                CardCommand::DispatchAgentTasks {
+                    assignments: vec![AgentTaskAssignment {
+                        name: "Alan".to_string(),
+                        task: "task-1".to_string(),
+                    }],
+                    force_untracked: false,
+                },
+            )
+        })
+    });
+    let node_id = match &first {
+        Ok(CardCommandResult::AgentTasksDispatched { receipts }) if receipts.len() == 1 => {
+            receipts[0].node_id
+        }
+        other => panic!("task-1 应返回唯一派发回执，实际：{other:?}"),
+    };
+    let ready_event = norma::agent_hook::parse_hook_event(
+        norma::agent_hook::HookSource::Codex,
+        node_id,
+        serde_json::json!({
+            "hook_event_name": "SessionStart",
+            "session_id": "ctrl-c-queue-session"
+        }),
+    )
+    .expect("Ctrl+C 队列 e2e 的 SessionStart 应解析成功");
+    app.update(cx, |app, _cx| {
+        app.enqueue_agent_hook_event_for_e2e(ready_event)
+    })
+    .expect("SessionStart 应进入生产 Hook 队列");
+    let before_interrupt = drain_until(
         &app,
         cx,
         |runtime| match runtime.node_view(node_id) {
@@ -258,33 +258,136 @@ fn real_agent_cli_receives_and_submits_prompt() {
                     .flatten()
                     .map(|cell| cell.c)
                     .collect::<String>();
-                (text.matches("NORMA_SUBMITTED").count() >= 2).then_some(text)
+                (text.contains("TASK_1") && text.contains("SUBMITTED")).then_some(text)
             }
             _ => None,
         },
-        Duration::from_millis(90_000),
+        // 1,000ms / 12ms ≈ 83 帧，覆盖 SessionStart、正文和 Enter 三段推进。
+        Duration::from_millis(1_000),
+    )
+    .expect("task-1 应在 1 秒内完成正文与 Enter 提交");
+    assert!(
+        before_interrupt.contains("TASK_1"),
+        "终止前 task-1 必须已经写入 PTY，grid：{before_interrupt:?}"
     );
-    let pending = app.update(cx, |app, _cx| app.agent_submission_waiting_for_e2e(node_id));
-    let final_grid = read_grid(&app, cx, node_id)
-        .map(|snapshot| {
-            snapshot
-                .rows
-                .iter()
-                .flatten()
-                .map(|cell| cell.c)
-                .collect::<String>()
-        })
-        .unwrap_or_else(|| "<missing agent grid>".to_string());
-    app.update(cx, |app, _cx| app.runtime.kill_all());
 
-    let observed = observed.unwrap_or_else(|| {
-        panic!(
-            "真实 CLI 应在 90 秒内经 30 秒无 Hook 兜底提交任务并返回固定回复；pending={pending}，grid={final_grid:?}"
-        )
+    let thinking_event = norma::agent_hook::parse_hook_event(
+        norma::agent_hook::HookSource::Codex,
+        node_id,
+        serde_json::json!({
+            "hook_event_name": "UserPromptSubmit",
+            "session_id": "ctrl-c-queue-session",
+            "prompt": "task-1"
+        }),
+    )
+    .expect("Ctrl+C 队列 e2e 的 UserPromptSubmit 应解析成功");
+    app.update(cx, |app, _cx| {
+        app.enqueue_agent_hook_event_for_e2e(thinking_event)
+    })
+    .expect("UserPromptSubmit 应进入生产 Hook 队列");
+    let thinking = drain_until(
+        &app,
+        cx,
+        |runtime| {
+            (runtime.agent_task_state(node_id) == Some(runtime::AgentTaskState::Thinking))
+                .then_some(true)
+        },
+        // 1,000ms / 12ms ≈ 83 帧，覆盖 1 个 Hook event 的 drain。
+        Duration::from_millis(1_000),
+    );
+    assert_eq!(
+        thinking,
+        Some(true),
+        "task-1 必须进入 Thinking，确保 Ctrl+C 命中活动 Agent 任务"
+    );
+
+    let second = cx.update(|window, cx| {
+        app.update(cx, |app, _cx| {
+            app.execute_agent_card_command_for_e2e(
+                window,
+                CardCommand::DispatchAgentTasks {
+                    assignments: vec![AgentTaskAssignment {
+                        name: "Alan".to_string(),
+                        task: "task-2".to_string(),
+                    }],
+                    force_untracked: false,
+                },
+            )
+        })
     });
     assert!(
-        observed.matches("NORMA_SUBMITTED").count() >= 2,
-        "真实 CLI grid 必须同时显示已提交输入和 Agent 固定回复，实际：{observed:?}"
+        matches!(
+            second,
+            Ok(CardCommandResult::AgentTasksDispatched { ref receipts })
+                if receipts.len() == 1 && receipts[0].status == AgentTaskReceiptStatus::Queued
+        ),
+        "task-1 Thinking 时 task-2 必须进入等待队列，实际：{second:?}"
     );
-    assert!(!pending, "真实 CLI 收到正文与回车后不得残留 pending 状态");
+
+    cx.simulate_keystrokes("ctrl-c");
+    cx.run_until_parked();
+    let ended = read_runtime(&app, cx, |runtime| runtime.agent_task_state(node_id));
+    assert_eq!(
+        ended,
+        Some(runtime::AgentTaskState::Ended),
+        "Ctrl+C 必须立即把活动 Agent 会话标记为 Ended"
+    );
+
+    let third = cx.update(|window, cx| {
+        app.update(cx, |app, _cx| {
+            app.execute_agent_card_command_for_e2e(
+                window,
+                CardCommand::DispatchAgentTasks {
+                    assignments: vec![AgentTaskAssignment {
+                        name: "Alan".to_string(),
+                        task: "task-3".to_string(),
+                    }],
+                    force_untracked: false,
+                },
+            )
+        })
+    });
+    assert!(
+        matches!(
+            third,
+            Ok(CardCommandResult::AgentTasksDispatched { ref receipts })
+                if receipts.len() == 1 && receipts[0].status == AgentTaskReceiptStatus::Queued
+        ),
+        "终止后的 task-3 应进入唯一待提交位，实际：{third:?}"
+    );
+    let after_interrupt = drain_until(
+        &app,
+        cx,
+        |runtime| match runtime.node_view(node_id) {
+            Some(runtime::NodeView::Term { snapshot, .. }) => {
+                let text = snapshot
+                    .rows
+                    .iter()
+                    .flatten()
+                    .map(|cell| cell.c)
+                    .collect::<String>();
+                (text.contains("TASK_3") && text.matches("SUBMITTED").count() == 2).then_some(text)
+            }
+            _ => None,
+        },
+        // 1,000ms / 12ms ≈ 83 帧，覆盖 task-3 正文与 Enter 两阶段。
+        Duration::from_millis(1_000),
+    )
+    .expect("终止清队后 task-3 应在 1 秒内完成提交");
+
+    assert!(
+        after_interrupt.contains("TASK_3"),
+        "终止后新派发的 task-3 必须写入 PTY，grid：{after_interrupt:?}"
+    );
+    assert_eq!(
+        after_interrupt.matches("SUBMITTED").count(),
+        2,
+        "task-1 与 task-3 应各提交一次，旧 task-2 不得产生第三次提交"
+    );
+    assert!(
+        !after_interrupt.contains("TASK_2"),
+        "Ctrl+C 终止时必须清除等待任务 task-2，grid：{after_interrupt:?}"
+    );
+
+    app.update(cx, |app, _cx| app.runtime.kill_all());
 }
