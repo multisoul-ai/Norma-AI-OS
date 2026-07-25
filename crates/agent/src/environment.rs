@@ -93,7 +93,10 @@ fn render_card(card: &CanvasCardContext) -> String {
     } else {
         ""
     };
-    format!("- #{}：{description}{state}。", card.node_id)
+    format!(
+        "- #{} position={}：{description}{state}。",
+        card.node_id, card.position
+    )
 }
 
 fn profile_name(profile: AgentProfile) -> &'static str {

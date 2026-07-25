@@ -346,10 +346,15 @@ pub(crate) fn execute_norma_adapter_command(
                 "已发送 Terminal 输入",
             )
         }
-        AdapterCommand::DeleteCanvasCard { node_id } => map_card_result(
-            commands::execute_agent_card_command(app, window, CardCommand::Delete { node_id }),
-            "已删除卡片",
-        ),
+        AdapterCommand::DeleteCanvasCard { node_id } => {
+            delete_card::close_node(app, window, node_id, "已删除卡片")
+        }
+        AdapterCommand::DeleteCanvasCardAtPosition { position } => {
+            delete_card::close_position(app, window, position)
+        }
+        AdapterCommand::DeleteAgentCard { agent } => {
+            delete_card::close_agent(app, window, &agent)
+        }
     }
 }
 

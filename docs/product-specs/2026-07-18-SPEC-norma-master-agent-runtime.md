@@ -406,14 +406,19 @@ send_terminal_input({
 
 ```ts
 delete_canvas_card({
-  node_id: number
+  node_id?: number,
+  position?: number,
+  agent?: string
 })
 ```
 
+- `node_id`、1-based `position` 与 Agent 呼叫名/语音别名 `agent` 必须且只能提供一个。
 - 只有当前用户请求明确表达删除意图时才能执行。
 - “整理画布”等宽泛请求必须先明确目标。
 - Norma 不得为了完成其他目标自主推断删除。
-- 删除 AgentCard 不删除持久 Agent 定义。
+- “删除”和“关闭”表达同一画布副作用；按 Agent 身份关闭时结束其活跃 AgentCard。
+- 删除显式 AgentCard 不删除持久 Agent 定义；快速定义仍随其卡片清理。
+- Agent 正在执行或仍有排队任务时，第一次关闭只请求确认，重复关闭才中断任务并结束卡片。
 
 ## 9. 工具执行规则
 

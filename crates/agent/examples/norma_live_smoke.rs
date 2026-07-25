@@ -43,6 +43,12 @@ impl AgentCardAdapter for LiveSmokeAdapter {
                 | AdapterCommand::DeleteCanvasCard { node_id } => {
                     AdapterResult::succeeded("Canvas 操作成功").with_node_id(*node_id)
                 }
+                AdapterCommand::DeleteCanvasCardAtPosition { position } => {
+                    AdapterResult::succeeded(format!("已关闭第 {position} 张卡片"))
+                }
+                AdapterCommand::DeleteAgentCard { agent } => {
+                    AdapterResult::succeeded(format!("已关闭 {agent} 的 AgentCard"))
+                }
                 AdapterCommand::FindAgentTasks { .. } => AdapterResult::succeeded("找到 1 个任务")
                     .with_tasks(vec![serde_json::json!({
                         "task_id": 101,
@@ -86,6 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             total_cards: 1,
             cards: vec![CanvasCardContext {
                 node_id: 21,
+                position: 1,
                 kind: CanvasCardKind::Agent,
                 title: "Alan".to_string(),
                 selected: false,

@@ -10,6 +10,7 @@ mod artifacts;
 mod commands;
 mod context_commands;
 mod coordination;
+mod delete_card;
 mod diagnostics;
 pub(super) mod pending;
 

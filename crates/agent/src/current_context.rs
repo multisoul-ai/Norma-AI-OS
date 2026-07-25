@@ -22,6 +22,7 @@ impl CanvasCardKind {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CanvasCardContext {
     pub node_id: u64,
+    pub position: usize,
     pub kind: CanvasCardKind,
     pub title: String,
     pub selected: bool,
@@ -61,8 +62,9 @@ pub fn render_current_canvas_context(context: &CurrentCanvasContext) -> String {
     ];
     lines.extend(cards.into_iter().map(|card| {
         format!(
-            "node_id={} kind={} title={} selected={} focused={}",
+            "node_id={} position={} kind={} title={} selected={} focused={}",
             card.node_id,
+            card.position,
             card.kind.as_str(),
             quoted(&truncate_chars(&card.title, MAX_CARD_TITLE_CHARS)),
             card.selected,

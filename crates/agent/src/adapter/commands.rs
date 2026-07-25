@@ -75,6 +75,14 @@ struct NodeIdArgs {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct DeleteCanvasCardArgs {
+    node_id: Option<u64>,
+    position: Option<u64>,
+    agent: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct TerminalInputArgs {
     node_id: u64,
     text: String,
@@ -158,11 +166,24 @@ pub(super) fn parse_adapter_command(
             })
         }
         "delete_canvas_card" => {
-            let args: NodeIdArgs = parse(arguments)?;
-            require_positive("node_id", args.node_id)?;
-            Ok(AdapterCommand::DeleteCanvasCard {
-                node_id: args.node_id,
-            })
+            let args: DeleteCanvasCardArgs = parse(arguments)?;
+            match (args.node_id, args.position, args.agent) {
+                (Some(node_id), None, None) => {
+                    require_positive("node_id", node_id)?;
+                    Ok(AdapterCommand::DeleteCanvasCard { node_id })
+                }
+                (None, Some(position), None) => {
+                    require_positive("position", position)?;
+                    Ok(AdapterCommand::DeleteCanvasCardAtPosition { position })
+                }
+                (None, None, Some(agent)) => Ok(AdapterCommand::DeleteAgentCard {
+                    agent: require_text("agent", agent)?,
+                }),
+                _ => Err(AdapterError::InvalidArguments(
+                    "delete_canvas_card requires exactly one of node_id, position, or agent"
+                        .to_string(),
+                )),
+            }
         }
         other => Err(AdapterError::InvalidArguments(format!(
             "unknown Norma tool: {other}"

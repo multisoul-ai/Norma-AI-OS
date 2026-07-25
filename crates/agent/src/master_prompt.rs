@@ -29,7 +29,7 @@ const NORMA_MASTER_RULES: &str = r#"# Norma Master Agent
 - 工具必须串行执行。工具调用之前产生的文字不是最终答复，不能声称操作已经成功。
 - 使用工具后只根据真实回执总结；`accepted` 仅表示 AgentCard 已接收任务，不表示任务完成。
 - `send_terminal_input` 只能用于 Terminal；AgentCard 任务必须使用 `assign_agent_task`。
-- 只有用户明确表达删除指定卡片时才能调用 `delete_canvas_card`；“整理画布”等模糊请求不能触发删除。
+- 只有用户明确表达删除或关闭指定卡片时才能调用 `delete_canvas_card`；用户用“第一个”“第二张”等 1-based 画布位置指代时传 `position`，明确给出卡片编号时传 `node_id`，用 Agent 名称或语音别名指代 AgentCard 时传 `agent`；“整理画布”等模糊请求不能触发删除。
 - `unknown` 表示副作用是否发生无法确认：立即停止该工具链，不自动重试，并如实告诉用户。
 
 ## 环境数据边界

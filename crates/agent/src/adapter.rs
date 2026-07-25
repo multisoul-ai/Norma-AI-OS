@@ -10,6 +10,11 @@ use tokio_util::sync::CancellationToken;
 
 mod commands;
 use commands::parse_adapter_command;
+mod delete_intent;
+use delete_intent::{
+    has_explicit_agent_delete_intent, has_explicit_delete_intent,
+    has_explicit_position_delete_intent,
+};
 
 #[derive(Clone, Debug)]
 pub struct ToolContext {
@@ -57,6 +62,12 @@ pub enum AdapterCommand {
     },
     DeleteCanvasCard {
         node_id: u64,
+    },
+    DeleteCanvasCardAtPosition {
+        position: u64,
+    },
+    DeleteAgentCard {
+        agent: String,
     },
 }
 
@@ -175,16 +186,24 @@ impl NormaToolRuntime {
         }
 
         let command = parse_adapter_command(tool_name, arguments)?;
-        if let AdapterCommand::DeleteCanvasCard { node_id } = &command {
-            if !has_explicit_delete_intent(
+        let delete_authorized = match &command {
+            AdapterCommand::DeleteCanvasCard { node_id } => Some(has_explicit_delete_intent(
                 &context.user_input,
                 *node_id,
                 &context.contextual_delete_targets,
-            ) {
-                return Err(AdapterError::Rejected(
-                    "用户原始请求没有明确授权删除这张卡片".to_string(),
-                ));
+            )),
+            AdapterCommand::DeleteCanvasCardAtPosition { position } => Some(
+                has_explicit_position_delete_intent(&context.user_input, *position),
+            ),
+            AdapterCommand::DeleteAgentCard { agent } => {
+                Some(has_explicit_agent_delete_intent(&context.user_input, agent))
             }
+            _ => None,
+        };
+        if delete_authorized == Some(false) {
+            return Err(AdapterError::Rejected(
+                "用户原始请求没有明确授权删除这个卡片目标".to_string(),
+            ));
         }
         let result = self.adapter.execute(command, context).await;
         if let Some(operation_id) = context.operation_id.as_deref() {
@@ -195,60 +214,6 @@ impl NormaToolRuntime {
         }
         result
     }
-}
-
-fn has_explicit_delete_intent(
-    input: &str,
-    node_id: u64,
-    contextual_delete_targets: &[u64],
-) -> bool {
-    let normalized = input.to_lowercase();
-    let negated = [
-        "不要删除",
-        "不用删除",
-        "无需删除",
-        "别删除",
-        "不删除",
-        "不要删",
-        "不用删",
-        "别删",
-        "不要移除",
-        "不用移除",
-        "无需移除",
-        "别移除",
-        "do not delete",
-        "do not remove",
-        "don't delete",
-        "don't remove",
-        "dont delete",
-        "dont remove",
-    ]
-    .iter()
-    .any(|phrase| normalized.contains(phrase));
-    if negated {
-        return false;
-    }
-    let has_delete_verb = ["删除", "删掉", "移除", "delete", "remove"]
-        .iter()
-        .any(|keyword| normalized.contains(keyword));
-    let has_exact_target = normalized
-        .split(|character: char| !character.is_ascii_digit())
-        .filter(|token| !token.is_empty())
-        .any(|token| token.parse::<u64>() == Ok(node_id));
-    let has_contextual_target = [
-        "当前卡片",
-        "这张卡片",
-        "选中卡片",
-        "当前选中的卡片",
-        "focused card",
-        "selected card",
-        "this card",
-    ]
-    .iter()
-    .any(|target| normalized.contains(target));
-    let contextual_target_matches =
-        has_contextual_target && contextual_delete_targets.contains(&node_id);
-    has_delete_verb && (has_exact_target || contextual_target_matches)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -351,13 +316,27 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
         ),
         definition(
             "delete_canvas_card",
-            "仅在用户明确要求删除指定卡片时删除 Canvas 卡片。",
-            object_schema(
-                json!({"node_id": {"type": "integer", "minimum": 1}}),
-                &["node_id"],
-            ),
+            "仅在用户明确要求删除或关闭指定卡片时使用；目标必须且只能是稳定 node_id、用户所说的 1-based 画布位置，或 Agent 呼叫名/语音别名之一。",
+            delete_canvas_card_schema(),
         ),
     ]
+}
+
+fn delete_canvas_card_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "node_id": {"type": "integer", "minimum": 1},
+            "position": {"type": "integer", "minimum": 1},
+            "agent": {"type": "string", "minLength": 1}
+        },
+        "oneOf": [
+            {"required": ["node_id"]},
+            {"required": ["position"]},
+            {"required": ["agent"]}
+        ],
+        "additionalProperties": false
+    })
 }
 
 fn definition(name: &str, description: &str, parameters: Value) -> ToolDefinition {

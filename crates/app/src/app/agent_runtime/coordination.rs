@@ -17,7 +17,8 @@ impl MultisoulApp {
         let nodes = self.runtime.document.nodes();
         let total_cards = nodes.len();
         let mut candidates = Vec::with_capacity(agent::MAX_CURRENT_CANVAS_CARDS);
-        for node in nodes {
+        for (index, node) in nodes.iter().enumerate() {
+            let position = index + 1;
             let kind = canvas_card_kind(&node.kind);
             let selected = self.runtime.selection.contains(node.id);
             let focused = matches!(
@@ -25,7 +26,7 @@ impl MultisoulApp {
                 InputMode::NodeFocused(node_id) if node_id == node.id
             );
             let key = (canvas_card_priority(kind, selected, focused), node.id);
-            let candidate = (key, node, kind, selected, focused);
+            let candidate = (key, node, position, kind, selected, focused);
             if candidates.len() < agent::MAX_CURRENT_CANVAS_CARDS {
                 candidates.push(candidate);
                 continue;
@@ -45,8 +46,9 @@ impl MultisoulApp {
         let cards = candidates
             .into_iter()
             .map(
-                |(_, node, kind, selected, focused)| agent::CanvasCardContext {
+                |(_, node, position, kind, selected, focused)| agent::CanvasCardContext {
                     node_id: node.id,
+                    position,
                     kind,
                     title: node.kind.display_title(),
                     selected,

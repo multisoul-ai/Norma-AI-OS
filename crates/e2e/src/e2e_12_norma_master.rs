@@ -2,7 +2,7 @@ use crate::{echo_factory, enter_canvas, make_app, read_runtime};
 use agent::AdapterCommand;
 use canvas::CanvasNodeKind;
 use gpui::TestAppContext;
-use norma::protocol::{AgentProfile, PreviewType};
+use norma::protocol::{AgentProfile, CardCommand, CardCommandResult, PreviewType};
 use std::path::PathBuf;
 
 /// E2E-NORMA-1：Norma 的生产 Adapter 用内置名称创建 AgentCard，并直接派发单 Agent 任务
@@ -203,5 +203,205 @@ fn norma_master_creates_browser_and_preview_cards_through_production_adapter() {
             CanvasNodeKind::Term(_) | CanvasNodeKind::Agent(_)
         )),
         "Norma Browser/Preview tools must not create Terminal or Agent cards"
+    );
+}
+
+/// E2E-NORMA-3：Norma 按 1-based 画布位置关闭卡片时只删除目标卡片。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Initial Canvas nodes = 0
+///   Browser cards        = 3 → 顺序为 node 1、node 2、node 3
+///   Requested position   = 2（1-based）→ node 2
+///   Remaining cards      = 3 - 1 = 2
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 启动 headless 真实 MultisoulApp 并进入临时项目 Canvas。
+///   2. 经 production Adapter 顺序创建三张 Browser 卡片。
+///   3. 经公开 e2e seam 执行 `DeleteCanvasCardAtPosition { position: 2 }`。
+///   4. 从公开 Runtime 投影读取三个确定 node_id 与剩余节点数。
+///
+/// 预期结果：
+///   - 正断言：关闭回执成功并返回实际删除的 node_id=2。
+///   - 正断言：node 1 与 node 3 继续存在，剩余卡片数为 2。
+///   - 负断言：node 2 不得继续存在，也不得误删相邻卡片。
+#[test]
+fn norma_master_closes_only_the_canvas_card_at_spoken_position() {
+    let mut gpui = TestAppContext::single();
+    let (app, cx) = make_app(&mut gpui, echo_factory());
+    let workspace =
+        tempfile::TempDir::new().expect("Norma position-close e2e workspace should be creatable");
+    enter_canvas(&app, cx, workspace.path());
+
+    for url in [
+        "https://first.example",
+        "https://second.example",
+        "https://third.example",
+    ] {
+        cx.update(|window, app_cx| {
+            app.update(app_cx, |app, cx| {
+                app.execute_norma_adapter_command_for_e2e(
+                    window,
+                    cx,
+                    AdapterCommand::CreateBrowser {
+                        url: Some(url.to_string()),
+                    },
+                )
+            })
+        })
+        .expect("each e2e Browser fixture should be created through the production Adapter");
+    }
+
+    let closed = cx
+        .update(|window, app_cx| {
+            app.update(app_cx, |app, cx| {
+                app.execute_norma_adapter_command_for_e2e(
+                    window,
+                    cx,
+                    AdapterCommand::DeleteCanvasCardAtPosition { position: 2 },
+                )
+            })
+        })
+        .expect("position=2 should close the second Canvas card");
+    let (node_1_exists, node_2_exists, node_3_exists, remaining) =
+        read_runtime(&app, cx, |runtime| {
+            (
+                runtime.document.node(1).is_some(),
+                runtime.document.node(2).is_some(),
+                runtime.document.node(3).is_some(),
+                runtime.document.nodes().len(),
+            )
+        });
+
+    assert_eq!(
+        closed.status, "succeeded",
+        "production Adapter should report the completed position-close side effect"
+    );
+    assert_eq!(
+        closed.node_id,
+        Some(2),
+        "1-based position 2 must resolve to and return node_id=2"
+    );
+    assert!(
+        node_1_exists,
+        "the first Canvas card must remain after closing the second card"
+    );
+    assert!(
+        !node_2_exists,
+        "the second Canvas card must be absent after its successful close"
+    );
+    assert!(
+        node_3_exists,
+        "the third Canvas card must remain after closing the second card"
+    );
+    assert_eq!(
+        remaining, 2,
+        "closing one of three Canvas cards must leave exactly two cards"
+    );
+}
+
+/// E2E-NORMA-4：“关闭 Chloe”只结束活跃 AgentCard，不删除显式 Agent 定义。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Explicit definitions = 1（Chloe）
+///   Active AgentCards    = 1
+///   Close calls          = 1
+///   Remaining cards      = 1 - 1 = 0
+///   Remaining definitions = 1（身份保留）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 启动 headless 真实 MultisoulApp 并进入临时项目 Canvas。
+///   2. 经生产 Agent command 创建并激活显式 Chloe/Codex。
+///   3. 经 production Norma Adapter 执行 `DeleteAgentCard { agent: "Chloe" }`。
+///   4. 从公开 Runtime 与 Agent Settings 投影读取卡片和定义。
+///
+/// 预期结果：
+///   - 正断言：关闭成功并返回 Chloe 原活跃卡片的 node_id。
+///   - 正断言：Chloe 显式定义仍存在且保持 enabled。
+///   - 负断言：旧 Chloe AgentCard 不再存在，画布中没有其他 AgentCard。
+#[test]
+fn norma_master_closes_chloe_card_but_preserves_chloe_definition() {
+    let mut gpui = TestAppContext::single();
+    let (app, cx) = make_app(&mut gpui, echo_factory());
+    let workspace =
+        tempfile::TempDir::new().expect("Norma Chloe-close e2e workspace should be creatable");
+    enter_canvas(&app, cx, workspace.path());
+
+    let created = cx
+        .update(|window, app_cx| {
+            app.update(app_cx, |app, _cx| {
+                app.execute_agent_card_command_for_e2e(
+                    window,
+                    CardCommand::CreateAgent {
+                        name: Some("Chloe".to_string()),
+                        profile: AgentProfile::Codex,
+                        activate: true,
+                    },
+                )
+            })
+        })
+        .expect("explicit Chloe definition and active AgentCard should be created");
+    let CardCommandResult::AgentCreated {
+        node_id: Some(chloe_node_id),
+        ..
+    } = created
+    else {
+        panic!("active Chloe creation must return AgentCreated with a node_id");
+    };
+
+    let closed = cx
+        .update(|window, app_cx| {
+            app.update(app_cx, |app, cx| {
+                app.execute_norma_adapter_command_for_e2e(
+                    window,
+                    cx,
+                    AdapterCommand::DeleteAgentCard {
+                        agent: "Chloe".to_string(),
+                    },
+                )
+            })
+        })
+        .expect("idle Chloe AgentCard should close through the production Norma Adapter");
+    let (old_card_exists, remaining_agent_cards) = read_runtime(&app, cx, |runtime| {
+        (
+            runtime.document.node(chloe_node_id).is_some(),
+            runtime
+                .document
+                .nodes()
+                .iter()
+                .filter(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
+                .count(),
+        )
+    });
+    let definitions = app.read_with(cx, |app, _cx| app.agent_settings_e2e_snapshot().definitions);
+
+    assert_eq!(
+        closed.status, "succeeded",
+        "closing idle Chloe should report a completed production side effect"
+    );
+    assert_eq!(
+        closed.node_id,
+        Some(chloe_node_id),
+        "named close must return Chloe's actual active node id"
+    );
+    assert_eq!(
+        definitions.len(),
+        1,
+        "closing the only AgentCard must preserve the one explicit Agent definition"
+    );
+    assert_eq!(
+        definitions[0].name, "Chloe",
+        "the preserved explicit definition must still be named Chloe"
+    );
+    assert!(
+        definitions[0].enabled,
+        "the preserved Chloe definition must remain enabled for later reactivation"
+    );
+    assert!(
+        !old_card_exists,
+        "Chloe's old AgentCard must be absent after the successful close"
+    );
+    assert_eq!(
+        remaining_agent_cards, 0,
+        "closing the only Chloe card must leave no active AgentCard on the Canvas"
     );
 }
