@@ -12,8 +12,8 @@ use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
 use ui::Theme;
 
 const NOTICE_HEIGHT: f32 = 48.0;
-const PROVIDER_ROW_MIN_HEIGHT: f32 = 72.0;
-const COMPONENT_ROW_HEIGHT: f32 = 39.0;
+const PROVIDER_ROW_MIN_HEIGHT: f32 = 85.0;
+const COMPONENT_ROW_HEIGHT: f32 = 44.0;
 const COMPONENT_DETAILS_BOTTOM_MARGIN: f32 = 14.0;
 
 pub(super) fn orchestration_settings(
@@ -188,6 +188,8 @@ fn provider_action(
         .debug_selector(move || selector.to_string())
         .label(label)
         .custom(variant)
+        .w_full()
+        .h(px(40.0))
         .on_click(cx.listener(move |app, _, _window: &mut Window, cx| {
             app.activate_orchestration_provider(provider, cx);
         }));
