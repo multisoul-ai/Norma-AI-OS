@@ -115,7 +115,43 @@ impl MultisoulApp {
         app.validate_saved_voice_provider(cx);
         app.persist_voice_settings_in_background(cx);
         #[cfg(not(test))]
-        app.refresh_orchestration_integrations(cx);
+        if should_refresh_orchestration_integrations(visual_preview) {
+            app.refresh_orchestration_integrations(cx);
+        }
         app
+    }
+}
+
+fn should_refresh_orchestration_integrations(visual_preview: bool) -> bool {
+    !visual_preview
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_refresh_orchestration_integrations;
+
+    /// 固定视觉数据保护：真实 App 的 canonical 预览不得被本机安装状态覆盖
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   preview modes = enabled(1) + disabled(1) = 2 cases
+    ///   expected refreshes = normal startup(1) + visual preview(0) = 1
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 普通启动传入 `visual_preview=false` → 允许刷新真实 Provider 安装状态。
+    ///   2. canonical 截图启动传入 `visual_preview=true` → 保留固定验收数据。
+    ///
+    /// 预期结果：
+    ///   - 正断言：普通启动必须刷新，用户看到真实安装状态。
+    ///   - 负断言：视觉预览不得刷新，避免覆盖 canonical Ready/Needs repair 状态。
+    #[test]
+    fn orchestration_refresh_preserves_canonical_visual_preview_data() {
+        assert!(
+            should_refresh_orchestration_integrations(false),
+            "normal startup must refresh real orchestration integration state"
+        );
+        assert!(
+            !should_refresh_orchestration_integrations(true),
+            "canonical visual preview must not refresh over fixed acceptance data"
+        );
     }
 }
