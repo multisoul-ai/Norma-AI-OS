@@ -124,31 +124,92 @@ fn test_visual_default_is_idle() {
     );
 }
 
-/// VC-1: Cmd+E 是语音长按快捷键，普通 Cmd+V 不应匹配。
+/// VC-ERROR-1：关闭单次语音错误后恢复 Idle，并清除麦克风设置恢复入口。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   checked shortcuts = 3（Cmd+E + Cmd+V + Cmd+1）
+///   voice errors     = 1（MicrophoneDenied）
+///   dismiss actions = 1（用户点击错误态 ✕）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 检查 Cmd+E
-///   2. 检查 Cmd+V
-///   3. 检查 Cmd+1
+///   1. `set_speech_error(MicrophoneDenied)` → Error，并开放系统设置恢复入口。
+///   2. `dismiss_error()` → 清除当前错误反馈。
+///   3. 分别读取 phase、visual 与恢复入口。
 ///
 /// 预期结果：
-///   - 正断言：Cmd+E 匹配语音长按
-///   - 负断言：Cmd+V 和 Cmd+1 不匹配
+///   - 正断言：关闭后 phase 与 visual 都恢复 Idle。
+///   - 负断言：关闭后不得残留 Error，也不得继续开放旧权限错误的恢复入口。
 #[test]
-fn test_voice_hold_shortcut_matches_cmd_e_only() {
-    let voice = key("e", true, false);
+fn test_dismiss_voice_error_restores_idle_and_clears_recovery_action() {
+    let mut state = VoiceControlState::default();
+    state.set_speech_error(&voice_sherpa::SpeechError::MicrophoneDenied);
+
+    state.dismiss_error();
+
+    assert_eq!(
+        state.phase(),
+        &VoicePhase::Idle,
+        "关闭语音错误后 phase 必须恢复 Idle"
+    );
+    assert_eq!(
+        state.visual(),
+        VoiceVisual::Idle,
+        "关闭语音错误后不得继续渲染 Error 视觉"
+    );
+    assert!(
+        !state.microphone_settings_recovery_available(),
+        "关闭语音错误后不得残留旧麦克风权限恢复入口"
+    );
+    assert_ne!(
+        state.visual(),
+        VoiceVisual::Error,
+        "关闭动作完成后 Error 视觉必须消失"
+    );
+}
+
+/// VC-1: 语音快捷键按当前配置匹配，普通 Cmd+V / Cmd+1 不应误匹配。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   configured = Cmd+E（默认）与 Cmd+Shift+E（用户改键）
+///   checked shortcuts = 4（Cmd+E + Cmd+Shift+E + Cmd+V + Cmd+1）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 以默认 Cmd+E 配置匹配 Cmd+E / Cmd+V / Cmd+1
+///   2. 以 Cmd+Shift+E 配置匹配对应按键
+///
+/// 预期结果：
+///   - 正断言：只有与配置一致的按键匹配
+///   - 负断言：Cmd+V、Cmd+1，以及未配置时都不匹配
+#[test]
+fn test_voice_hold_shortcut_matches_configured_keystroke_only() {
+    let default_voice = key("e", true, false);
+    let reassigned = key("e", true, true);
     let paste = key("v", true, false);
     let other = key("1", true, false);
 
-    assert!(is_voice_hold_shortcut(&voice), "Cmd+E 应匹配语音长按快捷键");
     assert!(
-        !is_voice_hold_shortcut(&paste),
+        matches_configured_voice_shortcut(&default_voice, Some(&default_voice)),
+        "默认 Cmd+E 应匹配语音快捷键"
+    );
+    assert!(
+        !matches_configured_voice_shortcut(&paste, Some(&default_voice)),
         "Cmd+V 是粘贴，不应触发语音"
     );
-    assert!(!is_voice_hold_shortcut(&other), "Cmd+1 不是语音快捷键");
+    assert!(
+        !matches_configured_voice_shortcut(&other, Some(&default_voice)),
+        "Cmd+1 不是语音快捷键"
+    );
+    assert!(
+        matches_configured_voice_shortcut(&reassigned, Some(&reassigned)),
+        "用户改成 Cmd+Shift+E 后应按新配置匹配"
+    );
+    assert!(
+        !matches_configured_voice_shortcut(&default_voice, Some(&reassigned)),
+        "改键后旧的 Cmd+E 不应继续触发语音"
+    );
+    assert!(
+        !matches_configured_voice_shortcut(&default_voice, None),
+        "未配置语音快捷键时不得匹配任何按键"
+    );
 }
 
 /// VC-2: 重复 keydown 不重复启动录音，keyup 只结束对应 trigger。
@@ -185,35 +246,45 @@ fn test_voice_recording_state_is_idempotent_and_trigger_scoped() {
     );
 }
 
-/// VC-3: Cmd 松开时，快捷键录音应进入释放路径。
+/// VC-3: 配置所需修饰键松开时，快捷键录音应进入释放路径。
 ///
 /// 数据构造（含关键数值的推导过程）：
+///   configured = Cmd+E 与 Cmd+Shift+E
 ///   modifier states = 3（Cmd down + Cmd up + Shift changed）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 检查 Cmd 仍按住
-///   2. 检查 Cmd 已松开
-///   3. 检查 Shift 变化但 Cmd 仍按住
+///   1. 以 Cmd+E 检查 Cmd 仍按住 / 已松开 / 仅 Shift 变化
+///   2. 以 Cmd+Shift+E 检查 Shift 松开
 ///
 /// 预期结果：
-///   - 正断言：Cmd 松开时结束录音
-///   - 负断言：Cmd 仍按住时不结束录音
+///   - 正断言：配置所需修饰键松开时结束录音
+///   - 负断言：所需修饰键仍按住时不结束录音
 #[test]
-fn test_voice_hold_modifier_release_matches_cmd_up_only() {
+fn test_voice_hold_modifier_release_matches_required_modifiers() {
+    let cmd_e = key("e", true, false);
+    let cmd_shift_e = key("e", true, true);
     let cmd_down = modifiers(true, false);
     let cmd_up = modifiers(false, false);
     let shift_changed = modifiers(true, true);
 
     assert!(
-        !is_voice_hold_modifier_release(&cmd_down),
+        !is_voice_hold_modifier_release(&cmd_down, Some(&cmd_e)),
         "Cmd 仍按住时不应结束快捷键录音"
     );
     assert!(
-        is_voice_hold_modifier_release(&cmd_up),
+        is_voice_hold_modifier_release(&cmd_up, Some(&cmd_e)),
         "Cmd 松开时应结束快捷键录音"
     );
     assert!(
-        !is_voice_hold_modifier_release(&shift_changed),
-        "Shift 状态变化但 Cmd 仍按住时不应结束快捷键录音"
+        !is_voice_hold_modifier_release(&shift_changed, Some(&cmd_e)),
+        "Shift 状态变化但 Cmd 仍按住时不应结束默认 Cmd+E 录音"
+    );
+    assert!(
+        is_voice_hold_modifier_release(&cmd_down, Some(&cmd_shift_e)),
+        "Cmd+Shift+E 配置下松开 Shift 应结束录音"
+    );
+    assert!(
+        !is_voice_hold_modifier_release(&cmd_down, None),
+        "未配置语音快捷键时修饰键变化不得结束录音"
     );
 }

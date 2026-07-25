@@ -27,6 +27,7 @@ impl MultisoulApp {
 
     pub(crate) fn start_continuous_listening(&mut self, cx: &mut Context<Self>) {
         self.cancel_agent_announcements();
+        self.dismiss_voice_error();
         let values = self.voice_settings.values().clone();
         let model_root = self.voice_settings.model_root().to_path_buf();
         let input_device_id = values.input_device_id().map(ToOwned::to_owned);

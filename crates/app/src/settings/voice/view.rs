@@ -35,6 +35,7 @@ pub(crate) fn voice_settings(
     inputs: &VoiceSettingsInputs,
     content_scroll: &ScrollHandle,
     setup_scroll_target: Option<VoiceSetupDestination>,
+    voice_shortcut_label: &str,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
@@ -56,8 +57,8 @@ pub(crate) fn voice_settings(
         .flex()
         .flex_col()
         .gap(px(20.0))
-        .child(voice_ready_overview(theme, cx))
-        .child(interaction_group(theme, state, cx))
+        .child(voice_ready_overview(theme, voice_shortcut_label, cx))
+        .child(interaction_group(theme, state, voice_shortcut_label, cx))
         .child(settings_group(theme, "Input").child(input_device_row(theme, state, cx)))
         .child(spoken_reply_group(theme, state, inputs, cx))
         .child(asr_provider_group(theme, state, inputs, cx))

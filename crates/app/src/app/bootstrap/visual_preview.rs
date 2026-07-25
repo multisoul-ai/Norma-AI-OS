@@ -1,6 +1,6 @@
 use crate::app::{AppScreen, MultisoulApp};
 use crate::settings::panel::SettingsSection;
-use crate::settings::voice::VoiceSettingsState;
+use crate::settings::voice::{VoiceInteractionMode, VoiceSettingsState};
 use gpui::Context;
 use ui::ThemeId;
 
@@ -86,6 +86,9 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
         }
         VisualPreview::TtsBacklogCapacity => {
             app.settings_panel.close();
+            app.voice_settings.assume_visual_preview_ready_for_e2e();
+            app.voice_settings
+                .select_interaction_mode(VoiceInteractionMode::ContinuousListening);
             app.dialogue.recover_reply_failure(
                 crate::app::dialogue::spoken_reply_capacity_message(
                     dialogue::MAX_ACTIVE_SPEECH_CHARS,

@@ -29,6 +29,7 @@ pub(crate) enum ShortcutCommandId {
     ToggleMasterLayout,
     ExitFocus,
     ToggleSettings,
+    VoiceInteraction,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -182,6 +183,24 @@ impl ShortcutSettingsState {
         self.effective.iter().find_map(|entry| {
             (entry.current_keystroke.as_deref() == Some(source.as_str())).then_some(entry.command)
         })
+    }
+
+    pub(crate) fn voice_interaction_keystroke(&self) -> Option<Keystroke> {
+        self.effective
+            .iter()
+            .find(|entry| entry.command == ShortcutCommandId::VoiceInteraction)?
+            .current_keystroke
+            .as_deref()
+            .and_then(|raw| Keystroke::parse(raw).ok())
+    }
+
+    pub(crate) fn voice_interaction_label(&self) -> String {
+        keystroke_label(
+            self.effective
+                .iter()
+                .find(|entry| entry.command == ShortcutCommandId::VoiceInteraction)
+                .and_then(|entry| entry.current_keystroke.as_deref()),
+        )
     }
 
     pub(crate) fn record_keystroke(&mut self, keystroke: &Keystroke) -> bool {

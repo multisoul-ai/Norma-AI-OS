@@ -54,6 +54,8 @@ pub struct SettingsE2eSnapshot {
     pub recording_command: Option<&'static str>,
     pub new_terminal_shortcut: Option<String>,
     pub new_terminal_modified: bool,
+    pub voice_interaction_shortcut: Option<String>,
+    pub voice_interaction_modified: bool,
     pub status_message: Option<String>,
     pub agent_provider: &'static str,
     pub agent_base_url: String,
@@ -324,6 +326,11 @@ impl MultisoulApp {
             .effective
             .iter()
             .find(|entry| entry.command == ShortcutCommandId::NewTerminal);
+        let voice_interaction = self
+            .shortcuts
+            .effective
+            .iter()
+            .find(|entry| entry.command == ShortcutCommandId::VoiceInteraction);
         let api_key_text = self
             .voice_settings_inputs
             .rendered_text(crate::settings::voice::VoiceSettingsField::ApiKey, cx);
@@ -339,6 +346,11 @@ impl MultisoulApp {
             recording_command: self.shortcuts.recording.map(shortcut_command_name),
             new_terminal_shortcut: new_terminal.and_then(|entry| entry.current_keystroke.clone()),
             new_terminal_modified: new_terminal.map(|entry| entry.modified).unwrap_or(false),
+            voice_interaction_shortcut: voice_interaction
+                .and_then(|entry| entry.current_keystroke.clone()),
+            voice_interaction_modified: voice_interaction
+                .map(|entry| entry.modified)
+                .unwrap_or(false),
             status_message: self.shortcuts.status.message.clone(),
             agent_provider: self.voice_settings.values().agent_provider().as_str(),
             agent_base_url: self

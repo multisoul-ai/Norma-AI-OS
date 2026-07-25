@@ -5,6 +5,7 @@ use crate::app::MultisoulApp;
 pub struct VoiceE2eSnapshot {
     pub phase: &'static str,
     pub dialogue_phase: &'static str,
+    pub visual: &'static str,
     pub label: String,
     pub microphone_recovery_available: bool,
     pub entry_state: &'static str,
@@ -29,6 +30,13 @@ impl MultisoulApp {
                 dialogue::DialoguePhase::Thinking => "thinking",
                 dialogue::DialoguePhase::Speaking => "speaking",
             },
+            visual: match self.effective_voice_visual() {
+                crate::app::voice::control::VoiceVisual::Idle => "idle",
+                crate::app::voice::control::VoiceVisual::Recording => "recording",
+                crate::app::voice::control::VoiceVisual::Processing => "processing",
+                crate::app::voice::control::VoiceVisual::Success => "success",
+                crate::app::voice::control::VoiceVisual::Error => "error",
+            },
             label: self.effective_voice_label(),
             microphone_recovery_available: self.can_open_microphone_privacy_settings(),
             entry_state: match self.voice_settings.readiness() {
@@ -43,5 +51,17 @@ impl MultisoulApp {
                 .last_duration_limit_feedback()
                 .map(ToOwned::to_owned),
         }
+    }
+
+    pub fn show_single_voice_turn_error_for_e2e(&mut self, message: impl Into<String>) {
+        let _ = self
+            .dialogue
+            .begin_single_voice_command("e2e failed voice turn");
+        self.voice.set_executed("Voice command sent");
+        self.dialogue.recover_reply_failure(message);
+    }
+
+    pub fn show_continuous_voice_turn_error_for_e2e(&mut self, message: impl Into<String>) {
+        self.dialogue.recover_reply_failure(message);
     }
 }

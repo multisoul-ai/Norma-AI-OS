@@ -68,6 +68,7 @@ pub(crate) enum VoiceShortcutKeyDownAction {
     StartContinuousListening,
     StopContinuousListening,
     InterruptAssistantReply,
+    DismissError,
 }
 
 pub(crate) struct DialogueControlState {
@@ -270,6 +271,9 @@ impl DialogueControlState {
         continuous_listening_enabled: bool,
     ) -> VoiceShortcutKeyDownAction {
         if continuous_listening_enabled {
+            if self.error_message.is_some() && self.phase() == DialoguePhase::Listening {
+                return VoiceShortcutKeyDownAction::DismissError;
+            }
             if self.phase() == DialoguePhase::Speaking {
                 return VoiceShortcutKeyDownAction::InterruptAssistantReply;
             }
@@ -483,6 +487,9 @@ mod reply_stream_tests;
 mod reply_stream_test_support;
 
 #[cfg(test)]
+#[path = "../../../tests/unit/app_dialogue_shortcut_tests.rs"]
+mod app_dialogue_shortcut_tests;
+#[cfg(test)]
 #[path = "../../../tests/unit/reply_stream_backlog_tests.rs"]
 mod reply_stream_backlog_tests;
 #[cfg(test)]
@@ -491,7 +498,3 @@ mod reply_stream_cancellation_tests;
 #[cfg(test)]
 #[path = "../../../tests/unit/reply_stream_scheduler_tests.rs"]
 mod reply_stream_scheduler_tests;
-
-#[cfg(test)]
-#[path = "../../../tests/unit/app_dialogue_shortcut_tests.rs"]
-mod app_dialogue_shortcut_tests;

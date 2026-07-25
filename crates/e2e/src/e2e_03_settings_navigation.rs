@@ -192,6 +192,77 @@ fn e2e_03_settings_sections_keep_one_stable_panel_frame() {
     );
 }
 
+/// Settings 品牌脚注：软件 icon 与当前版本号应固定显示在大窗口侧栏左下角。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   viewport = 1440×900px；面板 = min((1440-2×32)×(900-2×32), 1280×820)
+///            = 1280×820px，origin = ((1440-1280)/2, (900-820)/2) = (80, 40)。
+///   sidebar width = min(1280×0.28, 286) = 286px。
+///   app icon = 40×40px；品牌脚注必须完整位于 x=[80, 80+286] 的侧栏内。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 启动 headless App、进入 Canvas，并把 viewport 调整为 1440×900px。
+///   2. 点击 `toolbar-settings` 打开 Settings，读取面板、品牌脚注、icon 与版本号 bounds。
+///   3. 验证品牌脚注位于面板下半区且未越过 286px 侧栏边界。
+///   4. 验证软件 icon 保持 40×40px，版本号与 icon 均被脚注容器包住。
+///
+/// 预期结果：
+///   - 正断言：品牌脚注、软件 icon 与版本号三个用户可见元素同时存在。
+///   - 正断言：脚注位于侧栏左下区域，icon 尺寸清晰且两项内容均在容器内。
+///   - 负断言：脚注不得进入右侧内容区，也不得漂移到 Settings 上半区。
+#[test]
+fn e2e_03_settings_sidebar_shows_app_icon_and_version_at_bottom_left() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let temporary_root = tempfile::TempDir::new().expect("测试应创建临时 workspace");
+    enter_canvas(&app, cx, temporary_root.path());
+
+    // available = (1440 - 2×32) × (900 - 2×32) = 1376×836px；
+    // panel = min(1376×836, 1280×820) = 1280×820px，sidebar = 286px。
+    cx.simulate_resize(size(px(1440.0), px(900.0)));
+    cx.run_until_parked();
+    click_debug(cx, "toolbar-settings");
+
+    let panel = cx
+        .debug_bounds("settings-panel")
+        .expect("打开 Settings 后应渲染统一 settings-panel");
+    let footer = cx
+        .debug_bounds("settings-brand-footer")
+        .expect("Settings 侧栏左下角应渲染品牌脚注");
+    let icon = cx
+        .debug_bounds("settings-brand-icon")
+        .expect("Settings 品牌脚注应渲染当前软件 icon");
+    let version = cx
+        .debug_bounds("settings-brand-version")
+        .expect("Settings 品牌脚注应渲染当前软件版本号");
+
+    assert_eq!(
+        icon.size,
+        size(px(40.0), px(40.0)),
+        "Settings 软件 icon 应保持 40×40px 的清晰尺寸"
+    );
+    assert!(
+        f32::from(footer.origin.y) > f32::from(panel.origin.y) + f32::from(panel.size.height) * 0.5,
+        "品牌脚注必须位于 Settings 面板下半区，panel={panel:?}, footer={footer:?}"
+    );
+    assert!(
+        f32::from(footer.origin.x + footer.size.width) <= f32::from(panel.origin.x) + 286.0,
+        "品牌脚注不得越过 286px 侧栏进入右侧内容区，panel={panel:?}, footer={footer:?}"
+    );
+    assert!(
+        footer.contains(&icon.center()),
+        "软件 icon 必须完整位于品牌脚注容器内，footer={footer:?}, icon={icon:?}"
+    );
+    assert!(
+        footer.contains(&version.center()),
+        "版本号必须完整位于品牌脚注容器内，footer={footer:?}, version={version:?}"
+    );
+    assert!(
+        f32::from(footer.origin.y) < f32::from(panel.origin.y + panel.size.height),
+        "品牌脚注不得漂移到 Settings 面板底边之外，panel={panel:?}, footer={footer:?}"
+    );
+}
+
 fn click_debug(cx: &mut VisualTestContext, selector: &'static str) {
     cx.run_until_parked();
     let bounds = cx

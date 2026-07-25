@@ -108,8 +108,8 @@ fn test_settings_panel_layout_stays_inside_small_viewports() {
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings_panel.rs + settings_content.rs + settings_keyboard.rs + shortcuts.rs
 ///   editable anchors = settings-shortcut-new-terminal / settings-shortcut-toggle-settings
-///                      / settings-shortcut-delete-card
-///   read-only anchors = Paste / Voice Recording / Arrow Navigation / Space Pan / Terminal Input
+///                      / settings-shortcut-delete-card / settings-shortcut-voice-interaction
+///   read-only anchors = Paste / Arrow Navigation / Space Pan / Terminal Input
 ///   restore anchors = settings-shortcuts-restore-all / settings-shortcut-restore-delete-card / Restore
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -144,6 +144,8 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
         "settings-shortcut-new-codex-agent",
         "settings-shortcut-new-cursor-agent",
         "settings-shortcut-new-opencode-agent",
+        "settings-shortcut-voice-interaction",
+        "settings-shortcut-restore-voice-interaction",
         "settings-shortcuts-restore-all",
         "Paste",
         "Voice Interaction",

@@ -273,20 +273,36 @@ impl VoiceControlState {
     }
 }
 
-pub(crate) fn is_voice_hold_shortcut(keystroke: &Keystroke) -> bool {
-    keystroke.key == "e"
-        && keystroke.modifiers.platform
-        && !keystroke.modifiers.control
-        && !keystroke.modifiers.alt
-        && !keystroke.modifiers.shift
+pub(crate) fn matches_configured_voice_shortcut(
+    keystroke: &Keystroke,
+    configured: Option<&Keystroke>,
+) -> bool {
+    configured.is_some_and(|expected| {
+        keystroke.key == expected.key
+            && keystroke.modifiers.platform == expected.modifiers.platform
+            && keystroke.modifiers.control == expected.modifiers.control
+            && keystroke.modifiers.alt == expected.modifiers.alt
+            && keystroke.modifiers.shift == expected.modifiers.shift
+            && keystroke.modifiers.function == expected.modifiers.function
+    })
 }
 
-pub(crate) fn is_voice_hold_release(keystroke: &Keystroke) -> bool {
-    keystroke.key == "e"
+pub(crate) fn is_voice_hold_release(keystroke: &Keystroke, configured: Option<&Keystroke>) -> bool {
+    configured.is_some_and(|expected| keystroke.key == expected.key)
 }
 
-pub(crate) fn is_voice_hold_modifier_release(modifiers: &Modifiers) -> bool {
-    !modifiers.platform
+pub(crate) fn is_voice_hold_modifier_release(
+    modifiers: &Modifiers,
+    configured: Option<&Keystroke>,
+) -> bool {
+    let Some(expected) = configured else {
+        return false;
+    };
+    (expected.modifiers.platform && !modifiers.platform)
+        || (expected.modifiers.control && !modifiers.control)
+        || (expected.modifiers.alt && !modifiers.alt)
+        || (expected.modifiers.shift && !modifiers.shift)
+        || (expected.modifiers.function && !modifiers.function)
 }
 
 #[cfg(test)]

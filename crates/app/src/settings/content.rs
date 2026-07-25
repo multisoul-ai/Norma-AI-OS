@@ -59,7 +59,12 @@ pub(super) fn settings_content(
         .flex()
         .flex_col()
         .bg(rgba(with_alpha(theme.panel_high, 0xd4)))
-        .child(content_header(theme, panel.active_section, cx))
+        .child(content_header(
+            theme,
+            panel.active_section,
+            &shortcuts.voice_interaction_label(),
+            cx,
+        ))
         .child(
             div()
                 .id("settings-content-scroll")
@@ -82,6 +87,7 @@ pub(super) fn settings_content(
                         voice.inputs,
                         content_scroll,
                         voice.setup_scroll_target,
+                        &shortcuts.voice_interaction_label(),
                         window,
                         cx,
                     ),
@@ -102,8 +108,13 @@ pub(super) fn settings_content(
         )
 }
 
-fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<MultisoulApp>) -> Div {
-    let subtitle = content_subtitle(section);
+fn content_header(
+    theme: Theme,
+    section: SettingsSection,
+    voice_shortcut_label: &str,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
+    let subtitle = content_subtitle(section, voice_shortcut_label);
     let mut title_column = div()
         .flex_1()
         .min_w(px(0.0))
@@ -179,19 +190,21 @@ fn content_title(section: SettingsSection) -> &'static str {
     }
 }
 
-fn content_subtitle(section: SettingsSection) -> &'static str {
+fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> String {
     match section {
-        SettingsSection::Themes => "Choose one of the six reviewed Core UI V2 palettes",
-        SettingsSection::Keyboard => "Customize app commands and review system input behavior",
-        #[cfg(test)]
-        SettingsSection::Runtime => "Configure shell behavior and live sessions",
-        SettingsSection::Voice => "Use ⌘E to talk to Norma",
-        SettingsSection::Agents => "Choose default agents, permissions, and profiles",
-        #[cfg(test)]
-        SettingsSection::Skills => "Manage installed skills and project skill sources",
-        SettingsSection::Orchestration => {
-            "Install Skill + CLI so agents can delegate tasks through Norma OS"
+        SettingsSection::Themes => "Choose one of the six reviewed Core UI V2 palettes".to_string(),
+        SettingsSection::Keyboard => {
+            "Customize app commands and review system input behavior".to_string()
         }
-        SettingsSection::Wallpaper => "Choose a background",
+        #[cfg(test)]
+        SettingsSection::Runtime => "Configure shell behavior and live sessions".to_string(),
+        SettingsSection::Voice => format!("Use {voice_shortcut_label} to talk to Norma"),
+        SettingsSection::Agents => "Choose default agents, permissions, and profiles".to_string(),
+        #[cfg(test)]
+        SettingsSection::Skills => "Manage installed skills and project skill sources".to_string(),
+        SettingsSection::Orchestration => {
+            "Install Skill + CLI so agents can delegate tasks through Norma OS".to_string()
+        }
+        SettingsSection::Wallpaper => "Choose a background".to_string(),
     }
 }

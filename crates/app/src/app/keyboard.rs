@@ -1,9 +1,5 @@
 //! Keyboard routing for the root GPUI view.
 
-use crate::app::dialogue::VoiceShortcutKeyDownAction;
-use crate::app::voice::control::{
-    is_voice_hold_modifier_release, is_voice_hold_release, is_voice_hold_shortcut, VoiceTrigger,
-};
 use crate::app::{clipboard_image, AppScreen, CopyCardContent, MultisoulApp};
 use crate::canvas::text_selection::TextSelection;
 use crate::cards::term::selection::terminal_selected_text;
@@ -19,28 +15,12 @@ use runtime::{route, InputEvent, InputMode, NodeInput, NodeView, Route, Runtime}
 use terminal::{Cell, GridSnapshot};
 use terminal::{Key, KeyInput};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum DictationShortcutAction {
-    Start,
-    Stop,
-}
-
 mod agent_interrupt;
 mod shortcuts;
 mod tab;
+mod voice;
 use agent_interrupt::end_active_agent_task_for_manual_interrupt;
 pub(super) use tab::init_multisoul_key_bindings;
-
-fn dictation_shortcut_action(
-    trigger: crate::settings::voice::DictationTrigger,
-    is_recording: bool,
-) -> DictationShortcutAction {
-    if trigger == crate::settings::voice::DictationTrigger::Toggle && is_recording {
-        DictationShortcutAction::Stop
-    } else {
-        DictationShortcutAction::Start
-    }
-}
 
 #[cfg(test)]
 pub(crate) fn current_copy_node_id(runtime: &Runtime) -> Option<NodeId> {
@@ -276,16 +256,7 @@ impl MultisoulApp {
             }
         }
 
-        if is_voice_hold_shortcut(&ev.keystroke) {
-            if !matches!(
-                self.voice_settings.readiness(),
-                crate::settings::voice::VoiceEntryState::Ready
-            ) {
-                self.open_voice_settings(window, cx);
-                cx.stop_propagation();
-                return;
-            }
-            self.activate_ready_voice(false, window, cx);
+        if self.handle_configured_voice_key_down(&ev.keystroke, window, cx) {
             return;
         }
 
@@ -302,6 +273,9 @@ impl MultisoulApp {
         }
 
         if let Some(command) = self.shortcuts.command_for_keystroke(&ev.keystroke) {
+            if command == ShortcutCommandId::VoiceInteraction {
+                return;
+            }
             self.dispatch_shortcut_command(command, window, cx);
             cx.stop_propagation();
             return;
@@ -398,62 +372,13 @@ impl MultisoulApp {
         }
     }
 
-    pub(crate) fn activate_ready_voice(
-        &mut self,
-        pointer_toggle: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let continuous = self.voice_settings.values().interaction_mode()
-            == crate::settings::voice::VoiceInteractionMode::ContinuousListening;
-        match self.dialogue.voice_shortcut_key_down_action(continuous) {
-            VoiceShortcutKeyDownAction::StartOneShotRecording => {
-                if self.dialogue.is_active() {
-                    self.stop_continuous_listening(cx);
-                }
-                let action = if pointer_toggle && self.is_voice_recording_shortcut() {
-                    DictationShortcutAction::Stop
-                } else {
-                    dictation_shortcut_action(
-                        self.voice_settings.values().dictation_trigger(),
-                        self.is_voice_recording_shortcut(),
-                    )
-                };
-                match action {
-                    DictationShortcutAction::Start => {
-                        self.begin_voice_recording(VoiceTrigger::Shortcut, window, cx)
-                    }
-                    DictationShortcutAction::Stop => {
-                        self.end_voice_recording(VoiceTrigger::Shortcut, window, cx)
-                    }
-                }
-            }
-            VoiceShortcutKeyDownAction::StartContinuousListening => {
-                self.start_continuous_listening(cx);
-            }
-            VoiceShortcutKeyDownAction::StopContinuousListening => {
-                self.stop_continuous_listening(cx);
-            }
-            VoiceShortcutKeyDownAction::InterruptAssistantReply => {
-                if self.dialogue.interrupt_assistant_reply_for_user_action() {
-                    cx.notify();
-                }
-            }
-        }
-    }
-
     pub(crate) fn on_key_up(
         &mut self,
         ev: &KeyUpEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.voice_settings.values().dictation_trigger()
-            == crate::settings::voice::DictationTrigger::Hold
-            && self.is_voice_recording_shortcut()
-            && is_voice_hold_release(&ev.keystroke)
-        {
-            self.end_voice_recording(VoiceTrigger::Shortcut, window, cx);
+        if self.handle_configured_voice_hold_release(&ev.keystroke, window, cx) {
             return;
         }
 
@@ -473,23 +398,13 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.voice_settings.values().dictation_trigger()
-            == crate::settings::voice::DictationTrigger::Hold
-            && self.is_voice_recording_shortcut()
-            && is_voice_hold_modifier_release(&ev.modifiers)
-        {
-            self.end_voice_recording(VoiceTrigger::Shortcut, window, cx);
-        }
+        self.handle_configured_voice_modifier_release(&ev.modifiers, window, cx);
     }
 }
 
 #[cfg(test)]
 #[path = "../../tests/unit/app_keyboard_tests.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "../../tests/unit/app_keyboard_voice_tests.rs"]
-mod voice_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/app_keyboard_delete_tests.rs"]

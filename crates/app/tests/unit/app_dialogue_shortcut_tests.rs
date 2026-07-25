@@ -188,6 +188,53 @@ fn test_dialogue_turn_failure_recovers_for_next_utterance() {
     });
 }
 
+/// DLG-ERROR-SHORTCUT-1：持续聆听回合失败后，快捷键先清错并露出存活的 Listening。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   dialogue phase   = Listening（有效长会话）
+///   failed turns     = 1（`recover_reply_failure`）
+///   shortcut presses = 1（错误出现后的首次 ⌘E）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 启动 Continuous Listening 并提交一句 final transcript。
+///   2. 模拟 Agent 回合失败，状态机回到 Listening 并保留错误反馈。
+///   3. 计算下一次 ⌘E 的类型安全 action。
+///
+/// 预期结果：
+///   - 正断言：错误态首次快捷键返回 DismissError。
+///   - 负断言：不得返回 StopContinuousListening，把存活的录音会话误停。
+#[test]
+fn test_continuous_listening_error_shortcut_dismisses_feedback_without_stopping() {
+    super::app_dialogue_shell_tests::with_dialogue_shell_test_guard(|| {
+        let dir = tempdir().expect("测试应创建持续聆听错误恢复的临时模型根");
+        let values = super::app_dialogue_shell_tests::continuous_listening_values(Some(
+            dir.path().to_path_buf(),
+        ));
+        let mut state = DialogueControlState::default();
+        DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
+        state
+            .begin_listening_sync_for_tests(&values, dir.path())
+            .expect("有效模型应进入 Listening");
+        state
+            .on_final_transcript("你好")
+            .expect("final transcript 应进入 Thinking");
+        state.recover_reply_failure("Turn error: MaxTurnsError");
+
+        let action = state.voice_shortcut_key_down_action(true);
+
+        assert_eq!(
+            action,
+            VoiceShortcutKeyDownAction::DismissError,
+            "持续聆听错误态首次 ⌘E 应清除错误并露出存活会话"
+        );
+        assert_ne!(
+            action,
+            VoiceShortcutKeyDownAction::StopContinuousListening,
+            "持续聆听错误态首次 ⌘E 不得停止仍在收音的会话"
+        );
+    });
+}
+
 /// DLG-17: Speaking 时再次按 Cmd+Shift+V 应作为确认打断，停止回复并回 Listening。
 ///
 /// 数据构造：

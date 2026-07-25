@@ -50,6 +50,7 @@ canvas/view.rs
 | `⌘⇧L` | `ReflowLayout` | `on_reflow_layout` | Canvas | 退出 master 模式并按最多三列平铺网格重排全部节点 |
 | `⌘Esc` | `ExitFocus` | `on_exit_focus` | 全局 | 从 `NodeFocused` 退回 `CanvasSelect`（画布选择模式） |
 | `⌘,` | `ToggleSettings` | `toggle_settings_panel` | Canvas | 打开或关闭 Settings 面板 |
+| `⌘E` | `VoiceInteraction` | `activate_ready_voice` | 全局 | 按当前语音交互模式开始/停止单次语音指令或持续聆听；Hold 模式下松开结束输入 |
 
 ### 复制（`⌘C`）优先级
 
@@ -82,8 +83,8 @@ canvas/view.rs
 
 Settings → Keyboard Shortcuts 支持内联录制、单项 Restore 和 Restore Defaults。校验规则：
 
-- 不允许两个可编辑命令使用同一快捷键。
-- 不允许覆盖只读输入行为：`⌘V`、`⌘E`、裸方向键、裸 `Space`。
+- 不允许两个可编辑命令使用同一快捷键（含默认 `⌘E` 的 `VoiceInteraction`）。
+- 不允许覆盖只读输入行为：`⌘V`、裸方向键、裸 `Space`。
 - 不允许裸可打印字符作为 app 命令快捷键，避免干扰 terminal 输入。
 - 录制非 Exit Focus 命令时，裸 `Esc` 取消录制；录制 Exit Focus 时，裸 `Esc` 可作为快捷键。
 
@@ -122,18 +123,20 @@ Layout:   Reflow Layout / Toggle Master Layout
 
 ### 4.1 语音输入
 
+`VoiceInteraction` 是可配置 app 命令，默认 `⌘E`。用户可在 Settings → Keyboard Shortcuts 重新录制；底栏与 Voice Settings 文案会显示当前有效快捷键。
+
 | 快捷键 | 阶段 | 行为 |
 | --- | --- | --- |
-| `⌘E` 按下 | `on_key_down` | 按当前模式开始单次语音指令或持续聆听 |
-| `⌘E` 松开（单次 Hold） | `on_key_up` | 结束输入并提交最终转写 |
-| 松开 `⌘`（单次 Hold） | `on_modifiers_changed` | 结束输入 |
+| 配置的语音快捷键按下 | `on_key_down` | 按当前模式开始单次语音指令或持续聆听 |
+| 配置快捷键的主键松开（单次 Hold） | `on_key_up` | 结束输入并提交最终转写 |
+| 配置所需修饰键松开（单次 Hold） | `on_modifiers_changed` | 结束输入 |
 
-实现：`crates/app/src/app/voice/control.rs` → `is_voice_hold_shortcut`。
+实现：`ShortcutSettingsState::voice_interaction_keystroke` + `crates/app/src/app/voice/control.rs` 中的 hold 匹配辅助函数。
 
 **冲突隔离：**
 
-- `⌘V`（粘贴）不匹配语音快捷键。
-- `⌘1` 等其它 platform 组合不匹配语音快捷键。
+- `⌘V`（粘贴）仍为只读保留输入，不能分配给语音或其它命令。
+- 其它已占用的可编辑命令快捷键不能重复分配。
 
 ### 4.2 粘贴（`⌘V`）
 
@@ -235,7 +238,7 @@ Layout:   Reflow Layout / Toggle Master Layout
 
 | 项目 | 状态 |
 | --- | --- |
-| 输入路由类快捷键编辑 | `⌘V`、`⌘E`、方向键、`Space`、PTY 输入在 Settings 中只读展示 |
+| 输入路由类快捷键编辑 | `⌘V`、方向键、`Space`、PTY 输入在 Settings 中只读展示；`VoiceInteraction` 可编辑 |
 | 滚轮缩放 | 文档旧描述（`ARCHITECTURE.md` §5）已过时；当前滚轮不缩放 |
 
 ## 8. 源码索引
@@ -262,5 +265,5 @@ Layout:   Reflow Layout / Toggle Master Layout
 4. 在 `app/keyboard.rs` 的 `dispatch_shortcut_command` 映射到处理器。
 5. 在 `MultisoulApp::render` 根元素 `.on_action(...)` 挂载菜单 Action 处理器（仅当需要菜单复用）。
 6. 若快捷键不应传入 PTY，确认 `keystroke_to_input` 对 `modifiers.platform` 的拦截已覆盖；必要时补测试（参考 `test_keystroke_to_input_platform_shortcut_is_not_sent_to_pty`）。
-7. 若与手写输入路由冲突（如 `⌘V` / `⌘E`），先在 `shortcuts.rs` 保留输入行为，再在 `keyboard.rs` 或 `voice/control.rs` 明确优先级并补单元测试。
+7. 若与手写输入路由冲突（如 `⌘V`），先在 `shortcuts.rs` 保留输入行为，再在 `keyboard.rs` 明确优先级并补单元测试。`VoiceInteraction` 走可编辑 registry，Hold 松键逻辑需同步读取当前配置。
 8. 更新本文档。

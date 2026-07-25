@@ -8,7 +8,7 @@ use ui::Theme;
 
 use super::super::with_alpha;
 
-const COMMAND_CATEGORIES: &[&str] = &["Workspace", "Cards", "Layout", "Settings"];
+const COMMAND_CATEGORIES: &[&str] = &["Workspace", "Cards", "Layout", "Settings", "Voice"];
 
 pub(super) fn keyboard_settings(
     theme: Theme,
@@ -294,6 +294,7 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::ToggleMasterLayout => "settings-shortcut-toggle-master-layout",
         ShortcutCommandId::ExitFocus => "settings-shortcut-exit-focus",
         ShortcutCommandId::ToggleSettings => "settings-shortcut-toggle-settings",
+        ShortcutCommandId::VoiceInteraction => "settings-shortcut-voice-interaction",
     }
 }
 
@@ -315,5 +316,6 @@ fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
         ShortcutCommandId::ToggleMasterLayout => "settings-shortcut-restore-toggle-master-layout",
         ShortcutCommandId::ExitFocus => "settings-shortcut-restore-exit-focus",
         ShortcutCommandId::ToggleSettings => "settings-shortcut-restore-toggle-settings",
+        ShortcutCommandId::VoiceInteraction => "settings-shortcut-restore-voice-interaction",
     }
 }

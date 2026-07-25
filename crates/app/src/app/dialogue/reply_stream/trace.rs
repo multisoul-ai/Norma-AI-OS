@@ -166,7 +166,7 @@ pub(super) fn playback_accepted(
     chunk: &QueuedPlaybackChunk,
     pcm_duration: Duration,
 ) {
-    tracing::info!(
+    tracing::debug!(
         target: "norma_voice",
         reply_generation,
         tts_request_sequence = chunk.tts_request_sequence,
@@ -184,7 +184,7 @@ pub(super) fn playback_started(
     chunk_sequence: u64,
     pcm_fingerprint: u64,
 ) {
-    tracing::info!(
+    tracing::debug!(
         target: "norma_voice",
         reply_generation,
         tts_request_sequence,
@@ -200,7 +200,7 @@ pub(super) fn playback_finished(
     chunk_sequence: u64,
     pcm_fingerprint: u64,
 ) {
-    tracing::info!(
+    tracing::debug!(
         target: "norma_voice",
         reply_generation,
         tts_request_sequence,

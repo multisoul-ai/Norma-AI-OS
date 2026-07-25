@@ -8,6 +8,11 @@ impl DialogueControlState {
         self.microphone_settings_recovery_available
     }
 
+    pub(crate) fn dismiss_error(&mut self) {
+        self.error_message = None;
+        self.microphone_settings_recovery_available = false;
+    }
+
     pub(crate) fn mark_start_error(&mut self, error: DialogueStartError) {
         self.record_start_error(&error);
     }

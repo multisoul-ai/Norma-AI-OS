@@ -1,6 +1,6 @@
 use crate::app::MultisoulApp;
-use crate::assets::SETTINGS_NAV_THEMES_ASSET;
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, Stateful, Styled};
+use crate::assets::{APP_ICON_ASSET, SETTINGS_NAV_THEMES_ASSET};
+use gpui::{div, img, prelude::*, px, rgba, Context, Div, FontWeight, ObjectFit, Stateful, Styled};
 use ui::{
     component::{Icon, Sizable as _},
     Theme,
@@ -13,6 +13,21 @@ pub(super) enum SettingsNavigationMode {
     Sidebar,
     CompactSidebar,
     TopBar,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+struct SettingsBrandMetadata {
+    product_name: &'static str,
+    version: &'static str,
+    icon_asset: &'static str,
+}
+
+fn settings_brand_metadata() -> SettingsBrandMetadata {
+    SettingsBrandMetadata {
+        product_name: "Norma OS",
+        version: env!("CARGO_PKG_VERSION"),
+        icon_asset: APP_ICON_ASSET,
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -136,17 +151,29 @@ fn sidebar_navigation(
     cx: &mut Context<MultisoulApp>,
 ) -> Stateful<Div> {
     let compact = mode == SettingsNavigationMode::CompactSidebar;
-    let mut navigation = div()
+    let mut groups = div()
         .id("settings-sidebar-scroll")
         .debug_selector(|| "settings-sidebar-scroll".to_string())
-        .w(px(sidebar_width))
-        .min_w(px(sidebar_width))
-        .h_full()
+        .flex_1()
+        .min_h(px(0.0))
         .overflow_y_scroll()
         .overflow_x_hidden()
         .flex()
         .flex_col()
         .gap(px(if compact { 14.0 } else { SIDEBAR_GROUP_SPACING }))
+        .mt(px(if compact { 14.0 } else { SIDEBAR_GROUP_SPACING }));
+
+    for (group, sections) in NAVIGATION_GROUPS {
+        groups = groups.child(sidebar_group(theme, group, sections, active, compact, cx));
+    }
+
+    div()
+        .id("settings-navigation-sidebar")
+        .w(px(sidebar_width))
+        .min_w(px(sidebar_width))
+        .h_full()
+        .flex()
+        .flex_col()
         .px(px(if compact { 12.0 } else { 20.0 }))
         .py(px(if compact { 16.0 } else { 28.0 }))
         .border_r_1()
@@ -161,12 +188,80 @@ fn sidebar_navigation(
                 .font_weight(FontWeight::BOLD)
                 .text_color(rgba(theme.text_primary))
                 .child("Settings"),
-        );
+        )
+        .child(groups)
+        .child(settings_brand_footer(theme, compact))
+}
 
-    for (group, sections) in NAVIGATION_GROUPS {
-        navigation = navigation.child(sidebar_group(theme, group, sections, active, compact, cx));
-    }
-    navigation
+fn settings_brand_footer(theme: Theme, compact: bool) -> Stateful<Div> {
+    let brand = settings_brand_metadata();
+    let icon_size = if compact { 36.0 } else { 40.0 };
+    let icon_radius = if compact { 10.0 } else { 12.0 };
+
+    div()
+        .id("settings-brand-footer")
+        .debug_selector(|| "settings-brand-footer".to_string())
+        .w_full()
+        .flex_none()
+        .mt(px(if compact { 10.0 } else { 16.0 }))
+        .pt(px(if compact { 10.0 } else { 14.0 }))
+        .border_t_1()
+        .border_color(rgba(with_alpha(theme.edge_highlight, 0x2e)))
+        .child(
+            div()
+                .w_full()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap(px(if compact { 8.0 } else { 11.0 }))
+                .p(px(if compact { 8.0 } else { 10.0 }))
+                .rounded(px(14.0))
+                .border_1()
+                .border_color(rgba(with_alpha(theme.node_stroke, 0x88)))
+                .bg(rgba(with_alpha(theme.panel_high, 0x78)))
+                .child(
+                    div()
+                        .id("settings-brand-icon")
+                        .debug_selector(|| "settings-brand-icon".to_string())
+                        .w(px(icon_size))
+                        .h(px(icon_size))
+                        .flex_none()
+                        .rounded(px(icon_radius))
+                        .border_1()
+                        .border_color(rgba(with_alpha(theme.edge_highlight, 0xa8)))
+                        .child(
+                            img(brand.icon_asset)
+                                .size_full()
+                                .object_fit(ObjectFit::Cover)
+                                .rounded(px(icon_radius)),
+                        ),
+                )
+                .child(
+                    div()
+                        .min_w(px(0.0))
+                        .flex()
+                        .flex_col()
+                        .gap(px(2.0))
+                        .child(
+                            div()
+                                .truncate()
+                                .text_size(px(if compact { 12.0 } else { 13.0 }))
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(rgba(theme.text_primary))
+                                .child(brand.product_name),
+                        )
+                        .child(
+                            div()
+                                .id("settings-brand-version")
+                                .debug_selector(|| "settings-brand-version".to_string())
+                                .truncate()
+                                .text_size(px(if compact { 10.0 } else { 11.0 }))
+                                .font_family("Menlo")
+                                .text_color(rgba(theme.text_tertiary))
+                                .child(format!("Version {}", brand.version)),
+                        ),
+                ),
+        )
 }
 
 fn sidebar_group(
@@ -354,3 +449,7 @@ fn canonical_navigation_item_height() -> f32 {
 #[cfg(test)]
 #[path = "../../tests/unit/settings_navigation_layout_tests.rs"]
 mod settings_navigation_layout_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/settings_navigation_brand_tests.rs"]
+mod settings_navigation_brand_tests;

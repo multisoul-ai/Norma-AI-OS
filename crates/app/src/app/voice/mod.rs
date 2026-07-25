@@ -62,6 +62,7 @@ impl MultisoulApp {
         if !self.voice.begin_recording(trigger) {
             return;
         }
+        self.dialogue.dismiss_error();
         let recording_generation = self.voice.recording_generation();
         if matches!(
             voice_transcript_source(),
@@ -171,6 +172,11 @@ impl MultisoulApp {
 
     pub(crate) fn voice_label(&self) -> String {
         self.voice.label()
+    }
+
+    pub(crate) fn dismiss_voice_error(&mut self) {
+        self.voice.dismiss_error();
+        self.dialogue.dismiss_error();
     }
 
     pub(crate) fn is_voice_recording_shortcut(&self) -> bool {
