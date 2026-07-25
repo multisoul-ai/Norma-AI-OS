@@ -66,3 +66,32 @@ fn needs_repair_uses_semantic_orange_instead_of_primary_accent() {
         "Needs repair 不得与 Repair 按钮共用蓝色主强调色"
     );
 }
+
+/// Settings 标题栏固定高度：110px header 不得在纵向 flex 中被压回旧尺寸
+///
+/// 数据构造（含关键数值的推导过程）：
+///   canonical header = 110px。
+///   old header = 104px；修正量 = 110 - 104 = 6px。
+///   0.854 display scale 下光栅位移 = 6 × 0.854 ≈ 5px。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 Settings content 的生产渲染源码。
+///   2. 定位 `min_h(110)` 标题栏约束。
+///   3. 验证该约束紧接 `flex_none()`，禁止父级在内容密集时收缩标题栏。
+///
+/// 预期结果：
+///   - 正断言：110px 与不可收缩约束同时存在。
+///   - 负断言：不得保留可收缩的旧 104px 标题栏组合。
+#[test]
+fn settings_content_header_preserves_canonical_height_under_flex_pressure() {
+    let source = include_str!("../../src/settings/content.rs");
+
+    assert!(
+        source.contains(".min_h(px(110.0))\n        .flex_none()"),
+        "Settings 110px header must be flex-none so dense Orchestration content cannot shrink it"
+    );
+    assert!(
+        !source.contains(".min_h(px(104.0))\n        .flex()"),
+        "Settings header must not retain the shrinkable 104px layout"
+    );
+}
