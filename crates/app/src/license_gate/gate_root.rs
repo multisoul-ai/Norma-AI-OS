@@ -81,6 +81,7 @@ impl GateRoot {
             app.start_norma_drain_loop(window, cx);
             app.start_dialogue_turn_loop(window, cx);
             app.start_cef_message_pump_loop(window, cx);
+            app.configure_cpu_benchmark_from_environment(window, cx);
             app
         });
         self.workbench = Some(workbench);

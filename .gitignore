@@ -9,6 +9,8 @@ build
 .multisoul
 tmp/
 .idea
+__pycache__/
+artifacts/performance/
 
 # Paraformer model files (downloaded separately via scripts/download-paraformer-model.sh)
 assets/models/paraformer/*

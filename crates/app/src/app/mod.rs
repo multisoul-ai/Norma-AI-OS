@@ -49,6 +49,7 @@ pub(crate) mod cef_process;
 mod chrome;
 pub(crate) use chrome::FrostedBackdropGeometry;
 mod clipboard_image;
+mod cpu_benchmark;
 mod cursor_animation;
 #[cfg(test)]
 use cursor_animation::focused_cursor_animation_active;

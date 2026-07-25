@@ -74,7 +74,7 @@ TDD 开工前由实施者与用户确认以下 seam；未确认前不得写测�
 | animation-only repaint 不重新 layout/shape 终端文本 | cache hit/miss 单测 + headless GPUI 测试 | `shape_line` 热点采样下降 |
 | PTY 输出、resize、scroll、theme、zoom、selection 正确失效缓存 | Runtime/app 单测矩阵 | Computer Use 真实 App |
 | Terminal/Agent 输入回显与最终 TUI 内容不丢失 | L1 + L2 e2e | 真实 Codex 会话 |
-| 当前双 Codex 场景显著降 CPU | 非 CI 的 L3 runner | 相对基线下降 ≥40%；参考机目标 ≤20% |
+| 当前双 Codex 场景显著降 CPU | 非 CI 的 L3 runner | 相对基线下降 ≥50%；参考机目标 ≤20% |
 
 建议参考机硬目标：
 
@@ -83,7 +83,7 @@ TDD 开工前由实施者与用户确认以下 seam；未确认前不得写测�
 - 两个持续更新的 Codex Agent：中位 CPU `< 20%`。
 - 聚焦终端输入到可见回显：P95 `< 50ms`。
 
-若绝对 CPU 受机器环境干扰，发布门禁仍要求同一机器、同一场景、同一采样脚本下中位 CPU 相对基线下降至少 40%，并且不能牺牲功能或输入延迟。
+若绝对 CPU 受机器环境干扰，发布门禁仍要求同一机器、同一场景、同一采样脚本下中位 CPU 相对基线下降至少 50%，并且不能牺牲功能或输入延迟。
 
 ## 6. 全局 TDD 规则
 
@@ -104,7 +104,11 @@ TDD 开工前由实施者与用户确认以下 seam；未确认前不得写测�
 **新增：**
 
 - `scripts/run-cpu-performance-l3.sh`
+- `scripts/cpu-performance-gate.py`
+- `scripts/tests/test_cpu_performance_gate.py`
 - `docs/references/cpu-performance-scenarios.md`
+- `crates/app/src/app/cpu_benchmark.rs`
+- `crates/app/tests/unit/cpu_benchmark_tests.rs`
 
 **场景：**
 
@@ -599,7 +603,7 @@ bash scripts/run-cpu-performance-l3.sh candidate
 - 所有新增 TDD 切片存在可复现 Red 记录和 Green 命令结果。
 - Runtime/app/e2e 测试通过。
 - Terminal/Agent 功能和动画视觉没有回归。
-- 真实性能达到“相对 baseline 至少下降 40%”以及参考机目标，或由用户明确接受有证据的偏差。
+- 真实性能达到“相对 baseline 至少下降 50%”以及参考机目标；低于该门槛不算本计划完成。
 - profile 中 terminal layout/shaping 热点显著下降。
 - 未引入 GPUI 反向依赖、同步 SQLite、前台阻塞或无界缓存。
 - P2/P3 没有夹带进本次实现。
