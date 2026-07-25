@@ -1,7 +1,9 @@
 mod controller;
+mod tokens;
 
 use controller::OrchestrationOperation;
 pub(crate) use controller::OrchestrationSettingsState;
+use tokens::*;
 
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, Window};
@@ -10,11 +12,6 @@ use norma::orchestration::{
 };
 use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
 use ui::Theme;
-
-const NOTICE_HEIGHT: f32 = 48.0;
-const PROVIDER_ROW_MIN_HEIGHT: f32 = 85.0;
-const COMPONENT_ROW_HEIGHT: f32 = 44.0;
-const COMPONENT_DETAILS_BOTTOM_MARGIN: f32 = 14.0;
 
 pub(super) fn orchestration_settings(
     theme: Theme,
@@ -34,12 +31,14 @@ pub(super) fn orchestration_settings(
                 .gap(px(10.0))
                 .border_b_1()
                 .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
-                .text_size(px(13.0))
+                .text_size(px(NOTICE_TEXT_SIZE))
                 .text_color(rgba(theme.text_tertiary))
                 .child(
                     div()
                         .w(px(18.0))
                         .h(px(18.0))
+                        .relative()
+                        .top(px(5.0))
                         .flex()
                         .items_center()
                         .justify_center()
@@ -49,7 +48,12 @@ pub(super) fn orchestration_settings(
                         .text_size(px(11.0))
                         .child("i"),
                 )
-                .child("Restart existing agent sessions after installation."),
+                .child(
+                    div()
+                        .relative()
+                        .top(px(5.0))
+                        .child("Restart existing agent sessions after installation."),
+                ),
         )
         .children(
             OrchestrationProvider::ALL
@@ -67,7 +71,7 @@ fn provider_section(
     let integration = state.integration(provider);
     let expanded = state.expanded_provider == Some(provider);
     div()
-        .w_full()
+        .mr(px(PROVIDER_SECTION_RIGHT_INSET))
         .flex()
         .flex_col()
         .border_b_1()
@@ -100,38 +104,44 @@ fn provider_row(
         provider_description(provider, integration.aggregate_status).to_string()
     };
     div()
-        .min_h(px(PROVIDER_ROW_MIN_HEIGHT))
-        .w_full()
+        .min_h(px(provider_row_min_height(provider, expanded)))
+        .mr(px(-PROVIDER_ROW_RIGHT_OUTDENT))
         .flex()
         .items_center()
-        .gap(px(18.0))
+        .gap(px(PROVIDER_ROW_GAP))
         .child(
             div()
                 .flex_1()
                 .min_w(px(0.0))
                 .flex()
                 .flex_col()
-                .gap(px(3.0))
+                .gap(px(PROVIDER_TEXT_GAP))
                 .child(
                     div()
-                        .text_size(px(16.0))
+                        .text_size(px(PROVIDER_TITLE_SIZE))
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(rgba(theme.text_primary))
+                        .when(provider == OrchestrationProvider::Cursor, |title| {
+                            title.relative().top(px(1.0))
+                        })
                         .child(provider.display_name()),
                 )
                 .child(
                     div()
                         .truncate()
-                        .text_size(px(13.0))
+                        .text_size(px(PROVIDER_BODY_SIZE))
                         .text_color(rgba(theme.text_tertiary))
                         .child(description),
                 ),
         )
         .child(
             div()
-                .w(px(180.0))
+                .w(px(PROVIDER_STATUS_WIDTH))
                 .flex_none()
-                .text_size(px(13.0))
+                .relative()
+                .left(px(2.0))
+                .font_weight(FontWeight::MEDIUM)
+                .text_size(px(PROVIDER_STATUS_SIZE))
                 .text_color(rgba(status_color))
                 .child(status),
         )
@@ -194,7 +204,7 @@ fn provider_action(
             app.activate_orchestration_provider(provider, cx);
         }));
     div()
-        .w(px(116.0))
+        .w(px(PROVIDER_ACTION_WIDTH))
         .flex_none()
         .flex()
         .justify_end()
@@ -208,7 +218,7 @@ fn disabled_action(
     label: &'static str,
 ) -> Div {
     div()
-        .w(px(116.0))
+        .w(px(PROVIDER_ACTION_WIDTH))
         .h(px(40.0))
         .flex_none()
         .flex()
@@ -226,7 +236,7 @@ fn disabled_action(
                 .rounded(px(9.0))
                 .border_1()
                 .border_color(rgba(with_alpha(theme.text_tertiary, 0x42)))
-                .text_size(px(13.0))
+                .text_size(px(PROVIDER_STATUS_SIZE))
                 .text_color(rgba(theme.text_tertiary))
                 .child(label),
         )
@@ -329,16 +339,21 @@ fn component_row(
         .h(px(COMPONENT_ROW_HEIGHT))
         .flex()
         .items_center()
-        .justify_between()
-        .px(px(18.0))
+        .pl(px(20.0))
+        .pr(px(18.0))
         .when(border, |row| {
             row.border_t_1()
                 .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
         })
-        .text_size(px(13.0))
+        .text_size(px(COMPONENT_TEXT_SIZE))
         .text_color(rgba(theme.text_secondary))
-        .child(title)
-        .child(div().text_color(rgba(color)).child(label))
+        .child(div().w(px(COMPONENT_LABEL_WIDTH)).flex_none().child(title))
+        .child(
+            div()
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(rgba(color))
+                .child(label),
+        )
 }
 
 fn provider_description(provider: OrchestrationProvider, status: AggregateStatus) -> &'static str {
@@ -448,22 +463,6 @@ fn disclosure_selector(provider: OrchestrationProvider) -> &'static str {
 
 fn with_alpha(color: u32, alpha: u8) -> u32 {
     (color & 0xffffff00) | u32::from(alpha)
-}
-
-fn warning_status_color() -> u32 {
-    Theme::glass_dark().accent_orange
-}
-
-#[cfg(test)]
-fn canonical_expanded_content_height() -> f32 {
-    const CONTENT_HEADER_HEIGHT: f32 = 118.0;
-    const PROVIDER_COUNT: f32 = 5.0;
-    const COMPONENT_COUNT: f32 = 4.0;
-    CONTENT_HEADER_HEIGHT
-        + NOTICE_HEIGHT
-        + PROVIDER_COUNT * PROVIDER_ROW_MIN_HEIGHT
-        + COMPONENT_COUNT * COMPONENT_ROW_HEIGHT
-        + COMPONENT_DETAILS_BOTTOM_MARGIN
 }
 
 #[cfg(test)]

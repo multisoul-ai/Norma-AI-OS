@@ -70,7 +70,8 @@ pub(super) fn settings_content(
                 .overflow_y_scroll()
                 .overflow_x_hidden()
                 .track_scroll(content_scroll)
-                .px(px(28.0))
+                .pl(px(29.0))
+                .pr(px(28.0))
                 .pb(px(40.0))
                 .child(match panel.active_section {
                     SettingsSection::Themes => theme_appearance(theme_id, theme, cx),
@@ -111,6 +112,8 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
         .gap(px(3.0))
         .child(
             div()
+                .relative()
+                .top(px(2.0))
                 .text_size(px(24.0))
                 .font_weight(FontWeight::BOLD)
                 .text_color(rgba(theme.text_primary))
@@ -119,21 +122,22 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
     if !subtitle.is_empty() {
         title_column = title_column.child(
             div()
-                .text_size(px(14.0))
+                .text_size(px(15.75))
                 .text_color(rgba(theme.text_tertiary))
                 .child(subtitle),
         );
     }
 
     div()
-        .min_h(px(118.0))
+        .min_h(px(119.0))
         .flex_none()
         .flex()
         .flex_row()
         .items_start()
         .justify_between()
-        .pt(px(30.0))
-        .px(px(28.0))
+        .pt(px(31.0))
+        .pl(px(29.0))
+        .pr(px(28.0))
         .pb(px(18.0))
         .border_b_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
