@@ -4,7 +4,7 @@ use canvas::NodeId;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use super::commands::{submit_agent_enter, type_agent_task};
+use super::command_support::{submit_agent_enter, type_agent_task};
 
 const AGENT_STARTUP_GRACE: Duration = Duration::from_secs(30);
 const AGENT_SUBMISSION_RETRY_DELAY: Duration = Duration::from_millis(500);

@@ -24,6 +24,11 @@ fn pending_submission_fallback_waits_for_full_startup_grace() {
     pending.mark_starting_at(7, started_at);
     pending.enqueue(AgentDispatchReceipt {
         task_id: 1,
+        task_ref: "test-runtime:1".to_string(),
+        root_task_ref: "test-runtime:1".to_string(),
+        parent_task_ref: None,
+        source_definition_id: None,
+        source_node_id: None,
         definition_id: 3,
         name: "Alan".to_string(),
         node_id: 7,
@@ -69,6 +74,11 @@ fn remove_node_discards_only_closed_agent_submission() {
     for (task_id, definition_id, node_id, name) in [(1, 3, 7, "Alan"), (2, 4, 8, "Codex")] {
         pending.enqueue(AgentDispatchReceipt {
             task_id,
+            task_ref: format!("test-runtime:{task_id}"),
+            root_task_ref: format!("test-runtime:{task_id}"),
+            parent_task_ref: None,
+            source_definition_id: None,
+            source_node_id: None,
             definition_id,
             name: name.to_string(),
             node_id,
@@ -154,6 +164,11 @@ fn retry_safe_failure_waits_for_full_retry_delay() {
     pending.requeue_at(
         AgentDispatchReceipt {
             task_id: 1,
+            task_ref: "test-runtime:1".to_string(),
+            root_task_ref: "test-runtime:1".to_string(),
+            parent_task_ref: None,
+            source_definition_id: None,
+            source_node_id: None,
             definition_id: 3,
             name: "Alan".to_string(),
             node_id: 7,
@@ -199,6 +214,11 @@ fn enter_submission_waits_for_paste_batch_to_settle() {
     pending.schedule_enter_at(
         AgentDispatchReceipt {
             task_id: 1,
+            task_ref: "test-runtime:1".to_string(),
+            root_task_ref: "test-runtime:1".to_string(),
+            parent_task_ref: None,
+            source_definition_id: None,
+            source_node_id: None,
             definition_id: 3,
             name: "Alan".to_string(),
             node_id: 7,
@@ -248,6 +268,11 @@ fn remove_task_prevents_cancelled_pending_submission_from_later_enter() {
     pending.schedule_enter_at(
         AgentDispatchReceipt {
             task_id: 7,
+            task_ref: "test-runtime:7".to_string(),
+            root_task_ref: "test-runtime:7".to_string(),
+            parent_task_ref: None,
+            source_definition_id: None,
+            source_node_id: None,
             definition_id: 3,
             name: "Alan".to_string(),
             node_id: 17,
@@ -259,6 +284,11 @@ fn remove_task_prevents_cancelled_pending_submission_from_later_enter() {
     pending.mark_starting_at(18, started_at);
     pending.enqueue(AgentDispatchReceipt {
         task_id: 8,
+        task_ref: "test-runtime:8".to_string(),
+        root_task_ref: "test-runtime:8".to_string(),
+        parent_task_ref: None,
+        source_definition_id: None,
+        source_node_id: None,
         definition_id: 4,
         name: "Codex".to_string(),
         node_id: 18,

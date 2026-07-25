@@ -1,12 +1,13 @@
 use crate::{
-    AgentDispatchTaskState, AgentDispatchTaskStore, NewAgentDispatchTask, StorageError,
-    StorageResult,
+    AgentDispatchTaskState, AgentDispatchTaskStore, NewAgentDispatchTask,
+    NewOrchestrationAgentDispatchTask, StorageError, StorageResult,
 };
 use std::io;
 use std::sync::mpsc::{self, Sender, SyncSender};
 
 enum AgentDispatchWrite {
     Create(NewAgentDispatchTask),
+    CreateOrchestration(NewOrchestrationAgentDispatchTask),
     FinishCurrent {
         definition_id: i64,
         state: AgentDispatchTaskState,
@@ -63,6 +64,15 @@ impl BackgroundAgentDispatchStore {
                         AgentDispatchWrite::Create(task) => {
                             if let Err(error) = store.create(&task) {
                                 tracing::error!(%error, "failed to persist background Agent dispatch");
+                            }
+                        }
+                        AgentDispatchWrite::CreateOrchestration(task) => {
+                            if let Err(error) = store.create_orchestration(&task) {
+                                tracing::error!(
+                                    %error,
+                                    task_ref = %task.task_ref,
+                                    "failed to persist orchestration Agent dispatch"
+                                );
                             }
                         }
                         AgentDispatchWrite::FinishCurrent {
@@ -123,6 +133,12 @@ impl BackgroundAgentDispatchStore {
 
     pub fn create(&self, task: NewAgentDispatchTask) {
         let _ = self.sender.send(AgentDispatchWrite::Create(task));
+    }
+
+    pub fn create_orchestration(&self, task: NewOrchestrationAgentDispatchTask) {
+        let _ = self
+            .sender
+            .send(AgentDispatchWrite::CreateOrchestration(task));
     }
 
     pub fn finish_current(

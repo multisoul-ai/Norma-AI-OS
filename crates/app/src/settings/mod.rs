@@ -1,6 +1,7 @@
 pub(crate) mod agent_hooks;
 pub(crate) mod agents;
 mod appearance;
+pub(crate) mod orchestration;
 pub(crate) mod panel;
 mod panel_lifecycle;
 mod theme_selection;

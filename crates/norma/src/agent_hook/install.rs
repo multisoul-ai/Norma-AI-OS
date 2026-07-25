@@ -1,3 +1,4 @@
+use super::atomic_file;
 use super::cursor::{cursor_hooks_installed_at, install_cursor_hooks, uninstall_cursor_hooks};
 use super::json_config::add_command_hook;
 use super::opencode::{install_opencode_plugin, uninstall_opencode_plugin};
@@ -126,10 +127,7 @@ fn install_for_source(
     for event_name in hook_events_for_source(source) {
         add_command_hook(&mut root, event_name, &command, source);
     }
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, serde_json::to_string_pretty(&root)?)?;
+    atomic_file::replace(path, serde_json::to_string_pretty(&root)?.as_bytes())?;
     Ok(())
 }
 
@@ -146,7 +144,7 @@ fn uninstall_for_source(path: &Path, source: HookSource) -> Result<(), AgentHook
     }
     if changed {
         cleanup_empty_hooks(&mut root);
-        fs::write(path, serde_json::to_string_pretty(&root)?)?;
+        atomic_file::replace(path, serde_json::to_string_pretty(&root)?.as_bytes())?;
     }
     Ok(())
 }

@@ -8,6 +8,7 @@ use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::agents::AgentDefinitionsState;
+use crate::settings::orchestration::OrchestrationSettingsState;
 use crate::settings::panel::{SettingsPanelState, SettingsViewportState};
 use crate::settings::voice::VoiceSettingsInputs;
 use crate::settings::wallpaper::WallpaperSettingsState;
@@ -59,6 +60,7 @@ impl MultisoulApp {
             settings_panel: SettingsPanelState::default(),
             settings_viewport: SettingsViewportState::default(),
             agent_definitions: AgentDefinitionsState::default(),
+            orchestration_settings: OrchestrationSettingsState::default(),
             voice_settings,
             voice_settings_inputs,
             shortcuts: ShortcutSettingsState::load_default(),
@@ -82,6 +84,7 @@ impl MultisoulApp {
             voice_ready_notification_visible: false,
             agent_runtime: None,
             agent_task_coordinator: None,
+            orchestration_authorizations: storage::OrchestrationAuthorizationCache::default(),
             pending_agent_submissions:
                 super::agent_runtime::pending::PendingAgentSubmissions::default(),
             pending_agent_close_confirmation: None,
@@ -111,6 +114,8 @@ impl MultisoulApp {
         app.refresh_voice_provider_credentials(cx);
         app.validate_saved_voice_provider(cx);
         app.persist_voice_settings_in_background(cx);
+        #[cfg(not(test))]
+        app.refresh_orchestration_authorizations(cx);
         app
     }
 }

@@ -7,19 +7,21 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 mod artifacts;
+mod command_support;
 mod commands;
 mod context_commands;
 mod coordination;
 mod delete_card;
 mod diagnostics;
+mod orchestration_commands;
 pub(super) mod pending;
 
 pub(crate) use artifacts::artifacts_from_agent_events;
-#[cfg(any(test, feature = "e2e-test-support"))]
 pub(crate) use commands::execute_agent_card_command;
 use context_commands::contextualized_agent_commands;
 #[cfg(test)]
 use coordination::agent_completion_report;
+pub(crate) use orchestration_commands::execute_orchestration_agent_command;
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
 static TOKIO_RUNTIME: OnceLock<Result<tokio::runtime::Runtime, String>> = OnceLock::new();

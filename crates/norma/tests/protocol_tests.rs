@@ -24,6 +24,8 @@ use std::path::PathBuf;
 fn test_preview_create_command_round_trips_through_json() {
     let request = WireRequest {
         request_id: 42,
+        authorization: None,
+        source_node_id: None,
         command: CardCommand::Create {
             kind: CardKind::Preview {
                 path: PathBuf::from("/tmp/report.md"),

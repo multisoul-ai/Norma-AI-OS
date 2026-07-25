@@ -1,14 +1,39 @@
 use crate::protocol::{
-    AgentProfile, CardCommand, CardCommandResult, CardKind, Placement, PreviewType,
+    AgentErrorCode, AgentProfile, CardCommand, CardCommandError, CardCommandResult, CardKind,
+    Placement, PreviewType,
 };
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use serde::Serialize;
+use serde_json::json;
 use std::ffi::OsString;
 use std::path::PathBuf;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum OutputFormat {
+    Json,
+    Text,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CliInvocation {
+    pub command: CardCommand,
+    pub format: OutputFormat,
+    pub wait_timeout_seconds: Option<u64>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CliOutput {
+    pub stdout: String,
+    pub stderr: String,
+    pub exit_code: i32,
+}
 
 #[derive(Debug, Parser)]
 #[command(name = "norma")]
 #[command(about = "Control cards in a running Norma OS app")]
 struct NormaArgs {
+    #[arg(long, value_enum, global = true)]
+    format: Option<OutputFormat>,
     #[command(subcommand)]
     command: TopCommand,
 }
@@ -16,6 +41,7 @@ struct NormaArgs {
 #[derive(Debug, Subcommand)]
 enum TopCommand {
     Card(CardArgs),
+    Agent(AgentArgs),
 }
 
 #[derive(Debug, Args)]
@@ -31,6 +57,46 @@ enum CardCliCommand {
     Delete { node_id: u64 },
     Focus { node_id: u64 },
     List,
+}
+
+#[derive(Debug, Args)]
+struct AgentArgs {
+    #[command(subcommand)]
+    command: AgentCliCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum AgentCliCommand {
+    List,
+    Task(AgentTaskArgs),
+}
+
+#[derive(Debug, Args)]
+struct AgentTaskArgs {
+    #[command(subcommand)]
+    command: AgentTaskCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum AgentTaskCommand {
+    Assign {
+        agent: String,
+        #[arg(long, value_parser = non_blank_task)]
+        task: String,
+        #[arg(long)]
+        force_untracked: bool,
+    },
+    Status {
+        task_id: String,
+    },
+    Wait {
+        task_id: String,
+        #[arg(long, default_value_t = 60)]
+        timeout: u64,
+    },
+    Cancel {
+        task_id: String,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -86,8 +152,15 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
-    let args = NormaArgs::try_parse_from(args)?;
-    Ok(args.into_command())
+    Ok(parse_invocation_from(args)?.command)
+}
+
+pub fn parse_invocation_from<I, T>(args: I) -> Result<CliInvocation, clap::Error>
+where
+    I: IntoIterator<Item = T>,
+    T: Into<OsString> + Clone,
+{
+    NormaArgs::try_parse_from(args).map(NormaArgs::into_invocation)
 }
 
 pub fn format_result(result: &CardCommandResult) -> String {
@@ -143,13 +216,87 @@ pub fn format_result(result: &CardCommandResult) -> String {
             })
             .collect::<Vec<_>>()
             .join("\n"),
+        CardCommandResult::AgentTaskStatus { task } => {
+            format!("{}\t{:?}\t{}", task.task_id, task.status, task.target_name)
+        }
+        CardCommandResult::AgentTaskCancelled { task_id, status } => {
+            format!("{task_id}\t{status:?}")
+        }
+    }
+}
+
+pub fn render_protocol_success(
+    format: OutputFormat,
+    request_id: String,
+    result: &CardCommandResult,
+) -> Result<CliOutput, serde_json::Error> {
+    match format {
+        OutputFormat::Json => {
+            let envelope = ProtocolSuccess {
+                schema_version: 1,
+                ok: true,
+                request_id,
+                result: result_json(result)?,
+            };
+            Ok(CliOutput {
+                stdout: serde_json::to_string(&envelope)?,
+                stderr: String::new(),
+                exit_code: 0,
+            })
+        }
+        OutputFormat::Text => Ok(CliOutput {
+            stdout: format_result(result),
+            stderr: String::new(),
+            exit_code: 0,
+        }),
+    }
+}
+
+pub fn render_protocol_error(
+    format: OutputFormat,
+    request_id: String,
+    error: &CardCommandError,
+) -> Result<CliOutput, serde_json::Error> {
+    let (failure, exit_code) = protocol_failure(error);
+    match format {
+        OutputFormat::Json => {
+            let envelope = ProtocolError {
+                schema_version: 1,
+                ok: false,
+                request_id,
+                error: failure,
+            };
+            Ok(CliOutput {
+                stdout: serde_json::to_string(&envelope)?,
+                stderr: String::new(),
+                exit_code,
+            })
+        }
+        OutputFormat::Text => Ok(CliOutput {
+            stdout: String::new(),
+            stderr: error.to_string(),
+            exit_code,
+        }),
     }
 }
 
 impl NormaArgs {
-    fn into_command(self) -> CardCommand {
+    fn into_invocation(self) -> CliInvocation {
+        let explicit_format = self.format;
         match self.command {
-            TopCommand::Card(card) => card.into_command(),
+            TopCommand::Card(card) => CliInvocation {
+                command: card.into_command(),
+                format: explicit_format.unwrap_or(OutputFormat::Text),
+                wait_timeout_seconds: None,
+            },
+            TopCommand::Agent(agent) => {
+                let (command, wait_timeout_seconds) = agent.into_command();
+                CliInvocation {
+                    command,
+                    format: explicit_format.unwrap_or(OutputFormat::Json),
+                    wait_timeout_seconds,
+                }
+            }
         }
     }
 }
@@ -166,6 +313,43 @@ impl CardArgs {
             CardCliCommand::Delete { node_id } => CardCommand::Delete { node_id },
             CardCliCommand::Focus { node_id } => CardCommand::Focus { node_id },
             CardCliCommand::List => CardCommand::List,
+        }
+    }
+}
+
+impl AgentArgs {
+    fn into_command(self) -> (CardCommand, Option<u64>) {
+        match self.command {
+            AgentCliCommand::List => (CardCommand::ListAgents, None),
+            AgentCliCommand::Task(task) => task.into_command(),
+        }
+    }
+}
+
+impl AgentTaskArgs {
+    fn into_command(self) -> (CardCommand, Option<u64>) {
+        match self.command {
+            AgentTaskCommand::Assign {
+                agent,
+                task,
+                force_untracked,
+            } => (
+                CardCommand::DispatchAgentTasks {
+                    assignments: vec![crate::protocol::AgentTaskAssignment { name: agent, task }],
+                    force_untracked,
+                },
+                None,
+            ),
+            AgentTaskCommand::Status { task_id } => {
+                (CardCommand::AgentTaskStatus { task_ref: task_id }, None)
+            }
+            AgentTaskCommand::Wait { task_id, timeout } => (
+                CardCommand::AgentTaskStatus { task_ref: task_id },
+                Some(timeout),
+            ),
+            AgentTaskCommand::Cancel { task_id } => {
+                (CardCommand::AgentTaskCancel { task_ref: task_id }, None)
+            }
         }
     }
 }
@@ -215,5 +399,82 @@ impl From<PreviewTypeValue> for PreviewType {
             PreviewTypeValue::Text => PreviewType::Text,
             PreviewTypeValue::Image => PreviewType::Image,
         }
+    }
+}
+
+#[derive(Serialize)]
+struct ProtocolSuccess {
+    schema_version: u8,
+    ok: bool,
+    request_id: String,
+    result: serde_json::Value,
+}
+
+#[derive(Serialize)]
+struct ProtocolError {
+    schema_version: u8,
+    ok: bool,
+    request_id: String,
+    error: ProtocolFailure,
+}
+
+#[derive(Serialize)]
+struct ProtocolFailure {
+    code: AgentErrorCode,
+    message: String,
+    retryable: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    current_status: Option<crate::protocol::AgentTaskReceiptStatus>,
+}
+
+fn result_json(result: &CardCommandResult) -> Result<serde_json::Value, serde_json::Error> {
+    Ok(match result {
+        CardCommandResult::AgentsListed { agents } => json!({ "agents": agents }),
+        CardCommandResult::AgentTasksDispatched { receipts } => json!({ "receipts": receipts }),
+        CardCommandResult::AgentTaskStatus { task } => json!({ "task": task }),
+        CardCommandResult::AgentTaskCancelled { task_id, status } => {
+            json!({ "task_id": task_id, "status": status })
+        }
+        other => serde_json::to_value(other)?,
+    })
+}
+
+fn protocol_failure(error: &CardCommandError) -> (ProtocolFailure, i32) {
+    match error {
+        CardCommandError::Agent(error) => {
+            let exit_code = match error.code {
+                AgentErrorCode::AppUnavailable | AgentErrorCode::ProjectUnavailable => 3,
+                AgentErrorCode::Unauthorized | AgentErrorCode::ProviderNotInstalled => 4,
+                AgentErrorCode::WaitTimeout => 6,
+                AgentErrorCode::InternalError => 1,
+                _ => 5,
+            };
+            (
+                ProtocolFailure {
+                    code: error.code,
+                    message: error.message.clone(),
+                    retryable: error.retryable,
+                    current_status: error.current_status,
+                },
+                exit_code,
+            )
+        }
+        other => (
+            ProtocolFailure {
+                code: AgentErrorCode::InternalError,
+                message: other.to_string(),
+                retryable: false,
+                current_status: None,
+            },
+            1,
+        ),
+    }
+}
+
+fn non_blank_task(value: &str) -> Result<String, String> {
+    if value.trim().is_empty() {
+        Err("task must not be blank".to_string())
+    } else {
+        Ok(value.to_string())
     }
 }

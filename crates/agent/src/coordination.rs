@@ -1,7 +1,15 @@
 use crate::AgentName;
 use norma::protocol::AgentProfile;
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
+
+mod delegation;
+mod lifecycle;
+
+const MAX_UNFINISHED_DESCENDANTS: usize = 32;
+static RUNTIME_INSTANCE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AgentTrackingMode {
@@ -50,18 +58,52 @@ pub enum AgentTaskCancellation {
     NotFound,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AgentDispatchSource {
+    pub definition_id: Option<i64>,
+    pub node_id: Option<u64>,
+}
+
+impl AgentDispatchSource {
+    pub const fn norma() -> Self {
+        Self {
+            definition_id: None,
+            node_id: None,
+        }
+    }
+
+    pub const fn agent(definition_id: i64, node_id: u64) -> Self {
+        Self {
+            definition_id: Some(definition_id),
+            node_id: Some(node_id),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentCoordinatedTask {
     pub task_id: u64,
+    pub task_ref: String,
+    pub root_task_ref: String,
+    pub parent_task_ref: Option<String>,
+    pub source_definition_id: Option<i64>,
+    pub source_node_id: Option<u64>,
     pub definition_id: i64,
+    pub target_node_id: u64,
     pub agent: String,
     pub task: String,
     pub state: &'static str,
+    pub tracking: AgentTrackingMode,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentDispatchReceipt {
     pub task_id: u64,
+    pub task_ref: String,
+    pub root_task_ref: String,
+    pub parent_task_ref: Option<String>,
+    pub source_definition_id: Option<i64>,
+    pub source_node_id: Option<u64>,
     pub definition_id: i64,
     pub name: String,
     pub node_id: u64,
@@ -85,13 +127,44 @@ pub enum AgentCoordinationError {
     EmptyTask(String),
     #[error("Agent 无 Hook 跟踪且可能仍忙碌，请明确说“仍然发送给 {0}”")]
     UntrackedRequiresForce(String),
+    #[error("来源 Agent 当前没有可委派的运行任务")]
+    SourceAgentUnavailable,
+    #[error("Agent 不得向自己派发任务：definition_id={definition_id}")]
+    SelfDispatchForbidden { definition_id: i64 },
+    #[error("目标 Agent 位于当前活跃祖先链：definition_id={target_definition_id}")]
+    DelegationCycle { target_definition_id: i64 },
+    #[error("根任务 {root_task_ref} 已达到 {limit} 个未完成后代")]
+    DelegationBudgetExceeded { root_task_ref: String, limit: usize },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Error)]
+pub enum AgentTaskReferenceError {
+    #[error("任务引用格式无效")]
+    Invalid,
+    #[error("任务引用属于已过期运行实例")]
+    RuntimeExpired,
+    #[error("未找到任务")]
+    NotFound,
 }
 
 #[derive(Clone, Debug)]
 struct QueuedAgentTask {
     task_id: u64,
+    task_ref: String,
+    root_task_ref: String,
+    parent_task_ref: Option<String>,
+    source_definition_id: Option<i64>,
+    source_node_id: Option<u64>,
+    target_node_id: u64,
     task: String,
     cancel_requested: bool,
+}
+
+#[derive(Clone, Debug)]
+struct UnfinishedTaskLineage {
+    parent_task_ref: Option<String>,
+    source_definition_id: Option<i64>,
+    target_definition_id: i64,
 }
 
 #[derive(Clone, Debug)]
@@ -103,9 +176,12 @@ struct CoordinatorAgent {
 
 #[derive(Clone, Debug)]
 pub struct AgentTaskCoordinator {
+    runtime_instance_id: String,
     agents: Vec<CoordinatorAgent>,
     lookup: HashMap<String, usize>,
     completed: VecDeque<AgentCoordinatedTask>,
+    unfinished_tasks: HashMap<String, UnfinishedTaskLineage>,
+    unfinished_descendants: HashMap<String, usize>,
     next_task_id: u64,
 }
 
@@ -130,6 +206,13 @@ pub fn render_agent_roster(roster: &[AgentRosterEntry]) -> String {
 
 impl AgentTaskCoordinator {
     pub fn new(roster: Vec<AgentRosterEntry>) -> Result<Self, AgentCoordinationError> {
+        Self::new_with_runtime_id(new_runtime_instance_id(), roster)
+    }
+
+    pub fn new_with_runtime_id(
+        runtime_instance_id: impl Into<String>,
+        roster: Vec<AgentRosterEntry>,
+    ) -> Result<Self, AgentCoordinationError> {
         let mut lookup = HashMap::new();
         let mut agents = Vec::with_capacity(roster.len());
         for entry in roster {
@@ -149,9 +232,12 @@ impl AgentTaskCoordinator {
             });
         }
         Ok(Self {
+            runtime_instance_id: runtime_instance_id.into(),
             agents,
             lookup,
             completed: VecDeque::new(),
+            unfinished_tasks: HashMap::new(),
+            unfinished_descendants: HashMap::new(),
             next_task_id: 1,
         })
     }
@@ -161,273 +247,7 @@ impl AgentTaskCoordinator {
         assignments: Vec<AgentAssignment>,
         force_untracked: bool,
     ) -> Result<Vec<AgentDispatchReceipt>, AgentCoordinationError> {
-        let resolved = assignments
-            .iter()
-            .map(|assignment| self.preflight(assignment, force_untracked))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let mut receipts = Vec::with_capacity(assignments.len());
-        for (assignment, index) in assignments.into_iter().zip(resolved) {
-            let task_id = self.next_task_id;
-            self.next_task_id = self.next_task_id.saturating_add(1);
-            let agent = &mut self.agents[index];
-            let node_id = agent
-                .roster
-                .active_node_id
-                .expect("preflight guarantees an active node");
-            let state = match (agent.roster.tracking, agent.roster.busy) {
-                (AgentTrackingMode::Managed, true) => {
-                    agent.queue.push_back(QueuedAgentTask {
-                        task_id,
-                        task: assignment.task.clone(),
-                        cancel_requested: false,
-                    });
-                    AgentDispatchState::Queued
-                }
-                (AgentTrackingMode::Managed, false) => {
-                    agent.roster.busy = true;
-                    agent.active = Some(QueuedAgentTask {
-                        task_id,
-                        task: assignment.task.clone(),
-                        cancel_requested: false,
-                    });
-                    AgentDispatchState::SubmittedManaged
-                }
-                (AgentTrackingMode::Untracked, _) => {
-                    agent.roster.busy = true;
-                    agent.active = Some(QueuedAgentTask {
-                        task_id,
-                        task: assignment.task.clone(),
-                        cancel_requested: false,
-                    });
-                    AgentDispatchState::SubmittedUntracked
-                }
-            };
-            receipts.push(AgentDispatchReceipt {
-                task_id,
-                definition_id: agent.roster.definition_id,
-                name: agent.roster.name.clone(),
-                node_id,
-                task: assignment.task,
-                state,
-            });
-        }
-        Ok(receipts)
-    }
-
-    pub fn sync_roster(
-        &mut self,
-        roster: Vec<AgentRosterEntry>,
-    ) -> Result<(), AgentCoordinationError> {
-        let next_task_id = self.next_task_id;
-        let completed = std::mem::take(&mut self.completed);
-        let mut previous = self
-            .agents
-            .drain(..)
-            .map(|agent| {
-                (
-                    agent.roster.definition_id,
-                    (agent.active, agent.queue, agent.roster.busy),
-                )
-            })
-            .collect::<HashMap<_, _>>();
-        let mut replacement = Self::new(roster)?;
-        replacement.next_task_id = next_task_id;
-        replacement.completed = completed;
-        for agent in &mut replacement.agents {
-            if let Some((active, queue, was_busy)) = previous.remove(&agent.roster.definition_id) {
-                agent.active = active;
-                agent.queue = queue;
-                agent.roster.busy |= was_busy;
-            }
-        }
-        *self = replacement;
-        Ok(())
-    }
-
-    pub fn finish_current(&mut self, definition_id: i64) -> Option<AgentDispatchReceipt> {
-        self.finish_current_with_state(definition_id, "succeeded")
-    }
-
-    pub fn finish_current_with_state(
-        &mut self,
-        definition_id: i64,
-        terminal_state: &'static str,
-    ) -> Option<AgentDispatchReceipt> {
-        let agent = self
-            .agents
-            .iter_mut()
-            .find(|agent| agent.roster.definition_id == definition_id)?;
-        let node_id = agent.roster.active_node_id?;
-        if let Some(completed) = agent.active.take() {
-            self.completed.push_back(AgentCoordinatedTask {
-                task_id: completed.task_id,
-                definition_id,
-                agent: agent.roster.name.clone(),
-                task: completed.task,
-                state: terminal_state,
-            });
-            while self.completed.len() > 100 {
-                self.completed.pop_front();
-            }
-        }
-        if let Some(next) = agent.queue.pop_front() {
-            agent.roster.busy = true;
-            agent.active = Some(next.clone());
-            Some(AgentDispatchReceipt {
-                task_id: next.task_id,
-                definition_id,
-                name: agent.roster.name.clone(),
-                node_id,
-                task: next.task,
-                state: AgentDispatchState::SubmittedManaged,
-            })
-        } else {
-            agent.roster.busy = false;
-            None
-        }
-    }
-
-    pub fn reject_dispatch(&mut self, definition_id: i64, task_ids: &[u64]) -> bool {
-        let Some(agent) = self
-            .agents
-            .iter_mut()
-            .find(|agent| agent.roster.definition_id == definition_id)
-        else {
-            return false;
-        };
-        agent
-            .queue
-            .retain(|queued| !task_ids.contains(&queued.task_id));
-        if agent
-            .active
-            .as_ref()
-            .is_some_and(|active| task_ids.is_empty() || task_ids.contains(&active.task_id))
-        {
-            agent.active = None;
-        }
-        agent.roster.busy = false;
-        true
-    }
-
-    pub fn queued_task_count(&self, definition_id: i64) -> usize {
-        self.agents
-            .iter()
-            .find(|agent| agent.roster.definition_id == definition_id)
-            .map(|agent| agent.queue.len())
-            .unwrap_or(0)
-    }
-
-    pub fn is_busy(&self, definition_id: i64) -> bool {
-        self.agents
-            .iter()
-            .find(|agent| agent.roster.definition_id == definition_id)
-            .map(|agent| agent.roster.busy)
-            .unwrap_or(false)
-    }
-
-    pub fn cancel_all(&mut self, definition_id: i64) -> Option<(bool, usize)> {
-        let agent = self
-            .agents
-            .iter_mut()
-            .find(|agent| agent.roster.definition_id == definition_id)?;
-        let was_busy = agent.roster.busy;
-        let cancelled_queued = agent.queue.len();
-        agent.queue.clear();
-        agent.active = None;
-        agent.roster.busy = false;
-        Some((was_busy, cancelled_queued))
-    }
-
-    pub fn cancel_task(&mut self, task_id: u64) -> AgentTaskCancellation {
-        for agent in &mut self.agents {
-            if let Some(index) = agent
-                .queue
-                .iter()
-                .position(|queued| queued.task_id == task_id)
-            {
-                let cancelled = agent
-                    .queue
-                    .remove(index)
-                    .expect("queued task index was found immediately above");
-                self.completed.push_back(AgentCoordinatedTask {
-                    task_id: cancelled.task_id,
-                    definition_id: agent.roster.definition_id,
-                    agent: agent.roster.name.clone(),
-                    task: cancelled.task,
-                    state: "cancelled",
-                });
-                while self.completed.len() > 100 {
-                    self.completed.pop_front();
-                }
-                return AgentTaskCancellation::Cancelled;
-            }
-            if let Some(active) = agent
-                .active
-                .as_mut()
-                .filter(|active| active.task_id == task_id)
-            {
-                active.cancel_requested = true;
-                return AgentTaskCancellation::CancelRequested;
-            }
-        }
-        AgentTaskCancellation::NotFound
-    }
-
-    pub fn cancel_unsubmitted_task(
-        &mut self,
-        task_id: u64,
-    ) -> (AgentTaskCancellation, Option<AgentDispatchReceipt>) {
-        let definition_id = self.agents.iter().find_map(|agent| {
-            agent
-                .active
-                .as_ref()
-                .filter(|active| active.task_id == task_id)
-                .map(|_| agent.roster.definition_id)
-        });
-        match definition_id {
-            Some(definition_id) => (
-                AgentTaskCancellation::Cancelled,
-                self.finish_current_with_state(definition_id, "cancelled"),
-            ),
-            None => (AgentTaskCancellation::NotFound, None),
-        }
-    }
-
-    pub fn tasks(&self) -> Vec<AgentCoordinatedTask> {
-        let mut tasks = self.completed.iter().cloned().collect::<Vec<_>>();
-        for agent in &self.agents {
-            if let Some(active) = &agent.active {
-                tasks.push(AgentCoordinatedTask {
-                    task_id: active.task_id,
-                    definition_id: agent.roster.definition_id,
-                    agent: agent.roster.name.clone(),
-                    task: active.task.clone(),
-                    state: if active.cancel_requested {
-                        "cancel_requested"
-                    } else {
-                        "running"
-                    },
-                });
-            }
-            tasks.extend(agent.queue.iter().map(|queued| AgentCoordinatedTask {
-                task_id: queued.task_id,
-                definition_id: agent.roster.definition_id,
-                agent: agent.roster.name.clone(),
-                task: queued.task.clone(),
-                state: "queued",
-            }));
-        }
-        tasks.sort_by_key(|task| task.task_id);
-        tasks
-    }
-
-    pub fn task_id_for(&self, definition_id: i64, task: &str) -> Option<u64> {
-        self.tasks()
-            .into_iter()
-            .rev()
-            .find(|candidate| candidate.definition_id == definition_id && candidate.task == task)
-            .map(|candidate| candidate.task_id)
+        self.dispatch_from(assignments, force_untracked, AgentDispatchSource::norma())
     }
 
     fn preflight(
@@ -481,4 +301,30 @@ fn trim_address_punctuation(value: &str) -> &str {
     value.trim().trim_matches(|character: char| {
         matches!(character, ',' | '，' | ':' | '：' | '。' | '!' | '！')
     })
+}
+
+fn mark_task_terminal_maps(
+    unfinished_tasks: &mut HashMap<String, UnfinishedTaskLineage>,
+    unfinished_descendants: &mut HashMap<String, usize>,
+    task: &QueuedAgentTask,
+) {
+    unfinished_tasks.remove(&task.task_ref);
+    if task.task_ref == task.root_task_ref {
+        return;
+    }
+    if let Some(count) = unfinished_descendants.get_mut(&task.root_task_ref) {
+        *count = count.saturating_sub(1);
+        if *count == 0 {
+            unfinished_descendants.remove(&task.root_task_ref);
+        }
+    }
+}
+
+fn new_runtime_instance_id() -> String {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    let sequence = RUNTIME_INSTANCE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    format!("{timestamp:x}-{sequence:x}")
 }

@@ -174,7 +174,9 @@ pub(crate) fn execute_norma_adapter_command(
                 app.pending_agent_submissions.task_stage(task_id)
             {
                 if task_was_typed {
-                    if let Err(error) = commands::clear_agent_task_input(&mut app.runtime, node_id) {
+                    if let Err(error) =
+                        command_support::clear_agent_task_input(&mut app.runtime, node_id)
+                    {
                         return Ok(AdapterResult::unknown(format!(
                             "任务 #{task_id} 尚未提交，但无法确认输入区是否清空：{error}"
                         ))

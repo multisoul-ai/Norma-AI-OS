@@ -38,6 +38,16 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
             value TEXT NOT NULL,
             updated_at_unix INTEGER NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS orchestration_authorizations (
+            provider TEXT PRIMARY KEY NOT NULL,
+            token_hash TEXT NOT NULL,
+            enabled INTEGER NOT NULL,
+            installed_version TEXT NOT NULL,
+            created_at_unix INTEGER NOT NULL,
+            updated_at_unix INTEGER NOT NULL,
+            revoked_at_unix INTEGER
+        );
         "#,
     )?;
     connection.pragma_update(None, "user_version", 1)?;
@@ -115,7 +125,14 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
 
         CREATE TABLE IF NOT EXISTS agent_dispatch_tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            runtime_instance_id TEXT NOT NULL DEFAULT '',
             runtime_task_id INTEGER NOT NULL DEFAULT 0,
+            task_ref TEXT NOT NULL DEFAULT '',
+            root_task_ref TEXT NOT NULL DEFAULT '',
+            parent_task_ref TEXT,
+            source_definition_id INTEGER,
+            source_node_id INTEGER,
+            source_provider TEXT,
             definition_id INTEGER NOT NULL,
             node_id INTEGER NOT NULL,
             original_instruction TEXT NOT NULL,
@@ -179,12 +196,59 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
     ensure_column(
         connection,
         "agent_dispatch_tasks",
+        "runtime_instance_id",
+        "runtime_instance_id TEXT NOT NULL DEFAULT ''",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
         "runtime_task_id",
         "runtime_task_id INTEGER NOT NULL DEFAULT 0",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "task_ref",
+        "task_ref TEXT NOT NULL DEFAULT ''",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "root_task_ref",
+        "root_task_ref TEXT NOT NULL DEFAULT ''",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "parent_task_ref",
+        "parent_task_ref TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "source_definition_id",
+        "source_definition_id INTEGER",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "source_node_id",
+        "source_node_id INTEGER",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "source_provider",
+        "source_provider TEXT",
     )?;
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_agent_dispatch_tasks_runtime_task
          ON agent_dispatch_tasks(runtime_task_id, id)",
+        [],
+    )?;
+    connection.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_dispatch_tasks_task_ref
+         ON agent_dispatch_tasks(task_ref) WHERE task_ref != ''",
         [],
     )?;
     connection.execute(

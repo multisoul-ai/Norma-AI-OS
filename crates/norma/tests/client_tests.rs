@@ -25,6 +25,8 @@ use norma::protocol::{
 fn test_request_codec_uses_single_newline_delimited_json() {
     let request = WireRequest {
         request_id: 11,
+        authorization: None,
+        source_node_id: None,
         command: CardCommand::Create {
             kind: CardKind::Terminal { shell: None },
             placement: Placement::VisibleArea,

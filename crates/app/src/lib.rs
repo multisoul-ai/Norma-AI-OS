@@ -33,7 +33,8 @@ pub use app::{
 };
 #[cfg(feature = "e2e-test-support")]
 pub use app::{
-    ReplyTtsE2ePcmSnapshot, ReplyTtsE2eProbe, ReplyTtsE2eProbeSnapshot, ReplyTtsE2eSnapshot,
+    OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot, ReplyTtsE2ePcmSnapshot,
+    ReplyTtsE2eProbe, ReplyTtsE2eProbeSnapshot, ReplyTtsE2eSnapshot,
 };
 pub use assets::EmbeddedAssets;
 pub use browser_auth_host::run_browser_auth_native_host;

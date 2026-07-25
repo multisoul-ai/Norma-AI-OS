@@ -19,8 +19,8 @@ pub use adapter::{
 };
 pub use coordination::{
     render_agent_roster, AgentAssignment, AgentCoordinatedTask, AgentCoordinationError,
-    AgentDispatchReceipt, AgentDispatchState, AgentRosterEntry, AgentTaskCancellation,
-    AgentTaskCoordinator, AgentTrackingMode,
+    AgentDispatchReceipt, AgentDispatchSource, AgentDispatchState, AgentRosterEntry,
+    AgentTaskCancellation, AgentTaskCoordinator, AgentTaskReferenceError, AgentTrackingMode,
 };
 pub use current_context::{
     render_current_canvas_context, CanvasCardContext, CanvasCardKind, CurrentCanvasContext,

@@ -46,6 +46,7 @@ mod e2e_02_real_pty;
 // Settings E2E：真实点击 Settings 面板控件、录制快捷键、恢复默认、关闭面板。
 mod e2e_03_api_key_visibility;
 mod e2e_03_azure_asr_settings;
+mod e2e_03_orchestration_settings;
 mod e2e_03_settings_clicks;
 mod e2e_03_settings_navigation;
 mod e2e_03_theme_switching;
@@ -92,6 +93,7 @@ mod e2e_12_agent_settings_ime;
 mod e2e_12_agent_submit;
 mod e2e_12_agent_submit_l3;
 mod e2e_12_norma_master;
+mod e2e_12_orchestration_lifecycle;
 mod e2e_12_voice_addressable_agents;
 
 // Agent/terminal 输出链接：点击后新建 Browser 并仅在该路径进入 master/detail 布局。

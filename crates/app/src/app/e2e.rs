@@ -16,6 +16,8 @@ mod agents;
 mod browser;
 #[cfg(feature = "e2e-test-support")]
 pub mod dialogue_tts;
+#[cfg(feature = "e2e-test-support")]
+mod orchestration;
 mod recent_projects;
 #[cfg(feature = "e2e-test-support")]
 mod repaint;
@@ -25,6 +27,8 @@ mod voice;
 #[cfg(feature = "e2e-test-support")]
 mod voice_setup;
 pub use agents::{AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot};
+#[cfg(feature = "e2e-test-support")]
+pub use orchestration::{OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot};
 use shortcuts::shortcut_command_name;
 pub use tts::TtsProviderE2eSnapshot;
 use tts::{snapshot_tts_models, snapshot_tts_provider, TtsModelE2eSnapshot};

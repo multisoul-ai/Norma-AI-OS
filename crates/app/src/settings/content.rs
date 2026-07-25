@@ -2,6 +2,7 @@ use super::{with_alpha, SettingsPanelState, SettingsSection};
 use crate::app::MultisoulApp;
 use crate::settings::agents::{agents_settings, AgentDefinitionsState};
 use crate::settings::appearance::theme_appearance;
+use crate::settings::orchestration::{orchestration_settings, OrchestrationSettingsState};
 use crate::settings::voice::{
     voice_settings, VoiceSettingsInputs, VoiceSettingsState, VoiceSetupDestination,
 };
@@ -10,10 +11,8 @@ use crate::shortcuts::ShortcutSettingsState;
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, ScrollHandle, Window};
 use ui::{Theme, ThemeId};
 
-mod hooks;
 mod keyboard;
 
-use self::hooks::hooks_settings;
 use self::keyboard::keyboard_settings;
 
 pub(super) struct VoiceSettingsContent<'a> {
@@ -27,6 +26,7 @@ pub(super) struct SettingsContentContext<'a> {
     pub(super) theme_id: ThemeId,
     pub(super) panel: &'a SettingsPanelState,
     pub(super) agent_definitions: &'a AgentDefinitionsState,
+    pub(super) orchestration: &'a OrchestrationSettingsState,
     pub(super) voice: VoiceSettingsContent<'a>,
     pub(super) content_scroll: &'a ScrollHandle,
     pub(super) wallpaper_state: &'a WallpaperSettingsState,
@@ -44,6 +44,7 @@ pub(super) fn settings_content(
         theme_id,
         panel,
         agent_definitions,
+        orchestration,
         voice,
         content_scroll,
         wallpaper_state,
@@ -86,7 +87,9 @@ pub(super) fn settings_content(
                     SettingsSection::Agents => {
                         agents_settings(theme, agent_definitions, window, cx)
                     }
-                    SettingsSection::Hooks => hooks_settings(theme, panel, cx),
+                    SettingsSection::Orchestration => {
+                        orchestration_settings(theme, orchestration, cx)
+                    }
                     SettingsSection::Wallpaper => {
                         wallpaper_settings(theme, wallpaper_state, wallpaper_previews, cx)
                     }
@@ -166,7 +169,7 @@ fn content_title(section: SettingsSection) -> &'static str {
         SettingsSection::Agents => "Agents",
         #[cfg(test)]
         SettingsSection::Skills => "Skills",
-        SettingsSection::Hooks => "Agent Hooks",
+        SettingsSection::Orchestration => "Orchestration",
         SettingsSection::Wallpaper => "Wallpaper",
     }
 }
@@ -181,7 +184,9 @@ fn content_subtitle(section: SettingsSection) -> &'static str {
         SettingsSection::Agents => "Choose default agents, permissions, and profiles",
         #[cfg(test)]
         SettingsSection::Skills => "Manage installed skills and project skill sources",
-        SettingsSection::Hooks => "",
+        SettingsSection::Orchestration => {
+            "Install Skill + CLI so agents can delegate tasks through Norma OS"
+        }
         SettingsSection::Wallpaper => "Choose a background",
     }
 }

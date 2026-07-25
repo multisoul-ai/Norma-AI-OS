@@ -1,12 +1,9 @@
-use super::{AgentHookError, OPENCODE_PLUGIN_MARKER};
+use super::{atomic_file, AgentHookError, OPENCODE_PLUGIN_MARKER};
 use std::fs;
 use std::path::Path;
 
 pub(super) fn install_opencode_plugin(path: &Path) -> Result<(), AgentHookError> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, super::install::opencode_plugin_source())?;
+    atomic_file::replace(path, super::install::opencode_plugin_source().as_bytes())?;
     Ok(())
 }
 

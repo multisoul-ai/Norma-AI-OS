@@ -166,63 +166,63 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
     );
 }
 
-/// Hooks 页面锚点：Settings 应提供 Codex / Claude / Cursor / OpenCode 一键安装入口。
+/// Orchestration 页面锚点：Settings 应提供四组件状态和 Provider 安装入口。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = settings_panel.rs + settings_content.rs + settings_hooks.rs
-///   nav anchor = Hooks
-///   action anchors = Codex / Claude / Cursor / OpenCode 四个 install button id
+///   source = settings_panel.rs + settings_content.rs + settings_orchestration.rs
+///   nav anchor = Orchestration
+///   action anchors = Codex / Claude / Cursor / OpenCode 四个 Provider action id
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 拼接 Settings 生产渲染源码
-///   2. 检查 Hooks 分组与安装按钮 id 是否存在
+///   1. 拼接 Settings 生产渲染源码。
+///   2. 检查 Orchestration 导航、四组件和 Provider action id。
 ///
 /// 预期结果：
-///   - 正断言：Hooks 导航与 Codex/Claude/Cursor/OpenCode 安装按钮锚点都存在
-///   - 负断言：Hooks 页面不应仍只是 Runtime mock 文案
+///   - 正断言：Orchestration 与五个 Provider、四组件、安装/修复/卸载操作都存在。
+///   - 负断言：不得保留第二个 Agent Hooks 导航或直接前台安装入口。
 #[test]
-fn test_hooks_settings_panel_contains_install_actions() {
+fn test_orchestration_settings_panel_contains_provider_components_and_actions() {
     let source = format!(
         "{}{}{}{}",
         include_str!("../../src/settings/panel.rs"),
         include_str!("../../src/settings/navigation.rs"),
         include_str!("../../src/settings/content.rs"),
-        include_str!("../../src/settings/hooks.rs")
+        include_str!("../../src/settings/orchestration.rs")
     );
     let anchors = [
-        "SettingsSection::Hooks",
-        "Agent Hooks",
-        "settings-install-codex-hooks",
-        "settings-install-claude-hooks",
-        "settings-install-cursor-hooks",
-        "settings-install-opencode-hooks",
-        "Install hooks",
-        "Uninstall hooks",
-        "agent_hooks_installed",
-        "uninstall_agent_hooks",
+        "SettingsSection::Orchestration",
+        "Orchestration",
+        "settings-orchestration-codex-action",
+        "settings-orchestration-claude-action",
+        "settings-orchestration-cursor-action",
+        "settings-orchestration-opencode-action",
+        "Skill",
+        "Norma CLI",
+        "Agent Hook",
+        "Authorization",
+        "Install",
+        "Repair",
+        "Uninstall",
+        "Unavailable",
     ];
 
     for anchor in anchors {
         assert!(
             source.contains(anchor),
-            "Hooks 设置页应包含安装入口锚点: {anchor}"
+            "Orchestration 设置页应包含组件/操作锚点: {anchor}"
         );
     }
     assert!(
-        source.contains("Manage lifecycle hooks in ~/.codex/hooks.json"),
-        "Hooks 页面应包含 Codex 管理说明"
+        source.contains("Restart existing agent sessions after installation."),
+        "Orchestration 页面必须固定提示重启已有 Agent 会话"
     );
     assert!(
-        source.contains("Manage lifecycle hooks in ~/.claude/settings.json"),
-        "Hooks 页面应包含 Claude 管理说明"
+        source.contains("Orchestration is not supported in the first release"),
+        "Grok 行必须明确说明首版不支持编排"
     );
     assert!(
-        source.contains("Manage lifecycle hooks in ~/.cursor/hooks.json"),
-        "Hooks 页面应包含 Cursor CLI 管理说明"
-    );
-    assert!(
-        source.contains("Manage lifecycle hooks in ~/.config/opencode/plugins"),
-        "Hooks 页面应包含 OpenCode plugin 管理说明"
+        !source.contains("SettingsSection::Hooks"),
+        "迁移后不得继续提供第二个 Agent Hooks 导航入口"
     );
 }
 
@@ -331,7 +331,7 @@ fn test_settings_panel_selects_sections_without_closing() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings_panel.rs + settings_content.rs（生产侧栏与内容路由）；
-///   visible sections = Themes + Keyboard + Voice + Agents + Hooks + Wallpaper，共 6 个；
+///   visible sections = Themes + Keyboard + Voice + Agents + Orchestration + Wallpaper，共 6 个；
 ///   hidden mock sections = Runtime + Skills，共 2 个。
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -355,7 +355,7 @@ fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
         "SettingsSection::Keyboard",
         "SettingsSection::Voice",
         "SettingsSection::Agents",
-        "SettingsSection::Hooks",
+        "SettingsSection::Orchestration",
         "SettingsSection::Wallpaper",
     ];
 

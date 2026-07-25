@@ -1,3 +1,4 @@
+use self::orchestration::is_orchestration_command;
 use crate::app::{AppScreen, MultisoulApp};
 use crate::canvas::master_layout::{
     apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
@@ -5,23 +6,22 @@ use crate::canvas::master_layout::{
 };
 use crate::canvas::spawn_focus::activate_spawned_node;
 use crate::motion::MotionStore;
-use crate::norma::transport::{bind_socket, NormaServerRequest};
 use canvas::{
     AgentProfile as CanvasAgentProfile, CanvasNodeKind, CanvasRect, NodeType,
     PreviewType as CanvasPreviewType,
 };
-use crossbeam_channel::{unbounded, Receiver};
 use gpui::{Context, Window};
-use norma::client::default_socket_path;
 use norma::protocol::{
-    AgentProfile, CardBounds, CardCommand, CardCommandError, CardCommandResult, CardKind,
-    CardSummary, CardSummaryKind, NodeId, Placement, PreviewType as NormaPreviewType, WireRequest,
-    WireResponse,
+    AgentErrorCode, AgentProfile, CardBounds, CardCommand, CardCommandError, CardCommandResult,
+    CardKind, CardSummary, CardSummaryKind, NodeId, Placement, PreviewType as NormaPreviewType,
+    WireRequest, WireResponse,
 };
 use runtime::{InputMode, NodeError, NodeInput, Runtime, DEFAULT_TERMINAL_SHELL};
-use std::fs;
-use std::path::PathBuf;
-use std::time::Duration;
+
+mod orchestration;
+mod transport;
+
+pub(crate) use transport::NormaServer;
 
 #[cfg(test)]
 #[path = "../../tests/unit/norma_agent_lifecycle_tests.rs"]
@@ -67,71 +67,21 @@ pub(crate) struct NormaExecution {
     pub(crate) removed_agent_definition_id: Option<i64>,
 }
 
-pub(crate) struct NormaServer {
-    receiver: Receiver<NormaServerRequest>,
-    socket_path: Option<PathBuf>,
-}
-
-impl NormaServer {
-    pub(crate) fn start() -> Self {
-        let (sender, receiver) = unbounded();
-        let socket_path = default_socket_path();
-        let bound_path = bind_socket(socket_path, sender);
-        Self {
-            receiver,
-            socket_path: bound_path,
-        }
-    }
-
-    pub(crate) fn has_pending(&self) -> bool {
-        !self.receiver.is_empty()
-    }
-}
-
-impl Drop for NormaServer {
-    fn drop(&mut self) {
-        if let Some(path) = &self.socket_path {
-            let _ = fs::remove_file(path);
-        }
-    }
-}
-
 impl MultisoulApp {
-    pub(crate) fn start_norma_drain_loop(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        cx.spawn_in(window, async move |this, cx| loop {
-            cx.background_executor()
-                .timer(Duration::from_millis(12))
-                .await;
-            let go = this.update_in(cx, |app, window, cx| {
-                app.drain_norma_server(window, cx);
-            });
-            if go.is_err() {
-                break;
-            }
-        })
-        .detach();
-    }
-
-    pub(crate) fn drain_norma_server(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        while let Ok(request) = self.norma_server.receiver.try_recv() {
-            let response = self.execute_card_command(request.request, window, cx);
-            let _ = request.response.send(response);
-            cx.notify();
-        }
-
-        if self.norma_server.has_pending() {
-            cx.notify();
-        }
-    }
-
     pub(crate) fn execute_card_command(
         &mut self,
         request: WireRequest,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> WireResponse {
-        let request_id = request.request_id;
-        let result = match request.command {
+        let WireRequest {
+            request_id,
+            authorization,
+            source_node_id,
+            command,
+        } = request;
+        let orchestration_command = is_orchestration_command(&command);
+        let result = match command {
             CardCommand::List => {
                 let zoom = self.runtime.document.viewport.zoom;
                 execute_card_command_for_area(
@@ -143,9 +93,43 @@ impl MultisoulApp {
                     zoom,
                 )
             }
+            command
+                if orchestration_command
+                    && (!matches!(self.screen, AppScreen::Canvas)
+                        || self.runtime.workspace_root().is_none()) =>
+            {
+                let _ = command;
+                Err(CardCommandError::agent(
+                    AgentErrorCode::ProjectUnavailable,
+                    "当前没有打开的项目",
+                    false,
+                ))
+            }
             command if !matches!(self.screen, AppScreen::Canvas) => {
                 let _ = command;
                 Err(CardCommandError::AppNotReady)
+            }
+            command if orchestration_command => {
+                match self.validate_orchestration_source(authorization, source_node_id) {
+                    Ok((source, provider)) => crate::app::execute_orchestration_agent_command(
+                        self, window, command, source, provider,
+                    )
+                    .map(|result| NormaExecution {
+                        result,
+                        effects: NormaCommandEffects::NONE,
+                        removed_agent_definition_id: None,
+                    }),
+                    Err(error) => Err(error),
+                }
+            }
+            command @ (CardCommand::CreateAgent { .. } | CardCommand::ActivateAgent { .. }) => {
+                crate::app::execute_agent_card_command(self, window, command)
+                    .map(|result| NormaExecution {
+                        result,
+                        effects: NormaCommandEffects::NONE,
+                        removed_agent_definition_id: None,
+                    })
+                    .map_err(|message| CardCommandError::Runtime { message })
             }
             CardCommand::Create {
                 kind:
@@ -241,6 +225,8 @@ pub(crate) fn execute_card_command_for_area(
             removed_agent_definition_id: None,
         }),
         CardCommand::ListAgents
+        | CardCommand::AgentTaskStatus { .. }
+        | CardCommand::AgentTaskCancel { .. }
         | CardCommand::CreateAgent { .. }
         | CardCommand::ActivateAgent { .. }
         | CardCommand::DispatchAgentTasks { .. } => Err(CardCommandError::Unsupported {

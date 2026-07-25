@@ -408,7 +408,7 @@ fn test_untracked_batch_rejects_multiple_tasks_before_typing() {
 
     assert!(
         batch.as_ref().is_err_and(|message| {
-            message.contains("no Hook tracking") && message.contains("one task at a time")
+            message.contains("没有 Hook 跟踪") && message.contains("一次只能派发一个任务")
         }),
         "无 Hook 的同一 Agent 批量多任务必须在写入前拒绝，实际：{batch:?}"
     );

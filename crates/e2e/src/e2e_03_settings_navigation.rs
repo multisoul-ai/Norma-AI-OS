@@ -1,4 +1,4 @@
-//! Settings 导航分组刷新：以真实渲染树点击六个可配置入口，锁定现有业务路由不变。
+//! Settings 导航分组刷新：以真实渲染树点击六个可配置入口，锁定业务路由不变。
 
 use gpui::{px, size, Modifiers, TestAppContext, VisualTestContext};
 
@@ -7,20 +7,20 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 /// Settings 任务导向导航：六个可配置入口能分别进入对应页面，且切换不会关闭面板。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   visible entries = 6（Themes + Wallpaper + Keyboard Shortcuts + Voice + Agents + Agent Hooks）。
+///   visible entries = 6（Themes + Wallpaper + Keyboard Shortcuts + Voice + Agents + Orchestration）。
 ///   hidden mock entries = 2（Runtime + Skills，不参与点击序列）。
 ///   click count = 6（每个已实现入口各一次，覆盖三个任务导向分组）。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 启动 headless App 并进入 Canvas，点击 `toolbar-settings` 打开 Settings 面板。
-///   2. 依次点击 Themes、Wallpaper、Keyboard、Voice、Agents 与 Hooks 的稳定 debug selector。
+///   2. 依次点击 Themes、Wallpaper、Keyboard、Voice、Agents 与 Orchestration 的稳定 selector。
 ///   3. 每次点击后读取公开 `SettingsE2eSnapshot`，确认 route 仍指向原 section。
 ///   4. 每次确认 Settings 仍保持打开，证明导航重构没有截断原有交互会话。
 ///
 /// 预期结果：
-///   - 断言 A：六个入口各自精确进入 Themes / Wallpaper / Keyboard Shortcuts / Voice / Agents / Agent Hooks。
+///   - 断言 A：六个入口各自进入 Themes / Wallpaper / Keyboard Shortcuts / Voice / Agents / Orchestration。
 ///   - 断言 B：每一次切换后 Settings 都保持打开，不能被导航点击关闭。
-///   - 断言 C：最后的 Hooks 页面不得误路由回 Voice，防止分组 DOM 重排错绑点击处理器。
+///   - 断言 C：Orchestration 页面不得误路由回 Voice，防止分组 DOM 重排错绑点击处理器。
 #[test]
 fn e2e_03_task_oriented_settings_navigation_preserves_all_existing_routes() {
     let mut cx = TestAppContext::single();
@@ -85,19 +85,19 @@ fn e2e_03_task_oriented_settings_navigation_preserves_all_existing_routes() {
         "点击 Agents 后 Settings 应保持打开，snapshot: {agents:?}"
     );
 
-    click_debug(cx, "settings-section-hooks");
-    let hooks = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    click_debug(cx, "settings-section-orchestration");
+    let orchestration = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
-        hooks.active_section, "Agent Hooks",
-        "Agent Hooks 导航应进入原 Hooks 页面，snapshot: {hooks:?}"
+        orchestration.active_section, "Orchestration",
+        "Orchestration 导航应进入代理安装与委派设置页，snapshot: {orchestration:?}"
     );
     assert!(
-        hooks.settings_open,
-        "点击 Agent Hooks 后 Settings 应保持打开，snapshot: {hooks:?}"
+        orchestration.settings_open,
+        "点击 Orchestration 后 Settings 应保持打开，snapshot: {orchestration:?}"
     );
     assert_ne!(
-        hooks.active_section, "Voice",
-        "点击 Agent Hooks 后不得仍停留在 Voice 页面，snapshot: {hooks:?}"
+        orchestration.active_section, "Voice",
+        "点击 Orchestration 后不得仍停留在 Voice 页面，snapshot: {orchestration:?}"
     );
 }
 
@@ -107,12 +107,12 @@ fn e2e_03_task_oriented_settings_navigation_preserves_all_existing_routes() {
 ///   viewport = 1440×900px；常规边距 = 32px。
 ///   available width = 1440 - 2×32 = 1376px；受 PANEL_MAX_W=1280px 限制，面板宽度 = 1280px。
 ///   available height = 900 - 2×32 = 836px；受 PANEL_MAX_H=820px 限制，面板高度 = 820px。
-///   visible sections = 6（Themes / Wallpaper / Keyboard / Voice / Agents / Hooks）。
+///   visible sections = 6（Themes / Wallpaper / Keyboard / Voice / Agents / Orchestration）。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 把 headless viewport 调整为 1440×900px，进入 Canvas 并打开 Settings。
 ///   2. 在 Themes 页面记录 `settings-panel` 的 1280×820px bounds 作为统一外壳基准。
-///   3. 依次切换 Wallpaper、Keyboard、Voice、Agents 与 Hooks，并读取每页外层 bounds。
+///   3. 依次切换 Wallpaper、Keyboard、Voice、Agents 与 Orchestration，并读取每页外层 bounds。
 ///   4. 逐页比较 origin 与 size，确认内容差异只由统一滚动区承载，不改变浮层外壳。
 ///
 /// 预期结果：
@@ -182,13 +182,13 @@ fn e2e_03_settings_sections_keep_one_stable_panel_frame() {
         "Agents 切页后 Settings origin 与 size 都必须保持不变"
     );
 
-    click_debug(cx, "settings-section-hooks");
-    let hooks = cx
+    click_debug(cx, "settings-section-orchestration");
+    let orchestration = cx
         .debug_bounds("settings-panel")
-        .expect("Hooks 页面应继续渲染统一 settings-panel");
+        .expect("Orchestration 页面应继续渲染统一 settings-panel");
     assert_eq!(
-        hooks, themes,
-        "Hooks 切页后 Settings origin 与 size 都必须保持不变"
+        orchestration, themes,
+        "Orchestration 切页后 Settings origin 与 size 都必须保持不变"
     );
 }
 

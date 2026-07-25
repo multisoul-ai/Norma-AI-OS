@@ -1,17 +1,12 @@
-fn main() -> anyhow::Result<()> {
-    let command = norma::cli::parse_command_from(std::env::args_os())?;
-    match norma::client::send_command(command) {
-        Ok(result) => {
-            let output = norma::cli::format_result(&result);
-            if !output.is_empty() {
-                println!("{output}");
-            }
-            Ok(())
-        }
-        Err(norma::client::ClientError::Command(error)) => {
-            eprintln!("{error}");
-            std::process::exit(2);
-        }
-        Err(error) => Err(error.into()),
+fn main() {
+    let invocation =
+        norma::cli::parse_invocation_from(std::env::args_os()).unwrap_or_else(|error| error.exit());
+    let output = norma::cli_runtime::run_invocation(invocation);
+    if !output.stdout.is_empty() {
+        println!("{}", output.stdout);
     }
+    if !output.stderr.is_empty() {
+        eprintln!("{}", output.stderr);
+    }
+    std::process::exit(output.exit_code);
 }

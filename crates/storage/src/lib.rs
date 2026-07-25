@@ -9,6 +9,7 @@ pub mod error;
 pub mod layout_store;
 pub mod migrations;
 pub mod node_session_store;
+pub mod orchestration_authorization_store;
 pub mod project_store;
 pub mod recent_store;
 pub mod session_store;
@@ -21,7 +22,7 @@ pub use agent_definition_store::{
 };
 pub use agent_dispatch_store::{
     AgentDispatchTaskState, AgentDispatchTaskStore, AgentDispatchTracking, NewAgentDispatchTask,
-    StoredAgentDispatchTask,
+    NewOrchestrationAgentDispatchTask, StoredAgentDispatchTask,
 };
 pub use app_store::{default_app_data_dir, default_app_db_path, legacy_app_data_dir, AppStore};
 pub use background_agent_dispatch::BackgroundAgentDispatchStore;
@@ -29,6 +30,10 @@ pub use canvas_store::CanvasStore;
 pub use error::{StorageError, StorageResult};
 pub use layout_store::{LayoutMode, LayoutOriginalBounds, LayoutStateSnapshot, LayoutStore};
 pub use node_session_store::{NodeSession, NodeSessionKind, NodeSessionStore};
+pub use orchestration_authorization_store::{
+    OrchestrationAuthorizationCache, OrchestrationAuthorizationRecord,
+    OrchestrationAuthorizationStore,
+};
 pub use project_store::ProjectStore;
 pub use recent_store::RecentStore;
 pub use session_store::{SessionCheckpoint, SessionCheckpointKind, SessionStore};

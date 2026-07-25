@@ -204,6 +204,7 @@ impl MultisoulApp {
                 theme_id: self.theme_id,
                 panel: &self.settings_panel,
                 agent_definitions: &self.agent_definitions,
+                orchestration: &self.orchestration_settings,
                 voice: VoiceSettingsContent {
                     state: &self.voice_settings,
                     inputs: &self.voice_settings_inputs,

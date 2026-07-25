@@ -6,6 +6,10 @@ pub type NodeId = u64;
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct WireRequest {
     pub request_id: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorization: Option<ProviderAuthorization>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_node_id: Option<NodeId>,
     pub command: CardCommand,
 }
 
@@ -18,6 +22,12 @@ pub struct WireResponse {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum CardCommand {
     ListAgents,
+    AgentTaskStatus {
+        task_ref: String,
+    },
+    AgentTaskCancel {
+        task_ref: String,
+    },
     CreateAgent {
         name: Option<String>,
         profile: AgentProfile,
@@ -139,6 +149,13 @@ pub enum CardCommandResult {
     AgentTasksDispatched {
         receipts: Vec<AgentTaskReceipt>,
     },
+    AgentTaskStatus {
+        task: AgentTaskStatus,
+    },
+    AgentTaskCancelled {
+        task_id: String,
+        status: AgentTaskReceiptStatus,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -150,22 +167,49 @@ pub struct AgentSummary {
     pub enabled: bool,
     pub active_node_id: Option<NodeId>,
     pub busy: bool,
+    pub tracking: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AgentTaskReceipt {
+    pub task_id: String,
+    pub target_definition_id: i64,
+    #[serde(rename = "target_name")]
     pub name: String,
+    #[serde(rename = "target_node_id")]
     pub node_id: NodeId,
+    #[serde(skip)]
     pub task: String,
     pub status: AgentTaskReceiptStatus,
+    pub tracking: String,
+    pub parent_task_id: Option<String>,
+    pub root_task_id: String,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AgentTaskReceiptStatus {
+    Accepted,
     Submitted,
     Queued,
     Untracked,
+    CancelRequested,
+    Done,
     Failed,
+    Cancelled,
+    Interrupted,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AgentTaskStatus {
+    pub task_id: String,
+    pub target_definition_id: i64,
+    pub target_name: String,
+    pub target_node_id: NodeId,
+    pub status: AgentTaskReceiptStatus,
+    pub tracking: String,
+    pub parent_task_id: Option<String>,
+    pub root_task_id: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -194,6 +238,82 @@ pub enum CardCommandError {
     NotFound { node_id: NodeId },
     Unsupported { message: String },
     Runtime { message: String },
+    Agent(AgentCommandFailure),
+}
+
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProviderAuthorization {
+    pub provider: AgentProfile,
+    pub token: String,
+}
+
+impl std::fmt::Debug for ProviderAuthorization {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ProviderAuthorization")
+            .field("provider", &self.provider)
+            .field("token", &"[REDACTED]")
+            .finish()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentErrorCode {
+    AppUnavailable,
+    ProjectUnavailable,
+    Unauthorized,
+    ProviderNotInstalled,
+    SourceAgentUnavailable,
+    UnknownAgent,
+    AgentDisabled,
+    EmptyTask,
+    SelfDispatchForbidden,
+    DelegationCycle,
+    DelegationBudgetExceeded,
+    UntrackedRequiresForce,
+    TaskNotFound,
+    RuntimeExpired,
+    TaskUntracked,
+    WaitTimeout,
+    InstallConflict,
+    ComponentInstallFailed,
+    UnsupportedProvider,
+    InternalError,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AgentCommandFailure {
+    pub code: AgentErrorCode,
+    pub message: String,
+    pub retryable: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_status: Option<AgentTaskReceiptStatus>,
+}
+
+impl CardCommandError {
+    pub fn agent(code: AgentErrorCode, message: impl Into<String>, retryable: bool) -> Self {
+        Self::Agent(AgentCommandFailure {
+            code,
+            message: message.into(),
+            retryable,
+            current_status: None,
+        })
+    }
+
+    pub fn agent_with_status(
+        code: AgentErrorCode,
+        message: impl Into<String>,
+        retryable: bool,
+        current_status: AgentTaskReceiptStatus,
+    ) -> Self {
+        Self::Agent(AgentCommandFailure {
+            code,
+            message: message.into(),
+            retryable,
+            current_status: Some(current_status),
+        })
+    }
 }
 
 impl std::fmt::Display for CardCommandError {
@@ -203,6 +323,7 @@ impl std::fmt::Display for CardCommandError {
             Self::NotFound { node_id } => write!(f, "card {node_id} was not found"),
             Self::Unsupported { message } => write!(f, "{message}"),
             Self::Runtime { message } => write!(f, "{message}"),
+            Self::Agent(error) => write!(f, "{}", error.message),
         }
     }
 }

@@ -86,12 +86,12 @@ fn e2e_03_voice_modes_and_shared_model_catalog_are_clickable() {
 /// = 420 - 2×12 = 396px，必须使用 `settings-navigation-topbar`。先向左横滚 360px，
 /// 将 Input & Controls 的 Voice 入口移入可点击范围；向上滚动 220px，可把
 /// Continuous Listening 移入 140px 高的内容区。Wallpaper 是 Appearance 的首个顶栏入口，
-/// 向右横滚 360px 后重新可点；最后再向左横滚 640px 到达 Agent Hooks。
+/// 向右横滚 360px 后重新可点；最后再向左横滚 640px 到达 Orchestration。
 /// 执行过程：resize → 打开 Settings → 确认顶栏 → 横滚并切到 Voice → 滚动内容露出
 /// Continuous Listening → 选择该模式并继续滚动内容 → 横滚回首组并点击 Wallpaper →
-/// 顶栏横向滚动至末组 → 点击 Agent Hooks。
+/// 顶栏横向滚动至末组 → 点击 Orchestration。
 /// 预期结果：小窗口内仍能通过真实 hitbox 切换 Voice、首个顶栏入口和横滚后的末组入口；
-/// Wallpaper 与 Agent Hooks 依次成为 active section。
+/// Wallpaper 与 Orchestration 依次成为 active section。
 #[test]
 fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
     let mut cx = TestAppContext::single();
@@ -134,17 +134,17 @@ fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
     );
 
     scroll_debug_horizontal(cx, "settings-navigation-topbar", -640.0);
-    click_debug(cx, "settings-section-hooks");
-    let hooks = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    click_debug(cx, "settings-section-orchestration");
+    let orchestration = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
-        hooks.active_section, "Agent Hooks",
-        "横向滚动顶栏后应能点击 AI & Automation 的 Agent Hooks，snapshot: {:?}",
-        hooks
+        orchestration.active_section, "Orchestration",
+        "横向滚动顶栏后应能点击 AI & Automation 的 Orchestration，snapshot: {:?}",
+        orchestration
     );
     assert_ne!(
-        hooks.active_section, "Wallpaper",
-        "点击 Agent Hooks 后不得继续停留在 Wallpaper，snapshot: {:?}",
-        hooks
+        orchestration.active_section, "Wallpaper",
+        "点击 Orchestration 后不得继续停留在 Wallpaper，snapshot: {:?}",
+        orchestration
     );
 }
 

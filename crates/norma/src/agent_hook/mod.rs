@@ -1,5 +1,6 @@
 pub mod cli;
 
+mod atomic_file;
 mod cursor;
 mod event;
 mod forward;

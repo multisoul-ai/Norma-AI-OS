@@ -25,7 +25,7 @@ pub(crate) enum SettingsSection {
     Agents,
     #[cfg(test)]
     Skills,
-    Hooks,
+    Orchestration,
     Wallpaper,
 }
 
@@ -82,11 +82,11 @@ impl SettingsSection {
                 index: 5,
                 debug_selector: "settings-section-skills",
             },
-            Self::Hooks => SettingsSectionMetadata {
-                title: "Agent Hooks",
+            Self::Orchestration => SettingsSectionMetadata {
+                title: "Orchestration",
                 icon_asset: Some("icons/settings-nav-hooks.svg"),
                 index: 6,
-                debug_selector: "settings-section-hooks",
+                debug_selector: "settings-section-orchestration",
             },
             Self::Wallpaper => SettingsSectionMetadata {
                 title: "Wallpaper",
@@ -101,13 +101,17 @@ impl SettingsSection {
 const APPEARANCE_SECTIONS: &[SettingsSection] =
     &[SettingsSection::Themes, SettingsSection::Wallpaper];
 const INPUT_SECTIONS: &[SettingsSection] = &[SettingsSection::Keyboard, SettingsSection::Voice];
-const AUTOMATION_SECTIONS: &[SettingsSection] = &[SettingsSection::Agents, SettingsSection::Hooks];
+const AUTOMATION_SECTIONS: &[SettingsSection] =
+    &[SettingsSection::Agents, SettingsSection::Orchestration];
 
 const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 3] = [
     ("Appearance", APPEARANCE_SECTIONS),
     ("Input & Controls", INPUT_SECTIONS),
     ("AI & Automation", AUTOMATION_SECTIONS),
 ];
+
+const SIDEBAR_GROUP_SPACING: f32 = 11.0;
+const NAVIGATION_ITEM_HEIGHT: f32 = 38.0;
 
 pub(super) fn settings_navigation(
     theme: Theme,
@@ -142,7 +146,7 @@ fn sidebar_navigation(
         .overflow_x_hidden()
         .flex()
         .flex_col()
-        .gap(px(if compact { 14.0 } else { 22.0 }))
+        .gap(px(if compact { 14.0 } else { SIDEBAR_GROUP_SPACING }))
         .px(px(if compact { 12.0 } else { 20.0 }))
         .py(px(if compact { 16.0 } else { 28.0 }))
         .border_r_1()
@@ -268,7 +272,7 @@ fn navigation_item(
         // public UI contract; the icon itself is the component library's Icon element.
         .id(("settings-section", metadata.index))
         .debug_selector(move || metadata.debug_selector.to_string())
-        .h(px(40.0))
+        .h(px(NAVIGATION_ITEM_HEIGHT))
         .when(compact, |item| item.flex_none().min_w(px(132.0)))
         .when(!compact, |item| item.w_full())
         .flex()
@@ -291,6 +295,9 @@ fn navigation_item(
             app.settings_panel.select(section);
             if section == SettingsSection::Voice {
                 app.refresh_asr_model_states(cx);
+            }
+            if section == SettingsSection::Orchestration {
+                app.refresh_orchestration_integrations(cx);
             }
             cx.notify();
         }))
@@ -331,3 +338,17 @@ fn section_icon(theme: Theme, section: SettingsSection, active: bool) -> Icon {
             theme.text_secondary
         }))
 }
+
+#[cfg(test)]
+fn canonical_sidebar_group_spacing() -> (f32, f32) {
+    (SIDEBAR_GROUP_SPACING, SIDEBAR_GROUP_SPACING)
+}
+
+#[cfg(test)]
+fn canonical_navigation_item_height() -> f32 {
+    NAVIGATION_ITEM_HEIGHT
+}
+
+#[cfg(test)]
+#[path = "../../tests/unit/settings_navigation_layout_tests.rs"]
+mod settings_navigation_layout_tests;
