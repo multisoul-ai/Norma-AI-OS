@@ -414,7 +414,10 @@ fn open_gated_window_with_phase(
     cx: &mut App,
 ) -> anyhow::Result<WindowHandle<Root>> {
     let title = title_for_initial_state(&InitialWindowState::Launchpad);
-    let bounds = gpui::Bounds::centered(None, gpui::size(px(1280.0), px(800.0)), cx);
+    let (width, height) = crate::workspace::windowing::initial_window_dimensions(
+        crate::workspace::windowing::visual_preview_name(),
+    );
+    let bounds = gpui::Bounds::centered(None, gpui::size(px(width), px(height)), cx);
     let handle = cx.open_window(window_options(title, bounds), |window, cx| {
         cx.new(|cx| build_gated_root(phase, window, cx))
     })?;

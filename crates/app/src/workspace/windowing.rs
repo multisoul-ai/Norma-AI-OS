@@ -57,7 +57,8 @@ fn open_multisoul_window(
     cx: &mut App,
 ) -> anyhow::Result<OpenedMultisoulWindow> {
     let title = title_for_initial_state(&state);
-    let bounds = Bounds::centered(None, size(px(1280.0), px(800.0)), cx);
+    let (width, height) = initial_window_dimensions(visual_preview_name());
+    let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
     let mut app_entity = None;
     let root_handle = cx.open_window(window_options(title, bounds), |window, cx| {
         let app = cx.new(|cx| {
@@ -77,6 +78,24 @@ fn open_multisoul_window(
         anyhow::anyhow!("production window should create a nested MultisoulApp entity")
     })?;
     Ok(OpenedMultisoulWindow { root_handle, app })
+}
+
+#[cfg(feature = "e2e-test-support")]
+pub(crate) fn visual_preview_name() -> Option<String> {
+    std::env::var("NORMA_VISUAL_PREVIEW").ok()
+}
+
+#[cfg(not(feature = "e2e-test-support"))]
+pub(crate) fn visual_preview_name() -> Option<String> {
+    None
+}
+
+pub(crate) fn initial_window_dimensions(visual_preview: Option<String>) -> (f32, f32) {
+    if visual_preview.as_deref() == Some("orchestration") {
+        (1440.0, 900.0)
+    } else {
+        (1280.0, 800.0)
+    }
 }
 
 pub(crate) fn title_for_initial_state(state: &InitialWindowState) -> String {
@@ -186,6 +205,45 @@ impl MultisoulApp {
                 cx.notify();
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod visual_acceptance_tests {
+    use super::initial_window_dimensions;
+
+    /// Orchestration 真实 App 验收：仅 canonical 预览请求 1440×900 规范 viewport
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   normal window = 1280×800（现有生产默认值）。
+    ///   orchestration acceptance = 1440×900（SPEC 与 headless 布局证据的固定 viewport）。
+    ///   size delta = (1440 - 1280, 900 - 800) = (160, 100)px。
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 无视觉预览名称 → 使用生产默认窗口。
+    ///   2. Voice 视觉预览名称 → 继续使用生产默认窗口。
+    ///   3. Orchestration 视觉预览名称 → 请求 canonical 1440×900 窗口。
+    ///
+    /// 预期结果：
+    ///   - 正断言：Orchestration 验收尺寸精确为 1440×900。
+    ///   - 负断言：普通与其他预览不得放大生产窗口。
+    #[test]
+    fn orchestration_visual_preview_requests_canonical_window_dimensions() {
+        assert_eq!(
+            initial_window_dimensions(Some("orchestration".to_string())),
+            (1440.0, 900.0),
+            "orchestration visual preview must request the canonical 1440x900 viewport"
+        );
+        assert_eq!(
+            initial_window_dimensions(None),
+            (1280.0, 800.0),
+            "normal startup must preserve the existing 1280x800 production default"
+        );
+        assert_eq!(
+            initial_window_dimensions(Some("voice-ready".to_string())),
+            (1280.0, 800.0),
+            "non-orchestration previews must not inherit the larger acceptance window"
+        );
     }
 }
 
