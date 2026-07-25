@@ -1,6 +1,7 @@
 pub mod cli;
 
 mod atomic_file;
+mod conversation_observe;
 mod cursor;
 mod event;
 mod forward;
@@ -14,6 +15,10 @@ use serde_json::Value;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+pub use conversation_observe::{
+    observe_conversation, ConversationObservation, ConversationObservationKind,
+    ConversationObservationState, MAX_CONVERSATION_MESSAGE_CHARS,
+};
 pub use event::{
     extract_prompt_text, hook_events_for_source, parse_hook_event, task_state_for_provider_event,
 };

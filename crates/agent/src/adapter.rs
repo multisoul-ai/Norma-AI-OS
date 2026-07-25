@@ -44,6 +44,14 @@ pub enum AdapterCommand {
     CancelAgentTask {
         task_id: u64,
     },
+    ReplyAgent {
+        agent: String,
+        message: String,
+    },
+    CancelAgentReply {
+        reply_id: Option<u64>,
+        agent: Option<String>,
+    },
     CreateTerminal,
     CreateBrowser {
         url: Option<String>,
@@ -79,6 +87,10 @@ pub struct AdapterResult {
     pub task_id: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub node_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reply_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reply_status: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tasks: Vec<Value>,
 }
@@ -90,6 +102,8 @@ impl AdapterResult {
             message: message.into(),
             task_id: None,
             node_id: None,
+            reply_id: None,
+            reply_status: None,
             tasks: Vec::new(),
         }
     }
@@ -100,6 +114,8 @@ impl AdapterResult {
             message: message.into(),
             task_id: None,
             node_id: None,
+            reply_id: None,
+            reply_status: None,
             tasks: Vec::new(),
         }
     }
@@ -110,6 +126,8 @@ impl AdapterResult {
             message: message.into(),
             task_id: None,
             node_id: None,
+            reply_id: None,
+            reply_status: None,
             tasks: Vec::new(),
         }
     }
@@ -121,6 +139,16 @@ impl AdapterResult {
 
     pub fn with_node_id(mut self, node_id: u64) -> Self {
         self.node_id = Some(node_id);
+        self
+    }
+
+    pub fn with_reply_id(mut self, reply_id: u64) -> Self {
+        self.reply_id = Some(reply_id);
+        self
+    }
+
+    pub fn with_reply_status(mut self, reply_status: impl Into<String>) -> Self {
+        self.reply_status = Some(reply_status.into());
         self
     }
 
@@ -243,7 +271,7 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
         ),
         definition(
             "create_agent",
-            "创建并立即打开一个内置类型的 AgentCard；仅在用户明确要求创建时使用。",
+            "仅在用户明确要求新建某个内置类型的 Agent 时使用。若用户点名的 Agent 画布上已有卡片，不要调用本工具，应 reply_agent 直接对话。",
             object_schema(
                 json!({
                     "profile": {"type": "string", "enum": ["codex", "claude", "opencode", "cursor", "grok"]}
@@ -253,7 +281,7 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
         ),
         definition(
             "assign_agent_task",
-            "立即把一个任务派发给一个 AgentCard；目标明确时直接执行，无需确认。",
+            "把任务派发给已启用的 Agent；画布上没有卡片时系统会自动打开唯一一张。目标明确时直接执行，无需确认；已有卡片且用户只是对话时用 reply_agent。",
             object_schema(
                 json!({
                     "agent": {"type": "string", "minLength": 1},
@@ -268,6 +296,28 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
             object_schema(
                 json!({"task_id": {"type": "integer", "minimum": 1}}),
                 &["task_id"],
+            ),
+        ),
+        definition(
+            "reply_agent",
+            "向画布上已有卡片的 Agent 发送会话消息；有卡即可对话，不要求先激活或新建，也不创建新任务。",
+            object_schema(
+                json!({
+                    "agent": {"type": "string", "minLength": 1},
+                    "message": {"type": "string", "minLength": 1}
+                }),
+                &["agent", "message"],
+            ),
+        ),
+        definition(
+            "cancel_agent_reply",
+            "撤回尚未提交的会话回复；可按 reply_id 或 Agent 名称取消。",
+            object_schema(
+                json!({
+                    "reply_id": {"type": "integer", "minimum": 1},
+                    "agent": {"type": "string", "minLength": 1}
+                }),
+                &[],
             ),
         ),
         definition(

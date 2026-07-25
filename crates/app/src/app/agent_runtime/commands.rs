@@ -9,9 +9,7 @@ use std::collections::{HashMap, HashSet};
 use super::command_protocol::{
     coordination_error, internal_agent_error, profile_slug, tracking_label,
 };
-use super::command_support::{
-    activate_definition, canvas_agent_profile, type_agent_task, AgentTaskSubmitError,
-};
+use super::command_support::{activate_definition, type_agent_task, AgentTaskSubmitError};
 use super::pending::unsafe_submission_recovery_message;
 
 pub(crate) fn execute_agent_card_command(
@@ -83,26 +81,9 @@ pub(super) fn execute_coordinated_agent_command(
             name,
             profile,
             activate,
-        } => {
-            let definition = app
-                .agent_definitions
-                .create_definition(name, canvas_agent_profile(profile))
-                .map_err(internal_agent_error)?;
-            let node_id = if activate {
-                Some(
-                    activate_definition(app, &definition, area, zoom)
-                        .map_err(internal_agent_error)?
-                        .0,
-                )
-            } else {
-                None
-            };
-            Ok(CardCommandResult::AgentCreated {
-                definition_id: definition.id,
-                name: definition.name,
-                node_id,
-            })
-        }
+        } => super::create_agent_command::create_or_reuse_agent(
+            app, name, profile, activate, area, zoom,
+        ),
         CardCommand::ActivateAgent { name } => {
             let definition = app
                 .agent_definitions

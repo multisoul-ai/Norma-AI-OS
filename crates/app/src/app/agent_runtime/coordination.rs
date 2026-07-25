@@ -61,6 +61,7 @@ impl MultisoulApp {
             workspace_root: workspace_root.display().to_string(),
             total_cards,
             cards,
+            conversation_tails: self.conversation_tails_for_context(),
         })
     }
 

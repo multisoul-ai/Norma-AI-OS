@@ -28,6 +28,20 @@ struct AssignAgentTaskArgs {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct ReplyAgentArgs {
+    agent: String,
+    message: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CancelAgentReplyArgs {
+    reply_id: Option<u64>,
+    agent: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct TaskIdArgs {
     task_id: u64,
 }
@@ -130,6 +144,29 @@ pub(super) fn parse_adapter_command(
             Ok(AdapterCommand::CancelAgentTask {
                 task_id: args.task_id,
             })
+        }
+        "reply_agent" => {
+            let args: ReplyAgentArgs = parse(arguments)?;
+            let agent = require_text("agent", args.agent)?;
+            let message = require_text("message", args.message)?;
+            Ok(AdapterCommand::ReplyAgent { agent, message })
+        }
+        "cancel_agent_reply" => {
+            let args: CancelAgentReplyArgs = parse(arguments)?;
+            let reply_id = match args.reply_id {
+                Some(value) => {
+                    require_positive("reply_id", value)?;
+                    Some(value)
+                }
+                None => None,
+            };
+            let agent = clean_optional(args.agent);
+            if reply_id.is_none() && agent.is_none() {
+                return Err(AdapterError::InvalidArguments(
+                    "cancel_agent_reply requires reply_id or agent".to_string(),
+                ));
+            }
+            Ok(AdapterCommand::CancelAgentReply { reply_id, agent })
         }
         "create_terminal" => {
             let _: EmptyArgs = parse(arguments)?;

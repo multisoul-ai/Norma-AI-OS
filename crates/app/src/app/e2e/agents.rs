@@ -59,6 +59,14 @@ impl MultisoulApp {
         self.pending_agent_submissions.is_waiting(node_id)
     }
 
+    #[cfg(feature = "e2e-test-support")]
+    pub fn agent_task_count_for_e2e(&self) -> usize {
+        self.agent_task_coordinator
+            .as_ref()
+            .map(|coordinator| coordinator.tasks().len())
+            .unwrap_or(0)
+    }
+
     pub fn agent_settings_e2e_snapshot(&self) -> AgentSettingsE2eSnapshot {
         let profile_name = |profile| match profile {
             canvas::AgentProfile::Claude => "claude",

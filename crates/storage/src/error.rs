@@ -24,6 +24,8 @@ pub enum StorageError {
     AgentDispatchTaskNotFound(i64),
     #[error("invalid agent dispatch value stored in sqlite: {0}")]
     InvalidAgentDispatchValue(String),
+    #[error("invalid conversation availability stored in sqlite: {0}")]
+    InvalidConversationAvailability(String),
     #[error("agent name {requested:?} conflicts with existing agent {existing:?}")]
     AgentNameConflict { requested: String, existing: String },
     #[error("invalid node session kind: {0}")]

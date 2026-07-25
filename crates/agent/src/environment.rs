@@ -1,4 +1,7 @@
-use crate::{AgentRosterEntry, CanvasCardContext, CanvasCardKind, CurrentCanvasContext};
+use crate::{
+    render_conversation_tails, AgentRosterEntry, CanvasCardContext, CanvasCardKind,
+    ConversationTailRenderHints, CurrentCanvasContext,
+};
 use norma::protocol::AgentProfile;
 
 const MAX_ENVIRONMENT_AGENTS: usize = 32;
@@ -8,6 +11,14 @@ const MAX_DYNAMIC_CHARS: usize = 80;
 pub fn render_norma_environment(
     canvas: &CurrentCanvasContext,
     roster: &[AgentRosterEntry],
+) -> String {
+    render_norma_environment_with_hints(canvas, roster, &ConversationTailRenderHints::default())
+}
+
+pub fn render_norma_environment_with_hints(
+    canvas: &CurrentCanvasContext,
+    roster: &[AgentRosterEntry],
+    tail_hints: &ConversationTailRenderHints,
 ) -> String {
     let mut lines = vec![
         "<environment>".to_string(),
@@ -46,6 +57,28 @@ pub fn render_norma_environment(
     if omitted_cards > 0 {
         lines.push(format!("- 另有 {omitted_cards} 张卡片未显示。"));
     }
+
+    if !canvas.conversation_tails.is_empty() {
+        lines.push(String::new());
+        let mut hints = tail_hints.clone();
+        if hints.focused_node_id.is_none() {
+            hints.focused_node_id = canvas
+                .cards
+                .iter()
+                .find(|card| card.focused)
+                .map(|card| card.node_id);
+        }
+        if hints.selected_node_ids.is_empty() {
+            hints.selected_node_ids = canvas
+                .cards
+                .iter()
+                .filter(|card| card.selected)
+                .map(|card| card.node_id)
+                .collect();
+        }
+        lines.push(render_conversation_tails(&canvas.conversation_tails, &hints).text);
+    }
+
     lines.push("</environment>".to_string());
     lines.join("\n")
 }
@@ -71,8 +104,8 @@ fn render_agent(agent: &AgentRosterEntry) -> String {
         "当前空闲"
     };
     let card = match agent.active_node_id {
-        Some(node_id) => format!("AgentCard 为 #{node_id}"),
-        None => "尚未打开 AgentCard".to_string(),
+        Some(node_id) => format!("已有 AgentCard #{node_id}，可直接对话"),
+        None => "画布上还没有 AgentCard（派发任务时系统会自动打开唯一一张）".to_string(),
     };
     format!("- {identity}：{enabled}，{activity}，{card}。")
 }

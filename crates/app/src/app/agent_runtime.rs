@@ -11,11 +11,18 @@ mod command_protocol;
 mod command_support;
 mod commands;
 mod context_commands;
+mod conversation_tails;
 mod coordination;
+mod create_agent_command;
 mod delete_card;
 mod diagnostics;
 mod orchestration_commands;
 pub(super) mod pending;
+mod reply_adapter;
+mod session_reply_queue;
+
+pub(crate) use conversation_tails::{ConversationTailMemory, ConversationTailWriter};
+pub(crate) use session_reply_queue::AgentSessionReplyQueue;
 
 pub(crate) use artifacts::artifacts_from_agent_events;
 pub(crate) use commands::execute_agent_card_command;
