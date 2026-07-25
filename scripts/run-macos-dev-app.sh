@@ -41,6 +41,20 @@ wallpaper_resources="$repo_root/crates/app/assets/wallpapers"
 browser_auth_extension="$repo_root/crates/app/assets/browser-auth-extension"
 bundle_resources="$bundle/Contents/Resources"
 
+# `open -n` is required to load the newly built signed bundle, but it would
+# otherwise create another process when an older cargo-run App is still alive.
+# Two Dev processes share the Norma CLI socket and make the active project
+# nondeterministic, so require the previous foreground run to exit first.
+existing_dev_pids=$(pgrep -f "$bundle_binary" || true)
+if [ -n "$existing_dev_pids" ]; then
+  echo "Norma OS Dev is already running. Close the existing cargo run before starting another." >&2
+  while IFS= read -r existing_dev_pid; do
+    [ -n "$existing_dev_pid" ] || continue
+    echo "Existing Norma OS Dev PID: $existing_dev_pid" >&2
+  done <<<"$existing_dev_pids"
+  exit 75
+fi
+
 # TCC keys folder consent to the app's designated requirement. An ad-hoc
 # signature uses the binary CDHash as that requirement, so every Cargo rebuild
 # becomes a new app in TCC and repeatedly asks for Documents access. Prefer an

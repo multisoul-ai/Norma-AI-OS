@@ -30,6 +30,7 @@
 #   9. Check the LaunchServices process forwards stdout/stderr to the caller.
 #   10. Check the runner executes the binary from inside that bundle.
 #   11. Check Ctrl+C / terminal termination also stops the detached app process.
+#   12. Check a second cargo run refuses to start while the same Dev App is alive.
 #
 # Expected result:
 #   - Positive: aarch64 macOS cargo runs use the development app runner.
@@ -43,6 +44,7 @@
 #   - Positive: tracing output remains visible to terminal pipes such as `tee`.
 #   - Positive: INT and TERM terminate the specific app process launched by this runner.
 #   - Positive: the runner selects a unique-label SHA-1 identity when Apple Development labels duplicate.
+#   - Positive: a repeated cargo run reports the existing Dev App PID and exits immediately.
 #   - Negative: stale executables must not survive into a newly signed bundle.
 #   - Negative: orchestration installation must not fail because cargo run omitted the Norma CLI.
 #   - Negative: the hook installer must not fail because cargo run omitted the helper binary.
@@ -55,6 +57,7 @@
 #               after every rebuild and invalidates macOS TCC folder authorization.
 #   - Negative: the runner must not pass an ambiguous certificate display name to codesign.
 #   - Negative: an ambiguous duplicate-label identity must not be passed to codesign automatically.
+#   - Negative: cargo run must not create two Dev App processes that compete for the Norma socket.
 
 set -euo pipefail
 
@@ -162,8 +165,12 @@ fi
 tmp_dir=$(mktemp -d)
 runner_pid=
 app_pid=
+collision_runner_pid=
 cleanup_fixture() {
   if [ -n "$runner_pid" ]; then kill -TERM "$runner_pid" >/dev/null 2>&1 || true; fi
+  if [ -n "$collision_runner_pid" ]; then
+    kill -TERM "$collision_runner_pid" >/dev/null 2>&1 || true
+  fi
   if [ -n "$app_pid" ]; then kill -TERM "$app_pid" >/dev/null 2>&1 || true; fi
   rm -rf "$tmp_dir"
 }
@@ -394,5 +401,57 @@ if [ -n "$app_pid" ]; then
   cat "$tmp_dir/runner.log" >&2
   fail "TERM sent to the runner must terminate the independently launched app process"
 fi
+
+bundle_main="$tmp_dir/Norma OS Dev.app/Contents/MacOS/norma-os"
+"$bundle_main" &
+app_pid=$!
+
+PATH="$fixture_bin:$PATH" OPEN_APP_PID_FILE="$app_pid_file" \
+  FAKE_CLI_SOURCE="$fixture_cli_source" FAKE_CLI_DEST="$fixture_cli" \
+  FAKE_HOOK_SOURCE="$fixture_hook_source" FAKE_HOOK_DEST="$fixture_hook" \
+  FAKE_AUTH_HOST_SOURCE="$fixture_auth_host_source" FAKE_AUTH_HOST_DEST="$fixture_auth_host" \
+  FAKE_CARGO_ARGS_FILE="$cargo_args_file" \
+  FAKE_CODESIGN_ARGS_FILE="$codesign_args_file" \
+  "$fixture_runner" "$fixture_input" >"$tmp_dir/collision-runner.log" 2>&1 &
+collision_runner_pid=$!
+
+for _ in {1..20}; do
+  if ! kill -0 "$collision_runner_pid" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.1
+done
+
+if kill -0 "$collision_runner_pid" >/dev/null 2>&1; then
+  kill -TERM "$collision_runner_pid" >/dev/null 2>&1 || true
+  wait "$collision_runner_pid" >/dev/null 2>&1 || true
+  collision_runner_pid=
+  fail "a second cargo run must exit immediately instead of starting another Dev App"
+fi
+
+set +e
+wait "$collision_runner_pid"
+collision_status=$?
+set -e
+collision_runner_pid=
+
+if [ "$collision_status" -eq 0 ]; then
+  cat "$tmp_dir/collision-runner.log" >&2
+  fail "a second cargo run must return a non-zero status while the Dev App is alive"
+fi
+
+if ! grep -Fq 'Norma OS Dev is already running' "$tmp_dir/collision-runner.log"; then
+  cat "$tmp_dir/collision-runner.log" >&2
+  fail "a repeated cargo run must explain that the existing Dev App must be closed first"
+fi
+
+if ! kill -0 "$app_pid" >/dev/null 2>&1; then
+  cat "$tmp_dir/collision-runner.log" >&2
+  fail "refusing a repeated cargo run must not terminate the already running Dev App"
+fi
+
+kill -TERM "$app_pid"
+wait "$app_pid" >/dev/null 2>&1 || true
+app_pid=
 
 echo "macOS dev app runner contract test passed"
