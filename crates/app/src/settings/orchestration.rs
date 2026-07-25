@@ -456,7 +456,7 @@ fn warning_status_color() -> u32 {
 
 #[cfg(test)]
 fn canonical_expanded_content_height() -> f32 {
-    const CONTENT_HEADER_HEIGHT: f32 = 110.0;
+    const CONTENT_HEADER_HEIGHT: f32 = 118.0;
     const PROVIDER_COUNT: f32 = 5.0;
     const COMPONENT_COUNT: f32 = 4.0;
     CONTENT_HEADER_HEIGHT

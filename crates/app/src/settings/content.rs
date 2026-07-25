@@ -126,7 +126,7 @@ fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<Multi
     }
 
     div()
-        .min_h(px(110.0))
+        .min_h(px(118.0))
         .flex_none()
         .flex()
         .flex_row()
