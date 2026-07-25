@@ -1,6 +1,7 @@
 //! Live Node 抽象：runtime 层用 NodeId 管生命周期，保持零 gpui。
 
 use std::fmt;
+use std::sync::Arc;
 use terminal::{GridSnapshot, KeyInput, PtyError, TerminalStatus};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -45,7 +46,8 @@ pub enum NodeScroll {
 #[derive(Debug, Clone)]
 pub enum NodeView {
     Term {
-        snapshot: GridSnapshot,
+        snapshot: Arc<GridSnapshot>,
+        revision: u64,
         status: TerminalStatus,
     },
 }

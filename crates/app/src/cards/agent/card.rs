@@ -56,6 +56,8 @@ impl Card for AgentCard {
         render_terminal_node(
             view,
             TerminalNodeRenderOptions {
+                node_id: node.id,
+                terminal_render_cache: context.terminal_render_cache,
                 theme: context.theme,
                 zoom: context.zoom,
                 bottom_radius_px: context.bottom_radius_px,

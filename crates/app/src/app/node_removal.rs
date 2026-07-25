@@ -35,6 +35,7 @@ impl MultisoulApp {
             zoom,
         );
         if changed {
+            self.terminal_render_cache.borrow_mut().remove_node(node_id);
             self.previews.remove(node_id);
             if removed_node_was_browser {
                 self.release_browser_input(node_id);

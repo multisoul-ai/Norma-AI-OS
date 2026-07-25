@@ -181,6 +181,9 @@ impl MultisoulApp {
 
         let result = result.map(|execution| {
             if let CardCommandResult::Deleted { node_id } = &execution.result {
+                self.terminal_render_cache
+                    .borrow_mut()
+                    .remove_node(*node_id);
                 self.previews.remove(*node_id);
                 self.remove_browser_view(*node_id);
             }

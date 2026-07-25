@@ -98,6 +98,8 @@ impl MultisoulApp {
             video_wallpaper: None,
             last_reflow_window_size: None,
             terminal_cursor_phase: 0.0,
+            terminal_render_cache:
+                crate::cards::term::render_cache::terminal_render_cache_handle_from_env(),
             terminal_cursor_repaint: FrameThrottle::default(),
             #[cfg(feature = "e2e-test-support")]
             canvas_render_count_for_e2e: 0,

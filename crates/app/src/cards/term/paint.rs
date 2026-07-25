@@ -2,21 +2,26 @@
 
 use crate::canvas::text_selection::{SelectionSpan, TextRange};
 use crate::cards::term::selection::terminal_selection_spans;
+use canvas::NodeId;
 use gpui::{
-    canvas, point, prelude::*, px, quad, transparent_black, App, Bounds, Edges, Font, FontFeatures,
-    FontStyle, FontWeight, Hsla, IntoElement, Pixels, Point, SharedString, Size,
-    StrikethroughStyle, TextRun, UnderlineStyle, Window,
+    canvas, point, prelude::*, px, quad, transparent_black, App, Bounds, Edges, Hsla, IntoElement,
+    Pixels, Point, Size, Window,
 };
+use std::sync::Arc;
 use terminal::{Cell, GridSnapshot, TerminalColor, TerminalNamedColor};
 use ui::Theme;
 
 use self::cursor_paint::{cursor_paint_model, paint_cursor};
+use self::prepared::{prepare_terminal_frame, PreparedTerminalTextRun};
 use super::cursor::TerminalCursorAnimation;
 use super::paint_style::{
     resolve_cell_style, TerminalGlassStyle, TerminalPalette, TerminalTextStyle,
 };
+use super::render_cache::{TerminalRenderCacheHandle, TerminalRenderKey};
 
 mod cursor_paint;
+mod prepared;
+pub(crate) use prepared::PreparedTerminalFrame;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TerminalRenderMetrics {
@@ -26,7 +31,10 @@ pub struct TerminalRenderMetrics {
 }
 
 pub fn render_terminal_canvas(
-    snapshot: GridSnapshot,
+    node_id: NodeId,
+    snapshot: Arc<GridSnapshot>,
+    revision: u64,
+    cache: TerminalRenderCacheHandle,
     theme: Theme,
     metrics: TerminalRenderMetrics,
     selection: Option<TextRange>,
@@ -34,16 +42,16 @@ pub fn render_terminal_canvas(
 ) -> impl IntoElement {
     let palette = TerminalPalette::from_theme(theme);
     let glass_style = TerminalGlassStyle::from_theme(theme);
+    let key = TerminalRenderKey::new(node_id, revision, metrics, theme, selection);
     canvas(
-        move |_bounds, _window, _cx| {
-            if let Some(selection) = selection {
-                build_layout_with_selection(&snapshot, palette, metrics, glass_style, selection)
-            } else {
-                build_layout(&snapshot, palette, metrics, glass_style)
-            }
+        move |_bounds, window, _cx| {
+            let (prepared, _outcome) = cache.borrow_mut().resolve(key, || {
+                prepare_terminal_frame(&snapshot, palette, metrics, glass_style, selection, window)
+            });
+            prepared
         },
-        move |bounds, layout, window, cx| {
-            paint_layout(bounds, &layout, cursor_animation, window, cx)
+        move |bounds, prepared, window, cx| {
+            paint_prepared_frame(bounds, &prepared, cursor_animation, window, cx)
         },
     )
     .size_full()
@@ -266,13 +274,14 @@ enum TerminalPaintLayer {
     Cursor,
 }
 
-fn paint_layout(
+fn paint_prepared_frame(
     bounds: Bounds<Pixels>,
-    layout: &TerminalLayout,
+    prepared: &PreparedTerminalFrame,
     cursor_animation: TerminalCursorAnimation,
     window: &mut Window,
     cx: &mut App,
 ) {
+    let layout = &prepared.layout;
     let metrics = layout.metrics;
 
     for layer in paint_layer_order(layout) {
@@ -317,8 +326,8 @@ fn paint_layout(
                 }
             }
             TerminalPaintLayer::TextRuns => {
-                for run in &layout.text_runs {
-                    paint_text_run(bounds, run, metrics, window, cx);
+                for run in &prepared.shaped_text_runs {
+                    paint_prepared_text_run(bounds, run, metrics, window, cx);
                 }
             }
             TerminalPaintLayer::Cursor => {
@@ -385,61 +394,35 @@ fn paint_selection_span(
     ));
 }
 
-fn paint_text_run(
+fn paint_prepared_text_run(
     bounds: Bounds<Pixels>,
-    run: &TerminalTextRun,
+    run: &PreparedTerminalTextRun,
     metrics: TerminalRenderMetrics,
     window: &mut Window,
     cx: &mut App,
 ) {
-    let font = Font {
-        family: "Menlo".into(),
-        features: FontFeatures::default(),
-        fallbacks: None,
-        weight: if run.style.bold {
-            FontWeight::BOLD
-        } else {
-            FontWeight::NORMAL
-        },
-        style: if run.style.italic {
-            FontStyle::Italic
-        } else {
-            FontStyle::Normal
-        },
-    };
-    let underline = run.style.underline.then_some(UnderlineStyle {
-        thickness: px(1.0),
-        color: Some(run.style.fg),
-        wavy: false,
-    });
-    let strikethrough = run.style.strikeout.then_some(StrikethroughStyle {
-        thickness: px(1.0),
-        color: Some(run.style.fg),
-    });
-    let text_run = TextRun {
-        len: run.text.len(),
-        font,
-        color: run.style.fg,
-        background_color: None,
-        underline,
-        strikethrough,
-    };
-    let text: SharedString = run.text.clone().into();
-    let shaped = window
-        .text_system()
-        .shape_line(text, metrics.font_size, &[text_run], None);
-    let origin = text_run_origin(bounds, run, metrics);
-    let _ = shaped.paint(origin, metrics.line_height, window, cx);
+    let origin = grid_text_origin(bounds, run.row, run.start_col, metrics);
+    let _ = run.shaped.paint(origin, metrics.line_height, window, cx);
 }
 
+#[cfg(test)]
 fn text_run_origin(
     bounds: Bounds<Pixels>,
     run: &TerminalTextRun,
     metrics: TerminalRenderMetrics,
 ) -> Point<Pixels> {
+    grid_text_origin(bounds, run.row, run.start_col, metrics)
+}
+
+fn grid_text_origin(
+    bounds: Bounds<Pixels>,
+    row: usize,
+    start_col: usize,
+    metrics: TerminalRenderMetrics,
+) -> Point<Pixels> {
     point(
-        bounds.origin.x + metrics.cell_width * (run.start_col as f32),
-        bounds.origin.y + metrics.line_height * (run.row as f32) + vertical_text_offset(metrics),
+        bounds.origin.x + metrics.cell_width * (start_col as f32),
+        bounds.origin.y + metrics.line_height * (row as f32) + vertical_text_offset(metrics),
     )
 }
 

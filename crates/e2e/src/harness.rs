@@ -383,14 +383,15 @@ pub fn drain_until<R>(
 ///
 /// 经 `runtime.node_view(node_id)` 取 `NodeView::Term { snapshot, .. }`。
 /// 若节点不存在或不是 Term 视图（如已退出 / session gone），返回 `None`。
-/// 调用方通常 `.expect("...")` 带场景说明。
+/// 调用方通常 `.expect("...")` 带场景说明。生产渲染保留共享 Arc；这里只在
+/// 测试 API 的 owned-value 边界显式深拷贝，避免把复制重新带回绘制热路径。
 pub fn read_grid(
     view: &Entity<MultisoulApp>,
     cx: &mut VisualTestContext,
     node_id: NodeId,
 ) -> Option<GridSnapshot> {
     read_runtime(view, cx, |r| match r.node_view(node_id) {
-        Some(NodeView::Term { snapshot, .. }) => Some(snapshot),
+        Some(NodeView::Term { snapshot, .. }) => Some(snapshot.as_ref().clone()),
         _ => None,
     })
 }

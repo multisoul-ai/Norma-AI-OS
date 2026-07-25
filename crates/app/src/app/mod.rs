@@ -13,6 +13,7 @@ use crate::canvas::master_layout::{
 };
 use crate::canvas::spawn_focus;
 use crate::canvas::view::render_canvas;
+use crate::cards::term::render_cache::TerminalRenderCacheHandle;
 use crate::motion::MotionStore;
 use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
@@ -162,6 +163,7 @@ pub struct MultisoulApp {
     pub(crate) video_wallpaper: Option<video_wallpaper::VideoWallpaperState>,
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
     pub(crate) terminal_cursor_phase: f32,
+    pub(crate) terminal_render_cache: TerminalRenderCacheHandle,
     terminal_cursor_repaint: FrameThrottle,
     #[cfg(feature = "e2e-test-support")]
     pub(crate) canvas_render_count_for_e2e: usize,

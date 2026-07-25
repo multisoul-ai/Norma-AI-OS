@@ -277,6 +277,7 @@ pub fn render_canvas(
             &node,
             CardBodyContext {
                 runtime: &app.runtime,
+                terminal_render_cache: app.terminal_render_cache.clone(),
                 preview_state: app.previews.state_for(id),
                 text_selection: app.interaction.active_text_selection,
                 focused,

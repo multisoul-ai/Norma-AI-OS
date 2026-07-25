@@ -17,6 +17,8 @@ pub(crate) fn render_terminal_node(
     options: TerminalNodeRenderOptions,
 ) -> AnyElement {
     let TerminalNodeRenderOptions {
+        node_id,
+        terminal_render_cache,
         theme,
         zoom,
         bottom_radius_px,
@@ -31,7 +33,11 @@ pub(crate) fn render_terminal_node(
     let content_opacity = content_mode.content_opacity();
     let terminal = if content_mode.requires_live_view() {
         Some(match view {
-            Some(NodeView::Term { snapshot, status }) => {
+            Some(NodeView::Term {
+                snapshot,
+                revision,
+                status,
+            }) => {
                 let cursor_animation = TerminalCursorAnimation {
                     phase: cursor_phase,
                     focused,
@@ -43,7 +49,10 @@ pub(crate) fn render_terminal_node(
                     display_offset: snapshot.display_offset,
                 };
                 let terminal_canvas = render_terminal_canvas(
+                    node_id,
                     snapshot,
+                    revision,
+                    terminal_render_cache,
                     theme,
                     terminal_render_metrics(zoom),
                     selection,

@@ -2,7 +2,9 @@
 
 use crate::canvas::text_selection::TextRange;
 use crate::cards::term::paint::TerminalRenderMetrics;
+use crate::cards::term::render_cache::TerminalRenderCacheHandle;
 use crate::motion::InitializationPresentation;
+use canvas::NodeId;
 use gpui::{px, Keystroke};
 use terminal::{Key, KeyInput};
 use ui::Theme;
@@ -52,6 +54,8 @@ pub(crate) fn terminal_content_mode(
 }
 
 pub struct TerminalNodeRenderOptions {
+    pub node_id: NodeId,
+    pub terminal_render_cache: TerminalRenderCacheHandle,
     pub theme: Theme,
     pub zoom: f32,
     pub bottom_radius_px: f32,

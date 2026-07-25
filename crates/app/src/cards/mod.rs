@@ -10,6 +10,7 @@ pub mod term;
 
 use crate::app::browser::{BrowserAddressInput, BrowserAuthUiState};
 use crate::canvas::text_selection::TextSelection;
+use crate::cards::term::render_cache::TerminalRenderCacheHandle;
 use crate::motion::InitializationPresentation;
 use crate::preview::PreviewLoadState;
 use canvas::{CanvasNode, CanvasRect, NodeType};
@@ -37,6 +38,7 @@ pub enum CardWheelScrollMode {
 
 pub struct CardBodyContext<'a> {
     pub runtime: &'a Runtime,
+    pub terminal_render_cache: TerminalRenderCacheHandle,
     pub preview_state: Option<&'a PreviewLoadState>,
     pub text_selection: Option<TextSelection>,
     pub focused: bool,
