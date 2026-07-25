@@ -13,7 +13,7 @@ use std::fmt;
 use std::fs::{self, File};
 use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub trait AuthorizationRegistry {
     type Error: fmt::Display;
@@ -37,6 +37,11 @@ pub trait AuthorizationRegistry {
 #[derive(Debug)]
 pub enum InstallerError {
     Io(std::io::Error),
+    BinaryInstall {
+        source: PathBuf,
+        destination: PathBuf,
+        error: std::io::Error,
+    },
     Json(serde_json::Error),
     Hook(AgentHookError),
     Authorization(String),
@@ -47,6 +52,16 @@ impl fmt::Display for InstallerError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Io(error) => write!(formatter, "{error}"),
+            Self::BinaryInstall {
+                source,
+                destination,
+                error,
+            } => write!(
+                formatter,
+                "failed to install bundled binary from {} to {}: {error}",
+                source.display(),
+                destination.display()
+            ),
             Self::Json(error) => write!(formatter, "{error}"),
             Self::Hook(error) => write!(formatter, "{error}"),
             Self::Authorization(error) => write!(formatter, "{error}"),
@@ -384,11 +399,16 @@ impl OrchestrationInstaller {
     }
 
     fn install_binary(&self, bundled: &Path, installed: &Path) -> Result<(), InstallerError> {
-        let bundled_bytes = fs::read(bundled)?;
+        let binary_error = |error| InstallerError::BinaryInstall {
+            source: bundled.to_path_buf(),
+            destination: installed.to_path_buf(),
+            error,
+        };
+        let bundled_bytes = fs::read(bundled).map_err(binary_error)?;
         if fs::read(installed).is_ok_and(|bytes| bytes == bundled_bytes) {
             return Ok(());
         }
-        atomic_write(installed, &bundled_bytes, 0o755)?;
+        atomic_write(installed, &bundled_bytes, 0o755).map_err(binary_error)?;
         Ok(())
     }
 

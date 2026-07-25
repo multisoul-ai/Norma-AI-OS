@@ -11,6 +11,15 @@ pub(super) enum OrchestrationOperation {
     Uninstall,
 }
 
+impl OrchestrationOperation {
+    const fn slug(self) -> &'static str {
+        match self {
+            Self::InstallOrRepair => "install_or_repair",
+            Self::Uninstall => "uninstall",
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct OrchestrationSettingsState {
     pub(super) integrations: Vec<ProviderIntegration>,
@@ -196,15 +205,14 @@ impl MultisoulApp {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
                 match &result {
-                    Ok((_, records, _)) => {
+                    Ok((_, records, operation_error)) => {
                         app.orchestration_authorizations =
                             storage::OrchestrationAuthorizationCache::new(records.clone());
+                        log_operation_error(provider, operation, operation_error.as_deref());
                     }
-                    Err(error) => tracing::warn!(
-                        provider = provider.slug(),
-                        %error,
-                        "orchestration operation failed"
-                    ),
+                    Err(error) => {
+                        log_operation_error(provider, operation, Some(error.as_str()));
+                    }
                 }
                 app.orchestration_settings.finish_operation(
                     generation,
@@ -275,6 +283,22 @@ fn perform_operation(
     Ok((integrations, records, operation_error))
 }
 
+fn log_operation_error(
+    provider: OrchestrationProvider,
+    operation: OrchestrationOperation,
+    error: Option<&str>,
+) {
+    let Some(error) = error else {
+        return;
+    };
+    tracing::warn!(
+        provider = provider.slug(),
+        operation = operation.slug(),
+        %error,
+        "orchestration operation failed"
+    );
+}
+
 struct StorageAuthorizationRegistry {
     store: storage::OrchestrationAuthorizationStore,
 }
@@ -331,8 +355,12 @@ fn missing_integration(provider: OrchestrationProvider) -> ProviderIntegration {
 
 #[cfg(test)]
 mod tests {
-    use super::{missing_integration, OrchestrationSettingsState};
+    use super::{
+        log_operation_error, missing_integration, OrchestrationOperation,
+        OrchestrationSettingsState,
+    };
     use norma::orchestration::OrchestrationProvider;
+    use std::{fs, sync::Mutex};
 
     /// 后台扫描代际：安装/卸载开始前的旧扫描不得覆盖最新授权缓存。
     ///
@@ -369,6 +397,72 @@ mod tests {
         assert_ne!(
             stale_generation, current_generation,
             "旧扫描与当前操作必须使用不同 generation 才能隔离竞态"
+        );
+    }
+
+    /// 安装器内部失败日志：UI 已收到的 operation_error 必须同时进入 tracing。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   failure reports = 1（Codex install_or_repair + os error 2）
+    ///   success reports = 1（同 Provider、同操作，但 error=None）
+    ///   expected warning events = failure(1) + success(0) = 1
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 安装局部无 ANSI tracing subscriber，并把输出写入临时日志文件。
+    ///   2. 上报一次 Codex install_or_repair 失败 → 应写 warning。
+    ///   3. 上报一次无错误结果 → 不应伪造第二条失败 warning。
+    ///   4. 读取日志并检查 Provider、操作和原始系统错误。
+    ///
+    /// 预期结果：
+    ///   - 正断言：日志包含唯一一条 orchestration operation failed。
+    ///   - 正断言：日志包含 provider=codex 与 operation=install_or_repair。
+    ///   - 正断言：日志保留 No such file or directory (os error 2)。
+    ///   - 负断言：成功结果不得产生第二条失败日志。
+    #[test]
+    fn installer_operation_error_is_written_to_tracing_log() {
+        let temp = tempfile::tempdir().expect("测试应创建隔离日志目录");
+        let log_path = temp.path().join("orchestration.log");
+        let log_file = fs::File::create(&log_path).expect("测试应创建日志文件");
+        let subscriber = tracing_subscriber::fmt()
+            .with_ansi(false)
+            .without_time()
+            .with_writer(Mutex::new(log_file))
+            .finish();
+
+        tracing::subscriber::with_default(subscriber, || {
+            log_operation_error(
+                OrchestrationProvider::Codex,
+                OrchestrationOperation::InstallOrRepair,
+                Some("No such file or directory (os error 2)"),
+            );
+            log_operation_error(
+                OrchestrationProvider::Codex,
+                OrchestrationOperation::InstallOrRepair,
+                None,
+            );
+        });
+
+        let contents = fs::read_to_string(log_path).expect("测试应读取 tracing 日志");
+        assert!(
+            contents.contains("orchestration operation failed"),
+            "安装器返回 operation_error 时必须写入可检索的失败事件"
+        );
+        assert!(
+            contents.contains("provider=\"codex\""),
+            "失败日志必须包含 provider=codex 以定位受影响集成"
+        );
+        assert!(
+            contents.contains("operation=\"install_or_repair\""),
+            "失败日志必须区分 install_or_repair 与 uninstall"
+        );
+        assert!(
+            contents.contains("No such file or directory (os error 2)"),
+            "失败日志必须保留 UI 已收到的底层系统错误"
+        );
+        assert_eq!(
+            contents.matches("orchestration operation failed").count(),
+            1,
+            "failure(1) + success(0) 应只产生一条失败日志，成功结果不得误报"
         );
     }
 }
