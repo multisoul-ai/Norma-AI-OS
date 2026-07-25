@@ -3,6 +3,7 @@ use norma::client::{decode_request_line, encode_response_line};
 use norma::protocol::{CardCommandError, WireRequest, WireResponse};
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
+use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::thread;
@@ -15,7 +16,54 @@ pub(crate) struct NormaServerRequest {
     pub(crate) response: Sender<WireResponse>,
 }
 
-pub(crate) fn bind_socket(path: PathBuf, sender: Sender<NormaServerRequest>) -> Option<PathBuf> {
+pub(crate) struct SocketBinding {
+    path: PathBuf,
+    device: u64,
+    inode: u64,
+}
+
+impl SocketBinding {
+    fn capture(path: PathBuf) -> std::io::Result<Self> {
+        let metadata = fs::symlink_metadata(&path)?;
+        Ok(Self {
+            path,
+            device: metadata.dev(),
+            inode: metadata.ino(),
+        })
+    }
+
+    fn still_owns_path(&self) -> bool {
+        fs::symlink_metadata(&self.path).is_ok_and(|metadata| {
+            metadata.file_type().is_socket()
+                && metadata.dev() == self.device
+                && metadata.ino() == self.inode
+        })
+    }
+}
+
+impl Drop for SocketBinding {
+    fn drop(&mut self) {
+        if !self.still_owns_path() {
+            tracing::debug!(
+                path = %self.path.display(),
+                "Norma socket binding was replaced; skipped stale cleanup"
+            );
+            return;
+        }
+        if let Err(error) = fs::remove_file(&self.path) {
+            tracing::warn!(
+                path = %self.path.display(),
+                %error,
+                "failed to remove owned Norma socket"
+            );
+        }
+    }
+}
+
+pub(crate) fn bind_socket(
+    path: PathBuf,
+    sender: Sender<NormaServerRequest>,
+) -> Option<SocketBinding> {
     let _ = fs::remove_file(&path);
     let listener = match UnixListener::bind(&path) {
         Ok(listener) => listener,
@@ -25,6 +73,18 @@ pub(crate) fn bind_socket(path: PathBuf, sender: Sender<NormaServerRequest>) -> 
                 %error,
                 "failed to bind Norma socket"
             );
+            return None;
+        }
+    };
+    let binding = match SocketBinding::capture(path.clone()) {
+        Ok(binding) => binding,
+        Err(error) => {
+            tracing::warn!(
+                path = %path.display(),
+                %error,
+                "failed to identify owned Norma socket"
+            );
+            let _ = fs::remove_file(&path);
             return None;
         }
     };
@@ -42,7 +102,7 @@ pub(crate) fn bind_socket(path: PathBuf, sender: Sender<NormaServerRequest>) -> 
         })
         .ok()?;
 
-    Some(path)
+    Some(binding)
 }
 
 fn accept_loop(listener: UnixListener, sender: Sender<NormaServerRequest>) {

@@ -1,25 +1,23 @@
 use crate::app::MultisoulApp;
-use crate::norma::transport::{bind_socket, NormaServerRequest};
+use crate::norma::transport::{bind_socket, NormaServerRequest, SocketBinding};
 use crossbeam_channel::{unbounded, Receiver};
 use gpui::{Context, Window};
 use norma::client::default_socket_path;
-use std::fs;
-use std::path::PathBuf;
 use std::time::Duration;
 
 pub(crate) struct NormaServer {
     pub(super) receiver: Receiver<NormaServerRequest>,
-    socket_path: Option<PathBuf>,
+    _socket_binding: Option<SocketBinding>,
 }
 
 impl NormaServer {
     pub(crate) fn start() -> Self {
         let (sender, receiver) = unbounded();
         let socket_path = default_socket_path();
-        let bound_path = bind_socket(socket_path, sender);
+        let socket_binding = bind_socket(socket_path, sender);
         Self {
             receiver,
-            socket_path: bound_path,
+            _socket_binding: socket_binding,
         }
     }
 
@@ -28,11 +26,63 @@ impl NormaServer {
     }
 }
 
-impl Drop for NormaServer {
-    fn drop(&mut self) {
-        if let Some(path) = &self.socket_path {
-            let _ = fs::remove_file(path);
+#[cfg(test)]
+mod tests {
+    use super::NormaServer;
+    use crate::norma::transport::bind_socket;
+    use crossbeam_channel::unbounded;
+    use std::os::unix::net::UnixStream;
+    use std::path::PathBuf;
+
+    fn start_server_at(socket_path: PathBuf) -> NormaServer {
+        let (sender, receiver) = unbounded();
+        let socket_binding = bind_socket(socket_path, sender);
+        NormaServer {
+            receiver,
+            _socket_binding: socket_binding,
         }
+    }
+
+    /// Socket 服务交接：旧窗口释放时不得删除新窗口已经重绑的服务端点
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   server count = launchpad(1) + workspace(1) = 2
+    ///   shared socket paths = 1（两个窗口沿用同一个 Norma CLI 端点）
+    ///   expected live endpoints after handoff = workspace(1)
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. Launchpad 服务绑定共享 socket → 路径可连接。
+    ///   2. Workspace 服务删除旧路径并重绑 → 新监听器接管同一路径。
+    ///   3. 释放 Launchpad 服务 → 旧所有者只能清理自己的绑定，不能删除新路径。
+    ///   4. 释放 Workspace 服务 → 当前所有者清理自己仍持有的路径。
+    ///
+    /// 预期结果：
+    ///   - 正断言：旧服务释放后，共享路径仍存在且可连接到 Workspace 服务。
+    ///   - 负断言：Workspace 服务释放后，共享路径不再残留。
+    #[test]
+    fn dropping_replaced_server_preserves_replacement_socket() {
+        let temp = tempfile::tempdir().expect("Socket 交接测试应创建隔离的临时目录");
+        let socket_path = temp.path().join("norma.sock");
+        let launchpad_server = start_server_at(socket_path.clone());
+        let workspace_server = start_server_at(socket_path.clone());
+
+        drop(launchpad_server);
+
+        assert!(
+            socket_path.exists(),
+            "Launchpad 服务释放后不得删除 Workspace 已重绑的 socket 路径"
+        );
+        assert!(
+            UnixStream::connect(&socket_path).is_ok(),
+            "Launchpad 服务释放后，Norma CLI 应仍能连接 Workspace 服务"
+        );
+
+        drop(workspace_server);
+
+        assert!(
+            !socket_path.exists(),
+            "Workspace 当前所有者释放后不应残留 Norma socket 路径"
+        );
     }
 }
 
