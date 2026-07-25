@@ -11,6 +11,7 @@ mod commands;
 mod context_commands;
 mod conversation_tails;
 mod coordination;
+mod create_agent_command;
 mod diagnostics;
 pub(super) mod pending;
 mod reply_adapter;

@@ -101,7 +101,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 selected: false,
                 focused: true,
             }],
-        conversation_tails: Vec::new(),
+            conversation_tails: Vec::new(),
         },
         vec![AgentRosterEntry {
             definition_id: 1,

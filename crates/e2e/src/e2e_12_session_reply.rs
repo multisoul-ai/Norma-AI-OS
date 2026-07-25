@@ -2,14 +2,10 @@
 
 use agent::{AdapterCommand, AdapterResult};
 use gpui::TestAppContext;
-use norma::protocol::{
-    AgentProfile as WireAgentProfile, CardCommand, CardCommandResult,
-};
+use norma::protocol::{AgentProfile as WireAgentProfile, CardCommand, CardCommandResult};
 use std::time::Duration;
 
-use crate::harness::{
-    drain_until, enter_canvas, make_app, read_runtime, scripted_factory,
-};
+use crate::harness::{drain_until, enter_canvas, make_app, read_runtime, scripted_factory};
 
 /// E2E-SESSION-REPLY-01：注入 Alan 完整 A/B 回复后，Norma reply_agent 写入同一 session 并提交 Enter，
 /// 且不新增 Agent task。

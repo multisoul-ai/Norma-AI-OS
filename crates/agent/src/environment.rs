@@ -104,8 +104,8 @@ fn render_agent(agent: &AgentRosterEntry) -> String {
         "当前空闲"
     };
     let card = match agent.active_node_id {
-        Some(node_id) => format!("AgentCard 为 #{node_id}"),
-        None => "尚未打开 AgentCard".to_string(),
+        Some(node_id) => format!("已有 AgentCard #{node_id}，可直接对话"),
+        None => "画布上还没有 AgentCard（派发任务时系统会自动打开唯一一张）".to_string(),
     };
     format!("- {identity}：{enabled}，{activity}，{card}。")
 }

@@ -1,6 +1,4 @@
-use agent::{
-    parse_direct_address, AgentRosterEntry, AgentTrackingMode, DirectAddressIntent,
-};
+use agent::{parse_direct_address, AgentRosterEntry, AgentTrackingMode, DirectAddressIntent};
 use norma::protocol::AgentProfile;
 
 fn alan(active: bool) -> AgentRosterEntry {
@@ -65,12 +63,20 @@ fn explicit_new_task_phrase_overrides_default_reply_semantics() {
 fn inactive_agent_context_dependent_request_is_rejected_with_zero_side_effects() {
     let continue_intent = parse_direct_address("Alan，继续刚才那个", &[alan(false)]);
     let scheme_intent = parse_direct_address("Alan，按 A 方案执行", &[alan(false)]);
+    match &continue_intent {
+        DirectAddressIntent::RejectContextDependent { reason, .. } => {
+            assert!(
+                reason.contains("还没有可续接的卡片") || reason.contains("卡片或会话"),
+                "拒绝话术应指向无卡/无会话，不得引导新建，实际：{reason}"
+            );
+        }
+        other => panic!("继续刚才那个应拒绝，实际：{other:?}"),
+    }
     assert!(
-        matches!(continue_intent, DirectAddressIntent::RejectContextDependent { .. }),
-        "继续刚才那个应拒绝，实际：{continue_intent:?}"
-    );
-    assert!(
-        matches!(scheme_intent, DirectAddressIntent::RejectContextDependent { .. }),
+        matches!(
+            scheme_intent,
+            DirectAddressIntent::RejectContextDependent { .. }
+        ),
         "按 A 方案执行在不活跃时应拒绝，实际：{scheme_intent:?}"
     );
 }
@@ -89,8 +95,7 @@ fn ordinary_mention_of_agent_name_is_not_a_reply_or_task() {
 /// 多 Agent 句首点名应按表达顺序形成回复目标集合。
 #[test]
 fn multi_agent_leading_address_preserves_order() {
-    let intent =
-        parse_direct_address("Alan 和 Bella，都按 A 方案执行", &[alan(true), bella(true)]);
+    let intent = parse_direct_address("Alan 和 Bella，都按 A 方案执行", &[alan(true), bella(true)]);
     match intent {
         DirectAddressIntent::SessionReply { agents, message } => {
             assert_eq!(agents.len(), 2, "应匹配两个 Agent");

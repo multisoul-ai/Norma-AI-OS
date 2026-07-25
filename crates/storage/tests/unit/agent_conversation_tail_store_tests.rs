@@ -50,10 +50,7 @@ fn project_migration_creates_agent_conversation_tails_table() {
         columns.iter().any(|name| name == "availability"),
         "表应包含 availability"
     );
-    assert!(
-        !columns.is_empty(),
-        "migration 后表结构不得为空"
-    );
+    assert!(!columns.is_empty(), "migration 后表结构不得为空");
 }
 
 /// 同 (definition_id, session_id) upsert 覆盖旧尾部；不同项目库互相隔离。
@@ -100,8 +97,7 @@ fn upsert_tail_overwrites_same_definition_session_and_isolates_projects() {
         "同 session 应覆盖旧完整回复"
     );
     assert_ne!(
-        loaded_a.last_agent_message,
-        loaded_b.last_agent_message,
+        loaded_a.last_agent_message, loaded_b.last_agent_message,
         "不同项目库必须隔离"
     );
     assert_eq!(loaded_b.node_id, 99, "项目 B 应保留自己的 node_id");
@@ -140,7 +136,10 @@ fn delete_tail_on_session_end_or_card_removal() {
         "按 node 删除应清掉 1 条"
     );
     assert!(
-        tails.get(1, "sess-node").expect("get after node delete").is_none(),
+        tails
+            .get(1, "sess-node")
+            .expect("get after node delete")
+            .is_none(),
         "node 删除后不得残留"
     );
 }

@@ -306,7 +306,7 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
         ),
         definition(
             "create_agent",
-            "创建并立即打开一个内置类型的 AgentCard；仅在用户明确要求创建时使用。",
+            "仅在用户明确要求新建某个内置类型的 Agent 时使用。若用户点名的 Agent 画布上已有卡片，不要调用本工具，应 reply_agent 直接对话。",
             object_schema(
                 json!({
                     "profile": {"type": "string", "enum": ["codex", "claude", "opencode", "cursor", "grok"]}
@@ -316,7 +316,7 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
         ),
         definition(
             "assign_agent_task",
-            "立即把一个任务派发给一个 AgentCard；目标明确时直接执行，无需确认。",
+            "把任务派发给已启用的 Agent；画布上没有卡片时系统会自动打开唯一一张。目标明确时直接执行，无需确认；已有卡片且用户只是对话时用 reply_agent。",
             object_schema(
                 json!({
                     "agent": {"type": "string", "minLength": 1},
@@ -335,7 +335,7 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
         ),
         definition(
             "reply_agent",
-            "向一个已有活跃会话的 AgentCard 发送会话回复；不创建新任务。",
+            "向画布上已有卡片的 Agent 发送会话消息；有卡即可对话，不要求先激活或新建，也不创建新任务。",
             object_schema(
                 json!({
                     "agent": {"type": "string", "minLength": 1},

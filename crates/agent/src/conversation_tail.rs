@@ -147,9 +147,14 @@ pub fn render_conversation_tails(
         );
         lines.push(format!("- {identity}"));
 
-        let user = bounded_optional_message(tail.last_user_message.as_deref(), tail.user_message_truncated);
-        let agent =
-            bounded_optional_message(tail.last_agent_message.as_deref(), tail.agent_message_truncated);
+        let user = bounded_optional_message(
+            tail.last_user_message.as_deref(),
+            tail.user_message_truncated,
+        );
+        let agent = bounded_optional_message(
+            tail.last_agent_message.as_deref(),
+            tail.agent_message_truncated,
+        );
         let pair_cost = user.chars().count() + agent.chars().count();
         if body_chars + pair_cost > MAX_TAIL_BODY_CHARS_TOTAL {
             omitted_message_bodies += 1;

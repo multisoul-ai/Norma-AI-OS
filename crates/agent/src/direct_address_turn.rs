@@ -22,7 +22,7 @@ pub(crate) async fn maybe_handle_direct_address(
                 .collect::<Vec<_>>()
                 .join("、");
             Ok(Some(format!(
-                "{names} 当前没有可续接的会话，{reason}，所以我没有发送。"
+                "{names} 画布上还没有可续接的卡片，{reason}，所以我没有发送，也没有新建卡片。"
             )))
         }
         DirectAddressIntent::SessionReply { agents, message } => {

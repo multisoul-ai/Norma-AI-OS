@@ -1,9 +1,9 @@
+use crate::master_history::{history_char_budget, is_human_user_message, protocol_history_chars};
 use crate::rig_tools::{
     AssignAgentTaskTool, CancelAgentReplyTool, CancelAgentTaskTool, CreateAgentTool,
     CreateBrowserTool, CreatePreviewTool, CreateTerminalTool, DeleteCanvasCardTool,
     FindAgentTasksTool, FocusCardTool, ReplyAgentTool, RigToolContext, SendTerminalInputTool,
 };
-use crate::master_history::{history_char_budget, is_human_user_message, protocol_history_chars};
 use crate::{
     norma_system_prompt, AgentCardAdapter, AgentRosterEntry, CurrentCanvasContext,
     NormaToolRuntime, ProviderConfig, ProviderProtocol, ToolContext,

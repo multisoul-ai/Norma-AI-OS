@@ -1,4 +1,4 @@
-use crate::{AgentConversationTailStore, StoredAgentConversationTail, StorageResult};
+use crate::{AgentConversationTailStore, StorageResult, StoredAgentConversationTail};
 use std::io;
 use std::sync::mpsc::{self, Sender, SyncSender};
 

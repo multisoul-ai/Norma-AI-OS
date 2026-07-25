@@ -3,18 +3,13 @@
 use agent::{AdapterCommand, AdapterResult};
 use canvas::AgentProfile;
 use gpui::TestAppContext;
-use norma::protocol::{
-    AgentProfile as WireAgentProfile, CardCommand, CardCommandResult,
-};
+use norma::protocol::{AgentProfile as WireAgentProfile, CardCommand, CardCommandResult};
 use runtime::{AgentTaskState, AgentTaskUpdate};
 use std::time::Duration;
 
 use crate::harness::{drain_until, enter_canvas, make_app, scripted_factory};
 
-fn activate_alan(
-    app: &gpui::Entity<app::MultisoulApp>,
-    cx: &mut gpui::VisualTestContext,
-) -> u64 {
+fn activate_alan(app: &gpui::Entity<app::MultisoulApp>, cx: &mut gpui::VisualTestContext) -> u64 {
     let created = cx.update(|window, cx| {
         app.update(cx, |app, _cx| {
             app.execute_agent_card_command_for_e2e(

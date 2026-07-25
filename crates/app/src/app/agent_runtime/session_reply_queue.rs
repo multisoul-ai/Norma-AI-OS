@@ -118,11 +118,13 @@ impl MultisoulApp {
                 }
             }
         } else {
-            self.session_reply_queue.entries.push_back(QueuedSessionReply {
-                receipt: receipt.clone(),
-                stage: ReplyStage::WaitingForInputReady,
-                ready_after: Instant::now(),
-            });
+            self.session_reply_queue
+                .entries
+                .push_back(QueuedSessionReply {
+                    receipt: receipt.clone(),
+                    stage: ReplyStage::WaitingForInputReady,
+                    ready_after: Instant::now(),
+                });
             Ok(receipt)
         }
     }
@@ -141,7 +143,9 @@ impl MultisoulApp {
             match entry.stage {
                 ReplyStage::WaitingForInputReady => {
                     if !session_reply_input_ready(
-                        self.runtime.agent_task_state(entry.receipt.node_id).as_ref(),
+                        self.runtime
+                            .agent_task_state(entry.receipt.node_id)
+                            .as_ref(),
                     ) {
                         index += 1;
                         continue;
@@ -176,7 +180,8 @@ impl MultisoulApp {
                             self.session_reply_queue.entries.remove(index);
                         }
                         Err(_) => {
-                            let _ = clear_agent_task_input(&mut self.runtime, entry.receipt.node_id);
+                            let _ =
+                                clear_agent_task_input(&mut self.runtime, entry.receipt.node_id);
                             self.fail_reply_at(index);
                         }
                     }
@@ -192,12 +197,6 @@ impl MultisoulApp {
     }
 
     fn session_still_matches(&self, receipt: &AgentReplyReceipt) -> bool {
-        let Some(current) = self.runtime.agent_session_id(receipt.node_id) else {
-            return false;
-        };
-        if current != receipt.session_id {
-            return false;
-        }
         let Some(node) = self
             .runtime
             .document
@@ -210,12 +209,23 @@ impl MultisoulApp {
         let CanvasNodeKind::Agent(spec) = &node.kind else {
             return false;
         };
-        spec.definition_id == Some(receipt.definition_id)
-            && self
+        if spec.definition_id != Some(receipt.definition_id)
+            || !self
                 .agent_definitions
                 .definitions()
                 .iter()
                 .any(|definition| definition.id == receipt.definition_id && definition.enabled)
+        {
+            return false;
+        }
+        // Empty receipt session = card-bound converse before Hook SessionStart.
+        if receipt.session_id.is_empty() {
+            return true;
+        }
+        match self.runtime.agent_session_id(receipt.node_id) {
+            None => true,
+            Some(current) => current == receipt.session_id,
+        }
     }
 }
 
@@ -295,10 +305,7 @@ mod tests {
     /// Thinking/RunningTool/WaitingApproval/Ended 不可立即输入。
     #[test]
     fn input_ready_excludes_busy_and_ended_states() {
-        assert!(
-            session_reply_input_ready(None),
-            "无状态应视为可输入"
-        );
+        assert!(session_reply_input_ready(None), "无状态应视为可输入");
         assert!(
             session_reply_input_ready(Some(&AgentTaskState::Ready)),
             "Ready 应可输入"

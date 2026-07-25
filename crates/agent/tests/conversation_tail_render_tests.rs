@@ -5,7 +5,13 @@ use agent::{
 };
 use norma::protocol::AgentProfile;
 
-fn sample_tail(name: &str, node_id: u64, user: &str, agent: &str, updated_at_unix: i64) -> AgentConversationTail {
+fn sample_tail(
+    name: &str,
+    node_id: u64,
+    user: &str,
+    agent: &str,
+    updated_at_unix: i64,
+) -> AgentConversationTail {
     AgentConversationTail {
         definition_id: node_id as i64,
         node_id,
@@ -39,7 +45,9 @@ fn single_message_over_budget_is_truncated_with_marker() {
         rendered.text
     );
     assert!(
-        !rendered.text.contains(&"a".repeat(MAX_TAIL_MESSAGE_CHARS + 1)),
+        !rendered
+            .text
+            .contains(&"a".repeat(MAX_TAIL_MESSAGE_CHARS + 1)),
         "截断后不得保留完整 1201 字符原文"
     );
     assert_eq!(
@@ -105,14 +113,8 @@ fn named_agent_hint_ranks_addressed_agent_first() {
             selected_node_ids: Vec::new(),
         },
     );
-    let bella_pos = rendered
-        .text
-        .find("agent=\"Bella\"")
-        .expect("应包含 Bella");
-    let alan_pos = rendered
-        .text
-        .find("agent=\"Alan\"")
-        .expect("应包含 Alan");
+    let bella_pos = rendered.text.find("agent=\"Bella\"").expect("应包含 Bella");
+    let alan_pos = rendered.text.find("agent=\"Alan\"").expect("应包含 Alan");
     assert!(
         bella_pos < alan_pos,
         "点名 Bella 应排在 Alan 前，Bella@{bella_pos} Alan@{alan_pos}"

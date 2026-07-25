@@ -1,5 +1,5 @@
-use agent::{AdapterCommand, AdapterError, AdapterResult};
 use crate::app::MultisoulApp;
+use agent::{AdapterCommand, AdapterError, AdapterResult};
 
 pub(super) fn execute_reply_adapter_command(
     app: &mut MultisoulApp,
@@ -41,11 +41,14 @@ fn reply_agent(
             };
             (spec.definition_id == Some(definition_id)).then_some(node.id)
         })
-        .ok_or_else(|| AdapterError::Rejected(format!("{name} 当前没有可续接的活跃会话")))?;
-    let session_id = app
-        .runtime
-        .agent_session_id(node_id)
-        .ok_or_else(|| AdapterError::Rejected(format!("{name} 当前没有可续接的活跃会话")))?;
+        .ok_or_else(|| {
+            AdapterError::Rejected(format!(
+                "{name} 画布上还没有卡片；若定义已启用，请用 assign_agent_task 自动打开唯一卡片后再对话"
+            ))
+        })?;
+    // Card presence is enough to converse. Session id may arrive later via Hook;
+    // an empty id means "bound to this card, not a specific provider session yet".
+    let session_id = app.runtime.agent_session_id(node_id).unwrap_or_default();
     let receipt = app
         .enqueue_or_send_session_reply(definition_id, name.clone(), node_id, session_id, message)
         .map_err(AdapterError::Failed)?;
@@ -56,7 +59,7 @@ fn reply_agent(
             format!("{name} 还在处理当前内容，我已经把这句话排为下一条。")
         }
         agent::AgentReplyStatus::Failed => {
-            format!("{name} 当前没有可续接的会话，所以没有发送。")
+            format!("没能发给 {name}。")
         }
         agent::AgentReplyStatus::Cancelled => format!("还没发出的 {name} 回复已经撤回。"),
         agent::AgentReplyStatus::Interrupted => format!("{name} 的未发送回复已中断。"),
@@ -90,26 +93,21 @@ fn cancel_agent_reply(
                 "回复 #{reply_id} 已提交，无法撤回"
             )));
         };
-        return Ok(AdapterResult::succeeded(format!(
-            "还没发出的 {} 回复已经撤回。",
-            receipt.name
-        ))
-        .with_reply_id(receipt.reply_id)
-        .with_reply_status(agent::AgentReplyStatus::Cancelled.as_str()));
+        return Ok(
+            AdapterResult::succeeded(format!("还没发出的 {} 回复已经撤回。", receipt.name))
+                .with_reply_id(receipt.reply_id)
+                .with_reply_status(agent::AgentReplyStatus::Cancelled.as_str()),
+        );
     }
     let agent = agent.ok_or_else(|| {
-        AdapterError::InvalidArguments(
-            "cancel_agent_reply requires reply_id or agent".to_string(),
-        )
+        AdapterError::InvalidArguments("cancel_agent_reply requires reply_id or agent".to_string())
     })?;
     let cancelled = app.session_reply_queue.cancel_agent(&agent);
     if cancelled.is_empty() {
-        return Err(AdapterError::Rejected(format!(
-            "没有可撤回的 {agent} 回复"
-        )));
+        return Err(AdapterError::Rejected(format!("没有可撤回的 {agent} 回复")));
     }
-    Ok(AdapterResult::succeeded(format!(
-        "还没发出的 {agent} 回复已经撤回。"
-    ))
-    .with_reply_status(agent::AgentReplyStatus::Cancelled.as_str()))
+    Ok(
+        AdapterResult::succeeded(format!("还没发出的 {agent} 回复已经撤回。"))
+            .with_reply_status(agent::AgentReplyStatus::Cancelled.as_str()),
+    )
 }

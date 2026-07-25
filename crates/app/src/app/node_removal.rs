@@ -68,5 +68,4 @@ impl MultisoulApp {
         }
         changed
     }
-
 }

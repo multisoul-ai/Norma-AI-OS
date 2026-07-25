@@ -82,7 +82,7 @@ pub fn parse_direct_address(input: &str, roster: &[AgentRosterEntry]) -> DirectA
         return DirectAddressIntent::RejectContextDependent {
             agents,
             message: message.to_string(),
-            reason: "目标 Agent 没有可续接的活跃会话",
+            reason: "还没有可续接的卡片或会话",
         };
     }
 
@@ -262,9 +262,10 @@ fn has_explicit_new_task_phrase(message: &str) -> bool {
         "another task",
     ];
     let lower = message.to_lowercase();
-    PHRASES.iter().any(|phrase| {
-        message.contains(phrase) || lower.contains(&phrase.to_lowercase())
-    }) || message.starts_with("给") && message.contains("一个新任务")
+    PHRASES
+        .iter()
+        .any(|phrase| message.contains(phrase) || lower.contains(&phrase.to_lowercase()))
+        || message.starts_with("给") && message.contains("一个新任务")
 }
 
 fn strip_new_task_prefix(message: &str) -> String {
@@ -346,7 +347,9 @@ fn is_status_question(message: &str) -> bool {
         "what did",
         "waiting for",
     ];
-    MARKERS.iter().any(|marker| message.contains(marker) || lower.contains(marker))
+    MARKERS
+        .iter()
+        .any(|marker| message.contains(marker) || lower.contains(marker))
 }
 
 fn looks_like_ordinary_mention(message: &str) -> bool {

@@ -81,21 +81,9 @@ fn execute_high_level_agent_command(
             name,
             profile,
             activate,
-        } => {
-            let definition = app
-                .agent_definitions
-                .create_definition(name, canvas_agent_profile(profile))?;
-            let node_id = if activate {
-                Some(activate_definition(app, &definition, area, zoom)?.0)
-            } else {
-                None
-            };
-            Ok(CardCommandResult::AgentCreated {
-                definition_id: definition.id,
-                name: definition.name,
-                node_id,
-            })
-        }
+        } => super::create_agent_command::create_or_reuse_agent(
+            app, name, profile, activate, area, zoom,
+        ),
         CardCommand::ActivateAgent { name } => {
             let definition = app
                 .agent_definitions
@@ -105,7 +93,8 @@ fn execute_high_level_agent_command(
             if !definition.enabled {
                 return Err(format!("Agent {} is disabled", definition.name));
             }
-            let (node_id, reused) = activate_definition(app, &definition, area, zoom)?;
+            let (node_id, reused) =
+                super::create_agent_command::activate_definition(app, &definition, area, zoom)?;
             Ok(CardCommandResult::AgentActivated {
                 definition_id: definition.id,
                 name: definition.name,
@@ -167,7 +156,8 @@ fn execute_high_level_agent_command(
                 }
             }
             for definition in &definitions {
-                let _ = activate_definition(app, definition, area, zoom)?;
+                let _ =
+                    super::create_agent_command::activate_definition(app, definition, area, zoom)?;
             }
             let roster = app.agent_roster_for_provider();
             match app.agent_task_coordinator.as_mut() {
@@ -421,57 +411,4 @@ pub(super) fn clear_agent_task_input(
             }),
         )
         .map_err(|error| error.to_string())
-}
-
-fn activate_definition(
-    app: &mut MultisoulApp,
-    definition: &storage::AgentDefinition,
-    area: canvas::CanvasRect,
-    zoom: f32,
-) -> Result<(u64, bool), String> {
-    if let Some(node_id) = app.runtime.document.nodes().iter().find_map(|node| {
-        let canvas::CanvasNodeKind::Agent(spec) = &node.kind else {
-            return None;
-        };
-        (spec.definition_id == Some(definition.id)).then_some(node.id)
-    }) {
-        return Ok((node_id, true));
-    }
-    let bounds = area.inset(app.layout_gap_canvas());
-    let (cols, rows) = crate::canvas::master_layout::term_grid_size_for_card(
-        canvas::NodeType::Agent,
-        bounds,
-        zoom,
-    );
-    let node_id = app
-        .runtime
-        .spawn_agent_for_definition(
-            definition.runtime_profile,
-            definition.id,
-            definition.name.clone(),
-            bounds,
-            cols,
-            rows,
-        )
-        .map_err(|error| error.to_string())?;
-    crate::canvas::spawn_focus::activate_spawned_node(&mut app.runtime, node_id);
-    app.motion.spawn_node(node_id, bounds);
-    app.motion.start_initialization(
-        node_id,
-        crate::motion::InitializationAnimationKind::for_agent_profile(definition.runtime_profile),
-    );
-    app.pending_agent_submissions.mark_starting(node_id);
-    app.mark_canvas_dirty();
-    app.mark_session_dirty();
-    Ok((node_id, false))
-}
-
-fn canvas_agent_profile(profile: norma::protocol::AgentProfile) -> canvas::AgentProfile {
-    match profile {
-        norma::protocol::AgentProfile::Claude => canvas::AgentProfile::Claude,
-        norma::protocol::AgentProfile::Codex => canvas::AgentProfile::Codex,
-        norma::protocol::AgentProfile::Cursor => canvas::AgentProfile::Cursor,
-        norma::protocol::AgentProfile::Grok => canvas::AgentProfile::Grok,
-        norma::protocol::AgentProfile::OpenCode => canvas::AgentProfile::OpenCode,
-    }
 }

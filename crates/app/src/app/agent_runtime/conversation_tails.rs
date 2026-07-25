@@ -1,6 +1,4 @@
-use agent::{
-    AgentConversationAvailability, AgentConversationTail, AgentConversationTaskState,
-};
+use agent::{AgentConversationAvailability, AgentConversationTail, AgentConversationTaskState};
 use canvas::CanvasNodeKind;
 use norma::agent_hook::{
     observe_conversation, ConversationObservation, ConversationObservationKind,
@@ -126,7 +124,10 @@ impl MultisoulApp {
             project_store.agent_conversation_tail_store(),
         ));
         if let Ok(stored) = project_store.agent_conversation_tail_store().list() {
-            let tails = stored.into_iter().filter_map(from_stored).collect::<Vec<_>>();
+            let tails = stored
+                .into_iter()
+                .filter_map(from_stored)
+                .collect::<Vec<_>>();
             self.conversation_tail_memory.load_stored(tails);
         }
     }
@@ -178,7 +179,12 @@ impl MultisoulApp {
     }
 
     fn definition_for_node(&self, node_id: u64) -> Option<(i64, String)> {
-        let node = self.runtime.document.nodes().iter().find(|node| node.id == node_id)?;
+        let node = self
+            .runtime
+            .document
+            .nodes()
+            .iter()
+            .find(|node| node.id == node_id)?;
         let CanvasNodeKind::Agent(spec) = &node.kind else {
             return None;
         };

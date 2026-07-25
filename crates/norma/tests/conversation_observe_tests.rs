@@ -50,10 +50,7 @@ fn claude_stop_event_extracts_complete_agent_reply_not_tool_output() {
         Some("ran tests"),
         "不得把 tool_output 当作完整 Agent 回复"
     );
-    assert!(
-        !observation.truncated,
-        "短回复不应标记截断"
-    );
+    assert!(!observation.truncated, "短回复不应标记截断");
 }
 
 /// UserPromptSubmit 应保留完整用户消息，并在超过 1,200 Unicode 字符时截断。
@@ -107,10 +104,7 @@ fn user_prompt_submit_captures_full_user_message_within_1200_chars() {
         Some(MAX_CONVERSATION_MESSAGE_CHARS),
         "长用户消息应截断到 1200 字符"
     );
-    assert!(
-        long_obs.truncated,
-        "超预算用户消息应标记 truncated=true"
-    );
+    assert!(long_obs.truncated, "超预算用户消息应标记 truncated=true");
     assert_ne!(
         long_obs.text.as_ref().map(|text| text.chars().count()),
         Some(MAX_CONVERSATION_MESSAGE_CHARS + 40),
@@ -142,10 +136,7 @@ fn duplicate_stop_events_are_idempotent_for_conversation_observation() {
     let second = observe_conversation(&event).expect("第二次观察应仍可生成同指纹事件");
 
     let mut state = ConversationObservationState::default();
-    assert!(
-        state.apply(first),
-        "首次完整回复观察应被接受"
-    );
+    assert!(state.apply(first), "首次完整回复观察应被接受");
     assert!(
         !state.apply(second),
         "相同 fingerprint 的重复完成事件必须幂等忽略"
@@ -227,10 +218,7 @@ fn assert_provider_stop_contract(source: HookSource, node_id: u64, raw: serde_js
         Some("统一契约回复"),
         "{source:?} 应提取完整回复正文"
     );
-    assert!(
-        !observation.truncated,
-        "{source:?} 短回复不应截断"
-    );
+    assert!(!observation.truncated, "{source:?} 短回复不应截断");
 }
 
 /// Codex / Cursor / Grok / OpenCode 的固定 Stop 样本应通过同一会话尾部契约。

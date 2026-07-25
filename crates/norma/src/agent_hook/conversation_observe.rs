@@ -35,7 +35,10 @@ pub struct ConversationObservationState {
 
 impl ConversationObservationState {
     pub fn apply(&mut self, observation: ConversationObservation) -> bool {
-        if !self.seen_fingerprints.insert(observation.event_fingerprint.clone()) {
+        if !self
+            .seen_fingerprints
+            .insert(observation.event_fingerprint.clone())
+        {
             return false;
         }
         match observation.kind {
