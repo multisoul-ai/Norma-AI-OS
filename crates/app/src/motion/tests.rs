@@ -23,3 +23,7 @@ mod working_snake_realtime_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/initialization_animation_tests.rs"]
 mod initialization_animation_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/motion_activity_tests.rs"]
+mod motion_activity_tests;

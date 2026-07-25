@@ -57,6 +57,9 @@ pub(crate) mod dialogue;
 mod e2e;
 pub(crate) mod file_picker;
 mod frame_loop;
+#[cfg(feature = "e2e-test-support")]
+pub use frame_loop::runtime_frame_interval_for_e2e;
+mod frame_schedule;
 mod frame_throttle;
 mod ime;
 mod ime_geometry;

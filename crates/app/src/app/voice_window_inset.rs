@@ -57,6 +57,16 @@ pub(crate) struct VoiceWindowInset {
 }
 
 impl VoiceWindowInset {
+    pub(crate) fn is_animation_active(&self) -> bool {
+        !self.disabled
+            && (self.pending_playbacks > 0
+                || self.transition.is_some()
+                || !self.energy_frames.is_empty()
+                || self.active_energy.is_some()
+                || self.target_energy > EPSILON
+                || self.smoothed_energy > EPSILON)
+    }
+
     pub(crate) fn set_enabled(&mut self, enabled: bool) -> bool {
         if self.disabled != enabled {
             return false;

@@ -118,6 +118,9 @@ mod e2e_17_license_gate_startup;
 // 长回复 TTS：慢速 Provider 下，完整显示、逐段合成与播放收束必须形成跨 crate 闭环。
 mod e2e_18_tts_reply_backlog;
 
+// Terminal burst：Runtime drain 与 repaint gate 合并输出但不得丢最终 grid。
+mod e2e_19_terminal_repaint_coalescing;
+
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。
 pub use harness::{
@@ -125,6 +128,41 @@ pub use harness::{
     echo_factory, enter_canvas, make_app, make_app_real, make_app_with_settings_store, read_grid,
     read_runtime, scripted_factory,
 };
+
+/// E2E-T-1：harness 的 mock 时钟步长必须读取生产 Runtime frame timing contract。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   production Runtime interval = 16ms（1000 / 60 ≈ 16.67ms，策略取 16ms）
+///   legacy hard-coded interval = 12ms
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 从 harness 读取单轮 runtime drain mock-clock step。
+///   2. 与 app crate 暴露的 test-support contract 比较。
+///   3. 与旧 12ms 魔数做负对照。
+///
+/// 预期结果：
+///   - 正断言：harness step 与生产 contract 完全相同且为 16ms。
+///   - 负断言：harness 不得继续硬编码旧的 12ms。
+#[test]
+fn e2e_runtime_drain_step_matches_production_timing_contract() {
+    let step = harness::runtime_drain_step();
+    let production = app::runtime_frame_interval_for_e2e();
+
+    assert_eq!(
+        step, production,
+        "E2E drain step 必须直接读取 app 的生产 Runtime timing contract"
+    );
+    assert_eq!(
+        step,
+        std::time::Duration::from_millis(16),
+        "生产 Runtime interval 已收敛到 16ms，E2E mock 时钟必须同步"
+    );
+    assert_ne!(
+        step,
+        std::time::Duration::from_millis(12),
+        "E2E harness 不得继续硬编码旧的 12ms drain 周期"
+    );
+}
 
 /// Smoke：headless GPUI 启动 `MultisoulApp`，初始屏幕应为 `Launchpad`。
 ///

@@ -1,13 +1,14 @@
 //! Opt-in frame diagnostics for animation and canvas performance analysis.
 
 use std::sync::OnceLock;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use canvas::NodeId;
 
 use crate::motion::MotionDiagnostics;
 
 const FRAME_DIAGNOSTICS_ENV: &str = "MULTISOUL_FRAME_DIAGNOSTICS";
+const REPAINT_DIAGNOSTICS_LOG_INTERVAL: Duration = Duration::from_secs(1);
 #[cfg(test)]
 const REASON_RUNTIME_CHANGED: u16 = 1 << 0;
 #[cfg(test)]
@@ -147,6 +148,80 @@ impl CanvasRenderReport {
             window_width = self.window_width,
             window_height = self.window_height,
             "canvas_render"
+        );
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct RepaintDiagnosticsSnapshot {
+    pub(crate) requested: u64,
+    pub(crate) coalesced: u64,
+    pub(crate) emitted: u64,
+    pub(crate) last_pending_age: Duration,
+    pub(crate) last_selected_budget: Duration,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct RepaintDiagnostics {
+    enabled: bool,
+    snapshot: RepaintDiagnosticsSnapshot,
+    last_log_at: Instant,
+}
+
+impl RepaintDiagnostics {
+    pub(crate) fn new(enabled: bool, now: Instant) -> Self {
+        Self {
+            enabled,
+            snapshot: RepaintDiagnosticsSnapshot::default(),
+            last_log_at: now,
+        }
+    }
+
+    pub(crate) fn record_request(&mut self, coalesced: bool) {
+        if !self.enabled {
+            return;
+        }
+        self.snapshot.requested = self.snapshot.requested.saturating_add(1);
+        if coalesced {
+            self.snapshot.coalesced = self.snapshot.coalesced.saturating_add(1);
+        }
+    }
+
+    pub(crate) fn record_selected_budget(&mut self, budget: Duration) {
+        if self.enabled {
+            self.snapshot.last_selected_budget = budget;
+        }
+    }
+
+    pub(crate) fn record_emission(&mut self, pending_age: Duration, budget: Duration) {
+        if !self.enabled {
+            return;
+        }
+        self.snapshot.emitted = self.snapshot.emitted.saturating_add(1);
+        self.snapshot.last_pending_age = pending_age;
+        self.snapshot.last_selected_budget = budget;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn snapshot(self) -> RepaintDiagnosticsSnapshot {
+        self.snapshot
+    }
+
+    pub(crate) fn log_if_due(&mut self, now: Instant) {
+        if !self.enabled
+            || now.saturating_duration_since(self.last_log_at) < REPAINT_DIAGNOSTICS_LOG_INTERVAL
+        {
+            return;
+        }
+        self.last_log_at = now;
+        tracing::info!(
+            target: "multisoul_frame",
+            requested_repaints = self.snapshot.requested,
+            coalesced_repaints = self.snapshot.coalesced,
+            emitted_repaints = self.snapshot.emitted,
+            pending_age_ms = self.snapshot.last_pending_age.as_secs_f64() * 1000.0,
+            selected_budget_ms = self.snapshot.last_selected_budget.as_secs_f64() * 1000.0,
+            "frame_repaint_summary"
         );
     }
 }

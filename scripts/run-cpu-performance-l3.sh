@@ -428,6 +428,9 @@ if [ -f "$log_file" ]; then
     printf 'animation_frame_ticks=%s\n' "$(count_log_matches 'animation_frame_tick')"
     printf 'canvas_renders=%s\n' "$(count_log_matches 'canvas_render')"
     printf 'motion_samples=%s\n' "$(count_log_matches 'motion_sample')"
+    printf 'repaint_summary_samples=%s\n' "$(count_log_matches 'frame_repaint_summary')"
+    printf 'last_repaint_summary=%s\n' \
+      "$(rg 'frame_repaint_summary' "$log_file" | tail -1 || true)"
   } >"$diagnostics_summary"
 else
   printf 'diagnostics_log=missing\n' >"$diagnostics_summary"

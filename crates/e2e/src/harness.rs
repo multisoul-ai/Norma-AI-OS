@@ -346,12 +346,16 @@ pub fn read_runtime<R>(
 ///
 /// 实现说明（mock 时钟驱动 drain timer）：
 ///   GPUI 的 `TestAppContext` 用 mock 时钟，`background_executor.timer(dur)` 返回的
-///   future 只在 `advance_clock(dur)` 后才就绪。`MultisoulApp` 的 12ms 周期 drain
-///   loop（`crates/app/src/app/mod.rs:142`）依赖该 timer 触发 `runtime.drain_all()`。
+///   future 只在 `advance_clock(dur)` 后才就绪。`MultisoulApp` 的生产 Runtime 周期
+///   loop 依赖该 timer 触发 `runtime.drain_all()`。
 ///   仅 `run_until_parked` 不会推进 mock 时钟，drain 永不执行，PTY 输出永远停在
 ///   `TerminalSession` 的 rx 队列里——这正是 E2E-02 grid 不更新的根因。
-///   因此每轮显式 `advance_clock(12ms)` 让 drain timer 就绪，再 `run_until_parked`
-///   推进 executor 执行 drain 回调。wall-clock `sleep(1ms)` 仅用于避免 busy-loop。
+///   因此每轮从 app test-support timing contract 读取 step 并推进 mock clock，再
+///   `run_until_parked` 执行 drain 回调。wall-clock `sleep(1ms)` 仅用于避免 busy-loop。
+pub(crate) fn runtime_drain_step() -> Duration {
+    app::runtime_frame_interval_for_e2e()
+}
+
 pub fn drain_until<R>(
     view: &Entity<MultisoulApp>,
     cx: &mut VisualTestContext,
@@ -359,10 +363,10 @@ pub fn drain_until<R>(
     timeout: Duration,
 ) -> Option<R> {
     let deadline = Instant::now() + timeout;
-    // 单轮 advance 量：与 app drain 周期一致（12ms），保证至少触发一次 drain timer。
-    let step = Duration::from_millis(12);
+    // 单轮 advance 量直接读取生产 timing contract，保证至少触发一次 drain timer。
+    let step = runtime_drain_step();
     loop {
-        // 推进 mock 时钟让 12ms drain timer 就绪，再跑 executor 执行 drain 回调。
+        // 推进 mock 时钟让生产 drain timer 就绪，再跑 executor 执行 drain 回调。
         cx.cx.background_executor.advance_clock(step);
         cx.run_until_parked();
         if let Some(v) = read_runtime(view, cx, &mut predicate) {

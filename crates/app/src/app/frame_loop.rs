@@ -1,12 +1,22 @@
 use std::time::{Duration, Instant};
 
+use canvas::NodeType;
 use gpui::Context;
+use runtime::{InputMode, NodeRunState};
 
-use super::MultisoulApp;
+use super::frame_schedule::{
+    AnimationActivity, AnimationSchedule, RepaintContext, RepaintGate, RepaintReason,
+};
+use super::{AppScreen, MultisoulApp};
 
-const RUNTIME_FRAME_INTERVAL: Duration = Duration::from_millis(12);
+const RUNTIME_FRAME_INTERVAL: Duration = Duration::from_millis(16);
 const ANIMATION_FRAME_INTERVAL: Duration = Duration::from_millis(12);
 const PERSISTENCE_FRAME_INTERVAL: Duration = Duration::from_millis(120);
+
+#[cfg(feature = "e2e-test-support")]
+pub fn runtime_frame_interval_for_e2e() -> Duration {
+    RUNTIME_FRAME_INTERVAL
+}
 
 #[derive(Clone, Copy, Debug)]
 struct AnimationFrameClock {
@@ -42,6 +52,7 @@ impl RuntimeFrameReport {
             || self.agent_hook_pending
     }
 
+    #[cfg(test)]
     pub(super) fn should_notify_surface(self, settings_open: bool) -> bool {
         !settings_open && self.should_notify()
     }
@@ -147,6 +158,20 @@ impl AnimationFrameReport {
     }
 }
 
+fn focused_running_terminal(app: &MultisoulApp) -> bool {
+    let InputMode::NodeFocused(node_id) = app.runtime.focus.mode() else {
+        return false;
+    };
+    let Some(node) = app.runtime.document.node(node_id) else {
+        return false;
+    };
+    matches!(node.kind.node_type(), NodeType::Term | NodeType::Agent)
+        && matches!(
+            app.runtime.node_run_state(node_id),
+            Some(NodeRunState::Running)
+        )
+}
+
 impl MultisoulApp {
     pub(super) fn start_frame_loops(cx: &mut Context<Self>) {
         Self::start_runtime_frame_loop(cx);
@@ -155,60 +180,99 @@ impl MultisoulApp {
     }
 
     fn start_runtime_frame_loop(cx: &mut Context<Self>) {
-        cx.spawn(async move |this, cx| loop {
-            cx.background_executor().timer(RUNTIME_FRAME_INTERVAL).await;
-            let go = this.update(cx, |app, cx| {
-                let tick_started_at = Instant::now();
-                let runtime_changed = app.runtime.drain_all();
-                let browser_changed = app.drain_browser_events();
-                let agent_hook_report = app.agent_hook_server.drain_into_runtime(&mut app.runtime);
-                for event in &agent_hook_report.events {
-                    app.ingest_hook_conversation_observation(event);
-                    if event.provider_event == "SessionEnd" {
-                        app.clear_conversation_tail_for_node(event.node_id);
-                    }
-                }
-                let mut queue_changed = false;
-                for started in agent_hook_report.started_tasks {
-                    queue_changed |=
-                        app.register_external_agent_root(started.node_id, started.task_title);
-                }
-                for node_id in agent_hook_report.ready_node_ids {
-                    queue_changed |= app.submit_pending_agent_task_for_ready_node(node_id);
-                }
-                queue_changed |= app.submit_due_pending_agent_tasks(Instant::now());
-                app.advance_session_reply_queue();
-                let speak_agent_completions = app.dialogue.is_active()
-                    && app.voice_settings.values().interaction_mode()
-                        == crate::settings::voice::VoiceInteractionMode::ContinuousListening;
-                for node_id in agent_hook_report.terminal_node_ids {
-                    if speak_agent_completions {
-                        if let Some(report) = app.agent_completion_report_for_node(node_id) {
-                            app.dialogue.queue_agent_report(report);
+        cx.spawn(async move |this, cx| {
+            let mut repaint_gate = RepaintGate::default();
+            let mut repaint_diagnostics = crate::frame_diagnostics::RepaintDiagnostics::new(
+                crate::frame_diagnostics::enabled(),
+                cx.background_executor().now(),
+            );
+            loop {
+                cx.background_executor().timer(RUNTIME_FRAME_INTERVAL).await;
+                let frame_now = cx.background_executor().now();
+                let go = this.update(cx, |app, cx| {
+                    let tick_started_at = Instant::now();
+                    let runtime_changed = app.runtime.drain_all();
+                    let browser_changed = app.drain_browser_events();
+                    let agent_hook_report =
+                        app.agent_hook_server.drain_into_runtime(&mut app.runtime);
+                    for event in &agent_hook_report.events {
+                        app.ingest_hook_conversation_observation(event);
+                        if event.provider_event == "SessionEnd" {
+                            app.clear_conversation_tail_for_node(event.node_id);
                         }
                     }
-                    queue_changed |= app.advance_agent_task_queue(node_id);
+                    let mut queue_changed = false;
+                    for started in agent_hook_report.started_tasks {
+                        queue_changed |=
+                            app.register_external_agent_root(started.node_id, started.task_title);
+                    }
+                    for node_id in agent_hook_report.ready_node_ids {
+                        queue_changed |= app.submit_pending_agent_task_for_ready_node(node_id);
+                    }
+                    queue_changed |= app.submit_due_pending_agent_tasks(Instant::now());
+                    app.advance_session_reply_queue();
+                    let speak_agent_completions = app.dialogue.is_active()
+                        && app.voice_settings.values().interaction_mode()
+                            == crate::settings::voice::VoiceInteractionMode::ContinuousListening;
+                    for node_id in agent_hook_report.terminal_node_ids {
+                        if speak_agent_completions {
+                            if let Some(report) = app.agent_completion_report_for_node(node_id) {
+                                app.dialogue.queue_agent_report(report);
+                            }
+                        }
+                        queue_changed |= app.advance_agent_task_queue(node_id);
+                    }
+                    app.advance_session_reply_queue();
+                    let runtime_events = app.runtime.take_events();
+                    app.handle_agent_runtime_events(&runtime_events, cx);
+                    for event in &runtime_events {
+                        tracing::debug!(?event, "runtime event");
+                    }
+                    let report = RuntimeFrameReport {
+                        runtime_changed: runtime_changed || browser_changed,
+                        runtime_event_count: runtime_events.len(),
+                        agent_hook_changed: agent_hook_report.changed || queue_changed,
+                        agent_hook_pending: app.agent_hook_server.has_pending(),
+                        elapsed: tick_started_at.elapsed(),
+                    };
+                    let repaint_context = RepaintContext {
+                        screen_is_canvas: matches!(app.screen, AppScreen::Canvas),
+                        settings_open: app.settings_panel.open,
+                        window_active: app.window_active,
+                        focused_running_terminal: focused_running_terminal(app),
+                        voice_active: app.voice_window_inset.is_animation_active(),
+                    };
+                    let Some(repaint_budget) = repaint_context.repaint_budget() else {
+                        repaint_gate.reset();
+                        repaint_diagnostics.log_if_due(frame_now);
+                        report.log_if_enabled();
+                        return;
+                    };
+                    repaint_diagnostics.record_selected_budget(repaint_budget);
+                    if report.runtime_changed {
+                        let coalesced =
+                            repaint_gate.request(frame_now, RepaintReason::RuntimeChanged);
+                        repaint_diagnostics.record_request(coalesced);
+                    }
+                    if report.runtime_event_count > 0 {
+                        let coalesced =
+                            repaint_gate.request(frame_now, RepaintReason::RuntimeEvents);
+                        repaint_diagnostics.record_request(coalesced);
+                    }
+                    if report.agent_hook_changed || report.agent_hook_pending {
+                        let coalesced = repaint_gate.request(frame_now, RepaintReason::AgentHook);
+                        repaint_diagnostics.record_request(coalesced);
+                    }
+                    if let Some(emission) = repaint_gate.poll(frame_now, repaint_budget) {
+                        repaint_diagnostics.record_emission(emission.pending_age, repaint_budget);
+                        cx.notify();
+                    }
+                    repaint_diagnostics.log_if_due(frame_now);
+                    report.log_if_enabled();
+                });
+                if go.is_err() {
+                    break;
                 }
-                app.advance_session_reply_queue();
-                let runtime_events = app.runtime.take_events();
-                app.handle_agent_runtime_events(&runtime_events, cx);
-                for event in &runtime_events {
-                    tracing::debug!(?event, "runtime event");
-                }
-                let report = RuntimeFrameReport {
-                    runtime_changed: runtime_changed || browser_changed,
-                    runtime_event_count: runtime_events.len(),
-                    agent_hook_changed: agent_hook_report.changed || queue_changed,
-                    agent_hook_pending: app.agent_hook_server.has_pending(),
-                    elapsed: tick_started_at.elapsed(),
-                };
-                if report.should_notify_surface(app.settings_panel.open) {
-                    cx.notify();
-                }
-                report.log_if_enabled();
-            });
-            if go.is_err() {
-                break;
             }
         })
         .detach();
@@ -217,10 +281,10 @@ impl MultisoulApp {
     fn start_animation_frame_loop(cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             let mut animation_interval = ANIMATION_FRAME_INTERVAL;
-            let mut frame_clock = AnimationFrameClock::new(Instant::now());
+            let mut frame_clock = AnimationFrameClock::new(cx.background_executor().now());
             loop {
                 cx.background_executor().timer(animation_interval).await;
-                let animation_delta = frame_clock.elapsed_at(Instant::now());
+                let animation_delta = frame_clock.elapsed_at(cx.background_executor().now());
                 let go = this.update(cx, |app, cx| {
                     let tick_started_at = Instant::now();
                     let motion_changed = app.motion.tick(animation_delta);
@@ -260,8 +324,16 @@ impl MultisoulApp {
                         cx.notify();
                     }
                     report.log_if_enabled();
-                    app.motion
-                        .next_animation_tick_interval(ANIMATION_FRAME_INTERVAL)
+                    let motion_activity = app.motion.activity_summary();
+                    AnimationSchedule::next_interval(AnimationActivity {
+                        voice_active: app.voice_window_inset.is_animation_active(),
+                        canvas_motion_active: motion_activity.canvas_active,
+                        cursor_active: app.focused_terminal_cursor_animation_active(),
+                        screen_is_canvas: matches!(app.screen, AppScreen::Canvas),
+                        window_active: app.window_active,
+                        settings_open: app.settings_panel.open,
+                        next_visual_boundary: motion_activity.next_visual_boundary,
+                    })
                 });
                 match go {
                     Ok(next_interval) => animation_interval = next_interval,
