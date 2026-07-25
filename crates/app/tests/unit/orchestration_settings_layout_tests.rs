@@ -4,29 +4,29 @@ use ui::Theme;
 /// Canonical 展开态高度：五个 Provider 与 Cursor 四组件必须同时留在 golden 面板内。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   header = 104px
+///   header = 110px
 ///   notice = 48px
 ///   provider rows = 5 × 85px = 425px
 ///   Cursor components = 4 × 44px = 176px
 ///   detail bottom margin = 14px
-///   total = 104 + 48 + 425 + 176 + 14 = 767px
-///   logical panel height = 820px；remaining = 820 - 767 = 53px
+///   total = 110 + 48 + 425 + 176 + 14 = 773px
+///   logical panel height = 820px；remaining = 820 - 773 = 47px
 ///   0.854 display scale 下 outer = 820 × 0.854 ≈ 700px，与 699px golden 光栅外框一致。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 计算标题、提示、五个 Provider 行和四个详情行的固定高度。
-///   2. 与 767px 精确逻辑预算及 820px Settings 面板上限比较。
+///   2. 与 773px 精确逻辑预算及 820px Settings 面板上限比较。
 ///
 /// 预期结果：
-///   - 正断言：固定内容预算精确为 767px，光栅化后与 golden 行距一致。
+///   - 正断言：固定内容预算精确为 773px，光栅化后与 golden 行距一致。
 ///   - 负断言：不得超过 820px 并把 Grok 推出面板。
 #[test]
 fn canonical_expanded_layout_keeps_grok_inside_golden_panel() {
     let height = canonical_expanded_content_height();
 
     assert_eq!(
-        height, 767.0,
-        "Orchestration 展开态固定内容应为 767px，保留 53px 逻辑余量"
+        height, 773.0,
+        "Orchestration 展开态固定内容应为 773px，保留 47px 逻辑余量"
     );
     assert!(
         height <= 820.0,
