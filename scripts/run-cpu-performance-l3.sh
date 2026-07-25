@@ -231,6 +231,8 @@ case "$node_count:$active_agent_count:$active_terminal_count" in
 esac
 
 timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+mkdir -p "$output_root"
+output_root=$(cd "$output_root" && pwd)
 run_directory="$output_root/$timestamp-$mode-$scenario"
 run_home="$run_directory/home"
 mkdir -p "$run_home" "$run_directory"
