@@ -110,7 +110,7 @@ const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 3] = [
     ("AI & Automation", AUTOMATION_SECTIONS),
 ];
 
-const SIDEBAR_GROUP_SPACING: f32 = 11.0;
+const SIDEBAR_GROUP_SPACING: f32 = 23.0;
 const NAVIGATION_ITEM_HEIGHT: f32 = 38.0;
 
 pub(super) fn settings_navigation(

@@ -3,33 +3,34 @@ use super::{canonical_navigation_item_height, canonical_sidebar_group_spacing};
 /// Canonical Sidebar 组节奏：三组导航不得逐组累积偏离 golden。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   top margin = 11px
-///   group gap = 11px
-///   groups = 3；组间额外位移 = 2 × 11px = 22px
+///   top margin = 23px
+///   group gap = 23px
+///   groups = 3；组间额外位移 = 2 × 23px = 46px
+///   相对旧值的修正 = 23 - 11 = 12px/组，与真实 App 叠图的 12/24/36px 偏差一致。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取常规 Sidebar 的顶部间距与组间距。
-///   2. 与 canonical 11px 节奏逐项比较。
+///   2. 与 canonical 23px 逻辑节奏逐项比较。
 ///
 /// 预期结果：
-///   - 正断言：顶部和组间距都精确为 11px。
-///   - 负断言：不得恢复旧 22px 间距并让 Orchestration 累积下移 33px。
+///   - 正断言：顶部和组间距都精确为 23px。
+///   - 负断言：不得恢复压缩后的 11px 间距并让 Orchestration 累积上移 36px。
 #[test]
-fn sidebar_groups_follow_canonical_eleven_pixel_rhythm() {
+fn sidebar_groups_follow_canonical_twenty_three_pixel_rhythm() {
     let (top_margin, group_gap) = canonical_sidebar_group_spacing();
 
     assert_eq!(
-        top_margin, 11.0,
-        "Settings 首个导航组应在标题后保留 11px canonical 间距"
+        top_margin, 23.0,
+        "Settings 首个导航组应在标题后保留 23px canonical 逻辑间距"
     );
     assert_eq!(
-        group_gap, 11.0,
-        "Settings 三个导航组之间应使用 11px canonical 间距"
+        group_gap, 23.0,
+        "Settings 三个导航组之间应使用 23px canonical 逻辑间距"
     );
     assert_ne!(
         (top_margin, group_gap),
-        (22.0, 22.0),
-        "旧 22px 节奏会让 Orchestration 选中项相对 golden 下移 33px"
+        (11.0, 11.0),
+        "压缩后的 11px 节奏会让 Orchestration 相对 golden 累积上移 36px"
     );
 }
 
