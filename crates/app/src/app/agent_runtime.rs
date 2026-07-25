@@ -9,9 +9,15 @@ use std::sync::{Arc, Mutex, OnceLock};
 mod artifacts;
 mod commands;
 mod context_commands;
+mod conversation_tails;
 mod coordination;
 mod diagnostics;
 pub(super) mod pending;
+mod reply_adapter;
+mod session_reply_queue;
+
+pub(crate) use conversation_tails::{ConversationTailMemory, ConversationTailWriter};
+pub(crate) use session_reply_queue::AgentSessionReplyQueue;
 
 pub(crate) use artifacts::artifacts_from_agent_events;
 #[cfg(any(test, feature = "e2e-test-support"))]

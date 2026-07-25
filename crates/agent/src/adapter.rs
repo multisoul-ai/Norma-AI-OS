@@ -39,6 +39,14 @@ pub enum AdapterCommand {
     CancelAgentTask {
         task_id: u64,
     },
+    ReplyAgent {
+        agent: String,
+        message: String,
+    },
+    CancelAgentReply {
+        reply_id: Option<u64>,
+        agent: Option<String>,
+    },
     CreateTerminal,
     CreateBrowser {
         url: Option<String>,
@@ -68,6 +76,10 @@ pub struct AdapterResult {
     pub task_id: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub node_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reply_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reply_status: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tasks: Vec<Value>,
 }
@@ -79,6 +91,8 @@ impl AdapterResult {
             message: message.into(),
             task_id: None,
             node_id: None,
+            reply_id: None,
+            reply_status: None,
             tasks: Vec::new(),
         }
     }
@@ -89,6 +103,8 @@ impl AdapterResult {
             message: message.into(),
             task_id: None,
             node_id: None,
+            reply_id: None,
+            reply_status: None,
             tasks: Vec::new(),
         }
     }
@@ -99,6 +115,8 @@ impl AdapterResult {
             message: message.into(),
             task_id: None,
             node_id: None,
+            reply_id: None,
+            reply_status: None,
             tasks: Vec::new(),
         }
     }
@@ -110,6 +128,16 @@ impl AdapterResult {
 
     pub fn with_node_id(mut self, node_id: u64) -> Self {
         self.node_id = Some(node_id);
+        self
+    }
+
+    pub fn with_reply_id(mut self, reply_id: u64) -> Self {
+        self.reply_id = Some(reply_id);
+        self
+    }
+
+    pub fn with_reply_status(mut self, reply_status: impl Into<String>) -> Self {
+        self.reply_status = Some(reply_status.into());
         self
     }
 
@@ -303,6 +331,28 @@ pub fn norma_tool_definitions() -> Vec<ToolDefinition> {
             object_schema(
                 json!({"task_id": {"type": "integer", "minimum": 1}}),
                 &["task_id"],
+            ),
+        ),
+        definition(
+            "reply_agent",
+            "向一个已有活跃会话的 AgentCard 发送会话回复；不创建新任务。",
+            object_schema(
+                json!({
+                    "agent": {"type": "string", "minLength": 1},
+                    "message": {"type": "string", "minLength": 1}
+                }),
+                &["agent", "message"],
+            ),
+        ),
+        definition(
+            "cancel_agent_reply",
+            "撤回尚未提交的会话回复；可按 reply_id 或 Agent 名称取消。",
+            object_schema(
+                json!({
+                    "reply_id": {"type": "integer", "minimum": 1},
+                    "agent": {"type": "string", "minLength": 1}
+                }),
+                &[],
             ),
         ),
         definition(

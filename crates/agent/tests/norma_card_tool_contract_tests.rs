@@ -37,6 +37,7 @@ fn norma_prompt_routes_review_card_language_to_file_preview_tool() {
             workspace_root: "/workspace/project-1".to_string(),
             total_cards: 0,
             cards: Vec::new(),
+        conversation_tails: Vec::new(),
         },
         &[],
     );

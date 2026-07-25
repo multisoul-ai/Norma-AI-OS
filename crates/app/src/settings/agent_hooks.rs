@@ -21,11 +21,12 @@ pub(crate) struct AgentHookServer {
     token: Option<String>,
 }
 
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default)]
 pub(crate) struct AgentHookDrainReport {
     pub(crate) changed: bool,
     pub(crate) ready_node_ids: Vec<u64>,
     pub(crate) terminal_node_ids: Vec<u64>,
+    pub(crate) events: Vec<AgentHookEvent>,
 }
 
 impl AgentHookServer {
@@ -115,6 +116,7 @@ impl AgentHookServer {
                 agent_task_state_from_hook_event(&event),
                 Some(AgentTaskState::Done | AgentTaskState::Failed { .. } | AgentTaskState::Ended)
             );
+            report.events.push(event.clone());
             if apply_agent_hook_event(runtime, event) {
                 report.changed = true;
                 if is_ready {

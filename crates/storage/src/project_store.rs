@@ -1,6 +1,7 @@
 use crate::{
-    migrations::require_workspace_dir, AgentDefinitionStore, AgentDispatchTaskStore, CanvasStore,
-    LayoutStore, NodeSessionStore, SessionStore, StorageResult, VoiceHistoryStore,
+    migrations::require_workspace_dir, AgentConversationTailStore, AgentDefinitionStore,
+    AgentDispatchTaskStore, CanvasStore, LayoutStore, NodeSessionStore, SessionStore,
+    StorageResult, VoiceHistoryStore,
 };
 use std::path::{Path, PathBuf};
 
@@ -54,5 +55,9 @@ impl ProjectStore {
 
     pub fn agent_dispatch_task_store(&self) -> AgentDispatchTaskStore {
         AgentDispatchTaskStore::new(self.path.clone())
+    }
+
+    pub fn agent_conversation_tail_store(&self) -> AgentConversationTailStore {
+        AgentConversationTailStore::new(self.path.clone())
     }
 }

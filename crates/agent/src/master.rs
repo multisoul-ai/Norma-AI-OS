@@ -1,8 +1,9 @@
 use crate::rig_tools::{
-    AssignAgentTaskTool, CancelAgentTaskTool, CreateAgentTool, CreateBrowserTool,
-    CreatePreviewTool, CreateTerminalTool, DeleteCanvasCardTool, FindAgentTasksTool, FocusCardTool,
-    RigToolContext, SendTerminalInputTool,
+    AssignAgentTaskTool, CancelAgentReplyTool, CancelAgentTaskTool, CreateAgentTool,
+    CreateBrowserTool, CreatePreviewTool, CreateTerminalTool, DeleteCanvasCardTool,
+    FindAgentTasksTool, FocusCardTool, ReplyAgentTool, RigToolContext, SendTerminalInputTool,
 };
+use crate::master_history::{history_char_budget, is_human_user_message, protocol_history_chars};
 use crate::{
     norma_system_prompt, AgentCardAdapter, AgentRosterEntry, CurrentCanvasContext,
     NormaToolRuntime, ProviderConfig, ProviderProtocol, ToolContext,
@@ -13,7 +14,7 @@ use rig_core::agent::{
 };
 use rig_core::client::CompletionClient;
 use rig_core::completion::{CompletionModel, GetTokenUsage};
-use rig_core::message::{Message, UserContent};
+use rig_core::message::Message;
 use rig_core::providers::{ollama, openai};
 use rig_core::streaming::{StreamedAssistantContent, StreamingPrompt};
 use rig_core::tool::ToolCallExtensions;
@@ -31,10 +32,6 @@ const MAX_TOOL_CALLS: usize = 20;
 const TURN_TIMEOUT: Duration = Duration::from_secs(60);
 const PROVIDER_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_PROTOCOL_MESSAGES: usize = 96;
-const DEFAULT_CONTEXT_WINDOW_TOKENS: usize = 16_384;
-const HISTORY_CONTEXT_FRACTION_NUMERATOR: usize = 3;
-const HISTORY_CONTEXT_FRACTION_DENOMINATOR: usize = 4;
-const CONSERVATIVE_CHARS_PER_TOKEN: usize = 2;
 
 #[derive(Clone)]
 enum NormaModel {
@@ -117,6 +114,7 @@ impl NormaSession {
                 workspace_root: project_id.clone(),
                 total_cards: 0,
                 cards: Vec::new(),
+                conversation_tails: Vec::new(),
             },
             project_id,
             model,
@@ -202,6 +200,23 @@ impl NormaSession {
             operation_id: None,
             cancellation: cancellation.clone(),
         };
+        if let Some(final_text) = crate::direct_address_turn::maybe_handle_direct_address(
+            &self.tools,
+            &context,
+            input,
+            &self.roster,
+        )
+        .await?
+        {
+            let final_text = visible_norma_reply(&final_text);
+            if final_text.is_empty() {
+                return Err(NormaSessionError::MissingFinalResponse);
+            }
+            return Ok(NormaTurnResult {
+                final_text,
+                tool_calls: 0,
+            });
+        }
         let history = self.protocol_history.clone();
         let request = TurnRequest {
             preamble,
@@ -263,32 +278,6 @@ impl NormaSession {
             }
         }
     }
-}
-
-fn history_char_budget(config: &ProviderConfig) -> usize {
-    config
-        .context_window_tokens()
-        .unwrap_or(DEFAULT_CONTEXT_WINDOW_TOKENS)
-        .saturating_mul(HISTORY_CONTEXT_FRACTION_NUMERATOR)
-        / HISTORY_CONTEXT_FRACTION_DENOMINATOR
-        * CONSERVATIVE_CHARS_PER_TOKEN
-}
-
-fn protocol_history_chars(history: &[Message]) -> usize {
-    history
-        .iter()
-        .map(|message| serde_json::to_string(message).map_or(0, |serialized| serialized.len()))
-        .sum()
-}
-
-fn is_human_user_message(message: &Message) -> bool {
-    matches!(
-        message,
-        Message::User { content }
-            if content
-                .iter()
-                .any(|item| !matches!(item, UserContent::ToolResult(_)))
-    )
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -476,6 +465,8 @@ where
         .tool(CreateAgentTool::new(tools.clone()))
         .tool(AssignAgentTaskTool::new(tools.clone()))
         .tool(CancelAgentTaskTool::new(tools.clone()))
+        .tool(ReplyAgentTool::new(tools.clone()))
+        .tool(CancelAgentReplyTool::new(tools.clone()))
         .tool(CreateTerminalTool::new(tools.clone()))
         .tool(CreateBrowserTool::new(tools.clone()))
         .tool(CreatePreviewTool::new(tools.clone()))

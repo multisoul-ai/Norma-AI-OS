@@ -84,6 +84,9 @@ impl MultisoulApp {
             agent_task_coordinator: None,
             pending_agent_submissions:
                 super::agent_runtime::pending::PendingAgentSubmissions::default(),
+            session_reply_queue: super::agent_runtime::AgentSessionReplyQueue::default(),
+            conversation_tail_memory: super::agent_runtime::ConversationTailMemory::default(),
+            conversation_tail_writer: None,
             pending_agent_close_confirmation: None,
             focus_handle,
             wallpaper_settings,

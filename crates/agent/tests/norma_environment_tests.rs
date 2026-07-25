@@ -65,6 +65,7 @@ fn norma_environment_is_readable_markdown_and_contains_untrusted_values() {
                 focused: false,
             },
         ],
+    conversation_tails: Vec::new(),
     };
 
     let environment = render_norma_environment(&canvas, &roster);
@@ -151,6 +152,7 @@ fn norma_system_prompt_combines_identity_direct_assignment_and_environment() {
         workspace_root: "/workspace/norma-ai-os".to_string(),
         total_cards: 0,
         cards: Vec::new(),
+    conversation_tails: Vec::new(),
     };
 
     let prompt = norma_system_prompt(&canvas, &roster);
@@ -160,9 +162,10 @@ fn norma_system_prompt_combines_identity_direct_assignment_and_environment() {
         "the Master identity should be explicit and stable"
     );
     assert!(
-        prompt.contains("开头直接称呼已有 Agent")
-            && prompt.contains("立即调用 `assign_agent_task`"),
-        "the direct-address rule should force immediate assignment"
+        prompt.contains("开头直接称呼已有且活跃的 Agent")
+            && prompt.contains("默认调用 `reply_agent`")
+            && prompt.contains("`assign_agent_task`"),
+        "the direct-address rule should default to session reply and keep new-task assignment"
     );
     assert!(
         prompt.contains("不要替目标 Agent 完成任务"),
@@ -202,6 +205,7 @@ fn norma_system_prompt_defines_complete_soft_spoken_persona() {
             workspace_root: "/workspace/norma-ai-os".to_string(),
             total_cards: 0,
             cards: Vec::new(),
+        conversation_tails: Vec::new(),
         },
         &[],
     );

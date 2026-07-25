@@ -35,6 +35,7 @@ fn production_agent_command_batch_updates_context_before_user_turn() {
         workspace_root: "/workspace/norma".to_string(),
         total_cards: 0,
         cards: Vec::new(),
+    conversation_tails: Vec::new(),
     };
 
     let commands = contextualized_agent_commands(

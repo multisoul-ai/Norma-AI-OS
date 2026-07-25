@@ -263,6 +263,9 @@ pub(crate) fn execute_norma_adapter_command(
                 ))),
             }
         }
+        command @ (AdapterCommand::ReplyAgent { .. } | AdapterCommand::CancelAgentReply { .. }) => {
+            reply_adapter::execute_reply_adapter_command(app, command)
+        }
         AdapterCommand::CreateTerminal => map_card_result(
             commands::execute_agent_card_command(
                 app,

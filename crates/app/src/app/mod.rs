@@ -4,8 +4,8 @@ use crate::app::frame_throttle::FrameThrottle;
 use crate::app::frame_throttle::CURSOR_REPAINT_INTERVAL;
 use crate::canvas::interaction::InteractionState;
 use crate::canvas::master_layout::{
-    apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
-    reapply_master_layout_for_area, term_grid_size_for_card, MasterLayoutState,
+    apply_workspace_reflow_for_area, layout_gap_for_zoom, reapply_master_layout_for_area,
+    term_grid_size_for_card, MasterLayoutState,
 };
 #[cfg(test)]
 use crate::canvas::master_layout::{
@@ -25,7 +25,7 @@ use crate::settings::ThemeSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
-use canvas::{CanvasNodeKind, CanvasRect, NodeId, NodeType, Vec2};
+use canvas::{CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
 use runtime::{route, InputEvent, Route, Runtime};
 use std::collections::HashMap;
@@ -40,6 +40,7 @@ mod agent_announcements;
 mod agent_close;
 mod agent_runtime;
 mod bootstrap;
+mod node_removal;
 pub(crate) mod browser;
 pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 pub(crate) mod cef_process;
@@ -139,6 +140,9 @@ pub struct MultisoulApp {
     pub(crate) agent_runtime: Option<agent_runtime::ProjectAgentRuntime>,
     pub(crate) agent_task_coordinator: Option<agent::AgentTaskCoordinator>,
     pub(crate) pending_agent_submissions: agent_runtime::pending::PendingAgentSubmissions,
+    pub(crate) session_reply_queue: agent_runtime::AgentSessionReplyQueue,
+    pub(crate) conversation_tail_memory: agent_runtime::ConversationTailMemory,
+    pub(crate) conversation_tail_writer: Option<agent_runtime::ConversationTailWriter>,
     pub(crate) pending_agent_close_confirmation: Option<NodeId>,
     pub focus_handle: FocusHandle,
     pub(crate) wallpaper_settings: WallpaperSettingsState,
@@ -253,68 +257,6 @@ impl MultisoulApp {
             return;
         }
         self.prompt_preview_file(window, cx);
-    }
-
-    pub(crate) fn remove_node_and_reflow(&mut self, node_id: NodeId, window: &mut Window) -> bool {
-        let area = self.visible_canvas_rect(window);
-        let zoom = self.runtime.document.viewport.zoom;
-        let removed_agent_definition_id = self.runtime.document.node(node_id).and_then(|node| {
-            let CanvasNodeKind::Agent(spec) = &node.kind else {
-                return None;
-            };
-            spec.definition_id
-        });
-        if self.interaction.keyboard_selected_node == Some(node_id) {
-            self.interaction.keyboard_selected_node = None;
-        }
-        self.interaction.clear_text_selection_for_node(node_id);
-
-        let removed_node_was_browser = self
-            .runtime
-            .document
-            .node(node_id)
-            .map(|node| matches!(node.kind, CanvasNodeKind::Browser(_)))
-            .unwrap_or(false);
-        let next_id = canvas::next_neighbor_after_delete(self.runtime.document.nodes(), node_id);
-
-        let changed = close_node_and_update_layout_for_area(
-            &mut self.runtime,
-            &mut self.motion,
-            &mut self.master_layout,
-            node_id,
-            area,
-            zoom,
-        );
-        if changed {
-            self.previews.remove(node_id);
-            if removed_node_was_browser {
-                self.release_browser_input(node_id);
-                self.focus_handle.focus(window);
-            }
-            self.remove_browser_view(node_id);
-            self.mark_canvas_dirty();
-            self.mark_session_dirty();
-            if let Some(definition_id) = removed_agent_definition_id {
-                if let Err(message) = self
-                    .agent_definitions
-                    .cleanup_quick_definition(definition_id)
-                {
-                    self.workspace_state.error = Some(message);
-                }
-            }
-
-            match next_id {
-                Some(next) if self.runtime.document.node(next).is_some() => {
-                    self.runtime.selection.select_only(next);
-                    self.runtime.focus.exit_to_canvas();
-                    self.interaction.keyboard_selected_node = Some(next);
-                }
-                _ => {
-                    self.interaction.keyboard_selected_node = None;
-                }
-            }
-        }
-        changed
     }
 
     pub(crate) fn close_node_through_route(

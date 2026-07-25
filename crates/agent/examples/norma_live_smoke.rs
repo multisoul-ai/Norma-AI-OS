@@ -52,6 +52,16 @@ impl AgentCardAdapter for LiveSmokeAdapter {
                 AdapterCommand::CancelAgentTask { task_id } => {
                     AdapterResult::accepted("已请求取消").with_task_id(*task_id)
                 }
+                AdapterCommand::ReplyAgent { agent, .. } => {
+                    AdapterResult::succeeded(format!("已经发给 {agent} 了。"))
+                        .with_node_id(21)
+                        .with_reply_id(7)
+                        .with_reply_status("sent")
+                }
+                AdapterCommand::CancelAgentReply { .. } => {
+                    AdapterResult::succeeded("还没发出的回复已经撤回。")
+                        .with_reply_status("cancelled")
+                }
             };
             self.commands
                 .lock()
@@ -91,6 +101,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 selected: false,
                 focused: true,
             }],
+        conversation_tails: Vec::new(),
         },
         vec![AgentRosterEntry {
             definition_id: 1,

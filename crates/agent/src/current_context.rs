@@ -34,6 +34,7 @@ pub struct CurrentCanvasContext {
     pub workspace_root: String,
     pub total_cards: usize,
     pub cards: Vec<CanvasCardContext>,
+    pub conversation_tails: Vec<crate::AgentConversationTail>,
 }
 
 pub const MAX_CURRENT_CANVAS_CARDS: usize = 64;

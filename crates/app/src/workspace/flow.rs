@@ -134,6 +134,8 @@ impl MultisoulApp {
             Ok(opened) => {
                 self.agent_task_coordinator = None;
                 self.pending_agent_submissions.clear();
+                let _ = self.session_reply_queue.interrupt_all();
+                self.bind_conversation_tails_for_project();
                 self.reset_agent_announcements();
                 self.dialogue.stop_shell();
                 self.focus_handle.focus(window);
@@ -170,6 +172,8 @@ impl MultisoulApp {
         )?;
         self.agent_task_coordinator = None;
         self.pending_agent_submissions.clear();
+        let _ = self.session_reply_queue.interrupt_all();
+        self.bind_conversation_tails_for_project();
         self.reset_agent_announcements();
         self.dialogue.stop_shell();
         self.clear_browser_views();

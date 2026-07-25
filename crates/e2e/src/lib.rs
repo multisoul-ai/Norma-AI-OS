@@ -92,6 +92,8 @@ mod e2e_12_agent_settings_ime;
 mod e2e_12_agent_submit;
 mod e2e_12_agent_submit_l3;
 mod e2e_12_norma_master;
+mod e2e_12_session_reply;
+mod e2e_12_session_reply_queue;
 mod e2e_12_voice_addressable_agents;
 
 // Agent/terminal 输出链接：点击后新建 Browser 并仅在该路径进入 master/detail 布局。

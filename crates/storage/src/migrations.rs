@@ -130,6 +130,25 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
 
         CREATE INDEX IF NOT EXISTS idx_agent_dispatch_tasks_definition_state
         ON agent_dispatch_tasks(definition_id, state, id);
+
+        CREATE TABLE IF NOT EXISTS agent_conversation_tails (
+            definition_id INTEGER NOT NULL,
+            session_id TEXT NOT NULL,
+            node_id INTEGER NOT NULL,
+            agent_name TEXT NOT NULL,
+            profile TEXT NOT NULL,
+            last_user_message TEXT,
+            last_agent_message TEXT,
+            updated_at_unix INTEGER NOT NULL,
+            availability TEXT NOT NULL,
+            user_message_truncated INTEGER NOT NULL DEFAULT 0,
+            agent_message_truncated INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (definition_id, session_id),
+            FOREIGN KEY (definition_id) REFERENCES agent_definitions(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_agent_conversation_tails_node
+        ON agent_conversation_tails(node_id);
         "#,
     )?;
     ensure_column(

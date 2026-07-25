@@ -162,11 +162,18 @@ impl MultisoulApp {
                 let runtime_changed = app.runtime.drain_all();
                 let browser_changed = app.drain_browser_events();
                 let agent_hook_report = app.agent_hook_server.drain_into_runtime(&mut app.runtime);
+                for event in &agent_hook_report.events {
+                    app.ingest_hook_conversation_observation(event);
+                    if event.provider_event == "SessionEnd" {
+                        app.clear_conversation_tail_for_node(event.node_id);
+                    }
+                }
                 let mut queue_changed = false;
                 for node_id in agent_hook_report.ready_node_ids {
                     queue_changed |= app.submit_pending_agent_task_for_ready_node(node_id);
                 }
                 queue_changed |= app.submit_due_pending_agent_tasks(Instant::now());
+                app.advance_session_reply_queue();
                 let speak_agent_completions = app.dialogue.is_active()
                     && app.voice_settings.values().interaction_mode()
                         == crate::settings::voice::VoiceInteractionMode::ContinuousListening;
@@ -178,6 +185,7 @@ impl MultisoulApp {
                     }
                     queue_changed |= app.advance_agent_task_queue(node_id);
                 }
+                app.advance_session_reply_queue();
                 let runtime_events = app.runtime.take_events();
                 app.handle_agent_runtime_events(&runtime_events, cx);
                 for event in &runtime_events {
