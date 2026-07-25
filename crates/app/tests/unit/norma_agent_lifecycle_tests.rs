@@ -89,18 +89,10 @@ fn test_orchestration_socket_validates_authorization_and_source_agent_profile() 
     let app_db = workspace.path().join("app.sqlite");
     let authorization_store = storage::OrchestrationAuthorizationStore::new(app_db);
     authorization_store
-        .authorize(
-            norma::orchestration::OrchestrationProvider::Codex,
-            "codex-token",
-            "1.0.0",
-        )
+        .authorize("codex", "codex-token", "1.0.0")
         .expect("测试应登记 Codex Token");
     authorization_store
-        .authorize(
-            norma::orchestration::OrchestrationProvider::Claude,
-            "claude-token",
-            "1.0.0",
-        )
+        .authorize("claude", "claude-token", "1.0.0")
         .expect("测试应登记 Claude Token");
     let authorization_cache = storage::OrchestrationAuthorizationCache::new(
         authorization_store.list().expect("测试应加载授权哈希快照"),
@@ -219,11 +211,11 @@ fn test_orchestration_socket_validates_authorization_and_source_agent_profile() 
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Agent = Alan/Codex（来源）+ Bella/Claude（目标），共 2 个
-///   顶层任务 = runtime:1 派给 Alan
+///   顶层任务 = runtime:1，来自用户直接输入 Alan 卡片并由 Hook 注册
 ///   子任务 = runtime:2 由 Alan 派给 Bella
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 激活 Alan 与 Bella，并由内部 Norma 路径给 Alan 派发顶层任务。
+///   1. 激活 Alan 与 Bella，模拟 UserPromptSubmit Hook 注册 Alan 的用户直接任务。
 ///   2. 用 Alan 的 Codex 授权和 source_node_id 通过 Socket 派发 Bella 子任务。
 ///   3. 读取真实回执与同一个 AgentTaskCoordinator 的任务树。
 ///
@@ -238,11 +230,7 @@ fn test_orchestration_socket_dispatch_reuses_coordinator_and_derives_parent_line
     let authorization_store =
         storage::OrchestrationAuthorizationStore::new(workspace.path().join("app.sqlite"));
     authorization_store
-        .authorize(
-            norma::orchestration::OrchestrationProvider::Codex,
-            "codex-token",
-            "1.0.0",
-        )
+        .authorize("codex", "codex-token", "1.0.0")
         .expect("测试应登记 Codex Token");
     let authorization_cache = storage::OrchestrationAuthorizationCache::new(
         authorization_store
@@ -291,18 +279,10 @@ fn test_orchestration_socket_dispatch_reuses_coordinator_and_derives_parent_line
             else {
                 panic!("Alan 激活结果必须含 definition_id 与 node_id");
             };
-            crate::app::execute_agent_card_command(
-                app,
-                window,
-                CardCommand::DispatchAgentTasks {
-                    assignments: vec![norma::protocol::AgentTaskAssignment {
-                        name: "Alan".to_string(),
-                        task: "负责主任务".to_string(),
-                    }],
-                    force_untracked: false,
-                },
-            )
-            .expect("内部 Norma 应先给 Alan 派发顶层任务");
+            assert!(
+                app.register_external_agent_root(node_id, Some("负责主任务".to_string())),
+                "UserPromptSubmit Hook 必须把用户直接任务注册为协调器根任务"
+            );
             (definition_id, node_id)
         })
     });

@@ -200,6 +200,33 @@ impl AgentDispatchTaskStore {
         Ok(id)
     }
 
+    pub fn finish_task(
+        &self,
+        runtime_task_id: u64,
+        state: AgentDispatchTaskState,
+        error: Option<&str>,
+    ) -> StorageResult<Option<i64>> {
+        let connection = open_project_connection(&self.path)?;
+        let id = connection
+            .query_row(
+                "SELECT id FROM agent_dispatch_tasks
+                 WHERE runtime_task_id = ?1
+                   AND state IN ('accepted', 'queued', 'submitted', 'untracked', 'cancel_requested')
+                 ORDER BY id DESC LIMIT 1",
+                [runtime_task_id],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()?;
+        if let Some(id) = id {
+            connection.execute(
+                "UPDATE agent_dispatch_tasks
+                 SET state = ?1, error = ?2, updated_at_unix = ?3 WHERE id = ?4",
+                params![encode_state(state), error, current_unix_timestamp()?, id],
+            )?;
+        }
+        Ok(id)
+    }
+
     pub fn persist_cancellation(
         &self,
         runtime_task_id: u64,

@@ -1,9 +1,10 @@
 use norma::cli::{
-    parse_invocation_from, render_protocol_error, render_protocol_success, OutputFormat,
+    format_result, parse_invocation_from, parse_process_invocation_from, render_protocol_error,
+    render_protocol_success, OutputFormat,
 };
 use norma::protocol::{
-    AgentErrorCode, AgentProfile, AgentTaskReceipt, AgentTaskReceiptStatus, CardCommand,
-    CardCommandError, CardCommandResult,
+    AgentErrorCode, AgentProfile, AgentSummary, AgentTaskReceipt, AgentTaskReceiptStatus,
+    CardCommand, CardCommandError, CardCommandResult,
 };
 
 /// Agent CLI 命令树：list/assign/status/wait/cancel 应映射为窄命令且默认 JSON。
@@ -283,5 +284,108 @@ fn json_error_output_preserves_stable_error_code_and_exit_code() {
     assert_ne!(
         json["error"]["code"], "internal_error",
         "已知授权失败不得退化为 internal_error"
+    );
+}
+
+/// Agent CLI 解析错误：默认 JSON 模式必须输出稳定错误 envelope。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   argv commands = 1
+///   task bytes = 3 个 ASCII space
+///   trim length = 3 - 3 = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 通过进程级解析入口提交空白 assign。
+///   2. 在连接 App 前渲染解析失败。
+///   3. 解析 stdout JSON 并读取 code。
+///
+/// 预期结果：
+///   - 正断言：stdout 为 ok=false、code=empty_task 的合法 JSON。
+///   - 正断言：退出码非零且 stderr 为空。
+///   - 负断言：不得把 clap usage 文本直接写到 stderr 破坏 Agent 协议。
+#[test]
+fn agent_parse_error_uses_json_envelope_with_empty_task_code() {
+    let output = parse_process_invocation_from([
+        "norma", "agent", "task", "assign", "Bella", "--task", "   ",
+    ])
+    .expect_err("空白任务必须在进程级解析入口失败");
+    let json: serde_json::Value =
+        serde_json::from_str(&output.stdout).expect("Agent 解析错误 stdout 必须是合法 JSON");
+
+    assert_eq!(json["ok"], false, "Agent 解析错误必须显式输出 ok=false");
+    assert_eq!(
+        json["error"]["code"], "empty_task",
+        "空白任务解析错误必须保留稳定 code=empty_task"
+    );
+    assert!(output.exit_code != 0, "Agent 解析失败必须返回非零退出码");
+    assert!(
+        output.stderr.is_empty(),
+        "默认 JSON 模式不得把 clap usage 混入 stderr"
+    );
+    assert!(
+        !output.stdout.starts_with("error:"),
+        "Agent 默认输出不得退化为 clap 纯文本错误"
+    );
+}
+
+/// Text 输出完整性：Agent roster 与派发回执必须保留后续操作所需字段。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   roster rows = 1，字段 = id/profile/name/alias/node/enabled/busy/tracking 共 8 个
+///   receipt rows = 1，字段 = task/id/name/node/status/tracking/parent/root 共 8 个
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造完整 AgentSummary 并渲染 text。
+///   2. 构造带 parent/root 的派发回执并渲染 text。
+///   3. 检查稳定标识、状态和 lineage。
+///
+/// 预期结果：
+///   - 正断言：roster 包含 alias、active node、busy 与 tracking。
+///   - 正断言：回执包含 task_id、definition、status、tracking、parent/root。
+///   - 负断言：不得只输出 name/node/status 而丢失可查询 task_id。
+#[test]
+fn text_output_preserves_roster_and_task_receipt_contract_fields() {
+    let roster = format_result(&CardCommandResult::AgentsListed {
+        agents: vec![AgentSummary {
+            definition_id: 2,
+            name: "Bella".to_string(),
+            speech_alias: Some("贝拉".to_string()),
+            profile: AgentProfile::Codex,
+            enabled: true,
+            active_node_id: Some(102),
+            busy: true,
+            tracking: "managed".to_string(),
+        }],
+    });
+    let receipts = format_result(&CardCommandResult::AgentTasksDispatched {
+        receipts: vec![AgentTaskReceipt {
+            task_id: "runtime-a:7".to_string(),
+            target_definition_id: 2,
+            name: "Bella".to_string(),
+            node_id: 102,
+            task: "运行测试".to_string(),
+            status: AgentTaskReceiptStatus::Queued,
+            tracking: "managed".to_string(),
+            parent_task_id: Some("runtime-a:1".to_string()),
+            root_task_id: "runtime-a:1".to_string(),
+        }],
+    });
+
+    assert!(
+        roster.contains("贝拉")
+            && roster.contains("102")
+            && roster.contains("busy")
+            && roster.contains("managed"),
+        "Agent text roster 必须包含 alias、active node、busy 与 tracking，实际：{roster}"
+    );
+    assert!(
+        receipts.contains("runtime-a:7")
+            && receipts.contains("\t2\tBella\t102\tQueued\tmanaged\t")
+            && receipts.contains("runtime-a:1"),
+        "派发 text 回执必须包含稳定 task_id、definition、状态、tracking 与 lineage，实际：{receipts}"
+    );
+    assert!(
+        !receipts.starts_with("Bella\t102"),
+        "派发 text 回执不得再以 name/node 开头并丢失 task_id"
     );
 }

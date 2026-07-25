@@ -65,7 +65,7 @@ pub fn agent_hooks_installed_at(path: &Path, source: HookSource) -> bool {
     };
     hook_events_for_source(source)
         .iter()
-        .any(|event_name| event_has_multisoul_hook(&root, event_name, source))
+        .all(|event_name| event_has_multisoul_hook(&root, event_name, source))
 }
 
 pub fn uninstall_hook_config(

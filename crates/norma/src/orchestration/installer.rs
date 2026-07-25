@@ -2,19 +2,18 @@ use super::credential::{
     read_credential, CredentialReadError, ProviderCredential, CREDENTIAL_MANAGER,
     CREDENTIAL_SCHEMA_VERSION,
 };
+use super::file_ops::{atomic_write, remove_matching_binary, set_mode};
 use super::model::{ComponentState, InstallPaths, OrchestrationProvider, ProviderIntegration};
 use super::skill::{managed_version, skill_source, MANAGED_MARKER};
 use crate::agent_hook::{
     agent_hooks_installed_for_source, install_hook_config, uninstall_hook_config, AgentHookError,
+    OPENCODE_PLUGIN_MARKER,
 };
 use std::fmt;
-use std::fs::{self, File, OpenOptions};
-use std::io::{Read, Write};
+use std::fs::{self, File};
+use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TEMP_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 pub trait AuthorizationRegistry {
     type Error: fmt::Display;
@@ -135,7 +134,10 @@ impl OrchestrationInstaller {
                 self.paths.managed_cli_path().as_path(),
             )?;
         }
-        if !matches!(before.hook_component, ComponentState::Ready { .. }) {
+        if !matches!(
+            before.hook_component,
+            ComponentState::Ready { .. } | ComponentState::Conflict { .. }
+        ) {
             self.install_binary(
                 self.paths.bundled_hook.as_path(),
                 self.paths.managed_hook_path().as_path(),
@@ -165,6 +167,9 @@ impl OrchestrationInstaller {
         if provider == OrchestrationProvider::Grok {
             return Err(InstallerError::UnsupportedProvider);
         }
+        registry
+            .revoke(provider)
+            .map_err(|error| InstallerError::Authorization(error.to_string()))?;
         self.remove_managed_skill(provider)?;
         uninstall_hook_config(
             provider
@@ -173,9 +178,6 @@ impl OrchestrationInstaller {
             &self.paths.hook_paths,
         )?;
         self.remove_managed_credential(provider)?;
-        registry
-            .revoke(provider)
-            .map_err(|error| InstallerError::Authorization(error.to_string()))?;
         if !self.has_other_credentials(provider)? {
             remove_matching_binary(
                 self.paths.managed_cli_path().as_path(),
@@ -254,6 +256,27 @@ impl OrchestrationInstaller {
     }
 
     fn inspect_hook(&self, provider: OrchestrationProvider) -> ComponentState {
+        if provider == OrchestrationProvider::OpenCode {
+            let path = self.paths.hook_paths.opencode_plugin.clone();
+            match fs::read_to_string(&path) {
+                Ok(source) if !source.contains(OPENCODE_PLUGIN_MARKER) => {
+                    return ComponentState::Conflict {
+                        path,
+                        reason:
+                            "Existing OpenCode plugin at the managed path is not owned by Norma OS."
+                                .to_string(),
+                    };
+                }
+                Ok(_) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => {
+                    return ComponentState::Failed {
+                        error_code: "hook_read_failed".to_string(),
+                        message: error.to_string(),
+                    };
+                }
+            }
+        }
         let binary = self.inspect_binary(
             self.paths.managed_hook_path().as_path(),
             self.paths.bundled_hook.as_path(),
@@ -302,6 +325,23 @@ impl OrchestrationInstaller {
             return ComponentState::Conflict {
                 path,
                 reason: "Credential belongs to a different Provider.".to_string(),
+            };
+        }
+        let credential_mode = match fs::metadata(&path) {
+            Ok(metadata) => metadata.permissions().mode() & 0o777,
+            Err(error) => {
+                return ComponentState::Failed {
+                    error_code: "credential_metadata_failed".to_string(),
+                    message: error.to_string(),
+                };
+            }
+        };
+        if credential_mode != 0o600 {
+            return ComponentState::Failed {
+                error_code: "credential_permissions_insecure".to_string(),
+                message: format!(
+                    "Provider credential permissions are {credential_mode:#o}; required 0o600."
+                ),
             };
         }
         match registry.is_authorized(provider, &credential.token) {
@@ -421,45 +461,6 @@ impl OrchestrationInstaller {
         }
         Ok(false)
     }
-}
-
-fn atomic_write(path: &Path, bytes: &[u8], mode: u32) -> Result<(), std::io::Error> {
-    let parent = path.parent().ok_or_else(|| {
-        std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "managed path has no parent",
-        )
-    })?;
-    fs::create_dir_all(parent)?;
-    let sequence = TEMP_FILE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-    let temp_path = parent.join(format!(
-        ".norma-install-{}-{sequence}.tmp",
-        std::process::id()
-    ));
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&temp_path)?;
-    file.write_all(bytes)?;
-    file.sync_all()?;
-    file.set_permissions(fs::Permissions::from_mode(mode))?;
-    drop(file);
-    fs::rename(&temp_path, path)?;
-    set_mode(path, mode)
-}
-
-fn set_mode(path: &Path, mode: u32) -> Result<(), std::io::Error> {
-    fs::set_permissions(path, fs::Permissions::from_mode(mode))
-}
-
-fn remove_matching_binary(installed: &Path, bundled: &Path) -> Result<(), std::io::Error> {
-    let Ok(installed_bytes) = fs::read(installed) else {
-        return Ok(());
-    };
-    if fs::read(bundled).is_ok_and(|bundled_bytes| bundled_bytes == installed_bytes) {
-        fs::remove_file(installed)?;
-    }
-    Ok(())
 }
 
 fn generate_token() -> Result<String, std::io::Error> {

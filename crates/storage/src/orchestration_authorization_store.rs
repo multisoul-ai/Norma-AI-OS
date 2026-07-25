@@ -1,12 +1,11 @@
 use crate::{current_unix_timestamp, migrations::open_app_connection, StorageError, StorageResult};
-use norma::orchestration::{AuthorizationRegistry, OrchestrationProvider};
 use rusqlite::{params, OptionalExtension};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OrchestrationAuthorizationRecord {
-    pub provider: OrchestrationProvider,
+    pub provider: String,
     pub token_hash: String,
     pub enabled: bool,
     pub installed_version: String,
@@ -25,7 +24,7 @@ impl OrchestrationAuthorizationCache {
         Self { records }
     }
 
-    pub fn is_authorized(&self, provider: OrchestrationProvider, token: &str) -> bool {
+    pub fn is_authorized(&self, provider: &str, token: &str) -> bool {
         let candidate_hash = hash_token(token);
         self.records.iter().any(|record| {
             record.provider == provider
@@ -47,10 +46,11 @@ impl OrchestrationAuthorizationStore {
 
     pub fn authorize(
         &self,
-        provider: OrchestrationProvider,
+        provider: &str,
         token: &str,
         installed_version: &str,
     ) -> StorageResult<()> {
+        validate_provider(provider)?;
         let connection = open_app_connection(&self.path)?;
         let now = current_unix_timestamp()?;
         let token_hash = hash_token(token);
@@ -65,34 +65,32 @@ impl OrchestrationAuthorizationStore {
                installed_version = excluded.installed_version,
                updated_at_unix = excluded.updated_at_unix,
                revoked_at_unix = NULL",
-            params![provider.slug(), token_hash, installed_version, now,],
+            params![provider, token_hash, installed_version, now,],
         )?;
         Ok(())
     }
 
-    pub fn revoke(&self, provider: OrchestrationProvider) -> StorageResult<()> {
+    pub fn revoke(&self, provider: &str) -> StorageResult<()> {
+        validate_provider(provider)?;
         let connection = open_app_connection(&self.path)?;
         let now = current_unix_timestamp()?;
         connection.execute(
             "UPDATE orchestration_authorizations
              SET enabled = 0, updated_at_unix = ?1, revoked_at_unix = ?1
              WHERE provider = ?2",
-            params![now, provider.slug()],
+            params![now, provider],
         )?;
         Ok(())
     }
 
-    pub fn is_authorized(
-        &self,
-        provider: OrchestrationProvider,
-        token: &str,
-    ) -> StorageResult<bool> {
+    pub fn is_authorized(&self, provider: &str, token: &str) -> StorageResult<bool> {
+        validate_provider(provider)?;
         let connection = open_app_connection(&self.path)?;
         let stored = connection
             .query_row(
                 "SELECT token_hash FROM orchestration_authorizations
                  WHERE provider = ?1 AND enabled = 1",
-                [provider.slug()],
+                [provider],
                 |row| row.get::<_, String>(0),
             )
             .optional()?;
@@ -128,31 +126,6 @@ impl OrchestrationAuthorizationStore {
     }
 }
 
-impl AuthorizationRegistry for OrchestrationAuthorizationStore {
-    type Error = StorageError;
-
-    fn authorize(
-        &mut self,
-        provider: OrchestrationProvider,
-        token: &str,
-        installed_version: &str,
-    ) -> Result<(), Self::Error> {
-        OrchestrationAuthorizationStore::authorize(self, provider, token, installed_version)
-    }
-
-    fn revoke(&mut self, provider: OrchestrationProvider) -> Result<(), Self::Error> {
-        OrchestrationAuthorizationStore::revoke(self, provider)
-    }
-
-    fn is_authorized(
-        &self,
-        provider: OrchestrationProvider,
-        token: &str,
-    ) -> Result<bool, Self::Error> {
-        OrchestrationAuthorizationStore::is_authorized(self, provider, token)
-    }
-}
-
 fn hash_token(token: &str) -> String {
     let digest = Sha256::digest(token.as_bytes());
     digest.iter().map(|byte| format!("{byte:02x}")).collect()
@@ -169,18 +142,22 @@ fn constant_time_equal(left: &[u8], right: &[u8]) -> bool {
     difference == 0
 }
 
-fn decode_provider(value: &str) -> rusqlite::Result<OrchestrationProvider> {
+fn decode_provider(value: &str) -> rusqlite::Result<String> {
     match value {
-        "claude" => Ok(OrchestrationProvider::Claude),
-        "codex" => Ok(OrchestrationProvider::Codex),
-        "cursor" => Ok(OrchestrationProvider::Cursor),
-        "opencode" => Ok(OrchestrationProvider::OpenCode),
-        "grok" => Ok(OrchestrationProvider::Grok),
+        "claude" | "codex" | "cursor" | "opencode" | "grok" => Ok(value.to_string()),
         other => Err(rusqlite::Error::FromSqlConversionFailure(
             other.len(),
             rusqlite::types::Type::Text,
             Box::new(StorageError::InvalidAgentDispatchValue(other.to_string())),
         )),
+    }
+}
+
+fn validate_provider(value: &str) -> StorageResult<()> {
+    if matches!(value, "claude" | "codex" | "cursor" | "opencode" | "grok") {
+        Ok(())
+    } else {
+        Err(StorageError::InvalidAgentDispatchValue(value.to_string()))
     }
 }
 

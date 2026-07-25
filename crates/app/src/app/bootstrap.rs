@@ -115,7 +115,7 @@ impl MultisoulApp {
         app.validate_saved_voice_provider(cx);
         app.persist_voice_settings_in_background(cx);
         #[cfg(not(test))]
-        app.refresh_orchestration_authorizations(cx);
+        app.refresh_orchestration_integrations(cx);
         app
     }
 }

@@ -1,4 +1,5 @@
 mod credential;
+mod file_ops;
 mod installer;
 mod model;
 mod skill;

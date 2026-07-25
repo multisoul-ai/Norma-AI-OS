@@ -24,8 +24,15 @@ pub(crate) struct AgentHookServer {
 #[derive(Debug, Default, Eq, PartialEq)]
 pub(crate) struct AgentHookDrainReport {
     pub(crate) changed: bool,
+    pub(crate) started_tasks: Vec<AgentHookStartedTask>,
     pub(crate) ready_node_ids: Vec<u64>,
     pub(crate) terminal_node_ids: Vec<u64>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) struct AgentHookStartedTask {
+    pub(crate) node_id: u64,
+    pub(crate) task_title: Option<String>,
 }
 
 impl AgentHookServer {
@@ -107,6 +114,11 @@ impl AgentHookServer {
         let mut report = AgentHookDrainReport::default();
         while let Ok(event) = self.receiver.try_recv() {
             let node_id = event.node_id;
+            let started_task =
+                (event.provider_event == "UserPromptSubmit").then(|| AgentHookStartedTask {
+                    node_id,
+                    task_title: extract_prompt_text(&event.raw_json),
+                });
             let is_ready = matches!(
                 agent_task_state_from_hook_event(&event),
                 Some(AgentTaskState::Ready)
@@ -117,6 +129,9 @@ impl AgentHookServer {
             );
             if apply_agent_hook_event(runtime, event) {
                 report.changed = true;
+                if let Some(started_task) = started_task {
+                    report.started_tasks.push(started_task);
+                }
                 if is_ready {
                     report.ready_node_ids.push(node_id);
                 }

@@ -90,15 +90,104 @@ impl MultisoulApp {
                     profile: norma_agent_profile(definition.runtime_profile),
                     enabled: definition.enabled,
                     active_node_id,
-                    tracking: if self.agent_hook_server.runtime_config().is_some() {
-                        agent::AgentTrackingMode::Managed
-                    } else {
-                        agent::AgentTrackingMode::Untracked
-                    },
+                    tracking: self.agent_tracking_for_profile(definition.runtime_profile),
                     busy,
                 }
             })
             .collect()
+    }
+
+    fn agent_tracking_for_profile(
+        &self,
+        profile: canvas::AgentProfile,
+    ) -> agent::AgentTrackingMode {
+        #[cfg(any(test, feature = "e2e-test-support"))]
+        {
+            let _ = profile;
+            return if self.agent_hook_server.runtime_config().is_some() {
+                agent::AgentTrackingMode::Managed
+            } else {
+                agent::AgentTrackingMode::Untracked
+            };
+        }
+        #[cfg(not(any(test, feature = "e2e-test-support")))]
+        {
+            let provider = orchestration_provider(profile);
+            tracking_from_hook_component(
+                &self
+                    .orchestration_settings
+                    .integration(provider)
+                    .hook_component,
+            )
+        }
+    }
+
+    pub(crate) fn register_external_agent_root(
+        &mut self,
+        node_id: NodeId,
+        task_title: Option<String>,
+    ) -> bool {
+        let Some((definition_id, profile)) = self.runtime.document.node(node_id).and_then(|node| {
+            let CanvasNodeKind::Agent(spec) = &node.kind else {
+                return None;
+            };
+            spec.definition_id
+                .map(|definition_id| (definition_id, norma_agent_profile(spec.profile)))
+        }) else {
+            return false;
+        };
+        let roster = self.agent_roster_for_provider();
+        let coordinator = match self.agent_task_coordinator.as_mut() {
+            Some(coordinator) => {
+                if let Err(error) = coordinator.sync_roster(roster) {
+                    tracing::warn!(%error, node_id, "failed to sync external Agent root roster");
+                    return false;
+                }
+                coordinator
+            }
+            None => {
+                let Ok(coordinator) = agent::AgentTaskCoordinator::new(roster) else {
+                    return false;
+                };
+                self.agent_task_coordinator.insert(coordinator)
+            }
+        };
+        let task_title = task_title.unwrap_or_else(|| "用户直接任务".to_string());
+        let Ok((receipt, created)) =
+            coordinator.register_external_root(definition_id, node_id, task_title)
+        else {
+            return false;
+        };
+        if !created {
+            return false;
+        }
+        if let Some(writer) = self.persistence.agent_dispatch_writer() {
+            let tracking = match receipt.state {
+                agent::AgentDispatchState::SubmittedUntracked => {
+                    storage::AgentDispatchTracking::Untracked
+                }
+                agent::AgentDispatchState::Queued | agent::AgentDispatchState::SubmittedManaged => {
+                    storage::AgentDispatchTracking::Managed
+                }
+            };
+            writer.create_orchestration(storage::NewOrchestrationAgentDispatchTask {
+                runtime_instance_id: coordinator.runtime_instance_id().to_string(),
+                runtime_task_id: receipt.task_id,
+                task_ref: receipt.task_ref.clone(),
+                root_task_ref: receipt.root_task_ref,
+                parent_task_ref: None,
+                source_definition_id: None,
+                source_node_id: None,
+                source_provider: Some(profile_slug(profile).to_string()),
+                target_definition_id: definition_id,
+                target_node_id: node_id,
+                original_instruction: receipt.task.clone(),
+                task_text: receipt.task,
+                state: storage::AgentDispatchTaskState::Submitted,
+                tracking,
+            });
+        }
+        true
     }
 
     pub(crate) fn advance_agent_task_queue(&mut self, node_id: NodeId) -> bool {
@@ -125,7 +214,16 @@ impl MultisoulApp {
             }
             return coordinator_changed;
         }
+        let cancel_requested = self
+            .agent_task_coordinator
+            .as_ref()
+            .is_some_and(|coordinator| coordinator.is_cancel_requested(definition_id));
         let (terminal_state, coordinator_state, terminal_error) = match runtime_state {
+            Some(runtime::AgentTaskState::Done) if cancel_requested => (
+                storage::AgentDispatchTaskState::Interrupted,
+                "interrupted",
+                None,
+            ),
             Some(runtime::AgentTaskState::Done) => {
                 (storage::AgentDispatchTaskState::Done, "succeeded", None)
             }
@@ -220,5 +318,107 @@ fn norma_agent_profile(profile: canvas::AgentProfile) -> norma::protocol::AgentP
         canvas::AgentProfile::Cursor => norma::protocol::AgentProfile::Cursor,
         canvas::AgentProfile::Grok => norma::protocol::AgentProfile::Grok,
         canvas::AgentProfile::OpenCode => norma::protocol::AgentProfile::OpenCode,
+    }
+}
+
+fn profile_slug(profile: norma::protocol::AgentProfile) -> &'static str {
+    match profile {
+        norma::protocol::AgentProfile::Claude => "claude",
+        norma::protocol::AgentProfile::Codex => "codex",
+        norma::protocol::AgentProfile::Cursor => "cursor",
+        norma::protocol::AgentProfile::Grok => "grok",
+        norma::protocol::AgentProfile::OpenCode => "opencode",
+    }
+}
+
+#[cfg(not(any(test, feature = "e2e-test-support")))]
+fn orchestration_provider(
+    profile: canvas::AgentProfile,
+) -> norma::orchestration::OrchestrationProvider {
+    match profile {
+        canvas::AgentProfile::Claude => norma::orchestration::OrchestrationProvider::Claude,
+        canvas::AgentProfile::Codex => norma::orchestration::OrchestrationProvider::Codex,
+        canvas::AgentProfile::Cursor => norma::orchestration::OrchestrationProvider::Cursor,
+        canvas::AgentProfile::Grok => norma::orchestration::OrchestrationProvider::Grok,
+        canvas::AgentProfile::OpenCode => norma::orchestration::OrchestrationProvider::OpenCode,
+    }
+}
+
+#[cfg(any(test, not(feature = "e2e-test-support")))]
+fn tracking_from_hook_component(
+    component: &norma::orchestration::ComponentState,
+) -> agent::AgentTrackingMode {
+    if matches!(
+        component,
+        norma::orchestration::ComponentState::Ready { .. }
+    ) {
+        agent::AgentTrackingMode::Managed
+    } else {
+        agent::AgentTrackingMode::Untracked
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tracking_from_hook_component;
+    use norma::orchestration::ComponentState;
+    use std::path::PathBuf;
+
+    /// Provider 级追踪：只有当前 Provider 的完整 Hook 为 Ready 时才允许 Managed。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   Ready states     = 1
+    ///   non-ready states = Missing + Outdated + Conflict + Failed + Unsupported = 5
+    ///   Total            = 1 + 5 = 6 个 Hook 组件状态
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 将当前 Provider 的 Ready Hook 投影到 Agent tracking。
+    ///   2. 将 5 种不完整或不可用状态逐一投影。
+    ///   3. 比较 Managed 与 Untracked 边界。
+    ///
+    /// 预期结果：
+    ///   - 正断言：Ready 唯一映射为 Managed。
+    ///   - 正断言：5 种非 Ready 状态均映射为 Untracked。
+    ///   - 负断言：其他 Provider 的全局 Hook server 不得替代当前 Provider 完整性。
+    #[test]
+    fn only_ready_provider_hook_is_managed() {
+        let ready = ComponentState::Ready {
+            version: "1".to_string(),
+        };
+        let non_ready = [
+            ComponentState::Missing,
+            ComponentState::Outdated {
+                installed_version: "0".to_string(),
+                required_version: "1".to_string(),
+            },
+            ComponentState::Conflict {
+                path: PathBuf::from("/tmp/unmanaged-hook"),
+                reason: "unmanaged".to_string(),
+            },
+            ComponentState::Failed {
+                error_code: "hook_invalid".to_string(),
+                message: "invalid".to_string(),
+            },
+            ComponentState::Unsupported {
+                reason: "unsupported".to_string(),
+            },
+        ];
+
+        assert_eq!(
+            tracking_from_hook_component(&ready),
+            agent::AgentTrackingMode::Managed,
+            "当前 Provider Hook 完整且 Ready 时必须启用 Managed 追踪"
+        );
+        assert!(
+            non_ready.iter().all(|state| {
+                tracking_from_hook_component(state) == agent::AgentTrackingMode::Untracked
+            }),
+            "Missing/Outdated/Conflict/Failed/Unsupported 均必须保持 Untracked"
+        );
+        assert_ne!(
+            tracking_from_hook_component(&non_ready[0]),
+            agent::AgentTrackingMode::Managed,
+            "当前 Provider Hook 缺失时不得因其他 Provider Hook 在线而误判 Managed"
+        );
     }
 }

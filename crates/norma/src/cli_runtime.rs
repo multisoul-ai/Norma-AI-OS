@@ -30,6 +30,14 @@ pub fn classify_wait_status(status: AgentTaskReceiptStatus) -> WaitStatusDecisio
     }
 }
 
+pub fn classify_wait_task(status: AgentTaskReceiptStatus, tracking: &str) -> WaitStatusDecision {
+    if tracking == "untracked" {
+        WaitStatusDecision::Untracked
+    } else {
+        classify_wait_status(status)
+    }
+}
+
 pub fn run_invocation(invocation: CliInvocation) -> CliOutput {
     match invocation.wait_timeout_seconds {
         Some(timeout_seconds) => run_wait(invocation, Duration::from_secs(timeout_seconds)),
@@ -76,7 +84,7 @@ fn run_wait(invocation: CliInvocation, timeout: Duration) -> CliOutput {
                 ),
             );
         };
-        match classify_wait_status(task.status) {
+        match classify_wait_task(task.status, &task.tracking) {
             WaitStatusDecision::Complete => {
                 return render_success(
                     invocation.format,

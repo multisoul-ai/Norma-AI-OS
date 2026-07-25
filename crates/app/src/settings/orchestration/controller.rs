@@ -1,8 +1,8 @@
 use crate::app::MultisoulApp;
 use gpui::Context;
 use norma::orchestration::{
-    AggregateStatus, ComponentState, InstallPaths, OrchestrationInstaller, OrchestrationProvider,
-    ProviderIntegration,
+    AggregateStatus, AuthorizationRegistry, ComponentState, InstallPaths, OrchestrationInstaller,
+    OrchestrationProvider, ProviderIntegration,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -51,10 +51,12 @@ impl OrchestrationSettingsState {
         self.refresh_generation
     }
 
-    fn apply_refresh(&mut self, generation: u64, integrations: Vec<ProviderIntegration>) {
-        if generation == self.refresh_generation {
-            self.integrations = integrations;
+    fn apply_refresh(&mut self, generation: u64, integrations: Vec<ProviderIntegration>) -> bool {
+        if generation != self.refresh_generation {
+            return false;
         }
+        self.integrations = integrations;
+        true
     }
 
     fn begin_operation(
@@ -145,10 +147,13 @@ impl MultisoulApp {
             let _ = this.update(cx, |app, cx| {
                 match result {
                     Ok((integrations, records)) => {
-                        app.orchestration_settings
-                            .apply_refresh(generation, integrations);
-                        app.orchestration_authorizations =
-                            storage::OrchestrationAuthorizationCache::new(records);
+                        if app
+                            .orchestration_settings
+                            .apply_refresh(generation, integrations)
+                        {
+                            app.orchestration_authorizations =
+                                storage::OrchestrationAuthorizationCache::new(records);
+                        }
                     }
                     Err(error) => tracing::warn!(%error, "orchestration inspection failed"),
                 }
@@ -225,12 +230,13 @@ fn inspect_integrations() -> Result<
     let store = storage::OrchestrationAuthorizationStore::new(
         storage::default_app_db_path().map_err(|error| error.to_string())?,
     );
+    let registry = StorageAuthorizationRegistry::new(store);
     let installer = OrchestrationInstaller::new(paths, env!("CARGO_PKG_VERSION"));
     let integrations = OrchestrationProvider::ALL
         .into_iter()
-        .map(|provider| installer.inspect(provider, &store))
+        .map(|provider| installer.inspect(provider, &registry))
         .collect();
-    let records = store.list().map_err(|error| error.to_string())?;
+    let records = registry.list().map_err(|error| error.to_string())?;
     Ok((integrations, records))
 }
 
@@ -246,26 +252,67 @@ fn perform_operation(
     String,
 > {
     let paths = InstallPaths::for_current_process().map_err(|error| error.to_string())?;
-    let mut store = storage::OrchestrationAuthorizationStore::new(
+    let store = storage::OrchestrationAuthorizationStore::new(
         storage::default_app_db_path().map_err(|error| error.to_string())?,
     );
+    let mut registry = StorageAuthorizationRegistry::new(store);
     let installer = OrchestrationInstaller::new(paths, env!("CARGO_PKG_VERSION"));
     let operation_error = match operation {
         OrchestrationOperation::InstallOrRepair => installer
-            .install_or_repair(provider, &mut store)
+            .install_or_repair(provider, &mut registry)
             .err()
             .map(|error| error.to_string()),
         OrchestrationOperation::Uninstall => installer
-            .uninstall(provider, &mut store)
+            .uninstall(provider, &mut registry)
             .err()
             .map(|error| error.to_string()),
     };
     let integrations = OrchestrationProvider::ALL
         .into_iter()
-        .map(|candidate| installer.inspect(candidate, &store))
+        .map(|candidate| installer.inspect(candidate, &registry))
         .collect();
-    let records = store.list().map_err(|error| error.to_string())?;
+    let records = registry.list().map_err(|error| error.to_string())?;
     Ok((integrations, records, operation_error))
+}
+
+struct StorageAuthorizationRegistry {
+    store: storage::OrchestrationAuthorizationStore,
+}
+
+impl StorageAuthorizationRegistry {
+    fn new(store: storage::OrchestrationAuthorizationStore) -> Self {
+        Self { store }
+    }
+
+    fn list(&self) -> storage::StorageResult<Vec<storage::OrchestrationAuthorizationRecord>> {
+        self.store.list()
+    }
+}
+
+impl AuthorizationRegistry for StorageAuthorizationRegistry {
+    type Error = storage::StorageError;
+
+    fn authorize(
+        &mut self,
+        provider: OrchestrationProvider,
+        token: &str,
+        installed_version: &str,
+    ) -> Result<(), Self::Error> {
+        self.store
+            .authorize(provider.slug(), token, installed_version)
+    }
+
+    fn revoke(&mut self, provider: OrchestrationProvider) -> Result<(), Self::Error> {
+        self.store.revoke(provider.slug())
+    }
+
+    fn is_authorized(
+        &self,
+        provider: OrchestrationProvider,
+        token: &str,
+    ) -> Result<bool, Self::Error> {
+        self.store.is_authorized(provider.slug(), token)
+    }
 }
 
 fn missing_integration(provider: OrchestrationProvider) -> ProviderIntegration {
@@ -279,5 +326,49 @@ fn missing_integration(provider: OrchestrationProvider) -> ProviderIntegration {
             ComponentState::Missing,
             ComponentState::Missing,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{missing_integration, OrchestrationSettingsState};
+    use norma::orchestration::OrchestrationProvider;
+
+    /// 后台扫描代际：安装/卸载开始前的旧扫描不得覆盖最新授权缓存。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   initial generation = 0
+    ///   stale refresh      = begin_refresh() = 1
+    ///   operation refresh  = begin_refresh() = 2
+    ///   Total callbacks    = stale(1) + current(1) = 2
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 启动普通扫描并记录 generation=1。
+    ///   2. 安装/卸载开始后推进到 generation=2。
+    ///   3. generation=1 晚到 → 拒绝结果，调用方不得替换授权缓存。
+    ///   4. generation=2 到达 → 接受结果，调用方可以同步替换授权缓存。
+    ///
+    /// 预期结果：
+    ///   - 正断言：当前 generation=2 被接受。
+    ///   - 负断言：过期 generation=1 被拒绝，不能重新启用已撤销令牌。
+    #[test]
+    fn stale_refresh_generation_cannot_replace_authorization_cache() {
+        let mut state = OrchestrationSettingsState::default();
+        let stale_generation = state.begin_refresh();
+        let current_generation = state.begin_refresh();
+        let integrations = vec![missing_integration(OrchestrationProvider::Codex)];
+
+        assert!(
+            !state.apply_refresh(stale_generation, integrations.clone()),
+            "generation=1 的旧扫描不得在 generation=2 后覆盖授权缓存"
+        );
+        assert!(
+            state.apply_refresh(current_generation, integrations),
+            "当前 generation=2 扫描必须被接受并允许同步授权缓存"
+        );
+        assert_ne!(
+            stale_generation, current_generation,
+            "旧扫描与当前操作必须使用不同 generation 才能隔离竞态"
+        );
     }
 }

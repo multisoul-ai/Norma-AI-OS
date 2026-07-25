@@ -304,11 +304,10 @@ fn trim_address_punctuation(value: &str) -> &str {
 }
 
 fn mark_task_terminal_maps(
-    unfinished_tasks: &mut HashMap<String, UnfinishedTaskLineage>,
+    _unfinished_tasks: &mut HashMap<String, UnfinishedTaskLineage>,
     unfinished_descendants: &mut HashMap<String, usize>,
     task: &QueuedAgentTask,
 ) {
-    unfinished_tasks.remove(&task.task_ref);
     if task.task_ref == task.root_task_ref {
         return;
     }

@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 mod artifacts;
+mod command_protocol;
 mod command_support;
 mod commands;
 mod context_commands;

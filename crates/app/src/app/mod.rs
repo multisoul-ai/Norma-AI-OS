@@ -62,8 +62,6 @@ mod keyboard;
 mod keyboard_settings;
 mod lifecycle;
 mod new_menu;
-#[cfg(not(test))]
-mod orchestration_authorization;
 mod render;
 mod state;
 #[cfg(target_os = "macos")]

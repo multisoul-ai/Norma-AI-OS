@@ -37,7 +37,7 @@ impl MultisoulApp {
         }
         if !self
             .orchestration_authorizations
-            .is_authorized(provider, &authorization.token)
+            .is_authorized(provider.slug(), &authorization.token)
         {
             return Err(CardCommandError::agent(
                 AgentErrorCode::Unauthorized,
@@ -108,4 +108,52 @@ fn norma_agent_profile_from_canvas(profile: CanvasAgentProfile) -> AgentProfile 
         CanvasAgentProfile::Grok => AgentProfile::Grok,
         CanvasAgentProfile::OpenCode => AgentProfile::OpenCode,
     }
+}
+
+pub(super) fn orchestration_command_label(command: &CardCommand) -> &'static str {
+    match command {
+        CardCommand::ListAgents => "agent_list",
+        CardCommand::DispatchAgentTasks { .. } => "agent_task_assign",
+        CardCommand::AgentTaskStatus { .. } => "agent_task_status",
+        CardCommand::AgentTaskCancel { .. } => "agent_task_cancel",
+        _ => "non_orchestration",
+    }
+}
+
+pub(super) fn agent_profile_label(profile: AgentProfile) -> &'static str {
+    match profile {
+        AgentProfile::Claude => "claude",
+        AgentProfile::Codex => "codex",
+        AgentProfile::Cursor => "cursor",
+        AgentProfile::Grok => "grok",
+        AgentProfile::OpenCode => "opencode",
+    }
+}
+
+pub(super) fn orchestration_error_code(error: &CardCommandError) -> Option<&'static str> {
+    let CardCommandError::Agent(failure) = error else {
+        return Some("internal_error");
+    };
+    Some(match failure.code {
+        AgentErrorCode::AppUnavailable => "app_unavailable",
+        AgentErrorCode::ProjectUnavailable => "project_unavailable",
+        AgentErrorCode::Unauthorized => "unauthorized",
+        AgentErrorCode::ProviderNotInstalled => "provider_not_installed",
+        AgentErrorCode::SourceAgentUnavailable => "source_agent_unavailable",
+        AgentErrorCode::UnknownAgent => "unknown_agent",
+        AgentErrorCode::AgentDisabled => "agent_disabled",
+        AgentErrorCode::EmptyTask => "empty_task",
+        AgentErrorCode::SelfDispatchForbidden => "self_dispatch_forbidden",
+        AgentErrorCode::DelegationCycle => "delegation_cycle",
+        AgentErrorCode::DelegationBudgetExceeded => "delegation_budget_exceeded",
+        AgentErrorCode::UntrackedRequiresForce => "untracked_requires_force",
+        AgentErrorCode::TaskNotFound => "task_not_found",
+        AgentErrorCode::RuntimeExpired => "runtime_expired",
+        AgentErrorCode::TaskUntracked => "task_untracked",
+        AgentErrorCode::WaitTimeout => "wait_timeout",
+        AgentErrorCode::InstallConflict => "install_conflict",
+        AgentErrorCode::ComponentInstallFailed => "component_install_failed",
+        AgentErrorCode::UnsupportedProvider => "unsupported_provider",
+        AgentErrorCode::InternalError => "internal_error",
+    })
 }

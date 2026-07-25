@@ -208,13 +208,21 @@ fn task_cancel_kind(state: &str) -> TaskCancelKind {
 }
 
 fn wire_task_status(task: agent::AgentCoordinatedTask) -> AgentTaskStatus {
+    let tracking = task.tracking;
+    let status = if tracking == agent::AgentTrackingMode::Untracked
+        && matches!(task.state, "running" | "cancel_requested")
+    {
+        AgentTaskReceiptStatus::Untracked
+    } else {
+        wire_status(task.state)
+    };
     AgentTaskStatus {
         task_id: task.task_ref,
         target_definition_id: task.definition_id,
         target_name: task.agent,
         target_node_id: task.target_node_id,
-        status: wire_status(task.state),
-        tracking: match task.tracking {
+        status,
+        tracking: match tracking {
             agent::AgentTrackingMode::Managed => "managed",
             agent::AgentTrackingMode::Untracked => "untracked",
         }
@@ -249,7 +257,8 @@ fn task_reference_error(error: agent::AgentTaskReferenceError) -> CardCommandErr
 
 #[cfg(test)]
 mod tests {
-    use super::{task_cancel_kind, TaskCancelKind};
+    use super::{task_cancel_kind, wire_task_status, TaskCancelKind};
+    use norma::protocol::AgentTaskReceiptStatus;
 
     /// 已完成任务的取消分类：终态任务不得再触发终端中断
     ///
@@ -302,6 +311,54 @@ mod tests {
             task_cancel_kind("succeeded"),
             TaskCancelKind::Running,
             "a completed task must not be treated as the currently running task"
+        );
+    }
+
+    /// Untracked 状态投影：缺少 Provider Hook 的运行任务不得伪装为可等待的 Submitted。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   coordinator state = running × 1
+    ///   tracking          = untracked × 1
+    ///   pending override  = 0
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 构造协调器仍在运行、但 Provider Hook 不完整的任务。
+    ///   2. 经过 wire 状态投影。
+    ///   3. 检查协议状态与 tracking 字段。
+    ///
+    /// 预期结果：
+    ///   - 正断言：协议状态为 Untracked，tracking 字段为 untracked。
+    ///   - 负断言：不得返回 Submitted 并让 wait 进入轮询。
+    #[test]
+    fn running_untracked_task_projects_untracked_wire_status() {
+        let status = wire_task_status(agent::AgentCoordinatedTask {
+            task_id: 1,
+            task_ref: "runtime:1".to_string(),
+            root_task_ref: "runtime:1".to_string(),
+            parent_task_ref: None,
+            source_definition_id: None,
+            source_node_id: None,
+            definition_id: 7,
+            target_node_id: 11,
+            agent: "Alan".to_string(),
+            task: "无 Hook 任务".to_string(),
+            state: "running",
+            tracking: agent::AgentTrackingMode::Untracked,
+        });
+
+        assert_eq!(
+            status.status,
+            AgentTaskReceiptStatus::Untracked,
+            "运行中的 untracked 任务必须投影为 Untracked"
+        );
+        assert_eq!(
+            status.tracking, "untracked",
+            "协议 tracking 字段必须明确保留 untracked"
+        );
+        assert_ne!(
+            status.status,
+            AgentTaskReceiptStatus::Submitted,
+            "untracked 任务不得伪装为可轮询的 Submitted"
         );
     }
 }

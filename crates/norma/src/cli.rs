@@ -1,12 +1,14 @@
 use crate::protocol::{
-    AgentErrorCode, AgentProfile, CardCommand, CardCommandError, CardCommandResult, CardKind,
-    Placement, PreviewType,
+    AgentErrorCode, AgentProfile, CardCommand, CardCommandError, CardKind, Placement, PreviewType,
 };
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use serde::Serialize;
-use serde_json::json;
 use std::ffi::OsString;
 use std::path::PathBuf;
+
+mod output;
+
+use output::agent_error_output_format;
+pub use output::{format_result, render_protocol_error, render_protocol_success};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum OutputFormat {
@@ -163,120 +165,44 @@ where
     NormaArgs::try_parse_from(args).map(NormaArgs::into_invocation)
 }
 
-pub fn format_result(result: &CardCommandResult) -> String {
-    match result {
-        CardCommandResult::Created { node_id } => format!("created card {node_id}"),
-        CardCommandResult::Deleted { node_id } => format!("deleted card {node_id}"),
-        CardCommandResult::Sent { node_id } => format!("sent text to card {node_id}"),
-        CardCommandResult::Focused { node_id } => format!("focused card {node_id}"),
-        CardCommandResult::Listed { cards } => cards
-            .iter()
-            .map(|card| format!("{}\t{:?}\t{}", card.node_id, card.kind, card.title))
-            .collect::<Vec<_>>()
-            .join("\n"),
-        CardCommandResult::AgentsListed { agents } => agents
-            .iter()
-            .map(|agent| {
-                format!(
-                    "{}\t{:?}\t{}\t{}",
-                    agent.definition_id,
-                    agent.profile,
-                    agent.name,
-                    if agent.enabled { "enabled" } else { "disabled" }
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n"),
-        CardCommandResult::AgentCreated {
-            definition_id,
-            name,
-            node_id,
-        } => format!(
-            "created agent {name} ({definition_id}){}",
-            node_id
-                .map(|node_id| format!(" on card {node_id}"))
-                .unwrap_or_default()
-        ),
-        CardCommandResult::AgentActivated {
-            definition_id,
-            name,
-            node_id,
-            reused,
-        } => format!(
-            "{} agent {name} ({definition_id}) on card {node_id}",
-            if *reused { "reused" } else { "activated" }
-        ),
-        CardCommandResult::AgentTasksDispatched { receipts } => receipts
-            .iter()
-            .map(|receipt| {
-                format!(
-                    "{}\t{}\t{:?}",
-                    receipt.name, receipt.node_id, receipt.status
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n"),
-        CardCommandResult::AgentTaskStatus { task } => {
-            format!("{}\t{:?}\t{}", task.task_id, task.status, task.target_name)
-        }
-        CardCommandResult::AgentTaskCancelled { task_id, status } => {
-            format!("{task_id}\t{status:?}")
-        }
-    }
-}
-
-pub fn render_protocol_success(
-    format: OutputFormat,
-    request_id: String,
-    result: &CardCommandResult,
-) -> Result<CliOutput, serde_json::Error> {
-    match format {
-        OutputFormat::Json => {
-            let envelope = ProtocolSuccess {
-                schema_version: 1,
-                ok: true,
-                request_id,
-                result: result_json(result)?,
+pub fn parse_process_invocation_from<I, T>(args: I) -> Result<CliInvocation, CliOutput>
+where
+    I: IntoIterator<Item = T>,
+    T: Into<OsString> + Clone,
+{
+    let args = args.into_iter().map(Into::into).collect::<Vec<_>>();
+    match parse_invocation_from(args.clone()) {
+        Ok(invocation) => Ok(invocation),
+        Err(error) => {
+            let is_agent = args
+                .iter()
+                .any(|argument| argument.to_string_lossy() == "agent");
+            if !is_agent {
+                return Err(CliOutput {
+                    stdout: String::new(),
+                    stderr: error.to_string(),
+                    exit_code: i32::from(error.exit_code()),
+                });
+            }
+            let format = agent_error_output_format(&args);
+            let message = error.to_string();
+            let code = if message.contains("task must not be blank") {
+                AgentErrorCode::EmptyTask
+            } else {
+                AgentErrorCode::InternalError
             };
-            Ok(CliOutput {
-                stdout: serde_json::to_string(&envelope)?,
-                stderr: String::new(),
-                exit_code: 0,
+            render_protocol_error(
+                format,
+                format!("local-parse-{}", std::process::id()),
+                &CardCommandError::agent(code, message, false),
+            )
+            .map_err(|serialization_error| CliOutput {
+                stdout: String::new(),
+                stderr: serialization_error.to_string(),
+                exit_code: 1,
             })
+            .and_then(Err)
         }
-        OutputFormat::Text => Ok(CliOutput {
-            stdout: format_result(result),
-            stderr: String::new(),
-            exit_code: 0,
-        }),
-    }
-}
-
-pub fn render_protocol_error(
-    format: OutputFormat,
-    request_id: String,
-    error: &CardCommandError,
-) -> Result<CliOutput, serde_json::Error> {
-    let (failure, exit_code) = protocol_failure(error);
-    match format {
-        OutputFormat::Json => {
-            let envelope = ProtocolError {
-                schema_version: 1,
-                ok: false,
-                request_id,
-                error: failure,
-            };
-            Ok(CliOutput {
-                stdout: serde_json::to_string(&envelope)?,
-                stderr: String::new(),
-                exit_code,
-            })
-        }
-        OutputFormat::Text => Ok(CliOutput {
-            stdout: String::new(),
-            stderr: error.to_string(),
-            exit_code,
-        }),
     }
 }
 
@@ -399,75 +325,6 @@ impl From<PreviewTypeValue> for PreviewType {
             PreviewTypeValue::Text => PreviewType::Text,
             PreviewTypeValue::Image => PreviewType::Image,
         }
-    }
-}
-
-#[derive(Serialize)]
-struct ProtocolSuccess {
-    schema_version: u8,
-    ok: bool,
-    request_id: String,
-    result: serde_json::Value,
-}
-
-#[derive(Serialize)]
-struct ProtocolError {
-    schema_version: u8,
-    ok: bool,
-    request_id: String,
-    error: ProtocolFailure,
-}
-
-#[derive(Serialize)]
-struct ProtocolFailure {
-    code: AgentErrorCode,
-    message: String,
-    retryable: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    current_status: Option<crate::protocol::AgentTaskReceiptStatus>,
-}
-
-fn result_json(result: &CardCommandResult) -> Result<serde_json::Value, serde_json::Error> {
-    Ok(match result {
-        CardCommandResult::AgentsListed { agents } => json!({ "agents": agents }),
-        CardCommandResult::AgentTasksDispatched { receipts } => json!({ "receipts": receipts }),
-        CardCommandResult::AgentTaskStatus { task } => json!({ "task": task }),
-        CardCommandResult::AgentTaskCancelled { task_id, status } => {
-            json!({ "task_id": task_id, "status": status })
-        }
-        other => serde_json::to_value(other)?,
-    })
-}
-
-fn protocol_failure(error: &CardCommandError) -> (ProtocolFailure, i32) {
-    match error {
-        CardCommandError::Agent(error) => {
-            let exit_code = match error.code {
-                AgentErrorCode::AppUnavailable | AgentErrorCode::ProjectUnavailable => 3,
-                AgentErrorCode::Unauthorized | AgentErrorCode::ProviderNotInstalled => 4,
-                AgentErrorCode::WaitTimeout => 6,
-                AgentErrorCode::InternalError => 1,
-                _ => 5,
-            };
-            (
-                ProtocolFailure {
-                    code: error.code,
-                    message: error.message.clone(),
-                    retryable: error.retryable,
-                    current_status: error.current_status,
-                },
-                exit_code,
-            )
-        }
-        other => (
-            ProtocolFailure {
-                code: AgentErrorCode::InternalError,
-                message: other.to_string(),
-                retryable: false,
-                current_status: None,
-            },
-            1,
-        ),
     }
 }
 

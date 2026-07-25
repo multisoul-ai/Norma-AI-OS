@@ -6,6 +6,9 @@ use norma::protocol::{
 };
 use std::collections::{HashMap, HashSet};
 
+use super::command_protocol::{
+    coordination_error, internal_agent_error, profile_slug, tracking_label,
+};
 use super::command_support::{
     activate_definition, canvas_agent_profile, type_agent_task, AgentTaskSubmitError,
 };
@@ -217,6 +220,51 @@ pub(super) fn execute_coordinated_agent_command(
                         Some(agent::AgentTaskCoordinator::new(roster).map_err(coordination_error)?);
                 }
             }
+            if force_untracked {
+                let forced_definition_ids = definitions
+                    .iter()
+                    .map(|definition| definition.id)
+                    .collect::<HashSet<_>>();
+                let superseded = app
+                    .agent_task_coordinator
+                    .as_ref()
+                    .expect("coordinator initialized above")
+                    .tasks()
+                    .into_iter()
+                    .filter(|task| {
+                        forced_definition_ids.contains(&task.definition_id)
+                            && task.tracking == agent::AgentTrackingMode::Untracked
+                            && matches!(task.state, "running" | "cancel_requested")
+                    })
+                    .collect::<Vec<_>>();
+                for task in superseded {
+                    if let Some((node_id, task_was_typed)) =
+                        app.pending_agent_submissions.task_stage(task.task_id)
+                    {
+                        if task_was_typed {
+                            super::command_support::clear_agent_task_input(
+                                &mut app.runtime,
+                                node_id,
+                            )
+                            .map_err(|error| {
+                                CardCommandError::agent(
+                                    AgentErrorCode::InternalError,
+                                    format!("无法清除被强制替换的任务输入：{error}"),
+                                    true,
+                                )
+                            })?;
+                        }
+                        app.pending_agent_submissions.remove_task(task.task_id);
+                    }
+                    if let Some(writer) = app.persistence.agent_dispatch_writer() {
+                        writer.finish_task(
+                            task.task_id,
+                            storage::AgentDispatchTaskState::Interrupted,
+                            None,
+                        );
+                    }
+                }
+            }
             let receipts = app
                 .agent_task_coordinator
                 .as_mut()
@@ -420,50 +468,4 @@ pub(super) fn execute_coordinated_agent_command(
             message: "not a coordinated Agent command".to_string(),
         }),
     }
-}
-
-fn tracking_label(tracking: agent::AgentTrackingMode) -> &'static str {
-    match tracking {
-        agent::AgentTrackingMode::Managed => "managed",
-        agent::AgentTrackingMode::Untracked => "untracked",
-    }
-}
-
-fn profile_slug(profile: AgentProfile) -> &'static str {
-    match profile {
-        AgentProfile::Claude => "claude",
-        AgentProfile::Codex => "codex",
-        AgentProfile::Cursor => "cursor",
-        AgentProfile::Grok => "grok",
-        AgentProfile::OpenCode => "opencode",
-    }
-}
-
-fn internal_agent_error(message: String) -> CardCommandError {
-    CardCommandError::agent(AgentErrorCode::InternalError, message, false)
-}
-
-fn coordination_error(error: agent::AgentCoordinationError) -> CardCommandError {
-    let code = match error {
-        agent::AgentCoordinationError::UnknownName(_) => AgentErrorCode::UnknownAgent,
-        agent::AgentCoordinationError::Disabled(_) => AgentErrorCode::AgentDisabled,
-        agent::AgentCoordinationError::EmptyTask(_) => AgentErrorCode::EmptyTask,
-        agent::AgentCoordinationError::UntrackedRequiresForce(_) => {
-            AgentErrorCode::UntrackedRequiresForce
-        }
-        agent::AgentCoordinationError::SourceAgentUnavailable => {
-            AgentErrorCode::SourceAgentUnavailable
-        }
-        agent::AgentCoordinationError::SelfDispatchForbidden { .. } => {
-            AgentErrorCode::SelfDispatchForbidden
-        }
-        agent::AgentCoordinationError::DelegationCycle { .. } => AgentErrorCode::DelegationCycle,
-        agent::AgentCoordinationError::DelegationBudgetExceeded { .. } => {
-            AgentErrorCode::DelegationBudgetExceeded
-        }
-        agent::AgentCoordinationError::InvalidName(_)
-        | agent::AgentCoordinationError::DuplicateName(_)
-        | agent::AgentCoordinationError::Inactive(_) => AgentErrorCode::InternalError,
-    };
-    CardCommandError::agent(code, error.to_string(), false)
 }

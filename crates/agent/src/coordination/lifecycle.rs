@@ -134,39 +134,88 @@ impl AgentTaskCoordinator {
     }
 
     pub fn reject_dispatch(&mut self, definition_id: i64, task_ids: &[u64]) -> bool {
-        let Some(agent) = self
+        let Some(index) = self
             .agents
-            .iter_mut()
-            .find(|agent| agent.roster.definition_id == definition_id)
+            .iter()
+            .position(|agent| agent.roster.definition_id == definition_id)
         else {
             return false;
         };
-        let mut rejected = Vec::new();
-        agent.queue.retain(|queued| {
-            let remove = task_ids.contains(&queued.task_id);
-            if remove {
-                rejected.push(queued.clone());
+        let mut rejected = {
+            let agent = &mut self.agents[index];
+            let mut rejected = Vec::new();
+            agent.queue.retain(|queued| {
+                let remove = task_ids.contains(&queued.task_id);
+                if remove {
+                    rejected.push(queued.clone());
+                }
+                !remove
+            });
+            if agent
+                .active
+                .as_ref()
+                .is_some_and(|active| task_ids.is_empty() || task_ids.contains(&active.task_id))
+            {
+                if let Some(active) = agent.active.take() {
+                    rejected.push(active);
+                }
             }
-            !remove
-        });
-        if agent
-            .active
-            .as_ref()
-            .is_some_and(|active| task_ids.is_empty() || task_ids.contains(&active.task_id))
-        {
-            if let Some(active) = agent.active.take() {
-                rejected.push(active);
-            }
-        }
-        agent.roster.busy = false;
-        for task in rejected {
-            mark_task_terminal_maps(
-                &mut self.unfinished_tasks,
-                &mut self.unfinished_descendants,
-                &task,
-            );
+            agent.roster.busy = agent.active.is_some() || !agent.queue.is_empty();
+            rejected
+        };
+        for task in rejected.drain(..) {
+            self.retain_terminal_task(index, task, "failed");
         }
         true
+    }
+
+    pub fn fail_active_preserving_busy(&mut self, definition_id: i64, task_id: u64) -> bool {
+        let Some(index) = self
+            .agents
+            .iter()
+            .position(|agent| agent.roster.definition_id == definition_id)
+        else {
+            return false;
+        };
+        let failed = {
+            let agent = &mut self.agents[index];
+            if !agent
+                .active
+                .as_ref()
+                .is_some_and(|active| active.task_id == task_id)
+            {
+                return false;
+            }
+            agent.roster.busy = true;
+            agent.active.take()
+        };
+        if let Some(failed) = failed {
+            self.retain_terminal_task(index, failed, "failed");
+        }
+        true
+    }
+
+    pub(super) fn retain_terminal_task(
+        &mut self,
+        agent_index: usize,
+        task: super::QueuedAgentTask,
+        terminal_state: &'static str,
+    ) {
+        let agent = &self.agents[agent_index];
+        let completed = coordinated_task(
+            &task,
+            agent.roster.definition_id,
+            &agent.roster.name,
+            terminal_state,
+            agent.roster.tracking,
+        );
+        mark_task_terminal_maps(
+            &mut self.unfinished_tasks,
+            &mut self.unfinished_descendants,
+            &task,
+        );
+        self.completed.push_back(completed);
+        trim_completed(&mut self.completed);
     }
 
     pub fn queued_task_count(&self, definition_id: i64) -> usize {
@@ -183,6 +232,14 @@ impl AgentTaskCoordinator {
             .find(|agent| agent.roster.definition_id == definition_id)
             .map(|agent| agent.roster.busy)
             .unwrap_or(false)
+    }
+
+    pub fn is_cancel_requested(&self, definition_id: i64) -> bool {
+        self.agents
+            .iter()
+            .find(|agent| agent.roster.definition_id == definition_id)
+            .and_then(|agent| agent.active.as_ref())
+            .is_some_and(|active| active.cancel_requested)
     }
 
     pub fn cancel_all(&mut self, definition_id: i64) -> Option<(bool, usize)> {

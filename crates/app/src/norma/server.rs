@@ -1,4 +1,9 @@
-use self::orchestration::is_orchestration_command;
+pub(crate) use self::conversion::canvas_preview_type;
+use self::conversion::{card_bounds_to_canvas, norma_agent_profile};
+use self::orchestration::{
+    agent_profile_label, is_orchestration_command, orchestration_command_label,
+    orchestration_error_code,
+};
 use crate::app::{AppScreen, MultisoulApp};
 use crate::canvas::master_layout::{
     apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
@@ -6,18 +11,16 @@ use crate::canvas::master_layout::{
 };
 use crate::canvas::spawn_focus::activate_spawned_node;
 use crate::motion::MotionStore;
-use canvas::{
-    AgentProfile as CanvasAgentProfile, CanvasNodeKind, CanvasRect, NodeType,
-    PreviewType as CanvasPreviewType,
-};
+use canvas::{CanvasNodeKind, CanvasRect, NodeType};
 use gpui::{Context, Window};
 use norma::protocol::{
-    AgentErrorCode, AgentProfile, CardBounds, CardCommand, CardCommandError, CardCommandResult,
-    CardKind, CardSummary, CardSummaryKind, NodeId, Placement, PreviewType as NormaPreviewType,
-    WireRequest, WireResponse,
+    AgentErrorCode, CardCommand, CardCommandError, CardCommandResult, CardKind, CardSummary,
+    CardSummaryKind, NodeId, Placement, WireRequest, WireResponse,
 };
 use runtime::{InputMode, NodeError, NodeInput, Runtime, DEFAULT_TERMINAL_SHELL};
+use std::time::Instant;
 
+mod conversion;
 mod orchestration;
 mod transport;
 
@@ -81,6 +84,12 @@ impl MultisoulApp {
             command,
         } = request;
         let orchestration_command = is_orchestration_command(&command);
+        let orchestration_started = orchestration_command.then(Instant::now);
+        let orchestration_command_name =
+            orchestration_command.then(|| orchestration_command_label(&command));
+        let orchestration_provider = authorization
+            .as_ref()
+            .map(|authorization| agent_profile_label(authorization.provider));
         let result = match command {
             CardCommand::List => {
                 let zoom = self.runtime.document.viewport.zoom;
@@ -191,6 +200,27 @@ impl MultisoulApp {
             }
             execution.result
         });
+        if let (Some(started), Some(command_name)) =
+            (orchestration_started, orchestration_command_name)
+        {
+            let error_code = result
+                .as_ref()
+                .err()
+                .and_then(orchestration_error_code)
+                .unwrap_or("none");
+            tracing::info!(
+                target: "norma_orchestration",
+                request_id,
+                command = command_name,
+                provider = orchestration_provider.unwrap_or("missing"),
+                source_node_id = source_node_id.unwrap_or_default(),
+                source_present = source_node_id.is_some(),
+                ok = result.is_ok(),
+                error_code,
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "orchestration request completed"
+            );
+        }
 
         WireResponse { request_id, result }
     }
@@ -451,28 +481,6 @@ fn node_error(node_id: NodeId, error: NodeError) -> CardCommandError {
             message: other.to_string(),
         },
     }
-}
-
-fn norma_agent_profile(value: CanvasAgentProfile) -> AgentProfile {
-    match value {
-        CanvasAgentProfile::Claude => AgentProfile::Claude,
-        CanvasAgentProfile::Codex => AgentProfile::Codex,
-        CanvasAgentProfile::Cursor => AgentProfile::Cursor,
-        CanvasAgentProfile::Grok => AgentProfile::Grok,
-        CanvasAgentProfile::OpenCode => AgentProfile::OpenCode,
-    }
-}
-
-pub(crate) fn canvas_preview_type(value: NormaPreviewType) -> CanvasPreviewType {
-    match value {
-        NormaPreviewType::Markdown => CanvasPreviewType::Markdown,
-        NormaPreviewType::Text => CanvasPreviewType::Text,
-        NormaPreviewType::Image => CanvasPreviewType::Image,
-    }
-}
-
-fn card_bounds_to_canvas(value: CardBounds) -> CanvasRect {
-    CanvasRect::new(value.x, value.y, value.width, value.height)
 }
 
 #[cfg(test)]

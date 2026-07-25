@@ -13,6 +13,11 @@ enum AgentDispatchWrite {
         state: AgentDispatchTaskState,
         error: Option<String>,
     },
+    FinishTask {
+        runtime_task_id: u64,
+        state: AgentDispatchTaskState,
+        error: Option<String>,
+    },
     SubmitNextQueued {
         definition_id: i64,
     },
@@ -84,6 +89,17 @@ impl BackgroundAgentDispatchStore {
                                 store.finish_current(definition_id, state, error.as_deref())
                             {
                                 tracing::error!(%error, "failed to persist background Agent terminal state");
+                            }
+                        }
+                        AgentDispatchWrite::FinishTask {
+                            runtime_task_id,
+                            state,
+                            error,
+                        } => {
+                            if let Err(error) =
+                                store.finish_task(runtime_task_id, state, error.as_deref())
+                            {
+                                tracing::error!(%error, "failed to persist exact Agent terminal state");
                             }
                         }
                         AgentDispatchWrite::SubmitNextQueued { definition_id } => {
@@ -158,6 +174,19 @@ impl BackgroundAgentDispatchStore {
         let _ = self
             .sender
             .send(AgentDispatchWrite::SubmitNextQueued { definition_id });
+    }
+
+    pub fn finish_task(
+        &self,
+        runtime_task_id: u64,
+        state: AgentDispatchTaskState,
+        error: Option<String>,
+    ) {
+        let _ = self.sender.send(AgentDispatchWrite::FinishTask {
+            runtime_task_id,
+            state,
+            error,
+        });
     }
 
     pub fn fail_next_queued(&self, definition_id: i64, error: String) {

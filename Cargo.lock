@@ -7189,7 +7189,6 @@ dependencies = [
  "agent",
  "canvas",
  "dirs 6.0.0",
- "norma",
  "rusqlite",
  "serde",
  "serde_json",

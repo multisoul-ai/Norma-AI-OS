@@ -21,6 +21,9 @@ mod agent_dispatch_queue_failure_tests;
 #[path = "../../../tests/unit/agent_dispatch_unsafe_failure_tests.rs"]
 mod agent_dispatch_unsafe_failure_tests;
 
+#[path = "../../../tests/unit/agent_force_untracked_replacement_tests.rs"]
+mod agent_force_untracked_replacement_tests;
+
 #[path = "../../../tests/unit/agent_session_termination_queue_tests.rs"]
 mod agent_session_termination_queue_tests;
 

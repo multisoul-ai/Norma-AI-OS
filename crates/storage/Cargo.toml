@@ -8,7 +8,6 @@ license.workspace = true
 agent.workspace = true
 canvas.workspace = true
 dirs.workspace = true
-norma.workspace = true
 rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -18,5 +17,4 @@ workspace.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-norma.workspace = true
 tempfile.workspace = true

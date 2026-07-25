@@ -1,5 +1,4 @@
 use super::super::{OrchestrationAuthorizationCache, OrchestrationAuthorizationStore};
-use norma::orchestration::OrchestrationProvider;
 
 /// Provider 长期授权：SQLite 只保存 Token 哈希，同 Token 仅可用于原 Provider。
 ///
@@ -25,10 +24,10 @@ fn provider_tokens_are_hashed_and_cannot_cross_provider_boundaries() {
     let claude_token = "bb".repeat(32);
 
     store
-        .authorize(OrchestrationProvider::Codex, &codex_token, "1.0.0")
+        .authorize("codex", &codex_token, "1.0.0")
         .expect("Codex Token 应成功登记");
     store
-        .authorize(OrchestrationProvider::Claude, &claude_token, "1.0.0")
+        .authorize("claude", &claude_token, "1.0.0")
         .expect("Claude Token 应成功登记");
     let records = store.list().expect("授权审计记录应可读取");
 
@@ -39,19 +38,19 @@ fn provider_tokens_are_hashed_and_cannot_cross_provider_boundaries() {
     );
     assert!(
         store
-            .is_authorized(OrchestrationProvider::Codex, &codex_token)
+            .is_authorized("codex", &codex_token)
             .expect("Codex 授权校验应成功"),
         "原始 Codex Token 必须通过 Codex 授权校验"
     );
     assert!(
         store
-            .is_authorized(OrchestrationProvider::Claude, &claude_token)
+            .is_authorized("claude", &claude_token)
             .expect("Claude 授权校验应成功"),
         "原始 Claude Token 必须通过 Claude 授权校验"
     );
     assert!(
         !store
-            .is_authorized(OrchestrationProvider::Claude, &codex_token)
+            .is_authorized("claude", &codex_token)
             .expect("跨 Provider 授权校验应返回明确 false"),
         "Codex Token 不得跨 Provider 用于 Claude"
     );
@@ -95,17 +94,15 @@ fn revocation_invalidates_token_immediately_but_preserves_audit_record() {
     let store = OrchestrationAuthorizationStore::new(temp.path().join("app.sqlite"));
     let token = "cc".repeat(32);
     store
-        .authorize(OrchestrationProvider::OpenCode, &token, "1.0.0")
+        .authorize("opencode", &token, "1.0.0")
         .expect("OpenCode Token 应成功登记");
     let authorized_before = store
-        .is_authorized(OrchestrationProvider::OpenCode, &token)
+        .is_authorized("opencode", &token)
         .expect("撤销前授权校验应成功");
 
-    store
-        .revoke(OrchestrationProvider::OpenCode)
-        .expect("OpenCode 授权撤销应成功");
+    store.revoke("opencode").expect("OpenCode 授权撤销应成功");
     let authorized_after = store
-        .is_authorized(OrchestrationProvider::OpenCode, &token)
+        .is_authorized("opencode", &token)
         .expect("撤销后授权校验应返回明确 false");
     let records = store.list().expect("撤销后审计记录仍应可读取");
 
@@ -155,24 +152,24 @@ fn authorization_cache_verifies_hashed_records_without_sqlite_on_hot_path() {
     let codex_token = "dd".repeat(32);
     let claude_token = "ee".repeat(32);
     store
-        .authorize(OrchestrationProvider::Codex, &codex_token, "1.0.0")
+        .authorize("codex", &codex_token, "1.0.0")
         .expect("Codex Token 应成功登记");
     store
-        .authorize(OrchestrationProvider::Claude, &claude_token, "1.0.0")
+        .authorize("claude", &claude_token, "1.0.0")
         .expect("Claude Token 应成功登记");
     let cache =
         OrchestrationAuthorizationCache::new(store.list().expect("后台应能加载授权哈希记录"));
 
     assert!(
-        cache.is_authorized(OrchestrationProvider::Codex, &codex_token),
+        cache.is_authorized("codex", &codex_token),
         "内存授权快照必须接受原始 Codex Token"
     );
     assert!(
-        cache.is_authorized(OrchestrationProvider::Claude, &claude_token),
+        cache.is_authorized("claude", &claude_token),
         "内存授权快照必须接受原始 Claude Token"
     );
     assert!(
-        !cache.is_authorized(OrchestrationProvider::Claude, &codex_token),
+        !cache.is_authorized("claude", &codex_token),
         "内存授权快照不得接受跨 Provider Token"
     );
     assert!(

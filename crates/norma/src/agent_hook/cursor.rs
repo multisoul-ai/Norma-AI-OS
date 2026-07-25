@@ -43,7 +43,7 @@ pub(super) fn cursor_hooks_installed_at(path: &Path) -> bool {
     };
     hook_events_for_source(HookSource::Cursor)
         .iter()
-        .any(|event_name| cursor_event_has_multisoul_hook(&root, event_name))
+        .all(|event_name| cursor_event_has_multisoul_hook(&root, event_name))
 }
 
 fn cursor_event_has_multisoul_hook(root: &Value, event_name: &str) -> bool {
