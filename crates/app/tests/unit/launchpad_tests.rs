@@ -297,6 +297,47 @@ fn test_recent_projects_list_uses_overflow_scroll_container() {
     );
 }
 
+/// L-9: Recent Projects 空状态文案应在列表面板内水平与垂直居中。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source_recent = launchpad/recent.rs
+///   empty copy   = "No recent projects"
+///   empty id      = launchpad-recent-empty
+///
+/// 执行过程：
+///   1. 读取 recent.rs，定位空状态渲染块
+///   2. 确认空状态容器使用 flex_1 填满列表区，并以 items_center + justify_center 居中
+///
+/// 预期结果：
+///   - 正断言：存在稳定空状态 id 与 "No recent projects" 文案
+///   - 正断言：空状态容器声明 flex_1、items_center、justify_center
+///   - 负断言：空状态不得再使用固定 h(64) 左对齐顶贴布局
+#[test]
+fn test_recent_projects_empty_state_is_centered_in_list_panel() {
+    let source_recent = include_str!("../../src/workspace/launchpad/recent.rs");
+
+    assert!(
+        source_recent.contains("launchpad-recent-empty"),
+        "空状态应有稳定 debug/id，便于验收与回归定位"
+    );
+    assert!(
+        source_recent.contains("No recent projects"),
+        "空状态主文案应继续使用 No recent projects"
+    );
+    assert!(
+        source_recent.contains("items_center") && source_recent.contains("justify_center"),
+        "空状态容器必须同时水平与垂直居中"
+    );
+    assert!(
+        source_recent.contains("flex_1"),
+        "空状态容器应 flex_1 填满 Recent 列表面板，才能在面板内真正居中"
+    );
+    assert!(
+        !source_recent.contains(".h(px(64.0))\n                    .flex()\n                    .items_center()\n                    .text_size(px(13.0))"),
+        "空状态不得继续使用固定 64px 高且无 justify_center 的顶贴左对齐布局"
+    );
+}
+
 /// L-6: Workspace/Launchpad 页面不应再显示顶部静态菜单预览。
 ///
 /// 数据构造（含关键数值的推导过程）：
