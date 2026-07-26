@@ -2,7 +2,7 @@
 
 use gpui::{Modifiers, TestAppContext, VisualTestContext};
 
-use crate::harness::{echo_factory, enter_canvas, make_app};
+use crate::harness::{echo_factory, enter_canvas, make_app, project_store};
 
 /// E2E-A-IME-1：Agent Settings 的 Name 与 Workflow 必须接收 macOS 平台文本输入并保存中文。
 ///
@@ -42,8 +42,7 @@ fn agent_settings_name_and_workflow_accept_chinese_platform_text_input() {
     click_debug(cx, "settings-agent-save");
 
     let saved = app.update(cx, |app, _cx| app.agent_settings_e2e_snapshot());
-    let persisted = storage::ProjectStore::for_workspace(workspace.path())
-        .expect("中文 Agent 输入 e2e 应重新打开 ProjectStore")
+    let persisted = project_store(&app, cx, workspace.path())
         .agent_definition_store()
         .list()
         .expect("中文 Agent 保存后应读取定义");

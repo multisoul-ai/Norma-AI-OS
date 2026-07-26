@@ -23,11 +23,21 @@ use ui::Theme;
 #[cfg(feature = "e2e-test-support")]
 mod visual_preview;
 
+#[derive(Clone, Copy)]
+pub(super) enum BootstrapSettingsSource {
+    Stored,
+    #[cfg(any(test, feature = "e2e-test-support"))]
+    InMemory,
+}
+
 impl MultisoulApp {
     pub(super) fn build(
         cx: &mut Context<Self>,
         runtime: Runtime,
         agent_hook_server: AgentHookServer,
+        database_paths: storage::DatabasePaths,
+        app_store: storage::AppStore,
+        settings_source: BootstrapSettingsSource,
     ) -> Self {
         crate::network_crypto::install_network_crypto_provider();
         // 测试 / e2e 不经 `run_norma_os` 时也要装好组件库（幂等）。
@@ -38,14 +48,43 @@ impl MultisoulApp {
         })
         .detach();
         Self::start_frame_loops(cx);
-        let wallpaper_settings = WallpaperSettingsState::load_default();
-        let (theme_id, theme_settings) = ThemeSettingsState::load_default();
+        let settings_store = app_store.settings_store();
+        let wallpaper_settings = WallpaperSettingsState::load_from_store(settings_store.clone());
+        let (theme_id, theme_settings, voice_settings, shortcuts) = match settings_source {
+            BootstrapSettingsSource::Stored => {
+                let (theme_id, theme_settings) =
+                    ThemeSettingsState::load_from_store(settings_store.clone());
+                let voice_settings = crate::settings::voice::VoiceSettingsState::load_from_store(
+                    settings_store.clone(),
+                );
+                let shortcuts = ShortcutSettingsState::load_from_store(settings_store);
+                (theme_id, theme_settings, voice_settings, shortcuts)
+            }
+            #[cfg(any(test, feature = "e2e-test-support"))]
+            BootstrapSettingsSource::InMemory => {
+                let (theme_id, theme_settings) = ThemeSettingsState::in_memory_default();
+                (
+                    theme_id,
+                    theme_settings,
+                    crate::settings::voice::VoiceSettingsState::in_memory_default(),
+                    ShortcutSettingsState::default(),
+                )
+            }
+        };
         let theme = Theme::for_id(theme_id);
         let focus_handle: FocusHandle = cx.focus_handle();
-        let (voice_settings, voice_settings_inputs) =
-            VoiceSettingsInputs::load_default(cx.weak_entity(), focus_handle.clone(), theme, cx);
+        let voice_settings_inputs = VoiceSettingsInputs::new(
+            cx.weak_entity(),
+            focus_handle.clone(),
+            &voice_settings,
+            theme,
+            cx,
+        );
+        let workspace_state = WorkspaceState::load_from_storage(app_store.recent_store());
         crate::app::dialogue::configure_selected_tts_model(None);
         let mut app = MultisoulApp {
+            database_paths,
+            test_database_guard: None,
             runtime,
             theme_id,
             theme,
@@ -63,14 +102,14 @@ impl MultisoulApp {
             orchestration_settings: OrchestrationSettingsState::default(),
             voice_settings,
             voice_settings_inputs,
-            shortcuts: ShortcutSettingsState::load_default(),
+            shortcuts,
             norma_server: NormaServer::start(),
             agent_hook_server,
             agent_announcements: super::agent_announcements::AgentAnnouncements::default(),
             agent_announcement_playback:
                 super::agent_announcements::AgentAnnouncementPlayback::default(),
             screen: AppScreen::Launchpad,
-            workspace_state: WorkspaceState::load_default(),
+            workspace_state,
             recent_project_context_path: None,
             voice: crate::app::voice::control::VoiceControlState::default(),
             dialogue: crate::app::dialogue::DialogueControlState::default(),
@@ -118,7 +157,9 @@ impl MultisoulApp {
         app.refresh_voice_microphone_requirement(cx);
         app.refresh_voice_provider_credentials(cx);
         app.validate_saved_voice_provider(cx);
-        app.persist_voice_settings_in_background(cx);
+        if matches!(settings_source, BootstrapSettingsSource::Stored) {
+            app.persist_voice_settings_in_background(cx);
+        }
         #[cfg(not(test))]
         if should_refresh_orchestration_integrations(visual_preview) {
             app.refresh_orchestration_integrations(cx);

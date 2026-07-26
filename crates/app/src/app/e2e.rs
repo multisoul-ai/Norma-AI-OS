@@ -1,10 +1,8 @@
 //! Stable, primitive e2e projections that do not expose private settings models.
 
 use super::{AppScreen, MultisoulApp};
-use crate::settings::{agent_hooks::AgentHookServer, ThemeSettingsState};
-use crate::shortcuts::{ShortcutCommandId, ShortcutSettingsState};
+use crate::shortcuts::ShortcutCommandId;
 use gpui::{App, Context};
-use runtime::Runtime;
 #[cfg(feature = "e2e-test-support")]
 use std::path::PathBuf;
 use voice_sherpa::SpeechError;
@@ -14,6 +12,8 @@ mod agent_announcements;
 mod agents;
 #[cfg(feature = "e2e-test-support")]
 mod browser;
+#[cfg(any(test, feature = "e2e-test-support"))]
+mod database;
 #[cfg(feature = "e2e-test-support")]
 pub mod dialogue_tts;
 #[cfg(feature = "e2e-test-support")]
@@ -139,54 +139,9 @@ impl MultisoulApp {
         self.focused_terminal_cursor_animation_active()
     }
 
-    pub fn new_with_pty_factory(cx: &mut Context<Self>, factory: runtime::PtyFactory) -> Self {
-        let agent_hook_server = AgentHookServer::start();
-        let mut runtime = Runtime::new();
-        runtime.set_pty_factory(factory);
-        runtime.set_agent_hook_config(agent_hook_server.runtime_config());
-        let mut app = Self::build(cx, runtime, agent_hook_server);
-        app.browsers.disable_native_views();
-        let (theme_id, theme_settings) = ThemeSettingsState::in_memory_default();
-        app.configure_theme_settings(theme_id, theme_settings, cx);
-        app.shortcuts = ShortcutSettingsState::default();
-        app.voice_settings = crate::settings::voice::VoiceSettingsState::in_memory_default();
-        #[cfg(feature = "e2e-test-support")]
-        app.voice_settings.assume_legacy_ready_for_e2e();
-        app.voice_settings_inputs
-            .sync_from_state(&app.voice_settings, cx);
-        app
-    }
-
+    #[cfg(any(test, feature = "e2e-test-support"))]
     pub fn disable_agent_hook_for_test(&mut self) {
         self.agent_hook_server.disable_for_test();
-    }
-
-    pub fn new_with_pty_factory_and_voice_settings_store(
-        cx: &mut Context<Self>,
-        factory: runtime::PtyFactory,
-        store: storage::SettingsStore,
-    ) -> Self {
-        let mut app = Self::new_with_pty_factory(cx, factory);
-        let (theme_id, theme_settings) = ThemeSettingsState::load_from_store(store.clone());
-        app.configure_theme_settings(theme_id, theme_settings, cx);
-        app.voice_settings = crate::settings::voice::VoiceSettingsState::load_from_store(store);
-        #[cfg(feature = "e2e-test-support")]
-        app.voice_settings.assume_legacy_ready_for_e2e();
-        app.voice_settings_inputs
-            .sync_from_state(&app.voice_settings, cx);
-        app
-    }
-
-    pub fn load_voice_provider_settings_for_e2e(
-        store: storage::SettingsStore,
-    ) -> (String, String, bool) {
-        let state = crate::settings::voice::VoiceSettingsState::load_from_store(store);
-        let profile = state.values().active_provider_profile();
-        (
-            profile.base_url().to_string(),
-            profile.model().to_string(),
-            profile.credential_configured(),
-        )
     }
 
     pub fn screen(&self) -> AppScreen {
@@ -269,11 +224,9 @@ impl MultisoulApp {
     }
 
     pub fn enter_canvas_for_test(&mut self, root: &std::path::Path, cx: &mut Context<Self>) {
-        let project_store = storage::ProjectStore::for_workspace(root)
-            .expect("e2e workspace root should initialize project storage");
-        project_store
-            .migrate()
-            .expect("e2e project storage should migrate");
+        let project_store =
+            storage::ProjectStore::initialize_for_database_paths(&self.database_paths, root)
+                .expect("e2e workspace root should initialize test project storage");
         self.agent_definitions
             .bind_project_store(project_store.agent_definition_store());
         self.persistence.set_project_store(project_store);

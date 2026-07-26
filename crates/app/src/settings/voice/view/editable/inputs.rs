@@ -41,17 +41,6 @@ pub(crate) struct VoiceSettingsInputs {
 }
 
 impl VoiceSettingsInputs {
-    pub(crate) fn load_default(
-        app: WeakEntity<MultisoulApp>,
-        root_focus: FocusHandle,
-        theme: Theme,
-        cx: &mut Context<MultisoulApp>,
-    ) -> (VoiceSettingsState, Self) {
-        let state = VoiceSettingsState::load_default();
-        let inputs = Self::new(app, root_focus, &state, theme, cx);
-        (state, inputs)
-    }
-
     pub(crate) fn new(
         app: WeakEntity<MultisoulApp>,
         root_focus: FocusHandle,

@@ -1,6 +1,6 @@
 use crate::app::MultisoulApp;
 use gpui::Context;
-use storage::{AppStore, SettingsStore};
+use storage::SettingsStore;
 use ui::{Theme, ThemeId};
 
 const THEME_SETTING_KEY: &str = "appearance.theme.v1";
@@ -12,17 +12,11 @@ pub(crate) struct ThemeSettingsState {
 }
 
 impl ThemeSettingsState {
-    pub(crate) fn load_default() -> (ThemeId, Self) {
-        let storage = AppStore::open_default()
-            .ok()
-            .map(|app| app.settings_store());
-        Self::load_from(storage)
-    }
-
     pub(crate) fn load_from_store(store: SettingsStore) -> (ThemeId, Self) {
         Self::load_from(Some(store))
     }
 
+    #[cfg(any(test, feature = "e2e-test-support"))]
     pub(crate) fn in_memory_default() -> (ThemeId, Self) {
         Self::load_from(None)
     }
@@ -81,16 +75,6 @@ impl MultisoulApp {
         self.apply_theme(id, cx);
         self.theme_settings.queue(id);
         self.persist_theme_setting_in_background(cx);
-    }
-
-    pub(crate) fn configure_theme_settings(
-        &mut self,
-        id: ThemeId,
-        settings: ThemeSettingsState,
-        cx: &mut Context<Self>,
-    ) {
-        self.theme_settings = settings;
-        self.apply_theme(id, cx);
     }
 
     fn apply_theme(&mut self, id: ThemeId, cx: &mut Context<Self>) {

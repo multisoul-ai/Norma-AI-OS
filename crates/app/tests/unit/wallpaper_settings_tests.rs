@@ -1,9 +1,8 @@
 //! Task 4: WallpaperSettingsState persistence tests.
 //!
 //! These tests exercise the persistent wallpaper selection state that mirrors the
-//! voice settings pattern. They run against a per-test tempdir routed via the
-//! `MULTISOUL_TEST_DATA_ROOT` env var so the production app data dir is never
-//! touched.
+//! voice settings pattern. Each test passes an explicit tempdir-backed
+//! `SettingsStore`, so the production app database is never touched.
 //!
 //! Concurrency note: `MULTISOUL_TEST_DATA_ROOT` is a process-global env var and
 //! cargo executes tests in parallel threads within the same process. To avoid
@@ -30,7 +29,7 @@ pub(super) static TEST_ROOT_LOCK: Mutex<()> = Mutex::new(());
 /// env var and releases the lock, so the next test starts from a clean slate.
 pub(super) struct TestRootGuard {
     _guard: std::sync::MutexGuard<'static, ()>,
-    _tmp: tempfile::TempDir,
+    tmp: tempfile::TempDir,
 }
 
 impl TestRootGuard {
@@ -40,10 +39,11 @@ impl TestRootGuard {
             .expect("wallpaper test root mutex poisoned");
         let tmp = tempfile::tempdir().expect("tempdir for wallpaper test root");
         std::env::set_var("MULTISOUL_TEST_DATA_ROOT", tmp.path());
-        Self {
-            _guard: guard,
-            _tmp: tmp,
-        }
+        Self { _guard: guard, tmp }
+    }
+
+    pub(super) fn settings_store(&self) -> storage::SettingsStore {
+        storage::SettingsStore::new(self.tmp.path().join("app.sqlite"))
     }
 }
 
@@ -61,7 +61,7 @@ impl Drop for TestRootGuard {
 ///   settings_store 表无 wallpaper.kind / wallpaper.value 记录
 ///
 /// 执行过程：
-///   1. WallpaperSettingsState::load_default_with_test_store() 打开 tempdir/app.sqlite
+///   1. WallpaperSettingsState::load_from_store(tempdir/app.sqlite)
 ///   2. SavedWallpaper::load 读取两条 KEY → 均 None → 回退默认 selection
 ///
 /// 预期结果：
@@ -70,7 +70,7 @@ impl Drop for TestRootGuard {
 #[test]
 fn test_load_default_falls_back_to_default_wallpaper() {
     let _g = TestRootGuard::new();
-    let s = WallpaperSettingsState::load_default_with_test_store();
+    let s = WallpaperSettingsState::load_from_store(_g.settings_store());
     assert!(
         matches!(s.selection, WallpaperSelection::Builtin { rel } if rel.ends_with("1331865.png")),
         "default selection must be the embedded default wallpaper"
@@ -90,9 +90,9 @@ fn test_load_default_falls_back_to_default_wallpaper() {
 ///   select_builtin("wallpapers/220240.gif") → 写入两条 KEY
 ///
 /// 执行过程：
-///   1. s = load_default_test() → 默认壁纸
+///   1. s = load_from_store(tempdir/app.sqlite) → 默认壁纸
 ///   2. s.select_builtin("wallpapers/220240.gif") → 持久化 kind=builtin,value=wallpapers/220240.gif
-///   3. s2 = load_default_test() → 重新打开 store 读取 → 还原 Builtin{220240.gif}
+///   3. s2 = load_from_store(同一路径) → 重新打开 store 读取 → 还原 Builtin{220240.gif}
 ///
 /// 预期结果：
 ///   - 正断言：s2.selection == Builtin{rel == "wallpapers/220240.gif"}
@@ -101,10 +101,10 @@ fn test_load_default_falls_back_to_default_wallpaper() {
 fn test_builtin_selection_round_trips_through_persistence() {
     let _g = TestRootGuard::new();
 
-    let mut s = WallpaperSettingsState::load_default_test();
+    let mut s = WallpaperSettingsState::load_from_store(_g.settings_store());
     s.select_builtin("wallpapers/220240.gif");
 
-    let s2 = WallpaperSettingsState::load_default_test();
+    let s2 = WallpaperSettingsState::load_from_store(_g.settings_store());
     assert!(
         matches!(&s2.selection, WallpaperSelection::Builtin { rel } if rel == &"wallpapers/220240.gif"),
         "reloaded selection must be the gif builtin we just saved"
@@ -139,7 +139,7 @@ fn test_delete_custom_falls_back_to_default_and_removes_file() {
     fs::create_dir_all(&dir).expect("create custom wallpapers dir");
     fs::write(dir.join("mine.png"), b"fake").expect("write fake custom wallpaper");
 
-    let mut s = WallpaperSettingsState::load_default_test();
+    let mut s = WallpaperSettingsState::load_from_store(_g.settings_store());
     s.select_custom("mine.png".to_string());
     s.delete_custom("mine.png");
 
@@ -162,7 +162,7 @@ fn test_delete_custom_falls_back_to_default_and_removes_file() {
 ///
 /// 执行过程：
 ///   1. s.select_custom("night.jpg") → 持久化 kind=custom,value=night.jpg
-///   2. s2 = load_default_test() → 重读 → 还原 Custom{night.jpg}
+///   2. s2 = load_from_store(同一路径) → 重读 → 还原 Custom{night.jpg}
 ///
 /// 预期结果：
 ///   - 正断言：s2.selection == Custom{filename == "night.jpg"}
@@ -175,10 +175,10 @@ fn test_custom_selection_round_trips_through_persistence() {
     fs::create_dir_all(&dir).expect("create custom wallpapers dir");
     fs::write(dir.join("night.jpg"), b"fake-jpg").expect("write fake custom jpg");
 
-    let mut s = WallpaperSettingsState::load_default_test();
+    let mut s = WallpaperSettingsState::load_from_store(_g.settings_store());
     s.select_custom("night.jpg".to_string());
 
-    let s2 = WallpaperSettingsState::load_default_test();
+    let s2 = WallpaperSettingsState::load_from_store(_g.settings_store());
     assert!(
         matches!(&s2.selection, WallpaperSelection::Custom { filename } if filename == "night.jpg"),
         "reloaded selection must restore the custom filename we just saved"
@@ -217,7 +217,7 @@ fn test_resolve_path_and_image_asset_path_semantics() {
     fs::write(dir.join("mine.png"), b"fake").expect("write fake custom wallpaper");
 
     // Default Static builtin.
-    let s_default = WallpaperSettingsState::load_default_with_test_store();
+    let s_default = WallpaperSettingsState::load_from_store(_g.settings_store());
     assert_eq!(
         s_default.image_asset_path(),
         Some("wallpapers/1331865.png"),
@@ -229,7 +229,7 @@ fn test_resolve_path_and_image_asset_path_semantics() {
     );
 
     // Gif builtin.
-    let mut s_gif = WallpaperSettingsState::load_default_test();
+    let mut s_gif = WallpaperSettingsState::load_from_store(_g.settings_store());
     s_gif.select_builtin("wallpapers/220240.gif");
     assert_eq!(
         s_gif.image_asset_path(),
@@ -238,7 +238,7 @@ fn test_resolve_path_and_image_asset_path_semantics() {
     );
 
     // Video builtin: asset path is None (videos are not GPUI ImageSource).
-    let mut s_video = WallpaperSettingsState::load_default_test();
+    let mut s_video = WallpaperSettingsState::load_from_store(_g.settings_store());
     s_video.select_builtin("wallpapers/1403512.mp4");
     assert_eq!(
         s_video.current_kind(),
@@ -252,7 +252,7 @@ fn test_resolve_path_and_image_asset_path_semantics() {
     );
 
     // Existing custom: resolve_path Some, image_asset_path None.
-    let mut s_custom = WallpaperSettingsState::load_default_test();
+    let mut s_custom = WallpaperSettingsState::load_from_store(_g.settings_store());
     s_custom.select_custom("mine.png".to_string());
     let resolved = s_custom
         .resolve_path()
@@ -268,7 +268,7 @@ fn test_resolve_path_and_image_asset_path_semantics() {
     );
 
     // Missing custom: resolve_path None.
-    let mut s_missing = WallpaperSettingsState::load_default_test();
+    let mut s_missing = WallpaperSettingsState::load_from_store(_g.settings_store());
     s_missing.select_custom("ghost.png".to_string());
     assert_eq!(
         s_missing.resolve_path(),
@@ -304,7 +304,7 @@ fn test_list_custom_filters_and_delete_non_current_keeps_selection() {
     fs::write(dir.join("clip.mp4"), b"c").expect("write clip.mp4");
     fs::write(dir.join("ignore.txt"), b"x").expect("write ignore.txt");
 
-    let s = WallpaperSettingsState::load_default_with_test_store();
+    let s = WallpaperSettingsState::load_from_store(_g.settings_store());
     let listed = s.list_custom();
     assert!(
         listed.contains(&"valid.png".to_string()),
@@ -323,7 +323,7 @@ fn test_list_custom_filters_and_delete_non_current_keeps_selection() {
         "list_custom must NOT include non-wallpaper extensions like .txt; got {listed:?}"
     );
 
-    let mut s = WallpaperSettingsState::load_default_test();
+    let mut s = WallpaperSettingsState::load_from_store(_g.settings_store());
     s.select_custom("valid.png".to_string());
     s.delete_custom("anim.gif");
 
@@ -346,7 +346,7 @@ fn test_list_custom_filters_and_delete_non_current_keeps_selection() {
 /// 数据构造：
 ///   tempdir 作为 MULTISOUL_TEST_DATA_ROOT → custom dir = tempdir/wallpapers（不存在）
 ///   额外独立 tempdir 提供 src.png（内容 b"fakepng"），与壁纸目录隔离避免污染
-///   WallpaperSettingsState::load_default_test() → 默认 builtin 选择
+///   WallpaperSettingsState::load_from_store(tempdir/app.sqlite) → 默认 builtin 选择
 ///
 /// 执行过程：
 ///   1. s.import_custom(src.png)
@@ -370,7 +370,7 @@ fn test_import_custom_copies_and_selects() {
     let src = src_tmp.path().join("src.png");
     fs::write(&src, b"fakepng").expect("write source png");
 
-    let mut s = WallpaperSettingsState::load_default_test();
+    let mut s = WallpaperSettingsState::load_from_store(_g.settings_store());
     let res = s.import_custom(&src);
     assert!(
         matches!(res, ImportResult::Imported(_)),
@@ -400,7 +400,7 @@ fn test_import_custom_copies_and_selects() {
 /// 数据构造：
 ///   tempdir 作为 MULTISOUL_TEST_DATA_ROOT
 ///   独立 src.tmp/notes.txt（内容 b"nope"）
-///   load_default_test() → 默认 builtin
+///   load_from_store(tempdir/app.sqlite) → 默认 builtin
 ///
 /// 执行过程：
 ///   s.import_custom(notes.txt)
@@ -418,7 +418,7 @@ fn test_import_custom_rejects_unknown_extension() {
     let src = src_tmp.path().join("notes.txt");
     fs::write(&src, b"nope").expect("write source txt");
 
-    let mut s = WallpaperSettingsState::load_default_test();
+    let mut s = WallpaperSettingsState::load_from_store(_g.settings_store());
     let res = s.import_custom(&src);
     assert!(
         matches!(res, ImportResult::Rejected(_)),

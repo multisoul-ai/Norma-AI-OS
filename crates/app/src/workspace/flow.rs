@@ -119,6 +119,7 @@ impl MultisoulApp {
     ) {
         self.agent_runtime = None;
         let result = enter_workspace_for_path(
+            &self.database_paths,
             &mut self.runtime,
             WorkspaceCanvasState {
                 motion: &mut self.motion,
@@ -160,6 +161,7 @@ impl MultisoulApp {
     ) -> Result<(), String> {
         self.agent_runtime = None;
         let opened = enter_workspace_for_path(
+            &self.database_paths,
             &mut self.runtime,
             WorkspaceCanvasState {
                 motion: &mut self.motion,
@@ -295,6 +297,7 @@ impl MultisoulApp {
 }
 
 pub(crate) fn enter_workspace_for_path(
+    database_paths: &storage::DatabasePaths,
     runtime: &mut Runtime,
     canvas: WorkspaceCanvasState<'_>,
     persistence: &mut PersistenceScheduler,
@@ -316,7 +319,7 @@ pub(crate) fn enter_workspace_for_path(
         &mut stage_start,
         total_start,
     );
-    let project_store = ProjectStore::for_workspace(&root)
+    let project_store = ProjectStore::initialize_for_database_paths(database_paths, &root)
         .map_err(|error| format!("Could not initialize project storage: {error}"))?;
     log_workspace_open_timing(
         "workspace_open_project_store",
@@ -324,9 +327,6 @@ pub(crate) fn enter_workspace_for_path(
         &mut stage_start,
         total_start,
     );
-    project_store
-        .migrate()
-        .map_err(|error| format!("Could not migrate project storage: {error}"))?;
     log_workspace_open_timing(
         "workspace_open_migrate",
         &root,

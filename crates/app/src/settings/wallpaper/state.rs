@@ -2,9 +2,8 @@
 //!
 //! Mirrors [`crate::settings::voice::VoiceSettingsState`] in structure:
 //! - `KEY_*` constants hold storage row keys.
-//! - `load_default()` opens the default app store (or, when
-//!   `MULTISOUL_TEST_DATA_ROOT` is set, an app.sqlite under that root) and
-//!   reconstructs the selection from the saved keys.
+//! - `load_from_store()` reconstructs the selection from the App composition
+//!   root's already-selected SettingsStore.
 //! - mutating methods update the in-memory selection and write through to the
 //!   SettingsStore; the caller (Task 5) is responsible for invoking
 //!   `cx.notify()` afterwards to refresh the rendered view.
@@ -14,11 +13,11 @@
 
 use std::path::{Path, PathBuf};
 
-use super::dirs::{custom_wallpapers_dir, data_root, TEST_DATA_ROOT_ENV};
+use super::dirs::custom_wallpapers_dir;
 use super::import::{non_colliding_dest, ImportResult};
 use crate::app::wallpaper_resolvers::{builtin_wallpapers, resolve_builtin_asset, WallpaperKind};
 use crate::assets::DEFAULT_WALLPAPER_ASSET;
-use storage::{AppStore, SettingsStore};
+use storage::SettingsStore;
 
 /// Settings row key holding the selection kind: `"builtin"` or `"custom"`.
 const KEY_WALLPAPER_KIND: &str = "wallpaper.kind";
@@ -55,33 +54,8 @@ pub(crate) struct WallpaperSettingsState {
 }
 
 impl WallpaperSettingsState {
-    /// Load the saved wallpaper selection from the default data store.
-    ///
-    /// Honors `MULTISOUL_TEST_DATA_ROOT` so that tests run against an isolated
-    /// `<root>/app.sqlite` instead of the real user db. When the saved
-    /// selection cannot be resolved (unknown rel / missing file / corrupt
-    /// kind), it falls back to [`DEFAULT_WALLPAPER_ASSET`] and persists the
-    /// correction so subsequent loads are clean.
-    pub(crate) fn load_default() -> Self {
-        Self::load_from(open_data_store())
-    }
-
-    /// Test-only entry: opens the store under `MULTISOUL_TEST_DATA_ROOT`.
-    ///
-    /// Identical to [`load_default`]; kept as a separate symbol so test code
-    /// documents intent and production callers don't accidentally invoke it.
-    #[cfg(test)]
-    pub(crate) fn load_default_test() -> Self {
-        Self::load_from(open_data_store())
-    }
-
-    /// Test-only entry: opens the store under `MULTISOUL_TEST_DATA_ROOT` and
-    /// does not assume any prior saved state. Equivalent to
-    /// [`load_default_test`]; provided so the brief's T-W1 (which expects no
-    /// preference to exist) reads as documented.
-    #[cfg(test)]
-    pub(crate) fn load_default_with_test_store() -> Self {
-        Self::load_from(open_data_store())
+    pub(crate) fn load_from_store(store: SettingsStore) -> Self {
+        Self::load_from(Some(store))
     }
 
     /// Reconstruct state from an optional SettingsStore. When `store` is None
@@ -432,23 +406,4 @@ fn selection_resolves(sel: &WallpaperSelection) -> bool {
             .map(|d| d.join(filename).is_file())
             .unwrap_or(false),
     }
-}
-
-/// Open the SettingsStore used by [`WallpaperSettingsState::load_default`].
-///
-/// When `MULTISOUL_TEST_DATA_ROOT` is set, opens `<root>/app.sqlite` (the
-/// file may not yet exist — the first `set_string` call runs the migrations
-/// that create it). Otherwise opens the production default app store.
-fn open_data_store() -> Option<SettingsStore> {
-    if std::env::var(TEST_DATA_ROOT_ENV).is_ok() {
-        // data_root() honors the same env var, so this is the test root.
-        let root = data_root().expect(
-            "MULTISOUL_TEST_DATA_ROOT is set but data_root() returned None — \
-             env var resolution is bugged",
-        );
-        return Some(AppStore::new(root.join("app.sqlite")).settings_store());
-    }
-    AppStore::open_default()
-        .ok()
-        .map(|store| store.settings_store())
 }

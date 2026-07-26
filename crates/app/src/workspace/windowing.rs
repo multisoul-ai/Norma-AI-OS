@@ -54,15 +54,19 @@ struct OpenedMultisoulWindow {
 
 fn open_multisoul_window(
     state: InitialWindowState,
+    database_paths: storage::DatabasePaths,
+    test_database_guard: Option<std::sync::Arc<crate::database::TestDatabaseGuard>>,
     cx: &mut App,
 ) -> anyhow::Result<OpenedMultisoulWindow> {
+    let app_store = storage::AppStore::initialize(&database_paths)?;
     let title = title_for_initial_state(&state);
     let (width, height) = initial_window_dimensions(visual_preview_name());
     let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
     let mut app_entity = None;
     let root_handle = cx.open_window(window_options(title, bounds), |window, cx| {
         let app = cx.new(|cx| {
-            let mut app = MultisoulApp::new(cx);
+            let mut app = MultisoulApp::new_with_database_context(cx, database_paths, app_store);
+            app.test_database_guard = test_database_guard;
             app.start_norma_drain_loop(window, cx);
             app.start_dialogue_turn_loop(window, cx);
             app.start_cef_message_pump_loop(window, cx);
@@ -133,8 +137,13 @@ impl MultisoulApp {
         }
     }
 
-    pub(crate) fn open_new_launchpad_window(cx: &mut Context<Self>) {
-        if let Err(error) = open_multisoul_window(InitialWindowState::Launchpad, cx) {
+    pub(crate) fn open_new_launchpad_window(&self, cx: &mut Context<Self>) {
+        if let Err(error) = open_multisoul_window(
+            InitialWindowState::Launchpad,
+            self.database_paths.clone(),
+            self.test_database_guard.clone(),
+            cx,
+        ) {
             tracing::warn!(%error, "failed to open launchpad window");
         }
     }
@@ -171,7 +180,12 @@ impl MultisoulApp {
         }
 
         let open_start = Instant::now();
-        match open_multisoul_window(InitialWindowState::Workspace(root.clone()), cx) {
+        match open_multisoul_window(
+            InitialWindowState::Workspace(root.clone()),
+            self.database_paths.clone(),
+            self.test_database_guard.clone(),
+            cx,
+        ) {
             Ok(opened_window) => {
                 tracing::info!(
                     stage = "workspace_open_project_window",
@@ -412,11 +426,18 @@ mod tests {
     ///   - 负断言：MultisoulApp 不得继续直接成为窗口第一层，否则点击 Input 会 panic。
     #[test]
     fn test_production_window_wraps_multisoul_app_in_component_root() {
+        let database_root = tempfile::tempdir().expect("窗口 Root 测试应创建隔离数据库目录");
+        let database_paths = storage::DatabasePaths::isolated_test(database_root.path());
         let mut test_cx = gpui::TestAppContext::single();
         let opened_window = test_cx.update(|cx| {
             ui::init_components(cx);
-            open_multisoul_window(InitialWindowState::Launchpad, cx)
-                .expect("生产窗口 Root 回归测试应创建 Launchpad 窗口")
+            open_multisoul_window(
+                InitialWindowState::Launchpad,
+                database_paths.clone(),
+                None,
+                cx,
+            )
+            .expect("生产窗口 Root 回归测试应创建 Launchpad 窗口")
         });
 
         let (has_component_root, has_raw_app_root) = opened_window

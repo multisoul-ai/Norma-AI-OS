@@ -18,7 +18,7 @@ use crate::harness::{drain_until, enter_canvas, make_app_real, read_grid};
 ///   可覆盖 CLI 启动、无 Hook 兜底提交、PTY 回写三段异步链路。
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 使用生产 `MultisoulApp::new` 与真实 `portable_pty` 进入临时 workspace；
+///   1. 使用隔离测试数据库构造器与真实 `portable_pty` 进入临时 workspace；
 ///   2. 关闭测试进程的 Hook 回传，按环境变量创建未激活 Agent，并派发固定回复任务；
 ///   3. 等待 30 秒保守兜底，避免 SessionStart 早于全屏 TUI 可输入状态；
 ///   4. 等待 grid 中 `NORMA_SUBMITTED` 出现两次（输入一次、回复一次），并检查 pending 已清空；

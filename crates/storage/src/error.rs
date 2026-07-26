@@ -1,3 +1,4 @@
+use crate::DatabaseMode;
 use std::path::PathBuf;
 
 pub type StorageResult<T> = Result<T, StorageError>;
@@ -6,6 +7,17 @@ pub type StorageResult<T> = Result<T, StorageError>;
 pub enum StorageError {
     #[error("could not determine user home directory for Application Support")]
     MissingHomeDirectory,
+    #[error("invalid app database path: {0}")]
+    InvalidAppDatabasePath(PathBuf),
+    #[error("test data root must be absolute and must not resolve to production data: {0}")]
+    InvalidTestDataRoot(PathBuf),
+    #[error("failed to initialize {mode:?} database at {path}: {source}")]
+    DatabaseInitialization {
+        mode: DatabaseMode,
+        path: PathBuf,
+        #[source]
+        source: Box<StorageError>,
+    },
     #[error("workspace path is not an existing directory: {0}")]
     InvalidWorkspacePath(PathBuf),
     #[error("invalid workspace source stored in sqlite: {0}")]

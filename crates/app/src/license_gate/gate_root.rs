@@ -76,8 +76,17 @@ impl GateRoot {
         {
             self.license_video_wallpaper = None;
         }
+        let (database_paths, app_store) = match crate::database::default_database_context() {
+            Ok(context) => context,
+            Err(error) => {
+                self.status = ShellStatus::Error(format!("无法初始化数据库: {error}").into());
+                self.enter_workbench = false;
+                cx.notify();
+                return;
+            }
+        };
         let workbench = cx.new(|cx| {
-            let mut app = MultisoulApp::new(cx);
+            let mut app = MultisoulApp::new_with_database_context(cx, database_paths, app_store);
             app.start_norma_drain_loop(window, cx);
             app.start_dialogue_turn_loop(window, cx);
             app.start_cef_message_pump_loop(window, cx);

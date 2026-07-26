@@ -7,6 +7,7 @@ pub mod app_store;
 pub mod background_agent_dispatch;
 pub mod background_conversation_tail;
 pub mod canvas_store;
+pub mod database_paths;
 pub mod error;
 pub mod layout_store;
 pub mod migrations;
@@ -33,6 +34,7 @@ pub use app_store::{default_app_data_dir, default_app_db_path, legacy_app_data_d
 pub use background_agent_dispatch::BackgroundAgentDispatchStore;
 pub use background_conversation_tail::BackgroundConversationTailStore;
 pub use canvas_store::CanvasStore;
+pub use database_paths::{DatabaseMode, DatabasePaths};
 pub use error::{StorageError, StorageResult};
 pub use layout_store::{LayoutMode, LayoutOriginalBounds, LayoutStateSnapshot, LayoutStore};
 pub use node_session_store::{NodeSession, NodeSessionKind, NodeSessionStore};

@@ -15,7 +15,7 @@ use super::tests::TestRootGuard;
 /// 本测试验证 render_id_key 的核心契约：不同选择 → 不同 key。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   s = load_default_test() → 默认选择 Builtin{1331865.png}
+///   s = load_from_store(temp/app.sqlite) → 默认选择 Builtin{1331865.png}
 ///   switch1 = select_builtin("wallpapers/220240.gif") → Builtin{220240.gif}（多帧 GIF）
 ///   switch2 = select_custom("mine.png") → Custom{mine.png}（单帧静态图）
 ///   各步对应 key：
@@ -38,7 +38,7 @@ use super::tests::TestRootGuard;
 #[test]
 fn test_render_id_key_changes_with_selection() {
     let _g = TestRootGuard::new();
-    let mut s = WallpaperSettingsState::load_default_test();
+    let mut s = WallpaperSettingsState::load_from_store(_g.settings_store());
 
     let k_default = s.render_id_key();
     s.select_builtin("wallpapers/220240.gif");

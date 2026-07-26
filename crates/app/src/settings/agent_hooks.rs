@@ -106,6 +106,7 @@ impl AgentHookServer {
         })
     }
 
+    #[cfg(any(test, feature = "e2e-test-support"))]
     pub(crate) fn disable_for_test(&mut self) {
         self.endpoint = None;
         self.token = None;

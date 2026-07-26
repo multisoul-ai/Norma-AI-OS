@@ -113,6 +113,8 @@ actions!(
 );
 
 pub struct MultisoulApp {
+    pub(crate) database_paths: storage::DatabasePaths,
+    pub(crate) test_database_guard: Option<Arc<crate::database::TestDatabaseGuard>>,
     pub runtime: Runtime,
     pub theme_id: ThemeId,
     pub theme: Theme,
@@ -172,11 +174,22 @@ pub struct MultisoulApp {
     voice_window_inset_window_visible: bool,
 }
 impl MultisoulApp {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub(crate) fn new_with_database_context(
+        cx: &mut Context<Self>,
+        database_paths: storage::DatabasePaths,
+        app_store: storage::AppStore,
+    ) -> Self {
         let agent_hook_server = AgentHookServer::start();
         let mut runtime = Runtime::new();
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
-        Self::build(cx, runtime, agent_hook_server)
+        Self::build(
+            cx,
+            runtime,
+            agent_hook_server,
+            database_paths,
+            app_store,
+            bootstrap::BootstrapSettingsSource::Stored,
+        )
     }
 
     fn on_new_terminal(&mut self, _: &NewTerminal, window: &mut Window, cx: &mut Context<Self>) {
@@ -255,7 +268,7 @@ impl MultisoulApp {
     }
 
     fn on_new_window(&mut self, _: &NewWindow, _window: &mut Window, cx: &mut Context<Self>) {
-        Self::open_new_launchpad_window(cx);
+        self.open_new_launchpad_window(cx);
     }
 
     fn on_open_preview_file(
@@ -381,6 +394,12 @@ impl Focusable for MultisoulApp {
 #[cfg(test)]
 #[path = "../../tests/unit/app_cursor_animation_tests.rs"]
 mod cursor_animation_tests;
+#[cfg(test)]
+#[path = "../../tests/unit/database_isolation_support.rs"]
+mod database_isolation_support;
+#[cfg(test)]
+#[path = "../../tests/unit/database_isolation_tests.rs"]
+mod database_isolation_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/app_tests.rs"]
 mod tests;

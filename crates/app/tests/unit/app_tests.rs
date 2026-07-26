@@ -275,6 +275,7 @@ fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
 #[test]
 fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
+    let database_paths = storage::DatabasePaths::production_for_home(temp.path());
     let workspace_path = temp.path().join("launchpad-opened");
     std::fs::create_dir(&workspace_path).expect("test should create workspace dir");
     let canonical_workspace = workspace_path
@@ -303,6 +304,7 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     let mut screen = AppScreen::Launchpad;
 
     let result = enter_workspace_for_path(
+        &database_paths,
         &mut runtime,
         WorkspaceCanvasState {
             motion: &mut motion,
@@ -384,6 +386,7 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
 #[test]
 fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
+    let database_paths = storage::DatabasePaths::production_for_home(temp.path());
     let missing_path = temp.path().join("missing-recent");
     let storage = RecentStore::new(temp.path().join("app.sqlite"));
     let mut workspace_state = WorkspaceState::load_from_storage(storage);
@@ -395,6 +398,7 @@ fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
     let mut screen = AppScreen::Launchpad;
 
     let result = enter_workspace_for_path(
+        &database_paths,
         &mut runtime,
         WorkspaceCanvasState {
             motion: &mut motion,

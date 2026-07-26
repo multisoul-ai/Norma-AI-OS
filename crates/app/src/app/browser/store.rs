@@ -72,6 +72,7 @@ impl BrowserStore {
         }
     }
 
+    #[cfg(any(test, feature = "e2e-test-support"))]
     pub(crate) fn disable_native_views(&mut self) {
         self.native_views_enabled = false;
     }

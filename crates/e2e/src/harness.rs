@@ -150,7 +150,7 @@ pub fn make_app_with_settings_store(
 
 /// 装配 headless GPUI 窗口 + `MultisoulApp`，**不**注入 PTY 工厂（走真实 PTY 路径）。
 ///
-/// 与 `make_app` 对称，但调用 `MultisoulApp::new(cx)`（无 `set_pty_factory`）→
+/// 与 `make_app` 对称，但使用独占测试数据库且不调用 `set_pty_factory` →
 /// `Runtime.pty_factory = None` → `spawn_term_live(None, ...)` →
 /// `TermLive::spawn_command` → 真实 `portable_pty`。供 L2 `#[ignore]` 真 PTY 冒烟
 /// （Task 10 / SPEC §3.4）使用：覆盖 `on_new_terminal` → 真实 shell spawn →
@@ -163,7 +163,7 @@ pub fn make_app_real(cx: &mut TestAppContext) -> (Entity<MultisoulApp>, &mut Vis
     let view_slot = Arc::new(Mutex::new(None));
     let capture = view_slot.clone();
     let (_root, cx) = cx.add_window_view(move |window, cx| {
-        let view = cx.new(MultisoulApp::new);
+        let view = cx.new(MultisoulApp::new_with_isolated_test_database);
         *capture.lock().expect("e2e app capture mutex should lock") = Some(view.clone());
         ui::component::Root::new(view, window, cx)
     });
@@ -174,6 +174,16 @@ pub fn make_app_real(cx: &mut TestAppContext) -> (Entity<MultisoulApp>, &mut Vis
         .expect("component root should capture MultisoulApp entity");
     focus_root(&view, cx);
     (view, cx)
+}
+
+/// 使用当前 App 已选定的数据库模式打开 workspace ProjectStore。
+pub fn project_store(
+    view: &Entity<MultisoulApp>,
+    cx: &mut VisualTestContext,
+    workspace: &Path,
+) -> storage::ProjectStore {
+    view.read_with(cx, |app, _cx| app.project_store_for_e2e(workspace))
+        .expect("E2E ProjectStore 应沿用 App 的测试数据库路径")
 }
 
 /// focus root view + activate window，否则 dispatch_action 找不到目标节点。

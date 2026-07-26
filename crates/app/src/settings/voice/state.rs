@@ -2,7 +2,7 @@ use super::models::AsrModelManagerState;
 use super::tts_models::TtsModelManagerState;
 use asr::AsrModelId;
 use std::path::PathBuf;
-use storage::{AppStore, SettingsStore};
+use storage::SettingsStore;
 use tts::{TtsModelId, TtsVoiceId};
 use voice_sherpa::{AudioInputDevice, SpeechError};
 mod announcements;
@@ -96,19 +96,6 @@ pub(crate) struct VoiceSettingsState {
     advanced_expanded: bool,
 }
 impl VoiceSettingsState {
-    pub(crate) fn load_default() -> Self {
-        match AppStore::open_default() {
-            Ok(store) => Self::load_from_store(store.settings_store()),
-            Err(error) => {
-                let mut state =
-                    Self::from_sources(SavedVoiceSettings::default(), EnvVoiceSettings::from_env());
-                state.status = Some(error_status(format!(
-                    "Could not initialize voice settings: {error}"
-                )));
-                state
-            }
-        }
-    }
     pub(crate) fn load_from_store(store: SettingsStore) -> Self {
         match SavedVoiceSettings::load(&store) {
             Ok(saved) => {

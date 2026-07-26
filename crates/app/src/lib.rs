@@ -8,6 +8,7 @@ mod assets;
 mod browser_auth_host;
 mod canvas;
 mod cards;
+mod database;
 mod frame_diagnostics;
 mod license_gate;
 mod logging;
@@ -24,18 +25,18 @@ mod workspace;
 #[path = "../tests/unit/menu_bar_tests.rs"]
 mod menu_bar_tests;
 
+#[cfg(feature = "e2e-test-support")]
+pub use app::{
+    runtime_frame_interval_for_e2e, OrchestrationProviderE2eSnapshot,
+    OrchestrationSettingsE2eSnapshot, ReplyTtsE2ePcmSnapshot, ReplyTtsE2eProbe,
+    ReplyTtsE2eProbeSnapshot, ReplyTtsE2eSnapshot,
+};
 pub use app::{
     AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState, AppScreen,
     CopyCardContent, ExitFocus, InitializationAnimationE2eSnapshot, MultisoulApp, NewBrowser,
     NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewGrokAgent, NewOpenCodeAgent, NewTerminal,
     NewWindow, OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
     ToggleMasterLayout, ToggleSettings, TtsProviderE2eSnapshot,
-};
-#[cfg(feature = "e2e-test-support")]
-pub use app::{
-    runtime_frame_interval_for_e2e, OrchestrationProviderE2eSnapshot,
-    OrchestrationSettingsE2eSnapshot, ReplyTtsE2ePcmSnapshot, ReplyTtsE2eProbe,
-    ReplyTtsE2eProbeSnapshot, ReplyTtsE2eSnapshot,
 };
 pub use assets::EmbeddedAssets;
 pub use browser_auth_host::run_browser_auth_native_host;

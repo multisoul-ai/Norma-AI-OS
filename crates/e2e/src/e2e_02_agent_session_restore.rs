@@ -12,7 +12,7 @@ use canvas::{
 use gpui::TestAppContext;
 use storage::{NodeSession, NodeSessionKind, SessionCheckpoint, SessionCheckpointKind};
 
-use crate::harness::{drain_until, make_app_real};
+use crate::harness::{drain_until, make_app_real, project_store};
 
 static PROCESS_ENV_LOCK: Mutex<()> = Mutex::new(());
 
@@ -91,13 +91,13 @@ fn e2e_02_workspace_open_restores_agent_session_from_provider_history() {
     let workspace = workspace
         .canonicalize()
         .expect("E2E workspace 应规范化为与 App 打开流程相同的 root");
-    prepare_persisted_agent(&workspace);
     prepare_claude_history(&workspace, &home);
     prepare_fake_claude(&bin);
     let _env = ProcessEnvGuard::set(&home, &bin);
 
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app_real(&mut cx);
+    prepare_persisted_agent(project_store(&app, cx, &workspace));
     app.update(cx, |app, cx| {
         app.open_workspace_for_e2e(&workspace, cx)
             .expect("E2E 应通过真实 workspace open 编排打开项目");
@@ -131,9 +131,7 @@ fn e2e_02_workspace_open_restores_agent_session_from_provider_history() {
     app.update(cx, |app, _cx| app.runtime.kill_all());
 }
 
-fn prepare_persisted_agent(workspace: &Path) {
-    let store =
-        storage::ProjectStore::for_workspace(workspace).expect("E2E project store 应初始化成功");
+fn prepare_persisted_agent(store: storage::ProjectStore) {
     store.migrate().expect("E2E project schema 应迁移成功");
     store
         .canvas_store()

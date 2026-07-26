@@ -65,7 +65,8 @@ fn test_product_ui_command_dock_uses_grouped_icons_and_embedded_voice() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取生产 bootstrap 源码。
-///   2. 检查启动时通过 `ThemeSettingsState::load_default()` 同时恢复主题与持久化状态。
+///   2. 检查启动时通过共享 `SettingsStore` 调用
+///      `ThemeSettingsState::load_from_store()`，同时恢复主题与持久化状态。
 ///   3. 检查无合法保存值时使用 `unwrap_or_default()` 回退 Paper Blue。
 ///   4. 排除 `Theme::dark()`，避免主题选择被硬编码暗色覆盖。
 ///
@@ -78,9 +79,13 @@ fn test_product_ui_bootstrap_activates_light_glass_theme() {
     let selection = include_str!("../../src/settings/theme_selection.rs");
 
     assert!(
-        bootstrap.contains("let (theme_id, theme_settings) = ThemeSettingsState::load_default();")
+        bootstrap.contains("let settings_store = app_store.settings_store();"),
+        "Product UI 启动时必须从已选择的 AppStore 派生共享 SettingsStore"
+    );
+    assert!(
+        bootstrap.contains("ThemeSettingsState::load_from_store(settings_store.clone())")
             && bootstrap.contains("let theme = Theme::for_id(theme_id);"),
-        "Product UI 启动时必须恢复持久化主题，并用恢复出的 ThemeId 构造主题"
+        "Product UI 启动时必须从显式 SettingsStore 恢复主题，并用恢复出的 ThemeId 构造主题"
     );
     assert!(
         selection.contains(".unwrap_or_default();"),

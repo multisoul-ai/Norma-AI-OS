@@ -187,7 +187,7 @@ fn test_browser_native_view_bounds_clamps_tiny_cards_to_zero_size() {
 /// B-7: 修改地址或删除 Browser 节点时必须先释放原生 WebView 焦点，再交回 GPUI。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = app/mod.rs；remove_node_and_reflow 是标题栏关闭按钮和快捷键删除的共同路径；
+///   source = app/node_removal.rs；remove_node_and_reflow 是标题栏关闭按钮和快捷键删除的共同路径；
 ///   WebView 是 macOS native first responder，Runtime::focus 不会自动清理 native first responder。
 ///   Wry 通过 `focus_parent()` 把 first responder 还给宿主 NSView；CEF 通过
 ///   `set_focus(0)` 取消 BrowserHost 焦点；两条后端路径都必须覆盖。
@@ -204,18 +204,14 @@ fn test_browser_native_view_bounds_clamps_tiny_cards_to_zero_size() {
 ///   - 负断言：不能只调用 GPUI FocusHandle；那不会移除 native first responder
 #[test]
 fn test_browser_focus_handoff_releases_native_responder_before_view_removal() {
-    let app_source = include_str!("../../src/app/mod.rs");
+    let node_removal_source = include_str!("../../src/app/node_removal.rs");
     let store_source = include_str!("../../src/app/browser/store.rs");
     let wry_source = include_str!("../../src/app/browser/wry_backend.rs");
     let cef_source = include_str!("../../src/app/browser/cef_backend.rs");
-    let start = app_source
+    let start = node_removal_source
         .find("pub(crate) fn remove_node_and_reflow")
         .expect("app should keep remove_node_and_reflow as the shared node deletion path");
-    let end = app_source[start..]
-        .find("pub(crate) fn close_node_through_route")
-        .map(|offset| start + offset)
-        .expect("remove_node_and_reflow should appear before close_node_through_route");
-    let remove_block = &app_source[start..end];
+    let remove_block = &node_removal_source[start..];
 
     let release_pos = remove_block
         .find("self.release_browser_input(node_id)")

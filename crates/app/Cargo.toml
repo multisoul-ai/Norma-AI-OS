@@ -8,6 +8,7 @@ default-run = "norma-os"
 [features]
 default = []
 chromium-browser = ["dep:cef"]
+production-data = []
 e2e-test-support = [
     "asr/test-support",
     "voice_input/test-support",
