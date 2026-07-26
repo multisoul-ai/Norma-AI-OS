@@ -131,6 +131,11 @@ fn default_install_paths_are_user_scoped_and_provider_native() {
         "Codex 必须使用原生 Skill 发现目录"
     );
     assert_eq!(
+        paths.presentation_skill_path(OrchestrationProvider::Codex),
+        Some(home.join(".codex/skills/norma-presentation/SKILL.md")),
+        "Codex 展示能力必须安装为独立 norma-presentation Skill"
+    );
+    assert_eq!(
         paths.cursor_rule,
         home.join(".cursor/rules/norma-orchestration.mdc"),
         "Cursor 必须使用原生 rule 发现目录"
@@ -454,6 +459,13 @@ fn uninstall_removes_only_managed_provider_content_and_preserves_user_hook() {
     assert!(
         !paths.claude_skill.exists(),
         "卸载必须删除 Claude 的受管 Skill"
+    );
+    assert!(
+        !paths
+            .presentation_skill_path(OrchestrationProvider::Claude)
+            .expect("Claude 应有 presentation Skill 路径")
+            .exists(),
+        "卸载必须同时删除 Claude 的受管展示 Skill"
     );
     assert!(
         !paths

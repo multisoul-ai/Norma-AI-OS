@@ -59,6 +59,7 @@ pulldown-cmark = "0.10"
 ureq = { version = "3.3", features = ["json", "rustls"] }
 hex = "0.4"
 sha2 = "0.10"
+url = "2.5"
 tungstenite = { version = "0.28", default-features = false, features = ["handshake", "rustls-tls-native-roots"] }
 # 内部 crate（路径依赖）
 audio = { path = "crates/audio" }

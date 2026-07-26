@@ -210,12 +210,11 @@ pub(crate) fn enter_master_layout_for_area(
         return false;
     }
 
-    runtime.selection.select_only(master_id);
-    if matches!(runtime.focus.mode(), InputMode::NodeFocused(focused) if focused != master_id) {
-        runtime.focus.exit_to_canvas();
-    }
-
     if state.apply(runtime, motion, area, zoom) {
+        runtime.selection.select_only(master_id);
+        if matches!(runtime.focus.mode(), InputMode::NodeFocused(focused) if focused != master_id) {
+            runtime.focus.exit_to_canvas();
+        }
         true
     } else {
         state.clear();
@@ -235,20 +234,20 @@ pub(crate) fn switch_master_layout_for_area(
         return false;
     }
 
+    let previous_active = state.active.clone();
     let Some(active) = state.active.as_mut() else {
         return false;
     };
     active.master_id = master_id;
 
-    runtime.selection.select_only(master_id);
-    if matches!(runtime.focus.mode(), InputMode::NodeFocused(focused) if focused != master_id) {
-        runtime.focus.exit_to_canvas();
-    }
-
     if state.apply(runtime, motion, area, zoom) {
+        runtime.selection.select_only(master_id);
+        if matches!(runtime.focus.mode(), InputMode::NodeFocused(focused) if focused != master_id) {
+            runtime.focus.exit_to_canvas();
+        }
         true
     } else {
-        state.clear();
+        state.active = previous_active;
         false
     }
 }

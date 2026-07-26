@@ -43,6 +43,7 @@ impl WryBrowserView {
     ) -> wry::Result<Self> {
         let browser_event_sender = event_sender.clone();
         let title_sender = event_sender.clone();
+        let location_sender = event_sender.clone();
         let new_window_sender = event_sender.clone();
         let webview = with_safari_browser_identity(wry::WebViewBuilder::new())
             .with_url(url)
@@ -55,6 +56,9 @@ impl WryBrowserView {
             })
             .with_document_title_changed_handler(move |title| {
                 let _ = title_sender.send(BrowserEvent::TitleChanged { node_id, title });
+            })
+            .with_on_page_load_handler(move |_event, url| {
+                let _ = location_sender.send(BrowserEvent::LocationChanged { node_id, url });
             })
             .with_new_window_req_handler(move |url, _features| {
                 forward_new_window_to_current_card(&new_window_sender, node_id, url)

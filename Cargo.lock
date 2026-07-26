@@ -4602,9 +4602,12 @@ dependencies = [
  "anyhow",
  "clap",
  "dirs 6.0.0",
+ "hex",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
+ "url",
 ]
 
 [[package]]

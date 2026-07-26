@@ -23,15 +23,19 @@ mod recent_projects;
 mod repaint;
 mod shortcuts;
 mod tts;
+mod visuals;
 mod voice;
 #[cfg(feature = "e2e-test-support")]
 mod voice_setup;
+#[cfg(feature = "e2e-test-support")]
+pub use agents::PresentationE2eSnapshot;
 pub use agents::{AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot};
 #[cfg(feature = "e2e-test-support")]
 pub use orchestration::{OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot};
 use shortcuts::shortcut_command_name;
 pub use tts::TtsProviderE2eSnapshot;
 use tts::{snapshot_tts_models, snapshot_tts_provider, TtsModelE2eSnapshot};
+pub use visuals::InitializationAnimationE2eSnapshot;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ApiKeyDisplayState {
@@ -105,26 +109,6 @@ pub struct AsrModelE2eSnapshot {
     pub deletable: bool,
 }
 
-/// 初始化动画的稳定 e2e 投影：不暴露 app 私有 MotionStore 或帧资源实现。
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct InitializationAnimationE2eSnapshot {
-    pub kind: &'static str,
-    pub asset: &'static str,
-    pub frame_index: usize,
-    pub neutral_visible_cells: usize,
-    pub accent_visible_cells: usize,
-    pub overlay_opacity_milli: u16,
-    pub content_opacity_milli: u16,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct VoiceWindowInsetE2eSnapshot {
-    pub active: bool,
-    pub opacity_milli: u16,
-    pub inset_px_milli: u16,
-    pub corner_seam_guard_alpha_milli: u16,
-}
-
 impl MultisoulApp {
     #[cfg(feature = "e2e-test-support")]
     pub fn set_voice_model_root_for_e2e(&mut self, model_root: PathBuf, cx: &mut Context<Self>) {
@@ -196,76 +180,6 @@ impl MultisoulApp {
     /// Launchpad 的固定背景资源；Canvas 的 Wallpaper 设置不会改变此值。
     pub fn launchpad_video_asset_e2e(&self) -> &'static str {
         crate::workspace::launchpad::launchpad_default_video_asset()
-    }
-
-    pub fn initialization_e2e_snapshot(
-        &self,
-        node_id: canvas::NodeId,
-    ) -> Option<InitializationAnimationE2eSnapshot> {
-        self.motion
-            .initialization_presentation(node_id)
-            .map(|presentation| {
-                let (neutral_visible_cells, accent_visible_cells) =
-                    crate::cards::intro::intro_visible_cell_counts(
-                        presentation.kind,
-                        presentation.frame_index,
-                    );
-                InitializationAnimationE2eSnapshot {
-                    kind: match presentation.kind {
-                        crate::motion::InitializationAnimationKind::Terminal => "terminal",
-                        crate::motion::InitializationAnimationKind::Codex => "codex",
-                        crate::motion::InitializationAnimationKind::Claude => "claude",
-                        crate::motion::InitializationAnimationKind::Cursor => "cursor",
-                        crate::motion::InitializationAnimationKind::Grok => "grok",
-                        crate::motion::InitializationAnimationKind::OpenCode => "opencode",
-                    },
-                    asset: crate::cards::intro::intro_asset_name(presentation.kind),
-                    frame_index: presentation.frame_index,
-                    neutral_visible_cells,
-                    accent_visible_cells,
-                    overlay_opacity_milli: opacity_to_milli(presentation.overlay_opacity),
-                    content_opacity_milli: opacity_to_milli(presentation.content_opacity),
-                }
-            })
-    }
-
-    pub fn begin_assistant_playback_for_e2e(&mut self, cx: &mut Context<Self>) {
-        self.voice_window_inset.begin_playback();
-        cx.notify();
-    }
-
-    /// 注入一块已成功排入播放时间线的助手 PCM，供 headless e2e 验证可见能量反馈。
-    pub fn queue_assistant_pcm_for_e2e(
-        &mut self,
-        chunk: audio::PcmAudioChunk,
-        cx: &mut Context<Self>,
-    ) {
-        self.voice_window_inset.queue_pcm_energy(&chunk);
-        cx.notify();
-    }
-
-    pub fn finish_assistant_playback_for_e2e(&mut self, cx: &mut Context<Self>) {
-        self.voice_window_inset.finish_playback();
-        cx.notify();
-    }
-
-    pub fn voice_window_inset_e2e_snapshot(&self) -> VoiceWindowInsetE2eSnapshot {
-        match self.voice_window_inset.visual() {
-            Some(visual) => VoiceWindowInsetE2eSnapshot {
-                active: true,
-                opacity_milli: opacity_to_milli(visual.opacity),
-                inset_px_milli: (visual.inset_px * 1000.0).round() as u16,
-                corner_seam_guard_alpha_milli: opacity_to_milli(
-                    self.voice_window_inset.corner_seam_guard_alpha(),
-                ),
-            },
-            None => VoiceWindowInsetE2eSnapshot {
-                active: false,
-                opacity_milli: 0,
-                inset_px_milli: 0,
-                corner_seam_guard_alpha_milli: 0,
-            },
-        }
     }
 
     pub fn enter_canvas_for_test(&mut self, root: &std::path::Path, cx: &mut Context<Self>) {
@@ -485,10 +399,6 @@ impl MultisoulApp {
             wallpaper_preview_cache_bytes: self.wallpaper_previews.total_bytes(),
         }
     }
-}
-
-fn opacity_to_milli(opacity: f32) -> u16 {
-    (opacity.clamp(0.0, 1.0) * 1000.0).round() as u16
 }
 
 fn classify_api_key_display(

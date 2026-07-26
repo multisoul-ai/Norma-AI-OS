@@ -4,7 +4,6 @@ use super::credential::{
 };
 use super::file_ops::{atomic_write, remove_matching_binary, set_mode};
 use super::model::{ComponentState, InstallPaths, OrchestrationProvider, ProviderIntegration};
-use super::skill::{managed_version, skill_source, MANAGED_MARKER};
 use crate::agent_hook::{
     agent_hooks_installed_for_source, install_hook_config, uninstall_hook_config, AgentHookError,
     OPENCODE_PLUGIN_MARKER,
@@ -14,6 +13,8 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+
+mod skill_component;
 
 pub trait AuthorizationRegistry {
     type Error: fmt::Display;
@@ -137,12 +138,7 @@ impl OrchestrationInstaller {
             return Err(InstallerError::UnsupportedProvider);
         }
         let before = self.inspect(provider, registry);
-        if !matches!(
-            before.skill_component,
-            ComponentState::Ready { .. } | ComponentState::Conflict { .. }
-        ) {
-            self.install_skill_if_owned(provider)?;
-        }
+        self.install_skills_if_owned(provider)?;
         if !matches!(before.cli_component, ComponentState::Ready { .. }) {
             self.install_binary(
                 self.paths.bundled_cli.as_path(),
@@ -185,7 +181,7 @@ impl OrchestrationInstaller {
         registry
             .revoke(provider)
             .map_err(|error| InstallerError::Authorization(error.to_string()))?;
-        self.remove_managed_skill(provider)?;
+        self.remove_managed_skills(provider)?;
         uninstall_hook_config(
             provider
                 .hook_target()
@@ -204,42 +200,6 @@ impl OrchestrationInstaller {
             )?;
         }
         Ok(self.inspect(provider, registry))
-    }
-
-    fn inspect_skill(&self, provider: OrchestrationProvider) -> ComponentState {
-        let Some(path) = self.paths.skill_path(provider) else {
-            return ComponentState::Unsupported {
-                reason: "Provider does not support orchestration".to_string(),
-            };
-        };
-        let source = match fs::read_to_string(path) {
-            Ok(source) => source,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                return ComponentState::Missing;
-            }
-            Err(error) => {
-                return ComponentState::Failed {
-                    error_code: "component_inspection_failed".to_string(),
-                    message: error.to_string(),
-                };
-            }
-        };
-        let Some(installed_version) = managed_version(&source) else {
-            return ComponentState::Conflict {
-                path: path.clone(),
-                reason: "Existing file is not managed by Norma OS.".to_string(),
-            };
-        };
-        if installed_version == self.required_version {
-            ComponentState::Ready {
-                version: self.required_version.clone(),
-            }
-        } else {
-            ComponentState::Outdated {
-                installed_version: installed_version.to_string(),
-                required_version: self.required_version.clone(),
-            }
-        }
     }
 
     fn inspect_binary(&self, installed: &Path, bundled: &Path) -> ComponentState {
@@ -374,30 +334,6 @@ impl OrchestrationInstaller {
         }
     }
 
-    fn install_skill_if_owned(
-        &self,
-        provider: OrchestrationProvider,
-    ) -> Result<(), InstallerError> {
-        let state = self.inspect_skill(provider);
-        if matches!(
-            state,
-            ComponentState::Ready { .. } | ComponentState::Conflict { .. }
-        ) {
-            return Ok(());
-        }
-        let path = self
-            .paths
-            .skill_path(provider)
-            .expect("supported orchestration provider has a skill path");
-        let source = skill_source(
-            provider,
-            &self.required_version,
-            self.paths.managed_cli_path().as_path(),
-        );
-        atomic_write(path, source.as_bytes(), 0o644)?;
-        Ok(())
-    }
-
     fn install_binary(&self, bundled: &Path, installed: &Path) -> Result<(), InstallerError> {
         let binary_error = |error| InstallerError::BinaryInstall {
             source: bundled.to_path_buf(),
@@ -443,17 +379,6 @@ impl OrchestrationInstaller {
         let bytes = serde_json::to_vec_pretty(&credential)?;
         atomic_write(path.as_path(), &bytes, 0o600)?;
         Ok(credential)
-    }
-
-    fn remove_managed_skill(&self, provider: OrchestrationProvider) -> Result<(), InstallerError> {
-        let path = self
-            .paths
-            .skill_path(provider)
-            .expect("supported orchestration provider has a skill path");
-        if fs::read_to_string(path).is_ok_and(|source| source.contains(MANAGED_MARKER)) {
-            fs::remove_file(path)?;
-        }
-        Ok(())
     }
 
     fn remove_managed_credential(

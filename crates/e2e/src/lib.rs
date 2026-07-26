@@ -90,6 +90,7 @@ mod e2e_10_voice_model_matrix;
 mod e2e_11_launchpad_video;
 
 // 可语音呼叫 Agent：Settings 未保存草稿与快速创建的定义/卡片闭环。
+mod e2e_12_agent_presentation;
 mod e2e_12_agent_settings_ime;
 mod e2e_12_agent_submit;
 mod e2e_12_agent_submit_l3;

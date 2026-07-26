@@ -79,6 +79,12 @@ pub fn format_result(result: &CardCommandResult) -> String {
         CardCommandResult::AgentTaskCancelled { task_id, status } => {
             format!("{task_id}\t{status:?}")
         }
+        CardCommandResult::Presented {
+            node_id,
+            kind,
+            disposition,
+            layout,
+        } => format!("{node_id}\t{kind:?}\t{disposition:?}\t{layout:?}"),
     }
 }
 
@@ -172,7 +178,7 @@ struct ProtocolError {
 
 #[derive(Serialize)]
 struct ProtocolFailure {
-    code: AgentErrorCode,
+    code: String,
     message: String,
     retryable: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -187,6 +193,17 @@ fn result_json(result: &CardCommandResult) -> Result<serde_json::Value, serde_js
         CardCommandResult::AgentTaskCancelled { task_id, status } => {
             json!({ "task_id": task_id, "status": status })
         }
+        CardCommandResult::Presented {
+            node_id,
+            kind,
+            disposition,
+            layout,
+        } => json!({
+            "node_id": node_id,
+            "kind": kind,
+            "disposition": disposition,
+            "layout": layout,
+        }),
         other => serde_json::to_value(other)?,
     })
 }
@@ -203,7 +220,7 @@ fn protocol_failure(error: &CardCommandError) -> (ProtocolFailure, i32) {
             };
             (
                 ProtocolFailure {
-                    code: error.code,
+                    code: serialized_code(error.code),
                     message: error.message.clone(),
                     retryable: error.retryable,
                     current_status: error.current_status,
@@ -211,9 +228,22 @@ fn protocol_failure(error: &CardCommandError) -> (ProtocolFailure, i32) {
                 exit_code,
             )
         }
+        CardCommandError::Presentation(error) => (
+            ProtocolFailure {
+                code: serialized_code(error.code),
+                message: error.message.clone(),
+                retryable: error.retryable,
+                current_status: None,
+            },
+            if error.code == crate::protocol::PresentationErrorCode::PresentationFailed {
+                1
+            } else {
+                5
+            },
+        ),
         other => (
             ProtocolFailure {
-                code: AgentErrorCode::InternalError,
+                code: "internal_error".to_string(),
                 message: other.to_string(),
                 retryable: false,
                 current_status: None,
@@ -221,4 +251,11 @@ fn protocol_failure(error: &CardCommandError) -> (ProtocolFailure, i32) {
             1,
         ),
     }
+}
+
+fn serialized_code(code: impl Serialize) -> String {
+    serde_json::to_value(code)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_string))
+        .unwrap_or_else(|| "internal_error".to_string())
 }

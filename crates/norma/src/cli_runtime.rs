@@ -3,7 +3,7 @@ use crate::cli::{
 };
 use crate::client;
 use crate::protocol::{
-    AgentErrorCode, AgentTaskReceiptStatus, CardCommandError, CardCommandResult,
+    AgentErrorCode, AgentTaskReceiptStatus, CardCommand, CardCommandError, CardCommandResult,
 };
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -39,10 +39,29 @@ pub fn classify_wait_task(status: AgentTaskReceiptStatus, tracking: &str) -> Wai
 }
 
 pub fn run_invocation(invocation: CliInvocation) -> CliOutput {
+    let invocation = match prepare_invocation(invocation) {
+        Ok(invocation) => invocation,
+        Err((format, error)) => {
+            return render_error(format, local_request_id(), &error);
+        }
+    };
     match invocation.wait_timeout_seconds {
         Some(timeout_seconds) => run_wait(invocation, Duration::from_secs(timeout_seconds)),
         None => run_once(invocation),
     }
+}
+
+fn prepare_invocation(
+    mut invocation: CliInvocation,
+) -> Result<CliInvocation, (OutputFormat, CardCommandError)> {
+    let CardCommand::Present { target, create_new } = invocation.command else {
+        return Ok(invocation);
+    };
+    let format = invocation.format;
+    let target = crate::presentation::prepare_presentation_target(target)
+        .map_err(|error| (format, error.into_card_error()))?;
+    invocation.command = CardCommand::Present { target, create_new };
+    Ok(invocation)
 }
 
 fn run_once(invocation: CliInvocation) -> CliOutput {

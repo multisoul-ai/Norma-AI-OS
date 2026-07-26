@@ -89,6 +89,15 @@ impl NativeBrowserView {
         }
     }
 
+    pub(crate) fn current_url_for_polling(&self) -> Option<String> {
+        match self {
+            #[cfg(target_os = "macos")]
+            Self::Wry(_) => None,
+            #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
+            Self::Cef(view) => view.current_url(),
+        }
+    }
+
     pub(crate) fn go_back(&mut self) {
         match self {
             #[cfg(target_os = "macos")]
