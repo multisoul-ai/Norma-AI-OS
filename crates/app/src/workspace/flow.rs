@@ -7,7 +7,7 @@ use crate::settings::agents::AgentDefinitionsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasNodeKind, NodeId};
-use gpui::{AppContext, Context, PathPromptOptions, Window};
+use gpui::{AppContext, Context, Window};
 use runtime::Runtime;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -69,48 +69,6 @@ pub(crate) struct WorkspaceCanvasState<'a> {
 }
 
 impl MultisoulApp {
-    pub(crate) fn prompt_open_project(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let receiver = cx.prompt_for_paths(PathPromptOptions {
-            files: false,
-            directories: true,
-            multiple: false,
-            prompt: Some("Open Project".into()),
-        });
-        let current_window = window.window_handle().downcast::<MultisoulApp>();
-
-        cx.spawn(async move |this, cx| {
-            match receiver.await {
-                Ok(Ok(Some(paths))) => {
-                    if let Some(path) = paths.into_iter().next() {
-                        if let Some(current_window) = current_window {
-                            let _ = current_window.update(&mut *cx, |app, window, cx| {
-                                app.open_workspace_in_project_window(path, true, window, cx);
-                            });
-                        }
-                    }
-                }
-                Ok(Ok(None)) => {}
-                Ok(Err(error)) => {
-                    let _ = this.update(&mut *cx, |app, cx| {
-                        app.workspace_state.error =
-                            Some(format!("Could not open project picker: {error}"));
-                        cx.notify();
-                    });
-                }
-                Err(error) => {
-                    let _ = this.update(&mut *cx, |app, cx| {
-                        app.workspace_state.error = Some(format!(
-                            "Project picker was cancelled unexpectedly: {error}"
-                        ));
-                        cx.notify();
-                    });
-                }
-            }
-            Ok::<(), anyhow::Error>(())
-        })
-        .detach();
-    }
-
     pub(crate) fn open_workspace_path(
         &mut self,
         path: PathBuf,

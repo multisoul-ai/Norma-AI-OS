@@ -121,6 +121,9 @@ mod e2e_18_tts_reply_backlog;
 // Terminal burst：Runtime drain 与 repaint gate 合并输出但不得丢最终 grid。
 mod e2e_19_terminal_repaint_coalescing;
 
+// Open Project：原生选择结果返回后必须从组件 Root 窗口进入所选项目。
+mod e2e_20_project_picker;
+
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。
 pub use harness::{
