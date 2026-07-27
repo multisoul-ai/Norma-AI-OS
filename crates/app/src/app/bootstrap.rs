@@ -123,6 +123,7 @@ impl MultisoulApp {
             voice_ready_notification_visible: false,
             agent_runtime: None,
             agent_task_coordinator: None,
+            agent_queue_ui: super::agent_queue::AgentQueueUiState::default(),
             orchestration_authorizations: storage::OrchestrationAuthorizationCache::default(),
             pending_agent_submissions:
                 super::agent_runtime::pending::PendingAgentSubmissions::default(),

@@ -59,9 +59,31 @@ pub enum AgentTaskCancellation {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AgentQueueTaskSource {
+    Norma,
+    Manual,
+    Agent { definition_id: i64 },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueTask {
+    pub task_id: u64,
+    pub task_ref: String,
+    pub task: String,
+    pub source: AgentQueueTaskSource,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueSnapshot {
+    pub current: Option<AgentQueueTask>,
+    pub waiting: Vec<AgentQueueTask>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AgentDispatchSource {
     pub definition_id: Option<i64>,
     pub node_id: Option<u64>,
+    pub queue_source: AgentQueueTaskSource,
 }
 
 impl AgentDispatchSource {
@@ -69,6 +91,15 @@ impl AgentDispatchSource {
         Self {
             definition_id: None,
             node_id: None,
+            queue_source: AgentQueueTaskSource::Norma,
+        }
+    }
+
+    pub const fn manual() -> Self {
+        Self {
+            definition_id: None,
+            node_id: None,
+            queue_source: AgentQueueTaskSource::Manual,
         }
     }
 
@@ -76,6 +107,7 @@ impl AgentDispatchSource {
         Self {
             definition_id: Some(definition_id),
             node_id: Some(node_id),
+            queue_source: AgentQueueTaskSource::Agent { definition_id },
         }
     }
 }
@@ -155,6 +187,7 @@ struct QueuedAgentTask {
     parent_task_ref: Option<String>,
     source_definition_id: Option<i64>,
     source_node_id: Option<u64>,
+    source: AgentQueueTaskSource,
     target_node_id: u64,
     task: String,
     cancel_requested: bool,

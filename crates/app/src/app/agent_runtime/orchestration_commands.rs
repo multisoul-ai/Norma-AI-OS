@@ -30,7 +30,7 @@ pub(crate) fn execute_orchestration_agent_command(
     }
 }
 
-pub(super) fn execute_high_level_agent_command(
+pub(crate) fn execute_high_level_agent_command(
     app: &mut MultisoulApp,
     command: CardCommand,
     area: canvas::CanvasRect,

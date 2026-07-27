@@ -40,6 +40,7 @@ use voice_window_inset::VoiceWindowInset;
 mod agent_actions;
 mod agent_announcements;
 mod agent_close;
+mod agent_queue;
 mod agent_runtime;
 pub(crate) use agent_runtime::{execute_agent_card_command, execute_orchestration_agent_command};
 mod bootstrap;
@@ -152,6 +153,7 @@ pub struct MultisoulApp {
     pub(crate) voice_ready_notification_visible: bool,
     pub(crate) agent_runtime: Option<agent_runtime::ProjectAgentRuntime>,
     pub(crate) agent_task_coordinator: Option<agent::AgentTaskCoordinator>,
+    pub(crate) agent_queue_ui: agent_queue::AgentQueueUiState,
     pub(crate) orchestration_authorizations: storage::OrchestrationAuthorizationCache,
     pub(crate) pending_agent_submissions: agent_runtime::pending::PendingAgentSubmissions,
     pub(crate) session_reply_queue: agent_runtime::AgentSessionReplyQueue,

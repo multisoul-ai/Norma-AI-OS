@@ -76,6 +76,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.agent_runtime = None;
+        self.agent_queue_ui.close();
         let result = enter_workspace_for_path(
             &self.database_paths,
             &mut self.runtime,
@@ -118,6 +119,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Result<(), String> {
         self.agent_runtime = None;
+        self.agent_queue_ui.close();
         let opened = enter_workspace_for_path(
             &self.database_paths,
             &mut self.runtime,

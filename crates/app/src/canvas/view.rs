@@ -14,6 +14,10 @@ use crate::canvas::geometry::{node_card_radius_px, node_terminal_radius_px, node
 #[cfg(test)]
 use crate::canvas::interaction::InteractionState;
 use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
+use crate::cards::agent::queue::{
+    render_badge as render_agent_queue_badge, render_panel as render_agent_queue_panel,
+    waiting_count as agent_waiting_count,
+};
 use crate::cards::browser::card::BROWSER_TOOLBAR_H_PX;
 use crate::cards::chrome::card_title_background;
 use crate::cards::chrome::{
@@ -115,6 +119,7 @@ pub fn render_canvas(
         let node = app.runtime.document.node(id).unwrap().clone();
         let card = card_for(node_type);
         let chrome = card.chrome(&node, &app.runtime);
+        let queue_count = is_agent.then(|| agent_waiting_count(app, id)).unwrap_or(0);
         let initialization = app.motion.initialization_presentation(id);
         let title = chrome.title;
         let task_badge = chrome.task_badge;
@@ -146,6 +151,9 @@ pub fn render_canvas(
                 app.motion.set_hover(id, *hovered);
                 cx.notify();
             }));
+        if is_agent {
+            node_div = node_div.debug_selector(|| "agent-card".to_string());
+        }
 
         if hovered_terminal_link
             .as_ref()
@@ -268,6 +276,15 @@ pub fn render_canvas(
                     )
                     .when_some(task_badge, |this, badge| {
                         this.child(render_task_badge(badge, vp.zoom, theme))
+                    })
+                    .when(queue_count > 0, |this| {
+                        this.child(render_agent_queue_badge(
+                            id,
+                            queue_count,
+                            vp.zoom,
+                            theme,
+                            cx,
+                        ))
                     }),
             )
             .child(title_actions);
@@ -376,6 +393,20 @@ pub fn render_canvas(
 
     if let Some(link) = hovered_terminal_link {
         node_elems.push(render_terminal_link_tooltip(link, theme, win_w, win_h));
+    }
+    if let Some(node_id) = app.agent_queue_ui.open_node_id() {
+        if let Some((card_left, card_top, card_width)) =
+            app.runtime.document.node(node_id).map(|node| {
+                let top_left = vp.canvas_to_screen(node.bounds.origin);
+                (top_left.x, top_left.y, node.bounds.size.x * vp.zoom)
+            })
+        {
+            if let Some(panel) = render_agent_queue_panel(
+                app, node_id, card_left, card_top, card_width, win_w, win_h, window, cx,
+            ) {
+                node_elems.push(panel);
+            }
+        }
     }
 
     div()

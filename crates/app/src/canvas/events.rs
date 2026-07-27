@@ -92,6 +92,10 @@ pub(super) fn on_mouse_down(
         app.interaction.close_new_menu();
         cx.notify();
     }
+    if app.agent_queue_ui.open_node_id().is_some() {
+        app.agent_queue_ui.close();
+        cx.notify();
+    }
     app.interaction.keyboard_selected_node = None;
 
     // 中键 或 空格+左键 → 开始 pan。

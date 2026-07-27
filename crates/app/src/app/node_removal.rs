@@ -35,6 +35,9 @@ impl MultisoulApp {
             zoom,
         );
         if changed {
+            if self.agent_queue_ui.open_node_id() == Some(node_id) {
+                self.agent_queue_ui.close();
+            }
             self.terminal_render_cache.borrow_mut().remove_node(node_id);
             self.previews.remove(node_id);
             if removed_node_was_browser {
