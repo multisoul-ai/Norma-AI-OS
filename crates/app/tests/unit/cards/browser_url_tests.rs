@@ -1,11 +1,11 @@
 use crate::cards::browser::normalize_browser_url;
 
-/// Browser URL 规范化：裸域名补 https，已有 http/https scheme 保持不变。
+/// Browser URL 规范化：裸域名补 https，已有 http/https scheme 保持并规范化根路径。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   bare = "example.com/docs"，scheme 数量 = 0，应补 "https://"
 ///   https = "https://example.com/docs"，已有 scheme，应保持不变
-///   http = "http://localhost:3000"，已有 scheme，应保持不变
+///   http = "http://localhost:3000"，已有 scheme，应保留并补标准根路径 "/"
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. normalize_browser_url(bare)
@@ -14,7 +14,7 @@ use crate::cards::browser::normalize_browser_url;
 ///
 /// 预期结果：
 ///   - 正断言：裸域名变成 https://example.com/docs
-///   - 正断言：http/https 输入保持原始 scheme
+///   - 正断言：http/https 输入保持原始 scheme，根 URL 使用标准 "/" 路径
 ///   - 负断言：https 输入不应被重复补成 https://https://...
 #[test]
 fn test_normalize_browser_url_adds_https_only_for_bare_hosts() {
@@ -31,8 +31,8 @@ fn test_normalize_browser_url_adds_https_only_for_bare_hosts() {
         "已有 https:// scheme 时不应修改 URL"
     );
     assert_eq!(
-        http, "http://localhost:3000",
-        "已有 http:// scheme 时应保留，支持本地开发服务"
+        http, "http://localhost:3000/",
+        "已有 http:// scheme 时应保留，且根 URL 应规范化为标准斜杠路径"
     );
     assert_ne!(
         https, "https://https://example.com/docs",
@@ -52,7 +52,7 @@ fn test_normalize_browser_url_adds_https_only_for_bare_hosts() {
 ///   2. normalize_browser_url(empty)
 ///
 /// 预期结果：
-///   - 正断言：前后空白被移除，并补 https://
+///   - 正断言：前后空白被移除，补 https://，并规范化根路径
 ///   - 正断言：空输入回退 https://www.google.com
 ///   - 负断言：结果不应保留首尾空白
 #[test]
@@ -61,8 +61,8 @@ fn test_normalize_browser_url_trims_and_defaults_empty_input() {
     let empty = normalize_browser_url("   ");
 
     assert_eq!(
-        spaced, "https://docs.example.com",
-        "URL 输入应先 trim，再为裸 host 补 https://"
+        spaced, "https://docs.example.com/",
+        "URL 输入应先 trim，再为裸 host 补 https:// 并规范化根路径"
     );
     assert_eq!(
         empty, "https://www.google.com",

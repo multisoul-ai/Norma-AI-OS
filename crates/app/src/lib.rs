@@ -28,8 +28,8 @@ mod menu_bar_tests;
 #[cfg(feature = "e2e-test-support")]
 pub use app::{
     runtime_frame_interval_for_e2e, OrchestrationProviderE2eSnapshot,
-    OrchestrationSettingsE2eSnapshot, ReplyTtsE2ePcmSnapshot, ReplyTtsE2eProbe,
-    ReplyTtsE2eProbeSnapshot, ReplyTtsE2eSnapshot,
+    OrchestrationSettingsE2eSnapshot, PresentationE2eSnapshot, ReplyTtsE2ePcmSnapshot,
+    ReplyTtsE2eProbe, ReplyTtsE2eProbeSnapshot, ReplyTtsE2eSnapshot,
 };
 pub use app::{
     AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState, AppScreen,

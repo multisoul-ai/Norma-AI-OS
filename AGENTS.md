@@ -147,6 +147,7 @@ Workspace 分层：
 | 存储层依赖与热路径边界 | `bash scripts/check-storage-boundaries.sh` |
 | 拖拽/关闭/session 扫描性能护栏 | `bash scripts/check-performance-guardrails.sh` |
 | 视频壁纸低拷贝护栏 | `python3 scripts/check-video-wallpaper-performance.py` |
+| 构建与运行时 SOCKS 代理支持 | `bash scripts/check-socks-proxy-support.sh` |
 | 代码行数 lint | `bash scripts/check-max-file-lines.sh` |
 | 禁止 `#[allow]` lint | `bash scripts/check-no-allow.sh` |
 | Agent 指南行数 lint | `bash scripts/check-agent-guide-lines.sh` |
@@ -162,6 +163,7 @@ bash scripts/check-storage-boundaries.sh
 bash scripts/check-performance-guardrails.sh
 bash scripts/check-tts-provider-boundaries.sh
 python3 scripts/check-video-wallpaper-performance.py
+bash scripts/check-socks-proxy-support.sh
 bash scripts/check-max-file-lines.sh
 bash scripts/check-no-allow.sh
 bash scripts/check-agent-guide-lines.sh

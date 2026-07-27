@@ -381,6 +381,9 @@ impl MultisoulApp {
             .when(self.voice_ready_notification_visible, |chrome| {
                 chrome.child(self.render_voice_ready_notification(cx))
             })
+            .when(self.presentation_notification.is_some(), |chrome| {
+                chrome.child(self.render_presentation_notification(cx))
+            })
             .when(workspace_left_rail_visible(), |chrome| {
                 chrome.child(
                     div()

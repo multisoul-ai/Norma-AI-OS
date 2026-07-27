@@ -40,6 +40,10 @@ pub enum CardCommand {
         assignments: Vec<AgentTaskAssignment>,
         force_untracked: bool,
     },
+    Present {
+        target: PresentationTarget,
+        create_new: bool,
+    },
     Create {
         kind: CardKind,
         placement: Placement,
@@ -56,6 +60,17 @@ pub enum CardCommand {
         node_id: NodeId,
     },
     List,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum PresentationTarget {
+    Browser {
+        url: String,
+    },
+    Preview {
+        path: PathBuf,
+        explicit_type: Option<PreviewType>,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -156,6 +171,32 @@ pub enum CardCommandResult {
         task_id: String,
         status: AgentTaskReceiptStatus,
     },
+    Presented {
+        node_id: NodeId,
+        kind: PresentationKind,
+        disposition: PresentationDisposition,
+        layout: PresentationLayout,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PresentationKind {
+    Browser,
+    Preview,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PresentationDisposition {
+    Created,
+    Reused,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PresentationLayout {
+    Master,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -239,6 +280,7 @@ pub enum CardCommandError {
     Unsupported { message: String },
     Runtime { message: String },
     Agent(AgentCommandFailure),
+    Presentation(PresentationCommandFailure),
 }
 
 #[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
@@ -291,6 +333,25 @@ pub struct AgentCommandFailure {
     pub current_status: Option<AgentTaskReceiptStatus>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PresentationErrorCode {
+    InvalidUrl,
+    ForbiddenUrlScheme,
+    PreviewNotFound,
+    PreviewNotFile,
+    PreviewUnreadable,
+    UnsupportedPreviewType,
+    PresentationFailed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PresentationCommandFailure {
+    pub code: PresentationErrorCode,
+    pub message: String,
+    pub retryable: bool,
+}
+
 impl CardCommandError {
     pub fn agent(code: AgentErrorCode, message: impl Into<String>, retryable: bool) -> Self {
         Self::Agent(AgentCommandFailure {
@@ -314,6 +375,18 @@ impl CardCommandError {
             current_status: Some(current_status),
         })
     }
+
+    pub fn presentation(
+        code: PresentationErrorCode,
+        message: impl Into<String>,
+        retryable: bool,
+    ) -> Self {
+        Self::Presentation(PresentationCommandFailure {
+            code,
+            message: message.into(),
+            retryable,
+        })
+    }
 }
 
 impl std::fmt::Display for CardCommandError {
@@ -324,6 +397,7 @@ impl std::fmt::Display for CardCommandError {
             Self::Unsupported { message } => write!(f, "{message}"),
             Self::Runtime { message } => write!(f, "{message}"),
             Self::Agent(error) => write!(f, "{}", error.message),
+            Self::Presentation(error) => write!(f, "{}", error.message),
         }
     }
 }

@@ -45,6 +45,7 @@ pub(crate) use agent_runtime::{execute_agent_card_command, execute_orchestration
 mod bootstrap;
 pub(crate) mod browser;
 mod node_removal;
+mod presentation;
 pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
 pub(crate) mod cef_process;
 mod chrome;
@@ -87,7 +88,9 @@ pub use e2e::{
     InitializationAnimationE2eSnapshot, SettingsE2eSnapshot, TtsProviderE2eSnapshot,
 };
 #[cfg(feature = "e2e-test-support")]
-pub use e2e::{OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot};
+pub use e2e::{
+    OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot, PresentationE2eSnapshot,
+};
 pub(crate) use state::mark_runtime_node_viewed_if_needed;
 pub use state::AppScreen;
 actions!(
@@ -150,6 +153,8 @@ pub struct MultisoulApp {
     pub(crate) asr_download_cancellations: HashMap<asr::AsrModelId, Arc<AtomicBool>>,
     pub(crate) tts_download_cancellations: HashMap<tts::TtsModelId, Arc<AtomicBool>>,
     pub(crate) voice_ready_notification_visible: bool,
+    pub(crate) presentation_notification: Option<presentation::PresentationNotification>,
+    pub(crate) presentation_notification_generation: u64,
     pub(crate) agent_runtime: Option<agent_runtime::ProjectAgentRuntime>,
     pub(crate) agent_task_coordinator: Option<agent::AgentTaskCoordinator>,
     pub(crate) orchestration_authorizations: storage::OrchestrationAuthorizationCache,

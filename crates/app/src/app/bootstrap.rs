@@ -121,6 +121,8 @@ impl MultisoulApp {
             asr_download_cancellations: std::collections::HashMap::new(),
             tts_download_cancellations: std::collections::HashMap::new(),
             voice_ready_notification_visible: false,
+            presentation_notification: None,
+            presentation_notification_generation: 0,
             agent_runtime: None,
             agent_task_coordinator: None,
             orchestration_authorizations: storage::OrchestrationAuthorizationCache::default(),

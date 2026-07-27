@@ -242,6 +242,38 @@ impl InstallPaths {
             OrchestrationProvider::Grok => None,
         }
     }
+
+    pub fn presentation_skill_path(&self, provider: OrchestrationProvider) -> Option<PathBuf> {
+        match provider {
+            OrchestrationProvider::Claude => self
+                .claude_skill
+                .parent()?
+                .parent()?
+                .join("norma-presentation")
+                .join("SKILL.md")
+                .into(),
+            OrchestrationProvider::Codex => self
+                .codex_skill
+                .parent()?
+                .parent()?
+                .join("norma-presentation")
+                .join("SKILL.md")
+                .into(),
+            OrchestrationProvider::Cursor => self
+                .cursor_rule
+                .parent()?
+                .join("norma-presentation.mdc")
+                .into(),
+            OrchestrationProvider::OpenCode => self
+                .opencode_skill
+                .parent()?
+                .parent()?
+                .join("norma-presentation")
+                .join("SKILL.md")
+                .into(),
+            OrchestrationProvider::Grok => None,
+        }
+    }
 }
 
 fn aggregate_status(components: &[&ComponentState]) -> AggregateStatus {

@@ -61,6 +61,13 @@ impl CefBrowserView {
         }
     }
 
+    pub(crate) fn current_url(&self) -> Option<String> {
+        let frame = self.browser.main_frame()?;
+        let url = frame.url();
+        let url = CefString::from(&url).to_string();
+        (!url.is_empty()).then_some(url)
+    }
+
     pub(crate) fn go_back(&mut self) {
         self.browser.go_back();
     }

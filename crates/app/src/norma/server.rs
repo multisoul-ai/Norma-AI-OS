@@ -1,9 +1,6 @@
 pub(crate) use self::conversion::canvas_preview_type;
-use self::conversion::{card_bounds_to_canvas, norma_agent_profile};
-use self::orchestration::{
-    agent_profile_label, is_orchestration_command, orchestration_command_label,
-    orchestration_error_code,
-};
+use self::conversion::{card_bounds_to_canvas, node_error, norma_agent_profile};
+use self::orchestration::{is_managed_agent_command, is_presentation_command, log_managed_request};
 use crate::app::{AppScreen, MultisoulApp};
 use crate::canvas::master_layout::{
     apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
@@ -17,11 +14,12 @@ use norma::protocol::{
     AgentErrorCode, CardCommand, CardCommandError, CardCommandResult, CardKind, CardSummary,
     CardSummaryKind, NodeId, Placement, WireRequest, WireResponse,
 };
-use runtime::{InputMode, NodeError, NodeInput, Runtime, DEFAULT_TERMINAL_SHELL};
+use runtime::{InputMode, NodeInput, Runtime, DEFAULT_TERMINAL_SHELL};
 use std::time::Instant;
 
 mod conversion;
 mod orchestration;
+mod presentation;
 mod transport;
 
 pub(crate) use transport::NormaServer;
@@ -29,6 +27,10 @@ pub(crate) use transport::NormaServer;
 #[cfg(test)]
 #[path = "../../tests/unit/norma_agent_lifecycle_tests.rs"]
 mod agent_lifecycle_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/norma_presentation_lifecycle_tests.rs"]
+mod presentation_lifecycle_tests;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct NormaCommandEffects {
@@ -83,13 +85,10 @@ impl MultisoulApp {
             source_node_id,
             command,
         } = request;
-        let orchestration_command = is_orchestration_command(&command);
-        let orchestration_started = orchestration_command.then(Instant::now);
-        let orchestration_command_name =
-            orchestration_command.then(|| orchestration_command_label(&command));
-        let orchestration_provider = authorization
-            .as_ref()
-            .map(|authorization| agent_profile_label(authorization.provider));
+        let managed_command = is_managed_agent_command(&command);
+        let managed_started = managed_command.then(Instant::now);
+        let logged_command = managed_command.then(|| command.clone());
+        let logged_authorization = authorization.clone();
         let result = match command {
             CardCommand::List => {
                 let zoom = self.runtime.document.viewport.zoom;
@@ -103,7 +102,7 @@ impl MultisoulApp {
                 )
             }
             command
-                if orchestration_command
+                if managed_command
                     && (!matches!(self.screen, AppScreen::Canvas)
                         || self.runtime.workspace_root().is_none()) =>
             {
@@ -118,8 +117,16 @@ impl MultisoulApp {
                 let _ = command;
                 Err(CardCommandError::AppNotReady)
             }
-            command if orchestration_command => {
+            command if managed_command => {
                 match self.validate_orchestration_source(authorization, source_node_id) {
+                    Ok((source, _provider)) if is_presentation_command(&command) => {
+                        let CardCommand::Present { target, create_new } = command else {
+                            unreachable!("presentation classifier only accepts Present");
+                        };
+                        presentation::execute_presentation_command(
+                            self, window, cx, target, create_new, source,
+                        )
+                    }
                     Ok((source, provider)) => crate::app::execute_orchestration_agent_command(
                         self, window, command, source, provider,
                     )
@@ -203,25 +210,14 @@ impl MultisoulApp {
             }
             execution.result
         });
-        if let (Some(started), Some(command_name)) =
-            (orchestration_started, orchestration_command_name)
-        {
-            let error_code = result
-                .as_ref()
-                .err()
-                .and_then(orchestration_error_code)
-                .unwrap_or("none");
-            tracing::info!(
-                target: "norma_orchestration",
+        if let (Some(started), Some(command)) = (managed_started, logged_command.as_ref()) {
+            log_managed_request(
                 request_id,
-                command = command_name,
-                provider = orchestration_provider.unwrap_or("missing"),
-                source_node_id = source_node_id.unwrap_or_default(),
-                source_present = source_node_id.is_some(),
-                ok = result.is_ok(),
-                error_code,
-                elapsed_ms = started.elapsed().as_millis() as u64,
-                "orchestration request completed"
+                command,
+                logged_authorization.as_ref(),
+                source_node_id,
+                &result,
+                started.elapsed(),
             );
         }
 
@@ -243,6 +239,17 @@ pub(crate) fn execute_card_command_for_area(
         }
         CardCommand::Delete { node_id } => {
             delete_card(runtime, motion, master_layout, node_id, area, zoom)
+        }
+        CardCommand::Present { target, create_new } => {
+            presentation::execute_presentation_command_for_area(
+                runtime,
+                motion,
+                master_layout,
+                target,
+                create_new,
+                area,
+                zoom,
+            )
         }
         CardCommand::SendText {
             node_id,
@@ -477,15 +484,10 @@ fn resolve_bounds(placement: Placement, area: CanvasRect, zoom: f32) -> CanvasRe
     }
 }
 
-fn node_error(node_id: NodeId, error: NodeError) -> CardCommandError {
-    match error {
-        NodeError::MissingNode => CardCommandError::NotFound { node_id },
-        other => CardCommandError::Runtime {
-            message: other.to_string(),
-        },
-    }
-}
-
 #[cfg(test)]
 #[path = "../../tests/unit/norma_command_tests.rs"]
 mod norma_command_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/norma_presentation_command_tests.rs"]
+mod norma_presentation_command_tests;

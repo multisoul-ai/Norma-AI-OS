@@ -44,6 +44,7 @@ struct NormaArgs {
 enum TopCommand {
     Card(CardArgs),
     Agent(AgentArgs),
+    Present(PresentArgs),
 }
 
 #[derive(Debug, Args)]
@@ -149,6 +150,28 @@ enum PreviewTypeValue {
     Image,
 }
 
+#[derive(Debug, Args)]
+struct PresentArgs {
+    #[command(subcommand)]
+    kind: PresentKind,
+}
+
+#[derive(Debug, Subcommand)]
+enum PresentKind {
+    Browser {
+        url: Option<String>,
+        #[arg(long = "new")]
+        create_new: bool,
+    },
+    Preview {
+        path: PathBuf,
+        #[arg(long = "type", value_enum)]
+        explicit_type: Option<PreviewTypeValue>,
+        #[arg(long = "new")]
+        create_new: bool,
+    },
+}
+
 pub fn parse_command_from<I, T>(args: I) -> Result<CardCommand, clap::Error>
 where
     I: IntoIterator<Item = T>,
@@ -174,10 +197,10 @@ where
     match parse_invocation_from(args.clone()) {
         Ok(invocation) => Ok(invocation),
         Err(error) => {
-            let is_agent = args
+            let is_managed_command = args
                 .iter()
-                .any(|argument| argument.to_string_lossy() == "agent");
-            if !is_agent {
+                .any(|argument| matches!(argument.to_string_lossy().as_ref(), "agent" | "present"));
+            if !is_managed_command {
                 return Err(CliOutput {
                     stdout: String::new(),
                     stderr: error.to_string(),
@@ -223,7 +246,37 @@ impl NormaArgs {
                     wait_timeout_seconds,
                 }
             }
+            TopCommand::Present(present) => CliInvocation {
+                command: present.into_command(),
+                format: explicit_format.unwrap_or(OutputFormat::Json),
+                wait_timeout_seconds: None,
+            },
         }
+    }
+}
+
+impl PresentArgs {
+    fn into_command(self) -> CardCommand {
+        let (target, create_new) = match self.kind {
+            PresentKind::Browser { url, create_new } => (
+                crate::protocol::PresentationTarget::Browser {
+                    url: url.unwrap_or_default(),
+                },
+                create_new,
+            ),
+            PresentKind::Preview {
+                path,
+                explicit_type,
+                create_new,
+            } => (
+                crate::protocol::PresentationTarget::Preview {
+                    path,
+                    explicit_type: explicit_type.map(PreviewType::from),
+                },
+                create_new,
+            ),
+        };
+        CardCommand::Present { target, create_new }
     }
 }
 
