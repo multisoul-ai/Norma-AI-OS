@@ -56,7 +56,7 @@ clap = { version = "4", features = ["derive"] }
 tempfile = "3"
 rusqlite = { version = "0.32", features = ["bundled"] }
 pulldown-cmark = "0.10"
-ureq = { version = "3.3", features = ["json", "rustls"] }
+ureq = { version = "3.3", features = ["json", "rustls", "socks-proxy"] }
 hex = "0.4"
 sha2 = "0.10"
 url = "2.5"
@@ -85,6 +85,7 @@ norma = { path = "crates/norma" }
 # recreating it on every repaint. See vendor/gpui-0.2.2/NORMA_PATCH.md.
 [patch.crates-io]
 gpui = { path = "vendor/gpui-0.2.2" }
+sherpa-onnx-sys = { path = "vendor/sherpa-onnx-sys-1.13.3" }
 
 [profile.dev]
 opt-level = 1          # gpui/alacritty 在 opt-level=0 下交互偏卡，地基级折中

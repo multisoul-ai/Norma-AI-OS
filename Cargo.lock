@@ -6941,8 +6941,6 @@ dependencies = [
 [[package]]
 name = "sherpa-onnx-sys"
 version = "1.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21ac2c3342f826069bbf0be3578f9601f3802a1bff50bbced8230a15ec9eed8f"
 dependencies = [
  "bzip2 0.4.4",
  "tar",
@@ -8344,6 +8342,7 @@ dependencies = [
  "once_cell",
  "rustls",
  "rustls-pki-types",
+ "socks",
  "url",
  "webpki-roots 0.26.11",
 ]
