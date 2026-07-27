@@ -125,6 +125,7 @@ impl MultisoulApp {
             presentation_notification_generation: 0,
             agent_runtime: None,
             agent_task_coordinator: None,
+            agent_queue_ui: super::agent_queue::AgentQueueUiState::default(),
             orchestration_authorizations: storage::OrchestrationAuthorizationCache::default(),
             pending_agent_submissions:
                 super::agent_runtime::pending::PendingAgentSubmissions::default(),

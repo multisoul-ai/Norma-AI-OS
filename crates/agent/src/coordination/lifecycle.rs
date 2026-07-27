@@ -1,6 +1,7 @@
 use super::{
     mark_task_terminal_maps, AgentCoordinatedTask, AgentCoordinationError, AgentDispatchReceipt,
-    AgentDispatchState, AgentRosterEntry, AgentTaskCancellation, AgentTaskCoordinator,
+    AgentDispatchState, AgentQueueSnapshot, AgentQueueTask, AgentRosterEntry,
+    AgentTaskCancellation, AgentTaskCoordinator,
 };
 use std::collections::HashMap;
 
@@ -226,6 +227,17 @@ impl AgentTaskCoordinator {
             .unwrap_or(0)
     }
 
+    pub fn queue_snapshot(&self, definition_id: i64) -> Option<AgentQueueSnapshot> {
+        let agent = self
+            .agents
+            .iter()
+            .find(|agent| agent.roster.definition_id == definition_id)?;
+        Some(AgentQueueSnapshot {
+            current: agent.active.as_ref().map(queue_task),
+            waiting: agent.queue.iter().map(queue_task).collect(),
+        })
+    }
+
     pub fn is_busy(&self, definition_id: i64) -> bool {
         self.agents
             .iter()
@@ -388,6 +400,15 @@ fn coordinated_task(
         task: task.task.clone(),
         state,
         tracking,
+    }
+}
+
+fn queue_task(task: &super::QueuedAgentTask) -> AgentQueueTask {
+    AgentQueueTask {
+        task_id: task.task_id,
+        task_ref: task.task_ref.clone(),
+        task: task.task.clone(),
+        source: task.source,
     }
 }
 

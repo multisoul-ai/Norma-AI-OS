@@ -8,6 +8,7 @@ const VISUAL_PREVIEW_ENV: &str = "NORMA_VISUAL_PREVIEW";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum VisualPreview {
+    AgentQueue,
     Orchestration,
     VoiceSetup,
     VoiceReady,
@@ -21,6 +22,7 @@ enum VisualPreview {
 impl VisualPreview {
     fn parse(value: &str) -> Option<Self> {
         match value.trim() {
+            "agent-queue" => Some(Self::AgentQueue),
             "orchestration" => Some(Self::Orchestration),
             "voice-setup" => Some(Self::VoiceSetup),
             "voice-ready" => Some(Self::VoiceReady),
@@ -35,6 +37,7 @@ impl VisualPreview {
 
     fn canonical_theme(self) -> Option<ThemeId> {
         match self {
+            Self::AgentQueue => Some(ThemeId::PaperBlue),
             Self::Orchestration => Some(ThemeId::SapphireNight),
             Self::VoiceSetup
             | Self::VoiceReady
@@ -63,6 +66,10 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
     app.settings_panel.open();
     app.settings_panel.select(SettingsSection::Voice);
     match preview {
+        VisualPreview::AgentQueue => {
+            app.settings_panel.close();
+            configure_agent_queue(app);
+        }
         VisualPreview::Orchestration => {
             app.settings_panel.select(SettingsSection::Orchestration);
             app.orchestration_settings.use_canonical_preview();
@@ -111,37 +118,99 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
     true
 }
 
+fn configure_agent_queue(app: &mut MultisoulApp) {
+    // initial_window_dimensions(agent-queue) = 1280 × 800；预先记录该尺寸，
+    // 避免首帧的 tiled reflow 把 620px 原型卡片扩张为全画布卡片。
+    app.last_reflow_window_size = Some((1280.0, 800.0));
+    let definition = app.agent_definitions.use_queue_visual_preview();
+    let node_id = app.runtime.document.add_node(
+        canvas::CanvasNodeKind::Agent(canvas::AgentSpec {
+            profile: canvas::AgentProfile::Codex,
+            alias: Some("Adam".to_string()),
+            definition_id: Some(definition.id),
+        }),
+        canvas::CanvasRect::new(80.0, 120.0, 620.0, 420.0),
+    );
+    let roster = vec![agent::AgentRosterEntry {
+        definition_id: definition.id,
+        name: definition.name,
+        speech_alias: definition.speech_alias,
+        profile: norma::protocol::AgentProfile::Codex,
+        enabled: true,
+        active_node_id: Some(node_id),
+        tracking: agent::AgentTrackingMode::Managed,
+        busy: false,
+    }];
+    let mut coordinator = agent::AgentTaskCoordinator::new(roster)
+        .expect("queue visual preview roster should be valid");
+    coordinator
+        .dispatch(
+            vec![agent::AgentAssignment::new("Adam", "重构用户认证流程")],
+            false,
+        )
+        .expect("queue visual preview current task should dispatch");
+    coordinator
+        .dispatch_from(
+            vec![agent::AgentAssignment::new("Adam", "补充失败路径测试")],
+            false,
+            agent::AgentDispatchSource::manual(),
+        )
+        .expect("queue visual preview first waiting task should dispatch");
+    coordinator
+        .dispatch(
+            vec![agent::AgentAssignment::new("Adam", "更新 API 文档")],
+            false,
+        )
+        .expect("queue visual preview second waiting task should dispatch");
+    coordinator
+        .dispatch_from(
+            vec![agent::AgentAssignment::new("Adam", "运行回归检查")],
+            false,
+            agent::AgentDispatchSource::manual(),
+        )
+        .expect("queue visual preview third waiting task should dispatch");
+    app.agent_task_coordinator = Some(coordinator);
+    app.agent_queue_ui.toggle(node_id);
+}
+
 #[cfg(test)]
 mod tests {
     use super::VisualPreview;
     use ui::ThemeId;
 
-    /// 视觉验收场景解析：只允许一个 Orchestration 与七个明确的 Voice 截图状态
+    /// 视觉验收场景解析：只允许 Agent Queue、Orchestration 与七个明确的 Voice 截图状态
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   supported values = orchestration(1) + setup(1) + ready(1) + api-key(1)
+    ///   supported values = agent-queue(1) + orchestration(1)
+    ///                      + setup(1) + ready(1) + api-key(1)
     ///                      + azure-asr-ready(1)
     ///                      + zipvoice-reference(1) + tts-backlog-capacity(1)
-    ///                      + tts-backlog-recovered(1) = 8
+    ///                      + tts-backlog-recovered(1) = 9
     ///   unsupported values = empty(1) + unknown(1) = 2
-    ///   total cases = 8 + 2 = 10
+    ///   total cases = 9 + 2 = 11
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 解析 `orchestration` → Orchestration
-    ///   2. 解析 `voice-setup` → VoiceSetup
-    ///   3. 解析 `voice-ready` → VoiceReady
-    ///   4. 解析 `voice-api-key` → VoiceApiKey
-    ///   5. 解析 `azure-asr-ready` → AzureAsrReady
-    ///   6. 解析 `zipvoice-reference` → ZipVoiceReference
-    ///   7. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
-    ///   8. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
-    ///   9. 解析空字符串与未知值 → None
+    ///   1. 解析 `agent-queue` → AgentQueue
+    ///   2. 解析 `orchestration` → Orchestration
+    ///   3. 解析 `voice-setup` → VoiceSetup
+    ///   4. 解析 `voice-ready` → VoiceReady
+    ///   5. 解析 `voice-api-key` → VoiceApiKey
+    ///   6. 解析 `azure-asr-ready` → AzureAsrReady
+    ///   7. 解析 `zipvoice-reference` → ZipVoiceReference
+    ///   8. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
+    ///   9. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
+    ///   10. 解析空字符串与未知值 → None
     ///
     /// 预期结果：
-    ///   - 正断言：八个受支持值分别映射到唯一场景
+    ///   - 正断言：九个受支持值分别映射到唯一场景
     ///   - 负断言：空值和未知值不得意外开启视觉预览
     #[test]
-    fn visual_preview_parser_accepts_only_explicit_voice_scenarios() {
+    fn visual_preview_parser_accepts_only_explicit_scenarios() {
+        assert_eq!(
+            VisualPreview::parse("agent-queue"),
+            Some(VisualPreview::AgentQueue),
+            "agent-queue must select the canonical Agent queue sidecar preview"
+        );
         assert_eq!(
             VisualPreview::parse("orchestration"),
             Some(VisualPreview::Orchestration),

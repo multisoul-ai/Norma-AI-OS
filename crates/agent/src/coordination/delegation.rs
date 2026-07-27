@@ -1,8 +1,8 @@
 use super::{
     AgentAssignment, AgentCoordinatedTask, AgentCoordinationError, AgentDispatchReceipt,
-    AgentDispatchSource, AgentDispatchState, AgentTaskCancellation, AgentTaskCoordinator,
-    AgentTaskReferenceError, AgentTrackingMode, QueuedAgentTask, UnfinishedTaskLineage,
-    MAX_UNFINISHED_DESCENDANTS,
+    AgentDispatchSource, AgentDispatchState, AgentQueueTaskSource, AgentTaskCancellation,
+    AgentTaskCoordinator, AgentTaskReferenceError, AgentTrackingMode, QueuedAgentTask,
+    UnfinishedTaskLineage, MAX_UNFINISHED_DESCENDANTS,
 };
 
 #[derive(Clone)]
@@ -60,6 +60,7 @@ impl AgentTaskCoordinator {
                 parent_task_ref: parent_task_ref.clone(),
                 source_definition_id: source.definition_id,
                 source_node_id: source.node_id,
+                source: source.queue_source,
                 target_node_id: node_id,
                 task: assignment.task.clone(),
                 cancel_requested: false,
@@ -144,6 +145,7 @@ impl AgentTaskCoordinator {
             parent_task_ref: None,
             source_definition_id: None,
             source_node_id: None,
+            source: AgentQueueTaskSource::Manual,
             target_node_id: node_id,
             task: task.clone(),
             cancel_requested: false,

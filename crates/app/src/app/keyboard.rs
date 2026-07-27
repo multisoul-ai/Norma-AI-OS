@@ -272,6 +272,16 @@ impl MultisoulApp {
             return;
         }
 
+        if self.agent_queue_ui.open_node_id().is_some()
+            && ev.keystroke.key == "escape"
+            && !ev.keystroke.modifiers.modified()
+        {
+            self.agent_queue_ui.close();
+            cx.stop_propagation();
+            cx.notify();
+            return;
+        }
+
         if let Some(command) = self.shortcuts.command_for_keystroke(&ev.keystroke) {
             if command == ShortcutCommandId::VoiceInteraction {
                 return;

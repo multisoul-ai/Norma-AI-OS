@@ -69,6 +69,23 @@ impl Default for AgentDefinitionsState {
 }
 
 impl AgentDefinitionsState {
+    #[cfg(feature = "e2e-test-support")]
+    pub(crate) fn use_queue_visual_preview(&mut self) -> AgentDefinition {
+        let definition = AgentDefinition {
+            id: 1,
+            name: "Adam".to_string(),
+            speech_alias: None,
+            runtime_profile: AgentProfile::Codex,
+            workflow_description: "负责工程实现与验证。".to_string(),
+            enabled: true,
+            sort_order: 0,
+            origin: storage::AgentDefinitionOrigin::Explicit,
+        };
+        self.definitions = vec![definition.clone()];
+        self.store = None;
+        definition
+    }
+
     pub(crate) fn bind_project_store(&mut self, store: AgentDefinitionStore) {
         self.store = Some(store);
         self.reset_draft();
