@@ -62,7 +62,7 @@ impl AnimationFrameClock {
         let remainder_nanos = accumulated_nanos - consumed_nanos;
         self.accumulated = Duration::from_nanos(remainder_nanos as u64);
         Some(Duration::from_nanos(
-            consumed_nanos.min(u64::MAX as u128) as u64,
+            consumed_nanos.min(u64::MAX as u128) as u64
         ))
     }
 }
