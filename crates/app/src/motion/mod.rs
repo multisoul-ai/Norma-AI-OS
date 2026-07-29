@@ -39,6 +39,16 @@ use std::time::{Duration, Instant};
 use ui::Theme;
 const BREATHING_REPAINT_INTERVAL: Duration = Duration::from_millis(33);
 const WORKING_SNAKE_REPAINT_INTERVAL: Duration = Duration::from_millis(33);
+
+fn consume_repaint_interval(elapsed: &mut Duration, interval: Duration) -> bool {
+    if *elapsed < interval {
+        return false;
+    }
+    let remainder_nanos = elapsed.as_nanos() % interval.as_nanos();
+    *elapsed = Duration::from_nanos(remainder_nanos as u64);
+    true
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) struct MotionActivitySummary {
     pub(crate) canvas_active: bool,
@@ -395,8 +405,13 @@ impl NodeMotion {
             self.breathing_phase =
                 (self.breathing_phase + delta.as_secs_f32() / period.as_secs_f32()).rem_euclid(1.0);
             self.breathing_repaint_elapsed += delta;
-            if breathing_is_fading || self.breathing_repaint_elapsed >= BREATHING_REPAINT_INTERVAL {
+            if breathing_is_fading {
                 self.breathing_repaint_elapsed = Duration::ZERO;
+                changed = true;
+            } else if consume_repaint_interval(
+                &mut self.breathing_repaint_elapsed,
+                BREATHING_REPAINT_INTERVAL,
+            ) {
                 changed = true;
             }
         }
@@ -407,8 +422,10 @@ impl NodeMotion {
                 changed = true;
             } else {
                 self.chase_repaint_elapsed += delta;
-                if self.chase_repaint_elapsed >= WORKING_SNAKE_REPAINT_INTERVAL {
-                    self.chase_repaint_elapsed = Duration::ZERO;
+                if consume_repaint_interval(
+                    &mut self.chase_repaint_elapsed,
+                    WORKING_SNAKE_REPAINT_INTERVAL,
+                ) {
                     changed = true;
                 }
             }

@@ -5,6 +5,7 @@ impl Render for MultisoulApp {
         self.window_active = window.is_window_active();
         self.voice_window_inset_window_visible = state::window_visible_for_voice_inset(window);
         self.sync_voice_window_inset_enabled();
+        self.start_animation_frame_driver_if_needed(window, cx);
         let mut root = div()
             .key_context("MultisoulApp")
             .track_focus(&self.focus_handle)

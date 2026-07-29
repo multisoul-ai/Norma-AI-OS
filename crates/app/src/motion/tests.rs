@@ -27,3 +27,7 @@ mod initialization_animation_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/motion_activity_tests.rs"]
 mod motion_activity_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/motion_repaint_cadence_tests.rs"]
+mod motion_repaint_cadence_tests;

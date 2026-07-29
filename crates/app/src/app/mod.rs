@@ -176,6 +176,8 @@ pub struct MultisoulApp {
     terminal_cursor_repaint: FrameThrottle,
     #[cfg(feature = "e2e-test-support")]
     pub(crate) canvas_render_count_for_e2e: usize,
+    animation_frame_clock: frame_loop::AnimationFrameClock,
+    animation_frame_pending: bool,
     window_active: bool,
     voice_window_inset: VoiceWindowInset,
     voice_window_inset_window_visible: bool,

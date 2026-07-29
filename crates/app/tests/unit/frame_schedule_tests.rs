@@ -1,7 +1,7 @@
 use super::*;
 use std::time::Duration;
 
-/// FS-1：前台 Canvas 和 Voice 都完全空闲时，动画循环必须降到 250ms。
+/// FS-1：前台 Canvas 和 Voice 都完全空闲时，动画驱动器必须降到 250ms 定时巡检。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   voice active = false
@@ -10,17 +10,17 @@ use std::time::Duration;
 ///   screen is Canvas = true
 ///   window active = true
 ///   settings open = false
-///   expected interval = 250ms
-///   legacy negative control = 12ms
+///   expected wakeup = Timer(250ms)
+///   active negative control = NextFrame(16ms)
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 构造没有任何动画活动源的前台 Canvas 状态。
-///   2. 调用纯 AnimationSchedule seam 计算下一次唤醒间隔。
-///   3. 分别比较新的空闲预算与旧的 12ms 固定间隔。
+///   2. 调用纯 AnimationSchedule seam 计算下一次唤醒方式。
+///   3. 分别比较 250ms 定时巡检与 GPUI 下一帧驱动。
 ///
 /// 预期结果：
-///   - 正断言：空闲间隔必须精确为 250ms。
-///   - 负断言：不得继续返回旧的 12ms，否则空闲 CPU 不会下降。
+///   - 正断言：空闲唤醒必须精确为 Timer(250ms)。
+///   - 负断言：空闲状态不得请求 NextFrame，否则空闲 CPU 会持续占用。
 #[test]
 fn test_animation_schedule_uses_250ms_when_canvas_and_voice_are_idle() {
     let activity = AnimationActivity {
@@ -33,39 +33,38 @@ fn test_animation_schedule_uses_250ms_when_canvas_and_voice_are_idle() {
         next_visual_boundary: None,
     };
 
-    let interval = AnimationSchedule::next_interval(activity);
+    let wakeup = AnimationSchedule::next_wakeup(activity);
 
     assert_eq!(
-        interval,
-        Duration::from_millis(250),
-        "Canvas 与 Voice 完全空闲时 animation loop 应以 250ms 低频巡检"
+        wakeup,
+        AnimationWakeup::Timer(Duration::from_millis(250)),
+        "Canvas 与 Voice 完全空闲时 animation driver 应以 250ms 低频巡检"
     );
     assert_ne!(
-        interval,
-        Duration::from_millis(12),
-        "空闲 animation loop 不得保留旧的 12ms 固定唤醒"
+        wakeup,
+        AnimationWakeup::NextFrame(Duration::from_millis(16)),
+        "空闲 animation driver 不得持续请求 GPUI 下一帧"
     );
 }
 
-/// FS-2：可见 Canvas 有活动动画时使用 16ms，且更近的视觉边界优先。
+/// FS-2：可见 Canvas 有活动动画时必须交给 GPUI 下一帧回调驱动。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   active Canvas base budget = 16ms（约 1000 / 60 = 16.67ms，向下取 16ms）
 ///   initialization next boundary = 7ms
-///   7ms < 16ms → boundary case expected = 7ms
-///   idle negative control = 250ms
+///   display callback = NextFrame(16ms)（显示帧对齐 + 约 60Hz cadence）
+///   fixed timer negative control = Timer(16ms)
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 构造可见、前台且 motion active 的 Canvas，未提供更近边界。
-///   2. 计算基础动画间隔。
+///   2. 计算基础动画唤醒方式。
 ///   3. 在同一活动状态加入 7ms 初始化视觉边界并再次计算。
 ///
 /// 预期结果：
-///   - 正断言：普通活动 Canvas 返回 16ms。
-///   - 正断言：7ms 的下一视觉边界覆盖 16ms 基础预算。
-///   - 负断言：活动 Canvas 不得退化为 250ms 空闲间隔。
+///   - 正断言：普通活动 Canvas 返回 NextFrame(16ms)。
+///   - 正断言：存在 7ms 视觉边界时返回 NextFrame(7ms)，避免错过边界。
+///   - 负断言：活动 Canvas 不得退回 Timer(16ms) 的 sleep + dispatch 路径。
 #[test]
-fn test_animation_schedule_keeps_active_canvas_at_16ms_or_next_visual_boundary() {
+fn test_animation_schedule_uses_next_frame_for_visible_active_canvas() {
     let active_canvas = AnimationActivity {
         voice_active: false,
         canvas_motion_active: true,
@@ -80,33 +79,32 @@ fn test_animation_schedule_keeps_active_canvas_at_16ms_or_next_visual_boundary()
         ..active_canvas
     };
 
-    let active_interval = AnimationSchedule::next_interval(active_canvas);
-    let boundary_interval = AnimationSchedule::next_interval(boundary_canvas);
+    let active_wakeup = AnimationSchedule::next_wakeup(active_canvas);
+    let boundary_wakeup = AnimationSchedule::next_wakeup(boundary_canvas);
 
     assert_eq!(
-        active_interval,
-        Duration::from_millis(16),
-        "可见活动 Canvas 应使用约 60Hz 的 16ms 动画预算"
+        active_wakeup,
+        AnimationWakeup::NextFrame(Duration::from_millis(16)),
+        "可见活动 Canvas 应由 GPUI 下一帧回调按 16ms cadence 驱动"
     );
     assert_eq!(
-        boundary_interval,
-        Duration::from_millis(7),
-        "下一初始化视觉边界仅 7ms 时必须精确提前唤醒"
+        boundary_wakeup,
+        AnimationWakeup::NextFrame(Duration::from_millis(7)),
+        "初始化视觉边界仅 7ms 时应在 GPUI 下一显示帧消费该边界"
     );
     assert_ne!(
-        active_interval,
-        Duration::from_millis(250),
-        "活动 Canvas 不得错误采用 250ms 空闲巡检"
+        active_wakeup,
+        AnimationWakeup::Timer(Duration::from_millis(16)),
+        "活动 Canvas 不得继续采用固定 16ms timer，否则会累加 dispatch 与绘制耗时"
     );
 }
 
-/// FS-3：Voice 活动必须在 Settings 遮挡或窗口后台时保持 12ms 优先级。
+/// FS-3：Voice 活动必须在 Settings 遮挡或窗口后台时继续使用 GPUI 下一帧。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   voice active interval = 12ms
-///   settings-open Canvas-only interval = 250ms
-///   background Canvas-only interval = 250ms
-///   12ms < 250ms → Voice 反馈优先于被遮挡的 Canvas 动画
+///   voice active wakeup = NextFrame(12ms)
+///   settings-open Canvas-only wakeup = Timer(250ms)
+///   background Canvas-only wakeup = Timer(250ms)
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 构造 Voice active + Settings open + window background 的组合状态。
@@ -114,11 +112,11 @@ fn test_animation_schedule_keeps_active_canvas_at_16ms_or_next_visual_boundary()
 ///   3. 比较 Voice 与两个 Canvas-only 调度结果。
 ///
 /// 预期结果：
-///   - 正断言：Voice 在遮挡和后台组合下仍返回 12ms。
-///   - 正断言：两个 Canvas-only 对照都降到 250ms。
-///   - 负断言：Voice 不得被错误降到 250ms，避免 PCM meter 卡顿。
+///   - 正断言：Voice 在遮挡和后台组合下仍返回 NextFrame(12ms)。
+///   - 正断言：两个 Canvas-only 对照都降到 Timer(250ms)。
+///   - 负断言：Voice 不得被错误降到 Timer(250ms)，避免 PCM meter 卡顿。
 #[test]
-fn test_animation_schedule_keeps_voice_inset_at_12ms_while_settings_or_background_occludes_canvas()
+fn test_animation_schedule_keeps_voice_on_next_frame_while_settings_or_background_occludes_canvas()
 {
     let voice_with_occluded_canvas = AnimationActivity {
         voice_active: true,
@@ -140,28 +138,28 @@ fn test_animation_schedule_keeps_voice_inset_at_12ms_while_settings_or_backgroun
         ..voice_with_occluded_canvas
     };
 
-    let voice_interval = AnimationSchedule::next_interval(voice_with_occluded_canvas);
-    let settings_canvas_interval = AnimationSchedule::next_interval(settings_canvas_only);
-    let background_canvas_interval = AnimationSchedule::next_interval(background_canvas_only);
+    let voice_wakeup = AnimationSchedule::next_wakeup(voice_with_occluded_canvas);
+    let settings_canvas_wakeup = AnimationSchedule::next_wakeup(settings_canvas_only);
+    let background_canvas_wakeup = AnimationSchedule::next_wakeup(background_canvas_only);
 
     assert_eq!(
-        voice_interval,
-        Duration::from_millis(12),
-        "Voice PCM 活动时必须保持 12ms 反馈，即使 Canvas 被遮挡且窗口在后台"
+        voice_wakeup,
+        AnimationWakeup::NextFrame(Duration::from_millis(12)),
+        "Voice PCM 活动时必须保持 GPUI 下一帧 + 12ms cadence，即使 Canvas 被遮挡且窗口在后台"
     );
     assert_eq!(
-        settings_canvas_interval,
-        Duration::from_millis(250),
+        settings_canvas_wakeup,
+        AnimationWakeup::Timer(Duration::from_millis(250)),
         "Settings 遮挡时 Canvas-only 动画应降到 250ms"
     );
     assert_eq!(
-        background_canvas_interval,
-        Duration::from_millis(250),
+        background_canvas_wakeup,
+        AnimationWakeup::Timer(Duration::from_millis(250)),
         "窗口后台时 Canvas-only 动画应降到 250ms"
     );
     assert_ne!(
-        voice_interval,
-        Duration::from_millis(250),
+        voice_wakeup,
+        AnimationWakeup::Timer(Duration::from_millis(250)),
         "Voice 活动不得错误继承 Canvas 的后台降频预算"
     );
 }

@@ -280,6 +280,7 @@ if [ -z "$app_pid" ]; then
     --env "HOME=$run_home" \
     --env "PATH=$PATH" \
     --env "MULTISOUL_FRAME_DIAGNOSTICS=1" \
+    --env "RUST_LOG=info,multisoul_frame=debug" \
     --env "NORMA_SKIP_LICENSE=1" \
     --env "NORMA_CPU_BENCHMARK_SCENARIO=$scenario" \
     --env "NORMA_CPU_BENCHMARK_WORKSPACE=$benchmark_workspace" \

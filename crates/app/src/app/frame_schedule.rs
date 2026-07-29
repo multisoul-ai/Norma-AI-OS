@@ -17,25 +17,33 @@ pub(super) struct AnimationActivity {
 
 pub(super) struct AnimationSchedule;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum AnimationWakeup {
+    NextFrame(Duration),
+    Timer(Duration),
+}
+
 impl AnimationSchedule {
-    pub(super) fn next_interval(activity: AnimationActivity) -> Duration {
+    pub(super) fn next_wakeup(activity: AnimationActivity) -> AnimationWakeup {
         if activity.voice_active {
-            return VOICE_ANIMATION_INTERVAL;
+            return AnimationWakeup::NextFrame(VOICE_ANIMATION_INTERVAL);
         }
         let canvas_visible =
             activity.screen_is_canvas && activity.window_active && !activity.settings_open;
         let canvas_active = activity.canvas_motion_active
             || activity.cursor_active
             || activity.next_visual_boundary.is_some();
-        if !canvas_visible || !canvas_active {
-            return IDLE_ANIMATION_INTERVAL;
+        if canvas_visible && canvas_active {
+            let cadence = activity
+                .next_visual_boundary
+                .filter(|duration| !duration.is_zero())
+                .map_or(ACTIVE_CANVAS_INTERVAL, |boundary| {
+                    ACTIVE_CANVAS_INTERVAL.min(boundary)
+                });
+            AnimationWakeup::NextFrame(cadence)
+        } else {
+            AnimationWakeup::Timer(IDLE_ANIMATION_INTERVAL)
         }
-        activity
-            .next_visual_boundary
-            .filter(|duration| !duration.is_zero())
-            .map_or(ACTIVE_CANVAS_INTERVAL, |boundary| {
-                ACTIVE_CANVAS_INTERVAL.min(boundary)
-            })
     }
 }
 

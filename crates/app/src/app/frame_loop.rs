@@ -5,12 +5,17 @@ use gpui::Context;
 use runtime::{InputMode, NodeRunState};
 
 use super::frame_schedule::{
-    AnimationActivity, AnimationSchedule, RepaintContext, RepaintGate, RepaintReason,
+    AnimationSchedule, AnimationWakeup, RepaintContext, RepaintGate, RepaintReason,
 };
 use super::{AppScreen, MultisoulApp};
 
+mod animation_driver;
+
 const RUNTIME_FRAME_INTERVAL: Duration = Duration::from_millis(16);
-const ANIMATION_FRAME_INTERVAL: Duration = Duration::from_millis(12);
+#[cfg(not(feature = "e2e-test-support"))]
+const IDLE_ANIMATION_FRAME_INTERVAL: Duration = Duration::from_millis(250);
+#[cfg(feature = "e2e-test-support")]
+const HEADLESS_ANIMATION_FRAME_INTERVAL: Duration = Duration::from_millis(16);
 const PERSISTENCE_FRAME_INTERVAL: Duration = Duration::from_millis(120);
 
 #[cfg(feature = "e2e-test-support")]
@@ -19,19 +24,46 @@ pub fn runtime_frame_interval_for_e2e() -> Duration {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct AnimationFrameClock {
+pub(super) struct AnimationFrameClock {
     last_tick: Instant,
+    accumulated: Duration,
 }
 
 impl AnimationFrameClock {
-    fn new(now: Instant) -> Self {
-        Self { last_tick: now }
+    pub(super) fn new(now: Instant) -> Self {
+        Self {
+            last_tick: now,
+            accumulated: Duration::ZERO,
+        }
     }
 
     fn elapsed_at(&mut self, now: Instant) -> Duration {
         let elapsed = now.saturating_duration_since(self.last_tick);
         self.last_tick = now;
+        self.accumulated = Duration::ZERO;
         elapsed
+    }
+
+    fn reset(&mut self, now: Instant) {
+        self.last_tick = now;
+        self.accumulated = Duration::ZERO;
+    }
+
+    fn elapsed_for_cadence_at(&mut self, now: Instant, cadence: Duration) -> Option<Duration> {
+        self.accumulated += now.saturating_duration_since(self.last_tick);
+        self.last_tick = now;
+        let accumulated_nanos = self.accumulated.as_nanos();
+        let cadence_nanos = cadence.as_nanos();
+        let steps = accumulated_nanos / cadence_nanos;
+        if steps == 0 {
+            return None;
+        }
+        let consumed_nanos = steps * cadence_nanos;
+        let remainder_nanos = accumulated_nanos - consumed_nanos;
+        self.accumulated = Duration::from_nanos(remainder_nanos as u64);
+        Some(Duration::from_nanos(
+            consumed_nanos.min(u64::MAX as u128) as u64,
+        ))
     }
 }
 
@@ -280,63 +312,46 @@ impl MultisoulApp {
 
     fn start_animation_frame_loop(cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
-            let mut animation_interval = ANIMATION_FRAME_INTERVAL;
-            let mut frame_clock = AnimationFrameClock::new(cx.background_executor().now());
+            #[cfg(feature = "e2e-test-support")]
+            let mut headless_interval = HEADLESS_ANIMATION_FRAME_INTERVAL;
             loop {
-                cx.background_executor().timer(animation_interval).await;
-                let animation_delta = frame_clock.elapsed_at(cx.background_executor().now());
+                #[cfg(feature = "e2e-test-support")]
+                let timer_interval = headless_interval;
+                #[cfg(not(feature = "e2e-test-support"))]
+                let timer_interval = IDLE_ANIMATION_FRAME_INTERVAL;
+                cx.background_executor().timer(timer_interval).await;
+                let frame_now = cx.background_executor().now();
                 let go = this.update(cx, |app, cx| {
-                    let tick_started_at = Instant::now();
-                    let motion_changed = app.motion.tick(animation_delta);
-                    let cursor_changed = app.advance_terminal_cursor_phase(animation_delta);
-                    app.sync_voice_window_inset_enabled();
-                    app.tts_preview.synchronize_external_cancellation();
-                    for event in app.dialogue.take_playback_events() {
-                        app.voice_window_inset.apply_playback_event(
-                            crate::app::voice_window_inset::TtsPlaybackSource::Assistant,
-                            event,
-                        );
+                    #[cfg(not(feature = "e2e-test-support"))]
+                    if app.animation_frame_pending {
+                        return AnimationSchedule::next_wakeup(app.animation_activity());
                     }
-                    for event in app.agent_announcement_playback.take_playback_events() {
-                        app.voice_window_inset.apply_playback_event(
-                            crate::app::voice_window_inset::TtsPlaybackSource::AgentAnnouncement,
-                            event,
-                        );
-                    }
-                    for event in app.tts_preview.take_playback_events() {
-                        app.voice_window_inset.apply_playback_event(
-                            crate::app::voice_window_inset::TtsPlaybackSource::Preview,
-                            event,
-                        );
-                    }
-                    app.start_next_agent_announcement(cx);
-                    let voice_window_inset_changed = app.voice_window_inset.tick(animation_delta);
-                    let diagnostics = app.motion.diagnostics();
-                    crate::frame_diagnostics::log_motion_sample(diagnostics);
-                    let report = AnimationFrameReport {
-                        motion_changed,
-                        cursor_changed,
-                        visible_working_snake: diagnostics.chase_visible_nodes > 0,
-                        voice_window_inset_changed,
-                        elapsed: tick_started_at.elapsed(),
-                    };
-                    if report.should_notify_surface(app.settings_panel.open) {
+                    let animation_delta = app.animation_frame_clock.elapsed_at(frame_now);
+                    let report = app.advance_animation_frame(animation_delta, cx);
+                    let next_wakeup = AnimationSchedule::next_wakeup(app.animation_activity());
+                    #[cfg(not(feature = "e2e-test-support"))]
+                    let needs_frame_driver = matches!(next_wakeup, AnimationWakeup::NextFrame(_));
+                    #[cfg(feature = "e2e-test-support")]
+                    let needs_frame_driver = false;
+                    // Headless TestWindow 不会执行 `on_next_frame`。它已由本循环的 mock
+                    // timer 推进动画，因此不能为了安装原生 frame driver 额外 notify，
+                    // 否则会绕过 Runtime 的 repaint gate。
+                    if report.should_notify_surface(app.settings_panel.open) || needs_frame_driver {
                         cx.notify();
                     }
-                    report.log_if_enabled();
-                    let motion_activity = app.motion.activity_summary();
-                    AnimationSchedule::next_interval(AnimationActivity {
-                        voice_active: app.voice_window_inset.is_animation_active(),
-                        canvas_motion_active: motion_activity.canvas_active,
-                        cursor_active: app.focused_terminal_cursor_animation_active(),
-                        screen_is_canvas: matches!(app.screen, AppScreen::Canvas),
-                        window_active: app.window_active,
-                        settings_open: app.settings_panel.open,
-                        next_visual_boundary: motion_activity.next_visual_boundary,
-                    })
+                    next_wakeup
                 });
                 match go {
-                    Ok(next_interval) => animation_interval = next_interval,
+                    #[cfg(feature = "e2e-test-support")]
+                    Ok(AnimationWakeup::NextFrame(interval)) => {
+                        // GPUI 的 headless TestWindow 不执行 next-frame callback，
+                        // 因此 L1/L2 验收继续用 mock timer 推进同一动画 seam。
+                        headless_interval = interval;
+                    }
+                    #[cfg(feature = "e2e-test-support")]
+                    Ok(AnimationWakeup::Timer(interval)) => headless_interval = interval,
+                    #[cfg(not(feature = "e2e-test-support"))]
+                    Ok(_) => {}
                     Err(_) => break,
                 }
             }
