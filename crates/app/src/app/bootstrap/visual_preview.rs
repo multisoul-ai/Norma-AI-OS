@@ -13,6 +13,7 @@ enum VisualPreview {
     VoiceSetup,
     VoiceReady,
     VoiceApiKey,
+    VoiceCaption,
     AzureAsrReady,
     ZipVoiceReference,
     TtsBacklogCapacity,
@@ -27,6 +28,7 @@ impl VisualPreview {
             "voice-setup" => Some(Self::VoiceSetup),
             "voice-ready" => Some(Self::VoiceReady),
             "voice-api-key" => Some(Self::VoiceApiKey),
+            "voice-caption" => Some(Self::VoiceCaption),
             "azure-asr-ready" => Some(Self::AzureAsrReady),
             "zipvoice-reference" => Some(Self::ZipVoiceReference),
             "tts-backlog-capacity" => Some(Self::TtsBacklogCapacity),
@@ -42,6 +44,7 @@ impl VisualPreview {
             Self::VoiceSetup
             | Self::VoiceReady
             | Self::VoiceApiKey
+            | Self::VoiceCaption
             | Self::AzureAsrReady
             | Self::ZipVoiceReference
             | Self::TtsBacklogCapacity
@@ -82,6 +85,13 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
         }
         VisualPreview::VoiceApiKey => {
             app.voice_settings.assume_visual_preview_api_key_for_e2e();
+        }
+        VisualPreview::VoiceCaption => {
+            app.settings_panel.close();
+            app.voice_settings.assume_visual_preview_ready_for_e2e();
+            app.voice
+                .begin_recording(crate::app::voice::control::VoiceTrigger::Shortcut);
+            app.voice.partial_text = "请帮我整理今天的项目进展，并根据优先级列出下一步行动。我还想确认语音记录不会因为内容太长而丢失。接下来请检查所有未完成事项，标注负责人和截止日期，并把风险最高的三项单独列出来。".to_string();
         }
         VisualPreview::AzureAsrReady => {
             app.voice_settings
@@ -178,16 +188,16 @@ mod tests {
     use super::VisualPreview;
     use ui::ThemeId;
 
-    /// 视觉验收场景解析：只允许 Agent Queue、Orchestration 与七个明确的 Voice 截图状态
+    /// 视觉验收场景解析：只允许 Agent Queue、Orchestration 与八个明确的 Voice 截图状态
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   supported values = agent-queue(1) + orchestration(1)
-    ///                      + setup(1) + ready(1) + api-key(1)
+    ///                      + setup(1) + ready(1) + api-key(1) + caption(1)
     ///                      + azure-asr-ready(1)
     ///                      + zipvoice-reference(1) + tts-backlog-capacity(1)
-    ///                      + tts-backlog-recovered(1) = 9
+    ///                      + tts-backlog-recovered(1) = 10
     ///   unsupported values = empty(1) + unknown(1) = 2
-    ///   total cases = 9 + 2 = 11
+    ///   total cases = 10 + 2 = 12
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. 解析 `agent-queue` → AgentQueue
@@ -195,14 +205,15 @@ mod tests {
     ///   3. 解析 `voice-setup` → VoiceSetup
     ///   4. 解析 `voice-ready` → VoiceReady
     ///   5. 解析 `voice-api-key` → VoiceApiKey
-    ///   6. 解析 `azure-asr-ready` → AzureAsrReady
-    ///   7. 解析 `zipvoice-reference` → ZipVoiceReference
-    ///   8. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
-    ///   9. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
-    ///   10. 解析空字符串与未知值 → None
+    ///   6. 解析 `voice-caption` → VoiceCaption
+    ///   7. 解析 `azure-asr-ready` → AzureAsrReady
+    ///   8. 解析 `zipvoice-reference` → ZipVoiceReference
+    ///   9. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
+    ///   10. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
+    ///   11. 解析空字符串与未知值 → None
     ///
     /// 预期结果：
-    ///   - 正断言：九个受支持值分别映射到唯一场景
+    ///   - 正断言：十个受支持值分别映射到唯一场景
     ///   - 负断言：空值和未知值不得意外开启视觉预览
     #[test]
     fn visual_preview_parser_accepts_only_explicit_scenarios() {
@@ -230,6 +241,11 @@ mod tests {
             VisualPreview::parse("voice-api-key"),
             Some(VisualPreview::VoiceApiKey),
             "voice-api-key must select the configured API Key preview"
+        );
+        assert_eq!(
+            VisualPreview::parse("voice-caption"),
+            Some(VisualPreview::VoiceCaption),
+            "voice-caption must select the long live transcript preview"
         );
         assert_eq!(
             VisualPreview::parse("azure-asr-ready"),

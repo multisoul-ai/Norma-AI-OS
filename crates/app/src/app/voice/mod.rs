@@ -1,6 +1,7 @@
 //! Voice entrypoint glue for the app shell.
 
 pub(crate) mod bar;
+pub(crate) mod caption;
 pub(crate) mod control;
 mod dictation;
 mod execution;

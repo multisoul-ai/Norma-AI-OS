@@ -16,7 +16,7 @@ use support::*;
 ///   recognition WAV = 44 + 640 = 684 bytes（20 ms × 16,000 × 2）
 ///   Azure duration limit = 60 × 16,000 × 2 = 1,920,000 PCM bytes
 ///   explicit provider changes = 6（含往返切换与迟到结果失效切换）
-///   toolbar transcript projections = 2（Single + Continuous 各显示一次 Azure Final）
+///   live caption projections = 2（Single + Continuous 各显示一次 Azure Final）
 ///   async settle budget = 600 × 5 ms = 3,000 ms（仅等待本地 fake HTTP 后台任务）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -169,14 +169,15 @@ fn azure_asr_requires_real_validation_and_supports_test_and_round_trip_switching
         Some("Azure single transcript".to_string()),
         "Azure Single Voice Command Final must enter the existing Agent dialogue turn"
     );
-    let single_toolbar_label = app.read_with(cx, |app, _cx| app.voice_e2e_snapshot().label);
-    assert!(
-        single_toolbar_label.contains("Azure single transcript"),
-        "Azure Single Final must be visible in the top Voice entry; actual label: {single_toolbar_label:?}"
+    let single_voice = app.read_with(cx, |app, _cx| app.voice_e2e_snapshot());
+    assert_eq!(
+        single_voice.caption_text.as_deref(),
+        Some("Azure single transcript"),
+        "Azure Single Final must be visible in the live caption strip"
     );
     assert_ne!(
-        single_toolbar_label, "Voice",
-        "recognized Azure Single text must not leave the top Voice entry at its generic idle label"
+        single_voice.dock_label, "Azure single transcript",
+        "recognized Azure Single text must not expand the compact Voice Dock label"
     );
 
     app.update(cx, |app, _cx| app.reset_voice_runtime_for_e2e());
@@ -196,14 +197,15 @@ fn azure_asr_requires_real_validation_and_supports_test_and_round_trip_switching
         Some("Azure continuous transcript".to_string()),
         "Azure Continuous Listening must use VAD SpeechEnd and the same public pipeline"
     );
-    let continuous_toolbar_label = app.read_with(cx, |app, _cx| app.voice_e2e_snapshot().label);
-    assert!(
-        continuous_toolbar_label.contains("Azure continuous transcript"),
-        "Azure Continuous Final must be visible in the top Voice entry; actual label: {continuous_toolbar_label:?}"
+    let continuous_voice = app.read_with(cx, |app, _cx| app.voice_e2e_snapshot());
+    assert_eq!(
+        continuous_voice.caption_text.as_deref(),
+        Some("Azure continuous transcript"),
+        "Azure Continuous Final must be visible in the live caption strip"
     );
     assert_ne!(
-        continuous_toolbar_label, "Continuous Listening",
-        "recognized Azure Continuous text must replace the generic listening label"
+        continuous_voice.dock_label, "Azure continuous transcript",
+        "recognized Azure Continuous text must not replace the compact Voice Dock status"
     );
 
     app.update(cx, |app, _cx| app.reset_voice_runtime_for_e2e());

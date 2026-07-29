@@ -348,7 +348,6 @@ impl DialogueControlState {
         self.reply_task = None;
     }
 
-    #[cfg(any(test, feature = "e2e-test-support"))]
     pub(crate) fn pending_transcript(&self) -> Option<&str> {
         self.session.pending_transcript()
     }

@@ -50,6 +50,7 @@ mod e2e_03_orchestration_settings;
 mod e2e_03_settings_clicks;
 mod e2e_03_settings_navigation;
 mod e2e_03_theme_switching;
+mod e2e_03_voice_caption;
 mod e2e_03_voice_design;
 mod e2e_03_voice_modes;
 mod e2e_03_voice_setup;

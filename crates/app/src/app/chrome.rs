@@ -368,6 +368,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Div {
         let theme = self.theme;
+        let voice_caption = self.render_voice_caption(cx);
 
         div()
             .absolute()
@@ -376,6 +377,7 @@ impl MultisoulApp {
             .right(px(0.0))
             .bottom(px(0.0))
             .child(render_canvas_minimap(&self.runtime, theme, window))
+            .when_some(voice_caption, |chrome, caption| chrome.child(caption))
             .child(self.render_command_dock(window, cx))
             .child(self.render_workspace_top_bar(cx))
             .when(self.voice_ready_notification_visible, |chrome| {

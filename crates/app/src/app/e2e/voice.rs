@@ -11,6 +11,11 @@ pub struct VoiceE2eSnapshot {
     pub entry_state: &'static str,
     pub ready_notification_visible: bool,
     pub duration_limit_feedback: Option<String>,
+    pub dock_label: String,
+    pub dock_shortcut: String,
+    pub caption_text: Option<String>,
+    pub caption_preview: Option<String>,
+    pub caption_expanded: bool,
 }
 
 impl MultisoulApp {
@@ -50,7 +55,20 @@ impl MultisoulApp {
                 .voice
                 .last_duration_limit_feedback()
                 .map(ToOwned::to_owned),
+            dock_label: self.effective_voice_dock_label().to_string(),
+            dock_shortcut: self.shortcuts.voice_interaction_label(),
+            caption_text: self.voice_caption_text(),
+            caption_preview: self.voice_caption_preview(),
+            caption_expanded: self.voice.caption_expanded(),
         }
+    }
+
+    pub fn show_voice_recording_transcript_for_e2e(&mut self, transcript: impl Into<String>) {
+        self.voice.stop_for_model_switch();
+        self.voice
+            .begin_recording(crate::app::voice::control::VoiceTrigger::Shortcut);
+        self.voice.partial_text = transcript.into();
+        self.voice.collapse_caption();
     }
 
     pub fn show_single_voice_turn_error_for_e2e(&mut self, message: impl Into<String>) {

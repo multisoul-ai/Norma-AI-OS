@@ -28,6 +28,18 @@ pub(crate) enum VoiceVisual {
     Error,
 }
 
+impl VoiceVisual {
+    pub(crate) fn dock_label(self) -> &'static str {
+        match self {
+            Self::Idle => "Voice",
+            Self::Recording => "Listening",
+            Self::Processing => "Thinking…",
+            Self::Success => "Ready",
+            Self::Error => "Needs attention",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum VoicePhase {
     Idle,
@@ -56,6 +68,7 @@ pub(crate) struct VoiceControlState {
     result_application_delay: Option<std::time::Duration>,
     next_recording_generation: u64,
     active_recording_generation: Option<u64>,
+    caption_expanded: bool,
 }
 
 impl Default for VoiceControlState {
@@ -74,6 +87,7 @@ impl Default for VoiceControlState {
             result_application_delay: None,
             next_recording_generation: 0,
             active_recording_generation: None,
+            caption_expanded: false,
         }
     }
 }
@@ -111,6 +125,7 @@ impl VoiceControlState {
                 self.next_recording_generation = self.next_recording_generation.wrapping_add(1);
                 self.active_recording_generation = Some(self.next_recording_generation);
                 self.last_duration_limit_feedback = None;
+                self.caption_expanded = false;
                 self.phase = VoicePhase::Recording { trigger };
                 true
             }
@@ -156,6 +171,7 @@ impl VoiceControlState {
         transcript: impl Into<String>,
         reason: impl Into<String>,
     ) {
+        self.caption_expanded = false;
         self.phase = VoicePhase::TranscriptOnly {
             transcript: transcript.into(),
             reason: reason.into(),
@@ -251,6 +267,27 @@ impl VoiceControlState {
         self.phase = VoicePhase::Idle;
         self.partial_text.clear();
         self.transcribing_message = None;
+        self.caption_expanded = false;
+    }
+    pub(crate) fn caption_text(&self) -> Option<&str> {
+        match &self.phase {
+            VoicePhase::Recording { .. } if !self.partial_text.trim().is_empty() => {
+                Some(self.partial_text.as_str())
+            }
+            VoicePhase::TranscriptOnly { transcript, .. } if !transcript.trim().is_empty() => {
+                Some(transcript.as_str())
+            }
+            _ => None,
+        }
+    }
+    pub(crate) fn caption_expanded(&self) -> bool {
+        self.caption_expanded
+    }
+    pub(crate) fn collapse_caption(&mut self) {
+        self.caption_expanded = false;
+    }
+    pub(crate) fn toggle_caption_expanded(&mut self) {
+        self.caption_expanded = !self.caption_expanded;
     }
     pub(crate) fn label(&self) -> String {
         match &self.phase {

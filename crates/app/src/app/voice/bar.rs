@@ -226,17 +226,24 @@ fn voice_content(
             .flex_row()
             .items_center()
             .gap_2()
-            .min_w(px(120.0))
             .child(static_waveform(theme))
             .child(
                 div()
-                    .max_w(px(360.0))
+                    .whitespace_nowrap()
                     .text_color(rgba(0xffffffff))
-                    .child(app.effective_voice_label()),
+                    .child(app.effective_voice_dock_label()),
+            )
+            .child(
+                div()
+                    .id("workspace-voice-shortcut")
+                    .debug_selector(|| "workspace-voice-shortcut".to_string())
+                    .whitespace_nowrap()
+                    .text_color(rgba(0xffffff8a))
+                    .child(app.shortcuts.voice_interaction_label()),
             ),
-        VoiceVisual::Processing | VoiceVisual::Success => {
-            div().max_w(px(420.0)).child(app.effective_voice_label())
-        }
+        VoiceVisual::Processing | VoiceVisual::Success => div()
+            .whitespace_nowrap()
+            .child(app.effective_voice_dock_label()),
         VoiceVisual::Error => {
             let mut content = div()
                 .flex()
