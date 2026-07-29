@@ -1,3 +1,4 @@
+use super::super::frame_schedule::{AnimationSchedule, AnimationWakeup};
 use super::MultisoulApp;
 use crate::app::voice_window_inset::TtsPlaybackSource;
 use gpui::Context;
@@ -61,6 +62,27 @@ impl MultisoulApp {
         self.tts_preview.mark_playback_started(generation);
         self.flush_tts_playback_events_for_e2e(cx);
         generation
+    }
+
+    pub fn queue_pending_tts_preview_for_e2e(
+        &mut self,
+        chunk: audio::PcmAudioChunk,
+        cx: &mut Context<Self>,
+    ) -> u64 {
+        self.cancel_agent_announcements();
+        let (generation, control) = self.tts_preview.start();
+        self.dialogue.track_tts_preview(control);
+        self.tts_preview.queue_pcm(generation, &chunk);
+        self.tts_preview.mark_playback_started(generation);
+        cx.notify();
+        generation
+    }
+
+    pub fn pending_tts_playback_requests_next_frame_for_e2e(&self) -> bool {
+        matches!(
+            AnimationSchedule::next_wakeup(self.animation_activity()),
+            AnimationWakeup::NextFrame(_)
+        )
     }
 
     pub fn finish_tts_preview_for_e2e(&mut self, generation: u64, cx: &mut Context<Self>) {

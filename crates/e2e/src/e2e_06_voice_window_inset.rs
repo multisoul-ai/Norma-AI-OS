@@ -241,3 +241,151 @@ fn e2e_06_tts_preview_actual_pcm_reuses_shared_inset_without_dialogue_state() {
         "Voice Preview 完成后 Dialogue 必须仍保持 idle"
     );
 }
+
+/// E2E-06 Pending：待消费 Preview 事件必须走真实 display-callback seam，且 120Hz 的非 due callback 不得推进状态。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   preview PCM = 16_000Hz × 100ms = 1_600 frames
+///   display callbacks = 8ms、16ms、24ms、32ms（近似 120Hz）
+///   forced Canvas cadence = 16ms（近似 60Hz；16 / 8 = 每两次 callback 只推进一次）
+///   expected driver outcomes = deferred、advanced、deferred、advanced
+///   preview production schedule = NextFrame（待消费事件不得回退到 250ms idle timer）
+///
+/// 执行过程：
+///   1. 进入没有活动 Canvas 动画的空闲状态。
+///   2. 仅排入 Preview 的 PCM + Started 事件，不直接刷新 VoiceWindowInset。
+///   3. 读取生产调度策略，确认待消费事件会请求 NextFrame 而非 250ms idle timer。
+///   4. 直接调用生产 `consume_animation_display_callback_at` seam，模拟 8/16/24/32ms 显示 callback。
+///   5. 对比四次 callback 的状态推进、notify 和内缘光快照。
+///
+/// 预期结果：
+///   - 正断言：待消费播放事件必须从 idle timer 切换到 NextFrame。
+///   - 正断言：16ms/32ms 的 due callback 必须推进状态；16ms 必须消费 Preview 并请求 repaint。
+///   - 负断言：8ms/24ms 的非 due callback 不得推进状态、notify 或改变内缘光。
+#[test]
+fn e2e_06_pending_preview_events_use_due_display_callbacks_without_120hz_extra_ticks() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("e2e pending preview workspace 应创建成功");
+    enter_canvas(&app, cx, workspace.path());
+
+    let generation = app.update(cx, |app, cx| {
+        let generation = app.queue_pending_tts_preview_for_e2e(
+            pcm16_mono_chunk(8_000, Duration::from_millis(100)),
+            cx,
+        );
+        app.reset_animation_display_callback_clock_for_e2e(cx);
+        generation
+    });
+    let requests_next_frame = app.read_with(cx, |app, _cx| {
+        app.pending_tts_playback_requests_next_frame_for_e2e()
+    });
+
+    assert!(
+        requests_next_frame,
+        "待消费 Preview 事件必须请求下一显示帧，不能继续等待 250ms idle fallback"
+    );
+
+    cx.cx
+        .background_executor
+        .advance_clock(Duration::from_millis(8));
+    let at_eight = app.update(cx, |app, cx| {
+        app.consume_animation_display_callback_for_e2e(Duration::from_millis(16), cx)
+    });
+    let before_due = app.read_with(cx, |app, _cx| app.voice_window_inset_e2e_snapshot());
+
+    assert!(
+        at_eight.deferred,
+        "8ms callback 尚未达到 16ms Canvas cadence，生产 driver 必须只重挂下一帧"
+    );
+    assert!(
+        !at_eight.state_advanced,
+        "8ms callback 不得进入 motion/voice 状态推进，避免 120Hz 双倍 CPU"
+    );
+    assert!(
+        !at_eight.repaint_notified,
+        "8ms callback 未改变视觉状态时不得请求 repaint"
+    );
+    assert!(
+        at_eight.next_frame_requested,
+        "8ms callback 必须保留下一显示帧请求，才能在 16ms due callback 继续推进"
+    );
+    assert!(
+        !before_due.active,
+        "8ms 非 due callback 不得消费 Preview 事件或提前显示内缘光"
+    );
+
+    cx.cx
+        .background_executor
+        .advance_clock(Duration::from_millis(8));
+    let at_sixteen = app.update(cx, |app, cx| {
+        app.consume_animation_display_callback_for_e2e(Duration::from_millis(16), cx)
+    });
+    let playing = app.read_with(cx, |app, _cx| app.voice_window_inset_e2e_snapshot());
+
+    assert!(
+        at_sixteen.state_advanced,
+        "16ms due callback 必须进入生产动画状态推进"
+    );
+    assert!(
+        at_sixteen.repaint_notified,
+        "16ms 消费 Preview 后内缘光开始淡入，必须请求 repaint"
+    );
+    assert!(
+        at_sixteen.next_frame_requested,
+        "Preview 仍在淡入时必须继续请求后续显示帧"
+    );
+    assert!(
+        playing.active && playing.opacity_milli > 0,
+        "16ms due callback 必须消费 Preview 事件并显示淡入中的内缘光"
+    );
+
+    cx.cx
+        .background_executor
+        .advance_clock(Duration::from_millis(8));
+    let at_twenty_four = app.update(cx, |app, cx| {
+        app.consume_animation_display_callback_for_e2e(Duration::from_millis(16), cx)
+    });
+    let skipped_visual = app.read_with(cx, |app, _cx| app.voice_window_inset_e2e_snapshot());
+
+    assert!(
+        at_twenty_four.deferred && !at_twenty_four.state_advanced,
+        "24ms callback 距上次推进仅 8ms，必须继续跳过状态推进"
+    );
+    assert!(
+        !at_twenty_four.repaint_notified,
+        "24ms 非 due callback 不得产生额外 repaint"
+    );
+    assert_eq!(
+        skipped_visual.opacity_milli, playing.opacity_milli,
+        "24ms 非 due callback 不得改变内缘光透明度"
+    );
+
+    cx.cx
+        .background_executor
+        .advance_clock(Duration::from_millis(8));
+    let at_thirty_two = app.update(cx, |app, cx| {
+        app.consume_animation_display_callback_for_e2e(Duration::from_millis(16), cx)
+    });
+    let advanced_visual = app.read_with(cx, |app, _cx| app.voice_window_inset_e2e_snapshot());
+
+    assert!(
+        at_thirty_two.state_advanced,
+        "32ms due callback 必须执行第二次状态推进"
+    );
+    assert!(
+        advanced_visual.opacity_milli > playing.opacity_milli,
+        "32ms 第二次推进必须继续增加淡入中的内缘光透明度"
+    );
+
+    app.update(cx, |app, cx| {
+        app.finish_tts_preview_for_e2e(generation, cx);
+        app.advance_animations_for_e2e(Duration::from_millis(220), cx);
+    });
+    let finished = app.read_with(cx, |app, _cx| app.voice_window_inset_e2e_snapshot());
+
+    assert!(
+        !finished.active,
+        "Preview 完成并经历 220ms 收束后不得残留窗口内缘光"
+    );
+}

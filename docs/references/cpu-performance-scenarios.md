@@ -91,6 +91,11 @@ Repeat with the candidate application. Use Computer Use for the functional check
 and Agent input, final output, cursor, working snake, breathing, Voice inset, theme, zoom,
 selection, scroll, resize, and node close.
 
+For a `--pid` run, the runner derives the observed `.app` bundle from the process's mapped
+executable. If macOS cannot provide a reliable mapping, the artifact explicitly records both
+the bundle identity and version as `unverified_existing_pid`; do not use such an artifact to
+attribute a CPU result to a specific packaged build.
+
 ## Repeatability and candidate comparison
 
 ```bash

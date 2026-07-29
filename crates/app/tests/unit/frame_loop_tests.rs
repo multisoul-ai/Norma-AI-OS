@@ -119,65 +119,72 @@ fn test_animation_frame_clock_uses_actual_elapsed_time_after_foreground_stall() 
     );
 }
 
-/// FL-3：120Hz GPUI 回调必须按 16ms cadence 合并为约 60Hz 动画推进。
+/// FL-3：120Hz GPUI 回调必须在进入 App 状态计算前按 16ms cadence 合并为约 60Hz 动画推进。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   display callback interval = 8ms（近似 1000 / 120Hz = 8.33ms）
 ///   Canvas cadence = 16ms（近似 1000 / 60Hz = 16.67ms）
 ///   callback timestamps = 8ms、16ms、24ms、32ms
-///   expected animation deltas = None、16ms、None、16ms
-///   expected update count = 32 / 16 = 2，而不是 120Hz 下的 4
+///   expected due decisions = false、true、false、true
+///   expected animation deltas = 16ms、16ms
+///   expected state-update count = 32 / 16 = 2，而不是 120Hz 下的 4
 ///
 /// 执行过程：
 ///   1. 用 started_at 创建 AnimationFrameClock。
-///   2. 按四个 8ms 显示帧依次调用 cadence seam。
-///   3. 收集每个显示帧是否产生动画 delta。
-///   4. 统计 32ms 窗口中的实际动画推进次数。
+///   2. 按四个 8ms 显示帧依次检查 callback 是否已到 state-update deadline。
+///   3. 仅在两个 due callback 上消费实际 elapsed delta。
+///   4. 统计 32ms 窗口中的实际状态推进次数。
 ///
 /// 预期结果：
-///   - 负断言：8ms 与 24ms 尚未达到 16ms，不应推进或 repaint。
+///   - 负断言：8ms 与 24ms 尚未达到 16ms，不应进入动画状态计算或 repaint。
 ///   - 正断言：16ms 与 32ms 各产生一个精确 16ms delta。
-///   - 正断言：总更新次数为 2，避免 ProMotion 屏把 Canvas CPU 翻到 120fps。
+///   - 正断言：总状态更新次数为 2，避免 ProMotion 屏为每个 120Hz callback 执行完整活动状态计算。
 #[test]
-fn test_animation_frame_clock_caps_120hz_callbacks_at_60hz_cadence() {
+fn test_animation_frame_clock_caps_120hz_state_updates_at_60hz_cadence() {
     let started_at = std::time::Instant::now();
     let cadence = std::time::Duration::from_millis(16);
     let mut clock = AnimationFrameClock::new(started_at);
 
-    let at_eight =
-        clock.elapsed_for_cadence_at(started_at + std::time::Duration::from_millis(8), cadence);
-    let at_sixteen =
-        clock.elapsed_for_cadence_at(started_at + std::time::Duration::from_millis(16), cadence);
+    let at_eight = clock.is_due_at(started_at + std::time::Duration::from_millis(8), cadence);
+    let at_sixteen = clock.is_due_at(started_at + std::time::Duration::from_millis(16), cadence);
+    let first_delta =
+        at_sixteen.then(|| clock.elapsed_at(started_at + std::time::Duration::from_millis(16)));
     let at_twenty_four =
-        clock.elapsed_for_cadence_at(started_at + std::time::Duration::from_millis(24), cadence);
-    let at_thirty_two =
-        clock.elapsed_for_cadence_at(started_at + std::time::Duration::from_millis(32), cadence);
+        clock.is_due_at(started_at + std::time::Duration::from_millis(24), cadence);
+    let at_thirty_two = clock.is_due_at(started_at + std::time::Duration::from_millis(32), cadence);
+    let second_delta =
+        at_thirty_two.then(|| clock.elapsed_at(started_at + std::time::Duration::from_millis(32)));
     let update_count = [at_eight, at_sixteen, at_twenty_four, at_thirty_two]
         .into_iter()
-        .flatten()
+        .filter(|due| *due)
         .count();
 
-    assert_eq!(
-        at_eight, None,
-        "首个 8ms 显示帧尚未达到 16ms Canvas cadence，不应推进动画"
+    assert!(
+        !at_eight,
+        "首个 8ms 显示帧尚未达到 16ms Canvas cadence，不应进入动画状态计算"
     );
+    assert!(at_sixteen, "累计 16ms 时必须进入一次 Canvas 状态计算");
     assert_eq!(
-        at_sixteen,
+        first_delta,
         Some(cadence),
-        "累计 16ms 时必须推进一个精确 16ms 动画步长"
+        "首个 due callback 必须消费精确 16ms 动画步长"
     );
-    assert_eq!(
-        at_twenty_four, None,
-        "消费首个 16ms 后仅新增 8ms，24ms 显示帧不应重复推进"
+    assert!(
+        !at_twenty_four,
+        "消费首个 16ms 后仅新增 8ms，24ms 显示帧不应重复进入状态计算"
     );
-    assert_eq!(
+    assert!(
         at_thirty_two,
+        "累计到 32ms 时必须进入第二次 Canvas 状态计算"
+    );
+    assert_eq!(
+        second_delta,
         Some(cadence),
-        "累计到 32ms 时必须推进第二个 16ms 动画步长"
+        "第二个 due callback 必须消费第二个精确 16ms 动画步长"
     );
     assert_eq!(
         update_count, 2,
-        "32ms 内应只有 2 次 Canvas 更新，不能按 120Hz 显示回调执行 4 次"
+        "32ms 内应只有 2 次 Canvas 状态更新，不能按 120Hz 显示回调执行 4 次"
     );
 }
 

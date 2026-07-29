@@ -145,10 +145,13 @@ impl MultisoulApp {
             terminal_cursor_repaint: FrameThrottle::default(),
             #[cfg(feature = "e2e-test-support")]
             canvas_render_count_for_e2e: 0,
+            #[cfg(feature = "e2e-test-support")]
+            animation_frame_loop_paused_for_e2e: false,
             animation_frame_clock: super::frame_loop::AnimationFrameClock::new(
                 cx.background_executor().now(),
             ),
             animation_frame_pending: false,
+            animation_frame_cadence: None,
             window_active: true,
             voice_window_inset: crate::app::voice_window_inset::VoiceWindowInset::default(),
             voice_window_inset_window_visible: true,

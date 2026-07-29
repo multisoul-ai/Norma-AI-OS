@@ -352,12 +352,14 @@ impl MultisoulApp {
             announcement,
             started: false,
         };
+        cx.notify();
         let completion_timeout = completion_timeout_for_chunk(&chunk);
         let executor = cx.background_executor().clone();
         cx.spawn(async move |this, cx| {
             if started_rx.recv().await.is_ok() {
-                let _ = this.update(cx, |app, _cx| {
+                let _ = this.update(cx, |app, cx| {
                     app.mark_agent_announcement_started(generation);
+                    cx.notify();
                 });
             }
             let completed =
@@ -425,6 +427,7 @@ impl MultisoulApp {
                 });
         }
         self.start_next_agent_announcement(cx);
+        cx.notify();
     }
 
     fn agent_announcement_name(&self, node_id: NodeId) -> Option<String> {

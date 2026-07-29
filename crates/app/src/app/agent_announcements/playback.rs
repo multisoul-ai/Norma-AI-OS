@@ -167,6 +167,10 @@ impl AgentAnnouncementPlayback {
     pub(crate) fn take_playback_events(&mut self) -> Vec<TtsPlaybackEvent> {
         std::mem::take(&mut self.playback_events)
     }
+
+    pub(crate) fn has_pending_playback_events(&self) -> bool {
+        !self.playback_events.is_empty()
+    }
 }
 
 #[cfg(test)]

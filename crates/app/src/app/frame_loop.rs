@@ -4,17 +4,19 @@ use canvas::NodeType;
 use gpui::Context;
 use runtime::{InputMode, NodeRunState};
 
-use super::frame_schedule::{
-    AnimationSchedule, AnimationWakeup, RepaintContext, RepaintGate, RepaintReason,
-};
+#[cfg(not(any(test, feature = "e2e-test-support")))]
+use super::frame_schedule::AnimationWakeup;
+use super::frame_schedule::{AnimationSchedule, RepaintContext, RepaintGate, RepaintReason};
 use super::{AppScreen, MultisoulApp};
 
 mod animation_driver;
+#[cfg(feature = "e2e-test-support")]
+pub(in crate::app) use animation_driver::AnimationFrameCallbackOutcome;
 
 const RUNTIME_FRAME_INTERVAL: Duration = Duration::from_millis(16);
-#[cfg(not(feature = "e2e-test-support"))]
+#[cfg(not(any(test, feature = "e2e-test-support")))]
 const IDLE_ANIMATION_FRAME_INTERVAL: Duration = Duration::from_millis(250);
-#[cfg(feature = "e2e-test-support")]
+#[cfg(any(test, feature = "e2e-test-support"))]
 const HEADLESS_ANIMATION_FRAME_INTERVAL: Duration = Duration::from_millis(16);
 const PERSISTENCE_FRAME_INTERVAL: Duration = Duration::from_millis(120);
 
@@ -26,44 +28,25 @@ pub fn runtime_frame_interval_for_e2e() -> Duration {
 #[derive(Clone, Copy, Debug)]
 pub(super) struct AnimationFrameClock {
     last_tick: Instant,
-    accumulated: Duration,
 }
 
 impl AnimationFrameClock {
     pub(super) fn new(now: Instant) -> Self {
-        Self {
-            last_tick: now,
-            accumulated: Duration::ZERO,
-        }
+        Self { last_tick: now }
     }
 
     fn elapsed_at(&mut self, now: Instant) -> Duration {
         let elapsed = now.saturating_duration_since(self.last_tick);
         self.last_tick = now;
-        self.accumulated = Duration::ZERO;
         elapsed
     }
 
     fn reset(&mut self, now: Instant) {
         self.last_tick = now;
-        self.accumulated = Duration::ZERO;
     }
 
-    fn elapsed_for_cadence_at(&mut self, now: Instant, cadence: Duration) -> Option<Duration> {
-        self.accumulated += now.saturating_duration_since(self.last_tick);
-        self.last_tick = now;
-        let accumulated_nanos = self.accumulated.as_nanos();
-        let cadence_nanos = cadence.as_nanos();
-        let steps = accumulated_nanos / cadence_nanos;
-        if steps == 0 {
-            return None;
-        }
-        let consumed_nanos = steps * cadence_nanos;
-        let remainder_nanos = accumulated_nanos - consumed_nanos;
-        self.accumulated = Duration::from_nanos(remainder_nanos as u64);
-        Some(Duration::from_nanos(
-            consumed_nanos.min(u64::MAX as u128) as u64
-        ))
+    fn is_due_at(&self, now: Instant, cadence: Duration) -> bool {
+        now.saturating_duration_since(self.last_tick) >= cadence
     }
 }
 
@@ -312,26 +295,35 @@ impl MultisoulApp {
 
     fn start_animation_frame_loop(cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
-            #[cfg(feature = "e2e-test-support")]
-            let mut headless_interval = HEADLESS_ANIMATION_FRAME_INTERVAL;
             loop {
-                #[cfg(feature = "e2e-test-support")]
-                let timer_interval = headless_interval;
-                #[cfg(not(feature = "e2e-test-support"))]
+                #[cfg(any(test, feature = "e2e-test-support"))]
+                let timer_interval = HEADLESS_ANIMATION_FRAME_INTERVAL;
+                #[cfg(not(any(test, feature = "e2e-test-support")))]
                 let timer_interval = IDLE_ANIMATION_FRAME_INTERVAL;
                 cx.background_executor().timer(timer_interval).await;
                 let frame_now = cx.background_executor().now();
                 let go = this.update(cx, |app, cx| {
-                    #[cfg(not(feature = "e2e-test-support"))]
+                    #[cfg(feature = "e2e-test-support")]
+                    if app.animation_frame_loop_paused_for_e2e {
+                        return AnimationSchedule::next_wakeup(app.animation_activity());
+                    }
+                    #[cfg(not(any(test, feature = "e2e-test-support")))]
                     if app.animation_frame_pending {
+                        if !app.window_active {
+                            let animation_delta = app.animation_frame_clock.elapsed_at(frame_now);
+                            let report = app.advance_animation_frame(animation_delta, cx);
+                            if report.should_notify_surface(app.settings_panel.open) {
+                                cx.notify();
+                            }
+                        }
                         return AnimationSchedule::next_wakeup(app.animation_activity());
                     }
                     let animation_delta = app.animation_frame_clock.elapsed_at(frame_now);
                     let report = app.advance_animation_frame(animation_delta, cx);
                     let next_wakeup = AnimationSchedule::next_wakeup(app.animation_activity());
-                    #[cfg(not(feature = "e2e-test-support"))]
+                    #[cfg(not(any(test, feature = "e2e-test-support")))]
                     let needs_frame_driver = matches!(next_wakeup, AnimationWakeup::NextFrame(_));
-                    #[cfg(feature = "e2e-test-support")]
+                    #[cfg(any(test, feature = "e2e-test-support"))]
                     let needs_frame_driver = false;
                     // Headless TestWindow 不会执行 `on_next_frame`。它已由本循环的 mock
                     // timer 推进动画，因此不能为了安装原生 frame driver 额外 notify，
@@ -341,18 +333,8 @@ impl MultisoulApp {
                     }
                     next_wakeup
                 });
-                match go {
-                    #[cfg(feature = "e2e-test-support")]
-                    Ok(AnimationWakeup::NextFrame(interval)) => {
-                        // GPUI 的 headless TestWindow 不执行 next-frame callback，
-                        // 因此 L1/L2 验收继续用 mock timer 推进同一动画 seam。
-                        headless_interval = interval;
-                    }
-                    #[cfg(feature = "e2e-test-support")]
-                    Ok(AnimationWakeup::Timer(interval)) => headless_interval = interval,
-                    #[cfg(not(feature = "e2e-test-support"))]
-                    Ok(_) => {}
-                    Err(_) => break,
+                if go.is_err() {
+                    break;
                 }
             }
         })

@@ -50,6 +50,10 @@ const SPEECH_COMMAND_CAPACITY: usize = 8;
 const SPEECH_EVENT_CAPACITY: usize = 16;
 
 impl DialogueControlState {
+    pub(crate) fn has_pending_playback_events(&self) -> bool {
+        !self.playback_events.is_empty()
+    }
+
     pub(crate) fn begin_reply_stream(&mut self) {
         self.cancel_tts_preview();
         self.abort_reply_stream(false);
@@ -271,19 +275,21 @@ impl DialogueControlState {
                     chunk.energy_timeline,
                 ));
             self.playback_chunks_pending = self.playback_chunks_pending.saturating_add(1);
+            cx.notify();
             let tts_request_sequence = chunk.tts_request_sequence;
             let chunk_sequence = chunk.chunk_sequence;
             let pcm_fingerprint = chunk.pcm_fingerprint;
             cx.spawn(async move |this, cx| {
                 if playback_started_rx.recv().await.is_ok()
                     && this
-                        .update(cx, |app, _cx| {
+                        .update(cx, |app, cx| {
                             app.dialogue.on_playback_chunk_started(
                                 generation,
                                 tts_request_sequence,
                                 chunk_sequence,
                                 pcm_fingerprint,
                             );
+                            cx.notify();
                         })
                         .is_err()
                 {

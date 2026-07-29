@@ -25,7 +25,8 @@ usage:
 
 record options:
   --app PATH                   packaged Norma OS.app to launch
-  --pid PID                    sample an already prepared Norma OS process
+  --pid PID                    sample an already prepared Norma OS process; derive its bundle
+                               identity from the PID or mark it unverified
   --scenario NAME              idle-seven-cards, background-seven-cards,
                                one-active-terminal, two-active-terminals, or a manual name
   --duration SECONDS           sampling duration; release evidence must use 60 (default: 60)
@@ -41,6 +42,9 @@ record options:
 Automatic preparation resolves the newly launched PID and tells System Events to operate
 only that application process. The benchmark instance also uses an isolated HOME, so it can
 coexist with a user's existing Norma OS window without sharing app storage.
+
+Set NORMA_CPU_BENCHMARK_FRAME_DIAGNOSTICS=1 only for a separate frame-trace run. CPU
+release evidence defaults to RUST_LOG=info without per-frame debug logging.
 USAGE
 }
 
@@ -118,6 +122,15 @@ node_count=
 active_agent_count=
 active_terminal_count=
 automatic_prepare=true
+launch_mode=runner-launch
+frame_diagnostics=${NORMA_CPU_BENCHMARK_FRAME_DIAGNOSTICS:-0}
+case "$frame_diagnostics" in
+  0) frame_rust_log=${NORMA_CPU_BENCHMARK_RUST_LOG:-info} ;;
+  1) frame_rust_log=${NORMA_CPU_BENCHMARK_RUST_LOG:-info,multisoul_frame=debug} ;;
+  *) fail "NORMA_CPU_BENCHMARK_FRAME_DIAGNOSTICS must be 0 or 1, got: $frame_diagnostics" ;;
+esac
+metadata_frame_diagnostics=$frame_diagnostics
+metadata_rust_log=$frame_rust_log
 prepare_wait_seconds=4
 stack_sample_seconds=5
 
@@ -272,6 +285,29 @@ find_new_norma_pid() {
   return 1
 }
 
+resolve_app_bundle_for_pid() {
+  local process_pid=$1
+  local bundle_path
+
+  bundle_path=$(lsof -n -a -p "$process_pid" -d txt -Fn 2>/dev/null | \
+    sed -n 's/^n//p' | \
+    awk '
+      /\/Contents\/MacOS\/[^/]+$/ && !found {
+        sub(/\/Contents\/MacOS\/[^/]+$/, "")
+        print
+        found = 1
+      }
+    ')
+  [ -n "$bundle_path" ] || return 1
+  [ -d "$bundle_path" ] || return 1
+  [ -f "$bundle_path/Contents/Info.plist" ] || return 1
+  printf '%s\n' "$bundle_path"
+}
+
+requested_app_path=$app_path
+observed_app_path=$app_path
+app_identity_source=runner-launch
+
 if [ -z "$app_pid" ]; then
   [ -d "$app_path" ] || fail "packaged app does not exist: $app_path"
   existing_pids=$(pgrep -x norma-os | tr '\n' ' ' || true)
@@ -279,8 +315,8 @@ if [ -z "$app_pid" ]; then
   open -F -n \
     --env "HOME=$run_home" \
     --env "PATH=$PATH" \
-    --env "MULTISOUL_FRAME_DIAGNOSTICS=1" \
-    --env "RUST_LOG=info,multisoul_frame=debug" \
+    --env "MULTISOUL_FRAME_DIAGNOSTICS=$frame_diagnostics" \
+    --env "RUST_LOG=$frame_rust_log" \
     --env "NORMA_SKIP_LICENSE=1" \
     --env "NORMA_CPU_BENCHMARK_SCENARIO=$scenario" \
     --env "NORMA_CPU_BENCHMARK_WORKSPACE=$benchmark_workspace" \
@@ -294,6 +330,15 @@ if [ -z "$app_pid" ]; then
   [ -n "$app_pid" ] || fail "could not resolve the Norma OS PID launched from $app_path"
 else
   automatic_prepare=false
+  launch_mode=existing-pid
+  metadata_frame_diagnostics=unverified
+  metadata_rust_log=unverified
+  if observed_app_path=$(resolve_app_bundle_for_pid "$app_pid"); then
+    app_identity_source=pid-text-mapping
+  else
+    observed_app_path=unverified_existing_pid
+    app_identity_source=unverified_existing_pid
+  fi
 fi
 
 kill -0 "$app_pid" >/dev/null 2>&1 || fail "Norma OS PID is not running: $app_pid"
@@ -388,11 +433,11 @@ host_seed=$(
     sysctl -n hw.model
   } | shasum -a 256 | awk '{print $1}'
 )
-app_version=unknown
-if [ -d "$app_path" ]; then
+app_version=unverified_existing_pid
+if [ "$app_identity_source" != "unverified_existing_pid" ] && [ -d "$observed_app_path" ]; then
   app_version=$(
     /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
-      "$app_path/Contents/Info.plist" 2>/dev/null || printf 'unknown'
+      "$observed_app_path/Contents/Info.plist" 2>/dev/null || printf 'unknown'
   )
 fi
 
@@ -400,12 +445,19 @@ fi
   printf 'stage=%s\n' "$mode"
   printf 'scenario=%s\n' "$scenario"
   printf 'commit=%s\n' "$sampled_commit"
+  printf 'requested_app_path=%s\n' "$requested_app_path"
+  printf 'observed_app_path=%s\n' "$observed_app_path"
+  printf 'app_identity_source=%s\n' "$app_identity_source"
   printf 'app_version=%s\n' "$app_version"
   printf 'app_pid=%s\n' "$app_pid"
   printf 'duration_seconds=%s\n' "$duration_seconds"
   printf 'node_count=%s\n' "$node_count"
   printf 'active_agent_count=%s\n' "$active_agent_count"
   printf 'active_terminal_count=%s\n' "$active_terminal_count"
+  printf 'launch_mode=%s\n' "$launch_mode"
+  printf 'requested_frame_diagnostics=%s\n' "$frame_diagnostics"
+  printf 'frame_diagnostics=%s\n' "$metadata_frame_diagnostics"
+  printf 'rust_log=%s\n' "$metadata_rust_log"
   printf 'host_id=%s\n' "$host_seed"
   printf 'macos_product_version=%s\n' "$(sw_vers -productVersion)"
   printf 'macos_build_version=%s\n' "$(sw_vers -buildVersion)"
@@ -416,7 +468,9 @@ fi
 } >"$metadata_file"
 
 log_file="$run_home/.norma/logs/norma-os.$(date +%F).log"
-if [ -f "$log_file" ]; then
+if [ "$launch_mode" = "existing-pid" ]; then
+  printf 'diagnostics_log=unverified_existing_pid\n' >"$diagnostics_summary"
+elif [ -f "$log_file" ]; then
   cp "$log_file" "$run_directory/frame-diagnostics.log"
   count_log_matches() {
     local pattern=$1
