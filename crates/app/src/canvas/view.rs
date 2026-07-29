@@ -201,6 +201,7 @@ pub fn render_canvas(
         title_actions = title_actions.child(
             div()
                 .id(("node-close", id))
+                .debug_selector(|| "node-close".to_string())
                 .w(px(close_button_size))
                 .h(px(close_button_size))
                 .flex()
@@ -309,22 +310,24 @@ pub fn render_canvas(
             },
         );
         if matches!(node_type, NodeType::Browser) && native_browser_views_visible {
-            visible_browser_nodes.insert(id);
             if let CanvasNodeKind::Browser(spec) = &node.kind {
-                let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
-                app.sync_browser_view_for_node(
-                    id,
-                    &spec.url,
-                    browser_native_view_bounds(
-                        f64::from(top_left.x),
-                        f64::from(top_left.y),
-                        f64::from(w),
-                        f64::from(h),
-                        f64::from(browser_header_h),
-                        f64::from(node_terminal_radius_px(vp.zoom)),
-                    ),
-                    window,
-                );
+                if matches!(&spec.surface, canvas::BrowserSurfaceKind::Native) {
+                    visible_browser_nodes.insert(id);
+                    let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
+                    app.sync_browser_view_for_node(
+                        id,
+                        &spec.url,
+                        browser_native_view_bounds(
+                            f64::from(top_left.x),
+                            f64::from(top_left.y),
+                            f64::from(w),
+                            f64::from(h),
+                            f64::from(browser_header_h),
+                            f64::from(node_terminal_radius_px(vp.zoom)),
+                        ),
+                        window,
+                    );
+                }
             }
         }
         node_elems.push(

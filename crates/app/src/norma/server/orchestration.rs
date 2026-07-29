@@ -1,8 +1,9 @@
 use crate::app::MultisoulApp;
 use canvas::{AgentProfile as CanvasAgentProfile, CanvasNodeKind};
 use norma::protocol::{
-    AgentErrorCode, AgentProfile, CardCommand, CardCommandError, CardCommandResult, NodeId,
-    PresentationDisposition, PresentationErrorCode, PresentationTarget, ProviderAuthorization,
+    AgentErrorCode, AgentProfile, CardCommand, CardCommandError, CardCommandResult, EgoErrorCode,
+    EgoPresentationDisposition, NodeId, PresentationDisposition, PresentationErrorCode,
+    PresentationTarget, ProviderAuthorization,
 };
 use std::time::Duration;
 
@@ -14,6 +15,7 @@ pub(super) fn is_managed_agent_command(command: &CardCommand) -> bool {
             | CardCommand::AgentTaskStatus { .. }
             | CardCommand::AgentTaskCancel { .. }
             | CardCommand::Present { .. }
+            | CardCommand::Ego { .. }
     )
 }
 
@@ -124,6 +126,10 @@ pub(super) fn managed_command_label(command: &CardCommand) -> &'static str {
         CardCommand::AgentTaskStatus { .. } => "agent_task_status",
         CardCommand::AgentTaskCancel { .. } => "agent_task_cancel",
         CardCommand::Present {
+            target: PresentationTarget::Ego,
+            ..
+        } => "present_ego",
+        CardCommand::Present {
             target: PresentationTarget::Browser { .. },
             ..
         } => "present_browser",
@@ -131,6 +137,13 @@ pub(super) fn managed_command_label(command: &CardCommand) -> &'static str {
             target: PresentationTarget::Preview { .. },
             ..
         } => "present_preview",
+        CardCommand::Ego { command, .. } => match command {
+            norma::protocol::EgoCommand::Status => "ego_status",
+            norma::protocol::EgoCommand::Running => "ego_running",
+            norma::protocol::EgoCommand::Handoff { .. } => "ego_handoff",
+            norma::protocol::EgoCommand::Complete => "ego_complete",
+            norma::protocol::EgoCommand::Fail { .. } => "ego_fail",
+        },
         _ => "non_managed",
     }
 }
@@ -178,6 +191,14 @@ pub(super) fn managed_error_code(error: &CardCommandError) -> &'static str {
             PresentationErrorCode::UnsupportedPreviewType => "unsupported_preview_type",
             PresentationErrorCode::PresentationFailed => "presentation_failed",
         },
+        CardCommandError::Ego(failure) => match failure.code {
+            EgoErrorCode::Busy => "busy",
+            EgoErrorCode::Unauthorized => "unauthorized",
+            EgoErrorCode::InvalidState => "invalid_state",
+            EgoErrorCode::TaskSpaceMissing => "task_space_missing",
+            EgoErrorCode::IntegrationUnavailable => "integration_unavailable",
+            EgoErrorCode::InternalError => "internal_error",
+        },
         _ => "internal_error",
     }
 }
@@ -211,6 +232,18 @@ pub(super) fn log_managed_request(
                 match disposition {
                     PresentationDisposition::Created => "created",
                     PresentationDisposition::Reused => "reused",
+                },
+            ),
+            Ok(CardCommandResult::EgoPresented {
+                status,
+                disposition,
+            }) => (
+                status.node_id,
+                match disposition {
+                    EgoPresentationDisposition::Created => "created",
+                    EgoPresentationDisposition::Reused => "reused",
+                    EgoPresentationDisposition::Replaced => "replaced",
+                    EgoPresentationDisposition::Focused => "focused",
                 },
             ),
             _ => (0, "none"),

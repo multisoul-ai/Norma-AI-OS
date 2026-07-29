@@ -55,6 +55,7 @@ pub fn prepare_presentation_target(
     target: PresentationTarget,
 ) -> Result<PresentationTarget, PresentationPreparationError> {
     match target {
+        PresentationTarget::Ego => Ok(PresentationTarget::Ego),
         PresentationTarget::Browser { url } => {
             normalize_browser_url(&url).map(|url| PresentationTarget::Browser { url })
         }
@@ -102,6 +103,7 @@ pub fn validate_prepared_target(
     target: &PresentationTarget,
 ) -> Result<(), PresentationPreparationError> {
     match target {
+        PresentationTarget::Ego => Ok(()),
         PresentationTarget::Browser { url } => {
             let normalized = normalize_browser_url(url)?;
             if normalized == *url {
@@ -128,6 +130,7 @@ pub fn validate_prepared_target(
 
 pub fn presentation_diagnostics(target: &PresentationTarget) -> PresentationDiagnostics {
     let (scheme, host, file_name, raw_target) = match target {
+        PresentationTarget::Ego => (None, None, None, "ego".to_string()),
         PresentationTarget::Browser { url } => {
             let parsed = url::Url::parse(url).ok();
             (

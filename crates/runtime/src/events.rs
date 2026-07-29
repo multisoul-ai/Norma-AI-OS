@@ -5,6 +5,7 @@ use std::collections::{HashMap, VecDeque};
 use terminal::TerminalStatus;
 
 use crate::runtime::Runtime;
+use crate::EgoTaskState;
 
 pub const MAX_PENDING_EVENTS: usize = 1024;
 
@@ -78,6 +79,12 @@ pub enum RuntimeEvent {
         from: AgentTaskState,
         to: AgentTaskState,
         source_event: String,
+    },
+    EgoTaskStateChanged {
+        node_id: NodeId,
+        from: Option<EgoTaskState>,
+        to: EgoTaskState,
+        operation: String,
     },
     EventsDropped {
         count: usize,
@@ -179,6 +186,21 @@ impl RuntimeEvents {
             node_id,
             operation: operation.to_string(),
             message,
+        });
+    }
+
+    pub(crate) fn ego_task_state_changed(
+        &mut self,
+        node_id: NodeId,
+        from: Option<EgoTaskState>,
+        to: EgoTaskState,
+        operation: &str,
+    ) {
+        self.push(RuntimeEvent::EgoTaskStateChanged {
+            node_id,
+            from,
+            to,
+            operation: operation.to_string(),
         });
     }
 

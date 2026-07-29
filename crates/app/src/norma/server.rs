@@ -18,10 +18,12 @@ use runtime::{InputMode, NodeInput, Runtime, DEFAULT_TERMINAL_SHELL};
 use std::time::Instant;
 
 mod conversion;
+mod effects;
 mod orchestration;
 mod presentation;
 mod transport;
 
+pub(crate) use effects::{NormaCommandEffects, NormaExecution};
 pub(crate) use transport::NormaServer;
 
 #[cfg(test)]
@@ -32,45 +34,9 @@ mod agent_lifecycle_tests;
 #[path = "../../tests/unit/norma_presentation_lifecycle_tests.rs"]
 mod presentation_lifecycle_tests;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct NormaCommandEffects {
-    pub(crate) canvas_dirty: bool,
-    pub(crate) session_dirty: bool,
-    pub(crate) notify: bool,
-}
-
-impl NormaCommandEffects {
-    const NONE: Self = Self {
-        canvas_dirty: false,
-        session_dirty: false,
-        notify: false,
-    };
-
-    const CANVAS_SESSION: Self = Self {
-        canvas_dirty: true,
-        session_dirty: true,
-        notify: true,
-    };
-
-    const CANVAS: Self = Self {
-        canvas_dirty: true,
-        session_dirty: false,
-        notify: true,
-    };
-
-    const NOTIFY: Self = Self {
-        canvas_dirty: false,
-        session_dirty: false,
-        notify: true,
-    };
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct NormaExecution {
-    pub(crate) result: CardCommandResult,
-    pub(crate) effects: NormaCommandEffects,
-    pub(crate) removed_agent_definition_id: Option<i64>,
-}
+#[cfg(test)]
+#[path = "../../tests/unit/norma_ego_lifecycle_tests.rs"]
+mod ego_lifecycle_tests;
 
 impl MultisoulApp {
     pub(crate) fn execute_card_command(
@@ -126,6 +92,27 @@ impl MultisoulApp {
                         presentation::execute_presentation_command(
                             self, window, cx, target, create_new, source,
                         )
+                    }
+                    Ok((source, _provider)) if matches!(command, CardCommand::Ego { .. }) => {
+                        let CardCommand::Ego { node_id, command } = command else {
+                            unreachable!("Ego classifier only accepts Ego commands");
+                        };
+                        let source_node_id = source.node_id.ok_or_else(|| {
+                            CardCommandError::ego(
+                                norma::protocol::EgoErrorCode::Unauthorized,
+                                "Ego command requires a source Agent node",
+                                false,
+                            )
+                        });
+                        source_node_id.and_then(|source_node_id| {
+                            presentation::execute_ego_command_for_area(
+                                &mut self.runtime,
+                                &self.master_layout,
+                                node_id,
+                                command,
+                                source_node_id,
+                            )
+                        })
                     }
                     Ok((source, provider)) => crate::app::execute_orchestration_agent_command(
                         self, window, command, source, provider,
@@ -269,7 +256,8 @@ pub(crate) fn execute_card_command_for_area(
         | CardCommand::AgentTaskCancel { .. }
         | CardCommand::CreateAgent { .. }
         | CardCommand::ActivateAgent { .. }
-        | CardCommand::DispatchAgentTasks { .. } => Err(CardCommandError::Unsupported {
+        | CardCommand::DispatchAgentTasks { .. }
+        | CardCommand::Ego { .. } => Err(CardCommandError::Unsupported {
             message: "high-level Agent commands require the project Agent coordinator".into(),
         }),
     }

@@ -85,6 +85,23 @@ pub fn format_result(result: &CardCommandResult) -> String {
             disposition,
             layout,
         } => format!("{node_id}\t{kind:?}\t{disposition:?}\t{layout:?}"),
+        CardCommandResult::EgoPresented {
+            status,
+            disposition,
+        } => format!(
+            "{}\t{}\t{:?}\t{:?}",
+            status.node_id,
+            status.task_space_id.as_deref().unwrap_or("-"),
+            status.phase,
+            disposition
+        ),
+        CardCommandResult::EgoStatus { status } => format!(
+            "{}\t{}\t{:?}\t{:?}",
+            status.node_id,
+            status.task_space_id.as_deref().unwrap_or("-"),
+            status.phase,
+            status.ownership
+        ),
     }
 }
 
@@ -204,6 +221,11 @@ fn result_json(result: &CardCommandResult) -> Result<serde_json::Value, serde_js
             "disposition": disposition,
             "layout": layout,
         }),
+        CardCommandResult::EgoPresented {
+            status,
+            disposition,
+        } => json!({ "status": status, "disposition": disposition }),
+        CardCommandResult::EgoStatus { status } => json!({ "status": status }),
         other => serde_json::to_value(other)?,
     })
 }
@@ -236,6 +258,19 @@ fn protocol_failure(error: &CardCommandError) -> (ProtocolFailure, i32) {
                 current_status: None,
             },
             if error.code == crate::protocol::PresentationErrorCode::PresentationFailed {
+                1
+            } else {
+                5
+            },
+        ),
+        CardCommandError::Ego(error) => (
+            ProtocolFailure {
+                code: serialized_code(error.code),
+                message: error.message.clone(),
+                retryable: error.retryable,
+                current_status: None,
+            },
+            if error.code == crate::protocol::EgoErrorCode::InternalError {
                 1
             } else {
                 5

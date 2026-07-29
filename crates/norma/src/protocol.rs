@@ -1,6 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+mod ego;
+
+pub use ego::{
+    EgoCaptureMode, EgoCardStatus, EgoCommand, EgoCommandFailure, EgoErrorCode, EgoOwnership,
+    EgoPhase, EgoPresentationDisposition,
+};
+
 pub type NodeId = u64;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -44,6 +51,10 @@ pub enum CardCommand {
         target: PresentationTarget,
         create_new: bool,
     },
+    Ego {
+        node_id: NodeId,
+        command: EgoCommand,
+    },
     Create {
         kind: CardKind,
         placement: Placement,
@@ -64,6 +75,7 @@ pub enum CardCommand {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum PresentationTarget {
+    Ego,
     Browser {
         url: String,
     },
@@ -177,6 +189,13 @@ pub enum CardCommandResult {
         disposition: PresentationDisposition,
         layout: PresentationLayout,
     },
+    EgoPresented {
+        status: EgoCardStatus,
+        disposition: EgoPresentationDisposition,
+    },
+    EgoStatus {
+        status: EgoCardStatus,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -281,6 +300,7 @@ pub enum CardCommandError {
     Runtime { message: String },
     Agent(AgentCommandFailure),
     Presentation(PresentationCommandFailure),
+    Ego(EgoCommandFailure),
 }
 
 #[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
@@ -387,6 +407,14 @@ impl CardCommandError {
             retryable,
         })
     }
+
+    pub fn ego(code: EgoErrorCode, message: impl Into<String>, retryable: bool) -> Self {
+        Self::Ego(EgoCommandFailure {
+            code,
+            message: message.into(),
+            retryable,
+        })
+    }
 }
 
 impl std::fmt::Display for CardCommandError {
@@ -398,6 +426,7 @@ impl std::fmt::Display for CardCommandError {
             Self::Runtime { message } => write!(f, "{message}"),
             Self::Agent(error) => write!(f, "{}", error.message),
             Self::Presentation(error) => write!(f, "{}", error.message),
+            Self::Ego(error) => write!(f, "{}", error.message),
         }
     }
 }

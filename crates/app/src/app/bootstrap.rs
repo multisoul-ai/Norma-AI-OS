@@ -93,6 +93,7 @@ impl MultisoulApp {
             motion: MotionStore::from_env(),
             previews: PreviewStore::default(),
             browsers: BrowserStore::default(),
+            ego: super::ego::EgoController::default(),
             browser_address_edit: None,
             master_layout: MasterLayoutState::default(),
             persistence: PersistenceScheduler::default(),
