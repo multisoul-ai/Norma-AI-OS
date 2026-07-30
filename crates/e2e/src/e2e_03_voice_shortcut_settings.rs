@@ -38,7 +38,8 @@ fn e2e_03_voice_interaction_shortcut_can_be_changed_and_restored() {
     click_debug(cx, "settings-section-keyboard");
     scroll_debug(cx, "settings-content-scroll", -900.0);
     assert!(
-        cx.debug_bounds("settings-shortcut-voice-interaction").is_some(),
+        cx.debug_bounds("settings-shortcut-voice-interaction")
+            .is_some(),
         "Keyboard Shortcuts 应渲染可编辑的 Voice Interaction keycap"
     );
 
