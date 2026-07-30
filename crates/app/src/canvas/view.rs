@@ -304,6 +304,8 @@ pub fn render_canvas(
                 terminal_cursor_phase: app.terminal_cursor_phase,
                 browser_address_input: app.browser_address_input_for(id),
                 browser_auth_state: app.browser_chrome_auth_state_for(id),
+                ego_preview: app.ego_previews.frame_for(id),
+                ego_preview_error: app.ego_previews.error_for(id),
                 theme,
                 zoom: vp.zoom,
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),
@@ -488,13 +490,11 @@ fn node_type_label(node_type: NodeType) -> &'static str {
 }
 
 #[cfg(test)]
-#[path = "../../tests/unit/canvas_view_tests.rs"]
-mod tests;
-
-#[cfg(test)]
 #[path = "../../tests/unit/chase_canvas_view_contract_tests.rs"]
 mod chase_canvas_view_contract_tests;
-
 #[cfg(test)]
 #[path = "../../tests/unit/product_ui_canvas_tests.rs"]
 mod product_ui_canvas_tests;
+#[cfg(test)]
+#[path = "../../tests/unit/canvas_view_tests.rs"]
+mod tests;

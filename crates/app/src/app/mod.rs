@@ -59,6 +59,10 @@ use cursor_animation::focused_cursor_animation_active;
 pub(crate) mod dialogue;
 mod e2e;
 pub(crate) mod ego;
+#[cfg(all(target_os = "macos", any(test, not(feature = "e2e-test-support"))))]
+mod ego_page_capture;
+#[cfg(target_os = "macos")]
+mod ego_preview;
 pub(crate) mod file_picker;
 mod frame_loop;
 #[cfg(feature = "e2e-test-support")]
@@ -131,6 +135,7 @@ pub struct MultisoulApp {
     pub(crate) previews: PreviewStore,
     pub(crate) browsers: BrowserStore,
     pub(crate) ego: ego::EgoController,
+    pub(crate) ego_previews: ego_preview::EgoPreviewStore,
     pub(crate) browser_address_edit: Option<BrowserAddressEdit>,
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) persistence: PersistenceScheduler,
@@ -271,9 +276,7 @@ impl MultisoulApp {
             let bounds = self
                 .visible_canvas_rect(window)
                 .inset(self.layout_gap_canvas());
-            let node_id = self
-                .runtime
-                .spawn_ego_browser(Some("Norma · Ego".to_string()), bounds);
+            let node_id = self.runtime.spawn_ego_browser(None, bounds);
             self.motion.spawn_node(node_id, bounds);
             self.apply_layout_for_current_mode(window);
             self.mark_canvas_dirty();

@@ -387,7 +387,7 @@ fn validate_agent_owned_task_space(
     Ok(())
 }
 
-fn ego_browser_helper() -> PathBuf {
+pub(super) fn ego_browser_helper() -> PathBuf {
     std::env::var_os("EGO_BROWSER_HELPER")
         .map(PathBuf::from)
         .filter(|path| path.is_file())
@@ -400,7 +400,7 @@ fn ego_browser_helper() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("ego-browser"))
 }
 
-fn run_helper(helper: &PathBuf, script: &str) -> Result<String, String> {
+pub(super) fn run_helper(helper: &PathBuf, script: &str) -> Result<String, String> {
     let mut child = Command::new(helper)
         .arg("nodejs")
         .stdin(Stdio::piped())
@@ -432,7 +432,7 @@ fn run_helper(helper: &PathBuf, script: &str) -> Result<String, String> {
         if started.elapsed() >= EGO_HELPER_TIMEOUT {
             let _ = child.kill();
             let _ = child.wait();
-            return Err("ego-browser 创建 Task Space 超时（10 秒）".to_string());
+            return Err("ego-browser helper 超时（10 秒）".to_string());
         }
         std::thread::sleep(EGO_HELPER_POLL_INTERVAL);
     };
@@ -448,12 +448,17 @@ fn run_helper(helper: &PathBuf, script: &str) -> Result<String, String> {
             .map_err(|error| format!("无法读取 ego-browser 错误：{error}"))?;
     }
     if status.success() {
+        // Ego's `cliLog` can emit successful structured results on stderr when
+        // the helper is launched by a macOS GUI process.
+        if !stderr.is_empty() {
+            if !stdout.is_empty() && !stdout.ends_with('\n') {
+                stdout.push('\n');
+            }
+            stdout.push_str(&stderr);
+        }
         Ok(stdout)
     } else {
-        Err(format!(
-            "ego-browser 创建 Task Space 失败：{}",
-            stderr.trim()
-        ))
+        Err(format!("ego-browser helper 执行失败：{}", stderr.trim()))
     }
 }
 

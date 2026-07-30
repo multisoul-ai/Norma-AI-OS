@@ -6,7 +6,7 @@ use crate::app::{BrowserCommand, BrowserCommandKind};
 use crate::cards::chrome::{CardChrome, CardChromeTaskBadge, CardChromeTaskTone};
 use crate::cards::{Card, CardBodyContext};
 use canvas::{BrowserSurfaceKind, CanvasNode, CanvasNodeKind, CanvasRect, EgoCardPhase, NodeType};
-use gpui::{div, prelude::*, px, rgba, AnyElement, MouseButton};
+use gpui::{div, img, prelude::*, px, rgba, AnyElement, ImageSource, MouseButton, ObjectFit};
 use runtime::{NodeResize, Runtime};
 use ui::component::button::{Button, ButtonRounded, ButtonVariants};
 use ui::{icons::with_alpha, Theme};
@@ -71,9 +71,11 @@ fn render_ego_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElemen
         .as_ref()
         .map(|state| state.phase)
         .unwrap_or(EgoCardPhase::Disconnected);
-    let message = state
-        .and_then(|state| state.message)
-        .unwrap_or_else(|| ego_status_text(phase).to_string());
+    let message = context.ego_preview_error.clone().unwrap_or_else(|| {
+        state
+            .and_then(|state| state.message)
+            .unwrap_or_else(|| ego_status_text(phase).to_string())
+    });
 
     div()
         .id(("ego-card", node_id))
@@ -102,7 +104,7 @@ fn render_ego_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElemen
                         .gap(px(6.0 * zoom))
                         .text_size(px((11.0 * zoom).max(9.0)))
                         .text_color(rgba(theme.text_secondary))
-                        .child("外部窗口模式"),
+                        .child("画布预览 · 在 Ego 中交互"),
                 )
                 .child(ego_toolbar_action(
                     node_id,
@@ -111,8 +113,26 @@ fn render_ego_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElemen
                     zoom,
                 )),
         )
-        .child(
+        .child(if let Some(preview) = context.ego_preview {
             div()
+                .id(("ego-preview-image", node_id))
+                .debug_selector(|| "ego-preview-image".to_string())
+                .flex_1()
+                .min_h(px(0.0))
+                .rounded_b(px(context.bottom_radius_px))
+                .overflow_hidden()
+                .bg(rgba(theme.canvas_from))
+                .child(
+                    img(ImageSource::Render(preview))
+                        .size_full()
+                        .rounded_b(px(context.bottom_radius_px))
+                        .object_fit(ObjectFit::Contain),
+                )
+                .into_any_element()
+        } else {
+            div()
+                .id(("ego-preview-placeholder", node_id))
+                .debug_selector(|| "ego-preview-placeholder".to_string())
                 .flex_1()
                 .min_h(px(0.0))
                 .flex()
@@ -168,8 +188,9 @@ fn render_ego_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElemen
                                 zoom,
                             ))
                         }),
-                ),
-        )
+                )
+                .into_any_element()
+        })
         .into_any_element()
 }
 

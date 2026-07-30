@@ -5,7 +5,7 @@ use gpui::{Modifiers, TestAppContext, VisualTestContext};
 
 use crate::harness::{echo_factory, enter_canvas, make_app};
 
-/// E2E-EGO-01：用户从 New 菜单创建外部 Ego 卡片，重复打开复用该卡，并且忙碌任务不可关闭。
+/// E2E-EGO-01：用户从 New 菜单创建 Ego 预览卡片，收到窗口帧后显示内容，重复打开复用该卡，并且忙碌任务不可关闭。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   临时 workspace = 1；受控 Task Space = 1（id="e2e-space-7"）
@@ -17,10 +17,12 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///   1. 在真实 headless GPUI Canvas 中为 Ego helper 注入确定性结果，避免触碰本机真实 Task Space。
 ///   2. 点击底部 New 菜单的 Ego 项，推进异步结果并读取画布节点与渲染树。
 ///   3. 再次通过相同菜单打开 Ego，验证它复用同一张卡且没有自动进入 Master。
-///   4. 将该卡推进到 AgentWorking，点击卡片关闭按钮并读取剩余节点与工作区错误。
+///   4. 向卡片注入一帧确定性 Ego 窗口预览，验证网页图像替换状态占位。
+///   5. 将该卡推进到 AgentWorking，点击卡片关闭按钮并读取剩余节点与工作区错误。
 ///
 /// 预期结果：
-///   - 正断言：恰好一张 EgoLite Browser 卡，精确记录受控 Task Space ID，渲染外部窗口卡片与打开按钮。
+///   - 正断言：恰好一张 EgoLite Browser 卡，精确记录受控 Task Space ID，渲染窗口预览与打开按钮。
+///   - 正断言：收到预览帧后渲染 `ego-preview-image`。
 ///   - 正断言：重复入口仍只有一张卡，且 Master 为空，证明没有自动接管视觉主位。
 ///   - 正断言：工作态点击关闭后卡片仍保留，并显示清晰的任务进行中错误。
 ///   - 负断言：不得渲染 Native Browser surface；不得创建第二张 Ego 卡；不得在忙碌时删除卡片。
@@ -102,9 +104,16 @@ fn e2e_ego_card_is_external_singleton_and_busy_close_is_blocked() {
     );
     assert!(
         cx.debug_bounds("browser-native-surface").is_none(),
-        "Ego 外部窗口模式不得误渲染原生 Browser surface"
+        "Ego 画布预览不得误渲染可交互的 Native Browser surface"
     );
-
+    app.update(cx, |app, cx| {
+        app.set_ego_preview_for_e2e(ego_node_id, cx);
+    });
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("ego-preview-image").is_some(),
+        "Ego 窗口帧就绪后，卡片必须渲染真实预览图像"
+    );
     click_debug(cx, "toolbar-new-terminal");
     click_debug(cx, "new-menu-ego");
     let reused = app.read_with(cx, |app, _cx| app.ego_card_e2e_snapshot());

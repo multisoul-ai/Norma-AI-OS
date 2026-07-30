@@ -214,6 +214,7 @@ dependencies = [
  "rfd",
  "runtime",
  "rustls",
+ "screencapturekit",
  "security-framework",
  "serde",
  "serde_json",

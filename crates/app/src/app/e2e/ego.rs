@@ -20,6 +20,15 @@ impl MultisoulApp {
         );
     }
 
+    pub fn set_ego_preview_for_e2e(&mut self, node_id: NodeId, cx: &mut Context<Self>) {
+        let rgba = image::RgbaImage::from_pixel(4, 4, image::Rgba([0x12, 0x34, 0x56, 0xff]));
+        let frame = crate::app::ego_preview::render_ego_preview_from_rgba(rgba);
+        if let Some(previous) = self.ego_previews.replace_frame(node_id, frame) {
+            cx.defer(move |cx| cx.drop_image(previous, None));
+        }
+        cx.notify();
+    }
+
     pub fn ego_card_e2e_snapshot(&self) -> EgoCardE2eSnapshot {
         let mut node_ids = Vec::new();
         let mut task_space_ids = Vec::new();

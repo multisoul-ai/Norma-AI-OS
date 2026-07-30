@@ -151,7 +151,7 @@ pub(super) fn execute_ego_presentation_for_area(
         }
         None => {
             let bounds = area.inset(layout_gap_for_zoom(zoom));
-            let node_id = runtime.spawn_ego_browser(Some("Norma · Ego".to_string()), bounds);
+            let node_id = runtime.spawn_ego_browser(None, bounds);
             runtime
                 .apply_ego_task_command(
                     node_id,

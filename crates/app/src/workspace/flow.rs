@@ -101,6 +101,7 @@ impl MultisoulApp {
                 self.dialogue.stop_shell();
                 self.focus_handle.focus(window);
                 self.clear_browser_views();
+                self.clear_ego_previews(cx);
                 self.reload_all_previews(cx);
                 self.spawn_deferred_live_session_restore(opened.pending_live_restore, cx);
             }
@@ -141,6 +142,7 @@ impl MultisoulApp {
         self.reset_agent_announcements();
         self.dialogue.stop_shell();
         self.clear_browser_views();
+        self.clear_ego_previews(cx);
         self.reload_all_previews(cx);
         self.spawn_deferred_live_session_restore(opened.pending_live_restore, cx);
         self.last_reflow_window_size = None;

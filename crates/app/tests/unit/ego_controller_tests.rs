@@ -1,4 +1,59 @@
 use super::*;
+use std::os::unix::fs::PermissionsExt;
+
+/// Ego helper 成功回执：即使官方 `cliLog` 把带前缀结果写到 stderr，也必须完成 Task Space 绑定。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   helper 退出码 = 0（成功）
+///   stdout 行数 = 1：无前缀干扰 JSON，task_space_id="99"
+///   stderr 行数 = 1：可信前缀结果，task_space_id="5"
+///   候选结果 = stdout(1) + stderr(1) = 2 行，但只有 stderr 行带可信前缀
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 启动真实临时 helper 进程，并向其 stdin 写入占位脚本。
+///   2. helper 成功退出；普通 JSON 写 stdout，`NORMA_EGO_RESULT` 回执写 stderr。
+///   3. 将 helper 成功输出交给 Task Space 结果解析器。
+///
+/// 预期结果：
+///   - 正断言：解析器读取 stderr 中的精确 ID=5 和名称 `Norma · Ego`。
+///   - 负断言：stdout 中无前缀的 ID=99 不得成为绑定结果。
+#[test]
+fn test_successful_helper_result_on_stderr_is_parsed() {
+    let fixture_dir = tempfile::tempdir().expect("测试必须创建隔离的 helper fixture 目录");
+    let helper = fixture_dir.path().join("ego-browser-fixture");
+    std::fs::write(
+        &helper,
+        "#!/bin/sh\n\
+         /bin/cat >/dev/null\n\
+         printf '%s\\n' '{\"task_space_id\":\"99\",\"task_space_name\":\"普通日志\"}'\n\
+         printf '%s\\n' 'NORMA_EGO_RESULT={\"task_space_id\":\"5\",\"task_space_name\":\"Norma · Ego\"}' >&2\n",
+    )
+    .expect("测试必须写入可执行的 helper fixture");
+    let mut permissions = std::fs::metadata(&helper)
+        .expect("测试必须读取 helper fixture 权限")
+        .permissions();
+    // executable mode = owner(7) + group(5) + other(5) = 0o755。
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(&helper, permissions).expect("测试必须把 helper fixture 标记为可执行");
+
+    let output =
+        run_helper(&helper, "fixture script").expect("退出码为 0 的 helper 必须返回可解析输出");
+    let parsed =
+        parse_task_space_result(&output).expect("stderr 中带可信前缀的成功回执必须可被解析");
+
+    assert_eq!(
+        parsed.task_space_id, "5",
+        "卡片必须绑定 stderr 可信回执中的精确 Task Space ID=5"
+    );
+    assert_eq!(
+        parsed.task_space_name, "Norma · Ego",
+        "卡片必须保留 stderr 可信回执中的完整 Task Space 名称"
+    );
+    assert_ne!(
+        parsed.task_space_id, "99",
+        "stdout 中无前缀的普通 JSON 不得覆盖可信 Task Space 回执"
+    );
+}
 
 /// Ego helper 输出解析：只接受带 Norma 前缀的精确 Task Space 结果。
 ///
