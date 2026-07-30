@@ -1,5 +1,6 @@
 use super::super::{
-    EnvVoiceSettings, ProviderDiscoveryStatus, SavedVoiceSettings, VoiceSettingsState,
+    AgentProviderKind, EnvVoiceSettings, ProviderDiscoveryStatus, SavedProviderProfile,
+    SavedVoiceSettings, VoiceSettingsState,
 };
 use crate::settings::voice::{VoiceRequirement, VoiceRequirementState};
 
@@ -144,5 +145,80 @@ fn stale_provider_discovery_generation_is_rejected_after_reset() {
     assert_ne!(
         stale, current,
         "resetting Provider discovery must advance the generation token"
+    );
+}
+
+/// 已完成的 AI Connection 遭遇临时网络故障：配置与 API Key 状态必须保持就绪。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   completed setup = 1
+///   saved OpenAI-compatible profile = 1（base URL + model + credential ref + secret）
+///   catalog failures = 1（Connection，代表离线、DNS 或服务暂时不可达）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 从已完成 setup 的 OpenAI-compatible 配置构造 Voice state。
+///   2. 注入 ProviderCatalogError::Connection，模拟刷新模型目录时发生网络故障。
+///   3. 读取 API Key 配置标记、内存 secret、错误详情与 Provider requirement。
+///
+/// 预期结果：
+///   - 正断言：连接错误详情仍被保留，便于界面提示用户重试。
+///   - 正断言：API Key、model 与 Provider 配置门槛继续保持 Ready。
+///   - 负断言：临时网络故障不得被当成凭据丢失或要求重新配置。
+#[test]
+fn completed_provider_configuration_survives_temporary_catalog_network_failure() {
+    let mut state = VoiceSettingsState::from_sources(
+        SavedVoiceSettings {
+            agent_provider: Some(AgentProviderKind::OpenAiCompatible),
+            openai_profile: SavedProviderProfile {
+                base_url: Some("https://api.example.test/v1".to_string()),
+                api_key: Some("preserved-provider-key".to_string()),
+                legacy_api_key: None,
+                credential_ref: Some("keychain:provider:network-test".to_string()),
+                model: Some("gpt-network-test".to_string()),
+            },
+            setup_completed: Some(true),
+            ..SavedVoiceSettings::default()
+        },
+        EnvVoiceSettings::default(),
+    );
+
+    state.record_provider_catalog_error(agent::ProviderCatalogError::Connection(
+        "simulated provider network outage".to_string(),
+    ));
+
+    assert!(
+        matches!(
+            state.provider_discovery(),
+            ProviderDiscoveryStatus::Failed(message)
+                if message == "simulated provider network outage"
+        ),
+        "临时网络错误详情必须保留，不能静默吞掉重试原因"
+    );
+    assert!(
+        state
+            .values()
+            .active_provider_profile()
+            .credential_configured(),
+        "credential ref 存在时 API Key 必须继续显示为已配置"
+    );
+    assert_eq!(
+        state.values().active_provider_profile().api_key(),
+        Some("preserved-provider-key"),
+        "临时网络故障不得清空已经从 Keychain 加载的 secret"
+    );
+    assert_eq!(
+        state.values().active_provider_profile().model(),
+        "gpt-network-test",
+        "临时网络故障不得清空已保存的 Provider model"
+    );
+    assert_eq!(
+        state.requirement_state(VoiceRequirement::AgentProvider),
+        VoiceRequirementState::Ready,
+        "已完成配置的网络故障只能提示重试，不得把 AI Connection 送回重新配置"
+    );
+    assert_ne!(
+        state.requirement_state(VoiceRequirement::AgentProvider),
+        VoiceRequirementState::Failed,
+        "临时网络故障不得伪装成凭据或配置失败"
     );
 }

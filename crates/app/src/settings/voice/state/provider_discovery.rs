@@ -1,4 +1,4 @@
-use super::{VoiceSettingsField, VoiceSettingsState};
+use super::{AgentProviderKind, VoiceSettingsField, VoiceSettingsState};
 use crate::settings::voice::VoiceRequirementState;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -51,13 +51,19 @@ impl VoiceSettingsState {
 
     pub(crate) fn record_provider_catalog_error(&mut self, error: agent::ProviderCatalogError) {
         let allows_manual = error.allows_manual_model();
+        let preserve_completed_configuration =
+            error.is_temporary() && self.completed_agent_provider_configuration_is_present();
         let message = error.to_string();
         self.provider_discovery = if allows_manual {
             ProviderDiscoveryStatus::ManualRequired(message)
         } else {
             ProviderDiscoveryStatus::Failed(message)
         };
-        self.provider_requirement = VoiceRequirementState::Failed;
+        self.provider_requirement = if preserve_completed_configuration {
+            VoiceRequirementState::Ready
+        } else {
+            VoiceRequirementState::Failed
+        };
     }
 
     pub(crate) fn record_manual_provider_model_validated(&mut self, model: String) {
@@ -83,6 +89,17 @@ impl VoiceSettingsState {
     pub(super) fn reset_provider_discovery(&mut self) {
         self.provider_discovery_generation = self.provider_discovery_generation.wrapping_add(1);
         self.provider_discovery = ProviderDiscoveryStatus::Idle;
+    }
+
+    fn completed_agent_provider_configuration_is_present(&self) -> bool {
+        if !self.setup_was_completed {
+            return false;
+        }
+        let profile = self.values.active_provider_profile();
+        !profile.base_url().trim().is_empty()
+            && !profile.model().trim().is_empty()
+            && (self.values.agent_provider() != AgentProviderKind::OpenAiCompatible
+                || profile.credential_configured())
     }
 }
 

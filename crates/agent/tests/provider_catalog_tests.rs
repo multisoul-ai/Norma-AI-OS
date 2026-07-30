@@ -69,3 +69,52 @@ fn provider_model_lists_are_normalized_for_selection() {
         "empty provider model list must never be accepted as a successful connection"
     );
 }
+
+/// Provider 目录错误分类：只有连接故障可视为临时问题，认证失败必须要求修复凭据。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   error kinds = 3（Connection + Authentication + ModelListUnavailable）
+///   temporary kinds = 1（仅 Connection）
+///   manual-model kinds = 1（仅 ModelListUnavailable）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 分别构造临时连接、认证拒绝与模型目录不可用错误。
+///   2. 查询每种错误是否临时、是否允许手动输入模型。
+///   3. 对认证错误同时检查两种回退均未开放。
+///
+/// 预期结果：
+///   - 正断言：Connection 被标为临时，ModelListUnavailable 允许手动模型。
+///   - 负断言：Authentication 既不是临时错误，也不能靠手动模型绕过。
+///   - 负断言：Connection 不得被误判为认证失败后的手动回退。
+#[test]
+fn provider_catalog_error_classification_separates_network_from_authentication() {
+    let connection = ProviderCatalogError::Connection("network unavailable".to_string());
+    let authentication = ProviderCatalogError::Authentication("credentials rejected".to_string());
+    let model_list =
+        ProviderCatalogError::ModelListUnavailable("model list unavailable".to_string());
+
+    assert!(
+        connection.is_temporary(),
+        "Connection must remain a retryable temporary failure"
+    );
+    assert!(
+        model_list.allows_manual_model(),
+        "ModelListUnavailable must allow exact manual model entry"
+    );
+    assert!(
+        !authentication.is_temporary(),
+        "Authentication must require credential repair instead of preserving ready state"
+    );
+    assert!(
+        !authentication.allows_manual_model(),
+        "Authentication must not be bypassed through manual model entry"
+    );
+    assert!(
+        !connection.allows_manual_model(),
+        "Connection must not be mistaken for a model-list-only failure"
+    );
+    assert!(
+        !model_list.is_temporary(),
+        "ModelListUnavailable must not inherit the completed-configuration network exception"
+    );
+}

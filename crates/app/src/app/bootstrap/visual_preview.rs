@@ -12,6 +12,7 @@ enum VisualPreview {
     Orchestration,
     VoiceSetup,
     VoiceReady,
+    VoiceNetworkUnavailable,
     VoiceApiKey,
     VoiceCaption,
     AzureAsrReady,
@@ -27,6 +28,7 @@ impl VisualPreview {
             "orchestration" => Some(Self::Orchestration),
             "voice-setup" => Some(Self::VoiceSetup),
             "voice-ready" => Some(Self::VoiceReady),
+            "voice-network-unavailable" => Some(Self::VoiceNetworkUnavailable),
             "voice-api-key" => Some(Self::VoiceApiKey),
             "voice-caption" => Some(Self::VoiceCaption),
             "azure-asr-ready" => Some(Self::AzureAsrReady),
@@ -43,6 +45,7 @@ impl VisualPreview {
             Self::Orchestration => Some(ThemeId::SapphireNight),
             Self::VoiceSetup
             | Self::VoiceReady
+            | Self::VoiceNetworkUnavailable
             | Self::VoiceApiKey
             | Self::VoiceCaption
             | Self::AzureAsrReady
@@ -82,6 +85,10 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
         }
         VisualPreview::VoiceReady => {
             app.voice_settings.assume_visual_preview_ready_for_e2e();
+        }
+        VisualPreview::VoiceNetworkUnavailable => {
+            app.voice_settings
+                .assume_minimax_temporary_network_failure_for_e2e();
         }
         VisualPreview::VoiceApiKey => {
             app.voice_settings.assume_visual_preview_api_key_for_e2e();
@@ -188,29 +195,31 @@ mod tests {
     use super::VisualPreview;
     use ui::ThemeId;
 
-    /// 视觉验收场景解析：只允许 Agent Queue、Orchestration 与八个明确的 Voice 截图状态
+    /// 视觉验收场景解析：只允许 Agent Queue、Orchestration 与九个明确的 Voice 截图状态
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   supported values = agent-queue(1) + orchestration(1)
-    ///                      + setup(1) + ready(1) + api-key(1) + caption(1)
+    ///                      + setup(1) + ready(1) + network-unavailable(1)
+    ///                      + api-key(1) + caption(1)
     ///                      + azure-asr-ready(1)
     ///                      + zipvoice-reference(1) + tts-backlog-capacity(1)
-    ///                      + tts-backlog-recovered(1) = 10
+    ///                      + tts-backlog-recovered(1) = 11
     ///   unsupported values = empty(1) + unknown(1) = 2
-    ///   total cases = 10 + 2 = 12
+    ///   total cases = 11 + 2 = 13
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. 解析 `agent-queue` → AgentQueue
     ///   2. 解析 `orchestration` → Orchestration
     ///   3. 解析 `voice-setup` → VoiceSetup
     ///   4. 解析 `voice-ready` → VoiceReady
-    ///   5. 解析 `voice-api-key` → VoiceApiKey
-    ///   6. 解析 `voice-caption` → VoiceCaption
-    ///   7. 解析 `azure-asr-ready` → AzureAsrReady
-    ///   8. 解析 `zipvoice-reference` → ZipVoiceReference
-    ///   9. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
-    ///   10. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
-    ///   11. 解析空字符串与未知值 → None
+    ///   5. 解析 `voice-network-unavailable` → VoiceNetworkUnavailable
+    ///   6. 解析 `voice-api-key` → VoiceApiKey
+    ///   7. 解析 `voice-caption` → VoiceCaption
+    ///   8. 解析 `azure-asr-ready` → AzureAsrReady
+    ///   9. 解析 `zipvoice-reference` → ZipVoiceReference
+    ///   10. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
+    ///   11. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
+    ///   12. 解析空字符串与未知值 → None
     ///
     /// 预期结果：
     ///   - 正断言：十个受支持值分别映射到唯一场景
@@ -236,6 +245,11 @@ mod tests {
             VisualPreview::parse("voice-ready"),
             Some(VisualPreview::VoiceReady),
             "voice-ready must select the completed Voice settings preview"
+        );
+        assert_eq!(
+            VisualPreview::parse("voice-network-unavailable"),
+            Some(VisualPreview::VoiceNetworkUnavailable),
+            "voice-network-unavailable must preserve the completed Voice settings preview"
         );
         assert_eq!(
             VisualPreview::parse("voice-api-key"),

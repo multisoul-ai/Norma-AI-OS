@@ -91,8 +91,8 @@ impl VoiceSettingsState {
                     completed: 0,
                     total: 1,
                 },
-                tts::RemoteTtsReadiness::TemporarilyUnavailable
-                | tts::RemoteTtsReadiness::InvalidCredential
+                tts::RemoteTtsReadiness::TemporarilyUnavailable => VoiceRequirementState::Ready,
+                tts::RemoteTtsReadiness::InvalidCredential
                 | tts::RemoteTtsReadiness::VoiceUnavailable => VoiceRequirementState::Failed,
                 tts::RemoteTtsReadiness::Unconfigured
                 | tts::RemoteTtsReadiness::Configured

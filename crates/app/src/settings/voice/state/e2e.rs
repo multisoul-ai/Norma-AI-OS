@@ -132,6 +132,29 @@ impl VoiceSettingsState {
         self.refresh_values();
     }
 
+    pub(crate) fn assume_minimax_temporary_network_failure_for_e2e(&mut self) {
+        self.readiness_override = None;
+        self.reviewing_setup = false;
+        self.setup_was_completed = true;
+        self.saved.setup_completed = Some(true);
+        self.microphone_requirement = crate::settings::voice::VoiceRequirementState::Ready;
+        self.provider_requirement = crate::settings::voice::VoiceRequirementState::Ready;
+        let asr_id = asr::AsrModelId::parse(asr::ZIPFORMER_BILINGUAL_MODEL_ID)
+            .expect("built-in Zipformer Bilingual model ID must remain valid");
+        self.saved.asr_model_id = Some(asr_id.clone());
+        self.model_manager.mark_ready(&asr_id);
+        self.assume_minimax_connected_for_e2e();
+        self.saved.active_tts_provider_id = Some(
+            tts::TtsProviderId::parse(tts::MINIMAX_TTS_PROVIDER_ID)
+                .expect("built-in MiniMax Provider ID must remain valid"),
+        );
+        self.minimax_account_status = tts::RemoteAccountStatus::TemporarilyUnavailable;
+        self.status = Some(super::error_status(
+            "MiniMax is temporarily unavailable; configuration was preserved.",
+        ));
+        self.refresh_values();
+    }
+
     pub(crate) fn assume_minimax_connected_with_system_voices_for_e2e(&mut self, count: usize) {
         let model_id = tts::TtsModelId::parse(tts::MINIMAX_SPEECH_TURBO_MODEL_ID)
             .expect("built-in MiniMax Turbo model ID must remain valid");

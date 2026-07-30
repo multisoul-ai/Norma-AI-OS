@@ -8,6 +8,7 @@ use gpui::{
     point, px, Modifiers, ScrollDelta, ScrollWheelEvent, TestAppContext, VisualTestContext,
 };
 
+mod network_resilience;
 mod voice_list;
 
 /// E2E-TTS-PICKER-1：Spoken Replies 默认只显示 Active 摘要，Change 后才渐进披露统一选择器。

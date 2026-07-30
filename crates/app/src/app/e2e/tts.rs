@@ -29,6 +29,7 @@ pub struct TtsProviderE2eSnapshot {
     pub minimax_voice_id: Option<String>,
     pub minimax_voice_provenance: &'static str,
     pub minimax_readiness: &'static str,
+    pub minimax_credential_configured: bool,
     pub minimax_visible_voice_ids: Vec<String>,
 }
 
@@ -70,6 +71,7 @@ pub(super) fn snapshot_tts_provider(state: &VoiceSettingsState) -> TtsProviderE2
             tts::VoiceSelectionProvenance::Manual => "manual",
         },
         minimax_readiness: readiness_name(state.minimax_readiness()),
+        minimax_credential_configured: state.minimax_credential_configured(),
         minimax_visible_voice_ids: state
             .filtered_minimax_voices()
             .into_iter()
@@ -145,6 +147,13 @@ impl MultisoulApp {
     #[cfg(feature = "e2e-test-support")]
     pub fn assume_minimax_connected_for_e2e(&mut self, cx: &mut Context<Self>) {
         self.voice_settings.assume_minimax_connected_for_e2e();
+        cx.notify();
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn assume_minimax_temporary_network_failure_for_e2e(&mut self, cx: &mut Context<Self>) {
+        self.voice_settings
+            .assume_minimax_temporary_network_failure_for_e2e();
         cx.notify();
     }
 

@@ -118,3 +118,121 @@ fn unselected_independent_tts_install_projects_bottom_entry_progress() {
         "an unselected model download must not be hidden behind the generic setup entry"
     );
 }
+
+/// MiniMax 临时网络故障：已完成的 Voice 配置必须保留凭据与配置就绪状态。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Voice 必需项 = 4（麦克风 + ASR + Agent Provider + Spoken Replies）
+///   初始 Ready 项 = 4
+///   临时故障数 = 1（MiniMax Transport）
+///   持久化凭据 = 1 组（credential ref + 内存中的 Keychain secret）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造已经完成 setup 的 MiniMax 配置，并把麦克风、ASR 与 Agent Provider 标记 Ready。
+///   2. 用已保存的 API Key 完成 MiniMax 连接与手动 Voice 验证，使四项均 Ready。
+///   3. 再次连接时注入 Transport 故障，模拟离线、DNS 或服务端暂时不可达。
+///   4. 读取 MiniMax 账户状态、credential ref、secret 与 Voice 总体 readiness。
+///
+/// 预期结果：
+///   - 正断言：MiniMax 细分状态为 TemporarilyUnavailable，供界面提示重试。
+///   - 正断言：credential ref 与 secret 都继续存在，配置仍视为 Ready。
+///   - 负断言：临时网络故障不得把 Voice 送回 Spoken Replies 修复/重新配置流程。
+#[test]
+fn temporary_minimax_network_failure_preserves_configured_voice_state() {
+    let minimax_provider = tts::TtsProviderId::parse(tts::MINIMAX_TTS_PROVIDER_ID)
+        .expect("内置 MiniMax Provider ID 必须有效");
+    let minimax_model = tts::TtsModelId::parse(tts::MINIMAX_SPEECH_TURBO_MODEL_ID)
+        .expect("内置 MiniMax Turbo model ID 必须有效");
+    let minimax_voice =
+        tts::TtsVoiceId::parse("manual_voice_network_test").expect("测试 Voice ID 必须有效");
+    let credential_ref = "keychain:minimax:network-test";
+    let mut state = VoiceSettingsState::from_sources(
+        SavedVoiceSettings {
+            asr_model_id: asr::AsrModelId::parse(asr::ZIPFORMER_BILINGUAL_MODEL_ID).ok(),
+            active_tts_provider_id: Some(minimax_provider),
+            minimax_tts_model_id: Some(minimax_model),
+            minimax_tts_voice_id: Some(minimax_voice),
+            minimax_tts_voice_provenance: Some(tts::VoiceSelectionProvenance::Manual),
+            minimax_tts_credential_ref: Some(credential_ref.to_string()),
+            minimax_tts_api_key: Some("preserved-network-test-key".to_string()),
+            setup_completed: Some(true),
+            ..SavedVoiceSettings::default()
+        },
+        EnvVoiceSettings::default(),
+    );
+    state.set_microphone_requirement(VoiceRequirementState::Ready);
+    state.set_provider_requirement(VoiceRequirementState::Ready);
+    let asr_id = asr::AsrModelId::parse(asr::ZIPFORMER_BILINGUAL_MODEL_ID)
+        .expect("内置 Zipformer Bilingual model ID 必须有效");
+    state.model_manager_mut().mark_ready(&asr_id);
+
+    let (initial_generation, initial_key) = state
+        .begin_minimax_connection()
+        .expect("已保存 MiniMax API Key 必须能发起初始连接");
+    assert_eq!(
+        initial_key, "preserved-network-test-key",
+        "初始连接必须使用 Keychain 已加载的 API Key"
+    );
+    assert!(
+        state.record_minimax_connection_success(
+            initial_generation,
+            initial_key,
+            tts::ProviderVoiceCatalog::default(),
+        ),
+        "当前 generation 的初始 MiniMax 连接结果必须被接纳"
+    );
+    assert!(
+        state.mark_minimax_manual_voice_validated(state.minimax_profile_generation()),
+        "手动 Voice 必须先完成验证，使网络故障前的配置确实 Ready"
+    );
+    assert_eq!(
+        state.readiness(),
+        VoiceEntryState::Ready,
+        "网络故障前四项已配置能力必须让 Voice 为 Ready"
+    );
+
+    let (failure_generation, failure_key) = state
+        .begin_minimax_connection()
+        .expect("已保存 MiniMax API Key 必须允许重试连接");
+    assert_eq!(
+        state.record_minimax_connection_failure(
+            failure_generation,
+            tts::TtsErrorKind::Transport,
+            "simulated temporary network outage",
+        ),
+        super::super::MiniMaxConnectionFailureDisposition::ActiveCredentialFailed,
+        "当前活动凭据的 Transport 故障必须记录为可恢复连接失败"
+    );
+
+    assert_eq!(
+        failure_key, "preserved-network-test-key",
+        "网络重试必须继续使用原 Keychain API Key"
+    );
+    assert_eq!(
+        state.minimax_readiness(),
+        tts::RemoteTtsReadiness::TemporarilyUnavailable,
+        "Transport 故障必须与 InvalidCredential 明确区分"
+    );
+    assert_eq!(
+        state.values().minimax_tts_credential_ref(),
+        Some(credential_ref),
+        "临时网络故障不得删除持久化 credential ref"
+    );
+    assert_eq!(
+        state.values().minimax_tts_api_key(),
+        Some("preserved-network-test-key"),
+        "临时网络故障不得清空已加载的 Keychain secret"
+    );
+    assert_eq!(
+        state.readiness(),
+        VoiceEntryState::Ready,
+        "临时网络故障只能提示重试，不得把已配置 Voice 送回重新配置流程"
+    );
+    assert_ne!(
+        state.readiness(),
+        VoiceEntryState::Unavailable {
+            first_incomplete: VoiceRequirement::SpokenReplies,
+        },
+        "临时网络故障不得伪装成 Spoken Replies 配置失效"
+    );
+}

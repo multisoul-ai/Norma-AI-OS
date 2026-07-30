@@ -166,11 +166,9 @@ impl MultisoulApp {
             )
             .map_err(ProviderConnectionError::Catalog)?;
             if !models.iter().any(|available| available == &model) {
-                return Err(ProviderConnectionError::Catalog(
-                    agent::ProviderCatalogError::Connection(format!(
-                        "Saved model `{model}` is not available from this provider."
-                    )),
-                ));
+                return Err(ProviderConnectionError::Validation(format!(
+                    "Saved model `{model}` is not available from this provider."
+                )));
             }
             agent::validate_provider_model(agent::ProviderConfig::new(
                 provider_protocol(provider),

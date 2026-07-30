@@ -13,6 +13,7 @@ const CATALOG_TIMEOUT: Duration = Duration::from_secs(15);
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ProviderCatalogError {
     Connection(String),
+    Authentication(String),
     ModelListUnavailable(String),
 }
 
@@ -20,14 +21,18 @@ impl ProviderCatalogError {
     pub fn allows_manual_model(&self) -> bool {
         matches!(self, Self::ModelListUnavailable(_))
     }
+
+    pub fn is_temporary(&self) -> bool {
+        matches!(self, Self::Connection(_))
+    }
 }
 
 impl fmt::Display for ProviderCatalogError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Connection(message) | Self::ModelListUnavailable(message) => {
-                formatter.write_str(message)
-            }
+            Self::Connection(message)
+            | Self::Authentication(message)
+            | Self::ModelListUnavailable(message) => formatter.write_str(message),
         }
     }
 }
@@ -144,6 +149,9 @@ impl AgentCardAdapter for ValidationAdapter {
 
 fn classify_catalog_request_error(error: ureq::Error) -> ProviderCatalogError {
     match error {
+        ureq::Error::StatusCode(401 | 403) => ProviderCatalogError::Authentication(format!(
+            "Provider rejected the configured API credentials: {error}"
+        )),
         ureq::Error::StatusCode(404 | 405 | 501) => ProviderCatalogError::ModelListUnavailable(
             format!("Provider does not expose a model list endpoint: {error}"),
         ),
