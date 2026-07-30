@@ -107,6 +107,83 @@ fn prior_version_presentation_skill_is_repaired_with_ego_rules() {
     );
 }
 
+/// 同版本受管 Skill 内容修复：旧的 Ego 完成规则必须被识别并重写为保留 Task Space 的规则。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   required_version = "1.0.0"
+///   managed Skill files = 2：orchestration(当前内容) + presentation(同版本旧内容)
+///   presentation marker version = required_version = "1.0.0"
+///   Ego 完成保留规则 = `keep: true` 1 条；危险关闭规则 = `keep: false` 0 条
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 完整安装 1.0.0 的 Codex 聚合组件，确保 CLI、Hook、授权和两个 Skill 均 Ready。
+///   2. 只把 presentation Skill 替换为仍标记 1.0.0、但缺少页面保留规则的旧内容。
+///   3. inspect 比较受管文件的实际内容与当前模板，必须把同版本旧内容判为 Outdated。
+///   4. install_or_repair 重写 presentation，再读取最终文件。
+///
+/// 预期结果：
+///   - 正断言：同版本旧内容被判为 Outdated，修复后聚合状态恢复 Ready。
+///   - 正断言：修复后的完成流程显式调用 `completeTaskSpace(..., { keep: true })`。
+///   - 负断言：完成流程不得要求 `keep: false`，否则任务结束会让画布失去最终页面。
+#[test]
+fn same_version_stale_presentation_is_repaired_with_ego_page_retention() {
+    let temp = tempfile::tempdir().expect("测试应创建隔离的同版本 Skill 安装目录");
+    let paths = install_paths(temp.path());
+    fs::create_dir_all(
+        paths
+            .bundled_cli
+            .parent()
+            .expect("测试 bundled CLI 应有父目录"),
+    )
+    .expect("测试应创建 bundle 目录");
+    fs::write(&paths.bundled_cli, b"norma-current-cli").expect("测试应写入当前 bundled CLI");
+    fs::write(&paths.bundled_hook, b"norma-current-hook").expect("测试应写入当前 bundled Hook");
+    let installer = OrchestrationInstaller::new(paths.clone(), "1.0.0");
+    let mut registry = MemoryAuthorizationRegistry::default();
+    installer
+        .install_or_repair(OrchestrationProvider::Codex, &mut registry)
+        .expect("测试前置条件应完整安装当前版本 Codex 组件");
+    let presentation_path = paths
+        .presentation_skill_path(OrchestrationProvider::Codex)
+        .expect("Codex 应有 presentation Skill 路径");
+    fs::write(
+        &presentation_path,
+        "---\nname: norma-presentation\ndescription: stale\n---\n\
+         # norma-presentation-managed\n# managed-version: 1.0.0\n\
+         Run `norma ego complete <node_id>` when finished.\n",
+    )
+    .expect("测试应写入同版本但内容过期的 presentation Skill");
+
+    let stale = installer.inspect(OrchestrationProvider::Codex, &registry);
+    let repaired = installer
+        .install_or_repair(OrchestrationProvider::Codex, &mut registry)
+        .expect("Repair 应重写同版本但内容过期的受管 Skill");
+    let presentation =
+        fs::read_to_string(&presentation_path).expect("修复后的 presentation Skill 应可读取");
+
+    assert_eq!(
+        stale.skill_component,
+        ComponentState::Outdated {
+            installed_version: "1.0.0".to_string(),
+            required_version: "1.0.0".to_string(),
+        },
+        "同版本 marker 不能掩盖旧模板内容，presentation Skill 必须判为 Outdated"
+    );
+    assert_eq!(
+        repaired.aggregate_status,
+        AggregateStatus::Ready,
+        "重写同版本旧 Skill 后 Codex 聚合组件必须恢复 Ready"
+    );
+    assert!(
+        presentation.contains("completeTaskSpace(task_space_id, { keep: true })"),
+        "Ego 完成规则必须保留 Task Space，画布才能继续显示最终页面"
+    );
+    assert!(
+        !presentation.contains("completeTaskSpace(task_space_id, { keep: false })"),
+        "Ego 卡片仍关联任务时不得关闭 Task Space，否则画布会丢失实时与最终内容"
+    );
+}
+
 impl AuthorizationRegistry for MemoryAuthorizationRegistry {
     type Error = String;
 

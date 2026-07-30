@@ -145,10 +145,14 @@ norma ego fail <node_id> --message <message>
    `norma ego running <node_id>`。
 3. 需要用户操作时，先 `handOffTaskSpace` 并确认 `{ done: true }`，再运行 `norma ego handoff`。
 4. 用户点击“交还 AI”后，才调用 `takeOverTaskSpace`；成功后再次 `norma ego running`。
-5. 任务结束报告 `complete` 或 `fail`，不在用户控制阶段偷偷重试浏览器动作。
+5. 任务成功结束时，在独立的最终 Ego helper 调用中执行
+   `completeTaskSpace(task_space_id, { keep: true })` 并确认 `{ done: true }`，保留页面供画布
+   持续显示，再报告 `norma ego complete`；不可恢复失败时保留 Task Space 后报告 `fail`。
+   Ego 卡片仍关联任务期间禁止 `keep: false`，也不在用户控制阶段偷偷重试浏览器动作。
 
 受管 `norma-presentation` skill 必须向已安装的 Claude、Codex、Cursor 与 OpenCode Agent 提供
-这套规则。应用升级后，设置中的 Orchestration Repair 会重装缺失或版本过期的受管 skill。
+这套规则。应用升级后，设置中的 Orchestration Repair 会重装缺失、版本过期或同版本内容漂移的
+受管 skill。
 
 ## 8. UI 与可访问性
 

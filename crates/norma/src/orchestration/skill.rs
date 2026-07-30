@@ -105,9 +105,13 @@ Ego lifecycle after `present ego` returns a `node_id`:
   stop browser work. The user sets the card as Master and clicks Take over in Norma.
 - Do not automatically call `takeOverTaskSpace`; only after the user clicks Return to AI in Norma
   may you call it, then report `norma ego running <node_id>` after it succeeds.
-- Run `norma ego complete <node_id>` only when the task is finished; use
-  `norma ego fail <node_id> --message <reason>` for an unrecoverable failure. Use
-  `norma ego status <node_id>` for a read-only status check.
+- When the task is finished, make one dedicated final Ego helper call to
+  `completeTaskSpace(task_space_id, {{ keep: true }})` and verify `{{ done: true }}`. Never use
+  `keep: false` while the Task Space is attached to an Ego card: Norma needs the retained page for
+  live and final Canvas previews. Only then run `norma ego complete <node_id>`.
+- For an unrecoverable failure, preserve the Task Space and run
+  `norma ego fail <node_id> --message <reason>`. Use `norma ego status <node_id>` for a read-only
+  status check.
 
 Preview is strictly read-only and may show any readable file path explicitly supplied by the user;
 it never modifies the source file. When you proactively select a file outside the current project,

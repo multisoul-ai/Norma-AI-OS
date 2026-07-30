@@ -17,7 +17,7 @@ impl OrchestrationInstaller {
         combine_skill_states(
             paths
                 .iter()
-                .map(|(kind, path)| self.inspect_skill_file(*kind, path))
+                .map(|(kind, path)| self.inspect_skill_file(provider, *kind, path))
                 .collect(),
             &self.required_version,
         )
@@ -31,7 +31,7 @@ impl OrchestrationInstaller {
             .skill_paths(provider)
             .expect("supported orchestration provider has skill paths");
         for (kind, path) in paths {
-            let state = self.inspect_skill_file(kind, &path);
+            let state = self.inspect_skill_file(provider, kind, &path);
             if matches!(
                 state,
                 ComponentState::Ready { .. } | ComponentState::Conflict { .. }
@@ -64,7 +64,12 @@ impl OrchestrationInstaller {
         Ok(())
     }
 
-    fn inspect_skill_file(&self, kind: ManagedSkillKind, path: &Path) -> ComponentState {
+    fn inspect_skill_file(
+        &self,
+        provider: OrchestrationProvider,
+        kind: ManagedSkillKind,
+        path: &Path,
+    ) -> ComponentState {
         let source = match fs::read_to_string(path) {
             Ok(source) => source,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -83,7 +88,13 @@ impl OrchestrationInstaller {
                 reason: "Existing file is not managed by Norma OS.".to_string(),
             };
         };
-        if installed_version == self.required_version {
+        let expected_source = skill_source(
+            kind,
+            provider,
+            &self.required_version,
+            self.paths.managed_cli_path().as_path(),
+        );
+        if installed_version == self.required_version && source == expected_source {
             ComponentState::Ready {
                 version: self.required_version.clone(),
             }
