@@ -17,6 +17,8 @@ mod database;
 #[cfg(feature = "e2e-test-support")]
 pub mod dialogue_tts;
 #[cfg(feature = "e2e-test-support")]
+mod ego;
+#[cfg(feature = "e2e-test-support")]
 mod orchestration;
 mod recent_projects;
 #[cfg(feature = "e2e-test-support")]
@@ -30,6 +32,8 @@ mod voice_setup;
 #[cfg(feature = "e2e-test-support")]
 pub use agents::PresentationE2eSnapshot;
 pub use agents::{AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot};
+#[cfg(feature = "e2e-test-support")]
+pub use ego::EgoCardE2eSnapshot;
 #[cfg(feature = "e2e-test-support")]
 pub use orchestration::{OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot};
 use shortcuts::shortcut_command_name;

@@ -58,6 +58,11 @@ mod cursor_animation;
 use cursor_animation::focused_cursor_animation_active;
 pub(crate) mod dialogue;
 mod e2e;
+pub(crate) mod ego;
+#[cfg(all(target_os = "macos", any(test, not(feature = "e2e-test-support"))))]
+mod ego_page_capture;
+#[cfg(target_os = "macos")]
+mod ego_preview;
 pub(crate) mod file_picker;
 mod frame_loop;
 #[cfg(feature = "e2e-test-support")]
@@ -90,7 +95,8 @@ pub use e2e::{
 };
 #[cfg(feature = "e2e-test-support")]
 pub use e2e::{
-    OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot, PresentationE2eSnapshot,
+    EgoCardE2eSnapshot, OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot,
+    PresentationE2eSnapshot,
 };
 pub(crate) use state::mark_runtime_node_viewed_if_needed;
 pub use state::AppScreen;
@@ -105,6 +111,7 @@ actions!(
         NewGrokAgent,
         NewOpenCodeAgent,
         NewBrowser,
+        NewEgo,
         CopyCardContent,
         OpenPreviewFile,
         OpenProject,
@@ -127,6 +134,8 @@ pub struct MultisoulApp {
     pub(crate) motion: MotionStore,
     pub(crate) previews: PreviewStore,
     pub(crate) browsers: BrowserStore,
+    pub(crate) ego: ego::EgoController,
+    pub(crate) ego_previews: ego_preview::EgoPreviewStore,
     pub(crate) browser_address_edit: Option<BrowserAddressEdit>,
     pub(crate) master_layout: MasterLayoutState,
     pub(crate) persistence: PersistenceScheduler,
@@ -259,6 +268,31 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    fn on_new_ego(&mut self, _: &NewEgo, window: &mut Window, cx: &mut Context<Self>) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error = Some("Open a project before creating Ego.".into());
+            cx.notify();
+            return;
+        }
+
+        let node_id = if let Some(node_id) = self.runtime.ego_node_id() {
+            node_id
+        } else {
+            let bounds = self
+                .visible_canvas_rect(window)
+                .inset(self.layout_gap_canvas());
+            let node_id = self.runtime.spawn_ego_browser(None, bounds);
+            self.motion.spawn_node(node_id, bounds);
+            self.apply_layout_for_current_mode(window);
+            self.mark_canvas_dirty();
+            node_id
+        };
+        self.runtime.selection.select_only(node_id);
+        self.runtime.focus.exit_to_canvas();
+        self.ensure_ego_task_space(node_id, cx);
+        cx.notify();
+    }
+
     fn on_exit_focus(&mut self, _: &ExitFocus, window: &mut Window, cx: &mut Context<Self>) {
         self.release_all_browser_input();
         self.focus_handle.focus(window);
@@ -302,6 +336,13 @@ impl MultisoulApp {
         node_id: NodeId,
         window: &mut Window,
     ) -> bool {
+        if self.runtime.ego_task_state(node_id).is_some()
+            && !self.runtime.can_close_ego_node(node_id)
+        {
+            self.workspace_state.error =
+                Some("Ego 任务仍在进行中；请先完成任务或等待 Agent 结束后再关闭卡片。".to_string());
+            return false;
+        }
         if !self.confirm_agent_close_if_needed(node_id) {
             return false;
         }

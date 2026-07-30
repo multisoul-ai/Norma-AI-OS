@@ -76,7 +76,7 @@ fn presentation_skill_source(
 
 # Norma OS Content Presentation
 
-Use this capability to show Browser or read-only Preview cards in Norma OS:
+Use this capability to show Browser, external Ego Lite, or read-only Preview cards in Norma OS:
 
 - When the user explicitly asks to open, show, view, or preview content, you must present it.
 - You may proactively present a generated deliverable or key evidence when seeing it materially helps.
@@ -88,8 +88,26 @@ Use this capability to show Browser or read-only Preview cards in Norma OS:
 Commands:
 
 1. Browser syntax: `norma present browser [url]`; run `"{command}" present browser [url]`.
-2. Preview syntax: `norma present preview <path> [--type markdown|text|image]`; run
+2. Ego syntax: `norma present ego [--new]`; run `"{command}" present ego [--new]`.
+   Ego is one dedicated external Ego Lite window represented by a Canvas status card; it is not a
+   native Browser surface and does not automatically become Master. Reuse the existing card by
+   default. Use `--new` only when the user explicitly requests a new task and the prior task is
+   completed or failed.
+3. Preview syntax: `norma present preview <path> [--type markdown|text|image]`; run
    `"{command}" present preview <path> [--type markdown|text|image]`.
+
+Ego lifecycle after `present ego` returns a `node_id`:
+
+- After you have explicitly acquired the matching Ego Task Space, report work with
+  `norma ego running <node_id>`.
+- When manual user action is needed, first call `handOffTaskSpace(task_space_id)` in the Ego helper
+  and verify `{{ done: true }}`, then run `norma ego handoff <node_id> --message <what-to-do>` and
+  stop browser work. The user sets the card as Master and clicks Take over in Norma.
+- Do not automatically call `takeOverTaskSpace`; only after the user clicks Return to AI in Norma
+  may you call it, then report `norma ego running <node_id>` after it succeeds.
+- Run `norma ego complete <node_id>` only when the task is finished; use
+  `norma ego fail <node_id> --message <reason>` for an unrecoverable failure. Use
+  `norma ego status <node_id>` for a read-only status check.
 
 Preview is strictly read-only and may show any readable file path explicitly supplied by the user;
 it never modifies the source file. When you proactively select a file outside the current project,
@@ -101,10 +119,10 @@ failures. If a command's side-effect outcome is unknown, stop immediately and do
     );
     match provider {
         OrchestrationProvider::Cursor => format!(
-            "---\ndescription: Present Browser and read-only Preview cards through Norma OS\nalwaysApply: true\n---\n{body}"
+            "---\ndescription: Present Browser, external Ego Lite, and read-only Preview cards through Norma OS\nalwaysApply: true\n---\n{body}"
         ),
         _ => format!(
-            "---\nname: norma-presentation\ndescription: Present Browser and read-only Preview cards through Norma OS\n---\n{body}"
+            "---\nname: norma-presentation\ndescription: Present Browser, external Ego Lite, and read-only Preview cards through Norma OS\n---\n{body}"
         ),
     }
 }

@@ -255,6 +255,7 @@ fn is_orchestration_command(command: &CardCommand) -> bool {
             | CardCommand::AgentTaskStatus { .. }
             | CardCommand::AgentTaskCancel { .. }
             | CardCommand::Present { .. }
+            | CardCommand::Ego { .. }
     )
 }
 

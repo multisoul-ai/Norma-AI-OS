@@ -1,5 +1,6 @@
 use crate::protocol::{
-    AgentErrorCode, AgentProfile, CardCommand, CardCommandError, CardKind, Placement, PreviewType,
+    AgentErrorCode, AgentProfile, CardCommand, CardCommandError, CardKind, EgoCommand, Placement,
+    PreviewType,
 };
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::ffi::OsString;
@@ -45,6 +46,7 @@ enum TopCommand {
     Card(CardArgs),
     Agent(AgentArgs),
     Present(PresentArgs),
+    Ego(EgoArgs),
 }
 
 #[derive(Debug, Args)]
@@ -158,6 +160,10 @@ struct PresentArgs {
 
 #[derive(Debug, Subcommand)]
 enum PresentKind {
+    Ego {
+        #[arg(long = "new")]
+        create_new: bool,
+    },
     Browser {
         url: Option<String>,
         #[arg(long = "new")]
@@ -169,6 +175,35 @@ enum PresentKind {
         explicit_type: Option<PreviewTypeValue>,
         #[arg(long = "new")]
         create_new: bool,
+    },
+}
+
+#[derive(Debug, Args)]
+struct EgoArgs {
+    #[command(subcommand)]
+    command: EgoCliCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum EgoCliCommand {
+    Status {
+        node_id: u64,
+    },
+    Running {
+        node_id: u64,
+    },
+    Handoff {
+        node_id: u64,
+        #[arg(long, value_parser = non_blank_message)]
+        message: String,
+    },
+    Complete {
+        node_id: u64,
+    },
+    Fail {
+        node_id: u64,
+        #[arg(long, value_parser = non_blank_message)]
+        message: String,
     },
 }
 
@@ -197,9 +232,12 @@ where
     match parse_invocation_from(args.clone()) {
         Ok(invocation) => Ok(invocation),
         Err(error) => {
-            let is_managed_command = args
-                .iter()
-                .any(|argument| matches!(argument.to_string_lossy().as_ref(), "agent" | "present"));
+            let is_managed_command = args.iter().any(|argument| {
+                matches!(
+                    argument.to_string_lossy().as_ref(),
+                    "agent" | "present" | "ego"
+                )
+            });
             if !is_managed_command {
                 return Err(CliOutput {
                     stdout: String::new(),
@@ -251,6 +289,11 @@ impl NormaArgs {
                 format: explicit_format.unwrap_or(OutputFormat::Json),
                 wait_timeout_seconds: None,
             },
+            TopCommand::Ego(ego) => CliInvocation {
+                command: ego.into_command(),
+                format: explicit_format.unwrap_or(OutputFormat::Json),
+                wait_timeout_seconds: None,
+            },
         }
     }
 }
@@ -258,6 +301,9 @@ impl NormaArgs {
 impl PresentArgs {
     fn into_command(self) -> CardCommand {
         let (target, create_new) = match self.kind {
+            PresentKind::Ego { create_new } => {
+                (crate::protocol::PresentationTarget::Ego, create_new)
+            }
             PresentKind::Browser { url, create_new } => (
                 crate::protocol::PresentationTarget::Browser {
                     url: url.unwrap_or_default(),
@@ -277,6 +323,21 @@ impl PresentArgs {
             ),
         };
         CardCommand::Present { target, create_new }
+    }
+}
+
+impl EgoArgs {
+    fn into_command(self) -> CardCommand {
+        let (node_id, command) = match self.command {
+            EgoCliCommand::Status { node_id } => (node_id, EgoCommand::Status),
+            EgoCliCommand::Running { node_id } => (node_id, EgoCommand::Running),
+            EgoCliCommand::Handoff { node_id, message } => {
+                (node_id, EgoCommand::Handoff { message })
+            }
+            EgoCliCommand::Complete { node_id } => (node_id, EgoCommand::Complete),
+            EgoCliCommand::Fail { node_id, message } => (node_id, EgoCommand::Fail { message }),
+        };
+        CardCommand::Ego { node_id, command }
     }
 }
 
@@ -384,6 +445,14 @@ impl From<PreviewTypeValue> for PreviewType {
 fn non_blank_task(value: &str) -> Result<String, String> {
     if value.trim().is_empty() {
         Err("task must not be blank".to_string())
+    } else {
+        Ok(value.to_string())
+    }
+}
+
+fn non_blank_message(value: &str) -> Result<String, String> {
+    if value.trim().is_empty() {
+        Err("message must not be blank".to_string())
     } else {
         Ok(value.to_string())
     }

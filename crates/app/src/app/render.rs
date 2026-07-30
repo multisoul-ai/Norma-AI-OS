@@ -13,6 +13,7 @@ impl Render for MultisoulApp {
             .on_action(cx.listener(Self::on_open_project))
             .on_action(cx.listener(Self::on_exit_focus))
             .on_action(cx.listener(Self::on_browser_command))
+            .on_action(cx.listener(Self::on_ego_card_command))
             .on_action(cx.listener(Self::on_send_tab_to_focused_pty))
             .on_key_down(cx.listener(Self::on_key_down))
             .on_key_up(cx.listener(Self::on_key_up))
@@ -24,6 +25,7 @@ impl Render for MultisoulApp {
             .when(matches!(self.screen, AppScreen::Canvas), |root| {
                 root.on_action(cx.listener(Self::on_new_terminal))
                     .on_action(cx.listener(Self::on_new_browser))
+                    .on_action(cx.listener(Self::on_new_ego))
                     .on_action(cx.listener(Self::on_new_claude_agent))
                     .on_action(cx.listener(Self::on_new_codex_agent))
                     .on_action(cx.listener(Self::on_new_cursor_agent))

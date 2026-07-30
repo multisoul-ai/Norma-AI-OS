@@ -21,7 +21,8 @@ pub use layout::{
 };
 pub use navigation::{navigate_card, NavigationDirection};
 pub use node::{
-    AgentProfile, AgentSpec, BrowserSpec, CanvasNode, CanvasNodeKind, NodeId, NodeKind, NodeType,
-    PreviewSpec, PreviewType, RectNode, TermSpec,
+    AgentProfile, AgentSpec, BrowserSpec, BrowserSurfaceKind, CanvasNode, CanvasNodeKind,
+    EgoCardPhase, EgoLiteSpec, NodeId, NodeKind, NodeType, PreviewSpec, PreviewType, RectNode,
+    TermSpec,
 };
 pub use selection::Selection;

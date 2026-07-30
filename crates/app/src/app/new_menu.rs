@@ -2,7 +2,7 @@
 //! 关闭菜单并派发到既有 on_new_terminal / spawn_agent_card / on_open_preview_file。
 
 use super::chrome::chrome_shadow;
-use super::{MultisoulApp, NewBrowser, NewTerminal, OpenPreviewFile};
+use super::{MultisoulApp, NewBrowser, NewEgo, NewTerminal, OpenPreviewFile};
 use canvas::AgentProfile;
 use gpui::{
     div, prelude::*, px, rgba, App, ClickEvent, Context, Div, MouseButton, Stateful, Window,
@@ -110,6 +110,17 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    pub(super) fn on_new_menu_ego(
+        &mut self,
+        _: &ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.interaction.close_new_menu();
+        self.on_new_ego(&NewEgo, window, cx);
+        cx.notify();
+    }
+
     /// ✚ 弹出菜单：在底部 Command Dock 上方居中悬浮，列出所有新建入口。
     pub(super) fn render_new_menu(&self, cx: &mut Context<Self>) -> Div {
         let theme = self.theme;
@@ -190,6 +201,13 @@ impl MultisoulApp {
                         "Browser",
                         "new-menu-browser",
                         cx.listener(Self::on_new_menu_browser),
+                    ))
+                    .child(new_menu_item(
+                        theme,
+                        ToolbarIcon::Browser,
+                        "Ego",
+                        "new-menu-ego",
+                        cx.listener(Self::on_new_menu_ego),
                     )),
             )
     }

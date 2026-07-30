@@ -450,7 +450,8 @@ fn runtime_event_node_id(event: &RuntimeEvent) -> Option<NodeId> {
         RuntimeEvent::NodeRegistered { node_id, .. }
         | RuntimeEvent::NodeRunStateChanged { node_id, .. }
         | RuntimeEvent::NodeRemoved { node_id, .. }
-        | RuntimeEvent::AgentTaskStateChanged { node_id, .. } => Some(*node_id),
+        | RuntimeEvent::AgentTaskStateChanged { node_id, .. }
+        | RuntimeEvent::EgoTaskStateChanged { node_id, .. } => Some(*node_id),
         RuntimeEvent::NodeOperationFailed { node_id, .. } => *node_id,
         RuntimeEvent::EventsDropped { .. } => None,
     }

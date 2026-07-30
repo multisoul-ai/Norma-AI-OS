@@ -127,6 +127,9 @@ mod e2e_19_terminal_repaint_coalescing;
 // Open Project：原生选择结果返回后必须从组件 Root 窗口进入所选项目。
 mod e2e_20_project_picker;
 
+// Ego Lite：画布入口、外部窗口卡片、单实例复用和忙碌任务关闭守卫。
+mod e2e_21_ego_card;
+
 // 重导出 harness 的公开 helper，使 Task 8/9 在 lib.rs 中编写的测试可直接
 // `use harness::{make_app, enter_canvas, ...}` 或经 `crate::harness::...` 访问。
 pub use harness::{

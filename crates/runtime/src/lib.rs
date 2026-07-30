@@ -1,5 +1,6 @@
 //! runtime — 域层（零 gpui）：节点生命周期、焦点、输入路由。
 pub mod agent_hooks;
+pub mod ego;
 pub mod events;
 pub mod focus;
 pub mod live;
@@ -13,6 +14,7 @@ pub mod session_snapshot;
 pub mod snapshot;
 
 pub use agent_hooks::AgentHookRuntimeConfig;
+pub use ego::{EgoOwnership, EgoTaskCommand, EgoTaskError, EgoTaskState};
 pub use events::{
     AgentTaskState, AgentTaskUpdate, CardAttentionKind, CardAttentionState, NodeRunState,
     RuntimeEvent,

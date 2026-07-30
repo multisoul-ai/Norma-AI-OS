@@ -6,6 +6,12 @@ use serde::{Deserialize, Serialize};
 #[path = "node/agent_profile.rs"]
 mod agent_profile;
 pub use agent_profile::AgentProfile;
+#[path = "node/browser.rs"]
+mod browser;
+pub use browser::BrowserSpec;
+#[path = "node/ego.rs"]
+mod ego;
+pub use ego::{BrowserSurfaceKind, EgoCardPhase, EgoLiteSpec};
 
 pub type NodeId = u64;
 
@@ -40,13 +46,6 @@ pub enum PreviewType {
 pub struct PreviewSpec {
     pub path: String,
     pub explicit_type: Option<PreviewType>,
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
-pub struct BrowserSpec {
-    pub url: String,
-    #[serde(default)]
-    pub title: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -91,34 +90,9 @@ impl NodeKind {
                 .unwrap_or_else(|| node.profile.display_title())
                 .to_string(),
             NodeKind::Preview(spec) => preview_title(&spec.path),
-            NodeKind::Browser(spec) => browser_title(spec),
+            NodeKind::Browser(spec) => spec.display_title(),
         }
     }
-}
-
-fn browser_title(spec: &BrowserSpec) -> String {
-    spec.title
-        .as_deref()
-        .filter(|title| !title.trim().is_empty())
-        .map(str::to_string)
-        .or_else(|| browser_host(&spec.url))
-        .unwrap_or_else(|| "Browser".to_string())
-}
-
-fn browser_host(url: &str) -> Option<String> {
-    let (_, rest) = url.split_once("://")?;
-    let host = rest
-        .split(['/', '?', '#'])
-        .next()
-        .unwrap_or("")
-        .split('@')
-        .next_back()
-        .unwrap_or("")
-        .split(':')
-        .next()
-        .unwrap_or("")
-        .trim();
-    (!host.is_empty() && !host.chars().any(char::is_whitespace)).then(|| host.to_string())
 }
 
 fn preview_title(path: &str) -> String {
@@ -410,6 +384,7 @@ mod tests {
         let kind = NodeKind::Browser(BrowserSpec {
             url: "https://example.com/docs".to_string(),
             title: Some("Docs".to_string()),
+            surface: BrowserSurfaceKind::Native,
         });
 
         let json = serde_json::to_string(&kind).expect("Browser kind 应可序列化");
@@ -460,10 +435,12 @@ mod tests {
         let hosted = NodeKind::Browser(BrowserSpec {
             url: "https://docs.example.com/path".to_string(),
             title: None,
+            surface: BrowserSurfaceKind::Native,
         });
         let invalid = NodeKind::Browser(BrowserSpec {
             url: "not a url".to_string(),
             title: None,
+            surface: BrowserSurfaceKind::Native,
         });
 
         assert_eq!(

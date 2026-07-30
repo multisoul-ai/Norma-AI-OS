@@ -240,6 +240,8 @@ impl MultisoulApp {
                     app.advance_session_reply_queue();
                     let runtime_events = app.runtime.take_events();
                     app.handle_agent_runtime_events(&runtime_events, cx);
+                    #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
+                    app.refresh_due_ego_previews(cx);
                     for event in &runtime_events {
                         tracing::debug!(?event, "runtime event");
                     }

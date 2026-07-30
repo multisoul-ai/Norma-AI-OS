@@ -201,6 +201,7 @@ pub fn render_canvas(
         title_actions = title_actions.child(
             div()
                 .id(("node-close", id))
+                .debug_selector(|| "node-close".to_string())
                 .w(px(close_button_size))
                 .h(px(close_button_size))
                 .flex()
@@ -303,28 +304,32 @@ pub fn render_canvas(
                 terminal_cursor_phase: app.terminal_cursor_phase,
                 browser_address_input: app.browser_address_input_for(id),
                 browser_auth_state: app.browser_chrome_auth_state_for(id),
+                ego_preview: app.ego_previews.frame_for(id),
+                ego_preview_error: app.ego_previews.error_for(id),
                 theme,
                 zoom: vp.zoom,
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),
             },
         );
         if matches!(node_type, NodeType::Browser) && native_browser_views_visible {
-            visible_browser_nodes.insert(id);
             if let CanvasNodeKind::Browser(spec) = &node.kind {
-                let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
-                app.sync_browser_view_for_node(
-                    id,
-                    &spec.url,
-                    browser_native_view_bounds(
-                        f64::from(top_left.x),
-                        f64::from(top_left.y),
-                        f64::from(w),
-                        f64::from(h),
-                        f64::from(browser_header_h),
-                        f64::from(node_terminal_radius_px(vp.zoom)),
-                    ),
-                    window,
-                );
+                if matches!(&spec.surface, canvas::BrowserSurfaceKind::Native) {
+                    visible_browser_nodes.insert(id);
+                    let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
+                    app.sync_browser_view_for_node(
+                        id,
+                        &spec.url,
+                        browser_native_view_bounds(
+                            f64::from(top_left.x),
+                            f64::from(top_left.y),
+                            f64::from(w),
+                            f64::from(h),
+                            f64::from(browser_header_h),
+                            f64::from(node_terminal_radius_px(vp.zoom)),
+                        ),
+                        window,
+                    );
+                }
             }
         }
         node_elems.push(
@@ -485,13 +490,11 @@ fn node_type_label(node_type: NodeType) -> &'static str {
 }
 
 #[cfg(test)]
-#[path = "../../tests/unit/canvas_view_tests.rs"]
-mod tests;
-
-#[cfg(test)]
 #[path = "../../tests/unit/chase_canvas_view_contract_tests.rs"]
 mod chase_canvas_view_contract_tests;
-
 #[cfg(test)]
 #[path = "../../tests/unit/product_ui_canvas_tests.rs"]
 mod product_ui_canvas_tests;
+#[cfg(test)]
+#[path = "../../tests/unit/canvas_view_tests.rs"]
+mod tests;

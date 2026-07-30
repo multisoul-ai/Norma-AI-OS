@@ -17,6 +17,7 @@ use canvas::{CanvasNode, CanvasRect, NodeType};
 use chrome::CardChrome;
 use gpui::AnyElement;
 use runtime::{NodeResize, Runtime};
+use std::sync::Arc;
 use ui::Theme;
 
 pub trait Card: Sync {
@@ -47,6 +48,8 @@ pub struct CardBodyContext<'a> {
     pub terminal_cursor_phase: f32,
     pub browser_address_input: Option<gpui::Entity<BrowserAddressInput>>,
     pub browser_auth_state: BrowserAuthUiState,
+    pub ego_preview: Option<Arc<gpui::RenderImage>>,
+    pub ego_preview_error: Option<String>,
     pub theme: Theme,
     pub zoom: f32,
     pub bottom_radius_px: f32,
