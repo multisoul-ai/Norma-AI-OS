@@ -75,6 +75,8 @@ pub struct CellAttrs {
     pub hidden: bool,
     pub strikeout: bool,
     pub wide_char_spacer: bool,
+    /// 该 cell 是终端自动折行的视觉行末；真实换行不会设置此标记。
+    pub soft_wrap: bool,
 }
 
 /// 中性单元格（不含 alacritty 类型）。fg/bg 保留终端颜色语义。
@@ -359,12 +361,17 @@ fn cell_attrs(flags: Flags) -> CellAttrs {
         strikeout: flags.contains(Flags::STRIKEOUT),
         wide_char_spacer: flags
             .intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER),
+        soft_wrap: flags.contains(Flags::WRAPLINE),
     }
 }
 
 #[cfg(test)]
 #[path = "grid/basic.rs"]
 mod basic;
+
+#[cfg(test)]
+#[path = "../tests/unit/grid_link_tests.rs"]
+mod link_tests;
 
 #[cfg(test)]
 #[path = "grid/wheel.rs"]
