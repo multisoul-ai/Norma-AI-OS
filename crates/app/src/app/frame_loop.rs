@@ -1,6 +1,10 @@
 use std::time::{Duration, Instant};
 
 use canvas::NodeType;
+use futures::{
+    future::{select, Either},
+    pin_mut, FutureExt,
+};
 use gpui::Context;
 use runtime::{InputMode, NodeRunState};
 
@@ -188,9 +192,16 @@ fn focused_running_terminal(app: &MultisoulApp) -> bool {
 }
 
 impl MultisoulApp {
-    pub(super) fn start_frame_loops(cx: &mut Context<Self>) {
+    pub(crate) fn wake_animation_frame_loop(&self) {
+        let _ = self.animation_wake_tx.try_send(());
+    }
+
+    pub(super) fn start_frame_loops(
+        animation_wake_rx: async_channel::Receiver<()>,
+        cx: &mut Context<Self>,
+    ) {
         Self::start_runtime_frame_loop(cx);
-        Self::start_animation_frame_loop(cx);
+        Self::start_animation_frame_loop(animation_wake_rx, cx);
         Self::start_persistence_frame_loop(cx);
     }
 
@@ -295,18 +306,36 @@ impl MultisoulApp {
         .detach();
     }
 
-    fn start_animation_frame_loop(cx: &mut Context<Self>) {
+    fn start_animation_frame_loop(
+        animation_wake_rx: async_channel::Receiver<()>,
+        cx: &mut Context<Self>,
+    ) {
         cx.spawn(async move |this, cx| {
             loop {
                 #[cfg(any(test, feature = "e2e-test-support"))]
                 let timer_interval = HEADLESS_ANIMATION_FRAME_INTERVAL;
                 #[cfg(not(any(test, feature = "e2e-test-support")))]
                 let timer_interval = IDLE_ANIMATION_FRAME_INTERVAL;
-                cx.background_executor().timer(timer_interval).await;
+                let timer = cx.background_executor().timer(timer_interval).fuse();
+                let wake = animation_wake_rx.recv().fuse();
+                pin_mut!(timer, wake);
+                let timer_fired = match select(timer, wake).await {
+                    Either::Left((_timer_done, _pending_wake)) => true,
+                    Either::Right((wake_result, _pending_timer)) => {
+                        if wake_result.is_err() {
+                            break;
+                        }
+                        false
+                    }
+                };
                 let frame_now = cx.background_executor().now();
                 let go = this.update(cx, |app, cx| {
                     #[cfg(feature = "e2e-test-support")]
                     if app.animation_frame_loop_paused_for_e2e {
+                        return AnimationSchedule::next_wakeup(app.animation_activity());
+                    }
+                    if !timer_fired {
+                        cx.notify();
                         return AnimationSchedule::next_wakeup(app.animation_activity());
                     }
                     #[cfg(not(any(test, feature = "e2e-test-support")))]
@@ -335,8 +364,12 @@ impl MultisoulApp {
                     }
                     next_wakeup
                 });
-                if go.is_err() {
-                    break;
+                match go {
+                    #[cfg(any(test, feature = "e2e-test-support"))]
+                    Ok(_) => {}
+                    #[cfg(not(any(test, feature = "e2e-test-support")))]
+                    Ok(_) => {}
+                    Err(_) => break,
                 }
             }
         })

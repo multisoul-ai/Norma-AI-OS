@@ -187,6 +187,7 @@ pub struct MultisoulApp {
     pub(crate) canvas_render_count_for_e2e: usize,
     #[cfg(feature = "e2e-test-support")]
     pub(crate) animation_frame_loop_paused_for_e2e: bool,
+    animation_wake_tx: async_channel::Sender<()>,
     animation_frame_clock: frame_loop::AnimationFrameClock,
     animation_frame_pending: bool,
     animation_frame_cadence: Option<std::time::Duration>,

@@ -63,6 +63,9 @@ mod e2e_04_voice_autosave;
 // 卡片初始化动画 E2E：新建路径登记、帧推进和恢复路径不重播。
 mod e2e_05_card_initialization_animation;
 
+// Master layout 动画 E2E：Cmd+M 必须从空闲帧调度中即时唤醒并产生中间帧。
+mod e2e_05_master_layout_animation;
+
 // Agent 任务结束后：即使交互式 PTY 存活，光标运行态动画也必须停止。
 mod e2e_05_agent_task_cursor_animation;
 

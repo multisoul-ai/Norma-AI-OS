@@ -47,7 +47,8 @@ impl MultisoulApp {
             app.unregister_workspace_window_if_needed(cx);
         })
         .detach();
-        Self::start_frame_loops(cx);
+        let (animation_wake_tx, animation_wake_rx) = async_channel::bounded(1);
+        Self::start_frame_loops(animation_wake_rx, cx);
         let settings_store = app_store.settings_store();
         let wallpaper_settings = WallpaperSettingsState::load_from_store(settings_store.clone());
         let (theme_id, theme_settings, voice_settings, shortcuts) = match settings_source {
@@ -149,6 +150,7 @@ impl MultisoulApp {
             canvas_render_count_for_e2e: 0,
             #[cfg(feature = "e2e-test-support")]
             animation_frame_loop_paused_for_e2e: false,
+            animation_wake_tx,
             animation_frame_clock: super::frame_loop::AnimationFrameClock::new(
                 cx.background_executor().now(),
             ),

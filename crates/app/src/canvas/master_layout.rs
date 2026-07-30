@@ -471,6 +471,7 @@ impl MultisoulApp {
             zoom,
         );
         if changed {
+            self.wake_animation_frame_loop();
             self.mark_canvas_dirty();
         }
         cx.notify();

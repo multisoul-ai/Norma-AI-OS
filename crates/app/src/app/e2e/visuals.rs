@@ -1,5 +1,7 @@
 use crate::app::MultisoulApp;
+use canvas::CanvasRect;
 use gpui::Context;
+use std::time::Instant;
 
 /// 初始化动画的稳定 e2e 投影：不暴露 app 私有 MotionStore 或帧资源实现。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -22,6 +24,16 @@ pub struct VoiceWindowInsetE2eSnapshot {
 }
 
 impl MultisoulApp {
+    /// 卡片当前实际参与渲染的矩形；canonical document bounds 可能已经先写入动画终点。
+    pub fn node_visual_rect_e2e(&mut self, node_id: canvas::NodeId) -> Option<CanvasRect> {
+        let canonical_rect = self.runtime.document.node(node_id)?.bounds;
+        Some(
+            self.motion
+                .resolve_node_visual_at(node_id, canonical_rect, self.theme, Instant::now())
+                .rect,
+        )
+    }
+
     pub fn initialization_e2e_snapshot(
         &self,
         node_id: canvas::NodeId,
