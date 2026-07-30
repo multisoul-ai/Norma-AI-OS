@@ -11,7 +11,7 @@ mod token_store;
 pub use gate_root::open_gated_window;
 
 #[cfg(feature = "e2e-test-support")]
-pub use gate_root::build_activation_root_e2e;
+pub use gate_root::{build_activation_root_e2e, build_configured_unlicensed_root_e2e};
 
 #[cfg(test)]
 #[path = "../../tests/unit/license_gate_boot_tests.rs"]

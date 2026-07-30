@@ -6,6 +6,8 @@
 pub const SKIP_LICENSE_ENV: &str = "NORMA_SKIP_LICENSE";
 pub const LICENSE_URL_ENV: &str = "NORMA_LICENSE_URL";
 pub const LICENSE_PUBKEY_ENV: &str = "NORMA_LICENSE_PUBKEY_HEX";
+/// Build-time rollout switch, enabled by the app crate's default features.
+pub const LICENSES_ENABLED: bool = cfg!(feature = "licenses");
 
 /// Maintainer-editable defaults shipped in the binary (`embed/`).
 const EMBEDDED_BASE_URL: &str = include_str!("embed/base_url.txt");

@@ -6,8 +6,11 @@ license.workspace = true
 default-run = "norma-os"
 
 [features]
-default = []
+default = ["licenses"]
 chromium-browser = ["dep:cef"]
+# License hard-gate switch. It is enabled by default; use
+# `--no-default-features` for a build that bypasses the startup gate.
+licenses = []
 production-data = []
 e2e-test-support = [
     "asr/test-support",

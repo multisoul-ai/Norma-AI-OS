@@ -1,7 +1,42 @@
 //! E2E-17：License Gate 无凭证启动与首帧渲染。
 
-use app::build_activation_root_e2e;
+use app::{build_activation_root_e2e, build_configured_unlicensed_root_e2e};
 use gpui::{px, TestAppContext};
+
+/// E2E-17-default-on：默认开启 licenses 时，无凭证启动必须展示激活壳。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   licenses feature = true（app 默认 features 包含 `licenses`）
+///   local status     = Invalid(Missing)（模拟首次安装且没有离线凭证）
+///   activation roots = 1 个（默认开启 License 后显示激活壳）
+///   workbench roots  = 0 个（激活前不得构造工作台）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. build_configured_unlicensed_root_e2e 使用当前构建开关和缺失凭证计算启动阶段
+///   2. GateRoot 按启动阶段挂载激活壳并完成首帧渲染
+///   3. 查询稳定 debug selector，确认激活壳存在且工作台不存在
+///
+/// 预期结果：
+///   - 正断言：activation-shell 与 license-key-input 均存在
+///   - 负断言：gate-workbench 不存在
+#[test]
+fn e2e_17_default_enabled_license_opens_activation_shell_without_workbench() {
+    let mut test_cx = TestAppContext::single();
+    let (_root, window_cx) = test_cx.add_window_view(build_configured_unlicensed_root_e2e);
+
+    assert!(
+        window_cx.debug_bounds("activation-shell").is_some(),
+        "licenses 默认开启且本地凭证缺失时必须渲染 activation-shell"
+    );
+    assert!(
+        window_cx.debug_bounds("license-key-input").is_some(),
+        "licenses 默认开启时必须渲染可编辑的 License Key 输入框"
+    );
+    assert!(
+        window_cx.debug_bounds("gate-workbench").is_none(),
+        "licenses 默认开启且本地凭证缺失时不得提前渲染 gate-workbench"
+    );
+}
 
 /// E2E-17：无 License 时启动必须完成首帧渲染，不能因输入组件缺少 Root 而崩溃。
 ///

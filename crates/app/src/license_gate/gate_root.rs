@@ -444,3 +444,14 @@ pub fn build_activation_root_e2e(window: &mut Window, cx: &mut Context<Root>) ->
     ui::init_components(cx);
     build_gated_root(BootPhase::Activation, window, cx)
 }
+
+#[cfg(feature = "e2e-test-support")]
+pub fn build_configured_unlicensed_root_e2e(window: &mut Window, cx: &mut Context<Root>) -> Root {
+    ui::init_components(cx);
+    let missing_status = license::LocalLicenseStatus::Invalid {
+        reason: license::LicenseInvalidReason::Missing,
+    };
+    let phase =
+        super::boot::decide_boot_phase(super::config::LICENSES_ENABLED, false, &missing_status);
+    build_gated_root(phase, window, cx)
+}

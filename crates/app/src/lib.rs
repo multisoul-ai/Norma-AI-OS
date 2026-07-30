@@ -42,7 +42,7 @@ pub use assets::EmbeddedAssets;
 pub use browser_auth_host::run_browser_auth_native_host;
 
 #[cfg(feature = "e2e-test-support")]
-pub use license_gate::build_activation_root_e2e;
+pub use license_gate::{build_activation_root_e2e, build_configured_unlicensed_root_e2e};
 
 use gpui::{App, Application, KeyBinding};
 
@@ -73,8 +73,8 @@ pub fn run_norma_os() {
             })
             .detach();
 
-            // Hard gate: Activation shell or Workbench via GateRoot (ADR 0015).
-            // Developers: NORMA_SKIP_LICENSE=1. E2E still constructs MultisoulApp directly.
+            // The default-enabled `licenses` feature controls the hard gate
+            // (ADR 0015). NORMA_SKIP_LICENSE remains a runtime escape hatch.
             license_gate::open_gated_window(cx).expect("failed to open window");
             cx.activate(true);
         });

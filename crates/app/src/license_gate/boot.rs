@@ -9,9 +9,13 @@ pub enum BootPhase {
     Workbench,
 }
 
-/// Map skip flag + offline evaluation into a boot phase.
-pub fn decide_boot_phase(skip_license: bool, status: &LocalLicenseStatus) -> BootPhase {
-    if skip_license {
+/// Map rollout flag + skip flag + offline evaluation into a boot phase.
+pub fn decide_boot_phase(
+    licenses_enabled: bool,
+    skip_license: bool,
+    status: &LocalLicenseStatus,
+) -> BootPhase {
+    if !licenses_enabled || skip_license {
         return BootPhase::Workbench;
     }
     match status {
