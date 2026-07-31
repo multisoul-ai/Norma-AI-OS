@@ -2,8 +2,8 @@ use canvas::NodeId;
 use std::collections::{HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
-const FLIGHT_DURATION: Duration = Duration::from_millis(250);
-const IMPACT_DURATION: Duration = Duration::from_millis(160);
+const FLIGHT_DURATION: Duration = Duration::from_millis(480);
+const IMPACT_DURATION: Duration = Duration::from_millis(260);
 const REDUCED_PULSE_DURATION: Duration = Duration::from_millis(150);
 const MAX_TICK_DELTA: Duration = Duration::from_millis(50);
 const LAUNCH_STAGGER: Duration = Duration::from_millis(40);

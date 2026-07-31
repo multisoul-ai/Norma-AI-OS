@@ -16,18 +16,20 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///   dispatch assignments = 1
 ///   Queued particles = 12
 ///   Agent intro settle = 1000ms > 992ms natural timeline
-///   flight duration = 250ms = 5 × 50ms
-///   impact duration = 160ms = 4 × 40ms
+///   previous flight boundary = 250ms = 5 × 50ms
+///   flight duration = 480ms = 250ms + 4 × 50ms + 30ms
+///   previous impact boundary = 160ms = 4 × 40ms
+///   impact duration = 260ms = 160ms + 2 × 50ms
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 进入 Canvas，通过生产命令入口创建 Alan Agent Card。
 ///   2. 在未派发时渲染一帧，确认 overlay 不存在。
 ///   3. 通过同一入口派发一条 Norma 任务并显式通知 GPUI render。
-///   4. 分别推进 250ms Flight 和 160ms Impact 时间线，读取稳定 e2e snapshot。
+///   4. 分别推进 480ms Flight 和 260ms Impact 时间线，读取稳定 e2e snapshot。
 ///
 /// 预期结果：
 ///   - 正断言：Queued receipt 创建唯一 Flight，目标与业务 node_id 一致且使用 12 个粒子预算。
-///   - 正断言：250ms 后进入 Impact，160ms 后 overlay 与 effect 均被卸载。
+///   - 正断言：旧边界不提前切相，480ms 后进入 Impact，260ms 后 effect 被卸载。
 ///   - 负断言：普通建卡不触发，结束后 canvas_active 不得继续占用连续帧。
 #[test]
 fn e2e_12_norma_dispatch_receipt_renders_and_stops_after_impact() {
@@ -113,26 +115,55 @@ fn e2e_12_norma_dispatch_receipt_renders_and_stops_after_impact() {
         "Flight 活跃时 GPUI 树必须实际渲染 dispatch overlay"
     );
 
-    // flight duration = 250ms = 5 × 50ms；单次不超过 dispatch delta clamp。
+    // previous boundary = 250ms = 5 × 50ms；延长节奏在此仍须保持 Flight。
     for _ in 0..5 {
         app.update(cx, |app, cx| {
             app.advance_animations_for_e2e(Duration::from_millis(50), cx);
         });
     }
+    let former_flight_boundary =
+        app.update(cx, |app, _cx| app.dispatch_receipt_effect_e2e_snapshot());
+    assert_eq!(
+        former_flight_boundary.effects[0].phase, "flight",
+        "Flight 在旧 250ms 边界不得提前进入 Impact"
+    );
+
+    // remaining flight = 480ms - 250ms = 230ms = 4 × 50ms + 30ms。
+    for _ in 0..4 {
+        app.update(cx, |app, cx| {
+            app.advance_animations_for_e2e(Duration::from_millis(50), cx);
+        });
+    }
+    app.update(cx, |app, cx| {
+        app.advance_animations_for_e2e(Duration::from_millis(30), cx);
+    });
     let impact = app.update(cx, |app, _cx| app.dispatch_receipt_effect_e2e_snapshot());
     assert_eq!(
         impact.effects[0].phase, "impact",
-        "Flight 累计 250ms 后必须进入目标卡片 Impact"
+        "Flight 累计 480ms 后必须进入目标卡片 Impact"
     );
     assert!(
         impact.canvas_active,
         "Impact 尚未完成时动画帧驱动必须保持 active"
     );
 
-    // impact duration = 160ms = 4 × 40ms。
+    // previous boundary = 160ms = 4 × 40ms；延长节奏在此仍须保持 Impact。
     for _ in 0..4 {
         app.update(cx, |app, cx| {
             app.advance_animations_for_e2e(Duration::from_millis(40), cx);
+        });
+    }
+    let former_impact_boundary =
+        app.update(cx, |app, _cx| app.dispatch_receipt_effect_e2e_snapshot());
+    assert_eq!(
+        former_impact_boundary.effects[0].phase, "impact",
+        "Impact 在旧 160ms 边界不得提前卸载"
+    );
+
+    // remaining impact = 260ms - 160ms = 100ms = 2 × 50ms。
+    for _ in 0..2 {
+        app.update(cx, |app, cx| {
+            app.advance_animations_for_e2e(Duration::from_millis(50), cx);
         });
     }
     cx.run_until_parked();
@@ -140,7 +171,7 @@ fn e2e_12_norma_dispatch_receipt_renders_and_stops_after_impact() {
 
     assert_eq!(
         finished.active_count, 0,
-        "Impact 累计 160ms 后 active effect 必须归零"
+        "Impact 累计 260ms 后 active effect 必须归零"
     );
     assert_eq!(
         finished.pending_count, 0,
