@@ -1,4 +1,5 @@
 use super::*;
+use crate::motion::{DispatchReceiptVisualStatus, MotionStore};
 use std::time::Duration;
 
 /// FS-1：前台 Canvas 和 Voice 都完全空闲时，动画驱动器必须降到 250ms 定时巡检。
@@ -166,6 +167,70 @@ fn test_animation_schedule_keeps_exposed_canvas_motion_on_next_frame_while_setti
         settings_canvas_wakeup,
         AnimationWakeup::Timer(Duration::from_millis(250)),
         "Settings 打开时仍可见的贪吃蛇不得退回 250ms 巡检，否则会出现明显卡顿"
+    );
+}
+
+/// FS-DR-1：dispatch effect 存活时必须使用 16ms 显示帧，清理后恢复 250ms idle。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   dispatch effects = 1
+///   flight = 250ms = 5 × 50ms
+///   impact = 160ms = 4 × 40ms
+///   active cadence = 16ms；idle cadence = 250ms
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在 MotionStore 创建一个 Submitted dispatch effect。
+///   2. 把 Motion activity 投影进 AnimationSchedule，读取存活期唤醒方式。
+///   3. 推进完整 250ms + 160ms 生命周期，再次投影并读取空闲唤醒方式。
+///
+/// 预期结果：
+///   - 正断言：effect 存活时返回 NextFrame(16ms)。
+///   - 正断言：effect 清理后返回 Timer(250ms)。
+///   - 负断言：清理后不得继续返回 NextFrame，避免隐藏的连续帧占用。
+#[test]
+fn test_dispatch_effect_activity_drives_next_frame_then_returns_idle() {
+    let mut motion = MotionStore::new(false);
+    motion.spawn_dispatch_receipt(
+        "frame-schedule:1",
+        971,
+        DispatchReceiptVisualStatus::Submitted,
+    );
+    let visible_activity = |canvas_motion_active| AnimationActivity {
+        voice_active: false,
+        canvas_motion_active,
+        cursor_active: false,
+        screen_is_canvas: true,
+        window_active: true,
+        settings_open: false,
+        next_visual_boundary: None,
+    };
+    let active_wakeup =
+        AnimationSchedule::next_wakeup(visible_activity(motion.activity_summary().canvas_active));
+
+    // flight = 250ms = 5 × 50ms；impact = 160ms = 4 × 40ms。
+    for _ in 0..5 {
+        motion.tick(Duration::from_millis(50));
+    }
+    for _ in 0..4 {
+        motion.tick(Duration::from_millis(40));
+    }
+    let idle_wakeup =
+        AnimationSchedule::next_wakeup(visible_activity(motion.activity_summary().canvas_active));
+
+    assert_eq!(
+        active_wakeup,
+        AnimationWakeup::NextFrame(Duration::from_millis(16)),
+        "dispatch effect 存活时必须按 16ms GPUI 显示帧推进"
+    );
+    assert_eq!(
+        idle_wakeup,
+        AnimationWakeup::Timer(Duration::from_millis(250)),
+        "最后一个 dispatch effect 清理后必须恢复 250ms idle 巡检"
+    );
+    assert_ne!(
+        idle_wakeup,
+        AnimationWakeup::NextFrame(Duration::from_millis(16)),
+        "dispatch effect 清理后不得继续请求 16ms 连续帧"
     );
 }
 

@@ -12,6 +12,9 @@ mod norma_agent_card_close_tests;
 #[path = "../../../tests/unit/agent_dispatch_submit_tests.rs"]
 mod agent_dispatch_submit_tests;
 
+#[path = "../../../tests/unit/agent_dispatch_visual_effect_tests.rs"]
+mod agent_dispatch_visual_effect_tests;
+
 #[path = "../../../tests/unit/agent_dispatch_workspace_tests.rs"]
 mod agent_dispatch_workspace_tests;
 

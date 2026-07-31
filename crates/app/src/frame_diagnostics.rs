@@ -254,6 +254,32 @@ impl SnakePaintReport {
     }
 }
 
+pub(crate) struct DispatchEffectPaintReport {
+    pub effect_count: usize,
+    pub path_count: usize,
+    pub quad_count: usize,
+    pub build_elapsed: Duration,
+    pub paint_elapsed: Duration,
+}
+
+impl DispatchEffectPaintReport {
+    pub(crate) fn log_if_enabled(self) {
+        if !enabled() {
+            return;
+        }
+        tracing::debug!(
+            target: "multisoul_frame",
+            effect_count = self.effect_count,
+            path_count = self.path_count,
+            quad_count = self.quad_count,
+            build_ms = self.build_elapsed.as_secs_f64() * 1000.0,
+            paint_ms = self.paint_elapsed.as_secs_f64() * 1000.0,
+            total_ms = (self.build_elapsed + self.paint_elapsed).as_secs_f64() * 1000.0,
+            "dispatch_effect_paint"
+        );
+    }
+}
+
 pub(crate) fn log_motion_sample(diagnostics: MotionDiagnostics) {
     if !enabled() {
         return;
@@ -268,6 +294,15 @@ pub(crate) fn log_motion_sample(diagnostics: MotionDiagnostics) {
         breathing_visible_nodes = diagnostics.breathing_visible_nodes,
         breathing_waiting_nodes = diagnostics.breathing_waiting_nodes,
         layout_active_nodes = diagnostics.layout_active_nodes,
+        dispatch_active_effects = diagnostics.dispatch_active_effects,
+        dispatch_pending_effects = diagnostics.dispatch_pending_effects,
+        dispatch_particles = diagnostics.dispatch_particles,
+        dispatch_duplicate_skips = diagnostics.dispatch_duplicate_skips,
+        dispatch_capacity_skips = diagnostics.dispatch_capacity_skips,
+        dispatch_unavailable_skips = diagnostics.dispatch_unavailable_skips,
+        dispatch_cancelled_effects = diagnostics.dispatch_cancelled_effects,
+        dispatch_reduced_motion_effects = diagnostics.dispatch_reduced_motion_effects,
+        dispatch_update_ms = diagnostics.dispatch_last_update_elapsed.as_secs_f64() * 1000.0,
         "motion_sample"
     );
 }

@@ -102,6 +102,7 @@ mod e2e_12_agent_queue_ui;
 mod e2e_12_agent_settings_ime;
 mod e2e_12_agent_submit;
 mod e2e_12_agent_submit_l3;
+mod e2e_12_dispatch_receipt_effect;
 mod e2e_12_norma_agent_layout;
 mod e2e_12_norma_master;
 mod e2e_12_orchestration_lifecycle;

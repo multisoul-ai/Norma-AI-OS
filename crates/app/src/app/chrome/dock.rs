@@ -2,6 +2,7 @@
 
 use super::super::MultisoulApp;
 use super::bottom_voice_bar_visible;
+use crate::effects::dispatch_receipt::{COMMAND_DOCK_BOTTOM_PX, COMMAND_DOCK_HEIGHT_PX};
 use gpui::{
     div, point, prelude::*, px, rgba, AnyView, App, BoxShadow, Context, Div, MouseButton, Stateful,
     Window,
@@ -34,14 +35,14 @@ impl MultisoulApp {
             .absolute()
             .left(px(0.0))
             .right(px(0.0))
-            .bottom(px(22.0))
+            .bottom(px(COMMAND_DOCK_BOTTOM_PX))
             .flex()
             .justify_center()
             .child(
                 div()
                     .id("workspace-command-dock")
                     .debug_selector(|| "workspace-command-dock".to_string())
-                    .h(px(52.0))
+                    .h(px(COMMAND_DOCK_HEIGHT_PX))
                     .flex()
                     .items_center()
                     .gap(px(3.0))

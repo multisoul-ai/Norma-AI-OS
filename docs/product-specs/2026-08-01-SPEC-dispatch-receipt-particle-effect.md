@@ -1,7 +1,7 @@
 # Dispatch Receipt 粒子特效 SPEC
 
 - 日期：2026-08-01
-- 状态：设计完成，待实现
+- 状态：已实现，待验收
 - 目标版本：首版
 - 适用范围：Command Dock、Norma Agent 任务派发、Agent Card、Canvas 动效
 - 技术基线：Rust 2021、GPUI 0.2.2、gpui-component 0.5.1
@@ -430,6 +430,8 @@ crates/app/src/app/
 - effect 生命周期结束后是否仍存在连续帧请求。
 
 建议目标：在基线 Mac 上，1 个及 3 个并发特效的增量 update + presentation build + paint p95 小于 0.5ms；该数值需在实现后以真实 App 测量确认。
+
+实现已接入 `MULTISOUL_FRAME_DIAGNOSTICS=1`：`motion_sample` 输出 dispatch active、pending、粒子、跳过/取消计数与 update 耗时，`dispatch_effect_paint` 输出 effect/path/quad 数量及 build、paint、total 耗时。1 路与 3 路并发的 p95 数值留待目标验收机器实测，不以开发机或 headless 测试数据替代。
 
 ## 9. 状态、错误与边界情况
 

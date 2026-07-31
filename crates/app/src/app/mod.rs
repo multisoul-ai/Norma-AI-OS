@@ -98,6 +98,10 @@ pub use e2e::{
 };
 #[cfg(feature = "e2e-test-support")]
 pub use e2e::{
+    DispatchReceiptEffectE2eSnapshot, DispatchReceiptEffectItemE2eSnapshot,
+};
+#[cfg(feature = "e2e-test-support")]
+pub use e2e::{
     EgoCardE2eSnapshot, OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot,
     PresentationE2eSnapshot,
 };

@@ -23,7 +23,62 @@ pub struct VoiceWindowInsetE2eSnapshot {
     pub corner_seam_guard_alpha_milli: u16,
 }
 
+#[cfg(feature = "e2e-test-support")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DispatchReceiptEffectE2eSnapshot {
+    pub canvas_active: bool,
+    pub active_count: usize,
+    pub pending_count: usize,
+    pub unavailable_skips: u64,
+    pub cancelled_effects: u64,
+    pub effects: Vec<DispatchReceiptEffectItemE2eSnapshot>,
+}
+
+#[cfg(feature = "e2e-test-support")]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DispatchReceiptEffectItemE2eSnapshot {
+    pub target_node_id: u64,
+    pub status: &'static str,
+    pub phase: &'static str,
+    pub progress_milli: u16,
+    pub reduce_motion: bool,
+    pub particle_count: usize,
+}
+
 impl MultisoulApp {
+    #[cfg(feature = "e2e-test-support")]
+    pub fn dispatch_receipt_effect_e2e_snapshot(&self) -> DispatchReceiptEffectE2eSnapshot {
+        let counts = self.motion.dispatch_receipt_counts();
+        let diagnostics = self.motion.diagnostics();
+        DispatchReceiptEffectE2eSnapshot {
+            canvas_active: self.motion.activity_summary().canvas_active,
+            active_count: counts.active,
+            pending_count: counts.pending,
+            unavailable_skips: diagnostics.dispatch_unavailable_skips,
+            cancelled_effects: diagnostics.dispatch_cancelled_effects,
+            effects: self
+                .motion
+                .dispatch_receipt_presentations()
+                .into_iter()
+                .map(|presentation| DispatchReceiptEffectItemE2eSnapshot {
+                    target_node_id: presentation.target_node_id,
+                    status: match presentation.status {
+                        crate::motion::DispatchReceiptVisualStatus::Submitted => "submitted",
+                        crate::motion::DispatchReceiptVisualStatus::Queued => "queued",
+                        crate::motion::DispatchReceiptVisualStatus::Untracked => "untracked",
+                    },
+                    phase: match presentation.phase {
+                        crate::motion::DispatchEffectPhase::Flight => "flight",
+                        crate::motion::DispatchEffectPhase::Impact => "impact",
+                    },
+                    progress_milli: opacity_to_milli(presentation.progress),
+                    reduce_motion: presentation.reduce_motion,
+                    particle_count: presentation.particle_count,
+                })
+                .collect(),
+        }
+    }
+
     /// 卡片当前实际参与渲染的矩形；canonical document bounds 可能已经先写入动画终点。
     pub fn node_visual_rect_e2e(&mut self, node_id: canvas::NodeId) -> Option<CanvasRect> {
         let canonical_rect = self.runtime.document.node(node_id)?.bounds;
