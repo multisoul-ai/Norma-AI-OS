@@ -293,6 +293,156 @@ fn e2e_14_command_dock_matches_reference_control_scale_and_safe_area() {
     );
 }
 
+/// E2E-14：从底部 Dock 的 New 按钮打开卡片菜单时，菜单必须从触发按钮正上方浮出。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   New 按钮尺寸 = 38px × 38px（Command Dock 的统一图标控件尺寸）。
+///   卡片菜单宽度 = 180px；为了与 38px 触发按钮中心对齐，左偏移 =
+///   -(180 - 38) / 2 = -71px。
+///   菜单与触发按钮的垂直安全距离 = 12px；菜单 bottom 相对 38px 按钮容器的
+///   定位距离 = 38 + 12 = 50px，避免两层浮层的圆角和阴影相互重叠。
+///   画布中心与 New 按钮中心在默认 Dock 排列中不同，故可用两者的 x 差验证菜单
+///   没有错误地锚定到整张画布中线。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. `make_app + enter_canvas` 渲染真实 headless Canvas 与底部 Command Dock。
+///   2. 点击 `toolbar-new-terminal`，由生产 toggle 打开所有卡片类型菜单。
+///   3. 读取触发按钮、弹出菜单与 Canvas 的 debug bounds，并比较空间关系。
+///
+/// 预期结果：
+///   - 正断言：菜单存在，x 中心与 New 按钮中心精确对齐。
+///   - 正断言：菜单距触发按钮正好 12px，保持清晰的来源关系且不与 Dock 重叠。
+///   - 负断言：菜单中心不得退回 Canvas 中心，避免重现整屏居中悬浮。
+#[test]
+fn e2e_14_new_card_menu_is_anchored_above_its_dock_trigger() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("卡片菜单 e2e 应创建临时 workspace");
+    enter_canvas(&app, cx, workspace.path());
+
+    let canvas = cx
+        .debug_bounds("canvas")
+        .expect("卡片菜单定位验收必须先读取 Canvas bounds");
+    let new_button = cx
+        .debug_bounds("toolbar-new-terminal")
+        .expect("底部 Dock 必须提供 New 按钮作为卡片菜单触发器");
+
+    click_debug(cx, "toolbar-new-terminal");
+
+    let menu = cx
+        .debug_bounds("new-menu")
+        .expect("点击 New 后必须渲染所有卡片类型菜单");
+    let menu_center_x = f32::from(menu.center().x);
+    let button_center_x = f32::from(new_button.center().x);
+    let canvas_center_x = f32::from(canvas.center().x);
+    let menu_bottom = f32::from(menu.origin.y) + f32::from(menu.size.height);
+    let button_top = f32::from(new_button.origin.y);
+    // menu_gap = button_top - menu_bottom = 12px，保证两个浮层的圆角与阴影分离。
+    let menu_gap = button_top - menu_bottom;
+
+    assert_eq!(
+        menu_center_x, button_center_x,
+        "卡片菜单 x 中心必须与 New 触发按钮中心对齐，actual={menu_center_x} expected={button_center_x}"
+    );
+    assert_eq!(
+        menu_gap, 12.0,
+        "卡片菜单与 New 按钮必须保留 12px 间隔，actual={menu_gap} expected=12"
+    );
+    assert_ne!(
+        menu_center_x, canvas_center_x,
+        "卡片菜单不得锚定 Canvas 中心，actual={menu_center_x} canvas_center={canvas_center_x}"
+    );
+}
+
+/// E2E-14：底部 Dock 按“创建 → 画布 → Voice”三组排列，避免状态与全局设置混排。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   创建组 = New + Terminal + Codex + Browser + Preview = 5 个连续入口。
+///   画布组 = Select/Scroll + Layout + Settings = 3 个连续入口。
+///   Voice 组 = 1 个状态 pill；组间由 1px divider 和左右各 3px gap 分开，
+///             因此 preview→mode、settings→voice 的间距至少 = 3 + 1 + 3 = 7px。
+///   所有控件高度 = 38px，小于 Dock 52px，故每个控件都应完整落在 Dock 内。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. `make_app + enter_canvas` 渲染真实 headless Canvas 与底部 Dock。
+///   2. 读取八个图标入口及 Voice pill 的 debug bounds。
+///   3. 按 x 坐标检查五个创建入口的连续顺序。
+///   4. 验证画布三项位于创建组右侧，Voice 位于画布组右侧且保留组间空白。
+///
+/// 预期结果：
+///   - 断言 A：创建入口从 New 到 Preview 自左向右连续排列。
+///   - 断言 B：画布模式、Layout、Settings 紧随创建组，不能插回创建入口之间。
+///   - 断言 C：Voice 位于 Settings 之后，且预览/模式、设置/Voice 都有至少 7px 的组间距。
+///   - 断言 D：Voice 与 New 都必须完整留在 Dock 内，不能被重排到第二条浮层。
+#[test]
+fn e2e_14_command_dock_orders_creation_canvas_and_voice_groups() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("Dock 分组 e2e 应创建临时 workspace");
+    enter_canvas(&app, cx, workspace.path());
+
+    let dock = cx
+        .debug_bounds("workspace-command-dock")
+        .expect("Dock 分组验收必须先渲染 workspace-command-dock");
+    let new_button = cx
+        .debug_bounds("toolbar-new-terminal")
+        .expect("创建组必须包含 New 入口");
+    let terminal = cx
+        .debug_bounds("toolbar-terminal")
+        .expect("创建组必须包含 Terminal 入口");
+    let codex = cx
+        .debug_bounds("toolbar-new-codex-agent")
+        .expect("创建组必须包含 Codex 入口");
+    let browser = cx
+        .debug_bounds("toolbar-new-browser")
+        .expect("创建组必须包含 Browser 入口");
+    let preview = cx
+        .debug_bounds("toolbar-open-preview")
+        .expect("创建组必须包含 Preview 入口");
+    let canvas_mode = cx
+        .debug_bounds("toolbar-canvas-scroll")
+        .expect("画布组必须包含 Select/Scroll 入口");
+    let layout = cx
+        .debug_bounds("toolbar-layout")
+        .expect("画布组必须包含 Layout 入口");
+    let settings = cx
+        .debug_bounds("toolbar-settings")
+        .expect("画布组必须包含 Settings 入口");
+    let voice = cx
+        .debug_bounds("workspace-voice-control")
+        .expect("Voice 状态必须作为独立 Dock 分组渲染");
+
+    let preview_right = f32::from(preview.origin.x) + f32::from(preview.size.width);
+    let settings_right = f32::from(settings.origin.x) + f32::from(settings.size.width);
+    let dock_top = f32::from(dock.origin.y);
+    let dock_bottom = dock_top + f32::from(dock.size.height);
+
+    assert!(
+        f32::from(new_button.origin.x) < f32::from(terminal.origin.x)
+            && f32::from(terminal.origin.x) < f32::from(codex.origin.x)
+            && f32::from(codex.origin.x) < f32::from(browser.origin.x)
+            && f32::from(browser.origin.x) < f32::from(preview.origin.x),
+        "创建组必须按 New、Terminal、Codex、Browser、Preview 自左向右排列"
+    );
+    assert!(
+        preview_right + 7.0 <= f32::from(canvas_mode.origin.x)
+            && f32::from(canvas_mode.origin.x) < f32::from(layout.origin.x)
+            && f32::from(layout.origin.x) < f32::from(settings.origin.x),
+        "画布组必须在 Preview 后以至少 7px 分隔，并按模式、Layout、Settings 排列"
+    );
+    assert!(
+        settings_right + 7.0 <= f32::from(voice.origin.x),
+        "Voice 必须在 Settings 后以至少 7px 分隔，不能再视觉上归入全局设置组"
+    );
+    assert!(
+        f32::from(new_button.origin.y) >= dock_top
+            && f32::from(new_button.origin.y) + f32::from(new_button.size.height) <= dock_bottom
+            && f32::from(voice.origin.y) >= dock_top
+            && f32::from(voice.origin.y) + f32::from(voice.size.height) <= dock_bottom,
+        "New 与 Voice 必须完整位于同一 Dock 内，不能溢出或分裂为第二条浮层"
+    );
+}
+
 fn click_debug(cx: &mut VisualTestContext, selector: &'static str) {
     let bounds = cx
         .debug_bounds(selector)

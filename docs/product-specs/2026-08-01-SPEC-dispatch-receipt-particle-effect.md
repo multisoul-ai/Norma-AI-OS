@@ -1,0 +1,517 @@
+# Dispatch Receipt 粒子特效 SPEC
+
+- 日期：2026-08-01
+- 状态：设计完成，待实现
+- 目标版本：首版
+- 适用范围：Command Dock、Norma Agent 任务派发、Agent Card、Canvas 动效
+- 技术基线：Rust 2021、GPUI 0.2.2、gpui-component 0.5.1
+- 关联调研：[`2026-08-01-gpui-particle-projectile-effects.md`](../research/2026-08-01-gpui-particle-projectile-effects.md)
+
+## 1. 需求背景
+
+Norma OS 已能通过 `DispatchAgentTasks` 将任务路由到指定 Agent Card，并返回 `Submitted`、`Queued`、`Untracked` 或 `Failed` 等真实 receipt。当前反馈主要依赖文字、语音和卡片状态，用户不一定能立即理解“这条任务被派到了哪张卡片”。
+
+本功能增加一段短促、非阻塞的空间反馈：当 Norma 接受一次面向可见 Agent Card 的任务派发后，从底部 Command Dock 中心发射一个 dispatch receipt 视觉载体，沿弧线飞向目标卡片中心；命中后播放小规模粒子爆发和卡片轮廓脉冲。
+
+这个特效表达的是：
+
+> Norma 已将任务路由给目标 Agent，目标卡片已经获得可识别的派发回执。
+
+它不表达 Agent 已开始执行，也不表达任务成功完成。
+
+### 1.1 产品目标
+
+- 让用户在不阅读详细文字的情况下，立即看到任务被派往哪张 Agent Card。
+- 用 Dock 与目标卡片之间的连续轨迹建立清晰的空间因果关系。
+- 不阻塞派发、不改变任务状态、不抢焦点，也不影响高频工作流。
+- 复用现有 `MotionStore` 和 GPUI 帧调度，不建立第二套动画循环。
+
+### 1.2 第一性原理判断
+
+该特效存在的理由不是“增加炫酷感”，而是解决一个真实的信息缺口：用户发出委派意图后，需要确认系统选中了哪个目标。若界面已经能在同一注意区域清楚标示目标，则特效应保持克制或降级，而不应成为强制庆祝动画。
+
+## 2. 功能概述与范围
+
+### 2.1 In Scope
+
+- Norma 来源的单 Agent 与多 Agent 任务派发 receipt 可视化。
+- 从 Command Dock 中心到目标 Agent Card 中心的动态弧线飞行。
+- 命中时的粒子爆发、飞行头消散和目标卡片轮廓脉冲。
+- `Submitted`、`Queued`、`Untracked` 三种可接受 receipt 的视觉反馈。
+- Reduced Motion 降级方案。
+- 目标移动、Canvas 平移/缩放、窗口变化时的动态终点解析。
+- 并发上限、粒子预算、闲置停帧与诊断指标。
+
+### 2.2 Out of Scope
+
+- 移动或复制真实 Agent Card；飞行物只是 receipt 视觉载体。
+- 用该特效表示 Agent 开始执行、完成、失败或输出结果。
+- `Manual` 来源的卡片队列面板加任务使用 Dock 飞行动画。
+- `Agent` 来源的 Agent-to-Agent 委派使用 Dock 飞行动画；未来应单独设计“源 Agent → 目标 Agent”。
+- 为效果自动聚焦目标、平移 Canvas 或改变用户选择。
+- 声音、语音、触觉反馈。
+- 引入 Bevy、Macroquad、Hanabi 等完整粒子引擎。
+- 建设跨功能通用的公共粒子框架。
+
+## 3. 触发语义
+
+### 3.1 用户行为不是直接触发器
+
+以下行为本身都不直接创建粒子特效：
+
+- 用户按下发送或结束一次语音输入；
+- Norma/Agent 产生普通文本回复；
+- LLM 判断“应该委派”，但尚未执行派发命令；
+- 目标 Agent 开始输出、进入工作态或完成任务；
+- `ListAgents`、`ActivateAgent`、任务状态查询或取消命令成功。
+
+用户输入只是上游原因。唯一的业务触发事件是：
+
+> `CardCommand::DispatchAgentTasks` 完成协调、提交尝试和最终 receipt 分类后，产生至少一条来源为 `Norma` 且状态可接受的 dispatch receipt。
+
+### 3.2 触发入口
+
+可能到达派发命令的上游入口包括：
+
+1. 用户在 Command Dock 通过文字或语音明确要求 Norma 将任务交给某个 Agent；Norma 的工具调用转换为 `AdapterCommand::AssignAgentTask`，再转换为 `CardCommand::DispatchAgentTasks`。
+2. Norma 协议或内部调用直接提交 `CardCommand::DispatchAgentTasks`。
+3. 卡片队列 UI 以 `AgentDispatchSource::manual()` 添加任务。
+4. 某个 Agent 通过受权 CLI/协议，以 `AgentDispatchSource::agent(...)` 委派子任务。
+
+首版只有前两类中被标记为 `AgentDispatchSource::norma()` 的派发播放 Dock 飞行。第 3、4 类仍正常派发，但不创建本特效。
+
+业务代码的统一判定 seam 是：
+
+```text
+execute_coordinated_agent_command
+  → CardCommand::DispatchAgentTasks
+  → AgentTaskCoordinator::dispatch_from
+  → 本地提交/排队与失败恢复
+  → 计算最终 AgentTaskReceiptStatus
+  → 生成 DispatchReceiptVisualEvent
+```
+
+视觉事件必须在最终 `AgentTaskReceiptStatus` 确定后生成，不能在用户按下发送、预检开始或协调器刚创建内部 task 时提前生成。
+
+### 3.3 正向触发条件
+
+每条 receipt 必须同时满足以下条件：
+
+1. 命令类型为 `CardCommand::DispatchAgentTasks`。
+2. `AgentDispatchSource.queue_source == AgentQueueTaskSource::Norma`。
+3. 最终状态为 `Submitted`、`Queued` 或 `Untracked`。
+4. App 当前位于 Canvas 屏幕，目标 `node_id` 仍对应一张 Agent Card。
+5. 当前窗口可见；窗口不活跃时不得积压一段等待恢复后突然播放的旧动画。
+
+状态视觉语义：
+
+| Receipt 状态 | 是否触发 | 视觉语义 |
+| --- | --- | --- |
+| `Submitted` | 是 | 已提交给可跟踪 Agent |
+| `Queued` | 是 | 已进入目标 Agent 的队列/等待提交 |
+| `Untracked` | 是 | 已交付，但无法自动观察终态 |
+| `Failed` | 否 | 不得用命中特效暗示成功 |
+| `Cancelled` / `CancelRequested` | 否 | 属于取消流程，不是新派发 |
+| `Done` / `Interrupted` | 否 | 属于后续任务生命周期 |
+
+### 3.4 多目标派发
+
+- 每条正向 receipt 对应一个目标特效。
+- 同一批 receipt 按 assignment 顺序发射，间隔 40ms；间隔只影响视觉，不延迟业务派发或 receipt 返回。
+- 同时最多绘制 3 个飞行/命中特效。
+- 待播放视觉事件最多保留 8 个；超过上限的事件可跳过动画，但不得丢失业务 receipt、队列记录或状态展示。
+- 跳过或合并特效不得被记录为派发失败。
+
+## 4. 端到端触发流程
+
+```mermaid
+sequenceDiagram
+    actor User as 用户
+    participant Dock as Command Dock / Dialogue
+    participant Adapter as Norma Adapter / Protocol
+    participant App as App Agent Runtime
+    participant Coordinator as AgentTaskCoordinator
+    participant Motion as MotionStore
+    participant Canvas as Dispatch Effect Canvas
+    participant Target as Target Agent Card
+
+    User->>Dock: 文字/语音要求把任务派给 Agent
+    Dock->>Adapter: 产生 AssignAgentTask / DispatchAgentTasks
+    Adapter->>App: CardCommand::DispatchAgentTasks
+    App->>Coordinator: dispatch_from(assignments, source=Norma)
+    Coordinator-->>App: AgentDispatchReceipt(node_id, state)
+    App->>App: 尝试输入/排队并计算最终 receipt status
+    alt Submitted / Queued / Untracked
+        App->>Motion: spawn DispatchReceiptVisualEvent
+        App-->>Adapter: 返回真实业务 receipt
+        Motion->>Motion: tick(delta) 推进 Flight / Impact
+        Motion-->>Canvas: 提供只读 presentation
+        Canvas->>Target: 飞向当前卡片中心并播放命中脉冲
+    else Failed
+        App-->>Adapter: 返回 Failed receipt
+        Note over Motion,Canvas: 不创建成功命中特效
+    end
+```
+
+详细步骤：
+
+1. 用户通过 Dock 发出自然语言或语音指令。
+2. 上游解析只有在明确形成 `DispatchAgentTasks` 命令时才进入派发流程；普通消息继续走普通 Dialogue。
+3. App 校验目标名称、启用状态、Agent 卡片激活状态、委派约束和队列预算。
+4. `AgentTaskCoordinator::dispatch_from` 生成包含 `node_id` 的领域 receipt。
+5. App 尝试将任务写入目标卡片或放入队列，并处理可安全恢复的失败。
+6. App 将领域状态和提交结果归并为最终 wire receipt 状态。
+7. 对每条满足 §3.3 的 receipt 创建 `DispatchReceiptVisualEvent`；创建特效不影响 receipt 返回。
+8. 调用方触发 `cx.notify()`，下一次 render 发现 Motion 活跃并启动现有动画帧驱动。
+9. `MotionStore::tick(delta)` 推进飞行和命中状态；Canvas 只读取 presentation 并绘制。
+10. 最后一个特效结束后，Motion activity 归零，帧调度恢复 idle。
+
+## 5. 起点与终点
+
+### 5.1 起点：Command Dock 中心
+
+飞行起点使用屏幕坐标，不进入 Canvas 世界坐标：
+
+```text
+x = window.viewport_width / 2
+y = window.viewport_height - DOCK_BOTTOM_INSET - DOCK_HEIGHT / 2
+```
+
+按当前布局：
+
+```text
+DOCK_BOTTOM_INSET = 22px
+DOCK_HEIGHT = 52px
+y = viewport_height - 48px
+```
+
+实现时必须把 Dock 尺寸常量与 origin 计算收敛到同一职责，避免渲染布局和特效锚点分别维护魔数。效果 overlay 位于 Agent Card 上方、Workspace chrome 下方，因此 receipt 在 Dock 中心生成但被 Dock 遮住，离开 Dock 后才可见，形成“从 Dock 内发射”的效果。
+
+窗口尺寸在飞行期间变化时，起点可随当前 Dock 中心重新解析；首帧必须与当前可见 Dock 对齐。
+
+### 5.2 终点：目标 Agent Card 当前视觉中心
+
+业务 receipt 提供稳定的目标 `node_id`。特效不得在 spawn 时只保存一个固定屏幕点，而应保存 `NodeId`，每帧按以下顺序解析：
+
+1. 从 Runtime/Canvas Document 读取目标 Agent Card 的 canonical rect。
+2. 从 `MotionStore` 读取该节点当前 presentation rect，而不是只读最终 layout target。
+3. 取 presentation rect 的中心点。
+4. 通过当前 `Viewport::canvas_to_screen` 转换为屏幕坐标。
+
+因此以下操作发生时，终点仍与用户看到的卡片中心一致：
+
+- 卡片正在布局动画或被拖动；
+- Canvas 正在平移或缩放；
+- 窗口尺寸发生变化。
+
+渲染层不得为了获取终点再次调用会修改 Motion 状态的 `resolve_node_visual_at`。应增加只读的 current presentation rect 查询 seam，保持 render 纯净。
+
+### 5.3 目标不可用
+
+- receipt 创建前目标不存在或不是 Agent Card：不创建特效，并记录结构化诊断；业务结果保持原样。
+- 飞行中目标被删除：特效快速淡出，不播放爆炸，不自动恢复卡片。
+- 目标中心在可视区域外：首版不自动平移 Canvas；不播放跨屏飞行，仅保留现有 receipt/队列状态反馈。
+- 飞行中目标离开可视区域：取消爆炸并淡出飞行物。
+
+## 6. 界面与交互设计
+
+### 6.1 视觉阶段
+
+#### Flight
+
+- 时长：220–280ms，默认 250ms。
+- 路径：从 Dock 中心到目标中心的三次贝塞尔弧线。
+- 动态：快速离开起点、在接近目标时自然收束，避免慢启动带来的迟钝感。
+- 组成：一个 receipt 核心、6–8 段解析式尾迹和一条低透明度轨迹。
+- receipt 可采用微型卡片/纸片轮廓，但不能与真实可拖拽卡片混淆，也不参与命中测试。
+
+#### Impact
+
+- 时长：140–180ms，默认 160ms。
+- 目标中心产生 12–18 个短寿命粒子。
+- 目标卡片外侧绘制一次轮廓脉冲；不缩放真实卡片，不改变布局、焦点或 hitbox。
+- 爆发应表现为“收到/落点”，而不是庆祝烟花。
+
+#### Finished
+
+- 清理 effect slot 和粒子数据。
+- 如果没有其他 Canvas 动效，停止逐帧刷新。
+
+### 6.2 状态差异
+
+- `Submitted`：使用主题 accent/cyan 的标准强度。
+- `Queued`：降低亮度与爆发半径，表达“已接收但在等待”。
+- `Untracked`：使用中性主题色，避免暗示系统能继续确认终态。
+- 不得只依赖颜色区分状态；真实状态仍由文字、badge 或队列 UI 承担，粒子只负责定位目标。
+
+### 6.3 交互约束
+
+- 动画不阻塞输入，用户可在播放期间拖动、缩放、输入或再次派发。
+- overlay 不注册鼠标事件、不创建可聚焦元素、不遮挡 Dock 或卡片。
+- 不自动选择、不聚焦、不滚动画布。
+- 连续高频派发受 §3.4 的容量限制，不延长业务响应时间。
+
+### 6.4 Reduced Motion
+
+当 `MotionStore.reduce_motion` 为 true：
+
+- 取消跨屏位移动画、长尾迹和爆炸散射。
+- Dock 中心播放一次 120–160ms 的低幅度亮度反馈。
+- 可见目标卡片播放一次 120–160ms 的边框/透明度脉冲。
+- 两端反馈可以同帧发生，以保留“从这里派到那里”的因果，但不得制造大范围运动。
+
+该设计落实 Apple 的空间一致性、即时反馈与 Reduced Motion 原则；同时遵守高频动效应短促、非阻塞、低干扰的设计工程约束。
+
+## 7. 技术实现方案
+
+### 7.1 技术选型
+
+采用“App 内轻量状态机 + 单个 GPUI Canvas overlay”的组合：
+
+- `MotionStore` 负责 effect 生命周期、时间推进、容量和 presentation。
+- GPUI Canvas 负责尾迹、receipt、粒子和脉冲绘制。
+- 不为每颗粒子创建 GPUI element。
+- 不使用 GPUI `Animation` 关键帧驱动主飞行或爆炸。
+- 不引入第三方游戏/粒子运行时。
+
+理由：动态目标需要每帧根据 `NodeId` 和 `Viewport` 重算落点；多粒子需要共享生命周期、限流和一次绘制；现有 `MotionStore::tick` 已经提供统一、可测试的帧驱动。
+
+### 7.2 数据与事件模型
+
+建议 App 层新增：
+
+```rust
+struct DispatchReceiptVisualEvent {
+    task_ref: String,
+    target_node_id: NodeId,
+    status: DispatchReceiptVisualStatus,
+    origin: DispatchVisualOrigin,
+}
+
+enum DispatchVisualOrigin {
+    CommandDock,
+}
+
+enum DispatchReceiptVisualStatus {
+    Submitted,
+    Queued,
+    Untracked,
+}
+```
+
+`task_ref` 只用于幂等/诊断，不在逐帧绘制中格式化或显示任务正文。视觉事件不进入 `agent`、`canvas`、`runtime` 或 `storage` crate，不新增持久化。
+
+### 7.3 MotionStore 集成
+
+建议结构：
+
+```text
+MotionStore
+├── nodes
+├── initializations
+└── dispatch_effects: DispatchEffectStore
+    ├── active effects
+    └── bounded pending events
+```
+
+集成要求：
+
+- `MotionStore::tick(delta)` 同步推进节点动画、初始化动画和 dispatch effects。
+- 对 effect 的单帧 `delta` 设置 32–50ms 上限，避免调度停顿后穿越终点。
+- `MotionStore::activity_summary().canvas_active` 包含 `dispatch_effects.is_active()`。
+- `retain_nodes` 或等价清理逻辑在目标删除时取消相关 effect。
+- `MotionStore` 提供只读 `current_node_rect(NodeId)` 或等价查询。
+- render 只读取 `DispatchEffectPresentation`，不得修改 effect 状态。
+- 不创建独立 timer、后台线程或 `request_animation_frame` 循环。
+
+### 7.4 渲染层级
+
+根元素顺序调整为：
+
+```text
+workspace backdrop
+canvas + cards
+dispatch effect overlay
+workspace chrome（Dock / top bar / minimap）
+error/settings/voice overlays
+```
+
+`render_dispatch_effects` 只在存在 presentation 时返回 Canvas element；无特效时不挂载空的全屏绘制层。
+
+### 7.5 初步代码结构
+
+```text
+crates/app/src/motion/
+├── mod.rs
+├── tokens.rs
+└── dispatch_effect.rs
+    ├── DispatchEffectStore
+    ├── DispatchEffect
+    ├── DispatchEffectPhase
+    ├── ImpactParticle
+    └── DispatchEffectPresentation
+
+crates/app/src/effects/
+├── mod.rs
+└── dispatch_receipt.rs
+    ├── render_dispatch_effects
+    ├── build_flight_trail
+    ├── paint_receipt
+    ├── paint_impact_particles
+    └── paint_target_pulse
+
+crates/app/src/app/
+├── render.rs
+├── chrome/dock.rs
+└── agent_runtime/commands.rs
+```
+
+模块职责：
+
+| 模块 | 职责 |
+| --- | --- |
+| Dialogue / Adapter / Norma Protocol | 将明确委派意图转换为 `DispatchAgentTasks`；不决定动画 |
+| `agent::AgentTaskCoordinator` | 校验并生成真实领域 receipt 和稳定目标 `node_id`；零 GPUI |
+| `app::agent_runtime::commands` | 汇总提交结果，计算最终 wire status，生成 App 层视觉事件 |
+| `MotionStore` | 管理 effect 状态、时序、限流和调度活跃度 |
+| Runtime / Canvas Document | 提供目标卡片 canonical rect 和节点存活状态 |
+| Viewport | 将目标中心从 Canvas 坐标转换到屏幕坐标 |
+| Dispatch Effect Renderer | 用 GPUI Canvas 绘制只读 presentation |
+| Animation Driver | 以现有 16ms Canvas cadence 驱动 tick，并在结束后停帧 |
+| Command Dock | 提供统一的视觉 origin 几何定义，仍位于 effect 上层 |
+
+### 7.6 幂等与重复事件
+
+- 同一 `task_ref + target_node_id` 在一个 effect 生命周期内最多创建一次视觉事件。
+- 重试若返回既有业务 receipt，不得重复播放成多次“新派发”。
+- 去重仅影响视觉，不影响领域任务幂等和业务回执。
+
+## 8. 性能考虑
+
+### 8.1 预算与容量
+
+- 单次命中粒子：12–18，硬上限 18。
+- 单个飞行尾迹采样：6–8，使用固定容量数据。
+- 同时 active effect：最多 3。
+- pending visual event：最多 8。
+- 总活动爆发粒子：最多 54；实现可保留 64 个固定容量 slot。
+
+### 8.2 分配与复用
+
+- 首版使用预分配 `Vec`、固定数组或小容量 slot store；不建设重量级通用对象池。
+- effect 完成后复用 slot；spawn 时一次性计算粒子方向、速度、寿命和确定性 seed。
+- 帧循环内禁止随机数生成、字符串格式化、日志正文拼接和无界容器增长。
+- 尾迹优先按贝塞尔曲线解析采样，不维护每帧 append 的轨迹历史。
+
+### 8.3 绘制成本
+
+- 所有特效共享一个全屏 Canvas overlay。
+- 粒子使用 `paint_quad` 或等价低成本 primitive。
+- 每个 effect 最多使用一条 `PathBuilder` 轨迹；禁止为每颗粒子构造 path，因为 GPUI 0.2.2 的路径需要 CPU tessellation。
+- 阴影只用于 receipt 核心或爆发中心中的一个重点 primitive；普通粒子无独立 blur/shadow。
+- 不使用每帧 CPU RGBA 图片生成，不引入 `RenderImage` 路径。
+- overlay 不参与布局和输入命中。
+
+### 8.4 帧调度
+
+- 复用现有 Canvas active cadence（当前 16ms）。
+- 特效为空时 `canvas_active` 不得因本功能保持 true。
+- 窗口不可见、目标不可见或非 Canvas 屏幕时不创建/不继续无意义的旧特效。
+- 不把任何 SQLite、网络、文件 IO 或重 CPU 工作放入 `MotionStore::tick` 或 paint。
+
+### 8.5 观测指标
+
+在现有 frame diagnostics 上增加或扩展以下可选指标：
+
+- active/pending dispatch effect 数量；
+- 当前粒子数量；
+- effect update/build/paint 耗时；
+- 因容量、目标不可见或 Reduced Motion 跳过的数量；
+- effect 生命周期结束后是否仍存在连续帧请求。
+
+建议目标：在基线 Mac 上，1 个及 3 个并发特效的增量 update + presentation build + paint p95 小于 0.5ms；该数值需在实现后以真实 App 测量确认。
+
+## 9. 状态、错误与边界情况
+
+| 场景 | 预期行为 |
+| --- | --- |
+| 用户发送普通消息 | 不触发 |
+| 模型只回复文字、未调用派发 | 不触发 |
+| 未知/禁用/不活跃目标导致预检失败 | 不触发，保留原错误反馈 |
+| 最终 receipt 为 `Failed` | 不触发成功命中 |
+| 任务进入目标队列 | 以 `Queued` 风格触发 |
+| Untracked Agent 接收任务 | 以中性风格触发，不暗示后续可跟踪 |
+| 一次派发多个 Agent | 按 receipt 顺序错峰播放并遵守容量上限 |
+| 目标飞行中移动 | 终点跟随当前 presentation center |
+| Canvas 平移/缩放 | 每帧重算目标屏幕坐标 |
+| 目标删除或移出可见区 | 淡出/取消，不爆炸、不自动导航 |
+| Reduced Motion | Dock flash + 目标 pulse，无跨屏飞行 |
+| 动画期间再次派发 | 独立加入有界 effect store，不阻塞前一个任务 |
+| 窗口切换到非 Canvas/失活 | 不积压恢复后才播放的旧动画 |
+
+## 10. 验收标准
+
+### 10.1 触发正确性
+
+- [ ] 用户发送普通文字或语音消息但未形成 `DispatchAgentTasks` 时，特效状态不存在。
+- [ ] Norma 来源的 `Submitted` receipt 创建且只创建一个对应目标的特效。
+- [ ] Norma 来源的 `Queued` receipt 创建一个队列风格特效。
+- [ ] Norma 来源的 `Untracked` receipt 创建一个中性风格特效。
+- [ ] `Failed` receipt 不创建飞行或命中爆炸。
+- [ ] `Manual` 与 `Agent` 来源不创建 Dock 飞行特效。
+- [ ] `ListAgents`、`ActivateAgent`、状态查询、取消和任务完成事件均不创建本特效。
+- [ ] 同一 `task_ref + target_node_id` 重复进入视觉 seam 时不会重复播放。
+
+### 10.2 空间与交互
+
+- [ ] 首帧起点位于实际 Command Dock 中心，Dock 布局常量改变时不会产生独立魔数漂移。
+- [ ] 终点使用 receipt 的 `node_id` 对应 Agent Card 当前 presentation rect 中心。
+- [ ] 飞行期间拖动目标卡片，receipt 仍命中移动后的视觉中心。
+- [ ] 飞行期间平移或缩放 Canvas，终点仍与屏幕上的卡片中心一致。
+- [ ] 特效不改变卡片真实 bounds、焦点、选择、输入路由或 hitbox。
+- [ ] effect overlay 位于卡片之上、Dock/chrome 之下，并且不拦截鼠标事件。
+- [ ] 目标删除或离开可见区后不播放悬空爆炸。
+
+### 10.3 动效与无障碍
+
+- [ ] 默认 Flight 在 220–280ms 内完成，Impact 在 140–180ms 内完成。
+- [ ] 命中反馈是克制的 receipt 落点，不呈现为任务完成庆祝。
+- [ ] Reduced Motion 下没有跨屏位移和粒子散射，同时 Dock 与可见目标仍有短促状态反馈。
+- [ ] 高对比度、浅色和深色主题下，反馈可见但不只依靠颜色承载业务状态。
+
+### 10.4 性能与调度
+
+- [ ] 同时 active effect 不超过 3，pending visual event 不超过 8，总粒子不超过 64。
+- [ ] 粒子不以独立 GPUI element 实现，所有特效共享单一 Canvas overlay。
+- [ ] 每个 effect 每帧最多构建一条 path；普通粒子不使用 path 或独立阴影。
+- [ ] effect 生命周期结束后 `canvas_active` 恢复 false，本功能不再触发连续 16ms frame。
+- [ ] 容量溢出只跳过视觉，不影响业务 receipt、队列和持久化状态。
+- [ ] 基线 Mac 上 1 个和 3 个并发特效的增量 update + build + paint p95 目标小于 0.5ms，并记录实测结果。
+
+### 10.5 自动化证据
+
+实现阶段必须先按项目 TDD 规范补失败测试，并覆盖：
+
+1. App 单元测试：状态筛选、来源筛选、视觉幂等、阶段边界、`delta` clamp、容量、目标删除和 Reduced Motion。
+2. Frame schedule 单元测试：特效存活时为 active cadence，清理后返回 idle；必须同时包含正断言和负断言。
+3. `crates/e2e` L2：从 `DispatchAgentTasks` 到 effect projection 的闭环；`Failed`、普通消息和非 Norma 来源必须负验收。
+4. 真实 App L3/Computer Use：验证 Dock 起点、动态命中、层级、主题、Reduced Motion、拖动/缩放/窗口 resize 和并发视觉。
+5. 性能诊断：记录 1 个与 3 个并发特效的帧增量以及动画结束后的停帧证据。
+
+所有新增单元测试必须使用项目规定的完整文档注释、数值推导、具体正负断言和断言说明字符串。
+
+## 11. 风险与权衡
+
+- **状态误读风险**：爆炸容易被理解为任务完成。通过触发时机、克制视觉和 receipt 文案保持“已路由”语义。
+- **来源误读风险**：Agent-to-Agent 委派若仍从 Dock 发射会产生错误空间因果，因此首版明确排除。
+- **动态目标抖动**：每帧直接追踪快速拖动目标可能让尾迹轻微变形。首版优先保证真实命中；若实测明显抖动，再增加帧率无关的目标滤波，而不是固定旧终点。
+- **GPUI 路径成本**：`PathBuilder` 存在 CPU tessellation，因此严格限制为每 effect 一条轨迹，粒子使用 quads。
+- **视觉丢弃**：容量压力下允许跳过部分动画，以换取稳定交互；业务 receipt 永不丢失。
+- **高频干扰**：该反馈可能每天出现数十次，默认时长控制在 300ms 内，批量有限流，并提供 Reduced Motion；后续可基于真实频率决定是否增加“降低特效强度”设置。
+
+## 12. 后续演进（非首版承诺）
+
+- Agent-to-Agent 来源使用源卡片中心到目标卡片中心的独立空间派发动效。
+- Offscreen 目标通过 minimap 或边缘方向指示，而不是自动平移 Canvas。
+- 基于使用频率自适应降低粒子数量或仅保留目标 pulse。
+- 在多个功能确实共享相同需求后，再抽取通用 effect primitive；首版保持 dispatch 专用。

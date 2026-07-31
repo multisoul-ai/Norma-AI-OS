@@ -29,6 +29,7 @@ fn production_agent_command_batch_updates_context_before_user_turn() {
         active_node_id: Some(101),
         tracking: AgentTrackingMode::Managed,
         busy: false,
+        task_state: agent::AgentTaskState::Ready,
     }];
     let context = CurrentCanvasContext {
         project_name: "norma".to_string(),

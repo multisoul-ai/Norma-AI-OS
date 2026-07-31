@@ -102,8 +102,8 @@ fn grok_agent_restore_uses_saved_hook_session_id() {
 /// Claude/Codex/OpenCode Agent profile 映射到精确的启动命令。
 ///
 /// 数据构造（含关键数值推导）：
-///   Claude profile → /bin/zsh -ic "exec claude --dangerously-skip-permissions"
-///   Codex profile  → /bin/zsh -ic "exec codex -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox"
+///   Claude profile → /bin/zsh -lic "exec claude --dangerously-skip-permissions"
+///   Codex profile  → /bin/zsh -lic "exec codex -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox"
 ///   OpenCode profile → /bin/zsh -lic "exec \"${OPENCODE_BIN:-opencode}\""
 ///   使用 -lic：login shell 先读 ~/.zprofile，再以交互模式读取 ~/.zshrc，exec 替换 shell 进程
 ///
@@ -137,16 +137,16 @@ fn test_agent_command_specs_are_exact() {
     );
     assert_eq!(
         claude.args,
-        vec!["-ic", "exec claude --dangerously-skip-permissions"],
-        "Claude Agent args 必须精确匹配计划中的高权限命令"
+        vec!["-lic", "exec claude --dangerously-skip-permissions"],
+        "Claude Agent args 必须加载 login profile 并精确匹配计划中的高权限命令"
     );
     assert_eq!(
         codex.args,
         vec![
-            "-ic",
+            "-lic",
             "exec codex -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox"
         ],
-        "Codex Agent args 必须精确匹配高权限命令，并关闭会吞掉自动 Enter 的 paste-burst 启发式"
+        "Codex Agent args 必须加载 login profile、精确匹配高权限命令，并关闭会吞掉自动 Enter 的 paste-burst 启发式"
     );
     assert_eq!(
         opencode.args,

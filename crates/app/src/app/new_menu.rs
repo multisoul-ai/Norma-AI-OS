@@ -10,6 +10,13 @@ use gpui::{
 use ui::icons::{toolbar_icon, with_alpha, ToolbarIcon};
 use ui::Theme;
 
+const NEW_MENU_WIDTH_PX: f32 = 180.0;
+const NEW_MENU_TRIGGER_WIDTH_PX: f32 = 38.0;
+// 12px separates the menu's rounded/shadowed surface from the rounded Dock trigger.
+const NEW_MENU_TRIGGER_GAP_PX: f32 = 12.0;
+// menu_left = -(menu_width - trigger_width) / 2 = -(180 - 38) / 2 = -71
+const NEW_MENU_LEFT_OFFSET_PX: f32 = -(NEW_MENU_WIDTH_PX - NEW_MENU_TRIGGER_WIDTH_PX) / 2.0;
+
 impl MultisoulApp {
     /// ✚ 按钮点击：翻转菜单展开状态（按钮同时作为触发器与 toggle 指示）。
     pub(super) fn on_toolbar_toggle_new_menu(
@@ -121,95 +128,90 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    /// ✚ 弹出菜单：在底部 Command Dock 上方居中悬浮，列出所有新建入口。
-    pub(super) fn render_new_menu(&self, cx: &mut Context<Self>) -> Div {
+    /// ✚ 弹出菜单：由 Dock 的 New 按钮容器承载，始终从触发按钮正上方浮出。
+    pub(super) fn render_new_menu(&self, cx: &mut Context<Self>) -> Stateful<Div> {
         let theme = self.theme;
 
         div()
+            .id("new-menu")
+            .debug_selector(|| "new-menu".to_string())
             .absolute()
-            .bottom(px(82.0))
-            .left(px(0.0))
-            .right(px(0.0))
+            .bottom(px(NEW_MENU_TRIGGER_WIDTH_PX + NEW_MENU_TRIGGER_GAP_PX))
+            .left(px(NEW_MENU_LEFT_OFFSET_PX))
             .flex()
-            .flex_row()
-            .justify_center()
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .p(px(6.0))
-                    .w(px(180.0))
-                    .rounded(px(12.0))
-                    .border_1()
-                    .border_color(rgba(with_alpha(theme.edge_highlight, 0x34)))
-                    .shadow(chrome_shadow(theme))
-                    .bg(rgba(with_alpha(theme.panel, 0xf2)))
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .child(new_menu_item(
-                        theme,
-                        ToolbarIcon::Terminal,
-                        "Terminal",
-                        "new-menu-terminal",
-                        cx.listener(Self::on_new_menu_terminal),
-                    ))
-                    .child(new_menu_item(
-                        theme,
-                        ToolbarIcon::Claude,
-                        "Claude",
-                        "new-menu-claude",
-                        cx.listener(Self::on_new_menu_claude),
-                    ))
-                    .child(new_menu_item(
-                        theme,
-                        ToolbarIcon::Codex,
-                        "Codex",
-                        "new-menu-codex",
-                        cx.listener(Self::on_new_menu_codex),
-                    ))
-                    .child(new_menu_item(
-                        theme,
-                        ToolbarIcon::Cursor,
-                        "Cursor",
-                        "new-menu-cursor",
-                        cx.listener(Self::on_new_menu_cursor),
-                    ))
-                    .child(new_menu_item(
-                        theme,
-                        ToolbarIcon::Grok,
-                        "Grok",
-                        "new-menu-grok",
-                        cx.listener(Self::on_new_menu_grok),
-                    ))
-                    .child(new_menu_item(
-                        theme,
-                        ToolbarIcon::OpenCode,
-                        "OpenCode",
-                        "new-menu-opencode",
-                        cx.listener(Self::on_new_menu_opencode),
-                    ))
-                    .child(new_menu_item(
-                        theme,
-                        ToolbarIcon::Preview,
-                        "Preview",
-                        "new-menu-preview",
-                        cx.listener(Self::on_new_menu_preview),
-                    ))
-                    .child(new_menu_item(
-                        theme,
-                        ToolbarIcon::Browser,
-                        "Browser",
-                        "new-menu-browser",
-                        cx.listener(Self::on_new_menu_browser),
-                    ))
-                    .child(new_menu_item(
-                        theme,
-                        ToolbarIcon::Browser,
-                        "Ego",
-                        "new-menu-ego",
-                        cx.listener(Self::on_new_menu_ego),
-                    )),
-            )
+            .flex_col()
+            .gap_1()
+            .p(px(6.0))
+            .w(px(NEW_MENU_WIDTH_PX))
+            .rounded(px(12.0))
+            .border_1()
+            .border_color(rgba(with_alpha(theme.edge_highlight, 0x34)))
+            .shadow(chrome_shadow(theme))
+            .bg(rgba(with_alpha(theme.panel, 0xf2)))
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .child(new_menu_item(
+                theme,
+                ToolbarIcon::Terminal,
+                "Terminal",
+                "new-menu-terminal",
+                cx.listener(Self::on_new_menu_terminal),
+            ))
+            .child(new_menu_item(
+                theme,
+                ToolbarIcon::Claude,
+                "Claude",
+                "new-menu-claude",
+                cx.listener(Self::on_new_menu_claude),
+            ))
+            .child(new_menu_item(
+                theme,
+                ToolbarIcon::Codex,
+                "Codex",
+                "new-menu-codex",
+                cx.listener(Self::on_new_menu_codex),
+            ))
+            .child(new_menu_item(
+                theme,
+                ToolbarIcon::Cursor,
+                "Cursor",
+                "new-menu-cursor",
+                cx.listener(Self::on_new_menu_cursor),
+            ))
+            .child(new_menu_item(
+                theme,
+                ToolbarIcon::Grok,
+                "Grok",
+                "new-menu-grok",
+                cx.listener(Self::on_new_menu_grok),
+            ))
+            .child(new_menu_item(
+                theme,
+                ToolbarIcon::OpenCode,
+                "OpenCode",
+                "new-menu-opencode",
+                cx.listener(Self::on_new_menu_opencode),
+            ))
+            .child(new_menu_item(
+                theme,
+                ToolbarIcon::Preview,
+                "Preview",
+                "new-menu-preview",
+                cx.listener(Self::on_new_menu_preview),
+            ))
+            .child(new_menu_item(
+                theme,
+                ToolbarIcon::Browser,
+                "Browser",
+                "new-menu-browser",
+                cx.listener(Self::on_new_menu_browser),
+            ))
+            .child(new_menu_item(
+                theme,
+                ToolbarIcon::Browser,
+                "Ego",
+                "new-menu-ego",
+                cx.listener(Self::on_new_menu_ego),
+            ))
     }
 }
 

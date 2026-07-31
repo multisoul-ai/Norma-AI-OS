@@ -1,10 +1,11 @@
-use crate::AgentRosterEntry;
+use crate::{AgentRosterEntry, AgentTaskState};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AddressedAgent {
     pub definition_id: i64,
     pub name: String,
     pub active: bool,
+    pub task_state: AgentTaskState,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -65,6 +66,16 @@ pub fn parse_direct_address(input: &str, roster: &[AgentRosterEntry]) -> DirectA
         return DirectAddressIntent::NewTask {
             agents,
             message: cleaned,
+        };
+    }
+
+    if agents
+        .iter()
+        .any(|agent| agent.task_state == AgentTaskState::Ended)
+    {
+        return DirectAddressIntent::NewTask {
+            agents,
+            message: message.to_string(),
         };
     }
 
@@ -186,6 +197,7 @@ fn match_one_leading_agent<'a>(
             definition_id: entry.definition_id,
             name: entry.name.clone(),
             active: entry.active_node_id.is_some(),
+            task_state: entry.task_state,
         },
         rest,
     ))

@@ -119,6 +119,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             active_node_id: Some(21),
             tracking: AgentTrackingMode::Managed,
             busy: false,
+            task_state: agent::AgentTaskState::Ready,
         }],
     );
 

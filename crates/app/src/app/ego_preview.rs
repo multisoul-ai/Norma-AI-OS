@@ -1,7 +1,19 @@
-#[cfg(not(feature = "e2e-test-support"))]
-use super::ego_page_capture::capture_ego_task_space_rgba;
 #[cfg(test)]
 use super::ego_page_capture::parse_ego_screenshot_path;
+#[cfg(any(test, not(feature = "e2e-test-support")))]
+mod live;
+#[cfg(feature = "l3-test-support")]
+mod live_probe;
+#[cfg(any(test, not(feature = "e2e-test-support")))]
+mod pacer;
+#[cfg(any(test, not(feature = "e2e-test-support")))]
+mod quality;
+#[cfg(any(test, not(feature = "e2e-test-support")))]
+mod screencast;
+#[cfg(any(test, not(feature = "e2e-test-support")))]
+mod snapshot;
+#[cfg(any(test, not(feature = "e2e-test-support")))]
+mod worker;
 #[cfg(not(feature = "e2e-test-support"))]
 use super::AppScreen;
 use super::MultisoulApp;
@@ -9,32 +21,28 @@ use canvas::NodeId;
 #[cfg(any(test, not(feature = "e2e-test-support")))]
 use canvas::{BrowserSurfaceKind, CanvasNodeKind, EgoCardPhase};
 use gpui::{Context, RenderImage};
-#[cfg(not(feature = "e2e-test-support"))]
-use image::ImageReader;
 use image::{DynamicImage, Frame, RgbaImage};
+#[cfg(feature = "l3-test-support")]
+pub use live_probe::{run_ego_live_capture_probe, EgoLiveCaptureProbeReport};
+#[cfg(test)]
+use quality::validate_ego_preview_rgba;
+#[cfg(any(test, not(feature = "e2e-test-support")))]
+use runtime::EgoOwnership;
 #[cfg(not(feature = "e2e-test-support"))]
-use screencapturekit::sc_shareable_content::SCShareableContent;
+use snapshot::capture_ego_preview_frame;
+#[cfg(test)]
+use snapshot::{select_ego_window_id, select_unique_non_blank_capture, EgoWindowCandidate};
 use std::collections::HashMap;
 #[cfg(not(feature = "e2e-test-support"))]
-use std::path::{Path, PathBuf};
-#[cfg(not(feature = "e2e-test-support"))]
-use std::process::Command;
-#[cfg(not(feature = "e2e-test-support"))]
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::collections::HashSet;
 use std::sync::Arc;
 #[cfg(any(test, not(feature = "e2e-test-support")))]
 use std::time::Duration;
 use std::time::Instant;
 
-#[cfg(any(test, not(feature = "e2e-test-support")))]
-const EGO_BUNDLE_ID: &str = "com.citrolabs.ego.lite";
-#[cfg(any(test, not(feature = "e2e-test-support")))]
-const EGO_APPLICATION_NAME: &str = "ego lite";
 const EGO_PREVIEW_MAX_EDGE_PX: u32 = 1440;
 #[cfg(any(test, not(feature = "e2e-test-support")))]
 const EGO_PREVIEW_INTERVAL: Duration = Duration::from_secs(1);
-#[cfg(not(feature = "e2e-test-support"))]
-static EGO_PREVIEW_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Default)]
 pub(crate) struct EgoPreviewStore {
@@ -43,11 +51,23 @@ pub(crate) struct EgoPreviewStore {
     inflight: HashMap<NodeId, u64>,
     last_requested_at: HashMap<NodeId, Instant>,
     generation: u64,
+    #[cfg(not(feature = "e2e-test-support"))]
+    live: live::EgoLivePreviewStore,
+    #[cfg(not(feature = "e2e-test-support"))]
+    screencast: screencast::EgoScreencastStore,
 }
 
 impl EgoPreviewStore {
     pub(crate) fn frame_for(&self, node_id: NodeId) -> Option<Arc<RenderImage>> {
         self.frames.get(&node_id).cloned()
+    }
+
+    #[cfg(not(feature = "e2e-test-support"))]
+    pub(crate) fn live_frame_for(
+        &self,
+        node_id: NodeId,
+    ) -> Option<core_video::pixel_buffer::CVPixelBuffer> {
+        self.live.frame_for(node_id)
     }
 
     #[cfg(feature = "e2e-test-support")]
@@ -115,6 +135,11 @@ impl EgoPreviewStore {
 
     pub(crate) fn clear(&mut self) -> Vec<Arc<RenderImage>> {
         self.generation = self.generation.wrapping_add(1);
+        #[cfg(not(feature = "e2e-test-support"))]
+        {
+            self.live.clear();
+            self.screencast.clear();
+        }
         self.errors.clear();
         self.inflight.clear();
         self.last_requested_at.clear();
@@ -140,12 +165,84 @@ pub(super) fn render_ego_preview_from_rgba(rgba: RgbaImage) -> Arc<RenderImage> 
 impl MultisoulApp {
     #[cfg(not(feature = "e2e-test-support"))]
     pub(super) fn refresh_due_ego_previews(&mut self, cx: &mut Context<Self>) {
-        if !matches!(self.screen, AppScreen::Canvas) || !self.window_active {
+        if !matches!(self.screen, AppScreen::Canvas)
+            || !self.window_active
+            || self.settings_panel.open
+        {
+            self.ego_previews.live.pause();
+            self.ego_previews.screencast.pause();
             return;
         }
         let preview_targets = eligible_ego_preview_targets(&self.runtime);
+        let cdp_targets = cdp_capture_targets(&self.runtime, &preview_targets);
         let now = Instant::now();
+        let screencast_report = self
+            .ego_previews
+            .screencast
+            .sync_and_poll(&cdp_targets, now);
+        let mut released_frames = Vec::new();
+        let mut screencast_changed = false;
+        for (node_id, sequence, frame) in screencast_report.frames {
+            if let Some(previous) = self.ego_previews.frames.insert(node_id, frame) {
+                released_frames.push(previous);
+            }
+            self.ego_previews.live.remove_frame(node_id);
+            self.ego_previews.errors.remove(&node_id);
+            tracing::trace!(node_id, sequence, "Ego CDP screencast frame presented");
+            screencast_changed = true;
+        }
+        for (node_id, message) in screencast_report.errors {
+            if self.ego_previews.errors.get(&node_id) != Some(&message) {
+                tracing::warn!(node_id, %message, "Ego CDP screencast failed");
+                self.ego_previews.errors.insert(node_id, message);
+                screencast_changed = true;
+            }
+        }
+        release_frames(released_frames, cx);
+        if screencast_changed {
+            cx.notify();
+        }
+
+        let live_targets = secondary_capture_targets(&preview_targets, |node_id| {
+            self.ego_previews.screencast.is_active(node_id)
+        });
+        let retained_live_nodes = preview_targets
+            .iter()
+            .map(|(node_id, _, _)| *node_id)
+            .collect::<HashSet<_>>();
+        let live_report =
+            self.ego_previews
+                .live
+                .sync_and_poll(&live_targets, &retained_live_nodes, now);
+        if let Some((node_id, sequence)) = live_report.presented_sequences.last() {
+            tracing::trace!(
+                node_id,
+                sequence,
+                presented_frames = live_report.presented_sequences.len(),
+                "Ego live preview frames presented"
+            );
+        }
+        let mut live_changed = false;
+        for node_id in live_report.updated_nodes {
+            self.ego_previews.errors.remove(&node_id);
+            live_changed = true;
+        }
+        for (node_id, message) in live_report.errors {
+            if self.ego_previews.errors.get(&node_id) != Some(&message) {
+                tracing::warn!(node_id, %message, "Ego live preview capture failed");
+                self.ego_previews.errors.insert(node_id, message);
+                live_changed = true;
+            }
+        }
+        if live_changed {
+            cx.notify();
+        }
         for (node_id, task_space_id, task_space_name) in preview_targets {
+            if self.ego_previews.live.has_frame(node_id)
+                || self.ego_previews.screencast.is_active(node_id)
+            {
+                continue;
+            }
             let Some(generation) = self.ego_previews.begin_request(node_id, now) else {
                 continue;
             };
@@ -222,131 +319,33 @@ fn eligible_ego_preview_targets(
         .collect()
 }
 
-#[cfg(not(feature = "e2e-test-support"))]
-fn capture_ego_preview_frame(
-    node_id: NodeId,
-    generation: u64,
-    task_space_id: Option<&str>,
-    task_space_name: &str,
-) -> Result<Arc<RenderImage>, String> {
-    let Some(task_space_id) = task_space_id else {
-        return capture_ego_window_preview(node_id, generation, task_space_name);
-    };
-    match capture_ego_task_space_rgba(task_space_id) {
-        Ok(rgba) => Ok(render_ego_preview_from_rgba(rgba)),
-        Err(page_error) => capture_ego_window_preview(node_id, generation, task_space_name)
-            .map_err(|window_error| {
-                format!("Ego 页面捕获失败：{page_error}；macOS 窗口捕获也失败：{window_error}")
-            }),
-    }
-}
-
-#[cfg(not(feature = "e2e-test-support"))]
-fn capture_ego_window_preview(
-    node_id: NodeId,
-    generation: u64,
-    task_space_name: &str,
-) -> Result<Arc<RenderImage>, String> {
-    let candidates = list_ego_window_candidates()?;
-    if let Ok(window_id) = select_ego_window_id(&candidates, task_space_name) {
-        let rgba = capture_window_rgba(window_id, node_id, generation)?;
-        return Ok(render_ego_preview_from_rgba(rgba));
-    }
-
-    let window_ids = highest_priority_ego_window_ids(&candidates, task_space_name);
-    if window_ids.is_empty() {
-        return Err(format!("未找到标题为“{task_space_name}”的 Ego Lite 窗口"));
-    }
-    let mut captures = Vec::with_capacity(window_ids.len());
-    for window_id in window_ids {
-        let rgba = capture_window_rgba(window_id, node_id, generation)?;
-        captures.push((window_id, preview_color_score(&rgba), rgba));
-    }
-    let scores: Vec<(u32, usize)> = captures
+#[cfg(any(test, not(feature = "e2e-test-support")))]
+fn cdp_capture_targets(
+    runtime: &runtime::Runtime,
+    targets: &[(NodeId, Option<String>, String)],
+) -> Vec<(NodeId, Option<String>, String)> {
+    targets
         .iter()
-        .map(|(window_id, score, _)| (*window_id, *score))
-        .collect();
-    let selected_window_id = select_unique_non_blank_capture(&scores)?;
-    let rgba = captures
-        .into_iter()
-        .find_map(|(window_id, _, rgba)| (window_id == selected_window_id).then_some(rgba))
-        .ok_or_else(|| "Ego 预览选择结果缺少对应图像".to_string())?;
-    Ok(render_ego_preview_from_rgba(rgba))
-}
-
-#[cfg(not(feature = "e2e-test-support"))]
-fn capture_window_rgba(
-    window_id: u32,
-    node_id: NodeId,
-    generation: u64,
-) -> Result<RgbaImage, String> {
-    let path = ego_preview_temp_path(node_id, generation);
-    let capture_result =
-        capture_window_to_path(window_id, &path).and_then(|()| decode_captured_rgba(&path));
-    let _ = std::fs::remove_file(&path);
-    capture_result
-}
-
-#[cfg(not(feature = "e2e-test-support"))]
-fn list_ego_window_candidates() -> Result<Vec<EgoWindowCandidate>, String> {
-    let content = SCShareableContent::try_current().map_err(|error| {
-        format!("无法读取 Ego 窗口：{error}。请在系统设置中允许 Norma OS 录制屏幕。")
-    })?;
-    Ok(content
-        .windows
-        .into_iter()
-        .filter(|window| window.window_layer == 0 && window.width > 1 && window.height > 1)
-        .map(|window| {
-            let owner = window.owning_application.as_ref();
-            EgoWindowCandidate::new(
-                window.window_id,
-                owner.and_then(|application| application.bundle_identifier.as_deref()),
-                owner.and_then(|application| application.application_name.as_deref()),
-                window.title.as_deref(),
-                window.is_active,
-                window.is_on_screen,
-            )
+        .filter(|(node_id, _, _)| {
+            runtime.ego_task_state(*node_id).is_some_and(|state| {
+                state.phase == EgoCardPhase::AgentWorking
+                    && matches!(state.ownership, EgoOwnership::Agent { .. })
+            })
         })
-        .collect())
+        .cloned()
+        .collect()
 }
 
-#[cfg(not(feature = "e2e-test-support"))]
-fn capture_window_to_path(window_id: u32, path: &Path) -> Result<(), String> {
-    let output = Command::new("/usr/sbin/screencapture")
-        .arg("-x")
-        .arg("-l")
-        .arg(window_id.to_string())
-        .arg(path)
-        .output()
-        .map_err(|error| format!("无法启动 macOS 窗口捕获：{error}"))?;
-    if !output.status.success() {
-        return Err(format!(
-            "无法捕获 Ego 窗口：{}。请在系统设置中允许 Norma OS 录制屏幕。",
-            String::from_utf8_lossy(&output.stderr).trim()
-        ));
-    }
-    Ok(())
-}
-
-#[cfg(not(feature = "e2e-test-support"))]
-fn decode_captured_rgba(path: &Path) -> Result<RgbaImage, String> {
-    let rgba = ImageReader::open(path)
-        .map_err(|error| format!("无法打开 Ego 预览图：{error}"))?
-        .with_guessed_format()
-        .map_err(|error| format!("无法识别 Ego 预览格式：{error}"))?
-        .decode()
-        .map_err(|error| format!("无法解码 Ego 预览图：{error}"))?
-        .into_rgba8();
-    Ok(rgba)
-}
-
-#[cfg(not(feature = "e2e-test-support"))]
-fn ego_preview_temp_path(node_id: NodeId, generation: u64) -> PathBuf {
-    let sequence = EGO_PREVIEW_FILE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!(
-        "norma-ego-preview-{}-{node_id}-{generation}-{sequence}.png",
-        std::process::id()
-    ))
+#[cfg(any(test, not(feature = "e2e-test-support")))]
+fn secondary_capture_targets(
+    targets: &[(NodeId, Option<String>, String)],
+    mut primary_is_active: impl FnMut(NodeId) -> bool,
+) -> Vec<(NodeId, Option<String>, String)> {
+    targets
+        .iter()
+        .filter(|(node_id, _, _)| !primary_is_active(*node_id))
+        .cloned()
+        .collect()
 }
 
 fn release_frames(frames: Vec<Arc<RenderImage>>, cx: &mut Context<MultisoulApp>) {
@@ -360,137 +359,15 @@ fn release_frames(frames: Vec<Arc<RenderImage>>, cx: &mut Context<MultisoulApp>)
     });
 }
 
-#[cfg(any(test, not(feature = "e2e-test-support")))]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) struct EgoWindowCandidate {
-    window_id: u32,
-    owner_bundle_id: Option<String>,
-    owner_name: Option<String>,
-    title: Option<String>,
-    is_active: bool,
-    is_on_screen: bool,
-}
-
-#[cfg(any(test, not(feature = "e2e-test-support")))]
-impl EgoWindowCandidate {
-    pub(super) fn new(
-        window_id: u32,
-        owner_bundle_id: Option<&str>,
-        owner_name: Option<&str>,
-        title: Option<&str>,
-        is_active: bool,
-        is_on_screen: bool,
-    ) -> Self {
-        Self {
-            window_id,
-            owner_bundle_id: owner_bundle_id.map(str::to_string),
-            owner_name: owner_name.map(str::to_string),
-            title: title.map(str::to_string),
-            is_active,
-            is_on_screen,
-        }
-    }
-
-    fn belongs_to_ego(&self) -> bool {
-        self.owner_bundle_id.as_deref() == Some(EGO_BUNDLE_ID)
-            || (self.owner_bundle_id.is_none()
-                && self
-                    .owner_name
-                    .as_deref()
-                    .is_some_and(|name| name.eq_ignore_ascii_case(EGO_APPLICATION_NAME)))
-    }
-
-    fn priority(&self) -> u8 {
-        u8::from(self.is_active) * 2 + u8::from(self.is_on_screen)
-    }
-}
-
-#[cfg(any(test, not(feature = "e2e-test-support")))]
-pub(super) fn select_ego_window_id(
-    candidates: &[EgoWindowCandidate],
-    task_space_name: &str,
-) -> Result<u32, String> {
-    let mut matching: Vec<&EgoWindowCandidate> = candidates
-        .iter()
-        .filter(|candidate| {
-            candidate.belongs_to_ego() && candidate.title.as_deref() == Some(task_space_name)
-        })
-        .collect();
-    matching.sort_by_key(|candidate| std::cmp::Reverse(candidate.priority()));
-
-    let Some(selected) = matching.first() else {
-        return Err(format!("未找到标题为“{task_space_name}”的 Ego Lite 窗口"));
-    };
-    if matching
-        .get(1)
-        .is_some_and(|candidate| candidate.priority() == selected.priority())
-    {
-        return Err(format!(
-            "找到多个同优先级的 Ego Lite 窗口，无法安全选择“{task_space_name}”"
-        ));
-    }
-    Ok(selected.window_id)
-}
-
-#[cfg(any(test, not(feature = "e2e-test-support")))]
-fn highest_priority_ego_window_ids(
-    candidates: &[EgoWindowCandidate],
-    task_space_name: &str,
-) -> Vec<u32> {
-    let highest_priority = candidates
-        .iter()
-        .filter(|candidate| {
-            candidate.belongs_to_ego() && candidate.title.as_deref() == Some(task_space_name)
-        })
-        .map(EgoWindowCandidate::priority)
-        .max();
-    candidates
-        .iter()
-        .filter(|candidate| {
-            candidate.belongs_to_ego()
-                && candidate.title.as_deref() == Some(task_space_name)
-                && Some(candidate.priority()) == highest_priority
-        })
-        .map(|candidate| candidate.window_id)
-        .collect()
-}
-
-#[cfg(any(test, not(feature = "e2e-test-support")))]
-fn select_unique_non_blank_capture(scores: &[(u32, usize)]) -> Result<u32, String> {
-    const NON_BLANK_COLOR_THRESHOLD: usize = 8;
-    let mut non_blank = scores
-        .iter()
-        .filter(|(_, score)| *score >= NON_BLANK_COLOR_THRESHOLD)
-        .map(|(window_id, _)| *window_id);
-    let Some(selected) = non_blank.next() else {
-        return Err("同名 Ego Lite 窗口均未返回可识别的页面内容".to_string());
-    };
-    if non_blank.next().is_some() {
-        return Err("多个同名 Ego Lite 窗口都有页面内容，无法安全选择".to_string());
-    }
-    Ok(selected)
-}
-
-#[cfg(not(feature = "e2e-test-support"))]
-fn preview_color_score(rgba: &RgbaImage) -> usize {
-    let width = rgba.width() as usize;
-    let height = rgba.height() as usize;
-    if width == 0 || height == 0 {
-        return 0;
-    }
-    // 忽略约 1/8 顶部窗口栏；content_pixels ≈ width × height × 7 / 8。
-    let content_start = width * (height / 8);
-    let content_pixels = width * height - content_start;
-    // 最多均匀采样约 2_000 个像素，避免对 4K 窗口做全量颜色集合统计。
-    let stride = (content_pixels / 2_000).max(1);
-    rgba.pixels()
-        .skip(content_start)
-        .step_by(stride)
-        .map(|pixel| [pixel[0] >> 4, pixel[1] >> 4, pixel[2] >> 4])
-        .collect::<std::collections::HashSet<_>>()
-        .len()
-}
-
+#[cfg(test)]
+#[path = "../../tests/unit/ego_preview_live_tests.rs"]
+mod live_tests;
+#[cfg(test)]
+#[path = "../../tests/unit/ego_preview_quality_tests.rs"]
+mod quality_tests;
+#[cfg(test)]
+#[path = "../../tests/unit/ego_preview_source_tests.rs"]
+mod source_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/ego_preview_tests.rs"]
 mod tests;

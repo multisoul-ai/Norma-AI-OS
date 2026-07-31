@@ -96,9 +96,10 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
         VisualPreview::VoiceCaption => {
             app.settings_panel.close();
             app.voice_settings.assume_visual_preview_ready_for_e2e();
-            app.voice
-                .begin_recording(crate::app::voice::control::VoiceTrigger::Shortcut);
-            app.voice.partial_text = "请帮我整理今天的项目进展，并根据优先级列出下一步行动。我还想确认语音记录不会因为内容太长而丢失。接下来请检查所有未完成事项，标注负责人和截止日期，并把风险最高的三项单独列出来。".to_string();
+            app.voice.set_transcript_only(
+                "请帮我整理今天的项目进展，并根据优先级列出下一步行动。我还想确认语音记录不会因为内容太长而丢失。接下来请检查所有未完成事项，标注负责人和截止日期，并把风险最高的三项单独列出来。",
+                "voice-caption visual preview",
+            );
         }
         VisualPreview::AzureAsrReady => {
             app.voice_settings
@@ -157,6 +158,7 @@ fn configure_agent_queue(app: &mut MultisoulApp) {
         active_node_id: Some(node_id),
         tracking: agent::AgentTrackingMode::Managed,
         busy: false,
+        task_state: agent::AgentTaskState::Ready,
     }];
     let mut coordinator = agent::AgentTaskCoordinator::new(roster)
         .expect("queue visual preview roster should be valid");

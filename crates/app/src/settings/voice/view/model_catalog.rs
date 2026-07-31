@@ -1,7 +1,9 @@
 use super::setup::models::model_action_control;
 use super::{setting_label, with_alpha};
 use crate::app::MultisoulApp;
-use crate::settings::voice::{AsrModelInstallState, AsrModelManagerState, VoiceSettingsState};
+use crate::settings::voice::{
+    AsrModelInstallState, AsrModelManagerState, VoiceRequirementState, VoiceSettingsState,
+};
 use asr::{AsrModelDescriptor, AsrModelId};
 use gpui::{div, prelude::*, px, rgba, Context, Div};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -147,6 +149,7 @@ fn failure_message(state: &AsrModelInstallState) -> Option<String> {
 
 impl MultisoulApp {
     pub(crate) fn refresh_asr_model_states(&mut self, cx: &mut Context<Self>) {
+        self.refresh_vad_requirement(cx);
         let model_root = self.voice_settings.model_root().to_path_buf();
         let work = cx.background_executor().spawn(async move {
             AsrModelManagerState::scan(&asr::builtin_model_catalog(), &model_root)
@@ -160,6 +163,41 @@ impl MultisoulApp {
             });
         })
         .detach();
+    }
+
+    pub(crate) fn refresh_vad_requirement(&mut self, cx: &mut Context<Self>) {
+        let generation = self.voice_settings.begin_vad_validation();
+        let model_root = self.voice_settings.model_root().to_path_buf();
+        let work = cx.background_executor().spawn(async move {
+            match asr::validate_silero_vad_installation(&model_root) {
+                Ok(_) => VoiceRequirementState::Ready,
+                Err(asr::AsrInstallationError::MissingRequiredFile(_)) => {
+                    VoiceRequirementState::Missing
+                }
+                Err(error) => {
+                    tracing::warn!(
+                        %error,
+                        "shared VAD integrity validation failed during background refresh"
+                    );
+                    VoiceRequirementState::Failed
+                }
+            }
+        });
+        cx.spawn(async move |this, cx| {
+            let requirement = work.await;
+            let _ = this.update(cx, |app, cx| {
+                if !app
+                    .voice_settings
+                    .finish_vad_validation(generation, requirement)
+                {
+                    return;
+                }
+                app.complete_voice_setup_if_ready(cx);
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
     }
 
     pub(crate) fn install_asr_model(&mut self, id: AsrModelId, cx: &mut Context<Self>) {
@@ -213,6 +251,7 @@ impl MultisoulApp {
                         ModelInstallEvent::Finished(ModelInstallOutcome::Ready) => {
                             app.asr_download_cancellations.remove(&id);
                             app.voice_settings.complete_asr_model_install(id.clone());
+                            app.refresh_vad_requirement(cx);
                             app.complete_voice_setup_if_ready(cx);
                             app.persist_voice_settings_in_background(cx);
                         }

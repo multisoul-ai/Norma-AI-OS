@@ -98,12 +98,15 @@ fn render_agent(agent: &AgentRosterEntry) -> String {
     } else {
         "已禁用"
     };
-    let activity = if agent.busy {
-        "正在执行任务"
-    } else {
-        "当前空闲"
+    let activity = match agent.task_state {
+        crate::AgentTaskState::Ready => "当前空闲",
+        crate::AgentTaskState::Busy => "正在执行任务",
+        crate::AgentTaskState::Ended => "任务已中断",
     };
     let card = match agent.active_node_id {
+        Some(node_id) if agent.task_state == crate::AgentTaskState::Ended => {
+            format!("已有 AgentCard #{node_id}，旧会话已中断；下一条可执行请求必须作为新任务派发")
+        }
         Some(node_id) => format!("已有 AgentCard #{node_id}，可直接对话"),
         None => "画布上还没有 AgentCard（派发任务时系统会自动打开唯一一张）".to_string(),
     };

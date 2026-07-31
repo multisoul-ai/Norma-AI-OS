@@ -34,6 +34,9 @@ mod e2e_02_terminal_dsr;
 // E2E-02：component Root 不得拦截 Terminal / Agent 卡片需要发送给 PTY 的 Tab。
 mod e2e_02_card_tab_input;
 
+// E2E-02：Agent 卡片粘贴多行文本时，每一行必须从终端左边界显示。
+mod e2e_02_agent_multiline_input;
+
 // Agent 图片粘贴按 CLI 协议分流：Cursor 路径回退，Codex/Claude 原生附件快捷键。
 mod e2e_02_agent_image_paste;
 
@@ -99,6 +102,7 @@ mod e2e_12_agent_queue_ui;
 mod e2e_12_agent_settings_ime;
 mod e2e_12_agent_submit;
 mod e2e_12_agent_submit_l3;
+mod e2e_12_norma_agent_layout;
 mod e2e_12_norma_master;
 mod e2e_12_orchestration_lifecycle;
 mod e2e_12_session_reply;
@@ -110,7 +114,11 @@ mod e2e_12_voice_addressable_agents;
 mod e2e_13_terminal_links;
 
 // Product UI V2：底部 Dock 真实点击不应断开 Terminal reflow 与 Settings 流程。
+mod e2e_14_layout_strategy;
 mod e2e_14_product_ui_contract;
+
+// Canvas 卡片圆角：标题材质在 GPUI 矩形裁剪约束下仍完整覆盖两个顶部圆角。
+mod e2e_14_card_corner_integrity;
 
 // Launchpad：Recent projects 的原生右键菜单删除及 SQLite 持久化闭环。
 mod e2e_15_recent_project_menu;

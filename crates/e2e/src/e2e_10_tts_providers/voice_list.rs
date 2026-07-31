@@ -73,13 +73,13 @@ fn e2e_minimax_large_voice_catalog_uses_bounded_virtual_scroll() {
     );
 }
 
-/// E2E-TTS-REPAINT-1：Spoken Replies 遮住运行中 Agent 时不得继续重绘 Canvas。
+/// E2E-TTS-REPAINT-1：Spoken Replies 打开时，透过半透明 Settings 可见的运行中 Agent 必须继续重绘。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Agent cards = 1（Codex）
 ///   Agent task state = Thinking（稳定启用 Working snake 与运行中 cursor）
 ///   animation delta = 12ms（生产 animation loop 的常规帧间隔）
-///   expected Canvas renders after reset = 0（Settings 完全遮住 Canvas）
+///   expected Canvas renders after reset >= 1（Settings 面板四周仍可见 Canvas）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 进入 Canvas，创建并聚焦 Codex Agent，再注入 Thinking 状态。
@@ -89,10 +89,10 @@ fn e2e_minimax_large_voice_catalog_uses_bounded_virtual_scroll() {
 ///
 /// 预期结果：
 ///   - 正断言：Spoken Replies 在动画帧后仍可见且可交互。
-///   - 负断言：被遮住的 Canvas 不得因 Working snake/cursor 产生任何新 render。
+///   - 正断言：Working snake/cursor 必须产生至少一次 Canvas render，避免可见动画冻结。
 ///   - 负断言：运行中 Agent 状态不得被测试流程清除，以免得到伪绿结果。
 #[test]
-fn e2e_spoken_replies_pauses_occluded_canvas_repaint() {
+fn e2e_spoken_replies_keeps_exposed_canvas_animation_repainting() {
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
     let workspace = tempfile::tempdir().expect("应创建 Spoken Replies repaint e2e workspace");
@@ -132,9 +132,9 @@ fn e2e_spoken_replies_pauses_occluded_canvas_repaint() {
         cx.debug_bounds("settings-tts-picker").is_some(),
         "点击 Change Voice 后，动画帧结束时 Spoken Replies picker 仍必须可见且可交互"
     );
-    assert_eq!(
-        canvas_render_count, 0,
-        "Settings 遮住 Canvas 后 Working snake/cursor 不得触发新的 Canvas render"
+    assert!(
+        canvas_render_count >= 1,
+        "Settings 半透明覆盖层打开后，Working snake/cursor 必须触发至少一次 Canvas render"
     );
     assert_eq!(
         task_state,

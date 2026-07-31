@@ -14,6 +14,7 @@ fn roster(definition_id: i64, name: &str, node_id: u64, busy: bool) -> AgentRost
         active_node_id: Some(node_id),
         tracking: AgentTrackingMode::Managed,
         busy,
+        task_state: agent::AgentTaskState::Ready,
     }
 }
 

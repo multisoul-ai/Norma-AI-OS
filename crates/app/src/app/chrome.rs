@@ -413,8 +413,8 @@ impl MultisoulApp {
                         .child(chrome_button(theme, "{}", false)),
                 )
             })
-            .when(self.interaction.new_menu_open, |chrome| {
-                chrome.child(self.render_new_menu(cx))
+            .when(self.interaction.layout_menu_open, |chrome| {
+                chrome.child(self.render_layout_menu(cx))
             })
     }
 }

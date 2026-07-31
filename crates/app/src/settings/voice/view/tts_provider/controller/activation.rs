@@ -110,6 +110,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.cancel_agent_announcements();
+        self.clear_agent_announcement_audio_for_voice_change();
         self.tts_preview.cancel();
         self.stop_continuous_listening(cx);
         self.voice.stop_for_model_switch();

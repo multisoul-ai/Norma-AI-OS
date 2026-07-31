@@ -42,6 +42,8 @@ pub struct InteractionState {
     pub last_motion_notify: Option<Instant>,
     /// 顶部工具栏 ✚ 按钮的弹出菜单（Terminal/Claude/Codex/Preview）是否展开。
     pub new_menu_open: bool,
+    /// 底部工具条布局配置菜单是否展开。
+    pub layout_menu_open: bool,
 }
 
 impl InteractionState {
@@ -53,6 +55,19 @@ impl InteractionState {
     /// 关闭顶部 ✚ 弹出菜单（Esc / 画布点击 / 选中菜单项后调用）。
     pub fn close_new_menu(&mut self) {
         self.new_menu_open = false;
+    }
+
+    /// 翻转布局配置菜单，并确保两个底部弹出菜单不会重叠。
+    pub fn toggle_layout_menu(&mut self) {
+        self.layout_menu_open = !self.layout_menu_open;
+        if self.layout_menu_open {
+            self.close_new_menu();
+        }
+    }
+
+    /// 关闭布局配置菜单（Esc / 画布点击 / 重新整理后调用）。
+    pub fn close_layout_menu(&mut self) {
+        self.layout_menu_open = false;
     }
 
     pub fn begin_text_selection(&mut self, node_id: NodeId, anchor: TextPoint) {

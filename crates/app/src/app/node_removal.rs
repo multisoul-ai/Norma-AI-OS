@@ -33,6 +33,7 @@ impl MultisoulApp {
             node_id,
             area,
             zoom,
+            self.layout_strategy,
         );
         if changed {
             if self.agent_queue_ui.open_node_id() == Some(node_id) {

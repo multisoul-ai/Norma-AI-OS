@@ -2,6 +2,7 @@ use super::{keyboard::init_multisoul_key_bindings, AppScreen, MultisoulApp};
 use crate::app::browser::BrowserStore;
 use crate::app::frame_throttle::FrameThrottle;
 use crate::canvas::interaction::InteractionState;
+use crate::canvas::layout_strategy::CanvasLayoutStrategy;
 use crate::canvas::master_layout::MasterLayoutState;
 use crate::motion::MotionStore;
 use crate::norma::server::NormaServer;
@@ -98,6 +99,7 @@ impl MultisoulApp {
             ego_previews: super::ego_preview::EgoPreviewStore::default(),
             browser_address_edit: None,
             master_layout: MasterLayoutState::default(),
+            layout_strategy: CanvasLayoutStrategy::default(),
             persistence: PersistenceScheduler::default(),
             settings_panel: SettingsPanelState::default(),
             settings_viewport: SettingsViewportState::default(),
@@ -111,6 +113,8 @@ impl MultisoulApp {
             agent_announcements: super::agent_announcements::AgentAnnouncements::default(),
             agent_announcement_playback:
                 super::agent_announcements::AgentAnnouncementPlayback::default(),
+            agent_announcement_audio_cache:
+                super::agent_announcements::AgentAnnouncementAudioCache::default(),
             screen: AppScreen::Launchpad,
             workspace_state,
             recent_project_context_path: None,
@@ -143,6 +147,7 @@ impl MultisoulApp {
             video_wallpaper: None,
             last_reflow_window_size: None,
             terminal_cursor_phase: 0.0,
+            voice_caption_waveform_phase: 0.0,
             terminal_render_cache:
                 crate::cards::term::render_cache::terminal_render_cache_handle_from_env(),
             terminal_cursor_repaint: FrameThrottle::default(),

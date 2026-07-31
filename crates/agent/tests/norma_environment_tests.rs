@@ -93,6 +93,7 @@ fn norma_environment_is_readable_markdown_and_contains_untrusted_values() {
             active_node_id: Some(21),
             tracking: AgentTrackingMode::Managed,
             busy: true,
+            task_state: agent::AgentTaskState::Busy,
         },
         AgentRosterEntry {
             definition_id: 2,
@@ -103,6 +104,7 @@ fn norma_environment_is_readable_markdown_and_contains_untrusted_values() {
             active_node_id: None,
             tracking: AgentTrackingMode::Managed,
             busy: false,
+            task_state: agent::AgentTaskState::Ready,
         },
     ];
     let canvas = CurrentCanvasContext {
@@ -197,7 +199,7 @@ fn norma_environment_is_readable_markdown_and_contains_untrusted_values() {
 ///   3. 动态部分追加当前项目环境
 ///
 /// 预期结果：
-///   - 正断言：身份固定为 Norma，直接称呼 Alan 会立即调用派发工具
+///   - 正断言：身份固定为 Norma；普通有卡续聊走回复，Ended 卡片的新请求立即调用派发工具
 ///   - 正断言：环境包含项目和 Alan
 ///   - 负断言：Norma 不把自己作为 Canvas Agent，也不要求派发确认
 #[test]
@@ -211,6 +213,7 @@ fn norma_system_prompt_combines_identity_direct_assignment_and_environment() {
         active_node_id: Some(21),
         tracking: AgentTrackingMode::Managed,
         busy: false,
+        task_state: agent::AgentTaskState::Ready,
     }];
     let canvas = CurrentCanvasContext {
         project_name: "norma-ai-os".to_string(),
@@ -230,8 +233,10 @@ fn norma_system_prompt_combines_identity_direct_assignment_and_environment() {
         prompt.contains("可直接对话")
             && prompt.contains("默认调用 `reply_agent`")
             && prompt.contains("绝对不要询问“先激活还是再创建一个”")
-            && prompt.contains("`assign_agent_task`"),
-        "有卡应默认可对话，并禁止激活/新建澄清"
+            && prompt.contains("`assign_agent_task`")
+            && prompt.contains("任务已中断")
+            && prompt.contains("绝不能调用 `reply_agent`"),
+        "有卡应默认可对话；任务已中断时必须覆盖为新任务派发，且禁止激活/新建澄清"
     );
     assert!(
         prompt.contains("不要替目标 Agent 完成任务"),

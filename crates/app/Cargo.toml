@@ -17,6 +17,7 @@ e2e-test-support = [
     "voice_input/test-support",
     "voice_sherpa/test-support",
 ]
+l3-test-support = []
 
 [[bin]]
 name = "norma-os"
@@ -29,6 +30,11 @@ path = "src/bin/multisoul_agent_hook.rs"
 [[bin]]
 name = "norma-browser-auth-host"
 path = "src/bin/norma_browser_auth_host.rs"
+
+[[bin]]
+name = "ego-live-capture-l3"
+path = "src/bin/ego_live_capture_l3.rs"
+required-features = ["l3-test-support"]
 
 [dependencies]
 gpui = { workspace = true, features = ["test-support"] }
@@ -65,6 +71,7 @@ ureq.workspace = true
 rustls.workspace = true
 hound = "3.5"
 image = "0.25"
+base64 = "0.22"
 
 # Native file picker for wallpaper import (Task 8). AsyncFileDialog is awaited
 # inside a cx.spawn task so it never blocks the GPUI event loop.

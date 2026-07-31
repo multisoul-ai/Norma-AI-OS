@@ -5,7 +5,7 @@ use crate::canvas::master_layout::{
     MasterLayoutState,
 };
 use canvas::{
-    compute_master_detail_layout, compute_responsive_grid_layout, CanvasNodeKind, RectNode,
+    compute_configurable_grid_layout, compute_master_detail_layout, CanvasNodeKind, RectNode,
 };
 
 fn add_rect(runtime: &mut Runtime, color: u32, bounds: CanvasRect) -> NodeId {
@@ -360,7 +360,15 @@ fn test_master_layout_delete_detail_keeps_master_active_and_reflows_details() {
     );
 
     let removed =
-        close_node_and_update_layout_for_area(&mut runtime, &mut motion, &mut state, c, area, zoom);
+        close_node_and_update_layout_for_area(
+            &mut runtime,
+            &mut motion,
+            &mut state,
+            c,
+            area,
+            zoom,
+            CanvasLayoutStrategy::default(),
+        );
     let expected =
         compute_master_detail_layout(&[a, b, d], b, area, workspace_reflow_config_for_zoom(zoom));
 
@@ -386,12 +394,12 @@ fn test_master_layout_delete_detail_keeps_master_active_and_reflows_details() {
     );
 }
 
-/// Master 布局删除 master：删除左侧 master 后退出 master 模式，并对剩余卡片执行普通 reflow。
+/// Master 布局删除 master：删除左侧 master 后退出 master 模式，并对剩余卡片执行当前布局策略 reflow。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   A/B/C 三张卡，master=B，删除 B
 ///   area = 1000x600, zoom = 1.0
-///   删除后普通 ordered_ids = [A,C]，期望使用 compute_responsive_grid_layout([A,C], area, config)
+///   删除后 ordered_ids = [A,C]，期望使用默认按行三轨可配置网格
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. enter_master_layout_for_area(B)
@@ -400,7 +408,7 @@ fn test_master_layout_delete_detail_keeps_master_active_and_reflows_details() {
 ///
 /// 预期结果：
 ///   - 正断言：B 被删除且 state inactive
-///   - 正断言：A/C 使用普通响应式 reflow
+///   - 正断言：A/C 使用当前布局策略 reflow
 ///   - 负断言：B 不应继续存在
 #[test]
 fn test_master_layout_delete_master_exits_and_reflows_remaining_cards() {
@@ -430,9 +438,20 @@ fn test_master_layout_delete_master_exits_and_reflows_remaining_cards() {
     );
 
     let removed =
-        close_node_and_update_layout_for_area(&mut runtime, &mut motion, &mut state, b, area, zoom);
-    let expected =
-        compute_responsive_grid_layout(&[a, c], area, workspace_reflow_config_for_zoom(zoom));
+        close_node_and_update_layout_for_area(
+            &mut runtime,
+            &mut motion,
+            &mut state,
+            b,
+            area,
+            zoom,
+            CanvasLayoutStrategy::default(),
+        );
+    let expected = compute_configurable_grid_layout(
+        &[a, c],
+        area,
+        CanvasLayoutStrategy::default().grid_config_for_zoom(zoom),
+    );
 
     assert!(removed, "删除 master B 应返回 true");
     assert!(
@@ -446,11 +465,11 @@ fn test_master_layout_delete_master_exits_and_reflows_remaining_cards() {
     assert_eq!(
         runtime.document.node(a).expect("A 应仍存在").bounds,
         expected[0].bounds,
-        "删除 master 后 A 应按普通响应式布局重排"
+        "删除 master 后 A 应按默认布局策略重排"
     );
     assert_eq!(
         runtime.document.node(c).expect("C 应仍存在").bounds,
         expected[1].bounds,
-        "删除 master 后 C 应按普通响应式布局重排"
+        "删除 master 后 C 应按默认布局策略重排"
     );
 }

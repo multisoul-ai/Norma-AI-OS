@@ -7,10 +7,10 @@ use std::borrow::Cow;
 pub const APP_ICON_ASSET: &str = "icons/app-icon.png";
 pub const APP_LOGO_ASSET: &str = "icons/logo.png";
 pub const DEFAULT_WALLPAPER_ASSET: &str = "wallpapers/1331865.png";
-
 /// Toolbar SVG icon asset paths. These mirror `crate::ui::icons::ToolbarIcon::asset_path`
 /// exactly (icons/toolbar-<name>.svg) so GPUI `svg().path(...)` can resolve them.
 pub const TOOLBAR_SCROLL_ASSET: &str = "icons/toolbar-scroll.svg";
+pub const TOOLBAR_LAYOUT_ASSET: &str = "icons/toolbar-layout.svg";
 pub const TOOLBAR_PLUS_ASSET: &str = "icons/toolbar-plus.svg";
 pub const TOOLBAR_TERMINAL_ASSET: &str = "icons/toolbar-terminal.svg";
 pub const TOOLBAR_BROWSER_ASSET: &str = "icons/toolbar-browser.svg";
@@ -26,7 +26,6 @@ pub const SETTINGS_NAV_KEYBOARD_ASSET: &str = "icons/settings-nav-keyboard.svg";
 pub const SETTINGS_NAV_VOICE_ASSET: &str = "icons/settings-nav-voice.svg";
 pub const SETTINGS_NAV_AGENTS_ASSET: &str = "icons/settings-nav-agents.svg";
 pub const SETTINGS_NAV_HOOKS_ASSET: &str = "icons/settings-nav-hooks.svg";
-
 const APP_ICON_BYTES: &[u8] = include_bytes!("../assets/icons/app-icon.png");
 const APP_LOGO_BYTES: &[u8] = include_bytes!("../assets/icons/logo.png");
 
@@ -61,8 +60,8 @@ image_builtins! {
     ("wallpapers/215824.gif",  WALLPAPER_215824_BYTES),
     ("wallpapers/220240.gif",  WALLPAPER_220240_BYTES),
 }
-
 const TOOLBAR_SCROLL_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-scroll.svg");
+const TOOLBAR_LAYOUT_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-layout.svg");
 const TOOLBAR_PLUS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-plus.svg");
 const TOOLBAR_TERMINAL_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-terminal.svg");
 const TOOLBAR_BROWSER_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-browser.svg");
@@ -80,16 +79,15 @@ const SETTINGS_NAV_KEYBOARD_BYTES: &[u8] =
 const SETTINGS_NAV_VOICE_BYTES: &[u8] = include_bytes!("../assets/icons/settings-nav-voice.svg");
 const SETTINGS_NAV_AGENTS_BYTES: &[u8] = include_bytes!("../assets/icons/settings-nav-agents.svg");
 const SETTINGS_NAV_HOOKS_BYTES: &[u8] = include_bytes!("../assets/icons/settings-nav-hooks.svg");
-
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EmbeddedAssets;
-
 impl AssetSource for EmbeddedAssets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
         match path {
             APP_ICON_ASSET => Ok(Some(Cow::Borrowed(APP_ICON_BYTES))),
             APP_LOGO_ASSET => Ok(Some(Cow::Borrowed(APP_LOGO_BYTES))),
             TOOLBAR_SCROLL_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SCROLL_BYTES))),
+            TOOLBAR_LAYOUT_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_LAYOUT_BYTES))),
             TOOLBAR_PLUS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PLUS_BYTES))),
             TOOLBAR_TERMINAL_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_TERMINAL_BYTES))),
             TOOLBAR_BROWSER_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_BROWSER_BYTES))),
@@ -122,6 +120,7 @@ impl AssetSource for EmbeddedAssets {
                 SharedString::from("app-icon.png"),
                 SharedString::from("logo.png"),
                 SharedString::from("toolbar-scroll.svg"),
+                SharedString::from("toolbar-layout.svg"),
                 SharedString::from("toolbar-plus.svg"),
                 SharedString::from("toolbar-terminal.svg"),
                 SharedString::from("toolbar-browser.svg"),
@@ -291,6 +290,7 @@ mod tests {
                 SharedString::from("app-icon.png"),
                 SharedString::from("logo.png"),
                 SharedString::from("toolbar-scroll.svg"),
+                SharedString::from("toolbar-layout.svg"),
                 SharedString::from("toolbar-plus.svg"),
                 SharedString::from("toolbar-terminal.svg"),
                 SharedString::from("toolbar-browser.svg"),
@@ -438,21 +438,22 @@ mod tests {
     /// 顶栏 SVG 图标资产：每个 icons/toolbar-*.svg 路径都应能通过 AssetSource 加载。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   toolbar 路径数 = 9；首非空白字节期望 = b'<'（ASCII 60）；
+    ///   toolbar 路径数 = 10；首非空白字节期望 = b'<'（ASCII 60）；
     ///   负样本路径 = "icons/toolbar-missing.svg"。
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 逐一 load 9 条 toolbar 路径并检查首非空白字节
+    ///   1. 逐一 load 10 条 toolbar 路径并检查首非空白字节
     ///   2. load 缺失路径并期望 None
     ///
     /// 预期结果：
-    ///   - 正断言：9 条路径均返回 Some 且首非空白字节为 b'<'
+    ///   - 正断言：10 条路径均返回 Some 且首非空白字节为 b'<'
     ///   - 负断言：不存在的 toolbar-missing.svg 返回 None
     #[test]
     fn test_embedded_assets_load_toolbar_svg_icons() {
         let assets = EmbeddedAssets;
 
         let toolbar_paths = [
+            TOOLBAR_LAYOUT_ASSET,
             TOOLBAR_SCROLL_ASSET,
             TOOLBAR_PLUS_ASSET,
             TOOLBAR_TERMINAL_ASSET,

@@ -2,7 +2,7 @@
 
 > 状态：已实施（画布预览 + Ego 原生交互）
 >
-> 日期：2026-07-29
+> 日期：2026-07-29；实时预览修订：2026-07-31
 >
 > 范围：Norma OS 内部 Beta / 单用户
 >
@@ -11,23 +11,35 @@
 ## 1. 决策与边界
 
 Norma 的画布新增一张单实例 Ego Lite 卡片，用来显示专用 Ego Task Space 的当前页面、状态、
-所有权和交接动作。卡片以 **1 FPS 只读页面快照**显示 Ego 的完整页面；点击“打开 Ego”后仍在
-Ego Lite 原生应用中交互。Norma 不把第三方浏览器视图嵌入 GPUI，也不模拟点击、键盘或滚动。
+所有权和交接动作。卡片以 **最高 24 FPS 的只读实时预览节奏**显示 Ego 的完整页面；点击
+“打开 Ego”后仍在 Ego Lite 原生应用中交互。Norma 不把第三方浏览器视图嵌入 GPUI，也不模拟
+点击、键盘或滚动。
 
-这是当前 Ego API 下的最小实现：Agent 继续通过精确 `task_space_id` 控制浏览器；App 只在后台
-调用 Ego helper 的 `useOrCreateTaskSpace(task_space_id)` 和 `captureScreenshot()` 读取该空间的
-当前页面像素，不执行 claim、takeover、导航或输入。这个路径可以读取隐藏 Task Space 的真实
-页面，不依赖 macOS 是否为该空间保留可见的窗口合成画面。
+当 Runtime 同时确认 `AgentWorking` 和 `ownership: Agent` 时，主路径保持一个持久
+`ego-browser nodejs` 子进程，通过精确 `task_space_id` 选择已有 Task Space，再用 CDP
+`Page.startScreencast` 持续接收页面 JPEG。每个 CDP 帧都立即
+`Page.screencastFrameAck`，脚本把最新内容写入 App 创建的本机 Unix socket；App 只保留最新
+序号，后台解码，并由本地帧节奏器以 24 FPS 向 GPUI 呈现最近有效的 `RenderImage`。Chromium
+没有产生新 JPEG 的节拍点复用同一张已解码帧，不重复解码，也不暴露空白间隙。该路径没有逐帧
+进程启动、PNG 临时文件或磁盘轮询，并能读取被 Ego 暂停原生窗口合成的隐藏 Task Space。
 
-macOS 窗口捕获只作为 helper 不可用或当前所有权不允许内部截图时的降级路径。新 Task Space
-使用 `Norma · Ego · <node_id>` 唯一标题，降级窗口选择必须同时匹配 Ego bundle id 与精确标题。
-旧版同名窗口只在恰好一个候选含非空页面像素时兼容；多个非空候选则拒绝猜测，避免显示用户的
-其它浏览内容。
+CDP 是 Agent 工作阶段的唯一主源。`ReadyForUser`、`AwaitingUser`、`UserControlling` 等
+非 Agent 控制阶段不启动 CDP，避免把 Ego 的用户控制硬停误判为可重试故障；这些阶段直接使用
+ScreenCaptureKit，其 420f `CVPixelBuffer` 通过 GPUI `surface()` 低拷贝显示。源切换采用
+make-before-break：只有新 CDP 源交付第一张有效帧后才释放旧窗口帧；失败、重试或所有权切换
+期间继续保留上一张有效帧。两种渲染分支共享同一媒体边界，因此不会因 `surface()` /
+`RenderImage` 切换而改变页面缩放。低频 `captureScreenshot()` / macOS 窗口截图仅是两种持续
+源均不可用时的最后恢复路径。新 Task Space 使用 `Norma · Ego · <node_id>` 唯一标题；窗口降级
+选择必须同时匹配 Ego bundle id 与精确标题，不得按窗口顺序猜测。
 
-helper 调用、窗口枚举、系统抓图和图片解码全部在后台执行。每个节点最多一个捕获任务，刷新
-间隔至少 1,000ms；卡片只保留最近一帧，并显式释放被替换的 GPUI 图像。主路径不要求 Screen
-Recording 权限；只有 macOS 窗口捕获降级路径需要该权限。两条路径都失败时，占位区显示恢复
-提示。
+所有 helper、窗口枚举、图片解码和系统捕获都在后台执行。持续流使用容量为一的最新帧邮箱；
+消费者落后时覆盖未呈现旧帧，拒绝乱序帧，避免积压造成延迟。纯白或低信息过渡帧只被丢弃，
+不会替换上一张有效帧，也不会把健康的 CDP session 降级为窗口捕获。Agent CDP 路径不要求
+Screen Recording 权限；用户控制阶段的 ScreenCaptureKit 路径需要。全部路径不可用且从未得到有效帧时，
+占位区显示恢复提示。持续流 session 释放时先发出取消，再把 JoinHandle 交给专用 reaper
+线程；捕获线程在后台 kill/wait helper 并删除 Unix socket，不阻塞 GPUI 前台。Node helper
+同时监听 socket close/error，宿主进程结束后会停止 screencast 并自行退出，防止重复
+`cargo run -p app` 后留下孤儿进程或 socket。
 
 ## 2. 用户结果
 
@@ -59,7 +71,7 @@ Agent present ──> PreparingAgent ──> AgentWorking ──> AwaitingUser
 
 ## 3. 非目标
 
-- GPUI 内嵌 Ego `NSView`、可交互镜像、视频帧渲染或高帧率预览。
+- GPUI 内嵌 Ego `NSView`、可交互镜像，或把画布内的鼠标/键盘事件转发给 Ego。
 - 自动移动、缩放、停靠 Ego 原生窗口，或从画布位置推断窗口位置。
 - 多张 Ego 卡片、多 Agent 抢占、队列、强制交接或多用户协作。
 - 在用户控制期间自动 `takeOverTaskSpace`、自动关闭用户拥有的 Task Space。
@@ -97,8 +109,10 @@ Agent present ──> PreparingAgent ──> AgentWorking ──> AwaitingUser
 
 - `task_space_id` 是唯一可信重连和主预览标识；名称用于显示和 macOS 降级窗口定位。
 - 控制器用唯一名称调用 `useOrCreateTaskSpace` 创建/复用专用空间并将精确 ID 写回卡片。
-- 主预览按精确 ID 进入既有 Task Space 并调用 `captureScreenshot()`；不 claim、不 takeover、
-  不导航，也不改变 Agent 控制权。
+- 仅当 Runtime 确认 Agent 工作且持有所有权时，主预览才按精确 ID 进入既有 Task Space 并启动
+  `Page.startScreencast`；不 claim、不 takeover、不导航、不给页面输入，也不改变控制权。
+- 用户控制或等待用户阶段不尝试 CDP；直接保留/更新 ScreenCaptureKit 帧，直到 Runtime 再次
+  确认 Agent 工作且新的 CDP 首帧已经可用。
 - 降级窗口捕获只使用 bundle id + 精确唯一标题定位像素来源；它不改变 Agent 控制所依赖的
   `task_space_id`。
 - `present ego --new` 仅可替换终态卡片，并复用同一个 Canvas node。
@@ -117,7 +131,7 @@ Agent present ──> PreparingAgent ──> AgentWorking ──> AwaitingUser
 | `canvas` | `BrowserSurfaceKind::EgoLite(EgoLiteSpec)`、JSON 兼容和卡片持久化字段。 |
 | `runtime` | 纯 Rust 状态机、所有权守卫、关闭/替换守卫、`RuntimeEvent::EgoTaskStateChanged`。 |
 | `norma` | `present ego` 与 `ego` 生命周期协议、JSON CLI 输出和受管 presentation skill。 |
-| `app` | `ego-browser` 精确 Task Space 截图、macOS 窗口降级捕获、1 FPS 后台刷新、单帧渲染、Master/交接 UI。 |
+| `app` | 所有权感知的 CDP / ScreenCaptureKit 源选择、make-before-break 切换、低频快照恢复、最新帧渲染、Master/交接 UI。 |
 | `e2e` | 菜单、单实例、预览帧渲染、非自动 Master、忙碌关闭守卫。 |
 
 `EgoLiteSpec` 持久化以下字段：精确 `task_space_id`、显示名、绑定 Agent、最后阶段和消息。
@@ -175,8 +189,16 @@ norma ego fail <node_id> --message <message>
 - `crates/runtime/tests/ego_task_state.rs`：状态转换、原 Agent 恢复、恢复安全态、终态替换。
 - `crates/app/tests/unit/norma_ego_lifecycle_tests.rs`：单实例、授权、`--new` 终态守卫。
 - `crates/app/tests/unit/ego_controller_tests.rs`：helper 结果解析、用户拥有/缺失空间的清理拒绝。
-- `crates/app/tests/unit/ego_preview_tests.rs`：helper 截图路径协议、全部已就绪卡片调度、精确
-  窗口选择、旧同名空窗兼容、1 FPS 调度，以及默认忽略的真实 Ego Task Space 非白屏 L3。
+- `crates/app/tests/unit/ego_preview_tests.rs`：全部已就绪卡片调度、CDP 主源优先、helper 截图
+  路径协议、精确窗口选择、旧同名空窗兼容，以及默认忽略的真实 Ego Task Space 非白屏 L3。
+- `crates/app/tests/unit/ego_preview_live_tests.rs`：24 FPS/420f/双缓冲配置、最新帧邮箱、
+  应用侧 24 FPS 呈现节奏器、screencast 协议与 ack、持久 Unix socket 脚本，以及白帧拒绝
+  不终止 session、前台非阻塞取消与后台 reaper 回收。
+- `crates/app/tests/unit/ego_preview_quality_tests.rs`：纯白过渡帧拒绝和最后有效帧保留。
+- `crates/app/tests/unit/ego_preview_source_tests.rs`：只有 Agent 工作且持有所有权时才进入 CDP；
+  源切换和失败重试期间按全部预览节点保留上一张窗口帧。
+- `crates/app/src/bin/ego_live_capture_l3.rs`：对真实动态 Ego Task Space 连续采集 60 帧，报告
+  实际 FPS、序号缺口、来源和输出尺寸。
 - `crates/e2e/src/e2e_21_ego_card.rs`：真实 GPUI New 菜单、受控 helper 结果、预览帧渲染、
   复用、非自动 Master 和忙碌关闭阻断。
 
@@ -186,18 +208,25 @@ norma ego fail <node_id> --message <message>
 内容区、状态 badge 与按钮不遮挡页面、底部圆角正确、窗口切换后预览继续更新，以及错误状态
 可读。交互仍在 Ego 原生窗口完成。
 
-2026-07-30 的真实 App 验收中，恢复后的 `task_space_id=8` 即使对应的隐藏 macOS 窗口只返回
-空白合成画面，画布仍通过 Ego 内部截图显示了该 Task Space 当前的 Chrome 证书错误页；后台
-调度以 1 秒间隔持续产生下一帧。
+2026-07-31 的动态 L3 中，真实 Ego Task Space 连续得到 60/60 个应用呈现帧、24.00 FPS、
+`max_sequence_step=1`、1440×900，来源为 `cdp-screencast-jpeg`。这里的 24 FPS 是稳定的 UI
+呈现节拍；页面内容有新合成帧时立即替换，没有新内容时复用最近有效帧。同日真实 App +
+Computer Use 最终验收中，页面内 `requestAnimationFrame` 计数在 1.5 秒内从 1651 更新到
+3946；随后导航到纯白过渡页并等待 2.2 秒，卡片仍保留 `frame 5726` 的最后一张彩色有效帧，
+没有切换到白屏或原生窗口后备源。L3 结束后没有新增 helper 子进程或
+`norma-ego-screencast-*.sock`。
+
+同日补充的 release Dev App 退化验收中，CDP 与 ScreenCaptureKit 均持续失败重试时，通过
+Computer Use 在 0、3、6 秒保存的三张 `1228×768` 截图像素 RMSE 均为 0；卡片保持同一媒体
+边界和占位/上一帧，没有因重试或源切换出现缩放跳动。
 
 ## 10. 后续升级闸门
 
-只有同时满足以下条件，才可升级为可交互、高帧率的完整 Ego 画布镜像：
+当前 24 FPS 预览已经成立，但升级为画布内可交互 Ego 仍需同时满足：
 
-1. Ego API 能稳定返回某 Task Space 的专属 macOS window ID，或直接提供连续安全图像流。
-2. 能证明该 ID 不会指向用户日常窗口，并在任务创建、交接、重启和关闭后保持一致。
-3. 连续图像流的低拷贝 `surface()` 渲染和圆角帧裁剪都有 L1/L3 证据；若仍依赖
-   ScreenCaptureKit，也必须覆盖权限恢复。
+1. Ego 提供稳定、明确归属单个 Task Space 的输入路由或可嵌入视图，不依赖坐标猜测。
+2. 能证明输入目标不会指向用户日常窗口，并在任务创建、交接、重启和关闭后保持一致。
+3. 交互视图的焦点、IME、快捷键、滚动、无障碍和圆角裁剪都有 L1/L3 证据。
 4. 用户接管时窗口定位与失焦恢复可逆、可访问，且不会移动非 Norma 创建的窗口。
 
-在此之前，1 FPS 只读预览 + Ego 原生交互是最小实现成本和安全边界。
+在此之前，24 FPS 只读预览 + Ego 原生交互是当前安全边界。

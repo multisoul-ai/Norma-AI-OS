@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard live video wallpaper against CPU-frame and blocking regressions."""
+"""Guard live video and Ego preview surfaces against CPU-frame regressions."""
 
 from __future__ import annotations
 
@@ -122,16 +122,31 @@ def main() -> int:
     video_decoder = root / "crates/app/src/app/video_decoder.rs"
     chrome = root / "crates/app/src/app/chrome.rs"
     license_gate = root / "crates/app/src/license_gate/gate_root.rs"
+    ego_live = root / "crates/app/src/app/ego_preview/live.rs"
+    ego_pacer = root / "crates/app/src/app/ego_preview/pacer.rs"
+    ego_screencast = root / "crates/app/src/app/ego_preview/screencast.rs"
+    ego_worker = root / "crates/app/src/app/ego_preview/worker.rs"
+    ego_card = root / "crates/app/src/cards/browser/card.rs"
 
     failures: list[str] = []
     wall_raw = video_wallpaper.read_text()
     decoder_raw = video_decoder.read_text()
     chrome_raw = chrome.read_text()
     license_gate_raw = license_gate.read_text()
+    ego_live_raw = ego_live.read_text()
+    ego_pacer_raw = ego_pacer.read_text()
+    ego_screencast_raw = ego_screencast.read_text()
+    ego_worker_raw = ego_worker.read_text()
+    ego_card_raw = ego_card.read_text()
     wall_code = strip_rust_comments(wall_raw)
     decoder_code = strip_rust_comments(decoder_raw)
     chrome_code = strip_rust_comments(chrome_raw)
     license_gate_code = strip_rust_comments(license_gate_raw)
+    ego_live_code = strip_rust_comments(ego_live_raw)
+    ego_pacer_code = strip_rust_comments(ego_pacer_raw)
+    ego_screencast_code = strip_rust_comments(ego_screencast_raw)
+    ego_worker_code = strip_rust_comments(ego_worker_raw)
+    ego_card_code = strip_rust_comments(ego_card_raw)
 
     for token in (
         "RenderImage",
@@ -252,6 +267,112 @@ def main() -> int:
                 f"license gate video background must not contain `{token}`",
                 "keep license live frames on the shared CVPixelBuffer/gpui::surface path.",
             )
+
+    for token in ("RenderImage", "RgbaImage", "ImageReader", "captureScreenshot"):
+        if token in ego_live_code:
+            add_failure(
+                failures,
+                ego_live,
+                f"Ego live capture must not contain `{token}`",
+                "keep continuous Ego frames on the ScreenCaptureKit CVPixelBuffer/gpui::surface path; use snapshot.rs only as fallback.",
+            )
+
+    for needle, message, hint in (
+        (
+            "PixelFormat::YCbCr420f",
+            "Ego live capture must request 420f frames",
+            "configure SCStreamConfiguration with PixelFormat::YCbCr420f.",
+        ),
+        (
+            "LatestSequenceMailbox",
+            "Ego live capture must use a latest-frame mailbox",
+            "replace pending frames instead of queueing stale frames.",
+        ),
+        (
+            '"norma-ego-live-capture"',
+            "Ego capture worker must have a stable diagnostic name",
+            'name the dedicated worker thread "norma-ego-live-capture".',
+        ),
+        (
+            "CVPixelBufferGetIOSurface",
+            "Ego live frames must validate IOSurface backing",
+            "reject non-IOSurface buffers before handing them to GPUI.",
+        ),
+    ):
+        require_contains(failures, ego_live, ego_live_code, needle, message, hint)
+
+    require_contains(
+        failures,
+        ego_card,
+        ego_card_code,
+        "surface(preview)",
+        "Ego card must mount the low-copy GPUI surface",
+        "render the current 420f CVPixelBuffer with gpui::surface().",
+    )
+    require_contains(
+        failures,
+        ego_pacer,
+        ego_pacer_code,
+        "previous + self.interval",
+        "Ego primary preview must preserve a stable application-side frame cadence",
+        "advance the presentation deadline from the previous deadline instead of the latest poll.",
+    )
+    require_contains(
+        failures,
+        ego_worker,
+        ego_worker_code,
+        "handle.join()",
+        "Ego capture worker must be joined by its background reaper",
+        "cancel the worker and hand its JoinHandle to a reaper so GPUI does not block.",
+    )
+    require_contains(
+        failures,
+        ego_worker,
+        ego_worker_raw,
+        '"norma-ego-worker-reaper"',
+        "Ego capture worker reaper must have a stable diagnostic name",
+        'name the background join thread "norma-ego-worker-reaper".',
+    )
+
+    for token in ("captureScreenshot", ".png"):
+        if token in ego_screencast_code:
+            add_failure(
+                failures,
+                ego_screencast,
+                f"Ego CDP screencast must not contain `{token}`",
+                "keep the primary preview on the persistent Page.startScreencast + Unix socket path.",
+            )
+
+    for needle, message, hint in (
+        (
+            "Page.startScreencast",
+            "Ego primary preview must start a persistent CDP screencast",
+            "use Page.startScreencast instead of polling captureScreenshot.",
+        ),
+        (
+            "Page.screencastFrameAck",
+            "Ego primary preview must acknowledge every CDP frame",
+            "ack screencastFrame events so Chromium continues producing frames.",
+        ),
+        (
+            "UnixListener",
+            "Ego primary preview must stream through a local Unix socket",
+            "do not rely on helper stdout, which is buffered until process exit.",
+        ),
+        (
+            "LatestSequenceMailbox",
+            "Ego CDP preview must use a latest-frame mailbox",
+            "replace pending frames instead of queueing stale JPEGs.",
+        ),
+    ):
+        require_contains(
+            failures,
+            ego_screencast,
+            ego_screencast_code,
+            needle,
+            message,
+            hint,
+        )
 
     if failures:
         print("ERROR: video wallpaper performance guardrail violations found.", file=sys.stderr)

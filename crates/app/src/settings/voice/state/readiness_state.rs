@@ -54,15 +54,36 @@ impl VoiceSettingsState {
         true
     }
 
+    pub(crate) fn begin_vad_validation(&mut self) -> u64 {
+        self.vad_validation_generation = self.vad_validation_generation.wrapping_add(1);
+        // 一次 VAD 完整性校验是一个后台任务：开始时完成 0 / 总数 1。
+        self.vad_requirement = VoiceRequirementState::Installing {
+            completed: 0,
+            total: 1,
+        };
+        self.vad_validation_generation
+    }
+
+    pub(crate) fn finish_vad_validation(
+        &mut self,
+        generation: u64,
+        requirement: VoiceRequirementState,
+    ) -> bool {
+        if generation != self.vad_validation_generation {
+            return false;
+        }
+        self.vad_requirement = requirement;
+        true
+    }
+
     fn selected_asr_requirement(&self) -> VoiceRequirementState {
         if self.values.asr_provider() == asr::AsrProviderId::CloudAzure {
-            return if self.values.azure_asr_profile().is_ready()
-                && asr::validate_silero_vad_installation(&self.model_root).is_ok()
-            {
-                VoiceRequirementState::Ready
-            } else {
-                VoiceRequirementState::Missing
-            };
+            return self
+                .values
+                .azure_asr_profile()
+                .is_ready()
+                .then_some(self.vad_requirement)
+                .unwrap_or(VoiceRequirementState::Missing);
         }
         let Some(model_id) = self.values.asr_model_id() else {
             return VoiceRequirementState::Missing;
@@ -133,6 +154,18 @@ impl VoiceSettingsState {
     pub(crate) fn active_model_install_progress(&self) -> Option<(u64, u64)> {
         let mut completed = 0_u64;
         let mut total = 0_u64;
+        if self.values.asr_provider() == asr::AsrProviderId::CloudAzure
+            && self.values.azure_asr_profile().is_ready()
+        {
+            if let VoiceRequirementState::Installing {
+                completed: vad_completed,
+                total: vad_total,
+            } = self.vad_requirement
+            {
+                completed = completed.saturating_add(vad_completed);
+                total = total.saturating_add(vad_total);
+            }
+        }
         for entry in self.model_manager.entries() {
             if let AsrModelInstallState::Installing {
                 downloaded,

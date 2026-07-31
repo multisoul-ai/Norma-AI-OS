@@ -2,6 +2,7 @@
 //! 事件处理（pan、拖拽、单击）见 `events` 子模块。
 
 use super::events;
+use super::node_label::node_type_label;
 use crate::app::browser::{browser_native_view_bounds, native_browser_views_visible};
 use crate::app::MultisoulApp;
 #[cfg(test)]
@@ -19,9 +20,8 @@ use crate::cards::agent::queue::{
     waiting_count as agent_waiting_count,
 };
 use crate::cards::browser::card::BROWSER_TOOLBAR_H_PX;
-use crate::cards::chrome::card_title_background;
 use crate::cards::chrome::{
-    node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
+    card_title_background, node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
 };
 use crate::cards::snake::render_working_snake_border;
 use crate::cards::{card_for, CardBodyContext};
@@ -35,9 +35,7 @@ use runtime::{route, Route};
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
-
 static CANVAS_OPEN_RENDER_PENDING: AtomicBool = AtomicBool::new(false);
-
 pub(crate) fn mark_canvas_open_render_pending() {
     CANVAS_OPEN_RENDER_PENDING.store(true, Ordering::Release);
 }
@@ -222,6 +220,7 @@ pub fn render_canvas(
         );
 
         let title_bar = div()
+            .debug_selector(|| "card-titlebar".to_string())
             .h(px(TITLE_BAR_H * vp.zoom))
             .w_full()
             .flex()
@@ -289,6 +288,13 @@ pub fn render_canvas(
                     }),
             )
             .child(title_actions);
+        let title_layer = div()
+            .debug_selector(|| "card-title-layer".to_string())
+            .h(px(TITLE_BAR_H * vp.zoom))
+            .w_full()
+            .flex_none()
+            .relative()
+            .child(title_bar);
 
         // 内容
         let card_body = card.body(
@@ -305,6 +311,8 @@ pub fn render_canvas(
                 browser_address_input: app.browser_address_input_for(id),
                 browser_auth_state: app.browser_chrome_auth_state_for(id),
                 ego_preview: app.ego_previews.frame_for(id),
+                #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
+                ego_live_preview: app.ego_previews.live_frame_for(id),
                 ego_preview_error: app.ego_previews.error_for(id),
                 theme,
                 zoom: vp.zoom,
@@ -347,7 +355,7 @@ pub fn render_canvas(
             )
             .into_any_element(),
         );
-        node_div = node_div.child(title_bar).child(card_body);
+        node_div = node_div.child(title_layer).child(card_body);
         if let Some(working_snake) = visual.working_snake {
             snake_nodes += 1;
             node_div = node_div.child(render_working_snake_border(
@@ -477,16 +485,6 @@ fn swap_highlight_overlay(
 
 fn with_alpha(color: u32, alpha: u8) -> u32 {
     (color & 0xffffff00) | u32::from(alpha)
-}
-
-fn node_type_label(node_type: NodeType) -> &'static str {
-    match node_type {
-        NodeType::Term => "TERMINAL",
-        NodeType::Agent => "AGENT",
-        NodeType::Preview => "PREVIEW",
-        NodeType::Browser => "BROWSER",
-        NodeType::Rect => "NODE",
-    }
 }
 
 #[cfg(test)]

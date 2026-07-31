@@ -97,7 +97,7 @@ pub(super) fn activate_definition(
     }) {
         return Ok((node_id, true));
     }
-    let bounds = area.inset(app.layout_gap_canvas());
+    let bounds = app.next_tiled_node_bounds_for_area(area, zoom);
     let (cols, rows) = crate::canvas::master_layout::term_grid_size_for_card(
         canvas::NodeType::Agent,
         bounds,
@@ -120,6 +120,7 @@ pub(super) fn activate_definition(
         node_id,
         crate::motion::InitializationAnimationKind::for_agent_profile(definition.runtime_profile),
     );
+    app.apply_layout_for_new_node_for_area(node_id, area, zoom);
     app.pending_agent_submissions.mark_starting(node_id);
     app.mark_canvas_dirty();
     app.mark_session_dirty();

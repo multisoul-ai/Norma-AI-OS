@@ -31,7 +31,7 @@ pub use coordination::{
     render_agent_roster, AgentAssignment, AgentCoordinatedTask, AgentCoordinationError,
     AgentDispatchReceipt, AgentDispatchSource, AgentDispatchState, AgentQueueSnapshot,
     AgentQueueTask, AgentQueueTaskSource, AgentRosterEntry, AgentTaskCancellation,
-    AgentTaskCoordinator, AgentTaskReferenceError, AgentTrackingMode,
+    AgentTaskCoordinator, AgentTaskReferenceError, AgentTaskState, AgentTrackingMode,
 };
 pub use current_context::{
     render_current_canvas_context, CanvasCardContext, CanvasCardKind, CurrentCanvasContext,

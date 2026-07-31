@@ -17,6 +17,16 @@ pub enum AgentTrackingMode {
     Untracked,
 }
 
+/// App 在每轮 Norma 路由前投影的 AgentCard 任务状态。
+///
+/// Agent crate 不依赖 runtime；这个快照只保留路由所需的可续聊性语义。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AgentTaskState {
+    Ready,
+    Busy,
+    Ended,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentRosterEntry {
     pub definition_id: i64,
@@ -27,6 +37,7 @@ pub struct AgentRosterEntry {
     pub active_node_id: Option<u64>,
     pub tracking: AgentTrackingMode,
     pub busy: bool,
+    pub task_state: AgentTaskState,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

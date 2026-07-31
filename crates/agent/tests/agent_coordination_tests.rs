@@ -19,6 +19,7 @@ fn roster_entry(
         active_node_id: Some(definition_id as u64 + 100),
         tracking: AgentTrackingMode::Managed,
         busy,
+        task_state: agent::AgentTaskState::Ready,
     }
 }
 

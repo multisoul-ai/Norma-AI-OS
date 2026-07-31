@@ -1,7 +1,9 @@
 use super::*;
 use crate::workspace::flow::{enter_workspace_for_path, WorkspaceCanvasState};
 use crate::workspace::persistence::PersistenceScheduler;
-use canvas::{compute_responsive_grid_layout, AgentProfile, AgentSpec, CanvasNodeKind, RectNode};
+use canvas::{
+    compute_configurable_grid_layout, AgentProfile, AgentSpec, CanvasNodeKind, RectNode,
+};
 use runtime::{AgentTaskState, AgentTaskUpdate, CardAttentionKind, CardAttentionState};
 use storage::{NewAgentDefinition, ProjectStore, RecentStore};
 
@@ -163,12 +165,12 @@ fn test_mark_runtime_node_viewed_if_needed_marks_done_attention_viewed() {
     );
 }
 
-/// 删除中间卡片后，剩余卡片应立即按两列布局重排。
+/// 删除中间卡片后，剩余卡片应立即按默认的三轨布局策略重排。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   area = origin(0,0), size(1200x900)
 ///   zoom = 1.0
-///   safe area = left 96, top 86, right 32, bottom 84
+///   默认策略 = 按行向下 + 3 个轨道 + 适应可视区域
 ///   usable width = 1200 - 96 - 32 = 1072
 ///   gap = 16
 ///   三节点布局：tile_width = (1072 - 16*(3+1)) / 3 = 336，第三列 x = 96 + 16 + 2*(336+16) = 816
@@ -181,11 +183,11 @@ fn test_mark_runtime_node_viewed_if_needed_marks_done_attention_viewed() {
 ///
 /// 预期结果：
 ///   - 正断言：B 被删除，返回 true
-///   - 正断言：A 仍位于两列布局第一列
-///   - 正断言：C 移到两列布局第二列 x=640
-///   - 负断言：C 不应停留在三列布局第三列 x=816
+///   - 正断言：A 仍位于默认三轨布局第一列
+///   - 正断言：C 移到默认三轨布局第二列
+///   - 负断言：C 不应停留在删除前的第三轨位置
 #[test]
-fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
+fn test_close_node_reflows_remaining_cards_with_default_layout_strategy() {
     let mut runtime = Runtime::new();
     let mut motion = MotionStore::new(true);
     let area = CanvasRect::new(0.0, 0.0, 1200.0, 900.0);
@@ -204,8 +206,12 @@ fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
         CanvasRect::new(0.0, 0.0, 10.0, 10.0),
     );
 
-    let three_column =
-        compute_responsive_grid_layout(&[a, b, c], area, workspace_reflow_config_for_zoom(zoom));
+    let default_strategy = CanvasLayoutStrategy::default();
+    let three_column = compute_configurable_grid_layout(
+        &[a, b, c],
+        area,
+        default_strategy.grid_config_for_zoom(zoom),
+    );
     runtime.document.set_node_bounds(a, three_column[0].bounds);
     runtime.document.set_node_bounds(b, three_column[1].bounds);
     runtime.document.set_node_bounds(c, three_column[2].bounds);
@@ -213,8 +219,11 @@ fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
 
     let removed = close_node_and_reflow_for_area(&mut runtime, &mut motion, b, area, zoom);
 
-    let two_column =
-        compute_responsive_grid_layout(&[a, c], area, workspace_reflow_config_for_zoom(zoom));
+    let two_column = compute_configurable_grid_layout(
+        &[a, c],
+        area,
+        default_strategy.grid_config_for_zoom(zoom),
+    );
     let a_after = runtime
         .document
         .node(a)
@@ -236,15 +245,15 @@ fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
     );
     assert_eq!(
         a_after, two_column[0].bounds,
-        "A 应按删除后的两列布局占据第一列，而不是保留旧三列尺寸"
+        "A 应按删除后的默认布局策略占据第一列，而不是保留旧三卡的尺寸"
     );
     assert_eq!(
         c_after, two_column[1].bounds,
-        "C 应按删除后的两列布局移动到第二列 x=640"
+        "C 应按删除后的默认布局策略移动到第二个轨道"
     );
     assert_ne!(
         c_after, c_three_column_bounds,
-        "C 不应停留在删除前的三列第三列 x=816，否则说明删除没有触发重排"
+        "C 不应停留在删除前的第三轨位置，否则说明删除没有触发重排"
     );
 }
 

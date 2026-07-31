@@ -14,6 +14,10 @@ use voice_sherpa::{
 #[path = "../../../tests/unit/dialogue_asr_echo_gate_tests.rs"]
 mod dialogue_asr_echo_gate_tests;
 
+#[cfg(test)]
+#[path = "../../../tests/unit/dialogue_vad_integrity_tests.rs"]
+mod dialogue_vad_integrity_tests;
+
 #[derive(Default)]
 struct AsrUtteranceGate {
     suppress_current: bool,
@@ -113,6 +117,11 @@ pub(crate) fn resolve_asr_recognizer_factory(
     values: &VoiceSettingsValues,
     model_root: &std::path::Path,
 ) -> Result<Box<dyn asr::RecognizerFactory>, DialogueStartError> {
+    validate_runtime_vad_installation(model_root).map_err(|error| {
+        DialogueStartError::Speech(SpeechError::ModelNotFound(format!(
+            "Silero VAD integrity validation failed: {error}"
+        )))
+    })?;
     let profile = crate::settings::voice::resolve_builtin_asr_profile(values, model_root)
         .map_err(DialogueStartError::Provider)?;
     asr::builtin_recognizer_factory(profile, |credential_ref| {
@@ -120,6 +129,22 @@ pub(crate) fn resolve_asr_recognizer_factory(
             .map_err(asr::AsrError::Provider)
     })
     .map_err(|error| DialogueStartError::Provider(error.to_string()))
+}
+
+fn validate_runtime_vad_installation(
+    model_root: &std::path::Path,
+) -> Result<std::path::PathBuf, asr::AsrInstallationError> {
+    let validation = asr::validate_silero_vad_installation(model_root);
+    #[cfg(feature = "e2e-test-support")]
+    if matches!(
+        validation,
+        Err(asr::AsrInstallationError::MissingRequiredFile(_))
+    ) {
+        let e2e_model_root =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/models");
+        return asr::validate_silero_vad_installation(&e2e_model_root);
+    }
+    validation
 }
 
 impl DialogueListeningRuntime {

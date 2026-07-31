@@ -114,7 +114,8 @@ impl MultisoulApp {
         let motion_activity = self.motion.activity_summary();
         AnimationActivity {
             voice_active: self.voice_window_inset.is_animation_active()
-                || self.has_pending_tts_playback_events(),
+                || self.has_pending_tts_playback_events()
+                || self.voice_caption_animation_active(),
             canvas_motion_active: motion_activity.canvas_active,
             cursor_active: self.focused_terminal_cursor_animation_active(),
             screen_is_canvas: matches!(self.screen, AppScreen::Canvas),
@@ -140,6 +141,7 @@ impl MultisoulApp {
         let tick_started_at = Instant::now();
         let motion_changed = self.motion.tick(animation_delta);
         let cursor_changed = self.advance_terminal_cursor_phase(animation_delta);
+        let voice_caption_changed = self.advance_voice_caption_waveform(animation_delta);
         self.sync_voice_window_inset_enabled();
         self.tts_preview.synchronize_external_cancellation();
         for event in self.dialogue.take_playback_events() {
@@ -167,6 +169,7 @@ impl MultisoulApp {
         let report = AnimationFrameReport {
             motion_changed,
             cursor_changed,
+            voice_caption_changed,
             visible_working_snake: diagnostics.chase_visible_nodes > 0,
             voice_window_inset_changed,
             elapsed: tick_started_at.elapsed(),

@@ -99,25 +99,25 @@ fn test_animation_schedule_uses_next_frame_for_visible_active_canvas() {
     );
 }
 
-/// FS-3：Voice 活动必须在 Settings 遮挡或窗口后台时继续使用 GPUI 下一帧。
+/// FS-3：半透明 Settings 覆盖层打开时，可见 Canvas 动画仍须按显示帧推进。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   voice active wakeup = NextFrame(12ms)
-///   settings-open Canvas-only wakeup = Timer(250ms)
+///   settings-open Canvas-only wakeup = NextFrame(16ms)
 ///   background Canvas-only wakeup = Timer(250ms)
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 构造 Voice active + Settings open + window background 的组合状态。
-///   2. 分别构造 Settings 遮挡和后台状态下的 Canvas-only 活动。
-///   3. 比较 Voice 与两个 Canvas-only 调度结果。
+///   2. 分别构造 Settings 打开和窗口后台时的 Canvas-only 活动。
+///   3. 比较 Voice、Settings Canvas 与后台 Canvas 的调度结果。
 ///
 /// 预期结果：
 ///   - 正断言：Voice 在遮挡和后台组合下仍返回 NextFrame(12ms)。
-///   - 正断言：两个 Canvas-only 对照都降到 Timer(250ms)。
+///   - 正断言：Settings 打开但窗口前台时，Canvas-only 返回 NextFrame(16ms)，让透过覆盖层可见的贪吃蛇保持平滑。
+///   - 正断言：窗口后台的 Canvas-only 仍降到 Timer(250ms)。
 ///   - 负断言：Voice 不得被错误降到 Timer(250ms)，避免 PCM meter 卡顿。
 #[test]
-fn test_animation_schedule_keeps_voice_on_next_frame_while_settings_or_background_occludes_canvas()
-{
+fn test_animation_schedule_keeps_exposed_canvas_motion_on_next_frame_while_settings_is_open() {
     let voice_with_occluded_canvas = AnimationActivity {
         voice_active: true,
         canvas_motion_active: true,
@@ -149,8 +149,8 @@ fn test_animation_schedule_keeps_voice_on_next_frame_while_settings_or_backgroun
     );
     assert_eq!(
         settings_canvas_wakeup,
-        AnimationWakeup::Timer(Duration::from_millis(250)),
-        "Settings 遮挡时 Canvas-only 动画应降到 250ms"
+        AnimationWakeup::NextFrame(Duration::from_millis(16)),
+        "Settings 半透明覆盖层打开时，仍可见的 Canvas-only 动画应按 16ms 显示帧推进"
     );
     assert_eq!(
         background_canvas_wakeup,
@@ -161,6 +161,11 @@ fn test_animation_schedule_keeps_voice_on_next_frame_while_settings_or_backgroun
         voice_wakeup,
         AnimationWakeup::Timer(Duration::from_millis(250)),
         "Voice 活动不得错误继承 Canvas 的后台降频预算"
+    );
+    assert_ne!(
+        settings_canvas_wakeup,
+        AnimationWakeup::Timer(Duration::from_millis(250)),
+        "Settings 打开时仍可见的贪吃蛇不得退回 250ms 巡检，否则会出现明显卡顿"
     );
 }
 

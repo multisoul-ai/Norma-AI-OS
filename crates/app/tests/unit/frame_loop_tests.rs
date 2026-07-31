@@ -41,6 +41,7 @@ fn test_frame_loop_reports_keep_runtime_animation_and_persistence_separate() {
     let animation_report = AnimationFrameReport {
         motion_changed: true,
         cursor_changed: false,
+        voice_caption_changed: false,
         visible_working_snake: true,
         voice_window_inset_changed: false,
         elapsed: std::time::Duration::from_millis(1),
@@ -232,7 +233,7 @@ fn test_runtime_frame_repaint_pauses_while_settings_occludes_canvas() {
     );
 }
 
-/// FL-4：Settings 遮住 Canvas 时只暂停 Canvas 动画，Voice Preview 反馈仍可重绘。
+/// FL-4：半透明 Settings 覆盖层打开时，Canvas 动画与 Voice Preview 都须继续重绘。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   canvas report = motion_changed(true) + cursor_changed(true) + visible_working_snake(true)
@@ -246,14 +247,15 @@ fn test_runtime_frame_repaint_pauses_while_settings_occludes_canvas() {
 ///   3. 构造一帧 Voice Preview PCM 驱动的窗口内缘变化并解析 repaint 决策。
 ///
 /// 预期结果：
-///   - 负断言：被 Settings 遮住的 Canvas 动画不得请求整窗重绘。
+///   - 正断言：Canvas 动画必须请求整窗重绘，避免半透明覆盖层外可见的贪吃蛇冻结。
 ///   - 正断言：Voice Preview 的窗口内缘反馈必须继续请求重绘。
-///   - 负断言：Canvas-only 与 Voice Preview 结果不得相同，避免误伤设置内预览反馈。
+///   - 负断言：两类动画均不允许在 Settings 打开时被错误抑制。
 #[test]
-fn test_animation_frame_repaint_keeps_voice_preview_while_settings_occludes_canvas() {
+fn test_animation_frame_repaint_keeps_canvas_and_voice_preview_while_settings_is_open() {
     let canvas_only = AnimationFrameReport {
         motion_changed: true,
         cursor_changed: true,
+        voice_caption_changed: false,
         visible_working_snake: true,
         voice_window_inset_changed: false,
         elapsed: std::time::Duration::from_millis(12),
@@ -261,6 +263,7 @@ fn test_animation_frame_repaint_keeps_voice_preview_while_settings_occludes_canv
     let voice_preview = AnimationFrameReport {
         motion_changed: false,
         cursor_changed: false,
+        voice_caption_changed: false,
         visible_working_snake: false,
         voice_window_inset_changed: true,
         elapsed: std::time::Duration::from_millis(12),
@@ -270,16 +273,16 @@ fn test_animation_frame_repaint_keeps_voice_preview_while_settings_occludes_canv
     let voice_repaint = voice_preview.should_notify_surface(true);
 
     assert!(
-        !canvas_repaint,
-        "Settings 打开时 Agent snake 与 Terminal cursor 不得刷新被遮住的 Canvas"
+        canvas_repaint,
+        "Settings 半透明覆盖层打开时，Agent snake 与 Terminal cursor 必须刷新可见的 Canvas"
     );
     assert!(
         voice_repaint,
         "Settings 打开时 Voice Preview 的窗口内缘反馈仍必须刷新"
     );
-    assert_ne!(
-        canvas_repaint, voice_repaint,
-        "Canvas-only 动画与 Voice Preview 在 Settings 内必须采用不同 repaint 决策"
+    assert!(
+        canvas_repaint && voice_repaint,
+        "Settings 打开时 Canvas-only 与 Voice Preview 动画都不得被错误暂停"
     );
 }
 
@@ -306,6 +309,7 @@ fn test_visible_working_snake_does_not_bypass_motion_repaint_throttle() {
     let report = AnimationFrameReport {
         motion_changed: false,
         cursor_changed: false,
+        voice_caption_changed: false,
         visible_working_snake: true,
         voice_window_inset_changed: false,
         elapsed: std::time::Duration::from_millis(12),

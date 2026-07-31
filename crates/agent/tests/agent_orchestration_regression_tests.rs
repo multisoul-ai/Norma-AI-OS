@@ -19,6 +19,7 @@ fn roster(
         active_node_id: Some(definition_id as u64 + 100),
         tracking,
         busy: false,
+        task_state: agent::AgentTaskState::Ready,
     }
 }
 

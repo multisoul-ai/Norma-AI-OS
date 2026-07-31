@@ -42,6 +42,14 @@ use tts::{snapshot_tts_models, snapshot_tts_provider, TtsModelE2eSnapshot};
 pub use visuals::InitializationAnimationE2eSnapshot;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CanvasLayoutE2eSnapshot {
+    pub menu_open: bool,
+    pub fill: &'static str,
+    pub track_count: usize,
+    pub sizing: &'static str,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ApiKeyDisplayState {
     NotRendered,
     NotConfigured,
@@ -134,6 +142,21 @@ impl MultisoulApp {
 
     pub fn screen(&self) -> AppScreen {
         self.screen
+    }
+
+    pub fn canvas_layout_e2e_snapshot(&self) -> CanvasLayoutE2eSnapshot {
+        CanvasLayoutE2eSnapshot {
+            menu_open: self.interaction.layout_menu_open,
+            fill: match self.layout_strategy.fill {
+                canvas::GridFill::RowFirst => "row_first",
+                canvas::GridFill::ColumnFirst => "column_first",
+            },
+            track_count: self.layout_strategy.track_count,
+            sizing: match self.layout_strategy.sizing {
+                canvas::GridCardSizing::Fixed => "fixed",
+                canvas::GridCardSizing::FitViewport => "fit_viewport",
+            },
+        }
     }
 
     /// Launchpad 的固定背景资源；Canvas 的 Wallpaper 设置不会改变此值。

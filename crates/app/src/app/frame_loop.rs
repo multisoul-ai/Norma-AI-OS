@@ -120,6 +120,7 @@ impl RuntimeFrameReport {
 pub(super) struct AnimationFrameReport {
     pub motion_changed: bool,
     pub cursor_changed: bool,
+    pub voice_caption_changed: bool,
     pub visible_working_snake: bool,
     pub voice_window_inset_changed: bool,
     pub elapsed: Duration,
@@ -127,15 +128,16 @@ pub(super) struct AnimationFrameReport {
 
 impl AnimationFrameReport {
     pub(super) fn should_notify(self) -> bool {
-        self.motion_changed || self.cursor_changed || self.voice_window_inset_changed
+        self.motion_changed
+            || self.cursor_changed
+            || self.voice_caption_changed
+            || self.voice_window_inset_changed
     }
 
-    pub(super) fn should_notify_surface(self, settings_open: bool) -> bool {
-        if settings_open {
-            self.voice_window_inset_changed
-        } else {
-            self.should_notify()
-        }
+    pub(super) fn should_notify_surface(self, _settings_open: bool) -> bool {
+        // Settings 覆盖层不是不透明全屏页：Canvas 仍从面板四周可见。因此 motion/cursor
+        // 的节流帧也必须重绘，避免 working snake 在打开 Settings 后冻结或跳帧。
+        self.should_notify()
     }
 
     pub(super) fn notify_reason_labels(self) -> String {
@@ -145,6 +147,9 @@ impl AnimationFrameReport {
         }
         if self.cursor_changed {
             labels.push("cursor_changed");
+        }
+        if self.voice_caption_changed {
+            labels.push("voice_caption_changed");
         }
         if self.visible_working_snake {
             labels.push("visible_working_snake");
@@ -171,6 +176,7 @@ impl AnimationFrameReport {
             notify_reason_labels = notify_reason_labels.as_str(),
             motion_changed = self.motion_changed,
             cursor_changed = self.cursor_changed,
+            voice_caption_changed = self.voice_caption_changed,
             visible_working_snake = self.visible_working_snake,
             "animation_frame_tick"
         );

@@ -1,8 +1,8 @@
 use super::{load_preview_content, resolve_preview_path};
 use crate::app::{AppScreen, MultisoulApp};
+use crate::canvas::layout_strategy::apply_new_workspace_node_layout_for_area;
 use crate::canvas::master_layout::{
-    apply_workspace_reflow_for_area, enter_master_layout_for_area, reapply_master_layout_for_area,
-    switch_master_layout_for_area,
+    enter_master_layout_for_area, reapply_master_layout_for_area, switch_master_layout_for_area,
 };
 use canvas::{CanvasNodeKind, CanvasRect, NodeId, PreviewType};
 use gpui::{AppContext, Context, PathPromptOptions, Window};
@@ -61,7 +61,7 @@ impl MultisoulApp {
 
     pub(crate) fn prompt_preview_file(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let area = self.visible_canvas_rect(window);
-        let bounds = area.inset(self.layout_gap_canvas());
+        let bounds = self.next_tiled_node_bounds(window);
         let zoom = self.runtime.document.viewport.zoom;
         let receiver = cx.prompt_for_paths(PathPromptOptions {
             files: true,
@@ -116,7 +116,7 @@ impl MultisoulApp {
         self.runtime.selection.select_only(node_id);
         self.runtime.focus.exit_to_canvas();
         self.motion.spawn_node(node_id, bounds);
-        self.apply_preview_layout_for_area(area, zoom);
+        self.apply_preview_layout_for_new_node(node_id, area, zoom);
         self.mark_canvas_dirty();
         self.load_preview_node(node_id, cx);
         cx.notify();
@@ -176,7 +176,7 @@ impl MultisoulApp {
         matches!(self.screen, AppScreen::Canvas)
     }
 
-    fn apply_preview_layout_for_area(&mut self, area: CanvasRect, zoom: f32) {
+    fn apply_preview_layout_for_new_node(&mut self, node_id: NodeId, area: CanvasRect, zoom: f32) {
         if self.master_layout.is_active()
             && reapply_master_layout_for_area(
                 &mut self.master_layout,
@@ -188,6 +188,13 @@ impl MultisoulApp {
         {
             return;
         }
-        apply_workspace_reflow_for_area(&mut self.runtime, &mut self.motion, area, zoom);
+        apply_new_workspace_node_layout_for_area(
+            &mut self.runtime,
+            &mut self.motion,
+            node_id,
+            area,
+            zoom,
+            self.layout_strategy,
+        );
     }
 }

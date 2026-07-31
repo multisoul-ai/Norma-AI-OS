@@ -28,7 +28,7 @@ impl Caps {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeInput {
     Key(KeyInput),
-    /// Raw UTF-8 paste — sent to PTY without key encoding.
+    /// UTF-8 paste — sent to PTY without key encoding; logical line breaks use terminal CRLF.
     Text(String),
 }
 

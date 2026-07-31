@@ -98,6 +98,7 @@ impl MultisoulApp {
                 let _ = self.session_reply_queue.interrupt_all();
                 self.bind_conversation_tails_for_project();
                 self.reset_agent_announcements();
+                self.prune_agent_announcement_audio_cache();
                 self.dialogue.stop_shell();
                 self.focus_handle.focus(window);
                 self.clear_browser_views();
@@ -140,6 +141,7 @@ impl MultisoulApp {
         let _ = self.session_reply_queue.interrupt_all();
         self.bind_conversation_tails_for_project();
         self.reset_agent_announcements();
+        self.prune_agent_announcement_audio_cache();
         self.dialogue.stop_shell();
         self.clear_browser_views();
         self.clear_ego_previews(cx);

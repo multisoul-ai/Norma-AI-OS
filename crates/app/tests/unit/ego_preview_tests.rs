@@ -1,5 +1,50 @@
 use super::*;
 
+/// Ego 预览源优先级：CDP 主源已启动时，不得再让原生窗口流竞争并覆盖页面帧。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   候选节点 = node 7 + node 8 + node 9 = 3 个
+///   CDP 活跃节点 = {7, 9} = 2 个
+///   ScreenCaptureKit 后备节点 = 3 - 2 = 1 个，仅 node 8
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造三个可预览 Ego 节点，其中 node 7 和 node 9 已有持久 CDP session。
+///   2. 通过次级捕获筛选器计算允许启动 ScreenCaptureKit 的目标。
+///   3. 检查结果只保留没有 CDP 主源的 node 8。
+///
+/// 预期结果：
+///   - 正断言：node 8 必须进入原生窗口后备源。
+///   - 负断言：node 7 和 node 9 不得进入后备源，避免白色过渡帧覆盖 CDP 页面帧。
+#[test]
+fn test_secondary_capture_excludes_nodes_with_active_cdp_primary() {
+    let targets = vec![
+        (7, Some("23".to_string()), "Ego 7".to_string()),
+        (8, Some("24".to_string()), "Ego 8".to_string()),
+        (9, Some("25".to_string()), "Ego 9".to_string()),
+    ];
+    let cdp_active = std::collections::HashSet::from([7, 9]);
+
+    let secondary = secondary_capture_targets(&targets, |node_id| cdp_active.contains(&node_id));
+
+    assert_eq!(
+        secondary,
+        vec![(8, Some("24".to_string()), "Ego 8".to_string())],
+        "只有没有 CDP 主源的 node 8 可以启动 ScreenCaptureKit 后备捕获"
+    );
+    assert!(
+        secondary.iter().any(|(node_id, _, _)| *node_id == 8),
+        "node 8 缺少 CDP 主源，必须保留一个可用的原生窗口后备源"
+    );
+    assert!(
+        !secondary.iter().any(|(node_id, _, _)| *node_id == 7),
+        "node 7 已有 CDP 主源，不得让原生窗口白色过渡帧覆盖页面内容"
+    );
+    assert!(
+        !secondary.iter().any(|(node_id, _, _)| *node_id == 9),
+        "node 9 已有 CDP 主源，不得同时运行两个竞争的画面源"
+    );
+}
+
 /// Ego 内部截图结果解析：只接受带协议前缀的绝对 PNG 路径，忽略 helper 的其它日志。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -386,4 +431,51 @@ fn l3_real_ego_window_capture_returns_non_blank_page_pixels() {
         colors.len()
     );
     assert_ne!(colors.len(), 1, "Ego 页面预览不得退化为单一颜色的空白窗口");
+}
+
+/// L3 Ego 真机白帧防护：内部页面与窗口都处于纯白过渡态时，不得产出可显示预览。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Task Space ID = `NORMA_EGO_L3_BLANK_TASK_SPACE_ID` 环境变量
+///   Task Space 标题 = `NORMA_EGO_L3_BLANK_TASK_SPACE_NAME` 环境变量
+///   纯白页面量化颜色 = 1 种；最低可见阈值 = 8；1 < 8
+///   捕获来源 = Ego 内部页面 1 个 + macOS 精确窗口回退 1 个
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 对预先注入纯白 DOM 的受控 Task Space 调用完整预览捕获链路。
+///   2. 内部页面截图经过统一质量门后被拒绝，再回退到精确窗口截图。
+///   3. 窗口内容同样未达到颜色阈值，最终返回可诊断错误而不是 RenderImage。
+///
+/// 预期结果：
+///   - 正断言：结果为错误，错误包含“未返回可识别的页面内容”。
+///   - 负断言：不得返回可显示帧，也不得把错误误报成 Task Space 未找到。
+#[test]
+#[ignore = "需要正在运行且已注入纯白页面的 Ego Lite Task Space"]
+fn l3_real_ego_preview_rejects_transient_white_page() {
+    let task_space_id = std::env::var("NORMA_EGO_L3_BLANK_TASK_SPACE_ID")
+        .expect("白帧 L3 必须通过 NORMA_EGO_L3_BLANK_TASK_SPACE_ID 指定受控空间");
+    let task_space_name = std::env::var("NORMA_EGO_L3_BLANK_TASK_SPACE_NAME")
+        .expect("白帧 L3 必须通过 NORMA_EGO_L3_BLANK_TASK_SPACE_NAME 指定窗口");
+
+    let result = capture_ego_preview_frame(7, 2, Some(&task_space_id), &task_space_name);
+    let message = result
+        .err()
+        .expect("纯白页面与纯白窗口都不得生成可显示 Ego 预览帧");
+
+    assert!(
+        message.contains("未返回可识别的页面内容"),
+        "纯白真机捕获必须由质量门拒绝，实际错误为：{message}"
+    );
+    assert!(
+        message.contains("量化颜色"),
+        "白帧错误必须包含颜色质量诊断，便于区分权限或解码故障，实际为：{message}"
+    );
+    assert!(
+        !message.contains("未找到标题"),
+        "受控 Task Space 明明存在，白帧不得被误报为窗口未找到，实际为：{message}"
+    );
+    assert!(
+        !message.is_empty(),
+        "白帧拒绝必须返回可诊断错误，不能以空消息结束捕获"
+    );
 }

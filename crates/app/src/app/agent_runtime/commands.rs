@@ -38,10 +38,11 @@ pub(crate) fn execute_agent_card_command(
         )
         .map_err(|error| error.to_string());
     }
-    let execution = crate::norma::server::execute_card_command_for_area(
+    let execution = crate::norma::server::execute_card_command_for_area_with_strategy(
         &mut app.runtime,
         &mut app.motion,
         &mut app.master_layout,
+        app.layout_strategy,
         command,
         area,
         zoom,

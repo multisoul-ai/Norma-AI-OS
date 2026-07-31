@@ -49,6 +49,8 @@ pub struct CardBodyContext<'a> {
     pub browser_address_input: Option<gpui::Entity<BrowserAddressInput>>,
     pub browser_auth_state: BrowserAuthUiState,
     pub ego_preview: Option<Arc<gpui::RenderImage>>,
+    #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
+    pub ego_live_preview: Option<core_video::pixel_buffer::CVPixelBuffer>,
     pub ego_preview_error: Option<String>,
     pub theme: Theme,
     pub zoom: f32,

@@ -88,8 +88,9 @@ pub(super) fn on_mouse_down(
     }
     // 画布上任意鼠标按下都应关闭展开的 ✚ 菜单（避免菜单悬浮在画布之上）。
     // 不 return：让正常画布点击逻辑继续执行。
-    if app.interaction.new_menu_open {
+    if app.interaction.new_menu_open || app.interaction.layout_menu_open {
         app.interaction.close_new_menu();
+        app.interaction.close_layout_menu();
         cx.notify();
     }
     if app.agent_queue_ui.open_node_id().is_some() {
@@ -396,7 +397,11 @@ pub(super) fn on_mouse_up(
         if let Some(target) = drag.swap_candidate {
             let dragged = drag.node;
             if app.runtime.document.swap_node_order(dragged, target) {
-                app.apply_layout_for_current_mode(w);
+                if app.master_layout.is_active() {
+                    app.apply_layout_for_current_mode(w);
+                } else {
+                    app.reflow_tiled_nodes(w);
+                }
             }
         }
     }

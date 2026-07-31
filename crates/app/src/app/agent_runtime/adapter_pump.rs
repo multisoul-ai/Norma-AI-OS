@@ -308,7 +308,7 @@ pub(crate) fn execute_norma_adapter_command(
             .map_err(|error| AdapterError::Rejected(error.to_string()))?;
             let area = app.visible_canvas_rect(window);
             let zoom = app.runtime.document.viewport.zoom;
-            let bounds = area.inset(crate::canvas::master_layout::layout_gap_for_zoom(zoom));
+            let bounds = app.next_tiled_node_bounds(window);
             let node_id = app.spawn_preview_from_path(
                 path,
                 explicit_type.map(crate::norma::server::canvas_preview_type),

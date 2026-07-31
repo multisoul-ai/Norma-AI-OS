@@ -28,8 +28,9 @@ impl AnimationSchedule {
         if activity.voice_active {
             return AnimationWakeup::NextFrame(VOICE_ANIMATION_INTERVAL);
         }
-        let canvas_visible =
-            activity.screen_is_canvas && activity.window_active && !activity.settings_open;
+        // Settings 是半透明覆盖层，Canvas 及其中的 working snake 仍在其周围可见；
+        // 不能因打开 Settings 而把可见动画退回 250ms 巡检。
+        let canvas_visible = activity.screen_is_canvas && activity.window_active;
         let canvas_active = activity.canvas_motion_active
             || activity.cursor_active
             || activity.next_visual_boundary.is_some();

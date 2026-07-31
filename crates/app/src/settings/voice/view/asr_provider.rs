@@ -296,9 +296,13 @@ impl MultisoulApp {
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
-                app.voice_settings
+                if app
+                    .voice_settings
                     .record_azure_asr_validation_result(&validated_profile, result)
-                    .then(|| app.persist_voice_settings_in_background(cx));
+                {
+                    app.refresh_vad_requirement(cx);
+                    app.persist_voice_settings_in_background(cx);
+                }
                 cx.notify();
             });
         })

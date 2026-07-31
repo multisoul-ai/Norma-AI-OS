@@ -6,6 +6,8 @@ use crate::app::{BrowserCommand, BrowserCommandKind};
 use crate::cards::chrome::{CardChrome, CardChromeTaskBadge, CardChromeTaskTone};
 use crate::cards::{Card, CardBodyContext};
 use canvas::{BrowserSurfaceKind, CanvasNode, CanvasNodeKind, CanvasRect, EgoCardPhase, NodeType};
+#[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
+use gpui::surface;
 use gpui::{div, img, prelude::*, px, rgba, AnyElement, ImageSource, MouseButton, ObjectFit};
 use runtime::{NodeResize, Runtime};
 use ui::component::button::{Button, ButtonRounded, ButtonVariants};
@@ -76,6 +78,29 @@ fn render_ego_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElemen
             .and_then(|state| state.message)
             .unwrap_or_else(|| ego_status_text(phase).to_string())
     });
+    #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
+    let live_preview = context.ego_live_preview.map(|preview| {
+        div()
+            .id(("ego-preview-surface", node_id))
+            .debug_selector(|| "ego-preview-surface".to_string())
+            .relative()
+            .flex_1()
+            .min_h(px(0.0))
+            .rounded_b(px(context.bottom_radius_px))
+            .bg(rgba(theme.canvas_from))
+            .child(
+                surface(preview)
+                    .absolute()
+                    .top(px(0.0))
+                    .left(px(0.0))
+                    .right(px(0.0))
+                    .bottom(px(context.bottom_radius_px))
+                    .object_fit(ObjectFit::Contain),
+            )
+            .into_any_element()
+    });
+    #[cfg(any(not(target_os = "macos"), feature = "e2e-test-support"))]
+    let live_preview: Option<AnyElement> = None;
 
     div()
         .id(("ego-card", node_id))
@@ -113,19 +138,24 @@ fn render_ego_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElemen
                     zoom,
                 )),
         )
-        .child(if let Some(preview) = context.ego_preview {
+        .child(if let Some(preview) = live_preview {
+            preview
+        } else if let Some(preview) = context.ego_preview {
             div()
                 .id(("ego-preview-image", node_id))
                 .debug_selector(|| "ego-preview-image".to_string())
+                .relative()
                 .flex_1()
                 .min_h(px(0.0))
                 .rounded_b(px(context.bottom_radius_px))
-                .overflow_hidden()
                 .bg(rgba(theme.canvas_from))
                 .child(
                     img(ImageSource::Render(preview))
-                        .size_full()
-                        .rounded_b(px(context.bottom_radius_px))
+                        .absolute()
+                        .top(px(0.0))
+                        .left(px(0.0))
+                        .right(px(0.0))
+                        .bottom(px(context.bottom_radius_px))
                         .object_fit(ObjectFit::Contain),
                 )
                 .into_any_element()

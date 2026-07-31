@@ -76,14 +76,10 @@ impl MultisoulApp {
                     };
                     (spec.definition_id == Some(definition.id)).then_some(node.id)
                 });
-                let busy = active_node_id.is_some_and(|node_id| {
-                    matches!(
-                        self.runtime.agent_task_state(node_id),
-                        Some(runtime::AgentTaskState::Thinking)
-                            | Some(runtime::AgentTaskState::RunningTool { .. })
-                            | Some(runtime::AgentTaskState::WaitingApproval { .. })
-                    )
-                });
+                let runtime_task_state =
+                    active_node_id.and_then(|node_id| self.runtime.agent_task_state(node_id));
+                let task_state = agent_task_state_for_norma(runtime_task_state.as_ref());
+                let busy = task_state == agent::AgentTaskState::Busy;
                 agent::AgentRosterEntry {
                     definition_id: definition.id,
                     name: definition.name.clone(),
@@ -93,6 +89,7 @@ impl MultisoulApp {
                     active_node_id,
                     tracking: self.agent_tracking_for_profile(definition.runtime_profile),
                     busy,
+                    task_state,
                 }
             })
             .collect()
@@ -275,6 +272,23 @@ impl MultisoulApp {
     }
 }
 
+fn agent_task_state_for_norma(
+    runtime_state: Option<&runtime::AgentTaskState>,
+) -> agent::AgentTaskState {
+    match runtime_state {
+        Some(runtime::AgentTaskState::Thinking)
+        | Some(runtime::AgentTaskState::RunningTool { .. })
+        | Some(runtime::AgentTaskState::WaitingApproval { .. }) => agent::AgentTaskState::Busy,
+        Some(runtime::AgentTaskState::Ended) => agent::AgentTaskState::Ended,
+        Some(
+            runtime::AgentTaskState::Ready
+            | runtime::AgentTaskState::Done
+            | runtime::AgentTaskState::Failed { .. },
+        )
+        | None => agent::AgentTaskState::Ready,
+    }
+}
+
 fn canvas_card_kind(kind: &CanvasNodeKind) -> agent::CanvasCardKind {
     match kind {
         CanvasNodeKind::Rect(_) => agent::CanvasCardKind::Rect,
@@ -361,9 +375,47 @@ fn tracking_from_hook_component(
 
 #[cfg(test)]
 mod tests {
-    use super::tracking_from_hook_component;
+    use super::{agent_task_state_for_norma, tracking_from_hook_component};
     use norma::orchestration::ComponentState;
     use std::path::PathBuf;
+
+    /// Ctrl+C 产生的 runtime Ended 状态必须原样暴露给 Norma 路由快照。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   runtime terminal states = 2（Ended、Ready）；
+    ///   Norma routing states = 2（Ended、Ready）；
+    ///   Ctrl+C path = 1（Ended → Ended）。
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 将 Ctrl+C 后的 `runtime::AgentTaskState::Ended` 投影为 Agent roster 状态。
+    ///   2. 以 Ready 作为非中断对照，避免把所有终态都误报为已中断。
+    ///   3. 比较投影结果，供后续 Norma 直接寻址路由消费。
+    ///
+    /// 预期结果：
+    ///   - 正断言：Ended 必须映射为 `agent::AgentTaskState::Ended`。
+    ///   - 正断言：Ready 必须保持 Ready。
+    ///   - 负断言：Ended 不得退化为 Ready，否则路由会错误调用 `reply_agent`。
+    #[test]
+    fn ctrl_c_ended_state_is_exposed_to_norma_routing() {
+        let ended = agent_task_state_for_norma(Some(&runtime::AgentTaskState::Ended));
+        let ready = agent_task_state_for_norma(Some(&runtime::AgentTaskState::Ready));
+
+        assert_eq!(
+            ended,
+            agent::AgentTaskState::Ended,
+            "Ctrl+C 后的 Ended 必须作为 Ended 传给 Norma 路由"
+        );
+        assert_eq!(
+            ready,
+            agent::AgentTaskState::Ready,
+            "正常 Ready 卡片不得被误标为 Ended"
+        );
+        assert_ne!(
+            ended,
+            agent::AgentTaskState::Ready,
+            "Ended 若退化为 Ready，Norma 会把新请求错误送入 reply_agent"
+        );
+    }
 
     /// Provider 级追踪：只有当前 Provider 的完整 Hook 为 Ready 时才允许 Managed。
     ///

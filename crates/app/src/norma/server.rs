@@ -1,23 +1,25 @@
 pub(crate) use self::conversion::canvas_preview_type;
-use self::conversion::{card_bounds_to_canvas, node_error, norma_agent_profile};
+use self::conversion::node_error;
+use self::layout::{apply_layout_for_new_node_or_master, resolve_bounds, summarize_cards};
 use self::orchestration::{is_managed_agent_command, is_presentation_command, log_managed_request};
 use crate::app::{AppScreen, MultisoulApp};
+use crate::canvas::layout_strategy::CanvasLayoutStrategy;
 use crate::canvas::master_layout::{
-    apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
-    term_grid_size_for_card,
+    close_node_and_update_layout_for_area, term_grid_size_for_card,
 };
 use crate::canvas::spawn_focus::activate_spawned_node;
 use crate::motion::MotionStore;
 use canvas::{CanvasNodeKind, CanvasRect, NodeType};
 use gpui::{Context, Window};
 use norma::protocol::{
-    AgentErrorCode, CardCommand, CardCommandError, CardCommandResult, CardKind, CardSummary,
-    CardSummaryKind, NodeId, Placement, WireRequest, WireResponse,
+    AgentErrorCode, CardCommand, CardCommandError, CardCommandResult, CardKind, NodeId,
+    Placement, WireRequest, WireResponse,
 };
-use runtime::{InputMode, NodeInput, Runtime, DEFAULT_TERMINAL_SHELL};
+use runtime::{NodeInput, Runtime, DEFAULT_TERMINAL_SHELL};
 use std::time::Instant;
 
 mod conversion;
+mod layout;
 mod effects;
 mod orchestration;
 mod presentation;
@@ -144,7 +146,13 @@ impl MultisoulApp {
             } => {
                 let area = self.visible_canvas_rect(window);
                 let zoom = self.runtime.document.viewport.zoom;
-                let bounds = resolve_bounds(placement, area, zoom);
+                let bounds = resolve_bounds(
+                    placement,
+                    area,
+                    zoom,
+                    self.layout_strategy,
+                    self.runtime.document.nodes().len(),
+                );
                 let node_id = self.spawn_preview_from_path(
                     path,
                     explicit_type.map(canvas_preview_type),
@@ -162,10 +170,11 @@ impl MultisoulApp {
             command => {
                 let area = self.visible_canvas_rect(window);
                 let zoom = self.runtime.document.viewport.zoom;
-                execute_card_command_for_area(
+                execute_card_command_for_area_with_strategy(
                     &mut self.runtime,
                     &mut self.motion,
                     &mut self.master_layout,
+                    self.layout_strategy,
                     command,
                     area,
                     zoom,
@@ -220,12 +229,41 @@ pub(crate) fn execute_card_command_for_area(
     area: CanvasRect,
     zoom: f32,
 ) -> Result<NormaExecution, CardCommandError> {
+    execute_card_command_for_area_with_strategy(
+        runtime,
+        motion,
+        master_layout,
+        CanvasLayoutStrategy::default(),
+        command,
+        area,
+        zoom,
+    )
+}
+
+pub(crate) fn execute_card_command_for_area_with_strategy(
+    runtime: &mut Runtime,
+    motion: &mut MotionStore,
+    master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
+    strategy: CanvasLayoutStrategy,
+    command: CardCommand,
+    area: CanvasRect,
+    zoom: f32,
+) -> Result<NormaExecution, CardCommandError> {
     match command {
         CardCommand::Create { kind, placement } => {
-            create_card(runtime, motion, master_layout, kind, placement, area, zoom)
+            create_card(
+                runtime,
+                motion,
+                master_layout,
+                strategy,
+                kind,
+                placement,
+                area,
+                zoom,
+            )
         }
         CardCommand::Delete { node_id } => {
-            delete_card(runtime, motion, master_layout, node_id, area, zoom)
+            delete_card(runtime, motion, master_layout, strategy, node_id, area, zoom)
         }
         CardCommand::Present { target, create_new } => {
             presentation::execute_presentation_command_for_area(
@@ -274,12 +312,13 @@ fn create_card(
     runtime: &mut Runtime,
     motion: &mut MotionStore,
     master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
+    strategy: CanvasLayoutStrategy,
     kind: CardKind,
     placement: Placement,
     area: CanvasRect,
     zoom: f32,
 ) -> Result<NormaExecution, CardCommandError> {
-    let bounds = resolve_bounds(placement, area, zoom);
+    let bounds = resolve_bounds(placement, area, zoom, strategy, runtime.document.nodes().len());
     match kind {
         CardKind::Terminal { shell } => {
             let shell = shell.unwrap_or_else(|| DEFAULT_TERMINAL_SHELL.to_string());
@@ -295,7 +334,15 @@ fn create_card(
                 node_id,
                 crate::motion::InitializationAnimationKind::Terminal,
             );
-            apply_layout_for_current_mode(master_layout, runtime, motion, area, zoom);
+            apply_layout_for_new_node_or_master(
+                master_layout,
+                runtime,
+                motion,
+                node_id,
+                area,
+                zoom,
+                strategy,
+            );
             Ok(NormaExecution {
                 result: CardCommandResult::Created { node_id },
                 effects: NormaCommandEffects::CANVAS_SESSION,
@@ -317,7 +364,15 @@ fn create_card(
             runtime.selection.select_only(node_id);
             runtime.focus.exit_to_canvas();
             motion.spawn_node(node_id, bounds);
-            apply_layout_for_current_mode(master_layout, runtime, motion, area, zoom);
+            apply_layout_for_new_node_or_master(
+                master_layout,
+                runtime,
+                motion,
+                node_id,
+                area,
+                zoom,
+                strategy,
+            );
             Ok(NormaExecution {
                 result: CardCommandResult::Created { node_id },
                 effects: NormaCommandEffects::CANVAS,
@@ -329,7 +384,15 @@ fn create_card(
             runtime.selection.select_only(node_id);
             runtime.focus.exit_to_canvas();
             motion.spawn_node(node_id, bounds);
-            apply_layout_for_current_mode(master_layout, runtime, motion, area, zoom);
+            apply_layout_for_new_node_or_master(
+                master_layout,
+                runtime,
+                motion,
+                node_id,
+                area,
+                zoom,
+                strategy,
+            );
             Ok(NormaExecution {
                 result: CardCommandResult::Created { node_id },
                 effects: NormaCommandEffects::CANVAS,
@@ -343,6 +406,7 @@ fn delete_card(
     runtime: &mut Runtime,
     motion: &mut MotionStore,
     master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
+    strategy: CanvasLayoutStrategy,
     node_id: NodeId,
     area: CanvasRect,
     zoom: f32,
@@ -353,7 +417,15 @@ fn delete_card(
         };
         spec.definition_id
     });
-    if !close_node_and_update_layout_for_area(runtime, motion, master_layout, node_id, area, zoom) {
+    if !close_node_and_update_layout_for_area(
+        runtime,
+        motion,
+        master_layout,
+        node_id,
+        area,
+        zoom,
+        strategy,
+    ) {
         return Err(CardCommandError::NotFound { node_id });
     }
 
@@ -404,72 +476,6 @@ fn focus_card(runtime: &mut Runtime, node_id: NodeId) -> Result<NormaExecution, 
         effects: NormaCommandEffects::NOTIFY,
         removed_agent_definition_id: None,
     })
-}
-
-fn summarize_cards(runtime: &Runtime) -> Vec<CardSummary> {
-    runtime
-        .document
-        .nodes()
-        .iter()
-        .map(|node| CardSummary {
-            node_id: node.id,
-            title: node.kind.display_title().to_string(),
-            alias: summary_alias(&node.kind),
-            kind: summary_kind(&node.kind),
-            selected: runtime.selection.contains(node.id),
-            focused: matches!(runtime.focus.mode(), InputMode::NodeFocused(id) if id == node.id),
-        })
-        .collect()
-}
-
-fn summary_alias(kind: &CanvasNodeKind) -> Option<String> {
-    match kind {
-        CanvasNodeKind::Agent(spec) => spec.alias.clone(),
-        CanvasNodeKind::Rect(_)
-        | CanvasNodeKind::Term(_)
-        | CanvasNodeKind::Preview(_)
-        | CanvasNodeKind::Browser(_) => None,
-    }
-}
-
-fn summary_kind(kind: &CanvasNodeKind) -> CardSummaryKind {
-    match kind {
-        CanvasNodeKind::Rect(_) => CardSummaryKind::Rect,
-        CanvasNodeKind::Term(_) => CardSummaryKind::Terminal,
-        CanvasNodeKind::Agent(spec) => CardSummaryKind::Agent {
-            profile: norma_agent_profile(spec.profile),
-        },
-        CanvasNodeKind::Preview(_) => CardSummaryKind::Preview,
-        CanvasNodeKind::Browser(_) => CardSummaryKind::Browser,
-    }
-}
-
-fn apply_layout_for_current_mode(
-    master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
-    runtime: &mut Runtime,
-    motion: &mut MotionStore,
-    area: CanvasRect,
-    zoom: f32,
-) {
-    if master_layout.is_active()
-        && crate::canvas::master_layout::reapply_master_layout_for_area(
-            master_layout,
-            runtime,
-            motion,
-            area,
-            zoom,
-        )
-    {
-        return;
-    }
-    apply_workspace_reflow_for_area(runtime, motion, area, zoom);
-}
-
-fn resolve_bounds(placement: Placement, area: CanvasRect, zoom: f32) -> CanvasRect {
-    match placement {
-        Placement::VisibleArea => area.inset(layout_gap_for_zoom(zoom)),
-        Placement::Bounds(bounds) => card_bounds_to_canvas(bounds),
-    }
 }
 
 #[cfg(test)]

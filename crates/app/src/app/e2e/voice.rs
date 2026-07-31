@@ -16,6 +16,9 @@ pub struct VoiceE2eSnapshot {
     pub caption_text: Option<String>,
     pub caption_preview: Option<String>,
     pub caption_expanded: bool,
+    pub caption_visible: bool,
+    pub caption_waveform_phase_milli: u16,
+    pub caption_surface_opacity_milli: u16,
 }
 
 impl MultisoulApp {
@@ -60,6 +63,10 @@ impl MultisoulApp {
             caption_text: self.voice_caption_text(),
             caption_preview: self.voice_caption_preview(),
             caption_expanded: self.voice.caption_expanded(),
+            caption_visible: self.voice_caption_is_visible(),
+            caption_waveform_phase_milli: self.voice_caption_waveform_phase_milli(),
+            caption_surface_opacity_milli:
+                crate::app::voice::caption::CAPTION_SURFACE_OPACITY_MILLI,
         }
     }
 
@@ -69,6 +76,22 @@ impl MultisoulApp {
             .begin_recording(crate::app::voice::control::VoiceTrigger::Shortcut);
         self.voice.partial_text = transcript.into();
         self.voice.collapse_caption();
+    }
+
+    pub fn show_voice_thinking_for_e2e(&mut self, transcript: &str) {
+        self.voice.stop_for_model_switch();
+        self.voice.set_executed("Voice command sent");
+        self.dialogue
+            .begin_single_voice_command(transcript)
+            .expect("E2E voice Thinking fixture must accept a non-empty transcript");
+    }
+
+    pub fn show_voice_replying_for_e2e(&mut self, transcript: &str) {
+        self.show_voice_thinking_for_e2e(transcript);
+        self.dialogue
+            .session
+            .on_reply_ready()
+            .expect("E2E assistant reply fixture must transition Thinking to Speaking");
     }
 
     pub fn show_single_voice_turn_error_for_e2e(&mut self, message: impl Into<String>) {

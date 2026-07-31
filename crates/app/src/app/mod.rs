@@ -3,14 +3,12 @@ use crate::app::frame_throttle::FrameThrottle;
 #[cfg(test)]
 use crate::app::frame_throttle::CURSOR_REPAINT_INTERVAL;
 use crate::canvas::interaction::InteractionState;
+use crate::canvas::layout_strategy::CanvasLayoutStrategy;
 use crate::canvas::master_layout::{
-    apply_workspace_reflow_for_area, layout_gap_for_zoom, reapply_master_layout_for_area,
     term_grid_size_for_card, MasterLayoutState,
 };
 #[cfg(test)]
-use crate::canvas::master_layout::{
-    close_node_and_reflow_for_area, workspace_reflow_config_for_zoom,
-};
+use crate::canvas::master_layout::close_node_and_reflow_for_area;
 use crate::canvas::spawn_focus;
 use crate::canvas::view::render_canvas;
 use crate::cards::term::render_cache::TerminalRenderCacheHandle;
@@ -63,6 +61,8 @@ pub(crate) mod ego;
 mod ego_page_capture;
 #[cfg(target_os = "macos")]
 mod ego_preview;
+#[cfg(all(target_os = "macos", feature = "l3-test-support"))]
+pub use ego_preview::{run_ego_live_capture_probe, EgoLiveCaptureProbeReport};
 pub(crate) mod file_picker;
 mod frame_loop;
 #[cfg(feature = "e2e-test-support")]
@@ -73,6 +73,8 @@ mod ime;
 mod ime_geometry;
 mod keyboard;
 mod keyboard_settings;
+mod layout_actions;
+mod layout_menu;
 mod lifecycle;
 mod new_menu;
 mod render;
@@ -91,7 +93,8 @@ pub(crate) mod wallpaper_resolvers;
 pub use e2e::dialogue_tts::*;
 pub use e2e::{
     AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState,
-    InitializationAnimationE2eSnapshot, SettingsE2eSnapshot, TtsProviderE2eSnapshot,
+    CanvasLayoutE2eSnapshot, InitializationAnimationE2eSnapshot, SettingsE2eSnapshot,
+    TtsProviderE2eSnapshot,
 };
 #[cfg(feature = "e2e-test-support")]
 pub use e2e::{
@@ -138,6 +141,7 @@ pub struct MultisoulApp {
     pub(crate) ego_previews: ego_preview::EgoPreviewStore,
     pub(crate) browser_address_edit: Option<BrowserAddressEdit>,
     pub(crate) master_layout: MasterLayoutState,
+    pub(crate) layout_strategy: CanvasLayoutStrategy,
     pub(crate) persistence: PersistenceScheduler,
     pub(crate) settings_panel: SettingsPanelState,
     pub(crate) settings_viewport: SettingsViewportState,
@@ -150,6 +154,7 @@ pub struct MultisoulApp {
     pub(crate) agent_hook_server: AgentHookServer,
     agent_announcements: agent_announcements::AgentAnnouncements,
     agent_announcement_playback: agent_announcements::AgentAnnouncementPlayback,
+    agent_announcement_audio_cache: agent_announcements::AgentAnnouncementAudioCache,
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
     pub(crate) recent_project_context_path: Option<PathBuf>,
@@ -181,6 +186,7 @@ pub struct MultisoulApp {
     pub(crate) video_wallpaper: Option<video_wallpaper::VideoWallpaperState>,
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
     pub(crate) terminal_cursor_phase: f32,
+    pub(crate) voice_caption_waveform_phase: f32,
     pub(crate) terminal_render_cache: TerminalRenderCacheHandle,
     terminal_cursor_repaint: FrameThrottle,
     #[cfg(feature = "e2e-test-support")]
@@ -221,9 +227,7 @@ impl MultisoulApp {
             return;
         }
 
-        let bounds = self
-            .visible_canvas_rect(window)
-            .inset(self.layout_gap_canvas());
+        let bounds = self.next_tiled_node_bounds(window);
         let (cols, rows) =
             term_grid_size_for_card(NodeType::Term, bounds, self.runtime.document.viewport.zoom);
         match self.runtime.spawn_terminal(bounds, "/bin/zsh", cols, rows) {
@@ -235,7 +239,7 @@ impl MultisoulApp {
                     node_id,
                     crate::motion::InitializationAnimationKind::Terminal,
                 );
-                self.apply_layout_for_current_mode(window);
+                self.apply_layout_for_new_node(node_id, window);
                 self.mark_canvas_dirty();
                 self.mark_session_dirty();
             }
@@ -253,9 +257,7 @@ impl MultisoulApp {
             return;
         }
 
-        let bounds = self
-            .visible_canvas_rect(window)
-            .inset(self.layout_gap_canvas());
+        let bounds = self.next_tiled_node_bounds(window);
         let node_id = self.runtime.spawn_browser(
             crate::cards::browser::normalize_browser_url(""),
             None,
@@ -264,7 +266,7 @@ impl MultisoulApp {
         self.runtime.selection.select_only(node_id);
         self.runtime.focus.exit_to_canvas();
         self.motion.spawn_node(node_id, bounds);
-        self.apply_layout_for_current_mode(window);
+        self.apply_layout_for_new_node(node_id, window);
         self.mark_canvas_dirty();
         cx.notify();
     }
@@ -279,12 +281,10 @@ impl MultisoulApp {
         let node_id = if let Some(node_id) = self.runtime.ego_node_id() {
             node_id
         } else {
-            let bounds = self
-                .visible_canvas_rect(window)
-                .inset(self.layout_gap_canvas());
+            let bounds = self.next_tiled_node_bounds(window);
             let node_id = self.runtime.spawn_ego_browser(None, bounds);
             self.motion.spawn_node(node_id, bounds);
-            self.apply_layout_for_current_mode(window);
+            self.apply_layout_for_new_node(node_id, window);
             self.mark_canvas_dirty();
             node_id
         };
@@ -377,38 +377,6 @@ impl MultisoulApp {
             bottom_right.x - top_left.x,
             bottom_right.y - top_left.y,
         )
-    }
-
-    pub(crate) fn layout_gap_canvas(&self) -> f32 {
-        layout_gap_for_zoom(self.runtime.document.viewport.zoom)
-    }
-
-    fn apply_tiled_nodes(&mut self, window: &mut Window) {
-        let area = self.visible_canvas_rect(window);
-        let zoom = self.runtime.document.viewport.zoom;
-        apply_workspace_reflow_for_area(&mut self.runtime, &mut self.motion, area, zoom);
-    }
-
-    pub(crate) fn reflow_tiled_nodes(&mut self, window: &mut Window) {
-        self.master_layout.clear();
-        self.apply_tiled_nodes(window);
-    }
-
-    pub(crate) fn apply_layout_for_current_mode(&mut self, window: &mut Window) {
-        let area = self.visible_canvas_rect(window);
-        let zoom = self.runtime.document.viewport.zoom;
-        if self.master_layout.is_active()
-            && reapply_master_layout_for_area(
-                &mut self.master_layout,
-                &mut self.runtime,
-                &mut self.motion,
-                area,
-                zoom,
-            )
-        {
-            return;
-        }
-        self.apply_tiled_nodes(window);
     }
 
     fn reflow_if_window_size_changed(&mut self, window: &mut Window) {

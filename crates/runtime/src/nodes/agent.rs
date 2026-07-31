@@ -25,7 +25,7 @@ pub(crate) fn spawn_agent_live(
 pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEnv>) -> PtyCommand {
     let command = match profile {
         AgentProfile::Claude => {
-            PtyCommand::new("/bin/zsh").args(["-ic", "exec claude --dangerously-skip-permissions"])
+            PtyCommand::new("/bin/zsh").args(["-lic", "exec claude --dangerously-skip-permissions"])
         }
         AgentProfile::Codex => {
             let mut exec_command =
@@ -37,9 +37,9 @@ pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEn
                 // 只有在确实注入了 Multisoul hook env 时才带上这个标志去跳过信任门禁。
                 exec_command.push_str(" --dangerously-bypass-hook-trust");
             }
-            PtyCommand::new("/bin/zsh").arg("-ic").arg(exec_command)
+            PtyCommand::new("/bin/zsh").arg("-lic").arg(exec_command)
         }
-        AgentProfile::Cursor => PtyCommand::new("/bin/zsh").args(["-ic", "exec cursor-agent"]),
+        AgentProfile::Cursor => PtyCommand::new("/bin/zsh").args(["-lic", "exec cursor-agent"]),
         AgentProfile::Grok => PtyCommand::new("/bin/zsh").args(["-lic", "exec grok"]),
         AgentProfile::OpenCode => {
             PtyCommand::new("/bin/zsh").args(["-lic", "exec \"${OPENCODE_BIN:-opencode}\""])
@@ -58,17 +58,19 @@ mod tests {
     /// Agent profile 映射到对应 CLI 启动命令，未传 hook env 时不注入 Multisoul 环境变量。
     ///
     /// 数据构造（含关键数值推导）：
-    ///   Claude profile → /bin/zsh -ic "exec claude --dangerously-skip-permissions"
-    ///   Codex profile  → /bin/zsh -ic "exec codex -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox"
-    ///   两个命令都使用 3 段 argv：program + "-ic" + exec 命令
+    ///   Claude profile → /bin/zsh -lic "exec claude --dangerously-skip-permissions"
+    ///   Codex profile  → /bin/zsh -lic "exec codex -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox"
+    ///   Cursor profile → /bin/zsh -lic "exec cursor-agent"
+    ///   三个命令都使用 3 段 argv：program + "-lic" + exec 命令
     ///
     /// 执行过程：
     ///   1. agent_command(Claude, None)
     ///   2. agent_command(Codex, None)
-    ///   3. 检查 program 与 args
+    ///   3. agent_command(Cursor, None)
+    ///   4. 检查 program 与 args
     ///
     /// 预期结果：
-    ///   - 正断言：两个 profile 都通过 /bin/zsh -ic 启动
+    ///   - 正断言：三个 profile 都通过 /bin/zsh -lic 启动
     ///   - 正断言：Claude/Codex 分别包含对应 CLI 名称
     ///   - 负断言：Claude/Codex 命令不应带 MULTISOUL_NODE_ID
     #[test]
@@ -86,13 +88,16 @@ mod tests {
             "Codex Agent 应通过 /bin/zsh 启动交互 shell 命令"
         );
         assert_eq!(
-            claude.args[0], "-ic",
-            "Claude Agent 应使用 zsh -ic 执行 CLI"
+            claude.args[0], "-lic",
+            "Claude Agent 应使用 zsh -lic 加载 login profile 后执行 CLI"
         );
-        assert_eq!(codex.args[0], "-ic", "Codex Agent 应使用 zsh -ic 执行 CLI");
         assert_eq!(
-            cursor.args[0], "-ic",
-            "Cursor Agent 应使用 zsh -ic 执行 CLI"
+            codex.args[0], "-lic",
+            "Codex Agent 应使用 zsh -lic 加载 login profile 后执行 CLI"
+        );
+        assert_eq!(
+            cursor.args[0], "-lic",
+            "Cursor Agent 应使用 zsh -lic 加载 login profile 后执行 CLI"
         );
         assert!(
             claude.args[1].contains("claude"),

@@ -189,6 +189,22 @@ Choose the smallest sufficient implementation and verification flow from [`docs/
 - 同类页面和状态使用一致的布局、间距、组件和交互模式；新增模式前先复用现有设计语言与 `ui::component`。
 - 可访问性是默认要求：保证可读对比度、完整键盘操作、明确焦点状态、足够点击区域，并尊重系统的减少动态效果等偏好。
 - 新增或改版 UI 的方案与验收标准必须逐项说明上述原则如何落地；涉及用户可观察流程时，按 §7 映射到自动化证据和 e2e 覆盖。
+
+### 页面设计技能路由（必遵）
+
+新建或改版用户可见页面、布局、样式或交互时，先在设计阶段加载下列适用 skill，再写 GPUI 代码；`apple-design` 是所有此类任务的必读基线。不得把动效当作装饰：高频操作应保持即时，动效必须服务于反馈、空间连续性或状态理解。
+
+| 场景 | 必须参考的本地 skill | 方案与验收中必须留下的证据 |
+| --- | --- | --- |
+| 任意页面或视觉交互 | `.agents/skills/apple-design` | 信息层级、平台熟悉性、直接反馈与可访问性如何落地；有动效时说明其目的与减少动态效果下的替代行为。 |
+| 手势、拖拽、sheet/panel、弹层、材质层次、排版或非平凡动效 | `.agents/skills/apple-design`、`.agents/skills/emil-design-eng` | 说明响应、直接跟手、可中断性、进出路径/触发源、动效频率与性能取舍；没有足够理由时不加动效。 |
+| 新增或修改动效后的验收/代码审查 | `.agents/skills/review-animations` | 记录审查结论与已处理的问题；以真实 App 的 Computer Use 操作验证可见效果。 |
+| 需要寻找值得加入动效的点 | `.agents/skills/find-animation-opportunities` | 先产出只读机会清单及明确拒绝项，再决定是否实施。 |
+| 系统性重构既有动效 | `.agents/skills/improve-animations` | 先完成优先级审计与实施计划，再执行获确认的计划。 |
+| 用户只描述效果、不知道术语 | `.agents/skills/animation-vocabulary` | 在设计记录中使用准确的动效术语，避免含糊需求直接进入实现。 |
+| 视觉方向尚未确定且需要比较方案 | `.agents/skills/prototype` | 先在隔离原型中比较方向，待选择后才进入生产页面。 |
+
+每个上述页面任务的方案或验收记录都必须写出“参考的 skill、采纳或拒绝的关键设计决策、对应的 GPUI 实现/验证方式”。这些 skill 的 CSS、Pointer Events 或 Web 动画 API 示例只用于传达设计与交互原则；实现前仍须按本文件的 GPUI skill 路由验证 `gpui =0.2.2`、`gpui-component =0.5.1` 与邻近代码，不能直接照搬 Web API。
 - GPUI code belongs in `app` and `ui`.
 - Prefer `ui::component` (gpui-component) for buttons, inputs, dialogs, and similar controls; do not reinvent them unless the library lacks the capability or the surface is domain-specific (canvas/terminal).
 - Before changing GPUI API usage, elements, styling, actions, async tasks, entities, tests, troubleshooting, or code quality patterns, consult the installed skills from `cnwzhu/gpui-skills`: `gpui-fundamentals`, `gpui-init`, `gpui-elements`, `gpui-styling`, `gpui-actions`, `gpui-async`, `gpui-entities`, `gpui-testing`, `gpui-troubleshooting`, `gpui-patterns`, and `gpui-code-quality`.

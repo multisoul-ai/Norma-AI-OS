@@ -1,23 +1,22 @@
 //! Agent task terminal announcement policy and playback coordination.
 
-use super::dialogue::{create_tts_client_for_selection, selected_tts_model};
-use super::voice_window_inset::{PcmEnergyTimeline, TtsPlaybackEvent};
+#[cfg(feature = "e2e-test-support")]
+use super::voice_window_inset::PcmEnergyTimeline;
+use super::voice_window_inset::TtsPlaybackEvent;
 use super::MultisoulApp;
 use canvas::{CanvasNodeKind, NodeId};
-use dialogue::DialoguePhase;
 use gpui::Context;
 use runtime::{AgentTaskState, RuntimeEvent};
 use std::collections::{HashMap, VecDeque};
-use std::sync::Arc;
+use std::time::SystemTime;
 
+mod cache;
+mod dispatch;
 mod playback;
 mod synthesis;
+pub(super) use cache::AgentAnnouncementAudioCache;
 pub(crate) use playback::AgentAnnouncementPlayback;
-use playback::{
-    await_playback_completion_or_timeout, completion_timeout_for_chunk,
-    AgentAnnouncementAudioControl, AgentAnnouncementPlaybackPhase,
-};
-use synthesis::synthesize_agent_terminal_announcement;
+use playback::AgentAnnouncementPlaybackPhase;
 
 const MAX_PENDING_ANNOUNCEMENTS: usize = 32;
 
@@ -221,162 +220,17 @@ impl MultisoulApp {
         self.agent_announcement_playback.cancel_active();
     }
 
+    pub(crate) fn clear_agent_announcement_audio_for_voice_change(&mut self) {
+        self.agent_announcement_audio_cache.clear_for_voice_change();
+    }
+
+    pub(crate) fn prune_agent_announcement_audio_cache(&mut self) {
+        self.agent_announcement_audio_cache
+            .prune_expired_workspaces(SystemTime::now());
+    }
+
     pub(crate) fn agent_announcement_audio_idle(&self) -> bool {
         self.agent_announcement_playback.is_idle()
-    }
-
-    pub(crate) fn start_next_agent_announcement(&mut self, cx: &mut Context<Self>) {
-        if !self.agent_announcement_playback.is_idle()
-            || matches!(
-                self.dialogue.phase(),
-                DialoguePhase::Thinking | DialoguePhase::Speaking
-            )
-            || self.dialogue.has_pending_spoken_reply()
-            || self.tts_preview.is_active()
-        {
-            return;
-        }
-        let Some(announcement) = self.agent_announcements.take_next_ready() else {
-            return;
-        };
-        #[cfg(feature = "e2e-test-support")]
-        if self.agent_announcement_playback.e2e_enabled {
-            self.start_agent_announcement_for_e2e(announcement);
-            return;
-        }
-        self.agent_announcement_playback.generation =
-            self.agent_announcement_playback.generation.wrapping_add(1);
-        let generation = self.agent_announcement_playback.generation;
-        let agent_name = announcement.agent_name.clone();
-        let outcome_word = announcement.outcome_word.clone();
-        let tts_runtime = self.dialogue.shared_tts_runtime.clone();
-        let selected = selected_tts_model();
-        let selected_for_create = selected.clone();
-        self.agent_announcement_playback.phase =
-            AgentAnnouncementPlaybackPhase::Synthesizing(announcement);
-        let work = cx.background_executor().spawn(async move {
-            tts_runtime.with_client(
-                selected,
-                || create_tts_client_for_selection(selected_for_create.as_ref()),
-                |tts| synthesize_agent_terminal_announcement(tts, &agent_name, &outcome_word),
-            )
-        });
-        cx.spawn(async move |this, cx| {
-            let result = work.await;
-            let _ = this.update(cx, |app, cx| {
-                app.finish_agent_announcement_synthesis(generation, result, cx);
-            });
-        })
-        .detach();
-    }
-
-    fn finish_agent_announcement_synthesis(
-        &mut self,
-        generation: u64,
-        result: Result<audio::PcmAudioChunk, voice_sherpa::SpeechError>,
-        cx: &mut Context<Self>,
-    ) {
-        if generation != self.agent_announcement_playback.generation {
-            cx.background_executor()
-                .spawn(async move { drop(result) })
-                .detach();
-            return;
-        }
-        let AgentAnnouncementPlaybackPhase::Synthesizing(announcement) = std::mem::replace(
-            &mut self.agent_announcement_playback.phase,
-            AgentAnnouncementPlaybackPhase::Idle,
-        ) else {
-            return;
-        };
-        let chunk = match result {
-            Ok(chunk) => chunk,
-            Err(error) => {
-                tracing::warn!(%error, "agent announcement synthesis failed");
-                self.start_next_agent_announcement(cx);
-                return;
-            }
-        };
-        let control = Arc::new(AgentAnnouncementAudioControl::new());
-        self.agent_announcement_playback.control = Some(Arc::clone(&control));
-        self.agent_announcement_playback.phase =
-            AgentAnnouncementPlaybackPhase::Synthesizing(announcement.clone());
-        let playback_work = cx.background_executor().spawn(async move {
-            let playback = control.play_with_completion(&chunk);
-            (control, chunk, playback)
-        });
-        cx.spawn(async move |this, cx| {
-            let (control, chunk, playback) = playback_work.await;
-            let _ = this.update(cx, |app, cx| {
-                app.finish_agent_announcement_scheduling(
-                    generation,
-                    announcement,
-                    control,
-                    chunk,
-                    playback,
-                    cx,
-                );
-            });
-        })
-        .detach();
-    }
-
-    fn finish_agent_announcement_scheduling(
-        &mut self,
-        generation: u64,
-        announcement: AgentAnnouncement,
-        control: Arc<AgentAnnouncementAudioControl>,
-        chunk: audio::PcmAudioChunk,
-        playback: Result<(async_channel::Receiver<()>, async_channel::Receiver<()>), String>,
-        cx: &mut Context<Self>,
-    ) {
-        if generation != self.agent_announcement_playback.generation {
-            control.cancel();
-            return;
-        }
-        let (started_rx, finished_rx) = match playback {
-            Ok(receivers) => receivers,
-            Err(error) => {
-                tracing::warn!(%error, "agent announcement playback failed");
-                self.agent_announcement_playback.control = None;
-                self.agent_announcement_playback.phase = AgentAnnouncementPlaybackPhase::Idle;
-                self.start_next_agent_announcement(cx);
-                return;
-            }
-        };
-        self.agent_announcement_playback
-            .playback_events
-            .push(TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(
-                &chunk,
-            )));
-        self.agent_announcement_playback.phase = AgentAnnouncementPlaybackPhase::Playing {
-            announcement,
-            started: false,
-        };
-        cx.notify();
-        let completion_timeout = completion_timeout_for_chunk(&chunk);
-        let executor = cx.background_executor().clone();
-        cx.spawn(async move |this, cx| {
-            if started_rx.recv().await.is_ok() {
-                let _ = this.update(cx, |app, cx| {
-                    app.mark_agent_announcement_started(generation);
-                    cx.notify();
-                });
-            }
-            let completed =
-                await_playback_completion_or_timeout(executor, finished_rx, completion_timeout)
-                    .await;
-            if !completed {
-                tracing::warn!(
-                    generation,
-                    watchdog_ms = completion_timeout.as_millis(),
-                    "agent announcement playback ended without a completion callback"
-                );
-            }
-            let _ = this.update(cx, |app, cx| {
-                app.finish_agent_announcement_playback(generation, completed, cx);
-            });
-        })
-        .detach();
     }
 
     fn mark_agent_announcement_started(&mut self, generation: u64) {

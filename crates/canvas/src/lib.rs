@@ -15,9 +15,10 @@ pub use document::{CanvasNodeSnapshot, Document, DocumentSnapshot};
 pub use geometry::{CanvasRect, Transform2D, Vec2, Viewport};
 pub use hit_test::hit_test;
 pub use layout::{
-    compute_master_detail_layout, compute_responsive_grid_layout, compute_tiled_grid_layout,
-    LayoutAssignment, LayoutInsets, ResponsiveGridConfig, TiledGridConfig,
-    DEFAULT_CARD_ASPECT_RATIO,
+    compute_configurable_grid_layout, compute_master_detail_layout,
+    compute_responsive_grid_layout, compute_tiled_grid_layout, configurable_grid_cell_bounds,
+    ConfigurableGridConfig, GridCardSizing, GridFill, LayoutAssignment, LayoutInsets,
+    ResponsiveGridConfig, TiledGridConfig, DEFAULT_CARD_ASPECT_RATIO,
 };
 pub use navigation::{navigate_card, NavigationDirection};
 pub use node::{

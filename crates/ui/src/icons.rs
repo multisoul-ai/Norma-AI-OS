@@ -11,6 +11,7 @@ pub fn with_alpha(color: u32, alpha: u8) -> u32 {
 /// Toolbar icon variants. Each maps to an embedded SVG asset path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ToolbarIcon {
+    Layout,
     Scroll,
     Plus,
     Terminal,
@@ -28,6 +29,7 @@ impl ToolbarIcon {
     /// Asset path resolved via the app's AssetSource (wired in crates/app/src/assets.rs).
     pub fn asset_path(self) -> &'static str {
         match self {
+            ToolbarIcon::Layout => "icons/toolbar-layout.svg",
             ToolbarIcon::Scroll => "icons/toolbar-scroll.svg",
             ToolbarIcon::Plus => "icons/toolbar-plus.svg",
             ToolbarIcon::Terminal => "icons/toolbar-terminal.svg",
@@ -62,10 +64,11 @@ mod tests {
     /// 顶栏图标 asset 路径：每个 ToolbarIcon 变体都映射到唯一的、命名规范的 SVG 路径。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   变体总数 = 11（Scroll / Plus / Terminal / Browser / Claude / Codex / Cursor / Grok / OpenCode / Preview / Settings）
+    ///   变体总数 = 12（Layout / Scroll / Plus / Terminal / Browser / Claude / Codex / Cursor / Grok / OpenCode / Preview / Settings）
     ///   命名前缀 = "icons/toolbar-"
     ///   命名后缀 = ".svg"
     ///   期望路径表（variant -> asset_path）：
+    ///     Layout    -> "icons/toolbar-layout.svg"
     ///     Scroll    -> "icons/toolbar-scroll.svg"
     ///     Plus      -> "icons/toolbar-plus.svg"
     ///     Terminal  -> "icons/toolbar-terminal.svg"
@@ -77,19 +80,20 @@ mod tests {
     ///     Settings  -> "icons/toolbar-settings.svg"
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 遍历 11 个变体，调用 `ToolbarIcon::asset_path(variant)` 取得 &str
+    ///   1. 遍历 12 个变体，调用 `ToolbarIcon::asset_path(variant)` 取得 &str
     ///   2. 对每条路径检查前缀 "icons/toolbar-" 与后缀 ".svg"
     ///   3. 对每条路径与期望字面量做精确相等断言
-    ///   4. 将 11 条路径收集进 HashSet，断言去重后长度 == 11
+    ///   4. 将 12 条路径收集进 HashSet，断言去重后长度 == 12
     ///
     /// 预期结果：
     ///   - 正断言：每个变体的路径以 "icons/toolbar-" 开头
     ///   - 正断言：每个变体的路径以 ".svg" 结尾
     ///   - 正断言：每个变体的路径精确等于其期望字面量
-    ///   - 负断言：11 个变体之间不存在重复路径（集合大小 == 11）
+    ///   - 负断言：12 个变体之间不存在重复路径（集合大小 == 12）
     #[test]
     fn toolbar_icon_asset_paths_are_unique_and_well_formed() {
         let variants = [
+            ToolbarIcon::Layout,
             ToolbarIcon::Scroll,
             ToolbarIcon::Plus,
             ToolbarIcon::Terminal,
@@ -102,8 +106,9 @@ mod tests {
             ToolbarIcon::Preview,
             ToolbarIcon::Settings,
         ];
-        // expected len = 11（与 ToolbarIcon 变体数一致，手工推导）
-        let expected: [(&ToolbarIcon, &str); 11] = [
+        // expected len = 12（与 ToolbarIcon 变体数一致，手工推导）
+        let expected: [(&ToolbarIcon, &str); 12] = [
+            (&ToolbarIcon::Layout, "icons/toolbar-layout.svg"),
             (&ToolbarIcon::Scroll, "icons/toolbar-scroll.svg"),
             (&ToolbarIcon::Plus, "icons/toolbar-plus.svg"),
             (&ToolbarIcon::Terminal, "icons/toolbar-terminal.svg"),
@@ -144,8 +149,8 @@ mod tests {
             );
         }
 
-        // 负断言：11 个变体之间无重复路径（任意两个变体不得共用同一 SVG）。
-        // 推导：variants.len() == 11；若集合大小 < 11 则存在重复。
+        // 负断言：12 个变体之间无重复路径（任意两个变体不得共用同一 SVG）。
+        // 推导：variants.len() == 12；若集合大小 < 12 则存在重复。
         let set: HashSet<&'static str> = variants.iter().map(|v| v.asset_path()).collect();
         assert_eq!(
             set.len(),

@@ -14,6 +14,7 @@ fn roster_entry(definition_id: i64, name: &str, node_id: u64) -> AgentRosterEntr
         active_node_id: Some(node_id),
         tracking: AgentTrackingMode::Managed,
         busy: false,
+        task_state: agent::AgentTaskState::Ready,
     }
 }
 

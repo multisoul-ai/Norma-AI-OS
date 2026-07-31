@@ -49,6 +49,7 @@ impl MultisoulApp {
                         .is_some_and(|id| id.as_str() == tts::ZIPVOICE_DISTILL_INT8_MODEL_ID)
                 {
                     app.cancel_agent_announcements();
+                    app.clear_agent_announcement_audio_for_voice_change();
                     app.tts_preview.cancel();
                     app.invalidate_tts_for_configuration_change(cx);
                     app.stop_continuous_listening(cx);
@@ -83,6 +84,7 @@ impl MultisoulApp {
                         .is_some_and(|id| id.as_str() == tts::ZIPVOICE_DISTILL_INT8_MODEL_ID)
                 {
                     app.cancel_agent_announcements();
+                    app.clear_agent_announcement_audio_for_voice_change();
                     app.tts_preview.cancel();
                     app.invalidate_tts_for_configuration_change(cx);
                     app.stop_continuous_listening(cx);

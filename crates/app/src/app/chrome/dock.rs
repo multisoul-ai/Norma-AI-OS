@@ -26,6 +26,10 @@ impl MultisoulApp {
         } else {
             "Select mode"
         };
+        let new_menu = self
+            .interaction
+            .new_menu_open
+            .then(|| self.render_new_menu(cx));
         div()
             .absolute()
             .left(px(0.0))
@@ -49,26 +53,22 @@ impl MultisoulApp {
                     .bg(rgba(theme.dock))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .child(
-                        chrome_icon_button(
-                            theme,
-                            canvas_mode_icon,
-                            true,
-                            "toolbar-canvas-scroll",
-                            canvas_mode_tooltip,
-                        )
-                        .on_click(cx.listener(Self::on_toolbar_canvas_scroll)),
+                        div()
+                            .relative()
+                            .w(px(38.0))
+                            .h(px(38.0))
+                            .child(
+                                chrome_primary_icon_button(
+                                    theme,
+                                    ToolbarIcon::Plus,
+                                    self.interaction.new_menu_open,
+                                    "toolbar-new-terminal",
+                                    "New",
+                                )
+                                .on_click(cx.listener(Self::on_toolbar_toggle_new_menu)),
+                            )
+                            .when_some(new_menu, |trigger, menu| trigger.child(menu)),
                     )
-                    .child(
-                        chrome_icon_button(
-                            theme,
-                            ToolbarIcon::Plus,
-                            self.interaction.new_menu_open,
-                            "toolbar-new-terminal",
-                            "New",
-                        )
-                        .on_click(cx.listener(Self::on_toolbar_toggle_new_menu)),
-                    )
-                    .child(chrome_divider(theme))
                     .child(
                         chrome_icon_button(
                             theme,
@@ -110,9 +110,26 @@ impl MultisoulApp {
                         .on_click(cx.listener(Self::on_new_menu_preview)),
                     )
                     .child(chrome_divider(theme))
-                    .when(bottom_voice_bar_visible(), |dock| {
-                        dock.child(self.render_voice_bar(window, cx))
-                    })
+                    .child(
+                        chrome_icon_button(
+                            theme,
+                            canvas_mode_icon,
+                            true,
+                            "toolbar-canvas-scroll",
+                            canvas_mode_tooltip,
+                        )
+                        .on_click(cx.listener(Self::on_toolbar_canvas_scroll)),
+                    )
+                    .child(
+                        chrome_icon_button(
+                            theme,
+                            ToolbarIcon::Layout,
+                            self.interaction.layout_menu_open,
+                            "toolbar-layout",
+                            "Layout",
+                        )
+                        .on_click(cx.listener(Self::on_toolbar_toggle_layout_menu)),
+                    )
                     .child(
                         chrome_icon_button(
                             theme,
@@ -122,7 +139,11 @@ impl MultisoulApp {
                             "Settings",
                         )
                         .on_click(cx.listener(Self::on_toolbar_settings)),
-                    ),
+                    )
+                    .child(chrome_divider(theme))
+                    .when(bottom_voice_bar_visible(), |dock| {
+                        dock.child(self.render_voice_bar(window, cx))
+                    }),
             )
     }
 }
@@ -145,10 +166,22 @@ fn chrome_icon_button(
     id: &'static str,
     tooltip: &'static str,
 ) -> Stateful<Div> {
-    let fill = if active { 0xffffffeb } else { 0xffffff00 };
-    let icon_color = if active { theme.graphite } else { 0xffffffd6 };
-    let active_hover_fill = if active { 0xfffffff5 } else { 0xffffff24 };
-    let active_pressed_fill = if active { 0xffffffdc } else { 0xffffff33 };
+    let fill = if active {
+        with_alpha(theme.accent_cyan, 0x28)
+    } else {
+        0xffffff00
+    };
+    let icon_color = if active { 0xffffffff } else { 0xffffffd6 };
+    let hover_fill = if active {
+        with_alpha(theme.accent_cyan, 0x40)
+    } else {
+        0xffffff24
+    };
+    let pressed_fill = if active {
+        with_alpha(theme.accent_cyan, 0x54)
+    } else {
+        0xffffff33
+    };
 
     div()
         .id(id)
@@ -162,8 +195,41 @@ fn chrome_icon_button(
         .bg(rgba(fill))
         .shadow(command_button_shadow(active))
         .child(toolbar_icon(icon, icon_color, 16.0))
-        .hover(move |style| style.bg(rgba(active_hover_fill)))
-        .active(move |style| style.bg(rgba(active_pressed_fill)))
+        .hover(move |style| style.bg(rgba(hover_fill)))
+        .active(move |style| style.bg(rgba(pressed_fill)))
+        .tooltip(move |_, cx| tooltip_view(theme, tooltip, cx))
+}
+
+/// Dock 的 New 是唯一的主操作：持续以低饱和 cyan 锚定创建组，打开菜单时再提高强调。
+fn chrome_primary_icon_button(
+    theme: Theme,
+    icon: ToolbarIcon,
+    active: bool,
+    id: &'static str,
+    tooltip: &'static str,
+) -> Stateful<Div> {
+    let fill = if active {
+        with_alpha(theme.accent_cyan, 0x70)
+    } else {
+        with_alpha(theme.accent_cyan, 0x4d)
+    };
+    let hover_fill = with_alpha(theme.accent_cyan, 0x60);
+    let pressed_fill = with_alpha(theme.accent_cyan, 0x7d);
+
+    div()
+        .id(id)
+        .debug_selector(move || id.to_string())
+        .w(px(38.0))
+        .h(px(38.0))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(px(12.0))
+        .bg(rgba(fill))
+        .shadow(command_button_shadow(active))
+        .child(toolbar_icon(icon, 0xffffffff, 16.0))
+        .hover(move |style| style.bg(rgba(hover_fill)))
+        .active(move |style| style.bg(rgba(pressed_fill)))
         .tooltip(move |_, cx| tooltip_view(theme, tooltip, cx))
 }
 

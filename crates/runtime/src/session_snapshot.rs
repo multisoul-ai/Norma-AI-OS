@@ -277,12 +277,7 @@ pub(crate) fn build_agent_resume_command(
             )
         }
     };
-    let shell_flag = if profile == AgentProfile::Grok {
-        "-lic"
-    } else {
-        "-ic"
-    };
-    let mut cmd = PtyCommand::new(shell).args([shell_flag, &cmd_str]);
+    let mut cmd = PtyCommand::new(shell).args(["-lic", &cmd_str]);
     cmd = cmd.with_cwd(workspace_root);
     match hook_env {
         Some(env) => env.apply_to_command(cmd),
