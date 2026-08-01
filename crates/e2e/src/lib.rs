@@ -124,6 +124,10 @@ mod e2e_14_card_corner_integrity;
 // Launchpad：Recent projects 的原生右键菜单删除及 SQLite 持久化闭环。
 mod e2e_15_recent_project_menu;
 
+// 功能导览：Help 永久入口、主题切换、跳过/完成与首次项目自动展示闭环。
+mod e2e_15_feature_guide;
+mod e2e_15_feature_guide_modal;
+
 // Canvas：创建/清理失败必须渲染可见、可关闭的工作区错误横幅。
 mod e2e_16_canvas_error_feedback;
 

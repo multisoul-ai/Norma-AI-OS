@@ -7,6 +7,44 @@ fn failed_slot(path: &str) -> VideoWallpaperState {
     }
 }
 
+/// 导览与视频合成层协调：模态可见时所有页面必须释放视频路径，关闭后恢复原路径。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   requested video paths = 1（/tmp/canvas.mp4）
+///   guide visibility states = hidden(1) + visible(1) = 2
+///   allowed paths while hidden = 1
+///   allowed paths while visible = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在导览不可见时传入 Canvas 视频路径。
+///   2. 在导览可见时传入相同视频路径。
+///   3. 比较共享视频槽在两种模态状态下的解析结果。
+///
+/// 预期结果：
+///   - 正断言：导览不可见时保留原视频路径，关闭导览可恢复播放。
+///   - 负断言：导览可见时返回 None，避免原生 Surface 旧帧盖住 GPUI 模态。
+///   - 负断言：隐藏与可见状态不能返回相同结果，否则生命周期规则未生效。
+#[test]
+fn test_feature_guide_releases_shared_video_wallpaper_path() {
+    let video_path = Path::new("/tmp/canvas.mp4");
+    let without_guide = video_wallpaper_path_for_feature_guide(Some(video_path), false);
+    let with_guide = video_wallpaper_path_for_feature_guide(Some(video_path), true);
+
+    assert_eq!(
+        without_guide,
+        Some(video_path),
+        "导览不可见时必须保留 Canvas 原视频路径，以便正常播放或恢复"
+    );
+    assert!(
+        with_guide.is_none(),
+        "导览可见时必须释放共享视频路径并清空原生 Surface 槽"
+    );
+    assert_ne!(
+        without_guide, with_guide,
+        "导览隐藏与可见状态必须产生不同视频槽结果，否则模态仍可能被旧帧遮盖"
+    );
+}
+
 /// Failed slot with the same path should not restart decode.
 ///
 /// Data setup:
@@ -225,6 +263,51 @@ fn test_slot_path_matches_different_path() {
     assert!(
         !stale_worker_accepted,
         "different video wallpaper paths must not be treated as the active worker"
+    );
+}
+
+/// VW-LIFECYCLE-1：同一路径视频快速重启后，旧 poll 必须失去新槽所有权。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   video paths = 1（`/tmp/a.mov`，Clear 前后路径相同）
+///   mailbox tokens = old(1) + restarted(1) = 2
+///   expected active poll owners = 1（仅 restarted token）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用 old mailbox 模拟 Clear 前的解码槽与 poll。
+///   2. 用 restarted mailbox 模拟导览关闭后立即恢复的同路径新槽。
+///   3. 分别校验新 poll 与旧 poll 对 restarted 槽的所有权。
+///
+/// 预期结果：
+///   - 正断言：restarted token 与新槽匹配，新的 40ms poll 可以继续。
+///   - 负断言：old token 即使路径相同也不得匹配，旧 poll 必须退出。
+///   - 负断言：新旧 token 的判断不得相同，否则快速开关会累积 25fps 定时器。
+#[test]
+fn test_same_path_restart_rejects_stale_video_poll_owner() {
+    let video_path = Path::new("/tmp/a.mov");
+    let old_mailbox = Arc::new(VideoFrameMailbox::default());
+    let restarted_mailbox = Arc::new(VideoFrameMailbox::default());
+
+    let restarted_poll_matches = slot_poll_owner_matches(
+        video_path,
+        video_path,
+        &restarted_mailbox,
+        &restarted_mailbox,
+    );
+    let stale_poll_matches =
+        slot_poll_owner_matches(video_path, video_path, &restarted_mailbox, &old_mailbox);
+
+    assert!(
+        restarted_poll_matches,
+        "同一路径重启后，新 mailbox token 必须拥有新视频槽的 poll 权限"
+    );
+    assert!(
+        !stale_poll_matches,
+        "同一路径重启后，旧 mailbox token 必须失效并让旧 poll 退出"
+    );
+    assert_ne!(
+        restarted_poll_matches, stale_poll_matches,
+        "新旧 mailbox token 必须产生不同所有权结果，否则会累积前台定时器"
     );
 }
 

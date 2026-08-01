@@ -190,3 +190,48 @@ fn test_launchpad_production_path_has_no_benchmark_override() {
         "生产 Launchpad 源码不得保留绕过固定资源 resolver 的实验函数"
     );
 }
+
+/// L-12：功能导览可见时必须隐藏 Launchpad 的原生视频 Surface，避免其盖住模态层。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   guide visibility states = hidden(1) + visible(1) = 2
+///   allowed live video surfaces while guide visible = 0
+///   allowed active decoder paths while guide visible = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 分别传入导览不可见与可见状态。
+///   2. 调用 Launchpad 视频层的纯展示决策和视频槽路径决策。
+///   3. 比较普通首页和模态覆盖期间的 Surface 与解码器资格。
+///
+/// 预期结果：
+///   - 正断言：普通 Launchpad 继续显示低拷贝视频 Surface。
+///   - 正断言：普通 Launchpad 继续解析 home.mp4 视频槽。
+///   - 负断言：导览可见时 Surface 必须隐藏且视频槽必须清空，不能保留原生合成层旧帧。
+#[test]
+fn test_launchpad_video_surface_hides_while_feature_guide_is_visible() {
+    assert!(
+        launchpad_video_surface_is_visible(false),
+        "导览不可见时 Launchpad 必须继续显示专用低拷贝视频背景"
+    );
+    assert_eq!(
+        launchpad_video_path_for_state(false)
+            .as_deref()
+            .and_then(std::path::Path::file_name)
+            .and_then(std::ffi::OsStr::to_str),
+        Some("home.mp4"),
+        "导览不可见时 Launchpad 必须继续解析固定的 home.mp4 视频槽"
+    );
+    assert!(
+        !launchpad_video_surface_is_visible(true),
+        "导览可见时必须隐藏原生视频 Surface，否则它会盖住 GPUI 模态层"
+    );
+    assert!(
+        launchpad_video_path_for_state(true).is_none(),
+        "导览可见时必须清空 Launchpad 视频槽并取消解码，不能只移除本帧 Surface 元素"
+    );
+    assert_ne!(
+        launchpad_video_surface_is_visible(false),
+        launchpad_video_surface_is_visible(true),
+        "普通首页与导览覆盖期间必须采用不同的视频 Surface 展示决策"
+    );
+}

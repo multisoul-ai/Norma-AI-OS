@@ -4,18 +4,23 @@ use canvas::CanvasNodeKind;
 impl Render for MultisoulApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.window_active = window.is_window_active();
+        self.sync_feature_guide_blockers(cx);
         self.voice_window_inset_window_visible = state::window_visible_for_voice_inset(window);
         self.sync_voice_window_inset_enabled();
         self.retain_visible_dispatch_receipts(window);
         self.start_animation_frame_driver_if_needed(window, cx);
+        let feature_guide_visible = self.feature_guide.is_visible();
         let mut root = div()
             .key_context("MultisoulApp")
             .track_focus(&self.focus_handle)
-            .on_action(cx.listener(Self::on_new_window))
-            .on_action(cx.listener(Self::on_open_project))
-            .on_action(cx.listener(Self::on_exit_focus))
-            .on_action(cx.listener(Self::on_browser_command))
-            .on_action(cx.listener(Self::on_ego_card_command))
+            .on_action(cx.listener(Self::on_open_feature_guide))
+            .when(!feature_guide_visible, |root| {
+                root.on_action(cx.listener(Self::on_new_window))
+                    .on_action(cx.listener(Self::on_open_project))
+                    .on_action(cx.listener(Self::on_exit_focus))
+                    .on_action(cx.listener(Self::on_browser_command))
+                    .on_action(cx.listener(Self::on_ego_card_command))
+            })
             .on_action(cx.listener(Self::on_send_tab_to_focused_pty))
             .on_key_down(cx.listener(Self::on_key_down))
             .on_key_up(cx.listener(Self::on_key_up))
@@ -24,21 +29,24 @@ impl Render for MultisoulApp {
             .relative()
             .bg(gpui::rgba(self.theme.graphite))
             .text_size(px(13.0))
-            .when(matches!(self.screen, AppScreen::Canvas), |root| {
-                root.on_action(cx.listener(Self::on_new_terminal))
-                    .on_action(cx.listener(Self::on_new_browser))
-                    .on_action(cx.listener(Self::on_new_ego))
-                    .on_action(cx.listener(Self::on_new_claude_agent))
-                    .on_action(cx.listener(Self::on_new_codex_agent))
-                    .on_action(cx.listener(Self::on_new_cursor_agent))
-                    .on_action(cx.listener(Self::on_new_grok_agent))
-                    .on_action(cx.listener(Self::on_new_opencode_agent))
-                    .on_action(cx.listener(Self::on_copy_card_content))
-                    .on_action(cx.listener(Self::on_open_preview_file))
-                    .on_action(cx.listener(Self::on_reflow_layout))
-                    .on_action(cx.listener(Self::on_toggle_master_layout))
-                    .on_action(cx.listener(Self::on_toggle_settings))
-            })
+            .when(
+                matches!(self.screen, AppScreen::Canvas) && !feature_guide_visible,
+                |root| {
+                    root.on_action(cx.listener(Self::on_new_terminal))
+                        .on_action(cx.listener(Self::on_new_browser))
+                        .on_action(cx.listener(Self::on_new_ego))
+                        .on_action(cx.listener(Self::on_new_claude_agent))
+                        .on_action(cx.listener(Self::on_new_codex_agent))
+                        .on_action(cx.listener(Self::on_new_cursor_agent))
+                        .on_action(cx.listener(Self::on_new_grok_agent))
+                        .on_action(cx.listener(Self::on_new_opencode_agent))
+                        .on_action(cx.listener(Self::on_copy_card_content))
+                        .on_action(cx.listener(Self::on_open_preview_file))
+                        .on_action(cx.listener(Self::on_reflow_layout))
+                        .on_action(cx.listener(Self::on_toggle_master_layout))
+                        .on_action(cx.listener(Self::on_toggle_settings))
+                },
+            )
             .child(crate::app::ime::TerminalImeElement::new(
                 self.focus_handle.clone(),
                 cx.weak_entity(),
@@ -70,6 +78,10 @@ impl Render for MultisoulApp {
                     root = root.child(self.render_settings_panel(window, cx));
                 }
             }
+        }
+
+        if self.feature_guide.is_visible() {
+            root = root.child(self.render_feature_guide(window, cx));
         }
 
         root

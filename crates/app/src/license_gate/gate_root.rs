@@ -22,6 +22,8 @@ use license::ActivateLicenseRequest;
 #[cfg(target_os = "macos")]
 use std::path::{Path, PathBuf};
 #[cfg(target_os = "macos")]
+use std::sync::Arc;
+#[cfg(target_os = "macos")]
 use std::time::Duration;
 use ui::component::input::{Input, InputState};
 use ui::component::Root;
@@ -176,20 +178,28 @@ impl GateRoot {
                 cx.notify();
             }
             VideoSyncAction::Restart { path } => {
-                replace_video_wallpaper(&mut self.license_video_wallpaper, path.clone());
+                let mailbox =
+                    replace_video_wallpaper(&mut self.license_video_wallpaper, path.clone());
                 cx.notify();
-                self.spawn_license_video_poll_loop(path, cx);
+                self.spawn_license_video_poll_loop(path, mailbox, cx);
             }
         }
     }
 
     #[cfg(target_os = "macos")]
-    fn spawn_license_video_poll_loop(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+    fn spawn_license_video_poll_loop(
+        &mut self,
+        path: PathBuf,
+        mailbox: Arc<crate::app::video_wallpaper::VideoFrameMailbox>,
+        cx: &mut Context<Self>,
+    ) {
         cx.spawn(async move |this, cx| loop {
             cx.background_executor()
                 .timer(Duration::from_millis(VIDEO_FOREGROUND_POLL_INTERVAL_MS))
                 .await;
-            match this.update(cx, |root, cx| root.poll_license_video_background(&path, cx)) {
+            match this.update(cx, |root, cx| {
+                root.poll_license_video_background(&path, &mailbox, cx)
+            }) {
                 Ok(true) => {}
                 Ok(false) | Err(_) => break,
             }
@@ -198,8 +208,14 @@ impl GateRoot {
     }
 
     #[cfg(target_os = "macos")]
-    fn poll_license_video_background(&mut self, path: &Path, cx: &mut Context<Self>) -> bool {
-        let (keep_polling, changed) = poll_video_wallpaper(&mut self.license_video_wallpaper, path);
+    fn poll_license_video_background(
+        &mut self,
+        path: &Path,
+        mailbox: &Arc<crate::app::video_wallpaper::VideoFrameMailbox>,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let (keep_polling, changed) =
+            poll_video_wallpaper(&mut self.license_video_wallpaper, path, mailbox);
         if changed {
             cx.notify();
         }

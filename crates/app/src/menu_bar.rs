@@ -2,8 +2,8 @@
 
 use crate::app::{
     CopyCardContent, NewBrowser, NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewGrokAgent,
-    NewOpenCodeAgent, NewTerminal, NewWindow, OpenPreviewFile, OpenProject, QuitNormaOs,
-    ReflowLayout, ToggleMasterLayout, ToggleSettings,
+    NewOpenCodeAgent, NewTerminal, NewWindow, OpenFeatureGuide, OpenPreviewFile, OpenProject,
+    QuitNormaOs, ReflowLayout, ToggleMasterLayout, ToggleSettings,
 };
 use gpui::{Menu, MenuItem, SystemMenuType};
 
@@ -44,6 +44,7 @@ pub(crate) enum MenuAction {
     CopyCardContent,
     ReflowLayout,
     ToggleMasterLayout,
+    OpenFeatureGuide,
 }
 
 /// 返回产品层的菜单树，供单测锁定语义分组，也供 `menu_bar` 统一转换为原生菜单。
@@ -93,6 +94,10 @@ pub(crate) fn menu_bar_spec() -> Vec<MenuSpec> {
                 action("Toggle Master Layout", MenuAction::ToggleMasterLayout),
             ],
         },
+        MenuSpec {
+            label: "Help",
+            items: vec![action("Feature Guide…", MenuAction::OpenFeatureGuide)],
+        },
     ]
 }
 
@@ -140,5 +145,6 @@ fn action_item(label: &'static str, action: MenuAction) -> MenuItem {
         MenuAction::CopyCardContent => MenuItem::action(label, CopyCardContent),
         MenuAction::ReflowLayout => MenuItem::action(label, ReflowLayout),
         MenuAction::ToggleMasterLayout => MenuItem::action(label, ToggleMasterLayout),
+        MenuAction::OpenFeatureGuide => MenuItem::action(label, OpenFeatureGuide),
     }
 }

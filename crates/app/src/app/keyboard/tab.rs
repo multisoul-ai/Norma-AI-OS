@@ -27,9 +27,14 @@ impl MultisoulApp {
     pub(crate) fn on_send_tab_to_focused_pty(
         &mut self,
         _: &SendTabToFocusedPty,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.feature_guide.is_visible() {
+            window.focus_next();
+            cx.stop_propagation();
+            return;
+        }
         if self.settings_panel.open || !matches!(self.screen, AppScreen::Canvas) {
             cx.propagate();
             return;
