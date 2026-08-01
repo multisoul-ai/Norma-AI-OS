@@ -31,3 +31,11 @@ mod motion_activity_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/motion_repaint_cadence_tests.rs"]
 mod motion_repaint_cadence_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/motion_dispatch_receipt_tests.rs"]
+mod motion_dispatch_receipt_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/motion_dispatch_receipt_particle_tests.rs"]
+mod motion_dispatch_receipt_particle_tests;

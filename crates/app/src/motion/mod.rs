@@ -1,6 +1,8 @@
 //! App 层卡片动效状态：只影响渲染连续性，不改变 canvas/runtime 的真实状态。
 pub(crate) mod breathing;
 pub(crate) mod diagnostics;
+mod dispatch_api;
+pub(crate) mod dispatch_receipt;
 pub(crate) mod initialization;
 pub(crate) mod node_visual;
 pub(crate) mod scalar;
@@ -14,6 +16,12 @@ pub(crate) mod working;
 use crate::motion::breathing::breathing_color_for_phase;
 use crate::motion::breathing::{BreathingIntent, BreathingState};
 pub(crate) use crate::motion::diagnostics::MotionDiagnostics;
+#[cfg(any(test, feature = "e2e-test-support"))]
+pub(crate) use crate::motion::dispatch_receipt::DispatchEffectCounts;
+pub(crate) use crate::motion::dispatch_receipt::{
+    DispatchEffectPhase, DispatchEffectPresentation, DispatchEffectSpawnOutcome,
+    DispatchImpactParticle, DispatchImpactParticleKind, DispatchReceiptVisualStatus,
+};
 pub(crate) use crate::motion::initialization::{
     InitializationAnimation, InitializationAnimationKind, InitializationPresentation,
 };
@@ -60,6 +68,7 @@ pub struct MotionStore {
     pub(crate) reduce_motion: bool,
     nodes: BTreeMap<NodeId, NodeMotion>,
     initializations: BTreeMap<NodeId, InitializationAnimation>,
+    dispatch_receipts: dispatch_receipt::DispatchEffectStore,
 }
 impl MotionStore {
     pub fn from_env() -> Self {
@@ -73,6 +82,7 @@ impl MotionStore {
             reduce_motion,
             nodes: BTreeMap::new(),
             initializations: BTreeMap::new(),
+            dispatch_receipts: dispatch_receipt::DispatchEffectStore::default(),
         }
     }
     pub fn tick(&mut self, delta: Duration) -> bool {
@@ -83,6 +93,7 @@ impl MotionStore {
         for initialization in self.initializations.values_mut() {
             changed |= initialization.tick(delta);
         }
+        changed |= self.dispatch_receipts.tick(delta);
         self.initializations
             .retain(|_, initialization| initialization.presentation().is_some());
         changed
@@ -106,7 +117,9 @@ impl MotionStore {
             .values()
             .any(|node| node.is_animating(self.reduce_motion));
         MotionActivitySummary {
-            canvas_active: node_active || !self.initializations.is_empty(),
+            canvas_active: node_active
+                || !self.initializations.is_empty()
+                || self.dispatch_receipts.is_active(),
             next_visual_boundary,
         }
     }
@@ -114,7 +127,10 @@ impl MotionStore {
         let live_nodes: BTreeSet<NodeId> = live_nodes.into_iter().collect();
         self.nodes.retain(|id, _| live_nodes.contains(id));
         self.initializations.retain(|id, _| live_nodes.contains(id));
+        self.dispatch_receipts
+            .retain_targets(|id| live_nodes.contains(&id));
     }
+
     pub fn ensure_node(&mut self, id: NodeId, rect: CanvasRect) {
         self.nodes
             .entry(id)

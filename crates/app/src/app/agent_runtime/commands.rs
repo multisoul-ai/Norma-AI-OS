@@ -117,6 +117,8 @@ pub(super) fn execute_coordinated_agent_command(
             assignments,
             force_untracked,
         } => {
+            let should_animate_receipts =
+                matches!(source.queue_source, agent::AgentQueueTaskSource::Norma);
             let definitions = assignments
                 .iter()
                 .map(|assignment| {
@@ -441,6 +443,13 @@ pub(super) fn execute_coordinated_agent_command(
                     parent_task_id: receipt.parent_task_ref,
                     root_task_id: receipt.root_task_ref,
                 });
+            }
+            if should_animate_receipts {
+                super::dispatch_effects::spawn_accepted_dispatch_receipts(
+                    app,
+                    &wire_receipts,
+                    area,
+                );
             }
             Ok(CardCommandResult::AgentTasksDispatched {
                 receipts: wire_receipts,

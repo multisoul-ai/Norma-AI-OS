@@ -16,6 +16,7 @@ mod coordination;
 mod create_agent_command;
 mod delete_card;
 mod diagnostics;
+mod dispatch_effects;
 mod orchestration_commands;
 pub(super) mod pending;
 mod reply_adapter;

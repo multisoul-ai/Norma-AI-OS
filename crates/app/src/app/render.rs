@@ -1,10 +1,12 @@
 use super::*;
+use canvas::CanvasNodeKind;
 
 impl Render for MultisoulApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.window_active = window.is_window_active();
         self.voice_window_inset_window_visible = state::window_visible_for_voice_inset(window);
         self.sync_voice_window_inset_enabled();
+        self.retain_visible_dispatch_receipts(window);
         self.start_animation_frame_driver_if_needed(window, cx);
         let mut root = div()
             .key_context("MultisoulApp")
@@ -53,6 +55,10 @@ impl Render for MultisoulApp {
                 root = root
                     .child(self.render_workspace_backdrop())
                     .child(render_canvas(self, window, cx))
+                    .when_some(
+                        crate::effects::dispatch_receipt::render(self, window),
+                        |root, effect| root.child(effect),
+                    )
                     .child(self.render_workspace_chrome(window, cx));
                 if let Some(error_banner) = self.render_workspace_error_banner(cx) {
                     root = root.child(error_banner);
@@ -67,5 +73,33 @@ impl Render for MultisoulApp {
         }
 
         root
+    }
+}
+
+impl MultisoulApp {
+    fn retain_visible_dispatch_receipts(&mut self, window: &mut Window) {
+        if !self.motion.has_dispatch_receipts() {
+            return;
+        }
+        if !matches!(self.screen, AppScreen::Canvas) || !self.window_active {
+            self.motion.retain_dispatch_targets(&[]);
+            return;
+        }
+        let visible_area = self.visible_canvas_rect(window);
+        let mut target_node_ids = self.motion.dispatch_target_node_ids();
+        target_node_ids.retain(|node_id| {
+            self.runtime
+                .document
+                .node(*node_id)
+                .filter(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
+                .is_some_and(|node| {
+                    let rect = self.motion.current_node_rect(node.id, node.bounds);
+                    visible_area.contains(canvas::Vec2::new(
+                        rect.origin.x + rect.size.x / 2.0,
+                        rect.origin.y + rect.size.y / 2.0,
+                    ))
+                })
+        });
+        self.motion.retain_dispatch_targets(&target_node_ids);
     }
 }

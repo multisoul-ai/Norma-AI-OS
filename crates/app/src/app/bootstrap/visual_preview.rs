@@ -9,6 +9,8 @@ const VISUAL_PREVIEW_ENV: &str = "NORMA_VISUAL_PREVIEW";
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum VisualPreview {
     AgentQueue,
+    DispatchReceiptFlight,
+    DispatchReceiptImpact,
     Orchestration,
     VoiceSetup,
     VoiceReady,
@@ -25,6 +27,8 @@ impl VisualPreview {
     fn parse(value: &str) -> Option<Self> {
         match value.trim() {
             "agent-queue" => Some(Self::AgentQueue),
+            "dispatch-receipt-flight" => Some(Self::DispatchReceiptFlight),
+            "dispatch-receipt-impact" => Some(Self::DispatchReceiptImpact),
             "orchestration" => Some(Self::Orchestration),
             "voice-setup" => Some(Self::VoiceSetup),
             "voice-ready" => Some(Self::VoiceReady),
@@ -41,7 +45,9 @@ impl VisualPreview {
 
     fn canonical_theme(self) -> Option<ThemeId> {
         match self {
-            Self::AgentQueue => Some(ThemeId::PaperBlue),
+            Self::AgentQueue | Self::DispatchReceiptFlight | Self::DispatchReceiptImpact => {
+                Some(ThemeId::PaperBlue)
+            }
             Self::Orchestration => Some(ThemeId::SapphireNight),
             Self::VoiceSetup
             | Self::VoiceReady
@@ -75,6 +81,10 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
         VisualPreview::AgentQueue => {
             app.settings_panel.close();
             configure_agent_queue(app);
+        }
+        VisualPreview::DispatchReceiptFlight | VisualPreview::DispatchReceiptImpact => {
+            app.settings_panel.close();
+            configure_dispatch_receipt(app);
         }
         VisualPreview::Orchestration => {
             app.settings_panel.select(SettingsSection::Orchestration);
@@ -192,39 +202,55 @@ fn configure_agent_queue(app: &mut MultisoulApp) {
     app.agent_queue_ui.toggle(node_id);
 }
 
+fn configure_dispatch_receipt(app: &mut MultisoulApp) {
+    app.last_reflow_window_size = Some((1280.0, 800.0));
+    let definition = app.agent_definitions.use_queue_visual_preview();
+    app.runtime.document.add_node(
+        canvas::CanvasNodeKind::Agent(canvas::AgentSpec {
+            profile: canvas::AgentProfile::Codex,
+            alias: Some("Adam".to_string()),
+            definition_id: Some(definition.id),
+        }),
+        canvas::CanvasRect::new(120.0, 140.0, 620.0, 400.0),
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::VisualPreview;
     use ui::ThemeId;
 
-    /// 视觉验收场景解析：只允许 Agent Queue、Orchestration 与九个明确的 Voice 截图状态
+    /// 视觉验收场景解析：只允许已登记的 Agent、Dispatch、Orchestration 与 Voice 截图状态
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   supported values = agent-queue(1) + orchestration(1)
+    ///   supported values = agent-queue(1) + dispatch-flight(1) + dispatch-impact(1)
+    ///                      + orchestration(1)
     ///                      + setup(1) + ready(1) + network-unavailable(1)
     ///                      + api-key(1) + caption(1)
     ///                      + azure-asr-ready(1)
     ///                      + zipvoice-reference(1) + tts-backlog-capacity(1)
-    ///                      + tts-backlog-recovered(1) = 11
+    ///                      + tts-backlog-recovered(1) = 13
     ///   unsupported values = empty(1) + unknown(1) = 2
-    ///   total cases = 11 + 2 = 13
+    ///   total cases = 13 + 2 = 15
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. 解析 `agent-queue` → AgentQueue
-    ///   2. 解析 `orchestration` → Orchestration
-    ///   3. 解析 `voice-setup` → VoiceSetup
-    ///   4. 解析 `voice-ready` → VoiceReady
-    ///   5. 解析 `voice-network-unavailable` → VoiceNetworkUnavailable
-    ///   6. 解析 `voice-api-key` → VoiceApiKey
-    ///   7. 解析 `voice-caption` → VoiceCaption
-    ///   8. 解析 `azure-asr-ready` → AzureAsrReady
-    ///   9. 解析 `zipvoice-reference` → ZipVoiceReference
-    ///   10. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
-    ///   11. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
-    ///   12. 解析空字符串与未知值 → None
+    ///   2. 解析 `dispatch-receipt-flight` → DispatchReceiptFlight
+    ///   3. 解析 `dispatch-receipt-impact` → DispatchReceiptImpact
+    ///   4. 解析 `orchestration` → Orchestration
+    ///   5. 解析 `voice-setup` → VoiceSetup
+    ///   6. 解析 `voice-ready` → VoiceReady
+    ///   7. 解析 `voice-network-unavailable` → VoiceNetworkUnavailable
+    ///   8. 解析 `voice-api-key` → VoiceApiKey
+    ///   9. 解析 `voice-caption` → VoiceCaption
+    ///   10. 解析 `azure-asr-ready` → AzureAsrReady
+    ///   11. 解析 `zipvoice-reference` → ZipVoiceReference
+    ///   12. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
+    ///   13. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
+    ///   14. 解析空字符串与未知值 → None
     ///
     /// 预期结果：
-    ///   - 正断言：十个受支持值分别映射到唯一场景
+    ///   - 正断言：十三个受支持值分别映射到唯一场景
     ///   - 负断言：空值和未知值不得意外开启视觉预览
     #[test]
     fn visual_preview_parser_accepts_only_explicit_scenarios() {
@@ -232,6 +258,16 @@ mod tests {
             VisualPreview::parse("agent-queue"),
             Some(VisualPreview::AgentQueue),
             "agent-queue must select the canonical Agent queue sidecar preview"
+        );
+        assert_eq!(
+            VisualPreview::parse("dispatch-receipt-flight"),
+            Some(VisualPreview::DispatchReceiptFlight),
+            "dispatch-receipt-flight must select the fixed mid-flight visual preview"
+        );
+        assert_eq!(
+            VisualPreview::parse("dispatch-receipt-impact"),
+            Some(VisualPreview::DispatchReceiptImpact),
+            "dispatch-receipt-impact must select the fixed target explosion preview"
         );
         assert_eq!(
             VisualPreview::parse("orchestration"),

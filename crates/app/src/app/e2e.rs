@@ -40,6 +40,8 @@ use shortcuts::shortcut_command_name;
 pub use tts::TtsProviderE2eSnapshot;
 use tts::{snapshot_tts_models, snapshot_tts_provider, TtsModelE2eSnapshot};
 pub use visuals::InitializationAnimationE2eSnapshot;
+#[cfg(feature = "e2e-test-support")]
+pub use visuals::{DispatchReceiptEffectE2eSnapshot, DispatchReceiptEffectItemE2eSnapshot};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CanvasLayoutE2eSnapshot {

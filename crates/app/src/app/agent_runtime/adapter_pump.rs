@@ -148,6 +148,7 @@ pub(crate) fn execute_norma_adapter_command(
                 .ok_or_else(|| {
                     AdapterError::Failed("AgentCard 已接收但无法确定 task_id".to_string())
                 })?;
+            cx.notify();
             Ok(AdapterResult::accepted(format!(
                 "{} 的 AgentCard 已接收任务",
                 receipt.name

@@ -9,6 +9,7 @@ mod browser_auth_host;
 mod canvas;
 mod cards;
 mod database;
+mod effects;
 mod frame_diagnostics;
 mod license_gate;
 mod logging;
@@ -27,6 +28,8 @@ mod menu_bar_tests;
 
 #[cfg(all(target_os = "macos", feature = "l3-test-support"))]
 pub use app::{run_ego_live_capture_probe, EgoLiveCaptureProbeReport};
+#[cfg(feature = "e2e-test-support")]
+pub use app::{DispatchReceiptEffectE2eSnapshot, DispatchReceiptEffectItemE2eSnapshot};
 #[cfg(feature = "e2e-test-support")]
 pub use app::{
     runtime_frame_interval_for_e2e, EgoCardE2eSnapshot, OrchestrationProviderE2eSnapshot,
