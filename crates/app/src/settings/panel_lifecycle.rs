@@ -39,6 +39,7 @@ impl MultisoulApp {
             self.finish_voice_settings_inputs(cx);
             self.clear_wallpaper_previews(cx);
         }
+        self.sync_feature_guide_blockers(cx);
         cx.notify();
     }
 
@@ -50,6 +51,7 @@ impl MultisoulApp {
         if was_open {
             self.clear_wallpaper_previews(cx);
         }
+        self.sync_feature_guide_blockers(cx);
         cx.notify();
     }
 
@@ -58,6 +60,7 @@ impl MultisoulApp {
             return;
         }
         self.settings_panel.open();
+        self.sync_feature_guide_blockers(cx);
         self.settings_panel.select(SettingsSection::Voice);
         self.focus_handle.focus(window);
         self.refresh_asr_model_states(cx);

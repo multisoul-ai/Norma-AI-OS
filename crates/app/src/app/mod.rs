@@ -26,7 +26,9 @@ use crate::workspace::clone_project::CloneProjectUiState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasRect, NodeId, NodeType, Vec2};
-use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
+use gpui::{
+    actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Task, Window,
+};
 use runtime::{route, InputEvent, Route, Runtime};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -67,8 +69,10 @@ pub(crate) mod file_picker;
 mod frame_loop;
 #[cfg(feature = "e2e-test-support")]
 pub use frame_loop::runtime_frame_interval_for_e2e;
+mod feature_guide;
 mod frame_schedule;
 mod frame_throttle;
+use feature_guide::{FeatureGuideSettingsState, FeatureGuideState};
 mod ime;
 mod ime_geometry;
 mod keyboard;
@@ -102,8 +106,8 @@ pub use e2e::{
 pub use e2e::{DispatchReceiptEffectE2eSnapshot, DispatchReceiptEffectItemE2eSnapshot};
 #[cfg(feature = "e2e-test-support")]
 pub use e2e::{
-    EgoCardE2eSnapshot, OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot,
-    PresentationE2eSnapshot,
+    EgoCardE2eSnapshot, FeatureGuideE2eSnapshot, OrchestrationProviderE2eSnapshot,
+    OrchestrationSettingsE2eSnapshot, PresentationE2eSnapshot,
 };
 pub(crate) use state::mark_runtime_node_viewed_if_needed;
 pub use state::AppScreen;
@@ -123,6 +127,7 @@ actions!(
         OpenPreviewFile,
         OpenProject,
         CloneProject,
+        OpenFeatureGuide,
         ExitFocus,
         ReflowLayout,
         ToggleMasterLayout,
@@ -151,6 +156,13 @@ pub struct MultisoulApp {
     pub(crate) persistence: PersistenceScheduler,
     pub(crate) settings_panel: SettingsPanelState,
     pub(crate) settings_viewport: SettingsViewportState,
+    pub(crate) feature_guide: FeatureGuideState,
+    pub(crate) feature_guide_settings: FeatureGuideSettingsState,
+    pub(crate) feature_guide_media_frame: usize,
+    pub(crate) feature_guide_media_task: Option<Task<()>>,
+    pub(crate) feature_guide_primary_focus: FocusHandle,
+    #[cfg(feature = "e2e-test-support")]
+    pub(crate) feature_guide_primary_focused_for_e2e: bool,
     pub(crate) agent_definitions: AgentDefinitionsState,
     pub(crate) orchestration_settings: OrchestrationSettingsState,
     pub(crate) voice_settings: VoiceSettingsState,

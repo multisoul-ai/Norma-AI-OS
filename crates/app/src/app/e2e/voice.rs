@@ -19,6 +19,7 @@ pub struct VoiceE2eSnapshot {
     pub caption_visible: bool,
     pub caption_waveform_phase_milli: u16,
     pub caption_surface_opacity_milli: u16,
+    pub recording_generation: u64,
 }
 
 impl MultisoulApp {
@@ -67,6 +68,7 @@ impl MultisoulApp {
             caption_waveform_phase_milli: self.voice_caption_waveform_phase_milli(),
             caption_surface_opacity_milli:
                 crate::app::voice::caption::CAPTION_SURFACE_OPACITY_MILLI,
+            recording_generation: self.voice.recording_generation(),
         }
     }
 
@@ -75,6 +77,12 @@ impl MultisoulApp {
         self.voice
             .begin_recording(crate::app::voice::control::VoiceTrigger::Shortcut);
         self.voice.partial_text = transcript.into();
+    }
+
+    pub fn show_voice_transcript_only_for_e2e(&mut self, transcript: impl Into<String>) {
+        self.voice.stop_for_model_switch();
+        self.voice
+            .set_transcript_only(transcript, "e2e transcript-only fixture");
     }
 
     pub fn show_voice_thinking_for_e2e(&mut self, transcript: &str) {

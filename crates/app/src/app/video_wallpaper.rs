@@ -136,6 +136,22 @@ pub(crate) fn slot_path_matches(current: &Path, spawned: &Path) -> bool {
     current == spawned
 }
 
+pub(crate) fn slot_poll_owner_matches(
+    current_path: &Path,
+    spawned_path: &Path,
+    current_mailbox: &Arc<VideoFrameMailbox>,
+    spawned_mailbox: &Arc<VideoFrameMailbox>,
+) -> bool {
+    slot_path_matches(current_path, spawned_path) && Arc::ptr_eq(current_mailbox, spawned_mailbox)
+}
+
+pub(crate) fn video_wallpaper_path_for_feature_guide(
+    video_path: Option<&Path>,
+    feature_guide_visible: bool,
+) -> Option<&Path> {
+    (!feature_guide_visible).then_some(video_path).flatten()
+}
+
 pub(crate) fn video_wallpaper_should_notify(changed: bool, settings_open: bool) -> bool {
     changed && !settings_open
 }
@@ -213,7 +229,10 @@ pub(crate) fn video_wallpaper_surface(state: Option<&VideoWallpaperState>) -> Op
 
 /// Replace a host's current video slot and start the shared AVAssetReader
 /// decoder worker. Dropping the previous state signals its worker to stop.
-pub(crate) fn replace_video_wallpaper(state: &mut Option<VideoWallpaperState>, path: PathBuf) {
+pub(crate) fn replace_video_wallpaper(
+    state: &mut Option<VideoWallpaperState>,
+    path: PathBuf,
+) -> Arc<VideoFrameMailbox> {
     let mailbox = Arc::new(VideoFrameMailbox::default());
     let cancel = Arc::new(AtomicBool::new(false));
     *state = Some(VideoWallpaperState::Active {
@@ -234,6 +253,7 @@ pub(crate) fn replace_video_wallpaper(state: &mut Option<VideoWallpaperState>, p
             "failed to spawn video wallpaper decoder thread: {error}"
         ));
     }
+    mailbox
 }
 
 /// Pull one mailbox update into a host-owned slot.
@@ -242,15 +262,18 @@ pub(crate) fn replace_video_wallpaper(state: &mut Option<VideoWallpaperState>, p
 pub(crate) fn poll_video_wallpaper(
     state: &mut Option<VideoWallpaperState>,
     spawned_path: &Path,
+    spawned_mailbox: &Arc<VideoFrameMailbox>,
 ) -> (bool, bool) {
     let Some(current) = state.as_ref() else {
         return (false, false);
     };
-    if !slot_path_matches(current.path(), spawned_path) {
-        return (false, false);
-    }
     let update = match current {
-        VideoWallpaperState::Active { mailbox, .. } => mailbox.take_update(),
+        VideoWallpaperState::Active { mailbox, .. }
+            if slot_poll_owner_matches(current.path(), spawned_path, mailbox, spawned_mailbox) =>
+        {
+            mailbox.take_update()
+        }
+        VideoWallpaperState::Active { .. } => return (false, false),
         VideoWallpaperState::Failed { .. } => return (false, false),
     };
 
@@ -278,7 +301,11 @@ impl MultisoulApp {
         let canvas_video = (self.wallpaper_settings.current_kind() == WallpaperKind::Video)
             .then(|| self.wallpaper_settings.resolve_path())
             .flatten();
-        self.sync_video_wallpaper(canvas_video.as_deref(), cx);
+        let visible_video = video_wallpaper_path_for_feature_guide(
+            canvas_video.as_deref(),
+            self.feature_guide.is_visible(),
+        );
+        self.sync_video_wallpaper(visible_video, cx);
     }
 
     /// Render the Launchpad-owned video layer. Its decoder path is chosen by
@@ -355,17 +382,24 @@ impl MultisoulApp {
     }
 
     fn start_video_loop(&mut self, path: PathBuf, cx: &mut Context<Self>) {
-        replace_video_wallpaper(&mut self.video_wallpaper, path.clone());
+        let mailbox = replace_video_wallpaper(&mut self.video_wallpaper, path.clone());
         cx.notify();
-        self.spawn_video_frame_poll_loop(path, cx);
+        self.spawn_video_frame_poll_loop(path, mailbox, cx);
     }
 
-    fn spawn_video_frame_poll_loop(&mut self, my_path: PathBuf, cx: &mut Context<Self>) {
+    fn spawn_video_frame_poll_loop(
+        &mut self,
+        my_path: PathBuf,
+        my_mailbox: Arc<VideoFrameMailbox>,
+        cx: &mut Context<Self>,
+    ) {
         cx.spawn(async move |this, cx| loop {
             cx.background_executor()
                 .timer(Duration::from_millis(VIDEO_FOREGROUND_POLL_INTERVAL_MS))
                 .await;
-            match this.update(cx, |app, cx| app.poll_video_wallpaper_update(&my_path, cx)) {
+            match this.update(cx, |app, cx| {
+                app.poll_video_wallpaper_update(&my_path, &my_mailbox, cx)
+            }) {
                 Ok(true) => {}
                 Ok(false) | Err(_) => break,
             }
@@ -373,8 +407,14 @@ impl MultisoulApp {
         .detach();
     }
 
-    fn poll_video_wallpaper_update(&mut self, my_path: &Path, cx: &mut Context<Self>) -> bool {
-        let (keep_polling, changed) = poll_video_wallpaper(&mut self.video_wallpaper, my_path);
+    fn poll_video_wallpaper_update(
+        &mut self,
+        my_path: &Path,
+        my_mailbox: &Arc<VideoFrameMailbox>,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let (keep_polling, changed) =
+            poll_video_wallpaper(&mut self.video_wallpaper, my_path, my_mailbox);
         if video_wallpaper_should_notify(changed, self.settings_panel.open) {
             cx.notify();
         }

@@ -247,6 +247,9 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.handle_feature_guide_key_down(ev, window, cx) {
+            return;
+        }
         if self.settings_panel.open {
             if self.handle_settings_text_key_down(ev, cx) {
                 return;

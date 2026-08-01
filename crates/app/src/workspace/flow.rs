@@ -116,6 +116,7 @@ impl MultisoulApp {
                 self.clear_ego_previews(cx);
                 self.reload_all_previews(cx);
                 self.spawn_deferred_live_session_restore(opened.pending_live_restore, cx);
+                self.schedule_feature_guide_after_workspace_open(cx);
             }
             Err(error) => {
                 tracing::warn!(%error, path = %path.display(), "failed to open workspace");
@@ -158,6 +159,7 @@ impl MultisoulApp {
         self.clear_ego_previews(cx);
         self.reload_all_previews(cx);
         self.spawn_deferred_live_session_restore(opened.pending_live_restore, cx);
+        self.schedule_feature_guide_after_workspace_open(cx);
         self.last_reflow_window_size = None;
         cx.notify();
         Ok(())

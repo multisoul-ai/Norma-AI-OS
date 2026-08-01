@@ -51,6 +51,17 @@ pub struct CanvasLayoutE2eSnapshot {
     pub sizing: &'static str,
 }
 
+#[cfg(feature = "e2e-test-support")]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct FeatureGuideE2eSnapshot {
+    pub visible: bool,
+    pub status: &'static str,
+    pub presentation: &'static str,
+    pub topic: &'static str,
+    pub media_frame: usize,
+    pub primary_focused: bool,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ApiKeyDisplayState {
     NotRendered,
@@ -163,6 +174,36 @@ impl MultisoulApp {
             target_preview: snapshot.target_preview,
             validation_error: snapshot.validation_error,
         }
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn feature_guide_e2e_snapshot(&self) -> FeatureGuideE2eSnapshot {
+        use super::feature_guide::FeatureGuidePresentation;
+        FeatureGuideE2eSnapshot {
+            visible: self.feature_guide.is_visible(),
+            status: self.feature_guide.serialized_status(),
+            presentation: match self.feature_guide.presentation {
+                FeatureGuidePresentation::Idle => "idle",
+                FeatureGuidePresentation::Pending => "pending",
+                FeatureGuidePresentation::Visible => "visible",
+                FeatureGuidePresentation::Suspended => "suspended",
+                FeatureGuidePresentation::ClosedForSession => "closed_for_session",
+            },
+            topic: self.feature_guide.serialized_topic(),
+            media_frame: self.feature_guide_media_frame,
+            primary_focused: self.feature_guide_primary_focused_for_e2e,
+        }
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn enable_fresh_feature_guide_for_e2e(&mut self) {
+        self.feature_guide = super::feature_guide::FeatureGuideState::load(None, None, false);
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn present_feature_guide_after_canvas_ready_for_e2e(&mut self, cx: &mut Context<Self>) {
+        self.feature_guide.on_workspace_opened();
+        self.present_feature_guide_if_ready(cx);
     }
 
     #[cfg(feature = "e2e-test-support")]

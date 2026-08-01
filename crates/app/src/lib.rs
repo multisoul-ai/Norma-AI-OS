@@ -32,6 +32,7 @@ pub use app::{run_ego_live_capture_probe, EgoLiveCaptureProbeReport};
 #[cfg(feature = "e2e-test-support")]
 pub use app::{
     runtime_frame_interval_for_e2e, CloneProjectE2eSnapshot, EgoCardE2eSnapshot,
+    FeatureGuideE2eSnapshot,
     OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot, PresentationE2eSnapshot,
     ReplyTtsE2ePcmSnapshot, ReplyTtsE2eProbe, ReplyTtsE2eProbeSnapshot, ReplyTtsE2eSnapshot,
 };
@@ -40,8 +41,8 @@ pub use app::{
     CanvasLayoutE2eSnapshot, CloneProject, CopyCardContent, ExitFocus,
     InitializationAnimationE2eSnapshot, MultisoulApp, NewBrowser, NewClaudeAgent, NewCodexAgent,
     NewCursorAgent, NewGrokAgent, NewOpenCodeAgent, NewTerminal, NewWindow, OpenPreviewFile,
-    OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot, ToggleMasterLayout,
-    ToggleSettings, TtsProviderE2eSnapshot,
+    OpenFeatureGuide, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
+    ToggleMasterLayout, ToggleSettings, TtsProviderE2eSnapshot,
 };
 #[cfg(feature = "e2e-test-support")]
 pub use app::{DispatchReceiptEffectE2eSnapshot, DispatchReceiptEffectItemE2eSnapshot};
@@ -52,6 +53,28 @@ pub use browser_auth_host::run_browser_auth_native_host;
 pub use license_gate::{build_activation_root_e2e, build_configured_unlicensed_root_e2e};
 
 use gpui::{App, Application, KeyBinding};
+
+fn register_global_actions(cx: &mut App) {
+    cx.on_action(|_: &QuitNormaOs, cx| cx.quit());
+    cx.on_action(|_: &OpenFeatureGuide, cx| open_feature_guide_in_active_window(cx));
+}
+
+fn open_feature_guide_in_active_window(cx: &mut App) {
+    let Some(active_window) = cx.active_window().or_else(|| cx.windows().last().copied()) else {
+        return;
+    };
+    let _ = active_window.update(cx, |root, window, cx| {
+        let Ok(root) = root.downcast::<ui::component::Root>() else {
+            return;
+        };
+        let Ok(app) = root.read(cx).view().clone().downcast::<MultisoulApp>() else {
+            return;
+        };
+        app.update(cx, |app, cx| {
+            app.on_open_feature_guide(&OpenFeatureGuide, window, cx)
+        });
+    });
+}
 
 pub fn run_norma_os() {
     app::cef_process::exit_if_cef_subprocess();
@@ -70,7 +93,7 @@ pub fn run_norma_os() {
 
             // Quit 是唯一由 GPUI keymap 固定绑定的菜单快捷键；可配置命令仍由
             // ShortcutSettingsState 统一处理，暂不在原生菜单中显示提示。
-            cx.on_action(|_: &QuitNormaOs, cx| cx.quit());
+            register_global_actions(cx);
             cx.bind_keys([KeyBinding::new("cmd-q", QuitNormaOs, None)]);
             cx.set_menus(menu_bar::menu_bar());
 
