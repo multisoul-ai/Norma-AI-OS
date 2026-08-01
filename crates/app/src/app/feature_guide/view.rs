@@ -1,5 +1,5 @@
 use super::demo::render_demo;
-use super::style::{guide_shadow, with_alpha};
+use super::style::{guide_shadow, with_alpha, FeatureGuidePalette};
 use super::voice_action::render_voice_action;
 use super::FeatureGuideTopic;
 use crate::app::MultisoulApp;
@@ -14,6 +14,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = self.theme;
+        let palette = FeatureGuidePalette::from_theme(theme);
         let viewport = window.viewport_size();
         let available_width = (f32::from(viewport.width) - 24.0).max(1.0);
         let available_height = (f32::from(viewport.height) - 24.0).max(1.0);
@@ -73,7 +74,7 @@ impl MultisoulApp {
                     .border_color(rgba(with_alpha(theme.node_stroke, 0xd8)))
                     .bg(rgba(with_alpha(theme.panel_high, 0xfc)))
                     .shadow(guide_shadow(theme))
-                    .child(self.render_feature_guide_header(topic, theme, cx))
+                    .child(self.render_feature_guide_header(topic, theme, palette, cx))
                     .child(
                         div()
                             .flex_1()
@@ -81,16 +82,19 @@ impl MultisoulApp {
                             .flex()
                             .when(compact, |body| body.flex_col())
                             .when(!compact, |body| body.flex_row())
-                            .child(self.render_feature_guide_navigation(topic, compact, theme, cx))
+                            .child(self.render_feature_guide_navigation(
+                                topic, compact, theme, palette, cx,
+                            ))
                             .child(self.render_feature_guide_content(
                                 topic,
                                 compact,
                                 &voice_shortcut,
                                 theme,
+                                palette,
                                 cx,
                             )),
                     )
-                    .child(self.render_feature_guide_footer(topic, theme, window, cx)),
+                    .child(self.render_feature_guide_footer(topic, theme, palette, window, cx)),
             )
             .into_any_element()
     }
@@ -99,6 +103,7 @@ impl MultisoulApp {
         &self,
         topic: FeatureGuideTopic,
         theme: Theme,
+        palette: FeatureGuidePalette,
         cx: &mut Context<Self>,
     ) -> Div {
         div()
@@ -124,7 +129,7 @@ impl MultisoulApp {
                             .items_center()
                             .justify_center()
                             .bg(rgba(with_alpha(theme.accent_blue, 0x22)))
-                            .text_color(rgba(theme.accent_blue))
+                            .text_color(rgba(palette.accent_text))
                             .font_weight(FontWeight::BOLD)
                             .child("N"),
                     )
@@ -137,13 +142,13 @@ impl MultisoulApp {
                                 div()
                                     .text_size(px(16.0))
                                     .font_weight(FontWeight::BOLD)
-                                    .text_color(rgba(theme.text_primary))
+                                    .text_color(rgba(palette.primary_text))
                                     .child("功能导览"),
                             )
                             .child(
                                 div()
                                     .text_size(px(11.0))
-                                    .text_color(rgba(theme.text_tertiary))
+                                    .text_color(rgba(palette.metadata_text))
                                     .child(format!(
                                         "{} / {}",
                                         topic_index(topic) + 1,
@@ -155,8 +160,8 @@ impl MultisoulApp {
             .child(guide_button(
                 "feature-guide-close",
                 "关闭  Esc",
-                theme.text_secondary,
                 theme,
+                palette,
                 cx,
                 |app, cx| app.close_feature_guide_for_session(cx),
             ))
@@ -167,6 +172,7 @@ impl MultisoulApp {
         active: FeatureGuideTopic,
         compact: bool,
         theme: Theme,
+        palette: FeatureGuidePalette,
         cx: &mut Context<Self>,
     ) -> Div {
         let mut navigation = div()
@@ -196,9 +202,9 @@ impl MultisoulApp {
             let selected = active == topic;
             let selector = format!("feature-guide-topic-{index}");
             let tone = if selected {
-                theme.text_primary
+                palette.primary_text
             } else {
-                theme.text_secondary
+                palette.supporting_text
             };
             let variant = ButtonCustomVariant::new(cx)
                 .color(
@@ -216,11 +222,11 @@ impl MultisoulApp {
             navigation = navigation.child(
                 Button::new(("feature-guide-topic", index))
                     .debug_selector(move || selector.clone())
-                    .label(if compact {
+                    .child(div().text_color(rgba(tone)).child(if compact {
                         (index + 1).to_string()
                     } else {
                         format!("{}  {}", index + 1, topic.title())
-                    })
+                    }))
                     .tooltip(topic.title())
                     .tab_index(index as isize + 2)
                     .custom(variant)
@@ -247,6 +253,7 @@ impl MultisoulApp {
         compact: bool,
         voice_shortcut: &str,
         theme: Theme,
+        palette: FeatureGuidePalette,
         cx: &mut Context<Self>,
     ) -> Div {
         div()
@@ -267,7 +274,7 @@ impl MultisoulApp {
                         div()
                             .text_size(px(10.0))
                             .font_weight(FontWeight::BOLD)
-                            .text_color(rgba(theme.accent_blue))
+                            .text_color(rgba(palette.accent_text))
                             .child(topic.eyebrow()),
                     )
                     .child(
@@ -276,13 +283,13 @@ impl MultisoulApp {
                             .debug_selector(|| "feature-guide-title".to_string())
                             .text_size(px(if compact { 21.0 } else { 25.0 }))
                             .font_weight(FontWeight::BOLD)
-                            .text_color(rgba(theme.text_primary))
+                            .text_color(rgba(palette.primary_text))
                             .child(topic.title()),
                     )
                     .child(
                         div()
                             .text_size(px(12.0))
-                            .text_color(rgba(theme.text_secondary))
+                            .text_color(rgba(palette.supporting_text))
                             .child(topic.summary()),
                     ),
             )
@@ -291,15 +298,17 @@ impl MultisoulApp {
                 self.feature_guide_media_frame,
                 self.motion.reduce_motion,
                 theme,
+                palette,
                 cx,
             ))
-            .child(render_steps(topic, voice_shortcut, theme))
+            .child(render_steps(topic, voice_shortcut, theme, palette))
     }
 
     fn render_feature_guide_footer(
         &self,
         topic: FeatureGuideTopic,
         theme: Theme,
+        palette: FeatureGuidePalette,
         window: &Window,
         cx: &mut Context<Self>,
     ) -> Div {
@@ -321,8 +330,8 @@ impl MultisoulApp {
             .child(guide_button(
                 "feature-guide-skip",
                 "跳过导览",
-                theme.text_tertiary,
                 theme,
+                palette,
                 cx,
                 |app, cx| app.suppress_feature_guide(cx),
             ))
@@ -332,7 +341,7 @@ impl MultisoulApp {
                     .items_center()
                     .gap(px(10.0))
                     .when(topic == FeatureGuideTopic::VoiceDispatch, |actions| {
-                        actions.child(render_voice_action(self, theme, cx))
+                        actions.child(render_voice_action(self, theme, palette, cx))
                     })
                     .child(guide_button(
                         "feature-guide-replay",
@@ -341,8 +350,8 @@ impl MultisoulApp {
                         } else {
                             "重新播放"
                         },
-                        theme.text_secondary,
                         theme,
+                        palette,
                         cx,
                         |app, cx| app.restart_feature_guide_demo(cx),
                     ))
@@ -361,8 +370,8 @@ impl MultisoulApp {
                             .child(guide_button(
                                 "feature-guide-primary",
                                 action_label,
-                                theme.accent_blue,
                                 theme,
+                                palette,
                                 cx,
                                 move |app, cx| {
                                     if is_last {
@@ -377,7 +386,12 @@ impl MultisoulApp {
     }
 }
 
-fn render_steps(topic: FeatureGuideTopic, voice_shortcut: &str, theme: Theme) -> Div {
+fn render_steps(
+    topic: FeatureGuideTopic,
+    voice_shortcut: &str,
+    theme: Theme,
+    palette: FeatureGuidePalette,
+) -> Div {
     let mut steps = div().w_full().flex().flex_col().gap(px(7.0));
     for (index, step) in topic.steps().into_iter().enumerate() {
         let step = if topic == FeatureGuideTopic::VoiceDispatch && index == 0 {
@@ -393,7 +407,7 @@ fn render_steps(topic: FeatureGuideTopic, voice_shortcut: &str, theme: Theme) ->
                 .items_center()
                 .gap(px(10.0))
                 .text_size(px(11.0))
-                .text_color(rgba(theme.text_secondary))
+                .text_color(rgba(palette.supporting_text))
                 .child(
                     div()
                         .w(px(20.0))
@@ -404,7 +418,7 @@ fn render_steps(topic: FeatureGuideTopic, voice_shortcut: &str, theme: Theme) ->
                         .items_center()
                         .justify_center()
                         .bg(rgba(with_alpha(theme.accent_blue, 0x18)))
-                        .text_color(rgba(theme.accent_blue))
+                        .text_color(rgba(palette.accent_text))
                         .font_weight(FontWeight::BOLD)
                         .child((index + 1).to_string()),
                 )
@@ -417,8 +431,8 @@ fn render_steps(topic: FeatureGuideTopic, voice_shortcut: &str, theme: Theme) ->
 fn guide_button(
     selector: &'static str,
     label: &'static str,
-    accent: u32,
     theme: Theme,
+    palette: FeatureGuidePalette,
     cx: &mut Context<MultisoulApp>,
     handler: impl Fn(&mut MultisoulApp, &mut Context<MultisoulApp>) + 'static,
 ) -> AnyElement {
@@ -431,20 +445,34 @@ fn guide_button(
         _ => 10,
     };
     let background = if is_primary {
-        with_alpha(accent, 0xe8)
+        palette.primary_background
     } else {
-        with_alpha(accent, 0x12)
+        with_alpha(theme.text_primary, 0x0d)
     };
-    let foreground = if is_primary { 0xffffffff } else { accent };
+    let foreground = if is_primary {
+        palette.primary_foreground
+    } else {
+        palette.supporting_text
+    };
+    let hover = if is_primary {
+        palette.primary_hover
+    } else {
+        with_alpha(theme.text_primary, 0x18)
+    };
+    let active = if is_primary {
+        palette.primary_active
+    } else {
+        with_alpha(theme.text_primary, 0x24)
+    };
     let variant = ButtonCustomVariant::new(cx)
         .color(rgba(background).into())
         .foreground(rgba(foreground).into())
-        .border(rgba(with_alpha(accent, 0x58)).into())
-        .hover(rgba(with_alpha(accent, 0x22)).into())
-        .active(rgba(with_alpha(accent, 0x32)).into());
+        .border(rgba(with_alpha(theme.accent_blue, 0x58)).into())
+        .hover(rgba(hover).into())
+        .active(rgba(active).into());
     Button::new(selector)
         .debug_selector(move || selector.to_string())
-        .label(label)
+        .child(div().text_color(rgba(foreground)).child(label))
         .tab_index(tab_index)
         .tab_stop(!is_primary)
         .custom(variant)

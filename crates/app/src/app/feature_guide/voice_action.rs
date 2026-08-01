@@ -5,7 +5,7 @@ use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
 use ui::component::Disableable;
 use ui::Theme;
 
-use super::style::with_alpha;
+use super::style::{readable_tint, with_alpha, FeatureGuidePalette};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum FeatureGuideVoiceAction {
@@ -47,18 +47,28 @@ impl FeatureGuideVoiceAction {
 pub(super) fn render_voice_action(
     app: &MultisoulApp,
     theme: Theme,
+    palette: FeatureGuidePalette,
     cx: &mut Context<MultisoulApp>,
 ) -> AnyElement {
     let action = FeatureGuideVoiceAction::from_readiness(app.voice_settings.readiness());
+    let foreground = if action.enabled() {
+        readable_tint(theme.accent_violet, theme)
+    } else {
+        palette.metadata_text
+    };
     let variant = ButtonCustomVariant::new(cx)
         .color(rgba(with_alpha(theme.accent_violet, 0x12)).into())
-        .foreground(rgba(theme.accent_violet).into())
+        .foreground(rgba(foreground).into())
         .border(rgba(with_alpha(theme.accent_violet, 0x58)).into())
         .hover(rgba(with_alpha(theme.accent_violet, 0x22)).into())
         .active(rgba(with_alpha(theme.accent_violet, 0x32)).into());
     Button::new("feature-guide-voice-action")
         .debug_selector(|| "feature-guide-voice-action".to_string())
-        .label(action.label())
+        .child(
+            gpui::div()
+                .text_color(rgba(foreground))
+                .child(action.label()),
+        )
         .tooltip(action.label())
         .tab_index(6)
         .disabled(!action.enabled())

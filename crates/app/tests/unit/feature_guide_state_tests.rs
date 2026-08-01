@@ -1,9 +1,132 @@
+use super::style::FeatureGuidePalette;
 use super::{
     FeatureGuideBlockers, FeatureGuidePresentation, FeatureGuideSettingsState, FeatureGuideState,
     FeatureGuideStatus, FeatureGuideTopic, FeatureGuideVoiceAction, GUIDE_STATUS_KEY,
     GUIDE_TOPIC_KEY,
 };
 use crate::settings::voice::{VoiceEntryState, VoiceRequirement};
+use ui::{Theme, ThemeId};
+
+const FEATURE_GUIDE_MIN_SMALL_TEXT_CONTRAST: f32 = 4.5;
+
+fn color_channels(color: u32) -> ([f32; 3], f32) {
+    (
+        [
+            ((color >> 24) & 0xff) as f32 / 255.0,
+            ((color >> 16) & 0xff) as f32 / 255.0,
+            ((color >> 8) & 0xff) as f32 / 255.0,
+        ],
+        (color & 0xff) as f32 / 255.0,
+    )
+}
+
+fn composite_color(foreground: u32, background: u32) -> [f32; 3] {
+    let (foreground, alpha) = color_channels(foreground);
+    let (background, _) = color_channels(background);
+    [
+        foreground[0] * alpha + background[0] * (1.0 - alpha),
+        foreground[1] * alpha + background[1] * (1.0 - alpha),
+        foreground[2] * alpha + background[2] * (1.0 - alpha),
+    ]
+}
+
+fn relative_luminance(color: [f32; 3]) -> f32 {
+    let linear = color.map(|channel| {
+        if channel <= 0.04045 {
+            channel / 12.92
+        } else {
+            ((channel + 0.055) / 1.055).powf(2.4)
+        }
+    });
+    linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722
+}
+
+fn contrast_ratio(foreground: u32, background: u32) -> f32 {
+    let foreground = relative_luminance(composite_color(foreground, background));
+    let background = relative_luminance(composite_color(background, 0x000000ff));
+    (foreground.max(background) + 0.05) / (foreground.min(background) + 0.05)
+}
+
+fn assert_theme_palette_contrast(theme_id: ThemeId, label: &str) {
+    let theme = Theme::for_id(theme_id);
+    let palette = FeatureGuidePalette::from_theme(theme);
+    let panel = (theme.panel_high & 0xffffff00) | 0xff;
+
+    assert!(
+        contrast_ratio(palette.supporting_text, panel) >= FEATURE_GUIDE_MIN_SMALL_TEXT_CONTRAST,
+        "{label} 的摘要、步骤和未选导航必须达到 4.5:1 小字号文字对比度"
+    );
+    assert!(
+        contrast_ratio(palette.metadata_text, panel) >= FEATURE_GUIDE_MIN_SMALL_TEXT_CONTRAST,
+        "{label} 的进度与次要控制仍需达到 4.5:1，不能因层级较低而不可读"
+    );
+    assert!(
+        contrast_ratio(palette.accent_text, panel) >= FEATURE_GUIDE_MIN_SMALL_TEXT_CONTRAST,
+        "{label} 的 eyebrow 与编号强调文字必须在模态面板上保持可读"
+    );
+    assert!(
+        contrast_ratio(palette.status_text, panel) >= FEATURE_GUIDE_MIN_SMALL_TEXT_CONTRAST,
+        "{label} 的 10px 演示状态文字必须满足正文级可读性"
+    );
+    assert!(
+        contrast_ratio(palette.primary_foreground, palette.primary_background)
+            >= FEATURE_GUIDE_MIN_SMALL_TEXT_CONTRAST,
+        "{label} 的主按钮默认态必须达到 4.5:1"
+    );
+    assert!(
+        contrast_ratio(palette.primary_foreground, palette.primary_hover)
+            >= FEATURE_GUIDE_MIN_SMALL_TEXT_CONTRAST,
+        "{label} 的主按钮悬停态必须保持 4.5:1，不能退回浅底白字"
+    );
+    assert!(
+        contrast_ratio(palette.primary_foreground, palette.primary_active)
+            >= FEATURE_GUIDE_MIN_SMALL_TEXT_CONTRAST,
+        "{label} 的主按钮按下态必须保持 4.5:1"
+    );
+}
+
+/// FG-THEME-1：六套主题的导览语义颜色必须让所有 10–12px 文字达到 WCAG AA。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   selectable themes = light(3) + dark(3) = 6
+///   required text roles = supporting + metadata + accent + status = 4
+///   primary interaction states = default + hover + active = 3
+///   minimum contrast = WCAG AA small text 4.5:1
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 分别从六套真实 Theme token 构造 FeatureGuidePalette。
+///   2. 将四种小字号文字合成到各自的 panel_high 背景后计算对比度。
+///   3. 检查主按钮三种交互背景与同一 on-accent 前景的对比度。
+///
+/// 预期结果：
+///   - 正断言：六套主题的七种关键颜色组合全部不低于 4.5:1。
+///   - 负断言：Forest Mint 不得继续使用固定白色主按钮文字。
+///   - 负断言：Hover/Active 背景必须保持不透明，不能退回 0x22/0x32 浅色叠层。
+#[test]
+fn feature_guide_palette_keeps_small_text_readable_in_every_theme() {
+    assert_theme_palette_contrast(ThemeId::PaperBlue, "Paper Blue");
+    assert_theme_palette_contrast(ThemeId::LinenSage, "Linen Sage");
+    assert_theme_palette_contrast(ThemeId::SilverViolet, "Silver Violet");
+    assert_theme_palette_contrast(ThemeId::SapphireNight, "Sapphire Night");
+    assert_theme_palette_contrast(ThemeId::MidnightViolet, "Midnight Violet");
+    assert_theme_palette_contrast(ThemeId::ForestMint, "Forest Mint");
+
+    let forest = FeatureGuidePalette::from_theme(Theme::for_id(ThemeId::ForestMint));
+    assert_ne!(
+        forest.primary_foreground, 0xffffffff,
+        "Forest Mint 的亮薄荷背景不得继续使用固定白字，否则实际对比度只有约 1.9:1"
+    );
+    assert_eq!(
+        forest.primary_hover & 0xff,
+        0xff,
+        "主按钮 Hover 背景必须保持不透明，不能使用原来的 0x22 alpha"
+    );
+    assert_eq!(
+        forest.primary_active & 0xff,
+        0xff,
+        "主按钮 Active 背景必须保持不透明，不能使用原来的 0x32 alpha"
+    );
+}
 
 /// 首次项目导览资格：仅真正的新用户应在首个 Canvas 稳定后自动看到导览。
 ///

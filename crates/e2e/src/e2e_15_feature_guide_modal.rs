@@ -139,6 +139,106 @@ fn e2e_15_feature_guide_modal_blocks_background_actions() {
     );
 }
 
+/// 跨主题导览：从 Settings 切换深浅主题后，帮助中心都必须保持可打开且使用当前主题。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   theme switches = 2（paper-blue → forest-mint → paper-blue）
+///   guide opens    = 2（每次主题切换后各打开 1 次）
+///   expected visible overlays = 1（任一时刻仅当前导览浮层可见）
+///   expected topic entries    = 4（导览固定提供 4 个功能主题）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 进入 Canvas，通过 Settings → Themes 切换到 Forest Mint 并关闭设置。
+///   2. 派发 OpenFeatureGuide，确认深色主题仍生效且导览标题、主题入口可见。
+///   3. 关闭导览，重新进入 Settings，切回 Paper Blue 并关闭设置。
+///   4. 再次派发 OpenFeatureGuide，确认浅色主题生效且同一导览结构仍可见。
+///
+/// 预期结果：
+///   - 正断言：Forest Mint 与 Paper Blue 下导览都为 visible，并渲染标题和主题入口。
+///   - 正断言：两次打开都沿用 Settings 当前选中的稳定主题 id 与深浅模式。
+///   - 负断言：深色主题不得回报 Paper Blue，切回浅色后不得残留 dark mode。
+#[test]
+fn e2e_15_feature_guide_remains_readable_surface_across_light_and_dark_themes() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::tempdir().expect("应创建跨主题导览临时 Canvas 项目");
+    enter_canvas(&app, cx, workspace.path());
+
+    click_debug(cx, "toolbar-settings");
+    click_debug(cx, "settings-section-themes");
+    click_debug(cx, "settings-theme-forest-mint");
+    let forest_settings = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        forest_settings.active_theme_id, "forest-mint",
+        "打开深色导览前必须确实切换到 Forest Mint"
+    );
+    assert!(
+        forest_settings.theme_is_dark,
+        "Forest Mint 必须报告 dark mode，测试才覆盖深色主题分支"
+    );
+    assert_ne!(
+        forest_settings.active_theme_id, "paper-blue",
+        "Forest Mint 选中后不得仍回报默认 Paper Blue"
+    );
+    click_debug(cx, "settings-close");
+
+    cx.dispatch_action(OpenFeatureGuide);
+    cx.run_until_parked();
+    let forest_guide = app.update(cx, |app, _| app.feature_guide_e2e_snapshot());
+    assert!(
+        forest_guide.visible,
+        "Forest Mint 下帮助中心必须保持 visible"
+    );
+    assert!(
+        cx.debug_bounds("feature-guide-title").is_some(),
+        "Forest Mint 下必须渲染帮助中心标题"
+    );
+    assert!(
+        cx.debug_bounds("feature-guide-topic-0").is_some(),
+        "Forest Mint 下必须渲染第 1 个功能主题入口"
+    );
+    assert!(
+        cx.debug_bounds("feature-guide-topic-3").is_some(),
+        "Forest Mint 下必须渲染第 4 个功能主题入口，证明四项导航完整"
+    );
+
+    click_debug(cx, "feature-guide-close");
+    click_debug(cx, "toolbar-settings");
+    click_debug(cx, "settings-section-themes");
+    click_debug(cx, "settings-theme-paper-blue");
+    let paper_settings = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        paper_settings.active_theme_id, "paper-blue",
+        "第二次打开导览前必须切回 Paper Blue"
+    );
+    assert!(
+        !paper_settings.theme_is_dark,
+        "切回 Paper Blue 后不得残留 Forest Mint 的 dark mode"
+    );
+    assert_ne!(
+        paper_settings.active_theme_id, "forest-mint",
+        "Paper Blue 选中后不得仍回报 Forest Mint"
+    );
+    click_debug(cx, "settings-close");
+
+    cx.dispatch_action(OpenFeatureGuide);
+    cx.run_until_parked();
+    let paper_guide = app.update(cx, |app, _| app.feature_guide_e2e_snapshot());
+    assert!(paper_guide.visible, "Paper Blue 下帮助中心必须保持 visible");
+    assert!(
+        cx.debug_bounds("feature-guide-overlay").is_some(),
+        "Paper Blue 下必须重新渲染帮助中心 overlay"
+    );
+    assert!(
+        cx.debug_bounds("feature-guide-title").is_some(),
+        "Paper Blue 下必须重新渲染帮助中心标题"
+    );
+    assert_ne!(
+        paper_guide.presentation, "closed_for_session",
+        "跨主题关闭与重开不得把帮助中心误标记为会话永久关闭"
+    );
+}
+
 fn click_debug(cx: &mut gpui::VisualTestContext, selector: &'static str) {
     let bounds = cx
         .debug_bounds(selector)

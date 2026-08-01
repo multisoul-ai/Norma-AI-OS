@@ -1,3 +1,4 @@
+use super::style::FeatureGuidePalette;
 use super::FeatureGuideTopic;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, AnyElement, BoxShadow, Context, Div, FontWeight};
@@ -8,6 +9,7 @@ pub(super) fn render_demo(
     frame: usize,
     reduce_motion: bool,
     theme: Theme,
+    palette: FeatureGuidePalette,
     _cx: &mut Context<MultisoulApp>,
 ) -> AnyElement {
     let effective_frame = if reduce_motion { 2 } else { frame };
@@ -25,17 +27,18 @@ pub(super) fn render_demo(
         .bg(rgba(with_alpha(theme.graphite, 0x0d)));
     match topic {
         FeatureGuideTopic::VoiceDispatch => stage
-            .child(demo_card(58.0, 34.0, "小张 · Ready", theme))
+            .child(demo_card(58.0, 34.0, "小张 · Ready", theme, palette))
             .child(demo_voice_bar(effective_frame, theme))
             .child(demo_meteor(effective_frame, theme)),
         FeatureGuideTopic::ContinueConversation => stage
-            .child(demo_card(44.0, 30.0, "小张 · Working", theme))
+            .child(demo_card(44.0, 30.0, "小张 · Working", theme, palette))
             .child(demo_bubble(
                 270.0,
                 52.0,
                 "再补充一个验收条件",
                 theme.accent_blue,
                 theme,
+                palette,
             ))
             .child(demo_bubble(
                 330.0,
@@ -47,6 +50,7 @@ pub(super) fn render_demo(
                 },
                 theme.accent_green,
                 theme,
+                palette,
             )),
         FeatureGuideTopic::CanvasManagement => stage
             .child(demo_card(
@@ -54,27 +58,31 @@ pub(super) fn render_demo(
                 28.0,
                 "Terminal",
                 theme,
+                palette,
             ))
             .child(demo_card(
                 250.0,
                 92.0 - effective_frame as f32 * 18.0,
                 "Agent · 小张",
                 theme,
+                palette,
             ))
             .child(demo_card(
                 472.0 - effective_frame as f32 * 22.0,
                 38.0,
                 "Preview",
                 theme,
+                palette,
             )),
         FeatureGuideTopic::TaskStatus => stage
-            .child(demo_card(48.0, 35.0, "小张 · Working", theme))
+            .child(demo_card(48.0, 35.0, "小张 · Working", theme, palette))
             .child(demo_bubble(
                 280.0,
                 42.0,
                 "● Working",
                 theme.accent_green,
                 theme,
+                palette,
             ))
             .child(demo_bubble(
                 280.0,
@@ -82,6 +90,7 @@ pub(super) fn render_demo(
                 "2 Queued",
                 theme.accent_violet,
                 theme,
+                palette,
             ))
             .child(demo_bubble(
                 410.0,
@@ -93,12 +102,19 @@ pub(super) fn render_demo(
                 },
                 theme.accent_blue,
                 theme,
+                palette,
             )),
     }
     .into_any_element()
 }
 
-fn demo_card(left: f32, top: f32, label: &'static str, theme: Theme) -> Div {
+fn demo_card(
+    left: f32,
+    top: f32,
+    label: &'static str,
+    theme: Theme,
+    palette: FeatureGuidePalette,
+) -> Div {
     div()
         .absolute()
         .left(px(left))
@@ -125,7 +141,7 @@ fn demo_card(left: f32, top: f32, label: &'static str, theme: Theme) -> Div {
                 .border_color(rgba(with_alpha(theme.node_stroke, 0x70)))
                 .text_size(px(11.0))
                 .font_weight(FontWeight::BOLD)
-                .text_color(rgba(theme.text_primary))
+                .text_color(rgba(palette.primary_text))
                 .child(label),
         )
         .child(
@@ -181,7 +197,14 @@ fn demo_meteor(frame: usize, theme: Theme) -> Div {
         )
 }
 
-fn demo_bubble(left: f32, top: f32, label: &'static str, accent: u32, theme: Theme) -> Div {
+fn demo_bubble(
+    left: f32,
+    top: f32,
+    label: &'static str,
+    accent: u32,
+    theme: Theme,
+    palette: FeatureGuidePalette,
+) -> Div {
     div()
         .absolute()
         .left(px(left))
@@ -195,7 +218,7 @@ fn demo_bubble(left: f32, top: f32, label: &'static str, accent: u32, theme: The
         .border_color(rgba(with_alpha(accent, 0x70)))
         .bg(rgba(with_alpha(theme.panel_high, 0xf0)))
         .text_size(px(10.0))
-        .text_color(rgba(accent))
+        .text_color(rgba(palette.status_text))
         .child(label)
 }
 
