@@ -21,7 +21,13 @@ impl MultisoulApp {
     }
 
     pub(crate) fn effective_voice_dock_label(&self) -> &'static str {
-        self.effective_voice_visual().dock_label()
+        match self.dialogue.phase() {
+            dialogue::DialoguePhase::Thinking => "Thinking…",
+            dialogue::DialoguePhase::Speaking => "Replying...",
+            dialogue::DialoguePhase::Idle | dialogue::DialoguePhase::Listening => {
+                self.effective_voice_visual().dock_label()
+            }
+        }
     }
 
     pub(crate) fn can_open_microphone_privacy_settings(&self) -> bool {

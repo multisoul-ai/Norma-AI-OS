@@ -317,14 +317,16 @@ find_agent_tasks({
 
 ```ts
 create_agent({
-  profile: "codex" | "claude" | "opencode" | "cursor" | "grok"
+  profile: "codex" | "claude" | "opencode" | "cursor" | "grok",
+  task?: string
 })
 ```
 
 - 只在用户明确要求创建 Agent 时调用。
 - 不接受 `name` 或 `activate`。
+- 同一请求还要求新 Agent 执行任务时，必须把完整任务放入可选 `task`，只调用一次 `create_agent`，不得随后再调用 `assign_agent_task`。
 - 名称从现有内置 Agent 名称池确定性选择。
-- 创建后默认启用并打开唯一 AgentCard。
+- 创建后默认启用并打开唯一 AgentCard；带 `task` 时立即进入既有 FIFO，并继续受 CLI Ready 门控保护。
 - 多 Agent 请求拆成多次串行调用。
 - 不询问确认。
 - 名称池耗尽或 profile 不支持时返回错误。

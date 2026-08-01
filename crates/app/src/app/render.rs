@@ -6,6 +6,9 @@ impl Render for MultisoulApp {
         self.window_active = window.is_window_active();
         self.voice_window_inset_window_visible = state::window_visible_for_voice_inset(window);
         self.sync_voice_window_inset_enabled();
+        let performance_state = self.performance_state();
+        self.performance.set_state(performance_state);
+        self.performance.record_repaint();
         self.retain_visible_dispatch_receipts(window);
         self.start_animation_frame_driver_if_needed(window, cx);
         let mut root = div()
@@ -13,6 +16,7 @@ impl Render for MultisoulApp {
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(Self::on_new_window))
             .on_action(cx.listener(Self::on_open_project))
+            .on_action(cx.listener(Self::on_clone_project))
             .on_action(cx.listener(Self::on_exit_focus))
             .on_action(cx.listener(Self::on_browser_command))
             .on_action(cx.listener(Self::on_ego_card_command))
@@ -49,6 +53,7 @@ impl Render for MultisoulApp {
                 root = root.child(self.render_launchpad(window, cx));
             }
             AppScreen::Canvas => {
+                self.performance.record_render();
                 #[cfg(target_os = "macos")]
                 self.sync_canvas_video_wallpaper(cx);
                 self.reflow_if_window_size_changed(window);
@@ -72,11 +77,37 @@ impl Render for MultisoulApp {
             }
         }
 
+        if self.clone_project.is_open() {
+            root = root.child(self.render_clone_project_dialog(window, cx));
+        }
+
         root
     }
 }
 
 impl MultisoulApp {
+    fn performance_state(&self) -> crate::performance_monitor::PerformanceState {
+        use crate::performance_monitor::PerformanceState;
+
+        if !self.window_active {
+            return PerformanceState::Background;
+        }
+        let activity = self.animation_activity();
+        if activity.voice_active {
+            return PerformanceState::VoiceActive;
+        }
+        #[cfg(target_os = "macos")]
+        let video_animation_active = self.video_wallpaper.is_some();
+        #[cfg(not(target_os = "macos"))]
+        let video_animation_active = false;
+        // 普通 Terminal 光标闪烁属于 idle 基线，不单独提升为 animation；否则
+        // 七张空闲 Terminal 的 L3 场景会永远无法产生 state=idle 样本。
+        if activity.canvas_motion_active || video_animation_active {
+            return PerformanceState::Animation;
+        }
+        PerformanceState::Idle
+    }
+
     fn retain_visible_dispatch_receipts(&mut self, window: &mut Window) {
         if !self.motion.has_dispatch_receipts() {
             return;

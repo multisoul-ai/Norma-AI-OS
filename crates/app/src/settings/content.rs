@@ -3,6 +3,7 @@ use crate::app::MultisoulApp;
 use crate::settings::agents::{agents_settings, AgentDefinitionsState};
 use crate::settings::appearance::theme_appearance;
 use crate::settings::orchestration::{orchestration_settings, OrchestrationSettingsState};
+use crate::settings::performance::{performance_settings, PerformanceSettingsState};
 use crate::settings::voice::{
     voice_settings, VoiceSettingsInputs, VoiceSettingsState, VoiceSetupDestination,
 };
@@ -27,6 +28,7 @@ pub(super) struct SettingsContentContext<'a> {
     pub(super) panel: &'a SettingsPanelState,
     pub(super) agent_definitions: &'a AgentDefinitionsState,
     pub(super) orchestration: &'a OrchestrationSettingsState,
+    pub(super) performance: &'a PerformanceSettingsState,
     pub(super) voice: VoiceSettingsContent<'a>,
     pub(super) content_scroll: &'a ScrollHandle,
     pub(super) wallpaper_state: &'a WallpaperSettingsState,
@@ -45,6 +47,7 @@ pub(super) fn settings_content(
         panel,
         agent_definitions,
         orchestration,
+        performance,
         voice,
         content_scroll,
         wallpaper_state,
@@ -100,6 +103,7 @@ pub(super) fn settings_content(
                     SettingsSection::Wallpaper => {
                         wallpaper_settings(theme, wallpaper_state, wallpaper_previews, cx)
                     }
+                    SettingsSection::Performance => performance_settings(theme, performance, cx),
                     // Mock-only sections are hidden from the sidebar; keep a blank
                     // fallback so stale state or tests cannot route to old placeholders.
                     #[cfg(test)]
@@ -187,6 +191,7 @@ fn content_title(section: SettingsSection) -> &'static str {
         SettingsSection::Skills => "Skills",
         SettingsSection::Orchestration => "Orchestration",
         SettingsSection::Wallpaper => "Wallpaper",
+        SettingsSection::Performance => "Performance",
     }
 }
 
@@ -199,12 +204,15 @@ fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> Str
         #[cfg(test)]
         SettingsSection::Runtime => "Configure shell behavior and live sessions".to_string(),
         SettingsSection::Voice => format!("Use {voice_shortcut_label} to talk to Norma"),
-        SettingsSection::Agents => "Choose default agents, permissions, and profiles".to_string(),
+        SettingsSection::Agents => "Manage project agents and runtime profiles".to_string(),
         #[cfg(test)]
         SettingsSection::Skills => "Manage installed skills and project skill sources".to_string(),
         SettingsSection::Orchestration => {
             "Install Skill + CLI so agents can delegate tasks through Norma OS".to_string()
         }
         SettingsSection::Wallpaper => "Choose a background".to_string(),
+        SettingsSection::Performance => {
+            "Balance animation responsiveness and idle energy use".to_string()
+        }
     }
 }

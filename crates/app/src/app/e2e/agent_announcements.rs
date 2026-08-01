@@ -1,4 +1,4 @@
-use super::super::frame_schedule::{AnimationSchedule, AnimationWakeup};
+use super::super::frame_schedule::AnimationWakeup;
 use super::MultisoulApp;
 use crate::app::voice_window_inset::TtsPlaybackSource;
 use gpui::Context;
@@ -79,10 +79,7 @@ impl MultisoulApp {
     }
 
     pub fn pending_tts_playback_requests_next_frame_for_e2e(&self) -> bool {
-        matches!(
-            AnimationSchedule::next_wakeup(self.animation_activity()),
-            AnimationWakeup::NextFrame(_)
-        )
+        matches!(self.animation_next_wakeup(), AnimationWakeup::NextFrame(_))
     }
 
     pub fn finish_tts_preview_for_e2e(&mut self, generation: u64, cx: &mut Context<Self>) {

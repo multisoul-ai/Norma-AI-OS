@@ -14,6 +14,7 @@ fn start_adapter_pump(
                 "Norma AgentCard Adapter received tool command"
             );
             let command = request.command.clone();
+            let input_source = request.context.input_source;
             let result = this
                 .update_in(cx, |app, window, cx| {
                     if !is_current_runtime(app, runtime_id) {
@@ -21,7 +22,13 @@ fn start_adapter_pump(
                             "Norma Adapter 属于已失效项目".to_string(),
                         ));
                     }
-                    execute_norma_adapter_command(app, window, cx, command)
+                    execute_norma_adapter_command_with_source(
+                        app,
+                        window,
+                        cx,
+                        command,
+                        input_source,
+                    )
                 })
                 .unwrap_or_else(|_| {
                     Err(AdapterError::Failed(
@@ -34,11 +41,28 @@ fn start_adapter_pump(
     .detach();
 }
 
+#[cfg(any(test, feature = "e2e-test-support"))]
 pub(crate) fn execute_norma_adapter_command(
     app: &mut MultisoulApp,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
     command: AdapterCommand,
+) -> Result<AdapterResult, AdapterError> {
+    execute_norma_adapter_command_with_source(
+        app,
+        window,
+        cx,
+        command,
+        agent::AgentInputSource::Other,
+    )
+}
+
+pub(crate) fn execute_norma_adapter_command_with_source(
+    app: &mut MultisoulApp,
+    window: &mut Window,
+    cx: &mut Context<MultisoulApp>,
+    command: AdapterCommand,
+    input_source: agent::AgentInputSource,
 ) -> Result<AdapterResult, AdapterError> {
     match command {
         AdapterCommand::FindAgentTasks {
@@ -81,7 +105,7 @@ pub(crate) fn execute_norma_adapter_command(
             ))
             .with_tasks(tasks))
         }
-        AdapterCommand::CreateAgent { profile } => {
+        AdapterCommand::CreateAgent { profile, task } => {
             let result = commands::execute_agent_card_command(
                 app,
                 window,
@@ -97,64 +121,31 @@ pub(crate) fn execute_norma_adapter_command(
                     name,
                     node_id: Some(node_id),
                     ..
-                } => Ok(AdapterResult::succeeded(format!(
-                    "已创建并打开 Agent {name}"
-                ))
-                .with_node_id(node_id)),
+                } => match task {
+                    Some(task) => {
+                        let mut receipt = adapter_task::dispatch_agent_task(
+                            app,
+                            window,
+                            cx,
+                            name.clone(),
+                            task,
+                        )?;
+                        receipt.message = format!("已创建并打开 Agent {name}，AgentCard 已接收任务");
+                        receipt.node_id = Some(node_id);
+                        Ok(receipt)
+                    }
+                    None => Ok(AdapterResult::succeeded(format!(
+                        "已创建并打开 Agent {name}"
+                    ))
+                    .with_node_id(node_id)),
+                },
                 other => Err(AdapterError::Failed(format!(
                     "创建 Agent 返回了意外回执：{other:?}"
                 ))),
             }
         }
         AdapterCommand::AssignAgentTask { agent, task } => {
-            let definition_id = app
-                .agent_definitions
-                .definition_by_address(&agent)
-                .map(|definition| definition.id)
-                .ok_or_else(|| AdapterError::Rejected(format!("未找到 Agent：{agent}")))?;
-            let result = commands::execute_agent_card_command(
-                app,
-                window,
-                CardCommand::DispatchAgentTasks {
-                    assignments: vec![AgentTaskAssignment {
-                        name: agent.clone(),
-                        task: task.clone(),
-                    }],
-                    force_untracked: false,
-                },
-            )
-            .map_err(AdapterError::Rejected)?;
-            let CardCommandResult::AgentTasksDispatched { receipts } = result else {
-                return Err(AdapterError::Failed(
-                    "Agent 派发没有返回任务回执".to_string(),
-                ));
-            };
-            let receipt = receipts
-                .first()
-                .ok_or_else(|| AdapterError::Failed("Agent 派发回执为空".to_string()))?;
-            if matches!(
-                receipt.status,
-                norma::protocol::AgentTaskReceiptStatus::Failed
-            ) {
-                return Err(AdapterError::Rejected(format!(
-                    "{} 未接收任务",
-                    receipt.name
-                )));
-            }
-            let task_id = app
-                .agent_task_coordinator
-                .as_ref()
-                .and_then(|coordinator| coordinator.task_id_for(definition_id, &task))
-                .ok_or_else(|| {
-                    AdapterError::Failed("AgentCard 已接收但无法确定 task_id".to_string())
-                })?;
-            cx.notify();
-            Ok(AdapterResult::accepted(format!(
-                "{} 的 AgentCard 已接收任务",
-                receipt.name
-            ))
-            .with_task_id(task_id)
-            .with_node_id(receipt.node_id))
+            adapter_task::dispatch_agent_task(app, window, cx, agent, task)
         }
         AdapterCommand::CancelAgentTask { task_id } => {
             let task_to_cancel = app.agent_task_coordinator.as_ref().and_then(|coordinator| {
@@ -266,7 +257,23 @@ pub(crate) fn execute_norma_adapter_command(
                 ))),
             }
         }
-        command @ (AdapterCommand::ReplyAgent { .. } | AdapterCommand::CancelAgentReply { .. }) => {
+        command @ AdapterCommand::ReplyAgent { .. } => {
+            let result = reply_adapter::execute_reply_adapter_command(app, command)?;
+            if input_source == agent::AgentInputSource::Voice {
+                let visible_area = app.visible_canvas_rect(window);
+                if dispatch_effects::spawn_accepted_session_reply(
+                    app,
+                    result.reply_id,
+                    result.node_id,
+                    result.reply_status.as_deref(),
+                    visible_area,
+                ) {
+                    cx.notify();
+                }
+            }
+            Ok(result)
+        }
+        command @ AdapterCommand::CancelAgentReply { .. } => {
             reply_adapter::execute_reply_adapter_command(app, command)
         }
         AdapterCommand::CreateTerminal => map_card_result(

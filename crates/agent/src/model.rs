@@ -1,15 +1,32 @@
 pub type TaskId = u64;
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum AgentInputSource {
+    Voice,
+    #[default]
+    Other,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AgentCommand {
     UpdateAgentRoster(Vec<crate::AgentRosterEntry>),
     UpdateCurrentCanvasContext(crate::CurrentCanvasContext),
     SwitchModel(crate::ProviderConfig),
-    UserTurn(String),
+    UserTurn {
+        input: String,
+        input_source: AgentInputSource,
+    },
     CancelLatest,
-    CancelTask { task_id: TaskId },
-    Status { task_id: Option<TaskId> },
-    CardActivity { node_id: u64, summary: String },
+    CancelTask {
+        task_id: TaskId,
+    },
+    Status {
+        task_id: Option<TaskId>,
+    },
+    CardActivity {
+        node_id: u64,
+        summary: String,
+    },
     ProjectClosed,
 }
 

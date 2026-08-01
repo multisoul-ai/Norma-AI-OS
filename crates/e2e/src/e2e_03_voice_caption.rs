@@ -7,11 +7,14 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   transcript block = 132 个中文/标点字符
-///   long transcript  = 132 × 4 = 528 字符（足以超过 152px 全文正文高度）
-///   expanded caption max height = body 152px + vertical padding 14px + 10px tolerance = 176px
+///   long transcript  = 132 × 4 = 528 字符（足以超过 104px 全文正文高度）
+///   expanded body height = 104px（line height 16px × 6.5 行，超出内容在正文内滚动）
+///   expanded caption max height = body 104px + vertical padding 14px + 10px tolerance = 128px
 ///   collapsed caption max height = 56px（目标条高 48px，额外预留 8px 渲染容差）
 ///   compact Voice max width = 180px（图标约 20 + 间距 8 + Listening/快捷键约 110 + 内边距 26）
 ///   text left inset = 0px（首字必须从文本区域边缘开始，不能被渐隐层遮挡）
+///   disclosure label height = 11px font + 3px leading allowance = 14px max
+///   disclosure chevron size = 10px × 10px（独立 SVG，不使用字体字符模拟图标）
 ///   disclosure clicks = collapse(1) + expand(1) = 2
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -22,7 +25,8 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///
 /// 预期结果：
 ///   - 正断言：Dock 显示 `Listening` 与 `⌘E` 快捷键，且 Voice 控件保持紧凑。
-///   - 正断言：字幕默认显示完整原文，并在 176px 边界内滚动而非无限遮挡画布。
+///   - 正断言：字幕默认显示完整原文，并在 128px 边界内滚动而非无限遮挡画布。
+///   - 正断言：「收起/全文」使用紧凑系统字排版，独立 Chevron 图标与文字垂直居中。
 ///   - 正断言：收起后显示结尾预览且保持单行低高度，再次点击恢复全文。
 ///   - 负断言：Dock 不得包含长转写；默认全文不得渲染单行截断节点；折叠预览不得冒充完整原文或遮挡首字。
 #[test]
@@ -54,6 +58,12 @@ fn long_voice_transcript_defaults_to_full_and_can_be_collapsed_without_growing_d
     let expanded_text_bounds = cx
         .debug_bounds("voice-caption-text")
         .expect("default full caption must reserve a visible scrollable text region");
+    let disclosure_label_bounds = cx
+        .debug_bounds("voice-caption-expand-label")
+        .expect("default full caption must render a dedicated 收起 label");
+    let disclosure_chevron_bounds = cx
+        .debug_bounds("voice-caption-expand-chevron")
+        .expect("default full caption must render a dedicated Chevron icon");
     assert_eq!(
         expanded.dock_label, "Listening",
         "active Voice Dock label must remain the compact status text"
@@ -98,13 +108,41 @@ fn long_voice_transcript_defaults_to_full_and_can_be_collapsed_without_growing_d
         "default full caption must not render the collapsed single-line truncation node"
     );
     assert!(
-        expanded_text_bounds.size.height >= gpui::px(150.0),
-        "528-character transcript must fill the 152px scroll region instead of growing the overlay"
+        expanded_text_bounds.size.height >= gpui::px(102.0),
+        "528-character transcript must fill the intended 104px scroll region"
     );
     assert!(
-        expanded_bounds.size.height <= gpui::px(176.0),
-        "default full caption must remain within the 176px bounded scroll-surface budget"
+        expanded_text_bounds.size.height <= gpui::px(104.0),
+        "default full transcript body must not exceed the compact 104px scroll-region budget"
     );
+    assert!(
+        expanded_bounds.size.height <= gpui::px(128.0),
+        "default full caption must remain within the 128px bounded scroll-surface budget"
+    );
+    assert!(
+        disclosure_label_bounds.size.height <= gpui::px(14.0),
+        "Full transcript label must stay within the 14px compact typography budget"
+    );
+    assert!(
+        disclosure_label_bounds.size.height >= gpui::px(11.0),
+        "Full transcript label must remain legible at no less than the intended 11px font size"
+    );
+    assert_eq!(
+        disclosure_chevron_bounds.size.width,
+        gpui::px(10.0),
+        "Full transcript Chevron must use the exact 10px icon width instead of a font glyph"
+    );
+    assert_eq!(
+        disclosure_chevron_bounds.size.height,
+        gpui::px(10.0),
+        "Full transcript Chevron must use the exact 10px icon height instead of a font glyph"
+    );
+    assert!(
+        (disclosure_label_bounds.center().y - disclosure_chevron_bounds.center().y).abs()
+            <= gpui::px(1.0),
+        "default 收起 label and Chevron must be vertically centered within 1px"
+    );
+
     let collapse = cx
         .debug_bounds("voice-caption-expand")
         .expect("default full caption must expose the 收起 control");
@@ -173,27 +211,28 @@ fn long_voice_transcript_defaults_to_full_and_can_be_collapsed_without_growing_d
     );
 }
 
-/// Voice 等待与回复切换：字幕默认全文且保持高度边界，助手开始回复后立即隐藏。
+/// Voice 等待与回复切换：字幕在 Thinking 与 Speaking 都显示原文，但回复阶段停止波形动画。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   transcript = 15 个中文字符（非空，因此 Thinking 阶段必须渲染字幕卡片）
+///   transcript = 9 个中文字符（「请总结本周项目进展」，非空，因此两个处理阶段都必须显示）
 ///   caption width budget = 560px（较旧 720px 减少 160px，避免遮挡画布）
-///   caption height budget = body 152px + vertical padding 14px + 10px tolerance = 176px
-///   animation advance = 160ms（1.2 cycles/s × 0.160s = 0.192 cycle，足以改变波形相位）
+///   caption height budget = body 104px + vertical padding 14px + 10px tolerance = 128px
+///   Thinking animation advance = 160ms（1.2 cycles/s × 0.160s = 0.192 cycle，足以改变波形相位）
+///   Speaking animation advance = 16ms（1.2 cycles/s × 0.016s = 0.0192 cycle；停止后仍应保持 0）
 ///   surface opacity = 722‰（alpha 184 / 255 × 1000 ≈ 722，保留背景内容可见性）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 进入 Canvas，通过公开 E2E seam 注入一个带转写文本的单次 Voice Thinking 回合。
-///   2. 检查真实卡片边界、半透明表面配置及起始波形相位。
+///   2. 检查「Thinking…」状态、完整原文、真实卡片边界、半透明表面及起始波形相位。
 ///   3. 精确推进 160ms 动画时钟，确认波形相位变化且卡片仍可见。
-///   4. 通过同一公开 seam 把该回合切换为 Speaking，确认卡片可见状态关闭并停止动画。
+///   4. 通过同一公开 seam 把该回合切换为 Speaking，再推进 16ms 动画时钟。
 ///
 /// 预期结果：
-///   - 正断言：Thinking 时卡片默认全文、宽高符合有界预算、表面为半透明且波形会推进。
-///   - 正断言：Speaking 时对话进入回复阶段，卡片可见状态与动画相位均被清除。
-///   - 负断言：Thinking 卡片不得保留旧 720px 宽度或不透明表面；Speaking 时不得保持可见。
+///   - 正断言：Thinking 时卡片标记「Thinking…」、默认全文、宽高有界且波形会推进。
+///   - 正断言：Speaking 时卡片标记「Replying...」并继续显示完全相同的原文。
+///   - 负断言：Thinking 卡片不得使用不透明表面；Speaking 不得隐藏字幕或继续波形动画。
 #[test]
-fn full_caption_animates_while_thinking_and_hides_when_assistant_starts_replying() {
+fn voice_caption_remains_visible_while_replying_but_stops_animating() {
     let transcript = "请总结本周项目进展";
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
@@ -219,6 +258,15 @@ fn full_caption_animates_while_thinking_and_hides_when_assistant_starts_replying
         thinking.caption_visible,
         "Thinking with a non-empty transcript must keep the voice caption visible"
     );
+    assert_eq!(
+        thinking.dock_label, "Thinking…",
+        "Thinking caption must expose the processing-state label"
+    );
+    assert_eq!(
+        thinking.caption_text.as_deref(),
+        Some(transcript),
+        "Thinking caption must retain the exact submitted voice transcript"
+    );
     assert!(
         thinking.caption_expanded,
         "Thinking with a new transcript must default to the full caption state"
@@ -228,8 +276,8 @@ fn full_caption_animates_while_thinking_and_hides_when_assistant_starts_replying
         "compact caption must not exceed the 560px width budget"
     );
     assert!(
-        thinking_bounds.size.height <= gpui::px(176.0),
-        "full caption must not exceed the 176px bounded scroll-surface budget"
+        thinking_bounds.size.height <= gpui::px(128.0),
+        "full caption must not exceed the 128px bounded scroll-surface budget"
     );
     assert_eq!(
         thinking.caption_surface_opacity_milli, 722,
@@ -264,16 +312,114 @@ fn full_caption_animates_while_thinking_and_hides_when_assistant_starts_replying
     cx.run_until_parked();
 
     let replying = app.read_with(cx, |app, _cx| app.voice_e2e_snapshot());
+    let replying_bounds = cx
+        .debug_bounds("workspace-voice-caption")
+        .expect("Speaking must keep the submitted transcript visibly rendered");
     assert_eq!(
         replying.dialogue_phase, "speaking",
         "assistant reply seam must transition the Voice turn into Speaking"
     );
     assert!(
-        !replying.caption_visible,
-        "assistant Speaking must hide the voice caption so the reply owns the workspace"
+        replying.caption_visible,
+        "assistant Speaking must keep the submitted voice transcript visible"
+    );
+    assert_eq!(
+        replying.dock_label, "Replying...",
+        "Speaking caption must expose the reply-state label instead of Thinking"
+    );
+    assert_eq!(
+        replying.caption_text.as_deref(),
+        Some(transcript),
+        "Speaking caption must preserve the exact transcript shown during Thinking"
+    );
+    assert!(
+        replying_bounds.size.height <= gpui::px(128.0),
+        "Speaking caption must retain the same bounded full-caption height budget"
     );
     assert_eq!(
         replying.caption_waveform_phase_milli, 0,
-        "hidden caption must reset its waveform phase instead of consuming animation frames"
+        "Speaking caption must reset its waveform phase instead of continuing animation"
+    );
+}
+
+/// Voice 字幕回合边界：回复结束隐藏旧原文，下一次录音只显示新的 partial。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   completed transcript = 9 个中文字符（「请总结本周项目进展」）
+///   next partial         = 8 个中文字符（「补充检查测试结果」）
+///   dialogue transitions = 3 次（Thinking → Speaking → Idle）
+///   next recording       = 1 次（Idle → Recording）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 进入 Canvas，注入旧原文并把回合推进到 Speaking。
+///   2. 通过公开 E2E seam 完成回复，检查旧字幕及渲染节点都已隐藏。
+///   3. 开始下一次录音并注入新 partial，检查字幕重新出现且只包含新内容。
+///
+/// 预期结果：
+///   - 正断言：回合完成后进入 Idle，字幕状态与渲染节点都清空。
+///   - 正断言：下一次 Recording 显示「Listening」和新的完整 partial。
+///   - 负断言：新字幕不得继续显示上一回合原文。
+#[test]
+fn voice_caption_hides_after_turn_and_next_recording_replaces_old_transcript() {
+    let completed_transcript = "请总结本周项目进展";
+    let next_partial = "补充检查测试结果";
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("Voice caption workspace should create");
+    enter_canvas(&app, cx, workspace.path());
+
+    app.update(cx, |app, cx| {
+        app.show_voice_replying_for_e2e(completed_transcript);
+        app.finish_voice_reply_for_e2e();
+        cx.notify();
+    });
+    cx.run_until_parked();
+
+    let completed = app.read_with(cx, |app, _cx| app.voice_e2e_snapshot());
+    assert_eq!(
+        completed.dialogue_phase, "idle",
+        "completed one-shot Voice reply must leave the dialogue in Idle"
+    );
+    assert!(
+        !completed.caption_visible,
+        "completed Voice reply must hide the submitted transcript"
+    );
+    assert_eq!(
+        completed.caption_text, None,
+        "completed Voice reply must clear the visible caption projection"
+    );
+    assert!(
+        cx.debug_bounds("workspace-voice-caption").is_none(),
+        "completed Voice reply must remove the caption from the rendered tree"
+    );
+
+    app.update(cx, |app, cx| {
+        app.show_voice_recording_transcript_for_e2e(next_partial);
+        cx.notify();
+    });
+    cx.run_until_parked();
+
+    let next_recording = app.read_with(cx, |app, _cx| app.voice_e2e_snapshot());
+    assert_eq!(
+        next_recording.phase, "recording",
+        "next Voice input must enter Recording before showing its partial"
+    );
+    assert_eq!(
+        next_recording.dock_label, "Listening",
+        "next Voice input must mark the replacement caption as Listening"
+    );
+    assert_eq!(
+        next_recording.caption_text.as_deref(),
+        Some(next_partial),
+        "next Voice input must display the exact new partial transcript"
+    );
+    assert_ne!(
+        next_recording.caption_text.as_deref(),
+        Some(completed_transcript),
+        "next Voice input must not retain the completed turn transcript"
+    );
+    assert!(
+        cx.debug_bounds("workspace-voice-caption").is_some(),
+        "next non-empty partial must render a replacement caption"
     );
 }

@@ -12,6 +12,7 @@ enum VisualPreview {
     DispatchReceiptFlight,
     DispatchReceiptImpact,
     Orchestration,
+    GithubClone,
     VoiceSetup,
     VoiceReady,
     VoiceNetworkUnavailable,
@@ -30,6 +31,7 @@ impl VisualPreview {
             "dispatch-receipt-flight" => Some(Self::DispatchReceiptFlight),
             "dispatch-receipt-impact" => Some(Self::DispatchReceiptImpact),
             "orchestration" => Some(Self::Orchestration),
+            "github-clone" => Some(Self::GithubClone),
             "voice-setup" => Some(Self::VoiceSetup),
             "voice-ready" => Some(Self::VoiceReady),
             "voice-network-unavailable" => Some(Self::VoiceNetworkUnavailable),
@@ -49,6 +51,7 @@ impl VisualPreview {
                 Some(ThemeId::PaperBlue)
             }
             Self::Orchestration => Some(ThemeId::SapphireNight),
+            Self::GithubClone => None,
             Self::VoiceSetup
             | Self::VoiceReady
             | Self::VoiceNetworkUnavailable
@@ -74,9 +77,14 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
     if let Some(theme_id) = preview.canonical_theme() {
         app.set_theme(theme_id, cx);
     }
-    app.screen = AppScreen::Canvas;
-    app.settings_panel.open();
-    app.settings_panel.select(SettingsSection::Voice);
+    if preview == VisualPreview::GithubClone {
+        app.screen = AppScreen::Launchpad;
+        app.settings_panel.close();
+    } else {
+        app.screen = AppScreen::Canvas;
+        app.settings_panel.open();
+        app.settings_panel.select(SettingsSection::Voice);
+    }
     match preview {
         VisualPreview::AgentQueue => {
             app.settings_panel.close();
@@ -90,6 +98,7 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
             app.settings_panel.select(SettingsSection::Orchestration);
             app.orchestration_settings.use_canonical_preview();
         }
+        VisualPreview::GithubClone => {}
         VisualPreview::VoiceSetup => {
             app.voice_settings = VoiceSettingsState::in_memory_default();
         }
@@ -224,33 +233,34 @@ mod tests {
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   supported values = agent-queue(1) + dispatch-flight(1) + dispatch-impact(1)
-    ///                      + orchestration(1)
+    ///                      + orchestration(1) + github-clone(1)
     ///                      + setup(1) + ready(1) + network-unavailable(1)
     ///                      + api-key(1) + caption(1)
     ///                      + azure-asr-ready(1)
     ///                      + zipvoice-reference(1) + tts-backlog-capacity(1)
-    ///                      + tts-backlog-recovered(1) = 13
+    ///                      + tts-backlog-recovered(1) = 14
     ///   unsupported values = empty(1) + unknown(1) = 2
-    ///   total cases = 13 + 2 = 15
+    ///   total cases = 14 + 2 = 16
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. 解析 `agent-queue` → AgentQueue
     ///   2. 解析 `dispatch-receipt-flight` → DispatchReceiptFlight
     ///   3. 解析 `dispatch-receipt-impact` → DispatchReceiptImpact
     ///   4. 解析 `orchestration` → Orchestration
-    ///   5. 解析 `voice-setup` → VoiceSetup
-    ///   6. 解析 `voice-ready` → VoiceReady
-    ///   7. 解析 `voice-network-unavailable` → VoiceNetworkUnavailable
-    ///   8. 解析 `voice-api-key` → VoiceApiKey
-    ///   9. 解析 `voice-caption` → VoiceCaption
-    ///   10. 解析 `azure-asr-ready` → AzureAsrReady
-    ///   11. 解析 `zipvoice-reference` → ZipVoiceReference
-    ///   12. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
-    ///   13. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
-    ///   14. 解析空字符串与未知值 → None
+    ///   5. 解析 `github-clone` → GithubClone
+    ///   6. 解析 `voice-setup` → VoiceSetup
+    ///   7. 解析 `voice-ready` → VoiceReady
+    ///   8. 解析 `voice-network-unavailable` → VoiceNetworkUnavailable
+    ///   9. 解析 `voice-api-key` → VoiceApiKey
+    ///   10. 解析 `voice-caption` → VoiceCaption
+    ///   11. 解析 `azure-asr-ready` → AzureAsrReady
+    ///   12. 解析 `zipvoice-reference` → ZipVoiceReference
+    ///   13. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
+    ///   14. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
+    ///   15. 解析空字符串与未知值 → None
     ///
     /// 预期结果：
-    ///   - 正断言：十三个受支持值分别映射到唯一场景
+    ///   - 正断言：十四个受支持值分别映射到唯一场景
     ///   - 负断言：空值和未知值不得意外开启视觉预览
     #[test]
     fn visual_preview_parser_accepts_only_explicit_scenarios() {
@@ -273,6 +283,11 @@ mod tests {
             VisualPreview::parse("orchestration"),
             Some(VisualPreview::Orchestration),
             "orchestration must select the canonical orchestration settings preview"
+        );
+        assert_eq!(
+            VisualPreview::parse("github-clone"),
+            Some(VisualPreview::GithubClone),
+            "github-clone must select the canonical Clone Project modal preview"
         );
         assert_eq!(
             VisualPreview::parse("voice-setup"),

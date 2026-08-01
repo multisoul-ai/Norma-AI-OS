@@ -4,11 +4,9 @@ use crate::app::frame_throttle::FrameThrottle;
 use crate::app::frame_throttle::CURSOR_REPAINT_INTERVAL;
 use crate::canvas::interaction::InteractionState;
 use crate::canvas::layout_strategy::CanvasLayoutStrategy;
-use crate::canvas::master_layout::{
-    term_grid_size_for_card, MasterLayoutState,
-};
 #[cfg(test)]
 use crate::canvas::master_layout::close_node_and_reflow_for_area;
+use crate::canvas::master_layout::{term_grid_size_for_card, MasterLayoutState};
 use crate::canvas::spawn_focus;
 use crate::canvas::view::render_canvas;
 use crate::cards::term::render_cache::TerminalRenderCacheHandle;
@@ -19,10 +17,12 @@ use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::agents::AgentDefinitionsState;
 use crate::settings::orchestration::OrchestrationSettingsState;
 use crate::settings::panel::{SettingsPanelState, SettingsViewportState};
+use crate::settings::performance::PerformanceSettingsState;
 use crate::settings::voice::{VoiceSettingsInputs, VoiceSettingsState};
 use crate::settings::wallpaper::WallpaperSettingsState;
 use crate::settings::ThemeSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
+use crate::workspace::clone_project::CloneProjectUiState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasRect, NodeId, NodeType, Vec2};
@@ -91,15 +91,15 @@ mod wallpaper_actions;
 pub(crate) mod wallpaper_resolvers;
 #[cfg(feature = "e2e-test-support")]
 pub use e2e::dialogue_tts::*;
+#[cfg(feature = "e2e-test-support")]
+pub use e2e::CloneProjectE2eSnapshot;
 pub use e2e::{
     AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState,
     CanvasLayoutE2eSnapshot, InitializationAnimationE2eSnapshot, SettingsE2eSnapshot,
     TtsProviderE2eSnapshot,
 };
 #[cfg(feature = "e2e-test-support")]
-pub use e2e::{
-    DispatchReceiptEffectE2eSnapshot, DispatchReceiptEffectItemE2eSnapshot,
-};
+pub use e2e::{DispatchReceiptEffectE2eSnapshot, DispatchReceiptEffectItemE2eSnapshot};
 #[cfg(feature = "e2e-test-support")]
 pub use e2e::{
     EgoCardE2eSnapshot, OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot,
@@ -122,6 +122,7 @@ actions!(
         CopyCardContent,
         OpenPreviewFile,
         OpenProject,
+        CloneProject,
         ExitFocus,
         ReflowLayout,
         ToggleMasterLayout,
@@ -137,6 +138,7 @@ pub struct MultisoulApp {
     pub theme_id: ThemeId,
     pub theme: Theme,
     pub(crate) theme_settings: ThemeSettingsState,
+    pub(crate) performance_settings: PerformanceSettingsState,
     pub interaction: InteractionState,
     pub(crate) motion: MotionStore,
     pub(crate) previews: PreviewStore,
@@ -161,6 +163,7 @@ pub struct MultisoulApp {
     agent_announcement_audio_cache: agent_announcements::AgentAnnouncementAudioCache,
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
+    pub(crate) clone_project: CloneProjectUiState,
     pub(crate) recent_project_context_path: Option<PathBuf>,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
     pub(crate) dialogue: crate::app::dialogue::DialogueControlState,
@@ -192,6 +195,7 @@ pub struct MultisoulApp {
     pub(crate) terminal_cursor_phase: f32,
     pub(crate) voice_caption_waveform_phase: f32,
     pub(crate) terminal_render_cache: TerminalRenderCacheHandle,
+    pub(crate) performance: crate::performance_monitor::WindowPerformanceHandle,
     terminal_cursor_repaint: FrameThrottle,
     #[cfg(feature = "e2e-test-support")]
     pub(crate) canvas_render_count_for_e2e: usize,
@@ -316,6 +320,10 @@ impl MultisoulApp {
 
     fn on_open_project(&mut self, _: &OpenProject, window: &mut Window, cx: &mut Context<Self>) {
         self.prompt_open_project(window, cx);
+    }
+
+    fn on_clone_project(&mut self, _: &CloneProject, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_clone_project_dialog(window, cx);
     }
 
     fn on_new_window(&mut self, _: &NewWindow, _window: &mut Window, cx: &mut Context<Self>) {

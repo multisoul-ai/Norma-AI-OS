@@ -37,8 +37,6 @@ pub(super) fn status_chip(theme: Theme, enabled: bool) -> Div {
         } else {
             theme.destructive
         }))
-        .cursor_pointer()
-        .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xd2))))
         .child(if enabled { "Enabled" } else { "Disabled" })
 }
 

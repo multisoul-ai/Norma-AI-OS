@@ -297,7 +297,7 @@ fn test_agent_settings_facade_reexports_task2_types() {
 /// AS-5: Agents 设置页应从空白占位升级为真实内容，至少暴露列表、表单和保存入口锚点。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source files = content.rs + agents.rs + agents/view.rs + agents/text_input.rs，共 4 个入口
+///   source files = content.rs + agents.rs + agents/view.rs + agents/view/list.rs + agents/text_input.rs，共 5 个入口
 ///   required ids  = 6 个：
 ///     settings-agents-list
 ///     settings-agent-name-input
@@ -308,19 +308,20 @@ fn test_agent_settings_facade_reexports_task2_types() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 Settings content 与 agents facade 的源码
-///   2. 读取 agents/view.rs 与拆出的 agents/text_input.rs 真实视图源码
+///   2. 读取 agents/view.rs、agents/view/list.rs 与 agents/text_input.rs 真实视图源码
 ///   3. 逐一断言 6 个关键 id 已出现在实现中，证明 Agents 页面不再是空白占位
 ///
 /// 预期结果：
 ///   - 正断言：所有 Agents 视图锚点都存在
-///   - 负断言：缺少 view.rs 或 text_input.rs 时测试必须失败，证明页面契约不完整
+///   - 负断言：缺少 view.rs、list.rs 或 text_input.rs 时测试必须失败，证明页面契约不完整
 #[test]
 fn test_agents_settings_section_renders_real_content() {
     let source = format!(
-        "{}{}{}{}",
+        "{}{}{}{}{}",
         include_str!("../../src/settings/content.rs"),
         include_str!("../../src/settings/agents.rs"),
         include_str!("../../src/settings/agents/view.rs"),
+        include_str!("../../src/settings/agents/view/list.rs"),
         include_str!("../../src/settings/agents/text_input.rs")
     );
 
@@ -422,35 +423,35 @@ fn test_agents_settings_content_routes_agents_section_to_agents_view() {
     );
 }
 
-/// AS-12: Project Agent 行级操作应暴露稳定的 “Create card” action，并把点击事件接到 spawn_agent_card_from_definition。
+/// AS-12: Project Agent 只读详情应暴露稳定的 “Add to Canvas” action，并把点击事件接到 spawn_agent_card_from_definition。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source files             = agents/view.rs + agents/actions.rs，共 2 个源码入口
-///   stable action id prefix  = "settings-agent-create-card"，用于 Settings 行级按钮定位
+///   stable action id         = "settings-agent-add-to-canvas"，用于右侧详情主操作定位
 ///   required wiring target   = spawn_agent_card_from_definition(id, window, cx)
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 读取 agents/view.rs，检查行级按钮文案、稳定 id 前缀与 handler 名称
+///   1. 读取 agents/view.rs，检查详情按钮文案、稳定 id 与 handler 名称
 ///   2. 读取 agents/actions.rs，检查 create-card handler 是否存在
 ///   3. 断言 handler 内部最终调用 spawn_agent_card_from_definition(id, window, cx)
 ///
 /// 预期结果：
-///   - 正断言：Settings row 暴露 "Create card" 文案
-///   - 正断言：按钮暴露稳定 id 前缀 settings-agent-create-card
+///   - 正断言：Settings 只读详情暴露 "Add to Canvas" 文案
+///   - 正断言：按钮暴露稳定 id settings-agent-add-to-canvas
 ///   - 正断言：handler 存在且调用 spawn_agent_card_from_definition
-///   - 负断言：行级 create-card 不应只停留在 edit/delete，避免保存定义后仍无法从 Settings 创建卡片
+///   - 负断言：主操作不应退回含糊的 "Create card" 旧文案
 #[test]
-fn test_agents_settings_row_exposes_create_card_action_and_wires_spawn_handler() {
+fn test_agents_settings_detail_exposes_add_to_canvas_action_and_wires_spawn_handler() {
     let view_source = include_str!("../../src/settings/agents/view.rs");
     let actions_source = include_str!("../../src/settings/agents/actions.rs");
 
     assert!(
-        view_source.contains("\"Create card\""),
-        "Agents settings row should expose a visible Create card action for saved project definitions"
+        view_source.contains("\"Add to Canvas\""),
+        "Agents settings detail should expose a visible Add to Canvas action for saved project definitions"
     );
     assert!(
-        view_source.contains("settings-agent-create-card"),
-        "Agents settings row should expose a stable id prefix for the create-card action"
+        view_source.contains("settings-agent-add-to-canvas"),
+        "Agents settings detail should expose a stable id for the Add to Canvas action"
     );
     assert!(
         view_source.contains("on_agent_settings_create_card"),
@@ -465,8 +466,7 @@ fn test_agents_settings_row_exposes_create_card_action_and_wires_spawn_handler()
         "create-card handler should delegate to spawn_agent_card_from_definition so Settings can create Agent cards"
     );
     assert!(
-        !view_source.contains("\"Edit draft\"")
-            || view_source.contains("\"Create card\""),
-        "row actions should not remain edit/delete only; saved definitions must also offer Create card"
+        !view_source.contains("\"Create card\""),
+        "the primary canvas action should not regress to the less direct Create card wording"
     );
 }

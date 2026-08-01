@@ -1,28 +1,28 @@
 # Dispatch Receipt 离子派发特效 SPEC
 
 - 日期：2026-08-01
-- 状态：离子版已实现，待真实 App 验收
+- 状态：离子版与语音 Handoff 入口已实现，待可用麦克风环境真实 App 验收
 - 目标版本：首版
-- 适用范围：Command Dock、Norma Agent 任务派发、Agent Card、Canvas 动效
+- 适用范围：Command Dock、Norma Agent 任务派发、语音 Agent 续聊、Agent Card、Canvas 动效
 - 技术基线：Rust 2021、GPUI 0.2.2、gpui-component 0.5.1
 - 关联调研：[`2026-08-01-gpui-particle-projectile-effects.md`](../research/2026-08-01-gpui-particle-projectile-effects.md)
 - 视觉基准：[`ion-fireworks.html`](../ion-fireworks.html)
 
 ## 1. 需求背景
 
-Norma OS 已能通过 `DispatchAgentTasks` 将任务路由到指定 Agent Card，并返回 `Submitted`、`Queued`、`Untracked` 或 `Failed` 等真实 receipt。当前反馈主要依赖文字、语音和卡片状态，用户不一定能立即理解“这条任务被派到了哪张卡片”。
+Norma OS 已能通过 `DispatchAgentTasks` 将新任务路由到指定 Agent Card，也能通过 `reply_agent` 把语音续聊写入已有会话。当前反馈主要依赖文字、语音和卡片状态，用户不一定能立即理解“这条任务或后续消息被送到了哪张卡片”。
 
-本功能增加一段非阻塞的空间反馈：当 Norma 接受一次面向可见 Agent Card 的任务派发后，从底部 Command Dock 中心发射一个带微型 receipt 轮廓的离子核心，沿双螺旋弧线飞向目标卡片中心；命中后播放分层离子爆发、冲击波和卡片轮廓脉冲。
+本功能增加一段非阻塞的空间反馈：当 Norma 接受一次面向可见 Agent Card 的任务派发，或成功提交一次语音来源的 Agent 续聊后，从底部 Command Dock 中心发射一个带微型 receipt 轮廓的离子核心，沿双螺旋弧线飞向目标卡片中心；命中后播放分层离子爆发、冲击波和卡片轮廓脉冲。
 
 这个特效表达的是：
 
-> Norma 已将任务路由给目标 Agent，目标卡片已经获得可识别的派发回执。
+> Norma 已将任务或语音续聊消息路由给目标 Agent，目标卡片已经获得可识别的 Handoff 回执。
 
 它不表达 Agent 已开始执行，也不表达任务成功完成。
 
 ### 1.1 产品目标
 
-- 让用户在不阅读详细文字的情况下，立即看到任务被派往哪张 Agent Card。
+- 让用户在不阅读详细文字的情况下，立即看到任务或语音续聊消息被送往哪张 Agent Card。
 - 用 Dock 与目标卡片之间的连续轨迹建立清晰的空间因果关系。
 - 不阻塞派发、不改变任务状态、不抢焦点，也不影响高频工作流。
 - 复用现有 `MotionStore` 和 GPUI 帧调度，不建立第二套动画循环。
@@ -36,6 +36,7 @@ Norma OS 已能通过 `DispatchAgentTasks` 将任务路由到指定 Agent Card�
 ### 2.1 In Scope
 
 - Norma 来源的单 Agent 与多 Agent 任务派发 receipt 可视化。
+- 语音来源 `reply_agent` 成功写入或排队后的 Handoff 可视化。
 - 从 Command Dock 中心到目标 Agent Card 中心的动态弧线飞行。
 - 命中时的粒子爆发、飞行头消散和目标卡片轮廓脉冲。
 - `Submitted`、`Queued`、`Untracked` 三种可接受 receipt 的视觉反馈。
@@ -50,7 +51,7 @@ Norma OS 已能通过 `DispatchAgentTasks` 将任务路由到指定 Agent Card�
 - `Manual` 来源的卡片队列面板加任务使用 Dock 飞行动画。
 - `Agent` 来源的 Agent-to-Agent 委派使用 Dock 飞行动画；未来应单独设计“源 Agent → 目标 Agent”。
 - 为效果自动聚焦目标、平移 Canvas 或改变用户选择。
-- 声音、语音、触觉反馈。
+- 额外的声音、TTS 或触觉反馈；语音输入只作为 Handoff 来源标记。
 - 引入 Bevy、Macroquad、Hanabi 等完整粒子引擎。
 - 建设跨功能通用的公共粒子框架。
 
@@ -61,25 +62,27 @@ Norma OS 已能通过 `DispatchAgentTasks` 将任务路由到指定 Agent Card�
 以下行为本身都不直接创建粒子特效：
 
 - 用户按下发送或结束一次语音输入；
-- Norma/Agent 产生普通文本回复；
+- Norma/Agent 产生普通文本回复，或语音回合只得到 Norma 自身回复而未调用 `reply_agent`；
 - LLM 判断“应该委派”，但尚未执行派发命令；
 - 目标 Agent 开始输出、进入工作态或完成任务；
 - `ListAgents`、`ActivateAgent`、任务状态查询或取消命令成功。
 
-用户输入只是上游原因。唯一的业务触发事件是：
+用户输入只是上游原因。业务触发事件必须是以下真实成功回执之一：
 
-> `CardCommand::DispatchAgentTasks` 完成协调、提交尝试和最终 receipt 分类后，产生至少一条来源为 `Norma` 且状态可接受的 dispatch receipt。
+1. `CardCommand::DispatchAgentTasks` 完成协调、提交尝试和最终 receipt 分类后，产生至少一条来源为 `Norma` 且状态可接受的 dispatch receipt。
+2. `AgentInputSource::Voice` 穿透 `NormaSession` 与 `ToolContext` 到达 `reply_agent`，且 Adapter 返回带 `reply_id`、`node_id` 的 `sent` 或 `queued` 回执。
 
 ### 3.2 触发入口
 
-可能到达派发命令的上游入口包括：
+可能到达 Handoff presentation seam 的上游入口包括：
 
 1. 用户在 Command Dock 通过文字或语音明确要求 Norma 将任务交给某个 Agent；Norma 的工具调用转换为 `AdapterCommand::AssignAgentTask`，再转换为 `CardCommand::DispatchAgentTasks`。
 2. Norma 协议或内部调用直接提交 `CardCommand::DispatchAgentTasks`。
-3. 卡片队列 UI 以 `AgentDispatchSource::manual()` 添加任务。
-4. 某个 Agent 通过受权 CLI/协议，以 `AgentDispatchSource::agent(...)` 委派子任务。
+3. 用户通过语音继续与已有 Agent Card 对话；`AgentCommand::UserTurn` 明确携带 `AgentInputSource::Voice`，Norma 选择 `AdapterCommand::ReplyAgent` 并获得成功回执。
+4. 卡片队列 UI 以 `AgentDispatchSource::manual()` 添加任务。
+5. 某个 Agent 通过受权 CLI/协议，以 `AgentDispatchSource::agent(...)` 委派子任务。
 
-首版只有前两类中被标记为 `AgentDispatchSource::norma()` 的派发播放 Dock 飞行。第 3、4 类仍正常派发，但不创建本特效。
+首版只有前两类中被标记为 `AgentDispatchSource::norma()` 的派发，以及第 3 类明确标记为 Voice 且真实 `sent`/`queued` 的续聊播放 Dock 飞行。第 4、5 类仍正常派发，但不创建本特效；非语音 `reply_agent` 也不创建本特效。
 
 业务代码的统一判定 seam 是：
 
@@ -90,19 +93,30 @@ execute_coordinated_agent_command
   → 本地提交/排队与失败恢复
   → 计算最终 AgentTaskReceiptStatus
   → 生成 DispatchReceiptVisualEvent
+
+AgentCommand::UserTurn(input_source=Voice)
+  → NormaSession / ToolContext 保留来源
+  → AdapterCommand::ReplyAgent
+  → reply_adapter 返回 sent / queued + reply_id + node_id
+  → spawn_agent_handoff
 ```
 
-视觉事件必须在最终 `AgentTaskReceiptStatus` 确定后生成，不能在用户按下发送、预检开始或协调器刚创建内部 task 时提前生成。
+两条路径最终复用同一个 `spawn_agent_handoff` presentation seam。视觉事件必须在最终 `AgentTaskReceiptStatus` 或 `reply_agent` 成功状态确定后生成，不能在用户按下发送、语音弹窗显示/消失、预检开始或协调器刚创建内部 task 时提前生成。
 
 ### 3.3 正向触发条件
 
-每条 receipt 必须同时满足以下条件：
+任务派发 receipt 必须同时满足以下条件：
 
 1. 命令类型为 `CardCommand::DispatchAgentTasks`。
 2. `AgentDispatchSource.queue_source == AgentQueueTaskSource::Norma`。
 3. 最终状态为 `Submitted`、`Queued` 或 `Untracked`。
-4. App 当前位于 Canvas 屏幕，目标 `node_id` 仍对应一张 Agent Card。
-5. 当前窗口可见；窗口不活跃时不得积压一段等待恢复后突然播放的旧动画。
+
+语音续聊回执必须同时满足以下条件：
+
+1. 输入来源为 `AgentInputSource::Voice`，且实际命令为 `AdapterCommand::ReplyAgent`。
+2. Adapter 返回 `reply_id`、目标 `node_id`，状态为 `sent` 或 `queued`。
+
+两条路径还必须满足共同的 presentation 条件：App 当前位于 Canvas 屏幕，目标 `node_id` 仍对应一张可见 Agent Card，且窗口处于活跃状态；窗口失活时不得积压一段等待恢复后突然播放的旧动画。
 
 状态视觉语义：
 
@@ -114,6 +128,9 @@ execute_coordinated_agent_command
 | `Failed` | 否 | 不得用命中特效暗示成功 |
 | `Cancelled` / `CancelRequested` | 否 | 属于取消流程，不是新派发 |
 | `Done` / `Interrupted` | 否 | 属于后续任务生命周期 |
+| `reply_agent: sent` | 是，仅 Voice | 语音续聊已写入目标 Agent 会话 |
+| `reply_agent: queued` | 是，仅 Voice | 语音续聊已进入目标 Agent 的等待队列 |
+| `reply_agent: failed/cancelled/unknown` | 否 | 不得用命中特效暗示续聊成功 |
 
 ### 3.4 多目标派发
 
@@ -154,7 +171,9 @@ sequenceDiagram
     end
 ```
 
-详细步骤：
+语音续聊不创建伪任务，也不改写上述 dispatch 业务流程；它在 `reply_adapter` 返回真实 `sent`/`queued` 后，携带 `voice-reply:{reply_id}` 与目标 `node_id` 进入同一个 Motion presentation seam。语音识别弹窗只是上游展示状态，它提前隐藏、折叠或重新渲染都不得取消已经进入 Adapter 的 Handoff 动效。
+
+以下详细步骤描述新任务派发分支：
 
 1. 用户通过 Dock 发出自然语言或语音指令。
 2. 上游解析只有在明确形成 `DispatchAgentTasks` 命令时才进入派发流程；普通消息继续走普通 Dialogue。
@@ -440,7 +459,10 @@ crates/app/src/app/
 | 场景 | 预期行为 |
 | --- | --- |
 | 用户发送普通消息 | 不触发 |
-| 模型只回复文字、未调用派发 | 不触发 |
+| 模型只回复文字、未调用派发或 `reply_agent` | 不触发 |
+| 语音 `reply_agent` 返回 `sent` / `queued` | 命中真实目标 Agent Card，不创建 coordinated task |
+| 非语音 `reply_agent` 成功 | 不触发语音 Handoff 特效 |
+| 语音识别弹窗提前消失 | 不影响已进入 Adapter 的成功 Handoff 特效 |
 | 未知/禁用/不活跃目标导致预检失败 | 不触发，保留原错误反馈 |
 | 最终 receipt 为 `Failed` | 不触发成功命中 |
 | 任务进入目标队列 | 以 `Queued` 风格触发 |
@@ -457,7 +479,10 @@ crates/app/src/app/
 
 ### 10.1 触发正确性
 
-- [ ] 用户发送普通文字或语音消息但未形成 `DispatchAgentTasks` 时，特效状态不存在。
+- [ ] 用户发送普通文字或语音消息，既未形成 `DispatchAgentTasks`、也未形成 Voice `reply_agent` 成功回执时，特效状态不存在。
+- [ ] Voice `reply_agent` 返回 `sent` 或 `queued` 时创建且只创建一个对应目标的特效，不创建 coordinated task。
+- [ ] 非语音 `reply_agent` 即使成功，也不创建 Voice Handoff 特效。
+- [ ] 语音识别弹窗的显示、隐藏或折叠状态不参与 Handoff 动效判定。
 - [ ] Norma 来源的 `Submitted` receipt 创建且只创建一个对应目标的特效。
 - [ ] Norma 来源的 `Queued` receipt 创建一个队列风格特效。
 - [ ] Norma 来源的 `Untracked` receipt 创建一个中性风格特效。

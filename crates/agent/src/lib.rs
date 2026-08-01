@@ -47,7 +47,7 @@ pub use master::{
     NormaTurnResult,
 };
 pub use master_prompt::norma_system_prompt;
-pub use model::{AgentCommand, AgentEvent, TaskId, TaskState};
+pub use model::{AgentCommand, AgentEvent, AgentInputSource, TaskId, TaskState};
 pub use protocol::{ProviderConfig, ProviderError, ProviderProtocol, RedactedProviderConfig};
 pub use provider_catalog::{
     discover_provider_models, normalize_provider_models, validate_provider_model,

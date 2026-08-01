@@ -28,9 +28,7 @@ impl MultisoulApp {
         if self.animation_frame_pending {
             return;
         }
-        let AnimationWakeup::NextFrame(cadence) =
-            AnimationSchedule::next_wakeup(self.animation_activity())
-        else {
+        let AnimationWakeup::NextFrame(cadence) = self.animation_next_wakeup() else {
             return;
         };
         self.reset_animation_frame_clock_at(cx.background_executor().now());
@@ -89,9 +87,7 @@ impl MultisoulApp {
         if !self.animation_frame_clock.is_due_at(now, cadence) {
             return AnimationFrameCallbackOutcome::Deferred { cadence };
         }
-        let AnimationWakeup::NextFrame(_) =
-            AnimationSchedule::next_wakeup(self.animation_activity())
-        else {
+        let AnimationWakeup::NextFrame(_) = self.animation_next_wakeup() else {
             return AnimationFrameCallbackOutcome::Stopped;
         };
         let animation_delta = self.animation_frame_clock.elapsed_at(now);
@@ -100,7 +96,7 @@ impl MultisoulApp {
         if notified {
             cx.notify();
         }
-        let next_cadence = match AnimationSchedule::next_wakeup(self.animation_activity()) {
+        let next_cadence = match self.animation_next_wakeup() {
             AnimationWakeup::NextFrame(cadence) => Some(cadence),
             AnimationWakeup::Timer(_) => None,
         };
@@ -123,6 +119,21 @@ impl MultisoulApp {
             settings_open: self.settings_panel.open,
             next_visual_boundary: motion_activity.next_visual_boundary,
         }
+    }
+
+    pub(in crate::app) fn animation_next_wakeup(&self) -> AnimationWakeup {
+        AnimationSchedule::next_wakeup(
+            self.animation_activity(),
+            self.performance_settings
+                .idle_animation_throttling_enabled(),
+        )
+    }
+
+    pub(in crate::app) fn animation_idle_timer_interval(&self) -> Duration {
+        AnimationSchedule::idle_timer_interval(
+            self.performance_settings
+                .idle_animation_throttling_enabled(),
+        )
     }
 
     pub(in crate::app) fn has_pending_tts_playback_events(&self) -> bool {

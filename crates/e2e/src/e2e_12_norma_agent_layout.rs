@@ -37,6 +37,7 @@ fn norma_created_agents_join_the_current_grid_instead_of_maximizing() {
                 cx,
                 AdapterCommand::CreateAgent {
                     profile: AgentProfile::Codex,
+                    task: None,
                 },
             )
         })
@@ -48,6 +49,7 @@ fn norma_created_agents_join_the_current_grid_instead_of_maximizing() {
                 cx,
                 AdapterCommand::CreateAgent {
                     profile: AgentProfile::Claude,
+                    task: None,
                 },
             )
         })

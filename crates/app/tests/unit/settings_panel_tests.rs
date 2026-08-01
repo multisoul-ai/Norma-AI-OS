@@ -4,7 +4,7 @@ use super::*;
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   initial open = false（启动后不应遮挡画布）
-///   visible section count = 6（Themes / Wallpaper / Keyboard / Voice / Agents / Hooks）
+///   visible section count = 7（Themes / Wallpaper / Performance / Keyboard / Voice / Agents / Orchestration）
 ///   hidden mock count = 2（Runtime / Skills，不应作为首次页面）
 ///   default section = Themes（Appearance 中首个已实现的可配置页面）
 ///
@@ -329,16 +329,16 @@ fn test_settings_panel_selects_sections_without_closing() {
     );
 }
 
-/// Settings 导航暴露六个已实现页面，并继续隐藏 Runtime/Skills mock 分组。
+/// Settings 导航暴露七个已实现页面，并继续隐藏 Runtime/Skills mock 分组。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings_panel.rs + settings_content.rs（生产侧栏与内容路由）；
-///   visible sections = Themes + Keyboard + Voice + Agents + Orchestration + Wallpaper，共 6 个；
+///   visible sections = Themes + Keyboard + Voice + Agents + Orchestration + Wallpaper + Performance，共 7 个；
 ///   hidden mock sections = Runtime + Skills，共 2 个。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 settings_panel.rs 生产源码
-///   2. 检查侧栏接线的 6 个可配置页面
+///   2. 检查侧栏接线的 7 个可配置页面
 ///   3. 检查内容路由明确把 2 个旧 mock 分组收敛为空白 fallback
 ///
 /// 预期结果：
@@ -359,6 +359,7 @@ fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
         "SettingsSection::Agents",
         "SettingsSection::Orchestration",
         "SettingsSection::Wallpaper",
+        "SettingsSection::Performance",
     ];
 
     for section in visible_sections {

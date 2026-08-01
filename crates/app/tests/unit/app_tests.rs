@@ -1,9 +1,7 @@
 use super::*;
 use crate::workspace::flow::{enter_workspace_for_path, WorkspaceCanvasState};
 use crate::workspace::persistence::PersistenceScheduler;
-use canvas::{
-    compute_configurable_grid_layout, AgentProfile, AgentSpec, CanvasNodeKind, RectNode,
-};
+use canvas::{compute_configurable_grid_layout, AgentProfile, AgentSpec, CanvasNodeKind, RectNode};
 use runtime::{AgentTaskState, AgentTaskUpdate, CardAttentionKind, CardAttentionState};
 use storage::{NewAgentDefinition, ProjectStore, RecentStore};
 

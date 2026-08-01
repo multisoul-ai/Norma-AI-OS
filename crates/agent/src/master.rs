@@ -160,21 +160,25 @@ impl NormaSession {
     }
 
     pub async fn turn(&mut self, input: &str) -> Result<NormaTurnResult, NormaSessionError> {
-        self.turn_with_deltas(input, None).await
+        self.turn_with_deltas(input, None, crate::AgentInputSource::Other)
+            .await
     }
 
     pub async fn turn_streaming(
         &mut self,
         input: &str,
         deltas: tokio::sync::mpsc::Sender<String>,
+        input_source: crate::AgentInputSource,
     ) -> Result<NormaTurnResult, NormaSessionError> {
-        self.turn_with_deltas(input, Some(deltas)).await
+        self.turn_with_deltas(input, Some(deltas), input_source)
+            .await
     }
 
     async fn turn_with_deltas(
         &mut self,
         input: &str,
         deltas: Option<tokio::sync::mpsc::Sender<String>>,
+        input_source: crate::AgentInputSource,
     ) -> Result<NormaTurnResult, NormaSessionError> {
         let input = input.trim();
         if input.is_empty() {
@@ -195,6 +199,7 @@ impl NormaSession {
             project_id: self.project_id.clone(),
             turn_id,
             user_input: input.to_string(),
+            input_source,
             contextual_delete_targets,
             tool_call_id: String::new(),
             operation_id: None,

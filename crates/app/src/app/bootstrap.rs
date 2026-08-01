@@ -11,6 +11,7 @@ use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::agents::AgentDefinitionsState;
 use crate::settings::orchestration::OrchestrationSettingsState;
 use crate::settings::panel::{SettingsPanelState, SettingsViewportState};
+use crate::settings::performance::PerformanceSettingsState;
 use crate::settings::voice::VoiceSettingsInputs;
 use crate::settings::wallpaper::WallpaperSettingsState;
 use crate::settings::ThemeSettingsState;
@@ -45,36 +46,50 @@ impl MultisoulApp {
         ui::init_components(cx);
         init_multisoul_key_bindings(cx);
         cx.on_release(|app, cx| {
+            app.release_clone_task_if_owned(cx);
             app.unregister_workspace_window_if_needed(cx);
         })
         .detach();
-        let (animation_wake_tx, animation_wake_rx) = async_channel::bounded(1);
-        Self::start_frame_loops(animation_wake_rx, cx);
         let settings_store = app_store.settings_store();
         let wallpaper_settings = WallpaperSettingsState::load_from_store(settings_store.clone());
-        let (theme_id, theme_settings, voice_settings, shortcuts) = match settings_source {
-            BootstrapSettingsSource::Stored => {
-                let (theme_id, theme_settings) =
-                    ThemeSettingsState::load_from_store(settings_store.clone());
-                let voice_settings = crate::settings::voice::VoiceSettingsState::load_from_store(
-                    settings_store.clone(),
-                );
-                let shortcuts = ShortcutSettingsState::load_from_store(settings_store);
-                (theme_id, theme_settings, voice_settings, shortcuts)
-            }
-            #[cfg(any(test, feature = "e2e-test-support"))]
-            BootstrapSettingsSource::InMemory => {
-                let (theme_id, theme_settings) = ThemeSettingsState::in_memory_default();
-                (
-                    theme_id,
-                    theme_settings,
-                    crate::settings::voice::VoiceSettingsState::in_memory_default(),
-                    ShortcutSettingsState::default(),
-                )
-            }
-        };
+        let (theme_id, theme_settings, performance_settings, voice_settings, shortcuts) =
+            match settings_source {
+                BootstrapSettingsSource::Stored => {
+                    let (theme_id, theme_settings) =
+                        ThemeSettingsState::load_from_store(settings_store.clone());
+                    let performance_settings =
+                        PerformanceSettingsState::load_from_store(settings_store.clone());
+                    let voice_settings =
+                        crate::settings::voice::VoiceSettingsState::load_from_store(
+                            settings_store.clone(),
+                        );
+                    let shortcuts = ShortcutSettingsState::load_from_store(settings_store);
+                    (
+                        theme_id,
+                        theme_settings,
+                        performance_settings,
+                        voice_settings,
+                        shortcuts,
+                    )
+                }
+                #[cfg(any(test, feature = "e2e-test-support"))]
+                BootstrapSettingsSource::InMemory => {
+                    let (theme_id, theme_settings) = ThemeSettingsState::in_memory_default();
+                    (
+                        theme_id,
+                        theme_settings,
+                        PerformanceSettingsState::in_memory_default(),
+                        crate::settings::voice::VoiceSettingsState::in_memory_default(),
+                        ShortcutSettingsState::default(),
+                    )
+                }
+            };
+        let (animation_wake_tx, animation_wake_rx) = async_channel::bounded(1);
+        Self::start_frame_loops(animation_wake_rx, cx);
         let theme = Theme::for_id(theme_id);
+        ui::sync_component_theme(theme_id, cx);
         let focus_handle: FocusHandle = cx.focus_handle();
+        let performance = crate::performance_monitor::register_window(cx);
         let voice_settings_inputs = VoiceSettingsInputs::new(
             cx.weak_entity(),
             focus_handle.clone(),
@@ -91,6 +106,7 @@ impl MultisoulApp {
             theme_id,
             theme,
             theme_settings,
+            performance_settings,
             interaction: InteractionState::default(),
             motion: MotionStore::from_env(),
             previews: PreviewStore::default(),
@@ -117,6 +133,7 @@ impl MultisoulApp {
                 super::agent_announcements::AgentAnnouncementAudioCache::default(),
             screen: AppScreen::Launchpad,
             workspace_state,
+            clone_project: crate::workspace::clone_project::CloneProjectUiState::default(),
             recent_project_context_path: None,
             voice: crate::app::voice::control::VoiceControlState::default(),
             dialogue: crate::app::dialogue::DialogueControlState::default(),
@@ -150,6 +167,7 @@ impl MultisoulApp {
             voice_caption_waveform_phase: 0.0,
             terminal_render_cache:
                 crate::cards::term::render_cache::terminal_render_cache_handle_from_env(),
+            performance,
             terminal_cursor_repaint: FrameThrottle::default(),
             #[cfg(feature = "e2e-test-support")]
             canvas_render_count_for_e2e: 0,

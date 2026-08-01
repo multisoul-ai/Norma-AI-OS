@@ -115,8 +115,15 @@ impl DialogueControlState {
         let task = cx.spawn_in(window, async move |this, cx| {
             let response = match this.update_in(cx, |app, window, cx| {
                 let transcript = app.dialogue.pending_transcript_or_err()?.to_string();
-                app.submit_project_agent(agent::AgentCommand::UserTurn(transcript), window, cx)
-                    .map_err(dialogue::DialogueError::Message)
+                app.submit_project_agent(
+                    agent::AgentCommand::UserTurn {
+                        input: transcript,
+                        input_source: agent::AgentInputSource::Voice,
+                    },
+                    window,
+                    cx,
+                )
+                .map_err(dialogue::DialogueError::Message)
             }) {
                 Ok(Ok(response)) => response,
                 Ok(Err(error)) => {

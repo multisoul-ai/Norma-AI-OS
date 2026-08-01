@@ -328,13 +328,7 @@ pub(crate) fn close_node_and_reflow_for_area(
 
     motion.clear_transient();
     motion.retain_nodes(runtime.document.nodes().iter().map(|node| node.id));
-    apply_workspace_reflow_for_area(
-        runtime,
-        motion,
-        area,
-        zoom,
-        CanvasLayoutStrategy::default(),
-    );
+    apply_workspace_reflow_for_area(runtime, motion, area, zoom, CanvasLayoutStrategy::default());
     true
 }
 

@@ -1,0 +1,1636 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="从底部 Command Dock 发射并命中三张卡片中心的离子烟花动效原型。">
+  <meta name="theme-color" content="#05070d">
+  <title>ION Dispatch — 离子派发烟花</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --void: #05070d;
+      --void-soft: #090d17;
+      --ink: #f5f8ff;
+      --ink-muted: rgba(222, 231, 247, 0.58);
+      --line: rgba(208, 225, 255, 0.13);
+      --glass: rgba(14, 20, 33, 0.7);
+      --cyan: #53e7ff;
+      --cyan-rgb: 83, 231, 255;
+      --coral: #ff7a95;
+      --coral-rgb: 255, 122, 149;
+      --gold: #ffd66b;
+      --gold-rgb: 255, 214, 107;
+      --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+      --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+      --display: "Avenir Next", "SF Pro Display", "PingFang SC", sans-serif;
+      --text: "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+      --mono: "SF Mono", "JetBrains Mono", Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      min-width: 320px;
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
+      overflow: hidden;
+      color: var(--ink);
+      font-family: var(--text);
+      background: var(--void);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    button { font: inherit; }
+
+    button:focus-visible {
+      outline: 3px solid rgba(var(--cyan-rgb), 0.62);
+      outline-offset: 4px;
+    }
+
+    .stage {
+      position: relative;
+      isolation: isolate;
+      width: 100vw;
+      height: 100svh;
+      min-height: 640px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 112%, rgba(56, 105, 165, 0.28), transparent 36%),
+        radial-gradient(circle at 14% 18%, rgba(var(--cyan-rgb), 0.08), transparent 25%),
+        radial-gradient(circle at 86% 22%, rgba(var(--coral-rgb), 0.07), transparent 24%),
+        linear-gradient(180deg, #070a12 0%, #05070d 52%, #070b14 100%);
+    }
+
+    .stage::before {
+      position: absolute;
+      inset: 0;
+      z-index: -3;
+      content: "";
+      opacity: 0.42;
+      background-image:
+        linear-gradient(rgba(158, 193, 255, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(158, 193, 255, 0.045) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: linear-gradient(to bottom, black 0%, rgba(0, 0, 0, 0.75) 62%, transparent 94%);
+    }
+
+    .stage::after {
+      position: absolute;
+      inset: 0;
+      z-index: 8;
+      content: "";
+      pointer-events: none;
+      box-shadow: inset 0 0 180px rgba(0, 0, 0, 0.64);
+    }
+
+    .noise {
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      pointer-events: none;
+      opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.92' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
+    }
+
+    .topbar {
+      position: absolute;
+      top: 0;
+      right: 0;
+      left: 0;
+      z-index: 9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 64px;
+      padding: 0 clamp(20px, 4vw, 64px);
+      border-bottom: 1px solid rgba(194, 216, 255, 0.08);
+      background: linear-gradient(180deg, rgba(5, 7, 13, 0.84), rgba(5, 7, 13, 0.28));
+      backdrop-filter: blur(20px) saturate(135%);
+    }
+
+    .brand,
+    .signal-state {
+      display: flex;
+      align-items: center;
+    }
+
+    .brand { gap: 12px; }
+
+    .brand-mark {
+      position: relative;
+      width: 24px;
+      height: 24px;
+      border: 1px solid rgba(var(--cyan-rgb), 0.44);
+      border-radius: 50%;
+      box-shadow: inset 0 0 12px rgba(var(--cyan-rgb), 0.12), 0 0 18px rgba(var(--cyan-rgb), 0.13);
+    }
+
+    .brand-mark::before,
+    .brand-mark::after {
+      position: absolute;
+      content: "";
+      border-radius: 50%;
+    }
+
+    .brand-mark::before {
+      inset: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.52);
+    }
+
+    .brand-mark::after {
+      top: 50%;
+      left: 50%;
+      width: 4px;
+      height: 4px;
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+      transform: translate(-50%, -50%);
+    }
+
+    .brand-copy strong {
+      display: block;
+      font-family: var(--display);
+      font-size: 13px;
+      font-weight: 680;
+      letter-spacing: 0.08em;
+    }
+
+    .brand-copy span {
+      display: block;
+      margin-top: 1px;
+      color: var(--ink-muted);
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .signal-state {
+      gap: 9px;
+      min-height: 30px;
+      padding: 0 12px;
+      border: 1px solid rgba(210, 229, 255, 0.12);
+      border-radius: 999px;
+      color: rgba(231, 239, 252, 0.72);
+      background: rgba(20, 29, 45, 0.5);
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .signal-state::before {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      content: "";
+      background: #72f5bf;
+      box-shadow: 0 0 10px rgba(114, 245, 191, 0.8);
+    }
+
+    .intro {
+      position: absolute;
+      top: clamp(92px, 11vh, 122px);
+      right: 24px;
+      left: 24px;
+      z-index: 2;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 13px;
+      color: rgba(211, 224, 246, 0.5);
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before,
+    .eyebrow::after {
+      width: 28px;
+      height: 1px;
+      content: "";
+      background: linear-gradient(90deg, transparent, rgba(var(--cyan-rgb), 0.5));
+    }
+
+    .eyebrow::after { transform: scaleX(-1); }
+
+    h1,
+    p { margin: 0; }
+
+    h1 {
+      font-family: var(--display);
+      font-size: clamp(34px, 4.3vw, 62px);
+      font-weight: 620;
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+    }
+
+    h1 span {
+      color: transparent;
+      background: linear-gradient(100deg, #f7fbff 15%, #a9c7eb 54%, #fff 85%);
+      background-clip: text;
+      -webkit-background-clip: text;
+    }
+
+    .intro p {
+      margin-top: 13px;
+      color: var(--ink-muted);
+      font-size: 12px;
+      line-height: 1.6;
+      letter-spacing: 0.02em;
+    }
+
+    .cards {
+      position: absolute;
+      top: clamp(214px, 28vh, 286px);
+      right: clamp(18px, 5vw, 80px);
+      left: clamp(18px, 5vw, 80px);
+      z-index: 3;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: clamp(12px, 2.4vw, 34px);
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+
+    .agent-card {
+      --accent: var(--cyan);
+      --accent-rgb: var(--cyan-rgb);
+      position: relative;
+      min-width: 0;
+      height: clamp(220px, 30vh, 286px);
+      overflow: hidden;
+      border: 1px solid rgba(201, 222, 255, 0.15);
+      border-radius: 24px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.055), transparent 35%),
+        rgba(13, 19, 31, 0.76);
+      box-shadow:
+        0 28px 70px rgba(0, 0, 0, 0.28),
+        inset 0 1px rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(24px) saturate(125%);
+      transition:
+        border-color 180ms var(--ease-out),
+        background-color 180ms var(--ease-out),
+        box-shadow 220ms var(--ease-out);
+    }
+
+    .agent-card:nth-child(2) {
+      --accent: var(--coral);
+      --accent-rgb: var(--coral-rgb);
+    }
+
+    .agent-card:nth-child(3) {
+      --accent: var(--gold);
+      --accent-rgb: var(--gold-rgb);
+    }
+
+    .agent-card::before {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      content: "";
+      opacity: 0;
+      background: radial-gradient(circle at 50% 52%, rgba(var(--accent-rgb), 0.2), transparent 48%);
+      transition: opacity 160ms var(--ease-out);
+    }
+
+    .agent-card::after {
+      position: absolute;
+      inset: 0;
+      content: "";
+      pointer-events: none;
+      border-radius: inherit;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.08), transparent 23% 76%, rgba(255, 255, 255, 0.035));
+    }
+
+    .agent-card.is-hit {
+      border-color: rgba(var(--accent-rgb), 0.74);
+      box-shadow:
+        0 0 0 1px rgba(var(--accent-rgb), 0.14),
+        0 24px 68px rgba(0, 0, 0, 0.3),
+        0 0 36px rgba(var(--accent-rgb), 0.13),
+        inset 0 1px rgba(255, 255, 255, 0.09);
+    }
+
+    .agent-card.is-hit::before { opacity: 1; }
+
+    .card-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 46px;
+      padding: 0 17px;
+      border-bottom: 1px solid rgba(198, 218, 249, 0.09);
+      background: rgba(221, 234, 255, 0.025);
+    }
+
+    .card-kind {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(223, 232, 247, 0.58);
+      font-family: var(--mono);
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    .card-kind::before {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      content: "";
+      background: var(--accent);
+      box-shadow: 0 0 9px rgba(var(--accent-rgb), 0.85);
+    }
+
+    .card-index {
+      color: rgba(205, 220, 244, 0.3);
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.08em;
+    }
+
+    .card-content {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      height: calc(100% - 46px);
+      padding: clamp(18px, 2.2vw, 26px);
+    }
+
+    .orb {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      margin-bottom: auto;
+      border: 1px solid rgba(var(--accent-rgb), 0.3);
+      border-radius: 50%;
+      background: radial-gradient(circle at 36% 30%, rgba(255, 255, 255, 0.62), var(--accent) 10%, rgba(var(--accent-rgb), 0.2) 30%, transparent 64%);
+      box-shadow: inset 0 0 18px rgba(var(--accent-rgb), 0.18), 0 0 18px rgba(var(--accent-rgb), 0.08);
+    }
+
+    .orb::before,
+    .orb::after {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      content: "";
+      border: 1px solid rgba(var(--accent-rgb), 0.25);
+      border-radius: 50%;
+      transform: translate(-50%, -50%) rotate(-28deg);
+    }
+
+    .orb::before {
+      width: 62px;
+      height: 21px;
+    }
+
+    .orb::after {
+      width: 68px;
+      height: 31px;
+      opacity: 0.45;
+      transform: translate(-50%, -50%) rotate(34deg);
+    }
+
+    .card-role {
+      margin-top: 18px;
+      margin-bottom: 6px;
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .card-content h2 {
+      margin: 0;
+      font-family: var(--display);
+      font-size: clamp(18px, 2vw, 25px);
+      font-weight: 580;
+      letter-spacing: -0.035em;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+      color: rgba(218, 230, 249, 0.42);
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .receipt-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .receipt-state::before {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      content: "";
+      background: currentColor;
+    }
+
+    .is-hit .receipt-state { color: var(--accent); }
+
+    #ion-field {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .dock-wrap {
+      position: absolute;
+      right: 0;
+      bottom: clamp(20px, 3vh, 32px);
+      left: 0;
+      z-index: 7;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .launch-status {
+      min-height: 18px;
+      margin-bottom: 10px;
+      color: rgba(216, 229, 249, 0.5);
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 160ms var(--ease-out);
+    }
+
+    body[data-sequence="flight"] .launch-status { color: rgba(var(--cyan-rgb), 0.82); }
+    body[data-sequence="complete"] .launch-status { color: rgba(114, 245, 191, 0.86); }
+
+    .dock {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: min(530px, calc(100vw - 32px));
+      height: 64px;
+      padding: 7px 8px 7px 18px;
+      border: 1px solid rgba(211, 228, 255, 0.16);
+      border-radius: 21px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.075), transparent 46%),
+        rgba(16, 23, 37, 0.82);
+      box-shadow:
+        0 24px 70px rgba(0, 0, 0, 0.5),
+        0 0 50px rgba(45, 98, 162, 0.09),
+        inset 0 1px rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(28px) saturate(145%);
+      pointer-events: auto;
+    }
+
+    .dock::before {
+      position: absolute;
+      top: -1px;
+      left: 50%;
+      width: 72%;
+      height: 1px;
+      content: "";
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+      transform: translateX(-50%);
+    }
+
+    .dock-icon {
+      position: relative;
+      width: 30px;
+      height: 30px;
+      margin-right: 12px;
+      border: 1px solid rgba(var(--cyan-rgb), 0.28);
+      border-radius: 10px;
+      background: rgba(var(--cyan-rgb), 0.065);
+      transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out);
+    }
+
+    .dock-icon::before,
+    .dock-icon::after {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      content: "";
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .dock-icon::before {
+      width: 9px;
+      height: 9px;
+      border: 1px solid rgba(var(--cyan-rgb), 0.64);
+    }
+
+    .dock-icon::after {
+      width: 3px;
+      height: 3px;
+      background: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
+    }
+
+    .dock-copy {
+      min-width: 0;
+      margin-right: auto;
+    }
+
+    .dock-copy strong,
+    .dock-copy span { display: block; }
+
+    .dock-copy strong {
+      font-family: var(--display);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .dock-copy span {
+      margin-top: 2px;
+      overflow: hidden;
+      color: rgba(214, 226, 245, 0.44);
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 0.07em;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    #launch-control {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      min-width: 144px;
+      min-height: 48px;
+      padding: 0 16px;
+      border: 1px solid rgba(var(--cyan-rgb), 0.4);
+      border-radius: 15px;
+      color: #061118;
+      background: linear-gradient(135deg, #b8f7ff, var(--cyan) 58%, #67c7ff);
+      box-shadow: 0 8px 24px rgba(var(--cyan-rgb), 0.16), inset 0 1px rgba(255, 255, 255, 0.72);
+      cursor: pointer;
+      font-family: var(--display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      transition: transform 140ms var(--ease-out), filter 160ms var(--ease-out), opacity 160ms var(--ease-out);
+    }
+
+    #launch-control svg {
+      width: 15px;
+      height: 15px;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.8;
+    }
+
+    #launch-control:active { transform: scale(0.97); }
+
+    #launch-control[data-launching="true"] {
+      opacity: 0.78;
+    }
+
+    body[data-sequence="flight"] .dock-icon {
+      border-color: rgba(var(--cyan-rgb), 0.62);
+      background: rgba(var(--cyan-rgb), 0.15);
+    }
+
+    .reduced-flash .dock-icon {
+      border-color: rgba(var(--cyan-rgb), 0.84);
+      background: rgba(var(--cyan-rgb), 0.24);
+    }
+
+    .corner-readout {
+      position: absolute;
+      right: clamp(20px, 4vw, 62px);
+      bottom: 35px;
+      z-index: 2;
+      color: rgba(209, 222, 244, 0.24);
+      font-family: var(--mono);
+      font-size: 8px;
+      line-height: 1.7;
+      letter-spacing: 0.12em;
+      text-align: right;
+      text-transform: uppercase;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      #launch-control:hover:not([data-launching="true"]) {
+        filter: brightness(1.08) saturate(1.06);
+        transform: translateY(-1px);
+      }
+    }
+
+    @media (max-width: 720px) {
+      .stage { min-height: 600px; }
+      .topbar { padding-inline: 18px; }
+      .signal-state span { display: none; }
+      .signal-state { min-width: 30px; justify-content: center; padding: 0; }
+      .intro { top: 82px; }
+      .intro p { display: none; }
+      .cards { top: 170px; right: 12px; left: 12px; gap: 8px; }
+      .agent-card { height: min(34vh, 238px); border-radius: 18px; }
+      .card-bar { height: 40px; padding: 0 11px; }
+      .card-kind { font-size: 7px; letter-spacing: 0.08em; }
+      .card-content { height: calc(100% - 40px); padding: 14px 12px; }
+      .orb { width: 34px; height: 34px; }
+      .orb::before { width: 44px; height: 16px; }
+      .orb::after { width: 48px; height: 23px; }
+      .card-role { margin-top: 10px; font-size: 7px; }
+      .card-content h2 { font-size: clamp(13px, 3.3vw, 18px); }
+      .card-footer { font-size: 6px; }
+      .card-footer > span:last-child { display: none; }
+      .dock { width: calc(100vw - 24px); }
+      .dock-copy span { display: none; }
+      #launch-control { min-width: 126px; }
+      .corner-readout { display: none; }
+    }
+
+    @media (max-height: 720px) and (min-width: 721px) {
+      .intro { top: 78px; }
+      .intro p { display: none; }
+      .cards { top: 158px; }
+      .agent-card { height: 235px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+      }
+
+      .agent-card,
+      .agent-card::before,
+      .dock-icon,
+      #launch-control {
+        transition-duration: 120ms;
+      }
+    }
+
+    @media (prefers-reduced-transparency: reduce) {
+      .topbar,
+      .agent-card,
+      .dock {
+        background-color: #111827;
+        backdrop-filter: none;
+      }
+    }
+
+    @media (prefers-contrast: more) {
+      .agent-card,
+      .dock { border-color: rgba(255, 255, 255, 0.45); }
+      .intro p,
+      .launch-status { color: rgba(255, 255, 255, 0.82); }
+    }
+  </style>
+</head>
+<body data-sequence="idle">
+  <main class="stage" id="stage">
+    <div class="noise" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <div class="brand" aria-label="Norma Ion Routing">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-copy">
+          <strong>NORMA / ION</strong>
+          <span>Spatial dispatch system</span>
+        </span>
+      </div>
+      <div class="signal-state"><span>Canvas link stable</span></div>
+    </header>
+
+    <section class="intro" aria-labelledby="page-title">
+      <div class="eyebrow">Dispatch visualization</div>
+      <h1 id="page-title"><span>一次发射，三点命中</span></h1>
+      <p>离子回执沿空间轨迹抵达目标节点，让每一次派发都有清晰去向。</p>
+    </section>
+
+    <section class="cards" aria-label="派发目标">
+      <article class="agent-card" data-target-card="research" data-hit="false">
+        <div class="card-bar">
+          <span class="card-kind">Agent node</span>
+          <span class="card-index">01</span>
+        </div>
+        <div class="card-content">
+          <div class="orb" aria-hidden="true"></div>
+          <div class="card-role">Signal discovery</div>
+          <h2>Research Node</h2>
+          <div class="card-footer">
+            <span class="receipt-state">Standby</span>
+            <span>RX 00.00</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="agent-card" data-target-card="build" data-hit="false">
+        <div class="card-bar">
+          <span class="card-kind">Agent node</span>
+          <span class="card-index">02</span>
+        </div>
+        <div class="card-content">
+          <div class="orb" aria-hidden="true"></div>
+          <div class="card-role">System synthesis</div>
+          <h2>Build Node</h2>
+          <div class="card-footer">
+            <span class="receipt-state">Standby</span>
+            <span>RX 00.00</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="agent-card" data-target-card="verify" data-hit="false">
+        <div class="card-bar">
+          <span class="card-kind">Agent node</span>
+          <span class="card-index">03</span>
+        </div>
+        <div class="card-content">
+          <div class="orb" aria-hidden="true"></div>
+          <div class="card-role">Quality assurance</div>
+          <h2>Verify Node</h2>
+          <div class="card-footer">
+            <span class="receipt-state">Standby</span>
+            <span>RX 00.00</span>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <canvas id="ion-field" aria-hidden="true"></canvas>
+
+    <div class="dock-wrap">
+      <div class="launch-status" id="launch-status" aria-live="polite">离子通道已就绪</div>
+      <div class="dock" id="command-dock">
+        <div class="dock-icon" aria-hidden="true"></div>
+        <div class="dock-copy">
+          <strong>Dispatch receipt</strong>
+          <span>Route signal to 3 active nodes</span>
+        </div>
+        <button id="launch-control" type="button" data-launching="false" aria-describedby="launch-status">
+          <svg viewBox="0 0 18 18" aria-hidden="true">
+            <path d="M3 9h9"></path>
+            <path d="m9 4 5 5-5 5"></path>
+          </svg>
+          <span>重新发射</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="corner-readout" aria-hidden="true">
+      route / cubic-guided<br>
+      payload / receipt-ion<br>
+      targets / 03
+    </div>
+  </main>
+
+  <noscript>此原型需要 JavaScript 来绘制离子轨迹。</noscript>
+
+  <script>
+    (() => {
+      const stage = document.getElementById('stage');
+      const canvas = document.getElementById('ion-field');
+      const context = canvas.getContext('2d');
+      const dock = document.getElementById('command-dock');
+      const launchControl = document.getElementById('launch-control');
+      const launchStatus = document.getElementById('launch-status');
+      const cards = [...document.querySelectorAll('[data-target-card]')];
+      const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const searchParams = new URLSearchParams(location.search);
+      const forceReducedMotion = searchParams.get('reduce-motion') === '1';
+      const useTimerClock = searchParams.get('test-clock') === '1';
+      const palette = ['#53e7ff', '#ff7a95', '#ffd66b'];
+      const launchStagger = 45;
+      const primaryBurstCount = 20;
+      const secondarySparkCount = 8;
+
+      let viewport = { width: 0, height: 0, dpr: 1 };
+      let projectiles = [];
+      let particles = [];
+      let impactRings = [];
+      let sequenceTimers = [];
+      let animationFrame = 0;
+      let isLaunching = false;
+      let completedHits = 0;
+
+      function scheduleFrame() {
+        if (useTimerClock) {
+          return window.setTimeout(() => frame(performance.now()), 16);
+        }
+        return requestAnimationFrame(frame);
+      }
+
+      function cancelScheduledFrame() {
+        if (!animationFrame) return;
+        if (useTimerClock) window.clearTimeout(animationFrame);
+        else cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
+      }
+
+      function clearSequenceTimers() {
+        sequenceTimers.forEach((timer) => window.clearTimeout(timer));
+        sequenceTimers = [];
+      }
+
+      function relativeRect(element) {
+        const stageRect = stage.getBoundingClientRect();
+        const rect = element.getBoundingClientRect();
+        return {
+          x: rect.left - stageRect.left,
+          y: rect.top - stageRect.top,
+          width: rect.width,
+          height: rect.height
+        };
+      }
+
+      function cardCenter(card) {
+        const rect = relativeRect(card);
+        return {
+          x: rect.x + rect.width / 2,
+          y: rect.y + rect.height / 2
+        };
+      }
+
+      function dockOrigin() {
+        const rect = relativeRect(dock);
+        return {
+          x: rect.x + rect.width / 2,
+          y: rect.y + 2
+        };
+      }
+
+      function cubicPoint(p0, p1, p2, p3, t) {
+        const inverse = 1 - t;
+        const inverseSquared = inverse * inverse;
+        const tSquared = t * t;
+        return {
+          x: inverseSquared * inverse * p0.x
+            + 3 * inverseSquared * t * p1.x
+            + 3 * inverse * tSquared * p2.x
+            + tSquared * t * p3.x,
+          y: inverseSquared * inverse * p0.y
+            + 3 * inverseSquared * t * p1.y
+            + 3 * inverse * tSquared * p2.y
+            + tSquared * t * p3.y
+        };
+      }
+
+      function curveGeometry(card) {
+        const start = dockOrigin();
+        const end = cardCenter(card);
+        const horizontalDistance = end.x - start.x;
+        const verticalDistance = start.y - end.y;
+        const directDistance = Math.hypot(horizontalDistance, verticalDistance);
+        const lift = Math.min(252, Math.max(150, directDistance * 0.34));
+        const p1 = {
+          x: start.x + horizontalDistance * 0.045,
+          y: start.y - lift
+        };
+        const p2 = {
+          x: end.x - horizontalDistance * 0.18,
+          y: end.y + Math.min(132, Math.max(68, verticalDistance * 0.17))
+        };
+        return { p0: start, p1, p2, p3: end };
+      }
+
+      function curveFor(card, progress, geometry = curveGeometry(card)) {
+        return cubicPoint(
+          geometry.p0,
+          geometry.p1,
+          geometry.p2,
+          geometry.p3,
+          progress
+        );
+      }
+
+      function buildArcLengthTable(card, sampleCount = 48) {
+        const geometry = curveGeometry(card);
+        const points = [];
+        let totalLength = 0;
+        let previous = curveFor(card, 0, geometry);
+        points.push({ progress: 0, length: 0, point: previous });
+
+        for (let sampleIndex = 1; sampleIndex <= sampleCount; sampleIndex += 1) {
+          const progress = sampleIndex / sampleCount;
+          const point = curveFor(card, progress, geometry);
+          totalLength += Math.hypot(point.x - previous.x, point.y - previous.y);
+          points.push({ progress, length: totalLength, point });
+          previous = point;
+        }
+
+        return { geometry, points, totalLength };
+      }
+
+      function pointAtTravel(card, travel, table) {
+        const resolvedTable = table || buildArcLengthTable(card);
+        const clampedTravel = Math.min(1, Math.max(0, travel));
+        const targetLength = resolvedTable.totalLength * clampedTravel;
+        const points = resolvedTable.points;
+
+        let upperIndex = 1;
+        while (
+          upperIndex < points.length - 1
+          && points[upperIndex].length < targetLength
+        ) {
+          upperIndex += 1;
+        }
+
+        const lower = points[upperIndex - 1];
+        const upper = points[upperIndex];
+        const segmentLength = Math.max(0.001, upper.length - lower.length);
+        const segmentProgress = (targetLength - lower.length) / segmentLength;
+        const curveProgress = lower.progress
+          + (upper.progress - lower.progress) * segmentProgress;
+        return curveFor(card, curveProgress, resolvedTable.geometry);
+      }
+
+      function naturalFlightProgress(value) {
+        const progress = Math.min(1, Math.max(0, value));
+        return progress + Math.sin(progress * Math.PI) * 0.09;
+      }
+
+      function flightDurationFor(card) {
+        const pathLength = buildArcLengthTable(card, 24).totalLength;
+        return Math.min(560, Math.max(460, 420 + pathLength * 0.14));
+      }
+
+      function resizeCanvas() {
+        const bounds = stage.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        viewport = { width: bounds.width, height: bounds.height, dpr };
+        canvas.width = Math.round(bounds.width * dpr);
+        canvas.height = Math.round(bounds.height * dpr);
+        canvas.style.width = `${bounds.width}px`;
+        canvas.style.height = `${bounds.height}px`;
+        context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function hexToRgb(hex) {
+        const value = Number.parseInt(hex.slice(1), 16);
+        return {
+          r: (value >> 16) & 255,
+          g: (value >> 8) & 255,
+          b: value & 255
+        };
+      }
+
+      function rgba(hex, alpha) {
+        const color = hexToRgb(hex);
+        return `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+      }
+
+      function tangentAtTravel(card, travel, table) {
+        const before = pointAtTravel(card, Math.max(0, travel - 0.0035), table);
+        const after = pointAtTravel(card, Math.min(1, travel + 0.0035), table);
+        const dx = after.x - before.x;
+        const dy = after.y - before.y;
+        const length = Math.max(0.001, Math.hypot(dx, dy));
+        return {
+          x: dx / length,
+          y: dy / length,
+          normalX: -dy / length,
+          normalY: dx / length,
+          angle: Math.atan2(dy, dx)
+        };
+      }
+
+      function drawHelixTrail(projectile, eased, progress) {
+        const capture = Math.min(1, Math.max(0, (progress - 0.84) / 0.16));
+        const trailLength = 0.19 * (1 - capture * 0.38);
+        const trailStart = Math.max(0, eased - trailLength);
+        const table = projectile.arcTable;
+        const trailEnd = pointAtTravel(projectile.card, eased, table);
+        const trailTail = pointAtTravel(projectile.card, trailStart, table);
+        const reveal = Math.min(1, progress * 7);
+        const gradient = context.createLinearGradient(
+          trailTail.x,
+          trailTail.y,
+          trailEnd.x,
+          trailEnd.y
+        );
+        gradient.addColorStop(0, rgba(projectile.color, 0));
+        gradient.addColorStop(0.58, rgba(projectile.color, reveal * 0.18));
+        gradient.addColorStop(1, rgba(projectile.color, reveal * 0.74));
+
+        context.save();
+        context.globalCompositeOperation = 'lighter';
+        context.lineCap = 'round';
+        context.lineJoin = 'round';
+
+        context.beginPath();
+        for (let pointIndex = 0; pointIndex <= 24; pointIndex += 1) {
+          const ratio = pointIndex / 24;
+          const sampleTravel = trailStart + (eased - trailStart) * ratio;
+          const point = pointAtTravel(projectile.card, sampleTravel, table);
+          if (pointIndex === 0) context.moveTo(point.x, point.y);
+          else context.lineTo(point.x, point.y);
+        }
+        context.strokeStyle = gradient;
+        context.lineWidth = 6;
+        context.globalAlpha = 0.09;
+        context.stroke();
+        context.lineWidth = 1.25;
+        context.globalAlpha = 0.9;
+        context.stroke();
+
+        for (let strand = 0; strand < 2; strand += 1) {
+          context.beginPath();
+          for (let pointIndex = 0; pointIndex <= 22; pointIndex += 1) {
+            const ratio = pointIndex / 22;
+            const sampleTravel = trailStart + (eased - trailStart) * ratio;
+            const point = pointAtTravel(projectile.card, sampleTravel, table);
+            const tangent = tangentAtTravel(projectile.card, sampleTravel, table);
+            const envelope = Math.sin(Math.PI * ratio);
+            const phase = strand * Math.PI + projectile.index * 0.78;
+            const coil = Math.sin(sampleTravel * Math.PI * 13 + phase);
+            const offset = coil * envelope * 4.6;
+            const x = point.x + tangent.normalX * offset;
+            const y = point.y + tangent.normalY * offset;
+            if (pointIndex === 0) context.moveTo(x, y);
+            else context.lineTo(x, y);
+          }
+          context.strokeStyle = strand === 0
+            ? gradient
+            : 'rgba(255, 255, 255, 0.24)';
+          context.lineWidth = strand === 0 ? 1 : 0.65;
+          context.globalAlpha = reveal * (strand === 0 ? 0.76 : 0.58);
+          context.stroke();
+        }
+
+        for (let moteIndex = 1; moteIndex <= 5; moteIndex += 1) {
+          const moteTravel = Math.max(trailStart, eased - moteIndex * 0.027);
+          const point = pointAtTravel(projectile.card, moteTravel, table);
+          const tangent = tangentAtTravel(projectile.card, moteTravel, table);
+          const side = moteIndex % 2 === 0 ? 1 : -1;
+          const offset = side * (2 + moteIndex * 0.42);
+          context.globalAlpha = reveal * (0.42 - moteIndex * 0.055);
+          context.fillStyle = moteIndex % 3 === 0 ? '#ffffff' : projectile.color;
+          context.beginPath();
+          context.arc(
+            point.x + tangent.normalX * offset,
+            point.y + tangent.normalY * offset,
+            Math.max(0.55, 1.45 - moteIndex * 0.12),
+            0,
+            Math.PI * 2
+          );
+          context.fill();
+        }
+        context.restore();
+      }
+
+      function drawIonCore(projectile, head, tangent, progress) {
+        const reveal = Math.min(1, progress * 8);
+        const pulse = 1 + Math.sin(progress * 44 + projectile.index) * 0.08;
+        const capture = Math.min(1, Math.max(0, (progress - 0.84) / 0.16));
+        const captured = capture * capture * (3 - 2 * capture);
+        const coreScale = pulse * (1 - captured * 0.24);
+
+        context.save();
+        context.translate(head.x, head.y);
+        context.rotate(tangent.angle);
+        context.scale(coreScale, coreScale);
+        context.globalCompositeOperation = 'lighter';
+        context.globalAlpha = reveal * (1 - captured * 0.08);
+
+        const outerGlow = context.createRadialGradient(0, 0, 1, 0, 0, 30);
+        outerGlow.addColorStop(0, rgba(projectile.color, 0.78));
+        outerGlow.addColorStop(0.2, rgba(projectile.color, 0.34));
+        outerGlow.addColorStop(0.56, rgba(projectile.color, 0.1));
+        outerGlow.addColorStop(1, rgba(projectile.color, 0));
+        context.fillStyle = outerGlow;
+        context.fillRect(-30, -30, 60, 60);
+
+        context.strokeStyle = rgba(projectile.color, 0.74);
+        context.lineWidth = 0.9;
+        context.beginPath();
+        context.ellipse(0, 0, 13.5, 5.5, -0.18, 0, Math.PI * 2);
+        context.stroke();
+        context.strokeStyle = 'rgba(255, 255, 255, 0.34)';
+        context.beginPath();
+        context.ellipse(0, 0, 10.5, 4.3, 0.72, 0, Math.PI * 2);
+        context.stroke();
+
+        const core = context.createRadialGradient(-1.5, -1.5, 0, 0, 0, 8.5);
+        core.addColorStop(0, '#ffffff');
+        core.addColorStop(0.18, '#ffffff');
+        core.addColorStop(0.44, rgba(projectile.color, 0.98));
+        core.addColorStop(1, rgba(projectile.color, 0));
+        context.fillStyle = core;
+        context.beginPath();
+        context.arc(0, 0, 8.5, 0, Math.PI * 2);
+        context.fill();
+
+        const lens = context.createLinearGradient(-18, 0, 18, 0);
+        lens.addColorStop(0, 'rgba(255, 255, 255, 0)');
+        lens.addColorStop(0.5, 'rgba(255, 255, 255, 0.68)');
+        lens.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        context.strokeStyle = lens;
+        context.lineWidth = 0.7;
+        context.beginPath();
+        context.moveTo(-18, 0);
+        context.lineTo(18, 0);
+        context.stroke();
+        context.restore();
+      }
+
+      function recordMotionSample(projectile, head, now, progress) {
+        const motion = projectile.motion;
+        if (motion.lastPoint && now > motion.lastTime && progress >= 0.08 && progress <= 0.92) {
+          const distance = Math.hypot(
+            head.x - motion.lastPoint.x,
+            head.y - motion.lastPoint.y
+          );
+          const speed = distance / (now - motion.lastTime);
+          if (Number.isFinite(speed) && speed > 0.001) {
+            motion.minimumSpeed = Math.min(motion.minimumSpeed, speed);
+            motion.maximumSpeed = Math.max(motion.maximumSpeed, speed);
+          }
+        }
+        motion.lastPoint = head;
+        motion.lastTime = now;
+      }
+
+      function drawProjectile(projectile, progress, now) {
+        const travel = naturalFlightProgress(progress);
+        projectile.arcTable = buildArcLengthTable(projectile.card);
+        const head = pointAtTravel(projectile.card, travel, projectile.arcTable);
+        const tangent = tangentAtTravel(projectile.card, travel, projectile.arcTable);
+        recordMotionSample(projectile, head, now, progress);
+        drawLaunchPlume(projectile, progress);
+        drawHelixTrail(projectile, travel, progress);
+        drawIonCore(projectile, head, tangent, progress);
+      }
+
+      function stableRandom(seed) {
+        const value = Math.sin(seed * 91.733) * 43758.5453;
+        return value - Math.floor(value);
+      }
+
+      function drawLaunchPlume(projectile, progress) {
+        if (progress > 0.22) return;
+        const origin = dockOrigin();
+        const plumeLife = Math.min(1, progress / 0.22);
+        const alpha = Math.sin(plumeLife * Math.PI);
+        const radius = 10 + plumeLife * 22;
+
+        context.save();
+        context.globalCompositeOperation = 'lighter';
+        const glow = context.createRadialGradient(
+          origin.x,
+          origin.y,
+          0,
+          origin.x,
+          origin.y,
+          radius
+        );
+        glow.addColorStop(0, `rgba(255,255,255,${alpha * 0.86})`);
+        glow.addColorStop(0.22, rgba(projectile.color, alpha * 0.56));
+        glow.addColorStop(1, rgba(projectile.color, 0));
+        context.fillStyle = glow;
+        context.fillRect(origin.x - radius, origin.y - radius, radius * 2, radius * 2);
+
+        context.lineCap = 'round';
+        for (let rayIndex = 0; rayIndex < 5; rayIndex += 1) {
+          const seed = projectile.index * 17 + rayIndex + 1;
+          const angle = Math.PI * (0.1 + stableRandom(seed) * 0.8);
+          const length = 8 + stableRandom(seed + 11) * 17;
+          context.strokeStyle = rayIndex % 2 === 0
+            ? `rgba(255,255,255,${alpha * 0.72})`
+            : rgba(projectile.color, alpha * 0.62);
+          context.lineWidth = rayIndex % 2 === 0 ? 1.2 : 0.75;
+          context.beginPath();
+          context.moveTo(origin.x, origin.y);
+          context.lineTo(
+            origin.x + Math.cos(angle) * length,
+            origin.y + Math.sin(angle) * length
+          );
+          context.stroke();
+        }
+        context.restore();
+      }
+
+      function spawnFireworkBurst(card, color, cardIndex, point) {
+        const startTime = performance.now();
+        impactRings.push({
+          card,
+          color,
+          startTime,
+          duration: 430,
+          phase: cardIndex * Math.PI * 0.55
+        });
+
+        for (let particleIndex = 0; particleIndex < primaryBurstCount; particleIndex += 1) {
+          const seed = cardIndex * 100 + particleIndex + 1;
+          const angle = (Math.PI * 2 * particleIndex) / primaryBurstCount
+            + (stableRandom(seed) - 0.5) * 0.16;
+          const speed = 245 + stableRandom(seed + 23) * 135;
+          particles.push({
+            x: point.x,
+            y: point.y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            color,
+            size: 1.2 + stableRandom(seed + 49) * 1.8,
+            kind: particleIndex % 5 === 0 ? 'mote' : 'comet',
+            twist: (stableRandom(seed + 61) - 0.5) * 8,
+            startTime,
+            delay: 0,
+            lifetime: 320 + stableRandom(seed + 71) * 110
+          });
+        }
+
+        for (let sparkIndex = 0; sparkIndex < secondarySparkCount; sparkIndex += 1) {
+          const seed = cardIndex * 200 + sparkIndex + 37;
+          const angle = (Math.PI * 2 * (sparkIndex + 0.5)) / secondarySparkCount
+            + (stableRandom(seed) - 0.5) * 0.24;
+          const speed = 138 + stableRandom(seed + 19) * 92;
+          particles.push({
+            x: point.x,
+            y: point.y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            color,
+            size: 1.2 + stableRandom(seed + 43) * 1.5,
+            kind: 'spark',
+            twist: (stableRandom(seed + 53) - 0.5) * 5,
+            startTime,
+            delay: 52 + stableRandom(seed + 67) * 34,
+            lifetime: 250 + stableRandom(seed + 79) * 90
+          });
+        }
+
+        return primaryBurstCount + secondarySparkCount;
+      }
+
+      function registerImpact(projectile, reduced = false) {
+        const liveCenter = cardCenter(projectile.card);
+        const impactPoint = { x: liveCenter.x, y: liveCenter.y };
+        const currentCenter = cardCenter(projectile.card);
+        const impactError = Math.hypot(
+          impactPoint.x - currentCenter.x,
+          impactPoint.y - currentCenter.y
+        );
+
+        projectile.card.dataset.hit = 'true';
+        projectile.card.dataset.impactError = impactError.toFixed(2);
+        if (
+          projectile.motion
+          && projectile.motion.maximumSpeed > 0
+          && Number.isFinite(projectile.motion.minimumSpeed)
+        ) {
+          projectile.card.dataset.speedRatio = (
+            projectile.motion.maximumSpeed / projectile.motion.minimumSpeed
+          ).toFixed(2);
+        }
+        projectile.card.classList.add('is-hit');
+        const state = projectile.card.querySelector('.receipt-state');
+        state.textContent = 'Received';
+
+        if (!reduced) {
+          projectile.card.dataset.flightDuration = Math.round(projectile.duration).toString();
+          projectile.card.dataset.burstCount = spawnFireworkBurst(
+            projectile.card,
+            projectile.color,
+            projectile.index,
+            impactPoint
+          ).toString();
+        }
+
+        completedHits += 1;
+        launchStatus.textContent = `已命中 ${completedHits} / ${cards.length} 个节点`;
+      }
+
+      function drawImpactBloom(ring, now) {
+        const age = Math.min(1, (now - ring.startTime) / ring.duration);
+        const opacity = Math.pow(1 - age, 1.8);
+        const expansion = 3 + age * 18;
+        const rect = relativeRect(ring.card);
+        const center = cardCenter(ring.card);
+
+        context.save();
+        context.globalCompositeOperation = 'lighter';
+        context.strokeStyle = rgba(ring.color, opacity * 0.62);
+        context.lineWidth = 1.2;
+        context.beginPath();
+        context.roundRect(
+          rect.x - expansion,
+          rect.y - expansion,
+          rect.width + expansion * 2,
+          rect.height + expansion * 2,
+          24 + expansion * 0.35
+        );
+        context.stroke();
+
+        const radius = 14 + age * 86;
+        const glow = context.createRadialGradient(center.x, center.y, 0, center.x, center.y, radius);
+        glow.addColorStop(0, 'rgba(255, 255, 255, 0.72)');
+        glow.addColorStop(0.12, rgba(ring.color, opacity * 0.46));
+        glow.addColorStop(0.48, rgba(ring.color, opacity * 0.1));
+        glow.addColorStop(1, rgba(ring.color, 0));
+        context.fillStyle = glow;
+        context.fillRect(center.x - radius, center.y - radius, radius * 2, radius * 2);
+
+        const shockwaveRadius = 8 + Math.pow(age, 0.55) * 92;
+        context.strokeStyle = rgba(ring.color, opacity * 0.82);
+        context.lineWidth = Math.max(0.55, 2.4 - age * 1.9);
+        context.beginPath();
+        context.arc(center.x, center.y, shockwaveRadius, 0, Math.PI * 2);
+        context.stroke();
+
+        if (age < 0.34) {
+          const starLife = age / 0.34;
+          const starOpacity = Math.pow(1 - starLife, 1.35);
+          const innerRadius = 4 + starLife * 7;
+          const outerRadius = 32 + starLife * 54;
+          context.save();
+          context.translate(center.x, center.y);
+          context.rotate(ring.phase + starLife * 0.12);
+          context.lineCap = 'round';
+          for (let rayIndex = 0; rayIndex < 8; rayIndex += 1) {
+            const rayAngle = (Math.PI * 2 * rayIndex) / 8;
+            const rayLength = outerRadius * (rayIndex % 2 === 0 ? 1 : 0.58);
+            context.strokeStyle = rayIndex % 2 === 0
+              ? `rgba(255,255,255,${starOpacity * 0.9})`
+              : rgba(ring.color, starOpacity * 0.8);
+            context.lineWidth = rayIndex % 2 === 0 ? 1.35 : 0.8;
+            context.beginPath();
+            context.moveTo(
+              Math.cos(rayAngle) * innerRadius,
+              Math.sin(rayAngle) * innerRadius
+            );
+            context.lineTo(
+              Math.cos(rayAngle) * rayLength,
+              Math.sin(rayAngle) * rayLength
+            );
+            context.stroke();
+          }
+          context.restore();
+        }
+
+        for (let arcIndex = 0; arcIndex < 3; arcIndex += 1) {
+          const arcRadius = 10 + arcIndex * 8 + age * (32 + arcIndex * 6);
+          const startAngle = ring.phase + arcIndex * 1.9 - age * (1.5 + arcIndex * 0.2);
+          context.strokeStyle = arcIndex === 1
+            ? 'rgba(255, 255, 255, 0.46)'
+            : rgba(ring.color, opacity * (0.74 - arcIndex * 0.13));
+          context.lineWidth = Math.max(0.65, 1.7 - arcIndex * 0.38);
+          context.beginPath();
+          context.arc(
+            center.x,
+            center.y,
+            arcRadius,
+            startAngle,
+            startAngle + Math.PI * (0.76 + arcIndex * 0.17)
+          );
+          context.stroke();
+        }
+
+        if (age < 0.46) {
+          const flareOpacity = (1 - age / 0.46) * 0.7;
+          const horizontalFlare = context.createLinearGradient(
+            center.x - 48,
+            center.y,
+            center.x + 48,
+            center.y
+          );
+          horizontalFlare.addColorStop(0, 'rgba(255,255,255,0)');
+          horizontalFlare.addColorStop(0.5, `rgba(255,255,255,${flareOpacity})`);
+          horizontalFlare.addColorStop(1, 'rgba(255,255,255,0)');
+          context.strokeStyle = horizontalFlare;
+          context.lineWidth = 0.8;
+          context.beginPath();
+          context.moveTo(center.x - 48, center.y);
+          context.lineTo(center.x + 48, center.y);
+          context.stroke();
+        }
+        context.restore();
+      }
+
+      function resolveParticleState(particle, now) {
+        const elapsed = now - particle.startTime - particle.delay;
+        if (elapsed < 0) return null;
+        const life = Math.min(1, elapsed / particle.lifetime);
+        const seconds = elapsed / 1000;
+        const distance = (1 - Math.exp(-3.1 * seconds)) / 3.1;
+        const speed = Math.max(0.001, Math.hypot(particle.vx, particle.vy));
+        const normalX = -particle.vy / speed;
+        const normalY = particle.vx / speed;
+        const twist = Math.sin(life * Math.PI) * particle.twist;
+        return {
+          life,
+          x: particle.x + particle.vx * distance + normalX * twist,
+          y: particle.y + particle.vy * distance + normalY * twist + 34 * seconds * seconds
+        };
+      }
+
+      function drawBurstSpark(particle, now) {
+        const state = resolveParticleState(particle, now);
+        if (!state) return;
+        const twinkle = 0.58 + Math.abs(Math.sin(state.life * Math.PI * 5.5)) * 0.42;
+        const alpha = Math.pow(1 - state.life, 1.35) * twinkle;
+        const arm = particle.size * (1.5 + (1 - state.life) * 1.6);
+
+        context.save();
+        context.globalCompositeOperation = 'lighter';
+        context.translate(state.x, state.y);
+        context.rotate(state.life * Math.PI * 0.7);
+        context.strokeStyle = `rgba(255,255,255,${alpha})`;
+        context.lineWidth = 0.85;
+        context.lineCap = 'round';
+        context.beginPath();
+        context.moveTo(-arm, 0);
+        context.lineTo(arm, 0);
+        context.moveTo(0, -arm);
+        context.lineTo(0, arm);
+        context.stroke();
+        context.fillStyle = rgba(particle.color, alpha * 0.9);
+        context.beginPath();
+        context.arc(0, 0, particle.size * 0.72, 0, Math.PI * 2);
+        context.fill();
+        context.restore();
+      }
+
+      function drawParticle(particle, now) {
+        if (particle.kind === 'spark') {
+          drawBurstSpark(particle, now);
+          return;
+        }
+        const state = resolveParticleState(particle, now);
+        if (!state) return;
+        const alpha = Math.pow(1 - state.life, 1.5);
+
+        context.save();
+        context.globalCompositeOperation = 'lighter';
+        context.translate(state.x, state.y);
+        context.rotate(Math.atan2(particle.vy, particle.vx));
+        if (particle.kind === 'mote') {
+          context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+          context.beginPath();
+          context.arc(0, 0, particle.size * 0.7, 0, Math.PI * 2);
+          context.fill();
+          context.strokeStyle = rgba(particle.color, alpha * 0.7);
+          context.lineWidth = 0.7;
+          context.beginPath();
+          context.arc(0, 0, particle.size * 1.8, 0, Math.PI * 2);
+          context.stroke();
+        } else {
+          context.strokeStyle = rgba(particle.color, alpha * 0.9);
+          context.lineWidth = Math.max(0.8, particle.size * 0.62);
+          context.lineCap = 'round';
+          context.beginPath();
+          context.moveTo(-particle.size * 3.6, 0);
+          context.lineTo(particle.size * 1.4, 0);
+          context.stroke();
+        }
+        context.restore();
+      }
+
+      function finishSequence() {
+        isLaunching = false;
+        projectiles = [];
+        launchControl.dataset.launching = 'false';
+        document.body.dataset.sequence = 'complete';
+        launchStatus.textContent = '派发已命中 3 个节点 · 可再次发射';
+      }
+
+      function frame(now) {
+        context.clearRect(0, 0, viewport.width, viewport.height);
+
+        projectiles.forEach((projectile) => {
+          if (projectile.impacted || now < projectile.startTime) return;
+          const progress = Math.min(1, (now - projectile.startTime) / projectile.duration);
+          drawProjectile(projectile, progress, now);
+          if (progress >= 1) {
+            projectile.impacted = true;
+            registerImpact(projectile);
+          }
+        });
+
+        impactRings.forEach((ring) => drawImpactBloom(ring, now));
+        particles.forEach((particle) => drawParticle(particle, now));
+
+        impactRings = impactRings.filter((ring) => now - ring.startTime < ring.duration);
+        particles = particles.filter(
+          (particle) => now - particle.startTime < particle.delay + particle.lifetime
+        );
+        const hasPendingProjectile = projectiles.some((projectile) => !projectile.impacted);
+
+        if (hasPendingProjectile || particles.length > 0 || impactRings.length > 0) {
+          animationFrame = scheduleFrame();
+        } else {
+          animationFrame = 0;
+          if (isLaunching && completedHits === cards.length) finishSequence();
+        }
+      }
+
+      function resetTargets() {
+        cards.forEach((card) => {
+          card.classList.remove('is-hit');
+          card.dataset.hit = 'false';
+          delete card.dataset.impactError;
+          delete card.dataset.speedRatio;
+          delete card.dataset.flightDuration;
+          delete card.dataset.burstCount;
+          card.querySelector('.receipt-state').textContent = 'Standby';
+        });
+      }
+
+      function launchReducedMotionSequence() {
+        dock.classList.add('reduced-flash');
+        cards.forEach((card, index) => {
+          const projectile = { card, color: palette[index], index };
+          sequenceTimers.push(
+            window.setTimeout(() => registerImpact(projectile, true), index * 45)
+          );
+        });
+        sequenceTimers.push(
+          window.setTimeout(() => {
+            dock.classList.remove('reduced-flash');
+            finishSequence();
+          }, 360)
+        );
+      }
+
+      function launchSequence() {
+        if (document.hidden) return;
+
+        cancelScheduledFrame();
+        clearSequenceTimers();
+        context.clearRect(0, 0, viewport.width, viewport.height);
+        projectiles = [];
+        particles = [];
+        impactRings = [];
+        completedHits = 0;
+        isLaunching = true;
+        resetTargets();
+
+        launchControl.dataset.launching = 'true';
+        document.body.dataset.sequence = 'flight';
+        launchStatus.textContent = '正在向 3 个节点派发离子回执';
+
+        const shouldReduceMotion = reduceMotionQuery.matches || forceReducedMotion;
+        document.body.dataset.motionMode = shouldReduceMotion ? 'reduced' : 'full';
+        if (shouldReduceMotion) {
+          launchReducedMotionSequence();
+          return;
+        }
+
+        const now = performance.now();
+        projectiles = cards.map((card, index) => ({
+          card,
+          color: palette[index],
+          index,
+          startTime: now + index * launchStagger,
+          duration: flightDurationFor(card),
+          impacted: false,
+          motion: {
+            lastPoint: null,
+            lastTime: null,
+            minimumSpeed: Number.POSITIVE_INFINITY,
+            maximumSpeed: 0
+          }
+        }));
+        animationFrame = scheduleFrame();
+      }
+
+      launchControl.addEventListener('click', launchSequence);
+      new ResizeObserver(resizeCanvas).observe(stage);
+      resizeCanvas();
+
+      const autoplay = searchParams.get('autoplay') !== '0';
+      if (autoplay) window.setTimeout(launchSequence, 420);
+    })();
+  </script>
+</body>
+</html>

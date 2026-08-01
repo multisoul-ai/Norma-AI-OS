@@ -1,5 +1,5 @@
 use crate::app::MultisoulApp;
-use crate::assets::{APP_ICON_ASSET, SETTINGS_NAV_THEMES_ASSET};
+use crate::assets::{APP_ICON_ASSET, SETTINGS_NAV_THEMES_ASSET, TOOLBAR_SETTINGS_ASSET};
 use gpui::{div, img, prelude::*, px, rgba, Context, Div, FontWeight, ObjectFit, Stateful, Styled};
 use ui::{
     component::{Icon, Sizable as _},
@@ -42,6 +42,7 @@ pub(crate) enum SettingsSection {
     Skills,
     Orchestration,
     Wallpaper,
+    Performance,
 }
 
 #[derive(Clone, Copy)]
@@ -109,12 +110,21 @@ impl SettingsSection {
                 index: 7,
                 debug_selector: "settings-section-wallpaper",
             },
+            Self::Performance => SettingsSectionMetadata {
+                title: "Performance",
+                icon_asset: Some(TOOLBAR_SETTINGS_ASSET),
+                index: 8,
+                debug_selector: "settings-section-performance",
+            },
         }
     }
 }
 
-const APPEARANCE_SECTIONS: &[SettingsSection] =
-    &[SettingsSection::Themes, SettingsSection::Wallpaper];
+const APPEARANCE_SECTIONS: &[SettingsSection] = &[
+    SettingsSection::Themes,
+    SettingsSection::Wallpaper,
+    SettingsSection::Performance,
+];
 const INPUT_SECTIONS: &[SettingsSection] = &[SettingsSection::Keyboard, SettingsSection::Voice];
 const AUTOMATION_SECTIONS: &[SettingsSection] =
     &[SettingsSection::Agents, SettingsSection::Orchestration];

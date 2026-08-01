@@ -296,22 +296,23 @@ fn test_agent_card_command_adapter_creates_multiple_terminals_in_real_runtime() 
     );
 }
 
-/// ART-NORMA-1：生产 AgentCardAdapter 创建内置 Agent 后，可直接派发并返回真实 task_id
+/// ART-NORMA-1：生产 AgentCardAdapter 用一次命令创建内置 Agent 并派发任务
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Initial Agent definitions = 0
-///   `create_agent(codex)` calls = 1 → definitions=1、AgentCard=1
-///   `assign_agent_task` calls = 1 → active tasks=1、expected task_id=1
+///   `create_agent(codex, task)` calls = 1 → definitions=1、AgentCard=1、active tasks=1
+///   Additional `assign_agent_task` calls = 0
+///   Expected task_id = initial next id 1
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 在 headless GPUI 的真实 MultisoulApp 上执行 Norma `CreateAgent`
-///   2. 读取系统分配的内置 Agent 名称，不让模型提供名称
-///   3. 对该名称立即执行 `AssignAgentTask`，由生产 FIFO 接收任务
+///   1. 在 headless GPUI 的真实 MultisoulApp 上执行一次带 task 的 Norma `CreateAgent`。
+///   2. Adapter 创建并激活系统命名的 AgentCard。
+///   3. Adapter 在同一命令内把完整任务交给生产 FIFO。
 ///
 /// 预期结果：
-///   - 正断言：创建回执含唯一 AgentCard node_id，派发回执为 accepted/task_id=1
+///   - 正断言：同一回执为 accepted，并同时包含唯一 node_id 与 task_id=1。
 ///   - 正断言：Coordinator 中存在同一 Agent 的运行任务
-///   - 负断言：画布中不出现名为 Norma 的 Agent，也不产生第二张 AgentCard
+///   - 负断言：画布中不出现名为 Norma 的 Agent，也不产生第二张 AgentCard 或第二个任务。
 #[test]
 fn test_norma_adapter_creates_builtin_agent_and_dispatches_without_confirmation() {
     let mut gpui = TestAppContext::single();
@@ -332,45 +333,24 @@ fn test_norma_adapter_creates_builtin_agent_and_dispatches_without_confirmation(
                 cx,
                 agent::AdapterCommand::CreateAgent {
                     profile: norma::protocol::AgentProfile::Codex,
+                    task: Some("检查当前项目有哪些技术栈。".to_string()),
                 },
             )
         })
     });
     let created = created.expect("create_agent should execute on the production App Adapter");
-    let name = app.read_with(cx, |app, _cx| {
-        app.agent_definitions.definitions()[0].name.clone()
-    });
-    let assigned = cx.update(|window, app_cx| {
-        app.update(app_cx, |app, cx| {
-            execute_norma_adapter_command(
-                app,
-                window,
-                cx,
-                agent::AdapterCommand::AssignAgentTask {
-                    agent: name.clone(),
-                    task: "检查当前项目有哪些技术栈。".to_string(),
-                },
-            )
-        })
-    });
-    let assigned = assigned.expect("assign_agent_task should execute without confirmation");
-
     assert_eq!(
-        created.status, "succeeded",
-        "create_agent should report the actual successful App side effect"
+        created.status, "accepted",
+        "create_agent with a task should report FIFO acceptance, not task completion"
     );
     assert!(
         created.node_id.is_some(),
         "create_agent should return the activated AgentCard node id"
     );
     assert_eq!(
-        assigned.status, "accepted",
-        "assign_agent_task should report AgentCard acceptance, not completion"
-    );
-    assert_eq!(
-        assigned.task_id,
+        created.task_id,
         Some(1),
-        "the first production AgentCard task should return deterministic task_id=1"
+        "the combined command's first production FIFO task should return task_id=1"
     );
     let (agent_nodes, tasks, has_norma) = app.read_with(cx, |app, _cx| {
         let agent_nodes = app

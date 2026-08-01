@@ -9,8 +9,8 @@ use gpui::Context;
 use runtime::{InputMode, NodeRunState};
 
 #[cfg(not(any(test, feature = "e2e-test-support")))]
-use super::frame_schedule::AnimationWakeup;
-use super::frame_schedule::{AnimationSchedule, RepaintContext, RepaintGate, RepaintReason};
+use super::frame_schedule::{AnimationSchedule, AnimationWakeup};
+use super::frame_schedule::{RepaintContext, RepaintGate, RepaintReason};
 use super::{AppScreen, MultisoulApp};
 
 mod animation_driver;
@@ -18,8 +18,6 @@ mod animation_driver;
 pub(in crate::app) use animation_driver::AnimationFrameCallbackOutcome;
 
 const RUNTIME_FRAME_INTERVAL: Duration = Duration::from_millis(16);
-#[cfg(not(any(test, feature = "e2e-test-support")))]
-const IDLE_ANIMATION_FRAME_INTERVAL: Duration = Duration::from_millis(250);
 #[cfg(any(test, feature = "e2e-test-support"))]
 const HEADLESS_ANIMATION_FRAME_INTERVAL: Duration = Duration::from_millis(16);
 const PERSISTENCE_FRAME_INTERVAL: Duration = Duration::from_millis(120);
@@ -224,6 +222,9 @@ impl MultisoulApp {
                 let go = this.update(cx, |app, cx| {
                     let tick_started_at = Instant::now();
                     let runtime_changed = app.runtime.drain_all();
+                    if runtime_changed {
+                        app.performance.note_terminal_activity();
+                    }
                     let browser_changed = app.drain_browser_events();
                     let agent_hook_report =
                         app.agent_hook_server.drain_into_runtime(&mut app.runtime);
@@ -317,11 +318,13 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         cx.spawn(async move |this, cx| {
+            #[cfg(not(any(test, feature = "e2e-test-support")))]
+            let mut production_timer_interval = AnimationSchedule::idle_timer_interval(false);
             loop {
                 #[cfg(any(test, feature = "e2e-test-support"))]
                 let timer_interval = HEADLESS_ANIMATION_FRAME_INTERVAL;
                 #[cfg(not(any(test, feature = "e2e-test-support")))]
-                let timer_interval = IDLE_ANIMATION_FRAME_INTERVAL;
+                let timer_interval = production_timer_interval;
                 let timer = cx.background_executor().timer(timer_interval).fuse();
                 let wake = animation_wake_rx.recv().fuse();
                 pin_mut!(timer, wake);
@@ -338,11 +341,17 @@ impl MultisoulApp {
                 let go = this.update(cx, |app, cx| {
                     #[cfg(feature = "e2e-test-support")]
                     if app.animation_frame_loop_paused_for_e2e {
-                        return AnimationSchedule::next_wakeup(app.animation_activity());
+                        return (
+                            app.animation_next_wakeup(),
+                            app.animation_idle_timer_interval(),
+                        );
                     }
                     if !timer_fired {
                         cx.notify();
-                        return AnimationSchedule::next_wakeup(app.animation_activity());
+                        return (
+                            app.animation_next_wakeup(),
+                            app.animation_idle_timer_interval(),
+                        );
                     }
                     #[cfg(not(any(test, feature = "e2e-test-support")))]
                     if app.animation_frame_pending {
@@ -353,11 +362,14 @@ impl MultisoulApp {
                                 cx.notify();
                             }
                         }
-                        return AnimationSchedule::next_wakeup(app.animation_activity());
+                        return (
+                            app.animation_next_wakeup(),
+                            app.animation_idle_timer_interval(),
+                        );
                     }
                     let animation_delta = app.animation_frame_clock.elapsed_at(frame_now);
                     let report = app.advance_animation_frame(animation_delta, cx);
-                    let next_wakeup = AnimationSchedule::next_wakeup(app.animation_activity());
+                    let next_wakeup = app.animation_next_wakeup();
                     #[cfg(not(any(test, feature = "e2e-test-support")))]
                     let needs_frame_driver = matches!(next_wakeup, AnimationWakeup::NextFrame(_));
                     #[cfg(any(test, feature = "e2e-test-support"))]
@@ -368,13 +380,13 @@ impl MultisoulApp {
                     if report.should_notify_surface(app.settings_panel.open) || needs_frame_driver {
                         cx.notify();
                     }
-                    next_wakeup
+                    (next_wakeup, app.animation_idle_timer_interval())
                 });
                 match go {
                     #[cfg(any(test, feature = "e2e-test-support"))]
                     Ok(_) => {}
                     #[cfg(not(any(test, feature = "e2e-test-support")))]
-                    Ok(_) => {}
+                    Ok((_next_wakeup, interval)) => production_timer_interval = interval,
                     Err(_) => break,
                 }
             }

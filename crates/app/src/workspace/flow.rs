@@ -75,9 +75,19 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.open_workspace_path_with_source(path, WorkspaceSource::Open, window, cx);
+    }
+
+    pub(crate) fn open_workspace_path_with_source(
+        &mut self,
+        path: PathBuf,
+        source: WorkspaceSource,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.agent_runtime = None;
         self.agent_queue_ui.close();
-        let result = enter_workspace_for_path(
+        let result = enter_workspace_for_path_with_source(
             &self.database_paths,
             &mut self.runtime,
             WorkspaceCanvasState {
@@ -89,6 +99,7 @@ impl MultisoulApp {
             &mut self.screen,
             &mut self.workspace_state,
             &path,
+            source,
         );
         match result {
             Ok(opened) => {
@@ -260,6 +271,7 @@ impl MultisoulApp {
     }
 }
 
+#[cfg(any(test, feature = "e2e-test-support"))]
 pub(crate) fn enter_workspace_for_path(
     database_paths: &storage::DatabasePaths,
     runtime: &mut Runtime,
@@ -270,13 +282,37 @@ pub(crate) fn enter_workspace_for_path(
     workspace_state: &mut WorkspaceState,
     path: &Path,
 ) -> Result<WorkspaceOpenResult, String> {
+    enter_workspace_for_path_with_source(
+        database_paths,
+        runtime,
+        canvas,
+        persistence,
+        agent_definitions,
+        screen,
+        workspace_state,
+        path,
+        WorkspaceSource::Open,
+    )
+}
+
+pub(crate) fn enter_workspace_for_path_with_source(
+    database_paths: &storage::DatabasePaths,
+    runtime: &mut Runtime,
+    canvas: WorkspaceCanvasState<'_>,
+    persistence: &mut PersistenceScheduler,
+    agent_definitions: &mut AgentDefinitionsState,
+    screen: &mut AppScreen,
+    workspace_state: &mut WorkspaceState,
+    path: &Path,
+    source: WorkspaceSource,
+) -> Result<WorkspaceOpenResult, String> {
     let WorkspaceCanvasState {
         motion,
         master_layout,
     } = canvas;
     let total_start = Instant::now();
     let mut stage_start = total_start;
-    let root = workspace_state.open_workspace(path, WorkspaceSource::Open)?;
+    let root = workspace_state.open_workspace(path, source)?;
     log_workspace_open_timing(
         "workspace_open_record_recent",
         &root,

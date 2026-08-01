@@ -3,14 +3,18 @@
 use crate::app::MultisoulApp;
 use dialogue::DialoguePhase;
 use gpui::{
-    div, point, prelude::*, px, rgba, BoxShadow, Context, Div, KeyDownEvent, MouseButton, Window,
+    div, point, prelude::*, px, rgba, BoxShadow, Context, Div, FontWeight, KeyDownEvent,
+    MouseButton, Window,
 };
 use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
+use ui::component::{Icon, IconName, Sizable, Size};
 use ui::icons::with_alpha;
 use ui::Theme;
 
 const COLLAPSED_PREVIEW_CHARS: usize = 72;
 const CAPTION_WAVE_CYCLES_PER_SECOND: f32 = 1.2;
+const EXPANDED_CAPTION_BODY_MAX_HEIGHT: f32 = 104.0;
+const EXPANDED_CAPTION_MIN_HEIGHT: f32 = 72.0;
 pub(crate) const CAPTION_SURFACE_ALPHA: u8 = 0xb8;
 pub(crate) const CAPTION_SURFACE_OPACITY_MILLI: u16 =
     ((CAPTION_SURFACE_ALPHA as u32 * 1_000 + 127) / 255) as u16;
@@ -21,25 +25,31 @@ impl MultisoulApp {
             .caption_text()
             .map(ToOwned::to_owned)
             .or_else(|| {
-                matches!(self.dialogue.phase(), DialoguePhase::Thinking)
-                    .then(|| self.dialogue.pending_transcript())
-                    .flatten()
-                    .filter(|text| !text.trim().is_empty())
-                    .map(ToOwned::to_owned)
+                matches!(
+                    self.dialogue.phase(),
+                    DialoguePhase::Thinking | DialoguePhase::Speaking
+                )
+                .then(|| self.dialogue.pending_transcript())
+                .flatten()
+                .filter(|text| !text.trim().is_empty())
+                .map(ToOwned::to_owned)
             })
     }
 
     pub(crate) fn voice_caption_is_visible(&self) -> bool {
         self.voice.caption_text().is_some()
-            || (matches!(self.dialogue.phase(), DialoguePhase::Thinking)
-                && self
-                    .dialogue
-                    .pending_transcript()
-                    .is_some_and(|text| !text.trim().is_empty()))
+            || (matches!(
+                self.dialogue.phase(),
+                DialoguePhase::Thinking | DialoguePhase::Speaking
+            ) && self
+                .dialogue
+                .pending_transcript()
+                .is_some_and(|text| !text.trim().is_empty()))
     }
 
     pub(crate) fn voice_caption_animation_active(&self) -> bool {
         self.voice_caption_is_visible()
+            && self.dialogue.phase() != DialoguePhase::Speaking
             && matches!(self.screen, crate::app::AppScreen::Canvas)
             && self.window_active
             && !self.settings_panel.open
@@ -49,7 +59,7 @@ impl MultisoulApp {
         &mut self,
         delta: std::time::Duration,
     ) -> bool {
-        if !self.voice_caption_is_visible() {
+        if !self.voice_caption_is_visible() || self.dialogue.phase() == DialoguePhase::Speaking {
             let changed = self.voice_caption_waveform_phase != 0.0;
             self.voice_caption_waveform_phase = 0.0;
             return changed;
@@ -90,7 +100,7 @@ impl MultisoulApp {
             .text_size(px(11.0))
             .text_color(rgba(0xfffffff0))
             .when(expanded, |body| {
-                body.max_h(px(152.0))
+                body.max_h(px(EXPANDED_CAPTION_BODY_MAX_HEIGHT))
                     .overflow_y_scroll()
                     .pr(px(8.0))
                     .whitespace_normal()
@@ -124,7 +134,11 @@ impl MultisoulApp {
                         .debug_selector(|| "workspace-voice-caption".to_string())
                         .w_full()
                         .max_w(px(560.0))
-                        .min_h(if expanded { px(100.0) } else { px(48.0) })
+                        .min_h(if expanded {
+                            px(EXPANDED_CAPTION_MIN_HEIGHT)
+                        } else {
+                            px(48.0)
+                        })
                         .flex()
                         .flex_row()
                         .items_center()
@@ -217,31 +231,66 @@ fn caption_divider(theme: Theme) -> Div {
 }
 
 fn caption_expand_control(expanded: bool, theme: Theme, cx: &mut Context<MultisoulApp>) -> Button {
-    let label = if expanded {
-        "收起  ⌄"
+    let label = if expanded { "收起" } else { "全文" };
+    let chevron = if expanded {
+        IconName::ChevronDown
     } else {
-        "全文  ⌃"
+        IconName::ChevronUp
     };
+    let foreground = rgba(0xffffffb8);
     let variant = ButtonCustomVariant::new(cx)
-        .foreground(rgba(0xffffffc7).into())
+        .foreground(foreground.into())
+        .border(rgba(with_alpha(theme.dock_line, 0x2c)).into())
         .hover(rgba(0xffffff18).into())
         .active(rgba(0xffffff24).into());
 
     Button::new("voice-caption-expand")
         .debug_selector(|| "voice-caption-expand".to_string())
-        .label(label)
         .tooltip(if expanded {
             "Collapse full voice transcript"
         } else {
             "Show the full voice transcript"
         })
         .custom(variant)
+        .with_size(Size::XSmall)
         .compact()
-        .min_w(px(64.0))
-        .h(px(24.0))
-        .rounded(px(12.0))
-        .text_size(px(10.0))
-        .border_color(rgba(with_alpha(theme.dock_line, 0x38)))
+        .min_w(px(58.0))
+        .h(px(26.0))
+        .rounded(px(13.0))
+        .child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(4.0))
+                .font_family(".SystemUIFont")
+                .font_weight(FontWeight::MEDIUM)
+                .text_size(px(11.0))
+                .line_height(px(14.0))
+                .text_color(foreground)
+                .child(
+                    div()
+                        .id("voice-caption-expand-label")
+                        .debug_selector(|| "voice-caption-expand-label".to_string())
+                        .flex_none()
+                        .child(label),
+                )
+                .child(
+                    div()
+                        .id("voice-caption-expand-chevron")
+                        .debug_selector(|| "voice-caption-expand-chevron".to_string())
+                        .flex_none()
+                        .w(px(10.0))
+                        .h(px(10.0))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(
+                            Icon::new(chevron)
+                                .with_size(px(10.0))
+                                .text_color(foreground),
+                        ),
+                ),
+        )
         .on_key_down(cx.listener(MultisoulApp::on_voice_caption_key_down))
         .on_click(cx.listener(MultisoulApp::on_voice_caption_toggle))
 }

@@ -2,7 +2,7 @@ use super::*;
 use crate::motion::{DispatchReceiptVisualStatus, MotionStore};
 use std::time::Duration;
 
-/// FS-1：前台 Canvas 和 Voice 都完全空闲时，动画驱动器必须降到 250ms 定时巡检。
+/// FS-1：闲时动画降频默认关闭，只有用户显式开启后才使用 250ms 定时巡检。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   voice active = false
@@ -11,19 +11,20 @@ use std::time::Duration;
 ///   screen is Canvas = true
 ///   window active = true
 ///   settings open = false
-///   expected wakeup = Timer(250ms)
-///   active negative control = NextFrame(16ms)
+///   default throttle = false → expected wakeup = Timer(16ms)
+///   enabled throttle = true  → expected wakeup = Timer(250ms)
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 构造没有任何动画活动源的前台 Canvas 状态。
-///   2. 调用纯 AnimationSchedule seam 计算下一次唤醒方式。
-///   3. 分别比较 250ms 定时巡检与 GPUI 下一帧驱动。
+///   2. 用默认关闭配置调用纯 AnimationSchedule seam 计算下一次唤醒方式。
+///   3. 再显式开启降频，比较两种配置对应的定时巡检间隔。
 ///
 /// 预期结果：
-///   - 正断言：空闲唤醒必须精确为 Timer(250ms)。
-///   - 负断言：空闲状态不得请求 NextFrame，否则空闲 CPU 会持续占用。
+///   - 正断言：默认关闭时空闲唤醒必须精确为 Timer(16ms)，优先保证动画响应。
+///   - 正断言：显式开启后空闲唤醒必须精确为 Timer(250ms)，保留节能能力。
+///   - 负断言：默认关闭时不得继续返回 Timer(250ms)，避免复现闲转活时的掉帧。
 #[test]
-fn test_animation_schedule_uses_250ms_when_canvas_and_voice_are_idle() {
+fn test_animation_schedule_disables_idle_throttling_by_default() {
     let activity = AnimationActivity {
         voice_active: false,
         canvas_motion_active: false,
@@ -34,17 +35,23 @@ fn test_animation_schedule_uses_250ms_when_canvas_and_voice_are_idle() {
         next_visual_boundary: None,
     };
 
-    let wakeup = AnimationSchedule::next_wakeup(activity);
+    let default_wakeup = AnimationSchedule::next_wakeup(activity, false);
+    let throttled_wakeup = AnimationSchedule::next_wakeup(activity, true);
 
     assert_eq!(
-        wakeup,
+        default_wakeup,
+        AnimationWakeup::Timer(Duration::from_millis(16)),
+        "闲时降频默认关闭时 animation driver 应保持 16ms 检查，优先保证动画响应"
+    );
+    assert_eq!(
+        throttled_wakeup,
         AnimationWakeup::Timer(Duration::from_millis(250)),
-        "Canvas 与 Voice 完全空闲时 animation driver 应以 250ms 低频巡检"
+        "用户显式开启闲时降频后 animation driver 应改用 250ms 低频巡检"
     );
     assert_ne!(
-        wakeup,
-        AnimationWakeup::NextFrame(Duration::from_millis(16)),
-        "空闲 animation driver 不得持续请求 GPUI 下一帧"
+        default_wakeup,
+        AnimationWakeup::Timer(Duration::from_millis(250)),
+        "默认配置不得继续使用 250ms 闲时巡检，否则可能让新动画错过平滑启动"
     );
 }
 
@@ -80,8 +87,8 @@ fn test_animation_schedule_uses_next_frame_for_visible_active_canvas() {
         ..active_canvas
     };
 
-    let active_wakeup = AnimationSchedule::next_wakeup(active_canvas);
-    let boundary_wakeup = AnimationSchedule::next_wakeup(boundary_canvas);
+    let active_wakeup = AnimationSchedule::next_wakeup(active_canvas, false);
+    let boundary_wakeup = AnimationSchedule::next_wakeup(boundary_canvas, false);
 
     assert_eq!(
         active_wakeup,
@@ -139,9 +146,9 @@ fn test_animation_schedule_keeps_exposed_canvas_motion_on_next_frame_while_setti
         ..voice_with_occluded_canvas
     };
 
-    let voice_wakeup = AnimationSchedule::next_wakeup(voice_with_occluded_canvas);
-    let settings_canvas_wakeup = AnimationSchedule::next_wakeup(settings_canvas_only);
-    let background_canvas_wakeup = AnimationSchedule::next_wakeup(background_canvas_only);
+    let voice_wakeup = AnimationSchedule::next_wakeup(voice_with_occluded_canvas, true);
+    let settings_canvas_wakeup = AnimationSchedule::next_wakeup(settings_canvas_only, true);
+    let background_canvas_wakeup = AnimationSchedule::next_wakeup(background_canvas_only, true);
 
     assert_eq!(
         voice_wakeup,
@@ -204,8 +211,10 @@ fn test_dispatch_effect_activity_drives_next_frame_then_returns_idle() {
         settings_open: false,
         next_visual_boundary: None,
     };
-    let active_wakeup =
-        AnimationSchedule::next_wakeup(visible_activity(motion.activity_summary().canvas_active));
+    let active_wakeup = AnimationSchedule::next_wakeup(
+        visible_activity(motion.activity_summary().canvas_active),
+        true,
+    );
 
     // flight = 480ms = 9 × 50ms + 30ms；单次推进不超过 50ms clamp。
     for _ in 0..9 {
@@ -217,8 +226,10 @@ fn test_dispatch_effect_activity_drives_next_frame_then_returns_idle() {
         motion.tick(Duration::from_millis(50));
     }
     motion.tick(Duration::from_millis(30));
-    let idle_wakeup =
-        AnimationSchedule::next_wakeup(visible_activity(motion.activity_summary().canvas_active));
+    let idle_wakeup = AnimationSchedule::next_wakeup(
+        visible_activity(motion.activity_summary().canvas_active),
+        true,
+    );
 
     assert_eq!(
         active_wakeup,

@@ -6,7 +6,6 @@ use futures::future::BoxFuture;
 use serde_json::json;
 use std::sync::{Arc, Mutex};
 use tokio_util::sync::CancellationToken;
-
 #[derive(Default)]
 struct RecordingAdapter {
     commands: Mutex<Vec<AdapterCommand>>,
@@ -169,6 +168,7 @@ async fn assign_agent_task_executes_immediately_without_confirmation() {
         project_id: "project-1".to_string(),
         turn_id: "turn-7".to_string(),
         user_input: "Alan，请检查当前项目有哪些技术栈。".to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-2".to_string(),
         operation_id: Some("turn-7:call-2".to_string()),
@@ -245,6 +245,7 @@ async fn unknown_operation_receipt_is_idempotent_and_never_replayed() {
         project_id: "project-1".to_string(),
         turn_id: "turn-9".to_string(),
         user_input: "创建一个 Terminal".to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".to_string(),
         operation_id: Some("turn-9:call-1".to_string()),
@@ -306,6 +307,7 @@ async fn delete_canvas_card_requires_explicit_user_intent() {
         project_id: "project-1".to_string(),
         turn_id: "turn-10".to_string(),
         user_input: "整理一下画布".to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".to_string(),
         operation_id: Some("turn-10:call-1".to_string()),
@@ -334,6 +336,7 @@ async fn delete_canvas_card_requires_explicit_user_intent() {
         project_id: "project-1".to_string(),
         turn_id: "turn-11".to_string(),
         user_input: "不要删除卡片 #12，只整理画布".to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".to_string(),
         operation_id: Some("turn-11:call-1".to_string()),
@@ -361,6 +364,7 @@ async fn delete_canvas_card_requires_explicit_user_intent() {
         project_id: "project-1".to_string(),
         turn_id: "turn-12".to_string(),
         user_input: "千万别关掉卡片 #12".to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".to_string(),
         operation_id: Some("turn-12:call-1".to_string()),
@@ -388,6 +392,7 @@ async fn delete_canvas_card_requires_explicit_user_intent() {
         project_id: "project-1".to_string(),
         turn_id: "turn-13".to_string(),
         user_input: "删除卡片 #12".to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".to_string(),
         operation_id: Some("turn-13:call-1".to_string()),
@@ -436,6 +441,7 @@ async fn delete_canvas_card_binds_exact_node_or_actual_context_target() {
         project_id: "project-1".to_string(),
         turn_id: turn.to_string(),
         user_input: input.to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: targets,
         tool_call_id: "call-1".to_string(),
         operation_id: Some(format!("{turn}:call-1")),

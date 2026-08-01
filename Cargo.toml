@@ -23,7 +23,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-version = "0.1.50"
+version = "0.1.53"
 license = "MIT"
 
 # 版本钉死见 Global Constraints。gpui/alacritty_terminal 精确 pin。
@@ -89,6 +89,12 @@ sherpa-onnx-sys = { path = "vendor/sherpa-onnx-sys-1.13.3" }
 
 [profile.dev]
 opt-level = 1          # gpui/alacritty 在 opt-level=0 下交互偏卡，地基级折中
+debug = "line-tables-only"
 
 [profile.dev.package."*"]
 opt-level = 2          # 依赖库始终优化，加快本地迭代
+debug = false
+
+[profile.debugging]
+inherits = "dev"
+debug = true

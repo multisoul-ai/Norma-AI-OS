@@ -86,7 +86,8 @@ fn e2e_03_voice_modes_and_shared_model_catalog_are_clickable() {
 /// = 420 - 2×12 = 396px，必须使用 `settings-navigation-topbar`。先向左横滚 360px，
 /// 将 Input & Controls 的 Voice 入口移入可点击范围；向上滚动 220px，可把
 /// Continuous Listening 移入 140px 高的内容区。Wallpaper 是 Appearance 的首个顶栏入口，
-/// 向右横滚 360px 后重新可点；最后再向左横滚 640px 到达 Orchestration。
+/// 向右横滚 360px 后重新可点；Performance 新增一个 132px 入口与 5px 间距，
+/// 因此末组所需横滚量 ≈ 旧 640px + 132px + 5px = 777px，取 800px 到达 Orchestration。
 /// 执行过程：resize → 打开 Settings → 确认顶栏 → 横滚并切到 Voice → 滚动内容露出
 /// Continuous Listening → 选择该模式并继续滚动内容 → 横滚回首组并点击 Wallpaper →
 /// 顶栏横向滚动至末组 → 点击 Orchestration。
@@ -133,7 +134,9 @@ fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
         wallpaper
     );
 
-    scroll_debug_horizontal(cx, "settings-navigation-topbar", -640.0);
+    // required ≈ previous 640px + Performance item 132px + gap 5px = 777px；
+    // 使用 800px 留出 23px 命中余量，并由滚动容器在末端自动钳制。
+    scroll_debug_horizontal(cx, "settings-navigation-topbar", -800.0);
     click_debug(cx, "settings-section-orchestration");
     let orchestration = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(

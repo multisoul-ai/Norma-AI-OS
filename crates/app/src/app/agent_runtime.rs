@@ -1,11 +1,14 @@
 use crate::app::MultisoulApp;
-use agent::{AdapterCommand, AdapterError, AdapterResult, AgentCommand, AgentEvent};
+use agent::{
+    AdapterCommand, AdapterError, AdapterResult, AgentCommand, AgentEvent, AgentInputSource,
+};
 use futures::future::BoxFuture;
 use gpui::{Context, Window};
-use norma::protocol::{AgentTaskAssignment, CardCommand, CardCommandResult, CardKind, Placement};
+use norma::protocol::{CardCommand, CardCommandResult, CardKind, Placement};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
+mod adapter_task;
 mod artifacts;
 mod command_protocol;
 mod command_support;
@@ -268,7 +271,10 @@ async fn run_project_agent(
                     }
                 }
             }
-            AgentCommand::UserTurn(input) => {
+            AgentCommand::UserTurn {
+                input,
+                input_source,
+            } => {
                 if let Some(message) = model_switch_error.take() {
                     let _ = events
                         .send(AgentEvent::ProviderError {
@@ -286,6 +292,7 @@ async fn run_project_agent(
                 spawn_turn(
                     &turn_runtime,
                     input,
+                    input_source,
                     context,
                     roster,
                     request.response,
@@ -302,6 +309,7 @@ async fn run_project_agent(
                 spawn_turn(
                     &turn_runtime,
                     format!("取消 Agent 任务 #{task_id}"),
+                    AgentInputSource::Other,
                     canvas.clone(),
                     roster.clone(),
                     request.response,
@@ -318,6 +326,7 @@ async fn run_project_agent(
                 spawn_turn(
                     &turn_runtime,
                     prompt,
+                    AgentInputSource::Other,
                     canvas.clone(),
                     roster.clone(),
                     request.response,
@@ -341,6 +350,7 @@ async fn run_project_agent(
 fn spawn_turn(
     runtime: &TurnRuntime,
     input: String,
+    input_source: AgentInputSource,
     canvas: Option<agent::CurrentCanvasContext>,
     roster: Vec<agent::AgentRosterEntry>,
     response: async_channel::Sender<Result<Vec<AgentEvent>, String>>,
@@ -382,7 +392,9 @@ fn spawn_turn(
                     let _ = live_events.send(event).await;
                 }
             });
-            let result = session.turn_streaming(&input, delta_tx.clone()).await;
+            let result = session
+                .turn_streaming(&input, delta_tx.clone(), input_source)
+                .await;
             drop(delta_tx);
             let _ = delta_forwarder.await;
             watcher.abort();

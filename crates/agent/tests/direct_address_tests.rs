@@ -1,7 +1,7 @@
 use agent::{
     parse_direct_address, AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter,
-    AgentRosterEntry, AgentTaskState, AgentTrackingMode, CurrentCanvasContext, DirectAddressIntent,
-    NormaSession, ProviderConfig, ProviderProtocol, ToolContext,
+    AgentInputSource, AgentRosterEntry, AgentTaskState, AgentTrackingMode, CurrentCanvasContext,
+    DirectAddressIntent, NormaSession, ProviderConfig, ProviderProtocol, ToolContext,
 };
 use futures::future::BoxFuture;
 use norma::protocol::AgentProfile;
@@ -10,19 +10,24 @@ use std::sync::{Arc, Mutex};
 #[derive(Default)]
 struct RecordingAdapter {
     commands: Mutex<Vec<AdapterCommand>>,
+    input_sources: Mutex<Vec<AgentInputSource>>,
 }
 
 impl AgentCardAdapter for RecordingAdapter {
     fn execute<'a>(
         &'a self,
         command: AdapterCommand,
-        _context: &'a ToolContext,
+        context: &'a ToolContext,
     ) -> BoxFuture<'a, Result<AdapterResult, AdapterError>> {
         Box::pin(async move {
             self.commands
                 .lock()
                 .expect("直接寻址测试的 Adapter 记录锁不应被毒化")
                 .push(command);
+            self.input_sources
+                .lock()
+                .expect("直接寻址测试的来源记录锁不应被毒化")
+                .push(context.input_source);
             Ok(AdapterResult::accepted("Alan 已接收新任务").with_task_id(71))
         })
     }
@@ -191,6 +196,89 @@ async fn norma_session_assigns_ended_agent_instead_of_replying() {
             .iter()
             .any(|command| matches!(command, AdapterCommand::ReplyAgent { .. })),
         "Ended AgentCard 不得调用 ReplyAgent，否则消息会卡在不可消费的队列中"
+    );
+}
+
+/// 语音直接续聊必须把 Voice 来源完整传到真实 reply_agent Adapter 上下文。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Agent definitions = 1（Alan）；
+///   active AgentCard   = 1（node_id=11，状态 Ready）；
+///   streamed turns     = 1（source=Voice）；
+///   expected commands  = 1（ReplyAgent）- 0（AssignAgentTask）= 1。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建无需联网的 NormaSession，并注入已有 Alan AgentCard 的 roster。
+///   2. 以 AgentInputSource::Voice 执行一次流式直接寻址续聊。
+///   3. RecordingAdapter 分别读取实际命令与 ToolContext.input_source。
+///
+/// 预期结果：
+///   - 正断言：唯一命令为 Alan 的 ReplyAgent，唯一来源为 Voice。
+///   - 负断言：不得退化成 AssignAgentTask，也不得把 Voice 丢失为 Other。
+#[tokio::test]
+async fn voice_streaming_turn_preserves_source_through_direct_reply_adapter() {
+    let adapter = Arc::new(RecordingAdapter::default());
+    let config = ProviderConfig::new(
+        ProviderProtocol::OpenAiCompatible,
+        "https://provider.example/v1",
+        "test-model",
+        Some("test-key".to_string()),
+    );
+    let mut session = NormaSession::new("project-a", &config, adapter.clone())
+        .expect("合法 ProviderConfig 应创建无需联网的 NormaSession");
+    session.update_environment(
+        CurrentCanvasContext {
+            project_name: "project-a".to_string(),
+            workspace_root: "/workspace/project-a".to_string(),
+            total_cards: 1,
+            cards: Vec::new(),
+            conversation_tails: Vec::new(),
+        },
+        vec![alan(true)],
+    );
+    let (delta_tx, _delta_rx) = tokio::sync::mpsc::channel(1);
+
+    let result = session
+        .turn_streaming("Alan，按照 A 方案执行", delta_tx, AgentInputSource::Voice)
+        .await
+        .expect("语音直接续聊应在不访问模型网络时被确定性处理");
+    let commands = adapter
+        .commands
+        .lock()
+        .expect("直接寻址测试的 Adapter 记录锁不应被毒化")
+        .clone();
+    let input_sources = adapter
+        .input_sources
+        .lock()
+        .expect("直接寻址测试的来源记录锁不应被毒化")
+        .clone();
+
+    assert_eq!(
+        result.tool_calls, 0,
+        "确定性语音直接续聊不应进入 Rig 模型工具循环"
+    );
+    assert_eq!(
+        commands,
+        vec![AdapterCommand::ReplyAgent {
+            agent: "Alan".to_string(),
+            message: "按照 A 方案执行".to_string(),
+        }],
+        "语音续聊必须只下发一次 ReplyAgent，并完整保留目标与正文"
+    );
+    assert!(
+        !commands
+            .iter()
+            .any(|command| matches!(command, AdapterCommand::AssignAgentTask { .. })),
+        "已有 Ready AgentCard 的语音续聊不得改变为新任务派发"
+    );
+    assert_eq!(
+        input_sources,
+        vec![AgentInputSource::Voice],
+        "语音来源必须穿透 NormaSession 和 ToolContext 到达 Adapter"
+    );
+    assert!(
+        !input_sources.contains(&AgentInputSource::Other),
+        "语音续聊不得在异步 ToolContext 传递中退化成 Other 来源"
     );
 }
 

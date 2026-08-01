@@ -97,12 +97,20 @@ impl MultisoulApp {
                                     true,
                                 )
                                 .id("launchpad-open-project")
+                                .debug_selector(|| "launchpad-open-project".to_string())
                                 .on_click(cx.listener(Self::on_launchpad_open_project)),
                             )
                             .child(
-                                action_card(theme, "↓", "Clone Repo", "Remote setup soon", false)
-                                    .id("launchpad-clone-repo")
-                                    .on_click(cx.listener(Self::on_launchpad_clone_todo)),
+                                action_card(
+                                    theme,
+                                    "↓",
+                                    "Clone Repo",
+                                    "HTTPS or SSH from GitHub",
+                                    true,
+                                )
+                                .id("launchpad-clone-repo")
+                                .debug_selector(|| "launchpad-clone-repo".to_string())
+                                .on_click(cx.listener(Self::on_launchpad_clone_project)),
                             ),
                     )
                     .child(self.render_recent_projects(theme, cx)),
@@ -118,14 +126,13 @@ impl MultisoulApp {
         self.prompt_open_project(window, cx);
     }
 
-    fn on_launchpad_clone_todo(
+    fn on_launchpad_clone_project(
         &mut self,
         _: &ClickEvent,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.workspace_state.mark_clone_todo();
-        cx.notify();
+        self.open_clone_project_dialog(window, cx);
     }
 }
 

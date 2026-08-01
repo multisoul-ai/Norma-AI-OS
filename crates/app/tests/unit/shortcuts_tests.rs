@@ -316,8 +316,12 @@ fn test_shortcut_validation_rejects_duplicates_reserved_inputs_and_bare_printabl
         "cmd-e 已被 VoiceInteraction 占用，不应允许重复分配"
     );
     assert!(
-        validate_shortcut_change(ShortcutCommandId::VoiceInteraction, "cmd-shift-e", &effective)
-            .is_ok(),
+        validate_shortcut_change(
+            ShortcutCommandId::VoiceInteraction,
+            "cmd-shift-e",
+            &effective
+        )
+        .is_ok(),
         "Voice Interaction 应允许改成未被占用的 cmd-shift-e"
     );
     assert!(

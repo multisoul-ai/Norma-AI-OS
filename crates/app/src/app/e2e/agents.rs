@@ -123,6 +123,23 @@ impl MultisoulApp {
     }
 
     #[cfg(feature = "e2e-test-support")]
+    pub fn execute_voice_norma_adapter_command_for_e2e(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        command: agent::AdapterCommand,
+    ) -> Result<agent::AdapterResult, String> {
+        crate::app::agent_runtime::execute_norma_adapter_command_with_source(
+            self,
+            window,
+            cx,
+            command,
+            agent::AgentInputSource::Voice,
+        )
+        .map_err(|error| error.to_string())
+    }
+
+    #[cfg(feature = "e2e-test-support")]
     pub fn enqueue_agent_hook_event_for_e2e(
         &self,
         event: norma::agent_hook::AgentHookEvent,

@@ -197,7 +197,9 @@ async fn run_streamed_turn(
         }
         chunks
     });
-    let result = session.turn_streaming(input, deltas.clone()).await?;
+    let result = session
+        .turn_streaming(input, deltas.clone(), agent::AgentInputSource::Other)
+        .await?;
     drop(deltas);
     let chunks = collector
         .await

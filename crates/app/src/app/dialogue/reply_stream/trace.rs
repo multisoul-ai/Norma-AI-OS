@@ -145,7 +145,28 @@ pub(super) fn pcm_received(
     chunk: &QueuedPlaybackChunk,
     stream_elapsed: Duration,
 ) {
-    tracing::info!(
+    if chunk.chunk_sequence == 0 {
+        tracing::info!(
+            target: "norma_voice",
+            reply_generation,
+            tts_request_sequence = chunk.tts_request_sequence,
+            chunk_sequence = chunk.chunk_sequence,
+            pcm_bytes = chunk.pcm.bytes.len(),
+            sample_rate_hz = chunk.pcm.sample_rate_hz,
+            channels = chunk.pcm.channels,
+            pcm_fingerprint = format_args!("{:016x}", chunk.pcm_fingerprint),
+            stream_elapsed_ms = stream_elapsed.as_millis(),
+            first_pcm = true,
+            phase = "pcm_received",
+            "{TTS_TRACE_MARKER} TTS PCM chunk received"
+        );
+        return;
+    }
+
+    // Streaming providers can deliver hundreds of small PCM chunks in one burst. Keep the first
+    // chunk at INFO for time-to-first-audio diagnostics, but require opt-in TRACE for later chunks
+    // so the default daily log does not turn this audio hot path into a disk-write hot path.
+    tracing::trace!(
         target: "norma_voice",
         reply_generation,
         tts_request_sequence = chunk.tts_request_sequence,
@@ -155,7 +176,7 @@ pub(super) fn pcm_received(
         channels = chunk.pcm.channels,
         pcm_fingerprint = format_args!("{:016x}", chunk.pcm_fingerprint),
         stream_elapsed_ms = stream_elapsed.as_millis(),
-        first_pcm = chunk.chunk_sequence == 0,
+        first_pcm = false,
         phase = "pcm_received",
         "{TTS_TRACE_MARKER} TTS PCM chunk received"
     );
@@ -209,3 +230,7 @@ pub(super) fn playback_finished(
         "{TTS_TRACE_MARKER} playback backend finished PCM chunk"
     );
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/reply_stream_trace_tests.rs"]
+mod tests;

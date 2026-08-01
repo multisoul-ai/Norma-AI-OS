@@ -1,9 +1,9 @@
 //! macOS 原生菜单栏的信息架构：先用纯描述表达产品层级，再转换为 GPUI `Menu`。
 
 use crate::app::{
-    CopyCardContent, NewBrowser, NewClaudeAgent, NewCodexAgent, NewCursorAgent, NewGrokAgent,
-    NewOpenCodeAgent, NewTerminal, NewWindow, OpenPreviewFile, OpenProject, QuitNormaOs,
-    ReflowLayout, ToggleMasterLayout, ToggleSettings,
+    CloneProject, CopyCardContent, NewBrowser, NewClaudeAgent, NewCodexAgent, NewCursorAgent,
+    NewGrokAgent, NewOpenCodeAgent, NewTerminal, NewWindow, OpenPreviewFile, OpenProject,
+    QuitNormaOs, ReflowLayout, ToggleMasterLayout, ToggleSettings,
 };
 use gpui::{Menu, MenuItem, SystemMenuType};
 
@@ -41,6 +41,7 @@ pub(crate) enum MenuAction {
     NewGrokAgent,
     NewOpenCodeAgent,
     OpenProject,
+    CloneProject,
     CopyCardContent,
     ReflowLayout,
     ToggleMasterLayout,
@@ -80,6 +81,7 @@ pub(crate) fn menu_bar_spec() -> Vec<MenuSpec> {
                 },
                 MenuItemSpec::Separator,
                 action("Open Project…", MenuAction::OpenProject),
+                action("Clone GitHub Repository…", MenuAction::CloneProject),
             ],
         },
         MenuSpec {
@@ -137,6 +139,7 @@ fn action_item(label: &'static str, action: MenuAction) -> MenuItem {
         MenuAction::NewGrokAgent => MenuItem::action(label, NewGrokAgent),
         MenuAction::NewOpenCodeAgent => MenuItem::action(label, NewOpenCodeAgent),
         MenuAction::OpenProject => MenuItem::action(label, OpenProject),
+        MenuAction::CloneProject => MenuItem::action(label, CloneProject),
         MenuAction::CopyCardContent => MenuItem::action(label, CopyCardContent),
         MenuAction::ReflowLayout => MenuItem::action(label, ReflowLayout),
         MenuAction::ToggleMasterLayout => MenuItem::action(label, ToggleMasterLayout),

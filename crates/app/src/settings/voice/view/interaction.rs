@@ -54,7 +54,12 @@ pub(super) fn interaction_group(
                 ),
         ))
         .when(mode == VoiceInteractionMode::SingleVoiceCommand, |group| {
-            group.child(dictation_trigger_row(theme, state, voice_shortcut_label, cx))
+            group.child(dictation_trigger_row(
+                theme,
+                state,
+                voice_shortcut_label,
+                cx,
+            ))
         })
 }
 
@@ -98,12 +103,7 @@ fn dictation_trigger_row(
     )
 }
 
-fn compact_interaction_row(
-    theme: Theme,
-    title: &'static str,
-    hint: String,
-    control: Div,
-) -> Div {
+fn compact_interaction_row(theme: Theme, title: &'static str, hint: String, control: Div) -> Div {
     div()
         .w_full()
         .min_w(px(0.0))

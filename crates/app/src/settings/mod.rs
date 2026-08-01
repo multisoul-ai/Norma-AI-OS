@@ -4,6 +4,7 @@ mod appearance;
 pub(crate) mod orchestration;
 pub(crate) mod panel;
 mod panel_lifecycle;
+pub(crate) mod performance;
 mod theme_selection;
 pub(crate) use theme_selection::ThemeSettingsState;
 pub(crate) mod voice;

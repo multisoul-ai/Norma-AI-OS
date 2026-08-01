@@ -359,16 +359,15 @@ fn test_master_layout_delete_detail_keeps_master_active_and_reflows_details() {
         "进入 master 布局应成功，供删除 detail 场景使用"
     );
 
-    let removed =
-        close_node_and_update_layout_for_area(
-            &mut runtime,
-            &mut motion,
-            &mut state,
-            c,
-            area,
-            zoom,
-            CanvasLayoutStrategy::default(),
-        );
+    let removed = close_node_and_update_layout_for_area(
+        &mut runtime,
+        &mut motion,
+        &mut state,
+        c,
+        area,
+        zoom,
+        CanvasLayoutStrategy::default(),
+    );
     let expected =
         compute_master_detail_layout(&[a, b, d], b, area, workspace_reflow_config_for_zoom(zoom));
 
@@ -437,16 +436,15 @@ fn test_master_layout_delete_master_exits_and_reflows_remaining_cards() {
         "进入 master 布局应成功，供删除 master 场景使用"
     );
 
-    let removed =
-        close_node_and_update_layout_for_area(
-            &mut runtime,
-            &mut motion,
-            &mut state,
-            b,
-            area,
-            zoom,
-            CanvasLayoutStrategy::default(),
-        );
+    let removed = close_node_and_update_layout_for_area(
+        &mut runtime,
+        &mut motion,
+        &mut state,
+        b,
+        area,
+        zoom,
+        CanvasLayoutStrategy::default(),
+    );
     let expected = compute_configurable_grid_layout(
         &[a, c],
         area,

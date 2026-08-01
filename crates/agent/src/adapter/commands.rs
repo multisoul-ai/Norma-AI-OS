@@ -17,6 +17,7 @@ struct FindAgentTasksArgs {
 #[serde(deny_unknown_fields)]
 struct CreateAgentArgs {
     profile: String,
+    task: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -130,7 +131,10 @@ pub(super) fn parse_adapter_command(
                     )));
                 }
             };
-            Ok(AdapterCommand::CreateAgent { profile })
+            Ok(AdapterCommand::CreateAgent {
+                profile,
+                task: clean_optional(args.task),
+            })
         }
         "assign_agent_task" => {
             let args: AssignAgentTaskArgs = parse(arguments)?;

@@ -95,10 +95,10 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    pub(crate) fn on_agent_settings_begin_card_edit(
+    pub(crate) fn on_agent_settings_begin_detail_edit(
         &mut self,
         id: i64,
-        _: &MouseDownEvent,
+        _: &ClickEvent,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {

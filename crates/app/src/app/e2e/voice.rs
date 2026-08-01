@@ -93,6 +93,12 @@ impl MultisoulApp {
             .expect("E2E assistant reply fixture must transition Thinking to Speaking");
     }
 
+    pub fn finish_voice_reply_for_e2e(&mut self) {
+        self.dialogue
+            .session
+            .on_playback_finished_or_interrupted(false);
+    }
+
     pub fn show_single_voice_turn_error_for_e2e(&mut self, message: impl Into<String>) {
         let _ = self
             .dialogue

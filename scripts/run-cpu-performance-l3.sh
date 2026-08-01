@@ -468,9 +468,11 @@ fi
 } >"$metadata_file"
 
 log_file="$run_home/.norma/logs/norma-os.$(date +%F).log"
+perf_log_args=()
 if [ "$launch_mode" = "existing-pid" ]; then
   printf 'diagnostics_log=unverified_existing_pid\n' >"$diagnostics_summary"
 elif [ -f "$log_file" ]; then
+  perf_log_args=(--perf-log "$log_file")
   cp "$log_file" "$run_directory/frame-diagnostics.log"
   count_log_matches() {
     local pattern=$1
@@ -484,8 +486,13 @@ elif [ -f "$log_file" ]; then
     printf 'canvas_renders=%s\n' "$(count_log_matches 'canvas_render')"
     printf 'motion_samples=%s\n' "$(count_log_matches 'motion_sample')"
     printf 'repaint_summary_samples=%s\n' "$(count_log_matches 'frame_repaint_summary')"
+    printf 'norma_perf_summary_samples=%s\n' "$(count_log_matches 'cpu_performance_summary')"
+    printf 'norma_perf_high_cpu_diagnostics=%s\n' \
+      "$(count_log_matches 'cpu_high_diagnostic_written')"
     printf 'last_repaint_summary=%s\n' \
       "$(rg 'frame_repaint_summary' "$log_file" | tail -1 || true)"
+    printf 'last_norma_perf_summary=%s\n' \
+      "$(rg 'cpu_performance_summary' "$log_file" | tail -1 || true)"
   } >"$diagnostics_summary"
 else
   printf 'diagnostics_log=missing\n' >"$diagnostics_summary"
@@ -494,6 +501,7 @@ fi
 python3 "$gate_script" summarize \
   --app-csv "$app_cpu_csv" \
   --window-server-csv "$window_server_cpu_csv" \
+  "${perf_log_args[@]}" \
   --output "$summary_json" \
   --stage "$mode" \
   --scenario "$scenario" \

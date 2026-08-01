@@ -12,15 +12,15 @@ use crate::motion::MotionStore;
 use canvas::{CanvasNodeKind, CanvasRect, NodeType};
 use gpui::{Context, Window};
 use norma::protocol::{
-    AgentErrorCode, CardCommand, CardCommandError, CardCommandResult, CardKind, NodeId,
-    Placement, WireRequest, WireResponse,
+    AgentErrorCode, CardCommand, CardCommandError, CardCommandResult, CardKind, NodeId, Placement,
+    WireRequest, WireResponse,
 };
 use runtime::{NodeInput, Runtime, DEFAULT_TERMINAL_SHELL};
 use std::time::Instant;
 
 mod conversion;
-mod layout;
 mod effects;
+mod layout;
 mod orchestration;
 mod presentation;
 mod transport;
@@ -250,21 +250,25 @@ pub(crate) fn execute_card_command_for_area_with_strategy(
     zoom: f32,
 ) -> Result<NormaExecution, CardCommandError> {
     match command {
-        CardCommand::Create { kind, placement } => {
-            create_card(
-                runtime,
-                motion,
-                master_layout,
-                strategy,
-                kind,
-                placement,
-                area,
-                zoom,
-            )
-        }
-        CardCommand::Delete { node_id } => {
-            delete_card(runtime, motion, master_layout, strategy, node_id, area, zoom)
-        }
+        CardCommand::Create { kind, placement } => create_card(
+            runtime,
+            motion,
+            master_layout,
+            strategy,
+            kind,
+            placement,
+            area,
+            zoom,
+        ),
+        CardCommand::Delete { node_id } => delete_card(
+            runtime,
+            motion,
+            master_layout,
+            strategy,
+            node_id,
+            area,
+            zoom,
+        ),
         CardCommand::Present { target, create_new } => {
             presentation::execute_presentation_command_for_area(
                 runtime,
@@ -318,7 +322,13 @@ fn create_card(
     area: CanvasRect,
     zoom: f32,
 ) -> Result<NormaExecution, CardCommandError> {
-    let bounds = resolve_bounds(placement, area, zoom, strategy, runtime.document.nodes().len());
+    let bounds = resolve_bounds(
+        placement,
+        area,
+        zoom,
+        strategy,
+        runtime.document.nodes().len(),
+    );
     match kind {
         CardKind::Terminal { shell } => {
             let shell = shell.unwrap_or_else(|| DEFAULT_TERMINAL_SHELL.to_string());

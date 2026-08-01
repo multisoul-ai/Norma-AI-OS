@@ -24,7 +24,10 @@ pub(super) enum AnimationWakeup {
 }
 
 impl AnimationSchedule {
-    pub(super) fn next_wakeup(activity: AnimationActivity) -> AnimationWakeup {
+    pub(super) fn next_wakeup(
+        activity: AnimationActivity,
+        idle_animation_throttling_enabled: bool,
+    ) -> AnimationWakeup {
         if activity.voice_active {
             return AnimationWakeup::NextFrame(VOICE_ANIMATION_INTERVAL);
         }
@@ -43,7 +46,15 @@ impl AnimationSchedule {
                 });
             AnimationWakeup::NextFrame(cadence)
         } else {
-            AnimationWakeup::Timer(IDLE_ANIMATION_INTERVAL)
+            AnimationWakeup::Timer(Self::idle_timer_interval(idle_animation_throttling_enabled))
+        }
+    }
+
+    pub(super) fn idle_timer_interval(idle_animation_throttling_enabled: bool) -> Duration {
+        if idle_animation_throttling_enabled {
+            IDLE_ANIMATION_INTERVAL
+        } else {
+            ACTIVE_CANVAS_INTERVAL
         }
     }
 }

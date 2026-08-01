@@ -74,10 +74,6 @@ impl WorkspaceState {
             }
         }
     }
-
-    pub fn mark_clone_todo(&mut self) {
-        self.error = Some("Clone Repo will be implemented in the next workspace iteration.".into());
-    }
 }
 
 #[cfg(test)]

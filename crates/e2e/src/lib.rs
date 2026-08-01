@@ -50,6 +50,7 @@ mod e2e_02_real_pty;
 mod e2e_03_api_key_visibility;
 mod e2e_03_azure_asr_settings;
 mod e2e_03_orchestration_settings;
+mod e2e_03_performance_settings;
 mod e2e_03_settings_clicks;
 mod e2e_03_settings_navigation;
 mod e2e_03_theme_switching;
@@ -100,6 +101,7 @@ mod e2e_11_launchpad_video;
 mod e2e_12_agent_presentation;
 mod e2e_12_agent_queue_ui;
 mod e2e_12_agent_settings_ime;
+mod e2e_12_agent_settings_master_detail;
 mod e2e_12_agent_submit;
 mod e2e_12_agent_submit_l3;
 mod e2e_12_dispatch_receipt_effect;
@@ -110,6 +112,7 @@ mod e2e_12_session_reply;
 mod e2e_12_session_reply_card_present;
 mod e2e_12_session_reply_queue;
 mod e2e_12_voice_addressable_agents;
+mod e2e_12_voice_handoff_effect;
 
 // Agent/terminal 输出链接：点击后新建 Browser 并仅在该路径进入 master/detail 布局。
 mod e2e_13_terminal_links;
@@ -138,6 +141,7 @@ mod e2e_19_terminal_repaint_coalescing;
 
 // Open Project：原生选择结果返回后必须从组件 Root 窗口进入所选项目。
 mod e2e_20_project_picker;
+mod e2e_21_github_clone;
 
 // Ego Lite：画布入口、外部窗口卡片、单实例复用和忙碌任务关闭守卫。
 mod e2e_21_ego_card;

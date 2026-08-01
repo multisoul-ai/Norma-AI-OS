@@ -7,7 +7,7 @@ use norma::protocol::AgentProfile;
 /// 数据构造（含关键数值的推导过程）：
 ///   roster updates = 1：Bella/Claude
 ///   canvas updates = 1：workspace=/workspace/norma，cards=0
-///   user commands  = 1：“Bella 搜索当前项目”
+///   user commands  = 1：“Bella 搜索当前项目”，source=Voice
 ///   total commands = 1 + 1 + 1 = 3
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -16,7 +16,7 @@ use norma::protocol::AgentProfile;
 ///   3. 核对最后一个命令前的上下文更新顺序
 ///
 /// 预期结果：
-///   - 正断言：第 1/2/3 项依次为 roster、canvas context、UserTurn
+///   - 正断言：第 1/2/3 项依次为 roster、canvas context、Voice UserTurn
 ///   - 负断言：不得缺失画布上下文或把 UserTurn 放在上下文更新之前
 #[test]
 fn production_agent_command_batch_updates_context_before_user_turn() {
@@ -42,7 +42,10 @@ fn production_agent_command_batch_updates_context_before_user_turn() {
     let commands = contextualized_agent_commands(
         roster.clone(),
         Some(context.clone()),
-        AgentCommand::UserTurn("Bella 搜索当前项目".to_string()),
+        AgentCommand::UserTurn {
+            input: "Bella 搜索当前项目".to_string(),
+            input_source: agent::AgentInputSource::Voice,
+        },
     );
 
     assert_eq!(commands.len(), 3, "完整生产提交批次应恰好包含 3 条命令");
@@ -58,12 +61,15 @@ fn production_agent_command_batch_updates_context_before_user_turn() {
     );
     assert_eq!(
         commands[2],
-        AgentCommand::UserTurn("Bella 搜索当前项目".to_string()),
-        "UserTurn 必须排在两项上下文更新之后"
+        AgentCommand::UserTurn {
+            input: "Bella 搜索当前项目".to_string(),
+            input_source: agent::AgentInputSource::Voice,
+        },
+        "Voice UserTurn 必须连同来源排在两项上下文更新之后"
     );
     assert!(
-        !matches!(commands[0], AgentCommand::UserTurn(_))
-            && !matches!(commands[1], AgentCommand::UserTurn(_)),
+        !matches!(commands[0], AgentCommand::UserTurn { .. })
+            && !matches!(commands[1], AgentCommand::UserTurn { .. }),
         "上下文更新完成前不得提前发送 UserTurn"
     );
 }

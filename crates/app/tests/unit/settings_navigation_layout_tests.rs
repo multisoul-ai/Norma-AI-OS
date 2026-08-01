@@ -34,10 +34,10 @@ fn sidebar_groups_follow_canonical_twenty_three_point_five_pixel_rhythm() {
     );
 }
 
-/// Canonical 导航行高：六个可见入口必须保持 39px 行高，避免累计纵向漂移。
+/// Canonical 导航行高：七个可见入口必须保持 39px 行高，避免累计纵向漂移。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   visible rows = 6
+///   visible rows = 7
 ///   canonical row height = 39px
 ///   rows before Orchestration = 5
 ///   旧高度累计偏移 = 5 × (39 - 38) = 5px

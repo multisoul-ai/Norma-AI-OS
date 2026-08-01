@@ -32,6 +32,7 @@ fn tool_context(turn: &str, input: &str) -> ToolContext {
         project_id: "project-1".to_string(),
         turn_id: turn.to_string(),
         user_input: input.to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".to_string(),
         operation_id: Some(format!("{turn}:call-1")),

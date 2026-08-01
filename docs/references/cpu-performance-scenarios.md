@@ -12,7 +12,11 @@ The runner is [`scripts/run-cpu-performance-l3.sh`](../../scripts/run-cpu-perfor
 - Absolute reference targets:
   - `idle-seven-cards`: app median CPU below 5%.
   - `background-seven-cards`: app median CPU below 2%.
-  - `two-active-terminals` and the manual `two-active-codex` scene: app median CPU below 20%.
+  - `one-active-terminal`, `two-active-terminals`, and the manual `two-active-codex` scene:
+    app median CPU below 20%.
+- Packaged-app runs also parse the app's ten-second `target=norma_perf` summaries. The result
+  filters by the expected state, applies the same strict absolute CPU threshold, and records
+  memory peak, wakeups, repaint and render medians beside CPU so a spike can be correlated.
 - A performance pass never replaces Runtime/app/e2e tests or the real-app interaction checklist.
 
 The comparison gate rejects different scenario names, host identities, durations, node counts,
@@ -111,5 +115,8 @@ bash scripts/run-cpu-performance-l3.sh compare \
 ```
 
 Every run writes raw CSV, metadata, summarized diagnostics, a stack sample, and `summary.json`
-under `artifacts/performance/cpu-p0-p1/<timestamp>-<stage>-<scenario>/`. Artifacts are evidence
-and are not committed.
+under `artifacts/performance/cpu-p0-p1/<timestamp>-<stage>-<scenario>/`. For runner-launched
+apps, `summary.json` contains both the external `ps` samples and the internal `norma_perf`
+state/resource correlation. The app keeps one-second samples only in a 120-entry memory ring;
+five consecutive samples at or above the current state's threshold write one JSON capture to
+`~/.norma/diagnostics/performance/`. Artifacts are evidence and are not committed.

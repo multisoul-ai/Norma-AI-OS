@@ -45,6 +45,7 @@ impl WorkspaceWindowRegistry {
 pub(crate) enum InitialWindowState {
     Launchpad,
     Workspace(PathBuf),
+    ClonedWorkspace(PathBuf),
 }
 
 struct OpenedMultisoulWindow {
@@ -67,11 +68,26 @@ fn open_multisoul_window(
         let app = cx.new(|cx| {
             let mut app = MultisoulApp::new_with_database_context(cx, database_paths, app_store);
             app.test_database_guard = test_database_guard;
+            #[cfg(feature = "e2e-test-support")]
+            if visual_preview_name().as_deref() == Some("github-clone") {
+                app.open_clone_project_dialog(window, cx);
+            }
             app.start_norma_drain_loop(window, cx);
             app.start_dialogue_turn_loop(window, cx);
             app.start_cef_message_pump_loop(window, cx);
-            if let InitialWindowState::Workspace(path) = state {
-                app.open_workspace_path(path, window, cx);
+            match state {
+                InitialWindowState::Launchpad => {}
+                InitialWindowState::Workspace(path) => {
+                    app.open_workspace_path(path, window, cx);
+                }
+                InitialWindowState::ClonedWorkspace(path) => {
+                    app.open_workspace_path_with_source(
+                        path,
+                        workspace::WorkspaceSource::Clone,
+                        window,
+                        cx,
+                    );
+                }
             }
             app
         });
@@ -105,7 +121,7 @@ pub(crate) fn initial_window_dimensions(visual_preview: Option<String>) -> (f32,
 pub(crate) fn title_for_initial_state(state: &InitialWindowState) -> String {
     match state {
         InitialWindowState::Launchpad => APP_DISPLAY_NAME.to_string(),
-        InitialWindowState::Workspace(path) => {
+        InitialWindowState::Workspace(path) | InitialWindowState::ClonedWorkspace(path) => {
             let name = path
                 .file_name()
                 .and_then(|name| name.to_str())
@@ -155,6 +171,23 @@ impl MultisoulApp {
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) {
+        self.open_workspace_in_project_window_with_state(
+            path,
+            close_current_launchpad,
+            false,
+            window,
+            cx,
+        );
+    }
+
+    pub(super) fn open_workspace_in_project_window_with_state(
+        &mut self,
+        path: PathBuf,
+        close_current_launchpad: bool,
+        cloned: bool,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(root) = canonical_workspace_root(&path, &mut self.workspace_state.error) else {
             cx.notify();
             return;
@@ -180,8 +213,13 @@ impl MultisoulApp {
         }
 
         let open_start = Instant::now();
+        let initial_state = if cloned {
+            InitialWindowState::ClonedWorkspace(root.clone())
+        } else {
+            InitialWindowState::Workspace(root.clone())
+        };
         match open_multisoul_window(
-            InitialWindowState::Workspace(root.clone()),
+            initial_state,
             self.database_paths.clone(),
             self.test_database_guard.clone(),
             cx,

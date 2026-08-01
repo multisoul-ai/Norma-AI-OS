@@ -4,7 +4,7 @@ use crate::menu_bar::{menu_bar_spec, MenuItemSpec};
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   顶级菜单数 = 4：Norma OS / File / Edit / Layout
-///   File 直接项数 = 3：New 子菜单 + separator + Open Project…
+///   File 直接项数 = 4：New 子菜单 + separator + Open Project… + Clone GitHub Repository…
 ///   New 子菜单动作数 = 9：窗口 1 + 卡片 3 + Agent 5
 ///   New 子菜单 separator 数 = 2：Workspace→Cards、Cards→Agents
 ///
@@ -47,8 +47,8 @@ fn test_menu_bar_groups_application_file_edit_and_layout_commands() {
     let file_menu = &menus[1];
     assert_eq!(
         item_labels(&file_menu.items),
-        vec!["New", "—", "Open Project…"],
-        "File 菜单应只保留 New 子菜单和项目打开入口"
+        vec!["New", "—", "Open Project…", "Clone GitHub Repository…",],
+        "File 菜单应保留 New 子菜单，并并列提供本地打开与 GitHub 克隆入口"
     );
     let MenuItemSpec::Submenu {
         items: new_items, ..
@@ -76,6 +76,10 @@ fn test_menu_bar_groups_application_file_edit_and_layout_commands() {
     assert!(
         !item_labels(new_items).contains(&"Open Project…"),
         "Open Project… 是 File 级文件入口，不应错误归入创建子菜单"
+    );
+    assert!(
+        !item_labels(new_items).contains(&"Clone GitHub Repository…"),
+        "Clone GitHub Repository… 是 File 级项目入口，不应错误归入卡片创建子菜单"
     );
 
     assert_eq!(

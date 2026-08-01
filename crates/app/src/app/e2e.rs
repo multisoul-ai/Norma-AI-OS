@@ -65,6 +65,7 @@ pub enum ApiKeyDisplayState {
 pub struct SettingsE2eSnapshot {
     pub settings_open: bool,
     pub active_section: &'static str,
+    pub idle_animation_throttling_enabled: bool,
     pub active_theme_id: &'static str,
     pub theme_is_dark: bool,
     pub theme_canvas_from: u32,
@@ -123,7 +124,47 @@ pub struct AsrModelE2eSnapshot {
     pub deletable: bool,
 }
 
+#[cfg(feature = "e2e-test-support")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CloneProjectE2eSnapshot {
+    pub open: bool,
+    pub phase: &'static str,
+    pub transport: &'static str,
+    pub remote: String,
+    pub folder: String,
+    pub parent: Option<PathBuf>,
+    pub target_preview: Option<PathBuf>,
+    pub validation_error: Option<String>,
+}
+
 impl MultisoulApp {
+    #[cfg(feature = "e2e-test-support")]
+    pub fn use_successful_clone_backend_for_e2e(&mut self) {
+        self.clone_project.use_successful_fake_backend();
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn set_clone_parent_for_e2e(&mut self, parent: PathBuf, cx: &mut Context<Self>) {
+        self.clone_project.set_parent_for_e2e(parent);
+        cx.notify();
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn clone_project_e2e_snapshot(&self) -> CloneProjectE2eSnapshot {
+        let snapshot: crate::workspace::clone_project::CloneProjectInternalE2eSnapshot =
+            self.clone_project.e2e_snapshot();
+        CloneProjectE2eSnapshot {
+            open: snapshot.open,
+            phase: snapshot.phase,
+            transport: snapshot.transport,
+            remote: snapshot.remote,
+            folder: snapshot.folder,
+            parent: snapshot.parent,
+            target_preview: snapshot.target_preview,
+            validation_error: snapshot.validation_error,
+        }
+    }
+
     #[cfg(feature = "e2e-test-support")]
     pub fn set_voice_model_root_for_e2e(&mut self, model_root: PathBuf, cx: &mut Context<Self>) {
         self.voice_settings.reset_model_root_for_e2e(model_root);
@@ -235,6 +276,9 @@ impl MultisoulApp {
         SettingsE2eSnapshot {
             settings_open: self.settings_panel.open,
             active_section: self.settings_panel.active_section.title(),
+            idle_animation_throttling_enabled: self
+                .performance_settings
+                .idle_animation_throttling_enabled(),
             active_theme_id: self.theme_id.as_str(),
             theme_is_dark: self.theme_id.is_dark(),
             theme_canvas_from: self.theme.canvas_from,

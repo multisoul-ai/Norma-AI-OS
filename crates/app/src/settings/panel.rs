@@ -205,6 +205,7 @@ impl MultisoulApp {
                 panel: &self.settings_panel,
                 agent_definitions: &self.agent_definitions,
                 orchestration: &self.orchestration_settings,
+                performance: &self.performance_settings,
                 voice: VoiceSettingsContent {
                     state: &self.voice_settings,
                     inputs: &self.voice_settings_inputs,
