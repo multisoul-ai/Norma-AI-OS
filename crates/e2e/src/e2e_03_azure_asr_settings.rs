@@ -16,7 +16,7 @@ use support::*;
 ///   recognition WAV = 44 + 640 = 684 bytes（20 ms × 16,000 × 2）
 ///   Azure duration limit = 60 × 16,000 × 2 = 1,920,000 PCM bytes
 ///   explicit provider changes = 6（含往返切换与迟到结果失效切换）
-///   live caption projections = 2（Single + Continuous 各显示一次 Azure Final）
+///   live caption projections = 2（Single + Continuous 各显示一次默认全文 Azure Final）
 ///   async settle budget = 600 × 5 ms = 3,000 ms（仅等待本地 fake HTTP 后台任务）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -33,7 +33,7 @@ use support::*;
 ///   - 正断言：验证与识别测试走真实按钮、后台任务、Keychain seam 和 Azure transport
 ///   - 正断言：Ready 后可往返切换 Local / Azure，Azure profile 保持可用
 ///   - 正断言：Single、Continuous 与 60 秒边界均产生各自具体 Final
-///   - 正断言：Single 与 Continuous 的 Azure Final 都投影到顶部 Voice 入口
+///   - 正断言：Single 与 Continuous 的 Azure Final 都以默认全文投影到 Voice 字幕条
 ///   - 负断言：未 Ready 或 Test Recognition 时不得隐式替换 Local Sherpa
 ///   - 负断言：顶部 Voice 入口不得停留在通用状态；401 不得回退 Local，迟到 Final 不得覆盖新会话 transcript
 #[test]
@@ -175,6 +175,10 @@ fn azure_asr_requires_real_validation_and_supports_test_and_round_trip_switching
         Some("Azure single transcript"),
         "Azure Single Final must be visible in the live caption strip"
     );
+    assert!(
+        single_voice.caption_expanded,
+        "Azure Single Final must default to the full live-caption state"
+    );
     assert_ne!(
         single_voice.dock_label, "Azure single transcript",
         "recognized Azure Single text must not expand the compact Voice Dock label"
@@ -202,6 +206,10 @@ fn azure_asr_requires_real_validation_and_supports_test_and_round_trip_switching
         continuous_voice.caption_text.as_deref(),
         Some("Azure continuous transcript"),
         "Azure Continuous Final must be visible in the live caption strip"
+    );
+    assert!(
+        continuous_voice.caption_expanded,
+        "Azure Continuous Final must default to the full live-caption state"
     );
     assert_ne!(
         continuous_voice.dock_label, "Azure continuous transcript",

@@ -124,6 +124,65 @@ fn test_visual_default_is_idle() {
     );
 }
 
+/// VC-CAPTION-1：每段新语音字幕默认显示全文，用户仍可临时收起当前字幕。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   caption entry paths = 4（初始状态 + 单次录音 + 仅转写结果 + runtime 重置）
+///   manual collapses    = 3（每条可见字幕路径前各收起一次）
+///   expected defaults   = 4 次展开，证明默认策略覆盖全部新字幕入口
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建默认 Voice 状态 → 尚无字幕，但下一段字幕的展示策略应为全文。
+///   2. 用户手动收起 → 当前展示策略进入折叠态；开始新录音 → 恢复全文。
+///   3. 用户再次收起；写入仅转写结果 → 新结果恢复全文。
+///   4. 用户第三次收起；重置 Voice runtime → 下一段字幕恢复全文默认。
+///
+/// 预期结果：
+///   - 正断言：默认状态、单次录音、仅转写结果和 runtime 重置后都处于全文态。
+///   - 负断言：手动收起后不得仍处于全文态，证明「收起」按钮继续有效。
+#[test]
+fn test_new_voice_caption_defaults_to_full_after_each_entry_path() {
+    let mut state = VoiceControlState::default();
+
+    assert!(
+        state.caption_expanded(),
+        "默认 Voice 状态必须把下一段识别字幕设为全文展示"
+    );
+
+    state.toggle_caption_expanded();
+    assert!(
+        !state.caption_expanded(),
+        "用户手动收起当前字幕后不得继续处于全文态"
+    );
+    assert!(
+        state.begin_recording(VoiceTrigger::Shortcut),
+        "从默认状态开始新的单次录音必须成功"
+    );
+    assert!(
+        state.caption_expanded(),
+        "新的单次录音必须恢复全文字幕默认，而不是继承上一段的收起状态"
+    );
+
+    state.toggle_caption_expanded();
+    assert!(
+        !state.caption_expanded(),
+        "写入仅转写结果前的手动收起必须真实生效"
+    );
+    state.set_transcript_only("完整识别结果", "no executable command");
+    assert!(state.caption_expanded(), "新的仅转写结果必须默认显示全文");
+
+    state.toggle_caption_expanded();
+    assert!(
+        !state.caption_expanded(),
+        "runtime 重置前的手动收起必须真实生效"
+    );
+    state.stop_for_model_switch();
+    assert!(
+        state.caption_expanded(),
+        "Voice runtime 重置后必须为下一段字幕恢复全文默认"
+    );
+}
+
 /// VC-ERROR-1：关闭单次语音错误后恢复 Idle，并清除麦克风设置恢复入口。
 ///
 /// 数据构造（含关键数值的推导过程）：

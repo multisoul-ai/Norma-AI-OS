@@ -75,7 +75,6 @@ impl MultisoulApp {
         self.voice
             .begin_recording(crate::app::voice::control::VoiceTrigger::Shortcut);
         self.voice.partial_text = transcript.into();
-        self.voice.collapse_caption();
     }
 
     pub fn show_voice_thinking_for_e2e(&mut self, transcript: &str) {

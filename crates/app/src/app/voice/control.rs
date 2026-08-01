@@ -6,6 +6,8 @@ mod error;
 
 pub(crate) type ActiveSpeechSession = super::recognition::AsrRecordingSession;
 
+const DEFAULT_CAPTION_EXPANDED: bool = true;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum VoiceTrigger {
     Shortcut,
@@ -87,7 +89,7 @@ impl Default for VoiceControlState {
             result_application_delay: None,
             next_recording_generation: 0,
             active_recording_generation: None,
-            caption_expanded: false,
+            caption_expanded: DEFAULT_CAPTION_EXPANDED,
         }
     }
 }
@@ -125,7 +127,7 @@ impl VoiceControlState {
                 self.next_recording_generation = self.next_recording_generation.wrapping_add(1);
                 self.active_recording_generation = Some(self.next_recording_generation);
                 self.last_duration_limit_feedback = None;
-                self.caption_expanded = false;
+                self.reset_caption_to_default();
                 self.phase = VoicePhase::Recording { trigger };
                 true
             }
@@ -171,7 +173,7 @@ impl VoiceControlState {
         transcript: impl Into<String>,
         reason: impl Into<String>,
     ) {
-        self.caption_expanded = false;
+        self.reset_caption_to_default();
         self.phase = VoicePhase::TranscriptOnly {
             transcript: transcript.into(),
             reason: reason.into(),
@@ -267,7 +269,7 @@ impl VoiceControlState {
         self.phase = VoicePhase::Idle;
         self.partial_text.clear();
         self.transcribing_message = None;
-        self.caption_expanded = false;
+        self.reset_caption_to_default();
     }
     pub(crate) fn caption_text(&self) -> Option<&str> {
         match &self.phase {
@@ -283,8 +285,8 @@ impl VoiceControlState {
     pub(crate) fn caption_expanded(&self) -> bool {
         self.caption_expanded
     }
-    pub(crate) fn collapse_caption(&mut self) {
-        self.caption_expanded = false;
+    pub(crate) fn reset_caption_to_default(&mut self) {
+        self.caption_expanded = DEFAULT_CAPTION_EXPANDED;
     }
     pub(crate) fn toggle_caption_expanded(&mut self) {
         self.caption_expanded = !self.caption_expanded;
