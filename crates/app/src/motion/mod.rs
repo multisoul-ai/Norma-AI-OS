@@ -18,11 +18,9 @@ use crate::motion::breathing::{BreathingIntent, BreathingState};
 pub(crate) use crate::motion::diagnostics::MotionDiagnostics;
 #[cfg(any(test, feature = "e2e-test-support"))]
 pub(crate) use crate::motion::dispatch_receipt::DispatchEffectCounts;
-#[cfg(feature = "e2e-test-support")]
-pub(crate) use crate::motion::dispatch_receipt::DispatchImpactParticle;
 pub(crate) use crate::motion::dispatch_receipt::{
     DispatchEffectPhase, DispatchEffectPresentation, DispatchEffectSpawnOutcome,
-    DispatchReceiptVisualStatus,
+    DispatchImpactParticle, DispatchImpactParticleKind, DispatchReceiptVisualStatus,
 };
 pub(crate) use crate::motion::initialization::{
     InitializationAnimation, InitializationAnimationKind, InitializationPresentation,

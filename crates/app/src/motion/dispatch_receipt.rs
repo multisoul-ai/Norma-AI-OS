@@ -3,14 +3,14 @@ use std::collections::{HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
 const FLIGHT_DURATION: Duration = Duration::from_millis(480);
-const IMPACT_DURATION: Duration = Duration::from_millis(260);
+const IMPACT_DURATION: Duration = Duration::from_millis(430);
 const REDUCED_PULSE_DURATION: Duration = Duration::from_millis(150);
 const MAX_TICK_DELTA: Duration = Duration::from_millis(50);
 const LAUNCH_STAGGER: Duration = Duration::from_millis(40);
 const MAX_ACTIVE_EFFECTS: usize = 3;
 const MAX_PENDING_EFFECTS: usize = 8;
 const MAX_DEDUPE_KEYS: usize = 64;
-pub(crate) const MAX_PARTICLES_PER_EFFECT: usize = 18;
+pub(crate) const MAX_PARTICLES_PER_EFFECT: usize = 28;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum DispatchReceiptVisualStatus {
@@ -53,11 +53,22 @@ pub(crate) struct DispatchEffectPresentation {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub(crate) struct DispatchImpactParticle {
+    pub(crate) kind: DispatchImpactParticleKind,
     pub(crate) direction_x: f32,
     pub(crate) direction_y: f32,
     pub(crate) distance: f32,
     pub(crate) size: f32,
     pub(crate) delay: f32,
+    pub(crate) lifetime: f32,
+    pub(crate) twist: f32,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum DispatchImpactParticleKind {
+    #[default]
+    Comet,
+    Mote,
+    Spark,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -255,11 +266,7 @@ impl DispatchEffect {
         let particle_count = if reduce_motion {
             0
         } else {
-            match status {
-                DispatchReceiptVisualStatus::Submitted => 18,
-                DispatchReceiptVisualStatus::Queued => 12,
-                DispatchReceiptVisualStatus::Untracked => 14,
-            }
+            MAX_PARTICLES_PER_EFFECT
         };
         Self {
             target_node_id: key.target_node_id,
@@ -325,12 +332,42 @@ fn build_particles(key: &DispatchEffectKey) -> [DispatchImpactParticle; MAX_PART
             * (index as f32 / MAX_PARTICLES_PER_EFFECT as f32 + jitter * 0.035);
         seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
         let distance_jitter = ((seed >> 32) as u32) as f32 / u32::MAX as f32;
+        seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+        let motion_jitter = ((seed >> 32) as u32) as f32 / u32::MAX as f32;
+        let is_secondary = index >= 20;
+        let kind = if is_secondary {
+            DispatchImpactParticleKind::Spark
+        } else if index % 5 == 0 {
+            DispatchImpactParticleKind::Mote
+        } else {
+            DispatchImpactParticleKind::Comet
+        };
+        let (distance, size, delay, lifetime, twist) = if is_secondary {
+            (
+                48.0 + distance_jitter * 40.0,
+                1.2 + (index % 3) as f32 * 0.35,
+                0.12 + motion_jitter * 0.08,
+                0.55 + distance_jitter * 0.18,
+                (motion_jitter - 0.5) * 12.0,
+            )
+        } else {
+            (
+                92.0 + distance_jitter * 56.0,
+                2.1 + (index % 4) as f32 * 0.45,
+                (index % 3) as f32 * 0.012,
+                0.82 + motion_jitter * 0.18,
+                (motion_jitter - 0.5) * 18.0,
+            )
+        };
         *particle = DispatchImpactParticle {
+            kind,
             direction_x: angle.cos(),
             direction_y: angle.sin(),
-            distance: 28.0 + distance_jitter * 34.0,
-            size: 2.0 + (index % 3) as f32 * 0.7,
-            delay: (index % 4) as f32 * 0.035,
+            distance,
+            size,
+            delay,
+            lifetime,
+            twist,
         };
     }
     particles

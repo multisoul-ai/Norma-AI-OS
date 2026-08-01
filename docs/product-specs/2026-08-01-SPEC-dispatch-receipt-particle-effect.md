@@ -1,17 +1,18 @@
-# Dispatch Receipt 粒子特效 SPEC
+# Dispatch Receipt 离子派发特效 SPEC
 
 - 日期：2026-08-01
-- 状态：已实现，待验收
+- 状态：离子版已实现，待真实 App 验收
 - 目标版本：首版
 - 适用范围：Command Dock、Norma Agent 任务派发、Agent Card、Canvas 动效
 - 技术基线：Rust 2021、GPUI 0.2.2、gpui-component 0.5.1
 - 关联调研：[`2026-08-01-gpui-particle-projectile-effects.md`](../research/2026-08-01-gpui-particle-projectile-effects.md)
+- 视觉基准：[`ion-fireworks.html`](../ion-fireworks.html)
 
 ## 1. 需求背景
 
 Norma OS 已能通过 `DispatchAgentTasks` 将任务路由到指定 Agent Card，并返回 `Submitted`、`Queued`、`Untracked` 或 `Failed` 等真实 receipt。当前反馈主要依赖文字、语音和卡片状态，用户不一定能立即理解“这条任务被派到了哪张卡片”。
 
-本功能增加一段短促、非阻塞的空间反馈：当 Norma 接受一次面向可见 Agent Card 的任务派发后，从底部 Command Dock 中心发射一个 dispatch receipt 视觉载体，沿弧线飞向目标卡片中心；命中后播放小规模粒子爆发和卡片轮廓脉冲。
+本功能增加一段非阻塞的空间反馈：当 Norma 接受一次面向可见 Agent Card 的任务派发后，从底部 Command Dock 中心发射一个带微型 receipt 轮廓的离子核心，沿双螺旋弧线飞向目标卡片中心；命中后播放分层离子爆发、冲击波和卡片轮廓脉冲。
 
 这个特效表达的是：
 
@@ -219,18 +220,22 @@ y = viewport_height - 48px
 
 #### Flight
 
-- 时长：420–520ms，默认 480ms；作为跨屏空间说明动效，优先保证轨迹可辨识。
-- 路径：从 Dock 中心到目标中心的三次贝塞尔弧线。
-- 动态：快速离开起点、在接近目标时自然收束，避免慢启动带来的迟钝感。
-- 组成：一个 receipt 核心、6–8 段解析式尾迹和一条低透明度轨迹。
+- 时长：固定 480ms；作为跨屏空间说明动效，优先保证轨迹可辨识。
+- 路径：从 Dock 中心到目标中心的三次贝塞尔弧线；用 48 段查找表做弧长重参数，避免参数曲线造成明显忽快忽慢。
+- 动态：路程使用 `p + sin(πp) × 0.09` 的自然前冲节奏，保持起终点精确并在接近目标时收束。
+- 组成：一个带微型卡片轮廓的白热离子核心、两道椭圆环、两股相差 π 的螺旋、5 个尾迹离子点，以及深色衬底/主题色/白色核心三层主轨迹。
+- 尾迹：最多保留最近 19% 路程，主轨迹采样 24 段、每股螺旋采样 22 段；最后 16% 路程缩短尾迹并将核心收束 24%。
+- 发射：飞行前 22% 在 Dock 中心播放一次短促 plume 与 5 道放射线，Dock 自身仍位于 overlay 上层。
 - receipt 可采用微型卡片/纸片轮廓，但不能与真实可拖拽卡片混淆，也不参与命中测试。
 
 #### Impact
 
-- 时长：220–300ms，默认 260ms；爆发结束保持利落，不增加回弹或停顿。
-- 目标中心产生 12–18 个短寿命粒子。
+- 时长：固定 430ms，以便辨识参考动画中的主爆发和延迟次级火花。
+- 目标中心产生固定 28 颗短寿命粒子：20 颗主粒子（16 Comet + 4 Mote）和延迟 52–86ms 出现的 8 颗 Spark。
+- 粒子使用指数阻尼、轻微切向 twist 和小幅重力偏移；方向、距离、寿命在 spawn 时按稳定 seed 一次性生成。
+- 命中中心同时绘制扩散光晕、8 道星芒、冲击波、3 段旋转弧和短促水平 flare；所有层都随生命周期淡出。
 - 目标卡片外侧绘制一次轮廓脉冲；不缩放真实卡片，不改变布局、焦点或 hitbox。
-- 爆发应表现为“收到/落点”，而不是庆祝烟花。
+- 爆发应表现为能量“命中/收到”，不能配合任务完成文案或完成音效，避免被理解为庆祝任务结束。
 
 #### Finished
 
@@ -303,7 +308,7 @@ enum DispatchReceiptVisualStatus {
 
 ### 7.3 MotionStore 集成
 
-建议结构：
+实现结构：
 
 ```text
 MotionStore
@@ -343,22 +348,19 @@ error/settings/voice overlays
 ```text
 crates/app/src/motion/
 ├── mod.rs
-├── tokens.rs
-└── dispatch_effect.rs
-    ├── DispatchEffectStore
-    ├── DispatchEffect
-    ├── DispatchEffectPhase
-    ├── ImpactParticle
-    └── DispatchEffectPresentation
+└── dispatch_receipt.rs
+    ├── DispatchEffectStore / DispatchEffect
+    ├── DispatchEffectPhase / DispatchEffectPresentation
+    └── DispatchImpactParticle[28] / DispatchImpactParticleKind
 
 crates/app/src/effects/
 ├── mod.rs
-└── dispatch_receipt.rs
-    ├── render_dispatch_effects
-    ├── build_flight_trail
-    ├── paint_receipt
-    ├── paint_impact_particles
-    └── paint_target_pulse
+├── dispatch_receipt.rs（overlay、动态 target、paint plan）
+└── dispatch_receipt/
+    ├── geometry.rs（Bezier、48 段弧长表、双螺旋）
+    ├── flight.rs（离子核心、尾迹、发射 plume）
+    ├── impact.rs（冲击层、28 粒子解析运动）
+    └── primitives.rs（主题样式与低成本绘制原语）
 
 crates/app/src/app/
 ├── render.rs
@@ -390,25 +392,25 @@ crates/app/src/app/
 
 ### 8.1 预算与容量
 
-- 单次命中粒子：12–18，硬上限 18。
-- 单个飞行尾迹采样：6–8，使用固定容量数据。
+- 单次命中粒子：固定 28（20 主粒子 + 8 次级火花）。
+- 单个飞行主尾迹采样 24 段、双螺旋各 22 段、弧长查找表 48 段。
 - 同时 active effect：最多 3。
 - pending visual event：最多 8。
-- 总活动爆发粒子：最多 54；实现可保留 64 个固定容量 slot。
+- 总活动爆发粒子：最多 3 × 28 = 84；每个 effect 内用 `[DispatchImpactParticle; 28]` 固定数组，无逐帧粒子分配。
 
 ### 8.2 分配与复用
 
 - 首版使用预分配 `Vec`、固定数组或小容量 slot store；不建设重量级通用对象池。
 - effect 完成后复用 slot；spawn 时一次性计算粒子方向、速度、寿命和确定性 seed。
 - 帧循环内禁止随机数生成、字符串格式化、日志正文拼接和无界容器增长。
-- 尾迹优先按贝塞尔曲线解析采样，不维护每帧 append 的轨迹历史。
+- 尾迹按贝塞尔曲线和弧长查找表解析采样，不维护每帧 append 的轨迹历史。
 
 ### 8.3 绘制成本
 
 - 所有特效共享一个全屏 Canvas overlay。
-- 粒子使用 `paint_quad` 或等价低成本 primitive。
-- 每个 effect 最多使用一条 `PathBuilder` 轨迹；禁止为每颗粒子构造 path，因为 GPUI 0.2.2 的路径需要 CPU tessellation。
-- 阴影只用于 receipt 核心或爆发中心中的一个重点 primitive；普通粒子无独立 blur/shadow。
+- Mote 与离子核心使用 `paint_quad`；需要方向感的 Comet/Spark 使用短 `PathBuilder` 线段，避免无旋转 quad 形成圆点爆炸。
+- 同宽 Comet 合并为最多 4 条断续 path，8 个 Spark 合并为 1 条 path；单个 Flight 最多约 9 条 path，单个 Impact 峰值 11 条 path 和约 30 个 quad，3 路并发约 33 paths + 90 quads。
+- paint plan 按每 effect 16 paths / 36 quads 预分配，避免标准帧内扩容；普通粒子不使用独立 blur/shadow。
 - 不使用每帧 CPU RGBA 图片生成，不引入 `RenderImage` 路径。
 - overlay 不参与布局和输入命中。
 
@@ -429,9 +431,9 @@ crates/app/src/app/
 - 因容量、目标不可见或 Reduced Motion 跳过的数量；
 - effect 生命周期结束后是否仍存在连续帧请求。
 
-建议目标：在基线 Mac 上，1 个及 3 个并发特效的增量 update + presentation build + paint p95 小于 0.5ms；该数值需在实现后以真实 App 测量确认。
+建议目标：在基线 Mac 上，1 个特效增量 update + presentation build + paint p95 小于 0.75ms，3 个并发小于 1.5ms；该数值需在实现后以真实 App 测量确认。
 
-实现已接入 `MULTISOUL_FRAME_DIAGNOSTICS=1`：`motion_sample` 输出 dispatch active、pending、粒子、跳过/取消计数与 update 耗时，`dispatch_effect_paint` 输出 effect/path/quad 数量及 build、paint、total 耗时。1 路与 3 路并发的 p95 数值留待目标验收机器实测，不以开发机或 headless 测试数据替代。
+实现已接入 `MULTISOUL_FRAME_DIAGNOSTICS=1`：`motion_sample` 输出 dispatch active、pending、粒子、跳过/取消计数与 update 耗时，`dispatch_effect_paint` 输出 effect/path/quad 数量及 build、paint、total 耗时。2026-08-01 在真实开发 App 的 Paper Blue Impact 固定帧采样 8 次，实际为 10 paths + 30 quads，build + paint p95/max = 0.187041ms；该样本证明单 effect 低于 0.75ms 目标，但 3 路并发 p95 仍需在目标验收机器实测，不能由单帧预览外推替代。
 
 ## 9. 状态、错误与边界情况
 
@@ -476,19 +478,20 @@ crates/app/src/app/
 
 ### 10.3 动效与无障碍
 
-- [ ] 默认 Flight 在 420–520ms 内完成（目标 480ms），Impact 在 220–300ms 内完成（目标 260ms）。
-- [ ] 命中反馈是克制的 receipt 落点，不呈现为任务完成庆祝。
+- [ ] 默认 Flight 在 480ms 完成，Impact 在 430ms 完成；单帧 delta 最大 50ms，不因窗口恢复瞬间跳完。
+- [ ] 飞行轨迹按 48 段弧长表推进；从 8%–92% 路程采样的视觉速度峰谷比不超过 2.40，最终坐标与目标中心误差为 0px。
+- [ ] 命中包含 16 Comet、4 Mote、8 delayed Spark，并清楚表达 receipt 落点而非任务完成庆祝。
 - [ ] Reduced Motion 下没有跨屏位移和粒子散射，同时 Dock 与可见目标仍有短促状态反馈。
 - [ ] 高对比度、浅色和深色主题下，反馈可见但不只依靠颜色承载业务状态。
 
 ### 10.4 性能与调度
 
-- [ ] 同时 active effect 不超过 3，pending visual event 不超过 8，总粒子不超过 64。
+- [ ] 同时 active effect 不超过 3，pending visual event 不超过 8，总粒子不超过 84。
 - [ ] 粒子不以独立 GPUI element 实现，所有特效共享单一 Canvas overlay。
-- [ ] 每个 effect 每帧最多构建一条 path；普通粒子不使用 path 或独立阴影。
+- [ ] 单个 Impact 的 path 不超过 16、quad 不超过 36；普通粒子不使用独立阴影。
 - [ ] effect 生命周期结束后 `canvas_active` 恢复 false，本功能不再触发连续 16ms frame。
 - [ ] 容量溢出只跳过视觉，不影响业务 receipt、队列和持久化状态。
-- [ ] 基线 Mac 上 1 个和 3 个并发特效的增量 update + build + paint p95 目标小于 0.5ms，并记录实测结果。
+- [ ] 基线 Mac 上 1 个特效增量 update + build + paint p95 目标小于 0.75ms，3 个并发小于 1.5ms，并记录实测结果。
 
 ### 10.5 自动化证据
 
@@ -507,9 +510,9 @@ crates/app/src/app/
 - **状态误读风险**：爆炸容易被理解为任务完成。通过触发时机、克制视觉和 receipt 文案保持“已路由”语义。
 - **来源误读风险**：Agent-to-Agent 委派若仍从 Dock 发射会产生错误空间因果，因此首版明确排除。
 - **动态目标抖动**：每帧直接追踪快速拖动目标可能让尾迹轻微变形。首版优先保证真实命中；若实测明显抖动，再增加帧率无关的目标滤波，而不是固定旧终点。
-- **GPUI 路径成本**：`PathBuilder` 存在 CPU tessellation，因此严格限制为每 effect 一条轨迹，粒子使用 quads。
+- **GPUI 路径成本**：`PathBuilder` 存在 CPU tessellation；为还原参考动画，Comet/Spark 使用批处理短路径，必须通过 16 paths/effect 上限与 frame diagnostics 守住预算。若真实机 p95 超标，第一降级项是把 Spark 改为单 quad，而不是降低业务帧响应。
 - **视觉丢弃**：容量压力下允许跳过部分动画，以换取稳定交互；业务 receipt 永不丢失。
-- **高频干扰**：该反馈可能每天出现数十次；为保证跨屏轨迹可辨识，默认总时长为 740ms，但不阻塞交互，并通过批量限流与 Reduced Motion 控制干扰；后续可基于真实频率决定是否增加“降低特效强度”设置。
+- **高频干扰**：该反馈可能每天出现数十次；为还原参考页的两段结构，默认总时长为 480 + 430 = 910ms，但不阻塞交互，并通过批量限流与 Reduced Motion 控制干扰；后续可基于真实频率决定是否增加“降低特效强度”设置。
 
 ## 12. 后续演进（非首版承诺）
 

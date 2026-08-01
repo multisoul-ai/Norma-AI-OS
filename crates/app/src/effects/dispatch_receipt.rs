@@ -1,31 +1,47 @@
+mod flight;
+mod geometry;
+mod impact;
+mod primitives;
+
+use self::flight::paint_flight;
+#[cfg(test)]
+pub(super) use self::geometry::{
+    bezier_point, bezier_point_at_travel, helix_offset, natural_flight_progress,
+};
+use self::impact::paint_impact;
+#[cfg(test)]
+pub(super) use self::primitives::impact_radius_scale;
 use crate::app::MultisoulApp;
-use crate::motion::{DispatchEffectPhase, DispatchEffectPresentation, DispatchReceiptVisualStatus};
+use crate::motion::{DispatchEffectPhase, DispatchEffectPresentation};
 use canvas::{CanvasNodeKind, Vec2};
 use gpui::{
-    canvas, div, point, prelude::*, px, quad, rgba, AnyElement, Background, Bounds, Edges,
-    PaintQuad, Path, PathBuilder, Pixels, Point, Size, Window,
+    canvas, div, point, prelude::*, px, AnyElement, Background, Bounds, PaintQuad, Path, Pixels,
+    Point, Size, Window,
 };
 use std::time::{Duration, Instant};
 use ui::Theme;
 
 #[cfg(feature = "e2e-test-support")]
-use crate::motion::DispatchImpactParticle;
+use crate::motion::dispatch_receipt::MAX_PARTICLES_PER_EFFECT;
+#[cfg(feature = "e2e-test-support")]
+use crate::motion::DispatchReceiptVisualStatus;
+#[cfg(feature = "e2e-test-support")]
+use crate::motion::{DispatchImpactParticle, DispatchImpactParticleKind};
 
 pub(crate) const COMMAND_DOCK_BOTTOM_PX: f32 = 22.0;
 pub(crate) const COMMAND_DOCK_HEIGHT_PX: f32 = 52.0;
-const FLIGHT_PATH_SAMPLES: usize = 14;
 
 #[derive(Clone, Copy, Debug)]
-struct DispatchEffectFrame {
-    origin: Point<Pixels>,
-    target: Point<Pixels>,
-    target_bounds: Bounds<Pixels>,
-    presentation: DispatchEffectPresentation,
+pub(super) struct DispatchEffectFrame {
+    pub(super) origin: Point<Pixels>,
+    pub(super) target: Point<Pixels>,
+    pub(super) target_bounds: Bounds<Pixels>,
+    pub(super) presentation: DispatchEffectPresentation,
 }
 
-struct DispatchPaintPlan {
-    paths: Vec<(Path<Pixels>, Background)>,
-    quads: Vec<PaintQuad>,
+pub(super) struct DispatchPaintPlan {
+    pub(super) paths: Vec<(Path<Pixels>, Background)>,
+    pub(super) quads: Vec<PaintQuad>,
     effect_count: usize,
     build_elapsed: Duration,
 }
@@ -119,13 +135,59 @@ pub(crate) fn render(app: &MultisoulApp, window: &mut Window) -> Option<AnyEleme
     )
 }
 
+pub(super) fn build_paint_plan(
+    overlay_bounds: Bounds<Pixels>,
+    frames: &[DispatchEffectFrame],
+    theme: Theme,
+) -> DispatchPaintPlan {
+    let build_started_at = Instant::now();
+    let mut plan = DispatchPaintPlan {
+        paths: Vec::with_capacity(frames.len() * 16),
+        quads: Vec::with_capacity(frames.len() * 36),
+        effect_count: frames.len(),
+        build_elapsed: Duration::ZERO,
+    };
+    for frame in frames {
+        let frame = offset_frame(*frame, overlay_bounds.origin);
+        match frame.presentation.phase {
+            DispatchEffectPhase::Flight => paint_flight(frame, theme, &mut plan),
+            DispatchEffectPhase::Impact => paint_impact(frame, theme, &mut plan),
+        }
+    }
+    plan.build_elapsed = build_started_at.elapsed();
+    plan
+}
+
+fn offset_frame(mut frame: DispatchEffectFrame, offset: Point<Pixels>) -> DispatchEffectFrame {
+    frame.origin.x += offset.x;
+    frame.origin.y += offset.y;
+    frame.target.x += offset.x;
+    frame.target.y += offset.y;
+    frame.target_bounds.origin.x += offset.x;
+    frame.target_bounds.origin.y += offset.y;
+    frame
+}
+
+pub(super) fn screen_point_visible(point: Point<Pixels>, viewport: Size<Pixels>) -> bool {
+    point.x >= px(0.0)
+        && point.y >= px(0.0)
+        && point.x <= viewport.width
+        && point.y <= viewport.height
+}
+
 #[cfg(feature = "e2e-test-support")]
 fn visual_preview_frame(app: &MultisoulApp, origin: Point<Pixels>) -> Option<DispatchEffectFrame> {
     let preview = std::env::var("NORMA_VISUAL_PREVIEW").ok()?;
-    let (phase, progress) = match preview.as_str() {
+    let (requested_phase, progress) = match preview.as_str() {
         "dispatch-receipt-flight" => (DispatchEffectPhase::Flight, 0.62),
         "dispatch-receipt-impact" => (DispatchEffectPhase::Impact, 0.28),
         _ => return None,
+    };
+    let reduce_motion = app.motion.reduce_motion;
+    let phase = if reduce_motion {
+        DispatchEffectPhase::Impact
+    } else {
+        requested_phase
     };
     let node = app
         .runtime
@@ -156,258 +218,51 @@ fn visual_preview_frame(app: &MultisoulApp, origin: Point<Pixels>) -> Option<Dis
             status: DispatchReceiptVisualStatus::Submitted,
             phase,
             progress,
-            reduce_motion: false,
+            reduce_motion,
             particles: visual_preview_particles(),
-            particle_count: 18,
+            particle_count: if reduce_motion {
+                0
+            } else {
+                MAX_PARTICLES_PER_EFFECT
+            },
         },
     })
 }
 
 #[cfg(feature = "e2e-test-support")]
-fn visual_preview_particles() -> [DispatchImpactParticle; 18] {
-    let mut particles = [DispatchImpactParticle::default(); 18];
+fn visual_preview_particles() -> [DispatchImpactParticle; MAX_PARTICLES_PER_EFFECT] {
+    let mut particles = [DispatchImpactParticle::default(); MAX_PARTICLES_PER_EFFECT];
     for (index, particle) in particles.iter_mut().enumerate() {
-        let angle = std::f32::consts::TAU * index as f32 / 18.0;
+        let angle = std::f32::consts::TAU * index as f32 / MAX_PARTICLES_PER_EFFECT as f32;
+        let secondary = index >= 20;
         *particle = DispatchImpactParticle {
+            kind: if secondary {
+                DispatchImpactParticleKind::Spark
+            } else if index % 5 == 0 {
+                DispatchImpactParticleKind::Mote
+            } else {
+                DispatchImpactParticleKind::Comet
+            },
             direction_x: angle.cos(),
             direction_y: angle.sin(),
-            distance: 30.0 + (index % 5) as f32 * 7.0,
-            size: 2.0 + (index % 3) as f32 * 0.7,
-            delay: (index % 4) as f32 * 0.035,
+            distance: if secondary {
+                68.0
+            } else {
+                108.0 + (index % 5) as f32 * 8.0
+            },
+            size: if secondary {
+                1.6
+            } else {
+                2.4 + (index % 3) as f32 * 0.5
+            },
+            delay: if secondary {
+                0.15
+            } else {
+                (index % 3) as f32 * 0.012
+            },
+            lifetime: if secondary { 0.66 } else { 0.92 },
+            twist: (index as f32 % 5.0 - 2.0) * 3.0,
         };
     }
     particles
-}
-
-fn build_paint_plan(
-    overlay_bounds: Bounds<Pixels>,
-    frames: &[DispatchEffectFrame],
-    theme: Theme,
-) -> DispatchPaintPlan {
-    let build_started_at = Instant::now();
-    let mut plan = DispatchPaintPlan {
-        paths: Vec::with_capacity(frames.len()),
-        quads: Vec::with_capacity(frames.len() * 24),
-        effect_count: frames.len(),
-        build_elapsed: Duration::ZERO,
-    };
-    for frame in frames {
-        let frame = offset_frame(*frame, overlay_bounds.origin);
-        match frame.presentation.phase {
-            DispatchEffectPhase::Flight => paint_flight(frame, theme, &mut plan),
-            DispatchEffectPhase::Impact => paint_impact(frame, theme, &mut plan),
-        }
-    }
-    plan.build_elapsed = build_started_at.elapsed();
-    plan
-}
-
-fn offset_frame(mut frame: DispatchEffectFrame, offset: Point<Pixels>) -> DispatchEffectFrame {
-    frame.origin.x += offset.x;
-    frame.origin.y += offset.y;
-    frame.target.x += offset.x;
-    frame.target.y += offset.y;
-    frame.target_bounds.origin.x += offset.x;
-    frame.target_bounds.origin.y += offset.y;
-    frame
-}
-
-fn paint_flight(frame: DispatchEffectFrame, theme: Theme, plan: &mut DispatchPaintPlan) {
-    let progress = ease_out_cubic(frame.presentation.progress);
-    let (color, intensity) = status_style(frame.presentation.status, theme);
-    if let Some(path) = flight_path(frame.origin, frame.target, progress, px(2.25)) {
-        plan.paths.push((
-            path,
-            rgba(with_alpha(color, (0x54 as f32 * intensity) as u8)).into(),
-        ));
-    }
-
-    let head = bezier_point(frame.origin, frame.target, progress);
-    for index in 0..7 {
-        let tail_progress = (progress - index as f32 * 0.022).max(0.0);
-        let tail = bezier_point(frame.origin, frame.target, tail_progress);
-        let size = 8.0 - index as f32;
-        let alpha = ((0xd0_u16.saturating_sub(index as u16 * 27)) as f32 * intensity) as u8;
-        plan.quads.push(round_quad(
-            centered_bounds(tail, size, size),
-            size / 2.0,
-            with_alpha(color, alpha),
-        ));
-    }
-    plan.quads.push(receipt_quad(head, color, intensity));
-}
-
-fn paint_impact(frame: DispatchEffectFrame, theme: Theme, plan: &mut DispatchPaintPlan) {
-    let progress = frame.presentation.progress.clamp(0.0, 1.0);
-    let (color, intensity) = status_style(frame.presentation.status, theme);
-    let pulse_alpha = ((1.0 - progress) * 0xc8 as f32 * intensity).round() as u8;
-    let expansion = 3.0 + ease_out_cubic(progress) * 12.0;
-    plan.quads.push(outline_quad(
-        expanded_bounds(frame.target_bounds, expansion),
-        18.0 + expansion,
-        with_alpha(color, pulse_alpha),
-        1.5,
-    ));
-
-    if frame.presentation.reduce_motion {
-        let dock_alpha = ((1.0 - progress) * 0x88 as f32 * intensity).round() as u8;
-        let dock_size = 12.0 + ease_out_cubic(progress) * 10.0;
-        plan.quads.push(outline_quad(
-            centered_bounds(frame.origin, dock_size, dock_size),
-            dock_size / 2.0,
-            with_alpha(color, dock_alpha),
-            1.25,
-        ));
-        return;
-    }
-
-    for particle in frame
-        .presentation
-        .particles
-        .iter()
-        .take(frame.presentation.particle_count)
-    {
-        let local = ((progress - particle.delay) / (1.0 - particle.delay)).clamp(0.0, 1.0);
-        if local <= 0.0 {
-            continue;
-        }
-        let travel = ease_out_cubic(local) * particle.distance * intensity;
-        let center = point(
-            frame.target.x + px(particle.direction_x * travel),
-            frame.target.y + px(particle.direction_y * travel),
-        );
-        let alpha = ((1.0 - local) * 0xe0 as f32 * intensity).round() as u8;
-        plan.quads.push(round_quad(
-            centered_bounds(center, particle.size, particle.size),
-            particle.size / 2.0,
-            with_alpha(color, alpha),
-        ));
-    }
-}
-
-fn flight_path(
-    origin: Point<Pixels>,
-    target: Point<Pixels>,
-    progress: f32,
-    stroke_width: Pixels,
-) -> Option<Path<Pixels>> {
-    if progress <= 0.0 {
-        return None;
-    }
-    let mut builder = PathBuilder::stroke(stroke_width);
-    builder.move_to(origin);
-    for index in 1..=FLIGHT_PATH_SAMPLES {
-        let amount = progress * index as f32 / FLIGHT_PATH_SAMPLES as f32;
-        builder.line_to(bezier_point(origin, target, amount));
-    }
-    builder.build().ok()
-}
-
-pub(super) fn bezier_point(
-    origin: Point<Pixels>,
-    target: Point<Pixels>,
-    progress: f32,
-) -> Point<Pixels> {
-    let t = progress.clamp(0.0, 1.0);
-    let inverse = 1.0 - t;
-    let distance_y = (f32::from(origin.y) - f32::from(target.y)).abs();
-    let lift = distance_y.mul_add(0.22, 72.0).clamp(72.0, 180.0);
-    let control_a = point(origin.x, origin.y - px(lift));
-    let control_b = point(target.x, target.y + px((lift * 0.28).max(36.0)));
-    point(
-        origin.x * inverse.powi(3)
-            + control_a.x * (3.0 * inverse.powi(2) * t)
-            + control_b.x * (3.0 * inverse * t.powi(2))
-            + target.x * t.powi(3),
-        origin.y * inverse.powi(3)
-            + control_a.y * (3.0 * inverse.powi(2) * t)
-            + control_b.y * (3.0 * inverse * t.powi(2))
-            + target.y * t.powi(3),
-    )
-}
-
-fn receipt_quad(center: Point<Pixels>, color: u32, intensity: f32) -> PaintQuad {
-    quad(
-        centered_bounds(center, 13.0, 9.0),
-        px(3.0),
-        rgba(with_alpha(color, (0xf0 as f32 * intensity) as u8)),
-        px(1.0),
-        rgba(with_alpha(0xffffffff, (0xd8 as f32 * intensity) as u8)),
-        Default::default(),
-    )
-}
-
-fn round_quad(bounds: Bounds<Pixels>, radius: f32, color: u32) -> PaintQuad {
-    quad(
-        bounds,
-        px(radius),
-        rgba(color),
-        Edges::<Pixels>::default(),
-        rgba(0x00000000),
-        Default::default(),
-    )
-}
-
-fn outline_quad(bounds: Bounds<Pixels>, radius: f32, color: u32, width: f32) -> PaintQuad {
-    quad(
-        bounds,
-        px(radius),
-        rgba(0x00000000),
-        px(width),
-        rgba(color),
-        Default::default(),
-    )
-}
-
-fn centered_bounds(center: Point<Pixels>, width: f32, height: f32) -> Bounds<Pixels> {
-    Bounds {
-        origin: point(center.x - px(width / 2.0), center.y - px(height / 2.0)),
-        size: Size {
-            width: px(width),
-            height: px(height),
-        },
-    }
-}
-
-fn expanded_bounds(bounds: Bounds<Pixels>, amount: f32) -> Bounds<Pixels> {
-    Bounds {
-        origin: point(bounds.origin.x - px(amount), bounds.origin.y - px(amount)),
-        size: Size {
-            width: bounds.size.width + px(amount * 2.0),
-            height: bounds.size.height + px(amount * 2.0),
-        },
-    }
-}
-
-pub(super) fn screen_point_visible(point: Point<Pixels>, viewport: Size<Pixels>) -> bool {
-    point.x >= px(0.0)
-        && point.y >= px(0.0)
-        && point.x <= viewport.width
-        && point.y <= viewport.height
-}
-
-fn status_style(status: DispatchReceiptVisualStatus, theme: Theme) -> (u32, f32) {
-    let intensity = impact_radius_scale(status);
-    let color = match status {
-        DispatchReceiptVisualStatus::Submitted => theme.accent_cyan,
-        DispatchReceiptVisualStatus::Queued => theme.accent_blue,
-        DispatchReceiptVisualStatus::Untracked => theme.text_secondary,
-    };
-    (color, intensity)
-}
-
-pub(super) fn impact_radius_scale(status: DispatchReceiptVisualStatus) -> f32 {
-    match status {
-        DispatchReceiptVisualStatus::Submitted => 1.0,
-        DispatchReceiptVisualStatus::Queued => 0.72,
-        DispatchReceiptVisualStatus::Untracked => 0.78,
-    }
-}
-
-fn ease_out_cubic(progress: f32) -> f32 {
-    1.0 - (1.0 - progress.clamp(0.0, 1.0)).powi(3)
-}
-
-fn with_alpha(color: u32, alpha: u8) -> u32 {
-    (color & 0xffffff00) | u32::from(alpha)
 }

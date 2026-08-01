@@ -7,21 +7,21 @@ use std::time::Duration;
 ///   target_node_id = 901
 ///   previous flight boundary = 250ms = 5 × 50ms
 ///   flight duration = 480ms = 250ms + 4 × 50ms + 30ms
-///   previous impact boundary = 160ms = 4 × 40ms
-///   impact duration = 260ms = 160ms + 2 × 50ms
+///   previous impact boundary = 260ms = 5 × 50ms + 10ms
+///   impact duration = 430ms = 260ms + 3 × 50ms + 20ms
 ///   active effects = 1 → 0
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 向空 MotionStore 写入一条 Submitted receipt。
 ///   2. 先推进旧 Flight 边界 250ms，确认仍未提前命中，再推进到 480ms。
-///   3. 先推进旧 Impact 边界 160ms，确认仍未提前消失，再推进到 260ms。
+///   3. 先推进旧 Impact 边界 260ms，确认仍未提前消失，再推进到 430ms。
 ///   4. 读取 presentation 与 activity summary，确认 effect 在新边界被回收。
 ///
 /// 预期结果：
 ///   - 正断言：spawn 后存在唯一 Flight presentation，目标为 901。
 ///   - 正断言：480ms 后进入 Impact，且 Canvas 仍保持 active。
-///   - 正断言：再过 260ms 后 presentation 为空且 Canvas 回到 idle。
-///   - 负断言：旧 250ms/160ms 边界不能提前切相或卸载，结束后不能继续请求动画帧。
+///   - 正断言：再过 430ms 后 presentation 为空且 Canvas 回到 idle。
+///   - 负断言：旧 250ms/260ms 边界不能提前切相或卸载，结束后不能继续请求动画帧。
 #[test]
 fn test_dispatch_receipt_runs_flight_impact_then_returns_canvas_to_idle() {
     let mut store = MotionStore::new(false);
@@ -54,8 +54,8 @@ fn test_dispatch_receipt_runs_flight_impact_then_returns_canvas_to_idle() {
         "新建 effect 必须从 Flight 开始"
     );
     assert_eq!(
-        initial[0].particle_count, 18,
-        "Submitted effect 必须使用固定的 18 粒子预算"
+        initial[0].particle_count, 28,
+        "Submitted effect 必须使用固定的 20 主粒子+8 次级火花=28 粒子预算"
     );
     assert_ne!(
         initial[0].phase,
@@ -99,30 +99,38 @@ fn test_dispatch_receipt_runs_flight_impact_then_returns_canvas_to_idle() {
         "Impact 尚未结束时 Canvas 必须维持动画帧活动"
     );
 
-    // previous boundary = 160ms = 4 × 40ms；新节奏在此仍须保持 Impact。
-    for _ in 0..4 {
+    // previous boundary = 260ms = 5 × 50ms + 10ms；新节奏在此仍须保持 Impact。
+    for _ in 0..5 {
         assert!(
-            store.tick(Duration::from_millis(40)),
-            "Impact 每个 40ms 帧都应推进粒子和脉冲"
+            store.tick(Duration::from_millis(50)),
+            "Impact 前五个 50ms 帧都应推进粒子和脉冲"
         );
     }
+    assert!(
+        store.tick(Duration::from_millis(10)),
+        "Impact 应继续推进剩余 10ms 到旧 260ms 边界"
+    );
     assert_eq!(
         store.dispatch_receipt_presentations()[0].phase,
         DispatchEffectPhase::Impact,
-        "Impact 在旧 160ms 边界不得提前卸载"
+        "Impact 在旧 260ms 边界不得提前卸载"
     );
 
-    // remaining impact = 260ms - 160ms = 100ms = 2 × 50ms。
-    for _ in 0..2 {
+    // remaining impact = 430ms - 260ms = 170ms = 3 × 50ms + 20ms。
+    for _ in 0..3 {
         assert!(
             store.tick(Duration::from_millis(50)),
             "延长后的 Impact 每个 50ms 帧都应继续推进粒子和脉冲"
         );
     }
+    assert!(
+        store.tick(Duration::from_millis(20)),
+        "Impact 最后 20ms 必须推进到 430ms 回收边界"
+    );
 
     assert!(
         store.dispatch_receipt_presentations().is_empty(),
-        "Impact 累计 260ms 后必须回收 presentation"
+        "Impact 累计 430ms 后必须回收 presentation"
     );
     assert!(
         !store.activity_summary().canvas_active,
@@ -301,13 +309,13 @@ fn test_dispatch_receipt_deduplicates_and_bounds_burst_capacity() {
         .map(|presentation| presentation.particle_count)
         .sum::<usize>();
     assert!(
-        active_particle_budget <= 3 * 18,
-        "三路 active effect 的固定粒子池总量不得超过 3×18=54；实际：{active_particle_budget}"
+        active_particle_budget <= 3 * 28,
+        "三路 active effect 的固定粒子池总量不得超过 3×28=84；实际：{active_particle_budget}"
     );
     assert_ne!(
         active_particle_budget,
-        4 * 18,
-        "并发限流不得分配第四路 18 粒子预算"
+        4 * 28,
+        "并发限流不得分配第四路 28 粒子预算"
     );
 
     for index in 10..=11 {

@@ -175,13 +175,13 @@ fn test_animation_schedule_keeps_exposed_canvas_motion_on_next_frame_while_setti
 /// 数据构造（含关键数值的推导过程）：
 ///   dispatch effects = 1
 ///   flight = 480ms = 9 × 50ms + 30ms
-///   impact = 260ms = 5 × 50ms + 10ms
+///   impact = 430ms = 8 × 50ms + 30ms
 ///   active cadence = 16ms；idle cadence = 250ms
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 在 MotionStore 创建一个 Submitted dispatch effect。
 ///   2. 把 Motion activity 投影进 AnimationSchedule，读取存活期唤醒方式。
-///   3. 推进完整 480ms + 260ms 生命周期，再次投影并读取空闲唤醒方式。
+///   3. 推进完整 480ms + 430ms 生命周期，再次投影并读取空闲唤醒方式。
 ///
 /// 预期结果：
 ///   - 正断言：effect 存活时返回 NextFrame(16ms)。
@@ -212,11 +212,11 @@ fn test_dispatch_effect_activity_drives_next_frame_then_returns_idle() {
         motion.tick(Duration::from_millis(50));
     }
     motion.tick(Duration::from_millis(30));
-    // impact = 260ms = 5 × 50ms + 10ms。
-    for _ in 0..5 {
+    // impact = 430ms = 8 × 50ms + 30ms。
+    for _ in 0..8 {
         motion.tick(Duration::from_millis(50));
     }
-    motion.tick(Duration::from_millis(10));
+    motion.tick(Duration::from_millis(30));
     let idle_wakeup =
         AnimationSchedule::next_wakeup(visible_activity(motion.activity_summary().canvas_active));
 
