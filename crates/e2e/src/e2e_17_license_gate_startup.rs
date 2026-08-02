@@ -1,7 +1,9 @@
 //! E2E-17：License Gate 无凭证启动与首帧渲染。
 
 use app::{build_activation_root_e2e, build_configured_unlicensed_root_e2e};
-use gpui::{px, TestAppContext};
+use gpui::{px, Modifiers, TestAppContext};
+
+const INTERNAL_BETA_LICENSE_KEY: &str = "KG-WACEHBCB-2ZL4AM23-JBJQJZBG-YVT55VDN";
 
 /// E2E-17-default-on：默认开启 licenses 时，无凭证启动必须展示激活壳。
 ///
@@ -70,6 +72,67 @@ fn e2e_17_unlicensed_startup_renders_editable_gate_without_panicking() {
     assert!(
         window_cx.debug_bounds("gate-workbench").is_none(),
         "未激活时不得提前挂载 gate-workbench"
+    );
+}
+
+/// E2E-17-prefill：内测激活页默认填入推广 License Key，并允许用户完整替换。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   activation window = 1 个（显式进入激活阶段，不读取开发机本地凭证）
+///   license input     = 1 个（激活页唯一 License Key 输入框）
+///   beta key          = `KG-WACEHBCB-2ZL4AM23-JBJQJZBG-YVT55VDN`（内测推广 Key）
+///   replacement key   = `KG-PRIVATE-TEST-REPLACEMENT`（与推广 Key 不同的负对照）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造真实 License Gate 首帧，点击唯一 License Key 输入区域取得焦点
+///   2. 发送 Cmd+A + Cmd+C，从系统剪贴板读取用户首屏可见的完整默认值
+///   3. 再次全选并通过平台文本输入写入 replacement key，然后复制当前值
+///   4. 对比两次剪贴板内容，确认默认值正确且 InputState 未被只读或锁死
+///
+/// 预期结果：
+///   - 正断言：首次复制精确得到内测推广 Key
+///   - 正断言：替换后精确得到 replacement key
+///   - 负断言：替换后不得残留内测推广 Key
+///   - 负断言：未点击激活时不得提前进入工作台
+#[test]
+fn e2e_17_license_input_prefills_beta_key_and_remains_editable() {
+    let mut test_cx = TestAppContext::single();
+    let (_root, window_cx) = test_cx.add_window_view(build_activation_root_e2e);
+    let input = window_cx
+        .debug_bounds("license-key-input")
+        .expect("内测 License 默认值验收前必须渲染 License Key 输入框");
+
+    window_cx.simulate_click(input.center(), Modifiers::none());
+    window_cx.simulate_keystrokes("cmd-a cmd-c");
+    let initial =
+        window_cx.update(|_window, cx| cx.read_from_clipboard().and_then(|item| item.text()));
+
+    assert_eq!(
+        initial.as_deref(),
+        Some(INTERNAL_BETA_LICENSE_KEY),
+        "License 输入框首屏默认值必须精确等于内测推广 Key"
+    );
+
+    let replacement_key = "KG-PRIVATE-TEST-REPLACEMENT";
+    window_cx.simulate_keystrokes("cmd-a");
+    window_cx.simulate_input(replacement_key);
+    window_cx.simulate_keystrokes("cmd-a cmd-c");
+    let replaced =
+        window_cx.update(|_window, cx| cx.read_from_clipboard().and_then(|item| item.text()));
+
+    assert_eq!(
+        replaced.as_deref(),
+        Some(replacement_key),
+        "用户必须能够完整替换内测推广 Key，InputState 不得被锁死"
+    );
+    assert_ne!(
+        replaced.as_deref(),
+        Some(INTERNAL_BETA_LICENSE_KEY),
+        "替换后不得继续提交或复制旧的内测推广 Key"
+    );
+    assert!(
+        window_cx.debug_bounds("gate-workbench").is_none(),
+        "只编辑默认 License Key 且未点击激活时不得提前进入工作台"
     );
 }
 

@@ -31,6 +31,7 @@ use ui::Theme;
 
 #[cfg(target_os = "macos")]
 const LICENSE_BACKGROUND_VIDEO_ASSET: &str = "wallpapers/license-gate.mp4";
+const INTERNAL_BETA_LICENSE_KEY: &str = "KG-WACEHBCB-2ZL4AM23-JBJQJZBG-YVT55VDN";
 
 #[derive(Clone, Debug)]
 enum ShellStatus {
@@ -54,8 +55,11 @@ pub struct GateRoot {
 
 impl GateRoot {
     pub fn new(phase: BootPhase, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let license_input =
-            cx.new(|cx| InputState::new(window, cx).placeholder("输入 License Key"));
+        let license_input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .default_value(INTERNAL_BETA_LICENSE_KEY)
+                .placeholder("输入 License Key")
+        });
         let mut root = Self {
             phase,
             workbench: None,
