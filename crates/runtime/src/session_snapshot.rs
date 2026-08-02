@@ -12,26 +12,26 @@ use storage::{NodeSession, NodeSessionKind};
 use terminal::pty::PtyCommand;
 
 use crate::agent_hooks::AgentHookEnv;
+use crate::agent_session_bindings::AgentSessionBindings;
 use crate::live::LiveNode;
 use crate::macos_proc;
 
 /// Collect cwd and session_id for every live node at app exit.
 /// Called before kill_all() so PTY processes are still alive.
-pub fn collect_node_sessions(
+pub(crate) fn collect_node_sessions(
     live: &HashMap<NodeId, Box<dyn LiveNode>>,
     document: &Document,
     _workspace_root: Option<&Path>,
-    agent_session_ids: &HashMap<NodeId, String>,
+    agent_session_bindings: &AgentSessionBindings,
 ) -> Vec<NodeSession> {
     let mut sessions = Vec::new();
 
     for node in document.nodes() {
-        let Some(live_node) = live.get(&node.id) else {
-            continue;
-        };
-
         match &node.kind {
             CanvasNodeKind::Term(_) => {
+                let Some(live_node) = live.get(&node.id) else {
+                    continue;
+                };
                 let cwd = live_node.child_pid().and_then(macos_proc::process_cwd);
                 sessions.push(NodeSession {
                     node_id: node.id,
@@ -41,7 +41,9 @@ pub fn collect_node_sessions(
                 });
             }
             CanvasNodeKind::Agent(_) => {
-                let session_id = agent_session_ids.get(&node.id).cloned();
+                let session_id = agent_session_bindings
+                    .session_id(node.id)
+                    .map(ToString::to_string);
                 sessions.push(NodeSession {
                     node_id: node.id,
                     kind: NodeSessionKind::Agent,

@@ -228,6 +228,9 @@ impl MultisoulApp {
                     let browser_changed = app.drain_browser_events();
                     let agent_hook_report =
                         app.agent_hook_server.drain_into_runtime(&mut app.runtime);
+                    if agent_hook_report.session_binding_changed {
+                        app.mark_session_dirty();
+                    }
                     for event in &agent_hook_report.events {
                         app.ingest_hook_conversation_observation(event);
                         if event.provider_event == "SessionEnd" {

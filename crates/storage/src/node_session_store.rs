@@ -1,6 +1,7 @@
 use crate::{StorageError, StorageResult};
 use canvas::NodeId;
 use rusqlite::{params, Connection};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -70,6 +71,84 @@ impl NodeSessionStore {
                  VALUES (?1, ?2, ?3, ?4, strftime('%s','now'))",
             )?;
             for session in sessions {
+                statement.execute(params![
+                    session.node_id,
+                    session.kind.as_str(),
+                    session.cwd,
+                    session.session_id,
+                ])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn reconcile_sessions(
+        &self,
+        current_nodes: &[(NodeId, NodeSessionKind)],
+        observed_sessions: &[NodeSession],
+    ) -> StorageResult<()> {
+        let mut conn = Connection::open(&self.path)?;
+        let tx = conn.transaction()?;
+        let existing = {
+            let mut statement =
+                tx.prepare("SELECT node_id, kind, cwd, session_id FROM node_sessions")?;
+            let rows = statement.query_map([], |row| {
+                let node_id = row.get::<_, u64>(0)?;
+                let kind = NodeSessionKind::from_str(&row.get::<_, String>(1)?)
+                    .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+                Ok(NodeSession {
+                    node_id,
+                    kind,
+                    cwd: row.get(2)?,
+                    session_id: row.get(3)?,
+                })
+            })?;
+            rows.map(|row| row.map(|session| (session.node_id, session)))
+                .collect::<Result<HashMap<_, _>, _>>()?
+        };
+        let observed = observed_sessions
+            .iter()
+            .map(|session| (session.node_id, session))
+            .collect::<HashMap<_, _>>();
+        let reconciled = current_nodes
+            .iter()
+            .map(|(node_id, kind)| {
+                let previous = existing
+                    .get(node_id)
+                    .filter(|session| session.kind == *kind);
+                match observed
+                    .get(node_id)
+                    .filter(|session| session.kind == *kind)
+                {
+                    Some(session) if *kind == NodeSessionKind::Terminal => NodeSession {
+                        node_id: *node_id,
+                        kind: *kind,
+                        cwd: session
+                            .cwd
+                            .clone()
+                            .or_else(|| previous.and_then(|value| value.cwd.clone())),
+                        session_id: None,
+                    },
+                    Some(session) => (*session).clone(),
+                    None => previous.cloned().unwrap_or(NodeSession {
+                        node_id: *node_id,
+                        kind: *kind,
+                        cwd: None,
+                        session_id: None,
+                    }),
+                }
+            })
+            .collect::<Vec<_>>();
+
+        tx.execute("DELETE FROM node_sessions", [])?;
+        {
+            let mut statement = tx.prepare(
+                "INSERT INTO node_sessions \
+                 (node_id, kind, cwd, session_id, updated_at_unix) \
+                 VALUES (?1, ?2, ?3, ?4, strftime('%s','now'))",
+            )?;
+            for session in reconciled {
                 statement.execute(params![
                     session.node_id,
                     session.kind.as_str(),

@@ -4,6 +4,8 @@ mod agent_alias_tests;
 mod agent_command_tests;
 #[path = "../tests/unit/agent_manual_interrupt_tests.rs"]
 mod agent_manual_interrupt_tests;
+#[path = "../tests/unit/agent_session_binding_tests.rs"]
+mod agent_session_binding_tests;
 #[path = "../tests/unit/agent_session_snapshot_tests.rs"]
 mod agent_session_snapshot_tests;
 #[path = "../tests/unit/agent_task_event_tests.rs"]

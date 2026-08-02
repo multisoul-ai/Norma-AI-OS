@@ -1,5 +1,6 @@
 //! 节点生命周期 + LiveNode 注册表。把 canvas 文档与可运行节点组装在一起。
 
+use crate::agent_session_bindings::AgentSessionBindings;
 use crate::ego::EgoTaskSpaceReplacement;
 use crate::events::RuntimeEvents;
 use crate::focus::{FocusState, InputMode};
@@ -36,7 +37,7 @@ pub struct Runtime {
     pub(crate) events: RuntimeEvents,
     pub(crate) agent_hook_config: Option<crate::agent_hooks::AgentHookRuntimeConfig>,
     terminal_shells: HashMap<NodeId, String>,
-    pub(crate) agent_session_ids: HashMap<NodeId, String>,
+    pub(crate) agent_session_bindings: AgentSessionBindings,
     pub(crate) ego_states: HashMap<NodeId, EgoTaskState>,
     pub(crate) ego_replacements: HashMap<NodeId, EgoTaskSpaceReplacement>,
     #[cfg(test)]
@@ -62,7 +63,7 @@ impl Runtime {
             events: RuntimeEvents::default(),
             agent_hook_config: None,
             terminal_shells: HashMap::new(),
-            agent_session_ids: HashMap::new(),
+            agent_session_bindings: AgentSessionBindings::default(),
             ego_states: HashMap::new(),
             ego_replacements: HashMap::new(),
             #[cfg(test)]
@@ -106,7 +107,7 @@ impl Runtime {
         self.focus.exit_to_canvas();
         self.live.clear();
         self.terminal_shells.clear();
-        self.agent_session_ids.clear();
+        self.agent_session_bindings.clear();
         self.restore_ego_states();
         self.next_session_id = 1;
     }
@@ -139,6 +140,7 @@ impl Runtime {
         let mut ctx = crate::session_restore::RestoreCtx {
             live: &mut self.live,
             terminal_shells: &mut self.terminal_shells,
+            agent_session_bindings: &self.agent_session_bindings,
             events: &mut self.events,
             next_session_id: &mut self.next_session_id,
             workspace_root: self.workspace_root.as_deref(),
@@ -153,7 +155,7 @@ impl Runtime {
             &self.live,
             &self.document,
             self.workspace_root.as_deref(),
-            &self.agent_session_ids,
+            &self.agent_session_bindings,
         )
     }
 
@@ -162,9 +164,11 @@ impl Runtime {
         checkpoints: &[SessionCheckpoint],
         node_sessions: &[NodeSession],
     ) -> usize {
+        self.hydrate_agent_session_bindings(node_sessions);
         let mut ctx = crate::session_restore::RestoreCtx {
             live: &mut self.live,
             terminal_shells: &mut self.terminal_shells,
+            agent_session_bindings: &self.agent_session_bindings,
             events: &mut self.events,
             next_session_id: &mut self.next_session_id,
             workspace_root: self.workspace_root.as_deref(),
@@ -185,9 +189,13 @@ impl Runtime {
         node_sessions: &[NodeSession],
         discovered_session_id: Option<&str>,
     ) -> bool {
+        if let Some(session_id) = discovered_session_id {
+            self.bind_discovered_agent_session(node_id, session_id);
+        }
         let mut ctx = crate::session_restore::RestoreCtx {
             live: &mut self.live,
             terminal_shells: &mut self.terminal_shells,
+            agent_session_bindings: &self.agent_session_bindings,
             events: &mut self.events,
             next_session_id: &mut self.next_session_id,
             workspace_root: self.workspace_root.as_deref(),
@@ -421,7 +429,7 @@ impl Runtime {
         }
         self.events.remove(node_id);
         self.terminal_shells.remove(&node_id);
-        self.agent_session_ids.remove(&node_id);
+        self.agent_session_bindings.remove(node_id);
         self.remove_ego_state(node_id);
 
         self.selection.deselect(node_id);
@@ -446,7 +454,9 @@ impl Runtime {
     }
 
     pub fn agent_session_id(&self, node_id: NodeId) -> Option<String> {
-        self.agent_session_ids.get(&node_id).cloned()
+        self.agent_session_bindings
+            .session_id(node_id)
+            .map(ToString::to_string)
     }
 
     fn finish_node_operation<T>(

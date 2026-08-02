@@ -7,7 +7,9 @@ use crossbeam_channel::{unbounded, Receiver};
 use norma::agent_hook::{
     extract_prompt_text, task_state_for_provider_event, AgentHookEvent, AgentHookTaskState,
 };
-use runtime::{AgentHookRuntimeConfig, AgentTaskState, AgentTaskUpdate, Runtime};
+use runtime::{
+    AgentHookRuntimeConfig, AgentTaskState, AgentTaskUpdate, AgentTaskUpdateOutcome, Runtime,
+};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -24,6 +26,7 @@ pub(crate) struct AgentHookServer {
 #[derive(Debug, Default)]
 pub(crate) struct AgentHookDrainReport {
     pub(crate) changed: bool,
+    pub(crate) session_binding_changed: bool,
     pub(crate) started_tasks: Vec<AgentHookStartedTask>,
     pub(crate) ready_node_ids: Vec<u64>,
     pub(crate) terminal_node_ids: Vec<u64>,
@@ -130,16 +133,22 @@ impl AgentHookServer {
                 Some(AgentTaskState::Done | AgentTaskState::Failed { .. } | AgentTaskState::Ended)
             );
             report.events.push(event.clone());
-            if apply_agent_hook_event(runtime, event) {
+            let outcome = apply_agent_hook_event_with_outcome(runtime, event);
+            if outcome.changed() {
                 report.changed = true;
-                if let Some(started_task) = started_task {
-                    report.started_tasks.push(started_task);
+                if outcome.session_binding_changed {
+                    report.session_binding_changed = true;
                 }
-                if is_ready {
-                    report.ready_node_ids.push(node_id);
-                }
-                if is_terminal {
-                    report.terminal_node_ids.push(node_id);
+                if outcome.task_state_changed {
+                    if let Some(started_task) = started_task {
+                        report.started_tasks.push(started_task);
+                    }
+                    if is_ready {
+                        report.ready_node_ids.push(node_id);
+                    }
+                    if is_terminal {
+                        report.terminal_node_ids.push(node_id);
+                    }
                 }
             }
         }
@@ -147,17 +156,25 @@ impl AgentHookServer {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn apply_agent_hook_event(runtime: &mut Runtime, event: AgentHookEvent) -> bool {
+    apply_agent_hook_event_with_outcome(runtime, event).changed()
+}
+
+fn apply_agent_hook_event_with_outcome(
+    runtime: &mut Runtime,
+    event: AgentHookEvent,
+) -> AgentTaskUpdateOutcome {
     let Some(to) = agent_task_state_from_hook_event(&event) else {
         tracing::debug!(provider_event = %event.provider_event, "ignored unmapped agent hook event");
-        return false;
+        return AgentTaskUpdateOutcome::default();
     };
     let task_title = if event.provider_event == "UserPromptSubmit" {
         extract_prompt_text(&event.raw_json)
     } else {
         None
     };
-    runtime.apply_agent_task_update(AgentTaskUpdate {
+    runtime.apply_agent_task_update_with_outcome(AgentTaskUpdate {
         node_id: event.node_id,
         profile: canvas_profile(event.profile),
         provider_event: event.provider_event,
@@ -470,3 +487,7 @@ mod tests {
         (client, server)
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/agent_hook_session_binding_tests.rs"]
+mod session_binding_tests;

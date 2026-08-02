@@ -14,12 +14,16 @@ use std::time::{Duration, Instant};
 use storage::{NodeSession, ProjectStore, SessionCheckpoint};
 use workspace::WorkspaceSource;
 
+#[path = "flow/session_restore_plan.rs"]
+mod session_restore_plan;
+
 #[derive(Clone, Debug)]
 pub(crate) struct PendingLiveSessionRestore {
     root: PathBuf,
     checkpoints: Vec<SessionCheckpoint>,
     node_sessions: Vec<NodeSession>,
     node_ids: Vec<NodeId>,
+    legacy_discovery_node_ids: Vec<NodeId>,
 }
 
 impl PendingLiveSessionRestore {
@@ -41,11 +45,13 @@ impl PendingLiveSessionRestore {
             })
             .map(|node| node.id)
             .collect();
+        let legacy_discovery_node_ids = session_restore_plan::legacy_discovery_node_ids(runtime);
         Self {
             root,
             checkpoints,
             node_sessions,
             node_ids,
+            legacy_discovery_node_ids,
         }
     }
 
@@ -204,13 +210,7 @@ impl MultisoulApp {
                     if app.workspace_state.current_root.as_deref() != Some(root.as_path()) {
                         return None;
                     }
-                    if pending
-                        .node_sessions
-                        .iter()
-                        .find(|session| session.node_id == node_id)
-                        .and_then(|session| session.session_id.as_deref())
-                        .is_some_and(|session_id| !session_id.is_empty())
-                    {
+                    if !pending.legacy_discovery_node_ids.contains(&node_id) {
                         return None;
                     }
                     match app.runtime.document.node(node_id).map(|node| &node.kind) {
@@ -240,13 +240,21 @@ impl MultisoulApp {
                         return false;
                     }
                     let restore_start = Instant::now();
+                    let binding_changed =
+                        discovered_session_id.as_deref().is_some_and(|session_id| {
+                            app.runtime
+                                .bind_discovered_agent_session(node_id, session_id)
+                        });
+                    if binding_changed {
+                        app.mark_session_dirty();
+                    }
                     let restored = app
                         .runtime
                         .restore_live_session_for_node_with_node_sessions(
                             node_id,
                             &pending.checkpoints,
                             &pending.node_sessions,
-                            discovered_session_id.as_deref(),
+                            None,
                         );
                     tracing::info!(
                         stage = "workspace_open_restore_live_session_node",
@@ -387,6 +395,13 @@ pub(crate) fn enter_workspace_for_path_with_source(
         .node_session_store()
         .load_sessions()
         .unwrap_or_default();
+    let hydration = next_runtime.hydrate_agent_session_bindings(&node_sessions);
+    if !hydration.conflicting_node_ids.is_empty() {
+        tracing::warn!(
+            conflicting_node_ids = ?hydration.conflicting_node_ids,
+            "duplicate Agent session bindings quarantined during workspace open"
+        );
+    }
     log_workspace_open_timing(
         "workspace_open_load_node_sessions",
         &root,
