@@ -201,9 +201,11 @@ impl MotionStore {
             node.set_breathing_intent(intent, reduce_motion);
         }
     }
+    #[cfg(test)]
     pub fn set_chase_intent(&mut self, id: NodeId, active: bool) {
         self.set_chase_intent_at(id, active, Instant::now());
     }
+    #[cfg(test)]
     pub fn set_chase_intent_at(&mut self, id: NodeId, active: bool, now: Instant) {
         let reduce_motion = self.reduce_motion;
         if let Some(node) = self.nodes.get_mut(&id) {
@@ -336,6 +338,7 @@ impl NodeMotion {
                 .set_bool(state != BreathingState::Inactive);
         }
     }
+    #[cfg(test)]
     fn set_chase_intent(&mut self, active: bool, reduce_motion: bool, now: Instant) {
         let was_active = self.chase_active;
         if !active {

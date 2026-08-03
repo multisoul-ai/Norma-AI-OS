@@ -254,6 +254,7 @@ impl MultisoulApp {
             animation_frame_cadence: None,
             window_active: true,
             canvas_surface,
+            working_snake_views: std::collections::HashMap::new(),
             voice_window_inset_events,
             voice_window_inset_view,
             voice_window_inset_window_visible: true,

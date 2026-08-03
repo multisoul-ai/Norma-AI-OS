@@ -1,4 +1,4 @@
-/// Chase 直线边框层不应再由 canvas 挂载，工作态应使用圆角路径上的贪吃蛇 segment。
+/// Working Snake 不应挂在 CanvasSurface 子树内，且仍使用圆角路径 segment。
 ///
 /// 数据构造（含关键数值推导）：
 ///   GPUI overflow_hidden 只生成矩形 ContentMask，不会按 rounded radius 裁剪子元素。
@@ -6,26 +6,32 @@
 ///   正确路径是通过 PathBuilder::stroke 画圆角矩形路径上的短 segment。
 ///
 /// 执行过程：
-///   1. 读取 canvas/view.rs 源码
+///   1. 读取 canvas/view.rs 与 canvas/working_snakes.rs 源码
 ///   2. 检查不再导入/调用 chase_border_layer
-///   3. 检查不再通过 node_div.child(...) 挂载 chase 子层
-///   4. 检查 canvas/view.rs 使用 visual.working_snake 和 render_working_snake_border
-///   5. 读取 motion/mod.rs 源码，检查不再向 visual 暴露 chase_glow
-///   6. 读取 cards/snake.rs 源码，检查使用 PathBuilder::stroke 和 arc_to 画圆角路径
+///   3. 检查 canvas/view.rs 委托 working_snakes 模块同步 WorkingSnakeView，且不把它挂进 node_div。
+///   4. 检查 app/render.rs 把 working_snake_views 挂为 CanvasSurface 的兄弟叠层。
+///   5. 检查 tooltip、queue panel 与 dispatch effect 位于 Snake 之后，避免被边框穿透覆盖。
+///   6. 检查 cards/snake/view.rs 由局部 Entity 调用 render_working_snake_border。
+///   7. 读取 cards/snake.rs，检查使用 PathBuilder::stroke 和 arc_to 画圆角路径。
 ///
 /// 预期结果：
 ///   - 正断言：node_div 仍保留 rounded + overflow_hidden 的自身圆角结构
 ///   - 负断言：不应导入/调用 chase_border_layer
 ///   - 负断言：不应继续引用 cards::chase 模块
-///   - 负断言：ResolvedNodeVisual 不应继续暴露 chase_glow overlay 出口
-///   - 正断言：应使用 visual.working_snake 驱动贪吃蛇 segment
-///   - 正断言：应使用 render_working_snake_border 渲染路径 segment
+///   - 正断言：Canvas 只同步 WorkingSnakeView，不直接构建蛇路径。
+///   - 正断言：根视图应把 working_snake_views 挂在 cached CanvasSurface 之后。
+///   - 正断言：Canvas 交互叠层与 dispatch effect 应挂在 Snake 之后。
+///   - 负断言：node_div 不得直接挂载 snake_view，否则局部 notify 会失效 CanvasSurface。
+///   - 正断言：WorkingSnakeView 应调用 render_working_snake_border 渲染路径 segment。
 ///   - 负断言：canvas view 不应再用 .bg(linear_gradient(...)) 画整圈 ring
 #[test]
 fn test_working_state_does_not_mount_chase_border_layer() {
     let source = include_str!("../../src/canvas/view.rs");
-    let motion_source = include_str!("../../src/motion/mod.rs");
+    let working_snakes_source = include_str!("../../src/canvas/working_snakes.rs");
+    let overlays_source = include_str!("../../src/canvas/overlays.rs");
+    let app_render_source = include_str!("../../src/app/render.rs");
     let snake_source = include_str!("../../src/cards/snake.rs");
+    let snake_view_source = include_str!("../../src/cards/snake/view.rs");
 
     assert!(
         source.contains(".rounded(px(node_radius))"),
@@ -44,16 +50,46 @@ fn test_working_state_does_not_mount_chase_border_layer() {
         "canvas view 不应再依赖 cards::chase 模块渲染工作态边框"
     );
     assert!(
-        !motion_source.contains("chase_glow"),
-        "ResolvedNodeVisual 不应再暴露 chase_glow；工作态反馈应停留在自身 chrome visual"
+        source.contains("working_snakes::synchronize_view"),
+        "canvas view 应把局部 WorkingSnakeView 的业务状态同步委托给 working_snakes 模块"
     );
     assert!(
-        source.contains("visual.working_snake"),
-        "canvas view 应读取 visual.working_snake 来决定是否绘制贪吃蛇 segment"
+        working_snakes_source.contains("WorkingSnakeView::new"),
+        "working_snakes 模块应只在业务状态变化时创建局部 WorkingSnakeView"
     );
     assert!(
-        source.contains("render_working_snake_border"),
-        "canvas view 应调用 render_working_snake_border，而不是直接拼直线 overlay"
+        app_render_source.contains(".children(ordered_snake_views)"),
+        "根视图应按 Canvas 节点顺序把 Working Snake Entity 挂为 cached CanvasSurface 的兄弟叠层"
+    );
+    let snake_index = app_render_source
+        .find(".children(ordered_snake_views)")
+        .expect("根视图必须挂载排序后的 Working Snake Entity");
+    let overlays_index = app_render_source
+        .find(".child(render_canvas_overlays(self, window, cx))")
+        .expect("根视图必须在 Snake 后挂载 Canvas 交互叠层");
+    let dispatch_index = app_render_source
+        .find("crate::effects::dispatch_receipt::render(self, window)")
+        .expect("根视图必须在 Snake 后挂载 dispatch receipt effect");
+    assert!(
+        snake_index < overlays_index && overlays_index < dispatch_index,
+        "绘制顺序必须是 Snake → tooltip/queue overlays → dispatch effect，避免 Snake 穿透上层反馈"
+    );
+    assert!(
+        overlays_source.contains("render_terminal_link_tooltip")
+            && overlays_source.contains("render_agent_queue_panel"),
+        "Canvas overlays 必须同时承载 terminal tooltip 与 Agent queue panel"
+    );
+    assert!(
+        !source.contains("node_div = node_div.child(snake_view)"),
+        "Working Snake 不得挂入 node_div/CanvasSurface 子树，否则局部 notify 会重建 Canvas"
+    );
+    assert!(
+        !source.contains("render_working_snake_border"),
+        "canvas view 不应逐帧直接构建 Snake path；该职责必须属于局部 Entity"
+    );
+    assert!(
+        snake_view_source.contains("render_working_snake_border"),
+        "WorkingSnakeView 应调用圆角路径 renderer 绘制局部 segment"
     );
     assert!(
         !source.contains(".bg(linear_gradient("),

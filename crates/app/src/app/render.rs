@@ -3,14 +3,35 @@ use canvas::CanvasNodeKind;
 
 impl Render for MultisoulApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.window_active = window.is_window_active();
+        let window_active = window.is_window_active();
+        if self.window_active != window_active {
+            self.window_active = window_active;
+            let snake_views: Vec<_> = self.working_snake_views.values().cloned().collect();
+            for snake_view in snake_views {
+                snake_view.update(cx, |snake, snake_cx| {
+                    snake.set_window_active(window_active, snake_cx)
+                });
+            }
+        }
+        if !matches!(self.screen, AppScreen::Canvas) {
+            // 离开 Canvas 后丢弃局部 Snake Entity；其 on_next_frame 回调随 Entity
+            // 生命周期结束，不能在 Launchpad 后台继续唤醒。
+            self.working_snake_views.clear();
+        }
         self.sync_feature_guide_blockers(cx);
         self.voice_window_inset_window_visible = state::window_visible_for_voice_inset(window);
         self.sync_voice_window_inset_enabled();
-        let performance_state = self.performance_state();
+        let performance_state = self.performance_state(cx);
         self.performance.set_state(performance_state);
         self.performance.record_repaint();
         self.retain_visible_dispatch_receipts(window);
+        let ordered_snake_views: Vec<_> = self
+            .runtime
+            .document
+            .nodes()
+            .iter()
+            .filter_map(|node| self.working_snake_views.get(&node.id).cloned())
+            .collect();
         self.start_animation_frame_driver_if_needed(window, cx);
         let feature_guide_visible = self.feature_guide.is_visible();
         let mut root = div()
@@ -67,6 +88,12 @@ impl Render for MultisoulApp {
                         gpui::AnyView::from(self.canvas_surface.clone())
                             .cached(gpui::StyleRefinement::default().absolute().size_full()),
                     )
+                    .children(ordered_snake_views)
+                    .child(render_canvas_overlays(self, window, cx))
+                    .when_some(
+                        crate::effects::dispatch_receipt::render(self, window),
+                        |root, effect| root.child(effect),
+                    )
                     .child(self.render_workspace_chrome(window, cx));
                 if let Some(error_banner) = self.render_workspace_error_banner(cx) {
                     root = root.child(error_banner);
@@ -106,13 +133,9 @@ impl MultisoulApp {
             .size_full()
             .child(self.render_workspace_backdrop())
             .child(render_canvas(self, window, cx))
-            .when_some(
-                crate::effects::dispatch_receipt::render(self, window),
-                |surface, effect| surface.child(effect),
-            )
     }
 
-    fn performance_state(&self) -> crate::performance_monitor::PerformanceState {
+    fn performance_state(&self, cx: &gpui::App) -> crate::performance_monitor::PerformanceState {
         use crate::performance_monitor::PerformanceState;
 
         if !self.window_active {
@@ -128,7 +151,11 @@ impl MultisoulApp {
         let video_animation_active = false;
         // 普通 Terminal 光标闪烁属于 idle 基线，不单独提升为 animation；否则
         // 七张空闲 Terminal 的 L3 场景会永远无法产生 state=idle 样本。
-        if activity.canvas_motion_active || video_animation_active {
+        let working_snake_active = self
+            .working_snake_views
+            .values()
+            .any(|view| view.read(cx).is_active_animation());
+        if activity.canvas_motion_active || working_snake_active || video_animation_active {
             return PerformanceState::Animation;
         }
         PerformanceState::Idle

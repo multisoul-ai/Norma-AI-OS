@@ -7,8 +7,10 @@ use crate::canvas::layout_strategy::CanvasLayoutStrategy;
 #[cfg(test)]
 use crate::canvas::master_layout::close_node_and_reflow_for_area;
 use crate::canvas::master_layout::{term_grid_size_for_card, MasterLayoutState};
+use crate::canvas::overlays::render_canvas_overlays;
 use crate::canvas::spawn_focus;
 use crate::canvas::view::render_canvas;
+use crate::cards::snake::WorkingSnakeView;
 use crate::cards::term::render_cache::TerminalRenderCacheHandle;
 use crate::motion::MotionStore;
 use crate::preview::PreviewStore;
@@ -223,8 +225,9 @@ pub struct MultisoulApp {
     animation_frame_clock: frame_loop::AnimationFrameClock,
     animation_frame_pending: bool,
     animation_frame_cadence: Option<std::time::Duration>,
-    window_active: bool,
+    pub(crate) window_active: bool,
     canvas_surface: gpui::Entity<canvas_surface::CanvasSurfaceView>,
+    pub(crate) working_snake_views: HashMap<NodeId, gpui::Entity<WorkingSnakeView>>,
     voice_window_inset_events: voice_window_inset::VoiceWindowInsetEventBus,
     voice_window_inset_view: gpui::Entity<voice_window_inset::VoiceWindowInsetView>,
     voice_window_inset_window_visible: bool,

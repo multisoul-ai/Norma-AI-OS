@@ -192,30 +192,32 @@ fn e2e_05_ctrl_c_stops_focused_agent_cursor_without_waiting_for_stop_hook() {
     app.update(cx, |app, _| app.runtime.kill_all());
 }
 
-/// E2E-05：Thinking 淡入收束后必须改用 67ms ambient timer，Done 后退出 ambient 且 PTY 存活。
+/// E2E-05：Thinking 的 Working Snake 必须由局部显示帧驱动，Done 后退出且 PTY 存活。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   initialization settle = 1000ms > Terminal 初始化总时长 992ms
-///   chase fade = 150ms
-///   ambient cadence = ceil(1000ms / 15fps) = 67ms
+///   snake fade = 150ms
+///   local cadence cap = 16ms < 1000ms / 60fps ≈ 16.67ms
+///   focused cursor root cadence = ceil(1000ms / 15fps) = 67ms，仅允许由 cursor 保留
 ///   focused Done card = mark_card_viewed(true)，不保留未读完成呼吸提示
-///   completion settle budget = 600ms > completion token 520ms，也 > chase fade 150ms
+///   completion settle budget = 600ms > completion token 520ms，也 > snake fade 150ms
 ///   echo_factory PTY run state = Running，任务 Done 不销毁 session
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建并聚焦 Codex Agent，推进 1000ms 排除卡片初始化动画干扰。
 ///   2. 注入 Thinking 并触发真实 Canvas render，同步 Working Snake 意图。
-///   3. 推进 150ms 完成淡入，读取公开动画调度投影。
+///   3. 推进 150ms 完成淡入，读取根 Canvas 调度与局部 Working Snake 投影。
 ///   4. 注入 Done 并标记当前聚焦卡片已查看，推进 600ms 完成淡出/完成反馈。
-///   5. 读取调度投影与 PTY 状态。
+///   5. 读取根 Canvas 调度、局部 Working Snake 与 PTY 状态。
 ///
 /// 预期结果：
-///   - 正断言：Thinking 稳定期报告 ambient active，并使用 Timer(67ms)。
-///   - 负断言：Thinking 稳定期不得继续请求逐显示帧。
-///   - 正断言：Done 收束后 ambient 与 cursor 均关闭，且不再使用 Timer(67ms)。
+///   - 正断言：Thinking 稳定期局部 Working Snake active，并请求下一显示帧。
+///   - 负断言：Thinking 稳定期根 Canvas 不报告 motion/ambient。
+///   - 正断言：焦点 cursor 可独立保留 Timer(67ms)，但来源不得是 Working Snake。
+///   - 正断言：Done 收束后局部 Working Snake、根 ambient 与 cursor 均关闭。
 ///   - 正断言：Done 后 PTY 仍为 Running，证明调度停止不依赖销毁进程。
 #[test]
-fn e2e_05_thinking_settles_to_67ms_ambient_timer_then_done_exits_ambient() {
+fn e2e_05_thinking_uses_local_snake_frames_then_done_stops_without_killing_pty() {
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
     let workspace = tempfile::TempDir::new().expect("ambient 调度测试应创建临时 workspace");
@@ -245,6 +247,10 @@ fn e2e_05_thinking_settles_to_67ms_ambient_timer_then_done_exits_ambient() {
     });
     cx.run_until_parked();
     let thinking_schedule = app.read_with(cx, |app, _cx| app.animation_schedule_snapshot_for_e2e());
+    let thinking_snake = app.read_with(cx, |app, cx| {
+        app.working_snake_snapshot_for_e2e(node_id, cx)
+            .expect("Thinking Canvas render 后应创建局部 Working Snake Entity")
+    });
 
     app.update(cx, |app, cx| {
         let changed = app.runtime.apply_agent_task_update(AgentTaskUpdate {
@@ -269,24 +275,48 @@ fn e2e_05_thinking_settles_to_67ms_ambient_timer_then_done_exits_ambient() {
     });
     cx.run_until_parked();
     let done_schedule = app.read_with(cx, |app, _cx| app.animation_schedule_snapshot_for_e2e());
+    let done_snake = app.read_with(cx, |app, cx| {
+        app.working_snake_snapshot_for_e2e(node_id, cx)
+            .expect("Done 淡出期间应保留同一局部 Working Snake Entity")
+    });
     let done_run_state = read_runtime(&app, cx, |runtime| runtime.node_run_state(node_id));
 
     assert!(
-        thinking_schedule.canvas_motion_active,
-        "Thinking 稳定期仍必须报告总 Canvas 动效活动，供性能监控记录为 Animation"
+        thinking_snake.active,
+        "Thinking 稳定期局部 Working Snake 必须保持 active"
     );
     assert!(
-        thinking_schedule.canvas_ambient_active,
-        "Thinking 淡入 150ms 收束后必须保留 Working Snake ambient 活动"
+        thinking_snake.next_frame_requested,
+        "Thinking 稳定期局部 Working Snake 必须请求下一显示帧以维持 60 FPS"
+    );
+    assert!(
+        !thinking_schedule.canvas_motion_active,
+        "局部 Working Snake 不得再把根 Canvas 标记为 motion active"
+    );
+    assert!(
+        !thinking_schedule.canvas_ambient_active,
+        "局部 Working Snake 不得再把根 Canvas 标记为 ambient active"
+    );
+    assert!(
+        thinking_schedule.cursor_active,
+        "当前聚焦 Thinking Agent 的文本 cursor 应独立保持 active"
     );
     assert_eq!(
         thinking_schedule.timer_interval,
         Some(Duration::from_millis(67)),
-        "Thinking 稳定期必须使用 ceil(1000ms / 15fps) = 67ms timer"
+        "焦点 cursor 应独立使用 ceil(1000ms / 15fps) = 67ms 根 Canvas timer"
     );
     assert!(
         !thinking_schedule.next_frame_requested,
-        "Thinking 稳定期不得继续占用逐显示帧回调"
+        "局部 Working Snake 不得让根 Canvas 请求逐显示帧回调"
+    );
+    assert!(
+        !done_snake.active,
+        "Done 收束后局部 Working Snake 必须退出 active 状态"
+    );
+    assert!(
+        !done_snake.next_frame_requested,
+        "Done 淡出完成后局部 Working Snake 不得继续请求显示帧"
     );
     assert!(
         !done_schedule.canvas_ambient_active,
@@ -310,12 +340,12 @@ fn e2e_05_thinking_settles_to_67ms_ambient_timer_then_done_exits_ambient() {
     app.update(cx, |app, _| app.runtime.kill_all());
 }
 
-/// E2E-05：六卡 Thinking 稳定期每秒必须实际重绘，但根 Canvas 重绘不得超过 15 次。
+/// E2E-05：六卡 Thinking 稳定期仅聚焦 Terminal cursor 可驱动根 Canvas，且不得超过 15fps。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   cards = 5 Terminal + 1 Codex Agent = 6
 ///   initialization settle = 1000ms > 初始化总时长 992ms
-///   chase fade settle = 150ms
+///   task state settle = 150ms
 ///   scheduler warmup = 42 × 12ms = 504ms > idle 250ms，也 > persistence tick 120ms
 ///   measurement window = 1000ms
 ///   mock steps = 83 × 12ms + 4ms = 1000ms
@@ -323,17 +353,17 @@ fn e2e_05_thinking_settles_to_67ms_ambient_timer_then_done_exits_ambient() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建五张 Terminal，再创建并聚焦第六张 Codex Agent 卡片。
-///   2. 推进 1000ms 排除初始化，再注入 Thinking 并推进 150ms 完成淡入。
+///   2. 推进 1000ms 排除初始化，再注入 Thinking 并推进 150ms 收束任务状态切换。
 ///   3. 分步预热 504ms，让淡入切换与持久化尾帧退出测量窗口，再清零真实渲染计数。
 ///   4. 以 83 个 12ms 和最后 4ms 分步推进 mock clock，读取一秒实际渲染次数。
 ///
 /// 预期结果：
-///   - 正断言：场景必须精确包含六张卡片，且 Thinking 总活动/ambient 均为 true。
-///   - 正断言：根 Canvas 至少重绘 1 次，证明动画没有通过冻结来达标。
+///   - 正断言：场景必须精确包含六张卡片，且聚焦 Agent cursor 保持 active。
+///   - 正断言：根 Canvas 至少重绘 1 次，证明聚焦 cursor 没有冻结。
 ///   - 正断言：根 Canvas 至多重绘 15 次，满足稳定期不超过 15fps 的预算。
-///   - 负断言：稳定期不得继续请求逐显示帧调度。
+///   - 负断言：局部 Working Snake 不得计入根 Canvas motion/ambient，也不得请求逐显示帧。
 #[test]
-fn e2e_05_six_card_thinking_canvas_repaints_between_one_and_fifteen_times_per_second() {
+fn e2e_05_six_card_thinking_cursor_repaints_root_at_no_more_than_fifteen_fps() {
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
     let workspace = tempfile::TempDir::new().expect("六卡 repaint 测试应创建临时 workspace");
@@ -404,20 +434,24 @@ fn e2e_05_six_card_thinking_canvas_repaints_between_one_and_fifteen_times_per_se
         "性能验收场景必须精确包含 5 Terminal + 1 Agent = 6 张卡片"
     );
     assert!(
-        stable_schedule.canvas_motion_active,
-        "稳定 Thinking snake 必须保持总 Canvas 活动，不能被性能监控误记为 Idle"
+        stable_schedule.cursor_active,
+        "聚焦 Thinking Agent 的 cursor 必须保持 active"
     );
     assert!(
-        stable_schedule.canvas_ambient_active,
-        "淡入完成后的 Thinking snake 必须处于 ambient 调度分类"
+        !stable_schedule.canvas_motion_active,
+        "局部 Working Snake 不得继续计入根 Canvas motion"
+    );
+    assert!(
+        !stable_schedule.canvas_ambient_active,
+        "局部 Working Snake 不得继续占用根 Canvas ambient 调度"
     );
     assert!(
         !stable_schedule.next_frame_requested,
-        "稳定 Thinking snake 不得继续请求逐显示帧调度"
+        "聚焦 cursor 保持 15fps timer 时根 Canvas 不得请求逐显示帧调度"
     );
     assert!(
         render_count >= 1,
-        "1000ms 稳定期必须至少有 1 次根 Canvas 动画重绘，不能冻结"
+        "1000ms 稳定期聚焦 cursor 必须至少触发 1 次根 Canvas 重绘"
     );
     assert!(
         render_count <= 15,

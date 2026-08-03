@@ -4,10 +4,13 @@ use crate::settings::voice::{VoiceInteractionMode, VoiceSettingsState};
 use gpui::Context;
 use ui::ThemeId;
 
+mod working_snake;
+
 const VISUAL_PREVIEW_ENV: &str = "NORMA_VISUAL_PREVIEW";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum VisualPreview {
+    WorkingSnake,
     AgentQueue,
     DispatchReceiptFlight,
     DispatchReceiptImpact,
@@ -30,6 +33,7 @@ enum VisualPreview {
 impl VisualPreview {
     fn parse(value: &str) -> Option<Self> {
         match value.trim() {
+            "working-snake" => Some(Self::WorkingSnake),
             "agent-queue" => Some(Self::AgentQueue),
             "dispatch-receipt-flight" => Some(Self::DispatchReceiptFlight),
             "dispatch-receipt-impact" => Some(Self::DispatchReceiptImpact),
@@ -53,7 +57,8 @@ impl VisualPreview {
 
     fn canonical_theme(self) -> Option<ThemeId> {
         match self {
-            Self::AgentQueue
+            Self::WorkingSnake
+            | Self::AgentQueue
             | Self::DispatchReceiptFlight
             | Self::DispatchReceiptImpact
             | Self::DispatchAgentHandoffFlight
@@ -95,6 +100,10 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
         app.settings_panel.select(SettingsSection::Voice);
     }
     match preview {
+        VisualPreview::WorkingSnake => {
+            app.settings_panel.close();
+            working_snake::configure(app);
+        }
         VisualPreview::AgentQueue => {
             app.settings_panel.close();
             configure_agent_queue(app);
@@ -286,43 +295,35 @@ mod tests {
     /// 视觉验收场景解析：只允许已登记的 Agent、Dispatch、Orchestration 与 Voice 截图状态
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   supported values = agent-queue(1) + dispatch-flight(1) + dispatch-impact(1)
+    ///   supported values = working-snake(1) + agent-queue(1)
+    ///                      + dispatch-flight(1) + dispatch-impact(1)
     ///                      + agent-handoff-flight(1)
     ///                      + orchestration(1) + github-clone(1) + feature-guide(1)
     ///                      + setup(1) + ready(1) + network-unavailable(1)
     ///                      + api-key(1) + caption(1) + window-inset(1)
     ///                      + azure-asr-ready(1)
     ///                      + zipvoice-reference(1) + tts-backlog-capacity(1)
-    ///                      + tts-backlog-recovered(1) = 17
+    ///                      + tts-backlog-recovered(1) = 18
     ///   unsupported values = empty(1) + unknown(1) = 2
-    ///   total cases = 17 + 2 = 19
+    ///   total cases = 18 + 2 = 20
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 解析 `agent-queue` → AgentQueue
-    ///   2. 解析 `dispatch-receipt-flight` → DispatchReceiptFlight
-    ///   3. 解析 `dispatch-receipt-impact` → DispatchReceiptImpact
-    ///   4. 解析 `dispatch-agent-handoff-flight` → DispatchAgentHandoffFlight
-    ///   5. 解析 `orchestration` → Orchestration
-    ///   6. 解析 `github-clone` → GithubClone
-    ///   7. 解析 `feature-guide` → FeatureGuide
-    ///   8. 解析 `voice-setup` → VoiceSetup
-    ///   9. 解析 `voice-ready` → VoiceReady
-    ///   10. 解析 `voice-network-unavailable` → VoiceNetworkUnavailable
-    ///   11. 解析 `voice-api-key` → VoiceApiKey
-    ///   12. 解析 `voice-caption` → VoiceCaption
-    ///   13. 解析 `voice-window-inset` → VoiceWindowInset
-    ///   14. 解析 `azure-asr-ready` → AzureAsrReady
-    ///   15. 解析 `zipvoice-reference` → ZipVoiceReference
-    ///   16. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
-    ///   17. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
-    ///   18. 解析空字符串 → None
-    ///   19. 解析未知值 → None
+    ///   1. 解析 `working-snake` → WorkingSnake
+    ///   2. 解析 `agent-queue` → AgentQueue
+    ///   3. 继续解析其余十六个已登记场景 → 各自唯一枚举值
+    ///   4. 解析空字符串 → None
+    ///   5. 解析未知值 → None
     ///
     /// 预期结果：
-    ///   - 正断言：十七个受支持值分别映射到唯一场景
+    ///   - 正断言：十八个受支持值分别映射到唯一场景
     ///   - 负断言：空值和未知值不得意外开启视觉预览
     #[test]
     fn visual_preview_parser_accepts_only_explicit_scenarios() {
+        assert_eq!(
+            VisualPreview::parse("working-snake"),
+            Some(VisualPreview::WorkingSnake),
+            "working-snake must select the deterministic active Agent visual preview"
+        );
         assert_eq!(
             VisualPreview::parse("agent-queue"),
             Some(VisualPreview::AgentQueue),

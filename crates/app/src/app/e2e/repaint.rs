@@ -1,7 +1,8 @@
 use super::MultisoulApp;
 use crate::app::frame_loop::AnimationFrameCallbackOutcome;
 use crate::app::frame_schedule::AnimationWakeup;
-use gpui::Context;
+use canvas::NodeId;
+use gpui::{App, Context};
 use std::time::Duration;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -19,6 +20,15 @@ pub struct AnimationScheduleE2eSnapshot {
     pub canvas_motion_active: bool,
     pub canvas_ambient_active: bool,
     pub cursor_active: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WorkingSnakeE2eSnapshot {
+    pub active: bool,
+    pub next_frame_requested: bool,
+    pub frame_pending: bool,
+    pub phase: f32,
+    pub render_count: usize,
 }
 
 impl MultisoulApp {
@@ -54,6 +64,82 @@ impl MultisoulApp {
 
     pub fn canvas_render_count_for_e2e(&self) -> usize {
         self.canvas_render_count_for_e2e
+    }
+
+    pub fn reset_working_snake_display_callback_for_e2e(
+        &mut self,
+        node_id: NodeId,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some(view) = self.working_snake_views.get(&node_id).cloned() else {
+            return false;
+        };
+        let now = cx.background_executor().now();
+        view.update(cx, |view, _snake_cx| {
+            view.reset_display_callback_for_e2e(now)
+        });
+        true
+    }
+
+    pub fn reset_working_snake_render_count_for_e2e(
+        &mut self,
+        node_id: NodeId,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some(view) = self.working_snake_views.get(&node_id).cloned() else {
+            return false;
+        };
+        view.update(cx, |view, _snake_cx| view.reset_render_count_for_e2e());
+        true
+    }
+
+    pub fn resume_working_snake_display_driver_for_e2e(
+        &mut self,
+        node_id: NodeId,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some(view) = self.working_snake_views.get(&node_id).cloned() else {
+            return false;
+        };
+        view.update(cx, |view, snake_cx| {
+            view.resume_display_driver_for_e2e(snake_cx)
+        });
+        true
+    }
+
+    pub fn consume_working_snake_display_callback_for_e2e(
+        &mut self,
+        node_id: NodeId,
+        cx: &mut Context<Self>,
+    ) -> Option<AnimationDisplayCallbackE2eReport> {
+        let view = self.working_snake_views.get(&node_id)?.clone();
+        let now = cx.background_executor().now();
+        let outcome = view.update(cx, |view, snake_cx| {
+            view.consume_display_callback_for_e2e(now, snake_cx)
+        });
+        Some(AnimationDisplayCallbackE2eReport {
+            deferred: outcome.deferred,
+            state_advanced: outcome.state_advanced,
+            repaint_notified: outcome.repaint_notified,
+            next_frame_requested: outcome.next_frame_requested,
+        })
+    }
+
+    pub fn working_snake_snapshot_for_e2e(
+        &self,
+        node_id: NodeId,
+        cx: &App,
+    ) -> Option<WorkingSnakeE2eSnapshot> {
+        let view = self.working_snake_views.get(&node_id)?;
+        let now = cx.background_executor().now();
+        let snapshot = view.read_with(cx, |view, _cx| view.snapshot_for_e2e(now));
+        Some(WorkingSnakeE2eSnapshot {
+            active: snapshot.active,
+            next_frame_requested: snapshot.next_frame_requested,
+            frame_pending: snapshot.frame_pending,
+            phase: snapshot.phase,
+            render_count: snapshot.render_count,
+        })
     }
 
     pub fn reset_animation_display_callback_clock_for_e2e(&mut self, cx: &mut Context<Self>) {

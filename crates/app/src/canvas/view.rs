@@ -3,6 +3,7 @@
 
 use super::events;
 use super::node_label::node_type_label;
+use super::working_snakes::{self, WorkingSnakeGeometry};
 use crate::app::browser::{browser_native_view_bounds, native_browser_views_visible};
 use crate::app::MultisoulApp;
 #[cfg(test)]
@@ -16,15 +17,13 @@ use crate::canvas::geometry::{node_card_radius_px, node_terminal_radius_px, node
 use crate::canvas::interaction::InteractionState;
 use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
 use crate::cards::agent::queue::{
-    render_badge as render_agent_queue_badge, render_panel as render_agent_queue_panel,
-    waiting_count as agent_waiting_count,
+    render_badge as render_agent_queue_badge, waiting_count as agent_waiting_count,
 };
 use crate::cards::browser::card::BROWSER_TOOLBAR_H_PX;
 use crate::cards::chrome::{
     card_title_background, node_shadow, render_card_title, render_task_badge,
     CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
 };
-use crate::cards::snake::render_working_snake_border;
 use crate::cards::{card_for, CardBodyContext};
 #[cfg(test)]
 use canvas::Vec2;
@@ -70,6 +69,7 @@ pub fn render_canvas(
     let mut snake_nodes = 0usize;
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
     app.motion.retain_nodes(node_ids.iter().copied());
+    let mut snake_view_set_changed = working_snakes::retain_live_views(app, &node_ids);
     for id in node_ids {
         let Some((canonical_rect, selected, node_type)) =
             app.runtime.document.node(id).map(|node| {
@@ -88,11 +88,10 @@ pub fn render_canvas(
         app.motion.set_selection_focus(id, selected, focused);
         let is_agent = node_type == NodeType::Agent;
         let agent_state = is_agent.then(|| app.runtime.agent_task_state(id)).flatten();
+        let chase_active = is_agent && agent_chase_intent(agent_state.clone());
         let card_attention = app.runtime.card_attention(id);
         let breathing_intent = agent_breathing_intent(agent_state.clone(), card_attention);
         app.motion.set_breathing_intent(id, breathing_intent);
-        app.motion
-            .set_chase_intent(id, is_agent && agent_chase_intent(agent_state));
         if app
             .interaction
             .drag
@@ -107,10 +106,33 @@ pub fn render_canvas(
             .resolve_node_visual_at(id, canonical_rect, theme, render_start);
         let top_left = vp.canvas_to_screen(visual.rect.origin);
         let (w, h) = (visual.rect.size.x * vp.zoom, visual.rect.size.y * vp.zoom);
+        let node_radius = node_card_radius_px(vp.zoom);
+        let visible = !(top_left.x + w < 0.0
+            || top_left.y + h < 0.0
+            || top_left.x > win_w
+            || top_left.y > win_h);
+        if is_agent {
+            snake_view_set_changed |= working_snakes::synchronize_view(
+                app,
+                id,
+                chase_active,
+                theme,
+                WorkingSnakeGeometry {
+                    visible,
+                    left_px: top_left.x,
+                    top_px: top_left.y,
+                    width_px: w,
+                    height_px: h,
+                    opacity: visual.opacity,
+                    zoom: vp.zoom,
+                    node_radius_px: node_radius,
+                },
+                cx,
+            );
+        }
 
         // viewport culling：完全在窗口外的节点跳过。
-        if top_left.x + w < 0.0 || top_left.y + h < 0.0 || top_left.x > win_w || top_left.y > win_h
-        {
+        if !visible {
             continue;
         }
         visible_nodes += 1;
@@ -127,7 +149,6 @@ pub fn render_canvas(
         let stroke = visual.stroke_color;
         let status = visual.status_color;
         let close_button_size = (18.0 * vp.zoom).clamp(16.0, 24.0);
-        let node_radius = node_card_radius_px(vp.zoom);
 
         let mut node_div = div()
             .id(("node-card", id))
@@ -358,14 +379,8 @@ pub fn render_canvas(
             .into_any_element(),
         );
         node_div = node_div.child(title_layer).child(card_body);
-        if let Some(working_snake) = visual.working_snake {
+        if is_agent && chase_active {
             snake_nodes += 1;
-            node_div = node_div.child(render_working_snake_border(
-                id,
-                working_snake,
-                vp.zoom,
-                node_radius,
-            ));
         }
         node_elems.push(node_div.into_any_element());
         if is_swap_candidate {
@@ -405,23 +420,10 @@ pub fn render_canvas(
     }
     .log_if_enabled();
     app.finish_browser_view_sync(&visible_browser_nodes);
-
-    if let Some(link) = hovered_terminal_link {
-        node_elems.push(render_terminal_link_tooltip(link, theme, win_w, win_h));
-    }
-    if let Some(node_id) = app.agent_queue_ui.open_node_id() {
-        if let Some((card_left, card_top, card_width)) =
-            app.runtime.document.node(node_id).map(|node| {
-                let top_left = vp.canvas_to_screen(node.bounds.origin);
-                (top_left.x, top_left.y, node.bounds.size.x * vp.zoom)
-            })
-        {
-            if let Some(panel) = render_agent_queue_panel(
-                app, node_id, card_left, card_top, card_width, win_w, win_h, window, cx,
-            ) {
-                node_elems.push(panel);
-            }
-        }
+    if snake_view_set_changed {
+        // Snake Entity 是 CanvasSurface 的兄弟叠层；集合变化时只需让根视图重新挂载
+        // 一次。稳定动画帧只 notify Snake Entity，不会触发 CanvasSurface observer。
+        cx.notify();
     }
 
     div()
@@ -436,33 +438,6 @@ pub fn render_canvas(
         .on_mouse_up(MouseButton::Left, cx.listener(events::on_mouse_up))
         .on_mouse_up(MouseButton::Middle, cx.listener(events::on_mouse_up))
         .children(node_elems)
-}
-
-fn render_terminal_link_tooltip(
-    link: crate::canvas::interaction::HoveredTerminalLink,
-    theme: ui::Theme,
-    window_width: f32,
-    window_height: f32,
-) -> AnyElement {
-    let left = (link.screen_x as f32 + 12.0).clamp(8.0, (window_width - 360.0).max(8.0));
-    let top = (link.screen_y as f32 + 18.0).clamp(8.0, (window_height - 34.0).max(8.0));
-    div()
-        .absolute()
-        .left(px(left))
-        .top(px(top))
-        .max_w(px(352.0))
-        .px(px(8.0))
-        .py(px(5.0))
-        .rounded(px(6.0))
-        .border_1()
-        .border_color(rgba(with_alpha(theme.accent_cyan, 0x72)))
-        .bg(rgba(with_alpha(theme.panel, 0xf2)))
-        .text_size(px(11.0))
-        .text_color(rgba(theme.text_primary))
-        .overflow_hidden()
-        .truncate()
-        .child(link.url)
-        .into_any_element()
 }
 
 fn swap_highlight_overlay(

@@ -1,4 +1,3 @@
-use audio::{PcmAudioChunk, PcmFormat};
 use gpui::TestAppContext;
 use runtime::{AgentTaskState, AgentTaskUpdate};
 use std::time::Duration;
@@ -7,43 +6,40 @@ use crate::harness::{
     create_codex_agent, create_terminal, echo_factory, enter_canvas, make_app, read_runtime,
 };
 
-fn pcm16_mono_chunk(amplitude: i16, duration: Duration) -> PcmAudioChunk {
-    let frame_count = (duration.as_secs_f64() * 16_000.0) as usize;
-    let bytes = std::iter::repeat_n(amplitude.to_le_bytes(), frame_count)
-        .flatten()
-        .collect();
-    PcmAudioChunk::new(PcmFormat::Pcm16, 16_000, 1, bytes)
-        .expect("性能测试注入的 PCM 必须是合法 16kHz mono PCM16")
-}
-
-/// E2E-06 性能回归：持续 Voice 内缘光不得把六卡 Working Snake 的根 Canvas 提升到 60fps。
+/// E2E-06：六卡场景的 Working Snake 必须按 60fps 局部重绘，且不触发根 Canvas 重绘。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   cards                  = 5 Terminal + 1 Codex Agent = 6
-///   initialization settle  = 1_000ms > 卡片初始化总时长 992ms
-///   snake fade settle       = 150ms
-///   voice PCM               = 16_000Hz × 2_000ms = 32_000 frames
-///   PCM bytes               = 32_000 frames × 2 bytes = 64_000 bytes
-///   scheduler warmup        = 42 × 12ms = 504ms > idle 250ms，也 > fade-in 120ms
-///   measurement window      = 83 × 12ms + 4ms = 1_000ms
-///   ambient interval        = 67ms → floor(1_000 / 67) = 14 个 cadence 边界，验收上限 15
+///   cards                   = 5 Terminal + 1 Codex Agent = 6
+///   initialization settle   = 1_000ms > 卡片初始化总时长 992ms
+///   focus settle            = 200ms > focus/selection 过渡 180ms
+///   background settle       = 50 × 12ms = 600ms > persistence interval 120ms
+///   display refresh         = 90Hz，frame interval = 11_111_112ns
+///   measurement callbacks   = 90
+///   measurement duration    = 90 × 11_111_112ns = 1_000_000_080ns ≈ 1s
+///   expected snake renders  = 60（60fps accumulator 保留 90Hz 帧间余量）
+///   expected Canvas renders = 0（Working Snake 不得失效根 CanvasSurfaceView）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建五张 Terminal 和一张 Codex Agent，推进 1_000ms 排除初始化动画。
-///   2. 注入 Thinking 并推进 150ms，使 Working Snake 进入稳定 ambient 阶段。
-///   3. 开始助手播报并排入 2_000ms PCM，分步预热 504ms，使 Voice 内缘光持续活动。
-///   4. 清零真实 Canvas render 计数，再分步推进 1_000ms mock clock。
-///   5. 读取根动画调度、Voice 快照和 Canvas render 计数。
+///   2. 注入 Thinking，退出 Agent 焦点以排除 Terminal cursor 的根级动画来源。
+///   3. 推进 200ms 收束退出焦点产生的根级 chrome 过渡。
+///   4. 暂停根与 Snake 测试循环，推进 600ms 排空此前的 Runtime/持久化通知。
+///   5. 重置 Snake 逻辑时钟，分别清零根 Canvas 与目标 Snake Entity 的 render 计数。
+///   6. 逐次推进 90 个 11_111_112ns 显示帧，每帧消费一次目标 Snake callback。
+///   7. 读取卡片数、Snake 局部状态、根调度和根 Canvas render 计数。
+///   8. 恢复真实局部 driver，确认已挂下一帧；再将窗口切到后台并恢复前台。
 ///
 /// 预期结果：
-///   - 正断言：场景精确包含六张卡片，Working Snake 与 Voice 内缘光均保持活动。
-///   - 正断言：根调度保持 67ms ambient timer，Canvas 在 1 秒内至少重绘 1 次且至多 15 次。
-///   - 负断言：Voice 内缘光不得令根调度请求逐显示帧，也不得把 Canvas 提升到约 60fps。
+///   - 正断言：场景精确包含六张卡片，目标 Snake 保持 active 并请求下一显示帧。
+///   - 正断言：90Hz 的 90 个 callback 中精确 60 个推进、通知并产生局部 render。
+///   - 正断言：约 1s 后 phase 位于 1s / 1.2s ≈ 0.833 附近，证明动画按真实时间推进。
+///   - 负断言：根调度不得把 Snake 计入 Canvas motion，根 Canvas render 必须严格为 0。
+///   - 负断言：后台窗口不得保留 pending callback；恢复前台后必须真实重挂。
 #[test]
-fn e2e_06_voice_inset_does_not_raise_six_card_working_canvas_above_fifteen_fps() {
+fn e2e_06_six_card_working_snake_runs_sixty_local_frames_without_root_canvas_repaint() {
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
-    let workspace = tempfile::TempDir::new().expect("Voice + Snake 性能测试应创建临时 workspace");
+    let workspace = tempfile::TempDir::new().expect("六卡 Snake 性能测试应创建临时 workspace");
     enter_canvas(&app, cx, workspace.path());
     for _ in 0..5 {
         create_terminal(&app, cx);
@@ -60,52 +56,67 @@ fn e2e_06_voice_inset_does_not_raise_six_card_working_canvas_above_fifteen_fps()
             task_title: None,
             session_id: None,
         });
-        assert!(
-            changed,
-            "Voice + Snake 场景的 Thinking 更新应写入 Codex Agent"
-        );
+        assert!(changed, "六卡场景的 Thinking 更新应写入 Codex Agent");
+        app.runtime.focus.exit_to_canvas();
         cx.notify();
     });
     cx.run_until_parked();
     app.update(cx, |app, cx| {
-        app.advance_animations_for_e2e(Duration::from_millis(150), cx);
-        app.begin_assistant_playback_for_e2e(cx);
-        app.queue_assistant_pcm_for_e2e(pcm16_mono_chunk(8_000, Duration::from_millis(2_000)), cx);
+        app.advance_animations_for_e2e(Duration::from_millis(200), cx)
     });
     cx.run_until_parked();
 
-    // warmup = 42 × 12ms = 504ms，覆盖 250ms idle 旧 timer 和 120ms Voice 淡入。
-    for _ in 0..42 {
+    app.update(cx, |app, cx| {
+        app.reset_animation_display_callback_clock_for_e2e(cx);
+        let reset = app.reset_working_snake_display_callback_for_e2e(node_id, cx);
+        assert!(
+            reset,
+            "Thinking Agent 必须已创建可独立调度的 Working Snake Entity"
+        );
+    });
+    // background settle = 50 × 12ms = 600ms，排空建卡和首次状态同步留下的持久化通知。
+    for _ in 0..50 {
         cx.cx
             .background_executor
             .advance_clock(Duration::from_millis(12));
-        app.update(cx, |app, cx| {
-            let _ = app
-                .consume_voice_window_inset_display_callback_for_e2e(Duration::from_millis(12), cx);
-        });
         cx.run_until_parked();
     }
-    app.update(cx, |app, _cx| app.reset_canvas_render_count_for_e2e());
+    app.update(cx, |app, cx| {
+        let reset = app.reset_working_snake_display_callback_for_e2e(node_id, cx);
+        assert!(reset, "测量前必须重新对齐 Working Snake 的逻辑时钟");
+        app.reset_canvas_render_count_for_e2e();
+        let reset_count = app.reset_working_snake_render_count_for_e2e(node_id, cx);
+        assert!(
+            reset_count,
+            "目标 Working Snake Entity 必须支持独立 render 计数清零"
+        );
+    });
 
-    // measurement = 83 × 12ms + 4ms = 1_000ms；分步推进才能逐次触发 mock timer。
-    for _ in 0..83 {
-        cx.cx
-            .background_executor
-            .advance_clock(Duration::from_millis(12));
-        app.update(cx, |app, cx| {
-            let _ = app
-                .consume_voice_window_inset_display_callback_for_e2e(Duration::from_millis(12), cx);
+    let display_frame = Duration::from_nanos(11_111_112);
+    let mut advanced_callbacks = 0usize;
+    let mut notified_callbacks = 0usize;
+    for _ in 0..90 {
+        cx.cx.background_executor.advance_clock(display_frame);
+        let callback = app.update(cx, |app, cx| {
+            app.consume_working_snake_display_callback_for_e2e(node_id, cx)
+                .expect("Thinking Agent 的 Working Snake callback 必须存在")
         });
+        if callback.state_advanced {
+            advanced_callbacks += 1;
+        }
+        if callback.repaint_notified {
+            notified_callbacks += 1;
+        }
         cx.run_until_parked();
     }
-    cx.cx
-        .background_executor
-        .advance_clock(Duration::from_millis(4));
-    cx.run_until_parked();
 
     let card_count = read_runtime(&app, cx, |runtime| runtime.document.nodes().len());
     let schedule = app.read_with(cx, |app, _cx| app.animation_schedule_snapshot_for_e2e());
-    let voice = app.read_with(cx, |app, _cx| app.voice_window_inset_e2e_snapshot());
+    let snake = app
+        .read_with(cx, |app, app_cx| {
+            app.working_snake_snapshot_for_e2e(node_id, app_cx)
+        })
+        .expect("Thinking Agent 必须保留 Working Snake 局部状态");
     let canvas_render_count = app.read_with(cx, |app, _cx| app.canvas_render_count_for_e2e());
 
     assert_eq!(
@@ -113,29 +124,92 @@ fn e2e_06_voice_inset_does_not_raise_six_card_working_canvas_above_fifteen_fps()
         "性能回归场景必须精确包含 5 Terminal + 1 Agent = 6 张卡片"
     );
     assert!(
-        schedule.canvas_ambient_active,
-        "Voice 播报期间稳定 Working Snake 必须继续报告 ambient 活动"
+        snake.active,
+        "测量结束时 Working Snake 必须仍处于 active 状态"
     );
     assert!(
-        voice.active,
-        "2_000ms PCM 的测量窗口内 Voice 内缘光必须保持可见"
-    );
-    assert!(
-        !schedule.next_frame_requested,
-        "Voice 内缘光必须脱离根动画调度，不能令整个 Canvas 请求逐显示帧"
+        snake.next_frame_requested,
+        "前台 active Working Snake 必须继续请求下一显示帧"
     );
     assert_eq!(
-        schedule.timer_interval,
-        Some(Duration::from_millis(67)),
-        "根 Canvas 应保持 ceil(1_000ms / 15fps) = 67ms ambient timer"
+        advanced_callbacks, 60,
+        "90Hz 的约 1 秒 callback 必须通过余量累计精确推进 60 次 Snake 状态"
+    );
+    assert_eq!(
+        notified_callbacks, 60,
+        "90Hz 的约 1 秒 callback 必须精确通知目标 Snake Entity 重绘 60 次"
     );
     assert!(
-        canvas_render_count >= 1,
-        "1_000ms 测量窗口内 Working Snake 至少应触发一次 Canvas 重绘，不能冻结"
+        (0.82..=0.85).contains(&snake.phase),
+        "1s / 1.2s ≈ 0.833，Snake phase 应位于 [0.82, 0.85]，实际为 {}",
+        snake.phase
     );
     assert!(
-        canvas_render_count <= 15,
-        "Voice + Snake 同时运行时根 Canvas 重绘必须 <= 15 次，实际为 {canvas_render_count}"
+        !schedule.canvas_motion_active,
+        "Working Snake 已迁移到局部 Entity 后不得继续计入根 Canvas motion"
+    );
+    assert!(
+        !schedule.canvas_ambient_active,
+        "Working Snake 已迁移后不得继续让根 Canvas 保持 ambient 调度"
+    );
+    assert_eq!(
+        canvas_render_count, 0,
+        "90 个 display callback / 60 个 Working Snake 局部帧不得触发根 Canvas 重绘"
+    );
+    assert_eq!(
+        snake.render_count, 60,
+        "约 1 秒内目标 Snake Entity 应独立 render 60 次"
+    );
+
+    let resumed = app.update(cx, |app, cx| {
+        app.resume_working_snake_display_driver_for_e2e(node_id, cx)
+    });
+    assert!(resumed, "窗口生命周期测试前必须恢复真实 Snake driver");
+    cx.run_until_parked();
+    let scheduled_snake = app
+        .read_with(cx, |app, app_cx| {
+            app.working_snake_snapshot_for_e2e(node_id, app_cx)
+        })
+        .expect("恢复真实 driver 后应保留 Working Snake Entity");
+    assert!(
+        scheduled_snake.frame_pending,
+        "恢复真实 driver 后必须实际挂起一个 on_next_frame callback"
+    );
+
+    cx.deactivate_window();
+    cx.run_until_parked();
+    let background_snake = app
+        .read_with(cx, |app, app_cx| {
+            app.working_snake_snapshot_for_e2e(node_id, app_cx)
+        })
+        .expect("窗口进入后台时应保留 Working Snake 业务状态");
+    assert!(
+        background_snake.active,
+        "窗口进入后台不应清除 Agent 的 Working Snake 业务状态"
+    );
+    assert!(
+        !background_snake.next_frame_requested,
+        "窗口进入后台后 Working Snake 不得继续请求显示帧"
+    );
+    assert!(
+        !background_snake.frame_pending,
+        "窗口进入后台后必须清除旧代次的 pending callback 标记"
+    );
+
+    cx.update(|window, _app_cx| window.activate_window());
+    cx.run_until_parked();
+    let foreground_snake = app
+        .read_with(cx, |app, app_cx| {
+            app.working_snake_snapshot_for_e2e(node_id, app_cx)
+        })
+        .expect("窗口恢复前台时应保留 Working Snake Entity");
+    assert!(
+        foreground_snake.next_frame_requested,
+        "窗口恢复前台后 active Working Snake 必须重新请求显示帧"
+    );
+    assert!(
+        foreground_snake.frame_pending,
+        "窗口恢复前台后必须实际重挂新代次的 on_next_frame callback"
     );
 
     app.update(cx, |app, _cx| app.runtime.kill_all());
