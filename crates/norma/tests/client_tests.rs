@@ -24,8 +24,14 @@ use norma::protocol::{
 #[test]
 fn test_request_codec_uses_single_newline_delimited_json() {
     let request = WireRequest {
+        protocol_version: norma::protocol::CURRENT_PROTOCOL_VERSION,
+        client_version: Some(env!("CARGO_PKG_VERSION").to_string()),
         request_id: 11,
+        operation_id: None,
         authorization: None,
+        source_workspace_id: None,
+        source_workspace_route_id: None,
+        target_workspace_id: None,
         source_node_id: None,
         command: CardCommand::Create {
             kind: CardKind::Terminal { shell: None },
@@ -67,6 +73,8 @@ fn test_request_codec_uses_single_newline_delimited_json() {
 #[test]
 fn test_response_codec_round_trips_created_result() {
     let response = WireResponse {
+        server_version: env!("CARGO_PKG_VERSION").to_string(),
+        protocol_version: norma::protocol::CURRENT_PROTOCOL_VERSION,
         request_id: 11,
         result: Ok(CardCommandResult::Created { node_id: 4 }),
     };

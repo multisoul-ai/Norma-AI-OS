@@ -31,11 +31,13 @@ pub fn classify_wait_status(status: AgentTaskReceiptStatus) -> WaitStatusDecisio
 }
 
 pub fn classify_wait_task(status: AgentTaskReceiptStatus, tracking: &str) -> WaitStatusDecision {
-    if tracking == "untracked" {
-        WaitStatusDecision::Untracked
-    } else {
-        classify_wait_status(status)
+    let status_decision = classify_wait_status(status);
+    if status_decision == WaitStatusDecision::Complete {
+        return status_decision;
     }
+    (tracking != "untracked")
+        .then_some(status_decision)
+        .unwrap_or(WaitStatusDecision::Untracked)
 }
 
 pub fn run_invocation(invocation: CliInvocation) -> CliOutput {
@@ -65,7 +67,11 @@ fn prepare_invocation(
 }
 
 fn run_once(invocation: CliInvocation) -> CliOutput {
-    match client::send_command_with_metadata(invocation.command) {
+    match client::send_command_with_request_metadata(
+        invocation.command,
+        invocation.target_workspace_id,
+        invocation.operation_id,
+    ) {
         Ok(response) => render_success(
             invocation.format,
             response.request_id.to_string(),
@@ -82,7 +88,11 @@ fn run_once(invocation: CliInvocation) -> CliOutput {
 fn run_wait(invocation: CliInvocation, timeout: Duration) -> CliOutput {
     let started = Instant::now();
     loop {
-        let response = match client::send_command_with_metadata(invocation.command.clone()) {
+        let response = match client::send_command_with_request_metadata(
+            invocation.command.clone(),
+            invocation.target_workspace_id.clone(),
+            invocation.operation_id.clone(),
+        ) {
             Ok(response) => response,
             Err(error) => {
                 return render_error(

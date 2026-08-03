@@ -35,6 +35,11 @@ pub use agents::{AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot};
 #[cfg(feature = "e2e-test-support")]
 pub use ego::EgoCardE2eSnapshot;
 #[cfg(feature = "e2e-test-support")]
+pub use orchestration::{
+    install_norma_endpoint_for_e2e, mark_orchestration_health_ready_for_e2e,
+    submit_norma_request_for_e2e,
+};
+#[cfg(feature = "e2e-test-support")]
 pub use orchestration::{OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot};
 use shortcuts::shortcut_command_name;
 pub use tts::TtsProviderE2eSnapshot;

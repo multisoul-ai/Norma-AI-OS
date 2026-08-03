@@ -11,7 +11,6 @@ use crate::canvas::spawn_focus;
 use crate::canvas::view::render_canvas;
 use crate::cards::term::render_cache::TerminalRenderCacheHandle;
 use crate::motion::MotionStore;
-use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::agents::AgentDefinitionsState;
@@ -97,6 +96,11 @@ pub(crate) mod wallpaper_resolvers;
 pub use e2e::dialogue_tts::*;
 #[cfg(feature = "e2e-test-support")]
 pub use e2e::CloneProjectE2eSnapshot;
+#[cfg(feature = "e2e-test-support")]
+pub use e2e::{
+    install_norma_endpoint_for_e2e, mark_orchestration_health_ready_for_e2e,
+    submit_norma_request_for_e2e,
+};
 pub use e2e::{
     AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState,
     CanvasLayoutE2eSnapshot, InitializationAnimationE2eSnapshot, SettingsE2eSnapshot,
@@ -168,8 +172,10 @@ pub struct MultisoulApp {
     pub(crate) voice_settings: VoiceSettingsState,
     pub(crate) voice_settings_inputs: VoiceSettingsInputs,
     pub(crate) shortcuts: ShortcutSettingsState,
-    pub(crate) norma_server: NormaServer,
     pub(crate) agent_hook_server: AgentHookServer,
+    pub(crate) workspace_identity_store: storage::WorkspaceIdentityStore,
+    pub(crate) workspace_id: Option<String>,
+    pub(crate) workspace_route_id: Option<String>,
     agent_announcements: agent_announcements::AgentAnnouncements,
     agent_announcement_playback: agent_announcements::AgentAnnouncementPlayback,
     agent_announcement_audio_cache: agent_announcements::AgentAnnouncementAudioCache,
@@ -227,7 +233,7 @@ impl MultisoulApp {
         database_paths: storage::DatabasePaths,
         app_store: storage::AppStore,
     ) -> Self {
-        let agent_hook_server = AgentHookServer::start();
+        let agent_hook_server = AgentHookServer::start(cx);
         let mut runtime = Runtime::new();
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
         Self::build(

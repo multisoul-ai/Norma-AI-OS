@@ -2,6 +2,7 @@ pub(crate) mod clone_project;
 pub mod flow;
 pub mod launchpad;
 pub(crate) mod legacy_agent_migration;
+mod norma_route;
 pub mod persistence;
 pub(crate) mod project_picker;
 pub mod state;

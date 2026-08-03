@@ -45,13 +45,55 @@ Use this capability only when the user explicitly asks you to delegate a specifi
 specifically named Norma OS Agent. Never choose a target, split work, or delegate merely to add
 parallelism without that explicit instruction.
 
-1. Discover exact targets with `"{command}" agent list`.
-2. Assign exactly one task with `"{command}" agent task assign <agent> --task <text>`.
-3. Use the returned `task_id` with `status`, `wait`, or `cancel`.
+NormaServer is owned once by the Norma OS App process, not by a window.
+Do not start one NormaServer per window. If the CLI reports `app_unavailable` or a protocol/version
+error, collect real evidence with `"{command}" doctor --format json` and
+`"{command}" --version`; do not infer that the current window should start another server.
+
+Same-Workspace delegation:
+
+1. Discover exact targets with `"{command}" agent list --format json`.
+2. Generate one opaque UUID as `<operation_id>` and retain it for this assignment.
+3. Assign exactly one task with `"{command}" agent task assign <agent> --task <text>
+   --operation-id <operation_id> --format json`.
+
+Cross-Workspace delegation:
+
+1. Discover open Workspaces with `"{command}" workspace list --format json` and select the exact stable
+   `<workspace_id>`. Never guess from a display name or filesystem basename.
+2. Discover targets there with `"{command}" agent list --workspace <workspace_id> --format json`.
+3. Generate one opaque UUID as `<operation_id>` and retain it for this assignment.
+4. Assign exactly one task with `"{command}" agent task assign <agent> --task <text>
+   --workspace <workspace_id> --operation-id <operation_id> --format json`.
+
+Pass Agent names, task text, Workspace IDs, task refs, and operation IDs as separately quoted argv
+values or structured tool arguments. Never concatenate untrusted user text into executable shell
+syntax.
+
+After assignment, accept success only when the CLI returns a task receipt. For a managed receipt,
+automatically call `wait <task_id> --format json` when the user asked for completion. For an
+untracked receipt, stop automatic waiting and explain that completion cannot be tracked reliably.
+A terminal status is authoritative even when tracking is `untracked`. If a non-terminal untracked
+task cannot be waited on, report that limitation rather than claiming completion.
+
+If an assignment returns `outcome_unknown`, times out, disconnects, or otherwise has an uncertain
+side-effect result, stop and diagnose first. To resolve the original assignment, retry only by
+replaying the identical command and reuse the same operation_id. Never create a new operation ID
+for that retry, because doing so can create a duplicate task.
+
+Cancellation is also a mutating operation. Generate and retain one cancellation operation ID, then
+run `"{command}" agent task cancel <task_id> --operation-id <operation_id> --format json`. If its
+outcome is unknown, replay only that identical cancel command with the same cancellation operation
+ID; do not generate a replacement ID.
+
+For `orchestration_checking`, only retry read-only diagnostics or discovery with bounded backoff;
+do not automatically replay an assignment. Stop on `workspace_not_open`, `ambiguous_workspace`,
+`client_upgrade_required`, or `protocol_version_mismatch`. Do not open a Workspace, modify an
+installation, or select another target as an automatic fallback.
 
 Do not create or enable unknown Agents. Do not use `--force-untracked` unless the user explicitly
 accepts that the target has no trustworthy completion tracking and explicitly authorizes
-overwriting its input.
+overwriting its input. Never automatically add that flag while diagnosing availability or routing.
 "#
     );
     match provider {

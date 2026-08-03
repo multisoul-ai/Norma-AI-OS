@@ -72,7 +72,6 @@ fn open_multisoul_window(
             if visual_preview_name().as_deref() == Some("github-clone") {
                 app.open_clone_project_dialog(window, cx);
             }
-            app.start_norma_drain_loop(window, cx);
             app.start_dialogue_turn_loop(window, cx);
             app.start_cef_message_pump_loop(window, cx);
             match state {
@@ -152,7 +151,15 @@ pub(crate) fn window_options(title: String, bounds: Bounds<gpui::Pixels>) -> Win
 }
 
 impl MultisoulApp {
-    pub(crate) fn unregister_workspace_window_if_needed(&self, cx: &mut App) {
+    pub(crate) fn unregister_workspace_window_if_needed(&mut self, cx: &mut App) {
+        if let (Some(workspace_id), Some(route_id)) = (
+            self.workspace_id.as_deref(),
+            self.workspace_route_id.as_deref(),
+        ) {
+            crate::norma::endpoint::unregister_workspace(workspace_id, route_id, cx);
+            self.agent_hook_server.unregister(cx);
+            self.runtime.set_agent_hook_config(None);
+        }
         if let Some(root) = self.workspace_state.current_root.as_deref() {
             cx.default_global::<WorkspaceWindowRegistry>()
                 .unregister(root);
@@ -452,7 +459,6 @@ mod tests {
         );
         assert_ne!(root, Some(missing), "缺失路径不应被当作可打开项目 root");
     }
-
 }
 
 #[cfg(test)]

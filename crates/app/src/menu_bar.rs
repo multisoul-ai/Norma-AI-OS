@@ -2,8 +2,8 @@
 
 use crate::app::{
     CloneProject, CopyCardContent, NewBrowser, NewClaudeAgent, NewCodexAgent, NewCursorAgent,
-    NewOpenCodeAgent, NewTerminal, NewWindow, OpenFeatureGuide, OpenPreviewFile, OpenProject,
-    NewGrokAgent, QuitNormaOs, ReflowLayout, ToggleMasterLayout, ToggleSettings,
+    NewGrokAgent, NewOpenCodeAgent, NewTerminal, NewWindow, OpenFeatureGuide, OpenPreviewFile,
+    OpenProject, QuitNormaOs, ReflowLayout, ToggleMasterLayout, ToggleSettings,
 };
 use gpui::{Menu, MenuItem, SystemMenuType};
 

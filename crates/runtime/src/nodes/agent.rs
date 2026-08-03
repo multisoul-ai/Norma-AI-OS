@@ -164,6 +164,8 @@ mod tests {
             profile: AgentProfile::Codex,
             endpoint: "http://127.0.0.1:49152/agent-hooks".to_string(),
             token: "tok_123".to_string(),
+            workspace_id: "workspace-alpha".to_string(),
+            workspace_route_id: "route-alpha-7".to_string(),
         };
 
         let command = agent_command(AgentProfile::Codex, Some(&hook_env));
@@ -236,6 +238,8 @@ mod tests {
             profile: AgentProfile::Codex,
             endpoint: "http://127.0.0.1:49153/agent-hooks".to_string(),
             token: "tok_456".to_string(),
+            workspace_id: "workspace-alpha".to_string(),
+            workspace_route_id: "route-alpha-7".to_string(),
         };
         let codex_with_hook_env = agent_command(AgentProfile::Codex, Some(&hook_env));
         let claude_with_hook_env = agent_command(
@@ -245,6 +249,8 @@ mod tests {
                 profile: AgentProfile::Claude,
                 endpoint: "http://127.0.0.1:49153/agent-hooks".to_string(),
                 token: "tok_456".to_string(),
+                workspace_id: "workspace-alpha".to_string(),
+                workspace_route_id: "route-alpha-7".to_string(),
             }),
         );
 

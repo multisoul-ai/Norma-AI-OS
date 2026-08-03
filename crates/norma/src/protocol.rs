@@ -2,19 +2,43 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 mod ego;
+mod errors;
+mod workspace;
 
 pub use ego::{
     EgoCaptureMode, EgoCardStatus, EgoCommand, EgoCommandFailure, EgoErrorCode, EgoOwnership,
     EgoPhase, EgoPresentationDisposition,
 };
+pub use errors::{
+    AgentCommandFailure, AgentErrorCode, CardCommandError, PresentationCommandFailure,
+    PresentationErrorCode,
+};
+pub use workspace::{OrchestrationDoctorReport, WorkspaceSummary};
 
 pub type NodeId = u64;
+pub const CURRENT_PROTOCOL_VERSION: u32 = 2;
+
+fn legacy_protocol_version() -> u32 {
+    1
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct WireRequest {
+    #[serde(default = "legacy_protocol_version")]
+    pub protocol_version: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_version: Option<String>,
     pub request_id: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization: Option<ProviderAuthorization>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_workspace_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_workspace_route_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_workspace_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_node_id: Option<NodeId>,
     pub command: CardCommand,
@@ -22,12 +46,29 @@ pub struct WireRequest {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct WireResponse {
+    #[serde(default)]
+    pub server_version: String,
+    #[serde(default = "legacy_protocol_version")]
+    pub protocol_version: u32,
     pub request_id: u64,
     pub result: Result<CardCommandResult, CardCommandError>,
 }
 
+impl WireResponse {
+    pub fn new(request_id: u64, result: Result<CardCommandResult, CardCommandError>) -> Self {
+        Self {
+            server_version: env!("CARGO_PKG_VERSION").to_string(),
+            protocol_version: CURRENT_PROTOCOL_VERSION,
+            request_id,
+            result,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum CardCommand {
+    Doctor,
+    ListWorkspaces,
     ListAgents,
     AgentTaskStatus {
         task_ref: String,
@@ -144,6 +185,12 @@ impl Eq for CardBounds {}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum CardCommandResult {
+    Doctor {
+        report: OrchestrationDoctorReport,
+    },
+    WorkspacesListed {
+        workspaces: Vec<WorkspaceSummary>,
+    },
     Created {
         node_id: NodeId,
     },
@@ -233,6 +280,12 @@ pub struct AgentSummary {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AgentTaskReceipt {
     pub task_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_workspace_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_workspace_id: Option<String>,
     pub target_definition_id: i64,
     #[serde(rename = "target_name")]
     pub name: String,
@@ -292,17 +345,6 @@ pub enum CardSummaryKind {
     Browser,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum CardCommandError {
-    AppNotReady,
-    NotFound { node_id: NodeId },
-    Unsupported { message: String },
-    Runtime { message: String },
-    Agent(AgentCommandFailure),
-    Presentation(PresentationCommandFailure),
-    Ego(EgoCommandFailure),
-}
-
 #[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ProviderAuthorization {
     pub provider: AgentProfile,
@@ -318,117 +360,3 @@ impl std::fmt::Debug for ProviderAuthorization {
             .finish()
     }
 }
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AgentErrorCode {
-    AppUnavailable,
-    ProjectUnavailable,
-    Unauthorized,
-    ProviderNotInstalled,
-    SourceAgentUnavailable,
-    UnknownAgent,
-    AgentDisabled,
-    EmptyTask,
-    SelfDispatchForbidden,
-    DelegationCycle,
-    DelegationBudgetExceeded,
-    UntrackedRequiresForce,
-    TaskNotFound,
-    RuntimeExpired,
-    TaskUntracked,
-    WaitTimeout,
-    InstallConflict,
-    ComponentInstallFailed,
-    UnsupportedProvider,
-    InternalError,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct AgentCommandFailure {
-    pub code: AgentErrorCode,
-    pub message: String,
-    pub retryable: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub current_status: Option<AgentTaskReceiptStatus>,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PresentationErrorCode {
-    InvalidUrl,
-    ForbiddenUrlScheme,
-    PreviewNotFound,
-    PreviewNotFile,
-    PreviewUnreadable,
-    UnsupportedPreviewType,
-    PresentationFailed,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct PresentationCommandFailure {
-    pub code: PresentationErrorCode,
-    pub message: String,
-    pub retryable: bool,
-}
-
-impl CardCommandError {
-    pub fn agent(code: AgentErrorCode, message: impl Into<String>, retryable: bool) -> Self {
-        Self::Agent(AgentCommandFailure {
-            code,
-            message: message.into(),
-            retryable,
-            current_status: None,
-        })
-    }
-
-    pub fn agent_with_status(
-        code: AgentErrorCode,
-        message: impl Into<String>,
-        retryable: bool,
-        current_status: AgentTaskReceiptStatus,
-    ) -> Self {
-        Self::Agent(AgentCommandFailure {
-            code,
-            message: message.into(),
-            retryable,
-            current_status: Some(current_status),
-        })
-    }
-
-    pub fn presentation(
-        code: PresentationErrorCode,
-        message: impl Into<String>,
-        retryable: bool,
-    ) -> Self {
-        Self::Presentation(PresentationCommandFailure {
-            code,
-            message: message.into(),
-            retryable,
-        })
-    }
-
-    pub fn ego(code: EgoErrorCode, message: impl Into<String>, retryable: bool) -> Self {
-        Self::Ego(EgoCommandFailure {
-            code,
-            message: message.into(),
-            retryable,
-        })
-    }
-}
-
-impl std::fmt::Display for CardCommandError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::AppNotReady => write!(f, "app is not ready for card commands"),
-            Self::NotFound { node_id } => write!(f, "card {node_id} was not found"),
-            Self::Unsupported { message } => write!(f, "{message}"),
-            Self::Runtime { message } => write!(f, "{message}"),
-            Self::Agent(error) => write!(f, "{}", error.message),
-            Self::Presentation(error) => write!(f, "{}", error.message),
-            Self::Ego(error) => write!(f, "{}", error.message),
-        }
-    }
-}
-
-impl std::error::Error for CardCommandError {}

@@ -54,6 +54,8 @@ fn real_agent_cli_receives_and_submits_prompt() {
             .set_agent_hook_config(Some(runtime::AgentHookRuntimeConfig {
                 endpoint: "http://127.0.0.1:9/agent-hooks".to_string(),
                 token: "e2e-unreachable-hook".to_string(),
+                workspace_id: "e2e-workspace".to_string(),
+                workspace_route_id: "e2e-route".to_string(),
             }));
     });
 

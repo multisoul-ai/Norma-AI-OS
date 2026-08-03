@@ -6,7 +6,6 @@ use crate::canvas::interaction::InteractionState;
 use crate::canvas::layout_strategy::CanvasLayoutStrategy;
 use crate::canvas::master_layout::MasterLayoutState;
 use crate::motion::MotionStore;
-use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::agents::AgentDefinitionsState;
@@ -52,6 +51,9 @@ impl MultisoulApp {
         })
         .detach();
         let settings_store = app_store.settings_store();
+        let workspace_identity_store = app_store.workspace_identity_store();
+        let orchestration_task_route_store = app_store.orchestration_task_route_store();
+        crate::norma::endpoint::attach_task_store(orchestration_task_route_store.clone(), cx);
         let wallpaper_settings = WallpaperSettingsState::load_from_store(settings_store.clone());
         let workspace_state = WorkspaceState::load_from_storage(app_store.recent_store());
         let had_recent_workspaces = !workspace_state.recent.records.is_empty();
@@ -151,8 +153,10 @@ impl MultisoulApp {
             voice_settings,
             voice_settings_inputs,
             shortcuts,
-            norma_server: NormaServer::start(),
             agent_hook_server,
+            workspace_identity_store,
+            workspace_id: None,
+            workspace_route_id: None,
             agent_announcements: super::agent_announcements::AgentAnnouncements::default(),
             agent_announcement_playback:
                 super::agent_announcements::AgentAnnouncementPlayback::default(),
@@ -226,7 +230,14 @@ impl MultisoulApp {
         }
         #[cfg(not(test))]
         if should_refresh_orchestration_integrations(visual_preview) {
-            app.refresh_orchestration_integrations(cx);
+            let shared = crate::settings::orchestration::health::register_window(
+                cx.weak_entity(),
+                app.database_paths.app_db_path().to_path_buf(),
+                cx,
+            );
+            if let Some(shared) = shared {
+                crate::settings::orchestration::health::apply_snapshot(&mut app, shared);
+            }
         }
         app
     }

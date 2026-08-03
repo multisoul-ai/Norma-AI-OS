@@ -8,6 +8,32 @@ use std::ffi::OsString;
 
 pub fn format_result(result: &CardCommandResult) -> String {
     match result {
+        CardCommandResult::Doctor { report } => format!(
+            "App {}\nCLI {}\nProtocol {}\nSocket {}\nHook ingress {}\nProvider health {}\nSkill health {}\nOpen workspaces {}",
+            report.app_version,
+            report.cli_version,
+            report.protocol_version,
+            report.socket,
+            report.hook_ingress,
+            report.provider_health,
+            report.skill_health,
+            report.open_workspace_count
+        ),
+        CardCommandResult::WorkspacesListed { workspaces } => workspaces
+            .iter()
+            .map(|workspace| {
+                format!(
+                    "{}\t{}\t{}\t{}\t{}\t{}",
+                    workspace.workspace_id,
+                    workspace.display_name,
+                    workspace.canonical_root.display(),
+                    if workspace.active { "active" } else { "inactive" },
+                    workspace.route_state,
+                    workspace.agent_count
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n"),
         CardCommandResult::Created { node_id } => format!("created card {node_id}"),
         CardCommandResult::Deleted { node_id } => format!("deleted card {node_id}"),
         CardCommandResult::Sent { node_id } => format!("sent text to card {node_id}"),
@@ -200,10 +226,22 @@ struct ProtocolFailure {
     retryable: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     current_status: Option<AgentTaskReceiptStatus>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    operation_id: Option<String>,
+    #[serde(skip_serializing_if = "is_false")]
+    outcome_unknown: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 fn result_json(result: &CardCommandResult) -> Result<serde_json::Value, serde_json::Error> {
     Ok(match result {
+        CardCommandResult::Doctor { report } => json!({ "report": report }),
+        CardCommandResult::WorkspacesListed { workspaces } => {
+            json!({ "workspaces": workspaces })
+        }
         CardCommandResult::AgentsListed { agents } => json!({ "agents": agents }),
         CardCommandResult::AgentTasksDispatched { receipts } => json!({ "receipts": receipts }),
         CardCommandResult::AgentTaskStatus { task } => json!({ "task": task }),
@@ -246,6 +284,8 @@ fn protocol_failure(error: &CardCommandError) -> (ProtocolFailure, i32) {
                     message: error.message.clone(),
                     retryable: error.retryable,
                     current_status: error.current_status,
+                    operation_id: error.operation_id.clone(),
+                    outcome_unknown: error.outcome_unknown,
                 },
                 exit_code,
             )
@@ -256,6 +296,8 @@ fn protocol_failure(error: &CardCommandError) -> (ProtocolFailure, i32) {
                 message: error.message.clone(),
                 retryable: error.retryable,
                 current_status: None,
+                operation_id: None,
+                outcome_unknown: false,
             },
             if error.code == crate::protocol::PresentationErrorCode::PresentationFailed {
                 1
@@ -269,6 +311,8 @@ fn protocol_failure(error: &CardCommandError) -> (ProtocolFailure, i32) {
                 message: error.message.clone(),
                 retryable: error.retryable,
                 current_status: None,
+                operation_id: None,
+                outcome_unknown: false,
             },
             if error.code == crate::protocol::EgoErrorCode::InternalError {
                 1
@@ -282,6 +326,8 @@ fn protocol_failure(error: &CardCommandError) -> (ProtocolFailure, i32) {
                 message: other.to_string(),
                 retryable: false,
                 current_status: None,
+                operation_id: None,
+                outcome_unknown: false,
             },
             1,
         ),

@@ -27,21 +27,26 @@ mod workspace;
 #[path = "../tests/unit/menu_bar_tests.rs"]
 mod menu_bar_tests;
 
+#[cfg(feature = "e2e-test-support")]
+pub use app::{
+    install_norma_endpoint_for_e2e, mark_orchestration_health_ready_for_e2e,
+    submit_norma_request_for_e2e,
+};
 #[cfg(all(target_os = "macos", feature = "l3-test-support"))]
 pub use app::{run_ego_live_capture_probe, EgoLiveCaptureProbeReport};
 #[cfg(feature = "e2e-test-support")]
 pub use app::{
     runtime_frame_interval_for_e2e, CloneProjectE2eSnapshot, EgoCardE2eSnapshot,
-    FeatureGuideE2eSnapshot,
-    OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot, PresentationE2eSnapshot,
-    ReplyTtsE2ePcmSnapshot, ReplyTtsE2eProbe, ReplyTtsE2eProbeSnapshot, ReplyTtsE2eSnapshot,
+    FeatureGuideE2eSnapshot, OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot,
+    PresentationE2eSnapshot, ReplyTtsE2ePcmSnapshot, ReplyTtsE2eProbe, ReplyTtsE2eProbeSnapshot,
+    ReplyTtsE2eSnapshot,
 };
 pub use app::{
     AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState, AppScreen,
     CanvasLayoutE2eSnapshot, CloneProject, CopyCardContent, ExitFocus,
     InitializationAnimationE2eSnapshot, MultisoulApp, NewBrowser, NewClaudeAgent, NewCodexAgent,
-    NewCursorAgent, NewGrokAgent, NewOpenCodeAgent, NewTerminal, NewWindow, OpenPreviewFile,
-    OpenFeatureGuide, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
+    NewCursorAgent, NewGrokAgent, NewOpenCodeAgent, NewTerminal, NewWindow, OpenFeatureGuide,
+    OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
     ToggleMasterLayout, ToggleSettings, TtsProviderE2eSnapshot,
 };
 #[cfg(feature = "e2e-test-support")]
@@ -90,6 +95,15 @@ pub fn run_norma_os() {
             // gpui-component：主题与组件 actions；须在开窗前初始化。
             ui::init_components(cx);
             performance_monitor::install(cx);
+            settings::orchestration::health::install(cx);
+            settings::agent_hook_ingress::install(cx)
+                .expect("failed to start App-global Agent Hook ingress");
+            if let Err(error) = norma::endpoint::install(cx) {
+                tracing::error!(
+                    %error,
+                    "App-global Norma endpoint unavailable; another App process may own it"
+                );
+            }
 
             // Quit 是唯一由 GPUI keymap 固定绑定的菜单快捷键；可配置命令仍由
             // ShortcutSettingsState 统一处理，暂不在原生菜单中显示提示。

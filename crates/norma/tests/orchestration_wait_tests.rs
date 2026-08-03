@@ -104,3 +104,47 @@ fn wait_uses_tracking_field_even_when_status_is_still_submitted() {
         "untracked submitted 不得进入超时轮询"
     );
 }
+
+/// CLI wait 终态优先级：可信终态必须覆盖派发阶段遗留的 untracked 快照。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   terminal statuses = done + failed + cancelled + interrupted = 4 个
+///   tracking modes    = untracked × 1
+///   Total             = 4 × 1 = 4 个分类输入
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 依次输入四个已经由 Runtime/持久化确认的终态。
+///   2. 每个终态都携带派发时遗留的 `tracking=untracked`。
+///   3. wait 分类器先判断终态，再判断仍在运行的任务是否可追踪。
+///
+/// 预期结果：
+///   - 正断言：四个终态都返回 Complete。
+///   - 负断言：终态不得被降级为 Untracked，否则调用方无法取得真实结果。
+#[test]
+fn wait_returns_terminal_status_even_when_tracking_is_untracked() {
+    assert_eq!(
+        classify_wait_task(AgentTaskReceiptStatus::Done, "untracked"),
+        WaitStatusDecision::Complete,
+        "done 是可信终态，不得被遗留的 untracked tracking 覆盖"
+    );
+    assert_eq!(
+        classify_wait_task(AgentTaskReceiptStatus::Failed, "untracked"),
+        WaitStatusDecision::Complete,
+        "failed 是可信终态，不得被遗留的 untracked tracking 覆盖"
+    );
+    assert_eq!(
+        classify_wait_task(AgentTaskReceiptStatus::Cancelled, "untracked"),
+        WaitStatusDecision::Complete,
+        "cancelled 是可信终态，不得被遗留的 untracked tracking 覆盖"
+    );
+    assert_eq!(
+        classify_wait_task(AgentTaskReceiptStatus::Interrupted, "untracked"),
+        WaitStatusDecision::Complete,
+        "interrupted 是可信终态，不得被遗留的 untracked tracking 覆盖"
+    );
+    assert_ne!(
+        classify_wait_task(AgentTaskReceiptStatus::Done, "untracked"),
+        WaitStatusDecision::Untracked,
+        "已完成任务不得再次报告 task_untracked"
+    );
+}

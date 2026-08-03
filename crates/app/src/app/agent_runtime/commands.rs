@@ -425,6 +425,9 @@ pub(super) fn execute_coordinated_agent_command(
                 };
                 wire_receipts.push(AgentTaskReceipt {
                     task_id: receipt.task_ref,
+                    operation_id: None,
+                    source_workspace_id: None,
+                    target_workspace_id: None,
                     target_definition_id: receipt.definition_id,
                     name: receipt.name,
                     node_id: receipt.node_id,

@@ -48,7 +48,96 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
             updated_at_unix INTEGER NOT NULL,
             revoked_at_unix INTEGER
         );
+
+        CREATE TABLE IF NOT EXISTS workspace_identities (
+            workspace_id TEXT PRIMARY KEY NOT NULL,
+            canonical_root TEXT UNIQUE NOT NULL,
+            display_name TEXT NOT NULL,
+            created_at_unix INTEGER NOT NULL,
+            updated_at_unix INTEGER NOT NULL
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_workspace_identities_canonical_root
+        ON workspace_identities(canonical_root);
+
+        CREATE TABLE IF NOT EXISTS orchestration_task_routes (
+            task_ref TEXT PRIMARY KEY NOT NULL,
+            operation_id TEXT UNIQUE NOT NULL,
+            request_fingerprint TEXT NOT NULL,
+            source_workspace_id TEXT NOT NULL,
+            source_definition_id INTEGER NOT NULL,
+            source_provider TEXT NOT NULL,
+            source_node_id_at_dispatch INTEGER NOT NULL,
+            target_workspace_id TEXT NOT NULL,
+            parent_task_ref TEXT,
+            root_task_ref TEXT NOT NULL,
+            target_task_ref TEXT,
+            target_definition_id INTEGER,
+            target_name TEXT,
+            target_node_id_at_dispatch INTEGER,
+            state TEXT NOT NULL,
+            tracking TEXT NOT NULL,
+            result_json TEXT,
+            error_code TEXT,
+            created_at_unix INTEGER NOT NULL,
+            updated_at_unix INTEGER NOT NULL,
+            terminal_at_unix INTEGER
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_orchestration_task_routes_source_workspace
+        ON orchestration_task_routes(source_workspace_id, created_at_unix);
+
+        CREATE INDEX IF NOT EXISTS idx_orchestration_task_routes_target_workspace
+        ON orchestration_task_routes(target_workspace_id, created_at_unix);
+
+        CREATE INDEX IF NOT EXISTS idx_orchestration_task_routes_state
+        ON orchestration_task_routes(state, updated_at_unix);
+
+        CREATE INDEX IF NOT EXISTS idx_orchestration_task_routes_target_runtime
+        ON orchestration_task_routes(target_workspace_id, target_task_ref);
+
+        CREATE TABLE IF NOT EXISTS orchestration_task_operations (
+            operation_id TEXT PRIMARY KEY NOT NULL,
+            request_fingerprint TEXT NOT NULL,
+            result_json TEXT,
+            created_at_unix INTEGER NOT NULL,
+            updated_at_unix INTEGER NOT NULL
+        );
         "#,
+    )?;
+    ensure_column(
+        connection,
+        "orchestration_task_routes",
+        "parent_task_ref",
+        "parent_task_ref TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "orchestration_task_routes",
+        "root_task_ref",
+        "root_task_ref TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "orchestration_task_routes",
+        "target_definition_id",
+        "target_definition_id INTEGER",
+    )?;
+    ensure_column(
+        connection,
+        "orchestration_task_routes",
+        "target_name",
+        "target_name TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "orchestration_task_routes",
+        "target_node_id_at_dispatch",
+        "target_node_id_at_dispatch INTEGER",
+    )?;
+    connection.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_orchestration_task_routes_root
+         ON orchestration_task_routes(root_task_ref, state);",
     )?;
     connection.pragma_update(None, "user_version", 1)?;
     Ok(())

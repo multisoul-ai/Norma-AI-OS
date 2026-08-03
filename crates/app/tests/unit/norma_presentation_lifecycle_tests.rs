@@ -83,8 +83,14 @@ fn test_presentation_socket_authorizes_source_loads_preview_and_coalesces_notifi
             };
             let preview = app.execute_card_command(
                 WireRequest {
+                    protocol_version: norma::protocol::CURRENT_PROTOCOL_VERSION,
+                    client_version: Some(env!("CARGO_PKG_VERSION").to_string()),
                     request_id: 11,
+                    operation_id: Some("presentation-11".to_string()),
                     authorization: Some(authorization()),
+                    source_workspace_id: None,
+                    source_workspace_route_id: None,
+                    target_workspace_id: None,
                     source_node_id: Some(source_node_id),
                     command: CardCommand::Present {
                         target: PresentationTarget::Preview {
@@ -103,8 +109,14 @@ fn test_presentation_socket_authorizes_source_loads_preview_and_coalesces_notifi
             };
             let browser = app.execute_card_command(
                 WireRequest {
+                    protocol_version: norma::protocol::CURRENT_PROTOCOL_VERSION,
+                    client_version: Some(env!("CARGO_PKG_VERSION").to_string()),
                     request_id: 12,
+                    operation_id: Some("presentation-12".to_string()),
                     authorization: Some(authorization()),
+                    source_workspace_id: None,
+                    source_workspace_route_id: None,
+                    target_workspace_id: None,
                     source_node_id: Some(source_node_id),
                     command: CardCommand::Present {
                         target: PresentationTarget::Browser {
@@ -122,11 +134,17 @@ fn test_presentation_socket_authorizes_source_loads_preview_and_coalesces_notifi
             };
             let unauthorized = app.execute_card_command(
                 WireRequest {
+                    protocol_version: norma::protocol::CURRENT_PROTOCOL_VERSION,
+                    client_version: Some(env!("CARGO_PKG_VERSION").to_string()),
                     request_id: 13,
+                    operation_id: Some("presentation-13".to_string()),
                     authorization: Some(ProviderAuthorization {
                         provider: NormaAgentProfile::Codex,
                         token: "wrong-token".to_string(),
                     }),
+                    source_workspace_id: None,
+                    source_workspace_route_id: None,
+                    target_workspace_id: None,
                     source_node_id: Some(source_node_id),
                     command: CardCommand::Present {
                         target: PresentationTarget::Browser {

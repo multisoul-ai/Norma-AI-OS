@@ -32,6 +32,7 @@ pub use coordination::{
     AgentDispatchReceipt, AgentDispatchSource, AgentDispatchState, AgentQueueSnapshot,
     AgentQueueTask, AgentQueueTaskSource, AgentRosterEntry, AgentTaskCancellation,
     AgentTaskCoordinator, AgentTaskReferenceError, AgentTaskState, AgentTrackingMode,
+    MAX_UNFINISHED_DESCENDANTS,
 };
 pub use current_context::{
     render_current_canvas_context, CanvasCardContext, CanvasCardKind, CurrentCanvasContext,

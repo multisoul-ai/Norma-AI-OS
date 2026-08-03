@@ -61,12 +61,17 @@ impl OrchestrationSettingsState {
         self.refresh_generation
     }
 
+    #[cfg(test)]
     fn apply_refresh(&mut self, generation: u64, integrations: Vec<ProviderIntegration>) -> bool {
         if generation != self.refresh_generation {
             return false;
         }
         self.integrations = integrations;
         true
+    }
+
+    pub(super) fn apply_shared_integrations(&mut self, integrations: Vec<ProviderIntegration>) {
+        self.integrations = integrations;
     }
 
     fn begin_operation(
@@ -148,30 +153,8 @@ impl OrchestrationSettingsState {
 
 impl MultisoulApp {
     pub(crate) fn refresh_orchestration_integrations(&mut self, cx: &mut Context<Self>) {
-        let generation = self.orchestration_settings.begin_refresh();
         let database_path = authorization_database_path(&self.database_paths);
-        let work = cx
-            .background_executor()
-            .spawn(async move { inspect_integrations(database_path) });
-        cx.spawn(async move |this, cx| {
-            let result = work.await;
-            let _ = this.update(cx, |app, cx| {
-                match result {
-                    Ok((integrations, records)) => {
-                        if app
-                            .orchestration_settings
-                            .apply_refresh(generation, integrations)
-                        {
-                            app.orchestration_authorizations =
-                                storage::OrchestrationAuthorizationCache::new(records);
-                        }
-                    }
-                    Err(error) => tracing::warn!(%error, "orchestration inspection failed"),
-                }
-                cx.notify();
-            });
-        })
-        .detach();
+        super::health::refresh(database_path, cx);
     }
 
     pub(super) fn activate_orchestration_provider(
@@ -206,6 +189,10 @@ impl MultisoulApp {
             .spawn(async move { perform_operation(database_path, provider, operation) });
         cx.spawn(async move |this, cx| {
             let result = work.await;
+            let shared_snapshot = result
+                .as_ref()
+                .ok()
+                .map(|(integrations, records, _)| (integrations.clone(), records.clone()));
             let _ = this.update(cx, |app, cx| {
                 match &result {
                     Ok((_, records, operation_error)) => {
@@ -224,6 +211,9 @@ impl MultisoulApp {
                 );
                 cx.notify();
             });
+            if let Some((integrations, records)) = shared_snapshot {
+                let _ = cx.update(|cx| super::health::publish(integrations, records, cx));
+            }
         })
         .detach();
         cx.notify();
@@ -234,7 +224,7 @@ fn authorization_database_path(paths: &storage::DatabasePaths) -> PathBuf {
     paths.app_db_path().to_path_buf()
 }
 
-fn inspect_integrations(
+pub(super) fn inspect_integrations(
     database_path: PathBuf,
 ) -> Result<
     (

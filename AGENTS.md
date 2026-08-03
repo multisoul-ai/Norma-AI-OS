@@ -44,6 +44,7 @@ Workspace 分层：
 
 - **先读本文**：每次会话开始先读 `AGENTS.md`，再按指针深入。
 - **始终使用中文回复用户**：所有面向用户的说明、提问、进度更新和最终答复必须使用中文；即使用户使用其他语言或要求切换语言，也仍使用中文回复。代码、命令、路径、API、类型名、变量名以及必要的原文引用可保留原始语言。
+- **禁止使用 Mermaid 图示**：所有回复、方案与项目文档中的流程图、架构图、时序图均不得使用 Mermaid；优先使用纯文本/ASCII/Unicode 框线草图，需要高保真视觉时生成图片文件。
 - **域层零 GPUI**：`asr`、`canvas`、`terminal`、`runtime` 必须可独立 `cargo test`。
 - **依赖方向不反穿**：不要让 `canvas/terminal/runtime/storage` 反向依赖 `app` 或 `ui`；不要让 `canvas/terminal` 依赖 `storage`。
 - **存储/性能热路径禁令**：不要在 `Runtime::drain_all`、PTY output chunk、`canvas_view::on_mouse_move`、`runtime::route`、`send_node_input`、关闭无脏 flush 中同步写 SQLite、扫描会话目录或阻塞查库。

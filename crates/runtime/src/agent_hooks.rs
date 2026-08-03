@@ -8,6 +8,8 @@ use terminal::PtyCommand;
 pub struct AgentHookRuntimeConfig {
     pub endpoint: String,
     pub token: String,
+    pub workspace_id: String,
+    pub workspace_route_id: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -16,6 +18,8 @@ pub(crate) struct AgentHookEnv {
     pub(crate) profile: AgentProfile,
     pub(crate) endpoint: String,
     pub(crate) token: String,
+    pub(crate) workspace_id: String,
+    pub(crate) workspace_route_id: String,
 }
 
 impl AgentHookEnv {
@@ -25,6 +29,8 @@ impl AgentHookEnv {
             .env("MULTISOUL_AGENT_PROFILE", agent_profile_env(self.profile))
             .env("MULTISOUL_HOOK_ENDPOINT", self.endpoint.clone())
             .env("MULTISOUL_HOOK_TOKEN", self.token.clone())
+            .env("NORMA_WORKSPACE_ID", self.workspace_id.clone())
+            .env("NORMA_WORKSPACE_ROUTE_ID", self.workspace_route_id.clone())
     }
 }
 
@@ -47,6 +53,8 @@ impl Runtime {
             profile,
             endpoint: config.endpoint.clone(),
             token: config.token.clone(),
+            workspace_id: config.workspace_id.clone(),
+            workspace_route_id: config.workspace_route_id.clone(),
         })
     }
 }
@@ -87,6 +95,8 @@ mod tests {
         runtime.set_agent_hook_config(Some(AgentHookRuntimeConfig {
             endpoint: "http://127.0.0.1:49154/agent-hooks".to_string(),
             token: "tok_opencode".to_string(),
+            workspace_id: "workspace-alpha".to_string(),
+            workspace_route_id: "route-alpha-7".to_string(),
         }));
 
         let env = runtime
@@ -109,6 +119,14 @@ mod tests {
         assert_eq!(
             env.token, "tok_opencode",
             "OpenCode hook env should preserve the hook auth token"
+        );
+        assert_eq!(
+            env.workspace_id, "workspace-alpha",
+            "Agent env 必须保留稳定 Workspace ID，供 Norma CLI 解析来源"
+        );
+        assert_eq!(
+            env.workspace_route_id, "route-alpha-7",
+            "Agent env 必须保留运行期 route ID，防止旧 Session 命中新窗口"
         );
         assert_ne!(
             env.profile,

@@ -115,6 +115,8 @@ impl RestoreCtx<'_> {
             profile,
             endpoint: config.endpoint.clone(),
             token: config.token.clone(),
+            workspace_id: config.workspace_id.clone(),
+            workspace_route_id: config.workspace_route_id.clone(),
         })
     }
 }

@@ -1,7 +1,7 @@
 use crate::orchestration::{load_provider_authorization, InstallPaths, OrchestrationProvider};
 use crate::protocol::{
     AgentErrorCode, CardCommand, CardCommandError, CardCommandResult, ProviderAuthorization,
-    WireRequest, WireResponse,
+    WireRequest, WireResponse, CURRENT_PROTOCOL_VERSION,
 };
 use std::env;
 use std::io::{BufRead, BufReader, Write};
@@ -11,6 +11,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 const SOCKET_ENV: &str = "NORMA_SOCKET";
 const DEFAULT_SOCKET_NAME: &str = "multisoul-norma.sock";
+const WORKSPACE_ID_ENV: &str = "NORMA_WORKSPACE_ID";
+const WORKSPACE_ROUTE_ID_ENV: &str = "NORMA_WORKSPACE_ROUTE_ID";
 
 #[derive(Debug)]
 pub enum ClientError {
@@ -24,6 +26,8 @@ pub enum ClientError {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ClientRequestContext {
     authorization: Option<ProviderAuthorization>,
+    source_workspace_id: Option<String>,
+    source_workspace_route_id: Option<String>,
     source_node_id: Option<u64>,
 }
 
@@ -117,8 +121,42 @@ impl ClientRequestContext {
             })?;
         Ok(Self {
             authorization: Some(authorization),
+            source_workspace_id: None,
+            source_workspace_route_id: None,
             source_node_id: Some(source_node_id),
         })
+    }
+
+    pub fn from_values_with_workspace(
+        provider: Option<&str>,
+        source_node_id: Option<&str>,
+        source_workspace_id: Option<&str>,
+        source_workspace_route_id: Option<&str>,
+        paths: &InstallPaths,
+        orchestration_command: bool,
+    ) -> Result<Self, ClientError> {
+        let mut context =
+            Self::from_values(provider, source_node_id, paths, orchestration_command)?;
+        if !orchestration_command {
+            return Ok(context);
+        }
+        let workspace_id = non_blank_context_value(source_workspace_id).ok_or_else(|| {
+            ClientError::Command(CardCommandError::agent(
+                AgentErrorCode::ClientUpgradeRequired,
+                "当前 Agent Session 缺少 Workspace 身份；请重新激活该 Agent",
+                false,
+            ))
+        })?;
+        let route_id = non_blank_context_value(source_workspace_route_id).ok_or_else(|| {
+            ClientError::Command(CardCommandError::agent(
+                AgentErrorCode::ClientUpgradeRequired,
+                "当前 Agent Session 缺少 Workspace route；请重新激活该 Agent",
+                false,
+            ))
+        })?;
+        context.source_workspace_id = Some(workspace_id.to_string());
+        context.source_workspace_route_id = Some(route_id.to_string());
+        Ok(context)
     }
 
     fn from_current_process(command: &CardCommand) -> Result<Self, ClientError> {
@@ -135,8 +173,21 @@ impl ClientRequestContext {
         })?;
         let provider = env::var("MULTISOUL_AGENT_PROFILE").ok();
         let source_node_id = env::var("MULTISOUL_NODE_ID").ok();
-        Self::from_values(provider.as_deref(), source_node_id.as_deref(), &paths, true)
+        let source_workspace_id = env::var(WORKSPACE_ID_ENV).ok();
+        let source_workspace_route_id = env::var(WORKSPACE_ROUTE_ID_ENV).ok();
+        Self::from_values_with_workspace(
+            provider.as_deref(),
+            source_node_id.as_deref(),
+            source_workspace_id.as_deref(),
+            source_workspace_route_id.as_deref(),
+            &paths,
+            true,
+        )
     }
+}
+
+fn non_blank_context_value(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|value| !value.is_empty())
 }
 
 impl From<std::io::Error> for ClientError {
@@ -162,8 +213,22 @@ pub fn send_command(command: CardCommand) -> Result<CardCommandResult, ClientErr
 }
 
 pub fn send_command_with_metadata(command: CardCommand) -> Result<ClientResponse, ClientError> {
+    send_command_with_request_metadata(command, None, None)
+}
+
+pub fn send_command_with_request_metadata(
+    command: CardCommand,
+    target_workspace_id: Option<String>,
+    operation_id: Option<String>,
+) -> Result<ClientResponse, ClientError> {
     let context = ClientRequestContext::from_current_process(&command)?;
-    send_command_to_path_with_context(default_socket_path(), command, context)
+    send_command_to_path_with_context_and_metadata(
+        default_socket_path(),
+        command,
+        context,
+        target_workspace_id,
+        operation_id,
+    )
 }
 
 pub fn send_command_to_path(
@@ -179,8 +244,20 @@ pub fn send_command_to_path_with_context(
     command: CardCommand,
     context: ClientRequestContext,
 ) -> Result<ClientResponse, ClientError> {
+    send_command_to_path_with_context_and_metadata(socket_path, command, context, None, None)
+}
+
+pub fn send_command_to_path_with_context_and_metadata(
+    socket_path: impl AsRef<Path>,
+    command: CardCommand,
+    context: ClientRequestContext,
+    target_workspace_id: Option<String>,
+    operation_id: Option<String>,
+) -> Result<ClientResponse, ClientError> {
     let request_id = request_id();
-    let request = build_wire_request(request_id, command, context);
+    let mut request = build_wire_request(request_id, command, context);
+    request.target_workspace_id = target_workspace_id;
+    request.operation_id = operation_id;
     let mut stream = UnixStream::connect(socket_path)?;
     stream.write_all(encode_request_line(&request)?.as_bytes())?;
     stream.flush()?;
@@ -198,6 +275,16 @@ pub fn send_command_to_path_with_context(
             actual: response.request_id,
         });
     }
+    if response.protocol_version != CURRENT_PROTOCOL_VERSION {
+        return Err(ClientError::Command(CardCommandError::agent(
+            AgentErrorCode::ProtocolVersionMismatch,
+            format!(
+                "Norma App protocol {} 与 CLI protocol {} 不兼容",
+                response.protocol_version, CURRENT_PROTOCOL_VERSION
+            ),
+            false,
+        )));
+    }
 
     response
         .result
@@ -211,8 +298,14 @@ pub fn build_wire_request(
     context: ClientRequestContext,
 ) -> WireRequest {
     WireRequest {
+        protocol_version: CURRENT_PROTOCOL_VERSION,
+        client_version: Some(env!("CARGO_PKG_VERSION").to_string()),
         request_id,
+        operation_id: None,
         authorization: context.authorization,
+        source_workspace_id: context.source_workspace_id,
+        source_workspace_route_id: context.source_workspace_route_id,
+        target_workspace_id: None,
         source_node_id: context.source_node_id,
         command,
     }
@@ -250,7 +343,8 @@ fn request_id() -> u64 {
 fn is_orchestration_command(command: &CardCommand) -> bool {
     matches!(
         command,
-        CardCommand::ListAgents
+        CardCommand::ListWorkspaces
+            | CardCommand::ListAgents
             | CardCommand::DispatchAgentTasks { .. }
             | CardCommand::AgentTaskStatus { .. }
             | CardCommand::AgentTaskCancel { .. }

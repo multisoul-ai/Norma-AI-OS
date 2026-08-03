@@ -23,8 +23,14 @@ use std::path::PathBuf;
 #[test]
 fn test_preview_create_command_round_trips_through_json() {
     let request = WireRequest {
+        protocol_version: 2,
+        client_version: Some("0.1.53".to_string()),
         request_id: 42,
+        operation_id: None,
         authorization: None,
+        source_workspace_id: None,
+        source_workspace_route_id: None,
+        target_workspace_id: None,
         source_node_id: None,
         command: CardCommand::Create {
             kind: CardKind::Preview {
@@ -88,10 +94,14 @@ fn test_preview_create_command_round_trips_through_json() {
 #[test]
 fn test_wire_response_preserves_success_and_error_results() {
     let success = WireResponse {
+        server_version: env!("CARGO_PKG_VERSION").to_string(),
+        protocol_version: norma::protocol::CURRENT_PROTOCOL_VERSION,
         request_id: 7,
         result: Ok(CardCommandResult::Created { node_id: 3 }),
     };
     let error = WireResponse {
+        server_version: env!("CARGO_PKG_VERSION").to_string(),
+        protocol_version: norma::protocol::CURRENT_PROTOCOL_VERSION,
         request_id: 7,
         result: Err(CardCommandError::NotFound { node_id: 99 }),
     };
@@ -137,6 +147,8 @@ fn test_wire_response_preserves_success_and_error_results() {
 #[test]
 fn test_list_result_uses_neutral_card_summary() {
     let response = WireResponse {
+        server_version: env!("CARGO_PKG_VERSION").to_string(),
+        protocol_version: norma::protocol::CURRENT_PROTOCOL_VERSION,
         request_id: 5,
         result: Ok(CardCommandResult::Listed {
             cards: vec![
@@ -188,5 +200,72 @@ fn test_list_result_uses_neutral_card_summary() {
         cards[1].alias.as_deref(),
         Some("Alan"),
         "Agent alias 应保留在 List summary 中供 voice planner 路由"
+    );
+}
+
+/// Norma 路由协议：新请求保留 Workspace/operation 身份，旧请求安全降级为 v1。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   protocol versions = current(2) + legacy(1) = 2 种
+///   workspace IDs     = stable(1) + route(1) = 2 个身份层次
+///   operation IDs     = 1 个幂等键
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造 v2 WireRequest 并完成 JSON 往返。
+///   2. 检查来源 Workspace、route 和 operation ID 均完整保留。
+///   3. 解码一条不包含新字段的 v1 JSON 请求。
+///
+/// 预期结果：
+///   - 正断言：v2 路由字段和协议版本完整保留。
+///   - 正断言：legacy 请求明确解码为协议 v1。
+///   - 负断言：legacy 请求不得伪造 Workspace 或 operation 身份。
+#[test]
+fn wire_request_preserves_workspace_routing_and_decodes_legacy_v1() {
+    let request = WireRequest {
+        protocol_version: 2,
+        client_version: Some("0.1.53".to_string()),
+        request_id: 91,
+        operation_id: Some("operation-91".to_string()),
+        authorization: None,
+        source_workspace_id: Some("workspace-alpha".to_string()),
+        source_workspace_route_id: Some("route-alpha-7".to_string()),
+        target_workspace_id: Some("workspace-beta".to_string()),
+        source_node_id: None,
+        command: CardCommand::List,
+    };
+
+    let encoded = serde_json::to_string(&request).expect("v2 WireRequest 应可序列化");
+    let restored: WireRequest =
+        serde_json::from_str(&encoded).expect("v2 WireRequest 应可反序列化");
+    let legacy: WireRequest = serde_json::from_str(r#"{"request_id":7,"command":"List"}"#)
+        .expect("缺少路由字段的旧请求应按 legacy v1 解码");
+
+    assert_eq!(restored.protocol_version, 2, "v2 请求必须保留显式协议版本");
+    assert_eq!(
+        restored.source_workspace_id.as_deref(),
+        Some("workspace-alpha"),
+        "请求必须保留稳定 Workspace ID"
+    );
+    assert_eq!(
+        restored.source_workspace_route_id.as_deref(),
+        Some("route-alpha-7"),
+        "请求必须保留本次 App 运行的 route ID"
+    );
+    assert_eq!(
+        restored.operation_id.as_deref(),
+        Some("operation-91"),
+        "副作用请求必须保留幂等 operation ID"
+    );
+    assert_eq!(
+        legacy.protocol_version, 1,
+        "缺少 protocol_version 的旧请求必须明确归类为 v1"
+    );
+    assert!(
+        legacy.source_workspace_id.is_none(),
+        "legacy 请求不得伪造不存在的来源 Workspace"
+    );
+    assert!(
+        legacy.operation_id.is_none(),
+        "legacy 请求不得伪造不存在的幂等身份"
     );
 }

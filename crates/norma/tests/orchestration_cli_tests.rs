@@ -147,6 +147,80 @@ fn assign_rejects_multiple_targets_and_blank_task_before_transport() {
     );
 }
 
+/// 跨 Workspace CLI：显式目标与 operation ID 必须进入调用元数据，不能混入任务正文。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   commands = workspace list(1) + agent list target B(1) + assign target B(1) = 3 条
+///   explicit operation IDs = 1 个固定 UUID
+///   implicit target guesses = 0 次
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 解析 `workspace list`。
+///   2. 解析带 `--workspace workspace-b` 的 `agent list`。
+///   3. 解析带相同 Workspace 和固定 `--operation-id` 的 assign。
+///
+/// 预期结果：
+///   - 正断言：workspace list 映射独立命令，两个目标命令都保留 workspace-b。
+///   - 正断言：assign 保留调用方 operation ID，供响应未知时安全重放。
+///   - 负断言：只读 list 不得生成 operation ID，目标 ID 不得写进任务正文。
+#[test]
+fn cross_workspace_cli_preserves_explicit_target_and_operation_identity() {
+    let workspaces =
+        parse_invocation_from(["norma", "workspace", "list"]).expect("workspace list 应解析成功");
+    let agents = parse_invocation_from(["norma", "agent", "list", "--workspace", "workspace-b"])
+        .expect("跨 Workspace agent list 应解析成功");
+    let assign = parse_invocation_from([
+        "norma",
+        "agent",
+        "task",
+        "assign",
+        "Bella",
+        "--workspace",
+        "workspace-b",
+        "--task",
+        "运行 B 的测试",
+        "--operation-id",
+        "11111111-2222-4333-8444-555555555555",
+    ])
+    .expect("跨 Workspace assign 应解析成功");
+
+    assert_eq!(
+        workspaces.command,
+        CardCommand::ListWorkspaces,
+        "workspace list 必须使用独立的全局 Workspace 命令"
+    );
+    assert_eq!(
+        agents.target_workspace_id.as_deref(),
+        Some("workspace-b"),
+        "agent list 必须保留用户显式指定的目标 Workspace"
+    );
+    assert_eq!(
+        assign.target_workspace_id.as_deref(),
+        Some("workspace-b"),
+        "assign 必须保留用户显式指定的目标 Workspace"
+    );
+    assert_eq!(
+        assign.operation_id.as_deref(),
+        Some("11111111-2222-4333-8444-555555555555"),
+        "assign 必须保留固定 operation ID，重试不得换号"
+    );
+    assert!(
+        workspaces.operation_id.is_none(),
+        "只读 workspace list 不得生成副作用 operation ID"
+    );
+    let CardCommand::DispatchAgentTasks { assignments, .. } = assign.command else {
+        panic!("跨 Workspace assign 仍应映射到单目标 DispatchAgentTasks");
+    };
+    assert_eq!(
+        assignments[0].task, "运行 B 的测试",
+        "Workspace 路由元数据不得污染任务正文"
+    );
+    assert!(
+        !assignments[0].task.contains("workspace-b"),
+        "任务正文不得隐式拼入目标 Workspace ID"
+    );
+}
+
 /// JSON 成功输出契约：stdout 只含 schema/request/result，且任务回执不泄露 Token。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -169,6 +243,9 @@ fn json_success_output_has_stable_envelope_and_no_diagnostics_or_token() {
     let result = CardCommandResult::AgentTasksDispatched {
         receipts: vec![AgentTaskReceipt {
             task_id: "runtime-a:7".to_string(),
+            operation_id: None,
+            source_workspace_id: None,
+            target_workspace_id: None,
             target_definition_id: 2,
             name: "Bella".to_string(),
             node_id: 102,
@@ -360,6 +437,9 @@ fn text_output_preserves_roster_and_task_receipt_contract_fields() {
     let receipts = format_result(&CardCommandResult::AgentTasksDispatched {
         receipts: vec![AgentTaskReceipt {
             task_id: "runtime-a:7".to_string(),
+            operation_id: None,
+            source_workspace_id: None,
+            target_workspace_id: None,
             target_definition_id: 2,
             name: "Bella".to_string(),
             node_id: 102,

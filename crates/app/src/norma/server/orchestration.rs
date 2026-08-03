@@ -1,5 +1,6 @@
 use crate::app::MultisoulApp;
 use canvas::{AgentProfile as CanvasAgentProfile, CanvasNodeKind};
+use gpui::{Context, Window};
 use norma::protocol::{
     AgentErrorCode, AgentProfile, CardCommand, CardCommandError, CardCommandResult, EgoErrorCode,
     EgoPresentationDisposition, NodeId, PresentationDisposition, PresentationErrorCode,
@@ -7,10 +8,11 @@ use norma::protocol::{
 };
 use std::time::Duration;
 
-pub(super) fn is_managed_agent_command(command: &CardCommand) -> bool {
+pub(crate) fn is_managed_agent_command(command: &CardCommand) -> bool {
     matches!(
         command,
-        CardCommand::ListAgents
+        CardCommand::ListWorkspaces
+            | CardCommand::ListAgents
             | CardCommand::DispatchAgentTasks { .. }
             | CardCommand::AgentTaskStatus { .. }
             | CardCommand::AgentTaskCancel { .. }
@@ -24,7 +26,84 @@ pub(super) fn is_presentation_command(command: &CardCommand) -> bool {
 }
 
 impl MultisoulApp {
-    pub(super) fn validate_orchestration_source(
+    pub(crate) fn resolve_orchestration_target_definition(
+        &self,
+        command: &CardCommand,
+    ) -> Result<i64, CardCommandError> {
+        let CardCommand::DispatchAgentTasks { assignments, .. } = command else {
+            return Err(CardCommandError::agent(
+                AgentErrorCode::InternalError,
+                "全局任务预检只接受 Agent task assign",
+                false,
+            ));
+        };
+        let [assignment] = assignments.as_slice() else {
+            return Err(CardCommandError::agent(
+                AgentErrorCode::InternalError,
+                "一次全局派发必须且只能包含一个目标 Agent",
+                false,
+            ));
+        };
+        if assignment.task.trim().is_empty() {
+            return Err(CardCommandError::agent(
+                AgentErrorCode::EmptyTask,
+                "任务正文不能为空",
+                false,
+            ));
+        }
+        let definition = self
+            .agent_definitions
+            .definition_by_address(&assignment.name)
+            .ok_or_else(|| {
+                CardCommandError::agent(
+                    AgentErrorCode::UnknownAgent,
+                    format!("未找到 Agent：{}", assignment.name),
+                    false,
+                )
+            })?;
+        if !definition.enabled {
+            return Err(CardCommandError::agent(
+                AgentErrorCode::AgentDisabled,
+                format!("Agent {} 已禁用", definition.name),
+                false,
+            ));
+        }
+        Ok(definition.id)
+    }
+
+    pub(crate) fn active_orchestration_task_ref(
+        &self,
+        source: agent::AgentDispatchSource,
+    ) -> Option<String> {
+        self.agent_task_coordinator
+            .as_ref()
+            .and_then(|coordinator| coordinator.active_task_ref_for_source(source))
+            .map(str::to_owned)
+    }
+
+    pub(crate) fn execute_validated_orchestration_command(
+        &mut self,
+        request_id: u64,
+        command: CardCommand,
+        source: agent::AgentDispatchSource,
+        source_provider: AgentProfile,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> norma::protocol::WireResponse {
+        let result = crate::app::execute_orchestration_agent_command(
+            self,
+            window,
+            command,
+            source,
+            source_provider,
+        );
+        if result.is_ok() {
+            cx.notify();
+        }
+        norma::protocol::WireResponse::new(request_id, result)
+    }
+
+    pub(crate) fn validate_orchestration_source(
         &self,
         authorization: Option<ProviderAuthorization>,
         source_node_id: Option<NodeId>,
@@ -121,6 +200,8 @@ fn norma_agent_profile_from_canvas(profile: CanvasAgentProfile) -> AgentProfile 
 
 pub(super) fn managed_command_label(command: &CardCommand) -> &'static str {
     match command {
+        CardCommand::ListWorkspaces => "workspace_list",
+        CardCommand::Doctor => "doctor",
         CardCommand::ListAgents => "agent_list",
         CardCommand::DispatchAgentTasks { .. } => "agent_task_assign",
         CardCommand::AgentTaskStatus { .. } => "agent_task_status",
@@ -162,6 +243,16 @@ pub(super) fn managed_error_code(error: &CardCommandError) -> &'static str {
     match error {
         CardCommandError::Agent(failure) => match failure.code {
             AgentErrorCode::AppUnavailable => "app_unavailable",
+            AgentErrorCode::OrchestrationChecking => "orchestration_checking",
+            AgentErrorCode::ProtocolVersionMismatch => "protocol_version_mismatch",
+            AgentErrorCode::WorkspaceRequired => "workspace_required",
+            AgentErrorCode::WorkspaceNotFound => "workspace_not_found",
+            AgentErrorCode::WorkspaceNotOpen => "workspace_not_open",
+            AgentErrorCode::WorkspaceRouteExpired => "workspace_route_expired",
+            AgentErrorCode::AmbiguousWorkspace => "ambiguous_workspace",
+            AgentErrorCode::WorkspaceIdentityConflict => "workspace_identity_conflict",
+            AgentErrorCode::CrossWorkspaceForbidden => "cross_workspace_forbidden",
+            AgentErrorCode::ClientUpgradeRequired => "client_upgrade_required",
             AgentErrorCode::ProjectUnavailable => "project_unavailable",
             AgentErrorCode::Unauthorized => "unauthorized",
             AgentErrorCode::ProviderNotInstalled => "provider_not_installed",
@@ -176,7 +267,13 @@ pub(super) fn managed_error_code(error: &CardCommandError) -> &'static str {
             AgentErrorCode::TaskNotFound => "task_not_found",
             AgentErrorCode::RuntimeExpired => "runtime_expired",
             AgentErrorCode::TaskUntracked => "task_untracked",
+            AgentErrorCode::TaskNotCancellable => "task_not_cancellable",
             AgentErrorCode::WaitTimeout => "wait_timeout",
+            AgentErrorCode::IdempotencyConflict => "idempotency_conflict",
+            AgentErrorCode::OutcomeUnknown => "outcome_unknown",
+            AgentErrorCode::ServerOverloaded => "server_overloaded",
+            AgentErrorCode::AppShuttingDown => "app_shutting_down",
+            AgentErrorCode::LegacyTaskRouteUnavailable => "legacy_task_route_unavailable",
             AgentErrorCode::InstallConflict => "install_conflict",
             AgentErrorCode::ComponentInstallFailed => "component_install_failed",
             AgentErrorCode::UnsupportedProvider => "unsupported_provider",
