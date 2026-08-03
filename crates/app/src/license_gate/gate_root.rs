@@ -93,7 +93,6 @@ impl GateRoot {
         };
         let workbench = cx.new(|cx| {
             let mut app = MultisoulApp::new_with_database_context(cx, database_paths, app_store);
-            app.start_norma_drain_loop(window, cx);
             app.start_dialogue_turn_loop(window, cx);
             app.start_cef_message_pump_loop(window, cx);
             app.configure_cpu_benchmark_from_environment(window, cx);

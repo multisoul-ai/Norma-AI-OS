@@ -32,7 +32,7 @@ impl MultisoulApp {
         let app_store = storage::AppStore::initialize(&database_paths).unwrap_or_else(|error| {
             panic!("failed to initialize isolated e2e app database: {error}")
         });
-        let agent_hook_server = AgentHookServer::start();
+        let agent_hook_server = AgentHookServer::start(cx);
         let mut runtime = Runtime::new();
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
         let mut app = Self::build(
@@ -57,7 +57,7 @@ impl MultisoulApp {
         let app_store = storage::AppStore::initialize(&database_paths).unwrap_or_else(|error| {
             panic!("failed to initialize isolated e2e app database: {error}")
         });
-        let agent_hook_server = AgentHookServer::start();
+        let agent_hook_server = AgentHookServer::start(cx);
         let mut runtime = Runtime::new();
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
         Self::build(
@@ -90,7 +90,7 @@ impl MultisoulApp {
         database_paths: storage::DatabasePaths,
         settings_source: super::super::bootstrap::BootstrapSettingsSource,
     ) -> Self {
-        let agent_hook_server = AgentHookServer::start();
+        let agent_hook_server = AgentHookServer::start(cx);
         let mut runtime = Runtime::new();
         runtime.set_pty_factory(factory);
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());

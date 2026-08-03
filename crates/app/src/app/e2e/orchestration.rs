@@ -1,5 +1,5 @@
 use crate::app::MultisoulApp;
-use gpui::Context;
+use gpui::{App, Context, Window};
 use norma::orchestration::{AggregateStatus, ComponentState, OrchestrationProvider};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -21,6 +21,20 @@ pub struct OrchestrationSettingsE2eSnapshot {
 }
 
 impl MultisoulApp {
+    pub fn enter_canvas_and_register_norma_route_for_e2e(
+        &mut self,
+        root: &std::path::Path,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.enter_canvas_for_test(root, cx);
+        self.register_norma_workspace_route(root, window, cx);
+    }
+
+    pub fn norma_workspace_identity_for_e2e(&self) -> Option<(String, String)> {
+        Some((self.workspace_id.clone()?, self.workspace_route_id.clone()?))
+    }
+
     pub fn use_canonical_orchestration_preview_for_e2e(&mut self, cx: &mut Context<Self>) {
         self.orchestration_settings.use_canonical_preview();
         cx.notify();
@@ -55,6 +69,24 @@ impl MultisoulApp {
             pending_uninstall: pending.map(OrchestrationProvider::display_name),
         }
     }
+}
+
+pub fn install_norma_endpoint_for_e2e(
+    socket_path: std::path::PathBuf,
+    cx: &mut App,
+) -> std::io::Result<()> {
+    crate::norma::endpoint::install_at_path(socket_path, cx)
+}
+
+pub fn mark_orchestration_health_ready_for_e2e(cx: &mut App) {
+    crate::settings::orchestration::health::mark_ready_for_e2e(cx);
+}
+
+pub fn submit_norma_request_for_e2e(
+    request: norma::protocol::WireRequest,
+    cx: &mut App,
+) -> crossbeam_channel::Receiver<norma::protocol::WireResponse> {
+    crate::norma::endpoint::submit_for_e2e(request, cx)
 }
 
 fn aggregate_status(status: AggregateStatus) -> &'static str {

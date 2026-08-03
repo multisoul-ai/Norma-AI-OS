@@ -1,13 +1,14 @@
 use crate::protocol::{
-    AgentErrorCode, AgentProfile, CardCommand, CardCommandError, CardKind, EgoCommand, Placement,
-    PreviewType,
+    AgentErrorCode, CardCommand, CardCommandError, CardKind, EgoCommand, Placement, PreviewType,
 };
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::ffi::OsString;
 use std::path::PathBuf;
-
+mod operation;
 mod output;
+mod value;
 
+use operation::{new_operation_id, non_blank_message, non_blank_operation_id, non_blank_task};
 use output::agent_error_output_format;
 pub use output::{format_result, render_protocol_error, render_protocol_success};
 
@@ -22,6 +23,8 @@ pub struct CliInvocation {
     pub command: CardCommand,
     pub format: OutputFormat,
     pub wait_timeout_seconds: Option<u64>,
+    pub target_workspace_id: Option<String>,
+    pub operation_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -34,6 +37,7 @@ pub struct CliOutput {
 #[derive(Debug, Parser)]
 #[command(name = "norma")]
 #[command(about = "Control cards in a running Norma OS app")]
+#[command(version)]
 struct NormaArgs {
     #[arg(long, value_enum, global = true)]
     format: Option<OutputFormat>,
@@ -43,10 +47,23 @@ struct NormaArgs {
 
 #[derive(Debug, Subcommand)]
 enum TopCommand {
+    Doctor,
+    Workspace(WorkspaceArgs),
     Card(CardArgs),
     Agent(AgentArgs),
     Present(PresentArgs),
     Ego(EgoArgs),
+}
+
+#[derive(Debug, Args)]
+struct WorkspaceArgs {
+    #[command(subcommand)]
+    command: WorkspaceCliCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum WorkspaceCliCommand {
+    List,
 }
 
 #[derive(Debug, Args)]
@@ -72,7 +89,10 @@ struct AgentArgs {
 
 #[derive(Debug, Subcommand)]
 enum AgentCliCommand {
-    List,
+    List {
+        #[arg(long)]
+        workspace: Option<String>,
+    },
     Task(AgentTaskArgs),
 }
 
@@ -86,8 +106,12 @@ struct AgentTaskArgs {
 enum AgentTaskCommand {
     Assign {
         agent: String,
+        #[arg(long)]
+        workspace: Option<String>,
         #[arg(long, value_parser = non_blank_task)]
         task: String,
+        #[arg(long, value_parser = non_blank_operation_id)]
+        operation_id: Option<String>,
         #[arg(long)]
         force_untracked: bool,
     },
@@ -101,6 +125,8 @@ enum AgentTaskCommand {
     },
     Cancel {
         task_id: String,
+        #[arg(long, value_parser = non_blank_operation_id)]
+        operation_id: Option<String>,
     },
 }
 
@@ -232,10 +258,17 @@ where
     match parse_invocation_from(args.clone()) {
         Ok(invocation) => Ok(invocation),
         Err(error) => {
+            if error.kind() == clap::error::ErrorKind::DisplayVersion {
+                return Err(CliOutput {
+                    stdout: error.to_string().trim().to_string(),
+                    stderr: String::new(),
+                    exit_code: 0,
+                });
+            }
             let is_managed_command = args.iter().any(|argument| {
                 matches!(
                     argument.to_string_lossy().as_ref(),
-                    "agent" | "present" | "ego"
+                    "agent" | "workspace" | "present" | "ego"
                 )
             });
             if !is_managed_command {
@@ -271,29 +304,60 @@ impl NormaArgs {
     fn into_invocation(self) -> CliInvocation {
         let explicit_format = self.format;
         match self.command {
+            TopCommand::Doctor => CliInvocation {
+                command: CardCommand::Doctor,
+                format: explicit_format.unwrap_or(OutputFormat::Text),
+                wait_timeout_seconds: None,
+                target_workspace_id: None,
+                operation_id: None,
+            },
+            TopCommand::Workspace(workspace) => CliInvocation {
+                command: workspace.into_command(),
+                format: explicit_format.unwrap_or(OutputFormat::Json),
+                wait_timeout_seconds: None,
+                target_workspace_id: None,
+                operation_id: None,
+            },
             TopCommand::Card(card) => CliInvocation {
                 command: card.into_command(),
                 format: explicit_format.unwrap_or(OutputFormat::Text),
                 wait_timeout_seconds: None,
+                target_workspace_id: None,
+                operation_id: None,
             },
             TopCommand::Agent(agent) => {
-                let (command, wait_timeout_seconds) = agent.into_command();
+                let (command, wait_timeout_seconds, target_workspace_id, operation_id) =
+                    agent.into_command();
                 CliInvocation {
                     command,
                     format: explicit_format.unwrap_or(OutputFormat::Json),
                     wait_timeout_seconds,
+                    target_workspace_id,
+                    operation_id,
                 }
             }
             TopCommand::Present(present) => CliInvocation {
                 command: present.into_command(),
                 format: explicit_format.unwrap_or(OutputFormat::Json),
                 wait_timeout_seconds: None,
+                target_workspace_id: None,
+                operation_id: None,
             },
             TopCommand::Ego(ego) => CliInvocation {
                 command: ego.into_command(),
                 format: explicit_format.unwrap_or(OutputFormat::Json),
                 wait_timeout_seconds: None,
+                target_workspace_id: None,
+                operation_id: None,
             },
+        }
+    }
+}
+
+impl WorkspaceArgs {
+    fn into_command(self) -> CardCommand {
+        match self.command {
+            WorkspaceCliCommand::List => CardCommand::ListWorkspaces,
         }
     }
 }
@@ -358,20 +422,22 @@ impl CardArgs {
 }
 
 impl AgentArgs {
-    fn into_command(self) -> (CardCommand, Option<u64>) {
+    fn into_command(self) -> (CardCommand, Option<u64>, Option<String>, Option<String>) {
         match self.command {
-            AgentCliCommand::List => (CardCommand::ListAgents, None),
+            AgentCliCommand::List { workspace } => (CardCommand::ListAgents, None, workspace, None),
             AgentCliCommand::Task(task) => task.into_command(),
         }
     }
 }
 
 impl AgentTaskArgs {
-    fn into_command(self) -> (CardCommand, Option<u64>) {
+    fn into_command(self) -> (CardCommand, Option<u64>, Option<String>, Option<String>) {
         match self.command {
             AgentTaskCommand::Assign {
                 agent,
+                workspace,
                 task,
+                operation_id,
                 force_untracked,
             } => (
                 CardCommand::DispatchAgentTasks {
@@ -379,17 +445,30 @@ impl AgentTaskArgs {
                     force_untracked,
                 },
                 None,
+                workspace,
+                Some(operation_id.unwrap_or_else(new_operation_id)),
             ),
-            AgentTaskCommand::Status { task_id } => {
-                (CardCommand::AgentTaskStatus { task_ref: task_id }, None)
-            }
+            AgentTaskCommand::Status { task_id } => (
+                CardCommand::AgentTaskStatus { task_ref: task_id },
+                None,
+                None,
+                None,
+            ),
             AgentTaskCommand::Wait { task_id, timeout } => (
                 CardCommand::AgentTaskStatus { task_ref: task_id },
                 Some(timeout),
+                None,
+                None,
             ),
-            AgentTaskCommand::Cancel { task_id } => {
-                (CardCommand::AgentTaskCancel { task_ref: task_id }, None)
-            }
+            AgentTaskCommand::Cancel {
+                task_id,
+                operation_id,
+            } => (
+                CardCommand::AgentTaskCancel { task_ref: task_id },
+                None,
+                None,
+                Some(operation_id.unwrap_or_else(new_operation_id)),
+            ),
         }
     }
 }
@@ -417,43 +496,5 @@ impl CreateArgs {
             kind,
             placement: Placement::VisibleArea,
         }
-    }
-}
-
-impl From<AgentProfileValue> for AgentProfile {
-    fn from(value: AgentProfileValue) -> Self {
-        match value {
-            AgentProfileValue::Claude => AgentProfile::Claude,
-            AgentProfileValue::Codex => AgentProfile::Codex,
-            AgentProfileValue::Cursor => AgentProfile::Cursor,
-            AgentProfileValue::Grok => AgentProfile::Grok,
-            AgentProfileValue::OpenCode => AgentProfile::OpenCode,
-        }
-    }
-}
-
-impl From<PreviewTypeValue> for PreviewType {
-    fn from(value: PreviewTypeValue) -> Self {
-        match value {
-            PreviewTypeValue::Markdown => PreviewType::Markdown,
-            PreviewTypeValue::Text => PreviewType::Text,
-            PreviewTypeValue::Image => PreviewType::Image,
-        }
-    }
-}
-
-fn non_blank_task(value: &str) -> Result<String, String> {
-    if value.trim().is_empty() {
-        Err("task must not be blank".to_string())
-    } else {
-        Ok(value.to_string())
-    }
-}
-
-fn non_blank_message(value: &str) -> Result<String, String> {
-    if value.trim().is_empty() {
-        Err("message must not be blank".to_string())
-    } else {
-        Ok(value.to_string())
     }
 }

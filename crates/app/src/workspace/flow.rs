@@ -109,6 +109,7 @@ impl MultisoulApp {
         );
         match result {
             Ok(opened) => {
+                self.register_norma_workspace_route(&path, window, cx);
                 self.terminal_render_cache.borrow_mut().clear();
                 self.agent_task_coordinator = None;
                 self.pending_agent_submissions.clear();

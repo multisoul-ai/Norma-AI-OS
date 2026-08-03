@@ -12,6 +12,20 @@ struct DispatchParent {
 }
 
 impl AgentTaskCoordinator {
+    pub fn active_task_ref_for_source(&self, source: AgentDispatchSource) -> Option<&str> {
+        let (Some(definition_id), Some(node_id)) = (source.definition_id, source.node_id) else {
+            return None;
+        };
+        self.agents
+            .iter()
+            .find(|agent| {
+                agent.roster.definition_id == definition_id
+                    && agent.roster.active_node_id == Some(node_id)
+            })
+            .and_then(|agent| agent.active.as_ref())
+            .map(|task| task.task_ref.as_str())
+    }
+
     pub fn dispatch_from(
         &mut self,
         assignments: Vec<AgentAssignment>,

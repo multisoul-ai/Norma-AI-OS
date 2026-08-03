@@ -18,6 +18,7 @@ mod database;
 pub mod dialogue_tts;
 #[cfg(feature = "e2e-test-support")]
 mod ego;
+mod exports;
 #[cfg(feature = "e2e-test-support")]
 mod orchestration;
 mod recent_projects;
@@ -29,19 +30,9 @@ mod visuals;
 mod voice;
 #[cfg(feature = "e2e-test-support")]
 mod voice_setup;
-#[cfg(feature = "e2e-test-support")]
-pub use agents::PresentationE2eSnapshot;
-pub use agents::{AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot};
-#[cfg(feature = "e2e-test-support")]
-pub use ego::EgoCardE2eSnapshot;
-#[cfg(feature = "e2e-test-support")]
-pub use orchestration::{OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot};
+pub use exports::*;
 use shortcuts::shortcut_command_name;
-pub use tts::TtsProviderE2eSnapshot;
 use tts::{snapshot_tts_models, snapshot_tts_provider, TtsModelE2eSnapshot};
-pub use visuals::InitializationAnimationE2eSnapshot;
-#[cfg(feature = "e2e-test-support")]
-pub use visuals::{DispatchReceiptEffectE2eSnapshot, DispatchReceiptEffectItemE2eSnapshot};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CanvasLayoutE2eSnapshot {

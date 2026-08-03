@@ -13,11 +13,13 @@ pub mod layout_store;
 pub mod migrations;
 pub mod node_session_store;
 pub mod orchestration_authorization_store;
+pub mod orchestration_task_route_store;
 pub mod project_store;
 pub mod recent_store;
 pub mod session_store;
 pub mod settings_store;
 pub mod voice_history_store;
+pub mod workspace_identity_store;
 
 pub use agent_conversation_tail_store::{
     AgentConversationTailStore, StoredAgentConversationTail, StoredConversationAvailability,
@@ -42,11 +44,17 @@ pub use orchestration_authorization_store::{
     OrchestrationAuthorizationCache, OrchestrationAuthorizationRecord,
     OrchestrationAuthorizationStore,
 };
+pub use orchestration_task_route_store::{
+    NewOrchestrationTaskRoute, OrchestrationLineageRejection,
+    OrchestrationTaskOperationReservation, OrchestrationTaskReservation, OrchestrationTaskRoute,
+    OrchestrationTaskRouteStore,
+};
 pub use project_store::ProjectStore;
 pub use recent_store::RecentStore;
 pub use session_store::{SessionCheckpoint, SessionCheckpointKind, SessionStore};
 pub use settings_store::SettingsStore;
 pub use voice_history_store::{VoiceHistoryEntry, VoiceHistoryRecord, VoiceHistoryStore};
+pub use workspace_identity_store::{WorkspaceIdentity, WorkspaceIdentityStore};
 
 pub(crate) fn current_unix_timestamp() -> StorageResult<u64> {
     Ok(std::time::SystemTime::now()

@@ -1,7 +1,8 @@
 pub(crate) use self::conversion::canvas_preview_type;
 use self::conversion::node_error;
 use self::layout::{apply_layout_for_new_node_or_master, resolve_bounds, summarize_cards};
-use self::orchestration::{is_managed_agent_command, is_presentation_command, log_managed_request};
+pub(crate) use self::orchestration::is_managed_agent_command;
+use self::orchestration::{is_presentation_command, log_managed_request};
 use crate::app::{AppScreen, MultisoulApp};
 use crate::canvas::layout_strategy::CanvasLayoutStrategy;
 use crate::canvas::master_layout::{
@@ -20,13 +21,13 @@ use std::time::Instant;
 
 mod conversion;
 mod effects;
+mod execution;
 mod layout;
 mod orchestration;
 mod presentation;
-mod transport;
 
 pub(crate) use effects::{NormaCommandEffects, NormaExecution};
-pub(crate) use transport::NormaServer;
+pub(crate) use execution::{execute_card_command_for_area, text_for_submit};
 
 #[cfg(test)]
 #[path = "../../tests/unit/norma_agent_lifecycle_tests.rs"]
@@ -49,15 +50,24 @@ impl MultisoulApp {
     ) -> WireResponse {
         let WireRequest {
             request_id,
+            client_version,
             authorization,
             source_node_id,
             command,
+            ..
         } = request;
         let managed_command = is_managed_agent_command(&command);
         let managed_started = managed_command.then(Instant::now);
         let logged_command = managed_command.then(|| command.clone());
         let logged_authorization = authorization.clone();
         let result = match command {
+            CardCommand::Doctor => Ok(NormaExecution {
+                result: CardCommandResult::Doctor {
+                    report: crate::norma::endpoint::doctor_report(client_version.as_deref(), cx),
+                },
+                effects: NormaCommandEffects::NONE,
+                removed_agent_definition_id: None,
+            }),
             CardCommand::List => {
                 let zoom = self.runtime.document.viewport.zoom;
                 execute_card_command_for_area(
@@ -94,6 +104,15 @@ impl MultisoulApp {
                         presentation::execute_presentation_command(
                             self, window, cx, target, create_new, source,
                         )
+                    }
+                    Ok((_source, _provider)) if matches!(command, CardCommand::ListWorkspaces) => {
+                        Ok(NormaExecution {
+                            result: CardCommandResult::WorkspacesListed {
+                                workspaces: crate::norma::endpoint::workspace_summaries(cx),
+                            },
+                            effects: NormaCommandEffects::NONE,
+                            removed_agent_definition_id: None,
+                        })
                     }
                     Ok((source, _provider)) if matches!(command, CardCommand::Ego { .. }) => {
                         let CardCommand::Ego { node_id, command } = command else {
@@ -217,27 +236,8 @@ impl MultisoulApp {
             );
         }
 
-        WireResponse { request_id, result }
+        WireResponse::new(request_id, result)
     }
-}
-
-pub(crate) fn execute_card_command_for_area(
-    runtime: &mut Runtime,
-    motion: &mut MotionStore,
-    master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
-    command: CardCommand,
-    area: CanvasRect,
-    zoom: f32,
-) -> Result<NormaExecution, CardCommandError> {
-    execute_card_command_for_area_with_strategy(
-        runtime,
-        motion,
-        master_layout,
-        CanvasLayoutStrategy::default(),
-        command,
-        area,
-        zoom,
-    )
 }
 
 pub(crate) fn execute_card_command_for_area_with_strategy(
@@ -293,7 +293,9 @@ pub(crate) fn execute_card_command_for_area_with_strategy(
             effects: NormaCommandEffects::NONE,
             removed_agent_definition_id: None,
         }),
-        CardCommand::ListAgents
+        CardCommand::Doctor
+        | CardCommand::ListWorkspaces
+        | CardCommand::ListAgents
         | CardCommand::AgentTaskStatus { .. }
         | CardCommand::AgentTaskCancel { .. }
         | CardCommand::CreateAgent { .. }
@@ -303,13 +305,6 @@ pub(crate) fn execute_card_command_for_area_with_strategy(
             message: "high-level Agent commands require the project Agent coordinator".into(),
         }),
     }
-}
-
-pub(crate) fn text_for_submit(mut text: String, submit: bool) -> String {
-    if submit && !text.ends_with('\n') {
-        text.push('\n');
-    }
-    text
 }
 
 fn create_card(

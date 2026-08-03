@@ -45,8 +45,15 @@ fn agent_request_loads_managed_provider_context_and_redacts_token_from_debug() {
     )
     .expect("测试应写入受管 Codex 凭据");
 
-    let context = ClientRequestContext::from_values(Some("codex"), Some("42"), &paths, true)
-        .expect("已安装 Codex 会话应生成授权上下文");
+    let context = ClientRequestContext::from_values_with_workspace(
+        Some("codex"),
+        Some("42"),
+        Some("workspace-alpha"),
+        Some("route-alpha-7"),
+        &paths,
+        true,
+    )
+    .expect("已安装且具有 Workspace 身份的 Codex 会话应生成授权上下文");
     let request = build_wire_request(77, CardCommand::ListAgents, context);
 
     assert_eq!(
@@ -57,6 +64,16 @@ fn agent_request_loads_managed_provider_context_and_redacts_token_from_debug() {
         request.source_node_id,
         Some(42),
         "来源节点必须来自 Agent 运行环境并进入服务端校验"
+    );
+    assert_eq!(
+        request.source_workspace_id.as_deref(),
+        Some("workspace-alpha"),
+        "来源 Workspace ID 必须从 Agent 运行环境进入服务端路由校验"
+    );
+    assert_eq!(
+        request.source_workspace_route_id.as_deref(),
+        Some("route-alpha-7"),
+        "来源 route ID 必须阻止关闭后的旧 Session 命中新窗口"
     );
     let authorization = request
         .authorization

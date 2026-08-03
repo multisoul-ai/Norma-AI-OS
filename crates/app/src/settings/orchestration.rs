@@ -1,4 +1,5 @@
 mod controller;
+pub(crate) mod health;
 mod tokens;
 
 use controller::OrchestrationOperation;

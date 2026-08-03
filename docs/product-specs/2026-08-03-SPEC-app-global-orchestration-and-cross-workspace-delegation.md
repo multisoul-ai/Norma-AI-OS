@@ -1,11 +1,29 @@
 # App 全局编排入口与跨 Workspace Agent 任务委派 SPEC
 
 - 日期：2026-08-03
-- 状态：Draft for Review
-- 文档性质：产品与技术规格；本次仅定义实现，不包含代码实施
+- 状态：阶段一已实施，待真实 `.app` L3 与 Session 级 Hook 隔离收口
+- 文档性质：产品与技术规格、实施边界与自动化证据记录
 - 目标版本：下一版 Norma OS 编排能力
 - 适用范围：Norma 本地服务、Workspace 路由、Agent Hook、编排安装状态、任务身份、CLI、Skill、持久化与自动化验收
 - 扩展规格：[`2026-07-25-SPEC-agent-orchestration-installation-and-task-delegation.md`](2026-07-25-SPEC-agent-orchestration-installation-and-task-delegation.md)
+
+## 0. 实施记录
+
+截至 2026-08-03，阶段一已完成：
+
+- Norma Unix listener、Agent Hook ingress 与编排 health 已提升到 App 全局生命周期。
+- Workspace 获得稳定 ID 与运行期 route ID，Agent 编排请求不再依赖活动窗口或跨窗口 node ID 扫描。
+- CLI/协议升级到 v2，支持 `doctor`、`workspace list`、显式目标 Workspace、operation ID、结构化版本错误与 `outcome_unknown`。
+- 全局任务账本支持稳定 task ref、assign/cancel 幂等、来源授权、跨 Workspace lineage、循环门禁、后代预算与重启中断对账。
+- 受管 Skill 已记录全局服务、显式跨 Workspace 路由、JSON、幂等重放和 untracked 安全规则。
+- 双 Workspace E2E 已覆盖后台目标、相同 node ID 碰撞、精确目标 cwd 与不抢焦点。
+
+仍需在后续收口：
+
+- Hook token 当前按 Workspace route 隔离；还需下沉为 Agent Session generation 级 token，才能完全满足 22.5 的迟到旧 Session 隔离。
+- 真实 `.app` L3 尚需覆盖 1/2/10 窗口的唯一 listener、第二进程竞争、退出 join 与 owned socket 清理。
+- 跨 Workspace `status`、`wait`、`cancel` 已有协议/存储单元证据，仍需补齐双 Workspace 端到端闭环。
+- `cargo test --workspace` 当前被未改动的 `ego_preview` 既有测试编译错误阻断；本次涉及的 `norma`、`agent`、`storage`、目标 E2E 与 `cargo check -p app` 已通过。
 
 ## 1. 背景与问题
 

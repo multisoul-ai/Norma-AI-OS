@@ -8,7 +8,7 @@ use thiserror::Error;
 mod delegation;
 mod lifecycle;
 
-const MAX_UNFINISHED_DESCENDANTS: usize = 32;
+pub const MAX_UNFINISHED_DESCENDANTS: usize = 32;
 static RUNTIME_INSTANCE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

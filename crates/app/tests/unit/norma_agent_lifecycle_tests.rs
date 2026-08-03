@@ -136,11 +136,17 @@ fn test_orchestration_socket_validates_authorization_and_source_agent_profile() 
         app.update(app_cx, |app, cx| {
             let valid = app.execute_card_command(
                 WireRequest {
+                    protocol_version: norma::protocol::CURRENT_PROTOCOL_VERSION,
+                    client_version: Some(env!("CARGO_PKG_VERSION").to_string()),
                     request_id: 1,
+                    operation_id: None,
                     authorization: Some(ProviderAuthorization {
                         provider: NormaAgentProfile::Codex,
                         token: "codex-token".to_string(),
                     }),
+                    source_workspace_id: None,
+                    source_workspace_route_id: None,
+                    target_workspace_id: None,
                     source_node_id: Some(source_node_id),
                     command: CardCommand::ListAgents,
                 },
@@ -149,11 +155,17 @@ fn test_orchestration_socket_validates_authorization_and_source_agent_profile() 
             );
             let mismatched = app.execute_card_command(
                 WireRequest {
+                    protocol_version: norma::protocol::CURRENT_PROTOCOL_VERSION,
+                    client_version: Some(env!("CARGO_PKG_VERSION").to_string()),
                     request_id: 2,
+                    operation_id: None,
                     authorization: Some(ProviderAuthorization {
                         provider: NormaAgentProfile::Claude,
                         token: "claude-token".to_string(),
                     }),
+                    source_workspace_id: None,
+                    source_workspace_route_id: None,
+                    target_workspace_id: None,
                     source_node_id: Some(source_node_id),
                     command: CardCommand::ListAgents,
                 },
@@ -162,11 +174,17 @@ fn test_orchestration_socket_validates_authorization_and_source_agent_profile() 
             );
             let unauthorized = app.execute_card_command(
                 WireRequest {
+                    protocol_version: norma::protocol::CURRENT_PROTOCOL_VERSION,
+                    client_version: Some(env!("CARGO_PKG_VERSION").to_string()),
                     request_id: 3,
+                    operation_id: None,
                     authorization: Some(ProviderAuthorization {
                         provider: NormaAgentProfile::Codex,
                         token: "wrong-token".to_string(),
                     }),
+                    source_workspace_id: None,
+                    source_workspace_route_id: None,
+                    target_workspace_id: None,
                     source_node_id: Some(source_node_id),
                     command: CardCommand::ListAgents,
                 },
@@ -291,11 +309,17 @@ fn test_orchestration_socket_dispatch_reuses_coordinator_and_derives_parent_line
         app.update(app_cx, |app, cx| {
             app.execute_card_command(
                 WireRequest {
+                    protocol_version: norma::protocol::CURRENT_PROTOCOL_VERSION,
+                    client_version: Some(env!("CARGO_PKG_VERSION").to_string()),
                     request_id: 4,
+                    operation_id: Some("operation-4".to_string()),
                     authorization: Some(ProviderAuthorization {
                         provider: NormaAgentProfile::Codex,
                         token: "codex-token".to_string(),
                     }),
+                    source_workspace_id: None,
+                    source_workspace_route_id: None,
+                    target_workspace_id: None,
                     source_node_id: Some(alan_node_id),
                     command: CardCommand::DispatchAgentTasks {
                         assignments: vec![norma::protocol::AgentTaskAssignment {

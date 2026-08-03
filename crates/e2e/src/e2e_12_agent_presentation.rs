@@ -354,11 +354,17 @@ fn execute_present(
         window,
         cx,
         WireRequest {
+            protocol_version: norma::protocol::CURRENT_PROTOCOL_VERSION,
+            client_version: Some(env!("CARGO_PKG_VERSION").to_string()),
             request_id,
+            operation_id: None,
             authorization: Some(ProviderAuthorization {
                 provider: AgentProfile::Codex,
                 token: "codex-presentation-token".to_string(),
             }),
+            source_workspace_id: None,
+            source_workspace_route_id: None,
+            target_workspace_id: None,
             source_node_id: Some(source_node_id),
             command: CardCommand::Present {
                 target,

@@ -6,7 +6,6 @@ use crate::canvas::interaction::InteractionState;
 use crate::canvas::layout_strategy::CanvasLayoutStrategy;
 use crate::canvas::master_layout::MasterLayoutState;
 use crate::motion::MotionStore;
-use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
 use crate::settings::agents::AgentDefinitionsState;
@@ -61,6 +60,9 @@ impl MultisoulApp {
         })
         .detach();
         let settings_store = app_store.settings_store();
+        let workspace_identity_store = app_store.workspace_identity_store();
+        let orchestration_task_route_store = app_store.orchestration_task_route_store();
+        crate::norma::endpoint::attach_task_store(orchestration_task_route_store.clone(), cx);
         let wallpaper_settings = WallpaperSettingsState::load_from_store(settings_store.clone());
         let workspace_state = WorkspaceState::load_from_storage(app_store.recent_store());
         let had_recent_workspaces = !workspace_state.recent.records.is_empty();
@@ -194,8 +196,10 @@ impl MultisoulApp {
             voice_settings,
             voice_settings_inputs,
             shortcuts,
-            norma_server: NormaServer::start(),
             agent_hook_server,
+            workspace_identity_store,
+            workspace_id: None,
+            workspace_route_id: None,
             agent_announcements: super::agent_announcements::AgentAnnouncements::default(),
             agent_announcement_playback,
             agent_announcement_audio_cache:
@@ -268,17 +272,29 @@ impl MultisoulApp {
         if matches!(settings_source, BootstrapSettingsSource::Stored) {
             app.persist_voice_settings_in_background(cx);
         }
-        if should_reconcile_orchestration_integrations(visual_preview, &orchestration_bootstrap) {
-            match orchestration_bootstrap {
-                #[cfg(any(test, feature = "e2e-test-support"))]
-                OrchestrationBootstrap::Skip => {}
-                OrchestrationBootstrap::CurrentProcess => {
-                    app.reconcile_orchestration_integrations(cx)
-                }
-                #[cfg(feature = "e2e-test-support")]
-                OrchestrationBootstrap::Paths(paths) => {
-                    app.reconcile_orchestration_integrations_with_paths(Some(paths), cx)
-                }
+        #[cfg(test)]
+        let _ = &orchestration_bootstrap;
+        #[cfg(not(test))]
+        {
+            let shared =
+                crate::settings::orchestration::health::register_window(cx.weak_entity(), cx);
+            if let Some(shared) = shared {
+                crate::settings::orchestration::health::apply_snapshot(&mut app, shared);
+            }
+            if should_reconcile_orchestration_integrations(visual_preview, &orchestration_bootstrap)
+            {
+                let install_paths = match orchestration_bootstrap {
+                    #[cfg(any(test, feature = "e2e-test-support"))]
+                    OrchestrationBootstrap::Skip => None,
+                    OrchestrationBootstrap::CurrentProcess => None,
+                    #[cfg(feature = "e2e-test-support")]
+                    OrchestrationBootstrap::Paths(paths) => Some(paths),
+                };
+                crate::settings::orchestration::health::refresh(
+                    app.database_paths.app_db_path().to_path_buf(),
+                    install_paths,
+                    cx,
+                );
             }
         }
         app

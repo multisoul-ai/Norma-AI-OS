@@ -51,6 +51,14 @@ impl AppStore {
     pub fn settings_store(&self) -> SettingsStore {
         SettingsStore::new(self.path.clone())
     }
+
+    pub fn workspace_identity_store(&self) -> crate::WorkspaceIdentityStore {
+        crate::WorkspaceIdentityStore::new(self.path.clone())
+    }
+
+    pub fn orchestration_task_route_store(&self) -> crate::OrchestrationTaskRouteStore {
+        crate::OrchestrationTaskRouteStore::new(self.path.clone())
+    }
 }
 
 fn initialization_error(paths: &DatabasePaths, source: StorageError) -> StorageError {
