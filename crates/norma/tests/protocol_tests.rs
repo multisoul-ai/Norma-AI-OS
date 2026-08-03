@@ -206,12 +206,12 @@ fn test_list_result_uses_neutral_card_summary() {
 /// Norma 路由协议：新请求保留 Workspace/operation 身份，旧请求安全降级为 v1。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   protocol versions = current(2) + legacy(1) = 2 种
+///   protocol versions = routed(2) + legacy(1) = 2 种
 ///   workspace IDs     = stable(1) + route(1) = 2 个身份层次
 ///   operation IDs     = 1 个幂等键
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 构造 v2 WireRequest 并完成 JSON 往返。
+///   1. 构造引入 Workspace 路由字段的 v2 WireRequest 并完成 JSON 往返。
 ///   2. 检查来源 Workspace、route 和 operation ID 均完整保留。
 ///   3. 解码一条不包含新字段的 v1 JSON 请求。
 ///

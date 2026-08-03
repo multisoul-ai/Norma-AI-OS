@@ -18,10 +18,10 @@ pub(super) fn spawn_global_task_control(
 ) {
     let request_id = request.request_id;
     let task_ref = match &request.command {
-        CardCommand::AgentTaskStatus { task_ref } | CardCommand::AgentTaskCancel { task_ref } => {
-            task_ref.clone()
-        }
-        _ => unreachable!("global task control only accepts status or cancel"),
+        CardCommand::AgentTaskStatus { task_ref }
+        | CardCommand::AgentTaskResult { task_ref }
+        | CardCommand::AgentTaskCancel { task_ref } => task_ref.clone(),
+        _ => unreachable!("global task control only accepts status, result, or cancel"),
     };
     let cancel_operation_id = request.operation_id.clone();
     let source_route = match resolve_targets(&request, cx) {
@@ -67,7 +67,11 @@ pub(super) fn spawn_global_task_control(
         .expect("validated Agent source always has a definition id");
     let source_provider_slug = serialized_profile(source_provider);
     let command = request.command;
-    let is_status = matches!(command, CardCommand::AgentTaskStatus { .. });
+    let is_read_only = matches!(
+        command,
+        CardCommand::AgentTaskStatus { .. } | CardCommand::AgentTaskResult { .. }
+    );
+    let is_result = matches!(command, CardCommand::AgentTaskResult { .. });
     cx.spawn(async move |cx| {
         let lookup_store = task_store.clone();
         let lookup_ref = task_ref.clone();
@@ -109,7 +113,7 @@ pub(super) fn spawn_global_task_control(
             ));
             return;
         }
-        let persisted_cancel_operation = if is_status {
+        let persisted_cancel_operation = if is_read_only {
             None
         } else {
             let operation_id = cancel_operation_id
@@ -197,6 +201,9 @@ pub(super) fn spawn_global_task_control(
                     CardCommand::AgentTaskStatus { .. } => CardCommand::AgentTaskStatus {
                         task_ref: local_task_ref,
                     },
+                    CardCommand::AgentTaskResult { .. } => CardCommand::AgentTaskResult {
+                        task_ref: local_task_ref,
+                    },
                     CardCommand::AgentTaskCancel { .. } => CardCommand::AgentTaskCancel {
                         task_ref: local_task_ref,
                     },
@@ -209,12 +216,15 @@ pub(super) fn spawn_global_task_control(
                         local_command,
                         agent::AgentDispatchSource::norma(),
                         source_provider,
+                        None,
                         cx,
                     )
                 })
                 .unwrap_or_else(|_| closed_workspace_response(request_id))
             }
-            None if is_status => stored_task_status_response(request_id, &route, true),
+            None if is_read_only => {
+                stored_task_status_response(request_id, &route, true, is_result)
+            }
             None => agent_error(
                 request_id,
                 AgentErrorCode::TaskNotCancellable,
@@ -228,12 +238,19 @@ pub(super) fn spawn_global_task_control(
             route.parent_task_ref.as_deref(),
             &route.root_task_ref,
         );
-        if let Some((state, tracking)) = status_update {
+        if let Some((state, tracking, task_result_json)) = status_update {
             let update_store = task_store.clone();
             let update_ref = task_ref.clone();
             if let Err(error) = cx
                 .background_executor()
-                .spawn(async move { update_store.update_status(&update_ref, state, &tracking) })
+                .spawn(async move {
+                    update_store.update_status_with_result(
+                        &update_ref,
+                        state,
+                        &tracking,
+                        task_result_json.as_deref(),
+                    )
+                })
                 .await
             {
                 tracing::warn!(%error, %task_ref, "failed to persist global task status summary");
@@ -274,6 +291,7 @@ fn stored_task_status_response(
     request_id: u64,
     route: &storage::OrchestrationTaskRoute,
     target_closed: bool,
+    result_query: bool,
 ) -> WireResponse {
     let Some(definition_id) = route.target_definition_id else {
         return agent_error(
@@ -288,24 +306,56 @@ fn stored_task_status_response(
     } else {
         stored_receipt_status(&route.state)
     };
-    WireResponse::new(
-        request_id,
-        Ok(CardCommandResult::AgentTaskStatus {
-            task: norma::protocol::AgentTaskStatus {
-                task_id: route.task_ref.clone(),
-                target_definition_id: definition_id,
-                target_name: route
-                    .target_name
-                    .clone()
-                    .unwrap_or_else(|| "Agent".to_string()),
-                target_node_id: route.target_node_id_at_dispatch.unwrap_or(0),
-                status,
-                tracking: route.tracking.clone(),
-                parent_task_id: route.parent_task_ref.clone(),
-                root_task_id: route.root_task_ref.clone(),
+    let result = if is_terminal_receipt_status(status) {
+        match route.task_result_json.as_deref() {
+            Some(json) => match serde_json::from_str(json) {
+                Ok(result) => Some(result),
+                Err(error) => {
+                    tracing::warn!(%error, task_ref = %route.task_ref, "failed to decode persisted Agent task result");
+                    return agent_error(
+                        request_id,
+                        AgentErrorCode::InternalError,
+                        "任务结果账本损坏，暂时无法读取",
+                        true,
+                    );
+                }
             },
-        }),
-    )
+            None => Some(unavailable_task_result()),
+        }
+    } else {
+        None
+    };
+    if result_query && result.is_none() {
+        return WireResponse::new(
+            request_id,
+            Err(norma::protocol::CardCommandError::agent_with_status(
+                AgentErrorCode::TaskResultNotReady,
+                "任务尚未进入终态，结果暂不可用",
+                true,
+                status,
+            )),
+        );
+    }
+    let task = norma::protocol::AgentTaskStatus {
+        task_id: route.task_ref.clone(),
+        target_definition_id: definition_id,
+        target_name: route
+            .target_name
+            .clone()
+            .unwrap_or_else(|| "Agent".to_string()),
+        target_node_id: route.target_node_id_at_dispatch.unwrap_or(0),
+        status,
+        tracking: route.tracking.clone(),
+        parent_task_id: route.parent_task_ref.clone(),
+        root_task_id: route.root_task_ref.clone(),
+        result,
+    };
+    let result = if result_query {
+        CardCommandResult::AgentTaskResult { task }
+    } else {
+        CardCommandResult::AgentTaskStatus { task }
+    };
+    WireResponse::new(request_id, Ok(result))
 }
 
 fn globalize_task_control_response(
@@ -313,17 +363,26 @@ fn globalize_task_control_response(
     global_task_ref: &str,
     parent_task_ref: Option<&str>,
     root_task_ref: &str,
-) -> Option<(&'static str, String)> {
+) -> Option<(&'static str, String, Option<String>)> {
     match &mut response.result {
-        Ok(CardCommandResult::AgentTaskStatus { task }) => {
+        Ok(CardCommandResult::AgentTaskStatus { task })
+        | Ok(CardCommandResult::AgentTaskResult { task }) => {
             task.task_id = global_task_ref.to_owned();
             task.parent_task_id = parent_task_ref.map(str::to_owned);
             task.root_task_id = root_task_ref.to_owned();
-            Some((receipt_state(task.status), task.tracking.clone()))
+            let task_result_json = task
+                .result
+                .as_ref()
+                .and_then(|result| serde_json::to_string(result).ok());
+            Some((
+                receipt_state(task.status),
+                task.tracking.clone(),
+                task_result_json,
+            ))
         }
         Ok(CardCommandResult::AgentTaskCancelled { task_id, status }) => {
             *task_id = global_task_ref.to_owned();
-            Some((receipt_state(*status), "managed".to_string()))
+            Some((receipt_state(*status), "managed".to_string(), None))
         }
         _ => None,
     }
@@ -344,6 +403,24 @@ fn stored_receipt_status(state: &str) -> AgentTaskReceiptStatus {
 
 fn is_terminal_task_state(state: &str) -> bool {
     matches!(state, "done" | "failed" | "cancelled" | "interrupted")
+}
+
+fn is_terminal_receipt_status(status: AgentTaskReceiptStatus) -> bool {
+    matches!(
+        status,
+        AgentTaskReceiptStatus::Done
+            | AgentTaskReceiptStatus::Failed
+            | AgentTaskReceiptStatus::Cancelled
+            | AgentTaskReceiptStatus::Interrupted
+    )
+}
+
+fn unavailable_task_result() -> norma::protocol::AgentTaskResult {
+    norma::protocol::AgentTaskResult {
+        availability: norma::protocol::AgentTaskResultAvailability::Unavailable,
+        text: None,
+        truncated: false,
+    }
 }
 
 fn cancel_fingerprint(

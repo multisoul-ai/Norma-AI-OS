@@ -13,16 +13,16 @@
 
 - Norma Unix listener、Agent Hook ingress 与编排 health 已提升到 App 全局生命周期。
 - Workspace 获得稳定 ID 与运行期 route ID，Agent 编排请求不再依赖活动窗口或跨窗口 node ID 扫描。
-- CLI/协议升级到 v2，支持 `doctor`、`workspace list`、显式目标 Workspace、operation ID、结构化版本错误与 `outcome_unknown`。
+- CLI/协议升级到 v3，支持 `doctor`、`workspace list`、显式目标 Workspace、operation ID、结构化版本错误、`outcome_unknown` 与按任务读取最终结果。
 - 全局任务账本支持稳定 task ref、assign/cancel 幂等、来源授权、跨 Workspace lineage、循环门禁、后代预算与重启中断对账。
 - 受管 Skill 已记录全局服务、显式跨 Workspace 路由、JSON、幂等重放和 untracked 安全规则。
-- 双 Workspace E2E 已覆盖后台目标、相同 node ID 碰撞、精确目标 cwd 与不抢焦点。
+- 双 Workspace E2E 已覆盖后台目标、相同 node ID 碰撞、精确目标 cwd、不抢焦点，以及终态 `status`/`result` 返回同一绑定回复。
 
 仍需在后续收口：
 
 - Hook token 当前按 Workspace route 隔离；还需下沉为 Agent Session generation 级 token，才能完全满足 22.5 的迟到旧 Session 隔离。
 - 真实 `.app` L3 尚需覆盖 1/2/10 窗口的唯一 listener、第二进程竞争、退出 join 与 owned socket 清理。
-- 跨 Workspace `status`、`wait`、`cancel` 已有协议/存储单元证据，仍需补齐双 Workspace 端到端闭环。
+- 跨 Workspace `status`/`result` 已有双 Workspace 端到端闭环；`wait` 复用同一 status 轮询，`cancel` 与目标关闭后的更多组合仍可继续扩充验收。
 - `cargo test --workspace` 当前被未改动的 `ego_preview` 既有测试编译错误阻断；本次涉及的 `norma`、`agent`、`storage`、目标 E2E 与 `cargo check -p app` 已通过。
 
 ## 1. 背景与问题
@@ -48,7 +48,7 @@ norma-os 进程仍然存在
 - 来源 Agent 属于哪个 Workspace。
 - 用户希望查询哪个 Workspace 的 Agent。
 - 任务应当被派发到哪个 Workspace。
-- `status`、`wait` 和 `cancel` 应当查询哪个 Workspace 的任务协调器。
+- `status`、`wait`、`result` 和 `cancel` 应当查询哪个 Workspace 的任务协调器。
 
 不同 Workspace 的 node ID 和 Agent 名称都可能重复。因此，依赖“当前活动窗口”“最新绑定 socket 的窗口”或跨窗口扫描 node ID，都无法提供确定、安全的跨 Workspace 编排。
 
@@ -157,7 +157,7 @@ Done / Failed / Cancelled / Interrupted
 2. 打开、关闭或切换任意窗口都不会破坏 CLI 可用性。
 3. 用户可以明确要求 Workspace A 的 Agent 把任务派给 Workspace B 的 Agent。
 4. 请求、Hook 和任务状态始终路由到正确 Workspace。
-5. `status`、`wait` 和 `cancel` 不依赖当前活动窗口。
+5. `status`、`wait`、`result` 和 `cancel` 不依赖当前活动窗口。
 6. 关闭来源窗口不应中断已经进入目标 Workspace 的任务。
 7. 关闭目标窗口或退出 App 时，未完成任务进入真实的 `interrupted` 状态。
 8. Provider、CLI、Skill 和 Hook 的版本与健康状态由 App 全局维护。
@@ -190,7 +190,7 @@ Done / Failed / Cancelled / Interrupted
 - 当前 Workspace 和跨 Workspace Agent 查询。
 - 向已打开目标 Workspace 的 Agent 派发一个任务。
 - 全局任务引用、任务路由、父子关系与状态摘要。
-- 同 Workspace 与跨 Workspace 的 `status`、`wait` 和 `cancel`。
+- 同 Workspace 与跨 Workspace 的 `status`、`wait`、`result` 和 `cancel`。
 - 任务终态优先的 wait 判定。
 - 请求幂等凭据和副作用未知语义。
 - App/CLI/Skill/Hook 协议版本握手和诊断。
@@ -209,7 +209,7 @@ Done / Failed / Cancelled / Interrupted
 - 跨 Workspace 共享终端、PTY、Canvas 节点或 Provider Session。
 - App 重启后恢复正在运行的任务队列或 Provider 进程。
 - 一次 CLI 调用向多个 Workspace 或多个 Agent 批量派发。
-- 返回 Agent 最终回复、终端全文或工作产物。
+- 返回终端全文、文件内容或工作产物；可信 Hook 提供的有界 Agent 最终回复属于任务结果协议。
 - 自动修复用户不归 Norma 管理的 Hook、Skill 或配置冲突。
 - 在本 SPEC 中重新设计已有 Orchestration Settings 页面。
 
@@ -553,9 +553,9 @@ Provider 安装扫描和自动 reconcile 是用户/App 级行为，只执行一�
 - 同名 Workspace 必须通过 `workspace_id` 消歧。
 - 同名 Agent 必须在目标 Workspace 名册中精确匹配。
 
-### 10.3 状态查询和等待
+### 10.3 状态查询、等待和结果读取
 
-`status` 和 `wait` 先查询全局任务注册表，再在目标 route 仍存活时向目标 coordinator 获取更实时状态。
+`status`、`wait` 和 `result` 先查询全局任务注册表，再在目标 route 仍存活时向目标 coordinator 获取更实时状态。终态 `status`/`wait` 直接携带结果；`result` 是按全局 `task_ref` 的单次查询。非终态 `result` 返回可重试的 `task_result_not_ready`，不得改查最新对话。
 
 ```text
 读取 GlobalTaskRoute
@@ -616,6 +616,7 @@ norma agent task assign <agent> \
 ```text
 norma agent task status <task-ref>
 norma agent task wait <task-ref> [--timeout <seconds>]
+norma agent task result <task-ref>
 norma agent task cancel <task-ref>
 ```
 
@@ -1160,7 +1161,7 @@ crates/app/
 | SocketLease、stale/live socket、shutdown | App 单元测试 + 真 Unix socket L3 |
 | Workspace identity 与 route 状态机 | 纯单元测试 |
 | 来源/目标路由和 node ID 碰撞 | App 单元测试 + e2e |
-| 跨 Workspace assign/list/status/wait/cancel | `crates/e2e` 双 Workspace 用例 |
+| 跨 Workspace assign/list/status/wait/result/cancel | `crates/e2e` 双 Workspace 用例 |
 | Hook token 路由与迟到事件 | App/Norma 单元测试 + Hook L3 |
 | 终态优先于 tracking | Norma CLI Runtime 单元测试 |
 | task ref、operation ID、持久化对账 | Agent/Storage 单元测试 |

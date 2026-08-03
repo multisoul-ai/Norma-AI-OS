@@ -347,6 +347,7 @@ fn is_orchestration_command(command: &CardCommand) -> bool {
             | CardCommand::ListAgents
             | CardCommand::DispatchAgentTasks { .. }
             | CardCommand::AgentTaskStatus { .. }
+            | CardCommand::AgentTaskResult { .. }
             | CardCommand::AgentTaskCancel { .. }
             | CardCommand::Present { .. }
             | CardCommand::Ego { .. }

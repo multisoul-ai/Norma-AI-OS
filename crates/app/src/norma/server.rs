@@ -297,6 +297,7 @@ pub(crate) fn execute_card_command_for_area_with_strategy(
         | CardCommand::ListWorkspaces
         | CardCommand::ListAgents
         | CardCommand::AgentTaskStatus { .. }
+        | CardCommand::AgentTaskResult { .. }
         | CardCommand::AgentTaskCancel { .. }
         | CardCommand::CreateAgent { .. }
         | CardCommand::ActivateAgent { .. }

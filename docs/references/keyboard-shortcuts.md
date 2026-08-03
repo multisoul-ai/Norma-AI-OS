@@ -190,6 +190,8 @@ Layout:   Reflow Layout / Toggle Master Layout
 
 - 字母、数字、符号（含 IME  finalized 字符的 `key_char` 路径）
 - `Enter`、`Tab`、`Backspace`、`Esc`、方向键
+- `Option+Enter`：终端应用请求增强键盘协议时发送 `CSI 13;3u`，供 Codex 等 TUI 插入换行；
+  未请求时回退为 legacy `CR`
 - `Ctrl+*`、`Alt+*` 组合（如 `Ctrl+C` → ETX）
 
 > 注：默认快捷键改为 `⌘Esc` 后，裸 `Esc` 不再被 registry 消费，会作为 `Esc` 键传入 PTY（终端进程可见）。`⌘Esc` 才触发 `ExitFocus`，把键盘控制权交还画布。

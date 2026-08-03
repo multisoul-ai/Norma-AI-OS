@@ -16,19 +16,21 @@ type TestWindow = WindowHandle<Root>;
 ///   colliding node IDs = Alan/A node 1 + Bella/B node 1（两个文档各自从 1 开始）
 ///   commands = workspace list(1) + target agent list(1) + assign(1) = 3 条
 ///   expected target tasks = B(1)，expected source tasks = A(0)
+///   expected cross-window visual effects = A(0) + B(0) = 0
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 在同一 GPUI App 中安装一个隔离 Norma endpoint，并打开 A、B 两个窗口。
 ///   2. 两个窗口分别注册稳定 Workspace/route，A 激活 Alan，B 激活 Bella。
 ///   3. 以 A 的授权和 route 调用 workspace list，再显式查询 B 的 Agent。
 ///   4. 使用固定 operation ID 向 B/Bella 派发任务，推进全局账本与目标 coordinator。
-///   5. 比较回执、两个 coordinator、目标 cwd 和活动窗口。
+///   5. 比较回执、两个 coordinator、视觉副作用、目标 cwd 和活动窗口。
 ///
 /// 预期结果：
 ///   - 正断言：全局名册只含两个注册 Workspace，目标名册只返回 B/Bella。
 ///   - 正断言：任务回执携带 A→B 身份，且只进入 B 的 coordinator 和 B cwd。
 ///   - 正断言：B 在后台仍接收任务，活动窗口继续是 A。
 ///   - 负断言：相同 node ID 不得使任务进入 A，也不得把 Alan 当作 B 的目标。
+///   - 负断言：跨窗口指派不得在 B 伪造 Command Dock→Bella 的流星。
 #[test]
 fn cross_workspace_assign_routes_to_background_target_without_node_id_collision() {
     let fixture = tempfile::tempdir().expect("跨 Workspace e2e 应创建隔离根目录");
@@ -165,7 +167,7 @@ fn cross_workspace_assign_routes_to_background_target_without_node_id_collision(
         panic!("跨 Workspace assign 必须返回任务回执");
     };
     let receipt = receipts.first().expect("单目标派发必须返回一条回执");
-    let (source_task_count, target_task_count, target_cwd) = test_cx.update(|cx| {
+    let (source_task_count, target_task_count, target_cwd, target_visuals) = test_cx.update(|cx| {
         (
             app_a.read(cx).agent_task_count_for_e2e(),
             app_b.read(cx).agent_task_count_for_e2e(),
@@ -174,6 +176,7 @@ fn cross_workspace_assign_routes_to_background_target_without_node_id_collision(
                 .runtime
                 .workspace_root()
                 .map(ToOwned::to_owned),
+            app_b.read(cx).dispatch_receipt_effect_e2e_snapshot(),
         )
     });
 
@@ -213,6 +216,18 @@ fn cross_workspace_assign_routes_to_background_target_without_node_id_collision(
     assert_eq!(
         target_task_count, 1,
         "跨 Workspace 任务必须且只能进入 B coordinator"
+    );
+    assert_eq!(
+        target_visuals.active_count, 0,
+        "跨窗口指派不得在目标 Workspace B 伪造本地 Command Dock 发射"
+    );
+    assert!(
+        target_visuals.effects.is_empty(),
+        "来源卡片不在 B 窗口时不得渲染任何跨窗口飞行 presentation"
+    );
+    assert_eq!(
+        target_visuals.unavailable_skips, 0,
+        "跨窗口策略应在进入视觉管线前静默降级，不应计为可见端点故障"
     );
     assert_eq!(
         target_cwd.as_deref(),

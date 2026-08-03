@@ -39,3 +39,7 @@ mod motion_dispatch_receipt_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/motion_dispatch_receipt_particle_tests.rs"]
 mod motion_dispatch_receipt_particle_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/motion_agent_dispatch_receipt_tests.rs"]
+mod motion_agent_dispatch_receipt_tests;

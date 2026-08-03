@@ -16,7 +16,7 @@ pub use errors::{
 pub use workspace::{OrchestrationDoctorReport, WorkspaceSummary};
 
 pub type NodeId = u64;
-pub const CURRENT_PROTOCOL_VERSION: u32 = 2;
+pub const CURRENT_PROTOCOL_VERSION: u32 = 3;
 
 fn legacy_protocol_version() -> u32 {
     1
@@ -71,6 +71,9 @@ pub enum CardCommand {
     ListWorkspaces,
     ListAgents,
     AgentTaskStatus {
+        task_ref: String,
+    },
+    AgentTaskResult {
         task_ref: String,
     },
     AgentTaskCancel {
@@ -226,6 +229,9 @@ pub enum CardCommandResult {
     AgentTaskStatus {
         task: AgentTaskStatus,
     },
+    AgentTaskResult {
+        task: AgentTaskStatus,
+    },
     AgentTaskCancelled {
         task_id: String,
         status: AgentTaskReceiptStatus,
@@ -323,6 +329,23 @@ pub struct AgentTaskStatus {
     pub tracking: String,
     pub parent_task_id: Option<String>,
     pub root_task_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<AgentTaskResult>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentTaskResultAvailability {
+    Available,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AgentTaskResult {
+    pub availability: AgentTaskResultAvailability,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    pub truncated: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

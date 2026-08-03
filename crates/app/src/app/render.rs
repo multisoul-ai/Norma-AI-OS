@@ -139,12 +139,12 @@ impl MultisoulApp {
             return;
         }
         if !matches!(self.screen, AppScreen::Canvas) {
-            self.motion.retain_dispatch_targets(&[]);
+            self.motion.retain_dispatch_endpoints(&[]);
             return;
         }
         let visible_area = self.visible_canvas_rect(window);
-        let mut target_node_ids = self.motion.dispatch_target_node_ids();
-        target_node_ids.retain(|node_id| {
+        let mut endpoint_node_ids = self.motion.dispatch_endpoint_node_ids();
+        endpoint_node_ids.retain(|node_id| {
             self.runtime
                 .document
                 .node(*node_id)
@@ -157,6 +157,6 @@ impl MultisoulApp {
                     ))
                 })
         });
-        self.motion.retain_dispatch_targets(&target_node_ids);
+        self.motion.retain_dispatch_endpoints(&endpoint_node_ids);
     }
 }

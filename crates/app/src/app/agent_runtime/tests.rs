@@ -15,6 +15,9 @@ mod agent_dispatch_submit_tests;
 #[path = "../../../tests/unit/agent_dispatch_visual_effect_tests.rs"]
 mod agent_dispatch_visual_effect_tests;
 
+#[path = "../../../tests/unit/agent_to_agent_dispatch_visual_effect_tests.rs"]
+mod agent_to_agent_dispatch_visual_effect_tests;
+
 #[path = "../../../tests/unit/agent_dispatch_inactive_window_visual_effect_tests.rs"]
 mod agent_dispatch_inactive_window_visual_effect_tests;
 

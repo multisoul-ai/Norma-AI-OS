@@ -50,13 +50,24 @@ fn paint_reduced_pulse(
     progress: f32,
     plan: &mut DispatchPaintPlan,
 ) {
-    let dock_size = 12.0 + ease_out_cubic(progress) * 10.0;
-    plan.quads.push(outline_quad(
-        centered_bounds(frame.origin, dock_size, dock_size),
-        dock_size / 2.0,
-        with_alpha(color, alpha(0x88, (1.0 - progress) * intensity)),
-        1.25,
-    ));
+    let source_alpha = with_alpha(color, alpha(0x88, (1.0 - progress) * intensity));
+    if let Some(origin_bounds) = frame.origin_bounds {
+        let expansion = 2.0 + ease_out_cubic(progress) * 8.0;
+        plan.quads.push(outline_quad(
+            expanded_bounds(origin_bounds, expansion),
+            18.0 + expansion,
+            source_alpha,
+            1.25,
+        ));
+    } else {
+        let dock_size = 12.0 + ease_out_cubic(progress) * 10.0;
+        plan.quads.push(outline_quad(
+            centered_bounds(frame.origin, dock_size, dock_size),
+            dock_size / 2.0,
+            source_alpha,
+            1.25,
+        ));
+    }
 }
 
 fn paint_central_flash(

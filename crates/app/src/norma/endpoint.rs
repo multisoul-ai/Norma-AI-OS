@@ -261,7 +261,9 @@ fn dispatch_request(server_request: NormaServerRequest, cx: &mut App) {
     }
     if matches!(
         request.command,
-        CardCommand::AgentTaskStatus { .. } | CardCommand::AgentTaskCancel { .. }
+        CardCommand::AgentTaskStatus { .. }
+            | CardCommand::AgentTaskResult { .. }
+            | CardCommand::AgentTaskCancel { .. }
     ) {
         spawn_global_task_control(request, response, cx);
         return;

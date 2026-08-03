@@ -22,6 +22,20 @@ pub(super) struct FlightCurve {
 impl FlightCurve {
     pub(super) fn new(origin: Point<Pixels>, target: Point<Pixels>) -> Self {
         let (control_a, control_b) = control_points(origin, target);
+        Self::from_control_points(origin, control_a, control_b, target)
+    }
+
+    pub(super) fn new_agent_handoff(origin: Point<Pixels>, target: Point<Pixels>) -> Self {
+        let (control_a, control_b) = agent_handoff_control_points(origin, target);
+        Self::from_control_points(origin, control_a, control_b, target)
+    }
+
+    fn from_control_points(
+        origin: Point<Pixels>,
+        control_a: Point<Pixels>,
+        control_b: Point<Pixels>,
+        target: Point<Pixels>,
+    ) -> Self {
         let mut samples = [CurveSample {
             parameter: 0.0,
             cumulative_length: 0.0,
@@ -104,6 +118,15 @@ pub(crate) fn bezier_point_at_travel(
     FlightCurve::new(origin, target).point_at_travel(travel)
 }
 
+#[cfg(test)]
+pub(crate) fn agent_handoff_bezier_point_at_travel(
+    origin: Point<Pixels>,
+    target: Point<Pixels>,
+    travel: f32,
+) -> Point<Pixels> {
+    FlightCurve::new_agent_handoff(origin, target).point_at_travel(travel)
+}
+
 pub(crate) fn natural_flight_progress(progress: f32) -> f32 {
     let progress = progress.clamp(0.0, 1.0);
     if progress <= 0.0 || progress >= 1.0 {
@@ -130,6 +153,30 @@ fn control_points(origin: Point<Pixels>, target: Point<Pixels>) -> (Point<Pixels
     (
         point(origin.x + px(horizontal * 0.045), origin.y - px(lift)),
         point(target.x - px(horizontal * 0.18), target.y + px(settle)),
+    )
+}
+
+fn agent_handoff_control_points(
+    origin: Point<Pixels>,
+    target: Point<Pixels>,
+) -> (Point<Pixels>, Point<Pixels>) {
+    let dx = f32::from(target.x - origin.x);
+    let dy = f32::from(target.y - origin.y);
+    let distance = dx.hypot(dy).max(f32::EPSILON);
+    let mut normal = (-dy / distance, dx / distance);
+    if normal.1 > 0.0 {
+        normal = (-normal.0, -normal.1);
+    }
+    let bend = (distance * 0.22).clamp(36.0, 160.0);
+    (
+        point(
+            origin.x + px(dx * 0.28 + normal.0 * bend),
+            origin.y + px(dy * 0.28 + normal.1 * bend),
+        ),
+        point(
+            origin.x + px(dx * 0.72 + normal.0 * bend),
+            origin.y + px(dy * 0.72 + normal.1 * bend),
+        ),
     )
 }
 

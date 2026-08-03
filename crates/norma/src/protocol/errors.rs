@@ -40,6 +40,7 @@ pub enum AgentErrorCode {
     TaskNotFound,
     RuntimeExpired,
     TaskUntracked,
+    TaskResultNotReady,
     TaskNotCancellable,
     WaitTimeout,
     IdempotencyConflict,

@@ -57,7 +57,7 @@ impl MultisoulApp {
                         chrome_icon_button(
                             theme,
                             canvas_mode_icon,
-                            true,
+                            false,
                             "toolbar-canvas-scroll",
                             canvas_mode_tooltip,
                         )

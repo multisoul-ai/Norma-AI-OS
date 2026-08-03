@@ -1,5 +1,6 @@
 use super::dispatch_receipt::{
-    bezier_point, bezier_point_at_travel, build_paint_plan, command_dock_center, helix_offset,
+    agent_card_launch_origin, agent_handoff_bezier_point_at_travel, bezier_point,
+    bezier_point_at_travel, build_paint_plan, command_dock_center, helix_offset,
     impact_radius_scale, natural_flight_progress, screen_point_visible, DispatchEffectFrame,
 };
 use crate::motion::{
@@ -261,6 +262,83 @@ fn test_dispatch_flight_helix_is_symmetric_and_tapered() {
     assert_ne!(a_mid, b_mid, "双螺旋中点不得重合成单条直线");
 }
 
+/// DR-G-7：Agent-to-Agent 轨迹必须从来源卡片朝目标方向的边缘出发，并支持左右双向飞行。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source bounds = (100, 100, 200, 120)，center = (200, 160)
+///   right target = (500, 200)，direction = (300, 40)
+///   right scale = half_width(100) / |dx|(300) = 1/3
+///   expected right anchor = (200,160) + (300,40) × 1/3 = (300, 173.333...)
+///   left target = (0, 200)，direction = (-200, 40)
+///   left scale = half_width(100) / |dx|(200) = 1/2
+///   expected left anchor = (200,160) + (-200,40) × 1/2 = (100, 180)
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 分别计算目标位于来源卡片右侧、左侧时的发射锚点。
+///   2. 以右侧锚点构造方向无关的 Agent handoff 曲线并采样首、中、尾三点。
+///   3. 对比中点与直线路径，确认轨迹保留轻微上拱且精确连接两端。
+///
+/// 预期结果：
+///   - 正断言：左右目标分别命中来源卡片右边缘与左边缘。
+///   - 正断言：Agent handoff 曲线首尾精确等于发射锚点和目标。
+///   - 负断言：发射锚点不得退化为卡片中心，曲线中点不得退化为直线或任一端点。
+#[test]
+fn test_agent_handoff_launches_from_directional_card_edge_in_both_directions() {
+    let source_bounds = Bounds {
+        origin: point(px(100.0), px(100.0)),
+        size: Size {
+            width: px(200.0),
+            height: px(120.0),
+        },
+    };
+    let right_target = point(px(500.0), px(200.0));
+    let left_target = point(px(0.0), px(200.0));
+    let right_anchor = agent_card_launch_origin(source_bounds, right_target);
+    let left_anchor = agent_card_launch_origin(source_bounds, left_target);
+
+    assert_eq!(
+        right_anchor.x,
+        px(300.0),
+        "右侧目标必须让流星从来源卡片 x=100+200=300 的右边缘发射"
+    );
+    assert!(
+        (f32::from(right_anchor.y) - 173.333_33).abs() < 0.001,
+        "右侧锚点 y 应为 160+40×(1/3)=173.333；实际为 {}",
+        f32::from(right_anchor.y)
+    );
+    assert_eq!(
+        left_anchor,
+        point(px(100.0), px(180.0)),
+        "左侧目标必须让流星从来源卡片左边缘 (100,180) 发射"
+    );
+    assert_ne!(
+        right_anchor,
+        point(px(200.0), px(160.0)),
+        "Agent handoff 起点不得停留在来源卡片中心"
+    );
+
+    let start = agent_handoff_bezier_point_at_travel(right_anchor, right_target, 0.0);
+    let midpoint = agent_handoff_bezier_point_at_travel(right_anchor, right_target, 0.5);
+    let end = agent_handoff_bezier_point_at_travel(right_anchor, right_target, 1.0);
+    let linear_mid_y = (f32::from(right_anchor.y) + f32::from(right_target.y)) / 2.0;
+
+    assert_eq!(
+        start, right_anchor,
+        "Agent handoff 曲线必须精确从卡片边缘起飞"
+    );
+    assert_eq!(
+        end, right_target,
+        "Agent handoff 曲线必须精确到达目标卡片中心"
+    );
+    assert!(
+        f32::from(midpoint.y) < linear_mid_y,
+        "Agent handoff 中点应轻微上拱而不是直线插值；实际 y={}，直线 y={linear_mid_y}",
+        f32::from(midpoint.y)
+    );
+    assert_ne!(midpoint, start, "Agent handoff 中点不得仍停留在来源边缘");
+    assert_ne!(midpoint, end, "Agent handoff 中点不得提前到达目标中心");
+}
+
 fn point_distance(a: gpui::Point<gpui::Pixels>, b: gpui::Point<gpui::Pixels>) -> f32 {
     let dx = f32::from(b.x - a.x);
     let dy = f32::from(b.y - a.y);
@@ -308,6 +386,7 @@ fn test_dispatch_ion_impact_stays_within_gpui_primitive_budget() {
     }
     let frame = DispatchEffectFrame {
         origin: point(px(600.0), px(752.0)),
+        origin_bounds: None,
         target: point(px(300.0), px(220.0)),
         target_bounds: Bounds {
             origin: point(px(180.0), px(140.0)),
@@ -317,6 +396,7 @@ fn test_dispatch_ion_impact_stays_within_gpui_primitive_budget() {
             },
         },
         presentation: DispatchEffectPresentation {
+            origin: crate::motion::DispatchVisualOrigin::CommandDock,
             target_node_id: 981,
             status: DispatchReceiptVisualStatus::Submitted,
             phase: DispatchEffectPhase::Impact,

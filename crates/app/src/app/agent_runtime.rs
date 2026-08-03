@@ -35,6 +35,7 @@ use context_commands::contextualized_agent_commands;
 use coordination::agent_completion_report;
 pub(crate) use orchestration_commands::execute_high_level_agent_command;
 pub(crate) use orchestration_commands::execute_orchestration_agent_command;
+pub(crate) use orchestration_commands::execute_orchestration_agent_command_with_visual_origin;
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
 static TOKIO_RUNTIME: OnceLock<Result<tokio::runtime::Runtime, String>> = OnceLock::new();

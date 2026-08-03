@@ -31,7 +31,7 @@ _Avoid_: Scale、终端控制 Skill、Agent 定义、Agent Hook、独立任务�
 _Avoid_: 通用 Canvas API、批量展示命令、模拟 `Cmd+M`、修改 Preview 源文件、超过三项的自主展示、结果未知时自动重试
 
 **Norma CLI**：
-外部 Agent 请求正在运行的 Norma OS 执行工作台操作的本地命令行接口；它承载可验证的执行协议，而不是能力说明或 Agent 生命周期事件。Agent 编排命令统一位于 `norma agent` 命名空间：`agent list` 枚举可寻址 Agent，`agent task assign` 派发单个任务，`agent task status` 查询状态，`agent task wait` 等待终态，`agent task cancel` 取消指定任务。内容展示使用独立顶层命令 `present browser [url]` 与 `present preview <path>`；展示成功表示目标卡片已经创建或复用并成为 Master，不等待网页或文件加载完成。Agent 编排与展示命令默认以稳定 JSON 向 `stdout` 输出协议结果，日志与诊断只写入 `stderr`，并用稳定退出码区分成功与错误；人工调试可显式选择 `--format text`。Norma OS 未运行、本地服务不可连接或当前没有可用项目上下文时立即返回稳定错误；首版不自动启动 App，也不自动选择最近项目。
+外部 Agent 请求正在运行的 Norma OS 执行工作台操作的本地命令行接口；它承载可验证的执行协议，而不是能力说明或 Agent 生命周期事件。Agent 编排命令统一位于 `norma agent` 命名空间：`agent list` 枚举可寻址 Agent，`agent task assign` 派发单个任务，`agent task status` 查询状态，`agent task wait` 等待终态并直接返回任务结果，`agent task result` 按精确任务引用单次查询结果，`agent task cancel` 取消指定任务。内容展示使用独立顶层命令 `present browser [url]` 与 `present preview <path>`；展示成功表示目标卡片已经创建或复用并成为 Master，不等待网页或文件加载完成。Agent 编排与展示命令默认以稳定 JSON 向 `stdout` 输出协议结果，日志与诊断只写入 `stderr`，并用稳定退出码区分成功与错误；人工调试可显式选择 `--format text`。Norma OS 未运行、本地服务不可连接或当前没有可用项目上下文时立即返回稳定错误；首版不自动启动 App，也不自动选择最近项目。
 _Avoid_: CI、Agent 编排能力包、Agent Hook、在协议输出中混入日志、默认输出依赖自然语言解析、隐式启动 App、猜测任务所属项目
 
 **Agent 编排能力安装**：
@@ -111,7 +111,7 @@ _Avoid_: 向忙碌 Agent 直接注入输入、跨 Agent 共享队列
 _Avoid_: 内部处理任务已入队、Agent 任务完成
 
 **Agent 任务回执**：
-描述 AgentCard 已接收、已排队、运行、请求取消或已进入完成、失败、取消、中断终态的真实反馈。无论通过 `assign_agent_task` 还是 Norma CLI 派发，系统都立即返回 `accepted/queued/untracked + task_id`，不等待任务完成；调用方通过独立的查询、等待或取消操作跟进。只有 Hook 等运行时终态证据才能产生完成回执。CLI 的等待结果只返回可信状态与错误，不包含 Agent 最终回复、终端输出或工作产物；`task wait` 默认最多等待 60 秒，任务提前进入终态时立即返回，超时则返回 `wait_timeout` 与当前状态但不取消任务，调用方可以再次等待或通过 `--timeout <seconds>` 调整单次等待时间。后台终态使用确定性模板进入 UI/TTS，不自动唤醒 Norma；模型最终答复必须忠实区分接收与完成。
+描述 AgentCard 已接收、已排队、运行、请求取消或已进入完成、失败、取消、中断终态的真实反馈。无论通过 `assign_agent_task` 还是 Norma CLI 派发，系统都立即返回 `accepted/queued/untracked + task_id`，不等待任务完成；调用方通过独立的查询、等待、结果读取或取消操作跟进。只有 Hook 等运行时终态证据才能产生完成回执。CLI 的终态 `status` 与 `wait` 直接携带绑定到精确 `task_id` 的 Agent 最终回复；`task result` 提供同一结果的单次查询，非终态返回可重试的 `task_result_not_ready`。Provider 未提供可信最终回复时返回 `availability=unavailable`，不得用最近对话猜测；回复沿用对话观察的 1200 字符上限并显式返回 `truncated`，仍不返回终端全文、文件内容或工作产物。`task wait` 默认最多等待 60 秒，任务提前进入终态时立即返回，超时则返回 `wait_timeout` 与当前状态但不取消任务，调用方可以再次等待或通过 `--timeout <seconds>` 调整单次等待时间。后台终态使用确定性模板进入 UI/TTS，不自动唤醒 Norma；模型最终答复必须忠实区分接收与完成。
 _Avoid_: 以已接收代替已完成、无运行时证据的成功播报、把终态冒充为任务产物、为后台终态额外调用 LLM、把等待超时当作任务取消或失败
 
 **Agent 任务跟踪**：

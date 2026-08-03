@@ -78,6 +78,7 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
             state TEXT NOT NULL,
             tracking TEXT NOT NULL,
             result_json TEXT,
+            task_result_json TEXT,
             error_code TEXT,
             created_at_unix INTEGER NOT NULL,
             updated_at_unix INTEGER NOT NULL,
@@ -134,6 +135,12 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
         "orchestration_task_routes",
         "target_node_id_at_dispatch",
         "target_node_id_at_dispatch INTEGER",
+    )?;
+    ensure_column(
+        connection,
+        "orchestration_task_routes",
+        "task_result_json",
+        "task_result_json TEXT",
     )?;
     connection.execute_batch(
         "CREATE INDEX IF NOT EXISTS idx_orchestration_task_routes_root
@@ -229,6 +236,9 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
             state TEXT NOT NULL,
             tracking TEXT NOT NULL,
             error TEXT,
+            result_captured INTEGER NOT NULL DEFAULT 0,
+            result_text TEXT,
+            result_truncated INTEGER NOT NULL DEFAULT 0,
             created_at_unix INTEGER NOT NULL,
             updated_at_unix INTEGER NOT NULL,
             FOREIGN KEY (definition_id) REFERENCES agent_definitions(id)
@@ -348,6 +358,24 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
         "agent_dispatch_tasks",
         "source_provider",
         "source_provider TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "result_captured",
+        "result_captured INTEGER NOT NULL DEFAULT 0",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "result_text",
+        "result_text TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "result_truncated",
+        "result_truncated INTEGER NOT NULL DEFAULT 0",
     )?;
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_agent_dispatch_tasks_runtime_task

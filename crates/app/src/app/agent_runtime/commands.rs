@@ -26,6 +26,7 @@ pub(crate) fn execute_agent_card_command(
             | CardCommand::ActivateAgent { .. }
             | CardCommand::DispatchAgentTasks { .. }
             | CardCommand::AgentTaskStatus { .. }
+            | CardCommand::AgentTaskResult { .. }
             | CardCommand::AgentTaskCancel { .. }
     ) {
         return super::orchestration_commands::execute_high_level_agent_command(
@@ -60,6 +61,7 @@ pub(super) fn execute_coordinated_agent_command(
     zoom: f32,
     source: agent::AgentDispatchSource,
     source_provider: Option<AgentProfile>,
+    visual_origin: Option<crate::motion::DispatchVisualOrigin>,
 ) -> Result<CardCommandResult, CardCommandError> {
     match command {
         CardCommand::ListAgents => Ok(CardCommandResult::AgentsListed {
@@ -117,8 +119,6 @@ pub(super) fn execute_coordinated_agent_command(
             assignments,
             force_untracked,
         } => {
-            let should_animate_receipts =
-                matches!(source.queue_source, agent::AgentQueueTaskSource::Norma);
             let definitions = assignments
                 .iter()
                 .map(|assignment| {
@@ -447,10 +447,11 @@ pub(super) fn execute_coordinated_agent_command(
                     root_task_id: receipt.root_task_ref,
                 });
             }
-            if should_animate_receipts {
+            if let Some(origin) = visual_origin {
                 super::dispatch_effects::spawn_accepted_dispatch_receipts(
                     app,
                     &wire_receipts,
+                    origin,
                     area,
                 );
             }

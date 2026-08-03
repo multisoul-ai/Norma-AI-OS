@@ -11,6 +11,7 @@ enum VisualPreview {
     AgentQueue,
     DispatchReceiptFlight,
     DispatchReceiptImpact,
+    DispatchAgentHandoffFlight,
     Orchestration,
     GithubClone,
     FeatureGuide,
@@ -32,6 +33,7 @@ impl VisualPreview {
             "agent-queue" => Some(Self::AgentQueue),
             "dispatch-receipt-flight" => Some(Self::DispatchReceiptFlight),
             "dispatch-receipt-impact" => Some(Self::DispatchReceiptImpact),
+            "dispatch-agent-handoff-flight" => Some(Self::DispatchAgentHandoffFlight),
             "orchestration" => Some(Self::Orchestration),
             "github-clone" => Some(Self::GithubClone),
             "feature-guide" => Some(Self::FeatureGuide),
@@ -54,6 +56,7 @@ impl VisualPreview {
             Self::AgentQueue
             | Self::DispatchReceiptFlight
             | Self::DispatchReceiptImpact
+            | Self::DispatchAgentHandoffFlight
             | Self::FeatureGuide => Some(ThemeId::PaperBlue),
             Self::Orchestration => Some(ThemeId::SapphireNight),
             Self::GithubClone => None,
@@ -98,7 +101,11 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
         }
         VisualPreview::DispatchReceiptFlight | VisualPreview::DispatchReceiptImpact => {
             app.settings_panel.close();
-            configure_dispatch_receipt(app);
+            configure_dispatch_receipt(app, false);
+        }
+        VisualPreview::DispatchAgentHandoffFlight => {
+            app.settings_panel.close();
+            configure_dispatch_receipt(app, true);
         }
         VisualPreview::Orchestration => {
             app.settings_panel.select(SettingsSection::Orchestration);
@@ -237,17 +244,38 @@ fn configure_agent_queue(app: &mut MultisoulApp) {
     app.agent_queue_ui.toggle(node_id);
 }
 
-fn configure_dispatch_receipt(app: &mut MultisoulApp) {
+fn configure_dispatch_receipt(app: &mut MultisoulApp, agent_handoff: bool) {
     app.last_reflow_window_size = Some((1280.0, 800.0));
     let definition = app.agent_definitions.use_queue_visual_preview();
+    let (source_bounds, target_bounds) = if agent_handoff {
+        (
+            canvas::CanvasRect::new(70.0, 170.0, 500.0, 360.0),
+            canvas::CanvasRect::new(710.0, 190.0, 500.0, 360.0),
+        )
+    } else {
+        (
+            canvas::CanvasRect::new(120.0, 140.0, 620.0, 400.0),
+            canvas::CanvasRect::new(120.0, 140.0, 620.0, 400.0),
+        )
+    };
     app.runtime.document.add_node(
         canvas::CanvasNodeKind::Agent(canvas::AgentSpec {
             profile: canvas::AgentProfile::Codex,
-            alias: Some("Adam".to_string()),
+            alias: Some(if agent_handoff { "浩宇" } else { "Adam" }.to_string()),
             definition_id: Some(definition.id),
         }),
-        canvas::CanvasRect::new(120.0, 140.0, 620.0, 400.0),
+        source_bounds,
     );
+    if agent_handoff {
+        app.runtime.document.add_node(
+            canvas::CanvasNodeKind::Agent(canvas::AgentSpec {
+                profile: canvas::AgentProfile::Claude,
+                alias: Some("老乔".to_string()),
+                definition_id: Some(definition.id),
+            }),
+            target_bounds,
+        );
+    }
 }
 
 #[cfg(test)]
@@ -259,37 +287,39 @@ mod tests {
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   supported values = agent-queue(1) + dispatch-flight(1) + dispatch-impact(1)
+    ///                      + agent-handoff-flight(1)
     ///                      + orchestration(1) + github-clone(1) + feature-guide(1)
     ///                      + setup(1) + ready(1) + network-unavailable(1)
     ///                      + api-key(1) + caption(1) + window-inset(1)
     ///                      + azure-asr-ready(1)
     ///                      + zipvoice-reference(1) + tts-backlog-capacity(1)
-    ///                      + tts-backlog-recovered(1) = 16
+    ///                      + tts-backlog-recovered(1) = 17
     ///   unsupported values = empty(1) + unknown(1) = 2
-    ///   total cases = 16 + 2 = 18
+    ///   total cases = 17 + 2 = 19
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. 解析 `agent-queue` → AgentQueue
     ///   2. 解析 `dispatch-receipt-flight` → DispatchReceiptFlight
     ///   3. 解析 `dispatch-receipt-impact` → DispatchReceiptImpact
-    ///   4. 解析 `orchestration` → Orchestration
-    ///   5. 解析 `github-clone` → GithubClone
-    ///   6. 解析 `feature-guide` → FeatureGuide
-    ///   7. 解析 `voice-setup` → VoiceSetup
-    ///   8. 解析 `voice-ready` → VoiceReady
-    ///   9. 解析 `voice-network-unavailable` → VoiceNetworkUnavailable
-    ///   10. 解析 `voice-api-key` → VoiceApiKey
-    ///   11. 解析 `voice-caption` → VoiceCaption
-    ///   12. 解析 `voice-window-inset` → VoiceWindowInset
-    ///   13. 解析 `azure-asr-ready` → AzureAsrReady
-    ///   14. 解析 `zipvoice-reference` → ZipVoiceReference
-    ///   15. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
-    ///   16. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
-    ///   17. 解析空字符串 → None
-    ///   18. 解析未知值 → None
+    ///   4. 解析 `dispatch-agent-handoff-flight` → DispatchAgentHandoffFlight
+    ///   5. 解析 `orchestration` → Orchestration
+    ///   6. 解析 `github-clone` → GithubClone
+    ///   7. 解析 `feature-guide` → FeatureGuide
+    ///   8. 解析 `voice-setup` → VoiceSetup
+    ///   9. 解析 `voice-ready` → VoiceReady
+    ///   10. 解析 `voice-network-unavailable` → VoiceNetworkUnavailable
+    ///   11. 解析 `voice-api-key` → VoiceApiKey
+    ///   12. 解析 `voice-caption` → VoiceCaption
+    ///   13. 解析 `voice-window-inset` → VoiceWindowInset
+    ///   14. 解析 `azure-asr-ready` → AzureAsrReady
+    ///   15. 解析 `zipvoice-reference` → ZipVoiceReference
+    ///   16. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
+    ///   17. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
+    ///   18. 解析空字符串 → None
+    ///   19. 解析未知值 → None
     ///
     /// 预期结果：
-    ///   - 正断言：十六个受支持值分别映射到唯一场景
+    ///   - 正断言：十七个受支持值分别映射到唯一场景
     ///   - 负断言：空值和未知值不得意外开启视觉预览
     #[test]
     fn visual_preview_parser_accepts_only_explicit_scenarios() {
@@ -307,6 +337,11 @@ mod tests {
             VisualPreview::parse("dispatch-receipt-impact"),
             Some(VisualPreview::DispatchReceiptImpact),
             "dispatch-receipt-impact must select the fixed target explosion preview"
+        );
+        assert_eq!(
+            VisualPreview::parse("dispatch-agent-handoff-flight"),
+            Some(VisualPreview::DispatchAgentHandoffFlight),
+            "dispatch-agent-handoff-flight must select the fixed Agent-to-Agent flight preview"
         );
         assert_eq!(
             VisualPreview::parse("orchestration"),

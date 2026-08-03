@@ -70,6 +70,7 @@ pub(super) fn execute_validated_in_workspace(
     command: CardCommand,
     source: agent::AgentDispatchSource,
     source_provider: norma::protocol::AgentProfile,
+    visual_origin: Option<crate::motion::DispatchVisualOrigin>,
     cx: &mut App,
 ) -> WireResponse {
     target
@@ -81,6 +82,7 @@ pub(super) fn execute_validated_in_workspace(
                     command,
                     source,
                     source_provider,
+                    visual_origin,
                     window,
                     cx,
                 )
@@ -156,6 +158,7 @@ pub(super) fn execute_cross_workspace(
         request.command,
         agent::AgentDispatchSource::norma(),
         source_provider,
+        None,
         cx,
     )
 }

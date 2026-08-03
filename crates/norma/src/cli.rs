@@ -6,9 +6,10 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 mod operation;
 mod output;
+mod task_command;
 mod value;
 
-use operation::{new_operation_id, non_blank_message, non_blank_operation_id, non_blank_task};
+use operation::{non_blank_message, non_blank_operation_id, non_blank_task};
 use output::agent_error_output_format;
 pub use output::{format_result, render_protocol_error, render_protocol_success};
 
@@ -116,6 +117,9 @@ enum AgentTaskCommand {
         force_untracked: bool,
     },
     Status {
+        task_id: String,
+    },
+    Result {
         task_id: String,
     },
     Wait {
@@ -426,49 +430,6 @@ impl AgentArgs {
         match self.command {
             AgentCliCommand::List { workspace } => (CardCommand::ListAgents, None, workspace, None),
             AgentCliCommand::Task(task) => task.into_command(),
-        }
-    }
-}
-
-impl AgentTaskArgs {
-    fn into_command(self) -> (CardCommand, Option<u64>, Option<String>, Option<String>) {
-        match self.command {
-            AgentTaskCommand::Assign {
-                agent,
-                workspace,
-                task,
-                operation_id,
-                force_untracked,
-            } => (
-                CardCommand::DispatchAgentTasks {
-                    assignments: vec![crate::protocol::AgentTaskAssignment { name: agent, task }],
-                    force_untracked,
-                },
-                None,
-                workspace,
-                Some(operation_id.unwrap_or_else(new_operation_id)),
-            ),
-            AgentTaskCommand::Status { task_id } => (
-                CardCommand::AgentTaskStatus { task_ref: task_id },
-                None,
-                None,
-                None,
-            ),
-            AgentTaskCommand::Wait { task_id, timeout } => (
-                CardCommand::AgentTaskStatus { task_ref: task_id },
-                Some(timeout),
-                None,
-                None,
-            ),
-            AgentTaskCommand::Cancel {
-                task_id,
-                operation_id,
-            } => (
-                CardCommand::AgentTaskCancel { task_ref: task_id },
-                None,
-                None,
-                Some(operation_id.unwrap_or_else(new_operation_id)),
-            ),
         }
     }
 }

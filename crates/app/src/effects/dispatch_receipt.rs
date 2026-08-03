@@ -6,13 +6,14 @@ mod primitives;
 use self::flight::paint_flight;
 #[cfg(test)]
 pub(super) use self::geometry::{
-    bezier_point, bezier_point_at_travel, helix_offset, natural_flight_progress,
+    agent_handoff_bezier_point_at_travel, bezier_point, bezier_point_at_travel, helix_offset,
+    natural_flight_progress,
 };
 use self::impact::paint_impact;
 #[cfg(test)]
 pub(super) use self::primitives::impact_radius_scale;
 use crate::app::MultisoulApp;
-use crate::motion::{DispatchEffectPhase, DispatchEffectPresentation};
+use crate::motion::{DispatchEffectPhase, DispatchEffectPresentation, DispatchVisualOrigin};
 use canvas::{CanvasNodeKind, Vec2};
 use gpui::{
     canvas, div, point, prelude::*, px, AnyElement, Background, Bounds, PaintQuad, Path, Pixels,
@@ -34,6 +35,7 @@ pub(crate) const COMMAND_DOCK_HEIGHT_PX: f32 = 52.0;
 #[derive(Clone, Copy, Debug)]
 pub(super) struct DispatchEffectFrame {
     pub(super) origin: Point<Pixels>,
+    pub(super) origin_bounds: Option<Bounds<Pixels>>,
     pub(super) target: Point<Pixels>,
     pub(super) target_bounds: Bounds<Pixels>,
     pub(super) presentation: DispatchEffectPresentation,
@@ -55,7 +57,7 @@ pub(crate) fn command_dock_center(viewport: Size<Pixels>) -> Point<Pixels> {
 
 pub(crate) fn render(app: &MultisoulApp, window: &mut Window) -> Option<AnyElement> {
     let viewport = app.runtime.document.viewport;
-    let origin = command_dock_center(window.viewport_size());
+    let dock_origin = command_dock_center(window.viewport_size());
     let frames = app
         .motion
         .dispatch_receipt_presentations()
@@ -82,8 +84,27 @@ pub(crate) fn render(app: &MultisoulApp, window: &mut Window) -> Option<AnyEleme
             if !screen_point_visible(target, window.viewport_size()) {
                 return None;
             }
+            let (origin, origin_bounds) = match presentation.origin {
+                DispatchVisualOrigin::CommandDock => (dock_origin, None),
+                DispatchVisualOrigin::AgentNode(source_node_id) => {
+                    let source_node = app.runtime.document.node(source_node_id)?;
+                    if !matches!(source_node.kind, CanvasNodeKind::Agent(_)) {
+                        return None;
+                    }
+                    let source_bounds = node_screen_bounds(app, source_node.id, source_node.bounds);
+                    let source_center = bounds_center(source_bounds);
+                    if !screen_point_visible(source_center, window.viewport_size()) {
+                        return None;
+                    }
+                    (
+                        agent_card_launch_origin(source_bounds, target),
+                        Some(source_bounds),
+                    )
+                }
+            };
             Some(DispatchEffectFrame {
                 origin,
+                origin_bounds,
                 target,
                 target_bounds,
                 presentation,
@@ -93,7 +114,7 @@ pub(crate) fn render(app: &MultisoulApp, window: &mut Window) -> Option<AnyEleme
     #[cfg(feature = "e2e-test-support")]
     let mut frames = frames;
     #[cfg(feature = "e2e-test-support")]
-    if let Some(preview) = visual_preview_frame(app, origin) {
+    if let Some(preview) = visual_preview_frame(app, dock_origin) {
         frames.push(preview);
     }
     if frames.is_empty() {
@@ -161,11 +182,55 @@ pub(super) fn build_paint_plan(
 fn offset_frame(mut frame: DispatchEffectFrame, offset: Point<Pixels>) -> DispatchEffectFrame {
     frame.origin.x += offset.x;
     frame.origin.y += offset.y;
+    if let Some(origin_bounds) = &mut frame.origin_bounds {
+        origin_bounds.origin.x += offset.x;
+        origin_bounds.origin.y += offset.y;
+    }
     frame.target.x += offset.x;
     frame.target.y += offset.y;
     frame.target_bounds.origin.x += offset.x;
     frame.target_bounds.origin.y += offset.y;
     frame
+}
+
+fn node_screen_bounds(
+    app: &MultisoulApp,
+    node_id: canvas::NodeId,
+    canonical_bounds: canvas::CanvasRect,
+) -> Bounds<Pixels> {
+    let viewport = app.runtime.document.viewport;
+    let rect = app.motion.current_node_rect(node_id, canonical_bounds);
+    let screen_origin = viewport.canvas_to_screen(rect.origin);
+    Bounds {
+        origin: point(px(screen_origin.x), px(screen_origin.y)),
+        size: Size {
+            width: px(rect.size.x * viewport.zoom),
+            height: px(rect.size.y * viewport.zoom),
+        },
+    }
+}
+
+fn bounds_center(bounds: Bounds<Pixels>) -> Point<Pixels> {
+    point(
+        bounds.origin.x + bounds.size.width / 2.0,
+        bounds.origin.y + bounds.size.height / 2.0,
+    )
+}
+
+pub(super) fn agent_card_launch_origin(
+    source_bounds: Bounds<Pixels>,
+    target: Point<Pixels>,
+) -> Point<Pixels> {
+    let center = bounds_center(source_bounds);
+    let dx = f32::from(target.x - center.x);
+    let dy = f32::from(target.y - center.y);
+    if dx.abs() < f32::EPSILON && dy.abs() < f32::EPSILON {
+        return center;
+    }
+    let half_width = (f32::from(source_bounds.size.width) / 2.0).max(f32::EPSILON);
+    let half_height = (f32::from(source_bounds.size.height) / 2.0).max(f32::EPSILON);
+    let scale = 1.0 / (dx.abs() / half_width).max(dy.abs() / half_height);
+    point(center.x + px(dx * scale), center.y + px(dy * scale))
 }
 
 pub(super) fn screen_point_visible(point: Point<Pixels>, viewport: Size<Pixels>) -> bool {
@@ -178,9 +243,10 @@ pub(super) fn screen_point_visible(point: Point<Pixels>, viewport: Size<Pixels>)
 #[cfg(feature = "e2e-test-support")]
 fn visual_preview_frame(app: &MultisoulApp, origin: Point<Pixels>) -> Option<DispatchEffectFrame> {
     let preview = std::env::var("NORMA_VISUAL_PREVIEW").ok()?;
-    let (requested_phase, progress) = match preview.as_str() {
-        "dispatch-receipt-flight" => (DispatchEffectPhase::Flight, 0.62),
-        "dispatch-receipt-impact" => (DispatchEffectPhase::Impact, 0.28),
+    let (requested_phase, progress, agent_handoff) = match preview.as_str() {
+        "dispatch-receipt-flight" => (DispatchEffectPhase::Flight, 0.62, false),
+        "dispatch-receipt-impact" => (DispatchEffectPhase::Impact, 0.28, false),
+        "dispatch-agent-handoff-flight" => (DispatchEffectPhase::Flight, 0.56, true),
         _ => return None,
     };
     let reduce_motion = app.motion.reduce_motion;
@@ -189,12 +255,18 @@ fn visual_preview_frame(app: &MultisoulApp, origin: Point<Pixels>) -> Option<Dis
     } else {
         requested_phase
     };
-    let node = app
+    let mut agent_nodes = app
         .runtime
         .document
         .nodes()
         .iter()
-        .find(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))?;
+        .filter(|node| matches!(node.kind, CanvasNodeKind::Agent(_)));
+    let source_node = agent_nodes.next()?;
+    let node = if agent_handoff {
+        agent_nodes.next()?
+    } else {
+        source_node
+    };
     let viewport = app.runtime.document.viewport;
     let rect = app.motion.current_node_rect(node.id, node.bounds);
     let screen_origin = viewport.canvas_to_screen(rect.origin);
@@ -209,11 +281,27 @@ fn visual_preview_frame(app: &MultisoulApp, origin: Point<Pixels>) -> Option<Dis
         target_bounds.origin.x + target_bounds.size.width / 2.0,
         target_bounds.origin.y + target_bounds.size.height / 2.0,
     );
+    let (origin, origin_bounds, visual_origin) = if agent_handoff {
+        let source_bounds = node_screen_bounds(app, source_node.id, source_node.bounds);
+        (
+            agent_card_launch_origin(source_bounds, target),
+            Some(source_bounds),
+            crate::motion::DispatchVisualOrigin::AgentNode(source_node.id),
+        )
+    } else {
+        (
+            origin,
+            None,
+            crate::motion::DispatchVisualOrigin::CommandDock,
+        )
+    };
     Some(DispatchEffectFrame {
         origin,
+        origin_bounds,
         target,
         target_bounds,
         presentation: DispatchEffectPresentation {
+            origin: visual_origin,
             target_node_id: node.id,
             status: DispatchReceiptVisualStatus::Submitted,
             phase,

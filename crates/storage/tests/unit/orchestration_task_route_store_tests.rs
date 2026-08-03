@@ -96,6 +96,86 @@ fn operation_id_reservation_is_idempotent_persistent_and_conflict_safe() {
     );
 }
 
+/// 全局任务结果持久化：终态回复必须与派发幂等回执分栏保存并按 task_ref 重读。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   global task rows = 1，task_ref = "global-result-1"
+///   JSON 字段 = 派发回执(1) + Agent 最终结果(1) = 2 个不同用途的持久字段
+///   result.text 字符数 = 5 < 1200 上限 → truncated=false
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 预留并完成一条 queued 的跨 Workspace 派发路由。
+///   2. 以同一 global task_ref 更新状态为 done，并写入 Agent 最终结果 JSON。
+///   3. 重建 Store，按 global task_ref 读取终态记录。
+///
+/// 预期结果：
+///   - 正断言：状态为 done，task_result_json 保留 available 回复与截断标记。
+///   - 正断言：原 result_json 仍是首次派发幂等回执。
+///   - 负断言：Agent 回复不得覆盖派发回执，也不得丢失为 None。
+#[test]
+fn terminal_result_is_persisted_separately_from_dispatch_replay() {
+    let temp = tempfile::tempdir().expect("测试应创建隔离数据库目录");
+    let database_path = temp.path().join("app.sqlite");
+    let store = OrchestrationTaskRouteStore::new(database_path.clone());
+    let route = NewOrchestrationTaskRoute {
+        task_ref: "global-result-1".to_string(),
+        operation_id: "operation-result-1".to_string(),
+        request_fingerprint: "hash-result-1".to_string(),
+        source_workspace_id: "workspace-a".to_string(),
+        source_definition_id: 11,
+        source_provider: "codex".to_string(),
+        source_node_id_at_dispatch: 101,
+        target_workspace_id: "workspace-b".to_string(),
+        target_definition_id: 22,
+        parent_task_ref: None,
+        root_task_ref: "global-result-1".to_string(),
+    };
+    store.reserve(&route).expect("全局任务应成功预留");
+    let dispatch_replay = r#"{"task_id":"global-result-1"}"#;
+    store
+        .complete(
+            "operation-result-1",
+            "runtime-b:9",
+            22,
+            "Bella",
+            202,
+            "queued",
+            "managed",
+            dispatch_replay,
+        )
+        .expect("派发路由应完成绑定");
+    let task_result = r#"{"availability":"available","text":"检查已完成","truncated":false}"#;
+
+    store
+        .update_status_with_result("global-result-1", "done", "managed", Some(task_result))
+        .expect("终态状态与结果应原子更新");
+
+    let reopened = OrchestrationTaskRouteStore::new(database_path);
+    let persisted = reopened
+        .get("global-result-1")
+        .expect("重启后查询不应失败")
+        .expect("global task ref 应保留终态记录");
+    assert_eq!(persisted.state, "done", "最终任务状态必须持久化为 done");
+    assert_eq!(
+        persisted.task_result_json.as_deref(),
+        Some(task_result),
+        "Agent 最终回复必须保存在独立 task_result_json 字段"
+    );
+    assert_eq!(
+        persisted.result_json.as_deref(),
+        Some(dispatch_replay),
+        "Agent 回复不得覆盖用于 assign 幂等重放的首次派发回执"
+    );
+    assert!(
+        persisted.task_result_json.is_some(),
+        "done 任务的已捕获回复不得在重启后退化为 None"
+    );
+    assert_ne!(
+        persisted.task_result_json, persisted.result_json,
+        "任务结果与派发回执语义不同，不得共用同一 JSON 值"
+    );
+}
+
 /// 跨 Workspace lineage：目标本地 task ref 必须反查全局父任务并持久化同一根。
 ///
 /// 数据构造（含关键数值的推导过程）：

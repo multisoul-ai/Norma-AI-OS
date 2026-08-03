@@ -3,6 +3,7 @@ use super::{
     AgentDispatchState, AgentQueueSnapshot, AgentQueueTask, AgentRosterEntry,
     AgentTaskCancellation, AgentTaskCoordinator,
 };
+use norma::protocol::AgentTaskResult;
 use std::collections::HashMap;
 
 impl AgentTaskCoordinator {
@@ -50,6 +51,15 @@ impl AgentTaskCoordinator {
         definition_id: i64,
         terminal_state: &'static str,
     ) -> Option<AgentDispatchReceipt> {
+        self.finish_current_with_result(definition_id, terminal_state, None)
+    }
+
+    pub fn finish_current_with_result(
+        &mut self,
+        definition_id: i64,
+        terminal_state: &'static str,
+        result: Option<AgentTaskResult>,
+    ) -> Option<AgentDispatchReceipt> {
         let agent = self
             .agents
             .iter_mut()
@@ -74,6 +84,7 @@ impl AgentTaskCoordinator {
                 task: completed.task,
                 state: terminal_state,
                 tracking: agent.roster.tracking,
+                result,
             });
             trim_completed(&mut self.completed);
         }
@@ -305,6 +316,7 @@ impl AgentTaskCoordinator {
                     task: cancelled.task,
                     state: "cancelled",
                     tracking: agent.roster.tracking,
+                    result: None,
                 });
                 trim_completed(&mut self.completed);
                 return AgentTaskCancellation::Cancelled;
@@ -400,6 +412,7 @@ fn coordinated_task(
         task: task.task.clone(),
         state,
         tracking,
+        result: None,
     }
 }
 

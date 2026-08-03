@@ -1,7 +1,7 @@
 use super::endpoint::protocol_compatibility_error;
 use super::route::{WorkspaceRouteError, WorkspaceRouteIndex};
 use super::transport::NormaSocketListener;
-use norma::protocol::AgentErrorCode;
+use norma::protocol::{AgentErrorCode, CURRENT_PROTOCOL_VERSION};
 use std::io::ErrorKind;
 use std::os::unix::net::UnixStream;
 
@@ -159,24 +159,25 @@ fn workspace_routes_are_exact_and_reject_closed_generations() {
 /// 协议门禁：受管命令必须在副作用前拒绝旧版或未来版本客户端。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   current protocol = 2
-///   tested versions  = old(1) + current(2) + future(3) = 3 个
+///   current protocol = 3
+///   tested versions  = old(1) + current(3) + future(4) = 3 个
 ///   command classes  = managed(true) + neutral(false) = 2 类
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 对受管命令检查 v1、v2、v3。
+///   1. 对受管命令检查 v1、v3、v4。
 ///   2. 对非编排命令检查旧 v1 兼容路径。
 ///   3. 比较结构化错误码，不执行任何 Runtime 命令。
 ///
 /// 预期结果：
-///   - 正断言：v1 返回 client_upgrade_required，v3 返回 protocol_version_mismatch。
-///   - 正断言：当前 v2 通过，非编排 v1 保持兼容。
+///   - 正断言：v1 返回 client_upgrade_required，v4 返回 protocol_version_mismatch。
+///   - 正断言：当前 v3 通过，非编排 v1 保持兼容。
 ///   - 负断言：不兼容受管版本不得返回 None 后继续产生副作用。
 #[test]
 fn managed_protocol_versions_fail_before_side_effects() {
     let old = protocol_compatibility_error(1, true);
-    let current = protocol_compatibility_error(2, true);
-    let future = protocol_compatibility_error(3, true);
+    let current = protocol_compatibility_error(CURRENT_PROTOCOL_VERSION, true);
+    // future = current(3) + 1 = 4
+    let future = protocol_compatibility_error(CURRENT_PROTOCOL_VERSION + 1, true);
     let legacy_card = protocol_compatibility_error(1, false);
 
     assert_eq!(

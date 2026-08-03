@@ -33,6 +33,12 @@ pub(crate) enum DispatchEffectSpawnOutcome {
     DroppedCapacity,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum DispatchVisualOrigin {
+    CommandDock,
+    AgentNode(NodeId),
+}
+
 #[cfg(any(test, feature = "e2e-test-support"))]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) struct DispatchEffectCounts {
@@ -42,6 +48,7 @@ pub(crate) struct DispatchEffectCounts {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct DispatchEffectPresentation {
+    pub(crate) origin: DispatchVisualOrigin,
     pub(crate) target_node_id: NodeId,
     pub(crate) status: DispatchReceiptVisualStatus,
     pub(crate) phase: DispatchEffectPhase,
@@ -111,6 +118,7 @@ impl DispatchEffectStore {
     pub(super) fn spawn(
         &mut self,
         task_ref: String,
+        origin: DispatchVisualOrigin,
         target_node_id: NodeId,
         status: DispatchReceiptVisualStatus,
         reduce_motion: bool,
@@ -123,7 +131,7 @@ impl DispatchEffectStore {
             self.metrics.duplicate_skips = self.metrics.duplicate_skips.saturating_add(1);
             return DispatchEffectSpawnOutcome::Duplicate;
         }
-        let effect = DispatchEffect::new(&key, status, reduce_motion);
+        let effect = DispatchEffect::new(&key, origin, status, reduce_motion);
         if self.active.is_empty()
             || (self.active.len() < MAX_ACTIVE_EFFECTS
                 && self.pending.is_empty()
@@ -175,18 +183,31 @@ impl DispatchEffectStore {
         !self.active.is_empty() || !self.pending.is_empty()
     }
 
-    pub(super) fn target_node_ids(&self) -> Vec<NodeId> {
-        self.active
-            .iter()
-            .chain(&self.pending)
-            .map(|effect| effect.target_node_id)
-            .collect()
+    pub(super) fn endpoint_node_ids(&self) -> Vec<NodeId> {
+        let mut node_ids =
+            Vec::with_capacity((self.active.len() + self.pending.len()).saturating_mul(2));
+        for effect in self.active.iter().chain(&self.pending) {
+            node_ids.push(effect.target_node_id);
+            if let DispatchVisualOrigin::AgentNode(source_node_id) = effect.origin {
+                node_ids.push(source_node_id);
+            }
+        }
+        node_ids
     }
 
-    pub(super) fn retain_targets(&mut self, mut keep: impl FnMut(NodeId) -> bool) {
+    pub(super) fn retain_nodes(&mut self, mut keep: impl FnMut(NodeId) -> bool) {
         let retained_before = self.active.len() + self.pending.len();
-        self.active.retain(|effect| keep(effect.target_node_id));
-        self.pending.retain(|effect| keep(effect.target_node_id));
+        let retain_effect = |effect: &DispatchEffect, keep: &mut dyn FnMut(NodeId) -> bool| {
+            keep(effect.target_node_id)
+                && match effect.origin {
+                    DispatchVisualOrigin::CommandDock => true,
+                    DispatchVisualOrigin::AgentNode(source_node_id) => keep(source_node_id),
+                }
+        };
+        self.active
+            .retain(|effect| retain_effect(effect, &mut keep));
+        self.pending
+            .retain(|effect| retain_effect(effect, &mut keep));
         let retained_after = self.active.len() + self.pending.len();
         self.metrics.cancelled_effects = self
             .metrics
@@ -248,6 +269,7 @@ struct DispatchEffectKey {
 
 #[derive(Debug, Clone)]
 struct DispatchEffect {
+    origin: DispatchVisualOrigin,
     target_node_id: NodeId,
     status: DispatchReceiptVisualStatus,
     phase: DispatchEffectPhase,
@@ -260,6 +282,7 @@ struct DispatchEffect {
 impl DispatchEffect {
     fn new(
         key: &DispatchEffectKey,
+        origin: DispatchVisualOrigin,
         status: DispatchReceiptVisualStatus,
         reduce_motion: bool,
     ) -> Self {
@@ -269,6 +292,7 @@ impl DispatchEffect {
             MAX_PARTICLES_PER_EFFECT
         };
         Self {
+            origin,
             target_node_id: key.target_node_id,
             status,
             phase: if reduce_motion {
@@ -307,6 +331,7 @@ impl DispatchEffect {
             DispatchEffectPhase::Impact => IMPACT_DURATION,
         };
         DispatchEffectPresentation {
+            origin: self.origin,
             target_node_id: self.target_node_id,
             status: self.status,
             phase: self.phase,

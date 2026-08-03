@@ -179,6 +179,8 @@ pub(super) fn spawn_global_dispatch(
                 let _ = response_sender.send(response);
             }
             storage::OrchestrationTaskReservation::New(stored) => {
+                let visual_origin = same_workspace
+                    .then_some(crate::motion::DispatchVisualOrigin::AgentNode(source_node_id));
                 let target_source = if same_workspace {
                     source
                 } else {
@@ -191,6 +193,7 @@ pub(super) fn spawn_global_dispatch(
                         command,
                         target_source,
                         source_provider,
+                        visual_origin,
                         cx,
                     )
                 });

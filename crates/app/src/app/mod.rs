@@ -38,7 +38,10 @@ mod agent_announcements;
 mod agent_close;
 mod agent_queue;
 mod agent_runtime;
-pub(crate) use agent_runtime::{execute_agent_card_command, execute_orchestration_agent_command};
+pub(crate) use agent_runtime::{
+    execute_agent_card_command, execute_orchestration_agent_command,
+    execute_orchestration_agent_command_with_visual_origin,
+};
 mod bootstrap;
 pub(crate) mod browser;
 mod node_removal;

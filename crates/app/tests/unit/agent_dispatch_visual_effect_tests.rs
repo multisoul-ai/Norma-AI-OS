@@ -1,5 +1,6 @@
 use super::{execute_agent_card_command, execute_high_level_agent_command};
 use crate::app::AppScreen;
+use crate::motion::DispatchVisualOrigin;
 use canvas::CanvasRect;
 use gpui::TestAppContext;
 use norma::protocol::{
@@ -108,12 +109,22 @@ fn test_norma_accepted_dispatch_receipt_spawns_one_visual_effect_for_same_target
         "唯一可接受 receipt 必须创建且只创建一个视觉 effect"
     );
     assert_eq!(
+        presentations[0].origin,
+        DispatchVisualOrigin::CommandDock,
+        "原有 Norma 直接指派必须继续从 Command Dock 发射"
+    );
+    assert_eq!(
         presentations[0].target_node_id, receipt.node_id,
         "视觉 effect 必须命中 receipt 指定的真实 Agent node_id"
     );
     assert_ne!(
         presentations[0].target_node_id, 0,
         "视觉 effect 不得退化为缺失或占位目标 node_id=0"
+    );
+    assert_ne!(
+        presentations[0].origin,
+        DispatchVisualOrigin::AgentNode(receipt.node_id),
+        "原有 Norma 直接指派不得被误判成目标 Agent 自己发射"
     );
 }
 

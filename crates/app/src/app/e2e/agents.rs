@@ -49,6 +49,15 @@ impl MultisoulApp {
     }
 
     #[cfg(feature = "e2e-test-support")]
+    pub fn register_external_agent_root_for_e2e(
+        &mut self,
+        node_id: canvas::NodeId,
+        task_title: Option<String>,
+    ) -> bool {
+        self.register_external_agent_root(node_id, task_title)
+    }
+
+    #[cfg(feature = "e2e-test-support")]
     pub fn install_presentation_authorization_for_e2e(
         &mut self,
         path: std::path::PathBuf,

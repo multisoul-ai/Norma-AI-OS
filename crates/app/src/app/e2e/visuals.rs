@@ -40,6 +40,8 @@ pub struct DispatchReceiptEffectE2eSnapshot {
 #[cfg(feature = "e2e-test-support")]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DispatchReceiptEffectItemE2eSnapshot {
+    pub origin: &'static str,
+    pub origin_node_id: Option<u64>,
     pub target_node_id: u64,
     pub status: &'static str,
     pub phase: &'static str,
@@ -64,6 +66,14 @@ impl MultisoulApp {
                 .dispatch_receipt_presentations()
                 .into_iter()
                 .map(|presentation| DispatchReceiptEffectItemE2eSnapshot {
+                    origin: match presentation.origin {
+                        crate::motion::DispatchVisualOrigin::CommandDock => "dock",
+                        crate::motion::DispatchVisualOrigin::AgentNode(_) => "agent",
+                    },
+                    origin_node_id: match presentation.origin {
+                        crate::motion::DispatchVisualOrigin::CommandDock => None,
+                        crate::motion::DispatchVisualOrigin::AgentNode(node_id) => Some(node_id),
+                    },
                     target_node_id: presentation.target_node_id,
                     status: match presentation.status {
                         crate::motion::DispatchReceiptVisualStatus::Submitted => "submitted",
@@ -90,6 +100,12 @@ impl MultisoulApp {
                 .resolve_node_visual_at(node_id, canonical_rect, self.theme, Instant::now())
                 .rect,
         )
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn set_node_visual_rect_for_e2e(&mut self, node_id: canvas::NodeId, rect: CanvasRect) {
+        self.runtime.document.set_node_bounds(node_id, rect);
+        self.motion.sync_drag_rect(node_id, rect);
     }
 
     pub fn initialization_e2e_snapshot(

@@ -12,8 +12,27 @@ pub(crate) fn execute_orchestration_agent_command(
     source: agent::AgentDispatchSource,
     source_provider: AgentProfile,
 ) -> Result<CardCommandResult, CardCommandError> {
+    execute_orchestration_agent_command_with_visual_origin(
+        app,
+        window,
+        command,
+        source,
+        source_provider,
+        dispatch_visual_origin(source),
+    )
+}
+
+pub(crate) fn execute_orchestration_agent_command_with_visual_origin(
+    app: &mut MultisoulApp,
+    window: &mut Window,
+    command: CardCommand,
+    source: agent::AgentDispatchSource,
+    source_provider: AgentProfile,
+    visual_origin: Option<crate::motion::DispatchVisualOrigin>,
+) -> Result<CardCommandResult, CardCommandError> {
     match command {
         CardCommand::AgentTaskStatus { task_ref } => task_status(app, &task_ref),
+        CardCommand::AgentTaskResult { task_ref } => task_result(app, &task_ref),
         CardCommand::AgentTaskCancel { task_ref } => cancel_task(app, &task_ref),
         command => {
             let area = app.visible_canvas_rect(window);
@@ -25,6 +44,7 @@ pub(crate) fn execute_orchestration_agent_command(
                 zoom,
                 source,
                 Some(source_provider),
+                visual_origin,
             )
         }
     }
@@ -40,6 +60,7 @@ pub(crate) fn execute_high_level_agent_command(
 ) -> Result<CardCommandResult, CardCommandError> {
     match command {
         CardCommand::AgentTaskStatus { task_ref } => task_status(app, &task_ref),
+        CardCommand::AgentTaskResult { task_ref } => task_result(app, &task_ref),
         CardCommand::AgentTaskCancel { task_ref } => cancel_task(app, &task_ref),
         command => super::commands::execute_coordinated_agent_command(
             app,
@@ -48,7 +69,22 @@ pub(crate) fn execute_high_level_agent_command(
             zoom,
             source,
             source_provider,
+            dispatch_visual_origin(source),
         ),
+    }
+}
+
+fn dispatch_visual_origin(
+    source: agent::AgentDispatchSource,
+) -> Option<crate::motion::DispatchVisualOrigin> {
+    match source.queue_source {
+        agent::AgentQueueTaskSource::Norma => {
+            Some(crate::motion::DispatchVisualOrigin::CommandDock)
+        }
+        agent::AgentQueueTaskSource::Agent { .. } => source
+            .node_id
+            .map(crate::motion::DispatchVisualOrigin::AgentNode),
+        agent::AgentQueueTaskSource::Manual => None,
     }
 }
 
@@ -72,6 +108,27 @@ fn task_status(app: &MultisoulApp, task_ref: &str) -> Result<CardCommandResult, 
         status.status = AgentTaskReceiptStatus::Queued;
     }
     Ok(CardCommandResult::AgentTaskStatus { task: status })
+}
+
+fn task_result(app: &MultisoulApp, task_ref: &str) -> Result<CardCommandResult, CardCommandError> {
+    let CardCommandResult::AgentTaskStatus { task } = task_status(app, task_ref)? else {
+        unreachable!("task_status always returns AgentTaskStatus");
+    };
+    if !matches!(
+        task.status,
+        AgentTaskReceiptStatus::Done
+            | AgentTaskReceiptStatus::Failed
+            | AgentTaskReceiptStatus::Cancelled
+            | AgentTaskReceiptStatus::Interrupted
+    ) {
+        return Err(CardCommandError::agent_with_status(
+            AgentErrorCode::TaskResultNotReady,
+            "任务尚未进入终态，结果暂不可用",
+            true,
+            task.status,
+        ));
+    }
+    Ok(CardCommandResult::AgentTaskResult { task })
 }
 
 fn cancel_task(
@@ -229,6 +286,20 @@ fn wire_task_status(task: agent::AgentCoordinatedTask) -> AgentTaskStatus {
         .to_string(),
         parent_task_id: task.parent_task_ref,
         root_task_id: task.root_task_ref,
+        result: task.result.or_else(|| {
+            matches!(
+                status,
+                AgentTaskReceiptStatus::Done
+                    | AgentTaskReceiptStatus::Failed
+                    | AgentTaskReceiptStatus::Cancelled
+                    | AgentTaskReceiptStatus::Interrupted
+            )
+            .then_some(norma::protocol::AgentTaskResult {
+                availability: norma::protocol::AgentTaskResultAvailability::Unavailable,
+                text: None,
+                truncated: false,
+            })
+        }),
     }
 }
 
@@ -344,6 +415,7 @@ mod tests {
             task: "无 Hook 任务".to_string(),
             state: "running",
             tracking: agent::AgentTrackingMode::Untracked,
+            result: None,
         });
 
         assert_eq!(

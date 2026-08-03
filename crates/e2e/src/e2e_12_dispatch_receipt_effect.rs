@@ -99,6 +99,14 @@ fn e2e_12_norma_dispatch_receipt_renders_and_stops_after_impact() {
         "唯一 Queued receipt 必须创建且只创建一个 active effect"
     );
     assert_eq!(
+        flight.effects[0].origin, "dock",
+        "原有 Norma 直接指派必须继续从 Command Dock 发射"
+    );
+    assert_eq!(
+        flight.effects[0].origin_node_id, None,
+        "Command Dock 来源不得伪造 Agent source_node_id"
+    );
+    assert_eq!(
         flight.effects[0].target_node_id, receipt.node_id,
         "effect 必须命中业务 receipt 返回的同一 Agent node_id"
     );

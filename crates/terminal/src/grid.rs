@@ -183,11 +183,11 @@ impl TerminalGrid {
             screen_lines: lines as usize,
         };
         let (pty_write_tx, pty_write_rx) = unbounded();
-        let term = Term::new(
-            Config::default(),
-            &dims,
-            PtyWriteListener { tx: pty_write_tx },
-        );
+        let config = Config {
+            kitty_keyboard: true,
+            ..Config::default()
+        };
+        let term = Term::new(config, &dims, PtyWriteListener { tx: pty_write_tx });
         TerminalGrid {
             term,
             processor: Processor::new(),
@@ -214,6 +214,11 @@ impl TerminalGrid {
     /// 当前终端应用是否请求用 bracketed-paste 协议接收剪贴板文本。
     pub(crate) fn bracketed_paste_enabled(&self) -> bool {
         self.term.mode().contains(TermMode::BRACKETED_PASTE)
+    }
+
+    /// 当前终端应用是否请求区分带修饰键的控制键。
+    pub(crate) fn enhanced_keyboard_enabled(&self) -> bool {
+        self.term.mode().contains(TermMode::DISAMBIGUATE_ESC_CODES)
     }
 
     /// 产出当前屏幕的中性快照。

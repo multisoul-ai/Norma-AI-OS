@@ -1,6 +1,7 @@
 use super::super::{
     AgentDefinitionStore, AgentDispatchTaskState, AgentDispatchTaskStore, AgentDispatchTracking,
     BackgroundAgentDispatchStore, NewAgentDefinition, NewOrchestrationAgentDispatchTask,
+    StoredAgentDispatchResult,
 };
 use canvas::AgentProfile;
 
@@ -118,6 +119,90 @@ fn orchestration_task_persists_runtime_source_parent_root_and_target_fields() {
     assert!(
         !stored.task_ref.is_empty(),
         "CLI 可查询任务的 task_ref 不得为空"
+    );
+}
+
+/// 任务结果审计：终态更新必须把 Agent 最终回复绑定到精确 runtime task。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   runtime_task_id = 7；task_ref = "runtime-a:7"
+///   result.text = "测试通过，共 12 项"，11 个字符 < 1200 字符上限
+///   result.truncated = false；terminal state = Done
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建 Bella 定义和一条 Submitted 编排任务审计。
+///   2. 以 runtime_task_id=7 原子写入 Done 与 captured result。
+///   3. 按 task_ref 重新读取任务记录。
+///
+/// 预期结果：
+///   - 正断言：任务状态为 Done，结果正文和 truncated=false 均被保留。
+///   - 正断言：结果记录明确存在，即使正文列本身允许 NULL。
+///   - 负断言：原任务不得仍停留在 Submitted，也不得丢失 result。
+#[test]
+fn terminal_update_persists_result_for_exact_runtime_task() {
+    let temp = tempfile::tempdir().expect("结果审计测试应创建临时目录");
+    let path = temp.path().join("project.sqlite");
+    let definition = AgentDefinitionStore::new(path.clone())
+        .create(&NewAgentDefinition {
+            name: "Bella".to_string(),
+            runtime_profile: AgentProfile::Claude,
+            workflow_description: String::new(),
+        })
+        .expect("测试应创建 Bella 定义");
+    let store = AgentDispatchTaskStore::new(path);
+    store
+        .create_orchestration(&NewOrchestrationAgentDispatchTask {
+            runtime_instance_id: "runtime-a".to_string(),
+            runtime_task_id: 7,
+            task_ref: "runtime-a:7".to_string(),
+            root_task_ref: "runtime-a:7".to_string(),
+            parent_task_ref: None,
+            source_definition_id: None,
+            source_node_id: None,
+            source_provider: Some("codex".to_string()),
+            target_definition_id: definition.id,
+            target_node_id: 102,
+            original_instruction: "让 Bella 运行测试".to_string(),
+            task_text: "运行测试".to_string(),
+            state: AgentDispatchTaskState::Submitted,
+            tracking: AgentDispatchTracking::Managed,
+        })
+        .expect("测试应创建 Submitted 编排审计");
+    let result = StoredAgentDispatchResult {
+        text: Some("测试通过，共 12 项".to_string()),
+        truncated: false,
+    };
+
+    let updated = store
+        .finish_task_with_result(7, AgentDispatchTaskState::Done, None, Some(&result))
+        .expect("终态与结果原子更新不应失败");
+    let stored = store
+        .get_by_task_ref("runtime-a:7")
+        .expect("按 task_ref 读取结果不应失败")
+        .expect("runtime-a:7 必须仍存在");
+
+    assert!(
+        updated.is_some(),
+        "runtime_task_id=7 必须命中并更新一条任务"
+    );
+    assert_eq!(
+        stored.state,
+        AgentDispatchTaskState::Done,
+        "写入结果时任务必须同步进入 Done"
+    );
+    assert_eq!(
+        stored.result,
+        Some(result),
+        "精确 task_ref 必须返回原子持久化的 Agent 最终回复"
+    );
+    assert_ne!(
+        stored.state,
+        AgentDispatchTaskState::Submitted,
+        "已捕获结果的任务不得仍显示 Submitted"
+    );
+    assert!(
+        stored.result.is_some(),
+        "终态记录不得只保存状态而丢失 captured result"
     );
 }
 

@@ -15,6 +15,7 @@ pub(crate) fn is_managed_agent_command(command: &CardCommand) -> bool {
             | CardCommand::ListAgents
             | CardCommand::DispatchAgentTasks { .. }
             | CardCommand::AgentTaskStatus { .. }
+            | CardCommand::AgentTaskResult { .. }
             | CardCommand::AgentTaskCancel { .. }
             | CardCommand::Present { .. }
             | CardCommand::Ego { .. }
@@ -87,15 +88,17 @@ impl MultisoulApp {
         command: CardCommand,
         source: agent::AgentDispatchSource,
         source_provider: AgentProfile,
+        visual_origin: Option<crate::motion::DispatchVisualOrigin>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> norma::protocol::WireResponse {
-        let result = crate::app::execute_orchestration_agent_command(
+        let result = crate::app::execute_orchestration_agent_command_with_visual_origin(
             self,
             window,
             command,
             source,
             source_provider,
+            visual_origin,
         );
         if result.is_ok() {
             cx.notify();
@@ -205,6 +208,7 @@ pub(super) fn managed_command_label(command: &CardCommand) -> &'static str {
         CardCommand::ListAgents => "agent_list",
         CardCommand::DispatchAgentTasks { .. } => "agent_task_assign",
         CardCommand::AgentTaskStatus { .. } => "agent_task_status",
+        CardCommand::AgentTaskResult { .. } => "agent_task_result",
         CardCommand::AgentTaskCancel { .. } => "agent_task_cancel",
         CardCommand::Present {
             target: PresentationTarget::Ego,
@@ -267,6 +271,7 @@ pub(super) fn managed_error_code(error: &CardCommandError) -> &'static str {
             AgentErrorCode::TaskNotFound => "task_not_found",
             AgentErrorCode::RuntimeExpired => "runtime_expired",
             AgentErrorCode::TaskUntracked => "task_untracked",
+            AgentErrorCode::TaskResultNotReady => "task_result_not_ready",
             AgentErrorCode::TaskNotCancellable => "task_not_cancellable",
             AgentErrorCode::WaitTimeout => "wait_timeout",
             AgentErrorCode::IdempotencyConflict => "idempotency_conflict",

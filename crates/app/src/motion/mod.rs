@@ -23,6 +23,7 @@ pub(crate) use crate::motion::dispatch_receipt::DispatchEffectCounts;
 pub(crate) use crate::motion::dispatch_receipt::{
     DispatchEffectPhase, DispatchEffectPresentation, DispatchEffectSpawnOutcome,
     DispatchImpactParticle, DispatchImpactParticleKind, DispatchReceiptVisualStatus,
+    DispatchVisualOrigin,
 };
 pub(crate) use crate::motion::initialization::{
     InitializationAnimation, InitializationAnimationKind, InitializationPresentation,
@@ -128,7 +129,7 @@ impl MotionStore {
         self.nodes.retain(|id, _| live_nodes.contains(id));
         self.initializations.retain(|id, _| live_nodes.contains(id));
         self.dispatch_receipts
-            .retain_targets(|id| live_nodes.contains(&id));
+            .retain_nodes(|id| live_nodes.contains(&id));
     }
 
     pub fn ensure_node(&mut self, id: NodeId, rect: CanvasRect) {

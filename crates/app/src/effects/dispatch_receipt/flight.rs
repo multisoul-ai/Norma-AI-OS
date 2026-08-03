@@ -3,6 +3,7 @@ use super::primitives::{
     centered_bounds, oriented_ellipse_path, round_quad, smoothstep, status_style, with_alpha,
 };
 use super::{DispatchEffectFrame, DispatchPaintPlan};
+use crate::motion::DispatchVisualOrigin;
 use gpui::{point, px, quad, rgba, Path, PathBuilder, Pixels, Point};
 use ui::Theme;
 
@@ -16,7 +17,12 @@ pub(super) fn paint_flight(frame: DispatchEffectFrame, theme: Theme, plan: &mut 
     if travel <= 0.0 {
         return;
     }
-    let curve = FlightCurve::new(frame.origin, frame.target);
+    let curve = match frame.presentation.origin {
+        DispatchVisualOrigin::CommandDock => FlightCurve::new(frame.origin, frame.target),
+        DispatchVisualOrigin::AgentNode(_) => {
+            FlightCurve::new_agent_handoff(frame.origin, frame.target)
+        }
+    };
     let (color, intensity) = status_style(frame.presentation.status, theme);
     let capture = smoothstep((travel - 0.84) / 0.16);
     let visible_trail = TRAIL_LENGTH * (1.0 - capture * 0.78);
@@ -41,7 +47,18 @@ pub(super) fn paint_flight(frame: DispatchEffectFrame, theme: Theme, plan: &mut 
 
     paint_helix(&curve, trail_start, travel, color, intensity, plan);
     paint_trail_motes(&curve, trail_start, travel, color, intensity, plan);
-    paint_launch_plume(frame.origin, travel, color, intensity, plan);
+    let launch_direction = match frame.presentation.origin {
+        DispatchVisualOrigin::CommandDock => (0.0, -1.0),
+        DispatchVisualOrigin::AgentNode(_) => curve.tangent_at_travel(0.0),
+    };
+    paint_launch_plume(
+        frame.origin,
+        launch_direction,
+        travel,
+        color,
+        intensity,
+        plan,
+    );
 
     let head = curve.point_at_travel(travel);
     let tangent = curve.tangent_at_travel(travel);
@@ -127,6 +144,7 @@ fn paint_trail_motes(
 
 fn paint_launch_plume(
     origin: Point<Pixels>,
+    direction: (f32, f32),
     travel: f32,
     color: u32,
     intensity: f32,
@@ -145,8 +163,9 @@ fn paint_launch_plume(
         ));
     }
     let mut rays = PathBuilder::stroke(px(1.1));
+    let launch_angle = direction.1.atan2(direction.0);
     for index in 0..5 {
-        let angle = -std::f32::consts::FRAC_PI_2 + (index as f32 - 2.0) * 0.34;
+        let angle = launch_angle + (index as f32 - 2.0) * 0.34;
         let inner = 5.0 + local * 3.0;
         let outer = inner + 13.0 * (1.0 - local);
         rays.move_to(point(

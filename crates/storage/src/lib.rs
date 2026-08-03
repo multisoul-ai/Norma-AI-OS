@@ -30,7 +30,7 @@ pub use agent_definition_store::{
 };
 pub use agent_dispatch_store::{
     AgentDispatchTaskState, AgentDispatchTaskStore, AgentDispatchTracking, NewAgentDispatchTask,
-    NewOrchestrationAgentDispatchTask, StoredAgentDispatchTask,
+    NewOrchestrationAgentDispatchTask, StoredAgentDispatchResult, StoredAgentDispatchTask,
 };
 pub use app_store::{default_app_data_dir, default_app_db_path, legacy_app_data_dir, AppStore};
 pub use background_agent_dispatch::BackgroundAgentDispatchStore;

@@ -1,5 +1,5 @@
 use crate::AgentName;
-use norma::protocol::AgentProfile;
+use norma::protocol::{AgentProfile, AgentTaskResult};
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -137,6 +137,7 @@ pub struct AgentCoordinatedTask {
     pub task: String,
     pub state: &'static str,
     pub tracking: AgentTrackingMode,
+    pub result: Option<AgentTaskResult>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

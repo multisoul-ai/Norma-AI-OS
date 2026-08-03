@@ -248,13 +248,15 @@ impl MultisoulApp {
                     let speak_agent_completions = app.dialogue.is_active()
                         && app.voice_settings.values().interaction_mode()
                             == crate::settings::voice::VoiceInteractionMode::ContinuousListening;
-                    for node_id in agent_hook_report.terminal_node_ids {
+                    for terminal in agent_hook_report.terminal_tasks {
+                        let node_id = terminal.node_id;
                         if speak_agent_completions {
                             if let Some(report) = app.agent_completion_report_for_node(node_id) {
                                 app.dialogue.queue_agent_report(report);
                             }
                         }
-                        queue_changed |= app.advance_agent_task_queue(node_id);
+                        queue_changed |= app
+                            .advance_agent_task_queue_with_result(node_id, Some(terminal.result));
                     }
                     app.advance_session_reply_queue();
                     let runtime_events = app.runtime.take_events();

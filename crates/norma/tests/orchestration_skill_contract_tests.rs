@@ -87,15 +87,17 @@ fn install_paths(root: &Path) -> InstallPaths {
 ///   Workspace 发现命令数 = 1（workspace list）
 ///   目标选择参数数 = 1（--workspace <workspace_id>）
 ///   幂等键数 = 1（同一 operation_id 在不确定结果后继续复用）
+///   结果读取路径 = wait 终态直返(1) + result 单次查询(1) = 2 条
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 在隔离目录安装 Codex 的受管编排 Skill。
 ///   2. 读取安装后的 SKILL.md，检查跨 Workspace 发现与显式路由说明。
-///   3. 检查诊断、幂等重试、终态判断和 untracked 安全边界。
+///   3. 检查诊断、幂等重试、终态结果读取和 untracked 安全边界。
 ///
 /// 预期结果：
 ///   - 正断言：Skill 要求使用 workspace list、--workspace、doctor、version 和 operation_id。
 ///   - 正断言：不确定结果只能复用原 operation_id，终态结果可以直接完成。
+///   - 正断言：wait 终态直接消费 result，也可用 task result 精确查询。
 ///   - 负断言：不得建议每窗口启动服务，也不得自动使用 --force-untracked。
 #[test]
 fn managed_orchestration_skill_documents_global_cross_workspace_contract() {
@@ -149,6 +151,16 @@ fn managed_orchestration_skill_documents_global_cross_workspace_contract() {
     assert!(
         source.contains("terminal status"),
         "已存在终态结果时 Skill 必须允许直接按终态完成"
+    );
+    assert!(
+        source.contains("wait <task_id> --format json")
+            && source.contains("terminal response includes the task result"),
+        "受管 Skill 必须明确 wait 的终态响应直接携带任务结果"
+    );
+    assert!(
+        source.contains("task result <task_id> --format json")
+            && source.contains("task_result_not_ready"),
+        "受管 Skill 必须说明独立 result 查询及其可重试未就绪错误"
     );
     assert!(
         source.contains("managed receipt") && source.contains("untracked receipt"),

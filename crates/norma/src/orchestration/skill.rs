@@ -73,8 +73,15 @@ syntax.
 After assignment, accept success only when the CLI returns a task receipt. For a managed receipt,
 automatically call `wait <task_id> --format json` when the user asked for completion. For an
 untracked receipt, stop automatic waiting and explain that completion cannot be tracked reliably.
-A terminal status is authoritative even when tracking is `untracked`. If a non-terminal untracked
-task cannot be waited on, report that limitation rather than claiming completion.
+A terminal status is authoritative even when tracking is `untracked`. The terminal response includes the task result
+at `result.task.result`. If a non-terminal untracked task cannot be waited on, report that limitation
+rather than claiming completion.
+
+For a one-shot result lookup, run `"{command}" agent task result <task_id> --format json`. Read only
+the result bound to that exact opaque task ID. A `task_result_not_ready` error means the task exists
+but has not reached a terminal state; it is retryable as a read-only query with bounded backoff.
+When a terminal result reports `availability=unavailable`, preserve the terminal status and say that
+the Provider did not supply a trustworthy final reply; never substitute the latest conversation.
 
 If an assignment returns `outcome_unknown`, times out, disconnects, or otherwise has an uncertain
 side-effect result, stop and diagnose first. To resolve the original assignment, retry only by

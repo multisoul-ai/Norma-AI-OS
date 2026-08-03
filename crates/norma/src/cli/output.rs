@@ -1,6 +1,6 @@
 use super::{CliOutput, OutputFormat};
 use crate::protocol::{
-    AgentErrorCode, AgentTaskReceiptStatus, CardCommandError, CardCommandResult,
+    AgentErrorCode, AgentTaskReceiptStatus, AgentTaskStatus, CardCommandError, CardCommandResult,
 };
 use serde::Serialize;
 use serde_json::json;
@@ -99,9 +99,8 @@ pub fn format_result(result: &CardCommandResult) -> String {
             })
             .collect::<Vec<_>>()
             .join("\n"),
-        CardCommandResult::AgentTaskStatus { task } => {
-            format!("{}\t{:?}\t{}", task.task_id, task.status, task.target_name)
-        }
+        CardCommandResult::AgentTaskStatus { task }
+        | CardCommandResult::AgentTaskResult { task } => format_task_status(task),
         CardCommandResult::AgentTaskCancelled { task_id, status } => {
             format!("{task_id}\t{status:?}")
         }
@@ -244,7 +243,8 @@ fn result_json(result: &CardCommandResult) -> Result<serde_json::Value, serde_js
         }
         CardCommandResult::AgentsListed { agents } => json!({ "agents": agents }),
         CardCommandResult::AgentTasksDispatched { receipts } => json!({ "receipts": receipts }),
-        CardCommandResult::AgentTaskStatus { task } => json!({ "task": task }),
+        CardCommandResult::AgentTaskStatus { task }
+        | CardCommandResult::AgentTaskResult { task } => json!({ "task": task }),
         CardCommandResult::AgentTaskCancelled { task_id, status } => {
             json!({ "task_id": task_id, "status": status })
         }
@@ -266,6 +266,18 @@ fn result_json(result: &CardCommandResult) -> Result<serde_json::Value, serde_js
         CardCommandResult::EgoStatus { status } => json!({ "status": status }),
         other => serde_json::to_value(other)?,
     })
+}
+
+fn format_task_status(task: &AgentTaskStatus) -> String {
+    let result = task
+        .result
+        .as_ref()
+        .and_then(|result| result.text.as_deref())
+        .unwrap_or("-");
+    format!(
+        "{}\t{:?}\t{}\t{}",
+        task.task_id, task.status, task.target_name, result
+    )
 }
 
 fn protocol_failure(error: &CardCommandError) -> (ProtocolFailure, i32) {

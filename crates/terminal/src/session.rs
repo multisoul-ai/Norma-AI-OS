@@ -1,7 +1,7 @@
 //! TerminalSession：把 PtyHandle + TerminalGrid + 通道接收端组装为一个可 drain 的会话。
 
 use crate::grid::{terminal_wheel_action, GridSnapshot, TerminalGrid, TerminalWheelAction};
-use crate::input::{encode, KeyInput};
+use crate::input::{encode_for_keyboard_mode, KeyInput};
 use crate::message::PtyEvent;
 use crate::paste::encode_paste;
 use crate::pty::{PtyBackend, PtyCommand, PtyError, PtyHandle};
@@ -108,7 +108,8 @@ impl TerminalSession {
     }
 
     pub fn write_input(&mut self, input: &KeyInput) -> Result<(), PtyError> {
-        let bytes = encode(input);
+        let enhanced_keyboard = self.grid.enhanced_keyboard_enabled();
+        let bytes = encode_for_keyboard_mode(input, enhanced_keyboard);
         self.pty.write(&bytes)
     }
 

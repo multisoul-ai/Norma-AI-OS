@@ -63,3 +63,61 @@ fn test_spawn_with_backend_echo_drives_session() {
         first_row
     );
 }
+
+/// Option+Enter：终端应用请求增强键盘协议后必须保留 Alt 修饰，不能退化为提交键。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   keyboard mode request = CSI > 7 u = ESC(1) + "[>7u"(4) = 5 bytes
+///   Option/Alt modifier value = 1(default) + 2(alt bit) = 3
+///   expected Option+Enter = CSI 13;3u = ESC(1) + "[13;3u"(6) = 7 bytes
+///   forbidden plain Enter = CR = [0x0d] = 1 byte
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 建立 recording backend 与 TerminalSession，保留协议输出 sender。
+///   2. 从 PTY 输出侧注入 CSI > 7 u，并 drain 到 TerminalGrid 激活增强键盘模式。
+///   3. 通过公开 `write_input` 写入 Key::Enter + alt=true，模拟 macOS Option+Enter。
+///   4. 读取 recording backend 的真实 PTY 写入字节。
+///
+/// 预期结果：
+///   - 正断言：协议声明被 drain，确保测试确实处于增强键盘模式。
+///   - 正断言：PTY 精确收到 CSI 13;3u，保留 Option 修饰供 TUI 插入换行。
+///   - 负断言：PTY 不得收到裸 CR，否则 TUI 会把它当成 Enter 并直接提交。
+#[test]
+fn test_option_enter_uses_csi_u_when_enhanced_keyboard_is_enabled() {
+    let (tx, rx) = unbounded();
+    let protocol_tx = tx.clone();
+    let writes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let backend = TestPtyBackend::recording(tx, writes.clone());
+    let mut session = TerminalSession::spawn_with_backend(8, 80, 24, Box::new(backend), rx);
+
+    protocol_tx
+        .send(crate::message::PtyEvent::Output(b"\x1b[>7u".to_vec()))
+        .expect("测试 PTY 应能声明增强键盘协议");
+    let mode_drained = session.drain();
+    session
+        .write_input(&crate::input::KeyInput {
+            key: crate::input::Key::Enter,
+            ctrl: false,
+            alt: true,
+        })
+        .expect("Option+Enter 应成功写入 recording PTY");
+
+    let recorded = writes
+        .lock()
+        .expect("Option+Enter 写入记录锁不应被污染")
+        .clone();
+    assert!(
+        mode_drained,
+        "CSI > 7 u 应被 session drain，确保增强键盘模式已激活"
+    );
+    assert_eq!(
+        recorded,
+        vec![b"\x1b[13;3u".to_vec()],
+        "增强键盘模式下 Option+Enter 应精确编码为 CSI 13;3u，实际写入: {recorded:?}"
+    );
+    assert_ne!(
+        recorded,
+        vec![vec![0x0d]],
+        "Option+Enter 不得退化为裸 CR，否则 TUI 会直接提交消息"
+    );
+}

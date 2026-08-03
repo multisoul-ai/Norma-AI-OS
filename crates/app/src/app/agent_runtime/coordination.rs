@@ -3,6 +3,8 @@ use runtime::InputMode;
 
 use super::super::MultisoulApp;
 
+mod task_result;
+
 impl MultisoulApp {
     pub(crate) fn current_canvas_context_for_provider(
         &self,
@@ -186,71 +188,6 @@ impl MultisoulApp {
             });
         }
         true
-    }
-
-    pub(crate) fn advance_agent_task_queue(&mut self, node_id: NodeId) -> bool {
-        let Some(definition_id) = self.runtime.document.node(node_id).and_then(|node| {
-            let CanvasNodeKind::Agent(spec) = &node.kind else {
-                return None;
-            };
-            spec.definition_id
-        }) else {
-            return false;
-        };
-        let runtime_state = self.runtime.agent_task_state(node_id);
-        if matches!(runtime_state, Some(runtime::AgentTaskState::Ended)) {
-            let coordinator_changed = self
-                .agent_task_coordinator
-                .as_mut()
-                .and_then(|coordinator| {
-                    coordinator.finish_all_with_state(definition_id, "interrupted")
-                })
-                .is_some_and(|(was_busy, cancelled_queued)| was_busy || cancelled_queued > 0);
-            self.pending_agent_submissions.remove_node(node_id);
-            if let Some(writer) = self.persistence.agent_dispatch_writer() {
-                writer.interrupt_definition(definition_id);
-            }
-            return coordinator_changed;
-        }
-        let cancel_requested = self
-            .agent_task_coordinator
-            .as_ref()
-            .is_some_and(|coordinator| coordinator.is_cancel_requested(definition_id));
-        let (terminal_state, coordinator_state, terminal_error) = match runtime_state {
-            Some(runtime::AgentTaskState::Done) if cancel_requested => (
-                storage::AgentDispatchTaskState::Interrupted,
-                "interrupted",
-                None,
-            ),
-            Some(runtime::AgentTaskState::Done) => {
-                (storage::AgentDispatchTaskState::Done, "succeeded", None)
-            }
-            Some(runtime::AgentTaskState::Failed { message }) => (
-                storage::AgentDispatchTaskState::Failed,
-                "failed",
-                Some(message),
-            ),
-            _ => (
-                storage::AgentDispatchTaskState::Interrupted,
-                "interrupted",
-                None,
-            ),
-        };
-        let writer = self.persistence.agent_dispatch_writer().cloned();
-        let next = self
-            .agent_task_coordinator
-            .as_mut()
-            .and_then(|coordinator| {
-                coordinator.finish_current_with_state(definition_id, coordinator_state)
-            });
-        if let Some(writer) = writer.as_ref() {
-            writer.finish_current(definition_id, terminal_state, terminal_error);
-        }
-        if let Some(candidate) = next {
-            self.pending_agent_submissions.enqueue_immediate(candidate);
-            return true;
-        }
-        false
     }
 
     pub(crate) fn agent_completion_report_for_node(&self, node_id: NodeId) -> Option<String> {

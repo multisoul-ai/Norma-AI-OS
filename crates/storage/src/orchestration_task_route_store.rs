@@ -36,6 +36,7 @@ pub struct OrchestrationTaskRoute {
     pub state: String,
     pub tracking: String,
     pub result_json: Option<String>,
+    pub task_result_json: Option<String>,
     pub error_code: Option<String>,
     pub created_at_unix: u64,
     pub updated_at_unix: u64,
@@ -164,15 +165,33 @@ impl OrchestrationTaskRouteStore {
     }
 
     pub fn update_status(&self, task_ref: &str, state: &str, tracking: &str) -> StorageResult<()> {
+        self.update_status_with_result(task_ref, state, tracking, None)
+    }
+
+    pub fn update_status_with_result(
+        &self,
+        task_ref: &str,
+        state: &str,
+        tracking: &str,
+        task_result_json: Option<&str>,
+    ) -> StorageResult<()> {
         let connection = open_app_connection(&self.path)?;
         let now = current_unix_timestamp()?;
         let terminal_at = is_terminal_state(state).then_some(now);
         let changed = connection.execute(
             "UPDATE orchestration_task_routes
              SET state = ?1, tracking = ?2,
-                 updated_at_unix = ?3, terminal_at_unix = COALESCE(terminal_at_unix, ?4)
-             WHERE task_ref = ?5",
-            params![state, tracking, now, terminal_at, task_ref],
+                 task_result_json = COALESCE(?3, task_result_json),
+                 updated_at_unix = ?4, terminal_at_unix = COALESCE(terminal_at_unix, ?5)
+             WHERE task_ref = ?6",
+            params![
+                state,
+                tracking,
+                task_result_json,
+                now,
+                terminal_at,
+                task_ref
+            ],
         )?;
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows.into());
@@ -381,7 +400,7 @@ fn route_select_prefix() -> &'static str {
             source_node_id_at_dispatch, target_workspace_id,
             parent_task_ref, root_task_ref, target_task_ref,
             target_definition_id, target_name, target_node_id_at_dispatch,
-            state, tracking, result_json, error_code,
+            state, tracking, result_json, task_result_json, error_code,
             created_at_unix, updated_at_unix, terminal_at_unix
      FROM orchestration_task_routes"
 }
@@ -406,10 +425,11 @@ fn decode_route(row: &Row<'_>) -> rusqlite::Result<OrchestrationTaskRoute> {
         state: row.get(14)?,
         tracking: row.get(15)?,
         result_json: row.get(16)?,
-        error_code: row.get(17)?,
-        created_at_unix: row.get(18)?,
-        updated_at_unix: row.get(19)?,
-        terminal_at_unix: row.get(20)?,
+        task_result_json: row.get(17)?,
+        error_code: row.get(18)?,
+        created_at_unix: row.get(19)?,
+        updated_at_unix: row.get(20)?,
+        terminal_at_unix: row.get(21)?,
     })
 }
 

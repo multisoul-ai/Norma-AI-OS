@@ -8,8 +8,10 @@ use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use gpui::App;
 use norma::agent_hook::{
-    extract_prompt_text, task_state_for_provider_event, AgentHookEvent, AgentHookTaskState,
+    extract_prompt_text, observe_conversation, task_state_for_provider_event, AgentHookEvent,
+    AgentHookTaskState, ConversationObservationKind,
 };
+use norma::protocol::{AgentTaskResult, AgentTaskResultAvailability};
 use runtime::{
     AgentHookRuntimeConfig, AgentTaskState, AgentTaskUpdate, AgentTaskUpdateOutcome, Runtime,
 };
@@ -36,7 +38,7 @@ pub(crate) struct AgentHookDrainReport {
     pub(crate) session_binding_changed: bool,
     pub(crate) started_tasks: Vec<AgentHookStartedTask>,
     pub(crate) ready_node_ids: Vec<u64>,
-    pub(crate) terminal_node_ids: Vec<u64>,
+    pub(crate) terminal_tasks: Vec<AgentHookTerminalTask>,
     pub(crate) events: Vec<AgentHookEvent>,
 }
 
@@ -44,6 +46,12 @@ pub(crate) struct AgentHookDrainReport {
 pub(crate) struct AgentHookStartedTask {
     pub(crate) node_id: u64,
     pub(crate) task_title: Option<String>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) struct AgentHookTerminalTask {
+    pub(crate) node_id: u64,
+    pub(crate) result: AgentTaskResult,
 }
 
 impl AgentHookServer {
@@ -120,6 +128,10 @@ impl AgentHookServer {
                 agent_task_state_from_hook_event(&event),
                 Some(AgentTaskState::Done | AgentTaskState::Failed { .. } | AgentTaskState::Ended)
             );
+            let terminal_task = is_terminal.then(|| AgentHookTerminalTask {
+                node_id,
+                result: task_result_from_hook_event(&event),
+            });
             report.events.push(event.clone());
             let outcome = apply_agent_hook_event_with_outcome(runtime, event);
             if outcome.changed() {
@@ -134,13 +146,34 @@ impl AgentHookServer {
                     if is_ready {
                         report.ready_node_ids.push(node_id);
                     }
-                    if is_terminal {
-                        report.terminal_node_ids.push(node_id);
+                    if let Some(terminal_task) = terminal_task {
+                        report.terminal_tasks.push(terminal_task);
                     }
                 }
             }
         }
         report
+    }
+}
+
+fn task_result_from_hook_event(event: &AgentHookEvent) -> AgentTaskResult {
+    let observation = observe_conversation(event);
+    match observation {
+        Some(observation)
+            if observation.kind == ConversationObservationKind::CompleteAgentReply
+                && observation.text.is_some() =>
+        {
+            AgentTaskResult {
+                availability: AgentTaskResultAvailability::Available,
+                text: observation.text,
+                truncated: observation.truncated,
+            }
+        }
+        _ => AgentTaskResult {
+            availability: AgentTaskResultAvailability::Unavailable,
+            text: None,
+            truncated: false,
+        },
     }
 }
 

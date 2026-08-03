@@ -73,7 +73,7 @@ Norma OS 已具备 Agent 定义、Agent 卡片、任务协调队列、Agent Hook
 - 单次 CLI 调用向多个 Agent 批量派发。
 - 跨项目 Agent 寻址或任务派发。
 - 持久化并恢复运行队列。
-- 返回 Agent 最终回复、终端输出或工作产物。
+- 返回终端全文、文件内容或工作产物；可信 Hook 提供的有界 Agent 最终回复属于任务结果协议。
 - Agent 间实时通信、共享上下文或共享记忆。
 - 父任务结束或取消时级联取消子任务。
 - 自动启动 Norma OS。
@@ -367,6 +367,7 @@ norma agent list
 norma agent task assign <agent> --task <text>
 norma agent task status <task-id>
 norma agent task wait <task-id> [--timeout <seconds>]
+norma agent task result <task-id>
 norma agent task cancel <task-id>
 ```
 
@@ -451,12 +452,21 @@ root_task_id
 
 命令成功表示任务已被当前运行实例真实接收，不表示任务完成。
 
-### 5.8 `task status` 和 `task wait`
+### 5.8 `task status`、`task wait` 和 `task result`
 
-状态查询只返回可信状态、错误和必要时间信息，不返回：
+终态 `status` 与 `wait` 直接携带按 `task_id` 绑定的结果；`task result` 对同一结果执行单次查询。结果结构为：
 
-- Agent 最终回复；
-- 终端输出；
+```text
+availability: available | unavailable
+text: string | null
+truncated: boolean
+```
+
+仅可信 Hook 的完整 Agent 回复可产生 `available`；Provider 未提供可信回复、任务失败、取消或中断时返回 `unavailable`，不得从最新对话猜测。回复最多 1200 字符，超过时 `truncated=true`。任务尚未进入终态时，`task result` 返回可重试的 `task_result_not_ready` 与当前状态。
+
+结果协议不返回：
+
+- 终端全文；
 - 文件内容；
 - 工作产物。
 
@@ -497,6 +507,7 @@ root_task_id
 - `task_not_found`
 - `runtime_expired`
 - `task_untracked`
+- `task_result_not_ready`
 - `wait_timeout`
 - `install_conflict`
 - `component_install_failed`
@@ -782,7 +793,7 @@ Agent Hook     Ready / Missing / Failed
 - Skill 内容保持供应商中立。
 - JSON 包含 `schema_version`。
 - 未来可增加新的 Provider，而不修改 Agent 队列语义。
-- 未来可以增加任务结果或持久队列，但不在首版协议中伪装存在。
+- 未来可以增加持久队列或完整工作产物，但当前协议不得伪装存在。
 
 ### 9.5 可运维性
 
@@ -817,8 +828,8 @@ Agent Hook     Ready / Missing / Failed
 2. Token 使用配置文件  
    不引入 Keychain 和短期凭据，接受同一 macOS 用户下较弱的隔离边界。
 
-3. 不返回任务产物  
-   首版只保证派发与终态可信，避免引入终端抓取或跨 Agent 结果协议。
+3. 只返回有界最终回复，不返回任务产物
+   结果只接受可信 Hook 的完整回复并绑定到任务引用，避免引入终端抓取、文件搬运或最近对话猜测。
 
 4. 不限制嵌套深度  
    使用祖先链检测和每根任务 32 个未完成后代预算控制失控风险。
@@ -892,6 +903,9 @@ Agent Hook     Ready / Missing / Failed
 
 - [ ] `norma agent list` 返回当前项目 Agent。
 - [ ] `norma agent task assign` 一次只接收一个目标和一个任务。
+- [ ] `norma agent task wait` 在可信终态直接携带绑定结果。
+- [ ] `norma agent task result` 按精确 `task_id` 单次查询同一结果。
+- [ ] 非终态 result 返回可重试的 `task_result_not_ready` 与当前状态。
 - [ ] 所有 Agent 命令默认输出合法 JSON。
 - [ ] `--format text` 输出适合人工阅读的文本。
 - [ ] `stdout` 不混入日志。
