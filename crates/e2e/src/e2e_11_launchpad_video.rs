@@ -11,7 +11,7 @@ use crate::harness::{echo_factory, make_app};
 ///   headless window = 1 个（TestAppContext::single）
 ///   Launchpad 视频 = "wallpapers/home.mp4"（1280×720 固定应用资源）
 ///   上一版 Launchpad 视频 = "wallpapers/1406443.mp4"（3840×2160）
-///   Canvas 默认图 = "wallpapers/1331865.png"（不同扩展名与资源路径）
+///   Canvas 默认图 = "wallpapers/1331865.webp"（不同扩展名与资源路径）
 ///   三个资源各 1 条，故生产资源必须与两个旧/画布资源都不相等。
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -23,7 +23,7 @@ use crate::harness::{echo_factory, make_app};
 ///   - 正断言：初始页面是 Launchpad
 ///   - 正断言：Launchpad 背景资源精确为 wallpapers/home.mp4
 ///   - 负断言：Launchpad 背景资源不再是 wallpapers/1406443.mp4
-///   - 负断言：Launchpad 背景资源不应为 Canvas 默认的 1331865.png
+///   - 负断言：Launchpad 背景资源不应为 Canvas 默认的 1331865.webp
 #[test]
 fn e2e_11_launchpad_boots_with_dedicated_home_video() {
     let mut cx = TestAppContext::single();
@@ -46,8 +46,8 @@ fn e2e_11_launchpad_boots_with_dedicated_home_video() {
         "Launchpad 默认背景不得继续残留上一版 1406443.mp4"
     );
     assert_ne!(
-        video_asset, "wallpapers/1331865.png",
-        "Launchpad 不得继承 Canvas 的默认 PNG 背景"
+        video_asset, "wallpapers/1331865.webp",
+        "Launchpad 不得继承 Canvas 的默认 WebP 背景"
     );
 }
 

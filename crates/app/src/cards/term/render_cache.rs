@@ -178,7 +178,9 @@ pub(super) fn new_terminal_render_cache_handle_enabled() -> TerminalRenderCacheH
 fn terminal_render_cache_handle(enabled: bool) -> TerminalRenderCacheHandle {
     Rc::new(RefCell::new(TerminalRenderCache::new(
         enabled,
-        |frame: &super::paint::PreparedTerminalFrame| frame.shaped_text_runs.len(),
+        |frame: &super::paint::PreparedTerminalFrame| {
+            frame.shaped_text_runs.len() + usize::from(frame.shaped_cursor_text_run.is_some())
+        },
     )))
 }
 

@@ -10,6 +10,7 @@ use runtime::{AgentTaskState, RuntimeEvent};
 use std::collections::{HashMap, VecDeque};
 use std::time::SystemTime;
 
+mod availability;
 mod cache;
 mod dispatch;
 mod playback;
@@ -23,20 +24,46 @@ const MAX_PENDING_ANNOUNCEMENTS: usize = 32;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) struct AnnouncementEligibility {
     enabled: bool,
-    tts_available: bool,
+    tts_availability: AgentAnnouncementTtsAvailability,
 }
 
 impl AnnouncementEligibility {
+    #[cfg(test)]
     pub(super) fn new(enabled: bool, tts_available: bool) -> Self {
         Self {
             enabled,
-            tts_available,
+            tts_availability: if tts_available {
+                AgentAnnouncementTtsAvailability::Ready
+            } else {
+                AgentAnnouncementTtsAvailability::Unavailable
+            },
         }
     }
 
-    fn allows_announcement(self) -> bool {
-        self.enabled && self.tts_available
+    #[cfg(test)]
+    fn waiting_for_tts(enabled: bool) -> Self {
+        Self {
+            enabled,
+            tts_availability: AgentAnnouncementTtsAvailability::Waiting,
+        }
     }
+
+    fn with_tts_availability(
+        enabled: bool,
+        tts_availability: AgentAnnouncementTtsAvailability,
+    ) -> Self {
+        Self {
+            enabled,
+            tts_availability,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AgentAnnouncementTtsAvailability {
+    Ready,
+    Waiting,
+    Unavailable,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -75,10 +102,16 @@ struct AgentTaskRound {
     terminal_claimed: bool,
 }
 
+#[derive(Debug)]
+struct PendingAgentAnnouncement {
+    announcement: AgentAnnouncement,
+    waiting_for_tts: bool,
+}
+
 #[derive(Debug, Default)]
 pub(super) struct AgentAnnouncements {
     rounds: HashMap<NodeId, AgentTaskRound>,
-    pending: VecDeque<AgentAnnouncement>,
+    pending: VecDeque<PendingAgentAnnouncement>,
 }
 
 impl AgentAnnouncements {
@@ -91,16 +124,17 @@ impl AgentAnnouncements {
         if let RuntimeEvent::NodeRemoved { node_id, .. } = event {
             self.rounds.remove(node_id);
             self.pending
-                .retain(|announcement| announcement.node_id != *node_id);
+                .retain(|pending| pending.announcement.node_id != *node_id);
             return;
         }
-        let (node_id, outcome) = match event {
+        let (node_id, outcome, trusted_terminal_event) = match event {
             RuntimeEvent::AgentTaskStateChanged {
                 node_id,
                 source_event,
                 ..
             } if source_event == "UserPromptSubmit" => {
                 self.rounds.insert(*node_id, AgentTaskRound::default());
+                tracing::debug!(node_id, "agent announcement task round opened");
                 return;
             }
             RuntimeEvent::AgentTaskStateChanged {
@@ -108,7 +142,13 @@ impl AgentAnnouncements {
                 to: AgentTaskState::Ended | AgentTaskState::Ready,
                 ..
             } => {
-                self.rounds.remove(node_id);
+                let terminal_claimed = self
+                    .rounds
+                    .get(node_id)
+                    .is_some_and(|round| round.terminal_claimed);
+                if !terminal_claimed {
+                    self.rounds.remove(node_id);
+                }
                 return;
             }
             RuntimeEvent::AgentTaskStateChanged {
@@ -121,45 +161,100 @@ impl AgentAnnouncements {
                 else {
                     return;
                 };
-                (*node_id, outcome)
+                (*node_id, outcome, true)
             }
             RuntimeEvent::NodeRunStateChanged {
                 node_id,
                 to: runtime::NodeRunState::Error { .. },
                 ..
-            } => (*node_id, AgentAnnouncementOutcome::Failed),
+            } => (*node_id, AgentAnnouncementOutcome::Failed, false),
             _ => return,
         };
+        if !self.rounds.contains_key(&node_id) && trusted_terminal_event {
+            tracing::warn!(
+                node_id,
+                outcome = outcome.spoken_word(),
+                "agent announcement recovered task round from terminal event"
+            );
+            self.rounds.insert(node_id, AgentTaskRound::default());
+        }
         let Some(round) = self.rounds.get_mut(&node_id) else {
+            tracing::debug!(
+                node_id,
+                outcome = outcome.spoken_word(),
+                "agent announcement terminal ignored because no active task round exists"
+            );
             return;
         };
         if round.terminal_claimed {
+            tracing::debug!(
+                node_id,
+                outcome = outcome.spoken_word(),
+                "agent announcement duplicate terminal ignored"
+            );
             return;
         }
         round.terminal_claimed = true;
-        if !eligibility.allows_announcement() {
+        if !eligibility.enabled {
+            tracing::info!(
+                node_id,
+                outcome = outcome.spoken_word(),
+                reason = "disabled",
+                "agent announcement skipped"
+            );
+            return;
+        }
+        if eligibility.tts_availability == AgentAnnouncementTtsAvailability::Unavailable {
+            tracing::info!(
+                node_id,
+                outcome = outcome.spoken_word(),
+                reason = "tts_unavailable",
+                "agent announcement skipped"
+            );
             return;
         }
         let Some(agent_name) = agent_name.map(str::trim).filter(|name| !name.is_empty()) else {
+            tracing::warn!(
+                node_id,
+                outcome = outcome.spoken_word(),
+                reason = "missing_agent_name",
+                "agent announcement skipped"
+            );
             return;
         };
         if self.pending.len() == MAX_PENDING_ANNOUNCEMENTS {
             let dropped = self.pending.pop_front();
             tracing::warn!(
-                dropped_node_id = ?dropped.map(|announcement| announcement.node_id),
+                dropped_node_id = ?dropped.map(|pending| pending.announcement.node_id),
                 "agent announcement queue is full; dropped the oldest pending announcement"
             );
         }
-        self.pending
-            .push_back(AgentAnnouncement::terminal(node_id, agent_name, outcome));
+        let waiting_for_tts =
+            eligibility.tts_availability == AgentAnnouncementTtsAvailability::Waiting;
+        self.pending.push_back(PendingAgentAnnouncement {
+            announcement: AgentAnnouncement::terminal(node_id, agent_name, outcome),
+            waiting_for_tts,
+        });
+        tracing::info!(
+            node_id,
+            outcome = outcome.spoken_word(),
+            waiting_for_tts,
+            pending_count = self.pending.len(),
+            "agent announcement queued"
+        );
     }
 
     fn take_next_ready(&mut self) -> Option<AgentAnnouncement> {
-        self.pending.pop_front()
+        if self.pending.front()?.waiting_for_tts {
+            return None;
+        }
+        self.pending.pop_front().map(|pending| pending.announcement)
     }
 
-    fn clear_pending(&mut self) {
+    fn clear_pending(&mut self) -> usize {
+        let cleared = self.pending.len();
         self.pending.clear();
+        cleared
     }
 
     fn reset(&mut self) {
@@ -169,29 +264,17 @@ impl AgentAnnouncements {
 }
 
 impl MultisoulApp {
-    fn agent_announcement_playback_e2e_enabled(&self) -> bool {
-        #[cfg(feature = "e2e-test-support")]
-        {
-            self.agent_announcement_playback.e2e_enabled
-        }
-        #[cfg(not(feature = "e2e-test-support"))]
-        false
-    }
-
     pub(super) fn handle_agent_runtime_events(
         &mut self,
         events: &[RuntimeEvent],
         cx: &mut Context<Self>,
     ) {
-        let eligibility = AnnouncementEligibility::new(
+        let tts_availability = self.agent_announcement_tts_availability();
+        let eligibility = AnnouncementEligibility::with_tts_availability(
             self.voice_settings
                 .values()
                 .agent_task_announcements_enabled(),
-            super::dialogue::selected_tts_model_matches(
-                self.voice_settings.values().active_tts_model_id(),
-                self.voice_settings.values().active_tts_voice_id(),
-            ) || cfg!(feature = "e2e-test-support")
-                && self.agent_announcement_playback_e2e_enabled(),
+            tts_availability,
         );
         for event in events {
             let node_id = runtime_event_node_id(event);
@@ -211,7 +294,15 @@ impl MultisoulApp {
     }
 
     pub(crate) fn cancel_agent_announcements(&mut self) {
-        self.agent_announcements.clear_pending();
+        let active_node_id = self.agent_announcement_playback.active_node_id();
+        let cleared_pending = self.agent_announcements.clear_pending();
+        if active_node_id.is_some() || cleared_pending > 0 {
+            tracing::info!(
+                ?active_node_id,
+                cleared_pending,
+                "agent announcements cancelled"
+            );
+        }
         self.agent_announcement_playback.cancel_active();
     }
 
@@ -233,21 +324,31 @@ impl MultisoulApp {
         self.agent_announcement_playback.is_idle()
     }
 
-    fn mark_agent_announcement_started(&mut self, generation: u64) {
+    fn mark_agent_announcement_started(&mut self, generation: u64) -> bool {
         if generation != self.agent_announcement_playback.generation {
-            return;
+            return false;
         }
-        let AgentAnnouncementPlaybackPhase::Playing { started, .. } =
-            &mut self.agent_announcement_playback.phase
-        else {
-            return;
+        let started_announcement = match &mut self.agent_announcement_playback.phase {
+            AgentAnnouncementPlaybackPhase::Playing {
+                announcement,
+                started,
+            } if !*started => {
+                *started = true;
+                Some((announcement.node_id, announcement.outcome_word.clone()))
+            }
+            _ => None,
         };
-        if !*started {
-            *started = true;
-            self.agent_announcement_playback
-                .playback_events
-                .push(TtsPlaybackEvent::Started);
-        }
+        let Some((node_id, outcome)) = started_announcement else {
+            return false;
+        };
+        self.agent_announcement_playback
+            .push_playback_event(TtsPlaybackEvent::Started);
+        tracing::info!(
+            node_id,
+            outcome = %outcome,
+            "agent announcement playback started"
+        );
+        true
     }
 
     pub(super) fn finish_agent_announcement_playback(
@@ -269,16 +370,23 @@ impl MultisoulApp {
                 .detach();
         }
         if matches!(
-            phase,
+            &phase,
             AgentAnnouncementPlaybackPhase::Playing { started: true, .. }
         ) {
             self.agent_announcement_playback
-                .playback_events
-                .push(if completed {
+                .push_playback_event(if completed {
                     TtsPlaybackEvent::Finished
                 } else {
                     TtsPlaybackEvent::Interrupted
                 });
+        }
+        if let AgentAnnouncementPlaybackPhase::Playing { announcement, .. } = &phase {
+            tracing::info!(
+                node_id = announcement.node_id,
+                outcome = %announcement.outcome_word,
+                completed,
+                "agent announcement playback finished"
+            );
         }
         self.start_next_agent_announcement(cx);
         cx.notify();
@@ -327,13 +435,11 @@ impl MultisoulApp {
         let chunk = audio::PcmAudioChunk::new(PcmFormat::Pcm16, 16_000, 1, bytes)
             .expect("e2e Agent announcement PCM must be valid 16kHz mono PCM16");
         self.agent_announcement_playback
-            .playback_events
-            .push(TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(
+            .push_playback_event(TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(
                 &chunk,
             )));
         self.agent_announcement_playback
-            .playback_events
-            .push(TtsPlaybackEvent::Started);
+            .push_playback_event(TtsPlaybackEvent::Started);
         self.agent_announcement_playback.phase = AgentAnnouncementPlaybackPhase::Playing {
             announcement,
             started: true,

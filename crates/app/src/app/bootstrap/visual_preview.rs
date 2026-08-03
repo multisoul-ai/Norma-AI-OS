@@ -13,11 +13,13 @@ enum VisualPreview {
     DispatchReceiptImpact,
     Orchestration,
     GithubClone,
+    FeatureGuide,
     VoiceSetup,
     VoiceReady,
     VoiceNetworkUnavailable,
     VoiceApiKey,
     VoiceCaption,
+    VoiceWindowInset,
     AzureAsrReady,
     ZipVoiceReference,
     TtsBacklogCapacity,
@@ -32,11 +34,13 @@ impl VisualPreview {
             "dispatch-receipt-impact" => Some(Self::DispatchReceiptImpact),
             "orchestration" => Some(Self::Orchestration),
             "github-clone" => Some(Self::GithubClone),
+            "feature-guide" => Some(Self::FeatureGuide),
             "voice-setup" => Some(Self::VoiceSetup),
             "voice-ready" => Some(Self::VoiceReady),
             "voice-network-unavailable" => Some(Self::VoiceNetworkUnavailable),
             "voice-api-key" => Some(Self::VoiceApiKey),
             "voice-caption" => Some(Self::VoiceCaption),
+            "voice-window-inset" => Some(Self::VoiceWindowInset),
             "azure-asr-ready" => Some(Self::AzureAsrReady),
             "zipvoice-reference" => Some(Self::ZipVoiceReference),
             "tts-backlog-capacity" => Some(Self::TtsBacklogCapacity),
@@ -47,9 +51,10 @@ impl VisualPreview {
 
     fn canonical_theme(self) -> Option<ThemeId> {
         match self {
-            Self::AgentQueue | Self::DispatchReceiptFlight | Self::DispatchReceiptImpact => {
-                Some(ThemeId::PaperBlue)
-            }
+            Self::AgentQueue
+            | Self::DispatchReceiptFlight
+            | Self::DispatchReceiptImpact
+            | Self::FeatureGuide => Some(ThemeId::PaperBlue),
             Self::Orchestration => Some(ThemeId::SapphireNight),
             Self::GithubClone => None,
             Self::VoiceSetup
@@ -57,6 +62,7 @@ impl VisualPreview {
             | Self::VoiceNetworkUnavailable
             | Self::VoiceApiKey
             | Self::VoiceCaption
+            | Self::VoiceWindowInset
             | Self::AzureAsrReady
             | Self::ZipVoiceReference
             | Self::TtsBacklogCapacity
@@ -99,6 +105,11 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
             app.orchestration_settings.use_canonical_preview();
         }
         VisualPreview::GithubClone => {}
+        VisualPreview::FeatureGuide => {
+            app.settings_panel.close();
+            app.feature_guide.open_manually();
+            app.sync_feature_guide_media(cx);
+        }
         VisualPreview::VoiceSetup => {
             app.voice_settings = VoiceSettingsState::in_memory_default();
         }
@@ -119,6 +130,21 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
                 "请帮我整理今天的项目进展，并根据优先级列出下一步行动。我还想确认语音记录不会因为内容太长而丢失。接下来请检查所有未完成事项，标注负责人和截止日期，并把风险最高的三项单独列出来。",
                 "voice-caption visual preview",
             );
+        }
+        VisualPreview::VoiceWindowInset => {
+            app.settings_panel.close();
+            app.voice_settings.assume_visual_preview_ready_for_e2e();
+            app.begin_assistant_playback_for_e2e(cx);
+            // 30s × 16_000Hz = 480_000 mono frames；每帧 PCM16 = 2 bytes，
+            // 共 960_000 bytes。每 200ms = 3_200 frames 切换一次能量档位，
+            // 让人工验收能观察响应变化，同时不触发真实 TTS/音频输出。
+            let amplitudes = [2_000_i16, 8_000_i16, 14_000_i16, 5_000_i16];
+            let bytes = (0..480_000)
+                .flat_map(|frame| amplitudes[(frame / 3_200) % amplitudes.len()].to_le_bytes())
+                .collect();
+            let chunk = audio::PcmAudioChunk::new(audio::PcmFormat::Pcm16, 16_000, 1, bytes)
+                .expect("Voice inset visual preview PCM must be valid 16kHz mono PCM16");
+            app.queue_assistant_pcm_for_e2e(chunk, cx);
         }
         VisualPreview::AzureAsrReady => {
             app.voice_settings
@@ -233,14 +259,14 @@ mod tests {
     ///
     /// 数据构造（含关键数值的推导过程）：
     ///   supported values = agent-queue(1) + dispatch-flight(1) + dispatch-impact(1)
-    ///                      + orchestration(1) + github-clone(1)
+    ///                      + orchestration(1) + github-clone(1) + feature-guide(1)
     ///                      + setup(1) + ready(1) + network-unavailable(1)
-    ///                      + api-key(1) + caption(1)
+    ///                      + api-key(1) + caption(1) + window-inset(1)
     ///                      + azure-asr-ready(1)
     ///                      + zipvoice-reference(1) + tts-backlog-capacity(1)
-    ///                      + tts-backlog-recovered(1) = 14
+    ///                      + tts-backlog-recovered(1) = 16
     ///   unsupported values = empty(1) + unknown(1) = 2
-    ///   total cases = 14 + 2 = 16
+    ///   total cases = 16 + 2 = 18
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. 解析 `agent-queue` → AgentQueue
@@ -248,19 +274,22 @@ mod tests {
     ///   3. 解析 `dispatch-receipt-impact` → DispatchReceiptImpact
     ///   4. 解析 `orchestration` → Orchestration
     ///   5. 解析 `github-clone` → GithubClone
-    ///   6. 解析 `voice-setup` → VoiceSetup
-    ///   7. 解析 `voice-ready` → VoiceReady
-    ///   8. 解析 `voice-network-unavailable` → VoiceNetworkUnavailable
-    ///   9. 解析 `voice-api-key` → VoiceApiKey
-    ///   10. 解析 `voice-caption` → VoiceCaption
-    ///   11. 解析 `azure-asr-ready` → AzureAsrReady
-    ///   12. 解析 `zipvoice-reference` → ZipVoiceReference
-    ///   13. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
-    ///   14. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
-    ///   15. 解析空字符串与未知值 → None
+    ///   6. 解析 `feature-guide` → FeatureGuide
+    ///   7. 解析 `voice-setup` → VoiceSetup
+    ///   8. 解析 `voice-ready` → VoiceReady
+    ///   9. 解析 `voice-network-unavailable` → VoiceNetworkUnavailable
+    ///   10. 解析 `voice-api-key` → VoiceApiKey
+    ///   11. 解析 `voice-caption` → VoiceCaption
+    ///   12. 解析 `voice-window-inset` → VoiceWindowInset
+    ///   13. 解析 `azure-asr-ready` → AzureAsrReady
+    ///   14. 解析 `zipvoice-reference` → ZipVoiceReference
+    ///   15. 解析 `tts-backlog-capacity` → TtsBacklogCapacity
+    ///   16. 解析 `tts-backlog-recovered` → TtsBacklogRecovered
+    ///   17. 解析空字符串 → None
+    ///   18. 解析未知值 → None
     ///
     /// 预期结果：
-    ///   - 正断言：十四个受支持值分别映射到唯一场景
+    ///   - 正断言：十六个受支持值分别映射到唯一场景
     ///   - 负断言：空值和未知值不得意外开启视觉预览
     #[test]
     fn visual_preview_parser_accepts_only_explicit_scenarios() {
@@ -290,6 +319,11 @@ mod tests {
             "github-clone must select the canonical Clone Project modal preview"
         );
         assert_eq!(
+            VisualPreview::parse("feature-guide"),
+            Some(VisualPreview::FeatureGuide),
+            "feature-guide must select the website-derived Feature Guide modal preview"
+        );
+        assert_eq!(
             VisualPreview::parse("voice-setup"),
             Some(VisualPreview::VoiceSetup),
             "voice-setup must select the incomplete Voice Setup preview"
@@ -313,6 +347,11 @@ mod tests {
             VisualPreview::parse("voice-caption"),
             Some(VisualPreview::VoiceCaption),
             "voice-caption must select the long live transcript preview"
+        );
+        assert_eq!(
+            VisualPreview::parse("voice-window-inset"),
+            Some(VisualPreview::VoiceWindowInset),
+            "voice-window-inset must select the local PCM-driven inset preview"
         );
         assert_eq!(
             VisualPreview::parse("azure-asr-ready"),

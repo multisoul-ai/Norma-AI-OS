@@ -186,7 +186,7 @@ impl MultisoulApp {
                         self.motion.interrupt_initialization(node_id);
                         if let Err(error) = self
                             .runtime
-                            .send_node_input(node_id, NodeInput::Text(saved.text))
+                            .send_node_input(node_id, NodeInput::Paste(saved.text))
                         {
                             tracing::error!(%error, "clipboard image path paste send_node_input failed");
                         }
@@ -203,7 +203,10 @@ impl MultisoulApp {
         if let Some(text) = item.and_then(|item| item.text()) {
             self.interaction.clear_text_selection_for_node(node_id);
             self.motion.interrupt_initialization(node_id);
-            if let Err(error) = self.runtime.send_node_input(node_id, NodeInput::Text(text)) {
+            if let Err(error) = self
+                .runtime
+                .send_node_input(node_id, NodeInput::Paste(text))
+            {
                 tracing::error!(%error, "paste send_node_input failed");
             }
             return true;

@@ -29,9 +29,17 @@ impl MultisoulApp {
         {
             return;
         }
+        if !self.refresh_agent_announcement_tts_availability() {
+            return;
+        }
         let Some(announcement) = self.agent_announcements.take_next_ready() else {
             return;
         };
+        tracing::info!(
+            node_id = announcement.node_id,
+            outcome = %announcement.outcome_word,
+            "agent announcement dispatch started"
+        );
         #[cfg(feature = "e2e-test-support")]
         if self.agent_announcement_playback.e2e_enabled {
             self.start_agent_announcement_for_e2e(announcement);
@@ -108,7 +116,12 @@ impl MultisoulApp {
         let synthesized = match result {
             Ok(synthesized) => synthesized,
             Err(error) => {
-                tracing::warn!(%error, "agent announcement synthesis failed");
+                tracing::warn!(
+                    node_id = announcement.node_id,
+                    outcome = %announcement.outcome_word,
+                    %error,
+                    "agent announcement synthesis failed"
+                );
                 self.start_next_agent_announcement(cx);
                 return;
             }
@@ -172,7 +185,12 @@ impl MultisoulApp {
         let (started_rx, finished_rx) = match playback {
             Ok(receivers) => receivers,
             Err(error) => {
-                tracing::warn!(%error, "agent announcement playback failed");
+                tracing::warn!(
+                    node_id = announcement.node_id,
+                    outcome = %announcement.outcome_word,
+                    %error,
+                    "agent announcement playback failed"
+                );
                 self.agent_announcement_playback.control = None;
                 self.agent_announcement_playback.phase = AgentAnnouncementPlaybackPhase::Idle;
                 self.start_next_agent_announcement(cx);
@@ -180,22 +198,21 @@ impl MultisoulApp {
             }
         };
         self.agent_announcement_playback
-            .playback_events
-            .push(TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(
+            .push_playback_event(TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(
                 &chunk,
             )));
         self.agent_announcement_playback.phase = AgentAnnouncementPlaybackPhase::Playing {
             announcement,
             started: false,
         };
-        cx.notify();
         let completion_timeout = completion_timeout_for_chunk(&chunk);
         let executor = cx.background_executor().clone();
         cx.spawn(async move |this, cx| {
             if started_rx.recv().await.is_ok() {
                 let _ = this.update(cx, |app, cx| {
-                    app.mark_agent_announcement_started(generation);
-                    cx.notify();
+                    if app.mark_agent_announcement_started(generation) {
+                        cx.notify();
+                    }
                 });
             }
             let completed =

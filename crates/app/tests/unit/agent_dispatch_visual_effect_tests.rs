@@ -302,26 +302,25 @@ fn test_failed_norma_dispatch_receipt_does_not_spawn_success_visual_effect() {
     );
 }
 
-/// DR-T-4：非 Canvas、失活窗口和离屏目标都必须保留业务 receipt，但拒绝创建旧特效。
+/// DR-T-4：非 Canvas 和离屏目标必须保留业务 receipt，但拒绝创建旧特效。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Agent cards = 1（Alan/Codex）
-///   accepted dispatches = Launchpad(1) + inactive window(1) + offscreen area(1) = 3
+///   accepted dispatches = Launchpad(1) + offscreen area(1) = 2
 ///   fake visible area = (5000, 5000, 800, 600)，与卡片当前 rect 无交集
-///   expected unavailable skips = 3；expected visual effects = 0
+///   expected unavailable skips = 2；expected visual effects = 0
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 在 Canvas 创建 Alan 后切到 Launchpad 派发第一条任务。
-///   2. 返回 Canvas 但标记窗口失活，派发第二条任务。
-///   3. 恢复窗口活跃，并向完全离屏的可见区域派发第三条任务。
-///   4. 读取三次业务结果、Motion presentation 与结构化诊断。
+///   2. 返回 Canvas，并向完全离屏的可见区域派发第二条任务。
+///   3. 读取两次业务结果、Motion presentation 与结构化诊断。
 ///
 /// 预期结果：
-///   - 正断言：三次任务均继续返回真实业务 receipt，不被视觉门禁阻塞。
-///   - 正断言：三种不可播放上下文各记录一次 unavailable skip。
+///   - 正断言：两次任务均继续返回真实业务 receipt，不被视觉门禁阻塞。
+///   - 正断言：两种不可播放上下文各记录一次 unavailable skip。
 ///   - 负断言：任一步都不得创建稍后恢复播放的 Flight 或 Impact。
 #[test]
-fn test_norma_dispatch_visual_effect_requires_visible_active_canvas_target() {
+fn test_norma_dispatch_visual_effect_requires_visible_canvas_target() {
     let factory: runtime::PtyFactory = Box::new(|_cmd, _cols, _rows, tx| {
         Ok(Box::new(terminal::TestPtyBackend::echo(tx)) as Box<dyn terminal::PtyBackend>)
     });
@@ -364,25 +363,8 @@ fn test_norma_dispatch_visual_effect_requires_visible_active_canvas_target() {
             )
         })
     });
-    let inactive_result = cx.update(|window, app_cx| {
-        app.update(app_cx, |app, _cx| {
-            app.screen = AppScreen::Canvas;
-            app.window_active = false;
-            execute_agent_card_command(
-                app,
-                window,
-                CardCommand::DispatchAgentTasks {
-                    assignments: vec![AgentTaskAssignment {
-                        name: "Alan".to_string(),
-                        task: "后台窗口仍需返回业务 receipt".to_string(),
-                    }],
-                    force_untracked: false,
-                },
-            )
-        })
-    });
     let offscreen_result = app.update(cx, |app, _cx| {
-        app.window_active = true;
+        app.screen = AppScreen::Canvas;
         execute_high_level_agent_command(
             app,
             CardCommand::DispatchAgentTasks {
@@ -410,16 +392,12 @@ fn test_norma_dispatch_visual_effect_requires_visible_active_canvas_target() {
         "Launchpad 视觉门禁不得阻断业务派发；实际：{launchpad_result:?}"
     );
     assert!(
-        matches!(inactive_result, Ok(CardCommandResult::AgentTasksDispatched { ref receipts }) if receipts.len() == 1),
-        "失活窗口视觉门禁不得阻断业务派发；实际：{inactive_result:?}"
-    );
-    assert!(
         matches!(offscreen_result, Ok(CardCommandResult::AgentTasksDispatched { ref receipts }) if receipts.len() == 1),
         "离屏目标视觉门禁不得阻断业务派发；实际：{offscreen_result:?}"
     );
     assert_eq!(
-        diagnostics.dispatch_unavailable_skips, 3,
-        "Launchpad、失活窗口、离屏目标应各记录一次 unavailable skip"
+        diagnostics.dispatch_unavailable_skips, 2,
+        "Launchpad 与离屏目标应各记录一次 unavailable skip"
     );
     assert!(
         presentations.is_empty(),
@@ -428,6 +406,6 @@ fn test_norma_dispatch_visual_effect_requires_visible_active_canvas_target() {
     assert_eq!(
         presentations.len(),
         0,
-        "三次不可见派发后的 active presentation 数量必须明确为零"
+        "两次不可见派发后的 active presentation 数量必须明确为零"
     );
 }

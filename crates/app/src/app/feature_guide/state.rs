@@ -17,26 +17,23 @@ pub(crate) enum FeatureGuidePresentation {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum FeatureGuideTopic {
-    VoiceDispatch,
-    ContinueConversation,
-    CanvasManagement,
-    TaskStatus,
+    LiveNodeShortcuts,
+    WorkspaceLayouts,
+    AgentNotifications,
 }
 
 impl FeatureGuideTopic {
-    pub(crate) const ALL: [Self; 4] = [
-        Self::VoiceDispatch,
-        Self::ContinueConversation,
-        Self::CanvasManagement,
-        Self::TaskStatus,
+    pub(crate) const ALL: [Self; 3] = [
+        Self::LiveNodeShortcuts,
+        Self::WorkspaceLayouts,
+        Self::AgentNotifications,
     ];
 
     fn from_saved(value: &str) -> Option<Self> {
         match value {
-            "voice_dispatch" => Some(Self::VoiceDispatch),
-            "continue_conversation" => Some(Self::ContinueConversation),
-            "canvas_management" => Some(Self::CanvasManagement),
-            "task_status" => Some(Self::TaskStatus),
+            "live_node_shortcuts" => Some(Self::LiveNodeShortcuts),
+            "workspace_layouts" => Some(Self::WorkspaceLayouts),
+            "agent_notifications" => Some(Self::AgentNotifications),
             _ => None,
         }
     }
@@ -91,7 +88,7 @@ impl FeatureGuideState {
             presentation: FeatureGuidePresentation::Idle,
             topic: saved_topic
                 .and_then(FeatureGuideTopic::from_saved)
-                .unwrap_or(FeatureGuideTopic::VoiceDispatch),
+                .unwrap_or(FeatureGuideTopic::LiveNodeShortcuts),
             auto_eligible,
         }
     }
@@ -187,10 +184,9 @@ impl FeatureGuideState {
 
     pub(crate) fn serialized_topic(self) -> &'static str {
         match self.topic {
-            FeatureGuideTopic::VoiceDispatch => "voice_dispatch",
-            FeatureGuideTopic::ContinueConversation => "continue_conversation",
-            FeatureGuideTopic::CanvasManagement => "canvas_management",
-            FeatureGuideTopic::TaskStatus => "task_status",
+            FeatureGuideTopic::LiveNodeShortcuts => "live_node_shortcuts",
+            FeatureGuideTopic::WorkspaceLayouts => "workspace_layouts",
+            FeatureGuideTopic::AgentNotifications => "agent_notifications",
         }
     }
 }

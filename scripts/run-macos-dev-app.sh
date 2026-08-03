@@ -38,6 +38,7 @@ bundle_hook="$bundle/Contents/MacOS/multisoul-agent-hook"
 auth_host_binary="$binary_dir/norma-browser-auth-host"
 bundle_auth_host="$bundle/Contents/MacOS/norma-browser-auth-host"
 wallpaper_resources="$repo_root/crates/app/assets/wallpapers"
+feature_guide_resources="$repo_root/crates/app/assets/feature-guide"
 browser_auth_extension="$repo_root/crates/app/assets/browser-auth-extension"
 bundle_resources="$bundle/Contents/Resources"
 
@@ -158,6 +159,11 @@ if [ "$binary_name" = "norma-os" ]; then
   fi
   mkdir -p "$bundle_resources"
   cp -R "$wallpaper_resources" "$bundle_resources/"
+  if [ ! -f "$feature_guide_resources/demo-live-node-shortcuts.mp4" ]; then
+    echo "Feature Guide resources are missing: $feature_guide_resources" >&2
+    exit 1
+  fi
+  cp -R "$feature_guide_resources" "$bundle_resources/"
   if [ ! -f "$browser_auth_extension/manifest.json" ]; then
     echo "Chrome authorization extension is missing: $browser_auth_extension" >&2
     exit 1

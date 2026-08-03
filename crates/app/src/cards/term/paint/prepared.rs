@@ -21,6 +21,7 @@ pub(crate) struct PreparedTerminalTextRun {
 pub(crate) struct PreparedTerminalFrame {
     pub(super) layout: TerminalLayout,
     pub(crate) shaped_text_runs: Vec<PreparedTerminalTextRun>,
+    pub(crate) shaped_cursor_text_run: Option<PreparedTerminalTextRun>,
 }
 
 pub(super) fn prepare_terminal_frame(
@@ -41,9 +42,14 @@ pub(super) fn prepare_terminal_frame(
         .iter()
         .map(|run| shape_text_run(run, metrics, window))
         .collect();
+    let shaped_cursor_text_run = layout
+        .cursor_text_run
+        .as_ref()
+        .map(|run| shape_text_run(run, metrics, window));
     PreparedTerminalFrame {
         layout,
         shaped_text_runs,
+        shaped_cursor_text_run,
     }
 }
 

@@ -3,6 +3,9 @@ use canvas::CanvasRect;
 use gpui::Context;
 use std::time::Instant;
 
+#[cfg(feature = "e2e-test-support")]
+mod preview;
+
 /// 初始化动画的稳定 e2e 投影：不暴露 app 私有 MotionStore 或帧资源实现。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct InitializationAnimationE2eSnapshot {
@@ -121,8 +124,11 @@ impl MultisoulApp {
     }
 
     pub fn begin_assistant_playback_for_e2e(&mut self, cx: &mut Context<Self>) {
-        self.voice_window_inset.begin_playback();
-        cx.notify();
+        self.voice_window_inset_events.push(
+            crate::app::voice_window_inset::TtsPlaybackSource::Assistant,
+            crate::app::voice_window_inset::TtsPlaybackEvent::Started,
+        );
+        let _ = cx;
     }
 
     /// 注入一块已成功排入播放时间线的助手 PCM，供 headless e2e 验证可见能量反馈。
@@ -131,24 +137,31 @@ impl MultisoulApp {
         chunk: audio::PcmAudioChunk,
         cx: &mut Context<Self>,
     ) {
-        self.voice_window_inset.queue_pcm_energy(&chunk);
-        cx.notify();
+        self.voice_window_inset_events.push(
+            crate::app::voice_window_inset::TtsPlaybackSource::Assistant,
+            crate::app::voice_window_inset::TtsPlaybackEvent::PcmQueued(
+                crate::app::voice_window_inset::PcmEnergyTimeline::from_pcm(&chunk),
+            ),
+        );
+        let _ = cx;
     }
 
     pub fn finish_assistant_playback_for_e2e(&mut self, cx: &mut Context<Self>) {
-        self.voice_window_inset.finish_playback();
-        cx.notify();
+        self.voice_window_inset_events.push(
+            crate::app::voice_window_inset::TtsPlaybackSource::Assistant,
+            crate::app::voice_window_inset::TtsPlaybackEvent::Finished,
+        );
+        let _ = cx;
     }
 
     pub fn voice_window_inset_e2e_snapshot(&self) -> VoiceWindowInsetE2eSnapshot {
-        match self.voice_window_inset.visual() {
+        let snapshot = self.voice_window_inset_events.snapshot();
+        match snapshot.visual {
             Some(visual) => VoiceWindowInsetE2eSnapshot {
                 active: true,
                 opacity_milli: opacity_to_milli(visual.opacity),
                 inset_px_milli: (visual.inset_px * 1000.0).round() as u16,
-                corner_seam_guard_alpha_milli: opacity_to_milli(
-                    self.voice_window_inset.corner_seam_guard_alpha(),
-                ),
+                corner_seam_guard_alpha_milli: opacity_to_milli(snapshot.corner_seam_guard_alpha),
             },
             None => VoiceWindowInsetE2eSnapshot {
                 active: false,

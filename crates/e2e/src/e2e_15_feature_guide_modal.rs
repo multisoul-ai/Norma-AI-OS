@@ -9,7 +9,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app, read_runtime};
 /// 最终识别字幕协调：TranscriptOnly 字幕存在期间导览必须暂停，字幕清除后恢复。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   selected topic index = 1（continue_conversation）
+///   selected topic index = 1（workspace_layouts）
 ///   transcript-only captions = 1（“把下一步交给小张”）
 ///   simultaneously visible high-priority surfaces = 1（字幕或导览二选一）
 ///
@@ -21,7 +21,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app, read_runtime};
 ///
 /// 预期结果：
 ///   - 正断言：最终字幕期间导览为 suspended，清除后恢复 visible。
-///   - 正断言：恢复后仍为 continue_conversation，不丢浏览进度。
+///   - 正断言：恢复后仍为 workspace_layouts，不丢浏览进度。
 ///   - 负断言：字幕与导览 overlay 不得同时可见，暂停也不能变成会话关闭。
 #[test]
 fn e2e_15_feature_guide_suspends_for_transcript_only_caption_and_resumes() {
@@ -72,7 +72,7 @@ fn e2e_15_feature_guide_suspends_for_transcript_only_caption_and_resumes() {
         "最终字幕清除后，临时暂停的导览必须自动恢复 visible"
     );
     assert_eq!(
-        resumed.topic, "continue_conversation",
+        resumed.topic, "workspace_layouts",
         "字幕暂停与恢复必须保留用户已选中的第 2 个主题"
     );
     assert!(
@@ -145,7 +145,7 @@ fn e2e_15_feature_guide_modal_blocks_background_actions() {
 ///   theme switches = 2（paper-blue → forest-mint → paper-blue）
 ///   guide opens    = 2（每次主题切换后各打开 1 次）
 ///   expected visible overlays = 1（任一时刻仅当前导览浮层可见）
-///   expected topic entries    = 4（导览固定提供 4 个功能主题）
+///   expected topic entries    = 3（导览对应官网 3 个真实产品 Demo）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 进入 Canvas，通过 Settings → Themes 切换到 Forest Mint 并关闭设置。
@@ -198,8 +198,12 @@ fn e2e_15_feature_guide_remains_readable_surface_across_light_and_dark_themes() 
         "Forest Mint 下必须渲染第 1 个功能主题入口"
     );
     assert!(
-        cx.debug_bounds("feature-guide-topic-3").is_some(),
-        "Forest Mint 下必须渲染第 4 个功能主题入口，证明四项导航完整"
+        cx.debug_bounds("feature-guide-topic-2").is_some(),
+        "Forest Mint 下必须渲染第 3 个功能主题入口，证明官网三项导航完整"
+    );
+    assert!(
+        cx.debug_bounds("feature-guide-topic-3").is_none(),
+        "Forest Mint 下不得残留旧版第 4 个主题入口"
     );
 
     click_debug(cx, "feature-guide-close");

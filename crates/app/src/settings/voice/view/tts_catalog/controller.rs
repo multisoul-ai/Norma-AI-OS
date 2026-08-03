@@ -78,6 +78,7 @@ impl MultisoulApp {
                     }
                 }
                 app.voice_settings.apply_zipvoice_reference_scan(reference);
+                app.start_next_agent_announcement(cx);
                 app.complete_voice_setup_if_ready(cx);
                 cx.notify();
             });
@@ -429,9 +430,8 @@ impl MultisoulApp {
                                 return;
                             };
                             if this
-                                .update(cx, |app, cx| {
+                                .update(cx, |app, _cx| {
                                     app.tts_preview.queue_pcm(preview_generation, &chunk);
-                                    cx.notify();
                                 })
                                 .is_err()
                             {

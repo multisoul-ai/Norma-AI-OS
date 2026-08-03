@@ -66,6 +66,9 @@ impl MultisoulApp {
                 next_cadence: None, ..
             } => {
                 self.animation_frame_cadence = None;
+                // frame-synced 淡入收束后可能刚切到 67ms ambient timer；立即唤醒
+                // timer loop 采用新 cadence，避免仍等待旧的 250ms idle 兜底。
+                self.wake_animation_frame_loop();
             }
             AnimationFrameCallbackOutcome::Advanced {
                 next_cadence: Some(cadence),
@@ -109,10 +112,12 @@ impl MultisoulApp {
     pub(in crate::app) fn animation_activity(&self) -> AnimationActivity {
         let motion_activity = self.motion.activity_summary();
         AnimationActivity {
-            voice_active: self.voice_window_inset.is_animation_active()
-                || self.has_pending_tts_playback_events()
-                || self.voice_caption_animation_active(),
+            // Voice window inset owns an independent child driver. Only the caption waveform
+            // remains on the root schedule because it is rendered inside workspace chrome.
+            voice_active: self.voice_caption_animation_active(),
             canvas_motion_active: motion_activity.canvas_active,
+            canvas_frame_synced_active: motion_activity.frame_synced_active,
+            canvas_ambient_active: motion_activity.ambient_active,
             cursor_active: self.focused_terminal_cursor_animation_active(),
             screen_is_canvas: matches!(self.screen, AppScreen::Canvas),
             window_active: self.window_active,
@@ -129,19 +134,19 @@ impl MultisoulApp {
         )
     }
 
-    pub(in crate::app) fn animation_idle_timer_interval(&self) -> Duration {
-        AnimationSchedule::idle_timer_interval(
+    pub(in crate::app) fn animation_timer_interval(&self, wakeup: AnimationWakeup) -> Duration {
+        AnimationSchedule::timer_interval(
+            wakeup,
             self.performance_settings
                 .idle_animation_throttling_enabled(),
         )
     }
 
-    pub(in crate::app) fn has_pending_tts_playback_events(&self) -> bool {
-        self.dialogue.has_pending_playback_events()
-            || self
-                .agent_announcement_playback
-                .has_pending_playback_events()
-            || self.tts_preview.has_pending_playback_events()
+    pub(in crate::app) fn animation_wakeup_and_timer_interval(
+        &self,
+    ) -> (AnimationWakeup, Duration) {
+        let wakeup = self.animation_next_wakeup();
+        (wakeup, self.animation_timer_interval(wakeup))
     }
 
     pub(in crate::app) fn advance_animation_frame(
@@ -153,28 +158,8 @@ impl MultisoulApp {
         let motion_changed = self.motion.tick(animation_delta);
         let cursor_changed = self.advance_terminal_cursor_phase(animation_delta);
         let voice_caption_changed = self.advance_voice_caption_waveform(animation_delta);
-        self.sync_voice_window_inset_enabled();
         self.tts_preview.synchronize_external_cancellation();
-        for event in self.dialogue.take_playback_events() {
-            self.voice_window_inset.apply_playback_event(
-                crate::app::voice_window_inset::TtsPlaybackSource::Assistant,
-                event,
-            );
-        }
-        for event in self.agent_announcement_playback.take_playback_events() {
-            self.voice_window_inset.apply_playback_event(
-                crate::app::voice_window_inset::TtsPlaybackSource::AgentAnnouncement,
-                event,
-            );
-        }
-        for event in self.tts_preview.take_playback_events() {
-            self.voice_window_inset.apply_playback_event(
-                crate::app::voice_window_inset::TtsPlaybackSource::Preview,
-                event,
-            );
-        }
         self.start_next_agent_announcement(cx);
-        let voice_window_inset_changed = self.voice_window_inset.tick(animation_delta);
         let diagnostics = self.motion.diagnostics();
         crate::frame_diagnostics::log_motion_sample(diagnostics);
         let report = AnimationFrameReport {
@@ -182,7 +167,7 @@ impl MultisoulApp {
             cursor_changed,
             voice_caption_changed,
             visible_working_snake: diagnostics.chase_visible_nodes > 0,
-            voice_window_inset_changed,
+            voice_window_inset_changed: false,
             elapsed: tick_started_at.elapsed(),
         };
         report.log_if_enabled();

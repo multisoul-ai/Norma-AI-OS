@@ -19,6 +19,11 @@ cargo packager --notarize --release -c Packager.toml
 ./scripts/release-local.sh --notarize
 ```
 
+Release binaries use the workspace `[profile.release]` settings: ThinLTO,
+one codegen unit, and symbol stripping. Keep these settings covered by
+`scripts/test-packager-config.sh`; removing them makes the statically linked
+Rust/macOS binary materially larger.
+
 仓库里的 `.cargo/config.toml` 会把 `cargo packager ...` 路由到
 `tools/cargo-packager-wrapper`，再由 wrapper 调用真实的 `cargo-packager`。
 默认执行 `cargo packager --release -c Packager.toml` 时，wrapper 会清掉
@@ -112,10 +117,11 @@ Codesigning 配置见 `packaging/macos/NormaOS.entitlements` 与
 
 ## Wallpaper resources
 
-Built-in wallpapers live in `crates/app/assets/wallpapers/` (3 PNG, 2 GIF, 5 MP4)。
-The MP4s are tracked by **git-lfs** (see root `.gitattributes`)；commit 的是 LFS
-指针，`git lfs pull` 后工作树才有真实字节（~141 MB），打包前 `release-local.sh`
-会强制 lfs pull。
+Built-in wallpapers live in `crates/app/assets/wallpapers/`: the Canvas catalog
+contains 9 static images, 2 GIFs, and 5 MP4s; `home.mp4` and
+`license-gate.mp4` are dedicated shell backgrounds. The MP4s are tracked by
+**git-lfs** (see root `.gitattributes`); `git lfs pull` materializes the real
+bytes before `release-local.sh` packages them.
 
 `Packager.toml` / `Packager.dev.toml` 的 `resources` glob 在签名前把 wallpapers 目录拷进 app bundle 的
 `Contents/Resources/wallpapers/`，并把 realtime card planner helper 拷进
@@ -130,3 +136,19 @@ resources = [
 
 不再需要手动 `copy-wallpaper-resources.sh`——`resources` glob 在 cargo-packager
 签名 pass 之前执行，确保 wallpapers 和 card planner helper 进入已签名 bundle。
+
+Static/GIF wallpapers are loaded from their resolved files under
+`Contents/Resources/wallpapers/`; they must not also be served by
+`EmbeddedAssets`/`include_bytes!`. The old dual path stored roughly 81 MB twice:
+once in the `norma-os` Mach-O `__const` section and once in Resources.
+
+Six large static PNGs use WebP in the current catalog. The always-visible default
+uses lossless WebP (SSIM 1.0); the other five use `cwebp -q 100` and retain their
+original pixel dimensions (measured SSIM 0.9896–0.9977). Persisted selections that
+still name the old PNGs are migrated and rewritten to the matching WebP path.
+
+`scripts/test-packager-config.sh` enforces a 140 MiB source budget for the
+packaged wallpaper directory (current total: 135.72 MiB). Video optimization
+keeps the original dimensions, frame rate, H.264/yuv420p compatibility, and
+removes unused audio; changes must be compared against the source before
+replacing an asset.

@@ -140,7 +140,8 @@ Layout:   Reflow Layout / Toggle Master Layout
 
 ### 4.2 粘贴（`⌘V`）
 
-不经 GPUI Action，在 `on_key_down` 中读取剪贴板并发送 `NodeInput::Text` 到 PTY。
+不经 GPUI Action，在 `on_key_down` 中读取剪贴板并发送 `NodeInput::Paste` 到 PTY；
+普通键入与 IME commit 使用 `NodeInput::Text`，避免被 bracketed-paste 包装后延迟 shell 的交互刷新。
 
 | 焦点状态 | 触发条件 | 行为 |
 | --- | --- | --- |

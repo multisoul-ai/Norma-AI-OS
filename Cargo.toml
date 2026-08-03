@@ -23,7 +23,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-version = "0.1.53"
+version = "0.1.64"
 license = "MIT"
 
 # 版本钉死见 Global Constraints。gpui/alacritty_terminal 精确 pin。
@@ -98,3 +98,8 @@ debug = false
 [profile.debugging]
 inherits = "dev"
 debug = true
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

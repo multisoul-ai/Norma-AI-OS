@@ -32,9 +32,43 @@ impl MultisoulApp {
         let app_store = storage::AppStore::initialize(&database_paths).unwrap_or_else(|error| {
             panic!("failed to initialize isolated e2e app database: {error}")
         });
-        let mut app = Self::new_with_database_context(cx, database_paths, app_store);
+        let agent_hook_server = AgentHookServer::start();
+        let mut runtime = Runtime::new();
+        runtime.set_agent_hook_config(agent_hook_server.runtime_config());
+        let mut app = Self::build(
+            cx,
+            runtime,
+            agent_hook_server,
+            database_paths,
+            app_store,
+            super::super::bootstrap::BootstrapSettingsSource::Stored,
+            super::super::bootstrap::OrchestrationBootstrap::Skip,
+        );
         app.test_database_guard = Some(std::sync::Arc::new(database_guard));
         app
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn new_with_database_paths_and_orchestration_paths(
+        cx: &mut Context<Self>,
+        database_paths: storage::DatabasePaths,
+        install_paths: norma::orchestration::InstallPaths,
+    ) -> Self {
+        let app_store = storage::AppStore::initialize(&database_paths).unwrap_or_else(|error| {
+            panic!("failed to initialize isolated e2e app database: {error}")
+        });
+        let agent_hook_server = AgentHookServer::start();
+        let mut runtime = Runtime::new();
+        runtime.set_agent_hook_config(agent_hook_server.runtime_config());
+        Self::build(
+            cx,
+            runtime,
+            agent_hook_server,
+            database_paths,
+            app_store,
+            super::super::bootstrap::BootstrapSettingsSource::Stored,
+            super::super::bootstrap::OrchestrationBootstrap::Paths(install_paths),
+        )
     }
 
     pub fn new_with_pty_factory_and_database_paths(
@@ -69,6 +103,7 @@ impl MultisoulApp {
             database_paths,
             app_store,
             settings_source,
+            super::super::bootstrap::OrchestrationBootstrap::Skip,
         );
         app.browsers.disable_native_views();
         app

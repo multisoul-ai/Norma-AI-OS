@@ -19,7 +19,7 @@ use crate::settings::ThemeSettingsState;
 use crate::shortcuts::ShortcutSettingsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
-use gpui::{Context, FocusHandle};
+use gpui::{AppContext as _, Context, FocusHandle};
 use runtime::Runtime;
 use ui::Theme;
 
@@ -33,6 +33,14 @@ pub(super) enum BootstrapSettingsSource {
     InMemory,
 }
 
+pub(super) enum OrchestrationBootstrap {
+    #[cfg(any(test, feature = "e2e-test-support"))]
+    Skip,
+    CurrentProcess,
+    #[cfg(feature = "e2e-test-support")]
+    Paths(norma::orchestration::InstallPaths),
+}
+
 impl MultisoulApp {
     pub(super) fn build(
         cx: &mut Context<Self>,
@@ -41,6 +49,7 @@ impl MultisoulApp {
         database_paths: storage::DatabasePaths,
         app_store: storage::AppStore,
         settings_source: BootstrapSettingsSource,
+        orchestration_bootstrap: OrchestrationBootstrap,
     ) -> Self {
         crate::network_crypto::install_network_crypto_provider();
         // 测试 / e2e 不经 `run_norma_os` 时也要装好组件库（幂等）。
@@ -119,6 +128,41 @@ impl MultisoulApp {
             cx,
         );
         crate::app::dialogue::configure_selected_tts_model(None);
+        let (voice_window_inset_events, voice_window_inset_wake_rx) =
+            crate::app::voice_window_inset::VoiceWindowInsetEventBus::new();
+        let mut dialogue = crate::app::dialogue::DialogueControlState::default();
+        dialogue.connect_playback_event_sink(
+            voice_window_inset_events
+                .sink(crate::app::voice_window_inset::TtsPlaybackSource::Assistant),
+        );
+        let mut tts_preview = crate::app::dialogue::TtsPreviewState::default();
+        tts_preview.connect_playback_event_sink(
+            voice_window_inset_events
+                .sink(crate::app::voice_window_inset::TtsPlaybackSource::Preview),
+        );
+        let mut agent_announcement_playback =
+            super::agent_announcements::AgentAnnouncementPlayback::default();
+        agent_announcement_playback.connect_playback_event_sink(
+            voice_window_inset_events
+                .sink(crate::app::voice_window_inset::TtsPlaybackSource::AgentAnnouncement),
+        );
+        let voice_window_inset_view = cx.new({
+            let events = voice_window_inset_events.clone();
+            move |voice_cx| {
+                crate::app::voice_window_inset::VoiceWindowInsetView::new(
+                    events,
+                    voice_window_inset_wake_rx,
+                    voice_cx,
+                )
+            }
+        });
+        let canvas_surface = cx.new({
+            let app = cx.weak_entity();
+            let app_entity = cx.entity();
+            move |surface_cx| {
+                super::canvas_surface::CanvasSurfaceView::new(app, app_entity, surface_cx)
+            }
+        });
         let mut app = MultisoulApp {
             database_paths,
             test_database_guard: None,
@@ -141,8 +185,7 @@ impl MultisoulApp {
             settings_viewport: SettingsViewportState::default(),
             feature_guide,
             feature_guide_settings,
-            feature_guide_media_frame: 0,
-            feature_guide_media_task: None,
+            feature_guide_media: super::feature_guide::FeatureGuideMediaState::default(),
             feature_guide_primary_focus,
             #[cfg(feature = "e2e-test-support")]
             feature_guide_primary_focused_for_e2e: false,
@@ -154,8 +197,7 @@ impl MultisoulApp {
             norma_server: NormaServer::start(),
             agent_hook_server,
             agent_announcements: super::agent_announcements::AgentAnnouncements::default(),
-            agent_announcement_playback:
-                super::agent_announcements::AgentAnnouncementPlayback::default(),
+            agent_announcement_playback,
             agent_announcement_audio_cache:
                 super::agent_announcements::AgentAnnouncementAudioCache::default(),
             screen: AppScreen::Launchpad,
@@ -163,8 +205,8 @@ impl MultisoulApp {
             clone_project: crate::workspace::clone_project::CloneProjectUiState::default(),
             recent_project_context_path: None,
             voice: crate::app::voice::control::VoiceControlState::default(),
-            dialogue: crate::app::dialogue::DialogueControlState::default(),
-            tts_preview: crate::app::dialogue::TtsPreviewState::default(),
+            dialogue,
+            tts_preview,
             pending_tts_activation: None,
             pending_minimax_preview_after_validation: None,
             tts_selection_generation: 0,
@@ -207,7 +249,9 @@ impl MultisoulApp {
             animation_frame_pending: false,
             animation_frame_cadence: None,
             window_active: true,
-            voice_window_inset: crate::app::voice_window_inset::VoiceWindowInset::default(),
+            canvas_surface,
+            voice_window_inset_events,
+            voice_window_inset_view,
             voice_window_inset_window_visible: true,
         };
         #[cfg(feature = "e2e-test-support")]
@@ -224,44 +268,77 @@ impl MultisoulApp {
         if matches!(settings_source, BootstrapSettingsSource::Stored) {
             app.persist_voice_settings_in_background(cx);
         }
-        #[cfg(not(test))]
-        if should_refresh_orchestration_integrations(visual_preview) {
-            app.refresh_orchestration_integrations(cx);
+        if should_reconcile_orchestration_integrations(visual_preview, &orchestration_bootstrap) {
+            match orchestration_bootstrap {
+                #[cfg(any(test, feature = "e2e-test-support"))]
+                OrchestrationBootstrap::Skip => {}
+                OrchestrationBootstrap::CurrentProcess => {
+                    app.reconcile_orchestration_integrations(cx)
+                }
+                #[cfg(feature = "e2e-test-support")]
+                OrchestrationBootstrap::Paths(paths) => {
+                    app.reconcile_orchestration_integrations_with_paths(Some(paths), cx)
+                }
+            }
         }
         app
     }
 }
 
-fn should_refresh_orchestration_integrations(visual_preview: bool) -> bool {
-    !visual_preview
+fn should_reconcile_orchestration_integrations(
+    visual_preview: bool,
+    orchestration_bootstrap: &OrchestrationBootstrap,
+) -> bool {
+    if visual_preview {
+        return false;
+    }
+    match orchestration_bootstrap {
+        #[cfg(any(test, feature = "e2e-test-support"))]
+        OrchestrationBootstrap::Skip => false,
+        OrchestrationBootstrap::CurrentProcess => true,
+        #[cfg(feature = "e2e-test-support")]
+        OrchestrationBootstrap::Paths(_) => true,
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::should_refresh_orchestration_integrations;
+    use super::{should_reconcile_orchestration_integrations, OrchestrationBootstrap};
 
-    /// 固定视觉数据保护：真实 App 的 canonical 预览不得被本机安装状态覆盖
+    /// 启动期编排升级：普通 App 自动 reconcile，canonical 预览不得触碰本机安装状态。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   preview modes = enabled(1) + disabled(1) = 2 cases
-    ///   expected refreshes = normal startup(1) + visual preview(0) = 1
+    ///   startup modes = normal(1) + visual preview(1) + isolated test(1) = 3 cases
+    ///   expected reconciles = normal startup(1) + visual preview(0) + isolated test(0) = 1
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 普通启动传入 `visual_preview=false` → 允许刷新真实 Provider 安装状态。
-    ///   2. canonical 截图启动传入 `visual_preview=true` → 保留固定验收数据。
+    ///   1. 普通启动传入 `visual_preview=false` → 自动 reconcile 已授权 Provider。
+    ///   2. canonical 截图启动传入 `visual_preview=true` → 跳过 reconcile，保留固定验收数据。
+    ///   3. 隔离测试传入 `Skip` → 不得扫描或改写真实用户目录。
     ///
     /// 预期结果：
-    ///   - 正断言：普通启动必须刷新，用户看到真实安装状态。
-    ///   - 负断言：视觉预览不得刷新，避免覆盖 canonical Ready/Needs repair 状态。
+    ///   - 正断言：普通启动必须自动修复 App 升级造成的受管组件漂移。
+    ///   - 负断言：视觉预览不得读写本机编排组件，避免污染 canonical 状态。
+    ///   - 负断言：隔离测试不得访问真实用户目录中的编排安装。
     #[test]
-    fn orchestration_refresh_preserves_canonical_visual_preview_data() {
+    fn orchestration_startup_reconciles_real_installations_but_skips_visual_preview() {
         assert!(
-            should_refresh_orchestration_integrations(false),
-            "normal startup must refresh real orchestration integration state"
+            should_reconcile_orchestration_integrations(
+                false,
+                &OrchestrationBootstrap::CurrentProcess,
+            ),
+            "普通 App 启动必须自动 reconcile 已授权的真实编排安装"
         );
         assert!(
-            !should_refresh_orchestration_integrations(true),
-            "canonical visual preview must not refresh over fixed acceptance data"
+            !should_reconcile_orchestration_integrations(
+                true,
+                &OrchestrationBootstrap::CurrentProcess,
+            ),
+            "canonical 视觉预览不得读取或改写本机编排安装"
+        );
+        assert!(
+            !should_reconcile_orchestration_integrations(false, &OrchestrationBootstrap::Skip),
+            "隔离测试启动必须显式跳过真实用户目录中的编排安装"
         );
     }
 }

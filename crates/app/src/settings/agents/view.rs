@@ -6,13 +6,14 @@ use super::text_input::editable_field;
 use super::{AgentDefinitionField, AgentDefinitionsState};
 use crate::app::MultisoulApp;
 use canvas::AgentProfile;
-use gpui::{div, prelude::*, px, rgba, AnyElement, Context, Div, FontWeight, Window};
+use gpui::{div, prelude::*, px, rgba, AnyElement, Context, Div, FontWeight, ScrollHandle, Window};
 use storage::AgentDefinition;
 use ui::Theme;
 
 pub(crate) fn agents_settings(
     theme: Theme,
     state: &AgentDefinitionsState,
+    list_scroll: &ScrollHandle,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
@@ -29,9 +30,11 @@ pub(crate) fn agents_settings(
     div()
         .flex()
         .flex_col()
+        .flex_1()
+        .min_h(px(0.0))
         .gap(px(12.0))
         .pt(px(8.0))
-        .child(master_detail(theme, state, window, cx))
+        .child(master_detail(theme, state, list_scroll, window, cx))
         .when_some(state.status(), |this, status| {
             this.child(status_block(theme, status, status.starts_with("Could not")))
         })
@@ -40,6 +43,7 @@ pub(crate) fn agents_settings(
 fn master_detail(
     theme: Theme,
     state: &AgentDefinitionsState,
+    list_scroll: &ScrollHandle,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> AnyElement {
@@ -47,14 +51,16 @@ fn master_detail(
         .id("settings-agents-master-detail")
         .debug_selector(|| "settings-agents-master-detail".to_string())
         .w_full()
-        .min_h(px(430.0))
+        .flex_1()
+        .min_h(px(0.0))
         .flex()
         .flex_row()
+        .overflow_hidden()
         .rounded(px(10.0))
         .border_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x30)))
         .bg(rgba(with_alpha(theme.node_fill, 0xb8)))
-        .child(agent_list(theme, state, cx))
+        .child(agent_list(theme, state, list_scroll, window, cx))
         .child(agent_detail(theme, state, window, cx))
         .into_any_element()
 }
@@ -84,6 +90,9 @@ fn agent_detail(
         .debug_selector(|| "settings-agent-detail".to_string())
         .flex_1()
         .min_w(px(0.0))
+        .min_h(px(0.0))
+        .h_full()
+        .overflow_hidden()
         .rounded_r(px(10.0))
         .p(px(20.0))
         .child(content)

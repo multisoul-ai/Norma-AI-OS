@@ -49,6 +49,7 @@ mod e2e_02_real_pty;
 // Settings E2E：真实点击 Settings 面板控件、录制快捷键、恢复默认、关闭面板。
 mod e2e_03_api_key_visibility;
 mod e2e_03_azure_asr_settings;
+mod e2e_03_orchestration_auto_repair;
 mod e2e_03_orchestration_settings;
 mod e2e_03_performance_settings;
 mod e2e_03_settings_clicks;
@@ -74,7 +75,9 @@ mod e2e_05_master_layout_animation;
 mod e2e_05_agent_task_cursor_animation;
 
 // 语音驱动窗口内缘光：PCM 能量、Settings 层级与正常收束。
+mod e2e_06_agent_announcement_interruptions;
 mod e2e_06_agent_announcements;
+mod e2e_06_voice_snake_performance;
 mod e2e_06_voice_window_inset;
 
 // 麦克风权限被拒绝后：语音栏提供 macOS 隐私设置恢复入口。
@@ -104,6 +107,7 @@ mod e2e_12_agent_settings_ime;
 mod e2e_12_agent_settings_master_detail;
 mod e2e_12_agent_submit;
 mod e2e_12_agent_submit_l3;
+mod e2e_12_agent_title_layout;
 mod e2e_12_dispatch_receipt_effect;
 mod e2e_12_norma_agent_layout;
 mod e2e_12_norma_master;
@@ -119,6 +123,7 @@ mod e2e_13_terminal_links;
 
 // Product UI V2：底部 Dock 真实点击不应断开 Terminal reflow 与 Settings 流程。
 mod e2e_14_layout_strategy;
+mod e2e_14_new_menu_hover;
 mod e2e_14_product_ui_contract;
 
 // Canvas 卡片圆角：标题材质在 GPUI 矩形裁剪约束下仍完整覆盖两个顶部圆角。
@@ -130,9 +135,13 @@ mod e2e_15_recent_project_menu;
 // 功能导览：Help 永久入口、主题切换、跳过/完成与首次项目自动展示闭环。
 mod e2e_15_feature_guide;
 mod e2e_15_feature_guide_modal;
+mod e2e_15_feature_guide_navigation;
 
 // Canvas：创建/清理失败必须渲染可见、可关闭的工作区错误横幅。
 mod e2e_16_canvas_error_feedback;
+
+// Preview 图片查看器：多图切换、缩放、拖动漫游与切换复位必须走真实渲染树闭环。
+mod e2e_16_preview_image_viewer;
 
 // License Gate：无凭证启动必须安全完成首帧，并展示可编辑的激活界面。
 mod e2e_17_license_gate_startup;

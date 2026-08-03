@@ -18,6 +18,9 @@ mod action_tests;
 #[path = "../../tests/unit/agent_settings_pending_edit_tests.rs"]
 mod pending_edit_tests;
 #[cfg(test)]
+#[path = "../../tests/unit/agent_settings_search_tests.rs"]
+mod search_tests;
+#[cfg(test)]
 #[path = "../../tests/unit/agent_settings_selection_tests.rs"]
 mod selection_tests;
 #[cfg(test)]

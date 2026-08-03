@@ -12,7 +12,7 @@ use crate::app::browser::{BrowserAddressInput, BrowserAuthUiState};
 use crate::canvas::text_selection::TextSelection;
 use crate::cards::term::render_cache::TerminalRenderCacheHandle;
 use crate::motion::InitializationPresentation;
-use crate::preview::PreviewLoadState;
+use crate::preview::{ImageViewerPresentation, PreviewLoadState};
 use canvas::{CanvasNode, CanvasRect, NodeType};
 use chrome::CardChrome;
 use gpui::AnyElement;
@@ -41,6 +41,8 @@ pub struct CardBodyContext<'a> {
     pub runtime: &'a Runtime,
     pub terminal_render_cache: TerminalRenderCacheHandle,
     pub preview_state: Option<&'a PreviewLoadState>,
+    pub preview_image_viewer: Option<ImageViewerPresentation>,
+    pub preview_image_dragging: bool,
     pub text_selection: Option<TextSelection>,
     pub focused: bool,
     pub reduce_motion: bool,

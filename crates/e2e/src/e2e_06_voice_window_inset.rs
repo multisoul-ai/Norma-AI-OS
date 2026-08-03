@@ -274,7 +274,7 @@ fn e2e_06_pending_preview_events_use_due_display_callbacks_without_120hz_extra_t
             pcm16_mono_chunk(8_000, Duration::from_millis(100)),
             cx,
         );
-        app.reset_animation_display_callback_clock_for_e2e(cx);
+        app.reset_voice_window_inset_display_callback_clock_for_e2e(cx);
         generation
     });
     let requests_next_frame = app.read_with(cx, |app, _cx| {
@@ -290,7 +290,7 @@ fn e2e_06_pending_preview_events_use_due_display_callbacks_without_120hz_extra_t
         .background_executor
         .advance_clock(Duration::from_millis(8));
     let at_eight = app.update(cx, |app, cx| {
-        app.consume_animation_display_callback_for_e2e(Duration::from_millis(16), cx)
+        app.consume_voice_window_inset_display_callback_for_e2e(Duration::from_millis(16), cx)
     });
     let before_due = app.read_with(cx, |app, _cx| app.voice_window_inset_e2e_snapshot());
 
@@ -319,7 +319,7 @@ fn e2e_06_pending_preview_events_use_due_display_callbacks_without_120hz_extra_t
         .background_executor
         .advance_clock(Duration::from_millis(8));
     let at_sixteen = app.update(cx, |app, cx| {
-        app.consume_animation_display_callback_for_e2e(Duration::from_millis(16), cx)
+        app.consume_voice_window_inset_display_callback_for_e2e(Duration::from_millis(16), cx)
     });
     let playing = app.read_with(cx, |app, _cx| app.voice_window_inset_e2e_snapshot());
 
@@ -344,7 +344,7 @@ fn e2e_06_pending_preview_events_use_due_display_callbacks_without_120hz_extra_t
         .background_executor
         .advance_clock(Duration::from_millis(8));
     let at_twenty_four = app.update(cx, |app, cx| {
-        app.consume_animation_display_callback_for_e2e(Duration::from_millis(16), cx)
+        app.consume_voice_window_inset_display_callback_for_e2e(Duration::from_millis(16), cx)
     });
     let skipped_visual = app.read_with(cx, |app, _cx| app.voice_window_inset_e2e_snapshot());
 
@@ -365,7 +365,7 @@ fn e2e_06_pending_preview_events_use_due_display_callbacks_without_120hz_extra_t
         .background_executor
         .advance_clock(Duration::from_millis(8));
     let at_thirty_two = app.update(cx, |app, cx| {
-        app.consume_animation_display_callback_for_e2e(Duration::from_millis(16), cx)
+        app.consume_voice_window_inset_display_callback_for_e2e(Duration::from_millis(16), cx)
     });
     let advanced_visual = app.read_with(cx, |app, _cx| app.voice_window_inset_e2e_snapshot());
 

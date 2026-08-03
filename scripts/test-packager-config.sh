@@ -11,6 +11,8 @@
 #   planner helper path  = sidecars/openai-card-planner/openai-card-planner.mjs
 #   release build hook   = before-packaging-command in Packager.toml
 #   required cargo target = -p app（app package now owns both release binaries）
+#   release profile      = thin LTO + 1 codegen unit + symbol stripping
+#   wallpaper budget     = 140 MiB = 140 * 1024 * 1024 bytes
 #
 # Execution:
 #   1. Read Packager.toml from the repository root.
@@ -25,6 +27,8 @@
 #   - Positive: the OpenAI card planner helper is packaged as a resource.
 #   - Positive: before-packaging-command exists and bumps the persisted version.
 #   - Positive: before-packaging-command invokes `cargo build --release -p app`.
+#   - Positive: release binaries use size-conscious link/strip settings.
+#   - Positive: packaged wallpaper sources stay within the 140 MiB budget.
 #   - Negative: the old target/release/multisoul main binary path is not retained.
 #   - Negative: old Multisoul product metadata is not retained.
 #   - Negative: a config that builds without bumping the version fails.
@@ -57,6 +61,7 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config="$repo_root/Packager.toml"
 dev_config="$repo_root/Packager.dev.toml"
+cargo_config="$repo_root/Cargo.toml"
 icon_source="$repo_root/assets/app-icon-source.png"
 macos_icon="$repo_root/assets/app-icon-macos.png"
 app_icon="$repo_root/assets/AppIcon.icns"
@@ -64,11 +69,32 @@ app_icon_renderer="$repo_root/scripts/render-app-icon.sh"
 dmg_background="$repo_root/assets/dmg-background.png"
 dmg_background_source="$repo_root/assets/dmg-background.svg"
 dmg_background_renderer="$repo_root/scripts/render-dmg-background.sh"
+wallpaper_resources="$repo_root/crates/app/assets/wallpapers"
 
 fail() {
   echo "FAIL: $*" >&2
   exit 1
 }
+
+if ! grep -Fq '[profile.release]' "$cargo_config"; then
+  fail "Cargo.toml must define an explicit size-conscious release profile"
+fi
+
+for release_setting in 'lto = "thin"' 'codegen-units = 1' 'strip = "symbols"'; do
+  if ! grep -Fq "$release_setting" "$cargo_config"; then
+    fail "Cargo.toml release profile must include $release_setting"
+  fi
+done
+
+# Current optimized sources total about 135.72 MiB. The 140 MiB ceiling leaves
+# roughly 4.28 MiB for deliberate additions while protecting the package's
+# 50%-reduction margin and rejecting the previous ~171 MiB intermediate payload.
+wallpaper_budget_bytes=$((140 * 1024 * 1024))
+wallpaper_bytes=$(find "$wallpaper_resources" -type f -exec stat -f '%z' {} + \
+  | awk '{ total += $1 } END { print total + 0 }')
+if (( wallpaper_bytes > wallpaper_budget_bytes )); then
+  fail "packaged wallpapers use $wallpaper_bytes bytes; budget is $wallpaper_budget_bytes bytes"
+fi
 
 if ! grep -Fq 'path = "target/release/norma-os"' "$config"; then
   fail "Packager.toml must package target/release/norma-os as the main app binary"
@@ -85,6 +111,9 @@ fi
 for resource_config in "$config" "$dev_config"; do
   if ! grep -Fq '"sidecars/openai-card-planner/openai-card-planner.mjs"' "$resource_config"; then
     fail "$(basename "$resource_config") must package the OpenAI card planner helper resource"
+  fi
+  if ! grep -Fq '"crates/app/assets/feature-guide"' "$resource_config"; then
+    fail "$(basename "$resource_config") must package the website-derived Feature Guide media"
   fi
 done
 

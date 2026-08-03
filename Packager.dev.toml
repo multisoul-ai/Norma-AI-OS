@@ -12,6 +12,7 @@ out-dir = "build/dev"
 binaries-dir = "."
 resources = [
   "crates/app/assets/wallpapers",
+  "crates/app/assets/feature-guide",
   "sidecars/openai-card-planner/openai-card-planner.mjs",
 ]
 

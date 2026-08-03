@@ -1,4 +1,5 @@
 mod lifecycle;
+mod search;
 mod selection;
 mod support;
 
@@ -48,6 +49,7 @@ pub(crate) struct AgentDefinitionsState {
     delete_confirmation_id: Option<i64>,
     editing: Option<AgentDefinitionField>,
     edit_buffer: String,
+    search_query: String,
     status: Option<String>,
 }
 
@@ -63,6 +65,7 @@ impl Default for AgentDefinitionsState {
             delete_confirmation_id: None,
             editing: None,
             edit_buffer: String::new(),
+            search_query: String::new(),
             status: None,
         }
     }

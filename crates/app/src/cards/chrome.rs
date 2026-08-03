@@ -1,6 +1,6 @@
 //! Shared card chrome primitives.
 
-use canvas::{CanvasNode, CanvasRect, NodeType};
+use canvas::{CanvasNode, CanvasRect, NodeId, NodeType};
 use gpui::{
     div, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, AnyElement, Background,
     BoxShadow, Div, FontWeight,
@@ -31,6 +31,7 @@ pub fn card_title_background(title_color: u32, theme: Theme) -> Background {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CardChrome {
     pub title: String,
+    pub title_detail: Option<String>,
     pub refreshable: bool,
     pub task_badge: Option<CardChromeTaskBadge>,
 }
@@ -47,6 +48,53 @@ pub enum CardChromeTaskTone {
 pub struct CardChromeTaskBadge {
     pub label: String,
     pub tone: CardChromeTaskTone,
+}
+
+pub fn render_card_title(
+    node_id: NodeId,
+    title: String,
+    title_detail: Option<String>,
+    zoom: f32,
+    theme: Theme,
+) -> AnyElement {
+    let title = div()
+        .debug_selector(|| "card-title".to_string())
+        .overflow_hidden()
+        .truncate()
+        .font_weight(FontWeight::MEDIUM)
+        .child(title);
+    let content = div()
+        .id(("node-title", node_id))
+        .flex()
+        .flex_row()
+        .items_center()
+        .flex_1()
+        .min_w(px(0.0))
+        .overflow_hidden()
+        .gap(px(5.0 * zoom));
+
+    match title_detail {
+        Some(detail) => content
+            .child(title.flex_none())
+            .child(
+                div()
+                    .flex_none()
+                    .text_color(rgba(theme.text_tertiary))
+                    .child("—"),
+            )
+            .child(
+                div()
+                    .debug_selector(|| "card-title-detail".to_string())
+                    .flex_1()
+                    .min_w(px(0.0))
+                    .overflow_hidden()
+                    .truncate()
+                    .text_color(rgba(theme.text_secondary))
+                    .child(detail),
+            ),
+        None => content.child(title.flex_1().min_w(px(0.0))),
+    }
+    .into_any_element()
 }
 
 pub fn render_task_badge(badge: CardChromeTaskBadge, zoom: f32, theme: Theme) -> Div {
@@ -144,6 +192,7 @@ impl Card for EmptyCard {
     fn chrome(&self, node: &CanvasNode, _runtime: &Runtime) -> CardChrome {
         CardChrome {
             title: node.kind.display_title(),
+            title_detail: None,
             refreshable: false,
             task_badge: None,
         }

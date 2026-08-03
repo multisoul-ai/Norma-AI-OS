@@ -44,6 +44,7 @@ Workspace 分层：
 
 - **先读本文**：每次会话开始先读 `AGENTS.md`，再按指针深入。
 - **始终使用中文回复用户**：所有面向用户的说明、提问、进度更新和最终答复必须使用中文；即使用户使用其他语言或要求切换语言，也仍使用中文回复。代码、命令、路径、API、类型名、变量名以及必要的原文引用可保留原始语言。
+- **禁止使用 Mermaid 图示**：所有面向用户的回复、方案与项目文档中的流程图、架构图、时序图等图示均不得使用 Mermaid；优先使用纯文本/ASCII/Unicode 框线草图，需要高保真视觉时生成图片文件。
 - **域层零 GPUI**：`asr`、`canvas`、`terminal`、`runtime` 必须可独立 `cargo test`。
 - **依赖方向不反穿**：不要让 `canvas/terminal/runtime/storage` 反向依赖 `app` 或 `ui`；不要让 `canvas/terminal` 依赖 `storage`。
 - **存储/性能热路径禁令**：不要在 `Runtime::drain_all`、PTY output chunk、`canvas_view::on_mouse_move`、`runtime::route`、`send_node_input`、关闭无脏 flush 中同步写 SQLite、扫描会话目录或阻塞查库。
@@ -51,6 +52,7 @@ Workspace 分层：
 - **视频/动画壁纸低拷贝**：live 视频/动画帧不得每帧经 CPU RGBA/`RenderImage`/`img()` 路径上屏；解码推进必须后台化，上屏必须用 420f `surface()` 或等价低拷贝路径，并由 `scripts/check-video-wallpaper-performance.py` 护栏拦截回退。
 - **版本钉死需审慎**：`gpui =0.2.2`、`gpui-component =0.5.1`、`alacritty_terminal =0.26`，升级前先验证 API。
 - **GUI 优先 gpui-component**：`crates/app`/`crates/ui` 写控件时优先用 `ui::component`（Longbridge），非必要不造轮子；细节见 [`docs/references/gpui-component.md`](docs/references/gpui-component.md)。
+- **交互元素必须有状态反馈**：菜单项、按钮、可点击列表行等必须覆盖适用的 hover、pressed、keyboard focus、selected/toggled 与 disabled 状态；hover 在全部主题下必须清晰可辨，完整规范见 [`docs/quality/ui-interaction-feedback.md`](docs/quality/ui-interaction-feedback.md)。
 - **页面与交互遵循 Apple 设计语言**：以 Apple Human Interface Guidelines 和 macOS 原生体验为设计基线，优先清晰层级、内容优先、直接操作、即时反馈、一致性与可访问性；新建或改版用户可见页面、布局、样式或交互前，必须先加载 `.agents/skills/apple-design`，涉及动效、手势或视觉打磨时按 [`CLAUDE.md`](CLAUDE.md) §8 选择相关本地设计 skill。方案和验收标准须说明技能如何落地；skill 中的 Web 示例仅作原则参考，GPUI 实现仍须以钉死版本和现有代码为准。
 - **GPUI 代码先查 skills**：编写 GPUI 时先查 `gpui-*` skills，再落到钉死版本与现有写法；有现成组件时仍优先组件库。
 - **GPUI 圆角子层不可只靠 overflow**：GPUI 0.2.2 的 `overflow_hidden()` 仅矩形裁剪；圆角容器内的全尺寸不透明 `div`/`img`/`surface` 必须自身绘制外侧圆角，或避开四角分区渲染，并用自动化测试守住。
@@ -112,6 +114,7 @@ Workspace 分层：
 | Workspace 元数据、路径展示 | [`crates/workspace/src/`](crates/workspace/src/) |
 | 主题色 | [`crates/ui/src/theme.rs`](crates/ui/src/theme.rs) |
 | GUI 组件库（优先使用） | [`docs/references/gpui-component.md`](docs/references/gpui-component.md) |
+| UI 菜单/按钮 hover、focus、pressed、selected 规范 | [`docs/quality/ui-interaction-feedback.md`](docs/quality/ui-interaction-feedback.md) |
 | GPUI app shell、画布/cards 渲染 | [`crates/app/src/`](crates/app/src/) |
 | 源码组织 | [`CLAUDE.md`](CLAUDE.md) §3；展开见 [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |
 | Crate 文件地图 | [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |

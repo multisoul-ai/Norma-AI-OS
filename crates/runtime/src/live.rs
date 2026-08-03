@@ -28,8 +28,10 @@ impl Caps {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeInput {
     Key(KeyInput),
-    /// UTF-8 paste — sent to PTY without key encoding; logical line breaks use terminal CRLF.
+    /// 普通文本输入（含 IME commit）：按原始 UTF-8 写入 PTY，不套用 paste 协议。
     Text(String),
+    /// 显式粘贴：根据终端声明的 bracketed-paste mode 编码后写入 PTY。
+    Paste(String),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -28,6 +28,12 @@ pub(crate) struct HoveredTerminalLink {
     pub(crate) screen_y: i32,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct PreviewPanState {
+    pub(crate) node_id: NodeId,
+    pub(crate) last_screen: Vec2,
+}
+
 #[derive(Default)]
 pub struct InteractionState {
     pub space_held: bool,
@@ -39,6 +45,7 @@ pub struct InteractionState {
     pub active_text_selection: Option<TextSelection>,
     pub(crate) pending_terminal_link: Option<PendingTerminalLink>,
     pub(crate) hovered_terminal_link: Option<HoveredTerminalLink>,
+    pub(crate) preview_pan: Option<PreviewPanState>,
     pub last_motion_notify: Option<Instant>,
     /// 顶部工具栏 ✚ 按钮的弹出菜单（Terminal/Claude/Codex/Preview）是否展开。
     pub new_menu_open: bool,
@@ -146,6 +153,17 @@ impl InteractionState {
         {
             self.active_text_selection = None;
         }
+    }
+
+    pub(crate) fn begin_preview_pan(&mut self, node_id: NodeId, screen: Vec2) {
+        self.preview_pan = Some(PreviewPanState {
+            node_id,
+            last_screen: screen,
+        });
+    }
+
+    pub(crate) fn finish_preview_pan(&mut self) -> bool {
+        self.preview_pan.take().is_some()
     }
 }
 

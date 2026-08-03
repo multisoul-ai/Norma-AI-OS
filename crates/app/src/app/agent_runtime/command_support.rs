@@ -24,7 +24,7 @@ pub(super) fn type_agent_task(
     task: &str,
 ) -> Result<(), AgentTaskSubmitError> {
     runtime
-        .send_node_input(node_id, runtime::NodeInput::Text(task.to_string()))
+        .send_node_input(node_id, runtime::NodeInput::Paste(task.to_string()))
         .map_err(|error| AgentTaskSubmitError {
             message: error.to_string(),
             retry_safe: true,

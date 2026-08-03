@@ -236,6 +236,26 @@ pub(super) fn on_mouse_move(
 ) {
     let screen = pt_to_vec(ev.position);
 
+    if let Some(pan) = app.interaction.preview_pan {
+        if ev.pressed_button != Some(MouseButton::Left) {
+            app.interaction.finish_preview_pan();
+            app.interaction.last_motion_notify = None;
+            cx.notify();
+            return;
+        }
+        let delta = screen - pan.last_screen;
+        let changed = app.previews.pan_image(pan.node_id, delta);
+        if let Some(active_pan) = app.interaction.preview_pan.as_mut() {
+            active_pan.last_screen = screen;
+        }
+        let now = Instant::now();
+        if changed && should_notify_motion_frame(app.interaction.last_motion_notify, now) {
+            app.interaction.last_motion_notify = Some(now);
+            cx.notify();
+        }
+        return;
+    }
+
     if let Some(pending) = app.interaction.pending_terminal_link.clone() {
         if let Some(point) = terminal_text_point_for_screen(app, pending.node_id, screen) {
             if terminal_link_dragged(pending.pressed_screen, screen) {
@@ -351,6 +371,11 @@ pub(super) fn on_mouse_up(
     w: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) {
+    if app.interaction.finish_preview_pan() {
+        app.interaction.last_motion_notify = None;
+        cx.notify();
+        return;
+    }
     if let Some(pending) = app.interaction.take_pending_terminal_link() {
         let release_screen = pt_to_vec(ev.position);
         if terminal_link_dragged(pending.pressed_screen, release_screen) {

@@ -116,7 +116,7 @@ AgentCommand::UserTurn(input_source=Voice)
 1. 输入来源为 `AgentInputSource::Voice`，且实际命令为 `AdapterCommand::ReplyAgent`。
 2. Adapter 返回 `reply_id`、目标 `node_id`，状态为 `sent` 或 `queued`。
 
-两条路径还必须满足共同的 presentation 条件：App 当前位于 Canvas 屏幕，目标 `node_id` 仍对应一张可见 Agent Card，且窗口处于活跃状态；窗口失活时不得积压一段等待恢复后突然播放的旧动画。
+两条路径还必须满足共同的 presentation 条件：App 当前位于 Canvas 屏幕，且目标 `node_id` 仍对应一张可见 Agent Card。窗口是否活跃不参与触发或保留判定；窗口失活时，成功 Handoff 仍立即进入同一条流星时间线。
 
 状态视觉语义：
 
@@ -437,7 +437,7 @@ crates/app/src/app/
 
 - 复用现有 Canvas active cadence（当前 16ms）。
 - 特效为空时 `canvas_active` 不得因本功能保持 true。
-- 窗口不可见、目标不可见或非 Canvas 屏幕时不创建/不继续无意义的旧特效。
+- 目标不可见或非 Canvas 屏幕时不创建/不继续无意义的旧特效；窗口失活不取消已接受的 Handoff 特效。
 - 不把任何 SQLite、网络、文件 IO 或重 CPU 工作放入 `MotionStore::tick` 或 paint。
 
 ### 8.5 观测指标
@@ -473,7 +473,8 @@ crates/app/src/app/
 | 目标删除或移出可见区 | 淡出/取消，不爆炸、不自动导航 |
 | Reduced Motion | Dock flash + 目标 pulse，无跨屏飞行 |
 | 动画期间再次派发 | 独立加入有界 effect store，不阻塞前一个任务 |
-| 窗口切换到非 Canvas/失活 | 不积压恢复后才播放的旧动画 |
+| 窗口失活但仍在 Canvas | 继续播放已接受 Handoff 的流星，不因失活取消 |
+| 窗口切换到非 Canvas | 取消旧动画，不在恢复后补播 |
 
 ## 10. 验收标准
 
@@ -481,6 +482,7 @@ crates/app/src/app/
 
 - [ ] 用户发送普通文字或语音消息，既未形成 `DispatchAgentTasks`、也未形成 Voice `reply_agent` 成功回执时，特效状态不存在。
 - [ ] Voice `reply_agent` 返回 `sent` 或 `queued` 时创建且只创建一个对应目标的特效，不创建 coordinated task。
+- [ ] 窗口失活但仍位于 Canvas 且目标可见时，成功 Voice Handoff 继续创建、保留并推进对应特效。
 - [ ] 非语音 `reply_agent` 即使成功，也不创建 Voice Handoff 特效。
 - [ ] 语音识别弹窗的显示、隐藏或折叠状态不参与 Handoff 动效判定。
 - [ ] Norma 来源的 `Submitted` receipt 创建且只创建一个对应目标的特效。

@@ -58,7 +58,8 @@ pub struct FeatureGuideE2eSnapshot {
     pub status: &'static str,
     pub presentation: &'static str,
     pub topic: &'static str,
-    pub media_frame: usize,
+    pub media_playing: bool,
+    pub poster_available: bool,
     pub primary_focused: bool,
 }
 
@@ -190,7 +191,8 @@ impl MultisoulApp {
                 FeatureGuidePresentation::ClosedForSession => "closed_for_session",
             },
             topic: self.feature_guide.serialized_topic(),
-            media_frame: self.feature_guide_media_frame,
+            media_playing: self.feature_guide_media.is_playing(),
+            poster_available: self.feature_guide_media.poster_available(),
             primary_focused: self.feature_guide_primary_focused_for_e2e,
         }
     }
@@ -198,6 +200,17 @@ impl MultisoulApp {
     #[cfg(feature = "e2e-test-support")]
     pub fn enable_fresh_feature_guide_for_e2e(&mut self) {
         self.feature_guide = super::feature_guide::FeatureGuideState::load(None, None, false);
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn set_feature_guide_reduce_motion_for_e2e(
+        &mut self,
+        reduce_motion: bool,
+        cx: &mut Context<Self>,
+    ) {
+        self.motion.reduce_motion = reduce_motion;
+        self.sync_feature_guide_media(cx);
+        cx.notify();
     }
 
     #[cfg(feature = "e2e-test-support")]

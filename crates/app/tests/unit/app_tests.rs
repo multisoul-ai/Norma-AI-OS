@@ -51,53 +51,68 @@ fn test_wallpaper_renders_fully_opaque_without_theme_overlay() {
     );
 }
 
-/// 运行态光标动画应按约 30fps 节流 repaint，避免 focused Agent 绕过 snake 节流。
+/// 运行态光标动画应与 Canvas ambient 共用不超过 15fps 的 repaint cadence。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   repaint 预算 = 33ms（约 30fps）
+///   target fps = 15fps → repaint 预算 = ceil(1000ms / 15fps) = 67ms
 ///   app frame loop tick = 12ms
-///   第 1 个 tick：累计 12ms < 33ms → None，不 repaint
-///   第 2 个 tick：累计 24ms < 33ms → None，不 repaint
-///   第 3 个 tick：累计 36ms >= 33ms → Some(36ms)，允许 repaint
+///   前 5 tick 累计 12/24/36/48/60ms < 67ms；第 6 tick 累计 72ms → repaint
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 创建默认 FrameThrottle
-///   2. 连续输入三个 12ms tick
-///   3. 读取每一步返回的 repaint delta
+///   1. 断言 cursor 使用共享 67ms ambient 常量，而不是旧 33ms 常量。
+///   2. 创建默认 FrameThrottle，连续输入六个 12ms tick。
+///   3. 逐一读取每一步返回的 repaint delta。
 ///
 /// 预期结果：
-///   - 负断言：第 1 个 12ms tick 不应返回 repaint delta
-///   - 负断言：第 2 个 12ms tick 不应返回 repaint delta
-///   - 正断言：第 3 个 12ms tick 返回累计 36ms，供 phase 一次性追上真实时间
-///   - 负断言：第 3 个 tick 不应只返回 12ms，否则动画相位会变慢
+///   - 正断言：cursor repaint interval 精确为 67ms。
+///   - 负断言：前五个 12ms tick 都不得提前触发 repaint。
+///   - 正断言：第六个 tick 返回累计 72ms，供 phase 一次性追上真实时间。
+///   - 负断言：放行时不得只返回 12ms，否则动画相位会变慢。
 #[test]
-fn test_frame_throttle_batches_cursor_repaint_to_approximately_30fps() {
+fn test_frame_throttle_batches_cursor_repaint_to_at_most_15fps() {
     let mut throttle = FrameThrottle::default();
-
     let first = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
     let second = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
     let third = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
-
+    let fourth = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    let fifth = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    let sixth = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    assert_eq!(
+        CURSOR_REPAINT_INTERVAL,
+        Duration::from_millis(67),
+        "cursor 必须引用 ceil(1000ms / 15fps) = 67ms 的共享 ambient cadence"
+    );
     assert!(
         first.is_none(),
         "第 1 个 12ms tick 不应触发 focused cursor repaint"
     );
     assert!(
         second.is_none(),
-        "第 2 个 12ms tick 累计 24ms < 33ms，仍不应触发 repaint"
+        "第 2 个 12ms tick 累计 24ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        third.is_none(),
+        "第 3 个 12ms tick 累计 36ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        fourth.is_none(),
+        "第 4 个 12ms tick 累计 48ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        fifth.is_none(),
+        "第 5 个 12ms tick 累计 60ms < 67ms，仍不应触发 repaint"
     );
     assert_eq!(
-        third,
-        Some(Duration::from_millis(36)),
-        "第 3 个 tick 应返回累计 36ms，让 cursor phase 追上真实时间"
+        sixth,
+        Some(Duration::from_millis(72)),
+        "第 6 个 tick 应返回累计 72ms，让 cursor phase 追上真实时间"
     );
     assert_ne!(
-        third,
+        sixth,
         Some(Duration::from_millis(12)),
         "放行 repaint 时不应只推进 12ms，否则节流会让 cursor 动画变慢"
     );
 }
-
 /// 卡片查看 helper：用户选择/聚焦卡片时应把未查看完成提醒标记为已查看。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -163,27 +178,29 @@ fn test_mark_runtime_node_viewed_if_needed_marks_done_attention_viewed() {
     );
 }
 
-/// 删除中间卡片后，剩余卡片应立即按默认的三轨布局策略重排。
+/// 删除中间卡片后，剩余卡片应立即按默认的每列两张布局策略重排。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   area = origin(0,0), size(1200x900)
 ///   zoom = 1.0
-///   默认策略 = 按行向下 + 3 个轨道 + 适应可视区域
-///   usable width = 1200 - 96 - 32 = 1072
+///   默认策略 = 按列向右 + 每列 2 张 + 适应可视区域
+///   usable width = 1200 - 96 - 32 = 1072；usable height = 900 - 86 - 84 = 730
 ///   gap = 16
-///   三节点布局：tile_width = (1072 - 16*(3+1)) / 3 = 336，第三列 x = 96 + 16 + 2*(336+16) = 816
-///   删除中间节点后：tile_width = (1072 - 16*(2+1)) / 2 = 512，第二列 x = 96 + 16 + 1*(512+16) = 640
+///   三节点布局：rows = 2，cols = ceil(3/2) = 2；card_width = (1072 - 16*(2+1)) / 2 = 512
+///   C 位于第二列：x = 96 + 16 + 1*(512+16) = 640，y = 86 + 16 = 102
+///   删除中间节点后：rows = 2，cols = ceil(2/2) = 1；card_width = (1072 - 16*(1+1)) / 1 = 1040
+///   C 移到第一列第二行：x = 96 + 16 = 112，card_height = (730 - 16*(2+1)) / 2 = 341，y = 86 + 16 + 341 + 16 = 459
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 创建 A/B/C 三张普通卡片，并手动放到三列布局位置
+///   1. 创建 A/B/C 三张普通卡片，并手动放到默认的两行两列布局位置
 ///   2. close_node_and_reflow_for_area(B) → 删除 B，并用剩余顺序 [A,C] 重新计算布局
 ///   3. 查询 A/B/C 的 document bounds
 ///
 /// 预期结果：
 ///   - 正断言：B 被删除，返回 true
-///   - 正断言：A 仍位于默认三轨布局第一列
-///   - 正断言：C 移到默认三轨布局第二列
-///   - 负断言：C 不应停留在删除前的第三轨位置
+///   - 正断言：A 仍位于默认布局的第一列第一行，并扩展到单列宽度
+///   - 正断言：C 移到默认布局的第一列第二行
+///   - 负断言：C 不应停留在删除前的第二列位置
 #[test]
 fn test_close_node_reflows_remaining_cards_with_default_layout_strategy() {
     let mut runtime = Runtime::new();
@@ -205,19 +222,25 @@ fn test_close_node_reflows_remaining_cards_with_default_layout_strategy() {
     );
 
     let default_strategy = CanvasLayoutStrategy::default();
-    let three_column = compute_configurable_grid_layout(
+    let three_nodes_layout = compute_configurable_grid_layout(
         &[a, b, c],
         area,
         default_strategy.grid_config_for_zoom(zoom),
     );
-    runtime.document.set_node_bounds(a, three_column[0].bounds);
-    runtime.document.set_node_bounds(b, three_column[1].bounds);
-    runtime.document.set_node_bounds(c, three_column[2].bounds);
-    let c_three_column_bounds = three_column[2].bounds;
+    runtime
+        .document
+        .set_node_bounds(a, three_nodes_layout[0].bounds);
+    runtime
+        .document
+        .set_node_bounds(b, three_nodes_layout[1].bounds);
+    runtime
+        .document
+        .set_node_bounds(c, three_nodes_layout[2].bounds);
+    let c_right_column_bounds = three_nodes_layout[2].bounds;
 
     let removed = close_node_and_reflow_for_area(&mut runtime, &mut motion, b, area, zoom);
 
-    let two_column = compute_configurable_grid_layout(
+    let two_nodes_layout = compute_configurable_grid_layout(
         &[a, c],
         area,
         default_strategy.grid_config_for_zoom(zoom),
@@ -242,16 +265,16 @@ fn test_close_node_reflows_remaining_cards_with_default_layout_strategy() {
         "B 应从 document 删除，不能继续参与渲染或布局"
     );
     assert_eq!(
-        a_after, two_column[0].bounds,
-        "A 应按删除后的默认布局策略占据第一列，而不是保留旧三卡的尺寸"
+        a_after, two_nodes_layout[0].bounds,
+        "A 应按删除后的默认布局策略占据第一列第一行，而不是保留旧三卡的尺寸"
     );
     assert_eq!(
-        c_after, two_column[1].bounds,
-        "C 应按删除后的默认布局策略移动到第二个轨道"
+        c_after, two_nodes_layout[1].bounds,
+        "C 应按删除后的默认布局策略移动到第一列第二行"
     );
     assert_ne!(
-        c_after, c_three_column_bounds,
-        "C 不应停留在删除前的第三轨位置，否则说明删除没有触发重排"
+        c_after, c_right_column_bounds,
+        "C 不应停留在删除前的第二列位置，否则说明删除没有触发重排"
     );
 }
 
@@ -449,7 +472,7 @@ fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
 /// paste_bytes_from_clipboard_text 从剪贴板文本生成应写入 PTY 的字节序列。
 ///
 /// 场景：剪贴板文本（含 ASCII 和多字节汉字）转换为 UTF-8 字节序列，
-///   供 NodeInput::Text 直接写入 PTY，不经过 keystroke 编码。
+///   供 NodeInput::Paste 按终端 paste mode 写入 PTY，不经过 keystroke 编码。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   clipboard text = "hello 世界"

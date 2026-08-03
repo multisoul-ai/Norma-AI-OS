@@ -11,7 +11,7 @@ use crate::runtime_support::terminal_shell_command;
 use crate::EgoTaskState;
 use canvas::{
     AgentProfile, AgentSpec, BrowserSpec, BrowserSurfaceKind, CanvasNodeKind, CanvasRect, Document,
-    DocumentSnapshot, NodeId, NodeType, PreviewSpec, PreviewType, Selection, TermSpec,
+    DocumentSnapshot, NodeId, NodeType, Selection, TermSpec,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -276,21 +276,6 @@ impl Runtime {
             })?;
         self.register_agent_live_node(node_id, live);
         Ok(node_id)
-    }
-
-    pub fn spawn_preview_from_path(
-        &mut self,
-        path: PathBuf,
-        explicit_type: Option<PreviewType>,
-        bounds: CanvasRect,
-    ) -> NodeId {
-        self.document.add_node(
-            CanvasNodeKind::Preview(PreviewSpec {
-                path: path.to_string_lossy().into_owned(),
-                explicit_type,
-            }),
-            bounds,
-        )
     }
 
     pub fn spawn_browser(

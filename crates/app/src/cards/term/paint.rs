@@ -11,7 +11,7 @@ use std::sync::Arc;
 use terminal::{Cell, GridSnapshot, TerminalColor, TerminalNamedColor};
 use ui::Theme;
 
-use self::cursor_paint::{cursor_paint_model, paint_cursor};
+use self::cursor_paint::{cursor_paint_model, cursor_text_run, paint_cursor};
 use self::prepared::{prepare_terminal_frame, PreparedTerminalTextRun};
 use super::cursor::TerminalCursorAnimation;
 use super::paint_style::{
@@ -84,6 +84,7 @@ struct TerminalRowLayout {
 struct TerminalLayout {
     backgrounds: Vec<TerminalBackgroundRect>,
     text_runs: Vec<TerminalTextRun>,
+    cursor_text_run: Option<TerminalTextRun>,
     cursor_line: usize,
     cursor_col: usize,
     cursor_visible: bool,
@@ -115,6 +116,7 @@ fn build_layout(
     TerminalLayout {
         backgrounds,
         text_runs,
+        cursor_text_run: cursor_text_run(snapshot, palette),
         cursor_line: snapshot.cursor_line,
         cursor_col: snapshot.cursor_col,
         cursor_visible: snapshot.display_offset == 0,
@@ -272,6 +274,7 @@ enum TerminalPaintLayer {
     SelectionHighlights,
     TextRuns,
     Cursor,
+    CursorText,
 }
 
 fn paint_prepared_frame(
@@ -333,6 +336,11 @@ fn paint_prepared_frame(
             TerminalPaintLayer::Cursor => {
                 paint_cursor(cursor_paint_model(bounds, layout, cursor_animation), window);
             }
+            TerminalPaintLayer::CursorText => {
+                if let Some(run) = prepared.shaped_cursor_text_run.as_ref() {
+                    paint_prepared_text_run(bounds, run, metrics, window, cx);
+                }
+            }
         }
     }
 }
@@ -363,6 +371,9 @@ fn paint_layer_order(layout: &TerminalLayout) -> Vec<TerminalPaintLayer> {
     }
     if layout.cursor_visible {
         layers.push(TerminalPaintLayer::Cursor);
+    }
+    if layout.cursor_visible && layout.cursor_text_run.is_some() {
+        layers.push(TerminalPaintLayer::CursorText);
     }
     layers
 }
@@ -433,6 +444,10 @@ fn vertical_text_offset(metrics: TerminalRenderMetrics) -> Pixels {
 #[cfg(test)]
 #[path = "../../../tests/unit/cards/term/paint_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/cards/term/paint_cursor_text_tests.rs"]
+mod cursor_text_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/unit/cards/term/paint_geometry_tests.rs"]

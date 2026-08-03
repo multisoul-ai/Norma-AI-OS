@@ -15,6 +15,8 @@
 #   auth helper    = <target-dir>/norma-browser-auth-host, built by the app crate
 #   auth extension = crates/app/assets/browser-auth-extension → bundle Resources
 #   wallpaper      = crates/app/assets/wallpapers/1407174.mp4 → bundle Resources
+#   feature guide  = crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4
+#                    → bundle Resources
 #   signal fixture = fake `open -W` that starts an independently living app
 #                    process, mirroring LaunchServices parent detachment.
 #
@@ -41,6 +43,7 @@
 #   - Positive: the bundle contains Contents/MacOS/norma-browser-auth-host.
 #   - Positive: the bundle contains Contents/Resources/browser-auth-extension/manifest.json.
 #   - Positive: the bundle contains Contents/Resources/wallpapers/1407174.mp4.
+#   - Positive: the bundle contains Contents/Resources/feature-guide/demo-live-node-shortcuts.mp4.
 #   - Positive: tracing output remains visible to terminal pipes such as `tee`.
 #   - Positive: INT and TERM terminate the specific app process launched by this runner.
 #   - Positive: the runner selects a unique-label SHA-1 identity when Apple Development labels duplicate.
@@ -190,13 +193,16 @@ app_pid_file="$tmp_dir/app.pid"
 cargo_args_file="$tmp_dir/cargo-args"
 codesign_args_file="$tmp_dir/codesign-args"
 fixture_wallpaper_source="$fixture_root/crates/app/assets/wallpapers/1407174.mp4"
+fixture_feature_guide_source="$fixture_root/crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4"
 fixture_auth_extension_manifest="$fixture_root/crates/app/assets/browser-auth-extension/manifest.json"
 mkdir -p "$fixture_bin" "$fixture_root/scripts" "$fixture_root/packaging/macos" \
-  "$(dirname "$fixture_wallpaper_source")" "$(dirname "$fixture_auth_extension_manifest")"
+  "$(dirname "$fixture_wallpaper_source")" "$(dirname "$fixture_feature_guide_source")" \
+  "$(dirname "$fixture_auth_extension_manifest")"
 cp "$runner" "$fixture_runner"
 cp "$dev_plist" "$fixture_root/packaging/macos/DevInfo.plist"
 cp "$entitlements" "$fixture_root/packaging/macos/NormaOS.entitlements"
 printf 'fixture bundle wallpaper\n' >"$fixture_wallpaper_source"
+printf 'fixture feature guide video\n' >"$fixture_feature_guide_source"
 printf '{"name":"fixture-browser-auth-extension"}\n' >"$fixture_auth_extension_manifest"
 
 cat >"$fixture_input" <<'APP'
@@ -378,6 +384,16 @@ fi
 
 if ! cmp -s "$fixture_wallpaper_source" "$bundle_wallpaper"; then
   fail "development bundle wallpaper must match the built-in source fixture"
+fi
+
+bundle_feature_guide="$tmp_dir/Norma OS Dev.app/Contents/Resources/feature-guide/demo-live-node-shortcuts.mp4"
+if [ ! -f "$bundle_feature_guide" ]; then
+  cat "$tmp_dir/runner.log" >&2
+  fail "cargo run development bundle must include Feature Guide media outside the Documents source checkout"
+fi
+
+if ! cmp -s "$fixture_feature_guide_source" "$bundle_feature_guide"; then
+  fail "development bundle Feature Guide media must match the website-derived source fixture"
 fi
 
 if ! grep -Fq -- '--sign 3333333333333333333333333333333333333333' "$codesign_args_file"; then

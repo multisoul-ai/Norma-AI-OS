@@ -1,6 +1,5 @@
 use super::demo::render_demo;
 use super::style::{guide_shadow, with_alpha, FeatureGuidePalette};
-use super::voice_action::render_voice_action;
 use super::FeatureGuideTopic;
 use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, AnyElement, Context, Div, FontWeight, MouseButton, Window};
@@ -28,7 +27,6 @@ impl MultisoulApp {
         let panel_top = ((f32::from(viewport.height) - height) / 2.0).max(0.0);
         let compact = width < 820.0;
         let topic = self.feature_guide.topic;
-        let voice_shortcut = self.shortcuts.voice_interaction_label();
         #[cfg(feature = "e2e-test-support")]
         {
             self.feature_guide_primary_focused_for_e2e =
@@ -85,14 +83,11 @@ impl MultisoulApp {
                             .child(self.render_feature_guide_navigation(
                                 topic, compact, theme, palette, cx,
                             ))
-                            .child(self.render_feature_guide_content(
-                                topic,
-                                compact,
-                                &voice_shortcut,
-                                theme,
-                                palette,
-                                cx,
-                            )),
+                            .child(
+                                self.render_feature_guide_content(
+                                    topic, compact, theme, palette, cx,
+                                ),
+                            ),
                     )
                     .child(self.render_feature_guide_footer(topic, theme, palette, window, cx)),
             )
@@ -143,7 +138,7 @@ impl MultisoulApp {
                                     .text_size(px(16.0))
                                     .font_weight(FontWeight::BOLD)
                                     .text_color(rgba(palette.primary_text))
-                                    .child("功能导览"),
+                                    .child("Feature Guide"),
                             )
                             .child(
                                 div()
@@ -159,7 +154,7 @@ impl MultisoulApp {
             )
             .child(guide_button(
                 "feature-guide-close",
-                "关闭  Esc",
+                "Close  Esc",
                 theme,
                 palette,
                 cx,
@@ -174,11 +169,13 @@ impl MultisoulApp {
         theme: Theme,
         palette: FeatureGuidePalette,
         cx: &mut Context<Self>,
-    ) -> Div {
+    ) -> gpui::Stateful<Div> {
         let mut navigation = div()
+            .id("feature-guide-navigation")
+            .debug_selector(|| "feature-guide-navigation".to_string())
             .flex_none()
             .flex()
-            .gap(px(6.0))
+            .gap(px(if compact { 6.0 } else { 4.0 }))
             .bg(rgba(with_alpha(theme.graphite, 0x0a)));
         navigation = if compact {
             navigation
@@ -190,10 +187,10 @@ impl MultisoulApp {
                 .border_b_1()
         } else {
             navigation
-                .w(px(248.0))
+                .w(px(220.0))
                 .h_full()
                 .flex_col()
-                .p(px(18.0))
+                .p(px(14.0))
                 .border_r_1()
         }
         .border_color(rgba(with_alpha(theme.node_stroke, 0x68)));
@@ -209,7 +206,7 @@ impl MultisoulApp {
             let variant = ButtonCustomVariant::new(cx)
                 .color(
                     rgba(if selected {
-                        with_alpha(theme.accent_blue, 0x18)
+                        with_alpha(theme.accent_blue, 0x14)
                     } else {
                         0x00000000
                     })
@@ -217,27 +214,70 @@ impl MultisoulApp {
                 )
                 .foreground(rgba(tone).into())
                 .border(rgba(0x00000000).into())
-                .hover(rgba(with_alpha(theme.accent_blue, 0x12)).into())
-                .active(rgba(with_alpha(theme.accent_blue, 0x24)).into());
+                .hover(rgba(with_alpha(theme.accent_blue, 0x0e)).into())
+                .active(rgba(with_alpha(theme.accent_blue, 0x20)).into());
+            let label = if compact {
+                div()
+                    .w_full()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .text_size(px(13.0))
+                    .font_weight(if selected {
+                        FontWeight::SEMIBOLD
+                    } else {
+                        FontWeight::NORMAL
+                    })
+                    .text_color(rgba(tone))
+                    .child((index + 1).to_string())
+            } else {
+                div()
+                    .w_full()
+                    .flex()
+                    .items_center()
+                    .gap(px(10.0))
+                    .text_color(rgba(tone))
+                    .child(
+                        div()
+                            .w(px(20.0))
+                            .h(px(20.0))
+                            .flex_none()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded(px(6.0))
+                            .bg(rgba(if selected {
+                                with_alpha(theme.accent_blue, 0x18)
+                            } else {
+                                0x00000000
+                            }))
+                            .text_size(px(11.0))
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child((index + 1).to_string()),
+                    )
+                    .child(
+                        div()
+                            .min_w(px(0.0))
+                            .truncate()
+                            .text_size(px(13.0))
+                            .font_weight(if selected {
+                                FontWeight::SEMIBOLD
+                            } else {
+                                FontWeight::NORMAL
+                            })
+                            .child(topic.navigation_label()),
+                    )
+            };
             navigation = navigation.child(
                 Button::new(("feature-guide-topic", index))
                     .debug_selector(move || selector.clone())
-                    .child(div().text_color(rgba(tone)).child(if compact {
-                        (index + 1).to_string()
-                    } else {
-                        format!("{}  {}", index + 1, topic.title())
-                    }))
+                    .child(label)
                     .tooltip(topic.title())
                     .tab_index(index as isize + 2)
                     .custom(variant)
                     .when(compact, |item| item.flex_1().h(px(40.0)))
-                    .when(!compact, |item| item.w_full().h(px(54.0)).px(px(12.0)))
-                    .rounded(px(12.0))
-                    .font_weight(if selected {
-                        FontWeight::BOLD
-                    } else {
-                        FontWeight::NORMAL
-                    })
+                    .when(!compact, |item| item.w_full().h(px(44.0)).px(px(10.0)))
+                    .rounded(px(10.0))
                     .on_click(cx.listener(move |app, _, _, cx| {
                         cx.stop_propagation();
                         app.select_feature_guide_topic(topic, cx);
@@ -251,10 +291,9 @@ impl MultisoulApp {
         &self,
         topic: FeatureGuideTopic,
         compact: bool,
-        voice_shortcut: &str,
         theme: Theme,
         palette: FeatureGuidePalette,
-        cx: &mut Context<Self>,
+        _cx: &mut Context<Self>,
     ) -> Div {
         div()
             .flex_1()
@@ -295,13 +334,14 @@ impl MultisoulApp {
             )
             .child(render_demo(
                 topic,
-                self.feature_guide_media_frame,
+                self.feature_guide_media.poster_path.clone(),
+                self.feature_guide_media.video_surface(),
+                compact,
                 self.motion.reduce_motion,
+                self.feature_guide_media.playing,
                 theme,
                 palette,
-                cx,
             ))
-            .child(render_steps(topic, voice_shortcut, theme, palette))
     }
 
     fn render_feature_guide_footer(
@@ -312,12 +352,8 @@ impl MultisoulApp {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> Div {
-        let is_last = topic == FeatureGuideTopic::TaskStatus;
-        let action_label = if is_last {
-            "开始使用"
-        } else {
-            "下一项  →"
-        };
+        let is_last = topic == FeatureGuideTopic::AgentNotifications;
+        let action_label = if is_last { "Get Started" } else { "Next  →" };
         div()
             .h(px(68.0))
             .flex_none()
@@ -329,7 +365,7 @@ impl MultisoulApp {
             .border_color(rgba(with_alpha(theme.node_stroke, 0x80)))
             .child(guide_button(
                 "feature-guide-skip",
-                "跳过导览",
+                "Skip Guide",
                 theme,
                 palette,
                 cx,
@@ -340,21 +376,30 @@ impl MultisoulApp {
                     .flex()
                     .items_center()
                     .gap(px(10.0))
-                    .when(topic == FeatureGuideTopic::VoiceDispatch, |actions| {
-                        actions.child(render_voice_action(self, theme, palette, cx))
+                    .when(!self.motion.reduce_motion, |actions| {
+                        actions.child(guide_button(
+                            "feature-guide-playback",
+                            if self.feature_guide_media.playing {
+                                "Pause Demo"
+                            } else {
+                                "Play Demo"
+                            },
+                            theme,
+                            palette,
+                            cx,
+                            |app, cx| app.toggle_feature_guide_demo_playback(cx),
+                        ))
                     })
-                    .child(guide_button(
-                        "feature-guide-replay",
-                        if self.motion.reduce_motion {
-                            "查看静态演示"
-                        } else {
-                            "重新播放"
-                        },
-                        theme,
-                        palette,
-                        cx,
-                        |app, cx| app.restart_feature_guide_demo(cx),
-                    ))
+                    .when(self.motion.reduce_motion, |actions| {
+                        actions.child(
+                            div()
+                                .debug_selector(|| "feature-guide-reduced-motion".to_string())
+                                .px(px(10.0))
+                                .text_size(px(11.0))
+                                .text_color(rgba(palette.metadata_text))
+                                .child("Reduced Motion"),
+                        )
+                    })
                     .child(
                         div()
                             .track_focus(&self.feature_guide_primary_focus)
@@ -386,48 +431,6 @@ impl MultisoulApp {
     }
 }
 
-fn render_steps(
-    topic: FeatureGuideTopic,
-    voice_shortcut: &str,
-    theme: Theme,
-    palette: FeatureGuidePalette,
-) -> Div {
-    let mut steps = div().w_full().flex().flex_col().gap(px(7.0));
-    for (index, step) in topic.steps().into_iter().enumerate() {
-        let step = if topic == FeatureGuideTopic::VoiceDispatch && index == 0 {
-            format!("按下 {voice_shortcut} 并说出 Agent 名称")
-        } else {
-            step.to_string()
-        };
-        steps = steps.child(
-            div()
-                .id(("feature-guide-step", index))
-                .debug_selector(move || format!("feature-guide-step-{index}"))
-                .flex()
-                .items_center()
-                .gap(px(10.0))
-                .text_size(px(11.0))
-                .text_color(rgba(palette.supporting_text))
-                .child(
-                    div()
-                        .w(px(20.0))
-                        .h(px(20.0))
-                        .flex_none()
-                        .rounded(px(10.0))
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .bg(rgba(with_alpha(theme.accent_blue, 0x18)))
-                        .text_color(rgba(palette.accent_text))
-                        .font_weight(FontWeight::BOLD)
-                        .child((index + 1).to_string()),
-                )
-                .child(step),
-        );
-    }
-    steps
-}
-
 fn guide_button(
     selector: &'static str,
     label: &'static str,
@@ -439,7 +442,7 @@ fn guide_button(
     let is_primary = selector == "feature-guide-primary";
     let tab_index = match selector {
         "feature-guide-primary" => 1,
-        "feature-guide-replay" => 7,
+        "feature-guide-playback" => 7,
         "feature-guide-skip" => 8,
         "feature-guide-close" => 9,
         _ => 10,

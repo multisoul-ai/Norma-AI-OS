@@ -54,7 +54,6 @@ fn spawn_agent_handoff(
     visible_area: CanvasRect,
 ) -> bool {
     let target_is_visible = matches!(app.screen, AppScreen::Canvas)
-        && app.window_active
         && app
             .runtime
             .document
@@ -72,7 +71,7 @@ fn spawn_agent_handoff(
         tracing::debug!(
             receipt_ref,
             target_node_id = node_id,
-            "skipped Agent handoff effect outside a visible active Canvas"
+            "skipped Agent handoff effect outside a visible Canvas target"
         );
         return false;
     }

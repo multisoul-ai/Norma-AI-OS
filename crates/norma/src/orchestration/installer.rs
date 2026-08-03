@@ -14,7 +14,10 @@ use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
+mod reconcile;
 mod skill_component;
+
+pub use reconcile::{OrchestrationReconcileFailure, OrchestrationReconcileReport};
 
 pub trait AuthorizationRegistry {
     type Error: fmt::Display;

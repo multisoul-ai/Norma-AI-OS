@@ -140,33 +140,39 @@ fn raw_sample_converts_monotonic_counter_deltas_to_per_second_metrics() {
     );
 }
 
-/// 十秒摘要：第十个样本才输出一条结构化汇总，并计算 median/P95 与关联指标
+/// 三十分钟摘要：每秒采样时，第 1800 个样本才输出一条结构化汇总
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   sample count = 10 × 1s = 10s
-///   CPU values   = 1..10 → median = (5 + 6) / 2 = 5.5
-///   P95 nearest-rank index = ceil(10 × 0.95) - 1 = 9 → value 10
-///   memory       = 每个样本 316 MiB → latest/peak 都为 316 MiB
-///   wakeups      = 每个样本 142/s；repaints = 58/s；renders = 57/s
+///   summary interval = 30min × 60s/min = 1800s
+///   sample interval  = 1s → sample count = 1800s / 1s = 1800
+///   CPU values       = 900 × 1% + 900 × 10%
+///   median           = (第 900 个 1% + 第 901 个 10%) / 2 = 5.5%
+///   P95 index        = ceil(1800 × 0.95) - 1 = 1709 → value 10%
+///   memory           = 每个样本 316 MiB → latest/peak 都为 316 MiB
+///   wakeups          = 每个样本 142/s；repaints = 58/s；renders = 57/s
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 连续推入前九个 terminal_active 样本并检查没有摘要。
-///   2. 推入第十个样本触发唯一一次摘要。
-///   3. 读取 CPU 分位数以及内存、wakeups、线程、repaint/render 关联指标。
+///   1. 连续推入前 1799 个 terminal_active 样本并累计提前摘要次数。
+///   2. 单独观察第 10 秒与第 1799 秒，确认旧十秒边界和新边界前都没有摘要。
+///   3. 推入第 1800 个样本触发唯一摘要，并读取所有关联指标。
 ///
 /// 预期结果：
-///   - 正断言：摘要包含十个样本和可复算的统计值。
-///   - 负断言：九秒时不得提前写日志，低于 active 20% 门槛不得产生诊断文件。
+///   - 正断言：第 1800 秒产生的摘要包含 1800 个样本和可复算的统计值。
+///   - 负断言：前 1799 秒摘要数为 0，旧十秒边界不得再输出摘要。
+///   - 负断言：CPU 始终低于 active 20% 门槛，不得产生高 CPU 诊断文件。
 #[test]
-fn recorder_emits_one_summary_after_ten_samples_with_correlated_metrics() {
+fn recorder_emits_one_summary_after_thirty_minutes_with_correlated_metrics() {
     let mut recorder = PerformanceRecorder::default();
-    let mut tenth_outcome = None;
+    let mut early_summary_count = 0;
+    let mut tenth_sample_had_summary = false;
+    let mut sample_before_boundary_had_summary = false;
+    let mut final_outcome = None;
 
-    for second in 1..=10 {
+    for second in 1_u64..=1_800 {
         let sample = RawPerformanceSample {
             timestamp_epoch_ms: 1_780_000_000_000 + second * 1_000,
             state: PerformanceState::TerminalActive,
-            cpu_percent: second as f64,
+            cpu_percent: if second <= 900 { 1.0 } else { 10.0 },
             phys_footprint_bytes: 316 * 1024 * 1024,
             wakeups_per_second: 142.0,
             thread_count: 12,
@@ -174,44 +180,66 @@ fn recorder_emits_one_summary_after_ten_samples_with_correlated_metrics() {
             renders_per_second: 57.0,
         };
         let outcome = recorder.push(sample);
-        if second < 10 {
-            assert!(
-                outcome.summary.is_none(),
-                "第 {second} 秒尚未满 10 个样本，不得提前输出摘要"
-            );
+        if second < 1_800 {
+            early_summary_count += usize::from(outcome.summary.is_some());
+            if second == 10 {
+                tenth_sample_had_summary = outcome.summary.is_some();
+            }
+            if second == 1_799 {
+                sample_before_boundary_had_summary = outcome.summary.is_some();
+            }
             assert!(
                 outcome.diagnostic.is_none(),
-                "CPU 最高 9% 低于 active 20% 门槛，不得输出诊断"
+                "第 {second} 秒 CPU 不超过 10%，低于 active 20% 门槛，不得输出诊断"
             );
         } else {
-            tenth_outcome = Some(outcome);
+            final_outcome = Some(outcome);
         }
     }
 
-    let outcome = tenth_outcome.expect("第十秒必须返回 recorder outcome");
-    let summary = outcome.summary.expect("第十个样本必须触发一次摘要");
+    assert!(
+        !tenth_sample_had_summary,
+        "旧的第 10 秒边界不得再输出 cpu_performance_summary"
+    );
+    assert!(
+        !sample_before_boundary_had_summary,
+        "第 1799 秒尚未满 30 分钟，不得提前输出 cpu_performance_summary"
+    );
     assert_eq!(
-        summary.sample_count, 10,
-        "十秒摘要必须包含恰好 10 个原始样本"
+        early_summary_count, 0,
+        "前 1799 个样本必须完全没有摘要，否则日志间隔短于 30 分钟"
+    );
+
+    let outcome = final_outcome.expect("第 1800 秒必须返回 recorder outcome");
+    let summary = outcome.summary.expect("第 1800 个一秒样本必须触发一次摘要");
+    assert_eq!(
+        summary.sample_count, 1_800,
+        "三十分钟摘要必须包含恰好 1800 个一秒样本"
     );
     assert_eq!(
         summary.state,
         PerformanceState::TerminalActive,
         "摘要状态应保留 terminal_active"
     );
-    assert_eq!(summary.cpu_median, 5.5, "CPU 1..10 的 median 应为 5.5");
+    assert_eq!(
+        summary.cpu_median, 5.5,
+        "900 个 1% 与 900 个 10% 样本的 median 应为 5.5%"
+    );
     assert_eq!(
         summary.cpu_p95, 10.0,
-        "CPU 1..10 的 nearest-rank P95 应为 10"
+        "1800 个样本的 nearest-rank P95 应落在 10% 区间"
     );
     assert_eq!(
         summary.memory_mb, 316.0,
         "最新 phys_footprint 应换算为 316 MiB"
     );
-    assert_eq!(summary.memory_peak_mb, 316.0, "十秒内内存峰值应为 316 MiB");
+    assert_eq!(
+        summary.memory_peak_mb, 316.0,
+        "三十分钟内内存峰值应为 316 MiB"
+    );
     assert_eq!(
         summary.wakeups_per_second, 142.0,
-        "wakeups 十秒均值应保持 142/s"
+        "wakeups 三十分钟均值应保持 142/s"
     );
     assert_eq!(summary.thread_count, 12, "线程摘要应采用最新观测值 12");
     assert_eq!(
@@ -224,7 +252,7 @@ fn recorder_emits_one_summary_after_ten_samples_with_correlated_metrics() {
     );
     assert!(
         outcome.diagnostic.is_none(),
-        "terminal_active CPU 最高 10% 低于 20% 门槛，不得触发诊断"
+        "第 1800 秒 terminal_active CPU=10% 低于 20% 门槛，不得触发诊断"
     );
 }
 

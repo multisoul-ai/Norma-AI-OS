@@ -15,11 +15,11 @@ use super::tests::TestRootGuard;
 /// 本测试验证 render_id_key 的核心契约：不同选择 → 不同 key。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   s = load_from_store(temp/app.sqlite) → 默认选择 Builtin{1331865.png}
+///   s = load_from_store(temp/app.sqlite) → 默认选择 Builtin{1331865.webp}
 ///   switch1 = select_builtin("wallpapers/220240.gif") → Builtin{220240.gif}（多帧 GIF）
 ///   switch2 = select_custom("mine.png") → Custom{mine.png}（单帧静态图）
 ///   各步对应 key：
-///     默认    = "builtin:wallpapers/1331865.png"
+///     默认    = "builtin:wallpapers/1331865.webp"
 ///     switch1 = "builtin:wallpapers/220240.gif"
 ///     switch2 = "custom:mine.png"
 ///   三者必须互不相同。

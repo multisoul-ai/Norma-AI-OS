@@ -2,23 +2,35 @@ use super::super::components::{action_button, empty_list_message, with_alpha};
 use super::super::AgentDefinitionsState;
 use crate::app::MultisoulApp;
 use gpui::{
-    div, prelude::*, px, rgba, AnyElement, Context, Div, FontWeight, MouseButton, MouseDownEvent,
+    div, prelude::*, px, rgba, AnyElement, AppContext, Context, Div, Entity, Focusable, FontWeight,
+    MouseButton, MouseDownEvent, ScrollHandle, Subscription, Window,
 };
 use storage::AgentDefinition;
+use ui::component::input::{Input, InputEvent, InputState};
 use ui::Theme;
+
+struct AgentSearchInputState {
+    input: Entity<InputState>,
+    _subscription: Subscription,
+}
 
 pub(super) fn agent_list(
     theme: Theme,
     state: &AgentDefinitionsState,
+    list_scroll: &ScrollHandle,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
-    let definitions = state.definitions();
+    let definitions = state.visible_definitions();
 
     div()
         .w(px(224.0))
+        .h_full()
+        .min_h(px(0.0))
         .flex_none()
         .flex()
         .flex_col()
+        .overflow_hidden()
         .rounded_l(px(10.0))
         .border_r_1()
         .border_color(rgba(with_alpha(theme.edge_highlight, 0x28)))
@@ -46,17 +58,29 @@ pub(super) fn agent_list(
                         .on_click(cx.listener(MultisoulApp::on_agent_settings_new_definition)),
                 ),
         )
+        .child(agent_search_input(theme, state, window, cx))
         .child(
             div()
                 .id("settings-agents-list")
                 .debug_selector(|| "settings-agents-list".to_string())
+                .flex_1()
+                .min_h(px(0.0))
                 .flex()
                 .flex_col()
+                .overflow_y_scroll()
+                .track_scroll(list_scroll)
                 .gap(px(3.0))
                 .when(definitions.is_empty(), |this| {
-                    this.child(empty_list_message(theme, "No project agents saved yet."))
+                    this.child(empty_list_message(
+                        theme,
+                        if state.definitions().is_empty() {
+                            "No project agents saved yet."
+                        } else {
+                            "No agents match your search."
+                        },
+                    ))
                 })
-                .children(definitions.iter().map(|definition| {
+                .children(definitions.into_iter().map(|definition| {
                     agent_list_row(
                         theme,
                         definition,
@@ -65,6 +89,66 @@ pub(super) fn agent_list(
                     )
                 })),
         )
+}
+
+fn agent_search_input(
+    theme: Theme,
+    state: &AgentDefinitionsState,
+    window: &mut Window,
+    cx: &mut Context<MultisoulApp>,
+) -> AnyElement {
+    let app = cx.weak_entity();
+    let initial_value = state.search_query().to_string();
+    let search_state =
+        window.use_keyed_state("settings-agent-search-state", cx, move |window, cx| {
+            let input = cx.new(|cx| {
+                InputState::new(window, cx)
+                    .placeholder("Search agents")
+                    .default_value(initial_value)
+            });
+            let subscription = cx.subscribe(&input, move |_, input, event: &InputEvent, cx| {
+                if !matches!(event, InputEvent::Change) {
+                    return;
+                }
+                let Some(app) = app.upgrade() else {
+                    return;
+                };
+                let query = input.read(cx).value().to_string();
+                app.update(cx, |app, cx| {
+                    if app.agent_definitions.set_search_query(query) {
+                        cx.notify();
+                    }
+                });
+            });
+            AgentSearchInputState {
+                input,
+                _subscription: subscription,
+            }
+        });
+    let input = search_state.read(cx).input.clone();
+    let focus = input.focus_handle(cx);
+
+    div()
+        .id("settings-agent-search-input")
+        .debug_selector(|| "settings-agent-search-input".to_string())
+        .w_full()
+        .h(px(34.0))
+        .flex_none()
+        .flex()
+        .items_center()
+        .px(px(9.0))
+        .rounded(px(7.0))
+        .border_1()
+        .border_color(rgba(with_alpha(theme.edge_highlight, 0x3c)))
+        .bg(rgba(with_alpha(theme.panel_high, 0x96)))
+        .text_size(px(12.0))
+        .text_color(rgba(theme.text_primary))
+        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+            focus.focus(window);
+            cx.stop_propagation();
+        })
+        .child(Input::new(&input).appearance(false).cleanable(true))
+        .into_any_element()
 }
 
 fn agent_list_row(

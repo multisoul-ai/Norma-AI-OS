@@ -114,6 +114,7 @@ pub(crate) struct SettingsPanelState {
 #[derive(Debug, Default)]
 pub(crate) struct SettingsViewportState {
     pub(crate) content_scroll: ScrollHandle,
+    pub(crate) agent_list_scroll: ScrollHandle,
     pub(crate) pending_voice_setup_scroll: Option<crate::settings::voice::VoiceSetupDestination>,
 }
 
@@ -212,6 +213,7 @@ impl MultisoulApp {
                     setup_scroll_target,
                 },
                 content_scroll: &self.settings_viewport.content_scroll,
+                agent_list_scroll: &self.settings_viewport.agent_list_scroll,
                 wallpaper_state: &self.wallpaper_settings,
                 wallpaper_previews: &mut self.wallpaper_previews,
                 shortcuts: &self.shortcuts,

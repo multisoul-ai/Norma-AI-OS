@@ -25,6 +25,7 @@ impl Card for TermCard {
     fn chrome(&self, _node: &CanvasNode, _runtime: &Runtime) -> CardChrome {
         CardChrome {
             title: "Terminal".to_string(),
+            title_detail: None,
             refreshable: false,
             task_badge: None,
         }

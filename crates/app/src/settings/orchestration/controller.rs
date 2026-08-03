@@ -147,12 +147,20 @@ impl OrchestrationSettingsState {
 }
 
 impl MultisoulApp {
-    pub(crate) fn refresh_orchestration_integrations(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn reconcile_orchestration_integrations(&mut self, cx: &mut Context<Self>) {
+        self.reconcile_orchestration_integrations_with_paths(None, cx);
+    }
+
+    pub(crate) fn reconcile_orchestration_integrations_with_paths(
+        &mut self,
+        install_paths: Option<InstallPaths>,
+        cx: &mut Context<Self>,
+    ) {
         let generation = self.orchestration_settings.begin_refresh();
         let database_path = authorization_database_path(&self.database_paths);
         let work = cx
             .background_executor()
-            .spawn(async move { inspect_integrations(database_path) });
+            .spawn(async move { reconcile_integrations(database_path, install_paths) });
         cx.spawn(async move |this, cx| {
             let result = work.await;
             let _ = this.update(cx, |app, cx| {
@@ -234,8 +242,9 @@ fn authorization_database_path(paths: &storage::DatabasePaths) -> PathBuf {
     paths.app_db_path().to_path_buf()
 }
 
-fn inspect_integrations(
+fn reconcile_integrations(
     database_path: PathBuf,
+    install_paths: Option<InstallPaths>,
 ) -> Result<
     (
         Vec<ProviderIntegration>,
@@ -243,16 +252,23 @@ fn inspect_integrations(
     ),
     String,
 > {
-    let paths = InstallPaths::for_current_process().map_err(|error| error.to_string())?;
+    let paths = match install_paths {
+        Some(paths) => paths,
+        None => InstallPaths::for_current_process().map_err(|error| error.to_string())?,
+    };
     let store = storage::OrchestrationAuthorizationStore::new(database_path);
-    let registry = StorageAuthorizationRegistry::new(store);
+    let mut registry = StorageAuthorizationRegistry::new(store);
     let installer = OrchestrationInstaller::new(paths, env!("CARGO_PKG_VERSION"));
-    let integrations = OrchestrationProvider::ALL
-        .into_iter()
-        .map(|provider| installer.inspect(provider, &registry))
-        .collect();
+    let report = installer.reconcile_installed(&mut registry);
+    for failure in report.failures {
+        tracing::warn!(
+            provider = failure.provider.slug(),
+            error = %failure.error,
+            "automatic orchestration reconciliation failed"
+        );
+    }
     let records = registry.list().map_err(|error| error.to_string())?;
-    Ok((integrations, records))
+    Ok((report.integrations, records))
 }
 
 fn perform_operation(

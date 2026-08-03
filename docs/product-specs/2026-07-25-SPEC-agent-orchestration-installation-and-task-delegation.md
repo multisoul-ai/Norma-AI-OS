@@ -180,6 +180,14 @@ Grok 卡片始终显示 `不支持`，禁用安装按钮，并说明首版没有
 - 用户修复后重新执行检测；
 - 文件冲突时不静默覆盖用户内容。
 
+App 启动和进入 Orchestration 设置时自动 reconcile 已授权 Provider 的 Norma 受管组件：
+
+- 只处理凭据与全局授权仍然有效的既有安装，不自动安装未授权 Provider；
+- 自动升级受管 Skill、共享 CLI 和 Hook，共享二进制在同一轮 reconcile 中只更新一次；
+- 不轮换有效 Token，不重新启用已撤销授权；
+- 用户文件冲突保持 `Needs repair`，继续由用户明确处理；
+- 自动修复失败时保留真实组件状态和手动 `Repair` 入口。
+
 所有文件扫描、写入、哈希计算和 SQLite 操作必须在后台执行，不得阻塞 GPUI 前台线程。
 
 ### 4.3 卸载流程
@@ -573,7 +581,7 @@ Skill 使用供应商中立的单一源模板生成，Provider 适配器只处�
 - CLI 更新采用临时文件、校验和原子替换。
 - 安装不要求 `sudo`，不写入系统级目录。
 - Skill 和 Provider 配置引用受管 CLI 路径。
-- App 升级后设置页检测 CLI 版本并提供修复。
+- App 升级后自动 reconcile 已授权 Provider 的 CLI/Hook/Skill；冲突或失败时设置页提供手动修复。
 
 ### 6.6 本地服务与授权
 
@@ -870,6 +878,8 @@ Agent Hook     Ready / Missing / Failed
 - [ ] 缺失 Hook 时不得显示 `Ready`。
 - [ ] 重复安装不会重复写入或破坏已就绪组件。
 - [ ] 修复只处理缺失、过期或失败组件。
+- [ ] App 升级后已授权 Provider 的受管组件自动恢复 Ready，无需逐个点击 Repair。
+- [ ] 自动 reconcile 不安装未授权 Provider、不重新启用撤销授权、不覆盖用户冲突文件。
 - [ ] 用户文件冲突不会被静默覆盖。
 - [ ] 安装、修复和卸载不阻塞 GPUI 前台。
 - [ ] 安装后提示重启现有 Agent 会话。

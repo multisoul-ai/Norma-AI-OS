@@ -45,7 +45,15 @@ pub enum PreviewType {
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct PreviewSpec {
     pub path: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub additional_paths: Vec<String>,
     pub explicit_type: Option<PreviewType>,
+}
+
+impl PreviewSpec {
+    pub fn all_paths(&self) -> impl Iterator<Item = &str> {
+        std::iter::once(self.path.as_str()).chain(self.additional_paths.iter().map(String::as_str))
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -337,6 +345,7 @@ mod tests {
     fn test_preview_kind_preserves_path_type_and_serializes_without_content() {
         let kind = NodeKind::Preview(PreviewSpec {
             path: "/tmp/report.md".to_string(),
+            additional_paths: Vec::new(),
             explicit_type: Some(PreviewType::Markdown),
         });
 

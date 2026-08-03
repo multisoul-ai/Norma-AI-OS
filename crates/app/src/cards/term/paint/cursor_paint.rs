@@ -1,7 +1,9 @@
 use gpui::{point, px, quad, transparent_black, Bounds, Edges, Hsla, Pixels, Size, Window};
+use terminal::GridSnapshot;
 
-use super::TerminalLayout;
+use super::{TerminalLayout, TerminalTextRun};
 use crate::cards::term::cursor::{resolve_cursor_style, TerminalCursorAnimation};
+use crate::cards::term::paint_style::{resolve_cell_style, TerminalPalette};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct TerminalCursorPaint {
@@ -12,6 +14,34 @@ pub(super) struct TerminalCursorPaint {
     radius: Pixels,
     stroke_width: Pixels,
     highlight_bounds: Bounds<Pixels>,
+}
+
+pub(super) fn cursor_text_run(
+    snapshot: &GridSnapshot,
+    palette: TerminalPalette,
+) -> Option<TerminalTextRun> {
+    if snapshot.display_offset != 0 {
+        return None;
+    }
+    let cell = snapshot
+        .rows
+        .get(snapshot.cursor_line)?
+        .get(snapshot.cursor_col)?;
+    let resolved = resolve_cell_style(cell, palette);
+    let ch = if cell.c == '\0' { ' ' } else { cell.c };
+    if resolved.hidden || resolved.wide_char_spacer || ch == ' ' || ch == '\0' {
+        return None;
+    }
+
+    let mut style = resolved.text_style();
+    style.fg = style.bg;
+    Some(TerminalTextRun {
+        text: ch.to_string(),
+        row: snapshot.cursor_line,
+        start_col: snapshot.cursor_col,
+        end_col: snapshot.cursor_col + 1,
+        style,
+    })
 }
 
 pub(super) fn cursor_paint_model(

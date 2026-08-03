@@ -488,3 +488,6 @@ fn test_removing_agent_card_clears_only_its_pending_announcements() {
 
 #[path = "agent_announcements_workspace_tests.rs"]
 mod workspace_tests;
+
+#[path = "agent_announcements_recovery_tests.rs"]
+mod recovery_tests;

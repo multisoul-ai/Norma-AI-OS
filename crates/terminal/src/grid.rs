@@ -211,6 +211,11 @@ impl TerminalGrid {
         self.term.resize(self.dims);
     }
 
+    /// 当前终端应用是否请求用 bracketed-paste 协议接收剪贴板文本。
+    pub(crate) fn bracketed_paste_enabled(&self) -> bool {
+        self.term.mode().contains(TermMode::BRACKETED_PASTE)
+    }
+
     /// 产出当前屏幕的中性快照。
     ///
     /// 索引说明：alacritty_terminal 0.26 中 Line(0) 为顶行，

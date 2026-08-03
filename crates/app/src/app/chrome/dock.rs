@@ -54,22 +54,26 @@ impl MultisoulApp {
                     .bg(rgba(theme.dock))
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .child(
-                        div()
-                            .relative()
-                            .w(px(38.0))
-                            .h(px(38.0))
-                            .child(
-                                chrome_primary_icon_button(
-                                    theme,
-                                    ToolbarIcon::Plus,
-                                    self.interaction.new_menu_open,
-                                    "toolbar-new-terminal",
-                                    "New",
-                                )
-                                .on_click(cx.listener(Self::on_toolbar_toggle_new_menu)),
-                            )
-                            .when_some(new_menu, |trigger, menu| trigger.child(menu)),
+                        chrome_icon_button(
+                            theme,
+                            canvas_mode_icon,
+                            true,
+                            "toolbar-canvas-scroll",
+                            canvas_mode_tooltip,
+                        )
+                        .on_click(cx.listener(Self::on_toolbar_canvas_scroll)),
                     )
+                    .child(
+                        chrome_icon_button(
+                            theme,
+                            ToolbarIcon::Layout,
+                            self.interaction.layout_menu_open,
+                            "toolbar-layout",
+                            "Layout",
+                        )
+                        .on_click(cx.listener(Self::on_toolbar_toggle_layout_menu)),
+                    )
+                    .child(chrome_divider(theme))
                     .child(
                         chrome_icon_button(
                             theme,
@@ -89,6 +93,23 @@ impl MultisoulApp {
                             "Codex",
                         )
                         .on_click(cx.listener(Self::on_toolbar_new_codex_agent)),
+                    )
+                    .child(
+                        div()
+                            .relative()
+                            .w(px(38.0))
+                            .h(px(38.0))
+                            .child(
+                                chrome_primary_icon_button(
+                                    theme,
+                                    ToolbarIcon::Plus,
+                                    self.interaction.new_menu_open,
+                                    "toolbar-new-terminal",
+                                    "New",
+                                )
+                                .on_click(cx.listener(Self::on_toolbar_toggle_new_menu)),
+                            )
+                            .when_some(new_menu, |trigger, menu| trigger.child(menu)),
                     )
                     .child(
                         chrome_icon_button(
@@ -111,26 +132,9 @@ impl MultisoulApp {
                         .on_click(cx.listener(Self::on_new_menu_preview)),
                     )
                     .child(chrome_divider(theme))
-                    .child(
-                        chrome_icon_button(
-                            theme,
-                            canvas_mode_icon,
-                            true,
-                            "toolbar-canvas-scroll",
-                            canvas_mode_tooltip,
-                        )
-                        .on_click(cx.listener(Self::on_toolbar_canvas_scroll)),
-                    )
-                    .child(
-                        chrome_icon_button(
-                            theme,
-                            ToolbarIcon::Layout,
-                            self.interaction.layout_menu_open,
-                            "toolbar-layout",
-                            "Layout",
-                        )
-                        .on_click(cx.listener(Self::on_toolbar_toggle_layout_menu)),
-                    )
+                    .when(bottom_voice_bar_visible(), |dock| {
+                        dock.child(self.render_voice_bar(window, cx))
+                    })
                     .child(
                         chrome_icon_button(
                             theme,
@@ -140,11 +144,7 @@ impl MultisoulApp {
                             "Settings",
                         )
                         .on_click(cx.listener(Self::on_toolbar_settings)),
-                    )
-                    .child(chrome_divider(theme))
-                    .when(bottom_voice_bar_visible(), |dock| {
-                        dock.child(self.render_voice_bar(window, cx))
-                    }),
+                    ),
             )
     }
 }

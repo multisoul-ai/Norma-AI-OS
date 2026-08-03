@@ -17,7 +17,30 @@ const NEW_MENU_TRIGGER_GAP_PX: f32 = 12.0;
 // menu_left = -(menu_width - trigger_width) / 2 = -(180 - 38) / 2 = -71
 const NEW_MENU_LEFT_OFFSET_PX: f32 = -(NEW_MENU_WIDTH_PX - NEW_MENU_TRIGGER_WIDTH_PX) / 2.0;
 
+fn new_menu_item_hover_fill(theme: Theme) -> u32 {
+    with_alpha(theme.accent_blue, 0x2e)
+}
+
+fn new_menu_item_hover_border(theme: Theme) -> u32 {
+    with_alpha(theme.accent_blue, 0x66)
+}
+
+fn new_menu_item_pressed_fill(theme: Theme) -> u32 {
+    with_alpha(theme.accent_blue, 0x48)
+}
+
 impl MultisoulApp {
+    #[cfg(feature = "e2e-test-support")]
+    pub fn new_menu_visual_e2e_snapshot(&self) -> (bool, u32, u32, u32, u32) {
+        (
+            self.interaction.new_menu_open,
+            self.theme.panel,
+            new_menu_item_hover_fill(self.theme),
+            new_menu_item_hover_border(self.theme),
+            new_menu_item_pressed_fill(self.theme),
+        )
+    }
+
     /// ✚ 按钮点击：翻转菜单展开状态（按钮同时作为触发器与 toggle 指示）。
     pub(super) fn on_toolbar_toggle_new_menu(
         &mut self,
@@ -233,6 +256,9 @@ fn new_menu_item(
         .px(px(10.0))
         .py(px(6.0))
         .rounded(px(8.0))
+        .border_1()
+        .border_color(rgba(0xffffff00))
+        .cursor_pointer()
         .child(toolbar_icon(icon, theme.text_primary, 16.0))
         .child(
             div()
@@ -240,6 +266,14 @@ fn new_menu_item(
                 .text_size(px(13.0))
                 .child(label),
         )
-        .hover(move |s| s.bg(rgba(with_alpha(theme.edge_highlight, 0x18))))
+        .hover(move |s| {
+            s.bg(rgba(new_menu_item_hover_fill(theme)))
+                .border_color(rgba(new_menu_item_hover_border(theme)))
+        })
+        .active(move |s| s.bg(rgba(new_menu_item_pressed_fill(theme))))
         .on_click(on_click)
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/new_menu_tests.rs"]
+mod new_menu_tests;

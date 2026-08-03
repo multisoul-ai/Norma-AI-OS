@@ -1,4 +1,5 @@
 //! App 层卡片动效状态：只影响渲染连续性，不改变 canvas/runtime 的真实状态。
+pub(crate) mod activity;
 pub(crate) mod breathing;
 pub(crate) mod diagnostics;
 mod dispatch_api;
@@ -12,6 +13,7 @@ pub(crate) mod tokens;
 pub(crate) mod util;
 pub(crate) mod visual;
 pub(crate) mod working;
+pub(crate) use crate::motion::activity::MotionActivitySummary;
 #[cfg(test)]
 use crate::motion::breathing::breathing_color_for_phase;
 use crate::motion::breathing::{BreathingIntent, BreathingState};
@@ -45,8 +47,8 @@ use canvas::{CanvasRect, NodeId};
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 use ui::Theme;
-const BREATHING_REPAINT_INTERVAL: Duration = Duration::from_millis(33);
-const WORKING_SNAKE_REPAINT_INTERVAL: Duration = Duration::from_millis(33);
+/// 稳定状态动效最多 15fps：1000ms / 15 = 66.67ms，向上取整为 67ms。
+pub(crate) const AMBIENT_REPAINT_INTERVAL: Duration = Duration::from_millis(67);
 
 fn consume_repaint_interval(elapsed: &mut Duration, interval: Duration) -> bool {
     if *elapsed < interval {
@@ -57,11 +59,6 @@ fn consume_repaint_interval(elapsed: &mut Duration, interval: Duration) -> bool 
     true
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub(crate) struct MotionActivitySummary {
-    pub(crate) canvas_active: bool,
-    pub(crate) next_visual_boundary: Option<Duration>,
-}
 #[derive(Debug, Clone)]
 pub struct MotionStore {
     tokens: MotionTokens,
@@ -112,16 +109,19 @@ impl MotionStore {
     pub(crate) fn activity_summary(&self) -> MotionActivitySummary {
         let next_interval = self.next_animation_tick_interval(Duration::MAX);
         let next_visual_boundary = (next_interval != Duration::MAX).then_some(next_interval);
-        let node_active = self
+        let frame_synced_node_active = self.nodes.values().any(NodeMotion::frame_synced_active);
+        let ambient_node_active = self
             .nodes
             .values()
-            .any(|node| node.is_animating(self.reduce_motion));
-        MotionActivitySummary {
-            canvas_active: node_active
-                || !self.initializations.is_empty()
-                || self.dispatch_receipts.is_active(),
+            .any(|node| node.ambient_active(self.reduce_motion));
+        let frame_synced_active = frame_synced_node_active
+            || !self.initializations.is_empty()
+            || self.dispatch_receipts.is_active();
+        MotionActivitySummary::from_sources(
+            frame_synced_active,
+            ambient_node_active,
             next_visual_boundary,
-        }
+        )
     }
     pub fn retain_nodes(&mut self, live_nodes: impl IntoIterator<Item = NodeId>) {
         let live_nodes: BTreeSet<NodeId> = live_nodes.into_iter().collect();
@@ -281,26 +281,6 @@ pub struct NodeMotion {
     chase_repaint_elapsed: Duration,
 }
 impl NodeMotion {
-    fn is_animating(&self, reduce_motion: bool) -> bool {
-        let scalar_active = [
-            self.hover,
-            self.pressed,
-            self.selected,
-            self.focused,
-            self.dragging,
-            self.opacity,
-            self.breathing_fade,
-            self.completion_settle,
-            self.chase_fade,
-        ]
-        .into_iter()
-        .any(|scalar| (scalar.value - scalar.target).abs() > EPSILON);
-        scalar_active
-            || self.layout_active
-            || (!reduce_motion
-                && (self.breathing_state != BreathingState::Inactive || self.chase_active))
-    }
-
     fn settled(rect: CanvasRect) -> Self {
         Self {
             current_rect: rect,
@@ -426,7 +406,7 @@ impl NodeMotion {
                 changed = true;
             } else if consume_repaint_interval(
                 &mut self.breathing_repaint_elapsed,
-                BREATHING_REPAINT_INTERVAL,
+                AMBIENT_REPAINT_INTERVAL,
             ) {
                 changed = true;
             }
@@ -440,7 +420,7 @@ impl NodeMotion {
                 self.chase_repaint_elapsed += delta;
                 if consume_repaint_interval(
                     &mut self.chase_repaint_elapsed,
-                    WORKING_SNAKE_REPAINT_INTERVAL,
+                    AMBIENT_REPAINT_INTERVAL,
                 ) {
                     changed = true;
                 }

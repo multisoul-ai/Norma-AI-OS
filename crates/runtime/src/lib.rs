@@ -7,6 +7,7 @@ pub mod focus;
 pub mod live;
 pub(crate) mod macos_proc;
 pub mod nodes;
+mod preview;
 pub mod route;
 pub mod runtime;
 mod runtime_support;
@@ -24,5 +25,6 @@ pub use events::{
 pub use focus::{FocusState, InputMode};
 pub use live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
 pub use nodes::term::PtyFactory;
+pub use preview::PreviewSpawnError;
 pub use route::{route, InputEvent, Route};
 pub use runtime::{Runtime, DEFAULT_TERMINAL_SHELL};

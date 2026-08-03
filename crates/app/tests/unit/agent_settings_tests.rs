@@ -393,7 +393,7 @@ fn test_agents_settings_no_project_state_disables_create_controls() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings/content.rs
-///   target route = SettingsSection::Agents 分支调用 agents_settings(theme, agent_definitions, window, cx)
+///   target route = SettingsSection::Agents 分支调用 agents_settings(theme, agent_definitions, agent_list_scroll, window, cx)
 ///   forbidden fallback = SettingsSection::Agents => div()
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -410,7 +410,9 @@ fn test_agents_settings_content_routes_agents_section_to_agents_view() {
 
     assert!(
         source.contains("SettingsSection::Agents => {")
-            && source.contains("agents_settings(theme, agent_definitions, window, cx)"),
+            && source.contains(
+                "agents_settings(theme, agent_definitions, agent_list_scroll, window, cx)"
+            ),
         "Settings content 应把 Agents 分组路由到带 Window 上下文的 agents_settings"
     );
     assert!(

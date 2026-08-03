@@ -410,25 +410,25 @@ fn test_glass_cursor_model_keeps_default_background_transparent() {
     assert_ne!(cursor.fill.a, 1.0, "cursor fill 不应回退为完全不透明实心块");
 }
 
-/// 显式 ANSI 背景、文字和 cursor 同格时，绘制顺序必须保持 background → text → cursor。
+/// 显式 ANSI 背景、文字和 cursor 同格时，绘制顺序必须保留背景、光标与反色字符。
 ///
 /// 数据构造（含关键数值推导）：
 ///   row[0] = 'X'
 ///   bg = Red（显式 ANSI 背景，不是 default_bg）
 ///   cursor_line=0，cursor_col=0，与 Red 背景和文字同格
-///   期望 layer 数量 = 3：backgrounds、text_runs、cursor
+///   期望 layer 数量 = 4：backgrounds、text_runs、cursor、cursor_text
 ///
 /// 执行过程：
 ///   1. build_layout 解析 Red 背景和 X 文字
 ///   2. paint_layer_order 从同一个 layout 生成绘制顺序
-///   3. 检查 cursor 最后绘制，避免被背景或文字盖掉
+///   3. 检查 cursor 在普通文字后绘制，cursor text 最后反色重绘
 ///
 /// 预期结果：
-///   - 正断言：顺序精确等于 [ExplicitBackgrounds, TextRuns, Cursor]
-///   - 正断言：最后一层是 Cursor
+///   - 正断言：顺序精确等于 [ExplicitBackgrounds, TextRuns, Cursor, CursorText]
+///   - 正断言：最后一层是 CursorText，确保同格字符可见
 ///   - 负断言：第一层不应是 Cursor，否则光标会被后续背景/文字遮住
 #[test]
-fn test_paint_layer_order_draws_cursor_after_background_and_text() {
+fn test_paint_layer_order_draws_cursor_then_repaints_cursor_text() {
     let palette = test_palette();
     let fg = TerminalColor::Named(TerminalNamedColor::Foreground);
     let red_bg = TerminalColor::Named(TerminalNamedColor::Red);
@@ -443,13 +443,14 @@ fn test_paint_layer_order_draws_cursor_after_background_and_text() {
             TerminalPaintLayer::ExplicitBackgrounds,
             TerminalPaintLayer::TextRuns,
             TerminalPaintLayer::Cursor,
+            TerminalPaintLayer::CursorText,
         ],
-        "显式背景、文字、cursor 同格时绘制顺序必须保持 background → text → cursor"
+        "显式背景、文字、cursor 同格时必须按 background → text → cursor → cursor text 绘制"
     );
     assert_eq!(
-        order[2],
-        TerminalPaintLayer::Cursor,
-        "cursor 必须最后绘制，保证输入位置可见"
+        order[3],
+        TerminalPaintLayer::CursorText,
+        "cursor text 必须最后绘制，保证同格字符不会被光标遮住"
     );
     assert_ne!(
         order[0],

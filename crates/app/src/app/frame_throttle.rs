@@ -1,6 +1,8 @@
 use std::time::Duration;
 
-pub(crate) const CURSOR_REPAINT_INTERVAL: Duration = Duration::from_millis(33);
+use crate::motion::AMBIENT_REPAINT_INTERVAL;
+
+pub(crate) const CURSOR_REPAINT_INTERVAL: Duration = AMBIENT_REPAINT_INTERVAL;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct FrameThrottle {

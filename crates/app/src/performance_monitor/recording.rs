@@ -5,7 +5,8 @@ use std::time::Duration;
 use serde::Serialize;
 
 const RAW_SAMPLE_CAPACITY: usize = 120;
-const SUMMARY_SAMPLE_COUNT: usize = 10;
+// summary_samples = 30 min × 60 s/min ÷ 1 s/sample = 1_800 samples.
+const SUMMARY_SAMPLE_COUNT: usize = 30 * 60;
 const HIGH_CPU_SAMPLE_COUNT: usize = 5;
 const BYTES_PER_MEBIBYTE: f64 = 1024.0 * 1024.0;
 

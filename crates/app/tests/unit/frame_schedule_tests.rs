@@ -1,7 +1,6 @@
 use super::*;
 use crate::motion::{DispatchReceiptVisualStatus, MotionStore};
 use std::time::Duration;
-
 /// FS-1：闲时动画降频默认关闭，只有用户显式开启后才使用 250ms 定时巡检。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -13,30 +12,40 @@ use std::time::Duration;
 ///   settings open = false
 ///   default throttle = false → expected wakeup = Timer(16ms)
 ///   enabled throttle = true  → expected wakeup = Timer(250ms)
+///   explicit ambient timer = 67ms，来自 ceil(1000ms / 15fps)
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 构造没有任何动画活动源的前台 Canvas 状态。
 ///   2. 用默认关闭配置调用纯 AnimationSchedule seam 计算下一次唤醒方式。
 ///   3. 再显式开启降频，比较两种配置对应的定时巡检间隔。
+///   4. 验证生产 timer 保留显式 67ms，而 NextFrame 只使用 250ms idle 兜底。
 ///
 /// 预期结果：
 ///   - 正断言：默认关闭时空闲唤醒必须精确为 Timer(16ms)，优先保证动画响应。
 ///   - 正断言：显式开启后空闲唤醒必须精确为 Timer(250ms)，保留节能能力。
 ///   - 负断言：默认关闭时不得继续返回 Timer(250ms)，避免复现闲转活时的掉帧。
+///   - 正断言：显式 Timer(67ms) 不被 idle 设置覆盖，NextFrame 兜底为 250ms。
 #[test]
 fn test_animation_schedule_disables_idle_throttling_by_default() {
     let activity = AnimationActivity {
         voice_active: false,
         canvas_motion_active: false,
+        canvas_frame_synced_active: false,
+        canvas_ambient_active: false,
         cursor_active: false,
         screen_is_canvas: true,
         window_active: true,
         settings_open: false,
         next_visual_boundary: None,
     };
-
     let default_wakeup = AnimationSchedule::next_wakeup(activity, false);
     let throttled_wakeup = AnimationSchedule::next_wakeup(activity, true);
+    let ambient_interval =
+        AnimationSchedule::timer_interval(AnimationWakeup::Timer(Duration::from_millis(67)), true);
+    let display_fallback = AnimationSchedule::timer_interval(
+        AnimationWakeup::NextFrame(Duration::from_millis(16)),
+        true,
+    );
 
     assert_eq!(
         default_wakeup,
@@ -53,6 +62,16 @@ fn test_animation_schedule_disables_idle_throttling_by_default() {
         AnimationWakeup::Timer(Duration::from_millis(250)),
         "默认配置不得继续使用 250ms 闲时巡检，否则可能让新动画错过平滑启动"
     );
+    assert_eq!(
+        ambient_interval,
+        Duration::from_millis(67),
+        "生产循环必须采用 AnimationWakeup::Timer(67ms) 自带的 ambient cadence"
+    );
+    assert_eq!(
+        display_fallback,
+        Duration::from_millis(250),
+        "NextFrame 已由 GPUI driver 推进时，生产 timer 应使用 250ms idle 兜底"
+    );
 }
 
 /// FS-2：可见 Canvas 有活动动画时必须交给 GPUI 下一帧回调驱动。
@@ -60,22 +79,27 @@ fn test_animation_schedule_disables_idle_throttling_by_default() {
 /// 数据构造（含关键数值的推导过程）：
 ///   initialization next boundary = 7ms
 ///   display callback = NextFrame(16ms)（显示帧对齐 + 约 60Hz cadence）
+///   ambient interval = ceil(1000ms / 15fps) = 67ms
 ///   fixed timer negative control = Timer(16ms)
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 构造可见、前台且 motion active 的 Canvas，未提供更近边界。
 ///   2. 计算基础动画唤醒方式。
 ///   3. 在同一活动状态加入 7ms 初始化视觉边界并再次计算。
+///   4. 分别改为稳定 ambient 与 cursor-only，验证两者共享 67ms timer。
 ///
 /// 预期结果：
 ///   - 正断言：普通活动 Canvas 返回 NextFrame(16ms)。
 ///   - 正断言：存在 7ms 视觉边界时返回 NextFrame(7ms)，避免错过边界。
+///   - 正断言：稳定 ambient 与 cursor-only 均返回 Timer(67ms)。
 ///   - 负断言：活动 Canvas 不得退回 Timer(16ms) 的 sleep + dispatch 路径。
 #[test]
 fn test_animation_schedule_uses_next_frame_for_visible_active_canvas() {
     let active_canvas = AnimationActivity {
         voice_active: false,
         canvas_motion_active: true,
+        canvas_frame_synced_active: true,
+        canvas_ambient_active: false,
         cursor_active: false,
         screen_is_canvas: true,
         window_active: true,
@@ -86,10 +110,22 @@ fn test_animation_schedule_uses_next_frame_for_visible_active_canvas() {
         next_visual_boundary: Some(Duration::from_millis(7)),
         ..active_canvas
     };
-
+    let stable_ambient = AnimationActivity {
+        canvas_motion_active: true,
+        canvas_frame_synced_active: false,
+        canvas_ambient_active: true,
+        ..active_canvas
+    };
+    let cursor_only = AnimationActivity {
+        canvas_motion_active: false,
+        canvas_frame_synced_active: false,
+        cursor_active: true,
+        ..active_canvas
+    };
     let active_wakeup = AnimationSchedule::next_wakeup(active_canvas, false);
     let boundary_wakeup = AnimationSchedule::next_wakeup(boundary_canvas, false);
-
+    let ambient_wakeup = AnimationSchedule::next_wakeup(stable_ambient, false);
+    let cursor_wakeup = AnimationSchedule::next_wakeup(cursor_only, false);
     assert_eq!(
         active_wakeup,
         AnimationWakeup::NextFrame(Duration::from_millis(16)),
@@ -99,6 +135,16 @@ fn test_animation_schedule_uses_next_frame_for_visible_active_canvas() {
         boundary_wakeup,
         AnimationWakeup::NextFrame(Duration::from_millis(7)),
         "初始化视觉边界仅 7ms 时应在 GPUI 下一显示帧消费该边界"
+    );
+    assert_eq!(
+        ambient_wakeup,
+        AnimationWakeup::Timer(Duration::from_millis(67)),
+        "稳定 breathing/working snake 应按 67ms timer 唤醒"
+    );
+    assert_eq!(
+        cursor_wakeup,
+        AnimationWakeup::Timer(Duration::from_millis(67)),
+        "稳定 Terminal cursor 应与 Canvas ambient 共用 67ms cadence"
     );
     assert_ne!(
         active_wakeup,
@@ -129,6 +175,8 @@ fn test_animation_schedule_keeps_exposed_canvas_motion_on_next_frame_while_setti
     let voice_with_occluded_canvas = AnimationActivity {
         voice_active: true,
         canvas_motion_active: true,
+        canvas_frame_synced_active: true,
+        canvas_ambient_active: true,
         cursor_active: true,
         screen_is_canvas: true,
         window_active: false,
@@ -145,11 +193,9 @@ fn test_animation_schedule_keeps_exposed_canvas_motion_on_next_frame_while_setti
         settings_open: false,
         ..voice_with_occluded_canvas
     };
-
     let voice_wakeup = AnimationSchedule::next_wakeup(voice_with_occluded_canvas, true);
     let settings_canvas_wakeup = AnimationSchedule::next_wakeup(settings_canvas_only, true);
     let background_canvas_wakeup = AnimationSchedule::next_wakeup(background_canvas_only, true);
-
     assert_eq!(
         voice_wakeup,
         AnimationWakeup::NextFrame(Duration::from_millis(12)),
@@ -202,20 +248,19 @@ fn test_dispatch_effect_activity_drives_next_frame_then_returns_idle() {
         971,
         DispatchReceiptVisualStatus::Submitted,
     );
-    let visible_activity = |canvas_motion_active| AnimationActivity {
+    let visible_activity = |summary: crate::motion::MotionActivitySummary| AnimationActivity {
         voice_active: false,
-        canvas_motion_active,
+        canvas_motion_active: summary.canvas_active,
+        canvas_frame_synced_active: summary.frame_synced_active,
+        canvas_ambient_active: summary.ambient_active,
         cursor_active: false,
         screen_is_canvas: true,
         window_active: true,
         settings_open: false,
         next_visual_boundary: None,
     };
-    let active_wakeup = AnimationSchedule::next_wakeup(
-        visible_activity(motion.activity_summary().canvas_active),
-        true,
-    );
-
+    let active_wakeup =
+        AnimationSchedule::next_wakeup(visible_activity(motion.activity_summary()), true);
     // flight = 480ms = 9 × 50ms + 30ms；单次推进不超过 50ms clamp。
     for _ in 0..9 {
         motion.tick(Duration::from_millis(50));
@@ -226,10 +271,8 @@ fn test_dispatch_effect_activity_drives_next_frame_then_returns_idle() {
         motion.tick(Duration::from_millis(50));
     }
     motion.tick(Duration::from_millis(30));
-    let idle_wakeup = AnimationSchedule::next_wakeup(
-        visible_activity(motion.activity_summary().canvas_active),
-        true,
-    );
+    let idle_wakeup =
+        AnimationSchedule::next_wakeup(visible_activity(motion.activity_summary()), true);
 
     assert_eq!(
         active_wakeup,

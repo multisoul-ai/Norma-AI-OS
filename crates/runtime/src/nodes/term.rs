@@ -110,33 +110,6 @@ impl TermLive {
     }
 }
 
-/// 将跨平台剪贴板换行收敛为终端显示所需的 CRLF。
-///
-/// ANSI 终端对裸 LF 的语义是仅向下移动光标，不会回到第 0 列。文本粘贴若保留
-/// macOS/Linux 的 LF，会使后续行从上一行末尾继续绘制，并可能在窄 Agent 卡片中
-/// 被裁出可见区域。现有 CRLF 保持为一个分隔符，裸 CR 与裸 LF 各自转换为一个 CRLF。
-fn normalize_terminal_paste_bytes(text: &str) -> Vec<u8> {
-    if !text.contains(['\r', '\n']) {
-        return text.as_bytes().to_vec();
-    }
-
-    let bytes = text.as_bytes();
-    let mut normalized = Vec::with_capacity(bytes.len().saturating_add(1));
-    let mut index = 0;
-    while index < bytes.len() {
-        match bytes[index] {
-            b'\r' => {
-                normalized.extend_from_slice(b"\r\n");
-                index += usize::from(bytes.get(index + 1) == Some(&b'\n'));
-            }
-            b'\n' => normalized.extend_from_slice(b"\r\n"),
-            byte => normalized.push(byte),
-        }
-        index += 1;
-    }
-    normalized
-}
-
 /// 工厂分发：`pty_factory` 为 `Some` 时走注入路径（测试），否则走生产
 /// `TermLive::spawn_command`（真 PTY）。供 `Runtime` 的 spawn/restore 路径统一调用，
 /// 避免在每个调用点重复 if/else。
@@ -185,8 +158,9 @@ impl LiveNode for TermLive {
             NodeInput::Key(key) => self.session.write_input(&key).map_err(NodeError::from),
             NodeInput::Text(s) => self
                 .session
-                .write_bytes(&normalize_terminal_paste_bytes(&s))
+                .write_bytes(s.as_bytes())
                 .map_err(NodeError::from),
+            NodeInput::Paste(s) => self.session.write_paste(&s).map_err(NodeError::from),
         }
     }
 

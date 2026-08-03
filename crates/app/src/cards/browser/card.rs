@@ -33,6 +33,7 @@ impl Card for BrowserCard {
                 .unwrap_or(("Ego 已断开", CardChromeTaskTone::Error));
             return CardChrome {
                 title: "Ego".to_string(),
+                title_detail: None,
                 refreshable: false,
                 task_badge: Some(CardChromeTaskBadge {
                     label: label.to_string(),
@@ -42,6 +43,7 @@ impl Card for BrowserCard {
         }
         CardChrome {
             title: node.kind.display_title(),
+            title_detail: None,
             refreshable: false,
             task_badge: None,
         }

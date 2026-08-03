@@ -76,6 +76,66 @@ fn test_spawn_preview_creates_document_only_node_without_live_session() {
     );
 }
 
+/// 多图 Preview spawn 把选择顺序持久化到同一 canvas 节点，且仍不注册 live session。
+///
+/// 数据构造（含关键数值推导）：
+///   paths = [cover.png, detail.png, ending.png]
+///   图片总数 = 1 个主路径 + 2 个 additional_paths = 3
+///   document.next_id 初始为 1，因此新节点 id = 1
+///   Preview live node 数 = 0（图片读取仍由 app 层负责）
+///
+/// 执行过程：
+///   1. Runtime::new() 创建空文档。
+///   2. spawn_preview_from_paths 按用户选择顺序创建一个 Preview 节点。
+///   3. 从节点的 PreviewSpec 展开 all_paths，并检查 runtime live 状态。
+///
+/// 预期结果：
+///   - 正断言：一个节点按 cover → detail → ending 保存三张图片。
+///   - 正断言：节点类型为 Preview，live_len 仍为 0。
+///   - 负断言：附加路径不得包含主路径 cover.png，避免首图重复。
+#[test]
+fn test_spawn_preview_from_paths_preserves_gallery_order_in_one_node() {
+    let mut runtime = Runtime::new();
+    let bounds = CanvasRect::new(12.0, 24.0, 640.0, 420.0);
+    let paths = vec![
+        std::path::PathBuf::from("/tmp/cover.png"),
+        std::path::PathBuf::from("/tmp/detail.png"),
+        std::path::PathBuf::from("/tmp/ending.png"),
+    ];
+
+    let node_id = runtime
+        .spawn_preview_from_paths(paths, Some(PreviewType::Image), bounds)
+        .expect("三张图片应创建为一个 Preview gallery 节点");
+
+    let node = runtime
+        .document
+        .node(node_id)
+        .expect("多图 Preview spawn 返回的 node_id 应存在于 document");
+    let CanvasNodeKind::Preview(spec) = &node.kind else {
+        panic!("多图 Preview spawn 不应创建非 Preview 节点");
+    };
+    let stored_paths = spec.all_paths().collect::<Vec<_>>();
+    assert_eq!(
+        stored_paths,
+        vec!["/tmp/cover.png", "/tmp/detail.png", "/tmp/ending.png"],
+        "多图 Preview 必须按用户选择顺序保存在同一个节点中"
+    );
+    assert_eq!(
+        node.kind.node_type(),
+        NodeType::Preview,
+        "多图节点必须继续由 Preview card renderer 处理"
+    );
+    assert_eq!(
+        runtime.live_len(),
+        0,
+        "多图 Preview 不应注册 PTY 或其他 live node"
+    );
+    assert!(
+        !spec.additional_paths.iter().any(|path| path == &spec.path),
+        "additional_paths 不得重复保存主路径，否则首图会出现两次"
+    );
+}
+
 /// Browser spawn 只创建 canvas 描述节点，不注册 live node，也不产生 session checkpoint。
 ///
 /// 数据构造（含关键数值推导）：

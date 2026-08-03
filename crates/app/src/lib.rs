@@ -32,16 +32,16 @@ pub use app::{run_ego_live_capture_probe, EgoLiveCaptureProbeReport};
 #[cfg(feature = "e2e-test-support")]
 pub use app::{
     runtime_frame_interval_for_e2e, CloneProjectE2eSnapshot, EgoCardE2eSnapshot,
-    FeatureGuideE2eSnapshot,
-    OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot, PresentationE2eSnapshot,
-    ReplyTtsE2ePcmSnapshot, ReplyTtsE2eProbe, ReplyTtsE2eProbeSnapshot, ReplyTtsE2eSnapshot,
+    FeatureGuideE2eSnapshot, OrchestrationProviderE2eSnapshot, OrchestrationSettingsE2eSnapshot,
+    PresentationE2eSnapshot, ReplyTtsE2ePcmSnapshot, ReplyTtsE2eProbe, ReplyTtsE2eProbeSnapshot,
+    ReplyTtsE2eSnapshot,
 };
 pub use app::{
     AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState, AppScreen,
     CanvasLayoutE2eSnapshot, CloneProject, CopyCardContent, ExitFocus,
     InitializationAnimationE2eSnapshot, MultisoulApp, NewBrowser, NewClaudeAgent, NewCodexAgent,
-    NewCursorAgent, NewGrokAgent, NewOpenCodeAgent, NewTerminal, NewWindow, OpenPreviewFile,
-    OpenFeatureGuide, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
+    NewCursorAgent, NewGrokAgent, NewOpenCodeAgent, NewTerminal, NewWindow, OpenFeatureGuide,
+    OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
     ToggleMasterLayout, ToggleSettings, TtsProviderE2eSnapshot,
 };
 #[cfg(feature = "e2e-test-support")]

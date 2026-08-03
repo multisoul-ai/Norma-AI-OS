@@ -198,7 +198,7 @@ fn e2e_12_norma_dispatch_receipt_renders_and_stops_after_impact() {
     app.update(cx, |app, _cx| app.runtime.kill_all());
 }
 
-/// DR-E2E-2：飞行期间窗口失活或目标离屏必须取消特效，恢复后不得重现旧动画。
+/// DR-E2E-2：飞行期间窗口失活必须保留特效，目标离屏才取消且恢复后不重现。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Agent cards = 1（Alan/Codex）
@@ -208,16 +208,16 @@ fn e2e_12_norma_dispatch_receipt_renders_and_stops_after_impact() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建 Alan 并派发第一条任务，确认 Flight 已进入 MotionStore。
-///   2. 模拟窗口失活并重绘，确认第一条 Flight 被取消。
+///   2. 模拟窗口失活并重绘，确认第一条 Flight 仍保留。
 ///   3. 恢复窗口后派发第二条任务，再把 Canvas 平移到完全离屏并重绘。
 ///   4. 恢复原 viewport，确认旧 Flight/Impact 不会重新出现。
 ///
 /// 预期结果：
-///   - 正断言：两次派发各自先创建唯一 active effect。
-///   - 正断言：两种取消原因累计精确取消 2 个 effect。
-///   - 负断言：窗口/viewport 恢复后不得出现旧 presentation 或 dispatch slot。
+///   - 正断言：窗口失活不取消第一条 effect，两次派发累计保留 2 个 effect slot。
+///   - 正断言：目标离屏后精确取消 2 个 effect。
+///   - 负断言：viewport 恢复后不得出现旧 presentation 或 dispatch slot。
 #[test]
-fn e2e_12_dispatch_receipt_cancels_when_window_or_target_becomes_invisible() {
+fn e2e_12_dispatch_receipt_survives_inactive_window_but_cancels_offscreen_target() {
     let mut test_cx = TestAppContext::single();
     let (app, cx) = make_app(&mut test_cx, echo_factory());
     let workspace = tempfile::tempdir().expect("dispatch cancel e2e 应创建临时 workspace");
@@ -240,7 +240,7 @@ fn e2e_12_dispatch_receipt_cancels_when_window_or_target_becomes_invisible() {
         app.advance_animations_for_e2e(Duration::from_millis(1_000), cx);
     });
 
-    dispatch_to_alan(&app, cx, "窗口失活取消测试");
+    dispatch_to_alan(&app, cx, "窗口失活保留测试");
     cx.run_until_parked();
     let before_deactivate = app.update(cx, |app, _cx| app.dispatch_receipt_effect_e2e_snapshot());
     assert_eq!(
@@ -253,12 +253,12 @@ fn e2e_12_dispatch_receipt_cancels_when_window_or_target_becomes_invisible() {
     cx.run_until_parked();
     let after_deactivate = app.update(cx, |app, _cx| app.dispatch_receipt_effect_e2e_snapshot());
     assert_eq!(
-        after_deactivate.cancelled_effects, 1,
-        "窗口失活重绘必须精确取消第一条 dispatch effect"
+        after_deactivate.cancelled_effects, 0,
+        "窗口失活重绘不得取消第一条 dispatch effect"
     );
-    assert!(
-        after_deactivate.effects.is_empty(),
-        "失活窗口不得保留稍后恢复的旧 Flight presentation"
+    assert_eq!(
+        after_deactivate.active_count, 1,
+        "失活窗口必须继续保留第一条 active Flight presentation"
     );
 
     cx.update(|window, _app_cx| window.activate_window());
@@ -267,8 +267,9 @@ fn e2e_12_dispatch_receipt_cancels_when_window_or_target_becomes_invisible() {
     cx.run_until_parked();
     let before_pan = app.update(cx, |app, _cx| app.dispatch_receipt_effect_e2e_snapshot());
     assert_eq!(
-        before_pan.active_count, 1,
-        "恢复窗口后第二条 dispatch 必须创建新的 active Flight"
+        before_pan.active_count + before_pan.pending_count,
+        2,
+        "恢复窗口后第二条 dispatch 必须与第一条共同占用两个 effect slot"
     );
 
     app.update(cx, |app, cx| {
@@ -279,7 +280,7 @@ fn e2e_12_dispatch_receipt_cancels_when_window_or_target_becomes_invisible() {
     let after_pan = app.update(cx, |app, _cx| app.dispatch_receipt_effect_e2e_snapshot());
     assert_eq!(
         after_pan.cancelled_effects, 2,
-        "目标完全离屏后累计取消数必须从 1 增加到 2"
+        "目标完全离屏后必须精确取消 active 与 pending 两条 effect"
     );
     assert!(
         after_pan.effects.is_empty(),

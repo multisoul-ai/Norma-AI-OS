@@ -24,6 +24,10 @@ mod tests;
 mod render_id_tests;
 
 #[cfg(test)]
+#[path = "../../tests/unit/wallpaper_builtin_migration_tests.rs"]
+mod builtin_migration_tests;
+
+#[cfg(test)]
 #[path = "../../tests/unit/wallpaper_dirs_tests.rs"]
 mod dirs_tests;
 

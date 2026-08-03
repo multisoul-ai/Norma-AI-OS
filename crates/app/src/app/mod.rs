@@ -26,9 +26,7 @@ use crate::workspace::clone_project::CloneProjectUiState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasRect, NodeId, NodeType, Vec2};
-use gpui::{
-    actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Task, Window,
-};
+use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
 use runtime::{route, InputEvent, Route, Runtime};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -36,7 +34,6 @@ use std::sync::{atomic::AtomicBool, Arc};
 #[cfg(test)]
 use std::time::Duration;
 use ui::{Theme, ThemeId};
-use voice_window_inset::VoiceWindowInset;
 mod agent_actions;
 mod agent_announcements;
 mod agent_close;
@@ -48,6 +45,7 @@ pub(crate) mod browser;
 mod node_removal;
 mod presentation;
 pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
+mod canvas_surface;
 pub(crate) mod cef_process;
 mod chrome;
 pub(crate) use chrome::FrostedBackdropGeometry;
@@ -72,7 +70,7 @@ pub use frame_loop::runtime_frame_interval_for_e2e;
 mod feature_guide;
 mod frame_schedule;
 mod frame_throttle;
-use feature_guide::{FeatureGuideSettingsState, FeatureGuideState};
+use feature_guide::{FeatureGuideMediaState, FeatureGuideSettingsState, FeatureGuideState};
 mod ime;
 mod ime_geometry;
 mod keyboard;
@@ -158,8 +156,7 @@ pub struct MultisoulApp {
     pub(crate) settings_viewport: SettingsViewportState,
     pub(crate) feature_guide: FeatureGuideState,
     pub(crate) feature_guide_settings: FeatureGuideSettingsState,
-    pub(crate) feature_guide_media_frame: usize,
-    pub(crate) feature_guide_media_task: Option<Task<()>>,
+    pub(crate) feature_guide_media: FeatureGuideMediaState,
     pub(crate) feature_guide_primary_focus: FocusHandle,
     #[cfg(feature = "e2e-test-support")]
     pub(crate) feature_guide_primary_focused_for_e2e: bool,
@@ -218,7 +215,9 @@ pub struct MultisoulApp {
     animation_frame_pending: bool,
     animation_frame_cadence: Option<std::time::Duration>,
     window_active: bool,
-    voice_window_inset: VoiceWindowInset,
+    canvas_surface: gpui::Entity<canvas_surface::CanvasSurfaceView>,
+    voice_window_inset_events: voice_window_inset::VoiceWindowInsetEventBus,
+    voice_window_inset_view: gpui::Entity<voice_window_inset::VoiceWindowInsetView>,
     voice_window_inset_window_visible: bool,
 }
 impl MultisoulApp {
@@ -237,6 +236,7 @@ impl MultisoulApp {
             database_paths,
             app_store,
             bootstrap::BootstrapSettingsSource::Stored,
+            bootstrap::OrchestrationBootstrap::CurrentProcess,
         )
     }
 

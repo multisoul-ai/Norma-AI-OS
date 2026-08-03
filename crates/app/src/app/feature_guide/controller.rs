@@ -1,13 +1,22 @@
-use super::{FeatureGuideBlockers, FeatureGuideTopic};
+use super::{should_play_feature_guide_media, FeatureGuideBlockers, FeatureGuideTopic};
 use crate::app::voice::control::VoicePhase;
+use crate::app::wallpaper_resolvers::resolve_builtin_asset;
 use crate::app::{MultisoulApp, OpenFeatureGuide};
 use gpui::{Context, KeyDownEvent, Window};
 use std::time::Duration;
 
+#[cfg(target_os = "macos")]
+use crate::app::video_wallpaper::{
+    poll_video_wallpaper, replace_video_wallpaper, VideoFrameMailbox,
+    VIDEO_FOREGROUND_POLL_INTERVAL_MS,
+};
+#[cfg(target_os = "macos")]
+use std::path::Path;
+#[cfg(target_os = "macos")]
+use std::sync::Arc;
+
 const CANVAS_READY_DELAY: Duration = Duration::from_millis(16);
 const PENDING_RETRY_INTERVAL: Duration = Duration::from_millis(250);
-const MEDIA_FRAME_INTERVAL: Duration = Duration::from_millis(1_200);
-const MEDIA_FRAME_COUNT: usize = 3;
 
 impl MultisoulApp {
     pub(crate) fn handle_feature_guide_key_down(
@@ -34,7 +43,7 @@ impl MultisoulApp {
                 "up" => self.previous_feature_guide_topic(cx),
                 "down" => self.next_feature_guide_topic(cx),
                 "enter" | "space" if self.feature_guide_primary_focus.is_focused(window) => {
-                    if self.feature_guide.topic == FeatureGuideTopic::TaskStatus {
+                    if self.feature_guide.topic == FeatureGuideTopic::AgentNotifications {
                         self.complete_feature_guide(cx);
                     } else {
                         self.next_feature_guide_topic(cx);
@@ -56,9 +65,9 @@ impl MultisoulApp {
         self.feature_guide.open_manually();
         self.feature_guide
             .sync_blockers(self.feature_guide_blockers());
-        self.feature_guide_media_frame = 0;
+        self.feature_guide_media.manually_paused = false;
         self.queue_feature_guide_persistence(cx);
-        self.start_feature_guide_media_if_needed(cx);
+        self.sync_feature_guide_media(cx);
         if self.feature_guide.is_visible() {
             self.focus_handle.focus(window);
         }
@@ -103,9 +112,9 @@ impl MultisoulApp {
         self.feature_guide
             .on_canvas_ready(self.feature_guide_blockers());
         if self.feature_guide.is_visible() && !was_visible {
-            self.feature_guide_media_frame = 0;
+            self.feature_guide_media.manually_paused = false;
             self.queue_feature_guide_persistence(cx);
-            self.start_feature_guide_media_if_needed(cx);
+            self.sync_feature_guide_media(cx);
             cx.notify();
         }
     }
@@ -115,30 +124,30 @@ impl MultisoulApp {
         self.feature_guide
             .sync_blockers(self.feature_guide_blockers());
         if was_visible && !self.feature_guide.is_visible() {
-            self.feature_guide_media_task = None;
+            self.pause_feature_guide_media(false, cx);
         } else if !was_visible && self.feature_guide.is_visible() {
             self.queue_feature_guide_persistence(cx);
-            self.start_feature_guide_media_if_needed(cx);
+            self.sync_feature_guide_media(cx);
         }
     }
 
     pub(crate) fn close_feature_guide_for_session(&mut self, cx: &mut Context<Self>) {
         self.feature_guide.close_for_session();
-        self.feature_guide_media_task = None;
+        self.feature_guide_media.clear_playback();
         self.queue_feature_guide_persistence(cx);
         cx.notify();
     }
 
     pub(crate) fn suppress_feature_guide(&mut self, cx: &mut Context<Self>) {
         self.feature_guide.suppress();
-        self.feature_guide_media_task = None;
+        self.feature_guide_media.clear_playback();
         self.queue_feature_guide_persistence(cx);
         cx.notify();
     }
 
     pub(crate) fn complete_feature_guide(&mut self, cx: &mut Context<Self>) {
         self.feature_guide.complete();
-        self.feature_guide_media_task = None;
+        self.feature_guide_media.clear_playback();
         self.queue_feature_guide_persistence(cx);
         cx.notify();
     }
@@ -149,28 +158,35 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) {
         self.feature_guide.select_topic(topic);
-        self.feature_guide_media_frame = 0;
         self.queue_feature_guide_persistence(cx);
+        self.sync_feature_guide_media(cx);
         cx.notify();
     }
 
     pub(crate) fn next_feature_guide_topic(&mut self, cx: &mut Context<Self>) {
         self.feature_guide.next_topic();
-        self.feature_guide_media_frame = 0;
         self.queue_feature_guide_persistence(cx);
+        self.sync_feature_guide_media(cx);
         cx.notify();
     }
 
     pub(crate) fn previous_feature_guide_topic(&mut self, cx: &mut Context<Self>) {
         self.feature_guide.previous_topic();
-        self.feature_guide_media_frame = 0;
         self.queue_feature_guide_persistence(cx);
+        self.sync_feature_guide_media(cx);
         cx.notify();
     }
 
-    pub(crate) fn restart_feature_guide_demo(&mut self, cx: &mut Context<Self>) {
-        self.feature_guide_media_frame = 0;
-        self.start_feature_guide_media_if_needed(cx);
+    pub(crate) fn toggle_feature_guide_demo_playback(&mut self, cx: &mut Context<Self>) {
+        if self.motion.reduce_motion {
+            return;
+        }
+        if self.feature_guide_media.playing {
+            self.pause_feature_guide_media(true, cx);
+        } else {
+            self.feature_guide_media.manually_paused = false;
+            self.sync_feature_guide_media(cx);
+        }
         cx.notify();
     }
 
@@ -186,29 +202,141 @@ impl MultisoulApp {
         }
     }
 
-    fn start_feature_guide_media_if_needed(&mut self, cx: &mut Context<Self>) {
-        self.feature_guide_media_task = None;
-        if self.motion.reduce_motion || !self.feature_guide.is_visible() {
+    pub(in crate::app) fn sync_feature_guide_media(&mut self, cx: &mut Context<Self>) {
+        let topic = self.feature_guide.topic;
+        if self.feature_guide_media.topic != Some(topic) {
+            self.feature_guide_media.clear_playback();
+            self.feature_guide_media.topic = Some(topic);
+            self.feature_guide_media.video_path = resolve_builtin_asset(topic.video_asset());
+            self.feature_guide_media.poster_path = resolve_builtin_asset(topic.poster_asset());
+            self.feature_guide_media.manually_paused = false;
+        }
+
+        if !should_play_feature_guide_media(
+            self.feature_guide.is_visible(),
+            self.motion.reduce_motion,
+            self.feature_guide_media.manually_paused,
+        ) {
+            self.pause_feature_guide_media(false, cx);
             return;
         }
-        let task = cx.spawn(async move |this, cx| loop {
-            cx.background_executor().timer(MEDIA_FRAME_INTERVAL).await;
-            let should_continue = this
-                .update(cx, |app, cx| {
-                    if !app.feature_guide.is_visible() || app.motion.reduce_motion {
-                        return false;
-                    }
-                    app.feature_guide_media_frame =
-                        (app.feature_guide_media_frame + 1) % MEDIA_FRAME_COUNT;
-                    cx.notify();
-                    true
-                })
-                .unwrap_or(false);
-            if !should_continue {
-                break;
+
+        #[cfg(target_os = "macos")]
+        self.start_or_resume_feature_guide_video(cx);
+        #[cfg(not(target_os = "macos"))]
+        {
+            self.feature_guide_media.playing = false;
+        }
+    }
+
+    fn pause_feature_guide_media(&mut self, manually: bool, cx: &mut Context<Self>) {
+        if manually {
+            self.feature_guide_media.manually_paused = true;
+        }
+        self.feature_guide_media.playing = false;
+        self.feature_guide_media.poll_generation =
+            self.feature_guide_media.poll_generation.wrapping_add(1);
+        #[cfg(target_os = "macos")]
+        if let Some(video) = self.feature_guide_media.video.as_ref() {
+            video.set_paused(true);
+        }
+        cx.notify();
+    }
+
+    #[cfg(target_os = "macos")]
+    fn start_or_resume_feature_guide_video(&mut self, cx: &mut Context<Self>) {
+        let Some(path) = self.feature_guide_media.video_path.clone() else {
+            self.feature_guide_media.clear_playback();
+            return;
+        };
+
+        if self.feature_guide_media.playing
+            && self
+                .feature_guide_media
+                .video
+                .as_ref()
+                .is_some_and(|video| video.is_active() && video.path() == path)
+        {
+            return;
+        }
+
+        let resumable = self
+            .feature_guide_media
+            .video
+            .as_ref()
+            .is_some_and(|video| video.is_active() && video.path() == path)
+            && self.feature_guide_media.mailbox.is_some();
+        let mailbox = if resumable {
+            let video = self
+                .feature_guide_media
+                .video
+                .as_ref()
+                .expect("resumable feature guide media must retain its video state");
+            video.set_paused(false);
+            self.feature_guide_media
+                .mailbox
+                .as_ref()
+                .expect("resumable feature guide media must retain its mailbox")
+                .clone()
+        } else {
+            let mailbox =
+                replace_video_wallpaper(&mut self.feature_guide_media.video, path.clone());
+            self.feature_guide_media.mailbox = Some(mailbox.clone());
+            mailbox
+        };
+
+        self.feature_guide_media.playing = true;
+        self.feature_guide_media.poll_generation =
+            self.feature_guide_media.poll_generation.wrapping_add(1);
+        let generation = self.feature_guide_media.poll_generation;
+        self.spawn_feature_guide_video_poll_loop(path, mailbox, generation, cx);
+        cx.notify();
+    }
+
+    #[cfg(target_os = "macos")]
+    fn spawn_feature_guide_video_poll_loop(
+        &mut self,
+        path: std::path::PathBuf,
+        mailbox: Arc<VideoFrameMailbox>,
+        generation: u64,
+        cx: &mut Context<Self>,
+    ) {
+        cx.spawn(async move |this, cx| loop {
+            cx.background_executor()
+                .timer(Duration::from_millis(VIDEO_FOREGROUND_POLL_INTERVAL_MS))
+                .await;
+            match this.update(cx, |app, cx| {
+                app.poll_feature_guide_video(&path, &mailbox, generation, cx)
+            }) {
+                Ok(true) => {}
+                Ok(false) | Err(_) => break,
             }
-        });
-        self.feature_guide_media_task = Some(task);
+        })
+        .detach();
+    }
+
+    #[cfg(target_os = "macos")]
+    fn poll_feature_guide_video(
+        &mut self,
+        path: &Path,
+        mailbox: &Arc<VideoFrameMailbox>,
+        generation: u64,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        if !self.feature_guide_media.playing
+            || self.feature_guide_media.poll_generation != generation
+        {
+            return false;
+        }
+        let (keep_polling, changed) =
+            poll_video_wallpaper(&mut self.feature_guide_media.video, path, mailbox);
+        if !keep_polling {
+            self.feature_guide_media.playing = false;
+        }
+        if changed {
+            cx.notify();
+        }
+        keep_polling
     }
 
     fn queue_feature_guide_persistence(&mut self, cx: &mut Context<Self>) {

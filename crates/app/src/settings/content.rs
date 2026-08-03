@@ -31,6 +31,7 @@ pub(super) struct SettingsContentContext<'a> {
     pub(super) performance: &'a PerformanceSettingsState,
     pub(super) voice: VoiceSettingsContent<'a>,
     pub(super) content_scroll: &'a ScrollHandle,
+    pub(super) agent_list_scroll: &'a ScrollHandle,
     pub(super) wallpaper_state: &'a WallpaperSettingsState,
     pub(super) wallpaper_previews: &'a mut PreviewCache,
     pub(super) shortcuts: &'a ShortcutSettingsState,
@@ -50,6 +51,7 @@ pub(super) fn settings_content(
         performance,
         voice,
         content_scroll,
+        agent_list_scroll,
         wallpaper_state,
         wallpaper_previews,
         shortcuts,
@@ -68,16 +70,21 @@ pub(super) fn settings_content(
             &shortcuts.voice_interaction_label(),
             cx,
         ))
-        .child(
+        .child({
+            let agents_section = panel.active_section == SettingsSection::Agents;
             div()
                 .id("settings-content-scroll")
                 .debug_selector(|| "settings-content-scroll".to_string())
                 .flex_1()
                 .min_w(px(0.0))
                 .min_h(px(0.0))
-                .overflow_y_scroll()
                 .overflow_x_hidden()
-                .track_scroll(content_scroll)
+                .when(agents_section, |this| {
+                    this.flex().flex_col().overflow_y_hidden()
+                })
+                .when(!agents_section, |this| {
+                    this.overflow_y_scroll().track_scroll(content_scroll)
+                })
                 .pl(px(29.0))
                 .pr(px(28.0))
                 .pb(px(40.0))
@@ -95,7 +102,7 @@ pub(super) fn settings_content(
                         cx,
                     ),
                     SettingsSection::Agents => {
-                        agents_settings(theme, agent_definitions, window, cx)
+                        agents_settings(theme, agent_definitions, agent_list_scroll, window, cx)
                     }
                     SettingsSection::Orchestration => {
                         orchestration_settings(theme, orchestration, cx)
@@ -108,8 +115,8 @@ pub(super) fn settings_content(
                     // fallback so stale state or tests cannot route to old placeholders.
                     #[cfg(test)]
                     SettingsSection::Runtime | SettingsSection::Skills => div(),
-                }),
-        )
+                })
+        })
 }
 
 fn content_header(

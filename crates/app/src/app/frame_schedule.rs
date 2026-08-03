@@ -1,5 +1,7 @@
 use std::time::{Duration, Instant};
 
+use crate::motion::AMBIENT_REPAINT_INTERVAL;
+
 const VOICE_ANIMATION_INTERVAL: Duration = Duration::from_millis(12);
 const ACTIVE_CANVAS_INTERVAL: Duration = Duration::from_millis(16);
 const IDLE_ANIMATION_INTERVAL: Duration = Duration::from_millis(250);
@@ -8,6 +10,8 @@ const IDLE_ANIMATION_INTERVAL: Duration = Duration::from_millis(250);
 pub(super) struct AnimationActivity {
     pub voice_active: bool,
     pub canvas_motion_active: bool,
+    pub canvas_frame_synced_active: bool,
+    pub canvas_ambient_active: bool,
     pub cursor_active: bool,
     pub screen_is_canvas: bool,
     pub window_active: bool,
@@ -34,10 +38,9 @@ impl AnimationSchedule {
         // Settings 是半透明覆盖层，Canvas 及其中的 working snake 仍在其周围可见；
         // 不能因打开 Settings 而把可见动画退回 250ms 巡检。
         let canvas_visible = activity.screen_is_canvas && activity.window_active;
-        let canvas_active = activity.canvas_motion_active
-            || activity.cursor_active
-            || activity.next_visual_boundary.is_some();
-        if canvas_visible && canvas_active {
+        let frame_synced_active =
+            activity.canvas_frame_synced_active || activity.next_visual_boundary.is_some();
+        if canvas_visible && frame_synced_active {
             let cadence = activity
                 .next_visual_boundary
                 .filter(|duration| !duration.is_zero())
@@ -45,6 +48,8 @@ impl AnimationSchedule {
                     ACTIVE_CANVAS_INTERVAL.min(boundary)
                 });
             AnimationWakeup::NextFrame(cadence)
+        } else if canvas_visible && (activity.canvas_ambient_active || activity.cursor_active) {
+            AnimationWakeup::Timer(AMBIENT_REPAINT_INTERVAL)
         } else {
             AnimationWakeup::Timer(Self::idle_timer_interval(idle_animation_throttling_enabled))
         }
@@ -55,6 +60,18 @@ impl AnimationSchedule {
             IDLE_ANIMATION_INTERVAL
         } else {
             ACTIVE_CANVAS_INTERVAL
+        }
+    }
+
+    pub(super) fn timer_interval(
+        wakeup: AnimationWakeup,
+        idle_animation_throttling_enabled: bool,
+    ) -> Duration {
+        match wakeup {
+            AnimationWakeup::Timer(interval) => interval,
+            AnimationWakeup::NextFrame(_) => {
+                Self::idle_timer_interval(idle_animation_throttling_enabled)
+            }
         }
     }
 }

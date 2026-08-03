@@ -1,10 +1,8 @@
 use super::style::FeatureGuidePalette;
 use super::{
     FeatureGuideBlockers, FeatureGuidePresentation, FeatureGuideSettingsState, FeatureGuideState,
-    FeatureGuideStatus, FeatureGuideTopic, FeatureGuideVoiceAction, GUIDE_STATUS_KEY,
-    GUIDE_TOPIC_KEY,
+    FeatureGuideStatus, FeatureGuideTopic, GUIDE_STATUS_KEY, GUIDE_TOPIC_KEY,
 };
-use crate::settings::voice::{VoiceEntryState, VoiceRequirement};
 use ui::{Theme, ThemeId};
 
 const FEATURE_GUIDE_MIN_SMALL_TEXT_CONTRAST: f32 = 4.5;
@@ -65,10 +63,6 @@ fn assert_theme_palette_contrast(theme_id: ThemeId, label: &str) {
         "{label} 的 eyebrow 与编号强调文字必须在模态面板上保持可读"
     );
     assert!(
-        contrast_ratio(palette.status_text, panel) >= FEATURE_GUIDE_MIN_SMALL_TEXT_CONTRAST,
-        "{label} 的 10px 演示状态文字必须满足正文级可读性"
-    );
-    assert!(
         contrast_ratio(palette.primary_foreground, palette.primary_background)
             >= FEATURE_GUIDE_MIN_SMALL_TEXT_CONTRAST,
         "{label} 的主按钮默认态必须达到 4.5:1"
@@ -89,17 +83,17 @@ fn assert_theme_palette_contrast(theme_id: ThemeId, label: &str) {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   selectable themes = light(3) + dark(3) = 6
-///   required text roles = supporting + metadata + accent + status = 4
+///   required text roles = supporting + metadata + accent = 3
 ///   primary interaction states = default + hover + active = 3
 ///   minimum contrast = WCAG AA small text 4.5:1
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 分别从六套真实 Theme token 构造 FeatureGuidePalette。
-///   2. 将四种小字号文字合成到各自的 panel_high 背景后计算对比度。
+///   2. 将三种小字号文字合成到各自的 panel_high 背景后计算对比度。
 ///   3. 检查主按钮三种交互背景与同一 on-accent 前景的对比度。
 ///
 /// 预期结果：
-///   - 正断言：六套主题的七种关键颜色组合全部不低于 4.5:1。
+///   - 正断言：六套主题的六种关键颜色组合全部不低于 4.5:1。
 ///   - 负断言：Forest Mint 不得继续使用固定白色主按钮文字。
 ///   - 负断言：Hover/Active 背景必须保持不透明，不能退回 0x22/0x32 浅色叠层。
 #[test]
@@ -279,16 +273,16 @@ fn pending_auto_guide_waits_for_settings_to_close() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   guide instances = skip path(1) + complete path(1) = 2
-///   selectable topics = 4；测试选中第 4 个 TaskStatus 作为非默认主题
+///   selectable topics = 3；测试选中第 3 个 AgentNotifications 作为非默认主题
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 两个实例都手动打开并选择 TaskStatus。
+///   1. 两个实例都手动打开并选择 AgentNotifications。
 ///   2. 第一个执行 suppress，第二个执行 complete。
 ///   3. 读取状态与主题的稳定序列化值。
 ///
 /// 预期结果：
 ///   - 正断言：跳过保存 suppressed，完成保存 completed。
-///   - 正断言：最后主题保存 task_status，便于 Help 下次定位。
+///   - 正断言：最后主题保存 agent_notifications，便于 Help 下次定位。
 ///   - 负断言：两条路径都不能继续保持 Visible 或误回到 not_seen。
 #[test]
 fn skip_and_complete_preserve_distinct_persisted_outcomes() {
@@ -296,8 +290,8 @@ fn skip_and_complete_preserve_distinct_persisted_outcomes() {
     let mut completed = FeatureGuideState::load(None, None, true);
     skipped.open_manually();
     completed.open_manually();
-    skipped.select_topic(FeatureGuideTopic::TaskStatus);
-    completed.select_topic(FeatureGuideTopic::TaskStatus);
+    skipped.select_topic(FeatureGuideTopic::AgentNotifications);
+    completed.select_topic(FeatureGuideTopic::AgentNotifications);
 
     skipped.suppress();
     completed.complete();
@@ -314,8 +308,8 @@ fn skip_and_complete_preserve_distinct_persisted_outcomes() {
     );
     assert_eq!(
         completed.serialized_topic(),
-        "task_status",
-        "用户最后查看的 TaskStatus 主题应稳定序列化供 Help 恢复"
+        "agent_notifications",
+        "用户最后查看的 AgentNotifications 主题应稳定序列化供 Help 恢复"
     );
     assert!(
         !skipped.is_visible() && !completed.is_visible(),
@@ -336,11 +330,11 @@ fn skip_and_complete_preserve_distinct_persisted_outcomes() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 用无存储记录的新 SettingsStore 加载导览设置。
-///   2. 用户选择第 2 个 ContinueConversation 主题并执行 Skip。
+///   2. 用户选择第 2 个 WorkspaceLayouts 主题并执行 Skip。
 ///   3. 将当前快照排队并取出一次待写批次。
 ///
 /// 预期结果：
-///   - 正断言：同一批次严格包含 status=suppressed 与 topic=continue_conversation。
+///   - 正断言：同一批次严格包含 status=suppressed 与 topic=workspace_layouts。
 ///   - 正断言：取出后 running 状态为 true，避免并发写入乱序。
 ///   - 负断言：批次不得包含第三个未知 key，也不能把 Skip 写成 completed。
 #[test]
@@ -349,7 +343,7 @@ fn settings_batch_persists_status_and_topic_atomically() {
     let store = storage::SettingsStore::new(temp.path().join("app.sqlite"));
     let (mut guide, mut settings) = FeatureGuideSettingsState::load_from_store(store, false);
     guide.open_manually();
-    guide.select_topic(FeatureGuideTopic::ContinueConversation);
+    guide.select_topic(FeatureGuideTopic::WorkspaceLayouts);
     guide.suppress();
 
     settings.queue(guide);
@@ -363,7 +357,7 @@ fn settings_batch_persists_status_and_topic_atomically() {
             (GUIDE_STATUS_KEY.to_string(), Some("suppressed".to_string())),
             (
                 GUIDE_TOPIC_KEY.to_string(),
-                Some("continue_conversation".to_string())
+                Some("workspace_layouts".to_string())
             ),
         ],
         "导览状态和最后主题必须在同一原子批次中按稳定 key 写入"
@@ -428,72 +422,5 @@ fn close_for_session_survives_opening_another_workspace() {
     assert!(
         !guide.is_visible(),
         "用户已关闭当前会话后，跨项目切换也不能让导览重新可见"
-    );
-}
-
-/// 语音上下文操作：导览按钮必须由真实语音能力状态稳定映射。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   readiness states = Ready(1) + SettingUp(1) + SetUp microphone(1)
-///                    + SetUp provider(1) + Unavailable(1) = 5
-///   actionable states = 4；disabled preparing states = 1
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 分别构造语音已就绪、下载中、缺麦克风权限、未配置 Provider 和失效状态。
-///   2. 将每个 VoiceEntryState 交给导览的纯映射函数。
-///   3. 比较按钮意图，确保权限、配置和修复不会落入同一错误路径。
-///
-/// 预期结果：
-///   - 正断言：五种能力状态逐一映射到 TryNow、Preparing、AllowMicrophone、Configure、Repair。
-///   - 负断言：下载中不能被当成可立即试用，缺麦克风也不能被误导到普通配置文案。
-#[test]
-fn voice_readiness_maps_to_contextual_guide_actions() {
-    let ready = FeatureGuideVoiceAction::from_readiness(VoiceEntryState::Ready);
-    let preparing =
-        FeatureGuideVoiceAction::from_readiness(VoiceEntryState::SettingUp { percent: 42 });
-    let microphone = FeatureGuideVoiceAction::from_readiness(VoiceEntryState::SetUp {
-        first_incomplete: VoiceRequirement::Microphone,
-    });
-    let configure = FeatureGuideVoiceAction::from_readiness(VoiceEntryState::SetUp {
-        first_incomplete: VoiceRequirement::AgentProvider,
-    });
-    let repair = FeatureGuideVoiceAction::from_readiness(VoiceEntryState::Unavailable {
-        first_incomplete: VoiceRequirement::SpeechRecognition,
-    });
-
-    assert_eq!(
-        ready,
-        FeatureGuideVoiceAction::TryNow,
-        "语音全部就绪时，导览应提供“现在试试”的真实入口"
-    );
-    assert_eq!(
-        preparing,
-        FeatureGuideVoiceAction::Preparing,
-        "模型下载 42% 时必须显示不可点击的准备状态，不能进入必然失败的录音"
-    );
-    assert_eq!(
-        microphone,
-        FeatureGuideVoiceAction::AllowMicrophone,
-        "首个缺失项是麦克风时必须明确引导授权，不能只显示泛化配置"
-    );
-    assert_eq!(
-        configure,
-        FeatureGuideVoiceAction::Configure,
-        "首次设置缺 Provider 时应进入 Voice 配置流程"
-    );
-    assert_eq!(
-        repair,
-        FeatureGuideVoiceAction::Repair,
-        "已完成设置后能力失效应显示修复入口，而不是重新当作首次配置"
-    );
-    assert_ne!(
-        preparing,
-        FeatureGuideVoiceAction::TryNow,
-        "模型下载中不得显示 TryNow，否则用户会进入不可用的语音路径"
-    );
-    assert_ne!(
-        microphone,
-        FeatureGuideVoiceAction::Configure,
-        "缺麦克风权限必须保留专用授权语义，不能与 Provider 配置混淆"
     );
 }

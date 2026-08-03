@@ -171,6 +171,14 @@ impl DialogueListeningRuntime {
     }
 }
 
+impl crate::app::MultisoulApp {
+    pub(crate) fn handle_unclassified_speech_start(&mut self) -> (DialoguePhase, bool) {
+        let phase = self.dialogue.phase();
+        let should_notify = self.dialogue.on_unclassified_speech_start();
+        (phase, should_notify)
+    }
+}
+
 pub(crate) fn start_pipeline_event_pump(
     dialogue: &mut DialogueControlState,
     pipeline_events: async_channel::Receiver<ListeningPipelineEvent>,
@@ -191,11 +199,7 @@ pub(crate) fn start_pipeline_event_pump(
                 ListeningPipelineEvent::SpeechStart => {
                     tracing::info!(target: "norma_voice", "VAD speech start detected");
                     let (phase, should_notify) = this
-                        .update(cx, |app, _cx| {
-                            let phase = app.dialogue.phase();
-                            app.cancel_agent_announcements();
-                            (phase, app.dialogue.on_unclassified_speech_start())
-                        })
+                        .update(cx, |app, _cx| app.handle_unclassified_speech_start())
                         .unwrap_or((DialoguePhase::Idle, false));
                     utterance_gate.on_speech_start(phase);
                     if phase != DialoguePhase::Listening {

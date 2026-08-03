@@ -10,6 +10,7 @@ mod wheel_tests;
 fn preview_kind() -> CanvasNodeKind {
     CanvasNodeKind::Preview(PreviewSpec {
         path: "/tmp/report.md".to_string(),
+        additional_paths: Vec::new(),
         explicit_type: Some(PreviewType::Markdown),
     })
 }

@@ -51,7 +51,7 @@ pub(crate) fn native_window_allows_voice_inset(visible: bool, minimized: bool) -
 
 impl MultisoulApp {
     pub(crate) fn sync_voice_window_inset_enabled(&mut self) -> bool {
-        self.voice_window_inset.set_enabled(
+        self.voice_window_inset_events.set_enabled(
             self.voice_settings.values().voice_window_inset_enabled()
                 && self.voice_window_inset_window_visible,
         )

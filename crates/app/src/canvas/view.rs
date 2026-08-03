@@ -21,7 +21,8 @@ use crate::cards::agent::queue::{
 };
 use crate::cards::browser::card::BROWSER_TOOLBAR_H_PX;
 use crate::cards::chrome::{
-    card_title_background, node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
+    card_title_background, node_shadow, render_card_title, render_task_badge,
+    CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
 };
 use crate::cards::snake::render_working_snake_border;
 use crate::cards::{card_for, CardBodyContext};
@@ -120,6 +121,7 @@ pub fn render_canvas(
         let queue_count = is_agent.then(|| agent_waiting_count(app, id)).unwrap_or(0);
         let initialization = app.motion.initialization_presentation(id);
         let title = chrome.title;
+        let title_detail = chrome.title_detail;
         let task_badge = chrome.task_badge;
         let refreshable = chrome.refreshable;
         let stroke = visual.stroke_color;
@@ -265,15 +267,7 @@ pub fn render_canvas(
                             )
                             .child(node_type_label(node_type)),
                     )
-                    .child(
-                        div()
-                            .id(("node-title", id))
-                            .flex_1()
-                            .min_w(px(0.0))
-                            .overflow_hidden()
-                            .truncate()
-                            .child(title),
-                    )
+                    .child(render_card_title(id, title, title_detail, vp.zoom, theme))
                     .when_some(task_badge, |this, badge| {
                         this.child(render_task_badge(badge, vp.zoom, theme))
                     })
@@ -297,12 +291,20 @@ pub fn render_canvas(
             .child(title_bar);
 
         // 内容
+        let preview_image_viewer = app.previews.image_viewer_presentation(id);
+        let preview_image_dragging = app
+            .interaction
+            .preview_pan
+            .map(|pan| pan.node_id == id)
+            .unwrap_or(false);
         let card_body = card.body(
             &node,
             CardBodyContext {
                 runtime: &app.runtime,
                 terminal_render_cache: app.terminal_render_cache.clone(),
                 preview_state: app.previews.state_for(id),
+                preview_image_viewer,
+                preview_image_dragging,
                 text_selection: app.interaction.active_text_selection,
                 focused,
                 reduce_motion: app.motion.reduce_motion,

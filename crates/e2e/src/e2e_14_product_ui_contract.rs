@@ -354,28 +354,29 @@ fn e2e_14_new_card_menu_is_anchored_above_its_dock_trigger() {
     );
 }
 
-/// E2E-14：底部 Dock 按“创建 → 画布 → Voice”三组排列，避免状态与全局设置混排。
+/// E2E-14：底部 Dock 按“画布 → 创建 → Voice/Settings”三组排列，形成 2｜5｜2 层级。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   创建组 = New + Terminal + Codex + Browser + Preview = 5 个连续入口。
-///   画布组 = Select/Scroll + Layout + Settings = 3 个连续入口。
-///   Voice 组 = 1 个状态 pill；组间由 1px divider 和左右各 3px gap 分开，
-///             因此 preview→mode、settings→voice 的间距至少 = 3 + 1 + 3 = 7px。
+///   画布组 = Select/Scroll + Layout = 2 个连续入口。
+///   创建组 = Terminal + Codex + New + Browser + Preview = 5 个连续入口，
+///            New 前后各有 2 个入口，因此它位于创建组正中。
+///   工具组 = Voice + Settings = 2 个连续入口，Settings 固定在最右。
+///   组间由 1px divider 和左右各 3px gap 分开，因此
+///   layout→terminal、preview→voice 的间距至少 = 3 + 1 + 3 = 7px。
 ///   所有控件高度 = 38px，小于 Dock 52px，故每个控件都应完整落在 Dock 内。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. `make_app + enter_canvas` 渲染真实 headless Canvas 与底部 Dock。
 ///   2. 读取八个图标入口及 Voice pill 的 debug bounds。
-///   3. 按 x 坐标检查五个创建入口的连续顺序。
-///   4. 验证画布三项位于创建组右侧，Voice 位于画布组右侧且保留组间空白。
+///   3. 按 x 坐标逐项检查 2｜5｜2 的连续顺序和两处分组间距。
+///   4. 验证 New 位于创建组正中，Settings 位于 Voice 右侧且仍在 Dock 内。
 ///
 /// 预期结果：
-///   - 断言 A：创建入口从 New 到 Preview 自左向右连续排列。
-///   - 断言 B：画布模式、Layout、Settings 紧随创建组，不能插回创建入口之间。
-///   - 断言 C：Voice 位于 Settings 之后，且预览/模式、设置/Voice 都有至少 7px 的组间距。
-///   - 断言 D：Voice 与 New 都必须完整留在 Dock 内，不能被重排到第二条浮层。
+///   - 正断言：画布组在最左，创建组居中，Voice/Settings 工具组在最右。
+///   - 正断言：New 的中心与创建组中心重合，保持主操作的视觉中心地位。
+///   - 负断言：Settings 不得回到 Voice 左侧，任何入口不得溢出或拆出 Dock。
 #[test]
-fn e2e_14_command_dock_orders_creation_canvas_and_voice_groups() {
+fn e2e_14_command_dock_orders_canvas_creation_and_utility_groups() {
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
     let workspace = tempfile::TempDir::new().expect("Dock 分组 e2e 应创建临时 workspace");
@@ -407,39 +408,68 @@ fn e2e_14_command_dock_orders_creation_canvas_and_voice_groups() {
         .expect("画布组必须包含 Layout 入口");
     let settings = cx
         .debug_bounds("toolbar-settings")
-        .expect("画布组必须包含 Settings 入口");
+        .expect("Voice/Settings 工具组必须包含 Settings 入口");
     let voice = cx
         .debug_bounds("workspace-voice-control")
         .expect("Voice 状态必须作为独立 Dock 分组渲染");
 
+    let layout_right = f32::from(layout.origin.x) + f32::from(layout.size.width);
     let preview_right = f32::from(preview.origin.x) + f32::from(preview.size.width);
-    let settings_right = f32::from(settings.origin.x) + f32::from(settings.size.width);
+    let creation_center_x = (f32::from(terminal.origin.x) + preview_right) / 2.0;
     let dock_top = f32::from(dock.origin.y);
     let dock_bottom = dock_top + f32::from(dock.size.height);
 
     assert!(
-        f32::from(new_button.origin.x) < f32::from(terminal.origin.x)
-            && f32::from(terminal.origin.x) < f32::from(codex.origin.x)
-            && f32::from(codex.origin.x) < f32::from(browser.origin.x)
-            && f32::from(browser.origin.x) < f32::from(preview.origin.x),
-        "创建组必须按 New、Terminal、Codex、Browser、Preview 自左向右排列"
+        f32::from(canvas_mode.origin.x) < f32::from(layout.origin.x),
+        "画布组必须按 Select/Scroll、Layout 自左向右排列"
     );
     assert!(
-        preview_right + 7.0 <= f32::from(canvas_mode.origin.x)
-            && f32::from(canvas_mode.origin.x) < f32::from(layout.origin.x)
-            && f32::from(layout.origin.x) < f32::from(settings.origin.x),
-        "画布组必须在 Preview 后以至少 7px 分隔，并按模式、Layout、Settings 排列"
+        layout_right + 7.0 <= f32::from(terminal.origin.x),
+        "创建组必须在 Layout 后保留至少 7px 分组间距"
     );
     assert!(
-        settings_right + 7.0 <= f32::from(voice.origin.x),
-        "Voice 必须在 Settings 后以至少 7px 分隔，不能再视觉上归入全局设置组"
+        f32::from(terminal.origin.x) < f32::from(codex.origin.x),
+        "创建组必须先排列 Terminal，再排列 Codex"
+    );
+    assert!(
+        f32::from(codex.origin.x) < f32::from(new_button.origin.x),
+        "New 必须位于 Codex 右侧，不能回到创建组起点"
+    );
+    assert!(
+        f32::from(new_button.origin.x) < f32::from(browser.origin.x),
+        "New 必须位于 Browser 左侧，保持创建组中心位置"
+    );
+    assert!(
+        f32::from(browser.origin.x) < f32::from(preview.origin.x),
+        "创建组必须以 Browser、Preview 的顺序收尾"
+    );
+    assert_eq!(
+        f32::from(new_button.center().x),
+        creation_center_x,
+        "New 的中心必须与五项创建组中心重合"
+    );
+    assert!(
+        preview_right + 7.0 <= f32::from(voice.origin.x),
+        "Voice/Settings 工具组必须在 Preview 后保留至少 7px 分组间距"
+    );
+    assert!(
+        f32::from(voice.origin.x) < f32::from(settings.origin.x),
+        "Settings 必须固定在 Voice 右侧和 Dock 最右端，不得回退到 Voice 左侧"
     );
     assert!(
         f32::from(new_button.origin.y) >= dock_top
-            && f32::from(new_button.origin.y) + f32::from(new_button.size.height) <= dock_bottom
-            && f32::from(voice.origin.y) >= dock_top
+            && f32::from(new_button.origin.y) + f32::from(new_button.size.height) <= dock_bottom,
+        "New 必须完整位于 Dock 内，不能因居中强调而溢出"
+    );
+    assert!(
+        f32::from(voice.origin.y) >= dock_top
             && f32::from(voice.origin.y) + f32::from(voice.size.height) <= dock_bottom,
-        "New 与 Voice 必须完整位于同一 Dock 内，不能溢出或分裂为第二条浮层"
+        "Voice 必须完整位于 Dock 内，不能分裂为第二条浮层"
+    );
+    assert!(
+        f32::from(settings.origin.y) >= dock_top
+            && f32::from(settings.origin.y) + f32::from(settings.size.height) <= dock_bottom,
+        "最右侧 Settings 必须完整位于 Dock 内，不得因重排而溢出"
     );
 }
 

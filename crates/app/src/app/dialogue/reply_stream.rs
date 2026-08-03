@@ -50,8 +50,22 @@ const SPEECH_COMMAND_CAPACITY: usize = 8;
 const SPEECH_EVENT_CAPACITY: usize = 16;
 
 impl DialogueControlState {
-    pub(crate) fn has_pending_playback_events(&self) -> bool {
-        !self.playback_events.is_empty()
+    pub(crate) fn connect_playback_event_sink(
+        &mut self,
+        sink: crate::app::voice_window_inset::VoiceWindowInsetEventSink,
+    ) {
+        self.playback_event_sink = Some(sink);
+    }
+
+    pub(super) fn push_playback_event(
+        &mut self,
+        event: crate::app::voice_window_inset::TtsPlaybackEvent,
+    ) {
+        if let Some(sink) = &self.playback_event_sink {
+            sink.push(event);
+        } else {
+            self.playback_events.push(event);
+        }
     }
 
     pub(crate) fn begin_reply_stream(&mut self) {
@@ -154,11 +168,11 @@ impl DialogueControlState {
             )
         });
         if self.playback_started {
-            self.playback_events
-                .push(crate::app::voice_window_inset::TtsPlaybackEvent::Interrupted);
+            self.push_playback_event(crate::app::voice_window_inset::TtsPlaybackEvent::Interrupted);
         } else {
-            self.playback_events
-                .push(crate::app::voice_window_inset::TtsPlaybackEvent::DiscardQueued);
+            self.push_playback_event(
+                crate::app::voice_window_inset::TtsPlaybackEvent::DiscardQueued,
+            );
         }
         self.reply_generation = self.reply_generation.wrapping_add(1);
         self.tts_cancelled.store(true, Ordering::Release);
@@ -270,12 +284,10 @@ impl DialogueControlState {
             }
             self.pcm_capture.append(&chunk.pcm);
             trace::playback_accepted(generation, &chunk, pcm_duration);
-            self.playback_events
-                .push(crate::app::voice_window_inset::TtsPlaybackEvent::PcmQueued(
-                    chunk.energy_timeline,
-                ));
+            self.push_playback_event(crate::app::voice_window_inset::TtsPlaybackEvent::PcmQueued(
+                chunk.energy_timeline,
+            ));
             self.playback_chunks_pending = self.playback_chunks_pending.saturating_add(1);
-            cx.notify();
             let tts_request_sequence = chunk.tts_request_sequence;
             let chunk_sequence = chunk.chunk_sequence;
             let pcm_fingerprint = chunk.pcm_fingerprint;
@@ -283,13 +295,15 @@ impl DialogueControlState {
                 if playback_started_rx.recv().await.is_ok()
                     && this
                         .update(cx, |app, cx| {
-                            app.dialogue.on_playback_chunk_started(
+                            let visible_state_changed = app.dialogue.on_playback_chunk_started(
                                 generation,
                                 tts_request_sequence,
                                 chunk_sequence,
                                 pcm_fingerprint,
                             );
-                            cx.notify();
+                            if visible_state_changed {
+                                cx.notify();
+                            }
                         })
                         .is_err()
                 {
@@ -297,13 +311,15 @@ impl DialogueControlState {
                 }
                 if completion_rx.recv().await.is_ok() {
                     let _ = this.update(cx, |app, cx| {
-                        app.dialogue.on_playback_chunk_finished(
+                        let visible_state_changed = app.dialogue.on_playback_chunk_finished(
                             generation,
                             tts_request_sequence,
                             chunk_sequence,
                             pcm_fingerprint,
                         );
-                        cx.notify();
+                        if visible_state_changed {
+                            cx.notify();
+                        }
                     });
                 }
             })
@@ -317,9 +333,9 @@ impl DialogueControlState {
         tts_request_sequence: u64,
         chunk_sequence: u64,
         pcm_fingerprint: u64,
-    ) {
+    ) -> bool {
         if generation != self.reply_generation {
-            return;
+            return false;
         }
         trace::playback_started(
             generation,
@@ -328,11 +344,11 @@ impl DialogueControlState {
             pcm_fingerprint,
         );
         if self.playback_started {
-            return;
+            return false;
         }
         self.playback_started = true;
-        self.playback_events
-            .push(crate::app::voice_window_inset::TtsPlaybackEvent::Started);
+        self.push_playback_event(crate::app::voice_window_inset::TtsPlaybackEvent::Started);
+        true
     }
 
     pub(super) fn on_playback_chunk_finished(
@@ -341,9 +357,9 @@ impl DialogueControlState {
         tts_request_sequence: u64,
         chunk_sequence: u64,
         pcm_fingerprint: u64,
-    ) {
+    ) -> bool {
         if generation != self.reply_generation {
-            return;
+            return false;
         }
         trace::playback_finished(
             generation,
@@ -354,9 +370,10 @@ impl DialogueControlState {
         self.playback_chunks_pending = self.playback_chunks_pending.saturating_sub(1);
         if self.finish_reply_stream_if_ready() && self.playback_started {
             self.playback_started = false;
-            self.playback_events
-                .push(crate::app::voice_window_inset::TtsPlaybackEvent::Finished);
+            self.push_playback_event(crate::app::voice_window_inset::TtsPlaybackEvent::Finished);
+            return true;
         }
+        false
     }
 
     fn finish_reply_stream_if_ready(&mut self) -> bool {

@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+#[cfg(test)]
 use audio::PcmAudioChunk;
 use gpui::{
     canvas, div, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, Background,
@@ -7,14 +8,18 @@ use gpui::{
 };
 use std::time::Duration;
 
+mod channel;
 mod events;
 mod meter;
 mod seam;
+mod view;
 
+pub(crate) use channel::{VoiceWindowInsetEventBus, VoiceWindowInsetEventSink};
 pub(crate) use events::{TtsPlaybackEvent, TtsPlaybackSource};
 use meter::PcmEnergyFrame;
 pub(crate) use meter::PcmEnergyTimeline;
 use seam::corner_seam_compensation_alpha;
+pub(crate) use view::VoiceWindowInsetView;
 
 const QUIET_OPACITY: f32 = 0.12;
 const QUIET_INSET_PX: f32 = 30.0;
@@ -89,6 +94,7 @@ impl VoiceWindowInset {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn queue_pcm_energy(&mut self, chunk: &PcmAudioChunk) {
         self.queue_energy_timeline(PcmEnergyTimeline::from_pcm(chunk));
     }

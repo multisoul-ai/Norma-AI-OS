@@ -27,8 +27,8 @@ pub(crate) struct CanvasLayoutStrategy {
 impl Default for CanvasLayoutStrategy {
     fn default() -> Self {
         Self {
-            fill: GridFill::RowFirst,
-            track_count: 3,
+            fill: GridFill::ColumnFirst,
+            track_count: 2,
             sizing: GridCardSizing::FitViewport,
         }
     }

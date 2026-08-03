@@ -15,6 +15,8 @@ pub struct AgentDefinitionE2eSnapshot {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentSettingsE2eSnapshot {
     pub definitions: Vec<AgentDefinitionE2eSnapshot>,
+    pub visible_definition_names: Vec<String>,
+    pub search_query: String,
     pub draft_name: String,
     pub draft_profile: &'static str,
     pub draft_workflow: String,
@@ -180,6 +182,13 @@ impl MultisoulApp {
                     enabled: definition.enabled,
                 })
                 .collect(),
+            visible_definition_names: self
+                .agent_definitions
+                .visible_definitions()
+                .into_iter()
+                .map(|definition| definition.name.clone())
+                .collect(),
+            search_query: self.agent_definitions.search_query().to_string(),
             draft_name: self.agent_definitions.draft().name.clone(),
             draft_profile: profile_name(self.agent_definitions.draft().runtime_profile),
             draft_workflow: self.agent_definitions.draft().workflow_description.clone(),

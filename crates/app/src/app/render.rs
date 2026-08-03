@@ -37,6 +37,7 @@ impl Render for MultisoulApp {
                 matches!(self.screen, AppScreen::Canvas) && !feature_guide_visible,
                 |root| {
                     root.on_action(cx.listener(Self::on_new_terminal))
+                        .on_action(cx.listener(Self::on_preview_image_command))
                         .on_action(cx.listener(Self::on_new_browser))
                         .on_action(cx.listener(Self::on_new_ego))
                         .on_action(cx.listener(Self::on_new_claude_agent))
@@ -61,24 +62,16 @@ impl Render for MultisoulApp {
                 root = root.child(self.render_launchpad(window, cx));
             }
             AppScreen::Canvas => {
-                self.performance.record_render();
-                #[cfg(target_os = "macos")]
-                self.sync_canvas_video_wallpaper(cx);
-                self.reflow_if_window_size_changed(window);
                 root = root
-                    .child(self.render_workspace_backdrop())
-                    .child(render_canvas(self, window, cx))
-                    .when_some(
-                        crate::effects::dispatch_receipt::render(self, window),
-                        |root, effect| root.child(effect),
+                    .child(
+                        gpui::AnyView::from(self.canvas_surface.clone())
+                            .cached(gpui::StyleRefinement::default().absolute().size_full()),
                     )
                     .child(self.render_workspace_chrome(window, cx));
                 if let Some(error_banner) = self.render_workspace_error_banner(cx) {
                     root = root.child(error_banner);
                 }
-                if let Some(visual) = self.voice_window_inset.visual() {
-                    root = root.child(voice_window_inset::render(visual));
-                }
+                root = root.child(self.voice_window_inset_view.clone());
                 if self.settings_panel.open {
                     root = root.child(self.render_settings_panel(window, cx));
                 }
@@ -97,6 +90,28 @@ impl Render for MultisoulApp {
 }
 
 impl MultisoulApp {
+    pub(crate) fn render_canvas_surface(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        self.performance.record_render();
+        #[cfg(target_os = "macos")]
+        self.sync_canvas_video_wallpaper(cx);
+        self.reflow_if_window_size_changed(window);
+        div()
+            .id("canvas-surface")
+            .debug_selector(|| "canvas-surface".to_string())
+            .relative()
+            .size_full()
+            .child(self.render_workspace_backdrop())
+            .child(render_canvas(self, window, cx))
+            .when_some(
+                crate::effects::dispatch_receipt::render(self, window),
+                |surface, effect| surface.child(effect),
+            )
+    }
+
     fn performance_state(&self) -> crate::performance_monitor::PerformanceState {
         use crate::performance_monitor::PerformanceState;
 
@@ -104,7 +119,7 @@ impl MultisoulApp {
             return PerformanceState::Background;
         }
         let activity = self.animation_activity();
-        if activity.voice_active {
+        if activity.voice_active || self.voice_window_inset_events.is_animation_active() {
             return PerformanceState::VoiceActive;
         }
         #[cfg(target_os = "macos")]
@@ -123,7 +138,7 @@ impl MultisoulApp {
         if !self.motion.has_dispatch_receipts() {
             return;
         }
-        if !matches!(self.screen, AppScreen::Canvas) || !self.window_active {
+        if !matches!(self.screen, AppScreen::Canvas) {
             self.motion.retain_dispatch_targets(&[]);
             return;
         }

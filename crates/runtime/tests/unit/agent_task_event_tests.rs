@@ -160,6 +160,7 @@ fn test_agent_task_update_ignores_non_agent_node() {
     let node_id = runtime.document.add_node(
         CanvasNodeKind::Preview(PreviewSpec {
             path: "README.md".to_string(),
+            additional_paths: Vec::new(),
             explicit_type: None,
         }),
         bounds(),
@@ -402,6 +403,7 @@ fn test_mark_card_viewed_ignores_nodes_without_attention() {
     let preview = runtime.document.add_node(
         CanvasNodeKind::Preview(PreviewSpec {
             path: "README.md".to_string(),
+            additional_paths: Vec::new(),
             explicit_type: None,
         }),
         bounds(),

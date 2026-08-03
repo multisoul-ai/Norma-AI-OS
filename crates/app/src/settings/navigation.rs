@@ -404,7 +404,7 @@ fn navigation_item(
                 app.refresh_asr_model_states(cx);
             }
             if section == SettingsSection::Orchestration {
-                app.refresh_orchestration_integrations(cx);
+                app.reconcile_orchestration_integrations(cx);
             }
             cx.notify();
         }))

@@ -1,12 +1,15 @@
-//! E2E-02：Agent 卡片的多行文本输入必须使用终端 CRLF 语义。
+//! E2E-02：Agent 卡片的多行文本输入必须遵循当前终端应用声明的 paste mode。
 
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use gpui::TestAppContext;
-use runtime::NodeInput;
+use gpui::{ClipboardItem, TestAppContext};
+use runtime::{NodeInput, PtyFactory};
+use terminal::{PtyBackend, PtyEvent, TestPtyBackend};
 
 use crate::harness::{
-    create_codex_agent, drain_until, echo_factory, enter_canvas, make_app, read_grid,
+    create_codex_agent, create_terminal, drain_until, echo_factory, enter_canvas, make_app,
+    read_grid,
 };
 
 /// E2E-02：Codex Agent 卡片收到含 LF 的文本粘贴后，第二行必须在第 0 列完整显示。
@@ -22,7 +25,7 @@ use crate::harness::{
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 装配带 echo PTY 的 headless GPUI App，并进入临时 Canvas workspace。
 ///   2. 通过公开 `NewCodexAgent` action 创建 Agent 卡片，使其复用生产 TermLive 输入路径。
-///   3. 向该 Agent 节点发送 `NodeInput::Text("first\\nsecond")`。
+///   3. 向该 Agent 节点发送 `NodeInput::Paste("first\\nsecond")`。
 ///   4. echo PTY 回灌实际写入的 bytes；App frame loop drain 后读取 Agent 的 GridSnapshot。
 ///   5. 检查两行前六个 cells，验证换行不会只下移光标而让第二行从第 5 列开始。
 ///
@@ -40,8 +43,8 @@ fn e2e_02_codex_agent_multiline_input_restarts_each_line_at_left_edge() {
 
     app.update(cx, |app, _cx| {
         app.runtime
-            .send_node_input(node_id, NodeInput::Text("first\nsecond".to_string()))
-            .expect("Agent 卡片应接受含 LF 的多行 NodeInput::Text")
+            .send_node_input(node_id, NodeInput::Paste("first\nsecond".to_string()))
+            .expect("Agent 卡片应接受含 LF 的多行 NodeInput::Paste")
     });
 
     let rows = drain_until(
@@ -88,6 +91,66 @@ fn e2e_02_codex_agent_multiline_input_restarts_each_line_at_left_edge() {
     assert_ne!(
         second_row, "     s",
         "第二行不得回归为裸 LF 的五列缩进，实际前六格为 {second_row:?}"
+    );
+
+    app.update(cx, |app, _cx| app.runtime.kill_all());
+}
+
+/// E2E-02：用户向模拟 Codex TUI 的终端按 Cmd+V 时，只能产生一个 bracketed paste。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Terminal cards = 1（经公开 NewTerminal action 创建并聚焦；PTY 输出模拟 Codex）
+///   terminal mode = ESC[?2004h = 8 bytes（模拟 Codex TUI 启用 bracketed paste）
+///   clipboard    = "first\\nsecond" = 5 + 1 + 6 = 12 bytes
+///   protocol     = ESC[200~(6) + clipboard(12) + ESC[201~(6) = 24 bytes
+///   expected PTY writes = 1（一次 Cmd+V 对应一个原子 paste 事件）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 装配 recording PTY；Agent 启动时从输出侧发送 ESC[?2004h。
+///   2. 进入 Canvas，通过公开 action 创建并聚焦 Terminal 卡片。
+///   3. 用 GPUI clipboard 写入两行文本，再模拟真实 `cmd-v`。
+///   4. `on_key_down` 读取剪贴板，经 Runtime/TermLive 写到 recording PTY。
+///
+/// 预期结果：
+///   - 正断言：PTY 只收到一次写入，内容精确为 bracketed-paste 协议包。
+///   - 正断言：begin/end 之间保留完整的 first 与 second 两行。
+///   - 负断言：不得出现裸 CRLF；Codex 在用户按 Enter 前不能收到提交键。
+#[test]
+fn e2e_02_cmd_v_keeps_multiline_text_in_one_bracketed_paste() {
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    let recorded_writes = writes.clone();
+    let factory: PtyFactory = Box::new(move |_command, _cols, _rows, tx| {
+        tx.send(PtyEvent::Output(b"\x1b[?2004h".to_vec()))
+            .expect("Codex 测试 PTY 应能声明 bracketed-paste mode");
+        Ok(Box::new(TestPtyBackend::recording(tx, recorded_writes.clone())) as Box<dyn PtyBackend>)
+    });
+    let mut test_cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut test_cx, factory);
+    let workspace = tempfile::tempdir().expect("bracketed Cmd+V e2e 应创建临时 workspace");
+    enter_canvas(&app, cx, workspace.path());
+    let _node_id = create_terminal(&app, cx);
+    app.update(cx, |app, _cx| {
+        app.runtime.drain_all();
+    });
+
+    cx.update(|_window, cx| {
+        cx.write_to_clipboard(ClipboardItem::new_string("first\nsecond".to_string()));
+    });
+    cx.simulate_keystrokes("cmd-v");
+
+    let recorded = writes
+        .lock()
+        .expect("bracketed Cmd+V 写入记录锁不应被污染")
+        .clone();
+    assert_eq!(recorded.len(), 1, "一次 Cmd+V 必须只产生一次 PTY write");
+    assert_eq!(
+        recorded[0], b"\x1b[200~first\nsecond\x1b[201~",
+        "Codex 多行剪贴板内容必须作为一个 bracketed paste 写入，实际为 {:?}",
+        recorded[0]
+    );
+    assert_ne!(
+        recorded[0], b"first\r\nsecond",
+        "Cmd+V 不得把剪贴板换行转换成 Codex 可执行的裸 Enter"
     );
 
     app.update(cx, |app, _cx| app.runtime.kill_all());

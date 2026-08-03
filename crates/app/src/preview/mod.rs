@@ -4,11 +4,19 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 mod actions;
+mod image_viewer;
+use image_viewer::ImageViewerSession;
+#[cfg(test)]
+pub(crate) use image_viewer::{drag_scroll_offset, ImageViewerState};
+pub(crate) use image_viewer::{
+    ImageViewerPresentation, PreviewImageCommand, PreviewImageCommandKind,
+};
 
 #[derive(Default)]
 pub(crate) struct PreviewStore {
     states: HashMap<NodeId, PreviewLoadState>,
     generations: HashMap<NodeId, u64>,
+    image_viewers: HashMap<NodeId, ImageViewerSession>,
     next_generation: u64,
 }
 
@@ -36,7 +44,15 @@ impl PreviewStore {
         }
 
         let state = match result {
-            Ok(content) => PreviewLoadState::Ready(content),
+            Ok(content) => {
+                let image_count = match &content {
+                    PreviewContent::Image { .. } => Some(1),
+                    PreviewContent::Images { paths } => Some(paths.len()),
+                    PreviewContent::Markdown(_) | PreviewContent::Text(_) => None,
+                };
+                self.reconcile_image_viewer(node_id, image_count);
+                PreviewLoadState::Ready(content)
+            }
             Err(error) => PreviewLoadState::Error(PreviewError {
                 message: error.to_string(),
             }),
@@ -48,11 +64,13 @@ impl PreviewStore {
     pub(crate) fn remove(&mut self, node_id: NodeId) {
         self.states.remove(&node_id);
         self.generations.remove(&node_id);
+        self.image_viewers.remove(&node_id);
     }
 
     pub(crate) fn clear(&mut self) {
         self.states.clear();
         self.generations.clear();
+        self.image_viewers.clear();
     }
 }
 
@@ -68,6 +86,7 @@ pub(crate) enum PreviewContent {
     Markdown(MarkdownDocument),
     Text(String),
     Image { path: PathBuf },
+    Images { paths: Vec<PathBuf> },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -98,9 +117,11 @@ pub(crate) struct PreviewError {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum PreviewReadError {
+    EmptySelection,
     NotFound,
     NotAFile,
     UnsupportedType,
+    MultipleSelectionRequiresImages,
     ReadFailed(String),
 }
 
@@ -120,9 +141,13 @@ impl std::fmt::Display for PreviewPathError {
 impl std::fmt::Display for PreviewReadError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::EmptySelection => write!(f, "Select at least one preview file"),
             Self::NotFound => write!(f, "File does not exist"),
             Self::NotAFile => write!(f, "Path is not a file"),
             Self::UnsupportedType => write!(f, "Unsupported preview type"),
+            Self::MultipleSelectionRequiresImages => {
+                write!(f, "Multiple selection supports image files only")
+            }
             Self::ReadFailed(error) => write!(f, "Could not read file: {error}"),
         }
     }
@@ -195,6 +220,35 @@ pub(crate) fn load_preview_content(
         PreviewType::Text => Ok(PreviewContent::Text(read_text_file(&path)?)),
         PreviewType::Image => Ok(PreviewContent::Image { path }),
     }
+}
+
+pub(crate) fn load_preview_contents(
+    paths: Vec<PathBuf>,
+    explicit_type: Option<PreviewType>,
+) -> Result<PreviewContent, PreviewReadError> {
+    if paths.is_empty() {
+        return Err(PreviewReadError::EmptySelection);
+    }
+    if paths.len() == 1 {
+        let Some(path) = paths.into_iter().next() else {
+            return Err(PreviewReadError::EmptySelection);
+        };
+        return load_preview_content(path, explicit_type);
+    }
+
+    for path in &paths {
+        if !path.exists() {
+            return Err(PreviewReadError::NotFound);
+        }
+        if !path.is_file() {
+            return Err(PreviewReadError::NotAFile);
+        }
+        if infer_preview_type(path, explicit_type).ok() != Some(PreviewType::Image) {
+            return Err(PreviewReadError::MultipleSelectionRequiresImages);
+        }
+    }
+
+    Ok(PreviewContent::Images { paths })
 }
 
 fn read_text_file(path: &Path) -> Result<String, PreviewReadError> {

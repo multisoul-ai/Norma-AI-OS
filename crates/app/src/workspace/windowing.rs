@@ -452,7 +452,6 @@ mod tests {
         );
         assert_ne!(root, Some(missing), "缺失路径不应被当作可打开项目 root");
     }
-
 }
 
 #[cfg(test)]

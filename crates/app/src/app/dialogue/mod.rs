@@ -11,7 +11,7 @@ mod reply_stream;
 mod shell;
 mod tts_runtime;
 use crate::app::voice::control::VoiceVisual;
-use crate::app::voice_window_inset::TtsPlaybackEvent;
+use crate::app::voice_window_inset::{TtsPlaybackEvent, VoiceWindowInsetEventSink};
 #[cfg(test)]
 use crate::settings::voice::{resolve_available_asr_model, VoiceSettingsValues};
 pub(crate) use artifacts::VoiceTurnArtifacts;
@@ -110,6 +110,7 @@ pub(crate) struct DialogueControlState {
     pub(super) last_reply_interrupted: bool,
     reply_keeps_listening: bool,
     playback_events: Vec<TtsPlaybackEvent>,
+    playback_event_sink: Option<VoiceWindowInsetEventSink>,
     #[cfg(test)]
     recording_sink: Option<crate::app::voice::playback::RecordingAssistantAudioSink>,
 }
@@ -155,6 +156,7 @@ impl Default for DialogueControlState {
             last_reply_interrupted: false,
             reply_keeps_listening: true,
             playback_events: Vec::new(),
+            playback_event_sink: None,
             #[cfg(test)]
             recording_sink: None,
         }
@@ -186,9 +188,6 @@ impl DialogueControlState {
         if let Some(control) = self.preview_control.take() {
             control.cancel();
         }
-    }
-    pub(super) fn take_playback_events(&mut self) -> Vec<TtsPlaybackEvent> {
-        std::mem::take(&mut self.playback_events)
     }
     #[cfg(test)]
     pub(crate) fn validate_start_provider(
