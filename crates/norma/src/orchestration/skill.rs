@@ -3,6 +3,12 @@ use std::path::Path;
 
 pub(crate) const ORCHESTRATION_MANAGED_MARKER: &str = "norma-orchestration-managed";
 pub(crate) const PRESENTATION_MANAGED_MARKER: &str = "norma-presentation-managed";
+const ORCHESTRATION_SKILL_DESCRIPTION: &str = concat!(
+    "Use this skill whenever the user asks to assign/delegate/publish a task to a specifically ",
+    "named Norma OS Agent. Examples include 给 Simon 发布一个任务 and 让 Simon 给浩辰发布一个任务. ",
+    "Cover direct and nested/subtask delegation, including speech-to-text with extra spaces or ",
+    "punctuation. Do not use for mere mentions or unsolicited delegation."
+);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ManagedSkillKind {
@@ -44,6 +50,13 @@ fn orchestration_skill_source(
 Use this capability only when the user explicitly asks you to delegate a specific task to a
 specifically named Norma OS Agent. Never choose a target, split work, or delegate merely to add
 parallelism without that explicit instruction.
+
+Treat assign, delegate, hand off, pass, publish, 发任务, 发布任务, 分配, 委派, 交给, and equivalent
+wording as explicit delegation when both the target Agent and requested action are identifiable.
+Ignore incidental spacing, casing, or punctuation from speech-to-text. A request may assign one
+Agent a task whose text instructs that Agent to delegate a subtask to another named Agent; this is
+still an explicit nested delegation. Assign only the first target yourself and preserve the nested
+delegation instruction in that task text so the target Agent can perform the next assignment.
 
 NormaServer is owned once by the Norma OS App process, not by a window.
 Do not start one NormaServer per window. If the CLI reports `app_unavailable` or a protocol/version
@@ -105,10 +118,10 @@ overwriting its input. Never automatically add that flag while diagnosing availa
     );
     match provider {
         OrchestrationProvider::Cursor => format!(
-            "---\ndescription: Delegate explicitly authorized tasks through Norma OS\nalwaysApply: true\n---\n{body}"
+            "---\ndescription: {ORCHESTRATION_SKILL_DESCRIPTION}\nalwaysApply: true\n---\n{body}"
         ),
         _ => format!(
-            "---\nname: norma-orchestration\ndescription: Delegate explicitly authorized tasks through Norma OS\n---\n{body}"
+            "---\nname: norma-orchestration\ndescription: {ORCHESTRATION_SKILL_DESCRIPTION}\n---\n{body}"
         ),
     }
 }

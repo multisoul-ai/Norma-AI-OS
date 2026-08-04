@@ -193,3 +193,83 @@ fn managed_orchestration_skill_documents_global_cross_workspace_contract() {
         "Skill 不得建议自动绕过 untracked 的可信终态限制"
     );
 }
+
+/// 编排 Skill 发现契约：中文口语化与链式子委派请求必须在读取正文前命中描述。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Provider 数 = 1（Codex）
+///   中文直接委派示例 = 1（给 Simon 发布一个任务）
+///   中文链式委派示例 = 1（让 Simon 给浩辰发布一个任务）
+///   语音转写噪音类型 = 2（多余空格 + 标点）
+///   负向边界 = 2（仅提及 Agent + 自主委派）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在隔离目录安装 Codex 的受管编排 Skill。
+///   2. 只读取 YAML frontmatter 的 description，模拟 Provider 加载正文前的发现阶段。
+///   3. 检查描述能召回中文直接委派、链式子委派和带空格/标点的语音转写。
+///   4. 检查正文只派发首个目标，并把下一层委派完整保留在任务正文中。
+///
+/// 预期结果：
+///   - 正断言：description 明确要求在 assign/delegate/publish 与中文发布任务表达下使用 Skill。
+///   - 正断言：description 覆盖 Simon → 浩辰的链式子委派和语音转写噪音。
+///   - 正断言：正文要求调用方只派发 Simon，并保留 Simon → 浩辰的下一层指令。
+///   - 负断言：description 不把普通名称提及或未经请求的自主委派纳入触发范围。
+///   - 负断言：正文不得要求调用方越过 Simon 直接派发全部具名目标。
+#[test]
+fn managed_orchestration_skill_description_recalls_chinese_nested_delegation() {
+    let temp = tempfile::tempdir().expect("测试应创建隔离安装根目录");
+    let paths = install_paths(temp.path());
+    fs::create_dir_all(
+        paths
+            .bundled_cli
+            .parent()
+            .expect("测试 bundled CLI 应有父目录"),
+    )
+    .expect("测试应创建 bundle 目录");
+    fs::write(&paths.bundled_cli, b"codex-test-cli").expect("测试应写入 bundled CLI");
+    fs::write(&paths.bundled_hook, b"codex-test-hook").expect("测试应写入 bundled Hook");
+    let installer = OrchestrationInstaller::new(paths.clone(), "2.0.0");
+    let mut registry = MemoryAuthorizationRegistry::default();
+
+    installer
+        .install_or_repair(OrchestrationProvider::Codex, &mut registry)
+        .expect("Codex 编排 Skill 安装应成功");
+    let source = fs::read_to_string(&paths.codex_skill).expect("安装后的 Codex Skill 应可读取");
+    let description = source
+        .lines()
+        .find_map(|line| line.strip_prefix("description: "))
+        .expect("Codex Skill frontmatter 必须包含 description");
+
+    assert!(
+        description.contains("assign/delegate/publish")
+            && description.contains("给 Simon 发布一个任务"),
+        "发现描述必须同时覆盖通用委派动作与中文‘发布任务’表达，实际为：{description}"
+    );
+    assert!(
+        description.contains("让 Simon 给浩辰发布一个任务")
+            && description.contains("nested/subtask delegation"),
+        "发现描述必须覆盖 Simon → 浩辰链式子委派，实际为：{description}"
+    );
+    assert!(
+        description.contains("extra spaces or punctuation"),
+        "发现描述必须提醒模型容忍语音转写中的多余空格和标点，实际为：{description}"
+    );
+    assert!(
+        description.contains("Do not use for mere mentions or unsolicited delegation"),
+        "提高召回时仍必须保留普通提及和自主委派的负向边界，实际为：{description}"
+    );
+    assert!(
+        source.contains("Assign only the first target yourself")
+            && source.contains("preserve the nested")
+            && source.contains("delegation instruction in that task text"),
+        "链式委派正文必须只派发首个目标并保留下一层委派指令"
+    );
+    assert!(
+        !description.contains("only when the user says delegate"),
+        "发现描述不得把触发条件收窄为必须出现英文 delegate，实际为：{description}"
+    );
+    assert!(
+        !source.contains("Assign every named target yourself"),
+        "链式委派不得越过首个目标，由调用方直接派发全部具名 Agent"
+    );
+}
