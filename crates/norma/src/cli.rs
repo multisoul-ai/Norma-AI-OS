@@ -11,7 +11,9 @@ mod value;
 
 use operation::{non_blank_message, non_blank_operation_id, non_blank_task};
 use output::agent_error_output_format;
-pub use output::{format_result, render_protocol_error, render_protocol_success};
+pub use output::{
+    format_result, render_agent_self_success, render_protocol_error, render_protocol_success,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum OutputFormat {
@@ -26,6 +28,8 @@ pub struct CliInvocation {
     pub wait_timeout_seconds: Option<u64>,
     pub target_workspace_id: Option<String>,
     pub operation_id: Option<String>,
+    /// 若为 true，响应按当前进程身份做 `agent self` 投影，而非直接渲染 Agent 列表。
+    pub project_self: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -94,6 +98,9 @@ enum AgentCliCommand {
         #[arg(long)]
         workspace: Option<String>,
     },
+    /// 打印当前 Agent Session 自身的稳定身份（复用 ListAgents，不做跨 Workspace 名称比较）。
+    #[command(name = "self")]
+    Myself,
     Task(AgentTaskArgs),
 }
 
@@ -314,6 +321,7 @@ impl NormaArgs {
                 wait_timeout_seconds: None,
                 target_workspace_id: None,
                 operation_id: None,
+                project_self: false,
             },
             TopCommand::Workspace(workspace) => CliInvocation {
                 command: workspace.into_command(),
@@ -321,6 +329,7 @@ impl NormaArgs {
                 wait_timeout_seconds: None,
                 target_workspace_id: None,
                 operation_id: None,
+                project_self: false,
             },
             TopCommand::Card(card) => CliInvocation {
                 command: card.into_command(),
@@ -328,8 +337,10 @@ impl NormaArgs {
                 wait_timeout_seconds: None,
                 target_workspace_id: None,
                 operation_id: None,
+                project_self: false,
             },
             TopCommand::Agent(agent) => {
+                let project_self = matches!(agent.command, AgentCliCommand::Myself);
                 let (command, wait_timeout_seconds, target_workspace_id, operation_id) =
                     agent.into_command();
                 CliInvocation {
@@ -338,6 +349,7 @@ impl NormaArgs {
                     wait_timeout_seconds,
                     target_workspace_id,
                     operation_id,
+                    project_self,
                 }
             }
             TopCommand::Present(present) => CliInvocation {
@@ -346,6 +358,7 @@ impl NormaArgs {
                 wait_timeout_seconds: None,
                 target_workspace_id: None,
                 operation_id: None,
+                project_self: false,
             },
             TopCommand::Ego(ego) => CliInvocation {
                 command: ego.into_command(),
@@ -353,6 +366,7 @@ impl NormaArgs {
                 wait_timeout_seconds: None,
                 target_workspace_id: None,
                 operation_id: None,
+                project_self: false,
             },
         }
     }
@@ -429,6 +443,7 @@ impl AgentArgs {
     fn into_command(self) -> (CardCommand, Option<u64>, Option<String>, Option<String>) {
         match self.command {
             AgentCliCommand::List { workspace } => (CardCommand::ListAgents, None, workspace, None),
+            AgentCliCommand::Myself => (CardCommand::ListAgents, None, None, None),
             AgentCliCommand::Task(task) => task.into_command(),
         }
     }

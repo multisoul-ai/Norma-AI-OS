@@ -1,6 +1,8 @@
 use super::{CliOutput, OutputFormat};
+use crate::cli_runtime::AgentSelfInfo;
 use crate::protocol::{
-    AgentErrorCode, AgentTaskReceiptStatus, AgentTaskStatus, CardCommandError, CardCommandResult,
+    AgentErrorCode, AgentProfile, AgentTaskReceiptStatus, AgentTaskStatus, CardCommandError,
+    CardCommandResult,
 };
 use serde::Serialize;
 use serde_json::json;
@@ -171,6 +173,59 @@ pub fn render_protocol_success(
             stderr: String::new(),
             exit_code: 0,
         }),
+    }
+}
+
+pub fn render_agent_self_success(
+    format: OutputFormat,
+    request_id: String,
+    info: &AgentSelfInfo,
+) -> Result<CliOutput, serde_json::Error> {
+    match format {
+        OutputFormat::Json => {
+            let envelope = json!({
+                "schema_version": 1,
+                "ok": true,
+                "request_id": request_id,
+                "result": {
+                    "self": {
+                        "workspace_id": info.workspace_id,
+                        "definition_id": info.definition_id,
+                        "node_id": info.node_id,
+                        "name": info.name,
+                        "speech_alias": info.speech_alias,
+                        "profile": profile_slug(info.profile),
+                    }
+                },
+            });
+            Ok(CliOutput {
+                stdout: serde_json::to_string(&envelope)?,
+                stderr: String::new(),
+                exit_code: 0,
+            })
+        }
+        OutputFormat::Text => Ok(CliOutput {
+            stdout: format!(
+                "{}\t{}\t{}\t{}\t{}",
+                info.name,
+                info.definition_id,
+                info.node_id,
+                info.speech_alias.as_deref().unwrap_or("-"),
+                profile_slug(info.profile),
+            ),
+            stderr: String::new(),
+            exit_code: 0,
+        }),
+    }
+}
+
+fn profile_slug(profile: AgentProfile) -> &'static str {
+    match profile {
+        AgentProfile::Claude => "claude",
+        AgentProfile::Codex => "codex",
+        AgentProfile::Cursor => "cursor",
+        AgentProfile::Grok => "grok",
+        AgentProfile::OpenCode => "opencode",
     }
 }
 
