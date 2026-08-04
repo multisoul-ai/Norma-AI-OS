@@ -41,7 +41,6 @@ pub(super) fn synchronize_view(
                 node_id,
                 active,
                 geometry.visible,
-                app.window_active,
                 app.motion.reduce_motion,
                 theme,
                 geometry.left_px,

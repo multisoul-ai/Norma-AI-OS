@@ -38,7 +38,6 @@ pub(crate) struct WorkingSnakeView {
     node_id: NodeId,
     active: bool,
     visible: bool,
-    window_active: bool,
     reduce_motion: bool,
     theme: Theme,
     left_px: f32,
@@ -65,7 +64,6 @@ impl WorkingSnakeView {
         node_id: NodeId,
         active: bool,
         visible: bool,
-        window_active: bool,
         reduce_motion: bool,
         theme: Theme,
         left_px: f32,
@@ -89,7 +87,6 @@ impl WorkingSnakeView {
             node_id,
             active,
             visible,
-            window_active,
             reduce_motion,
             theme,
             left_px,
@@ -110,18 +107,6 @@ impl WorkingSnakeView {
             #[cfg(feature = "e2e-test-support")]
             render_count_for_e2e: 0,
         }
-    }
-
-    pub(crate) fn set_window_active(&mut self, active: bool, cx: &mut Context<Self>) {
-        if self.window_active == active {
-            return;
-        }
-        self.window_active = active;
-        self.frame_generation = self.frame_generation.wrapping_add(1);
-        self.frame_pending = false;
-        self.last_tick = cx.background_executor().now();
-        self.frame_accumulator = Duration::ZERO;
-        cx.notify();
     }
 
     pub(crate) fn synchronize(
@@ -190,10 +175,7 @@ impl WorkingSnakeView {
     }
 
     fn is_animation_active(&self) -> bool {
-        self.window_active
-            && !self.reduce_motion
-            && self.visible
-            && (self.active || self.fade.value > 0.0)
+        !self.reduce_motion && self.visible && (self.active || self.fade.value > 0.0)
     }
 
     pub(crate) fn is_active_animation(&self) -> bool {

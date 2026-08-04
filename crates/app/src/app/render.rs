@@ -6,12 +6,6 @@ impl Render for MultisoulApp {
         let window_active = window.is_window_active();
         if self.window_active != window_active {
             self.window_active = window_active;
-            let snake_views: Vec<_> = self.working_snake_views.values().cloned().collect();
-            for snake_view in snake_views {
-                snake_view.update(cx, |snake, snake_cx| {
-                    snake.set_window_active(window_active, snake_cx)
-                });
-            }
         }
         if !matches!(self.screen, AppScreen::Canvas) {
             // 离开 Canvas 后丢弃局部 Snake Entity；其 on_next_frame 回调随 Entity
