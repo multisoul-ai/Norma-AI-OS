@@ -22,3 +22,4 @@ assets/models/tts/*
 .worktrees/
 # superpowers scratch (subagent reports, ledger)
 .superpowers/
+artifacts/

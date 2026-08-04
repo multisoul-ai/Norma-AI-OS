@@ -64,10 +64,9 @@ impl GuideButtonKind {
             },
             tab_index: match self {
                 Self::Primary => 1,
-                Self::OrchestrationSettings => 6,
-                Self::Playback => 7,
-                Self::Skip => 8,
-                Self::Close => 9,
+                Self::OrchestrationSettings | Self::Playback => 8,
+                Self::Skip => 10,
+                Self::Close => 11,
             },
             tab_stop: self != Self::Primary,
         }

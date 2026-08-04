@@ -9,12 +9,12 @@ use crate::harness::{echo_factory, enter_canvas, make_app, read_runtime};
 /// 最终识别字幕协调：TranscriptOnly 字幕存在期间导览必须暂停，字幕清除后恢复。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   selected topic index = 2（workspace_layouts）
+///   selected topic index = 4（workspace_layouts）
 ///   transcript-only captions = 1（“把下一步交给小张”）
 ///   simultaneously visible high-priority surfaces = 1（字幕或导览二选一）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 从 Help 打开导览并选中第 3 个主题。
+///   1. 从 Help 打开导览并选中第 5 个主题。
 ///   2. 注入 TranscriptOnly 最终识别结果并触发真实 GPUI 重绘。
 ///   3. 确认字幕可见、导览转为 Suspended，且 overlay 离开渲染树。
 ///   4. 清除语音运行时并重绘，确认导览恢复到原主题。
@@ -30,7 +30,7 @@ fn e2e_15_feature_guide_suspends_for_transcript_only_caption_and_resumes() {
 
     cx.dispatch_action(OpenFeatureGuide);
     cx.run_until_parked();
-    click_debug(cx, "feature-guide-topic-2");
+    click_debug(cx, "feature-guide-topic-4");
     app.update(cx, |app, cx| {
         app.show_voice_transcript_only_for_e2e("把下一步交给小张");
         cx.notify();
@@ -73,7 +73,7 @@ fn e2e_15_feature_guide_suspends_for_transcript_only_caption_and_resumes() {
     );
     assert_eq!(
         resumed.topic, "workspace_layouts",
-        "字幕暂停与恢复必须保留用户已选中的第 3 个主题"
+        "字幕暂停与恢复必须保留用户已选中的第 5 个主题"
     );
     assert!(
         cx.debug_bounds("feature-guide-overlay").is_some(),
@@ -145,7 +145,7 @@ fn e2e_15_feature_guide_modal_blocks_background_actions() {
 ///   theme switches = 2（paper-blue → forest-mint → paper-blue）
 ///   guide opens    = 2（每次主题切换后各打开 1 次）
 ///   expected visible overlays = 1（任一时刻仅当前导览浮层可见）
-///   expected topic entries    = orchestration(1) + product demos(3) = 4
+///   expected topic entries    = orchestration(1) + product demos(5) = 6
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 进入 Canvas，通过 Settings → Themes 切换到 Forest Mint 并关闭设置。
@@ -198,12 +198,12 @@ fn e2e_15_feature_guide_remains_readable_surface_across_light_and_dark_themes() 
         "Forest Mint 下必须渲染第 1 个功能主题入口"
     );
     assert!(
-        cx.debug_bounds("feature-guide-topic-3").is_some(),
-        "Forest Mint 下必须渲染第 4 个功能主题入口，证明四项导航完整"
+        cx.debug_bounds("feature-guide-topic-5").is_some(),
+        "Forest Mint 下必须渲染第 6 个功能主题入口，证明六项导航完整"
     );
     assert!(
-        cx.debug_bounds("feature-guide-topic-4").is_none(),
-        "Forest Mint 下不得渲染不存在的第 5 个主题入口"
+        cx.debug_bounds("feature-guide-topic-6").is_none(),
+        "Forest Mint 下不得渲染不存在的第 7 个主题入口"
     );
 
     click_debug(cx, "feature-guide-close");
@@ -240,6 +240,87 @@ fn e2e_15_feature_guide_remains_readable_surface_across_light_and_dark_themes() 
     assert_ne!(
         paper_guide.presentation, "closed_for_session",
         "跨主题关闭与重开不得把帮助中心误标记为会话永久关闭"
+    );
+}
+
+/// 高优先级语音浮层协调：录音开始时导览暂停，语音结束后恢复原主题。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   initially visible guides = 1
+///   active voice recordings = 1
+///   selected topic index = 4（workspace_layouts，用于验证恢复时不丢进度）
+///   visible guide states during recording = 0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 从 Help 打开导览并选中第 5 个主题。
+///   2. 注入 Recording 语音状态并触发真实 GPUI 重绘。
+///   3. 确认导览转为 Suspended，渲染谓词 visible 变为 false。
+///   4. 结束语音运行时并重绘，确认导览恢复原主题。
+///
+/// 预期结果：
+///   - 正断言：录音期间 presentation 为 suspended，结束后恢复 visible。
+///   - 正断言：恢复后仍是 workspace_layouts，不能跳回首页。
+///   - 负断言：录音期间导览不得继续满足 overlay 的 visible 渲染条件。
+#[test]
+fn e2e_15_feature_guide_suspends_while_voice_is_active_and_resumes() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+
+    cx.dispatch_action(OpenFeatureGuide);
+    cx.run_until_parked();
+    click_debug(cx, "feature-guide-topic-4");
+    app.update(cx, |app, cx| {
+        app.show_voice_recording_transcript_for_e2e("把下一步交给小张");
+        cx.notify();
+    });
+    cx.refresh().expect("语音 blocker 测试应能请求窗口重绘");
+    cx.run_until_parked();
+
+    let suspended = app.update(cx, |app, _| app.feature_guide_e2e_snapshot());
+    assert_eq!(
+        suspended.presentation, "suspended",
+        "语音 Recording 浮层出现时，导览必须自动转为 suspended"
+    );
+    assert!(
+        !suspended.visible,
+        "导览暂停后不能继续标记 visible，否则两个高层界面会同时争抢输入"
+    );
+    assert!(
+        !suspended.media_playing,
+        "导览因语音浮层暂停时，官网 Demo 也必须停止前台取帧"
+    );
+    assert_eq!(
+        suspended.topic, "workspace_layouts",
+        "临时暂停必须保留用户已选中的第 5 个主题，不能在语音开始时重置进度"
+    );
+
+    app.update(cx, |app, cx| {
+        app.reset_voice_runtime_for_e2e();
+        cx.notify();
+    });
+    cx.refresh().expect("语音结束后应能请求窗口重绘以恢复导览");
+    cx.run_until_parked();
+
+    let resumed = app.update(cx, |app, _| app.feature_guide_e2e_snapshot());
+    assert_eq!(
+        resumed.presentation, "visible",
+        "语音结束且 blocker 清空后，暂停的导览应自动恢复 visible"
+    );
+    assert_eq!(
+        resumed.topic, "workspace_layouts",
+        "暂停与恢复必须保留用户选中的第 5 个主题，不能重置到 agent_orchestration"
+    );
+    assert!(
+        resumed.media_playing,
+        "语音浮层消失后，未被用户手动暂停的官网 Demo 应恢复播放"
+    );
+    assert!(
+        cx.debug_bounds("feature-guide-overlay").is_some(),
+        "恢复后必须重新把 feature-guide-overlay 放回真实 GPUI 渲染树"
+    );
+    assert_ne!(
+        resumed.presentation, "closed_for_session",
+        "系统级临时暂停不能误判成用户主动关闭当前会话"
     );
 }
 

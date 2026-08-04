@@ -273,7 +273,7 @@ fn pending_auto_guide_waits_for_settings_to_close() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   guide instances = skip path(1) + complete path(1) = 2
-///   selectable topics = orchestration(1) + existing topics(3) = 4；测试选中第 4 个 AgentNotifications
+///   selectable topics = orchestration(1) + website demos(5) = 6；测试选中第 6 个 AgentNotifications
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 两个实例都手动打开并选择 AgentNotifications。
@@ -330,7 +330,7 @@ fn skip_and_complete_preserve_distinct_persisted_outcomes() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 用无存储记录的新 SettingsStore 加载导览设置。
-///   2. 用户选择第 2 个 WorkspaceLayouts 主题并执行 Skip。
+///   2. 用户选择顺延后的第 5 个 WorkspaceLayouts 主题并执行 Skip。
 ///   3. 将当前快照排队并取出一次待写批次。
 ///
 /// 预期结果：

@@ -8,33 +8,34 @@ use super::{
 use norma::orchestration::{AggregateStatus, OrchestrationProvider};
 use ui::{Theme, ThemeId};
 
-/// FG-ORCH-STATE-1：Agent 编排必须成为四项 Feature Guide 的首屏，并保持稳定进度顺序。
+/// FG-ORCH-STATE-1：Agent 编排必须保持六项 Feature Guide 的首屏，两段新 Demo 紧随其后。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   existing topics = Live Node(1) + Workspace Layouts(1) + Agent Notifications(1) = 3
-///   new orchestration topic = 1
-///   Total = 3 + 1 = 4 topics
+///   new demo topics = Voice Group Control(1) + Agent Collaboration(1) = 2
+///   orchestration topic = 1
+///   Total = 3 + 2 + 1 = 6 topics
 ///   default saved topic = 0（模拟首次打开，没有历史主题）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 从没有持久化主题的新用户状态加载 Feature Guide。
-///   2. 读取 ALL 中第 1、2、4 项和越界的第 5 项。
+///   2. 读取 ALL 中第 1、2、3、6 项和越界的第 7 项。
 ///   3. 从首屏执行一次 next_topic，并读取稳定序列化值。
-///   4. 用 agent_orchestration 持久化值重新加载另一份状态。
+///   4. 用 agent_orchestration、voice_group_control 和 agent_collaboration 持久化值分别恢复状态。
 ///
 /// 预期结果：
-///   - 正断言：默认主题和第 1 项都是 AgentOrchestration，总数严格为 4。
-///   - 正断言：第 2 项是 LiveNodeShortcuts，第 4 项仍是 AgentNotifications。
-///   - 正断言：Next 从编排进入 Live Node，agent_orchestration 可稳定恢复。
-///   - 负断言：第 1 项不得仍是 LiveNodeShortcuts，也不得存在第 5 项。
+///   - 正断言：默认主题和第 1 项都是 AgentOrchestration，总数严格为 6。
+///   - 正断言：第 2、3 项依次是 VoiceGroupControl、AgentCollaboration，第 6 项仍是 AgentNotifications。
+///   - 正断言：Next 从编排进入语音群控，三个新增/调整主题均可稳定持久化恢复。
+///   - 负断言：LiveNodeShortcuts 不得占据第 2 项，也不得存在第 7 项。
 #[test]
 fn feature_guide_orchestration_is_first_and_persists_stable_progress() {
     let mut guide = FeatureGuideState::load(None, None, false);
 
     assert_eq!(
         FeatureGuideTopic::ALL.len(),
-        4,
-        "新增编排引导后 Feature Guide 必须严格包含 4 项，不能遗漏或重复主题"
+        6,
+        "加入两段官网 Demo 后 Feature Guide 必须严格包含 6 项，不能遗漏或重复主题"
     );
     assert_eq!(
         guide.topic,
@@ -44,35 +45,40 @@ fn feature_guide_orchestration_is_first_and_persists_stable_progress() {
     assert_eq!(
         FeatureGuideTopic::ALL.first().copied(),
         Some(FeatureGuideTopic::AgentOrchestration),
-        "Agent Orchestration 必须位于 ALL 第 1 项，进度才能显示 1 / 4"
-    );
-    assert_ne!(
-        FeatureGuideTopic::ALL.first().copied(),
-        Some(FeatureGuideTopic::LiveNodeShortcuts),
-        "Live Node Shortcuts 不得继续占据第 1 项"
+        "Agent Orchestration 必须位于 ALL 第 1 项，进度才能显示 1 / 6"
     );
     assert_eq!(
         FeatureGuideTopic::ALL.get(1).copied(),
+        Some(FeatureGuideTopic::VoiceGroupControl),
+        "编排首屏后的第 2 项必须是 Voice Group Control"
+    );
+    assert_ne!(
+        FeatureGuideTopic::ALL.get(1).copied(),
         Some(FeatureGuideTopic::LiveNodeShortcuts),
-        "编排首屏后的第 2 项必须衔接现有 Live Node Shortcuts"
+        "插入语音群控后 Live Node Shortcuts 不得继续占据第 2 项"
     );
     assert_eq!(
-        FeatureGuideTopic::ALL.get(3).copied(),
+        FeatureGuideTopic::ALL.get(2).copied(),
+        Some(FeatureGuideTopic::AgentCollaboration),
+        "第 3 项必须是 Agents delegate tasks to each other"
+    );
+    assert_eq!(
+        FeatureGuideTopic::ALL.get(5).copied(),
         Some(FeatureGuideTopic::AgentNotifications),
-        "现有 Agent Notifications 必须保留为第 4 项和最终完成页"
+        "现有 Agent Notifications 必须保留为第 6 项和最终完成页"
     );
     assert_eq!(
-        FeatureGuideTopic::ALL.get(4),
+        FeatureGuideTopic::ALL.get(6),
         None,
-        "Feature Guide 不得渲染或推进到不存在的第 5 项"
+        "Feature Guide 不得渲染或推进到不存在的第 7 项"
     );
 
     guide.next_topic();
 
     assert_eq!(
         guide.topic,
-        FeatureGuideTopic::LiveNodeShortcuts,
-        "编排首屏点击 Next 后必须进入第 2 项 Live Node Shortcuts"
+        FeatureGuideTopic::VoiceGroupControl,
+        "编排首屏点击 Next 后必须进入第 2 项 Voice Group Control"
     );
     guide.select_topic(FeatureGuideTopic::AgentOrchestration);
     assert_eq!(
@@ -86,6 +92,20 @@ fn feature_guide_orchestration_is_first_and_persists_stable_progress() {
         restored.topic,
         FeatureGuideTopic::AgentOrchestration,
         "Help 后续入口必须从持久化值恢复到 Agent Orchestration"
+    );
+    let restored_voice =
+        FeatureGuideState::load(Some("in_progress"), Some("voice_group_control"), true);
+    assert_eq!(
+        restored_voice.topic,
+        FeatureGuideTopic::VoiceGroupControl,
+        "第 2 项语音群控必须从稳定的 voice_group_control 值恢复"
+    );
+    let restored_collaboration =
+        FeatureGuideState::load(Some("in_progress"), Some("agent_collaboration"), true);
+    assert_eq!(
+        restored_collaboration.topic,
+        FeatureGuideTopic::AgentCollaboration,
+        "第 3 项 Agent 协作必须从稳定的 agent_collaboration 值恢复"
     );
 }
 
@@ -237,7 +257,8 @@ fn feature_guide_orchestration_badge_tracks_supported_provider_health() {
 ///   themes = PaperBlue(light, 1) + SapphireNight(dark, 1) = 2
 ///   CTA visual states = rest(1) + hover(1) + pressed(1) + focus ring(1) = 4
 ///   details visual states = rest(1) + hover(1) + pressed(1) + focus ring(1) = 4
-///   keyboard tab positions = CTA(6) + details(7) = 2 explicit positions
+///   topic tab stops = six topics(6)
+///   keyboard tab positions = primary(1) + topics(6) + CTA(1) + details(1) = CTA(8), details(9)
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 分别从亮色与暗色主题推导 Feature Guide palette。
@@ -247,7 +268,7 @@ fn feature_guide_orchestration_badge_tracks_supported_provider_health() {
 ///
 /// 预期结果：
 ///   - 正断言：CTA 与说明按钮在两个主题下均有不同的 hover、pressed 反馈。
-///   - 正断言：两者都是 Tab stop，并分别位于第 6、7 个位置，由 Button 绘制 focus ring。
+///   - 正断言：两者都是 Tab stop，并分别位于第 8、9 个位置，由 Button 绘制 focus ring。
 ///   - 负断言：hover/pressed 不得退化为静态 rest，亮暗主题不得共用硬编码背景。
 #[test]
 fn feature_guide_orchestration_controls_cover_interaction_states_in_light_and_dark_themes() {
@@ -286,8 +307,8 @@ fn feature_guide_orchestration_controls_cover_interaction_states_in_light_and_da
     );
     assert_eq!(
         (light_cta.tab_index, dark_cta.tab_index),
-        (6, 6),
-        "CTA 在亮暗主题下必须稳定占据第 6 个 Tab 位置"
+        (8, 8),
+        "六个主题插入 Tab 序列后，CTA 在亮暗主题下必须稳定占据第 8 个位置"
     );
     assert_ne!(
         light_details.background, light_details.hover,
@@ -307,8 +328,8 @@ fn feature_guide_orchestration_controls_cover_interaction_states_in_light_and_da
     );
     assert_eq!(
         (light_details.tab_index, dark_details.tab_index),
-        (7, 7),
-        "说明按钮在亮暗主题下必须稳定占据第 7 个 Tab 位置并显示组件 focus ring"
+        (9, 9),
+        "六个主题插入 Tab 序列后，说明按钮必须稳定占据第 9 个位置并显示组件 focus ring"
     );
     assert_ne!(
         light_details.foreground, dark_details.foreground,

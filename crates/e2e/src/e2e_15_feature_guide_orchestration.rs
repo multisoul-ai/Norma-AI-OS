@@ -9,7 +9,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 /// E2E-FEATURE-GUIDE-ORCH-01：编排首屏只读展示共享状态，并通过唯一 CTA 往返 Settings。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   guide topics       = orchestration(1) + existing demos(3) = 4
+///   guide topics       = orchestration(1) + website demos(5) = 6
 ///   guided providers  = Codex(1) + Claude(1) + Cursor(1) + OpenCode(1) = 4
 ///   canonical statuses = Ready(2) + Not installed(1) + Needs repair(1) = 4
 ///   settings roundtrips = open(1) + close(1) = 2 transitions
@@ -17,11 +17,11 @@ use crate::harness::{echo_factory, enter_canvas, make_app};
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 注入共享编排健康快照，从 Help 打开 Feature Guide。
-///   2. 验证编排是第 1 / 4 项、四个 Provider 状态只读可见，且没有媒体或安装按钮。
+///   2. 验证编排是第 1 / 6 项、四个 Provider 状态只读可见，且没有媒体或安装按钮。
 ///   3. 展开再收起组件说明，确认辅助教育入口有真实交互。
 ///   4. 点击 Open Orchestration Settings，验证导览暂停且 Settings 精确打开编排页。
 ///   5. 模拟 Settings 刷新共享状态并关闭面板，验证导览恢复同一主题和最新状态。
-///   6. 点击 Next 进入 Live Node，再回到编排页 Skip；最后通过 Help 重新进入。
+///   6. 点击 Next 进入语音群控，再回到编排页 Skip；最后通过 Help 重新进入。
 ///
 /// 预期结果：
 ///   - 正断言：编排首屏、四个状态、说明展开、Settings 安装入口、暂停恢复和 Next 均可操作。
@@ -53,12 +53,12 @@ fn e2e_15_feature_guide_orchestration_roundtrips_settings_and_reopens_from_help(
     );
     assert_eq!(
         (opened.topic_position, opened.topic_count),
-        (1, 4),
-        "编排首屏必须向用户显示稳定的 1 / 4 进度"
+        (1, 6),
+        "编排首屏必须向用户显示稳定的 1 / 6 进度"
     );
     assert!(
         cx.debug_bounds("feature-guide-progress").is_some(),
-        "四步进度必须进入真实 GPUI 渲染树供辅助技术读取"
+        "六步进度必须进入真实 GPUI 渲染树供辅助技术读取"
     );
     assert!(
         cx.debug_bounds("feature-guide-reduced-motion-crossfade")
@@ -79,12 +79,12 @@ fn e2e_15_feature_guide_orchestration_roundtrips_settings_and_reopens_from_help(
         "编排说明不得伪造或复用其他主题的海报"
     );
     assert!(
-        cx.debug_bounds("feature-guide-topic-3").is_some(),
-        "加入编排首屏后第 4 项 Agent Notifications 必须仍然存在"
+        cx.debug_bounds("feature-guide-topic-5").is_some(),
+        "加入两段新 Demo 后第 6 项 Agent Notifications 必须仍然存在"
     );
     assert!(
-        cx.debug_bounds("feature-guide-topic-4").is_none(),
-        "四步导览不得渲染不存在的第 5 项"
+        cx.debug_bounds("feature-guide-topic-6").is_none(),
+        "六步导览不得渲染不存在的第 7 项"
     );
     assert!(
         cx.debug_bounds("feature-guide-orchestration-status-codex-not-installed")
@@ -255,14 +255,14 @@ fn e2e_15_feature_guide_orchestration_roundtrips_settings_and_reopens_from_help(
     );
     assert_ne!(
         resumed.status, "completed",
-        "仅完成 Settings 往返不得把整个四步导览误标为 completed"
+        "仅完成 Settings 往返不得把整个六步导览误标为 completed"
     );
 
     click_debug(cx, "feature-guide-primary");
     let advanced = app.update(cx, |app, _| app.feature_guide_e2e_snapshot());
     assert_eq!(
-        advanced.topic, "live_node_shortcuts",
-        "编排首屏的 Next 必须只推进到第 2 项 Live Node Shortcuts"
+        advanced.topic, "voice_group_control",
+        "编排首屏的 Next 必须只推进到第 2 项 Voice Group Control"
     );
     assert_ne!(
         advanced.topic, "workspace_layouts",
@@ -297,15 +297,15 @@ fn e2e_15_feature_guide_orchestration_roundtrips_settings_and_reopens_from_help(
 /// E2E-FEATURE-GUIDE-ORCH-02：编排 CTA 与组件说明必须能由 Tab 配合 Enter/Space 激活。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   CTA tab position = primary(1) + topic buttons(4) + CTA(1) = 6
-///   details tab position = primary(1) + topic buttons(4) + CTA(1) + details(1) = 7
+///   CTA tab position = primary(1) + topic buttons(6) + CTA(1) = 8
+///   details tab position = primary(1) + topic buttons(6) + CTA(1) + details(1) = 9
 ///   activation keys = Enter(1) + Space(1) = 2
 ///   direct mouse activations for target controls = 0
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 在第一份真实 GPUI 窗口打开编排首屏，连续按 6 次 Tab，再按 Enter。
+///   1. 在第一份真实 GPUI 窗口打开编排首屏，连续按 8 次 Tab，再按 Enter。
 ///   2. 验证 CTA 经键盘打开 Settings → Orchestration，并让导览进入 Suspended。
-///   3. 在第二份隔离窗口打开编排首屏，连续按 7 次 Tab，再按 Space。
+///   3. 在第二份隔离窗口打开编排首屏，连续按 9 次 Tab，再按 Space。
 ///   4. 验证组件说明经键盘展开，且导览仍停留在编排首屏。
 ///
 /// 预期结果：
@@ -327,6 +327,8 @@ fn e2e_15_feature_guide_orchestration_controls_support_keyboard_activation() {
     settings_cx.simulate_keystrokes("tab");
     settings_cx.simulate_keystrokes("tab");
     settings_cx.simulate_keystrokes("tab");
+    settings_cx.simulate_keystrokes("tab");
+    settings_cx.simulate_keystrokes("tab");
     settings_cx.simulate_keystrokes("enter");
     settings_cx.run_until_parked();
 
@@ -334,7 +336,7 @@ fn e2e_15_feature_guide_orchestration_controls_support_keyboard_activation() {
     let settings = settings_app.update(settings_cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert!(
         settings.settings_open,
-        "第 6 个 Tab stop 上按 Enter 必须打开 Orchestration Settings"
+        "第 8 个 Tab stop 上按 Enter 必须打开 Orchestration Settings"
     );
     assert_eq!(
         settings.active_section, "Orchestration",
@@ -345,7 +347,7 @@ fn e2e_15_feature_guide_orchestration_controls_support_keyboard_activation() {
         "键盘打开 Settings 时导览必须与鼠标路径一致进入 Suspended"
     );
     assert_ne!(
-        suspended.topic, "live_node_shortcuts",
+        suspended.topic, "voice_group_control",
         "Enter 激活编排 CTA 不得误触底部 Next 推进主题"
     );
 
@@ -364,13 +366,15 @@ fn e2e_15_feature_guide_orchestration_controls_support_keyboard_activation() {
     details_cx.simulate_keystrokes("tab");
     details_cx.simulate_keystrokes("tab");
     details_cx.simulate_keystrokes("tab");
+    details_cx.simulate_keystrokes("tab");
+    details_cx.simulate_keystrokes("tab");
     details_cx.simulate_keystrokes("space");
     details_cx.run_until_parked();
 
     let expanded = details_app.update(details_cx, |app, _| app.feature_guide_e2e_snapshot());
     assert!(
         expanded.orchestration_details_expanded,
-        "第 7 个 Tab stop 上按 Space 必须展开组件说明"
+        "第 9 个 Tab stop 上按 Space 必须展开组件说明"
     );
     assert_eq!(
         expanded.topic, "agent_orchestration",

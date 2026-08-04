@@ -333,7 +333,7 @@ pub(super) fn details_button_interaction(
         foreground: palette.accent_text,
         hover: with_alpha(theme.accent_blue, 0x10),
         active: with_alpha(theme.accent_blue, 0x20),
-        tab_index: 7,
+        tab_index: 9,
     }
 }
 

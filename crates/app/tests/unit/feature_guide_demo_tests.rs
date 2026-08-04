@@ -84,34 +84,35 @@ fn new_voice_and_agent_collaboration_demos_are_second_and_third() {
     );
 }
 
-/// FG-DEMO-1：功能导览必须在编排首屏之后完整呈现三段正式产品叙事。
+/// FG-DEMO-1：插入两段新 Demo 后，功能导览必须继续完整呈现原有三段产品叙事。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   website story demos = shortcut(1) + layout(1) + notification(1) = 3
+///   new website demos   = voice(1) + collaboration(1) = 2
+///   existing demos      = shortcut(1) + layout(1) + notification(1) = 3
 ///   orchestration guide = 1
-///   app guide topics    = orchestration(1) + story demos(3) = 4
+///   app guide topics    = orchestration(1) + new demos(2) + existing demos(3) = 6
 ///   media per topic     = MP4(1) + WebP poster(1) = 2
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 跳过无媒体的编排首屏，按 FeatureGuideTopic::ALL 的稳定顺序读取后三个主题。
+///   1. 跳过编排首屏与两段新 Demo，按 FeatureGuideTopic::ALL 的稳定顺序读取第 4—6 项。
 ///   2. 将英文标题、侧栏短标签、正文和媒体路径逐项比较。
 ///   3. 排除旧版“语音派发”首屏，确保弹窗不再展示代码绘制的占位叙事。
 ///
 /// 预期结果：
-///   - 正断言：编排首屏没有伪造媒体，后三个主题的英文标题、侧栏短标签及其 MP4/WebP 路径逐项匹配产品 Demo。
+///   - 正断言：编排首屏没有伪造媒体，第 4—6 项的英文标题、侧栏短标签及其 MP4/WebP 路径逐项匹配产品 Demo。
 ///   - 正断言：英文正文完整说明快捷键、布局和通知行为。
 ///   - 负断言：首屏不得继续显示旧版中文标题或语音派发主题。
 #[test]
-fn feature_guide_topics_match_the_website_product_demos() {
+fn existing_feature_guide_topics_remain_after_new_website_product_demos() {
     assert_eq!(
         FeatureGuideTopic::ALL.len(),
-        4,
-        "Feature Guide 应包含 1 个编排首屏和官网的 3 段产品 Demo"
+        6,
+        "Feature Guide 应包含 1 个编排首屏和官网的 5 段产品 Demo"
     );
     let orchestration = FeatureGuideTopic::ALL[0];
-    let shortcuts = FeatureGuideTopic::ALL[1];
-    let layouts = FeatureGuideTopic::ALL[2];
-    let notifications = FeatureGuideTopic::ALL[3];
+    let shortcuts = FeatureGuideTopic::ALL[3];
+    let layouts = FeatureGuideTopic::ALL[4];
+    let notifications = FeatureGuideTopic::ALL[5];
 
     assert_eq!(
         orchestration.video_asset(),
@@ -127,79 +128,79 @@ fn feature_guide_topics_match_the_website_product_demos() {
     assert_eq!(
         shortcuts.title(),
         "Jump to Any Live Node",
-        "第 1 个主题必须使用简洁的英文 Live Node 标题"
+        "第 4 个主题必须保留简洁的英文 Live Node 标题"
     );
     assert_eq!(
         shortcuts.navigation_label(),
         "Live Node Shortcuts",
-        "第 1 个侧栏入口必须使用紧凑的英文导航标签"
+        "第 4 个侧栏入口必须保留紧凑的英文导航标签"
     );
     assert_eq!(
         shortcuts.summary(),
         "Press ⌘1–6 to bring a specific Live Node forward instantly. Move between agents, terminals, and previews without hunting through tabs.",
-        "第 1 个主题正文必须用英文完整说明 Live Node 快捷切换"
+        "第 4 个主题正文必须用英文完整说明 Live Node 快捷切换"
     );
     assert_eq!(
         shortcuts.video_asset(),
         Some("feature-guide/demo-live-node-shortcuts.mp4"),
-        "第 1 个主题必须指向官网的 Live Node 快捷键视频"
+        "第 4 个主题必须指向官网的 Live Node 快捷键视频"
     );
     assert_eq!(
         shortcuts.poster_asset(),
         Some("feature-guide/demo-live-node-shortcuts.webp"),
-        "第 1 个主题必须使用官网配套 WebP 海报"
+        "第 4 个主题必须使用官网配套 WebP 海报"
     );
 
     assert_eq!(
         layouts.title(),
         "Reflow Your Workspace",
-        "第 2 个主题必须使用简洁的英文工作区标题"
+        "第 5 个主题必须使用简洁的英文工作区标题"
     );
     assert_eq!(
         layouts.navigation_label(),
         "Workspace Layouts",
-        "第 2 个侧栏入口必须使用紧凑的英文导航标签"
+        "第 5 个侧栏入口必须使用紧凑的英文导航标签"
     );
     assert_eq!(
         layouts.summary(),
         "Press ⌘M to switch between focused and overview layouts. Every running Live Node stays visible, active, and connected to its task.",
-        "第 2 个主题正文必须用英文完整说明工作区重排"
+        "第 5 个主题正文必须用英文完整说明工作区重排"
     );
     assert_eq!(
         layouts.video_asset(),
         Some("feature-guide/demo-layout-command-m.mp4"),
-        "第 2 个主题必须指向官网的 Command-M 布局视频"
+        "第 5 个主题必须指向官网的 Command-M 布局视频"
     );
     assert_eq!(
         layouts.poster_asset(),
         Some("feature-guide/demo-layout-command-m.webp"),
-        "第 2 个主题必须使用官网配套 WebP 海报"
+        "第 5 个主题必须使用官网配套 WebP 海报"
     );
 
     assert_eq!(
         notifications.title(),
         "Know When an Agent Needs You",
-        "第 3 个主题必须使用清晰的英文 Agent 通知标题"
+        "第 6 个主题必须使用清晰的英文 Agent 通知标题"
     );
     assert_eq!(
         notifications.navigation_label(),
         "Agent Notifications",
-        "第 3 个侧栏入口必须使用紧凑的英文导航标签"
+        "第 6 个侧栏入口必须使用紧凑的英文导航标签"
     );
     assert_eq!(
         notifications.summary(),
         "Completion and attention indicators appear directly on the relevant Live Node, so you can see which agent changed state without checking every terminal.",
-        "第 3 个主题正文必须用英文完整说明 Agent 状态提示"
+        "第 6 个主题正文必须用英文完整说明 Agent 状态提示"
     );
     assert_eq!(
         notifications.video_asset(),
         Some("feature-guide/demo-agent-notifications.mp4"),
-        "第 3 个主题必须指向官网的 Agent 通知视频"
+        "第 6 个主题必须指向官网的 Agent 通知视频"
     );
     assert_eq!(
         notifications.poster_asset(),
         Some("feature-guide/demo-agent-notifications.webp"),
-        "第 3 个主题必须使用官网配套 WebP 海报"
+        "第 6 个主题必须使用官网配套 WebP 海报"
     );
     assert_ne!(
         shortcuts.title(),
@@ -213,85 +214,128 @@ fn feature_guide_topics_match_the_website_product_demos() {
     );
 }
 
-/// FG-DEMO-2：官网三组 MP4/WebP 素材必须能从开发资源目录解析并保持正确文件格式。
+/// FG-DEMO-2：官网五组 MP4/WebP 素材必须能从开发资源目录解析并保持正确文件格式。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   website media copies = videos(3) + posters(3) = 6
+///   website media copies = videos(5) + posters(5) = 10
 ///   MP4 signature range  = bytes[4..8] = "ftyp"（4 bytes）
 ///   WebP signatures      = bytes[0..4] = "RIFF" + bytes[8..12] = "WEBP"
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 用运行时同一 resolve_builtin_asset 路径分别解析六个内置文件。
-///   2. 逐个读取三段视频并检查 MP4 ftyp 标记。
-///   3. 逐个读取三张海报并检查 RIFF/WEBP 标记，同时排除不存在的旧占位视频。
+///   1. 用运行时同一 resolve_builtin_asset 路径分别解析十个内置文件。
+///   2. 逐个读取五段视频并检查 MP4 ftyp 标记。
+///   3. 逐个读取五张海报并检查 RIFF/WEBP 标记，同时排除不存在的旧占位视频。
 ///
 /// 预期结果：
-///   - 正断言：六个官网素材均存在，三段视频是 MP4，三张海报是 WebP。
+///   - 正断言：十个官网素材均存在，五段视频是 MP4，五张海报是 WebP。
 ///   - 负断言：旧版 synthesized-guide.mp4 不得被误解析为新素材。
 #[test]
 fn website_demo_assets_are_resolvable_mp4_and_webp_files() {
-    let shortcut_video = FeatureGuideTopic::ALL[1]
+    let voice_video = FeatureGuideTopic::ALL[1]
         .video_asset()
         .and_then(resolve_builtin_asset)
-        .expect("第 1 段官网 MP4 必须复制到 app 的 feature-guide 资源目录");
-    let layout_video = FeatureGuideTopic::ALL[2]
+        .expect("第 2 项语音群控 MP4 必须复制到 app 的 feature-guide 资源目录");
+    let collaboration_video = FeatureGuideTopic::ALL[2]
         .video_asset()
         .and_then(resolve_builtin_asset)
-        .expect("第 2 段官网 MP4 必须复制到 app 的 feature-guide 资源目录");
-    let notification_video = FeatureGuideTopic::ALL[3]
+        .expect("第 3 项 Agent 协作 MP4 必须复制到 app 的 feature-guide 资源目录");
+    let shortcut_video = FeatureGuideTopic::ALL[3]
         .video_asset()
         .and_then(resolve_builtin_asset)
-        .expect("第 3 段官网 MP4 必须复制到 app 的 feature-guide 资源目录");
-    let shortcut_poster = FeatureGuideTopic::ALL[1]
+        .expect("第 4 项 Live Node MP4 必须复制到 app 的 feature-guide 资源目录");
+    let layout_video = FeatureGuideTopic::ALL[4]
+        .video_asset()
+        .and_then(resolve_builtin_asset)
+        .expect("第 5 项 Workspace MP4 必须复制到 app 的 feature-guide 资源目录");
+    let notification_video = FeatureGuideTopic::ALL[5]
+        .video_asset()
+        .and_then(resolve_builtin_asset)
+        .expect("第 6 项 Agent Notifications MP4 必须复制到 app 的 feature-guide 资源目录");
+    let voice_poster = FeatureGuideTopic::ALL[1]
         .poster_asset()
         .and_then(resolve_builtin_asset)
-        .expect("第 1 张官网 WebP 必须复制到 app 的 feature-guide 资源目录");
-    let layout_poster = FeatureGuideTopic::ALL[2]
+        .expect("第 2 项语音群控 WebP 必须复制到 app 的 feature-guide 资源目录");
+    let collaboration_poster = FeatureGuideTopic::ALL[2]
         .poster_asset()
         .and_then(resolve_builtin_asset)
-        .expect("第 2 张官网 WebP 必须复制到 app 的 feature-guide 资源目录");
-    let notification_poster = FeatureGuideTopic::ALL[3]
+        .expect("第 3 项 Agent 协作 WebP 必须复制到 app 的 feature-guide 资源目录");
+    let shortcut_poster = FeatureGuideTopic::ALL[3]
         .poster_asset()
         .and_then(resolve_builtin_asset)
-        .expect("第 3 张官网 WebP 必须复制到 app 的 feature-guide 资源目录");
+        .expect("第 4 项 Live Node WebP 必须复制到 app 的 feature-guide 资源目录");
+    let layout_poster = FeatureGuideTopic::ALL[4]
+        .poster_asset()
+        .and_then(resolve_builtin_asset)
+        .expect("第 5 项 Workspace WebP 必须复制到 app 的 feature-guide 资源目录");
+    let notification_poster = FeatureGuideTopic::ALL[5]
+        .poster_asset()
+        .and_then(resolve_builtin_asset)
+        .expect("第 6 项 Agent Notifications WebP 必须复制到 app 的 feature-guide 资源目录");
 
-    let shortcut_video = std::fs::read(shortcut_video).expect("第 1 段官网 MP4 应可读取");
-    let layout_video = std::fs::read(layout_video).expect("第 2 段官网 MP4 应可读取");
-    let notification_video = std::fs::read(notification_video).expect("第 3 段官网 MP4 应可读取");
-    let shortcut_poster = std::fs::read(shortcut_poster).expect("第 1 张官网 WebP 应可读取");
-    let layout_poster = std::fs::read(layout_poster).expect("第 2 张官网 WebP 应可读取");
+    let voice_video = std::fs::read(voice_video).expect("第 2 项语音群控 MP4 应可读取");
+    let collaboration_video =
+        std::fs::read(collaboration_video).expect("第 3 项 Agent 协作 MP4 应可读取");
+    let shortcut_video = std::fs::read(shortcut_video).expect("第 4 项 Live Node MP4 应可读取");
+    let layout_video = std::fs::read(layout_video).expect("第 5 项 Workspace MP4 应可读取");
+    let notification_video =
+        std::fs::read(notification_video).expect("第 6 项 Agent Notifications MP4 应可读取");
+    let voice_poster = std::fs::read(voice_poster).expect("第 2 项语音群控 WebP 应可读取");
+    let collaboration_poster =
+        std::fs::read(collaboration_poster).expect("第 3 项 Agent 协作 WebP 应可读取");
+    let shortcut_poster = std::fs::read(shortcut_poster).expect("第 4 项 Live Node WebP 应可读取");
+    let layout_poster = std::fs::read(layout_poster).expect("第 5 项 Workspace WebP 应可读取");
     let notification_poster =
-        std::fs::read(notification_poster).expect("第 3 张官网 WebP 应可读取");
+        std::fs::read(notification_poster).expect("第 6 项 Agent Notifications WebP 应可读取");
 
+    assert_eq!(
+        &voice_video[4..8],
+        b"ftyp",
+        "第 2 项语音群控素材必须保持 MP4 ftyp 文件标记"
+    );
+    assert_eq!(
+        &collaboration_video[4..8],
+        b"ftyp",
+        "第 3 项 Agent 协作素材必须保持 MP4 ftyp 文件标记"
+    );
     assert_eq!(
         &shortcut_video[4..8],
         b"ftyp",
-        "第 1 段官网素材必须保持 MP4 ftyp 文件标记"
+        "第 4 项 Live Node 素材必须保持 MP4 ftyp 文件标记"
     );
     assert_eq!(
         &layout_video[4..8],
         b"ftyp",
-        "第 2 段官网素材必须保持 MP4 ftyp 文件标记"
+        "第 5 项 Workspace 素材必须保持 MP4 ftyp 文件标记"
     );
     assert_eq!(
         &notification_video[4..8],
         b"ftyp",
-        "第 3 段官网素材必须保持 MP4 ftyp 文件标记"
+        "第 6 项 Agent Notifications 素材必须保持 MP4 ftyp 文件标记"
+    );
+    assert_eq!(
+        (&voice_poster[0..4], &voice_poster[8..12]),
+        (&b"RIFF"[..], &b"WEBP"[..]),
+        "第 2 项语音群控海报必须保持 RIFF/WEBP 文件标记"
+    );
+    assert_eq!(
+        (&collaboration_poster[0..4], &collaboration_poster[8..12]),
+        (&b"RIFF"[..], &b"WEBP"[..]),
+        "第 3 项 Agent 协作海报必须保持 RIFF/WEBP 文件标记"
     );
     assert_eq!(
         (&shortcut_poster[0..4], &shortcut_poster[8..12]),
         (&b"RIFF"[..], &b"WEBP"[..]),
-        "第 1 张官网海报必须保持 RIFF/WEBP 文件标记"
+        "第 4 项 Live Node 海报必须保持 RIFF/WEBP 文件标记"
     );
     assert_eq!(
         (&layout_poster[0..4], &layout_poster[8..12]),
         (&b"RIFF"[..], &b"WEBP"[..]),
-        "第 2 张官网海报必须保持 RIFF/WEBP 文件标记"
+        "第 5 项 Workspace 海报必须保持 RIFF/WEBP 文件标记"
     );
     assert_eq!(
         (&notification_poster[0..4], &notification_poster[8..12]),
         (&b"RIFF"[..], &b"WEBP"[..]),
-        "第 3 张官网海报必须保持 RIFF/WEBP 文件标记"
+        "第 6 项 Agent Notifications 海报必须保持 RIFF/WEBP 文件标记"
     );
     assert!(
         resolve_builtin_asset("feature-guide/synthesized-guide.mp4").is_none(),
