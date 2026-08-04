@@ -7,32 +7,122 @@ use std::sync::{
     Arc,
 };
 
-/// FG-DEMO-1：功能导览必须用完整英文呈现三段正式产品叙事。
+/// FG-DEMO-0：官网新增的语音群控与 Agent 协作 Demo 必须成为 Feature Guide 第 2、3 项。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   orchestration guide = 1
+///   new website demos   = voice group control(1) + Agent collaboration(1) = 2
+///   existing demos      = shortcut(1) + layout(1) + notification(1) = 3
+///   Total               = 1 + 2 + 3 = 6 topics
+///   media per new demo  = MP4(1) + WebP poster(1) = 2
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 FeatureGuideTopic::ALL 的总数以及第 1、2、3 项标题。
+///   2. 读取第 2 项语音群控的正文、视频与海报路径。
+///   3. 读取第 3 项 Agent 协作的正文、视频与海报路径。
+///
+/// 预期结果：
+///   - 正断言：编排保持第 1 项，语音群控与 Agent 协作严格位于第 2、3 项，总数为 6。
+///   - 正断言：两项新 Demo 的标题、正文及 MP4/WebP 路径与官网数据一致。
+///   - 负断言：旧 Live Node Shortcuts 不得继续占据第 2 项。
+#[test]
+fn new_voice_and_agent_collaboration_demos_are_second_and_third() {
+    assert_eq!(
+        FeatureGuideTopic::ALL.len(),
+        6,
+        "Feature Guide 必须包含编排首屏、两段新 Demo 和原有三段 Demo，共 6 项"
+    );
+    assert_eq!(
+        FeatureGuideTopic::ALL[0].title(),
+        "Enable Agent-to-Agent Delegation",
+        "Agent Orchestration 必须继续作为 Feature Guide 第 1 项"
+    );
+    assert_eq!(
+        FeatureGuideTopic::ALL[1].title(),
+        "Voice group control: direct six Agents at once",
+        "官网 Voice group control Demo 必须插入为 Feature Guide 第 2 项"
+    );
+    assert_ne!(
+        FeatureGuideTopic::ALL[1].navigation_label(),
+        "Live Node Shortcuts",
+        "插入后 Live Node Shortcuts 不得继续占据 Feature Guide 第 2 项"
+    );
+    assert_eq!(
+        FeatureGuideTopic::ALL[1].summary(),
+        "One spoken instruction controls six Agents. Norma creates six Agent Live Nodes, gives each one its own task, and keeps every run visible in the same workspace.",
+        "语音群控正文必须与官网英文产品叙事一致"
+    );
+    assert_eq!(
+        FeatureGuideTopic::ALL[1].video_asset(),
+        Some("feature-guide/demo-voice-command.mp4"),
+        "语音群控必须绑定官网桌面版 MP4"
+    );
+    assert_eq!(
+        FeatureGuideTopic::ALL[1].poster_asset(),
+        Some("feature-guide/demo-voice-command.webp"),
+        "语音群控必须绑定官网 WebP 海报"
+    );
+    assert_eq!(
+        FeatureGuideTopic::ALL[2].title(),
+        "Agents delegate tasks to each other",
+        "官网 Agent collaboration Demo 必须插入为 Feature Guide 第 3 项"
+    );
+    assert_eq!(
+        FeatureGuideTopic::ALL[2].summary(),
+        "One Agent can hand a focused task to another Agent and receive the result inside the same workspace. Work branches without making you relay every instruction yourself.",
+        "Agent 协作正文必须与官网英文产品叙事一致"
+    );
+    assert_eq!(
+        FeatureGuideTopic::ALL[2].video_asset(),
+        Some("feature-guide/demo-agent-collaboration.mp4"),
+        "Agent 协作必须绑定官网 MP4"
+    );
+    assert_eq!(
+        FeatureGuideTopic::ALL[2].poster_asset(),
+        Some("feature-guide/demo-agent-collaboration.webp"),
+        "Agent 协作必须绑定官网 WebP 海报"
+    );
+}
+
+/// FG-DEMO-1：功能导览必须在编排首屏之后完整呈现三段正式产品叙事。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   website story demos = shortcut(1) + layout(1) + notification(1) = 3
-///   app guide topics    = 3
+///   orchestration guide = 1
+///   app guide topics    = orchestration(1) + story demos(3) = 4
 ///   media per topic     = MP4(1) + WebP poster(1) = 2
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 按 FeatureGuideTopic::ALL 的稳定顺序读取三个主题。
+///   1. 跳过无媒体的编排首屏，按 FeatureGuideTopic::ALL 的稳定顺序读取后三个主题。
 ///   2. 将英文标题、侧栏短标签、正文和媒体路径逐项比较。
 ///   3. 排除旧版“语音派发”首屏，确保弹窗不再展示代码绘制的占位叙事。
 ///
 /// 预期结果：
-///   - 正断言：三个主题的英文标题、侧栏短标签及其 MP4/WebP 路径逐项匹配产品 Demo。
+///   - 正断言：编排首屏没有伪造媒体，后三个主题的英文标题、侧栏短标签及其 MP4/WebP 路径逐项匹配产品 Demo。
 ///   - 正断言：英文正文完整说明快捷键、布局和通知行为。
 ///   - 负断言：首屏不得继续显示旧版中文标题或语音派发主题。
 #[test]
 fn feature_guide_topics_match_the_website_product_demos() {
     assert_eq!(
         FeatureGuideTopic::ALL.len(),
-        3,
-        "Feature Guide 应严格对应官网的 3 段产品 Demo，不能保留第 4 个旧主题"
+        4,
+        "Feature Guide 应包含 1 个编排首屏和官网的 3 段产品 Demo"
     );
-    let shortcuts = FeatureGuideTopic::ALL[0];
-    let layouts = FeatureGuideTopic::ALL[1];
-    let notifications = FeatureGuideTopic::ALL[2];
+    let orchestration = FeatureGuideTopic::ALL[0];
+    let shortcuts = FeatureGuideTopic::ALL[1];
+    let layouts = FeatureGuideTopic::ALL[2];
+    let notifications = FeatureGuideTopic::ALL[3];
+
+    assert_eq!(
+        orchestration.video_asset(),
+        None,
+        "编排引导没有产品 Demo，不得绑定伪造视频"
+    );
+    assert_eq!(
+        orchestration.poster_asset(),
+        None,
+        "编排引导没有产品 Demo，不得绑定伪造海报"
+    );
 
     assert_eq!(
         shortcuts.title(),
@@ -51,12 +141,12 @@ fn feature_guide_topics_match_the_website_product_demos() {
     );
     assert_eq!(
         shortcuts.video_asset(),
-        "feature-guide/demo-live-node-shortcuts.mp4",
+        Some("feature-guide/demo-live-node-shortcuts.mp4"),
         "第 1 个主题必须指向官网的 Live Node 快捷键视频"
     );
     assert_eq!(
         shortcuts.poster_asset(),
-        "feature-guide/demo-live-node-shortcuts.webp",
+        Some("feature-guide/demo-live-node-shortcuts.webp"),
         "第 1 个主题必须使用官网配套 WebP 海报"
     );
 
@@ -77,12 +167,12 @@ fn feature_guide_topics_match_the_website_product_demos() {
     );
     assert_eq!(
         layouts.video_asset(),
-        "feature-guide/demo-layout-command-m.mp4",
+        Some("feature-guide/demo-layout-command-m.mp4"),
         "第 2 个主题必须指向官网的 Command-M 布局视频"
     );
     assert_eq!(
         layouts.poster_asset(),
-        "feature-guide/demo-layout-command-m.webp",
+        Some("feature-guide/demo-layout-command-m.webp"),
         "第 2 个主题必须使用官网配套 WebP 海报"
     );
 
@@ -103,12 +193,12 @@ fn feature_guide_topics_match_the_website_product_demos() {
     );
     assert_eq!(
         notifications.video_asset(),
-        "feature-guide/demo-agent-notifications.mp4",
+        Some("feature-guide/demo-agent-notifications.mp4"),
         "第 3 个主题必须指向官网的 Agent 通知视频"
     );
     assert_eq!(
         notifications.poster_asset(),
-        "feature-guide/demo-agent-notifications.webp",
+        Some("feature-guide/demo-agent-notifications.webp"),
         "第 3 个主题必须使用官网配套 WebP 海报"
     );
     assert_ne!(
@@ -140,17 +230,29 @@ fn feature_guide_topics_match_the_website_product_demos() {
 ///   - 负断言：旧版 synthesized-guide.mp4 不得被误解析为新素材。
 #[test]
 fn website_demo_assets_are_resolvable_mp4_and_webp_files() {
-    let shortcut_video = resolve_builtin_asset(FeatureGuideTopic::ALL[0].video_asset())
+    let shortcut_video = FeatureGuideTopic::ALL[1]
+        .video_asset()
+        .and_then(resolve_builtin_asset)
         .expect("第 1 段官网 MP4 必须复制到 app 的 feature-guide 资源目录");
-    let layout_video = resolve_builtin_asset(FeatureGuideTopic::ALL[1].video_asset())
+    let layout_video = FeatureGuideTopic::ALL[2]
+        .video_asset()
+        .and_then(resolve_builtin_asset)
         .expect("第 2 段官网 MP4 必须复制到 app 的 feature-guide 资源目录");
-    let notification_video = resolve_builtin_asset(FeatureGuideTopic::ALL[2].video_asset())
+    let notification_video = FeatureGuideTopic::ALL[3]
+        .video_asset()
+        .and_then(resolve_builtin_asset)
         .expect("第 3 段官网 MP4 必须复制到 app 的 feature-guide 资源目录");
-    let shortcut_poster = resolve_builtin_asset(FeatureGuideTopic::ALL[0].poster_asset())
+    let shortcut_poster = FeatureGuideTopic::ALL[1]
+        .poster_asset()
+        .and_then(resolve_builtin_asset)
         .expect("第 1 张官网 WebP 必须复制到 app 的 feature-guide 资源目录");
-    let layout_poster = resolve_builtin_asset(FeatureGuideTopic::ALL[1].poster_asset())
+    let layout_poster = FeatureGuideTopic::ALL[2]
+        .poster_asset()
+        .and_then(resolve_builtin_asset)
         .expect("第 2 张官网 WebP 必须复制到 app 的 feature-guide 资源目录");
-    let notification_poster = resolve_builtin_asset(FeatureGuideTopic::ALL[2].poster_asset())
+    let notification_poster = FeatureGuideTopic::ALL[3]
+        .poster_asset()
+        .and_then(resolve_builtin_asset)
         .expect("第 3 张官网 WebP 必须复制到 app 的 feature-guide 资源目录");
 
     let shortcut_video = std::fs::read(shortcut_video).expect("第 1 段官网 MP4 应可读取");

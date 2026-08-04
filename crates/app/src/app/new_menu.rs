@@ -3,7 +3,8 @@
 
 use super::chrome::chrome_shadow;
 use super::{MultisoulApp, NewBrowser, NewEgo, NewTerminal, OpenPreviewFile};
-use canvas::AgentProfile;
+use crate::effects::dispatch_receipt::{COMMAND_DOCK_BOTTOM_PX, COMMAND_DOCK_HEIGHT_PX};
+use canvas::{AgentProfile, CanvasRect};
 use gpui::{
     div, prelude::*, px, rgba, App, ClickEvent, Context, Div, MouseButton, Stateful, Window,
 };
@@ -16,6 +17,34 @@ const NEW_MENU_TRIGGER_WIDTH_PX: f32 = 38.0;
 const NEW_MENU_TRIGGER_GAP_PX: f32 = 12.0;
 // menu_left = -(menu_width - trigger_width) / 2 = -(180 - 38) / 2 = -71
 const NEW_MENU_LEFT_OFFSET_PX: f32 = -(NEW_MENU_WIDTH_PX - NEW_MENU_TRIGGER_WIDTH_PX) / 2.0;
+// GPUI 实际布局高度为 361.5px；固定到 362px 消除文字度量的半像素波动，也为遮挡几何提供单一真相。
+const NEW_MENU_HEIGHT_PX: f32 = 362.0;
+// Dock 底部 22px；52px Dock 内放置 38px 按钮，上下余量各 (52 - 38) / 2 = 7px。
+// menu_bottom_from_window = 22 + 7 + trigger(38) + gap(12) = 79px。
+const NEW_MENU_BOTTOM_FROM_WINDOW_PX: f32 = COMMAND_DOCK_BOTTOM_PX
+    + (COMMAND_DOCK_HEIGHT_PX - NEW_MENU_TRIGGER_WIDTH_PX) / 2.0
+    + NEW_MENU_TRIGGER_WIDTH_PX
+    + NEW_MENU_TRIGGER_GAP_PX;
+
+/// New 菜单的原生视图遮挡矩形。鼠标可在 38px 触发器内任意位置释放，
+/// 因此水平两侧各外扩 19px，保证无论点中按钮哪一侧都能完整覆盖真实菜单。
+pub(crate) fn new_menu_screen_rect(
+    open: bool,
+    activation_x: Option<f32>,
+    win_h: f32,
+) -> Option<CanvasRect> {
+    if !open {
+        return None;
+    }
+    let activation_x = activation_x?;
+    let horizontal_guard = NEW_MENU_TRIGGER_WIDTH_PX / 2.0;
+    Some(CanvasRect::new(
+        activation_x - NEW_MENU_WIDTH_PX / 2.0 - horizontal_guard,
+        win_h - NEW_MENU_BOTTOM_FROM_WINDOW_PX - NEW_MENU_HEIGHT_PX,
+        NEW_MENU_WIDTH_PX + NEW_MENU_TRIGGER_WIDTH_PX,
+        NEW_MENU_HEIGHT_PX,
+    ))
+}
 
 fn new_menu_item_hover_fill(theme: Theme) -> u32 {
     with_alpha(theme.accent_blue, 0x2e)
@@ -44,11 +73,15 @@ impl MultisoulApp {
     /// ✚ 按钮点击：翻转菜单展开状态（按钮同时作为触发器与 toggle 指示）。
     pub(super) fn on_toolbar_toggle_new_menu(
         &mut self,
-        _: &ClickEvent,
+        event: &ClickEvent,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.interaction.toggle_new_menu();
+        let activation_x = match event {
+            ClickEvent::Mouse(event) => f32::from(event.up.position.x),
+            ClickEvent::Keyboard(event) => f32::from(event.bounds.center().x),
+        };
+        self.interaction.toggle_new_menu_at(activation_x);
         cx.notify();
     }
 
@@ -166,6 +199,7 @@ impl MultisoulApp {
             .gap_1()
             .p(px(6.0))
             .w(px(NEW_MENU_WIDTH_PX))
+            .h(px(NEW_MENU_HEIGHT_PX))
             .rounded(px(12.0))
             .border_1()
             .border_color(rgba(with_alpha(theme.edge_highlight, 0x34)))

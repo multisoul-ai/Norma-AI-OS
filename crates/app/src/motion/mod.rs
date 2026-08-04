@@ -83,6 +83,9 @@ impl MotionStore {
             dispatch_receipts: dispatch_receipt::DispatchEffectStore::default(),
         }
     }
+    pub(crate) fn reduced_fade_duration(&self) -> Duration {
+        self.tokens.reduced_fade
+    }
     pub fn tick(&mut self, delta: Duration) -> bool {
         let mut changed = false;
         for node in self.nodes.values_mut() {

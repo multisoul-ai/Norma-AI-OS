@@ -33,8 +33,7 @@ pub(super) fn render_demo(
             media.child(
                 img(path)
                     .id(SharedString::from(format!(
-                        "feature-guide-poster-{}",
-                        topic.video_asset()
+                        "feature-guide-poster-{topic:?}"
                     )))
                     .debug_selector(|| "feature-guide-demo-poster".to_string())
                     .absolute()

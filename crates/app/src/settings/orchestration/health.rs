@@ -22,6 +22,7 @@ pub(crate) struct SharedHealthSnapshot {
 pub(crate) struct SharedOrchestrationHealth {
     phase: SharedHealthPhase,
     refresh_in_flight: bool,
+    refresh_generation: u64,
     snapshot: Option<SharedHealthSnapshot>,
     subscribers: Vec<WeakEntity<MultisoulApp>>,
     last_error: Option<String>,
@@ -30,13 +31,20 @@ pub(crate) struct SharedOrchestrationHealth {
 impl Global for SharedOrchestrationHealth {}
 
 impl SharedOrchestrationHealth {
-    pub(crate) fn begin_refresh(&mut self) -> bool {
+    pub(crate) fn begin_refresh(&mut self) -> Option<u64> {
         if self.refresh_in_flight {
-            return false;
+            return None;
         }
+        self.refresh_generation = self.refresh_generation.saturating_add(1);
         self.refresh_in_flight = true;
         self.phase = SharedHealthPhase::Checking;
-        true
+        Some(self.refresh_generation)
+    }
+
+    fn begin_publish(&mut self) -> u64 {
+        self.refresh_generation = self.refresh_generation.saturating_add(1);
+        self.refresh_in_flight = false;
+        self.refresh_generation
     }
 
     pub(crate) fn phase(&self) -> SharedHealthPhase {
@@ -45,6 +53,7 @@ impl SharedOrchestrationHealth {
 
     fn finish(
         &mut self,
+        generation: u64,
         result: Result<
             (
                 Vec<ProviderIntegration>,
@@ -53,6 +62,9 @@ impl SharedOrchestrationHealth {
             String,
         >,
     ) -> Option<SharedHealthSnapshot> {
+        if generation != self.refresh_generation {
+            return None;
+        }
         self.refresh_in_flight = false;
         match result {
             Ok((integrations, authorizations)) => {
@@ -100,15 +112,15 @@ pub(crate) fn refresh(
     cx: &mut App,
 ) {
     install(cx);
-    if !cx.global_mut::<SharedOrchestrationHealth>().begin_refresh() {
+    let Some(generation) = cx.global_mut::<SharedOrchestrationHealth>().begin_refresh() else {
         return;
-    }
+    };
     let work = cx
         .background_executor()
         .spawn(async move { inspect_integrations(database_path, install_paths) });
     cx.spawn(async move |cx| {
         let result = work.await;
-        let _ = cx.update(|cx| finish_refresh(result, cx));
+        let _ = cx.update(|cx| finish_refresh(generation, result, cx));
     })
     .detach();
 }
@@ -126,7 +138,8 @@ pub(crate) fn publish(
     cx: &mut App,
 ) {
     install(cx);
-    finish_refresh(Ok((integrations, authorizations)), cx);
+    let generation = cx.global_mut::<SharedOrchestrationHealth>().begin_publish();
+    finish_refresh(generation, Ok((integrations, authorizations)), cx);
 }
 
 pub(crate) fn is_checking(cx: &App) -> bool {
@@ -185,12 +198,13 @@ pub(crate) fn phase_for_integrations(integrations: &[ProviderIntegration]) -> Sh
 pub(crate) fn mark_ready_for_e2e(cx: &mut App) {
     install(cx);
     let health = cx.global_mut::<SharedOrchestrationHealth>();
-    health.refresh_in_flight = false;
+    health.begin_publish();
     health.phase = SharedHealthPhase::Ready;
     health.last_error = None;
 }
 
 fn finish_refresh(
+    generation: u64,
     result: Result<
         (
             Vec<ProviderIntegration>,
@@ -202,7 +216,7 @@ fn finish_refresh(
 ) {
     let (snapshot, subscribers) = {
         let health = cx.global_mut::<SharedOrchestrationHealth>();
-        let snapshot = health.finish(result);
+        let snapshot = health.finish(generation, result);
         (snapshot, health.subscribers.clone())
     };
     let Some(snapshot) = snapshot else {

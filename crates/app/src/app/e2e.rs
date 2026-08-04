@@ -52,6 +52,9 @@ pub struct FeatureGuideE2eSnapshot {
     pub media_playing: bool,
     pub poster_available: bool,
     pub primary_focused: bool,
+    pub orchestration_details_expanded: bool,
+    pub topic_position: usize,
+    pub topic_count: usize,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -185,6 +188,9 @@ impl MultisoulApp {
             media_playing: self.feature_guide_media.is_playing(),
             poster_available: self.feature_guide_media.poster_available(),
             primary_focused: self.feature_guide_primary_focused_for_e2e,
+            orchestration_details_expanded: self.feature_guide.orchestration_details_expanded(),
+            topic_position: self.feature_guide.topic_position(),
+            topic_count: super::feature_guide::FeatureGuideTopic::ALL.len(),
         }
     }
 

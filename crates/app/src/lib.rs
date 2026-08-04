@@ -30,7 +30,7 @@ mod menu_bar_tests;
 #[cfg(feature = "e2e-test-support")]
 pub use app::{
     install_norma_endpoint_for_e2e, mark_orchestration_health_ready_for_e2e,
-    submit_norma_request_for_e2e,
+    publish_canonical_orchestration_health_for_e2e, submit_norma_request_for_e2e,
 };
 #[cfg(all(target_os = "macos", feature = "l3-test-support"))]
 pub use app::{run_ego_live_capture_probe, EgoLiveCaptureProbeReport};

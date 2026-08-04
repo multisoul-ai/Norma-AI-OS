@@ -106,34 +106,7 @@ impl OrchestrationSettingsState {
 
     #[cfg(feature = "e2e-test-support")]
     pub(crate) fn use_canonical_preview(&mut self) {
-        let ready = |provider| {
-            let component = ComponentState::Ready {
-                version: env!("CARGO_PKG_VERSION").to_string(),
-            };
-            ProviderIntegration::from_components(
-                provider,
-                component.clone(),
-                component.clone(),
-                component.clone(),
-                component,
-            )
-        };
-        let ready_component = ComponentState::Ready {
-            version: env!("CARGO_PKG_VERSION").to_string(),
-        };
-        self.integrations = vec![
-            ready(OrchestrationProvider::Codex),
-            missing_integration(OrchestrationProvider::Claude),
-            ProviderIntegration::from_components(
-                OrchestrationProvider::Cursor,
-                ready_component.clone(),
-                ready_component.clone(),
-                ComponentState::Missing,
-                ready_component,
-            ),
-            ready(OrchestrationProvider::OpenCode),
-            ProviderIntegration::unsupported(OrchestrationProvider::Grok),
-        ];
+        self.integrations = canonical_preview_integrations();
         self.expanded_provider = Some(OrchestrationProvider::Cursor);
         self.busy = None;
         self.pending_uninstall = None;
@@ -149,6 +122,38 @@ impl OrchestrationSettingsState {
     pub(crate) fn pending_uninstall_for_e2e(&self) -> Option<OrchestrationProvider> {
         self.pending_uninstall
     }
+}
+
+#[cfg(feature = "e2e-test-support")]
+pub(crate) fn canonical_preview_integrations() -> Vec<ProviderIntegration> {
+    let ready = |provider| {
+        let component = ComponentState::Ready {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        };
+        ProviderIntegration::from_components(
+            provider,
+            component.clone(),
+            component.clone(),
+            component.clone(),
+            component,
+        )
+    };
+    let ready_component = ComponentState::Ready {
+        version: env!("CARGO_PKG_VERSION").to_string(),
+    };
+    vec![
+        ready(OrchestrationProvider::Codex),
+        missing_integration(OrchestrationProvider::Claude),
+        ProviderIntegration::from_components(
+            OrchestrationProvider::Cursor,
+            ready_component.clone(),
+            ready_component.clone(),
+            ComponentState::Missing,
+            ready_component,
+        ),
+        ready(OrchestrationProvider::OpenCode),
+        ProviderIntegration::unsupported(OrchestrationProvider::Grok),
+    ]
 }
 
 impl MultisoulApp {

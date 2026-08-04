@@ -1,4 +1,7 @@
-use crate::app::{AppScreen, MultisoulApp, ToggleSettings};
+use crate::app::{
+    AppScreen, FeatureGuidePresentation, FeatureGuideSettingsTransition, FeatureGuideTopic,
+    MultisoulApp, ToggleSettings,
+};
 use crate::settings::panel::SettingsSection;
 use crate::settings::voice::VoiceRequirementState;
 use gpui::{ClickEvent, Context, Window};
@@ -33,6 +36,17 @@ impl MultisoulApp {
             return;
         }
         let was_open = self.settings_panel.open;
+        if was_open && self.agent_settings_blocks_close() {
+            cx.notify();
+            return;
+        }
+        if was_open && self.should_crossfade_back_to_feature_guide() {
+            self.begin_feature_guide_settings_transition(
+                FeatureGuideSettingsTransition::Closing,
+                cx,
+            );
+            return;
+        }
         self.settings_panel.toggle();
         if was_open {
             self.shortcuts.recording = None;
@@ -45,6 +59,25 @@ impl MultisoulApp {
 
     pub(crate) fn close_settings_panel(&mut self, cx: &mut Context<Self>) {
         let was_open = self.settings_panel.open;
+        if was_open && self.agent_settings_blocks_close() {
+            cx.notify();
+            return;
+        }
+        if was_open && self.should_crossfade_back_to_feature_guide() {
+            self.begin_feature_guide_settings_transition(
+                FeatureGuideSettingsTransition::Closing,
+                cx,
+            );
+            return;
+        }
+        self.finish_settings_close_after_feature_guide_crossfade(cx);
+    }
+
+    pub(crate) fn finish_settings_close_after_feature_guide_crossfade(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) {
+        let was_open = self.settings_panel.open;
         self.settings_panel.close();
         self.shortcuts.recording = None;
         self.finish_voice_settings_inputs(cx);
@@ -53,6 +86,23 @@ impl MultisoulApp {
         }
         self.sync_feature_guide_blockers(cx);
         cx.notify();
+    }
+
+    fn should_crossfade_back_to_feature_guide(&self) -> bool {
+        self.motion.reduce_motion
+            && self.feature_guide.topic == FeatureGuideTopic::AgentOrchestration
+            && self.feature_guide.presentation == FeatureGuidePresentation::Suspended
+    }
+
+    fn agent_settings_blocks_close(&mut self) -> bool {
+        if self.settings_panel.active_section != SettingsSection::Agents
+            || !self.agent_definitions.is_dirty()
+        {
+            return false;
+        }
+        self.agent_definitions
+            .set_status("Save or discard changes before closing Settings.");
+        true
     }
 
     pub(crate) fn open_voice_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {

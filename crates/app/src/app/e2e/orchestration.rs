@@ -90,6 +90,11 @@ pub fn mark_orchestration_health_ready_for_e2e(cx: &mut App) {
     crate::settings::orchestration::health::mark_ready_for_e2e(cx);
 }
 
+pub fn publish_canonical_orchestration_health_for_e2e(cx: &mut App) {
+    let integrations = crate::settings::orchestration::canonical_preview_integrations();
+    crate::settings::orchestration::health::publish(integrations, Vec::new(), cx);
+}
+
 pub fn submit_norma_request_for_e2e(
     request: norma::protocol::WireRequest,
     cx: &mut App,

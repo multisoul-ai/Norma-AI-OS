@@ -15,15 +15,48 @@ pub(crate) enum FeatureGuidePresentation {
     ClosedForSession,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum FeatureGuideSettingsTransition {
+    #[default]
+    None,
+    Opening,
+    Closing,
+}
+
+pub(crate) fn settings_crossfade_opacities(
+    transition: FeatureGuideSettingsTransition,
+    progress: f32,
+) -> (f32, f32) {
+    let progress = progress.clamp(0.0, 1.0);
+    match transition {
+        FeatureGuideSettingsTransition::Opening => (1.0 - progress, progress),
+        FeatureGuideSettingsTransition::Closing => (progress, 1.0 - progress),
+        FeatureGuideSettingsTransition::None => (1.0, 1.0),
+    }
+}
+
+pub(crate) fn feature_guide_crossfade_opacity(
+    transition: FeatureGuideSettingsTransition,
+    progress: f32,
+) -> f32 {
+    settings_crossfade_opacities(transition, progress).0
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum FeatureGuideTopic {
+    AgentOrchestration,
+    VoiceGroupControl,
+    AgentCollaboration,
     LiveNodeShortcuts,
     WorkspaceLayouts,
     AgentNotifications,
 }
 
 impl FeatureGuideTopic {
-    pub(crate) const ALL: [Self; 3] = [
+    pub(crate) const ALL: [Self; 6] = [
+        Self::AgentOrchestration,
+        Self::VoiceGroupControl,
+        Self::AgentCollaboration,
         Self::LiveNodeShortcuts,
         Self::WorkspaceLayouts,
         Self::AgentNotifications,
@@ -31,6 +64,9 @@ impl FeatureGuideTopic {
 
     fn from_saved(value: &str) -> Option<Self> {
         match value {
+            "agent_orchestration" => Some(Self::AgentOrchestration),
+            "voice_group_control" => Some(Self::VoiceGroupControl),
+            "agent_collaboration" => Some(Self::AgentCollaboration),
             "live_node_shortcuts" => Some(Self::LiveNodeShortcuts),
             "workspace_layouts" => Some(Self::WorkspaceLayouts),
             "agent_notifications" => Some(Self::AgentNotifications),
@@ -62,6 +98,9 @@ pub(crate) struct FeatureGuideState {
     pub(crate) presentation: FeatureGuidePresentation,
     pub(crate) topic: FeatureGuideTopic,
     auto_eligible: bool,
+    orchestration_details_expanded: bool,
+    settings_transition: FeatureGuideSettingsTransition,
+    settings_transition_generation: u64,
 }
 
 impl FeatureGuideState {
@@ -88,8 +127,11 @@ impl FeatureGuideState {
             presentation: FeatureGuidePresentation::Idle,
             topic: saved_topic
                 .and_then(FeatureGuideTopic::from_saved)
-                .unwrap_or(FeatureGuideTopic::LiveNodeShortcuts),
+                .unwrap_or(FeatureGuideTopic::AgentOrchestration),
             auto_eligible,
+            orchestration_details_expanded: false,
+            settings_transition: FeatureGuideSettingsTransition::None,
+            settings_transition_generation: 0,
         }
     }
 
@@ -149,6 +191,51 @@ impl FeatureGuideState {
         self.topic = topic;
     }
 
+    pub(crate) fn toggle_orchestration_details(&mut self) {
+        self.orchestration_details_expanded = !self.orchestration_details_expanded;
+    }
+
+    pub(crate) fn orchestration_details_expanded(self) -> bool {
+        self.orchestration_details_expanded
+    }
+
+    pub(crate) fn begin_settings_transition(
+        &mut self,
+        transition: FeatureGuideSettingsTransition,
+    ) -> u64 {
+        self.settings_transition_generation = self.settings_transition_generation.saturating_add(1);
+        self.settings_transition = transition;
+        self.settings_transition_generation
+    }
+
+    pub(crate) fn finish_settings_transition(&mut self, generation: u64) -> bool {
+        if generation != self.settings_transition_generation {
+            return false;
+        }
+        self.settings_transition = FeatureGuideSettingsTransition::None;
+        true
+    }
+
+    pub(crate) fn settings_transition(self) -> FeatureGuideSettingsTransition {
+        self.settings_transition
+    }
+
+    pub(crate) fn settings_transition_generation(self) -> u64 {
+        self.settings_transition_generation
+    }
+
+    pub(crate) fn should_render(self) -> bool {
+        self.is_visible() || self.settings_transition != FeatureGuideSettingsTransition::None
+    }
+
+    pub(crate) fn topic_position(self) -> usize {
+        FeatureGuideTopic::ALL
+            .iter()
+            .position(|topic| *topic == self.topic)
+            .unwrap_or(0)
+            + 1
+    }
+
     pub(crate) fn next_topic(&mut self) {
         let index = FeatureGuideTopic::ALL
             .iter()
@@ -184,6 +271,9 @@ impl FeatureGuideState {
 
     pub(crate) fn serialized_topic(self) -> &'static str {
         match self.topic {
+            FeatureGuideTopic::AgentOrchestration => "agent_orchestration",
+            FeatureGuideTopic::VoiceGroupControl => "voice_group_control",
+            FeatureGuideTopic::AgentCollaboration => "agent_collaboration",
             FeatureGuideTopic::LiveNodeShortcuts => "live_node_shortcuts",
             FeatureGuideTopic::WorkspaceLayouts => "workspace_layouts",
             FeatureGuideTopic::AgentNotifications => "agent_notifications",

@@ -157,7 +157,7 @@ fn test_agent_definitions_state_dirty_draft_blocks_selection_and_new_agent() {
     );
     assert_eq!(
         status_after.as_deref(),
-        Some("Save or revert the current Agent before switching."),
+        Some("Save or discard the current Agent before switching."),
         "dirty 切换失败应给出明确保存或恢复提示"
     );
 }
@@ -276,23 +276,23 @@ fn test_agent_definitions_state_revert_restores_selected_definition() {
     );
 }
 
-/// AS-17: 删除选中 Agent 必须两次确认；确认删除后选择下一条可用 definition。
+/// AS-17: 删除选中 Agent 必须先打开确认态；确认删除后选择下一条可用 definition。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   definitions before delete = 2 条，Delete 与 Keep
-///   first delete click        = 只设置 confirmation，不删除
-///   second delete click       = 删除 Delete
+///   open dialog               = 只设置 Confirm 状态，不删除
+///   confirm click             = 删除 Delete
 ///   definitions after delete  = 1 条，Keep Me 被选中
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建 project store 并写入 Delete 与 Keep
 ///   2. bind 后选中 Delete
-///   3. 连续调用 request_delete_definition(Delete.id) 两次
+///   3. 调用 open_delete_dialog(Delete.id, false)，检查确认态后再 confirm_delete_from_dialog
 ///   4. 读取 definitions()、selected_definition_id() 与 draft()
 ///
 /// 预期结果：
-///   - 正断言：第一次 delete 返回 false 且不删除记录
-///   - 正断言：第二次 delete 返回 true 且删除目标记录
+///   - 正断言：打开确认态成功且不删除记录
+///   - 正断言：确认动作返回 true 且删除目标记录
 ///   - 正断言：删除后 selected id 指向 Keep Me
 ///   - 负断言：Delete 不应继续出现在内存列表或 draft 中
 #[test]
@@ -315,24 +315,30 @@ fn test_agent_definitions_state_delete_requires_confirmation_and_selects_next() 
     let mut state = AgentDefinitionsState::default();
     state.bind_project_store(store);
 
-    let first_delete = state.request_delete_definition(deleted.id);
-    let after_first_count = state.definitions().len();
-    let second_delete = state.request_delete_definition(deleted.id);
+    let opened_dialog = state.open_delete_dialog(deleted.id, false);
+    let after_open_count = state.definitions().len();
+    let dialog_after_open = state.delete_dialog().cloned();
+    let confirmed_delete = state.confirm_delete_from_dialog(deleted.id);
     let definitions_after = state.definitions().to_vec();
     let selected_after = state.selected_definition_id();
     let draft_after = state.draft().clone();
 
-    assert!(
-        !first_delete,
-        "第一次 request_delete_definition 应只进入确认状态，不立即删除"
-    );
+    assert!(opened_dialog, "有效 definition 应成功进入删除确认态");
     assert_eq!(
-        after_first_count, 2,
-        "第一次 delete 确认前 definitions 数量应保持 2 条"
+        after_open_count, 2,
+        "只打开删除确认态时 definitions 数量应保持 2 条"
     );
     assert!(
-        second_delete,
-        "第二次 request_delete_definition 应确认并删除目标 definition"
+        matches!(
+            dialog_after_open,
+            Some(AgentDeleteDialog::Confirm { id, ref name })
+                if id == deleted.id && name == "Delete"
+        ),
+        "删除确认态必须保留 Delete 的 id 与名称，不能错误指向其他 Agent"
+    );
+    assert!(
+        confirmed_delete,
+        "确认态中的 confirm_delete_from_dialog 应删除目标 definition"
     );
     assert_eq!(
         definitions_after.len(),
@@ -378,7 +384,7 @@ fn test_agent_definitions_state_delete_requires_confirmation_and_selects_next() 
 ///   - 正断言：create_new_card() 返回 true
 ///   - 正断言：草稿预填 Alan、Codex 与空 workflow
 ///   - 正断言：state 进入 creating_new 状态
-///   - 负断言：保存前内存定义、持久化记录、selected id 与 editing id 均不应出现
+///   - 负断言：保存前内存定义、持久化记录与 selected id 均不应出现
 #[test]
 fn test_agent_definitions_state_create_new_card_prepares_unsaved_draft() {
     let store = make_agent_definition_store("task-7-create-card-inline-edit");
@@ -391,7 +397,6 @@ fn test_agent_definitions_state_create_new_card_prepares_unsaved_draft() {
         .list()
         .expect("store list should load auto-created card definition");
     let selected = state.selected_definition_id();
-    let editing = state.editing_card_id();
     let draft = state.draft().clone();
     let is_creating_new = state.is_creating_new();
 
@@ -409,10 +414,6 @@ fn test_agent_definitions_state_create_new_card_prepares_unsaved_draft() {
     assert_eq!(
         selected, None,
         "+ New 草稿尚无持久化 id，因此不应设置 selected_definition_id"
-    );
-    assert_eq!(
-        editing, None,
-        "+ New 草稿尚无持久化 id，因此不应设置 editing_card_id"
     );
     assert_eq!(
         draft.name, "Alan",

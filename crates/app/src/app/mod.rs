@@ -75,6 +75,10 @@ pub use frame_loop::runtime_frame_interval_for_e2e;
 mod feature_guide;
 mod frame_schedule;
 mod frame_throttle;
+pub(crate) use feature_guide::{
+    settings_crossfade_opacities, FeatureGuidePresentation, FeatureGuideSettingsTransition,
+    FeatureGuideTopic,
+};
 use feature_guide::{FeatureGuideMediaState, FeatureGuideSettingsState, FeatureGuideState};
 mod ime;
 mod ime_geometry;
@@ -84,6 +88,7 @@ mod layout_actions;
 pub(crate) mod layout_menu;
 mod lifecycle;
 mod new_menu;
+pub(crate) use new_menu::new_menu_screen_rect;
 mod render;
 mod state;
 #[cfg(target_os = "macos")]
@@ -103,7 +108,7 @@ pub use e2e::CloneProjectE2eSnapshot;
 #[cfg(feature = "e2e-test-support")]
 pub use e2e::{
     install_norma_endpoint_for_e2e, mark_orchestration_health_ready_for_e2e,
-    submit_norma_request_for_e2e,
+    publish_canonical_orchestration_health_for_e2e, submit_norma_request_for_e2e,
 };
 pub use e2e::{
     AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState,

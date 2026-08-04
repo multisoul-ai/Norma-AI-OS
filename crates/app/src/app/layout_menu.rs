@@ -30,13 +30,13 @@ pub(crate) fn layout_menu_screen_rect(open: bool, win_w: f32, win_h: f32) -> Opt
     ))
 }
 
-/// 判断浏览器卡片的内容区矩形是否被布局菜单遮挡。
-/// 与菜单矩形相交（含边界）即判定为遮挡。
-pub(crate) fn browser_occluded_by_layout_menu(
+/// 判断浏览器卡片的内容区矩形是否被某个 GPUI 浮层遮挡。
+/// 与浮层矩形相交（含边界）即判定为遮挡。
+pub(crate) fn browser_content_occluded_by_overlay(
     content_rect: CanvasRect,
-    layout_menu_rect: Option<CanvasRect>,
+    overlay_rect: Option<CanvasRect>,
 ) -> bool {
-    layout_menu_rect.is_some_and(|menu| content_rect.intersects(menu))
+    overlay_rect.is_some_and(|overlay| content_rect.intersects(overlay))
 }
 
 impl MultisoulApp {

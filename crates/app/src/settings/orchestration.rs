@@ -2,6 +2,8 @@ mod controller;
 pub(crate) mod health;
 mod tokens;
 
+#[cfg(feature = "e2e-test-support")]
+pub(crate) use controller::canonical_preview_integrations;
 use controller::OrchestrationOperation;
 pub(crate) use controller::OrchestrationSettingsState;
 use tokens::*;
@@ -369,7 +371,7 @@ fn provider_description(provider: OrchestrationProvider, status: AggregateStatus
     }
 }
 
-fn visible_status(
+pub(crate) fn visible_status(
     theme: Theme,
     state: &OrchestrationSettingsState,
     integration: &ProviderIntegration,

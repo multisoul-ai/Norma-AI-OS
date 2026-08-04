@@ -1,4 +1,4 @@
-//! Headless GPUI E2E：验证 Agent Settings 主从双栏、只读摘要与显式编辑流程。
+//! Headless GPUI E2E：验证 Agent Settings 的 Agent Library、统一 Inspector 与 CRUD 流程。
 
 use canvas::CanvasNodeKind;
 use gpui::{
@@ -7,34 +7,35 @@ use gpui::{
 
 use crate::harness::{echo_factory, enter_canvas, make_app, project_store, read_runtime};
 
-/// E2E-A-SETTINGS-MASTER-DETAIL-1：Agent Settings 默认只读，Edit 后才显示表单，并保留 Add to Canvas。
+/// E2E-A-SETTINGS-MASTER-DETAIL-1：Agent Settings 默认显示统一 Inspector，并按 dirty 状态展示保存栏。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   seeded definitions = 2 条：Alan/Codex + Bella/OpenCode
 ///   theme switches     = 2 次：Paper Blue → Forest Mint → Paper Blue，确保真实经过深浅切换
 ///   initial Agent cards = 0 张
-///   Edit click          = 1 次，只切换右侧详情为编辑态
-///   Cancel click        = 1 次，恢复右侧只读摘要
+///   Name edit           = Alan → Alana，增加 1 个字符后进入 dirty
+///   Discard click       = 1 次，恢复 Alan 并退出 dirty
 ///   Add to Canvas click = 1 次，最终 Agent cards = 0 + 1 = 1 张
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 向临时 workspace 写入 Alan 与 Bella，再启动 headless App 并进入 Canvas。
 ///   2. 打开 Settings → Themes，先切到 Forest Mint，再切回 Paper Blue。
-///   3. 进入 Agents，检查双栏、Alan/Codex 列表标签和右侧只读摘要。
-///   4. 点击 Edit，检查右侧切到编辑态并渲染 Name、Workflow 与 Save。
-///   5. 点击 Cancel 返回只读摘要，再点击 Add to Canvas。
-///   6. 从 Runtime 读取 Agent 卡片，核对它绑定 Alan definition。
+///   3. 进入 Agents，检查双栏、Alan/Codex 列表标签和统一 Inspector。
+///   4. 确认 Name、Workflow、Add to Canvas 与 Delete Agent 常驻，Edit action 不再存在。
+///   5. 修改 Name，检查 dirty 保存栏出现；点击 Discard 后检查保存栏消失。
+///   6. 点击 Add to Canvas。
+///   7. 从 Runtime 读取 Agent 卡片，核对它绑定 Alan definition。
 ///
 /// 预期结果：
 ///   - 正断言：进入 Agents 时仍是 Paper Blue 浅色主题，且 Codex 标签有真实渲染 bounds。
 ///   - 负断言：切回 Paper Blue 后不得残留 dark mode。
-///   - 正断言：默认存在 master-detail、左侧列表、只读详情、Edit 与 Add to Canvas。
-///   - 负断言：默认不存在编辑表单、Name 输入和 Save，避免低频控件常驻。
-///   - 正断言：点击 Edit 后出现编辑详情、Name、Workflow 与 Save。
-///   - 正断言：Cancel 后 Add to Canvas 创建恰好 1 张绑定 Alan 的卡片。
+///   - 正断言：默认存在 master-detail、左侧列表、统一 Inspector、表单、Add to Canvas 与 Delete Agent。
+///   - 负断言：不得继续渲染只读详情或显式 Edit action。
+///   - 正断言：修改后出现 Save Changes 与 Discard，Discard 后恢复干净状态。
+///   - 正断言：Add to Canvas 创建恰好 1 张绑定 Alan 的卡片。
 ///   - 负断言：Add to Canvas 不得创建未绑定 definition 的匿名 Agent 卡片。
 #[test]
-fn agent_settings_uses_readonly_master_detail_before_explicit_edit_and_can_add_to_canvas() {
+fn agent_settings_uses_unified_inspector_and_can_discard_then_add_to_canvas() {
     let mut test_cx = TestAppContext::single();
     let (app, cx) = make_app(&mut test_cx, echo_factory());
     let workspace = tempfile::tempdir().expect("Agent Settings 双栏 e2e 应创建临时 workspace");
@@ -84,50 +85,63 @@ fn agent_settings_uses_readonly_master_detail_before_explicit_edit_and_can_add_t
         "Paper Blue 下 Alan 行必须渲染可见的 Codex Runtime Profile 标签"
     );
     assert!(
-        cx.debug_bounds("settings-agent-detail-readonly").is_some(),
-        "主从双栏右侧默认应渲染只读详情摘要"
-    );
-    assert!(
-        cx.debug_bounds("settings-agent-edit").is_some(),
-        "只读摘要应提供显式 Edit action"
+        cx.debug_bounds("settings-agent-inspector").is_some(),
+        "主从双栏右侧默认应渲染统一 Agent Inspector"
     );
     assert!(
         cx.debug_bounds("settings-agent-add-to-canvas").is_some(),
-        "只读摘要应保留 Add to Canvas action"
+        "统一 Inspector 应保留 Add to Canvas action"
     );
     assert!(
-        cx.debug_bounds("settings-agent-detail-editing").is_none(),
-        "默认只读状态不应提前渲染编辑详情"
-    );
-    assert!(
-        cx.debug_bounds("settings-agent-name-input").is_none(),
-        "默认只读状态不应常驻 Name 输入框"
-    );
-    assert!(
-        cx.debug_bounds("settings-agent-save").is_none(),
-        "默认只读状态不应常驻 Save action"
-    );
-
-    click_debug(cx, "settings-agent-edit");
-
-    assert!(
-        cx.debug_bounds("settings-agent-detail-editing").is_some(),
-        "点击 Edit 后右侧应切换为编辑详情"
+        cx.debug_bounds("settings-agent-delete").is_some(),
+        "统一 Inspector 底部应显式提供 Delete Agent action"
     );
     assert!(
         cx.debug_bounds("settings-agent-name-input").is_some(),
-        "点击 Edit 后应渲染 Name 输入框"
+        "统一 Inspector 默认应直接显示 Name 编辑区域"
     );
     assert!(
         cx.debug_bounds("settings-agent-workflow-input").is_some(),
-        "点击 Edit 后应渲染 Workflow 输入框"
+        "统一 Inspector 默认应直接显示 Workflow 编辑区域"
     );
     assert!(
-        cx.debug_bounds("settings-agent-save").is_some(),
-        "点击 Edit 后应渲染 Save action"
+        cx.debug_bounds("settings-agent-edit").is_none(),
+        "统一 Inspector 不应继续要求用户先点击 Edit"
+    );
+    assert!(
+        cx.debug_bounds("settings-agent-save").is_none(),
+        "未修改 Agent 时不应显示 Save Changes action"
     );
 
-    click_debug(cx, "settings-agent-cancel-edit");
+    click_debug(cx, "settings-agent-name-input");
+    cx.simulate_keystrokes("cmd-a");
+    cx.simulate_input("Alana");
+    cx.run_until_parked();
+
+    assert!(
+        cx.debug_bounds("settings-agent-save").is_some(),
+        "修改 Name 后应显示 Save Changes action"
+    );
+    assert!(
+        cx.debug_bounds("settings-agent-discard").is_some(),
+        "修改 Name 后应同时显示 Discard action"
+    );
+
+    click_debug(cx, "settings-agent-discard");
+    let discarded = app.update(cx, |app, _cx| app.agent_settings_e2e_snapshot());
+    assert_eq!(
+        discarded.draft_name, "Alan",
+        "Discard 应恢复 Alan，而不是保留临时名称 Alana"
+    );
+    assert_ne!(
+        discarded.draft_name, "Alana",
+        "Discard 后临时名称 Alana 不应继续留在 draft"
+    );
+    assert!(
+        !discarded.dirty,
+        "Discard 后 Agent draft 应恢复干净状态，不能继续保留 dirty"
+    );
+
     click_debug(cx, "settings-agent-add-to-canvas");
 
     let agent_specs = read_runtime(&app, cx, |runtime| {
@@ -169,10 +183,10 @@ fn agent_settings_uses_readonly_master_detail_before_explicit_edit_and_can_add_t
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   seeded definitions = 18 条
-///   row minimum height  = 54 px
+///   row minimum height  = 68 px
 ///   row gaps            = 17 × 3 px = 51 px
-///   rows total          ≥ 18 × 54 + 51 = 1,023 px，稳定超过 Settings 内容区高度
-///   scroll delta        = -20,000 px，远大于 1,023 px，足以滚到列表末尾
+///   rows total          ≥ 18 × 68 + 51 = 1,275 px，稳定超过 Settings 内容区高度
+///   scroll delta        = -20,000 px，远大于 1,275 px，足以滚到列表末尾
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 向临时 workspace 写入 18 条 Agent definition，再打开 Settings → Agents。
@@ -281,25 +295,29 @@ fn agent_settings_scrolls_the_agent_list_without_moving_the_detail_pane() {
     );
 }
 
-/// E2E-A-SETTINGS-MASTER-DETAIL-3：左侧搜索只过滤 Agent 列表，并可清空恢复。
+/// E2E-A-SETTINGS-MASTER-DETAIL-3：左侧搜索与状态筛选只过滤 Agent 列表，并可清空恢复。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   seeded definitions = 3 条：Alan、Bella、Quinn
+///   seeded definitions = 3 条：Alan(enabled)、Bella(disabled)、Quinn(enabled)
 ///   search query       = "quinn"（小写输入，验证大小写不敏感）
 ///   expected matches   = 1 条：Quinn
 ///   clear shortcut     = Cmd+A + Backspace，共 2 个键盘动作
+///   disabled matches   = 1 条：Bella
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 向临时 workspace 写入 3 条 Agent definition，再打开 Settings → Agents。
 ///   2. 聚焦左侧搜索框并输入小写 quinn，等待 Input Change 驱动列表重绘。
 ///   3. 读取 Agent Settings e2e 快照，并检查匹配行仍有真实渲染 bounds。
 ///   4. 在搜索框执行 Cmd+A + Backspace，检查查询清空且三条 Agent 全部恢复。
+///   5. 点击 Disabled segmented filter，检查只保留 Bella。
 ///
 /// 预期结果：
 ///   - 正断言：搜索框存在，quinn 只保留 Quinn，且 Quinn 行继续可见。
 ///   - 负断言：过滤结果不得包含 Alan 或 Bella。
 ///   - 正断言：清空搜索后 Alan、Bella、Quinn 全部恢复。
 ///   - 负断言：清空搜索不得删除任何已保存 Agent definition。
+///   - 正断言：All / Enabled / Disabled 三个筛选入口存在，Disabled 只显示 Bella。
+///   - 负断言：Disabled 结果不得包含 enabled 的 Alan 或 Quinn。
 #[test]
 fn agent_settings_search_filters_only_the_left_agent_list_and_can_be_cleared() {
     let mut test_cx = TestAppContext::single();
@@ -313,13 +331,23 @@ fn agent_settings_search_filters_only_the_left_agent_list_and_can_be_cleared() {
             workflow_description: "负责工程实现。".to_string(),
         })
         .expect("测试应创建 Alan definition");
-    store
+    let bella = store
         .create(&storage::NewAgentDefinition {
             name: "Bella".to_string(),
             runtime_profile: canvas::AgentProfile::OpenCode,
             workflow_description: "负责代码审查。".to_string(),
         })
         .expect("测试应创建 Bella definition");
+    store
+        .update(&storage::AgentDefinitionUpdate {
+            id: bella.id,
+            name: bella.name,
+            runtime_profile: bella.runtime_profile,
+            workflow_description: bella.workflow_description,
+            enabled: false,
+            sort_order: bella.sort_order,
+        })
+        .expect("测试应把 Bella 更新为 disabled");
     let quinn = store
         .create(&storage::NewAgentDefinition {
             name: "Quinn".to_string(),
@@ -384,6 +412,27 @@ fn agent_settings_search_filters_only_the_left_agent_list_and_can_be_cleared() {
             .iter()
             .any(|definition| definition.id == alan.id),
         "清空搜索后已保存的 Alan definition 必须仍然存在"
+    );
+
+    assert!(
+        cx.debug_bounds("settings-agent-filter-all").is_some()
+            && cx.debug_bounds("settings-agent-filter-enabled").is_some()
+            && cx.debug_bounds("settings-agent-filter-disabled").is_some(),
+        "Agent Library 必须同时显示 All、Enabled、Disabled 三个状态筛选入口"
+    );
+    click_debug(cx, "settings-agent-filter-disabled");
+    let disabled = app.update(cx, |app, _cx| app.agent_settings_e2e_snapshot());
+    assert_eq!(
+        disabled.visible_definition_names.as_slice(),
+        ["Bella"],
+        "点击 Disabled filter 后左侧列表应只显示 Bella"
+    );
+    assert!(
+        !disabled
+            .visible_definition_names
+            .iter()
+            .any(|name| name == "Alan" || name == "Quinn"),
+        "Disabled filter 不得显示 enabled 的 Alan 或 Quinn"
     );
 }
 

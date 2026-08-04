@@ -89,3 +89,39 @@ fn test_new_menu_hover_is_visibly_distinct_on_dark_theme() {
         "Sapphire Night 的 New 菜单 hover RGB 不得与 panel RGB 相同"
     );
 }
+
+/// New 菜单遮挡几何：菜单展开时必须用包含触发器水平容错的屏幕矩形。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   viewport height = 800px。
+///   activation_x = 603px（鼠标在 38px New 按钮内的释放位置）。
+///   horizontal guard = trigger_width(38) / 2 = 19px。
+///   left = 603 - menu_width(180) / 2 - 19 = 494px。
+///   width = menu_width(180) + trigger_width(38) = 218px。
+///   bottom = dock_bottom(22) + dock_padding((52 - 38) / 2 = 7) + trigger(38) + gap(12) = 79px。
+///   top = viewport_height(800) - bottom(79) - menu_height(362) = 359px。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. open=false 且有 activation_x → 返回 None，菜单关闭不遮挡 Browser。
+///   2. open=true 但没有 activation_x → 返回 None，不凭空猜测锚点。
+///   3. open=true 且 activation_x=603 → 生成 (494, 359, 218, 362) 的遮挡矩形。
+///
+/// 预期结果：
+///   - 正断言：开启且有锚点时返回精确容错矩形，覆盖菜单的所有可能 x 位置。
+///   - 负断言：关闭时不得返回矩形；缺少锚点时不得误遮挡整屏 Browser。
+#[test]
+fn test_new_menu_screen_rect_guards_trigger_width_without_occluding_when_closed() {
+    assert!(
+        new_menu_screen_rect(false, Some(603.0), 800.0).is_none(),
+        "New 菜单关闭时必须返回 None，不得遮挡 Browser"
+    );
+    assert!(
+        new_menu_screen_rect(true, None, 800.0).is_none(),
+        "New 菜单缺少触发锚点时必须返回 None，不得猜测全屏范围"
+    );
+    assert_eq!(
+        new_menu_screen_rect(true, Some(603.0), 800.0),
+        Some(CanvasRect::new(494.0, 359.0, 218.0, 362.0)),
+        "New 菜单遮挡矩形必须同时覆盖 180px 菜单和触发器两侧各 19px 容错"
+    );
+}

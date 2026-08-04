@@ -9,12 +9,12 @@ use crate::harness::{echo_factory, enter_canvas, make_app, read_runtime};
 /// 最终识别字幕协调：TranscriptOnly 字幕存在期间导览必须暂停，字幕清除后恢复。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   selected topic index = 1（workspace_layouts）
+///   selected topic index = 2（workspace_layouts）
 ///   transcript-only captions = 1（“把下一步交给小张”）
 ///   simultaneously visible high-priority surfaces = 1（字幕或导览二选一）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 从 Help 打开导览并选中第 2 个主题。
+///   1. 从 Help 打开导览并选中第 3 个主题。
 ///   2. 注入 TranscriptOnly 最终识别结果并触发真实 GPUI 重绘。
 ///   3. 确认字幕可见、导览转为 Suspended，且 overlay 离开渲染树。
 ///   4. 清除语音运行时并重绘，确认导览恢复到原主题。
@@ -30,7 +30,7 @@ fn e2e_15_feature_guide_suspends_for_transcript_only_caption_and_resumes() {
 
     cx.dispatch_action(OpenFeatureGuide);
     cx.run_until_parked();
-    click_debug(cx, "feature-guide-topic-1");
+    click_debug(cx, "feature-guide-topic-2");
     app.update(cx, |app, cx| {
         app.show_voice_transcript_only_for_e2e("把下一步交给小张");
         cx.notify();
@@ -73,7 +73,7 @@ fn e2e_15_feature_guide_suspends_for_transcript_only_caption_and_resumes() {
     );
     assert_eq!(
         resumed.topic, "workspace_layouts",
-        "字幕暂停与恢复必须保留用户已选中的第 2 个主题"
+        "字幕暂停与恢复必须保留用户已选中的第 3 个主题"
     );
     assert!(
         cx.debug_bounds("feature-guide-overlay").is_some(),
@@ -145,7 +145,7 @@ fn e2e_15_feature_guide_modal_blocks_background_actions() {
 ///   theme switches = 2（paper-blue → forest-mint → paper-blue）
 ///   guide opens    = 2（每次主题切换后各打开 1 次）
 ///   expected visible overlays = 1（任一时刻仅当前导览浮层可见）
-///   expected topic entries    = 3（导览对应官网 3 个真实产品 Demo）
+///   expected topic entries    = orchestration(1) + product demos(3) = 4
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 进入 Canvas，通过 Settings → Themes 切换到 Forest Mint 并关闭设置。
@@ -198,12 +198,12 @@ fn e2e_15_feature_guide_remains_readable_surface_across_light_and_dark_themes() 
         "Forest Mint 下必须渲染第 1 个功能主题入口"
     );
     assert!(
-        cx.debug_bounds("feature-guide-topic-2").is_some(),
-        "Forest Mint 下必须渲染第 3 个功能主题入口，证明官网三项导航完整"
+        cx.debug_bounds("feature-guide-topic-3").is_some(),
+        "Forest Mint 下必须渲染第 4 个功能主题入口，证明四项导航完整"
     );
     assert!(
-        cx.debug_bounds("feature-guide-topic-3").is_none(),
-        "Forest Mint 下不得残留旧版第 4 个主题入口"
+        cx.debug_bounds("feature-guide-topic-4").is_none(),
+        "Forest Mint 下不得渲染不存在的第 5 个主题入口"
     );
 
     click_debug(cx, "feature-guide-close");

@@ -123,6 +123,7 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
         VisualPreview::GithubClone => {}
         VisualPreview::FeatureGuide => {
             app.settings_panel.close();
+            app.orchestration_settings.use_canonical_preview();
             app.feature_guide.open_manually();
             app.sync_feature_guide_media(cx);
         }

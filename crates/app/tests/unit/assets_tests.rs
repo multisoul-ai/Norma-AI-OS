@@ -108,6 +108,100 @@ fn test_embedded_assets_load_themes_navigation_svg() {
     );
 }
 
+/// Agent 菜单 Grok 图标：生产 AssetSource 必须返回菜单实际引用的 SVG。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Grok 菜单图标数 = 1。
+///   菜单引用路径     = "icons/toolbar-grok.svg"。
+///   负样本路径       = "icons/toolbar-grok-missing.svg"。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 通过 `EmbeddedAssets::load` 加载 Grok 菜单使用的精确路径。
+///   2. 通过 `EmbeddedAssets::list("icons")` 查询目录枚举。
+///   3. 加载不存在的相邻路径，确认不会误命中 Grok 字节。
+///
+/// 预期结果：
+///   - 正断言：Grok 路径返回非空 SVG 字节，GPUI 才能实际绘制图标。
+///   - 正断言：icons 目录明确枚举 `toolbar-grok.svg`。
+///   - 负断言：不存在的 Grok 路径返回 None。
+#[test]
+fn test_embedded_assets_load_grok_toolbar_svg() {
+    let assets = EmbeddedAssets;
+    let grok_path = "icons/toolbar-grok.svg";
+    let grok = assets
+        .load(grok_path)
+        .expect("Grok toolbar SVG lookup should not fail");
+    let icons = assets
+        .list("icons")
+        .expect("embedded icon directory listing should not fail");
+
+    assert!(
+        grok.as_ref().is_some_and(|bytes| !bytes.is_empty()),
+        "Grok toolbar SVG must be embedded with non-empty bytes; otherwise its menu icon renders blank"
+    );
+    assert!(
+        icons.iter().any(|name| name.as_ref() == "toolbar-grok.svg"),
+        "icons directory must enumerate toolbar-grok.svg"
+    );
+    assert!(
+        assets
+            .load("icons/toolbar-grok-missing.svg")
+            .expect("missing Grok toolbar SVG lookup should not fail")
+            .is_none(),
+        "unknown Grok toolbar SVG must not resolve to existing icon bytes"
+    );
+}
+
+/// Grok 菜单图标轮廓：必须使用环形斜切品牌 glyph，不能退回简化 X 占位图。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   参考图黑色 bounds = 142 × 136；原图 = 158 × 148。
+///   水平占比 = 142 / 158 ≈ 89.9%；垂直占比 = 136 / 148 ≈ 91.9%。
+///   菜单裁切画布 = `47 47 418 418`；glyph 宽度占比 ≈ 376 / 418 = 90.0%。
+///   使用正方形画布，避免 GPUI 在 16 × 16 容器中产生非预期纵横缩放。
+///   轮廓起点标记   = `M213.235 306.019`（用户给定图标右上/下环组合路径）。
+///   旧占位路径     = `M5 5l14 14`（原 24 × 24 X 图标第一条对角线）。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 加载生产环境实际使用的 `toolbar-grok.svg`。
+///   2. 将字节解码为 UTF-8，并检查画布、品牌轮廓与主题着色属性。
+///   3. 检查旧 X 路径和 stroke 风格已经被移除。
+///
+/// 预期结果：
+///   - 正断言：SVG 使用与参考图视觉占比一致的裁切画布与品牌轮廓起点。
+///   - 正断言：SVG 以 `currentColor` 填充，跟随菜单主题文字色。
+///   - 负断言：旧 X 占位路径与 stroke 属性均不存在。
+#[test]
+fn test_grok_toolbar_svg_uses_orbit_glyph_instead_of_placeholder_x() {
+    let assets = EmbeddedAssets;
+    let grok = assets
+        .load("icons/toolbar-grok.svg")
+        .expect("Grok toolbar SVG lookup should not fail")
+        .expect("Grok toolbar SVG must be embedded");
+    let svg = std::str::from_utf8(&grok).expect("Grok toolbar icon must be valid UTF-8 SVG");
+
+    assert!(
+        svg.contains("viewBox=\"47 47 418 418\""),
+        "Grok toolbar SVG must use the reference-matched crop so the 16px glyph is not undersized"
+    );
+    assert!(
+        svg.contains("M213.235 306.019"),
+        "Grok toolbar SVG must contain the orbit glyph contour supplied by the user"
+    );
+    assert!(
+        svg.contains("fill=\"currentColor\""),
+        "Grok toolbar glyph must inherit the same theme color as adjacent Agent icons"
+    );
+    assert!(
+        !svg.contains("M5 5l14 14"),
+        "Grok toolbar SVG must not retain the old diagonal X placeholder path"
+    );
+    assert!(
+        !svg.contains("stroke="),
+        "filled Grok brand glyph must not retain the placeholder's stroke-based rendering"
+    );
+}
+
 /// HD-BENCH-I1：使用项目锁定的 `image` 解码器测量静态壁纸的真实一次性解码成本。
 ///
 /// 数据构造（含关键数值的推导过程）：

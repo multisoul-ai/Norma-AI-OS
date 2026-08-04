@@ -1,8 +1,13 @@
+use super::controls::{guide_button, is_unmodified_activation, GuideButtonKind};
 use super::demo::render_demo;
+use super::orchestration::{guide_navigation_badge, render_orchestration_setup};
 use super::style::{guide_shadow, with_alpha, FeatureGuidePalette};
-use super::FeatureGuideTopic;
+use super::{feature_guide_crossfade_opacity, FeatureGuideSettingsTransition, FeatureGuideTopic};
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, AnyElement, Context, Div, FontWeight, MouseButton, Window};
+use gpui::{
+    div, prelude::*, px, rgba, Animation, AnimationExt, AnyElement, Context, Div, FontWeight,
+    MouseButton, Window,
+};
 use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
 use ui::Theme;
 
@@ -33,70 +38,103 @@ impl MultisoulApp {
                 self.feature_guide_primary_focus.is_focused(window);
         }
 
-        div()
-            .id("feature-guide-overlay")
-            .debug_selector(|| "feature-guide-overlay".to_string())
-            .absolute()
-            .top(px(0.0))
-            .left(px(0.0))
-            .right(px(0.0))
-            .bottom(px(0.0))
-            .size_full()
-            .occlude()
-            .bg(rgba(with_alpha(theme.graphite, 0x72)))
-            .on_mouse_down(MouseButton::Left, {
-                let focus = self.focus_handle.clone();
-                move |_, window, cx| {
-                    focus.focus(window);
-                    cx.stop_propagation();
-                }
-            })
-            .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
-            .on_click(|_, _, cx| cx.stop_propagation())
-            .child(
-                div()
-                    .id("feature-guide-panel")
-                    .debug_selector(|| "feature-guide-panel".to_string())
-                    .track_focus(&self.focus_handle)
-                    .absolute()
-                    .left(px(panel_left))
-                    .top(px(panel_top))
-                    .w(px(width))
-                    .h(px(height))
-                    .flex()
-                    .flex_col()
-                    .overflow_hidden()
-                    .rounded(px(24.0))
-                    .border_1()
-                    .border_color(rgba(with_alpha(theme.node_stroke, 0xd8)))
-                    .bg(rgba(with_alpha(theme.panel_high, 0xfc)))
-                    .shadow(guide_shadow(theme))
-                    .child(self.render_feature_guide_header(topic, theme, palette, cx))
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_h(px(0.0))
-                            .flex()
-                            .when(compact, |body| body.flex_col())
-                            .when(!compact, |body| body.flex_row())
-                            .child(self.render_feature_guide_navigation(
-                                topic, compact, theme, palette, cx,
-                            ))
-                            .child(
-                                self.render_feature_guide_content(
+        let overlay =
+            div()
+                .id("feature-guide-overlay")
+                .debug_selector(|| "feature-guide-overlay".to_string())
+                .absolute()
+                .top(px(0.0))
+                .left(px(0.0))
+                .right(px(0.0))
+                .bottom(px(0.0))
+                .size_full()
+                .occlude()
+                .bg(rgba(with_alpha(theme.graphite, 0x72)))
+                .when(self.motion.reduce_motion, |overlay| {
+                    overlay.debug_selector(|| "feature-guide-reduced-motion-crossfade".to_string())
+                })
+                .on_mouse_down(MouseButton::Left, {
+                    let focus = self.focus_handle.clone();
+                    move |_, window, cx| {
+                        focus.focus(window);
+                        cx.stop_propagation();
+                    }
+                })
+                .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
+                .on_click(|_, _, cx| cx.stop_propagation())
+                .child(
+                    div()
+                        .id("feature-guide-panel")
+                        .debug_selector(|| "feature-guide-panel".to_string())
+                        .track_focus(&self.focus_handle)
+                        .absolute()
+                        .left(px(panel_left))
+                        .top(px(panel_top))
+                        .w(px(width))
+                        .h(px(height))
+                        .flex()
+                        .flex_col()
+                        .overflow_hidden()
+                        .rounded(px(24.0))
+                        .border_1()
+                        .border_color(rgba(with_alpha(theme.node_stroke, 0xd8)))
+                        .bg(rgba(with_alpha(theme.panel_high, 0xfc)))
+                        .shadow(guide_shadow(theme))
+                        .child(self.render_feature_guide_header(theme, palette, cx))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_h(px(0.0))
+                                .flex()
+                                .when(compact, |body| body.flex_col())
+                                .when(!compact, |body| body.flex_row())
+                                .child(self.render_feature_guide_navigation(
                                     topic, compact, theme, palette, cx,
-                                ),
-                            ),
-                    )
-                    .child(self.render_feature_guide_footer(topic, theme, palette, window, cx)),
-            )
-            .into_any_element()
+                                ))
+                                .child(self.render_feature_guide_content(
+                                    topic, compact, theme, palette, cx,
+                                )),
+                        )
+                        .child(self.render_feature_guide_footer(topic, theme, palette, window, cx)),
+                );
+        match self.feature_guide.settings_transition() {
+            FeatureGuideSettingsTransition::Opening => overlay
+                .with_animation(
+                    (
+                        "feature-guide-settings-opening",
+                        self.feature_guide.settings_transition_generation(),
+                    ),
+                    Animation::new(self.motion.reduced_fade_duration()),
+                    |overlay, progress| {
+                        overlay.opacity(feature_guide_crossfade_opacity(
+                            FeatureGuideSettingsTransition::Opening,
+                            progress,
+                        ))
+                    },
+                )
+                .into_any_element(),
+            FeatureGuideSettingsTransition::Closing => overlay
+                .with_animation(
+                    (
+                        "feature-guide-settings-closing",
+                        self.feature_guide.settings_transition_generation(),
+                    ),
+                    Animation::new(self.motion.reduced_fade_duration()),
+                    |overlay, progress| {
+                        overlay.opacity(feature_guide_crossfade_opacity(
+                            FeatureGuideSettingsTransition::Closing,
+                            progress,
+                        ))
+                    },
+                )
+                .into_any_element(),
+            FeatureGuideSettingsTransition::None => overlay.into_any_element(),
+        }
     }
 
     fn render_feature_guide_header(
         &self,
-        topic: FeatureGuideTopic,
         theme: Theme,
         palette: FeatureGuidePalette,
         cx: &mut Context<Self>,
@@ -142,18 +180,19 @@ impl MultisoulApp {
                             )
                             .child(
                                 div()
+                                    .debug_selector(|| "feature-guide-progress".to_string())
                                     .text_size(px(11.0))
                                     .text_color(rgba(palette.metadata_text))
                                     .child(format!(
                                         "{} / {}",
-                                        topic_index(topic) + 1,
+                                        self.feature_guide.topic_position(),
                                         FeatureGuideTopic::ALL.len()
                                     )),
                             ),
                     ),
             )
             .child(guide_button(
-                "feature-guide-close",
+                GuideButtonKind::Close,
                 "Close  Esc",
                 theme,
                 palette,
@@ -267,6 +306,17 @@ impl MultisoulApp {
                             })
                             .child(topic.navigation_label()),
                     )
+                    .when(topic == FeatureGuideTopic::AgentOrchestration, |label| {
+                        label.when_some(
+                            guide_navigation_badge(
+                                &self.orchestration_settings,
+                                theme,
+                                palette,
+                                cx,
+                            ),
+                            |label, badge| label.child(badge),
+                        )
+                    })
             };
             navigation = navigation.child(
                 Button::new(("feature-guide-topic", index))
@@ -281,6 +331,12 @@ impl MultisoulApp {
                     .on_click(cx.listener(move |app, _, _, cx| {
                         cx.stop_propagation();
                         app.select_feature_guide_topic(topic, cx);
+                    }))
+                    .on_key_down(cx.listener(move |app, event, _, cx| {
+                        if is_unmodified_activation(event) {
+                            cx.stop_propagation();
+                            app.select_feature_guide_topic(topic, cx);
+                        }
                     })),
             );
         }
@@ -293,7 +349,7 @@ impl MultisoulApp {
         compact: bool,
         theme: Theme,
         palette: FeatureGuidePalette,
-        _cx: &mut Context<Self>,
+        cx: &mut Context<Self>,
     ) -> Div {
         div()
             .flex_1()
@@ -332,16 +388,20 @@ impl MultisoulApp {
                             .child(topic.summary()),
                     ),
             )
-            .child(render_demo(
-                topic,
-                self.feature_guide_media.poster_path.clone(),
-                self.feature_guide_media.video_surface(),
-                compact,
-                self.motion.reduce_motion,
-                self.feature_guide_media.playing,
-                theme,
-                palette,
-            ))
+            .child(if topic == FeatureGuideTopic::AgentOrchestration {
+                render_orchestration_setup(self, compact, theme, palette, cx).into_any_element()
+            } else {
+                render_demo(
+                    topic,
+                    self.feature_guide_media.poster_path.clone(),
+                    self.feature_guide_media.video_surface(),
+                    compact,
+                    self.motion.reduce_motion,
+                    self.feature_guide_media.playing,
+                    theme,
+                    palette,
+                )
+            })
     }
 
     fn render_feature_guide_footer(
@@ -364,7 +424,7 @@ impl MultisoulApp {
             .border_t_1()
             .border_color(rgba(with_alpha(theme.node_stroke, 0x80)))
             .child(guide_button(
-                "feature-guide-skip",
+                GuideButtonKind::Skip,
                 "Skip Guide",
                 theme,
                 palette,
@@ -376,30 +436,37 @@ impl MultisoulApp {
                     .flex()
                     .items_center()
                     .gap(px(10.0))
-                    .when(!self.motion.reduce_motion, |actions| {
-                        actions.child(guide_button(
-                            "feature-guide-playback",
-                            if self.feature_guide_media.playing {
-                                "Pause Demo"
-                            } else {
-                                "Play Demo"
-                            },
-                            theme,
-                            palette,
-                            cx,
-                            |app, cx| app.toggle_feature_guide_demo_playback(cx),
-                        ))
-                    })
-                    .when(self.motion.reduce_motion, |actions| {
-                        actions.child(
-                            div()
-                                .debug_selector(|| "feature-guide-reduced-motion".to_string())
-                                .px(px(10.0))
-                                .text_size(px(11.0))
-                                .text_color(rgba(palette.metadata_text))
-                                .child("Reduced Motion"),
-                        )
-                    })
+                    .when(
+                        topic != FeatureGuideTopic::AgentOrchestration
+                            && !self.motion.reduce_motion,
+                        |actions| {
+                            actions.child(guide_button(
+                                GuideButtonKind::Playback,
+                                if self.feature_guide_media.playing {
+                                    "Pause Demo"
+                                } else {
+                                    "Play Demo"
+                                },
+                                theme,
+                                palette,
+                                cx,
+                                |app, cx| app.toggle_feature_guide_demo_playback(cx),
+                            ))
+                        },
+                    )
+                    .when(
+                        topic != FeatureGuideTopic::AgentOrchestration && self.motion.reduce_motion,
+                        |actions| {
+                            actions.child(
+                                div()
+                                    .debug_selector(|| "feature-guide-reduced-motion".to_string())
+                                    .px(px(10.0))
+                                    .text_size(px(11.0))
+                                    .text_color(rgba(palette.metadata_text))
+                                    .child("Reduced Motion"),
+                            )
+                        },
+                    )
                     .child(
                         div()
                             .track_focus(&self.feature_guide_primary_focus)
@@ -413,7 +480,7 @@ impl MultisoulApp {
                                 },
                             )
                             .child(guide_button(
-                                "feature-guide-primary",
+                                GuideButtonKind::Primary,
                                 action_label,
                                 theme,
                                 palette,
@@ -429,70 +496,4 @@ impl MultisoulApp {
                     ),
             )
     }
-}
-
-fn guide_button(
-    selector: &'static str,
-    label: &'static str,
-    theme: Theme,
-    palette: FeatureGuidePalette,
-    cx: &mut Context<MultisoulApp>,
-    handler: impl Fn(&mut MultisoulApp, &mut Context<MultisoulApp>) + 'static,
-) -> AnyElement {
-    let is_primary = selector == "feature-guide-primary";
-    let tab_index = match selector {
-        "feature-guide-primary" => 1,
-        "feature-guide-playback" => 7,
-        "feature-guide-skip" => 8,
-        "feature-guide-close" => 9,
-        _ => 10,
-    };
-    let background = if is_primary {
-        palette.primary_background
-    } else {
-        with_alpha(theme.text_primary, 0x0d)
-    };
-    let foreground = if is_primary {
-        palette.primary_foreground
-    } else {
-        palette.supporting_text
-    };
-    let hover = if is_primary {
-        palette.primary_hover
-    } else {
-        with_alpha(theme.text_primary, 0x18)
-    };
-    let active = if is_primary {
-        palette.primary_active
-    } else {
-        with_alpha(theme.text_primary, 0x24)
-    };
-    let variant = ButtonCustomVariant::new(cx)
-        .color(rgba(background).into())
-        .foreground(rgba(foreground).into())
-        .border(rgba(with_alpha(theme.accent_blue, 0x58)).into())
-        .hover(rgba(hover).into())
-        .active(rgba(active).into());
-    Button::new(selector)
-        .debug_selector(move || selector.to_string())
-        .child(div().text_color(rgba(foreground)).child(label))
-        .tab_index(tab_index)
-        .tab_stop(!is_primary)
-        .custom(variant)
-        .h(px(36.0))
-        .px(px(14.0))
-        .rounded(px(10.0))
-        .border_color(rgba(with_alpha(theme.node_stroke, 0x78)))
-        .on_click(cx.listener(move |app, _, _, cx| {
-            cx.stop_propagation();
-            handler(app, cx);
-        }))
-        .into_any_element()
-}
-
-fn topic_index(topic: FeatureGuideTopic) -> usize {
-    FeatureGuideTopic::ALL
-        .iter()
-        .position(|candidate| *candidate == topic)
-        .unwrap_or(0)
 }

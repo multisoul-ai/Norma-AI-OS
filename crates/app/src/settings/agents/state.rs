@@ -3,6 +3,8 @@ mod search;
 mod selection;
 mod support;
 
+pub(crate) use self::search::AgentStatusFilter;
+
 #[cfg(test)]
 use self::support::no_command_modifiers;
 use self::support::{display_value, readable_agent_store_error, validate_agent_definition_text};
@@ -29,6 +31,12 @@ pub(crate) struct AgentDefinitionDraft {
     pub(crate) sort_order: i64,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum AgentDeleteDialog {
+    Confirm { id: i64, name: String },
+    Blocked { id: i64, name: String },
+}
+
 #[cfg(test)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct AgentVoiceContext {
@@ -44,12 +52,13 @@ pub(crate) struct AgentDefinitionsState {
     store: Option<AgentDefinitionStore>,
     draft: AgentDefinitionDraft,
     selected_definition_id: Option<i64>,
-    editing_card_id: Option<i64>,
+    selection_before_create: Option<i64>,
     creating_new: bool,
-    delete_confirmation_id: Option<i64>,
+    delete_dialog: Option<AgentDeleteDialog>,
     editing: Option<AgentDefinitionField>,
     edit_buffer: String,
     search_query: String,
+    status_filter: AgentStatusFilter,
     status: Option<String>,
 }
 
@@ -60,12 +69,13 @@ impl Default for AgentDefinitionsState {
             store: None,
             draft: AgentDefinitionDraft::new(),
             selected_definition_id: None,
-            editing_card_id: None,
+            selection_before_create: None,
             creating_new: false,
-            delete_confirmation_id: None,
+            delete_dialog: None,
             editing: None,
             edit_buffer: String::new(),
             search_query: String::new(),
+            status_filter: AgentStatusFilter::All,
             status: None,
         }
     }
@@ -123,10 +133,6 @@ impl AgentDefinitionsState {
         self.selected_definition_id
     }
 
-    pub(crate) fn editing_card_id(&self) -> Option<i64> {
-        self.editing_card_id
-    }
-
     pub(crate) fn is_creating_new(&self) -> bool {
         self.creating_new
     }
@@ -142,31 +148,31 @@ impl AgentDefinitionsState {
     #[cfg(test)]
     pub(crate) fn set_draft_name(&mut self, value: impl Into<String>) {
         self.draft.name = value.into();
-        self.clear_delete_confirmation();
+        self.clear_delete_dialog();
     }
 
     #[cfg(test)]
     pub(crate) fn set_draft_workflow_description(&mut self, value: impl Into<String>) {
         self.draft.workflow_description = value.into();
-        self.clear_delete_confirmation();
+        self.clear_delete_dialog();
     }
 
     pub(crate) fn set_draft_runtime_profile(&mut self, profile: AgentProfile) {
         self.draft.runtime_profile = profile;
-        self.clear_delete_confirmation();
+        self.clear_delete_dialog();
     }
 
     pub(crate) fn toggle_draft_enabled(&mut self) {
         self.draft.enabled = !self.draft.enabled;
-        self.clear_delete_confirmation();
+        self.clear_delete_dialog();
     }
 
     pub(crate) fn reset_draft(&mut self) {
         self.draft = AgentDefinitionDraft::new();
         self.selected_definition_id = None;
-        self.editing_card_id = None;
+        self.selection_before_create = None;
         self.creating_new = false;
-        self.delete_confirmation_id = None;
+        self.delete_dialog = None;
         self.editing = None;
         self.edit_buffer.clear();
     }
@@ -189,9 +195,9 @@ impl AgentDefinitionsState {
             sort_order: definition.sort_order,
         };
         self.selected_definition_id = Some(definition.id);
-        self.editing_card_id = None;
+        self.selection_before_create = None;
         self.creating_new = false;
-        self.delete_confirmation_id = None;
+        self.delete_dialog = None;
         self.editing = None;
         self.edit_buffer.clear();
         true
@@ -251,7 +257,6 @@ impl AgentDefinitionsState {
 
         match result {
             Ok(saved_id) => {
-                self.editing_card_id = None;
                 self.creating_new = false;
                 self.editing = None;
                 self.edit_buffer.clear();
@@ -353,7 +358,7 @@ impl AgentDefinitionsState {
         self.edit_buffer = self.field_value(field).to_string();
         self.editing = Some(field);
         self.status = None;
-        self.clear_delete_confirmation();
+        self.clear_delete_dialog();
     }
 
     #[cfg(test)]
@@ -373,18 +378,18 @@ impl AgentDefinitionsState {
             }
             "backspace" => {
                 self.edit_buffer.pop();
-                self.clear_delete_confirmation();
+                self.clear_delete_dialog();
                 true
             }
             "space" if no_command_modifiers(keystroke) => {
                 self.edit_buffer.push(' ');
-                self.clear_delete_confirmation();
+                self.clear_delete_dialog();
                 true
             }
             _ if no_command_modifiers(keystroke) => {
                 if let Some(text) = keystroke.key_char.as_deref() {
                     self.edit_buffer.push_str(text);
-                    self.clear_delete_confirmation();
+                    self.clear_delete_dialog();
                 }
                 true
             }
@@ -409,7 +414,7 @@ impl AgentDefinitionsState {
             return false;
         }
         self.edit_buffer = value.into();
-        self.clear_delete_confirmation();
+        self.clear_delete_dialog();
         true
     }
 

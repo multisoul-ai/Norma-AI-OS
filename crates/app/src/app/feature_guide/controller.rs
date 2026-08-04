@@ -1,7 +1,11 @@
-use super::{should_play_feature_guide_media, FeatureGuideBlockers, FeatureGuideTopic};
+use super::{
+    should_play_feature_guide_media, FeatureGuideBlockers, FeatureGuideSettingsTransition,
+    FeatureGuideTopic,
+};
 use crate::app::voice::control::VoicePhase;
 use crate::app::wallpaper_resolvers::resolve_builtin_asset;
 use crate::app::{MultisoulApp, OpenFeatureGuide};
+use crate::settings::panel::SettingsSection;
 use gpui::{Context, KeyDownEvent, Window};
 use std::time::Duration;
 
@@ -190,6 +194,49 @@ impl MultisoulApp {
         cx.notify();
     }
 
+    pub(crate) fn toggle_feature_guide_orchestration_details(&mut self, cx: &mut Context<Self>) {
+        self.feature_guide.toggle_orchestration_details();
+        cx.notify();
+    }
+
+    pub(crate) fn open_feature_guide_orchestration_settings(&mut self, cx: &mut Context<Self>) {
+        if self.motion.reduce_motion {
+            self.begin_feature_guide_settings_transition(
+                FeatureGuideSettingsTransition::Opening,
+                cx,
+            );
+        }
+        self.settings_panel.open();
+        self.settings_panel.select(SettingsSection::Orchestration);
+        self.sync_feature_guide_blockers(cx);
+        self.reconcile_orchestration_integrations(cx);
+        cx.notify();
+    }
+
+    pub(crate) fn begin_feature_guide_settings_transition(
+        &mut self,
+        transition: FeatureGuideSettingsTransition,
+        cx: &mut Context<Self>,
+    ) {
+        let generation = self.feature_guide.begin_settings_transition(transition);
+        let duration = self.motion.reduced_fade_duration();
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(duration).await;
+            let _ = this.update(cx, |app, cx| {
+                if !app.feature_guide.finish_settings_transition(generation) {
+                    return;
+                }
+                if transition == FeatureGuideSettingsTransition::Closing {
+                    app.finish_settings_close_after_feature_guide_crossfade(cx);
+                } else {
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+    }
+
     fn feature_guide_blockers(&self) -> FeatureGuideBlockers {
         FeatureGuideBlockers {
             settings_open: self.settings_panel.open,
@@ -207,8 +254,10 @@ impl MultisoulApp {
         if self.feature_guide_media.topic != Some(topic) {
             self.feature_guide_media.clear_playback();
             self.feature_guide_media.topic = Some(topic);
-            self.feature_guide_media.video_path = resolve_builtin_asset(topic.video_asset());
-            self.feature_guide_media.poster_path = resolve_builtin_asset(topic.poster_asset());
+            self.feature_guide_media.video_path =
+                topic.video_asset().and_then(resolve_builtin_asset);
+            self.feature_guide_media.poster_path =
+                topic.poster_asset().and_then(resolve_builtin_asset);
             self.feature_guide_media.manually_paused = false;
         }
 
@@ -217,6 +266,11 @@ impl MultisoulApp {
             self.motion.reduce_motion,
             self.feature_guide_media.manually_paused,
         ) {
+            self.pause_feature_guide_media(false, cx);
+            return;
+        }
+
+        if self.feature_guide_media.video_path.is_none() {
             self.pause_feature_guide_media(false, cx);
             return;
         }

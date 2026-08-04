@@ -1,5 +1,6 @@
 //! 底部 New 菜单的 hover 视觉反馈：真实指针命中与生产主题 token 的 L1 验收。
 
+use app::NewBrowser;
 use gpui::{Modifiers, TestAppContext, VisualTestContext};
 
 use crate::harness::{echo_factory, enter_canvas, make_app};
@@ -69,6 +70,59 @@ fn e2e_14_new_card_menu_hover_has_visible_theme_feedback() {
     assert_ne!(
         hover_fill, pressed_fill,
         "New 菜单 hover 与 pressed 必须使用不同填充，不能把两个交互状态合并"
+    );
+}
+
+/// E2E-14：New 菜单与 Browser 原生内容区重叠时，菜单必须保持在最上层可见。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Browser 卡片数 = 4，由 4 次 `NewBrowser` action 创建，触发 2 × 2 自动布局。
+///   New 菜单宽度 = 180px；生产布局高度固定为 362px，避免文字度量的 0.5px 波动。
+///   默认 headless viewport 中第 4 张 Browser 卡片位于右下工作区，菜单从底部 Dock 向上展开，
+///   因此两者 bounds 必须存在非空交集，该交集即用户截图中的遮挡区域。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 进入 Canvas，通过公开 `NewBrowser` action 创建 4 张 Browser 卡片。
+///   2. 确认菜单未打开时 Browser 使用正常内容区，没有渲染遮挡占位层。
+///   3. 点击底部 New，读取菜单与 Browser 内容区的真实 bounds 并确认重叠。
+///   4. 检查 Browser 已切换为 GPUI 遮挡占位层，从渲染树移除会穿透 GPUI 的原生视图。
+///
+/// 预期结果：
+///   - 正断言：New 菜单展开后与 Browser 内容区存在交集，确实覆盖用户报告的场景。
+///   - 正断言：重叠时必须渲染 `browser-card-occluded` 占位层，保证菜单位于最上层。
+///   - 负断言：菜单未打开时不得提前遮挡 Browser，否则正常网页内容会丢失。
+#[test]
+fn e2e_14_new_card_menu_occludes_overlapping_native_browser_content() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("New 菜单遮挡 e2e 应创建临时 workspace");
+    enter_canvas(&app, cx, workspace.path());
+
+    cx.dispatch_action(NewBrowser);
+    cx.dispatch_action(NewBrowser);
+    cx.dispatch_action(NewBrowser);
+    cx.dispatch_action(NewBrowser);
+    cx.run_until_parked();
+    let browser_content = cx
+        .debug_bounds("browser-native-surface")
+        .expect("NewBrowser 应先渲染正常 Browser 内容区");
+    assert!(
+        cx.debug_bounds("browser-card-occluded").is_none(),
+        "New 菜单未打开时 Browser 不得提前切换成遮挡占位层"
+    );
+
+    click_debug(cx, "toolbar-new-terminal");
+    let menu = cx
+        .debug_bounds("new-menu")
+        .expect("点击 New 后必须渲染完整卡片菜单");
+
+    assert!(
+        menu.intersects(&browser_content),
+        "回归场景必须让 New 菜单与 Browser 内容区重叠，menu={menu:?} browser={browser_content:?}"
+    );
+    assert!(
+        cx.debug_bounds("browser-card-occluded").is_some(),
+        "New 菜单覆盖 Browser 内容区时必须用 GPUI 占位层移除原生视图穿透"
     );
 }
 

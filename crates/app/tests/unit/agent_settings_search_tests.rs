@@ -120,3 +120,125 @@ fn test_agent_definitions_state_filters_visible_agents_without_mutating_definiti
         "重复设置相同空查询不得误报状态变化"
     );
 }
+
+/// AS-2B：Agent 状态筛选应与搜索组合，并精确区分 Enabled 与 Disabled。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   definitions      = 3 条：Alan(enabled)、Bella(disabled)、Quinn(enabled)
+///   disabled filter  = 3 条中的 1 条，预期只返回 Bella
+///   workflow query   = "审查"，与 disabled filter 交集仍为 1 条 Bella
+///   enabled filter   = 3 - 1(disabled) = 2 条，预期 Alan + Quinn
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建三条 definition，并把 Bella 的 enabled 更新为 false。
+///   2. 设置 Disabled filter，读取 visible_definitions。
+///   3. 追加 workflow 查询“审查”，确认搜索与筛选取交集。
+///   4. 清空搜索并切到 Enabled filter，读取剩余结果。
+///
+/// 预期结果：
+///   - 正断言：Disabled 只返回 Bella，且 workflow 查询可匹配 Bella。
+///   - 负断言：Disabled 不得包含 Alan 或 Quinn。
+///   - 正断言：Enabled 恢复 Alan 与 Quinn 两条。
+///   - 负断言：Enabled 不得残留 Bella。
+#[test]
+fn test_agent_definitions_state_combines_status_filter_with_workflow_search() {
+    let temp = tempfile::tempdir().expect("Agent 状态筛选测试应创建临时目录");
+    let project =
+        ProjectStore::for_workspace(temp.path()).expect("Agent 状态筛选 project store 应打开");
+    project
+        .migrate()
+        .expect("Agent 状态筛选 project store 应完成 migration");
+    let store = project.agent_definition_store();
+    store
+        .create(&NewAgentDefinition {
+            name: "Alan".to_string(),
+            runtime_profile: AgentProfile::Codex,
+            workflow_description: "工程实现".to_string(),
+        })
+        .expect("测试应创建 enabled 的 Alan definition");
+    let bella = store
+        .create(&NewAgentDefinition {
+            name: "Bella".to_string(),
+            runtime_profile: AgentProfile::OpenCode,
+            workflow_description: "负责代码审查".to_string(),
+        })
+        .expect("测试应创建待禁用的 Bella definition");
+    store
+        .update(&storage::AgentDefinitionUpdate {
+            id: bella.id,
+            name: bella.name,
+            runtime_profile: bella.runtime_profile,
+            workflow_description: bella.workflow_description,
+            enabled: false,
+            sort_order: bella.sort_order,
+        })
+        .expect("测试应把 Bella 更新为 disabled");
+    store
+        .create(&NewAgentDefinition {
+            name: "Quinn".to_string(),
+            runtime_profile: AgentProfile::Cursor,
+            workflow_description: "交互验证".to_string(),
+        })
+        .expect("测试应创建 enabled 的 Quinn definition");
+
+    let mut state = AgentDefinitionsState::default();
+    state.bind_project_store(store);
+    assert!(
+        state.set_status_filter(AgentStatusFilter::Disabled),
+        "从 All 切换为 Disabled 应报告筛选状态变化"
+    );
+    let disabled = state
+        .visible_definitions()
+        .into_iter()
+        .map(|definition| definition.name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        disabled.as_slice(),
+        ["Bella"],
+        "Disabled filter 应只返回唯一被禁用的 Bella"
+    );
+    assert!(
+        !disabled
+            .iter()
+            .any(|name| *name == "Alan" || *name == "Quinn"),
+        "Disabled filter 不得包含 enabled 的 Alan 或 Quinn"
+    );
+
+    assert!(
+        state.set_search_query("审查".to_string()),
+        "在 Disabled filter 下追加 workflow 查询应报告搜索状态变化"
+    );
+    let workflow_match = state
+        .visible_definitions()
+        .into_iter()
+        .map(|definition| definition.name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        workflow_match.as_slice(),
+        ["Bella"],
+        "搜索应匹配 workflow，并与 Disabled filter 组合后只返回 Bella"
+    );
+
+    assert!(
+        state.set_search_query(String::new()),
+        "清空 workflow 查询应报告搜索状态变化"
+    );
+    assert!(
+        state.set_status_filter(AgentStatusFilter::Enabled),
+        "从 Disabled 切换到 Enabled 应报告筛选状态变化"
+    );
+    let enabled = state
+        .visible_definitions()
+        .into_iter()
+        .map(|definition| definition.name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        enabled.as_slice(),
+        ["Alan", "Quinn"],
+        "Enabled filter 应按原顺序返回 Alan 与 Quinn"
+    );
+    assert!(
+        !enabled.iter().any(|name| *name == "Bella"),
+        "Enabled filter 不得残留 disabled 的 Bella"
+    );
+}

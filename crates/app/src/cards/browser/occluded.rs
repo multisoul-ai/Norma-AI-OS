@@ -1,11 +1,11 @@
-//! 被浮层（布局菜单）遮挡的浏览器卡片中性背景。
+//! 被 GPUI 浮层遮挡的浏览器卡片中性背景。
 
 use canvas::NodeId;
 use gpui::{div, prelude::*, px, rgba, AnyElement};
 use ui::icons::with_alpha;
 use ui::Theme;
 
-/// 被布局菜单遮挡时渲染的中性背景。原生子视图已被隐藏，这里用与卡片一致的
+/// 被布局/New 菜单等浮层遮挡时渲染的中性背景。原生子视图已被隐藏，这里用与卡片一致的
 /// 面板色填充，避免显示 "Loading browser..." 占位文字误导用户。
 pub(crate) fn occluded_browser_body(
     node_id: NodeId,

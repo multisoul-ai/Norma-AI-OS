@@ -104,8 +104,10 @@ mod e2e_11_launchpad_video;
 mod e2e_12_agent_presentation;
 mod e2e_12_agent_queue_ui;
 mod e2e_12_agent_self_dispatch;
+mod e2e_12_agent_settings_delete;
 mod e2e_12_agent_settings_ime;
 mod e2e_12_agent_settings_master_detail;
+mod e2e_12_agent_settings_save_add;
 mod e2e_12_agent_submit;
 mod e2e_12_agent_submit_l3;
 mod e2e_12_agent_task_result;
@@ -141,6 +143,7 @@ mod e2e_15_recent_project_menu;
 mod e2e_15_feature_guide;
 mod e2e_15_feature_guide_modal;
 mod e2e_15_feature_guide_navigation;
+mod e2e_15_feature_guide_orchestration;
 
 // Canvas：创建/清理失败必须渲染可见、可关闭的工作区错误横幅。
 mod e2e_16_canvas_error_feedback;

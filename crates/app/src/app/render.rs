@@ -93,17 +93,17 @@ impl Render for MultisoulApp {
                     root = root.child(error_banner);
                 }
                 root = root.child(self.voice_window_inset_view.clone());
-                if self.settings_panel.open {
-                    root = root.child(self.render_settings_panel(window, cx));
-                }
             }
         }
 
+        if self.feature_guide.should_render() {
+            root = root.child(self.render_feature_guide(window, cx));
+        }
+        if matches!(self.screen, AppScreen::Canvas) && self.settings_panel.open {
+            root = root.child(self.render_settings_panel(window, cx));
+        }
         if self.clone_project.is_open() {
             root = root.child(self.render_clone_project_dialog(window, cx));
-        }
-        if self.feature_guide.is_visible() {
-            root = root.child(self.render_feature_guide(window, cx));
         }
 
         root

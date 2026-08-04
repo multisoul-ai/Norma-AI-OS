@@ -273,7 +273,7 @@ fn pending_auto_guide_waits_for_settings_to_close() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   guide instances = skip path(1) + complete path(1) = 2
-///   selectable topics = 3；测试选中第 3 个 AgentNotifications 作为非默认主题
+///   selectable topics = orchestration(1) + existing topics(3) = 4；测试选中第 4 个 AgentNotifications
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 两个实例都手动打开并选择 AgentNotifications。

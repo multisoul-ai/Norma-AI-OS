@@ -58,15 +58,15 @@ fn test_browser_occluded_by_layout_menu_only_when_overlapping() {
     let top_card = CanvasRect::new(500.0, 50.0, 200.0, 200.0);
 
     assert!(
-        browser_occluded_by_layout_menu(covered_card, menu_open),
+        browser_content_occluded_by_overlay(covered_card, menu_open),
         "与打开的菜单矩形相交的浏览器内容区必须被判定遮挡"
     );
     assert!(
-        !browser_occluded_by_layout_menu(covered_card, None),
+        !browser_content_occluded_by_overlay(covered_card, None),
         "菜单未打开时即使坐标相同也不能判定遮挡"
     );
     assert!(
-        !browser_occluded_by_layout_menu(top_card, menu_open),
+        !browser_content_occluded_by_overlay(top_card, menu_open),
         "菜单上方、不相交的浏览器卡片必须保持正常渲染，不能被误判遮挡"
     );
 }

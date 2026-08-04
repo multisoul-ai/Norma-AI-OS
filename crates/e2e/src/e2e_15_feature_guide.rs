@@ -6,30 +6,26 @@ use gpui::{Modifiers, TestAppContext};
 use crate::harness::{echo_factory, enter_canvas, make_app, make_app_with_settings_store};
 
 /// Help 功能导览：用户可切换主题、推进下一项、跳过，并在跳过后从 Help 再次打开。
-///
 /// 数据构造（含关键数值的推导过程）：
-///   guide topics = 3
-///   initial topic index = 0（live_node_shortcuts）
-///   direct topic click = index 1（workspace_layouts）
-///   primary advance = index 1 + 1 = 2（agent_notifications）
+///   guide topics = orchestration(1) + product demos(3) = 4
+///   initial topic index = 0（agent_orchestration）；media topic index = 1（live_node_shortcuts）
+///   direct topic click = index 2（workspace_layouts）；primary advance = 2 + 1 = 3（agent_notifications）
 ///   playback toggles = pause(1) + play(1) = 2
 ///   reduced-motion transitions = enable(1) + disable(1) = 2
 ///   explicit endings = Skip(1) + Close(1) + Complete(1) = 3
 ///   visible surface threshold = 100×100px（远小于 680×560px 最小面板，用于排除零尺寸布局）
-///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 在 Launchpad 通过公开 OpenFeatureGuide action 模拟 Help › Feature Guide…。
-///   2. 确认官网海报已进入渲染树，并暂停、播放一次真实 Demo。
+///   2. 确认编排首屏无伪媒体，再进入 Live Node，暂停、播放一次真实 Demo。
 ///   3. 开启减少动态效果，确认只留官网海报，再关闭以恢复播放。
-///   4. 从真实渲染树点击第 2 个主题，再点击主按钮推进到第 3 个主题。
+///   4. 从真实渲染树点击第 3 个主题，再点击主按钮推进到第 4 个主题。
 ///   5. 点击 Skip，确认弹窗关闭、视频停止且状态为 suppressed。
 ///   6. 再次派发 OpenFeatureGuide，确认永久 Help 入口不受 suppressed 限制。
 ///   7. 点击 Close，确认只关闭当前会话且保留 suppressed 决策。
 ///   8. 第三次打开后直达最后主题，点击“开始使用”完成导览。
-///
 /// 预期结果：
 ///   - 正断言：overlay 与 panel 均大于 100×100px，且标题、主题按钮、主按钮、Skip、Close 均来自真实 GPUI 渲染树。
-///   - 正断言：主题严格按 shortcut → layout → notification 推进，Help 可重复打开。
+///   - 正断言：主题严格按 orchestration → shortcut → layout → notification 推进，Help 可重复打开。
 ///   - 正断言：官网海报可见，视频可暂停与重新播放。
 ///   - 负断言：减少动态效果模式不得继续播放，并必须显示静态状态说明。
 ///   - 负断言：panel 不得错误扩张成与全屏 overlay 相同的尺寸。
@@ -66,15 +62,21 @@ fn e2e_15_feature_guide_help_entry_switches_topics_and_reopens_after_skip() {
         cx.debug_bounds("feature-guide-title").is_some(),
         "打开导览后必须渲染稳定标题节点供用户定位当前功能"
     );
-    let opened = app.update(cx, |app, _| app.feature_guide_e2e_snapshot());
+    let first = app.update(cx, |app, _| app.feature_guide_e2e_snapshot());
     assert_eq!(
-        opened.topic, "live_node_shortcuts",
-        "首次手动打开应从官网 Live Node 快捷键 Demo 开始"
+        first.topic, "agent_orchestration",
+        "首次手动打开应从第 1 项 Agent Orchestration 开始"
     );
     assert!(
-        opened.visible,
+        first.visible,
         "Help action 后导览必须可见，不能只更新内部状态"
     );
+    assert!(
+        !first.poster_available && !first.media_playing,
+        "编排首屏不得伪造海报或启动产品 Demo"
+    );
+    click_debug(cx, "feature-guide-topic-1");
+    let opened = app.update(cx, |app, _| app.feature_guide_e2e_snapshot());
     assert!(
         opened.poster_available,
         "首次打开导览必须解析到官网 Live Node 快捷键 WebP 海报"
@@ -88,12 +90,12 @@ fn e2e_15_feature_guide_help_entry_switches_topics_and_reopens_after_skip() {
         "官网 WebP 海报必须作为视频首帧回退进入真实 GPUI 渲染树"
     );
     assert!(
-        cx.debug_bounds("feature-guide-topic-2").is_some(),
-        "官网三段 Demo 的第 3 个主题入口必须存在"
+        cx.debug_bounds("feature-guide-topic-3").is_some(),
+        "编排加三段 Demo 后第 4 个主题入口必须存在"
     );
     assert!(
-        cx.debug_bounds("feature-guide-topic-3").is_none(),
-        "官网只有三段 Demo，导览不得继续渲染旧版第 4 个主题入口"
+        cx.debug_bounds("feature-guide-topic-4").is_none(),
+        "四步导览不得继续渲染不存在的第 5 个主题入口"
     );
 
     click_debug(cx, "feature-guide-playback");
@@ -144,11 +146,11 @@ fn e2e_15_feature_guide_help_entry_switches_topics_and_reopens_after_skip() {
         "关闭减少动态效果后，未手动暂停的当前官网 Demo 应恢复播放"
     );
 
-    click_debug(cx, "feature-guide-topic-1");
+    click_debug(cx, "feature-guide-topic-2");
     let layouts = app.update(cx, |app, _| app.feature_guide_e2e_snapshot());
     assert_eq!(
         layouts.topic, "workspace_layouts",
-        "点击第 2 个主题应切换到官网 Command-M 布局 Demo"
+        "点击第 3 个主题应切换到官网 Command-M 布局 Demo"
     );
     assert_ne!(
         layouts.topic, "live_node_shortcuts",
@@ -159,7 +161,7 @@ fn e2e_15_feature_guide_help_entry_switches_topics_and_reopens_after_skip() {
     let notifications = app.update(cx, |app, _| app.feature_guide_e2e_snapshot());
     assert_eq!(
         notifications.topic, "agent_notifications",
-        "第 2 个主题的主按钮应推进到第 3 个 Agent 通知 Demo"
+        "第 3 个主题的主按钮应推进到第 4 个 Agent 通知 Demo"
     );
 
     click_debug(cx, "feature-guide-skip");
@@ -206,7 +208,7 @@ fn e2e_15_feature_guide_help_entry_switches_topics_and_reopens_after_skip() {
 
     cx.dispatch_action(OpenFeatureGuide);
     cx.run_until_parked();
-    click_debug(cx, "feature-guide-topic-2");
+    click_debug(cx, "feature-guide-topic-3");
     click_debug(cx, "feature-guide-primary");
     let completed = app.update(cx, |app, _| app.feature_guide_e2e_snapshot());
     assert_eq!(
@@ -224,12 +226,10 @@ fn e2e_15_feature_guide_help_entry_switches_topics_and_reopens_after_skip() {
 }
 
 /// 首次项目自动导览：新用户在 Canvas ready 后看到弹窗，已有默认测试用户不会被打扰。
-///
 /// 数据构造（含关键数值的推导过程）：
 ///   app instances = existing/default(1) + fresh(1) = 2
 ///   recent workspace count = existing semantic(>=1) / fresh(0)
 ///   canvas-ready signals = 1 per app
-///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 默认 in-memory App 进入 Canvas，保持 suppressed 测试基线。
 ///   2. 第二个 App 显式注入 fresh eligibility，进入 Canvas 并发出一次 ready 信号。
@@ -292,12 +292,12 @@ fn e2e_15_feature_guide_auto_opens_only_for_fresh_first_project() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Settings keys = status(1) + topic(1) = 2
-///   selected topic index = 2（agent_notifications）
+///   selected topic index = 3（agent_notifications）
 ///   user terminal decision = Skip(1)
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 使用隔离 SettingsStore 构造 Stored 模式 App。
-///   2. 从 Help 打开导览，点击第 3 个主题并点击 Skip。
+///   2. 从 Help 打开导览，点击第 4 个主题并点击 Skip。
 ///   3. 等待 GPUI 后台持久化任务停稳，直接重新读取两个稳定 key。
 ///
 /// 预期结果：
@@ -312,7 +312,7 @@ fn e2e_15_feature_guide_skip_persists_status_and_last_topic() {
 
     cx.dispatch_action(OpenFeatureGuide);
     cx.run_until_parked();
-    click_debug(cx, "feature-guide-topic-2");
+    click_debug(cx, "feature-guide-topic-3");
     click_debug(cx, "feature-guide-skip");
     cx.run_until_parked();
 
@@ -331,7 +331,7 @@ fn e2e_15_feature_guide_skip_persists_status_and_last_topic() {
     assert_eq!(
         saved_topic.as_deref(),
         Some("agent_notifications"),
-        "持久化必须保留用户最后查看的第 3 个 Agent 通知主题"
+        "持久化必须保留用户最后查看的第 4 个 Agent 通知主题"
     );
     assert_ne!(
         saved_status.as_deref(),
@@ -351,7 +351,7 @@ fn e2e_15_feature_guide_skip_persists_status_and_last_topic() {
 ///   initial focused element = app root（导览打开时恢复到 MultisoulApp focus handle）
 ///   focus traversal = Tab × 1 → tab_index(1) 的主操作“下一项”
 ///   focus traversal = Tab × 1 → primary_focused = true
-///   primary activation = Enter × 1 → topic index 0 + 1 = 1（workspace_layouts）
+///   primary activation = Enter × 1 → topic index 0 + 1 = 1（live_node_shortcuts）
 ///   background actions = 0（模态层不能把按键送入 Canvas 或 PTY）
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -360,9 +360,9 @@ fn e2e_15_feature_guide_skip_persists_status_and_last_topic() {
 ///   3. 模拟 `enter`，确认焦点控件只推进一个主题并保留 suppressed 决策。
 ///
 /// 预期结果：
-///   - 正断言：Tab 聚焦主按钮，Enter 切换到 workspace_layouts，导览仍可见。
+///   - 正断言：Tab 聚焦主按钮，Enter 切换到 live_node_shortcuts，导览仍可见。
 ///   - 正断言：键盘推进保留 suppressed，不误标为 completed。
-///   - 负断言：主题不能仍是 live_node_shortcuts，也不能跳过一页到 agent_notifications。
+///   - 负断言：主题不能仍是 agent_orchestration，也不能跳过一页到 workspace_layouts。
 #[test]
 fn e2e_15_feature_guide_tab_and_arrow_keys_stay_inside_modal() {
     let mut cx = TestAppContext::single();
@@ -389,8 +389,8 @@ fn e2e_15_feature_guide_tab_and_arrow_keys_stay_inside_modal() {
 
     let advanced = app.update(cx, |app, _| app.feature_guide_e2e_snapshot());
     assert_eq!(
-        advanced.topic, "workspace_layouts",
-        "主按钮已聚焦时 Enter 必须激活模态主操作并推进到第 2 个布局主题"
+        advanced.topic, "live_node_shortcuts",
+        "主按钮已聚焦时 Enter 必须激活模态主操作并推进到第 2 个 Live Node 主题"
     );
     assert_eq!(
         advanced.status, "suppressed",
@@ -401,11 +401,11 @@ fn e2e_15_feature_guide_tab_and_arrow_keys_stay_inside_modal() {
         "键盘推进后导览应继续 visible，供用户继续浏览剩余主题"
     );
     assert_ne!(
-        advanced.topic, "live_node_shortcuts",
+        advanced.topic, "agent_orchestration",
         "键盘操作后不得仍停在首页，否则 Enter 未激活已聚焦的模态主按钮"
     );
     assert_ne!(
-        advanced.topic, "agent_notifications",
+        advanced.topic, "workspace_layouts",
         "一次 Enter 只能推进一个主题，不能重复激活并跳过第 2 页"
     );
 }
@@ -415,11 +415,11 @@ fn e2e_15_feature_guide_tab_and_arrow_keys_stay_inside_modal() {
 /// 数据构造（含关键数值的推导过程）：
 ///   initially visible guides = 1
 ///   active voice recordings = 1
-///   selected topic index = 1（workspace_layouts，用于验证恢复时不丢进度）
+///   selected topic index = 2（workspace_layouts，用于验证恢复时不丢进度）
 ///   visible guide states during recording = 0
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 从 Help 打开导览并选中第 2 个主题。
+///   1. 从 Help 打开导览并选中第 3 个主题。
 ///   2. 注入 Recording 语音状态并触发真实 GPUI 重绘。
 ///   3. 确认导览转为 Suspended，渲染谓词 visible 变为 false。
 ///   4. 结束语音运行时并重绘，确认导览恢复原主题。
@@ -435,7 +435,7 @@ fn e2e_15_feature_guide_suspends_while_voice_is_active_and_resumes() {
 
     cx.dispatch_action(OpenFeatureGuide);
     cx.run_until_parked();
-    click_debug(cx, "feature-guide-topic-1");
+    click_debug(cx, "feature-guide-topic-2");
     app.update(cx, |app, cx| {
         app.show_voice_recording_transcript_for_e2e("把下一步交给小张");
         cx.notify();
@@ -458,7 +458,7 @@ fn e2e_15_feature_guide_suspends_while_voice_is_active_and_resumes() {
     );
     assert_eq!(
         suspended.topic, "workspace_layouts",
-        "临时暂停必须保留用户已选中的第 2 个主题，不能在语音开始时重置进度"
+        "临时暂停必须保留用户已选中的第 3 个主题，不能在语音开始时重置进度"
     );
 
     app.update(cx, |app, cx| {
@@ -475,7 +475,7 @@ fn e2e_15_feature_guide_suspends_while_voice_is_active_and_resumes() {
     );
     assert_eq!(
         resumed.topic, "workspace_layouts",
-        "暂停与恢复必须保留用户选中的第 2 个主题，不能重置到 live_node_shortcuts"
+        "暂停与恢复必须保留用户选中的第 3 个主题，不能重置到 agent_orchestration"
     );
     assert!(
         resumed.media_playing,

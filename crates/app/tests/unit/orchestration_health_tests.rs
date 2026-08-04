@@ -34,8 +34,8 @@ fn ready_integration(provider: OrchestrationProvider) -> ProviderIntegration {
 fn global_health_refresh_is_single_flight_and_classifies_one_shared_snapshot() {
     let mut health = SharedOrchestrationHealth::default();
 
-    let first_started = health.begin_refresh();
-    let second_started = health.begin_refresh();
+    let first_generation = health.begin_refresh();
+    let second_generation = health.begin_refresh();
     let ready_phase = phase_for_integrations(&[
         ready_integration(OrchestrationProvider::Codex),
         ready_integration(OrchestrationProvider::Claude),
@@ -57,9 +57,12 @@ fn global_health_refresh_is_single_flight_and_classifies_one_shared_snapshot() {
         ),
     ]);
 
-    assert!(first_started, "第一个窗口注册必须取得全局健康扫描的启动权");
     assert!(
-        !second_started,
+        first_generation.is_some(),
+        "第一个窗口注册必须取得全局健康扫描的启动权"
+    );
+    assert!(
+        second_generation.is_none(),
         "第二个窗口注册不得并发启动第二份 Provider 扫描"
     );
     assert_eq!(
@@ -81,5 +84,82 @@ fn global_health_refresh_is_single_flight_and_classifies_one_shared_snapshot() {
         health.phase(),
         SharedHealthPhase::Degraded,
         "尚在检查不能伪装成 degraded，否则 Agent 会被提前标记 untracked"
+    );
+}
+
+/// 全局健康快照代次：较新的发布结果必须阻止旧后台扫描回写覆盖。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   background refresh generations = stale(1)
+///   explicit publish generations = current(1)
+///   Total generations = 1 + 1 = 2，current 必须严格大于 stale
+///   current providers = Ready Codex(1)
+///   stale providers = Missing Codex(1)
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 调用 begin_refresh，模拟 CTA 触发的后台扫描并记录 stale generation。
+///   2. 在扫描结束前调用 begin_publish，模拟安装完成后的较新共享快照。
+///   3. 先提交 current Ready 快照，再让 stale Missing 扫描迟到完成。
+///   4. 读取全局阶段与保存的 Codex 状态。
+///
+/// 预期结果：
+///   - 正断言：current 发布被接受并保持 Ready。
+///   - 正断言：stale 完成返回 None，不通知订阅窗口。
+///   - 负断言：迟到扫描不得把最新 Ready 快照降级为 Missing/Degraded。
+#[test]
+fn newer_health_publish_rejects_stale_background_refresh_completion() {
+    let mut health = SharedOrchestrationHealth::default();
+    let stale_generation = health
+        .begin_refresh()
+        .expect("首次后台扫描必须取得 stale generation");
+    let current_generation = health.begin_publish();
+
+    assert!(
+        current_generation > stale_generation,
+        "显式发布的 generation 必须严格晚于仍在运行的后台扫描"
+    );
+
+    let current_snapshot = health.finish(
+        current_generation,
+        Ok((
+            vec![ready_integration(OrchestrationProvider::Codex)],
+            Vec::new(),
+        )),
+    );
+    let stale_snapshot = health.finish(
+        stale_generation,
+        Ok((
+            vec![ProviderIntegration::from_components(
+                OrchestrationProvider::Codex,
+                ComponentState::Missing,
+                ComponentState::Missing,
+                ComponentState::Missing,
+                ComponentState::Missing,
+            )],
+            Vec::new(),
+        )),
+    );
+
+    assert!(
+        current_snapshot.is_some(),
+        "较新的 Ready 发布必须被健康状态接受"
+    );
+    assert!(
+        stale_snapshot.is_none(),
+        "迟到的旧扫描必须被 generation guard 丢弃"
+    );
+    assert_eq!(
+        health.phase(),
+        SharedHealthPhase::Ready,
+        "旧 Missing 扫描不得把最新 Ready 阶段覆盖为 Degraded"
+    );
+    assert_eq!(
+        health
+            .snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.integrations.first())
+            .map(|integration| integration.aggregate_status),
+        Some(norma::orchestration::AggregateStatus::Ready),
+        "健康状态必须保留较新发布的 Codex Ready 快照"
     );
 }

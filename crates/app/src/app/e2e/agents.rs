@@ -20,7 +20,9 @@ pub struct AgentSettingsE2eSnapshot {
     pub draft_name: String,
     pub draft_profile: &'static str,
     pub draft_workflow: String,
+    pub draft_enabled: bool,
     pub creating_new: bool,
+    pub dirty: bool,
 }
 
 #[cfg(feature = "e2e-test-support")]
@@ -201,7 +203,9 @@ impl MultisoulApp {
             draft_name: self.agent_definitions.draft().name.clone(),
             draft_profile: profile_name(self.agent_definitions.draft().runtime_profile),
             draft_workflow: self.agent_definitions.draft().workflow_description.clone(),
+            draft_enabled: self.agent_definitions.draft().enabled,
             creating_new: self.agent_definitions.is_creating_new(),
+            dirty: self.agent_definitions.is_dirty(),
         }
     }
 }

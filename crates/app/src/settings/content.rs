@@ -27,6 +27,7 @@ pub(super) struct SettingsContentContext<'a> {
     pub(super) theme_id: ThemeId,
     pub(super) panel: &'a SettingsPanelState,
     pub(super) agent_definitions: &'a AgentDefinitionsState,
+    pub(super) selected_agent_on_canvas: bool,
     pub(super) orchestration: &'a OrchestrationSettingsState,
     pub(super) performance: &'a PerformanceSettingsState,
     pub(super) voice: VoiceSettingsContent<'a>,
@@ -47,6 +48,7 @@ pub(super) fn settings_content(
         theme_id,
         panel,
         agent_definitions,
+        selected_agent_on_canvas,
         orchestration,
         performance,
         voice,
@@ -101,9 +103,14 @@ pub(super) fn settings_content(
                         window,
                         cx,
                     ),
-                    SettingsSection::Agents => {
-                        agents_settings(theme, agent_definitions, agent_list_scroll, window, cx)
-                    }
+                    SettingsSection::Agents => agents_settings(
+                        theme,
+                        agent_definitions,
+                        selected_agent_on_canvas,
+                        agent_list_scroll,
+                        window,
+                        cx,
+                    ),
                     SettingsSection::Orchestration => {
                         orchestration_settings(theme, orchestration, cx)
                     }
@@ -211,7 +218,7 @@ fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> Str
         #[cfg(test)]
         SettingsSection::Runtime => "Configure shell behavior and live sessions".to_string(),
         SettingsSection::Voice => format!("Use {voice_shortcut_label} to talk to Norma"),
-        SettingsSection::Agents => "Manage project agents and runtime profiles".to_string(),
+        SettingsSection::Agents => "Create, organize, and launch project agents".to_string(),
         #[cfg(test)]
         SettingsSection::Skills => "Manage installed skills and project skill sources".to_string(),
         SettingsSection::Orchestration => {

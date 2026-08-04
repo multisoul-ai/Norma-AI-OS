@@ -6,8 +6,8 @@ use super::node_label::node_type_label;
 use super::working_snakes::{self, WorkingSnakeGeometry};
 use crate::app::browser::native::BROWSER_NATIVE_BORDER_INSET_PX;
 use crate::app::browser::{browser_native_view_bounds, native_browser_views_visible};
-use crate::app::layout_menu::{browser_occluded_by_layout_menu, layout_menu_screen_rect};
-use crate::app::MultisoulApp;
+use crate::app::layout_menu::{browser_content_occluded_by_overlay, layout_menu_screen_rect};
+use crate::app::{new_menu_screen_rect, MultisoulApp};
 #[cfg(test)]
 use crate::canvas::events::{should_focus_app_root_for_mouse_down, should_notify_motion_frame};
 #[cfg(test)]
@@ -67,8 +67,13 @@ pub fn render_canvas(
     let mut node_elems: Vec<AnyElement> = Vec::new();
     let mut visible_browser_nodes = HashSet::new();
     let native_browser_views_visible = native_browser_views_visible(app.settings_panel.open);
-    // 布局菜单打开时计算其屏幕矩形；关闭时为 None（不做遮挡过滤）。
+    // 底部弹出菜单打开时计算屏幕矩形；关闭时为 None（不做遮挡过滤）。
     let layout_menu_rect = layout_menu_screen_rect(app.interaction.layout_menu_open, win_w, win_h);
+    let new_menu_rect = new_menu_screen_rect(
+        app.interaction.new_menu_open,
+        app.interaction.new_menu_activation_x,
+        win_h,
+    );
     let mut visible_nodes = 0usize;
     let mut snake_nodes = 0usize;
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
@@ -322,21 +327,18 @@ pub fn render_canvas(
             .preview_pan
             .map(|pan| pan.node_id == id)
             .unwrap_or(false);
-        // 浏览器卡片：计算其内容区是否被布局菜单遮挡。
-        let occluded_by_overlay = matches!(node_type, NodeType::Browser)
-            && layout_menu_rect
-                .map(|menu| {
-                    let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
-                    let content_rect = CanvasRect::new(
-                        top_left.x + BROWSER_NATIVE_BORDER_INSET_PX as f32,
-                        top_left.y + browser_header_h + BROWSER_NATIVE_BORDER_INSET_PX as f32,
-                        (w - BROWSER_NATIVE_BORDER_INSET_PX as f32 * 2.0).max(0.0),
-                        (h - browser_header_h - BROWSER_NATIVE_BORDER_INSET_PX as f32 * 2.0)
-                            .max(0.0),
-                    );
-                    browser_occluded_by_layout_menu(content_rect, Some(menu))
-                })
-                .unwrap_or(false);
+        // 浏览器卡片：计算其内容区是否被底部弹出菜单遮挡。
+        let occluded_by_overlay = matches!(node_type, NodeType::Browser) && {
+            let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
+            let content_rect = CanvasRect::new(
+                top_left.x + BROWSER_NATIVE_BORDER_INSET_PX as f32,
+                top_left.y + browser_header_h + BROWSER_NATIVE_BORDER_INSET_PX as f32,
+                (w - BROWSER_NATIVE_BORDER_INSET_PX as f32 * 2.0).max(0.0),
+                (h - browser_header_h - BROWSER_NATIVE_BORDER_INSET_PX as f32 * 2.0).max(0.0),
+            );
+            browser_content_occluded_by_overlay(content_rect, layout_menu_rect)
+                || browser_content_occluded_by_overlay(content_rect, new_menu_rect)
+        };
         let card_body = card.body(
             &node,
             CardBodyContext {
