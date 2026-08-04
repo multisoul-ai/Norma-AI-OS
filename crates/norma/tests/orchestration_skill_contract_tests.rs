@@ -273,3 +273,69 @@ fn managed_orchestration_skill_description_recalls_chinese_nested_delegation() {
         "链式委派不得越过首个目标，由调用方直接派发全部具名 Agent"
     );
 }
+
+/// 编排 Skill 契约：确定性拒绝码（self_dispatch_forbidden / delegation_cycle /
+/// delegation_budget_exceeded）必须给出停止动作，并明确禁止换 operation_id 重试。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   确定性拒绝码数 = 3（self_dispatch_forbidden、delegation_cycle、delegation_budget_exceeded）
+///   禁止动作数     = 1（不得生成新 operation_id）
+///   停止语义       = 2（立即停止 + 不换目标拼写/Workspace）
+///   Provider 数    = 1（Codex）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在隔离目录安装 Codex 的受管编排 Skill。
+///   2. 读取 SKILL.md 源文本。
+///   3. 检查三个确定性拒绝码、停止动作与新 operation_id 禁令。
+///
+/// 预期结果：
+///   - 正断言：源文本包含 self_dispatch_forbidden 的自身身份解释与停止动作。
+///   - 正断言：源文本包含 delegation_cycle、delegation_budget_exceeded 的停止规则。
+///   - 正断言：源文本明确禁止为这三个确定性错误换新 operation_id。
+///   - 负断言：不得建议对确定性错误盲目重试或换目标拼写/Workspace。
+#[test]
+fn managed_orchestration_skill_stops_on_deterministic_rejection_codes() {
+    let temp = tempfile::tempdir().expect("测试应创建隔离安装根目录");
+    let paths = install_paths(temp.path());
+    fs::create_dir_all(
+        paths
+            .bundled_cli
+            .parent()
+            .expect("测试 bundled CLI 应有父目录"),
+    )
+    .expect("测试应创建 bundle 目录");
+    fs::write(&paths.bundled_cli, b"codex-test-cli").expect("测试应写入 bundled CLI");
+    fs::write(&paths.bundled_hook, b"codex-test-hook").expect("测试应写入 bundled Hook");
+    let installer = OrchestrationInstaller::new(paths.clone(), "2.0.0");
+    let mut registry = MemoryAuthorizationRegistry::default();
+
+    installer
+        .install_or_repair(OrchestrationProvider::Codex, &mut registry)
+        .expect("Codex 编排 Skill 安装应成功");
+    let source = fs::read_to_string(&paths.codex_skill).expect("安装后的 Codex Skill 应可读取");
+
+    assert!(
+        source.contains("self_dispatch_forbidden"),
+        "Skill 必须把 self_dispatch_forbidden 归类为确定性拒绝码，实际缺失"
+    );
+    assert!(
+        source.contains("delegation_cycle"),
+        "Skill 必须把 delegation_cycle 归类为确定性拒绝码，实际缺失"
+    );
+    assert!(
+        source.contains("delegation_budget_exceeded"),
+        "Skill 必须把 delegation_budget_exceeded 归类为确定性拒绝码，实际缺失"
+    );
+    assert!(
+        source.contains("stop") && source.contains("self_dispatch_forbidden"),
+        "self_dispatch_forbidden 必须明确要求立即停止，防止换参数重试"
+    );
+    assert!(
+        source.contains("do not") && source.contains("new operation_id"),
+        "确定性拒绝码必须明确禁止生成新的 operation_id，防止重复派发循环"
+    );
+    assert!(
+        !source.contains("retry with a new operation_id"),
+        "Skill 不得以任何形式建议用新 operation_id 重试确定性拒绝"
+    );
+}

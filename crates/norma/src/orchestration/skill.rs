@@ -101,6 +101,15 @@ side-effect result, stop and diagnose first. To resolve the original assignment,
 replaying the identical command and reuse the same operation_id. Never create a new operation ID
 for that retry, because doing so can create a duplicate task.
 
+Deterministic rejections are authoritative and never retryable. When `agent task assign` returns
+`self_dispatch_forbidden`, the canonical target is you yourself in the same Workspace: stop
+immediately, do not change the target spelling or Workspace, and do not generate a new
+operation_id; execute the remaining task yourself or tell the user the task cannot be
+re-delegated to you. `delegation_cycle` means the target is an ancestor already active in this
+delegation chain; stop and do not retry. `delegation_budget_exceeded` means the root task already
+has the maximum unfinished descendants; stop and do not retry. For any of these deterministic
+codes, never retry by inventing a new operation_id.
+
 Cancellation is also a mutating operation. Generate and retain one cancellation operation ID, then
 run `"{command}" agent task cancel <task_id> --operation-id <operation_id> --format json`. If its
 outcome is unknown, replay only that identical cancel command with the same cancellation operation
