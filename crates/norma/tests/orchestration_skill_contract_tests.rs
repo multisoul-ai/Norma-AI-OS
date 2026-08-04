@@ -339,3 +339,67 @@ fn managed_orchestration_skill_stops_on_deterministic_rejection_codes() {
         "Skill 不得以任何形式建议用新 operation_id 重试确定性拒绝"
     );
 }
+
+/// 编排 Skill 契约：同 Workspace 委派前必须先用 `agent self` 识别自我身份，跨 Workspace 同名不算自己。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   决策规则数 = 5（先 self 再 list、命中自我不 assign、跨 Workspace 同名非 self、
+///   self 查询失败停止、Workspace 作用域声明）
+///   Provider 数 = 1（Codex）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在隔离目录安装 Codex 的受管编排 Skill。
+///   2. 读取 SKILL.md 源文本。
+///   3. 检查自我身份自查规则与 Workspace 作用域边界。
+///
+/// 预期结果：
+///   - 正断言：Skill 要求同 Workspace 委派前运行 `agent self --format json`。
+///   - 正断言：命中自我时不得生成 operation_id、不得调用 assign。
+///   - 正断言：跨 Workspace 同名明确不算自己；self 查询失败必须停止派发。
+///   - 负断言：不得把跨 Workspace 同名 Agent 当作自我身份。
+#[test]
+fn managed_orchestration_skill_documents_self_identity_probe_before_assign() {
+    let temp = tempfile::tempdir().expect("测试应创建隔离安装根目录");
+    let paths = install_paths(temp.path());
+    fs::create_dir_all(
+        paths
+            .bundled_cli
+            .parent()
+            .expect("测试 bundled CLI 应有父目录"),
+    )
+    .expect("测试应创建 bundle 目录");
+    fs::write(&paths.bundled_cli, b"codex-test-cli").expect("测试应写入 bundled CLI");
+    fs::write(&paths.bundled_hook, b"codex-test-hook").expect("测试应写入 bundled Hook");
+    let installer = OrchestrationInstaller::new(paths.clone(), "2.0.0");
+    let mut registry = MemoryAuthorizationRegistry::default();
+
+    installer
+        .install_or_repair(OrchestrationProvider::Codex, &mut registry)
+        .expect("Codex 编排 Skill 安装应成功");
+    let source = fs::read_to_string(&paths.codex_skill).expect("安装后的 Codex Skill 应可读取");
+
+    assert!(
+        source.contains("agent self --format json"),
+        "Skill 必须提供 agent self 自查命令，实际缺失"
+    );
+    assert!(
+        source.contains("Before any same-Workspace named delegation"),
+        "每个同 Workspace 委派前必须先查询自我身份"
+    );
+    assert!(
+        source.contains("do not generate an operation_id and do not call task assign"),
+        "命中自我时必须不生成 operation_id、不调用 task assign"
+    );
+    assert!(
+        source.contains("The same name in a different Workspace is not yourself"),
+        "跨 Workspace 同名必须明确不等于自我身份"
+    );
+    assert!(
+        source.contains("Workspace-scoped"),
+        "自我身份必须声明 Workspace 作用域边界"
+    );
+    assert!(
+        source.contains("stop dispatching") && source.contains("cannot be confirmed"),
+        "self 查询失败时必须停止派发并报告无法确认身份"
+    );
+}

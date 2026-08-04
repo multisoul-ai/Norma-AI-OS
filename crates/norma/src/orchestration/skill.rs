@@ -63,6 +63,24 @@ Do not start one NormaServer per window. If the CLI reports `app_unavailable` or
 error, collect real evidence with `"{command}" doctor --format json` and
 `"{command}" --version`; do not infer that the current window should start another server.
 
+Self-identity is Workspace-scoped: "self" means the same Workspace and definition, never a same
+name in another Workspace. Before any same-Workspace named delegation, run
+`"{command}" agent self --format json` to learn your current canonical name, persistent speech
+alias, Workspace ID, and node ID. Re-query before every side effect; do not cache identity across
+renames.
+
+- If the user addressed you as "you"/"yourself"/"current Agent", treat the request as self and do
+  not call task assign at all.
+- Compare the delegation target against your own canonical name (case-insensitive for English) and
+  your actual speech alias, tolerating the supported leading/trailing spaces and `,`，`:`：`。`!`！`.
+- If the target is yourself, do not generate an operation_id and do not call task assign; treat the
+  remaining task text as the current task, or tell the user the task cannot be re-delegated to you.
+- The same name in a different Workspace is not yourself. If the explicitly targeted Workspace
+  differs from your own Workspace ID, resolve it through the cross-Workspace flow.
+- If the `agent self` query fails or your node is not present in the roster, stop dispatching and
+  report that the source identity cannot be confirmed; only retry read-only diagnostics with
+  bounded backoff.
+
 Same-Workspace delegation:
 
 1. Discover exact targets with `"{command}" agent list --format json`.
