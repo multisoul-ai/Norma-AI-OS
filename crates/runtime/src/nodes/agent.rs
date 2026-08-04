@@ -166,6 +166,7 @@ mod tests {
             token: "tok_123".to_string(),
             workspace_id: "workspace-alpha".to_string(),
             workspace_route_id: "route-alpha-7".to_string(),
+            norma_socket: "/tmp/multisoul-norma-dev.sock".to_string(),
         };
 
         let command = agent_command(AgentProfile::Codex, Some(&hook_env));
@@ -240,6 +241,7 @@ mod tests {
             token: "tok_456".to_string(),
             workspace_id: "workspace-alpha".to_string(),
             workspace_route_id: "route-alpha-7".to_string(),
+            norma_socket: "/tmp/multisoul-norma-dev.sock".to_string(),
         };
         let codex_with_hook_env = agent_command(AgentProfile::Codex, Some(&hook_env));
         let claude_with_hook_env = agent_command(
@@ -251,6 +253,7 @@ mod tests {
                 token: "tok_456".to_string(),
                 workspace_id: "workspace-alpha".to_string(),
                 workspace_route_id: "route-alpha-7".to_string(),
+                norma_socket: "/tmp/multisoul-norma-dev.sock".to_string(),
             }),
         );
 

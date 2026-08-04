@@ -122,7 +122,7 @@ pub(crate) fn register_workspace(
     cx: &mut App,
 ) -> Result<(), WorkspaceRouteError> {
     if !cx.has_global::<NormaEndpointHost>() {
-        return Ok(());
+        return Err(WorkspaceRouteError::EndpointUnavailable);
     }
     let host = cx.global_mut::<NormaEndpointHost>();
     host.routes.register(

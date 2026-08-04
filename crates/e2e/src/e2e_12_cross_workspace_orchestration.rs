@@ -240,6 +240,57 @@ fn cross_workspace_assign_routes_to_background_target_without_node_id_collision(
     );
 }
 
+/// Endpoint 不可用时 Workspace 必须 fail closed，不能向 Agent 发布不存在的路由身份。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   GPUI App = 1 个
+///   Norma endpoint = 0 个（模拟第二个 App 未取得 socket lease）
+///   Workspace = 1 个临时目录
+///   可发布编排身份上限 = 0 个
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建不安装 App-global Norma endpoint 的 headless App。
+///   2. 打开临时 Workspace，并走生产 route 注册入口。
+///   3. 读取对外 Workspace identity 与 Agent runtime 编排配置。
+///
+/// 预期结果：
+///   - 正断言：Workspace 页面仍可打开，不因编排 endpoint 缺失而崩溃。
+///   - 负断言：App 不得发布未注册的 Workspace ID/route ID。
+///   - 负断言：Agent runtime 不得获得会误连其他 App 的编排环境。
+#[test]
+fn workspace_without_norma_endpoint_does_not_publish_a_phantom_route() {
+    let workspace = tempfile::tempdir().expect("fail-closed e2e 应创建临时 Workspace");
+    let mut test_cx = TestAppContext::single();
+    let (app, cx) = crate::harness::make_app(&mut test_cx, crate::harness::echo_factory());
+
+    cx.update(|window, cx| {
+        app.update(cx, |app, cx| {
+            app.enter_canvas_and_register_norma_route_for_e2e(workspace.path(), window, cx);
+        });
+    });
+    let (workspace_root, route_identity, agent_context) = app.read_with(cx, |app, _cx| {
+        (
+            app.runtime.workspace_root().map(ToOwned::to_owned),
+            app.norma_workspace_identity_for_e2e(),
+            app.runtime.agent_hook_config().cloned(),
+        )
+    });
+
+    assert_eq!(
+        workspace_root.as_deref(),
+        Some(workspace.path()),
+        "Norma endpoint 缺失只应禁用编排，Workspace 本身仍必须正常打开"
+    );
+    assert!(
+        route_identity.is_none(),
+        "没有 App-global endpoint 时不得发布未注册的 Workspace ID/route，实际：{route_identity:?}"
+    );
+    assert!(
+        agent_context.is_none(),
+        "没有 App-global endpoint 时 Agent 不得获得可能误连其他 App 的编排环境，实际：{agent_context:?}"
+    );
+}
+
 fn prepare_workspace_agent(
     window_handle: &TestWindow,
     app: &Entity<MultisoulApp>,

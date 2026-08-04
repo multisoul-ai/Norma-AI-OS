@@ -56,6 +56,7 @@ fn real_agent_cli_receives_and_submits_prompt() {
                 token: "e2e-unreachable-hook".to_string(),
                 workspace_id: "e2e-workspace".to_string(),
                 workspace_route_id: "e2e-route".to_string(),
+                norma_socket: "/tmp/multisoul-norma-e2e.sock".to_string(),
             }));
     });
 

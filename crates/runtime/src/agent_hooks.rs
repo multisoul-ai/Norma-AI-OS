@@ -10,6 +10,7 @@ pub struct AgentHookRuntimeConfig {
     pub token: String,
     pub workspace_id: String,
     pub workspace_route_id: String,
+    pub norma_socket: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -20,6 +21,7 @@ pub(crate) struct AgentHookEnv {
     pub(crate) token: String,
     pub(crate) workspace_id: String,
     pub(crate) workspace_route_id: String,
+    pub(crate) norma_socket: String,
 }
 
 impl AgentHookEnv {
@@ -31,6 +33,7 @@ impl AgentHookEnv {
             .env("MULTISOUL_HOOK_TOKEN", self.token.clone())
             .env("NORMA_WORKSPACE_ID", self.workspace_id.clone())
             .env("NORMA_WORKSPACE_ROUTE_ID", self.workspace_route_id.clone())
+            .env("NORMA_SOCKET", self.norma_socket.clone())
     }
 }
 
@@ -55,6 +58,7 @@ impl Runtime {
             token: config.token.clone(),
             workspace_id: config.workspace_id.clone(),
             workspace_route_id: config.workspace_route_id.clone(),
+            norma_socket: config.norma_socket.clone(),
         })
     }
 }
@@ -97,6 +101,7 @@ mod tests {
             token: "tok_opencode".to_string(),
             workspace_id: "workspace-alpha".to_string(),
             workspace_route_id: "route-alpha-7".to_string(),
+            norma_socket: "/tmp/multisoul-norma-dev.sock".to_string(),
         }));
 
         let env = runtime
@@ -132,6 +137,69 @@ mod tests {
             env.profile,
             AgentProfile::Codex,
             "OpenCode hook env must not be normalized to Codex"
+        );
+    }
+
+    /// Agent 启动上下文必须显式绑定所属 Norma socket，不能依赖全局安装 CLI 的构建类型。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   Agent node = Codex/42(1)
+    ///   owning socket = /tmp/multisoul-norma-dev.sock(1)
+    ///   foreign socket = /tmp/multisoul-norma.sock(1)
+    ///   workspace identity = workspace-alpha + route-alpha-7(2 fields)
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 为开发版 Workspace 构造包含所属 socket 的 AgentHookRuntimeConfig。
+    ///   2. 从 Runtime 解析 Codex AgentHookEnv。
+    ///   3. 将该环境应用到实际 PtyCommand，并检查最终进程环境。
+    ///
+    /// 预期结果：
+    ///   - 正断言：命令精确包含 `NORMA_SOCKET=/tmp/multisoul-norma-dev.sock`。
+    ///   - 正断言：Workspace ID 与 route ID 仍同时注入。
+    ///   - 负断言：命令不得回退到正式版 `/tmp/multisoul-norma.sock`。
+    #[test]
+    fn agent_command_is_pinned_to_the_owning_norma_socket() {
+        let mut runtime = Runtime::new();
+        runtime.set_agent_hook_config(Some(AgentHookRuntimeConfig {
+            endpoint: "http://127.0.0.1:49152/agent-hooks".to_string(),
+            token: "tok_codex".to_string(),
+            workspace_id: "workspace-alpha".to_string(),
+            workspace_route_id: "route-alpha-7".to_string(),
+            norma_socket: "/tmp/multisoul-norma-dev.sock".to_string(),
+        }));
+
+        let env = runtime
+            .agent_hook_env(42, AgentProfile::Codex)
+            .expect("已注册 Workspace 的 Codex Agent 必须获得编排环境");
+        let command = env.apply_to_command(PtyCommand::new("/bin/zsh"));
+
+        assert!(
+            command.env.iter().any(|(key, value)| {
+                key == "NORMA_SOCKET" && value == "/tmp/multisoul-norma-dev.sock"
+            }),
+            "Agent 命令必须显式绑定开发版所属 socket，实际环境：{:?}",
+            command.env
+        );
+        assert!(
+            command
+                .env
+                .iter()
+                .any(|(key, value)| key == "NORMA_WORKSPACE_ID" && value == "workspace-alpha"),
+            "显式 socket 绑定不得丢失 Workspace ID，实际环境：{:?}",
+            command.env
+        );
+        assert!(
+            command.env.iter().any(|(key, value)| {
+                key == "NORMA_WORKSPACE_ROUTE_ID" && value == "route-alpha-7"
+            }),
+            "显式 socket 绑定不得丢失 Workspace route ID，实际环境：{:?}",
+            command.env
+        );
+        assert!(
+            command.env.iter().all(|(key, value)| {
+                key != "NORMA_SOCKET" || value != "/tmp/multisoul-norma.sock"
+            }),
+            "开发版 Agent 不得回退到正式版 Norma socket"
         );
     }
 }

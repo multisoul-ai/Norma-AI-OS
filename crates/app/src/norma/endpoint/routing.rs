@@ -188,6 +188,12 @@ pub(crate) fn protocol_compatibility_error(
 
 pub(super) fn routing_error_response(request_id: u64, error: WorkspaceRouteError) -> WireResponse {
     match error {
+        WorkspaceRouteError::EndpointUnavailable => agent_error(
+            request_id,
+            AgentErrorCode::AppUnavailable,
+            "当前 App 未持有 Norma 编排 endpoint",
+            true,
+        ),
         WorkspaceRouteError::WorkspaceRequired => agent_error(
             request_id,
             AgentErrorCode::WorkspaceRequired,

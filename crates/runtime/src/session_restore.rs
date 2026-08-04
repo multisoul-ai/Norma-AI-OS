@@ -23,6 +23,9 @@ use crate::runtime_support::{checkpoint_grid_size, terminal_shell_command, usize
 use crate::{session_snapshot, NodeView};
 
 #[cfg(test)]
+#[path = "../tests/unit/agent_socket_routing_tests.rs"]
+mod agent_socket_routing_tests;
+#[cfg(test)]
 #[path = "session_restore_test_support.rs"]
 mod test_support;
 #[cfg(test)]
@@ -117,6 +120,7 @@ impl RestoreCtx<'_> {
             token: config.token.clone(),
             workspace_id: config.workspace_id.clone(),
             workspace_route_id: config.workspace_route_id.clone(),
+            norma_socket: config.norma_socket.clone(),
         })
     }
 }

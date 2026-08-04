@@ -71,6 +71,9 @@ impl MultisoulApp {
         let runtime_config = self.agent_hook_server.runtime_config().map(|mut config| {
             config.workspace_id = workspace_id;
             config.workspace_route_id = route_id;
+            config.norma_socket = norma::client::default_socket_path()
+                .to_string_lossy()
+                .into_owned();
             config
         });
         self.runtime.set_agent_hook_config(runtime_config);

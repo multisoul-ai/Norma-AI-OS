@@ -10,7 +10,10 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const SOCKET_ENV: &str = "NORMA_SOCKET";
+#[cfg(not(debug_assertions))]
 const DEFAULT_SOCKET_NAME: &str = "multisoul-norma.sock";
+#[cfg(debug_assertions)]
+const DEFAULT_SOCKET_NAME: &str = "multisoul-norma-dev.sock";
 const WORKSPACE_ID_ENV: &str = "NORMA_WORKSPACE_ID";
 const WORKSPACE_ROUTE_ID_ENV: &str = "NORMA_WORKSPACE_ROUTE_ID";
 
@@ -362,5 +365,66 @@ fn parse_provider(value: &str) -> Option<OrchestrationProvider> {
         "opencode" => Some(OrchestrationProvider::OpenCode),
         "grok" => Some(OrchestrationProvider::Grok),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DEFAULT_SOCKET_NAME;
+
+    /// Debug 构建的 Norma App/CLI 必须使用独立 socket，避免误连正在运行的正式版。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   build channel = debug(1)
+    ///   expected socket = multisoul-norma-dev.sock(1)
+    ///   forbidden production socket = multisoul-norma.sock(1)
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 在 debug 测试构建中读取内置默认 socket 文件名。
+    ///   2. 与开发版专用文件名比较。
+    ///   3. 与正式版共享文件名做负向比较。
+    ///
+    /// 预期结果：
+    ///   - 正断言：debug App 与 debug CLI 默认使用 `multisoul-norma-dev.sock`。
+    ///   - 负断言：debug 构建不得继续占用正式版的 `multisoul-norma.sock`。
+    #[cfg(debug_assertions)]
+    #[test]
+    fn debug_build_uses_an_isolated_norma_socket_name() {
+        assert_eq!(
+            DEFAULT_SOCKET_NAME, "multisoul-norma-dev.sock",
+            "debug Norma App/CLI 必须使用开发版专用 socket，避免路由到正式版进程"
+        );
+        assert_ne!(
+            DEFAULT_SOCKET_NAME, "multisoul-norma.sock",
+            "debug 构建不得与正式版争用同一个 Norma socket"
+        );
+    }
+
+    /// Release 构建必须保留稳定的生产 socket 名称，不继承开发版隔离命名。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   build channel = release(1)
+    ///   expected socket = multisoul-norma.sock(1)
+    ///   forbidden debug socket = multisoul-norma-dev.sock(1)
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 在 release 测试构建中读取内置默认 socket 文件名。
+    ///   2. 与生产稳定文件名比较。
+    ///   3. 与开发版文件名做负向比较。
+    ///
+    /// 预期结果：
+    ///   - 正断言：release App 与 CLI 继续使用 `multisoul-norma.sock`。
+    ///   - 负断言：release 构建不得连接开发版专用 socket。
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn release_build_keeps_the_production_norma_socket_name() {
+        assert_eq!(
+            DEFAULT_SOCKET_NAME, "multisoul-norma.sock",
+            "release Norma App/CLI 必须保留稳定生产 socket 名称"
+        );
+        assert_ne!(
+            DEFAULT_SOCKET_NAME, "multisoul-norma-dev.sock",
+            "release 构建不得连接开发版专用 socket"
+        );
     }
 }

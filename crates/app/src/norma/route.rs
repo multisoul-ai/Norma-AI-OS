@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum WorkspaceRouteError {
+    EndpointUnavailable,
     WorkspaceRequired,
     WorkspaceNotFound,
     WorkspaceNotOpen,

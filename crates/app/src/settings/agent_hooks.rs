@@ -102,6 +102,7 @@ impl AgentHookServer {
             token: self.token.clone()?,
             workspace_id: String::new(),
             workspace_route_id: String::new(),
+            norma_socket: String::new(),
         })
     }
 
