@@ -38,3 +38,6 @@ mod agent_session_termination_queue_tests;
 
 #[path = "../../../tests/unit/agent_context_command_tests.rs"]
 mod agent_context_command_tests;
+
+#[path = "../../../tests/unit/agent_self_identity_tests.rs"]
+mod agent_self_identity_tests;

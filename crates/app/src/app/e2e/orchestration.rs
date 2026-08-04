@@ -35,6 +35,14 @@ impl MultisoulApp {
         Some((self.workspace_id.clone()?, self.workspace_route_id.clone()?))
     }
 
+    /// E2E 只读辅助：当前 coordinator 未完成任务总数，用于断言自派发被拒后零副作用。
+    pub fn agent_coordinator_task_count_for_e2e(&self) -> usize {
+        self.agent_task_coordinator
+            .as_ref()
+            .map(|coordinator| coordinator.tasks().len())
+            .unwrap_or(0)
+    }
+
     pub fn use_canonical_orchestration_preview_for_e2e(&mut self, cx: &mut Context<Self>) {
         self.orchestration_settings.use_canonical_preview();
         cx.notify();

@@ -20,13 +20,14 @@ mod create_agent_command;
 mod delete_card;
 mod diagnostics;
 mod dispatch_effects;
+mod identity;
 mod orchestration_commands;
 pub(super) mod pending;
 mod reply_adapter;
 mod session_reply_queue;
 
 pub(crate) use conversation_tails::{ConversationTailMemory, ConversationTailWriter};
-pub(crate) use coordination::{self_dispatch_forbidden_error, AgentIdentitySnapshot};
+pub(crate) use identity::{self_dispatch_forbidden_error, AgentIdentitySnapshot};
 pub(crate) use session_reply_queue::AgentSessionReplyQueue;
 
 pub(crate) use artifacts::artifacts_from_agent_events;
