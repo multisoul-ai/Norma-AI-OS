@@ -21,7 +21,7 @@ use storage::{
 };
 #[cfg(test)]
 use terminal::PtyCommand;
-use terminal::{PtyError, TerminalSessionId};
+use terminal::{Cell, PtyError, TerminalSessionId};
 
 mod definition_identity;
 
@@ -383,6 +383,17 @@ impl Runtime {
         };
         let result = node.scroll(scroll);
         self.finish_node_operation(Some(node_id), "scroll", result)
+    }
+
+    /// 读取终端节点的绝对行范围 `[start_abs, end_abs]`（含两端）的中性 Cell 行数据。
+    /// 非终端节点或节点缺失时返回 `None`。用于跨 scrollback 复制选中的完整文本。
+    pub fn node_terminal_rows(
+        &self,
+        node_id: NodeId,
+        start_abs: usize,
+        end_abs: usize,
+    ) -> Option<Vec<Vec<Cell>>> {
+        self.live.get(&node_id)?.terminal_rows(start_abs, end_abs)
     }
 
     /// drain 所有 live node；任一 dirty 则返回 true（app 据此决定是否 repaint）。

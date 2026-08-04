@@ -3,7 +3,9 @@
 use crate::live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
 use crossbeam_channel::{unbounded, Sender};
 use std::sync::Arc;
-use terminal::{PtyBackend, PtyCommand, PtyError, PtyEvent, TerminalSession, TerminalSessionId};
+use terminal::{
+    Cell, PtyBackend, PtyCommand, PtyError, PtyEvent, TerminalSession, TerminalSessionId,
+};
 
 /// PTY 后端工厂：给定 (命令, cols, rows, tx) 返回 `Box<dyn PtyBackend>`。
 ///
@@ -185,6 +187,10 @@ impl LiveNode for TermLive {
 
     fn view(&self) -> Option<NodeView> {
         Some(self.cached_view.clone())
+    }
+
+    fn terminal_rows(&self, start_abs: usize, end_abs: usize) -> Option<Vec<Vec<Cell>>> {
+        Some(self.session.rows_for_absolute(start_abs, end_abs))
     }
 
     fn kill(&mut self) {

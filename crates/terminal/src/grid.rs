@@ -272,6 +272,50 @@ impl TerminalGrid {
             sgr_mouse: mode.contains(TermMode::SGR_MOUSE),
         }
     }
+
+    /// 读取绝对行范围 `[start_abs, end_abs]`（含两端）的中性 Cell 行数据。
+    ///
+    /// 绝对行坐标系：绝对行 0 = 最旧 scrollback 行（`Line(-history_size)`）；
+    /// 绝对行 `history_size` = `Line(0)` = 可见屏幕顶行；绝对行
+    /// `history_size + screen_lines - 1` = 可见屏幕底行。行号越界时按
+    /// `[0, history_size + screen_lines - 1]` 钳制。
+    pub fn rows_for_absolute(&self, start_abs: usize, end_abs: usize) -> Vec<Vec<Cell>> {
+        let grid = self.term.grid();
+        let history_size = grid.history_size();
+        let max_abs = history_size + self.dims.screen_lines;
+        let start = start_abs.min(max_abs.saturating_sub(1));
+        let end = end_abs.min(max_abs.saturating_sub(1));
+        if start > end {
+            return Vec::new();
+        }
+
+        let mut out = Vec::with_capacity(end - start + 1);
+        for abs in start..=end {
+            let line = Line(abs as i32 - history_size as i32);
+            let mut row = vec![
+                Cell {
+                    c: ' ',
+                    fg: TerminalColor::Named(TerminalNamedColor::Foreground),
+                    bg: TerminalColor::Named(TerminalNamedColor::Background),
+                    attrs: CellAttrs::default(),
+                    hyperlink: None,
+                };
+                self.dims.columns
+            ];
+            for (col, output_cell) in row.iter_mut().enumerate().take(self.dims.columns) {
+                let cell = &grid[Point::new(line, Column(col))];
+                *output_cell = Cell {
+                    c: cell.c,
+                    fg: terminal_color(cell.fg),
+                    bg: terminal_color(cell.bg),
+                    attrs: cell_attrs(cell.flags),
+                    hyperlink: cell.hyperlink().map(TerminalHyperlink::from_alacritty),
+                };
+            }
+            out.push(row);
+        }
+        out
+    }
 }
 
 pub fn terminal_wheel_action(

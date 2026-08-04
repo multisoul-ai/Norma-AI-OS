@@ -8,16 +8,19 @@ use crate::canvas::interaction::DragState;
 use crate::canvas::interaction::HoveredTerminalLink;
 use crate::canvas::scroll::{
     terminal_scroll_for_text_point, terminal_scroll_lines_from_pixel_delta,
-    wheel_scroll_owner_for_point, WheelScrollOwner,
+    terminal_selection_auto_scroll_lines, wheel_scroll_owner_for_point, WheelScrollOwner,
 };
-use crate::canvas::terminal_hit::{terminal_link_point_for_screen, terminal_text_point_for_screen};
+use crate::canvas::terminal_hit::{
+    terminal_content_rect, terminal_link_point_for_screen, terminal_selection_point_for_screen,
+    terminal_text_point_for_screen,
+};
 use crate::canvas::terminal_link::{terminal_link_intent, TerminalLinkIntent};
 use canvas::{hit_test, Vec2};
 use gpui::{
     px, Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ScrollWheelEvent,
     Window,
 };
-use runtime::{route, Route};
+use runtime::{route, NodeScroll, Route};
 use std::time::{Duration, Instant};
 
 const MOTION_NOTIFY_INTERVAL: Duration = Duration::from_millis(16);
@@ -147,25 +150,28 @@ pub(super) fn on_mouse_down(
                         ev.click_count,
                     ),
                 });
+                // 选区用 scrollback 绝对坐标；link point 仍是视口相对坐标（仅用于链接命中）。
+                let abs_point =
+                    terminal_selection_point_for_screen(app, id, screen).unwrap_or(point);
                 match intent.unwrap_or(TerminalLinkIntent::BeginTextSelection) {
                     intent @ (TerminalLinkIntent::OpenBrowserCard { .. }
                     | TerminalLinkIntent::OpenDefaultBrowser { .. }
                     | TerminalLinkIntent::OpenPreviewCard { .. }) => {
                         app.interaction
-                            .begin_terminal_link(id, point, screen, intent);
+                            .begin_terminal_link(id, abs_point, screen, intent);
                     }
                     TerminalLinkIntent::BeginTextSelection => {
                         app.runtime.focus.focus_node(id);
                         app.runtime.selection.select_only(id);
                         app.mark_node_viewed_if_needed(id);
                         app.motion.set_pressed(id, true);
-                        app.interaction.begin_text_selection(id, point);
+                        app.interaction.begin_text_selection(id, abs_point);
                     }
                     TerminalLinkIntent::InvalidLink => {
                         app.runtime.focus.focus_node(id);
                         app.runtime.selection.select_only(id);
                         app.mark_node_viewed_if_needed(id);
-                        app.interaction.begin_text_selection(id, point);
+                        app.interaction.begin_text_selection(id, abs_point);
                         app.workspace_state.error = Some(
                             "Only valid http(s) links can be opened from the terminal.".to_string(),
                         );
@@ -257,7 +263,7 @@ pub(super) fn on_mouse_move(
     }
 
     if let Some(pending) = app.interaction.pending_terminal_link.clone() {
-        if let Some(point) = terminal_text_point_for_screen(app, pending.node_id, screen) {
+        if let Some(point) = terminal_selection_point_for_screen(app, pending.node_id, screen) {
             if terminal_link_dragged(pending.pressed_screen, screen) {
                 app.interaction
                     .begin_text_selection(pending.node_id, pending.anchor);
@@ -277,7 +283,27 @@ pub(super) fn on_mouse_move(
 
     if let Some(selection) = app.interaction.active_text_selection {
         if selection.dragging {
-            if let Some(point) = terminal_text_point_for_screen(app, selection.node_id, screen) {
+            // 鼠标拖出终端内容区上/下边缘时自动滚动：向上回看历史、向下回到底部，
+            // 使选区能延伸到当前视口之外。scroll_node 会刷新 cached view，
+            // 因此下面的绝对行计算用的是滚动后的 snapshot。
+            if let Some((content_top_left, content_size)) =
+                terminal_content_rect(app, selection.node_id)
+            {
+                let lines = terminal_selection_auto_scroll_lines(
+                    screen.y - content_top_left.y,
+                    content_size.y,
+                );
+                if lines != 0 {
+                    if let Ok(true) = app
+                        .runtime
+                        .scroll_node(selection.node_id, NodeScroll::TermLines(lines))
+                    {
+                        cx.notify();
+                    }
+                }
+            }
+            if let Some(point) = terminal_selection_point_for_screen(app, selection.node_id, screen)
+            {
                 if app
                     .interaction
                     .update_text_selection_head(selection.node_id, point)
@@ -380,7 +406,7 @@ pub(super) fn on_mouse_up(
         let release_screen = pt_to_vec(ev.position);
         if terminal_link_dragged(pending.pressed_screen, release_screen) {
             if let Some(point) =
-                terminal_text_point_for_screen(app, pending.node_id, release_screen)
+                terminal_selection_point_for_screen(app, pending.node_id, release_screen)
             {
                 app.interaction
                     .begin_text_selection(pending.node_id, pending.anchor);

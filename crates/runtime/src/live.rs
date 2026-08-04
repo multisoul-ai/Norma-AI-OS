@@ -2,7 +2,7 @@
 
 use std::fmt;
 use std::sync::Arc;
-use terminal::{GridSnapshot, KeyInput, PtyError, TerminalStatus};
+use terminal::{Cell, GridSnapshot, KeyInput, PtyError, TerminalStatus};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Caps {
@@ -95,6 +95,11 @@ pub trait LiveNode {
     fn view(&self) -> Option<NodeView>;
     fn kill(&mut self);
     fn child_pid(&self) -> Option<u32> {
+        None
+    }
+    /// 终端节点读取绝对行范围 `[start_abs, end_abs]`（含两端）的中性 Cell 行数据。
+    /// 非终端节点返回 `None`。绝对行坐标系见 [`terminal::GridSnapshot`]。
+    fn terminal_rows(&self, _start_abs: usize, _end_abs: usize) -> Option<Vec<Vec<Cell>>> {
         None
     }
 }

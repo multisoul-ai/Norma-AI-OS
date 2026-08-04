@@ -65,6 +65,18 @@ pub(crate) fn terminal_scroll_for_text_point(lines: i32, point: Option<TextPoint
     }
 }
 
+/// 选中拖拽越界自动滚动：指针在终端内容区上方回看历史（+1），
+/// 下方回到底部（-1），未越界返回 0。
+pub(crate) fn terminal_selection_auto_scroll_lines(local_y: f32, content_height: f32) -> i32 {
+    if local_y < 0.0 {
+        1
+    } else if local_y > content_height {
+        -1
+    } else {
+        0
+    }
+}
+
 #[cfg(test)]
 #[path = "../../tests/unit/card_scroll_tests.rs"]
 mod tests;

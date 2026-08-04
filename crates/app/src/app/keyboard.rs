@@ -2,7 +2,7 @@
 
 use crate::app::{clipboard_image, AppScreen, CopyCardContent, MultisoulApp};
 use crate::canvas::text_selection::TextSelection;
-use crate::cards::term::selection::terminal_selected_text;
+use crate::cards::term::selection::{terminal_selected_text, terminal_text_from_absolute_rows};
 use crate::cards::term::view::keystroke_to_input;
 use crate::shortcuts::ShortcutCommandId;
 use canvas::{navigate_card, NavigationDirection, NodeId};
@@ -88,7 +88,24 @@ pub(crate) fn copy_text_for_active_selection(
 ) -> Option<String> {
     let selection = active_selection?;
     let NodeView::Term { snapshot, .. } = runtime.node_view(selection.node_id)?;
-    let text = terminal_selected_text(&snapshot, selection.range());
+    let range = selection.range();
+    let normalized = range.normalized();
+
+    // 先尝试完整 scrollback 路径：从 live grid 读取绝对行范围。
+    // 选中坐标是 scrollback 绝对行（见 terminal_selection_point_for_screen），
+    // 因此能拿到超出当前视口的行。
+    if let Some(rows) =
+        runtime.node_terminal_rows(selection.node_id, normalized.start.row, normalized.end.row)
+    {
+        let text =
+            terminal_text_from_absolute_rows(&rows, snapshot.cols, normalized.start.row, range);
+        if !text.is_empty() {
+            return Some(text);
+        }
+    }
+
+    // 回退：仅当前视口路径（选区落在快照内时）。
+    let text = terminal_selected_text(&snapshot, range);
     (!text.is_empty()).then_some(text)
 }
 

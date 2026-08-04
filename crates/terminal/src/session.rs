@@ -1,6 +1,6 @@
 //! TerminalSession：把 PtyHandle + TerminalGrid + 通道接收端组装为一个可 drain 的会话。
 
-use crate::grid::{terminal_wheel_action, GridSnapshot, TerminalGrid, TerminalWheelAction};
+use crate::grid::{terminal_wheel_action, Cell, GridSnapshot, TerminalGrid, TerminalWheelAction};
 use crate::input::{encode_for_keyboard_mode, KeyInput};
 use crate::message::PtyEvent;
 use crate::paste::encode_paste;
@@ -135,6 +135,12 @@ impl TerminalSession {
 
     pub fn snapshot(&self) -> GridSnapshot {
         self.grid.snapshot()
+    }
+
+    /// 读取绝对行范围 `[start_abs, end_abs]`（含两端）的中性 Cell 行数据。
+    /// 绝对行坐标系见 [`TerminalGrid::rows_for_absolute`]。
+    pub fn rows_for_absolute(&self, start_abs: usize, end_abs: usize) -> Vec<Vec<Cell>> {
+        self.grid.rows_for_absolute(start_abs, end_abs)
     }
 
     pub fn scroll_display(&mut self, lines: i32) -> bool {
