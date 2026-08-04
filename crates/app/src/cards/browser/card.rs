@@ -3,6 +3,7 @@
 use crate::app::browser::BrowserAuthUiState;
 use crate::app::ego::{EgoCardCommand, EgoCardCommandKind};
 use crate::app::{BrowserCommand, BrowserCommandKind};
+use crate::cards::browser::occluded::occluded_browser_body;
 use crate::cards::chrome::{CardChrome, CardChromeTaskBadge, CardChromeTaskTone};
 use crate::cards::{Card, CardBodyContext};
 use canvas::{BrowserSurfaceKind, CanvasNode, CanvasNodeKind, CanvasRect, EgoCardPhase, NodeType};
@@ -50,13 +51,15 @@ impl Card for BrowserCard {
     }
 
     fn body(&self, node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElement {
+        if context.occluded_by_overlay {
+            return occluded_browser_body(node.id, context.theme, context.bottom_radius_px);
+        }
         if is_ego_node(node) {
             render_ego_body(node, context)
         } else {
             render_browser_body(node, context)
         }
     }
-
     fn resize(&self, _bounds: CanvasRect, _zoom: f32) -> Option<NodeResize> {
         None
     }
@@ -344,27 +347,15 @@ fn render_browser_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyEl
                 .h(px(BROWSER_TOOLBAR_H_PX * zoom))
                 .px(px(BROWSER_PADDING_PX * zoom))
                 .bg(rgba(with_alpha(theme.panel, 0xd0)))
-                .child(toolbar_button(
-                    node_id,
-                    BrowserCommandKind::Back,
-                    "‹",
-                    theme,
-                    zoom,
-                ))
-                .child(toolbar_button(
-                    node_id,
-                    BrowserCommandKind::Forward,
-                    "›",
-                    theme,
-                    zoom,
-                ))
-                .child(toolbar_button(
-                    node_id,
-                    BrowserCommandKind::Reload,
-                    "R",
-                    theme,
-                    zoom,
-                ))
+                .children(
+                    [
+                        (BrowserCommandKind::Back, "‹"),
+                        (BrowserCommandKind::Forward, "›"),
+                        (BrowserCommandKind::Reload, "R"),
+                    ]
+                    .into_iter()
+                    .map(|(command, label)| toolbar_button(node_id, command, label, theme, zoom)),
+                )
                 .child(toolbar_button(
                     node_id,
                     BrowserCommandKind::ImportChromeAuth,
@@ -400,7 +391,7 @@ fn render_browser_body(node: &CanvasNode, context: CardBodyContext<'_>) -> AnyEl
                         .when(!editing, |this| {
                             this.child(div().min_w(px(0.0)).overflow_hidden().truncate().child(url))
                                 .on_mouse_down(MouseButton::Left, move |_, _, cx| {
-                                    cx.stop_propagation();
+                                    cx.stop_propagation()
                                 })
                                 .on_mouse_up(MouseButton::Left, move |_, window, cx| {
                                     window.dispatch_action(

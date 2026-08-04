@@ -19,7 +19,7 @@ mod chrome_auth_tests;
 #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
 mod cef_backend;
 mod engine;
-mod native;
+pub(crate) mod native;
 mod store;
 mod wry_backend;
 

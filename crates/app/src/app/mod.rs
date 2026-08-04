@@ -80,7 +80,7 @@ mod ime_geometry;
 mod keyboard;
 mod keyboard_settings;
 mod layout_actions;
-mod layout_menu;
+pub(crate) mod layout_menu;
 mod lifecycle;
 mod new_menu;
 mod render;

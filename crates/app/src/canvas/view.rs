@@ -4,7 +4,9 @@
 use super::events;
 use super::node_label::node_type_label;
 use super::working_snakes::{self, WorkingSnakeGeometry};
+use crate::app::browser::native::BROWSER_NATIVE_BORDER_INSET_PX;
 use crate::app::browser::{browser_native_view_bounds, native_browser_views_visible};
+use crate::app::layout_menu::{browser_occluded_by_layout_menu, layout_menu_screen_rect};
 use crate::app::MultisoulApp;
 #[cfg(test)]
 use crate::canvas::events::{should_focus_app_root_for_mouse_down, should_notify_motion_frame};
@@ -27,7 +29,7 @@ use crate::cards::chrome::{
 use crate::cards::{card_for, CardBodyContext};
 #[cfg(test)]
 use canvas::Vec2;
-use canvas::{CanvasNodeKind, NodeId, NodeType};
+use canvas::{CanvasNodeKind, CanvasRect, NodeId, NodeType};
 use gpui::{div, prelude::*, px, rgba, AnyElement, Context, FontWeight, MouseButton, Window};
 use runtime::InputMode;
 #[cfg(test)]
@@ -65,6 +67,8 @@ pub fn render_canvas(
     let mut node_elems: Vec<AnyElement> = Vec::new();
     let mut visible_browser_nodes = HashSet::new();
     let native_browser_views_visible = native_browser_views_visible(app.settings_panel.open);
+    // 布局菜单打开时计算其屏幕矩形；关闭时为 None（不做遮挡过滤）。
+    let layout_menu_rect = layout_menu_screen_rect(app.interaction.layout_menu_open, win_w, win_h);
     let mut visible_nodes = 0usize;
     let mut snake_nodes = 0usize;
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
@@ -318,6 +322,21 @@ pub fn render_canvas(
             .preview_pan
             .map(|pan| pan.node_id == id)
             .unwrap_or(false);
+        // 浏览器卡片：计算其内容区是否被布局菜单遮挡。
+        let occluded_by_overlay = matches!(node_type, NodeType::Browser)
+            && layout_menu_rect
+                .map(|menu| {
+                    let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
+                    let content_rect = CanvasRect::new(
+                        top_left.x + BROWSER_NATIVE_BORDER_INSET_PX as f32,
+                        top_left.y + browser_header_h + BROWSER_NATIVE_BORDER_INSET_PX as f32,
+                        (w - BROWSER_NATIVE_BORDER_INSET_PX as f32 * 2.0).max(0.0),
+                        (h - browser_header_h - BROWSER_NATIVE_BORDER_INSET_PX as f32 * 2.0)
+                            .max(0.0),
+                    );
+                    browser_occluded_by_layout_menu(content_rect, Some(menu))
+                })
+                .unwrap_or(false);
         let card_body = card.body(
             &node,
             CardBodyContext {
@@ -337,6 +356,7 @@ pub fn render_canvas(
                 #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
                 ego_live_preview: app.ego_previews.live_frame_for(id),
                 ego_preview_error: app.ego_previews.error_for(id),
+                occluded_by_overlay,
                 theme,
                 zoom: vp.zoom,
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),
@@ -344,7 +364,9 @@ pub fn render_canvas(
         );
         if matches!(node_type, NodeType::Browser) && native_browser_views_visible {
             if let CanvasNodeKind::Browser(spec) = &node.kind {
-                if matches!(&spec.surface, canvas::BrowserSurfaceKind::Native) {
+                if matches!(&spec.surface, canvas::BrowserSurfaceKind::Native)
+                    && !occluded_by_overlay
+                {
                     visible_browser_nodes.insert(id);
                     let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
                     app.sync_browser_view_for_node(

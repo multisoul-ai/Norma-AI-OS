@@ -15,7 +15,7 @@ pub(crate) enum CookieImportStatus {
 
 // Browser 卡片在 selected/focused 时绘制 2px GPUI 边框；原生子视图必须完整避让它，
 // 否则 AppKit 的子层会盖住蓝色选中态。
-const BROWSER_NATIVE_BORDER_INSET_PX: f64 = 2.0;
+pub(crate) const BROWSER_NATIVE_BORDER_INSET_PX: f64 = 2.0;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct BrowserViewBounds {

@@ -2,10 +2,42 @@
 
 use super::chrome::chrome_shadow;
 use super::MultisoulApp;
-use canvas::{GridCardSizing, GridFill};
+use canvas::{CanvasRect, GridCardSizing, GridFill};
 use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, MouseButton, Stateful, Window};
 use ui::icons::with_alpha;
 use ui::Theme;
+
+/// 布局菜单面板宽度（与 render_layout_menu 的 w(px(294.0)) 一致）。
+pub(crate) const LAYOUT_MENU_WIDTH_PX: f32 = 294.0;
+/// 布局菜单底部距窗口底部的距离（与 bottom(px(82.0)) 一致）。
+pub(crate) const LAYOUT_MENU_BOTTOM_PX: f32 = 82.0;
+/// 布局菜单面板高度（内容推导：heading 20 + 填充块 49 + 轨道 26 + 尺寸块 49 + reflow 32 + gap×4=40 + padding×2=24）。
+pub(crate) const LAYOUT_MENU_HEIGHT_PX: f32 = 240.0;
+
+/// 当菜单打开时，返回菜单在屏幕空间的矩形（用于原生浏览器视图遮挡判断）。
+/// 关闭时返回 None，避免菜单未打开时误隐藏浏览器。
+pub(crate) fn layout_menu_screen_rect(open: bool, win_w: f32, win_h: f32) -> Option<CanvasRect> {
+    if !open {
+        return None;
+    }
+    let left = (win_w - LAYOUT_MENU_WIDTH_PX) / 2.0;
+    let top = win_h - LAYOUT_MENU_BOTTOM_PX - LAYOUT_MENU_HEIGHT_PX;
+    Some(CanvasRect::new(
+        left,
+        top,
+        LAYOUT_MENU_WIDTH_PX,
+        LAYOUT_MENU_HEIGHT_PX,
+    ))
+}
+
+/// 判断浏览器卡片的内容区矩形是否被布局菜单遮挡。
+/// 与菜单矩形相交（含边界）即判定为遮挡。
+pub(crate) fn browser_occluded_by_layout_menu(
+    content_rect: CanvasRect,
+    layout_menu_rect: Option<CanvasRect>,
+) -> bool {
+    layout_menu_rect.is_some_and(|menu| content_rect.intersects(menu))
+}
 
 impl MultisoulApp {
     pub(crate) fn on_toolbar_toggle_layout_menu(
@@ -309,3 +341,7 @@ fn stepper_button(
         .hover(move |style| style.bg(rgba(with_alpha(theme.edge_highlight, 0x22))))
         .on_click(on_click)
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/layout_menu_geometry_tests.rs"]
+mod layout_menu_geometry_tests;

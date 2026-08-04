@@ -54,6 +54,9 @@ pub struct CardBodyContext<'a> {
     #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
     pub ego_live_preview: Option<core_video::pixel_buffer::CVPixelBuffer>,
     pub ego_preview_error: Option<String>,
+    /// 卡片内容区是否被 GPUI 浮层（如布局菜单）遮挡。遮挡时浏览器卡片应渲染
+    /// 中性背景，避免显示 "Loading browser..." 占位文字。
+    pub occluded_by_overlay: bool,
     pub theme: Theme,
     pub zoom: f32,
     pub bottom_radius_px: f32,
