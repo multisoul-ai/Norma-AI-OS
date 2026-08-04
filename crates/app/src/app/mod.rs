@@ -42,7 +42,8 @@ mod agent_queue;
 mod agent_runtime;
 pub(crate) use agent_runtime::{
     execute_agent_card_command, execute_orchestration_agent_command,
-    execute_orchestration_agent_command_with_visual_origin,
+    execute_orchestration_agent_command_with_visual_origin, self_dispatch_forbidden_error,
+    AgentIdentitySnapshot,
 };
 mod bootstrap;
 pub(crate) mod browser;

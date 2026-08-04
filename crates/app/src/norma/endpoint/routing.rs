@@ -1,4 +1,5 @@
 use super::{NormaEndpointHost, RoutedTargets, WorkspaceTarget};
+use crate::app::AgentIdentitySnapshot;
 use crate::norma::route::WorkspaceRouteError;
 use crate::norma::server::is_managed_agent_command;
 use gpui::App;
@@ -7,11 +8,21 @@ use norma::protocol::{
     WireResponse, CURRENT_PROTOCOL_VERSION,
 };
 
+/// 经过来源鉴权后的编排请求来源：dispatch source、provider 与身份快照。
+///
+/// 身份快照仅在来源是活跃 Agent 节点且 Workspace 已建立时存在；缺失时不猜测身份，
+/// 由调用方保守回退到通用错误。
+pub(super) struct ValidatedAgentSource {
+    pub source: agent::AgentDispatchSource,
+    pub provider: norma::protocol::AgentProfile,
+    pub identity: Option<AgentIdentitySnapshot>,
+}
+
 pub(super) fn validate_source(
     source_target: &WorkspaceTarget,
     request: &WireRequest,
     cx: &mut App,
-) -> Result<(agent::AgentDispatchSource, norma::protocol::AgentProfile), WireResponse> {
+) -> Result<ValidatedAgentSource, WireResponse> {
     let request_id = request.request_id;
     let authorization = request.authorization.clone();
     let source_node_id = request.source_node_id;
@@ -19,7 +30,14 @@ pub(super) fn validate_source(
         .window
         .update(cx, |_root, _window, cx| {
             source_target.app.update(cx, |app, _cx| {
-                app.validate_orchestration_source(authorization, source_node_id)
+                let (source, provider) =
+                    app.validate_orchestration_source(authorization, source_node_id)?;
+                let identity = app.agent_identity_for_source(source);
+                Ok(ValidatedAgentSource {
+                    source,
+                    provider,
+                    identity,
+                })
             })
         })
         .ok()
@@ -148,8 +166,8 @@ pub(super) fn execute_cross_workspace(
 ) -> WireResponse {
     let request_id = request.request_id;
     let validated = validate_source(&routed.source, &request, cx);
-    let (_source, source_provider) = match validated {
-        Ok(source) => source,
+    let source_provider = match validated {
+        Ok(validated) => validated.provider,
         Err(response) => return response,
     };
     execute_validated_in_workspace(

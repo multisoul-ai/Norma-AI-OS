@@ -21,8 +21,19 @@ pub(super) fn internal_agent_error(message: String) -> CardCommandError {
     CardCommandError::agent(AgentErrorCode::InternalError, message, false)
 }
 
-pub(super) fn coordination_error(error: agent::AgentCoordinationError) -> CardCommandError {
-    let code = match error {
+pub(super) fn coordination_error(
+    error: agent::AgentCoordinationError,
+    identity: Option<&super::AgentIdentitySnapshot>,
+) -> CardCommandError {
+    if matches!(
+        &error,
+        agent::AgentCoordinationError::SelfDispatchForbidden { .. }
+    ) {
+        if let Some(identity) = identity {
+            return super::self_dispatch_forbidden_error(identity);
+        }
+    }
+    let code = match &error {
         agent::AgentCoordinationError::UnknownName(_) => AgentErrorCode::UnknownAgent,
         agent::AgentCoordinationError::Disabled(_) => AgentErrorCode::AgentDisabled,
         agent::AgentCoordinationError::EmptyTask(_) => AgentErrorCode::EmptyTask,

@@ -26,6 +26,7 @@ mod reply_adapter;
 mod session_reply_queue;
 
 pub(crate) use conversation_tails::{ConversationTailMemory, ConversationTailWriter};
+pub(crate) use coordination::{self_dispatch_forbidden_error, AgentIdentitySnapshot};
 pub(crate) use session_reply_queue::AgentSessionReplyQueue;
 
 pub(crate) use artifacts::artifacts_from_agent_events;

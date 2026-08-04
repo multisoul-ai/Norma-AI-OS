@@ -21,13 +21,16 @@ pub(super) fn spawn_global_dispatch(
             return;
         }
     };
-    let (source, source_provider) = match validate_source(&routed.source, &request, cx) {
-        Ok(source) => source,
+    let validated = match validate_source(&routed.source, &request, cx) {
+        Ok(validated) => validated,
         Err(response) => {
             let _ = response_sender.send(response);
             return;
         }
     };
+    let source = validated.source;
+    let source_provider = validated.provider;
+    let source_identity = validated.identity;
     let source_local_parent_ref = source_active_task_ref(&routed.source, source, cx);
     let target_definition_id = match resolve_target_definition(&routed.target, &request, cx) {
         Ok(definition_id) => definition_id,
@@ -145,10 +148,16 @@ pub(super) fn spawn_global_dispatch(
             }
             storage::OrchestrationTaskReservation::Rejected(rejection) => {
                 let (code, message) = match rejection {
-                    storage::OrchestrationLineageRejection::SelfDispatch => (
-                        AgentErrorCode::SelfDispatchForbidden,
-                        "Agent 不得向同一 Workspace 中的自己派发任务".to_string(),
-                    ),
+                    storage::OrchestrationLineageRejection::SelfDispatch => {
+                        let message = match &source_identity {
+                            Some(identity) => crate::app::self_dispatch_forbidden_error(identity)
+                                .to_string(),
+                            None => {
+                                "Agent 不得向同一 Workspace 中的自己派发任务".to_string()
+                            }
+                        };
+                        (AgentErrorCode::SelfDispatchForbidden, message)
+                    }
                     storage::OrchestrationLineageRejection::Cycle => (
                         AgentErrorCode::DelegationCycle,
                         "目标 Agent 已位于当前跨 Workspace 祖先链".to_string(),

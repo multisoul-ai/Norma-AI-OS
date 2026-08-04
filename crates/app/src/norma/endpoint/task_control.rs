@@ -31,13 +31,15 @@ pub(super) fn spawn_global_task_control(
             return;
         }
     };
-    let (source, source_provider) = match validate_source(&source_route, &request, cx) {
-        Ok(source) => source,
+    let validated = match validate_source(&source_route, &request, cx) {
+        Ok(validated) => validated,
         Err(response) => {
             let _ = response_sender.send(response);
             return;
         }
     };
+    let source = validated.source;
+    let source_provider = validated.provider;
     if matches!(request.command, CardCommand::AgentTaskCancel { .. })
         && request.operation_id.is_none()
     {

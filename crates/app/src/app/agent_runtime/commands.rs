@@ -150,6 +150,7 @@ pub(super) fn execute_coordinated_agent_command(
                     Ok(definition)
                 })
                 .collect::<Result<Vec<_>, CardCommandError>>()?;
+            let source_identity = app.agent_identity_for_source(source);
             let current_roster = app.agent_roster_for_provider();
             let mut seen_untracked_definitions = HashSet::new();
             for definition in &definitions {
@@ -198,10 +199,12 @@ pub(super) fn execute_coordinated_agent_command(
             match app.agent_task_coordinator.as_mut() {
                 Some(coordinator) => coordinator
                     .sync_roster(roster)
-                    .map_err(coordination_error)?,
+                    .map_err(|error| coordination_error(error, source_identity.as_ref()))?,
                 None => {
                     app.agent_task_coordinator =
-                        Some(agent::AgentTaskCoordinator::new(roster).map_err(coordination_error)?);
+                        Some(agent::AgentTaskCoordinator::new(roster).map_err(|error| {
+                            coordination_error(error, source_identity.as_ref())
+                        })?);
                 }
             }
             if force_untracked {
@@ -263,7 +266,7 @@ pub(super) fn execute_coordinated_agent_command(
                     force_untracked,
                     source,
                 )
-                .map_err(coordination_error)?;
+                .map_err(|error| coordination_error(error, source_identity.as_ref()))?;
             let mut failed_tasks = HashMap::<u64, AgentTaskSubmitError>::new();
             let mut waiting_tasks = HashSet::<u64>::new();
             let mut retry_safe_managed_failures = HashSet::<i64>::new();
