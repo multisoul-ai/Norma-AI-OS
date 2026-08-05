@@ -9,6 +9,7 @@
 #   fixture DMG bytes = "norma-update" = 12 bytes
 #   short/build version = 1.2.3 / 10203
 #   canonical tag URL = .../releases/download/v1.2.3/Norma-OS_aarch64.dmg
+#   Sparkle namespace = official 2.9.5 generate_appcast legacy namespace
 #
 # Execution:
 #   1. Create a 12-byte DMG fixture, matching checksum, plist, and signed enclosure.
@@ -48,7 +49,7 @@ cat >"$tmp_dir/Info.plist" <<'PLIST'
 PLIST
 cat >"$tmp_dir/appcast.xml" <<'XML'
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="https://sparkle-project.org/xml-namespaces/sparkle">
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
 <channel><item><enclosure
 url="https://github.com/multisoul-ai/norma-os-releases/releases/download/v1.2.3/Norma-OS_aarch64.dmg"
 length="12" sparkle:version="10203" sparkle:shortVersionString="1.2.3"
