@@ -83,7 +83,7 @@ pub trait VadClient: Send {
 pub fn request_microphone_permission() -> Result<(), VoiceInputError> {
     #[cfg(feature = "test-support")]
     {
-        return Ok(());
+        Ok(())
     }
     #[cfg(not(feature = "test-support"))]
     {

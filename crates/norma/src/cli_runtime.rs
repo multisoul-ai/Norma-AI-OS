@@ -37,9 +37,11 @@ pub fn classify_wait_task(status: AgentTaskReceiptStatus, tracking: &str) -> Wai
     if status_decision == WaitStatusDecision::Complete {
         return status_decision;
     }
-    (tracking != "untracked")
-        .then_some(status_decision)
-        .unwrap_or(WaitStatusDecision::Untracked)
+    if tracking != "untracked" {
+        status_decision
+    } else {
+        WaitStatusDecision::Untracked
+    }
 }
 
 pub fn run_invocation(invocation: CliInvocation) -> CliOutput {

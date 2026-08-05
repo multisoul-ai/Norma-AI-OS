@@ -286,7 +286,7 @@ where
                 return Err(CliOutput {
                     stdout: String::new(),
                     stderr: error.to_string(),
-                    exit_code: i32::from(error.exit_code()),
+                    exit_code: error.exit_code(),
                 });
             }
             let format = agent_error_output_format(&args);
