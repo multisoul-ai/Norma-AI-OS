@@ -14,12 +14,14 @@
 # Execution:
 #   1. Read the release workflow and repository publication script.
 #   2. Verify dispatch/branch/concurrency/runner/tool pins and full action SHAs.
-#   3. Verify the manifest version must be newer than the public latest release.
-#   4. Compare step order: local artifact verification precedes token creation.
-#   5. Verify draft recovery, conflict refusal, remote readback, publish, provenance, and bump PR guards.
+#   3. Verify the authenticated public-release lookup avoids shared-runner rate limits.
+#   4. Verify the manifest version must be newer than the public latest release.
+#   5. Compare step order: local artifact verification precedes token creation.
+#   6. Verify draft recovery, conflict refusal, remote readback, publish, provenance, and bump PR guards.
 #
 # Expected result:
 #   - Positive: main/manual/macos-15/Rust 1.91.1/cargo-packager 0.11.8 are exact.
+#   - Positive: public release metadata is read with the job-scoped GitHub token.
 #   - Positive: GitHub App token is created after notarized local assets pass.
 #   - Positive: draft is published only after three downloaded assets match.
 #   - Negative: an equal or older public latest version cannot enter the build.
@@ -91,6 +93,10 @@ grep -Fq 'VERSION=$(scripts/release-version.sh)' "$workflow" \
   || fail "workflow must derive the release version from the read-only manifest seam"
 grep -Fq 'api.github.com/repos/multisoul-ai/norma-os-releases/releases/latest' "$workflow" \
   || fail "workflow must read the current public latest release before building"
+grep -Fq 'PUBLIC_RELEASE_READ_TOKEN: ${{ github.token }}' "$workflow" \
+  || fail "public release lookup must use the job-scoped token instead of an unauthenticated shared-runner quota"
+grep -Fq -- '--header "Authorization: Bearer $PUBLIC_RELEASE_READ_TOKEN"' "$workflow" \
+  || fail "public release lookup must authenticate its REST request"
 grep -Fq -- '--require-newer-than "$LATEST_TAG"' "$workflow" \
   || fail "workflow must reject a manifest version that is not newer than public latest"
 grep -Fq 'git tag -a' "$workflow" || fail "successful release must create a source provenance tag"

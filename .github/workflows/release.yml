@@ -41,6 +41,8 @@ jobs:
       - name: Resolve release version and validate monotonicity
         id: version
         shell: bash
+        env:
+          PUBLIC_RELEASE_READ_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           VERSION=$(scripts/release-version.sh)
@@ -49,6 +51,7 @@ jobs:
             --header 'Accept: application/vnd.github+json' \
             --header 'X-GitHub-Api-Version: 2022-11-28' \
             --header 'User-Agent: norma-os-release-workflow' \
+            --header "Authorization: Bearer $PUBLIC_RELEASE_READ_TOKEN" \
             https://api.github.com/repos/multisoul-ai/norma-os-releases/releases/latest \
             | jq -er '.tag_name')
           scripts/release-version.sh --require-newer-than "$LATEST_TAG" >/dev/null
