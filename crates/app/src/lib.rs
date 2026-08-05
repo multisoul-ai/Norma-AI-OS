@@ -21,6 +21,7 @@ mod performance_monitor;
 mod preview;
 mod settings;
 mod shortcuts;
+mod updater;
 mod workspace;
 
 #[cfg(test)]
@@ -43,7 +44,7 @@ pub use app::{
 };
 pub use app::{
     AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState, AppScreen,
-    CanvasLayoutE2eSnapshot, CloneProject, CopyCardContent, ExitFocus,
+    CanvasLayoutE2eSnapshot, CheckForUpdates, CloneProject, CopyCardContent, ExitFocus,
     InitializationAnimationE2eSnapshot, MultisoulApp, NewBrowser, NewClaudeAgent, NewCodexAgent,
     NewCursorAgent, NewGrokAgent, NewOpenCodeAgent, NewTerminal, NewWindow, OpenFeatureGuide,
     OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, SettingsE2eSnapshot,
@@ -62,6 +63,7 @@ use gpui::{App, Application, KeyBinding};
 fn register_global_actions(cx: &mut App) {
     cx.on_action(|_: &QuitNormaOs, cx| cx.quit());
     cx.on_action(|_: &OpenFeatureGuide, cx| open_feature_guide_in_active_window(cx));
+    cx.on_action(|_: &CheckForUpdates, cx| updater::check_for_updates(cx));
 }
 
 fn open_feature_guide_in_active_window(cx: &mut App) {
@@ -98,6 +100,7 @@ pub fn run_norma_os() {
             settings::orchestration::health::install(cx);
             settings::agent_hook_ingress::install(cx)
                 .expect("failed to start App-global Agent Hook ingress");
+            updater::install(cx);
             if let Err(error) = norma::endpoint::install(cx) {
                 tracing::error!(
                     %error,

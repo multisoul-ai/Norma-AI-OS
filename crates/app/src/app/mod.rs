@@ -141,6 +141,7 @@ actions!(
         OpenProject,
         CloneProject,
         OpenFeatureGuide,
+        CheckForUpdates,
         ExitFocus,
         ReflowLayout,
         ToggleMasterLayout,

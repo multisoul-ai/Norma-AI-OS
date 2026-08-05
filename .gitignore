@@ -5,7 +5,11 @@ target/
 /dist
 .cargo-packager/
 build
-.agents
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/release-dmg/
+!.agents/skills/release-dmg/**
 .multisoul
 tmp/
 .idea

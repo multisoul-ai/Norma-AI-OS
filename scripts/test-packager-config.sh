@@ -25,14 +25,13 @@
 #   - Positive: the main app binary path is target/release/norma-os.
 #   - Positive: the hook binary path is present in [[binaries]].
 #   - Positive: the OpenAI card planner helper is packaged as a resource.
-#   - Positive: before-packaging-command exists and bumps the persisted version.
+#   - Positive: before-packaging-command validates the persisted release version without mutating it.
 #   - Positive: before-packaging-command invokes `cargo build --release -p app`.
 #   - Positive: release binaries use size-conscious link/strip settings.
 #   - Positive: packaged wallpaper sources stay within the 140 MiB budget.
 #   - Negative: the old target/release/multisoul main binary path is not retained.
 #   - Negative: old Multisoul product metadata is not retained.
-#   - Negative: a config that builds without bumping the version fails.
-#   - Negative: a config that bumps after building fails.
+#   - Negative: the packager hook must not bump manifests after cargo-packager parsed them.
 #   - Positive: release and dev DMG configs use the Norma OS background and
 #     matching window/icon positions, with the labels clear of the well border.
 #   - Negative: the old y=200 icon positions that overlap the well border are
@@ -135,21 +134,17 @@ fi
 
 hook=$(grep -F 'before-packaging-command' "$config")
 
-if ! printf '%s\n' "$hook" | grep -Fq -- 'scripts/bump-release-version.sh'; then
-  fail "before-packaging-command must bump the release version before packaging"
+if ! printf '%s\n' "$hook" | grep -Fq -- 'scripts/release-version.sh'; then
+  fail "before-packaging-command must verify the synchronized release version before packaging"
 fi
 
 if ! printf '%s\n' "$hook" | grep -Fq -- 'cargo build --release -p app'; then
   fail "before-packaging-command must build the app package release binaries"
 fi
 
-case "$hook" in
-  *scripts/bump-release-version.sh*'cargo build --release -p app'*)
-    ;;
-  *)
-    fail "before-packaging-command must bump the release version before cargo build"
-    ;;
-esac
+if printf '%s\n' "$hook" | grep -Fq -- 'scripts/bump-release-version.sh'; then
+  fail "before-packaging-command must not bump manifests after cargo-packager has parsed Packager.toml"
+fi
 
 # DMG visual/layout guard:
 #   product name      = Norma OS

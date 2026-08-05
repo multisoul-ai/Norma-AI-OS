@@ -32,6 +32,7 @@ fn settings_brand_metadata() -> SettingsBrandMetadata {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) enum SettingsSection {
+    SoftwareUpdate,
     Themes,
     Keyboard,
     #[cfg(test)]
@@ -60,6 +61,12 @@ impl SettingsSection {
 
     fn metadata(self) -> SettingsSectionMetadata {
         match self {
+            Self::SoftwareUpdate => SettingsSectionMetadata {
+                title: "Software Update",
+                icon_asset: Some(TOOLBAR_SETTINGS_ASSET),
+                index: 9,
+                debug_selector: "settings-section-software-update",
+            },
             Self::Themes => SettingsSectionMetadata {
                 title: "Themes",
                 icon_asset: Some(SETTINGS_NAV_THEMES_ASSET),
@@ -120,6 +127,7 @@ impl SettingsSection {
     }
 }
 
+const GENERAL_SECTIONS: &[SettingsSection] = &[SettingsSection::SoftwareUpdate];
 const APPEARANCE_SECTIONS: &[SettingsSection] = &[
     SettingsSection::Themes,
     SettingsSection::Wallpaper,
@@ -129,7 +137,8 @@ const INPUT_SECTIONS: &[SettingsSection] = &[SettingsSection::Keyboard, Settings
 const AUTOMATION_SECTIONS: &[SettingsSection] =
     &[SettingsSection::Agents, SettingsSection::Orchestration];
 
-const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 3] = [
+const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 4] = [
+    ("General", GENERAL_SECTIONS),
     ("Appearance", APPEARANCE_SECTIONS),
     ("Input & Controls", INPUT_SECTIONS),
     ("AI & Automation", AUTOMATION_SECTIONS),

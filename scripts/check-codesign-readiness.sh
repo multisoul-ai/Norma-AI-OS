@@ -35,6 +35,10 @@ plutil -lint "$ENT" >/dev/null || fail "entitlements 不是合法 plist: $ENT"
 # 3. Packager.toml 含 entitlements + resources 字段
 grep -q '^entitlements' "$PKG" || fail "Packager.toml 缺 entitlements 字段"
 grep -q '^resources' "$PKG" || fail "Packager.toml 缺 resources 字段"
+grep -Fq 'frameworks = ["build/sparkle/Sparkle.framework"]' "$PKG" \
+  || fail "Packager.toml 缺 Sparkle.framework 嵌入配置"
+grep -Fq 'info-plist-path = "build/packaging/Info.plist"' "$PKG" \
+  || fail "Packager.toml 未使用 release 专用生成 plist"
 
 # 4. Packager.dev.toml 存在且 signing-identity = "-"
 [ -f "$PKG_DEV" ] || fail "Packager.dev.toml 缺失: $PKG_DEV"

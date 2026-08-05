@@ -4,7 +4,7 @@ use super::*;
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   initial open = false（启动后不应遮挡画布）
-///   visible section count = 7（Themes / Wallpaper / Performance / Keyboard / Voice / Agents / Orchestration）
+///   visible section count = 8（Software Update / Themes / Wallpaper / Performance / Keyboard / Voice / Agents / Orchestration）
 ///   hidden mock count = 2（Runtime / Skills，不应作为首次页面）
 ///   default section = Themes（Appearance 中首个已实现的可配置页面）
 ///
@@ -329,11 +329,11 @@ fn test_settings_panel_selects_sections_without_closing() {
     );
 }
 
-/// Settings 导航暴露七个已实现页面，并继续隐藏 Runtime/Skills mock 分组。
+/// Settings 导航暴露八个已实现页面，并继续隐藏 Runtime/Skills mock 分组。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings_panel.rs + settings_content.rs（生产侧栏与内容路由）；
-///   visible sections = Themes + Keyboard + Voice + Agents + Orchestration + Wallpaper + Performance，共 7 个；
+///   visible sections = Software Update + Themes + Keyboard + Voice + Agents + Orchestration + Wallpaper + Performance，共 8 个；
 ///   hidden mock sections = Runtime + Skills，共 2 个。
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -353,6 +353,7 @@ fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
         include_str!("../../src/settings/content.rs")
     );
     let visible_sections = [
+        "SettingsSection::SoftwareUpdate",
         "SettingsSection::Themes",
         "SettingsSection::Keyboard",
         "SettingsSection::Voice",
@@ -408,4 +409,55 @@ fn test_settings_has_wallpaper_section() {
             "wallpaper settings wiring missing: {anchor}"
         );
     }
+}
+
+/// Software Update 设置页：导航与内容路由必须提供检查更新入口，并明确下载完成后的重启行为。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   新增页面数 = 1（Software Update）；
+///   用户主操作数 = 1（Check for Updates…）；
+///   更新完成动作 = 1（由 Sparkle 提醒重新启动 Norma OS）。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 Settings 导航、内容分发与模块声明源码。
+///   2. 确认 Software Update 是可选择的真实 section，而不是旧 mock fallback。
+///   3. 确认内容路由调用独立 `software_update_settings` 页面。
+///
+/// 预期结果：
+///   - 正断言：SettingsSection::SoftwareUpdate、标题与页面函数同时存在。
+///   - 负断言：Software Update 不得落入 Runtime/Skills 空白 fallback。
+#[test]
+fn test_settings_routes_to_software_update_page() {
+    let source = format!(
+        "{}{}{}{}",
+        include_str!("../../src/settings/mod.rs"),
+        include_str!("../../src/settings/navigation.rs"),
+        include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/software_update.rs")
+    );
+
+    assert!(
+        source.contains("SettingsSection::SoftwareUpdate")
+            && source.contains("\"Software Update\"")
+            && source.contains("software_update_settings"),
+        "Settings 必须把 Software Update 接入导航、标题和真实内容页面"
+    );
+    assert!(
+        !source.contains(
+            "SettingsSection::SoftwareUpdate | SettingsSection::Runtime | SettingsSection::Skills => div()"
+        ),
+        "Software Update 不得被路由到 Runtime/Skills 的空白 mock fallback"
+    );
+    assert!(
+        source.contains("settings-check-for-updates")
+            && source.contains("crate::updater::check_for_updates(cx)")
+            && source.contains("Norma OS asks you to restart the app"),
+        "Software Update 页面必须把按钮接到共享 Sparkle 流程，并明确下载完成后的重启提示"
+    );
+    assert!(
+        !source.contains("reqwest")
+            && !source.contains("curl")
+            && !source.contains("std::process::Command"),
+        "Settings 页面不得另造 HTTP 或子进程下载器，必须复用 Sparkle 的签名更新流程"
+    );
 }

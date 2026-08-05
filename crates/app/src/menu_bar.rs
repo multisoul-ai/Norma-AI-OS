@@ -1,9 +1,9 @@
 //! macOS 原生菜单栏的信息架构：先用纯描述表达产品层级，再转换为 GPUI `Menu`。
 
 use crate::app::{
-    CloneProject, CopyCardContent, NewBrowser, NewClaudeAgent, NewCodexAgent, NewCursorAgent,
-    NewGrokAgent, NewOpenCodeAgent, NewTerminal, NewWindow, OpenFeatureGuide, OpenPreviewFile,
-    OpenProject, QuitNormaOs, ReflowLayout, ToggleMasterLayout, ToggleSettings,
+    CheckForUpdates, CloneProject, CopyCardContent, NewBrowser, NewClaudeAgent, NewCodexAgent,
+    NewCursorAgent, NewGrokAgent, NewOpenCodeAgent, NewTerminal, NewWindow, OpenFeatureGuide,
+    OpenPreviewFile, OpenProject, QuitNormaOs, ReflowLayout, ToggleMasterLayout, ToggleSettings,
 };
 use gpui::{Menu, MenuItem, SystemMenuType};
 
@@ -29,6 +29,7 @@ pub(crate) enum MenuItemSpec {
 
 #[derive(Clone, Copy)]
 pub(crate) enum MenuAction {
+    CheckForUpdates,
     ToggleSettings,
     QuitNormaOs,
     NewWindow,
@@ -54,6 +55,7 @@ pub(crate) fn menu_bar_spec() -> Vec<MenuSpec> {
         MenuSpec {
             label: "Norma OS",
             items: vec![
+                action("Check for Updates…", MenuAction::CheckForUpdates),
                 action("Settings…", MenuAction::ToggleSettings),
                 MenuItemSpec::Separator,
                 MenuItemSpec::System { label: "Services" },
@@ -132,6 +134,7 @@ fn menu_item(item: MenuItemSpec) -> MenuItem {
 
 fn action_item(label: &'static str, action: MenuAction) -> MenuItem {
     match action {
+        MenuAction::CheckForUpdates => MenuItem::action(label, CheckForUpdates),
         MenuAction::ToggleSettings => MenuItem::action(label, ToggleSettings),
         MenuAction::QuitNormaOs => MenuItem::action(label, QuitNormaOs),
         MenuAction::NewWindow => MenuItem::action(label, NewWindow),

@@ -4,6 +4,7 @@ use crate::menu_bar::{menu_bar_spec, MenuItemSpec};
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   顶级菜单数 = 5：Norma OS / File / Edit / Layout / Help
+///   应用菜单动作数 = 3：Check for Updates… + Settings… + Quit Norma OS
 ///   File 直接项数 = 4：New 子菜单 + separator + Open Project… + Clone GitHub Repository…
 ///   New 子菜单动作数 = 9：窗口 1 + 卡片 3 + Agent 5
 ///   New 子菜单 separator 数 = 2：Workspace→Cards、Cards→Agents
@@ -14,7 +15,7 @@ use crate::menu_bar::{menu_bar_spec, MenuItemSpec};
 ///   3. 分别检查应用级、文件创建、编辑和布局命令的正负边界。
 ///
 /// 预期结果：
-///   - 断言 A：顶级菜单严格为 Norma OS、File、Edit、Layout、Help，不再只有扁平 Norma OS。
+///   - 断言 A：应用菜单按系统惯例先提供 Check for Updates…，再提供 Settings…。
 ///   - 断言 B：File › New 保留窗口、三类卡片和五类 Agent，且两条分隔线表达三组语义。
 ///   - 断言 C：Copy 只位于 Edit，布局命令只位于 Layout，避免与创建动作混排。
 ///   - 断言 D：Help 只提供可重复打开的 Feature Guide…，不混入创建或布局动作。
@@ -36,12 +37,23 @@ fn test_menu_bar_groups_application_file_edit_and_layout_commands() {
     let app_menu = &menus[0];
     assert_eq!(
         item_labels(&app_menu.items),
-        vec!["Settings…", "—", "Services", "—", "Quit Norma OS"],
-        "Norma OS 菜单应只承载应用级设置、系统 Services 与退出命令"
+        vec![
+            "Check for Updates…",
+            "Settings…",
+            "—",
+            "Services",
+            "—",
+            "Quit Norma OS"
+        ],
+        "Norma OS 菜单必须把系统熟悉的 Check for Updates… 放在 Settings… 之前"
     );
     assert!(
         !item_labels(&app_menu.items).contains(&"New Terminal"),
         "New Terminal 不应继续混在 Norma OS 应用菜单中"
+    );
+    assert!(
+        !item_labels(&app_menu.items).contains(&"Update Now"),
+        "应用菜单不应发明自定义 Update Now 文案或跳过 Sparkle 的标准检查流程"
     );
 
     let file_menu = &menus[1];

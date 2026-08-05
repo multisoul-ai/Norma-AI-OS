@@ -4,6 +4,7 @@ use crate::settings::agents::{agents_settings, AgentDefinitionsState};
 use crate::settings::appearance::theme_appearance;
 use crate::settings::orchestration::{orchestration_settings, OrchestrationSettingsState};
 use crate::settings::performance::{performance_settings, PerformanceSettingsState};
+use crate::settings::software_update::software_update_settings;
 use crate::settings::voice::{
     voice_settings, VoiceSettingsInputs, VoiceSettingsState, VoiceSetupDestination,
 };
@@ -91,6 +92,7 @@ pub(super) fn settings_content(
                 .pr(px(28.0))
                 .pb(px(40.0))
                 .child(match panel.active_section {
+                    SettingsSection::SoftwareUpdate => software_update_settings(theme),
                     SettingsSection::Themes => theme_appearance(theme_id, theme, cx),
                     SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
                     SettingsSection::Voice => voice_settings(
@@ -195,6 +197,7 @@ fn content_header(
 
 fn content_title(section: SettingsSection) -> &'static str {
     match section {
+        SettingsSection::SoftwareUpdate => "Software Update",
         SettingsSection::Themes => "Themes",
         SettingsSection::Keyboard => "Keyboard Shortcuts",
         #[cfg(test)]
@@ -211,6 +214,9 @@ fn content_title(section: SettingsSection) -> &'static str {
 
 fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> String {
     match section {
+        SettingsSection::SoftwareUpdate => {
+            "Keep Norma OS current with verified, signed releases".to_string()
+        }
         SettingsSection::Themes => "Choose one of the six reviewed Core UI V2 palettes".to_string(),
         SettingsSection::Keyboard => {
             "Customize app commands and review system input behavior".to_string()

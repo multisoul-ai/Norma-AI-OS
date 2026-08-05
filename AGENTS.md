@@ -98,6 +98,7 @@ Workspace 分层：
 | 展开工程手册、命令、测试规范 | [`CLAUDE.md`](CLAUDE.md) |
 | Workspace 依赖、版本 pin | [`Cargo.toml`](Cargo.toml) |
 | 打包配置 | [`Packager.toml`](Packager.toml) |
+| DMG 构建、签名、公证与产物验收 | [`.agents/skills/release-dmg/SKILL.md`](.agents/skills/release-dmg/SKILL.md)，使用 `release-dmg` |
 | 几何/节点/选择/命中/viewport | [`crates/canvas/src/`](crates/canvas/src/) |
 | PTY、ANSI grid、按键编码 | [`crates/terminal/src/`](crates/terminal/src/) |
 | 焦点、输入路由、LiveNode 生命周期 | [`crates/runtime/src/`](crates/runtime/src/) |
@@ -172,7 +173,8 @@ bash scripts/check-no-allow.sh
 bash scripts/check-agent-guide-lines.sh
 bash scripts/install-git-hooks.sh
 cargo build -p app --release
-cargo packager --release
+./scripts/release-local.sh
+./scripts/release-local.sh --notarize
 RUST_LOG=trace cargo run -p app
 ```
 
