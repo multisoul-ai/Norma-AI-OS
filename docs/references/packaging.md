@@ -53,6 +53,11 @@ codesign readiness 检查和 `git lfs pull`，清理或映射 notary 环境变�
 应通过 [`.agents/skills/release-dmg/SKILL.md`](../../.agents/skills/release-dmg/SKILL.md)
 选择普通签名打包或显式公证发版模式，不要把 `build/` 中的历史文件误报为新产物。
 
+`cargo-packager 0.11.8` 会先公证并 staple `.app`，再创建 DMG；该票据不会自动成为
+最终 DMG 自身的票据。因此 `release-local.sh --notarize` 在 DMG 生成后会再次使用同一组
+App Store Connect API Key 提交最终 DMG，等待 Apple 接受，执行 `stapler staple`，并要求
+`spctl --type open` 与 `stapler validate` 都通过后才计算发布校验和。
+
 注意：人工绕过 `release-local.sh` 或 Cargo alias，直接执行
 `cargo-packager --release -c Packager.toml` 时，上游 cargo-packager 0.11.8 会直接读取当前
 shell 的 `APPLE_*` notary 环境变量。只有 `release-local.sh` 的直接调用会先完成环境清理，
