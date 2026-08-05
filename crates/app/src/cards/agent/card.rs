@@ -21,8 +21,7 @@ impl Card for AgentCard {
     }
 
     fn chrome(&self, node: &CanvasNode, runtime: &Runtime) -> CardChrome {
-        // Title format: "<profile/alias>" or "<profile/alias> — <task_title>"
-        let profile_name = match &node.kind {
+        let title = match &node.kind {
             CanvasNodeKind::Agent(agent) => agent
                 .alias
                 .as_deref()
@@ -30,13 +29,13 @@ impl Card for AgentCard {
                 .to_string(),
             _ => "Agent".to_string(),
         };
-        let title = match runtime.agent_task_title(node.id) {
-            Some(task_title) => format!("{profile_name} — {task_title}"),
-            None => profile_name,
-        };
+        let title_detail = runtime
+            .agent_task_title(node.id)
+            .and_then(|task_title| single_line_task_title(&task_title));
         let state = runtime.agent_task_state(node.id);
         CardChrome {
             title,
+            title_detail,
             refreshable: false,
             task_badge: agent_task_badge(state),
         }
@@ -56,6 +55,8 @@ impl Card for AgentCard {
         render_terminal_node(
             view,
             TerminalNodeRenderOptions {
+                node_id: node.id,
+                terminal_render_cache: context.terminal_render_cache,
                 theme: context.theme,
                 zoom: context.zoom,
                 bottom_radius_px: context.bottom_radius_px,
@@ -76,6 +77,17 @@ impl Card for AgentCard {
     fn wheel_scroll_mode(&self) -> crate::cards::CardWheelScrollMode {
         crate::cards::CardWheelScrollMode::TerminalScrollback
     }
+}
+
+fn single_line_task_title(title: &str) -> Option<String> {
+    let mut words = title.split_whitespace();
+    let first = words.next()?;
+    let mut single_line = first.to_string();
+    for word in words {
+        single_line.push(' ');
+        single_line.push_str(word);
+    }
+    Some(single_line)
 }
 
 fn agent_task_badge(state: Option<AgentTaskState>) -> Option<CardChromeTaskBadge> {

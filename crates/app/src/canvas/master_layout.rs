@@ -1,24 +1,23 @@
 //! Master/detail layout state and app-layer application helpers.
 
 use crate::app::{MultisoulApp, ToggleMasterLayout};
+pub(crate) use crate::canvas::layout_strategy::{
+    apply_workspace_reflow_for_area, layout_gap_for_zoom,
+};
+use crate::canvas::layout_strategy::{workspace_safe_area_for_zoom, CanvasLayoutStrategy};
 use crate::cards::card_for;
 use crate::motion::MotionStore;
 use canvas::{
-    compute_master_detail_layout, compute_responsive_grid_layout, CanvasRect, LayoutInsets, NodeId,
-    ResponsiveGridConfig, DEFAULT_CARD_ASPECT_RATIO,
+    compute_master_detail_layout, CanvasRect, NodeId, ResponsiveGridConfig,
+    DEFAULT_CARD_ASPECT_RATIO,
 };
 use gpui::{Context, Window};
 use runtime::{route, InputEvent, InputMode, NodeResize, Route, Runtime};
 use std::collections::BTreeMap;
 use storage::{LayoutMode, LayoutOriginalBounds, LayoutStateSnapshot};
 
-const LAYOUT_GAP_SCREEN_PX: f32 = 16.0;
 const LAYOUT_MAX_COLUMNS: usize = 3;
 const LAYOUT_MIN_COLUMN_SCREEN_PX: f32 = 320.0;
-const WORKSPACE_SAFE_LEFT_PX: f32 = 96.0;
-const WORKSPACE_SAFE_TOP_PX: f32 = 86.0;
-const WORKSPACE_SAFE_RIGHT_PX: f32 = 32.0;
-const WORKSPACE_SAFE_BOTTOM_PX: f32 = 84.0;
 
 #[derive(Debug, Default, Clone)]
 pub(crate) struct MasterLayoutState {
@@ -160,23 +159,14 @@ impl MasterLayoutState {
     }
 }
 
-pub(crate) fn layout_gap_for_zoom(zoom: f32) -> f32 {
-    LAYOUT_GAP_SCREEN_PX / zoom.max(0.001)
-}
-
 pub(crate) fn workspace_reflow_config_for_zoom(zoom: f32) -> ResponsiveGridConfig {
     let zoom = zoom.max(0.001);
     ResponsiveGridConfig {
         max_columns: LAYOUT_MAX_COLUMNS,
         min_column_width: LAYOUT_MIN_COLUMN_SCREEN_PX / zoom,
         aspect_ratio: DEFAULT_CARD_ASPECT_RATIO,
-        gap_canvas: LAYOUT_GAP_SCREEN_PX / zoom,
-        safe_area: LayoutInsets::new(
-            WORKSPACE_SAFE_LEFT_PX / zoom,
-            WORKSPACE_SAFE_TOP_PX / zoom,
-            WORKSPACE_SAFE_RIGHT_PX / zoom,
-            WORKSPACE_SAFE_BOTTOM_PX / zoom,
-        ),
+        gap_canvas: layout_gap_for_zoom(zoom),
+        safe_area: workspace_safe_area_for_zoom(zoom),
     }
 }
 
@@ -210,12 +200,11 @@ pub(crate) fn enter_master_layout_for_area(
         return false;
     }
 
-    runtime.selection.select_only(master_id);
-    if matches!(runtime.focus.mode(), InputMode::NodeFocused(focused) if focused != master_id) {
-        runtime.focus.exit_to_canvas();
-    }
-
     if state.apply(runtime, motion, area, zoom) {
+        runtime.selection.select_only(master_id);
+        if matches!(runtime.focus.mode(), InputMode::NodeFocused(focused) if focused != master_id) {
+            runtime.focus.exit_to_canvas();
+        }
         true
     } else {
         state.clear();
@@ -235,20 +224,20 @@ pub(crate) fn switch_master_layout_for_area(
         return false;
     }
 
+    let previous_active = state.active.clone();
     let Some(active) = state.active.as_mut() else {
         return false;
     };
     active.master_id = master_id;
 
-    runtime.selection.select_only(master_id);
-    if matches!(runtime.focus.mode(), InputMode::NodeFocused(focused) if focused != master_id) {
-        runtime.focus.exit_to_canvas();
-    }
-
     if state.apply(runtime, motion, area, zoom) {
+        runtime.selection.select_only(master_id);
+        if matches!(runtime.focus.mode(), InputMode::NodeFocused(focused) if focused != master_id) {
+            runtime.focus.exit_to_canvas();
+        }
         true
     } else {
-        state.clear();
+        state.active = previous_active;
         false
     }
 }
@@ -268,6 +257,7 @@ pub(crate) fn exit_master_layout_for_area(
     motion: &mut MotionStore,
     area: CanvasRect,
     zoom: f32,
+    strategy: CanvasLayoutStrategy,
 ) -> bool {
     if !state.is_active() {
         return false;
@@ -275,7 +265,7 @@ pub(crate) fn exit_master_layout_for_area(
 
     if state.has_current_nodes_outside_snapshot(runtime) {
         state.clear();
-        apply_workspace_reflow_for_area(runtime, motion, area, zoom);
+        apply_workspace_reflow_for_area(runtime, motion, area, zoom, strategy);
     } else {
         restore_master_layout_for_area(state, runtime, motion, zoom);
     }
@@ -304,6 +294,7 @@ pub(crate) fn toggle_master_layout_for_area(
     target: Option<NodeId>,
     area: CanvasRect,
     zoom: f32,
+    strategy: CanvasLayoutStrategy,
 ) -> bool {
     let event = InputEvent::ToggleMasterLayout {
         current_master: state.master_id(),
@@ -316,26 +307,11 @@ pub(crate) fn toggle_master_layout_for_area(
         Route::SwitchMasterLayout(master_id) => {
             switch_master_layout_for_area(state, runtime, motion, master_id, area, zoom)
         }
-        Route::ExitMasterLayout => exit_master_layout_for_area(state, runtime, motion, area, zoom),
+        Route::ExitMasterLayout => {
+            exit_master_layout_for_area(state, runtime, motion, area, zoom, strategy)
+        }
         _ => false,
     }
-}
-
-pub(crate) fn apply_workspace_reflow_for_area(
-    runtime: &mut Runtime,
-    motion: &mut MotionStore,
-    area: CanvasRect,
-    zoom: f32,
-) {
-    let ordered_ids: Vec<_> = runtime
-        .document
-        .nodes()
-        .iter()
-        .map(|node| node.id)
-        .collect();
-    let assignments =
-        compute_responsive_grid_layout(&ordered_ids, area, workspace_reflow_config_for_zoom(zoom));
-    apply_layout_assignments(runtime, motion, assignments, zoom);
 }
 
 #[cfg(test)]
@@ -352,7 +328,7 @@ pub(crate) fn close_node_and_reflow_for_area(
 
     motion.clear_transient();
     motion.retain_nodes(runtime.document.nodes().iter().map(|node| node.id));
-    apply_workspace_reflow_for_area(runtime, motion, area, zoom);
+    apply_workspace_reflow_for_area(runtime, motion, area, zoom, CanvasLayoutStrategy::default());
     true
 }
 
@@ -363,6 +339,7 @@ pub(crate) fn close_node_and_update_layout_for_area(
     node_id: NodeId,
     area: CanvasRect,
     zoom: f32,
+    strategy: CanvasLayoutStrategy,
 ) -> bool {
     let removed_master = state.master_id() == Some(node_id);
     if !runtime.remove_node(node_id) {
@@ -374,13 +351,13 @@ pub(crate) fn close_node_and_update_layout_for_area(
 
     if removed_master {
         state.clear();
-        apply_workspace_reflow_for_area(runtime, motion, area, zoom);
+        apply_workspace_reflow_for_area(runtime, motion, area, zoom, strategy);
     } else if state.is_active() {
         if !reapply_master_layout_for_area(state, runtime, motion, area, zoom) {
-            apply_workspace_reflow_for_area(runtime, motion, area, zoom);
+            apply_workspace_reflow_for_area(runtime, motion, area, zoom, strategy);
         }
     } else {
-        apply_workspace_reflow_for_area(runtime, motion, area, zoom);
+        apply_workspace_reflow_for_area(runtime, motion, area, zoom, strategy);
     }
     true
 }
@@ -470,8 +447,10 @@ impl MultisoulApp {
             target,
             area,
             zoom,
+            self.layout_strategy,
         );
         if changed {
+            self.wake_animation_frame_loop();
             self.mark_canvas_dirty();
         }
         cx.notify();

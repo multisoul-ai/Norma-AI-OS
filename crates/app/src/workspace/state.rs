@@ -1,7 +1,7 @@
 //! App-layer workspace state: recent list loading, current root, and user-facing errors.
 
 use std::path::{Path, PathBuf};
-use storage::{RecentStore, StorageError};
+use storage::RecentStore;
 use workspace::{RecentWorkspaces, WorkspaceSource};
 
 pub struct WorkspaceState {
@@ -12,13 +12,6 @@ pub struct WorkspaceState {
 }
 
 impl WorkspaceState {
-    pub fn load_default() -> Self {
-        match RecentStore::open_default() {
-            Ok(storage) => Self::load_from_storage(storage),
-            Err(error) => Self::with_storage_error(error),
-        }
-    }
-
     pub fn load_from_storage(storage: RecentStore) -> Self {
         match storage.load() {
             Ok(recent) => WorkspaceState {
@@ -79,19 +72,6 @@ impl WorkspaceState {
                 self.error = Some(message.clone());
                 Err(message)
             }
-        }
-    }
-
-    pub fn mark_clone_todo(&mut self) {
-        self.error = Some("Clone Repo will be implemented in the next workspace iteration.".into());
-    }
-
-    fn with_storage_error(error: StorageError) -> Self {
-        WorkspaceState {
-            recent: RecentWorkspaces::default(),
-            current_root: None,
-            error: Some(format!("Could not initialize recent projects: {error}")),
-            storage: RecentStore::new(PathBuf::from("app.sqlite")),
         }
     }
 }

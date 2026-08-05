@@ -1,6 +1,8 @@
 use super::with_alpha;
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, MouseButton, Window};
+use gpui::{
+    div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, MouseButton, Stateful, Window,
+};
 use ui::{
     component::menu::{ContextMenuExt, PopupMenuItem},
     Theme,
@@ -10,27 +12,22 @@ use workspace::{compact_path, RecentWorkspaces, WorkspaceRecord};
 impl MultisoulApp {
     pub(super) fn render_recent_projects(&mut self, theme: Theme, cx: &mut Context<Self>) -> Div {
         let app = cx.entity().downgrade();
-        let mut list = div().flex().flex_col();
-
-        if self.workspace_state.recent.records.is_empty() {
-            list = list.child(
-                div()
-                    .h(px(64.0))
-                    .flex()
-                    .items_center()
-                    .text_size(px(13.0))
-                    .text_color(rgba(theme.text_tertiary))
-                    .child("No recent projects"),
-            );
+        let is_empty = self.workspace_state.recent.records.is_empty();
+        let list = if is_empty {
+            recent_projects_empty_state(theme)
         } else {
             let records = recent_project_records_for_launchpad(&self.workspace_state.recent);
-            list = list.children(
-                records
-                    .into_iter()
-                    .enumerate()
-                    .map(|(index, record)| recent_project_row(theme, index, record, cx)),
-            );
-        }
+            div()
+                .id("launchpad-recent-list")
+                .flex()
+                .flex_col()
+                .children(
+                    records
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, record)| recent_project_row(theme, index, record, cx)),
+                )
+        };
 
         div()
             .w_full()
@@ -59,7 +56,9 @@ impl MultisoulApp {
                     .debug_selector(|| "launchpad-recent-list-scroll".to_string())
                     .flex_1()
                     .min_h(px(0.0))
-                    .overflow_scroll()
+                    .flex()
+                    .flex_col()
+                    .when(!is_empty, |this| this.overflow_scroll())
                     .rounded(px(18.0))
                     .border_1()
                     .border_color(rgba(with_alpha(theme.node_stroke, 0x9c)))
@@ -95,6 +94,33 @@ impl MultisoulApp {
                 )
             })
     }
+}
+
+fn recent_projects_empty_state(theme: Theme) -> Stateful<Div> {
+    div()
+        .id("launchpad-recent-empty")
+        .debug_selector(|| "launchpad-recent-empty".to_string())
+        .flex_1()
+        .w_full()
+        .flex()
+        .flex_col()
+        .items_center()
+        .justify_center()
+        .gap(px(6.0))
+        .px(px(24.0))
+        .child(
+            div()
+                .text_size(px(14.0))
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(rgba(theme.text_secondary))
+                .child("No recent projects"),
+        )
+        .child(
+            div()
+                .text_size(px(12.0))
+                .text_color(rgba(theme.text_tertiary))
+                .child("Open a folder to get started."),
+        )
 }
 
 pub(crate) fn recent_project_records_for_launchpad(

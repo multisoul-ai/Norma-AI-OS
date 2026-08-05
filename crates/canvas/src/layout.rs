@@ -50,10 +50,100 @@ pub struct ResponsiveGridConfig {
     pub safe_area: LayoutInsets,
 }
 
+/// 网格中卡片的填充方向。`RowFirst` 固定列数向下增长；`ColumnFirst` 固定行数向右增长。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum GridFill {
+    RowFirst,
+    ColumnFirst,
+}
+
+/// 网格卡片的尺寸来源。
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum GridCardSizing {
+    Fixed,
+    FitViewport,
+}
+
+/// 用户可配置的无限网格参数。数值均为 canvas 坐标。
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ConfigurableGridConfig {
+    pub fill: GridFill,
+    pub track_count: usize,
+    pub sizing: GridCardSizing,
+    pub aspect_ratio: f32,
+    pub fixed_card_width: f32,
+    pub gap_canvas: f32,
+    pub safe_area: LayoutInsets,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LayoutAssignment {
     pub node_id: NodeId,
     pub bounds: CanvasRect,
+}
+
+/// 按用户指定方向排列网格，并始终把全部卡片容纳在当前可视区域中。
+pub fn compute_configurable_grid_layout(
+    ordered_ids: &[NodeId],
+    area: CanvasRect,
+    config: ConfigurableGridConfig,
+) -> Vec<LayoutAssignment> {
+    ordered_ids
+        .iter()
+        .enumerate()
+        .map(|(index, node_id)| LayoutAssignment {
+            node_id: *node_id,
+            bounds: configurable_grid_cell_bounds_for_count(index, ordered_ids.len(), area, config),
+        })
+        .collect()
+}
+
+/// 返回指定索引在可配置网格中的格子 bounds。
+///
+/// 因调用方未提供总卡片数，本函数以 `index + 1` 作为最小总数；批量重排应使用
+/// `compute_configurable_grid_layout`，以便所有格子根据完整节点集合共同缩放。
+pub fn configurable_grid_cell_bounds(
+    index: usize,
+    area: CanvasRect,
+    config: ConfigurableGridConfig,
+) -> CanvasRect {
+    configurable_grid_cell_bounds_for_count(index, index + 1, area, config)
+}
+
+fn configurable_grid_cell_bounds_for_count(
+    index: usize,
+    total_count: usize,
+    area: CanvasRect,
+    config: ConfigurableGridConfig,
+) -> CanvasRect {
+    let usable = usable_area(area, config.safe_area);
+    let tracks = config.track_count.max(1);
+    let gap = config.gap_canvas.max(0.0);
+    let aspect_ratio = config.aspect_ratio.max(0.001);
+    let total_count = total_count.max(index + 1).max(1);
+    let (rows, columns) = match config.fill {
+        GridFill::RowFirst => (total_count.div_ceil(tracks), tracks),
+        GridFill::ColumnFirst => (tracks, total_count.div_ceil(tracks)),
+    };
+    let max_width_by_columns =
+        ((usable.size.x - gap * (columns as f32 + 1.0)) / columns as f32).max(0.0);
+    let max_height_by_rows = ((usable.size.y - gap * (rows as f32 + 1.0)) / rows as f32).max(0.0);
+    let (card_width, card_height) = match config.sizing {
+        GridCardSizing::Fixed => {
+            let viewport_width = max_width_by_columns.min(max_height_by_rows * aspect_ratio);
+            let width = config.fixed_card_width.max(0.0).min(viewport_width);
+            (width, width / aspect_ratio)
+        }
+        GridCardSizing::FitViewport => (max_width_by_columns, max_height_by_rows),
+    };
+    let (row, col) = match config.fill {
+        GridFill::RowFirst => (index / tracks, index % tracks),
+        GridFill::ColumnFirst => (index % tracks, index / tracks),
+    };
+    let x = usable.origin.x + gap + col as f32 * (card_width + gap);
+    let y = usable.origin.y + gap + row as f32 * (card_height + gap);
+
+    CanvasRect::new(x, y, card_width, card_height)
 }
 
 pub fn compute_tiled_grid_layout(
@@ -207,3 +297,7 @@ mod responsive_tests;
 #[cfg(test)]
 #[path = "../tests/unit/layout_master_detail_tests.rs"]
 mod master_detail_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/layout_configurable_grid_tests.rs"]
+mod configurable_grid_tests;

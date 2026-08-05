@@ -260,15 +260,23 @@ fn test_dialogue_listening_maps_bottom_label_to_continuous_listening() {
     });
 }
 
-/// DLG-8: final transcript 应把 session 推进 Thinking 并保存 pending_transcript。
+/// DLG-8: final transcript 应推进 Thinking，并把识别文本投影到顶部 Voice 入口。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   final transcripts = 1（单次提交「你好」）
+///   transcript chars  = 2（「你」+「好」）
+///   expected phase    = 1（Listening → Thinking）
 ///
 /// 执行过程：
 ///   1. begin_listening_sync_for_tests 进入 Listening
-///   2. on_final_transcript("你好")
+///   2. on_final_transcript("你好") 保存 final 并进入 Thinking
+///   3. effective_voice_label("Voice") 仲裁顶部入口文案
 ///
 /// 预期结果：
 ///   - 正断言：phase == Thinking
 ///   - 正断言：pending_transcript == Some("你好")
+///   - 正断言：顶部 Voice 入口显示「你好」
+///   - 负断言：顶部 Voice 入口不再用通用「Thinking...」覆盖识别文本
 #[test]
 fn test_dialogue_final_transcript_moves_to_thinking() {
     with_dialogue_shell_test_guard(|| {
@@ -295,10 +303,14 @@ fn test_dialogue_final_transcript_moves_to_thinking() {
             Some("你好"),
             "Thinking 前应保存 pending_transcript"
         );
+        let effective_label = state.effective_voice_label("Voice");
         assert_eq!(
-            state.effective_voice_label("Voice"),
-            "Thinking...",
-            "Thinking phase 底栏应显示 Thinking..."
+            effective_label, "你好",
+            "Thinking phase 顶部 Voice 入口应显示刚识别的 final transcript"
+        );
+        assert_ne!(
+            effective_label, "Thinking...",
+            "final transcript 已存在时不得被通用 Thinking 状态覆盖"
         );
     });
 }

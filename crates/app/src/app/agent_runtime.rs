@@ -1,24 +1,43 @@
 use crate::app::MultisoulApp;
-use agent::{AdapterCommand, AdapterError, AdapterResult, AgentCommand, AgentEvent};
+use agent::{
+    AdapterCommand, AdapterError, AdapterResult, AgentCommand, AgentEvent, AgentInputSource,
+};
 use futures::future::BoxFuture;
 use gpui::{Context, Window};
-use norma::protocol::{AgentTaskAssignment, CardCommand, CardCommandResult, CardKind, Placement};
+use norma::protocol::{CardCommand, CardCommandResult, CardKind, Placement};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
+mod adapter_task;
 mod artifacts;
+mod command_protocol;
+mod command_support;
 mod commands;
 mod context_commands;
+mod conversation_tails;
 mod coordination;
+mod create_agent_command;
+mod delete_card;
 mod diagnostics;
+mod dispatch_effects;
+mod identity;
+mod orchestration_commands;
 pub(super) mod pending;
+mod reply_adapter;
+mod session_reply_queue;
+
+pub(crate) use conversation_tails::{ConversationTailMemory, ConversationTailWriter};
+pub(crate) use identity::{self_dispatch_forbidden_error, AgentIdentitySnapshot};
+pub(crate) use session_reply_queue::AgentSessionReplyQueue;
 
 pub(crate) use artifacts::artifacts_from_agent_events;
-#[cfg(any(test, feature = "e2e-test-support"))]
 pub(crate) use commands::execute_agent_card_command;
 use context_commands::contextualized_agent_commands;
 #[cfg(test)]
 use coordination::agent_completion_report;
+pub(crate) use orchestration_commands::execute_high_level_agent_command;
+pub(crate) use orchestration_commands::execute_orchestration_agent_command;
+pub(crate) use orchestration_commands::execute_orchestration_agent_command_with_visual_origin;
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
 static TOKIO_RUNTIME: OnceLock<Result<tokio::runtime::Runtime, String>> = OnceLock::new();
@@ -255,7 +274,10 @@ async fn run_project_agent(
                     }
                 }
             }
-            AgentCommand::UserTurn(input) => {
+            AgentCommand::UserTurn {
+                input,
+                input_source,
+            } => {
                 if let Some(message) = model_switch_error.take() {
                     let _ = events
                         .send(AgentEvent::ProviderError {
@@ -273,6 +295,7 @@ async fn run_project_agent(
                 spawn_turn(
                     &turn_runtime,
                     input,
+                    input_source,
                     context,
                     roster,
                     request.response,
@@ -289,6 +312,7 @@ async fn run_project_agent(
                 spawn_turn(
                     &turn_runtime,
                     format!("取消 Agent 任务 #{task_id}"),
+                    AgentInputSource::Other,
                     canvas.clone(),
                     roster.clone(),
                     request.response,
@@ -305,6 +329,7 @@ async fn run_project_agent(
                 spawn_turn(
                     &turn_runtime,
                     prompt,
+                    AgentInputSource::Other,
                     canvas.clone(),
                     roster.clone(),
                     request.response,
@@ -328,6 +353,7 @@ async fn run_project_agent(
 fn spawn_turn(
     runtime: &TurnRuntime,
     input: String,
+    input_source: AgentInputSource,
     canvas: Option<agent::CurrentCanvasContext>,
     roster: Vec<agent::AgentRosterEntry>,
     response: async_channel::Sender<Result<Vec<AgentEvent>, String>>,
@@ -369,7 +395,9 @@ fn spawn_turn(
                     let _ = live_events.send(event).await;
                 }
             });
-            let result = session.turn_streaming(&input, delta_tx.clone()).await;
+            let result = session
+                .turn_streaming(&input, delta_tx.clone(), input_source)
+                .await;
             drop(delta_tx);
             let _ = delta_forwarder.await;
             watcher.abort();

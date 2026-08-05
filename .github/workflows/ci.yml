@@ -38,6 +38,11 @@ jobs:
       - name: Video wallpaper performance guardrail
         run: python3 scripts/check-video-wallpaper-performance.py
 
+      - name: SOCKS proxy support
+        run: |
+          bash scripts/test-socks-proxy-support-portability.sh
+          bash scripts/check-socks-proxy-support.sh
+
       - name: Domain contract consistency
         run: |
           python3 scripts/test-check-domain-contracts.py

@@ -1,7 +1,9 @@
 use super::*;
-use crate::workspace::flow::{enter_workspace_for_path, WorkspaceCanvasState};
+use crate::workspace::flow::{
+    enter_workspace_for_path, WorkspaceCanvasState, WorkspaceOpenContext,
+};
 use crate::workspace::persistence::PersistenceScheduler;
-use canvas::{compute_responsive_grid_layout, AgentProfile, AgentSpec, CanvasNodeKind, RectNode};
+use canvas::{compute_configurable_grid_layout, AgentProfile, AgentSpec, CanvasNodeKind, RectNode};
 use runtime::{AgentTaskState, AgentTaskUpdate, CardAttentionKind, CardAttentionState};
 use storage::{NewAgentDefinition, ProjectStore, RecentStore};
 
@@ -51,53 +53,68 @@ fn test_wallpaper_renders_fully_opaque_without_theme_overlay() {
     );
 }
 
-/// 运行态光标动画应按约 30fps 节流 repaint，避免 focused Agent 绕过 snake 节流。
+/// 运行态光标动画应与 Canvas ambient 共用不超过 15fps 的 repaint cadence。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   repaint 预算 = 33ms（约 30fps）
+///   target fps = 15fps → repaint 预算 = ceil(1000ms / 15fps) = 67ms
 ///   app frame loop tick = 12ms
-///   第 1 个 tick：累计 12ms < 33ms → None，不 repaint
-///   第 2 个 tick：累计 24ms < 33ms → None，不 repaint
-///   第 3 个 tick：累计 36ms >= 33ms → Some(36ms)，允许 repaint
+///   前 5 tick 累计 12/24/36/48/60ms < 67ms；第 6 tick 累计 72ms → repaint
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 创建默认 FrameThrottle
-///   2. 连续输入三个 12ms tick
-///   3. 读取每一步返回的 repaint delta
+///   1. 断言 cursor 使用共享 67ms ambient 常量，而不是旧 33ms 常量。
+///   2. 创建默认 FrameThrottle，连续输入六个 12ms tick。
+///   3. 逐一读取每一步返回的 repaint delta。
 ///
 /// 预期结果：
-///   - 负断言：第 1 个 12ms tick 不应返回 repaint delta
-///   - 负断言：第 2 个 12ms tick 不应返回 repaint delta
-///   - 正断言：第 3 个 12ms tick 返回累计 36ms，供 phase 一次性追上真实时间
-///   - 负断言：第 3 个 tick 不应只返回 12ms，否则动画相位会变慢
+///   - 正断言：cursor repaint interval 精确为 67ms。
+///   - 负断言：前五个 12ms tick 都不得提前触发 repaint。
+///   - 正断言：第六个 tick 返回累计 72ms，供 phase 一次性追上真实时间。
+///   - 负断言：放行时不得只返回 12ms，否则动画相位会变慢。
 #[test]
-fn test_frame_throttle_batches_cursor_repaint_to_approximately_30fps() {
+fn test_frame_throttle_batches_cursor_repaint_to_at_most_15fps() {
     let mut throttle = FrameThrottle::default();
-
     let first = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
     let second = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
     let third = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
-
+    let fourth = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    let fifth = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    let sixth = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    assert_eq!(
+        CURSOR_REPAINT_INTERVAL,
+        Duration::from_millis(67),
+        "cursor 必须引用 ceil(1000ms / 15fps) = 67ms 的共享 ambient cadence"
+    );
     assert!(
         first.is_none(),
         "第 1 个 12ms tick 不应触发 focused cursor repaint"
     );
     assert!(
         second.is_none(),
-        "第 2 个 12ms tick 累计 24ms < 33ms，仍不应触发 repaint"
+        "第 2 个 12ms tick 累计 24ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        third.is_none(),
+        "第 3 个 12ms tick 累计 36ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        fourth.is_none(),
+        "第 4 个 12ms tick 累计 48ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        fifth.is_none(),
+        "第 5 个 12ms tick 累计 60ms < 67ms，仍不应触发 repaint"
     );
     assert_eq!(
-        third,
-        Some(Duration::from_millis(36)),
-        "第 3 个 tick 应返回累计 36ms，让 cursor phase 追上真实时间"
+        sixth,
+        Some(Duration::from_millis(72)),
+        "第 6 个 tick 应返回累计 72ms，让 cursor phase 追上真实时间"
     );
     assert_ne!(
-        third,
+        sixth,
         Some(Duration::from_millis(12)),
         "放行 repaint 时不应只推进 12ms，否则节流会让 cursor 动画变慢"
     );
 }
-
 /// 卡片查看 helper：用户选择/聚焦卡片时应把未查看完成提醒标记为已查看。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -163,29 +180,31 @@ fn test_mark_runtime_node_viewed_if_needed_marks_done_attention_viewed() {
     );
 }
 
-/// 删除中间卡片后，剩余卡片应立即按两列布局重排。
+/// 删除中间卡片后，剩余卡片应立即按默认的每列两张布局策略重排。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   area = origin(0,0), size(1200x900)
 ///   zoom = 1.0
-///   safe area = left 96, top 86, right 32, bottom 84
-///   usable width = 1200 - 96 - 32 = 1072
+///   默认策略 = 按列向右 + 每列 2 张 + 适应可视区域
+///   usable width = 1200 - 96 - 32 = 1072；usable height = 900 - 86 - 84 = 730
 ///   gap = 16
-///   三节点布局：tile_width = (1072 - 16*(3+1)) / 3 = 336，第三列 x = 96 + 16 + 2*(336+16) = 816
-///   删除中间节点后：tile_width = (1072 - 16*(2+1)) / 2 = 512，第二列 x = 96 + 16 + 1*(512+16) = 640
+///   三节点布局：rows = 2，cols = ceil(3/2) = 2；card_width = (1072 - 16*(2+1)) / 2 = 512
+///   C 位于第二列：x = 96 + 16 + 1*(512+16) = 640，y = 86 + 16 = 102
+///   删除中间节点后：rows = 2，cols = ceil(2/2) = 1；card_width = (1072 - 16*(1+1)) / 1 = 1040
+///   C 移到第一列第二行：x = 96 + 16 = 112，card_height = (730 - 16*(2+1)) / 2 = 341，y = 86 + 16 + 341 + 16 = 459
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 创建 A/B/C 三张普通卡片，并手动放到三列布局位置
+///   1. 创建 A/B/C 三张普通卡片，并手动放到默认的两行两列布局位置
 ///   2. close_node_and_reflow_for_area(B) → 删除 B，并用剩余顺序 [A,C] 重新计算布局
 ///   3. 查询 A/B/C 的 document bounds
 ///
 /// 预期结果：
 ///   - 正断言：B 被删除，返回 true
-///   - 正断言：A 仍位于两列布局第一列
-///   - 正断言：C 移到两列布局第二列 x=640
-///   - 负断言：C 不应停留在三列布局第三列 x=816
+///   - 正断言：A 仍位于默认布局的第一列第一行，并扩展到单列宽度
+///   - 正断言：C 移到默认布局的第一列第二行
+///   - 负断言：C 不应停留在删除前的第二列位置
 #[test]
-fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
+fn test_close_node_reflows_remaining_cards_with_default_layout_strategy() {
     let mut runtime = Runtime::new();
     let mut motion = MotionStore::new(true);
     let area = CanvasRect::new(0.0, 0.0, 1200.0, 900.0);
@@ -204,17 +223,30 @@ fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
         CanvasRect::new(0.0, 0.0, 10.0, 10.0),
     );
 
-    let three_column =
-        compute_responsive_grid_layout(&[a, b, c], area, workspace_reflow_config_for_zoom(zoom));
-    runtime.document.set_node_bounds(a, three_column[0].bounds);
-    runtime.document.set_node_bounds(b, three_column[1].bounds);
-    runtime.document.set_node_bounds(c, three_column[2].bounds);
-    let c_three_column_bounds = three_column[2].bounds;
+    let default_strategy = CanvasLayoutStrategy::default();
+    let three_nodes_layout = compute_configurable_grid_layout(
+        &[a, b, c],
+        area,
+        default_strategy.grid_config_for_zoom(zoom),
+    );
+    runtime
+        .document
+        .set_node_bounds(a, three_nodes_layout[0].bounds);
+    runtime
+        .document
+        .set_node_bounds(b, three_nodes_layout[1].bounds);
+    runtime
+        .document
+        .set_node_bounds(c, three_nodes_layout[2].bounds);
+    let c_right_column_bounds = three_nodes_layout[2].bounds;
 
     let removed = close_node_and_reflow_for_area(&mut runtime, &mut motion, b, area, zoom);
 
-    let two_column =
-        compute_responsive_grid_layout(&[a, c], area, workspace_reflow_config_for_zoom(zoom));
+    let two_nodes_layout = compute_configurable_grid_layout(
+        &[a, c],
+        area,
+        default_strategy.grid_config_for_zoom(zoom),
+    );
     let a_after = runtime
         .document
         .node(a)
@@ -235,16 +267,16 @@ fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
         "B 应从 document 删除，不能继续参与渲染或布局"
     );
     assert_eq!(
-        a_after, two_column[0].bounds,
-        "A 应按删除后的两列布局占据第一列，而不是保留旧三列尺寸"
+        a_after, two_nodes_layout[0].bounds,
+        "A 应按删除后的默认布局策略占据第一列第一行，而不是保留旧三卡的尺寸"
     );
     assert_eq!(
-        c_after, two_column[1].bounds,
-        "C 应按删除后的两列布局移动到第二列 x=640"
+        c_after, two_nodes_layout[1].bounds,
+        "C 应按删除后的默认布局策略移动到第一列第二行"
     );
     assert_ne!(
-        c_after, c_three_column_bounds,
-        "C 不应停留在删除前的三列第三列 x=816，否则说明删除没有触发重排"
+        c_after, c_right_column_bounds,
+        "C 不应停留在删除前的第二列位置，否则说明删除没有触发重排"
     );
 }
 
@@ -275,6 +307,7 @@ fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
 #[test]
 fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
+    let database_paths = storage::DatabasePaths::production_for_home(temp.path());
     let workspace_path = temp.path().join("launchpad-opened");
     std::fs::create_dir(&workspace_path).expect("test should create workspace dir");
     let canonical_workspace = workspace_path
@@ -303,15 +336,18 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     let mut screen = AppScreen::Launchpad;
 
     let result = enter_workspace_for_path(
-        &mut runtime,
-        WorkspaceCanvasState {
-            motion: &mut motion,
-            master_layout: &mut master_layout,
+        WorkspaceOpenContext {
+            database_paths: &database_paths,
+            runtime: &mut runtime,
+            canvas: WorkspaceCanvasState {
+                motion: &mut motion,
+                master_layout: &mut master_layout,
+            },
+            persistence: &mut persistence,
+            agent_definitions: &mut agent_definitions,
+            screen: &mut screen,
+            workspace_state: &mut workspace_state,
         },
-        &mut persistence,
-        &mut agent_definitions,
-        &mut screen,
-        &mut workspace_state,
         &workspace_path,
     );
 
@@ -384,6 +420,7 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
 #[test]
 fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
+    let database_paths = storage::DatabasePaths::production_for_home(temp.path());
     let missing_path = temp.path().join("missing-recent");
     let storage = RecentStore::new(temp.path().join("app.sqlite"));
     let mut workspace_state = WorkspaceState::load_from_storage(storage);
@@ -395,15 +432,18 @@ fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
     let mut screen = AppScreen::Launchpad;
 
     let result = enter_workspace_for_path(
-        &mut runtime,
-        WorkspaceCanvasState {
-            motion: &mut motion,
-            master_layout: &mut master_layout,
+        WorkspaceOpenContext {
+            database_paths: &database_paths,
+            runtime: &mut runtime,
+            canvas: WorkspaceCanvasState {
+                motion: &mut motion,
+                master_layout: &mut master_layout,
+            },
+            persistence: &mut persistence,
+            agent_definitions: &mut agent_definitions,
+            screen: &mut screen,
+            workspace_state: &mut workspace_state,
         },
-        &mut persistence,
-        &mut agent_definitions,
-        &mut screen,
-        &mut workspace_state,
         &missing_path,
     );
 
@@ -433,34 +473,4 @@ fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
         workspace_state.recent.records.is_empty(),
         "打开失败不应向最近项目写入记录"
     );
-}
-
-/// paste_bytes_from_clipboard_text 从剪贴板文本生成应写入 PTY 的字节序列。
-///
-/// 场景：剪贴板文本（含 ASCII 和多字节汉字）转换为 UTF-8 字节序列，
-///   供 NodeInput::Text 直接写入 PTY，不经过 keystroke 编码。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   clipboard text = "hello 世界"
-///   UTF-8 bytes: b"hello " (6 bytes) + [0xe4,0xb8,0x96,0xe7,0x95,0x8c] (6 bytes) = 12 bytes
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 将字符串 "hello 世界" 转换为 as_bytes() 字节切片
-///   2. 断言字节内容与预期 UTF-8 编码一致
-///   3. 断言不为 b"v"（即未将 Cmd+V 的 'v' 键直传 PTY）
-///
-/// 预期结果：
-///   - 正断言：bytes == "hello 世界".as_bytes()
-///   - 负断言：不为空，不为 b"v"（未做粘贴直接发了 v 键）
-#[test]
-fn test_paste_bytes_matches_clipboard_utf8() {
-    let text = "hello 世界";
-    let bytes = text.as_bytes().to_vec();
-    assert_eq!(
-        bytes,
-        "hello 世界".as_bytes(),
-        "粘贴字节应为 UTF-8 原始内容"
-    );
-    assert_ne!(bytes, b"v", "不应是裸 v 键字节");
-    assert!(!bytes.is_empty(), "粘贴内容不应为空");
 }

@@ -7,6 +7,7 @@ use crate::harness::create_terminal;
 ///   workspace = 1 个临时项目
 ///   cards     = 2 = Terminal(1) + Codex Agent(1)
 ///   focused   = 1 = 最后创建的 Codex Agent
+///   positions = Terminal(1) + Codex Agent(2)，均为 1-based
 ///   card content fields = 0，上下文只暴露身份、类型、标题和交互状态
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -17,6 +18,7 @@ use crate::harness::create_terminal;
 /// 预期结果：
 ///   - 正断言：项目 root 精确指向当前 workspace
 ///   - 正断言：Terminal 与 Agent 摘要都存在，Agent 标题为 Alan
+///   - 正断言：Terminal/Agent 分别保持画布位置 1/2，不受焦点优先展示影响
 ///   - 正断言：Agent 聚焦而 Terminal 不聚焦
 ///   - 负断言：不得凭空出现 Browser 卡片摘要
 #[test]
@@ -66,6 +68,10 @@ fn app_projects_workspace_and_canvas_cards_into_current_context() {
         terminal.title, "Terminal",
         "Terminal 卡片摘要应使用稳定显示标题"
     );
+    assert_eq!(
+        terminal.position, 1,
+        "先创建的 Terminal 必须投影为 1-based 画布位置 1"
+    );
     assert!(
         !terminal.focused,
         "最后创建 Agent 后 Terminal 不得仍被标记为聚焦"
@@ -78,6 +84,14 @@ fn app_projects_workspace_and_canvas_cards_into_current_context() {
     assert_eq!(
         agent.title, "Alan",
         "快速创建的 Codex Agent 应使用正式呼叫名 Alan 作为摘要标题"
+    );
+    assert_eq!(
+        agent.position, 2,
+        "后创建且聚焦的 Agent 必须保持画布位置 2，不能因优先展示被重编号"
+    );
+    assert_ne!(
+        agent.position, 1,
+        "聚焦 Agent 不得冒用第一张 Terminal 的画布位置"
     );
     assert!(agent.focused, "最后创建的 Agent 应被标记为聚焦卡片");
     assert!(

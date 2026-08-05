@@ -26,10 +26,52 @@ impl SavedVoiceSettings {
                 .and_then(DictationTrigger::from_stored),
             asr_model_id: non_empty_option(store.get_string(KEY_ASR_MODEL_ID)?)
                 .and_then(|value| AsrModelId::parse(value).ok()),
+            asr_provider: store
+                .get_string(KEY_ASR_PROVIDER)?
+                .as_deref()
+                .and_then(asr::AsrProviderId::from_stored),
+            azure_asr_region: non_empty_option(store.get_string(KEY_ASR_AZURE_REGION)?),
+            azure_asr_locale: non_empty_option(store.get_string(KEY_ASR_AZURE_LOCALE)?),
+            azure_asr_credential_ref: non_empty_option(
+                store.get_string(KEY_ASR_AZURE_CREDENTIAL_REF)?,
+            ),
+            azure_asr_ready: store
+                .get_string(KEY_ASR_AZURE_READY)?
+                .as_deref()
+                .and_then(stored_bool),
             tts_model_id: non_empty_option(store.get_string(KEY_TTS_MODEL_ID)?)
                 .and_then(|value| TtsModelId::parse(value).ok()),
             tts_voice_id: non_empty_option(store.get_string(KEY_TTS_VOICE_ID)?)
                 .and_then(|value| TtsVoiceId::parse(value).ok()),
+            active_tts_provider_id: non_empty_option(store.get_string(KEY_TTS_ACTIVE_PROVIDER_ID)?)
+                .and_then(|value| tts::TtsProviderId::parse(value).ok()),
+            minimax_tts_model_id: non_empty_option(store.get_string(KEY_TTS_MINIMAX_MODEL_ID)?)
+                .and_then(|value| TtsModelId::parse(value).ok()),
+            minimax_tts_voice_id: non_empty_option(store.get_string(KEY_TTS_MINIMAX_VOICE_ID)?)
+                .and_then(|value| TtsVoiceId::parse(value).ok()),
+            minimax_tts_voice_provenance: non_empty_option(
+                store.get_string(KEY_TTS_MINIMAX_VOICE_PROVENANCE)?,
+            )
+            .and_then(|value| match value.as_str() {
+                "catalog" => Some(tts::VoiceSelectionProvenance::Catalog),
+                "manual" => Some(tts::VoiceSelectionProvenance::Manual),
+                _ => None,
+            }),
+            minimax_tts_credential_ref: non_empty_option(
+                store.get_string(KEY_TTS_MINIMAX_CREDENTIAL_REF)?,
+            ),
+            minimax_tts_api_key: None,
+            minimax_validated_credential_ref: non_empty_option(
+                store.get_string(KEY_TTS_MINIMAX_VALIDATED_CREDENTIAL_REF)?,
+            ),
+            minimax_validated_model_id: non_empty_option(
+                store.get_string(KEY_TTS_MINIMAX_VALIDATED_MODEL_ID)?,
+            )
+            .and_then(|value| TtsModelId::parse(value).ok()),
+            minimax_validated_voice_id: non_empty_option(
+                store.get_string(KEY_TTS_MINIMAX_VALIDATED_VOICE_ID)?,
+            )
+            .and_then(|value| TtsVoiceId::parse(value).ok()),
             agent_provider: store
                 .get_string(KEY_AGENT_PROVIDER)?
                 .as_deref()

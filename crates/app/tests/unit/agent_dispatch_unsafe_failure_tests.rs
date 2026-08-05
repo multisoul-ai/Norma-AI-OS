@@ -156,6 +156,21 @@ fn test_pending_unsafe_failure_is_visible_and_does_not_release_busy() {
         app.submit_pending_agent_task_for_ready_node(node_id)
     });
     let visible_error = app.update(cx, |app, _cx| app.workspace_state.error.clone());
+    let first_task_ref = match &queued {
+        Ok(CardCommandResult::AgentTasksDispatched { receipts }) => receipts[0].task_id.clone(),
+        other => panic!("首次 Queued 回执前置条件已断言成功，实际：{other:?}"),
+    };
+    let failed_status = cx.update(|window, app_cx| {
+        app.update(app_cx, |app, _cx| {
+            execute_agent_card_command(
+                app,
+                window,
+                CardCommand::AgentTaskStatus {
+                    task_ref: first_task_ref,
+                },
+            )
+        })
+    });
     let retry = dispatch("重试正文", cx);
     let actual_writes = writes
         .lock()
@@ -172,6 +187,22 @@ fn test_pending_unsafe_failure_is_visible_and_does_not_release_busy() {
     );
     assert!(typed, "CLI Ready 后第一阶段必须成功写入任务正文");
     assert!(!submitted, "Enter 与清行失败后 pending 提交必须报告未成功");
+    assert!(
+        matches!(
+            failed_status,
+            Ok(CardCommandResult::AgentTaskStatus { ref task })
+                if task.status == AgentTaskReceiptStatus::Failed
+        ),
+        "Enter 与清行均失败后首项任务必须保留为可查询 Failed，实际：{failed_status:?}"
+    );
+    assert!(
+        !matches!(
+            failed_status,
+            Ok(CardCommandResult::AgentTaskStatus { ref task })
+                if task.status == AgentTaskReceiptStatus::Submitted
+        ),
+        "不安全提交失败后首项任务不得继续伪装为 Submitted"
+    );
     assert!(
         visible_error.as_deref().is_some_and(|message| {
             message.contains("提交失败")
@@ -408,7 +439,7 @@ fn test_untracked_batch_rejects_multiple_tasks_before_typing() {
 
     assert!(
         batch.as_ref().is_err_and(|message| {
-            message.contains("no Hook tracking") && message.contains("one task at a time")
+            message.contains("没有 Hook 跟踪") && message.contains("一次只能派发一个任务")
         }),
         "无 Hook 的同一 Agent 批量多任务必须在写入前拒绝，实际：{batch:?}"
     );

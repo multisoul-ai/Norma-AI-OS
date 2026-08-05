@@ -6,10 +6,12 @@
 
 mod dirs;
 mod import;
+pub(crate) mod preview;
 mod state;
 mod view;
 
 pub(crate) use import::ImportResult;
+pub(crate) use preview::PreviewCache;
 pub(crate) use state::WallpaperSettingsState;
 pub(crate) use view::wallpaper_settings;
 
@@ -22,5 +24,13 @@ mod tests;
 mod render_id_tests;
 
 #[cfg(test)]
+#[path = "../../tests/unit/wallpaper_builtin_migration_tests.rs"]
+mod builtin_migration_tests;
+
+#[cfg(test)]
 #[path = "../../tests/unit/wallpaper_dirs_tests.rs"]
 mod dirs_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_preview_tests.rs"]
+mod preview_tests;

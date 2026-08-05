@@ -2,9 +2,8 @@
 //!
 //! Mirrors [`crate::settings::voice::VoiceSettingsState`] in structure:
 //! - `KEY_*` constants hold storage row keys.
-//! - `load_default()` opens the default app store (or, when
-//!   `MULTISOUL_TEST_DATA_ROOT` is set, an app.sqlite under that root) and
-//!   reconstructs the selection from the saved keys.
+//! - `load_from_store()` reconstructs the selection from the App composition
+//!   root's already-selected SettingsStore.
 //! - mutating methods update the in-memory selection and write through to the
 //!   SettingsStore; the caller (Task 5) is responsible for invoking
 //!   `cx.notify()` afterwards to refresh the rendered view.
@@ -14,16 +13,18 @@
 
 use std::path::{Path, PathBuf};
 
-use super::dirs::{custom_wallpapers_dir, data_root, TEST_DATA_ROOT_ENV};
+use super::dirs::custom_wallpapers_dir;
 use super::import::{non_colliding_dest, ImportResult};
-use crate::app::wallpaper_resolvers::{builtin_wallpapers, resolve_builtin_asset, WallpaperKind};
+use crate::app::wallpaper_resolvers::{
+    builtin_wallpapers, canonical_builtin_wallpaper, resolve_builtin_asset, WallpaperKind,
+};
 use crate::assets::DEFAULT_WALLPAPER_ASSET;
-use storage::{AppStore, SettingsStore};
+use storage::SettingsStore;
 
 /// Settings row key holding the selection kind: `"builtin"` or `"custom"`.
 const KEY_WALLPAPER_KIND: &str = "wallpaper.kind";
 /// Settings row key holding the selection value: builtin rel path
-/// (e.g. `"wallpapers/1331865.png"`) or custom filename (e.g. `"mine.png"`).
+/// (e.g. `"wallpapers/1331865.webp"`) or custom filename (e.g. `"mine.png"`).
 const KEY_WALLPAPER_VALUE: &str = "wallpaper.value";
 
 const KIND_BUILTIN: &str = "builtin";
@@ -55,33 +56,8 @@ pub(crate) struct WallpaperSettingsState {
 }
 
 impl WallpaperSettingsState {
-    /// Load the saved wallpaper selection from the default data store.
-    ///
-    /// Honors `MULTISOUL_TEST_DATA_ROOT` so that tests run against an isolated
-    /// `<root>/app.sqlite` instead of the real user db. When the saved
-    /// selection cannot be resolved (unknown rel / missing file / corrupt
-    /// kind), it falls back to [`DEFAULT_WALLPAPER_ASSET`] and persists the
-    /// correction so subsequent loads are clean.
-    pub(crate) fn load_default() -> Self {
-        Self::load_from(open_data_store())
-    }
-
-    /// Test-only entry: opens the store under `MULTISOUL_TEST_DATA_ROOT`.
-    ///
-    /// Identical to [`load_default`]; kept as a separate symbol so test code
-    /// documents intent and production callers don't accidentally invoke it.
-    #[cfg(test)]
-    pub(crate) fn load_default_test() -> Self {
-        Self::load_from(open_data_store())
-    }
-
-    /// Test-only entry: opens the store under `MULTISOUL_TEST_DATA_ROOT` and
-    /// does not assume any prior saved state. Equivalent to
-    /// [`load_default_test`]; provided so the brief's T-W1 (which expects no
-    /// preference to exist) reads as documented.
-    #[cfg(test)]
-    pub(crate) fn load_default_with_test_store() -> Self {
-        Self::load_from(open_data_store())
+    pub(crate) fn load_from_store(store: SettingsStore) -> Self {
+        Self::load_from(Some(store))
     }
 
     /// Reconstruct state from an optional SettingsStore. When `store` is None
@@ -92,13 +68,19 @@ impl WallpaperSettingsState {
             .and_then(|s| load_saved_selection(s).ok().flatten());
 
         match saved {
-            Some(selection) if selection_resolves(&selection) => Self {
-                selection,
-                storage: store,
-            },
+            Some(loaded) if selection_resolves(&loaded.selection) => {
+                let mut state = Self {
+                    selection: loaded.selection,
+                    storage: store,
+                };
+                if loaded.needs_persist {
+                    state.persist();
+                }
+                state
+            }
             Some(bad) => {
                 tracing::warn!(
-                    ?bad,
+                    selection = ?bad.selection,
                     "saved wallpaper selection did not resolve; falling back to default"
                 );
                 let mut state = Self::default_with(store);
@@ -194,32 +176,15 @@ impl WallpaperSettingsState {
         }
     }
 
-    /// Return the asset path for GPUI `ImageSource::Resource` rendering.
-    ///
-    /// Only builtin image wallpapers (Static / Gif) opt into asset-path
-    /// rendering — they ship inside the binary via `EmbeddedAssets`. Videos
-    /// bypass this (Task 10 territory) and custom files render via
-    /// `ImageSource::from(PathBuf)` instead, so they both return None here.
-    pub(crate) fn image_asset_path(&self) -> Option<&'static str> {
-        match &self.selection {
-            WallpaperSelection::Builtin { rel } => match selection_kind(&self.selection) {
-                WallpaperKind::Static | WallpaperKind::Gif => Some(*rel),
-                WallpaperKind::Video => None,
-            },
-            WallpaperSelection::Custom { .. } => None,
-        }
-    }
-
     /// Build the GPUI [`ImageSource`] the chrome wallpaper layer should render.
     ///
     /// This is the single source of truth used by the chrome backdrop so the
     /// render decision lives next to the persistent state instead of being
     /// re-derived at the view layer:
     ///
-    /// - Builtin Static/Gif → `ImageSource::from(asset_path)` (resolves to
-    ///   `Resource::Embedded`, served by the `EmbeddedAssets` AssetSource).
-    /// - Custom image (any kind) → `ImageSource::from(resolved_path)`, which
-    ///   yields `Resource(path)` that GPUI loads from disk.
+    /// - Builtin Static/Gif → resolve the packaged resource to an absolute path
+    ///   and use `Resource::Path`; the bytes are not duplicated in the binary.
+    /// - Custom image → use the resolved file path through the same disk loader.
     /// - Video selection → falls back to the default builtin image asset.
     ///   Task 10 will replace this branch with the live video render path; in
     ///   the meantime we never hand GPUI a video byte stream through `img()`.
@@ -228,20 +193,11 @@ impl WallpaperSettingsState {
     ///   renders a blank backdrop.
     pub(crate) fn image_source_for_render(&self) -> gpui::ImageSource {
         match self.current_kind() {
-            WallpaperKind::Video => {
-                // Video is wired in Task 10; render the default image asset
-                // until then so the background is never empty.
-                gpui::ImageSource::from(DEFAULT_WALLPAPER_ASSET)
-            }
-            WallpaperKind::Static | WallpaperKind::Gif => {
-                if let Some(rel) = self.image_asset_path() {
-                    gpui::ImageSource::from(rel)
-                } else if let Some(path) = self.resolve_path() {
-                    gpui::ImageSource::from(path)
-                } else {
-                    gpui::ImageSource::from(DEFAULT_WALLPAPER_ASSET)
-                }
-            }
+            WallpaperKind::Video => default_wallpaper_image_source(),
+            WallpaperKind::Static | WallpaperKind::Gif => self
+                .resolve_path()
+                .map(gpui::ImageSource::from)
+                .unwrap_or_else(default_wallpaper_image_source),
         }
     }
 
@@ -362,27 +318,34 @@ impl WallpaperSettingsState {
     }
 }
 
+fn default_wallpaper_image_source() -> gpui::ImageSource {
+    resolve_builtin_asset(DEFAULT_WALLPAPER_ASSET)
+        .map(gpui::ImageSource::from)
+        .unwrap_or_else(|| gpui::ImageSource::from(DEFAULT_WALLPAPER_ASSET))
+}
+
 /// Read both keys and reconstruct a selection. Returns None when either
 /// key is missing, the kind is unknown, the builtin rel is not in the
 /// registry, or the custom filename is malformed (empty / contains a path
 /// separator). The caller decides whether to fall back to default.
-fn load_saved_selection(
-    store: &SettingsStore,
-) -> storage::StorageResult<Option<WallpaperSelection>> {
+#[derive(Debug)]
+struct LoadedSelection {
+    selection: WallpaperSelection,
+    needs_persist: bool,
+}
+
+fn load_saved_selection(store: &SettingsStore) -> storage::StorageResult<Option<LoadedSelection>> {
     let kind: Option<String> = store.get_string(KEY_WALLPAPER_KIND)?;
     let value: Option<String> = store.get_string(KEY_WALLPAPER_VALUE)?;
     let (Some(kind), Some(value)) = (kind, value) else {
         return Ok(None);
     };
     let value_str = value.as_str();
-    let selection = match kind.as_str() {
+    let (selection, needs_persist) = match kind.as_str() {
         KIND_BUILTIN => {
-            let rel: Option<&'static str> = builtin_wallpapers()
-                .iter()
-                .find(|(r, _, _)| *r == value_str)
-                .map(|(r, _, _)| *r);
+            let rel = canonical_builtin_wallpaper(value_str);
             match rel {
-                Some(r) => WallpaperSelection::Builtin { rel: r },
+                Some(r) => (WallpaperSelection::Builtin { rel: r }, r != value_str),
                 None => return Ok(None),
             }
         }
@@ -391,13 +354,19 @@ fn load_saved_selection(
             if trimmed.is_empty() || trimmed.contains('/') || trimmed.contains('\\') {
                 return Ok(None);
             }
-            WallpaperSelection::Custom {
-                filename: trimmed.to_string(),
-            }
+            (
+                WallpaperSelection::Custom {
+                    filename: trimmed.to_string(),
+                },
+                false,
+            )
         }
         _ => return Ok(None),
     };
-    Ok(Some(selection))
+    Ok(Some(LoadedSelection {
+        selection,
+        needs_persist,
+    }))
 }
 
 /// Classify an arbitrary selection's WallpaperKind. Unknown builtin rel
@@ -432,23 +401,4 @@ fn selection_resolves(sel: &WallpaperSelection) -> bool {
             .map(|d| d.join(filename).is_file())
             .unwrap_or(false),
     }
-}
-
-/// Open the SettingsStore used by [`WallpaperSettingsState::load_default`].
-///
-/// When `MULTISOUL_TEST_DATA_ROOT` is set, opens `<root>/app.sqlite` (the
-/// file may not yet exist — the first `set_string` call runs the migrations
-/// that create it). Otherwise opens the production default app store.
-fn open_data_store() -> Option<SettingsStore> {
-    if std::env::var(TEST_DATA_ROOT_ENV).is_ok() {
-        // data_root() honors the same env var, so this is the test root.
-        let root = data_root().expect(
-            "MULTISOUL_TEST_DATA_ROOT is set but data_root() returned None — \
-             env var resolution is bugged",
-        );
-        return Some(AppStore::new(root.join("app.sqlite")).settings_store());
-    }
-    AppStore::open_default()
-        .ok()
-        .map(|store| store.settings_store())
 }

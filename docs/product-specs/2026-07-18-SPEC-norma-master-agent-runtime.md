@@ -317,14 +317,16 @@ find_agent_tasks({
 
 ```ts
 create_agent({
-  profile: "codex" | "claude" | "opencode" | "cursor" | "grok"
+  profile: "codex" | "claude" | "opencode" | "cursor" | "grok",
+  task?: string
 })
 ```
 
 - 只在用户明确要求创建 Agent 时调用。
 - 不接受 `name` 或 `activate`。
+- 同一请求还要求新 Agent 执行任务时，必须把完整任务放入可选 `task`，只调用一次 `create_agent`，不得随后再调用 `assign_agent_task`。
 - 名称从现有内置 Agent 名称池确定性选择。
-- 创建后默认启用并打开唯一 AgentCard。
+- 创建后默认启用并打开唯一 AgentCard；带 `task` 时立即进入既有 FIFO，并继续受 CLI Ready 门控保护。
 - 多 Agent 请求拆成多次串行调用。
 - 不询问确认。
 - 名称池耗尽或 profile 不支持时返回错误。
@@ -406,14 +408,19 @@ send_terminal_input({
 
 ```ts
 delete_canvas_card({
-  node_id: number
+  node_id?: number,
+  position?: number,
+  agent?: string
 })
 ```
 
+- `node_id`、1-based `position` 与 Agent 呼叫名/语音别名 `agent` 必须且只能提供一个。
 - 只有当前用户请求明确表达删除意图时才能执行。
 - “整理画布”等宽泛请求必须先明确目标。
 - Norma 不得为了完成其他目标自主推断删除。
-- 删除 AgentCard 不删除持久 Agent 定义。
+- “删除”和“关闭”表达同一画布副作用；按 Agent 身份关闭时结束其活跃 AgentCard。
+- 删除显式 AgentCard 不删除持久 Agent 定义；快速定义仍随其卡片清理。
+- Agent 正在执行或仍有排队任务时，第一次关闭只请求确认，重复关闭才中断任务并结束卡片。
 
 ## 9. 工具执行规则
 

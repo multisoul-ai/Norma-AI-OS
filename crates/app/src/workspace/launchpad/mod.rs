@@ -46,19 +46,40 @@ fn launchpad_default_video_path() -> Option<PathBuf> {
     resolve_builtin_asset(launchpad_default_video_asset())
 }
 
+fn launchpad_video_surface_is_visible(feature_guide_visible: bool) -> bool {
+    !feature_guide_visible
+}
+
+fn launchpad_video_path_for_state(feature_guide_visible: bool) -> Option<PathBuf> {
+    let video_path = launchpad_default_video_path();
+    crate::app::video_wallpaper::video_wallpaper_path_for_feature_guide(
+        video_path.as_deref(),
+        feature_guide_visible,
+    )
+    .map(PathBuf::from)
+}
+
 impl MultisoulApp {
     pub(crate) fn render_launchpad(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Div {
         // Launchpad owns a fixed video background. It intentionally does not use
         // `wallpaper_settings`: Canvas wallpaper selection must not alter the
         // startup screen's dedicated home video playback.
         #[cfg(target_os = "macos")]
-        self.sync_video_wallpaper(launchpad_default_video_path().as_deref(), cx);
+        self.sync_video_wallpaper(
+            launchpad_video_path_for_state(self.feature_guide.is_visible()).as_deref(),
+            cx,
+        );
 
         let theme = self.theme;
         let win = window.viewport_size();
         let layout = launchpad_layout_for_window(f32::from(win.width), f32::from(win.height));
         #[cfg(target_os = "macos")]
-        let launchpad_video = self.render_launchpad_video_layer();
+        let launchpad_video = if launchpad_video_surface_is_visible(self.feature_guide.is_visible())
+        {
+            self.render_launchpad_video_layer()
+        } else {
+            div().size_full()
+        };
         #[cfg(not(target_os = "macos"))]
         let launchpad_video = div().size_full();
         let overlay = LaunchpadBackdropOverlay::BALANCED;
@@ -97,12 +118,20 @@ impl MultisoulApp {
                                     true,
                                 )
                                 .id("launchpad-open-project")
+                                .debug_selector(|| "launchpad-open-project".to_string())
                                 .on_click(cx.listener(Self::on_launchpad_open_project)),
                             )
                             .child(
-                                action_card(theme, "↓", "Clone Repo", "Remote setup soon", false)
-                                    .id("launchpad-clone-repo")
-                                    .on_click(cx.listener(Self::on_launchpad_clone_todo)),
+                                action_card(
+                                    theme,
+                                    "↓",
+                                    "Clone Repo",
+                                    "HTTPS or SSH from GitHub",
+                                    true,
+                                )
+                                .id("launchpad-clone-repo")
+                                .debug_selector(|| "launchpad-clone-repo".to_string())
+                                .on_click(cx.listener(Self::on_launchpad_clone_project)),
                             ),
                     )
                     .child(self.render_recent_projects(theme, cx)),
@@ -118,14 +147,13 @@ impl MultisoulApp {
         self.prompt_open_project(window, cx);
     }
 
-    fn on_launchpad_clone_todo(
+    fn on_launchpad_clone_project(
         &mut self,
         _: &ClickEvent,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.workspace_state.mark_clone_todo();
-        cx.notify();
+        self.open_clone_project_dialog(window, cx);
     }
 }
 

@@ -83,15 +83,21 @@ fn e2e_03_voice_modes_and_shared_model_catalog_are_clickable() {
 ///
 /// 场景：窗口缩到 420×360 后打开 Voice Settings。
 /// 数据构造：420×360 小于顶栏断点 580px；紧凑边距 = 12px，因此面板宽度
-/// = 420 - 2×12 = 396px，必须使用 `settings-navigation-topbar`。先向左横滚 360px，
-/// 将 Input & Controls 的 Voice 入口移入可点击范围；向上滚动 220px，可把
+/// = 420 - 2×12 = 396px，必须使用 `settings-navigation-topbar`。General 新增一个
+/// 132px Software Update 入口与 14px 组间距，因此原 360px 横滚量增加
+/// 132 + 14 = 146px，取 560px 将 Input & Controls 的 Voice 入口移入可点击范围；
+/// 向上滚动 220px，可把
 /// Continuous Listening 移入 140px 高的内容区。Wallpaper 是 Appearance 的首个顶栏入口，
-/// 向右横滚 360px 后重新可点；最后再向左横滚 640px 到达 Agent Hooks。
+/// 从 Voice 位置向右回滚 360px 后，Wallpaper 重新进入可点击范围；Performance 新增一个
+/// 132px 入口与 5px 间距，
+/// General 又新增 132px 入口与 14px 组间距，因此末组所需横滚量
+/// ≈ 旧 640px + Performance(132 + 5) + General(132 + 14) = 923px，取 960px
+/// 到达 Orchestration。
 /// 执行过程：resize → 打开 Settings → 确认顶栏 → 横滚并切到 Voice → 滚动内容露出
 /// Continuous Listening → 选择该模式并继续滚动内容 → 横滚回首组并点击 Wallpaper →
-/// 顶栏横向滚动至末组 → 点击 Agent Hooks。
+/// 顶栏横向滚动至末组 → 点击 Orchestration。
 /// 预期结果：小窗口内仍能通过真实 hitbox 切换 Voice、首个顶栏入口和横滚后的末组入口；
-/// Wallpaper 与 Agent Hooks 依次成为 active section。
+/// Wallpaper 与 Orchestration 依次成为 active section。
 #[test]
 fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
     let mut cx = TestAppContext::single();
@@ -106,7 +112,19 @@ fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
         cx.debug_bounds("settings-navigation-topbar").is_some(),
         "420px 小窗口应渲染紧凑顶栏导航，而不是继续挤压侧栏"
     );
-    scroll_debug_horizontal(cx, "settings-navigation-topbar", -360.0);
+    // required = previous 360px + General item 132px + group gap 14px = 506px；
+    // 使用 560px 留出 54px 命中余量。
+    scroll_debug_horizontal(cx, "settings-navigation-topbar", -560.0);
+    let navigation_bounds = cx
+        .debug_bounds("settings-navigation-topbar")
+        .expect("小窗口顶栏必须在横滚后继续存在");
+    let voice_bounds = cx
+        .debug_bounds("settings-section-voice")
+        .expect("横滚后 Voice 入口必须存在");
+    assert!(
+        navigation_bounds.contains(&voice_bounds.center()),
+        "横滚 560px 后 Voice 入口中心必须进入顶栏可点击范围，navigation={navigation_bounds:?}, voice={voice_bounds:?}"
+    );
     click_debug(cx, "settings-section-voice");
     let voice = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
@@ -125,6 +143,13 @@ fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
     );
 
     scroll_debug_horizontal(cx, "settings-navigation-topbar", 360.0);
+    let wallpaper_bounds = cx
+        .debug_bounds("settings-section-wallpaper")
+        .expect("回滚顶栏后 Wallpaper 入口必须存在");
+    assert!(
+        navigation_bounds.contains(&wallpaper_bounds.center()),
+        "从 Voice 位置回滚 360px 后 Wallpaper 入口中心必须进入顶栏可点击范围，navigation={navigation_bounds:?}, wallpaper={wallpaper_bounds:?}"
+    );
     click_debug(cx, "settings-section-wallpaper");
     let wallpaper = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
@@ -133,18 +158,20 @@ fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
         wallpaper
     );
 
-    scroll_debug_horizontal(cx, "settings-navigation-topbar", -640.0);
-    click_debug(cx, "settings-section-hooks");
-    let hooks = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    // required ≈ previous 640px + Performance(132px + 5px) + General(132px + 14px)
+    // = 923px；使用 960px 留出 37px 命中余量，并由滚动容器在末端自动钳制。
+    scroll_debug_horizontal(cx, "settings-navigation-topbar", -960.0);
+    click_debug(cx, "settings-section-orchestration");
+    let orchestration = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     assert_eq!(
-        hooks.active_section, "Agent Hooks",
-        "横向滚动顶栏后应能点击 AI & Automation 的 Agent Hooks，snapshot: {:?}",
-        hooks
+        orchestration.active_section, "Orchestration",
+        "横向滚动顶栏后应能点击 AI & Automation 的 Orchestration，snapshot: {:?}",
+        orchestration
     );
     assert_ne!(
-        hooks.active_section, "Wallpaper",
-        "点击 Agent Hooks 后不得继续停留在 Wallpaper，snapshot: {:?}",
-        hooks
+        orchestration.active_section, "Wallpaper",
+        "点击 Orchestration 后不得继续停留在 Wallpaper，snapshot: {:?}",
+        orchestration
     );
 }
 

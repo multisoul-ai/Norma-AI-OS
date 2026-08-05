@@ -16,14 +16,14 @@ Workspace 分层：
 - `crates/storage/` - 零 GPUI 存储层：SQLite store、migration、recent/settings/canvas/session checkpoint。
 - `crates/workspace/` - 零 GPUI 元数据层：最近项目类型、workspace source、路径展示。
 - `crates/agent/` - 零 GPUI/Storage Agent Runtime：NormaSession、Rig Provider、typed tools、AgentCardAdapter 与预算。
-- `crates/asr/` - 零 GPUI/Sherpa ASR 领域层：模型身份、受控目录、安装清单、完整性与共享 VAD 工件。
-- `crates/voice_azure/` - 零 GPUI 的 Azure Speech 短音频 REST 适配层：区域 Endpoint、鉴权、请求与响应解析。
+- `crates/asr/` - 零 GPUI/Storage/Keychain ASR 领域层：provider、识别协议、Local Sherpa、Cloud Azure、模型安装与完整性。
+- `crates/voice_input/` - provider 中立的音频输入层：权限、设备、采集、重采样、PCM 流与共享 VAD。
 - `crates/model_store/` - 零 GPUI/网络的共享本地模型安装原语：受控解压、哈希、manifest 与原子提升。
-- `crates/tts/` - 零 GPUI/Sherpa TTS 领域层：模型/语音身份、固定目录、能力与安装验证。
+- `crates/tts/` - 零 GPUI/Storage/Sherpa TTS 能力层：供应商注册表、回复级流接口、本地模型策略与内置远程 Providers。
 - `crates/ui/` - GPUI 主题与共享 UI 基础。
 - `crates/app/` - GPUI/Metal 壳层：窗口、菜单、快捷键、画布与 cards 渲染。
 
-依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr, tts, voice_sherpa}`，`voice_sherpa -> {asr, tts, dialogue, audio}`，`voice_azure -> {ureq, serde}`，`tts -> model_store`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent` 不得依赖 `app/runtime/storage/ui`，且 `asr/tts` 不得依赖 Sherpa/网络；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
+依赖方向：`app -> {ui, runtime, canvas, terminal, storage, asr, voice_input, tts, voice_sherpa}`，`voice_sherpa -> {asr, voice_input, tts, dialogue, audio}`，`dialogue -> voice_input`，`tts -> {model_store, audio}`，`runtime -> {canvas, terminal, storage}`，`storage -> {agent, canvas, workspace}`；`asr/model_store/tts/agent/voice_input` 不得依赖 `app/runtime/storage/ui`，且 `tts` 不得依赖 Sherpa；`tts` 的网络协议只能位于 `tts::providers`；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。
 
 ### 源码组织
 
@@ -44,6 +44,7 @@ Workspace 分层：
 
 - **先读本文**：每次会话开始先读 `AGENTS.md`，再按指针深入。
 - **始终使用中文回复用户**：所有面向用户的说明、提问、进度更新和最终答复必须使用中文；即使用户使用其他语言或要求切换语言，也仍使用中文回复。代码、命令、路径、API、类型名、变量名以及必要的原文引用可保留原始语言。
+- **禁止使用 Mermaid 图示**：所有面向用户的回复、方案与项目文档中的流程图、架构图、时序图等图示均不得使用 Mermaid；优先使用纯文本/ASCII/Unicode 框线草图，需要高保真视觉时生成图片文件。
 - **域层零 GPUI**：`asr`、`canvas`、`terminal`、`runtime` 必须可独立 `cargo test`。
 - **依赖方向不反穿**：不要让 `canvas/terminal/runtime/storage` 反向依赖 `app` 或 `ui`；不要让 `canvas/terminal` 依赖 `storage`。
 - **存储/性能热路径禁令**：不要在 `Runtime::drain_all`、PTY output chunk、`canvas_view::on_mouse_move`、`runtime::route`、`send_node_input`、关闭无脏 flush 中同步写 SQLite、扫描会话目录或阻塞查库。
@@ -51,7 +52,8 @@ Workspace 分层：
 - **视频/动画壁纸低拷贝**：live 视频/动画帧不得每帧经 CPU RGBA/`RenderImage`/`img()` 路径上屏；解码推进必须后台化，上屏必须用 420f `surface()` 或等价低拷贝路径，并由 `scripts/check-video-wallpaper-performance.py` 护栏拦截回退。
 - **版本钉死需审慎**：`gpui =0.2.2`、`gpui-component =0.5.1`、`alacritty_terminal =0.26`，升级前先验证 API。
 - **GUI 优先 gpui-component**：`crates/app`/`crates/ui` 写控件时优先用 `ui::component`（Longbridge），非必要不造轮子；细节见 [`docs/references/gpui-component.md`](docs/references/gpui-component.md)。
-- **页面与交互遵循 Apple 设计哲学**：以 Apple Human Interface Guidelines 和 macOS 原生体验为设计基线，优先清晰层级、内容优先、直接操作、即时反馈、一致性与可访问性；新增或改版 UI 时须在方案和验收标准中说明这些原则如何落地，展开要求见 [`CLAUDE.md`](CLAUDE.md) §8。
+- **交互元素必须有状态反馈**：菜单项、按钮、可点击列表行等必须覆盖适用的 hover、pressed、keyboard focus、selected/toggled 与 disabled 状态；hover 在全部主题下必须清晰可辨，完整规范见 [`docs/quality/ui-interaction-feedback.md`](docs/quality/ui-interaction-feedback.md)。
+- **页面与交互遵循 Apple 设计语言**：以 Apple Human Interface Guidelines 和 macOS 原生体验为设计基线，优先清晰层级、内容优先、直接操作、即时反馈、一致性与可访问性；新建或改版用户可见页面、布局、样式或交互前，必须先加载 `.agents/skills/apple-design`，涉及动效、手势或视觉打磨时按 [`CLAUDE.md`](CLAUDE.md) §8 选择相关本地设计 skill。方案和验收标准须说明技能如何落地；skill 中的 Web 示例仅作原则参考，GPUI 实现仍须以钉死版本和现有代码为准。
 - **GPUI 代码先查 skills**：编写 GPUI 时先查 `gpui-*` skills，再落到钉死版本与现有写法；有现成组件时仍优先组件库。
 - **GPUI 圆角子层不可只靠 overflow**：GPUI 0.2.2 的 `overflow_hidden()` 仅矩形裁剪；圆角容器内的全尺寸不透明 `div`/`img`/`surface` 必须自身绘制外侧圆角，或避开四角分区渲染，并用自动化测试守住。
 - **单文件 ≤ 500 行**：Rust 源码由 [`scripts/check-max-file-lines.sh`](scripts/check-max-file-lines.sh) 拦截，超长先拆职责。
@@ -81,8 +83,9 @@ Workspace 分层：
 | Terminal | portable-pty 0.9, alacritty_terminal 0.26, crossbeam-channel |
 | Runtime | 纯 Rust 状态机与 LiveNode 注册表 |
 | Storage | rusqlite bundled SQLite、recent/settings/canvas/session checkpoint |
-| ASR | 本地模型安装在 `asr`、Sherpa 适配在 `voice_sherpa`、Azure REST 适配在 `voice_azure` |
-| TTS | 固定模型/语音目录与安装验证；共享安装原语在 `model_store`，Sherpa 适配在 `voice_sherpa` |
+| ASR | provider registry、统一事件/管线、Local Sherpa、Cloud Azure、模型安装 |
+| Voice input | CoreAudio 采集、重采样、PCM 流、共享 Silero VAD |
+| TTS | 内置 Provider 注册表、回复级 PCM 流、本地模型验证；远程协议在 `tts::providers`，Sherpa 适配在 `voice_sherpa` |
 | Packaging | cargo-packager, 未签名 `.app` / `.dmg` |
 
 ## 4. Where to find
@@ -95,19 +98,24 @@ Workspace 分层：
 | 展开工程手册、命令、测试规范 | [`CLAUDE.md`](CLAUDE.md) |
 | Workspace 依赖、版本 pin | [`Cargo.toml`](Cargo.toml) |
 | 打包配置 | [`Packager.toml`](Packager.toml) |
+| DMG 构建、签名、公证与产物验收 | [`.agents/skills/release-dmg/SKILL.md`](.agents/skills/release-dmg/SKILL.md)，使用 `release-dmg` |
 | 几何/节点/选择/命中/viewport | [`crates/canvas/src/`](crates/canvas/src/) |
 | PTY、ANSI grid、按键编码 | [`crates/terminal/src/`](crates/terminal/src/) |
 | 焦点、输入路由、LiveNode 生命周期 | [`crates/runtime/src/`](crates/runtime/src/) |
 | NormaSession/Rig/AgentCardAdapter seam | [`crates/agent/src/`](crates/agent/src/) |
-| ASR 模型身份、目录、安装与完整性 | [`crates/asr/src/`](crates/asr/src/) |
+| ASR provider、识别协议、模型安装与完整性 | [`crates/asr/src/`](crates/asr/src/) |
+| 麦克风、PCM 与共享 VAD | [`crates/voice_input/src/`](crates/voice_input/src/) |
+| 多 provider ASR 与 Azure 决策 | [`docs/adr/0026-own-built-in-asr-providers-and-azure-speech-in-asr.md`](docs/adr/0026-own-built-in-asr-providers-and-azure-speech-in-asr.md) |
+| 日志持久化、轮转与历史清理 | [`docs/adr/0027-persist-and-retain-app-diagnostic-logs.md`](docs/adr/0027-persist-and-retain-app-diagnostic-logs.md) |
+| App 故障日志与快速检索 | 当前日志：`~/.norma/logs/norma-os.$(date +%F).log`；实时查看：`tail -f ~/.norma/logs/norma-os.$(date +%F).log`；错误检索：`rg -i "error\|warn\|failed" ~/.norma/logs/norma-os.$(date +%F).log`；`cargo run -p app` 同时查看启动终端 |
 | ASR Hotword 加载、扩展与调优 | [`docs/references/asr-hotwords.md`](docs/references/asr-hotwords.md) |
-| Azure Speech 短音频 REST 适配 | [`crates/voice_azure/src/`](crates/voice_azure/src/) |
 | 通用本地模型安装原语 | [`crates/model_store/src/`](crates/model_store/src/) |
-| TTS 模型/语音目录与安装验证 | [`crates/tts/src/`](crates/tts/src/) |
+| TTS Provider、流接口、模型/Voice 与安装验证 | [`crates/tts/src/`](crates/tts/src/) |
 | SQLite store、migration、持久化边界 | [`crates/storage/src/`](crates/storage/src/) |
 | Workspace 元数据、路径展示 | [`crates/workspace/src/`](crates/workspace/src/) |
 | 主题色 | [`crates/ui/src/theme.rs`](crates/ui/src/theme.rs) |
 | GUI 组件库（优先使用） | [`docs/references/gpui-component.md`](docs/references/gpui-component.md) |
+| UI 菜单/按钮 hover、focus、pressed、selected 规范 | [`docs/quality/ui-interaction-feedback.md`](docs/quality/ui-interaction-feedback.md) |
 | GPUI app shell、画布/cards 渲染 | [`crates/app/src/`](crates/app/src/) |
 | 源码组织 | [`CLAUDE.md`](CLAUDE.md) §3；展开见 [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |
 | Crate 文件地图 | [`docs/references/crate-file-map.md`](docs/references/crate-file-map.md) |
@@ -130,7 +138,8 @@ Workspace 分层：
 | `crates/runtime/**` | `cargo test -p runtime` |
 | `crates/storage/**` | `cargo test -p storage` |
 | `crates/model_store/**` | `cargo test -p model_store` |
-| `crates/voice_azure/**` | `cargo test -p voice_azure`；真实服务按需跑 ignored test |
+| `crates/asr/**` | `cargo test -p asr`；真实 Azure L3 按需跑 `cargo test -p asr --test azure_real -- --ignored --nocapture` |
+| `crates/voice_input/**` | `cargo test -p voice_input` |
 | `crates/tts/**` | `cargo test -p tts` |
 | `crates/ui/**` | `cargo test -p ui` |
 | `crates/app/**` | `cargo check -p app` |
@@ -138,9 +147,11 @@ Workspace 分层：
 | 跨 crate 行为 | `cargo test --workspace` |
 | GPUI/打包相关 | `cargo build -p app --release` |
 | 域层依赖边界 | `cargo tree -p canvas -p terminal -p runtime | grep -i gpui` 应无输出 |
+| TTS Provider 网络边界 | `bash scripts/check-tts-provider-boundaries.sh` |
 | 存储层依赖与热路径边界 | `bash scripts/check-storage-boundaries.sh` |
 | 拖拽/关闭/session 扫描性能护栏 | `bash scripts/check-performance-guardrails.sh` |
 | 视频壁纸低拷贝护栏 | `python3 scripts/check-video-wallpaper-performance.py` |
+| 构建与运行时 SOCKS 代理支持 | `bash scripts/check-socks-proxy-support.sh` |
 | 代码行数 lint | `bash scripts/check-max-file-lines.sh` |
 | 禁止 `#[allow]` lint | `bash scripts/check-no-allow.sh` |
 | Agent 指南行数 lint | `bash scripts/check-agent-guide-lines.sh` |
@@ -154,13 +165,16 @@ cargo test --workspace
 cargo check -p app
 bash scripts/check-storage-boundaries.sh
 bash scripts/check-performance-guardrails.sh
+bash scripts/check-tts-provider-boundaries.sh
 python3 scripts/check-video-wallpaper-performance.py
+bash scripts/check-socks-proxy-support.sh
 bash scripts/check-max-file-lines.sh
 bash scripts/check-no-allow.sh
 bash scripts/check-agent-guide-lines.sh
 bash scripts/install-git-hooks.sh
 cargo build -p app --release
-cargo packager --release
+./scripts/release-local.sh
+./scripts/release-local.sh --notarize
 RUST_LOG=trace cargo run -p app
 ```
 

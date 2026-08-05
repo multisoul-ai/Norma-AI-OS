@@ -133,9 +133,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let bounds = self
-            .visible_canvas_rect(window)
-            .inset(self.layout_gap_canvas());
+        let bounds = self.next_tiled_node_bounds(window);
         let (cols, rows) =
             term_grid_size_for_card(NodeType::Agent, bounds, self.runtime.document.viewport.zoom);
         let profile = spec.profile;
@@ -161,7 +159,7 @@ impl MultisoulApp {
                     node_id,
                     crate::motion::InitializationAnimationKind::for_agent_profile(profile),
                 );
-                self.apply_layout_for_current_mode(window);
+                self.apply_layout_for_new_node(node_id, window);
                 self.mark_canvas_dirty();
                 self.mark_session_dirty();
             }

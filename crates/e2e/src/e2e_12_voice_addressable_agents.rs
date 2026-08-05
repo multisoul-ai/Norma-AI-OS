@@ -6,7 +6,9 @@
 use canvas::CanvasNodeKind;
 use gpui::{Modifiers, TestAppContext, VisualTestContext};
 
-use crate::harness::{create_codex_agent, echo_factory, enter_canvas, make_app, read_runtime};
+use crate::harness::{
+    create_codex_agent, echo_factory, enter_canvas, make_app, project_store, read_runtime,
+};
 
 #[path = "e2e_12_voice_addressable_agents/current_context.rs"]
 mod current_context;
@@ -53,8 +55,7 @@ fn settings_add_agent_is_unsaved_until_save_and_does_not_open_card() {
     );
     click_debug(cx, "settings-agent-new");
     let draft = app.update(cx, |app, _cx| app.agent_settings_e2e_snapshot());
-    let before_persisted = storage::ProjectStore::for_workspace(workspace.path())
-        .expect("e2e project store 应打开")
+    let before_persisted = project_store(&app, cx, workspace.path())
         .agent_definition_store()
         .list()
         .expect("保存前应能读取空定义列表");
@@ -83,8 +84,7 @@ fn settings_add_agent_is_unsaved_until_save_and_does_not_open_card() {
     click_debug(cx, "settings-agent-profile-claude");
     click_debug(cx, "settings-agent-save");
     let saved = app.update(cx, |app, _cx| app.agent_settings_e2e_snapshot());
-    let persisted = storage::ProjectStore::for_workspace(workspace.path())
-        .expect("e2e project store 应重新打开")
+    let persisted = project_store(&app, cx, workspace.path())
         .agent_definition_store()
         .list()
         .expect("保存后应能读取 Agent 定义");
@@ -158,8 +158,7 @@ fn quick_codex_create_persists_named_definition_and_bound_card() {
         };
         spec.clone()
     });
-    let definitions = storage::ProjectStore::for_workspace(workspace.path())
-        .expect("e2e project store 应打开")
+    let definitions = project_store(&app, cx, workspace.path())
         .agent_definition_store()
         .list()
         .expect("快速创建后应能读取 Agent 定义");
@@ -244,9 +243,7 @@ fn deleting_quick_agent_card_removes_its_temporary_definition() {
     cx.simulate_keystrokes("cmd-3");
     cx.run_until_parked();
 
-    let store = storage::ProjectStore::for_workspace(workspace.path())
-        .expect("生命周期 e2e 应打开 ProjectStore")
-        .agent_definition_store();
+    let store = project_store(&app, cx, workspace.path()).agent_definition_store();
     let definitions_before = store.list().expect("删除前应读取 QuickCard Definition");
     let cards_before = read_runtime(&app, cx, |runtime| {
         runtime
@@ -324,9 +321,7 @@ fn quick_agent_creation_continues_after_thirty_builtin_definitions() {
     let mut test_cx = TestAppContext::single();
     let (app, cx) = make_app(&mut test_cx, echo_factory());
     let workspace = tempfile::tempdir().expect("第 31 个 Agent e2e 应创建临时 workspace");
-    let store = storage::ProjectStore::for_workspace(workspace.path())
-        .expect("第 31 个 Agent e2e 应打开 ProjectStore")
-        .agent_definition_store();
+    let store = project_store(&app, cx, workspace.path()).agent_definition_store();
     for builtin in agent::builtin_agent_names() {
         store
             .create(&storage::NewAgentDefinition {

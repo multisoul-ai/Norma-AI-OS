@@ -19,7 +19,7 @@ mod chrome_auth_tests;
 #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
 mod cef_backend;
 mod engine;
-mod native;
+pub(crate) mod native;
 mod store;
 mod wry_backend;
 
@@ -64,6 +64,10 @@ pub(crate) enum BrowserEvent {
     TitleChanged {
         node_id: NodeId,
         title: String,
+    },
+    LocationChanged {
+        node_id: NodeId,
+        url: String,
     },
     PageInteraction {
         node_id: NodeId,
@@ -220,6 +224,12 @@ impl MultisoulApp {
             match event {
                 BrowserEvent::TitleChanged { node_id, title } => {
                     if self.set_browser_title(node_id, title) {
+                        changed = true;
+                    }
+                }
+                BrowserEvent::LocationChanged { node_id, url } => {
+                    if self.set_browser_url(node_id, url) {
+                        self.mark_canvas_dirty();
                         changed = true;
                     }
                 }
@@ -402,6 +412,7 @@ impl MultisoulApp {
         let CanvasNodeKind::Browser(spec) = &mut node.kind else {
             return false;
         };
+        let url = canonical_browser_location(&url);
         if spec.url == url && spec.title.is_none() {
             return false;
         }
@@ -425,6 +436,13 @@ impl MultisoulApp {
         self.mark_canvas_dirty();
         true
     }
+}
+
+pub(crate) fn canonical_browser_location(input: &str) -> String {
+    let trimmed = input.trim();
+    url::Url::parse(trimmed)
+        .map(|url| url.to_string())
+        .unwrap_or_else(|_| trimmed.to_string())
 }
 
 #[cfg(all(target_os = "macos", feature = "chromium-browser"))]
@@ -452,3 +470,7 @@ mod overlay_visibility_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/browser_interaction_visual_tests.rs"]
 mod interaction_visual_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/browser_location_tests.rs"]
+mod location_tests;

@@ -70,14 +70,48 @@ impl GridSnapshot {
 
     /// 返回可预览的本机文件目标；具体路径解析与文件校验由 app 后台加载链路负责。
     pub fn preview_path_at(&self, row: usize, col: usize) -> Option<String> {
-        let token = terminal_token_at(self.rows.get(row)?, col)?;
+        let token = wrapped_terminal_token_at(&self.rows, row, col)?;
         let path = trim_url_trailing_punctuation(&token);
         is_preview_path_candidate(path).then(|| path.to_string())
     }
 }
 
-fn terminal_token_at(row: &[Cell], clicked_col: usize) -> Option<String> {
-    let chars = row.iter().map(|cell| cell.c).collect::<Vec<_>>();
+fn wrapped_terminal_token_at(
+    rows: &[Vec<Cell>],
+    clicked_row: usize,
+    clicked_col: usize,
+) -> Option<String> {
+    let clicked_cells = rows.get(clicked_row)?;
+    if clicked_col >= clicked_cells.len() {
+        return None;
+    }
+
+    let mut first_row = clicked_row;
+    while first_row > 0 && row_soft_wraps(&rows[first_row - 1]) {
+        first_row -= 1;
+    }
+    let mut last_row = clicked_row;
+    while last_row + 1 < rows.len() && row_soft_wraps(&rows[last_row]) {
+        last_row += 1;
+    }
+
+    let clicked_index = rows[first_row..clicked_row]
+        .iter()
+        .map(Vec::len)
+        .sum::<usize>()
+        + clicked_col;
+    let chars = rows[first_row..=last_row]
+        .iter()
+        .flat_map(|row| row.iter().map(|cell| cell.c))
+        .collect::<Vec<_>>();
+    terminal_token_at(&chars, clicked_index)
+}
+
+fn row_soft_wraps(row: &[Cell]) -> bool {
+    row.last().map(|cell| cell.attrs.soft_wrap).unwrap_or(false)
+}
+
+fn terminal_token_at(chars: &[char], clicked_col: usize) -> Option<String> {
     let start = (0..=clicked_col.min(chars.len().saturating_sub(1)))
         .rev()
         .find(|&index| index == 0 || chars[index - 1].is_whitespace())?;

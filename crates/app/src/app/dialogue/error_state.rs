@@ -8,8 +8,20 @@ impl DialogueControlState {
         self.microphone_settings_recovery_available
     }
 
+    pub(crate) fn dismiss_error(&mut self) {
+        self.error_message = None;
+        self.microphone_settings_recovery_available = false;
+    }
+
     pub(crate) fn mark_start_error(&mut self, error: DialogueStartError) {
         self.record_start_error(&error);
+    }
+
+    pub(crate) fn mark_runtime_error(&mut self, message: impl Into<String>) {
+        self.stop_pcm_stream();
+        self.session.on_listening_stopped();
+        self.microphone_settings_recovery_available = false;
+        self.error_message = Some(format!("Speech recognition failed: {}", message.into()));
     }
 
     pub(super) fn record_start_error(&mut self, error: &DialogueStartError) {

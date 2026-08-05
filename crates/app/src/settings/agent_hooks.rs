@@ -1,17 +1,28 @@
 use canvas::AgentProfile as CanvasAgentProfile;
 #[cfg(test)]
 use canvas::CanvasNodeKind;
+#[cfg(test)]
+use crossbeam_channel::unbounded;
+use crossbeam_channel::Receiver;
 #[cfg(feature = "e2e-test-support")]
 use crossbeam_channel::Sender;
-use crossbeam_channel::{unbounded, Receiver};
+use gpui::App;
 use norma::agent_hook::{
-    extract_prompt_text, task_state_for_provider_event, AgentHookEvent, AgentHookTaskState,
+    extract_prompt_text, observe_conversation, task_state_for_provider_event, AgentHookEvent,
+    AgentHookTaskState, ConversationObservationKind,
 };
-use runtime::{AgentHookRuntimeConfig, AgentTaskState, AgentTaskUpdate, Runtime};
-use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Write};
+use norma::protocol::{AgentTaskResult, AgentTaskResultAvailability};
+use runtime::{
+    AgentHookRuntimeConfig, AgentTaskState, AgentTaskUpdate, AgentTaskUpdateOutcome, Runtime,
+};
+#[cfg(test)]
+use std::io::Write;
+#[cfg(test)]
 use std::net::{TcpListener, TcpStream};
-use std::thread;
+
+use super::agent_hook_ingress;
+#[cfg(test)]
+use super::agent_hook_ingress::{read_authorized_event, AgentHookHttpError};
 
 pub(crate) struct AgentHookServer {
     receiver: Receiver<AgentHookEvent>,
@@ -21,63 +32,57 @@ pub(crate) struct AgentHookServer {
     token: Option<String>,
 }
 
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default)]
 pub(crate) struct AgentHookDrainReport {
     pub(crate) changed: bool,
+    pub(crate) session_binding_changed: bool,
+    pub(crate) started_tasks: Vec<AgentHookStartedTask>,
     pub(crate) ready_node_ids: Vec<u64>,
-    pub(crate) terminal_node_ids: Vec<u64>,
+    pub(crate) terminal_tasks: Vec<AgentHookTerminalTask>,
+    pub(crate) events: Vec<AgentHookEvent>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) struct AgentHookStartedTask {
+    pub(crate) node_id: u64,
+    pub(crate) task_title: Option<String>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) struct AgentHookTerminalTask {
+    pub(crate) node_id: u64,
+    pub(crate) result: AgentTaskResult,
 }
 
 impl AgentHookServer {
-    pub(crate) fn start() -> Self {
-        let (sender, receiver) = unbounded();
-        #[cfg(feature = "e2e-test-support")]
-        let event_sender = sender.clone();
-        let token = random_token();
-        let listener = match TcpListener::bind(("127.0.0.1", 0)) {
-            Ok(listener) => listener,
-            Err(error) => {
-                tracing::warn!(%error, "failed to bind agent hook server");
-                return Self {
-                    receiver,
-                    #[cfg(feature = "e2e-test-support")]
-                    event_sender,
-                    endpoint: None,
-                    token: None,
-                };
-            }
-        };
-        let port = listener.local_addr().ok().map(|addr| addr.port());
-        let Some(port) = port else {
-            return Self {
-                receiver,
-                #[cfg(feature = "e2e-test-support")]
-                event_sender,
-                endpoint: None,
-                token: None,
-            };
-        };
-        let thread_token = token.clone();
-        if let Err(error) = thread::Builder::new()
-            .name("agent-hook-server".to_string())
-            .spawn(move || accept_loop(listener, thread_token, sender))
-        {
-            tracing::warn!(%error, "failed to spawn agent hook server thread");
-            return Self {
-                receiver,
-                #[cfg(feature = "e2e-test-support")]
-                event_sender,
-                endpoint: None,
-                token: None,
-            };
-        }
+    pub(crate) fn start(cx: &mut App) -> Self {
+        let registration = agent_hook_ingress::register(cx);
         Self {
-            receiver,
+            receiver: registration.receiver,
             #[cfg(feature = "e2e-test-support")]
-            event_sender,
-            endpoint: Some(format!("http://127.0.0.1:{port}/agent-hooks")),
-            token: Some(token),
+            event_sender: registration.sender,
+            endpoint: registration.endpoint,
+            token: registration.token,
         }
+    }
+
+    pub(crate) fn unregister(&mut self, cx: &mut App) {
+        if let Some(token) = self.token.take() {
+            agent_hook_ingress::unregister(&token, cx);
+        }
+        self.endpoint = None;
+    }
+
+    pub(crate) fn rotate(&mut self, cx: &mut App) {
+        self.unregister(cx);
+        let registration = agent_hook_ingress::register(cx);
+        self.receiver = registration.receiver;
+        #[cfg(feature = "e2e-test-support")]
+        {
+            self.event_sender = registration.sender;
+        }
+        self.endpoint = registration.endpoint;
+        self.token = registration.token;
     }
 
     pub(crate) fn has_pending(&self) -> bool {
@@ -95,9 +100,13 @@ impl AgentHookServer {
         Some(AgentHookRuntimeConfig {
             endpoint: self.endpoint.clone()?,
             token: self.token.clone()?,
+            workspace_id: String::new(),
+            workspace_route_id: String::new(),
+            norma_socket: String::new(),
         })
     }
 
+    #[cfg(any(test, feature = "e2e-test-support"))]
     pub(crate) fn disable_for_test(&mut self) {
         self.endpoint = None;
         self.token = None;
@@ -107,6 +116,11 @@ impl AgentHookServer {
         let mut report = AgentHookDrainReport::default();
         while let Ok(event) = self.receiver.try_recv() {
             let node_id = event.node_id;
+            let started_task =
+                (event.provider_event == "UserPromptSubmit").then(|| AgentHookStartedTask {
+                    node_id,
+                    task_title: extract_prompt_text(&event.raw_json),
+                });
             let is_ready = matches!(
                 agent_task_state_from_hook_event(&event),
                 Some(AgentTaskState::Ready)
@@ -115,13 +129,27 @@ impl AgentHookServer {
                 agent_task_state_from_hook_event(&event),
                 Some(AgentTaskState::Done | AgentTaskState::Failed { .. } | AgentTaskState::Ended)
             );
-            if apply_agent_hook_event(runtime, event) {
+            let terminal_task = is_terminal.then(|| AgentHookTerminalTask {
+                node_id,
+                result: task_result_from_hook_event(&event),
+            });
+            report.events.push(event.clone());
+            let outcome = apply_agent_hook_event_with_outcome(runtime, event);
+            if outcome.changed() {
                 report.changed = true;
-                if is_ready {
-                    report.ready_node_ids.push(node_id);
+                if outcome.session_binding_changed {
+                    report.session_binding_changed = true;
                 }
-                if is_terminal {
-                    report.terminal_node_ids.push(node_id);
+                if outcome.task_state_changed {
+                    if let Some(started_task) = started_task {
+                        report.started_tasks.push(started_task);
+                    }
+                    if is_ready {
+                        report.ready_node_ids.push(node_id);
+                    }
+                    if let Some(terminal_task) = terminal_task {
+                        report.terminal_tasks.push(terminal_task);
+                    }
                 }
             }
         }
@@ -129,17 +157,46 @@ impl AgentHookServer {
     }
 }
 
+fn task_result_from_hook_event(event: &AgentHookEvent) -> AgentTaskResult {
+    let observation = observe_conversation(event);
+    match observation {
+        Some(observation)
+            if observation.kind == ConversationObservationKind::CompleteAgentReply
+                && observation.text.is_some() =>
+        {
+            AgentTaskResult {
+                availability: AgentTaskResultAvailability::Available,
+                text: observation.text,
+                truncated: observation.truncated,
+            }
+        }
+        _ => AgentTaskResult {
+            availability: AgentTaskResultAvailability::Unavailable,
+            text: None,
+            truncated: false,
+        },
+    }
+}
+
+#[cfg(test)]
 pub(crate) fn apply_agent_hook_event(runtime: &mut Runtime, event: AgentHookEvent) -> bool {
+    apply_agent_hook_event_with_outcome(runtime, event).changed()
+}
+
+fn apply_agent_hook_event_with_outcome(
+    runtime: &mut Runtime,
+    event: AgentHookEvent,
+) -> AgentTaskUpdateOutcome {
     let Some(to) = agent_task_state_from_hook_event(&event) else {
         tracing::debug!(provider_event = %event.provider_event, "ignored unmapped agent hook event");
-        return false;
+        return AgentTaskUpdateOutcome::default();
     };
     let task_title = if event.provider_event == "UserPromptSubmit" {
         extract_prompt_text(&event.raw_json)
     } else {
         None
     };
-    runtime.apply_agent_task_update(AgentTaskUpdate {
+    runtime.apply_agent_task_update_with_outcome(AgentTaskUpdate {
         node_id: event.node_id,
         profile: canvas_profile(event.profile),
         provider_event: event.provider_event,
@@ -147,78 +204,6 @@ pub(crate) fn apply_agent_hook_event(runtime: &mut Runtime, event: AgentHookEven
         task_title,
         session_id: event.session_id,
     })
-}
-
-fn accept_loop(
-    listener: TcpListener,
-    token: String,
-    sender: crossbeam_channel::Sender<AgentHookEvent>,
-) {
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                let token = token.clone();
-                let sender = sender.clone();
-                let _ = thread::Builder::new()
-                    .name("agent-hook-client".to_string())
-                    .spawn(move || handle_stream(stream, &token, sender));
-            }
-            Err(error) => tracing::warn!(%error, "agent hook accept failed"),
-        }
-    }
-}
-
-fn handle_stream(
-    mut stream: TcpStream,
-    token: &str,
-    sender: crossbeam_channel::Sender<AgentHookEvent>,
-) {
-    let response = match read_authorized_event(&stream, token) {
-        Ok(event) => {
-            let _ = sender.send(event);
-            "HTTP/1.1 202 Accepted\r\nContent-Length: 0\r\n\r\n"
-        }
-        Err(AgentHookHttpError::Unauthorized) => {
-            "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n"
-        }
-        Err(_) => "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n",
-    };
-    let _ = stream.write_all(response.as_bytes());
-    let _ = stream.flush();
-}
-
-fn read_authorized_event(
-    stream: &TcpStream,
-    token: &str,
-) -> Result<AgentHookEvent, AgentHookHttpError> {
-    let mut reader = BufReader::new(stream);
-    let mut request_line = String::new();
-    reader.read_line(&mut request_line)?;
-    if !request_line.starts_with("POST /agent-hooks ") {
-        return Err(AgentHookHttpError::BadRequest);
-    }
-    let mut authorized = false;
-    let mut content_len = 0usize;
-    loop {
-        let mut line = String::new();
-        reader.read_line(&mut line)?;
-        let trimmed = line.trim_end_matches(['\r', '\n']);
-        if trimmed.is_empty() {
-            break;
-        }
-        if let Some(value) = trimmed.strip_prefix("Authorization: Bearer ") {
-            authorized = value == token;
-        }
-        if let Some(value) = trimmed.strip_prefix("Content-Length: ") {
-            content_len = value.parse::<usize>().unwrap_or(0);
-        }
-    }
-    if !authorized {
-        return Err(AgentHookHttpError::Unauthorized);
-    }
-    let mut body = vec![0u8; content_len];
-    reader.read_exact(&mut body)?;
-    serde_json::from_slice(&body).map_err(|_| AgentHookHttpError::Json)
 }
 
 fn agent_task_state_from_hook_event(event: &AgentHookEvent) -> Option<AgentTaskState> {
@@ -244,49 +229,6 @@ fn canvas_profile(profile: norma::protocol::AgentProfile) -> CanvasAgentProfile 
         norma::protocol::AgentProfile::Cursor => CanvasAgentProfile::Cursor,
         norma::protocol::AgentProfile::Grok => CanvasAgentProfile::Grok,
         norma::protocol::AgentProfile::OpenCode => CanvasAgentProfile::OpenCode,
-    }
-}
-
-fn random_token() -> String {
-    let mut bytes = [0u8; 32];
-    if File::open("/dev/urandom")
-        .and_then(|mut file| file.read_exact(&mut bytes))
-        .is_err()
-    {
-        bytes = fallback_token_bytes();
-    }
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-fn fallback_token_bytes() -> [u8; 32] {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_nanos())
-        .unwrap_or(0);
-    let mut bytes = [0u8; 32];
-    for (index, byte) in bytes.iter_mut().enumerate() {
-        *byte = ((nanos >> ((index % 16) * 8)) & 0xff) as u8;
-    }
-    bytes
-}
-
-#[derive(Debug)]
-enum AgentHookHttpError {
-    Io,
-    Json,
-    Unauthorized,
-    BadRequest,
-}
-
-impl From<std::io::Error> for AgentHookHttpError {
-    fn from(_error: std::io::Error) -> Self {
-        Self::Io
-    }
-}
-
-impl From<serde_json::Error> for AgentHookHttpError {
-    fn from(_error: serde_json::Error) -> Self {
-        Self::Json
     }
 }
 
@@ -452,3 +394,7 @@ mod tests {
         (client, server)
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/agent_hook_session_binding_tests.rs"]
+mod session_binding_tests;

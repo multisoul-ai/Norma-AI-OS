@@ -1,9 +1,8 @@
 //! Task 4: WallpaperSettingsState persistence tests.
 //!
 //! These tests exercise the persistent wallpaper selection state that mirrors the
-//! voice settings pattern. They run against a per-test tempdir routed via the
-//! `MULTISOUL_TEST_DATA_ROOT` env var so the production app data dir is never
-//! touched.
+//! voice settings pattern. Each test passes an explicit tempdir-backed
+//! `SettingsStore`, so the production app database is never touched.
 //!
 //! Concurrency note: `MULTISOUL_TEST_DATA_ROOT` is a process-global env var and
 //! cargo executes tests in parallel threads within the same process. To avoid
@@ -30,7 +29,7 @@ pub(super) static TEST_ROOT_LOCK: Mutex<()> = Mutex::new(());
 /// env var and releases the lock, so the next test starts from a clean slate.
 pub(super) struct TestRootGuard {
     _guard: std::sync::MutexGuard<'static, ()>,
-    _tmp: tempfile::TempDir,
+    tmp: tempfile::TempDir,
 }
 
 impl TestRootGuard {
@@ -40,10 +39,11 @@ impl TestRootGuard {
             .expect("wallpaper test root mutex poisoned");
         let tmp = tempfile::tempdir().expect("tempdir for wallpaper test root");
         std::env::set_var("MULTISOUL_TEST_DATA_ROOT", tmp.path());
-        Self {
-            _guard: guard,
-            _tmp: tmp,
-        }
+        Self { _guard: guard, tmp }
+    }
+
+    pub(super) fn settings_store(&self) -> storage::SettingsStore {
+        storage::SettingsStore::new(self.tmp.path().join("app.sqlite"))
     }
 }
 
@@ -53,7 +53,7 @@ impl Drop for TestRootGuard {
     }
 }
 
-/// T-W1: load_default 在无偏好时返回默认内置壁纸 1331865.png。
+/// T-W1: load_default 在无偏好时返回默认内置壁纸 1331865.webp。
 ///
 /// 数据构造：
 ///   tempdir 作为 MULTISOUL_TEST_DATA_ROOT → app.sqlite 不存在
@@ -61,18 +61,18 @@ impl Drop for TestRootGuard {
 ///   settings_store 表无 wallpaper.kind / wallpaper.value 记录
 ///
 /// 执行过程：
-///   1. WallpaperSettingsState::load_default_with_test_store() 打开 tempdir/app.sqlite
+///   1. WallpaperSettingsState::load_from_store(tempdir/app.sqlite)
 ///   2. SavedWallpaper::load 读取两条 KEY → 均 None → 回退默认 selection
 ///
 /// 预期结果：
-///   - 正断言：默认 selection 是 Builtin{rel ends_with("1331865.png")}
-///   - 正断言：current_kind() == Static（默认壁纸是 PNG）
+///   - 正断言：默认 selection 是 Builtin{rel ends_with("1331865.webp")}
+///   - 正断言：current_kind() == Static（默认壁纸是 WebP）
 #[test]
 fn test_load_default_falls_back_to_default_wallpaper() {
     let _g = TestRootGuard::new();
-    let s = WallpaperSettingsState::load_default_with_test_store();
+    let s = WallpaperSettingsState::load_from_store(_g.settings_store());
     assert!(
-        matches!(s.selection, WallpaperSelection::Builtin { rel } if rel.ends_with("1331865.png")),
+        matches!(s.selection, WallpaperSelection::Builtin { rel } if rel.ends_with("1331865.webp")),
         "default selection must be the embedded default wallpaper"
     );
     assert_eq!(
@@ -90,27 +90,27 @@ fn test_load_default_falls_back_to_default_wallpaper() {
 ///   select_builtin("wallpapers/220240.gif") → 写入两条 KEY
 ///
 /// 执行过程：
-///   1. s = load_default_test() → 默认壁纸
+///   1. s = load_from_store(tempdir/app.sqlite) → 默认壁纸
 ///   2. s.select_builtin("wallpapers/220240.gif") → 持久化 kind=builtin,value=wallpapers/220240.gif
-///   3. s2 = load_default_test() → 重新打开 store 读取 → 还原 Builtin{220240.gif}
+///   3. s2 = load_from_store(同一路径) → 重新打开 store 读取 → 还原 Builtin{220240.gif}
 ///
 /// 预期结果：
 ///   - 正断言：s2.selection == Builtin{rel == "wallpapers/220240.gif"}
-///   - 负断言：s2.selection 不应仍是默认 1331865.png
+///   - 负断言：s2.selection 不应仍是默认 1331865.webp
 #[test]
 fn test_builtin_selection_round_trips_through_persistence() {
     let _g = TestRootGuard::new();
 
-    let mut s = WallpaperSettingsState::load_default_test();
+    let mut s = WallpaperSettingsState::load_from_store(_g.settings_store());
     s.select_builtin("wallpapers/220240.gif");
 
-    let s2 = WallpaperSettingsState::load_default_test();
+    let s2 = WallpaperSettingsState::load_from_store(_g.settings_store());
     assert!(
         matches!(&s2.selection, WallpaperSelection::Builtin { rel } if rel == &"wallpapers/220240.gif"),
         "reloaded selection must be the gif builtin we just saved"
     );
     assert!(
-        !matches!(&s2.selection, WallpaperSelection::Builtin { rel } if rel.ends_with("1331865.png")),
+        !matches!(&s2.selection, WallpaperSelection::Builtin { rel } if rel.ends_with("1331865.webp")),
         "reloaded selection must NOT be the default after explicit select_builtin"
     );
 }
@@ -125,10 +125,10 @@ fn test_builtin_selection_round_trips_through_persistence() {
 /// 执行过程：
 ///   1. s.select_custom("mine.png") → selection=Custom 且两条 KEY 写盘
 ///   2. s.delete_custom("mine.png") → 删 tempdir/wallpapers/mine.png；因 custom 是当前选中
-///      → 回退默认 Builtin{1331865.png} 并持久化
+///      → 回退默认 Builtin{1331865.webp} 并持久化
 ///
 /// 预期结果：
-///   - 正断言：删后 selection 是 Builtin{ends_with("1331865.png")}
+///   - 正断言：删后 selection 是 Builtin{ends_with("1331865.webp")}
 ///   - 正断言：mine.png 文件已从磁盘移除
 ///   - 负断言：删后 selection 不应仍为 Custom
 #[test]
@@ -139,12 +139,12 @@ fn test_delete_custom_falls_back_to_default_and_removes_file() {
     fs::create_dir_all(&dir).expect("create custom wallpapers dir");
     fs::write(dir.join("mine.png"), b"fake").expect("write fake custom wallpaper");
 
-    let mut s = WallpaperSettingsState::load_default_test();
+    let mut s = WallpaperSettingsState::load_from_store(_g.settings_store());
     s.select_custom("mine.png".to_string());
     s.delete_custom("mine.png");
 
     assert!(
-        matches!(s.selection, WallpaperSelection::Builtin { rel } if rel.ends_with("1331865.png")),
+        matches!(s.selection, WallpaperSelection::Builtin { rel } if rel.ends_with("1331865.webp")),
         "deleting the in-use custom must fall back to default"
     );
     assert!(
@@ -162,7 +162,7 @@ fn test_delete_custom_falls_back_to_default_and_removes_file() {
 ///
 /// 执行过程：
 ///   1. s.select_custom("night.jpg") → 持久化 kind=custom,value=night.jpg
-///   2. s2 = load_default_test() → 重读 → 还原 Custom{night.jpg}
+///   2. s2 = load_from_store(同一路径) → 重读 → 还原 Custom{night.jpg}
 ///
 /// 预期结果：
 ///   - 正断言：s2.selection == Custom{filename == "night.jpg"}
@@ -175,10 +175,10 @@ fn test_custom_selection_round_trips_through_persistence() {
     fs::create_dir_all(&dir).expect("create custom wallpapers dir");
     fs::write(dir.join("night.jpg"), b"fake-jpg").expect("write fake custom jpg");
 
-    let mut s = WallpaperSettingsState::load_default_test();
+    let mut s = WallpaperSettingsState::load_from_store(_g.settings_store());
     s.select_custom("night.jpg".to_string());
 
-    let s2 = WallpaperSettingsState::load_default_test();
+    let s2 = WallpaperSettingsState::load_from_store(_g.settings_store());
     assert!(
         matches!(&s2.selection, WallpaperSelection::Custom { filename } if filename == "night.jpg"),
         "reloaded selection must restore the custom filename we just saved"
@@ -190,26 +190,23 @@ fn test_custom_selection_round_trips_through_persistence() {
     );
 }
 
-/// T-W5: resolve_path 与 image_asset_path 在不同 selection 下的语义。
+/// T-W5: 内置与自定义 selection 都通过磁盘路径解析，缺失文件返回 None。
 ///
-/// 数据构造：
+/// 数据构造（含关键数值的推导过程）：
 ///   tempdir 作为 MULTISOUL_TEST_DATA_ROOT
-///   1) 默认 Builtin{1331865.png}（Static）→ resolve_path 应解析到开发态 assets，image_asset_path = Some(rel)
-///   2) Builtin{220240.gif}（Gif）→ image_asset_path = Some(rel)
-///   3) Custom{mine.png} with real file → resolve_path = Some(path)；image_asset_path = None
-///   4) Custom{missing.png} without file → resolve_path = None
-///   5) Builtin{1403512.mp4}（Video）→ image_asset_path = None（视频不走 asset path）
+///   builtin files = default WebP + GIF + MP4 = 3 个真实资源路径
+///   custom files  = mine.png(存在) + ghost.png(缺失) = 2 个候选路径
 ///
-/// 执行过程：分别构造 selection 并调用 resolve_path/image_asset_path。
+/// 执行过程：
+///   1. 分别选择默认 WebP、内置 GIF 与内置 MP4，调用 resolve_path
+///   2. 选择存在的 mine.png 与缺失的 ghost.png，调用 resolve_path
 ///
 /// 预期结果：
-///   - 默认 Static builtin：image_asset_path == Some("wallpapers/1331865.png")
-///   - Gif builtin：image_asset_path == Some("wallpapers/220240.gif")
-///   - Video builtin：image_asset_path == None
+///   - 正断言：3 个内置资源分别解析到对应磁盘文件
 ///   - 存在的 custom：resolve_path 返回 Some 且 ends_with("mine.png")
-///   - 缺失的 custom：resolve_path 返回 None
+///   - 负断言：缺失的 custom 不得伪造可读取路径
 #[test]
-fn test_resolve_path_and_image_asset_path_semantics() {
+fn test_resolve_path_uses_disk_resources_for_builtin_and_custom_wallpapers() {
     let _g = TestRootGuard::new();
 
     let dir = custom_wallpapers_dir().expect("custom dir resolved under test root");
@@ -217,42 +214,45 @@ fn test_resolve_path_and_image_asset_path_semantics() {
     fs::write(dir.join("mine.png"), b"fake").expect("write fake custom wallpaper");
 
     // Default Static builtin.
-    let s_default = WallpaperSettingsState::load_default_with_test_store();
-    assert_eq!(
-        s_default.image_asset_path(),
-        Some("wallpapers/1331865.png"),
-        "default Static builtin must expose its image asset path"
-    );
+    let s_default = WallpaperSettingsState::load_from_store(_g.settings_store());
+    let default_path = s_default
+        .resolve_path()
+        .expect("default builtin must resolve to a real on-disk path in dev");
     assert!(
-        s_default.resolve_path().is_some(),
-        "default builtin must resolve to a real on-disk path in dev"
+        default_path.ends_with("wallpapers/1331865.webp"),
+        "default Static builtin must resolve to wallpapers/1331865.webp; got {default_path:?}"
     );
 
     // Gif builtin.
-    let mut s_gif = WallpaperSettingsState::load_default_test();
+    let mut s_gif = WallpaperSettingsState::load_from_store(_g.settings_store());
     s_gif.select_builtin("wallpapers/220240.gif");
-    assert_eq!(
-        s_gif.image_asset_path(),
-        Some("wallpapers/220240.gif"),
-        "Gif builtin must expose its image asset path"
+    let gif_path = s_gif
+        .resolve_path()
+        .expect("Gif builtin must resolve to a real on-disk resource");
+    assert!(
+        gif_path.ends_with("wallpapers/220240.gif"),
+        "Gif builtin must resolve to wallpapers/220240.gif; got {gif_path:?}"
     );
 
-    // Video builtin: asset path is None (videos are not GPUI ImageSource).
-    let mut s_video = WallpaperSettingsState::load_default_test();
+    // Video builtin uses the same resource resolver even though its live frame
+    // is rendered through AVFoundation instead of GPUI's image loader.
+    let mut s_video = WallpaperSettingsState::load_from_store(_g.settings_store());
     s_video.select_builtin("wallpapers/1403512.mp4");
     assert_eq!(
         s_video.current_kind(),
         crate::app::wallpaper_resolvers::WallpaperKind::Video,
         "the mp4 builtin must classify as Video"
     );
-    assert_eq!(
-        s_video.image_asset_path(),
-        None,
-        "video builtins must NOT expose an image asset path"
+    let video_path = s_video
+        .resolve_path()
+        .expect("video builtin must resolve to a real on-disk resource");
+    assert!(
+        video_path.ends_with("wallpapers/1403512.mp4"),
+        "video builtin must resolve to wallpapers/1403512.mp4; got {video_path:?}"
     );
 
-    // Existing custom: resolve_path Some, image_asset_path None.
-    let mut s_custom = WallpaperSettingsState::load_default_test();
+    // Existing custom: resolve_path Some.
+    let mut s_custom = WallpaperSettingsState::load_from_store(_g.settings_store());
     s_custom.select_custom("mine.png".to_string());
     let resolved = s_custom
         .resolve_path()
@@ -261,14 +261,8 @@ fn test_resolve_path_and_image_asset_path_semantics() {
         resolved.to_string_lossy().ends_with("mine.png"),
         "custom resolve_path must end with the custom filename; got {resolved:?}"
     );
-    assert_eq!(
-        s_custom.image_asset_path(),
-        None,
-        "custom selection must NOT return an image asset path"
-    );
-
     // Missing custom: resolve_path None.
-    let mut s_missing = WallpaperSettingsState::load_default_test();
+    let mut s_missing = WallpaperSettingsState::load_from_store(_g.settings_store());
     s_missing.select_custom("ghost.png".to_string());
     assert_eq!(
         s_missing.resolve_path(),
@@ -304,7 +298,7 @@ fn test_list_custom_filters_and_delete_non_current_keeps_selection() {
     fs::write(dir.join("clip.mp4"), b"c").expect("write clip.mp4");
     fs::write(dir.join("ignore.txt"), b"x").expect("write ignore.txt");
 
-    let s = WallpaperSettingsState::load_default_with_test_store();
+    let s = WallpaperSettingsState::load_from_store(_g.settings_store());
     let listed = s.list_custom();
     assert!(
         listed.contains(&"valid.png".to_string()),
@@ -323,7 +317,7 @@ fn test_list_custom_filters_and_delete_non_current_keeps_selection() {
         "list_custom must NOT include non-wallpaper extensions like .txt; got {listed:?}"
     );
 
-    let mut s = WallpaperSettingsState::load_default_test();
+    let mut s = WallpaperSettingsState::load_from_store(_g.settings_store());
     s.select_custom("valid.png".to_string());
     s.delete_custom("anim.gif");
 
@@ -346,7 +340,7 @@ fn test_list_custom_filters_and_delete_non_current_keeps_selection() {
 /// 数据构造：
 ///   tempdir 作为 MULTISOUL_TEST_DATA_ROOT → custom dir = tempdir/wallpapers（不存在）
 ///   额外独立 tempdir 提供 src.png（内容 b"fakepng"），与壁纸目录隔离避免污染
-///   WallpaperSettingsState::load_default_test() → 默认 builtin 选择
+///   WallpaperSettingsState::load_from_store(tempdir/app.sqlite) → 默认 builtin 选择
 ///
 /// 执行过程：
 ///   1. s.import_custom(src.png)
@@ -370,7 +364,7 @@ fn test_import_custom_copies_and_selects() {
     let src = src_tmp.path().join("src.png");
     fs::write(&src, b"fakepng").expect("write source png");
 
-    let mut s = WallpaperSettingsState::load_default_test();
+    let mut s = WallpaperSettingsState::load_from_store(_g.settings_store());
     let res = s.import_custom(&src);
     assert!(
         matches!(res, ImportResult::Imported(_)),
@@ -400,7 +394,7 @@ fn test_import_custom_copies_and_selects() {
 /// 数据构造：
 ///   tempdir 作为 MULTISOUL_TEST_DATA_ROOT
 ///   独立 src.tmp/notes.txt（内容 b"nope"）
-///   load_default_test() → 默认 builtin
+///   load_from_store(tempdir/app.sqlite) → 默认 builtin
 ///
 /// 执行过程：
 ///   s.import_custom(notes.txt)
@@ -418,7 +412,7 @@ fn test_import_custom_rejects_unknown_extension() {
     let src = src_tmp.path().join("notes.txt");
     fs::write(&src, b"nope").expect("write source txt");
 
-    let mut s = WallpaperSettingsState::load_default_test();
+    let mut s = WallpaperSettingsState::load_from_store(_g.settings_store());
     let res = s.import_custom(&src);
     assert!(
         matches!(res, ImportResult::Rejected(_)),

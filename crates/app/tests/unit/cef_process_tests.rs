@@ -28,7 +28,7 @@ fn test_cef_subprocess_handoff_runs_before_app_startup() {
         .find("app::cef_process::exit_if_cef_subprocess();")
         .expect("run_norma_os should call CEF subprocess handoff before app startup");
     let tracing = app_entrypoint
-        .find("tracing_subscriber::fmt()")
+        .find("logging::initialize()")
         .expect("main should initialize tracing after early process handoffs");
 
     assert!(

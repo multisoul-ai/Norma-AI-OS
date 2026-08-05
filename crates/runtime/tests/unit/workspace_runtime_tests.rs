@@ -163,7 +163,10 @@ fn drain_until_terminal_exits(runtime: &mut Runtime, node_id: u64) -> String {
     let mut screen_text = String::new();
     while std::time::Instant::now() < deadline {
         runtime.drain_all();
-        if let Some(NodeView::Term { snapshot, status }) = runtime.node_view(node_id) {
+        if let Some(NodeView::Term {
+            snapshot, status, ..
+        }) = runtime.node_view(node_id)
+        {
             screen_text = snapshot
                 .rows
                 .iter()

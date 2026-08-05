@@ -31,13 +31,30 @@ bundle="$binary_dir/Norma OS Dev.app"
 bundle_binary="$bundle/Contents/MacOS/$binary_name"
 plist="$bundle/Contents/Info.plist"
 entitlements="$repo_root/packaging/macos/NormaOS.entitlements"
+cli_binary="$binary_dir/norma"
+bundle_cli="$bundle/Contents/MacOS/norma"
 hook_binary="$binary_dir/multisoul-agent-hook"
 bundle_hook="$bundle/Contents/MacOS/multisoul-agent-hook"
 auth_host_binary="$binary_dir/norma-browser-auth-host"
 bundle_auth_host="$bundle/Contents/MacOS/norma-browser-auth-host"
 wallpaper_resources="$repo_root/crates/app/assets/wallpapers"
+feature_guide_resources="$repo_root/crates/app/assets/feature-guide"
 browser_auth_extension="$repo_root/crates/app/assets/browser-auth-extension"
 bundle_resources="$bundle/Contents/Resources"
+
+# `open -n` is required to load the newly built signed bundle, but it would
+# otherwise create another process when an older cargo-run App is still alive.
+# Two Dev processes share the Norma CLI socket and make the active project
+# nondeterministic, so require the previous foreground run to exit first.
+existing_dev_pids=$(pgrep -f "$bundle_binary" || true)
+if [ -n "$existing_dev_pids" ]; then
+  echo "Norma OS Dev is already running. Close the existing cargo run before starting another." >&2
+  while IFS= read -r existing_dev_pid; do
+    [ -n "$existing_dev_pid" ] || continue
+    echo "Existing Norma OS Dev PID: $existing_dev_pid" >&2
+  done <<<"$existing_dev_pids"
+  exit 75
+fi
 
 # TCC keys folder consent to the app's designated requirement. An ad-hoc
 # signature uses the binary CDHash as that requirement, so every Cargo rebuild
@@ -97,9 +114,14 @@ sign_development_bundle() {
   return 1
 }
 
-# `cargo run -p app` only builds the selected norma-os binary. Both installers
-# resolve their bridges as siblings of the running executable, so the
-# development bundle must explicitly build and carry both helpers.
+# `cargo run -p app` only builds the selected norma-os binary. Installers
+# resolve their CLI and bridges as siblings of the running executable, so the
+# development bundle must explicitly build and carry each companion binary.
+if [ "$binary_name" = "norma-os" ] && [ ! -x "$cli_binary" ]; then
+  cargo build --quiet --manifest-path "$repo_root/Cargo.toml" \
+    --package norma --bin norma
+fi
+
 if [ "$binary_name" = "norma-os" ] && { [ ! -x "$hook_binary" ] || [ ! -x "$auth_host_binary" ]; }; then
   cargo build --quiet --manifest-path "$repo_root/crates/app/Cargo.toml" \
     --bin multisoul-agent-hook --bin norma-browser-auth-host
@@ -113,6 +135,12 @@ mkdir -p "$bundle/Contents/MacOS"
 cp "$binary" "$bundle_binary"
 chmod u+x "$bundle_binary"
 if [ "$binary_name" = "norma-os" ]; then
+  if [ ! -x "$cli_binary" ]; then
+    echo "norma build did not produce $cli_binary" >&2
+    exit 1
+  fi
+  cp "$cli_binary" "$bundle_cli"
+  chmod u+x "$bundle_cli"
   if [ ! -x "$hook_binary" ]; then
     echo "multisoul-agent-hook build did not produce $hook_binary" >&2
     exit 1
@@ -131,6 +159,11 @@ if [ "$binary_name" = "norma-os" ]; then
   fi
   mkdir -p "$bundle_resources"
   cp -R "$wallpaper_resources" "$bundle_resources/"
+  if [ ! -f "$feature_guide_resources/demo-live-node-shortcuts.mp4" ]; then
+    echo "Feature Guide resources are missing: $feature_guide_resources" >&2
+    exit 1
+  fi
+  cp -R "$feature_guide_resources" "$bundle_resources/"
   if [ ! -f "$browser_auth_extension/manifest.json" ]; then
     echo "Chrome authorization extension is missing: $browser_auth_extension" >&2
     exit 1

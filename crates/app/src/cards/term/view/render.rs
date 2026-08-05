@@ -6,7 +6,7 @@ use super::{
 };
 use crate::cards::intro::render_intro_overlay;
 use crate::cards::term::cursor::{cursor_animation_running, TerminalCursorAnimation};
-use crate::cards::term::paint::render_terminal_canvas;
+use crate::cards::term::paint::{render_terminal_canvas, TerminalCanvasOptions};
 use gpui::{div, prelude::*, px, rgba, AnyElement, IntoElement};
 use runtime::NodeView;
 use terminal::TerminalStatus;
@@ -17,6 +17,8 @@ pub(crate) fn render_terminal_node(
     options: TerminalNodeRenderOptions,
 ) -> AnyElement {
     let TerminalNodeRenderOptions {
+        node_id,
+        terminal_render_cache,
         theme,
         zoom,
         bottom_radius_px,
@@ -31,7 +33,11 @@ pub(crate) fn render_terminal_node(
     let content_opacity = content_mode.content_opacity();
     let terminal = if content_mode.requires_live_view() {
         Some(match view {
-            Some(NodeView::Term { snapshot, status }) => {
+            Some(NodeView::Term {
+                snapshot,
+                revision,
+                status,
+            }) => {
                 let cursor_animation = TerminalCursorAnimation {
                     phase: cursor_phase,
                     focused,
@@ -42,13 +48,16 @@ pub(crate) fn render_terminal_node(
                     ),
                     display_offset: snapshot.display_offset,
                 };
-                let terminal_canvas = render_terminal_canvas(
+                let terminal_canvas = render_terminal_canvas(TerminalCanvasOptions {
+                    node_id,
                     snapshot,
+                    revision,
+                    cache: terminal_render_cache,
                     theme,
-                    terminal_render_metrics(zoom),
+                    metrics: terminal_render_metrics(zoom),
                     selection,
                     cursor_animation,
-                );
+                });
                 let mut terminal = div()
                     .flex()
                     .flex_col()

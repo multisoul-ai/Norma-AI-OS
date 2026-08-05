@@ -5,13 +5,15 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use canvas::{AgentProfile, CanvasNodeKind, Document, NodeId, NodeType};
+use storage::NodeSessionKind;
 use storage::{
-    NodeSession, NodeSessionKind, NodeSessionStore, SessionCheckpoint, SessionCheckpointKind,
-    SessionStore, StorageResult,
+    NodeSession, NodeSessionStore, SessionCheckpoint, SessionCheckpointKind, SessionStore,
+    StorageResult,
 };
 use terminal::pty::PtyCommand;
 
 use crate::agent_hooks::{AgentHookEnv, AgentHookRuntimeConfig};
+use crate::agent_session_bindings::AgentSessionBindings;
 use crate::events::RuntimeEvents;
 use crate::live::LiveNode;
 use crate::nodes::agent::{agent_command, spawn_agent_live};
@@ -19,6 +21,18 @@ use crate::nodes::term::TermLive;
 use crate::runtime::{DEFAULT_SESSION_COLS, DEFAULT_SESSION_ROWS, DEFAULT_TERMINAL_SHELL};
 use crate::runtime_support::{checkpoint_grid_size, terminal_shell_command, usize_to_u16};
 use crate::{session_snapshot, NodeView};
+
+#[cfg(test)]
+#[path = "../tests/unit/agent_socket_routing_tests.rs"]
+mod agent_socket_routing_tests;
+#[cfg(test)]
+#[path = "session_restore_test_support.rs"]
+mod test_support;
+#[cfg(test)]
+pub use test_support::{
+    build_agent_restore_command_for_test, build_agent_restore_command_with_discovery_for_test,
+    build_terminal_restore_command_for_test,
+};
 
 // ── Moved from runtime.rs ──────────────────────────────────────────────────
 
@@ -70,6 +84,14 @@ fn agent_profile_for_checkpoint(kind: &CanvasNodeKind) -> Option<AgentProfile> {
     }
 }
 
+/// Canvas document 是节点当前 profile 的权威来源；checkpoint 只恢复 grid 元数据。
+pub(crate) fn resolve_agent_restore_profile(
+    document_profile: AgentProfile,
+    _checkpoint: Option<&SessionCheckpoint>,
+) -> AgentProfile {
+    document_profile
+}
+
 /// Persist all checkpoints to the store (INSERT OR REPLACE).
 pub fn save_session_checkpoints(
     store: &SessionStore,
@@ -82,6 +104,7 @@ pub fn save_session_checkpoints(
 pub struct RestoreCtx<'a> {
     pub live: &'a mut HashMap<NodeId, Box<dyn LiveNode>>,
     pub terminal_shells: &'a mut HashMap<NodeId, String>,
+    pub agent_session_bindings: &'a AgentSessionBindings,
     pub events: &'a mut RuntimeEvents,
     pub next_session_id: &'a mut u64,
     pub workspace_root: Option<&'a Path>,
@@ -95,6 +118,9 @@ impl RestoreCtx<'_> {
             profile,
             endpoint: config.endpoint.clone(),
             token: config.token.clone(),
+            workspace_id: config.workspace_id.clone(),
+            workspace_route_id: config.workspace_route_id.clone(),
+            norma_socket: config.norma_socket.clone(),
         })
     }
 }
@@ -134,9 +160,7 @@ pub fn restore_live_sessions(
                 let agent_checkpoint =
                     checkpoint.filter(|cp| cp.kind == SessionCheckpointKind::Agent);
                 let (cols, rows) = checkpoint_grid_size(agent_checkpoint);
-                let profile = agent_checkpoint
-                    .and_then(|cp| cp.agent_profile)
-                    .unwrap_or(spec.profile);
+                let profile = resolve_agent_restore_profile(spec.profile, agent_checkpoint);
                 attach_agent_live(node_id, profile, cols, rows, ctx)
             }
             _ => false,
@@ -194,14 +218,15 @@ pub fn restore_live_sessions_with_node_sessions(
                 let agent_checkpoint =
                     checkpoint.filter(|cp| cp.kind == SessionCheckpointKind::Agent);
                 let (cols, rows) = checkpoint_grid_size(agent_checkpoint);
-                let profile = agent_checkpoint
-                    .and_then(|cp| cp.agent_profile)
-                    .unwrap_or(spec.profile);
+                let profile = resolve_agent_restore_profile(spec.profile, agent_checkpoint);
                 let hook_env = ctx.make_hook_env(node_id, profile);
 
                 // Resume only from the session id persisted for this node. Workspace opening
                 // must never scan provider history directories on the foreground thread.
-                let use_resume = resolve_agent_restore_session_id(node_session, profile, None);
+                let use_resume = ctx
+                    .agent_session_bindings
+                    .session_id(node_id)
+                    .map(ToString::to_string);
 
                 let command = match use_resume.as_deref() {
                     Some(session_id) => session_snapshot::build_agent_resume_command(
@@ -228,7 +253,7 @@ pub fn restore_live_session_for_node_with_node_sessions(
     node_id: NodeId,
     checkpoints: &[SessionCheckpoint],
     node_sessions: &[NodeSession],
-    discovered_session_id: Option<&str>,
+    _discovered_session_id: Option<&str>,
     document: &Document,
     ctx: &mut RestoreCtx<'_>,
 ) -> bool {
@@ -260,12 +285,12 @@ pub fn restore_live_session_for_node_with_node_sessions(
         CanvasNodeKind::Agent(spec) => {
             let agent_checkpoint = checkpoint.filter(|cp| cp.kind == SessionCheckpointKind::Agent);
             let (cols, rows) = checkpoint_grid_size(agent_checkpoint);
-            let profile = agent_checkpoint
-                .and_then(|cp| cp.agent_profile)
-                .unwrap_or(spec.profile);
+            let profile = resolve_agent_restore_profile(spec.profile, agent_checkpoint);
             let hook_env = ctx.make_hook_env(node_id, profile);
-            let use_resume =
-                resolve_agent_restore_session_id(node_session, profile, discovered_session_id);
+            let use_resume = ctx
+                .agent_session_bindings
+                .session_id(node_id)
+                .map(ToString::to_string);
             let command = match use_resume.as_deref() {
                 Some(session_id) => session_snapshot::build_agent_resume_command(
                     profile,
@@ -289,31 +314,26 @@ pub fn save_node_sessions(
     live: &HashMap<NodeId, Box<dyn LiveNode>>,
     document: &Document,
     workspace_root: Option<&Path>,
-    agent_session_ids: &HashMap<NodeId, String>,
+    agent_session_bindings: &AgentSessionBindings,
 ) -> StorageResult<()> {
-    let sessions =
-        session_snapshot::collect_node_sessions(live, document, workspace_root, agent_session_ids);
-    store.replace_all_sessions(&sessions)
-}
-
-fn resolve_agent_restore_session_id(
-    node_session: Option<&NodeSession>,
-    profile: AgentProfile,
-    discovered_session_id: Option<&str>,
-) -> Option<String> {
-    if !matches!(
-        profile,
-        AgentProfile::Claude | AgentProfile::Codex | AgentProfile::Cursor | AgentProfile::Grok
-    ) {
-        return None;
-    }
-    let saved_session_id = node_session
-        .filter(|s| s.kind == NodeSessionKind::Agent)
-        .and_then(|s| s.session_id.as_deref())
-        .filter(|session_id| !session_id.is_empty());
-    saved_session_id
-        .or_else(|| discovered_session_id.filter(|session_id| !session_id.is_empty()))
-        .map(ToString::to_string)
+    let sessions = session_snapshot::collect_node_sessions(
+        live,
+        document,
+        workspace_root,
+        agent_session_bindings,
+    );
+    let current_nodes = document
+        .nodes()
+        .iter()
+        .filter_map(|node| match &node.kind {
+            CanvasNodeKind::Term(_) => Some((node.id, NodeSessionKind::Terminal)),
+            CanvasNodeKind::Agent(_) => Some((node.id, NodeSessionKind::Agent)),
+            CanvasNodeKind::Rect(_) | CanvasNodeKind::Preview(_) | CanvasNodeKind::Browser(_) => {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    store.reconcile_sessions(&current_nodes, &sessions)
 }
 
 // ── Internal attach helpers ────────────────────────────────────────────────
@@ -427,51 +447,5 @@ fn attach_agent_live_with_command(
             );
             false
         }
-    }
-}
-
-#[cfg(test)]
-pub fn build_agent_restore_command_for_test(
-    session: &NodeSession,
-    profile: AgentProfile,
-    hook_env: Option<&AgentHookEnv>,
-    workspace_root: Option<&Path>,
-) -> PtyCommand {
-    build_agent_restore_command_with_discovery_for_test(
-        session,
-        profile,
-        hook_env,
-        workspace_root,
-        None,
-    )
-}
-
-#[cfg(test)]
-pub fn build_agent_restore_command_with_discovery_for_test(
-    session: &NodeSession,
-    profile: AgentProfile,
-    hook_env: Option<&AgentHookEnv>,
-    workspace_root: Option<&Path>,
-    discovered_session_id: Option<&str>,
-) -> PtyCommand {
-    let session_id =
-        resolve_agent_restore_session_id(Some(session), profile, discovered_session_id);
-    match session_id.as_deref() {
-        Some(id) => session_snapshot::build_agent_resume_command(
-            profile,
-            DEFAULT_TERMINAL_SHELL,
-            id,
-            hook_env,
-            workspace_root,
-        ),
-        None => agent_command(profile, hook_env),
-    }
-}
-
-#[cfg(test)]
-pub fn build_terminal_restore_command_for_test(session: &NodeSession, shell: &str) -> PtyCommand {
-    match &session.cwd {
-        Some(cwd) => session_snapshot::build_terminal_restore_command(shell, cwd),
-        None => terminal_shell_command(shell),
     }
 }

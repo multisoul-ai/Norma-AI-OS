@@ -7,6 +7,7 @@ use ui::Theme;
 pub(super) fn interaction_group(
     theme: Theme,
     state: &VoiceSettingsState,
+    voice_shortcut_label: &str,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let mode = state.values().interaction_mode();
@@ -14,7 +15,7 @@ pub(super) fn interaction_group(
         .child(compact_interaction_row(
             theme,
             "Mode",
-            "Choose how ⌘E starts Voice",
+            format!("Choose how {voice_shortcut_label} starts Voice"),
             div()
                 .flex()
                 .flex_row()
@@ -53,20 +54,26 @@ pub(super) fn interaction_group(
                 ),
         ))
         .when(mode == VoiceInteractionMode::SingleVoiceCommand, |group| {
-            group.child(dictation_trigger_row(theme, state, cx))
+            group.child(dictation_trigger_row(
+                theme,
+                state,
+                voice_shortcut_label,
+                cx,
+            ))
         })
 }
 
 fn dictation_trigger_row(
     theme: Theme,
     state: &VoiceSettingsState,
+    shortcut: &str,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let trigger = state.values().dictation_trigger();
     compact_interaction_row(
         theme,
         "Shortcut",
-        "⌘E · Hold or toggle",
+        format!("{shortcut} · Hold or toggle"),
         div()
             .flex()
             .flex_row()
@@ -96,12 +103,7 @@ fn dictation_trigger_row(
     )
 }
 
-fn compact_interaction_row(
-    theme: Theme,
-    title: &'static str,
-    hint: &'static str,
-    control: Div,
-) -> Div {
+fn compact_interaction_row(theme: Theme, title: &'static str, hint: String, control: Div) -> Div {
     div()
         .w_full()
         .min_w(px(0.0))

@@ -42,7 +42,7 @@ pub(crate) fn bundle_resources_dir() -> Option<PathBuf> {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum WallpaperKind {
-    /// 静态图：.png / .jpg / .jpeg
+    /// 静态图：.png / .jpg / .jpeg / .webp
     Static,
     /// 动态图：.gif
     Gif,
@@ -57,7 +57,7 @@ impl WallpaperKind {
     /// 调用方传入的 ext **不含** 前导点（如 `"png"` 而非 `".png"`）。
     pub(crate) fn from_extension(ext: &str) -> Option<Self> {
         match ext.to_ascii_lowercase().as_str() {
-            "png" | "jpg" | "jpeg" => Some(Self::Static),
+            "png" | "jpg" | "jpeg" | "webp" => Some(Self::Static),
             "gif" => Some(Self::Gif),
             "mp4" | "mov" => Some(Self::Video),
             _ => None,
@@ -75,19 +75,19 @@ impl WallpaperKind {
 
 /// 内置壁纸清单：固定 16 项，每项 `(相对资源路径, 显示名, kind)`。
 ///
-/// 相对路径形如 `wallpapers/1331865.png`，是相对 app bundle 的 Resources 目录
+/// 相对路径形如 `wallpapers/1331865.webp`，是相对 app bundle 的 Resources 目录
 /// （打包态）或 `crates/app/assets/` 目录（开发态）的子路径。
 /// 素材布局：
-///   - 9 张静态图（含默认 1331865.png 与 `mut/v2` 的 6 张）
+///   - 9 张静态图（含默认 1331865.webp 与 `mut/v2` 的 6 张）
 ///   - 2 张 GIF
 ///   - 5 段 MP4
 pub(crate) fn builtin_wallpapers() -> &'static [(&'static str, &'static str, WallpaperKind)] {
     &[
-        ("wallpapers/1331865.png", "Default", WallpaperKind::Static),
-        ("wallpapers/1350954.png", "Aurora", WallpaperKind::Static),
-        ("wallpapers/1358524.png", "Nebula", WallpaperKind::Static),
+        ("wallpapers/1331865.webp", "Default", WallpaperKind::Static),
+        ("wallpapers/1350954.webp", "Aurora", WallpaperKind::Static),
+        ("wallpapers/1358524.webp", "Nebula", WallpaperKind::Static),
         (
-            "wallpapers/74174.png",
+            "wallpapers/74174.webp",
             "MUT v2 · 74174",
             WallpaperKind::Static,
         ),
@@ -102,7 +102,7 @@ pub(crate) fn builtin_wallpapers() -> &'static [(&'static str, &'static str, Wal
             WallpaperKind::Static,
         ),
         (
-            "wallpapers/1411492.png",
+            "wallpapers/1411492.webp",
             "MUT v2 · 1411492",
             WallpaperKind::Static,
         ),
@@ -112,7 +112,7 @@ pub(crate) fn builtin_wallpapers() -> &'static [(&'static str, &'static str, Wal
             WallpaperKind::Static,
         ),
         (
-            "wallpapers/1411385.png",
+            "wallpapers/1411385.webp",
             "MUT v2 · 1411385",
             WallpaperKind::Static,
         ),
@@ -126,7 +126,27 @@ pub(crate) fn builtin_wallpapers() -> &'static [(&'static str, &'static str, Wal
     ]
 }
 
-/// 把内置相对资源名（如 `wallpapers/1350954.png`）解析为运行时可读的绝对路径。
+/// 把持久化的内置壁纸路径归一化为当前清单中的 canonical 路径。
+///
+/// 旧版安装包中的 6 张 PNG 已转换为同名 WebP 以缩小包体。这里保留显式迁移表，
+/// 让升级前保存的选择继续指向同一张壁纸；已经是当前路径时原样返回，未知路径拒绝。
+pub(crate) fn canonical_builtin_wallpaper(rel: &str) -> Option<&'static str> {
+    let canonical = match rel {
+        "wallpapers/1331865.png" => "wallpapers/1331865.webp",
+        "wallpapers/1350954.png" => "wallpapers/1350954.webp",
+        "wallpapers/1358524.png" => "wallpapers/1358524.webp",
+        "wallpapers/74174.png" => "wallpapers/74174.webp",
+        "wallpapers/1411492.png" => "wallpapers/1411492.webp",
+        "wallpapers/1411385.png" => "wallpapers/1411385.webp",
+        current => current,
+    };
+    builtin_wallpapers()
+        .iter()
+        .find(|(registered, _, _)| *registered == canonical)
+        .map(|(registered, _, _)| *registered)
+}
+
+/// 把内置相对资源名（如 `wallpapers/1350954.webp`）解析为运行时可读的绝对路径。
 ///
 /// 解析顺序：
 /// 1. **App bundle**：`bundle_resources_dir()/<rel>` —— `Foo.app/Contents/Resources`。
@@ -166,3 +186,7 @@ pub(crate) fn resolve_builtin_asset_from_paths(
 #[cfg(test)]
 #[path = "../../tests/unit/wallpaper_resolvers_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/wallpaper_packaging_assets_tests.rs"]
+mod packaging_assets_tests;

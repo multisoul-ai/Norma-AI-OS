@@ -1,5 +1,5 @@
 use crate::{
-    DialogueError, SpokenTextNormalizer, TtsChunkSink, TtsClient, UtteranceCommitter,
+    DialogueError, LegacyTtsChunkSink, LegacyTtsClient, SpokenTextNormalizer, UtteranceCommitter,
     MAX_SPEECH_SEGMENT_CHARS, SHORT_SPEECH_MERGE_WINDOW,
 };
 use audio::{PcmAudioChunk, PcmFormat};
@@ -8,7 +8,7 @@ use std::time::Duration;
 
 struct OneChunkTts;
 
-impl TtsClient for OneChunkTts {
+impl LegacyTtsClient for OneChunkTts {
     fn synthesize(&mut self, _text: &str) -> Result<PcmAudioChunk, DialogueError> {
         PcmAudioChunk::new(PcmFormat::Pcm16, 16_000, 1, vec![0, 0])
             .map_err(|error| DialogueError::Message(format!("测试 PCM 应合法：{error:?}")))
@@ -20,7 +20,7 @@ struct CollectingTtsChunkSink {
     chunks: Mutex<Vec<PcmAudioChunk>>,
 }
 
-impl TtsChunkSink for CollectingTtsChunkSink {
+impl LegacyTtsChunkSink for CollectingTtsChunkSink {
     fn send(&self, chunk: PcmAudioChunk) -> bool {
         self.chunks
             .lock()

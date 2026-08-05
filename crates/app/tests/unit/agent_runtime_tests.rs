@@ -12,20 +12,21 @@ fn echo_factory() -> runtime::PtyFactory {
     Box::new(|_cmd, _cols, _rows, tx| Ok(Box::new(TestPtyBackend::echo(tx)) as Box<dyn PtyBackend>))
 }
 
-/// ART-1: 对话模型把内部推理包在 `<think>` 标签中时，可见回复只保留标签外正文并受十五字符上限约束。
+/// ART-1: 对话模型把内部推理包在 `<think>` 标签中时，可见回复只移除推理并完整保留长正文。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   标签外英文正文 = 49 个 Unicode 字符
-///   可见字符预算   = 15 = 前 14 个正文字符 + 1 个省略号
+///   历史截断边界   = 15 个 Unicode 字符
+///   超出历史边界   = 49 - 15 = 34 个 Unicode 字符
 ///   流式事件按真实网络分为 3 块：开始 think、结束 think、英文正文
 ///
 /// 执行过程：
 ///   1. 将三个 DialogueTextDelta 交给 Agent 运行时的 reply 提取边界；
 ///   2. 移除完整 `<think>` 区段；
-///   3. 对剩余正文应用 Norma 的十五字符可见回复边界。
+///   3. 将剩余正文完整交给 UI 与 TTS。
 ///
 /// 预期结果：
-///   - 正断言：标签外英文正文保留前 14 字符并追加省略号；
+///   - 正断言：标签外 49 字符英文正文完整保留；
 ///   - 负断言：内部 `<think>` 推理及其标签不得进入中文 TTS，避免产生 OOV 警告。
 #[test]
 fn test_agent_reply_strips_thinking_block_without_dropping_english_answer() {
@@ -42,8 +43,12 @@ fn test_agent_reply_strips_thinking_block_without_dropping_english_answer() {
     ]);
 
     assert_eq!(
-        artifacts.reply_text, "Please open RE…",
-        "清洗后的英文正文必须按前 14 字符加省略号收口到十五字符"
+        artifacts.reply_text, "Please open README.md and follow the setup steps.",
+        "清洗后的英文正文必须完整进入 UI 与 TTS，不能在十五字符后截断"
+    );
+    assert!(
+        artifacts.reply_text.ends_with("setup steps."),
+        "历史十五字符边界之后的英文正文必须继续保留"
     );
     assert!(
         !artifacts.reply_text.contains("<think>")
@@ -121,18 +126,19 @@ fn test_task_interrupted_event_reports_interruption() {
     );
 }
 
-/// ART-4b：用户主动查询任务状态时必须得到受十五字符边界约束的状态回报，不能落入空回复兜底。
+/// ART-4b：用户主动查询任务状态时必须得到完整状态回报，不能截断或落入空回复兜底。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   task_id = 12，state = Running，completed_tool_calls = 2
-///   可见字符预算 = 15 = 前 14 个状态字符 + 1 个省略号
+///   完整状态文本 = 29 个 Unicode 字符
+///   超出历史边界 = 29 - 15 = 14 个 Unicode 字符
 ///
 /// 执行过程：
 ///   1. 将状态事件转换为完整内部状态文本；
-///   2. 对面向用户的状态文本应用十五字符边界。
+///   2. 将面向用户的状态文本完整交给 UI 与 TTS。
 ///
 /// 预期结果：
-///   - 正断言：回复保留任务 id 与 running 状态前缀，并以省略号明确表示截断；
+///   - 正断言：回复保留任务 id、running 状态和工具调用次数；
 ///   - 负断言：Running 状态不得声称已派发或已成功完成。
 #[test]
 fn test_task_status_event_generates_status_reply() {
@@ -143,8 +149,12 @@ fn test_task_status_event_generates_status_reply() {
     }]);
 
     assert_eq!(
-        artifacts.reply_text, "任务 #12 状态：runn…",
-        "TaskStatus 必须保留可核对的任务与状态前缀，并收口到十五字符"
+        artifacts.reply_text, "任务 #12 状态：running；已完成 2 次工具调用",
+        "TaskStatus 必须完整保留可核对的任务、状态和工具调用次数"
+    );
+    assert!(
+        !artifacts.reply_text.ends_with('…'),
+        "TaskStatus 不得在历史十五字符边界改写为省略号结尾"
     );
     assert!(
         !artifacts.reply_text.contains("已派发") && !artifacts.reply_text.contains("已完成："),
@@ -286,22 +296,23 @@ fn test_agent_card_command_adapter_creates_multiple_terminals_in_real_runtime() 
     );
 }
 
-/// ART-NORMA-1：生产 AgentCardAdapter 创建内置 Agent 后，可直接派发并返回真实 task_id
+/// ART-NORMA-1：生产 AgentCardAdapter 用一次命令创建内置 Agent 并派发任务
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   Initial Agent definitions = 0
-///   `create_agent(codex)` calls = 1 → definitions=1、AgentCard=1
-///   `assign_agent_task` calls = 1 → active tasks=1、expected task_id=1
+///   `create_agent(codex, task)` calls = 1 → definitions=1、AgentCard=1、active tasks=1
+///   Additional `assign_agent_task` calls = 0
+///   Expected task_id = initial next id 1
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 在 headless GPUI 的真实 MultisoulApp 上执行 Norma `CreateAgent`
-///   2. 读取系统分配的内置 Agent 名称，不让模型提供名称
-///   3. 对该名称立即执行 `AssignAgentTask`，由生产 FIFO 接收任务
+///   1. 在 headless GPUI 的真实 MultisoulApp 上执行一次带 task 的 Norma `CreateAgent`。
+///   2. Adapter 创建并激活系统命名的 AgentCard。
+///   3. Adapter 在同一命令内把完整任务交给生产 FIFO。
 ///
 /// 预期结果：
-///   - 正断言：创建回执含唯一 AgentCard node_id，派发回执为 accepted/task_id=1
+///   - 正断言：同一回执为 accepted，并同时包含唯一 node_id 与 task_id=1。
 ///   - 正断言：Coordinator 中存在同一 Agent 的运行任务
-///   - 负断言：画布中不出现名为 Norma 的 Agent，也不产生第二张 AgentCard
+///   - 负断言：画布中不出现名为 Norma 的 Agent，也不产生第二张 AgentCard 或第二个任务。
 #[test]
 fn test_norma_adapter_creates_builtin_agent_and_dispatches_without_confirmation() {
     let mut gpui = TestAppContext::single();
@@ -322,45 +333,24 @@ fn test_norma_adapter_creates_builtin_agent_and_dispatches_without_confirmation(
                 cx,
                 agent::AdapterCommand::CreateAgent {
                     profile: norma::protocol::AgentProfile::Codex,
+                    task: Some("检查当前项目有哪些技术栈。".to_string()),
                 },
             )
         })
     });
     let created = created.expect("create_agent should execute on the production App Adapter");
-    let name = app.read_with(cx, |app, _cx| {
-        app.agent_definitions.definitions()[0].name.clone()
-    });
-    let assigned = cx.update(|window, app_cx| {
-        app.update(app_cx, |app, cx| {
-            execute_norma_adapter_command(
-                app,
-                window,
-                cx,
-                agent::AdapterCommand::AssignAgentTask {
-                    agent: name.clone(),
-                    task: "检查当前项目有哪些技术栈。".to_string(),
-                },
-            )
-        })
-    });
-    let assigned = assigned.expect("assign_agent_task should execute without confirmation");
-
     assert_eq!(
-        created.status, "succeeded",
-        "create_agent should report the actual successful App side effect"
+        created.status, "accepted",
+        "create_agent with a task should report FIFO acceptance, not task completion"
     );
     assert!(
         created.node_id.is_some(),
         "create_agent should return the activated AgentCard node id"
     );
     assert_eq!(
-        assigned.status, "accepted",
-        "assign_agent_task should report AgentCard acceptance, not completion"
-    );
-    assert_eq!(
-        assigned.task_id,
+        created.task_id,
         Some(1),
-        "the first production AgentCard task should return deterministic task_id=1"
+        "the combined command's first production FIFO task should return task_id=1"
     );
     let (agent_nodes, tasks, has_norma) = app.read_with(cx, |app, _cx| {
         let agent_nodes = app

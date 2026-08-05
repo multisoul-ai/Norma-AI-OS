@@ -200,6 +200,31 @@ pub(crate) fn download_silero_vad_cancellable(
     )
 }
 
+pub(crate) fn ensure_silero_vad(model_root: &Path) -> Result<(), String> {
+    #[cfg(feature = "e2e-test-support")]
+    {
+        let _ = model_root;
+        Ok(())
+    }
+    #[cfg(not(feature = "e2e-test-support"))]
+    {
+        if asr::validate_silero_vad_installation(model_root).is_ok() {
+            return Ok(());
+        }
+        let vad_root = model_root.join(asr::SILERO_VAD_DIRECTORY);
+        if vad_root.exists() {
+            fs::remove_dir_all(&vad_root)
+                .map_err(|error| format!("could not clear invalid VAD installation: {error}"))?;
+        }
+        let cancelled = AtomicBool::new(false);
+        let vad_file =
+            download_silero_vad_cancellable(&model_root.join(".downloads"), &cancelled, |_, _| {})?;
+        asr::install_silero_vad_file(&vad_file, model_root).map_err(|error| error.to_string())?;
+        let _ = fs::remove_file(vad_file);
+        Ok(())
+    }
+}
+
 fn download_file(
     url: &str,
     expected_bytes: u64,

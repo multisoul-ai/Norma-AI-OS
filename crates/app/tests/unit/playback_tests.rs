@@ -5,7 +5,8 @@ use super::{
 use audio::{PcmAudioChunk, PcmFormat};
 #[cfg(target_os = "macos")]
 use dialogue::{
-    handle_speaking_speech_start, DialoguePhase, DialogueSession, SpeakingSpeechSource, TtsClient,
+    handle_speaking_speech_start, DialoguePhase, DialogueSession, LegacyTtsClient,
+    SpeakingSpeechSource,
 };
 
 #[cfg(target_os = "macos")]
@@ -247,6 +248,10 @@ fn test_assistant_playback_echo_is_ignored_until_reply_completes() {
             }
             Ok(ListeningPipelineEvent::PartialTranscript(text)) => echo_partial = Some(text),
             Ok(ListeningPipelineEvent::FinalTranscript(text)) => echo_final = Some(text),
+            Ok(ListeningPipelineEvent::InputEnded(_)) => {}
+            Ok(ListeningPipelineEvent::Failed(message)) => {
+                panic!("playback echo-gate fixture should not fail ASR: {message}")
+            }
             Err(async_channel::TryRecvError::Empty) => {
                 std::thread::sleep(Duration::from_millis(20));
             }

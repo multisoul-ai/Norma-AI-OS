@@ -79,8 +79,8 @@ impl MultisoulApp {
             .items_center()
             .gap(px(8.0))
             .child(
-                launchpad_button().on_click(cx.listener(|_app, _, _window, cx| {
-                    MultisoulApp::open_new_launchpad_window(cx);
+                launchpad_button().on_click(cx.listener(|app, _, _window, cx| {
+                    app.open_new_launchpad_window(cx);
                 })),
             )
             .child(save_status(save))

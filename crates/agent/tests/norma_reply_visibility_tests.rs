@@ -59,37 +59,40 @@ fn unclosed_thinking_block_is_discarded_instead_of_leaked() {
     );
 }
 
-/// REPLY-3：Norma 的用户可见回复不能超过十五个 Unicode 字符。
+/// REPLY-3：Norma 的用户可见回复超过十五个 Unicode 字符时仍须完整保留。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   原始可见正文 = 17 字（“诺诺知道啦，马上帮你处理这个事情哦”）
-///   正文预算 = 15 字
-///   截断策略 = 前 14 字 + 1 个省略号 = 15 字
+///   历史截断边界 = 15 字
+///   超出历史边界 = 17 - 15 = 2 字
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. Provider 返回一段超过十五字的口语回复
-///   2. 最终可见答复边界保留前十四字并追加省略号
-///   3. UI 与 TTS 消费同一条收口后的文本
+///   2. 最终可见答复边界只移除内部 think 块并清理首尾空白
+///   3. UI 与 TTS 消费同一条完整文本
 ///
 /// 预期结果：
-///   - 正断言：输出恰好为十五字且以省略号自然收口
-///   - 负断言：第十五字之后的“事情哦”不得进入 UI 或 TTS
+///   - 正断言：第十五字之后的“情哦”仍保留，完整输出 17 字
+///   - 负断言：回复不得被改写为省略号结尾的十五字截断文本
 #[test]
-fn final_norma_reply_never_exceeds_fifteen_unicode_characters() {
+fn final_norma_reply_preserves_text_beyond_fifteen_unicode_characters() {
     let visible = visible_norma_reply("诺诺知道啦，马上帮你处理这个事情哦");
 
     assert_eq!(
-        visible, "诺诺知道啦，马上帮你处理这个…",
-        "超长回复必须保留前十四字并用一个省略号收口"
+        visible, "诺诺知道啦，马上帮你处理这个事情哦",
+        "超过十五字的正文必须完整进入最终 UI 与 TTS，不能在可见回复边界截断"
     );
     assert_eq!(
         visible.chars().count(),
-        15,
-        "用户可见回复必须恰好受十五个 Unicode 字符上限约束"
+        17,
+        "完整回复应保留原始十七个 Unicode 字符"
     );
-    assert!(visible.ends_with('…'), "被截断的回复必须以省略号结束");
     assert!(
-        !visible.contains("事情哦"),
-        "预算之外的正文不得进入最终 UI 或 TTS"
+        visible.ends_with("事情哦"),
+        "历史十五字边界之后的正文必须继续保留"
+    );
+    assert!(
+        !visible.ends_with('…'),
+        "完整回复不得被改写为省略号结尾的截断文本"
     );
 }

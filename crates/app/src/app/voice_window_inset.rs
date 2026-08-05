@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+#[cfg(test)]
 use audio::PcmAudioChunk;
 use gpui::{
     canvas, div, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, Background,
@@ -7,14 +8,18 @@ use gpui::{
 };
 use std::time::Duration;
 
+mod channel;
 mod events;
 mod meter;
 mod seam;
+mod view;
 
+pub(crate) use channel::{VoiceWindowInsetEventBus, VoiceWindowInsetEventSink};
 pub(crate) use events::{TtsPlaybackEvent, TtsPlaybackSource};
 use meter::PcmEnergyFrame;
 pub(crate) use meter::PcmEnergyTimeline;
 use seam::corner_seam_compensation_alpha;
+pub(crate) use view::VoiceWindowInsetView;
 
 const QUIET_OPACITY: f32 = 0.12;
 const QUIET_INSET_PX: f32 = 30.0;
@@ -57,6 +62,16 @@ pub(crate) struct VoiceWindowInset {
 }
 
 impl VoiceWindowInset {
+    pub(crate) fn is_animation_active(&self) -> bool {
+        !self.disabled
+            && (self.pending_playbacks > 0
+                || self.transition.is_some()
+                || !self.energy_frames.is_empty()
+                || self.active_energy.is_some()
+                || self.target_energy > EPSILON
+                || self.smoothed_energy > EPSILON)
+    }
+
     pub(crate) fn set_enabled(&mut self, enabled: bool) -> bool {
         if self.disabled != enabled {
             return false;
@@ -79,6 +94,7 @@ impl VoiceWindowInset {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn queue_pcm_energy(&mut self, chunk: &PcmAudioChunk) {
         self.queue_energy_timeline(PcmEnergyTimeline::from_pcm(chunk));
     }

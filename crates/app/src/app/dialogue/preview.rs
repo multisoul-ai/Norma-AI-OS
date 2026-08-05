@@ -2,7 +2,9 @@
 
 use super::reply::create_preview_audio_sink;
 use crate::app::voice::playback::AssistantAudioSink;
-use crate::app::voice_window_inset::{PcmEnergyTimeline, TtsPlaybackEvent};
+use crate::app::voice_window_inset::{
+    PcmEnergyTimeline, TtsPlaybackEvent, VoiceWindowInsetEventSink,
+};
 use audio::PcmAudioChunk;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -10,14 +12,14 @@ use std::sync::{Arc, Mutex};
 /// A preview has its own sink and cancellation control, so it never enters the assistant
 /// reply queue or dialogue phase.
 pub(crate) struct TtsPreviewControl {
-    cancelled: AtomicBool,
+    cancelled: Arc<AtomicBool>,
     sink: Mutex<Option<Box<dyn AssistantAudioSink>>>,
 }
 
 impl TtsPreviewControl {
     pub(crate) fn new() -> Self {
         Self {
-            cancelled: AtomicBool::new(false),
+            cancelled: Arc::new(AtomicBool::new(false)),
             sink: Mutex::new(None),
         }
     }
@@ -36,6 +38,10 @@ impl TtsPreviewControl {
 
     pub(crate) fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn cancellation_flag(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.cancelled)
     }
 
     pub(crate) fn play_with_completion(
@@ -82,10 +88,23 @@ pub(crate) struct TtsPreviewState {
     current: Option<Arc<TtsPreviewControl>>,
     playback_started: bool,
     playback_events: Vec<TtsPlaybackEvent>,
+    playback_event_sink: Option<VoiceWindowInsetEventSink>,
     pcm_queue_count: u64,
 }
 
 impl TtsPreviewState {
+    pub(crate) fn connect_playback_event_sink(&mut self, sink: VoiceWindowInsetEventSink) {
+        self.playback_event_sink = Some(sink);
+    }
+
+    fn push_playback_event(&mut self, event: TtsPlaybackEvent) {
+        if let Some(sink) = &self.playback_event_sink {
+            sink.push(event);
+        } else {
+            self.playback_events.push(event);
+        }
+    }
+
     pub(crate) fn start(&mut self) -> (u64, Arc<TtsPreviewControl>) {
         self.cancel();
         self.generation = self.generation.wrapping_add(1);
@@ -106,9 +125,9 @@ impl TtsPreviewState {
             )
         });
         if self.playback_started {
-            self.playback_events.push(TtsPlaybackEvent::Interrupted);
+            self.push_playback_event(TtsPlaybackEvent::Interrupted);
         } else if had_current {
-            self.playback_events.push(TtsPlaybackEvent::DiscardQueued);
+            self.push_playback_event(TtsPlaybackEvent::DiscardQueued);
         }
         self.playback_started = false;
     }
@@ -127,6 +146,7 @@ impl TtsPreviewState {
             .is_some_and(|control| !control.is_cancelled())
     }
 
+    #[cfg(feature = "e2e-test-support")]
     pub(crate) fn pcm_queue_count(&self) -> u64 {
         self.pcm_queue_count
     }
@@ -144,17 +164,16 @@ impl TtsPreviewState {
     pub(crate) fn queue_pcm(&mut self, generation: u64, chunk: &PcmAudioChunk) {
         if self.is_current(generation) {
             self.pcm_queue_count = self.pcm_queue_count.wrapping_add(1);
-            self.playback_events
-                .push(TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(
-                    chunk,
-                )));
+            self.push_playback_event(TtsPlaybackEvent::PcmQueued(PcmEnergyTimeline::from_pcm(
+                chunk,
+            )));
         }
     }
 
     pub(crate) fn mark_playback_started(&mut self, generation: u64) {
         if self.is_current(generation) && !self.playback_started {
             self.playback_started = true;
-            self.playback_events.push(TtsPlaybackEvent::Started);
+            self.push_playback_event(TtsPlaybackEvent::Started);
         }
     }
 
@@ -164,11 +183,12 @@ impl TtsPreviewState {
         }
         self.current = None;
         if self.playback_started {
-            self.playback_events.push(TtsPlaybackEvent::Finished);
+            self.push_playback_event(TtsPlaybackEvent::Finished);
         }
         self.playback_started = false;
     }
 
+    #[cfg(test)]
     pub(crate) fn take_playback_events(&mut self) -> Vec<TtsPlaybackEvent> {
         std::mem::take(&mut self.playback_events)
     }

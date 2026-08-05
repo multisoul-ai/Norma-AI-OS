@@ -77,7 +77,7 @@ Important files:
 
 ## `asr`
 
-Purpose: own recognition-model identity and installation integrity without GPUI, Sherpa, network access, or app settings.
+Purpose: own provider registry, recognition protocol, Local Sherpa, Cloud Azure, model identity, and installation integrity without GPUI, Storage, Keychain, or app settings.
 
 Important files:
 
@@ -86,35 +86,33 @@ Important files:
 - `installation.rs` - manifest validation, safe required-file extraction, atomic directory install, and delete protection.
 - `support.rs` - pinned shared Silero VAD artifact validation and atomic installation.
 - `model_root.rs` - stable Norma OS Application Support model root.
+- `providers/` - built-in Local Sherpa and Cloud Azure provider implementations and registry.
+- `recognition.rs` - provider-neutral bounded recognition pipeline and terminal event protocol.
 
 Boundary rules:
 
-- `asr` must not depend on GPUI, Sherpa, app, runtime, storage, or UI.
-- Network download and progress live in `app`; Sherpa recognizer configuration lives in `voice_sherpa`.
-
-## `voice_azure`
-
-Purpose: adapt Azure Speech short-audio REST recognition without adding network access to `asr`.
-
-Important files:
-
-- `src/lib.rs` - region-specific STT endpoint construction, redacted credentials, request execution, and response parsing.
-- `tests/unit/client_tests.rs` - deterministic HTTP contract and error tests using a local fake server.
-- `tests/azure_speech_live.rs` - ignored real-service smoke test with macOS M4A/WAV normalization via `afconvert`.
+- `asr` must not depend on GPUI, app, runtime, storage, UI, or Keychain.
+- Provider network execution belongs in `asr`; credential storage and runtime composition remain in `app`.
+- Provider-neutral microphone capture, PCM normalization, and VAD live in `voice_input`.
 
 ## `model_store` and `tts`
 
-Purpose: keep common local-model installation mechanics separate from engine-neutral TTS policy.
+Purpose: keep common local-model installation mechanics separate from provider-neutral TTS policy and built-in remote protocols.
 
 - `model_store/src/lib.rs` and `installation.rs` - archive SHA-256, safe extraction, manifest validation, supplemental artifacts, and atomic promotion. It has no GPUI, network, app, runtime, storage, or Sherpa dependency.
 - `tts/src/model_id.rs` - stable `TtsModelId` and `TtsVoiceId`.
 - `tts/src/catalog.rs` - curated model packages, capability metadata, backend family, and recommended voices.
 - `tts/src/installation.rs` - TTS-specific root paths and validation over `model_store` primitives.
+- `tts/src/provider.rs` - stable Provider IDs, built-in registry, and curated model descriptors.
+- `tts/src/profile.rs`, `voice_catalog.rs` - provider selections, validation-bound readiness, and dynamic Voice catalogs.
+- `tts/src/stream.rs` - reply-level start/push/finish/cancel seam and ordered PCM sink.
+- `tts/src/providers/minimax/` - MiniMax account Voice query plus one-WebSocket-per-reply protocol and transport.
 
 Boundary rules:
 
-- `tts -> model_store`; neither crate depends on GPUI, app, runtime, storage, or UI.
+- `tts -> {model_store, audio}`; neither model policy nor provider code depends on GPUI, app, runtime, storage, or UI.
 - `tts` does not depend on Sherpa; `voice_sherpa` consumes validated TTS models to create the engine adapter.
+- Network dependencies are contained below `tts::providers`; credentials and activation remain App responsibilities.
 - Network transfer, progress, cancellation, selection, and deletion orchestration live in `app`.
 
 ## `ui` and `app`
@@ -124,7 +122,8 @@ Purpose: GPUI shell and rendering.
 Important files:
 
 - `crates/ui/src/theme.rs` - dark theme colors as `0xRRGGBB`.
-- `crates/app/src/main.rs` - tracing, GPUI application boot, menus, global key bindings.
+- `crates/app/src/lib.rs` - logging initialization, GPUI application boot, menus, global key bindings.
+- `crates/app/src/logging.rs` - stderr/file tracing layers, daily rolling files, retention maintenance.
 - `crates/app/src/app/mod.rs` - `MultisoulApp`, background drain loop, keyboard routing, lifecycle cleanup.
 - `crates/app/src/canvas/view.rs` - pan, node drag, click/double-click, viewport culling, node chrome.
 - `crates/app/src/motion/mod.rs` - card motion state.
@@ -160,7 +159,8 @@ crates/
 ├── terminal/src/     pty, grid, session
 ├── runtime/src/      route, focus, nodes/{term,agent}
 ├── storage/src/      *_store.rs
-├── asr/src/          catalog, installation, support        # 零 GPUI/Sherpa/network
+├── asr/src/          providers, recognition, installation  # 零 GPUI/Storage/Keychain
+├── voice_input/src/  microphone, PCM, resample, VAD        # provider 中立
 ├── model_store/src/  installation                             # 零 GPUI/network
 ├── tts/src/          model_id, catalog, installation          # 零 GPUI/Sherpa
 └── app/src/          GPUI 壳，按体验域分

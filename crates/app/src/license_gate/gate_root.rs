@@ -22,6 +22,8 @@ use license::ActivateLicenseRequest;
 #[cfg(target_os = "macos")]
 use std::path::{Path, PathBuf};
 #[cfg(target_os = "macos")]
+use std::sync::Arc;
+#[cfg(target_os = "macos")]
 use std::time::Duration;
 use ui::component::input::{Input, InputState};
 use ui::component::Root;
@@ -29,6 +31,7 @@ use ui::Theme;
 
 #[cfg(target_os = "macos")]
 const LICENSE_BACKGROUND_VIDEO_ASSET: &str = "wallpapers/license-gate.mp4";
+const INTERNAL_BETA_LICENSE_KEY: &str = "KG-WACEHBCB-2ZL4AM23-JBJQJZBG-YVT55VDN";
 
 #[derive(Clone, Debug)]
 enum ShellStatus {
@@ -52,8 +55,11 @@ pub struct GateRoot {
 
 impl GateRoot {
     pub fn new(phase: BootPhase, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let license_input =
-            cx.new(|cx| InputState::new(window, cx).placeholder("输入 License Key"));
+        let license_input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .default_value(INTERNAL_BETA_LICENSE_KEY)
+                .placeholder("输入 License Key")
+        });
         let mut root = Self {
             phase,
             workbench: None,
@@ -76,11 +82,25 @@ impl GateRoot {
         {
             self.license_video_wallpaper = None;
         }
+        let (database_paths, app_store) = match crate::database::default_database_context() {
+            Ok(context) => context,
+            Err(error) => {
+                self.status = ShellStatus::Error(format!("无法初始化数据库: {error}").into());
+                self.enter_workbench = false;
+                cx.notify();
+                return;
+            }
+        };
         let workbench = cx.new(|cx| {
-            let mut app = MultisoulApp::new(cx);
-            app.start_norma_drain_loop(window, cx);
+            let mut app = MultisoulApp::new_with_database_context(cx, database_paths, app_store);
             app.start_dialogue_turn_loop(window, cx);
             app.start_cef_message_pump_loop(window, cx);
+            app.configure_cpu_benchmark_from_environment(window, cx);
+            #[cfg(feature = "e2e-test-support")]
+            if crate::workspace::windowing::visual_preview_name().as_deref() == Some("github-clone")
+            {
+                app.open_clone_project_dialog(window, cx);
+            }
             app
         });
         self.workbench = Some(workbench);
@@ -166,20 +186,28 @@ impl GateRoot {
                 cx.notify();
             }
             VideoSyncAction::Restart { path } => {
-                replace_video_wallpaper(&mut self.license_video_wallpaper, path.clone());
+                let mailbox =
+                    replace_video_wallpaper(&mut self.license_video_wallpaper, path.clone());
                 cx.notify();
-                self.spawn_license_video_poll_loop(path, cx);
+                self.spawn_license_video_poll_loop(path, mailbox, cx);
             }
         }
     }
 
     #[cfg(target_os = "macos")]
-    fn spawn_license_video_poll_loop(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+    fn spawn_license_video_poll_loop(
+        &mut self,
+        path: PathBuf,
+        mailbox: Arc<crate::app::video_wallpaper::VideoFrameMailbox>,
+        cx: &mut Context<Self>,
+    ) {
         cx.spawn(async move |this, cx| loop {
             cx.background_executor()
                 .timer(Duration::from_millis(VIDEO_FOREGROUND_POLL_INTERVAL_MS))
                 .await;
-            match this.update(cx, |root, cx| root.poll_license_video_background(&path, cx)) {
+            match this.update(cx, |root, cx| {
+                root.poll_license_video_background(&path, &mailbox, cx)
+            }) {
                 Ok(true) => {}
                 Ok(false) | Err(_) => break,
             }
@@ -188,8 +216,14 @@ impl GateRoot {
     }
 
     #[cfg(target_os = "macos")]
-    fn poll_license_video_background(&mut self, path: &Path, cx: &mut Context<Self>) -> bool {
-        let (keep_polling, changed) = poll_video_wallpaper(&mut self.license_video_wallpaper, path);
+    fn poll_license_video_background(
+        &mut self,
+        path: &Path,
+        mailbox: &Arc<crate::app::video_wallpaper::VideoFrameMailbox>,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let (keep_polling, changed) =
+            poll_video_wallpaper(&mut self.license_video_wallpaper, path, mailbox);
         if changed {
             cx.notify();
         }
@@ -414,7 +448,10 @@ fn open_gated_window_with_phase(
     cx: &mut App,
 ) -> anyhow::Result<WindowHandle<Root>> {
     let title = title_for_initial_state(&InitialWindowState::Launchpad);
-    let bounds = gpui::Bounds::centered(None, gpui::size(px(1280.0), px(800.0)), cx);
+    let (width, height) = crate::workspace::windowing::initial_window_dimensions(
+        crate::workspace::windowing::visual_preview_name(),
+    );
+    let bounds = gpui::Bounds::centered(None, gpui::size(px(width), px(height)), cx);
     let handle = cx.open_window(window_options(title, bounds), |window, cx| {
         cx.new(|cx| build_gated_root(phase, window, cx))
     })?;
@@ -430,4 +467,15 @@ fn build_gated_root(phase: BootPhase, window: &mut Window, cx: &mut Context<Root
 pub fn build_activation_root_e2e(window: &mut Window, cx: &mut Context<Root>) -> Root {
     ui::init_components(cx);
     build_gated_root(BootPhase::Activation, window, cx)
+}
+
+#[cfg(feature = "e2e-test-support")]
+pub fn build_configured_unlicensed_root_e2e(window: &mut Window, cx: &mut Context<Root>) -> Root {
+    ui::init_components(cx);
+    let missing_status = license::LocalLicenseStatus::Invalid {
+        reason: license::LicenseInvalidReason::Missing,
+    };
+    let phase =
+        super::boot::decide_boot_phase(super::config::LICENSES_ENABLED, false, &missing_status);
+    build_gated_root(phase, window, cx)
 }

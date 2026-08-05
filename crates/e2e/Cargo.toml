@@ -20,10 +20,10 @@ runtime = { path = "../runtime" }
 storage.workspace = true
 canvas = { path = "../canvas" }
 terminal = { path = "../terminal" }
+tts.workspace = true
 ui.workspace = true
 norma.workspace = true
 serde_json.workspace = true
-voice.workspace = true
 workspace.workspace = true
 gpui = { workspace = true, features = ["test-support"] }
 crossbeam-channel = { workspace = true }

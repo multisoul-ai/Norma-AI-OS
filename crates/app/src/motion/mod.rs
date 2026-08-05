@@ -1,6 +1,9 @@
 //! App 层卡片动效状态：只影响渲染连续性，不改变 canvas/runtime 的真实状态。
+pub(crate) mod activity;
 pub(crate) mod breathing;
 pub(crate) mod diagnostics;
+mod dispatch_api;
+pub(crate) mod dispatch_receipt;
 pub(crate) mod initialization;
 pub(crate) mod node_visual;
 pub(crate) mod scalar;
@@ -10,10 +13,18 @@ pub(crate) mod tokens;
 pub(crate) mod util;
 pub(crate) mod visual;
 pub(crate) mod working;
+pub(crate) use crate::motion::activity::MotionActivitySummary;
 #[cfg(test)]
 use crate::motion::breathing::breathing_color_for_phase;
 use crate::motion::breathing::{BreathingIntent, BreathingState};
 pub(crate) use crate::motion::diagnostics::MotionDiagnostics;
+#[cfg(any(test, feature = "e2e-test-support"))]
+pub(crate) use crate::motion::dispatch_receipt::DispatchEffectCounts;
+pub(crate) use crate::motion::dispatch_receipt::{
+    DispatchEffectPhase, DispatchEffectPresentation, DispatchEffectSpawnOutcome,
+    DispatchImpactParticle, DispatchImpactParticleKind, DispatchReceiptVisualStatus,
+    DispatchVisualOrigin,
+};
 pub(crate) use crate::motion::initialization::{
     InitializationAnimation, InitializationAnimationKind, InitializationPresentation,
 };
@@ -37,14 +48,25 @@ use canvas::{CanvasRect, NodeId};
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 use ui::Theme;
-const BREATHING_REPAINT_INTERVAL: Duration = Duration::from_millis(33);
-const WORKING_SNAKE_REPAINT_INTERVAL: Duration = Duration::from_millis(12);
+/// 稳定状态动效最多 15fps：1000ms / 15 = 66.67ms，向上取整为 67ms。
+pub(crate) const AMBIENT_REPAINT_INTERVAL: Duration = Duration::from_millis(67);
+
+fn consume_repaint_interval(elapsed: &mut Duration, interval: Duration) -> bool {
+    if *elapsed < interval {
+        return false;
+    }
+    let remainder_nanos = elapsed.as_nanos() % interval.as_nanos();
+    *elapsed = Duration::from_nanos(remainder_nanos as u64);
+    true
+}
+
 #[derive(Debug, Clone)]
 pub struct MotionStore {
     tokens: MotionTokens,
     pub(crate) reduce_motion: bool,
     nodes: BTreeMap<NodeId, NodeMotion>,
     initializations: BTreeMap<NodeId, InitializationAnimation>,
+    dispatch_receipts: dispatch_receipt::DispatchEffectStore,
 }
 impl MotionStore {
     pub fn from_env() -> Self {
@@ -58,7 +80,11 @@ impl MotionStore {
             reduce_motion,
             nodes: BTreeMap::new(),
             initializations: BTreeMap::new(),
+            dispatch_receipts: dispatch_receipt::DispatchEffectStore::default(),
         }
+    }
+    pub(crate) fn reduced_fade_duration(&self) -> Duration {
+        self.tokens.reduced_fade
     }
     pub fn tick(&mut self, delta: Duration) -> bool {
         let mut changed = false;
@@ -68,6 +94,7 @@ impl MotionStore {
         for initialization in self.initializations.values_mut() {
             changed |= initialization.tick(delta);
         }
+        changed |= self.dispatch_receipts.tick(delta);
         self.initializations
             .retain(|_, initialization| initialization.presentation().is_some());
         changed
@@ -83,11 +110,31 @@ impl MotionStore {
             .filter(|duration| !duration.is_zero())
             .fold(default, |nearest, duration| nearest.min(duration))
     }
+    pub(crate) fn activity_summary(&self) -> MotionActivitySummary {
+        let next_interval = self.next_animation_tick_interval(Duration::MAX);
+        let next_visual_boundary = (next_interval != Duration::MAX).then_some(next_interval);
+        let frame_synced_node_active = self.nodes.values().any(NodeMotion::frame_synced_active);
+        let ambient_node_active = self
+            .nodes
+            .values()
+            .any(|node| node.ambient_active(self.reduce_motion));
+        let frame_synced_active = frame_synced_node_active
+            || !self.initializations.is_empty()
+            || self.dispatch_receipts.is_active();
+        MotionActivitySummary::from_sources(
+            frame_synced_active,
+            ambient_node_active,
+            next_visual_boundary,
+        )
+    }
     pub fn retain_nodes(&mut self, live_nodes: impl IntoIterator<Item = NodeId>) {
         let live_nodes: BTreeSet<NodeId> = live_nodes.into_iter().collect();
         self.nodes.retain(|id, _| live_nodes.contains(id));
         self.initializations.retain(|id, _| live_nodes.contains(id));
+        self.dispatch_receipts
+            .retain_nodes(|id| live_nodes.contains(&id));
     }
+
     pub fn ensure_node(&mut self, id: NodeId, rect: CanvasRect) {
         self.nodes
             .entry(id)
@@ -157,9 +204,11 @@ impl MotionStore {
             node.set_breathing_intent(intent, reduce_motion);
         }
     }
+    #[cfg(test)]
     pub fn set_chase_intent(&mut self, id: NodeId, active: bool) {
         self.set_chase_intent_at(id, active, Instant::now());
     }
+    #[cfg(test)]
     pub fn set_chase_intent_at(&mut self, id: NodeId, active: bool, now: Instant) {
         let reduce_motion = self.reduce_motion;
         if let Some(node) = self.nodes.get_mut(&id) {
@@ -292,6 +341,7 @@ impl NodeMotion {
                 .set_bool(state != BreathingState::Inactive);
         }
     }
+    #[cfg(test)]
     fn set_chase_intent(&mut self, active: bool, reduce_motion: bool, now: Instant) {
         let was_active = self.chase_active;
         if !active {
@@ -358,8 +408,13 @@ impl NodeMotion {
             self.breathing_phase =
                 (self.breathing_phase + delta.as_secs_f32() / period.as_secs_f32()).rem_euclid(1.0);
             self.breathing_repaint_elapsed += delta;
-            if breathing_is_fading || self.breathing_repaint_elapsed >= BREATHING_REPAINT_INTERVAL {
+            if breathing_is_fading {
                 self.breathing_repaint_elapsed = Duration::ZERO;
+                changed = true;
+            } else if consume_repaint_interval(
+                &mut self.breathing_repaint_elapsed,
+                AMBIENT_REPAINT_INTERVAL,
+            ) {
                 changed = true;
             }
         }
@@ -370,8 +425,10 @@ impl NodeMotion {
                 changed = true;
             } else {
                 self.chase_repaint_elapsed += delta;
-                if self.chase_repaint_elapsed >= WORKING_SNAKE_REPAINT_INTERVAL {
-                    self.chase_repaint_elapsed = Duration::ZERO;
+                if consume_repaint_interval(
+                    &mut self.chase_repaint_elapsed,
+                    AMBIENT_REPAINT_INTERVAL,
+                ) {
                     changed = true;
                 }
             }

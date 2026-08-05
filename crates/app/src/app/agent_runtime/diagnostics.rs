@@ -47,7 +47,7 @@ fn command_name(command: &AgentCommand) -> &'static str {
         AgentCommand::UpdateAgentRoster(_) => "update_agent_roster",
         AgentCommand::UpdateCurrentCanvasContext(_) => "update_current_canvas_context",
         AgentCommand::SwitchModel(_) => "switch_model",
-        AgentCommand::UserTurn(_) => "user_turn",
+        AgentCommand::UserTurn { .. } => "user_turn",
         AgentCommand::CancelLatest => "cancel_latest",
         AgentCommand::CancelTask { .. } => "cancel_task",
         AgentCommand::Status { .. } => "status",

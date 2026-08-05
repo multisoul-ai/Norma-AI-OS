@@ -2,6 +2,8 @@ mod catalog;
 mod installation;
 mod model_id;
 mod model_root;
+mod providers;
+mod recognition;
 mod support;
 
 pub use catalog::{
@@ -15,6 +17,8 @@ pub use installation::{
 };
 pub use model_id::{AsrModelId, AsrModelIdError};
 pub use model_root::{default_model_installation_root, model_installation_root};
+pub use providers::*;
+pub use recognition::*;
 pub use support::{
     install_silero_vad_file, validate_silero_vad_installation, SILERO_VAD_ARCHIVE_BYTES,
     SILERO_VAD_ARCHIVE_URL, SILERO_VAD_DIRECTORY, SILERO_VAD_FILE, SILERO_VAD_SHA256,

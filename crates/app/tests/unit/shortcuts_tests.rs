@@ -65,12 +65,12 @@ fn test_card_creation_defaults_use_cmd_1_through_cmd_6_in_product_order() {
 /// 快捷键默认注册表：当前 app 命令应全部从 registry 暴露，Settings 入口采用 macOS 习惯的 Cmd+,。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   editable command count = 16
+///   editable command count = 17
 ///     NewWindow / NewTerminal / NewBrowser / CopyCardContent / OpenProject / OpenPreviewFile /
-///     NewClaudeAgent / NewCodexAgent / NewCursorAgent / NewOpenCodeAgent / NewGrokAgent / DeleteCard / ReflowLayout / ToggleMasterLayout /
-///     ExitFocus / ToggleSettings
-///   default assigned count = 15（除 NewBrowser 外均有默认键位）
-///   read-only behavior count >= 5（Paste / Voice / Arrow navigation / Space pan / PTY input）
+///     NewClaudeAgent / NewCodexAgent / NewCursorAgent / NewOpenCodeAgent / NewGrokAgent / DeleteCard /
+///     ReflowLayout / ToggleMasterLayout / ExitFocus / ToggleSettings / VoiceInteraction
+///   default assigned count = 16（除 NewBrowser 外均有默认键位）
+///   read-only behavior count >= 4（Paste / Arrow navigation / Space pan / PTY input）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. default_shortcut_entries() 返回所有设置页可展示项
@@ -78,7 +78,8 @@ fn test_card_creation_defaults_use_cmd_1_through_cmd_6_in_product_order() {
 ///   3. 查询关键命令的默认键位、可编辑性与只读行为
 ///
 /// 预期结果：
-///   - 正断言：NewWindow、NewTerminal、DeleteCard、ToggleSettings 等命令存在且默认键位正确
+///   - 正断言：NewWindow、NewTerminal、DeleteCard、ToggleSettings、VoiceInteraction 等命令存在且默认键位正确
+///   - 正断言：VoiceInteraction 可编辑，且不在只读行为列表
 ///   - 正断言：五种 Agent 均有连续的 Cmd+2 到 Cmd+6 默认创建快捷键
 ///   - 负断言：Cmd+V 不应作为可编辑命令出现，避免覆盖 paste 路由
 #[test]
@@ -110,6 +111,26 @@ fn test_shortcut_registry_contains_defaults_and_read_only_behaviors() {
         shortcut_for(&effective, ShortcutCommandId::ExitFocus),
         Some("cmd-escape"),
         "ExitFocus 默认应使用 cmd-escape，避免与 PTY Esc 输入冲突"
+    );
+    assert_eq!(
+        shortcut_for(&effective, ShortcutCommandId::VoiceInteraction),
+        Some("cmd-e"),
+        "Voice Interaction 默认应使用 Cmd+E，且可在 Settings 中重新录制"
+    );
+    let voice_entry = entry_for(&effective, ShortcutCommandId::VoiceInteraction);
+    assert_eq!(
+        voice_entry.category, "Voice",
+        "Voice Interaction 应归类在 Voice，Settings 才会出现在语音命令分组"
+    );
+    assert!(
+        voice_entry.editable,
+        "Voice Interaction 应允许用户在 Settings 中改键"
+    );
+    assert!(
+        !read_only_behaviors()
+            .iter()
+            .any(|behavior| behavior.title == "Voice Interaction"),
+        "Voice Interaction 已可配置，不应继续出现在只读行为列表"
     );
     let delete_entry = entry_for(&effective, ShortcutCommandId::DeleteCard);
     assert_eq!(
@@ -257,17 +278,19 @@ fn test_shortcut_preferences_ignore_invalid_json_and_invalid_keystrokes() {
 /// 数据构造（含关键数值的推导过程）：
 ///   duplicate candidate = cmd-o（OpenProject 默认已占用）
 ///   duplicate card candidate = cmd-d（DeleteCard 默认已占用）
-///   reserved candidates = cmd-v / cmd-e / up / space
+///   voice candidate = cmd-e（VoiceInteraction 默认已占用）
+///   reserved candidates = cmd-v / up / space
 ///   bare printable = a
 ///   valid candidate = cmd-t
+///   voice reassign candidate = cmd-shift-e
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 以默认 effective shortcuts 调用 validate_shortcut_change
-///   2. 分别检查重复、保留、裸字符和有效候选
+///   2. 分别检查重复、保留、裸字符、有效候选与 VoiceInteraction 改键
 ///
 /// 预期结果：
-///   - 正断言：cmd-t 可用于 NewTerminal
-///   - 负断言：cmd-o / cmd-d / cmd-v / cmd-e / up / space / a 均不允许
+///   - 正断言：cmd-t 可用于 NewTerminal；cmd-shift-e 可用于 VoiceInteraction
+///   - 负断言：cmd-o / cmd-d / cmd-v / cmd-e(占用) / up / space / a 均不允许给 NewTerminal
 #[test]
 fn test_shortcut_validation_rejects_duplicates_reserved_inputs_and_bare_printables() {
     let effective = effective_shortcuts(&ShortcutPreferences::default());
@@ -290,7 +313,16 @@ fn test_shortcut_validation_rejects_duplicates_reserved_inputs_and_bare_printabl
     );
     assert!(
         validate_shortcut_change(ShortcutCommandId::NewTerminal, "cmd-e", &effective).is_err(),
-        "cmd-e 是语音交互保留输入，不应允许覆盖"
+        "cmd-e 已被 VoiceInteraction 占用，不应允许重复分配"
+    );
+    assert!(
+        validate_shortcut_change(
+            ShortcutCommandId::VoiceInteraction,
+            "cmd-shift-e",
+            &effective
+        )
+        .is_ok(),
+        "Voice Interaction 应允许改成未被占用的 cmd-shift-e"
     );
     assert!(
         validate_shortcut_change(ShortcutCommandId::NewTerminal, "up", &effective).is_err(),

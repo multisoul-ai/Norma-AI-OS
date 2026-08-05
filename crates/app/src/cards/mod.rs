@@ -10,12 +10,14 @@ pub mod term;
 
 use crate::app::browser::{BrowserAddressInput, BrowserAuthUiState};
 use crate::canvas::text_selection::TextSelection;
+use crate::cards::term::render_cache::TerminalRenderCacheHandle;
 use crate::motion::InitializationPresentation;
-use crate::preview::PreviewLoadState;
+use crate::preview::{ImageViewerPresentation, PreviewLoadState};
 use canvas::{CanvasNode, CanvasRect, NodeType};
 use chrome::CardChrome;
 use gpui::AnyElement;
 use runtime::{NodeResize, Runtime};
+use std::sync::Arc;
 use ui::Theme;
 
 pub trait Card: Sync {
@@ -37,7 +39,10 @@ pub enum CardWheelScrollMode {
 
 pub struct CardBodyContext<'a> {
     pub runtime: &'a Runtime,
+    pub terminal_render_cache: TerminalRenderCacheHandle,
     pub preview_state: Option<&'a PreviewLoadState>,
+    pub preview_image_viewer: Option<ImageViewerPresentation>,
+    pub preview_image_dragging: bool,
     pub text_selection: Option<TextSelection>,
     pub focused: bool,
     pub reduce_motion: bool,
@@ -45,6 +50,13 @@ pub struct CardBodyContext<'a> {
     pub terminal_cursor_phase: f32,
     pub browser_address_input: Option<gpui::Entity<BrowserAddressInput>>,
     pub browser_auth_state: BrowserAuthUiState,
+    pub ego_preview: Option<Arc<gpui::RenderImage>>,
+    #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
+    pub ego_live_preview: Option<core_video::pixel_buffer::CVPixelBuffer>,
+    pub ego_preview_error: Option<String>,
+    /// 卡片内容区是否被 GPUI 浮层（如布局菜单）遮挡。遮挡时浏览器卡片应渲染
+    /// 中性背景，避免显示 "Loading browser..." 占位文字。
+    pub occluded_by_overlay: bool,
     pub theme: Theme,
     pub zoom: f32,
     pub bottom_radius_px: f32,

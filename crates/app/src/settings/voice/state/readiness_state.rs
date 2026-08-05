@@ -54,7 +54,36 @@ impl VoiceSettingsState {
         true
     }
 
+    pub(crate) fn begin_vad_validation(&mut self) -> u64 {
+        self.vad_validation_generation = self.vad_validation_generation.wrapping_add(1);
+        // 一次 VAD 完整性校验是一个后台任务：开始时完成 0 / 总数 1。
+        self.vad_requirement = VoiceRequirementState::Installing {
+            completed: 0,
+            total: 1,
+        };
+        self.vad_validation_generation
+    }
+
+    pub(crate) fn finish_vad_validation(
+        &mut self,
+        generation: u64,
+        requirement: VoiceRequirementState,
+    ) -> bool {
+        if generation != self.vad_validation_generation {
+            return false;
+        }
+        self.vad_requirement = requirement;
+        true
+    }
+
     fn selected_asr_requirement(&self) -> VoiceRequirementState {
+        if self.values.asr_provider() == asr::AsrProviderId::CloudAzure {
+            return if self.values.azure_asr_profile().is_ready() {
+                self.vad_requirement
+            } else {
+                VoiceRequirementState::Missing
+            };
+        }
         let Some(model_id) = self.values.asr_model_id() else {
             return VoiceRequirementState::Missing;
         };
@@ -72,6 +101,29 @@ impl VoiceSettingsState {
     }
 
     fn selected_tts_requirement(&self) -> VoiceRequirementState {
+        let Some(provider_id) = self.values.active_tts_provider_id() else {
+            return VoiceRequirementState::Missing;
+        };
+        if provider_id.as_str() == tts::MINIMAX_TTS_PROVIDER_ID {
+            return match self.minimax_readiness() {
+                tts::RemoteTtsReadiness::Ready => VoiceRequirementState::Ready,
+                tts::RemoteTtsReadiness::Checking => VoiceRequirementState::Installing {
+                    completed: 0,
+                    total: 1,
+                },
+                tts::RemoteTtsReadiness::TemporarilyUnavailable => VoiceRequirementState::Ready,
+                tts::RemoteTtsReadiness::InvalidCredential
+                | tts::RemoteTtsReadiness::VoiceUnavailable => VoiceRequirementState::Failed,
+                tts::RemoteTtsReadiness::Unconfigured
+                | tts::RemoteTtsReadiness::Configured
+                | tts::RemoteTtsReadiness::VoiceValidationRequired => {
+                    VoiceRequirementState::Missing
+                }
+            };
+        }
+        if provider_id.as_str() != tts::LOCAL_TTS_PROVIDER_ID {
+            return VoiceRequirementState::Failed;
+        }
         let (Some(model_id), Some(voice_id)) =
             (self.values.tts_model_id(), self.values.tts_voice_id())
         else {
@@ -101,6 +153,18 @@ impl VoiceSettingsState {
     pub(crate) fn active_model_install_progress(&self) -> Option<(u64, u64)> {
         let mut completed = 0_u64;
         let mut total = 0_u64;
+        if self.values.asr_provider() == asr::AsrProviderId::CloudAzure
+            && self.values.azure_asr_profile().is_ready()
+        {
+            if let VoiceRequirementState::Installing {
+                completed: vad_completed,
+                total: vad_total,
+            } = self.vad_requirement
+            {
+                completed = completed.saturating_add(vad_completed);
+                total = total.saturating_add(vad_total);
+            }
+        }
         for entry in self.model_manager.entries() {
             if let AsrModelInstallState::Installing {
                 downloaded,

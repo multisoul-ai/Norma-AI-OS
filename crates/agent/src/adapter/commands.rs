@@ -17,6 +17,7 @@ struct FindAgentTasksArgs {
 #[serde(deny_unknown_fields)]
 struct CreateAgentArgs {
     profile: String,
+    task: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -24,6 +25,20 @@ struct CreateAgentArgs {
 struct AssignAgentTaskArgs {
     agent: String,
     task: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReplyAgentArgs {
+    agent: String,
+    message: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CancelAgentReplyArgs {
+    reply_id: Option<u64>,
+    agent: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -75,6 +90,14 @@ struct NodeIdArgs {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct DeleteCanvasCardArgs {
+    node_id: Option<u64>,
+    position: Option<u64>,
+    agent: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct TerminalInputArgs {
     node_id: u64,
     text: String,
@@ -108,7 +131,10 @@ pub(super) fn parse_adapter_command(
                     )));
                 }
             };
-            Ok(AdapterCommand::CreateAgent { profile })
+            Ok(AdapterCommand::CreateAgent {
+                profile,
+                task: clean_optional(args.task),
+            })
         }
         "assign_agent_task" => {
             let args: AssignAgentTaskArgs = parse(arguments)?;
@@ -122,6 +148,29 @@ pub(super) fn parse_adapter_command(
             Ok(AdapterCommand::CancelAgentTask {
                 task_id: args.task_id,
             })
+        }
+        "reply_agent" => {
+            let args: ReplyAgentArgs = parse(arguments)?;
+            let agent = require_text("agent", args.agent)?;
+            let message = require_text("message", args.message)?;
+            Ok(AdapterCommand::ReplyAgent { agent, message })
+        }
+        "cancel_agent_reply" => {
+            let args: CancelAgentReplyArgs = parse(arguments)?;
+            let reply_id = match args.reply_id {
+                Some(value) => {
+                    require_positive("reply_id", value)?;
+                    Some(value)
+                }
+                None => None,
+            };
+            let agent = clean_optional(args.agent);
+            if reply_id.is_none() && agent.is_none() {
+                return Err(AdapterError::InvalidArguments(
+                    "cancel_agent_reply requires reply_id or agent".to_string(),
+                ));
+            }
+            Ok(AdapterCommand::CancelAgentReply { reply_id, agent })
         }
         "create_terminal" => {
             let _: EmptyArgs = parse(arguments)?;
@@ -158,11 +207,24 @@ pub(super) fn parse_adapter_command(
             })
         }
         "delete_canvas_card" => {
-            let args: NodeIdArgs = parse(arguments)?;
-            require_positive("node_id", args.node_id)?;
-            Ok(AdapterCommand::DeleteCanvasCard {
-                node_id: args.node_id,
-            })
+            let args: DeleteCanvasCardArgs = parse(arguments)?;
+            match (args.node_id, args.position, args.agent) {
+                (Some(node_id), None, None) => {
+                    require_positive("node_id", node_id)?;
+                    Ok(AdapterCommand::DeleteCanvasCard { node_id })
+                }
+                (None, Some(position), None) => {
+                    require_positive("position", position)?;
+                    Ok(AdapterCommand::DeleteCanvasCardAtPosition { position })
+                }
+                (None, None, Some(agent)) => Ok(AdapterCommand::DeleteAgentCard {
+                    agent: require_text("agent", agent)?,
+                }),
+                _ => Err(AdapterError::InvalidArguments(
+                    "delete_canvas_card requires exactly one of node_id, position, or agent"
+                        .to_string(),
+                )),
+            }
         }
         other => Err(AdapterError::InvalidArguments(format!(
             "unknown Norma tool: {other}"

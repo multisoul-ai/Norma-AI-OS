@@ -20,6 +20,16 @@ impl MultisoulApp {
         self.dialogue.effective_voice_visual(self.voice.visual())
     }
 
+    pub(crate) fn effective_voice_dock_label(&self) -> &'static str {
+        match self.dialogue.phase() {
+            dialogue::DialoguePhase::Thinking => "Thinking…",
+            dialogue::DialoguePhase::Speaking => "Replying...",
+            dialogue::DialoguePhase::Idle | dialogue::DialoguePhase::Listening => {
+                self.effective_voice_visual().dock_label()
+            }
+        }
+    }
+
     pub(crate) fn can_open_microphone_privacy_settings(&self) -> bool {
         self.voice.microphone_settings_recovery_available()
             || self.dialogue.microphone_settings_recovery_available()
@@ -27,6 +37,8 @@ impl MultisoulApp {
 
     pub(crate) fn start_continuous_listening(&mut self, cx: &mut Context<Self>) {
         self.cancel_agent_announcements();
+        self.dismiss_voice_error();
+        self.voice.reset_caption_to_default();
         let values = self.voice_settings.values().clone();
         let model_root = self.voice_settings.model_root().to_path_buf();
         let input_device_id = values.input_device_id().map(ToOwned::to_owned);

@@ -10,9 +10,6 @@ use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, svg, Context, Div, SharedString, Stateful, Window};
 use ui::Theme;
 
-/// Idle 状态下显示的快捷键键帽序列（Apple 菜单风格）。
-const IDLE_KEYCAPS: &[&str] = &["⌘", "E"];
-
 impl MultisoulApp {
     /// 渲染 Command Dock 内的语音状态单元，保留原状态机与恢复入口。
     pub(crate) fn render_voice_bar(
@@ -54,8 +51,42 @@ fn voice_pill(
         .text_size(px(11.0))
         .cursor_pointer()
         .on_click(cx.listener(MultisoulApp::on_voice_bar_click))
-        .child(status_glyph(theme, visual))
+        .child(interactive_status_glyph(theme, visual, cx))
         .child(voice_content(theme, visual, app, cx))
+}
+
+fn interactive_status_glyph(
+    theme: Theme,
+    visual: VoiceVisual,
+    cx: &mut Context<MultisoulApp>,
+) -> gpui::AnyElement {
+    if visual != VoiceVisual::Error {
+        return status_glyph(theme, visual).into_any_element();
+    }
+
+    let palette = voice_palette(theme, visual);
+    div()
+        .id("voice-error-dismiss")
+        .debug_selector(|| "voice-error-dismiss".to_string())
+        .w(px(28.0))
+        .h(px(28.0))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(px(7.0))
+        .text_color(rgba(palette.icon))
+        .text_size(px(15.0))
+        .cursor_pointer()
+        .hover(|style| style.bg(rgba(with_alpha(theme.destructive, 0x24))))
+        .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .on_mouse_up(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .on_click(cx.listener(|app, _, _window, cx| {
+            cx.stop_propagation();
+            app.dismiss_voice_error();
+            cx.notify();
+        }))
+        .child("✕")
+        .into_any_element()
 }
 
 /// 按 `visual` 取色：图标色、文字色、pill 填充与描边。Idle 一律弱化。
@@ -169,15 +200,16 @@ fn voice_content(
 ) -> Div {
     match visual {
         VoiceVisual::Idle => {
+            let shortcut = app.shortcuts.voice_interaction_label();
             let label = match app.voice_settings.readiness() {
                 crate::settings::voice::VoiceEntryState::SetUp { .. } => {
-                    format!("Set up Voice  {}", IDLE_KEYCAPS.concat())
+                    format!("Set up Voice  {shortcut}")
                 }
                 crate::settings::voice::VoiceEntryState::SettingUp { percent } => {
                     format!("Setting up Voice · {percent}%")
                 }
                 crate::settings::voice::VoiceEntryState::Ready => {
-                    format!("Voice  {}", IDLE_KEYCAPS.concat())
+                    format!("Voice  {shortcut}")
                 }
                 crate::settings::voice::VoiceEntryState::Unavailable { .. } => {
                     "Voice unavailable".to_string()
@@ -194,17 +226,24 @@ fn voice_content(
             .flex_row()
             .items_center()
             .gap_2()
-            .min_w(px(120.0))
             .child(static_waveform(theme))
             .child(
                 div()
-                    .max_w(px(360.0))
+                    .whitespace_nowrap()
                     .text_color(rgba(0xffffffff))
-                    .child(app.effective_voice_label()),
+                    .child(app.effective_voice_dock_label()),
+            )
+            .child(
+                div()
+                    .id("workspace-voice-shortcut")
+                    .debug_selector(|| "workspace-voice-shortcut".to_string())
+                    .whitespace_nowrap()
+                    .text_color(rgba(0xffffff8a))
+                    .child(app.shortcuts.voice_interaction_label()),
             ),
-        VoiceVisual::Processing | VoiceVisual::Success => {
-            div().max_w(px(420.0)).child(app.effective_voice_label())
-        }
+        VoiceVisual::Processing | VoiceVisual::Success => div()
+            .whitespace_nowrap()
+            .child(app.effective_voice_dock_label()),
         VoiceVisual::Error => {
             let mut content = div()
                 .flex()
@@ -270,7 +309,10 @@ impl MultisoulApp {
                         div()
                             .text_size(px(11.0))
                             .text_color(rgba(theme.text_secondary))
-                            .child("Press ⌘E to start a voice command."),
+                            .child(format!(
+                                "Press {} to start a voice command.",
+                                self.shortcuts.voice_interaction_label()
+                            )),
                     ),
             )
             .child(

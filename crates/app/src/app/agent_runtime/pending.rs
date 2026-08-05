@@ -4,7 +4,7 @@ use canvas::NodeId;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use super::commands::{submit_agent_enter, type_agent_task};
+use super::command_support::{submit_agent_enter, type_agent_task};
 
 const AGENT_STARTUP_GRACE: Duration = Duration::from_secs(30);
 const AGENT_SUBMISSION_RETRY_DELAY: Duration = Duration::from_millis(500);
@@ -220,6 +220,10 @@ impl MultisoulApp {
                 } else {
                     let message = error.to_string();
                     self.workspace_state.error = Some(unsafe_submission_recovery_message(&message));
+                    if let Some(coordinator) = self.agent_task_coordinator.as_mut() {
+                        coordinator
+                            .fail_active_preserving_busy(receipt.definition_id, receipt.task_id);
+                    }
                     if let Some(writer) = self.persistence.agent_dispatch_writer() {
                         writer.fail_next_queued(receipt.definition_id, message);
                     }

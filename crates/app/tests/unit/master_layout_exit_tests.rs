@@ -2,7 +2,7 @@ use super::*;
 use crate::canvas::master_layout::{
     enter_master_layout_for_area, reapply_master_layout_for_area, toggle_master_layout_for_area,
 };
-use canvas::{compute_responsive_grid_layout, CanvasNodeKind, RectNode};
+use canvas::{compute_configurable_grid_layout, CanvasNodeKind, RectNode};
 
 fn add_rect(runtime: &mut Runtime, color: u32, bounds: CanvasRect) -> NodeId {
     runtime
@@ -17,7 +17,7 @@ fn add_rect(runtime: &mut Runtime, color: u32, bounds: CanvasRect) -> NodeId {
 ///   area = origin(0,0), size(1000x600)，zoom=1.0
 ///   第一次 enter master=B 时快照只包含 A/B/C/D
 ///   新增 E 初始 bounds = origin(0,0), size(100x80)，不在第一次快照中
-///   退出默认模式后 ordered_ids = [A,B,C,D,E]，期望使用 compute_responsive_grid_layout
+///   退出默认模式后 ordered_ids = [A,B,C,D,E]，期望使用默认按行三轨可配置网格
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. enter_master_layout_for_area(B) → 保存 A/B/C/D 快照并应用 master/detail
@@ -28,7 +28,7 @@ fn add_rect(runtime: &mut Runtime, color: u32, bounds: CanvasRect) -> NodeId {
 ///
 /// 预期结果：
 ///   - 正断言：退出后 state inactive
-///   - 正断言：A/B/C/D/E 都按普通响应式布局重排
+///   - 正断言：A/B/C/D/E 都按默认可配置网格重排
 ///   - 负断言：E 不应停留在退出前的 master/detail detail bounds
 #[test]
 fn test_master_layout_exit_after_adding_node_reflows_all_current_cards() {
@@ -73,12 +73,19 @@ fn test_master_layout_exit_after_adding_node_reflows_all_current_cards() {
     );
     let e_detail_bounds = runtime.document.node(e).expect("E 应在新增后存在").bounds;
 
-    let changed =
-        toggle_master_layout_for_area(&mut state, &mut runtime, &mut motion, None, area, zoom);
-    let expected = compute_responsive_grid_layout(
+    let changed = toggle_master_layout_for_area(
+        &mut state,
+        &mut runtime,
+        &mut motion,
+        None,
+        area,
+        zoom,
+        CanvasLayoutStrategy::default(),
+    );
+    let expected = compute_configurable_grid_layout(
         &[a, b, c, d, e],
         area,
-        workspace_reflow_config_for_zoom(zoom),
+        CanvasLayoutStrategy::default().grid_config_for_zoom(zoom),
     );
 
     assert!(
@@ -161,8 +168,15 @@ fn test_master_layout_exit_without_new_nodes_restores_original_snapshot() {
         .expect("B 应在进入 master 后存在")
         .bounds;
 
-    let changed =
-        toggle_master_layout_for_area(&mut state, &mut runtime, &mut motion, None, area, zoom);
+    let changed = toggle_master_layout_for_area(
+        &mut state,
+        &mut runtime,
+        &mut motion,
+        None,
+        area,
+        zoom,
+        CanvasLayoutStrategy::default(),
+    );
 
     assert!(changed, "active master 模式收到 target=None 时应退出");
     assert!(!state.is_active(), "退出 master 后 state 应变为 inactive");

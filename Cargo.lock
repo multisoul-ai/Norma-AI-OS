@@ -31,7 +31,7 @@ dependencies = [
 
 [[package]]
 name = "agent"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
  "futures",
  "norma",
@@ -181,13 +181,14 @@ checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
 
 [[package]]
 name = "app"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
  "agent",
  "anyhow",
  "asr",
  "async-channel 2.5.0",
  "audio",
+ "base64",
  "block2",
  "canvas",
  "cef",
@@ -195,10 +196,13 @@ dependencies = [
  "core-video",
  "crossbeam-channel",
  "dialogue",
+ "dirs 6.0.0",
  "futures",
  "gpui",
+ "hex",
  "hound",
  "image",
+ "libc",
  "license",
  "norma",
  "objc2",
@@ -212,21 +216,25 @@ dependencies = [
  "raw-window-handle",
  "rfd",
  "runtime",
+ "rustls",
+ "screencapturekit",
  "security-framework",
  "serde",
  "serde_json",
+ "sha2",
  "storage",
  "tempfile",
  "terminal",
  "tokio",
  "tokio-util",
  "tracing",
+ "tracing-appender",
  "tracing-subscriber",
  "tts",
  "ui",
  "ureq 3.3.0",
  "url",
- "voice",
+ "voice_input",
  "voice_sherpa",
  "workspace",
  "wry",
@@ -362,16 +370,22 @@ dependencies = [
 
 [[package]]
 name = "asr"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
+ "async-channel 2.5.0",
+ "audio",
  "bzip2 0.5.2",
  "dirs 6.0.0",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2",
+ "sherpa-onnx",
  "tar",
  "tempfile",
  "thiserror 2.0.18",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -641,7 +655,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "audio"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
  "serde",
 ]
@@ -1046,7 +1060,7 @@ dependencies = [
 
 [[package]]
 name = "canvas"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
  "serde",
  "serde_json",
@@ -1843,11 +1857,12 @@ dependencies = [
 
 [[package]]
 name = "dialogue"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
  "audio",
  "norma",
  "thiserror 2.0.18",
+ "voice_input",
 ]
 
 [[package]]
@@ -2073,7 +2088,7 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
 name = "e2e"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
  "agent",
  "app",
@@ -2089,8 +2104,8 @@ dependencies = [
  "storage",
  "tempfile",
  "terminal",
+ "tts",
  "ui",
- "voice",
  "workspace",
 ]
 
@@ -4107,7 +4122,7 @@ dependencies = [
 
 [[package]]
 name = "license"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
  "base64",
  "ed25519-dalek",
@@ -4430,7 +4445,7 @@ dependencies = [
 
 [[package]]
 name = "model_store"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
  "bzip2 0.5.2",
  "serde",
@@ -4587,13 +4602,17 @@ checksum = "0676bb32a98c1a483ce53e500a81ad9c3d5b3f7c920c28c24e9cb0980d0b5bc8"
 
 [[package]]
 name = "norma"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
  "anyhow",
  "clap",
+ "dirs 6.0.0",
+ "hex",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
+ "url",
 ]
 
 [[package]]
@@ -6251,7 +6270,7 @@ checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
 
 [[package]]
 name = "runtime"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
  "canvas",
  "crossbeam-channel",
@@ -6927,8 +6946,6 @@ dependencies = [
 [[package]]
 name = "sherpa-onnx-sys"
 version = "1.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21ac2c3342f826069bbf0be3578f9601f3802a1bff50bbced8230a15ec9eed8f"
 dependencies = [
  "bzip2 0.4.4",
  "tar",
@@ -7173,15 +7190,15 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "storage"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
  "agent",
  "canvas",
  "dirs 6.0.0",
- "norma",
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "thiserror 2.0.18",
  "tracing",
@@ -7419,6 +7436,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "symlink"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7973cce6668464ea31f176d85b13c7ab3bba2cb3b77a2ed26abd7801688010a"
+
+[[package]]
 name = "syn"
 version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7611,7 +7634,7 @@ dependencies = [
 
 [[package]]
 name = "terminal"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
  "alacritty_terminal",
  "crossbeam-channel",
@@ -8000,6 +8023,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-appender"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "050686193eb999b4bb3bc2acfa891a13da00f79734704c4b8b4ef1a10b368a3c"
+dependencies = [
+ "crossbeam-channel",
+ "symlink",
+ "thiserror 2.0.18",
+ "time",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "tracing-attributes"
 version = "0.1.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8131,14 +8167,19 @@ dependencies = [
 
 [[package]]
 name = "tts"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
+ "audio",
  "dirs 6.0.0",
+ "hex",
  "hound",
  "model_store",
  "serde",
+ "serde_json",
  "tempfile",
  "thiserror 2.0.18",
+ "tungstenite",
+ "ureq 3.3.0",
 ]
 
 [[package]]
@@ -8154,6 +8195,7 @@ dependencies = [
  "log",
  "rand 0.9.4",
  "rustls",
+ "rustls-native-certs",
  "rustls-pki-types",
  "sha1",
  "thiserror 2.0.18",
@@ -8185,7 +8227,7 @@ dependencies = [
 
 [[package]]
 name = "ui"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
  "gpui",
  "gpui-component",
@@ -8305,6 +8347,7 @@ dependencies = [
  "once_cell",
  "rustls",
  "rustls-pki-types",
+ "socks",
  "url",
  "webpki-roots 0.26.11",
 ]
@@ -8491,49 +8534,42 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
-name = "voice"
-version = "0.1.41"
-dependencies = [
- "norma",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tracing",
-]
-
-[[package]]
-name = "voice_azure"
-version = "0.1.41"
-dependencies = [
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.18",
- "ureq 3.3.0",
-]
-
-[[package]]
-name = "voice_sherpa"
-version = "0.1.41"
+name = "voice_input"
+version = "0.1.70"
 dependencies = [
  "asr",
  "async-channel 2.5.0",
  "audio",
  "block2",
  "crossbeam-channel",
- "dialogue",
- "hound",
  "objc2",
  "objc2-av-foundation",
  "objc2-avf-audio",
  "objc2-core-foundation",
  "objc2-foundation",
+ "sherpa-onnx",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
+name = "voice_sherpa"
+version = "0.1.70"
+dependencies = [
+ "asr",
+ "async-channel 2.5.0",
+ "audio",
+ "crossbeam-channel",
+ "dialogue",
+ "hound",
  "serde_json",
  "sherpa-onnx",
  "tempfile",
  "thiserror 2.0.18",
  "tracing",
  "tts",
+ "voice_input",
 ]
 
 [[package]]
@@ -9512,10 +9548,12 @@ checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
 name = "workspace"
-version = "0.1.41"
+version = "0.1.70"
 dependencies = [
  "dirs 6.0.0",
+ "libc",
  "serde",
+ "tempfile",
 ]
 
 [[package]]

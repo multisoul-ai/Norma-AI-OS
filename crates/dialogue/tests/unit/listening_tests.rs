@@ -16,7 +16,10 @@ impl FakeVad {
 }
 
 impl VadClient for FakeVad {
-    fn push_pcm(&mut self, _chunk: &PcmAudioChunk) -> Result<Vec<VadEvent>, DialogueError> {
+    fn push_pcm(
+        &mut self,
+        _chunk: &PcmAudioChunk,
+    ) -> Result<Vec<VadEvent>, voice_input::VoiceInputError> {
         let events = self.scripted.get(self.index).cloned().unwrap_or_default();
         self.index = self.index.saturating_add(1);
         Ok(events)

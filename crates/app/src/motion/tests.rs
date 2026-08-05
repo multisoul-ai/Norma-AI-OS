@@ -23,3 +23,23 @@ mod working_snake_realtime_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/initialization_animation_tests.rs"]
 mod initialization_animation_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/motion_activity_tests.rs"]
+mod motion_activity_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/motion_repaint_cadence_tests.rs"]
+mod motion_repaint_cadence_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/motion_dispatch_receipt_tests.rs"]
+mod motion_dispatch_receipt_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/motion_dispatch_receipt_particle_tests.rs"]
+mod motion_dispatch_receipt_particle_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/motion_agent_dispatch_receipt_tests.rs"]
+mod motion_agent_dispatch_receipt_tests;

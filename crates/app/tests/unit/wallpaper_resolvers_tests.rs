@@ -1,18 +1,18 @@
 use super::{
-    builtin_wallpapers, bundle_resources_dir, resolve_builtin_asset,
+    builtin_wallpapers, bundle_resources_dir, canonical_builtin_wallpaper, resolve_builtin_asset,
     resolve_builtin_asset_from_paths, WallpaperKind,
 };
 
 /// T-R1: 扩展名 → kind 判定覆盖三类，未知扩展返回 None。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   "png" → Static, "jpg" → Static, "jpeg" → Static
+///   "png" → Static, "jpg" → Static, "jpeg" → Static, "webp" → Static
 ///   "gif" → Gif
 ///   "mp4" → Video, "mov" → Video
 ///   "txt" → None（不在白名单）
 ///   ""    → None（空串无可识别扩展）
 ///   "PNG" → Static（大小写不敏感：to_ascii_lowercase 归一化后命中 png 分支）
-///   "JPG" → Static, "GIF" → Gif, "MP4" → Video（大小写覆盖三类）
+///   "JPG" → Static, "WEBP" → Static, "GIF" → Gif, "MP4" → Video（大小写覆盖三类）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. WallpaperKind::from_extension 接收字符串
@@ -38,6 +38,11 @@ fn test_kind_from_extension_classifies_three_types_and_rejects_unknown() {
         WallpaperKind::from_extension("jpeg"),
         Some(WallpaperKind::Static),
         "jpeg must be Static"
+    );
+    assert_eq!(
+        WallpaperKind::from_extension("webp"),
+        Some(WallpaperKind::Static),
+        "webp must be Static so optimized built-in wallpapers remain renderable"
     );
     assert_eq!(
         WallpaperKind::from_extension("gif"),
@@ -75,6 +80,11 @@ fn test_kind_from_extension_classifies_three_types_and_rejects_unknown() {
         "JPG uppercase must still be Static"
     );
     assert_eq!(
+        WallpaperKind::from_extension("WEBP"),
+        Some(WallpaperKind::Static),
+        "WEBP uppercase must still be Static"
+    );
+    assert_eq!(
         WallpaperKind::from_extension("GIF"),
         Some(WallpaperKind::Gif),
         "GIF uppercase must still be Gif"
@@ -83,6 +93,67 @@ fn test_kind_from_extension_classifies_three_types_and_rejects_unknown() {
         WallpaperKind::from_extension("MP4"),
         Some(WallpaperKind::Video),
         "MP4 uppercase must still be Video"
+    );
+}
+
+/// T-R10: 旧版 PNG 内置壁纸路径必须迁移到同名 WebP，保留用户现有选择。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   legacy PNG paths = 6 条（默认 3 条 + MUT v2 3 条）
+///   canonical WebP paths = 同 basename 的 6 条 `.webp`
+///   already canonical path = wallpapers/1350954.webp
+///   unknown path = wallpapers/not-a-builtin.png
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 逐一输入 6 条旧 PNG 持久化路径
+///   2. 输入已是 WebP 的当前路径
+///   3. 输入未注册的未知路径
+///
+/// 预期结果：
+///   - 正断言：6 条旧路径逐一映射到同名 WebP，不丢失用户壁纸选择
+///   - 正断言：当前 WebP 路径保持不变
+///   - 负断言：未知路径不得伪装成内置壁纸
+#[test]
+fn test_legacy_png_builtin_paths_migrate_to_canonical_webp() {
+    assert_eq!(
+        canonical_builtin_wallpaper("wallpapers/1331865.png"),
+        Some("wallpapers/1331865.webp"),
+        "legacy default PNG must migrate to the canonical default WebP"
+    );
+    assert_eq!(
+        canonical_builtin_wallpaper("wallpapers/1350954.png"),
+        Some("wallpapers/1350954.webp"),
+        "legacy Aurora PNG must migrate to the canonical Aurora WebP"
+    );
+    assert_eq!(
+        canonical_builtin_wallpaper("wallpapers/1358524.png"),
+        Some("wallpapers/1358524.webp"),
+        "legacy Nebula PNG must migrate to the canonical Nebula WebP"
+    );
+    assert_eq!(
+        canonical_builtin_wallpaper("wallpapers/74174.png"),
+        Some("wallpapers/74174.webp"),
+        "legacy MUT v2 74174 PNG must migrate to its canonical WebP"
+    );
+    assert_eq!(
+        canonical_builtin_wallpaper("wallpapers/1411492.png"),
+        Some("wallpapers/1411492.webp"),
+        "legacy MUT v2 1411492 PNG must migrate to its canonical WebP"
+    );
+    assert_eq!(
+        canonical_builtin_wallpaper("wallpapers/1411385.png"),
+        Some("wallpapers/1411385.webp"),
+        "legacy MUT v2 1411385 PNG must migrate to its canonical WebP"
+    );
+    assert_eq!(
+        canonical_builtin_wallpaper("wallpapers/1350954.webp"),
+        Some("wallpapers/1350954.webp"),
+        "an already canonical WebP path must remain unchanged"
+    );
+    assert_eq!(
+        canonical_builtin_wallpaper("wallpapers/not-a-builtin.png"),
+        None,
+        "an unknown path must not be accepted as a built-in wallpaper"
     );
 }
 
@@ -139,10 +210,10 @@ fn test_wallpaper_badge_labels_distinguish_static_and_dynamic_media() {
 /// + 2 gif + 5 video；所有路径位于 wallpapers/ 前缀下。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   内置清单 = 1331865.png(Static, default)
-///            + 1350954.png(Static) + 1358524.png(Static)     = 3 static
-///            + 74174.png + 74176.jpg + 718916.jpg
-///              + 1411492.png + 379352.jpg + 1411385.png       = 6 static（mut/v2）
+///   内置清单 = 1331865.webp(Static, default)
+///            + 1350954.webp(Static) + 1358524.webp(Static) = 3 static
+///            + 74174.webp + 74176.jpg + 718916.jpg
+///              + 1411492.webp + 379352.jpg + 1411385.webp   = 6 static（mut/v2）
 ///            + 215824.gif(Gif) + 220240.gif(Gif)              = 2 gif
 ///            + 1403512.mp4 + 1404942.mp4 + 1406443.mp4
 ///              + 1406489.mp4 + 1407174.mp4                    = 5 video
@@ -180,9 +251,9 @@ fn test_builtin_wallpapers_contains_mut_v2_defaults_with_correct_kinds() {
     );
     assert!(
         list.iter().any(|(path, _, kind)| {
-            *path == "wallpapers/74174.png" && *kind == WallpaperKind::Static
+            *path == "wallpapers/74174.webp" && *kind == WallpaperKind::Static
         }),
-        "mut/v2 wallpaper 74174.png must be an embedded Static builtin"
+        "mut/v2 wallpaper 74174.webp must be a packaged Static builtin"
     );
     assert!(
         list.iter().any(|(path, _, kind)| {
@@ -198,9 +269,9 @@ fn test_builtin_wallpapers_contains_mut_v2_defaults_with_correct_kinds() {
     );
     assert!(
         list.iter().any(|(path, _, kind)| {
-            *path == "wallpapers/1411492.png" && *kind == WallpaperKind::Static
+            *path == "wallpapers/1411492.webp" && *kind == WallpaperKind::Static
         }),
-        "mut/v2 wallpaper 1411492.png must be an embedded Static builtin"
+        "mut/v2 wallpaper 1411492.webp must be a packaged Static builtin"
     );
     assert!(
         list.iter().any(|(path, _, kind)| {
@@ -210,9 +281,9 @@ fn test_builtin_wallpapers_contains_mut_v2_defaults_with_correct_kinds() {
     );
     assert!(
         list.iter().any(|(path, _, kind)| {
-            *path == "wallpapers/1411385.png" && *kind == WallpaperKind::Static
+            *path == "wallpapers/1411385.webp" && *kind == WallpaperKind::Static
         }),
-        "mut/v2 wallpaper 1411385.png must be an embedded Static builtin"
+        "mut/v2 wallpaper 1411385.webp must be a packaged Static builtin"
     );
     for (p, _, _) in list {
         assert!(
@@ -228,7 +299,7 @@ fn test_builtin_wallpapers_contains_mut_v2_defaults_with_correct_kinds() {
 /// 数据构造（含关键数值的推导过程）：
 ///   遍历 builtin_wallpapers() 的 10 条记录
 ///   对每条 path，取最后一个 '.' 后的扩展名
-///   .png → Static；.gif → Gif；.mp4 → Video
+///   .webp/.jpg → Static；.gif → Gif；.mp4 → Video
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. builtin_wallpapers() 取 10 条

@@ -111,3 +111,61 @@ fn test_frame_tick_report_exposes_notify_reason_bits_and_labels() {
         "motion_changed=false 时 labels 不应包含 motion_changed"
     );
 }
+
+/// FD-3：repaint 诊断必须区分 requested、coalesced 与 emitted，不能把合并当丢帧。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   requested = 3
+///   first request coalesced = false
+///   second/third request coalesced = true + true = 2
+///   emitted = 1
+///   pending age = 16ms
+///   selected budget = 16ms
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建启用状态的纯诊断计数器。
+///   2. 记录三次 request，其中后两次标记为被 gate 合并。
+///   3. 记录一次 16ms 边界 emission 并读取 snapshot。
+///
+/// 预期结果：
+///   - 正断言：requested/coalesced/emitted 分别精确为 3/2/1。
+///   - 正断言：pending age 与 selected budget 都为 16ms。
+///   - 负断言：coalesced 不得等于 requested 或被记作 dropped。
+#[test]
+fn test_frame_diagnostics_distinguishes_requested_coalesced_and_emitted_repaints() {
+    let started_at = std::time::Instant::now();
+    let mut diagnostics = crate::frame_diagnostics::RepaintDiagnostics::new(true, started_at);
+
+    diagnostics.record_request(false);
+    diagnostics.record_request(true);
+    diagnostics.record_request(true);
+    diagnostics.record_emission(Duration::from_millis(16), Duration::from_millis(16));
+    let snapshot = diagnostics.snapshot();
+
+    assert_eq!(
+        snapshot.requested, 3,
+        "三次 Runtime dirty 都必须计入 requested，不能只统计实际绘制"
+    );
+    assert_eq!(
+        snapshot.coalesced, 2,
+        "第二、第三次预算内 request 应精确计为两次 coalesced"
+    );
+    assert_eq!(
+        snapshot.emitted, 1,
+        "三次 request 合并后应只有一次 emitted repaint"
+    );
+    assert_eq!(
+        snapshot.last_pending_age,
+        Duration::from_millis(16),
+        "实际放行时 pending age 应精确记录为 16ms"
+    );
+    assert_eq!(
+        snapshot.last_selected_budget,
+        Duration::from_millis(16),
+        "诊断应记录本次选择的前台 16ms budget"
+    );
+    assert_ne!(
+        snapshot.coalesced, snapshot.requested,
+        "首次 request 不是合并，coalesced 不得被误报成全部 requested"
+    );
+}

@@ -19,8 +19,12 @@ path = "src/bin/multisoul_agent_hook.rs"
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
+dirs.workspace = true
+hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
+url.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

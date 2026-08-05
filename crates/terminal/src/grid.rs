@@ -75,6 +75,8 @@ pub struct CellAttrs {
     pub hidden: bool,
     pub strikeout: bool,
     pub wide_char_spacer: bool,
+    /// 该 cell 是终端自动折行的视觉行末；真实换行不会设置此标记。
+    pub soft_wrap: bool,
 }
 
 /// 中性单元格（不含 alacritty 类型）。fg/bg 保留终端颜色语义。
@@ -181,11 +183,11 @@ impl TerminalGrid {
             screen_lines: lines as usize,
         };
         let (pty_write_tx, pty_write_rx) = unbounded();
-        let term = Term::new(
-            Config::default(),
-            &dims,
-            PtyWriteListener { tx: pty_write_tx },
-        );
+        let config = Config {
+            kitty_keyboard: true,
+            ..Config::default()
+        };
+        let term = Term::new(config, &dims, PtyWriteListener { tx: pty_write_tx });
         TerminalGrid {
             term,
             processor: Processor::new(),
@@ -207,6 +209,16 @@ impl TerminalGrid {
             screen_lines: lines as usize,
         };
         self.term.resize(self.dims);
+    }
+
+    /// 当前终端应用是否请求用 bracketed-paste 协议接收剪贴板文本。
+    pub(crate) fn bracketed_paste_enabled(&self) -> bool {
+        self.term.mode().contains(TermMode::BRACKETED_PASTE)
+    }
+
+    /// 当前终端应用是否请求区分带修饰键的控制键。
+    pub(crate) fn enhanced_keyboard_enabled(&self) -> bool {
+        self.term.mode().contains(TermMode::DISAMBIGUATE_ESC_CODES)
     }
 
     /// 产出当前屏幕的中性快照。
@@ -259,6 +271,50 @@ impl TerminalGrid {
             mouse_mode: mode.intersects(TermMode::MOUSE_MODE),
             sgr_mouse: mode.contains(TermMode::SGR_MOUSE),
         }
+    }
+
+    /// 读取绝对行范围 `[start_abs, end_abs]`（含两端）的中性 Cell 行数据。
+    ///
+    /// 绝对行坐标系：绝对行 0 = 最旧 scrollback 行（`Line(-history_size)`）；
+    /// 绝对行 `history_size` = `Line(0)` = 可见屏幕顶行；绝对行
+    /// `history_size + screen_lines - 1` = 可见屏幕底行。行号越界时按
+    /// `[0, history_size + screen_lines - 1]` 钳制。
+    pub fn rows_for_absolute(&self, start_abs: usize, end_abs: usize) -> Vec<Vec<Cell>> {
+        let grid = self.term.grid();
+        let history_size = grid.history_size();
+        let max_abs = history_size + self.dims.screen_lines;
+        let start = start_abs.min(max_abs.saturating_sub(1));
+        let end = end_abs.min(max_abs.saturating_sub(1));
+        if start > end {
+            return Vec::new();
+        }
+
+        let mut out = Vec::with_capacity(end - start + 1);
+        for abs in start..=end {
+            let line = Line(abs as i32 - history_size as i32);
+            let mut row = vec![
+                Cell {
+                    c: ' ',
+                    fg: TerminalColor::Named(TerminalNamedColor::Foreground),
+                    bg: TerminalColor::Named(TerminalNamedColor::Background),
+                    attrs: CellAttrs::default(),
+                    hyperlink: None,
+                };
+                self.dims.columns
+            ];
+            for (col, output_cell) in row.iter_mut().enumerate().take(self.dims.columns) {
+                let cell = &grid[Point::new(line, Column(col))];
+                *output_cell = Cell {
+                    c: cell.c,
+                    fg: terminal_color(cell.fg),
+                    bg: terminal_color(cell.bg),
+                    attrs: cell_attrs(cell.flags),
+                    hyperlink: cell.hyperlink().map(TerminalHyperlink::from_alacritty),
+                };
+            }
+            out.push(row);
+        }
+        out
     }
 }
 
@@ -359,12 +415,17 @@ fn cell_attrs(flags: Flags) -> CellAttrs {
         strikeout: flags.contains(Flags::STRIKEOUT),
         wide_char_spacer: flags
             .intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER),
+        soft_wrap: flags.contains(Flags::WRAPLINE),
     }
 }
 
 #[cfg(test)]
 #[path = "grid/basic.rs"]
 mod basic;
+
+#[cfg(test)]
+#[path = "../tests/unit/grid_link_tests.rs"]
+mod link_tests;
 
 #[cfg(test)]
 #[path = "grid/wheel.rs"]

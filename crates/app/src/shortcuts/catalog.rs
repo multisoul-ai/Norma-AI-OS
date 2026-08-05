@@ -17,7 +17,8 @@ const DEFAULT_SHORTCUT_ENTRIES: &[ShortcutEntry] = &[
         entry(ShortcutCommandId::ToggleMasterLayout, "Layout", "Toggle Master Layout", "Switch between master/detail and tiled layout", Some("cmd-m")),
         entry(ShortcutCommandId::ExitFocus, "Layout", "Exit Focus", "Return keyboard control to the canvas. When a card is focused, bare Esc always reaches the terminal — use this shortcut or click outside to exit.", Some("cmd-escape")),
         entry(ShortcutCommandId::ToggleSettings, "Settings", "Open Settings", "Show or hide the Settings panel", Some("cmd-,")),
-];
+        entry(ShortcutCommandId::VoiceInteraction, "Voice", "Voice Interaction", "Start or stop the active voice interaction mode", Some("cmd-e")),
+    ];
 
 pub(crate) fn default_shortcut_entries() -> &'static [ShortcutEntry] {
     DEFAULT_SHORTCUT_ENTRIES
@@ -45,12 +46,6 @@ const READ_ONLY_BEHAVIORS: &[ReadOnlyShortcutBehavior] = &[
         title: "Paste",
         hint: "Send clipboard text to the focused or keyboard-selected node",
         keystroke: "cmd-v",
-        scope: "System",
-    },
-    ReadOnlyShortcutBehavior {
-        title: "Voice Interaction",
-        hint: "Use the active voice mode with the fixed Cmd+E shortcut",
-        keystroke: "cmd-e",
         scope: "System",
     },
     ReadOnlyShortcutBehavior {

@@ -7,12 +7,15 @@ use crate::settings::agents::AgentDefinitionsState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
 use canvas::{CanvasNodeKind, NodeId};
-use gpui::{AppContext, Context, PathPromptOptions, Window};
+use gpui::{AppContext, Context, Window};
 use runtime::Runtime;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use storage::{NodeSession, ProjectStore, SessionCheckpoint};
 use workspace::WorkspaceSource;
+
+#[path = "flow/session_restore_plan.rs"]
+mod session_restore_plan;
 
 #[derive(Clone, Debug)]
 pub(crate) struct PendingLiveSessionRestore {
@@ -20,6 +23,7 @@ pub(crate) struct PendingLiveSessionRestore {
     checkpoints: Vec<SessionCheckpoint>,
     node_sessions: Vec<NodeSession>,
     node_ids: Vec<NodeId>,
+    legacy_discovery_node_ids: Vec<NodeId>,
 }
 
 impl PendingLiveSessionRestore {
@@ -41,11 +45,13 @@ impl PendingLiveSessionRestore {
             })
             .map(|node| node.id)
             .collect();
+        let legacy_discovery_node_ids = session_restore_plan::legacy_discovery_node_ids(runtime);
         Self {
             root,
             checkpoints,
             node_sessions,
             node_ids,
+            legacy_discovery_node_ids,
         }
     }
 
@@ -68,78 +74,68 @@ pub(crate) struct WorkspaceCanvasState<'a> {
     pub(crate) master_layout: &'a mut crate::canvas::master_layout::MasterLayoutState,
 }
 
+pub(crate) struct WorkspaceOpenContext<'a> {
+    pub(crate) database_paths: &'a storage::DatabasePaths,
+    pub(crate) runtime: &'a mut Runtime,
+    pub(crate) canvas: WorkspaceCanvasState<'a>,
+    pub(crate) persistence: &'a mut PersistenceScheduler,
+    pub(crate) agent_definitions: &'a mut AgentDefinitionsState,
+    pub(crate) screen: &'a mut AppScreen,
+    pub(crate) workspace_state: &'a mut WorkspaceState,
+}
+
 impl MultisoulApp {
-    pub(crate) fn prompt_open_project(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let receiver = cx.prompt_for_paths(PathPromptOptions {
-            files: false,
-            directories: true,
-            multiple: false,
-            prompt: Some("Open Project".into()),
-        });
-        let current_window = window.window_handle().downcast::<MultisoulApp>();
-
-        cx.spawn(async move |this, cx| {
-            match receiver.await {
-                Ok(Ok(Some(paths))) => {
-                    if let Some(path) = paths.into_iter().next() {
-                        if let Some(current_window) = current_window {
-                            let _ = current_window.update(&mut *cx, |app, window, cx| {
-                                app.open_workspace_in_project_window(path, true, window, cx);
-                            });
-                        }
-                    }
-                }
-                Ok(Ok(None)) => {}
-                Ok(Err(error)) => {
-                    let _ = this.update(&mut *cx, |app, cx| {
-                        app.workspace_state.error =
-                            Some(format!("Could not open project picker: {error}"));
-                        cx.notify();
-                    });
-                }
-                Err(error) => {
-                    let _ = this.update(&mut *cx, |app, cx| {
-                        app.workspace_state.error = Some(format!(
-                            "Project picker was cancelled unexpectedly: {error}"
-                        ));
-                        cx.notify();
-                    });
-                }
-            }
-            Ok::<(), anyhow::Error>(())
-        })
-        .detach();
-    }
-
     pub(crate) fn open_workspace_path(
         &mut self,
         path: PathBuf,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.open_workspace_path_with_source(path, WorkspaceSource::Open, window, cx);
+    }
+
+    pub(crate) fn open_workspace_path_with_source(
+        &mut self,
+        path: PathBuf,
+        source: WorkspaceSource,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.agent_runtime = None;
-        let result = enter_workspace_for_path(
-            &mut self.runtime,
-            WorkspaceCanvasState {
-                motion: &mut self.motion,
-                master_layout: &mut self.master_layout,
+        self.agent_queue_ui.close();
+        let result = enter_workspace_for_path_with_source(
+            WorkspaceOpenContext {
+                database_paths: &self.database_paths,
+                runtime: &mut self.runtime,
+                canvas: WorkspaceCanvasState {
+                    motion: &mut self.motion,
+                    master_layout: &mut self.master_layout,
+                },
+                persistence: &mut self.persistence,
+                agent_definitions: &mut self.agent_definitions,
+                screen: &mut self.screen,
+                workspace_state: &mut self.workspace_state,
             },
-            &mut self.persistence,
-            &mut self.agent_definitions,
-            &mut self.screen,
-            &mut self.workspace_state,
             &path,
+            source,
         );
         match result {
             Ok(opened) => {
+                self.register_norma_workspace_route(&path, window, cx);
+                self.terminal_render_cache.borrow_mut().clear();
                 self.agent_task_coordinator = None;
                 self.pending_agent_submissions.clear();
+                let _ = self.session_reply_queue.interrupt_all();
+                self.bind_conversation_tails_for_project();
                 self.reset_agent_announcements();
+                self.prune_agent_announcement_audio_cache();
                 self.dialogue.stop_shell();
                 self.focus_handle.focus(window);
                 self.clear_browser_views();
+                self.clear_ego_previews(cx);
                 self.reload_all_previews(cx);
                 self.spawn_deferred_live_session_restore(opened.pending_live_restore, cx);
+                self.schedule_feature_guide_after_workspace_open(cx);
             }
             Err(error) => {
                 tracing::warn!(%error, path = %path.display(), "failed to open workspace");
@@ -156,25 +152,35 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Result<(), String> {
         self.agent_runtime = None;
+        self.agent_queue_ui.close();
         let opened = enter_workspace_for_path(
-            &mut self.runtime,
-            WorkspaceCanvasState {
-                motion: &mut self.motion,
-                master_layout: &mut self.master_layout,
+            WorkspaceOpenContext {
+                database_paths: &self.database_paths,
+                runtime: &mut self.runtime,
+                canvas: WorkspaceCanvasState {
+                    motion: &mut self.motion,
+                    master_layout: &mut self.master_layout,
+                },
+                persistence: &mut self.persistence,
+                agent_definitions: &mut self.agent_definitions,
+                screen: &mut self.screen,
+                workspace_state: &mut self.workspace_state,
             },
-            &mut self.persistence,
-            &mut self.agent_definitions,
-            &mut self.screen,
-            &mut self.workspace_state,
             path,
         )?;
+        self.terminal_render_cache.borrow_mut().clear();
         self.agent_task_coordinator = None;
         self.pending_agent_submissions.clear();
+        let _ = self.session_reply_queue.interrupt_all();
+        self.bind_conversation_tails_for_project();
         self.reset_agent_announcements();
+        self.prune_agent_announcement_audio_cache();
         self.dialogue.stop_shell();
         self.clear_browser_views();
+        self.clear_ego_previews(cx);
         self.reload_all_previews(cx);
         self.spawn_deferred_live_session_restore(opened.pending_live_restore, cx);
+        self.schedule_feature_guide_after_workspace_open(cx);
         self.last_reflow_window_size = None;
         cx.notify();
         Ok(())
@@ -219,13 +225,7 @@ impl MultisoulApp {
                     if app.workspace_state.current_root.as_deref() != Some(root.as_path()) {
                         return None;
                     }
-                    if pending
-                        .node_sessions
-                        .iter()
-                        .find(|session| session.node_id == node_id)
-                        .and_then(|session| session.session_id.as_deref())
-                        .is_some_and(|session_id| !session_id.is_empty())
-                    {
+                    if !pending.legacy_discovery_node_ids.contains(&node_id) {
                         return None;
                     }
                     match app.runtime.document.node(node_id).map(|node| &node.kind) {
@@ -255,13 +255,21 @@ impl MultisoulApp {
                         return false;
                     }
                     let restore_start = Instant::now();
+                    let binding_changed =
+                        discovered_session_id.as_deref().is_some_and(|session_id| {
+                            app.runtime
+                                .bind_discovered_agent_session(node_id, session_id)
+                        });
+                    if binding_changed {
+                        app.mark_session_dirty();
+                    }
                     let restored = app
                         .runtime
                         .restore_live_session_for_node_with_node_sessions(
                             node_id,
                             &pending.checkpoints,
                             &pending.node_sessions,
-                            discovered_session_id.as_deref(),
+                            None,
                         );
                     tracing::info!(
                         stage = "workspace_open_restore_live_session_node",
@@ -288,29 +296,42 @@ impl MultisoulApp {
     }
 }
 
+#[cfg(any(test, feature = "e2e-test-support"))]
 pub(crate) fn enter_workspace_for_path(
-    runtime: &mut Runtime,
-    canvas: WorkspaceCanvasState<'_>,
-    persistence: &mut PersistenceScheduler,
-    agent_definitions: &mut AgentDefinitionsState,
-    screen: &mut AppScreen,
-    workspace_state: &mut WorkspaceState,
+    context: WorkspaceOpenContext<'_>,
     path: &Path,
 ) -> Result<WorkspaceOpenResult, String> {
+    enter_workspace_for_path_with_source(context, path, WorkspaceSource::Open)
+}
+
+pub(crate) fn enter_workspace_for_path_with_source(
+    context: WorkspaceOpenContext<'_>,
+    path: &Path,
+    source: WorkspaceSource,
+) -> Result<WorkspaceOpenResult, String> {
+    let WorkspaceOpenContext {
+        database_paths,
+        runtime,
+        canvas,
+        persistence,
+        agent_definitions,
+        screen,
+        workspace_state,
+    } = context;
     let WorkspaceCanvasState {
         motion,
         master_layout,
     } = canvas;
     let total_start = Instant::now();
     let mut stage_start = total_start;
-    let root = workspace_state.open_workspace(path, WorkspaceSource::Open)?;
+    let root = workspace_state.open_workspace(path, source)?;
     log_workspace_open_timing(
         "workspace_open_record_recent",
         &root,
         &mut stage_start,
         total_start,
     );
-    let project_store = ProjectStore::for_workspace(&root)
+    let project_store = ProjectStore::initialize_for_database_paths(database_paths, &root)
         .map_err(|error| format!("Could not initialize project storage: {error}"))?;
     log_workspace_open_timing(
         "workspace_open_project_store",
@@ -318,9 +339,6 @@ pub(crate) fn enter_workspace_for_path(
         &mut stage_start,
         total_start,
     );
-    project_store
-        .migrate()
-        .map_err(|error| format!("Could not migrate project storage: {error}"))?;
     log_workspace_open_timing(
         "workspace_open_migrate",
         &root,
@@ -379,6 +397,13 @@ pub(crate) fn enter_workspace_for_path(
         .node_session_store()
         .load_sessions()
         .unwrap_or_default();
+    let hydration = next_runtime.hydrate_agent_session_bindings(&node_sessions);
+    if !hydration.conflicting_node_ids.is_empty() {
+        tracing::warn!(
+            conflicting_node_ids = ?hydration.conflicting_node_ids,
+            "duplicate Agent session bindings quarantined during workspace open"
+        );
+    }
     log_workspace_open_timing(
         "workspace_open_load_node_sessions",
         &root,

@@ -2,8 +2,12 @@
 //! 事件处理（pan、拖拽、单击）见 `events` 子模块。
 
 use super::events;
+use super::node_label::node_type_label;
+use super::working_snakes::{self, WorkingSnakeGeometry};
+use crate::app::browser::native::BROWSER_NATIVE_BORDER_INSET_PX;
 use crate::app::browser::{browser_native_view_bounds, native_browser_views_visible};
-use crate::app::MultisoulApp;
+use crate::app::layout_menu::{browser_content_occluded_by_overlay, layout_menu_screen_rect};
+use crate::app::{new_menu_screen_rect, MultisoulApp};
 #[cfg(test)]
 use crate::canvas::events::{should_focus_app_root_for_mouse_down, should_notify_motion_frame};
 #[cfg(test)]
@@ -14,16 +18,18 @@ use crate::canvas::geometry::{node_card_radius_px, node_terminal_radius_px, node
 #[cfg(test)]
 use crate::canvas::interaction::InteractionState;
 use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
-use crate::cards::browser::card::BROWSER_TOOLBAR_H_PX;
-use crate::cards::chrome::card_title_background;
-use crate::cards::chrome::{
-    node_shadow, render_task_badge, CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
+use crate::cards::agent::queue::{
+    render_badge as render_agent_queue_badge, waiting_count as agent_waiting_count,
 };
-use crate::cards::snake::render_working_snake_border;
+use crate::cards::browser::card::BROWSER_TOOLBAR_H_PX;
+use crate::cards::chrome::{
+    card_title_background, node_shadow, render_card_title, render_task_badge,
+    CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
+};
 use crate::cards::{card_for, CardBodyContext};
 #[cfg(test)]
 use canvas::Vec2;
-use canvas::{CanvasNodeKind, NodeId, NodeType};
+use canvas::{CanvasNodeKind, CanvasRect, NodeId, NodeType};
 use gpui::{div, prelude::*, px, rgba, AnyElement, Context, FontWeight, MouseButton, Window};
 use runtime::InputMode;
 #[cfg(test)]
@@ -31,9 +37,8 @@ use runtime::{route, Route};
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
-
+use ui::icons::with_alpha;
 static CANVAS_OPEN_RENDER_PENDING: AtomicBool = AtomicBool::new(false);
-
 pub(crate) fn mark_canvas_open_render_pending() {
     CANVAS_OPEN_RENDER_PENDING.store(true, Ordering::Release);
 }
@@ -43,6 +48,10 @@ pub fn render_canvas(
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> impl IntoElement {
+    #[cfg(feature = "e2e-test-support")]
+    {
+        app.canvas_render_count_for_e2e += 1;
+    }
     let render_start = Instant::now();
     let total_nodes = app.runtime.document.nodes().len();
     let _span = tracing::trace_span!("render_canvas", nodes = total_nodes).entered();
@@ -59,10 +68,18 @@ pub fn render_canvas(
     let mut node_elems: Vec<AnyElement> = Vec::new();
     let mut visible_browser_nodes = HashSet::new();
     let native_browser_views_visible = native_browser_views_visible(app.settings_panel.open);
+    // 底部弹出菜单打开时计算屏幕矩形；关闭时为 None（不做遮挡过滤）。
+    let layout_menu_rect = layout_menu_screen_rect(app.interaction.layout_menu_open, win_w, win_h);
+    let new_menu_rect = new_menu_screen_rect(
+        app.interaction.new_menu_open,
+        app.interaction.new_menu_activation_x,
+        win_h,
+    );
     let mut visible_nodes = 0usize;
     let mut snake_nodes = 0usize;
     let node_ids: Vec<NodeId> = app.runtime.document.nodes().iter().map(|n| n.id).collect();
     app.motion.retain_nodes(node_ids.iter().copied());
+    let mut snake_view_set_changed = working_snakes::retain_live_views(app, &node_ids);
     for id in node_ids {
         let Some((canonical_rect, selected, node_type)) =
             app.runtime.document.node(id).map(|node| {
@@ -81,11 +98,10 @@ pub fn render_canvas(
         app.motion.set_selection_focus(id, selected, focused);
         let is_agent = node_type == NodeType::Agent;
         let agent_state = is_agent.then(|| app.runtime.agent_task_state(id)).flatten();
+        let chase_active = is_agent && agent_chase_intent(agent_state.clone());
         let card_attention = app.runtime.card_attention(id);
         let breathing_intent = agent_breathing_intent(agent_state.clone(), card_attention);
         app.motion.set_breathing_intent(id, breathing_intent);
-        app.motion
-            .set_chase_intent(id, is_agent && agent_chase_intent(agent_state));
         if app
             .interaction
             .drag
@@ -100,10 +116,33 @@ pub fn render_canvas(
             .resolve_node_visual_at(id, canonical_rect, theme, render_start);
         let top_left = vp.canvas_to_screen(visual.rect.origin);
         let (w, h) = (visual.rect.size.x * vp.zoom, visual.rect.size.y * vp.zoom);
+        let node_radius = node_card_radius_px(vp.zoom);
+        let visible = !(top_left.x + w < 0.0
+            || top_left.y + h < 0.0
+            || top_left.x > win_w
+            || top_left.y > win_h);
+        if is_agent {
+            snake_view_set_changed |= working_snakes::synchronize_view(
+                app,
+                id,
+                chase_active,
+                theme,
+                WorkingSnakeGeometry {
+                    visible,
+                    left_px: top_left.x,
+                    top_px: top_left.y,
+                    width_px: w,
+                    height_px: h,
+                    opacity: visual.opacity,
+                    zoom: vp.zoom,
+                    node_radius_px: node_radius,
+                },
+                cx,
+            );
+        }
 
         // viewport culling：完全在窗口外的节点跳过。
-        if top_left.x + w < 0.0 || top_left.y + h < 0.0 || top_left.x > win_w || top_left.y > win_h
-        {
+        if !visible {
             continue;
         }
         visible_nodes += 1;
@@ -111,14 +150,19 @@ pub fn render_canvas(
         let node = app.runtime.document.node(id).unwrap().clone();
         let card = card_for(node_type);
         let chrome = card.chrome(&node, &app.runtime);
+        let queue_count = if is_agent {
+            agent_waiting_count(app, id)
+        } else {
+            0
+        };
         let initialization = app.motion.initialization_presentation(id);
         let title = chrome.title;
+        let title_detail = chrome.title_detail;
         let task_badge = chrome.task_badge;
         let refreshable = chrome.refreshable;
         let stroke = visual.stroke_color;
         let status = visual.status_color;
         let close_button_size = (18.0 * vp.zoom).clamp(16.0, 24.0);
-        let node_radius = node_card_radius_px(vp.zoom);
 
         let mut node_div = div()
             .id(("node-card", id))
@@ -142,6 +186,9 @@ pub fn render_canvas(
                 app.motion.set_hover(id, *hovered);
                 cx.notify();
             }));
+        if is_agent {
+            node_div = node_div.debug_selector(|| "agent-card".to_string());
+        }
 
         if hovered_terminal_link
             .as_ref()
@@ -189,6 +236,7 @@ pub fn render_canvas(
         title_actions = title_actions.child(
             div()
                 .id(("node-close", id))
+                .debug_selector(|| "node-close".to_string())
                 .w(px(close_button_size))
                 .h(px(close_button_size))
                 .flex()
@@ -209,6 +257,7 @@ pub fn render_canvas(
         );
 
         let title_bar = div()
+            .debug_selector(|| "card-titlebar".to_string())
             .h(px(TITLE_BAR_H * vp.zoom))
             .w_full()
             .flex()
@@ -253,27 +302,56 @@ pub fn render_canvas(
                             )
                             .child(node_type_label(node_type)),
                     )
-                    .child(
-                        div()
-                            .id(("node-title", id))
-                            .flex_1()
-                            .min_w(px(0.0))
-                            .overflow_hidden()
-                            .truncate()
-                            .child(title),
-                    )
+                    .child(render_card_title(id, title, title_detail, vp.zoom, theme))
                     .when_some(task_badge, |this, badge| {
                         this.child(render_task_badge(badge, vp.zoom, theme))
+                    })
+                    .when(queue_count > 0, |this| {
+                        this.child(render_agent_queue_badge(
+                            id,
+                            queue_count,
+                            vp.zoom,
+                            theme,
+                            cx,
+                        ))
                     }),
             )
             .child(title_actions);
+        let title_layer = div()
+            .debug_selector(|| "card-title-layer".to_string())
+            .h(px(TITLE_BAR_H * vp.zoom))
+            .w_full()
+            .flex_none()
+            .relative()
+            .child(title_bar);
 
         // 内容
+        let preview_image_viewer = app.previews.image_viewer_presentation(id);
+        let preview_image_dragging = app
+            .interaction
+            .preview_pan
+            .map(|pan| pan.node_id == id)
+            .unwrap_or(false);
+        // 浏览器卡片：计算其内容区是否被底部弹出菜单遮挡。
+        let occluded_by_overlay = matches!(node_type, NodeType::Browser) && {
+            let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
+            let content_rect = CanvasRect::new(
+                top_left.x + BROWSER_NATIVE_BORDER_INSET_PX as f32,
+                top_left.y + browser_header_h + BROWSER_NATIVE_BORDER_INSET_PX as f32,
+                (w - BROWSER_NATIVE_BORDER_INSET_PX as f32 * 2.0).max(0.0),
+                (h - browser_header_h - BROWSER_NATIVE_BORDER_INSET_PX as f32 * 2.0).max(0.0),
+            );
+            browser_content_occluded_by_overlay(content_rect, layout_menu_rect)
+                || browser_content_occluded_by_overlay(content_rect, new_menu_rect)
+        };
         let card_body = card.body(
             &node,
             CardBodyContext {
                 runtime: &app.runtime,
+                terminal_render_cache: app.terminal_render_cache.clone(),
                 preview_state: app.previews.state_for(id),
+                preview_image_viewer,
+                preview_image_dragging,
                 text_selection: app.interaction.active_text_selection,
                 focused,
                 reduce_motion: app.motion.reduce_motion,
@@ -281,28 +359,37 @@ pub fn render_canvas(
                 terminal_cursor_phase: app.terminal_cursor_phase,
                 browser_address_input: app.browser_address_input_for(id),
                 browser_auth_state: app.browser_chrome_auth_state_for(id),
+                ego_preview: app.ego_previews.frame_for(id),
+                #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
+                ego_live_preview: app.ego_previews.live_frame_for(id),
+                ego_preview_error: app.ego_previews.error_for(id),
+                occluded_by_overlay,
                 theme,
                 zoom: vp.zoom,
                 bottom_radius_px: node_terminal_radius_px(vp.zoom),
             },
         );
         if matches!(node_type, NodeType::Browser) && native_browser_views_visible {
-            visible_browser_nodes.insert(id);
             if let CanvasNodeKind::Browser(spec) = &node.kind {
-                let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
-                app.sync_browser_view_for_node(
-                    id,
-                    &spec.url,
-                    browser_native_view_bounds(
-                        f64::from(top_left.x),
-                        f64::from(top_left.y),
-                        f64::from(w),
-                        f64::from(h),
-                        f64::from(browser_header_h),
-                        f64::from(node_terminal_radius_px(vp.zoom)),
-                    ),
-                    window,
-                );
+                if matches!(&spec.surface, canvas::BrowserSurfaceKind::Native)
+                    && !occluded_by_overlay
+                {
+                    visible_browser_nodes.insert(id);
+                    let browser_header_h = (TITLE_BAR_H + BROWSER_TOOLBAR_H_PX) * vp.zoom;
+                    app.sync_browser_view_for_node(
+                        id,
+                        &spec.url,
+                        browser_native_view_bounds(
+                            f64::from(top_left.x),
+                            f64::from(top_left.y),
+                            f64::from(w),
+                            f64::from(h),
+                            f64::from(browser_header_h),
+                            f64::from(node_terminal_radius_px(vp.zoom)),
+                        ),
+                        window,
+                    );
+                }
             }
         }
         node_elems.push(
@@ -320,15 +407,9 @@ pub fn render_canvas(
             )
             .into_any_element(),
         );
-        node_div = node_div.child(title_bar).child(card_body);
-        if let Some(working_snake) = visual.working_snake {
+        node_div = node_div.child(title_layer).child(card_body);
+        if is_agent && chase_active {
             snake_nodes += 1;
-            node_div = node_div.child(render_working_snake_border(
-                id,
-                working_snake,
-                vp.zoom,
-                node_radius,
-            ));
         }
         node_elems.push(node_div.into_any_element());
         if is_swap_candidate {
@@ -368,9 +449,10 @@ pub fn render_canvas(
     }
     .log_if_enabled();
     app.finish_browser_view_sync(&visible_browser_nodes);
-
-    if let Some(link) = hovered_terminal_link {
-        node_elems.push(render_terminal_link_tooltip(link, theme, win_w, win_h));
+    if snake_view_set_changed {
+        // Snake Entity 是 CanvasSurface 的兄弟叠层；集合变化时只需让根视图重新挂载
+        // 一次。稳定动画帧只 notify Snake Entity，不会触发 CanvasSurface observer。
+        cx.notify();
     }
 
     div()
@@ -385,33 +467,6 @@ pub fn render_canvas(
         .on_mouse_up(MouseButton::Left, cx.listener(events::on_mouse_up))
         .on_mouse_up(MouseButton::Middle, cx.listener(events::on_mouse_up))
         .children(node_elems)
-}
-
-fn render_terminal_link_tooltip(
-    link: crate::canvas::interaction::HoveredTerminalLink,
-    theme: ui::Theme,
-    window_width: f32,
-    window_height: f32,
-) -> AnyElement {
-    let left = (link.screen_x as f32 + 12.0).clamp(8.0, (window_width - 360.0).max(8.0));
-    let top = (link.screen_y as f32 + 18.0).clamp(8.0, (window_height - 34.0).max(8.0));
-    div()
-        .absolute()
-        .left(px(left))
-        .top(px(top))
-        .max_w(px(352.0))
-        .px(px(8.0))
-        .py(px(5.0))
-        .rounded(px(6.0))
-        .border_1()
-        .border_color(rgba(with_alpha(theme.accent_cyan, 0x72)))
-        .bg(rgba(with_alpha(theme.panel, 0xf2)))
-        .text_size(px(11.0))
-        .text_color(rgba(theme.text_primary))
-        .overflow_hidden()
-        .truncate()
-        .child(link.url)
-        .into_any_element()
 }
 
 fn swap_highlight_overlay(
@@ -434,28 +489,12 @@ fn swap_highlight_overlay(
         .into_any_element()
 }
 
-fn with_alpha(color: u32, alpha: u8) -> u32 {
-    (color & 0xffffff00) | u32::from(alpha)
-}
-
-fn node_type_label(node_type: NodeType) -> &'static str {
-    match node_type {
-        NodeType::Term => "TERMINAL",
-        NodeType::Agent => "AGENT",
-        NodeType::Preview => "PREVIEW",
-        NodeType::Browser => "BROWSER",
-        NodeType::Rect => "NODE",
-    }
-}
-
-#[cfg(test)]
-#[path = "../../tests/unit/canvas_view_tests.rs"]
-mod tests;
-
 #[cfg(test)]
 #[path = "../../tests/unit/chase_canvas_view_contract_tests.rs"]
 mod chase_canvas_view_contract_tests;
-
 #[cfg(test)]
 #[path = "../../tests/unit/product_ui_canvas_tests.rs"]
 mod product_ui_canvas_tests;
+#[cfg(test)]
+#[path = "../../tests/unit/canvas_view_tests.rs"]
+mod tests;

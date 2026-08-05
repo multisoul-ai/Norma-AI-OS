@@ -37,6 +37,7 @@ cargo build --release -p app
 cargo packager -c Packager.dev.toml
 bash scripts/run-card-init-animation-l3.sh
 bash scripts/run-card-init-animation-l3.sh "build/dev/Norma OS.app" artifacts/l3-agent "$PWD" agent
+bash scripts/run-terminal-autosuggestion-l3.sh
 
 # 全 workspace（含 L1 e2e + 全部 domain/app 单测；L2 自动跳过）
 cargo test --workspace
@@ -60,6 +61,13 @@ Accessibility 与 Screen Recording 权限；受这些机器权限影响，不进
 截图在创建 action 所在的同一 System Events transaction 内发起，避免 action 返回后的
 额外 shell 往返；`000ms` 是该即时采样标签，不承诺绕过 macOS 的截图调度延迟。每次运行
 会生成 `l3-run-result.txt`，权限或自动化失败时也会留下失败状态和授权提示。
+
+`scripts/run-terminal-autosuggestion-l3.sh` 会按打包产物的绝对可执行文件路径锁定新启动的
+进程，避免本机多个同 Bundle ID 的 Norma OS 副本互相抢焦点；随后进入指定 workspace、
+创建真实 PTY Terminal、输入 `g` 与物理 Tab，并分别保存 `terminal-g.png`、
+`terminal-g-tab.png`；最后用 ANSI 剧本确定性复现同格灰色字符并保存
+`terminal-gray-cursor.png`。该 runner 用于检查灰色 autosuggestion 首字符与 Tab 补全
+提示的最终像素，不替代 `crates/e2e` 中确定性的 grid 与输入断言。
 
 ## 3. Agent 验收用法
 

@@ -260,3 +260,144 @@ fn e2e_06_single_voice_report_is_the_only_idle_eligible_dialogue_report() {
         "普通文字任务回执被拒绝后 Dialogue 必须保持 Idle"
     );
 }
+
+/// E2E-06-D：Agent 在 TTS 后台校验期间完成，Ready 后补播且只播一次。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Agent profile = Codex，呼叫名 = Henry
+///   task events = 2：UserPromptSubmit + Stop/Done
+///   TTS 状态变化 = Waiting → Ready → duplicate Ready
+///   expected announcements = 1 条 `Henry, Done`
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建 Henry Agent 并把可控 TTS 设为 Waiting。
+///   2. 注入任务开始和可信 Stop/Done → 卡片终态回执进入等待队列，不播放。
+///   3. 把可控 TTS 切到 Ready → 等待回执通过生产调度器开始播放。
+///   4. 再次报告 Ready → 已领取终态不得重新排队或播放。
+///
+/// 预期结果：
+///   - 负断言：Waiting 阶段播报列表为空。
+///   - 正断言：第一次 Ready 后恰好出现一次 `Henry, Done`。
+///   - 负断言：重复 Ready 后列表仍只有一项，且不存在 `Codex, Done`。
+#[test]
+fn e2e_06_terminal_waits_for_tts_readiness_without_being_lost() {
+    let mut test_cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut test_cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("应创建 TTS readiness e2e workspace");
+    enter_canvas(&app, cx, workspace.path());
+    let node_id = create_codex_agent(&app, cx);
+    app.update(cx, |app, cx| {
+        let node = app
+            .runtime
+            .document
+            .node_mut(node_id)
+            .expect("新建的 Henry Agent 节点必须仍存在");
+        let CanvasNodeKind::Agent(spec) = &mut node.kind else {
+            panic!("新建节点必须是 Agent 类型");
+        };
+        spec.alias = Some("Henry".to_string());
+        app.set_agent_announcement_test_tts_ready_for_e2e(false, cx);
+        app.inject_runtime_event_for_e2e(
+            task_event(node_id, AgentTaskState::Thinking, "UserPromptSubmit"),
+            cx,
+        );
+        app.inject_runtime_event_for_e2e(task_event(node_id, AgentTaskState::Done, "Stop"), cx);
+    });
+
+    let waiting_spoken = app.read_with(cx, |app, _cx| app.spoken_agent_announcements_for_e2e());
+    assert_eq!(
+        waiting_spoken,
+        Vec::<String>::new(),
+        "TTS Waiting 阶段不得提前播放 `Henry, Done`"
+    );
+
+    app.update(cx, |app, cx| {
+        app.set_agent_announcement_test_tts_ready_for_e2e(true, cx);
+    });
+    let ready_spoken = app.read_with(cx, |app, _cx| app.spoken_agent_announcements_for_e2e());
+    assert_eq!(
+        ready_spoken,
+        vec!["Henry, Done".to_string()],
+        "TTS 第一次 Ready 后必须恰好补播一次 `Henry, Done`"
+    );
+
+    app.update(cx, |app, cx| {
+        app.set_agent_announcement_test_tts_ready_for_e2e(true, cx);
+    });
+    let duplicate_ready_spoken =
+        app.read_with(cx, |app, _cx| app.spoken_agent_announcements_for_e2e());
+    assert_eq!(
+        duplicate_ready_spoken,
+        vec!["Henry, Done".to_string()],
+        "重复 Ready 不得让同一终态再次播放"
+    );
+    assert!(
+        !duplicate_ready_spoken
+            .iter()
+            .any(|utterance| utterance == "Codex, Done"),
+        "存在呼叫名 Henry 时不得错误回退成 `Codex, Done`"
+    );
+}
+
+/// E2E-06-E：可信 Stop 到达但开始 Hook 漏失时仍恢复一次完成播报。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Agent profile = Codex，呼叫名 = Henry
+///   start events = 0 条 UserPromptSubmit
+///   lifecycle events = 1 条 Stop/Done + 1 条 Ready + 1 条迟到 Stop/Done
+///   expected announcements = 1 条 `Henry, Done`
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建 Henry Agent 并启用可控 TTS，不注入任务开始事件。
+///   2. 注入第一条可信 Stop/Done → 从终态恢复任务轮次并播放完成回执。
+///   3. 注入 Ready 后再注入迟到 Stop/Done → 已认领终态的去重证据仍被保留。
+///
+/// 预期结果：
+///   - 正断言：缺失开始 Hook 时仍得到一次 `Henry, Done`。
+///   - 负断言：重复 Stop 不产生第二条播报。
+///   - 负断言：不得错误使用 runtime profile 生成 `Codex, Done`。
+#[test]
+fn e2e_06_trusted_terminal_recovers_missing_start_hook_once() {
+    let mut test_cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut test_cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("应创建 terminal recovery e2e workspace");
+    enter_canvas(&app, cx, workspace.path());
+    let node_id = create_codex_agent(&app, cx);
+    app.update(cx, |app, _cx| {
+        let node = app
+            .runtime
+            .document
+            .node_mut(node_id)
+            .expect("新建的 Henry Agent 节点必须仍存在");
+        let CanvasNodeKind::Agent(spec) = &mut node.kind else {
+            panic!("新建节点必须是 Agent 类型");
+        };
+        spec.alias = Some("Henry".to_string());
+        app.enable_agent_announcement_test_audio_for_e2e();
+    });
+
+    app.update(cx, |app, cx| {
+        app.inject_runtime_event_for_e2e(task_event(node_id, AgentTaskState::Done, "Stop"), cx);
+        app.inject_runtime_event_for_e2e(
+            task_event(node_id, AgentTaskState::Ready, "SessionReady"),
+            cx,
+        );
+        app.inject_runtime_event_for_e2e(task_event(node_id, AgentTaskState::Done, "Stop"), cx);
+    });
+
+    let spoken = app.read_with(cx, |app, _cx| app.spoken_agent_announcements_for_e2e());
+    assert_eq!(
+        spoken,
+        vec!["Henry, Done".to_string()],
+        "可信 Stop 缺少开始 Hook 时必须恢复且只播放一次 `Henry, Done`"
+    );
+    assert_eq!(
+        spoken.len(),
+        1,
+        "Ready 后迟到的重复 Stop 最终仍只能产生 1 条播报"
+    );
+    assert!(
+        !spoken.iter().any(|utterance| utterance == "Codex, Done"),
+        "存在呼叫名 Henry 时不得错误回退成 `Codex, Done`"
+    );
+}

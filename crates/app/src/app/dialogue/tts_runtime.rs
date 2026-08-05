@@ -1,4 +1,5 @@
-use super::reply::{SelectedTtsModel, TtsClientBox};
+use super::reply::{selected_tts_model, SelectedTtsModel, TtsClientBox};
+use super::DialogueControlState;
 use crate::app::MultisoulApp;
 use gpui::Context;
 use std::sync::{Arc, Mutex};
@@ -19,11 +20,21 @@ pub(crate) struct SharedTtsRuntime {
 }
 
 impl SharedTtsRuntime {
+    #[cfg(any(test, feature = "e2e-test-support"))]
+    pub(crate) fn from_client_for_tests(
+        selection: Option<SelectedTtsModel>,
+        client: TtsClientBox,
+    ) -> Self {
+        Self {
+            resident: Arc::new(Mutex::new(Some(ResidentTtsClient { selection, client }))),
+        }
+    }
+
     pub(crate) fn with_client<R, E>(
         &self,
         selection: Option<SelectedTtsModel>,
         create: impl FnOnce() -> Result<TtsClientBox, E>,
-        operation: impl FnOnce(&mut dyn dialogue::TtsClient) -> Result<R, E>,
+        operation: impl FnOnce(&mut dyn tts::TtsClient) -> Result<R, E>,
     ) -> Result<R, E> {
         let mut resident = self
             .resident
@@ -62,6 +73,16 @@ impl SharedTtsRuntime {
                 .expect("shared TTS test lock should not be poisoned")
                 .is_some(),
         )
+    }
+}
+
+impl DialogueControlState {
+    pub(super) fn reply_tts_selection(&self) -> Option<SelectedTtsModel> {
+        #[cfg(any(test, feature = "e2e-test-support"))]
+        if let Some(selection) = self.reply_tts_selection_override.as_ref() {
+            return Some(selection.clone());
+        }
+        selected_tts_model()
     }
 }
 

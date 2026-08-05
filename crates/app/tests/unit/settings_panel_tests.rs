@@ -4,7 +4,7 @@ use super::*;
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   initial open = false（启动后不应遮挡画布）
-///   visible section count = 6（Themes / Wallpaper / Keyboard / Voice / Agents / Hooks）
+///   visible section count = 8（Software Update / Themes / Wallpaper / Performance / Keyboard / Voice / Agents / Orchestration）
 ///   hidden mock count = 2（Runtime / Skills，不应作为首次页面）
 ///   default section = Themes（Appearance 中首个已实现的可配置页面）
 ///
@@ -108,8 +108,8 @@ fn test_settings_panel_layout_stays_inside_small_viewports() {
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings_panel.rs + settings_content.rs + settings_keyboard.rs + shortcuts.rs
 ///   editable anchors = settings-shortcut-new-terminal / settings-shortcut-toggle-settings
-///                      / settings-shortcut-delete-card
-///   read-only anchors = Paste / Voice Recording / Arrow Navigation / Space Pan / Terminal Input
+///                      / settings-shortcut-delete-card / settings-shortcut-voice-interaction
+///   read-only anchors = Paste / Arrow Navigation / Space Pan / Terminal Input
 ///   restore anchors = settings-shortcuts-restore-all / settings-shortcut-restore-delete-card / Restore
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -144,6 +144,8 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
         "settings-shortcut-new-codex-agent",
         "settings-shortcut-new-cursor-agent",
         "settings-shortcut-new-opencode-agent",
+        "settings-shortcut-voice-interaction",
+        "settings-shortcut-restore-voice-interaction",
         "settings-shortcuts-restore-all",
         "Paste",
         "Voice Interaction",
@@ -166,63 +168,63 @@ fn test_keyboard_shortcuts_settings_page_contains_editable_and_read_only_rows() 
     );
 }
 
-/// Hooks 页面锚点：Settings 应提供 Codex / Claude / Cursor / OpenCode 一键安装入口。
+/// Orchestration 页面锚点：Settings 应提供四组件状态和 Provider 安装入口。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = settings_panel.rs + settings_content.rs + settings_hooks.rs
-///   nav anchor = Hooks
-///   action anchors = Codex / Claude / Cursor / OpenCode 四个 install button id
+///   source = settings_panel.rs + settings_content.rs + settings_orchestration.rs
+///   nav anchor = Orchestration
+///   action anchors = Codex / Claude / Cursor / OpenCode 四个 Provider action id
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 拼接 Settings 生产渲染源码
-///   2. 检查 Hooks 分组与安装按钮 id 是否存在
+///   1. 拼接 Settings 生产渲染源码。
+///   2. 检查 Orchestration 导航、四组件和 Provider action id。
 ///
 /// 预期结果：
-///   - 正断言：Hooks 导航与 Codex/Claude/Cursor/OpenCode 安装按钮锚点都存在
-///   - 负断言：Hooks 页面不应仍只是 Runtime mock 文案
+///   - 正断言：Orchestration 与五个 Provider、四组件、安装/修复/卸载操作都存在。
+///   - 负断言：不得保留第二个 Agent Hooks 导航或直接前台安装入口。
 #[test]
-fn test_hooks_settings_panel_contains_install_actions() {
+fn test_orchestration_settings_panel_contains_provider_components_and_actions() {
     let source = format!(
         "{}{}{}{}",
         include_str!("../../src/settings/panel.rs"),
         include_str!("../../src/settings/navigation.rs"),
         include_str!("../../src/settings/content.rs"),
-        include_str!("../../src/settings/hooks.rs")
+        include_str!("../../src/settings/orchestration.rs")
     );
     let anchors = [
-        "SettingsSection::Hooks",
-        "Agent Hooks",
-        "settings-install-codex-hooks",
-        "settings-install-claude-hooks",
-        "settings-install-cursor-hooks",
-        "settings-install-opencode-hooks",
-        "Install hooks",
-        "Uninstall hooks",
-        "agent_hooks_installed",
-        "uninstall_agent_hooks",
+        "SettingsSection::Orchestration",
+        "Orchestration",
+        "settings-orchestration-codex-action",
+        "settings-orchestration-claude-action",
+        "settings-orchestration-cursor-action",
+        "settings-orchestration-opencode-action",
+        "Skill",
+        "Norma CLI",
+        "Agent Hook",
+        "Authorization",
+        "Install",
+        "Repair",
+        "Uninstall",
+        "Unavailable",
     ];
 
     for anchor in anchors {
         assert!(
             source.contains(anchor),
-            "Hooks 设置页应包含安装入口锚点: {anchor}"
+            "Orchestration 设置页应包含组件/操作锚点: {anchor}"
         );
     }
     assert!(
-        source.contains("Manage lifecycle hooks in ~/.codex/hooks.json"),
-        "Hooks 页面应包含 Codex 管理说明"
+        source.contains("Restart existing agent sessions after installation."),
+        "Orchestration 页面必须固定提示重启已有 Agent 会话"
     );
     assert!(
-        source.contains("Manage lifecycle hooks in ~/.claude/settings.json"),
-        "Hooks 页面应包含 Claude 管理说明"
+        source.contains("Orchestration is not supported in the first release"),
+        "Grok 行必须明确说明首版不支持编排"
     );
     assert!(
-        source.contains("Manage lifecycle hooks in ~/.cursor/hooks.json"),
-        "Hooks 页面应包含 Cursor CLI 管理说明"
-    );
-    assert!(
-        source.contains("Manage lifecycle hooks in ~/.config/opencode/plugins"),
-        "Hooks 页面应包含 OpenCode plugin 管理说明"
+        !source.contains("SettingsSection::Hooks"),
+        "迁移后不得继续提供第二个 Agent Hooks 导航入口"
     );
 }
 
@@ -327,16 +329,16 @@ fn test_settings_panel_selects_sections_without_closing() {
     );
 }
 
-/// Settings 导航暴露六个已实现页面，并继续隐藏 Runtime/Skills mock 分组。
+/// Settings 导航暴露八个已实现页面，并继续隐藏 Runtime/Skills mock 分组。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings_panel.rs + settings_content.rs（生产侧栏与内容路由）；
-///   visible sections = Themes + Keyboard + Voice + Agents + Hooks + Wallpaper，共 6 个；
+///   visible sections = Software Update + Themes + Keyboard + Voice + Agents + Orchestration + Wallpaper + Performance，共 8 个；
 ///   hidden mock sections = Runtime + Skills，共 2 个。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 settings_panel.rs 生产源码
-///   2. 检查侧栏接线的 6 个可配置页面
+///   2. 检查侧栏接线的 7 个可配置页面
 ///   3. 检查内容路由明确把 2 个旧 mock 分组收敛为空白 fallback
 ///
 /// 预期结果：
@@ -351,12 +353,14 @@ fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
         include_str!("../../src/settings/content.rs")
     );
     let visible_sections = [
+        "SettingsSection::SoftwareUpdate",
         "SettingsSection::Themes",
         "SettingsSection::Keyboard",
         "SettingsSection::Voice",
         "SettingsSection::Agents",
-        "SettingsSection::Hooks",
+        "SettingsSection::Orchestration",
         "SettingsSection::Wallpaper",
+        "SettingsSection::Performance",
     ];
 
     for section in visible_sections {
@@ -407,37 +411,53 @@ fn test_settings_has_wallpaper_section() {
     }
 }
 
-/// T-11: 视频缩略图必须用首帧解码（first_frame_bgra），而不是停在 VIDEO 占位。
+/// Software Update 设置页：导航与内容路由必须提供检查更新入口，并明确下载完成后的重启行为。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   source = view.rs（网格渲染）+ video_thumbnails.rs（mac-gated 缓存/解码帮助）
-///   required anchors:
-///     - first_frame_bgra：必须调用 VideoDecoder::first_frame_bgra 解码首帧
-///     - video_thumb：缩略图渲染处必须携带可被测试锚定的 video_thumb id/source 标记
-///   banned = `"VIDEO"` 占位仍允许作为 mac 以外 / 解码中 的 fallback，但视频分支
-///            的主路径必须出现 first_frame_bgra 与 video_thumb 锚点。
+///   新增页面数 = 1（Software Update）；
+///   用户主操作数 = 1（Check for Updates…）；
+///   更新完成动作 = 1（由 Sparkle 提醒重新启动 Norma OS）。
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. include_str! 拼接 view.rs + video_thumbnails.rs
-///   2. 断言 first_frame_bgra 出现 → 视频缩略图确实走 AVAssetReader 首帧解码
-///   3. 断言 video_thumb 标记出现 → 视频缩略图渲染分支携带被锚定的标记
+///   1. 读取 Settings 导航、内容分发与模块声明源码。
+///   2. 确认 Software Update 是可选择的真实 section，而不是旧 mock fallback。
+///   3. 确认内容路由调用独立 `software_update_settings` 页面。
 ///
 /// 预期结果：
-///   - 正断言：first_frame_bgra 存在
-///   - 正断言：video_thumb 标记存在
+///   - 正断言：SettingsSection::SoftwareUpdate、标题与页面函数同时存在。
+///   - 负断言：Software Update 不得落入 Runtime/Skills 空白 fallback。
 #[test]
-fn test_video_thumbnail_uses_first_frame() {
+fn test_settings_routes_to_software_update_page() {
     let source = format!(
-        "{}{}",
-        include_str!("../../src/settings/wallpaper/view.rs"),
-        include_str!("../../src/app/video_thumbnails.rs"),
+        "{}{}{}{}",
+        include_str!("../../src/settings/mod.rs"),
+        include_str!("../../src/settings/navigation.rs"),
+        include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/software_update.rs")
+    );
+
+    assert!(
+        source.contains("SettingsSection::SoftwareUpdate")
+            && source.contains("\"Software Update\"")
+            && source.contains("software_update_settings"),
+        "Settings 必须把 Software Update 接入导航、标题和真实内容页面"
     );
     assert!(
-        source.contains("first_frame_bgra"),
-        "视频缩略图主路径必须调用 VideoDecoder::first_frame_bgra 解码首帧，而不是停在占位"
+        !source.contains(
+            "SettingsSection::SoftwareUpdate | SettingsSection::Runtime | SettingsSection::Skills => div()"
+        ),
+        "Software Update 不得被路由到 Runtime/Skills 的空白 mock fallback"
     );
     assert!(
-        source.contains("video_thumb"),
-        "视频缩略图渲染分支必须携带 video_thumb id/source 标记以便锚定"
+        source.contains("settings-check-for-updates")
+            && source.contains("crate::updater::check_for_updates(cx)")
+            && source.contains("Norma OS asks you to restart the app"),
+        "Software Update 页面必须把按钮接到共享 Sparkle 流程，并明确下载完成后的重启提示"
+    );
+    assert!(
+        !source.contains("reqwest")
+            && !source.contains("curl")
+            && !source.contains("std::process::Command"),
+        "Settings 页面不得另造 HTTP 或子进程下载器，必须复用 Sparkle 的签名更新流程"
     );
 }

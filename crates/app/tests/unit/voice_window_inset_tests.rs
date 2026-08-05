@@ -433,3 +433,49 @@ fn stale_preview_cancellation_does_not_clear_new_assistant_timeline() {
         "旧 Preview 事件不得把助手内缘光内扩重置为零"
     );
 }
+
+/// VWI-6：Voice 调度活动位必须覆盖播放、淡出，并在视觉终态清零。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   initial pending playbacks = 0
+///   begin_playback 增量 = 1
+///   normal fade-out = 220ms
+///   final intensity = 0.0
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取默认 inset 的活动位。
+///   2. 开始一次播放并推进 120ms 淡入，再完成播放使状态进入 220ms 淡出。
+///   3. 推进完整 220ms 后再次读取活动位。
+///
+/// 预期结果：
+///   - 负断言：默认静止 inset 不得报告活动。
+///   - 正断言：播放中及淡出中都必须报告活动，以保持 12ms 调度。
+///   - 负断言：淡出终态不得继续报告活动并永久占用 CPU。
+#[test]
+fn voice_window_inset_activity_covers_playback_and_fade_out() {
+    let mut inset = VoiceWindowInset::default();
+
+    assert!(
+        !inset.is_animation_active(),
+        "默认 Voice inset 没有播放或过渡，不得报告动画活动"
+    );
+
+    inset.begin_playback();
+    assert!(
+        inset.is_animation_active(),
+        "begin_playback 后必须报告活动，驱动 12ms Voice 动画调度"
+    );
+
+    inset.tick(Duration::from_millis(120));
+    inset.finish_playback();
+    assert!(
+        inset.is_animation_active(),
+        "正常完成后的 220ms 淡出期间仍必须报告活动"
+    );
+
+    inset.tick(Duration::from_millis(220));
+    assert!(
+        !inset.is_animation_active(),
+        "淡出完成且能量归零后必须清除活动位，避免永久 12ms 唤醒"
+    );
+}

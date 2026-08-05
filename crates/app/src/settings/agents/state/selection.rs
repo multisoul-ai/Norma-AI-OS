@@ -1,5 +1,5 @@
 use super::support::{draft_matches_definition, next_default_agent_name};
-use super::{AgentDefinitionDraft, AgentDefinitionField, AgentDefinitionsState};
+use super::{AgentDefinitionDraft, AgentDefinitionField, AgentDefinitionsState, AgentDeleteDialog};
 use canvas::AgentProfile;
 
 impl AgentDefinitionsState {
@@ -30,28 +30,15 @@ impl AgentDefinitionsState {
         }
     }
 
-    pub(crate) fn begin_card_edit(&mut self, id: i64) -> bool {
-        if self.selected_definition_id != Some(id) && !self.ensure_clean_for_navigation() {
-            return false;
-        }
-        if self.selected_definition_id != Some(id) && !self.load_draft_from_definition(id) {
-            self.status = Some("Could not load that agent.".to_string());
-            return false;
-        }
-        self.editing_card_id = Some(id);
-        self.status = None;
-        true
-    }
-
     pub(crate) fn cancel_card_edit(&mut self) -> bool {
         if self.creating_new {
+            let previous_selection = self.selection_before_create;
             self.reset_draft();
-            self.status = None;
+            self.select_after_reload(previous_selection);
             return true;
         }
-        let did_revert = self.revert_draft();
-        self.editing_card_id = None;
-        did_revert
+
+        self.revert_draft()
     }
 
     pub(crate) fn create_new_card(&mut self) -> bool {
@@ -71,7 +58,6 @@ impl AgentDefinitionsState {
         match self.selected_definition_id {
             Some(id) => {
                 if self.load_draft_from_definition(id) {
-                    self.editing_card_id = None;
                     self.status = None;
                     true
                 } else {
@@ -81,7 +67,6 @@ impl AgentDefinitionsState {
             }
             None => {
                 self.reset_draft();
-                self.editing_card_id = None;
                 self.status = None;
                 true
             }
@@ -100,36 +85,69 @@ impl AgentDefinitionsState {
         }
     }
 
-    pub(crate) fn request_delete_definition(&mut self, id: i64) -> bool {
+    pub(crate) fn open_delete_dialog(&mut self, id: i64, blocked: bool) -> bool {
         if self.is_dirty() {
-            self.status = Some("Save or revert the current Agent before deleting.".to_string());
+            self.status = Some("Save or discard changes before deleting this Agent.".to_string());
             return false;
         }
-        if self.delete_confirmation_id != Some(id) {
-            self.delete_confirmation_id = Some(id);
-            self.status = Some("Click Delete again to remove this Agent.".to_string());
+        let Some(definition) = self
+            .definitions
+            .iter()
+            .find(|definition| definition.id == id)
+        else {
+            self.status = Some("Could not find that Agent.".to_string());
+            return false;
+        };
+        self.delete_dialog = Some(if blocked {
+            AgentDeleteDialog::Blocked {
+                id,
+                name: definition.name.clone(),
+            }
+        } else {
+            AgentDeleteDialog::Confirm {
+                id,
+                name: definition.name.clone(),
+            }
+        });
+        self.status = None;
+        true
+    }
+
+    pub(crate) fn delete_dialog(&self) -> Option<&AgentDeleteDialog> {
+        self.delete_dialog.as_ref()
+    }
+
+    pub(crate) fn close_delete_dialog(&mut self) {
+        self.delete_dialog = None;
+    }
+
+    pub(crate) fn confirm_delete_from_dialog(&mut self, id: i64) -> bool {
+        if !matches!(
+            self.delete_dialog,
+            Some(AgentDeleteDialog::Confirm {
+                id: pending_id,
+                ..
+            }) if pending_id == id
+        ) {
+            self.status = Some("Delete confirmation is no longer active.".to_string());
             return false;
         }
-        self.delete_confirmation_id = None;
+        self.delete_dialog = None;
         self.delete_definition(id)
     }
 
     pub(crate) fn prepare_create_card_from_definition(&mut self, id: i64) -> bool {
         if self.is_dirty() {
             self.status =
-                Some("Save or revert the current Agent before creating a card.".to_string());
+                Some("Save or discard the current Agent before creating a card.".to_string());
             return false;
         }
         self.select_definition(id)
     }
 
-    pub(crate) fn is_delete_confirmation_pending(&self, id: i64) -> bool {
-        self.delete_confirmation_id == Some(id)
-    }
-
     pub(super) fn ensure_clean_for_navigation(&mut self) -> bool {
         if self.is_dirty() {
-            self.status = Some("Save or revert the current Agent before switching.".to_string());
+            self.status = Some("Save or discard the current Agent before switching.".to_string());
             false
         } else {
             true
@@ -188,12 +206,13 @@ impl AgentDefinitionsState {
         draft
     }
 
-    pub(super) fn clear_delete_confirmation(&mut self) {
-        self.delete_confirmation_id = None;
+    pub(super) fn clear_delete_dialog(&mut self) {
+        self.delete_dialog = None;
     }
 
     fn prepare_new_draft(&mut self) {
         let name = next_default_agent_name(&self.definitions);
+        let previous_selection = self.selected_definition_id;
         self.reset_draft();
         if name.is_empty() {
             self.status =
@@ -210,7 +229,7 @@ impl AgentDefinitionsState {
         };
         self.creating_new = true;
         self.selected_definition_id = None;
-        self.editing_card_id = None;
+        self.selection_before_create = previous_selection;
         self.status = None;
     }
 }

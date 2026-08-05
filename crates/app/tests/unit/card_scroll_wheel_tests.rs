@@ -2,6 +2,45 @@ use super::*;
 use crate::canvas::text_selection::TextPoint;
 use runtime::NodeScroll;
 
+/// 选中拖拽越界自动滚动方向：指针在内容区上方回看历史、下方回到底部、区内不滚动。
+///
+/// 数据构造（含关键数值推导）：
+///   content_height = 240.0（终端内容区高度，示意值）
+///   local_y = -10.0  → 指针在内容区上方 → 应回看历史（+1）
+///   local_y = 120.0  → 指针在内容区内 → 不应滚动（0）
+///   local_y = 260.0  → 指针在内容区下方 → 应回到底部（-1）
+///
+/// 执行过程：
+///   1. 分别用三个 local_y 调用 terminal_selection_auto_scroll_lines
+///   2. 检查返回的行方向
+///
+/// 预期结果：
+///   - 正断言：上方 +1、下方 -1、区内 0
+///   - 负断言：区内不应产生 ±1 滚动，否则 mouse_move 会误滚动
+#[test]
+fn test_terminal_selection_auto_scroll_lines_direction() {
+    assert_eq!(
+        terminal_selection_auto_scroll_lines(-10.0, 240.0),
+        1,
+        "指针在内容区上方时应回看历史（+1 行）"
+    );
+    assert_eq!(
+        terminal_selection_auto_scroll_lines(260.0, 240.0),
+        -1,
+        "指针在内容区下方时应回到底部（-1 行）"
+    );
+    assert_eq!(
+        terminal_selection_auto_scroll_lines(120.0, 240.0),
+        0,
+        "指针在内容区内时不应触发自动滚动"
+    );
+    assert_ne!(
+        terminal_selection_auto_scroll_lines(120.0, 240.0),
+        1,
+        "内容区内指针不应误判为向上滚动"
+    );
+}
+
 /// app 层将 terminal-owned wheel 转成 NodeScroll：有正文坐标时用 TermWheel，缺失坐标时回退 TermLines。
 ///
 /// 数据构造（含关键数值推导）：

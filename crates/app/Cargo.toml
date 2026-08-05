@@ -6,9 +6,18 @@ license.workspace = true
 default-run = "norma-os"
 
 [features]
-default = []
+default = ["licenses"]
 chromium-browser = ["dep:cef"]
-e2e-test-support = []
+# License hard-gate switch. It is enabled by default; use
+# `--no-default-features` for a build that bypasses the startup gate.
+licenses = []
+production-data = []
+e2e-test-support = [
+    "asr/test-support",
+    "voice_input/test-support",
+    "voice_sherpa/test-support",
+]
+l3-test-support = []
 
 [[bin]]
 name = "norma-os"
@@ -22,6 +31,11 @@ path = "src/bin/multisoul_agent_hook.rs"
 name = "norma-browser-auth-host"
 path = "src/bin/norma_browser_auth_host.rs"
 
+[[bin]]
+name = "ego-live-capture-l3"
+path = "src/bin/ego_live_capture_l3.rs"
+required-features = ["l3-test-support"]
+
 [dependencies]
 gpui = { workspace = true, features = ["test-support"] }
 ui.workspace = true
@@ -31,8 +45,8 @@ storage.workspace = true
 terminal.workspace = true
 workspace.workspace = true
 norma.workspace = true
-voice.workspace = true
 voice_sherpa.workspace = true
+voice_input.workspace = true
 dialogue.workspace = true
 audio.workspace = true
 asr.workspace = true
@@ -42,17 +56,24 @@ agent.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 url = "2.5"
 tracing.workspace = true
+tracing-appender.workspace = true
 tracing-subscriber.workspace = true
+dirs.workspace = true
 crossbeam-channel.workspace = true
 async-channel.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 futures.workspace = true
+hex.workspace = true
 pulldown-cmark.workspace = true
 ureq.workspace = true
+rustls.workspace = true
 hound = "3.5"
+image = "0.25"
+base64 = "0.22"
 
 # Native file picker for wallpaper import (Task 8). AsyncFileDialog is awaited
 # inside a cx.spawn task so it never blocks the GPUI event loop.
@@ -65,8 +86,8 @@ tempfile.workspace = true
 # All AVFoundation interop is macOS-only; on other targets these crates are
 # neither compiled against nor linked.
 [target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
 security-framework = "3.7"
-image = "0.25"
 core-video = { version = "=0.4.3", features = ["metal"] }
 core-foundation = "0.10"
 objc2 = "0.6"
@@ -88,6 +109,7 @@ objc2-avf-audio = { version = "0.3.2", features = [
     "block2",
 ] }
 objc2-quartz-core = { version = "0.3", features = ["CALayer"] }
+screencapturekit = "0.2.8"
 objc2-av-foundation = { version = "0.3", features = [
     "AVAsset",
     "AVAssetReader",

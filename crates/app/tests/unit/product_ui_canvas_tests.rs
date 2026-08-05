@@ -29,6 +29,60 @@ fn test_product_ui_v2_card_shell_uses_22px_radius_and_32px_titlebar() {
     assert_ne!(TITLE_BAR_H, 26.0, "标题栏不得回退到旧 26px 高度");
 }
 
+/// 卡片的半透明顶部圆角必须由同一标题材质绘制，不能叠加近不透明深色衬块。
+///
+/// 数据构造（含关键数值推导）：
+///   zoom = 1.0 → card radius = 22px。
+///   顶部毛玻璃采样区左右各避开 22px，以防 GPUI 0.2.2 的矩形裁剪把图片带到圆角外。
+///   标题材质高度 = 32 × 1.0 = 32px，自身持有 top-left/top-right 圆弧。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 读取 Canvas node shell 的 GPUI 构建代码。
+///   2. 定位标题栏的毛玻璃渐变与顶部圆角声明。
+///   3. 检查标题层没有额外挂载左右实色角块，同时 node shell 维持无背景。
+///
+/// 预期结果：
+///   - 断言 A：node shell 存在 rounded 声明，圆角边界仍由外壳定义。
+///   - 断言 B：单一标题材质自带顶部圆角并进入可视验收树。
+///   - 断言 C：不存在旧近不透明角块；node shell 也不绘制全尺寸背景。
+#[test]
+fn test_product_ui_card_titlebar_has_no_opaque_corner_caps() {
+    let canvas = include_str!("../../src/canvas/view.rs");
+    let chrome = include_str!("../../src/cards/chrome.rs");
+    let shell_start = canvas
+        .find("let mut node_div = div()")
+        .expect("Canvas 必须构造共享 node shell");
+    let shell_end = canvas[shell_start..]
+        .find(".on_hover(")
+        .map(|offset| shell_start + offset)
+        .expect("node shell 必须在 hover handler 前完成视觉样式声明");
+    let shell = &canvas[shell_start..shell_end];
+
+    assert!(
+        shell.contains(".rounded(px(node_radius))"),
+        "共享 node shell 必须拥有 node_radius 圆角，才能定义四个卡片边界"
+    );
+    assert!(
+        canvas.contains(".debug_selector(|| \"card-titlebar\".to_string())")
+            && canvas.contains(".rounded_t(px(node_title_radius_px(vp.zoom)))")
+            && canvas.contains(".bg(card_title_background(visual.title_bar_color, theme))"),
+        "单一标题材质必须自带顶部圆角与毛玻璃渐变，并可由 e2e 定位"
+    );
+    assert!(
+        !canvas.contains("render_card_title_corner_backing")
+            && !chrome.contains("pub fn render_card_title_corner_backing"),
+        "Canvas 与共享 chrome 不得再挂载独立角块，否则会改变顶角的材质权重"
+    );
+    assert!(
+        !chrome.contains("with_alpha(theme.node_fill, 0xf2)"),
+        "卡片 chrome 不得再以 0xf2 近不透明 node_fill 绘制顶角深色块"
+    );
+    assert!(
+        !shell.contains(".bg("),
+        "共享 node shell 不得绘制全尺寸背景，否则 GPUI 会在圆角外留下矩形色块"
+    );
+}
+
 /// Product UI V2 标题栏类型徽章：五种节点必须映射为稳定的 uppercase 类型标签。
 ///
 /// 数据构造（含关键数值推导）：
@@ -128,11 +182,11 @@ fn test_product_ui_v2_card_titlebar_uses_layered_frosted_material() {
 ///   1. 读取 workspace chrome 的卡片背景采样实现。
 ///   2. 检查静态/GIF 壁纸使用同一 ImageSource 的 5 个空间偏移裁切样本。
 ///   3. 检查视频壁纸复用 CVPixelBuffer 的 `surface()`，不经过 CPU RGBA/RenderImage。
-///   4. 检查 Canvas 节点先挂载毛玻璃背景，再绘制标题栏和业务内容。
+///   4. 检查 Canvas 节点先挂载毛玻璃背景，再绘制单一圆角标题材质和业务内容。
 ///
 /// 预期结果：
 ///   - 正断言：存在 5 点偏移、等权全覆盖混合、卡片裁切层和视频 surface 采样。
-///   - 正断言：Canvas 节点渲染顺序为 frosted backdrop → title bar → card body。
+///   - 正断言：Canvas 节点渲染顺序为 frosted backdrop → title layer → card body。
 ///   - 负断言：毛玻璃路径不得使用旧 0x24 固定透明度、CPU 帧拷贝或单层纯色背景。
 #[test]
 fn test_product_ui_card_glass_crops_and_spatially_samples_live_wallpaper() {
@@ -165,15 +219,15 @@ fn test_product_ui_card_glass_crops_and_spatially_samples_live_wallpaper() {
     let backdrop = canvas
         .find("render_card_frosted_backdrop")
         .expect("Canvas 节点应挂载裁切壁纸毛玻璃层");
-    let title = canvas
-        .find(".child(title_bar)")
-        .expect("Canvas 节点应继续渲染标题栏");
+    let title_layer = canvas
+        .find(".child(title_layer)")
+        .expect("Canvas 节点应继续渲染单一圆角标题材质层");
     let body = canvas
         .find(".child(card_body)")
         .expect("Canvas 节点应继续渲染业务内容体");
     assert!(
-        backdrop < title && title < body,
-        "卡片绘制顺序必须是毛玻璃背景 → 标题栏 → 业务内容，避免采样层遮挡交互"
+        backdrop < title_layer && title_layer < body,
+        "卡片绘制顺序必须是毛玻璃背景 → 标题层 → 业务内容，避免采样层遮挡交互"
     );
     assert!(
         !chrome.contains("read_to_end") && !chrome.contains("from_rgba"),

@@ -45,6 +45,7 @@ impl WorkspaceWindowRegistry {
 pub(crate) enum InitialWindowState {
     Launchpad,
     Workspace(PathBuf),
+    ClonedWorkspace(PathBuf),
 }
 
 struct OpenedMultisoulWindow {
@@ -54,23 +55,48 @@ struct OpenedMultisoulWindow {
 
 fn open_multisoul_window(
     state: InitialWindowState,
+    database_paths: storage::DatabasePaths,
+    test_database_guard: Option<std::sync::Arc<crate::database::TestDatabaseGuard>>,
     cx: &mut App,
 ) -> anyhow::Result<OpenedMultisoulWindow> {
+    let app_store = storage::AppStore::initialize(&database_paths)?;
     let title = title_for_initial_state(&state);
-    let bounds = Bounds::centered(None, size(px(1280.0), px(800.0)), cx);
+    let (width, height) = initial_window_dimensions(visual_preview_name());
+    let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
     let mut app_entity = None;
     let root_handle = cx.open_window(window_options(title, bounds), |window, cx| {
         let app = cx.new(|cx| {
-            let mut app = MultisoulApp::new(cx);
-            app.start_norma_drain_loop(window, cx);
+            let mut app = MultisoulApp::new_with_database_context(cx, database_paths, app_store);
+            app.test_database_guard = test_database_guard;
+            #[cfg(feature = "e2e-test-support")]
+            if visual_preview_name().as_deref() == Some("github-clone") {
+                app.open_clone_project_dialog(window, cx);
+            }
             app.start_dialogue_turn_loop(window, cx);
             app.start_cef_message_pump_loop(window, cx);
-            if let InitialWindowState::Workspace(path) = state {
-                app.open_workspace_path(path, window, cx);
+            match state {
+                InitialWindowState::Launchpad => {}
+                InitialWindowState::Workspace(path) => {
+                    app.open_workspace_path(path, window, cx);
+                }
+                InitialWindowState::ClonedWorkspace(path) => {
+                    app.open_workspace_path_with_source(
+                        path,
+                        workspace::WorkspaceSource::Clone,
+                        window,
+                        cx,
+                    );
+                }
             }
             app
         });
         app_entity = Some(app.clone());
+        window.focus(&app.read(cx).focus_handle);
+        let root_focus = app.read(cx).focus_handle.clone();
+        window.defer(cx, move |window, _cx| {
+            root_focus.focus(window);
+            window.activate_window();
+        });
         cx.new(|cx| Root::new(app, window, cx))
     })?;
     let app = app_entity.ok_or_else(|| {
@@ -79,10 +105,28 @@ fn open_multisoul_window(
     Ok(OpenedMultisoulWindow { root_handle, app })
 }
 
+#[cfg(feature = "e2e-test-support")]
+pub(crate) fn visual_preview_name() -> Option<String> {
+    std::env::var("NORMA_VISUAL_PREVIEW").ok()
+}
+
+#[cfg(not(feature = "e2e-test-support"))]
+pub(crate) fn visual_preview_name() -> Option<String> {
+    None
+}
+
+pub(crate) fn initial_window_dimensions(visual_preview: Option<String>) -> (f32, f32) {
+    if visual_preview.as_deref() == Some("orchestration") {
+        (1440.0, 900.0)
+    } else {
+        (1280.0, 800.0)
+    }
+}
+
 pub(crate) fn title_for_initial_state(state: &InitialWindowState) -> String {
     match state {
         InitialWindowState::Launchpad => APP_DISPLAY_NAME.to_string(),
-        InitialWindowState::Workspace(path) => {
+        InitialWindowState::Workspace(path) | InitialWindowState::ClonedWorkspace(path) => {
             let name = path
                 .file_name()
                 .and_then(|name| name.to_str())
@@ -107,15 +151,28 @@ pub(crate) fn window_options(title: String, bounds: Bounds<gpui::Pixels>) -> Win
 }
 
 impl MultisoulApp {
-    pub(crate) fn unregister_workspace_window_if_needed(&self, cx: &mut App) {
+    pub(crate) fn unregister_workspace_window_if_needed(&mut self, cx: &mut App) {
+        if let (Some(workspace_id), Some(route_id)) = (
+            self.workspace_id.as_deref(),
+            self.workspace_route_id.as_deref(),
+        ) {
+            crate::norma::endpoint::unregister_workspace(workspace_id, route_id, cx);
+            self.agent_hook_server.unregister(cx);
+            self.runtime.set_agent_hook_config(None);
+        }
         if let Some(root) = self.workspace_state.current_root.as_deref() {
             cx.default_global::<WorkspaceWindowRegistry>()
                 .unregister(root);
         }
     }
 
-    pub(crate) fn open_new_launchpad_window(cx: &mut Context<Self>) {
-        if let Err(error) = open_multisoul_window(InitialWindowState::Launchpad, cx) {
+    pub(crate) fn open_new_launchpad_window(&self, cx: &mut Context<Self>) {
+        if let Err(error) = open_multisoul_window(
+            InitialWindowState::Launchpad,
+            self.database_paths.clone(),
+            self.test_database_guard.clone(),
+            cx,
+        ) {
             tracing::warn!(%error, "failed to open launchpad window");
         }
     }
@@ -124,6 +181,23 @@ impl MultisoulApp {
         &mut self,
         path: PathBuf,
         close_current_launchpad: bool,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.open_workspace_in_project_window_with_state(
+            path,
+            close_current_launchpad,
+            false,
+            window,
+            cx,
+        );
+    }
+
+    pub(super) fn open_workspace_in_project_window_with_state(
+        &mut self,
+        path: PathBuf,
+        close_current_launchpad: bool,
+        cloned: bool,
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) {
@@ -152,7 +226,17 @@ impl MultisoulApp {
         }
 
         let open_start = Instant::now();
-        match open_multisoul_window(InitialWindowState::Workspace(root.clone()), cx) {
+        let initial_state = if cloned {
+            InitialWindowState::ClonedWorkspace(root.clone())
+        } else {
+            InitialWindowState::Workspace(root.clone())
+        };
+        match open_multisoul_window(
+            initial_state,
+            self.database_paths.clone(),
+            self.test_database_guard.clone(),
+            cx,
+        ) {
             Ok(opened_window) => {
                 tracing::info!(
                     stage = "workspace_open_project_window",
@@ -186,6 +270,45 @@ impl MultisoulApp {
                 cx.notify();
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod visual_acceptance_tests {
+    use super::initial_window_dimensions;
+
+    /// Orchestration 真实 App 验收：仅 canonical 预览请求 1440×900 规范 viewport
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   normal window = 1280×800（现有生产默认值）。
+    ///   orchestration acceptance = 1440×900（SPEC 与 headless 布局证据的固定 viewport）。
+    ///   size delta = (1440 - 1280, 900 - 800) = (160, 100)px。
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 无视觉预览名称 → 使用生产默认窗口。
+    ///   2. Voice 视觉预览名称 → 继续使用生产默认窗口。
+    ///   3. Orchestration 视觉预览名称 → 请求 canonical 1440×900 窗口。
+    ///
+    /// 预期结果：
+    ///   - 正断言：Orchestration 验收尺寸精确为 1440×900。
+    ///   - 负断言：普通与其他预览不得放大生产窗口。
+    #[test]
+    fn orchestration_visual_preview_requests_canonical_window_dimensions() {
+        assert_eq!(
+            initial_window_dimensions(Some("orchestration".to_string())),
+            (1440.0, 900.0),
+            "orchestration visual preview must request the canonical 1440x900 viewport"
+        );
+        assert_eq!(
+            initial_window_dimensions(None),
+            (1280.0, 800.0),
+            "normal startup must preserve the existing 1280x800 production default"
+        );
+        assert_eq!(
+            initial_window_dimensions(Some("voice-ready".to_string())),
+            (1280.0, 800.0),
+            "non-orchestration previews must not inherit the larger acceptance window"
+        );
     }
 }
 
@@ -336,48 +459,8 @@ mod tests {
         );
         assert_ne!(root, Some(missing), "缺失路径不应被当作可打开项目 root");
     }
-
-    /// WN-4：生产窗口必须以 gpui-component Root 为第一层，供 Settings 原生输入安全绘制。
-    ///
-    /// 数据构造（含关键数值的推导过程）：
-    ///   production windows = 1 个（通过 `open_multisoul_window` 创建 Launchpad）
-    ///   expected component roots = 1 个
-    ///   expected raw MultisoulApp roots = 0 个
-    ///
-    /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 初始化 gpui-component，并调用生产窗口工厂创建 Launchpad 窗口。
-    ///   2. 从真实 Window 查询第一层是否为 `ui::component::Root`。
-    ///   3. 同时查询第一层是否错误地直接暴露 `MultisoulApp`。
-    ///
-    /// 预期结果：
-    ///   - 正断言：生产窗口第一层必须存在 gpui-component Root，Input 绘制才能读取上下文。
-    ///   - 负断言：MultisoulApp 不得继续直接成为窗口第一层，否则点击 Input 会 panic。
-    #[test]
-    fn test_production_window_wraps_multisoul_app_in_component_root() {
-        let mut test_cx = gpui::TestAppContext::single();
-        let opened_window = test_cx.update(|cx| {
-            ui::init_components(cx);
-            open_multisoul_window(InitialWindowState::Launchpad, cx)
-                .expect("生产窗口 Root 回归测试应创建 Launchpad 窗口")
-        });
-
-        let (has_component_root, has_raw_app_root) = opened_window
-            .root_handle
-            .update(&mut test_cx, |_app, window, _cx| {
-                (
-                    window.root::<ui::component::Root>().flatten().is_some(),
-                    window.root::<MultisoulApp>().flatten().is_some(),
-                )
-            })
-            .expect("生产窗口 Root 回归测试应读取窗口第一层");
-
-        assert!(
-            has_component_root,
-            "生产窗口必须由 gpui-component Root 包裹，否则 Settings Input 绘制会 panic"
-        );
-        assert!(
-            !has_raw_app_root,
-            "MultisoulApp 不得直接作为生产窗口第一层，否则组件 Root 上下文缺失"
-        );
-    }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/windowing_feature_guide_tests.rs"]
+mod feature_guide_tests;

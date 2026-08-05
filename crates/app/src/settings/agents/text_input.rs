@@ -2,8 +2,8 @@ use super::components::with_alpha;
 use super::{AgentDefinitionField, AgentDefinitionsState};
 use crate::app::MultisoulApp;
 use gpui::{
-    div, prelude::*, px, rgba, AppContext, Context, CursorStyle, Entity, Focusable, FontWeight,
-    Subscription, Window,
+    div, prelude::*, px, rgba, AppContext, Context, CursorStyle, Entity, FocusHandle, Focusable,
+    FontWeight, KeyDownEvent, MouseButton, Subscription, Window,
 };
 use ui::component::input::{Input, InputEvent, InputState};
 use ui::Theme;
@@ -31,14 +31,11 @@ pub(super) fn editable_field(
         .p(px(12.0))
         .rounded(px(8.0))
         .border_1()
-        .border_color(rgba(with_alpha(
-            if editing {
-                theme.accent_orange
-            } else {
-                theme.edge_highlight
-            },
-            0x54,
-        )))
+        .border_color(rgba(if editing {
+            theme.accent_orange
+        } else {
+            theme.text_secondary
+        }))
         .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
         .text_size(px(13.0))
         .text_color(rgba(if editing {
@@ -49,14 +46,29 @@ pub(super) fn editable_field(
         .line_height(px(20.0));
 
     if editing {
-        let input = native_input(state, field, min_height, window, cx);
-        surface = surface.cursor(CursorStyle::IBeam).child(input);
+        let (input, input_focus) = native_input(state, field, min_height, window, cx);
+        surface = surface
+            .cursor(CursorStyle::IBeam)
+            .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+                input_focus.focus(window);
+                cx.stop_propagation();
+            })
+            .child(input);
     } else {
         surface = surface
             .cursor_pointer()
             .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xd4))))
+            .tab_index(0)
+            .focus(move |style| style.border_color(rgba(theme.accent_orange)))
             .on_click(cx.listener(move |app, event, window, cx| {
                 app.on_agent_settings_begin_edit(field, event, window, cx);
+            }))
+            .on_key_down(cx.listener(move |app, event: &KeyDownEvent, _window, cx| {
+                if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                    app.agent_definitions.begin_edit(field);
+                    cx.notify();
+                    cx.stop_propagation();
+                }
             }))
             .child(state.row_value(field));
     }
@@ -81,7 +93,7 @@ fn native_input(
     min_height: f32,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
-) -> Input {
+) -> (Input, FocusHandle) {
     let app = cx.weak_entity();
     let initial_value = state.edit_buffer().to_string();
     let placeholder = match field {
@@ -139,12 +151,14 @@ fn native_input(
         },
     );
     let input = field_state.read(cx).input.clone();
+    let focus = input.focus_handle(cx);
     let editor = Input::new(&input).appearance(false);
-    if field == AgentDefinitionField::WorkflowDescription {
+    let editor = if field == AgentDefinitionField::WorkflowDescription {
         editor.h(px((min_height - 24.0).max(20.0)))
     } else {
         editor
-    }
+    };
+    (editor, focus)
 }
 
 fn field_layout(field: AgentDefinitionField) -> (&'static str, f32) {

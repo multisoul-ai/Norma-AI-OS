@@ -17,6 +17,95 @@ fn row_text(snapshot: &GridSnapshot, row: usize) -> String {
     snapshot.rows[row].iter().map(|cell| cell.c).collect()
 }
 
+#[cfg(test)]
+fn row_text_of(rows: &[Vec<Cell>], index: usize) -> String {
+    rows[index].iter().map(|cell| cell.c).collect()
+}
+
+/// rows_for_absolute 应按 scrollback 绝对行读取完整历史，而不是只看当前视口。
+///
+/// 数据构造（含关键数值推导）：
+///   grid = 4 cols × 3 lines
+///   输入 "A0\r\nB1\r\nC2\r\nD3\r\nE4" → history_size = 5 - 3 = 2
+///   绝对行 0 = Line(-2) = A0；绝对行 1 = Line(-1) = B1
+///   绝对行 2 = Line(0) = C2（屏幕顶行）；绝对行 3 = D3；绝对行 4 = E4
+///   当前视口 display_offset = 0，只显示 C2/D3/E4
+///
+/// 执行过程：
+///   1. 构造 4×3 grid 并写入 5 行输出
+///   2. rows_for_absolute(0, 4) 读取全部 5 个绝对行
+///
+/// 预期结果：
+///   - 正断言：返回 5 行，逐行内容为 A0/B1/C2/D3/E4
+///   - 负断言：不应只有 3 行视口内容（必须跨 scrollback）
+#[test]
+fn test_rows_for_absolute_reads_full_scrollback() {
+    let mut grid = TerminalGrid::new(4, 3);
+    grid.advance(b"A0\r\nB1\r\nC2\r\nD3\r\nE4");
+
+    let rows = grid.rows_for_absolute(0, 4);
+
+    assert_eq!(rows.len(), 5, "绝对行 0..=4 共 5 行，应全部返回");
+    assert!(
+        row_text_of(&rows, 0).starts_with("A0"),
+        "绝对行 0 应是最旧 scrollback 行 A0，实际 {:?}",
+        row_text_of(&rows, 0)
+    );
+    assert!(row_text_of(&rows, 1).starts_with("B1"), "绝对行 1 应是 B1");
+    assert!(
+        row_text_of(&rows, 2).starts_with("C2"),
+        "绝对行 2 应是屏幕顶行 C2"
+    );
+    assert!(row_text_of(&rows, 3).starts_with("D3"), "绝对行 3 应是 D3");
+    assert!(
+        row_text_of(&rows, 4).starts_with("E4"),
+        "绝对行 4 应是最新行 E4"
+    );
+    assert_ne!(
+        rows.len(),
+        3,
+        "rows_for_absolute 必须返回完整 scrollback，不能退回只读视口"
+    );
+}
+
+/// rows_for_absolute 部分范围读取 + 越界钳制。
+///
+/// 数据构造（含关键数值推导）：
+///   grid = 4 cols × 3 lines，输入 5 行 → history_size = 2
+///   绝对行范围 [1, 3] = B1/C2/D3
+///   越界范围 [0, 99] 应被钳制到 [0, 4]（history_size + screen_lines - 1）
+///
+/// 执行过程：
+///   1. 构造 grid 并写入 5 行
+///   2. rows_for_absolute(1, 3) 读取中间三行
+///   3. rows_for_absolute(0, 99) 读取越界范围
+///
+/// 预期结果：
+///   - 正断言：[1,3] 返回 B1/C2/D3 三行
+///   - 正断言：越界 [0,99] 返回 5 行（钳制到末尾）
+///   - 负断言：越界返回不应超过实际可读行数
+#[test]
+fn test_rows_for_absolute_partial_range_and_clamp() {
+    let mut grid = TerminalGrid::new(4, 3);
+    grid.advance(b"A0\r\nB1\r\nC2\r\nD3\r\nE4");
+
+    let middle = grid.rows_for_absolute(1, 3);
+    assert_eq!(middle.len(), 3, "[1,3] 应返回 3 行");
+    assert!(row_text_of(&middle, 0).starts_with("B1"), "范围首行应为 B1");
+    assert!(row_text_of(&middle, 2).starts_with("D3"), "范围末行应为 D3");
+
+    let clamped = grid.rows_for_absolute(0, 99);
+    assert_eq!(clamped.len(), 5, "越界范围应钳制到可读行数 5");
+    assert!(
+        row_text_of(&clamped, 4).starts_with("E4"),
+        "越界末行应为最新行 E4"
+    );
+    assert!(
+        clamped.len() <= 5,
+        "越界读取不能超出 history_size + screen_lines 总行数"
+    );
+}
+
 /// scroll_display 正数应回看更旧历史，负数应回到底部可见屏幕。
 ///
 /// 数据构造（含关键数值的推导过程）：

@@ -6,7 +6,6 @@ use futures::future::BoxFuture;
 use serde_json::json;
 use std::sync::{Arc, Mutex};
 use tokio_util::sync::CancellationToken;
-
 #[derive(Default)]
 struct RecordingAdapter {
     commands: Mutex<Vec<AdapterCommand>>,
@@ -49,14 +48,14 @@ impl AgentCardAdapter for RecordingAdapter {
     }
 }
 
-/// TOOL-1：Norma 只向模型暴露十个窄工具及其精确必填参数。
+/// TOOL-1：Norma 只向模型暴露十二个窄工具及其精确必填参数。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   Existing tools = 8（查询、创建 Agent、派发、取消、建 Terminal、聚焦、输入、删除）
-///   New card tools = 2（Browser + Preview）
-///   Expected tools = 8 + 2 = 10
-///   Side-effect tools = 10 - 1 个只读查询 = 9
+///   Existing tools = 10（查询、创建 Agent、派发、取消任务、建 Terminal/Browser/Preview、聚焦、输入、删除）
+///   Session reply tools = 2（reply_agent + cancel_agent_reply）
+///   Expected tools = 10 + 2 = 12
 ///   `assign_agent_task` required fields = 2（agent + task）
+///   `reply_agent` required fields = 2（agent + message）
 ///   `create_browser` required fields = 0（无 URL 时使用产品默认首页）
 ///   `create_preview` required fields = 1（path）
 ///   `create_agent.profile` enum 数 = 5（Codex / Claude / OpenCode / Cursor / Grok）
@@ -64,14 +63,14 @@ impl AgentCardAdapter for RecordingAdapter {
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 从生产工具注册表读取所有模型可见 definition
 ///   2. 按名称核对完整集合，避免旧的宽泛工具混入
-///   3. 检查 `assign_agent_task` 和 `create_agent` 的 JSON Schema 及五种 profile
+///   3. 检查 `assign_agent_task`、`reply_agent` 和 `create_agent` 的 JSON Schema
 ///
 /// 预期结果：
-///   - 正断言：十个工具全部存在且名称准确
+///   - 正断言：十二个工具全部存在且名称准确
 ///   - 正断言：派发工具仅要求 agent 与 task，创建 Agent 工具允许 Grok profile
 ///   - 负断言：不再暴露 `open_agent`，模型也不能提供 name/activate 或未知 profile
 #[test]
-fn norma_exposes_exactly_ten_narrow_tool_schemas() {
+fn norma_exposes_exactly_twelve_narrow_tool_schemas() {
     let definitions = norma_tool_definitions();
     let names = definitions
         .iter()
@@ -82,6 +81,8 @@ fn norma_exposes_exactly_ten_narrow_tool_schemas() {
         "create_agent",
         "assign_agent_task",
         "cancel_agent_task",
+        "reply_agent",
+        "cancel_agent_reply",
         "create_terminal",
         "create_browser",
         "create_preview",
@@ -92,7 +93,7 @@ fn norma_exposes_exactly_ten_narrow_tool_schemas() {
 
     assert_eq!(
         names, expected,
-        "Norma should expose only the ten supported narrow tools in deterministic order"
+        "Norma should expose only the twelve supported narrow tools in deterministic order"
     );
     assert!(
         !names.contains(&"open_agent"),
@@ -167,6 +168,7 @@ async fn assign_agent_task_executes_immediately_without_confirmation() {
         project_id: "project-1".to_string(),
         turn_id: "turn-7".to_string(),
         user_input: "Alan，请检查当前项目有哪些技术栈。".to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-2".to_string(),
         operation_id: Some("turn-7:call-2".to_string()),
@@ -243,6 +245,7 @@ async fn unknown_operation_receipt_is_idempotent_and_never_replayed() {
         project_id: "project-1".to_string(),
         turn_id: "turn-9".to_string(),
         user_input: "创建一个 Terminal".to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".to_string(),
         operation_id: Some("turn-9:call-1".to_string()),
@@ -304,6 +307,7 @@ async fn delete_canvas_card_requires_explicit_user_intent() {
         project_id: "project-1".to_string(),
         turn_id: "turn-10".to_string(),
         user_input: "整理一下画布".to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".to_string(),
         operation_id: Some("turn-10:call-1".to_string()),
@@ -332,6 +336,7 @@ async fn delete_canvas_card_requires_explicit_user_intent() {
         project_id: "project-1".to_string(),
         turn_id: "turn-11".to_string(),
         user_input: "不要删除卡片 #12，只整理画布".to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".to_string(),
         operation_id: Some("turn-11:call-1".to_string()),
@@ -359,6 +364,7 @@ async fn delete_canvas_card_requires_explicit_user_intent() {
         project_id: "project-1".to_string(),
         turn_id: "turn-12".to_string(),
         user_input: "千万别关掉卡片 #12".to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".to_string(),
         operation_id: Some("turn-12:call-1".to_string()),
@@ -386,6 +392,7 @@ async fn delete_canvas_card_requires_explicit_user_intent() {
         project_id: "project-1".to_string(),
         turn_id: "turn-13".to_string(),
         user_input: "删除卡片 #12".to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: Vec::new(),
         tool_call_id: "call-1".to_string(),
         operation_id: Some("turn-13:call-1".to_string()),
@@ -434,6 +441,7 @@ async fn delete_canvas_card_binds_exact_node_or_actual_context_target() {
         project_id: "project-1".to_string(),
         turn_id: turn.to_string(),
         user_input: input.to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: targets,
         tool_call_id: "call-1".to_string(),
         operation_id: Some(format!("{turn}:call-1")),

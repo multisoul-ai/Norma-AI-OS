@@ -1,10 +1,13 @@
 //! Preview card renderer.
 
 use crate::cards::chrome::CardChrome;
+use crate::cards::preview::image_viewer::render_image_viewer;
 use crate::cards::{Card, CardBodyContext};
-use crate::preview::{MarkdownBlock, MarkdownDocument, PreviewContent, PreviewLoadState};
+use crate::preview::{
+    ImageViewerPresentation, MarkdownBlock, MarkdownDocument, PreviewContent, PreviewLoadState,
+};
 use canvas::{CanvasNode, CanvasRect, NodeType};
-use gpui::{div, img, prelude::*, px, rgba, AnyElement, Div, IntoElement, ObjectFit, Stateful};
+use gpui::{div, prelude::*, px, rgba, AnyElement, Div, IntoElement, Stateful};
 use runtime::{NodeResize, Runtime};
 use ui::Theme;
 
@@ -24,6 +27,7 @@ impl Card for PreviewCard {
     fn chrome(&self, node: &CanvasNode, _runtime: &Runtime) -> CardChrome {
         CardChrome {
             title: node.kind.display_title(),
+            title_detail: None,
             refreshable: true,
             task_badge: None,
         }
@@ -33,6 +37,8 @@ impl Card for PreviewCard {
         render_preview_state(
             node.id,
             context.preview_state,
+            context.preview_image_viewer,
+            context.preview_image_dragging,
             context.theme,
             context.zoom,
             context.bottom_radius_px,
@@ -51,6 +57,8 @@ impl Card for PreviewCard {
 fn render_preview_state(
     node_id: canvas::NodeId,
     state: Option<&PreviewLoadState>,
+    image_viewer: Option<ImageViewerPresentation>,
+    image_dragging: bool,
     theme: Theme,
     zoom: f32,
     bottom_radius_px: f32,
@@ -62,9 +70,24 @@ fn render_preview_state(
         Some(PreviewLoadState::Ready(PreviewContent::Text(text))) => {
             render_text(node_id, text, theme, zoom, bottom_radius_px)
         }
-        Some(PreviewLoadState::Ready(PreviewContent::Image { path })) => {
-            render_image(node_id, path.clone(), theme, zoom, bottom_radius_px)
-        }
+        Some(PreviewLoadState::Ready(PreviewContent::Image { path })) => render_loaded_images(
+            node_id,
+            std::slice::from_ref(path),
+            image_viewer,
+            image_dragging,
+            theme,
+            zoom,
+            bottom_radius_px,
+        ),
+        Some(PreviewLoadState::Ready(PreviewContent::Images { paths })) => render_loaded_images(
+            node_id,
+            paths,
+            image_viewer,
+            image_dragging,
+            theme,
+            zoom,
+            bottom_radius_px,
+        ),
         Some(PreviewLoadState::Error(error)) => render_message(
             "Preview error",
             &error.message,
@@ -191,37 +214,35 @@ fn render_text(
         .into_any_element()
 }
 
-fn render_image(
+fn render_loaded_images(
     node_id: canvas::NodeId,
-    path: std::path::PathBuf,
+    paths: &[std::path::PathBuf],
+    image_viewer: Option<ImageViewerPresentation>,
+    dragging: bool,
     theme: Theme,
     zoom: f32,
     bottom_radius_px: f32,
 ) -> AnyElement {
-    let fallback_theme = theme;
-    let loading_theme = theme;
-    preview_surface(node_id, theme, zoom, bottom_radius_px)
-        .child(
-            div().flex_none().child(
-                img(path)
-                    .object_fit(ObjectFit::Contain)
-                    .with_loading(move || {
-                        div()
-                            .p(px(PREVIEW_PADDING_PX * zoom))
-                            .text_color(rgba(loading_theme.text_tertiary))
-                            .child("Loading image...")
-                            .into_any_element()
-                    })
-                    .with_fallback(move || {
-                        div()
-                            .p(px(PREVIEW_PADDING_PX * zoom))
-                            .text_color(rgba(fallback_theme.destructive))
-                            .child("Could not decode image")
-                            .into_any_element()
-                    }),
-            ),
-        )
-        .into_any_element()
+    let Some(image_viewer) = image_viewer else {
+        return render_message(
+            "Loading image",
+            "Preparing viewer...",
+            node_id,
+            theme,
+            zoom,
+            bottom_radius_px,
+            false,
+        );
+    };
+    render_image_viewer(
+        node_id,
+        paths,
+        image_viewer,
+        dragging,
+        theme,
+        zoom,
+        bottom_radius_px,
+    )
 }
 
 fn render_message(
@@ -284,11 +305,11 @@ fn preview_surface(
         .text_color(rgba(theme.text_secondary))
 }
 
-fn preview_surface_background(theme: Theme) -> u32 {
+pub(super) fn preview_surface_background(theme: Theme) -> u32 {
     with_alpha(theme.panel_high, 0xf2)
 }
 
-fn with_alpha(color: u32, alpha: u8) -> u32 {
+pub(super) fn with_alpha(color: u32, alpha: u8) -> u32 {
     (color & 0xffffff00) | u32::from(alpha)
 }
 

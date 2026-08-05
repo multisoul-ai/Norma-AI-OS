@@ -176,53 +176,44 @@ fn test_terminal_content_local_position_offsets_title_bar_and_padding() {
     );
 }
 
-/// 标题栏文本：长 task_title 应保持单行截断，不能换行撑高标题栏。
+/// 标题栏文本：稳定名称不可收缩，长 task_title 只能在独立区域单行截断。
 ///
 /// 数据构造（含关键数值推导）：
 ///   TITLE_BAR_H = 32px；标题栏高度固定为 TITLE_BAR_H * zoom
-///   长 task_title 来源于用户输入，可能远超卡片宽度
-///   标题文本应在可用宽度内 flex_1 + min_w(0)，再 truncate 成单行
+///   Agent 名称最长 = 16 个英文字母或 8 个汉字；task_title 最长可达 60 字
+///   可收缩区数量 = 1（仅 title_detail）；稳定名称收缩次数 = 0
 ///
 /// 执行过程：
-///   1. 读取 canvas/view.rs 的生产渲染源码
-///   2. 定位 node-title 文本元素
-///   3. 检查该元素声明单行截断所需的 GPUI 样式
+///   1. 读取 canvas/view.rs 与 cards/chrome.rs 的生产渲染源码。
+///   2. 确认 Canvas 把 title/title_detail 一并交给共享标题渲染器。
+///   3. 检查稳定名称与任务详情采用不同的 flex / truncate 契约。
 ///
 /// 预期结果：
-///   - 正断言：标题文本元素有 node-title id，便于防回归定位
-///   - 正断言：标题文本元素有 flex_1、min_w(0)、overflow_hidden、truncate
-///   - 负断言：标题不应继续以裸 .child(title) 直接挂在标题行 flex 内
+///   - 正断言：稳定名称使用 flex_none，不被长任务挤掉。
+///   - 正断言：title_detail 使用 flex_1 + min_w(0) + truncate 单行截断。
+///   - 负断言：Canvas 不再把组合 title 作为唯一可收缩文本节点。
 #[test]
-fn test_canvas_title_text_truncates_in_single_line() {
-    let source = include_str!("../../src/canvas/view.rs");
-    let title_marker = ".id((\"node-title\", id))";
-    let bare_title_sequence = ".child(title)\n                        .when_some(task_badge";
-
-    let title_start = source
-        .find(title_marker)
-        .expect("标题文本元素应声明 node-title id，便于锁定单行截断样式");
-    let title_block_end = (title_start + 500).min(source.len());
-    let title_block = &source[title_start..title_block_end];
-
+fn test_canvas_title_keeps_identity_while_detail_truncates_in_single_line() {
+    let canvas_source = include_str!("../../src/canvas/view.rs");
+    let chrome_source = include_str!("../../src/cards/chrome.rs");
     assert!(
-        title_block.contains(".flex_1()"),
-        "标题文本应 flex_1 占用剩余空间，避免和 badge/actions 争宽后换行"
+        canvas_source.contains("render_card_title(id, title, title_detail, vp.zoom, theme)"),
+        "Canvas 应把稳定名称与任务详情交给共享标题渲染器"
     );
     assert!(
-        title_block.contains(".min_w(px(0.0))"),
-        "标题文本应 min_w(0)，否则 flex 子项可能拒绝收缩并挤压标题栏"
+        chrome_source.contains(".child(title.flex_none())"),
+        "存在任务详情时稳定 Agent 名称必须 flex_none，不能被长正文挤掉"
     );
     assert!(
-        title_block.contains(".overflow_hidden()"),
-        "标题文本应隐藏溢出内容，不能让长 task_title 画到第二行"
+        chrome_source.contains("\"card-title-detail\"")
+            && chrome_source.contains(".flex_1()")
+            && chrome_source.contains(".min_w(px(0.0))")
+            && chrome_source.contains(".truncate()"),
+        "title_detail 应独占可收缩区域并使用单行截断"
     );
     assert!(
-        title_block.contains(".truncate()"),
-        "标题文本应用 GPUI truncate 单行截断，长用户输入不应换行"
-    );
-    assert!(
-        !source.contains(bare_title_sequence),
-        "标题不应继续以裸 .child(title) 挂在标题行 flex 内，否则长文本会按默认文本布局换行"
+        !canvas_source.contains(".truncate()\n                            .child(title)"),
+        "Canvas 不应把组合 title 继续作为唯一可收缩文本节点"
     );
 }
 

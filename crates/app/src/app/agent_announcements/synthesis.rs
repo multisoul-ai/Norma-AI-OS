@@ -1,10 +1,17 @@
+use super::cache::CachedAnnouncementSegmentLookup;
 use super::{AgentAnnouncement, AgentAnnouncementOutcome};
-use crate::app::dialogue::synthesize_reply;
+use crate::app::dialogue::collect_tts_segments;
 use audio::{PcmAudioChunk, PcmFormat};
-use dialogue::TtsClient;
+use std::sync::Arc;
 
 const AGENT_TERMINAL_PAUSE_MILLIS: usize = 250;
 const PCM16_BYTES_PER_SAMPLE: usize = 2;
+
+pub(super) struct SynthesizedAgentTerminalAnnouncement {
+    pub(super) name: Arc<PcmAudioChunk>,
+    pub(super) outcome: Arc<PcmAudioChunk>,
+    pub(super) pcm: PcmAudioChunk,
+}
 
 impl AgentAnnouncement {
     pub(super) fn terminal(
@@ -36,14 +43,102 @@ impl AgentAnnouncement {
     }
 }
 
+#[cfg(test)]
 pub(super) fn synthesize_agent_terminal_announcement(
-    tts: &mut dyn TtsClient,
+    tts: &mut dyn tts::TtsClient,
     agent_name: &str,
     outcome_word: &str,
 ) -> Result<PcmAudioChunk, voice_sherpa::SpeechError> {
-    let name_pcm = synthesize_reply(tts, agent_name)?;
-    let outcome_pcm = synthesize_reply(tts, outcome_word)?;
-    join_with_agent_terminal_pause(name_pcm, outcome_pcm)
+    synthesize_agent_terminal_announcement_with_cached_segments(
+        tts,
+        agent_name,
+        outcome_word,
+        CachedAnnouncementSegmentLookup::default(),
+    )
+    .map(|synthesized| synthesized.pcm)
+}
+
+pub(super) fn synthesize_agent_terminal_announcement_with_cached_segments(
+    tts: &mut dyn tts::TtsClient,
+    agent_name: &str,
+    outcome_word: &str,
+    cached: CachedAnnouncementSegmentLookup,
+) -> Result<SynthesizedAgentTerminalAnnouncement, voice_sherpa::SpeechError> {
+    let name_missing = cached.name.is_none();
+    let outcome_missing = cached.outcome.is_none();
+    let mut requested_texts =
+        Vec::with_capacity(usize::from(name_missing) + usize::from(outcome_missing));
+    if name_missing {
+        requested_texts.push(agent_name);
+    }
+    if outcome_missing {
+        requested_texts.push(outcome_word);
+    }
+    let mut generated_segments = if requested_texts.is_empty() {
+        Vec::new().into_iter()
+    } else {
+        collect_tts_segments(tts, &requested_texts)
+            .map_err(|error| voice_sherpa::SpeechError::Recognizer(error.to_string()))?
+            .into_iter()
+    };
+    let name = match cached.name {
+        Some(name) => name,
+        None => Arc::new(merge_segment_chunks(
+            generated_segments
+                .next()
+                .expect("missing name segment must be requested from TTS"),
+        )?),
+    };
+    let outcome = match cached.outcome {
+        Some(outcome) => outcome,
+        None => Arc::new(merge_segment_chunks(
+            generated_segments
+                .next()
+                .expect("missing outcome segment must be requested from TTS"),
+        )?),
+    };
+    assemble_cached_agent_terminal_announcement(CachedAnnouncementSegmentLookup {
+        name: Some(name),
+        outcome: Some(outcome),
+    })
+}
+
+pub(super) fn assemble_cached_agent_terminal_announcement(
+    cached: CachedAnnouncementSegmentLookup,
+) -> Result<SynthesizedAgentTerminalAnnouncement, voice_sherpa::SpeechError> {
+    let name = cached.name.ok_or_else(|| {
+        voice_sherpa::SpeechError::Audio(
+            "cached Agent announcement is missing the name PCM segment".to_string(),
+        )
+    })?;
+    let outcome = cached.outcome.ok_or_else(|| {
+        voice_sherpa::SpeechError::Audio(
+            "cached Agent announcement is missing the outcome PCM segment".to_string(),
+        )
+    })?;
+    let pcm = join_with_agent_terminal_pause((*name).clone(), (*outcome).clone())?;
+    Ok(SynthesizedAgentTerminalAnnouncement { name, outcome, pcm })
+}
+
+fn merge_segment_chunks(
+    chunks: Vec<PcmAudioChunk>,
+) -> Result<PcmAudioChunk, voice_sherpa::SpeechError> {
+    let mut chunks = chunks.into_iter();
+    let mut merged = chunks.next().ok_or_else(|| {
+        voice_sherpa::SpeechError::Audio("TTS segment returned no PCM audio".to_string())
+    })?;
+    for chunk in chunks {
+        if merged.format != chunk.format
+            || merged.sample_rate_hz != chunk.sample_rate_hz
+            || merged.channels != chunk.channels
+        {
+            return Err(voice_sherpa::SpeechError::Audio(
+                "TTS segment PCM chunks use incompatible formats".to_string(),
+            ));
+        }
+        merged.bytes.extend_from_slice(&chunk.bytes);
+    }
+    Ok(merged)
 }
 
 fn join_with_agent_terminal_pause(

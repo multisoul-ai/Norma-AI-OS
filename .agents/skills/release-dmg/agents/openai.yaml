@@ -1,0 +1,4 @@
+interface:
+  display_name: "Release DMG"
+  short_description: "构建、签名、公证并校验 Norma OS 的 DMG"
+  default_prompt: "使用 $release-dmg 构建并验证可发布的 Norma OS DMG。"

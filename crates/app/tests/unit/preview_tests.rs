@@ -196,3 +196,140 @@ fn test_resolve_preview_path_decodes_external_file_uri() {
         "工作区外 file URI 不得被拼接到 workspace root 下"
     );
 }
+
+/// 多文件 Preview 只接受图片，并按选择顺序产出一个可切换的图片集合。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   图片路径 = [cover.png, detail.jpg, ending.webp]
+///   图片总数 = 3
+///   混合路径 = [cover.png, notes.txt]，其中非图片数 = 1
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在临时目录创建三张可识别扩展名的图片文件和一个文本文件。
+///   2. load_preview_contents(三张图片, None) → Images，并保留选择顺序。
+///   3. load_preview_contents(图片 + 文本, None) → MultipleSelectionRequiresImages。
+///
+/// 预期结果：
+///   - 正断言：三张图片按 cover → detail → ending 返回。
+///   - 正断言：混合选择返回明确错误，不创建不完整的 gallery。
+///   - 负断言：多图片不得退化为只显示第一张的单图结果。
+#[test]
+fn test_load_preview_contents_accepts_ordered_images_and_rejects_mixed_files() {
+    let temp = tempfile::tempdir().expect("test should create temp dir");
+    let cover = temp.path().join("cover.png");
+    let detail = temp.path().join("detail.jpg");
+    let ending = temp.path().join("ending.webp");
+    let notes = temp.path().join("notes.txt");
+    for path in [&cover, &detail, &ending, &notes] {
+        std::fs::write(path, b"fixture").expect("test should create preview fixture");
+    }
+
+    let content = load_preview_contents(vec![cover.clone(), detail.clone(), ending.clone()], None)
+        .expect("三个受支持图片路径应加载为 gallery");
+    let mixed = load_preview_contents(vec![cover.clone(), notes], None);
+
+    assert_eq!(
+        content,
+        PreviewContent::Images {
+            paths: vec![cover.clone(), detail, ending]
+        },
+        "多图 Preview 应按文件选择顺序保留全部图片"
+    );
+    assert!(
+        matches!(
+            mixed,
+            Err(PreviewReadError::MultipleSelectionRequiresImages)
+        ),
+        "图片与文本混合选择时应返回 MultipleSelectionRequiresImages"
+    );
+    assert!(
+        !matches!(content, PreviewContent::Image { path } if path == cover),
+        "多图 Preview 不得退化为只显示第一张图片"
+    );
+}
+
+/// 图片查看器在缩放后切换图片时回到适配大小，并在首尾边界保持可预测的禁用行为。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   图片总数 = 3，合法索引 = 0..=2
+///   初始 zoom = 1.00（适配卡片）
+///   单次放大步长 = 0.25，因此 1.00 + 0.25 = 1.25
+///   切换后 zoom = 1.00，避免把上一张图片的细节位置带到下一张
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建三图查看器，确认从索引 0、适配大小开始。
+///   2. 放大一次到 1.25，再切到下一张。
+///   3. 连续前进到索引 2，并尝试越过末尾。
+///   4. 连续后退到索引 0，并尝试越过开头。
+///
+/// 预期结果：
+///   - 正断言：切图成功时索引改变且 zoom 重置为 1.00。
+///   - 正断言：首尾边界返回 false，供 UI 禁用对应箭头。
+///   - 负断言：索引不得越界，切图后不得残留 1.25 倍缩放。
+#[test]
+fn test_image_viewer_navigation_resets_zoom_and_stops_at_gallery_edges() {
+    let mut viewer = ImageViewerState::new(3);
+
+    assert_eq!(viewer.index(), 0, "三图查看器应从第一张图片开始");
+    assert_eq!(viewer.zoom(), 1.0, "查看器初始应采用适配卡片的 1.00 倍缩放");
+
+    assert!(viewer.zoom_in(), "1.00 倍时应允许放大一次");
+    assert_eq!(viewer.zoom(), 1.25, "单次放大后应从 1.00 变为 1.25");
+    assert!(viewer.next(), "索引 0 应允许切换到索引 1");
+    assert_eq!(viewer.index(), 1, "切换后应浏览第二张图片");
+    assert_eq!(
+        viewer.zoom(),
+        1.0,
+        "切图后应重置到适配大小，不得残留 1.25 倍缩放"
+    );
+
+    assert!(viewer.next(), "索引 1 应允许切换到末张索引 2");
+    assert!(!viewer.next(), "末张索引 2 不应继续前进");
+    assert_eq!(viewer.index(), 2, "越过末尾的操作不得把索引推进到 3");
+
+    assert!(viewer.previous(), "末张索引 2 应允许返回索引 1");
+    assert!(viewer.previous(), "索引 1 应允许返回首张索引 0");
+    assert!(!viewer.previous(), "首张索引 0 不应继续后退");
+    assert_eq!(
+        viewer.index(),
+        0,
+        "越过开头的操作不得产生负索引或回绕到末张"
+    );
+}
+
+/// 图片拖动漫游按屏幕位移 1:1 更新滚动偏移，并在内容边界内钳制。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   当前偏移 = (-120, -80) px
+///   指针位移 = (+30, -50) px
+///   未钳制结果 = (-120 + 30, -80 - 50) = (-90, -130) px
+///   最大可滚动距离 = (300, 100) px，因此合法区间 x=[-300, 0]、y=[-100, 0]
+///   y=-130 超出下边界，钳制后 y=-100
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 将当前滚动偏移、指针屏幕位移和最大滚动距离交给 drag_scroll_offset。
+///   2. 查看器按 1:1 位移计算新偏移。
+///   3. 分别在水平和垂直合法区间内钳制。
+///
+/// 预期结果：
+///   - 正断言：水平结果为 -90 px，保持与指针同向、同量移动。
+///   - 正断言：垂直结果钳制为 -100 px，不越过图片底边。
+///   - 负断言：不得保留越界的 -130 px，也不得错误除以画布 zoom。
+#[test]
+fn test_drag_scroll_offset_tracks_pointer_and_clamps_to_image_bounds() {
+    let offset = drag_scroll_offset((-120.0, -80.0), (30.0, -50.0), (300.0, 100.0));
+
+    assert_eq!(
+        offset.0, -90.0,
+        "图片水平偏移应按屏幕位移 1:1 从 -120 更新为 -90"
+    );
+    assert_eq!(
+        offset.1, -100.0,
+        "图片垂直偏移应从 -130 钳制到最大滚动边界 -100"
+    );
+    assert_ne!(offset.1, -130.0, "图片拖动不得保留超出内容边界的垂直偏移");
+    assert_ne!(
+        offset.0, -105.0,
+        "图片拖动使用屏幕坐标，不应假设画布 zoom=2 后把 30px 位移除以 2"
+    );
+}

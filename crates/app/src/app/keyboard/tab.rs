@@ -27,9 +27,14 @@ impl MultisoulApp {
     pub(crate) fn on_send_tab_to_focused_pty(
         &mut self,
         _: &SendTabToFocusedPty,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.feature_guide.is_visible() {
+            window.focus_next();
+            cx.stop_propagation();
+            return;
+        }
         if self.settings_panel.open || !matches!(self.screen, AppScreen::Canvas) {
             cx.propagate();
             return;
@@ -58,7 +63,7 @@ impl MultisoulApp {
             ctrl: false,
             alt: false,
         };
-        end_active_agent_task_for_manual_interrupt(&mut self.runtime, node_id, &input);
+        end_active_agent_task_for_manual_interrupt(self, node_id, &input);
         self.interaction.clear_text_selection_for_node(node_id);
         self.motion.interrupt_initialization(node_id);
         if let Err(error) = self.runtime.send_node_input(node_id, NodeInput::Key(input)) {

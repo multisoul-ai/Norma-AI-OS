@@ -3,7 +3,7 @@
 use gpui::Keystroke;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use storage::{AppStore, SettingsStore};
+use storage::SettingsStore;
 
 mod catalog;
 pub(crate) use catalog::{default_shortcut_entries, read_only_behaviors};
@@ -29,6 +29,7 @@ pub(crate) enum ShortcutCommandId {
     ToggleMasterLayout,
     ExitFocus,
     ToggleSettings,
+    VoiceInteraction,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -136,16 +137,14 @@ impl Default for ShortcutSettingsState {
 }
 
 impl ShortcutSettingsState {
-    pub(crate) fn load_default() -> Self {
-        let store = AppStore::open_default()
-            .ok()
-            .map(|app| app.settings_store());
+    pub(crate) fn load_from_store(store: SettingsStore) -> Self {
         let prefs = store
-            .as_ref()
-            .and_then(|store| store.get_string(SHORTCUT_PREFS_KEY).ok().flatten())
+            .get_string(SHORTCUT_PREFS_KEY)
+            .ok()
+            .flatten()
             .map(|raw| ShortcutPreferences::from_json(&raw))
             .unwrap_or_default();
-        Self::new(prefs, store)
+        Self::new(prefs, Some(store))
     }
 
     fn new(prefs: ShortcutPreferences, store: Option<SettingsStore>) -> Self {
@@ -182,6 +181,24 @@ impl ShortcutSettingsState {
         self.effective.iter().find_map(|entry| {
             (entry.current_keystroke.as_deref() == Some(source.as_str())).then_some(entry.command)
         })
+    }
+
+    pub(crate) fn voice_interaction_keystroke(&self) -> Option<Keystroke> {
+        self.effective
+            .iter()
+            .find(|entry| entry.command == ShortcutCommandId::VoiceInteraction)?
+            .current_keystroke
+            .as_deref()
+            .and_then(|raw| Keystroke::parse(raw).ok())
+    }
+
+    pub(crate) fn voice_interaction_label(&self) -> String {
+        keystroke_label(
+            self.effective
+                .iter()
+                .find(|entry| entry.command == ShortcutCommandId::VoiceInteraction)
+                .and_then(|entry| entry.current_keystroke.as_deref()),
+        )
     }
 
     pub(crate) fn record_keystroke(&mut self, keystroke: &Keystroke) -> bool {

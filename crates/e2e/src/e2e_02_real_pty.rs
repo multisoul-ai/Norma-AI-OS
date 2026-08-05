@@ -1,7 +1,7 @@
 //! E2E-02-real：真 PTY 集成冒烟（L2，SPEC §3.4，`#[ignore]`）。
 //!
 //! 与 E2E-02 同形，但 PTY 后端换为真实 `portable_pty`：经 `make_app_real` 装配
-//! `MultisoulApp::new(cx)`（不注入工厂）→ `Runtime.pty_factory = None` →
+//! 隔离测试数据库构造器（不注入 PTY 工厂）→ `Runtime.pty_factory = None` →
 //! `spawn_term_live(None)` → `TermLive::spawn_command` → 真实 `/bin/zsh`。
 //!
 //! 真 PTY 输出异步到达，必须用 `drain_until(predicate, timeout)` 轮询（仅
@@ -33,7 +33,7 @@ use crate::harness::{create_terminal, drain_until, enter_canvas, make_app_real, 
 /// 链路在真实 PTY 下端到端可用，且未发送的字串不出现在 grid。
 ///
 /// 数据构造（含关键数值推导）：
-///   - `make_app_real(cx)`：`MultisoulApp::new(cx)` → `Runtime::new()`（pty_factory=None）
+///   - `make_app_real(cx)`：隔离测试数据库构造器 → `Runtime::new()`（pty_factory=None）
 ///     → `on_new_terminal` 走 `spawn_term_live(None)` → `TermLive::spawn_command`
 ///     → `PtyHandle::spawn_command` → `portable_pty` 启动真实 `/bin/zsh` 子进程。
 ///   - shell：`/bin/zsh`（`on_new_terminal` 在 `crates/app/src/app/mod.rs:211` 硬编码）。

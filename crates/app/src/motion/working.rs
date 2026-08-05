@@ -59,7 +59,7 @@ pub(crate) fn resolve_working_visual(input: WorkingVisualInput) -> WorkingVisual
     }
 }
 
-fn resolve_working_snake(theme: Theme, fade: f32, phase: f32) -> Option<WorkingSnake> {
+pub(crate) fn resolve_working_snake(theme: Theme, fade: f32, phase: f32) -> Option<WorkingSnake> {
     if fade <= EPSILON {
         return None;
     }

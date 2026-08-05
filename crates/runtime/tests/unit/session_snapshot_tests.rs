@@ -287,20 +287,101 @@ fn test_codex_session_discovery_uses_bounded_metadata_reader() {
     );
 }
 
-/// SS-6: build_agent_resume_command 为 Claude 生成带 --resume 的命令。
+/// SS-6: 恢复任意 Agent 会话前都必须加载 login profile，再读取交互式 zshrc。
 ///
-/// 数据构造：
-///   shell = "/bin/zsh"
-///   session_id = "abc123"
-///   hook_env = None
+/// 数据构造（含关键数值的推导过程）：
+///   Agent profile 数量 = 5（Claude、Codex、Cursor、Grok、OpenCode）
+///   每条 zsh 参数数量  = 2（`-lic` + `exec <agent-cli> ...`）
+///   `-lic`             = login(`l`) + interactive(`i`) + command(`c`)
+///   负对照             = `-ic`（不读取 `.zprofile`，GUI PATH 下可能找不到 zoxide）
 ///
-/// 执行过程：
-///   build_agent_resume_command(Claude, "/bin/zsh", "abc123", None, None)
-///   → PtyCommand { program="/bin/zsh", args=["-ic", "exec claude ... --resume abc123"] }
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 为五种 Agent profile 分别构造带 `session_id="resume-123"` 的恢复命令。
+///   2. 读取每条 `PtyCommand` 的首个 shell 参数。
+///   3. 逐一与 login interactive 参数和旧 interactive-only 参数比较。
 ///
 /// 预期结果：
-///   - args 拼接后包含子字符串 "--resume abc123"
-///   - args 不为空（确保命令结构存在）
+///   - 正断言：五种 Agent 的首个参数都精确为 `-lic`。
+///   - 负断言：五种 Agent 都不得使用跳过 `.zprofile` 的 `-ic`。
+#[test]
+fn test_agent_resume_commands_load_login_profile_before_interactive_zshrc() {
+    let claude =
+        build_agent_resume_command(AgentProfile::Claude, "/bin/zsh", "resume-123", None, None);
+    let codex =
+        build_agent_resume_command(AgentProfile::Codex, "/bin/zsh", "resume-123", None, None);
+    let cursor =
+        build_agent_resume_command(AgentProfile::Cursor, "/bin/zsh", "resume-123", None, None);
+    let grok = build_agent_resume_command(AgentProfile::Grok, "/bin/zsh", "resume-123", None, None);
+    let opencode =
+        build_agent_resume_command(AgentProfile::OpenCode, "/bin/zsh", "resume-123", None, None);
+
+    assert_eq!(
+        claude.args.first().map(String::as_str),
+        Some("-lic"),
+        "Claude 恢复命令应先加载 login profile，再读取交互式 zshrc"
+    );
+    assert_ne!(
+        claude.args.first().map(String::as_str),
+        Some("-ic"),
+        "Claude 恢复命令不得跳过包含 Homebrew PATH 的 .zprofile"
+    );
+    assert_eq!(
+        codex.args.first().map(String::as_str),
+        Some("-lic"),
+        "Codex 恢复命令应先加载 login profile，再读取交互式 zshrc"
+    );
+    assert_ne!(
+        codex.args.first().map(String::as_str),
+        Some("-ic"),
+        "Codex 恢复命令不得跳过包含 Homebrew PATH 的 .zprofile"
+    );
+    assert_eq!(
+        cursor.args.first().map(String::as_str),
+        Some("-lic"),
+        "Cursor 恢复命令应先加载 login profile，再读取交互式 zshrc"
+    );
+    assert_ne!(
+        cursor.args.first().map(String::as_str),
+        Some("-ic"),
+        "Cursor 恢复命令不得跳过包含 Homebrew PATH 的 .zprofile"
+    );
+    assert_eq!(
+        grok.args.first().map(String::as_str),
+        Some("-lic"),
+        "Grok 恢复命令应先加载 login profile，再读取交互式 zshrc"
+    );
+    assert_ne!(
+        grok.args.first().map(String::as_str),
+        Some("-ic"),
+        "Grok 恢复命令不得跳过包含 Homebrew PATH 的 .zprofile"
+    );
+    assert_eq!(
+        opencode.args.first().map(String::as_str),
+        Some("-lic"),
+        "OpenCode 恢复命令应先加载 login profile，再读取交互式 zshrc"
+    );
+    assert_ne!(
+        opencode.args.first().map(String::as_str),
+        Some("-ic"),
+        "OpenCode 恢复命令不得跳过包含 Homebrew PATH 的 .zprofile"
+    );
+}
+
+/// SS-7: build_agent_resume_command 为 Claude 生成带 --resume 的命令。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   shell = "/bin/zsh"
+///   session_id = "abc123"（6 个 ASCII 字符，无需特殊 shell 转义）
+///   hook_env = None
+///   workspace_root = None
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. build_agent_resume_command(Claude, "/bin/zsh", "abc123", None, None)。
+///   2. 拼接 args，检查 Claude 的恢复参数。
+///
+/// 预期结果：
+///   - 正断言：args 包含 shell-quoted `--resume 'abc123'`。
+///   - 负断言：args 不为空，防止恢复命令退化成裸 shell。
 #[test]
 fn test_build_claude_agent_resume_command_contains_resume_flag() {
     let cmd = build_agent_resume_command(AgentProfile::Claude, "/bin/zsh", "abc123", None, None);

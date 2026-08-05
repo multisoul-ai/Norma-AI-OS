@@ -36,7 +36,7 @@ fn test_workspace_left_rail_is_temporarily_hidden() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 bottom_voice_bar_visible() → true，render_workspace_chrome 挂载底部语音菜单
-///   2. 检查 voice_bar.rs 显示 ⌘E 键帽
+///   2. 检查 voice_bar.rs 显示当前配置的语音快捷键标签
 ///   3. 检查 app_voice.rs 不再注册底栏 mouse down/up 激活处理
 ///
 /// 预期结果：
@@ -53,8 +53,8 @@ fn test_bottom_voice_bar_is_visible_with_sherpa_provider() {
         "voice_sherpa 接入后底部语音输入菜单应通过 bottom_voice_bar_visible() 开启"
     );
     assert!(
-        voice_bar_source.contains("IDLE_KEYCAPS"),
-        "底部状态条应继续提示唯一的 ⌘E 激活快捷键"
+        voice_bar_source.contains("voice_interaction_label"),
+        "底部状态条应提示当前可配置的语音激活快捷键"
     );
     assert!(
         !app_voice_source.contains("on_voice_bar_mouse_down"),

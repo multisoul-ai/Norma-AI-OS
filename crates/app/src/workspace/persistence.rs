@@ -38,6 +38,10 @@ impl PersistenceScheduler {
         self.last_save_failed = false;
     }
 
+    pub(crate) fn project_store(&self) -> Option<&ProjectStore> {
+        self.project_store.as_ref()
+    }
+
     pub(crate) fn mark_canvas_dirty(&mut self) {
         self.canvas_dirty = true;
         self.dirty_for = Duration::ZERO;

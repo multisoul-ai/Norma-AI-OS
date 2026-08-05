@@ -35,6 +35,16 @@ if [ "$AD_HOC" = true ] && [ "$NOTARIZE" = true ]; then
   die "--ad-hoc 与 --notarize 不能同时使用"
 fi
 
+# 只接受本次调用新生成/更新的 DMG，避免把 build/ 中的历史包误报为成功。
+PACKAGE_MARKER=$(mktemp "${TMPDIR:-/tmp}/norma-release-dmg.XXXXXX")
+trap 'rm -f "$PACKAGE_MARKER"' EXIT
+
+if [ "$AD_HOC" = true ]; then
+  OUTPUT_DIR="build/dev"
+else
+  OUTPUT_DIR="build"
+fi
+
 # 1. 前置：codesign readiness
 bash scripts/check-codesign-readiness.sh
 
@@ -83,13 +93,8 @@ fi
 # 3. 验证产物
 # 真实发版产物在 build/Norma OS.app（Packager.toml out-dir="build"，product-name="Norma OS"），
 # ad-hoc 测试产物在 build/dev/Norma OS.app（Packager.dev.toml out-dir="build/dev"）。
-# 用循环而非 `ls -d a b | head -1`：当 a 不存在时 ls 退出非零，
-# 在 `set -euo pipefail` 下会直接终止脚本，跳过整段验证。
-APP=""
-for p in "build/Norma OS.app" "build/dev/Norma OS.app"; do
-  [ -d "$p" ] && APP="$p" && break
-done
-[ -n "$APP" ] || die "未找到产物 Norma OS.app"
+APP="$OUTPUT_DIR/Norma OS.app"
+[ -d "$APP" ] || die "未找到本次产物 $APP"
 info "验证 $APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 if [ "$NOTARIZE" = true ]; then
@@ -100,4 +105,25 @@ else
   xcrun stapler validate "$APP" || warn "stapler 在未公证/ad-hoc 下无票据"
 fi
 
-info "Done: $APP"
+DMG=""
+while IFS= read -r candidate; do
+  if [ -z "$DMG" ] || [ "$candidate" -nt "$DMG" ]; then
+    DMG="$candidate"
+  fi
+done < <(find "$OUTPUT_DIR" -maxdepth 1 -type f -name '*.dmg' -newer "$PACKAGE_MARKER" -print)
+
+[ -n "$DMG" ] || die "未找到本次新生成的 DMG（目录: $OUTPUT_DIR）"
+info "验证 $DMG"
+hdiutil verify "$DMG"
+
+DMG_SHA256=$(shasum -a 256 "$DMG" | awk '{print $1}')
+DMG_SIZE_BYTES=$(stat -f '%z' "$DMG")
+DMG_CHECKSUM_FILE="${DMG}.sha256"
+printf '%s  %s\n' "$DMG_SHA256" "$(basename "$DMG")" > "$DMG_CHECKSUM_FILE"
+
+info "Done"
+info "App: $APP"
+info "DMG: $DMG"
+info "Size: $DMG_SIZE_BYTES bytes"
+info "SHA-256: $DMG_SHA256"
+info "Checksum: $DMG_CHECKSUM_FILE"

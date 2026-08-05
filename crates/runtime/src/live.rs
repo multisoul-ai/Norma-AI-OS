@@ -1,7 +1,8 @@
 //! Live Node 抽象：runtime 层用 NodeId 管生命周期，保持零 gpui。
 
 use std::fmt;
-use terminal::{GridSnapshot, KeyInput, PtyError, TerminalStatus};
+use std::sync::Arc;
+use terminal::{Cell, GridSnapshot, KeyInput, PtyError, TerminalStatus};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Caps {
@@ -27,8 +28,10 @@ impl Caps {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeInput {
     Key(KeyInput),
-    /// Raw UTF-8 paste — sent to PTY without key encoding.
+    /// 普通文本输入（含 IME commit）：按原始 UTF-8 写入 PTY，不套用 paste 协议。
     Text(String),
+    /// 显式粘贴：根据终端声明的 bracketed-paste mode 编码后写入 PTY。
+    Paste(String),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -45,7 +48,8 @@ pub enum NodeScroll {
 #[derive(Debug, Clone)]
 pub enum NodeView {
     Term {
-        snapshot: GridSnapshot,
+        snapshot: Arc<GridSnapshot>,
+        revision: u64,
         status: TerminalStatus,
     },
 }
@@ -91,6 +95,11 @@ pub trait LiveNode {
     fn view(&self) -> Option<NodeView>;
     fn kill(&mut self);
     fn child_pid(&self) -> Option<u32> {
+        None
+    }
+    /// 终端节点读取绝对行范围 `[start_abs, end_abs]`（含两端）的中性 Cell 行数据。
+    /// 非终端节点返回 `None`。绝对行坐标系见 [`terminal::GridSnapshot`]。
+    fn terminal_rows(&self, _start_abs: usize, _end_abs: usize) -> Option<Vec<Vec<Cell>>> {
         None
     }
 }

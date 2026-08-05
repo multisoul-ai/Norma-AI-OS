@@ -5,12 +5,18 @@ use crate::settings::voice::VoiceSettingsValues;
 use dialogue::DialoguePhase;
 use gpui::Context;
 use std::sync::mpsc;
-use std::thread::JoinHandle;
-use voice_sherpa::{spawn_listening_pipeline_loop, ListeningPipelineEvent, PcmStreamSession};
+use voice_sherpa::{
+    spawn_recognizer_listening_pipeline_loop, ListeningPipelineEvent, ListeningPipelineWorker,
+    PcmStreamSession, SpeechError,
+};
 
 #[cfg(test)]
 #[path = "../../../tests/unit/dialogue_asr_echo_gate_tests.rs"]
 mod dialogue_asr_echo_gate_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/dialogue_vad_integrity_tests.rs"]
+mod dialogue_vad_integrity_tests;
 
 #[derive(Default)]
 struct AsrUtteranceGate {
@@ -33,7 +39,7 @@ pub(crate) struct DialogueListeningRuntime {
     pub(crate) pcm_stream: PcmStreamSession,
     pub(crate) pipeline_events: async_channel::Receiver<ListeningPipelineEvent>,
     stop_tx: Option<mpsc::Sender<()>>,
-    pipeline_thread: Option<JoinHandle<()>>,
+    pipeline_worker: Option<ListeningPipelineWorker>,
 }
 
 pub(crate) fn start_dialogue_listening_runtime(
@@ -46,22 +52,19 @@ pub(crate) fn start_dialogue_listening_runtime(
         input_device_selected = input_device_id.is_some(),
         "validating realtime voice provider"
     );
-    let provider =
-        DialogueControlState::validate_dialogue_start(&values, &model_root).map_err(|error| {
-            tracing::warn!(
-                target: "norma_voice",
-                stage = "provider_validation",
-                %error,
-                "realtime voice startup stage failed"
-            );
-            error
-        })?;
-    tracing::info!(
-        target: "norma_voice",
-        model_id = provider.available_model().descriptor().id().as_str(),
-        model_dir = %provider.model_dir().display(),
-        "realtime voice provider validated"
-    );
+    let provider = resolve_asr_recognizer_factory(&values, &model_root).map_err(|error| {
+        tracing::warn!(
+            target: "norma_voice",
+            stage = "provider_validation",
+            %error,
+            "realtime voice startup stage failed"
+        );
+        error
+    })?;
+    values
+        .agent_provider_config()
+        .map_err(|error| DialogueStartError::Provider(error.to_string()))?;
+    tracing::info!(target: "norma_voice", "realtime voice provider validated");
     tracing::info!(target: "norma_voice", "requesting microphone authorization");
     super::check_mic_permission().map_err(|error| {
         tracing::warn!(
@@ -73,8 +76,8 @@ pub(crate) fn start_dialogue_listening_runtime(
         DialogueStartError::Speech(error)
     })?;
     tracing::info!(target: "norma_voice", "microphone authorization accepted");
-    let (pcm_stream, pcm_chunks) = provider
-        .start_pcm_stream(input_device_id.as_deref())
+    let (pcm_stream, pcm_chunks) = voice_input::start_pcm_stream(input_device_id)
+        .map_err(SpeechError::from)
         .map_err(|error| {
             tracing::warn!(
                 target: "norma_voice",
@@ -88,11 +91,8 @@ pub(crate) fn start_dialogue_listening_runtime(
 
     let (event_tx, event_rx) = async_channel::bounded::<ListeningPipelineEvent>(64);
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
-    let pipeline_thread = spawn_listening_pipeline_loop(
-        provider.available_model().clone(),
-        pcm_chunks,
-        event_tx,
-        stop_rx,
+    let pipeline_worker = spawn_recognizer_listening_pipeline_loop(
+        model_root, provider, pcm_chunks, event_tx, stop_rx,
     )
     .map_err(|error| {
         tracing::warn!(
@@ -109,11 +109,52 @@ pub(crate) fn start_dialogue_listening_runtime(
         pcm_stream,
         pipeline_events: event_rx,
         stop_tx: Some(stop_tx),
-        pipeline_thread: Some(pipeline_thread),
+        pipeline_worker: Some(pipeline_worker),
     })
 }
 
+pub(crate) fn resolve_asr_recognizer_factory(
+    values: &VoiceSettingsValues,
+    model_root: &std::path::Path,
+) -> Result<Box<dyn asr::RecognizerFactory>, DialogueStartError> {
+    validate_runtime_vad_installation(model_root).map_err(|error| {
+        DialogueStartError::Speech(SpeechError::ModelNotFound(format!(
+            "Silero VAD integrity validation failed: {error}"
+        )))
+    })?;
+    let profile = crate::settings::voice::resolve_builtin_asr_profile(values, model_root)
+        .map_err(DialogueStartError::Provider)?;
+    asr::builtin_recognizer_factory(profile, |credential_ref| {
+        crate::settings::voice::VoiceSettingsState::load_azure_asr_secret(credential_ref)
+            .map_err(asr::AsrError::Provider)
+    })
+    .map_err(|error| DialogueStartError::Provider(error.to_string()))
+}
+
+fn validate_runtime_vad_installation(
+    model_root: &std::path::Path,
+) -> Result<std::path::PathBuf, asr::AsrInstallationError> {
+    let validation = asr::validate_silero_vad_installation(model_root);
+    #[cfg(feature = "e2e-test-support")]
+    if matches!(
+        validation,
+        Err(asr::AsrInstallationError::MissingRequiredFile(_))
+    ) {
+        let e2e_model_root =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/models");
+        return asr::validate_silero_vad_installation(&e2e_model_root);
+    }
+    validation
+}
+
 impl DialogueListeningRuntime {
+    pub(crate) fn cancellation(&self) -> asr::RecognitionCancellation {
+        self.pipeline_worker
+            .as_ref()
+            .expect("installed dialogue runtime must retain its ASR worker")
+            .cancellation()
+    }
+
     pub(crate) fn dispose(mut self) {
         self.stop_pipeline();
         self.pcm_stream.cancel();
@@ -123,9 +164,18 @@ impl DialogueListeningRuntime {
         if let Some(stop_tx) = self.stop_tx.take() {
             let _ = stop_tx.send(());
         }
-        if let Some(thread) = self.pipeline_thread.take() {
-            let _ = thread.join();
+        if let Some(worker) = self.pipeline_worker.take() {
+            worker.cancel();
+            let _ = worker.join();
         }
+    }
+}
+
+impl crate::app::MultisoulApp {
+    pub(crate) fn handle_unclassified_speech_start(&mut self) -> (DialoguePhase, bool) {
+        let phase = self.dialogue.phase();
+        let should_notify = self.dialogue.on_unclassified_speech_start();
+        (phase, should_notify)
     }
 }
 
@@ -149,11 +199,7 @@ pub(crate) fn start_pipeline_event_pump(
                 ListeningPipelineEvent::SpeechStart => {
                     tracing::info!(target: "norma_voice", "VAD speech start detected");
                     let (phase, should_notify) = this
-                        .update(cx, |app, _cx| {
-                            let phase = app.dialogue.phase();
-                            app.cancel_agent_announcements();
-                            (phase, app.dialogue.on_unclassified_speech_start())
-                        })
+                        .update(cx, |app, _cx| app.handle_unclassified_speech_start())
                         .unwrap_or((DialoguePhase::Idle, false));
                     utterance_gate.on_speech_start(phase);
                     if phase != DialoguePhase::Listening {
@@ -166,6 +212,25 @@ pub(crate) fn start_pipeline_event_pump(
                     if should_notify {
                         let _ = this.update(cx, |_app, cx| cx.notify());
                     }
+                }
+                ListeningPipelineEvent::InputEnded(reason) => {
+                    tracing::info!(
+                        target: "norma_voice",
+                        ?reason,
+                        "continuous ASR input ended"
+                    );
+                }
+                ListeningPipelineEvent::Failed(message) => {
+                    tracing::warn!(
+                        target: "norma_voice",
+                        %message,
+                        "continuous ASR failed"
+                    );
+                    let _ = this.update(cx, |app, cx| {
+                        app.dialogue.mark_runtime_error(message);
+                        cx.notify();
+                    });
+                    break;
                 }
                 ListeningPipelineEvent::FinalTranscript(text) => {
                     tracing::info!(
@@ -197,6 +262,7 @@ pub(crate) fn start_pipeline_event_pump(
                             }
                             match app.dialogue.on_final_transcript(&text) {
                                 Ok(()) => {
+                                    app.voice.reset_caption_to_default();
                                     app.dialogue.mark_voice_turn_pending();
                                     true
                                 }

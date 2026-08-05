@@ -4,6 +4,7 @@
 > 状态：implemented
 > 来源：`ask-matt` → `grill-with-docs` 交互梳理
 > 相关决策：`CONTEXT.md` 的「语音首次设置」「语音可用状态」；ADR-0017「Provider API Key 存入 macOS Keychain」
+> 后续修订：其中“本地 TTS 是唯一就绪条件”的表述已由 `2026-07-19-SPEC-built-in-streaming-tts-providers.md` 取代；当前条件是用户显式选择的 TTS Provider 已 Ready。
 
 ## Problem Statement
 
@@ -121,7 +122,7 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - 建立单一 Voice readiness 投影，至少表达 `SetupRequired`、`SettingUp`、`Ready` 和 `Unavailable`；`Unavailable` 必须携带可定位到麦克风、ASR、Provider 或 TTS 的失败原因，Settings 和 `⌘E` 路由消费同一投影。
 - `SetupRequired` 表示从未满足全部硬条件；`Unavailable` 表示曾经 Ready 但硬条件后来失效。不得用一个布尔 `enabled` 混合两种语义。
 - `⌘E` 路由先检查 readiness：非 Ready 时打开 Settings → Voice 并聚焦待处理项，不启动录音、持续聆听、Agent 回合或 TTS；Ready 时保持现有 Single Voice Command / Continuous Listening 路由。
-- Settings → Voice 是 Setup 与日常配置的唯一产品入口。未就绪时在同一 Voice Settings 弹窗内容区渲染三步 Setup，并持续保留 Settings 导航与 Voice 页头；就绪时在原位渲染简化主页面。Setup 的“选择其他识别模型”和 Ready 摘要的 ASR `Change` 进入 Speech Recognition 的 ASR 目录；TTS `Change` 进入 Spoken Replies 内常驻的 Local TTS Model 与音色目录。Advanced Settings 继续承载 Provider 细节和 Diagnostics。
+- Settings → Voice 是 Setup 与日常配置的唯一产品入口。未就绪时在同一 Voice Settings 弹窗内容区渲染三步 Setup，并持续保留 Settings 导航与 Voice 页头；就绪时在原位渲染简化主页面。Speech Recognition 在原步骤卡内提供唯一的 Recognition source 行，On-device 与 Cloud 配置在同一位置互斥替换，不跳转独立窗口或叠加 Provider 卡。Ready 摘要的 ASR `Change` 进入该来源概览；On-device 的“选择其他识别模型”才在原卡片内展开本地目录。TTS `Change` 进入 Spoken Replies 内常驻的 Local TTS Model 与音色目录。Advanced Settings 继续承载 Diagnostics。
 - 首次 Setup 的逻辑硬条件为麦克风授权、可用 ASR、可用 Agent Provider + 模型、可用 TTS + 音色。视觉固定为三步：麦克风并入 Speech Recognition；ASR 与 TTS 保留在各自步骤和目录中，readiness 逐项判断。
 - 三步卡片必须同时呈现内容，并用左侧编号与纵向连接线表达顺序；不得回退成四张独立卡或默认折叠 Provider/TTS。`Finish Setup` 在未完成时保持不可用，Review 模式下同一位置提供返回 Ready 页的明确操作。
 - ASR/TTS 安装分别沿用既有受管安装、哈希校验、manifest 和原子提升边界；两个目录各自负责成功、失败、取消、重试、选择与进度显示，不增加上层套餐协调器。
@@ -140,7 +141,7 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - Provider 的临时失联、模型被移除、凭据失效、麦克风权限撤销、ASR/TTS 安装损坏都会把曾经 Ready 的投影变为 `Unavailable`，并保留精确修复目标。
 - 四项硬条件通过后立即完成 Setup，不要求真实录音。Ready 页面不提供额外 `Try Voice` 按钮，真实使用与验证统一走现有 `⌘E` 端到端路径。
 - 后台完成 Setup 时只发送一次非阻塞完成通知；通知不抢焦点、不自动调用 TTS，也不替用户启动语音。
-- 简化主页面保留当前模式、单次触发方式、麦克风、任务播报、窗口光效、当前音色和 Preview；Ready 摘要三行都提供 `Change`：ASR 直接展开 Speech Recognition 模型目录，AI Connection 进入同一 Voice Setup 并滚到 Provider 配置，TTS 进入 Spoken Replies 的 Local TTS Model 并滚入可见视口。TTS 目录不在 Advanced 重复出现。
+- 简化主页面保留当前模式、单次触发方式、麦克风、任务播报、窗口光效、当前音色和 Preview；Ready 摘要三行都提供 `Change`：ASR 进入 Speech Recognition 的来源概览且默认保持本地目录折叠，AI Connection 进入同一 Voice Setup 并滚到 Provider 配置，TTS 进入 Spoken Replies 的 Local TTS Model 并滚入可见视口。TTS 目录不在 Advanced 重复出现。
 - 普通配置继续即时生效并异步持久化，不新增全局 Save / Cancel。模型安装、Provider 验证和 Keychain 写入以各自状态和错误反馈收口。
 - 任何模式、麦克风、ASR、Provider、模型、TTS 或音色变更继续遵守既有取消 generation 与共享 Voice Runtime 约束，陈旧异步结果不得恢复旧配置或自动重启麦克风。
 - 该规格不改变 `⌘E` 的固定快捷键、Single Voice Command / Continuous Listening 语义、Agent 工具执行或 TTS 播放业务状态机；改变的是使用这些路径前的 readiness 门槛与 Settings 信息架构。
@@ -157,7 +158,7 @@ API Key 存入 macOS Keychain。应用设置数据库只保存非敏感 Provider
 - Keychain 使用窄凭据存储接口的内存替身做日常单测/e2e；断言保存后 UI 默认显示 `*********`，眼睛按钮只在显式点击期间显示内存中的 Key，再次点击恢复掩码；Replace 更新引用，Remove 清除凭据，SQLite 快照不包含 API Key 明文。
 - 单独覆盖旧 SQLite API Key → Keychain 的成功迁移、Keychain 写入失败时不清旧值、重载后 Keychain 优先三个场景。
 - readiness 纯逻辑测试覆盖 `SetupRequired → SettingUp → Ready → Unavailable → Ready`，并逐项验证麦克风、ASR、Provider、TTS 哪一项失效会产生哪个修复目标。
-- Settings e2e 覆盖 Setup 与 Ready 主页面默认不铺开完整 ASR 目录，Local TTS Model 直接位于 Spoken Replies 且不在 Ready Advanced 重复；点击“选择其他识别模型”或 ASR `Change` 后 ASR 目录在同一页面可达，点击 TTS `Change` 不得展开 ASR，且首个 TTS 模型经滚动偏移投影后必须位于 Settings 视口内。Base URL、API Key 与 trace 默认不可见，进入 Advanced Settings 后仍可达。
+- Settings e2e 覆盖 Setup 与 Ready 主页面默认不铺开完整 ASR 目录，Local TTS Model 直接位于 Spoken Replies 且不在 Ready Advanced 重复；ASR `Change` 进入 Recognition source 概览但不直接展开本地目录，点击“选择其他识别模型”后目录在原 Speech Recognition 卡片内可达；On-device 与 Azure 配置不得同时渲染。点击 TTS `Change` 不得展开 ASR，且首个 TTS 模型经滚动偏移投影后必须位于 Settings 视口内。Base URL、API Key 与 trace 默认不可见，进入 Advanced Settings 后仍可达。
 - 快捷键 e2e 覆盖 Ready 状态下既有 Single Voice Command Hold/Toggle 与 Continuous Listening 行为不变，防止 readiness 门槛破坏已确认业务路径。
 - 通知 e2e 覆盖 Settings 关闭后后台完成只通知一次、入口切换为 `Voice`、不抢焦点、不自动播放 TTS，重新载入不重复发送旧完成通知。
 - `Unavailable` e2e 分别覆盖权限撤销、ASR 损坏、Provider 失效和 TTS 损坏；每个场景按 `⌘E` 必须打开正确修复项，且不得启动录音。

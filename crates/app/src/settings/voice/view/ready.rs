@@ -3,17 +3,21 @@ use crate::app::MultisoulApp;
 use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, Stateful};
 use ui::Theme;
 
-pub(super) fn voice_ready_overview(theme: Theme, cx: &mut Context<MultisoulApp>) -> Div {
+pub(super) fn voice_ready_overview(
+    theme: Theme,
+    voice_shortcut_label: &str,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
     div()
         .w_full()
         .flex()
         .flex_col()
         .gap(px(14.0))
-        .child(ready_banner(theme))
+        .child(ready_banner(theme, voice_shortcut_label))
         .child(ready_summary(theme, cx))
 }
 
-fn ready_banner(theme: Theme) -> Stateful<Div> {
+fn ready_banner(theme: Theme, voice_shortcut_label: &str) -> Stateful<Div> {
     div()
         .id("voice-ready-banner")
         .debug_selector(|| "voice-ready-banner".to_string())
@@ -53,7 +57,9 @@ fn ready_banner(theme: Theme) -> Stateful<Div> {
                     div()
                         .text_size(px(12.0))
                         .text_color(rgba(theme.text_secondary))
-                        .child("All required models are configured. Press ⌘E to talk."),
+                        .child(format!(
+                            "All required models are configured. Press {voice_shortcut_label} to talk."
+                        )),
                 ),
         )
 }

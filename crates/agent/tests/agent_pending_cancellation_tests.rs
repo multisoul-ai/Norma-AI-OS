@@ -13,6 +13,7 @@ fn idle_alan() -> AgentRosterEntry {
         active_node_id: Some(101),
         tracking: AgentTrackingMode::Managed,
         busy: false,
+        task_state: agent::AgentTaskState::Ready,
     }
 }
 

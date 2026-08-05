@@ -1,7 +1,7 @@
+use super::atomic_file;
 use super::install::{ensure_array, ensure_object, is_multisoul_hook_command, read_json_or_empty};
 use super::{build_hook_command, hook_events_for_source, AgentHookError, HookSource};
 use serde_json::{json, Value};
-use std::fs;
 use std::path::Path;
 
 pub(super) fn install_cursor_hooks(path: &Path, command_path: &Path) -> Result<(), AgentHookError> {
@@ -15,10 +15,7 @@ pub(super) fn install_cursor_hooks(path: &Path, command_path: &Path) -> Result<(
     for event_name in hook_events_for_source(HookSource::Cursor) {
         add_cursor_command_hook(&mut root, event_name, &command);
     }
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, serde_json::to_string_pretty(&root)?)?;
+    atomic_file::replace(path, serde_json::to_string_pretty(&root)?.as_bytes())?;
     Ok(())
 }
 
@@ -35,7 +32,7 @@ pub(super) fn uninstall_cursor_hooks(path: &Path) -> Result<(), AgentHookError> 
     }
     if changed {
         cleanup_empty_cursor_hooks(&mut root);
-        fs::write(path, serde_json::to_string_pretty(&root)?)?;
+        atomic_file::replace(path, serde_json::to_string_pretty(&root)?.as_bytes())?;
     }
     Ok(())
 }
@@ -46,7 +43,7 @@ pub(super) fn cursor_hooks_installed_at(path: &Path) -> bool {
     };
     hook_events_for_source(HookSource::Cursor)
         .iter()
-        .any(|event_name| cursor_event_has_multisoul_hook(&root, event_name))
+        .all(|event_name| cursor_event_has_multisoul_hook(&root, event_name))
 }
 
 fn cursor_event_has_multisoul_hook(root: &Value, event_name: &str) -> bool {

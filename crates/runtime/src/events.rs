@@ -5,6 +5,7 @@ use std::collections::{HashMap, VecDeque};
 use terminal::TerminalStatus;
 
 use crate::runtime::Runtime;
+use crate::EgoTaskState;
 
 pub const MAX_PENDING_EVENTS: usize = 1024;
 
@@ -52,6 +53,18 @@ pub struct AgentTaskUpdate {
     pub session_id: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AgentTaskUpdateOutcome {
+    pub task_state_changed: bool,
+    pub session_binding_changed: bool,
+}
+
+impl AgentTaskUpdateOutcome {
+    pub fn changed(self) -> bool {
+        self.task_state_changed || self.session_binding_changed
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RuntimeEvent {
     NodeRegistered {
@@ -78,6 +91,12 @@ pub enum RuntimeEvent {
         from: AgentTaskState,
         to: AgentTaskState,
         source_event: String,
+    },
+    EgoTaskStateChanged {
+        node_id: NodeId,
+        from: Option<EgoTaskState>,
+        to: EgoTaskState,
+        operation: String,
     },
     EventsDropped {
         count: usize,
@@ -179,6 +198,21 @@ impl RuntimeEvents {
             node_id,
             operation: operation.to_string(),
             message,
+        });
+    }
+
+    pub(crate) fn ego_task_state_changed(
+        &mut self,
+        node_id: NodeId,
+        from: Option<EgoTaskState>,
+        to: EgoTaskState,
+        operation: &str,
+    ) {
+        self.push(RuntimeEvent::EgoTaskStateChanged {
+            node_id,
+            from,
+            to,
+            operation: operation.to_string(),
         });
     }
 
@@ -301,32 +335,46 @@ impl Runtime {
     }
 
     pub fn apply_agent_task_update(&mut self, update: AgentTaskUpdate) -> bool {
+        self.apply_agent_task_update_with_outcome(update).changed()
+    }
+
+    pub fn apply_agent_task_update_with_outcome(
+        &mut self,
+        update: AgentTaskUpdate,
+    ) -> AgentTaskUpdateOutcome {
         let Some(node) = self.document.node(update.node_id) else {
             tracing::debug!(
                 node_id = update.node_id,
                 "agent task update ignored: missing node"
             );
-            return false;
+            return AgentTaskUpdateOutcome::default();
         };
         match &node.kind {
             CanvasNodeKind::Agent(agent) if agent.profile == update.profile => {
-                if let Some(session_id) = update
+                let session_binding_changed = update
                     .session_id
                     .as_deref()
                     .filter(|session_id| !session_id.is_empty())
-                {
-                    self.agent_session_ids
-                        .insert(update.node_id, session_id.to_string());
-                }
+                    .is_some_and(|session_id| {
+                        self.agent_session_bindings.bind_if_unclaimed(
+                            update.node_id,
+                            update.profile,
+                            session_id,
+                        )
+                    });
                 if let Some(title) = update.task_title {
                     self.events
                         .set_agent_task_title_if_absent(update.node_id, title);
                 }
-                self.events.update_agent_task_state(
+                let task_state_changed = self.events.update_agent_task_state(
                     update.node_id,
                     update.to,
                     update.provider_event,
-                )
+                );
+                AgentTaskUpdateOutcome {
+                    task_state_changed,
+                    session_binding_changed,
+                }
             }
             CanvasNodeKind::Agent(agent) => {
                 tracing::debug!(
@@ -335,7 +383,7 @@ impl Runtime {
                     actual = ?update.profile,
                     "agent task update ignored: profile mismatch"
                 );
-                false
+                AgentTaskUpdateOutcome::default()
             }
             CanvasNodeKind::Rect(_)
             | CanvasNodeKind::Term(_)
@@ -345,7 +393,7 @@ impl Runtime {
                     node_id = update.node_id,
                     "agent task update ignored: target is not an agent node"
                 );
-                false
+                AgentTaskUpdateOutcome::default()
             }
         }
     }

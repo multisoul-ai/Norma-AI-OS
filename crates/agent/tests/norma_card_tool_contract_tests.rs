@@ -37,6 +37,7 @@ fn norma_prompt_routes_review_card_language_to_file_preview_tool() {
             workspace_root: "/workspace/project-1".to_string(),
             total_cards: 0,
             cards: Vec::new(),
+            conversation_tails: Vec::new(),
         },
         &[],
     );
@@ -53,6 +54,136 @@ fn norma_prompt_routes_review_card_language_to_file_preview_tool() {
     assert!(
         !prompt.contains("REVIEW 卡片时调用 `create_terminal`") && prompt.contains("不要猜测"),
         "Norma must not route REVIEW to Terminal or invent a target file"
+    );
+}
+
+/// Norma 路由应把“创建 Agent 并执行任务”合并为一次 create_agent 调用。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   User intents = 2（创建卡片 + 执行任务）
+///   Required model tool calls = 1（`create_agent` with `task`）
+///   Forbidden follow-up calls = 1（额外 `assign_agent_task`）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用空画布与空 Agent 名册构建生产 system prompt。
+///   2. 检查新建且带任务的明确路由规则。
+///   3. 检查该规则是否禁止紧接着再次派发同一任务。
+///
+/// 预期结果：
+///   - 正断言：提示词要求把完整任务放进 `create_agent.task`。
+///   - 正断言：提示词明确限定整个新建场景只调用一次工具。
+///   - 负断言：提示词不得允许随后再调用 `assign_agent_task` 造成串行往返或重复任务。
+#[test]
+fn norma_prompt_routes_create_and_task_to_one_tool_call() {
+    let prompt = norma_system_prompt(
+        &CurrentCanvasContext {
+            project_name: "project-1".to_string(),
+            workspace_root: "/workspace/project-1".to_string(),
+            total_cards: 0,
+            cards: Vec::new(),
+            conversation_tails: Vec::new(),
+        },
+        &[],
+    );
+
+    assert!(
+        prompt.contains("把完整任务放入 `create_agent.task`"),
+        "Norma prompt should route the complete new-Agent task into create_agent.task"
+    );
+    assert!(
+        prompt.contains("只调用一次 `create_agent`")
+            && prompt.contains("不要随后再调用 `assign_agent_task`"),
+        "Norma prompt should require one combined tool call and forbid a serial follow-up assignment"
+    );
+    assert!(
+        !prompt.contains("先调用 `create_agent`，再调用 `assign_agent_task`"),
+        "Norma prompt must not preserve the old two-call create-then-assign route"
+    );
+}
+
+/// Norma 创建 Agent 时携带任务，应通过一次 typed tool 调用抵达 Adapter。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Tool calls = 1（`create_agent`）
+///   Requested Agent profiles = 1（Codex）
+///   Attached tasks = 1（检查技术栈）
+///   Expected Adapter commands = 1 + 0 additional assignment calls = 1
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 检查生产 schema 将 `task` 声明为可选非空字符串。
+///   2. 使用 `profile=codex` 与非空 `task` 调用生产 `NormaToolRuntime`。
+///   3. Runtime 合并参数为一个命令，RecordingAdapter 记录并返回 accepted 回执。
+///
+/// 预期结果：
+///   - 正断言：schema 暴露可选 task，同时仍只强制要求 profile。
+///   - 正断言：工具调用成功并保留 Adapter 的 accepted 状态。
+///   - 正断言：Adapter 恰好只执行一次，避免第二次串行工具调用。
+///   - 负断言：可选 task 不得被 `deny_unknown_fields` 拒绝或丢弃。
+#[tokio::test]
+async fn create_agent_accepts_attached_task_in_one_adapter_call() {
+    let adapter = Arc::new(RecordingAdapter::default());
+    let runtime = NormaToolRuntime::new(adapter.clone());
+    let create = norma_tool_definitions()
+        .into_iter()
+        .find(|definition| definition.name == "create_agent")
+        .expect("create_agent definition should exist");
+    let context = ToolContext {
+        project_id: "project-1".to_string(),
+        turn_id: "turn-create-and-dispatch".to_string(),
+        user_input: "创建一个 Codex，并让它检查当前项目有哪些技术栈。".to_string(),
+        input_source: agent::AgentInputSource::Other,
+        contextual_delete_targets: Vec::new(),
+        tool_call_id: "call-1".to_string(),
+        operation_id: Some("turn-create-and-dispatch:call-1".to_string()),
+        cancellation: CancellationToken::new(),
+    };
+
+    let result = runtime
+        .execute(
+            "create_agent",
+            json!({
+                "profile": "codex",
+                "task": "检查当前项目有哪些技术栈。"
+            }),
+            &context,
+        )
+        .await
+        .expect("create_agent should accept one optional task without a second tool call");
+
+    assert_eq!(
+        create.parameters["properties"]["task"],
+        json!({"type": "string", "minLength": 1}),
+        "create_agent schema should expose one optional non-empty task"
+    );
+    assert_eq!(
+        create.parameters["required"],
+        json!(["profile"]),
+        "task should stay optional so card-only create_agent calls remain compatible"
+    );
+    assert_eq!(
+        result.status, "accepted",
+        "create_agent with a task should preserve the Adapter's accepted receipt"
+    );
+    let commands = adapter
+        .commands
+        .lock()
+        .expect("recording adapter command lock should not be poisoned");
+    assert_eq!(
+        commands.len(),
+        1,
+        "create_agent with a task should execute exactly one Adapter command"
+    );
+    assert_eq!(
+        commands[0],
+        AdapterCommand::CreateAgent {
+            profile: norma::protocol::AgentProfile::Codex,
+            task: Some("检查当前项目有哪些技术栈。".to_string()),
+        },
+        "create_agent should preserve the requested profile and complete task in one command"
+    );
+    assert!(
+        !matches!(commands[0], AdapterCommand::AssignAgentTask { .. }),
+        "the combined create command must not degrade into a separate assignment command"
     );
 }
 
@@ -152,6 +283,7 @@ async fn browser_and_preview_tools_preserve_structured_card_payloads() {
         project_id: "project-1".to_string(),
         turn_id: turn.to_string(),
         user_input: input.to_string(),
+        input_source: agent::AgentInputSource::Other,
         contextual_delete_targets: Vec::new(),
         tool_call_id: call.to_string(),
         operation_id: Some(format!("{turn}:{call}")),

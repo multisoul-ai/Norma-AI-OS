@@ -7,7 +7,7 @@ pub(crate) enum TtsPlaybackSource {
     Preview,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum TtsPlaybackEvent {
     PcmQueued(PcmEnergyTimeline),
     DiscardQueued,

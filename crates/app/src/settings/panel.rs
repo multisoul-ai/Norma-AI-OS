@@ -1,5 +1,8 @@
-use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, KeyDownEvent, MouseButton, ScrollHandle, Window};
+use crate::app::{settings_crossfade_opacities, FeatureGuideSettingsTransition, MultisoulApp};
+use gpui::{
+    div, prelude::*, px, rgba, Animation, AnimationExt, AnyElement, Context, KeyDownEvent,
+    MouseButton, ScrollHandle, Window,
+};
 
 #[path = "content.rs"]
 mod content;
@@ -92,28 +95,6 @@ impl SettingsPanelLayout {
             SettingsNavigationMode::Sidebar | SettingsNavigationMode::CompactSidebar => self.height,
         }
     }
-
-    fn with_width_cap(mut self, viewport_width: f32, max_width: f32) -> Self {
-        self.width = self.width.min(max_width);
-        self.left = ((viewport_width - self.width) * 0.5).max(0.0);
-        self.navigation_mode = if self.width < TOP_BAR_BREAKPOINT {
-            SettingsNavigationMode::TopBar
-        } else if self.width < COMPACT_SIDEBAR_BREAKPOINT {
-            SettingsNavigationMode::CompactSidebar
-        } else {
-            SettingsNavigationMode::Sidebar
-        };
-        self.sidebar_width = match self.navigation_mode {
-            SettingsNavigationMode::Sidebar => (self.width * 0.28)
-                .clamp(SIDEBAR_MIN_W, SIDEBAR_MAX_W)
-                .min((self.width * 0.45).max(1.0)),
-            SettingsNavigationMode::CompactSidebar => (self.width * 0.26)
-                .clamp(COMPACT_SIDEBAR_MIN_W, COMPACT_SIDEBAR_MAX_W)
-                .min((self.width * 0.38).max(1.0)),
-            SettingsNavigationMode::TopBar => 0.0,
-        };
-        self
-    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -136,6 +117,7 @@ pub(crate) struct SettingsPanelState {
 #[derive(Debug, Default)]
 pub(crate) struct SettingsViewportState {
     pub(crate) content_scroll: ScrollHandle,
+    pub(crate) agent_list_scroll: ScrollHandle,
     pub(crate) pending_voice_setup_scroll: Option<crate::settings::voice::VoiceSetupDestination>,
 }
 
@@ -183,6 +165,15 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.agent_definitions.delete_dialog().is_some()
+            && ev.keystroke.key == "escape"
+            && !ev.keystroke.modifiers.modified()
+        {
+            self.agent_definitions.close_delete_dialog();
+            cx.stop_propagation();
+            cx.notify();
+            return;
+        }
         if self.handle_settings_text_key_down(ev, cx) {
             return;
         }
@@ -198,17 +189,12 @@ impl MultisoulApp {
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    ) -> AnyElement {
         let theme = self.theme;
         let win = window.viewport_size();
         let win_w = f32::from(win.width);
         let win_h = f32::from(win.height);
         let layout = SettingsPanelLayout::for_viewport(win_w, win_h);
-        let layout = if self.settings_panel.active_section == SettingsSection::Voice {
-            layout.with_width_cap(win_w, 1020.0)
-        } else {
-            layout
-        };
         debug_assert!(
             layout.content_width() > 0.0,
             "settings layout must reserve positive content width"
@@ -225,19 +211,29 @@ impl MultisoulApp {
             cx,
         );
         let setup_scroll_target = self.settings_viewport.pending_voice_setup_scroll.take();
+        let selected_agent_on_canvas = self
+            .agent_definitions
+            .draft()
+            .id
+            .is_some_and(|id| self.runtime.has_active_agent_definition(id));
         let content = settings_content(
             SettingsContentContext {
                 theme,
                 theme_id: self.theme_id,
                 panel: &self.settings_panel,
                 agent_definitions: &self.agent_definitions,
+                selected_agent_on_canvas,
+                orchestration: &self.orchestration_settings,
+                performance: &self.performance_settings,
                 voice: VoiceSettingsContent {
                     state: &self.voice_settings,
                     inputs: &self.voice_settings_inputs,
                     setup_scroll_target,
                 },
                 content_scroll: &self.settings_viewport.content_scroll,
+                agent_list_scroll: &self.settings_viewport.agent_list_scroll,
                 wallpaper_state: &self.wallpaper_settings,
+                wallpaper_previews: &mut self.wallpaper_previews,
                 shortcuts: &self.shortcuts,
             },
             window,
@@ -253,7 +249,7 @@ impl MultisoulApp {
         };
 
         // overlay 挡住自动聚焦；点击时显式 focus。
-        div()
+        let overlay = div()
             .id("settings-overlay")
             .debug_selector(|| "settings-overlay".to_string())
             .absolute()
@@ -263,6 +259,9 @@ impl MultisoulApp {
             .bottom(px(0.0))
             .occlude()
             .bg(rgba(with_alpha(theme.graphite, 0x34)))
+            .when(self.motion.reduce_motion, |overlay| {
+                overlay.debug_selector(|| "settings-reduced-motion-crossfade".to_string())
+            })
             .on_mouse_down(MouseButton::Left, {
                 let focus = self.focus_handle.clone();
                 move |_, window, cx| {
@@ -310,7 +309,46 @@ impl MultisoulApp {
                     .on_key_down(cx.listener(Self::on_settings_panel_key_down))
                     .child(navigation)
                     .child(content),
-            )
+            );
+        match self.feature_guide.settings_transition() {
+            FeatureGuideSettingsTransition::Opening => overlay
+                .with_animation(
+                    (
+                        "settings-feature-guide-opening",
+                        self.feature_guide.settings_transition_generation(),
+                    ),
+                    Animation::new(self.motion.reduced_fade_duration()),
+                    |overlay, progress| {
+                        overlay.opacity(
+                            settings_crossfade_opacities(
+                                FeatureGuideSettingsTransition::Opening,
+                                progress,
+                            )
+                            .1,
+                        )
+                    },
+                )
+                .into_any_element(),
+            FeatureGuideSettingsTransition::Closing => overlay
+                .with_animation(
+                    (
+                        "settings-feature-guide-closing",
+                        self.feature_guide.settings_transition_generation(),
+                    ),
+                    Animation::new(self.motion.reduced_fade_duration()),
+                    |overlay, progress| {
+                        overlay.opacity(
+                            settings_crossfade_opacities(
+                                FeatureGuideSettingsTransition::Closing,
+                                progress,
+                            )
+                            .1,
+                        )
+                    },
+                )
+                .into_any_element(),
+            FeatureGuideSettingsTransition::None => overlay.into_any_element(),
+        }
     }
 }
 

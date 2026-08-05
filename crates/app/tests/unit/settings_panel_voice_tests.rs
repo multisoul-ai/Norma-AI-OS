@@ -5,17 +5,19 @@
 ///   nav anchor = Voice
 ///   storage keys = mode + trigger + immutable ASR model ID + Agent Provider + announcement toggle
 ///   input anchors = default / refresh / clear（覆盖默认输入、设备刷新、清除选择）
+///   recognition sources = On-device(1) + Azure Speech(1)，在同一 Setup 卡片内互斥投影
 ///   continuous anchors = Continuous Listening / Agent Provider / Local TTS
 ///   hidden debug env = MULTISOUL_VOICE_TRANSCRIPT，不应暴露成设置项
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 拼接 Settings 生产渲染源码
-///   2. 检查 Voice 导航、分区标题、持久化 key、输入设备与单击编辑锚点
-///   3. 检查 Edit 按钮和隐藏 transcript fallback 没有出现在 Settings UI
+///   2. 检查 Voice 导航、Recognition source、模型下载、持久化 key 与输入设备锚点
+///   3. 检查 Azure 显式 Use、单击编辑和 Keychain 状态锚点
+///   4. 检查 Edit 按钮和隐藏 transcript fallback 没有出现在 Settings UI
 ///
 /// 预期结果：
 ///   - 正断言：Voice 页面包含新模式、模型库、Agent/TTS 与 Advanced
-///   - 正断言：页面包含受控模型安装、输入设备、Agent 任务播报和 trace 锚点
+///   - 正断言：页面包含两种识别来源、受控模型下载、输入设备、Agent 任务播报和 trace 锚点
 ///   - 负断言：不应保留旧 Dialogue LLM mode、旧触发器文案、realtime 总开关或 API Key 明文
 #[test]
 fn test_voice_settings_panel_contains_voice_configuration_anchors() {
@@ -24,22 +26,32 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
         include_str!("../../src/settings/content.rs"),
         include_str!("../../src/settings/voice.rs"),
         include_str!("../../src/settings/voice/state.rs"),
+        include_str!("../../src/settings/voice/state/editing.rs"),
+        include_str!("../../src/settings/voice/state/field.rs"),
         include_str!("../../src/settings/voice/state/model_selection.rs"),
+        include_str!("../../src/settings/voice/state/editing.rs"),
         include_str!("../../src/settings/voice/state/provider_values.rs"),
         include_str!("../../src/settings/voice/state/values.rs"),
         include_str!("../../src/settings/voice/view.rs"),
         include_str!("../../src/settings/voice/view/editable.rs"),
+        include_str!("../../src/settings/voice/view/editable/inputs.rs"),
         include_str!("../../src/settings/voice/view/editable/native.rs"),
+        include_str!("../../src/settings/voice/view/editable/status.rs"),
         include_str!("../../src/settings/voice/view/editable/visibility.rs"),
         include_str!("../../src/settings/voice/view/input_device.rs"),
         include_str!("../../src/settings/voice/view/interaction.rs"),
         include_str!("../../src/settings/voice/view/model_catalog.rs"),
         include_str!("../../src/settings/voice/view/tts_catalog.rs"),
+        include_str!("../../src/settings/voice/view/tts_provider.rs"),
+        include_str!("../../src/settings/voice/view/tts_provider/picker.rs"),
+        include_str!("../../src/settings/voice/view/tts_provider/controller.rs"),
         include_str!("../../src/settings/voice/view/spoken_reply.rs"),
         include_str!("../../src/settings/voice/view/provider.rs"),
         include_str!("../../src/settings/voice/view/provider/api_key.rs"),
         include_str!("../../src/settings/voice/view/setup.rs"),
         include_str!("../../src/settings/voice/view/setup/components.rs"),
+        include_str!("../../src/settings/voice/view/setup/models.rs"),
+        include_str!("../../src/settings/voice/view/setup/recognition.rs"),
         include_str!("../../src/settings/voice/credentials.rs"),
         include_str!("../../../asr/src/catalog.rs")
     );
@@ -54,13 +66,21 @@ fn test_voice_settings_panel_contains_voice_configuration_anchors() {
     assert_anchor!("SettingsSection::Voice");
     assert_anchor!("Voice");
     assert_anchor!("Speech Recognition");
+    assert_anchor!("Recognition source");
+    assert_anchor!("voice-setup-asr-source-local");
+    assert_anchor!("voice-setup-asr-source-azure");
+    assert_anchor!("Use Azure Speech");
+    assert_anchor!("Download");
     assert_anchor!("Voice Interaction");
     assert_anchor!("Single Voice Command");
     assert_anchor!("Continuous Listening");
     assert_anchor!("Shortcut");
     assert_anchor!("Agent Provider");
-    assert_anchor!("Spoken Reply");
+    assert_anchor!("Spoken Replies");
     assert_anchor!("Local TTS");
+    assert_anchor!("Current Voice");
+    assert_anchor!("Use This Voice");
+    assert_anchor!("Manage Models");
     assert_anchor!("Advanced");
     assert_anchor!("voice.ollama.endpoint");
     assert_anchor!("voice.ollama.model");

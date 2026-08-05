@@ -79,36 +79,35 @@ fn test_agent_working_snake_uses_moving_segment_not_full_ring() {
     );
 }
 
-/// MWS-2: Agent 工作态 snake 稳定运行后应每个 app tick 推进并请求 repaint。
+/// MWS-2: Agent 工作态 snake 稳定运行后应推进真实相位，但不超过 15fps repaint。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   node_id = 42（任意稳定 id，与 MWS-1 区分）
 ///   完整绕行周期 = 1200ms
 ///   chase_fade token = 150ms，tick(150ms) 后 fade 完成且 phase = 150 / 1200 = 0.125
-///   running snake repaint 预算 = 12ms，与 app frame loop tick 对齐：
-///     第 1 个稳定 tick = 12ms，累计 12ms >= 12ms → 应 repaint
-///     第 2 个稳定 tick = 12ms，累计 12ms >= 12ms → 应 repaint
-///     第 3 个稳定 tick = 12ms，累计 12ms >= 12ms → 应 repaint
-///   中间 phase = (150 + 12 + 12) / 1200 = 0.145
-///   最终 phase = (150 + 12 + 12 + 12) / 1200 = 0.155
+///   running snake repaint 预算 = ceil(1000ms / 15fps) = 67ms：
+///     前 5 个稳定 tick = 12ms × 5 = 60ms < 67ms → 均不应 repaint
+///     第 6 个稳定 tick：累计 72ms >= 67ms → 应 repaint
+///   节流期间 phase = (150 + 12 × 5) / 1200 = 0.175
+///   最终 phase = (150 + 12 × 6) / 1200 = 0.185
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. ensure_node 创建空闲节点
 ///   2. set_chase_intent(true) 模拟 Agent Thinking/RunningTool 工作态
 ///   3. tick(150ms) 完成 snake 淡入
-///   4. 连续执行三个 12ms tick，验证每个稳定 tick 都请求 repaint 且 phase 持续推进
-///   5. resolve_node_visual 读取最终 working_snake 相位
+///   4. 连续执行五个 12ms tick，验证稳定期不 repaint 但 phase 持续推进。
+///   5. 第六个 12ms tick 达到预算后放行 repaint，并读取最终 working_snake 相位。
 ///
 /// 预期结果：
 ///   - 正断言：淡入 tick 返回 true，确保动画首次出现
-///   - 正断言：第 1 个 12ms 稳定 tick 应返回 true，避免 running snake 出现 33ms 采样空洞
-///   - 正断言：第 2 个 12ms 稳定 tick 应返回 true，避免长时间运行后周期性掉帧
-///   - 正断言：中间可渲染 head_phase 推进到 0.145，外部 repaint 不会看到旧相位
-///   - 正断言：第 3 个 12ms 稳定 tick 应返回 true，保持 running snake 连续
-///   - 正断言：head_phase 推进到 0.155，证明节流没有冻结真实动画时间
+///   - 负断言：第 1 个 12ms 稳定 tick 不应 repaint，避免整张 Canvas 以约 83fps 重绘
+///   - 负断言：第 2～5 个 12ms tick 累计最多 60ms < 67ms，仍不应 repaint。
+///   - 正断言：节流期间 head_phase 推进到 0.175，动画逻辑时间没有冻结。
+///   - 正断言：第 6 个 12ms tick 应返回 true，以不超过 15fps 更新画面。
+///   - 正断言：head_phase 推进到 0.185，证明节流没有冻结真实动画时间。
 ///   - 负断言：head_phase 不应停在淡入完成时的 0.125
 #[test]
-fn test_stable_working_snake_repaints_each_tick_without_freezing_phase() {
+fn test_stable_working_snake_throttles_repaint_without_freezing_phase() {
     let mut store = MotionStore::new(false);
     let theme = Theme::glass_dark();
     let node_id = 42;
@@ -119,11 +118,14 @@ fn test_stable_working_snake_repaints_each_tick_without_freezing_phase() {
     let fade_in_changed = store.tick(Duration::from_millis(150));
     let first_short_tick_changed = store.tick(Duration::from_millis(12));
     let second_short_tick_changed = store.tick(Duration::from_millis(12));
+    let third_short_tick_changed = store.tick(Duration::from_millis(12));
+    let fourth_short_tick_changed = store.tick(Duration::from_millis(12));
+    let fifth_short_tick_changed = store.tick(Duration::from_millis(12));
     let suppressed_visual = store.resolve_node_visual(node_id, node_rect, theme);
     let suppressed_snake = suppressed_visual
         .working_snake
         .expect("节流期间工作态仍必须保留上一帧 working_snake 数据");
-    let third_short_tick_changed = store.tick(Duration::from_millis(12));
+    let sixth_short_tick_changed = store.tick(Duration::from_millis(12));
     let visual = store.resolve_node_visual(node_id, node_rect, theme);
     let snake = visual
         .working_snake
@@ -134,25 +136,37 @@ fn test_stable_working_snake_repaints_each_tick_without_freezing_phase() {
         "tick(150ms) 应完成 snake 淡入并触发首次 repaint"
     );
     assert!(
-        first_short_tick_changed,
-        "淡入完成后的第 1 个 12ms tick 应触发 repaint，否则 running snake 会出现采样空洞"
+        !first_short_tick_changed,
+        "淡入完成后的第 1 个 12ms tick 不应触发 repaint，否则整张 Canvas 仍是约 83fps"
     );
     assert!(
-        second_short_tick_changed,
-        "淡入完成后的第 2 个 12ms tick 应继续触发 repaint，避免周期性 33ms 掉帧"
+        !second_short_tick_changed,
+        "淡入完成后的第 2 个 12ms tick 累计 24ms < 67ms，仍不应触发 repaint"
     );
     assert!(
-        approx(suppressed_snake.head_phase, 0.145),
-        "节流期间可渲染 head_phase 应推进到 0.145，实际 {}",
+        !third_short_tick_changed,
+        "淡入完成后的第 3 个 12ms tick 累计 36ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        !fourth_short_tick_changed,
+        "淡入完成后的第 4 个 12ms tick 累计 48ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        !fifth_short_tick_changed,
+        "淡入完成后的第 5 个 12ms tick 累计 60ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        approx(suppressed_snake.head_phase, 0.175),
+        "节流期间可渲染 head_phase 应推进到 0.175，实际 {}",
         suppressed_snake.head_phase
     );
     assert!(
-        third_short_tick_changed,
-        "淡入完成后的第 3 个 12ms tick 应继续触发 repaint，保持 running snake 连续"
+        sixth_short_tick_changed,
+        "淡入完成后的第 6 个 12ms tick 累计 72ms >= 67ms，应触发不超过 15fps 的下一帧 repaint"
     );
     assert!(
-        approx(snake.head_phase, 0.155),
-        "节流不应冻结动画时间；最终 head_phase 应为 0.155，实际 {}",
+        approx(snake.head_phase, 0.185),
+        "节流不应冻结动画时间；最终 head_phase 应为 0.185，实际 {}",
         snake.head_phase
     );
     assert!(
@@ -167,27 +181,26 @@ fn test_stable_working_snake_repaints_each_tick_without_freezing_phase() {
 ///   node_id = 52（任意稳定 id，与 snake 用例区分）。
 ///   Cool 呼吸周期 = 2500ms。
 ///   breathing_fade token = 150ms，tick(150ms) 后 fade 完成且 phase = 150 / 2500 = 0.06。
-///   repaint 预算 = 33ms（约 30fps），用于避免 12ms tick 触发约 83fps 整画布 repaint。
-///   第 1 个稳定 tick = 12ms，累计 12ms < 33ms → 不应 repaint，但 phase 继续推进。
-///   第 2 个稳定 tick = 12ms，累计 24ms < 33ms → 不应 repaint，但 phase 继续推进。
-///   第 3 个稳定 tick = 12ms，累计 36ms >= 33ms → 应 repaint。
-///   节流期间 phase = (150 + 12 + 12) / 2500 = 0.0696。
-///   最终 phase = (150 + 12 + 12 + 12) / 2500 = 0.0744。
+///   repaint 预算 = ceil(1000ms / 15fps) = 67ms，避免 12ms tick 触发约 83fps 整画布 repaint。
+///   前 5 个稳定 tick = 12ms × 5 = 60ms < 67ms → 均不应 repaint，但 phase 继续推进。
+///   第 6 个稳定 tick：累计 72ms >= 67ms → 应 repaint。
+///   节流期间 phase = (150 + 12 × 5) / 2500 = 0.084。
+///   最终 phase = (150 + 12 × 6) / 2500 = 0.0888。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. ensure_node 创建空闲节点。
 ///   2. set_breathing_intent(Cool) 模拟 Agent 打开后的呼吸边框。
 ///   3. tick(150ms) 完成淡入并记录 phase。
-///   4. 连续执行两个 12ms tick，验证稳定期不触发 repaint 但 phase 持续推进。
-///   5. 第三个 12ms tick 放行 repaint，并提交下一帧 notify。
+///   4. 连续执行五个 12ms tick，验证稳定期不触发 repaint 但 phase 持续推进。
+///   5. 第六个 12ms tick 放行 repaint，并提交下一帧 notify。
 ///
 /// 预期结果：
 ///   - 正断言：淡入 tick 返回 true，确保呼吸动画首次出现。
 ///   - 负断言：第 1 个 12ms 稳定 tick 不应返回 true，避免每 12ms repaint。
-///   - 负断言：第 2 个 12ms 稳定 tick 不应返回 true，累计仍未达到 33ms。
-///   - 正断言：节流期间 breathing_phase 推进到 0.0696，外部 repaint 不会看到旧相位。
-///   - 正断言：第 3 个 12ms 稳定 tick 返回 true，动画约 30fps 更新。
-///   - 正断言：breathing_phase 推进到 0.0744，证明节流没有冻结真实动画时间。
+///   - 负断言：第 2～5 个 12ms 稳定 tick 不应返回 true，累计最多 60ms。
+///   - 正断言：节流期间 breathing_phase 推进到 0.084，外部 repaint 不会看到旧相位。
+///   - 正断言：第 6 个 12ms 稳定 tick 返回 true，动画不超过 15fps 更新。
+///   - 正断言：breathing_phase 推进到 0.0888，证明节流没有冻结真实动画时间。
 ///   - 负断言：breathing_phase 不应停在淡入完成时的 0.06。
 #[test]
 fn test_stable_breathing_throttles_repaint_without_freezing_phase() {
@@ -205,16 +218,19 @@ fn test_stable_breathing_throttles_repaint_without_freezing_phase() {
         .breathing_phase;
     let first_short_tick_changed = store.tick(Duration::from_millis(12));
     let second_short_tick_changed = store.tick(Duration::from_millis(12));
+    let third_short_tick_changed = store.tick(Duration::from_millis(12));
+    let fourth_short_tick_changed = store.tick(Duration::from_millis(12));
+    let fifth_short_tick_changed = store.tick(Duration::from_millis(12));
     let suppressed_phase = store
         .nodes
         .get(&node_id)
-        .expect("node_id 应在两个短 tick 后仍存在")
+        .expect("node_id 应在五个短 tick 后仍存在")
         .breathing_phase;
-    let third_short_tick_changed = store.tick(Duration::from_millis(12));
+    let sixth_short_tick_changed = store.tick(Duration::from_millis(12));
     let final_phase = store
         .nodes
         .get(&node_id)
-        .expect("node_id 应在第三个短 tick 后仍存在")
+        .expect("node_id 应在第六个短 tick 后仍存在")
         .breathing_phase;
 
     assert!(
@@ -232,20 +248,32 @@ fn test_stable_breathing_throttles_repaint_without_freezing_phase() {
     );
     assert!(
         !second_short_tick_changed,
-        "淡入完成后的第 2 个 12ms tick 累计 24ms < 33ms，仍不应触发 repaint"
+        "淡入完成后的第 2 个 12ms tick 累计 24ms < 67ms，仍不应触发 repaint"
     );
     assert!(
-        approx(suppressed_phase, 0.0696),
-        "节流期间 breathing_phase 应推进到 0.0696，实际 {}",
+        !third_short_tick_changed,
+        "淡入完成后的第 3 个 12ms tick 累计 36ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        !fourth_short_tick_changed,
+        "淡入完成后的第 4 个 12ms tick 累计 48ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        !fifth_short_tick_changed,
+        "淡入完成后的第 5 个 12ms tick 累计 60ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        approx(suppressed_phase, 0.084),
+        "节流期间 breathing_phase 应推进到 0.084，实际 {}",
         suppressed_phase
     );
     assert!(
-        third_short_tick_changed,
-        "淡入完成后的第 3 个 12ms tick 累计 36ms >= 33ms，应触发下一帧 repaint"
+        sixth_short_tick_changed,
+        "淡入完成后的第 6 个 12ms tick 累计 72ms >= 67ms，应触发下一帧 repaint"
     );
     assert!(
-        approx(final_phase, 0.0744),
-        "节流不应冻结动画时间；最终 breathing_phase 应为 0.0744，实际 {}",
+        approx(final_phase, 0.0888),
+        "节流不应冻结动画时间；最终 breathing_phase 应为 0.0888，实际 {}",
         final_phase
     );
     assert!(
@@ -260,8 +288,8 @@ fn test_stable_breathing_throttles_repaint_without_freezing_phase() {
 ///   node_id = 53（任意稳定 id，与 MWS-2B 区分）。
 ///   Cool 呼吸周期 = 2500ms，breathing_fade token = 150ms。
 ///   tick(150ms) 后 fade.value = 1.0，breathing_visible_nodes 应为 1。
-///   repaint 预算 = 33ms；随后 tick(12ms)：
-///     breathing_repaint_elapsed = 12ms < 33ms，节点处于 waiting 状态。
+///   repaint 预算 = 67ms；随后 tick(12ms)：
+///     breathing_repaint_elapsed = 12ms < 67ms，节点处于 waiting 状态。
 ///   因为 12ms 没达到 repaint 预算，tick 返回 false，但 diagnostics 应能暴露等待状态。
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -273,7 +301,7 @@ fn test_stable_breathing_throttles_repaint_without_freezing_phase() {
 /// 预期结果：
 ///   - 正断言：breathing_active_nodes=1，说明节点仍处于呼吸动画状态。
 ///   - 正断言：breathing_visible_nodes=1，说明 fade 已完成且用户能看到呼吸边框。
-///   - 正断言：breathing_waiting_nodes=1，说明下一帧尚未到 33ms repaint 预算。
+///   - 正断言：breathing_waiting_nodes=1，说明下一帧尚未到 67ms repaint 预算。
 ///   - 负断言：chase_active_nodes=0，避免把 breathing 掉帧误判成 snake chase。
 #[test]
 fn test_motion_diagnostics_counts_breathing_visible_and_waiting_nodes() {
@@ -289,7 +317,7 @@ fn test_motion_diagnostics_counts_breathing_visible_and_waiting_nodes() {
     );
     assert!(
         !store.tick(Duration::from_millis(12)),
-        "淡入完成后的 12ms tick 应被 33ms repaint 预算节流"
+        "淡入完成后的 12ms tick 应被 67ms repaint 预算节流"
     );
     let diagnostics = store.diagnostics();
 
@@ -303,7 +331,7 @@ fn test_motion_diagnostics_counts_breathing_visible_and_waiting_nodes() {
     );
     assert_eq!(
         diagnostics.breathing_waiting_nodes, 1,
-        "12ms < 33ms 时 breathing_waiting_nodes 应为 1，便于定位节流等待状态"
+        "12ms < 67ms 时 breathing_waiting_nodes 应为 1，便于定位节流等待状态"
     );
     assert_eq!(
         diagnostics.chase_active_nodes, 0,

@@ -2,6 +2,7 @@
 pub mod grid;
 pub mod input;
 pub mod message;
+mod paste;
 mod process_tree;
 pub mod pty;
 pub mod session;

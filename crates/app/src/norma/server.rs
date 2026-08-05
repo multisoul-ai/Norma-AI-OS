@@ -1,137 +1,75 @@
+pub(crate) use self::conversion::canvas_preview_type;
+use self::conversion::node_error;
+use self::layout::{
+    apply_layout_for_new_node_or_master, resolve_bounds, summarize_cards, CardCreationState,
+};
+pub(crate) use self::orchestration::{is_managed_agent_command, ValidatedOrchestrationCommand};
+use self::orchestration::{is_presentation_command, log_managed_request};
 use crate::app::{AppScreen, MultisoulApp};
+use crate::canvas::layout_strategy::CanvasLayoutStrategy;
 use crate::canvas::master_layout::{
-    apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
-    term_grid_size_for_card,
+    close_node_and_update_layout_for_area, term_grid_size_for_card,
 };
 use crate::canvas::spawn_focus::activate_spawned_node;
 use crate::motion::MotionStore;
-use crate::norma::transport::{bind_socket, NormaServerRequest};
-use canvas::{
-    AgentProfile as CanvasAgentProfile, CanvasNodeKind, CanvasRect, NodeType,
-    PreviewType as CanvasPreviewType,
-};
-use crossbeam_channel::{unbounded, Receiver};
+use canvas::{CanvasNodeKind, CanvasRect, NodeType};
 use gpui::{Context, Window};
-use norma::client::default_socket_path;
 use norma::protocol::{
-    AgentProfile, CardBounds, CardCommand, CardCommandError, CardCommandResult, CardKind,
-    CardSummary, CardSummaryKind, NodeId, Placement, PreviewType as NormaPreviewType, WireRequest,
-    WireResponse,
+    AgentErrorCode, CardCommand, CardCommandError, CardCommandResult, CardKind, NodeId, Placement,
+    WireRequest, WireResponse,
 };
-use runtime::{InputMode, NodeError, NodeInput, Runtime, DEFAULT_TERMINAL_SHELL};
-use std::fs;
-use std::path::PathBuf;
-use std::time::Duration;
+use runtime::{NodeInput, Runtime, DEFAULT_TERMINAL_SHELL};
+use std::time::Instant;
+
+mod conversion;
+mod effects;
+mod execution;
+mod layout;
+mod orchestration;
+mod presentation;
+
+pub(crate) use effects::{NormaCommandEffects, NormaExecution};
+pub(crate) use execution::{execute_card_command_for_area, text_for_submit};
 
 #[cfg(test)]
 #[path = "../../tests/unit/norma_agent_lifecycle_tests.rs"]
 mod agent_lifecycle_tests;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct NormaCommandEffects {
-    pub(crate) canvas_dirty: bool,
-    pub(crate) session_dirty: bool,
-    pub(crate) notify: bool,
-}
+#[cfg(test)]
+#[path = "../../tests/unit/norma_presentation_lifecycle_tests.rs"]
+mod presentation_lifecycle_tests;
 
-impl NormaCommandEffects {
-    const NONE: Self = Self {
-        canvas_dirty: false,
-        session_dirty: false,
-        notify: false,
-    };
-
-    const CANVAS_SESSION: Self = Self {
-        canvas_dirty: true,
-        session_dirty: true,
-        notify: true,
-    };
-
-    const CANVAS: Self = Self {
-        canvas_dirty: true,
-        session_dirty: false,
-        notify: true,
-    };
-
-    const NOTIFY: Self = Self {
-        canvas_dirty: false,
-        session_dirty: false,
-        notify: true,
-    };
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct NormaExecution {
-    pub(crate) result: CardCommandResult,
-    pub(crate) effects: NormaCommandEffects,
-    pub(crate) removed_agent_definition_id: Option<i64>,
-}
-
-pub(crate) struct NormaServer {
-    receiver: Receiver<NormaServerRequest>,
-    socket_path: Option<PathBuf>,
-}
-
-impl NormaServer {
-    pub(crate) fn start() -> Self {
-        let (sender, receiver) = unbounded();
-        let socket_path = default_socket_path();
-        let bound_path = bind_socket(socket_path, sender);
-        Self {
-            receiver,
-            socket_path: bound_path,
-        }
-    }
-
-    pub(crate) fn has_pending(&self) -> bool {
-        !self.receiver.is_empty()
-    }
-}
-
-impl Drop for NormaServer {
-    fn drop(&mut self) {
-        if let Some(path) = &self.socket_path {
-            let _ = fs::remove_file(path);
-        }
-    }
-}
+#[cfg(test)]
+#[path = "../../tests/unit/norma_ego_lifecycle_tests.rs"]
+mod ego_lifecycle_tests;
 
 impl MultisoulApp {
-    pub(crate) fn start_norma_drain_loop(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        cx.spawn_in(window, async move |this, cx| loop {
-            cx.background_executor()
-                .timer(Duration::from_millis(12))
-                .await;
-            let go = this.update_in(cx, |app, window, cx| {
-                app.drain_norma_server(window, cx);
-            });
-            if go.is_err() {
-                break;
-            }
-        })
-        .detach();
-    }
-
-    pub(crate) fn drain_norma_server(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        while let Ok(request) = self.norma_server.receiver.try_recv() {
-            let response = self.execute_card_command(request.request, window, cx);
-            let _ = request.response.send(response);
-            cx.notify();
-        }
-
-        if self.norma_server.has_pending() {
-            cx.notify();
-        }
-    }
-
     pub(crate) fn execute_card_command(
         &mut self,
         request: WireRequest,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> WireResponse {
-        let request_id = request.request_id;
-        let result = match request.command {
+        let WireRequest {
+            request_id,
+            client_version,
+            authorization,
+            source_node_id,
+            command,
+            ..
+        } = request;
+        let managed_command = is_managed_agent_command(&command);
+        let managed_started = managed_command.then(Instant::now);
+        let logged_command = managed_command.then(|| command.clone());
+        let logged_authorization = authorization.clone();
+        let result = match command {
+            CardCommand::Doctor => Ok(NormaExecution {
+                result: CardCommandResult::Doctor {
+                    report: crate::norma::endpoint::doctor_report(client_version.as_deref(), cx),
+                },
+                effects: NormaCommandEffects::NONE,
+                removed_agent_definition_id: None,
+            }),
             CardCommand::List => {
                 let zoom = self.runtime.document.viewport.zoom;
                 execute_card_command_for_area(
@@ -143,9 +81,81 @@ impl MultisoulApp {
                     zoom,
                 )
             }
+            command
+                if managed_command
+                    && (!matches!(self.screen, AppScreen::Canvas)
+                        || self.runtime.workspace_root().is_none()) =>
+            {
+                let _ = command;
+                Err(CardCommandError::agent(
+                    AgentErrorCode::ProjectUnavailable,
+                    "当前没有打开的项目",
+                    false,
+                ))
+            }
             command if !matches!(self.screen, AppScreen::Canvas) => {
                 let _ = command;
                 Err(CardCommandError::AppNotReady)
+            }
+            command if managed_command => {
+                match self.validate_orchestration_source(authorization, source_node_id) {
+                    Ok((source, _provider)) if is_presentation_command(&command) => {
+                        let CardCommand::Present { target, create_new } = command else {
+                            unreachable!("presentation classifier only accepts Present");
+                        };
+                        presentation::execute_presentation_command(
+                            self, window, cx, target, create_new, source,
+                        )
+                    }
+                    Ok((_source, _provider)) if matches!(command, CardCommand::ListWorkspaces) => {
+                        Ok(NormaExecution {
+                            result: CardCommandResult::WorkspacesListed {
+                                workspaces: crate::norma::endpoint::workspace_summaries(cx),
+                            },
+                            effects: NormaCommandEffects::NONE,
+                            removed_agent_definition_id: None,
+                        })
+                    }
+                    Ok((source, _provider)) if matches!(command, CardCommand::Ego { .. }) => {
+                        let CardCommand::Ego { node_id, command } = command else {
+                            unreachable!("Ego classifier only accepts Ego commands");
+                        };
+                        let source_node_id = source.node_id.ok_or_else(|| {
+                            CardCommandError::ego(
+                                norma::protocol::EgoErrorCode::Unauthorized,
+                                "Ego command requires a source Agent node",
+                                false,
+                            )
+                        });
+                        source_node_id.and_then(|source_node_id| {
+                            presentation::execute_ego_command_for_area(
+                                &mut self.runtime,
+                                &self.master_layout,
+                                node_id,
+                                command,
+                                source_node_id,
+                            )
+                        })
+                    }
+                    Ok((source, provider)) => crate::app::execute_orchestration_agent_command(
+                        self, window, command, source, provider,
+                    )
+                    .map(|result| NormaExecution {
+                        result,
+                        effects: NormaCommandEffects::NONE,
+                        removed_agent_definition_id: None,
+                    }),
+                    Err(error) => Err(error),
+                }
+            }
+            command @ (CardCommand::CreateAgent { .. } | CardCommand::ActivateAgent { .. }) => {
+                crate::app::execute_agent_card_command(self, window, command)
+                    .map(|result| NormaExecution {
+                        result,
+                        effects: NormaCommandEffects::NONE,
+                        removed_agent_definition_id: None,
+                    })
+                    .map_err(|message| CardCommandError::Runtime { message })
             }
             CardCommand::Create {
                 kind:
@@ -157,7 +167,13 @@ impl MultisoulApp {
             } => {
                 let area = self.visible_canvas_rect(window);
                 let zoom = self.runtime.document.viewport.zoom;
-                let bounds = resolve_bounds(placement, area, zoom);
+                let bounds = resolve_bounds(
+                    placement,
+                    area,
+                    zoom,
+                    self.layout_strategy,
+                    self.runtime.document.nodes().len(),
+                );
                 let node_id = self.spawn_preview_from_path(
                     path,
                     explicit_type.map(canvas_preview_type),
@@ -175,10 +191,11 @@ impl MultisoulApp {
             command => {
                 let area = self.visible_canvas_rect(window);
                 let zoom = self.runtime.document.viewport.zoom;
-                execute_card_command_for_area(
+                execute_card_command_for_area_with_strategy(
                     &mut self.runtime,
                     &mut self.motion,
                     &mut self.master_layout,
+                    self.layout_strategy,
                     command,
                     area,
                     zoom,
@@ -188,6 +205,9 @@ impl MultisoulApp {
 
         let result = result.map(|execution| {
             if let CardCommandResult::Deleted { node_id } = &execution.result {
+                self.terminal_render_cache
+                    .borrow_mut()
+                    .remove_node(*node_id);
                 self.previews.remove(*node_id);
                 self.remove_browser_view(*node_id);
             }
@@ -207,25 +227,62 @@ impl MultisoulApp {
             }
             execution.result
         });
+        if let (Some(started), Some(command)) = (managed_started, logged_command.as_ref()) {
+            log_managed_request(
+                request_id,
+                command,
+                logged_authorization.as_ref(),
+                source_node_id,
+                &result,
+                started.elapsed(),
+            );
+        }
 
-        WireResponse { request_id, result }
+        WireResponse::new(request_id, result)
     }
 }
 
-pub(crate) fn execute_card_command_for_area(
+pub(crate) fn execute_card_command_for_area_with_strategy(
     runtime: &mut Runtime,
     motion: &mut MotionStore,
     master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
+    strategy: CanvasLayoutStrategy,
     command: CardCommand,
     area: CanvasRect,
     zoom: f32,
 ) -> Result<NormaExecution, CardCommandError> {
     match command {
-        CardCommand::Create { kind, placement } => {
-            create_card(runtime, motion, master_layout, kind, placement, area, zoom)
-        }
-        CardCommand::Delete { node_id } => {
-            delete_card(runtime, motion, master_layout, node_id, area, zoom)
+        CardCommand::Create { kind, placement } => create_card(
+            CardCreationState {
+                runtime,
+                motion,
+                master_layout,
+            },
+            strategy,
+            kind,
+            placement,
+            area,
+            zoom,
+        ),
+        CardCommand::Delete { node_id } => delete_card(
+            runtime,
+            motion,
+            master_layout,
+            strategy,
+            node_id,
+            area,
+            zoom,
+        ),
+        CardCommand::Present { target, create_new } => {
+            presentation::execute_presentation_command_for_area(
+                runtime,
+                motion,
+                master_layout,
+                target,
+                create_new,
+                area,
+                zoom,
+            )
         }
         CardCommand::SendText {
             node_id,
@@ -240,32 +297,41 @@ pub(crate) fn execute_card_command_for_area(
             effects: NormaCommandEffects::NONE,
             removed_agent_definition_id: None,
         }),
-        CardCommand::ListAgents
+        CardCommand::Doctor
+        | CardCommand::ListWorkspaces
+        | CardCommand::ListAgents
+        | CardCommand::AgentTaskStatus { .. }
+        | CardCommand::AgentTaskResult { .. }
+        | CardCommand::AgentTaskCancel { .. }
         | CardCommand::CreateAgent { .. }
         | CardCommand::ActivateAgent { .. }
-        | CardCommand::DispatchAgentTasks { .. } => Err(CardCommandError::Unsupported {
+        | CardCommand::DispatchAgentTasks { .. }
+        | CardCommand::Ego { .. } => Err(CardCommandError::Unsupported {
             message: "high-level Agent commands require the project Agent coordinator".into(),
         }),
     }
 }
 
-pub(crate) fn text_for_submit(mut text: String, submit: bool) -> String {
-    if submit && !text.ends_with('\n') {
-        text.push('\n');
-    }
-    text
-}
-
 fn create_card(
-    runtime: &mut Runtime,
-    motion: &mut MotionStore,
-    master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
+    state: CardCreationState<'_>,
+    strategy: CanvasLayoutStrategy,
     kind: CardKind,
     placement: Placement,
     area: CanvasRect,
     zoom: f32,
 ) -> Result<NormaExecution, CardCommandError> {
-    let bounds = resolve_bounds(placement, area, zoom);
+    let CardCreationState {
+        runtime,
+        motion,
+        master_layout,
+    } = state;
+    let bounds = resolve_bounds(
+        placement,
+        area,
+        zoom,
+        strategy,
+        runtime.document.nodes().len(),
+    );
     match kind {
         CardKind::Terminal { shell } => {
             let shell = shell.unwrap_or_else(|| DEFAULT_TERMINAL_SHELL.to_string());
@@ -281,7 +347,15 @@ fn create_card(
                 node_id,
                 crate::motion::InitializationAnimationKind::Terminal,
             );
-            apply_layout_for_current_mode(master_layout, runtime, motion, area, zoom);
+            apply_layout_for_new_node_or_master(
+                master_layout,
+                runtime,
+                motion,
+                node_id,
+                area,
+                zoom,
+                strategy,
+            );
             Ok(NormaExecution {
                 result: CardCommandResult::Created { node_id },
                 effects: NormaCommandEffects::CANVAS_SESSION,
@@ -303,7 +377,15 @@ fn create_card(
             runtime.selection.select_only(node_id);
             runtime.focus.exit_to_canvas();
             motion.spawn_node(node_id, bounds);
-            apply_layout_for_current_mode(master_layout, runtime, motion, area, zoom);
+            apply_layout_for_new_node_or_master(
+                master_layout,
+                runtime,
+                motion,
+                node_id,
+                area,
+                zoom,
+                strategy,
+            );
             Ok(NormaExecution {
                 result: CardCommandResult::Created { node_id },
                 effects: NormaCommandEffects::CANVAS,
@@ -315,7 +397,15 @@ fn create_card(
             runtime.selection.select_only(node_id);
             runtime.focus.exit_to_canvas();
             motion.spawn_node(node_id, bounds);
-            apply_layout_for_current_mode(master_layout, runtime, motion, area, zoom);
+            apply_layout_for_new_node_or_master(
+                master_layout,
+                runtime,
+                motion,
+                node_id,
+                area,
+                zoom,
+                strategy,
+            );
             Ok(NormaExecution {
                 result: CardCommandResult::Created { node_id },
                 effects: NormaCommandEffects::CANVAS,
@@ -329,6 +419,7 @@ fn delete_card(
     runtime: &mut Runtime,
     motion: &mut MotionStore,
     master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
+    strategy: CanvasLayoutStrategy,
     node_id: NodeId,
     area: CanvasRect,
     zoom: f32,
@@ -339,7 +430,15 @@ fn delete_card(
         };
         spec.definition_id
     });
-    if !close_node_and_update_layout_for_area(runtime, motion, master_layout, node_id, area, zoom) {
+    if !close_node_and_update_layout_for_area(
+        runtime,
+        motion,
+        master_layout,
+        node_id,
+        area,
+        zoom,
+        strategy,
+    ) {
         return Err(CardCommandError::NotFound { node_id });
     }
 
@@ -392,103 +491,10 @@ fn focus_card(runtime: &mut Runtime, node_id: NodeId) -> Result<NormaExecution, 
     })
 }
 
-fn summarize_cards(runtime: &Runtime) -> Vec<CardSummary> {
-    runtime
-        .document
-        .nodes()
-        .iter()
-        .map(|node| CardSummary {
-            node_id: node.id,
-            title: node.kind.display_title().to_string(),
-            alias: summary_alias(&node.kind),
-            kind: summary_kind(&node.kind),
-            selected: runtime.selection.contains(node.id),
-            focused: matches!(runtime.focus.mode(), InputMode::NodeFocused(id) if id == node.id),
-        })
-        .collect()
-}
-
-fn summary_alias(kind: &CanvasNodeKind) -> Option<String> {
-    match kind {
-        CanvasNodeKind::Agent(spec) => spec.alias.clone(),
-        CanvasNodeKind::Rect(_)
-        | CanvasNodeKind::Term(_)
-        | CanvasNodeKind::Preview(_)
-        | CanvasNodeKind::Browser(_) => None,
-    }
-}
-
-fn summary_kind(kind: &CanvasNodeKind) -> CardSummaryKind {
-    match kind {
-        CanvasNodeKind::Rect(_) => CardSummaryKind::Rect,
-        CanvasNodeKind::Term(_) => CardSummaryKind::Terminal,
-        CanvasNodeKind::Agent(spec) => CardSummaryKind::Agent {
-            profile: norma_agent_profile(spec.profile),
-        },
-        CanvasNodeKind::Preview(_) => CardSummaryKind::Preview,
-        CanvasNodeKind::Browser(_) => CardSummaryKind::Browser,
-    }
-}
-
-fn apply_layout_for_current_mode(
-    master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
-    runtime: &mut Runtime,
-    motion: &mut MotionStore,
-    area: CanvasRect,
-    zoom: f32,
-) {
-    if master_layout.is_active()
-        && crate::canvas::master_layout::reapply_master_layout_for_area(
-            master_layout,
-            runtime,
-            motion,
-            area,
-            zoom,
-        )
-    {
-        return;
-    }
-    apply_workspace_reflow_for_area(runtime, motion, area, zoom);
-}
-
-fn resolve_bounds(placement: Placement, area: CanvasRect, zoom: f32) -> CanvasRect {
-    match placement {
-        Placement::VisibleArea => area.inset(layout_gap_for_zoom(zoom)),
-        Placement::Bounds(bounds) => card_bounds_to_canvas(bounds),
-    }
-}
-
-fn node_error(node_id: NodeId, error: NodeError) -> CardCommandError {
-    match error {
-        NodeError::MissingNode => CardCommandError::NotFound { node_id },
-        other => CardCommandError::Runtime {
-            message: other.to_string(),
-        },
-    }
-}
-
-fn norma_agent_profile(value: CanvasAgentProfile) -> AgentProfile {
-    match value {
-        CanvasAgentProfile::Claude => AgentProfile::Claude,
-        CanvasAgentProfile::Codex => AgentProfile::Codex,
-        CanvasAgentProfile::Cursor => AgentProfile::Cursor,
-        CanvasAgentProfile::Grok => AgentProfile::Grok,
-        CanvasAgentProfile::OpenCode => AgentProfile::OpenCode,
-    }
-}
-
-pub(crate) fn canvas_preview_type(value: NormaPreviewType) -> CanvasPreviewType {
-    match value {
-        NormaPreviewType::Markdown => CanvasPreviewType::Markdown,
-        NormaPreviewType::Text => CanvasPreviewType::Text,
-        NormaPreviewType::Image => CanvasPreviewType::Image,
-    }
-}
-
-fn card_bounds_to_canvas(value: CardBounds) -> CanvasRect {
-    CanvasRect::new(value.x, value.y, value.width, value.height)
-}
-
 #[cfg(test)]
 #[path = "../../tests/unit/norma_command_tests.rs"]
 mod norma_command_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/norma_presentation_command_tests.rs"]
+mod norma_presentation_command_tests;

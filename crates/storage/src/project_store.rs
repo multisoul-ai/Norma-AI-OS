@@ -1,6 +1,7 @@
 use crate::{
-    migrations::require_workspace_dir, AgentDefinitionStore, AgentDispatchTaskStore, CanvasStore,
-    LayoutStore, NodeSessionStore, SessionStore, StorageResult, VoiceHistoryStore,
+    migrations::require_workspace_dir, AgentConversationTailStore, AgentDefinitionStore,
+    AgentDispatchTaskStore, CanvasStore, DatabasePaths, LayoutStore, NodeSessionStore,
+    SessionStore, StorageError, StorageResult, VoiceHistoryStore,
 };
 use std::path::{Path, PathBuf};
 
@@ -17,6 +18,24 @@ impl ProjectStore {
     pub fn for_workspace(root: &Path) -> StorageResult<Self> {
         require_workspace_dir(root)?;
         Ok(Self::new(root.join(".multisoul").join("project.sqlite")))
+    }
+
+    pub fn for_database_paths(paths: &DatabasePaths, root: &Path) -> StorageResult<Self> {
+        require_workspace_dir(root)?;
+        Ok(Self::new(paths.project_db_path(root)))
+    }
+
+    pub fn initialize_for_database_paths(
+        paths: &DatabasePaths,
+        root: &Path,
+    ) -> StorageResult<Self> {
+        let path = paths.project_db_path(root);
+        let store = Self::for_database_paths(paths, root)
+            .map_err(|source| project_initialization_error(paths, path.clone(), source))?;
+        store
+            .migrate()
+            .map_err(|source| project_initialization_error(paths, path, source))?;
+        Ok(store)
     }
 
     pub fn path(&self) -> &Path {
@@ -54,5 +73,21 @@ impl ProjectStore {
 
     pub fn agent_dispatch_task_store(&self) -> AgentDispatchTaskStore {
         AgentDispatchTaskStore::new(self.path.clone())
+    }
+
+    pub fn agent_conversation_tail_store(&self) -> AgentConversationTailStore {
+        AgentConversationTailStore::new(self.path.clone())
+    }
+}
+
+fn project_initialization_error(
+    paths: &DatabasePaths,
+    path: PathBuf,
+    source: StorageError,
+) -> StorageError {
+    StorageError::DatabaseInitialization {
+        mode: paths.mode(),
+        path,
+        source: Box::new(source),
     }
 }

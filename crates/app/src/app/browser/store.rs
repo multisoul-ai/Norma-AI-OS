@@ -5,7 +5,10 @@ use super::chrome_auth::{BrowserAuthUiState, CookieImportBatch};
 use super::chrome_auth::{BrowserCookie, SameSitePolicy};
 use super::chrome_auth_broker::request_chrome_cookies;
 use super::native::CookieImportStatus;
-use super::{BrowserEngineKind, BrowserEvent, BrowserViewBounds, NativeBrowserView};
+use super::{
+    canonical_browser_location, BrowserEngineKind, BrowserEvent, BrowserViewBounds,
+    NativeBrowserView,
+};
 use canvas::NodeId;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use gpui::Window;
@@ -44,8 +47,24 @@ impl Default for BrowserStore {
 }
 
 impl BrowserStore {
-    pub(crate) fn drain_events(&self) -> Vec<BrowserEvent> {
-        self.receiver.try_iter().collect()
+    pub(crate) fn drain_events(&mut self) -> Vec<BrowserEvent> {
+        let mut events = self.receiver.try_iter().collect::<Vec<_>>();
+        events.extend(self.views.iter().filter_map(|(node_id, view)| {
+            view.current_url_for_polling()
+                .map(|url| BrowserEvent::LocationChanged {
+                    node_id: *node_id,
+                    url,
+                })
+        }));
+        events
+            .into_iter()
+            .filter_map(|event| match event {
+                BrowserEvent::LocationChanged { node_id, url } => {
+                    self.accept_location_change(node_id, url)
+                }
+                event => Some(event),
+            })
+            .collect()
     }
 
     pub(crate) fn sync_view(
@@ -72,8 +91,23 @@ impl BrowserStore {
         }
     }
 
+    #[cfg(any(test, feature = "e2e-test-support"))]
     pub(crate) fn disable_native_views(&mut self) {
         self.native_views_enabled = false;
+    }
+
+    fn accept_location_change(&mut self, node_id: NodeId, url: String) -> Option<BrowserEvent> {
+        let normalized_url = canonical_browser_location(&url);
+        let view = self.views.get_mut(&node_id)?;
+        if view.url == normalized_url {
+            return None;
+        }
+        view.url = normalized_url.clone();
+        self.auth_states.remove(&node_id);
+        Some(BrowserEvent::LocationChanged {
+            node_id,
+            url: normalized_url,
+        })
     }
 
     pub(crate) fn load_url(&mut self, node_id: NodeId, url: &str) {
@@ -263,6 +297,13 @@ impl BrowserStore {
     ) {
         self.auth_fake_result = result;
     }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub(crate) fn report_location_for_e2e(&self, node_id: NodeId, url: String) {
+        let _ = self
+            .sender
+            .send(BrowserEvent::LocationChanged { node_id, url });
+    }
 }
 
 impl BrowserView {
@@ -303,6 +344,12 @@ impl BrowserView {
         if let Some(native_view) = &mut self.native_view {
             native_view.load_url(url);
         }
+    }
+
+    fn current_url_for_polling(&self) -> Option<String> {
+        self.native_view
+            .as_ref()
+            .and_then(NativeBrowserView::current_url_for_polling)
     }
 
     fn go_back(&mut self) {

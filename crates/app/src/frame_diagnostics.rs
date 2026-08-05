@@ -1,13 +1,14 @@
 //! Opt-in frame diagnostics for animation and canvas performance analysis.
 
 use std::sync::OnceLock;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use canvas::NodeId;
 
 use crate::motion::MotionDiagnostics;
 
 const FRAME_DIAGNOSTICS_ENV: &str = "MULTISOUL_FRAME_DIAGNOSTICS";
+const REPAINT_DIAGNOSTICS_LOG_INTERVAL: Duration = Duration::from_secs(1);
 #[cfg(test)]
 const REASON_RUNTIME_CHANGED: u16 = 1 << 0;
 #[cfg(test)]
@@ -151,6 +152,80 @@ impl CanvasRenderReport {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct RepaintDiagnosticsSnapshot {
+    pub(crate) requested: u64,
+    pub(crate) coalesced: u64,
+    pub(crate) emitted: u64,
+    pub(crate) last_pending_age: Duration,
+    pub(crate) last_selected_budget: Duration,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct RepaintDiagnostics {
+    enabled: bool,
+    snapshot: RepaintDiagnosticsSnapshot,
+    last_log_at: Instant,
+}
+
+impl RepaintDiagnostics {
+    pub(crate) fn new(enabled: bool, now: Instant) -> Self {
+        Self {
+            enabled,
+            snapshot: RepaintDiagnosticsSnapshot::default(),
+            last_log_at: now,
+        }
+    }
+
+    pub(crate) fn record_request(&mut self, coalesced: bool) {
+        if !self.enabled {
+            return;
+        }
+        self.snapshot.requested = self.snapshot.requested.saturating_add(1);
+        if coalesced {
+            self.snapshot.coalesced = self.snapshot.coalesced.saturating_add(1);
+        }
+    }
+
+    pub(crate) fn record_selected_budget(&mut self, budget: Duration) {
+        if self.enabled {
+            self.snapshot.last_selected_budget = budget;
+        }
+    }
+
+    pub(crate) fn record_emission(&mut self, pending_age: Duration, budget: Duration) {
+        if !self.enabled {
+            return;
+        }
+        self.snapshot.emitted = self.snapshot.emitted.saturating_add(1);
+        self.snapshot.last_pending_age = pending_age;
+        self.snapshot.last_selected_budget = budget;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn snapshot(self) -> RepaintDiagnosticsSnapshot {
+        self.snapshot
+    }
+
+    pub(crate) fn log_if_due(&mut self, now: Instant) {
+        if !self.enabled
+            || now.saturating_duration_since(self.last_log_at) < REPAINT_DIAGNOSTICS_LOG_INTERVAL
+        {
+            return;
+        }
+        self.last_log_at = now;
+        tracing::info!(
+            target: "multisoul_frame",
+            requested_repaints = self.snapshot.requested,
+            coalesced_repaints = self.snapshot.coalesced,
+            emitted_repaints = self.snapshot.emitted,
+            pending_age_ms = self.snapshot.last_pending_age.as_secs_f64() * 1000.0,
+            selected_budget_ms = self.snapshot.last_selected_budget.as_secs_f64() * 1000.0,
+            "frame_repaint_summary"
+        );
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct SnakePaintReport {
     pub node_id: NodeId,
@@ -179,6 +254,32 @@ impl SnakePaintReport {
     }
 }
 
+pub(crate) struct DispatchEffectPaintReport {
+    pub effect_count: usize,
+    pub path_count: usize,
+    pub quad_count: usize,
+    pub build_elapsed: Duration,
+    pub paint_elapsed: Duration,
+}
+
+impl DispatchEffectPaintReport {
+    pub(crate) fn log_if_enabled(self) {
+        if !enabled() {
+            return;
+        }
+        tracing::debug!(
+            target: "multisoul_frame",
+            effect_count = self.effect_count,
+            path_count = self.path_count,
+            quad_count = self.quad_count,
+            build_ms = self.build_elapsed.as_secs_f64() * 1000.0,
+            paint_ms = self.paint_elapsed.as_secs_f64() * 1000.0,
+            total_ms = (self.build_elapsed + self.paint_elapsed).as_secs_f64() * 1000.0,
+            "dispatch_effect_paint"
+        );
+    }
+}
+
 pub(crate) fn log_motion_sample(diagnostics: MotionDiagnostics) {
     if !enabled() {
         return;
@@ -193,6 +294,15 @@ pub(crate) fn log_motion_sample(diagnostics: MotionDiagnostics) {
         breathing_visible_nodes = diagnostics.breathing_visible_nodes,
         breathing_waiting_nodes = diagnostics.breathing_waiting_nodes,
         layout_active_nodes = diagnostics.layout_active_nodes,
+        dispatch_active_effects = diagnostics.dispatch_active_effects,
+        dispatch_pending_effects = diagnostics.dispatch_pending_effects,
+        dispatch_particles = diagnostics.dispatch_particles,
+        dispatch_duplicate_skips = diagnostics.dispatch_duplicate_skips,
+        dispatch_capacity_skips = diagnostics.dispatch_capacity_skips,
+        dispatch_unavailable_skips = diagnostics.dispatch_unavailable_skips,
+        dispatch_cancelled_effects = diagnostics.dispatch_cancelled_effects,
+        dispatch_reduced_motion_effects = diagnostics.dispatch_reduced_motion_effects,
+        dispatch_update_ms = diagnostics.dispatch_last_update_elapsed.as_secs_f64() * 1000.0,
         "motion_sample"
     );
 }

@@ -1,34 +1,41 @@
-use crate::audio::pcm16_bytes_from_f32_samples;
 use crate::SpeechError;
 use audio::{PcmAudioChunk, PcmFormat};
-use dialogue::{DialogueError, TtsClient};
+use dialogue::{DialogueError, LegacyTtsClient as DialogueTtsClient};
 use sherpa_onnx::{
     GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsKokoroModelConfig,
     OfflineTtsMatchaModelConfig, OfflineTtsModelConfig, OfflineTtsZipvoiceModelConfig,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use voice_input::pcm16_bytes_from_f32_samples;
+
+#[path = "tts/stream.rs"]
+mod stream;
+use stream::LocalStreamState;
 
 /// Energy-free silent PCM for unit tests.
 pub struct FakeTtsClient {
     sample_rate_hz: u32,
+    stream: Option<LocalStreamState>,
 }
 
 impl FakeTtsClient {
     pub fn silent_pcm16_16k() -> Self {
         Self {
             sample_rate_hz: 16_000,
+            stream: None,
         }
     }
 
     pub fn silent_pcm16_24k() -> Self {
         Self {
             sample_rate_hz: 24_000,
+            stream: None,
         }
     }
 }
 
-impl TtsClient for FakeTtsClient {
+impl DialogueTtsClient for FakeTtsClient {
     fn synthesize(&mut self, text: &str) -> Result<PcmAudioChunk, DialogueError> {
         if text.trim().is_empty() {
             return Err(DialogueError::Message("empty TTS text".to_string()));
@@ -43,6 +50,7 @@ impl TtsClient for FakeTtsClient {
 pub struct SherpaTtsClient {
     inner: OfflineTts,
     generation: GenerationConfig,
+    stream: Option<LocalStreamState>,
 }
 
 impl SherpaTtsClient {
@@ -107,7 +115,11 @@ impl SherpaTtsClient {
         let inner = OfflineTts::create(&config).ok_or_else(|| {
             SpeechError::Recognizer("failed to create OfflineTts with ZipVoice model".to_string())
         })?;
-        Ok(Self { inner, generation })
+        Ok(Self {
+            inner,
+            generation,
+            stream: None,
+        })
     }
 
     pub fn from_kokoro_model_dir(model_dir: &Path) -> Result<Self, SpeechError> {
@@ -146,7 +158,11 @@ impl SherpaTtsClient {
         let inner = OfflineTts::create(&config).ok_or_else(|| {
             SpeechError::Recognizer("failed to create OfflineTts with Kokoro model".to_string())
         })?;
-        Ok(Self { inner, generation })
+        Ok(Self {
+            inner,
+            generation,
+            stream: None,
+        })
     }
 
     pub fn from_model_dir(model_dir: &Path, vocoder_path: &Path) -> Result<Self, SpeechError> {
@@ -197,7 +213,11 @@ impl SherpaTtsClient {
                 "failed to create OfflineTts with Matcha zh-en model".to_string(),
             )
         })?;
-        Ok(Self { inner, generation })
+        Ok(Self {
+            inner,
+            generation,
+            stream: None,
+        })
     }
 
     fn from_model_dir_with_generation(
@@ -242,7 +262,11 @@ impl SherpaTtsClient {
         let inner = OfflineTts::create(&config).ok_or_else(|| {
             SpeechError::Recognizer("failed to create OfflineTts with Matcha model".to_string())
         })?;
-        Ok(Self { inner, generation })
+        Ok(Self {
+            inner,
+            generation,
+            stream: None,
+        })
     }
 
     pub fn from_env_or_default() -> Result<Self, SpeechError> {
@@ -292,7 +316,7 @@ pub fn build_zipvoice_tts_config(
     (config, generation)
 }
 
-impl TtsClient for SherpaTtsClient {
+impl DialogueTtsClient for SherpaTtsClient {
     fn synthesize(&mut self, text: &str) -> Result<PcmAudioChunk, DialogueError> {
         if text.trim().is_empty() {
             return Err(DialogueError::Message("empty TTS text".to_string()));
@@ -411,6 +435,10 @@ fn generation_config_from_env() -> GenerationConfig {
 #[cfg(test)]
 #[path = "../tests/unit/tts_tests.rs"]
 mod tts_tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/tts_stream_tests.rs"]
+mod tts_stream_tests;
 
 #[cfg(test)]
 #[path = "../tests/unit/zipvoice_real_tts_tests.rs"]

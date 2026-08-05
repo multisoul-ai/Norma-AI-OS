@@ -2,7 +2,10 @@
 
 use crate::live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
 use crossbeam_channel::{unbounded, Sender};
-use terminal::{PtyBackend, PtyCommand, PtyError, PtyEvent, TerminalSession, TerminalSessionId};
+use std::sync::Arc;
+use terminal::{
+    Cell, PtyBackend, PtyCommand, PtyError, PtyEvent, TerminalSession, TerminalSessionId,
+};
 
 /// PTY 后端工厂：给定 (命令, cols, rows, tx) 返回 `Box<dyn PtyBackend>`。
 ///
@@ -24,6 +27,7 @@ pub type PtyFactory = Box<
 pub struct TermLive {
     session: TerminalSession,
     cached_view: NodeView,
+    revision: u64,
     #[cfg(test)]
     cached_view_refreshes: usize,
 }
@@ -48,24 +52,28 @@ impl TermLive {
     }
 
     fn from_session(session: TerminalSession) -> Result<Self, PtyError> {
-        let cached_view = Self::view_from_session(&session);
+        let revision = 0;
+        let cached_view = Self::view_from_session(&session, revision);
         Ok(Self {
             session,
             cached_view,
+            revision,
             #[cfg(test)]
             cached_view_refreshes: 1,
         })
     }
 
-    fn view_from_session(session: &TerminalSession) -> NodeView {
+    fn view_from_session(session: &TerminalSession, revision: u64) -> NodeView {
         NodeView::Term {
-            snapshot: session.snapshot(),
+            snapshot: Arc::new(session.snapshot()),
+            revision,
             status: session.status,
         }
     }
 
     fn refresh_cached_view(&mut self) {
-        self.cached_view = Self::view_from_session(&self.session);
+        self.revision = self.revision.saturating_add(1);
+        self.cached_view = Self::view_from_session(&self.session, self.revision);
         #[cfg(test)]
         {
             self.cached_view_refreshes += 1;
@@ -154,6 +162,7 @@ impl LiveNode for TermLive {
                 .session
                 .write_bytes(s.as_bytes())
                 .map_err(NodeError::from),
+            NodeInput::Paste(s) => self.session.write_paste(&s).map_err(NodeError::from),
         }
     }
 
@@ -180,6 +189,10 @@ impl LiveNode for TermLive {
         Some(self.cached_view.clone())
     }
 
+    fn terminal_rows(&self, start_abs: usize, end_abs: usize) -> Option<Vec<Vec<Cell>>> {
+        Some(self.session.rows_for_absolute(start_abs, end_abs))
+    }
+
     fn kill(&mut self) {
         self.session.kill();
     }
@@ -188,6 +201,14 @@ impl LiveNode for TermLive {
         self.session.child_pid()
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/term_frame_tests.rs"]
+mod frame_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/term_multiline_input_tests.rs"]
+mod multiline_input_tests;
 
 #[cfg(test)]
 mod tests {

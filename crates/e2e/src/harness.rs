@@ -49,6 +49,18 @@ impl VoiceTranscriptEnvGuard {
             previous,
         }
     }
+
+    pub(crate) fn clear() -> Self {
+        let lock = VOICE_TRANSCRIPT_ENV_LOCK
+            .lock()
+            .expect("语音 transcript 环境变量测试锁不应中毒");
+        let previous = std::env::var_os("MULTISOUL_VOICE_TRANSCRIPT");
+        std::env::remove_var("MULTISOUL_VOICE_TRANSCRIPT");
+        Self {
+            _lock: lock,
+            previous,
+        }
+    }
 }
 
 impl Drop for VoiceTranscriptEnvGuard {
@@ -138,7 +150,7 @@ pub fn make_app_with_settings_store(
 
 /// 装配 headless GPUI 窗口 + `MultisoulApp`，**不**注入 PTY 工厂（走真实 PTY 路径）。
 ///
-/// 与 `make_app` 对称，但调用 `MultisoulApp::new(cx)`（无 `set_pty_factory`）→
+/// 与 `make_app` 对称，但使用独占测试数据库且不调用 `set_pty_factory` →
 /// `Runtime.pty_factory = None` → `spawn_term_live(None, ...)` →
 /// `TermLive::spawn_command` → 真实 `portable_pty`。供 L2 `#[ignore]` 真 PTY 冒烟
 /// （Task 10 / SPEC §3.4）使用：覆盖 `on_new_terminal` → 真实 shell spawn →
@@ -151,7 +163,7 @@ pub fn make_app_real(cx: &mut TestAppContext) -> (Entity<MultisoulApp>, &mut Vis
     let view_slot = Arc::new(Mutex::new(None));
     let capture = view_slot.clone();
     let (_root, cx) = cx.add_window_view(move |window, cx| {
-        let view = cx.new(MultisoulApp::new);
+        let view = cx.new(MultisoulApp::new_with_isolated_test_database);
         *capture.lock().expect("e2e app capture mutex should lock") = Some(view.clone());
         ui::component::Root::new(view, window, cx)
     });
@@ -162,6 +174,16 @@ pub fn make_app_real(cx: &mut TestAppContext) -> (Entity<MultisoulApp>, &mut Vis
         .expect("component root should capture MultisoulApp entity");
     focus_root(&view, cx);
     (view, cx)
+}
+
+/// 使用当前 App 已选定的数据库模式打开 workspace ProjectStore。
+pub fn project_store(
+    view: &Entity<MultisoulApp>,
+    cx: &mut VisualTestContext,
+    workspace: &Path,
+) -> storage::ProjectStore {
+    view.read_with(cx, |app, _cx| app.project_store_for_e2e(workspace))
+        .expect("E2E ProjectStore 应沿用 App 的测试数据库路径")
 }
 
 /// focus root view + activate window，否则 dispatch_action 找不到目标节点。
@@ -334,12 +356,16 @@ pub fn read_runtime<R>(
 ///
 /// 实现说明（mock 时钟驱动 drain timer）：
 ///   GPUI 的 `TestAppContext` 用 mock 时钟，`background_executor.timer(dur)` 返回的
-///   future 只在 `advance_clock(dur)` 后才就绪。`MultisoulApp` 的 12ms 周期 drain
-///   loop（`crates/app/src/app/mod.rs:142`）依赖该 timer 触发 `runtime.drain_all()`。
+///   future 只在 `advance_clock(dur)` 后才就绪。`MultisoulApp` 的生产 Runtime 周期
+///   loop 依赖该 timer 触发 `runtime.drain_all()`。
 ///   仅 `run_until_parked` 不会推进 mock 时钟，drain 永不执行，PTY 输出永远停在
 ///   `TerminalSession` 的 rx 队列里——这正是 E2E-02 grid 不更新的根因。
-///   因此每轮显式 `advance_clock(12ms)` 让 drain timer 就绪，再 `run_until_parked`
-///   推进 executor 执行 drain 回调。wall-clock `sleep(1ms)` 仅用于避免 busy-loop。
+///   因此每轮从 app test-support timing contract 读取 step 并推进 mock clock，再
+///   `run_until_parked` 执行 drain 回调。wall-clock `sleep(1ms)` 仅用于避免 busy-loop。
+pub(crate) fn runtime_drain_step() -> Duration {
+    app::runtime_frame_interval_for_e2e()
+}
+
 pub fn drain_until<R>(
     view: &Entity<MultisoulApp>,
     cx: &mut VisualTestContext,
@@ -347,10 +373,10 @@ pub fn drain_until<R>(
     timeout: Duration,
 ) -> Option<R> {
     let deadline = Instant::now() + timeout;
-    // 单轮 advance 量：与 app drain 周期一致（12ms），保证至少触发一次 drain timer。
-    let step = Duration::from_millis(12);
+    // 单轮 advance 量直接读取生产 timing contract，保证至少触发一次 drain timer。
+    let step = runtime_drain_step();
     loop {
-        // 推进 mock 时钟让 12ms drain timer 就绪，再跑 executor 执行 drain 回调。
+        // 推进 mock 时钟让生产 drain timer 就绪，再跑 executor 执行 drain 回调。
         cx.cx.background_executor.advance_clock(step);
         cx.run_until_parked();
         if let Some(v) = read_runtime(view, cx, &mut predicate) {
@@ -367,14 +393,15 @@ pub fn drain_until<R>(
 ///
 /// 经 `runtime.node_view(node_id)` 取 `NodeView::Term { snapshot, .. }`。
 /// 若节点不存在或不是 Term 视图（如已退出 / session gone），返回 `None`。
-/// 调用方通常 `.expect("...")` 带场景说明。
+/// 调用方通常 `.expect("...")` 带场景说明。生产渲染保留共享 Arc；这里只在
+/// 测试 API 的 owned-value 边界显式深拷贝，避免把复制重新带回绘制热路径。
 pub fn read_grid(
     view: &Entity<MultisoulApp>,
     cx: &mut VisualTestContext,
     node_id: NodeId,
 ) -> Option<GridSnapshot> {
     read_runtime(view, cx, |r| match r.node_view(node_id) {
-        Some(NodeView::Term { snapshot, .. }) => Some(snapshot),
+        Some(NodeView::Term { snapshot, .. }) => Some(snapshot.as_ref().clone()),
         _ => None,
     })
 }

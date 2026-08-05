@@ -1,5 +1,9 @@
 //! Rounded-path working-state border segment for Agent cards.
 
+mod view;
+
+pub(crate) use view::{WorkingSnakePresentation, WorkingSnakeView};
+
 use gpui::{
     canvas, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, Background, Bounds,
     Path, PathBuilder, Pixels,

@@ -10,10 +10,13 @@
 #   runner script  = scripts/run-macos-dev-app.sh
 #   dev plist      = packaging/macos/DevInfo.plist
 #   bundle layout  = <target-dir>/Norma OS Dev.app/Contents/{MacOS,Info.plist}
+#   orchestration CLI = <target-dir>/norma, built by the norma crate
 #   hook helper    = <target-dir>/multisoul-agent-hook, built by the app crate
 #   auth helper    = <target-dir>/norma-browser-auth-host, built by the app crate
 #   auth extension = crates/app/assets/browser-auth-extension → bundle Resources
 #   wallpaper      = crates/app/assets/wallpapers/1407174.mp4 → bundle Resources
+#   feature guide  = crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4
+#                    → bundle Resources
 #   signal fixture = fake `open -W` that starts an independently living app
 #                    process, mirroring LaunchServices parent detachment.
 #
@@ -22,25 +25,31 @@
 #   2. Check the runner materializes an app bundle from the compiled binary.
 #   3. Check the runner clears stale bundle contents before copying the binary.
 #   4. Check the runner installs the development microphone usage description.
-#   5. Check the runner copies the sibling hook helper into the same app bundle.
-#   6. Check the runner copies the Chrome authorization helper and extension.
-#   7. Check the runner copies built-in wallpaper resources into the app bundle.
-#   8. Check the LaunchServices process forwards stdout/stderr to the caller.
-#   9. Check the runner executes the binary from inside that bundle.
-#   10. Check Ctrl+C / terminal termination also stops the detached app process.
+#   5. Check the runner copies the sibling orchestration CLI into the same app bundle.
+#   6. Check the runner copies the sibling hook helper into the same app bundle.
+#   7. Check the runner copies the Chrome authorization helper and extension.
+#   8. Check the runner copies built-in wallpaper resources into the app bundle.
+#   9. Check the LaunchServices process forwards stdout/stderr to the caller.
+#   10. Check the runner executes the binary from inside that bundle.
+#   11. Check Ctrl+C / terminal termination also stops the detached app process.
+#   12. Check a second cargo run refuses to start while the same Dev App is alive.
 #
 # Expected result:
 #   - Positive: aarch64 macOS cargo runs use the development app runner.
 #   - Positive: the runner copies DevInfo.plist into Contents/Info.plist.
 #   - Positive: the runner executes Contents/MacOS/<binary>.
+#   - Positive: the bundle contains executable Contents/MacOS/norma.
 #   - Positive: the bundle contains Contents/MacOS/multisoul-agent-hook.
 #   - Positive: the bundle contains Contents/MacOS/norma-browser-auth-host.
 #   - Positive: the bundle contains Contents/Resources/browser-auth-extension/manifest.json.
 #   - Positive: the bundle contains Contents/Resources/wallpapers/1407174.mp4.
+#   - Positive: the bundle contains Contents/Resources/feature-guide/demo-live-node-shortcuts.mp4.
 #   - Positive: tracing output remains visible to terminal pipes such as `tee`.
 #   - Positive: INT and TERM terminate the specific app process launched by this runner.
 #   - Positive: the runner selects a unique-label SHA-1 identity when Apple Development labels duplicate.
+#   - Positive: a repeated cargo run reports the existing Dev App PID and exits immediately.
 #   - Negative: stale executables must not survive into a newly signed bundle.
+#   - Negative: orchestration installation must not fail because cargo run omitted the Norma CLI.
 #   - Negative: the hook installer must not fail because cargo run omitted the helper binary.
 #   - Negative: Chrome authorization must not fail because the dev app omitted its helper or extension.
 #   - Negative: a development .app must not read built-in videos from the source checkout.
@@ -51,6 +60,7 @@
 #               after every rebuild and invalidates macOS TCC folder authorization.
 #   - Negative: the runner must not pass an ambiguous certificate display name to codesign.
 #   - Negative: an ambiguous duplicate-label identity must not be passed to codesign automatically.
+#   - Negative: cargo run must not create two Dev App processes that compete for the Norma socket.
 
 set -euo pipefail
 
@@ -158,8 +168,12 @@ fi
 tmp_dir=$(mktemp -d)
 runner_pid=
 app_pid=
+collision_runner_pid=
 cleanup_fixture() {
   if [ -n "$runner_pid" ]; then kill -TERM "$runner_pid" >/dev/null 2>&1 || true; fi
+  if [ -n "$collision_runner_pid" ]; then
+    kill -TERM "$collision_runner_pid" >/dev/null 2>&1 || true
+  fi
   if [ -n "$app_pid" ]; then kill -TERM "$app_pid" >/dev/null 2>&1 || true; fi
   rm -rf "$tmp_dir"
 }
@@ -169,20 +183,26 @@ fixture_root="$tmp_dir/fixture"
 fixture_bin="$fixture_root/bin"
 fixture_runner="$fixture_root/scripts/run-macos-dev-app.sh"
 fixture_input="$tmp_dir/norma-os"
+fixture_cli_source="$tmp_dir/norma-source"
+fixture_cli="$tmp_dir/norma"
 fixture_hook_source="$tmp_dir/multisoul-agent-hook-source"
 fixture_hook="$tmp_dir/multisoul-agent-hook"
 fixture_auth_host_source="$tmp_dir/norma-browser-auth-host-source"
 fixture_auth_host="$tmp_dir/norma-browser-auth-host"
 app_pid_file="$tmp_dir/app.pid"
+cargo_args_file="$tmp_dir/cargo-args"
 codesign_args_file="$tmp_dir/codesign-args"
 fixture_wallpaper_source="$fixture_root/crates/app/assets/wallpapers/1407174.mp4"
+fixture_feature_guide_source="$fixture_root/crates/app/assets/feature-guide/demo-live-node-shortcuts.mp4"
 fixture_auth_extension_manifest="$fixture_root/crates/app/assets/browser-auth-extension/manifest.json"
 mkdir -p "$fixture_bin" "$fixture_root/scripts" "$fixture_root/packaging/macos" \
-  "$(dirname "$fixture_wallpaper_source")" "$(dirname "$fixture_auth_extension_manifest")"
+  "$(dirname "$fixture_wallpaper_source")" "$(dirname "$fixture_feature_guide_source")" \
+  "$(dirname "$fixture_auth_extension_manifest")"
 cp "$runner" "$fixture_runner"
 cp "$dev_plist" "$fixture_root/packaging/macos/DevInfo.plist"
 cp "$entitlements" "$fixture_root/packaging/macos/NormaOS.entitlements"
 printf 'fixture bundle wallpaper\n' >"$fixture_wallpaper_source"
+printf 'fixture feature guide video\n' >"$fixture_feature_guide_source"
 printf '{"name":"fixture-browser-auth-extension"}\n' >"$fixture_auth_extension_manifest"
 
 cat >"$fixture_input" <<'APP'
@@ -191,6 +211,12 @@ trap 'exit 0' TERM
 while true; do sleep 1; done
 APP
 chmod +x "$fixture_input"
+
+cat >"$fixture_cli_source" <<'CLI'
+#!/usr/bin/env bash
+exit 0
+CLI
+chmod +x "$fixture_cli_source"
 
 cat >"$fixture_hook_source" <<'HOOK'
 #!/usr/bin/env bash
@@ -207,10 +233,21 @@ chmod +x "$fixture_auth_host_source"
 cat >"$fixture_bin/cargo" <<'CARGO'
 #!/usr/bin/env bash
 set -euo pipefail
-cp "$FAKE_HOOK_SOURCE" "$FAKE_HOOK_DEST"
-chmod +x "$FAKE_HOOK_DEST"
-cp "$FAKE_AUTH_HOST_SOURCE" "$FAKE_AUTH_HOST_DEST"
-chmod +x "$FAKE_AUTH_HOST_DEST"
+printf '%s\n' "$*" >>"$FAKE_CARGO_ARGS_FILE"
+case "$*" in
+  *"--package norma --bin norma"*)
+    cp "$FAKE_CLI_SOURCE" "$FAKE_CLI_DEST"
+    chmod +x "$FAKE_CLI_DEST"
+    ;;
+esac
+case "$*" in
+  *"--bin multisoul-agent-hook --bin norma-browser-auth-host"*)
+    cp "$FAKE_HOOK_SOURCE" "$FAKE_HOOK_DEST"
+    chmod +x "$FAKE_HOOK_DEST"
+    cp "$FAKE_AUTH_HOST_SOURCE" "$FAKE_AUTH_HOST_DEST"
+    chmod +x "$FAKE_AUTH_HOST_DEST"
+    ;;
+esac
 CARGO
 chmod +x "$fixture_bin/cargo"
 
@@ -256,8 +293,10 @@ OPEN
 chmod +x "$fixture_bin/open"
 
 PATH="$fixture_bin:$PATH" OPEN_APP_PID_FILE="$app_pid_file" \
+  FAKE_CLI_SOURCE="$fixture_cli_source" FAKE_CLI_DEST="$fixture_cli" \
   FAKE_HOOK_SOURCE="$fixture_hook_source" FAKE_HOOK_DEST="$fixture_hook" \
   FAKE_AUTH_HOST_SOURCE="$fixture_auth_host_source" FAKE_AUTH_HOST_DEST="$fixture_auth_host" \
+  FAKE_CARGO_ARGS_FILE="$cargo_args_file" \
   FAKE_CODESIGN_ARGS_FILE="$codesign_args_file" \
   "$fixture_runner" "$fixture_input" >"$tmp_dir/runner.log" 2>&1 &
 runner_pid=$!
@@ -275,6 +314,26 @@ done
 if [ -z "$app_pid" ] || ! kill -0 "$app_pid" >/dev/null 2>&1; then
   cat "$tmp_dir/runner.log" >&2
   fail "fixture app must be alive before the runner receives TERM"
+fi
+
+bundle_cli="$tmp_dir/Norma OS Dev.app/Contents/MacOS/norma"
+if [ ! -x "$fixture_cli" ]; then
+  cat "$tmp_dir/runner.log" >&2
+  fail "runner must build norma when cargo run selected only norma-os"
+fi
+
+if ! grep -Fq -- '--package norma --bin norma' "$cargo_args_file"; then
+  cat "$tmp_dir/runner.log" >&2
+  fail "runner must request the norma package CLI instead of relying on unrelated app helper builds"
+fi
+
+if [ ! -x "$bundle_cli" ]; then
+  cat "$tmp_dir/runner.log" >&2
+  fail "cargo run development bundle must include executable norma beside norma-os"
+fi
+
+if ! cmp -s "$fixture_cli_source" "$bundle_cli"; then
+  fail "development bundle orchestration CLI must match the sibling Cargo-built norma"
 fi
 
 bundle_hook="$tmp_dir/Norma OS Dev.app/Contents/MacOS/multisoul-agent-hook"
@@ -327,6 +386,16 @@ if ! cmp -s "$fixture_wallpaper_source" "$bundle_wallpaper"; then
   fail "development bundle wallpaper must match the built-in source fixture"
 fi
 
+bundle_feature_guide="$tmp_dir/Norma OS Dev.app/Contents/Resources/feature-guide/demo-live-node-shortcuts.mp4"
+if [ ! -f "$bundle_feature_guide" ]; then
+  cat "$tmp_dir/runner.log" >&2
+  fail "cargo run development bundle must include Feature Guide media outside the Documents source checkout"
+fi
+
+if ! cmp -s "$fixture_feature_guide_source" "$bundle_feature_guide"; then
+  fail "development bundle Feature Guide media must match the website-derived source fixture"
+fi
+
 if ! grep -Fq -- '--sign 3333333333333333333333333333333333333333' "$codesign_args_file"; then
   cat "$tmp_dir/runner.log" >&2
   fail "development bundle must skip duplicate-label identities and sign with a unique-label SHA-1 identity"
@@ -348,5 +417,57 @@ if [ -n "$app_pid" ]; then
   cat "$tmp_dir/runner.log" >&2
   fail "TERM sent to the runner must terminate the independently launched app process"
 fi
+
+bundle_main="$tmp_dir/Norma OS Dev.app/Contents/MacOS/norma-os"
+"$bundle_main" &
+app_pid=$!
+
+PATH="$fixture_bin:$PATH" OPEN_APP_PID_FILE="$app_pid_file" \
+  FAKE_CLI_SOURCE="$fixture_cli_source" FAKE_CLI_DEST="$fixture_cli" \
+  FAKE_HOOK_SOURCE="$fixture_hook_source" FAKE_HOOK_DEST="$fixture_hook" \
+  FAKE_AUTH_HOST_SOURCE="$fixture_auth_host_source" FAKE_AUTH_HOST_DEST="$fixture_auth_host" \
+  FAKE_CARGO_ARGS_FILE="$cargo_args_file" \
+  FAKE_CODESIGN_ARGS_FILE="$codesign_args_file" \
+  "$fixture_runner" "$fixture_input" >"$tmp_dir/collision-runner.log" 2>&1 &
+collision_runner_pid=$!
+
+for _ in {1..20}; do
+  if ! kill -0 "$collision_runner_pid" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.1
+done
+
+if kill -0 "$collision_runner_pid" >/dev/null 2>&1; then
+  kill -TERM "$collision_runner_pid" >/dev/null 2>&1 || true
+  wait "$collision_runner_pid" >/dev/null 2>&1 || true
+  collision_runner_pid=
+  fail "a second cargo run must exit immediately instead of starting another Dev App"
+fi
+
+set +e
+wait "$collision_runner_pid"
+collision_status=$?
+set -e
+collision_runner_pid=
+
+if [ "$collision_status" -eq 0 ]; then
+  cat "$tmp_dir/collision-runner.log" >&2
+  fail "a second cargo run must return a non-zero status while the Dev App is alive"
+fi
+
+if ! grep -Fq 'Norma OS Dev is already running' "$tmp_dir/collision-runner.log"; then
+  cat "$tmp_dir/collision-runner.log" >&2
+  fail "a repeated cargo run must explain that the existing Dev App must be closed first"
+fi
+
+if ! kill -0 "$app_pid" >/dev/null 2>&1; then
+  cat "$tmp_dir/collision-runner.log" >&2
+  fail "refusing a repeated cargo run must not terminate the already running Dev App"
+fi
+
+kill -TERM "$app_pid"
+wait "$app_pid" >/dev/null 2>&1 || true
+app_pid=
 
 echo "macOS dev app runner contract test passed"

@@ -237,6 +237,194 @@ fn e2e_10_voice_errors_are_reported_at_single_command_and_model_boundaries() {
     );
 }
 
+/// Voice 回合错误关闭：错误态必须提供独立关闭操作，且关闭只清错误、不误启动录音。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   failed voice turns = 1（模拟 `MaxTurnsError` 的单次语音 Agent 回合）
+///   dismiss clicks     = 1（用户只点击明确的关闭按钮）
+///   recording starts   = 0（关闭错误不是开始录音）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 启动 headless GPUI App 并进入 Canvas。
+///   2. 通过 e2e seam 构造 SingleVoiceCommand 的 Agent 回合失败。
+///   3. 从真实渲染树定位专用关闭按钮并点击。
+///   4. 读取语音快照，验证错误视觉和错误正文均已清除。
+///
+/// 预期结果：
+///   - 正断言：错误态渲染独立、可点击的 `voice-error-dismiss`。
+///   - 正断言：点击后语音入口恢复 Idle 视觉，底层 one-shot 状态仍为 Executed。
+///   - 负断言：关闭错误不得误开始 Recording。
+///   - 负断言：关闭后不得继续显示旧 `MaxTurnsError`。
+#[test]
+fn e2e_10_voice_turn_error_is_independently_dismissible() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("应创建语音错误关闭的隔离 workspace");
+    enter_canvas(&app, cx, workspace.path());
+
+    app.update(cx, |app, cx| {
+        app.show_single_voice_turn_error_for_e2e(
+            "Turn error: Norma provider or tool loop failed: MaxTurnsError",
+        );
+        cx.notify();
+    });
+    cx.run_until_parked();
+
+    let before = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
+    assert_eq!(
+        before.visual, "error",
+        "注入 Agent 回合失败后语音入口必须显示 error 视觉，snapshot: {before:?}"
+    );
+    let dismiss = cx
+        .debug_bounds("voice-error-dismiss")
+        .expect("语音错误态必须渲染独立的 voice-error-dismiss 点击区域");
+    cx.simulate_click(dismiss.center(), Modifiers::none());
+    cx.run_until_parked();
+
+    let dismissed = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
+    assert_eq!(
+        dismissed.visual, "idle",
+        "关闭语音错误后必须恢复 Idle 视觉，snapshot: {dismissed:?}"
+    );
+    assert_eq!(
+        dismissed.phase, "executed",
+        "关闭错误只清反馈，不得把上一轮完成态伪装成新录音，snapshot: {dismissed:?}"
+    );
+    assert_ne!(
+        dismissed.phase, "recording",
+        "点击关闭按钮不得冒充语音入口并误启动录音"
+    );
+    assert!(
+        !dismissed.label.contains("MaxTurnsError"),
+        "关闭后不得继续显示旧 MaxTurnsError，snapshot: {dismissed:?}"
+    );
+}
+
+/// Voice 回合错误恢复：不先关闭时再次按 ⌘E 也必须直接开始可见的新录音。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   failed voice turns = 1（上一轮留下 `MaxTurnsError`）
+///   shortcut downs     = 1（下一轮唯一一次 ⌘E key-down）
+///   transcript source  = `voice-matrix-input`（阻止测试访问真实麦克风）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 启动 App、进入 Canvas，并注入上一轮 Agent 错误。
+///   2. 用户不点击关闭，直接按下一次 ⌘E。
+///   3. 读取 VoiceControl 与最终渲染视觉/正文。
+///
+/// 预期结果：
+///   - 正断言：一次 ⌘E 后 VoiceControl 进入 Recording。
+///   - 正断言：最终视觉同步进入 Recording，并显示 Listening。
+///   - 负断言：新录音不得继续被上一轮错误视觉和 `MaxTurnsError` 文案遮住。
+#[test]
+fn e2e_10_voice_shortcut_recovers_immediately_after_turn_error() {
+    let _transcript = VoiceTranscriptEnvGuard::set(TEST_TRANSCRIPT);
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("应创建语音快捷键恢复的隔离 workspace");
+    enter_canvas(&app, cx, workspace.path());
+
+    app.update(cx, |app, cx| {
+        app.show_single_voice_turn_error_for_e2e(
+            "Turn error: Norma provider or tool loop failed: MaxTurnsError",
+        );
+        cx.notify();
+    });
+    cx.run_until_parked();
+
+    voice_key_down(cx);
+
+    let recording = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
+    assert_eq!(
+        recording.phase, "recording",
+        "错误后的第一次 ⌘E 必须开始新录音，snapshot: {recording:?}"
+    );
+    assert_eq!(
+        recording.visual, "recording",
+        "新录音必须立即显示 Recording 视觉，不能继续被旧错误覆盖，snapshot: {recording:?}"
+    );
+    assert!(
+        recording.label.contains("Listening"),
+        "新录音应显示 Listening 反馈，snapshot: {recording:?}"
+    );
+    assert!(
+        !recording.label.contains("MaxTurnsError"),
+        "新录音不得继续显示上一轮 MaxTurnsError，snapshot: {recording:?}"
+    );
+}
+
+/// Continuous Listening 错误恢复：会话仍在收音时，⌘E 应清错而不是误停止会话。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   interaction mode = ContinuousListening
+///   dialogue phase   = Listening（回合失败后麦克风会话仍存活）
+///   visible errors   = 1（`MaxTurnsError` 覆盖 Recording 视觉）
+///   shortcut downs   = 1（用户尝试恢复录音反馈）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 在 Settings 把交互模式切为 Continuous Listening。
+///   2. 注入回合失败，使底层保持 Listening、顶部显示 Error。
+///   3. 用户直接按一次 ⌘E，不先点击关闭按钮。
+///   4. 读取 Dialogue phase 与最终语音视觉。
+///
+/// 预期结果：
+///   - 正断言：一次 ⌘E 后 Dialogue 仍为 Listening，Recording 视觉重新可见。
+///   - 正断言：状态文案恢复 Continuous Listening。
+///   - 负断言：快捷键不得因错误覆盖而把存活会话误停到 Idle。
+///   - 负断言：恢复后不得继续显示旧 `MaxTurnsError`。
+#[test]
+fn e2e_10_continuous_voice_shortcut_reveals_surviving_listening_after_turn_error() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("应创建持续聆听错误恢复的隔离 workspace");
+    enter_canvas(&app, cx, workspace.path());
+    cx.simulate_keystrokes("cmd-,");
+    click_debug(cx, "settings-section-voice");
+    click_debug(cx, "settings-voice-mode-continuous");
+    cx.simulate_keystrokes("cmd-,");
+
+    app.update(cx, |app, cx| {
+        app.show_continuous_voice_turn_error_for_e2e(
+            "Turn error: Norma provider or tool loop failed: MaxTurnsError",
+        );
+        cx.notify();
+    });
+    cx.run_until_parked();
+    let failed = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
+    assert_eq!(
+        failed.dialogue_phase, "listening",
+        "回合失败后底层 Continuous Listening 应继续存活，snapshot: {failed:?}"
+    );
+    assert_eq!(
+        failed.visual, "error",
+        "旧错误应先覆盖 Listening 视觉，证明测试命中截图中的状态，snapshot: {failed:?}"
+    );
+
+    voice_key_down(cx);
+
+    let recovered = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
+    assert_eq!(
+        recovered.dialogue_phase, "listening",
+        "错误态下一次 ⌘E 应恢复可见录音，不得停止存活的 Continuous Listening，snapshot: {recovered:?}"
+    );
+    assert_eq!(
+        recovered.visual, "recording",
+        "错误态下一次 ⌘E 应重新露出 Recording 视觉，snapshot: {recovered:?}"
+    );
+    assert_eq!(
+        recovered.label, "Continuous Listening",
+        "清除错误后应显示存活会话的 Continuous Listening 文案，snapshot: {recovered:?}"
+    );
+    assert_ne!(
+        recovered.dialogue_phase, "idle",
+        "错误恢复快捷键不得把仍在收音的会话误停到 Idle"
+    );
+    assert!(
+        !recovered.label.contains("MaxTurnsError"),
+        "恢复后不得继续显示旧 MaxTurnsError，snapshot: {recovered:?}"
+    );
+}
+
 fn voice_keystroke() -> Keystroke {
     Keystroke {
         modifiers: Modifiers {

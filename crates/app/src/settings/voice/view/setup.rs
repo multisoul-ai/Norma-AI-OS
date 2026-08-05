@@ -1,6 +1,7 @@
 use super::provider::agent_provider_setup_group;
 use super::tts_catalog::tts_catalog_row;
-use super::{action_button, with_alpha, VoiceSettingsInputs};
+use super::tts_provider::tts_provider_settings;
+use super::{with_alpha, VoiceSettingsInputs};
 use crate::app::MultisoulApp;
 use crate::settings::voice::{
     VoiceRequirement, VoiceRequirementState, VoiceSettingsState, VoiceSetupDestination,
@@ -14,10 +15,11 @@ use ui::Theme;
 #[path = "setup/components.rs"]
 mod components;
 #[path = "setup/models.rs"]
-mod models;
+pub(super) mod models;
+#[path = "setup/recognition.rs"]
+mod recognition;
 
-use self::components::compact_setup_row;
-use self::models::alternative_models_detail;
+use self::recognition::recognition_detail;
 
 pub(super) fn voice_setup(
     theme: Theme,
@@ -72,9 +74,9 @@ pub(super) fn voice_setup(
                     1,
                     "voice-setup-requirement-asr",
                     "Speech Recognition",
-                    "Let Norma hear you with a private bilingual model.",
+                    "Let Norma hear you using your preferred recognition source.",
                     recognition,
-                    recognition_detail(theme, microphone, state, cx),
+                    recognition_detail(theme, microphone, state, inputs, cx),
                 ))
                 .child(setup_step(
                     theme,
@@ -94,11 +96,12 @@ pub(super) fn voice_setup(
                     3,
                     "voice-setup-requirement-tts",
                     "Spoken Replies",
-                    "Install the required local voice so Norma can reply out loud.",
+                    "Choose an On-device or cloud voice so Norma can reply out loud.",
                     tts,
                     spoken_replies_detail(
                         theme,
                         state,
+                        inputs,
                         content_scroll,
                         setup_scroll_target == Some(VoiceSetupDestination::SpokenReplies),
                         window,
@@ -251,56 +254,10 @@ fn setup_step(
         )
 }
 
-fn recognition_detail(
-    theme: Theme,
-    microphone: VoiceRequirementState,
-    state: &VoiceSettingsState,
-    cx: &mut Context<MultisoulApp>,
-) -> Div {
-    div()
-        .w_full()
-        .flex()
-        .flex_col()
-        .gap(px(10.0))
-        .child(microphone_detail(theme, microphone, cx))
-        .child(alternative_models_detail(theme, state, cx))
-}
-
-fn microphone_detail(
-    theme: Theme,
-    state: VoiceRequirementState,
-    cx: &mut Context<MultisoulApp>,
-) -> Div {
-    compact_setup_row(
-        theme,
-        "Microphone permission",
-        "Required for local recognition",
-        action_button(
-            theme,
-            if state == VoiceRequirementState::Ready {
-                "Authorized"
-            } else if state == VoiceRequirementState::Failed {
-                "Open Microphone Settings"
-            } else {
-                "Grant Access"
-            },
-            if state == VoiceRequirementState::Ready {
-                theme.accent_green
-            } else {
-                theme.accent_blue
-            },
-        )
-        .id("voice-setup-microphone-action")
-        .debug_selector(|| "voice-setup-microphone-action".to_string())
-        .when(state != VoiceRequirementState::Ready, |button| {
-            button.on_click(cx.listener(MultisoulApp::on_voice_setup_request_microphone))
-        }),
-    )
-}
-
 fn spoken_replies_detail(
     theme: Theme,
     state: &VoiceSettingsState,
+    inputs: &VoiceSettingsInputs,
     content_scroll: &ScrollHandle,
     focus_spoken_replies: bool,
     window: &mut Window,
@@ -308,7 +265,15 @@ fn spoken_replies_detail(
 ) -> Div {
     div().w_full().child(
         setup_detail_with_scroll_focus(
-            tts_catalog_row(theme, state, window, cx),
+            div()
+                .w_full()
+                .flex()
+                .flex_col()
+                .gap(px(14.0))
+                .child(tts_provider_settings(theme, state, inputs, cx))
+                .when(state.tts_picker_models_expanded(), |content| {
+                    content.child(tts_catalog_row(theme, state, window, cx))
+                }),
             content_scroll,
             focus_spoken_replies,
         )

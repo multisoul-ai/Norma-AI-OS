@@ -31,6 +31,7 @@ use storage::{
 #[test]
 fn test_enter_workspace_defers_live_terminal_restore_for_saved_card() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
+    let database_paths = storage::DatabasePaths::production_for_home(temp.path());
     let workspace_path = temp.path().join("restored-live-terminal");
     std::fs::create_dir(&workspace_path).expect("test should create workspace dir");
     let project_store =
@@ -74,15 +75,18 @@ fn test_enter_workspace_defers_live_terminal_restore_for_saved_card() {
     let mut screen = AppScreen::Launchpad;
 
     let opened = enter_workspace_for_path(
-        &mut runtime,
-        WorkspaceCanvasState {
-            motion: &mut motion,
-            master_layout: &mut master_layout,
+        WorkspaceOpenContext {
+            database_paths: &database_paths,
+            runtime: &mut runtime,
+            canvas: WorkspaceCanvasState {
+                motion: &mut motion,
+                master_layout: &mut master_layout,
+            },
+            persistence: &mut persistence,
+            agent_definitions: &mut agent_definitions,
+            screen: &mut screen,
+            workspace_state: &mut workspace_state,
         },
-        &mut persistence,
-        &mut agent_definitions,
-        &mut screen,
-        &mut workspace_state,
         &workspace_path,
     );
 
@@ -160,6 +164,7 @@ fn test_enter_workspace_defers_live_terminal_restore_for_saved_card() {
 #[test]
 fn test_enter_workspace_starts_profile_specific_intro_for_restored_live_cards() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
+    let database_paths = storage::DatabasePaths::production_for_home(temp.path());
     let workspace_path = temp.path().join("restored-brand-intros");
     std::fs::create_dir(&workspace_path).expect("test should create workspace dir");
     let project_store =
@@ -212,15 +217,18 @@ fn test_enter_workspace_starts_profile_specific_intro_for_restored_live_cards() 
     let mut screen = AppScreen::Launchpad;
 
     enter_workspace_for_path(
-        &mut runtime,
-        WorkspaceCanvasState {
-            motion: &mut motion,
-            master_layout: &mut master_layout,
+        WorkspaceOpenContext {
+            database_paths: &database_paths,
+            runtime: &mut runtime,
+            canvas: WorkspaceCanvasState {
+                motion: &mut motion,
+                master_layout: &mut master_layout,
+            },
+            persistence: &mut persistence,
+            agent_definitions: &mut agent_definitions,
+            screen: &mut screen,
+            workspace_state: &mut workspace_state,
         },
-        &mut persistence,
-        &mut agent_definitions,
-        &mut screen,
-        &mut workspace_state,
         &workspace_path,
     )
     .expect("打开带品牌卡片的 workspace 应成功");
@@ -319,6 +327,7 @@ fn test_enter_workspace_starts_profile_specific_intro_for_restored_live_cards() 
 #[test]
 fn test_enter_workspace_restores_saved_master_layout_state() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
+    let database_paths = storage::DatabasePaths::production_for_home(temp.path());
     let workspace_path = temp.path().join("restored-master-layout");
     std::fs::create_dir(&workspace_path).expect("test should create workspace dir");
     let project_store =
@@ -376,15 +385,18 @@ fn test_enter_workspace_restores_saved_master_layout_state() {
     let mut screen = AppScreen::Launchpad;
 
     let result = enter_workspace_for_path(
-        &mut runtime,
-        WorkspaceCanvasState {
-            motion: &mut motion,
-            master_layout: &mut master_layout,
+        WorkspaceOpenContext {
+            database_paths: &database_paths,
+            runtime: &mut runtime,
+            canvas: WorkspaceCanvasState {
+                motion: &mut motion,
+                master_layout: &mut master_layout,
+            },
+            persistence: &mut persistence,
+            agent_definitions: &mut agent_definitions,
+            screen: &mut screen,
+            workspace_state: &mut workspace_state,
         },
-        &mut persistence,
-        &mut agent_definitions,
-        &mut screen,
-        &mut workspace_state,
         &workspace_path,
     );
 

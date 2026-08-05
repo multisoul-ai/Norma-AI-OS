@@ -14,7 +14,7 @@ ARTIFACT_ROOT="${NORMA_HD_ARTIFACT_ROOT:-/tmp/norma-launchpad-hd-benchmark}"
 MEDIA_DIR="$ARTIFACT_ROOT/media"
 IMAGE_DIR="$ARTIFACT_ROOT/image-media"
 SOURCE_VIDEO="$ROOT/crates/app/assets/wallpapers/1406443.mp4"
-SOURCE_IMAGE="$ROOT/crates/app/assets/wallpapers/1411385.png"
+SOURCE_IMAGE="$ROOT/crates/app/assets/wallpapers/1411385.webp"
 
 print_plan() {
   printf '%s\n' \

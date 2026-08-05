@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AgentDispatchTaskState {
+    Accepted,
     Submitted,
     Queued,
     Untracked,
@@ -34,9 +35,22 @@ pub struct NewAgentDispatchTask {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StoredAgentDispatchResult {
+    pub text: Option<String>,
+    pub truncated: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StoredAgentDispatchTask {
     pub id: i64,
+    pub runtime_instance_id: String,
     pub runtime_task_id: u64,
+    pub task_ref: String,
+    pub root_task_ref: String,
+    pub parent_task_ref: Option<String>,
+    pub source_definition_id: Option<i64>,
+    pub source_node_id: Option<u64>,
+    pub source_provider: Option<String>,
     pub definition_id: i64,
     pub node_id: u64,
     pub original_instruction: String,
@@ -44,6 +58,25 @@ pub struct StoredAgentDispatchTask {
     pub state: AgentDispatchTaskState,
     pub tracking: AgentDispatchTracking,
     pub error: Option<String>,
+    pub result: Option<StoredAgentDispatchResult>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewOrchestrationAgentDispatchTask {
+    pub runtime_instance_id: String,
+    pub runtime_task_id: u64,
+    pub task_ref: String,
+    pub root_task_ref: String,
+    pub parent_task_ref: Option<String>,
+    pub source_definition_id: Option<i64>,
+    pub source_node_id: Option<u64>,
+    pub source_provider: Option<String>,
+    pub target_definition_id: i64,
+    pub target_node_id: u64,
+    pub original_instruction: String,
+    pub task_text: String,
+    pub state: AgentDispatchTaskState,
+    pub tracking: AgentDispatchTracking,
 }
 
 #[derive(Clone, Debug)]
@@ -61,9 +94,10 @@ impl AgentDispatchTaskStore {
         let now = current_unix_timestamp()?;
         connection.execute(
             "INSERT INTO agent_dispatch_tasks
-             (runtime_task_id, definition_id, node_id, original_instruction, task_text, state, tracking,
+             (runtime_instance_id, runtime_task_id, task_ref, root_task_ref,
+              definition_id, node_id, original_instruction, task_text, state, tracking,
               created_at_unix, updated_at_unix)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
+             VALUES ('', ?1, '', '', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
             params![
                 task.runtime_task_id,
                 task.definition_id,
@@ -80,15 +114,71 @@ impl AgentDispatchTaskStore {
             .ok_or(StorageError::AgentDispatchTaskNotFound(id))
     }
 
+    pub fn create_orchestration(
+        &self,
+        task: &NewOrchestrationAgentDispatchTask,
+    ) -> StorageResult<StoredAgentDispatchTask> {
+        let connection = open_project_connection(&self.path)?;
+        let now = current_unix_timestamp()?;
+        connection.execute(
+            "INSERT INTO agent_dispatch_tasks
+             (runtime_instance_id, runtime_task_id, task_ref, root_task_ref, parent_task_ref,
+              source_definition_id, source_node_id, source_provider, definition_id, node_id,
+              original_instruction, task_text, state, tracking, created_at_unix, updated_at_unix)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15)",
+            params![
+                task.runtime_instance_id,
+                task.runtime_task_id,
+                task.task_ref,
+                task.root_task_ref,
+                task.parent_task_ref,
+                task.source_definition_id,
+                task.source_node_id,
+                task.source_provider,
+                task.target_definition_id,
+                task.target_node_id,
+                task.original_instruction,
+                task.task_text,
+                encode_state(task.state),
+                encode_tracking(task.tracking),
+                now,
+            ],
+        )?;
+        let id = connection.last_insert_rowid();
+        self.get(id)?
+            .ok_or(StorageError::AgentDispatchTaskNotFound(id))
+    }
+
     pub fn list(&self) -> StorageResult<Vec<StoredAgentDispatchTask>> {
         let connection = open_project_connection(&self.path)?;
         let mut statement = connection.prepare(
-            "SELECT id, runtime_task_id, definition_id, node_id, original_instruction, task_text, state,
-                    tracking, error
+            "SELECT id, runtime_instance_id, runtime_task_id, task_ref, root_task_ref,
+                    parent_task_ref, source_definition_id, source_node_id, source_provider,
+                    definition_id, node_id, original_instruction, task_text, state, tracking, error,
+                    result_captured, result_text, result_truncated
              FROM agent_dispatch_tasks ORDER BY id",
         )?;
         let rows = statement.query_map([], decode_row)?;
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    pub fn get_by_task_ref(
+        &self,
+        task_ref: &str,
+    ) -> StorageResult<Option<StoredAgentDispatchTask>> {
+        let connection = open_project_connection(&self.path)?;
+        connection
+            .query_row(
+                "SELECT id, runtime_instance_id, runtime_task_id, task_ref, root_task_ref,
+                        parent_task_ref, source_definition_id, source_node_id, source_provider,
+                        definition_id, node_id, original_instruction, task_text, state, tracking, error,
+                        result_captured, result_text, result_truncated
+                 FROM agent_dispatch_tasks WHERE task_ref = ?1 ORDER BY id DESC LIMIT 1",
+                [task_ref],
+                decode_row,
+            )
+            .optional()
+            .map_err(StorageError::from)
     }
 
     pub fn finish_current(
@@ -96,6 +186,16 @@ impl AgentDispatchTaskStore {
         definition_id: i64,
         state: AgentDispatchTaskState,
         error: Option<&str>,
+    ) -> StorageResult<Option<i64>> {
+        self.finish_current_with_result(definition_id, state, error, None)
+    }
+
+    pub fn finish_current_with_result(
+        &self,
+        definition_id: i64,
+        state: AgentDispatchTaskState,
+        error: Option<&str>,
+        result: Option<&StoredAgentDispatchResult>,
     ) -> StorageResult<Option<i64>> {
         let mut connection = open_project_connection(&self.path)?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -111,11 +211,66 @@ impl AgentDispatchTaskStore {
         if let Some(id) = id {
             transaction.execute(
                 "UPDATE agent_dispatch_tasks
-                 SET state = ?1, error = ?2, updated_at_unix = ?3 WHERE id = ?4",
-                params![encode_state(state), error, current_unix_timestamp()?, id],
+                 SET state = ?1, error = ?2, result_captured = ?3, result_text = ?4,
+                     result_truncated = ?5, updated_at_unix = ?6 WHERE id = ?7",
+                params![
+                    encode_state(state),
+                    error,
+                    result.is_some() as i64,
+                    result.and_then(|value| value.text.as_deref()),
+                    result.is_some_and(|value| value.truncated) as i64,
+                    current_unix_timestamp()?,
+                    id
+                ],
             )?;
         }
         transaction.commit()?;
+        Ok(id)
+    }
+
+    pub fn finish_task(
+        &self,
+        runtime_task_id: u64,
+        state: AgentDispatchTaskState,
+        error: Option<&str>,
+    ) -> StorageResult<Option<i64>> {
+        self.finish_task_with_result(runtime_task_id, state, error, None)
+    }
+
+    pub fn finish_task_with_result(
+        &self,
+        runtime_task_id: u64,
+        state: AgentDispatchTaskState,
+        error: Option<&str>,
+        result: Option<&StoredAgentDispatchResult>,
+    ) -> StorageResult<Option<i64>> {
+        let connection = open_project_connection(&self.path)?;
+        let id = connection
+            .query_row(
+                "SELECT id FROM agent_dispatch_tasks
+                 WHERE runtime_task_id = ?1
+                   AND state IN ('accepted', 'queued', 'submitted', 'untracked', 'cancel_requested')
+                 ORDER BY id DESC LIMIT 1",
+                [runtime_task_id],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()?;
+        if let Some(id) = id {
+            connection.execute(
+                "UPDATE agent_dispatch_tasks
+                 SET state = ?1, error = ?2, result_captured = ?3, result_text = ?4,
+                     result_truncated = ?5, updated_at_unix = ?6 WHERE id = ?7",
+                params![
+                    encode_state(state),
+                    error,
+                    result.is_some() as i64,
+                    result.and_then(|value| value.text.as_deref()),
+                    result.is_some_and(|value| value.truncated) as i64,
+                    current_unix_timestamp()?,
+                    id
+                ],
+            )?;
+        }
         Ok(id)
     }
 
@@ -128,7 +283,7 @@ impl AgentDispatchTaskStore {
         let (source_states, target_state) = if running {
             ("'submitted', 'untracked'", "cancel_requested")
         } else {
-            ("'queued'", "cancelled")
+            ("'accepted', 'queued'", "cancelled")
         };
         let id = connection
             .query_row(
@@ -201,7 +356,8 @@ impl AgentDispatchTaskStore {
         let connection = open_project_connection(&self.path)?;
         let mut statement = connection.prepare(
             "SELECT id FROM agent_dispatch_tasks
-             WHERE state IN ('submitted', 'queued', 'untracked', 'cancel_requested') ORDER BY id",
+             WHERE state IN ('accepted', 'submitted', 'queued', 'untracked', 'cancel_requested')
+             ORDER BY id",
         )?;
         let ids = statement
             .query_map([], |row| row.get::<_, i64>(0))?
@@ -211,7 +367,7 @@ impl AgentDispatchTaskStore {
             connection.execute(
                 "UPDATE agent_dispatch_tasks
                  SET state = 'interrupted', updated_at_unix = ?1
-                 WHERE state IN ('submitted', 'queued', 'untracked', 'cancel_requested')",
+                 WHERE state IN ('accepted', 'submitted', 'queued', 'untracked', 'cancel_requested')",
                 [current_unix_timestamp()?],
             )?;
         }
@@ -224,7 +380,7 @@ impl AgentDispatchTaskStore {
             "UPDATE agent_dispatch_tasks
              SET state = 'interrupted', updated_at_unix = ?1
              WHERE definition_id = ?2
-               AND state IN ('submitted', 'queued', 'untracked', 'cancel_requested')",
+               AND state IN ('accepted', 'submitted', 'queued', 'untracked', 'cancel_requested')",
             params![current_unix_timestamp()?, definition_id],
         )?)
     }
@@ -233,8 +389,10 @@ impl AgentDispatchTaskStore {
         let connection = open_project_connection(&self.path)?;
         connection
             .query_row(
-                "SELECT id, runtime_task_id, definition_id, node_id, original_instruction, task_text, state,
-                        tracking, error
+                "SELECT id, runtime_instance_id, runtime_task_id, task_ref, root_task_ref,
+                        parent_task_ref, source_definition_id, source_node_id, source_provider,
+                        definition_id, node_id, original_instruction, task_text, state, tracking, error,
+                        result_captured, result_text, result_truncated
                  FROM agent_dispatch_tasks WHERE id = ?1",
                 [id],
                 decode_row,
@@ -245,23 +403,38 @@ impl AgentDispatchTaskStore {
 }
 
 fn decode_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredAgentDispatchTask> {
-    let state: String = row.get(6)?;
-    let tracking: String = row.get(7)?;
+    let state: String = row.get(13)?;
+    let tracking: String = row.get(14)?;
+    let result_captured = row.get::<_, i64>(16)? != 0;
+    let result_text: Option<String> = row.get(17)?;
+    let result_truncated = row.get::<_, i64>(18)? != 0;
     Ok(StoredAgentDispatchTask {
         id: row.get(0)?,
-        runtime_task_id: row.get(1)?,
-        definition_id: row.get(2)?,
-        node_id: row.get(3)?,
-        original_instruction: row.get(4)?,
-        task_text: row.get(5)?,
+        runtime_instance_id: row.get(1)?,
+        runtime_task_id: row.get(2)?,
+        task_ref: row.get(3)?,
+        root_task_ref: row.get(4)?,
+        parent_task_ref: row.get(5)?,
+        source_definition_id: row.get(6)?,
+        source_node_id: row.get(7)?,
+        source_provider: row.get(8)?,
+        definition_id: row.get(9)?,
+        node_id: row.get(10)?,
+        original_instruction: row.get(11)?,
+        task_text: row.get(12)?,
         state: decode_state(&state)?,
         tracking: decode_tracking(&tracking)?,
-        error: row.get(8)?,
+        error: row.get(15)?,
+        result: result_captured.then_some(StoredAgentDispatchResult {
+            text: result_text,
+            truncated: result_truncated,
+        }),
     })
 }
 
 fn encode_state(state: AgentDispatchTaskState) -> &'static str {
     match state {
+        AgentDispatchTaskState::Accepted => "accepted",
         AgentDispatchTaskState::Submitted => "submitted",
         AgentDispatchTaskState::Queued => "queued",
         AgentDispatchTaskState::Untracked => "untracked",
@@ -275,6 +448,7 @@ fn encode_state(state: AgentDispatchTaskState) -> &'static str {
 
 fn decode_state(value: &str) -> rusqlite::Result<AgentDispatchTaskState> {
     match value {
+        "accepted" => Ok(AgentDispatchTaskState::Accepted),
         "submitted" => Ok(AgentDispatchTaskState::Submitted),
         "queued" => Ok(AgentDispatchTaskState::Queued),
         "untracked" => Ok(AgentDispatchTaskState::Untracked),
@@ -313,3 +487,7 @@ fn invalid_text(value: &str) -> rusqlite::Error {
 #[cfg(test)]
 #[path = "../tests/unit/agent_dispatch_store_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/orchestration_dispatch_audit_tests.rs"]
+mod orchestration_tests;

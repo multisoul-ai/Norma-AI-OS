@@ -1,7 +1,7 @@
 use super::AgentAnnouncement;
 use crate::app::dialogue::create_assistant_audio_sink;
 use crate::app::voice::playback::AssistantAudioSink;
-use crate::app::voice_window_inset::TtsPlaybackEvent;
+use crate::app::voice_window_inset::{TtsPlaybackEvent, VoiceWindowInsetEventSink};
 use canvas::NodeId;
 use gpui::BackgroundExecutor;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -104,8 +104,11 @@ pub(crate) struct AgentAnnouncementPlayback {
     pub(super) phase: AgentAnnouncementPlaybackPhase,
     pub(super) control: Option<Arc<AgentAnnouncementAudioControl>>,
     pub(super) playback_events: Vec<TtsPlaybackEvent>,
+    playback_event_sink: Option<VoiceWindowInsetEventSink>,
     #[cfg(feature = "e2e-test-support")]
     pub(crate) e2e_enabled: bool,
+    #[cfg(feature = "e2e-test-support")]
+    pub(crate) e2e_tts_ready: bool,
     #[cfg(feature = "e2e-test-support")]
     pub(crate) e2e_spoken: Vec<String>,
 }
@@ -117,8 +120,11 @@ impl Default for AgentAnnouncementPlayback {
             phase: AgentAnnouncementPlaybackPhase::Idle,
             control: None,
             playback_events: Vec::new(),
+            playback_event_sink: None,
             #[cfg(feature = "e2e-test-support")]
             e2e_enabled: false,
+            #[cfg(feature = "e2e-test-support")]
+            e2e_tts_ready: false,
             #[cfg(feature = "e2e-test-support")]
             e2e_spoken: Vec::new(),
         }
@@ -126,6 +132,18 @@ impl Default for AgentAnnouncementPlayback {
 }
 
 impl AgentAnnouncementPlayback {
+    pub(crate) fn connect_playback_event_sink(&mut self, sink: VoiceWindowInsetEventSink) {
+        self.playback_event_sink = Some(sink);
+    }
+
+    pub(super) fn push_playback_event(&mut self, event: TtsPlaybackEvent) {
+        if let Some(sink) = &self.playback_event_sink {
+            sink.push(event);
+        } else {
+            self.playback_events.push(event);
+        }
+    }
+
     pub(super) fn is_idle(&self) -> bool {
         matches!(self.phase, AgentAnnouncementPlaybackPhase::Idle)
     }
@@ -157,15 +175,11 @@ impl AgentAnnouncementPlayback {
             )
         });
         if started {
-            self.playback_events.push(TtsPlaybackEvent::Interrupted);
+            self.push_playback_event(TtsPlaybackEvent::Interrupted);
         } else if had_active {
-            self.playback_events.push(TtsPlaybackEvent::DiscardQueued);
+            self.push_playback_event(TtsPlaybackEvent::DiscardQueued);
         }
         self.phase = AgentAnnouncementPlaybackPhase::Idle;
-    }
-
-    pub(crate) fn take_playback_events(&mut self) -> Vec<TtsPlaybackEvent> {
-        std::mem::take(&mut self.playback_events)
     }
 }
 

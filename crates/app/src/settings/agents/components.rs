@@ -1,8 +1,22 @@
-use gpui::{div, prelude::*, px, rgba, Div, FontWeight};
+use gpui::{
+    div, prelude::*, px, rgba, AnyElement, App, ClickEvent, Div, FontWeight, KeyDownEvent, Window,
+};
+use std::rc::Rc;
 use ui::Theme;
 
-pub(super) fn action_button(_theme: Theme, label: &'static str, accent: u32) -> Div {
+pub(super) fn action_button(
+    theme: Theme,
+    id: &'static str,
+    label: &'static str,
+    accent: u32,
+    on_activate: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+) -> AnyElement {
+    let on_activate = Rc::new(on_activate);
+    let on_click = on_activate.clone();
+    let on_key_down = on_activate.clone();
     div()
+        .id(id)
+        .debug_selector(move || id.to_string())
         .px(px(12.0))
         .py(px(8.0))
         .rounded(px(8.0))
@@ -14,32 +28,43 @@ pub(super) fn action_button(_theme: Theme, label: &'static str, accent: u32) -> 
         .text_color(rgba(accent))
         .cursor_pointer()
         .hover(move |style| style.bg(rgba(with_alpha(accent, 0x28))))
+        .active(move |style| style.bg(rgba(with_alpha(accent, 0x38))))
+        .tab_index(0)
+        .focus(move |style| {
+            style
+                .border_color(rgba(accent))
+                .bg(rgba(with_alpha(theme.panel_high, 0xd8)))
+        })
+        .on_click(move |event, window, cx| on_click(event, window, cx))
+        .on_key_down(move |event: &KeyDownEvent, window, cx| {
+            if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                on_key_down(&ClickEvent::default(), window, cx);
+                cx.stop_propagation();
+            }
+        })
         .child(label)
+        .into_any_element()
 }
 
-pub(super) fn status_chip(theme: Theme, enabled: bool) -> Div {
+pub(super) fn disabled_action_button(
+    theme: Theme,
+    id: &'static str,
+    label: &'static str,
+) -> AnyElement {
     div()
-        .px(px(10.0))
-        .py(px(5.0))
-        .rounded(px(999.0))
-        .bg(rgba(with_alpha(
-            if enabled {
-                theme.accent_cyan
-            } else {
-                theme.destructive
-            },
-            0x18,
-        )))
-        .text_size(px(12.0))
+        .id(id)
+        .debug_selector(move || id.to_string())
+        .px(px(12.0))
+        .py(px(8.0))
+        .rounded(px(8.0))
+        .border_1()
+        .border_color(rgba(with_alpha(theme.edge_highlight, 0x38)))
+        .bg(rgba(with_alpha(theme.panel_high, 0x38)))
+        .text_size(px(13.0))
         .font_weight(FontWeight::MEDIUM)
-        .text_color(rgba(if enabled {
-            theme.accent_cyan
-        } else {
-            theme.destructive
-        }))
-        .cursor_pointer()
-        .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xd2))))
-        .child(if enabled { "Enabled" } else { "Disabled" })
+        .text_color(rgba(with_alpha(theme.text_secondary, 0x70)))
+        .child(label)
+        .into_any_element()
 }
 
 pub(super) fn status_block(theme: Theme, message: &str, is_error: bool) -> Div {

@@ -1,14 +1,17 @@
 //! 节点生命周期 + LiveNode 注册表。把 canvas 文档与可运行节点组装在一起。
 
+use crate::agent_session_bindings::AgentSessionBindings;
+use crate::ego::EgoTaskSpaceReplacement;
 use crate::events::RuntimeEvents;
 use crate::focus::{FocusState, InputMode};
 use crate::live::{Caps, LiveNode, NodeError, NodeInput, NodeResize, NodeScroll, NodeView};
 use crate::nodes::agent::spawn_agent_live;
 use crate::nodes::term::{spawn_term_live, PtyFactory, TermLive};
 use crate::runtime_support::terminal_shell_command;
+use crate::EgoTaskState;
 use canvas::{
-    AgentProfile, AgentSpec, BrowserSpec, CanvasNodeKind, CanvasRect, Document, DocumentSnapshot,
-    NodeId, NodeType, PreviewSpec, PreviewType, Selection, TermSpec,
+    AgentProfile, AgentSpec, BrowserSpec, BrowserSurfaceKind, CanvasNodeKind, CanvasRect, Document,
+    DocumentSnapshot, NodeId, NodeType, Selection, TermSpec,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -18,7 +21,7 @@ use storage::{
 };
 #[cfg(test)]
 use terminal::PtyCommand;
-use terminal::{PtyError, TerminalSessionId};
+use terminal::{Cell, PtyError, TerminalSessionId};
 
 mod definition_identity;
 
@@ -34,7 +37,9 @@ pub struct Runtime {
     pub(crate) events: RuntimeEvents,
     pub(crate) agent_hook_config: Option<crate::agent_hooks::AgentHookRuntimeConfig>,
     terminal_shells: HashMap<NodeId, String>,
-    pub(crate) agent_session_ids: HashMap<NodeId, String>,
+    pub(crate) agent_session_bindings: AgentSessionBindings,
+    pub(crate) ego_states: HashMap<NodeId, EgoTaskState>,
+    pub(crate) ego_replacements: HashMap<NodeId, EgoTaskSpaceReplacement>,
     #[cfg(test)]
     test_agent_spawn_command: Option<PtyCommand>,
     next_session_id: TerminalSessionId,
@@ -58,7 +63,9 @@ impl Runtime {
             events: RuntimeEvents::default(),
             agent_hook_config: None,
             terminal_shells: HashMap::new(),
-            agent_session_ids: HashMap::new(),
+            agent_session_bindings: AgentSessionBindings::default(),
+            ego_states: HashMap::new(),
+            ego_replacements: HashMap::new(),
             #[cfg(test)]
             test_agent_spawn_command: None,
             next_session_id: 1,
@@ -100,7 +107,8 @@ impl Runtime {
         self.focus.exit_to_canvas();
         self.live.clear();
         self.terminal_shells.clear();
-        self.agent_session_ids.clear();
+        self.agent_session_bindings.clear();
+        self.restore_ego_states();
         self.next_session_id = 1;
     }
 
@@ -132,6 +140,7 @@ impl Runtime {
         let mut ctx = crate::session_restore::RestoreCtx {
             live: &mut self.live,
             terminal_shells: &mut self.terminal_shells,
+            agent_session_bindings: &self.agent_session_bindings,
             events: &mut self.events,
             next_session_id: &mut self.next_session_id,
             workspace_root: self.workspace_root.as_deref(),
@@ -146,7 +155,7 @@ impl Runtime {
             &self.live,
             &self.document,
             self.workspace_root.as_deref(),
-            &self.agent_session_ids,
+            &self.agent_session_bindings,
         )
     }
 
@@ -155,9 +164,11 @@ impl Runtime {
         checkpoints: &[SessionCheckpoint],
         node_sessions: &[NodeSession],
     ) -> usize {
+        self.hydrate_agent_session_bindings(node_sessions);
         let mut ctx = crate::session_restore::RestoreCtx {
             live: &mut self.live,
             terminal_shells: &mut self.terminal_shells,
+            agent_session_bindings: &self.agent_session_bindings,
             events: &mut self.events,
             next_session_id: &mut self.next_session_id,
             workspace_root: self.workspace_root.as_deref(),
@@ -178,9 +189,13 @@ impl Runtime {
         node_sessions: &[NodeSession],
         discovered_session_id: Option<&str>,
     ) -> bool {
+        if let Some(session_id) = discovered_session_id {
+            self.bind_discovered_agent_session(node_id, session_id);
+        }
         let mut ctx = crate::session_restore::RestoreCtx {
             live: &mut self.live,
             terminal_shells: &mut self.terminal_shells,
+            agent_session_bindings: &self.agent_session_bindings,
             events: &mut self.events,
             next_session_id: &mut self.next_session_id,
             workspace_root: self.workspace_root.as_deref(),
@@ -263,29 +278,20 @@ impl Runtime {
         Ok(node_id)
     }
 
-    pub fn spawn_preview_from_path(
-        &mut self,
-        path: PathBuf,
-        explicit_type: Option<PreviewType>,
-        bounds: CanvasRect,
-    ) -> NodeId {
-        self.document.add_node(
-            CanvasNodeKind::Preview(PreviewSpec {
-                path: path.to_string_lossy().into_owned(),
-                explicit_type,
-            }),
-            bounds,
-        )
-    }
-
     pub fn spawn_browser(
         &mut self,
         url: String,
         title: Option<String>,
         bounds: CanvasRect,
     ) -> NodeId {
-        self.document
-            .add_node(CanvasNodeKind::Browser(BrowserSpec { url, title }), bounds)
+        self.document.add_node(
+            CanvasNodeKind::Browser(BrowserSpec {
+                url,
+                title,
+                surface: BrowserSurfaceKind::Native,
+            }),
+            bounds,
+        )
     }
 
     fn add_agent_node(
@@ -379,6 +385,17 @@ impl Runtime {
         self.finish_node_operation(Some(node_id), "scroll", result)
     }
 
+    /// 读取终端节点的绝对行范围 `[start_abs, end_abs]`（含两端）的中性 Cell 行数据。
+    /// 非终端节点或节点缺失时返回 `None`。用于跨 scrollback 复制选中的完整文本。
+    pub fn node_terminal_rows(
+        &self,
+        node_id: NodeId,
+        start_abs: usize,
+        end_abs: usize,
+    ) -> Option<Vec<Vec<Cell>>> {
+        self.live.get(&node_id)?.terminal_rows(start_abs, end_abs)
+    }
+
     /// drain 所有 live node；任一 dirty 则返回 true（app 据此决定是否 repaint）。
     pub fn drain_all(&mut self) -> bool {
         let mut dirty = false;
@@ -408,7 +425,8 @@ impl Runtime {
         }
         self.events.remove(node_id);
         self.terminal_shells.remove(&node_id);
-        self.agent_session_ids.remove(&node_id);
+        self.agent_session_bindings.remove(node_id);
+        self.remove_ego_state(node_id);
 
         self.selection.deselect(node_id);
         if matches!(self.focus.mode(), InputMode::NodeFocused(focused) if focused == node_id) {
@@ -432,7 +450,9 @@ impl Runtime {
     }
 
     pub fn agent_session_id(&self, node_id: NodeId) -> Option<String> {
-        self.agent_session_ids.get(&node_id).cloned()
+        self.agent_session_bindings
+            .session_id(node_id)
+            .map(ToString::to_string)
     }
 
     fn finish_node_operation<T>(
@@ -461,38 +481,4 @@ impl Runtime {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/agent_alias_tests.rs"]
-mod agent_alias_tests;
-#[cfg(test)]
-#[path = "../tests/unit/agent_command_tests.rs"]
-mod agent_command_tests;
-#[cfg(test)]
-#[path = "../tests/unit/agent_manual_interrupt_tests.rs"]
-mod agent_manual_interrupt_tests;
-#[cfg(test)]
-#[path = "../tests/unit/agent_session_snapshot_tests.rs"]
-mod agent_session_snapshot_tests;
-#[cfg(test)]
-#[path = "../tests/unit/agent_task_event_tests.rs"]
-mod agent_task_event_tests;
-#[cfg(test)]
-#[path = "../tests/unit/runtime_event_tests.rs"]
-mod event_tests;
-#[cfg(test)]
-#[path = "../tests/unit/preview_tests.rs"]
-mod preview_tests;
-#[cfg(test)]
-#[path = "runtime_test_helpers.rs"]
-mod runtime_test_helpers;
-#[cfg(test)]
-#[path = "../tests/unit/runtime_scroll_tests.rs"]
-mod scroll_tests;
-#[cfg(test)]
-#[path = "../tests/unit/runtime_storage_tests.rs"]
-mod storage_tests;
-#[cfg(test)]
-#[path = "../tests/unit/runtime_tests.rs"]
-mod tests;
-#[cfg(test)]
-#[path = "../tests/unit/workspace_runtime_tests.rs"]
-mod workspace_tests;
+include!("runtime_test_modules.rs");

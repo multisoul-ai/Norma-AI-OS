@@ -1,16 +1,24 @@
 use crate::{
-    AgentDispatchTaskState, AgentDispatchTaskStore, NewAgentDispatchTask, StorageError,
-    StorageResult,
+    AgentDispatchTaskState, AgentDispatchTaskStore, NewAgentDispatchTask,
+    NewOrchestrationAgentDispatchTask, StorageError, StorageResult, StoredAgentDispatchResult,
 };
 use std::io;
 use std::sync::mpsc::{self, Sender, SyncSender};
 
 enum AgentDispatchWrite {
     Create(NewAgentDispatchTask),
+    CreateOrchestration(NewOrchestrationAgentDispatchTask),
     FinishCurrent {
         definition_id: i64,
         state: AgentDispatchTaskState,
         error: Option<String>,
+        result: Option<StoredAgentDispatchResult>,
+    },
+    FinishTask {
+        runtime_task_id: u64,
+        state: AgentDispatchTaskState,
+        error: Option<String>,
+        result: Option<StoredAgentDispatchResult>,
     },
     SubmitNextQueued {
         definition_id: i64,
@@ -65,15 +73,47 @@ impl BackgroundAgentDispatchStore {
                                 tracing::error!(%error, "failed to persist background Agent dispatch");
                             }
                         }
+                        AgentDispatchWrite::CreateOrchestration(task) => {
+                            if let Err(error) = store.create_orchestration(&task) {
+                                tracing::error!(
+                                    %error,
+                                    task_ref = %task.task_ref,
+                                    "failed to persist orchestration Agent dispatch"
+                                );
+                            }
+                        }
                         AgentDispatchWrite::FinishCurrent {
                             definition_id,
                             state,
                             error,
+                            result,
                         } => {
                             if let Err(error) =
-                                store.finish_current(definition_id, state, error.as_deref())
+                                store.finish_current_with_result(
+                                    definition_id,
+                                    state,
+                                    error.as_deref(),
+                                    result.as_ref(),
+                                )
                             {
                                 tracing::error!(%error, "failed to persist background Agent terminal state");
+                            }
+                        }
+                        AgentDispatchWrite::FinishTask {
+                            runtime_task_id,
+                            state,
+                            error,
+                            result,
+                        } => {
+                            if let Err(error) =
+                                store.finish_task_with_result(
+                                    runtime_task_id,
+                                    state,
+                                    error.as_deref(),
+                                    result.as_ref(),
+                                )
+                            {
+                                tracing::error!(%error, "failed to persist exact Agent terminal state");
                             }
                         }
                         AgentDispatchWrite::SubmitNextQueued { definition_id } => {
@@ -125,16 +165,33 @@ impl BackgroundAgentDispatchStore {
         let _ = self.sender.send(AgentDispatchWrite::Create(task));
     }
 
+    pub fn create_orchestration(&self, task: NewOrchestrationAgentDispatchTask) {
+        let _ = self
+            .sender
+            .send(AgentDispatchWrite::CreateOrchestration(task));
+    }
+
     pub fn finish_current(
         &self,
         definition_id: i64,
         state: AgentDispatchTaskState,
         error: Option<String>,
     ) {
+        self.finish_current_with_result(definition_id, state, error, None);
+    }
+
+    pub fn finish_current_with_result(
+        &self,
+        definition_id: i64,
+        state: AgentDispatchTaskState,
+        error: Option<String>,
+        result: Option<StoredAgentDispatchResult>,
+    ) {
         let _ = self.sender.send(AgentDispatchWrite::FinishCurrent {
             definition_id,
             state,
             error,
+            result,
         });
     }
 
@@ -142,6 +199,30 @@ impl BackgroundAgentDispatchStore {
         let _ = self
             .sender
             .send(AgentDispatchWrite::SubmitNextQueued { definition_id });
+    }
+
+    pub fn finish_task(
+        &self,
+        runtime_task_id: u64,
+        state: AgentDispatchTaskState,
+        error: Option<String>,
+    ) {
+        self.finish_task_with_result(runtime_task_id, state, error, None);
+    }
+
+    pub fn finish_task_with_result(
+        &self,
+        runtime_task_id: u64,
+        state: AgentDispatchTaskState,
+        error: Option<String>,
+        result: Option<StoredAgentDispatchResult>,
+    ) {
+        let _ = self.sender.send(AgentDispatchWrite::FinishTask {
+            runtime_task_id,
+            state,
+            error,
+            result,
+        });
     }
 
     pub fn fail_next_queued(&self, definition_id: i64, error: String) {

@@ -1,29 +1,16 @@
 use crate::app::MultisoulApp;
 use gpui::Window;
 use norma::protocol::{
-    AgentSummary, AgentTaskReceipt, AgentTaskReceiptStatus, CardCommand, CardCommandResult,
+    AgentErrorCode, AgentProfile, AgentSummary, AgentTaskReceipt, AgentTaskReceiptStatus,
+    CardCommand, CardCommandError, CardCommandResult,
 };
 use std::collections::{HashMap, HashSet};
 
+use super::command_protocol::{
+    coordination_error, internal_agent_error, profile_slug, tracking_label,
+};
+use super::command_support::{activate_definition, type_agent_task, AgentTaskSubmitError};
 use super::pending::unsafe_submission_recovery_message;
-
-#[derive(Debug)]
-pub(super) struct AgentTaskSubmitError {
-    message: String,
-    retry_safe: bool,
-}
-
-impl AgentTaskSubmitError {
-    pub(super) fn retry_safe(&self) -> bool {
-        self.retry_safe
-    }
-}
-
-impl std::fmt::Display for AgentTaskSubmitError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str(&self.message)
-    }
-}
 
 pub(crate) fn execute_agent_card_command(
     app: &mut MultisoulApp,
@@ -38,13 +25,25 @@ pub(crate) fn execute_agent_card_command(
             | CardCommand::CreateAgent { .. }
             | CardCommand::ActivateAgent { .. }
             | CardCommand::DispatchAgentTasks { .. }
+            | CardCommand::AgentTaskStatus { .. }
+            | CardCommand::AgentTaskResult { .. }
+            | CardCommand::AgentTaskCancel { .. }
     ) {
-        return execute_high_level_agent_command(app, command, area, zoom);
+        return super::orchestration_commands::execute_high_level_agent_command(
+            app,
+            command,
+            area,
+            zoom,
+            agent::AgentDispatchSource::norma(),
+            None,
+        )
+        .map_err(|error| error.to_string());
     }
-    let execution = crate::norma::server::execute_card_command_for_area(
+    let execution = crate::norma::server::execute_card_command_for_area_with_strategy(
         &mut app.runtime,
         &mut app.motion,
         &mut app.master_layout,
+        app.layout_strategy,
         command,
         area,
         zoom,
@@ -55,12 +54,15 @@ pub(crate) fn execute_agent_card_command(
     Ok(result)
 }
 
-fn execute_high_level_agent_command(
+pub(super) fn execute_coordinated_agent_command(
     app: &mut MultisoulApp,
     command: CardCommand,
     area: canvas::CanvasRect,
     zoom: f32,
-) -> Result<CardCommandResult, String> {
+    source: agent::AgentDispatchSource,
+    source_provider: Option<AgentProfile>,
+    visual_origin: Option<crate::motion::DispatchVisualOrigin>,
+) -> Result<CardCommandResult, CardCommandError> {
     match command {
         CardCommand::ListAgents => Ok(CardCommandResult::AgentsListed {
             agents: app
@@ -74,6 +76,7 @@ fn execute_high_level_agent_command(
                     enabled: entry.enabled,
                     active_node_id: entry.active_node_id,
                     busy: entry.busy,
+                    tracking: tracking_label(entry.tracking).to_string(),
                 })
                 .collect(),
         }),
@@ -81,31 +84,30 @@ fn execute_high_level_agent_command(
             name,
             profile,
             activate,
-        } => {
-            let definition = app
-                .agent_definitions
-                .create_definition(name, canvas_agent_profile(profile))?;
-            let node_id = if activate {
-                Some(activate_definition(app, &definition, area, zoom)?.0)
-            } else {
-                None
-            };
-            Ok(CardCommandResult::AgentCreated {
-                definition_id: definition.id,
-                name: definition.name,
-                node_id,
-            })
-        }
+        } => super::create_agent_command::create_or_reuse_agent(
+            app, name, profile, activate, area, zoom,
+        ),
         CardCommand::ActivateAgent { name } => {
             let definition = app
                 .agent_definitions
                 .definition_by_address(&name)
                 .cloned()
-                .ok_or_else(|| format!("Unknown Agent: {name}"))?;
+                .ok_or_else(|| {
+                    CardCommandError::agent(
+                        AgentErrorCode::UnknownAgent,
+                        format!("未找到 Agent：{name}"),
+                        false,
+                    )
+                })?;
             if !definition.enabled {
-                return Err(format!("Agent {} is disabled", definition.name));
+                return Err(CardCommandError::agent(
+                    AgentErrorCode::AgentDisabled,
+                    format!("Agent {} 已禁用", definition.name),
+                    false,
+                ));
             }
-            let (node_id, reused) = activate_definition(app, &definition, area, zoom)?;
+            let (node_id, reused) =
+                activate_definition(app, &definition, area, zoom).map_err(internal_agent_error)?;
             Ok(CardCommandResult::AgentActivated {
                 definition_id: definition.id,
                 name: definition.name,
@@ -124,16 +126,31 @@ fn execute_high_level_agent_command(
                         .agent_definitions
                         .definition_by_address(&assignment.name)
                         .cloned()
-                        .ok_or_else(|| format!("Unknown Agent: {}", assignment.name))?;
+                        .ok_or_else(|| {
+                            CardCommandError::agent(
+                                AgentErrorCode::UnknownAgent,
+                                format!("未找到 Agent：{}", assignment.name),
+                                false,
+                            )
+                        })?;
                     if !definition.enabled {
-                        return Err(format!("Agent {} is disabled", definition.name));
+                        return Err(CardCommandError::agent(
+                            AgentErrorCode::AgentDisabled,
+                            format!("Agent {} 已禁用", definition.name),
+                            false,
+                        ));
                     }
                     if assignment.task.trim().is_empty() {
-                        return Err(format!("Task for {} is empty", definition.name));
+                        return Err(CardCommandError::agent(
+                            AgentErrorCode::EmptyTask,
+                            format!("给 {} 的任务不能为空", definition.name),
+                            false,
+                        ));
                     }
                     Ok(definition)
                 })
-                .collect::<Result<Vec<_>, String>>()?;
+                .collect::<Result<Vec<_>, CardCommandError>>()?;
+            let source_identity = app.agent_identity_for_source(source);
             let current_roster = app.agent_roster_for_provider();
             let mut seen_untracked_definitions = HashSet::new();
             for definition in &definitions {
@@ -142,9 +159,13 @@ fn execute_high_level_agent_command(
                         && entry.tracking == agent::AgentTrackingMode::Untracked
                 });
                 if is_untracked && !seen_untracked_definitions.insert(definition.id) {
-                    return Err(format!(
-                        "Agent {} has no Hook tracking; dispatch only one task at a time",
-                        definition.name
+                    return Err(CardCommandError::agent(
+                        AgentErrorCode::UntrackedRequiresForce,
+                        format!(
+                            "Agent {} 没有 Hook 跟踪；一次只能派发一个任务",
+                            definition.name
+                        ),
+                        false,
                     ));
                 }
             }
@@ -159,33 +180,83 @@ fn execute_high_level_agent_command(
                                     .as_ref()
                                     .is_some_and(|coordinator| coordinator.is_busy(definition.id)))
                     }) {
-                        return Err(format!(
-                            "Agent {} has no Hook tracking; explicitly force a second submission",
-                            definition.name
+                        return Err(CardCommandError::agent(
+                            AgentErrorCode::UntrackedRequiresForce,
+                            format!(
+                                "Agent {} 没有 Hook 跟踪；再次派发需要用户明确授权",
+                                definition.name
+                            ),
+                            false,
                         ));
                     }
                 }
             }
             for definition in &definitions {
-                let _ = activate_definition(app, definition, area, zoom)?;
+                let _ = activate_definition(app, definition, area, zoom)
+                    .map_err(internal_agent_error)?;
             }
             let roster = app.agent_roster_for_provider();
             match app.agent_task_coordinator.as_mut() {
                 Some(coordinator) => coordinator
                     .sync_roster(roster)
-                    .map_err(|error| error.to_string())?,
+                    .map_err(|error| coordination_error(error, source_identity.as_ref()))?,
                 None => {
-                    app.agent_task_coordinator = Some(
-                        agent::AgentTaskCoordinator::new(roster)
-                            .map_err(|error| error.to_string())?,
-                    );
+                    app.agent_task_coordinator =
+                        Some(agent::AgentTaskCoordinator::new(roster).map_err(|error| {
+                            coordination_error(error, source_identity.as_ref())
+                        })?);
+                }
+            }
+            if force_untracked {
+                let forced_definition_ids = definitions
+                    .iter()
+                    .map(|definition| definition.id)
+                    .collect::<HashSet<_>>();
+                let superseded = app
+                    .agent_task_coordinator
+                    .as_ref()
+                    .expect("coordinator initialized above")
+                    .tasks()
+                    .into_iter()
+                    .filter(|task| {
+                        forced_definition_ids.contains(&task.definition_id)
+                            && task.tracking == agent::AgentTrackingMode::Untracked
+                            && matches!(task.state, "running" | "cancel_requested")
+                    })
+                    .collect::<Vec<_>>();
+                for task in superseded {
+                    if let Some((node_id, task_was_typed)) =
+                        app.pending_agent_submissions.task_stage(task.task_id)
+                    {
+                        if task_was_typed {
+                            super::command_support::clear_agent_task_input(
+                                &mut app.runtime,
+                                node_id,
+                            )
+                            .map_err(|error| {
+                                CardCommandError::agent(
+                                    AgentErrorCode::InternalError,
+                                    format!("无法清除被强制替换的任务输入：{error}"),
+                                    true,
+                                )
+                            })?;
+                        }
+                        app.pending_agent_submissions.remove_task(task.task_id);
+                    }
+                    if let Some(writer) = app.persistence.agent_dispatch_writer() {
+                        writer.finish_task(
+                            task.task_id,
+                            storage::AgentDispatchTaskState::Interrupted,
+                            None,
+                        );
+                    }
                 }
             }
             let receipts = app
                 .agent_task_coordinator
                 .as_mut()
                 .expect("coordinator initialized above")
-                .dispatch(
+                .dispatch_from(
                     assignments
                         .into_iter()
                         .map(|assignment| {
@@ -193,8 +264,9 @@ fn execute_high_level_agent_command(
                         })
                         .collect(),
                     force_untracked,
+                    source,
                 )
-                .map_err(|error| error.to_string())?;
+                .map_err(|error| coordination_error(error, source_identity.as_ref()))?;
             let mut failed_tasks = HashMap::<u64, AgentTaskSubmitError>::new();
             let mut waiting_tasks = HashSet::<u64>::new();
             let mut retry_safe_managed_failures = HashSet::<i64>::new();
@@ -318,10 +390,21 @@ fn execute_high_level_agent_command(
                     }
                 };
                 if let Some(writer) = app.persistence.agent_dispatch_writer() {
-                    writer.create(storage::NewAgentDispatchTask {
+                    writer.create_orchestration(storage::NewOrchestrationAgentDispatchTask {
+                        runtime_instance_id: receipt
+                            .task_ref
+                            .rsplit_once(':')
+                            .map(|(runtime_id, _)| runtime_id.to_string())
+                            .unwrap_or_default(),
                         runtime_task_id: receipt.task_id,
-                        definition_id: receipt.definition_id,
-                        node_id: receipt.node_id,
+                        task_ref: receipt.task_ref.clone(),
+                        root_task_ref: receipt.root_task_ref.clone(),
+                        parent_task_ref: receipt.parent_task_ref.clone(),
+                        source_definition_id: receipt.source_definition_id,
+                        source_node_id: receipt.source_node_id,
+                        source_provider: source_provider.map(profile_slug).map(str::to_string),
+                        target_definition_id: receipt.definition_id,
+                        target_node_id: receipt.node_id,
                         original_instruction: receipt.task.clone(),
                         task_text: receipt.task.clone(),
                         state: persisted_state,
@@ -344,134 +427,43 @@ fn execute_high_level_agent_command(
                     }
                 };
                 wire_receipts.push(AgentTaskReceipt {
+                    task_id: receipt.task_ref,
+                    operation_id: None,
+                    source_workspace_id: None,
+                    target_workspace_id: None,
+                    target_definition_id: receipt.definition_id,
                     name: receipt.name,
                     node_id: receipt.node_id,
                     task: receipt.task,
                     status,
+                    tracking: tracking_label(match receipt.state {
+                        agent::AgentDispatchState::SubmittedUntracked => {
+                            agent::AgentTrackingMode::Untracked
+                        }
+                        agent::AgentDispatchState::Queued
+                        | agent::AgentDispatchState::SubmittedManaged => {
+                            agent::AgentTrackingMode::Managed
+                        }
+                    })
+                    .to_string(),
+                    parent_task_id: receipt.parent_task_ref,
+                    root_task_id: receipt.root_task_ref,
                 });
+            }
+            if let Some(origin) = visual_origin {
+                super::dispatch_effects::spawn_accepted_dispatch_receipts(
+                    app,
+                    &wire_receipts,
+                    origin,
+                    area,
+                );
             }
             Ok(CardCommandResult::AgentTasksDispatched {
                 receipts: wire_receipts,
             })
         }
-        _ => Err("not a high-level Agent command".to_string()),
-    }
-}
-
-pub(super) fn type_agent_task(
-    runtime: &mut runtime::Runtime,
-    node_id: canvas::NodeId,
-    task: &str,
-) -> Result<(), AgentTaskSubmitError> {
-    runtime
-        .send_node_input(node_id, runtime::NodeInput::Text(task.to_string()))
-        .map_err(|error| AgentTaskSubmitError {
-            message: error.to_string(),
-            retry_safe: true,
-        })
-}
-
-pub(super) fn submit_agent_enter(
-    runtime: &mut runtime::Runtime,
-    node_id: canvas::NodeId,
-) -> Result<(), AgentTaskSubmitError> {
-    if let Err(error) = runtime.send_node_input(
-        node_id,
-        runtime::NodeInput::Key(terminal::KeyInput {
-            key: terminal::Key::Enter,
-            ctrl: false,
-            alt: false,
+        _ => Err(CardCommandError::Unsupported {
+            message: "not a coordinated Agent command".to_string(),
         }),
-    ) {
-        let cleanup = runtime.send_node_input(
-            node_id,
-            runtime::NodeInput::Key(terminal::KeyInput {
-                key: terminal::Key::Char('u'),
-                ctrl: true,
-                alt: false,
-            }),
-        );
-        return match cleanup {
-            Ok(()) => Err(AgentTaskSubmitError {
-                message: error.to_string(),
-                retry_safe: true,
-            }),
-            Err(cleanup_error) => Err(AgentTaskSubmitError {
-                message: format!(
-                    "{error}; failed to clear unsubmitted Agent task input: {cleanup_error}"
-                ),
-                retry_safe: false,
-            }),
-        };
-    }
-    Ok(())
-}
-
-pub(super) fn clear_agent_task_input(
-    runtime: &mut runtime::Runtime,
-    node_id: canvas::NodeId,
-) -> Result<(), String> {
-    runtime
-        .send_node_input(
-            node_id,
-            runtime::NodeInput::Key(terminal::KeyInput {
-                key: terminal::Key::Char('u'),
-                ctrl: true,
-                alt: false,
-            }),
-        )
-        .map_err(|error| error.to_string())
-}
-
-fn activate_definition(
-    app: &mut MultisoulApp,
-    definition: &storage::AgentDefinition,
-    area: canvas::CanvasRect,
-    zoom: f32,
-) -> Result<(u64, bool), String> {
-    if let Some(node_id) = app.runtime.document.nodes().iter().find_map(|node| {
-        let canvas::CanvasNodeKind::Agent(spec) = &node.kind else {
-            return None;
-        };
-        (spec.definition_id == Some(definition.id)).then_some(node.id)
-    }) {
-        return Ok((node_id, true));
-    }
-    let bounds = area.inset(app.layout_gap_canvas());
-    let (cols, rows) = crate::canvas::master_layout::term_grid_size_for_card(
-        canvas::NodeType::Agent,
-        bounds,
-        zoom,
-    );
-    let node_id = app
-        .runtime
-        .spawn_agent_for_definition(
-            definition.runtime_profile,
-            definition.id,
-            definition.name.clone(),
-            bounds,
-            cols,
-            rows,
-        )
-        .map_err(|error| error.to_string())?;
-    crate::canvas::spawn_focus::activate_spawned_node(&mut app.runtime, node_id);
-    app.motion.spawn_node(node_id, bounds);
-    app.motion.start_initialization(
-        node_id,
-        crate::motion::InitializationAnimationKind::for_agent_profile(definition.runtime_profile),
-    );
-    app.pending_agent_submissions.mark_starting(node_id);
-    app.mark_canvas_dirty();
-    app.mark_session_dirty();
-    Ok((node_id, false))
-}
-
-fn canvas_agent_profile(profile: norma::protocol::AgentProfile) -> canvas::AgentProfile {
-    match profile {
-        norma::protocol::AgentProfile::Claude => canvas::AgentProfile::Claude,
-        norma::protocol::AgentProfile::Codex => canvas::AgentProfile::Codex,
-        norma::protocol::AgentProfile::Cursor => canvas::AgentProfile::Cursor,
-        norma::protocol::AgentProfile::Grok => canvas::AgentProfile::Grok,
-        norma::protocol::AgentProfile::OpenCode => canvas::AgentProfile::OpenCode,
     }
 }

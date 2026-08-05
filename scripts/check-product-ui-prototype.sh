@@ -67,7 +67,7 @@ assert_absent 'brand/assets/source-references/' "prototype must use the product 
 assert_absent 'multisoul' "prototype must not expose the retired brand name"
 
 # Canvas V3：使用项目真实壁纸建立可折射环境，控制坞不得与卡片混排。
-assert_contains '../crates/app/assets/wallpapers/1331865.png' "Canvas must use an existing product wallpaper"
+assert_contains '../crates/app/assets/wallpapers/1331865.webp' "Canvas must use an existing product wallpaper"
 assert_contains 'class="canvas-command-dock"' "bottom command dock is missing"
 assert_contains 'class="dock-voice"' "Voice must be integrated into the command dock"
 assert_absent 'class="canvas-connection' "persistent diagram connections must be removed"

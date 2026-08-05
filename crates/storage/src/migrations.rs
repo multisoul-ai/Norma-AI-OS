@@ -38,7 +38,113 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
             value TEXT NOT NULL,
             updated_at_unix INTEGER NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS orchestration_authorizations (
+            provider TEXT PRIMARY KEY NOT NULL,
+            token_hash TEXT NOT NULL,
+            enabled INTEGER NOT NULL,
+            installed_version TEXT NOT NULL,
+            created_at_unix INTEGER NOT NULL,
+            updated_at_unix INTEGER NOT NULL,
+            revoked_at_unix INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS workspace_identities (
+            workspace_id TEXT PRIMARY KEY NOT NULL,
+            canonical_root TEXT UNIQUE NOT NULL,
+            display_name TEXT NOT NULL,
+            created_at_unix INTEGER NOT NULL,
+            updated_at_unix INTEGER NOT NULL
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_workspace_identities_canonical_root
+        ON workspace_identities(canonical_root);
+
+        CREATE TABLE IF NOT EXISTS orchestration_task_routes (
+            task_ref TEXT PRIMARY KEY NOT NULL,
+            operation_id TEXT UNIQUE NOT NULL,
+            request_fingerprint TEXT NOT NULL,
+            source_workspace_id TEXT NOT NULL,
+            source_definition_id INTEGER NOT NULL,
+            source_provider TEXT NOT NULL,
+            source_node_id_at_dispatch INTEGER NOT NULL,
+            target_workspace_id TEXT NOT NULL,
+            parent_task_ref TEXT,
+            root_task_ref TEXT NOT NULL,
+            target_task_ref TEXT,
+            target_definition_id INTEGER,
+            target_name TEXT,
+            target_node_id_at_dispatch INTEGER,
+            state TEXT NOT NULL,
+            tracking TEXT NOT NULL,
+            result_json TEXT,
+            task_result_json TEXT,
+            error_code TEXT,
+            created_at_unix INTEGER NOT NULL,
+            updated_at_unix INTEGER NOT NULL,
+            terminal_at_unix INTEGER
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_orchestration_task_routes_source_workspace
+        ON orchestration_task_routes(source_workspace_id, created_at_unix);
+
+        CREATE INDEX IF NOT EXISTS idx_orchestration_task_routes_target_workspace
+        ON orchestration_task_routes(target_workspace_id, created_at_unix);
+
+        CREATE INDEX IF NOT EXISTS idx_orchestration_task_routes_state
+        ON orchestration_task_routes(state, updated_at_unix);
+
+        CREATE INDEX IF NOT EXISTS idx_orchestration_task_routes_target_runtime
+        ON orchestration_task_routes(target_workspace_id, target_task_ref);
+
+        CREATE TABLE IF NOT EXISTS orchestration_task_operations (
+            operation_id TEXT PRIMARY KEY NOT NULL,
+            request_fingerprint TEXT NOT NULL,
+            result_json TEXT,
+            created_at_unix INTEGER NOT NULL,
+            updated_at_unix INTEGER NOT NULL
+        );
         "#,
+    )?;
+    ensure_column(
+        connection,
+        "orchestration_task_routes",
+        "parent_task_ref",
+        "parent_task_ref TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "orchestration_task_routes",
+        "root_task_ref",
+        "root_task_ref TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "orchestration_task_routes",
+        "target_definition_id",
+        "target_definition_id INTEGER",
+    )?;
+    ensure_column(
+        connection,
+        "orchestration_task_routes",
+        "target_name",
+        "target_name TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "orchestration_task_routes",
+        "target_node_id_at_dispatch",
+        "target_node_id_at_dispatch INTEGER",
+    )?;
+    ensure_column(
+        connection,
+        "orchestration_task_routes",
+        "task_result_json",
+        "task_result_json TEXT",
+    )?;
+    connection.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_orchestration_task_routes_root
+         ON orchestration_task_routes(root_task_ref, state);",
     )?;
     connection.pragma_update(None, "user_version", 1)?;
     Ok(())
@@ -115,7 +221,14 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
 
         CREATE TABLE IF NOT EXISTS agent_dispatch_tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            runtime_instance_id TEXT NOT NULL DEFAULT '',
             runtime_task_id INTEGER NOT NULL DEFAULT 0,
+            task_ref TEXT NOT NULL DEFAULT '',
+            root_task_ref TEXT NOT NULL DEFAULT '',
+            parent_task_ref TEXT,
+            source_definition_id INTEGER,
+            source_node_id INTEGER,
+            source_provider TEXT,
             definition_id INTEGER NOT NULL,
             node_id INTEGER NOT NULL,
             original_instruction TEXT NOT NULL,
@@ -123,6 +236,9 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
             state TEXT NOT NULL,
             tracking TEXT NOT NULL,
             error TEXT,
+            result_captured INTEGER NOT NULL DEFAULT 0,
+            result_text TEXT,
+            result_truncated INTEGER NOT NULL DEFAULT 0,
             created_at_unix INTEGER NOT NULL,
             updated_at_unix INTEGER NOT NULL,
             FOREIGN KEY (definition_id) REFERENCES agent_definitions(id)
@@ -130,6 +246,25 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
 
         CREATE INDEX IF NOT EXISTS idx_agent_dispatch_tasks_definition_state
         ON agent_dispatch_tasks(definition_id, state, id);
+
+        CREATE TABLE IF NOT EXISTS agent_conversation_tails (
+            definition_id INTEGER NOT NULL,
+            session_id TEXT NOT NULL,
+            node_id INTEGER NOT NULL,
+            agent_name TEXT NOT NULL,
+            profile TEXT NOT NULL,
+            last_user_message TEXT,
+            last_agent_message TEXT,
+            updated_at_unix INTEGER NOT NULL,
+            availability TEXT NOT NULL,
+            user_message_truncated INTEGER NOT NULL DEFAULT 0,
+            agent_message_truncated INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (definition_id, session_id),
+            FOREIGN KEY (definition_id) REFERENCES agent_definitions(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_agent_conversation_tails_node
+        ON agent_conversation_tails(node_id);
         "#,
     )?;
     ensure_column(
@@ -179,12 +314,77 @@ pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
     ensure_column(
         connection,
         "agent_dispatch_tasks",
+        "runtime_instance_id",
+        "runtime_instance_id TEXT NOT NULL DEFAULT ''",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
         "runtime_task_id",
         "runtime_task_id INTEGER NOT NULL DEFAULT 0",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "task_ref",
+        "task_ref TEXT NOT NULL DEFAULT ''",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "root_task_ref",
+        "root_task_ref TEXT NOT NULL DEFAULT ''",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "parent_task_ref",
+        "parent_task_ref TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "source_definition_id",
+        "source_definition_id INTEGER",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "source_node_id",
+        "source_node_id INTEGER",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "source_provider",
+        "source_provider TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "result_captured",
+        "result_captured INTEGER NOT NULL DEFAULT 0",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "result_text",
+        "result_text TEXT",
+    )?;
+    ensure_column(
+        connection,
+        "agent_dispatch_tasks",
+        "result_truncated",
+        "result_truncated INTEGER NOT NULL DEFAULT 0",
     )?;
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_agent_dispatch_tasks_runtime_task
          ON agent_dispatch_tasks(runtime_task_id, id)",
+        [],
+    )?;
+    connection.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_dispatch_tasks_task_ref
+         ON agent_dispatch_tasks(task_ref) WHERE task_ref != ''",
         [],
     )?;
     connection.execute(

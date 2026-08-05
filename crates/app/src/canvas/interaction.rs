@@ -28,6 +28,12 @@ pub(crate) struct HoveredTerminalLink {
     pub(crate) screen_y: i32,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct PreviewPanState {
+    pub(crate) node_id: NodeId,
+    pub(crate) last_screen: Vec2,
+}
+
 #[derive(Default)]
 pub struct InteractionState {
     pub space_held: bool,
@@ -39,20 +45,50 @@ pub struct InteractionState {
     pub active_text_selection: Option<TextSelection>,
     pub(crate) pending_terminal_link: Option<PendingTerminalLink>,
     pub(crate) hovered_terminal_link: Option<HoveredTerminalLink>,
+    pub(crate) preview_pan: Option<PreviewPanState>,
     pub last_motion_notify: Option<Instant>,
     /// 顶部工具栏 ✚ 按钮的弹出菜单（Terminal/Claude/Codex/Preview）是否展开。
     pub new_menu_open: bool,
+    /// 触发 New 菜单的指针/键盘激活中心 x，用于精确遮挡会穿透 GPUI 的原生 Browser 视图。
+    pub(crate) new_menu_activation_x: Option<f32>,
+    /// 底部工具条布局配置菜单是否展开。
+    pub layout_menu_open: bool,
 }
 
 impl InteractionState {
     /// 切换顶部 ✚ 弹出菜单的展开状态。
     pub fn toggle_new_menu(&mut self) {
         self.new_menu_open = !self.new_menu_open;
+        if !self.new_menu_open {
+            self.new_menu_activation_x = None;
+        }
+    }
+
+    /// 从 Dock 触发点展开 New 菜单，保留水平锚点供原生视图遮挡计算。
+    pub fn toggle_new_menu_at(&mut self, activation_x: f32) {
+        self.toggle_new_menu();
+        if self.new_menu_open {
+            self.new_menu_activation_x = Some(activation_x);
+        }
     }
 
     /// 关闭顶部 ✚ 弹出菜单（Esc / 画布点击 / 选中菜单项后调用）。
     pub fn close_new_menu(&mut self) {
         self.new_menu_open = false;
+        self.new_menu_activation_x = None;
+    }
+
+    /// 翻转布局配置菜单，并确保两个底部弹出菜单不会重叠。
+    pub fn toggle_layout_menu(&mut self) {
+        self.layout_menu_open = !self.layout_menu_open;
+        if self.layout_menu_open {
+            self.close_new_menu();
+        }
+    }
+
+    /// 关闭布局配置菜单（Esc / 画布点击 / 重新整理后调用）。
+    pub fn close_layout_menu(&mut self) {
+        self.layout_menu_open = false;
     }
 
     pub fn begin_text_selection(&mut self, node_id: NodeId, anchor: TextPoint) {
@@ -131,6 +167,17 @@ impl InteractionState {
         {
             self.active_text_selection = None;
         }
+    }
+
+    pub(crate) fn begin_preview_pan(&mut self, node_id: NodeId, screen: Vec2) {
+        self.preview_pan = Some(PreviewPanState {
+            node_id,
+            last_screen: screen,
+        });
+    }
+
+    pub(crate) fn finish_preview_pan(&mut self) -> bool {
+        self.preview_pan.take().is_some()
     }
 }
 

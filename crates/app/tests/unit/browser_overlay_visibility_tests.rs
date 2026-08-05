@@ -35,7 +35,7 @@ fn test_settings_overlay_hides_native_browser_views_until_closed() {
         "render_canvas 必须读取 Settings 状态并计算原生 Browser 显示许可"
     );
     assert!(
-        canvas_source.contains("if native_browser_views_visible {"),
-        "Browser 原生视图同步必须受 Settings 显示许可门控，不能继续无条件 set_visible(true)"
+        canvas_source.contains("&& native_browser_views_visible {"),
+        "Browser 原生视图同步的组合条件必须受 Settings 显示许可门控，不能继续无条件 set_visible(true)"
     );
 }

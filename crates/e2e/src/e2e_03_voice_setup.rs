@@ -308,27 +308,28 @@ fn ready_voice_page_can_review_setup_and_return() {
     );
 }
 
-/// Settings 关闭后独立模型安装完成：后台继续安装并显示一次不抢焦点、不发声的 Ready 通知
+/// Settings 关闭后独立模型安装完成：保留 Draft，且只有明确 Apply 才激活声音
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   ASR fake completion = immediate
 ///   TTS fake completion = held until Settings closes
-///   notification timeout = 5s，测试观察窗口 = 3s < 5s
+///   explicit activation = 1 次 Use This Voice
+///   post-apply settle passes = 8（异步链最多 4 层，按 2 倍余量收口）
 ///   expected audio starts = 0（Voice phase 保持 idle）
 ///   model root = workspace/models（与用户模型和其他测试隔离）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 打开 fresh Setup，注入麦克风与 Provider Ready
-///   2. 通过稳定 e2e 缝分别启动 Recognition 与 Spoken Replies 模型安装，并让 TTS 假传输停在后台安装中
-///   3. 确认 TTS 目录显示 Cancel，底部入口进入 setting_up 而不是普通 set_up
-///   4. 真实点击 Settings Close，确认面板关闭
-///   5. 释放 TTS 安装，等待 setup completion 与通知渲染
+///   2. 通过稳定 e2e 缝展开 Manage Models 并启动 Recognition/TTS 安装
+///   3. 让 TTS 假传输停在后台，确认目录显示 Cancel，底部入口进入 setting_up
+///   4. 真实点击 Settings Close 并释放安装，确认下载完成只产生 Draft、不伪造 Ready
+///   5. 重新打开 Setup，点击 Use This Voice 后立即关闭，等待后台激活收口
 ///
 /// 预期结果：
-///   - 正断言：打开的 TTS 目录显示下载动作，Settings 关闭后仍完成为 ready
-///   - 负断言：下载中不得退回普通 set_up，完成通知不得开始录音或重新打开 Settings
+///   - 正断言：打开的目录显示下载动作；明确 Apply 后保存并配置本地声音
+///   - 负断言：下载本身不得隐式激活，后台激活不得录音或重开 Settings
 #[test]
-fn background_setup_completion_shows_a_nonblocking_ready_notification() {
+fn background_setup_install_requires_explicit_voice_activation() {
     let _install_guard = VoiceModelInstallE2eGuard::acquire();
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
@@ -376,40 +377,74 @@ fn background_setup_completion_shows_a_nonblocking_ready_notification() {
     cx.run_until_parked();
     app.update(cx, |app, cx| app.release_fake_tts_transport_for_e2e(cx));
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
-    let final_voice = loop {
+    loop {
         cx.run_until_parked();
-        let snapshot = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
-        if snapshot.ready_notification_visible || std::time::Instant::now() >= deadline {
-            break snapshot;
+        let snapshot = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+        if snapshot.tts_models[0].installation == "ready" {
+            break;
         }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "released fake TTS install must finish within the 3-second e2e deadline"
+        );
         std::thread::sleep(std::time::Duration::from_millis(5));
-    };
+    }
+    let installed_voice = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
+    assert_eq!(
+        installed_voice.entry_state, "set_up",
+        "background download completion must remain unconfigured until Use This Voice"
+    );
+    assert!(
+        !installed_voice.ready_notification_visible,
+        "download completion without Apply must not show a false Voice ready notification"
+    );
+
+    cx.simulate_keystrokes("cmd-e");
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("settings-tts-picker-apply").is_some(),
+        "ready local Draft must expose Use This Voice after reopening Setup"
+    );
+    app.update(cx, |app, cx| app.apply_ready_local_tts_draft_for_e2e(cx));
+    let close = cx
+        .debug_bounds("settings-close")
+        .expect("reopened Voice Setup must expose Settings close during activation");
+    cx.simulate_mouse_move(close.center(), None, Modifiers::none());
+    cx.simulate_click(close.center(), Modifiers::none());
+
+    for _ in 0..8 {
+        cx.run_until_parked();
+    }
+    let final_voice = app.update(cx, |app, _cx| app.voice_e2e_snapshot());
     let final_settings = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
     app.update(cx, |app, _cx| {
         app.set_voice_setup_install_fakes_for_e2e(false)
     });
     assert_eq!(
-        final_voice.entry_state, "ready",
-        "background model completion must finish Voice readiness"
+        final_settings.selected_tts_model_id.as_deref(),
+        Some("matcha-icefall-zh-en"),
+        "explicit Apply must save the Matcha model selection"
     );
-    assert!(
-        final_voice.ready_notification_visible,
-        "background completion must show the one-time Voice ready notification"
+    assert_eq!(
+        final_settings.selected_tts_voice_id.as_deref(),
+        Some("default"),
+        "explicit Apply must save the Matcha default Voice"
     );
-    assert!(
-        cx.debug_bounds("voice-ready-notification").is_some(),
-        "ready notification must be present in the rendered workspace chrome"
+    assert_eq!(
+        final_settings.runtime_tts_provider_id.as_deref(),
+        Some("local"),
+        "explicit Apply must configure the local runtime Provider"
     );
     assert!(
         !final_settings.settings_open,
-        "background completion notification must not reopen Settings"
+        "background activation must not reopen Settings"
     );
     assert_eq!(
         final_voice.phase, "idle",
-        "ready notification must not start recording or speech"
+        "background activation must not start recording or speech"
     );
     assert_ne!(
         final_voice.phase, "recording",
-        "nonblocking readiness notification must not capture microphone input"
+        "background activation must not capture microphone input"
     );
 }

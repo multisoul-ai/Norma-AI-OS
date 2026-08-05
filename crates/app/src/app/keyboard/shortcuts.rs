@@ -48,6 +48,16 @@ impl MultisoulApp {
             }
             ShortcutCommandId::ExitFocus => self.on_exit_focus(&crate::app::ExitFocus, window, cx),
             ShortcutCommandId::ToggleSettings => self.toggle_settings_panel(cx),
+            ShortcutCommandId::VoiceInteraction => {
+                if !matches!(
+                    self.voice_settings.readiness(),
+                    crate::settings::voice::VoiceEntryState::Ready
+                ) {
+                    self.open_voice_settings(window, cx);
+                    return;
+                }
+                self.activate_ready_voice(false, window, cx);
+            }
         }
     }
 }

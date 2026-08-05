@@ -1,12 +1,23 @@
-use super::{AgentHookError, OPENCODE_PLUGIN_MARKER};
+use super::{atomic_file, AgentHookError, OPENCODE_PLUGIN_MARKER};
 use std::fs;
 use std::path::Path;
 
 pub(super) fn install_opencode_plugin(path: &Path) -> Result<(), AgentHookError> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
+    match fs::read_to_string(path) {
+        Ok(source) if !source.contains(OPENCODE_PLUGIN_MARKER) => {
+            return Err(AgentHookError::Io(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                format!(
+                    "refusing to overwrite unmanaged OpenCode plugin at {}",
+                    path.display()
+                ),
+            )));
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(AgentHookError::Io(error)),
     }
-    fs::write(path, super::install::opencode_plugin_source())?;
+    atomic_file::replace(path, super::install::opencode_plugin_source().as_bytes())?;
     Ok(())
 }
 

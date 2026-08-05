@@ -60,15 +60,18 @@ fn test_browser_engine_kind_selects_wry_by_default_and_cef_when_requested() {
 /// 数据构造（含关键数值的推导过程）：
 ///   browser.rs       = BrowserStore 生命周期入口，默认构建必须可用；
 ///   cef_backend.rs   = 唯一允许出现 `cef::` 低层绑定的位置；
-///   chromium-browser = Cargo feature，必须显式启用，默认运行使用 Wry。
+///   chromium-browser = Cargo feature，必须显式启用，默认运行使用 Wry；
+///   default features = 可以包含 licenses 等无关能力，但不能包含 chromium-browser。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 crates/app/Cargo.toml
-///   2. 读取 app/browser.rs
-///   3. 读取 app/browser/cef_backend.rs
+///   2. 从 `[features]` 中定位唯一的 default feature 声明
+///   3. 读取 app/browser.rs
+///   4. 读取 app/browser/cef_backend.rs
 ///
 /// 预期结果：
-///   - 正断言：Cargo.toml 定义 chromium-browser feature 且 default 为空
+///   - 正断言：Cargo.toml 定义 chromium-browser feature
+///   - 正断言：Cargo.toml 存在 default feature 声明
 ///   - 正断言：cef_backend.rs 存在并包含 cef backend 类型
 ///   - 负断言：default feature 不应包含 chromium-browser
 ///   - 负断言：browser.rs 不应直接引用 `cef::`，避免默认构建被 CEF 污染
@@ -77,22 +80,27 @@ fn test_browser_cef_backend_is_feature_gated_and_not_imported_by_default_path() 
     let cargo = include_str!("../../Cargo.toml");
     let browser = include_str!("../../src/app/browser.rs");
     let cef_backend = include_str!("../../src/app/browser/cef_backend.rs");
+    let default_features = cargo
+        .lines()
+        .map(str::trim)
+        .find(|line| line.starts_with("default = ["))
+        .expect("app Cargo.toml should declare default features explicitly");
 
     assert!(
-        cargo.contains("chromium-browser"),
-        "app Cargo.toml should expose a chromium-browser feature for explicit CEF opt-in"
+        cargo.contains("chromium-browser = [\"dep:cef\"]"),
+        "app Cargo.toml should expose chromium-browser as an explicit CEF dependency feature"
     );
     assert!(
-        cargo.contains("default = []"),
-        "app Cargo.toml should keep default features empty so restored Browser cards use Wry"
+        default_features.starts_with("default = ["),
+        "app Cargo.toml should keep an explicit default feature declaration"
     );
     assert!(
         cef_backend.contains("CefBrowserView"),
         "CEF backend should define a dedicated CefBrowserView type behind the backend boundary"
     );
     assert!(
-        !cargo.contains("default = [\"chromium-browser\"]"),
-        "app Cargo.toml must not enable chromium-browser by default because CEF creation can trap at startup"
+        !default_features.contains("\"chromium-browser\""),
+        "app Cargo.toml default features must not include chromium-browser because CEF creation can trap at startup"
     );
     assert!(
         !browser.contains("cef::"),

@@ -368,6 +368,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
     ) -> Div {
         let theme = self.theme;
+        let voice_caption = self.render_voice_caption(cx);
 
         div()
             .absolute()
@@ -376,10 +377,14 @@ impl MultisoulApp {
             .right(px(0.0))
             .bottom(px(0.0))
             .child(render_canvas_minimap(&self.runtime, theme, window))
+            .when_some(voice_caption, |chrome, caption| chrome.child(caption))
             .child(self.render_command_dock(window, cx))
             .child(self.render_workspace_top_bar(cx))
             .when(self.voice_ready_notification_visible, |chrome| {
                 chrome.child(self.render_voice_ready_notification(cx))
+            })
+            .when(self.presentation_notification.is_some(), |chrome| {
+                chrome.child(self.render_presentation_notification(cx))
             })
             .when(workspace_left_rail_visible(), |chrome| {
                 chrome.child(
@@ -408,8 +413,8 @@ impl MultisoulApp {
                         .child(chrome_button(theme, "{}", false)),
                 )
             })
-            .when(self.interaction.new_menu_open, |chrome| {
-                chrome.child(self.render_new_menu(cx))
+            .when(self.interaction.layout_menu_open, |chrome| {
+                chrome.child(self.render_layout_menu(cx))
             })
     }
 }
