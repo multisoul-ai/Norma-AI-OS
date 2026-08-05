@@ -13,7 +13,8 @@ from urllib.parse import quote
 from xml.etree import ElementTree
 
 
-SPARKLE_NS = "https://sparkle-project.org/xml-namespaces/sparkle"
+# Sparkle 2.9.5's official generate_appcast still emits the original namespace.
+SPARKLE_NS = "http://www.andymatuschak.org/xml-namespaces/sparkle"
 DMG_NAME = "Norma-OS_aarch64.dmg"
 RELEASE_BASE = "https://github.com/multisoul-ai/norma-os-releases/releases/download"
 
