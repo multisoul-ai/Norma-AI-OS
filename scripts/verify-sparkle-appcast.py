@@ -60,7 +60,11 @@ def main() -> int:
         fail(f"tag {args.tag} does not match bundle short version {short_version}")
 
     root = ElementTree.parse(appcast).getroot()
-    enclosures = root.findall("./channel/item/enclosure")
+    items = root.findall("./channel/item")
+    if len(items) != 1:
+        fail(f"appcast must contain exactly one item, found {len(items)}")
+    item = items[0]
+    enclosures = item.findall("enclosure")
     if len(enclosures) != 1:
         fail(f"appcast must contain exactly one enclosure, found {len(enclosures)}")
     enclosure = enclosures[0]
@@ -77,8 +81,8 @@ def main() -> int:
     if actual_length != expected_length:
         fail(f"enclosure length must be {expected_length}, got {actual_length}")
 
-    sparkle_version = enclosure.get(f"{{{SPARKLE_NS}}}version")
-    sparkle_short_version = enclosure.get(f"{{{SPARKLE_NS}}}shortVersionString")
+    sparkle_version = item.findtext(f"{{{SPARKLE_NS}}}version")
+    sparkle_short_version = item.findtext(f"{{{SPARKLE_NS}}}shortVersionString")
     signature = enclosure.get(f"{{{SPARKLE_NS}}}edSignature")
     if sparkle_version != build_version:
         fail(f"sparkle:version must be {build_version}, got {sparkle_version}")
