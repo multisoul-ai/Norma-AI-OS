@@ -42,7 +42,9 @@ wrapper 会把
 并移除个人 Apple ID 方式的 notary 凭证，避免账号串用。
 
 `./scripts/release-local.sh` 保留为完整本地 release 流程入口：它会先做
-codesign readiness 检查和 `git lfs pull`，再调用同一个 `cargo packager` 入口。
+codesign readiness 检查和 `git lfs pull`，清理或映射 notary 环境变量，再直接调用
+外部 `cargo-packager`。这里刻意不经过 `cargo run` wrapper，避免 CI 中用于启动
+`Norma OS Dev.app` 的 target runner 截获打包工具本身。
 `./scripts/release-local.sh --notarize` 与 `cargo packager --notarize ...` 使用同一组
 `APP_STORE_CONNECT_*` 凭证约定。
 
@@ -51,9 +53,10 @@ codesign readiness 检查和 `git lfs pull`，再调用同一个 `cargo packager
 应通过 [`.agents/skills/release-dmg/SKILL.md`](../../.agents/skills/release-dmg/SKILL.md)
 选择普通签名打包或显式公证发版模式，不要把 `build/` 中的历史文件误报为新产物。
 
-注意：这里依赖项目内 `.cargo/config.toml` 的 Cargo alias。如果绕过 Cargo alias 直接执行
-`cargo-packager --release -c Packager.toml`，上游 cargo-packager 0.11.8 仍会直接读取当前
-shell 的 `APPLE_*` notary 环境变量。
+注意：人工绕过 `release-local.sh` 或 Cargo alias，直接执行
+`cargo-packager --release -c Packager.toml` 时，上游 cargo-packager 0.11.8 会直接读取当前
+shell 的 `APPLE_*` notary 环境变量。只有 `release-local.sh` 的直接调用会先完成环境清理，
+不要把裸 `cargo-packager` 命令当作安全的日常入口。
 
 `Cargo.toml` 的 `[workspace.package].version` 与 `Packager.toml` 顶层 `version`
 表示**本次待发布版本**。`scripts/release-version.sh` 只读校验二者均为
