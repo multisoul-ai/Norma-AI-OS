@@ -10,10 +10,7 @@ use self::spoken_reply::spoken_reply_group;
 use self::status::status_message;
 use super::state::{VoiceSettingsField, VoiceSettingsState, VoiceSetupDestination};
 use crate::app::MultisoulApp;
-use gpui::{
-    div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, ScrollHandle, SharedString,
-    Window,
-};
+use gpui::{div, prelude::*, px, rgba, ClickEvent, Context, Div, FontWeight, SharedString, Window};
 use ui::Theme;
 
 mod asr_provider;
@@ -21,6 +18,7 @@ mod editable;
 mod input_device;
 mod interaction;
 mod model_catalog;
+mod options;
 mod provider;
 mod ready;
 mod setup;
@@ -29,16 +27,21 @@ mod status;
 mod tts_catalog;
 mod tts_provider;
 
+pub(crate) use options::VoiceSettingsView;
+
 pub(crate) fn voice_settings(
-    theme: Theme,
-    state: &VoiceSettingsState,
-    inputs: &VoiceSettingsInputs,
-    content_scroll: &ScrollHandle,
-    setup_scroll_target: Option<VoiceSetupDestination>,
-    voice_shortcut_label: &str,
+    view: VoiceSettingsView<'_>,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
+    let VoiceSettingsView {
+        theme,
+        state,
+        inputs,
+        content_scroll,
+        setup_scroll_target,
+        voice_shortcut_label,
+    } = view;
     if !matches!(state.readiness(), super::VoiceEntryState::Ready) || state.reviewing_setup() {
         return voice_setup(
             theme,

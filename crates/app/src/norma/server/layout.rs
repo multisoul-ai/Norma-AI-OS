@@ -9,6 +9,12 @@ use canvas::{CanvasNodeKind, CanvasRect};
 use norma::protocol::{CardSummary, CardSummaryKind, NodeId, Placement};
 use runtime::{InputMode, Runtime};
 
+pub(super) struct CardCreationState<'a> {
+    pub(super) runtime: &'a mut Runtime,
+    pub(super) motion: &'a mut MotionStore,
+    pub(super) master_layout: &'a mut crate::canvas::master_layout::MasterLayoutState,
+}
+
 pub(super) fn summarize_cards(runtime: &Runtime) -> Vec<CardSummary> {
     runtime
         .document

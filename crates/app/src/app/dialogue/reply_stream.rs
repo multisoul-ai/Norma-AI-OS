@@ -150,16 +150,16 @@ impl DialogueControlState {
 
     pub(super) fn abort_reply_stream(&mut self, mark_interrupted: bool) {
         self.pcm_capture.finish();
-        trace::reply_stream_aborted(
-            self.reply_generation,
+        trace::reply_stream_aborted(trace::ReplyStreamAbortTrace {
+            reply_generation: self.reply_generation,
             mark_interrupted,
-            self.speech_backlog.pending_len(),
-            self.playback_chunks_pending,
-            self.speech_backlog.cumulative_accepted_chars(),
-            self.speech_backlog.cumulative_submitted_chars(),
-            self.speech_backlog.cumulative_consumed_chars(),
-            self.speech_backlog.active_chars_high_water(),
-        );
+            queued_segments: self.speech_backlog.pending_len(),
+            playback_chunks_pending: self.playback_chunks_pending,
+            cumulative_accepted_chars: self.speech_backlog.cumulative_accepted_chars(),
+            cumulative_submitted_chars: self.speech_backlog.cumulative_submitted_chars(),
+            cumulative_consumed_chars: self.speech_backlog.cumulative_consumed_chars(),
+            active_chars_high_water: self.speech_backlog.active_chars_high_water(),
+        });
         self.playback_events.retain(|event| {
             !matches!(
                 event,

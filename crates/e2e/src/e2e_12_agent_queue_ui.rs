@@ -45,26 +45,26 @@ fn agent_queue_badge_opens_anchored_panel_and_waiting_task_detail() {
     let queue_three = "agent-queue-badge-count-3";
     let panel = "agent-queue-panel";
     assert!(
-        cx.debug_bounds(&queue_two).is_some(),
+        cx.debug_bounds(queue_two).is_some(),
         "3 个任务中的 1 个 current 必须被排除，标题栏应显示 QUEUE 2"
     );
     assert!(
-        cx.debug_bounds(&queue_three).is_none(),
+        cx.debug_bounds(queue_three).is_none(),
         "标题栏不得显示 QUEUE 3，否则 current 被错误计入 waiting"
     );
     assert!(
-        cx.debug_bounds(&panel).is_none(),
+        cx.debug_bounds(panel).is_none(),
         "用户点击 QUEUE 胶囊前不应永久占用画布显示浮层"
     );
 
-    click_debug(cx, &queue_two);
+    click_debug(cx, queue_two);
 
     assert!(
         cx.debug_bounds("agent-card").is_some(),
         "Adam Agent card 应存在于画布"
     );
     let panel_bounds = cx
-        .debug_bounds(&panel)
+        .debug_bounds(panel)
         .expect("点击 QUEUE 2 后应渲染锚定侧边浮层");
     let panel_left = f32::from(panel_bounds.origin.x);
     // card_right = card_left(48) + card_width(620) = 668；

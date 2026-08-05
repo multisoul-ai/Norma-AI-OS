@@ -9,9 +9,11 @@ use ui::Theme;
 
 mod decor;
 mod form;
+mod layout;
 
 use decor::anchor_pointer;
 use form::{render_add_task_form, render_footer};
+pub(crate) use layout::AgentQueuePanelLayout;
 
 const PANEL_WIDTH: f32 = 414.0;
 const PANEL_GAP: f32 = 22.0;
@@ -66,14 +68,17 @@ pub(crate) fn render_badge(
 pub(crate) fn render_panel(
     app: &mut MultisoulApp,
     node_id: NodeId,
-    card_left: f32,
-    card_top: f32,
-    card_width: f32,
-    window_width: f32,
-    window_height: f32,
+    layout: AgentQueuePanelLayout,
     window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Option<AnyElement> {
+    let AgentQueuePanelLayout {
+        card_left,
+        card_top,
+        card_width,
+        window_width,
+        window_height,
+    } = layout;
     let definition_id = agent_definition_id(app, node_id)?;
     let snapshot = app
         .agent_task_coordinator

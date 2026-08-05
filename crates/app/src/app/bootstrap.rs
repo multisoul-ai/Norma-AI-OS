@@ -37,7 +37,7 @@ pub(super) enum OrchestrationBootstrap {
     Skip,
     CurrentProcess,
     #[cfg(feature = "e2e-test-support")]
-    Paths(norma::orchestration::InstallPaths),
+    Paths(Box<norma::orchestration::InstallPaths>),
 }
 
 impl MultisoulApp {
@@ -289,7 +289,7 @@ impl MultisoulApp {
                     OrchestrationBootstrap::Skip => None,
                     OrchestrationBootstrap::CurrentProcess => None,
                     #[cfg(feature = "e2e-test-support")]
-                    OrchestrationBootstrap::Paths(paths) => Some(paths),
+                    OrchestrationBootstrap::Paths(paths) => Some(*paths),
                 };
                 crate::settings::orchestration::health::refresh(
                     app.database_paths.app_db_path().to_path_buf(),
@@ -314,7 +314,10 @@ fn should_reconcile_orchestration_integrations(
         OrchestrationBootstrap::Skip => false,
         OrchestrationBootstrap::CurrentProcess => true,
         #[cfg(feature = "e2e-test-support")]
-        OrchestrationBootstrap::Paths(_) => true,
+        OrchestrationBootstrap::Paths(paths) => {
+            let _ = paths;
+            true
+        }
     }
 }
 

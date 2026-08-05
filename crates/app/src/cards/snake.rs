@@ -2,7 +2,7 @@
 
 mod view;
 
-pub(crate) use view::WorkingSnakeView;
+pub(crate) use view::{WorkingSnakePresentation, WorkingSnakeView};
 
 use gpui::{
     canvas, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, Background, Bounds,

@@ -204,7 +204,7 @@ pub(crate) fn ensure_silero_vad(model_root: &Path) -> Result<(), String> {
     #[cfg(feature = "e2e-test-support")]
     {
         let _ = model_root;
-        return Ok(());
+        Ok(())
     }
     #[cfg(not(feature = "e2e-test-support"))]
     {

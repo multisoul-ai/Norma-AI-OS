@@ -1,6 +1,6 @@
 use super::*;
 use crate::cards::term::cursor::TerminalCursorAnimation;
-use crate::cards::term::paint::render_terminal_canvas;
+use crate::cards::term::paint::{render_terminal_canvas, TerminalCanvasOptions};
 use crate::cards::term::render_cache::new_terminal_render_cache_handle_enabled;
 use gpui::{point, px, size, IntoElement, TestAppContext};
 use std::sync::Arc;
@@ -78,22 +78,22 @@ fn test_terminal_prepared_frame_shapes_text_once_across_animation_only_repaints(
             point(px(0.0), px(0.0)),
             size(px(320.0), px(80.0)),
             move |_window, _cx| {
-                render_terminal_canvas(
-                    107,
-                    snapshot_for_draw,
-                    13,
-                    cache_for_draw,
+                render_terminal_canvas(TerminalCanvasOptions {
+                    node_id: 107,
+                    snapshot: snapshot_for_draw,
+                    revision: 13,
+                    cache: cache_for_draw,
                     theme,
                     metrics,
-                    None,
-                    TerminalCursorAnimation {
+                    selection: None,
+                    cursor_animation: TerminalCursorAnimation {
                         phase,
                         focused: true,
                         reduce_motion: false,
                         running: true,
                         display_offset: 0,
                     },
-                )
+                })
                 .into_any_element()
             },
         );

@@ -4,16 +4,28 @@ use gpui::{div, img, prelude::*, px, rgba, AnyElement, ObjectFit, SharedString, 
 use std::path::PathBuf;
 use ui::Theme;
 
-pub(super) fn render_demo(
-    topic: FeatureGuideTopic,
-    poster_path: Option<PathBuf>,
-    video_surface: Option<Surface>,
-    compact: bool,
-    reduce_motion: bool,
-    playing: bool,
-    theme: Theme,
-    palette: FeatureGuidePalette,
-) -> AnyElement {
+pub(super) struct FeatureGuideDemo {
+    pub(super) topic: FeatureGuideTopic,
+    pub(super) poster_path: Option<PathBuf>,
+    pub(super) video_surface: Option<Surface>,
+    pub(super) compact: bool,
+    pub(super) reduce_motion: bool,
+    pub(super) playing: bool,
+    pub(super) theme: Theme,
+    pub(super) palette: FeatureGuidePalette,
+}
+
+pub(super) fn render_demo(demo: FeatureGuideDemo) -> AnyElement {
+    let FeatureGuideDemo {
+        topic,
+        poster_path,
+        video_surface,
+        compact,
+        reduce_motion,
+        playing,
+        theme,
+        palette,
+    } = demo;
     let has_poster = poster_path.is_some();
     let status = if reduce_motion {
         "Static Poster"

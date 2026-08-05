@@ -42,11 +42,11 @@ impl FlightCurve {
         }; ARC_LENGTH_SAMPLES + 1];
         let mut previous = origin;
         let mut total_length = 0.0;
-        for index in 1..=ARC_LENGTH_SAMPLES {
+        for (index, sample) in samples.iter_mut().enumerate().skip(1) {
             let parameter = index as f32 / ARC_LENGTH_SAMPLES as f32;
             let current = cubic_point(origin, control_a, control_b, target, parameter);
             total_length += distance(previous, current);
-            samples[index] = CurveSample {
+            *sample = CurveSample {
                 parameter,
                 cumulative_length: total_length,
             };

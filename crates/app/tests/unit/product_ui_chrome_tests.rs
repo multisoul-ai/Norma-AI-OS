@@ -55,27 +55,28 @@ fn test_product_ui_command_dock_uses_grouped_icons_and_embedded_voice() {
     );
 }
 
-/// Command Dock 信息层级：创建入口必须优先，画布控制与语音状态必须各自成组。
+/// Command Dock 信息层级：画布、创建与工具入口必须形成 2｜5｜2 三组布局。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   创建快捷入口 = New + Terminal + Codex + Browser + Preview = 5 项
-///   画布控制 = Select/Scroll + Layout + Settings = 3 项
-///   组间分隔符 = 创建→画布、画布→语音 = 2 条
-///   连续顺序 = 5 个创建入口 < 第 1 条分隔符 < 3 个画布控制 < 第 2 条分隔符 < Voice
+///   画布控制 = Select/Scroll + Layout = 2 项
+///   创建快捷入口 = Terminal + Codex + New + Browser + Preview = 5 项
+///   工具入口 = Voice + Settings = 2 项
+///   组间分隔符 = 画布→创建、创建→工具 = 2 条
+///   连续顺序 = 2 个画布控制 < 第 1 条分隔符 < 5 个创建入口 < 第 2 条分隔符 < 2 个工具入口
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 截取 Command Dock 的生产渲染区，排除 helper 与测试文本的干扰。
 ///   2. 定位每个稳定 debug selector、两条分隔符和 Voice 渲染调用的位置。
-///   3. 验证创建动作连续且在最左侧，画布控制随后出现，Voice 最后独立成组。
+///   3. 验证画布控制、创建动作和工具入口按 2｜5｜2 连续分组。
 ///   4. 验证持续生效的画布模式不会再使用 92% 白色的大面积主按钮填充。
 ///
 /// 预期结果：
 ///   - 断言 A：New、四个快捷创建入口、两条分隔符与 Voice 均存在。
-///   - 断言 B：创建、画布、语音严格按三段顺序排列。
+///   - 断言 B：画布、创建、工具严格按三段顺序排列，New 位于创建组正中。
 ///   - 断言 C：选中模式使用低强调填充，不得复用 0xffffffeb 的主操作外观。
-///   - 断言 D：Layout 不得继续排在 New 之前，Settings 不得继续夹在 Voice 之后。
+///   - 断言 D：创建入口不得穿插到画布组，Settings 不得回到 Voice 左侧。
 #[test]
-fn test_product_ui_command_dock_orders_creation_canvas_and_voice_as_three_groups() {
+fn test_product_ui_command_dock_orders_canvas_creation_and_utility_as_three_groups() {
     let source = include_str!("../../src/app/chrome/dock.rs");
     let render_source = source.split("#[cfg(test)]").next().unwrap_or(source);
     let dock_start = render_source
@@ -112,30 +113,31 @@ fn test_product_ui_command_dock_orders_creation_canvas_and_voice_as_three_groups
         .expect("Dock 必须保留 Settings 入口");
     let first_divider = dock
         .find(".child(chrome_divider(theme))")
-        .expect("创建组后必须有第 1 条分隔符");
+        .expect("画布控制组后必须有第 1 条分隔符");
     let second_divider = dock[first_divider + 1..]
         .find(".child(chrome_divider(theme))")
         .map(|offset| first_divider + 1 + offset)
-        .expect("画布控制组后必须有第 2 条分隔符");
+        .expect("创建组后必须有第 2 条分隔符");
     let voice = dock
         .find("render_voice_bar")
         .expect("Dock 必须保留 Voice 状态入口");
 
     assert!(
-        new_trigger < terminal && terminal < codex && codex < browser && browser < preview,
-        "创建入口必须按 New、Terminal、Codex、Browser、Preview 连续排序"
+        canvas_mode < layout && layout < first_divider,
+        "画布组必须按 Select/Scroll、Layout 连续排在第 1 条分隔符前"
     );
     assert!(
-        preview < first_divider && first_divider < canvas_mode,
-        "创建组必须完整位于第 1 条分隔符前，画布控制必须位于其后"
+        first_divider < terminal
+            && terminal < codex
+            && codex < new_trigger
+            && new_trigger < browser
+            && browser < preview
+            && preview < second_divider,
+        "创建组必须按 Terminal、Codex、New、Browser、Preview 连续位于两条分隔符之间"
     );
     assert!(
-        canvas_mode < layout && layout < settings && settings < second_divider,
-        "画布模式、Layout、Settings 必须完整位于两条分隔符之间"
-    );
-    assert!(
-        second_divider < voice,
-        "Voice 状态必须位于第 2 条分隔符之后，不能与 Settings 混为一组"
+        second_divider < voice && voice < settings,
+        "工具组必须按 Voice、Settings 连续位于第 2 条分隔符之后"
     );
     assert!(
         !render_source.contains("let fill = if active { 0xffffffeb }")
@@ -143,8 +145,8 @@ fn test_product_ui_command_dock_orders_creation_canvas_and_voice_as_three_groups
         "持续激活的画布模式必须使用低强调 cyan 状态，而非 92% 白色的主操作外观"
     );
     assert!(
-        layout > new_trigger && settings < voice,
-        "Layout 不得排在 New 前，Settings 不得夹在 Voice 状态之后"
+        terminal > layout && settings > voice,
+        "创建入口不得穿插到画布组，Settings 不得回到 Voice 左侧"
     );
 }
 

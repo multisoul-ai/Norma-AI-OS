@@ -27,16 +27,28 @@ pub(super) fn dialogue_finished(reply_generation: u64, reply: &str, final_segmen
     );
 }
 
-pub(super) fn reply_stream_aborted(
-    reply_generation: u64,
-    mark_interrupted: bool,
-    queued_segments: usize,
-    playback_chunks_pending: usize,
-    cumulative_accepted_chars: usize,
-    cumulative_submitted_chars: usize,
-    cumulative_consumed_chars: usize,
-    active_chars_high_water: usize,
-) {
+pub(super) struct ReplyStreamAbortTrace {
+    pub(super) reply_generation: u64,
+    pub(super) mark_interrupted: bool,
+    pub(super) queued_segments: usize,
+    pub(super) playback_chunks_pending: usize,
+    pub(super) cumulative_accepted_chars: usize,
+    pub(super) cumulative_submitted_chars: usize,
+    pub(super) cumulative_consumed_chars: usize,
+    pub(super) active_chars_high_water: usize,
+}
+
+pub(super) fn reply_stream_aborted(abort: ReplyStreamAbortTrace) {
+    let ReplyStreamAbortTrace {
+        reply_generation,
+        mark_interrupted,
+        queued_segments,
+        playback_chunks_pending,
+        cumulative_accepted_chars,
+        cumulative_submitted_chars,
+        cumulative_consumed_chars,
+        active_chars_high_water,
+    } = abort;
     tracing::info!(
         target: "norma_voice",
         reply_generation,

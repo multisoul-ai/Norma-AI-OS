@@ -67,7 +67,7 @@ impl MultisoulApp {
             database_paths,
             app_store,
             super::super::bootstrap::BootstrapSettingsSource::Stored,
-            super::super::bootstrap::OrchestrationBootstrap::Paths(install_paths),
+            super::super::bootstrap::OrchestrationBootstrap::Paths(Box::new(install_paths)),
         )
     }
 

@@ -220,7 +220,7 @@ fn test_orchestration_socket_validates_authorization_and_source_agent_profile() 
         "错误 Codex Token 必须返回稳定 unauthorized；实际：{unauthorized:?}"
     );
     assert!(
-        !matches!(mismatched.result, Ok(_)) && !matches!(unauthorized.result, Ok(_)),
+        mismatched.result.is_err() && unauthorized.result.is_err(),
         "非法编排请求不得返回任何成功结果"
     );
 }

@@ -25,6 +25,13 @@ const THUMB_W: f32 = 168.0;
 const THUMB_H: f32 = 104.0;
 const GRID_GAP: f32 = 16.0;
 
+struct BuiltinWallpaperCell {
+    idx: usize,
+    rel: &'static str,
+    name: &'static str,
+    kind: WallpaperKind,
+}
+
 /// Render the Wallpaper settings section body.
 pub(crate) fn wallpaper_settings(
     theme: Theme,
@@ -51,7 +58,18 @@ pub(crate) fn wallpaper_settings(
                         .iter()
                         .enumerate()
                         .map(|(idx, &(rel, name, kind))| {
-                            builtin_cell(theme, state, previews, idx, rel, name, kind, cx)
+                            builtin_cell(
+                                theme,
+                                state,
+                                previews,
+                                BuiltinWallpaperCell {
+                                    idx,
+                                    rel,
+                                    name,
+                                    kind,
+                                },
+                                cx,
+                            )
                         }),
                 )
                 .children(
@@ -103,12 +121,15 @@ fn builtin_cell(
     theme: Theme,
     state: &WallpaperSettingsState,
     previews: &mut PreviewCache,
-    idx: usize,
-    rel: &'static str,
-    name: &'static str,
-    kind: WallpaperKind,
+    cell: BuiltinWallpaperCell,
     cx: &mut Context<MultisoulApp>,
 ) -> Stateful<Div> {
+    let BuiltinWallpaperCell {
+        idx,
+        rel,
+        name,
+        kind,
+    } = cell;
     let selected = state.is_selected_builtin(rel);
     div()
         .id(("wallpaper-thumb", idx))

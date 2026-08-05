@@ -1,5 +1,5 @@
 use super::controls::{guide_button, is_unmodified_activation, GuideButtonKind};
-use super::demo::render_demo;
+use super::demo::{render_demo, FeatureGuideDemo};
 use super::orchestration::{guide_navigation_badge, render_orchestration_setup};
 use super::style::{guide_shadow, with_alpha, FeatureGuidePalette};
 use super::{feature_guide_crossfade_opacity, FeatureGuideSettingsTransition, FeatureGuideTopic};
@@ -391,16 +391,16 @@ impl MultisoulApp {
             .child(if topic == FeatureGuideTopic::AgentOrchestration {
                 render_orchestration_setup(self, compact, theme, palette, cx).into_any_element()
             } else {
-                render_demo(
+                render_demo(FeatureGuideDemo {
                     topic,
-                    self.feature_guide_media.poster_path.clone(),
-                    self.feature_guide_media.video_surface(),
+                    poster_path: self.feature_guide_media.poster_path.clone(),
+                    video_surface: self.feature_guide_media.video_surface(),
                     compact,
-                    self.motion.reduce_motion,
-                    self.feature_guide_media.playing,
+                    reduce_motion: self.motion.reduce_motion,
+                    playing: self.feature_guide_media.playing,
                     theme,
                     palette,
-                )
+                })
             })
     }
 

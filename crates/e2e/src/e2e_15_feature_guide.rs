@@ -6,6 +6,7 @@ use gpui::{Modifiers, TestAppContext};
 use crate::harness::{echo_factory, enter_canvas, make_app, make_app_with_settings_store};
 
 /// Help 功能导览：用户可切换主题、推进下一项、跳过，并在跳过后从 Help 再次打开。
+///
 /// 数据构造（含关键数值的推导过程）：
 ///   guide topics = orchestration(1) + new demos(2) + existing demos(3) = 6
 ///   initial topic index = 0（agent_orchestration）；first media index = 1（voice_group_control）
@@ -14,6 +15,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app, make_app_with_setting
 ///   reduced-motion transitions = enable(1) + disable(1) = 2
 ///   explicit endings = Skip(1) + Close(1) + Complete(1) = 3
 ///   visible surface threshold = 100×100px（远小于 680×560px 最小面板，用于排除零尺寸布局）
+///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 在 Launchpad 通过公开 OpenFeatureGuide action 模拟 Help › Feature Guide…。
 ///   2. 确认编排首屏无伪媒体，再进入语音群控，暂停、播放一次真实 Demo。
@@ -23,6 +25,7 @@ use crate::harness::{echo_factory, enter_canvas, make_app, make_app_with_setting
 ///   6. 再次派发 OpenFeatureGuide，确认永久 Help 入口不受 suppressed 限制。
 ///   7. 点击 Close，确认只关闭当前会话且保留 suppressed 决策。
 ///   8. 第三次打开后直达最后主题，点击“开始使用”完成导览。
+///
 /// 预期结果：
 ///   - 正断言：overlay 与 panel 均大于 100×100px，且标题、主题按钮、主按钮、Skip、Close 均来自真实 GPUI 渲染树。
 ///   - 正断言：新主题严格位于 orchestration → voice group control → Agent collaboration，旧主题顺延且 Help 可重复打开。

@@ -22,7 +22,7 @@ pub(super) fn validate_source(
     source_target: &WorkspaceTarget,
     request: &WireRequest,
     cx: &mut App,
-) -> Result<ValidatedAgentSource, WireResponse> {
+) -> Result<ValidatedAgentSource, Box<WireResponse>> {
     let request_id = request.request_id;
     let authorization = request.authorization.clone();
     let source_node_id = request.source_node_id;
@@ -42,8 +42,8 @@ pub(super) fn validate_source(
         })
         .ok()
         .and_then(Result::ok)
-        .ok_or_else(|| closed_workspace_response(request_id))?
-        .map_err(|error| WireResponse::new(request_id, Err(error)))
+        .ok_or_else(|| Box::new(closed_workspace_response(request_id)))?
+        .map_err(|error| Box::new(WireResponse::new(request_id, Err(error))))
 }
 
 pub(super) fn source_active_task_ref(
@@ -67,7 +67,7 @@ pub(super) fn resolve_target_definition(
     target: &WorkspaceTarget,
     request: &WireRequest,
     cx: &mut App,
-) -> Result<i64, WireResponse> {
+) -> Result<i64, Box<WireResponse>> {
     let request_id = request.request_id;
     target
         .window
@@ -78,8 +78,8 @@ pub(super) fn resolve_target_definition(
         })
         .ok()
         .and_then(Result::ok)
-        .ok_or_else(|| closed_workspace_response(request_id))?
-        .map_err(|error| WireResponse::new(request_id, Err(error)))
+        .ok_or_else(|| Box::new(closed_workspace_response(request_id)))?
+        .map_err(|error| Box::new(WireResponse::new(request_id, Err(error))))
 }
 
 pub(super) fn execute_validated_in_workspace(
@@ -96,11 +96,13 @@ pub(super) fn execute_validated_in_workspace(
         .update(cx, |_root, window, cx| {
             target.app.update(cx, |app, cx| {
                 app.execute_validated_orchestration_command(
-                    request_id,
-                    command,
-                    source,
-                    source_provider,
-                    visual_origin,
+                    crate::norma::server::ValidatedOrchestrationCommand {
+                        request_id,
+                        command,
+                        source,
+                        source_provider,
+                        visual_origin,
+                    },
                     window,
                     cx,
                 )
@@ -168,7 +170,7 @@ pub(super) fn execute_cross_workspace(
     let validated = validate_source(&routed.source, &request, cx);
     let source_provider = match validated {
         Ok(validated) => validated.provider,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     execute_validated_in_workspace(
         routed.target,

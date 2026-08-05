@@ -50,7 +50,7 @@ fn bind_session(
         app.enqueue_agent_hook_event_for_e2e(session_start)
             .expect("enqueue SessionStart");
     });
-    let _ = drain_until(
+    drain_until(
         app,
         cx,
         |runtime| {

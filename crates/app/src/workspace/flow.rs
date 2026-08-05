@@ -74,6 +74,16 @@ pub(crate) struct WorkspaceCanvasState<'a> {
     pub(crate) master_layout: &'a mut crate::canvas::master_layout::MasterLayoutState,
 }
 
+pub(crate) struct WorkspaceOpenContext<'a> {
+    pub(crate) database_paths: &'a storage::DatabasePaths,
+    pub(crate) runtime: &'a mut Runtime,
+    pub(crate) canvas: WorkspaceCanvasState<'a>,
+    pub(crate) persistence: &'a mut PersistenceScheduler,
+    pub(crate) agent_definitions: &'a mut AgentDefinitionsState,
+    pub(crate) screen: &'a mut AppScreen,
+    pub(crate) workspace_state: &'a mut WorkspaceState,
+}
+
 impl MultisoulApp {
     pub(crate) fn open_workspace_path(
         &mut self,
@@ -94,16 +104,18 @@ impl MultisoulApp {
         self.agent_runtime = None;
         self.agent_queue_ui.close();
         let result = enter_workspace_for_path_with_source(
-            &self.database_paths,
-            &mut self.runtime,
-            WorkspaceCanvasState {
-                motion: &mut self.motion,
-                master_layout: &mut self.master_layout,
+            WorkspaceOpenContext {
+                database_paths: &self.database_paths,
+                runtime: &mut self.runtime,
+                canvas: WorkspaceCanvasState {
+                    motion: &mut self.motion,
+                    master_layout: &mut self.master_layout,
+                },
+                persistence: &mut self.persistence,
+                agent_definitions: &mut self.agent_definitions,
+                screen: &mut self.screen,
+                workspace_state: &mut self.workspace_state,
             },
-            &mut self.persistence,
-            &mut self.agent_definitions,
-            &mut self.screen,
-            &mut self.workspace_state,
             &path,
             source,
         );
@@ -142,16 +154,18 @@ impl MultisoulApp {
         self.agent_runtime = None;
         self.agent_queue_ui.close();
         let opened = enter_workspace_for_path(
-            &self.database_paths,
-            &mut self.runtime,
-            WorkspaceCanvasState {
-                motion: &mut self.motion,
-                master_layout: &mut self.master_layout,
+            WorkspaceOpenContext {
+                database_paths: &self.database_paths,
+                runtime: &mut self.runtime,
+                canvas: WorkspaceCanvasState {
+                    motion: &mut self.motion,
+                    master_layout: &mut self.master_layout,
+                },
+                persistence: &mut self.persistence,
+                agent_definitions: &mut self.agent_definitions,
+                screen: &mut self.screen,
+                workspace_state: &mut self.workspace_state,
             },
-            &mut self.persistence,
-            &mut self.agent_definitions,
-            &mut self.screen,
-            &mut self.workspace_state,
             path,
         )?;
         self.terminal_render_cache.borrow_mut().clear();
@@ -284,16 +298,18 @@ impl MultisoulApp {
 
 #[cfg(any(test, feature = "e2e-test-support"))]
 pub(crate) fn enter_workspace_for_path(
-    database_paths: &storage::DatabasePaths,
-    runtime: &mut Runtime,
-    canvas: WorkspaceCanvasState<'_>,
-    persistence: &mut PersistenceScheduler,
-    agent_definitions: &mut AgentDefinitionsState,
-    screen: &mut AppScreen,
-    workspace_state: &mut WorkspaceState,
+    context: WorkspaceOpenContext<'_>,
     path: &Path,
 ) -> Result<WorkspaceOpenResult, String> {
-    enter_workspace_for_path_with_source(
+    enter_workspace_for_path_with_source(context, path, WorkspaceSource::Open)
+}
+
+pub(crate) fn enter_workspace_for_path_with_source(
+    context: WorkspaceOpenContext<'_>,
+    path: &Path,
+    source: WorkspaceSource,
+) -> Result<WorkspaceOpenResult, String> {
+    let WorkspaceOpenContext {
         database_paths,
         runtime,
         canvas,
@@ -301,22 +317,7 @@ pub(crate) fn enter_workspace_for_path(
         agent_definitions,
         screen,
         workspace_state,
-        path,
-        WorkspaceSource::Open,
-    )
-}
-
-pub(crate) fn enter_workspace_for_path_with_source(
-    database_paths: &storage::DatabasePaths,
-    runtime: &mut Runtime,
-    canvas: WorkspaceCanvasState<'_>,
-    persistence: &mut PersistenceScheduler,
-    agent_definitions: &mut AgentDefinitionsState,
-    screen: &mut AppScreen,
-    workspace_state: &mut WorkspaceState,
-    path: &Path,
-    source: WorkspaceSource,
-) -> Result<WorkspaceOpenResult, String> {
+    } = context;
     let WorkspaceCanvasState {
         motion,
         master_layout,

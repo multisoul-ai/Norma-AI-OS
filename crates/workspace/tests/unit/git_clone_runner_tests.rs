@@ -360,9 +360,8 @@ fn git_clone_runner_cancels_running_child_and_cleans_owned_target() {
             .all(|event| !matches!(event, CloneEvent::Completed { .. })),
         "运行中取消不得发送 Completed 事件"
     );
-    assert_ne!(
-        elapsed >= Duration::from_secs(10),
-        true,
+    assert!(
+        elapsed < Duration::from_secs(10),
         "取消路径不得退化为等待 fake Git 自然退出"
     );
 }

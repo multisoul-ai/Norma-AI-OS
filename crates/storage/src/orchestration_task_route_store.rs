@@ -17,6 +17,18 @@ pub struct NewOrchestrationTaskRoute {
     pub root_task_ref: String,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct OrchestrationTaskRouteCompletion<'a> {
+    pub operation_id: &'a str,
+    pub target_task_ref: &'a str,
+    pub target_definition_id: i64,
+    pub target_name: &'a str,
+    pub target_node_id_at_dispatch: u64,
+    pub state: &'a str,
+    pub tracking: &'a str,
+    pub result_json: &'a str,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OrchestrationTaskRoute {
     pub task_ref: String,
@@ -124,20 +136,10 @@ impl OrchestrationTaskRouteStore {
         Ok(OrchestrationTaskReservation::New(stored))
     }
 
-    pub fn complete(
-        &self,
-        operation_id: &str,
-        target_task_ref: &str,
-        target_definition_id: i64,
-        target_name: &str,
-        target_node_id_at_dispatch: u64,
-        state: &str,
-        tracking: &str,
-        result_json: &str,
-    ) -> StorageResult<()> {
+    pub fn complete(&self, completion: OrchestrationTaskRouteCompletion<'_>) -> StorageResult<()> {
         let connection = open_app_connection(&self.path)?;
         let now = current_unix_timestamp()?;
-        let terminal_at = is_terminal_state(state).then_some(now);
+        let terminal_at = is_terminal_state(completion.state).then_some(now);
         let changed = connection.execute(
             "UPDATE orchestration_task_routes
              SET target_task_ref = ?1, target_definition_id = ?2,
@@ -146,16 +148,16 @@ impl OrchestrationTaskRouteStore {
                  result_json = ?7, updated_at_unix = ?8, terminal_at_unix = ?9
              WHERE operation_id = ?10",
             params![
-                target_task_ref,
-                target_definition_id,
-                target_name,
-                target_node_id_at_dispatch,
-                state,
-                tracking,
-                result_json,
+                completion.target_task_ref,
+                completion.target_definition_id,
+                completion.target_name,
+                completion.target_node_id_at_dispatch,
+                completion.state,
+                completion.tracking,
+                completion.result_json,
                 now,
                 terminal_at,
-                operation_id,
+                completion.operation_id,
             ],
         )?;
         if changed == 0 {

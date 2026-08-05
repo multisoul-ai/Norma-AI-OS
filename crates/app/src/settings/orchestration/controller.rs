@@ -266,18 +266,17 @@ pub(super) fn inspect_integrations(
     Ok((report.integrations, records))
 }
 
+type OrchestrationOperationResult = (
+    Vec<ProviderIntegration>,
+    Vec<storage::OrchestrationAuthorizationRecord>,
+    Option<String>,
+);
+
 fn perform_operation(
     database_path: PathBuf,
     provider: OrchestrationProvider,
     operation: OrchestrationOperation,
-) -> Result<
-    (
-        Vec<ProviderIntegration>,
-        Vec<storage::OrchestrationAuthorizationRecord>,
-        Option<String>,
-    ),
-    String,
-> {
+) -> Result<OrchestrationOperationResult, String> {
     let paths = InstallPaths::for_current_process().map_err(|error| error.to_string())?;
     let store = storage::OrchestrationAuthorizationStore::new(database_path);
     let mut registry = StorageAuthorizationRegistry::new(store);

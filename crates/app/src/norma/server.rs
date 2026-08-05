@@ -1,7 +1,9 @@
 pub(crate) use self::conversion::canvas_preview_type;
 use self::conversion::node_error;
-use self::layout::{apply_layout_for_new_node_or_master, resolve_bounds, summarize_cards};
-pub(crate) use self::orchestration::is_managed_agent_command;
+use self::layout::{
+    apply_layout_for_new_node_or_master, resolve_bounds, summarize_cards, CardCreationState,
+};
+pub(crate) use self::orchestration::{is_managed_agent_command, ValidatedOrchestrationCommand};
 use self::orchestration::{is_presentation_command, log_managed_request};
 use crate::app::{AppScreen, MultisoulApp};
 use crate::canvas::layout_strategy::CanvasLayoutStrategy;
@@ -251,9 +253,11 @@ pub(crate) fn execute_card_command_for_area_with_strategy(
 ) -> Result<NormaExecution, CardCommandError> {
     match command {
         CardCommand::Create { kind, placement } => create_card(
-            runtime,
-            motion,
-            master_layout,
+            CardCreationState {
+                runtime,
+                motion,
+                master_layout,
+            },
             strategy,
             kind,
             placement,
@@ -309,15 +313,18 @@ pub(crate) fn execute_card_command_for_area_with_strategy(
 }
 
 fn create_card(
-    runtime: &mut Runtime,
-    motion: &mut MotionStore,
-    master_layout: &mut crate::canvas::master_layout::MasterLayoutState,
+    state: CardCreationState<'_>,
     strategy: CanvasLayoutStrategy,
     kind: CardKind,
     placement: Placement,
     area: CanvasRect,
     zoom: f32,
 ) -> Result<NormaExecution, CardCommandError> {
+    let CardCreationState {
+        runtime,
+        motion,
+        master_layout,
+    } = state;
     let bounds = resolve_bounds(
         placement,
         area,

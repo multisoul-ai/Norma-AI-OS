@@ -3,7 +3,7 @@ use gpui::{AppContext, Context};
 use ui::Theme;
 
 use crate::app::MultisoulApp;
-use crate::cards::snake::WorkingSnakeView;
+use crate::cards::snake::{WorkingSnakePresentation, WorkingSnakeView};
 
 #[derive(Clone, Copy)]
 pub(super) struct WorkingSnakeGeometry {
@@ -33,45 +33,28 @@ pub(super) fn synchronize_view(
     cx: &mut Context<MultisoulApp>,
 ) -> bool {
     let now = cx.background_executor().now();
+    let presentation = WorkingSnakePresentation {
+        active,
+        visible: geometry.visible,
+        reduce_motion: app.motion.reduce_motion,
+        theme,
+        left_px: geometry.left_px,
+        top_px: geometry.top_px,
+        width_px: geometry.width_px,
+        height_px: geometry.height_px,
+        opacity: geometry.opacity,
+        zoom: geometry.zoom,
+        node_radius_px: geometry.node_radius_px,
+    };
     let (snake_view, inserted) = if let Some(snake_view) = app.working_snake_views.get(&node_id) {
         (snake_view.clone(), false)
     } else {
-        let snake_view = cx.new(|_snake_cx| {
-            WorkingSnakeView::new(
-                node_id,
-                active,
-                geometry.visible,
-                app.motion.reduce_motion,
-                theme,
-                geometry.left_px,
-                geometry.top_px,
-                geometry.width_px,
-                geometry.height_px,
-                geometry.opacity,
-                geometry.zoom,
-                geometry.node_radius_px,
-                now,
-            )
-        });
+        let snake_view = cx.new(|_snake_cx| WorkingSnakeView::new(node_id, presentation, now));
         app.working_snake_views.insert(node_id, snake_view.clone());
         (snake_view, true)
     };
     snake_view.update(cx, |snake, snake_cx| {
-        snake.synchronize(
-            active,
-            geometry.visible,
-            app.motion.reduce_motion,
-            theme,
-            geometry.left_px,
-            geometry.top_px,
-            geometry.width_px,
-            geometry.height_px,
-            geometry.opacity,
-            geometry.zoom,
-            geometry.node_radius_px,
-            now,
-            snake_cx,
-        );
+        snake.synchronize(presentation, now, snake_cx);
     });
     inserted
 }

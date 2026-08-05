@@ -91,10 +91,7 @@ fn test_present_ego_is_single_non_master_card_with_agent_busy_guard() {
         EgoCaptureMode::ExternalWindow,
         "POC 闸门失败后必须明确使用 external_window"
     );
-    assert_eq!(
-        created_status.master, false,
-        "Ego 创建后不得自动成为 Master"
-    );
+    assert!(!created_status.master, "Ego 创建后不得自动成为 Master");
     assert_eq!(
         reused_disposition,
         EgoPresentationDisposition::Reused,
@@ -243,7 +240,7 @@ fn test_ego_agent_commands_preserve_task_id_and_authorization() {
         EgoCaptureMode::ExternalWindow,
         "status 必须公开外部窗口降级模式"
     );
-    assert_eq!(queried_status.master, false, "Ego 状态不得误报为 Master");
+    assert!(!queried_status.master, "Ego 状态不得误报为 Master");
     assert!(
         matches!(
             unauthorized,

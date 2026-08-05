@@ -100,7 +100,7 @@ fn norma_reply_agent_continuation_reaches_same_pty_session_without_new_task() {
     });
 
     // Drain hook events into runtime/tails.
-    let _ = drain_until(
+    drain_until(
         &app,
         cx,
         |runtime| {

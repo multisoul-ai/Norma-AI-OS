@@ -1,4 +1,4 @@
-use super::setup::models::model_action_control;
+use super::setup::models::{model_action_control, ModelActionLabels};
 use super::{setting_label, with_alpha};
 use crate::app::MultisoulApp;
 use crate::settings::voice::{
@@ -38,9 +38,11 @@ pub(super) fn model_catalog_row(
             &id,
             entry.installation(),
             is_selected,
-            "Selected",
-            "Install",
-            "Select",
+            ModelActionLabels {
+                selected: "Selected",
+                install: "Install",
+                use_model: "Select",
+            },
             cx,
         );
         let status =

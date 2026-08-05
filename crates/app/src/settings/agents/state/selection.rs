@@ -37,8 +37,8 @@ impl AgentDefinitionsState {
             self.select_after_reload(previous_selection);
             return true;
         }
-        let did_revert = self.revert_draft();
-        did_revert
+
+        self.revert_draft()
     }
 
     pub(crate) fn create_new_card(&mut self) -> bool {

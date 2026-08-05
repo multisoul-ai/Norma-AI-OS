@@ -1,44 +1,36 @@
 //! Ego Lite 持续窗口捕获与低拷贝帧邮箱。
 
 use canvas::NodeId;
-use core_foundation::base::TCFType;
-use core_video::pixel_buffer::{kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, CVPixelBuffer};
-use core_video::pixel_buffer_io_surface::CVPixelBufferGetIOSurface;
-#[cfg(not(feature = "e2e-test-support"))]
-use screencapturekit::cm_sample_buffer::CMSampleBuffer;
-#[cfg(not(feature = "e2e-test-support"))]
-use screencapturekit::sc_content_filter::{InitParams, SCContentFilter};
-#[cfg(not(feature = "e2e-test-support"))]
-use screencapturekit::sc_error_handler::StreamErrorHandler;
-#[cfg(not(feature = "e2e-test-support"))]
-use screencapturekit::sc_output_handler::{SCStreamOutputType, StreamOutput};
-#[cfg(not(feature = "e2e-test-support"))]
-use screencapturekit::sc_shareable_content::SCShareableContent;
-#[cfg(not(feature = "e2e-test-support"))]
-use screencapturekit::sc_stream::SCStream;
-#[cfg(not(feature = "e2e-test-support"))]
-use screencapturekit::sc_stream_configuration::{PixelFormat, SCStreamConfiguration};
-#[cfg(not(feature = "e2e-test-support"))]
-use screencapturekit::sc_types::base::{CMTime, CMTIME_FLAGS_VALID};
-#[cfg(not(feature = "e2e-test-support"))]
-use screencapturekit::sc_types::SCFrameStatus;
-#[cfg(not(feature = "e2e-test-support"))]
-use screencapturekit::sc_window::SCWindow;
 use std::collections::{HashMap, HashSet};
+use std::sync::Mutex;
 #[cfg(not(feature = "e2e-test-support"))]
-use std::ffi::c_void;
-use std::sync::{
-    atomic::{AtomicBool, AtomicU64, Ordering},
-    Arc, Mutex,
+use {
+    super::snapshot::{select_ego_window_id, EgoWindowCandidate},
+    core_foundation::base::TCFType,
+    core_video::pixel_buffer::{kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, CVPixelBuffer},
+    core_video::pixel_buffer_io_surface::CVPixelBufferGetIOSurface,
+    screencapturekit::cm_sample_buffer::CMSampleBuffer,
+    screencapturekit::sc_content_filter::{InitParams, SCContentFilter},
+    screencapturekit::sc_error_handler::StreamErrorHandler,
+    screencapturekit::sc_output_handler::{SCStreamOutputType, StreamOutput},
+    screencapturekit::sc_shareable_content::SCShareableContent,
+    screencapturekit::sc_stream::SCStream,
+    screencapturekit::sc_stream_configuration::{PixelFormat, SCStreamConfiguration},
+    screencapturekit::sc_types::base::{CMTime, CMTIME_FLAGS_VALID},
+    screencapturekit::sc_types::SCFrameStatus,
+    screencapturekit::sc_window::SCWindow,
+    std::ffi::c_void,
+    std::sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
+    },
+    std::time::{Duration, Instant},
 };
-use std::time::{Duration, Instant};
-
-#[cfg(not(feature = "e2e-test-support"))]
-use super::snapshot::{select_ego_window_id, EgoWindowCandidate};
 
 pub(super) const EGO_CAPTURE_FPS: u32 = 24;
 const EGO_CAPTURE_MAX_EDGE_PX: u32 = 1_920;
 const EGO_CAPTURE_QUEUE_DEPTH: u32 = 2;
+#[cfg(not(feature = "e2e-test-support"))]
 const EGO_CAPTURE_RETRY_INTERVAL: Duration = Duration::from_secs(1);
 #[cfg(not(feature = "e2e-test-support"))]
 const EGO_CAPTURE_WORKER_POLL_INTERVAL: Duration = Duration::from_millis(20);
@@ -120,10 +112,12 @@ impl<T> LatestSequenceMailbox<T> {
     }
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 pub(super) struct EgoSurfaceFrame {
     buffer: CVPixelBuffer,
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 impl EgoSurfaceFrame {
     fn new(buffer: CVPixelBuffer) -> Result<Self, String> {
         let pixel_format = buffer.get_pixel_format();
@@ -152,14 +146,17 @@ impl EgoSurfaceFrame {
 // SAFETY: 构造函数已确认该 CoreVideo buffer 是只读使用的 420f
 // IOSurface；捕获线程只把所有权移入邮箱，GPUI 线程只交给 surface()，
 // 两端都不会锁定或修改像素内存。
+#[cfg(not(feature = "e2e-test-support"))]
 unsafe impl Send for EgoSurfaceFrame {}
 
+#[cfg(not(feature = "e2e-test-support"))]
 #[derive(Default)]
 struct EgoCaptureMailbox {
     frames: LatestSequenceMailbox<EgoSurfaceFrame>,
     failure: Mutex<Option<String>>,
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 impl EgoCaptureMailbox {
     fn push_frame(&self, sequence: u64, frame: EgoSurfaceFrame) {
         self.frames.push(sequence, frame);
@@ -184,6 +181,7 @@ impl EgoCaptureMailbox {
     }
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 enum EgoCaptureUpdate {
     None,
     Frame {
@@ -193,6 +191,7 @@ enum EgoCaptureUpdate {
     Failed(String),
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 struct EgoCaptureSession {
     task_space_name: String,
     mailbox: Arc<EgoCaptureMailbox>,
@@ -200,6 +199,7 @@ struct EgoCaptureSession {
     last_presented_sequence: Option<u64>,
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 impl EgoCaptureSession {
     #[cfg(not(feature = "e2e-test-support"))]
     fn start(task_space_name: String) -> Self {
@@ -229,12 +229,14 @@ impl EgoCaptureSession {
     }
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 impl Drop for EgoCaptureSession {
     fn drop(&mut self) {
         self.cancel();
     }
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 #[derive(Default)]
 pub(super) struct EgoLivePreviewStore {
     sessions: HashMap<NodeId, EgoCaptureSession>,
@@ -242,12 +244,14 @@ pub(super) struct EgoLivePreviewStore {
     retry_after: HashMap<NodeId, Instant>,
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 pub(super) struct EgoLivePollReport {
     pub(super) updated_nodes: Vec<NodeId>,
     pub(super) presented_sequences: Vec<(NodeId, u64)>,
     pub(super) errors: Vec<(NodeId, String)>,
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 impl EgoLivePreviewStore {
     pub(super) fn frame_for(&self, node_id: NodeId) -> Option<CVPixelBuffer> {
         self.frames

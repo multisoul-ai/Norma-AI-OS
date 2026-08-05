@@ -111,16 +111,29 @@ pub(crate) fn submit_for_e2e(
     receiver
 }
 
+pub(crate) struct WorkspaceRegistration<'a> {
+    pub(crate) workspace_id: &'a str,
+    pub(crate) route_id: &'a str,
+    pub(crate) window: AnyWindowHandle,
+    pub(crate) app: WeakEntity<MultisoulApp>,
+    pub(crate) display_name: String,
+    pub(crate) canonical_root: PathBuf,
+    pub(crate) agent_count: usize,
+}
+
 pub(crate) fn register_workspace(
-    workspace_id: &str,
-    route_id: &str,
-    window: AnyWindowHandle,
-    app: WeakEntity<MultisoulApp>,
-    display_name: String,
-    canonical_root: PathBuf,
-    agent_count: usize,
+    registration: WorkspaceRegistration<'_>,
     cx: &mut App,
 ) -> Result<(), WorkspaceRouteError> {
+    let WorkspaceRegistration {
+        workspace_id,
+        route_id,
+        window,
+        app,
+        display_name,
+        canonical_root,
+        agent_count,
+    } = registration;
     if !cx.has_global::<NormaEndpointHost>() {
         return Err(WorkspaceRouteError::EndpointUnavailable);
     }

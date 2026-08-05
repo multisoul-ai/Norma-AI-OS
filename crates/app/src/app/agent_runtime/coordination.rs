@@ -105,11 +105,11 @@ impl MultisoulApp {
         #[cfg(any(test, feature = "e2e-test-support"))]
         {
             let _ = profile;
-            return if self.agent_hook_server.runtime_config().is_some() {
+            if self.agent_hook_server.runtime_config().is_some() {
                 agent::AgentTrackingMode::Managed
             } else {
                 agent::AgentTrackingMode::Untracked
-            };
+            }
         }
         #[cfg(not(any(test, feature = "e2e-test-support")))]
         {

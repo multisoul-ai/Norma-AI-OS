@@ -1,7 +1,7 @@
 use super::{
     NewOrchestrationTaskRoute, OrchestrationLineageRejection,
     OrchestrationTaskOperationReservation, OrchestrationTaskReservation,
-    OrchestrationTaskRouteStore,
+    OrchestrationTaskRouteCompletion, OrchestrationTaskRouteStore,
 };
 
 /// 全局任务幂等：相同 operation/参数只占一个 task ref，不同参数明确冲突。
@@ -42,16 +42,16 @@ fn operation_id_reservation_is_idempotent_persistent_and_conflict_safe() {
 
     let first = store.reserve(&route).expect("首次 operation 应成功预留");
     store
-        .complete(
-            "operation-7",
-            "runtime-b:3",
-            22,
-            "Bella",
-            202,
-            "queued",
-            "managed",
-            r#"{"task_id":"global-task-7"}"#,
-        )
+        .complete(OrchestrationTaskRouteCompletion {
+            operation_id: "operation-7",
+            target_task_ref: "runtime-b:3",
+            target_definition_id: 22,
+            target_name: "Bella",
+            target_node_id_at_dispatch: 202,
+            state: "queued",
+            tracking: "managed",
+            result_json: r#"{"task_id":"global-task-7"}"#,
+        })
         .expect("首次派发结果应持久化");
     let replay = store.reserve(&route).expect("相同参数重放应可读取已有记录");
     let conflicting = NewOrchestrationTaskRoute {
@@ -133,16 +133,16 @@ fn terminal_result_is_persisted_separately_from_dispatch_replay() {
     store.reserve(&route).expect("全局任务应成功预留");
     let dispatch_replay = r#"{"task_id":"global-result-1"}"#;
     store
-        .complete(
-            "operation-result-1",
-            "runtime-b:9",
-            22,
-            "Bella",
-            202,
-            "queued",
-            "managed",
-            dispatch_replay,
-        )
+        .complete(OrchestrationTaskRouteCompletion {
+            operation_id: "operation-result-1",
+            target_task_ref: "runtime-b:9",
+            target_definition_id: 22,
+            target_name: "Bella",
+            target_node_id_at_dispatch: 202,
+            state: "queued",
+            tracking: "managed",
+            result_json: dispatch_replay,
+        })
         .expect("派发路由应完成绑定");
     let task_result = r#"{"availability":"available","text":"检查已完成","truncated":false}"#;
 
@@ -213,16 +213,16 @@ fn target_runtime_task_lookup_preserves_cross_workspace_parent_and_root() {
     };
     store.reserve(&root).expect("根任务预留应成功");
     store
-        .complete(
-            "operation-root",
-            "runtime-b:3",
-            22,
-            "Bella",
-            202,
-            "submitted",
-            "managed",
-            r#"{"task_id":"global-root"}"#,
-        )
+        .complete(OrchestrationTaskRouteCompletion {
+            operation_id: "operation-root",
+            target_task_ref: "runtime-b:3",
+            target_definition_id: 22,
+            target_name: "Bella",
+            target_node_id_at_dispatch: 202,
+            state: "submitted",
+            tracking: "managed",
+            result_json: r#"{"task_id":"global-root"}"#,
+        })
         .expect("根任务目标路由应完成绑定");
 
     let parent = store

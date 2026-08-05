@@ -6,6 +6,14 @@ use norma::protocol::{
     EgoPresentationDisposition, NodeId, PresentationDisposition, PresentationErrorCode,
     PresentationTarget, ProviderAuthorization,
 };
+
+pub(crate) struct ValidatedOrchestrationCommand {
+    pub(crate) request_id: u64,
+    pub(crate) command: CardCommand,
+    pub(crate) source: agent::AgentDispatchSource,
+    pub(crate) source_provider: AgentProfile,
+    pub(crate) visual_origin: Option<crate::motion::DispatchVisualOrigin>,
+}
 use std::time::Duration;
 
 pub(crate) fn is_managed_agent_command(command: &CardCommand) -> bool {
@@ -84,14 +92,17 @@ impl MultisoulApp {
 
     pub(crate) fn execute_validated_orchestration_command(
         &mut self,
-        request_id: u64,
-        command: CardCommand,
-        source: agent::AgentDispatchSource,
-        source_provider: AgentProfile,
-        visual_origin: Option<crate::motion::DispatchVisualOrigin>,
+        request: ValidatedOrchestrationCommand,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> norma::protocol::WireResponse {
+        let ValidatedOrchestrationCommand {
+            request_id,
+            command,
+            source,
+            source_provider,
+            visual_origin,
+        } = request;
         let result = crate::app::execute_orchestration_agent_command_with_visual_origin(
             self,
             window,

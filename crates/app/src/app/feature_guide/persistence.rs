@@ -4,6 +4,8 @@ use storage::SettingsStore;
 pub(crate) const GUIDE_STATUS_KEY: &str = "feature_guide.status.v1";
 pub(crate) const GUIDE_TOPIC_KEY: &str = "feature_guide.topic.v1";
 
+type PendingFeatureGuideWrite = (SettingsStore, Vec<(String, Option<String>)>);
+
 pub(crate) struct FeatureGuideSettingsState {
     storage: Option<SettingsStore>,
     pending: Option<FeatureGuideState>,
@@ -43,9 +45,7 @@ impl FeatureGuideSettingsState {
         self.pending = Some(state);
     }
 
-    pub(crate) fn take_pending_write(
-        &mut self,
-    ) -> Option<(SettingsStore, Vec<(String, Option<String>)>)> {
+    pub(crate) fn take_pending_write(&mut self) -> Option<PendingFeatureGuideWrite> {
         if self.persistence_running {
             return None;
         }

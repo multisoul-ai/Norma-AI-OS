@@ -95,9 +95,8 @@ fn paths_resolve_to_same_file(left: &Path, right: &Path) -> bool {
     }
     #[cfg(target_os = "macos")]
     {
-        return left
-            .to_string_lossy()
-            .eq_ignore_ascii_case(&right.to_string_lossy());
+        left.to_string_lossy()
+            .eq_ignore_ascii_case(&right.to_string_lossy())
     }
     #[cfg(not(target_os = "macos"))]
     false

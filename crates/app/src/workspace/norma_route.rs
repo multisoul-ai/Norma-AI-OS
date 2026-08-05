@@ -49,13 +49,15 @@ impl MultisoulApp {
 
         let workspace_id = identity.workspace_id;
         if let Err(error) = crate::norma::endpoint::register_workspace(
-            &workspace_id,
-            &route_id,
-            window.window_handle(),
-            cx.weak_entity(),
-            identity.display_name,
-            identity.canonical_root,
-            self.agent_definitions.definitions().len(),
+            crate::norma::endpoint::WorkspaceRegistration {
+                workspace_id: &workspace_id,
+                route_id: &route_id,
+                window: window.window_handle(),
+                app: cx.weak_entity(),
+                display_name: identity.display_name,
+                canonical_root: identity.canonical_root,
+                agent_count: self.agent_definitions.definitions().len(),
+            },
             cx,
         ) {
             tracing::warn!(?error, %workspace_id, %route_id, "failed to register Workspace route");

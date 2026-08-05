@@ -115,13 +115,15 @@ fn compact_model_row(
         &id,
         installation,
         is_selected,
-        if local_active {
-            "✓ Active"
-        } else {
-            "Selected"
+        ModelActionLabels {
+            selected: if local_active {
+                "✓ Active"
+            } else {
+                "Selected"
+            },
+            install: "Download",
+            use_model: "Use",
         },
-        "Download",
-        "Use",
         cx,
     );
     let status = compact_install_status(installation, descriptor.artifact().archive_bytes());
@@ -168,17 +170,26 @@ fn compact_model_row(
         .child(action)
 }
 
+pub(in crate::settings::voice::view) struct ModelActionLabels {
+    pub(in crate::settings::voice::view) selected: &'static str,
+    pub(in crate::settings::voice::view) install: &'static str,
+    pub(in crate::settings::voice::view) use_model: &'static str,
+}
+
 pub(in crate::settings::voice::view) fn model_action_control(
     theme: Theme,
     index: usize,
     id: &AsrModelId,
     installation: &AsrModelInstallState,
     is_selected: bool,
-    selected_label: &'static str,
-    install_label: &'static str,
-    use_label: &'static str,
+    labels: ModelActionLabels,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
+    let ModelActionLabels {
+        selected: selected_label,
+        install: install_label,
+        use_model: use_label,
+    } = labels;
     match installation {
         AsrModelInstallState::NotInstalled => {
             let id = id.clone();

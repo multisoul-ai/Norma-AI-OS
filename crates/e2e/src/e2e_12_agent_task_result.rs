@@ -69,7 +69,7 @@ fn terminal_status_and_result_command_return_the_same_bound_reply() {
         app.enqueue_agent_hook_event_for_e2e(session_start)
             .expect("SessionStart 应进入 Hook 队列");
     });
-    let _ = drain_until(
+    drain_until(
         &app,
         cx,
         |runtime| {
@@ -134,7 +134,7 @@ fn terminal_status_and_result_command_return_the_same_bound_reply() {
         app.enqueue_agent_hook_event_for_e2e(prompt_submit)
             .expect("UserPromptSubmit 应进入 Hook 队列");
     });
-    let _ = drain_until(
+    drain_until(
         &app,
         cx,
         |runtime| {
@@ -159,7 +159,7 @@ fn terminal_status_and_result_command_return_the_same_bound_reply() {
         app.enqueue_agent_hook_event_for_e2e(stop)
             .expect("Stop 应进入 Hook 队列");
     });
-    let _ = drain_until(
+    drain_until(
         &app,
         cx,
         |runtime| {

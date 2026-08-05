@@ -59,22 +59,40 @@ pub(crate) struct WorkingSnakeView {
     render_count_for_e2e: usize,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct WorkingSnakePresentation {
+    pub(crate) active: bool,
+    pub(crate) visible: bool,
+    pub(crate) reduce_motion: bool,
+    pub(crate) theme: Theme,
+    pub(crate) left_px: f32,
+    pub(crate) top_px: f32,
+    pub(crate) width_px: f32,
+    pub(crate) height_px: f32,
+    pub(crate) opacity: f32,
+    pub(crate) zoom: f32,
+    pub(crate) node_radius_px: f32,
+}
+
 impl WorkingSnakeView {
     pub(crate) fn new(
         node_id: NodeId,
-        active: bool,
-        visible: bool,
-        reduce_motion: bool,
-        theme: Theme,
-        left_px: f32,
-        top_px: f32,
-        width_px: f32,
-        height_px: f32,
-        opacity: f32,
-        zoom: f32,
-        node_radius_px: f32,
+        presentation: WorkingSnakePresentation,
         now: Instant,
     ) -> Self {
+        let WorkingSnakePresentation {
+            active,
+            visible,
+            reduce_motion,
+            theme,
+            left_px,
+            top_px,
+            width_px,
+            height_px,
+            opacity,
+            zoom,
+            node_radius_px,
+        } = presentation;
         let running = active && visible;
         let fade = if reduce_motion && running {
             AnimatedScalar::on()
@@ -111,20 +129,23 @@ impl WorkingSnakeView {
 
     pub(crate) fn synchronize(
         &mut self,
-        active: bool,
-        visible: bool,
-        reduce_motion: bool,
-        theme: Theme,
-        left_px: f32,
-        top_px: f32,
-        width_px: f32,
-        height_px: f32,
-        opacity: f32,
-        zoom: f32,
-        node_radius_px: f32,
+        presentation: WorkingSnakePresentation,
         now: Instant,
         cx: &mut Context<Self>,
     ) {
+        let WorkingSnakePresentation {
+            active,
+            visible,
+            reduce_motion,
+            theme,
+            left_px,
+            top_px,
+            width_px,
+            height_px,
+            opacity,
+            zoom,
+            node_radius_px,
+        } = presentation;
         let was_running = self.active && self.visible;
         let running = active && visible;
         let visual_changed = self.reduce_motion != reduce_motion

@@ -2,7 +2,7 @@ use gpui::{div, prelude::*, Context, Window};
 
 use super::terminal_link::render_terminal_link_tooltip;
 use crate::app::MultisoulApp;
-use crate::cards::agent::queue::render_panel as render_agent_queue_panel;
+use crate::cards::agent::queue::{render_panel as render_agent_queue_panel, AgentQueuePanelLayout};
 
 /// 绘制必须位于局部 Working Snake 之上的 Canvas 交互叠层。
 pub(crate) fn render_canvas_overlays(
@@ -34,11 +34,13 @@ pub(crate) fn render_canvas_overlays(
             if let Some(panel) = render_agent_queue_panel(
                 app,
                 node_id,
-                card_left,
-                card_top,
-                card_width,
-                window_width,
-                window_height,
+                AgentQueuePanelLayout {
+                    card_left,
+                    card_top,
+                    card_width,
+                    window_width,
+                    window_height,
+                },
                 window,
                 cx,
             ) {

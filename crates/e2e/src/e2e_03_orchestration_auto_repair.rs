@@ -149,7 +149,7 @@ fn e2e_03_app_upgrade_auto_repairs_authorized_orchestration_without_click() {
         registry
             .is_authorized(
                 OrchestrationProvider::Codex,
-                &serde_json::from_str::<serde_json::Value>(&credential_after)
+                serde_json::from_str::<serde_json::Value>(&credential_after)
                     .expect("Codex 凭据必须是合法 JSON")["token"]
                     .as_str()
                     .expect("Codex 凭据必须包含字符串 Token")

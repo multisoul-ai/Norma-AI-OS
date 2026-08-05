@@ -458,9 +458,7 @@ fn l3_real_ego_preview_rejects_transient_white_page() {
         .expect("白帧 L3 必须通过 NORMA_EGO_L3_BLANK_TASK_SPACE_NAME 指定窗口");
 
     let result = capture_ego_preview_frame(7, 2, Some(&task_space_id), &task_space_name);
-    let message = result
-        .err()
-        .expect("纯白页面与纯白窗口都不得生成可显示 Ego 预览帧");
+    let message = result.expect_err("纯白页面与纯白窗口都不得生成可显示 Ego 预览帧");
 
     assert!(
         message.contains("未返回可识别的页面内容"),

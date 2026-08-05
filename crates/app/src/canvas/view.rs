@@ -37,6 +37,7 @@ use runtime::{route, Route};
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
+use ui::icons::with_alpha;
 static CANVAS_OPEN_RENDER_PENDING: AtomicBool = AtomicBool::new(false);
 pub(crate) fn mark_canvas_open_render_pending() {
     CANVAS_OPEN_RENDER_PENDING.store(true, Ordering::Release);
@@ -149,7 +150,11 @@ pub fn render_canvas(
         let node = app.runtime.document.node(id).unwrap().clone();
         let card = card_for(node_type);
         let chrome = card.chrome(&node, &app.runtime);
-        let queue_count = is_agent.then(|| agent_waiting_count(app, id)).unwrap_or(0);
+        let queue_count = if is_agent {
+            agent_waiting_count(app, id)
+        } else {
+            0
+        };
         let initialization = app.motion.initialization_presentation(id);
         let title = chrome.title;
         let title_detail = chrome.title_detail;
@@ -482,10 +487,6 @@ fn swap_highlight_overlay(
         .border_color(rgba(color))
         .rounded(px(radius_px))
         .into_any_element()
-}
-
-fn with_alpha(color: u32, alpha: u8) -> u32 {
-    (color & 0xffffff00) | u32::from(alpha)
 }
 
 #[cfg(test)]

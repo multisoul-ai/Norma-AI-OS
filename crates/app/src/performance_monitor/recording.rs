@@ -258,7 +258,7 @@ fn summarize(samples: &[RawPerformanceSample]) -> PerformanceSummary {
 
 fn median(ordered: &[f64]) -> f64 {
     let midpoint = ordered.len() / 2;
-    if ordered.len() % 2 == 0 {
+    if ordered.len().is_multiple_of(2) {
         (ordered[midpoint - 1] + ordered[midpoint]) / 2.0
     } else {
         ordered[midpoint]

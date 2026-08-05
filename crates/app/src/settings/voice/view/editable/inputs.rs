@@ -4,16 +4,26 @@ use crate::settings::voice::state::{VoiceSettingsField, VoiceSettingsState};
 use gpui::{App, Context, Entity, FocusHandle, WeakEntity, Window};
 use ui::Theme;
 
-fn create_input(
+#[derive(Clone, Copy)]
+struct VoiceInputSpec {
     field: VoiceSettingsField,
     placeholder: &'static str,
     masked: bool,
+}
+
+fn create_input(
+    spec: VoiceInputSpec,
     app: WeakEntity<MultisoulApp>,
     root_focus: FocusHandle,
     state: &VoiceSettingsState,
     theme: Theme,
     cx: &mut Context<MultisoulApp>,
 ) -> Entity<VoiceTextInput> {
+    let VoiceInputSpec {
+        field,
+        placeholder,
+        masked,
+    } = spec;
     new_input(
         VoiceInputConfig {
             field,
@@ -49,9 +59,11 @@ impl VoiceSettingsInputs {
         cx: &mut Context<MultisoulApp>,
     ) -> Self {
         let base_url = create_input(
-            VoiceSettingsField::BaseUrl,
-            "https://api.example.com/v1",
-            false,
+            VoiceInputSpec {
+                field: VoiceSettingsField::BaseUrl,
+                placeholder: "https://api.example.com/v1",
+                masked: false,
+            },
             app.clone(),
             root_focus.clone(),
             state,
@@ -59,9 +71,11 @@ impl VoiceSettingsInputs {
             cx,
         );
         let model = create_input(
-            VoiceSettingsField::Model,
-            "Model name",
-            false,
+            VoiceInputSpec {
+                field: VoiceSettingsField::Model,
+                placeholder: "Model name",
+                masked: false,
+            },
             app.clone(),
             root_focus.clone(),
             state,
@@ -69,9 +83,11 @@ impl VoiceSettingsInputs {
             cx,
         );
         let api_key = create_input(
-            VoiceSettingsField::ApiKey,
-            status::input_placeholder(state, VoiceSettingsField::ApiKey),
-            true,
+            VoiceInputSpec {
+                field: VoiceSettingsField::ApiKey,
+                placeholder: status::input_placeholder(state, VoiceSettingsField::ApiKey),
+                masked: true,
+            },
             app.clone(),
             root_focus.clone(),
             state,
@@ -79,9 +95,11 @@ impl VoiceSettingsInputs {
             cx,
         );
         let azure_region = create_input(
-            VoiceSettingsField::AzureRegion,
-            "eastus",
-            false,
+            VoiceInputSpec {
+                field: VoiceSettingsField::AzureRegion,
+                placeholder: "eastus",
+                masked: false,
+            },
             app.clone(),
             root_focus.clone(),
             state,
@@ -89,9 +107,11 @@ impl VoiceSettingsInputs {
             cx,
         );
         let azure_locale = create_input(
-            VoiceSettingsField::AzureLocale,
-            "zh-CN",
-            false,
+            VoiceInputSpec {
+                field: VoiceSettingsField::AzureLocale,
+                placeholder: "zh-CN",
+                masked: false,
+            },
             app.clone(),
             root_focus.clone(),
             state,
@@ -99,9 +119,11 @@ impl VoiceSettingsInputs {
             cx,
         );
         let azure_api_key = create_input(
-            VoiceSettingsField::AzureApiKey,
-            status::input_placeholder(state, VoiceSettingsField::AzureApiKey),
-            true,
+            VoiceInputSpec {
+                field: VoiceSettingsField::AzureApiKey,
+                placeholder: status::input_placeholder(state, VoiceSettingsField::AzureApiKey),
+                masked: true,
+            },
             app.clone(),
             root_focus.clone(),
             state,
@@ -109,9 +131,11 @@ impl VoiceSettingsInputs {
             cx,
         );
         let minimax_api_key = create_input(
-            VoiceSettingsField::MiniMaxApiKey,
-            status::input_placeholder(state, VoiceSettingsField::MiniMaxApiKey),
-            true,
+            VoiceInputSpec {
+                field: VoiceSettingsField::MiniMaxApiKey,
+                placeholder: status::input_placeholder(state, VoiceSettingsField::MiniMaxApiKey),
+                masked: true,
+            },
             app.clone(),
             root_focus.clone(),
             state,
@@ -119,9 +143,11 @@ impl VoiceSettingsInputs {
             cx,
         );
         let minimax_voice_id = create_input(
-            VoiceSettingsField::MiniMaxVoiceId,
-            "Enter Voice ID",
-            false,
+            VoiceInputSpec {
+                field: VoiceSettingsField::MiniMaxVoiceId,
+                placeholder: "Enter Voice ID",
+                masked: false,
+            },
             app.clone(),
             root_focus.clone(),
             state,
@@ -129,9 +155,11 @@ impl VoiceSettingsInputs {
             cx,
         );
         let minimax_voice_search = create_input(
-            VoiceSettingsField::MiniMaxVoiceSearch,
-            "Search by name or Voice ID",
-            false,
+            VoiceInputSpec {
+                field: VoiceSettingsField::MiniMaxVoiceSearch,
+                placeholder: "Search by name or Voice ID",
+                masked: false,
+            },
             app,
             root_focus,
             state,

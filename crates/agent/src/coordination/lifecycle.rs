@@ -191,10 +191,10 @@ impl AgentTaskCoordinator {
         };
         let failed = {
             let agent = &mut self.agents[index];
-            if !agent
+            if agent
                 .active
                 .as_ref()
-                .is_some_and(|active| active.task_id == task_id)
+                .is_none_or(|active| active.task_id != task_id)
             {
                 return false;
             }

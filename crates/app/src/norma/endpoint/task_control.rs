@@ -34,7 +34,7 @@ pub(super) fn spawn_global_task_control(
     let validated = match validate_source(&source_route, &request, cx) {
         Ok(validated) => validated,
         Err(response) => {
-            let _ = response_sender.send(response);
+            let _ = response_sender.send(*response);
             return;
         }
     };

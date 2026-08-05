@@ -47,7 +47,7 @@ pub use orchestration_authorization_store::{
 pub use orchestration_task_route_store::{
     NewOrchestrationTaskRoute, OrchestrationLineageRejection,
     OrchestrationTaskOperationReservation, OrchestrationTaskReservation, OrchestrationTaskRoute,
-    OrchestrationTaskRouteStore,
+    OrchestrationTaskRouteCompletion, OrchestrationTaskRouteStore,
 };
 pub use project_store::ProjectStore;
 pub use recent_store::RecentStore;

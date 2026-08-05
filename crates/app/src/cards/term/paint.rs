@@ -30,16 +30,28 @@ pub struct TerminalRenderMetrics {
     pub cell_width: Pixels,
 }
 
-pub fn render_terminal_canvas(
-    node_id: NodeId,
-    snapshot: Arc<GridSnapshot>,
-    revision: u64,
-    cache: TerminalRenderCacheHandle,
-    theme: Theme,
-    metrics: TerminalRenderMetrics,
-    selection: Option<TextRange>,
-    cursor_animation: TerminalCursorAnimation,
-) -> impl IntoElement {
+pub struct TerminalCanvasOptions {
+    pub node_id: NodeId,
+    pub snapshot: Arc<GridSnapshot>,
+    pub revision: u64,
+    pub cache: TerminalRenderCacheHandle,
+    pub theme: Theme,
+    pub metrics: TerminalRenderMetrics,
+    pub selection: Option<TextRange>,
+    pub cursor_animation: TerminalCursorAnimation,
+}
+
+pub fn render_terminal_canvas(options: TerminalCanvasOptions) -> impl IntoElement {
+    let TerminalCanvasOptions {
+        node_id,
+        snapshot,
+        revision,
+        cache,
+        theme,
+        metrics,
+        selection,
+        cursor_animation,
+    } = options;
     let palette = TerminalPalette::from_theme(theme);
     let glass_style = TerminalGlassStyle::from_theme(theme);
     let key = TerminalRenderKey::new(node_id, revision, metrics, theme, selection);

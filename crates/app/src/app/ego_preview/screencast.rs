@@ -1,29 +1,32 @@
 //! 隐藏 Ego Task Space 的持续 CDP screencast 后备源。
 //!
-//! Agent-owned Task Space 会让原生窗口进入 ScreenCaptureKit `Suspended`，
-//! 但 Chromium 页面仍持续合成。这里保持单个 `ego-browser nodejs` 子进程，
-//! 通过 `Page.startScreencast` 收帧；不再逐帧启动进程或读写 PNG 临时文件。
+//! Agent-owned Task Space 的原生窗口暂停时，单个 `ego-browser nodejs` 子进程仍通过 CDP 持续收帧。
 
 use super::live::LatestSequenceMailbox;
-use super::pacer::EgoFramePacer;
-use super::quality::validate_ego_preview_rgba;
-use super::render_ego_preview_from_rgba;
-use super::worker::EgoWorkerGuard;
-use crate::app::ego::ego_browser_helper;
-use base64::{engine::general_purpose::STANDARD, Engine as _};
-use canvas::NodeId;
 use gpui::RenderImage;
-use image::ImageReader;
-use std::collections::{HashMap, HashSet};
-use std::io::{Cursor, Read, Write};
-use std::os::unix::net::UnixListener;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::path::Path;
 use std::sync::{
-    atomic::{AtomicBool, AtomicU64, Ordering},
+    atomic::{AtomicU64, Ordering},
     Arc, Mutex,
 };
-use std::time::{Duration, Instant};
+#[cfg(not(feature = "e2e-test-support"))]
+use {
+    super::pacer::EgoFramePacer,
+    super::quality::validate_ego_preview_rgba,
+    super::render_ego_preview_from_rgba,
+    super::worker::EgoWorkerGuard,
+    crate::app::ego::ego_browser_helper,
+    base64::{engine::general_purpose::STANDARD, Engine as _},
+    canvas::NodeId,
+    image::ImageReader,
+    std::collections::{HashMap, HashSet},
+    std::io::{Cursor, Read, Write},
+    std::os::unix::net::UnixListener,
+    std::path::PathBuf,
+    std::process::{Command, Stdio},
+    std::sync::atomic::AtomicBool,
+    std::time::{Duration, Instant},
+};
 
 const EGO_SCREENCAST_FRAME_PREFIX: &str = "NORMA_EGO_FRAME=";
 const EGO_SCREENCAST_REPEAT_PREFIX: &str = "NORMA_EGO_REPEAT=";
@@ -31,11 +34,16 @@ const EGO_SCREENCAST_FPS: u32 = 24;
 const EGO_SCREENCAST_MAX_WIDTH: u32 = 1_440;
 const EGO_SCREENCAST_MAX_HEIGHT: u32 = 1_000;
 const EGO_SCREENCAST_JPEG_QUALITY: u32 = 75;
+#[cfg(not(feature = "e2e-test-support"))]
 const EGO_SCREENCAST_FRAME_INTERVAL: Duration =
     Duration::from_nanos(1_000_000_000 / EGO_SCREENCAST_FPS as u64);
+#[cfg(not(feature = "e2e-test-support"))]
 const EGO_SCREENCAST_RETRY_INTERVAL: Duration = Duration::from_secs(1);
+#[cfg(not(feature = "e2e-test-support"))]
 const EGO_SCREENCAST_WORKER_POLL_INTERVAL: Duration = Duration::from_millis(5);
+#[cfg(not(feature = "e2e-test-support"))]
 const EGO_SCREENCAST_MAX_PENDING_BYTES: usize = 8 * 1_024 * 1_024;
+#[cfg(not(feature = "e2e-test-support"))]
 static EGO_SCREENCAST_SOCKET_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Default)]
@@ -46,10 +54,12 @@ pub(super) struct EgoScreencastMailbox {
 }
 
 impl EgoScreencastMailbox {
+    #[cfg(not(feature = "e2e-test-support"))]
     fn push_frame(&self, sequence: u64, frame: Arc<RenderImage>) {
         self.frames.push(sequence, frame);
     }
 
+    #[cfg(not(feature = "e2e-test-support"))]
     fn fail(&self, message: String) {
         if let Ok(mut failure) = self.failure.lock() {
             *failure = Some(message);
@@ -63,22 +73,23 @@ impl EgoScreencastMailbox {
     pub(super) fn take_update(&self) -> EgoScreencastUpdate {
         if let Ok(mut failure) = self.failure.lock() {
             if let Some(message) = failure.take() {
-                return EgoScreencastUpdate::Failed(message);
+                return EgoScreencastUpdate::Failed { _message: message };
             }
         }
         self.frames
             .take_latest()
-            .map(|(_, frame)| EgoScreencastUpdate::Frame { frame })
+            .map(|(_, frame)| EgoScreencastUpdate::Frame { _frame: frame })
             .unwrap_or(EgoScreencastUpdate::None)
     }
 }
 
 pub(super) enum EgoScreencastUpdate {
     None,
-    Frame { frame: Arc<RenderImage> },
-    Failed(String),
+    Frame { _frame: Arc<RenderImage> },
+    Failed { _message: String },
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 struct EgoScreencastSession {
     selector: String,
     mailbox: Arc<EgoScreencastMailbox>,
@@ -86,6 +97,7 @@ struct EgoScreencastSession {
     pacer: EgoFramePacer<Arc<RenderImage>>,
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 impl EgoScreencastSession {
     fn start(selector: String) -> Self {
         let mailbox = Arc::new(EgoScreencastMailbox::default());
@@ -120,17 +132,20 @@ impl EgoScreencastSession {
     }
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 #[derive(Default)]
 pub(super) struct EgoScreencastStore {
     sessions: HashMap<NodeId, EgoScreencastSession>,
     retry_after: HashMap<NodeId, Instant>,
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 pub(super) struct EgoScreencastPollReport {
     pub(super) frames: Vec<(NodeId, u64, Arc<RenderImage>)>,
     pub(super) errors: Vec<(NodeId, String)>,
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 impl EgoScreencastStore {
     pub(super) fn sync_and_poll(
         &mut self,
@@ -173,11 +188,11 @@ impl EgoScreencastStore {
         for (node_id, session) in &mut self.sessions {
             match session.mailbox.take_update() {
                 EgoScreencastUpdate::None => {}
-                EgoScreencastUpdate::Frame { frame, .. } => {
+                EgoScreencastUpdate::Frame { _frame: frame } => {
                     session.pacer.push(frame);
                     self.retry_after.remove(node_id);
                 }
-                EgoScreencastUpdate::Failed(message) => {
+                EgoScreencastUpdate::Failed { _message: message } => {
                     errors.push((*node_id, message));
                     failed_nodes.insert(*node_id);
                 }
@@ -218,6 +233,7 @@ impl EgoScreencastStore {
     }
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 fn run_screencast_worker(
     selector: &str,
     mailbox: Arc<EgoScreencastMailbox>,
@@ -361,6 +377,7 @@ fn run_screencast_worker(
     }
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 fn screencast_socket_path() -> PathBuf {
     let sequence = EGO_SCREENCAST_SOCKET_SEQUENCE.fetch_add(1, Ordering::Relaxed);
     std::env::temp_dir().join(format!(
@@ -369,6 +386,7 @@ fn screencast_socket_path() -> PathBuf {
     ))
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 fn stop_screencast_child(child: &mut std::process::Child, socket_path: &Path) {
     let _ = child.kill();
     let _ = child.wait();
@@ -463,6 +481,7 @@ pub(super) fn parse_screencast_repeat_line(line: &str) -> Result<Option<u64>, St
         .map_err(|error| format!("Ego screencast 重复帧序号无效：{error}"))
 }
 
+#[cfg(not(feature = "e2e-test-support"))]
 fn decode_screencast_frame_line(line: &str) -> Result<Option<(u64, Arc<RenderImage>)>, String> {
     let Some((sequence, encoded)) = parse_screencast_frame_line(line)? else {
         return Ok(None);

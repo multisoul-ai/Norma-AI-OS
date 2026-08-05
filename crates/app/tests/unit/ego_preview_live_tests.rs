@@ -188,13 +188,15 @@ fn test_frame_pacer_keeps_24fps_cadence_between_slow_jpeg_updates() {
 ///   started barrier parties = 测试线程 1 + worker 线程 1 = 2
 ///   cancel 初值 = false；退出标记初值 = false
 ///   Drop 非阻塞观察窗 = 50ms = 1ms 轮询 × 最多 50 次
+///   worker 退出观察窗 = 1s = 1ms 轮询 × 最多 1000 次
 ///   清理 release channel = 1；测试在 Drop 返回后才允许 worker 退出
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. worker 与测试线程通过 2 方 barrier 确认线程已经运行。
 ///   2. 独立线程释放 `EgoWorkerGuard` → cancel 由 false 变为 true，JoinHandle 交给 reaper。
 ///   3. worker 观察到取消，但在 release channel 上等待，模拟 socket/子进程仍在清理。
-///   4. 50ms 内确认 Drop 已返回，再放行 worker；reaper join 完成后读取退出标记。
+///   4. 50ms 内确认 Drop 已返回且 worker 仍被阻塞，再放行 worker。
+///   5. 最多等待 1s 观察 worker 退出，给 reaper 的异步调度留出确定性窗口。
 ///
 /// 预期结果：
 ///   - 正断言：Drop 在 worker 清理完成前返回，随后 worker 确实退出。
@@ -232,6 +234,14 @@ fn test_worker_guard_reaps_cancelled_capture_thread_without_blocking_drop() {
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
     let returned_before_cleanup = drop_returned.load(Ordering::Acquire);
+    assert!(
+        returned_before_cleanup,
+        "EgoWorkerGuard::drop 必须在 worker 清理完成前返回，不能在 GPUI 前台同步 join"
+    );
+    assert!(
+        !exited.load(Ordering::Acquire),
+        "worker 在 release channel 放行前不应退出，否则测试没有覆盖异步清理窗口"
+    );
     release_cleanup
         .send(())
         .expect("测试必须放行 worker 完成模拟清理");
@@ -239,17 +249,13 @@ fn test_worker_guard_reaps_cancelled_capture_thread_without_blocking_drop() {
         .join()
         .expect("EgoWorkerGuard Drop 测试线程不得 panic");
 
-    assert!(
-        returned_before_cleanup,
-        "EgoWorkerGuard::drop 必须在 worker 清理完成前返回，不能在 GPUI 前台同步 join"
-    );
+    let exit_deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+    while !exited.load(Ordering::Acquire) && std::time::Instant::now() < exit_deadline {
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
     assert!(
         exited.load(Ordering::Acquire),
         "reaper 必须最终等待后台捕获线程完成，不能遗留 helper 或 Unix socket"
-    );
-    assert_ne!(
-        returned_before_cleanup, false,
-        "worker 仍被 release channel 阻塞时 Drop 不应保持未返回状态"
     );
 }
 
@@ -438,7 +444,7 @@ fn test_screencast_mailbox_drops_blank_frame_without_failing_session() {
         "白色过渡帧必须只被丢弃，mailbox 应保持空闲并等待下一张正常帧"
     );
     assert!(
-        !matches!(update, EgoScreencastUpdate::Failed(_)),
+        !matches!(update, EgoScreencastUpdate::Failed { .. }),
         "单帧质量错误不得升级为 session 失败，否则会错误切回原生窗口白屏源"
     );
     assert!(

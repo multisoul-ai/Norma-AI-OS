@@ -108,11 +108,6 @@ fn test_dispatch_effect_requires_target_center_inside_viewport() {
         !screen_point_visible(center_outside, viewport),
         "target 仅露边缘但中心 x=-10 已离屏时不得绘制跨屏飞行"
     );
-    assert_ne!(
-        screen_point_visible(center_outside, viewport),
-        true,
-        "中心离屏 target 不得返回可播放状态"
-    );
 }
 
 /// DR-G-4：Queued 命中必须同时降低亮度和爆发半径，不能只减少粒子数量。

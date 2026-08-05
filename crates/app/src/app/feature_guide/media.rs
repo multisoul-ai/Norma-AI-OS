@@ -8,6 +8,7 @@ use gpui::Surface;
 #[cfg(target_os = "macos")]
 use std::sync::Arc;
 
+#[derive(Default)]
 pub(crate) struct FeatureGuideMediaState {
     pub(super) topic: Option<FeatureGuideTopic>,
     pub(super) video_path: Option<PathBuf>,
@@ -19,23 +20,6 @@ pub(crate) struct FeatureGuideMediaState {
     pub(super) video: Option<VideoWallpaperState>,
     #[cfg(target_os = "macos")]
     pub(super) mailbox: Option<Arc<VideoFrameMailbox>>,
-}
-
-impl Default for FeatureGuideMediaState {
-    fn default() -> Self {
-        Self {
-            topic: None,
-            video_path: None,
-            poster_path: None,
-            manually_paused: false,
-            playing: false,
-            poll_generation: 0,
-            #[cfg(target_os = "macos")]
-            video: None,
-            #[cfg(target_os = "macos")]
-            mailbox: None,
-        }
-    }
 }
 
 impl FeatureGuideMediaState {

@@ -24,7 +24,7 @@ pub(super) fn spawn_global_dispatch(
     let validated = match validate_source(&routed.source, &request, cx) {
         Ok(validated) => validated,
         Err(response) => {
-            let _ = response_sender.send(response);
+            let _ = response_sender.send(*response);
             return;
         }
     };
@@ -35,7 +35,7 @@ pub(super) fn spawn_global_dispatch(
     let target_definition_id = match resolve_target_definition(&routed.target, &request, cx) {
         Ok(definition_id) => definition_id,
         Err(response) => {
-            let _ = response_sender.send(response);
+            let _ = response_sender.send(*response);
             return;
         }
     };
@@ -223,16 +223,16 @@ pub(super) fn spawn_global_dispatch(
                         let complete_operation = operation_id.clone();
                         cx.background_executor()
                             .spawn(async move {
-                                complete_store.complete(
-                                    &complete_operation,
-                                    &local_ref,
-                                    definition_id,
-                                    &name,
-                                    node_id,
+                                complete_store.complete(storage::OrchestrationTaskRouteCompletion {
+                                    operation_id: &complete_operation,
+                                    target_task_ref: &local_ref,
+                                    target_definition_id: definition_id,
+                                    target_name: &name,
+                                    target_node_id_at_dispatch: node_id,
                                     state,
-                                    &tracking,
-                                    &json,
-                                )
+                                    tracking: &tracking,
+                                    result_json: &json,
+                                })
                             })
                             .await
                     }

@@ -28,7 +28,7 @@ pub use live_probe::{run_ego_live_capture_probe, EgoLiveCaptureProbeReport};
 use quality::validate_ego_preview_rgba;
 #[cfg(any(test, not(feature = "e2e-test-support")))]
 use runtime::EgoOwnership;
-#[cfg(not(feature = "e2e-test-support"))]
+#[cfg(any(test, not(feature = "e2e-test-support")))]
 use snapshot::capture_ego_preview_frame;
 #[cfg(test)]
 use snapshot::{select_ego_window_id, select_unique_non_blank_capture, EgoWindowCandidate};
@@ -100,7 +100,7 @@ impl EgoPreviewStore {
         Some(self.generation)
     }
 
-    #[cfg(not(feature = "e2e-test-support"))]
+    #[cfg(any(test, not(feature = "e2e-test-support")))]
     fn complete_request(
         &mut self,
         node_id: NodeId,
@@ -121,7 +121,7 @@ impl EgoPreviewStore {
         }
     }
 
-    #[cfg(not(feature = "e2e-test-support"))]
+    #[cfg(any(test, not(feature = "e2e-test-support")))]
     fn record_error(&mut self, node_id: NodeId, generation: u64, message: String) -> bool {
         if self.inflight.remove(&node_id) != Some(generation) {
             return false;

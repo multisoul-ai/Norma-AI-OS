@@ -425,7 +425,7 @@ fn decode_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredAgentDispatchTa
         state: decode_state(&state)?,
         tracking: decode_tracking(&tracking)?,
         error: row.get(15)?,
-        result: result_captured.then(|| StoredAgentDispatchResult {
+        result: result_captured.then_some(StoredAgentDispatchResult {
             text: result_text,
             truncated: result_truncated,
         }),

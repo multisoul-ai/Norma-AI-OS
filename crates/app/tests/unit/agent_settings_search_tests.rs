@@ -238,7 +238,7 @@ fn test_agent_definitions_state_combines_status_filter_with_workflow_search() {
         "Enabled filter 应按原顺序返回 Alan 与 Quinn"
     );
     assert!(
-        !enabled.iter().any(|name| *name == "Bella"),
+        !enabled.contains(&"Bella"),
         "Enabled filter 不得残留 disabled 的 Bella"
     );
 }
