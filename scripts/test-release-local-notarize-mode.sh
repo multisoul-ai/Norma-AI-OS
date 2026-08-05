@@ -19,12 +19,14 @@
 #   5. Verify notarize execution maps APP_STORE_CONNECT_* to APPLE_API_*.
 #   6. Verify release execution invokes the external cargo-packager directly,
 #      bypassing the workspace target runner used only for the development app.
+#   7. Verify the final DMG is separately submitted, stapled, and assessed.
 #
 # Expected result:
 #   - Positive: --notarize is an explicit accepted flag.
 #   - Positive: default mode removes APPLE_API_* and APPLE_ID_* before packaging.
 #   - Positive: notarize mode injects APPLE_API_* from APP_STORE_CONNECT_*.
 #   - Positive: notarize mode calls cargo-packager after sanitizing notary env.
+#   - Positive: notarize mode gives the distributed DMG its own Apple ticket.
 #   - Negative: default mode must not require stapler validation.
 #   - Negative: release-local must not route its tooling binary through `cargo run`.
 #   - Negative: unknown options still fail fast.
@@ -67,6 +69,21 @@ grep -Fq 'cargo-packager --release -c Packager.toml' "$script" \
 if grep -Eq '^[[:space:]]+cargo packager ' "$script"; then
   fail "release-local must not run its tooling binary through the development target runner"
 fi
+
+grep -Fq 'xcrun notarytool submit "$DMG"' "$script" \
+  || fail "notarize mode must submit the final distributed DMG to Apple"
+grep -Fq -- '--key "$APP_STORE_CONNECT_API_KEY_PATH"' "$script" \
+  || fail "DMG notarization must use the configured App Store Connect private key"
+grep -Fq -- '--key-id "$APP_STORE_CONNECT_API_KEY_ID"' "$script" \
+  || fail "DMG notarization must use the configured App Store Connect key id"
+grep -Fq -- '--issuer "$APP_STORE_CONNECT_API_ISSUER_ID"' "$script" \
+  || fail "DMG notarization must use the configured App Store Connect issuer"
+grep -Fq 'xcrun stapler staple "$DMG"' "$script" \
+  || fail "notarize mode must staple the accepted ticket to the final DMG"
+grep -Fq 'spctl --assess --type open --context context:primary-signature --verbose "$DMG"' "$script" \
+  || fail "notarize mode must require Gatekeeper to accept the final DMG"
+grep -Fq 'xcrun stapler validate "$DMG"' "$script" \
+  || fail "notarize mode must validate the final DMG ticket"
 
 grep -Fq 'xcrun stapler validate "$APP" || die "stapler 无公证票据（--notarize 必须有）"' "$script" \
   || fail "only --notarize mode should require a stapled notarization ticket"

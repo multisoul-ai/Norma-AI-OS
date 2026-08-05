@@ -114,8 +114,23 @@ while IFS= read -r candidate; do
 done < <(find "$OUTPUT_DIR" -maxdepth 1 -type f -name '*.dmg' -newer "$PACKAGE_MARKER" -print)
 
 [ -n "$DMG" ] || die "未找到本次新生成的 DMG（目录: $OUTPUT_DIR）"
+if [ "$NOTARIZE" = true ]; then
+  info "提交最终 DMG 公证并 staple"
+  xcrun notarytool submit "$DMG" \
+    --key "$APP_STORE_CONNECT_API_KEY_PATH" \
+    --key-id "$APP_STORE_CONNECT_API_KEY_ID" \
+    --issuer "$APP_STORE_CONNECT_API_ISSUER_ID" \
+    --wait
+  xcrun stapler staple "$DMG"
+fi
+
 info "验证 $DMG"
 hdiutil verify "$DMG"
+if [ "$NOTARIZE" = true ]; then
+  spctl --assess --type open --context context:primary-signature --verbose "$DMG" \
+    || die "Gatekeeper 拒绝最终 DMG"
+  xcrun stapler validate "$DMG" || die "最终 DMG 缺少有效公证票据"
+fi
 
 DMG_SHA256=$(shasum -a 256 "$DMG" | awk '{print $1}')
 DMG_SIZE_BYTES=$(stat -f '%z' "$DMG")
