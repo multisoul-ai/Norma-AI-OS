@@ -36,6 +36,7 @@ codesign --verify --deep --strict --verbose=2 "$app"
 spctl --assess --type execute --verbose "$app"
 xcrun stapler validate "$app"
 hdiutil verify "$dmg"
+"$repo_root/scripts/verify-dmg-layout.sh" "$dmg"
 spctl --assess --type open --context context:primary-signature --verbose "$dmg"
 xcrun stapler validate "$dmg"
 python3 "$repo_root/scripts/verify-sparkle-appcast.py" \
