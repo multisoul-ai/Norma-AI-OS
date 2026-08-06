@@ -1,8 +1,13 @@
 use crate::app::MultisoulApp;
-use crate::assets::{APP_ICON_ASSET, SETTINGS_NAV_THEMES_ASSET, TOOLBAR_SETTINGS_ASSET};
+use crate::assets::{
+    APP_ICON_ASSET, SETTINGS_CHECK_UPDATES_ASSET, SETTINGS_NAV_THEMES_ASSET, TOOLBAR_SETTINGS_ASSET,
+};
 use gpui::{div, img, prelude::*, px, rgba, Context, Div, FontWeight, ObjectFit, Stateful, Styled};
 use ui::{
-    component::{Icon, Sizable as _},
+    component::{
+        button::{Button, ButtonVariants as _},
+        Icon, Sizable as _, Size,
+    },
     Theme,
 };
 
@@ -32,7 +37,6 @@ fn settings_brand_metadata() -> SettingsBrandMetadata {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) enum SettingsSection {
-    SoftwareUpdate,
     Themes,
     Keyboard,
     #[cfg(test)]
@@ -61,12 +65,6 @@ impl SettingsSection {
 
     fn metadata(self) -> SettingsSectionMetadata {
         match self {
-            Self::SoftwareUpdate => SettingsSectionMetadata {
-                title: "Software Update",
-                icon_asset: Some(TOOLBAR_SETTINGS_ASSET),
-                index: 9,
-                debug_selector: "settings-section-software-update",
-            },
             Self::Themes => SettingsSectionMetadata {
                 title: "Themes",
                 icon_asset: Some(SETTINGS_NAV_THEMES_ASSET),
@@ -127,7 +125,6 @@ impl SettingsSection {
     }
 }
 
-const GENERAL_SECTIONS: &[SettingsSection] = &[SettingsSection::SoftwareUpdate];
 const APPEARANCE_SECTIONS: &[SettingsSection] = &[
     SettingsSection::Themes,
     SettingsSection::Wallpaper,
@@ -137,8 +134,7 @@ const INPUT_SECTIONS: &[SettingsSection] = &[SettingsSection::Keyboard, Settings
 const AUTOMATION_SECTIONS: &[SettingsSection] =
     &[SettingsSection::Agents, SettingsSection::Orchestration];
 
-const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 4] = [
-    ("General", GENERAL_SECTIONS),
+const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 3] = [
     ("Appearance", APPEARANCE_SECTIONS),
     ("Input & Controls", INPUT_SECTIONS),
     ("AI & Automation", AUTOMATION_SECTIONS),
@@ -258,6 +254,7 @@ fn settings_brand_footer(theme: Theme, compact: bool) -> Stateful<Div> {
                 .child(
                     div()
                         .min_w(px(0.0))
+                        .flex_1()
                         .flex()
                         .flex_col()
                         .gap(px(2.0))
@@ -279,6 +276,17 @@ fn settings_brand_footer(theme: Theme, compact: bool) -> Stateful<Div> {
                                 .text_color(rgba(theme.text_tertiary))
                                 .child(format!("Version {}", brand.version)),
                         ),
+                )
+                .child(
+                    Button::new("settings-check-for-updates")
+                        .debug_selector(|| "settings-check-for-updates".to_string())
+                        .icon(Icon::default().path(SETTINGS_CHECK_UPDATES_ASSET))
+                        .ghost()
+                        .with_size(Size::Medium)
+                        .tooltip("Check for updates")
+                        .on_click(|_, _window, cx| {
+                            crate::updater::check_for_updates(cx);
+                        }),
                 ),
         )
 }

@@ -79,7 +79,7 @@ fn integration(
 ///   4. 检查 Codex/Claude 最终状态、OpenCode 空状态、共享二进制和授权副作用。
 ///
 /// 预期结果：
-///   - 正断言：Codex 与 Claude 从 NeedsRepair 恢复为 Ready，共享二进制和 Skill 升至 v2。
+///   - 正断言：Codex 与 Claude 从 NeedsRepair 恢复为 Ready，共享二进制和 Skill（含 ask-norma 入口）升至 v2。
 ///   - 正断言：Codex 凭据和总授权次数保持不变。
 ///   - 负断言：未授权的 OpenCode 不得生成 Skill/凭据或变成 Ready，reconcile 不得产生失败。
 #[test]
@@ -136,6 +136,11 @@ fn app_upgrade_reconciles_authorized_providers_without_installing_new_provider()
         .expect("自动修复后 Codex orchestration Skill 必须存在");
     let claude_skill = fs::read_to_string(&paths.claude_skill)
         .expect("自动修复后 Claude orchestration Skill 必须存在");
+    let codex_ask_norma_path = paths
+        .ask_norma_skill_path(OrchestrationProvider::Codex)
+        .expect("Codex 应有 ask-norma Skill 路径");
+    let codex_ask_norma = fs::read_to_string(&codex_ask_norma_path)
+        .expect("自动修复后 Codex ask-norma Skill 必须存在");
 
     assert!(
         report.failures.is_empty(),
@@ -174,6 +179,10 @@ fn app_upgrade_reconciles_authorized_providers_without_installing_new_provider()
     assert!(
         claude_skill.contains("# managed-version: 2.0.0"),
         "Claude Skill 必须更新到当前 App 版本"
+    );
+    assert!(
+        codex_ask_norma.contains("# managed-version: 2.0.0"),
+        "Codex ask-norma Skill 必须随 reconcile 一起升级到当前 App 版本"
     );
     assert_eq!(
         codex_credential_after, codex_credential_before,

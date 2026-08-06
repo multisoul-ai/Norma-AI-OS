@@ -3,17 +3,27 @@ use std::path::Path;
 
 pub(crate) const ORCHESTRATION_MANAGED_MARKER: &str = "norma-orchestration-managed";
 pub(crate) const PRESENTATION_MANAGED_MARKER: &str = "norma-presentation-managed";
+pub(crate) const ASK_NORMA_MANAGED_MARKER: &str = "norma-ask-norma-managed";
 const ORCHESTRATION_SKILL_DESCRIPTION: &str = concat!(
     "Use this skill whenever the user asks to assign/delegate/publish a task to a specifically ",
     "named Norma OS Agent. Examples include 给 Simon 发布一个任务 and 让 Simon 给浩辰发布一个任务. ",
     "Cover direct and nested/subtask delegation, including speech-to-text with extra spaces or ",
     "punctuation. Do not use for mere mentions or unsolicited delegation."
 );
+const ASK_NORMA_SKILL_DESCRIPTION: &str = concat!(
+    "Use this skill when the user invokes /ask-norma, or asks to ask, consult, or message Norma ",
+    "or a specifically named Norma OS Agent (问 norma, 让 norma 帮忙, 给 norma 发消息, ask norma). ",
+    "It is the friendly entry point into the Norma OS Agent delegation flow: assign, delegate, ",
+    "hand off, publish, 发任务, 发布任务, 分配, 委派, 交给. Cover direct and nested/subtask delegation, ",
+    "including speech-to-text with extra spaces or punctuation. Do not use for mere mentions or ",
+    "unsolicited delegation."
+);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ManagedSkillKind {
     Orchestration,
     Presentation,
+    AskNorma,
 }
 
 pub(crate) fn skill_source(
@@ -25,6 +35,7 @@ pub(crate) fn skill_source(
     match kind {
         ManagedSkillKind::Orchestration => orchestration_skill_source(provider, version, cli_path),
         ManagedSkillKind::Presentation => presentation_skill_source(provider, version, cli_path),
+        ManagedSkillKind::AskNorma => ask_norma_skill_source(provider, version, cli_path),
     }
 }
 
@@ -32,20 +43,14 @@ pub(crate) fn managed_marker(kind: ManagedSkillKind) -> &'static str {
     match kind {
         ManagedSkillKind::Orchestration => ORCHESTRATION_MANAGED_MARKER,
         ManagedSkillKind::Presentation => PRESENTATION_MANAGED_MARKER,
+        ManagedSkillKind::AskNorma => ASK_NORMA_MANAGED_MARKER,
     }
 }
 
-fn orchestration_skill_source(
-    provider: OrchestrationProvider,
-    version: &str,
-    cli_path: &Path,
-) -> String {
+fn orchestration_skill_body(cli_path: &Path) -> String {
     let command = cli_path.display();
-    let body = format!(
-        r#"# {ORCHESTRATION_MANAGED_MARKER}
-# managed-version: {version}
-
-# Norma OS Agent Orchestration
+    format!(
+        r#"# Norma OS Agent Orchestration
 
 Use this capability only when the user explicitly asks you to delegate a specific task to a
 specifically named Norma OS Agent. Never choose a target, split work, or delegate merely to add
@@ -142,6 +147,17 @@ Do not create or enable unknown Agents. Do not use `--force-untracked` unless th
 accepts that the target has no trustworthy completion tracking and explicitly authorizes
 overwriting its input. Never automatically add that flag while diagnosing availability or routing.
 "#
+    )
+}
+
+fn orchestration_skill_source(
+    provider: OrchestrationProvider,
+    version: &str,
+    cli_path: &Path,
+) -> String {
+    let body = format!(
+        "# {ORCHESTRATION_MANAGED_MARKER}\n# managed-version: {version}\n\n{}",
+        orchestration_skill_body(cli_path)
     );
     match provider {
         OrchestrationProvider::Cursor => format!(
@@ -150,6 +166,28 @@ overwriting its input. Never automatically add that flag while diagnosing availa
         _ => format!(
             "---\nname: norma-orchestration\ndescription: {ORCHESTRATION_SKILL_DESCRIPTION}\n---\n{body}"
         ),
+    }
+}
+
+fn ask_norma_skill_source(
+    provider: OrchestrationProvider,
+    version: &str,
+    cli_path: &Path,
+) -> String {
+    let entry = "This is the explicit `/ask-norma` entry point for Norma OS Agent orchestration. \
+When the user invokes `/ask-norma` or asks to ask, consult, or message Norma or a named Agent, \
+execute the full delegation flow below exactly as the norma-orchestration skill does.";
+    let body = format!(
+        "# {ASK_NORMA_MANAGED_MARKER}\n# managed-version: {version}\n\n{entry}\n\n{}",
+        orchestration_skill_body(cli_path)
+    );
+    match provider {
+        OrchestrationProvider::Cursor => format!(
+            "---\ndescription: {ASK_NORMA_SKILL_DESCRIPTION}\nalwaysApply: true\n---\n{body}"
+        ),
+        _ => {
+            format!("---\nname: ask-norma\ndescription: {ASK_NORMA_SKILL_DESCRIPTION}\n---\n{body}")
+        }
     }
 }
 

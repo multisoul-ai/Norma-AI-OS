@@ -109,7 +109,7 @@ impl OrchestrationInstaller {
     fn skill_paths(
         &self,
         provider: OrchestrationProvider,
-    ) -> Option<[(ManagedSkillKind, PathBuf); 2]> {
+    ) -> Option<[(ManagedSkillKind, PathBuf); 3]> {
         Some([
             (
                 ManagedSkillKind::Orchestration,
@@ -118,6 +118,10 @@ impl OrchestrationInstaller {
             (
                 ManagedSkillKind::Presentation,
                 self.paths.presentation_skill_path(provider)?,
+            ),
+            (
+                ManagedSkillKind::AskNorma,
+                self.paths.ask_norma_skill_path(provider)?,
             ),
         ])
     }

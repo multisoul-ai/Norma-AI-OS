@@ -4,7 +4,7 @@ use super::*;
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   initial open = false（启动后不应遮挡画布）
-///   visible section count = 8（Software Update / Themes / Wallpaper / Performance / Keyboard / Voice / Agents / Orchestration）
+///   visible section count = 7（Themes / Wallpaper / Performance / Keyboard / Voice / Agents / Orchestration）
 ///   hidden mock count = 2（Runtime / Skills，不应作为首次页面）
 ///   default section = Themes（Appearance 中首个已实现的可配置页面）
 ///
@@ -329,11 +329,11 @@ fn test_settings_panel_selects_sections_without_closing() {
     );
 }
 
-/// Settings 导航暴露八个已实现页面，并继续隐藏 Runtime/Skills mock 分组。
+/// Settings 导航暴露七个已实现页面，并继续隐藏 Runtime/Skills mock 分组。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = settings_panel.rs + settings_content.rs（生产侧栏与内容路由）；
-///   visible sections = Software Update + Themes + Keyboard + Voice + Agents + Orchestration + Wallpaper + Performance，共 8 个；
+///   visible sections = Themes + Keyboard + Voice + Agents + Orchestration + Wallpaper + Performance，共 7 个；
 ///   hidden mock sections = Runtime + Skills，共 2 个。
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -353,7 +353,6 @@ fn test_settings_sidebar_exposes_only_implemented_configuration_pages() {
         include_str!("../../src/settings/content.rs")
     );
     let visible_sections = [
-        "SettingsSection::SoftwareUpdate",
         "SettingsSection::Themes",
         "SettingsSection::Keyboard",
         "SettingsSection::Voice",
@@ -411,48 +410,52 @@ fn test_settings_has_wallpaper_section() {
     }
 }
 
-/// Software Update 设置页：导航与内容路由必须提供检查更新入口，并明确下载完成后的重启行为。
+/// 检查更新入口收口到左下角品牌卡片，不再占用独立 Settings 导航与内容页面。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   新增页面数 = 1（Software Update）；
-///   用户主操作数 = 1（Check for Updates…）；
-///   更新完成动作 = 1（由 Sparkle 提醒重新启动 Norma OS）。
+///   独立更新页面数 = 0；
+///   左下角品牌卡片 = 1；
+///   检查更新按钮 = 1；
+///   Sparkle 调用入口 = 1（`crate::updater::check_for_updates`）。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 Settings 导航、内容分发与模块声明源码。
-///   2. 确认 Software Update 是可选择的真实 section，而不是旧 mock fallback。
-///   3. 确认内容路由调用独立 `software_update_settings` 页面。
+///   2. 确认品牌卡片右侧渲染带 tooltip 的更新图标按钮。
+///   3. 确认按钮复用 App-global Sparkle 检查入口。
+///   4. 排除 Software Update section、页面函数和独立下载实现。
 ///
 /// 预期结果：
-///   - 正断言：SettingsSection::SoftwareUpdate、标题与页面函数同时存在。
-///   - 负断言：Software Update 不得落入 Runtime/Skills 空白 fallback。
+///   - 正断言：品牌卡片、版本号、更新按钮与 Sparkle 调用同时存在。
+///   - 正断言：按钮使用生产 AssetSource 可加载的循环箭头图标，并提供可访问 tooltip。
+///   - 负断言：Settings 不再出现 Software Update 导航、标题或独立页面。
+///   - 负断言：Settings 不得另造 HTTP 或子进程下载器。
 #[test]
-fn test_settings_routes_to_software_update_page() {
+fn test_settings_footer_owns_the_only_update_entry() {
     let source = format!(
-        "{}{}{}{}",
+        "{}{}{}",
         include_str!("../../src/settings/mod.rs"),
         include_str!("../../src/settings/navigation.rs"),
-        include_str!("../../src/settings/content.rs"),
-        include_str!("../../src/settings/software_update.rs")
+        include_str!("../../src/settings/content.rs")
     );
 
     assert!(
-        source.contains("SettingsSection::SoftwareUpdate")
-            && source.contains("\"Software Update\"")
-            && source.contains("software_update_settings"),
-        "Settings 必须把 Software Update 接入导航、标题和真实内容页面"
+        source.contains("settings-brand-footer")
+            && source.contains("settings-brand-version")
+            && source.contains("settings-check-for-updates")
+            && source.contains("crate::updater::check_for_updates(cx)"),
+        "Settings 左下角品牌卡片必须同时展示版本号与共享 Sparkle 检查入口"
     );
     assert!(
-        !source.contains(
-            "SettingsSection::SoftwareUpdate | SettingsSection::Runtime | SettingsSection::Skills => div()"
-        ),
-        "Software Update 不得被路由到 Runtime/Skills 的空白 mock fallback"
+        source.contains("Icon::default().path(SETTINGS_CHECK_UPDATES_ASSET)")
+            && source.contains("Check for updates")
+            && source.contains(".tooltip("),
+        "检查更新按钮必须使用生产环境可加载的循环箭头图标，并通过 tooltip 明确说明用途"
     );
     assert!(
-        source.contains("settings-check-for-updates")
-            && source.contains("crate::updater::check_for_updates(cx)")
-            && source.contains("Norma OS asks you to restart the app"),
-        "Software Update 页面必须把按钮接到共享 Sparkle 流程，并明确下载完成后的重启提示"
+        !source.contains("SettingsSection::SoftwareUpdate")
+            && !source.contains("software_update_settings")
+            && !source.contains("\"Software Update\""),
+        "Settings 不得继续保留 Software Update 导航、标题或独立内容页面"
     );
     assert!(
         !source.contains("reqwest")

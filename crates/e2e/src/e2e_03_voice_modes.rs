@@ -83,16 +83,14 @@ fn e2e_03_voice_modes_and_shared_model_catalog_are_clickable() {
 ///
 /// 场景：窗口缩到 420×360 后打开 Voice Settings。
 /// 数据构造：420×360 小于顶栏断点 580px；紧凑边距 = 12px，因此面板宽度
-/// = 420 - 2×12 = 396px，必须使用 `settings-navigation-topbar`。General 新增一个
-/// 132px Software Update 入口与 14px 组间距，因此原 360px 横滚量增加
-/// 132 + 14 = 146px，取 560px 将 Input & Controls 的 Voice 入口移入可点击范围；
+/// = 420 - 2×12 = 396px，必须使用 `settings-navigation-topbar`。Appearance 宽度
+/// = 3×132 + 2×5 = 406px；再加 14px 组间距与 Input 的首个 132px 入口、5px 行间距，
+/// Voice 起点约为 557px，因此横滚 560px 将其移入可点击范围；
 /// 向上滚动 220px，可把
 /// Continuous Listening 移入 140px 高的内容区。Wallpaper 是 Appearance 的首个顶栏入口，
 /// 从 Voice 位置向右回滚 360px 后，Wallpaper 重新进入可点击范围；Performance 新增一个
-/// 132px 入口与 5px 间距，
-/// General 又新增 132px 入口与 14px 组间距，因此末组所需横滚量
-/// ≈ 旧 640px + Performance(132 + 5) + General(132 + 14) = 923px，取 960px
-/// 到达 Orchestration。
+/// 132px 入口与 5px 间距，因此取 960px 并由滚动容器 clamp 到末端，稳定到达
+/// Orchestration。
 /// 执行过程：resize → 打开 Settings → 确认顶栏 → 横滚并切到 Voice → 滚动内容露出
 /// Continuous Listening → 选择该模式并继续滚动内容 → 横滚回首组并点击 Wallpaper →
 /// 顶栏横向滚动至末组 → 点击 Orchestration。
@@ -112,8 +110,9 @@ fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
         cx.debug_bounds("settings-navigation-topbar").is_some(),
         "420px 小窗口应渲染紧凑顶栏导航，而不是继续挤压侧栏"
     );
-    // required = previous 360px + General item 132px + group gap 14px = 506px；
-    // 使用 560px 留出 54px 命中余量。
+    // Voice start ≈ Appearance(3×132 + 2×5) + group gap(14)
+    //             + Keyboard(132) + item gap(5) = 557px；
+    // 使用 560px 留出 3px 命中余量。
     scroll_debug_horizontal(cx, "settings-navigation-topbar", -560.0);
     let navigation_bounds = cx
         .debug_bounds("settings-navigation-topbar")
@@ -158,8 +157,8 @@ fn e2e_03_voice_settings_fits_small_window_and_double_clicks_to_edit() {
         wallpaper
     );
 
-    // required ≈ previous 640px + Performance(132px + 5px) + General(132px + 14px)
-    // = 923px；使用 960px 留出 37px 命中余量，并由滚动容器在末端自动钳制。
+    // Orchestration 位于末组末项；使用 960px 超过内容宽度，让滚动容器稳定钳制到末端。
+    // 这样无需依赖 General/Software Update 旧分组占用的 146px 宽度。
     scroll_debug_horizontal(cx, "settings-navigation-topbar", -960.0);
     click_debug(cx, "settings-section-orchestration");
     let orchestration = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));

@@ -274,6 +274,41 @@ impl InstallPaths {
             OrchestrationProvider::Grok => None,
         }
     }
+
+    /// Path of the managed `/ask-norma` entry-point skill for a Provider.
+    ///
+    /// ask-norma is the friendly, higher-recall entry into the Norma OS Agent delegation flow
+    /// documented by `norma-orchestration`. It is derived from the orchestration skill path so it
+    /// stays beside it without adding fields to `InstallPaths`.
+    pub fn ask_norma_skill_path(&self, provider: OrchestrationProvider) -> Option<PathBuf> {
+        match provider {
+            OrchestrationProvider::Claude => self
+                .claude_skill
+                .parent()?
+                .parent()?
+                .join("ask-norma")
+                .join("SKILL.md")
+                .into(),
+            OrchestrationProvider::Codex => self
+                .codex_skill
+                .parent()?
+                .parent()?
+                .join("ask-norma")
+                .join("SKILL.md")
+                .into(),
+            OrchestrationProvider::Cursor => {
+                self.cursor_rule.parent()?.join("ask-norma.mdc").into()
+            }
+            OrchestrationProvider::OpenCode => self
+                .opencode_skill
+                .parent()?
+                .parent()?
+                .join("ask-norma")
+                .join("SKILL.md")
+                .into(),
+            OrchestrationProvider::Grok => None,
+        }
+    }
 }
 
 fn aggregate_status(components: &[&ComponentState]) -> AggregateStatus {

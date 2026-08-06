@@ -39,8 +39,8 @@ fn sidebar_groups_follow_canonical_twenty_three_point_five_pixel_rhythm() {
 /// 数据构造（含关键数值的推导过程）：
 ///   visible rows = 7
 ///   canonical row height = 39px
-///   rows before Orchestration = 5
-///   旧高度累计偏移 = 5 × (39 - 38) = 5px
+///   rows before Orchestration = 6
+///   旧高度累计偏移 = 6 × (39 - 38) = 6px
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 Sidebar 导航行高。

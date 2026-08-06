@@ -18,8 +18,8 @@ Release 仍需用户授权或提供凭据后完成。
 
 ## 当前实施状态
 
-- 已完成发布工作流、Sparkle 打包与客户端接入、Settings → Software Update 页面、
-  产物校验脚本、发布脚本、测试和操作文档。
+- 已完成发布工作流、Sparkle 打包与客户端接入、Settings 左下角品牌卡片检查更新按钮、
+  产物校验脚本、发布脚本、测试和操作文档；独立 Software Update 导航与页面已移除。
 - 已在源码仓库创建仅允许 `main` 的 `release` Environment，并配置 Developer ID、
   App Store Connect 与 Sparkle 所需凭据。
 - 已创建组织 GitHub App `norma-os-release`，仅安装到源码与公开发布仓库；

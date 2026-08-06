@@ -108,6 +108,64 @@ fn test_embedded_assets_load_themes_navigation_svg() {
     );
 }
 
+/// Settings 检查更新图标：品牌卡片按钮引用的 SVG 必须被生产 AssetSource 实际嵌入。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   update icon path = "icons/settings-check-updates.svg"；
+///   visible update buttons = 1；
+///   expected embedded SVG files = 1；
+///   unknown sibling paths = 1（"icons/settings-check-updates-missing.svg"）。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 通过 `EmbeddedAssets::load` 加载检查更新按钮使用的精确路径。
+///   2. 将返回字节解码为 UTF-8，确认包含 SVG 根元素与 `currentColor` 描边。
+///   3. 查询 `EmbeddedAssets::list("icons")`，确认目录枚举同一文件名。
+///   4. 加载不存在的相邻路径，确认不会误命中已有图标。
+///
+/// 预期结果：
+///   - 正断言：更新图标返回非空 SVG 字节并使用主题文字色。
+///   - 正断言：图标目录明确枚举 `settings-check-updates.svg`。
+///   - 负断言：不存在的相邻路径返回 None。
+#[test]
+fn test_embedded_assets_load_settings_check_updates_svg() {
+    let assets = EmbeddedAssets;
+    let update_path = "icons/settings-check-updates.svg";
+    let update = assets
+        .load(update_path)
+        .expect("Settings check-updates SVG lookup should not fail");
+    let icons = assets
+        .list("icons")
+        .expect("embedded icon directory listing should not fail");
+
+    assert!(
+        update.as_ref().is_some_and(|bytes| !bytes.is_empty()),
+        "Settings check-updates SVG must be embedded with non-empty bytes; otherwise the button renders as a blank square"
+    );
+    let svg = std::str::from_utf8(
+        update
+            .as_deref()
+            .expect("Settings check-updates SVG must exist before decoding"),
+    )
+    .expect("Settings check-updates icon must be valid UTF-8 SVG");
+    assert!(
+        svg.contains("<svg") && svg.contains("currentColor"),
+        "Settings check-updates icon must be SVG markup tinted by the active theme text color"
+    );
+    assert!(
+        icons
+            .iter()
+            .any(|name| name.as_ref() == "settings-check-updates.svg"),
+        "icons directory must enumerate settings-check-updates.svg"
+    );
+    assert!(
+        assets
+            .load("icons/settings-check-updates-missing.svg")
+            .expect("missing Settings check-updates SVG lookup should not fail")
+            .is_none(),
+        "unknown Settings check-updates SVG path must not resolve to existing icon bytes"
+    );
+}
+
 /// Agent 菜单 Grok 图标：生产 AssetSource 必须返回菜单实际引用的 SVG。
 ///
 /// 数据构造（含关键数值的推导过程）：
