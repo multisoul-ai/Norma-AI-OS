@@ -111,6 +111,14 @@ but not label text color. `cargo-packager`/`create-dmg` therefore cannot force
 these two labels to white. Keep the background readable with Finder's native
 label color and verify actual appearance on the supported macOS versions.
 
+`cargo-packager 0.11.8` 会把精确等于 `true` 的 `CI` 环境变量误判为 Jenkins 环境，向
+`create-dmg` 追加 `--skip-jenkins`。该参数会跳过负责写入 `.DS_Store` 的 Finder
+AppleScript；背景文件虽然仍被复制进镜像，但用户打开后只会看到普通 Finder 文件夹。
+`release-local.sh` 因此只在调用 cargo-packager 时移除 `CI`，让 GitHub Actions 与本地
+构建走同一套 Finder 定制流程。`scripts/verify-dmg-layout.sh` 随后挂载新产物，检查
+`.DS_Store`、背景引用、图标位置记录、Applications 链接与 App，并在最终公证、校验和及
+发布资产复验阶段 fail closed，避免再次发布普通 Finder 布局。
+
 ## macOS app icon
 
 `assets/app-icon-source.png` is the tightly cropped brand artwork used by

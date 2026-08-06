@@ -12,12 +12,14 @@
 # Execution:
 #   1. Inspect finalization and validation entrypoints.
 #   2. Verify private key transport, immutable URL prefix, and canonical names.
-#   3. Verify codesign, Gatekeeper, stapler, DMG, checksum, and appcast checks.
+#   3. Verify codesign, Gatekeeper, stapler, DMG layout, checksum, and appcast checks.
 #
 # Expected result:
 #   - Positive: generate_appcast reads --ed-key-file - and receives stdin.
 #   - Positive: all three canonical assets and tag-specific URL are enforced.
+#   - Positive: the canonical release verifier re-checks Finder's custom layout.
 #   - Negative: private key does not appear in argv and latest DMG URL is forbidden.
+#   - Negative: a structurally valid but generic Finder DMG cannot be published.
 
 set -euo pipefail
 
@@ -46,5 +48,7 @@ fi
 for command in 'codesign --verify' 'spctl --assess' 'xcrun stapler validate' 'hdiutil verify' 'verify-sparkle-appcast.py'; do
   grep -Fq "$command" "$verify" || fail "artifact verifier must run $command"
 done
+grep -Fq 'verify-dmg-layout.sh" "$dmg"' "$verify" \
+  || fail "artifact verifier must reject a release DMG without the customized Finder layout"
 
 echo "release artifact pipeline test passed"

@@ -57,7 +57,7 @@ if [ "$AD_HOC" = true ]; then
   # ad-hoc 测试：不 notarize，用 Packager.dev.toml
   [ -f target/release/norma-os ] || die "target/release/norma-os 不存在，先 cargo build --release -p app"
   info "ad-hoc 打包（不 notarize）"
-  env -u APPLE_API_KEY -u APPLE_API_ISSUER -u APPLE_API_KEY_PATH \
+  env -u CI -u APPLE_API_KEY -u APPLE_API_ISSUER -u APPLE_API_KEY_PATH \
       -u APPLE_KEYCHAIN_PROFILE -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \
       -u APPLE_CERTIFICATE -u APPLE_CERTIFICATE_PASSWORD \
       cargo-packager -c Packager.dev.toml
@@ -78,7 +78,7 @@ elif [ "$NOTARIZE" = true ]; then
   # env -u 清掉 AppleId 方式（APPLE_ID/PASSWORD/TEAM_ID 可能来自 ~/.zshrc 的个人账号），
   # 强制 cargo-packager notarize_auth() 走 ApiKey 方式（APPLE_API_* = 公司 2BF8G9AN4L key）。
   # 直接调用外部二进制，避免 `cargo run` wrapper 被开发 App 的 target runner 截获。
-  env -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID -u APPLE_KEYCHAIN_PROFILE \
+  env -u CI -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID -u APPLE_KEYCHAIN_PROFILE \
       cargo-packager --release -c Packager.toml
 else
   # 默认：Developer ID 签名打包，但显式移除 notary 凭证，避免 cargo-packager 自动公证。
@@ -86,7 +86,7 @@ else
     || die "未找到 2BF8G9AN4L 的 Developer ID Application 证书（阶段 0 未完成）"
 
   info "签名打包（不 notarize；需要公证请传 --notarize）"
-  env -u APPLE_API_KEY -u APPLE_API_ISSUER -u APPLE_API_KEY_PATH \
+  env -u CI -u APPLE_API_KEY -u APPLE_API_ISSUER -u APPLE_API_KEY_PATH \
       -u APPLE_KEYCHAIN_PROFILE -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \
       cargo-packager --release -c Packager.toml
 fi
@@ -114,6 +114,7 @@ while IFS= read -r candidate; do
 done < <(find "$OUTPUT_DIR" -maxdepth 1 -type f -name '*.dmg' -newer "$PACKAGE_MARKER" -print)
 
 [ -n "$DMG" ] || die "未找到本次新生成的 DMG（目录: $OUTPUT_DIR）"
+bash scripts/verify-dmg-layout.sh "$DMG"
 if [ "$NOTARIZE" = true ]; then
   info "提交最终 DMG 公证并 staple"
   xcrun notarytool submit "$DMG" \
