@@ -1,13 +1,21 @@
 [workspace]
 resolver = "2"
 members = [
+  "crates/model_store",
+  "crates/tts",
+  "crates/asr",
+  "crates/license",
+  "crates/audio",
+  "crates/voice_input",
+  "crates/agent",
+  "crates/dialogue",
   "crates/canvas",
   "crates/storage",
   "crates/workspace",
   "crates/terminal",
   "crates/runtime",
-  "crates/voice",
-  "crates/voice_macos",
+  "crates/e2e",
+  "crates/voice_sherpa",
   "crates/ui",
   "crates/norma",
   "crates/app",
@@ -15,21 +23,31 @@ members = [
 
 [workspace.package]
 edition = "2021"
-version = "0.1.0"
+version = "0.1.71"
 license = "MIT"
 
 # 版本钉死见 Global Constraints。gpui/alacritty_terminal 精确 pin。
 [workspace.dependencies]
 # 壳层
 gpui = "=0.2.2"
+# Longbridge 组件库；与 gpui 0.2.2 对齐的 crates.io 版本（勿跟 git main，那会拉 Zed 最新 gpui）
+gpui-component = "=0.5.1"
 # 域层
 portable-pty = "0.9"
 alacritty_terminal = "=0.26"
 crossbeam-channel = "0.5"
+async-channel = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+tokio-util = "0.7"
+rig-core = { version = "=0.40.0", default-features = false, features = ["reqwest", "rustls"] }
+futures = "0.3"
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+rustls = { version = "=0.23.41", default-features = false, features = ["ring"] }
 # 通用
 anyhow = "1"
 thiserror = "2"
 tracing = "0.1"
+tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dirs = "6"
 serde = { version = "1", features = ["derive"] }
@@ -38,19 +56,50 @@ clap = { version = "4", features = ["derive"] }
 tempfile = "3"
 rusqlite = { version = "0.32", features = ["bundled"] }
 pulldown-cmark = "0.10"
+ureq = { version = "3.3", features = ["json", "rustls", "socks-proxy"] }
+hex = "0.4"
+sha2 = "0.10"
+url = "2.5"
+tungstenite = { version = "0.28", default-features = false, features = ["handshake", "rustls-tls-native-roots"] }
 # 内部 crate（路径依赖）
+audio = { path = "crates/audio" }
+voice_input = { path = "crates/voice_input" }
+model_store = { path = "crates/model_store" }
+tts = { path = "crates/tts" }
+asr = { path = "crates/asr" }
+license = { path = "crates/license" }
+agent = { path = "crates/agent" }
+dialogue = { path = "crates/dialogue" }
 canvas = { path = "crates/canvas" }
 storage = { path = "crates/storage" }
 workspace = { path = "crates/workspace" }
 terminal = { path = "crates/terminal" }
 runtime = { path = "crates/runtime" }
-voice = { path = "crates/voice" }
-voice_macos = { path = "crates/voice_macos" }
+voice_sherpa = { path = "crates/voice_sherpa" }
 ui = { path = "crates/ui" }
 norma = { path = "crates/norma" }
 
+# GPUI 0.2.2 intentionally leaks a stopped CVDisplayLink in Drop to avoid a
+# CoreVideo callback race. Norma's patch keeps that safety behavior but reuses
+# the same link across synchronous displayLayer paints instead of dropping and
+# recreating it on every repaint. See vendor/gpui-0.2.2/NORMA_PATCH.md.
+[patch.crates-io]
+gpui = { path = "vendor/gpui-0.2.2" }
+sherpa-onnx-sys = { path = "vendor/sherpa-onnx-sys-1.13.3" }
+
 [profile.dev]
 opt-level = 1          # gpui/alacritty 在 opt-level=0 下交互偏卡，地基级折中
+debug = "line-tables-only"
 
 [profile.dev.package."*"]
 opt-level = 2          # 依赖库始终优化，加快本地迭代
+debug = false
+
+[profile.debugging]
+inherits = "dev"
+debug = true
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

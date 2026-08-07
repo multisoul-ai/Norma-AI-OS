@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, dev]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -34,6 +34,19 @@ jobs:
 
       - name: Agent guide lint tests
         run: bash scripts/test-check-agent-guide-lines.sh
+
+      - name: Video wallpaper performance guardrail
+        run: python3 scripts/check-video-wallpaper-performance.py
+
+      - name: SOCKS proxy support
+        run: |
+          bash scripts/test-socks-proxy-support-portability.sh
+          bash scripts/check-socks-proxy-support.sh
+
+      - name: Domain contract consistency
+        run: |
+          python3 scripts/test-check-domain-contracts.py
+          python3 scripts/check-domain-contracts.py
 
       - name: Check
         run: cargo check --workspace

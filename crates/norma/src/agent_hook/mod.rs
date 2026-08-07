@@ -1,6 +1,13 @@
+pub mod cli;
+
+mod atomic_file;
+mod conversation_observe;
+mod cursor;
 mod event;
 mod forward;
 mod install;
+mod json_config;
+mod opencode;
 
 use crate::protocol::{AgentProfile, NodeId};
 use serde::{Deserialize, Serialize};
@@ -8,7 +15,13 @@ use serde_json::Value;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-pub use event::{hook_events_for_source, parse_hook_event, task_state_for_provider_event};
+pub use conversation_observe::{
+    observe_conversation, ConversationObservation, ConversationObservationKind,
+    ConversationObservationState, MAX_CONVERSATION_MESSAGE_CHARS,
+};
+pub use event::{
+    extract_prompt_text, hook_events_for_source, parse_hook_event, task_state_for_provider_event,
+};
 pub use forward::{forward_event, forward_hook};
 pub use install::{
     agent_hooks_installed, agent_hooks_installed_at, agent_hooks_installed_for_source,
@@ -20,17 +33,25 @@ pub const ENV_AGENT_PROFILE: &str = "MULTISOUL_AGENT_PROFILE";
 pub const ENV_HOOK_ENDPOINT: &str = "MULTISOUL_HOOK_ENDPOINT";
 pub const ENV_HOOK_TOKEN: &str = "MULTISOUL_HOOK_TOKEN";
 pub const AGENT_HOOK_BINARY_NAME: &str = "multisoul-agent-hook";
+pub const OPENCODE_PLUGIN_FILE_NAME: &str = "multisoul-agent-hook.js";
+pub const OPENCODE_PLUGIN_MARKER: &str = "multisoul-opencode-plugin-marker";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HookSource {
     Claude,
     Codex,
+    Cursor,
+    Grok,
+    OpenCode,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HookTarget {
     Claude,
     Codex,
+    Cursor,
+    Grok,
+    OpenCode,
     All,
 }
 
@@ -61,6 +82,9 @@ pub enum AgentHookTaskState {
 pub struct HookInstallPaths {
     pub claude_settings: PathBuf,
     pub codex_hooks: PathBuf,
+    pub cursor_hooks: PathBuf,
+    pub grok_hooks: PathBuf,
+    pub opencode_plugin: PathBuf,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -116,6 +140,9 @@ pub fn parse_hook_source(value: &str) -> Option<HookSource> {
     match value {
         "claude" | "Claude" => Some(HookSource::Claude),
         "codex" | "Codex" => Some(HookSource::Codex),
+        "cursor" | "Cursor" => Some(HookSource::Cursor),
+        "grok" | "Grok" => Some(HookSource::Grok),
+        "opencode" | "OpenCode" => Some(HookSource::OpenCode),
         _ => None,
     }
 }
@@ -124,6 +151,9 @@ pub fn parse_hook_target(value: &str) -> Option<HookTarget> {
     match value {
         "claude" | "Claude" => Some(HookTarget::Claude),
         "codex" | "Codex" => Some(HookTarget::Codex),
+        "cursor" | "Cursor" => Some(HookTarget::Cursor),
+        "grok" | "Grok" => Some(HookTarget::Grok),
+        "opencode" | "OpenCode" => Some(HookTarget::OpenCode),
         "all" | "All" => Some(HookTarget::All),
         _ => None,
     }
@@ -144,6 +174,9 @@ pub fn hook_source_arg(source: HookSource) -> &'static str {
     match source {
         HookSource::Claude => "claude",
         HookSource::Codex => "codex",
+        HookSource::Cursor => "cursor",
+        HookSource::Grok => "grok",
+        HookSource::OpenCode => "opencode",
     }
 }
 
@@ -151,6 +184,9 @@ pub fn profile_for_source(source: HookSource) -> AgentProfile {
     match source {
         HookSource::Claude => AgentProfile::Claude,
         HookSource::Codex => AgentProfile::Codex,
+        HookSource::Cursor => AgentProfile::Cursor,
+        HookSource::Grok => AgentProfile::Grok,
+        HookSource::OpenCode => AgentProfile::OpenCode,
     }
 }
 
@@ -169,6 +205,16 @@ pub fn default_install_paths() -> HookInstallPaths {
     HookInstallPaths {
         claude_settings: home.join(".claude").join("settings.json"),
         codex_hooks: home.join(".codex").join("hooks.json"),
+        cursor_hooks: home.join(".cursor").join("hooks.json"),
+        grok_hooks: home
+            .join(".grok")
+            .join("hooks")
+            .join("multisoul-agent-hook.json"),
+        opencode_plugin: home
+            .join(".config")
+            .join("opencode")
+            .join("plugins")
+            .join(OPENCODE_PLUGIN_FILE_NAME),
     }
 }
 

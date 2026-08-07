@@ -48,6 +48,17 @@ pub fn encode(input: &KeyInput) -> Vec<u8> {
     }
 }
 
+/// 按终端应用声明的增强键盘模式编码按键。
+///
+/// Option+Enter 在 legacy 模式下与 Enter 都是 CR；应用请求 Kitty 键盘增强协议后，
+/// 才能用 CSI-u 保留 Alt/Option 修饰，避免多行编辑被误识别为提交。
+pub(crate) fn encode_for_keyboard_mode(input: &KeyInput, enhanced_keyboard: bool) -> Vec<u8> {
+    if enhanced_keyboard && matches!(input.key, Key::Enter) && input.alt && !input.ctrl {
+        return b"\x1b[13;3u".to_vec();
+    }
+    encode(input)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

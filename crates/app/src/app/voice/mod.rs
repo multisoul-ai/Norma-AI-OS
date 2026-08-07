@@ -1,64 +1,161 @@
 //! Voice entrypoint glue for the app shell.
 
+pub(crate) mod bar;
+pub(crate) mod caption;
 pub(crate) mod control;
-pub(crate) mod log;
-pub(crate) mod modal;
+mod dictation;
+mod execution;
+mod history;
+pub(crate) mod playback;
+pub(crate) mod recognition;
 
 use crate::app::voice::control::{VoicePhase, VoiceTrigger};
-use crate::app::voice::log::{
-    log_voice_confirmation_required, log_voice_executed, log_voice_executing,
-    log_voice_planner_failed, log_voice_planner_rejected, log_voice_planning_started,
-    log_voice_runtime_failed, log_voice_transcript_only,
-};
 use crate::app::{AppScreen, MultisoulApp};
-use crate::norma::server::{execute_card_command_for_area, NormaCommandEffects, NormaExecution};
-use gpui::{Context, MouseDownEvent, MouseUpEvent, Window};
-use norma::protocol::{CardCommand, CardCommandResult};
-use std::collections::HashMap;
-use storage::VoiceHistoryEntry;
-use voice::{
-    compile_voice_plan, CardRef, ExecutableCommand, OllamaVoicePlanner, RiskLevel, VoiceCardKind,
-    VoicePlanDecision, VoicePlanner, VoicePlanningRequest,
-};
-use voice_macos::{AppleSpeechProvider, SpeechError};
+use gpui::{ClickEvent, Context, Window};
+use voice_sherpa::SpeechError;
 
-const DEFAULT_MAX_VOICE_STEPS: usize = 8;
+const MICROPHONE_PRIVACY_SETTINGS_URL: &str =
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
 
-struct VoiceHistoryDraft {
-    transcript: String,
-    planner_json: String,
-    confidence: f64,
-    risk: &'static str,
-    status: &'static str,
-    provider: Option<String>,
-    model: Option<String>,
-    error: Option<String>,
+pub(crate) fn microphone_privacy_settings_url() -> &'static str {
+    MICROPHONE_PRIVACY_SETTINGS_URL
+}
+
+pub(crate) fn microphone_permission_recovery_url(error: &SpeechError) -> Option<&'static str> {
+    matches!(error, SpeechError::MicrophoneDenied).then_some(microphone_privacy_settings_url())
 }
 
 impl MultisoulApp {
-    pub(crate) fn begin_voice_recording(&mut self, trigger: VoiceTrigger, cx: &mut Context<Self>) {
+    pub(crate) fn complete_voice_setup_if_ready(&mut self, cx: &mut Context<Self>) {
+        if !self.voice_settings.reconcile_setup_completion() {
+            return;
+        }
+        self.persist_voice_settings_in_background(cx);
+        if self.settings_panel.open {
+            return;
+        }
+        self.voice_ready_notification_visible = true;
+        cx.spawn(async move |this, cx| {
+            cx.background_executor()
+                .timer(std::time::Duration::from_secs(5))
+                .await;
+            let _ = this.update(cx, |app, cx| {
+                app.voice_ready_notification_visible = false;
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    pub(crate) fn begin_voice_recording(
+        &mut self,
+        trigger: VoiceTrigger,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if !matches!(self.screen, AppScreen::Canvas) {
             self.voice.set_error("Open a project before using voice.");
             cx.notify();
             return;
         }
+        self.cancel_agent_announcements();
         if !self.voice.begin_recording(trigger) {
             return;
         }
+        self.dialogue.dismiss_error();
+        let recording_generation = self.voice.recording_generation();
         if matches!(
             voice_transcript_source(),
             VoiceTranscriptSource::AppleSpeech
         ) {
-            match AppleSpeechProvider::start_recording(AppleSpeechProvider::default_locale()) {
-                Ok(session) => self.voice.set_speech_session(session),
-                Err(error) => {
-                    self.voice
-                        .set_error(format!("Speech recognition failed: {error}"));
-                    self.save_voice_speech_error(error);
-                }
-            }
+            let values = self.voice_settings.values().clone();
+            let model_root = self.voice_settings.model_root().to_path_buf();
+            let input_device_id = voice_recording_input_device_id_from_value(
+                self.voice_settings.values().input_device_id(),
+            );
+            // Provider resolution, permission and microphone startup all remain off the GPUI
+            // foreground. PcmStreamSession is Send because AVAudioEngine is owned by its capture
+            // thread, so only the completed session is installed on the UI state.
+            let task = cx.spawn_in(window, async move |this, cx| {
+                let startup = cx
+                    .background_executor()
+                    .spawn(async move {
+                        let factory = crate::app::dialogue::resolve_asr_recognizer_factory(
+                            &values,
+                            &model_root,
+                        )
+                        .map_err(|error| SpeechError::Recognizer(error.to_string()))?;
+                        voice_input::request_microphone_permission().map_err(SpeechError::from)?;
+                        recognition::AsrRecordingSession::start(input_device_id, factory.as_ref())
+                            .map_err(SpeechError::Recognizer)
+                    })
+                    .await;
+                let _ = this.update_in(cx, |app, window, cx| {
+                    if !app.voice.accepts_recording_start(recording_generation) {
+                        if let Ok((session, _partials)) = startup {
+                            session.cancel();
+                        }
+                        return;
+                    }
+                    match startup {
+                        Err(error) => {
+                            app.voice.set_speech_error(&error);
+                            app.save_voice_speech_error(error);
+                        }
+                        Ok((session, partials)) => {
+                            app.voice.set_speech_session(session);
+                            app.start_asr_duration_limit_monitor(window, cx);
+                            // Event-driven: wakes only when the shared pipeline emits a partial,
+                            // exits automatically when the channel closes on session drop.
+                            let partials_task = cx.spawn(async move |this, cx| {
+                                while let Ok(text) = partials.recv().await {
+                                    let _ = this.update(cx, |app, cx| {
+                                        app.voice.partial_text = text;
+                                        cx.notify();
+                                    });
+                                }
+                            });
+                            // Store separately so permission/start and finish tasks cannot cancel
+                            // the partial event pump by replacing the main speech task.
+                            app.voice.set_partials_task(partials_task);
+                        }
+                    }
+                    cx.notify();
+                });
+            });
+            self.voice.set_speech_task(task);
         }
         cx.notify();
+    }
+
+    fn start_asr_duration_limit_monitor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let task = cx.spawn_in(window, async move |this, cx| loop {
+            cx.background_executor()
+                .timer(std::time::Duration::from_millis(100))
+                .await;
+            let reached = this
+                .update(cx, |app, _cx| app.voice.asr_duration_limit_reached())
+                .unwrap_or(false);
+            if reached {
+                let _ = this.update_in(cx, |app, window, cx| {
+                    if app.voice.finish_recording_at_duration_limit() {
+                        app.process_finished_voice_recording(window, cx);
+                        cx.notify();
+                    }
+                });
+                break;
+            }
+            let still_recording = this
+                .update(cx, |app, _cx| {
+                    matches!(app.voice.phase(), VoicePhase::Recording { .. })
+                })
+                .unwrap_or(false);
+            if !still_recording {
+                break;
+            }
+        });
+        self.voice.set_duration_limit_task(task);
     }
 
     pub(crate) fn end_voice_recording(
@@ -78,6 +175,11 @@ impl MultisoulApp {
         self.voice.label()
     }
 
+    pub(crate) fn dismiss_voice_error(&mut self) {
+        self.voice.dismiss_error();
+        self.dialogue.dismiss_error();
+    }
+
     pub(crate) fn is_voice_recording_shortcut(&self) -> bool {
         matches!(
             self.voice.phase(),
@@ -87,385 +189,79 @@ impl MultisoulApp {
         )
     }
 
-    pub(crate) fn on_voice_bar_mouse_down(
+    pub(crate) fn on_voice_open_microphone_privacy_settings(
         &mut self,
-        _: &MouseDownEvent,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
+        _: &ClickEvent,
+        _: &mut Window,
+        _: &mut Context<Self>,
     ) {
-        self.begin_voice_recording(VoiceTrigger::BottomBar, cx);
-    }
-
-    pub(crate) fn on_voice_bar_mouse_up(
-        &mut self,
-        _: &MouseUpEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.end_voice_recording(VoiceTrigger::BottomBar, window, cx);
+        if !self.can_open_microphone_privacy_settings() {
+            return;
+        }
+        let url = microphone_privacy_settings_url().to_string();
+        let _ = std::thread::Builder::new()
+            .name("open_microphone_privacy_settings".to_string())
+            .spawn(move || {
+                if let Err(error) = std::process::Command::new("open").arg(url).spawn() {
+                    tracing::warn!(%error, "failed to open macOS microphone privacy settings");
+                }
+            });
     }
 
     fn process_finished_voice_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match voice_transcript_source() {
             VoiceTranscriptSource::Environment(transcript) if !transcript.trim().is_empty() => {
-                self.handle_voice_transcript(transcript.trim().to_string(), window, cx);
+                let transcript = transcript.trim().to_string();
+                self.handle_final_voice_text(transcript, window, cx);
             }
             VoiceTranscriptSource::Environment(_) => {
                 self.record_empty_voice_transcript();
             }
             VoiceTranscriptSource::AppleSpeech => {
-                self.process_apple_speech_recording(window, cx);
+                self.process_active_speech_recording(window, cx);
             }
         }
         cx.notify();
     }
 
-    fn process_apple_speech_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(mut session) = self.voice.take_speech_session() else {
+    fn process_active_speech_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(session) = self.voice.take_speech_session() else {
             let error = SpeechError::NotRecording;
-            self.voice
-                .set_error(format!("Speech recognition failed: {error}"));
+            self.voice.set_speech_error(&error);
             self.save_voice_speech_error(error);
             return;
         };
+        let recording_generation = self.voice.recording_generation();
+        #[cfg(feature = "e2e-test-support")]
+        let result_application_delay = self.voice.result_application_delay();
+        cx.notify();
+        let finalize_task = cx
+            .background_executor()
+            .spawn(async move { session.finish() });
         let task = cx.spawn_in(window, async move |this, cx| {
-            let result = session.finish();
+            let result = finalize_task.await;
+            #[cfg(feature = "e2e-test-support")]
+            if let Some(delay) = result_application_delay {
+                cx.background_executor().timer(delay).await;
+            }
             let _ = this.update_in(cx, |app, window, cx| {
+                if !app.voice.accepts_recording_result(recording_generation) {
+                    return;
+                }
                 app.voice.clear_speech_task();
-                app.handle_apple_speech_result(result, window, cx);
+                app.voice.partial_text.clear();
+                match result {
+                    Ok(transcript) if !transcript.trim().is_empty() => {
+                        app.handle_final_voice_text(transcript.trim().to_string(), window, cx)
+                    }
+                    Ok(_) => app.record_empty_voice_transcript(),
+                    Err(error) => app
+                        .voice
+                        .set_error(format!("Speech recognition failed: {error}")),
+                }
             });
         });
         self.voice.set_speech_task(task);
-    }
-
-    fn handle_apple_speech_result(
-        &mut self,
-        result: Result<String, SpeechError>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        match result {
-            Ok(transcript) if !transcript.trim().is_empty() => {
-                self.handle_voice_transcript(transcript.trim().to_string(), window, cx);
-            }
-            Ok(_) | Err(SpeechError::EmptyTranscript) => {
-                self.record_empty_voice_transcript();
-            }
-            Err(error) => {
-                self.voice
-                    .set_error(format!("Speech recognition failed: {error}"));
-                self.save_voice_speech_error(error);
-            }
-        }
-    }
-
-    fn record_empty_voice_transcript(&mut self) {
-        self.voice.set_transcript_only("", "empty transcript");
-        self.save_voice_history("".into(), "{}".into(), 0.0, "low", "transcript_only", None);
-    }
-
-    fn handle_voice_transcript(
-        &mut self,
-        transcript: String,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.voice.set_planning(transcript.clone());
-        let planner = OllamaVoicePlanner::from_env_or_default();
-
-        let request = self.voice_planning_request(transcript.clone());
-        log_voice_planning_started(&transcript, &planner, &request);
-        let plan = match planner.plan(&request) {
-            Ok(plan) => plan,
-            Err(error) => {
-                log_voice_planner_failed(&error, &transcript);
-                self.voice
-                    .set_error(format!("Voice planner failed: {error}"));
-                self.save_voice_history(
-                    transcript,
-                    "{}".into(),
-                    0.0,
-                    "low",
-                    "provider_error",
-                    Some(error.to_string()),
-                );
-                cx.notify();
-                return;
-            }
-        };
-        let planner_json = serde_json::to_string(&plan).unwrap_or_else(|_| "{}".to_string());
-        let confidence = f64::from(plan.confidence);
-        let risk = risk_label(plan.risk);
-        let decision = match compile_voice_plan(&request, plan) {
-            Ok(decision) => decision,
-            Err(error) => {
-                log_voice_planner_rejected(&transcript, &planner_json, &error);
-                self.voice.set_transcript_only(
-                    transcript.clone(),
-                    format!("planner output rejected: {error}"),
-                );
-                self.save_voice_history(
-                    transcript,
-                    planner_json,
-                    confidence,
-                    risk,
-                    "planner_rejected",
-                    Some(error.to_string()),
-                );
-                cx.notify();
-                return;
-            }
-        };
-
-        match decision {
-            VoicePlanDecision::TranscriptOnly { reason } => {
-                log_voice_transcript_only(&transcript, &reason, confidence, risk);
-                self.voice.set_transcript_only(transcript.clone(), reason);
-                self.save_voice_history(
-                    transcript,
-                    planner_json,
-                    confidence,
-                    risk,
-                    "transcript_only",
-                    None,
-                );
-            }
-            VoicePlanDecision::Execute(compiled) if compiled.requires_confirmation => {
-                let reason = compiled
-                    .reason
-                    .unwrap_or_else(|| "Plan requires confirmation.".to_string());
-                log_voice_confirmation_required(
-                    &transcript,
-                    compiled.commands.len(),
-                    &reason,
-                    confidence,
-                    risk,
-                );
-                self.pending_voice_commands = compiled.commands;
-                self.voice.set_confirming(transcript.clone(), reason);
-                self.save_voice_history(
-                    transcript,
-                    planner_json,
-                    confidence,
-                    risk,
-                    "confirmation_required",
-                    None,
-                );
-            }
-            VoicePlanDecision::Execute(compiled) => {
-                log_voice_executing(&transcript, compiled.commands.len(), confidence, risk);
-                self.pending_voice_commands.clear();
-                let result = self.execute_compiled_voice_plan(compiled.commands, window);
-                match result {
-                    Ok(message) => {
-                        log_voice_executed(&transcript, &message);
-                        self.voice.set_executed(message);
-                        self.save_voice_history(
-                            transcript,
-                            planner_json,
-                            confidence,
-                            risk,
-                            "executed",
-                            None,
-                        );
-                    }
-                    Err(error) => {
-                        log_voice_runtime_failed(&transcript, &error);
-                        self.voice
-                            .set_error(format!("Voice command failed: {error}"));
-                        self.save_voice_history(
-                            transcript,
-                            planner_json,
-                            confidence,
-                            risk,
-                            "runtime_error",
-                            Some(error),
-                        );
-                    }
-                }
-            }
-        }
-        cx.notify();
-    }
-
-    fn voice_planning_request(&self, transcript: String) -> VoicePlanningRequest {
-        let selected_node_ids = self
-            .runtime
-            .document
-            .nodes()
-            .iter()
-            .filter(|node| self.runtime.selection.contains(node.id))
-            .map(|node| node.id)
-            .collect();
-        VoicePlanningRequest {
-            transcript,
-            cards: self
-                .runtime
-                .document
-                .nodes()
-                .iter()
-                .map(|node| CardRef {
-                    node_id: node.id,
-                    title: node.kind.display_title(),
-                    alias: match &node.kind {
-                        canvas::CanvasNodeKind::Agent(spec) => spec.alias.clone(),
-                        _ => None,
-                    },
-                    kind: voice_card_kind(&node.kind),
-                    selected: self.runtime.selection.contains(node.id),
-                    focused: matches!(
-                        self.runtime.focus.mode(),
-                        runtime::InputMode::NodeFocused(id) if id == node.id
-                    ),
-                })
-                .collect(),
-            focused_node_id: match self.runtime.focus.mode() {
-                runtime::InputMode::NodeFocused(id) => Some(id),
-                runtime::InputMode::CanvasSelect => None,
-            },
-            selected_node_ids,
-            max_steps: DEFAULT_MAX_VOICE_STEPS,
-        }
-    }
-
-    pub(crate) fn execute_compiled_voice_plan(
-        &mut self,
-        commands: Vec<ExecutableCommand>,
-        window: &mut Window,
-    ) -> Result<String, String> {
-        let area = self.visible_canvas_rect(window);
-        let zoom = self.runtime.document.viewport.zoom;
-        let mut created_by_step = HashMap::new();
-        let mut last_message = "Voice command executed".to_string();
-
-        for (step, command) in commands.into_iter().enumerate() {
-            let card_command = match command {
-                ExecutableCommand::Card(command) => command,
-                ExecutableCommand::SendTextToPrevious {
-                    previous_step,
-                    text,
-                    submit,
-                } => {
-                    let node_id = *created_by_step
-                        .get(&previous_step)
-                        .ok_or_else(|| format!("missing created node for step {previous_step}"))?;
-                    CardCommand::SendText {
-                        node_id,
-                        text,
-                        submit,
-                    }
-                }
-                ExecutableCommand::FocusPrevious { previous_step } => {
-                    let node_id = *created_by_step
-                        .get(&previous_step)
-                        .ok_or_else(|| format!("missing created node for step {previous_step}"))?;
-                    CardCommand::Focus { node_id }
-                }
-            };
-            let execution = execute_card_command_for_area(
-                &mut self.runtime,
-                &mut self.motion,
-                &mut self.master_layout,
-                card_command,
-                area,
-                zoom,
-            )
-            .map_err(|error| error.to_string())?;
-            if let CardCommandResult::Created { node_id } = &execution.result {
-                created_by_step.insert(step, *node_id);
-                last_message = format!("Created card {node_id}");
-            }
-            self.apply_voice_execution_effects(execution);
-        }
-
-        Ok(last_message)
-    }
-
-    fn apply_voice_execution_effects(&mut self, execution: NormaExecution) {
-        let NormaCommandEffects {
-            canvas_dirty,
-            session_dirty,
-            notify: _,
-        } = execution.effects;
-        if canvas_dirty {
-            self.mark_canvas_dirty();
-        }
-        if session_dirty {
-            self.mark_session_dirty();
-        }
-    }
-
-    pub(crate) fn save_voice_history(
-        &mut self,
-        transcript: String,
-        planner_json: String,
-        confidence: f64,
-        risk: &'static str,
-        status: &'static str,
-        error: Option<String>,
-    ) {
-        self.save_voice_history_with_provider(VoiceHistoryDraft {
-            transcript,
-            planner_json,
-            confidence,
-            risk,
-            status,
-            provider: Some("ollama".to_string()),
-            model: Some(OllamaVoicePlanner::configured_model()),
-            error,
-        });
-    }
-
-    fn save_voice_speech_error(&mut self, error: SpeechError) {
-        self.save_voice_history_with_provider(VoiceHistoryDraft {
-            transcript: "".into(),
-            planner_json: "{}".into(),
-            confidence: 0.0,
-            risk: "low",
-            status: "provider_error",
-            provider: Some("apple_speech".to_string()),
-            model: Some(AppleSpeechProvider::default_locale()),
-            error: Some(error.to_string()),
-        });
-    }
-
-    fn save_voice_history_with_provider(&mut self, draft: VoiceHistoryDraft) {
-        let entry = VoiceHistoryEntry {
-            transcript: draft.transcript,
-            planner_json: draft.planner_json,
-            confidence: draft.confidence,
-            risk: draft.risk.to_string(),
-            status: draft.status.to_string(),
-            provider: draft.provider,
-            model: draft.model,
-            target_node_id: None,
-            error: draft.error,
-        };
-        if let Err(error) = self.persistence.save_voice_history(&entry) {
-            tracing::warn!(%error, "voice history save failed");
-        }
-    }
-}
-
-fn risk_label(risk: RiskLevel) -> &'static str {
-    match risk {
-        RiskLevel::Low => "low",
-        RiskLevel::Medium => "medium",
-        RiskLevel::High => "high",
-    }
-}
-
-fn voice_card_kind(kind: &canvas::CanvasNodeKind) -> VoiceCardKind {
-    match kind {
-        canvas::CanvasNodeKind::Term(_) => VoiceCardKind::Terminal,
-        canvas::CanvasNodeKind::Agent(spec) => VoiceCardKind::Agent {
-            profile: match spec.profile {
-                canvas::AgentProfile::Claude => norma::protocol::AgentProfile::Claude,
-                canvas::AgentProfile::Codex => norma::protocol::AgentProfile::Codex,
-            },
-        },
-        canvas::CanvasNodeKind::Preview(_) => VoiceCardKind::Preview,
-        canvas::CanvasNodeKind::Rect(_) => VoiceCardKind::Rect,
     }
 }
 
@@ -484,6 +280,13 @@ fn voice_transcript_source_from_value(value: Option<String>) -> VoiceTranscriptS
         Some(transcript) => VoiceTranscriptSource::Environment(transcript),
         None => VoiceTranscriptSource::AppleSpeech,
     }
+}
+
+fn voice_recording_input_device_id_from_value(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
 }
 
 #[cfg(test)]

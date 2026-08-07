@@ -6,9 +6,15 @@ license.workspace = true
 
 [dependencies]
 canvas.workspace = true
+crossbeam-channel.workspace = true
 storage.workspace = true
 terminal.workspace = true
 tracing.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
 
 [dev-dependencies]
+filetime = "0.2"
 tempfile.workspace = true

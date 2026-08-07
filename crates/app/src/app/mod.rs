@@ -1,152 +1,264 @@
-//! GPUI 主视图：持有 Runtime，装配画布/终端渲染，处理快捷键与帧级 drain。
-
+use crate::app::browser::{BrowserAddressEdit, BrowserStore};
+use crate::app::frame_throttle::FrameThrottle;
 #[cfg(test)]
-use crate::assets::DEFAULT_WALLPAPER_ASSET;
+use crate::app::frame_throttle::CURSOR_REPAINT_INTERVAL;
 use crate::canvas::interaction::InteractionState;
-use crate::canvas::master_layout::{
-    apply_workspace_reflow_for_area, close_node_and_update_layout_for_area, layout_gap_for_zoom,
-    reapply_master_layout_for_area, term_grid_size_for_card, MasterLayoutState,
-};
+use crate::canvas::layout_strategy::CanvasLayoutStrategy;
 #[cfg(test)]
-use crate::canvas::master_layout::{
-    close_node_and_reflow_for_area, workspace_reflow_config_for_zoom,
-};
+use crate::canvas::master_layout::close_node_and_reflow_for_area;
+use crate::canvas::master_layout::{term_grid_size_for_card, MasterLayoutState};
+use crate::canvas::overlays::render_canvas_overlays;
 use crate::canvas::spawn_focus;
 use crate::canvas::view::render_canvas;
+use crate::cards::snake::WorkingSnakeView;
+use crate::cards::term::render_cache::TerminalRenderCacheHandle;
 use crate::motion::MotionStore;
-use crate::norma::server::NormaServer;
 use crate::preview::PreviewStore;
 use crate::settings::agent_hooks::AgentHookServer;
-use crate::settings::panel::SettingsPanelState;
+use crate::settings::agents::AgentDefinitionsState;
+use crate::settings::orchestration::OrchestrationSettingsState;
+use crate::settings::panel::{SettingsPanelState, SettingsViewportState};
+use crate::settings::performance::PerformanceSettingsState;
+use crate::settings::voice::{VoiceSettingsInputs, VoiceSettingsState};
+use crate::settings::wallpaper::WallpaperSettingsState;
+use crate::settings::ThemeSettingsState;
+use crate::shortcuts::ShortcutSettingsState;
+use crate::workspace::clone_project::CloneProjectUiState;
 use crate::workspace::persistence::PersistenceScheduler;
 use crate::workspace::state::WorkspaceState;
-use canvas::{AgentProfile, CanvasRect, NodeId, NodeType, Vec2};
+use canvas::{CanvasRect, NodeId, NodeType, Vec2};
 use gpui::{actions, div, prelude::*, px, ClickEvent, Context, FocusHandle, Focusable, Window};
-use runtime::Runtime;
+use runtime::{route, InputEvent, Route, Runtime};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::{atomic::AtomicBool, Arc};
+#[cfg(test)]
 use std::time::Duration;
-use ui::Theme;
-
+use ui::{Theme, ThemeId};
+mod agent_actions;
+mod agent_announcements;
+mod agent_close;
+mod agent_queue;
+mod agent_runtime;
+pub(crate) use agent_runtime::{
+    execute_agent_card_command, execute_orchestration_agent_command,
+    execute_orchestration_agent_command_with_visual_origin, self_dispatch_forbidden_error,
+    AgentIdentitySnapshot,
+};
+mod bootstrap;
+pub(crate) mod browser;
+mod node_removal;
+mod presentation;
+pub(crate) use browser::{BrowserCommand, BrowserCommandKind};
+mod canvas_surface;
+pub(crate) mod cef_process;
 mod chrome;
+pub(crate) use chrome::FrostedBackdropGeometry;
+mod clipboard_image;
+mod cpu_benchmark;
+mod cursor_animation;
+#[cfg(test)]
+use cursor_animation::focused_cursor_animation_active;
+pub(crate) mod dialogue;
+mod e2e;
+pub(crate) mod ego;
+#[cfg(all(target_os = "macos", any(test, not(feature = "e2e-test-support"))))]
+mod ego_page_capture;
+#[cfg(target_os = "macos")]
+mod ego_preview;
+#[cfg(all(target_os = "macos", feature = "l3-test-support"))]
+pub use ego_preview::{run_ego_live_capture_probe, EgoLiveCaptureProbeReport};
+pub(crate) mod file_picker;
+mod frame_loop;
+#[cfg(feature = "e2e-test-support")]
+pub use frame_loop::runtime_frame_interval_for_e2e;
+mod feature_guide;
+mod frame_schedule;
+mod frame_throttle;
+pub(crate) use feature_guide::{
+    settings_crossfade_opacities, FeatureGuidePresentation, FeatureGuideSettingsTransition,
+    FeatureGuideTopic,
+};
+use feature_guide::{FeatureGuideMediaState, FeatureGuideSettingsState, FeatureGuideState};
 mod ime;
 mod ime_geometry;
 mod keyboard;
+mod keyboard_settings;
+mod layout_actions;
+pub(crate) mod layout_menu;
 mod lifecycle;
+mod new_menu;
+pub(crate) use new_menu::new_menu_screen_rect;
+mod render;
+mod state;
+#[cfg(target_os = "macos")]
+pub(crate) mod video_decoder;
+#[cfg(target_os = "macos")]
+pub(crate) mod video_wallpaper;
 mod voice;
-mod wallpaper;
-
-#[cfg(test)]
-use self::wallpaper::wallpaper_from_env_value;
-use self::wallpaper::{wallpaper_from_env, WorkspaceWallpaper};
-
+#[cfg(not(feature = "e2e-test-support"))]
+pub(crate) use voice::recognition::AsrRecordingSession;
+mod voice_window_inset;
+mod wallpaper_actions;
+pub(crate) mod wallpaper_resolvers;
+#[cfg(feature = "e2e-test-support")]
+pub use e2e::dialogue_tts::*;
+#[cfg(feature = "e2e-test-support")]
+pub use e2e::CloneProjectE2eSnapshot;
+#[cfg(feature = "e2e-test-support")]
+pub use e2e::{
+    install_norma_endpoint_for_e2e, mark_orchestration_health_ready_for_e2e,
+    publish_canonical_orchestration_health_for_e2e, submit_norma_request_for_e2e,
+};
+pub use e2e::{
+    AgentDefinitionE2eSnapshot, AgentSettingsE2eSnapshot, ApiKeyDisplayState,
+    CanvasLayoutE2eSnapshot, InitializationAnimationE2eSnapshot, SettingsE2eSnapshot,
+    TtsProviderE2eSnapshot,
+};
+#[cfg(feature = "e2e-test-support")]
+pub use e2e::{DispatchReceiptEffectE2eSnapshot, DispatchReceiptEffectItemE2eSnapshot};
+#[cfg(feature = "e2e-test-support")]
+pub use e2e::{
+    EgoCardE2eSnapshot, FeatureGuideE2eSnapshot, OrchestrationProviderE2eSnapshot,
+    OrchestrationSettingsE2eSnapshot, PresentationE2eSnapshot,
+};
+pub(crate) use state::mark_runtime_node_viewed_if_needed;
+pub use state::AppScreen;
 actions!(
     multisoul,
     [
+        NewWindow,
         NewTerminal,
         NewClaudeAgent,
         NewCodexAgent,
+        NewCursorAgent,
+        NewGrokAgent,
+        NewOpenCodeAgent,
+        NewBrowser,
+        NewEgo,
         CopyCardContent,
         OpenPreviewFile,
         OpenProject,
+        CloneProject,
+        OpenFeatureGuide,
+        CheckForUpdates,
         ExitFocus,
         ReflowLayout,
-        ToggleMasterLayout
+        ToggleMasterLayout,
+        ToggleSettings,
+        QuitNormaOs
     ]
 );
 
-const WALLPAPER_IMAGE_OPACITY: f32 = 1.0;
-const WALLPAPER_SHADE_TOP_ALPHA: u8 = 0x00;
-const WALLPAPER_SHADE_BOTTOM_ALPHA: u8 = 0x00;
-
 pub struct MultisoulApp {
+    pub(crate) database_paths: storage::DatabasePaths,
+    pub(crate) test_database_guard: Option<Arc<crate::database::TestDatabaseGuard>>,
     pub runtime: Runtime,
+    pub theme_id: ThemeId,
     pub theme: Theme,
+    pub(crate) theme_settings: ThemeSettingsState,
+    pub(crate) performance_settings: PerformanceSettingsState,
     pub interaction: InteractionState,
     pub(crate) motion: MotionStore,
     pub(crate) previews: PreviewStore,
+    pub(crate) browsers: BrowserStore,
+    pub(crate) ego: ego::EgoController,
+    pub(crate) ego_previews: ego_preview::EgoPreviewStore,
+    pub(crate) browser_address_edit: Option<BrowserAddressEdit>,
     pub(crate) master_layout: MasterLayoutState,
+    pub(crate) layout_strategy: CanvasLayoutStrategy,
     pub(crate) persistence: PersistenceScheduler,
     pub(crate) settings_panel: SettingsPanelState,
-    pub(crate) norma_server: NormaServer,
+    pub(crate) settings_viewport: SettingsViewportState,
+    pub(crate) feature_guide: FeatureGuideState,
+    pub(crate) feature_guide_settings: FeatureGuideSettingsState,
+    pub(crate) feature_guide_media: FeatureGuideMediaState,
+    pub(crate) feature_guide_primary_focus: FocusHandle,
+    #[cfg(feature = "e2e-test-support")]
+    pub(crate) feature_guide_primary_focused_for_e2e: bool,
+    pub(crate) agent_definitions: AgentDefinitionsState,
+    pub(crate) orchestration_settings: OrchestrationSettingsState,
+    pub(crate) voice_settings: VoiceSettingsState,
+    pub(crate) voice_settings_inputs: VoiceSettingsInputs,
+    pub(crate) shortcuts: ShortcutSettingsState,
     pub(crate) agent_hook_server: AgentHookServer,
+    pub(crate) workspace_identity_store: storage::WorkspaceIdentityStore,
+    pub(crate) workspace_id: Option<String>,
+    pub(crate) workspace_route_id: Option<String>,
+    agent_announcements: agent_announcements::AgentAnnouncements,
+    agent_announcement_playback: agent_announcements::AgentAnnouncementPlayback,
+    agent_announcement_audio_cache: agent_announcements::AgentAnnouncementAudioCache,
     pub(crate) screen: AppScreen,
     pub(crate) workspace_state: WorkspaceState,
+    pub(crate) clone_project: CloneProjectUiState,
+    pub(crate) recent_project_context_path: Option<PathBuf>,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
-    pub(crate) pending_voice_commands: Vec<::voice::ExecutableCommand>,
+    pub(crate) dialogue: crate::app::dialogue::DialogueControlState,
+    pub(crate) tts_preview: crate::app::dialogue::TtsPreviewState,
+    pub(crate) pending_tts_activation: Option<crate::app::dialogue::PendingTtsActivation>,
+    pub(crate) pending_minimax_preview_after_validation: Option<u64>,
+    pub(crate) tts_selection_generation: u64,
+    pub(crate) tts_scan_generation: u64,
+    pub(crate) asr_download_cancellations: HashMap<asr::AsrModelId, Arc<AtomicBool>>,
+    pub(crate) tts_download_cancellations: HashMap<tts::TtsModelId, Arc<AtomicBool>>,
+    pub(crate) voice_ready_notification_visible: bool,
+    pub(crate) presentation_notification: Option<presentation::PresentationNotification>,
+    pub(crate) presentation_notification_generation: u64,
+    pub(crate) agent_runtime: Option<agent_runtime::ProjectAgentRuntime>,
+    pub(crate) agent_task_coordinator: Option<agent::AgentTaskCoordinator>,
+    pub(crate) agent_queue_ui: agent_queue::AgentQueueUiState,
+    pub(crate) orchestration_authorizations: storage::OrchestrationAuthorizationCache,
+    pub(crate) pending_agent_submissions: agent_runtime::pending::PendingAgentSubmissions,
+    pub(crate) session_reply_queue: agent_runtime::AgentSessionReplyQueue,
+    pub(crate) conversation_tail_memory: agent_runtime::ConversationTailMemory,
+    pub(crate) conversation_tail_writer: Option<agent_runtime::ConversationTailWriter>,
+    pub(crate) pending_agent_close_confirmation: Option<NodeId>,
     pub focus_handle: FocusHandle,
-    wallpaper: WorkspaceWallpaper,
+    pub(crate) wallpaper_settings: WallpaperSettingsState,
+    pub(crate) wallpaper_previews: crate::settings::wallpaper::PreviewCache,
+    #[cfg(target_os = "macos")]
+    pub(crate) video_wallpaper: Option<video_wallpaper::VideoWallpaperState>,
     pub(crate) last_reflow_window_size: Option<(f32, f32)>,
+    pub(crate) terminal_cursor_phase: f32,
+    pub(crate) voice_caption_waveform_phase: f32,
+    pub(crate) terminal_render_cache: TerminalRenderCacheHandle,
+    pub(crate) performance: crate::performance_monitor::WindowPerformanceHandle,
+    terminal_cursor_repaint: FrameThrottle,
+    #[cfg(feature = "e2e-test-support")]
+    pub(crate) canvas_render_count_for_e2e: usize,
+    #[cfg(feature = "e2e-test-support")]
+    pub(crate) animation_frame_loop_paused_for_e2e: bool,
+    animation_wake_tx: async_channel::Sender<()>,
+    animation_frame_clock: frame_loop::AnimationFrameClock,
+    animation_frame_pending: bool,
+    animation_frame_cadence: Option<std::time::Duration>,
+    pub(crate) window_active: bool,
+    canvas_surface: gpui::Entity<canvas_surface::CanvasSurfaceView>,
+    pub(crate) working_snake_views: HashMap<NodeId, gpui::Entity<WorkingSnakeView>>,
+    voice_window_inset_events: voice_window_inset::VoiceWindowInsetEventBus,
+    voice_window_inset_view: gpui::Entity<voice_window_inset::VoiceWindowInsetView>,
+    voice_window_inset_window_visible: bool,
 }
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum AppScreen {
-    Launchpad,
-    Canvas,
-}
-
 impl MultisoulApp {
-    pub fn new(cx: &mut Context<Self>) -> Self {
-        // 后台帧循环：每 ~12ms drain 一次（8–16ms 批处理窗口），dirty 才 repaint。
-        cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor()
-                    .timer(Duration::from_millis(12))
-                    .await;
-                let go = this.update(cx, |app, cx| {
-                    let runtime_changed = app.runtime.drain_all();
-                    let agent_hook_changed =
-                        app.agent_hook_server.drain_into_runtime(&mut app.runtime);
-                    let runtime_events = app.runtime.take_events();
-                    for event in &runtime_events {
-                        tracing::debug!(?event, "runtime event");
-                    }
-                    let motion_changed = app.motion.tick(Duration::from_millis(12));
-                    let persistence_changed = app.tick_persistence(Duration::from_millis(12));
-                    let norma_pending = app.norma_server.has_pending();
-                    if runtime_changed
-                        || !runtime_events.is_empty()
-                        || agent_hook_changed
-                        || motion_changed
-                        || persistence_changed
-                        || norma_pending
-                        || app.agent_hook_server.has_pending()
-                    {
-                        cx.notify();
-                    }
-                });
-                if go.is_err() {
-                    break; // 视图已释放
-                }
-            }
-        })
-        .detach();
-
-        let wallpaper = wallpaper_from_env();
-        let agent_hook_server = AgentHookServer::start();
+    pub(crate) fn new_with_database_context(
+        cx: &mut Context<Self>,
+        database_paths: storage::DatabasePaths,
+        app_store: storage::AppStore,
+    ) -> Self {
+        let agent_hook_server = AgentHookServer::start(cx);
         let mut runtime = Runtime::new();
         runtime.set_agent_hook_config(agent_hook_server.runtime_config());
-
-        MultisoulApp {
+        Self::build(
+            cx,
             runtime,
-            theme: Theme::dark(),
-            interaction: InteractionState::default(),
-            motion: MotionStore::from_env(),
-            previews: PreviewStore::default(),
-            master_layout: MasterLayoutState::default(),
-            persistence: PersistenceScheduler::default(),
-            settings_panel: SettingsPanelState::default(),
-            norma_server: NormaServer::start(),
             agent_hook_server,
-            screen: AppScreen::Launchpad,
-            workspace_state: WorkspaceState::load_default(),
-            voice: crate::app::voice::control::VoiceControlState::default(),
-            pending_voice_commands: Vec::new(),
-            focus_handle: cx.focus_handle(),
-            wallpaper,
-            last_reflow_window_size: None,
-        }
+            database_paths,
+            app_store,
+            bootstrap::BootstrapSettingsSource::Stored,
+            bootstrap::OrchestrationBootstrap::CurrentProcess,
+        )
     }
 
-    /// Cmd+N：在当前可见画布区域内新建 Terminal 节点，并触发三列平铺 reflow。
     fn on_new_terminal(&mut self, _: &NewTerminal, window: &mut Window, cx: &mut Context<Self>) {
         if !matches!(self.screen, AppScreen::Canvas) {
             self.workspace_state.error = Some("Open a project before creating terminals.".into());
@@ -154,9 +266,7 @@ impl MultisoulApp {
             return;
         }
 
-        let bounds = self
-            .visible_canvas_rect(window)
-            .inset(self.layout_gap_canvas());
+        let bounds = self.next_tiled_node_bounds(window);
         let (cols, rows) =
             term_grid_size_for_card(NodeType::Term, bounds, self.runtime.document.viewport.zoom);
         match self.runtime.spawn_terminal(bounds, "/bin/zsh", cols, rows) {
@@ -164,74 +274,68 @@ impl MultisoulApp {
                 tracing::info!(?node_id, "spawned terminal node");
                 spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
                 self.motion.spawn_node(node_id, bounds);
-                self.apply_layout_for_current_mode(window);
+                self.motion.start_initialization(
+                    node_id,
+                    crate::motion::InitializationAnimationKind::Terminal,
+                );
+                self.apply_layout_for_new_node(node_id, window);
                 self.mark_canvas_dirty();
                 self.mark_session_dirty();
             }
             Err(e) => {
-                // SPEC §8：spawn 失败不 panic，仅 error 日志（节点内错误占位由 Task 15 渲染）。
                 tracing::error!(error = %e, "failed to spawn terminal");
             }
         }
         cx.notify();
     }
 
-    fn on_new_claude_agent(
-        &mut self,
-        _: &NewClaudeAgent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn on_new_browser(&mut self, _: &NewBrowser, window: &mut Window, cx: &mut Context<Self>) {
         if !matches!(self.screen, AppScreen::Canvas) {
-            self.workspace_state.error = Some("Open a project before creating agents.".into());
+            self.workspace_state.error = Some("Open a project before creating browsers.".into());
             cx.notify();
             return;
         }
-        self.spawn_agent_card(AgentProfile::Claude, window, cx);
-    }
 
-    fn on_new_codex_agent(
-        &mut self,
-        _: &NewCodexAgent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if !matches!(self.screen, AppScreen::Canvas) {
-            self.workspace_state.error = Some("Open a project before creating agents.".into());
-            cx.notify();
-            return;
-        }
-        self.spawn_agent_card(AgentProfile::Codex, window, cx);
-    }
-
-    fn spawn_agent_card(
-        &mut self,
-        profile: AgentProfile,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let bounds = self
-            .visible_canvas_rect(window)
-            .inset(self.layout_gap_canvas());
-        let (cols, rows) =
-            term_grid_size_for_card(NodeType::Agent, bounds, self.runtime.document.viewport.zoom);
-        match self.runtime.spawn_agent(profile, bounds, cols, rows) {
-            Ok(node_id) => {
-                tracing::info!(?node_id, ?profile, "spawned agent node");
-                spawn_focus::activate_spawned_node(&mut self.runtime, node_id);
-                self.motion.spawn_node(node_id, bounds);
-                self.apply_layout_for_current_mode(window);
-                self.mark_canvas_dirty();
-                self.mark_session_dirty();
-            }
-            Err(e) => {
-                tracing::error!(error = %e, ?profile, "failed to spawn agent");
-            }
-        }
+        let bounds = self.next_tiled_node_bounds(window);
+        let node_id = self.runtime.spawn_browser(
+            crate::cards::browser::normalize_browser_url(""),
+            None,
+            bounds,
+        );
+        self.runtime.selection.select_only(node_id);
+        self.runtime.focus.exit_to_canvas();
+        self.motion.spawn_node(node_id, bounds);
+        self.apply_layout_for_new_node(node_id, window);
+        self.mark_canvas_dirty();
         cx.notify();
     }
 
-    fn on_exit_focus(&mut self, _: &ExitFocus, _window: &mut Window, cx: &mut Context<Self>) {
+    fn on_new_ego(&mut self, _: &NewEgo, window: &mut Window, cx: &mut Context<Self>) {
+        if !matches!(self.screen, AppScreen::Canvas) {
+            self.workspace_state.error = Some("Open a project before creating Ego.".into());
+            cx.notify();
+            return;
+        }
+
+        let node_id = if let Some(node_id) = self.runtime.ego_node_id() {
+            node_id
+        } else {
+            let bounds = self.next_tiled_node_bounds(window);
+            let node_id = self.runtime.spawn_ego_browser(None, bounds);
+            self.motion.spawn_node(node_id, bounds);
+            self.apply_layout_for_new_node(node_id, window);
+            self.mark_canvas_dirty();
+            node_id
+        };
+        self.runtime.selection.select_only(node_id);
+        self.runtime.focus.exit_to_canvas();
+        self.ensure_ego_task_space(node_id, cx);
+        cx.notify();
+    }
+
+    fn on_exit_focus(&mut self, _: &ExitFocus, window: &mut Window, cx: &mut Context<Self>) {
+        self.release_all_browser_input();
+        self.focus_handle.focus(window);
         self.runtime.focus.exit_to_canvas();
         cx.notify();
     }
@@ -245,8 +349,16 @@ impl MultisoulApp {
         cx.notify();
     }
 
-    fn on_open_project(&mut self, _: &OpenProject, _window: &mut Window, cx: &mut Context<Self>) {
-        self.prompt_open_project(cx);
+    fn on_open_project(&mut self, _: &OpenProject, window: &mut Window, cx: &mut Context<Self>) {
+        self.prompt_open_project(window, cx);
+    }
+
+    fn on_clone_project(&mut self, _: &CloneProject, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_clone_project_dialog(window, cx);
+    }
+
+    fn on_new_window(&mut self, _: &NewWindow, _window: &mut Window, cx: &mut Context<Self>) {
+        self.open_new_launchpad_window(cx);
     }
 
     fn on_open_preview_file(
@@ -263,27 +375,37 @@ impl MultisoulApp {
         self.prompt_preview_file(window, cx);
     }
 
-    pub(crate) fn remove_node_and_reflow(&mut self, node_id: NodeId, window: &mut Window) -> bool {
-        let area = self.visible_canvas_rect(window);
-        let zoom = self.runtime.document.viewport.zoom;
-        if self.interaction.keyboard_selected_node == Some(node_id) {
-            self.interaction.keyboard_selected_node = None;
+    pub(crate) fn close_node_through_route(
+        &mut self,
+        node_id: NodeId,
+        window: &mut Window,
+    ) -> bool {
+        if self.runtime.ego_task_state(node_id).is_some()
+            && !self.runtime.can_close_ego_node(node_id)
+        {
+            self.workspace_state.error =
+                Some("Ego 任务仍在进行中；请先完成任务或等待 Agent 结束后再关闭卡片。".to_string());
+            return false;
         }
-        self.interaction.clear_text_selection_for_node(node_id);
-        let changed = close_node_and_update_layout_for_area(
-            &mut self.runtime,
-            &mut self.motion,
-            &mut self.master_layout,
-            node_id,
-            area,
-            zoom,
-        );
-        if changed {
-            self.previews.remove(node_id);
-            self.mark_canvas_dirty();
-            self.mark_session_dirty();
+        if !self.confirm_agent_close_if_needed(node_id) {
+            return false;
         }
-        changed
+        self.release_all_browser_input();
+        let event = InputEvent::CloseNode { node: node_id };
+        let Route::RemoveNode(node_id) = route(&self.runtime.focus.mode(), &event) else {
+            return false;
+        };
+        if !self.remove_node_and_reflow(node_id, window) {
+            return false;
+        }
+        self.interaction.drag = None;
+        self.interaction.panning = false;
+        self.interaction.last_screen = None;
+        true
+    }
+
+    pub(crate) fn mark_node_viewed_if_needed(&mut self, node_id: NodeId) -> bool {
+        mark_runtime_node_viewed_if_needed(&mut self.runtime, node_id)
     }
 
     pub(crate) fn visible_canvas_rect(&self, window: &mut Window) -> CanvasRect {
@@ -300,38 +422,6 @@ impl MultisoulApp {
         )
     }
 
-    pub(crate) fn layout_gap_canvas(&self) -> f32 {
-        layout_gap_for_zoom(self.runtime.document.viewport.zoom)
-    }
-
-    fn apply_tiled_nodes(&mut self, window: &mut Window) {
-        let area = self.visible_canvas_rect(window);
-        let zoom = self.runtime.document.viewport.zoom;
-        apply_workspace_reflow_for_area(&mut self.runtime, &mut self.motion, area, zoom);
-    }
-
-    pub(crate) fn reflow_tiled_nodes(&mut self, window: &mut Window) {
-        self.master_layout.clear();
-        self.apply_tiled_nodes(window);
-    }
-
-    pub(crate) fn apply_layout_for_current_mode(&mut self, window: &mut Window) {
-        let area = self.visible_canvas_rect(window);
-        let zoom = self.runtime.document.viewport.zoom;
-        if self.master_layout.is_active()
-            && reapply_master_layout_for_area(
-                &mut self.master_layout,
-                &mut self.runtime,
-                &mut self.motion,
-                area,
-                zoom,
-            )
-        {
-            return;
-        }
-        self.apply_tiled_nodes(window);
-    }
-
     fn reflow_if_window_size_changed(&mut self, window: &mut Window) {
         let size = window.viewport_size();
         let current = (f32::from(size.width), f32::from(size.height));
@@ -339,42 +429,6 @@ impl MultisoulApp {
             self.last_reflow_window_size = Some(current);
             self.apply_layout_for_current_mode(window);
         }
-    }
-
-    fn on_toolbar_new_terminal(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.on_new_terminal(&NewTerminal, window, cx);
-    }
-
-    fn on_toolbar_new_claude_agent(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.spawn_agent_card(AgentProfile::Claude, window, cx);
-    }
-
-    fn on_toolbar_new_codex_agent(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.spawn_agent_card(AgentProfile::Codex, window, cx);
-    }
-
-    fn on_toolbar_preview_file(
-        &mut self,
-        _: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.on_open_preview_file(&OpenPreviewFile, window, cx);
     }
 
     fn on_toolbar_canvas_scroll(
@@ -386,64 +440,34 @@ impl MultisoulApp {
         self.interaction.canvas_scroll_enabled = !self.interaction.canvas_scroll_enabled;
         cx.notify();
     }
+
+    pub(crate) fn remove_recent_project(&mut self, path: &Path, cx: &mut Context<Self>) {
+        if let Err(error) = self.workspace_state.remove_recent_workspace(path) {
+            tracing::warn!(%error, path = %path.display(), "failed to remove recent project");
+        }
+        self.recent_project_context_path = None;
+        cx.notify();
+    }
 }
+
 impl Focusable for MultisoulApp {
     fn focus_handle(&self, _cx: &gpui::App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
 
-impl Render for MultisoulApp {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.drain_norma_server(window, cx);
-
-        let mut root = div()
-            .key_context("MultisoulApp")
-            .track_focus(&self.focus_handle)
-            .on_action(cx.listener(Self::on_new_terminal))
-            .on_action(cx.listener(Self::on_new_claude_agent))
-            .on_action(cx.listener(Self::on_new_codex_agent))
-            .on_action(cx.listener(Self::on_copy_card_content))
-            .on_action(cx.listener(Self::on_open_project))
-            .on_action(cx.listener(Self::on_open_preview_file))
-            .on_action(cx.listener(Self::on_exit_focus))
-            .on_action(cx.listener(Self::on_reflow_layout))
-            .on_action(cx.listener(Self::on_toggle_master_layout))
-            .on_key_down(cx.listener(Self::on_key_down))
-            .on_key_up(cx.listener(Self::on_key_up))
-            .on_modifiers_changed(cx.listener(Self::on_modifiers_changed))
-            .size_full()
-            .relative()
-            .bg(gpui::rgba(self.theme.graphite))
-            .text_size(px(13.0))
-            .child(crate::app::ime::TerminalImeElement::new(
-                self.focus_handle.clone(),
-                cx.weak_entity(),
-            ));
-
-        match self.screen {
-            AppScreen::Launchpad => {
-                root = root.child(self.render_launchpad(window, cx));
-            }
-            AppScreen::Canvas => {
-                self.reflow_if_window_size_changed(window);
-                root = root
-                    .child(self.render_workspace_backdrop())
-                    .child(render_canvas(self, window, cx))
-                    .child(self.render_workspace_chrome(window, cx));
-                if let Some(modal) = self.render_voice_confirmation_modal(cx) {
-                    root = root.child(modal);
-                }
-                if self.settings_panel.open {
-                    root = root.child(self.render_settings_panel(window, cx));
-                }
-            }
-        }
-
-        root
-    }
-}
-
+#[cfg(test)]
+#[path = "../../tests/unit/app_cursor_animation_tests.rs"]
+mod cursor_animation_tests;
+#[cfg(test)]
+#[path = "../../tests/unit/database_isolation_support.rs"]
+mod database_isolation_support;
+#[cfg(test)]
+#[path = "../../tests/unit/database_isolation_tests.rs"]
+mod database_isolation_tests;
 #[cfg(test)]
 #[path = "../../tests/unit/app_tests.rs"]
 mod tests;
+#[cfg(all(test, target_os = "macos"))]
+#[path = "../../tests/unit/video_decoder_tests.rs"]
+mod video_decoder_tests;

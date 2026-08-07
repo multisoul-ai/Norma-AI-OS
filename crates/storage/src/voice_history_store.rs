@@ -6,6 +6,8 @@ use std::path::PathBuf;
 #[derive(Clone, Debug, PartialEq)]
 pub struct VoiceHistoryEntry {
     pub transcript: String,
+    pub raw_transcript: String,
+    pub refined_transcript: Option<String>,
     pub planner_json: String,
     pub confidence: f64,
     pub risk: String,
@@ -20,6 +22,8 @@ pub struct VoiceHistoryEntry {
 pub struct VoiceHistoryRecord {
     pub id: i64,
     pub transcript: String,
+    pub raw_transcript: String,
+    pub refined_transcript: Option<String>,
     pub planner_json: String,
     pub confidence: f64,
     pub risk: String,
@@ -47,9 +51,9 @@ impl VoiceHistoryStore {
             r#"
             INSERT INTO voice_history (
                 transcript, planner_json, confidence, risk, status, provider, model,
-                target_node_id, created_at_unix, error
+                target_node_id, created_at_unix, error, raw_transcript, refined_transcript
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
             "#,
             params![
                 entry.transcript,
@@ -62,6 +66,8 @@ impl VoiceHistoryStore {
                 entry.target_node_id,
                 current_unix_timestamp()?,
                 entry.error,
+                entry.raw_transcript,
+                entry.refined_transcript,
             ],
         )?;
         Ok(connection.last_insert_rowid())
@@ -72,7 +78,7 @@ impl VoiceHistoryStore {
         let mut statement = connection.prepare(
             r#"
             SELECT id, transcript, planner_json, confidence, risk, status, provider, model,
-                   target_node_id, created_at_unix, error
+                   target_node_id, created_at_unix, error, raw_transcript, refined_transcript
             FROM voice_history
             ORDER BY id DESC
             LIMIT ?1
@@ -91,6 +97,8 @@ impl VoiceHistoryStore {
                 target_node_id: row.get(8)?,
                 created_at_unix: row.get(9)?,
                 error: row.get(10)?,
+                raw_transcript: row.get(11)?,
+                refined_transcript: row.get(12)?,
             })
         })?;
 

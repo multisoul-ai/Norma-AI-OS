@@ -1,7 +1,10 @@
 //! Terminal card renderer.
 
 use crate::cards::chrome::{CardChrome, TITLE_BAR_H};
-use crate::cards::term::view::{render_terminal_node, TERM_CELL_PX, TERM_LINE_PX, TERM_PADDING_PX};
+use crate::cards::term::view::{
+    render_terminal_node, terminal_content_mode, TerminalNodeRenderOptions, TERM_CELL_PX,
+    TERM_LINE_PX, TERM_PADDING_PX,
+};
 use crate::cards::{Card, CardBodyContext};
 use canvas::{CanvasNode, CanvasRect, NodeType};
 use gpui::AnyElement;
@@ -22,22 +25,37 @@ impl Card for TermCard {
     fn chrome(&self, _node: &CanvasNode, _runtime: &Runtime) -> CardChrome {
         CardChrome {
             title: "Terminal".to_string(),
+            title_detail: None,
             refreshable: false,
             task_badge: None,
         }
     }
 
     fn body(&self, node: &CanvasNode, context: CardBodyContext<'_>) -> AnyElement {
+        let content_mode = terminal_content_mode(context.initialization);
         let selection = context
             .text_selection
             .filter(|selection| selection.node_id == node.id && !selection.is_empty())
             .map(|selection| selection.range());
+        let view = content_mode
+            .requires_live_view()
+            .then(|| context.runtime.node_view(node.id))
+            .flatten();
         render_terminal_node(
-            context.runtime.node_view(node.id),
-            context.theme,
-            context.zoom,
-            context.bottom_radius_px,
-            selection,
+            view,
+            TerminalNodeRenderOptions {
+                node_id: node.id,
+                terminal_render_cache: context.terminal_render_cache,
+                theme: context.theme,
+                zoom: context.zoom,
+                bottom_radius_px: context.bottom_radius_px,
+                selection,
+                focused: context.focused,
+                reduce_motion: context.reduce_motion,
+                initialization: context.initialization,
+                cursor_phase: context.terminal_cursor_phase,
+                cursor_task_running: None,
+            },
         )
     }
 
@@ -74,16 +92,16 @@ mod tests {
     /// 数据构造（含关键数值推导）：
     ///   bounds = size(800x426)，zoom=1
     ///   padding = 8px * 2 = 16px
-    ///   title bar = 26px
+    ///   title bar = 32px
     ///   content_w = 800 - 16 = 784；TERM_CELL_PX=8 → cols=floor(784/8)=98
-    ///   content_h = 426 - 26 - 16 = 384；TERM_LINE_PX=16 → rows=floor(384/16)=24
+    ///   content_h = 426 - 32 - 16 = 378；TERM_LINE_PX=16 → rows=floor(378/16)=23
     ///
     /// 执行过程：
     ///   1. term_resize(bounds, 1.0)
     ///   2. 拆出 NodeResize::TermGrid
     ///
     /// 预期结果：
-    ///   - 正断言：cols=98, rows=24
+    ///   - 正断言：cols=98, rows=22
     ///   - 负断言：cols 不应退回最小值 20，rows 不应退回最小值 3
     #[test]
     fn test_term_resize_converts_card_bounds_to_grid_dimensions() {
@@ -91,7 +109,7 @@ mod tests {
         let NodeResize::TermGrid { cols, rows } = resize;
 
         assert_eq!(cols, 98, "800px 宽卡片应换算为 98 列");
-        assert_eq!(rows, 24, "426px 高卡片应换算为 24 行");
+        assert_eq!(rows, 23, "426px 高卡片应在 32px 标题栏下换算为 23 行");
         assert_ne!(cols, 20, "宽度充足时 cols 不应退回最小值 20");
         assert_ne!(rows, 3, "高度充足时 rows 不应退回最小值 3");
     }

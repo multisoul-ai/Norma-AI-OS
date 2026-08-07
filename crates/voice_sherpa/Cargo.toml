@@ -1,0 +1,28 @@
+[package]
+name = "voice_sherpa"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[features]
+default = []
+test-support = ["voice_input/test-support"]
+
+[dependencies]
+thiserror.workspace = true
+crossbeam-channel.workspace = true
+tracing.workspace = true
+audio.workspace = true
+asr.workspace = true
+tts.workspace = true
+dialogue.workspace = true
+voice_input.workspace = true
+async-channel.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+hound = "3.5"
+tempfile.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+sherpa-onnx = "1.13"

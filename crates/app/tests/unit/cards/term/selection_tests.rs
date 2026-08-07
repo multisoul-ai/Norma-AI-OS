@@ -9,17 +9,20 @@ fn default_cell(c: char) -> Cell {
         fg: TerminalColor::Named(TerminalNamedColor::Foreground),
         bg: TerminalColor::Named(TerminalNamedColor::Background),
         attrs: CellAttrs::default(),
+        hyperlink: None,
     }
+}
+
+fn row_from_str(line: &str, cols: usize) -> Vec<Cell> {
+    let mut row = line.chars().map(default_cell).collect::<Vec<_>>();
+    row.resize(cols, default_cell(' '));
+    row
 }
 
 fn snapshot_from_lines(lines: &[&str], cols: usize) -> GridSnapshot {
     let rows = lines
         .iter()
-        .map(|line| {
-            let mut row = line.chars().map(default_cell).collect::<Vec<_>>();
-            row.resize(cols, default_cell(' '));
-            row
-        })
+        .map(|line| row_from_str(line, cols))
         .collect::<Vec<_>>();
     GridSnapshot {
         lines: rows.len(),
@@ -29,6 +32,10 @@ fn snapshot_from_lines(lines: &[&str], cols: usize) -> GridSnapshot {
         cursor_col: 0,
         display_offset: 0,
         history_size: 0,
+        alt_screen: false,
+        alternate_scroll: true,
+        mouse_mode: false,
+        sgr_mouse: false,
     }
 }
 
@@ -173,6 +180,10 @@ fn test_terminal_selected_text_does_not_duplicate_wide_char_spacer() {
         lines: 1,
         display_offset: 0,
         history_size: 0,
+        alt_screen: false,
+        alternate_scroll: true,
+        mouse_mode: false,
+        sgr_mouse: false,
     };
     let range = crate::canvas::text_selection::TextRange::new(
         crate::canvas::text_selection::TextPoint::new(0, 0),
@@ -189,4 +200,92 @@ fn test_terminal_selected_text_does_not_duplicate_wide_char_spacer() {
         text, "界界A",
         "spacer 不应被当作第二个宽字符复制，否则中文/emoji 会重复"
     );
+}
+
+/// terminal_text_from_absolute_rows：从完整 scrollback 行数据构造选中文本，
+/// 即使选中范围横跨 scrollback 与可见行也应完整返回。
+///
+/// 数据构造（含关键数值推导）：
+///   rows 共 5 行，代表绝对行 0..=4：
+///     abs 0 = "aa"、abs 1 = "bb"、abs 2 = "cc"、abs 3 = "dd"、abs 4 = "ee"
+///   cols = 4（每行右侧有 padding 空格）
+///   base_abs = 0（rows[0] 对应绝对行 0）
+///   range = 绝对行 1 col 1 → 绝对行 3 col 2
+///   预期：行1 取 [1,4]→"b " 裁尾"b"；行2 取 [0,4]→"cc"；行3 取 [0,2]→"dd"→"dd"[0,2]="dd"
+///
+/// 执行过程：
+///   1. 构造 5 行 scrollback 行数据
+///   2. terminal_text_from_absolute_rows(range=(1,1)..(3,2))
+///   3. 检查拼接结果
+///
+/// 预期结果：
+///   - 正断言：结果为 "b\ncc\ndd"
+///   - 负断言：不应只返回可见部分或缺失中间行
+#[test]
+fn test_terminal_text_from_absolute_rows_spans_scrollback() {
+    let rows = vec![
+        row_from_str("aa", 4),
+        row_from_str("bb", 4),
+        row_from_str("cc", 4),
+        row_from_str("dd", 4),
+        row_from_str("ee", 4),
+    ];
+    let range = crate::canvas::text_selection::TextRange::new(
+        crate::canvas::text_selection::TextPoint::new(1, 1),
+        crate::canvas::text_selection::TextPoint::new(3, 2),
+    );
+
+    let text = terminal_text_from_absolute_rows(&rows, 4, 0, range);
+
+    assert_eq!(text, "b\ncc\ndd", "绝对行范围 1..3 应逐行复制并用换行连接");
+    assert_ne!(
+        text, "b\ncc",
+        "末行 abs3 不应被丢弃，否则跨 scrollback 选中会截断尾部"
+    );
+    assert!(
+        !text.contains("aa") && !text.contains("ee"),
+        "范围之外的行不应混入结果"
+    );
+}
+
+/// terminal_selection_spans：绝对行坐标应裁剪到当前视口并转成视口相对行。
+///
+/// 数据构造（含关键数值推导）：
+///   snapshot: rows 2 行、history_size=3、display_offset=1
+///   视口顶绝对行 = history_size - display_offset = 2；视口覆盖绝对行 2..3
+///   range = 绝对行 1 col 0 → 绝对行 3 col 2
+///   spans_for_columns 产出行 1(0..cols)、行2(0..cols)、行3(0..2)
+///   裁剪后：行1 不在视口被丢弃；行2 → 视口行0；行3 → 视口行1
+///
+/// 执行过程：
+///   1. 构造带 scrollback 的 snapshot
+///   2. terminal_selection_spans(range=(1,0)..(3,2))
+///
+/// 预期结果：
+///   - 正断言：返回 2 个 span，视口行 0 和 1
+///   - 负断言：绝对行 1（视口上方）不应出现
+#[test]
+fn test_terminal_selection_spans_clip_to_viewport() {
+    let snapshot = GridSnapshot {
+        rows: vec![row_from_str("xx", 3), row_from_str("yy", 3)],
+        cursor_line: 0,
+        cursor_col: 0,
+        cols: 3,
+        lines: 2,
+        display_offset: 1,
+        history_size: 3,
+        alt_screen: false,
+        alternate_scroll: true,
+        mouse_mode: false,
+        sgr_mouse: false,
+    };
+    let range = crate::canvas::text_selection::TextRange::new(
+        crate::canvas::text_selection::TextPoint::new(1, 0),
+        crate::canvas::text_selection::TextPoint::new(3, 2),
+    );
+
+    let spans = terminal_selection_spans(&snapshot, range);
+
+    let rows: Vec<usize> = spans.iter().map(|s| s.row).collect();
+    assert_eq!(rows, vec![0, 1], "应只剩视口内的 2 行，转为视口相对行 0/1");
 }

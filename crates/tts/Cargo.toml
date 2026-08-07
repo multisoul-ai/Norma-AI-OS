@@ -1,0 +1,20 @@
+[package]
+name = "tts"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+audio.workspace = true
+model_store.workspace = true
+dirs.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+hound = "3.5"
+hex.workspace = true
+tungstenite.workspace = true
+ureq.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

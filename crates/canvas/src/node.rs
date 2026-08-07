@@ -3,6 +3,16 @@
 use crate::geometry::CanvasRect;
 use serde::{Deserialize, Serialize};
 
+#[path = "node/agent_profile.rs"]
+mod agent_profile;
+pub use agent_profile::AgentProfile;
+#[path = "node/browser.rs"]
+mod browser;
+pub use browser::BrowserSpec;
+#[path = "node/ego.rs"]
+mod ego;
+pub use ego::{BrowserSurfaceKind, EgoCardPhase, EgoLiteSpec};
+
 pub type NodeId = u64;
 
 /// 普通矩形节点（本切片用于验证拖拽/选中）。color 为 0xRRGGBB。
@@ -15,27 +25,14 @@ pub struct RectNode {
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 pub struct TermSpec;
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
-pub enum AgentProfile {
-    Claude,
-    Codex,
-}
-
-impl AgentProfile {
-    pub fn display_title(self) -> &'static str {
-        match self {
-            AgentProfile::Claude => "Claude",
-            AgentProfile::Codex => "Codex",
-        }
-    }
-}
-
 /// Agent 节点的可持久化描述。实际进程/session 存在 runtime 层。
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct AgentSpec {
     pub profile: AgentProfile,
     #[serde(default)]
     pub alias: Option<String>,
+    #[serde(default)]
+    pub definition_id: Option<i64>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -48,7 +45,15 @@ pub enum PreviewType {
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct PreviewSpec {
     pub path: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub additional_paths: Vec<String>,
     pub explicit_type: Option<PreviewType>,
+}
+
+impl PreviewSpec {
+    pub fn all_paths(&self) -> impl Iterator<Item = &str> {
+        std::iter::once(self.path.as_str()).chain(self.additional_paths.iter().map(String::as_str))
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -57,6 +62,7 @@ pub enum NodeType {
     Term,
     Agent,
     Preview,
+    Browser,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -65,6 +71,7 @@ pub enum NodeKind {
     Term(TermSpec),
     Agent(AgentSpec),
     Preview(PreviewSpec),
+    Browser(BrowserSpec),
 }
 
 /// 兼容旧调用方的类型名；新代码优先使用 NodeKind。
@@ -77,6 +84,7 @@ impl NodeKind {
             NodeKind::Term(_) => NodeType::Term,
             NodeKind::Agent(_) => NodeType::Agent,
             NodeKind::Preview(_) => NodeType::Preview,
+            NodeKind::Browser(_) => NodeType::Browser,
         }
     }
 
@@ -90,6 +98,7 @@ impl NodeKind {
                 .unwrap_or_else(|| node.profile.display_title())
                 .to_string(),
             NodeKind::Preview(spec) => preview_title(&spec.path),
+            NodeKind::Browser(spec) => spec.display_title(),
         }
     }
 }
@@ -121,26 +130,42 @@ mod tests {
     /// 数据构造（含关键数值推导）：
     ///   Claude Agent: profile=Claude
     ///   Codex Agent:  profile=Codex
+    ///   Cursor Agent: profile=Cursor
+    ///   OpenCode Agent: profile=OpenCode
     ///   runtime session 不在 canvas 层构造，因此这里没有 session_id 字段
     ///
     /// 执行过程：
     ///   1. 构造 NodeKind::Agent(Claude)
     ///   2. 构造 NodeKind::Agent(Codex)
-    ///   3. 调用 node_type / display_title
+    ///   3. 构造 NodeKind::Agent(Cursor)
+    ///   4. 构造 NodeKind::Agent(OpenCode)
+    ///   5. 调用 node_type / display_title
     ///
     /// 预期结果：
-    ///   - 正断言：Claude/Codex Agent 类型都是 NodeType::Agent
-    ///   - 正断言：标题分别为 "Claude" 和 "Codex"
+    ///   - 正断言：Claude/Codex/Cursor/OpenCode Agent 类型都是 NodeType::Agent
+    ///   - 正断言：标题分别为 "Claude"、"Codex"、"Cursor" 和 "OpenCode"
     ///   - 负断言：Agent 标题不应退化为普通 "Terminal"
     #[test]
     fn test_agent_kind_is_description_only_and_exposes_profile_title() {
         let claude = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Claude,
             alias: None,
+            definition_id: None,
         });
         let codex = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: None,
+            definition_id: None,
+        });
+        let opencode = NodeKind::Agent(AgentSpec {
+            profile: AgentProfile::OpenCode,
+            alias: None,
+            definition_id: None,
+        });
+        let cursor = NodeKind::Agent(AgentSpec {
+            profile: AgentProfile::Cursor,
+            alias: None,
+            definition_id: None,
         });
 
         assert_eq!(
@@ -154,6 +179,16 @@ mod tests {
             "Codex Agent 应暴露 NodeType::Agent，供 runtime/app registry dispatch"
         );
         assert_eq!(
+            opencode.node_type(),
+            NodeType::Agent,
+            "OpenCode Agent 应暴露 NodeType::Agent，供 runtime/app registry dispatch"
+        );
+        assert_eq!(
+            cursor.node_type(),
+            NodeType::Agent,
+            "Cursor Agent 应暴露 NodeType::Agent，供 runtime/app registry dispatch"
+        );
+        assert_eq!(
             claude.display_title(),
             "Claude",
             "Claude Agent 标题应显示为 Claude"
@@ -162,6 +197,16 @@ mod tests {
             codex.display_title(),
             "Codex",
             "Codex Agent 标题应显示为 Codex"
+        );
+        assert_eq!(
+            opencode.display_title(),
+            "OpenCode",
+            "OpenCode Agent 标题应显示为 OpenCode"
+        );
+        assert_eq!(
+            cursor.display_title(),
+            "Cursor",
+            "Cursor Agent 标题应显示为 Cursor"
         );
         assert_ne!(
             claude.display_title(),
@@ -172,6 +217,16 @@ mod tests {
             codex.display_title(),
             "Terminal",
             "Codex Agent 不应退化显示为普通 Terminal"
+        );
+        assert_ne!(
+            opencode.display_title(),
+            "Terminal",
+            "OpenCode Agent 不应退化显示为普通 Terminal"
+        );
+        assert_ne!(
+            cursor.display_title(),
+            "Terminal",
+            "Cursor Agent 不应退化显示为普通 Terminal"
         );
     }
 
@@ -199,6 +254,7 @@ mod tests {
         let aliased = NodeKind::Agent(AgentSpec {
             profile: AgentProfile::Codex,
             alias: Some("Alan".to_string()),
+            definition_id: None,
         });
 
         let NodeKind::Agent(legacy_spec) = &legacy else {
@@ -289,6 +345,7 @@ mod tests {
     fn test_preview_kind_preserves_path_type_and_serializes_without_content() {
         let kind = NodeKind::Preview(PreviewSpec {
             path: "/tmp/report.md".to_string(),
+            additional_paths: Vec::new(),
             explicit_type: Some(PreviewType::Markdown),
         });
 
@@ -312,6 +369,103 @@ mod tests {
         assert!(
             !json.contains("content"),
             "Preview canvas snapshot 不应包含文件内容副本，实际 JSON: {json}"
+        );
+    }
+
+    /// Browser 节点只保存网页地址和可选标题，并可完整 serde 往返。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   url = "https://example.com/docs"，网页内容不进入 canvas 层
+    ///   title = Some("Docs")，标题来自 app 层 WebView 回调
+    ///   snapshot payload 字段数 = 2（url + title），不包含 HTML、cookie 或 cache 字段
+    ///
+    /// 执行过程：
+    ///   1. 构造 NodeKind::Browser(BrowserSpec)
+    ///   2. 调用 node_type / display_title
+    ///   3. serde_json 序列化后再反序列化
+    ///
+    /// 预期结果：
+    ///   - 正断言：Browser 类型是 NodeType::Browser，标题优先显示 "Docs"
+    ///   - 正断言：serde 往返后 kind 与原始值一致，url/title 仍保留
+    ///   - 负断言：序列化 JSON 不应包含 HTML 内容或 cookie/cache 状态
+    #[test]
+    fn test_browser_kind_preserves_url_title_and_serializes_without_page_state() {
+        let kind = NodeKind::Browser(BrowserSpec {
+            url: "https://example.com/docs".to_string(),
+            title: Some("Docs".to_string()),
+            surface: BrowserSurfaceKind::Native,
+        });
+
+        let json = serde_json::to_string(&kind).expect("Browser kind 应可序列化");
+        let restored: NodeKind = serde_json::from_str(&json).expect("Browser kind 应可反序列化");
+
+        assert_eq!(
+            kind.node_type(),
+            NodeType::Browser,
+            "Browser 节点应暴露 NodeType::Browser，供 app card registry dispatch"
+        );
+        assert_eq!(
+            kind.display_title(),
+            "Docs",
+            "Browser 节点标题应优先显示 WebView 提供的页面标题"
+        );
+        assert_eq!(
+            restored, kind,
+            "Browser kind serde 往返后应完整保留 url 与 title"
+        );
+        assert!(
+            !json.contains("html"),
+            "Browser canvas snapshot 不应包含 HTML 内容副本，实际 JSON: {json}"
+        );
+        assert!(
+            !json.contains("cookie") && !json.contains("cache"),
+            "Browser canvas snapshot 不应包含 cookie/cache 状态，实际 JSON: {json}"
+        );
+    }
+
+    /// Browser 无标题时用 URL host 做标题，URL 不可解析时回退为 Browser。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   titled url = "https://docs.example.com/path"，host = docs.example.com
+    ///   invalid url = "not a url"，没有 scheme/host
+    ///   title=None，display_title 必须从 URL fallback 推导
+    ///
+    /// 执行过程：
+    ///   1. 构造 title=None 且 URL 有 host 的 Browser kind
+    ///   2. 构造 title=None 且 URL 不可解析的 Browser kind
+    ///   3. 分别调用 display_title
+    ///
+    /// 预期结果：
+    ///   - 正断言：可解析 URL 标题为 docs.example.com
+    ///   - 正断言：不可解析 URL 标题为 Browser
+    ///   - 负断言：无标题 Browser 不应退化显示为 Terminal
+    #[test]
+    fn test_browser_title_falls_back_to_host_then_browser_label() {
+        let hosted = NodeKind::Browser(BrowserSpec {
+            url: "https://docs.example.com/path".to_string(),
+            title: None,
+            surface: BrowserSurfaceKind::Native,
+        });
+        let invalid = NodeKind::Browser(BrowserSpec {
+            url: "not a url".to_string(),
+            title: None,
+            surface: BrowserSurfaceKind::Native,
+        });
+
+        assert_eq!(
+            hosted.display_title(),
+            "docs.example.com",
+            "Browser 无页面标题时应从 URL host 推导标题"
+        );
+        assert_eq!(
+            invalid.display_title(),
+            "Browser",
+            "Browser 无法从 URL 推导 host 时应回退为 Browser"
+        );
+        assert_ne!(
+            hosted.display_title(),
+            "Terminal",
+            "Browser 标题 fallback 不应退化成 Terminal"
         );
     }
 }

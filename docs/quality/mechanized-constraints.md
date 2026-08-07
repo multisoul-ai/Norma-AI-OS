@@ -78,6 +78,89 @@ Focused script tests:
 bash scripts/test-check-agent-guide-lines.sh
 ```
 
+## R4 · Interaction And Shutdown Paths Stay Cheap
+
+| | |
+|---|---|
+| Script | [`scripts/check-performance-guardrails.sh`](../../scripts/check-performance-guardrails.sh) |
+| Scope | Canvas mouse/render files, session snapshot save path, and persistence flush ordering |
+| Rule | Drag/pan/render/no-op shutdown paths must not perform SQLite work, session directory scans, or unthrottled repaint loops. |
+| Failure signal | `ERROR: performance guardrail violations found.` |
+| Fix | Cache data from hooks/events, write persistence only after explicit dirty state, coalesce pointer repaint notifications, and cull invisible nodes before cloning or rendering card bodies. |
+
+Run it manually:
+
+```bash
+bash scripts/check-performance-guardrails.sh
+```
+
+Bad example:
+
+```rust
+fn on_mouse_move(app: &mut MultisoulApp, cx: &mut Context<MultisoulApp>) {
+    app.persistence.flush_now(&app.runtime, &app.master_layout)?;
+    cx.notify();
+}
+
+fn collect_node_sessions(workspace_root: &Path) -> Vec<NodeSession> {
+    let session_id = find_codex_session_id(workspace_root);
+    // ...
+}
+```
+
+Good example:
+
+```rust
+fn on_mouse_move(app: &mut MultisoulApp, cx: &mut Context<MultisoulApp>) {
+    if should_notify_motion_frame(app.interaction.last_motion_notify, Instant::now()) {
+        cx.notify();
+    }
+}
+
+fn collect_node_sessions(agent_session_ids: &HashMap<NodeId, String>) -> Vec<NodeSession> {
+    let session_id = agent_session_ids.get(&node_id).cloned();
+    // ...
+}
+```
+
+## R5 · Live Video Wallpaper Stays Low-Copy
+
+| | |
+|---|---|
+| Script | [`scripts/check-video-wallpaper-performance.py`](../../scripts/check-video-wallpaper-performance.py) |
+| Scope | `video_wallpaper.rs`, `video_decoder.rs`, and `chrome.rs` |
+| Rule | Live video wallpaper must decode IOSurface-backed 420f CVPixelBuffers and render through `gpui::surface()` from a dedicated decoder thread. |
+| Failure signal | `ERROR: video wallpaper performance guardrail violations found.` |
+| Fix | Keep CPU RGBA / `RenderImage` paths limited to thumbnails, request Metal + IOSurface output settings, disable sample copies, and do not run the AVAssetReader loop in GPUI's shared background executor. |
+
+Run it manually:
+
+```bash
+python3 scripts/check-video-wallpaper-performance.py
+```
+
+For staged-compatible feedback:
+
+```bash
+python3 scripts/check-video-wallpaper-performance.py --staged
+```
+
+## R6 · Domain Catalogs And Public Contracts Stay Aligned
+
+| | |
+|---|---|
+| Script | [`scripts/check-domain-contracts.py`](../../scripts/check-domain-contracts.py) |
+| Scope | ASR catalog/release gate and Agent profile enum/schema/Storage codec |
+| Rule | Every built-in ASR model ID must have a release-gate entry; every `AgentProfile` variant must be represented by the Canvas enum, `create_agent` schema/parser, and Storage encoder/decoder. |
+| Failure signal | `ERROR: domain contract violations found.` |
+| Fix | Register new ASR models with an explicit recommendation state, or update all Agent profile contract surfaces in the same change. |
+
+Run it manually or in CI:
+
+```bash
+python3 scripts/check-domain-contracts.py
+```
+
 ## Local Pre-Commit Hook
 
 Install the tracked native Git hook:
@@ -86,8 +169,7 @@ Install the tracked native Git hook:
 bash scripts/install-git-hooks.sh
 ```
 
-The hook runs staged file-size, `#[allow(...)]`, and agent-guide line checks first. When staged
-Rust, Cargo, or toolchain files changed, it also runs:
+The hook runs staged file-size, `#[allow(...)]`, agent-guide line, performance guardrail, and video wallpaper low-copy checks first. When staged Rust, Cargo, or toolchain files changed, it also runs:
 
 ```bash
 cargo check --workspace --quiet

@@ -2,17 +2,26 @@
 
 use crate::canvas::text_selection::{SelectionSpan, TextRange};
 use crate::cards::term::selection::terminal_selection_spans;
+use canvas::NodeId;
 use gpui::{
-    canvas, point, prelude::*, px, quad, transparent_black, App, Bounds, Edges, Font, FontFeatures,
-    FontStyle, FontWeight, Hsla, IntoElement, Pixels, Point, SharedString, Size,
-    StrikethroughStyle, TextRun, UnderlineStyle, Window,
+    canvas, point, prelude::*, px, quad, transparent_black, App, Bounds, Edges, Hsla, IntoElement,
+    Pixels, Point, Size, Window,
 };
+use std::sync::Arc;
 use terminal::{Cell, GridSnapshot, TerminalColor, TerminalNamedColor};
 use ui::Theme;
 
+use self::cursor_paint::{cursor_paint_model, cursor_text_run, paint_cursor};
+use self::prepared::{prepare_terminal_frame, PreparedTerminalTextRun};
+use super::cursor::TerminalCursorAnimation;
 use super::paint_style::{
     resolve_cell_style, TerminalGlassStyle, TerminalPalette, TerminalTextStyle,
 };
+use super::render_cache::{TerminalRenderCacheHandle, TerminalRenderKey};
+
+mod cursor_paint;
+mod prepared;
+pub(crate) use prepared::PreparedTerminalFrame;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TerminalRenderMetrics {
@@ -21,23 +30,41 @@ pub struct TerminalRenderMetrics {
     pub cell_width: Pixels,
 }
 
-pub fn render_terminal_canvas(
-    snapshot: GridSnapshot,
-    theme: Theme,
-    metrics: TerminalRenderMetrics,
-    selection: Option<TextRange>,
-) -> impl IntoElement {
+pub struct TerminalCanvasOptions {
+    pub node_id: NodeId,
+    pub snapshot: Arc<GridSnapshot>,
+    pub revision: u64,
+    pub cache: TerminalRenderCacheHandle,
+    pub theme: Theme,
+    pub metrics: TerminalRenderMetrics,
+    pub selection: Option<TextRange>,
+    pub cursor_animation: TerminalCursorAnimation,
+}
+
+pub fn render_terminal_canvas(options: TerminalCanvasOptions) -> impl IntoElement {
+    let TerminalCanvasOptions {
+        node_id,
+        snapshot,
+        revision,
+        cache,
+        theme,
+        metrics,
+        selection,
+        cursor_animation,
+    } = options;
     let palette = TerminalPalette::from_theme(theme);
     let glass_style = TerminalGlassStyle::from_theme(theme);
+    let key = TerminalRenderKey::new(node_id, revision, metrics, theme, selection);
     canvas(
-        move |_bounds, _window, _cx| {
-            if let Some(selection) = selection {
-                build_layout_with_selection(&snapshot, palette, metrics, glass_style, selection)
-            } else {
-                build_layout(&snapshot, palette, metrics, glass_style)
-            }
+        move |_bounds, window, _cx| {
+            let (prepared, _outcome) = cache.borrow_mut().resolve(key, || {
+                prepare_terminal_frame(&snapshot, palette, metrics, glass_style, selection, window)
+            });
+            prepared
         },
-        move |bounds, layout, window, cx| paint_layout(bounds, &layout, window, cx),
+        move |bounds, prepared, window, cx| {
+            paint_prepared_frame(bounds, &prepared, cursor_animation, window, cx)
+        },
     )
     .size_full()
 }
@@ -69,8 +96,10 @@ struct TerminalRowLayout {
 struct TerminalLayout {
     backgrounds: Vec<TerminalBackgroundRect>,
     text_runs: Vec<TerminalTextRun>,
+    cursor_text_run: Option<TerminalTextRun>,
     cursor_line: usize,
     cursor_col: usize,
+    cursor_visible: bool,
     metrics: TerminalRenderMetrics,
     selection_spans: Vec<SelectionSpan>,
     default_bg: Hsla,
@@ -88,7 +117,10 @@ fn build_layout(
     let mut text_runs = Vec::new();
 
     for (row_index, row) in snapshot.rows.iter().enumerate() {
-        let row_layout = layout_row(row_index, row, palette);
+        let link_columns = snapshot.link_columns_for_row(row_index);
+        let row_layout = layout_row_with_links(row_index, row, palette, |col| {
+            link_columns.get(col).copied().unwrap_or(false)
+        });
         backgrounds.extend(row_layout.backgrounds);
         text_runs.extend(row_layout.text_runs);
     }
@@ -96,8 +128,10 @@ fn build_layout(
     TerminalLayout {
         backgrounds,
         text_runs,
+        cursor_text_run: cursor_text_run(snapshot, palette),
         cursor_line: snapshot.cursor_line,
         cursor_col: snapshot.cursor_col,
+        cursor_visible: snapshot.display_offset == 0,
         metrics,
         selection_spans: Vec::new(),
         default_bg: palette.resolve(TerminalColor::Named(TerminalNamedColor::Background)),
@@ -121,7 +155,17 @@ fn build_layout_with_selection(
     layout
 }
 
+#[cfg(test)]
 fn layout_row(row_index: usize, row: &[Cell], palette: TerminalPalette) -> TerminalRowLayout {
+    layout_row_with_links(row_index, row, palette, |_| false)
+}
+
+fn layout_row_with_links(
+    row_index: usize,
+    row: &[Cell],
+    palette: TerminalPalette,
+    mut is_link_at: impl FnMut(usize) -> bool,
+) -> TerminalRowLayout {
     let mut layout = TerminalRowLayout::default();
     let mut current_bg: Option<TerminalBackgroundRect> = None;
     let mut current_text: Option<TerminalTextRun> = None;
@@ -143,7 +187,11 @@ fn layout_row(row_index: usize, row: &[Cell], palette: TerminalPalette) -> Termi
             continue;
         }
 
-        let text_style = style.text_style();
+        let text_style = if is_link_at(col) {
+            terminal_link_text_style(style.text_style(), palette)
+        } else {
+            style.text_style()
+        };
         match current_text.as_mut() {
             Some(run) if run.style == text_style && run.end_col == col => {
                 run.text.push(ch);
@@ -174,6 +222,15 @@ fn layout_row(row_index: usize, row: &[Cell], palette: TerminalPalette) -> Termi
     flush_background(&mut layout.backgrounds, &mut current_bg);
     flush_text(&mut layout.text_runs, &mut current_text);
     layout
+}
+
+fn terminal_link_text_style(
+    mut text_style: TerminalTextStyle,
+    palette: TerminalPalette,
+) -> TerminalTextStyle {
+    text_style.fg = palette.resolve(TerminalColor::Named(TerminalNamedColor::Cyan));
+    text_style.underline = true;
+    text_style
 }
 
 fn push_background(
@@ -222,17 +279,6 @@ fn flush_text(text_runs: &mut Vec<TerminalTextRun>, current_text: &mut Option<Te
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct TerminalCursorPaint {
-    bounds: Bounds<Pixels>,
-    fill: Hsla,
-    stroke: Hsla,
-    highlight: Hsla,
-    radius: Pixels,
-    stroke_width: Pixels,
-    highlight_bounds: Bounds<Pixels>,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum TerminalPaintLayer {
     DefaultBackgroundFill,
@@ -240,14 +286,17 @@ enum TerminalPaintLayer {
     SelectionHighlights,
     TextRuns,
     Cursor,
+    CursorText,
 }
 
-fn paint_layout(
+fn paint_prepared_frame(
     bounds: Bounds<Pixels>,
-    layout: &TerminalLayout,
+    prepared: &PreparedTerminalFrame,
+    cursor_animation: TerminalCursorAnimation,
     window: &mut Window,
     cx: &mut App,
 ) {
+    let layout = &prepared.layout;
     let metrics = layout.metrics;
 
     for layer in paint_layer_order(layout) {
@@ -292,12 +341,17 @@ fn paint_layout(
                 }
             }
             TerminalPaintLayer::TextRuns => {
-                for run in &layout.text_runs {
-                    paint_text_run(bounds, run, metrics, window, cx);
+                for run in &prepared.shaped_text_runs {
+                    paint_prepared_text_run(bounds, run, metrics, window, cx);
                 }
             }
             TerminalPaintLayer::Cursor => {
-                paint_cursor(cursor_paint_model(bounds, layout), window);
+                paint_cursor(cursor_paint_model(bounds, layout, cursor_animation), window);
+            }
+            TerminalPaintLayer::CursorText => {
+                if let Some(run) = prepared.shaped_cursor_text_run.as_ref() {
+                    paint_prepared_text_run(bounds, run, metrics, window, cx);
+                }
             }
         }
     }
@@ -327,7 +381,12 @@ fn paint_layer_order(layout: &TerminalLayout) -> Vec<TerminalPaintLayer> {
     if !layout.text_runs.is_empty() {
         layers.push(TerminalPaintLayer::TextRuns);
     }
-    layers.push(TerminalPaintLayer::Cursor);
+    if layout.cursor_visible {
+        layers.push(TerminalPaintLayer::Cursor);
+    }
+    if layout.cursor_visible && layout.cursor_text_run.is_some() {
+        layers.push(TerminalPaintLayer::CursorText);
+    }
     layers
 }
 
@@ -358,124 +417,35 @@ fn paint_selection_span(
     ));
 }
 
-fn cursor_paint_model(bounds: Bounds<Pixels>, layout: &TerminalLayout) -> TerminalCursorPaint {
-    let metrics = layout.metrics;
-    let cursor_bounds = Bounds {
-        origin: point(
-            bounds.origin.x + metrics.cell_width * (layout.cursor_col as f32),
-            bounds.origin.y + metrics.line_height * (layout.cursor_line as f32),
-        ),
-        size: Size {
-            width: metrics.cell_width,
-            height: metrics.line_height,
-        },
-    };
-    let inset = layout.glass_style.cursor_stroke_width;
-    let highlight_width = px((f32::from(metrics.cell_width) - f32::from(inset) * 2.0).max(0.0));
-    let highlight_height = px(f32::from(layout.glass_style.cursor_highlight_height)
-        .min(f32::from(metrics.line_height))
-        .max(0.0));
-    let highlight_bounds = Bounds {
-        origin: point(
-            cursor_bounds.origin.x + inset,
-            cursor_bounds.origin.y + inset,
-        ),
-        size: Size {
-            width: highlight_width,
-            height: highlight_height,
-        },
-    };
-
-    TerminalCursorPaint {
-        bounds: cursor_bounds,
-        fill: layout.glass_style.cursor_fill,
-        stroke: layout.glass_style.cursor_stroke,
-        highlight: layout.glass_style.cursor_highlight,
-        radius: layout.glass_style.cursor_radius,
-        stroke_width: layout.glass_style.cursor_stroke_width,
-        highlight_bounds,
-    }
-}
-
-fn paint_cursor(cursor: TerminalCursorPaint, window: &mut Window) {
-    window.paint_quad(quad(
-        cursor.bounds,
-        cursor.radius,
-        cursor.fill,
-        Edges::all(cursor.stroke_width),
-        cursor.stroke,
-        Default::default(),
-    ));
-
-    if f32::from(cursor.highlight_bounds.size.width) > 0.0
-        && f32::from(cursor.highlight_bounds.size.height) > 0.0
-    {
-        window.paint_quad(quad(
-            cursor.highlight_bounds,
-            cursor.radius,
-            cursor.highlight,
-            Edges::<Pixels>::default(),
-            transparent_black(),
-            Default::default(),
-        ));
-    }
-}
-
-fn paint_text_run(
+fn paint_prepared_text_run(
     bounds: Bounds<Pixels>,
-    run: &TerminalTextRun,
+    run: &PreparedTerminalTextRun,
     metrics: TerminalRenderMetrics,
     window: &mut Window,
     cx: &mut App,
 ) {
-    let font = Font {
-        family: "Menlo".into(),
-        features: FontFeatures::default(),
-        fallbacks: None,
-        weight: if run.style.bold {
-            FontWeight::BOLD
-        } else {
-            FontWeight::NORMAL
-        },
-        style: if run.style.italic {
-            FontStyle::Italic
-        } else {
-            FontStyle::Normal
-        },
-    };
-    let underline = run.style.underline.then_some(UnderlineStyle {
-        thickness: px(1.0),
-        color: Some(run.style.fg),
-        wavy: false,
-    });
-    let strikethrough = run.style.strikeout.then_some(StrikethroughStyle {
-        thickness: px(1.0),
-        color: Some(run.style.fg),
-    });
-    let text_run = TextRun {
-        len: run.text.len(),
-        font,
-        color: run.style.fg,
-        background_color: None,
-        underline,
-        strikethrough,
-    };
-    let text: SharedString = run.text.clone().into();
-    let shaped = window
-        .text_system()
-        .shape_line(text, metrics.font_size, &[text_run], None);
-    let origin = text_run_origin(bounds, run, metrics);
-    let _ = shaped.paint(origin, metrics.line_height, window, cx);
+    let origin = grid_text_origin(bounds, run.row, run.start_col, metrics);
+    let _ = run.shaped.paint(origin, metrics.line_height, window, cx);
 }
 
+#[cfg(test)]
 fn text_run_origin(
     bounds: Bounds<Pixels>,
     run: &TerminalTextRun,
     metrics: TerminalRenderMetrics,
 ) -> Point<Pixels> {
+    grid_text_origin(bounds, run.row, run.start_col, metrics)
+}
+
+fn grid_text_origin(
+    bounds: Bounds<Pixels>,
+    row: usize,
+    start_col: usize,
+    metrics: TerminalRenderMetrics,
+) -> Point<Pixels> {
     point(
-        bounds.origin.x + metrics.cell_width * (run.start_col as f32),
-        bounds.origin.y + metrics.line_height * (run.row as f32) + vertical_text_offset(metrics),
+        bounds.origin.x + metrics.cell_width * (start_col as f32),
+        bounds.origin.y + metrics.line_height * (row as f32) + vertical_text_offset(metrics),
     )
 }
 
@@ -488,5 +458,13 @@ fn vertical_text_offset(metrics: TerminalRenderMetrics) -> Pixels {
 mod tests;
 
 #[cfg(test)]
+#[path = "../../../tests/unit/cards/term/paint_cursor_text_tests.rs"]
+mod cursor_text_tests;
+
+#[cfg(test)]
 #[path = "../../../tests/unit/cards/term/paint_geometry_tests.rs"]
 mod geometry_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/cards/term/paint_link_tests.rs"]
+mod link_tests;

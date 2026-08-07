@@ -1,0 +1,156 @@
+use super::TtsInstallOutcome;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+pub(crate) fn synthesize_tts_preview(
+    runtime: &crate::app::dialogue::SharedTtsRuntime,
+    selected: &crate::app::dialogue::SelectedTtsModel,
+    cancelled: std::sync::Arc<AtomicBool>,
+) -> Result<audio::PcmAudioChunk, String> {
+    #[cfg(feature = "e2e-test-support")]
+    if crate::settings::voice::tts_models::e2e_fake_tts_transport_enabled() {
+        return audio::PcmAudioChunk::new(audio::PcmFormat::Pcm16, 16_000, 1, vec![0; 320])
+            .map_err(|error| format!("invalid fake preview PCM: {error:?}"));
+    }
+    let selection_for_create = selected.clone();
+    runtime.with_client(
+        Some(selected.clone()),
+        || {
+            crate::app::dialogue::create_tts_client_for_selected(&selection_for_create)
+                .map_err(|error| error.to_string())
+        },
+        |client| {
+            let segments = crate::app::dialogue::collect_tts_segments_with_cancellation(
+                client,
+                &["你好，这是当前语音的试听。"],
+                Some(cancelled),
+            )
+            .map_err(|error| error.to_string())?;
+            merge_preview_chunks(
+                segments
+                    .into_iter()
+                    .next()
+                    .expect("one preview segment was requested"),
+            )
+        },
+    )
+}
+
+fn merge_preview_chunks(chunks: Vec<audio::PcmAudioChunk>) -> Result<audio::PcmAudioChunk, String> {
+    let mut chunks = chunks.into_iter();
+    let mut merged = chunks
+        .next()
+        .ok_or_else(|| "TTS preview returned no PCM audio".to_string())?;
+    for chunk in chunks {
+        if merged.format != chunk.format
+            || merged.sample_rate_hz != chunk.sample_rate_hz
+            || merged.channels != chunk.channels
+        {
+            return Err("TTS preview PCM chunks use incompatible formats".to_string());
+        }
+        merged.bytes.extend_from_slice(&chunk.bytes);
+    }
+    Ok(merged)
+}
+
+pub(super) fn resolve_tts_selection(
+    root: &std::path::Path,
+    model_id: tts::TtsModelId,
+    requested_voice: Option<tts::TtsVoiceId>,
+) -> Result<crate::app::dialogue::SelectedTtsModel, String> {
+    let catalog = tts::builtin_model_catalog();
+    let descriptor = catalog
+        .find(&model_id)
+        .ok_or_else(|| format!("unknown TTS model {}", model_id.as_str()))?;
+    let voice_id = descriptor
+        .resolve_voice_id(requested_voice.as_ref().map(tts::TtsVoiceId::as_str))
+        .clone();
+    descriptor
+        .capabilities()
+        .requires_voice_reference()
+        .then(|| tts::load_zipvoice_reference(root))
+        .transpose()
+        .map_err(|error| error.to_string())?;
+    #[cfg(feature = "e2e-test-support")]
+    if crate::settings::voice::tts_models::e2e_fake_tts_transport_enabled() {
+        return Ok(crate::app::dialogue::SelectedTtsModel::local(
+            root.to_path_buf(),
+            model_id,
+            voice_id,
+        ));
+    }
+    tts::validate_installation(&root.join(model_id.as_str()), descriptor)
+        .map_err(|error| error.to_string())?;
+    Ok(crate::app::dialogue::SelectedTtsModel::local(
+        root.to_path_buf(),
+        model_id,
+        voice_id,
+    ))
+}
+
+pub(super) fn validate_tts_selection(
+    root: &std::path::Path,
+    model_id: tts::TtsModelId,
+    requested_voice: Option<tts::TtsVoiceId>,
+) -> Result<crate::app::dialogue::SelectedTtsModel, String> {
+    let selected = resolve_tts_selection(root, model_id, requested_voice)?;
+    #[cfg(not(feature = "e2e-test-support"))]
+    crate::app::dialogue::create_tts_client_for_selected(&selected)
+        .map_err(|error| error.to_string())?;
+    Ok(selected)
+}
+
+pub(super) async fn install_tts_package(
+    descriptor: &tts::TtsModelDescriptor,
+    root: &std::path::Path,
+    cancelled: &AtomicBool,
+    progress: impl FnMut(u64, u64),
+) -> TtsInstallOutcome {
+    #[cfg(feature = "e2e-test-support")]
+    if crate::settings::voice::tts_models::e2e_fake_tts_transport_enabled() {
+        let mut progress = progress;
+        progress(0, 1);
+        if crate::settings::voice::tts_models::e2e_fake_tts_transport_is_held() {
+            if let Some(release) =
+                crate::settings::voice::tts_models::take_e2e_fake_tts_release_receiver()
+            {
+                let _ = release.recv().await;
+            }
+        }
+        if cancelled.load(Ordering::Acquire) {
+            return TtsInstallOutcome::Cancelled;
+        }
+        progress(1, 1);
+        return TtsInstallOutcome::Ready;
+    }
+    let files = match crate::settings::voice::tts_models::download_tts_package(
+        descriptor,
+        &root.join(".downloads"),
+        cancelled,
+        progress,
+    ) {
+        Ok(files) => files,
+        Err(_) if cancelled.load(Ordering::Acquire) => return TtsInstallOutcome::Cancelled,
+        Err(error) => return TtsInstallOutcome::Failed(error),
+    };
+    if cancelled.load(Ordering::Acquire) {
+        cleanup_downloaded_package(&files);
+        return TtsInstallOutcome::Cancelled;
+    }
+    let installation =
+        tts::install_downloaded_package(descriptor, &files.archive, &files.support, root);
+    cleanup_downloaded_package(&files);
+    if cancelled.load(Ordering::Acquire) {
+        let _ = tts::remove_installation(&root.join(descriptor.id().as_str()), descriptor, None);
+        return TtsInstallOutcome::Cancelled;
+    }
+    installation
+        .map(|_| TtsInstallOutcome::Ready)
+        .unwrap_or_else(|error| TtsInstallOutcome::Failed(error.to_string()))
+}
+
+fn cleanup_downloaded_package(files: &crate::settings::voice::tts_models::DownloadedTtsPackage) {
+    let _ = std::fs::remove_file(&files.archive);
+    for file in &files.support {
+        let _ = std::fs::remove_file(file);
+    }
+}

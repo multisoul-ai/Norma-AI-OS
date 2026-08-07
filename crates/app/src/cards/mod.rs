@@ -1,16 +1,23 @@
 //! Card registry: app 层按 NodeType 分发卡片渲染。
 
 pub mod agent;
+pub mod browser;
 pub mod chrome;
+pub(crate) mod intro;
 pub mod preview;
+pub(crate) mod snake;
 pub mod term;
 
+use crate::app::browser::{BrowserAddressInput, BrowserAuthUiState};
 use crate::canvas::text_selection::TextSelection;
-use crate::preview::PreviewLoadState;
+use crate::cards::term::render_cache::TerminalRenderCacheHandle;
+use crate::motion::InitializationPresentation;
+use crate::preview::{ImageViewerPresentation, PreviewLoadState};
 use canvas::{CanvasNode, CanvasRect, NodeType};
 use chrome::CardChrome;
 use gpui::AnyElement;
 use runtime::{NodeResize, Runtime};
+use std::sync::Arc;
 use ui::Theme;
 
 pub trait Card: Sync {
@@ -32,8 +39,24 @@ pub enum CardWheelScrollMode {
 
 pub struct CardBodyContext<'a> {
     pub runtime: &'a Runtime,
+    pub terminal_render_cache: TerminalRenderCacheHandle,
     pub preview_state: Option<&'a PreviewLoadState>,
+    pub preview_image_viewer: Option<ImageViewerPresentation>,
+    pub preview_image_dragging: bool,
     pub text_selection: Option<TextSelection>,
+    pub focused: bool,
+    pub reduce_motion: bool,
+    pub initialization: Option<InitializationPresentation>,
+    pub terminal_cursor_phase: f32,
+    pub browser_address_input: Option<gpui::Entity<BrowserAddressInput>>,
+    pub browser_auth_state: BrowserAuthUiState,
+    pub ego_preview: Option<Arc<gpui::RenderImage>>,
+    #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
+    pub ego_live_preview: Option<core_video::pixel_buffer::CVPixelBuffer>,
+    pub ego_preview_error: Option<String>,
+    /// 卡片内容区是否被 GPUI 浮层（如布局菜单）遮挡。遮挡时浏览器卡片应渲染
+    /// 中性背景，避免显示 "Loading browser..." 占位文字。
+    pub occluded_by_overlay: bool,
     pub theme: Theme,
     pub zoom: f32,
     pub bottom_radius_px: f32,
@@ -44,6 +67,7 @@ pub fn card_for(ty: NodeType) -> &'static dyn Card {
         NodeType::Term => &term::card::CARD,
         NodeType::Agent => &agent::card::CARD,
         NodeType::Preview => &preview::card::CARD,
+        NodeType::Browser => &browser::card::CARD,
         NodeType::Rect => &chrome::EMPTY_CARD,
     };
     debug_assert_eq!(
@@ -63,8 +87,9 @@ mod tests {
     /// 数据构造（含关键数值推导）：
     ///   NodeType::Term  → cards/term/card.rs 的 TermCard
     ///   NodeType::Agent → cards/agent/card.rs 的 AgentCard
-    ///   NodeType::Rect  → chrome.rs 的 EmptyCard
-    ///   三种类型是一一映射，registry 不做运行时动态注册
+    ///   NodeType::Rect    → chrome.rs 的 EmptyCard
+    ///   NodeType::Browser → cards/browser/card.rs 的 BrowserCard
+    ///   五种类型是一一映射，registry 不做运行时动态注册
     ///
     /// 执行过程：
     ///   1. card_for(NodeType::Term)
@@ -81,6 +106,7 @@ mod tests {
         let agent = card_for(NodeType::Agent);
         let rect = card_for(NodeType::Rect);
         let preview = card_for(NodeType::Preview);
+        let browser = card_for(NodeType::Browser);
 
         assert_eq!(
             term.ty(),
@@ -102,6 +128,11 @@ mod tests {
             NodeType::Preview,
             "NodeType::Preview 应 dispatch 到 PreviewCard"
         );
+        assert_eq!(
+            browser.ty(),
+            NodeType::Browser,
+            "NodeType::Browser 应 dispatch 到 BrowserCard"
+        );
         assert_ne!(
             term.ty(),
             NodeType::Agent,
@@ -111,6 +142,11 @@ mod tests {
             preview.wheel_scroll_mode(),
             CardWheelScrollMode::NativeElement,
             "Preview card 应声明 NativeElement 模式，供 GPUI overflow_scroll 接管滚轮"
+        );
+        assert_eq!(
+            browser.wheel_scroll_mode(),
+            CardWheelScrollMode::NativeElement,
+            "Browser card 应声明 NativeElement 模式，供 native WebView 接管滚轮"
         );
         assert_eq!(
             term.wheel_scroll_mode(),
@@ -129,3 +165,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/cards/browser_url_tests.rs"]
+mod browser_url_tests;

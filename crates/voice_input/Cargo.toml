@@ -1,0 +1,29 @@
+[package]
+name = "voice_input"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[features]
+default = []
+test-support = []
+
+[dependencies]
+async-channel.workspace = true
+audio.workspace = true
+crossbeam-channel.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+asr.workspace = true
+tempfile.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6"
+objc2 = "0.6"
+objc2-av-foundation = { version = "0.3.2", features = ["AVCaptureDevice", "AVMediaFormat", "block2"] }
+objc2-avf-audio = { version = "0.3.2", features = ["AVAudioBuffer", "AVAudioConverter", "AVAudioEngine", "AVAudioFormat", "AVAudioIONode", "AVAudioNode", "AVAudioTime", "AVAudioTypes", "block2"] }
+objc2-core-foundation = { version = "0.3.2", features = ["CFDate", "CFRunLoop", "CFString"] }
+objc2-foundation = { version = "0.3.2", features = ["NSError", "NSObject", "NSString"] }
+sherpa-onnx = "1.13"

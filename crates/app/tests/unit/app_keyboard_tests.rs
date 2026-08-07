@@ -145,6 +145,7 @@ fn test_terminal_snapshot_copy_text_trims_padding_and_blank_tail() {
             fg: TerminalColor::Named(TerminalNamedColor::Foreground),
             bg: TerminalColor::Named(TerminalNamedColor::Background),
             attrs: CellAttrs::default(),
+            hyperlink: None,
         }
     }
 
@@ -160,6 +161,10 @@ fn test_terminal_snapshot_copy_text_trims_padding_and_blank_tail() {
         lines: 3,
         display_offset: 0,
         history_size: 0,
+        alt_screen: false,
+        alternate_scroll: true,
+        mouse_mode: false,
+        sgr_mouse: false,
     };
 
     let text = terminal_snapshot_copy_text(&snapshot);
@@ -392,5 +397,70 @@ fn test_should_auto_focus_keyboard_selection_accepts_content_but_not_navigation_
     assert!(
         !should_auto_focus_keyboard_selection(&cmd_c),
         "Cmd+C 应保留给复制动作，不应自动聚焦 terminal"
+    );
+}
+
+/// ✚ 菜单 Esc 拦截判定：菜单展开 + 裸 Esc → true；其余组合 → false。
+///
+/// 数据构造（含关键数值推导）：
+///   open=true, key="escape", mods={}
+///     platform/control/alt/shift/function 全为 false → true
+///   open=true, key="escape", mods={platform:true}
+///     含平台修饰键 → false（Cmd+Esc 不应被菜单吞掉）
+///   open=false, key="escape", mods={}
+///     菜单未开 → false（无需拦截，让常规 Esc 退焦路径继续）
+///   open=true, key="space", mods={}
+///     非Esc按键 → false（space 不该关菜单）
+///   open=true, key="escape", mods={control:true}
+///     含 control 修饰 → false
+///   open=true, key="escape", mods={shift:true}
+///     含 shift 修饰 → false
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. should_close_new_menu_on_escape(open, key, mods) 读 bool 菜单状态、key 与 5 个修饰位
+///   2. 仅当 open=true 且 key="escape" 且所有修饰位 false 时返回 true
+///
+/// 预期结果：
+///   - 正断言：open+裸Esc → true（应优先关菜单）
+///   - 负断言：Cmd+Esc / 菜单关闭 / space / control+Esc / shift+Esc 均 false
+#[test]
+fn test_should_close_new_menu_on_escape_decision_matrix() {
+    let bare = Modifiers::default();
+    let platform = Modifiers {
+        platform: true,
+        ..Default::default()
+    };
+    let control = Modifiers {
+        control: true,
+        ..Default::default()
+    };
+    let shift = Modifiers {
+        shift: true,
+        ..Default::default()
+    };
+
+    assert!(
+        should_close_new_menu_on_escape(true, "escape", &bare),
+        "菜单展开时裸 Esc 应被拦截以关闭菜单"
+    );
+    assert!(
+        !should_close_new_menu_on_escape(true, "escape", &platform),
+        "Cmd+Esc 含平台修饰键不应被菜单逻辑拦截，留给常规快捷键路径"
+    );
+    assert!(
+        !should_close_new_menu_on_escape(false, "escape", &bare),
+        "菜单未展开时 Esc 不应触发菜单关闭逻辑（无操作）"
+    );
+    assert!(
+        !should_close_new_menu_on_escape(true, "space", &bare),
+        "space 不应关闭菜单，应继续走画布空格拖拽路径"
+    );
+    assert!(
+        !should_close_new_menu_on_escape(true, "escape", &control),
+        "control+Esc 含修饰键不应被菜单逻辑拦截"
+    );
+    assert!(
+        !should_close_new_menu_on_escape(true, "escape", &shift),
+        "shift+Esc 含修饰键不应被菜单逻辑拦截"
     );
 }

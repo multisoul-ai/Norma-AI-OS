@@ -1,31 +1,51 @@
-# cargo-packager 配置（未签名 .app/.dmg）。字段以 cargo-packager 文档为准，
+# cargo-packager 配置：Developer ID 签名。公证由 scripts/release-local.sh --notarize 显式开启；
+# 裸 cargo-packager 会读取当前 shell 的 APPLE_* notary 环境变量，日常打包请优先用 release-local.sh。
 # 若 schema 不符按 https://docs.crabnebula.dev/packager/ 校准。
 name = "app"
-product-name = "Multisoul"
-version = "0.1.0"
-identifier = "com.multisoul.desktop"
+product-name = "Norma OS"
+version = "0.1.71"
+identifier = "com.norma.os"
 authors = ["multisoul"]
 formats = ["app", "dmg"]
+resources = [
+  "crates/app/assets/wallpapers",
+  "crates/app/assets/feature-guide",
+  "crates/app/assets/browser-auth-extension",
+  "sidecars/openai-card-planner/openai-card-planner.mjs",
+]
 icons = ["assets/AppIcon.icns"]
 out-dir = "build"
 binaries-dir = "."
+before-packaging-command = "scripts/release-version.sh >/dev/null && scripts/prepare-sparkle.sh && scripts/prepare-release-info-plist.sh && cargo build --release -p app --features production-data && cargo build --release -p norma --bins"
 
 [dmg]
 background = "assets/dmg-background.png"
 window-size = { width = 640, height = 400 }
-app-position = { x = 180, y = 200 }
-application-folder-position = { x = 460, y = 200 }
+# Finder renders 16pt item labels below these anchors. y=175 keeps both labels
+# inside their wells without touching the bottom border; y=200 overlaps it.
+app-position = { x = 180, y = 175 }
+application-folder-position = { x = 460, y = 175 }
 
 # 指向 release 二进制
 [[binaries]]
-path = "target/release/multisoul"
+path = "target/release/norma-os"
 main = true
 
 [[binaries]]
 path = "target/release/multisoul-agent-hook"
 main = false
 
+[[binaries]]
+path = "target/release/norma"
+main = false
+
+[[binaries]]
+path = "target/release/norma-browser-auth-host"
+main = false
+
 [macos]
+frameworks = ["build/sparkle/Sparkle.framework"]
 minimum-system-version = "12.0"
-info-plist-path = "packaging/macos/Info.plist"
-# 本切片不签名/不公证（Phase 6）。
+info-plist-path = "build/packaging/Info.plist"
+entitlements = "packaging/macos/NormaOS.entitlements"
+signing-identity = "Developer ID Application: Shanghai Jieyu Future Intelligent Network Technology Co., Ltd (2BF8G9AN4L)"

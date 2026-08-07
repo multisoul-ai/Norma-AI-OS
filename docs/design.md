@@ -1,786 +1,533 @@
-# Multisoul Design System
+# Norma OS Product Design System
 
-> 状态: Draft
-> 日期: 2026-06-21
-> 适用范围: `apple/Sources/MultisoulApp`
-> Review 页面: [`design.html`](design.html)
+> 状态：V2 / Current Direction
 >
-> 本规范基于当前 Multisoul 品牌视觉、`/Users/alan/Documents/mybook/multica/docs/design.md` 的产品 UI 纪律，以及现有 SwiftUI 代码中的 `WorkspaceGlassStyle.swift`、`LiquidGlassWorkspaceView.swift`、`CanvasNodeChrome.swift`。
+> 更新：2026-07-15
+>
+> 适用：`crates/ui`、`crates/app` 以及所有用户可见的 Norma OS 界面
+>
+> 视觉评审页：[design.html](design.html)
+>
+> 品牌规范：[brand/norma-os-brand-guidelines.md](brand/norma-os-brand-guidelines.md)
 
 ---
 
-## 1. 设计定位
+## 0. 设计结论
 
-Multisoul 是面向开发人员的 vibe coding 开发平台。它不是传统 IDE，也不是聊天窗口，而是一个让用户与多个智能 Agent 在同一空间里协作的空间工作台。
+Norma OS 是一张会工作的桌面。
 
-品牌体验要传达:
+它不是传统 IDE、聊天窗口或数据仪表盘。它把 Terminal、AI Agent、Browser 和 File Preview 作为持续运行的对象放到同一张无限画布中，让用户始终知道：项目在哪里、什么正在运行、哪里需要自己介入。
 
-- 人与多个智能体在同一空间中协作。
-- Agent 能在无限画布中生成内容、程序、文件、界面、图表和交付成果。
-- 工作过程与结果直接呈现在用户面前。
-- 视觉气质在玩具般的活力与高端创意科技品牌的精致感之间保持平衡。
+V2 采用受 Apple 产品哲学启发的方法，但不复制具体 Apple 产品或页面：
 
-SwiftUI 界面需要同时满足两种要求:
+- 产品先于装饰。
+- 复杂能力以直接、安静的方式呈现。
+- 通过比例、留白、材质和精度建立高级感。
+- 高饱和色只承担身份、状态和动作语义。
+- Norma 提供人情味与观点，不抢走工作内容。
 
-| 层面 | 目标 | 设计表现 |
+一句话验收标准：
+
+> 用户先看懂项目，再感受到品牌。
+
+---
+
+## 1. 体验原则
+
+### 1.1 Product is the hero
+
+视觉首先解释产品如何工作。任何图形、光效、角色或动效都必须服务于以下至少一项：
+
+1. 内容可读。
+2. 状态可辨。
+3. 空间关系可理解。
+4. 操作结果可预测。
+
+无法满足其中任意一项的元素应被删除。
+
+### 1.2 Calm by default
+
+默认状态安静、稳定、低对比。只有用户操作、运行状态或需要注意的事件出现时，界面才提高视觉能量。
+
+- 画布使用暖白或轻冷白雾面背景。
+- 卡片使用近白玻璃或高不透明深色内容层。
+- 阴影柔和、范围宽、边缘低对比。
+- 不使用持续发光、持续漂浮或无状态含义的动画。
+
+### 1.3 Depth through material
+
+层级主要依靠材质与空间，而不是更多边框：
+
+- Canvas：陶瓷白 / 雾面空间。
+- Card shell：磨砂玻璃 / 半透明聚合物。
+- Content well：高不透明、保证阅读。
+- Toolbar：悬浮玻璃胶囊。
+- Selected / Focused：精确的蓝色描边，不使用大面积色块。
+
+### 1.4 Color is information
+
+品牌色不平均分配。大部分界面由暖白、银、石墨和内容本身构成；彩色只用于状态、连接和关键动作。
+
+### 1.5 Human, not cute
+
+Norma 是有观点的 AI 伙伴。她可以冷静、聪明、略带傲娇，但不能被幼化，也不能作为与任务无关的装饰贴纸。
+
+### 1.6 Precision is a feature
+
+统一的圆角、间距、基线、阴影、描边与缓动是产品可信度的一部分。视觉值必须来自共享 token，不允许业务组件随手创造近似值。
+
+---
+
+## 2. 产品视觉模型
+
+### 2.1 三层空间
+
+| 层 | 对象 | 视觉职责 |
 | --- | --- | --- |
-| 工作工具 | 高信息密度、可读、可靠 | 深色中性层级、稳定状态、克制动效 |
-| 品牌世界 | 年轻、鲜明、未来、触感 | 轨道、节点、霓虹信号、玻璃材质 |
+| Space | 无限画布、背景、关系 | 提供方向、尺度和呼吸感 |
+| Objects | Terminal、Agent、Browser、Preview 卡片 | 承载真实、持续运行的内容 |
+| Signals | 选择、焦点、运行、等待、完成、错误 | 解释当前状态与下一步动作 |
 
-判断标准:
+三个层级不得混用。背景不能模拟状态，状态光不能成为内容底色，卡片内容不能承担画布导航。
 
-- 用户正在读代码、终端、diff、日志时，视觉必须退后。
-- 用户正在理解 Agent 状态、空间关系、任务节奏时，品牌语言可以前进。
-- 颜色不是装饰，颜色是 Agent 角色、状态、焦点和协作节奏的信号。
+### 2.2 四类核心卡片
 
----
-
-## 2. 核心原则
-
-### 2.1 克制承载高级感
-
-继承 Multica 的第一原则: 默认做减法。每一个描边、发光、渐变、图标、动效都必须有存在理由。
-
-视觉优先级:
-
-1. 内容可读性。
-2. 操作状态可辨识。
-3. 空间层级清楚。
-4. 品牌氛围。
-
-如果一个视觉元素没有帮助用户理解内容、状态、空间或操作，它就是噪音。
-
-### 2.2 层次靠灰度，颜色是信号
-
-工作区 80%-90% 的面积由深色玻璃、中性背景和内容本身构成。高饱和色只用于小面积信号:
-
-- 当前选择。
-- 输入焦点。
-- Agent 状态。
-- 任务轨道。
-- 成功、警告、错误。
-
-同一屏可以出现多种品牌色，但必须有语义分工，不能成为彩色装饰墙。
-
-### 2.3 一致性通过 token 实现
-
-禁止在业务组件中随手写 `Color(red:)`、随机 opacity、随机 radius、随机 animation。
-
-所有常用视觉值应来自共享入口:
-
-- `WorkspaceGlassPalette`
-- `WorkspaceMotion`
-- `CanvasNodeMetrics`
-- `liquidGlassSurface(...)`
-- `GlassIconButton`
-- 后续建议新增 `WorkspaceTypography`、`WorkspaceSpacing`、`WorkspaceRadius`
-
-### 2.4 过程可见，状态可信
-
-Multisoul 的核心是多个 Agent 正在同一空间里一起工作。UI 必须让用户清楚看到:
-
-- 哪个 Agent 正在运行。
-- 哪个节点被选中。
-- 哪个节点拥有输入焦点。
-- 哪些结果已经完成。
-- 哪些内容需要用户介入。
-
-状态层级不能被 hover、动画或装饰覆盖。
-
----
-
-## 3. 视觉母题
-
-### 3.1 Orbit / Node / Canvas
-
-| 母题 | 含义 | SwiftUI 使用方式 |
-| --- | --- | --- |
-| Orbit | 多任务节奏、上下文轨道、Agent 编排 | 背景装饰、关系线、选中态边缘流光 |
-| Node | Agent 个体、Live Node、产物容器 | 状态点、节点 chrome、工具按钮、badge |
-| Canvas | 无限空间、实时工作台 | 深色网格、空间背景、节点布局 |
-
-规则:
-
-- Orbit 主要用于背景、空状态、关系可视化和品牌页面，不进入每个普通按钮。
-- Node 可以作为小面积状态点，尺寸必须稳定，不能撑开布局。
-- Canvas 网格保持低对比，不与内容竞争。
-
-### 3.2 品牌气质
-
-关键词:
-
-- dark glass
-- neon signal
-- tactile toy energy
-- premium creative technology
-- spatial productivity
-
-Multisoul 可以有趣，但不能幼稚；可以鲜明，但不能嘈杂。
-
----
-
-## 4. 色彩系统
-
-### 4.1 当前代码基线
-
-现有 `WorkspaceGlassPalette`:
-
-```swift
-WorkspaceGlassPalette.cardBase
-WorkspaceGlassPalette.cardHighlight
-WorkspaceGlassPalette.cardShade
-WorkspaceGlassPalette.menuTint
-WorkspaceGlassPalette.selectedAccent
-WorkspaceGlassPalette.warmRim
-```
-
-这些值是当前 SwiftUI 视觉基线。新增组件必须优先复用，不能创建近似但不同的颜色。
-
-### 4.2 推荐补齐的语义色
-
-```swift
-enum WorkspaceBrandColor {
-    static let graphite = Color(red: 0.020, green: 0.035, blue: 0.045)
-    static let panel = Color(red: 0.055, green: 0.105, blue: 0.085)
-    static let textPrimary = Color.white.opacity(0.96)
-    static let textSecondary = Color.white.opacity(0.68)
-    static let textTertiary = Color.white.opacity(0.48)
-
-    static let orbitCyan = Color(red: 0.153, green: 0.843, blue: 0.918)
-    static let agentGreen = Color(red: 0.376, green: 0.941, blue: 0.471)
-    static let pulseOrange = Color(red: 1.000, green: 0.475, blue: 0.196)
-    static let soulViolet = Color(red: 0.608, green: 0.333, blue: 1.000)
-    static let syncBlue = Color(red: 0.294, green: 0.439, blue: 1.000)
-    static let warmSignal = Color(red: 0.950, green: 0.760, blue: 0.420)
-    static let destructive = Color(red: 1.000, green: 0.235, blue: 0.300)
-}
-```
-
-### 4.3 语义分工
-
-| Token | 视觉 | 含义 | 使用场景 |
+| 类型 | 主要内容 | 默认表面 | 强调色 |
 | --- | --- | --- | --- |
-| `pulseOrange` / `selectedAccent` | 橙色 | 当前、选中、主操作 | 选中工具、当前 Agent、主要 CTA |
-| `orbitCyan` | 青色 | 连接、实时、信息 | 运行轨道、同步、信息状态 |
-| `agentGreen` | 绿色 | 成功、健康、完成 | done、ok、可用状态 |
-| `soulViolet` | 紫色 | 生成、创造、AI 能量 | 生成中、创意 Agent、实验能力 |
-| `syncBlue` | 蓝色 | 外部资源、Web、同步 | Web node、远程状态、链接 |
-| `warmSignal` | 暖黄 | 提醒、rim light | subtle warning、玻璃边缘高光 |
-| `destructive` | 红色 | 错误、危险 | 删除、失败、不可恢复操作 |
+| Terminal | Shell 进程、命令、日志 | 深石墨内容层 | Cobalt / Cyan |
+| Agent | 对话、推理、工具调用、任务队列 | 浅色或深色内容层 | Violet |
+| Browser | 真实网页 | 浅色浏览器表面 | Cobalt |
+| Preview | Markdown、文本、图片 | 纸张白 / 图像画布 | Mint |
 
-规则:
-
-- 大面积背景不使用高饱和品牌色。
-- 错误和危险必须使用 `destructive`，不要用橙色替代。
-- 每个节点最多有一个主 accent。
-- 文本颜色最多 3 层: primary / secondary / semantic。
-
-### 4.4 背景与网格
-
-工作区背景默认深色:
-
-- App 根背景使用接近黑的深灰，不使用纯黑作为唯一层级。
-- 画布背景可以使用深色图像、空间渐变或低对比几何网格。
-- 网格线建议使用白色 4%-8% opacity 或青色 4%-6% opacity。
-- 背景图像必须通过暗色遮罩保证 terminal、diff、code 可读。
-
-禁止:
-
-- 大面积彩虹渐变。
-- 装饰性霓虹色块压过工作内容。
-- 在终端、代码、diff 内容区铺高饱和背景。
+卡片是可运行对象，不是静态截图。标题栏至少要表达类型、身份和当前状态，但不得挤压主要内容。
 
 ---
 
-## 5. 字体与排版
+## 3. 颜色系统
 
-### 5.1 字体家族
+### 3.1 品牌目标色
 
-| 角色 | SwiftUI 字体 | 用途 |
+| Token | Hex | 语义 |
 | --- | --- | --- |
-| UI 默认 | `.system(..., design: .default)` | 工具栏、菜单、标题、表单 |
-| 代码/终端 | `.system(..., design: .monospaced)` | Terminal、命令、路径、ID、日志 |
-| 品牌展示 | `.system(..., weight: .heavy)` | 欢迎页、空状态、品牌展示 |
-
-现有 helper:
-
-```swift
-workspaceMonospace(_ size: CGFloat, weight: Font.Weight = .regular)
-```
-
-等宽信息应继续使用这个 helper，不要在各组件里重复创建 monospaced 字体。
-
-### 5.2 App 内字号
-
-| Token | Size | Weight | 用途 |
-| --- | ---: | --- | --- |
-| `micro` | 10 | `.semibold` | segmented item、极小状态 |
-| `caption` | 11 | `.medium` | metadata、状态说明 |
-| `chrome` | 12 | `.medium` / `.semibold` | 顶栏、按钮、标题栏 |
-| `body` | 13 | `.regular` | 列表、短说明 |
-| `bodyStrong` | 13 | `.medium` | 选中项、菜单项 |
-| `title` | 16 | `.semibold` | node 标题、面板标题 |
-| `display` | 28+ | `.heavy` | 仅品牌、欢迎、空状态 |
-
-规则:
-
-- 工作区常规 UI 不使用大标题。
-- `display` 只允许出现在不承载密集工作内容的页面。
-- 同一组件内最多 2 个字号。
-- 正文默认不用 `.bold`；需要强调时优先用颜色、位置或 `.medium`。
-
-### 5.3 文本可读性
-
-- 按钮、segment、toolbar 文案必须 `lineLimit(1)`。
-- 紧凑控件必须设置 `minimumScaleFactor(0.78...0.85)`。
-- 不允许文字撑大固定格式控件。
-- 中文界面不得依赖英文单词宽度调参。
-
----
-
-## 6. 间距、尺寸与圆角
-
-### 6.1 4px 网格
-
-所有尺寸基于 4px 网格，允许 6px 作为紧凑内部间距。
-
-| 值 | 含义 | 使用 |
-| ---: | --- | --- |
-| 4 | 紧密关联 | 图标与短文字、小状态点 |
-| 6 | 紧凑内部 | small button padding、segment 内距 |
-| 8 | 标准内部 | icon button radius、菜单项 |
-| 10 | 同组间距 | 顶栏 HStack spacing |
-| 12 | 组件内 padding | panel 内部 |
-| 16 | 小节间距 | node 内容留白 |
-| 24 | 玻璃组间距 | `GlassEffectContainer(spacing:)` |
-| 32 | 大区域留白 | overlay 与窗口边缘 |
-
-### 6.2 圆角
-
-| Token | 值 | 用途 |
-| --- | ---: | --- |
-| `radiusTiny` | 6 | segment、badge |
-| `radiusControl` | 8 | icon button、dropdown item |
-| `radiusPanel` | 12 | 小浮层、提示面板 |
-| `radiusNode` | 16 | Live Node、terminal/web/text node |
-| `radiusToolbar` | 23 | 顶部 floating toolbar |
-| `radiusPill` | 999 | 状态胶囊、头像、圆形节点 |
-
-当前代码基线:
-
-```swift
-CanvasNodeMetrics.titleBarHeight = 26
-CanvasNodeMetrics.cornerRadius = 16
-GlassIconButton default size = 30
-WorkspaceTopBar cornerRadius = 23
-```
-
-新增组件不要创建近似但不同的值。
-
-### 6.3 容器分隔策略
-
-从轻到重:
-
-1. 间距。
-2. 透明度变化。
-3. 单像素玻璃描边。
-4. 背景 material / glass surface。
-5. 阴影。
-
-如果一个区域需要靠多层描边、多层阴影和背景色才能分开，说明布局层级需要重新设计。
-
----
-
-## 7. Liquid Glass 规范
-
-### 7.1 使用入口
-
-所有自定义玻璃面优先使用:
-
-```swift
-.liquidGlassSurface(
-    cornerRadius: ...,
-    tint: ...,
-    isInteractive: ...,
-    shadowRadius: ...
-)
-```
-
-不要在业务组件中复制 `.background(.ultraThinMaterial)`、gradient overlay、stroke 和 shadow 组合。
-
-### 7.2 macOS 26+ 与 fallback
-
-`liquidGlassSurface` 已提供:
-
-- macOS 26+: `.glassEffect(.regular.tint(...).interactive(...), in: shape)`
-- macOS 13-25: `.ultraThinMaterial` + tint overlay + stroke + shadow fallback
-
-规则:
-
-- 新增 Liquid Glass API 必须有 availability gate。
-- fallback 必须保持内容可读。
-- `Reduce Transparency` 打开时，文字对比仍必须足够。
-
-### 7.3 GlassEffectContainer
-
-多个浮动玻璃元素同屏出现时:
-
-```swift
-if #available(macOS 26.0, *) {
-    GlassEffectContainer(spacing: 24) {
-        overlayContent
-    }
-} else {
-    overlayContent
-}
-```
-
-规则:
-
-- 不嵌套 `GlassEffectContainer`。
-- `spacing` 与视觉间距匹配，默认 24。
-- 只有会共同运动或相邻融合的玻璃控件放在同一个 container。
-
-### 7.4 交互玻璃
-
-`.interactive(true)` 只用于真正可点击、可聚焦、可拖拽的元素:
-
-- 顶栏。
-- 工具按钮。
-- 可选中的 node chrome。
-- segmented control。
-
-装饰性背景、静态卡片、纯展示 logo 不使用 interactive。
-
----
-
-## 8. 组件规范
-
-### 8.1 Workspace Root
-
-结构:
-
-```text
-WorkspaceBackdropView
-InfiniteCanvasView(opacity: 0.94, background: clear)
-WorkspaceOverlay / GlassEffectContainer
-```
-
-规则:
-
-- 背景负责品牌氛围。
-- Canvas 负责工作内容。
-- Overlay 负责工具 chrome。
-- Overlay z-index 高于 node，但不能吞掉画布必要事件。
-
-### 8.2 Top Bar
-
-当前基线:
-
-- 高度约 44-46。
-- `cornerRadius: 23`。
-- `HStack(spacing: 10)`。
-- 横向 padding 14。
-- title size 12。
-- icon button size 24-30。
-
-规则:
-
-- Top bar 是工作区唯一最高层级 toolbar。
-- 文案短，不写说明句。
-- 工具按钮必须有 `.help(...)` 和 `accessibilityLabel(...)`。
-- 布局模式使用 segmented control，不使用一排普通按钮。
-
-### 8.3 GlassIconButton
-
-使用现有 `GlassIconButton`，不要新建风格相近的按钮。
-
-| 状态 | 视觉 |
-| --- | --- |
-| rest | 近透明 fill，白色 icon 0.86 |
-| hover | tint fill 0.18，stroke 0.36，轻微 scale |
-| selected | tint fill 0.32，stroke 0.54，icon 1.0 |
-| pressed | fill/stroke 增强，scale 0.92，offsetY 1 |
-
-规则:
-
-- Icon-only button 必须有 tooltip/help。
-- `isSelected` 不得被 hover 降级。
-- tint 默认白色，状态类按钮用语义色。
-- 按钮尺寸不要低于 24。
-
-### 8.4 Live Node
-
-Live Node 是 Multisoul 的核心组件，优先级高于所有装饰。
-
-基线:
-
-- corner radius 16。
-- title bar height 26。
-- 内容区保持高对比。
-- selected/focused 通过 title tint、stroke、shadow 和 scale 表达。
-
-| 状态 | 视觉 |
-| --- | --- |
-| rest | 弱 title、无显著 stroke、shadow 18 |
-| hover | surface overlay 0.08、stroke 0.38、scale 1.008 |
-| selected | surface overlay 0.13、stroke 0.72、shadow 24 |
-| focused | surface overlay 0.16、stroke 0.86、shadow 28 |
-| pressed | stroke 至少 1.25、offsetY 1、scale 0.985 |
-
-规则:
-
-- focused 永远强于 selected，selected 永远强于 hover。
-- hover 已选中节点时，不能让 selected/focused 样式变淡。
-- 终端和 diff 内容区不使用高饱和背景。
-- 节点标题栏可用 accent，内容区保持克制。
-
-### 8.5 Agent 状态点
-
-Agent 状态点采用 Node 母题。
-
-| 状态 | 颜色 | 文案 |
+| `warm_white` | `#F7F5F2` | 主背景、包装、明亮空间 |
+| `canvas_mist` | `#E8EEF8` | 画布远端、雾面层次 |
+| `graphite` | `#111214` | 深色界面、正文、精密材质 |
+| `silver` | `#D9DADD` | 分隔、金属、辅助层 |
+| `violet` | `#6A5CFF` | Agent、Tool Call、创造性操作 |
+| `cobalt` | `#2F80ED` | Thinking、链接、导航、选择 |
+| `acid` | `#D6FF3B` | Waiting、Active、需要继续的动作 |
+| `coral` | `#FF6B7A` | Error、危险、需要关注 |
+| `mint` | `#64E0B5` | Complete、成功、可用 |
+
+推荐面积比例：
+
+- 70%：暖白或石墨基础面。
+- 20%：银色、灰阶、半透明材料。
+- ≤10%：高饱和状态色。
+
+### 3.2 当前 GPUI token 基线
+
+当前实现位于 `crates/ui/src/theme.rs`。文档不得假装代码已经完成尚未实施的迁移。
+
+| 当前 token | 当前值 | V2 使用方式 |
 | --- | --- | --- |
-| idle | `textTertiary` | Idle |
-| running | `orbitCyan` | Running |
-| generating | `soulViolet` | Generating |
-| done | `agentGreen` | Done |
-| blocked | `warmSignal` | Needs input |
-| failed | `destructive` | Failed |
+| `canvas_from` | `#F8FBFF` | 浅色画布起点 |
+| `canvas_to` | `#E8EEF8` + alpha | 浅色画布远端 |
+| `node_fill` | 白色高透明度 | 卡片玻璃外壳 |
+| `selected_stroke` | `#0A84FF` | 选择态外描边 |
+| `focused_stroke` | `#006FE6` | 键盘/输入焦点内描边 |
+| `accent_blue` | `#4B70FF` | Thinking / 信息 |
+| `accent_violet` | `#9B55FF` | Tool Call / Agent |
+| `accent_warm` | `#F2C26B` | Waiting 过渡色 |
+| `accent_green` | `#60F078` | Complete 过渡色 |
+| `destructive` | `#FF3C4D` | Error / 危险 |
+| `accent_cyan` | `#27D7EA` | Live / 连接 |
 
-规则:
+后续代码迁移时，建议在不破坏现有调用方的前提下补充语义 token：
 
-- 小圆点尺寸 6-8。
-- 文字 size 11-12。
-- 状态点不能只靠颜色，需要 tooltip 或文字。
+```rust
+thinking
+tool_call
+waiting
+complete
+error
+live_connection
+```
 
-### 8.6 Terminal / Code / Diff
+语义 token 再映射到品牌色，业务组件不直接选择色相。
 
-终端是工作内容，不是品牌展示区。
+### 3.3 文本颜色
 
-规则:
+浅色界面：
 
-- 背景深灰，避免纯黑。
-- 字体使用 monospaced。
-- Prompt / command 可用 warm 或 cyan 小面积强调。
-- success/error 使用语义色。
-- Diff 删除红、增加绿，透明背景不超过 20%。
-- 不给终端正文加玻璃模糊层。
+- Primary：`#111214` / 92%–100%。
+- Secondary：`#111214` / 60%–68%。
+- Tertiary：`#111214` / 38%–46%。
 
-### 8.7 Empty State / Onboarding
+深色界面：
 
-空状态可以使用更强品牌表达:
+- Primary：白色 / 92%–96%。
+- Secondary：白色 / 62%–70%。
+- Tertiary：白色 / 38%–48%。
 
-- 大号 Multisoul 标题。
-- Orbit / Node 插图。
-- 1 个 primary action。
-- 2-3 个 secondary action。
-
-仍需遵守:
-
-- 不写长篇说明。
-- 不使用多张卡片堆叠。
-- 不把空状态做成营销落地页。
+正文不得使用低于 WCAG AA 的对比度。占位文字不是禁用文字；两者必须可区分。
 
 ---
 
-## 9. 交互状态与动效
+## 4. 字体系统
 
-### 9.1 状态层级
+### 4.1 字体栈
+
+macOS 原生界面使用系统字体，确保与平台排版和字形渲染一致：
+
+- UI / 品牌标题：SF Pro Display / 系统默认无衬线。
+- 正文：SF Pro Text / 系统默认无衬线。
+- 终端、路径、ID、时间：SF Mono / 等宽回退。
+- 中文：PingFang SC。
+
+### 4.2 字级
+
+| Token | Size | Weight | Line Height | 用途 |
+| --- | ---: | --- | ---: | --- |
+| `display` | 56 | 700 | 1.02 | Launchpad、品牌页大标题 |
+| `hero` | 40 | 700 | 1.08 | 设置页或空状态主标题 |
+| `title_1` | 28 | 650 | 1.15 | 页面标题 |
+| `title_2` | 20 | 600 | 1.25 | 面板标题 |
+| `headline` | 15 | 600 | 1.33 | 卡片标题、强调文本 |
+| `body` | 14 | 400 | 1.48 | 说明、列表、表单 |
+| `callout` | 13 | 500 | 1.42 | 控件、次级信息 |
+| `caption` | 11 | 500 | 1.36 | 状态、metadata |
+| `micro` | 10 | 600 | 1.30 | 极小标签，不承载关键内容 |
+
+规则：
+
+- 大标题依赖尺度与留白，不使用描边、渐变字或外发光。
+- 卡片标题保持单行，必要时省略中间路径而不是压缩字号。
+- 代码内容不继承品牌展示字重。
+- 同一层级只使用一个字号与一个主要字重。
+
+---
+
+## 5. 间距、圆角与尺寸
+
+### 5.1 4pt 基线
 
 ```text
-rest -> hover -> pressed -> selected -> focused -> disabled
+4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96
 ```
 
-含义:
+常用语义：
 
-- hover: 我注意到你了。
-- pressed: 我正在操作你。
-- selected: 你属于当前选择。
-- focused: 输入、键盘或运行上下文属于你。
-
-### 9.2 Hover
-
-Hover 轻微、即时:
-
-- 增加 fill opacity。
-- 增加 stroke opacity。
-- 允许极轻 scale，但只限 icon button 和 node chrome。
-- 普通列表、菜单、表单 hover 不使用 scale。
-
-时长:
-
-- hover in: 0.12s。
-- hover out: 0.18s。
-
-### 9.3 Pressed
-
-Pressed 表达触感:
-
-- icon button: scale 0.92，offsetY 1。
-- node chrome: scale 0.985，offsetY 1。
-- 普通按钮: 不超过 1px 下移。
-
-时长 0.10s，使用 `WorkspaceMotion.pressAnimation(...)`。
-
-### 9.4 Selected / Focused 不被 Hover 覆盖
-
-实现规则:
-
-- 状态 resolver 先判断 focused，再 selected，再 hover。
-- hover 只能在 selected/focused 基础上微增强，不能降级。
-- 复杂状态使用 `resolve(...)` 函数集中计算，不在 View 链中散写条件。
-
-检查方法:
-
-1. 选中一个节点。
-2. hover 到该节点。
-3. 移开鼠标。
-4. selected/focused 应始终可辨识，不能闪回普通 hover。
-
-### 9.5 Motion Policy
-
-新增动效必须走:
-
-```swift
-WorkspaceMotion.pressAnimation(...)
-WorkspaceMotion.hoverAnimation(...)
-WorkspaceMotion.chromeAnimation(...)
-WorkspaceMotion.stackIndicatorAnimation(...)
-WorkspaceMotion.lifecycleAnimation(...)
-WorkspaceMotion.layoutAnimation(...)
-```
-
-不要在组件中随手写 `.spring(...)` 或 `.easeOut(...)`。
-
-| Scope | 当前值 | 用途 |
+| Token | Value | 用途 |
 | --- | ---: | --- |
-| press | 0.10 | 触感反馈 |
-| hover in | 0.12 | hover 进入 |
-| hover out | 0.18 | hover 离开 |
-| chrome | response 0.24 | 工具 chrome 状态 |
-| stack indicator | response 0.26 | stack tab |
-| lifecycle | response 0.34 | 节点出现/消失 |
-| layout | response 0.42 | 布局变化 |
-| reduced fade | 0.16 | Reduce Motion fallback |
+| `space_1` | 4 | 图标与微标签 |
+| `space_2` | 8 | 紧凑控件内部 |
+| `space_3` | 12 | 控件 padding、标题栏 |
+| `space_4` | 16 | 卡片内部基本间距 |
+| `space_6` | 24 | 面板内容组 |
+| `space_8` | 32 | 大组件间距 |
+| `space_12` | 48 | 页面区段 |
+| `space_16` | 64 | 展示页留白 |
 
-### 9.6 Reduce Motion
+### 5.2 圆角
 
-`accessibilityReduceMotion` 为 true 时:
+| 对象 | Radius |
+| --- | ---: |
+| 小图标底座、badge | 8 |
+| 输入框、普通按钮 | 10 |
+| 菜单、popover、设置分组 | 14 |
+| Canvas 卡片 | 18 |
+| 大型浮层 | 22 |
+| 悬浮工具栏 | 高度的一半 |
 
-- 关闭空间位移。
-- 节点 transition 改为 opacity。
-- layout animation 返回 nil 或 fade。
-- 不使用 matched geometry 造成大幅空间飞行。
+嵌套圆角遵循同心原则：内层圆角 = 外层圆角 − 内边距。不要在 18px 卡片内放置 18px 的贴边内容层。
 
----
+### 5.3 最小交互尺寸
 
-## 10. 图标
-
-SwiftUI 统一使用 SF Symbols。
-
-规则:
-
-- 工具按钮优先用系统 symbol，不手写 SVG。
-- 图标默认继承当前状态色。
-- 装饰性 icon 不超过 32。
-- 标准工具按钮 icon 约为 button size 的 42%，沿用 `GlassIconButtonStyle`。
-- 不熟悉的 icon 必须有 `.help(...)`。
-
-常用映射:
-
-| 功能 | SF Symbol |
-| --- | --- |
-| Select | `cursorarrow` |
-| Pan | `hand.draw` 或 `hand.point.up.left` |
-| Layout | `square.grid.2x2` |
-| Float | `pin.fill` / `pin.slash.fill` |
-| Settings | `gearshape` |
-| Agent | `sparkles` 或 `brain.head.profile` |
-| Review | `checkmark.seal` |
-| Web | `globe` |
-| Terminal | `terminal` |
+- 图标按钮视觉尺寸可为 28–32px，命中区域不得小于 36×36px。
+- 主要工具栏控件高度 40–44px。
+- 文本输入高度至少 36px。
+- 拖拽手柄必须有明确光标或视觉暗示，不依赖 1px 细线命中。
 
 ---
 
-## 11. SwiftUI 实现约束
+## 6. 材质与阴影
 
-### 11.1 不复制视觉链
+### 6.1 Canvas
 
-禁止在业务组件中反复出现:
+浅色主题是默认品牌展示方向：
 
-```swift
-.background(.ultraThinMaterial)
-.overlay(...)
-.shadow(...)
-```
+- 起点接近 `#F8FBFF`。
+- 远端过渡到轻冷的 `#E8EEF8`。
+- 可加入极轻的径向光，但不得形成可见彩色渐变斑块。
+- 网格只在缩放或导航需要时出现，透明度建议 3%–6%。
 
-应改为:
+### 6.2 Card shell
 
-```swift
-.liquidGlassSurface(
-    cornerRadius: WorkspaceRadius.panel,
-    tint: WorkspaceGlassPalette.menuTint.color,
-    isInteractive: true
-)
-```
+- 浅色：白色 88%–94% + 顶部白色高光。
+- 深色：石墨 78%–88% + 低对比白色描边。
+- 1px 光学边框，不使用 2px 常驻描边。
+- 卡片必须有真实接触阴影，但不能像漂浮贴纸。
 
-### 11.2 状态集中计算
-
-复杂组件使用 equatable chrome model:
-
-```swift
-struct ComponentChrome: Equatable {
-    static func resolve(
-        isSelected: Bool,
-        isFocused: Bool,
-        isHovered: Bool,
-        isPressed: Bool
-    ) -> ComponentChrome {
-        ...
-    }
-}
-```
-
-这样可以保证 hover、selected、focused 的优先级稳定。
-
-### 11.3 Layout 先于 Glass
-
-`glassEffect` 或 `liquidGlassSurface` 必须在 frame/padding/layout 之后应用。
-
-正确:
-
-```swift
-Text("Status")
-    .padding(.horizontal, 12)
-    .frame(height: 28)
-    .liquidGlassSurface(cornerRadius: 14, tint: tint, isInteractive: true)
-```
-
-错误:
-
-```swift
-Text("Status")
-    .liquidGlassSurface(cornerRadius: 14)
-    .padding(.horizontal, 12)
-```
-
-### 11.4 文件组织
-
-推荐:
+当前 `Theme` 阴影基线：
 
 ```text
-Workspace/
-  WorkspaceGlassStyle.swift
-  WorkspaceTypography.swift
-  WorkspaceMetrics.swift
-  WorkspaceMotion.swift
-Canvas/
-  CanvasNodeChrome.swift
+y: 18
+blur: 44
+spread: -18
 ```
 
-保持单个手写 Swift 文件不超过 500 行。
+拖拽时可略微抬升；按下时应缩短阴影并降低位移，形成触感。
+
+### 6.3 Content well
+
+Terminal 与高密度文本区域应比玻璃外壳更不透明。内容可读性优先于材质展示。
+
+- Terminal：深石墨、高不透明度。
+- Markdown：纸张白或深灰阅读面。
+- Browser：尊重网页自身背景。
+- Agent 日志：按事件分组，不在整张卡片铺高饱和底色。
 
 ---
 
-## 12. 可访问性
+## 7. 卡片解剖
 
-必须验证:
+### 7.1 必备区域
 
-- Reduce Transparency: 玻璃降级后文字仍可读。
-- Reduce Motion: 大幅空间动画关闭。
-- Keyboard Focus: 可交互元素有明确 focus 状态。
-- VoiceOver: icon-only button 有 `accessibilityLabel`。
-- Contrast: 终端、diff、代码文本优先保证对比度。
-
-原则:
-
-- 状态不能只靠颜色表达，需要文字、图标、tooltip 或位置共同表达。
-- 低透明模式下不能出现白字叠亮背景导致不可读。
-- motion 是辅助理解，不是唯一的信息载体。
-
----
-
-## 13. 反模式清单
-
-禁止:
-
-- 在组件中硬编码品牌色。
-- 玻璃效果套玻璃效果。
-- 对非交互装饰使用 `.interactive(true)`。
-- 大面积高饱和背景。
-- 让 hover 覆盖 selected/focused。
-- 在 terminal/code 内容区使用装饰性渐变。
-- 字体尺寸随窗口宽度缩放。
-- 固定格式控件被文字撑开。
-- 无 tooltip 的 icon-only button。
-- 忽略 Reduce Motion / Reduce Transparency。
-- 新建与 `GlassIconButton` 外观相近但行为不同的按钮。
-
----
-
-## 14. UI 变更检查清单
-
-提交任何 SwiftUI UI 变更前检查:
-
-- [ ] 是否使用共享 palette / radius / motion / glass modifier?
-- [ ] 颜色是否有语义，而不是装饰?
-- [ ] 同一屏高饱和色是否没有过量竞争?
-- [ ] 文本层级是否不超过 primary / secondary / semantic?
-- [ ] 工作区常规 UI 是否保持 10-16pt 的信息密度?
-- [ ] icon-only button 是否有 `.help` 和 `accessibilityLabel`?
-- [ ] hover 是否比 selected/focused 弱?
-- [ ] selected/focused 在 hover 时是否不会降级?
-- [ ] `.interactive(true)` 是否只用于可交互元素?
-- [ ] `GlassEffectContainer` 是否没有嵌套?
-- [ ] Reduce Motion 下是否没有大幅空间动画?
-- [ ] Reduce Transparency 下文字是否仍可读?
-- [ ] 终端、代码、Diff 是否没有被装饰性视觉干扰?
-- [ ] 新增 Swift 文件是否已在 `apple/project.yml` 注册并通过 xcodegen?
-
----
-
-## 15. 与 Multica 规范的关系
-
-从 Multica 继承:
-
-- 克制即高级。
-- 层次靠灰度，颜色是信号。
-- 一致性大于个性。
-- hover / active / disabled / invalid 状态必须统一。
-- 不要用随机字号、随机颜色、随机动效制造层级。
-
-Multisoul 的差异:
-
-- 允许更强品牌色，但只作为 Agent / 状态 / 轨道信号。
-- 允许玻璃材质和轻微发光，但必须通过共享 token 管控。
-- 允许 icon button 和 node chrome 有轻微 scale/press 触感，但普通列表和菜单仍保持克制。
-- 允许品牌页、空状态、沉浸空间使用大标题和轨道视觉，但工作区主界面保持生产力密度。
-
----
-
-## 16. Review HTML 使用方式
-
-`docs/design.html` 是本规范的视觉 review board，用来快速检查:
-
-- 色彩 token 是否形成统一但鲜明的品牌系统。
-- 玻璃层级是否清晰。
-- Live Node、Agent 状态、终端、diff 是否符合工作区气质。
-- hover、selected、focused、disabled 等状态是否有正确强弱关系。
-- 规范是否能被 SwiftUI 代码直接翻译。
-
-本地打开即可预览:
-
-```bash
-open /Users/alan/Documents/mybook/multisoul-desktop/docs/design.html
+```text
+┌─────────────────────────────────┐
+│ icon  title / identity   status │  title bar
+├─────────────────────────────────┤
+│                                 │
+│         live content            │  content well
+│                                 │
+├─────────────────────────────────┤
+│ optional contextual controls    │  footer / overlay
+└─────────────────────────────────┘
 ```
 
+### 7.2 标题栏
+
+- 高度建议 40–44px。
+- 类型图标 16px；状态点 6–8px。
+- 标题使用 `headline` 或 `callout`。
+- 关闭、更多等按钮默认低对比，hover 后才增强。
+- 拖拽区域不能与文本选择和按钮命中冲突。
+
+### 7.3 状态层级
+
+视觉优先级从高到低：
+
+1. Error / destructive confirmation。
+2. Waiting for user。
+3. Input focus。
+4. Selected。
+5. Running / tool call。
+6. Hover。
+7. Idle。
+
+不同含义使用不同层表达，避免互相覆盖：
+
+- Selection：外侧蓝色细描边。
+- Input focus：内侧更清晰的蓝色 keyline。
+- Runtime state：标题栏状态点、角部短光或局部边缘动画。
+- Error：状态点 + 文本 + 必要时局部 coral，不把整卡染红。
+
 ---
 
-## 17. 第一批落地建议
+## 8. 状态、动效与反馈
 
-1. 从 `WorkspaceGlassStyle.swift` 中拆出 `WorkspaceMotion.swift`，降低单文件复杂度。
-2. 新增 `WorkspaceMetrics.swift`，集中定义 radius、spacing、button size、node chrome size。
-3. 新增 `WorkspaceBrandColor` 或扩展 `WorkspaceGlassPalette`，补齐 cyan / green / violet / blue / destructive 语义色。
-4. 将顶栏 `.bold` 文案逐步收敛为 `.semibold`，保留品牌页和空状态的大字重。
-5. 给未来 Agent 状态组件建立统一 `AgentStatusBadge`，不要在各节点里散写状态点。
+### 8.1 状态语言
+
+| 状态 | 颜色 | 动态 | 文案要求 |
+| --- | --- | --- | --- |
+| Thinking | Cobalt | 2.0–2.8s 平稳脉冲 | 描述正在理解或推理 |
+| Tool Call | Violet | 1.2–1.8s 单向轨道 | 显示工具或动作名称 |
+| Waiting | Acid / Warm transitional | 1.8–2.4s 呼吸 | 明确等待谁、等待什么 |
+| Complete | Mint / Green transitional | 280–420ms 绽放后静止 | 给出结果入口 |
+| Error | Coral / Destructive | 一次短促闪烁后静止 | 说明原因与恢复动作 |
+
+状态不能只依赖颜色。必须至少同时提供文字、图标、形态或运动中的一种。
+
+### 8.2 时间与缓动
+
+| 动作 | Duration | 曲线 |
+| --- | ---: | --- |
+| Hover / press | 100–140ms | ease-out |
+| 选择 / 焦点 | 140–180ms | ease-out |
+| Card 出现 | 240–320ms | decelerating spring |
+| Card 重排 | 320–480ms | critically damped spring |
+| Complete | 280–420ms | ease-out then settle |
+| Modal | 180–240ms | ease-out |
+
+拖拽必须直接跟手，不使用补间延迟。`reduce_motion` 开启时移除位移、缩放和循环运动，保留必要的颜色与透明度状态变化。
+
+### 8.3 语音驱动窗口内缘光
+
+语音内缘光遵循 `CONTEXT.md` 的产品定义：
+
+- 由实际播放的 TTS PCM 能量驱动。
+- 使用白色渐变光，不映射 Agent 状态色。
+- 四边同步，快速提亮、平滑回落。
+- 位于弹窗内容之下，不是原生窗口描边。
+- 静音底光约 12% opacity / 30px；峰值约 55% / 38px。
+- 纯文本结果或仅完成合成但尚未播放的音频不得触发。
+
+白色语音光表达“Norma 正在说话”；彩色卡片状态表达“系统正在做什么”。两者不能混用。
+
+---
+
+## 9. 控件
+
+### 9.1 按钮
+
+| 类型 | 表面 | 使用 |
+| --- | --- | --- |
+| Primary | Graphite 或系统蓝 | 当前页面唯一主动作 |
+| Secondary | 半透明白 / 细边框 | 次级动作 |
+| Ghost | 透明 | 工具栏、低风险局部动作 |
+| Destructive | Coral / red text | 删除、不可逆操作 |
+
+- 同一面板最多一个 Primary。
+- 图标必须来自 `crates/ui/src/icons.rs` 或统一资产库。
+- 禁止用 Unicode 字符代替正式图标。
+- Hover、pressed、disabled、focus-visible 都必须有独立状态。
+
+### 9.2 输入框
+
+- 默认浅灰或低对比玻璃表面。
+- Focus 使用蓝色 1–2px keyline，不使用大面积蓝色 glow。
+- 校验错误就地出现，保持用户输入。
+- 异步保存失败必须显示可恢复反馈。
+
+### 9.3 设置页
+
+设置仍在工作台上下文中打开，但视觉从旧的深色霓虹面板迁移为安静的分组表面：
+
+- 导航按用户任务组织，不按 crate 组织。
+- 宽窗口使用稳定侧边栏；窄窗口使用紧凑导航。
+- 普通设置即时生效并异步持久化。
+- 模型安装、下载等长操作使用进度和明确状态按钮。
+- 不提供无内容的占位栏目。
+
+---
+
+## 10. Norma 的产品内角色
+
+### 10.1 固定识别
+
+- 冷调浅紫色长马尾、整齐刘海。
+- 大号白色 X 发夹、黑色蝴蝶结。
+- 深海军蓝剪裁服装。
+- 蓝紫色眼睛。
+- 冷静、自信、略带傲娇。
+
+### 10.2 出现位置
+
+适合：
+
+- Launchpad 或首次进入项目的品牌时刻。
+- Agent 空状态与 onboarding。
+- 任务完成、等待确认、错误恢复等情绪节点。
+- Voice Preview 与角色声音设置。
+
+不适合：
+
+- Terminal、diff、日志正文背景。
+- 每张 Agent 卡片的常驻大头像。
+- 普通按钮、菜单项或无意义 loading。
+
+### 10.3 比例
+
+- 产品操作页：角色视觉面积通常不超过 12%。
+- 品牌/空状态页：可提升到 30%–45%。
+- Q 版只用于贴纸、摆件、彩蛋或轻量完成反馈。
+
+---
+
+## 11. 可访问性
+
+- 正文和关键控件满足 WCAG AA 对比度。
+- 状态不得只靠颜色区分。
+- 所有键盘可操作控件提供明确 focus-visible。
+- 动画遵守 reduce motion，语音 PCM 内缘光除外，其行为以产品规范为准。
+- 最小正文 12px；长文建议不低于 14px。
+- 触控板缩放必须有当前比例反馈与可恢复的 100% 动作。
+- 屏幕阅读器标签描述动作，不重复可见图标名称。
+- 错误信息包含原因、影响与恢复路径。
+
+---
+
+## 12. 工程落点
+
+| 设计职责 | Canonical location |
+| --- | --- |
+| 颜色、阴影、主题 | `crates/ui/src/theme.rs` |
+| 共享图标 | `crates/ui/src/icons.rs` |
+| 卡片选择、焦点、运行视觉 | `crates/app/src/motion/node_visual.rs` |
+| 工作状态边缘动画 | `crates/app/src/motion/working.rs` |
+| 初始化动画 | `crates/app/src/motion/initialization.rs` |
+| 画布与卡片渲染 | `crates/app/src/` 对应职责目录 |
+| 产品词汇与语音内缘光 | `CONTEXT.md` |
+| 品牌身份 | `docs/brand/` |
+
+实现规则：
+
+1. 域层不得依赖 UI token。
+2. 新视觉 token 优先进入 `crates/ui`，业务组件只消费语义值。
+3. 交互状态先由 runtime / app 事实决定，再映射视觉。
+4. 不为视觉方便复制运行时状态。
+5. 新的用户可观察流程按 `AGENTS.md` 要求补 e2e 验证。
+
+---
+
+## 13. 设计评审清单
+
+提交界面前逐项回答：
+
+### Product
+
+- 用户能否在 3 秒内看懂当前项目和主要对象？
+- Terminal、Agent、Browser、Preview 是否像真实运行对象？
+- 是否明确显示正在运行、等待、完成或失败？
+
+### Hierarchy
+
+- 页面是否只有一个主视觉焦点？
+- 是否可以删除至少一个装饰元素而不损失含义？
+- 内容层是否比玻璃材质更易读？
+
+### Color
+
+- 高饱和色是否有明确语义？
+- 是否避免同时大面积使用所有品牌色？
+- Error、Waiting、Complete 是否不会混淆？
+
+### Interaction
+
+- Hover、Selected、Focused、Running 是否分别可辨？
+- 拖拽是否跟手？
+- 键盘焦点是否清楚？
+- Reduce Motion 下是否仍可理解状态？
+
+### Brand
+
+- 是否使用 `Norma OS`，而不是旧品牌名？
+- Norma 是否保持固定识别特征？
+- 是否体现安静、精密、有人情味，而非通用霓虹科技感？
+- 是否避免直接复制 Apple 标志、页面、包装或硬件？
+
+---
+
+## 14. 禁止事项
+
+- 不使用 Apple 标志、Apple 字样或第三方品牌资产。
+- 不一比一复刻 Apple 官网、发布会、包装或硬件外形。
+- 不把大面积紫色渐变当成“AI 感”。
+- 不使用常驻彩虹 glow、霓虹网格或装饰性轨道。
+- 不把界面做成拥挤的 dashboard。
+- 不在 Terminal、代码、diff 背后放人物或高饱和图像。
+- 不使用随机圆角、随机透明度和随机动画时长。
+- 不用颜色代替文字状态。
+- 不把 Norma 幼化或当成无关贴纸。
+- 不在正式界面和文档中使用旧品牌名。

@@ -1,9 +1,29 @@
 /target
+target/
 **/*.rs.bk
 .DS_Store
 /dist
 .cargo-packager/
 build
-.agents
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/release-dmg/
+!.agents/skills/release-dmg/**
 .multisoul
+tmp/
 .idea
+__pycache__/
+artifacts/performance/
+
+# Paraformer model files (downloaded separately via scripts/download-paraformer-model.sh)
+assets/models/paraformer/*
+assets/models/paraformer-offline/*
+assets/models/silero_vad/*
+assets/models/tts/*
+
+# Git worktrees
+.worktrees/
+# superpowers scratch (subagent reports, ledger)
+.superpowers/
+artifacts/

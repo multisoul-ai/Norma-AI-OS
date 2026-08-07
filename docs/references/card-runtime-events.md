@@ -2,7 +2,7 @@
 
 本文定义卡片事件扩展机制。目标是让 Terminal、Agent、Preview 和后续新卡片都能用同一套事件契约暴露状态，同时保持 `runtime` 零 GPUI、可测试、无热路径阻塞。
 
-当前代码还没有完整 `RuntimeEvent` 实现。本文是后续实现和扩展功能时的设计约定。
+当前代码已实现 `RuntimeEvent`、进程状态和 Agent Hook 状态投影；本文同时记录现状与后续扩展约束。
 
 ## 1. 事件分层
 
@@ -14,7 +14,7 @@ Card process state
   语义: 进程是否启动、运行、退出、异常
 
 Agent task state
-  来源: Claude/Codex command hooks
+  来源: Claude/Codex/Cursor/Grok/OpenCode hooks
   语义: 当前 turn 是否思考、运行工具、等待授权、完成、失败
 ```
 
@@ -115,24 +115,27 @@ PTY child process
 | 用户关闭卡片 | `Stopped` 或 `CardRemoved` |
 | spawn/input/resize/scroll 失败 | `CardOperationFailed` |
 
-`CardRunState` 不能判断 Claude/Codex 是否正在思考或执行工具。Agent 任务语义必须走 hooks。
+`CardRunState` 不能判断 Agent CLI 是否正在思考或执行工具。Agent 任务语义必须走 provider hooks。
 
 ## 4. Agent 任务状态来源
 
-Claude/Codex command hooks 会在 session、用户输入、工具调用、授权请求、停止等生命周期点执行命令。Multisoul 应追加自己的 hook bridge 命令，而不是替换用户现有 OpenIsland、Vibe 或 Petdex hooks。
+Claude、Codex、Cursor、Grok 与 OpenCode hooks 会在 session、用户输入、工具调用、授权请求、停止等生命周期点执行命令。Norma OS 应追加自己的 hook bridge 命令或 OpenCode plugin，而不是替换用户已有配置。Grok 使用 `~/.grok/hooks/*.json`，其官方 camelCase 事件字段会在 bridge 内归一化。Grok 卡片优先持久化 Hook 提供的精确 `sessionId`；缺失时只读扫描 `~/.grok/sessions/<URL-encoded-workspace>/`，按已知活动文件时间选择当前 workspace 的最近会话，再以 `grok --resume <ID>` 恢复。
 
 推荐命令：
 
 ```bash
 multisoul-agent-hook --source claude
 multisoul-agent-hook --source codex
+multisoul-agent-hook --source cursor
+multisoul-agent-hook --source grok
+multisoul-agent-hook --source opencode
 ```
 
 bridge 行为：
 
 - 从 `stdin` 读取 provider 原始 hook JSON。
 - 从 env 读取 `MULTISOUL_NODE_ID`、`MULTISOUL_AGENT_PROFILE`、`MULTISOUL_HOOK_ENDPOINT`、`MULTISOUL_HOOK_TOKEN`。
-- 缺少 Multisoul env 时直接 `exit 0`，避免影响普通 Claude/Codex 会话。
+- 缺少 Norma OS env 时直接 `exit 0`，避免影响普通 Agent CLI 会话。
 - POST 到本地 app ingest endpoint，例如 `http://127.0.0.1:<port>/agent-hooks`。
 - endpoint 不可达或解析失败时也 `exit 0`，避免阻塞 Agent CLI。
 - 不解析 transcript 文件。transcript 只用于人工排障，不作为稳定状态接口。
@@ -141,7 +144,7 @@ Agent PTY 启动时注入 per-node env：
 
 ```text
 MULTISOUL_NODE_ID=<node_id>
-MULTISOUL_AGENT_PROFILE=claude|codex
+MULTISOUL_AGENT_PROFILE=claude|codex|cursor|grok|opencode
 MULTISOUL_HOOK_ENDPOINT=http://127.0.0.1:<port>/agent-hooks
 MULTISOUL_HOOK_TOKEN=<random-token>
 ```
@@ -186,7 +189,7 @@ hook ingest 属于 app 层，因为它涉及本地 HTTP、token 校验和 UI 通
 
 ```mermaid
 flowchart LR
-  Agent["Claude/Codex PTY process"] --> Hook["command hook"]
+  Agent["Agent CLI PTY process"] --> Hook["provider hook/plugin"]
   Hook --> Bridge["multisoul-agent-hook"]
   Bridge --> Ingest["app local ingest"]
   Ingest --> Store["AgentTaskStateStore"]

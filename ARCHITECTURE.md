@@ -1,72 +1,73 @@
-# Multisoul Desktop Architecture
+# Norma OS Architecture
 
-Multisoul Desktop 是一个 macOS 空间工作台脚手架。当前垂直切片围绕 **Live Node on Infinite Canvas** 构建：GPUI 窗口中有无限画布，画布节点可以承载实时运行的能力；Terminal 是第一个 Live Node。
+Norma OS 是一个 macOS 空间工作台脚手架。当前垂直切片围绕 **Live Node on Infinite Canvas** 构建：GPUI 窗口中有无限画布，画布节点可以承载实时运行的能力；Terminal 是第一个 Live Node。
 
 本文描述当前实现，不描述未来愿景的完整形态。Phase 占位见 [`README.md`](README.md)。
 
 ## 1. 系统拓扑
 
 ```text
-┌──────────────────────────────────────────────┐
-│ macOS Window                                  │
-│ GPUI + Metal                                  │
-│ menu / key binding / mouse events             │
-└──────────────────────┬───────────────────────┘
-                       │
-                       ▼
-┌──────────────────────────────────────────────┐
-│ app crate                                     │
-│ MultisoulApp                                  │
-│ canvas_view / cards/* / persistence scheduler │
-└───────┬───────────────────┬───────────────────┬──────────┘
-        │                   │                   │
-        ▼                   ▼                   ▼
-┌──────────────────┐ ┌──────────────────┐ ┌──────────────────────────┐
-│ runtime crate             │   │ ui crate                  │
-│ document + selection      │   │ theme tokens              │
-│ focus + event routing     │   │ GPUI-facing primitives    │
-│ NodeId -> LiveNode registry│   └──────────────────────────┘
-└───────┬──────────┬──────┘
-        │          │
-        ▼          ▼
-┌──────────────┐ ┌──────────────────────────────┐
-│ canvas crate │ │ terminal crate                │
-│ geometry     │ │ portable-pty + alacritty grid │
-│ nodes        │ │ input encoding + sessions     │
-│ hit testing  │ └──────────────┬───────────────┘
-└──────────────┘                │
-                                ▼
-                       ┌────────────────┐
-                       │ /bin/zsh shell │
-                       │ child process  │
-                       └────────────────┘
-
-┌──────────────────────────┐
-│ storage crate             │
-│ SQLite stores + migrations│
-│ recent/settings/snapshots │
-└──────────┬───────────────┘
-           ▼
-┌──────────────────────────┐
-│ workspace crate           │
-│ recent metadata + paths   │
-└──────────────────────────┘
+macOS Window（GPUI + Metal）
+└── app：窗口、渲染、快捷键、后台副作用编排
+    ├── ui：主题与 GPUI 共享组件
+    ├── runtime：LiveNode 生命周期、焦点与输入路由
+    │   ├── canvas：几何、节点、选择与命中
+    │   ├── terminal：PTY、ANSI grid 与输入编码 ──> /bin/zsh
+    │   └── storage：SQLite store 与 migration ──> workspace 元数据
+    ├── agent：NormaSession、Rig Provider、typed tools 与 Agent 协调规则
+    ├── asr：provider registry、统一识别协议、Local Sherpa、Cloud Azure 与模型安装
+    ├── voice_input：麦克风权限/设备、采集、重采样、PCM 流与共享 VAD
+    ├── tts：内置 TTS Provider、回复级流接口、模型/Voice 目录与安装验证
+    │   └── model_store：共享 archive/manifest/哈希/原子安装原语
+    └── voice_sherpa：Sherpa TTS 与既有连续对话调用方的兼容门面
+        ├── asr：消费 provider-neutral 识别协议
+        ├── voice_input：消费 provider-neutral PCM/VAD
+        ├── tts：消费已校验的 AvailableTtsModel
+        ├── dialogue：消费引擎中立的语音协议
+        └── audio：消费共享 PCM 类型
 ```
 
 核心 Cargo 依赖方向：
 
 ```text
-app -> {ui, runtime, canvas, terminal, storage}
+app -> {ui, runtime, canvas, terminal, storage, agent, asr, voice_input, tts, voice_sherpa}
+voice_sherpa -> {asr, voice_input, tts, dialogue, audio}
+dialogue -> voice_input
+tts -> {model_store, audio}
 runtime -> {canvas, terminal, storage}
-storage -> {canvas, workspace, rusqlite}
+storage -> {agent, canvas, workspace, rusqlite}
+agent -> {norma, rig-core, tokio, tokio-util, reqwest}
 ui -> gpui
 canvas -> {serde, thiserror}
 terminal -> {portable-pty, alacritty_terminal, crossbeam-channel}
+asr -> {serde, sha2, tar, bzip2, tempfile, ureq, sherpa-onnx}
 ```
 
-`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
+`agent`、`asr`、`voice_input`、`model_store`、`tts`、`canvas`、`terminal`、`runtime`、`storage` 是零 GPUI 层；`agent` 还保持零 Storage 依赖。`asr` 可以承载 provider 所需的 Sherpa/网络实现，但不得访问 Storage/Keychain；`voice_input` 不得选择 provider；`tts` 保持零 Sherpa 依赖，只允许内置 `providers` 子树持有受控网络协议，且仍保持零 Storage。本地 Sherpa TTS 引擎适配归 `voice_sherpa`，下载和 Runtime/Storage 副作用编排归 `app`。`model_store` 与 `tts` 不得依赖 `app/runtime/storage/ui`，`storage` 不得依赖 `app/runtime/ui`，`canvas/terminal` 不得依赖 `storage`。`app` 和 `ui` 是壳层/渲染层，可以使用 GPUI。
 
 ## 2. 代码结构
+
+### `crates/asr/`
+
+零 GPUI/Storage/Keychain 的 ASR 领域层，统一负责 provider registry、能力描述、规范化识别事件、
+`RecognitionPipeline`、Local Sherpa、Cloud Azure，以及模型目录、安装清单、SHA-256、安全解压和原子安装。
+Settings、Keychain、下载进度与运行时副作用编排只存在于 `crates/app/`。
+
+### `crates/voice_input/`
+
+provider 中立的音频输入层，负责麦克风权限、设备枚举、采集、重采样、PCM 流和共享 Silero VAD。
+它既不选择 ASR provider，也不保存 provider 凭据。
+
+### `crates/agent/`
+
+零 GPUI/Storage 的 Agent 领域层，负责固定身份的 `NormaSession`、Rig Provider/多轮工具循环、
+十个 typed tools（含 Browser/Preview 创建）、`AgentCardAdapter` seam、动态环境、Agent 呼叫名和按定义隔离的 FIFO 协调规则。
+Rig 类型不扩散到其他 crate；卡片激活、PTY 输入和 SQLite 审计由 `app` adapter 执行。
+`dialogue` 只保留 VAD/ASR/TTS 与语音状态，不再拥有 LLM 路由；仓库不再包含第二套 CardTask 模型循环。
+
+### `crates/model_store/` 与 `crates/tts/`
+
+`model_store` 是零 GPUI/网络的共享本地模型安装原语，负责 archive SHA-256、manifest、安全解压与原子提升；不得承载具体 ASR/TTS 目录或引擎配置。`tts` 是零 GPUI/Storage/Sherpa 的供应商中立 TTS 能力层，负责稳定 Provider/model/Voice ID、内置 Provider 注册表、配置与就绪状态、回复级流生命周期、PCM 交付，以及本地模型的固定目录和安装验证。远程协议封装在 `tts::providers::<vendor>`；首个实现 MiniMax 使用账户 Voice 目录与单回复 WebSocket 任务。下载进度、凭据持久化、供应商激活和播放编排属于 `app`；API Key 只存 macOS Keychain；Sherpa OfflineTts 构建属于 `voice_sherpa`。
 
 ### `crates/canvas/`
 
@@ -99,6 +100,7 @@ crates/terminal/src/
 ├── lib.rs          # 对外导出 TerminalSession、TerminalGrid、KeyInput 等
 ├── pty.rs          # portable-pty 封装：spawn/read thread/write/resize/kill
 ├── grid.rs         # alacritty_terminal 封装，输出中性 GridSnapshot
+├── grid/links.rs   # OSC-8、裸 http(s) URL 与安全相对预览路径识别
 ├── input.rs        # KeyInput -> PTY bytes
 ├── session.rs      # PtyHandle + TerminalGrid + channel receiver
 └── message.rs      # PtyEvent::Output / Exited
@@ -123,14 +125,16 @@ crates/storage/src/
 ├── recent_store.rs    # 最近项目
 ├── settings_store.rs  # 全局设置
 ├── canvas_store.rs    # DocumentSnapshot
-└── session_store.rs   # session checkpoint（按 node_id 覆盖）
+├── session_store.rs   # session checkpoint（按 node_id 覆盖）
+├── agent_definition_store.rs # 项目级持久 Agent 定义
+└── agent_dispatch_store.rs   # 委派任务 journal 与状态转换
 ```
 
 主要职责：
 
-- 管理用户级 `~/Library/Application Support/Multisoul/app.sqlite`
+- 管理用户级 `~/Library/Application Support/Norma OS/app.sqlite`
 - 管理项目级 `<workspace>/.multisoul/project.sqlite`
-- 读写 recent/settings/canvas snapshot/session checkpoint
+- 读写 recent/settings/canvas snapshot/session checkpoint、Agent 定义与委派 journal
 - 保持底层依赖，不反向依赖 `app/runtime/ui`
 
 热路径禁令：`Runtime::drain_all`、PTY output chunk、`canvas_view::on_mouse_move`、`runtime::route`、`send_node_input` 不得同步写 SQLite 或阻塞查库。
@@ -177,7 +181,7 @@ GPUI/Metal 壳层，负责窗口、菜单、快捷键、鼠标事件、渲染和
 
 ```text
 crates/app/src/
-├── main.rs          # tracing、GPUI boot、菜单、Cmd+N、Esc
+├── main.rs          # tracing、GPUI boot、菜单、Cmd+1..5、Esc
 ├── assets.rs        # 内嵌 icon / wallpaper
 ├── app/             # MultisoulApp 壳层、keyboard、IME、voice、chrome
 ├── canvas/          # pan/zoom/drag、master layout、interaction
@@ -196,7 +200,7 @@ crates/app/src/
 主要职责：
 
 - 启动 GPUI 应用窗口
-- 处理 `Cmd+N`、`Esc`、鼠标拖拽、滚轮缩放
+- 处理 `Cmd+1..5`、`Esc`、鼠标拖拽、滚轮缩放
 - 将用户输入转换为 `runtime::route` 能理解的事件
 - 根据 Runtime 状态渲染画布节点；具体卡片内容按 `NodeType -> Card` 分发
 
@@ -228,10 +232,12 @@ canvas_point = (screen_point - viewport.pan) / viewport.zoom
 - `PtyHandle`: 持有 master PTY、writer、child process
 - `PtyEvent`: `Output(Vec<u8>)` 或 `Exited { code }`
 - `TerminalGrid`: 持有 `alacritty_terminal::Term` 和 ANSI `Processor`
-- `GridSnapshot`: 中性 rows/cursor/cols/lines，不暴露 alacritty 类型给 UI
+- `GridSnapshot`: 中性 rows/cursor/cols/lines 与每个 Cell 的可选 OSC-8 hyperlink，不暴露 alacritty 类型给 UI
 - `TerminalSession`: `PtyHandle` + `TerminalGrid` + channel receiver + status
 
 PTY 输出通过 `crossbeam-channel` 从读线程传到 session。`TerminalSession::drain` 将输出批量喂给 grid，并在有变化时返回 `dirty = true`。
+
+`terminal` 只负责从 snapshot 解析可点击事实：OSC-8 和裸文本仅接受 `http://`/`https://`，相对预览路径拒绝绝对路径与 `.`/`..`。是否打开 Browser 卡片、系统浏览器或 Preview 卡片属于 `app` 副作用；点击与文本选择优先级也由 `app/canvas` 决定。
 
 ### Runtime
 
@@ -250,7 +256,7 @@ PTY 输出通过 `crossbeam-channel` 从读线程传到 session。`TerminalSessi
 后续卡片状态扩展应通过统一的 `RuntimeEvent` 契约表达，而不是让每个 card 自己发散状态来源。事件层分两类：
 
 - **进程运行状态**：来自 `LiveNode` / `TerminalSession`，用于描述卡片底层进程是否 `Running`、`Finished`、`Error` 或 `Stopped`。
-- **Agent 任务状态**：来自 Claude/Codex command hooks，描述 Agent 当前是否 `Thinking`、`RunningTool`、`WaitingApproval`、`Done` 或 `Failed`。
+- **Agent 任务状态**：来自 Claude、Codex、Cursor、OpenCode hooks，描述 Agent 当前是否 `Thinking`、`RunningTool`、`WaitingApproval`、`Done` 或 `Failed`。
 
 事件消费采用 `drain_all()` 后 `take_events()` 的拉取模型；hook 事件先进入 app 层的本地 ingest，再归一化为卡片事件。不得把 PTY output chunk 当成 `RuntimeEvent`，不得在 `Runtime::drain_all`、hook ingest、PTY output 热路径中同步写 SQLite。
 
@@ -261,7 +267,7 @@ PTY 输出通过 `crossbeam-channel` 从读线程传到 session。`TerminalSessi
 ### 新建 Terminal 节点
 
 ```text
-用户按 Cmd+N
+用户按 Cmd+1
   ↓
 app::MultisoulApp::on_new_terminal
   ↓
@@ -376,7 +382,8 @@ child.kill() + child.wait()
 
 | 操作 | 当前行为 |
 |------|----------|
-| `Cmd+N` | 新建 Terminal 节点，并将全部节点按最多三列的平铺网格重排 |
+| `Cmd+1` | 新建 Terminal 节点，并按当前布局重排全部节点 |
+| `Cmd+2`～`Cmd+5` | 依次新建 Claude、Codex、Cursor、OpenCode Agent 节点，并按当前布局重排全部节点 |
 | 单击节点 | 选中节点并退出终端聚焦 |
 | 单击空白 | 清空选择并退出终端聚焦 |
 | 双击 Terminal | 聚焦该终端，后续按键写入 PTY |

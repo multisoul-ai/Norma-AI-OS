@@ -1,13 +1,13 @@
 //! TerminalSession：把 PtyHandle + TerminalGrid + 通道接收端组装为一个可 drain 的会话。
 
-use crate::grid::{GridSnapshot, TerminalGrid};
-use crate::input::{encode, KeyInput};
+use crate::grid::{terminal_wheel_action, Cell, GridSnapshot, TerminalGrid, TerminalWheelAction};
+use crate::input::{encode_for_keyboard_mode, KeyInput};
 use crate::message::PtyEvent;
-use crate::pty::{PtyCommand, PtyError, PtyHandle};
+use crate::paste::encode_paste;
+use crate::pty::{PtyBackend, PtyCommand, PtyError, PtyHandle};
 use crossbeam_channel::{unbounded, Receiver, TryRecvError};
 
 pub type TerminalSessionId = u64;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TerminalStatus {
     Running,
@@ -19,7 +19,7 @@ pub struct TerminalSession {
     pub status: TerminalStatus,
     pub cols: u16,
     pub rows: u16,
-    pty: PtyHandle,
+    pty: Box<dyn PtyBackend>,
     grid: TerminalGrid,
     rx: Receiver<PtyEvent>,
 }
@@ -41,7 +41,7 @@ impl TerminalSession {
         rows: u16,
     ) -> Result<TerminalSession, PtyError> {
         let (tx, rx) = unbounded();
-        let pty = PtyHandle::spawn_command(command, cols, rows, tx)?;
+        let pty: Box<dyn PtyBackend> = Box::new(PtyHandle::spawn_command(command, cols, rows, tx)?);
         let grid = TerminalGrid::new(cols, rows);
         Ok(TerminalSession {
             id,
@@ -54,14 +54,39 @@ impl TerminalSession {
         })
     }
 
-    /// 批量排空通道：把这一批 PTY 输出一次性喂给 grid（8–16ms 批处理由 app 定时调用实现）。
-    /// 返回是否 dirty（需要 repaint）。
+    /// 注入式构造：不启动真实子进程。调用方预先建立 `(tx, rx)` 通道对：
+    /// 把 `tx` 喂给 backend（如 `TestPtyBackend::echo(tx)`），backend 在
+    /// `write` 时通过 `tx` 同步回吐 `PtyEvent::Output`；`rx` 交给 session 持有，
+    /// `drain` 从 `rx` 取事件喂 grid。`backend` 与 `rx` 共享同一通道，闭环成立。
+    pub fn spawn_with_backend(
+        id: TerminalSessionId,
+        cols: u16,
+        rows: u16,
+        backend: Box<dyn PtyBackend>,
+        rx: Receiver<PtyEvent>,
+    ) -> TerminalSession {
+        let grid = TerminalGrid::new(cols, rows);
+        TerminalSession {
+            id,
+            status: TerminalStatus::Running,
+            cols,
+            rows,
+            pty: backend,
+            grid,
+            rx,
+        }
+    }
+
+    /// 批量排空通道：把这一批 PTY 输出一次性喂给 grid（8–16ms 批处理由 app 定时调用实现），返回是否 dirty。
     pub fn drain(&mut self) -> bool {
         let mut dirty = false;
         loop {
             match self.rx.try_recv() {
                 Ok(PtyEvent::Output(bytes)) => {
-                    self.grid.advance(&bytes);
+                    let replies = self.grid.advance(&bytes);
+                    if !replies.is_empty() {
+                        let _ = self.pty.write(&replies);
+                    }
                     dirty = true;
                 }
                 Ok(PtyEvent::Exited { code }) => {
@@ -83,12 +108,22 @@ impl TerminalSession {
     }
 
     pub fn write_input(&mut self, input: &KeyInput) -> Result<(), PtyError> {
-        let bytes = encode(input);
+        let enhanced_keyboard = self.grid.enhanced_keyboard_enabled();
+        let bytes = encode_for_keyboard_mode(input, enhanced_keyboard);
         self.pty.write(&bytes)
     }
 
     pub fn write_bytes(&mut self, bytes: &[u8]) -> Result<(), PtyError> {
         self.pty.write(bytes)
+    }
+
+    /// 按当前终端应用声明的 paste mode 写入一整段剪贴板文本。
+    ///
+    /// bracketed paste 开启时，逻辑换行统一为 LF 并放入 begin/end 标记之间，
+    /// 使 TUI 将整段内容作为一次 paste 处理；普通模式继续使用终端显示所需的 CRLF。
+    pub fn write_paste(&mut self, text: &str) -> Result<(), PtyError> {
+        let bytes = encode_paste(text, self.grid.bracketed_paste_enabled());
+        self.pty.write(&bytes)
     }
 
     pub fn resize(&mut self, cols: u16, rows: u16) {
@@ -102,14 +137,38 @@ impl TerminalSession {
         self.grid.snapshot()
     }
 
+    /// 读取绝对行范围 `[start_abs, end_abs]`（含两端）的中性 Cell 行数据。
+    /// 绝对行坐标系见 [`TerminalGrid::rows_for_absolute`]。
+    pub fn rows_for_absolute(&self, start_abs: usize, end_abs: usize) -> Vec<Vec<Cell>> {
+        self.grid.rows_for_absolute(start_abs, end_abs)
+    }
+
     pub fn scroll_display(&mut self, lines: i32) -> bool {
         self.grid.scroll_display(lines)
+    }
+
+    pub fn scroll_wheel(&mut self, lines: i32, row: u16, col: u16) -> Result<bool, PtyError> {
+        match terminal_wheel_action(&self.grid.snapshot(), lines, row, col) {
+            TerminalWheelAction::Scrollback(lines) => Ok(self.grid.scroll_display(lines)),
+            TerminalWheelAction::WriteBytes(bytes) => {
+                self.pty.write(&bytes)?;
+                Ok(false)
+            }
+        }
     }
 
     pub fn kill(&mut self) {
         self.pty.kill();
     }
+
+    pub fn child_pid(&self) -> Option<u32> {
+        self.pty.child_pid()
+    }
 }
+
+#[cfg(test)]
+#[path = "../tests/unit/session_backend_tests.rs"]
+mod backend_tests;
 
 #[cfg(test)]
 mod tests {
@@ -359,5 +418,41 @@ mod tests {
         assert_eq!(s.id, 42, "session.id 应等于传入的 id=42");
         assert_ne!(s.id, 0, "session.id 不应为零值");
         s.kill();
+    }
+
+    /// T-PID-1: spawn_command 成功后 child_pid 应为 Some(非零值)。
+    ///
+    /// 数据构造：
+    ///   command = "sleep 100"（保证进程存活足够长，避免 PID 在读取前消失）
+    ///   cols = 80, rows = 24（标准终端尺寸）
+    ///   session_id = 1
+    ///
+    /// 执行过程：
+    ///   1. spawn_command(id=1, PtyCommand::new("sleep").args(["100"]), 80, 24)
+    ///      → PtyHandle::spawn_command 在 clone_killer() 前调用 child.process_id()
+    ///      → child_pid 被捕获并存入 PtyHandle.child_pid
+    ///   2. session.child_pid() 委托给 self.pty.child_pid 返回 Option<u32>
+    ///
+    /// 预期结果：
+    ///   - 正断言：child_pid 是 Some(pid)，spawn 成功后 PID 必须存在
+    ///   - 正断言：pid > 0，OS 分配的进程 ID 始终大于 0
+    #[test]
+    fn test_spawn_sets_child_pid() {
+        let mut session =
+            TerminalSession::spawn_command(1, PtyCommand::new("sleep").args(["100"]), 80, 24)
+                .unwrap();
+
+        let pid = session.child_pid();
+        assert!(
+            pid.is_some(),
+            "spawn 后 child_pid 应为 Some，实际为 None — process_id() 未在 clone_killer() 前调用"
+        );
+        assert!(
+            pid.unwrap() > 0,
+            "PID 应大于 0，实际为 {} — OS 不应分配 PID 0 给普通进程",
+            pid.unwrap()
+        );
+
+        session.kill();
     }
 }

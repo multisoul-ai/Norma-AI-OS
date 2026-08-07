@@ -42,19 +42,20 @@ fn test_parse_create_terminal_command() {
     );
 }
 
-/// Norma CLI：`card create agent --profile codex` 应生成 Codex Agent 创建命令。
+/// Norma CLI：`card create agent --profile codex` 应创建持久 Codex Agent 并激活卡片。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   argv profile = "codex"（小写命令行输入）
-///   AgentProfile::Codex 是协议枚举，app 再映射为 canvas::AgentProfile
+///   name=None → app 从内置名称池分配唯一名称
+///   activate=true → 定义创建后同时生成唯一活跃卡片
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. parse_command_from(argv)
-///   2. 检查 CardKind::Agent profile
+///   2. 检查 CreateAgent 的 profile/name/activate
 ///
 /// 预期结果：
-///   - 正断言：profile 被解析为 Codex
-///   - 负断言：不应解析为 Claude
+///   - 正断言：生成 name=None、profile=Codex、activate=true 的高层命令
+///   - 负断言：不应生成 Claude 高层命令
 #[test]
 fn test_parse_create_codex_agent_command() {
     let command = parse_command_from(["norma", "card", "create", "agent", "--profile", "codex"])
@@ -62,23 +63,147 @@ fn test_parse_create_codex_agent_command() {
 
     assert_eq!(
         command,
-        CardCommand::Create {
-            kind: CardKind::Agent {
-                profile: AgentProfile::Codex,
-            },
-            placement: Placement::VisibleArea,
+        CardCommand::CreateAgent {
+            name: None,
+            profile: AgentProfile::Codex,
+            activate: true,
         },
-        "card create agent --profile codex 应生成 Codex Agent"
+        "card create agent --profile codex 应生成持久 Codex Agent 定义并激活卡片"
     );
     assert_ne!(
         command,
-        CardCommand::Create {
-            kind: CardKind::Agent {
-                profile: AgentProfile::Claude,
-            },
-            placement: Placement::VisibleArea,
+        CardCommand::CreateAgent {
+            name: None,
+            profile: AgentProfile::Claude,
+            activate: true,
         },
         "codex profile 不应被误解析为 Claude"
+    );
+}
+
+/// Norma CLI：`card create agent --profile cursor` 应创建持久 Cursor Agent 并激活卡片。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   argv profile = "cursor"（小写命令行输入）
+///   name=None → app 从内置名称池分配唯一名称
+///   activate=true → 定义创建后同时生成唯一活跃卡片
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. parse_command_from(argv)
+///   2. 检查 CreateAgent 的 profile/name/activate
+///
+/// 预期结果：
+///   - 正断言：生成 name=None、profile=Cursor、activate=true 的高层命令
+///   - 负断言：不应生成 Codex 高层命令
+#[test]
+fn test_parse_create_cursor_agent_command() {
+    let command = parse_command_from(["norma", "card", "create", "agent", "--profile", "cursor"])
+        .expect("Cursor agent create CLI 应解析成功");
+
+    assert_eq!(
+        command,
+        CardCommand::CreateAgent {
+            name: None,
+            profile: AgentProfile::Cursor,
+            activate: true,
+        },
+        "card create agent --profile cursor 应生成持久 Cursor Agent 定义并激活卡片"
+    );
+    assert_ne!(
+        command,
+        CardCommand::CreateAgent {
+            name: None,
+            profile: AgentProfile::Codex,
+            activate: true,
+        },
+        "cursor profile 不应被误解析为 Codex"
+    );
+}
+
+/// Norma CLI：`card create agent --profile opencode` 应创建持久 OpenCode Agent 并激活卡片。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   argv profile = "opencode"（小写命令行输入）
+///   name=None → app 从内置名称池分配唯一名称
+///   activate=true → 定义创建后同时生成唯一活跃卡片
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. parse_command_from(argv)
+///   2. 检查 CreateAgent 的 profile/name/activate
+///
+/// 预期结果：
+///   - 正断言：生成 name=None、profile=OpenCode、activate=true 的高层命令
+///   - 负断言：不应生成 Claude 或 Codex 高层命令
+#[test]
+fn test_parse_create_opencode_agent_command() {
+    let command = parse_command_from(["norma", "card", "create", "agent", "--profile", "opencode"])
+        .expect("OpenCode agent create CLI 应解析成功");
+
+    assert_eq!(
+        command,
+        CardCommand::CreateAgent {
+            name: None,
+            profile: AgentProfile::OpenCode,
+            activate: true,
+        },
+        "card create agent --profile opencode 应生成持久 OpenCode Agent 定义并激活卡片"
+    );
+    assert_ne!(
+        command,
+        CardCommand::CreateAgent {
+            name: None,
+            profile: AgentProfile::Claude,
+            activate: true,
+        },
+        "opencode profile 不应被误解析为 Claude"
+    );
+    assert_ne!(
+        command,
+        CardCommand::CreateAgent {
+            name: None,
+            profile: AgentProfile::Codex,
+            activate: true,
+        },
+        "opencode profile 不应被误解析为 Codex"
+    );
+}
+
+/// Norma CLI：`card create agent --profile grok` 应创建持久 Grok Agent 并激活卡片。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   argv profile = "grok"（Grok Build 官方 CLI 名称）
+///   name=None → app 从内置名称池分配唯一名称
+///   activate=true → 定义创建后同时生成唯一活跃卡片
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. parse_command_from(argv)
+///   2. 检查 CreateAgent 的 profile/name/activate
+///
+/// 预期结果：
+///   - 正断言：生成 name=None、profile=Grok、activate=true 的高层命令
+///   - 负断言：不应误生成 Codex 高层命令
+#[test]
+fn test_parse_create_grok_agent_command() {
+    let command = parse_command_from(["norma", "card", "create", "agent", "--profile", "grok"])
+        .expect("Grok agent create CLI 应解析成功");
+
+    assert_eq!(
+        command,
+        CardCommand::CreateAgent {
+            name: None,
+            profile: AgentProfile::Grok,
+            activate: true,
+        },
+        "card create agent --profile grok 应生成持久 Grok Agent 定义并激活卡片"
+    );
+    assert_ne!(
+        command,
+        CardCommand::CreateAgent {
+            name: None,
+            profile: AgentProfile::Codex,
+            activate: true,
+        },
+        "grok profile 不应被误解析为 Codex"
     );
 }
 

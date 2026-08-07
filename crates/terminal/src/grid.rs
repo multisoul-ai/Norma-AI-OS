@@ -8,16 +8,19 @@
 //! - 网格索引：`grid[Point::new(Line(i32), Column(usize))]`
 //! - Cell 字段：`cell.c: char`（确认为 `.c`，非 `.character`）
 //! - Cursor：通过 `term.grid().cursor.point` 获取
-//! - 事件监听器：直接使用 `alacritty_terminal::event::VoidListener`（库内置）
+//! - 事件监听器：捕获 `Event::PtyWrite`，由 session 写回 PTY（DSR 等协议查询）
 
-use alacritty_terminal::event::VoidListener;
+use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::Dimensions;
 use alacritty_terminal::index::{Column, Line, Point};
 use alacritty_terminal::term::cell::Flags;
-use alacritty_terminal::term::{Config, Term};
+use alacritty_terminal::term::{Config, Term, TermMode};
 use alacritty_terminal::vte::ansi::{
     Color as AlacrittyColor, NamedColor as AlacrittyNamedColor, Processor, Rgb as AlacrittyRgb,
 };
+use crossbeam_channel::{unbounded, Receiver, Sender};
+
+mod links;
 
 /// 中性终端颜色（不含 alacritty 类型）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,15 +75,37 @@ pub struct CellAttrs {
     pub hidden: bool,
     pub strikeout: bool,
     pub wide_char_spacer: bool,
+    /// 该 cell 是终端自动折行的视觉行末；真实换行不会设置此标记。
+    pub soft_wrap: bool,
 }
 
 /// 中性单元格（不含 alacritty 类型）。fg/bg 保留终端颜色语义。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cell {
     pub c: char,
     pub fg: TerminalColor,
     pub bg: TerminalColor,
     pub attrs: CellAttrs,
+    /// OSC 8 目标 URI；`None` 表示这个字符不是语义链接的一部分。
+    pub hyperlink: Option<TerminalHyperlink>,
+}
+
+/// 与渲染库解耦的终端链接目标。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TerminalHyperlink {
+    uri: String,
+}
+
+impl TerminalHyperlink {
+    fn from_alacritty(link: alacritty_terminal::term::cell::Hyperlink) -> Self {
+        Self {
+            uri: link.uri().to_string(),
+        }
+    }
+
+    pub fn uri(&self) -> &str {
+        &self.uri
+    }
 }
 
 /// 当前屏幕的中性快照，供 UI 渲染使用。
@@ -93,6 +118,16 @@ pub struct GridSnapshot {
     pub lines: usize,
     pub display_offset: usize,
     pub history_size: usize,
+    pub alt_screen: bool,
+    pub alternate_scroll: bool,
+    pub mouse_mode: bool,
+    pub sgr_mouse: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TerminalWheelAction {
+    Scrollback(i32),
+    WriteBytes(Vec<u8>),
 }
 
 /// 实现 alacritty 的 Dimensions：仅可见屏幕（本切片不做 scrollback 虚拟化）。
@@ -114,11 +149,30 @@ impl Dimensions for TermDimensions {
     }
 }
 
+/// 把 alacritty 请求的 PTY 回写事件转发给 TerminalGrid。
+///
+/// alacritty 对 DSR（CSI 6 n）等查询不会直接写 PTY，而是通过 EventListener
+/// 发布 `Event::PtyWrite`。域层将该事件放入同步通道，交由 TerminalSession 在
+/// 同一次输出 drain 中写回真实子进程。
+#[derive(Clone)]
+struct PtyWriteListener {
+    tx: Sender<Vec<u8>>,
+}
+
+impl EventListener for PtyWriteListener {
+    fn send_event(&self, event: Event) {
+        if let Event::PtyWrite(text) = event {
+            let _ = self.tx.send(text.into_bytes());
+        }
+    }
+}
+
 /// alacritty_terminal 封装：持有 Term + ANSI Processor，支持字节输入和屏幕快照。
 pub struct TerminalGrid {
-    term: Term<VoidListener>,
+    term: Term<PtyWriteListener>,
     processor: Processor,
     dims: TermDimensions,
+    pty_write_rx: Receiver<Vec<u8>>,
 }
 
 impl TerminalGrid {
@@ -128,17 +182,24 @@ impl TerminalGrid {
             columns: cols as usize,
             screen_lines: lines as usize,
         };
-        let term = Term::new(Config::default(), &dims, VoidListener);
+        let (pty_write_tx, pty_write_rx) = unbounded();
+        let config = Config {
+            kitty_keyboard: true,
+            ..Config::default()
+        };
+        let term = Term::new(config, &dims, PtyWriteListener { tx: pty_write_tx });
         TerminalGrid {
             term,
             processor: Processor::new(),
             dims,
+            pty_write_rx,
         }
     }
 
-    /// 喂一批字节给 ANSI 解析器，更新 grid 状态。
-    pub fn advance(&mut self, bytes: &[u8]) {
+    /// 喂一批字节给 ANSI 解析器，更新 grid，并返回需要回写 PTY 的协议响应。
+    pub fn advance(&mut self, bytes: &[u8]) -> Vec<u8> {
         self.processor.advance(&mut self.term, bytes);
+        self.pty_write_rx.try_iter().flatten().collect()
     }
 
     /// 调整终端尺寸。
@@ -148,6 +209,16 @@ impl TerminalGrid {
             screen_lines: lines as usize,
         };
         self.term.resize(self.dims);
+    }
+
+    /// 当前终端应用是否请求用 bracketed-paste 协议接收剪贴板文本。
+    pub(crate) fn bracketed_paste_enabled(&self) -> bool {
+        self.term.mode().contains(TermMode::BRACKETED_PASTE)
+    }
+
+    /// 当前终端应用是否请求区分带修饰键的控制键。
+    pub(crate) fn enhanced_keyboard_enabled(&self) -> bool {
+        self.term.mode().contains(TermMode::DISAMBIGUATE_ESC_CODES)
     }
 
     /// 产出当前屏幕的中性快照。
@@ -164,6 +235,7 @@ impl TerminalGrid {
                     fg: TerminalColor::Named(TerminalNamedColor::Foreground),
                     bg: TerminalColor::Named(TerminalNamedColor::Background),
                     attrs: CellAttrs::default(),
+                    hyperlink: None,
                 };
                 self.dims.columns
             ];
@@ -179,21 +251,115 @@ impl TerminalGrid {
                     fg: terminal_color(cell.fg),
                     bg: terminal_color(cell.bg),
                     attrs: cell_attrs(cell.flags),
+                    hyperlink: cell.hyperlink().map(TerminalHyperlink::from_alacritty),
                 };
             }
         }
 
-        let cursor = self.term.grid().cursor.point;
+        let (cursor_line, cursor_col) = self.render_cursor_position();
+        let mode = self.term.mode();
         GridSnapshot {
             rows,
-            cursor_line: cursor.line.0.max(0) as usize,
-            cursor_col: cursor.column.0,
+            cursor_line,
+            cursor_col,
             cols: self.dims.columns,
             lines: self.dims.screen_lines,
             display_offset,
             history_size: grid.history_size(),
+            alt_screen: mode.contains(TermMode::ALT_SCREEN),
+            alternate_scroll: mode.contains(TermMode::ALTERNATE_SCROLL),
+            mouse_mode: mode.intersects(TermMode::MOUSE_MODE),
+            sgr_mouse: mode.contains(TermMode::SGR_MOUSE),
         }
     }
+
+    /// 读取绝对行范围 `[start_abs, end_abs]`（含两端）的中性 Cell 行数据。
+    ///
+    /// 绝对行坐标系：绝对行 0 = 最旧 scrollback 行（`Line(-history_size)`）；
+    /// 绝对行 `history_size` = `Line(0)` = 可见屏幕顶行；绝对行
+    /// `history_size + screen_lines - 1` = 可见屏幕底行。行号越界时按
+    /// `[0, history_size + screen_lines - 1]` 钳制。
+    pub fn rows_for_absolute(&self, start_abs: usize, end_abs: usize) -> Vec<Vec<Cell>> {
+        let grid = self.term.grid();
+        let history_size = grid.history_size();
+        let max_abs = history_size + self.dims.screen_lines;
+        let start = start_abs.min(max_abs.saturating_sub(1));
+        let end = end_abs.min(max_abs.saturating_sub(1));
+        if start > end {
+            return Vec::new();
+        }
+
+        let mut out = Vec::with_capacity(end - start + 1);
+        for abs in start..=end {
+            let line = Line(abs as i32 - history_size as i32);
+            let mut row = vec![
+                Cell {
+                    c: ' ',
+                    fg: TerminalColor::Named(TerminalNamedColor::Foreground),
+                    bg: TerminalColor::Named(TerminalNamedColor::Background),
+                    attrs: CellAttrs::default(),
+                    hyperlink: None,
+                };
+                self.dims.columns
+            ];
+            for (col, output_cell) in row.iter_mut().enumerate().take(self.dims.columns) {
+                let cell = &grid[Point::new(line, Column(col))];
+                *output_cell = Cell {
+                    c: cell.c,
+                    fg: terminal_color(cell.fg),
+                    bg: terminal_color(cell.bg),
+                    attrs: cell_attrs(cell.flags),
+                    hyperlink: cell.hyperlink().map(TerminalHyperlink::from_alacritty),
+                };
+            }
+            out.push(row);
+        }
+        out
+    }
+}
+
+pub fn terminal_wheel_action(
+    snapshot: &GridSnapshot,
+    lines: i32,
+    row: u16,
+    col: u16,
+) -> TerminalWheelAction {
+    if lines == 0 {
+        return TerminalWheelAction::Scrollback(0);
+    }
+    if snapshot.alt_screen && snapshot.mouse_mode && snapshot.sgr_mouse {
+        return TerminalWheelAction::WriteBytes(sgr_mouse_wheel_bytes(lines, row, col));
+    }
+    if snapshot.alt_screen && snapshot.alternate_scroll && !snapshot.mouse_mode {
+        return TerminalWheelAction::WriteBytes(alternate_scroll_key_bytes(lines));
+    }
+    TerminalWheelAction::Scrollback(lines)
+}
+
+fn sgr_mouse_wheel_bytes(lines: i32, row: u16, col: u16) -> Vec<u8> {
+    let button = if lines < 0 { 65 } else { 64 };
+    let x = u32::from(col) + 1;
+    let y = u32::from(row) + 1;
+    let event = format!("\x1b[<{button};{x};{y}M");
+    repeat_bytes(event.as_bytes(), lines)
+}
+
+fn alternate_scroll_key_bytes(lines: i32) -> Vec<u8> {
+    let key = if lines < 0 {
+        b"\x1b[B".as_slice()
+    } else {
+        b"\x1b[A".as_slice()
+    };
+    repeat_bytes(key, lines)
+}
+
+fn repeat_bytes(bytes: &[u8], lines: i32) -> Vec<u8> {
+    let count = lines.unsigned_abs() as usize;
+    let mut out = Vec::with_capacity(bytes.len() * count);
+    for _ in 0..count {
+        out.extend_from_slice(bytes);
+    }
+    out
 }
 
 fn terminal_color(color: AlacrittyColor) -> TerminalColor {
@@ -249,244 +415,24 @@ fn cell_attrs(flags: Flags) -> CellAttrs {
         strikeout: flags.contains(Flags::STRIKEOUT),
         wide_char_spacer: flags
             .intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER),
+        soft_wrap: flags.contains(Flags::WRAPLINE),
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+#[path = "grid/basic.rs"]
+mod basic;
 
-    /// 纯 ASCII 写入后，快照首行前两格为 'h'、'i'。
-    ///
-    /// 数据构造：
-    ///   grid 24 行 × 80 列；写入字节 b"hi"
-    ///
-    /// 执行过程：
-    ///   advance(b"hi") → ANSI 解析器把 'h'(列0) 'i'(列1) 写入第 0 行
-    ///
-    /// 预期结果：
-    ///   - 正断言：rows[0][0].c == 'h'，rows[0][1].c == 'i'
-    ///   - 负断言：rows[0][2].c != 'h'（第三格不应是 'h'，证明没有错位/重复写入）
-    ///   - 尺寸断言：cols == 80，lines == 24
-    #[test]
-    fn test_plain_ascii_lands_in_first_row() {
-        let mut g = TerminalGrid::new(80, 24);
-        g.advance(b"hi");
-        let snap = g.snapshot();
+#[cfg(test)]
+#[path = "../tests/unit/grid_link_tests.rs"]
+mod link_tests;
 
-        assert_eq!(snap.rows[0][0].c, 'h', "首行第 0 格应为 'h'");
-        assert_eq!(snap.rows[0][1].c, 'i', "首行第 1 格应为 'i'");
-        assert_ne!(snap.rows[0][2].c, 'h', "第 2 格不应为 'h'，否则说明列错位");
-        assert_eq!(snap.cols, 80, "快照列数应等于初始化值 80");
-        assert_eq!(snap.lines, 24, "快照行数应等于初始化值 24");
-    }
-
-    /// 含 ANSI 颜色转义的输入不崩溃，可见字符仍落盘。
-    ///
-    /// 数据构造：b"\x1b[31mX\x1b[0m" —— 红色前景 'X' 再复位
-    ///
-    /// 执行过程：
-    ///   advance(b"\x1b[31mX\x1b[0m") → 转义序列被解析消费，'X' 写入第 0 列
-    ///
-    /// 预期结果：
-    ///   - 正断言：rows[0][0].c == 'X'（转义被解析消费，X 正常写入）
-    ///   - 不崩溃（test 本身即验证 panic-free）
-    #[test]
-    fn test_ansi_escape_does_not_crash_and_char_lands() {
-        let mut g = TerminalGrid::new(80, 24);
-        g.advance(b"\x1b[31mX\x1b[0m");
-        let snap = g.snapshot();
-        assert_eq!(snap.rows[0][0].c, 'X', "ANSI 颜色转义后 'X' 应正常落在首格");
-    }
-
-    /// ANSI 前景色进入快照，reset 后回到默认前景色。
-    ///
-    /// 数据构造：
-    ///   grid 24 行 × 80 列
-    ///   输入 b"\x1b[31mR\x1b[0mD"
-    ///   31m = ANSI named red foreground；0m = reset 到 default foreground/background/attrs
-    ///
-    /// 执行过程：
-    ///   1. advance(31m) → 当前前景色变为 Red
-    ///   2. 写入 'R' → rows[0][0] 应记录 Red
-    ///   3. advance(0m) → 前景色恢复 Foreground
-    ///   4. 写入 'D' → rows[0][1] 应记录 Foreground
-    ///
-    /// 预期结果：
-    ///   - 正断言：R 字符存在且 fg == Red
-    ///   - 正断言：D 字符存在且 fg == Foreground
-    ///   - 负断言：D 不应继续携带 Red，否则 reset 样式丢失
-    #[test]
-    fn test_snapshot_preserves_ansi_foreground_and_reset() {
-        let mut g = TerminalGrid::new(80, 24);
-        g.advance(b"\x1b[31mR\x1b[0mD");
-        let snap = g.snapshot();
-
-        assert_eq!(snap.rows[0][0].c, 'R', "第 0 格应是红色样式字符 'R'");
-        assert_eq!(
-            snap.rows[0][0].fg,
-            TerminalColor::Named(TerminalNamedColor::Red),
-            "31m 应在快照中保留为 ANSI Red 前景色"
-        );
-        assert_eq!(snap.rows[0][1].c, 'D', "第 1 格应是 reset 后字符 'D'");
-        assert_eq!(
-            snap.rows[0][1].fg,
-            TerminalColor::Named(TerminalNamedColor::Foreground),
-            "0m 后前景色应恢复为默认 Foreground"
-        );
-        assert_ne!(
-            snap.rows[0][1].fg,
-            TerminalColor::Named(TerminalNamedColor::Red),
-            "reset 后的 'D' 不应继续保留 Red 前景色"
-        );
-    }
-
-    /// 24-bit true color 前景色进入快照。
-    ///
-    /// 数据构造：
-    ///   grid 24 行 × 80 列
-    ///   输入 b"\x1b[38;2;1;2;3mT"
-    ///   38;2;r;g;b = true color foreground，r=1、g=2、b=3
-    ///
-    /// 执行过程：
-    ///   1. advance(true color escape) → 当前前景色变为 RGB(1,2,3)
-    ///   2. 写入 'T' → rows[0][0] 应记录 RGB(1,2,3)
-    ///
-    /// 预期结果：
-    ///   - 正断言：T 字符存在且 fg == Rgb{1,2,3}
-    ///   - 负断言：T 不应退化为默认 Foreground
-    #[test]
-    fn test_snapshot_preserves_truecolor_foreground() {
-        let mut g = TerminalGrid::new(80, 24);
-        g.advance(b"\x1b[38;2;1;2;3mT");
-        let snap = g.snapshot();
-
-        assert_eq!(snap.rows[0][0].c, 'T', "第 0 格应是 truecolor 字符 'T'");
-        assert_eq!(
-            snap.rows[0][0].fg,
-            TerminalColor::Rgb { r: 1, g: 2, b: 3 },
-            "38;2;1;2;3m 应保留为 RGB(1,2,3) 前景色"
-        );
-        assert_ne!(
-            snap.rows[0][0].fg,
-            TerminalColor::Named(TerminalNamedColor::Foreground),
-            "truecolor 前景色不应退化为默认 Foreground"
-        );
-    }
-
-    /// 256 色背景色进入快照。
-    ///
-    /// 数据构造：
-    ///   grid 24 行 × 80 列
-    ///   输入 b"\x1b[48;5;22mB"
-    ///   48;5;N = indexed background，N=22
-    ///
-    /// 执行过程：
-    ///   1. advance(indexed background escape) → 当前背景色变为 Indexed(22)
-    ///   2. 写入 'B' → rows[0][0] 应记录 Indexed(22)
-    ///
-    /// 预期结果：
-    ///   - 正断言：B 字符存在且 bg == Indexed(22)
-    ///   - 负断言：B 不应退化为默认 Background
-    #[test]
-    fn test_snapshot_preserves_indexed_background() {
-        let mut g = TerminalGrid::new(80, 24);
-        g.advance(b"\x1b[48;5;22mB");
-        let snap = g.snapshot();
-
-        assert_eq!(
-            snap.rows[0][0].c, 'B',
-            "第 0 格应是 indexed background 字符 'B'"
-        );
-        assert_eq!(
-            snap.rows[0][0].bg,
-            TerminalColor::Indexed(22),
-            "48;5;22m 应保留为 Indexed(22) 背景色"
-        );
-        assert_ne!(
-            snap.rows[0][0].bg,
-            TerminalColor::Named(TerminalNamedColor::Background),
-            "indexed 背景色不应退化为默认 Background"
-        );
-    }
-
-    /// SGR 文本属性进入快照，reset 后属性清空。
-    ///
-    /// 数据构造：
-    ///   grid 24 行 × 80 列
-    ///   输入 b"\x1b[1;3;4;9mS\x1b[0mN"
-    ///   1=bold，3=italic，4=underline，9=strikeout，0=reset
-    ///
-    /// 执行过程：
-    ///   1. advance(1;3;4;9m) → 当前属性打开 bold/italic/underline/strikeout
-    ///   2. 写入 'S' → rows[0][0] 应携带四个属性
-    ///   3. advance(0m) → 属性清空
-    ///   4. 写入 'N' → rows[0][1] 不应携带这些属性
-    ///
-    /// 预期结果：
-    ///   - 正断言：S 保留 bold/italic/underline/strikeout
-    ///   - 正断言：N 字符存在
-    ///   - 负断言：N 不应保留 bold/italic/underline/strikeout
-    #[test]
-    fn test_snapshot_preserves_text_attrs_and_reset() {
-        let mut g = TerminalGrid::new(80, 24);
-        g.advance(b"\x1b[1;3;4;9mS\x1b[0mN");
-        let snap = g.snapshot();
-
-        let styled = snap.rows[0][0];
-        let reset = snap.rows[0][1];
-
-        assert_eq!(styled.c, 'S', "第 0 格应是带属性字符 'S'");
-        assert!(styled.attrs.bold, "'S' 应保留 bold 属性");
-        assert!(styled.attrs.italic, "'S' 应保留 italic 属性");
-        assert!(styled.attrs.underline, "'S' 应保留 underline 属性");
-        assert!(styled.attrs.strikeout, "'S' 应保留 strikeout 属性");
-        assert_eq!(reset.c, 'N', "第 1 格应是 reset 后字符 'N'");
-        assert!(!reset.attrs.bold, "reset 后 'N' 不应保留 bold 属性");
-        assert!(!reset.attrs.italic, "reset 后 'N' 不应保留 italic 属性");
-        assert!(
-            !reset.attrs.underline,
-            "reset 后 'N' 不应保留 underline 属性"
-        );
-        assert!(
-            !reset.attrs.strikeout,
-            "reset 后 'N' 不应保留 strikeout 属性"
-        );
-    }
-
-    /// inverse 和 hidden flags 进入快照，供 UI 层决定如何绘制。
-    ///
-    /// 数据构造：
-    ///   grid 24 行 × 80 列
-    ///   输入 b"\x1b[7mI\x1b[0m\x1b[8mH"
-    ///   7=inverse，8=hidden，0=reset
-    ///
-    /// 执行过程：
-    ///   1. advance(7m) → 当前属性打开 inverse
-    ///   2. 写入 'I' → rows[0][0].attrs.inverse 应为 true
-    ///   3. reset 后 advance(8m) → 当前属性打开 hidden
-    ///   4. 写入 'H' → rows[0][1].attrs.hidden 应为 true
-    ///
-    /// 预期结果：
-    ///   - 正断言：I 保留 inverse
-    ///   - 正断言：H 保留 hidden
-    ///   - 负断言：H 不应误带 inverse，证明 reset 生效
-    #[test]
-    fn test_snapshot_preserves_inverse_and_hidden_attrs() {
-        let mut g = TerminalGrid::new(80, 24);
-        g.advance(b"\x1b[7mI\x1b[0m\x1b[8mH");
-        let snap = g.snapshot();
-
-        assert_eq!(snap.rows[0][0].c, 'I', "第 0 格应是 inverse 字符 'I'");
-        assert!(snap.rows[0][0].attrs.inverse, "'I' 应保留 inverse 属性");
-        assert_eq!(snap.rows[0][1].c, 'H', "第 1 格应是 hidden 字符 'H'");
-        assert!(snap.rows[0][1].attrs.hidden, "'H' 应保留 hidden 属性");
-        assert!(
-            !snap.rows[0][1].attrs.inverse,
-            "reset 后的 hidden 字符不应误带 inverse 属性"
-        );
-    }
-}
+#[cfg(test)]
+#[path = "grid/wheel.rs"]
+mod wheel;
 
 #[path = "grid/scrollback.rs"]
 mod scrollback;
+
+#[path = "grid/cursor.rs"]
+mod cursor;

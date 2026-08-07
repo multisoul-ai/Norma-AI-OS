@@ -1,0 +1,39 @@
+# 本地签名测试配置：ad-hoc 签名（"-"），不 bump 版本，直接用 target/release 现有二进制。
+# 用法：cargo packager -c Packager.dev.toml
+# 真实发版走 Packager.toml（阶段 0 启用 signing-identity 后）。
+name = "app"
+product-name = "Norma OS"
+version = "0.1.14"
+identifier = "com.norma.os"
+authors = ["multisoul"]
+formats = ["app", "dmg"]
+icons = ["assets/AppIcon.icns"]
+out-dir = "build/dev"
+binaries-dir = "."
+resources = [
+  "crates/app/assets/wallpapers",
+  "crates/app/assets/feature-guide",
+  "sidecars/openai-card-planner/openai-card-planner.mjs",
+]
+
+[dmg]
+background = "assets/dmg-background.png"
+window-size = { width = 640, height = 400 }
+# Finder renders 16pt item labels below these anchors. y=175 keeps both labels
+# inside their wells without touching the bottom border; y=200 overlaps it.
+app-position = { x = 180, y = 175 }
+application-folder-position = { x = 460, y = 175 }
+
+[[binaries]]
+path = "target/release/norma-os"
+main = true
+
+[[binaries]]
+path = "target/release/multisoul-agent-hook"
+main = false
+
+[macos]
+minimum-system-version = "12.0"
+info-plist-path = "packaging/macos/Info.plist"
+signing-identity = "-"
+entitlements = "packaging/macos/NormaOS.entitlements"

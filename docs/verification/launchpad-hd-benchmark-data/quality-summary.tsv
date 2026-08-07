@@ -1,0 +1,14 @@
+media	candidate	width	height	codec_or_format	fps	compressed_bytes	quality_metric	quality_value
+video	resolution-720	1280	720	h264-crf18	30	12050676	vmaf	77.483683
+video	resolution-1080	1920	1080	h264-crf18	30	22221226	vmaf	89.377192
+video	resolution-1440	2560	1440	h264-crf18	30	35193047	vmaf	93.084609
+video	resolution-2160	3840	2160	h264-original	29.93	41116667	vmaf	100.000000
+video	codec-1440-hevc	2560	1440	hevc-crf20	30	19987060	vmaf	90.942255
+video	codec-1440-hevc-crf18	2560	1440	hevc-crf18	30	25835345	vmaf	92.342485
+video	fps-1440-hevc-24	2560	1440	hevc-crf20	24	19844951	vmaf	92.885212
+image	image-720-png	1280	720	png	0	1940756	ssim	0.955977
+image	image-1080-png	1920	1080	png	0	4199740	ssim	0.982331
+image	image-1440-png	2560	1440	png	0	7171673	ssim	0.991607
+image	image-2160-png	3840	2160	png	0	10605789	ssim	1.000000
+image	image-1440-jpeg	2560	1440	jpeg-q2-444	0	748586	ssim	0.988984
+image	image-2160-jpeg	3840	2160	jpeg-q2-444	0	1347028	ssim	0.992829

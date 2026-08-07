@@ -1,0 +1,457 @@
+use super::{DialogueControlState, DialogueStartError};
+use crate::app::voice::control::VoiceVisual;
+use crate::settings::voice::{
+    AgentProviderKind, EnvVoiceSettings, SavedVoiceSettings, VoiceSettingsValues,
+};
+use dialogue::DialoguePhase;
+use std::sync::Mutex;
+use tempfile::tempdir;
+use voice_sherpa::SpeechError;
+
+static DIALOGUE_SHELL_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+pub(super) fn with_dialogue_shell_test_guard(assertions: impl FnOnce()) {
+    let _guard = DIALOGUE_SHELL_TEST_LOCK
+        .lock()
+        .expect("dialogue shell test lock should not be poisoned");
+    DialogueControlState::reset_test_seams_for_tests();
+    assertions();
+    DialogueControlState::reset_test_seams_for_tests();
+}
+
+pub(super) fn mic_ok() -> Result<(), SpeechError> {
+    Ok(())
+}
+
+pub(super) fn continuous_listening_values(
+    model_root: Option<std::path::PathBuf>,
+) -> VoiceSettingsValues {
+    let model_id =
+        asr::AsrModelId::parse(asr::PARAFORMER_MODEL_ID).expect("内置 Paraformer ID 应有效");
+    if let Some(model_root) = model_root.as_ref() {
+        let catalog = asr::builtin_model_catalog();
+        let descriptor = catalog.find(&model_id).expect("模型库应包含 Paraformer");
+        let install_root = model_root.join(model_id.as_str());
+        std::fs::create_dir_all(&install_root).expect("应创建测试模型安装目录");
+        for file in descriptor.artifact().required_files() {
+            std::fs::write(install_root.join(file), [1_u8]).expect("应写入测试模型必要文件");
+        }
+        asr::InstallationManifest::for_descriptor(descriptor)
+            .write_to(&install_root)
+            .expect("应写入测试安装清单");
+    }
+    let saved = SavedVoiceSettings {
+        interaction_mode: Some(crate::settings::voice::VoiceInteractionMode::ContinuousListening),
+        asr_model_id: model_root.map(|_| model_id),
+        agent_provider: Some(AgentProviderKind::Ollama),
+        ..SavedVoiceSettings::default()
+    };
+    VoiceSettingsValues::resolve(&saved, &EnvVoiceSettings::default())
+}
+
+/// DLG-1: Continuous Listening 启动校验不要求 OpenAI API key。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   model_root = tempfile 创建的受管根，含 Paraformer 必要文件与匹配安装清单
+///   interaction_mode = ContinuousListening（表示用户选择持续聆听模式）
+///   agent_provider = Ollama（显式固定旧业务路径，不依赖产品默认 Provider）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造仅含本地 sherpa 配置的 VoiceSettingsValues
+///   2. 调用 DialogueControlState::validate_start_provider
+///
+/// 预期结果：
+///   - 正断言：validate_start_provider 返回 Ok，受管 Paraformer provider 可解析
+///   - 负断言：校验结果不应因缺少 OpenAI 设置而失败
+#[test]
+fn test_dialogue_start_does_not_require_openai_api_key() {
+    let dir = tempdir().expect("temp model dir should be creatable");
+    let values = continuous_listening_values(Some(dir.path().to_path_buf()));
+
+    DialogueControlState::validate_start_provider(&values, dir.path())
+        .expect("完整受管 Paraformer 安装应通过启动校验，且不依赖 OpenAI 设置");
+}
+
+/// DLG-2: 停止 Continuous Listening 后 phase 回到 Idle，但 models_resident 仍为 true。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   初始 phase = Idle
+///   on_listening_started 后 phase = Listening 且 models_resident = true
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 默认 DialogueControlState
+///   2. 通过 begin_listening_sync_for_tests 进入 Listening
+///   3. 调用 stop_shell
+///   4. 读取 phase 与 models_resident
+///
+/// 预期结果：
+///   - 正断言：stop 后 phase == Idle
+///   - 正断言：stop 后 models_resident 仍为 true
+///   - 负断言：stop 不应把 models_resident 清回 false
+#[test]
+fn test_dialogue_stop_returns_idle_but_models_remain_resident() {
+    with_dialogue_shell_test_guard(|| {
+        let dir = tempdir().expect("temp model dir should be creatable");
+        let values = continuous_listening_values(Some(dir.path().to_path_buf()));
+        let mut state = DialogueControlState::default();
+
+        DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
+        state
+            .begin_listening_sync_for_tests(&values, dir.path())
+            .expect("测试启动应成功进入 Listening");
+
+        assert_eq!(
+            state.phase(),
+            DialoguePhase::Listening,
+            "启动后应处于 Listening phase"
+        );
+        assert!(
+            state.models_resident(),
+            "首次 Listening 启动后 models_resident 应为 true"
+        );
+
+        state.stop_shell();
+
+        assert_eq!(
+            state.phase(),
+            DialoguePhase::Idle,
+            "stop_shell 后 phase 应回到 Idle"
+        );
+        assert!(state.models_resident(), "关闭 Listening 不应卸载已驻留模型");
+    });
+}
+
+/// DLG-3: 麦克风权限被拒绝时，启动应干净失败并在底栏暴露错误。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   mic seam = 注入闭包，固定返回 SpeechError::MicrophoneDenied
+///   model_dir = tempfile 现存目录（排除 model 缺失干扰）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 注入 mic permission seam 返回 MicrophoneDenied
+///   2. 调用 begin_listening_sync_for_tests
+///   3. 读取 phase、error_message、effective_voice_label/visual
+///
+/// 预期结果：
+///   - 正断言：返回 MicrophoneDenied 错误
+///   - 正断言：phase 保持 Idle
+///   - 正断言：底栏 label/visual 映射到麦克风错误
+///   - 正断言：错误态暴露麦克风系统设置恢复入口
+///   - 负断言：不应进入 Listening 或 Continuous Listening label
+#[test]
+fn test_dialogue_start_fails_cleanly_when_mic_permission_denied() {
+    with_dialogue_shell_test_guard(|| {
+        let dir = tempdir().expect("temp model dir should be creatable");
+        let values = continuous_listening_values(Some(dir.path().to_path_buf()));
+        let mut state = DialogueControlState::default();
+
+        DialogueControlState::set_mic_permission_check_for_tests(Some(|| {
+            Err(SpeechError::MicrophoneDenied)
+        }));
+
+        let error = state
+            .begin_listening_sync_for_tests(&values, dir.path())
+            .expect_err("麦克风被拒绝时启动应失败");
+
+        assert!(
+            matches!(
+                error,
+                DialogueStartError::Speech(SpeechError::MicrophoneDenied)
+            ),
+            "启动失败原因应是 MicrophoneDenied，实际: {error}"
+        );
+        assert_eq!(
+            state.phase(),
+            DialoguePhase::Idle,
+            "权限拒绝后 phase 应保持 Idle"
+        );
+        assert!(
+            state
+                .effective_voice_label("Voice")
+                .to_ascii_lowercase()
+                .contains("microphone"),
+            "底栏应显示麦克风相关错误，实际: {}",
+            state.effective_voice_label("Voice")
+        );
+        assert_eq!(
+            state.effective_voice_visual(VoiceVisual::Idle),
+            VoiceVisual::Error,
+            "麦克风拒绝应映射 Error 视觉"
+        );
+        assert!(
+            state.microphone_settings_recovery_available(),
+            "Continuous Listening 的 MicrophoneDenied 必须暴露与一次性录音相同的系统设置恢复入口"
+        );
+        assert_ne!(
+            state.effective_voice_label("Voice"),
+            "Continuous Listening",
+            "权限拒绝时不应显示 Continuous Listening"
+        );
+    });
+}
+
+/// DLG-4: 默认 dialogue shell 不覆盖 one-shot voice 底栏。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   state = default → phase Idle；fallback label = Voice；fallback visual = Idle
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造默认 DialogueControlState
+///   2. 读取 dialogue_voice_label / effective label / effective visual
+///
+/// 预期结果：
+///   - 正断言：Idle 时 effective label 为 Voice，visual 为 Idle
+///   - 负断言：Idle 时不应显示 Continuous Listening 或错误文案
+#[test]
+fn test_dialogue_default_maps_bottom_bar_to_voice() {
+    let state = DialogueControlState::default();
+
+    assert!(
+        state.dialogue_voice_label().is_none(),
+        "Idle 状态不应覆盖 one-shot voice label"
+    );
+    assert_eq!(
+        state.effective_voice_label("Voice"),
+        "Voice",
+        "默认 dialogue shell 应让底栏继续显示 one-shot Voice"
+    );
+    assert_eq!(
+        state.effective_voice_visual(VoiceVisual::Idle),
+        VoiceVisual::Idle,
+        "默认 dialogue shell 应保留 one-shot Idle 视觉"
+    );
+}
+
+/// DLG-5: Listening phase 映射 Continuous Listening label 与 Recording visual。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   model_dir = tempfile 目录
+///   启动后 phase = Listening
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 通过 begin_listening_sync_for_tests 进入 Listening
+///   2. 读取 effective_voice_label / effective_voice_visual
+///
+/// 预期结果：
+///   - 正断言：label 为 Continuous Listening
+///   - 正断言：visual 为 Recording
+#[test]
+fn test_dialogue_listening_maps_bottom_label_to_continuous_listening() {
+    with_dialogue_shell_test_guard(|| {
+        let dir = tempdir().expect("temp model dir should be creatable");
+        let values = continuous_listening_values(Some(dir.path().to_path_buf()));
+        let mut state = DialogueControlState::default();
+
+        DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
+        state
+            .begin_listening_sync_for_tests(&values, dir.path())
+            .expect("测试启动应进入 Listening");
+
+        assert_eq!(
+            state.effective_voice_label("Voice"),
+            "Continuous Listening",
+            "Listening phase 底栏应显示 Continuous Listening"
+        );
+        assert_eq!(
+            state.effective_voice_visual(VoiceVisual::Idle),
+            VoiceVisual::Recording,
+            "Listening 状态应使用 Recording 视觉"
+        );
+    });
+}
+
+/// DLG-8: final transcript 应推进 Thinking，并把识别文本投影到顶部 Voice 入口。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   final transcripts = 1（单次提交「你好」）
+///   transcript chars  = 2（「你」+「好」）
+///   expected phase    = 1（Listening → Thinking）
+///
+/// 执行过程：
+///   1. begin_listening_sync_for_tests 进入 Listening
+///   2. on_final_transcript("你好") 保存 final 并进入 Thinking
+///   3. effective_voice_label("Voice") 仲裁顶部入口文案
+///
+/// 预期结果：
+///   - 正断言：phase == Thinking
+///   - 正断言：pending_transcript == Some("你好")
+///   - 正断言：顶部 Voice 入口显示「你好」
+///   - 负断言：顶部 Voice 入口不再用通用「Thinking...」覆盖识别文本
+#[test]
+fn test_dialogue_final_transcript_moves_to_thinking() {
+    with_dialogue_shell_test_guard(|| {
+        let dir = tempdir().expect("temp model dir should be creatable");
+        let values = continuous_listening_values(Some(dir.path().to_path_buf()));
+        let mut state = DialogueControlState::default();
+
+        DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
+        state
+            .begin_listening_sync_for_tests(&values, dir.path())
+            .expect("测试启动应进入 Listening");
+
+        state
+            .on_final_transcript("你好")
+            .expect("Listening 下 final transcript 应成功");
+
+        assert_eq!(
+            state.phase(),
+            DialoguePhase::Thinking,
+            "final transcript 后应进入 Thinking"
+        );
+        assert_eq!(
+            state.pending_transcript(),
+            Some("你好"),
+            "Thinking 前应保存 pending_transcript"
+        );
+        let effective_label = state.effective_voice_label("Voice");
+        assert_eq!(
+            effective_label, "你好",
+            "Thinking phase 顶部 Voice 入口应显示刚识别的 final transcript"
+        );
+        assert_ne!(
+            effective_label, "Thinking...",
+            "final transcript 已存在时不得被通用 Thinking 状态覆盖"
+        );
+    });
+}
+
+/// DLG-10: final transcript 后 Mock echo turn 应保存回复文本并可通过 TTS 进入 Speaking。
+///
+/// 执行过程：
+///   1. 进入 Listening → Thinking
+///   2. run_voice_turn_for_tests（默认 echo Mock）
+///   3. on_reply_ready_for_tests
+///
+/// 预期结果：
+///   - 正断言：last_reply_text ==「收到：你好」
+///   - 正断言：phase == Speaking
+///   - 负断言：card task cancel hook 未被调用
+#[test]
+fn test_dialogue_echo_turn_reply_text_reaches_speaking() {
+    with_dialogue_shell_test_guard(|| {
+        let dir = tempdir().expect("temp model dir should be creatable");
+        let values = continuous_listening_values(Some(dir.path().to_path_buf()));
+        let mut state = DialogueControlState::default();
+        state.prepare_reply_test_fixtures();
+
+        DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
+        state
+            .begin_listening_sync_for_tests(&values, dir.path())
+            .expect("测试启动应进入 Listening");
+        state
+            .on_final_transcript("你好")
+            .expect("final transcript 应进入 Thinking");
+        state
+            .run_voice_turn_for_tests()
+            .expect("echo Mock turn 应成功");
+
+        assert_eq!(
+            state.last_reply_text_for_tests(),
+            Some("收到：你好"),
+            "默认 echo Mock 应保存回复文本"
+        );
+        assert!(
+            state.queued_template_reports_for_tests().is_empty(),
+            "纯文本 echo turn 不应排队模板报告"
+        );
+
+        state
+            .on_reply_ready_for_tests()
+            .expect("reply TTS 应进入 Speaking");
+        assert_eq!(
+            state.phase(),
+            DialoguePhase::Speaking,
+            "TTS 合成后应进入 Speaking"
+        );
+    });
+}
+
+/// DLG-14: Speaking 时原始麦克风 SpeechStart 未分类，不能直接截断 assistant TTS。
+///
+/// 执行过程：
+///   1. 进入 Listening → Thinking → Speaking
+///   2. 注入 pipeline 原始 SpeechStart（可能是扬声器回声）
+///
+/// 预期结果：
+///   - 正断言：phase 仍为 Speaking
+///   - 负断言：recording sink 不得 stop
+#[test]
+fn test_dialogue_unclassified_speech_does_not_truncate_assistant_reply() {
+    with_dialogue_shell_test_guard(|| {
+        let dir = tempdir().expect("temp model dir should be creatable");
+        let values = continuous_listening_values(Some(dir.path().to_path_buf()));
+        let mut state = DialogueControlState::default();
+        state.prepare_reply_test_fixtures();
+
+        DialogueControlState::set_mic_permission_check_for_tests(Some(mic_ok));
+        state
+            .begin_listening_sync_for_tests(&values, dir.path())
+            .expect("测试启动应进入 Listening");
+        state
+            .on_final_transcript("你好")
+            .expect("final transcript 应进入 Thinking");
+        state.run_voice_turn_for_tests().expect("voice turn 应完成");
+        state
+            .on_reply_ready_for_tests()
+            .expect("reply TTS 应进入 Speaking");
+
+        let sink = state.assistant_audio_sink_for_tests();
+        assert!(!sink.stopped(), "前置：Speaking 播放尚未被 stop");
+
+        assert!(
+            !state.on_unclassified_speech_start_for_tests(),
+            "未分类 SpeechStart 可能来自 assistant 扬声器回声，不应直接处理为 barge-in"
+        );
+
+        assert_eq!(
+            state.phase(),
+            DialoguePhase::Speaking,
+            "忽略 assistant 回声候选后应继续 Speaking"
+        );
+        assert!(!sink.stopped(), "assistant 回声不得停止正在播放的完整回复");
+        assert!(
+            state.models_resident(),
+            "忽略 assistant 回声后 models_resident 应保持 true"
+        );
+    });
+}
+
+/// DLG-15：最终语音识别文本必须以 info 日志输出，便于默认日志级别直接观察。
+///
+/// 数据构造：
+///   读取生产 `dialogue/chat.rs`，截取 `FinalTranscript` 分支到状态更新前的日志块；
+///   默认日志过滤器为 info，因此 debug 不会出现在普通运行日志中。
+///
+/// 执行过程：
+///   1. 定位 `ListeningPipelineEvent::FinalTranscript(text)` 分支；
+///   2. 截取紧随其后的日志语句；
+///   3. 检查日志级别和 transcript 字段。
+///
+/// 预期结果：
+///   - 正断言：日志块使用 `tracing::info!` 并输出 `%text`；
+///   - 负断言：不得继续使用只在 debug 级别可见的日志。
+#[test]
+fn test_final_speech_transcript_is_logged_at_info_with_text() {
+    let source = include_str!("../../src/app/dialogue/chat.rs");
+    let branch_start = source
+        .find("ListeningPipelineEvent::FinalTranscript(text) =>")
+        .expect("生产 pipeline event pump 应处理 FinalTranscript");
+    let update_start = source[branch_start..]
+        .find("let should_notify")
+        .map(|offset| branch_start + offset)
+        .expect("FinalTranscript 日志后应继续更新 dialogue 状态");
+    let log_block = &source[branch_start..update_start];
+
+    assert!(
+        log_block.contains("tracing::info!("),
+        "final transcript 应在默认 info 级别可见；日志块：{log_block:?}"
+    );
+    assert!(
+        log_block.contains("transcript = %text"),
+        "info 日志必须打印实际识别文本，而不只是字符数；日志块：{log_block:?}"
+    );
+    assert!(
+        !log_block.contains("tracing::debug!("),
+        "final transcript 不得继续只写入 debug 日志；日志块：{log_block:?}"
+    );
+}

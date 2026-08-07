@@ -1,0 +1,5 @@
+[alias]
+packager = "run --quiet --manifest-path tools/cargo-packager-wrapper/Cargo.toml --"
+
+[target.aarch64-apple-darwin]
+runner = "scripts/run-macos-dev-app.sh"

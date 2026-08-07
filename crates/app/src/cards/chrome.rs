@@ -1,25 +1,37 @@
 //! Shared card chrome primitives.
 
-use canvas::{CanvasNode, CanvasRect, NodeType, Vec2};
+use canvas::{CanvasNode, CanvasRect, NodeId, NodeType};
 use gpui::{
-    div, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, AnyElement, BoxShadow,
-    Div, FontWeight,
+    div, linear_color_stop, linear_gradient, point, prelude::*, px, rgba, AnyElement, Background,
+    BoxShadow, Div, FontWeight,
 };
 use runtime::{NodeResize, Runtime};
 use ui::Theme;
 
 use super::{Card, CardBodyContext};
 use crate::motion::breathing::{
-    chase_edge_segment, ChaseGlow, CornerGlow, CHASE_TAIL_LENGTH, CORNER_GLOW_BOTTOM_LEFT,
-    CORNER_GLOW_BOTTOM_RIGHT, CORNER_GLOW_TOP_LEFT, CORNER_GLOW_TOP_RIGHT,
+    CornerGlow, CORNER_GLOW_BOTTOM_LEFT, CORNER_GLOW_BOTTOM_RIGHT, CORNER_GLOW_TOP_LEFT,
+    CORNER_GLOW_TOP_RIGHT,
 };
 use crate::motion::{ResolvedNodeVisual, VisualPriority};
 
-pub const TITLE_BAR_H: f32 = 26.0;
+pub const TITLE_BAR_H: f32 = 32.0;
+
+/// A translucent cool-white gradient layered over the card shell. GPUI 0.2.2
+/// has no per-element backdrop blur, so the low-alpha shell, chromatic gradient,
+/// keyline and wallpaper beneath it cooperate to produce the frosted material.
+pub fn card_title_background(title_color: u32, theme: Theme) -> Background {
+    linear_gradient(
+        165.0,
+        linear_color_stop(rgba(title_color), 0.0),
+        linear_color_stop(rgba(with_alpha(theme.canvas_to, 0x38)), 1.0),
+    )
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CardChrome {
     pub title: String,
+    pub title_detail: Option<String>,
     pub refreshable: bool,
     pub task_badge: Option<CardChromeTaskBadge>,
 }
@@ -36,6 +48,53 @@ pub enum CardChromeTaskTone {
 pub struct CardChromeTaskBadge {
     pub label: String,
     pub tone: CardChromeTaskTone,
+}
+
+pub fn render_card_title(
+    node_id: NodeId,
+    title: String,
+    title_detail: Option<String>,
+    zoom: f32,
+    theme: Theme,
+) -> AnyElement {
+    let title = div()
+        .debug_selector(|| "card-title".to_string())
+        .overflow_hidden()
+        .truncate()
+        .font_weight(FontWeight::MEDIUM)
+        .child(title);
+    let content = div()
+        .id(("node-title", node_id))
+        .flex()
+        .flex_row()
+        .items_center()
+        .flex_1()
+        .min_w(px(0.0))
+        .overflow_hidden()
+        .gap(px(5.0 * zoom));
+
+    match title_detail {
+        Some(detail) => content
+            .child(title.flex_none())
+            .child(
+                div()
+                    .flex_none()
+                    .text_color(rgba(theme.text_tertiary))
+                    .child("—"),
+            )
+            .child(
+                div()
+                    .debug_selector(|| "card-title-detail".to_string())
+                    .flex_1()
+                    .min_w(px(0.0))
+                    .overflow_hidden()
+                    .truncate()
+                    .text_color(rgba(theme.text_secondary))
+                    .child(detail),
+            ),
+        None => content.child(title.flex_1().min_w(px(0.0))),
+    }
+    .into_any_element()
 }
 
 pub fn render_task_badge(badge: CardChromeTaskBadge, zoom: f32, theme: Theme) -> Div {
@@ -69,7 +128,7 @@ pub fn node_shadow(
     zoom: f32,
     corner_glow_visible: bool,
 ) -> Vec<BoxShadow> {
-    let mut shadows = Vec::with_capacity(6);
+    let mut shadows = Vec::with_capacity(5);
     shadows.push(BoxShadow {
         color: rgba(visual.shadow_color).into(),
         offset: point(px(0.0), px(visual.shadow_y)),
@@ -121,159 +180,6 @@ fn with_glow_alpha(color: u32, intensity: f32) -> u32 {
     with_alpha(color, (base_alpha * intensity).round() as u8)
 }
 
-/// 返回蛇形覆盖层容器，与卡片同位置但无 overflow_hidden，使圆角弧上的小圆不被剪裁。
-pub fn chase_overlay_container(
-    pos: Vec2,
-    w: f32,
-    h: f32,
-    chase: ChaseGlow,
-    zoom: f32,
-) -> AnyElement {
-    div()
-        .absolute()
-        .left(px(pos.x))
-        .top(px(pos.y))
-        .w(px(w))
-        .h(px(h))
-        .children(chase_snake_overlays(chase, w, h, zoom))
-        .into_any_element()
-}
-
-/// 生成 snake 追尾光 overlay：4 条边（各收缩圆角距离）+ 最多 4 个角点圆点。
-fn chase_snake_overlays(chase: ChaseGlow, w: f32, h: f32, zoom: f32) -> Vec<Div> {
-    let t = 3.5 * zoom;
-    let r = (16.0 * zoom).clamp(8.0, 22.0);
-    let alpha = (0xCC as f32 * chase.fade).round() as u8;
-    let bright = rgba(0x27d7ea00_u32 | u32::from(alpha));
-    let dim = rgba(0x27d7ea00_u32);
-    let iw = (w - 2.0 * r).max(0.0);
-    let ih = (h - 2.0 * r).max(0.0);
-    let mut out: Vec<Div> = Vec::new();
-
-    // top: TL→TR (90°)，strip 从 x=r 到 x=w-r
-    if let Some((lt, lh)) = chase_edge_segment(chase.phase, CHASE_TAIL_LENGTH, 0.0, 0.25) {
-        out.push(
-            div()
-                .absolute()
-                .top(px(0.0))
-                .left(px(r + lt * iw))
-                .w(px((lh - lt) * iw))
-                .h(px(t))
-                .rounded(px(t / 2.0))
-                .bg(linear_gradient(
-                    90.0,
-                    linear_color_stop(dim, 0.0),
-                    linear_color_stop(bright, 1.0),
-                )),
-        );
-    }
-    // right: TR→BR (180°)，strip 从 y=r 到 y=h-r
-    if let Some((lt, lh)) = chase_edge_segment(chase.phase, CHASE_TAIL_LENGTH, 0.25, 0.5) {
-        out.push(
-            div()
-                .absolute()
-                .right(px(0.0))
-                .top(px(r + lt * ih))
-                .w(px(t))
-                .h(px((lh - lt) * ih))
-                .rounded(px(t / 2.0))
-                .bg(linear_gradient(
-                    180.0,
-                    linear_color_stop(dim, 0.0),
-                    linear_color_stop(bright, 1.0),
-                )),
-        );
-    }
-    // bottom: BR→BL (270°)，strip 从 x=w-r 到 x=r
-    if let Some((lt, lh)) = chase_edge_segment(chase.phase, CHASE_TAIL_LENGTH, 0.5, 0.75) {
-        out.push(
-            div()
-                .absolute()
-                .bottom(px(0.0))
-                .left(px(r + (1.0 - lh) * iw))
-                .w(px((lh - lt) * iw))
-                .h(px(t))
-                .rounded(px(t / 2.0))
-                .bg(linear_gradient(
-                    270.0,
-                    linear_color_stop(dim, 0.0),
-                    linear_color_stop(bright, 1.0),
-                )),
-        );
-    }
-    // left: BL→TL (0°)，strip 从 y=h-r 到 y=r
-    if let Some((lt, lh)) = chase_edge_segment(chase.phase, CHASE_TAIL_LENGTH, 0.75, 1.0) {
-        out.push(
-            div()
-                .absolute()
-                .left(px(0.0))
-                .top(px(r + (1.0 - lh) * ih))
-                .w(px(t))
-                .h(px((lh - lt) * ih))
-                .rounded(px(t / 2.0))
-                .bg(linear_gradient(
-                    0.0,
-                    linear_color_stop(dim, 0.0),
-                    linear_color_stop(bright, 1.0),
-                )),
-        );
-    }
-
-    // 角部圆弧：K 个小圆沿卡片圆角弧线排列，snake 经过时显示。
-    // 每个小圆圆心用 sin/cos 精确落在卡片圆弧上，整体看起来是 snake 绕圆角行进。
-    // 渐变方向：arc_t=1（出边）最亮 → arc_t=0（入边）稍暗（对应 head→tail 方向）。
-    const K: usize = 8;
-    const CORNER_W: f32 = 0.04; // 角部虚拟宽度（perimeter 坐标），用于产生 head→tail 渐变
-    let half_pi: f32 = std::f32::consts::FRAC_PI_2;
-    for (cp, is_right, is_bottom) in [
-        (0.0_f32, false, false), // TL
-        (0.25, true, false),     // TR
-        (0.5, true, true),       // BR
-        (0.75, false, true),     // BL
-    ] {
-        let tail = chase.phase - CHASE_TAIL_LENGTH;
-        let hit = if tail >= 0.0 {
-            tail <= cp && cp <= chase.phase
-        } else {
-            cp >= tail + 1.0 || cp <= chase.phase
-        };
-        if !hit {
-            continue;
-        }
-        let dist = (chase.phase - cp).rem_euclid(1.0);
-        for i in 0..K {
-            let frac = (i as f32 + 0.5) / K as f32; // arc_t: 0=入边, 1=出边
-            let seg_dist = dist + (1.0 - frac) * CORNER_W;
-            let seg_intens = (1.0 - seg_dist / CHASE_TAIL_LENGTH).clamp(0.0, 1.0);
-            let seg_a = (0xCC as f32 * chase.fade * seg_intens).round() as u8;
-            if seg_a == 0 {
-                continue;
-            }
-            let seg_col = rgba(0x27d7ea00_u32 | u32::from(seg_a));
-            let alpha = frac * half_pi;
-            // 各角圆弧公式（arc center: TL=(r,r), TR=(w-r,r), BR=(w-r,h-r), BL=(r,h-r)）
-            let (sx, sy) = match (is_right, is_bottom) {
-                (false, false) => (r * (1.0 - alpha.cos()), r * (1.0 - alpha.sin())),
-                (true, false) => (w - r + r * alpha.sin(), r * (1.0 - alpha.cos())),
-                (true, true) => (w - r + r * alpha.cos(), h - r + r * alpha.sin()),
-                _ => (r * (1.0 - alpha.sin()), h - r + r * alpha.cos()),
-            };
-            out.push(
-                div()
-                    .absolute()
-                    .left(px(sx - t / 2.0))
-                    .top(px(sy - t / 2.0))
-                    .w(px(t))
-                    .h(px(t))
-                    .rounded(px(t / 2.0))
-                    .bg(seg_col),
-            );
-        }
-    }
-
-    out
-}
-
 pub struct EmptyCard;
 
 pub static EMPTY_CARD: EmptyCard = EmptyCard;
@@ -286,6 +192,7 @@ impl Card for EmptyCard {
     fn chrome(&self, node: &CanvasNode, _runtime: &Runtime) -> CardChrome {
         CardChrome {
             title: node.kind.display_title(),
+            title_detail: None,
             refreshable: false,
             task_badge: None,
         }
@@ -307,6 +214,7 @@ fn with_alpha(color: u32, alpha: u8) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::motion::working::WorkingSnake;
 
     fn base_visual(corner_glow: Option<CornerGlow>) -> ResolvedNodeVisual {
         ResolvedNodeVisual {
@@ -324,7 +232,7 @@ mod tests {
             border_is_emphasized: false,
             opacity: 1.0,
             corner_glow,
-            chase_glow: None,
+            working_snake: None,
         }
     }
 
@@ -406,5 +314,52 @@ mod tests {
         );
         assert_ne!(without_glow.len(), 5, "corner_glow=None 时不应误产出角光晕");
         assert_ne!(culled.len(), 5, "裁剪命中时不应误产出角光晕");
+    }
+
+    /// CS-3: working_snake 只由 canvas overlay 绘制，不应追加卡片外发光 shadow。
+    ///
+    /// 数据构造（含关键数值推导）：
+    ///   base_visual 的 priority=Idle（不触发 Focused 专属光晕），corner_glow=None。
+    ///   working_snake.head_phase=0.25、tail_fraction=0.24 只用于表示 snake overlay 已存在。
+    ///   基础阴影层数 = 1；若 working_snake 被错误用于卡片 chrome glow，则层数会变成 2。
+    ///
+    /// 执行过程：
+    ///   1. 构造带 working_snake 的 Idle visual
+    ///   2. 调用 node_shadow(visual, 1.0, true)
+    ///
+    /// 预期结果：
+    ///   - 正断言：返回长度仍为 1，只保留基础阴影
+    ///   - 正断言：基础阴影 blur_radius 仍为 20.0px
+    ///   - 负断言：返回长度不应为 2，避免 snake 额外增加卡片外发光
+    #[test]
+    fn test_node_shadow_ignores_working_snake_overlay() {
+        let mut visual = base_visual(None);
+        visual.working_snake = Some(WorkingSnake {
+            head_phase: 0.25,
+            tail_fraction: 0.24,
+            head_color: 0x27d7eae6,
+            tail_color: 0x9b55ffe6,
+            glow_color: 0x27d7eae6,
+            inset_px: 3.0,
+            stroke_px: 3.0,
+        });
+
+        let shadows = node_shadow(visual, 1.0, true);
+
+        assert_eq!(
+            shadows.len(),
+            1,
+            "working_snake 应只通过 overlay 绘制，不应让 node_shadow 追加外发光"
+        );
+        assert_eq!(
+            f32::from(shadows[0].blur_radius),
+            20.0,
+            "基础阴影 blur_radius 应保持 base_visual 的 20.0px"
+        );
+        assert_ne!(
+            shadows.len(),
+            2,
+            "working_snake 不应额外增加第二层 shadow，否则卡片本体仍在动画变色/发光"
+        );
     }
 }

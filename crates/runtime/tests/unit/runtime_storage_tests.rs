@@ -399,3 +399,68 @@ fn test_runtime_restore_live_sessions_uses_default_for_legacy_terminal_without_c
     );
     runtime.kill_all();
 }
+
+/// RS-8: restore_live_sessions_with_node_sessions 当 NodeSession.session_id = None 时，
+/// 不追加 --resume，使用原始 agent 命令。
+///
+/// 数据构造（含关键数值推导）：
+///   NodeSession { kind: Agent, session_id: None }
+///
+/// 执行过程：
+///   1. 调用 build_agent_restore_command_for_test(session, Claude, None)
+///   2. 检查返回的 PtyCommand.args 不含 "--resume"
+///
+/// 预期结果：
+///   - 负断言：session_id=None 时 args 不应包含 "--resume"
+#[test]
+fn test_restore_agent_no_session_id_omits_resume() {
+    use storage::{NodeSession, NodeSessionKind};
+
+    let session = NodeSession {
+        node_id: 1,
+        kind: NodeSessionKind::Agent,
+        cwd: None,
+        session_id: None,
+    };
+    let cmd = crate::session_restore::build_agent_restore_command_for_test(
+        &session,
+        canvas::AgentProfile::Claude,
+        None,
+        None,
+    );
+    let args_str = cmd.args.join(" ");
+    assert!(
+        !args_str.contains("--resume"),
+        "session_id=None 时不应出现 --resume，实际 args: {args_str}"
+    );
+}
+
+/// RS-9: restore_live_sessions_with_node_sessions 当 cwd = None 时不报错，
+/// terminal 使用默认 shell 命令（无 cwd 覆盖）。
+///
+/// 数据构造（含关键数值推导）：
+///   NodeSession { kind: Terminal, cwd: None, session_id: None }
+///
+/// 执行过程：
+///   1. 调用 build_terminal_restore_command_for_test(session, "/bin/zsh")
+///   2. 检查返回的 PtyCommand.cwd 为 None
+///
+/// 预期结果：
+///   - 正断言：cwd=None 时 PtyCommand.cwd 也应为 None（回退到 workspace_root）
+#[test]
+fn test_restore_terminal_null_cwd_does_not_error() {
+    use storage::{NodeSession, NodeSessionKind};
+
+    let session = NodeSession {
+        node_id: 1,
+        kind: NodeSessionKind::Terminal,
+        cwd: None,
+        session_id: None,
+    };
+    let cmd = crate::session_restore::build_terminal_restore_command_for_test(&session, "/bin/zsh");
+    assert!(
+        cmd.cwd.is_none(),
+        "cwd=None 时 PtyCommand.cwd 也应为 None，实际: {:?}",
+        cmd.cwd
+    );
+}

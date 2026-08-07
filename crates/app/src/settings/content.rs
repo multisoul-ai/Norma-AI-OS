@@ -1,283 +1,234 @@
 use super::{with_alpha, SettingsPanelState, SettingsSection};
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight};
-use ui::Theme;
+use crate::settings::agents::{agents_settings, AgentDefinitionsState};
+use crate::settings::appearance::theme_appearance;
+use crate::settings::orchestration::{orchestration_settings, OrchestrationSettingsState};
+use crate::settings::performance::{performance_settings, PerformanceSettingsState};
+use crate::settings::voice::{
+    voice_settings, VoiceSettingsInputs, VoiceSettingsState, VoiceSetupDestination,
+};
+use crate::settings::wallpaper::{wallpaper_settings, PreviewCache, WallpaperSettingsState};
+use crate::shortcuts::ShortcutSettingsState;
+use gpui::{div, prelude::*, px, rgba, Context, Div, FontWeight, ScrollHandle, Window};
+use ui::{Theme, ThemeId};
 
-mod appearance;
-mod hooks;
+mod keyboard;
 
-use self::appearance::general_appearance;
-use self::hooks::hooks_settings;
+use self::keyboard::keyboard_settings;
 
-#[derive(Clone, Copy)]
-struct MockSetting {
-    title: &'static str,
-    hint: &'static str,
-    value: &'static str,
+pub(super) struct VoiceSettingsContent<'a> {
+    pub(super) state: &'a VoiceSettingsState,
+    pub(super) inputs: &'a VoiceSettingsInputs,
+    pub(super) setup_scroll_target: Option<VoiceSetupDestination>,
+}
+
+pub(super) struct SettingsContentContext<'a> {
+    pub(super) theme: Theme,
+    pub(super) theme_id: ThemeId,
+    pub(super) panel: &'a SettingsPanelState,
+    pub(super) agent_definitions: &'a AgentDefinitionsState,
+    pub(super) selected_agent_on_canvas: bool,
+    pub(super) orchestration: &'a OrchestrationSettingsState,
+    pub(super) performance: &'a PerformanceSettingsState,
+    pub(super) voice: VoiceSettingsContent<'a>,
+    pub(super) content_scroll: &'a ScrollHandle,
+    pub(super) agent_list_scroll: &'a ScrollHandle,
+    pub(super) wallpaper_state: &'a WallpaperSettingsState,
+    pub(super) wallpaper_previews: &'a mut PreviewCache,
+    pub(super) shortcuts: &'a ShortcutSettingsState,
 }
 
 pub(super) fn settings_content(
-    theme: Theme,
-    panel: &SettingsPanelState,
+    content: SettingsContentContext<'_>,
+    window: &mut Window,
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
+    let SettingsContentContext {
+        theme,
+        theme_id,
+        panel,
+        agent_definitions,
+        selected_agent_on_canvas,
+        orchestration,
+        performance,
+        voice,
+        content_scroll,
+        agent_list_scroll,
+        wallpaper_state,
+        wallpaper_previews,
+        shortcuts,
+    } = content;
     div()
         .flex_1()
+        .min_w(px(0.0))
+        .min_h(px(0.0))
         .h_full()
         .flex()
         .flex_col()
-        .bg(rgba(with_alpha(theme.term_bg, 0x72)))
-        .child(content_header(theme, panel.active_section, cx))
-        .child(
+        .bg(rgba(with_alpha(theme.panel_high, 0xd4)))
+        .child(content_header(
+            theme,
+            panel.active_section,
+            &shortcuts.voice_interaction_label(),
+            cx,
+        ))
+        .child({
+            let agents_section = panel.active_section == SettingsSection::Agents;
             div()
                 .id("settings-content-scroll")
+                .debug_selector(|| "settings-content-scroll".to_string())
                 .flex_1()
-                .overflow_scroll()
-                .px(px(26.0))
-                .pb(px(28.0))
+                .min_w(px(0.0))
+                .min_h(px(0.0))
+                .overflow_x_hidden()
+                .when(agents_section, |this| {
+                    this.flex().flex_col().overflow_y_hidden()
+                })
+                .when(!agents_section, |this| {
+                    this.overflow_y_scroll().track_scroll(content_scroll)
+                })
+                .pl(px(29.0))
+                .pr(px(28.0))
+                .pb(px(40.0))
                 .child(match panel.active_section {
-                    SettingsSection::General => general_appearance(theme),
-                    SettingsSection::Runtime => mock_section(theme, runtime_rows()),
-                    SettingsSection::Agents => mock_section(theme, agent_rows()),
-                    SettingsSection::Skills => mock_section(theme, skill_rows()),
-                    SettingsSection::Hooks => hooks_settings(theme, panel, cx),
-                }),
-        )
+                    SettingsSection::Themes => theme_appearance(theme_id, theme, cx),
+                    SettingsSection::Keyboard => keyboard_settings(theme, shortcuts, cx),
+                    SettingsSection::Voice => voice_settings(
+                        crate::settings::voice::VoiceSettingsView {
+                            theme,
+                            state: voice.state,
+                            inputs: voice.inputs,
+                            content_scroll,
+                            setup_scroll_target: voice.setup_scroll_target,
+                            voice_shortcut_label: &shortcuts.voice_interaction_label(),
+                        },
+                        window,
+                        cx,
+                    ),
+                    SettingsSection::Agents => agents_settings(
+                        theme,
+                        agent_definitions,
+                        selected_agent_on_canvas,
+                        agent_list_scroll,
+                        window,
+                        cx,
+                    ),
+                    SettingsSection::Orchestration => {
+                        orchestration_settings(theme, orchestration, cx)
+                    }
+                    SettingsSection::Wallpaper => {
+                        wallpaper_settings(theme, wallpaper_state, wallpaper_previews, cx)
+                    }
+                    SettingsSection::Performance => performance_settings(theme, performance, cx),
+                    // Mock-only sections are hidden from the sidebar; keep a blank
+                    // fallback so stale state or tests cannot route to old placeholders.
+                    #[cfg(test)]
+                    SettingsSection::Runtime | SettingsSection::Skills => div(),
+                })
+        })
 }
 
-fn content_header(theme: Theme, section: SettingsSection, cx: &mut Context<MultisoulApp>) -> Div {
-    let subtitle = content_subtitle(section);
-    let mut title_column = div().flex().flex_col().gap(px(3.0)).child(
-        div()
-            .text_size(px(21.0))
-            .font_weight(FontWeight::BOLD)
-            .text_color(rgba(theme.text_primary))
-            .child(content_title(section)),
-    );
+fn content_header(
+    theme: Theme,
+    section: SettingsSection,
+    voice_shortcut_label: &str,
+    cx: &mut Context<MultisoulApp>,
+) -> Div {
+    let subtitle = content_subtitle(section, voice_shortcut_label);
+    let mut title_column = div()
+        .flex_1()
+        .min_w(px(0.0))
+        .flex()
+        .flex_col()
+        .gap(px(3.0))
+        .child(
+            div()
+                .relative()
+                .top(px(2.0))
+                .text_size(px(24.0))
+                .font_weight(FontWeight::BOLD)
+                .text_color(rgba(theme.text_primary))
+                .child(content_title(section)),
+        );
     if !subtitle.is_empty() {
         title_column = title_column.child(
             div()
-                .text_size(px(16.0))
+                .text_size(px(15.75))
                 .text_color(rgba(theme.text_tertiary))
                 .child(subtitle),
         );
     }
 
     div()
-        .h(px(100.0))
+        .min_h(px(119.0))
+        .flex_none()
         .flex()
         .flex_row()
         .items_start()
         .justify_between()
-        .pt(px(34.0))
-        .px(px(26.0))
+        .pt(px(31.0))
+        .pl(px(29.0))
+        .pr(px(28.0))
+        .pb(px(18.0))
+        .border_b_1()
+        .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
         .child(title_column)
         .child(
             div()
                 .id("settings-close")
+                .debug_selector(|| "settings-close".to_string())
                 .w(px(34.0))
                 .h(px(34.0))
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(px(8.0))
-                .text_size(px(25.0))
+                .rounded(px(17.0))
+                .text_size(px(22.0))
                 .line_height(px(26.0))
                 .text_color(rgba(theme.text_secondary))
                 .cursor_pointer()
                 .hover(move |style| style.bg(rgba(with_alpha(theme.destructive, 0x10))))
                 .on_click(cx.listener(|app, _, _window, cx| {
-                    app.settings_panel.close();
-                    cx.notify();
+                    app.close_settings_panel(cx);
                 }))
-                .child("x"),
+                .child("×"),
         )
 }
 
 fn content_title(section: SettingsSection) -> &'static str {
     match section {
-        SettingsSection::General => "Themes",
+        SettingsSection::Themes => "Themes",
+        SettingsSection::Keyboard => "Keyboard Shortcuts",
+        #[cfg(test)]
         SettingsSection::Runtime => "Runtime",
+        SettingsSection::Voice => "Voice",
         SettingsSection::Agents => "Agents",
+        #[cfg(test)]
         SettingsSection::Skills => "Skills",
-        SettingsSection::Hooks => "Agent Hooks",
+        SettingsSection::Orchestration => "Orchestration",
+        SettingsSection::Wallpaper => "Wallpaper",
+        SettingsSection::Performance => "Performance",
     }
 }
 
-fn content_subtitle(section: SettingsSection) -> &'static str {
+fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> String {
     match section {
-        SettingsSection::General => "Choose your style or customize your theme",
-        SettingsSection::Runtime => "Configure shell behavior and live sessions",
-        SettingsSection::Agents => "Choose default agents, permissions, and profiles",
-        SettingsSection::Skills => "Manage installed skills and project skill sources",
-        SettingsSection::Hooks => "",
+        SettingsSection::Themes => "Choose one of the six reviewed Core UI V2 palettes".to_string(),
+        SettingsSection::Keyboard => {
+            "Customize app commands and review system input behavior".to_string()
+        }
+        #[cfg(test)]
+        SettingsSection::Runtime => "Configure shell behavior and live sessions".to_string(),
+        SettingsSection::Voice => format!("Use {voice_shortcut_label} to talk to Norma"),
+        SettingsSection::Agents => "Create, organize, and launch project agents".to_string(),
+        #[cfg(test)]
+        SettingsSection::Skills => "Manage installed skills and project skill sources".to_string(),
+        SettingsSection::Orchestration => {
+            "Install Skill + CLI so agents can delegate tasks through Norma OS".to_string()
+        }
+        SettingsSection::Wallpaper => "Choose a background".to_string(),
+        SettingsSection::Performance => {
+            "Balance animation responsiveness and idle energy use".to_string()
+        }
     }
-}
-
-fn mock_section(theme: Theme, rows: &'static [MockSetting]) -> Div {
-    div()
-        .flex()
-        .flex_col()
-        .gap(px(16.0))
-        .child(mock_summary(theme, rows))
-        .children(rows.iter().copied().map(|row| mock_row(theme, row)))
-}
-
-fn mock_summary(theme: Theme, rows: &'static [MockSetting]) -> Div {
-    div()
-        .flex()
-        .flex_row()
-        .gap(px(14.0))
-        .child(summary_card(theme, "Primary", rows[0].value))
-        .child(summary_card(theme, "Policy", rows[1].value))
-        .child(summary_card(theme, "Status", rows[2].value))
-}
-
-fn summary_card(theme: Theme, label: &'static str, value: &'static str) -> Div {
-    div()
-        .flex_1()
-        .h(px(104.0))
-        .flex()
-        .flex_col()
-        .justify_center()
-        .gap(px(8.0))
-        .p(px(18.0))
-        .rounded(px(14.0))
-        .border_1()
-        .border_color(rgba(card_border(theme)))
-        .bg(rgba(with_alpha(theme.panel_high, 0xb8)))
-        .child(
-            div()
-                .text_size(px(12.0))
-                .text_color(rgba(theme.text_tertiary))
-                .child(label),
-        )
-        .child(
-            div()
-                .text_size(px(19.0))
-                .font_weight(FontWeight::BOLD)
-                .text_color(rgba(if value == "Ready" {
-                    theme.accent_cyan
-                } else {
-                    theme.text_primary
-                }))
-                .child(value),
-        )
-}
-
-fn mock_row(theme: Theme, row: MockSetting) -> Div {
-    section_divider(theme).child(
-        div()
-            .flex()
-            .flex_row()
-            .items_center()
-            .justify_between()
-            .gap(px(24.0))
-            .child(section_label(theme, row.title, row.hint))
-            .child(
-                div()
-                    .px(px(13.0))
-                    .py(px(8.0))
-                    .rounded(px(8.0))
-                    .border_1()
-                    .border_color(rgba(with_alpha(theme.accent_cyan, 0x50)))
-                    .bg(rgba(with_alpha(theme.accent_cyan, 0x12)))
-                    .text_size(px(13.0))
-                    .font_weight(FontWeight::MEDIUM)
-                    .text_color(rgba(theme.text_secondary))
-                    .child(row.value),
-            ),
-    )
-}
-
-fn section_divider(theme: Theme) -> Div {
-    div()
-        .w_full()
-        .pt(px(24.0))
-        .border_t_1()
-        .border_color(rgba(with_alpha(theme.edge_highlight, 0x24)))
-}
-
-fn card_border(theme: Theme) -> u32 {
-    with_alpha(theme.edge_highlight, 0x2c)
-}
-
-fn section_label(theme: Theme, title: &'static str, hint: &'static str) -> Div {
-    div()
-        .flex()
-        .flex_col()
-        .gap(px(4.0))
-        .child(
-            div()
-                .text_size(px(18.0))
-                .font_weight(FontWeight::BOLD)
-                .text_color(rgba(theme.text_primary))
-                .child(title),
-        )
-        .child(
-            div()
-                .text_size(px(16.0))
-                .text_color(rgba(theme.text_tertiary))
-                .child(hint),
-        )
-}
-
-fn runtime_rows() -> &'static [MockSetting] {
-    &[
-        MockSetting {
-            title: "Shell",
-            hint: "Default shell for new terminal live nodes",
-            value: "/bin/zsh",
-        },
-        MockSetting {
-            title: "Environment",
-            hint: "Pass host environment into spawned sessions",
-            value: "Inherited",
-        },
-        MockSetting {
-            title: "PTY / Session",
-            hint: "Placeholder for restore and checkpoint policy",
-            value: "Checkpoint",
-        },
-    ]
-}
-
-fn agent_rows() -> &'static [MockSetting] {
-    &[
-        MockSetting {
-            title: "Default Agent",
-            hint: "Agent used by the primary toolbar shortcut",
-            value: "Codex",
-        },
-        MockSetting {
-            title: "Permissions",
-            hint: "Mock policy for side-effectful agent actions",
-            value: "Ask first",
-        },
-        MockSetting {
-            title: "Profiles",
-            hint: "Available live agent card presets",
-            value: "Claude, Codex",
-        },
-    ]
-}
-
-fn skill_rows() -> &'static [MockSetting] {
-    &[
-        MockSetting {
-            title: "Installed Skills",
-            hint: "Mock list of discovered project skills",
-            value: "Local registry",
-        },
-        MockSetting {
-            title: "Skill Sources",
-            hint: "Prefer AGENTS.md and local skills before defaults",
-            value: "Project first",
-        },
-        MockSetting {
-            title: "Refresh Status",
-            hint: "Placeholder for future skill sync controls",
-            value: "Ready",
-        },
-    ]
 }

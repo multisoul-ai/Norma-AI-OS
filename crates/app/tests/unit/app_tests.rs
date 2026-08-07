@@ -1,172 +1,210 @@
 use super::*;
-use crate::workspace::flow::enter_workspace_for_path;
+use crate::workspace::flow::{
+    enter_workspace_for_path, WorkspaceCanvasState, WorkspaceOpenContext,
+};
 use crate::workspace::persistence::PersistenceScheduler;
-use canvas::{compute_responsive_grid_layout, CanvasNodeKind, RectNode};
-use storage::RecentStore;
+use canvas::{compute_configurable_grid_layout, AgentProfile, AgentSpec, CanvasNodeKind, RectNode};
+use runtime::{AgentTaskState, AgentTaskUpdate, CardAttentionKind, CardAttentionState};
+use storage::{NewAgentDefinition, ProjectStore, RecentStore};
 
-/// 默认壁纸：未设置 env 时应使用打包进程序的内置画布壁纸。
+/// 壁纸主题隔离：原图完整绘制，主题切换不得追加任何环境色覆盖层。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   env_value = None（模拟未设置 MULTISOUL_WALLPAPER）
-///   default asset path = "wallpapers/1331865.png"（应用启动时交给 GPUI asset source 加载）
-///   fallback count = 1（只有一个默认壁纸候选，避免空背景）
+///   image opacity = 1.0（先保留完整壁纸像素）
+///   wallpaper layer = 1 层
+///   theme overlay layers = 0 层
+///   overlay angle = 135°（旧实现；必须不存在）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. wallpaper_from_env_value(None) → 不存在用户覆盖路径
-///   2. 选择 WorkspaceWallpaper::Embedded(DEFAULT_WALLPAPER_ASSET)
+///   1. 渲染壁纸图片 → 使用 WALLPAPER_IMAGE_OPACITY=1.0。
+///   2. 读取 `render_workspace_backdrop` 生产源码。
+///   3. 确认背景挂载壁纸层，但不读取 canvas overlay token 或构造旧 135° 遮罩。
 ///
 /// 预期结果：
-///   - 正断言：返回内置 asset 路径 wallpapers/1331865.png
-///   - 负断言：不返回 File 路径，避免打包后依赖开发机外部文件
+///   - 正断言：图片 opacity 为 1.0。
+///   - 正断言：工作台背景仍挂载真实壁纸层。
+///   - 负断言：不得读取 canvas overlay 起止色。
+///   - 负断言：不得追加旧 135° 全屏渐变遮罩。
 #[test]
-fn test_default_wallpaper_uses_embedded_asset_when_env_missing() {
-    let wallpaper = wallpaper_from_env_value(None);
+fn test_wallpaper_renders_fully_opaque_without_theme_overlay() {
+    let chrome = include_str!("../../src/app/chrome.rs");
+    let backdrop = chrome
+        .split("pub(crate) fn render_wallpaper_layer")
+        .next()
+        .unwrap_or(chrome);
 
     assert_eq!(
-        wallpaper,
-        WorkspaceWallpaper::Embedded(DEFAULT_WALLPAPER_ASSET),
-        "missing MULTISOUL_WALLPAPER should use the embedded default asset"
-    );
-    assert!(
-        !matches!(wallpaper, WorkspaceWallpaper::File(_)),
-        "missing MULTISOUL_WALLPAPER must not produce a file path dependency"
-    );
-}
-
-/// 用户壁纸覆盖：env 指向可读文件时应优先使用用户指定路径。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   temp file path = std::env::temp_dir()/multisoul-wallpaper-override.png
-///   temp file bytes = 3（只用于 is_file 判定，不参与图片解码）
-///   env_value = Some(temp file path)
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 创建临时普通文件 → path.is_file() = true
-///   2. wallpaper_from_env_value(Some(path)) → 识别为用户覆盖
-///   3. 删除临时文件 → 测试清理
-///
-/// 预期结果：
-///   - 正断言：返回 File(temp file path)
-///   - 负断言：不返回 Embedded 默认壁纸，证明覆盖生效
-#[test]
-fn test_wallpaper_env_file_overrides_embedded_default() {
-    let path = std::env::temp_dir().join(format!(
-        "multisoul-wallpaper-override-{}.png",
-        std::process::id()
-    ));
-    std::fs::write(&path, [1_u8, 2, 3]).expect("test should create temp wallpaper file");
-
-    let wallpaper = wallpaper_from_env_value(Some(path.clone().into_os_string()));
-
-    std::fs::remove_file(&path).expect("test should remove temp wallpaper file");
-    assert_eq!(
-        wallpaper,
-        WorkspaceWallpaper::File(path),
-        "readable MULTISOUL_WALLPAPER file should override the embedded default"
-    );
-    assert_ne!(
-        wallpaper,
-        WorkspaceWallpaper::Embedded(DEFAULT_WALLPAPER_ASSET),
-        "readable MULTISOUL_WALLPAPER must not fall back to the embedded asset"
-    );
-}
-
-/// 无效用户壁纸：env 指向不存在的文件时应回退到内置画布壁纸。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   missing path = std::env::temp_dir()/multisoul-missing-wallpaper.png
-///   path.is_file() = false（不存在，因此不能作为图片资源）
-///   fallback count = 1（内置默认壁纸）
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 确保 missing path 不存在 → path.is_file() = false
-///   2. wallpaper_from_env_value(Some(missing path)) → 触发回退
-///
-/// 预期结果：
-///   - 正断言：返回 Embedded(DEFAULT_WALLPAPER_ASSET)
-///   - 负断言：不返回 File(missing path)，避免渲染层加载坏路径
-#[test]
-fn test_invalid_wallpaper_env_falls_back_to_embedded_default() {
-    let path = std::env::temp_dir().join(format!(
-        "multisoul-missing-wallpaper-{}.png",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_file(&path);
-
-    let wallpaper = wallpaper_from_env_value(Some(path.clone().into_os_string()));
-
-    assert_eq!(
-        wallpaper,
-        WorkspaceWallpaper::Embedded(DEFAULT_WALLPAPER_ASSET),
-        "invalid MULTISOUL_WALLPAPER should fall back to the embedded default asset"
-    );
-    assert_ne!(
-        wallpaper,
-        WorkspaceWallpaper::File(path),
-        "invalid MULTISOUL_WALLPAPER must not be kept as a file-backed wallpaper"
-    );
-}
-
-/// 壁纸亮度：默认画布壁纸应按原图亮度显示，不额外压暗。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   image opacity = 1.0（原图亮度需要完整不透明绘制，0.78 会混入深色底色）
-///   top shade alpha = 0x00 / 0xff = 0%（顶部遮罩不压暗）
-///   bottom shade alpha = 0x00 / 0xff = 0%（底部遮罩不压暗；旧值 0xd8 ≈ 85% 会明显变暗）
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 渲染壁纸图片 → 使用 WALLPAPER_IMAGE_OPACITY
-///   2. 渲染遮罩层 → 使用 WALLPAPER_SHADE_TOP_ALPHA 与 WALLPAPER_SHADE_BOTTOM_ALPHA
-///   3. 两个 alpha 都为 0 → 遮罩透明，图片亮度不被 graphite 混色改变
-///
-/// 预期结果：
-///   - 正断言：图片 opacity 为 1.0
-///   - 正断言：顶部遮罩 alpha 为 0x00
-///   - 正断言：底部遮罩 alpha 为 0x00
-///   - 负断言：底部遮罩不再是旧的 0xd8 暗化值
-#[test]
-fn test_wallpaper_brightness_uses_original_image_luminance() {
-    assert_eq!(
-        WALLPAPER_IMAGE_OPACITY, 1.0,
+        chrome::WALLPAPER_IMAGE_OPACITY,
+        1.0,
         "wallpaper image should render fully opaque to preserve original brightness"
     );
-    assert_eq!(
-        WALLPAPER_SHADE_TOP_ALPHA, 0x00,
-        "wallpaper top shade alpha should be transparent"
+    assert!(
+        backdrop.contains("render_wallpaper_layer()"),
+        "工作台背景必须继续挂载真实壁纸层"
     );
-    assert_eq!(
-        WALLPAPER_SHADE_BOTTOM_ALPHA, 0x00,
-        "wallpaper bottom shade alpha should be transparent"
+    assert!(
+        !backdrop.contains("theme.canvas_overlay_from")
+            && !backdrop.contains("theme.canvas_overlay_to"),
+        "主题切换不得读取壁纸 overlay token"
     );
-    assert_ne!(
-        WALLPAPER_SHADE_BOTTOM_ALPHA, 0xd8,
-        "wallpaper bottom shade must not keep the old darkening alpha"
+    assert!(
+        !backdrop.contains("linear_gradient(\n                    135.0"),
+        "工作台背景不得追加旧 135° 全屏主题渐变遮罩"
     );
 }
 
-/// 删除中间卡片后，剩余卡片应立即按两列布局重排。
+/// 运行态光标动画应与 Canvas ambient 共用不超过 15fps 的 repaint cadence。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   target fps = 15fps → repaint 预算 = ceil(1000ms / 15fps) = 67ms
+///   app frame loop tick = 12ms
+///   前 5 tick 累计 12/24/36/48/60ms < 67ms；第 6 tick 累计 72ms → repaint
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 断言 cursor 使用共享 67ms ambient 常量，而不是旧 33ms 常量。
+///   2. 创建默认 FrameThrottle，连续输入六个 12ms tick。
+///   3. 逐一读取每一步返回的 repaint delta。
+///
+/// 预期结果：
+///   - 正断言：cursor repaint interval 精确为 67ms。
+///   - 负断言：前五个 12ms tick 都不得提前触发 repaint。
+///   - 正断言：第六个 tick 返回累计 72ms，供 phase 一次性追上真实时间。
+///   - 负断言：放行时不得只返回 12ms，否则动画相位会变慢。
+#[test]
+fn test_frame_throttle_batches_cursor_repaint_to_at_most_15fps() {
+    let mut throttle = FrameThrottle::default();
+    let first = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    let second = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    let third = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    let fourth = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    let fifth = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    let sixth = throttle.tick(Duration::from_millis(12), CURSOR_REPAINT_INTERVAL);
+    assert_eq!(
+        CURSOR_REPAINT_INTERVAL,
+        Duration::from_millis(67),
+        "cursor 必须引用 ceil(1000ms / 15fps) = 67ms 的共享 ambient cadence"
+    );
+    assert!(
+        first.is_none(),
+        "第 1 个 12ms tick 不应触发 focused cursor repaint"
+    );
+    assert!(
+        second.is_none(),
+        "第 2 个 12ms tick 累计 24ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        third.is_none(),
+        "第 3 个 12ms tick 累计 36ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        fourth.is_none(),
+        "第 4 个 12ms tick 累计 48ms < 67ms，仍不应触发 repaint"
+    );
+    assert!(
+        fifth.is_none(),
+        "第 5 个 12ms tick 累计 60ms < 67ms，仍不应触发 repaint"
+    );
+    assert_eq!(
+        sixth,
+        Some(Duration::from_millis(72)),
+        "第 6 个 tick 应返回累计 72ms，让 cursor phase 追上真实时间"
+    );
+    assert_ne!(
+        sixth,
+        Some(Duration::from_millis(12)),
+        "放行 repaint 时不应只推进 12ms，否则节流会让 cursor 动画变慢"
+    );
+}
+/// 卡片查看 helper：用户选择/聚焦卡片时应把未查看完成提醒标记为已查看。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Agent node_id=1，profile=Codex
+///   AgentTaskState::Done → runtime 创建 AgentTaskDone attention(viewed=false)
+///   mark_runtime_node_viewed_if_needed(node_id) 模拟鼠标点击或方向键选中该卡片
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. Runtime document 加入 Codex Agent node
+///   2. apply_agent_task_update(Done) 创建未查看 attention
+///   3. mark_runtime_node_viewed_if_needed(node_id)
+///   4. 再次 mark_runtime_node_viewed_if_needed(node_id)
+///
+/// 预期结果：
+///   - 正断言：首次 helper 返回 true，并把 viewed 改为 true
+///   - 正断言：attention kind 保持 AgentTaskDone
+///   - 负断言：重复 helper 返回 false，不能重复确认同一提醒
+#[test]
+fn test_mark_runtime_node_viewed_if_needed_marks_done_attention_viewed() {
+    let mut runtime = Runtime::new();
+    let node_id = runtime.document.add_node(
+        CanvasNodeKind::Agent(AgentSpec {
+            profile: AgentProfile::Codex,
+            alias: None,
+            definition_id: None,
+        }),
+        CanvasRect::new(0.0, 0.0, 100.0, 80.0),
+    );
+    let changed = runtime.apply_agent_task_update(AgentTaskUpdate {
+        node_id,
+        profile: AgentProfile::Codex,
+        provider_event: "Stop".to_string(),
+        to: AgentTaskState::Done,
+        task_title: None,
+        session_id: None,
+    });
+    assert!(changed, "Done update 应创建未查看完成提醒");
+
+    let first = mark_runtime_node_viewed_if_needed(&mut runtime, node_id);
+    let attention = runtime.card_attention(node_id);
+    let second = mark_runtime_node_viewed_if_needed(&mut runtime, node_id);
+
+    assert!(first, "首次查看 Done attention 应返回 true");
+    assert_eq!(
+        attention,
+        Some(CardAttentionState {
+            kind: CardAttentionKind::AgentTaskDone,
+            viewed: true,
+        }),
+        "查看后 attention 应保留 AgentTaskDone kind，并标记 viewed=true"
+    );
+    assert!(
+        !second,
+        "重复调用 helper 不应再次返回 true，否则 UI 会重复处理同一提醒"
+    );
+    assert_ne!(
+        attention,
+        Some(CardAttentionState {
+            kind: CardAttentionKind::AgentTaskDone,
+            viewed: false,
+        }),
+        "查看后不应仍保持 viewed=false，否则呼吸灯不会关闭"
+    );
+}
+
+/// 删除中间卡片后，剩余卡片应立即按默认的每列两张布局策略重排。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   area = origin(0,0), size(1200x900)
 ///   zoom = 1.0
-///   safe area = left 96, top 86, right 32, bottom 84
-///   usable width = 1200 - 96 - 32 = 1072
+///   默认策略 = 按列向右 + 每列 2 张 + 适应可视区域
+///   usable width = 1200 - 96 - 32 = 1072；usable height = 900 - 86 - 84 = 730
 ///   gap = 16
-///   三节点布局：tile_width = (1072 - 16*(3+1)) / 3 = 336，第三列 x = 96 + 16 + 2*(336+16) = 816
-///   删除中间节点后：tile_width = (1072 - 16*(2+1)) / 2 = 512，第二列 x = 96 + 16 + 1*(512+16) = 640
+///   三节点布局：rows = 2，cols = ceil(3/2) = 2；card_width = (1072 - 16*(2+1)) / 2 = 512
+///   C 位于第二列：x = 96 + 16 + 1*(512+16) = 640，y = 86 + 16 = 102
+///   删除中间节点后：rows = 2，cols = ceil(2/2) = 1；card_width = (1072 - 16*(1+1)) / 1 = 1040
+///   C 移到第一列第二行：x = 96 + 16 = 112，card_height = (730 - 16*(2+1)) / 2 = 341，y = 86 + 16 + 341 + 16 = 459
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 创建 A/B/C 三张普通卡片，并手动放到三列布局位置
+///   1. 创建 A/B/C 三张普通卡片，并手动放到默认的两行两列布局位置
 ///   2. close_node_and_reflow_for_area(B) → 删除 B，并用剩余顺序 [A,C] 重新计算布局
 ///   3. 查询 A/B/C 的 document bounds
 ///
 /// 预期结果：
 ///   - 正断言：B 被删除，返回 true
-///   - 正断言：A 仍位于两列布局第一列
-///   - 正断言：C 移到两列布局第二列 x=640
-///   - 负断言：C 不应停留在三列布局第三列 x=816
+///   - 正断言：A 仍位于默认布局的第一列第一行，并扩展到单列宽度
+///   - 正断言：C 移到默认布局的第一列第二行
+///   - 负断言：C 不应停留在删除前的第二列位置
 #[test]
-fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
+fn test_close_node_reflows_remaining_cards_with_default_layout_strategy() {
     let mut runtime = Runtime::new();
     let mut motion = MotionStore::new(true);
     let area = CanvasRect::new(0.0, 0.0, 1200.0, 900.0);
@@ -185,17 +223,30 @@ fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
         CanvasRect::new(0.0, 0.0, 10.0, 10.0),
     );
 
-    let three_column =
-        compute_responsive_grid_layout(&[a, b, c], area, workspace_reflow_config_for_zoom(zoom));
-    runtime.document.set_node_bounds(a, three_column[0].bounds);
-    runtime.document.set_node_bounds(b, three_column[1].bounds);
-    runtime.document.set_node_bounds(c, three_column[2].bounds);
-    let c_three_column_bounds = three_column[2].bounds;
+    let default_strategy = CanvasLayoutStrategy::default();
+    let three_nodes_layout = compute_configurable_grid_layout(
+        &[a, b, c],
+        area,
+        default_strategy.grid_config_for_zoom(zoom),
+    );
+    runtime
+        .document
+        .set_node_bounds(a, three_nodes_layout[0].bounds);
+    runtime
+        .document
+        .set_node_bounds(b, three_nodes_layout[1].bounds);
+    runtime
+        .document
+        .set_node_bounds(c, three_nodes_layout[2].bounds);
+    let c_right_column_bounds = three_nodes_layout[2].bounds;
 
     let removed = close_node_and_reflow_for_area(&mut runtime, &mut motion, b, area, zoom);
 
-    let two_column =
-        compute_responsive_grid_layout(&[a, c], area, workspace_reflow_config_for_zoom(zoom));
+    let two_nodes_layout = compute_configurable_grid_layout(
+        &[a, c],
+        area,
+        default_strategy.grid_config_for_zoom(zoom),
+    );
     let a_after = runtime
         .document
         .node(a)
@@ -216,62 +267,87 @@ fn test_close_node_reflows_remaining_cards_into_two_column_layout() {
         "B 应从 document 删除，不能继续参与渲染或布局"
     );
     assert_eq!(
-        a_after, two_column[0].bounds,
-        "A 应按删除后的两列布局占据第一列，而不是保留旧三列尺寸"
+        a_after, two_nodes_layout[0].bounds,
+        "A 应按删除后的默认布局策略占据第一列第一行，而不是保留旧三卡的尺寸"
     );
     assert_eq!(
-        c_after, two_column[1].bounds,
-        "C 应按删除后的两列布局移动到第二列 x=640"
+        c_after, two_nodes_layout[1].bounds,
+        "C 应按删除后的默认布局策略移动到第一列第二行"
     );
     assert_ne!(
-        c_after, c_three_column_bounds,
-        "C 不应停留在删除前的三列第三列 x=816，否则说明删除没有触发重排"
+        c_after, c_right_column_bounds,
+        "C 不应停留在删除前的第二列位置，否则说明删除没有触发重排"
     );
 }
 
-/// 打开已有 workspace：app 层应记录最近项目并从 Launchpad 切换到 Canvas。
+/// 打开已有 workspace：app 层应记录最近项目、切换到 Canvas，并把 agent state 绑定到该项目的本地定义库。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   workspace path = temp/launchpad-opened，真实目录，因此 path.is_dir() = true
+///   project-local agent defs = 1 条，name = "Workspace"
 ///   storage path = temp/state/app.sqlite
-///   初始 screen = Launchpad，runtime.workspace_root = None，recent count = 0
+///   初始 screen = Launchpad，runtime.workspace_root = None，recent count = 0，agent_definitions 未绑定
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 构造 Runtime::new()、MotionStore::new(true)、AppScreen::Launchpad
-///   2. WorkspaceState::load_from_storage(storage)
-///   3. enter_workspace_for_path(workspace)
+///   1. 先为 workspace 创建并 migrate ProjectStore，写入 1 条项目本地 agent definition
+///   2. 构造 Runtime::new()、MotionStore::new(true)、AppScreen::Launchpad、AgentDefinitionsState::default()
+///   3. WorkspaceState::load_from_storage(storage)
+///   4. enter_workspace_for_path(workspace)
 ///      → WorkspaceState::open_workspace 写 SQLite
 ///      → runtime 替换为 Runtime::new_for_workspace(root)
+///      → agent_definitions.bind_project_store(project_store.agent_definition_store())
 ///      → screen = Canvas
-///   4. 查询 screen/runtime/workspace_state
+///   5. 查询 screen/runtime/workspace_state/agent_definitions
 ///
 /// 预期结果：
 ///   - 正断言：返回 Ok 且 screen == Canvas
 ///   - 正断言：runtime.workspace_root/current_root/recent[0].path 都是 canonical workspace
-///   - 负断言：screen 不应仍为 Launchpad，recent 不应为空
+///   - 正断言：agent_definitions 只加载该 workspace 的本地 agent definition
+///   - 负断言：screen 不应仍为 Launchpad，recent 不应为空，agent_definitions 不应保持未绑定
 #[test]
 fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
+    let database_paths = storage::DatabasePaths::production_for_home(temp.path());
     let workspace_path = temp.path().join("launchpad-opened");
     std::fs::create_dir(&workspace_path).expect("test should create workspace dir");
     let canonical_workspace = workspace_path
         .canonicalize()
         .expect("workspace should canonicalize");
+    let project_store = ProjectStore::for_workspace(&workspace_path)
+        .expect("project store should open for workspace-local agent setup");
+    project_store
+        .migrate()
+        .expect("project store should migrate before agent definition write");
+    project_store
+        .agent_definition_store()
+        .create(&NewAgentDefinition {
+            name: "Workspace".to_string(),
+            runtime_profile: AgentProfile::Codex,
+            workflow_description: "Workspace-local workflow".to_string(),
+        })
+        .expect("workspace-local agent definition should persist");
     let storage = RecentStore::new(temp.path().join("state").join("app.sqlite"));
     let mut workspace_state = WorkspaceState::load_from_storage(storage);
     let mut runtime = Runtime::new();
     let mut motion = MotionStore::new(true);
     let mut master_layout = MasterLayoutState::default();
     let mut persistence = PersistenceScheduler::default();
+    let mut agent_definitions = AgentDefinitionsState::default();
     let mut screen = AppScreen::Launchpad;
 
     let result = enter_workspace_for_path(
-        &mut runtime,
-        &mut motion,
-        &mut master_layout,
-        &mut persistence,
-        &mut screen,
-        &mut workspace_state,
+        WorkspaceOpenContext {
+            database_paths: &database_paths,
+            runtime: &mut runtime,
+            canvas: WorkspaceCanvasState {
+                motion: &mut motion,
+                master_layout: &mut master_layout,
+            },
+            persistence: &mut persistence,
+            agent_definitions: &mut agent_definitions,
+            screen: &mut screen,
+            workspace_state: &mut workspace_state,
+        },
         &workspace_path,
     );
 
@@ -299,6 +375,16 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
         workspace_state.recent.records[0].path, canonical_workspace,
         "最近项目第一条应是刚打开的 workspace"
     );
+    assert_eq!(
+        agent_definitions.definitions().len(),
+        1,
+        "打开 workspace 后 agent state 应加载该项目本地的 1 条 agent 定义"
+    );
+    assert_eq!(
+        agent_definitions.definitions()[0].name,
+        "Workspace",
+        "agent state 应绑定到当前 workspace 的 project store，而不是保持空状态"
+    );
     assert_ne!(
         screen,
         AppScreen::Launchpad,
@@ -307,6 +393,10 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
     assert!(
         !workspace_state.recent.records.is_empty(),
         "成功打开 workspace 后 recent 不应为空"
+    );
+    assert!(
+        !agent_definitions.voice_context().is_empty(),
+        "打开 workspace 后 agent_definitions 不应保持未绑定，否则 voice context 仍为空"
     );
 }
 
@@ -330,6 +420,7 @@ fn test_enter_workspace_records_recent_and_switches_to_canvas() {
 #[test]
 fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
     let temp = tempfile::tempdir().expect("test should create temp dir");
+    let database_paths = storage::DatabasePaths::production_for_home(temp.path());
     let missing_path = temp.path().join("missing-recent");
     let storage = RecentStore::new(temp.path().join("app.sqlite"));
     let mut workspace_state = WorkspaceState::load_from_storage(storage);
@@ -337,15 +428,22 @@ fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
     let mut motion = MotionStore::new(true);
     let mut master_layout = MasterLayoutState::default();
     let mut persistence = PersistenceScheduler::default();
+    let mut agent_definitions = AgentDefinitionsState::default();
     let mut screen = AppScreen::Launchpad;
 
     let result = enter_workspace_for_path(
-        &mut runtime,
-        &mut motion,
-        &mut master_layout,
-        &mut persistence,
-        &mut screen,
-        &mut workspace_state,
+        WorkspaceOpenContext {
+            database_paths: &database_paths,
+            runtime: &mut runtime,
+            canvas: WorkspaceCanvasState {
+                motion: &mut motion,
+                master_layout: &mut master_layout,
+            },
+            persistence: &mut persistence,
+            agent_definitions: &mut agent_definitions,
+            screen: &mut screen,
+            workspace_state: &mut workspace_state,
+        },
         &missing_path,
     );
 
@@ -375,34 +473,4 @@ fn test_enter_missing_workspace_stays_on_launchpad_with_error() {
         workspace_state.recent.records.is_empty(),
         "打开失败不应向最近项目写入记录"
     );
-}
-
-/// paste_bytes_from_clipboard_text 从剪贴板文本生成应写入 PTY 的字节序列。
-///
-/// 场景：剪贴板文本（含 ASCII 和多字节汉字）转换为 UTF-8 字节序列，
-///   供 NodeInput::Text 直接写入 PTY，不经过 keystroke 编码。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   clipboard text = "hello 世界"
-///   UTF-8 bytes: b"hello " (6 bytes) + [0xe4,0xb8,0x96,0xe7,0x95,0x8c] (6 bytes) = 12 bytes
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 将字符串 "hello 世界" 转换为 as_bytes() 字节切片
-///   2. 断言字节内容与预期 UTF-8 编码一致
-///   3. 断言不为 b"v"（即未将 Cmd+V 的 'v' 键直传 PTY）
-///
-/// 预期结果：
-///   - 正断言：bytes == "hello 世界".as_bytes()
-///   - 负断言：不为空，不为 b"v"（未做粘贴直接发了 v 键）
-#[test]
-fn test_paste_bytes_matches_clipboard_utf8() {
-    let text = "hello 世界";
-    let bytes = text.as_bytes().to_vec();
-    assert_eq!(
-        bytes,
-        "hello 世界".as_bytes(),
-        "粘贴字节应为 UTF-8 原始内容"
-    );
-    assert_ne!(bytes, b"v", "不应是裸 v 键字节");
-    assert!(!bytes.is_empty(), "粘贴内容不应为空");
 }

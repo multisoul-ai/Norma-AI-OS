@@ -114,7 +114,7 @@ fn test_codex_pre_tool_use_maps_to_running_tool() {
     );
 }
 
-/// PermissionRequest 与 failure hook 应分别映射为 WaitingApproval 与 Failed。
+/// PermissionRequest 与工具级失败应分别映射为 WaitingApproval 与非终态 Thinking。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   PermissionRequest raw.tool_name="Bash"
@@ -126,8 +126,8 @@ fn test_codex_pre_tool_use_maps_to_running_tool() {
 ///
 /// 预期结果：
 ///   - 正断言：PermissionRequest -> WaitingApproval(Bash)
-///   - 正断言：PostToolUseFailure -> Failed("tool failed")
-///   - 负断言：failure 不应丢失 message
+///   - 正断言：PostToolUseFailure -> Thinking，允许 CLI 恢复或重试
+///   - 负断言：工具级失败不得映射为整轮 Failed，否则会提前推进 FIFO
 #[test]
 fn test_permission_and_failure_events_map_to_expected_task_hints() {
     let permission = parse_hook_event(
@@ -155,17 +155,15 @@ fn test_permission_and_failure_events_map_to_expected_task_hints() {
     );
     assert_eq!(
         failure_state,
-        Some(AgentHookTaskState::Failed {
-            message: "tool failed".to_string(),
-        }),
-        "PostToolUseFailure 应映射为 Failed，并保留 message"
+        Some(AgentHookTaskState::Thinking),
+        "PostToolUseFailure 是可恢复的工具级失败，应回到 Thinking 而不是结束整轮任务"
     );
     assert_ne!(
         failure_state,
         Some(AgentHookTaskState::Failed {
-            message: String::new(),
+            message: "tool failed".to_string(),
         }),
-        "failure message 不应被丢弃为空字符串"
+        "工具级失败不得映射为任务级 Failed，否则仍在运行的 CLI 会被注入下一项任务"
     );
 }
 
@@ -194,6 +192,9 @@ fn test_install_hook_config_is_idempotent_for_claude_and_codex() {
     let paths = HookInstallPaths {
         claude_settings: claude_path.clone(),
         codex_hooks: codex_path.clone(),
+        cursor_hooks: temp.path().join("cursor-hooks.json"),
+        grok_hooks: temp.path().join("grok-hooks.json"),
+        opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
 
@@ -302,12 +303,12 @@ fn test_forward_hook_ignores_unreachable_endpoint() {
 /// resolve_agent_hook_command_path_from 应优先查找 app 可执行文件同目录下的 hook bridge。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   app_executable=/tmp/bin/multisoul
+///   app_executable=/tmp/bin/norma-os
 ///   sibling=/tmp/bin/multisoul-agent-hook
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 在临时目录创建 multisoul-agent-hook 空文件
-///   2. 调用 resolve_agent_hook_command_path_from("/tmp/bin/multisoul")
+///   2. 调用 resolve_agent_hook_command_path_from("/tmp/bin/norma-os")
 ///   3. 确认返回 sibling 路径
 ///
 /// 预期结果：
@@ -316,7 +317,7 @@ fn test_forward_hook_ignores_unreachable_endpoint() {
 #[test]
 fn test_resolve_agent_hook_command_path_from_sibling_binary() {
     let temp = tempfile::tempdir().expect("应能创建临时目录");
-    let app_executable = temp.path().join("multisoul");
+    let app_executable = temp.path().join("norma-os");
     let hook_binary = temp.path().join(AGENT_HOOK_BINARY_NAME);
     std::fs::write(&hook_binary, b"").expect("应能创建 hook bridge 占位文件");
 
@@ -359,6 +360,9 @@ fn test_uninstall_hook_config_removes_only_multisoul_hooks() {
     let paths = HookInstallPaths {
         claude_settings: temp.path().join("claude-settings.json"),
         codex_hooks: codex_path.clone(),
+        cursor_hooks: temp.path().join("cursor-hooks.json"),
+        grok_hooks: temp.path().join("grok-hooks.json"),
+        opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
     };
     let command_path = temp.path().join("multisoul-agent-hook");
     std::fs::write(
@@ -424,6 +428,9 @@ fn test_uninstall_hook_config_is_idempotent_when_missing_or_clean() {
     let paths = HookInstallPaths {
         claude_settings: temp.path().join("claude-settings.json"),
         codex_hooks: temp.path().join("codex-hooks.json"),
+        cursor_hooks: temp.path().join("cursor-hooks.json"),
+        grok_hooks: temp.path().join("grok-hooks.json"),
+        opencode_plugin: temp.path().join("multisoul-agent-hook.js"),
     };
 
     uninstall_hook_config(HookTarget::Codex, &paths).expect("第一次 uninstall 应成功");

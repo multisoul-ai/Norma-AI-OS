@@ -1,6 +1,4 @@
 //! portable-pty 封装：spawn 默认 shell、读线程桥接、resize、write、kill。
-//! 不引 tokio —— 读线程是普通 std::thread，数据经 crossbeam 通道回 app。
-
 use crate::message::PtyEvent;
 use crossbeam_channel::Sender;
 use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, PtySize};
@@ -70,10 +68,20 @@ impl PtyCommand {
     }
 }
 
+pub trait PtyBackend {
+    fn write(&mut self, bytes: &[u8]) -> Result<(), PtyError>;
+    fn resize(&mut self, cols: u16, rows: u16) -> Result<(), PtyError>;
+    fn kill(&mut self);
+    fn child_pid(&self) -> Option<u32> {
+        None
+    }
+}
+
 pub struct PtyHandle {
     master: Box<dyn portable_pty::MasterPty + Send>,
     writer: Box<dyn Write + Send>,
     child: Box<dyn ChildKiller + Send + Sync>,
+    child_process: crate::process_tree::ManagedProcess,
 }
 
 impl PtyHandle {
@@ -120,6 +128,7 @@ impl PtyHandle {
             .slave
             .spawn_command(cmd)
             .map_err(|e| PtyError::Spawn(e.to_string()))?;
+        let child_process = crate::process_tree::capture(child.process_id());
         let child_killer = child.clone_killer();
         // slave 在 spawn 后即可释放（子进程已持有其 fd）。
         drop(pair.slave);
@@ -169,6 +178,7 @@ impl PtyHandle {
             master: pair.master,
             writer,
             child: child_killer,
+            child_process,
         })
     }
 
@@ -191,7 +201,26 @@ impl PtyHandle {
 
     /// 杀掉子进程（窗口关闭时调用，确保不留僵尸进程）。
     pub fn kill(&mut self) {
-        let _ = self.child.kill();
+        crate::process_tree::terminate_or_signal(self.child_process, self.child.as_mut());
+    }
+}
+
+/// 默认实现：PtyHandle 即真实 PTY 后端，全限定委托固有方法，不改动其公开 API。
+impl PtyBackend for PtyHandle {
+    fn write(&mut self, bytes: &[u8]) -> Result<(), PtyError> {
+        PtyHandle::write(self, bytes)
+    }
+
+    fn resize(&mut self, cols: u16, rows: u16) -> Result<(), PtyError> {
+        PtyHandle::resize(self, cols, rows)
+    }
+
+    fn kill(&mut self) {
+        PtyHandle::kill(self)
+    }
+
+    fn child_pid(&self) -> Option<u32> {
+        self.child_process.pid()
     }
 }
 

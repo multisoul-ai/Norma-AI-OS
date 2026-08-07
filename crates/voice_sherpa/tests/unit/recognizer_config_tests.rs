@@ -1,0 +1,398 @@
+use crate::build_online_recognizer_config;
+use asr::{builtin_model_catalog, validate_installation, InstallationManifest};
+use std::fs;
+
+/// SHERPA-CONFIG-1：Paraformer 可用模型必须只填充 Paraformer 配置分支。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   required files       = 3，encoder.int8.onnx + decoder.int8.onnx + tokens.txt
+///   Paraformer branches  = 1，只允许 paraformer 分支有路径
+///   Transducer branches  = 0，encoder/decoder/joiner 均必须为 None
+///   recognizer threads   = 2，保留现有本地 CPU 配置
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用受控 Paraformer descriptor 构造完整安装
+///   2. validate_installation → AvailableAsrModel
+///   3. build_online_recognizer_config → Sherpa OnlineRecognizerConfig
+///
+/// 预期结果：
+///   - 正断言：Paraformer encoder/decoder/tokens 是已校验根目录下的精确路径
+///   - 负断言：Transducer 不得残留任何路径，避免同时配置两种模型
+#[test]
+fn test_paraformer_available_model_builds_only_paraformer_config() {
+    let temp = tempfile::tempdir().expect("应可创建 Paraformer 配置临时目录");
+    let descriptor = builtin_model_catalog()
+        .entries()
+        .first()
+        .expect("受控模型库应包含 Paraformer")
+        .clone();
+    for file in descriptor.artifact().required_files() {
+        fs::write(temp.path().join(file), [1_u8]).expect("应可写入模型占位文件");
+    }
+    InstallationManifest::for_descriptor(&descriptor)
+        .write_to(temp.path())
+        .expect("应可写入 Paraformer 安装清单");
+    let available = validate_installation(temp.path(), &descriptor)
+        .expect("完整 Paraformer 安装应转为可用模型");
+
+    let config =
+        build_online_recognizer_config(&available).expect("可用 Paraformer 应能生成 Sherpa 配置");
+
+    assert_eq!(
+        config.model_config.paraformer.encoder.as_deref(),
+        Some(
+            temp.path()
+                .join("encoder.int8.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "Paraformer encoder 必须来自已校验安装根目录"
+    );
+    assert_eq!(
+        config.model_config.paraformer.decoder.as_deref(),
+        Some(
+            temp.path()
+                .join("decoder.int8.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "Paraformer decoder 必须来自已校验安装根目录"
+    );
+    assert_eq!(
+        config.model_config.tokens.as_deref(),
+        Some(temp.path().join("tokens.txt").to_string_lossy().as_ref()),
+        "tokens 必须来自已校验安装根目录"
+    );
+    assert!(
+        config.model_config.transducer.encoder.is_none(),
+        "Paraformer 配置不得填充 Transducer encoder"
+    );
+    assert!(
+        config.model_config.transducer.decoder.is_none(),
+        "Paraformer 配置不得填充 Transducer decoder"
+    );
+    assert!(
+        config.model_config.transducer.joiner.is_none(),
+        "Paraformer 配置不得填充 Transducer joiner"
+    );
+    assert_eq!(
+        config.model_config.num_threads, 2,
+        "统一 factory 应保留现有 2 线程 CPU 配置"
+    );
+}
+
+/// SHERPA-CONFIG-2：Zipformer 可用模型必须只填充 Transducer 配置分支。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   required files       = 4，encoder.int8.onnx + decoder.onnx + joiner.int8.onnx + tokens.txt
+///   Transducer branches  = 3，encoder/decoder/joiner 均有精确路径
+///   Paraformer branches  = 0，encoder/decoder 均必须为 None
+///   recognizer threads   = 2，与现有本地 CPU 配置一致
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 从受控模型库定位 Zipformer descriptor 并构造完整安装
+///   2. validate_installation → AvailableAsrModel
+///   3. build_online_recognizer_config → Sherpa OnlineRecognizerConfig
+///
+/// 预期结果：
+///   - 正断言：Transducer 三个模型路径及 tokens 都来自已校验根目录
+///   - 负断言：Paraformer 分支保持为空，避免错误适配
+#[test]
+fn test_zipformer_available_model_builds_only_transducer_config() {
+    let temp = tempfile::tempdir().expect("应可创建 Zipformer 配置临时目录");
+    let zipformer_id = asr::AsrModelId::parse(asr::ZIPFORMER_STREAMING_ZH_MODEL_ID)
+        .expect("内置 Zipformer ID 应有效");
+    let descriptor = builtin_model_catalog()
+        .find(&zipformer_id)
+        .expect("受控模型库应包含 Zipformer")
+        .clone();
+    for file in descriptor.artifact().required_files() {
+        fs::write(temp.path().join(file), [1_u8]).expect("应可写入模型占位文件");
+    }
+    InstallationManifest::for_descriptor(&descriptor)
+        .write_to(temp.path())
+        .expect("应可写入 Zipformer 安装清单");
+    let available =
+        validate_installation(temp.path(), &descriptor).expect("完整 Zipformer 安装应转为可用模型");
+
+    let config = build_online_recognizer_config(&available)
+        .expect("可用 Zipformer 应能生成 Sherpa Transducer 配置");
+
+    assert_eq!(
+        config.model_config.transducer.encoder.as_deref(),
+        Some(
+            temp.path()
+                .join("encoder.int8.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "Zipformer encoder 必须来自已校验安装根目录"
+    );
+    assert_eq!(
+        config.model_config.transducer.decoder.as_deref(),
+        Some(temp.path().join("decoder.onnx").to_string_lossy().as_ref()),
+        "Zipformer decoder 必须来自已校验安装根目录"
+    );
+    assert_eq!(
+        config.model_config.transducer.joiner.as_deref(),
+        Some(
+            temp.path()
+                .join("joiner.int8.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "Zipformer joiner 必须来自已校验安装根目录"
+    );
+    assert!(
+        config.model_config.paraformer.encoder.is_none(),
+        "Zipformer 配置不得填充 Paraformer encoder"
+    );
+    assert!(
+        config.model_config.paraformer.decoder.is_none(),
+        "Zipformer 配置不得填充 Paraformer decoder"
+    );
+    assert_eq!(
+        config.model_config.num_threads, 2,
+        "统一 factory 应让 Zipformer 使用 2 线程 CPU 配置"
+    );
+}
+
+/// SHERPA-CONFIG-3：Zipformer CTC 可用模型必须只填充 Zipformer2 CTC 配置分支。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   required files       = 2，model.int8.onnx + tokens.txt
+///   Zipformer2 CTC 分支  = 1，model 有精确路径
+///   Paraformer/Transducer = 0，相关路径均必须为 None
+///   recognizer threads   = 2，与现有本地 CPU 配置一致
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 从受控模型库定位 Zipformer CTC descriptor 并构造完整安装
+///   2. validate_installation → AvailableAsrModel
+///   3. build_online_recognizer_config → Sherpa OnlineRecognizerConfig
+///
+/// 预期结果：
+///   - 正断言：zipformer2_ctc.model 与 tokens 来自已校验根目录
+///   - 负断言：不得填充 Paraformer 或 Transducer 分支
+#[test]
+fn test_zipformer_ctc_available_model_builds_only_ctc_config() {
+    let temp = tempfile::tempdir().expect("应可创建 Zipformer CTC 配置临时目录");
+    let zipformer_ctc_id = asr::AsrModelId::parse(asr::ZIPFORMER_STREAMING_CTC_ZH_MODEL_ID)
+        .expect("内置 Zipformer CTC ID 应有效");
+    let descriptor = builtin_model_catalog()
+        .find(&zipformer_ctc_id)
+        .expect("受控模型库应包含 Zipformer Streaming CTC ZH")
+        .clone();
+    for file in descriptor.artifact().required_files() {
+        fs::write(temp.path().join(file), [1_u8]).expect("应可写入模型占位文件");
+    }
+    InstallationManifest::for_descriptor(&descriptor)
+        .write_to(temp.path())
+        .expect("应可写入 Zipformer CTC 安装清单");
+    let available = validate_installation(temp.path(), &descriptor)
+        .expect("完整 Zipformer CTC 安装应转为可用模型");
+
+    let config = build_online_recognizer_config(&available)
+        .expect("可用 Zipformer CTC 应能生成 Sherpa CTC 配置");
+
+    assert_eq!(
+        config.model_config.zipformer2_ctc.model.as_deref(),
+        Some(
+            temp.path()
+                .join("model.int8.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "Zipformer CTC model 必须来自已校验安装根目录"
+    );
+    assert_eq!(
+        config.model_config.tokens.as_deref(),
+        Some(temp.path().join("tokens.txt").to_string_lossy().as_ref()),
+        "tokens 必须来自已校验安装根目录"
+    );
+    assert!(
+        config.model_config.paraformer.encoder.is_none(),
+        "Zipformer CTC 配置不得填充 Paraformer encoder"
+    );
+    assert!(
+        config.model_config.paraformer.decoder.is_none(),
+        "Zipformer CTC 配置不得填充 Paraformer decoder"
+    );
+    assert!(
+        config.model_config.transducer.encoder.is_none(),
+        "Zipformer CTC 配置不得填充 Transducer encoder"
+    );
+    assert!(
+        config.model_config.transducer.decoder.is_none(),
+        "Zipformer CTC 配置不得填充 Transducer decoder"
+    );
+    assert!(
+        config.model_config.transducer.joiner.is_none(),
+        "Zipformer CTC 配置不得填充 Transducer joiner"
+    );
+    assert_eq!(
+        config.model_config.num_threads, 2,
+        "统一 factory 应让 Zipformer CTC 使用 2 线程 CPU 配置"
+    );
+}
+
+/// SHERPA-CONFIG-4：Zipformer Bilingual 可用模型必须使用其版本化文件名构造 Transducer。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   required files       = 5，int8 encoder + fp32 decoder + int8 joiner + tokens + bpe.vocab
+///   Transducer branches  = 3，encoder/decoder/joiner 均有精确路径
+///   non-target branches  = 0，Paraformer 与 Zipformer2 CTC 均必须为空
+///   recognizer threads   = 2，与现有本地 CPU 配置一致
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 从受控模型库定位 Zipformer Bilingual descriptor 并构造完整安装
+///   2. validate_installation → AvailableAsrModel
+///   3. build_online_recognizer_config → 使用双语工件文件名的 Sherpa Transducer 配置
+///
+/// 预期结果：
+///   - 正断言：三个 Transducer 路径与 tokens 精确指向已校验的双语模型文件
+///   - 负断言：不得填充 Paraformer 或 Zipformer2 CTC 分支
+#[test]
+fn test_zipformer_bilingual_available_model_builds_versioned_transducer_config() {
+    let temp = tempfile::tempdir().expect("应可创建 Zipformer Bilingual 配置临时目录");
+    let bilingual_id = asr::AsrModelId::parse(asr::ZIPFORMER_BILINGUAL_MODEL_ID)
+        .expect("内置 Zipformer Bilingual ID 应有效");
+    let descriptor = builtin_model_catalog()
+        .find(&bilingual_id)
+        .expect("受控模型库应包含 Zipformer Bilingual")
+        .clone();
+    for file in descriptor.artifact().required_files() {
+        fs::write(temp.path().join(file), [1_u8]).expect("应可写入双语模型占位文件");
+    }
+    InstallationManifest::for_descriptor(&descriptor)
+        .write_to(temp.path())
+        .expect("应可写入 Zipformer Bilingual 安装清单");
+    let available = validate_installation(temp.path(), &descriptor)
+        .expect("完整 Zipformer Bilingual 安装应转为可用模型");
+
+    let config = build_online_recognizer_config(&available)
+        .expect("可用 Zipformer Bilingual 应能生成 Sherpa Transducer 配置");
+
+    assert_eq!(
+        config.model_config.transducer.encoder.as_deref(),
+        Some(
+            temp.path()
+                .join("encoder-epoch-99-avg-1.int8.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "双语 Zipformer encoder 必须使用官方版本化 int8 文件"
+    );
+    assert_eq!(
+        config.model_config.transducer.decoder.as_deref(),
+        Some(
+            temp.path()
+                .join("decoder-epoch-99-avg-1.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "双语 Zipformer decoder 必须使用官方 fp32 文件"
+    );
+    assert_eq!(
+        config.model_config.transducer.joiner.as_deref(),
+        Some(
+            temp.path()
+                .join("joiner-epoch-99-avg-1.int8.onnx")
+                .to_string_lossy()
+                .as_ref()
+        ),
+        "双语 Zipformer joiner 必须使用官方版本化 int8 文件"
+    );
+    assert_eq!(
+        config.model_config.tokens.as_deref(),
+        Some(temp.path().join("tokens.txt").to_string_lossy().as_ref()),
+        "双语 Zipformer tokens 必须来自已校验安装根目录"
+    );
+    assert!(
+        config.model_config.paraformer.encoder.is_none(),
+        "双语 Zipformer 配置不得填充 Paraformer encoder"
+    );
+    assert!(
+        config.model_config.paraformer.decoder.is_none(),
+        "双语 Zipformer 配置不得填充 Paraformer decoder"
+    );
+    assert!(
+        config.model_config.zipformer2_ctc.model.is_none(),
+        "双语 Transducer 不得误填充 Zipformer2 CTC model"
+    );
+    assert_eq!(
+        config.model_config.num_threads, 2,
+        "统一 factory 应让双语 Zipformer 使用 2 线程 CPU 配置"
+    );
+}
+
+/// SHERPA-CONFIG-5：选择双语 Zipformer 时默认启用已验证的开发者热词参数。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   required model files = 5，四个双语 Transducer 工件加 `bpe.vocab`；
+///   hotword phrases      = 2，`JAVA` + `KOTLIN`，每行一个短语；
+///   score                = 2.0，来自固定录音与公共集非劣实验的胜出参数；
+///   max active paths     = 8，在准确率与解码延迟之间保留实验通过的搜索宽度。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 构造包含完整五文件安装清单的可用双语模型；
+///   2. 调用公开的 `build_online_recognizer_config`；
+///   3. 观察传给 Sherpa 的解码方法、分词模式、BPE 路径和热词参数。
+///
+/// 预期结果：
+///   - 正断言：使用 `modified_beam_search`、`cjkchar+bpe`、score 2.0、paths 8；
+///   - 正断言：热词缓冲区精确包含 `JAVA` 与 `KOTLIN`；
+///   - 负断言：不得继续使用无 BPE 路径、无热词缓冲区的普通 Transducer 配置。
+#[test]
+fn test_zipformer_bilingual_defaults_to_developer_hotwords() {
+    let temp = tempfile::tempdir().expect("应可创建双语热词配置临时目录");
+    let bilingual_id = asr::AsrModelId::parse(asr::ZIPFORMER_BILINGUAL_MODEL_ID)
+        .expect("内置 Zipformer Bilingual ID 应有效");
+    let descriptor = builtin_model_catalog()
+        .find(&bilingual_id)
+        .expect("受控模型库应包含 Zipformer Bilingual")
+        .clone();
+    for file in descriptor.artifact().required_files() {
+        fs::write(temp.path().join(file), [1_u8]).expect("应可写入双语模型占位文件");
+    }
+    InstallationManifest::for_descriptor(&descriptor)
+        .write_to(temp.path())
+        .expect("应可写入 Zipformer Bilingual 安装清单");
+    let available = validate_installation(temp.path(), &descriptor)
+        .expect("完整 Zipformer Bilingual 安装应转为可用模型");
+
+    let config = build_online_recognizer_config(&available)
+        .expect("双语模型应能生成带默认开发者热词的 Sherpa 配置");
+
+    assert_eq!(
+        config.decoding_method.as_deref(),
+        Some("modified_beam_search"),
+        "双语 Zipformer 热词必须使用 Sherpa 支持的 modified_beam_search"
+    );
+    assert_eq!(
+        config.model_config.modeling_unit.as_deref(),
+        Some("cjkchar+bpe"),
+        "中英混合热词必须使用 cjkchar+bpe 分词"
+    );
+    assert_eq!(
+        config.model_config.bpe_vocab.as_deref(),
+        Some(temp.path().join("bpe.vocab").to_string_lossy().as_ref()),
+        "热词配置必须使用当前受管模型内的 bpe.vocab"
+    );
+    assert_eq!(
+        config.hotwords_score, 2.0,
+        "双语 Zipformer 默认热词分数必须使用实验通过的 2.0"
+    );
+    assert_eq!(
+        config.max_active_paths, 8,
+        "双语 Zipformer 默认搜索宽度必须使用实验通过的 8"
+    );
+    assert_eq!(
+        config.hotwords_buf.as_deref(),
+        Some("JAVA\nKOTLIN\n".as_bytes()),
+        "默认热词缓冲区必须精确包含 JAVA 与 KOTLIN"
+    );
+    assert!(
+        config.hotwords_buf.is_some(),
+        "双语 Zipformer 不得退回没有热词缓冲区的普通 Transducer 配置"
+    );
+}

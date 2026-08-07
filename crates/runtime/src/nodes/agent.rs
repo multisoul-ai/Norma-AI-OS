@@ -1,7 +1,7 @@
 //! Agent live node factories. Agent 节点复用 terminal-backed runtime。
 
 use crate::agent_hooks::AgentHookEnv;
-use crate::nodes::term::TermLive;
+use crate::nodes::term::{PtyFactory, TermLive};
 use canvas::AgentProfile;
 use std::path::Path;
 use terminal::{PtyCommand, PtyError, TerminalSessionId};
@@ -13,30 +13,36 @@ pub(crate) fn spawn_agent_live(
     hook_env: Option<&AgentHookEnv>,
     cols: u16,
     rows: u16,
+    pty_factory: Option<&PtyFactory>,
 ) -> Result<TermLive, PtyError> {
-    TermLive::spawn_command(
-        id,
-        agent_command(profile, hook_env).with_cwd(cwd),
-        cols,
-        rows,
-    )
+    let command = agent_command(profile, hook_env).with_cwd(cwd);
+    match pty_factory {
+        Some(factory) => TermLive::spawn_with_factory(id, command, cols, rows, factory),
+        None => TermLive::spawn_command(id, command, cols, rows),
+    }
 }
 
 pub(crate) fn agent_command(profile: AgentProfile, hook_env: Option<&AgentHookEnv>) -> PtyCommand {
     let command = match profile {
         AgentProfile::Claude => {
-            PtyCommand::new("/bin/zsh").args(["-ic", "exec claude --dangerously-skip-permissions"])
+            PtyCommand::new("/bin/zsh").args(["-lic", "exec claude --dangerously-skip-permissions"])
         }
         AgentProfile::Codex => {
             let mut exec_command =
-                "exec codex --dangerously-bypass-approvals-and-sandbox".to_string();
+                "exec codex -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox"
+                    .to_string();
             if hook_env.is_some() {
                 // Codex 要求每个 hook 命令先经交互式信任确认才会执行；Multisoul 的
                 // hook bridge 命令是非交互启动的，永远没机会走那个确认流程，所以
                 // 只有在确实注入了 Multisoul hook env 时才带上这个标志去跳过信任门禁。
                 exec_command.push_str(" --dangerously-bypass-hook-trust");
             }
-            PtyCommand::new("/bin/zsh").arg("-ic").arg(exec_command)
+            PtyCommand::new("/bin/zsh").arg("-lic").arg(exec_command)
+        }
+        AgentProfile::Cursor => PtyCommand::new("/bin/zsh").args(["-lic", "exec cursor-agent"]),
+        AgentProfile::Grok => PtyCommand::new("/bin/zsh").args(["-lic", "exec grok"]),
+        AgentProfile::OpenCode => {
+            PtyCommand::new("/bin/zsh").args(["-lic", "exec \"${OPENCODE_BIN:-opencode}\""])
         }
     };
     match hook_env {
@@ -52,23 +58,26 @@ mod tests {
     /// Agent profile 映射到对应 CLI 启动命令，未传 hook env 时不注入 Multisoul 环境变量。
     ///
     /// 数据构造（含关键数值推导）：
-    ///   Claude profile → /bin/zsh -ic "exec claude --dangerously-skip-permissions"
-    ///   Codex profile  → /bin/zsh -ic "exec codex --dangerously-bypass-approvals-and-sandbox"
-    ///   两个命令都使用 3 段 argv：program + "-ic" + exec 命令
+    ///   Claude profile → /bin/zsh -lic "exec claude --dangerously-skip-permissions"
+    ///   Codex profile  → /bin/zsh -lic "exec codex -c disable_paste_burst=true --dangerously-bypass-approvals-and-sandbox"
+    ///   Cursor profile → /bin/zsh -lic "exec cursor-agent"
+    ///   三个命令都使用 3 段 argv：program + "-lic" + exec 命令
     ///
     /// 执行过程：
     ///   1. agent_command(Claude, None)
     ///   2. agent_command(Codex, None)
-    ///   3. 检查 program 与 args
+    ///   3. agent_command(Cursor, None)
+    ///   4. 检查 program 与 args
     ///
     /// 预期结果：
-    ///   - 正断言：两个 profile 都通过 /bin/zsh -ic 启动
+    ///   - 正断言：三个 profile 都通过 /bin/zsh -lic 启动
     ///   - 正断言：Claude/Codex 分别包含对应 CLI 名称
     ///   - 负断言：Claude/Codex 命令不应带 MULTISOUL_NODE_ID
     #[test]
     fn test_agent_command_maps_profile_to_expected_cli() {
         let claude = agent_command(AgentProfile::Claude, None);
         let codex = agent_command(AgentProfile::Codex, None);
+        let cursor = agent_command(AgentProfile::Cursor, None);
 
         assert_eq!(
             claude.program, "/bin/zsh",
@@ -79,10 +88,17 @@ mod tests {
             "Codex Agent 应通过 /bin/zsh 启动交互 shell 命令"
         );
         assert_eq!(
-            claude.args[0], "-ic",
-            "Claude Agent 应使用 zsh -ic 执行 CLI"
+            claude.args[0], "-lic",
+            "Claude Agent 应使用 zsh -lic 加载 login profile 后执行 CLI"
         );
-        assert_eq!(codex.args[0], "-ic", "Codex Agent 应使用 zsh -ic 执行 CLI");
+        assert_eq!(
+            codex.args[0], "-lic",
+            "Codex Agent 应使用 zsh -lic 加载 login profile 后执行 CLI"
+        );
+        assert_eq!(
+            cursor.args[0], "-lic",
+            "Cursor Agent 应使用 zsh -lic 加载 login profile 后执行 CLI"
+        );
         assert!(
             claude.args[1].contains("claude"),
             "Claude Agent 命令应包含 claude CLI"
@@ -90,6 +106,14 @@ mod tests {
         assert!(
             codex.args[1].contains("codex"),
             "Codex Agent 命令应包含 codex CLI"
+        );
+        assert!(
+            codex.args[1].contains("-c disable_paste_burst=true"),
+            "Codex Agent 必须关闭 paste-burst 启发式，否则自动输入后的 Enter 会先于正文落定"
+        );
+        assert!(
+            cursor.args[1].contains("cursor-agent"),
+            "Cursor Agent 命令应包含兼容的 cursor-agent CLI 入口"
         );
         assert!(
             !claude.args[1].contains("codex"),
@@ -100,12 +124,20 @@ mod tests {
             "Codex Agent 命令不应误用 claude CLI"
         );
         assert!(
+            !cursor.args[1].contains("codex"),
+            "Cursor Agent 命令不应误用 codex CLI"
+        );
+        assert!(
             claude.env.iter().all(|(key, _)| key != "MULTISOUL_NODE_ID"),
             "未传 hook env 时 Claude 命令不应注入 MULTISOUL_NODE_ID"
         );
         assert!(
             codex.env.iter().all(|(key, _)| key != "MULTISOUL_NODE_ID"),
             "未传 hook env 时 Codex 命令不应注入 MULTISOUL_NODE_ID"
+        );
+        assert!(
+            cursor.env.iter().all(|(key, _)| key != "MULTISOUL_NODE_ID"),
+            "未传 hook env 时 Cursor 命令不应注入 MULTISOUL_NODE_ID"
         );
     }
 
@@ -132,6 +164,9 @@ mod tests {
             profile: AgentProfile::Codex,
             endpoint: "http://127.0.0.1:49152/agent-hooks".to_string(),
             token: "tok_123".to_string(),
+            workspace_id: "workspace-alpha".to_string(),
+            workspace_route_id: "route-alpha-7".to_string(),
+            norma_socket: "/tmp/multisoul-norma-dev.sock".to_string(),
         };
 
         let command = agent_command(AgentProfile::Codex, Some(&hook_env));
@@ -204,6 +239,9 @@ mod tests {
             profile: AgentProfile::Codex,
             endpoint: "http://127.0.0.1:49153/agent-hooks".to_string(),
             token: "tok_456".to_string(),
+            workspace_id: "workspace-alpha".to_string(),
+            workspace_route_id: "route-alpha-7".to_string(),
+            norma_socket: "/tmp/multisoul-norma-dev.sock".to_string(),
         };
         let codex_with_hook_env = agent_command(AgentProfile::Codex, Some(&hook_env));
         let claude_with_hook_env = agent_command(
@@ -213,6 +251,9 @@ mod tests {
                 profile: AgentProfile::Claude,
                 endpoint: "http://127.0.0.1:49153/agent-hooks".to_string(),
                 token: "tok_456".to_string(),
+                workspace_id: "workspace-alpha".to_string(),
+                workspace_route_id: "route-alpha-7".to_string(),
+                norma_socket: "/tmp/multisoul-norma-dev.sock".to_string(),
             }),
         );
 

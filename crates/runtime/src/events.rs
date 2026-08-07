@@ -5,6 +5,7 @@ use std::collections::{HashMap, VecDeque};
 use terminal::TerminalStatus;
 
 use crate::runtime::Runtime;
+use crate::EgoTaskState;
 
 pub const MAX_PENDING_EVENTS: usize = 1024;
 
@@ -28,12 +29,40 @@ pub enum AgentTaskState {
     Ended,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CardAttentionKind {
+    AgentTaskDone,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CardAttentionState {
+    pub kind: CardAttentionKind,
+    pub viewed: bool,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AgentTaskUpdate {
     pub node_id: NodeId,
     pub profile: AgentProfile,
     pub provider_event: String,
     pub to: AgentTaskState,
+    /// Optional display title for this task. Locked on first non-None value;
+    /// subsequent updates with a value are ignored.
+    pub task_title: Option<String>,
+    /// Optional provider session id from agent hook payloads.
+    pub session_id: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AgentTaskUpdateOutcome {
+    pub task_state_changed: bool,
+    pub session_binding_changed: bool,
+}
+
+impl AgentTaskUpdateOutcome {
+    pub fn changed(self) -> bool {
+        self.task_state_changed || self.session_binding_changed
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -63,6 +92,12 @@ pub enum RuntimeEvent {
         to: AgentTaskState,
         source_event: String,
     },
+    EgoTaskStateChanged {
+        node_id: NodeId,
+        from: Option<EgoTaskState>,
+        to: EgoTaskState,
+        operation: String,
+    },
     EventsDropped {
         count: usize,
     },
@@ -72,6 +107,8 @@ pub enum RuntimeEvent {
 pub(crate) struct RuntimeEvents {
     states: HashMap<NodeId, NodeRunState>,
     agent_task_states: HashMap<NodeId, AgentTaskState>,
+    agent_task_titles: HashMap<NodeId, String>,
+    card_attention: HashMap<NodeId, CardAttentionState>,
     queue: VecDeque<RuntimeEvent>,
 }
 
@@ -82,6 +119,18 @@ impl RuntimeEvents {
 
     pub(crate) fn agent_task_state(&self, node_id: NodeId) -> Option<AgentTaskState> {
         self.agent_task_states.get(&node_id).cloned()
+    }
+
+    pub(crate) fn agent_task_title(&self, node_id: NodeId) -> Option<String> {
+        self.agent_task_titles.get(&node_id).cloned()
+    }
+
+    pub(crate) fn set_agent_task_title_if_absent(&mut self, node_id: NodeId, title: String) {
+        self.agent_task_titles.entry(node_id).or_insert(title);
+    }
+
+    pub(crate) fn card_attention(&self, node_id: NodeId) -> Option<CardAttentionState> {
+        self.card_attention.get(&node_id).copied()
     }
 
     pub(crate) fn pending_len(&self) -> usize {
@@ -116,6 +165,8 @@ impl RuntimeEvents {
 
     pub(crate) fn remove(&mut self, node_id: NodeId) {
         self.agent_task_states.remove(&node_id);
+        self.agent_task_titles.remove(&node_id);
+        self.card_attention.remove(&node_id);
         if let Some(previous_state) = self.states.remove(&node_id) {
             self.push(RuntimeEvent::NodeRemoved {
                 node_id,
@@ -126,6 +177,8 @@ impl RuntimeEvents {
 
     pub(crate) fn remove_all(&mut self) {
         self.agent_task_states.clear();
+        self.agent_task_titles.clear();
+        self.card_attention.clear();
         let removed: Vec<_> = self.states.drain().collect();
         for (node_id, previous_state) in removed {
             self.push(RuntimeEvent::NodeRemoved {
@@ -148,6 +201,21 @@ impl RuntimeEvents {
         });
     }
 
+    pub(crate) fn ego_task_state_changed(
+        &mut self,
+        node_id: NodeId,
+        from: Option<EgoTaskState>,
+        to: EgoTaskState,
+        operation: &str,
+    ) {
+        self.push(RuntimeEvent::EgoTaskStateChanged {
+            node_id,
+            from,
+            to,
+            operation: operation.to_string(),
+        });
+    }
+
     pub(crate) fn update_agent_task_state(
         &mut self,
         node_id: NodeId,
@@ -155,10 +223,22 @@ impl RuntimeEvents {
         source_event: String,
     ) -> bool {
         let previous = self.agent_task_states.get(&node_id).cloned();
+        if previous == Some(AgentTaskState::Ended)
+            && is_active_agent_task_state(&to)
+            && source_event != "UserPromptSubmit"
+        {
+            return false;
+        }
         if previous.as_ref() == Some(&to) {
             return false;
         }
+        // Clear task title when a new session starts (Ready = SessionStart).
+        // This allows the next UserPromptSubmit to write a fresh title.
+        if to == AgentTaskState::Ready {
+            self.agent_task_titles.remove(&node_id);
+        }
         let from = previous.unwrap_or(AgentTaskState::Ready);
+        self.update_attention_for_agent_task(node_id, &to);
         self.agent_task_states.insert(node_id, to.clone());
         self.push(RuntimeEvent::AgentTaskStateChanged {
             node_id,
@@ -166,6 +246,17 @@ impl RuntimeEvents {
             to,
             source_event,
         });
+        true
+    }
+
+    pub(crate) fn mark_card_viewed(&mut self, node_id: NodeId) -> bool {
+        let Some(attention) = self.card_attention.get_mut(&node_id) else {
+            return false;
+        };
+        if attention.viewed {
+            return false;
+        }
+        attention.viewed = true;
         true
     }
 
@@ -178,6 +269,37 @@ impl RuntimeEvents {
         }
         self.queue.push_back(event);
     }
+
+    fn update_attention_for_agent_task(&mut self, node_id: NodeId, to: &AgentTaskState) {
+        match to {
+            AgentTaskState::Done => {
+                self.card_attention.insert(
+                    node_id,
+                    CardAttentionState {
+                        kind: CardAttentionKind::AgentTaskDone,
+                        viewed: false,
+                    },
+                );
+            }
+            AgentTaskState::Ready
+            | AgentTaskState::Thinking
+            | AgentTaskState::RunningTool { .. }
+            | AgentTaskState::WaitingApproval { .. }
+            | AgentTaskState::Failed { .. }
+            | AgentTaskState::Ended => {
+                self.card_attention.remove(&node_id);
+            }
+        }
+    }
+}
+
+fn is_active_agent_task_state(state: &AgentTaskState) -> bool {
+    matches!(
+        state,
+        AgentTaskState::Thinking
+            | AgentTaskState::RunningTool { .. }
+            | AgentTaskState::WaitingApproval { .. }
+    )
 }
 
 impl Runtime {
@@ -197,18 +319,63 @@ impl Runtime {
         self.events.agent_task_state(node_id)
     }
 
+    pub fn agent_task_title(&self, node_id: NodeId) -> Option<String> {
+        self.events.agent_task_title(node_id)
+    }
+
+    pub fn card_attention(&self, node_id: NodeId) -> Option<CardAttentionState> {
+        self.events.card_attention(node_id)
+    }
+
+    pub fn mark_card_viewed(&mut self, node_id: NodeId) -> bool {
+        if self.document.node(node_id).is_none() {
+            return false;
+        }
+        self.events.mark_card_viewed(node_id)
+    }
+
     pub fn apply_agent_task_update(&mut self, update: AgentTaskUpdate) -> bool {
+        self.apply_agent_task_update_with_outcome(update).changed()
+    }
+
+    pub fn apply_agent_task_update_with_outcome(
+        &mut self,
+        update: AgentTaskUpdate,
+    ) -> AgentTaskUpdateOutcome {
         let Some(node) = self.document.node(update.node_id) else {
             tracing::debug!(
                 node_id = update.node_id,
                 "agent task update ignored: missing node"
             );
-            return false;
+            return AgentTaskUpdateOutcome::default();
         };
         match &node.kind {
-            CanvasNodeKind::Agent(agent) if agent.profile == update.profile => self
-                .events
-                .update_agent_task_state(update.node_id, update.to, update.provider_event),
+            CanvasNodeKind::Agent(agent) if agent.profile == update.profile => {
+                let session_binding_changed = update
+                    .session_id
+                    .as_deref()
+                    .filter(|session_id| !session_id.is_empty())
+                    .is_some_and(|session_id| {
+                        self.agent_session_bindings.bind_if_unclaimed(
+                            update.node_id,
+                            update.profile,
+                            session_id,
+                        )
+                    });
+                if let Some(title) = update.task_title {
+                    self.events
+                        .set_agent_task_title_if_absent(update.node_id, title);
+                }
+                let task_state_changed = self.events.update_agent_task_state(
+                    update.node_id,
+                    update.to,
+                    update.provider_event,
+                );
+                AgentTaskUpdateOutcome {
+                    task_state_changed,
+                    session_binding_changed,
+                }
+            }
             CanvasNodeKind::Agent(agent) => {
                 tracing::debug!(
                     node_id = update.node_id,
@@ -216,14 +383,17 @@ impl Runtime {
                     actual = ?update.profile,
                     "agent task update ignored: profile mismatch"
                 );
-                false
+                AgentTaskUpdateOutcome::default()
             }
-            CanvasNodeKind::Rect(_) | CanvasNodeKind::Term(_) | CanvasNodeKind::Preview(_) => {
+            CanvasNodeKind::Rect(_)
+            | CanvasNodeKind::Term(_)
+            | CanvasNodeKind::Preview(_)
+            | CanvasNodeKind::Browser(_) => {
                 tracing::debug!(
                     node_id = update.node_id,
                     "agent task update ignored: target is not an agent node"
                 );
-                false
+                AgentTaskUpdateOutcome::default()
             }
         }
     }

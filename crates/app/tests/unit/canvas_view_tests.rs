@@ -1,4 +1,5 @@
 use super::*;
+use std::time::{Duration, Instant};
 
 /// 画布交互状态：默认应关闭滚轮/触控板画布滚动。
 ///
@@ -140,11 +141,11 @@ fn test_canvas_wheel_scroll_does_not_move_viewport_when_disabled() {
 ///
 /// 数据构造（含关键数值推导）：
 ///   node_top_left = (80,40)
-///   screen = (100,120)
-///   zoom = 2，因此标题栏高度 = TITLE_BAR_H(26) * 2 = 52
+///   screen = (100,132)
+///   zoom = 2，因此标题栏高度 = TITLE_BAR_H(32) * 2 = 64
 ///   TERM_PADDING_PX = 8
 ///   local_x = 100 - 80 - 8 = 12
-///   local_y = 120 - 40 - 52 - 8 = 20
+///   local_y = 132 - 40 - 64 - 8 = 20
 ///
 /// 执行过程：
 ///   1. terminal_content_local_position(screen, node_top_left, zoom=2)
@@ -156,7 +157,7 @@ fn test_canvas_wheel_scroll_does_not_move_viewport_when_disabled() {
 #[test]
 fn test_terminal_content_local_position_offsets_title_bar_and_padding() {
     let local =
-        terminal_content_local_position(Vec2::new(100.0, 120.0), Vec2::new(80.0, 40.0), 2.0);
+        terminal_content_local_position(Vec2::new(100.0, 132.0), Vec2::new(80.0, 40.0), 2.0);
 
     assert_eq!(
         local.x,
@@ -166,12 +167,124 @@ fn test_terminal_content_local_position_offsets_title_bar_and_padding() {
     assert_eq!(
         local.y,
         px(20.0),
-        "terminal local y 应扣除 node.y、标题栏和 padding，即 120-40-52-8=20"
+        "terminal local y 应扣除 node.y、标题栏和 padding，即 132-40-64-8=20"
     );
     assert_ne!(
         local.y,
-        px(72.0),
+        px(108.0),
         "terminal local y 不应忘记扣 TITLE_BAR_H*zoom，否则选区会整体下移"
+    );
+}
+
+/// 标题栏文本：稳定名称不可收缩，长 task_title 只能在独立区域单行截断。
+///
+/// 数据构造（含关键数值推导）：
+///   TITLE_BAR_H = 32px；标题栏高度固定为 TITLE_BAR_H * zoom
+///   Agent 名称最长 = 16 个英文字母或 8 个汉字；task_title 最长可达 60 字
+///   可收缩区数量 = 1（仅 title_detail）；稳定名称收缩次数 = 0
+///
+/// 执行过程：
+///   1. 读取 canvas/view.rs 与 cards/chrome.rs 的生产渲染源码。
+///   2. 确认 Canvas 把 title/title_detail 一并交给共享标题渲染器。
+///   3. 检查稳定名称与任务详情采用不同的 flex / truncate 契约。
+///
+/// 预期结果：
+///   - 正断言：稳定名称使用 flex_none，不被长任务挤掉。
+///   - 正断言：title_detail 使用 flex_1 + min_w(0) + truncate 单行截断。
+///   - 负断言：Canvas 不再把组合 title 作为唯一可收缩文本节点。
+#[test]
+fn test_canvas_title_keeps_identity_while_detail_truncates_in_single_line() {
+    let canvas_source = include_str!("../../src/canvas/view.rs");
+    let chrome_source = include_str!("../../src/cards/chrome.rs");
+    assert!(
+        canvas_source.contains("render_card_title(id, title, title_detail, vp.zoom, theme)"),
+        "Canvas 应把稳定名称与任务详情交给共享标题渲染器"
+    );
+    assert!(
+        chrome_source.contains(".child(title.flex_none())"),
+        "存在任务详情时稳定 Agent 名称必须 flex_none，不能被长正文挤掉"
+    );
+    assert!(
+        chrome_source.contains("\"card-title-detail\"")
+            && chrome_source.contains(".flex_1()")
+            && chrome_source.contains(".min_w(px(0.0))")
+            && chrome_source.contains(".truncate()"),
+        "title_detail 应独占可收缩区域并使用单行截断"
+    );
+    assert!(
+        !canvas_source.contains(".truncate()\n                            .child(title)"),
+        "Canvas 不应把组合 title 继续作为唯一可收缩文本节点"
+    );
+}
+
+/// 拖拽/平移渲染节流：高频 mouse move 不应每个事件都触发整画布 repaint。
+///
+/// 数据构造（含关键数值推导）：
+///   frame interval = 16ms（约 60fps）
+///   first frame last=None → 应通知，保证拖拽立即有反馈
+///   too_soon = first + 4ms，4 < 16 → 不应通知
+///   next_frame = first + 16ms，16 >= 16 → 应通知
+///
+/// 执行过程：
+///   1. should_notify_motion_frame(None, first)
+///   2. should_notify_motion_frame(Some(first), first+4ms)
+///   3. should_notify_motion_frame(Some(first), first+16ms)
+///
+/// 预期结果：
+///   - 正断言：首帧和满 16ms 后返回 true
+///   - 负断言：4ms 内返回 false，避免 mousemove 频率直接驱动整画布重绘
+#[test]
+fn test_motion_frame_notify_is_throttled_to_frame_interval() {
+    let first = Instant::now();
+    let too_soon = first + Duration::from_millis(4);
+    let next_frame = first + Duration::from_millis(16);
+
+    let initial = should_notify_motion_frame(None, first);
+    let suppressed = should_notify_motion_frame(Some(first), too_soon);
+    let allowed = should_notify_motion_frame(Some(first), next_frame);
+
+    assert!(initial, "拖拽首帧应立即 notify，避免拖动看起来没有响应");
+    assert!(
+        !suppressed,
+        "4ms < 16ms 的高频 mouse move 不应触发整画布 repaint"
+    );
+    assert!(allowed, "达到 16ms frame interval 后应允许下一次 repaint");
+}
+
+/// render_canvas 应在 clone/chrome/body 前完成 viewport culling，避免离屏卡片参与重型渲染路径。
+///
+/// 数据构造（含关键数值推导）：
+///   source = canvas/view.rs 当前源码
+///   cull marker = "viewport culling"
+///   heavy clone marker = "let node = app.runtime.document.node(id).unwrap().clone()"
+///   目标顺序：cull marker 的位置必须小于 heavy clone marker
+///
+/// 执行过程：
+///   1. 读取 canvas/view.rs
+///   2. 找到 culling 代码与 node clone 代码位置
+///   3. 比较两者顺序
+///
+/// 预期结果：
+///   - 正断言：culling 在 clone/chrome/body 之前
+///   - 负断言：clone 不应继续早于 culling，否则离屏节点仍会消耗拖拽帧预算
+#[test]
+fn test_canvas_render_culls_before_heavy_node_clone() {
+    let source = include_str!("../../src/canvas/view.rs");
+    let cull_pos = source
+        .find("viewport culling")
+        .expect("render_canvas 应保留 viewport culling 注释作为性能护栏");
+    let clone_pos = source
+        .find("let node = app.runtime.document.node(id).unwrap().clone()")
+        .expect("render_canvas 应只在必要时 clone node");
+
+    assert!(
+        cull_pos < clone_pos,
+        "viewport culling 应早于 heavy node clone/chrome/body，cull_pos={cull_pos}, clone_pos={clone_pos}"
+    );
+    let clone_before_cull = clone_pos < cull_pos;
+    assert!(
+        !clone_before_cull,
+        "node clone 不应早于 culling，否则离屏卡片仍参与拖拽重绘热路径"
     );
 }
 
@@ -204,6 +317,41 @@ fn test_focusable_body_single_click_focuses_node() {
         route,
         Route::SelectNode(7),
         "可聚焦正文单击不应只停留在选中态，否则用户会看到橙色边框但无法输入"
+    );
+}
+
+/// 画布鼠标按下应把 GPUI root focus 拉回应用，保证 IME commit 能进入聚焦节点。
+///
+/// 数据构造（含关键数值推导）：
+///   Left = 正文/标题栏点击，会改变 runtime focus 或 selection
+///   Middle = 画布 pan，也会让用户继续在画布中操作
+///   Right = 当前没有画布输入语义，不应抢焦点
+///
+/// 执行过程：
+///   1. should_focus_app_root_for_mouse_down(Left)
+///   2. should_focus_app_root_for_mouse_down(Middle)
+///   3. should_focus_app_root_for_mouse_down(Right)
+///
+/// 预期结果：
+///   - 正断言：Left/Middle 返回 true，点击恢复后卡片时会重新激活 root FocusHandle
+///   - 负断言：Right 返回 false，避免无语义右键抢走系统上下文焦点
+#[test]
+fn test_canvas_mouse_down_requests_root_focus_for_primary_canvas_buttons() {
+    let left = should_focus_app_root_for_mouse_down(MouseButton::Left);
+    let middle = should_focus_app_root_for_mouse_down(MouseButton::Middle);
+    let right = should_focus_app_root_for_mouse_down(MouseButton::Right);
+
+    assert!(
+        left,
+        "左键点击卡片正文/标题栏应请求 GPUI root focus，否则 IME 文本不会提交到节点"
+    );
+    assert!(
+        middle,
+        "中键 pan 也属于画布交互，应请求 GPUI root focus 保持后续键盘事件在应用内"
+    );
+    assert!(
+        !right,
+        "右键当前没有画布输入语义，不应无条件抢占 GPUI root focus"
     );
 }
 
@@ -243,73 +391,99 @@ fn test_terminal_title_single_click_selects_for_drag() {
 ///
 /// 数据构造（含关键数值推导）：
 ///   node_top_screen_y = 100
-///   TITLE_BAR_H = 26
+///   TITLE_BAR_H = 32
 ///   zoom = 2
-///   title_bottom = 100 + 26 * 2 = 152
-///   y=151.5 在标题栏内，y=153 已进入正文
+///   title_bottom = 100 + 32 * 2 = 164
+///   y=163.5 在标题栏内，y=165 已进入正文
 ///
 /// 执行过程：
-///   1. is_title_bar_hit(151.5, 100, 2) → true
-///   2. is_title_bar_hit(153, 100, 2) → false
+///   1. is_title_bar_hit(187.5, 100, 2) → true
+///   2. is_title_bar_hit(189, 100, 2) → false
 ///
 /// 预期结果：
-///   - 正断言：151.5 被识别为标题栏
-///   - 正断言：153 被识别为正文
-///   - 负断言：正文 y=153 不应仍被当作标题栏
+///   - 正断言：187.5 被识别为标题栏
+///   - 正断言：189 被识别为正文
+///   - 负断言：正文 y=189 不应仍被当作标题栏
 #[test]
 fn test_title_bar_hit_scales_with_zoom() {
-    let in_title = is_title_bar_hit(151.5, 100.0, 2.0);
-    let in_body = is_title_bar_hit(153.0, 100.0, 2.0);
+    let in_title = is_title_bar_hit(163.5, 100.0, 2.0);
+    let in_body = is_title_bar_hit(165.0, 100.0, 2.0);
 
-    assert!(in_title, "y=151.5 <= 100 + 26 * 2，应被识别为标题栏命中");
-    assert!(!in_body, "y=153 > 100 + 26 * 2，应被识别为正文命中");
+    assert!(in_title, "y=163.5 <= 100 + 32 * 2，应被识别为标题栏命中");
+    assert!(!in_body, "y=165 > 100 + 32 * 2，应被识别为正文命中");
 }
 
-/// 卡片圆角 token 应统一用于外壳、标题栏和顶部高亮线。
+/// 卡片圆角 token 应统一用于外壳和标题栏。
 ///
 /// 数据构造（含关键数值推导）：
-///   base radius = 16px
-///   zoom=0.25 → raw radius = 16 * 0.25 = 4px，clamp 到最小 8px
-///   zoom=1.00 → raw radius = 16 * 1.00 = 16px，保持 16px
-///   zoom=2.00 → raw radius = 16 * 2.00 = 32px，clamp 到最大 22px
-///   top highlight inset = card radius，避免 1px 高亮线画进圆角区域
+///   base radius = 22px
+///   zoom=0.25 → raw radius = 22 * 0.25 = 5.5px，clamp 到最小 12px
+///   zoom=1.00 → raw radius = 22 * 1.00 = 22px，保持 22px
+///   zoom=2.00 → raw radius = 22 * 2.00 = 44px，clamp 到最大 28px
 ///
 /// 执行过程：
 ///   1. 分别计算 zoom=0.25、1.0、2.0 的卡片圆角
-///   2. 计算 zoom=1.0 的标题栏圆角与顶部高亮线缩进
+///   2. 计算 zoom=1.0 的标题栏圆角
 ///
 /// 预期结果：
-///   - 正断言：卡片圆角随 zoom 缩放并保持在 8..=22px
+///   - 正断言：卡片圆角随 zoom 缩放并保持在 12..=28px
 ///   - 正断言：标题栏圆角复用卡片圆角，避免顶部背景填平圆角
-///   - 正断言：顶部高亮线从 radius 内侧开始，避开左右顶角
-///   - 负断言：高亮线缩进不应为 0，否则会再次画出直角顶边
 #[test]
-fn test_node_card_radius_tokens_keep_children_inside_rounded_shell() {
+fn test_node_card_radius_tokens_keep_title_inside_rounded_shell() {
     let zoomed_out = node_card_radius_px(0.25);
     let normal = node_card_radius_px(1.0);
     let zoomed_in = node_card_radius_px(2.0);
     let title_radius = node_title_radius_px(1.0);
-    let highlight_inset = node_edge_highlight_inset_px(1.0);
 
     assert_eq!(
-        zoomed_out, 8.0,
-        "zoom=0.25 时 raw=4px，应 clamp 到 8px 最小卡片圆角"
+        zoomed_out, 12.0,
+        "zoom=0.25 时 raw=5.5px，应 clamp 到 12px 最小卡片圆角"
     );
-    assert_eq!(normal, 16.0, "zoom=1.0 时 raw=16px，应保持默认卡片圆角");
+    assert_eq!(normal, 22.0, "zoom=1.0 时 raw=22px，应保持默认卡片圆角");
     assert_eq!(
-        zoomed_in, 22.0,
-        "zoom=2.0 时 raw=32px，应 clamp 到 22px 最大卡片圆角"
+        zoomed_in, 28.0,
+        "zoom=2.0 时 raw=44px，应 clamp 到 28px 最大卡片圆角"
     );
     assert_eq!(
         title_radius, normal,
         "标题栏顶部圆角必须复用卡片圆角，否则矩形标题栏会填平顶角"
     );
-    assert_eq!(
-        highlight_inset, normal,
-        "顶部高亮线应从卡片圆角内侧开始，避免覆盖圆角弧线"
+}
+
+/// 卡片外壳只负责圆角描边，背景填充必须交给各自拥有圆角的标题栏和正文。
+///
+/// 数据构造（含关键数值推导）：
+///   GPUI 0.2.2 的 content mask = 矩形；card radius = 22px。
+///   外壳若绘制 100% 宽高背景，会覆盖四个 22×22px 角区并露出直角底色。
+///
+/// 执行过程：
+///   1. 截取 `node_div` 外壳构造链。
+///   2. 检查外壳保留 rounded/overflow 结构，但不再绘制全尺寸背景。
+///   3. 检查标题栏仍自行绘制顶部圆角与背景。
+///
+/// 预期结果：
+///   - 正断言：外壳保留圆角，标题栏保留圆角背景。
+///   - 负断言：外壳不得包含 `.bg(...)`，否则圆角外会再次出现矩形色块。
+#[test]
+fn test_node_card_shell_does_not_paint_behind_rounded_child_surfaces() {
+    let source = include_str!("../../src/canvas/view.rs");
+    let shell = source
+        .split("let mut node_div = div()")
+        .nth(1)
+        .and_then(|source| source.split("if hovered_terminal_link").next())
+        .expect("应能定位 node_div 外壳构造链，否则无法验证圆角背景所有权");
+
+    assert!(
+        shell.contains(".rounded(px(node_radius))"),
+        "卡片外壳必须保留 22px 圆角描边结构"
     );
-    assert_ne!(
-        highlight_inset, 0.0,
-        "顶部高亮线缩进不能为 0，否则 w_full 的 1px 线会重新制造直角"
+    assert!(
+        !shell.contains(".bg("),
+        "卡片外壳不得绘制全尺寸背景，否则 GPUI 会在圆角外留下矩形色块"
+    );
+    assert!(
+        source.contains(".rounded_t(px(node_title_radius_px(vp.zoom)))")
+            && source.contains(".bg(card_title_background("),
+        "标题栏必须同时保留顶部圆角与毛玻璃背景"
     );
 }

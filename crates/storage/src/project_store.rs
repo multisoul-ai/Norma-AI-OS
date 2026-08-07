@@ -1,5 +1,7 @@
 use crate::{
-    migrations::require_workspace_dir, CanvasStore, SessionStore, StorageResult, VoiceHistoryStore,
+    migrations::require_workspace_dir, AgentConversationTailStore, AgentDefinitionStore,
+    AgentDispatchTaskStore, CanvasStore, DatabasePaths, LayoutStore, NodeSessionStore,
+    SessionStore, StorageError, StorageResult, VoiceHistoryStore,
 };
 use std::path::{Path, PathBuf};
 
@@ -18,6 +20,24 @@ impl ProjectStore {
         Ok(Self::new(root.join(".multisoul").join("project.sqlite")))
     }
 
+    pub fn for_database_paths(paths: &DatabasePaths, root: &Path) -> StorageResult<Self> {
+        require_workspace_dir(root)?;
+        Ok(Self::new(paths.project_db_path(root)))
+    }
+
+    pub fn initialize_for_database_paths(
+        paths: &DatabasePaths,
+        root: &Path,
+    ) -> StorageResult<Self> {
+        let path = paths.project_db_path(root);
+        let store = Self::for_database_paths(paths, root)
+            .map_err(|source| project_initialization_error(paths, path.clone(), source))?;
+        store
+            .migrate()
+            .map_err(|source| project_initialization_error(paths, path, source))?;
+        Ok(store)
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -31,11 +51,43 @@ impl ProjectStore {
         CanvasStore::new(self.path.clone())
     }
 
+    pub fn layout_store(&self) -> LayoutStore {
+        LayoutStore::new(self.path.clone())
+    }
+
     pub fn session_store(&self) -> SessionStore {
         SessionStore::new(self.path.clone())
     }
 
+    pub fn node_session_store(&self) -> NodeSessionStore {
+        NodeSessionStore::new(self.path.clone())
+    }
+
     pub fn voice_history_store(&self) -> VoiceHistoryStore {
         VoiceHistoryStore::new(self.path.clone())
+    }
+
+    pub fn agent_definition_store(&self) -> AgentDefinitionStore {
+        AgentDefinitionStore::new(self.path.clone())
+    }
+
+    pub fn agent_dispatch_task_store(&self) -> AgentDispatchTaskStore {
+        AgentDispatchTaskStore::new(self.path.clone())
+    }
+
+    pub fn agent_conversation_tail_store(&self) -> AgentConversationTailStore {
+        AgentConversationTailStore::new(self.path.clone())
+    }
+}
+
+fn project_initialization_error(
+    paths: &DatabasePaths,
+    path: PathBuf,
+    source: StorageError,
+) -> StorageError {
+    StorageError::DatabaseInitialization {
+        mode: paths.mode(),
+        path,
+        source: Box::new(source),
     }
 }

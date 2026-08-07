@@ -202,6 +202,9 @@ impl InputHandler for TerminalImeHandler {
         if let Some(app) = self.app.upgrade() {
             app.update(cx, |app, cx| {
                 if commit_text_to_focused_node(&mut app.runtime, app.screen, text) {
+                    if let InputMode::NodeFocused(node_id) = app.runtime.focus.mode() {
+                        app.motion.interrupt_initialization(node_id);
+                    }
                     cx.notify();
                 }
             });
@@ -460,7 +463,10 @@ mod tests {
         let mut screen_text = String::new();
         while std::time::Instant::now() < deadline {
             runtime.drain_all();
-            if let Some(NodeView::Term { snapshot, status }) = runtime.node_view(node_id) {
+            if let Some(NodeView::Term {
+                snapshot, status, ..
+            }) = runtime.node_view(node_id)
+            {
                 screen_text = snapshot
                     .rows
                     .iter()

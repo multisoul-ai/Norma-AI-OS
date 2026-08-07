@@ -1,0 +1,158 @@
+/// Voice 页面锚点：Settings 应提供交互模式、共享 ASR 模型、输入设备、Agent 与高级配置入口。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   source = settings panel/content + voice state/provider/view 拆分源码
+///   nav anchor = Voice
+///   storage keys = mode + trigger + immutable ASR model ID + Agent Provider + announcement toggle
+///   input anchors = default / refresh / clear（覆盖默认输入、设备刷新、清除选择）
+///   recognition sources = On-device(1) + Azure Speech(1)，在同一 Setup 卡片内互斥投影
+///   continuous anchors = Continuous Listening / Agent Provider / Local TTS
+///   hidden debug env = MULTISOUL_VOICE_TRANSCRIPT，不应暴露成设置项
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 拼接 Settings 生产渲染源码
+///   2. 检查 Voice 导航、Recognition source、模型下载、持久化 key 与输入设备锚点
+///   3. 检查 Azure 显式 Use、单击编辑和 Keychain 状态锚点
+///   4. 检查 Edit 按钮和隐藏 transcript fallback 没有出现在 Settings UI
+///
+/// 预期结果：
+///   - 正断言：Voice 页面包含新模式、模型库、Agent/TTS 与 Advanced
+///   - 正断言：页面包含两种识别来源、受控模型下载、输入设备、Agent 任务播报和 trace 锚点
+///   - 负断言：不应保留旧 Dialogue LLM mode、旧触发器文案、realtime 总开关或 API Key 明文
+#[test]
+fn test_voice_settings_panel_contains_voice_configuration_anchors() {
+    let source = concat!(
+        include_str!("../../src/settings/panel.rs"),
+        include_str!("../../src/settings/content.rs"),
+        include_str!("../../src/settings/voice.rs"),
+        include_str!("../../src/settings/voice/state.rs"),
+        include_str!("../../src/settings/voice/state/editing.rs"),
+        include_str!("../../src/settings/voice/state/field.rs"),
+        include_str!("../../src/settings/voice/state/model_selection.rs"),
+        include_str!("../../src/settings/voice/state/editing.rs"),
+        include_str!("../../src/settings/voice/state/provider_values.rs"),
+        include_str!("../../src/settings/voice/state/values.rs"),
+        include_str!("../../src/settings/voice/view.rs"),
+        include_str!("../../src/settings/voice/view/editable.rs"),
+        include_str!("../../src/settings/voice/view/editable/inputs.rs"),
+        include_str!("../../src/settings/voice/view/editable/native.rs"),
+        include_str!("../../src/settings/voice/view/editable/status.rs"),
+        include_str!("../../src/settings/voice/view/editable/visibility.rs"),
+        include_str!("../../src/settings/voice/view/input_device.rs"),
+        include_str!("../../src/settings/voice/view/interaction.rs"),
+        include_str!("../../src/settings/voice/view/model_catalog.rs"),
+        include_str!("../../src/settings/voice/view/tts_catalog.rs"),
+        include_str!("../../src/settings/voice/view/tts_provider.rs"),
+        include_str!("../../src/settings/voice/view/tts_provider/picker.rs"),
+        include_str!("../../src/settings/voice/view/tts_provider/controller.rs"),
+        include_str!("../../src/settings/voice/view/spoken_reply.rs"),
+        include_str!("../../src/settings/voice/view/provider.rs"),
+        include_str!("../../src/settings/voice/view/provider/api_key.rs"),
+        include_str!("../../src/settings/voice/view/setup.rs"),
+        include_str!("../../src/settings/voice/view/setup/components.rs"),
+        include_str!("../../src/settings/voice/view/setup/models.rs"),
+        include_str!("../../src/settings/voice/view/setup/recognition.rs"),
+        include_str!("../../src/settings/voice/credentials.rs"),
+        include_str!("../../../asr/src/catalog.rs")
+    );
+    macro_rules! assert_anchor {
+        ($anchor:literal) => {
+            assert!(
+                source.contains($anchor),
+                concat!("Voice 设置页应包含具体配置锚点: ", $anchor)
+            );
+        };
+    }
+    assert_anchor!("SettingsSection::Voice");
+    assert_anchor!("Voice");
+    assert_anchor!("Speech Recognition");
+    assert_anchor!("Recognition source");
+    assert_anchor!("voice-setup-asr-source-local");
+    assert_anchor!("voice-setup-asr-source-azure");
+    assert_anchor!("Use Azure Speech");
+    assert_anchor!("Download");
+    assert_anchor!("Voice Interaction");
+    assert_anchor!("Single Voice Command");
+    assert_anchor!("Continuous Listening");
+    assert_anchor!("Shortcut");
+    assert_anchor!("Agent Provider");
+    assert_anchor!("Spoken Replies");
+    assert_anchor!("Local TTS");
+    assert_anchor!("Current Voice");
+    assert_anchor!("Use This Voice");
+    assert_anchor!("Manage Models");
+    assert_anchor!("Advanced");
+    assert_anchor!("voice.ollama.endpoint");
+    assert_anchor!("voice.ollama.model");
+    assert_anchor!("voice.dialogue.model");
+    assert_anchor!("voice.refine.model");
+    assert_anchor!("voice.interaction.mode");
+    assert_anchor!("voice.single_voice_command.trigger");
+    assert_anchor!("voice.asr.model_id");
+    assert_anchor!("voice.input_device_id");
+    assert_anchor!("voice.trace_enabled");
+    assert_anchor!("voice.agent_task_announcements_enabled");
+    assert_anchor!("voice.window_inset_enabled");
+    assert_anchor!("settings-voice-mode-dictation");
+    assert_anchor!("settings-voice-mode-continuous");
+    assert_anchor!("settings-asr-model");
+    assert_anchor!("Zipformer Bilingual");
+    assert_anchor!("Zipformer Streaming ZH");
+    assert_anchor!("Zipformer Streaming CTC ZH");
+    assert_anchor!("Recommendation pending");
+    assert_anchor!("settings-voice-input-device-default");
+    assert_anchor!("settings-voice-input-device-refresh");
+    assert_anchor!("settings-voice-input-device-clear");
+    assert_anchor!("agent.provider.active");
+    assert_anchor!("agent.provider.ollama.base_url");
+    assert_anchor!("agent.provider.openai.base_url");
+    assert_anchor!("settings-agent-provider-ollama");
+    assert_anchor!("settings-agent-provider-openai");
+    assert_anchor!("settings-voice-field-");
+    assert_anchor!("agent_base_url");
+    assert_anchor!("agent_model");
+    assert_anchor!("agent_api_key");
+    assert_anchor!("settings-agent-provider-api-key-clear");
+    assert_anchor!("settings-agent-provider-api-key-visibility");
+    assert_anchor!("*********");
+    assert_anchor!("Stored in macOS Keychain");
+    assert_anchor!("voice-setup-provider-connect");
+    assert_anchor!("Base URL");
+    assert_anchor!("API Key");
+    assert_anchor!("settings-voice-trace-toggle");
+    assert_anchor!("settings-agent-task-announcements-toggle");
+    assert_anchor!("Agent task announcements");
+    assert_anchor!("settings-voice-window-inset-toggle");
+    assert_anchor!("Voice-driven window inset");
+    assert_anchor!("on_mouse_down");
+    assert_anchor!("begin_edit");
+    assert!(
+        !source.contains("voice.dialogue.llm_mode"),
+        "Norma/Rig 单运行时不应继续持久化旧 Dialogue LLM mode"
+    );
+    assert!(
+        !source.contains("MULTISOUL_VOICE_TRANSCRIPT"),
+        "Voice Settings 不应暴露测试用 transcript 注入环境变量"
+    );
+    assert!(
+        !source.contains("Single Voice Command Trigger"),
+        "Voice Settings 不应保留设计稿已简化的旧触发器文案"
+    );
+    assert!(
+        !source.contains("top-secret"),
+        "Settings 源码不得包含测试 API Key 明文"
+    );
+    assert!(
+        !source.contains("voice.paraformer.model_dir"),
+        "新 Voice Settings 不得继续读取旧 Paraformer 路径 key"
+    );
+    assert!(
+        !source.contains("voice.realtime.enabled"),
+        "新 Voice Settings 不得保留独立 Always Listening 总开关"
+    );
+    assert!(
+        !source.contains("settings-voice-edit")
+            && !source.contains("settings-agent-provider-api-key-edit"),
+        "Voice Settings 不应保留 Edit 或 Replace 按钮锚点"
+    );
+}
