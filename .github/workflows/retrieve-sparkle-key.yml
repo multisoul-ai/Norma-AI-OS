@@ -1,0 +1,26 @@
+name: Retrieve Sparkle Key
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  retrieve:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Export key to artifact
+        shell: bash
+        env:
+          KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
+        run: |
+          echo "$KEY" > sparkle-private.key
+      - name: Upload artifact
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        with:
+          name: sparkle-key
+          path: sparkle-private.key
+          retention-days: 1

@@ -1,0 +1,56 @@
+name: Finalize Sparkle Appcast
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  appcast:
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Prepare Sparkle tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/prepare-sparkle.sh
+
+      - name: Download release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/release-assets
+          gh release download v0.1.72 \
+            --repo multisoul-ai/norma-os-releases \
+            --dir build/release-assets
+
+      - name: Generate signed appcast and publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPARKLE_EDDSA_PRIVATE_KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          DMG="build/release-assets/Norma OS_0.1.72_aarch64.dmg"
+          [ -f "$DMG" ] || { echo "DMG not found: $DMG" >&2; exit 1; }
+
+          # Generate appcast
+          ./scripts/finalize-sparkle-release.sh \
+            --tag v0.1.72 \
+            --app "build/Norma OS.app" \
+            --dmg "$DMG" \
+            --appcast-only
+
+          # Upload appcast to release
+          gh release upload v0.1.72 \
+            --repo multisoul-ai/norma-os-releases \
+            --clobber \
+            build/release-assets/appcast.xml
