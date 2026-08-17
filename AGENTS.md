@@ -6,7 +6,7 @@
 
 ## 1. 这是什么
 
-Norma OS 是 macOS 空间工作台脚手架。核心抽象是 **Live Node on Infinite Canvas**：无限画布承载可运行节点，Terminal 是第一个 Live Node。
+Norma OS 是面向 vibe coding 的 macOS AI 伙伴：用户给出想法与方向，Norma 协调多个 Coding Agent，让执行过程、上下文和产物持续可见、随时可接管。产品形态是 **Live Node on Infinite Canvas**：无限画布承载可运行节点，Terminal 是第一个 Live Node。
 
 Workspace 分层：
 

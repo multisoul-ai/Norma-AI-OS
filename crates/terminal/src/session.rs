@@ -304,7 +304,7 @@ mod tests {
     /// write_input 经 encode 写 PTY：Enter 不报错（编码路径打通的最小验证）。
     ///
     /// 数据构造：
-    ///   KeyInput { key: Key::Enter, ctrl: false, alt: false }
+    ///   KeyInput { key: Key::Enter, ctrl: false, alt: false, shift: false }
     ///   encode(Enter) → [0x0d]（CR 字节）
     ///
     /// 执行过程：
@@ -322,6 +322,7 @@ mod tests {
             key: Key::Enter,
             ctrl: false,
             alt: false,
+            shift: false,
         });
         assert!(result.is_ok(), "write_input(Enter) 应成功写入 PTY，返回 Ok");
         assert!(

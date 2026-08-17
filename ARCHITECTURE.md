@@ -1,6 +1,6 @@
 # Norma OS Architecture
 
-Norma OS 是一个 macOS 空间工作台脚手架。当前垂直切片围绕 **Live Node on Infinite Canvas** 构建：GPUI 窗口中有无限画布，画布节点可以承载实时运行的能力；Terminal 是第一个 Live Node。
+Norma OS 的产品定位是面向 vibe coding 的 macOS AI 伙伴：用户负责想法、方向与判断，Norma 协调多个 Coding Agent，并让执行过程、上下文与产物持续可见、随时可接管。当前实现围绕 **Live Node on Infinite Canvas** 构建：GPUI 窗口中有无限画布，画布节点可以承载实时运行的能力；Terminal 是第一个 Live Node。
 
 本文描述当前实现，不描述未来愿景的完整形态。Phase 占位见 [`README.md`](README.md)。
 

@@ -209,6 +209,7 @@ fn cancel_task(
                         key: terminal::Key::Char('c'),
                         ctrl: true,
                         alt: false,
+                        shift: false,
                     }),
                 )
                 .map_err(|error| {

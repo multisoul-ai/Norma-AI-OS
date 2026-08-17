@@ -121,8 +121,8 @@ pub fn run_norma_os() {
             })
             .detach();
 
-            // The default-enabled `licenses` feature controls the hard gate
-            // (ADR 0015). NORMA_SKIP_LICENSE remains a runtime escape hatch.
+            // The opt-in `licenses` feature controls the hard gate (ADR 0015).
+            // Default and packaged builds enter the workbench without a license.
             license_gate::open_gated_window(cx).expect("failed to open window");
             cx.activate(true);
         });

@@ -1,16 +1,32 @@
 # 火山引擎豆包流式 ASR：官方协议与 Norma OS 接入研究
 
-> 调研日期：2026-08-02。范围仅限火山引擎官方产品页、官方文档和官方控制台入口；未采用社区文章、第三方 SDK 或厂商间不可比的排行榜。文中的“提升、降低、最优、300～400 ms”等结论均为厂商声明，除非明确标为 Norma OS 的接入建议；本报告没有完成真实账号调用、网络抓包或同语料准确率测试。
+> 调研日期：2026-08-02；方案确认日期：2026-08-08。范围仅限火山引擎官方产品页、官方文档和官方控制台入口；未采用社区文章、第三方 SDK 或厂商间不可比的排行榜。文中的“提升、降低、最优、300～400 ms”等结论均为厂商声明，除非明确标为 Norma OS 的接入建议；本报告没有完成真实账号调用、网络抓包或同语料准确率测试。
 
 ## 结论
 
-豆包流式 ASR 可以直接接入 Norma OS，且现有音频契约与其最保守的官方 API 契约高度吻合：**16 kHz、mono、PCM16**。建议首个 POC 优先申请 2.0 小时版 `volc.seedasr.sauc.duration`，使用官方推荐的**双向流式优化版** `wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async`，将现有约 20 ms PCM chunk 聚合为 200 ms 音频帧；按键松开时发送显式最后一包，收到终态响应后再向 Agent 提交文本。
+豆包流式 ASR 可以直接接入 Norma OS，且现有音频契约与其最保守的官方 API 契约高度吻合：**16 kHz、mono、PCM16**。确认采用 2.0 小时版候选资源、官方推荐的**双向流式优化版** `wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async`，将现有约 20 ms PCM chunk 聚合为 200 ms 音频帧；Single 由用户松键、Continuous 由本地 Silero VAD 结束输入，客户端随后发送显式最后一包，只有 last frame 之后的明确服务端终态响应才能向 Agent 提交唯一 final。
 
 最需要避免的三个误区：
 
 1. `definite=true` 是句级结果稳定标志，不等于整次按键录音已经结束；整次输入仍应由客户端的松键/取消动作控制。
 2. “流式输入” `bigmodel_nostream` 虽然通过 WebSocket 喂音频，但官方说明它主要在音频超过 15 秒或收到最后一包后返回结果，不适合拿来做逐字预览。
-3. 火山官方页面存在版本与销售口径差异，包括新旧鉴权请求头、输入格式/采样率和免费额度；POC 前必须以目标项目控制台实际开通的模型、`resource_id`、密钥形态和计费 SKU 为准。
+3. 火山官方页面存在版本与销售口径差异，包括新旧鉴权请求头、输入格式/采样率和免费额度；Norma OS 已固定只接新版控制台，但真实 L3 仍必须核对目标项目的请求头、`resource_id` 和计费 SKU。
+
+## 0. 已确认的 Norma OS 范围与决策
+
+2026-08-08 的方案访谈已经确认以下产品与工程边界：
+
+- 本方案只接入豆包流式 ASR，不接入豆包端到端实时语音模型；Norma 现有 Agent、工具调用、Dialogue 和 TTS 保持不变。
+- 第一版同时支持 Single Voice Command 与 Continuous Listening；Continuous 继续由本地 Silero VAD 决定 utterance 边界，服务端 `definite=true` 只产生 partial。
+- Continuous 在进入 Listening 前预建一条 WSS session；每段结束后预建下一条。预建失效时最多缓存 2 秒 PCM（`16,000 × 2 bytes × 2 s = 64,000 bytes`），仍未就绪则整段明确失败，不提交残缺文本。
+- 只支持新版控制台 `X-Api-Key`；API Key 本体保存于 macOS Keychain，SQLite 只保存 `credential_ref`、非敏感配置和 Ready 状态。
+- 首版固定单遍 `bigmodel_async`、`result_type=full`、标点与 ITN 开启、DDC 与首字加速关闭；二遍识别留待同语料 A/B。
+- 每个 utterance 最长 60 秒；WSS 建连使用 5 秒绝对 deadline，last frame 后等待 final 最多 10 秒。
+- 不自动回退 Local/Azure，不重放已发送音频。Continuous 的临时网络失败只为下一段最多重建 3 次（500 ms、1 s、2 s）；鉴权、资源、参数或协议错误不重试并撤销 Ready。
+- 每个进程最多一条豆包 WSS。第一版支持直连、`HTTPS_PROXY`、`ALL_PROXY` 与 `NO_PROXY`，不承诺 PAC 或交互式企业代理。
+- 日志不得记录 API Key、原始音频、partial/final 正文或完整服务端响应；只记录脱敏标识、音频时长/字节数、阶段耗时、错误分类和 `X-Tt-Logid`。
+
+目标账号的准确 `resource_id`、last frame 的零长度兼容性、终态判据、空闲连接计费/超时及稳定错误码仍属于真实 L3 实施闸门，不在调研中猜测。
 
 ## 1. 产品模式与适用场景
 
@@ -60,6 +76,8 @@
 
 ### 旧版控制台凭证
 
+以下内容仅记录官方文档差异，不能作为 Norma OS 第一版的可选配置或兼容路径。
+
 | Header | 来源与含义 |
 |---|---|
 | `X-Api-App-Key` | 控制台 APP ID / App Key，非秘密标识 |
@@ -70,7 +88,7 @@
 
 ### 新版控制台凭证
 
-当前[大模型流式 API](https://www.volcengine.com/docs/6561/1354869?lang=zh)写明新版控制台“只需要 `X-Api-Key`”，以单个 APP Key 替代旧版 `App ID + Access Token`；仍需 `X-Api-Resource-Id` 以及请求追踪字段。不要同时猜测或拼装两套鉴权，应该根据目标控制台实际发放的凭证选择一套。
+当前[大模型流式 API](https://www.volcengine.com/docs/6561/1354869?lang=zh)写明新版控制台“只需要 `X-Api-Key`”，以单个 APP Key 替代旧版 `App ID + Access Token`；仍需 `X-Api-Resource-Id` 以及请求追踪字段。Norma OS 第一版只实现这一套鉴权，不能同时猜测、拼装或回退到旧版请求头。
 
 ### Resource ID
 
@@ -186,10 +204,10 @@ Full server response 的 payload 是识别结果 JSON，核心字段包括完整
 Message type `0xF` 是协议级 error response。客户端必须先按 header 的 compression 解压，再读取错误码/错误消息；不能尝试把错误 payload 当识别 JSON。官方页面没有给出“所有错误都可重试”的保证，因此建议分层处理：
 
 - 鉴权、资源未授权、参数/格式错误：配置失败，不自动重试；
-- 并发/限流或服务忙：有限次数、指数退避重试，并避免重复向 Agent 提交；
+- 并发/限流或服务忙：协议层允许考虑有限退避，但 Norma OS 已确认当前 utterance 直接失败，只为 Continuous 的下一段按 500 ms、1 s、2 s 最多重建 3 次；
 - 网络断开：若尚未收到终态结果，本次命令标为失败；除非协议未来明确支持续传，否则不要从中间音频帧盲目续接。
 
-握手响应会给出 `X-Tt-Logid`，官方强烈建议记录用于问题定位。建议日志只记录 request/connect UUID、resource ID、模式、音频字节数/时长、首 partial、`InputEnded`、final、错误码和 `X-Tt-Logid`；不要打印 `X-Api-Key`、Access Token、原始音频或完整转写正文。
+握手响应会给出 `X-Tt-Logid`，官方强烈建议记录用于问题定位。建议日志只记录 request/connect UUID、resource ID、模式、音频字节数/时长、partial/final 到达时间与字符数、错误码和 `X-Tt-Logid`；不要打印任何鉴权 secret、原始音频或完整转写正文。
 
 ## 9. 别把两套“Realtime API”混在一起
 
@@ -229,42 +247,44 @@ Message type `0xF` 是协议级 error response。客户端必须先按 header �
 
 以下是结合当前仓库边界作出的工程建议，不是火山官方承诺：
 
-1. 在 `asr` 域内新增独立 provider，不让 `voice_input` 感知火山协议；保持 ADR-0026 的依赖方向。具体落点建议为 [`providers/cloud/volcengine.rs`](../../crates/asr/src/providers/cloud/)；在 [`providers/mod.rs`](../../crates/asr/src/providers/mod.rs)扩展 typed provider ID、descriptor、`BuiltinAsrProfile` 和 factory 分发，不把火山分支写进 App 业务流程。
-2. [`crates/asr/Cargo.toml`](../../crates/asr/Cargo.toml)复用 workspace 已钉住的 `tungstenite`，并显式声明 Gzip codec 依赖，不依赖某个传递依赖碰巧存在。Profile 只保存非敏感字段：模式、`resource_id`、App ID（旧控制台）、credential reference、语言/标点/ITN/VAD 配置；`X-Api-Key` 或 Access Token 只写 macOS Keychain。App 侧沿用 [`settings/voice`](../../crates/app/src/settings/voice/) 的 Draft → Validate → Ready → Activate 与 Keychain 模式，并把目前 Azure 专用的凭据解析收口为按 credential reference 解析，不能让明文 secret 进入 SQLite、Debug 或日志。
-3. **不要等第一块 PCM 才建连。** 进入 `Preparing` 时就在后台完成 DNS/TLS/WSS、鉴权和 full client request；收到建连/配置就绪后才切换 `Listening` 并接受录音。当前 App 会先显示 `Recording/Listening`，随后才在后台执行 `factory.create()` 和启动麦克风；如果火山 recognizer 在 `create()` 中握手，用户提前开口的内容实际上尚未被采集。若改成先启动麦克风、再懒建连，现有 64 × 约 20 ms、合计约 1.28 秒的有界命令队列又可能积压或溢出。因此产品必须明确选择 `Preparing → Listening`，或对预录音做有上限的缓冲并在溢出时失败，不能静默丢首音。
-4. 继续接收现有 16 kHz mono PCM16 的约 20 ms chunk，由 WSS writer 聚合成 200 ms；若专项压测发现尾延迟更优，再在 100～200 ms 内调节。
-5. 当前 `Recognizer::accept_pcm` 是同步接口，不能对每个约 20 ms chunk 执行一次阻塞式 WebSocket read。建议 provider 内设置**单一 socket-owner I/O worker**，由它独占 WSS、完成握手、发送与持续读帧；`accept_pcm` 只向有界命令通道提交 PCM，并从有界事件通道非阻塞地排出可用 partial。这样既保持协议顺序，也避免多个线程同时操作一个 tungstenite stream。`finish` 发送 last/负包后只做有界终态等待，超时、error frame、取消或终态前断链都必须结束为明确失败，不能把最后一个 partial 冒充 final。
-6. 初版固定 `result_type=full`，默认关闭 `enable_accelerate_text` 与 `enable_ddc`，开启标点、ITN、`show_utterances`；先避免增量拼接错误，再在 A/B 中分别测首字延迟、尾字延迟、CER、技术词命中与被顺滑误删率。
-7. 慢语速专项先保留客户端松键为唯一整次提交条件；服务端 VAD 只做分句。分别测试 0.8、1.5、2、3 秒静音，不要因 `definite` 过早触发 Agent。
-8. 先对比“优化双向流式”和“优化双向流式 + 二遍识别”：前者测最低时延，后者测最终准确率；普通 `bigmodel_nostream` 作为句级基准，不替代实时预览。
-9. 指标至少记录：进入 `Preparing`、WSS ready、进入 `Listening`、首音频帧、首 partial、最后音频帧、最后一包已发送、首 `definite`、最终文本、Agent 首事件；并带 `X-Tt-Logid`。这样才能区分建连等待、ASR 首字延迟、ASR 尾延迟和 Agent 首次延迟。
+1. 在 `asr` 域内新增独立 provider，不让 `voice_input` 感知火山协议；保持 ADR-0026 的依赖方向。具体落点建议为 [`providers/cloud/volcengine/`](../../crates/asr/src/providers/cloud/)；在 [`providers/mod.rs`](../../crates/asr/src/providers/mod.rs)扩展 typed provider ID、descriptor、`BuiltinAsrProfile` 和 factory 分发，不把火山分支写进 App 业务流程。
+2. [`crates/asr/Cargo.toml`](../../crates/asr/Cargo.toml)复用 workspace 已钉住的 `tungstenite`，并显式声明 Gzip codec 依赖，不依赖传递依赖。Profile 只保存 `resource_id` 和 credential reference；首版只接受新版 `X-Api-Key`，密钥本体只写 macOS Keychain。App 侧沿用 [`settings/voice`](../../crates/app/src/settings/voice/) 的 Draft → Validate → Ready → Activate，不能让明文 secret 进入 SQLite、Debug 或日志。
+3. **不要等第一块 PCM 才建连。** Single 进入 `Preparing` 时在后台完成 DNS/TLS/WSS、鉴权和 full client request，ready 后才启动麦克风并显示 Listening。Continuous 在启动采集前预建首条 session，每段结束后预建下一条；若 `SpeechStart` 时预建连接失效，最多缓存 2 秒 PCM，超时则整段失败，不能依赖现有会静默丢包的采集队列。
+4. 继续接收现有 16 kHz mono PCM16 的约 20 ms chunk，由 recognizer 聚合成 200 ms（6,400 bytes）；输入结束时立即刷新不足 200 ms 的尾包。若专项压测证明 100 ms 更优，再单独调整。
+5. **不新增第二层 socket worker。** 现有 `RecognitionPipeline` 已经为 Recognizer 创建专用后台线程并串行调用 `accept_pcm/finish`，该线程直接作为 WSS 的单一 owner。`VolcengineRecognizer` 持有 socket：`accept_pcm` 聚合/发送音频并以非阻塞方式排出可用 partial，`finish` 发送 last/负包后在同一后台线程中有界等待唯一 final。这样避免内部音频/事件队列、额外线程和双层背压；取消或 Drop 必须关闭 socket 并有界收口。
+6. 音频背压与字幕背压分开处理：音频无法按序接收时整段 `Failed`，不得丢包；累计 full partial 可以 latest-wins 合并，不能因 UI 来不及显示字幕而让整段失败；final/error 永远不得被覆盖。
+7. 初版固定单遍 `result_type=full`，关闭 `enable_accelerate_text`、`enable_ddc` 与 `enable_nonstream`，开启标点、ITN、`show_utterances`；先建立基线，再在同语料 A/B 中评估二遍识别。
+8. Single 只由用户松键结束，Continuous 只由本地 Silero VAD 结束；服务端 `definite` 只做分句/partial。分别测试 0.8、1.5、2、3 秒静音，不得因 `definite` 过早触发 Agent。
+9. 每个 utterance 最长 60 秒；建连使用 5 秒绝对 deadline，last 后 final deadline 为 10 秒。Single 建连失败不自动重试；Continuous 临时网络失败只为下一段最多重建 3 次（500 ms、1 s、2 s），不重放已发送音频；鉴权、资源、参数或协议错误不重试并撤销 Ready。
+10. Transport 支持直连、`HTTPS_PROXY` 的 HTTP CONNECT、`ALL_PROXY` 的 SOCKS5 与 `NO_PROXY`；第一版不承诺 PAC 或交互式企业代理。每个进程最多保留一条豆包 WSS，空闲预建连接不发送音频。
+11. 指标至少记录：进入 `Preparing`、WSS ready、进入 `Listening`、首音频帧、首 partial、最后音频帧、last 已发送、首 `definite`、final、Agent 首事件；并带脱敏 session ID 与 `X-Tt-Logid`。日志只记录字符数，不记录 partial/final 正文。
 
 ## 12. 测试证据与分阶段 rollout
 
 以下是建议的实现验收顺序；本报告没有执行这些测试：
 
 1. **协议 codec golden tests**：固定字节逐一验证 version/header size、四种 message type、flags、正负 sequence、大端 payload size、Gzip/JSON、last frame、full response 和 error frame；解析器还要拒绝截断、超长、未知压缩方式与不一致长度。测试必须遵守仓库对场景、数据推导、执行过程和正负断言的完整注释要求。
-2. **本地 mock WSS 集成测试**：验证新旧鉴权请求头、full client request 仅发一次、20 ms→200 ms 聚合、partial 更新、`definite` 不触发整次提交、松键发送 last、终态去重、取消、终态超时、服务端 error、连接中断与有界通道背压。
-3. **ignored 真实 L3**：由环境变量或未入库的本地 secret 提供真实凭据，明确使用 2.0 `volc.seedasr.sauc.duration`；发送固定 16 kHz mono PCM16 语料，断言稳定文本片段、最终帧和 `X-Tt-Logid`，同时打印脱敏的建连/首 partial/尾字耗时。默认测试和 CI 不访问真实服务。
+2. **本地 mock WSS 集成测试**：验证新版 `X-Api-Key`、full client request 仅发一次、20 ms→200 ms 聚合、partial latest-wins、`definite` 不触发整次提交、Single 松键/Continuous 本地 VAD 发送 last、终态去重、取消、终态超时、服务端 error、连接中断、2 秒预备缓冲、3 次重建预算、音频背压失败和字幕背压合并。
+3. **ignored 真实 L3**：由环境变量或未入库的本地 secret 提供新版控制台凭据，并从目标控制台读取实际 2.0 小时版 `resource_id`；发送固定 16 kHz mono PCM16 语料，验证零余量 last frame、唯一 final 判据、稳定文本片段和 `X-Tt-Logid`，同时打印脱敏的建连/首 partial/尾字耗时。默认测试和 CI 不访问真实服务。
 4. **Settings 与 E2E**：覆盖 Draft → Validate → Ready → Activate、Keychain 写入/替换/清除、重启恢复、错误凭据、未授权 resource ID、切换 provider，以及火山失败时不得静默回退 Local。若后续修改可见 Settings 页面，按仓库规则补真实 App 的 Computer Use 验收。
-5. **固定语料横评**：用同一批普通话、0.8～3 秒停顿、中英混说、路径/命令/产品名和噪声录音，记录 CER、技术词命中率、误判停率、首 partial、停语到 final、连接成功率与 p95/p99；分别比较 `bigmodel_async`、二遍识别和 Azure/Local 基线。
-6. **上线阶段**：先完成 codec/mock → 开发者开关下真实 L3 → 小范围显式 opt-in → 观察错误率/成本/尾延迟 → 再决定是否扩大；在准确率、隐私、计费和稳定性证据齐全前，不替换默认 Local，也不设置静默云端回退。
+5. **固定语料横评**：用同一批普通话、0.8～3 秒停顿、中英混说、路径/命令/产品名和噪声录音，记录 CER、技术词命中率、误判停率、首 partial、停语到 final、连接成功率与 p95/p99；先比较单遍 `bigmodel_async` 与 Azure/Local 基线，二遍识别留到基础链路稳定后的独立 A/B。
+6. **量化发布门槛**：固定网络下连接成功率至少 99%；WSS 准备 p95 ≤ 2 秒且绝不超过 5 秒；首 partial p95 ≤ 800 ms；输入结束到 final p95 ≤ 1.5 秒、p99 ≤ 3 秒；普通话 CER 与技术词/路径/命令/中英混说命中率不得差于 Local/Azure 中更好的一个；丢首音、重复 final、重复 Agent 回合、partial 冒充 final均为 0。
+7. **上线阶段**：codec/mock（不可注册）→ Adapter + 真实 L3（不可注册）→ 注册表（不可激活）→ Settings/Keychain/Validate/Test → Single → Continuous prepared-session → 实验性显式 opt-in → 达标后正式可选。默认始终是 Local，不设置静默云端回退。
 
 ## 13. 上线前必须复核的未知项
 
-- [ ] 新版控制台当前究竟发放 `X-Api-Key`，还是仍为旧版 App ID + Access Token；下载目标应用的最新官方 Demo 验证。
-- [ ] 鉴权页的 `X-Api-Request-Id` 与示例中的 `X-Api-Connect-Id` 如何同时使用，服务端是否要求其中一个必填。
-- [ ] 目标项目实际拥有 1.0 还是 2.0 `resource_id`；小时版/并发版不能混用。
-- [ ] 2.0 并发版的实际 `resource_id`；必须从控制台复制，不按 1.0 或小时版名称推导。
-- [ ] 2.0 在 `bigmodel_async` 上支持的具体语言、方言、二遍能力是否与公开总览完全一致。
+- [ ] 从目标新版控制台下载当前官方 Demo，确认 `X-Api-Key` 之外仍需哪些追踪请求头，以及 `X-Api-Request-Id` 与示例中的 `X-Api-Connect-Id` 如何使用。
+- [ ] 目标项目实际授权的 2.0 小时版 `resource_id`；必须从控制台复制，不能把候选值 `volc.seedasr.sauc.duration` 当作已验证事实。
+- [ ] last frame 后哪个服务端字段/sequence/flags 是整次请求的唯一终态判据；`definite=true` 不足以回答此问题。
+- [ ] 尾部恰好无剩余 PCM 时是否接受零长度 audio-only last frame；必须以官方 Demo 和真实 L3 为准。
+- [ ] 2.0 在 `bigmodel_async` 上支持的具体语言、方言和单遍能力是否与公开总览完全一致。
 - [ ] 目标控制台中 20 小时试用的实际归属范围（账号/项目/应用/`resource_id`）、起止时间、剩余量，以及是否明确覆盖 2.0 `volc.seedasr.sauc.duration`；公开资料未说明。
 - [ ] 新版控制台启用试用的实际按钮和到账流程、试用并发/QPS，以及旧版“转正式版清零”规则是否原样适用；公开入口登录前不可见。
 - [ ] ¥4.5/小时、2.0 新客 30 小时活动包与控制台最终账单的税费、活动、资源包抵扣和版本关系。
-- [ ] API 参数表与产品矩阵在采样率、容器格式上的冲突；除 16 kHz mono PCM16 外逐项实测。
-- [ ] `end_window_size` 的最大值、过长静音对连接/计费/最终返回的影响，以及 2～3 秒停顿是否只分句、不结束整次请求。
-- [ ] 单连接最长持续时间、空闲超时、最大累计音频大小和服务端 ping/pong 要求；公开流式 API 页未给出足够明确的生产边界。
+- [ ] `end_window_size`、过长静音对连接/计费/最终返回的影响，以及 2～3 秒停顿是否只分句、不结束整次请求；Norma 仍只接受本地 VAD 作为 Continuous 边界。
+- [ ] 单连接最长持续时间、空闲超时、最大累计音频大小、服务端 ping/pong 要求，以及只预建但不发送音频是否计费/占用何种并发。
 - [ ] error code 的完整稳定枚举、哪些可重试、重试后的计费与幂等语义；以控制台当前 API 附件和真实错误响应为准。
-- [ ] 中国大陆不同网络、系统代理和企业出口下的 DNS/TLS/WSS 首连、p50/p95/p99 首字/尾字延迟。
+- [ ] 中国大陆不同网络、直连、`HTTPS_PROXY`、`ALL_PROXY`、`NO_PROXY` 与企业出口下的 DNS/TLS/WSS 首连、p50/p95/p99 首字/尾字延迟。
 - [ ] 用 Norma OS 同一批慢语速、中英混说、路径/命令/产品名录音，与 Azure、本地 Sherpa 做盲测；没有此证据前不宣称更准确。
 
 ## 官方来源索引

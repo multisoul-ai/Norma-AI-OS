@@ -41,7 +41,8 @@ fn test_enter_with_key_char_maps_to_enter_not_text_newline() {
         Some(KeyInput {
             key: Key::Enter,
             ctrl: false,
-            alt: false
+            alt: false,
+            shift: false,
         }),
         "Enter + key_char LF 应保持 Key::Enter，而不是文本换行"
     );
@@ -50,7 +51,8 @@ fn test_enter_with_key_char_maps_to_enter_not_text_newline() {
         Some(KeyInput {
             key: Key::Enter,
             ctrl: false,
-            alt: false
+            alt: false,
+            shift: false,
         }),
         "Enter + key_char CR 应保持 Key::Enter，控制键语义优先"
     );
@@ -69,7 +71,8 @@ fn test_enter_with_key_char_maps_to_enter_not_text_newline() {
         Some(KeyInput {
             key: Key::Char('\n'),
             ctrl: false,
-            alt: false
+            alt: false,
+            shift: false,
         }),
         "Enter 不应退化为 Key::Char('\\n')，否则 Codex/Claude Code 会把它当文本换行"
     );
@@ -78,7 +81,8 @@ fn test_enter_with_key_char_maps_to_enter_not_text_newline() {
         Some(KeyInput {
             key: Key::Char('\r'),
             ctrl: false,
-            alt: false
+            alt: false,
+            shift: false,
         }),
         "Enter 不应退化为 Key::Char('\\r')，控制键和文本字符需保持区分"
     );
