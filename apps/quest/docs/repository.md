@@ -10,11 +10,10 @@
 
 ```sh
 bash scripts/quest.sh check
-git subtree split --prefix=apps/quest -b codex/quest-export
-git push https://github.com/multisoul-ai/Norma-Quest.git codex/quest-export:main
-git branch -d codex/quest-export
+quest_revision=$(git subtree split --prefix=apps/quest)
+git push https://github.com/multisoul-ai/Norma-Quest.git "${quest_revision}:refs/heads/main"
 ```
 
-这些步骤发布当前 HEAD 中的已提交文件。正常使用快进推送；若目标存在独立修改导致分叉，应先审查并将修改移回 monorepo，不要 force push。同步分支已存在时换一个临时分支名。
+这些步骤发布当前 HEAD 中的已提交文件，无需创建临时分支。正常使用快进推送；若目标存在独立修改导致分叉，应先审查并将修改移回 monorepo，不要 force push。
 
 主仓库集成通过开发分支与 PR 审查；初次上传不自动合并到 `dev/main`。独立导出只包含 `apps/quest` 历史，不复制 Mac 其他源码或工作区中的未提交原型。
