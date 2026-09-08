@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item type="id" name="workspace_panel" />
+    <item type="id" name="agents_panel" />
+    <item type="id" name="decisions_panel" />
+</resources>

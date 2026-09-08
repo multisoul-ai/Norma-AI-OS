@@ -28,7 +28,21 @@ Norma OS 是一个面向 vibe coding 的 macOS AI 伙伴：你给出想法与方
 - 全量测试：`cargo test --workspace`
 - 校验域层零 gpui：`cargo tree -p canvas -p terminal -p runtime | grep -i gpui`（应无输出）
 
-## 打包
+## Quest 3 开发
+
+Quest 3 原生客户端在 [`apps/quest/`](apps/quest/README.md)，与 Mac Rust workspace 共处一个 monorepo。
+Agent 和 CLI 仍在 Mac 执行；Quest 工程包含空间面板、协议与独立的 mock 联调服务。
+
+```sh
+bash scripts/quest.sh setup
+bash scripts/quest.sh mock
+# 另一个终端：连接 Quest 后构建并启动
+bash scripts/quest.sh run
+# CI / 本地验证
+bash scripts/quest.sh check
+```
+
+## macOS 打包
 - `cargo install cargo-packager --locked`
 - `cargo build --release -p app`
 - `cargo packager --release -c Packager.toml` → 产出已签名但不公证的 `Norma OS.app` / `.dmg`

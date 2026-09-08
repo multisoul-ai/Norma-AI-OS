@@ -97,6 +97,7 @@ Workspace 分层：
 | Agent 短导航 | [`AGENTS.md`](AGENTS.md) |
 | 展开工程手册、命令、测试规范 | [`CLAUDE.md`](CLAUDE.md) |
 | Workspace 依赖、版本 pin | [`Cargo.toml`](Cargo.toml) |
+| Quest 3 原生客户端、协议与独立构建 | [`apps/quest/README.md`](apps/quest/README.md)、[`apps/quest/AGENTS.md`](apps/quest/AGENTS.md)；`bash scripts/quest.sh check` |
 | 打包配置 | [`Packager.toml`](Packager.toml) |
 | DMG 构建、签名、公证与产物验收 | [`.agents/skills/release-dmg/SKILL.md`](.agents/skills/release-dmg/SKILL.md)，使用 `release-dmg` |
 | 几何/节点/选择/命中/viewport | [`crates/canvas/src/`](crates/canvas/src/) |

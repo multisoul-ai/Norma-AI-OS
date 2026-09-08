@@ -1,0 +1,40 @@
+name: Quest
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: quest-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '13114758'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: sdkmanager 'platforms;android-34' 'build-tools;35.0.0'
+      - run: npm ci --ignore-scripts
+      - run: bash scripts/quest.sh check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: norma-quest-debug
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/reports/lint-results-debug.*
+            core/build/reports/tests/
+          if-no-files-found: warn

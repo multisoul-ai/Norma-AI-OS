@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "type": "session.snapshot",
+  "source": "mock",
+  "sessionId": "norma-dev-session",
+  "sequence": 1,
+  "hostName": "Mac · 开发服务",
+  "agents": [
+    { "id": "codex", "name": "Codex", "taskId": "build-preview", "task": "生成应用预览", "status": "waiting", "step": "等待确认预览范围" },
+    { "id": "claude", "name": "Claude", "taskId": "code-review", "task": "审查会话输入", "status": "waiting", "step": "等待确认审查范围" }
+  ],
+  "decisions": [
+    { "id": "review-scope", "taskId": "code-review", "agentId": "claude", "title": "审查哪些改动？", "context": "输入路由已完成，选择本次审查范围。", "options": [
+      { "id": "changed-files", "label": "本次改动" },
+      { "id": "whole-module", "label": "整个模块" }
+    ] },
+    { "id": "preview-access", "taskId": "build-preview", "agentId": "codex", "title": "预览如何开放？", "context": "构建结果已准备好，本脚手架只模拟后续状态。", "options": [
+      { "id": "keep-private", "label": "仅我可见" },
+      { "id": "team-preview", "label": "团队预览" }
+    ] }
+  ],
+  "terminal": {
+    "agentId": "codex",
+    "title": "Codex · norma-ai-os",
+    "lines": [
+      "$ codex",
+      "Norma Quest 开发会话 · MOCK",
+      "",
+      "✓ 读取工作区上下文",
+      "✓ 生成应用预览",
+      "→ 等待你决定预览范围",
+      "",
+      "Agent 实际运行位置：Mac",
+      "当前服务使用固定样例，不执行 shell 或真实 Agent。"
+    ]
+  }
+}

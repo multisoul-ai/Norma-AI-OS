@@ -220,6 +220,8 @@ Current theme colors live in `crates/ui/src/theme.rs`.
 
 ## 9. Roadmap Pointers
 
+Quest 3 native client scaffolding lives in [`apps/quest/`](apps/quest/README.md), an independent Kotlin/Meta Spatial SDK Gradle project inside this monorepo. Agents and CLI execution remain on the Mac. Run `bash scripts/quest.sh check` for its protocol tests, Android build and lint; its mock host is not a production Rust bridge.
+
 Current README phase placeholders:
 
 - Phase 2: undo/redo and spatial index via `canvas/commands.rs` and `history.rs`.

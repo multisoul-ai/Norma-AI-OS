@@ -1,0 +1,16 @@
+{
+  "name": "@norma/quest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.13.0" },
+  "scripts": {
+    "dev:host": "node dev-host/main.mjs",
+    "test:host": "node --test dev-host/*.test.mjs",
+    "test": "npm run test:host",
+    "check": "bash scripts/check.sh",
+    "build": "./gradlew :app:assembleDebug",
+    "doctor": "bash scripts/doctor.sh"
+  },
+  "dependencies": { "ws": "8.21.3" }
+}
