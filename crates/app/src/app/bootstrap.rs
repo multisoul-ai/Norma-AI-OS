@@ -59,6 +59,8 @@ impl MultisoulApp {
             app.unregister_workspace_window_if_needed(cx);
         })
         .detach();
+        let mobile = crate::mobile::controller::attach(app_store.clone(), cx);
+        cx.observe(&mobile, |_, _, cx| cx.notify()).detach();
         let settings_store = app_store.settings_store();
         let workspace_identity_store = app_store.workspace_identity_store();
         let orchestration_task_route_store = app_store.orchestration_task_route_store();
@@ -129,7 +131,6 @@ impl MultisoulApp {
             theme,
             cx,
         );
-        crate::app::dialogue::configure_selected_tts_model(None);
         let (voice_window_inset_events, voice_window_inset_wake_rx) =
             crate::app::voice_window_inset::VoiceWindowInsetEventBus::new();
         let mut dialogue = crate::app::dialogue::DialogueControlState::default();
@@ -167,6 +168,7 @@ impl MultisoulApp {
         });
         let mut app = MultisoulApp {
             database_paths,
+            mobile,
             test_database_guard: None,
             runtime,
             theme_id,
@@ -227,6 +229,7 @@ impl MultisoulApp {
             pending_agent_submissions:
                 super::agent_runtime::pending::PendingAgentSubmissions::default(),
             session_reply_queue: super::agent_runtime::AgentSessionReplyQueue::default(),
+            pending_mobile_deliveries: std::collections::HashMap::new(),
             conversation_tail_memory: super::agent_runtime::ConversationTailMemory::default(),
             conversation_tail_writer: None,
             pending_agent_close_confirmation: None,

@@ -29,6 +29,12 @@ pub(crate) struct AgentSessionReplyQueue {
 }
 
 impl AgentSessionReplyQueue {
+    pub(crate) fn has_pending_for_node(&self, node_id: NodeId) -> bool {
+        self.entries
+            .iter()
+            .any(|entry| entry.receipt.node_id == node_id)
+    }
+
     pub(crate) fn interrupt_all(&mut self) -> Vec<AgentReplyReceipt> {
         let mut interrupted = Vec::new();
         while let Some(mut entry) = self.entries.pop_front() {

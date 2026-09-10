@@ -126,6 +126,10 @@ impl TerminalSession {
         self.pty.write(&bytes)
     }
 
+    pub fn bracketed_paste_enabled(&self) -> bool {
+        self.grid.bracketed_paste_enabled()
+    }
+
     pub fn resize(&mut self, cols: u16, rows: u16) {
         self.cols = cols;
         self.rows = rows;
@@ -163,6 +167,9 @@ impl TerminalSession {
 
     pub fn child_pid(&self) -> Option<u32> {
         self.pty.child_pid()
+    }
+    pub fn child_process_observer(&self) -> Option<crate::ChildProcessObserver> {
+        self.pty.child_process_observer()
     }
 }
 

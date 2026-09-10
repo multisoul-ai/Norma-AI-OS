@@ -14,6 +14,7 @@ mod frame_diagnostics;
 mod license_gate;
 mod logging;
 mod menu_bar;
+mod mobile;
 mod motion;
 mod network_crypto;
 mod norma;
@@ -54,6 +55,13 @@ pub use app::{
 pub use app::{DispatchReceiptEffectE2eSnapshot, DispatchReceiptEffectItemE2eSnapshot};
 pub use assets::EmbeddedAssets;
 pub use browser_auth_host::run_browser_auth_native_host;
+#[cfg(all(target_os = "macos", feature = "l3-test-support"))]
+pub use mobile::push::configuration::l3::run_push_keychain_probe;
+pub use mobile::{
+    CommandLease, LiveApprovalRequest, LiveCommandRequest, LiveConversationRequest,
+    LiveReviewRequest, LiveSnapshotRequest, LiveTerminalRequest, MobileAccess, MobileCommand,
+    MobileProvider, MobileServer, MobileSources, ProjectReviewRequest, PushRelayConfig,
+};
 
 #[cfg(feature = "e2e-test-support")]
 pub use license_gate::{build_activation_root_e2e, build_configured_unlicensed_root_e2e};

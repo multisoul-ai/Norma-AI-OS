@@ -678,8 +678,9 @@ pub(crate) struct Frame {
     pub(crate) input_handlers: Vec<Option<PlatformInputHandler>>,
     pub(crate) tooltip_requests: Vec<Option<TooltipRequest>>,
     pub(crate) cursor_styles: Vec<CursorStyleRequest>,
+    // Paint order lets cached subtrees replay only their own selectors into a fresh frame.
     #[cfg(any(test, feature = "test-support"))]
-    pub(crate) debug_bounds: FxHashMap<String, Bounds<Pixels>>,
+    pub(crate) debug_bounds: Vec<(String, Bounds<Pixels>)>,
     #[cfg(any(feature = "inspector", debug_assertions))]
     pub(crate) next_inspector_instance_ids: FxHashMap<Rc<crate::InspectorElementPath>, usize>,
     #[cfg(any(feature = "inspector", debug_assertions))]
@@ -706,6 +707,8 @@ pub(crate) struct PaintIndex {
     accessed_element_states_index: usize,
     tab_handle_index: usize,
     line_layout_index: LineLayoutIndex,
+    #[cfg(any(test, feature = "test-support"))]
+    debug_bounds_index: usize,
 }
 
 impl Frame {
@@ -726,7 +729,7 @@ impl Frame {
             cursor_styles: Vec::new(),
 
             #[cfg(any(test, feature = "test-support"))]
-            debug_bounds: FxHashMap::default(),
+            debug_bounds: Vec::new(),
 
             #[cfg(any(feature = "inspector", debug_assertions))]
             next_inspector_instance_ids: FxHashMap::default(),
@@ -750,6 +753,8 @@ impl Frame {
         self.window_control_hitboxes.clear();
         self.deferred_draws.clear();
         self.tab_stops.clear();
+        #[cfg(any(test, feature = "test-support"))]
+        self.debug_bounds.clear();
         self.focus = None;
 
         #[cfg(any(feature = "inspector", debug_assertions))]
@@ -2287,10 +2292,17 @@ impl Window {
             accessed_element_states_index: self.next_frame.accessed_element_states.len(),
             tab_handle_index: self.next_frame.tab_stops.paint_index(),
             line_layout_index: self.text_system.layout_index(),
+            #[cfg(any(test, feature = "test-support"))]
+            debug_bounds_index: self.next_frame.debug_bounds.len(),
         }
     }
 
     pub(crate) fn reuse_paint(&mut self, range: Range<PaintIndex>) {
+        #[cfg(any(test, feature = "test-support"))]
+        self.next_frame.debug_bounds.extend_from_slice(
+            &self.rendered_frame.debug_bounds
+                [range.start.debug_bounds_index..range.end.debug_bounds_index],
+        );
         self.next_frame.cursor_styles.extend(
             self.rendered_frame.cursor_styles
                 [range.start.cursor_styles_index..range.end.cursor_styles_index]

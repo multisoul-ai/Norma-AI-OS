@@ -1,7 +1,7 @@
 //! Voice turn reply scheduling and TTS playback after ASR finals.
 
 #[cfg(test)]
-use super::reply::{apply_reply_synthesis, create_tts_client};
+use super::reply::{apply_reply_synthesis, create_tts_client_for_selection};
 use super::{artifacts::VoiceTurnArtifacts, DialogueControlState};
 use dialogue::DialoguePhase;
 use gpui::Context;
@@ -226,15 +226,20 @@ impl DialogueControlState {
             })
             .ok_or_else(|| SpeechError::Recognizer("missing reply text".to_string()))?;
         let tts_runtime = self.shared_tts_runtime.clone();
+        let selected = self.reply_tts_selection();
         tts_runtime
-            .with_client(None, create_tts_client, |tts| {
-                apply_reply_synthesis(
-                    &mut self.session,
-                    tts,
-                    &mut self.reply_playback,
-                    &reply_text,
-                )
-            })
+            .with_client(
+                selected.clone(),
+                || create_tts_client_for_selection(selected.as_ref()),
+                |tts| {
+                    apply_reply_synthesis(
+                        &mut self.session,
+                        tts,
+                        &mut self.reply_playback,
+                        &reply_text,
+                    )
+                },
+            )
             .map(|_| ())
     }
 }

@@ -62,7 +62,6 @@ pub fn render_canvas(
     let (win_w, win_h) = (f32::from(win.width), f32::from(win.height));
     let focus_mode = app.runtime.focus.mode();
 
-    // 先收集需要渲染的节点数据（避免借用冲突）。
     let swap_candidate = app.interaction.drag.as_ref().and_then(|d| d.swap_candidate);
     let hovered_terminal_link = app.interaction.hovered_terminal_link.clone();
     let mut node_elems: Vec<AnyElement> = Vec::new();
@@ -141,7 +140,6 @@ pub fn render_canvas(
             );
         }
 
-        // viewport culling：完全在窗口外的节点跳过。
         if !visible {
             continue;
         }
@@ -325,7 +323,6 @@ pub fn render_canvas(
             .relative()
             .child(title_bar);
 
-        // 内容
         let preview_image_viewer = app.previews.image_viewer_presentation(id);
         let preview_image_dragging = app
             .interaction

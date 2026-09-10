@@ -333,7 +333,7 @@ fn codex_session_id_for_workspace(path: &Path, workspace_root: &Path) -> Option<
     None
 }
 
-fn shell_quote(value: &str) -> String {
+pub(crate) fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 

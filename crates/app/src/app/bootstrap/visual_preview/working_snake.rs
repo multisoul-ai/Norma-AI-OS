@@ -11,6 +11,7 @@ pub(super) fn configure(app: &mut MultisoulApp) {
             profile: canvas::AgentProfile::Codex,
             alias: Some("Adam".to_string()),
             definition_id: Some(definition.id),
+            mobile_control: false,
         }),
         canvas::CanvasRect::new(330.0, 150.0, 620.0, 420.0),
     );

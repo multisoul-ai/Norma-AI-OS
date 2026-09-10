@@ -33,6 +33,7 @@ mod tests {
                 profile,
                 alias: None,
                 definition_id: None,
+                mobile_control: false,
             }),
             CanvasRect::new(0.0, 0.0, 640.0, 400.0),
         )

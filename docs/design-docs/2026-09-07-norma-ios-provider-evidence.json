@@ -1,0 +1,950 @@
+{
+  "captured_at": "2026-09-07T06:36:47.104315+00:00",
+  "scope": "Live CLI protocols, disposable PTYs, and two local test clients; not an implemented iOS or Norma integration",
+  "authorization": "User explicitly permitted isolating external Codex hooks in disposable tests only; global configuration unchanged",
+  "probes": [
+    {
+      "provider": "codex",
+      "version": "codex-cli 0.152.1",
+      "transport": "app-server stdio",
+      "thread_id": "01a07a73-930a-7d70-be1b-a2020ce44406",
+      "turn_id": "01a07a73-93d1-7001-9f6c-511037a6bdde",
+      "delta_count": 7,
+      "history_item_count": 2,
+      "approval": "not_tested",
+      "existing_pty_attachment": "not_tested",
+      "case": "chat",
+      "status": "passed",
+      "evidence_source": "norma-ios-provider-codex-chat.json"
+    },
+    {
+      "provider": "codex",
+      "case": "approval-deny",
+      "status": "failed",
+      "error": "A real command approval request must be observed",
+      "thread_id": "01a07a79-3437-7163-a34f-388c3371b50f",
+      "event_types": [
+        "hook/started",
+        "hook/started",
+        "hook/started",
+        "thread/tokenUsage/updated",
+        "account/rateLimits/updated",
+        "item/started",
+        "item/completed",
+        "item/started",
+        "item/agentMessage/delta",
+        "item/agentMessage/delta",
+        "item/agentMessage/delta",
+        "item/agentMessage/delta",
+        "item/agentMessage/delta",
+        "item/agentMessage/delta",
+        "item/agentMessage/delta",
+        "item/agentMessage/delta",
+        "item/agentMessage/delta",
+        "item/agentMessage/delta",
+        "item/agentMessage/delta",
+        "item/completed",
+        "thread/tokenUsage/updated",
+        "account/rateLimits/updated",
+        "hook/started",
+        "hook/started",
+        "hook/started",
+        "hook/started",
+        "hook/started",
+        "hook/started",
+        "hook/started",
+        "hook/completed",
+        "hook/completed",
+        "hook/completed",
+        "hook/completed",
+        "hook/completed",
+        "hook/completed",
+        "hook/completed",
+        "thread/status/changed",
+        "turn/completed",
+        "deprecationNotice",
+        "response"
+      ],
+      "evidence_source": "norma-ios-provider-codex-deny.json"
+    },
+    {
+      "provider": "codex",
+      "version": "codex-cli 0.152.1",
+      "case": "approval-deny",
+      "status": "passed",
+      "external_hooks": "isolated_for_probe",
+      "transport": "app-server stdio",
+      "thread_id": "01a07a88-61f4-7451-963b-ecbe20d3c7fb",
+      "turn_id": "01a07a88-628f-7f50-9592-69bde6d8f5bc",
+      "delta_count": 14,
+      "history_item_count": 3,
+      "approval_request_ids": [
+        0
+      ],
+      "resolved_request_ids": [
+        0
+      ],
+      "existing_pty_attachment": "not_tested",
+      "evidence_source": "norma-ios-provider-codex-isolated-deny.json"
+    },
+    {
+      "provider": "codex",
+      "version": "codex-cli 0.152.1",
+      "case": "approval-accept",
+      "status": "passed",
+      "external_hooks": "isolated_for_probe",
+      "transport": "app-server stdio",
+      "thread_id": "01a07a88-ffe1-76d2-bd34-1581670501fc",
+      "turn_id": "01a07a89-004e-70a2-b37a-18981bdddaf5",
+      "delta_count": 24,
+      "history_item_count": 5,
+      "approval_request_ids": [
+        0
+      ],
+      "resolved_request_ids": [
+        0
+      ],
+      "existing_pty_attachment": "not_tested",
+      "evidence_source": "norma-ios-provider-codex-isolated-accept.json"
+    },
+    {
+      "provider": "codex",
+      "version": "codex-cli 0.152.1",
+      "case": "approval-cancel",
+      "status": "passed",
+      "external_hooks": "isolated_for_probe",
+      "transport": "app-server stdio",
+      "thread_id": "01a07a8c-9c8f-7212-bc22-0fc433b08477",
+      "turn_id": "01a07a8c-9d14-75a1-9cc3-9c8c731a0ed6",
+      "delta_count": 0,
+      "history_item_count": 2,
+      "approval_request_ids": [
+        0
+      ],
+      "resolved_request_ids": [
+        0
+      ],
+      "cancelled_request_late_allow": "passed",
+      "conflicting_duplicate_response": "not_tested",
+      "existing_pty_attachment": "not_tested",
+      "evidence_source": "norma-ios-provider-codex-isolated-cancel.json"
+    },
+    {
+      "provider": "codex",
+      "version": "codex-cli 0.152.1",
+      "case": "multiclient-approval",
+      "transport": "two independent loopback WebSocket clients",
+      "status": "passed",
+      "external_hooks": "isolated_for_probe",
+      "real_mobile_client": false,
+      "model": "gpt-5.6-sol",
+      "thread_id": "01a07a8f-77e5-7283-b6f5-314ef6502235",
+      "history_stores_decided_command": false,
+      "turn_id": "01a07a8f-9437-7a40-9461-13b13c61ca9e",
+      "approval_request_id": 0,
+      "both_clients_observed_resolution": true,
+      "conflicting_late_allow_ignored": true,
+      "two_page_history": "passed",
+      "terminal_ui_attachment": "not_tested",
+      "evidence_source": "norma-ios-provider-codex-multiclient.json"
+    },
+    {
+      "provider": "codex",
+      "version": "codex-cli 0.152.1",
+      "model": "gpt-5.6-sol xhigh (observed TUI; existing configuration)",
+      "case": "terminal-ui-attachment",
+      "status": "passed",
+      "thread_id": "01a07a8b-beec-7cd1-8b78-437acc0206db",
+      "transport": "interactive codex --remote + two loopback WebSocket clients",
+      "initial_history_visible": true,
+      "externally_started_turn_visible": true,
+      "declined_result_visible": true,
+      "original_norma_running_session_migration": "not_tested",
+      "source": "Observed interactive PTY session 54548; not Computer Use UI acceptance",
+      "note": "Server teardown ended the disposable TUI transport; production must couple server process to Norma window lifetime.",
+      "evidence_source": "norma-ios-provider-codex-tui-attachment.json"
+    },
+    {
+      "provider": "claude",
+      "version": "2.1.202 (Claude Code)",
+      "case": "chat",
+      "status": "passed",
+      "transport": "SDK stream-json stdio",
+      "session_id": "896f1108-36b1-4972-91f9-e67f2cf15f6f",
+      "delta_count": 2,
+      "approval_request_ids": [],
+      "existing_pty_attachment": "not_tested",
+      "history_pagination": "not_tested",
+      "evidence_source": "norma-ios-provider-claude-chat.json"
+    },
+    {
+      "provider": "claude",
+      "version": "2.1.202 (Claude Code)",
+      "case": "approval-deny",
+      "status": "passed",
+      "transport": "SDK stream-json stdio",
+      "session_id": "18a95be9-db4c-4886-9257-e57d474570c0",
+      "delta_count": 6,
+      "approval_request_ids": [
+        "5732ce21-fe4e-4427-a1f8-f96257371e29"
+      ],
+      "existing_pty_attachment": "not_tested",
+      "history_pagination": "not_tested",
+      "evidence_source": "norma-ios-provider-claude-deny.json"
+    },
+    {
+      "provider": "claude",
+      "version": "2.1.202 (Claude Code)",
+      "case": "approval-accept",
+      "status": "passed",
+      "transport": "SDK stream-json stdio",
+      "session_id": "789ee646-2da0-47b3-9100-5837a7a09946",
+      "delta_count": 6,
+      "approval_request_ids": [
+        "e09fb80a-2f78-488e-bc39-f558fc65e4cd"
+      ],
+      "existing_pty_attachment": "not_tested",
+      "history_pagination": "not_tested",
+      "evidence_source": "norma-ios-provider-claude-accept.json"
+    },
+    {
+      "provider": "claude",
+      "version": "2.1.202 (Claude Code)",
+      "case": "approval-duplicate",
+      "status": "passed",
+      "transport": "SDK stream-json stdio",
+      "session_id": "fd08f5e9-26c9-47f9-b0bb-670c3f25a7ec",
+      "delta_count": 6,
+      "approval_request_ids": [
+        "ef1792f4-d97f-457f-9b07-3acb5afb8cd2"
+      ],
+      "permission_request_hook": "not_tested",
+      "conflicting_duplicate_response": "passed",
+      "existing_pty_attachment": "not_tested",
+      "history_pagination": "not_tested",
+      "evidence_source": "norma-ios-provider-claude-duplicate.json"
+    },
+    {
+      "provider": "claude",
+      "version": "2.1.202 (Claude Code)",
+      "case": "approval-cancel",
+      "status": "passed",
+      "transport": "SDK stream-json stdio",
+      "session_id": "ab2e40b6-252b-4d06-bba6-5231dfd4b754",
+      "delta_count": 0,
+      "approval_request_ids": [
+        "8af7c01e-d19f-4f11-adfe-31d8dd7d59b4"
+      ],
+      "permission_request_hook": "not_tested",
+      "conflicting_duplicate_response": "not_tested",
+      "cancelled_request_ids": [
+        "8af7c01e-d19f-4f11-adfe-31d8dd7d59b4"
+      ],
+      "cancelled_request_late_allow": "passed",
+      "provider_result_subtype": "error_during_execution",
+      "provider_result_is_error": true,
+      "existing_pty_attachment": "not_tested",
+      "history_pagination": "not_tested",
+      "evidence_source": "norma-ios-provider-claude-cancel.json"
+    },
+    {
+      "provider": "claude",
+      "case": "hook-deny",
+      "status": "failed",
+      "error": "Hook did not decide; CLI fell back to SDK permission callback",
+      "evidence_source": "norma-ios-provider-claude-hook-deny.json"
+    },
+    {
+      "provider": "claude",
+      "version": "2.1.202",
+      "transport": "interactive PTY",
+      "case": "hook-deny",
+      "status": "passed",
+      "session_id": "3395898e-d6a3-4ba1-88e4-296b83748a79",
+      "hook_event": "PermissionRequest",
+      "file_created": false,
+      "model": "ark-code-latest (existing CLI configuration)",
+      "evidence_source": "norma-ios-provider-claude-pty-deny.json"
+    },
+    {
+      "provider": "claude",
+      "version": "2.1.202",
+      "case": "pty-hook-accept",
+      "status": "passed",
+      "transport": "interactive PTY + PermissionRequest hook",
+      "session_id": "3395898e-d6a3-4ba1-88e4-296b83748a79",
+      "model": "ark-code-latest (existing CLI configuration)",
+      "exact_file_content": true,
+      "transcript_message_count": 9,
+      "transcript_source": "hook transcript_path for this test session",
+      "history_pagination": "not_tested",
+      "existing_norma_session_attachment": "not_tested",
+      "evidence_source": "norma-ios-provider-claude-pty-accept.json"
+    },
+    {
+      "provider": "claude",
+      "version": "2.1.202",
+      "case": "pty-desktop-deny-hook-race",
+      "status": "passed",
+      "session_id": "32590c8d-d2f5-4020-ba35-3f7dcf099c9b",
+      "transport": "real interactive PTY + delayed PermissionRequest hook",
+      "desktop_rejection_observed": true,
+      "file_created_after_hook_release": false,
+      "hook_outcome": "no output observed after desktop rejected",
+      "real_mobile_client": false,
+      "limitation": "Only one Hook invocation and desktop rejection; timeout and Norma request lifecycle are separate checks",
+      "evidence_source": "norma-ios-provider-claude-pty-race.json"
+    },
+    {
+      "provider": "claude",
+      "version": "2.1.202",
+      "case": "pty-hook-timeout",
+      "status": "passed",
+      "session_id": "e4f7f7e3-671b-4f56-b685-3ccefe2ddb13",
+      "transport": "interactive PTY",
+      "hook_timeout_seconds": 1,
+      "hook_sleep_seconds": 3,
+      "file_created": false,
+      "fallback": "native permission prompt remains pending; user decision required",
+      "scope": "Provider hook timeout, not Norma request TTL",
+      "evidence_source": "norma-ios-provider-claude-pty-timeout.json"
+    }
+  ],
+  "integration_checks_v7": {
+    "captured_at": "2026-09-07T09:27:25.269484+00:00",
+    "scope": "Formal Codex connection, Runtime decision/audit, native CLI and headless GPUI; no real .app, iPhone, multi-Mac or APNs validation",
+    "codex_version": "codex-cli 0.153.4",
+    "model": "gpt-5.6-sol",
+    "authorization": "Only disposable Runtime approval host disables external hooks under prior explicit user authorization. App dispatch test and production host preserve hooks. Global configuration unchanged.",
+    "checks": [
+      {
+        "case": "request-lifecycle-and-durable-choice",
+        "status": "passed",
+        "command": "cargo test -p norma --test codex_approvals",
+        "cases": 3
+      },
+      {
+        "case": "runtime-unix-ws-audit-disk-lock-failure-desktop-race",
+        "status": "passed",
+        "command": "cargo test -p runtime --lib runtime::mobile_cards::codex::tests",
+        "cases": 3
+      },
+      {
+        "case": "project-sqlite-idempotence-conflict-rollback-isolation",
+        "status": "passed",
+        "command": "cargo test -p storage --test approval_audit"
+      },
+      {
+        "case": "runtime-real-codex-deny-allow-provider-interrupt",
+        "status": "passed",
+        "duration_seconds": 36.57,
+        "command": "cargo test -p runtime --lib real_codex_runtime_approval_audit_and_cancel -- --ignored --nocapture",
+        "log": "/tmp/norma-ios-codex-approval-real-v7-complete.log",
+        "assertions": [
+          "denied first.txt absent",
+          "approved second.txt exact hello-from-norma",
+          "interrupted third.txt absent",
+          "Chosen persisted before response",
+          "Submitted and Resolved separate",
+          "late/duplicate decisions fail"
+        ]
+      },
+      {
+        "case": "app-headless-gpui-real-codex-dispatch",
+        "status": "passed",
+        "duration_seconds": 8.75,
+        "command": "cargo test -p e2e e2e_mobile_controlled_codex_dispatch -- --ignored --nocapture",
+        "log": "/tmp/norma-ios-codex-app-v7-real.log"
+      }
+    ],
+    "fixed_failures": [
+      {
+        "case": "0.153.4-offers-cancel-without-decline",
+        "log": "/tmp/norma-ios-codex-approval-real-v7-decisions.log",
+        "fix": "Deny selects decline when offered, otherwise cancel; never widens to session or execpolicy approval."
+      },
+      {
+        "case": "ended-state-rejects-new-turn-start",
+        "log": "/tmp/norma-ios-codex-next-turn-red.log",
+        "fix": "Shared state transition accepts verified turn/started; late tool events remain ignored."
+      }
+    ],
+    "limits": [
+      "Claude audit/transcript remain incomplete",
+      "Interruption in real approval test uses Provider RPC directly; public mobile interrupt command remains to implement",
+      "Resolved does not identify winner or tool outcome",
+      "After abrupt app exit, incomplete outcome requires re-query; persisted choices are never replayed"
+    ],
+    "regression": {
+      "domain": {
+        "passed": 291,
+        "ignored": 2,
+        "log": "/tmp/norma-ios-domain-v7-verified.log"
+      },
+      "final_runtime_log": "/tmp/norma-ios-runtime-v7-final.log",
+      "e2e": {
+        "passed": 197,
+        "failed": 5,
+        "ignored": 7,
+        "log": "/tmp/norma-ios-e2e-v7.log"
+      },
+      "workspace": {
+        "stopped_at": "App Packager production-data assertion",
+        "passed": 789,
+        "failed": 1,
+        "ignored": 7,
+        "log": "/tmp/norma-ios-workspace-v7.log"
+      },
+      "head_baseline": "not performed",
+      "release": {
+        "status": "passed",
+        "log": "/tmp/norma-ios-release-v7-verified.log",
+        "build_summary": "Finished `release` profile [optimized] target(s) in 2m 05s"
+      }
+    }
+  },
+  "integration_checks_v8": {
+    "captured_at": "2026-09-07T09:59:48.439092+00:00",
+    "scope": "Formal Runtime interrupt and Claude App background transcript, real local CLIs and headless GPUI; no physical App/iPhone/network validation",
+    "versions": {
+      "codex": "0.153.4",
+      "claude_code": "2.1.202"
+    },
+    "checks": [
+      {
+        "case": "codex-interrupt-runtime-races",
+        "status": "passed",
+        "cases": 2,
+        "log": "/tmp/norma-ios-interrupt-complete.log"
+      },
+      {
+        "case": "codex-real-approval-and-formal-interrupt",
+        "status": "passed",
+        "duration_seconds": 33.04,
+        "log": "/tmp/norma-ios-interrupt-real-v8.log"
+      },
+      {
+        "case": "claude-full-transcript-parser",
+        "status": "passed",
+        "log": "/tmp/norma-ios-transcript-green.log"
+      },
+      {
+        "case": "claude-runtime-history-binding-and-revocation",
+        "status": "passed",
+        "log": "/tmp/norma-ios-runtime-transcript-green.log"
+      },
+      {
+        "case": "claude-app-real-approval-and-full-history",
+        "status": "passed",
+        "duration_seconds": 23.62,
+        "log": "/tmp/norma-ios-claude-history-real-v8.log"
+      },
+      {
+        "case": "claude-app-real-two-turn-incremental-history",
+        "status": "passed",
+        "duration_seconds": 32.36,
+        "log": "/tmp/norma-ios-claude-incremental-real-v8.log"
+      }
+    ],
+    "limits": [
+      "Claude audit and explicit reopen remain incomplete",
+      "Claude incremental granularity is completed JSONL message records, not token streaming",
+      "Message rows preserve parent IDs; final mobile branch rendering is not implemented",
+      "G2-G5 remain incomplete"
+    ],
+    "regression": {
+      "domain": {
+        "status": "passed",
+        "passed": 227,
+        "ignored": 2,
+        "failed": 0,
+        "log": "/tmp/norma-ios-domain-v8-final.log"
+      },
+      "app_check": {
+        "status": "passed",
+        "duration_seconds": 5.53,
+        "log": "/tmp/norma-ios-app-v8.log"
+      },
+      "release_build": {
+        "status": "passed",
+        "build_summary": "Finished release profile in 2m 44s",
+        "log": "/tmp/norma-ios-release-v8.log"
+      },
+      "e2e": {
+        "status": "failed",
+        "passed": 197,
+        "failed": 5,
+        "ignored": 7,
+        "log": "/tmp/norma-ios-e2e-v8.log",
+        "failure_groups": [
+          "Chrome auth (2)",
+          "MiniMax manual voice",
+          "large voice catalog (poisoned lock)",
+          "legacy bilingual install retry (poisoned lock)"
+        ]
+      },
+      "workspace": {
+        "status": "failed",
+        "stopped_in": "app",
+        "passed": 789,
+        "failed": 1,
+        "ignored": 7,
+        "failure": "test_packager_enables_the_production_data_feature_for_the_main_app",
+        "log": "/tmp/norma-ios-workspace-v8.log"
+      },
+      "guardrails": {
+        "status": "passed",
+        "checks": [
+          "max-file-lines",
+          "no-allow",
+          "storage boundaries",
+          "performance",
+          "diff",
+          "no GPUI in domain dependencies",
+          "no leftover test Codex host"
+        ]
+      },
+      "baseline": "No unmodified HEAD baseline; failures are not attributed to pre-existing code."
+    }
+  },
+  "integration_checks_v9": {
+    "captured_at": "2026-09-07T10:16:08.677004+00:00",
+    "scope": "Claude durable project approval audit; Runtime, SQLite, headless GPUI and real CLI. No physical App or iPhone/network validation.",
+    "versions": {
+      "claude_code": "2.1.202"
+    },
+    "checks": [
+      {
+        "case": "claude-audit-red-before-implementation",
+        "status": "expected_failure",
+        "log": "/tmp/norma-ios-claude-audit-red-v9.log",
+        "assertion": "Hook cannot consume an approval before SQLite commit"
+      },
+      {
+        "case": "claude-audit-lock-expiry-desktop-revocation-turn-end-failure-and-close",
+        "status": "passed",
+        "cases": 3,
+        "log": "/tmp/norma-ios-claude-audit-races-v9.log"
+      },
+      {
+        "case": "claude-real-two-turn-approval-audit-and-history",
+        "status": "passed",
+        "duration_seconds": 20.47,
+        "log": "/tmp/norma-ios-claude-real-audit-v9-final.log"
+      }
+    ],
+    "regression": {
+      "domain": {
+        "status": "passed",
+        "passed": 230,
+        "failed": 0,
+        "ignored": 2,
+        "log": "/tmp/norma-ios-domain-v9-final.log"
+      },
+      "app_check": {
+        "status": "passed",
+        "duration_seconds": 2.9,
+        "log": "/tmp/norma-ios-app-v9-final.log"
+      },
+      "release_build": {
+        "status": "passed",
+        "build_summary": "Finished release profile in 1m 57s",
+        "log": "/tmp/norma-ios-release-v9.log"
+      },
+      "e2e": {
+        "status": "failed",
+        "passed": 197,
+        "failed": 5,
+        "ignored": 7,
+        "log": "/tmp/norma-ios-e2e-v9.log",
+        "failure_groups": [
+          "Chrome auth (2)",
+          "MiniMax manual voice",
+          "large voice catalog (poisoned lock)",
+          "legacy bilingual install retry (poisoned lock)"
+        ]
+      },
+      "workspace": {
+        "status": "failed",
+        "stopped_in": "app",
+        "app_passed": 789,
+        "app_failed": 1,
+        "app_ignored": 7,
+        "failure": "test_packager_enables_the_production_data_feature_for_the_main_app",
+        "log": "/tmp/norma-ios-workspace-v9.log"
+      },
+      "guardrails": {
+        "status": "passed",
+        "checks": [
+          "max-file-lines",
+          "no-allow",
+          "storage boundaries",
+          "performance",
+          "diff",
+          "no GPUI in domain dependencies"
+        ]
+      },
+      "baseline": "No unmodified HEAD baseline; failures are not attributed to pre-existing code."
+    },
+    "limits": [
+      "Responded means transport took the response, not confirmed network delivery or tool execution",
+      "Final asynchronous audit records may remain uncommitted at process exit; persisted choices never auto-replay",
+      "Formal Claude interrupt, explicit reopen and native desktop competition remain incomplete",
+      "G2-G5 remain incomplete"
+    ]
+  },
+  "integration_checks_v10": {
+    "captured_at": "2026-09-07T10:37:12.869546+00:00",
+    "scope": "Explicit legacy card opt-in, native no-task resume, Claude native interruption probe. Runtime/headless GPUI plus real CLIs; no physical App/iPhone.",
+    "checks": [
+      {
+        "case": "legacy-opt-in-idle-and-session-guards",
+        "status": "passed",
+        "log": "/tmp/norma-ios-reopen-green-v10.log",
+        "red_log": "/tmp/norma-ios-reopen-red-v10.log"
+      },
+      {
+        "case": "app-reopen-preserves-queued-replies-and-pending-launch",
+        "status": "passed",
+        "log": "/tmp/norma-ios-reopen-queues-v10.log"
+      },
+      {
+        "case": "real-codex-reopen-without-new-turn",
+        "status": "passed",
+        "duration_seconds": 10.31,
+        "log": "/tmp/norma-ios-reopen-codex-real-v10.log"
+      },
+      {
+        "case": "real-claude-approval-history-and-reopen-without-new-message",
+        "status": "passed",
+        "duration_seconds": 28.54,
+        "log": "/tmp/norma-ios-reopen-claude-real-v10.log"
+      },
+      {
+        "case": "claude-native-ctrl-c-probe",
+        "status": "failed",
+        "duration_seconds": 10.67,
+        "log": "/tmp/norma-ios-claude-native-interrupt-v10.log",
+        "finding": "Ctrl-C did not cancel the PermissionRequest"
+      },
+      {
+        "case": "claude-native-escape-probe-with-terminal-observation",
+        "status": "passed_with_capability_gap",
+        "duration_seconds": 13.09,
+        "log": "/tmp/norma-ios-claude-native-escape-terminal-v10.log",
+        "evidence": "/tmp/norma-ios-claude-native-interrupt-v10.json",
+        "finding": "Escape cancels the Hook and appends promptId-scoped interruption transcript records, but no terminal Hook within 5 seconds; Runtime remains WaitingApproval"
+      },
+      {
+        "case": "legacy-pty-exited-without-final-hook",
+        "status": "passed",
+        "red_log": "/tmp/norma-ios-reopen-exit-red-v10.log",
+        "log": "/tmp/norma-ios-reopen-exit-green-v10.log"
+      }
+    ],
+    "regression": {
+      "domain": {
+        "status": "passed",
+        "passed": 232,
+        "failed": 0,
+        "ignored": 2,
+        "log": "/tmp/norma-ios-domain-v10-verified.log"
+      },
+      "app_check": {
+        "status": "passed",
+        "duration_seconds": 2.47,
+        "log": "/tmp/norma-ios-app-v10-final.log"
+      },
+      "release_build": {
+        "status": "passed",
+        "build_summary": "Finished release profile in 1m 44s",
+        "log": "/tmp/norma-ios-release-v10-final.log"
+      },
+      "e2e": {
+        "status": "failed",
+        "passed": 197,
+        "failed": 5,
+        "ignored": 8,
+        "log": "/tmp/norma-ios-e2e-v10.log",
+        "failure_groups": [
+          "Chrome auth (2)",
+          "MiniMax manual voice",
+          "large voice catalog (poisoned lock)",
+          "legacy bilingual install retry (poisoned lock)"
+        ]
+      },
+      "workspace": {
+        "status": "failed",
+        "stopped_in": "app",
+        "app_passed": 790,
+        "app_failed": 1,
+        "app_ignored": 7,
+        "failure": "test_packager_enables_the_production_data_feature_for_the_main_app",
+        "log": "/tmp/norma-ios-workspace-v10.log"
+      },
+      "guardrails": {
+        "status": "passed",
+        "checks": [
+          "max-file-lines",
+          "no-allow",
+          "storage boundaries",
+          "performance",
+          "diff",
+          "no GPUI in domain dependencies"
+        ]
+      },
+      "baseline": "No unmodified HEAD baseline; no pre-existing-code attribution. Domain/app check/release were repeated after the final exited-PTY guard correction."
+    },
+    "limits": [
+      "Reopen tests construct legacy metadata over newly verified real histories; do not claim reopening a user-owned existing process",
+      "Claude formal interrupt API remains unimplemented; raw native key probe is not formal mobile control",
+      "Formal native desktop/mobile decision competition and external Hook compatibility remain incomplete",
+      "G2-G5 remain incomplete"
+    ],
+    "versions": {
+      "codex": "0.153.4",
+      "claude_code": "2.1.202"
+    },
+    "environment_preflight": {
+      "xcode": "26.2 (17C52)",
+      "ios_simulator_runtime": "26.3",
+      "tailscale_backend": "Stopped",
+      "online_peers": 0,
+      "known_ios_tunnel_state": "unavailable",
+      "apple_signing_and_apns": "not verified"
+    }
+  },
+  "integration_checks_v11": {
+    "captured_at": "2026-09-07 19:09 CST",
+    "scope": "正式 App/Runtime 原生 Claude 中断；headless GPUI + 真实 CLI，不是真实 .app/iPhone",
+    "versions": {
+      "claude_code": "2.1.202",
+      "model": "ark-code-latest"
+    },
+    "checks": [
+      {
+        "case": "bounded transcript EOF and typed-marker exclusion",
+        "passed": true,
+        "command": "cargo test -p norma --test claude_transcript",
+        "log": "/tmp/norma-ios-claude-transcript-green-v11.log"
+      },
+      {
+        "case": "run/turn binding, late approval, natural completion, replacement, timeout and close",
+        "passed": true,
+        "tests": 3,
+        "log": "/tmp/norma-ios-claude-runtime-green-v11.log"
+      },
+      {
+        "case": "real native approval-stage interrupt",
+        "passed": true,
+        "seconds": 9.87,
+        "log": "/tmp/norma-ios-claude-native-interrupt-v11-retry.log"
+      },
+      {
+        "case": "real generation and executing-tool interrupt",
+        "passed": true,
+        "tests": 2,
+        "seconds": 30.57,
+        "log": "/tmp/norma-ios-claude-active-phases-v11.log"
+      },
+      {
+        "case": "thinking transcript evidence",
+        "outcome": {
+          "Ok": {
+            "turnId": "d1106d6f-a697-4888-8a04-164d9f2650d8",
+            "status": "interrupted"
+          }
+        },
+        "runtime_state": "Some(Ended)",
+        "markers": [
+          {
+            "id": "da6f6d2e-20b5-41b8-8511-974740ed6f8d",
+            "prompt_id": "d1106d6f-a697-4888-8a04-164d9f2650d8",
+            "content": [
+              {
+                "type": "text",
+                "text": "[Request interrupted by user]"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "case": "execution transcript evidence",
+        "outcome": {
+          "Ok": {
+            "turnId": "53a08fed-2448-4ef6-a34a-7224ba54ede5",
+            "status": "interrupted"
+          }
+        },
+        "runtime_state": "Some(Ended)",
+        "markers": [
+          {
+            "id": "daebe6f8-89ec-4132-acce-18fcefcbb2a4",
+            "prompt_id": "53a08fed-2448-4ef6-a34a-7224ba54ede5",
+            "content": [
+              {
+                "type": "text",
+                "text": "[Request interrupted by user for tool use]"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "regression": {
+      "domain": {
+        "passed": 236,
+        "failed": 0,
+        "ignored": 2,
+        "log": "/tmp/norma-ios-domain-v11.log"
+      },
+      "app_check": {
+        "passed": true,
+        "seconds": 4.3,
+        "log": "/tmp/norma-ios-app-check-v11.log"
+      },
+      "release": {
+        "passed": true,
+        "duration": "1m55s",
+        "log": "/tmp/norma-ios-release-v11-final.log"
+      },
+      "workspace": {
+        "passed": false,
+        "app_passed": 790,
+        "app_failed": 1,
+        "app_ignored": 7,
+        "failure": "Packager production-data assertion",
+        "baseline_verified": false,
+        "log": "/tmp/norma-ios-workspace-v11-final.log"
+      },
+      "e2e": {
+        "passed": 197,
+        "failed": 5,
+        "ignored": 10,
+        "failures": [
+          "Chrome auth button",
+          "Chrome auth failure navigation",
+          "MiniMax manual voice",
+          "large voice catalog",
+          "legacy bilingual installation"
+        ],
+        "baseline_verified": false,
+        "log": "/tmp/norma-ios-e2e-v11-final.log"
+      },
+      "guardrails": {
+        "passed": true,
+        "checks": [
+          "max-file-lines",
+          "no-allow",
+          "storage-boundaries",
+          "performance-guardrails",
+          "git diff --check"
+        ]
+      }
+    },
+    "limits": [
+      "生成开始前 Escape 可能没有 Hook/JSONL 终态，30s 后返回结果未知，不能声明已中断",
+      "正式多端竞争与外部 Hook 兼容仍待补充",
+      "G2–G5 未实现；没有真实 .app/iPhone/双机/APNs 验收"
+    ]
+  },
+  "integration_checks_v12": {
+    "captured_at": "2026-09-07 19:39 CST",
+    "g1_status": "validated",
+    "scope": "Runtime/headless GPUI + real CLI, no real iPhone/.app/two-Mac network evidence",
+    "official_source": "https://learn.chatgpt.com/docs/app-server",
+    "checks": [
+      {
+        "case": "external Hook visibility and scoped lifecycle",
+        "passed": true,
+        "log": "/tmp/norma-ios-external-hooks-green-v12.log"
+      },
+      {
+        "case": "real unchanged external Hook configuration",
+        "passed": true,
+        "seconds": 16.15,
+        "log": "/tmp/norma-ios-codex-external-hook-v12.log",
+        "evidence": {
+          "hook_id": "permission-request:3:/Users/alan/.codex/hooks.json:exec-d6926c72-987e-48fe-a40f-9a3db24767e7",
+          "outcome": {
+            "Ok": {
+              "status": "interrupted",
+              "turnId": "01a07b95-e878-7f31-8d44-42a21163c367"
+            }
+          },
+          "source": "user",
+          "source_path": "/Users/alan/.codex/hooks.json",
+          "state": "Some(Ended)",
+          "target_exists": false,
+          "turn_id": "01a07b95-e878-7f31-8d44-42a21163c367"
+        }
+      },
+      {
+        "case": "formal Codex five-turn approvals and independent-client races",
+        "passed": true,
+        "seconds": 53.09,
+        "log": "/tmp/norma-ios-codex-competition-v12.log",
+        "isolation": "only this disposable host disables external hooks under existing authorization"
+      },
+      {
+        "case": "native Claude desktop cancellation vs late Runtime approval",
+        "passed": true,
+        "seconds": 7.07,
+        "log": "/tmp/norma-ios-claude-desktop-competition-v12.log",
+        "evidence": {
+          "run_id": "606b2a2f-0a40-4809-9730-fa2bdca41458",
+          "turn_id": "913a0440-0e44-4c4b-947c-ce32461ed3fe",
+          "request_id": "0b81a32b-4aab-46b3-aa61-f7e8aa109a5c",
+          "hook_cancelled": true,
+          "late_mobile_choice_accepted": false,
+          "hook_response": null,
+          "target_exists": false
+        }
+      }
+    ],
+    "regression": {
+      "domain": {
+        "passed": 307,
+        "failed": 0,
+        "ignored": 3
+      },
+      "app_check": {
+        "passed": true,
+        "seconds": 5.86
+      },
+      "e2e": {
+        "passed": 197,
+        "failed": 5,
+        "ignored": 11
+      },
+      "workspace": {
+        "app_passed": 790,
+        "app_failed": 1,
+        "app_ignored": 7,
+        "failure": "Packager production-data assertion"
+      },
+      "head_baseline_verified": false,
+      "release": {
+        "status": "passed",
+        "duration": "1m 57s",
+        "log": "/tmp/norma-ios-release-v12-final.log"
+      },
+      "guardrails": {
+        "status": "passed",
+        "checks": [
+          "max-file-lines",
+          "no-allow",
+          "storage-boundaries",
+          "performance-guardrails",
+          "git diff --check"
+        ]
+      }
+    },
+    "limits": [
+      "External Hooks retain priority; only actual client approval requests can be answered by Norma",
+      "Claude interruption before generation can return unknown; desktop cancellation history reconciliation remains in G3",
+      "G2 has only device-grant persistence so far; no TLS/pairing/Keychain/SwiftUI connection yet"
+    ]
+  }
+}

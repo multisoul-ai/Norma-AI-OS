@@ -143,6 +143,11 @@ impl Runtime {
         else {
             return false;
         };
+        // A controlled card obtains its identity from explicit session creation
+        // or its own saved binding, never a workspace-wide desktop discovery.
+        if spec.mobile_control {
+            return false;
+        }
         self.agent_session_bindings
             .bind_if_unclaimed(node_id, spec.profile, session_id)
     }

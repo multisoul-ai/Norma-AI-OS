@@ -209,6 +209,7 @@ dependencies = [
  "objc2-app-kit",
  "objc2-av-foundation",
  "objc2-avf-audio",
+ "objc2-core-image",
  "objc2-foundation",
  "objc2-quartz-core",
  "objc2-web-kit",
@@ -231,6 +232,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "tts",
+ "tungstenite",
  "ui",
  "ureq 3.3.0",
  "url",
@@ -1771,6 +1773,7 @@ dependencies = [
  "curve25519-dalek-derive",
  "digest",
  "fiat-crypto",
+ "rand_core 0.6.4",
  "rustc_version",
  "subtle",
  "zeroize",
@@ -2093,6 +2096,7 @@ dependencies = [
  "agent",
  "app",
  "asr",
+ "async-channel 2.5.0",
  "audio",
  "canvas",
  "crossbeam-channel",
@@ -2100,11 +2104,15 @@ dependencies = [
  "gpui",
  "norma",
  "runtime",
+ "rusqlite",
+ "rustls",
  "serde_json",
  "storage",
  "tempfile",
  "terminal",
+ "tracing-subscriber",
  "tts",
+ "tungstenite",
  "ui",
  "workspace",
 ]
@@ -4444,6 +4452,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mobile_pairing"
+version = "0.1.71"
+dependencies = [
+ "anyhow",
+ "ring",
+ "spake2",
+]
+
+[[package]]
 name = "model_store"
 version = "0.1.71"
 dependencies = [
@@ -4606,12 +4623,20 @@ version = "0.1.71"
 dependencies = [
  "anyhow",
  "clap",
+ "core-foundation 0.10.0",
+ "crossbeam-channel",
  "dirs 6.0.0",
  "hex",
+ "mobile_pairing",
+ "rcgen",
+ "rustls",
+ "security-framework",
  "serde",
  "serde_json",
  "sha2",
+ "subtle",
  "tempfile",
+ "tungstenite",
  "url",
 ]
 
@@ -4988,6 +5013,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5d563b38d2b97209f8e861173de434bd0214cf020e3423a52624cd1d989f006"
 dependencies = [
  "objc2",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
  "objc2-foundation",
 ]
 
@@ -6017,6 +6044,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rcgen"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75e669e5202259b5314d1ea5397316ad400819437857b90861765f24c4cf80a2"
+dependencies = [
+ "ring",
+ "rustls-pki-types",
+ "time",
+ "yasna",
+]
+
+[[package]]
 name = "read-fonts"
 version = "0.39.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6276,11 +6315,14 @@ dependencies = [
  "crossbeam-channel",
  "filetime",
  "libc",
+ "norma",
+ "rusqlite",
  "serde_json",
  "storage",
  "tempfile",
  "terminal",
  "tracing",
+ "tungstenite",
 ]
 
 [[package]]
@@ -7112,6 +7154,18 @@ dependencies = [
  "byteorder",
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "spake2"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5482afe85a0b6ce956c945401598dbc527593c77ba51d0a87a586938b1b893a"
+dependencies = [
+ "curve25519-dalek",
+ "hkdf",
+ "rand_core 0.6.4",
+ "sha2",
 ]
 
 [[package]]
@@ -9740,6 +9794,15 @@ name = "y4m"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a5a4b21e1a62b67a2970e6831bc091d7b87e119e7f9791aef9702e3bef04448"
+
+[[package]]
+name = "yasna"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e17bb3549cc1321ae1296b9cdc2698e2b6cb1992adfa19a8c72e5b7a738f44cd"
+dependencies = [
+ "time",
+]
 
 [[package]]
 name = "yazi"

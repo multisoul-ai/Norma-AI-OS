@@ -23,6 +23,16 @@ impl WorkspaceIdentityStore {
         Self { path }
     }
 
+    pub fn list(&self) -> StorageResult<Vec<WorkspaceIdentity>> {
+        let connection = open_app_connection(&self.path)?;
+        let mut query = connection.prepare(
+            "SELECT workspace_id, canonical_root, display_name, created_at_unix, updated_at_unix
+             FROM workspace_identities ORDER BY display_name, workspace_id",
+        )?;
+        let rows = query.query_map([], decode_identity)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
     pub fn resolve_or_create(
         &self,
         workspace_root: &Path,

@@ -140,6 +140,7 @@ fn test_mark_runtime_node_viewed_if_needed_marks_done_attention_viewed() {
             profile: AgentProfile::Codex,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         }),
         CanvasRect::new(0.0, 0.0, 100.0, 80.0),
     );

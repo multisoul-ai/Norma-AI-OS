@@ -1,0 +1,81 @@
+name: Norma
+options:
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "26.2"
+packages:
+  NormaCore:
+    path: .
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    TARGETED_DEVICE_FAMILY: "1"
+targets:
+  Norma:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - package: NormaCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.norma-ai.os.ios
+        DEVELOPMENT_TEAM: 2BF8G9AN4L
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+        CURRENT_PROJECT_VERSION: "22"
+        MARKETING_VERSION: "0.1.0"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: App/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Norma
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        INFOPLIST_KEY_NSCameraUsageDescription: 扫描你电脑上的 Norma 二维码，安全配对此手机。
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: 连接你授权的电脑，查看项目和控制 Agent。
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        CODE_SIGN_ENTITLEMENTS: App/Norma.entitlements
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+      configs:
+        Debug:
+          APS_ENVIRONMENT: development
+        Release:
+          APS_ENVIRONMENT: production
+  NormaDeviceTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - DeviceTests
+      - Tests/NormaCoreTests
+      - Tests/PairingProbe
+    dependencies:
+      - package: NormaCore
+      - target: Norma
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.norma-ai.os.ios.devicetests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) NATIVE_TEST"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Norma.app/Norma"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+  NormaUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: Norma
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.norma-ai.os.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Norma:
+    build:
+      targets:
+        Norma: all
+        NormaUITests: [test]
+        NormaDeviceTests: [test]
+    test:
+      targets: [NormaUITests, NormaDeviceTests]
+      environmentVariables:
+        NORMA_TEST_QR: "$(NORMA_TEST_QR)"
+        NORMA_TEST_MODE: "$(NORMA_TEST_MODE)"

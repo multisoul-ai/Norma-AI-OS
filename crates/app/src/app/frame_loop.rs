@@ -231,6 +231,7 @@ impl MultisoulApp {
                     }
                     for event in &agent_hook_report.events {
                         app.ingest_hook_conversation_observation(event);
+                        app.record_native_mobile_event(event, cx);
                         if event.provider_event == "SessionEnd" {
                             app.clear_conversation_tail_for_node(event.node_id);
                         }
@@ -261,6 +262,13 @@ impl MultisoulApp {
                     app.advance_session_reply_queue();
                     let runtime_events = app.runtime.take_events();
                     app.handle_agent_runtime_events(&runtime_events, cx);
+                    if runtime_changed
+                        || !runtime_events.is_empty()
+                        || agent_hook_report.changed
+                        || queue_changed
+                    {
+                        crate::mobile::project_events::changed();
+                    }
                     #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
                     app.refresh_due_ego_previews(cx);
                     for event in &runtime_events {

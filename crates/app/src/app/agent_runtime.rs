@@ -21,6 +21,9 @@ mod delete_card;
 mod diagnostics;
 mod dispatch_effects;
 mod identity;
+mod mobile_control;
+mod mobile_delivery;
+mod mobile_message;
 mod orchestration_commands;
 pub(super) mod pending;
 mod reply_adapter;
@@ -204,7 +207,7 @@ impl Drop for ProjectAgentRuntime {
     }
 }
 
-fn shared_tokio_runtime() -> Result<&'static tokio::runtime::Runtime, String> {
+pub(crate) fn shared_tokio_runtime() -> Result<&'static tokio::runtime::Runtime, String> {
     TOKIO_RUNTIME
         .get_or_init(|| {
             tokio::runtime::Builder::new_multi_thread()

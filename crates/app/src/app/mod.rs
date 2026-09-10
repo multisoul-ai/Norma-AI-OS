@@ -40,6 +40,7 @@ mod agent_announcements;
 mod agent_close;
 mod agent_queue;
 mod agent_runtime;
+pub(crate) use agent_runtime::shared_tokio_runtime;
 pub(crate) use agent_runtime::{
     execute_agent_card_command, execute_orchestration_agent_command,
     execute_orchestration_agent_command_with_visual_origin, self_dispatch_forbidden_error,
@@ -178,6 +179,7 @@ pub struct MultisoulApp {
     pub(crate) feature_guide_primary_focused_for_e2e: bool,
     pub(crate) agent_definitions: AgentDefinitionsState,
     pub(crate) orchestration_settings: OrchestrationSettingsState,
+    pub(crate) mobile: gpui::Entity<crate::mobile::controller::MobileController>,
     pub(crate) voice_settings: VoiceSettingsState,
     pub(crate) voice_settings_inputs: VoiceSettingsInputs,
     pub(crate) shortcuts: ShortcutSettingsState,
@@ -210,6 +212,7 @@ pub struct MultisoulApp {
     pub(crate) orchestration_authorizations: storage::OrchestrationAuthorizationCache,
     pub(crate) pending_agent_submissions: agent_runtime::pending::PendingAgentSubmissions,
     pub(crate) session_reply_queue: agent_runtime::AgentSessionReplyQueue,
+    pub(crate) pending_mobile_deliveries: HashMap<NodeId, storage::NewMobileCommand>,
     pub(crate) conversation_tail_memory: agent_runtime::ConversationTailMemory,
     pub(crate) conversation_tail_writer: Option<agent_runtime::ConversationTailWriter>,
     pub(crate) pending_agent_close_confirmation: Option<NodeId>,

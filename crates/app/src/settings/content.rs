@@ -36,6 +36,7 @@ pub(super) struct SettingsContentContext<'a> {
     pub(super) wallpaper_state: &'a WallpaperSettingsState,
     pub(super) wallpaper_previews: &'a mut PreviewCache,
     pub(super) shortcuts: &'a ShortcutSettingsState,
+    pub(super) mobile: gpui::Entity<crate::mobile::controller::MobileController>,
 }
 
 pub(super) fn settings_content(
@@ -57,6 +58,7 @@ pub(super) fn settings_content(
         wallpaper_state,
         wallpaper_previews,
         shortcuts,
+        mobile,
     } = content;
     div()
         .flex_1()
@@ -120,6 +122,9 @@ pub(super) fn settings_content(
                         wallpaper_settings(theme, wallpaper_state, wallpaper_previews, cx)
                     }
                     SettingsSection::Performance => performance_settings(theme, performance, cx),
+                    SettingsSection::Mobile => {
+                        crate::settings::mobile::settings(theme, &mobile, cx)
+                    }
                     // Mock-only sections are hidden from the sidebar; keep a blank
                     // fallback so stale state or tests cannot route to old placeholders.
                     #[cfg(test)]
@@ -208,11 +213,13 @@ fn content_title(section: SettingsSection) -> &'static str {
         SettingsSection::Orchestration => "Orchestration",
         SettingsSection::Wallpaper => "Wallpaper",
         SettingsSection::Performance => "Performance",
+        SettingsSection::Mobile => "手机连接",
     }
 }
 
 fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> String {
     match section {
+        SettingsSection::Mobile => "通过局域网或 Tailscale 连接你的 iPhone".to_string(),
         SettingsSection::Themes => "Choose one of the six reviewed Core UI V2 palettes".to_string(),
         SettingsSection::Keyboard => {
             "Customize app commands and review system input behavior".to_string()

@@ -284,7 +284,7 @@ impl MultisoulApp {
                     app.cancel_agent_announcements();
                     app.tts_preview.cancel();
                     app.invalidate_tts_for_configuration_change(cx);
-                    crate::app::dialogue::configure_selected_tts_model(None);
+                    app.dialogue.selected_tts_model = None;
                 }
                 if let Some(activation) = app.pending_tts_activation.take() {
                     let selected = &activation.selected;

@@ -387,7 +387,7 @@ impl MultisoulApp {
                             });
                         if minimax_active {
                             app.invalidate_tts_for_configuration_change(cx);
-                            crate::app::dialogue::configure_selected_tts_model(None);
+                            app.dialogue.selected_tts_model = None;
                             app.start_next_agent_announcement(cx);
                         }
                     }
@@ -412,7 +412,7 @@ impl MultisoulApp {
             .then(|| selected_minimax_tts(&self.voice_settings))
             .flatten();
         self.invalidate_tts_for_configuration_change(cx);
-        crate::app::dialogue::configure_selected_tts_model(selected);
+        self.dialogue.selected_tts_model = selected;
         self.start_next_agent_announcement(cx);
     }
 }

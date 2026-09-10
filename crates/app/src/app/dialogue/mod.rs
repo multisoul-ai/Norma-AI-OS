@@ -25,14 +25,10 @@ pub(crate) use preview::{TtsPreviewControl, TtsPreviewState};
 #[cfg(test)]
 pub(crate) use reply::fake_tts_client_for_tests;
 pub(crate) use reply::{collect_tts_segments, collect_tts_segments_with_cancellation};
-pub(crate) use reply::{
-    configure_selected_tts_model, create_tts_client_for_selected, PendingTtsActivation,
-    SelectedTtsModel,
-};
 pub(super) use reply::{
-    create_assistant_audio_sink, create_tts_client_for_selection, selected_tts_model,
-    selected_tts_model_matches, ReplyPlayback,
+    create_assistant_audio_sink, create_tts_client_for_selection, ReplyPlayback,
 };
+pub(crate) use reply::{create_tts_client_for_selected, PendingTtsActivation, SelectedTtsModel};
 use reply_stream::StreamPlaybackBuffer;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
@@ -77,6 +73,8 @@ pub(crate) struct DialogueControlState {
     asr_cancellation: Option<asr::RecognitionCancellation>,
     pub(super) reply_playback: ReplyPlayback,
     pub(super) shared_tts_runtime: SharedTtsRuntime,
+    // Keep the active credential/voice with its resident client; another window cannot reset it.
+    pub(crate) selected_tts_model: Option<SelectedTtsModel>,
     #[cfg(any(test, feature = "e2e-test-support"))]
     pub(super) reply_tts_selection_override: Option<SelectedTtsModel>,
     startup_task: Option<Task<()>>,
@@ -123,6 +121,7 @@ impl Default for DialogueControlState {
             asr_cancellation: None,
             reply_playback: ReplyPlayback::new(create_assistant_audio_sink()),
             shared_tts_runtime: SharedTtsRuntime::default(),
+            selected_tts_model: None,
             #[cfg(any(test, feature = "e2e-test-support"))]
             reply_tts_selection_override: None,
             startup_task: None,

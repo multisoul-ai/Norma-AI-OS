@@ -13,6 +13,7 @@ pub fn parse_hook_event(
         .ok_or(AgentHookError::MissingEventName)?;
     let provider_event = normalize_provider_event(source, provider_event);
     Ok(AgentHookEvent {
+        control_run_id: string_field(&raw_json, "_norma_control_run_id"),
         node_id,
         profile: profile_for_source(source),
         provider_event,
@@ -23,7 +24,13 @@ pub fn parse_hook_event(
                     .then(|| string_field(&raw_json, "conversation_id"))
                     .flatten()
             }),
-        turn_id: string_field(&raw_json, "turn_id").or_else(|| string_field(&raw_json, "turnId")),
+        turn_id: string_field(&raw_json, "turn_id")
+            .or_else(|| string_field(&raw_json, "turnId"))
+            .or_else(|| {
+                (source == HookSource::Claude)
+                    .then(|| string_field(&raw_json, "prompt_id"))
+                    .flatten()
+            }),
         tool_name: string_field(&raw_json, "tool_name")
             .or_else(|| string_field(&raw_json, "toolName")),
         message: string_field(&raw_json, "message")

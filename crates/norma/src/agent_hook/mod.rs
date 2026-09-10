@@ -1,5 +1,7 @@
 pub mod cli;
 
+mod approval;
+mod approval_forward;
 mod atomic_file;
 mod conversation_observe;
 mod cursor;
@@ -15,6 +17,11 @@ use serde_json::Value;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+pub use approval::{
+    claude_permission_output, fresh_control_id, ApprovalDecision, ApprovalStatus, HookApproval,
+    HookApprovalRequest, APPROVAL_TIMEOUT, ENV_CONTROL_RUN_ID,
+};
+pub use approval_forward::forward_permission;
 pub use conversation_observe::{
     observe_conversation, ConversationObservation, ConversationObservationKind,
     ConversationObservationState, MAX_CONVERSATION_MESSAGE_CHARS,
@@ -57,6 +64,8 @@ pub enum HookTarget {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentHookEvent {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control_run_id: Option<String>,
     pub node_id: NodeId,
     pub profile: AgentProfile,
     pub provider_event: String,

@@ -89,13 +89,17 @@ fn e2e_spoken_replies_progressively_discloses_unified_tts_picker() {
 ///   catalog Voices = 1 + 1 + 1 = 3
 ///   manual Voice edits = 1（external_voice_e2e）
 ///   explicit input commits = 2（搜索 + 手填 Voice ID）
+///   minimum row width = 44px Preview + 8px gap + 68px readable name = 120px
+///   independent Apps = 2；第二个未配置 App 不能清除第一个已激活的 runtime。
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 打开 Voice → Spoken Replies，注入确定性的已连接 MiniMax 账户与三组目录。
 ///   2. 在搜索框输入 cloned，确认只剩 Cloned 目录 Voice，再清除搜索。
 ///   3. 在真实 Voice ID 输入框写入目录外 ID，确认状态要求 Preview 校验。
 ///   4. 通过 e2e 假 PCM 执行 Verify & Preview，等待后台完成，再点击 Use This Voice。
-///   5. 激活后重新打开选择器选择目录 System Voice，确认 Apply 前 runtime 不变、Apply 后切换。
+///   5. 激活后重新打开选择器，先将虚拟目录滚入视口，再点击有实际宽度的 System Voice。
+///   6. 确认 Draft 切换成功、Apply 前 runtime 不变、Apply 后切换。
+///   7. 创建独立 App，确认新 App 未激活音色，原 App 仍保留已选音色。
 ///
 /// 预期结果：
 ///   - 正断言：两种 Provider、两个模型、搜索、三组 Voice 和手填 Voice ID 控件均可见。
@@ -210,12 +214,50 @@ fn e2e_minimax_manual_voice_validates_before_explicit_activation() {
         "激活后实际 runtime 必须使用已验证的手动 Voice"
     );
 
+    let mut other_cx = TestAppContext::single();
+    let (other, other_cx) = make_app(&mut other_cx, echo_factory());
+    let unconfigured = other.update(other_cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        unconfigured.runtime_tts_voice_id, None,
+        "新 App 不得继承另一个 App 的音色或凭据"
+    );
+    let retained = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        retained.runtime_tts_voice_id.as_deref(),
+        Some("external_voice_e2e"),
+        "创建独立 App 不得清除已激活的语音 runtime"
+    );
+
     click(cx, "settings-tts-change-voice");
     click(cx, "settings-tts-picker-provider-minimax");
     scroll_and_assert_visible(cx, "settings-tts-minimax-voice-0-0");
+    let system_row = cx
+        .debug_bounds("settings-tts-minimax-voice-0-0")
+        .expect("System Voice must render");
+    // 120px = 44px preview target + 8px gap + 68px readable name; a zero-width row cannot be selected.
+    assert!(
+        system_row.size.width >= px(120.0),
+        "音色行必须有真实可点击宽度，不能被父布局压为零：{system_row:?}"
+    );
     click(cx, "settings-tts-minimax-voice-0-0");
     settle(cx);
     let pending_switch = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert_eq!(
+        pending_switch
+            .tts_provider
+            .picker_minimax_voice_id
+            .as_deref(),
+        Some("system_voice_e2e"),
+        "实际点击目录行必须更新 Draft，不能只检查最终 runtime"
+    );
+    assert_ne!(
+        pending_switch
+            .tts_provider
+            .picker_minimax_voice_id
+            .as_deref(),
+        Some("external_voice_e2e"),
+        "点击后不能残留旧手填音色"
+    );
     assert_eq!(
         pending_switch.runtime_tts_voice_id.as_deref(),
         Some("external_voice_e2e"),
@@ -366,6 +408,12 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
 }
 
 fn scroll_and_assert_visible(cx: &mut VisualTestContext, selector: &'static str) {
+    if selector.starts_with("settings-tts-minimax-voice-")
+        && selector != "settings-tts-minimax-voice-list"
+    {
+        // Virtual rows only exist after their containing list enters the Settings viewport.
+        scroll_and_assert_visible(cx, "settings-tts-minimax-voice-list");
+    }
     for _ in 0..6 {
         cx.run_until_parked();
         let Some(content) = cx.debug_bounds("settings-content-scroll") else {
@@ -398,9 +446,13 @@ fn scroll_and_assert_visible(cx: &mut VisualTestContext, selector: &'static str)
     let content = cx
         .debug_bounds("settings-content-scroll")
         .expect("Settings content scroll 必须存在");
-    let target = cx
-        .debug_bounds(selector)
-        .unwrap_or_else(|| panic!("Settings 滚动后必须渲染 {selector}"));
+    let target = cx.debug_bounds(selector).unwrap_or_else(|| {
+        panic!(
+            "Settings 滚动后必须渲染 {selector}; list={:?}; picker={:?}",
+            cx.debug_bounds("settings-tts-minimax-voice-list"),
+            cx.debug_bounds("settings-tts-picker")
+        )
+    });
     assert!(
         target.top() >= content.top() && target.bottom() <= content.bottom(),
         "Settings 滚动后 {selector} 必须位于可点击 viewport 内"

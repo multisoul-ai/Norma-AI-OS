@@ -1,0 +1,424 @@
+import SwiftUI
+import NormaCore
+
+struct ProjectCardsView: View {
+    let machine: PairedMachine
+    let workspaceID: String
+    let name: String
+    let model: ComputerModel
+    var active = true
+    var manageComputers: (() -> Void)? = nil
+    var switchProject: (() -> Void)? = nil
+    var openCommandCenter: (() -> Void)? = nil
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @State private var project: ProjectSnapshot?
+    @State private var checkedAt: Date?
+    @State private var loading = false
+    @State private var error: String?
+    @State private var generation = 0
+    @State private var retry = 0
+    @State private var contextPlan: ProjectPlan?
+    @State private var contextLoaded = false
+    @State private var contextError: String?
+    @State private var search = ""
+    @State private var showingFilters = false
+    @State private var stateFilter: String?
+    @State private var profileFilter: String?
+    private var filtering: Bool { !search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || stateFilter != nil || profileFilter != nil }
+    private var visibleCards: [CardSnapshot] {
+        project?.cards?.filter { $0.matchesSearch(search, state: stateFilter, profile: profileFilter) } ?? []
+    }
+    private struct CardSheet: Identifiable {
+        let project: ProjectSnapshot
+        var id: String { project.id }
+    }
+    @State private var showingCreation = false
+    @State private var creationRoute: String?
+    @State private var creating: CardSheet?
+    @State private var options: CardSnapshot?
+    @State private var conversation: (card: CardSnapshot, route: String)?
+    @State private var showingConversation = false
+    @State private var creatingProfile: String?
+    @State private var creationWork: Task<Void, Never>?
+    @State private var creationNotice: String?
+    @State private var canCreate = false
+    @State private var revision: UInt64 = 0
+    private var pending: PendingMobileCommand? { model.pendingCommands.first { $0.machineID == machine.id && $0.request.workspaceID == workspaceID && !$0.request.command.isQueuedMessage && !$0.request.command.isApproval && !$0.request.command.isPlan && !$0.request.command.isTodo } }
+
+    private var pendingCreation: PendingMobileCommand? {
+        model.pendingCommands.first {
+            guard $0.machineID == machine.id, $0.request.workspaceID == workspaceID else { return false }
+            if case .createCard = $0.request.command { return true }
+            return false
+        }
+    }
+    private var creationUnavailable: String? {
+        if project?.state != "open" { return "请先在电脑上打开这个项目并保持连接。" }
+        if !canCreate { return "当前项目为只读，请在电脑上允许控制后创建。" }
+        if pendingCreation != nil { return "上次创建结果待确认，请先查询结果。" }
+        return nil
+    }
+
+    private var projectContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                projectHeading
+                if let creatingProfile {
+                    HStack(spacing: 8) { ProgressView(); Text("正在创建 \(creatingProfile)…").font(.caption) }
+                        .accessibilityIdentifier("card-creation-progress")
+                } else if let creationNotice {
+                    Text(creationNotice).font(.caption).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("card-creation-status")
+                }
+                if let project, let cards = project.cards {
+                    if cards.isEmpty {
+                        WorkspaceStatusView(title: "项目中还没有 Agent 卡片", icon: "square.grid.2x2", message: "选择 Agent 类型创建卡片，再开始对话。", inline: true) {}
+                    } else if visibleCards.isEmpty {
+                        WorkspaceStatusView(title: "没有匹配的卡片", icon: "magnifyingglass", message: "试试其他任务名称、状态或 Agent。", inline: true) {
+                            WorkspaceStatusButton(title: "清除筛选", action: clearFilters)
+                                .accessibilityIdentifier("clear-card-filters")
+                        }
+                    } else {
+                        if filtering {
+                            HStack {
+                                Text("\(visibleCards.count) / \(cards.count) 张卡片").foregroundStyle(.secondary)
+                                Spacer()
+                                Button("清除筛选", action: clearFilters).frame(minHeight: 44)
+                                    .accessibilityIdentifier("clear-card-filters")
+                            }.font(.caption)
+                        }
+                        HStack {
+                            Menu {
+                                Button("搜索卡片") { showingFilters = true }
+                                cardFilters
+                            } label: {
+                                Text("全部 · \(cards.count)").font(.system(size: 11, weight: .medium))
+                                    .padding(.horizontal, 12).frame(minHeight: 35)
+                                    .background(WorkspaceStyle.raised, in: Capsule())
+                                    .overlay(Capsule().strokeBorder(WorkspaceStyle.line, lineWidth: 1))
+                                    .frame(minHeight: 44)
+                            }.accessibilityLabel("筛选卡片").accessibilityIdentifier("card-filters")
+                            Spacer()
+                            HStack(spacing: 5) {
+                                Circle().fill(Color(white: 0.8)).frame(width: 5, height: 5)
+                                Text("\(cards.filter { ["thinking", "running_tool"].contains($0.state) }.count) 张运行中")
+                            }.font(.system(size: 11)).foregroundStyle(WorkspaceStyle.muted)
+                                .padding(.horizontal, 12).frame(minHeight: 35)
+                                .background(WorkspaceStyle.surface, in: Capsule())
+                                .overlay(Capsule().strokeBorder(WorkspaceStyle.line, lineWidth: 1))
+                        }.padding(.bottom, 8)
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: typeSize.isAccessibilitySize ? 1 : 2), spacing: 12) {
+                            ForEach(visibleCards) { card in
+                                ZStack(alignment: .topTrailing) {
+                                    NavigationLink {
+                                        if let route = project.routeID {
+                                            ConversationView(machine: machine, workspaceID: workspaceID, routeID: route, card: card, model: model)
+                                        }
+                                    } label: { AgentSnapshotCard(card: card) }
+                                        .buttonStyle(.plain)
+                                        .accessibilityLabel(card.title + "，" + card.profile + "，" + AgentSnapshotCard.status(card.state))
+                                        .accessibilityIdentifier("agent-card-\(card.id)")
+                                        Button { options = card } label: {
+                                            Image(systemName: "ellipsis").font(.caption).frame(width: 44, height: 44).contentShape(Rectangle())
+                                        }.buttonStyle(WorkspacePressStyle()).accessibilityLabel(card.title + "，卡片操作")
+                                            .accessibilityIdentifier("card-options-\(card.id)").foregroundStyle(WorkspaceStyle.muted).padding(4)
+                                }
+                            }
+                        }.accessibilityIdentifier("project-agent-grid")
+                    }
+                } else if let project {
+                    WorkspaceStatusView(title: project.state == "closed" ? "项目未在电脑上打开" : "暂时无法读取卡片", icon: "folder", message: "在 \(machine.name) 的 Norma 中打开这个项目后，卡片会显示在这里。", inline: true) {}
+                } else if let error {
+                    WorkspaceStatusView(title: loading ? "正在重新连接" : "连接已中断", icon: "wifi.exclamationmark", message: error, inline: true) {
+                        if loading { ProgressView() }
+                        else { WorkspaceStatusButton(title: "重新连接") { retry += 1 } }
+                    }
+                } else { ProgressView("正在读取卡片…").frame(maxWidth: .infinity).padding(.vertical, 40) }
+                if let project, project.state == "open" {
+                    Button(action: openCreation) {
+                        Label("创建卡片", systemImage: "plus").font(.footnote.weight(.medium)).frame(maxWidth: .infinity, minHeight: 48)
+                            .overlay(Capsule().strokeBorder(WorkspaceStyle.line, lineWidth: 1))
+                    }.buttonStyle(WorkspacePressStyle()).padding(.top, 14)
+                        .accessibilityIdentifier("create-card-entry")
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("项目脉络").font(.subheadline.weight(.semibold))
+                    if let contextPlan {
+                        Text(contextPlan.direction).font(.footnote.weight(.medium))
+                            .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("project-current-direction")
+                        Text(contextPlan.draft.summary).font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text(contextError ?? (contextLoaded ? "还没有设定方向" : "正在读取方向…"))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let cards = project?.cards {
+                        Text("\(cards.count) 个 Agent · \(cards.filter { ["idle", "ready"].contains($0.state) }.count) 个待命")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let openCommandCenter {
+                        Button(action: openCommandCenter) {
+                            Label("去指挥台调整方向", systemImage: "arrow.up.right").font(.footnote).frame(minHeight: 44)
+                        }.accessibilityIdentifier("project-command-center")
+                    }
+                    DisclosureGroup("记录与成果") {
+                        if pending != nil, let project {
+                            Button { creating = CardSheet(project: project) } label: {
+                                Label("操作记录", systemImage: "clock").font(.subheadline).frame(minHeight: 44)
+                            }.accessibilityIdentifier("project-operation-records")
+                        }
+                        if let route = project?.routeID, project?.state == "open" {
+                            NavigationLink {
+                                SessionArchiveView(model: model, machine: machine, scope: ProjectReviewRequest(workspaceID: workspaceID, routeID: route))
+                            } label: {
+                                Label("会话记录", systemImage: "bubble.left.and.text.bubble.right").font(.subheadline).frame(minHeight: 44)
+                            }.accessibilityIdentifier("project-session-archive")
+                            NavigationLink {
+                                TaskDeliveriesView(model: model, machine: machine, workspaceID: workspaceID, routeID: route)
+                            } label: {
+                                Label("项目成果", systemImage: "tray.full").font(.subheadline).frame(minHeight: 44)
+                            }.accessibilityIdentifier("project-deliveries")
+                            NavigationLink {
+                                ProjectReviewView(machine: machine, workspaceID: workspaceID, routeID: route, model: model)
+                            } label: {
+                                Label("项目变更", systemImage: "doc.text.magnifyingglass").font(.subheadline).frame(minHeight: 44)
+                            }.accessibilityIdentifier("project-review")
+                        }
+                    }.font(.footnote)
+                }.padding(17).background(WorkspaceStyle.surface, in: RoundedRectangle(cornerRadius: 24))
+                    .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(WorkspaceStyle.line, lineWidth: 1)).padding(.top, 18)
+            }.padding(.horizontal, 20).padding(.bottom, 26)
+        }
+    }
+
+    var body: some View {
+        projectContent
+        .background(.black)
+        .navigationTitle(project?.displayName ?? name).navigationBarTitleDisplayMode(.inline)
+        .modifier(WorkspaceChrome(model: model, manageComputers: manageComputers ?? {}, enabled: switchProject != nil))
+        .refreshable { retry += 1 }
+        .sheet(isPresented: $showingFilters) {
+            NavigationStack {
+                Form { TextField("搜索卡片", text: $search); cardFilters }
+                    .navigationTitle("筛选卡片").navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { showingFilters = false } } }
+            }
+        }
+        .sheet(isPresented: $showingCreation) {
+            NewCardView(projectName: project?.displayName ?? name, unavailable: creationUnavailable,
+                        busy: creatingProfile != nil, notice: creationNotice, pending: pendingCreation,
+                        model: model, machine: machine, project: project, revision: revision) { profile, title in
+                guard let project else { return }
+                let expectedRevision = revision
+                creationWork = Task { await createCard(profile, title: title, in: project, revision: expectedRevision) }
+            }
+        }
+        .sheet(item: $creating) { selection in CardCommandSheet(model: model, machine: machine, project: selection.project, revision: revision, pending: pendingCreation ?? pending) }
+        .sheet(item: $options, onDismiss: { showingConversation = conversation != nil }) { selection in
+            if let project, let card = project.cards?.first(where: { $0.id == selection.id }) {
+                CardOptionsView(model: model, machine: machine, project: project, card: card,
+                                revision: revision, canControl: canCreate) {
+                    guard let route = project.routeID else { return }
+                    conversation = (card, route); options = nil
+                }
+            }
+        }
+        .navigationDestination(isPresented: $showingConversation) {
+            if let conversation {
+                ConversationView(machine: machine, workspaceID: workspaceID, routeID: conversation.route,
+                                 card: conversation.card, model: model)
+            }
+        }
+        .onChange(of: showingConversation) { _, showing in if !showing { conversation = nil } }
+        .task(id: "\(scenePhase)-\(retry)-\(active)") {
+            generation += 1
+            let requestGeneration = generation
+            project = nil; checkedAt = nil; canCreate = false; error = nil
+            guard scenePhase == .active && active else { loading = false; creating = nil; options = nil; return }
+            loading = true
+            do {
+                for try await update in model.client.projectUpdates(machine, workspaceID: workspaceID) {
+                    try Task.checkCancellation()
+                    guard requestGeneration == generation else { return }
+                    switch update {
+                    case .current(let result):
+                        let fresh = result.projects.first
+                        if let creationRoute, fresh?.routeID != creationRoute { showingCreation = false }
+                        if fresh?.routeID != project?.routeID || revision != result.grant.revision {
+                            creating = nil; options = nil
+                            if !showingConversation { conversation = nil }
+                        }
+                        if let options, fresh?.cards?.contains(where: { $0.id == options.id }) != true { self.options = nil }
+                        project = fresh; checkedAt = .now; error = nil; loading = false
+                        revision = result.grant.revision
+                        canCreate = result.grant.projects.contains { $0.workspaceID == workspaceID && $0.access == "control" }
+                    case .recovering:
+                        project = nil; checkedAt = nil; canCreate = false; creating = nil; options = nil
+                        error = "正在重新连接电脑…"; loading = true
+                    }
+                }
+            } catch {
+                guard requestGeneration == generation, !Task.isCancelled else { return }
+                if model.selectedID == machine.id, let failure = error as? MobileError,
+                   [.unauthorized, .wrongComputer, .invalidCredential].contains(failure) {
+                    model.disconnect()
+                }
+                project = nil; checkedAt = nil; loading = false; canCreate = false; creating = nil; options = nil
+                self.error = error.localizedDescription
+            }
+        }
+        .task(id: "context-\(scenePhase)-\(active)-\(retry)-\(revision)-\(project?.id ?? "")") {
+            contextPlan = nil; contextLoaded = false; contextError = nil
+            guard scenePhase == .active && active, project != nil else { return }
+            do {
+                for try await update in model.client.planUpdates(machine, workspaceID: workspaceID) {
+                    try Task.checkCancellation()
+                    switch update {
+                    case .legacy(let saved):
+                        contextPlan = saved?.plan; contextLoaded = true; contextError = "电脑版本较早，方向更新后请手动刷新。"
+                    case .current(let fresh):
+                        contextPlan = fresh.plan; contextLoaded = true; contextError = nil
+                    case .empty:
+                        contextPlan = nil; contextLoaded = true; contextError = nil
+                    case .recovering:
+                        contextPlan = nil; contextLoaded = false; contextError = "正在重新连接电脑…"
+                    }
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                contextPlan = nil; contextLoaded = false; contextError = "暂时无法读取方向，请刷新重试。"
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { creationWork?.cancel() } }
+        .onDisappear { generation += 1; creationWork?.cancel() }
+    }
+
+    private var projectHeading: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Button { switchProject?() } label: {
+                    HStack(spacing: 6) { Text("项目"); Image(systemName: "chevron.down").font(.system(size: 10)) }
+                        .font(.footnote).foregroundStyle(WorkspaceStyle.muted).frame(minHeight: 44)
+                }.accessibilityIdentifier("project-switcher").accessibilityLabel(project?.displayName ?? name)
+                    .accessibilityValue(machine.name).disabled(switchProject == nil)
+                Spacer()
+                Button(action: openCreation) { WorkspaceCircleIcon(symbol: "plus") }
+                    .accessibilityLabel("创建卡片").accessibilityIdentifier("create-card-toolbar")
+            }
+            WorkspacePageTitle(title: project?.displayName ?? name).accessibilityIdentifier("project-page-title")
+            Button { manageComputers?() } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "laptopcomputer").font(.system(size: 13))
+                    Text(machine.name).lineLimit(1).truncationMode(.middle)
+                    Image(systemName: "chevron.down").font(.system(size: 9))
+                    Spacer(minLength: 3)
+                    Text(checkedAt == nil ? "· 等待同步" : "· 刚刚同步").lineLimit(1)
+                }.font(.system(size: 10)).foregroundStyle(WorkspaceStyle.muted).frame(minHeight: 44)
+            }.accessibilityLabel("切换项目所在电脑").disabled(manageComputers == nil)
+        }.buttonStyle(WorkspacePressStyle()).padding(.bottom, 19)
+    }
+
+    @ViewBuilder private var cardFilters: some View {
+        Picker("卡片状态", selection: $stateFilter) {
+            Text("全部状态").tag(String?.none)
+            ForEach(Array(Set((project?.cards?.map(\.state) ?? []) + [stateFilter].compactMap { $0 })).sorted(), id: \.self) { state in
+                Text(AgentSnapshotCard.status(state)).tag(Optional(state))
+            }
+        }
+        Picker("Agent", selection: $profileFilter) {
+            Text("全部 Agent").tag(String?.none)
+            ForEach(Array(Set((project?.cards?.map(\.profile) ?? []) + [profileFilter].compactMap { $0 })).sorted(), id: \.self) { Text($0).tag(Optional($0)) }
+        }
+        if filtering { Button("清除筛选", action: clearFilters) }
+    }
+
+    @MainActor private func createCard(_ profile: String, title: String?, in expected: ProjectSnapshot, revision expectedRevision: UInt64) async {
+        guard canCreate, creatingProfile == nil, pendingCreation == nil, scenePhase == .active,
+              model.selectedID == machine.id, expected.state == "open",
+              let route = expected.routeID, project?.routeID == route, revision == expectedRevision else { return }
+        let context = generation
+        creatingProfile = profile; creationNotice = nil
+        defer { creatingProfile = nil }
+        do {
+            let command = try await model.client.prepareCardCreation(machine, workspaceID: workspaceID, routeID: route,
+                revision: expectedRevision, profile: profile, title: title)
+            try Task.checkCancellation()
+            guard context == generation, canCreate, project?.routeID == route, revision == expectedRevision else { return }
+            try await model.commandStore.save(command)
+            try await model.reloadCommands()
+            try Task.checkCancellation()
+            var receipt = try await model.client.submit(command, to: machine)
+            // Same bounded receipt query as CardCommandSheet: 10 × 500ms covers ordinary 360ms persistence.
+            for _ in 0..<10 where receipt.state == "accepted" {
+                try await Task.sleep(for: .milliseconds(500))
+                receipt = try await model.client.receipt(for: command, on: machine)
+            }
+            try Task.checkCancellation()
+            if receipt.state == "succeeded" {
+                try await model.commandStore.remove(id: command.id)
+                try await model.reloadCommands()
+                clearFilters()
+                creationNotice = "已创建 \(title ?? profile) 卡片"
+                showingCreation = false
+            } else {
+                creationNotice = receipt.state == "rejected" ? "电脑未创建卡片" : "创建结果待确认"
+            }
+        } catch {
+            if !Task.isCancelled { creationNotice = error.localizedDescription }
+        }
+    }
+
+    private func openCreation() { creationNotice = nil; creationRoute = project?.routeID; showingCreation = true }
+
+    private func clearFilters() { search = ""; stateFilter = nil; profileFilter = nil }
+}
+
+struct AgentSnapshotCard: View {
+    let card: CardSnapshot
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
+    private var working: Bool { ["thinking", "running_tool"].contains(card.state) }
+    static func status(_ state: String) -> String {
+        switch state {
+        case "idle": "未安排任务"
+        case "preparing": "启动中"
+        case "collecting": "整理成果"
+        case "ready": "就绪"
+        case "thinking": "思考中"
+        case "running_tool": "执行中"
+        case "interrupting": "正在停止"
+        case "waiting_approval": "等待确认"
+        case "done": "已完成"
+        case "failed": "失败"
+        case "ended": "已停止"
+        default: "状态未确认"
+        }
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ProviderMark(profile: card.profile, size: 32, working: working).padding(.bottom, 24)
+            Text(card.taskTitle.flatMap { $0.isEmpty ? nil : $0 } ?? card.title)
+                .font(.footnote.weight(.semibold)).lineLimit(typeSize.isAccessibilitySize ? nil : 2)
+                .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
+            Spacer(minLength: 20)
+            HStack(spacing: 5) {
+                Circle().frame(width: 5, height: 5)
+                Text(working ? "进行中" : card.state == "idle" ? "空闲" : Self.status(card.state))
+            }.font(.caption2).foregroundStyle(card.state == "waiting_approval" ? Color.orange : WorkspaceStyle.muted)
+        }
+        .padding(.horizontal, 17).padding(.top, 20).padding(.bottom, 16)
+        .frame(maxWidth: .infinity, minHeight: 165, alignment: .topLeading)
+        .background(WorkspaceStyle.surface, in: RoundedRectangle(cornerRadius: 23))
+        .overlay {
+            if working && !reduceMotion && scenePhase == .active {
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { time in
+                    let angle = time.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3) / 3 * 360
+                    RoundedRectangle(cornerRadius: 23).stroke(AngularGradient(colors: [.clear, .clear, .white.opacity(0.15), .white], center: .center, startAngle: .degrees(angle), endAngle: .degrees(angle + 360)), lineWidth: 1)
+                }.accessibilityHidden(true)
+            } else { RoundedRectangle(cornerRadius: 23).stroke(working ? Color(white: 0.32) : WorkspaceStyle.line, lineWidth: 1) }
+        }
+        .accessibilityElement(children: .contain)
+    }
+}

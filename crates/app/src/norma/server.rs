@@ -1,5 +1,4 @@
 pub(crate) use self::conversion::canvas_preview_type;
-use self::conversion::node_error;
 use self::layout::{
     apply_layout_for_new_node_or_master, resolve_bounds, summarize_cards, CardCreationState,
 };
@@ -18,13 +17,15 @@ use norma::protocol::{
     AgentErrorCode, CardCommand, CardCommandError, CardCommandResult, CardKind, NodeId, Placement,
     WireRequest, WireResponse,
 };
-use runtime::{NodeInput, Runtime, DEFAULT_TERMINAL_SHELL};
+use runtime::{Runtime, DEFAULT_TERMINAL_SHELL};
 use std::time::Instant;
 
 mod conversion;
 mod effects;
 mod execution;
+use execution::{focus_card, send_text};
 mod layout;
+mod mobile;
 mod orchestration;
 mod presentation;
 
@@ -446,48 +447,6 @@ fn delete_card(
         result: CardCommandResult::Deleted { node_id },
         effects: NormaCommandEffects::CANVAS_SESSION,
         removed_agent_definition_id,
-    })
-}
-
-fn send_text(
-    runtime: &mut Runtime,
-    node_id: NodeId,
-    text: String,
-) -> Result<NormaExecution, CardCommandError> {
-    if runtime
-        .document
-        .node(node_id)
-        .is_some_and(|node| matches!(node.kind, CanvasNodeKind::Agent(_)))
-    {
-        return Err(CardCommandError::Unsupported {
-            message: "Agent text must be submitted through dispatch_agent_tasks".into(),
-        });
-    }
-    runtime
-        .send_node_input(node_id, NodeInput::Text(text))
-        .map_err(|error| node_error(node_id, error))?;
-    Ok(NormaExecution {
-        result: CardCommandResult::Sent { node_id },
-        effects: NormaCommandEffects::NOTIFY,
-        removed_agent_definition_id: None,
-    })
-}
-
-fn focus_card(runtime: &mut Runtime, node_id: NodeId) -> Result<NormaExecution, CardCommandError> {
-    if runtime.document.node(node_id).is_none() {
-        return Err(CardCommandError::NotFound { node_id });
-    }
-    if !runtime.node_caps(node_id).focusable {
-        return Err(CardCommandError::Unsupported {
-            message: format!("card {node_id} is not focusable"),
-        });
-    }
-    runtime.selection.select_only(node_id);
-    runtime.focus.focus_node(node_id);
-    Ok(NormaExecution {
-        result: CardCommandResult::Focused { node_id },
-        effects: NormaCommandEffects::NOTIFY,
-        removed_agent_definition_id: None,
     })
 }
 

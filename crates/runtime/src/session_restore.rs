@@ -156,7 +156,9 @@ pub fn restore_live_sessions(
                     .unwrap_or(DEFAULT_TERMINAL_SHELL);
                 attach_terminal_live(node_id, shell, cols, rows, ctx)
             }
-            CanvasNodeKind::Agent(spec) => {
+            // Controlled cards use explicit dispatch into a managed session.
+            // Legacy restore must never start them with bypass parameters.
+            CanvasNodeKind::Agent(spec) if !spec.mobile_control => {
                 let agent_checkpoint =
                     checkpoint.filter(|cp| cp.kind == SessionCheckpointKind::Agent);
                 let (cols, rows) = checkpoint_grid_size(agent_checkpoint);
@@ -214,7 +216,7 @@ pub fn restore_live_sessions_with_node_sessions(
                 };
                 attach_terminal_live_with_command(node_id, shell, command, cols, rows, ctx)
             }
-            CanvasNodeKind::Agent(spec) => {
+            CanvasNodeKind::Agent(spec) if !spec.mobile_control => {
                 let agent_checkpoint =
                     checkpoint.filter(|cp| cp.kind == SessionCheckpointKind::Agent);
                 let (cols, rows) = checkpoint_grid_size(agent_checkpoint);
@@ -282,7 +284,7 @@ pub fn restore_live_session_for_node_with_node_sessions(
             };
             attach_terminal_live_with_command(node_id, shell, command, cols, rows, ctx)
         }
-        CanvasNodeKind::Agent(spec) => {
+        CanvasNodeKind::Agent(spec) if !spec.mobile_control => {
             let agent_checkpoint = checkpoint.filter(|cp| cp.kind == SessionCheckpointKind::Agent);
             let (cols, rows) = checkpoint_grid_size(agent_checkpoint);
             let profile = resolve_agent_restore_profile(spec.profile, agent_checkpoint);
@@ -303,7 +305,10 @@ pub fn restore_live_session_for_node_with_node_sessions(
             };
             attach_agent_live_with_command(node_id, command, cols, rows, ctx)
         }
-        CanvasNodeKind::Rect(_) | CanvasNodeKind::Preview(_) | CanvasNodeKind::Browser(_) => false,
+        CanvasNodeKind::Agent(_)
+        | CanvasNodeKind::Rect(_)
+        | CanvasNodeKind::Preview(_)
+        | CanvasNodeKind::Browser(_) => false,
     }
 }
 

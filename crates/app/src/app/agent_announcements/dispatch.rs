@@ -9,7 +9,7 @@ use super::synthesis::{
     SynthesizedAgentTerminalAnnouncement,
 };
 use super::AgentAnnouncement;
-use crate::app::dialogue::{create_tts_client_for_selection, selected_tts_model};
+use crate::app::dialogue::create_tts_client_for_selection;
 use crate::app::voice_window_inset::{PcmEnergyTimeline, TtsPlaybackEvent};
 use crate::app::MultisoulApp;
 use dialogue::DialoguePhase;
@@ -63,7 +63,7 @@ impl MultisoulApp {
             })
             .unwrap_or_default();
         let tts_runtime = self.dialogue.shared_tts_runtime.clone();
-        let selected = selected_tts_model();
+        let selected = self.dialogue.selected_tts_model.clone();
         let selected_for_create = selected.clone();
         self.agent_announcement_playback.phase =
             AgentAnnouncementPlaybackPhase::Synthesizing(announcement);

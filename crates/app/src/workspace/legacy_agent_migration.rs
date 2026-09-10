@@ -118,6 +118,7 @@ mod tests {
                 profile: AgentProfile::Claude,
                 alias: Some("小安".to_string()),
                 definition_id: None,
+                mobile_control: false,
             }),
             CanvasRect::new(0.0, 0.0, 640.0, 400.0),
         );
@@ -126,6 +127,7 @@ mod tests {
                 profile: AgentProfile::Codex,
                 alias: Some("Code Reviewer".to_string()),
                 definition_id: None,
+                mobile_control: false,
             }),
             CanvasRect::new(660.0, 0.0, 640.0, 400.0),
         );

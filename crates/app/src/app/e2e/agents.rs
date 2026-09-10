@@ -161,6 +161,13 @@ impl MultisoulApp {
     }
 
     #[cfg(feature = "e2e-test-support")]
+    pub fn observe_agent_hook_events_for_e2e(
+        &mut self,
+    ) -> crossbeam_channel::Receiver<norma::agent_hook::AgentHookEvent> {
+        self.agent_hook_server.observe_events_for_e2e()
+    }
+
+    #[cfg(feature = "e2e-test-support")]
     pub fn agent_submission_waiting_for_e2e(&self, node_id: canvas::NodeId) -> bool {
         self.pending_agent_submissions.is_waiting(node_id)
     }

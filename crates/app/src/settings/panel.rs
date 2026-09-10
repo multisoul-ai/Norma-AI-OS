@@ -235,6 +235,7 @@ impl MultisoulApp {
                 wallpaper_state: &self.wallpaper_settings,
                 wallpaper_previews: &mut self.wallpaper_previews,
                 shortcuts: &self.shortcuts,
+                mobile: self.mobile.clone(),
             },
             window,
             cx,

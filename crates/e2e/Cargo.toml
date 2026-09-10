@@ -16,7 +16,7 @@ asr.workspace = true
 audio.workspace = true
 app = { path = "../app", features = ["e2e-test-support"] }
 dialogue.workspace = true
-runtime = { path = "../runtime" }
+runtime = { path = "../runtime", features = ["e2e-test-support"] }
 storage.workspace = true
 canvas = { path = "../canvas" }
 terminal = { path = "../terminal" }
@@ -24,7 +24,12 @@ tts.workspace = true
 ui.workspace = true
 norma.workspace = true
 serde_json.workspace = true
+rusqlite.workspace = true
+rustls.workspace = true
+tungstenite.workspace = true
 workspace.workspace = true
 gpui = { workspace = true, features = ["test-support"] }
 crossbeam-channel = { workspace = true }
+async-channel.workspace = true
 tempfile = { workspace = true }
+tracing-subscriber.workspace = true

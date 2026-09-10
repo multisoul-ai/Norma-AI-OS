@@ -48,6 +48,10 @@ impl AppStore {
         RecentStore::new(self.path.clone())
     }
 
+    pub fn mobile_access_store(&self) -> crate::MobileAccessStore {
+        crate::MobileAccessStore::new(self.path.clone())
+    }
+
     pub fn settings_store(&self) -> SettingsStore {
         SettingsStore::new(self.path.clone())
     }

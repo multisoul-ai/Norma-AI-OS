@@ -158,10 +158,12 @@ impl PersistenceScheduler {
 impl MultisoulApp {
     pub(crate) fn mark_canvas_dirty(&mut self) {
         self.persistence.mark_canvas_dirty();
+        crate::mobile::project_events::changed();
     }
 
     pub(crate) fn mark_session_dirty(&mut self) {
         self.persistence.mark_session_dirty();
+        crate::mobile::project_events::changed();
     }
 
     pub(crate) fn tick_persistence(&mut self, delta: Duration) -> bool {

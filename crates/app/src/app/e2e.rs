@@ -323,7 +323,7 @@ impl MultisoulApp {
             .voice_settings_inputs
             .rendered_text(crate::settings::voice::VoiceSettingsField::ApiKey, cx);
         let api_key_profile = self.voice_settings.values().active_provider_profile();
-        let runtime_tts = crate::app::dialogue::selected_tts_model();
+        let runtime_tts = self.dialogue.selected_tts_model.clone();
         SettingsE2eSnapshot {
             settings_open: self.settings_panel.open,
             active_section: self.settings_panel.active_section.title(),

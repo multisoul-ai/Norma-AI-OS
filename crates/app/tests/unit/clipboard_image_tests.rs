@@ -102,6 +102,7 @@ fn test_clipboard_image_paste_mode_matches_agent_profile_protocol() {
             profile: AgentProfile::Codex,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         }),
         CanvasRect::new(0.0, 0.0, 100.0, 80.0),
     );
@@ -110,6 +111,7 @@ fn test_clipboard_image_paste_mode_matches_agent_profile_protocol() {
             profile: AgentProfile::Claude,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         }),
         CanvasRect::new(120.0, 0.0, 100.0, 80.0),
     );
@@ -118,6 +120,7 @@ fn test_clipboard_image_paste_mode_matches_agent_profile_protocol() {
             profile: AgentProfile::Cursor,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         }),
         CanvasRect::new(240.0, 0.0, 100.0, 80.0),
     );
@@ -126,6 +129,7 @@ fn test_clipboard_image_paste_mode_matches_agent_profile_protocol() {
             profile: AgentProfile::OpenCode,
             alias: None,
             definition_id: None,
+            mobile_control: false,
         }),
         CanvasRect::new(360.0, 0.0, 100.0, 80.0),
     );

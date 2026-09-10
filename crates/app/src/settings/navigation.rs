@@ -48,6 +48,7 @@ pub(crate) enum SettingsSection {
     Orchestration,
     Wallpaper,
     Performance,
+    Mobile,
 }
 
 #[derive(Clone, Copy)]
@@ -115,6 +116,12 @@ impl SettingsSection {
                 index: 7,
                 debug_selector: "settings-section-wallpaper",
             },
+            Self::Mobile => SettingsSectionMetadata {
+                title: "手机连接",
+                icon_asset: Some("icons/settings-nav-mobile.svg"),
+                index: 9,
+                debug_selector: "settings-section-mobile",
+            },
             Self::Performance => SettingsSectionMetadata {
                 title: "Performance",
                 icon_asset: Some(TOOLBAR_SETTINGS_ASSET),
@@ -131,8 +138,11 @@ const APPEARANCE_SECTIONS: &[SettingsSection] = &[
     SettingsSection::Performance,
 ];
 const INPUT_SECTIONS: &[SettingsSection] = &[SettingsSection::Keyboard, SettingsSection::Voice];
-const AUTOMATION_SECTIONS: &[SettingsSection] =
-    &[SettingsSection::Agents, SettingsSection::Orchestration];
+const AUTOMATION_SECTIONS: &[SettingsSection] = &[
+    SettingsSection::Agents,
+    SettingsSection::Orchestration,
+    SettingsSection::Mobile,
+];
 
 const NAVIGATION_GROUPS: [(&str, &[SettingsSection]); 3] = [
     ("Appearance", APPEARANCE_SECTIONS),
@@ -417,6 +427,11 @@ fn navigation_item(
         .hover(move |style| style.bg(rgba(with_alpha(theme.panel_high, 0xa6))))
         .on_click(cx.listener(move |app, _, _window, cx| {
             app.settings_panel.select(section);
+            if section == SettingsSection::Mobile {
+                app.mobile.update(cx, |host, cx| {
+                    host.request(crate::mobile::controller::Command::Reload, cx)
+                });
+            }
             if section == SettingsSection::Voice {
                 app.refresh_asr_model_states(cx);
             }

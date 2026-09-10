@@ -20,6 +20,7 @@ enum VisualPreview {
     FeatureGuide,
     VoiceSetup,
     VoiceReady,
+    VoiceCatalog,
     VoiceNetworkUnavailable,
     VoiceApiKey,
     VoiceCaption,
@@ -43,6 +44,7 @@ impl VisualPreview {
             "feature-guide" => Some(Self::FeatureGuide),
             "voice-setup" => Some(Self::VoiceSetup),
             "voice-ready" => Some(Self::VoiceReady),
+            "voice-catalog" => Some(Self::VoiceCatalog),
             "voice-network-unavailable" => Some(Self::VoiceNetworkUnavailable),
             "voice-api-key" => Some(Self::VoiceApiKey),
             "voice-caption" => Some(Self::VoiceCaption),
@@ -67,6 +69,7 @@ impl VisualPreview {
             Self::GithubClone => None,
             Self::VoiceSetup
             | Self::VoiceReady
+            | Self::VoiceCatalog
             | Self::VoiceNetworkUnavailable
             | Self::VoiceApiKey
             | Self::VoiceCaption
@@ -132,6 +135,15 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
         }
         VisualPreview::VoiceReady => {
             app.voice_settings.assume_visual_preview_ready_for_e2e();
+        }
+        VisualPreview::VoiceCatalog => {
+            app.voice_settings = VoiceSettingsState::in_memory_default();
+            app.voice_settings.assume_visual_preview_ready_for_e2e();
+            app.assume_minimax_connected_for_e2e(cx);
+            app.set_fake_tts_transport_for_e2e(true, false, cx);
+            app.voice_settings.open_tts_picker();
+            app.voice_settings
+                .select_tts_picker_provider(tts::MINIMAX_TTS_PROVIDER_ID);
         }
         VisualPreview::VoiceNetworkUnavailable => {
             app.voice_settings
@@ -208,6 +220,7 @@ fn configure_agent_queue(app: &mut MultisoulApp) {
             profile: canvas::AgentProfile::Codex,
             alias: Some("Adam".to_string()),
             definition_id: Some(definition.id),
+            mobile_control: false,
         }),
         canvas::CanvasRect::new(80.0, 120.0, 620.0, 420.0),
     );
@@ -273,6 +286,7 @@ fn configure_dispatch_receipt(app: &mut MultisoulApp, agent_handoff: bool) {
             profile: canvas::AgentProfile::Codex,
             alias: Some(if agent_handoff { "浩宇" } else { "Adam" }.to_string()),
             definition_id: Some(definition.id),
+            mobile_control: false,
         }),
         source_bounds,
     );
@@ -282,6 +296,7 @@ fn configure_dispatch_receipt(app: &mut MultisoulApp, agent_handoff: bool) {
                 profile: canvas::AgentProfile::Claude,
                 alias: Some("老乔".to_string()),
                 definition_id: Some(definition.id),
+                mobile_control: false,
             }),
             target_bounds,
         );
@@ -300,23 +315,23 @@ mod tests {
     ///                      + dispatch-flight(1) + dispatch-impact(1)
     ///                      + agent-handoff-flight(1)
     ///                      + orchestration(1) + github-clone(1) + feature-guide(1)
-    ///                      + setup(1) + ready(1) + network-unavailable(1)
+    ///                      + setup(1) + ready(1) + catalog(1) + network-unavailable(1)
     ///                      + api-key(1) + caption(1) + window-inset(1)
     ///                      + azure-asr-ready(1)
     ///                      + zipvoice-reference(1) + tts-backlog-capacity(1)
-    ///                      + tts-backlog-recovered(1) = 18
+    ///                      + tts-backlog-recovered(1) = 19
     ///   unsupported values = empty(1) + unknown(1) = 2
-    ///   total cases = 18 + 2 = 20
+    ///   total cases = 19 + 2 = 21
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. 解析 `working-snake` → WorkingSnake
     ///   2. 解析 `agent-queue` → AgentQueue
-    ///   3. 继续解析其余十六个已登记场景 → 各自唯一枚举值
+    ///   3. 继续解析其余十七个已登记场景 → 各自唯一枚举值
     ///   4. 解析空字符串 → None
     ///   5. 解析未知值 → None
     ///
     /// 预期结果：
-    ///   - 正断言：十八个受支持值分别映射到唯一场景
+    ///   - 正断言：十九个受支持值分别映射到唯一场景
     ///   - 负断言：空值和未知值不得意外开启视觉预览
     #[test]
     fn visual_preview_parser_accepts_only_explicit_scenarios() {
@@ -369,6 +384,11 @@ mod tests {
             VisualPreview::parse("voice-ready"),
             Some(VisualPreview::VoiceReady),
             "voice-ready must select the completed Voice settings preview"
+        );
+        assert_eq!(
+            VisualPreview::parse("voice-catalog"),
+            Some(VisualPreview::VoiceCatalog),
+            "voice-catalog must provide an isolated native voice list for Computer Use acceptance"
         );
         assert_eq!(
             VisualPreview::parse("voice-network-unavailable"),

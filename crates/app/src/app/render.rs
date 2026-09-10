@@ -105,6 +105,9 @@ impl Render for MultisoulApp {
         if self.clone_project.is_open() {
             root = root.child(self.render_clone_project_dialog(window, cx));
         }
+        if let Some(dialogs) = ui::component::Root::render_dialog_layer(window, cx) {
+            root = root.child(dialogs);
+        }
 
         root
     }

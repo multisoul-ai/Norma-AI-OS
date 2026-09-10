@@ -32,6 +32,7 @@ fn test_norma_delete_agent_reports_removed_definition_id() {
             profile: AgentProfile::Codex,
             alias: Some("Alan".to_string()),
             definition_id: Some(41),
+            mobile_control: false,
         }),
         CanvasRect::new(0.0, 0.0, 640.0, 360.0),
     );

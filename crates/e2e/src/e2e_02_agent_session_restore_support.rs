@@ -93,6 +93,7 @@ fn agent_node(node_id: u64, alias: &str) -> CanvasNodeSnapshot {
             profile: AgentProfile::Claude,
             alias: Some(alias.to_string()),
             definition_id: None,
+            mobile_control: false,
         }),
         bounds: CanvasRect::new(10.0, 20.0, 640.0, 400.0),
         z_index: node_id as i32,

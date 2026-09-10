@@ -249,7 +249,7 @@ fn test_external_test_root_rejects_direct_and_symlinked_production_directory() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 编译期读取仓库根 `Packager.toml`。
-///   2. 检查 before-packaging-command 的主 App 构建参数。
+///   2. 归一化可选的 --no-default-features 参数，检查主 App 的显式 production-data feature。
 ///   3. 同时检查旧的无 feature 主 App 构建片段已经消失。
 ///
 /// 预期结果：
@@ -257,7 +257,8 @@ fn test_external_test_root_rejects_direct_and_symlinked_production_directory() {
 ///   - 负断言：不得保留无 Production 标记的主 App release 构建。
 #[test]
 fn test_packager_enables_the_production_data_feature_for_the_main_app() {
-    let packager = include_str!("../../../../Packager.toml");
+    // --no-default-features 只关闭默认 feature，不改变显式 production-data 的含义。
+    let packager = include_str!("../../../../Packager.toml").replace("--no-default-features ", "");
 
     assert!(
         packager.contains("cargo build --release -p app --features production-data"),

@@ -225,7 +225,7 @@ impl RuntimeEvents {
         let previous = self.agent_task_states.get(&node_id).cloned();
         if previous == Some(AgentTaskState::Ended)
             && is_active_agent_task_state(&to)
-            && source_event != "UserPromptSubmit"
+            && !matches!(source_event.as_str(), "UserPromptSubmit" | "turn/started")
         {
             return false;
         }
@@ -351,17 +351,37 @@ impl Runtime {
         };
         match &node.kind {
             CanvasNodeKind::Agent(agent) if agent.profile == update.profile => {
-                let session_binding_changed = update
-                    .session_id
-                    .as_deref()
-                    .filter(|session_id| !session_id.is_empty())
-                    .is_some_and(|session_id| {
-                        self.agent_session_bindings.bind_if_unclaimed(
-                            update.node_id,
-                            update.profile,
-                            session_id,
-                        )
-                    });
+                if agent.mobile_control
+                    && (update.session_id.is_none()
+                        || self.agent_session_id(update.node_id).as_deref()
+                            != update.session_id.as_deref())
+                {
+                    return AgentTaskUpdateOutcome::default();
+                }
+                // Empty controlled sessions may have no Provider history yet. Persist only
+                // after the first real prompt, so reopen never resumes a fabricated history.
+                let persist_session =
+                    !agent.mobile_control || update.provider_event == "UserPromptSubmit";
+                let cancel_permissions = agent.mobile_control
+                    && matches!(
+                        update.provider_event.as_str(),
+                        "UserPromptSubmit" | "Stop" | "StopFailure" | "SessionEnd"
+                    );
+                let session_binding_changed = persist_session
+                    && update
+                        .session_id
+                        .as_deref()
+                        .filter(|session_id| !session_id.is_empty())
+                        .is_some_and(|session_id| {
+                            self.agent_session_bindings.bind_if_unclaimed(
+                                update.node_id,
+                                update.profile,
+                                session_id,
+                            )
+                        });
+                if cancel_permissions {
+                    self.cancel_mobile_approvals(update.node_id);
+                }
                 if let Some(title) = update.task_title {
                     self.events
                         .set_agent_task_title_if_absent(update.node_id, title);

@@ -34,6 +34,10 @@ pub(crate) struct RemovedPendingSubmission {
 }
 
 impl PendingAgentSubmissions {
+    pub(crate) fn has_pending_for_node(&self, node_id: NodeId) -> bool {
+        self.ready_after.contains_key(&node_id) || self.submissions.contains_key(&node_id)
+    }
+
     pub(crate) fn mark_starting(&mut self, node_id: NodeId) {
         self.mark_starting_at(node_id, Instant::now());
     }

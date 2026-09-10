@@ -25,6 +25,13 @@ use routing::{
     validate_source,
 };
 use task_control::spawn_global_task_control;
+pub(crate) mod mobile_approval;
+pub(crate) mod mobile_command;
+pub(crate) mod mobile_conversation;
+mod mobile_plan;
+pub(crate) mod mobile_review;
+mod mobile_task_baseline;
+pub(crate) mod mobile_terminal;
 use task_dispatch::spawn_global_dispatch;
 
 const ENDPOINT_POLL_INTERVAL: Duration = Duration::from_millis(12);
@@ -125,6 +132,7 @@ pub(crate) fn register_workspace(
     registration: WorkspaceRegistration<'_>,
     cx: &mut App,
 ) -> Result<(), WorkspaceRouteError> {
+    crate::mobile::project_events::changed();
     let WorkspaceRegistration {
         workspace_id,
         route_id,
@@ -157,6 +165,7 @@ pub(crate) fn register_workspace(
 }
 
 pub(crate) fn unregister_workspace(workspace_id: &str, route_id: &str, cx: &mut App) -> bool {
+    crate::mobile::project_events::changed();
     if !cx.has_global::<NormaEndpointHost>() {
         return false;
     }
@@ -200,6 +209,60 @@ pub(crate) fn workspace_summaries(cx: &App) -> Vec<WorkspaceSummary> {
         .collect::<Vec<_>>();
     workspaces.sort_by(|left, right| left.display_name.cmp(&right.display_name));
     workspaces
+}
+
+/// Read only the authorized projects supplied by the mobile background owner. Reuse the exact
+/// desktop route and check installation + current workspace again; stale window entities fail closed.
+pub(crate) fn mobile_project_snapshots(
+    database: &std::path::Path,
+    mut projects: Vec<norma::mobile::ProjectSnapshot>,
+    include_cards: bool,
+    cx: &mut App,
+) -> Vec<norma::mobile::ProjectSnapshot> {
+    for project in &mut projects {
+        let Some(host) = cx.try_global::<NormaEndpointHost>() else {
+            continue;
+        };
+        let target = host.routes.resolve_active(&project.workspace_id).cloned();
+        project.state = "closed".into();
+        let Ok(target) = target else {
+            continue;
+        };
+        let data = target
+            .window
+            .update(cx, |_, _, cx| {
+                target
+                    .app
+                    .update(cx, |app, _| {
+                        if app.database_paths.app_db_path() != database
+                            || app.workspace_id.as_deref() != Some(&project.workspace_id)
+                        {
+                            return None;
+                        }
+                        let route = app.workspace_route_id.clone()?;
+                        let count = app
+                            .runtime
+                            .document
+                            .nodes()
+                            .iter()
+                            .filter(|n| matches!(n.kind, canvas::CanvasNodeKind::Agent(_)))
+                            .count();
+                        let cards = include_cards.then(|| app.mobile_card_snapshots());
+                        Some((route, count, cards))
+                    })
+                    .ok()
+                    .flatten()
+            })
+            .ok()
+            .flatten();
+        if let Some((route, count, cards)) = data {
+            project.state = "open".into();
+            project.route_id = Some(route);
+            project.card_count = Some(count);
+            project.cards = cards;
+        }
+    }
+    projects
 }
 
 pub(crate) fn doctor_report(client_version: Option<&str>, cx: &App) -> OrchestrationDoctorReport {

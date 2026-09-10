@@ -4,17 +4,23 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+e2e-test-support = []
+
 [dependencies]
 canvas.workspace = true
+norma.workspace = true
 crossbeam-channel.workspace = true
 storage.workspace = true
 terminal.workspace = true
 tracing.workspace = true
 serde_json.workspace = true
+tempfile.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
 
 [dev-dependencies]
 filetime = "0.2"
-tempfile.workspace = true
+tungstenite.workspace = true
+rusqlite.workspace = true

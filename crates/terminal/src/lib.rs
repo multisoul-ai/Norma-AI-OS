@@ -14,6 +14,7 @@ pub use grid::{
 };
 pub use input::{encode, Key, KeyInput};
 pub use message::PtyEvent;
+pub use process_tree::ChildProcessObserver;
 pub use pty::{PtyBackend, PtyCommand, PtyError, PtyHandle};
 pub use session::{TerminalSession, TerminalSessionId, TerminalStatus};
 pub use test_backend::{ScriptRule, TestPtyBackend};

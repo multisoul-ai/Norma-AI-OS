@@ -87,6 +87,9 @@ pub trait LiveNode {
     fn terminal_status(&self) -> Option<TerminalStatus> {
         None
     }
+    fn terminal_bracketed_paste_enabled(&self) -> bool {
+        false
+    }
     fn resize(&mut self, resize: NodeResize) -> Result<(), NodeError>;
     fn input(&mut self, input: NodeInput) -> Result<(), NodeError>;
     fn scroll(&mut self, _scroll: NodeScroll) -> Result<bool, NodeError> {
@@ -95,6 +98,9 @@ pub trait LiveNode {
     fn view(&self) -> Option<NodeView>;
     fn kill(&mut self);
     fn child_pid(&self) -> Option<u32> {
+        None
+    }
+    fn child_process_observer(&self) -> Option<terminal::ChildProcessObserver> {
         None
     }
     /// 终端节点读取绝对行范围 `[start_abs, end_abs]`（含两端）的中性 Cell 行数据。

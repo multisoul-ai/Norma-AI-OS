@@ -34,7 +34,7 @@ const PROVIDER_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_PROTOCOL_MESSAGES: usize = 96;
 
 #[derive(Clone)]
-enum NormaModel {
+pub(crate) enum NormaModel {
     OpenAi(openai::completion::CompletionModel),
     Ollama(ollama::CompletionModel),
 }
@@ -42,7 +42,7 @@ enum NormaModel {
 pub struct ModelFactory;
 
 impl ModelFactory {
-    fn create(config: &ProviderConfig) -> Result<NormaModel, NormaSessionError> {
+    pub(crate) fn create(config: &ProviderConfig) -> Result<NormaModel, NormaSessionError> {
         config
             .validate()
             .map_err(|error| NormaSessionError::Configuration(error.to_string()))?;

@@ -4,6 +4,17 @@ use gpui::Context;
 use runtime::Runtime;
 
 impl MultisoulApp {
+    pub fn mobile_push_settings_for_e2e(
+        &self,
+        cx: &gpui::App,
+    ) -> (bool, Option<String>, Option<String>) {
+        let host = self.mobile.read(cx);
+        (
+            host.enabled(),
+            host.push.as_ref().and_then(|s| s.endpoint.clone()),
+            host.error.clone(),
+        )
+    }
     pub fn new_with_pty_factory(cx: &mut Context<Self>, factory: runtime::PtyFactory) -> Self {
         let (database_paths, database_guard) = crate::database::isolated_test_database()
             .unwrap_or_else(|error| {
@@ -140,6 +151,43 @@ impl MultisoulApp {
     #[cfg(feature = "e2e-test-support")]
     pub fn app_database_path_for_e2e(&self) -> std::path::PathBuf {
         self.database_paths.app_db_path().to_path_buf()
+    }
+
+    pub fn mobile_review_source_for_e2e(
+        &self,
+        cx: &gpui::App,
+    ) -> Option<async_channel::Sender<crate::mobile::LiveReviewRequest>> {
+        self.mobile.read(cx).review_source()
+    }
+    pub fn mobile_snapshot_source_for_e2e(
+        &self,
+        cx: &gpui::App,
+    ) -> Option<async_channel::Sender<crate::LiveSnapshotRequest>> {
+        self.mobile.read(cx).snapshot_source()
+    }
+    pub fn mobile_approval_source_for_e2e(
+        &self,
+        cx: &gpui::App,
+    ) -> Option<async_channel::Sender<crate::LiveApprovalRequest>> {
+        self.mobile.read(cx).approval_source()
+    }
+    pub fn mobile_terminal_source_for_e2e(
+        &self,
+        cx: &gpui::App,
+    ) -> Option<async_channel::Sender<crate::LiveTerminalRequest>> {
+        self.mobile.read(cx).terminal_source()
+    }
+    pub fn mobile_conversation_source_for_e2e(
+        &self,
+        cx: &gpui::App,
+    ) -> Option<async_channel::Sender<crate::LiveConversationRequest>> {
+        self.mobile.read(cx).conversation_source()
+    }
+    pub fn mobile_command_source_for_e2e(
+        &self,
+        cx: &gpui::App,
+    ) -> Option<async_channel::Sender<crate::LiveCommandRequest>> {
+        self.mobile.read(cx).command_source()
     }
 
     #[cfg(feature = "e2e-test-support")]

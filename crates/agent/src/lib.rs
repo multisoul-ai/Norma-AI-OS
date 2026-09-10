@@ -12,6 +12,7 @@ mod master;
 mod master_history;
 mod master_prompt;
 mod model;
+mod project_plan;
 mod protocol;
 mod provider_catalog;
 mod reply_visibility;
@@ -49,6 +50,9 @@ pub use master::{
 };
 pub use master_prompt::norma_system_prompt;
 pub use model::{AgentCommand, AgentEvent, AgentInputSource, TaskId, TaskState};
+pub use project_plan::{
+    generate_project_plan, valid_plan_direction, PlanTodo, PlanTodoChoice, ProjectPlanDraft,
+};
 pub use protocol::{ProviderConfig, ProviderError, ProviderProtocol, RedactedProviderConfig};
 pub use provider_catalog::{
     discover_provider_models, normalize_provider_models, validate_provider_model,

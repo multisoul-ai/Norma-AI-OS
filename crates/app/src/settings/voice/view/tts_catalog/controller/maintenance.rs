@@ -52,7 +52,7 @@ impl MultisoulApp {
             tts::TtsProviderId::parse(tts::LOCAL_TTS_PROVIDER_ID)
                 .expect("built-in On-device TTS Provider ID must be valid"),
         ));
-        crate::app::dialogue::configure_selected_tts_model(Some(selected));
+        self.dialogue.selected_tts_model = Some(selected);
         self.start_next_agent_announcement(cx);
         self.complete_voice_setup_if_ready(cx);
         self.persist_voice_settings_in_background(cx);

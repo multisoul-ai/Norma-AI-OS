@@ -90,6 +90,8 @@ pub(crate) fn render_terminal_node(
                 terminal.into_any_element()
             }
             _ => div()
+                .id(("terminal-session-missing", node_id))
+                .debug_selector(|| "terminal-session-missing".into())
                 .flex_1()
                 .w_full()
                 .rounded_b(px(bottom_radius_px))

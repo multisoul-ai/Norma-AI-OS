@@ -27,3 +27,4 @@ assets/models/tts/*
 # superpowers scratch (subagent reports, ledger)
 .superpowers/
 artifacts/
+.zvec-grep
