@@ -268,7 +268,7 @@ impl MobileController {
     pub(crate) fn copy_pairing_code(&mut self, cx: &mut Context<Self>) {
         if self.busy
             || self.pending.is_some()
-            || !self.expires.is_some_and(|end| end > Instant::now())
+            || self.expires.is_none_or(|end| end <= Instant::now())
         {
             return;
         }

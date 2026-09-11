@@ -32,7 +32,7 @@ impl MobilePushRegistration {
     pub fn validate(&self) -> StorageResult<()> {
         // APNs does not guarantee a fixed token size; accept 16–256 bytes as lowercase hex.
         if !(32..=512).contains(&self.token.len())
-            || self.token.len() % 2 != 0
+            || !self.token.len().is_multiple_of(2)
             || !self
                 .token
                 .bytes()

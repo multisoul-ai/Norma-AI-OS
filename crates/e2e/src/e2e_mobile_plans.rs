@@ -190,7 +190,7 @@ fn run(scenario: Scenario) {
     let old_draft = agent::ProjectPlanDraft {
         summary: "原建议".into(),
         todos: vec![agent::PlanTodo {
-            target: target,
+            target,
             title: "补测试".into(),
             instruction: "原登录验证".into(),
         }],

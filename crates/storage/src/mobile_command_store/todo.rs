@@ -147,7 +147,7 @@ impl MobileCommandStore {
                 target,
                 queue: true,
             } => {
-                todo.target = target.clone();
+                todo.target = target.as_ref().clone();
                 queue::enqueue_on(
                     &tx,
                     request,
@@ -171,7 +171,7 @@ impl MobileCommandStore {
                 target,
                 queue: false,
             } => {
-                todo.target = target.clone();
+                todo.target = target.as_ref().clone();
                 reserve_on(&tx, request)?
             }
             PlanTodoChoice::Reject => {

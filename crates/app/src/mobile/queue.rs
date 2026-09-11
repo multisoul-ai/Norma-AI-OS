@@ -68,7 +68,7 @@ pub(super) fn enqueue(
     {
         MobileCommandReservation::Conflict => return Err("idempotency_conflict"),
         MobileCommandReservation::Existing(receipt) => {
-            return Ok(receipt_response(shared, receipt))
+            return Ok(receipt_response(shared, *receipt))
         }
         MobileCommandReservation::New => {}
     }

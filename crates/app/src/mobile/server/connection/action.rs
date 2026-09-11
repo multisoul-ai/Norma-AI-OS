@@ -101,7 +101,7 @@ pub(super) enum Action {
     Command {
         device_id: String,
         token: String,
-        request: crate::mobile::MobileCommandRequest,
+        request: Box<crate::mobile::MobileCommandRequest>,
     },
     Approvals {
         device_id: String,

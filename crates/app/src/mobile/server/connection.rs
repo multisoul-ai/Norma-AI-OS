@@ -256,7 +256,7 @@ fn handle(request: Request, shared: &Arc<Shared>, socket_id: u64) -> Value {
             &request.machine_id,
             device_id,
             token,
-            command.clone(),
+            command.as_ref().clone(),
         )),
         Action::QueuedMessage {
             device_id,

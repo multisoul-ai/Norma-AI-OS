@@ -16,7 +16,7 @@ fn priority_moves_only_the_selected_work_and_rejects_missing_or_duplicate_work()
         r#"{"summary":"按目标推进","todos":[
         {"node_id":7,"title":"alpha","instruction":"验证alpha"},
         {"node_id":7,"title":"beta","instruction":"验证beta并报告结果"}]}"#,
-        &[card.clone()],
+        std::slice::from_ref(&card),
     )
     .expect("模型建议");
     let priority = draft.todos[1].clone();

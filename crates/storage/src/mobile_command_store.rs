@@ -39,7 +39,7 @@ pub struct MobileCommandReceipt {
 #[derive(Debug)]
 pub enum MobileCommandReservation {
     New,
-    Existing(MobileCommandReceipt),
+    Existing(Box<MobileCommandReceipt>),
     Conflict,
 }
 
@@ -205,7 +205,7 @@ fn reserve_on(
             return Ok(MobileCommandReservation::Conflict);
         }
         recover(&mut receipt, &owner, &request.owner_id);
-        return Ok(MobileCommandReservation::Existing(receipt));
+        return Ok(MobileCommandReservation::Existing(Box::new(receipt)));
     }
     connection.execute("INSERT INTO mobile_commands
             (device_id,operation_id,workspace_id,route_id,owner_id,request_hash,state,created_at_unix)

@@ -84,8 +84,7 @@ impl MobileCommandStore {
             crate::mobile_access_store::validate_id(id)?;
         }
         let connection = open_app_connection(&self.path)?;
-        if !read(&connection, device, operation)?
-            .is_some_and(|(r, _, _)| r.workspace_id == workspace)
+        if read(&connection, device, operation)?.is_none_or(|(r, _, _)| r.workspace_id != workspace)
         {
             return Ok(None);
         }

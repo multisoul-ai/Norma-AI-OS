@@ -280,7 +280,7 @@ async fn check_planning_transport(native: bool, prioritized: bool) {
         &config,
         "先验证登录",
         "当前登录实现已提交",
-        &[card.clone()],
+        std::slice::from_ref(&card),
         prioritized.then_some(&priority),
     )
     .await

@@ -52,15 +52,15 @@ struct HookRoute {
     approvals: Sender<HookApproval>,
 }
 
+type HookChannels = (
+    String,
+    Receiver<AgentHookEvent>,
+    Sender<AgentHookEvent>,
+    Receiver<HookApproval>,
+);
+
 impl AgentHookRegistry {
-    fn register(
-        &mut self,
-    ) -> std::io::Result<(
-        String,
-        Receiver<AgentHookEvent>,
-        Sender<AgentHookEvent>,
-        Receiver<HookApproval>,
-    )> {
+    fn register(&mut self) -> std::io::Result<HookChannels> {
         let (sender, receiver) = bounded(EVENT_QUEUE_CAPACITY);
         let (approvals_sender, approvals) = bounded(approval_wait::CAPACITY);
         let mut token = fresh_control_id()?;

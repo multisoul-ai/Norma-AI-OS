@@ -53,7 +53,7 @@ fn todo_claim_and_command_commit_once_across_devices() {
     second.device_id = "phone-b".into();
     second.operation_id = "accept-b".into();
     let choice = PlanTodoChoice::Accept {
-        target: draft.todos[0].target.clone(),
+        target: Box::new(draft.todos[0].target.clone()),
         queue: false,
     };
     let a = (store.clone(), first.clone(), choice.clone());
@@ -194,7 +194,7 @@ fn todo_rejection_and_queue_preserve_original_instruction() {
                 "plan-a",
                 1,
                 &PlanTodoChoice::Accept {
-                    target: wrong,
+                    target: Box::new(wrong),
                     queue: true
                 },
                 2
@@ -210,7 +210,7 @@ fn todo_rejection_and_queue_preserve_original_instruction() {
         "错误目标不占用命令ID"
     );
     let choice = PlanTodoChoice::Accept {
-        target: draft.todos[1].target.clone(),
+        target: Box::new(draft.todos[1].target.clone()),
         queue: true,
     };
     store

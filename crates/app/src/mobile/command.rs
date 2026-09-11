@@ -212,7 +212,7 @@ pub(super) fn submit(
         MobileCommandReservation::Existing(receipt) => {
             // This lookup owns no execution. Do not count its temporary lease as pending work.
             lease.finished.store(true, Ordering::Release);
-            return Ok(receipt_response(shared, receipt));
+            return Ok(receipt_response(shared, *receipt));
         }
         MobileCommandReservation::New => {}
     }

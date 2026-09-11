@@ -155,7 +155,12 @@ fn reload_cancels_permission_draft_and_uses_current_revision() {
     };
     let grant = store
         .mobile_access_store()
-        .register("phone-a", "iPhone", &"a".repeat(64), &[access.clone()])
+        .register(
+            "phone-a",
+            "iPhone",
+            &"a".repeat(64),
+            std::slice::from_ref(&access),
+        )
         .expect("初始只读授权");
     let mut cx = TestAppContext::single();
     let owner = cx.update(|cx| attach(store.clone(), cx));

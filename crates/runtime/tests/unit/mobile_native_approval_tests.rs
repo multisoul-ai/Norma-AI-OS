@@ -174,7 +174,7 @@ fn native_claude_approval_rejects_missing_dialog_and_ambiguous_tool() {
         "无动作的过渡状态必须符合Swift的只读提示协议"
     );
     assert!(
-        !preparing[0].details.get("command").is_some(),
+        preparing[0].details.get("command").is_none(),
         "尚未核验菜单不能发布可决策Bash正文"
     );
     assert!(

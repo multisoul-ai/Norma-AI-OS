@@ -341,7 +341,7 @@ impl Runtime {
                     session_id: run.session_id.clone()?,
                 },
                 workspace_root: self.workspace_root.clone()?,
-                title: node.kind.display_title().into(),
+                title: node.kind.display_title(),
             },
             run.transcript_path.clone(),
             outcome,

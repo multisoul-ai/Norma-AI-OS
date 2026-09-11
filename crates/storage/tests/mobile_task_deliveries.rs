@@ -32,7 +32,7 @@ fn project_delivery_pages_span_cards_without_crossing_workspaces() {
         )
         .expect("正式终态writer");
         let mut turn = key(&format!("turn-{index}"));
-        turn.node_id = if index % 2 == 0 { 7 } else { 8 };
+        turn.node_id = if index.is_multiple_of(2) { 7 } else { 8 };
         if turn.node_id == 8 {
             turn.profile = "Claude".into();
         }

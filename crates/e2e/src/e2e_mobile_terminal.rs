@@ -1,3 +1,4 @@
+use crate::mobile_wire as wire;
 use crate::{e2e_mobile_snapshot::fetch_action, harness::make_app};
 use app::{MobileAccess, MobileServer, MobileSources};
 use gpui::TestAppContext;
@@ -7,8 +8,6 @@ use std::{
     time::{Duration, Instant},
 };
 use storage::{AppStore, MobilePermission, MobileProjectAccess};
-#[path = "../tests/support/mobile.rs"]
-mod wire;
 
 /// 终端通过正式TLS/WSS读取和输入，权限/会话/屏幕/幂等记录共同限制原PTY副作用。
 ///

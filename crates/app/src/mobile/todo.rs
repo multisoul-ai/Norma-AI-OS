@@ -52,7 +52,7 @@ pub(super) fn submit(
         if let PlanTodoChoice::Accept { target, queue } = choice {
             let current =
                 super::queue::live_target(shared, machine, device, token, &request, target)?;
-            if !queue && current != *target {
+            if !queue && current != **target {
                 return Err("card_changed");
             }
         }

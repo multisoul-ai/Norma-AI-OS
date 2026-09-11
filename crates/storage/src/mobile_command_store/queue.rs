@@ -156,9 +156,9 @@ impl MobileCommandStore {
                 if value["node_id"].as_u64() != Some(entry.message.node_id)
                     || value["run_id"].as_str() != Some(&entry.message.run_id)
                     || value["session_id"].as_str() != Some(&entry.message.session_id)
-                    || !value["turn_id"]
+                    || value["turn_id"]
                         .as_str()
-                        .is_some_and(|s| crate::mobile_access_store::validate_id(s).is_ok())
+                        .is_none_or(|s| crate::mobile_access_store::validate_id(s).is_err())
                     || value.to_string().len() > 4096
                 {
                     return Err(invalid("queue receipt identity mismatch"));
@@ -297,7 +297,7 @@ pub(super) fn enqueue_on(
         {
             return Ok(MobileCommandReservation::Conflict);
         }
-        return Ok(MobileCommandReservation::Existing(receipt));
+        return Ok(MobileCommandReservation::Existing(Box::new(receipt)));
     }
     // 128 pending messages × 32KiB maximum = 4MiB of active message bodies per server owner.
     let count: u64 = connection.query_row("SELECT count(*) FROM mobile_message_queue q JOIN mobile_commands c USING(device_id,operation_id)

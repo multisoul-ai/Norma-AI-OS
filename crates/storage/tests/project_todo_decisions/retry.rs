@@ -9,7 +9,7 @@ use super::*;
 fn todo_explicit_retry_requires_exact_non_delivery_and_keeps_old_receipt() {
     let (_directory, store, first, draft) = fixture();
     let choice = PlanTodoChoice::Accept {
-        target: draft.todos[0].target.clone(),
+        target: Box::new(draft.todos[0].target.clone()),
         queue: false,
     };
     store
@@ -150,7 +150,7 @@ fn todo_explicit_retry_requires_exact_non_delivery_and_keeps_old_receipt() {
 fn todo_retry_cancels_old_owner_queue_atomically_but_never_replays_claimed_input() {
     let (_dir, store, mut first, draft) = fixture();
     let choice = PlanTodoChoice::Accept {
-        target: draft.todos[0].target.clone(),
+        target: Box::new(draft.todos[0].target.clone()),
         queue: true,
     };
     first.operation_id = "claimed".into();

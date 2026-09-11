@@ -13,6 +13,8 @@ mod e2e_debug_bounds;
 /// E2E 驱动 harness：装配 MultisoulApp、进入 Canvas、创建 Terminal、读取 runtime。
 /// 详见 `harness.rs` 顶部模块文档。Task 8/9 (E2E-01/02) 在此模块上构建。
 mod harness;
+#[path = "../tests/support/mobile.rs"]
+mod mobile_wire;
 
 // E2E-01（SPEC §4.2）：创建 Terminal 节点 + 焦点 + layout reflow 正/负断言矩阵。
 mod e2e_01_create_terminal;

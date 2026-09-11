@@ -6,8 +6,7 @@ use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 use storage::{AppStore, MobilePermission, MobileProjectAccess};
 
-#[path = "../tests/support/mobile.rs"]
-mod wire;
+use crate::mobile_wire as wire;
 
 /// 真实 WSS 经授权门、后台请求与现有 GPUI 项目路由读取当前卡片，不泄漏另一项目或旧窗口。
 ///

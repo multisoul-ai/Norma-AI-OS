@@ -215,7 +215,10 @@ fn valid_text(text: &str, max_bytes: usize) -> bool {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PlanTodoChoice {
-    Accept { target: CardSnapshot, queue: bool },
+    Accept {
+        target: Box<CardSnapshot>,
+        queue: bool,
+    },
     Reject,
 }
 

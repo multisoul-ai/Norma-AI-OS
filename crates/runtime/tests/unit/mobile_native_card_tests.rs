@@ -257,7 +257,6 @@ fn native_task_timing_tracks_exact_turn_without_snapshot_polling() {
     );
     let first = runtime.mobile_card_snapshots()[0]
         .task_timing
-        .clone()
         .expect("真实起点");
     assert!(first.completed_elapsed_ms.is_none(), "开始不等于完成");
     assert!(
@@ -288,7 +287,6 @@ fn native_task_timing_tracks_exact_turn_without_snapshot_polling() {
     );
     let finished = runtime.mobile_card_snapshots()[0]
         .task_timing
-        .clone()
         .expect("终态耗时");
     assert!(
         finished.completed_elapsed_ms.is_some(),

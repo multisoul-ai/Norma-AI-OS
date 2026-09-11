@@ -188,10 +188,11 @@ fn native_notification_lifecycle_and_ui_fixture() {
             }
         }
         while let Ok(mut request) = snapshots.try_recv() {
-            if interactive && !request.include_cards {
-                if dir.path().join("ui-catalog-offline").exists() {
-                    continue; // 仅关闭测试目录响应，正式服务会返回unavailable；不等待或伪造网络成功。
-                }
+            if interactive
+                && !request.include_cards
+                && dir.path().join("ui-catalog-offline").exists()
+            {
+                continue; // 仅关闭测试目录响应，正式服务会返回unavailable；不等待或伪造网络成功。
             }
             for p in &mut request.projects {
                 if p.workspace_id == second.workspace_id {
@@ -394,6 +395,7 @@ fn native_notification_lifecycle_and_ui_fixture() {
         }
         std::thread::sleep(Duration::from_millis(20)); // 与WSS listener一致，仅测试fixture轮询。
     }
+    child.wait().expect("回收原生测试进程");
     if !revoked {
         server
             .revoke(approved.as_deref().expect("已配对"))
