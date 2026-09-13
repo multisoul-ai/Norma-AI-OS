@@ -1,6 +1,160 @@
 import XCTest
 
 final class ChatInteractionFlowTests: XCTestCase {
+    /// 历史会话尚无运行进程时，原生聊天可保存短草稿，重进页面后由用户发送。
+    ///
+    /// 数据构造：原卡 7/session-7，启动前 run=null；hi 为 2 字节，远小于 64KiB 草稿上限。
+    ///   8s = 2s 项目订阅周期 + 6s 原生导航及 TLS 调度余量，不是性能指标。
+    /// 执行过程：隔离 WSS 返回未启动原卡 → 输入 hi → 等待已保存 → 重启 App → 点击发送。
+    /// 预期结果：没有“草稿尚未保存”、按钮可用；重启保留正文但不自动发送；准确回执后清空。
+    @MainActor func testColdOriginalCardSavesDraftAndSendsAfterReopen() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard env["NORMA_TEST_MODE"] == "notification-ui", let path = env["NORMA_TEST_QR"] else {
+            throw XCTSkip("仅使用独立配对的原生聊天 fixture")
+        }
+        let directory = URL(fileURLWithPath: path).deletingLastPathComponent()
+        let flags = ["ui-decision-deck", "ui-chat-interactions", "ui-card-management", "ui-chat-cold-session"].map { directory.appendingPathComponent($0) }
+        for flag in flags { try Data().write(to: flag) }
+        defer { for flag in flags { try? FileManager.default.removeItem(at: flag) } }
+        let sent = directory.appendingPathComponent("ui-chat-sent.json")
+        let app = XCUIApplication(); app.launch()
+        app.buttons["workspace-tab-projects"].tap()
+        let card = app.buttons["agent-card-7"]
+        XCTAssertTrue(card.waitForExistence(timeout: 8), "必须能查看尚未启动的原卡")
+        card.tap()
+        let input = app.descendants(matching: .any)["chat-message-input"].firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 8), "后台原卡应能输入内容")
+        input.tap(); input.typeText("hi")
+        let saved = app.staticTexts["草稿已保存到此手机"]
+        XCTAssertTrue(saved.waitForExistence(timeout: 8), "2 字节原文不能因缺少运行身份而保存失败")
+        XCTAssertFalse(app.staticTexts["draft-storage-error"].exists, "不能出现截图中的全局草稿失败提示")
+        XCTAssertTrue(app.buttons["chat-send-message"].isEnabled, "草稿保存后，原卡的发送按钮应可用")
+        app.terminate(); app.launch()
+        XCTAssertTrue(card.waitForExistence(timeout: 8), "重启后应回到同一项目")
+        card.tap()
+        XCTAssertTrue(input.waitForExistence(timeout: 8), "重启后应恢复输入区")
+        XCTAssertEqual(input.value as? String, "hi", "短草稿必须从本地磁盘恢复")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: sent.path), "保存和重启不能自动发送")
+        let send = app.buttons["chat-send-message"]
+        XCTAssertTrue(send.isEnabled, "恢复草稿不应锁住发送")
+        send.tap()
+        let cleared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in input.value as? String == "" }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [cleared], timeout: 8), .completed, "收到准确回执后必须清空本条正文")
+        let records = try JSONSerialization.jsonObject(with: Data(contentsOf: sent)) as? [[String: String]]
+        XCTAssertEqual(records?.count, 1, "一次点击只能发送一次原文")
+        XCTAssertEqual(records?.first?["text"], "hi", "必须发送用户输入的准确短消息")
+        XCTAssertFalse(app.staticTexts["draft-storage-error"].exists, "运行开始后不应留下草稿失败状态")
+    }
+
+    /// Claude 已返回空屏时应结束连接进度，等待后续正文仍能正常更新。
+    ///
+    /// 数据构造：原卡 7 正在运行，真实 WSS 返回 24 行空字符串；
+    ///   6s = 2 个 2s 心跳周期 + 2s UI 调度余量，足以区分等待响应和已收到空屏。
+    /// 执行过程：进入原卡 → 确认服务已读取空屏 → 核验无永久 spinner → 输出正文。
+    /// 预期结果：已连接不继续显示“正在连接实时输出”；正文自动出现且不会发送命令。
+    @MainActor func testClaudeEmptyOutputFinishesLoadingAndReceivesText() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard env["NORMA_TEST_MODE"] == "notification-ui", let path = env["NORMA_TEST_QR"] else {
+            throw XCTSkip("只使用显式隔离聊天服务")
+        }
+        let dir = URL(fileURLWithPath: path).deletingLastPathComponent()
+        let flags = ["ui-chat-live", "ui-chat-empty-output", "ui-chat-empty-read"].map { dir.appendingPathComponent($0) }
+        try Data().write(to: flags[0]); try Data().write(to: flags[1])
+        defer { for flag in flags { try? FileManager.default.removeItem(at: flag) } }
+        let app = XCUIApplication(); app.launch()
+        app.buttons["workspace-tab-projects"].tap()
+        let card = app.buttons["agent-card-7"]
+        XCTAssertTrue(card.waitForExistence(timeout: 8), "必须进入明确原会话的 Claude 卡")
+        card.tap()
+        let read = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            FileManager.default.fileExists(atPath: flags[2].path)
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [read], timeout: 6), .completed, "须确证终端已经返回空屏，不能把未连接当作空闲")
+        XCTAssertTrue(app.descendants(matching: .any)["workspace-loading"].firstMatch.waitForNonExistence(timeout: 6), "已收到空屏仍持续加载，会让 Claude 对话看起来卡住")
+        XCTAssertFalse(app.staticTexts["chat-live-output"].exists, "空屏不能伪造 Agent 正文")
+        try FileManager.default.removeItem(at: flags[1])
+        let output = app.staticTexts["chat-live-output"]
+        XCTAssertTrue(output.waitForExistence(timeout: 8), "空闲结束后应自动接收原卡实时正文")
+        XCTAssertTrue(output.label.contains("正在写第一句"), "必须展示后续真实屏幕的内容")
+        XCTAssertFalse(app.descendants(matching: .any)["workspace-loading"].firstMatch.exists, "正文到达后不应恢复旧加载状态")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-chat-sent.json").path), "读取空屏不能产生自动发送")
+    }
+
+    /// Claude就绪时被电脑明确拒绝的发送不能永久禁用输入，也不能丢草稿或自动重发。
+    /// 数据构造：隔离原卡7/原session-7；一条短草稿；首个操作desktop_input_pending，第二次outcome_unknown，第三次用户重试才成功。
+    /// 执行过程：就绪卡输入 → 正式TLS拒绝 → 核验原文与按钮恢复 → 结果未知并重启仍锁定 → 明确核实后用户重试成功。
+    /// 预期结果：就绪不被旧拒绝请求锁住；未知结果保留保护；没有自动重发，成功前草稿不清空，最终仅接收一次原文。
+    @MainActor func testReadyClaudeCanRetryAfterExplicitRejection() throws {
+        guard ProcessInfo.processInfo.environment["NORMA_TEST_MODE"] == "notification-ui",
+              let path = ProcessInfo.processInfo.environment["NORMA_TEST_QR"] else { throw XCTSkip("仅隔离聊天fixture") }
+        let dir = URL(fileURLWithPath: path).deletingLastPathComponent()
+        let flags = ["ui-chat-interactions", "ui-chat-ready", "ui-card-management"].map { dir.appendingPathComponent($0) }
+        let rejection = dir.appendingPathComponent("ui-chat-rejection")
+        for flag in flags { try Data().write(to: flag) }
+        try Data("desktop_input_pending".utf8).write(to: rejection)
+        defer {
+            for flag in flags + [rejection] { try? FileManager.default.removeItem(at: flag) }
+        }
+        let app = XCUIApplication(); app.launch()
+        // 8s = 2s订阅心跳 + 6s原生导航/TLS余量，失败回执不应等待额外25s。
+        let card = app.buttons["agent-card-7"]
+        XCTAssertTrue(card.waitForExistence(timeout: 8), "只打开隔离Claude原卡")
+        XCTAssertEqual(card.label, "检查登录测试，Claude，就绪", "必须复现就绪卡，而非借忙碌状态禁用发送")
+        card.tap()
+        let input = app.descendants(matching: .any)["chat-message-input"].firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 8), "必须进入原会话输入区")
+        let message = "Keep this draft for retry"
+        input.tap()
+        if input.value as? String != message { input.typeText(message) }
+        let send = app.buttons["chat-send-message"]
+        XCTAssertTrue(send.isEnabled, "就绪且已授权的Claude首条输入应可发送")
+        send.tap()
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-chat-rejected-operation").path) && send.isEnabled
+        }, object: nil)
+        let recovered = XCTWaiter.wait(for: [enabled], timeout: 8)
+        XCTAssertEqual(recovered, .completed, "明确拒绝已结束，不能让待确认记录永久锁住就绪卡")
+        XCTAssertEqual(input.value as? String, message, "拒绝不是成功，草稿必须完整保留")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-chat-sent.json").path), "不能自动重发或伪造已接收")
+        guard recovered == .completed else {
+            // 红测也经现有正式结果页清理准确的已拒绝请求，避免污染后续配对验收。
+            app.buttons["查看这条消息的发送结果"].tap()
+            let done = app.buttons["完成"]
+            if done.waitForExistence(timeout: 8) { done.tap() }
+            return
+        }
+        XCTAssertTrue(app.staticTexts["电脑终端中有待处理的输入，请先处理后再发送。"].exists, "应直接解释被拒绝原因")
+        let rejectedID = try String(contentsOf: dir.appendingPathComponent("ui-chat-rejected-operation"), encoding: .utf8)
+        let rejectedShot = XCTAttachment(screenshot: app.screenshot())
+        rejectedShot.name = "ready-claude-rejection-recovered"; rejectedShot.lifetime = .keepAlways; add(rejectedShot)
+        try Data("outcome_unknown".utf8).write(to: rejection)
+        send.tap()
+        let result = app.buttons["查看这条消息的发送结果"]
+        XCTAssertTrue(result.waitForExistence(timeout: 8), "未知结果必须保留查询入口")
+        XCTAssertFalse(send.isEnabled, "不能把未知结果当作拒绝来放行重发")
+        XCTAssertEqual(input.value as? String, message, "未知结果不能清除未确认的草稿")
+        app.terminate(); app.launch()
+        XCTAssertTrue(card.waitForExistence(timeout: 8), "重启应回到同一个就绪项目")
+        card.tap()
+        XCTAssertTrue(result.waitForExistence(timeout: 8), "重启后仍必须保护未知结果")
+        XCTAssertFalse(send.isEnabled, "重启不能绕过未决发送的保护")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-chat-sent.json").path), "恢复只能查询，不能自动重发")
+        result.tap()
+        XCTAssertTrue(app.staticTexts["结果尚无法确认，请在电脑上核对"].waitForExistence(timeout: 8), "结果页必须明确显示未知")
+        // 本fixture只记录请求，从未启动Agent；已核实无执行后才走正式清除确认。
+        app.buttons["已在电脑上核实，清除记录"].tap()
+        app.buttons["清除手机上的记录"].tap()
+        XCTAssertTrue(send.waitForExistence(timeout: 8), "清除确认后返回原输入页")
+        try FileManager.default.removeItem(at: rejection)
+        send.tap()
+        let cleared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in input.value as? String == "" }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [cleared], timeout: 8), .completed, "用户主动重试成功后才清空草稿")
+        let records = try JSONSerialization.jsonObject(with: Data(contentsOf: dir.appendingPathComponent("ui-chat-sent.json"))) as? [[String: String]]
+        XCTAssertEqual(records?.count, 1, "只有用户重试应进入原Agent一次")
+        XCTAssertEqual(records?.first?["text"], message, "重试必须保留原文")
+        XCTAssertNotEqual(records?.first?["operation_id"], rejectedID, "已拒绝操作不能复用，用户重试须有新幂等标识")
+    }
+
     /// Agent尚未将回复写入历史时，聊天内直接显示原卡输出并接收改变的行。
     /// 数据构造：24行隔离终端、1行持续变化正文，历史先空缺该回复，结束后才写入最终正文。
     /// 执行过程：打开运行卡 → 看见第一句 → 原屏幕更新第二句 → 正式历史写入并结束。

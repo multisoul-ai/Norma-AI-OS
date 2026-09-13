@@ -35,9 +35,10 @@ struct NotificationDestinationView: View {
                 } else if let error {
                     ContentUnavailableView("暂时无法打开这项提醒", systemImage: "bell.slash", description: Text(error))
                     Button("重新核验") { refresh += 1 }.frame(minHeight: 44)
-                } else { ProgressView("正在向电脑核验任务…") }
+                }
             }
             .scrollContentBackground(.hidden).background(.black)
+            .workspaceLoading((project == nil || card == nil) && error == nil, "正在向电脑核验任务…")
             .navigationTitle("任务提醒").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) {
                 Button("关闭", action: close).accessibilityIdentifier("notification-destination-close")

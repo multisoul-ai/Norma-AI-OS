@@ -4,6 +4,103 @@ use norma::agent_hook::{parse_hook_event, HookSource};
 use serde_json::json;
 use std::time::Duration;
 
+/// 未开窗项目的历史原卡可以按需恢复，不改权限、不启动旁边的卡片。
+///
+/// 数据构造：2 张旧桌面卡（mobile_control=false），各有准确保存的 session；
+///   80×24 为原生终端默认网格，640×400 为原卡尺寸；注入 echo 工厂，不运行 Provider。
+/// 执行过程：只恢复 document/session → 校验手机可发送 → 仅启动 Codex → 检查命令与卡片。
+/// 预期结果：Codex 使用原权限和精确 resume，Claude 无 PTY；重复启动失败且身份不变。
+#[test]
+fn cold_native_card_restores_only_requested_session() {
+    let mut runtime = Runtime::new_for_workspace("/tmp");
+    let codex = runtime.document.add_node(
+        CanvasNodeKind::Agent(AgentSpec {
+            profile: AgentProfile::Codex,
+            alias: None,
+            definition_id: None,
+            mobile_control: false,
+        }),
+        CanvasRect::new(0., 0., 640., 400.),
+    );
+    let claude = runtime.document.add_node(
+        CanvasNodeKind::Agent(AgentSpec {
+            profile: AgentProfile::Claude,
+            alias: None,
+            definition_id: None,
+            mobile_control: false,
+        }),
+        CanvasRect::new(640., 0., 640., 400.),
+    );
+    runtime.hydrate_agent_session_bindings(&[
+        storage::NodeSession {
+            node_id: codex,
+            kind: storage::NodeSessionKind::Agent,
+            cwd: None,
+            session_id: Some("codex-saved".into()),
+        },
+        storage::NodeSession {
+            node_id: claude,
+            kind: storage::NodeSessionKind::Agent,
+            cwd: None,
+            session_id: Some("claude-saved".into()),
+        },
+    ]);
+    let commands = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let captured = commands.clone();
+    runtime.set_pty_factory(Box::new(move |command, _, _, tx| {
+        captured.lock().expect("命令记录").push(command);
+        Ok(Box::new(terminal::TestPtyBackend::echo(tx)))
+    }));
+    let card = runtime.mobile_card_snapshots().remove(0);
+    assert!(
+        runtime.validate_mobile_message(&card, "continue").is_ok(),
+        "冷原卡应可由手机发起真实输入"
+    );
+    assert!(runtime.live.is_empty(), "读取和校验不能启动历史 Agent");
+    runtime
+        .start_native_agent_terminal(codex, 80, 24)
+        .expect("按需恢复原卡");
+    let active = runtime.mobile_card_snapshots().remove(0);
+    assert!(active.run_id.is_some(), "启动后的原卡应有运行身份");
+    assert_eq!(
+        active.session_id.as_deref(),
+        Some("codex-saved"),
+        "只恢复准确保存的会话"
+    );
+    assert!(runtime.live.contains_key(&codex), "目标 Codex 应有原生终端");
+    assert!(
+        !runtime.live.contains_key(&claude),
+        "旁边的 Claude 不应启动"
+    );
+    let commands = commands.lock().expect("命令记录");
+    assert_eq!(commands.len(), 1, "只能启动一个 PTY");
+    assert!(
+        commands[0].args[1].contains("resume 'codex-saved'"),
+        "不能从最近的任意会话恢复"
+    );
+    assert!(
+        commands[0].args[1].contains("--dangerously-bypass-approvals-and-sandbox"),
+        "保留原桌面卡权限模式"
+    );
+    assert!(
+        !commands[0].args[1].contains("app-server"),
+        "不能切换手机专用执行器"
+    );
+    assert!(
+        matches!(&runtime.document.node(codex).expect("原卡").kind, CanvasNodeKind::Agent(spec) if !spec.mobile_control),
+        "不能改写原卡控制模式"
+    );
+    assert!(
+        runtime.start_native_agent_terminal(codex, 80, 24).is_err(),
+        "重复启动必须拒绝"
+    );
+    assert_eq!(
+        runtime.mobile_card_snapshots()[0].run_id,
+        active.run_id,
+        "重复请求不能旋转运行身份"
+    );
+}
+
 /// 旧桌面 Hook 没有回合身份时仍可结束任务，但不能伪造手机的准确回合结果。
 ///
 /// 数据构造：1 张 Codex 原生卡、80×24 echo PTY；同一 session 的提交与 Stop 均无 turn_id。

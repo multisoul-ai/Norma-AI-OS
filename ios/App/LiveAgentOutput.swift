@@ -11,30 +11,39 @@ struct LiveAgentOutput: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var output = ""
     @State private var failure: String?
+    @State private var received = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("\(profile) · 实时输出", systemImage: "waveform")
-                .font(.caption.weight(.medium)).foregroundStyle(.secondary)
+            HStack(spacing: 7) {
+                ProviderMark(profile: profile, size: 18, working: failure == nil)
+                Text("\(profile) · 实时输出")
+                    .font(.caption.weight(.medium)).foregroundStyle(WorkspaceStyle.muted)
+            }
             if !output.isEmpty {
-                Text(output).font(.system(.caption, design: .monospaced))
+                Text(output).font(.system(.caption, design: .monospaced)).lineSpacing(4)
                     .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("chat-live-output")
-            } else if failure == nil { ProgressView("正在连接实时输出…").font(.caption) }
+            } else if failure == nil {
+                if received { Text("等待 Agent 输出…").font(.caption).foregroundStyle(.secondary) }
+                else { WorkspaceLoadingView(message: "正在连接实时输出…", inline: true) }
+            }
             if let failure { Text(failure).font(.caption).foregroundStyle(.secondary) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14).background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
+        .padding(14).background(WorkspaceStyle.surface, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(WorkspaceStyle.line, lineWidth: 1))
         .task(id: "\(scenePhase)-\(request.runID)-\(request.sessionID ?? "none")") {
-            output = ""; failure = nil
+            output = ""; failure = nil; received = false
             guard scenePhase == .active else { return }
             do {
                 for try await update in client.terminalUpdates(machine, request: request) {
                     try Task.checkCancellation()
                     switch update {
                     case let .current(page):
+                        received = true
                         // Preview the most recent screen; the Terminal tab retains full paged output.
-                        let text = page.rows.suffix(24).joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+                        let text = page.text(lastRows: 24).trimmingCharacters(in: .whitespacesAndNewlines)
                         if text != output { output = text; advanced() }
                         failure = nil
                     case .heartbeat: break

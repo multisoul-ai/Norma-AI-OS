@@ -22,12 +22,14 @@ use gpui::{AppContext as _, Context, FocusHandle};
 use runtime::Runtime;
 use ui::Theme;
 
+mod stored;
 #[cfg(feature = "e2e-test-support")]
 mod visual_preview;
+pub(crate) use stored::StoredBootstrap;
 
-#[derive(Clone, Copy)]
 pub(super) enum BootstrapSettingsSource {
     Stored,
+    Background(Box<StoredBootstrap>),
     #[cfg(any(test, feature = "e2e-test-support"))]
     InMemory,
 }
@@ -51,6 +53,9 @@ impl MultisoulApp {
         orchestration_bootstrap: OrchestrationBootstrap,
     ) -> Self {
         crate::network_crypto::install_network_crypto_provider();
+        crate::workspace::sessions::remember_database(database_paths.clone(), cx);
+        let background = matches!(&settings_source, BootstrapSettingsSource::Background(_));
+        let persist_voice = matches!(&settings_source, BootstrapSettingsSource::Stored);
         // 测试 / e2e 不经 `run_norma_os` 时也要装好组件库（幂等）。
         ui::init_components(cx);
         init_multisoul_key_bindings(cx);
@@ -59,15 +64,24 @@ impl MultisoulApp {
             app.unregister_workspace_window_if_needed(cx);
         })
         .detach();
+        cx.on_app_quit(|app, cx| {
+            app.stop_project(cx);
+            async {}
+        })
+        .detach();
         let mobile = crate::mobile::controller::attach(app_store.clone(), cx);
         cx.observe(&mobile, |_, _, cx| cx.notify()).detach();
-        let settings_store = app_store.settings_store();
         let workspace_identity_store = app_store.workspace_identity_store();
         let orchestration_task_route_store = app_store.orchestration_task_route_store();
         crate::norma::endpoint::attach_task_store(orchestration_task_route_store.clone(), cx);
-        let wallpaper_settings = WallpaperSettingsState::load_from_store(settings_store.clone());
-        let workspace_state = WorkspaceState::load_from_storage(app_store.recent_store());
-        let had_recent_workspaces = !workspace_state.recent.records.is_empty();
+        let prepared = match settings_source {
+            BootstrapSettingsSource::Background(prepared) => *prepared,
+            BootstrapSettingsSource::Stored => StoredBootstrap::load(&app_store),
+            #[cfg(any(test, feature = "e2e-test-support"))]
+            BootstrapSettingsSource::InMemory => StoredBootstrap::in_memory(&app_store),
+        };
+        let wallpaper_settings = prepared.wallpaper;
+        let workspace_state = prepared.workspace;
         let (
             theme_id,
             theme_settings,
@@ -76,51 +90,21 @@ impl MultisoulApp {
             shortcuts,
             feature_guide,
             feature_guide_settings,
-        ) = match settings_source {
-            BootstrapSettingsSource::Stored => {
-                let (theme_id, theme_settings) =
-                    ThemeSettingsState::load_from_store(settings_store.clone());
-                let performance_settings =
-                    PerformanceSettingsState::load_from_store(settings_store.clone());
-                let voice_settings = crate::settings::voice::VoiceSettingsState::load_from_store(
-                    settings_store.clone(),
-                );
-                let shortcuts = ShortcutSettingsState::load_from_store(settings_store.clone());
-                let (feature_guide, feature_guide_settings) =
-                    FeatureGuideSettingsState::load_from_store(
-                        settings_store,
-                        had_recent_workspaces,
-                    );
-                (
-                    theme_id,
-                    theme_settings,
-                    performance_settings,
-                    voice_settings,
-                    shortcuts,
-                    feature_guide,
-                    feature_guide_settings,
-                )
-            }
-            #[cfg(any(test, feature = "e2e-test-support"))]
-            BootstrapSettingsSource::InMemory => {
-                let (theme_id, theme_settings) = ThemeSettingsState::in_memory_default();
-                let (feature_guide, feature_guide_settings) =
-                    FeatureGuideSettingsState::in_memory_suppressed();
-                (
-                    theme_id,
-                    theme_settings,
-                    PerformanceSettingsState::in_memory_default(),
-                    crate::settings::voice::VoiceSettingsState::in_memory_default(),
-                    ShortcutSettingsState::default(),
-                    feature_guide,
-                    feature_guide_settings,
-                )
-            }
-        };
+        ) = (
+            prepared.theme_id,
+            prepared.theme,
+            prepared.performance,
+            prepared.voice,
+            prepared.shortcuts,
+            prepared.guide,
+            prepared.guide_settings,
+        );
         let (animation_wake_tx, animation_wake_rx) = async_channel::bounded(1);
         Self::start_frame_loops(animation_wake_rx, cx);
         let theme = Theme::for_id(theme_id);
-        ui::sync_component_theme(theme_id, cx);
+        if !background {
+            ui::sync_component_theme(theme_id, cx);
+        }
         let focus_handle: FocusHandle = cx.focus_handle();
         let performance = crate::performance_monitor::register_window(cx);
         let feature_guide_primary_focus = cx.focus_handle().tab_index(1).tab_stop(true);
@@ -255,7 +239,10 @@ impl MultisoulApp {
             ),
             animation_frame_pending: false,
             animation_frame_cadence: None,
-            window_active: true,
+            window_active: !background,
+            project_window: None,
+            background_project: background,
+            background_restore: None,
             canvas_surface,
             working_snake_views: std::collections::HashMap::new(),
             voice_window_inset_events,
@@ -266,15 +253,17 @@ impl MultisoulApp {
         let visual_preview = visual_preview::configure_from_env(&mut app, cx);
         #[cfg(not(feature = "e2e-test-support"))]
         let visual_preview = false;
-        app.refresh_asr_model_states(cx);
-        if !visual_preview {
-            app.refresh_tts_model_states(cx);
-        }
-        app.refresh_voice_microphone_requirement(cx);
-        app.refresh_voice_provider_credentials(cx);
-        app.validate_saved_voice_provider(cx);
-        if matches!(settings_source, BootstrapSettingsSource::Stored) {
-            app.persist_voice_settings_in_background(cx);
+        if !background {
+            app.refresh_asr_model_states(cx);
+            if !visual_preview {
+                app.refresh_tts_model_states(cx);
+            }
+            app.refresh_voice_microphone_requirement(cx);
+            app.refresh_voice_provider_credentials(cx);
+            app.validate_saved_voice_provider(cx);
+            if persist_voice {
+                app.persist_voice_settings_in_background(cx);
+            }
         }
         #[cfg(test)]
         let _ = &orchestration_bootstrap;
@@ -285,7 +274,11 @@ impl MultisoulApp {
             if let Some(shared) = shared {
                 crate::settings::orchestration::health::apply_snapshot(&mut app, shared);
             }
-            if should_reconcile_orchestration_integrations(visual_preview, &orchestration_bootstrap)
+            if !background
+                && should_reconcile_orchestration_integrations(
+                    visual_preview,
+                    &orchestration_bootstrap,
+                )
             {
                 let install_paths = match orchestration_bootstrap {
                     #[cfg(any(test, feature = "e2e-test-support"))]

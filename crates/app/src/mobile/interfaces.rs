@@ -6,11 +6,18 @@ use std::{
 
 /// Native interface discovery. No shell, public addresses, wildcard binds or unscoped IPv6 link-local.
 pub(super) fn addresses() -> Result<Vec<SocketAddr>> {
+    #[cfg(feature = "e2e-test-support")]
+    if std::env::var_os("NORMA_MOBILE_L3_LOOPBACK").is_some()
+        && std::env::var_os("NORMA_TEST_DATA_ROOT").is_some()
+    {
+        // Isolated UI acceptance must neither collide with the real App nor expose its test data.
+        return Ok(vec![SocketAddr::from((Ipv4Addr::LOCALHOST, 0))]);
+    }
     let mut first = std::ptr::null_mut();
     // SAFETY: getifaddrs initializes a linked list whose lifetime is guarded below.
     ensure!(
         unsafe { libc::getifaddrs(&mut first) } == 0,
-        "无法读取局域网地址"
+        "Unable to read local network addresses"
     );
     struct Interfaces(*mut libc::ifaddrs);
     impl Drop for Interfaces {
@@ -65,7 +72,7 @@ pub(super) fn addresses() -> Result<Vec<SocketAddr>> {
     });
     ensure!(
         !addresses.is_empty(),
-        "没有可用的局域网或 Tailscale 地址，请先连接网络"
+        "No local network or Tailscale address is available. Connect to a network first."
     );
     Ok(addresses
         .into_iter()

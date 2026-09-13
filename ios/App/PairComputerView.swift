@@ -25,7 +25,7 @@ struct PairComputerView: View {
                                 .accessibilityLabel("核对码 \(pending.verificationCode.map(String.init).joined(separator: " "))")
                             Text("确认电脑显示相同核对码，再在电脑上选择允许此手机访问的项目和权限。")
                                 .font(.subheadline).foregroundStyle(.secondary)
-                            if busy { ProgressView("等待授权…").font(.subheadline) }
+                            if busy { WorkspaceLoadingView(message: "等待授权…", inline: true) }
                         }.padding(.vertical, 12)
                     }
                 } else if let offer {
@@ -40,7 +40,7 @@ struct PairComputerView: View {
                         Button("连接电脑", action: pair).disabled(busy)
                         Button("重新扫描") { self.offer = nil; error = nil; scanning = true }.disabled(busy)
                         Button("输入新的验证码") { enteringCode = true }.disabled(busy)
-                        if busy { ProgressView("正在连接电脑…").font(.subheadline) }
+                        if busy { WorkspaceLoadingView(message: "正在连接电脑…", inline: true) }
                     }
                 } else {
                     Section {

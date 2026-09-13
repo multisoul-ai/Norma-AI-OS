@@ -29,7 +29,7 @@ mod mobile_cards;
 mod restore;
 pub use mobile_cards::{
     CodexExternalApproval, MobileAgentLaunch, MobileArchiveRead, MobileClaudeHistoryRead,
-    MobileNativeApproval, MobileTerminalInterrupt, PreparedMobileAgent,
+    MobileNativeApproval, MobileTerminalInterrupt, NativeAgentLaunch, PreparedMobileAgent,
 };
 
 pub const DEFAULT_TERMINAL_SHELL: &str = "/bin/zsh";

@@ -7,28 +7,28 @@ use std::ptr::NonNull;
 pub(super) fn pixels(payload: &str) -> Result<RgbaImage> {
     ensure!(
         !payload.is_empty() && payload.len() <= 4096,
-        "二维码内容无效"
+        "Invalid QR code content"
     );
     // SAFETY: fixed system filter and documented KVC keys/types; no untrusted selector names.
     let modules = unsafe {
         let filter = CIFilter::filterWithName(ns_string!("CIQRCodeGenerator"))
-            .context("系统二维码不可用")?;
+            .context("The system QR code generator is unavailable")?;
         filter.setValue_forKey(
             Some(&NSData::with_bytes(payload.as_bytes())),
             ns_string!("inputMessage"),
         );
         filter.setValue_forKey(Some(ns_string!("M")), ns_string!("inputCorrectionLevel"));
-        let output = filter.outputImage().context("无法生成二维码")?;
+        let output = filter.outputImage().context("Unable to generate QR code")?;
         let bounds = output.extent();
         let side = bounds.size.width as u32;
         ensure!(
             (21..=177).contains(&side) && bounds.size.width == bounds.size.height,
-            "二维码尺寸无效"
+            "Invalid QR code dimensions"
         );
         let mut pixels = RgbaImage::new(side, side);
         CIContext::context().render_toBitmap_rowBytes_bounds_format_colorSpace(
             &output,
-            NonNull::new(pixels.as_mut_ptr().cast()).context("二维码像素为空")?,
+            NonNull::new(pixels.as_mut_ptr().cast()).context("QR code image is empty")?,
             (side * 4) as isize,
             bounds,
             kCIFormatRGBA8,

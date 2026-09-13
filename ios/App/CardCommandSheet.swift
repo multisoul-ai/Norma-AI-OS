@@ -44,7 +44,7 @@ struct CardCommandSheet: View {
                         Label(pending.request.command.displayName, systemImage: "square.stack")
                         Text(status).font(.subheadline.weight(.medium))
                         if let error { Text(error).font(.caption).foregroundStyle(.orange) }
-                        if busy { ProgressView("正在核对电脑…") }
+                        if busy { WorkspaceLoadingView(message: "正在核对电脑…", inline: true) }
                         Button("查询结果") { work = Task { await check() } }.disabled(busy)
                     } footer: {
                         Text("请求已保存在这台 iPhone。重新连接只查询结果，不会再次执行操作。")
@@ -81,7 +81,7 @@ struct CardCommandSheet: View {
                             .disabled(busy || !model.drafts.loaded || feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || feedbackText.utf8.count > 30 * 1024)
                             .frame(minHeight: 44).accessibilityIdentifier("submit-delivery-feedback")
                         if feedbackText.utf8.count > 30 * 1024 { Text("修改意见过长，请缩短后发送。").font(.caption).foregroundStyle(.orange) }
-                        if busy { ProgressView("正在发送…") }
+                        if busy { WorkspaceLoadingView(message: "正在发送…", inline: true) }
                         if let error { Text(error).font(.caption).foregroundStyle(.orange) }
                     }
                 } else if let accepting {
@@ -93,7 +93,7 @@ struct CardCommandSheet: View {
                     Section {
                         Button("确认验收") { work = Task { await submit() } }
                             .disabled(busy).frame(minHeight: 44).accessibilityIdentifier("confirm-delivery-acceptance")
-                        if busy { ProgressView("正在保存验收…") }
+                        if busy { WorkspaceLoadingView(message: "正在保存验收…", inline: true) }
                         if let error { Text(error).font(.caption).foregroundStyle(.orange) }
                     }
                 } else if let deleting {
@@ -142,26 +142,7 @@ struct CardCommandSheet: View {
         default: "停止结果尚无法确认"
         }
     }
-    private var rejectionMessage: String {
-        switch receipt?.error {
-        case "terminal_changed": "终端已变化，本次输入未写入。请查看最新画面后重试。"
-        case "paste_unavailable": "终端暂不支持多行粘贴，本次输入未写入。"
-        case "feedback_not_saved": "修改意见未能保存，尚未发给 Agent，原文仍在手机上"
-        case "session_changed": "原 Agent 会话已关闭或重开，修改意见没有转发到其他会话"
-        case "delivery_accepted": "这份成果已经验收，请重新读取查看原决定"
-        case "delivery_changed": "成果内容与所见不一致，未执行验收"
-        case "delivery_missing", "delivery_not_ready": "这份成果暂不可验收，请在电脑上核对"
-        case "route_expired": "项目窗口已变化，未执行操作"
-        case "card_changed": "卡片或任务已变化，请刷新后重新确认"
-        case "desktop_input_pending": "电脑上有尚未确认的输入，请先在电脑上处理"
-        case "state_not_ready": "Agent 正在同步或有排队任务，请稍后重试"
-        case "terminal_not_ready": "电脑终端尚未准备好多行输入，请稍后重试"
-        case "confirmation_required": "需要确认停止当前任务"
-        case "mobile_control_required": "请先在电脑上为这张卡片启用手机控制"
-        case "not_found": "卡片已经移除"
-        default: "电脑未执行这次\(actionName)"
-        }
-    }
+    private var rejectionMessage: String { receipt?.rejectionMessage(actionName: actionName) ?? "电脑未执行这次操作" }
     @MainActor private func submit() async {
         guard !busy, pending == nil, let route = project.routeID else { return }
         busy = true; error = nil
@@ -213,5 +194,28 @@ struct CardCommandSheet: View {
             try await model.commandStore.remove(id: pending.id); try await model.reloadCommands(); dismiss()
         }
         catch { self.error = error.localizedDescription }
+    }
+}
+
+extension MobileCommandReceipt {
+    func rejectionMessage(actionName: String) -> String {
+        switch error {
+        case "terminal_changed": "终端已变化，本次输入未写入。请查看最新画面后重试。"
+        case "paste_unavailable": "终端暂不支持多行粘贴，本次输入未写入。"
+        case "feedback_not_saved": "修改意见未能保存，尚未发给 Agent，原文仍在手机上"
+        case "session_changed": "原 Agent 会话已关闭或重开，本次操作没有转发到其他会话"
+        case "delivery_accepted": "这份成果已经验收，请重新读取查看原决定"
+        case "delivery_changed": "成果内容与所见不一致，未执行验收"
+        case "delivery_missing", "delivery_not_ready": "这份成果暂不可验收，请在电脑上核对"
+        case "route_expired": "项目窗口已变化，未执行操作"
+        case "card_changed": "卡片或任务已变化，请刷新后重新确认"
+        case "desktop_input_pending": "电脑终端中有待处理的输入，请先处理后再发送。"
+        case "state_not_ready": "Agent 正在同步或有排队任务，请稍后重试"
+        case "terminal_not_ready": "电脑终端尚未准备好多行输入，请稍后重试"
+        case "confirmation_required": "需要确认停止当前任务"
+        case "mobile_control_required": "请先在电脑上为这张卡片启用手机控制"
+        case "not_found": "卡片已经移除"
+        default: "电脑未执行这次\(actionName)"
+        }
     }
 }

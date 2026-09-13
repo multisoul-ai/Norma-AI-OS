@@ -98,7 +98,7 @@ struct ApprovalRecordView: View {
                 }
                 Text(status).fontWeight(.medium).accessibilityIdentifier("approval-status")
                 if let error { Text(error).font(.caption).foregroundStyle(.orange) }
-                if busy { ProgressView("正在查询回执…") }
+                if busy { WorkspaceLoadingView(message: "正在查询回执…", inline: true) }
                 Button("查询决定结果") { Task { await check() } }.disabled(busy || machine == nil)
             } footer: { Text("重新连接只查询原操作。提交决定与工具执行完成是不同的状态。") }
             if let snapshot = command.approvalPreview {

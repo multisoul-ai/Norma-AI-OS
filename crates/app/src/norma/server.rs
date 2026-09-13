@@ -48,7 +48,7 @@ impl MultisoulApp {
     pub(crate) fn execute_card_command(
         &mut self,
         request: WireRequest,
-        window: &mut Window,
+        mut window: Option<&mut Window>,
         cx: &mut Context<Self>,
     ) -> WireResponse {
         let WireRequest {
@@ -64,6 +64,11 @@ impl MultisoulApp {
         let logged_command = managed_command.then(|| command.clone());
         let logged_authorization = authorization.clone();
         let result = match command {
+            CardCommand::Present { .. } | CardCommand::Focus { .. } if window.is_none() => {
+                Err(CardCommandError::Unsupported {
+                    message: "This operation requires a visible project window.".into(),
+                })
+            }
             CardCommand::Doctor => Ok(NormaExecution {
                 result: CardCommandResult::Doctor {
                     report: crate::norma::endpoint::doctor_report(client_version.as_deref(), cx),
@@ -105,7 +110,12 @@ impl MultisoulApp {
                             unreachable!("presentation classifier only accepts Present");
                         };
                         presentation::execute_presentation_command(
-                            self, window, cx, target, create_new, source,
+                            self,
+                            window.as_deref_mut().expect("presentation needs window"),
+                            cx,
+                            target,
+                            create_new,
+                            source,
                         )
                     }
                     Ok((_source, _provider)) if matches!(command, CardCommand::ListWorkspaces) => {
@@ -139,7 +149,11 @@ impl MultisoulApp {
                         })
                     }
                     Ok((source, provider)) => crate::app::execute_orchestration_agent_command(
-                        self, window, command, source, provider,
+                        self,
+                        window.as_deref_mut(),
+                        command,
+                        source,
+                        provider,
                     )
                     .map(|result| NormaExecution {
                         result,
@@ -150,13 +164,23 @@ impl MultisoulApp {
                 }
             }
             command @ (CardCommand::CreateAgent { .. } | CardCommand::ActivateAgent { .. }) => {
-                crate::app::execute_agent_card_command(self, window, command)
-                    .map(|result| NormaExecution {
-                        result,
-                        effects: NormaCommandEffects::NONE,
-                        removed_agent_definition_id: None,
-                    })
-                    .map_err(|message| CardCommandError::Runtime { message })
+                let area = self.mobile_canvas_area(window.as_deref_mut());
+                let zoom = self.runtime.document.viewport.zoom;
+                crate::app::execute_high_level_agent_command(
+                    self,
+                    command,
+                    area,
+                    zoom,
+                    agent::AgentDispatchSource::norma(),
+                    None,
+                )
+                .map_err(|error| error.to_string())
+                .map(|result| NormaExecution {
+                    result,
+                    effects: NormaCommandEffects::NONE,
+                    removed_agent_definition_id: None,
+                })
+                .map_err(|message| CardCommandError::Runtime { message })
             }
             CardCommand::Create {
                 kind:
@@ -166,7 +190,7 @@ impl MultisoulApp {
                     },
                 placement,
             } => {
-                let area = self.visible_canvas_rect(window);
+                let area = self.mobile_canvas_area(window.as_deref_mut());
                 let zoom = self.runtime.document.viewport.zoom;
                 let bounds = resolve_bounds(
                     placement,
@@ -190,7 +214,7 @@ impl MultisoulApp {
                 })
             }
             command => {
-                let area = self.visible_canvas_rect(window);
+                let area = self.mobile_canvas_area(window.as_deref_mut());
                 let zoom = self.runtime.document.viewport.zoom;
                 execute_card_command_for_area_with_strategy(
                     &mut self.runtime,

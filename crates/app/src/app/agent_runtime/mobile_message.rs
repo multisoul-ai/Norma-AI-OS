@@ -1,7 +1,7 @@
 use crate::app::MultisoulApp;
 use gpui::Context;
 use norma::mobile::CardSnapshot;
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::time::{Duration, Instant};
 
 impl MultisoulApp {
@@ -37,18 +37,22 @@ impl MultisoulApp {
         }
         self.runtime.validate_mobile_message(expected, &text)?;
         let cold = expected.run_id.is_none();
-        let codex = expected.profile == "Codex";
-        let startup = if cold {
-            Some(
-                if codex {
-                    self.start_mobile_codex(node, text.clone(), cx)
-                } else {
-                    self.start_mobile_agent(node, cx)
-                }
-                .map_err(|_| "start_failed")?,
+        let (run_id, startup) = if cold {
+            // Only the requested original card starts, on the background executor.
+            let launch = self
+                .runtime
+                .prepare_native_agent_terminal(node, 80, 24)
+                .map_err(|_| "start_failed")?;
+            let run = launch.run_id().to_owned();
+            (
+                Some(run),
+                Some(
+                    cx.background_executor()
+                        .spawn(async move { launch.spawn() }),
+                ),
             )
         } else {
-            None
+            (expected.run_id.clone(), None)
         };
         let existing = if cold {
             None
@@ -66,50 +70,84 @@ impl MultisoulApp {
             )
         };
         let (reply, receipt) = async_channel::bounded(1);
-        let previous_session = expected.session_id.clone();
         cx.spawn(async move |this, cx| {
             //25s Provider acknowledgement +10s pre-send baseline +5s storage margin =40s gateway budget.
             let deadline = Instant::now() + Duration::from_secs(25);
-            let session = if let Some(startup) = startup {
-                match startup.recv().await {
-                    Ok(Ok(session)) => Some(session),
-                    failure => { tracing::warn!(?failure, node_id=node, "mobile Agent startup was not confirmed"); let _ = reply.try_send(Err("outcome_unknown".into())); return; }
+            if let Some(startup) = startup {
+                let result = startup.await;
+                let attached = this.update(cx, |app, cx| {
+                    app.runtime.complete_native_agent_terminal(
+                        node,
+                        run_id.as_deref().unwrap_or_default(),
+                        result.and_then(|prepared| prepared.into_live()),
+                    )?;
+                    app.mark_session_dirty();
+                    cx.notify();
+                    Ok::<_, terminal::PtyError>(())
+                });
+                if !matches!(attached, Ok(Ok(()))) {
+                    let _ = reply.try_send(Err("outcome_unknown".into()));
+                    return;
                 }
-            } else { previous_session };
+            }
             let mut waiting = existing;
             let outcome = loop {
-                if Instant::now() >= deadline { break Err("outcome_unknown".into()); }
+                if Instant::now() >= deadline {
+                    break Err("outcome_unknown".into());
+                }
                 if let Some(waiting) = &waiting {
                     match waiting.try_recv() {
                         Ok(result) => break result,
-                        Err(crossbeam_channel::TryRecvError::Disconnected) => break Err("outcome_unknown".into()),
+                        Err(crossbeam_channel::TryRecvError::Disconnected) => {
+                            break Err("outcome_unknown".into())
+                        }
                         Err(crossbeam_channel::TryRecvError::Empty) => {}
                     }
                 } else {
-                    let step = this.update(cx, |app, cx| -> Result<Option<Value>, String> {
-                        if app.runtime.agent_session_id(node) != session { return Err("outcome_unknown".into()); }
-                        let current = app.runtime.mobile_card_snapshots().into_iter().find(|c| c.node_id == node).ok_or("outcome_unknown")?;
-                        if current.run_id.is_none() { return Err("outcome_unknown".into()); }
-                        if codex {
-                            let turn = app.runtime.mobile_codex_initial_turn(node, session.as_deref().ok_or("outcome_unknown")?).ok_or("outcome_unknown")?;
-                            return Ok(Some(json!({"node_id":node,"run_id":current.run_id,"session_id":session,"turn_id":turn})));
-                        }
-                        if app.mobile_node_has_pending_work(node) || current.state == "unknown" { return Ok(None); }
-                        match app.runtime.send_mobile_message(&current, text.clone()) {
-                            Ok(receipt) => waiting = Some(receipt),
-                            Err(error) if error == "terminal_not_ready" => return Ok(None),
-                            Err(error) => return Err(error),
-                        }
-                        cx.notify(); Ok(None)
-                    }).unwrap_or_else(|_| Err("outcome_unknown".into()));
-                    match step { Ok(Some(result)) => break Ok(result), Err(error) => break Err(error), Ok(None) => {} }
+                    let step = this
+                        .update(cx, |app, cx| -> Result<Option<Value>, String> {
+                            let current = app
+                                .runtime
+                                .mobile_card_snapshots()
+                                .into_iter()
+                                .find(|c| c.node_id == node)
+                                .ok_or("outcome_unknown")?;
+                            // Codex can acquire its provider session only after the first input.
+                            // The reserved run ID remains the authority throughout startup and acknowledgement.
+                            if current.run_id != run_id {
+                                return Err("outcome_unknown".into());
+                            }
+                            if app.mobile_node_has_pending_work(node)
+                                || matches!(current.state.as_str(), "unknown" | "preparing")
+                            {
+                                return Ok(None);
+                            }
+                            match app.runtime.send_mobile_message(&current, text.clone()) {
+                                Ok(receipt) => waiting = Some(receipt),
+                                Err(error) if error == "terminal_not_ready" => return Ok(None),
+                                Err(error) => return Err(error),
+                            }
+                            cx.notify();
+                            Ok(None)
+                        })
+                        .unwrap_or_else(|_| Err("outcome_unknown".into()));
+                    match step {
+                        Ok(Some(result)) => break Ok(result),
+                        Err(error) => break Err(error),
+                        Ok(None) => {}
+                    }
                 }
                 // 25ms = 40 in-memory checks/s only during one bounded send; no IO on the foreground.
-                cx.background_executor().timer(Duration::from_millis(25)).await;
+                cx.background_executor()
+                    .timer(Duration::from_millis(25))
+                    .await;
             };
-            if let Err(error) = &outcome { tracing::warn!(%error, node_id=node, "mobile message outcome unknown"); }
+            if let Err(error) = &outcome {
+                tracing::warn!(%error, node_id=node, "mobile message outcome unknown");
+            }
             let _ = reply.try_send(outcome);
-        }).detach();
+        })
+        .detach();
         cx.notify();
         Ok(receipt)
     }

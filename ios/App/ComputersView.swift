@@ -25,25 +25,37 @@ struct ComputersView: View {
                 } else {
                     Section("已保存的电脑") {
                         ForEach(model.machines) { machine in
-                            Button { model.select(machine.id); dismiss() } label: {
-                                HStack(spacing: 14) {
-                                    Image(systemName: "laptopcomputer").font(.title3).frame(width: 32)
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(machine.name).font(.subheadline.weight(.semibold))
-                                        Text(machine.id == model.selectedID ? "当前电脑" : "轻点切换").font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    if machine.id == model.selectedID {
-                                        Image(systemName: "checkmark.circle.fill").accessibilityLabel("已选择")
-                                    }
-                                }.padding(.vertical, 7)
+                            HStack(spacing: 4) {
+                                Button { model.select(machine.id); dismiss() } label: {
+                                    HStack(spacing: 14) {
+                                        Image(systemName: "laptopcomputer").font(.title3).frame(width: 32)
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(machine.name).font(.subheadline.weight(.semibold))
+                                            Text(machine.id == model.selectedID ? "当前电脑" : "轻点切换").font(.caption).foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                        if machine.id == model.selectedID {
+                                            Image(systemName: "checkmark.circle.fill").accessibilityLabel("已选择")
+                                        }
+                                    }.padding(.vertical, 7)
+                                }
+                                .buttonStyle(.plain)
+                                Menu {
+                                    Button("忘记这台电脑", systemImage: "trash", role: .destructive) { forgetting = machine }
+                                } label: {
+                                    Image(systemName: "ellipsis").frame(width: 44, height: 44).contentShape(Rectangle())
+                                }.buttonStyle(.borderless).tint(.secondary)
+                                    .accessibilityLabel("管理 " + machine.name)
+                                    .accessibilityIdentifier("computer-actions-" + machine.id)
                             }
-                            .swipeActions { Button("忘记", role: .destructive) { forgetting = machine } }
+                            .swipeActions(allowsFullSwipe: false) {
+                                Button("忘记", systemImage: "trash", role: .destructive) { forgetting = machine }.tint(.red)
+                            }
                         }
                     }
                     if model.selected != nil {
                         Section("设备授权") {
-                            if model.connecting { ProgressView("正在核验电脑…").font(.subheadline) }
+                            if model.connecting { WorkspaceLoadingView(message: "正在核验电脑…", inline: true) }
                             else if let grant = model.grant, let date = model.checkedAt {
                                 LabeledContent("最近核验", value: date.formatted(date: .omitted, time: .standard))
                                 LabeledContent("已授权项目", value: "\(grant.projects.count)")
@@ -59,7 +71,7 @@ struct ComputersView: View {
                     Button { adding = true } label: { Label("添加电脑", systemImage: "qrcode.viewfinder").frame(minHeight: 28) }
                         .accessibilityIdentifier("add-computer")
                 } footer: {
-                    Text("可添加多台 Mac，通过局域网或 Tailscale 连接。电脑上的 Norma 需要保持打开；关闭窗口后 Agent 会停止。")
+                    Text("可添加多台 Mac，通过局域网或 Tailscale 连接。开启手机服务后，关闭窗口仍可使用；退出 Norma 后停止。")
                 }
             }
             .scrollContentBackground(.hidden).background(.black)
@@ -82,18 +94,16 @@ struct ComputersView: View {
         .sheet(isPresented: $showNotifications) { NotificationSettingsView(model: model, notifications: notifications) }
         .sheet(isPresented: $showQueue) { MessageQueueView(model: model, commands: model.pendingCommands.filter { $0.request.command.isQueuedMessage }) }
         .sheet(isPresented: $showDrafts) { DraftHistoryView(book: model.drafts, drafts: model.drafts.drafts) }
-        .confirmationDialog("忘记这台电脑？", isPresented: Binding(get: { forgetting != nil }, set: { if !$0 { forgetting = nil } }), titleVisibility: .visible) {
+        .alert("忘记这台电脑？", isPresented: Binding(get: { forgetting != nil }, set: { if !$0 { forgetting = nil } })) {
             if let machine = forgetting {
                 Button("忘记 \(machine.name)", role: .destructive) {
-                    Task {
-                        guard await notifications.update(machine, to: nil, client: model.client) else {
-                            model.error = notifications.errors[machine.id] ?? "请等待提醒设置完成后重试。"; return
-                        }
-                        await model.forget(machine)
-                    }
+                    Task { await model.forget(machine, notifications: notifications) }
                 }
             }
-        } message: { Text("先关闭这台电脑的任务提醒，再移除手机凭据。电脑需要在线；如需撤销电脑上的授权，请在该电脑的 Norma 中操作。") }
+            Button("取消", role: .cancel) { forgetting = nil }
+        } message: {
+            Text("从此 iPhone 移除连接和凭据，重新连接需要配对。会尝试关闭提醒；离线时请在 Mac 上关闭提醒或撤销授权。电脑上的项目和 Agent 不受影响。")
+        }
     }
 
 }

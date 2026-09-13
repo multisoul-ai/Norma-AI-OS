@@ -153,7 +153,7 @@ fn test_product_ui_command_dock_orders_canvas_creation_and_utility_as_three_grou
 /// Product UI 启动主题：应用必须恢复已保存主题，并在没有保存值时回退到 Paper Blue。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   bootstrap source = `app/bootstrap.rs`
+///   bootstrap source = `app/bootstrap.rs` + `app/bootstrap/stored.rs`
 ///   selection source = `settings/theme_selection.rs`
 ///   主题 id 初始化数 = 1；该 id 会同时影响 Launchpad、Canvas 卡片与 Settings
 ///   持久化优先级 = 已保存合法 ThemeId > `ThemeId::default()`（Paper Blue）
@@ -171,14 +171,16 @@ fn test_product_ui_command_dock_orders_canvas_creation_and_utility_as_three_grou
 #[test]
 fn test_product_ui_bootstrap_activates_light_glass_theme() {
     let bootstrap = include_str!("../../src/app/bootstrap.rs");
+    let stored = include_str!("../../src/app/bootstrap/stored.rs");
     let selection = include_str!("../../src/settings/theme_selection.rs");
 
     assert!(
-        bootstrap.contains("let settings_store = app_store.settings_store();"),
+        bootstrap.contains("StoredBootstrap::load(&app_store)")
+            && stored.contains("let settings = store.settings_store();"),
         "Product UI 启动时必须从已选择的 AppStore 派生共享 SettingsStore"
     );
     assert!(
-        bootstrap.contains("ThemeSettingsState::load_from_store(settings_store.clone())")
+        stored.contains("ThemeSettingsState::load_from_store(settings.clone())")
             && bootstrap.contains("let theme = Theme::for_id(theme_id);"),
         "Product UI 启动时必须从显式 SettingsStore 恢复主题，并用恢复出的 ThemeId 构造主题"
     );
@@ -187,7 +189,7 @@ fn test_product_ui_bootstrap_activates_light_glass_theme() {
         "没有合法保存值时必须回退 ThemeId::default() 对应的 Paper Blue"
     );
     assert!(
-        !bootstrap.contains("let theme = Theme::dark();"),
+        !bootstrap.contains("let theme = Theme::dark();") && !stored.contains("Theme::dark()"),
         "bootstrap 不得硬编码旧暗色主题，否则保存的选择与 Paper Blue 缺省值都不会生效"
     );
 }

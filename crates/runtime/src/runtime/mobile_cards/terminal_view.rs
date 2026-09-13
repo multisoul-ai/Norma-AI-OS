@@ -44,17 +44,28 @@ impl Runtime {
         }
         //120 rows ×512 columns ×4 UTF-8 bytes <=240KiB; serialized controls still fit a512KiB frame.
         let start = end.saturating_sub(120);
-        let rows = self
+        let cells = self
             .node_terminal_rows(card.node_id, start, end - 1)
-            .ok_or("terminal_unavailable")?
+            .ok_or("terminal_unavailable")?;
+        let soft_wrapped: Vec<bool> = cells
             .iter()
-            .map(|row| {
-                row.iter()
+            .map(|row| row.last().is_some_and(|cell| cell.attrs.soft_wrap))
+            .collect();
+        let rows = cells
+            .iter()
+            .zip(&soft_wrapped)
+            .map(|(row, wrapped)| {
+                let text = row
+                    .iter()
                     .filter(|c| !c.attrs.wide_char_spacer)
                     .map(|c| c.c)
-                    .collect::<String>()
-                    .trim_end()
-                    .to_owned()
+                    .collect::<String>();
+                // Spaces at a soft boundary belong to the logical line, not grid padding.
+                if *wrapped {
+                    text
+                } else {
+                    text.trim_end().to_owned()
+                }
             })
             .collect();
         let running = status == TerminalStatus::Running;
@@ -67,6 +78,7 @@ impl Runtime {
             total_lines: total,
             cols: snapshot.cols,
             rows,
+            soft_wrapped,
             running,
             input_ready: running && request.before.is_none() && terminal_input_ready(run),
         })

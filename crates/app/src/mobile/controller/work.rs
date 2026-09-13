@@ -64,19 +64,23 @@ pub(super) fn execute(
         Command::Enable => {
             let push = super::super::push::configuration::effective(&store);
             let addresses = interfaces::addresses()?;
-            let access = MobileAccess::open(store.clone()).context("无法读取电脑 Keychain 身份")?;
-            ensure!(!cancelled.load(Ordering::Acquire), "窗口已关闭，连接已取消");
+            let access = MobileAccess::open(store.clone())
+                .context("Unable to read this Mac’s identity from Keychain")?;
+            ensure!(
+                !cancelled.load(Ordering::Acquire),
+                "Window closed. Connection cancelled."
+            );
             let server = Arc::new(
                 MobileServer::start_with_mobile_sources(access, addresses, sources)
-                    .context("无法启动手机连接")?,
+                    .context("Unable to enable mobile connection")?,
             );
             match push {
                 Ok(Some(config)) => {
                     if server.start_push_notifications(config).is_err() {
-                        tracing::warn!("手机连接已开启，但通知服务无法启动；请重新配置任务提醒");
+                        tracing::warn!("Mobile connection is on, but the notification service could not start. Reconfigure task notifications.");
                     }
                 }
-                Err(_) => tracing::warn!("手机连接已开启，但通知配置不可读取；请重新配置任务提醒"),
+                Err(_) => tracing::warn!("Mobile connection is on, but notification settings could not be read. Reconfigure task notifications."),
                 Ok(None) => {}
             }
             let (image, pairing_code, expires) = code(&server)?;
@@ -84,7 +88,7 @@ pub(super) fn execute(
             let devices = server.devices()?;
             if cancelled.load(Ordering::Acquire) {
                 server.shutdown();
-                anyhow::bail!("窗口已关闭，连接已取消");
+                anyhow::bail!("Window closed. Connection cancelled.");
             }
             return Ok(Completion::Started(
                 server,
@@ -101,8 +105,8 @@ pub(super) fn execute(
         }
         _ => {}
     }
-    ensure!(!cancelled.load(Ordering::Acquire), "连接已关闭");
-    let server = server.context("请先启用手机连接")?;
+    ensure!(!cancelled.load(Ordering::Acquire), "Connection is closed");
+    let server = server.context("Enable mobile connection first")?;
     match command {
         Command::NewCode => {
             let (image, pairing_code, expires) = code(&server)?;
@@ -118,7 +122,7 @@ pub(super) fn execute(
         } => {
             server
                 .approve(&request_id, &projects)
-                .context("配对未获批准，请检查核对码是否已过期")?;
+                .context("Pairing was not approved. Check whether the code has expired.")?;
             Ok(Completion::Approved(server.devices()?))
         }
         Command::Revoke(device) => {
@@ -132,7 +136,7 @@ pub(super) fn execute(
         } => {
             server
                 .replace_permissions(&device_id, revision, &projects)
-                .context("权限保存失败，请刷新设备后重试")?;
+                .context("Unable to save permissions. Refresh the device list and try again.")?;
             Ok(Completion::Devices(server.devices()?))
         }
         Command::Reload
@@ -152,14 +156,14 @@ fn save_push(
     // Saving while phone connections are off is valid. A closed server must never be restarted here.
     ensure!(
         server.is_none() || !cancelled.load(Ordering::Acquire),
-        "连接已关闭，请重新打开通知设置"
+        "Connection is closed. Reopen notification settings."
     );
     super::super::push::configuration::save(store, config.as_ref())?;
     let summary = super::super::push::configuration::Summary::from_config(config.as_ref());
     if let Some(server) = server {
-        server
-            .configure_push_notifications(config)
-            .context("配置已保存，但未能应用；请重新保存或停用")?;
+        server.configure_push_notifications(config).context(
+            "Settings were saved but could not be applied. Save again or disable the service.",
+        )?;
     }
     Ok(Completion::Push(summary))
 }

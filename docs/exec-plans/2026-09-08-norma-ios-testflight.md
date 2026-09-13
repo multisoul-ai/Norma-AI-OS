@@ -1,8 +1,58 @@
 # Norma iOS TestFlight发布记录
 
-更新时间：2026-09-10。当前状态：**0.1.0（22）已进入现有「Norma 内测」组，可安装**。Apple API回读确认VALID / IN_BETA_TESTING，配套桌面DMG已重新打包。
+更新时间：2026-09-13。当前状态：**0.1.0（30）已进入现有「Norma 内测」组，可安装**；Apple 回读确认 VALID / IN_BETA_TESTING、未过期，中文说明一致。
 
-## 当前发布结果（v107）
+配套桌面已重新打包：`build/Norma OS_0.1.71_aarch64.dmg`，版本0.1.71，新构建20260912.154818，包含手机后台项目功能。192855370字节，SHA256 `576d05168af1021f2820891e572ebd63b950473d606a6e34549c13dbe6d23046`；Developer ID签名、未公证，严格签名/DMG完整性/Finder布局/相邻校验和通过。manifest 版本未改；未安装或启动新包。证据见 `target/norma-ios-testflight/background-build29/desktop-artifact.json`。
+
+## 草稿校验修复 · TestFlight 0.1.0（30）（2026-09-13）
+
+按用户“发布到 TestFlight”授权，只发布 iOS 草稿兼容修复。后台原卡已有历史 session 而尚无 run 时，草稿可以保存；完整范围隔离、准确回执和成果反馈校验继续保留。相对构建 29 的 103 项生产输入仅 `ChatDraft.swift` 与两份版本配置变化。复用 Swift Core 63 项、原生草稿单测 6 项（另 1 项物理文件保护明确跳过）、原生聊天保存／重启／发送流程及完整 e2e 回归，详见 [修复记录](2026-09-13-ios-background-draft-fix.md)。
+
+Release 归档、导出、严格分发签名、production entitlement、Apple 校验与单次上传通过；上传后生产输入及 IPA 哈希一致。IPA：`target/norma-ios-testflight/draft-build30/export/Norma.ipa`，5672611 字节，SHA256 `e76ee65d07101dae3df9ccb063eda36fae2215208709d7678bbd4e1cfd688135`。Build/Delivery ID：`23d5e98f-8d5a-4ada-8892-b6cc79737005`；Apple 回读 VALID / IN_BETA_TESTING、未过期，原组关联及中文说明均通过。沿用既有加密分类与不在法国分发范围，没有新增邀请、外部 Beta 或公开上架。
+
+配套桌面沿用 0.1.71（20260912.154818），本轮未重新打包或替换桌面。更新说明提醒更新前复制未保存的草稿。APNs 继续延期。发布证据保存在 `target/norma-ios-testflight/draft-build30/`。
+
+## 后台项目 · TestFlight 0.1.0（29）（2026-09-12）
+
+按用户“编译一下 Norma 桌面版本和发布 TestFlight”授权构建。iOS 支持直接加载已授权项目；配套 Mac 无需打开项目窗口，关窗保留原卡会话、重开复用，主动 Quit 停止服务与 PTY。实现及完整工作区回归、Swift Core 62 项、项目 UI 2 项与双端 Computer Use 验收见 `2026-09-12-mobile-background-projects.md`。真实云 Provider 调用及真实 iPhone／跨网场景不冒充已完成验收。
+
+Release 归档、导出、严格分发签名、production entitlement、Apple 校验及单次上传通过；103 项生产输入与 IPA 在上传后哈希保持一致。IPA：`target/norma-ios-testflight/background-build29/export/Norma.ipa`，5672726 字节，SHA256 `51996fc4e91074d7f32acec7c1fbf2a769774193101ea71fd5d95ef575d59890`。Build/Delivery ID：`b2069a05-ac5a-4319-bb8b-bf326e3410ff`；Apple 回读 VALID / IN_BETA_TESTING、未过期，原内测组关联与中文说明均通过。沿用用户此前确认的加密分类和不在法国分发范围；未新增邀请、外部 Beta 或公开上架。APNs 部署仍延期。
+
+桌面打包初次受 cargo-packager 的 SOCKS 不支持、上游 create-dmg 对旧挂载卷选择错误及临时卷占用影响；仅调整本次打包进程代理、正常卸载本项目旧只读安装镜像后重试。最终官方入口退出 0；没有修改全局代理、强制卸载其他卷或替换 `/Applications` 中的程序。完整日志、前次 DMG 备份与发布证据保存在 `target/norma-ios-testflight/background-build29/`。
+
+## v133 · TestFlight 0.1.0（28）发布（2026-09-12）
+
+2026-09-12T11:30:11+08:00 确认构建28已VALID / IN_BETA_TESTING、未过期，原「Norma 内测」组及中文说明回读一致。Build/Delivery ID `684f833d-f604-4026-ba34-fa661d3db5c3`。本轮按用户“完成后发布一下 TestFlight”授权发布：修复Claude实时输出已连接但为空时持续加载，合入v131任务读取冗余提示移除和v132项目选择/搜索合并；真实用户卡片的唯一触发原因仍未确认，更新说明要求重点复测。
+
+相对构建27只有LiveAgentOutput、TasksView、WorkspaceStyle和两份版本配置变化；103项生产输入冻结。原生3项聊天回归通过、Swift Core62项通过、聊天网络4项通过；Computer Use实际点击Claude并验证空屏→正文自动更新。桌面全量回归初次受代理502等影响13项失败，进程内去代理并串行后214通过、3项桌面会话恢复失败、60忽略；该模块单独运行仍1通过3失败，已记录，未将完整桌面回归称为通过。测试fixture使用随机身份，正式配对/忘记及退出0，未操作用户配对。
+
+Release归档/导出、严格分发签名、Apple校验与单次上传通过，上传后源码与IPA哈希一致。IPA：`target/norma-ios-testflight/v133/export/Norma.ipa`，5673146字节，SHA256 `6a4de666329e66f6900de3183326ce4ac4194b4260171f325fa948aca90ceafa`。沿用既有加密分类与不在法国分发范围，未新增邀请、外部测试或公开App Store发布。桌面未重启，APNs仍延期；证据：`target/norma-ios-evidence/v133/summary.json`、`target/norma-ios-testflight/v133/`。
+
+## v130 · TestFlight 0.1.0（27）发布（2026-09-11）
+
+2026-09-11T21:18:40+08:00确认构建27已VALID / IN_BETA_TESTING、未过期，原「Norma 内测」组及中文说明回读一致。Build/Delivery ID `6c7a25de-f9f9-4a46-8dfa-f0fc39079334`。按用户明确要求发布v128键盘退出/锁屏恢复底栏位置与v129就绪卡明确拒绝后恢复发送；草稿保留及未知结果防重发保护维持。相对构建26仅RootView、ChatComposer、CardCommandSheet与两份版本配置变化，103项生产输入冻结。
+
+Release归档、导出、严格分发签名、Apple校验及单次上传通过，上传后源码和IPA哈希一致。IPA：`target/norma-ios-testflight/v130/export/Norma.ipa`，5663876字节，SHA256 `fc6527687616f474d354abee35f2f67d47245543a697f109827c2483ec443a74`。复用v128四项原生回归与CUA系统锁屏配合XCTest恢复测量、v129原生拒绝/未知/主动重试回归及完整E2E241通过、0失败、69忽略的证据；本轮仅发布，没有扩大为真机验收通过。
+
+沿用已确认的加密实现及不在法国分发范围，没有新增邀请、外部测试或公开App Store发布。中文测试说明明确Claude自绘硬换行/框线手机排版仍待优化，真实iPhone及LAN/Tailscale由用户继续验收，APNs仍延期；未重启或打包桌面。证据：`target/norma-ios-evidence/v130/summary.json`及`target/norma-ios-testflight/v130/`。
+
+## v127 · TestFlight 0.1.0（26）发布（2026-09-11）
+
+2026-09-11T19:39:31+08:00确认构建26已VALID / IN_BETA_TESTING，现有「Norma 内测」组及中文说明回读一致。Build/Delivery ID `15961c37-e419-4cb3-9a05-3136cee85d23`。本轮仅包含v126决策页重复电脑状态/数量的精简、留白与分段读数改动，另更新构建号；相对构建25的103项发布输入仅CommandCenterView与两份版本配置变化。复用v126已通过的原生流程、隔离TLS/WSS配对及清理证据。
+
+Release归档、导出、严格签名、Apple校验和单次上传通过；上传后输入与IPA哈希一致。IPA：`target/norma-ios-testflight/v127/export/Norma.ipa`，5660385字节，SHA256 `1511e4f8cca7ceed708777436b442363ebe8479453027e1be9eb659eef072c94`。沿用既有加密实现及不在法国分发范围，没有新增邀请或公开发布。测试说明已明确锁屏恢复底栏问题仍未修复；Computer Use因Mac锁定未完成，物理iPhone由用户验收。未重启或替换桌面，APNs仍延期。证据：`target/norma-ios-evidence/v127/summary.json`。
+
+## v118发布结果（历史，0.1.0（24））
+
+- 用户明确要求发布后，重新归档最新源码为0.1.0（24）；包含图片发送、运行卡片动画优化、键盘收起、离线电脑移除及聊天/导航排版更新。此前叫停的构建23仍未关联原内测组。
+- App ID `6810038463`；Build ID `42c0cb94-7274-48bd-a844-d31fb3b32ca3`；原内测组 `1e9af1ec-bf35-4a49-b7fd-01169c421384`。中文说明、组关联、VALID / IN_BETA_TESTING及未过期状态回读通过；没有新增邀请、外部Beta或公开App Store发布。
+- Release归档/导出、严格分发签名、production entitlement、Apple校验及单次上传通过。上传后103项生产输入和IPA SHA256仍一致。沿用既有加密分类及不在法国分发范围。
+- IPA：`target/norma-ios-testflight/v118/export/Norma.ipa`，5662669字节，SHA256 `3540b664ff3706fcc29e05bb40a83128122bf74381ba98f97bc37ddfbd646520`。复用v114–v117的聚焦测试、原生UI与Computer Use证据；v116 Swift Core61项/E2E241项通过、69忽略，v117动效2项通过。物理iPhone流畅度仍待用户验收。
+- 图片发送需要配套包含图片传输功能的新Mac构建；本次未打包或替换运行中的桌面。真实Codex读图通过；当前Claude配置的`ark-code-latest`仅支持文字，需视觉模型才能理解图片。中文内测说明已列明这些限制；APNs部署仍延期。
+
+Apple回读与产物：`target/norma-ios-testflight/v118/{build-final.json,group-builds-final.json,localizations-final.json,artifact.json}`；完整汇总：`target/norma-ios-evidence/v118/summary.json`。
+
+## v107发布结果（历史，0.1.0（22））
 
 - App ID `6810038463`，Bundle ID `com.norma-ai.os.ios`；Build ID `f1e19ac7-ccd2-410f-84c8-758183e8fa15`；原内测组 `1e9af1ec-bf35-4a49-b7fd-01169c421384`。中文测试说明、组关联、VALID / IN_BETA_TESTING及未过期状态均回读通过。
 - iOS按用户明确要求重新构建为0.1.0（22），相对21仅构建版本配置变化。96项输入hash、Release归档/导出、严格签名、production entitlement、Apple校验及上传全部通过；沿用既有加密分类，没有新增邀请、外部测试或公开App Store发布。
@@ -218,3 +268,11 @@ Computer Use两次返回Mac locked，已请求解锁，本轮真实点击未完�
 配套本地验证包：`target/norma-mobile-desktop/v102/Norma Mobile Validation.app`，build102，ad hoc本地签名，严格验签通过，未启动。它在既有隔离验证bundle上更新两个Release可执行文件并重新签名，保留验证bundle身份/资源/数据路径；不是对外发布的DMG。二进制hash与验签证据在同目录`prepared.json`和`codesign-verify.log`。
 
 仍运行v92（PID37820）；既有切换确认未答复，不中断Agent。iOS原生双正常地址＋一条停滞地址、8条订阅满额下24次取消/重建通过，P95 26.13ms、最大28.32ms，仅模拟器回环。单/双地址方向页面提交/回执/返回及正式清理通过；物理多机/跨网/完整界面/空闲开销验收仍未完成，APNs继续延期。
+
+## v124 · TestFlight 0.1.0（25）发布（2026-09-11）
+
+2026-09-11T18:22:31+08:00确认构建25已由Apple处理为VALID / IN_BETA_TESTING，原「Norma 内测」组关联与中文说明回读一致。Build/Delivery ID `796e428a-34b5-4a41-9577-027f79530f34`。本轮包含v120–v123的加载居中、终端软折行/竖屏按键、底栏距底边8pt。沿用已有加密实现和不向法国分发的确认，未新增邀请、外部测试或公开App Store发布。
+
+Release归档、导出、严格签名、Apple校验/上传通过；103项发布输入及IPA上传后hash一致。IPA：`target/norma-ios-testflight/v124/export/Norma.ipa`，5679727字节，SHA256 `5bee930651634070b9fa2e76e10539dfd6f192a565354dc202cabd5e4d063400`。复用v121加载布局、v122 Rust536/Swift62及原生竖横屏/AX5/键盘、v123 Computer Use三页导航验证；未把v122工具点击故障当作CUA通过。
+
+测试说明已注明完整终端软折行重排需配套新版Mac；旧Mac仍按原行显示，本次未打包/替换运行中的桌面。APNs仍延期，真机/LAN/Tailscale由用户更新后验收。完整证据`target/norma-ios-evidence/v124/summary.json`及`target/norma-ios-testflight/v124/`。

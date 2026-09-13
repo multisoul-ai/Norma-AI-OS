@@ -9,18 +9,14 @@ struct ProjectCardsView: View {
     var active = true
     var manageComputers: (() -> Void)? = nil
     var switchProject: (() -> Void)? = nil
-    var openCommandCenter: (() -> Void)? = nil
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .headline) private var projectTitleSize = 20
     @State private var project: ProjectSnapshot?
-    @State private var checkedAt: Date?
     @State private var loading = false
     @State private var error: String?
     @State private var generation = 0
     @State private var retry = 0
-    @State private var contextPlan: ProjectPlan?
-    @State private var contextLoaded = false
-    @State private var contextError: String?
     @State private var search = ""
     @State private var showingFilters = false
     @State private var stateFilter: String?
@@ -29,13 +25,8 @@ struct ProjectCardsView: View {
     private var visibleCards: [CardSnapshot] {
         project?.cards?.filter { $0.matchesSearch(search, state: stateFilter, profile: profileFilter) } ?? []
     }
-    private struct CardSheet: Identifiable {
-        let project: ProjectSnapshot
-        var id: String { project.id }
-    }
     @State private var showingCreation = false
     @State private var creationRoute: String?
-    @State private var creating: CardSheet?
     @State private var options: CardSnapshot?
     @State private var conversation: (card: CardSnapshot, route: String)?
     @State private var showingConversation = false
@@ -44,7 +35,6 @@ struct ProjectCardsView: View {
     @State private var creationNotice: String?
     @State private var canCreate = false
     @State private var revision: UInt64 = 0
-    private var pending: PendingMobileCommand? { model.pendingCommands.first { $0.machineID == machine.id && $0.request.workspaceID == workspaceID && !$0.request.command.isQueuedMessage && !$0.request.command.isApproval && !$0.request.command.isPlan && !$0.request.command.isTodo } }
 
     private var pendingCreation: PendingMobileCommand? {
         model.pendingCommands.first {
@@ -54,7 +44,7 @@ struct ProjectCardsView: View {
         }
     }
     private var creationUnavailable: String? {
-        if project?.state != "open" { return "请先在电脑上打开这个项目并保持连接。" }
+        if project?.state != "open" { return "项目暂时无法加载，请检查电脑连接后重试。" }
         if !canCreate { return "当前项目为只读，请在电脑上允许控制后创建。" }
         if pendingCreation != nil { return "上次创建结果待确认，请先查询结果。" }
         return nil
@@ -66,6 +56,7 @@ struct ProjectCardsView: View {
                 projectHeading
                 if let creatingProfile {
                     HStack(spacing: 8) { ProgressView(); Text("正在创建 \(creatingProfile)…").font(.caption) }
+                        .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("card-creation-progress")
                 } else if let creationNotice {
                     Text(creationNotice).font(.caption).foregroundStyle(.secondary)
@@ -118,6 +109,7 @@ struct ProjectCardsView: View {
                                     } label: { AgentSnapshotCard(card: card) }
                                         .buttonStyle(.plain)
                                         .accessibilityLabel(card.title + "，" + card.profile + "，" + AgentSnapshotCard.status(card.state))
+                                        .accessibilityValue(card.taskTitle ?? "")
                                         .accessibilityIdentifier("agent-card-\(card.id)")
                                         Button { options = card } label: {
                                             Image(systemName: "ellipsis").font(.caption).frame(width: 44, height: 44).contentShape(Rectangle())
@@ -128,13 +120,13 @@ struct ProjectCardsView: View {
                         }.accessibilityIdentifier("project-agent-grid")
                     }
                 } else if let project {
-                    WorkspaceStatusView(title: project.state == "closed" ? "项目未在电脑上打开" : "暂时无法读取卡片", icon: "folder", message: "在 \(machine.name) 的 Norma 中打开这个项目后，卡片会显示在这里。", inline: true) {}
+                    WorkspaceStatusView(title: project.state == "closed" ? "暂时无法加载项目" : "暂时无法读取卡片", icon: "folder", message: "请检查 \(machine.name) 是否在线，以及项目文件夹是否仍然可用。", inline: true) {}
                 } else if let error {
                     WorkspaceStatusView(title: loading ? "正在重新连接" : "连接已中断", icon: "wifi.exclamationmark", message: error, inline: true) {
                         if loading { ProgressView() }
                         else { WorkspaceStatusButton(title: "重新连接") { retry += 1 } }
                     }
-                } else { ProgressView("正在读取卡片…").frame(maxWidth: .infinity).padding(.vertical, 40) }
+                }
                 if let project, project.state == "open" {
                     Button(action: openCreation) {
                         Label("创建卡片", systemImage: "plus").font(.footnote.weight(.medium)).frame(maxWidth: .infinity, minHeight: 48)
@@ -142,58 +134,12 @@ struct ProjectCardsView: View {
                     }.buttonStyle(WorkspacePressStyle()).padding(.top, 14)
                         .accessibilityIdentifier("create-card-entry")
                 }
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("项目脉络").font(.subheadline.weight(.semibold))
-                    if let contextPlan {
-                        Text(contextPlan.direction).font(.footnote.weight(.medium))
-                            .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("project-current-direction")
-                        Text(contextPlan.draft.summary).font(.caption).foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    } else {
-                        Text(contextError ?? (contextLoaded ? "还没有设定方向" : "正在读取方向…"))
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    if let cards = project?.cards {
-                        Text("\(cards.count) 个 Agent · \(cards.filter { ["idle", "ready"].contains($0.state) }.count) 个待命")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    if let openCommandCenter {
-                        Button(action: openCommandCenter) {
-                            Label("去指挥台调整方向", systemImage: "arrow.up.right").font(.footnote).frame(minHeight: 44)
-                        }.accessibilityIdentifier("project-command-center")
-                    }
-                    DisclosureGroup("记录与成果") {
-                        if pending != nil, let project {
-                            Button { creating = CardSheet(project: project) } label: {
-                                Label("操作记录", systemImage: "clock").font(.subheadline).frame(minHeight: 44)
-                            }.accessibilityIdentifier("project-operation-records")
-                        }
-                        if let route = project?.routeID, project?.state == "open" {
-                            NavigationLink {
-                                SessionArchiveView(model: model, machine: machine, scope: ProjectReviewRequest(workspaceID: workspaceID, routeID: route))
-                            } label: {
-                                Label("会话记录", systemImage: "bubble.left.and.text.bubble.right").font(.subheadline).frame(minHeight: 44)
-                            }.accessibilityIdentifier("project-session-archive")
-                            NavigationLink {
-                                TaskDeliveriesView(model: model, machine: machine, workspaceID: workspaceID, routeID: route)
-                            } label: {
-                                Label("项目成果", systemImage: "tray.full").font(.subheadline).frame(minHeight: 44)
-                            }.accessibilityIdentifier("project-deliveries")
-                            NavigationLink {
-                                ProjectReviewView(machine: machine, workspaceID: workspaceID, routeID: route, model: model)
-                            } label: {
-                                Label("项目变更", systemImage: "doc.text.magnifyingglass").font(.subheadline).frame(minHeight: 44)
-                            }.accessibilityIdentifier("project-review")
-                        }
-                    }.font(.footnote)
-                }.padding(17).background(WorkspaceStyle.surface, in: RoundedRectangle(cornerRadius: 24))
-                    .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(WorkspaceStyle.line, lineWidth: 1)).padding(.top, 18)
             }.padding(.horizontal, 20).padding(.bottom, 26)
         }
     }
 
     var body: some View {
-        projectContent
+        projectContent.workspaceLoading(project == nil && error == nil, "正在读取卡片…")
         .background(.black)
         .navigationTitle(project?.displayName ?? name).navigationBarTitleDisplayMode(.inline)
         .modifier(WorkspaceChrome(model: model, manageComputers: manageComputers ?? {}, enabled: switchProject != nil))
@@ -214,7 +160,6 @@ struct ProjectCardsView: View {
                 creationWork = Task { await createCard(profile, title: title, in: project, revision: expectedRevision) }
             }
         }
-        .sheet(item: $creating) { selection in CardCommandSheet(model: model, machine: machine, project: selection.project, revision: revision, pending: pendingCreation ?? pending) }
         .sheet(item: $options, onDismiss: { showingConversation = conversation != nil }) { selection in
             if let project, let card = project.cards?.first(where: { $0.id == selection.id }) {
                 CardOptionsView(model: model, machine: machine, project: project, card: card,
@@ -234,8 +179,8 @@ struct ProjectCardsView: View {
         .task(id: "\(scenePhase)-\(retry)-\(active)") {
             generation += 1
             let requestGeneration = generation
-            project = nil; checkedAt = nil; canCreate = false; error = nil
-            guard scenePhase == .active && active else { loading = false; creating = nil; options = nil; return }
+            project = nil; canCreate = false; error = nil
+            guard scenePhase == .active && active else { loading = false; options = nil; return }
             loading = true
             do {
                 for try await update in model.client.projectUpdates(machine, workspaceID: workspaceID) {
@@ -246,15 +191,15 @@ struct ProjectCardsView: View {
                         let fresh = result.projects.first
                         if let creationRoute, fresh?.routeID != creationRoute { showingCreation = false }
                         if fresh?.routeID != project?.routeID || revision != result.grant.revision {
-                            creating = nil; options = nil
+                            options = nil
                             if !showingConversation { conversation = nil }
                         }
                         if let options, fresh?.cards?.contains(where: { $0.id == options.id }) != true { self.options = nil }
-                        project = fresh; checkedAt = .now; error = nil; loading = false
+                        project = fresh; error = nil; loading = false
                         revision = result.grant.revision
                         canCreate = result.grant.projects.contains { $0.workspaceID == workspaceID && $0.access == "control" }
                     case .recovering:
-                        project = nil; checkedAt = nil; canCreate = false; creating = nil; options = nil
+                        project = nil; canCreate = false; options = nil
                         error = "正在重新连接电脑…"; loading = true
                     }
                 }
@@ -264,30 +209,8 @@ struct ProjectCardsView: View {
                    [.unauthorized, .wrongComputer, .invalidCredential].contains(failure) {
                     model.disconnect()
                 }
-                project = nil; checkedAt = nil; loading = false; canCreate = false; creating = nil; options = nil
+                project = nil; loading = false; canCreate = false; options = nil
                 self.error = error.localizedDescription
-            }
-        }
-        .task(id: "context-\(scenePhase)-\(active)-\(retry)-\(revision)-\(project?.id ?? "")") {
-            contextPlan = nil; contextLoaded = false; contextError = nil
-            guard scenePhase == .active && active, project != nil else { return }
-            do {
-                for try await update in model.client.planUpdates(machine, workspaceID: workspaceID) {
-                    try Task.checkCancellation()
-                    switch update {
-                    case .legacy(let saved):
-                        contextPlan = saved?.plan; contextLoaded = true; contextError = "电脑版本较早，方向更新后请手动刷新。"
-                    case .current(let fresh):
-                        contextPlan = fresh.plan; contextLoaded = true; contextError = nil
-                    case .empty:
-                        contextPlan = nil; contextLoaded = true; contextError = nil
-                    case .recovering:
-                        contextPlan = nil; contextLoaded = false; contextError = "正在重新连接电脑…"
-                    }
-                }
-            } catch {
-                guard !Task.isCancelled else { return }
-                contextPlan = nil; contextLoaded = false; contextError = "暂时无法读取方向，请刷新重试。"
             }
         }
         .onChange(of: scenePhase) { _, phase in if phase != .active { creationWork?.cancel() } }
@@ -295,28 +218,21 @@ struct ProjectCardsView: View {
     }
 
     private var projectHeading: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Button { switchProject?() } label: {
-                    HStack(spacing: 6) { Text("项目"); Image(systemName: "chevron.down").font(.system(size: 10)) }
-                        .font(.footnote).foregroundStyle(WorkspaceStyle.muted).frame(minHeight: 44)
-                }.accessibilityIdentifier("project-switcher").accessibilityLabel(project?.displayName ?? name)
-                    .accessibilityValue(machine.name).disabled(switchProject == nil)
-                Spacer()
-                Button(action: openCreation) { WorkspaceCircleIcon(symbol: "plus") }
-                    .accessibilityLabel("创建卡片").accessibilityIdentifier("create-card-toolbar")
-            }
-            WorkspacePageTitle(title: project?.displayName ?? name).accessibilityIdentifier("project-page-title")
-            Button { manageComputers?() } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "laptopcomputer").font(.system(size: 13))
-                    Text(machine.name).lineLimit(1).truncationMode(.middle)
-                    Image(systemName: "chevron.down").font(.system(size: 9))
-                    Spacer(minLength: 3)
-                    Text(checkedAt == nil ? "· 等待同步" : "· 刚刚同步").lineLimit(1)
-                }.font(.system(size: 10)).foregroundStyle(WorkspaceStyle.muted).frame(minHeight: 44)
-            }.accessibilityLabel("切换项目所在电脑").disabled(manageComputers == nil)
-        }.buttonStyle(WorkspacePressStyle()).padding(.bottom, 19)
+        HStack(spacing: 12) {
+            Button { switchProject?() } label: {
+                HStack(spacing: 8) {
+                    Text(project?.displayName ?? name)
+                        .font(.system(size: projectTitleSize, weight: .semibold))
+                        .lineLimit(typeSize.isAccessibilitySize ? 2 : 1).truncationMode(.middle)
+                    Image(systemName: "chevron.down")
+                        .font(.caption.weight(.semibold)).foregroundStyle(WorkspaceStyle.muted)
+                }.frame(minHeight: 44).contentShape(Rectangle())
+            }.accessibilityIdentifier("project-switcher").accessibilityLabel(project?.displayName ?? name)
+                .accessibilityValue(machine.name).accessibilityHint("切换项目").disabled(switchProject == nil)
+            Spacer(minLength: 0)
+            Button(action: openCreation) { WorkspaceCircleIcon(symbol: "plus") }
+                .accessibilityLabel("创建卡片").accessibilityIdentifier("create-card-toolbar")
+        }.buttonStyle(WorkspacePressStyle()).padding(.bottom, 12)
     }
 
     @ViewBuilder private var cardFilters: some View {
@@ -376,8 +292,6 @@ struct ProjectCardsView: View {
 
 struct AgentSnapshotCard: View {
     let card: CardSnapshot
-    @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var typeSize
     private var working: Bool { ["thinking", "running_tool"].contains(card.state) }
     static func status(_ state: String) -> String {
@@ -399,9 +313,16 @@ struct AgentSnapshotCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ProviderMark(profile: card.profile, size: 32, working: working).padding(.bottom, 24)
-            Text(card.taskTitle.flatMap { $0.isEmpty ? nil : $0 } ?? card.title)
+            Text(card.title)
                 .font(.footnote.weight(.semibold)).lineLimit(typeSize.isAccessibilitySize ? nil : 2)
                 .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("agent-card-name-\(card.id)")
+            if let input = card.taskTitle, !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(input).font(.caption).foregroundStyle(WorkspaceStyle.muted)
+                    .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
+                    .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 6).accessibilityIdentifier("agent-card-input-\(card.id)")
+            }
             Spacer(minLength: 20)
             HStack(spacing: 5) {
                 Circle().frame(width: 5, height: 5)
@@ -412,12 +333,8 @@ struct AgentSnapshotCard: View {
         .frame(maxWidth: .infinity, minHeight: 165, alignment: .topLeading)
         .background(WorkspaceStyle.surface, in: RoundedRectangle(cornerRadius: 23))
         .overlay {
-            if working && !reduceMotion && scenePhase == .active {
-                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { time in
-                    let angle = time.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3) / 3 * 360
-                    RoundedRectangle(cornerRadius: 23).stroke(AngularGradient(colors: [.clear, .clear, .white.opacity(0.15), .white], center: .center, startAngle: .degrees(angle), endAngle: .degrees(angle + 360)), lineWidth: 1)
-                }.accessibilityHidden(true)
-            } else { RoundedRectangle(cornerRadius: 23).stroke(working ? Color(white: 0.32) : WorkspaceStyle.line, lineWidth: 1) }
+            RoundedRectangle(cornerRadius: 23).stroke(working ? Color(white: 0.32) : WorkspaceStyle.line, lineWidth: 1)
+            AgentActivityDecoration(kind: .border, active: working)
         }
         .accessibilityElement(children: .contain)
     }

@@ -4,7 +4,7 @@ final class PrototypeLayoutFlowTests: XCTestCase {
     /// 三个主页按v28恢复品牌头部、悬浮底栏与各自信息层级，并保留真实项目切换及只读提交保护。
     /// 数据构造：正式配对的隔离Mac，两张原卡和最新计划；普通字号，对应390pt原型布局。
     /// 执行过程：项目→指挥台→任务，检查标题/选择器/正文顺序，保存各页截图，再返回原卡对话。
-    /// 预期结果：顶部均显示norma，底部N入口居中；项目无常驻搜索；计划有简报；任务有独立标题和胶囊筛选。
+    /// 预期结果：顶部均显示norma，底部N入口居中；项目标题即切换入口，无重复电脑行或常驻搜索；计划有简报；任务有独立标题和胶囊筛选。
     @MainActor func testThreePagesMatchPrototypeHierarchy() throws {
         guard ProcessInfo.processInfo.environment["NORMA_TEST_MODE"] == "notification-ui" else {
             throw XCTSkip("仅使用已配对隔离服务")
@@ -21,10 +21,10 @@ final class PrototypeLayoutFlowTests: XCTestCase {
         guard brand.exists else { return }
         XCTAssertTrue(brand.label.contains("norma"), "主品牌不能被项目名取代")
         let project = app.buttons["project-switcher"]
-        let title = app.staticTexts["project-page-title"]
-        XCTAssertTrue(title.exists, "原型项目大标题必须恢复")
-        XCTAssertLessThan(brand.frame.maxY, title.frame.minY, "品牌在项目标题上方")
-        XCTAssertLessThan(project.frame.minY, title.frame.minY, "项目切换放在项目名称前")
+        XCTAssertEqual(project.label, "通知验收项目", "项目名称直接作为标题和切换入口")
+        XCTAssertLessThanOrEqual(brand.frame.maxY, project.frame.minY, "品牌在项目标题上方")
+        XCTAssertFalse(app.staticTexts["project-page-title"].exists, "不再单独占一行展示大标题")
+        XCTAssertFalse(app.buttons["切换项目所在电脑"].exists, "电脑切换仅保留在共享品牌栏")
         XCTAssertFalse(app.searchFields["搜索卡片"].exists, "项目首页不应被系统常驻搜索栏挤压")
         let card = app.buttons["agent-card-1"]
         XCTAssertTrue(card.waitForExistence(timeout: 8), "原卡保持可访问")
@@ -39,16 +39,21 @@ final class PrototypeLayoutFlowTests: XCTestCase {
         app.buttons["new-card-close"].tap()
         try checkChrome(app, name: "原型还原-项目")
         app.buttons["workspace-tab-command"].tap()
+        XCTAssertTrue(app.buttons["workspace-tab-command"].isSelected, "玻璃选中态应移到中间指挥台")
+        XCTAssertFalse(app.buttons["workspace-tab-projects"].isSelected, "项目不能残留旧选中态")
         XCTAssertTrue(app.staticTexts["command-hero-title"].waitForExistence(timeout: 8), "指挥台必须先展示工作简报大卡")
         XCTAssertTrue(app.staticTexts["优先解决手机连接延迟"].exists, "方向继续读取真实最新计划")
         XCTAssertFalse(app.staticTexts["旧工作简报"].exists, "不能使用旧计划填充视觉")
         XCTAssertLessThan(app.staticTexts["command-hero-title"].frame.minY, app.buttons["command-decision-inbox"].frame.minY, "简报在待决策/待验收数据卡上方")
         try checkChrome(app, name: "原型还原-指挥台")
         app.buttons["workspace-tab-tasks"].tap()
+        XCTAssertTrue(app.buttons["workspace-tab-tasks"].isSelected, "玻璃选中态应移到右侧任务")
+        XCTAssertFalse(app.buttons["workspace-tab-command"].isSelected, "指挥台不能残留旧选中态")
         let taskTitle = app.staticTexts["tasks-page-title"]
         XCTAssertTrue(taskTitle.waitForExistence(timeout: 8), "任务页有独立大标题")
         XCTAssertLessThan(taskTitle.frame.maxY, app.buttons["task-project-filter"].frame.minY, "所有项目选择位于任务标题下方")
-        XCTAssertLessThan(app.buttons["task-project-filter"].frame.maxY, app.textFields["task-search"].frame.minY, "项目范围位于搜索框上方")
+        XCTAssertEqual(app.buttons["task-project-filter"].frame.midY, app.textFields["task-search"].frame.midY, accuracy: 2, "项目范围应与搜索输入共用一行，2pt仅容许原生布局取整")
+        XCTAssertLessThan(app.buttons["task-project-filter"].frame.maxX, app.textFields["task-search"].frame.minX, "项目菜单位于输入框左侧，不能覆盖文字输入")
         XCTAssertTrue(app.buttons["task-filter-all"].isSelected, "原型白色全部胶囊默认选中")
         let task = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "本地通知定位验收")).firstMatch
         XCTAssertTrue(task.waitForExistence(timeout: 8), "必须等真实任务卡出现，不能把加载或失败页当成视觉验收")

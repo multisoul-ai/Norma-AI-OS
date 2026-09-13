@@ -15,23 +15,20 @@ pub(crate) fn read(database: &Path, call: LiveTerminalRequest, cx: &mut App) {
     let result = target
         .and_then(|target| {
             target
-                .window
-                .update(cx, |_, _, cx| {
-                    target.app.update(cx, |app, _| {
-                        if app.database_paths.app_db_path() != database
-                            || app.workspace_id.as_deref() != Some(&call.request.workspace_id)
-                            || app.workspace_route_id.as_deref() != Some(&call.request.route_id)
-                        {
-                            return Err("route_expired");
-                        }
-                        if Instant::now() >= call.deadline {
-                            return Err("unavailable");
-                        }
-                        app.runtime.mobile_terminal_page(&call.request)
-                    })
+                .app
+                .update(cx, |app, _| {
+                    if app.database_paths.app_db_path() != database
+                        || app.workspace_id.as_deref() != Some(&call.request.workspace_id)
+                        || app.workspace_route_id.as_deref() != Some(&call.request.route_id)
+                    {
+                        return Err("route_expired");
+                    }
+                    if Instant::now() >= call.deadline {
+                        return Err("unavailable");
+                    }
+                    app.runtime.mobile_terminal_page(&call.request)
                 })
                 .ok()
-                .and_then(Result::ok)
         })
         .unwrap_or(Err("route_expired"));
     let _ = call.reply.try_send(result);

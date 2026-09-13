@@ -4,6 +4,34 @@ use gpui::Context;
 use runtime::Runtime;
 
 impl MultisoulApp {
+    #[cfg(feature = "e2e-test-support")]
+    pub fn retain_mobile_server_for_e2e(
+        &self,
+        server: std::sync::Arc<crate::MobileServer>,
+        cx: &mut gpui::App,
+    ) {
+        self.mobile
+            .update(cx, |mobile, _| mobile.use_server_for_e2e(server));
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn project_windows_closed_for_e2e(cx: &mut gpui::App) -> bool {
+        crate::workspace::sessions::windows_closed(cx)
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn stop_background_projects_for_e2e(cx: &mut gpui::App) {
+        crate::workspace::sessions::shutdown(cx);
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn loaded_project_for_e2e(
+        &self,
+        workspace: &str,
+        cx: &gpui::App,
+    ) -> Option<gpui::Entity<MultisoulApp>> {
+        crate::workspace::sessions::find(self.database_paths.app_db_path(), workspace, cx)
+    }
     pub fn mobile_push_settings_for_e2e(
         &self,
         cx: &gpui::App,

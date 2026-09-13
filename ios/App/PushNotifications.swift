@@ -14,6 +14,7 @@ import NormaCore
     @Published var busy: Set<String> = []
     private var enabled = Set(UserDefaults.standard.stringArray(forKey: "notification-machines") ?? [])
     private var renewAfterOperation: Set<String> = []
+    private var pendingRemoval: [String: @Sendable () async throws -> Void] = [:]
     var tokenChanged: (() -> Void)?
     var systemAllowed: Bool { [.authorized, .provisional, .ephemeral].contains(authorization) }
 
@@ -95,7 +96,7 @@ import NormaCore
     }
     /// User intent is recorded before transmission; only an already-enabled Mac may receive token renewal.
     @discardableResult func update(_ machine: PairedMachine, to value: APNsRegistration?, client: MobileClient, renewal: Bool = false) async -> Bool {
-        guard !busy.contains(machine.id) else { return false }
+        guard !busy.contains(machine.id), pendingRemoval[machine.id] == nil else { return false }
         busy.insert(machine.id); errors[machine.id] = nil
         defer { finish(machine.id) }
         if !renewal { setEnabled(machine.id, value != nil) }
@@ -127,9 +128,25 @@ import NormaCore
         if value { enabled.insert(machine) } else { enabled.remove(machine) }
         UserDefaults.standard.set(Array(enabled), forKey: "notification-machines")
     }
+    func forget(_ machine: String, cleanup: (@Sendable () async throws -> Void)?) {
+        setEnabled(machine, false)
+        renewAfterOperation.remove(machine)
+        subscriptions[machine] = nil; errors[machine] = nil
+        if target?.machineID == machine { target = nil }
+        pendingRemoval[machine] = cleanup ?? {}
+        Task { await clearDelivered(machine) }
+        if !busy.contains(machine) { finish(machine) }
+    }
     private func finish(_ machine: String) {
         busy.remove(machine)
-        if renewAfterOperation.remove(machine) != nil { tokenChanged?() }
+        if let cleanup = pendingRemoval.removeValue(forKey: machine) {
+            subscriptions[machine] = nil; errors[machine] = nil
+            // Let an existing registration finish first, so it cannot re-enable after cleanup.
+            Task {
+                do { try await cleanup() }
+                catch { /* ponytail: one attempt; offline cleanup stays on Mac, without retaining credentials for retries. */ }
+            }
+        } else if renewAfterOperation.remove(machine) != nil { tokenChanged?() }
     }
     func clearDelivered(_ machine: String) async {
         let center = UNUserNotificationCenter.current()

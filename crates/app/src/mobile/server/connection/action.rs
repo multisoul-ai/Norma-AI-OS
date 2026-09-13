@@ -5,6 +5,20 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub(super) enum Action {
+    UploadImage {
+        device_id: String,
+        token: String,
+        workspace_id: String,
+        grant_revision: u64,
+        image_id: String,
+        byte_count: usize,
+    },
+    ChatImage {
+        device_id: String,
+        token: String,
+        workspace_id: String,
+        image_id: String,
+    },
     Terminal {
         device_id: String,
         token: String,

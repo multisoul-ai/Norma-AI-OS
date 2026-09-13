@@ -142,3 +142,46 @@ extension NotificationFlowUITests {
         try FileManager.default.removeItem(at: directory.appendingPathComponent("ui-stale"))
     }
 }
+
+
+extension NotificationFlowUITests {
+    /// 无法连接的电脑也能确认移除，取消不删数据；其他电脑与重启后的列表保持正确。
+    ///
+    /// 数据构造：forget-ui模式，预先在独立模拟器存入离线验收A/B；3s为本地删除与动画预算，不等待网络超时。
+    /// 执行过程：关闭连接错误 → 左滑A并取消 → 再确认删除A → 核对B保留 → 重启 → 通过可见菜单删除B。
+    /// 预期结果：取消保留A；确认后A消失且B保留；重启不恢复A；删除B后显示空态。
+    @MainActor func testForgetOfflineComputers() throws {
+        guard ProcessInfo.processInfo.environment["NORMA_TEST_MODE"] == "forget-ui" else {
+            throw XCTSkip("仅操作显式构造的离线验收电脑")
+        }
+        let app = XCUIApplication(); app.launch()
+        func openComputers() {
+            if app.alerts["连接提示"].waitForExistence(timeout: 3) { app.alerts.buttons["好"].tap() }
+            app.buttons["manage-computers"].tap()
+        }
+        func row(_ name: String) -> XCUIElement {
+            app.buttons.matching(NSPredicate(format: "label CONTAINS %@", name)).firstMatch
+        }
+        openComputers()
+        let a = row("离线验收 Mac A"), b = row("离线验收 Mac B")
+        XCTAssertTrue(a.waitForExistence(timeout: 5), "仅删除隔离A")
+        XCTAssertTrue(b.exists, "B必须在初始列表中")
+        a.swipeLeft(); app.buttons["忘记"].tap()
+        XCTAssertTrue(app.buttons["忘记 离线验收 Mac A"].waitForExistence(timeout: 3), "确认框应写明机器名称")
+        app.buttons.matching(NSPredicate(format: "label IN %@", ["取消", "Cancel"])).firstMatch.tap()
+        XCTAssertTrue(a.exists, "取消必须保留A")
+        a.swipeLeft(); app.buttons["忘记"].tap()
+        app.buttons["忘记 离线验收 Mac A"].tap()
+        XCTAssertTrue(a.waitForNonExistence(timeout: 3), "离线A必须本地移除，不能被关闭提醒的网络请求阻塞")
+        XCTAssertTrue(b.waitForExistence(timeout: 3), "移除A后必须留在列表并保留B：\(app.debugDescription)")
+        XCTAssertFalse(app.alerts["连接提示"].exists, "自动切到另一台离线电脑不能弹错打断删除")
+        app.terminate(); app.launch(); openComputers()
+        XCTAssertFalse(a.exists, "重启后A不能重新出现")
+        XCTAssertTrue(b.exists, "重启后必须保留B")
+        app.buttons["computer-actions-mac-" + String(repeating: "b", count: 64)].tap()
+        app.buttons["忘记这台电脑"].tap()
+        app.buttons["忘记 离线验收 Mac B"].tap()
+        XCTAssertTrue(app.staticTexts["你的电脑，随手可达"].waitForExistence(timeout: 3), "最后一台离线电脑也能删除")
+        XCTAssertFalse(b.exists, "不能残留B")
+    }
+}

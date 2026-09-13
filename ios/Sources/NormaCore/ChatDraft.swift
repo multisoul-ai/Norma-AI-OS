@@ -15,10 +15,11 @@ public struct ChatDraft: Codable, Sendable, Equatable, Identifiable {
             self.feedbackFingerprint = feedbackFingerprint
         }
         func validate() throws {
-            if let feedbackFingerprint { guard validHex(feedbackFingerprint), sessionID != nil else { throw MobileError.invalidResponse } }
+            if let feedbackFingerprint { guard validHex(feedbackFingerprint), runID != nil, sessionID != nil else { throw MobileError.invalidResponse } }
+            // A restored original card retains its session before a new PTY/run starts.
+            // Keep both optional identities in the scope; do not migrate drafts when the run changes.
             guard machineID.hasPrefix("mac-"), validHex(String(machineID.dropFirst(4))),
                   [workspaceID, routeID].allSatisfy(validID), nodeID > 0,
-                  sessionID == nil || runID != nil,
                   [runID, sessionID].compactMap({ $0 }).allSatisfy(validID) else { throw MobileError.invalidResponse }
         }
     }
@@ -27,17 +28,21 @@ public struct ChatDraft: Codable, Sendable, Equatable, Identifiable {
     public let text: String
     public let editedAt: Date
     public let label: String?
+    public var images: [ChatImage]? = nil
+    public var imageAttachments: [ChatImage] { images ?? [] }
 
     func validate() throws {
         try scope.validate()
         // 64 KiB = twice the send limit, allowing an oversized message to be edited/split without loss.
-        guard validID(id), !text.isEmpty, text.utf8.count <= 64 * 1024,
+        try imageAttachments.forEach { try $0.validate() }
+        guard imageAttachments.count <= 4, Set(imageAttachments.map(\.id)).count == imageAttachments.count,
+              validID(id), !text.isEmpty || !imageAttachments.isEmpty, text.utf8.count <= 64 * 1024,
               editedAt.timeIntervalSince1970.isFinite, (label?.utf8.count ?? 0) <= 1024 else { throw MobileError.invalidResponse }
     }
 }
 
 public actor ChatDraftStore {
-    private let url: URL
+    let url: URL
     public init(url: URL) { self.url = url }
     public func load() throws -> [ChatDraft] {
         guard FileManager.default.fileExists(atPath: url.path) else { return [] }
@@ -49,7 +54,7 @@ public actor ChatDraftStore {
         return drafts
     }
     func replace(_ drafts: [ChatDraft]) throws {
-        _ = try load() // Refuse to overwrite a damaged or protected file, even after an earlier successful load.
+        let previous = try load() // Refuse to overwrite a damaged or protected file, even after an earlier successful load.
         try validate(drafts)
         let data = try JSONEncoder().encode(drafts)
         guard data.count <= 4 * 1024 * 1024 else { throw MobileError.invalidResponse }
@@ -60,6 +65,7 @@ public actor ChatDraftStore {
         try data.write(to: url, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         #endif
+        removeUnusedImages(previous: previous, next: drafts)
     }
     private func validate(_ drafts: [ChatDraft]) throws {
         guard drafts.count <= 128, Set(drafts.map(\.scope)).count == drafts.count,

@@ -136,48 +136,57 @@ fn e2e_mobile_settings_are_opt_in_and_have_no_fake_pairing() {
     );
 }
 
-/// 空电脑从 Launchpad 直接打开手机连接，不需要先创建项目或运行 Agent。
+/// 欢迎页移除独立配对入口，项目内的 Settings 仍可打开手机连接。
 ///
-/// 数据构造：隔离数据库的空 Launchpad，零项目、零终端。
-/// 执行过程：点击原生手机连接入口 → 看到未启用状态 → Escape 关闭弹窗。
-/// 预期结果：入口和启用按钮存在，没有二维码；弹窗可取消，不打开项目。
+/// 数据构造：隔离数据库的空 Launchpad，以及一个没有终端的临时项目。
+/// 执行过程：检查欢迎页 → 打开项目 → Cmd+, → Mobile Connection → 关闭 Settings。
+/// 预期结果：欢迎页没有配对按钮；设置中有启用按钮、没有二维码；关闭后设置面板不再打开。
 #[test]
-fn e2e_empty_launchpad_can_open_mobile_pairing() {
+fn e2e_launchpad_leaves_mobile_pairing_in_project_settings() {
     let mut cx = TestAppContext::single();
-    let (_app, cx) = make_app(&mut cx, echo_factory());
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("launchpad-mobile").is_none(),
+        "欢迎页不得保留独立的手机连接按钮"
+    );
+    let workspace = tempfile::tempdir().expect("隔离空项目");
+    enter_canvas(&app, cx, workspace.path());
+    cx.simulate_keystrokes("cmd-,");
     cx.run_until_parked();
     let button = cx
-        .debug_bounds("launchpad-mobile")
-        .expect("空电脑必须能打开配对入口");
+        .debug_bounds("settings-section-mobile")
+        .expect("项目内必须能从 Settings 进入手机连接");
     cx.simulate_mouse_move(button.center(), None, Default::default());
     cx.simulate_click(button.center(), Default::default());
     cx.run_until_parked();
     assert!(
         cx.debug_bounds("mobile-enable").is_some(),
-        "弹窗必须复用真实手机连接设置"
+        "Settings 必须提供真实手机连接设置"
     );
     assert!(
         cx.debug_bounds("mobile-qr").is_none(),
-        "空电脑未启用前不得伪造二维码"
+        "未启用前不得伪造二维码"
     );
-    cx.simulate_keystrokes("escape");
+    let close = cx.debug_bounds("settings-close").expect("设置关闭入口");
+    cx.simulate_click(close.center(), Default::default());
     cx.run_until_parked();
-    assert!(
-        cx.debug_bounds("launchpad-open-project").is_some(),
-        "取消后仍处于 Launchpad"
-    );
+    let closed = app.update(cx, |app, cx| app.settings_e2e_snapshot(cx));
+    assert!(!closed.settings_open, "关闭后不能继续显示手机连接设置");
 }
 
-/// 小窗口内的手机连接弹窗可滚动到最后一台设备，不把撤销按钮裁到窗口外。
+/// 小窗口内的手机连接设置可滚动到最后一台设备，不把撤销按钮裁到窗口外。
 ///
 /// 数据构造：960×480px 窗口；8 台手机 × 约 64px 行高 > 480px，另有标题、状态与帮助文本。
-/// 执行过程：写入隔离设备 → 从首页打开手机连接 → 在首行向下滚动 1000px → 检查末行。
+/// 执行过程：写入隔离设备 → 打开手机连接设置 → 缩小窗口 → 向下滚动 1000px → 检查末行。
 /// 预期结果：第八台手机的撤销按钮进入可见区域；滚动前后位置必须变化，不能仅渲染在屏幕外。
 #[test]
-fn e2e_mobile_dialog_scrolls_inside_small_window() {
+fn e2e_mobile_settings_scroll_inside_small_window() {
     use gpui::{point, px, size, ScrollDelta, ScrollWheelEvent};
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::tempdir().expect("隔离空项目");
+    enter_canvas(&app, cx, workspace.path());
     let path = app.update(cx, |app, _| app.app_database_path_for_e2e());
     let store = storage::AppStore::new(path);
     for i in 0..8 {
@@ -191,16 +200,22 @@ fn e2e_mobile_dialog_scrolls_inside_small_window() {
             )
             .expect("隔离手机");
     }
-    cx.simulate_resize(size(px(960.0), px(480.0)));
+    cx.simulate_keystrokes("cmd-,");
     cx.run_until_parked();
-    let entry = cx.debug_bounds("launchpad-mobile").expect("手机连接入口");
+    let entry = cx
+        .debug_bounds("settings-section-mobile")
+        .expect("手机连接设置入口");
     cx.simulate_click(entry.center(), Default::default());
     cx.run_until_parked();
-    let first = cx.debug_bounds("mobile-revoke-0").expect("首台手机");
+    cx.simulate_resize(size(px(960.0), px(480.0)));
+    cx.run_until_parked();
+    let scroll = cx
+        .debug_bounds("settings-content-scroll")
+        .expect("手机连接设置必须使用原生设置滚动区");
     let before = cx.debug_bounds("mobile-revoke-7");
-    cx.simulate_mouse_move(first.center(), None, Default::default());
+    cx.simulate_mouse_move(scroll.center(), None, Default::default());
     cx.simulate_event(ScrollWheelEvent {
-        position: first.center(),
+        position: scroll.center(),
         delta: ScrollDelta::Pixels(point(px(0.0), px(-1000.0))),
         ..Default::default()
     });

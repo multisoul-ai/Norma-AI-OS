@@ -11,6 +11,7 @@ struct TerminalPanel: View {
     let revision: UInt64
     let canControl: Bool
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @FocusState private var inputFocused: Bool
     @State private var page: TerminalPage?
     @State private var history: TerminalPage?
@@ -55,23 +56,25 @@ struct TerminalPanel: View {
                     .frame(width: 44, height: 44).accessibilityLabel("重新连接终端")
             }.padding(.horizontal, 16)
             if let displayed {
-                ScrollView([.vertical, .horizontal]) {
+                ScrollView(.vertical) {
                     VStack(alignment: .leading, spacing: 8) {
                         if displayed.startLine > 0 {
                             Button(readingHistory ? "读取中…" : "更早的输出") { work = Task { await loadOlder() } }
                                 .font(.caption).frame(minHeight: 44).disabled(readingHistory || !connected)
                                 .accessibilityIdentifier("terminal-history")
                         }
-                        Text(displayed.rows.joined(separator: "\n"))
+                        Text(displayed.text())
                             .font(.system(.caption, design: .monospaced)).foregroundStyle(.white.opacity(0.9))
-                            .textSelection(.enabled).fixedSize(horizontal: true, vertical: true)
+                            .lineSpacing(3)
+                            .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .accessibilityIdentifier("terminal-output")
                     }.padding(.horizontal, 16).padding(.bottom, 16)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             } else if scope == nil {
-                ContentUnavailableView("终端尚未启动", systemImage: "terminal", description: Text("在电脑上启动这张 Agent 卡片后即可查看。"))
+                ContentUnavailableView("终端尚未启动", systemImage: "terminal", description: Text("在对话中发送消息后，这张卡片会自动启动。"))
             } else if failure == nil {
-                ProgressView("正在读取终端…").frame(maxWidth: .infinity, maxHeight: .infinity)
+                WorkspaceLoadingView(message: "正在读取终端…")
             } else { Spacer() }
             if let failure { Text(failure).font(.caption).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 6) }
             if let notice { Text(notice).font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16) }
@@ -82,7 +85,7 @@ struct TerminalPanel: View {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("收起键盘", systemImage: "keyboard.chevron.compact.down") { inputFocused = false }
-                    .labelStyle(.iconOnly).accessibilityIdentifier("terminal-dismiss-keyboard")
+                    .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44).accessibilityIdentifier("terminal-dismiss-keyboard")
             }
         }
         .task(id: "\(scenePhase)-\(card.runID ?? "none")-\(card.sessionID ?? "none")-\(retry)") {
@@ -113,16 +116,27 @@ struct TerminalPanel: View {
             if pending != nil {
                 Button("查询上次输入结果") { showResult = true }.font(.subheadline).frame(minHeight: 44)
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(keys.indices, id: \.self) { index in
-                        Button(keys[index].label) { work = Task { await send(keys[index]) } }
-                            .font(.caption.monospaced().weight(.medium)).frame(minWidth: 44, minHeight: 44)
-                            .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
-                            .accessibilityLabel(keyLabel(keys[index])).accessibilityIdentifier("terminal-key-\(index)")
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 100 : 60), spacing: 8)], spacing: 8) {
+                ForEach(keys.indices, id: \.self) { index in
+                    Button { work = Task { await send(keys[index]) } } label: {
+                        switch keys[index] {
+                        case .enter: Image(systemName: "return")
+                        case .tab: Image(systemName: "arrow.right.to.line")
+                        case .escape: Image(systemName: "escape")
+                        case .backspace: Image(systemName: "delete.left")
+                        case .up: Image(systemName: "arrow.up")
+                        case .down: Image(systemName: "arrow.down")
+                        case .left: Image(systemName: "arrow.left")
+                        case .right: Image(systemName: "arrow.right")
+                        case .ctrlC: Text("⌃C")
+                        case .text: Text(keys[index].label)
+                        }
                     }
-                }.disabled(!canType)
-            }
+                        .font(.caption.monospaced().weight(.medium)).frame(maxWidth: .infinity, minHeight: 44)
+                        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
+                        .accessibilityLabel(keyLabel(keys[index])).accessibilityIdentifier("terminal-key-\(index)")
+                }
+            }.disabled(!canType)
             HStack(alignment: .bottom, spacing: 10) {
                 TextField("输入到电脑终端", text: $text, axis: .vertical)
                     .focused($inputFocused)

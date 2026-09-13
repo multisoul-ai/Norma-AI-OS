@@ -38,9 +38,9 @@ struct TaskDeliveriesView: View {
                 if let pendingCount { Text("\(pendingCount) 份成果待验收").font(.subheadline.weight(.medium)) }
                 Text("这里只展示已保存的回合成果。失败、缺少完整变更或存在冲突的记录，可在全部成果中查看。")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                if collecting { ProgressView("正在整理本轮成果…").font(.caption) }
+                if collecting { WorkspaceLoadingView(message: "正在整理本轮成果…", inline: true) }
             }
-            if loading { ProgressView("正在读取成果…") }
+            if loading && !items.isEmpty { WorkspaceLoadingView(message: "正在读取成果…", inline: true) }
             if let error {
                 Text(error).font(.subheadline).foregroundStyle(.orange)
             }
@@ -82,6 +82,7 @@ struct TaskDeliveriesView: View {
             if cursor != nil { Button("返回最新成果") { cursor = nil }.frame(minHeight: 44) }
         }
         .scrollContentBackground(.hidden).background(.black)
+        .workspaceLoading(loading && items.isEmpty, "正在读取成果…")
         .navigationTitle(card == nil ? "项目成果" : "任务成果").navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

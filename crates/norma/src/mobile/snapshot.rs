@@ -44,11 +44,11 @@ impl PartialEq for CardSnapshot {
 pub struct ProjectSnapshot {
     pub workspace_id: String,
     pub display_name: String,
-    /// open, closed, or unavailable; only open carries the current window's route identity.
+    /// open, closed, or unavailable; open means a loaded project session, with or without a window.
     pub state: String,
     pub route_id: Option<String>,
     pub card_count: Option<usize>,
-    /// None is not an empty project: cards were not requested, or there is no live window.
+    /// None is not an empty project: cards were not requested, or the project session is unavailable.
     pub cards: Option<Vec<CardSnapshot>>,
 }
 

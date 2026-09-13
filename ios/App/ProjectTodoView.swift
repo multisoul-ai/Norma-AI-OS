@@ -152,7 +152,7 @@ struct ProjectTodoView: View {
                 Text(plan.draft.summary).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                 if legacy { Text("电脑版本较早，执行进度更新后请手动刷新。").font(.caption).foregroundStyle(.secondary) }
                 if let checkedAt { Text("核验于 \(checkedAt.formatted(date: .omitted, time: .standard))").font(.caption).foregroundStyle(.secondary) }
-                if busy { ProgressView("正在提交决定…") }
+                if busy { WorkspaceLoadingView(message: "正在提交决定…", inline: true) }
                 if let message = connectionError ?? readError ?? error {
                     Text(message).font(.caption).foregroundStyle(.orange)
                 }

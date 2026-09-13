@@ -15,10 +15,18 @@ struct DraftHistoryView: View {
             List {
                 Text("草稿保存在此手机，不会自动发送。复制需要的内容，再粘贴到目标对话。")
                     .font(.footnote).foregroundStyle(.secondary)
-                if !book.loaded && book.failure == nil { ProgressView("正在读取草稿…") }
-                else if book.loaded && visibleDrafts.isEmpty { ContentUnavailableView("没有未发送的草稿", systemImage: "note.text") }
+                if book.loaded && visibleDrafts.isEmpty { ContentUnavailableView("没有未发送的草稿", systemImage: "note.text") }
                 ForEach(visibleDrafts) { draft in
                     Section {
+                        if !draft.imageAttachments.isEmpty {
+                            ScrollView(.horizontal) {
+                                HStack(spacing: 8) {
+                                    ForEach(Array(draft.imageAttachments.enumerated()), id: \.element.id) { index, image in
+                                        ChatPhotoTile(id: image.id, label: "图片 \(index + 1)", load: { try await book.imageData(image) })
+                                    }
+                                }
+                            }.scrollIndicators(.hidden)
+                        }
                         Text(draft.text).font(.subheadline).textSelection(.enabled)
                         Button(copied == draft.id ? "已复制" : "复制正文") {
                             UIPasteboard.general.string = draft.text; copied = draft.id
@@ -37,6 +45,7 @@ struct DraftHistoryView: View {
                 }
             }
             .scrollContentBackground(.hidden).background(.black)
+            .workspaceLoading(!book.loaded && book.failure == nil, "正在读取草稿…")
             .navigationTitle("本地草稿").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() }.accessibilityIdentifier("drafts-close") } }
             .confirmationDialog("删除这份未发送的草稿？", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {

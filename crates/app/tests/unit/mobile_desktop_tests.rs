@@ -69,13 +69,13 @@ fn pairing_code_copy_preserves_pairing_and_expiry() {
     });
 }
 
-/// 同一 App 数据库的窗口共用一个移动服务；最后一个引用释放时停止已接受连接和迟到启动。
+/// 同一 App 数据库的窗口共用一个移动服务；关窗保留，主动退出停止连接和迟到启动。
 ///
 /// 数据构造：两个 App 数据库、A 的两个窗口引用、一个回环 TLS 服务；读超时 1s = 20ms listener 轮询 + 调度余量。
-/// 执行过程：附着 A 两次和 B 一次 → A 注入隔离真实服务 → 释放 A 第一个引用 → 释放最后一个引用。
-/// 预期结果：A 引用相同且 B 不同；关闭一个窗口仍可访问；关闭最后一个窗口使弱引用和连接失效，取消标志生效。
+/// 执行过程：附着 A 两次和 B 一次 → A 注入服务 → 释放窗口引用 → 核验保活 → 主动shutdown。
+/// 预期结果：A 引用相同且 B 不同；全部关窗后服务保留；主动退出后弱引用/连接失效，取消标志生效。
 #[test]
-fn shared_desktop_owner_stops_only_after_last_window() {
+fn shared_desktop_owner_survives_windows_until_app_quit() {
     let dir = tempfile::tempdir().expect("隔离目录");
     let store = AppStore::new(dir.path().join("app.sqlite"));
     let mut cx = TestAppContext::single();
@@ -118,12 +118,24 @@ fn shared_desktop_owner_stops_only_after_last_window() {
         .set_read_timeout(Some(Duration::from_secs(1)))
         .expect("有界等待");
     drop(second);
+    cx.update(|_| {});
+    cx.run_until_parked();
+    assert!(weak.upgrade().is_some(), "进程必须持有无窗口手机服务");
+    assert!(
+        !cancelled.load(Ordering::Acquire),
+        "关窗不能取消仍启用的服务"
+    );
+    assert!(
+        server.begin_pairing("background").is_ok(),
+        "无窗口仍可服务已授权手机"
+    );
+    cx.update(super::shutdown);
     // GPUI releases entity payloads when the next App update flushes effects.
     cx.update(|_| {});
     cx.run_until_parked();
     assert!(
         weak.upgrade().is_none(),
-        "全局注册表不能强持有已关闭的窗口服务"
+        "主动退出后全局注册表不能继续持有服务"
     );
     assert!(
         cancelled.load(Ordering::Acquire),
@@ -132,7 +144,7 @@ fn shared_desktop_owner_stops_only_after_last_window() {
     let mut byte = [0];
     assert!(
         !matches!(socket.read(&mut byte), Ok(1..)),
-        "后台持有 server Arc 也不能阻止最后窗口关停网络"
+        "后台持有 server Arc 也不能阻止主动退出关停网络"
     );
     assert!(
         server.begin_pairing("closed").is_err(),

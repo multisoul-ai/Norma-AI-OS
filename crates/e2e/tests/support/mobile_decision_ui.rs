@@ -86,12 +86,18 @@ impl Fixture {
         let mut cards = self.cards.clone();
         if dir.join("ui-chat-interactions").exists() {
             cards[0].mobile_control = true;
-            cards[0].state = if self.received.is_empty() {
+            cards[0].state = if self.received.is_empty() && dir.join("ui-chat-ready").exists() {
+                "ready"
+            } else if self.received.is_empty() {
                 "idle"
             } else {
                 "thinking"
             }
             .into();
+            if self.received.is_empty() && dir.join("ui-chat-cold-session").exists() {
+                cards[0].run_id = None;
+                cards[0].turn_id = None;
+            }
         }
         if dir.join("ui-chat-live").exists() {
             cards[0].state = if dir.join("ui-chat-final").exists() {
@@ -129,16 +135,44 @@ impl Fixture {
                 "正在写第一句，还未写入对话记录"
             }
             .into();
+            if dir.join("ui-chat-empty-output").exists() {
+                rows.fill(String::new());
+                fs::write(dir.join("ui-chat-empty-read"), b"").expect("记录空屏读取");
+            }
+            if dir.join("ui-chat-layout").exists() {
+                rows = vec![
+                    format!(
+                        "中文长行：{}终端行尾",
+                        "手机自动换行，保留电脑布局。".repeat(8)
+                    ),
+                    format!(
+                        "/workspace/{}/terminal-end.swift",
+                        "long_unbroken_path_".repeat(6)
+                    ),
+                    "短行应原样保留".into(),
+                    "软折行前半 ".into(),
+                    "后半应连在一起".into(),
+                ];
+            }
+            let mut soft_wrapped = vec![false; rows.len()];
+            if dir.join("ui-chat-layout").exists() {
+                soft_wrapped[3] = true;
+            }
             let _ = call.reply.send(Ok(norma::mobile::TerminalPage {
                 card: self.cards(dir)[0].clone(),
                 revision: if changed { 2 } else { 1 },
                 screen_signature: 1,
                 input_sequence: 0,
                 start_line: 0,
-                total_lines: 24,
-                cols: 80,
+                total_lines: rows.len(),
+                cols: if dir.join("ui-chat-layout").exists() {
+                    160
+                } else {
+                    80
+                },
                 running: true,
                 input_ready: false,
+                soft_wrapped,
                 rows,
             }));
         }
@@ -201,6 +235,10 @@ impl Fixture {
                 Some(&call.request.session_id),
                 "不能读取另一会话"
             );
+            if dir.join("ui-chat-history-unavailable").exists() {
+                let _ = call.reply.send(Err("history_unavailable"));
+                continue;
+            }
             let mut items = vec![json!({"id":"original-reply","role":"assistant",
                 "text":format!("来自原会话 {} 的完整回复", call.request.session_id),"details":null})];
             if dir.join("ui-tool-cards").exists() {
@@ -208,6 +246,13 @@ impl Fixture {
             }
             if dir.join("ui-chat-interactions").exists() {
                 items = chat_records(dir, self.received.last());
+            }
+            if dir.join("ui-chat-layout").exists() {
+                items = vec![
+                    json!({"id":"layout-user","role":"user","text":"检查 `原始输入`，请保留原文。","details":null}),
+                    json!({"id":"layout-reply","role":"assistant","text":"已检查 **手机布局**。\n\n使用 `swift test` 验证。\n下一步：检查长行与工具输出。","details":null}),
+                ];
+                items.extend(tool_records(dir));
             }
             let page = serde_json::from_value(json!({"items":items,
                 "cursor":"fixture-current", "has_more":false, "pending_tail":false,"direction":"newer"})).expect("准确会话页");
@@ -226,12 +271,35 @@ impl Fixture {
                     panic!("聊天验收只能提交发送消息");
                 };
                 assert_eq!(expected.node_id, 7, "只能向指定聊天卡发送");
-                assert_eq!(expected.run_id.as_deref(), Some("run-7"), "不能跨运行发送");
+                let run = if self.received.is_empty() && dir.join("ui-chat-cold-session").exists() {
+                    None
+                } else {
+                    Some("run-7")
+                };
+                assert_eq!(
+                    expected.run_id.as_deref(),
+                    run,
+                    "必须匹配未启动或正在运行的原卡身份"
+                );
                 assert_eq!(
                     expected.session_id.as_deref(),
                     Some("session-7"),
                     "不能跨会话发送"
                 );
+                if let Ok(error) = fs::read_to_string(dir.join("ui-chat-rejection")) {
+                    let code = match error.as_str() {
+                        "desktop_input_pending" => "desktop_input_pending",
+                        "outcome_unknown" => "outcome_unknown",
+                        _ => panic!("仅模拟明确拒绝和结果未知两种回执"),
+                    };
+                    fs::write(
+                        dir.join("ui-chat-rejected-operation"),
+                        &call.request.operation_id,
+                    )
+                    .expect("记录准确被拒绝操作");
+                    let _ = call.reply.send(Err(code));
+                    continue;
+                }
                 self.received
                     .push(json!({"text":text,"operation_id":call.request.operation_id}));
                 fs::write(

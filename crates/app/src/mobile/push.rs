@@ -79,13 +79,16 @@ pub(super) fn start(shared: Arc<Shared>, config: PushRelayConfig) -> Result<()> 
 pub(super) fn configure(shared: Arc<Shared>, config: Option<PushRelayConfig>) -> Result<()> {
     ensure!(
         shared.snapshots.is_some() && shared.approvals.is_some(),
-        "手机通知缺少实时数据源"
+        "Live data sources for mobile notifications are unavailable"
     );
     let mut delivery = shared
         .push_delivery
         .lock()
-        .map_err(|_| anyhow::anyhow!("通知服务不可用"))?;
-    ensure!(!shared.stopped.load(Ordering::Acquire), "手机连接已关闭");
+        .map_err(|_| anyhow::anyhow!("Notification service is unavailable"))?;
+    ensure!(
+        !shared.stopped.load(Ordering::Acquire),
+        "Mobile connection is off"
+    );
     // Serialize replacement with the last HTTP send (bounded at 12s). No Agent or WSS restart.
     delivery.generation += 1;
     delivery.relay = config.map(Relay::new);
@@ -123,7 +126,7 @@ fn run(shared: &Shared) -> Result<()> {
             let delivery = shared
                 .push_delivery
                 .lock()
-                .map_err(|_| anyhow::anyhow!("通知服务不可用"))?;
+                .map_err(|_| anyhow::anyhow!("Notification service is unavailable"))?;
             if generation != delivery.generation {
                 cursors.clear(); // Establish fresh terminal watermarks; never replay a disabled interval.
                 generation = delivery.generation;
@@ -287,10 +290,9 @@ fn run(shared: &Shared) -> Result<()> {
                             {
                                 continue;
                             }
-                            let delivery = shared
-                                .push_delivery
-                                .lock()
-                                .map_err(|_| anyhow::anyhow!("通知服务不可用"))?;
+                            let delivery = shared.push_delivery.lock().map_err(|_| {
+                                anyhow::anyhow!("Notification service is unavailable")
+                            })?;
                             let Some(relay) = delivery
                                 .relay
                                 .as_ref()

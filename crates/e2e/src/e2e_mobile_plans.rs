@@ -243,7 +243,11 @@ fn run(scenario: Scenario) {
                 .publish("peer-plan", &id, route, "另一端方向", &old_draft)
                 .expect("对端先发布");
         }
-        Scenario::Close => cx.update(|window, _| window.remove_window()),
+        Scenario::Close => {
+            cx.update(|window, _| window.remove_window());
+            cx.cx
+                .update(app::MultisoulApp::project_windows_closed_for_e2e);
+        }
         Scenario::Remove => app.update(cx, |app, _| {
             app.runtime.remove_node(node);
         }),

@@ -8,7 +8,6 @@ use futures::{
 use gpui::Context;
 use runtime::{InputMode, NodeRunState};
 
-#[cfg(not(any(test, feature = "e2e-test-support")))]
 use super::frame_schedule::AnimationWakeup;
 use super::frame_schedule::{AnimationSchedule, RepaintContext, RepaintGate, RepaintReason};
 use super::{AppScreen, MultisoulApp};
@@ -270,7 +269,9 @@ impl MultisoulApp {
                         crate::mobile::project_events::changed();
                     }
                     #[cfg(all(target_os = "macos", not(feature = "e2e-test-support")))]
-                    app.refresh_due_ego_previews(cx);
+                    if !app.background_project {
+                        app.refresh_due_ego_previews(cx);
+                    }
                     for event in &runtime_events {
                         tracing::debug!(?event, "runtime event");
                     }
@@ -282,7 +283,8 @@ impl MultisoulApp {
                         elapsed: tick_started_at.elapsed(),
                     };
                     let repaint_context = RepaintContext {
-                        screen_is_canvas: matches!(app.screen, AppScreen::Canvas),
+                        screen_is_canvas: !app.background_project
+                            && matches!(app.screen, AppScreen::Canvas),
                         settings_open: app.settings_panel.open,
                         window_active: app.window_active,
                         focused_running_terminal: focused_running_terminal(app),
@@ -345,6 +347,10 @@ impl MultisoulApp {
                 };
                 let frame_now = cx.background_executor().now();
                 let go = this.update(cx, |app, cx| {
+                    if app.background_project {
+                        let interval = AnimationSchedule::idle_timer_interval(false);
+                        return (AnimationWakeup::Timer(interval), interval);
+                    }
                     #[cfg(feature = "e2e-test-support")]
                     if app.animation_frame_loop_paused_for_e2e {
                         return app.animation_wakeup_and_timer_interval();

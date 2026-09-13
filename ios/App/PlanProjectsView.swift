@@ -21,15 +21,15 @@ struct PlanProjectsView: View {
                             Label(project.displayName, systemImage: "folder").font(.subheadline).padding(.vertical, 6)
                         }
                     }
-                    if loading { ProgressView("正在读取项目…") }
-                    else if let error { Text(error).font(.caption).foregroundStyle(.orange) }
-                    else if projects.isEmpty { Text("这台电脑还没有授权给手机的项目").font(.subheadline).foregroundStyle(.secondary) }
+                    if let error { Text(error).font(.caption).foregroundStyle(.orange) }
+                    else if !loading && projects.isEmpty { Text("这台电脑还没有授权给手机的项目").font(.subheadline).foregroundStyle(.secondary) }
                 } header: { Text(machine.name) } footer: { Text("选择项目，查看建议或调整下一步方向。") }
             } else {
                 ContentUnavailableView("连接电脑后梳理下一步", systemImage: "laptopcomputer.and.iphone", description: Text("在电脑页通过验证码或扫码连接 Norma，再选择项目。"))
             }
         }
         .scrollContentBackground(.hidden).background(.black)
+        .workspaceLoading(loading && projects.isEmpty, "正在读取项目…")
         .navigationTitle("下一步").navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

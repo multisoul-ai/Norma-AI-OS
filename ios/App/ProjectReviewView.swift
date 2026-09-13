@@ -69,7 +69,6 @@ struct ProjectReviewView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            if loading { ProgressView("正在读取完整变更…").font(.subheadline) }
             if let error {
                 Section {
                     Text(error).font(.subheadline).foregroundStyle(.orange)
@@ -134,6 +133,7 @@ struct ProjectReviewView: View {
             }
         }
         .scrollContentBackground(.hidden).background(.black)
+        .workspaceLoading(loading && response == nil, "正在读取完整变更…")
         .navigationTitle(delivery == nil ? "项目变更" : "任务成果").navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

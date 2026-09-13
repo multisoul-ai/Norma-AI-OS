@@ -12,17 +12,24 @@ struct RootView: View {
     @State private var projectState: String?
 
     var body: some View {
-        TabView(selection: $tab) {
-            projects
-                .tabItem { Label("项目", systemImage: "square.grid.2x2") }.tag(0)
-            CommandCenterView(model: model, manageComputers: { showComputers = true }, active: tab == 1 && !showComputers)
-                .tabItem { Label("指挥台", systemImage: "sparkle") }.tag(1)
-            TasksView(model: model, active: tab == 2 && !showComputers, manageComputers: { showComputers = true }, openCommandCenter: openCommandCenter)
-                .id(model.selectedID).tabItem { Label("任务", systemImage: "checklist") }.tag(2)
-        }
-        .environment(\.workspaceTab, $tab)
-        .environment(\.workspaceNotifications, { showNotifications = true })
-        .toolbar(.hidden, for: .tabBar)
+        NavigationStack {
+            TabView(selection: $tab) {
+                projects
+                    .tabItem { Label("项目", systemImage: "square.grid.2x2") }.tag(0)
+                CommandCenterView(model: model, manageComputers: { showComputers = true }, active: tab == 1 && !showComputers)
+                    .tabItem { Label("指挥台", systemImage: "sparkle") }.tag(1)
+                TasksView(model: model, active: tab == 2 && !showComputers, manageComputers: { showComputers = true })
+                    .id(model.selectedID).tabItem { Label("任务", systemImage: "checklist") }.tag(2)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                WorkspaceTabBar(selection: $tab).padding(.horizontal, 17).padding(.top, 4).padding(.bottom, 8)
+            }
+            // Only the home shell anchors to the screen; pushed chats keep native keyboard avoidance.
+            .ignoresSafeArea(.all, edges: .bottom)
+            .environment(\.workspaceTab, $tab)
+            .environment(\.workspaceNotifications, { showNotifications = true })
+            .toolbar(.hidden, for: .tabBar)
+        }.id(model.selectedID)
         .sheet(isPresented: $showNotifications) { NotificationSettingsView(model: model, notifications: notifications) }
         .sheet(isPresented: $showProjects) { projectPicker }
         .onChange(of: model.selectedID) { _, _ in showProjects = false; projectSearch = ""; projectState = nil }
@@ -33,22 +40,15 @@ struct RootView: View {
         } message: { Text(model.error ?? "") }
     }
 
-    private func openCommandCenter(_ project: ProjectSnapshot) {
-        model.selectProject(project.id)
-        model.commandShowsPlan = true
-        tab = 1
-    }
-
     private var projects: some View {
-        NavigationStack {
+        Group {
             if let machine = model.selected, let project = model.selectedProject {
                 ProjectCardsView(machine: machine, workspaceID: project.id, name: project.displayName, model: model, active: tab == 0 && !showComputers,
-                                 manageComputers: { showComputers = true }, switchProject: { showProjects = true },
-                                 openCommandCenter: { openCommandCenter(project) })
+                                 manageComputers: { showComputers = true }, switchProject: { showProjects = true })
                     .id(project.id)
             } else {
                 VStack {
-                    if model.connecting { ProgressView("正在读取项目…") }
+                    if model.connecting { WorkspaceLoadingView(message: "正在读取项目…") }
                     else if model.projects?.isEmpty == true {
                         WorkspaceStatusView(title: "还没有可访问的项目", icon: "folder", message: "在电脑的手机连接设置中授权项目，然后重新读取。") {
                             WorkspaceStatusButton(title: "重新读取", action: model.refresh)
@@ -93,7 +93,7 @@ struct RootView: View {
                                 Image(systemName: "folder").font(.title3).foregroundStyle(.secondary)
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(project.displayName).font(.subheadline.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
-                                    Text(project.state == "open" ? "\(project.cardCount ?? 0) 张卡片" : project.state == "closed" ? "未在 Norma 中打开" : "暂时无法读取")
+                                    Text(project.state == "open" ? "\(project.cardCount ?? 0) 张卡片" : project.state == "closed" ? "点按加载项目" : "暂时无法读取")
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
@@ -107,14 +107,14 @@ struct RootView: View {
                     if let date = model.checkedAt {
                         Section { Text("目录更新于 \(date.formatted(date: .omitted, time: .standard))").font(.caption).foregroundStyle(.secondary) }
                     }
-                } else if model.connecting { ProgressView("正在读取项目…") }
-                else {
+                } else if !model.connecting {
                     WorkspaceStatusView(title: model.selected == nil ? "先连接你的电脑" : "暂时无法读取项目", icon: "wifi.exclamationmark", message: "请保持 Norma 打开，并检查网络连接。", inline: true) {
                         WorkspaceStatusButton(title: "返回项目") { showProjects = false }
                     }
                 }
             }
             .scrollContentBackground(.hidden).background(.black)
+            .workspaceLoading(model.projects == nil && model.connecting, "正在读取项目…")
             .refreshable { await model.refreshAndWait() }
             .navigationTitle("切换项目").navigationBarTitleDisplayMode(.inline)
             .searchable(text: $projectSearch, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索项目")
@@ -126,8 +126,8 @@ struct RootView: View {
                     Menu {
                         Picker("项目状态", selection: $projectState) {
                             Text("全部状态").tag(String?.none)
-                            Text("已打开").tag(Optional("open"))
-                            Text("未打开").tag(Optional("closed"))
+                            Text("已加载").tag(Optional("open"))
+                            Text("待加载").tag(Optional("closed"))
                             Text("无法读取").tag(Optional("unavailable"))
                         }
                         Button("清除筛选") { projectSearch = ""; projectState = nil }

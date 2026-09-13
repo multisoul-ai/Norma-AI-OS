@@ -36,24 +36,46 @@ public struct PushSubscriptionState: Decodable, Sendable, Equatable {
 
 extension MobileClient {
     public func pushSubscription(_ machine: PairedMachine) async throws -> PushSubscriptionState {
-        try await pushSubscriptionExchange(machine, update: nil)
+        guard let credential = try await vault.load(machineID: machine.id) else { throw MobileError.invalidCredential }
+        return try await pushSubscriptionExchange(machine, credential: credential, update: nil)
     }
 
     /// One explicit update. On a lost response, re-read state; do not replay an old enable or disable.
     public func updatePushSubscription(_ machine: PairedMachine, expected: PushSubscriptionState, registration: APNsRegistration?) async throws -> PushSubscriptionState {
+        try validatePushSubscriptionUpdate(machine, expected: expected, registration: registration)
+        guard let credential = try await vault.load(machineID: machine.id) else { throw MobileError.invalidCredential }
+        return try await updatePushSubscription(machine, credential: credential, expected: expected, registration: registration)
+    }
+
+    /// Capture only in memory, before local Keychain deletion; remote cleanup never gates forgetting.
+    public func preparePushSubscriptionRemoval(_ machine: PairedMachine) async throws -> @Sendable () async throws -> Void {
+        try machine.validate()
+        guard let credential = try await vault.load(machineID: machine.id) else { throw MobileError.invalidCredential }
+        return {
+            let current = try await pushSubscriptionExchange(machine, credential: credential, update: nil)
+            if current.registration != nil {
+                _ = try await updatePushSubscription(machine, credential: credential, expected: current, registration: nil)
+            }
+        }
+    }
+
+    private func validatePushSubscriptionUpdate(_ machine: PairedMachine, expected: PushSubscriptionState, registration: APNsRegistration?) throws {
         try expected.validate()
         guard expected.machineID == machine.id else { throw MobileError.wrongComputer }
         guard expected.revision < Int64.max else { throw MobileError.invalidResponse }
         try registration?.validate()
+    }
+
+    private func updatePushSubscription(_ machine: PairedMachine, credential: DeviceCredential, expected: PushSubscriptionState, registration: APNsRegistration?) async throws -> PushSubscriptionState {
+        try validatePushSubscriptionUpdate(machine, expected: expected, registration: registration)
         let value: Any = try registration.map { try JSONSerialization.jsonObject(with: JSONEncoder().encode($0)) } ?? NSNull()
-        let state = try await pushSubscriptionExchange(machine, update: ["expected_revision": expected.revision, "registration": value], expectedDeviceID: expected.deviceID)
+        let state = try await pushSubscriptionExchange(machine, credential: credential, update: ["expected_revision": expected.revision, "registration": value], expectedDeviceID: expected.deviceID)
         guard state.revision == expected.revision + 1, state.registration == registration else { throw MobileError.invalidResponse }
         return state
     }
 
-    private func pushSubscriptionExchange(_ machine: PairedMachine, update: [String: Any]?, expectedDeviceID: String? = nil) async throws -> PushSubscriptionState {
+    private func pushSubscriptionExchange(_ machine: PairedMachine, credential: DeviceCredential, update: [String: Any]?, expectedDeviceID: String? = nil) async throws -> PushSubscriptionState {
         try machine.validate()
-        guard let credential = try await vault.load(machineID: machine.id) else { throw MobileError.invalidCredential }
         guard expectedDeviceID == nil || expectedDeviceID == credential.deviceID else { throw MobileError.invalidCredential }
         var action: [String: Any] = ["type": update == nil ? "push_subscription" : "set_push_subscription",
                                      "device_id": credential.deviceID, "token": credential.token]

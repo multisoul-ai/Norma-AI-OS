@@ -31,6 +31,8 @@ mod e2e_02_terminal_echo;
 // E2E-02：用户删除 live 卡片时，必须沿统一关闭路由请求终止 PTY 后端。
 mod e2e_02_process_cleanup;
 mod e2e_mobile_archive;
+mod e2e_mobile_background;
+mod e2e_mobile_background_messages;
 mod e2e_mobile_claude_interrupt;
 mod e2e_mobile_codex_readiness;
 mod e2e_mobile_commands;
@@ -38,6 +40,7 @@ mod e2e_mobile_controlled_claude;
 mod e2e_mobile_controlled_codex;
 mod e2e_mobile_conversation;
 mod e2e_mobile_desktop_input;
+mod e2e_mobile_images;
 mod e2e_mobile_native_approval_probe;
 mod e2e_mobile_native_codex_interrupt;
 mod e2e_mobile_plans;
@@ -465,3 +468,6 @@ mod e2e_mobile_messages;
 mod e2e_mobile_native_codex_approval;
 
 mod e2e_mobile_terminal;
+
+#[cfg(test)]
+mod e2e_mobile_empty_claude;

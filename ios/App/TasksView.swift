@@ -5,9 +5,10 @@ struct TasksView: View {
     let model: ComputerModel
     let active: Bool
     let manageComputers: () -> Void
-    let openCommandCenter: (ProjectSnapshot) -> Void
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var filterHighlight
     @State private var projects: [String: ProjectSnapshot] = [:]
     @State private var issues: [String: String] = [:]
     @State private var generation = 0
@@ -20,6 +21,8 @@ struct TasksView: View {
     private var filtering: Bool { !search.isEmpty || filter != .all || projectID != nil }
     private var catalog: [ProjectSnapshot] { model.projects ?? [] }
     private var projectName: String { catalog.first { $0.id == projectID }?.displayName ?? "所有项目" }
+    private var awaitingTasks: Bool { model.connecting || catalog.contains { projects[$0.id] == nil && issues[$0.id] == nil } }
+    private var hasVisibleTasks: Bool { visibleProjects.contains { !cards(in: $0).isEmpty } }
     private var watchID: String {
         "\(active)-\(scenePhase)-\(model.selectedID ?? "")-\(model.grant?.revision ?? 0)-" + catalog.map(\.id).joined(separator: "|")
     }
@@ -34,7 +37,7 @@ struct TasksView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        Group {
             VStack(spacing: 0) {
                 taskHeading
                 Group {
@@ -62,9 +65,7 @@ struct TasksView: View {
             .sheet(isPresented: $composing) {
                 if let machine = model.selected {
                     NewTaskView(model: model, machine: machine, projects: catalog.compactMap { projects[$0.id] },
-                                projectID: $newTaskProjectID, nodeID: $newTaskCardID) { project in
-                        composing = false; openCommandCenter(project)
-                    }.id(machine.id)
+                                projectID: $newTaskProjectID, nodeID: $newTaskCardID).id(machine.id)
                 }
             }
             .onChange(of: model.selectedID) { _, _ in
@@ -78,49 +79,60 @@ struct TasksView: View {
     }
 
     private var taskHeading: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                WorkspacePageTitle(title: "任务").accessibilityIdentifier("tasks-page-title")
-                Spacer()
-                Button {
-                    if newTaskProjectID == nil { newTaskProjectID = projectID }
-                    composing = true
-                } label: { WorkspaceCircleIcon(symbol: "plus") }
-                    .accessibilityLabel("新建任务").accessibilityIdentifier("new-task")
-                    .disabled(projects.values.allSatisfy { $0.routeID == nil })
-            }
-            Menu {
-                Picker("项目", selection: $projectID) {
-                    Text("所有项目").tag(String?.none)
-                    ForEach(catalog) { Text($0.displayName).tag(Optional($0.id)) }
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "square.grid.2x2")
-                    Text(projectName).lineLimit(1)
-                    Image(systemName: "chevron.down").font(.system(size: 10))
-                }.font(.footnote).foregroundStyle(WorkspaceStyle.muted).frame(minHeight: 44)
-            }.accessibilityLabel("任务项目").accessibilityValue(projectName)
-                .accessibilityIdentifier("task-project-filter").disabled(catalog.isEmpty)
+        HStack {
+            WorkspacePageTitle(title: "任务").accessibilityIdentifier("tasks-page-title")
+            Spacer()
+            Button {
+                if newTaskProjectID == nil { newTaskProjectID = projectID }
+                composing = true
+            } label: { WorkspaceCircleIcon(symbol: "plus") }
+                .accessibilityLabel("新建任务").accessibilityIdentifier("new-task")
+                .disabled(projects.values.allSatisfy { $0.routeID == nil })
         }.buttonStyle(WorkspacePressStyle()).padding(.horizontal, 20).padding(.bottom, 10)
+    }
+
+    private var projectFilter: some View {
+        Menu {
+            Picker("任务项目", selection: $projectID) {
+                Text("所有项目").tag(String?.none)
+                ForEach(catalog) { Text($0.displayName).tag(Optional($0.id)) }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Text(projectName).lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                    .fixedSize(horizontal: false, vertical: true)
+                Image(systemName: "chevron.down").font(.system(size: 10)).accessibilityHidden(true)
+            }.font(.subheadline).foregroundStyle(WorkspaceStyle.muted)
+                .frame(minWidth: 44, maxWidth: dynamicTypeSize.isAccessibilitySize ? 168 : 112, minHeight: 44)
+                .contentShape(Rectangle())
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("任务项目").accessibilityValue(projectName)
+        }.buttonStyle(.plain)
+            .accessibilityIdentifier("task-project-filter").disabled(catalog.isEmpty)
     }
 
     private var taskList: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
-                WorkspaceSearch(placeholder: "搜索任务、项目或 Agent", text: $search, identifier: "task-search")
-                HStack(spacing: 4) {
-                    ForEach(TaskListFilter.allCases, id: \.self) { choice in
-                        Button { filter = choice } label: {
-                            Text(choice.rawValue).font(.caption.weight(filter == choice ? .semibold : .regular))
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                                .foregroundStyle(filter == choice ? .black : WorkspaceStyle.muted)
-                                .background(filter == choice ? Color(white: 0.98) : .clear, in: Capsule())
-                        }.buttonStyle(WorkspacePressStyle()).accessibilityAddTraits(filter == choice ? .isSelected : [])
-                            .accessibilityIdentifier(choice == .all ? "task-filter-all" : "task-filter-" + choice.rawValue)
+                WorkspaceSearch(placeholder: "搜索任务或 Agent", text: $search, identifier: "task-search") {
+                    projectFilter
+                    Rectangle().fill(WorkspaceStyle.line).frame(width: 1, height: 20).accessibilityHidden(true)
+                }
+                WorkspaceGlassTrack {
+                    HStack(spacing: 4) {
+                        ForEach(TaskListFilter.allCases, id: \.self) { choice in
+                            Button { filter = choice } label: {
+                                Text(choice.rawValue).font(.caption.weight(filter == choice ? .semibold : .regular))
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                                    .foregroundStyle(filter == choice ? .white : WorkspaceStyle.muted)
+                                    .background {
+                                        if filter == choice { WorkspaceGlassSelection(namespace: filterHighlight) }
+                                    }
+                            }.buttonStyle(WorkspacePressStyle()).accessibilityAddTraits(filter == choice ? .isSelected : [])
+                                .accessibilityIdentifier(choice == .all ? "task-filter-all" : "task-filter-" + choice.rawValue)
+                        }
                     }
-                }.padding(4).background(WorkspaceStyle.surface, in: Capsule())
-                    .overlay(Capsule().strokeBorder(WorkspaceStyle.line, lineWidth: 1))
+                }.animation(reduceMotion ? .easeOut(duration: 0.12) : .interactiveSpring(response: 0.28, dampingFraction: 0.9), value: filter)
                     .padding(.top, 1).padding(.bottom, 6)
             ForEach(visibleProjects) { project in
                 ForEach(cards(in: project)) { card in
@@ -132,11 +144,9 @@ struct TasksView: View {
                         .buttonStyle(WorkspacePressStyle()).accessibilityIdentifier("task-\(project.id)-\(card.id)")
                 }
             }
-            if model.connecting || catalog.contains(where: { projects[$0.id] == nil && issues[$0.id] == nil }) {
-                ProgressView("正在同步任务…").font(.caption)
-            } else if !unreadProjects.isEmpty {
-                WorkspaceStatusView(title: "部分任务暂时无法读取", icon: "wifi.exclamationmark", message: "已连接项目的任务仍会更新，其他项目恢复连接后自动显示。", inline: true) {}
-            } else if visibleProjects.allSatisfy({ cards(in: $0).isEmpty }) {
+            if awaitingTasks {
+                if hasVisibleTasks { WorkspaceLoadingView(message: "正在同步任务…", inline: true) }
+            } else if unreadProjects.isEmpty && visibleProjects.allSatisfy({ cards(in: $0).isEmpty }) {
                 WorkspaceStatusView(title: search.isEmpty && filter == .all ? "当前没有任务" : "没有匹配的任务", icon: "checklist", message: "先创建卡片，再向 Agent 发送目标。已完成任务的历史结果可在项目成果中查看。", inline: true) {
                     if filtering {
                         WorkspaceStatusButton(title: "清除筛选", action: clearFilters)
@@ -148,12 +158,9 @@ struct TasksView: View {
                 Button("清除筛选", action: clearFilters)
                     .accessibilityIdentifier("clear-task-filters")
             }
-            ForEach(unreadProjects) { project in
-                Text(project.displayName + "：" + (issues[project.id] ?? ""))
-                    .font(.caption).foregroundStyle(.orange)
-            }
             }.padding(.horizontal, 20).padding(.bottom, 26)
         }.scrollDismissesKeyboard(.interactively)
+            .workspaceLoading(awaitingTasks && !hasVisibleTasks, "正在同步任务…")
     }
 
     private func clearFilters() { search = ""; filter = .all; projectID = nil }
@@ -163,8 +170,15 @@ struct TasksView: View {
             HStack(spacing: 11) {
                 ProviderMark(profile: card.profile, size: 26, working: ["thinking", "running_tool"].contains(card.state)).frame(width: 32, height: 32)
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(card.taskTitle.flatMap { $0.isEmpty ? nil : $0 } ?? card.title)
+                    Text(card.title)
                         .font(.footnote.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("task-card-name-\(card.id)")
+                    if let input = card.taskTitle, !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(input).font(.caption).foregroundStyle(WorkspaceStyle.muted)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 3)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("task-card-input-\(card.id)")
+                    }
                     Text(card.profile + " · " + project.displayName).font(.caption2).foregroundStyle(WorkspaceStyle.muted)
                 }
                 Spacer(minLength: 0)
@@ -274,7 +288,7 @@ struct TasksView: View {
                     let next = fresh.projects.first
                     // Heartbeats revalidate the connection without invalidating an unchanged task list.
                     if projects[project.id] != next { projects[project.id] = next }
-                    let issue = next?.cards == nil ? (next?.state == "closed" ? "项目尚未在电脑上打开" : "暂时无法读取卡片") : nil
+                    let issue = next?.cards == nil ? (next?.state == "closed" ? "项目暂时无法加载" : "暂时无法读取卡片") : nil
                     if issues[project.id] != issue { issues[project.id] = issue }
                 case .recovering:
                     projects[project.id] = nil; issues[project.id] = "正在重新连接"

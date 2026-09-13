@@ -117,7 +117,7 @@ impl SettingsSection {
                 debug_selector: "settings-section-wallpaper",
             },
             Self::Mobile => SettingsSectionMetadata {
-                title: "手机连接",
+                title: "Mobile Connection",
                 icon_asset: Some("icons/settings-nav-mobile.svg"),
                 index: 9,
                 debug_selector: "settings-section-mobile",

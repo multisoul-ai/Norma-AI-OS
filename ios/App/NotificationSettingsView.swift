@@ -24,7 +24,7 @@ struct NotificationSettingsView: View {
                             Button("允许系统通知") { Task { await notifications.requestPermission() } }
                                 .frame(minHeight: 44).accessibilityIdentifier("enable-notifications")
                         } else if notifications.registering {
-                            ProgressView("正在登记系统通知…").font(.subheadline)
+                            WorkspaceLoadingView(message: "正在登记系统通知…", inline: true)
                         } else if notifications.registration == nil {
                             Button("登记此 iPhone 的通知") { notifications.register() }.frame(minHeight: 44)
                         } else {
@@ -36,7 +36,7 @@ struct NotificationSettingsView: View {
                         ForEach(model.machines) { machine in
                             VStack(alignment: .leading, spacing: 10) {
                                 Label(machine.name, systemImage: "laptopcomputer").font(.subheadline.weight(.semibold))
-                                if notifications.busy.contains(machine.id) { ProgressView("正在核验提醒设置…").font(.caption) }
+                                if notifications.busy.contains(machine.id) { WorkspaceLoadingView(message: "正在核验提醒设置…", inline: true) }
                                 else if let state = notifications.subscriptions[machine.id] {
                                     Text(state.registration == nil ? "任务提醒未开启" : "电脑已登记此 iPhone").font(.caption).foregroundStyle(.secondary)
                                     if state.registration != nil {

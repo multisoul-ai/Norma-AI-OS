@@ -212,6 +212,7 @@ pub(crate) fn verify_native(
                         access: if matches!(
                             mode,
                             "terminal"
+                                | "images"
                                 | "feedback"
                                 | "reviews"
                                 | "messages"
@@ -349,7 +350,12 @@ pub(crate) fn verify_native(
             "性能日志不能包含配对凭据"
         );
     }
-    if !status.success() && matches!(mode, "messages" | "feedback" | "native-card" | "bash-edges") {
+    if !status.success()
+        && matches!(
+            mode,
+            "images" | "messages" | "feedback" | "native-card" | "bash-edges"
+        )
+    {
         app.read_with(cx, |app, _| {
             let card = app.runtime.mobile_card_snapshots().remove(0);
             eprintln!(
@@ -374,6 +380,8 @@ pub(crate) fn verify_native(
     assert!(
         output.contains(if mode == "terminal" {
             "NATIVE_REAL_TERMINAL_OK"
+        } else if mode == "images" {
+            "NATIVE_REAL_IMAGE_OK"
         } else if mode == "archive" {
             "NATIVE_REAL_ARCHIVE_OK"
         } else if mode == "feedback" {

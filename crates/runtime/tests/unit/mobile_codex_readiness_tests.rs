@@ -1,12 +1,13 @@
 use super::*;
 use crate::NodeInput;
 
-/// 手机创建的Codex空卡不应被CLI升级菜单挡住；权限策略和全局配置必须保持原样。
-/// 数据构造：新建与恢复各1条命令；只在当前进程传check_for_update_on_startup=false。
-/// 执行过程：生成两种正式启动命令，检查参数和原有只读/逐次审批策略。
-/// 预期结果：新建/恢复均抑制启动更新提示；不存在自动npm升级、沙箱绕过或配置文件写入。
+/// 手机 Codex 新建和恢复均默认完全访问，同时避免启动升级菜单。
+///
+/// 数据构造：新建与 session-a 恢复各 1 条命令，共 2 条；参数仅影响当前 CLI 进程。
+/// 执行过程：生成两种正式启动命令 → 检查完全访问、恢复身份和关闭升级提示的参数。
+/// 预期结果：两条命令均绕过审批和沙箱；没有只读或逐次审批参数，也不会自动升级 CLI。
 #[test]
-fn mobile_codex_startup_skips_update_dialog_without_changing_permissions() {
+fn mobile_codex_startup_skips_update_dialog_with_full_access() {
     let fresh =
         crate::nodes::agent::mobile_agent_command(AgentProfile::Codex, None, None).expect("新建");
     let resume =
@@ -21,12 +22,24 @@ fn mobile_codex_startup_skips_update_dialog_without_changing_permissions() {
         "恢复原卡不能卡在升级菜单"
     );
     assert!(
-        fresh.args[1].contains("--sandbox read-only --ask-for-approval on-request"),
-        "必须保留原权限策略"
+        fresh.args[1].contains("--dangerously-bypass-approvals-and-sandbox"),
+        "手机新卡应与桌面一样默认完全访问"
     );
     assert!(
-        !fresh.args[1].contains("--dangerously-bypass-approvals-and-sandbox"),
-        "不得通过放宽安全策略解决启动问题"
+        !fresh.args[1].contains("--sandbox") && !fresh.args[1].contains("--ask-for-approval"),
+        "新卡不能残留只读或逐次审批覆盖"
+    );
+    assert!(
+        resume.args[1].contains("--dangerously-bypass-approvals-and-sandbox"),
+        "恢复手机卡片也应默认完全访问"
+    );
+    assert!(
+        !resume.args[1].contains("--sandbox") && !resume.args[1].contains("--ask-for-approval"),
+        "恢复时不能重新引入逐次审批"
+    );
+    assert!(
+        resume.args[1].contains("resume 'session-a'"),
+        "必须恢复指定会话"
     );
     assert!(
         !fresh.args[1].contains("npm install"),

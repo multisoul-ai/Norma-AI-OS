@@ -10,6 +10,7 @@ import NormaCore
     var body: some Scene {
         WindowGroup {
             RootView(model: model, notifications: notifications)
+                .background(KeyboardDismissal().frame(width: 0, height: 0).accessibilityHidden(true))
                 .preferredColorScheme(.dark)
                 .tint(.white)
                 .task {
@@ -104,18 +105,19 @@ import NormaCore
         guard generation == draftBackgroundGeneration, draftBackground != .invalid else { return }
         UIApplication.shared.endBackgroundTask(draftBackground); draftBackground = .invalid
     }
-    func select(_ id: String?, verified: DeviceGrant? = nil) {
+    func select(_ id: String?, verified: DeviceGrant? = nil, reportErrors: Bool = true) {
         disconnect()
         selectedID = id
         UserDefaults.standard.set(id, forKey: "selected-machine")
         if let verified { grant = verified; checkedAt = .now }
-        else { refresh() }
+        else { refresh(reportErrors: reportErrors) }
     }
     func disconnect() {
         operation?.cancel(); operation = nil
         connecting = false; grant = nil; projects = nil; checkedAt = nil
     }
-    func refresh() {
+    func refresh() { refresh(reportErrors: true) }
+    private func refresh(reportErrors: Bool) {
         disconnect()
         guard let machine = selected else { return }
         connecting = true
@@ -127,7 +129,7 @@ import NormaCore
                 grant = result.grant; projects = result.projects; checkedAt = .now
             } catch {
                 guard !Task.isCancelled else { return }
-                self.error = error.localizedDescription
+                if reportErrors { self.error = error.localizedDescription }
             }
             connecting = false
         }
@@ -137,14 +139,16 @@ import NormaCore
         try await store.save(machine)
         machines = try await store.load()
     }
-    func forget(_ machine: PairedMachine) async {
+    func forget(_ machine: PairedMachine, notifications: PushNotifications? = nil) async {
         do {
-            if selectedID == machine.id { disconnect() }
+            if selectedID == machine.id { disconnect(); error = nil }
+            let cleanup = notifications == nil ? nil : try? await client.preparePushSubscriptionRemoval(machine)
             try await vault.remove(machineID: machine.id)
             try await store.remove(id: machine.id)
+            notifications?.forget(machine.id, cleanup: cleanup)
             projectSelections[machine.id] = nil
             machines = try await store.load()
-            if selectedID == machine.id { select(machines.first?.id) }
+            if selectedID == machine.id { select(machines.first?.id, reportErrors: false) }
         } catch { self.error = error.localizedDescription }
     }
 }

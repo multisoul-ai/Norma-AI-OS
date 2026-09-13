@@ -37,13 +37,14 @@ struct SessionArchiveView: View {
                     }.frame(minHeight: 44)
                 }.accessibilityIdentifier("archived-session-\(item.id)")
             }
-            if loading { ProgressView("正在读取会话…") }
+            if loading && !items.isEmpty { WorkspaceLoadingView(message: "正在读取会话…", inline: true) }
             if !loading && error == nil && items.isEmpty {
                 ContentUnavailableView("还没有会话记录", systemImage: "bubble.left.and.bubble.right", description: Text("Agent 开始对话后，记录会显示在这里。"))
             }
             if let next { Button("更早的会话") { before = next }.frame(minHeight: 44).disabled(loading) }
         }
         .scrollContentBackground(.hidden).background(.black)
+        .workspaceLoading(loading && items.isEmpty, "正在读取会话…")
         .navigationTitle("会话记录").navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

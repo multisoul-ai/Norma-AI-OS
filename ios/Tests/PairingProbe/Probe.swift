@@ -49,12 +49,17 @@ enum PairingCheck {
             while ContinuousClock.now < deadline {
                 do {
                     let grant = try await client.authenticate(machine)
-                    guard grant.projects.count == 1, grant.projects[0].access == (["terminal", "feedback", "reviews", "todos", "native-card", "messages", "interrupts", "queues", "approvals", "bash-edges", "approval-stop", "write-approvals", "external", "events"].contains(mode) ? "control" : "read") else { throw MobileError.invalidResponse }
+                    guard grant.projects.count == 1, grant.projects[0].access == (["images", "terminal", "feedback", "reviews", "todos", "native-card", "messages", "interrupts", "queues", "approvals", "bash-edges", "approval-stop", "write-approvals", "external", "events"].contains(mode) ? "control" : "read") else { throw MobileError.invalidResponse }
                     authorized = true; break
                 } catch MobileError.unauthorized { try await Task.sleep(for: .milliseconds(100)) }
             }
             guard authorized else { throw MobileError.timedOut }
             let measuring = FileManager.default.fileExists(atPath: qrURL.deletingLastPathComponent().appendingPathComponent("measure-latency").path)
+            if mode == "images" {
+                try await ImageCheck.run(client: client, machine: machine)
+                try await vault.remove(machineID: offer.machineID)
+                return
+            }
             if mode == "terminal" {
                 try await TerminalCheck.run(client: client, machine: machine)
                 return

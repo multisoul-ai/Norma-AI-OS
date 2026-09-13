@@ -50,6 +50,8 @@ struct WireReply: Decodable, Sendable {
     let result: ResultBody?
     struct ResultBody: Decodable, Sendable {
         let status: String
+        let image: UploadedChatImage?
+        let imageOffset: Int?
         let subscription: PushSubscriptionState?
         let workspaceID: String?
         let plan: ProjectPlan?
@@ -73,7 +75,7 @@ struct WireReply: Decodable, Sendable {
         let approvalEvent: ApprovalFeedEvent?
         let planEvent: PlanFeedEvent?
         let deliveryEvent: DeliveryFeedEvent?
-        enum CodingKeys: String, CodingKey { case terminal, terminalEvent = "terminal_event", status, subscription, review, deliveries, plans, plan, decisions, workspaceID = "workspace_id", pending, grant, projects, receipt, conversation, archive, approvals, event, fragment, conversationEvent = "conversation_event", approvalEvent = "approval_event", planEvent = "plan_event", deliveryEvent = "delivery_event", queuedMessage = "queued_message" }
+        enum CodingKeys: String, CodingKey { case image, imageOffset = "image_offset", terminal, terminalEvent = "terminal_event", status, subscription, review, deliveries, plans, plan, decisions, workspaceID = "workspace_id", pending, grant, projects, receipt, conversation, archive, approvals, event, fragment, conversationEvent = "conversation_event", approvalEvent = "approval_event", planEvent = "plan_event", deliveryEvent = "delivery_event", queuedMessage = "queued_message" }
     }
     enum CodingKeys: String, CodingKey { case version, requestID = "request_id", error, result }
     // Older servers reject unknown action fields before extracting request_id. This is used only
@@ -88,6 +90,9 @@ struct WireReply: Decodable, Sendable {
               (reply.error == nil) != (reply.result == nil) else { throw MobileError.invalidResponse }
         if let error = reply.error {
             switch error {
+            case "invalid_image": throw ChatImageError.invalid
+            case "image_storage_full": throw ChatImageError.storageFull
+            case "image_storage_unavailable", "image_not_found", "image_timeout": throw ChatImageError.unavailable
             case "terminal_changed": throw MobileError.terminalChanged
             case "terminal_unavailable": throw MobileError.terminalUnavailable
             case "push_subscription_changed": throw MobileError.pushSubscriptionChanged

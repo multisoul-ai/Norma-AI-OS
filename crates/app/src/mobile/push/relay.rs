@@ -21,24 +21,28 @@ impl PushRelayConfig {
         let Some(endpoint) = std::env::var_os("NORMA_PUSH_RELAY_URL") else {
             return Ok(None);
         };
-        let path = std::env::var_os("NORMA_PUSH_RELAY_KEY_FILE").context("缺少通知服务凭据文件")?;
-        let file = std::fs::File::open(Path::new(&path)).context("无法读取通知服务凭据")?;
+        let path = std::env::var_os("NORMA_PUSH_RELAY_KEY_FILE")
+            .context("Missing notification service token file")?;
+        let file = std::fs::File::open(Path::new(&path))
+            .context("Unable to read notification service token")?;
         let metadata = file.metadata()?;
         ensure!(
             metadata.is_file()
                 && metadata.permissions().mode() & 0o077 == 0
                 && metadata.len() <= 1024,
-            "通知服务凭据文件须为仅自己可读的小文件"
+            "The token file must be a regular file of at most 1 KiB, accessible only by its owner."
         );
         let mut key = String::new();
         file.take(1025).read_to_string(&mut key)?;
         let environment = match std::env::var("NORMA_PUSH_ENVIRONMENT").as_deref() {
             Ok("sandbox") => PushEnvironment::Sandbox,
             Ok("production") => PushEnvironment::Production,
-            _ => anyhow::bail!("通知服务须指定sandbox或production"),
+            _ => anyhow::bail!("Set the notification environment to sandbox or production"),
         };
         Self::new(
-            endpoint.to_str().context("无效通知服务地址")?,
+            endpoint
+                .to_str()
+                .context("Invalid notification service URL")?,
             key.trim(),
             environment,
             false,
@@ -52,8 +56,11 @@ impl PushRelayConfig {
         environment: PushEnvironment,
         loopback: bool,
     ) -> Result<Self> {
-        ensure!(endpoint.len() <= 2048, "通知服务地址过长");
-        let endpoint = url::Url::parse(endpoint).context("无效通知服务地址")?;
+        ensure!(
+            endpoint.len() <= 2048,
+            "Notification service URL is too long"
+        );
+        let endpoint = url::Url::parse(endpoint).context("Invalid notification service URL")?;
         let test_http = loopback
             && endpoint.scheme() == "http"
             && endpoint.host_str().is_some_and(|host| {
@@ -68,14 +75,14 @@ impl PushRelayConfig {
                 && endpoint.query().is_none()
                 && endpoint.fragment().is_none()
                 && endpoint.path() == "/v1/notifications",
-            "通知服务需要HTTPS /v1/notifications地址"
+            "Use an HTTPS URL ending in /v1/notifications"
         );
         ensure!(
             key.len() == 64
                 && key
                     .bytes()
                     .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)),
-            "通知服务凭据格式无效"
+            "Invalid notification service token format"
         );
         Ok(Self {
             endpoint,

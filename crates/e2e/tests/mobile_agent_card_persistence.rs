@@ -95,3 +95,120 @@ fn mobile_card_metadata_round_trip_and_delete_do_not_dispatch() {
     );
     assert_eq!(after_delete.live_len(), 0, "删除后的恢复不得安排任何任务");
 }
+
+/// 手机创建的 Codex / Claude 卡片在首次启动和原会话重开时均使用完全访问。
+///
+/// 数据构造：2 张手机卡片各启动 2 次，共捕获 4 条正式 PTY 命令；
+///   640×400 是画布占位，80×24 是现有默认终端网格；echo 工厂不调用真实 Provider。
+/// 执行过程：通过手机建卡入口启动两卡 → 重载原画布快照 → 读回精确会话绑定 → 原卡恢复。
+/// 预期结果：两种 Provider 的新建和恢复都带完全访问参数，无逐次审批参数；
+///   恢复使用各自保存的会话，保留项目目录和 Hook，并且不创建额外卡片。
+#[test]
+fn mobile_card_creation_and_resume_default_to_full_access() {
+    let directory = tempfile::tempdir().expect("隔离项目目录");
+    let mut runtime = Runtime::new_for_workspace(directory.path());
+    runtime.set_agent_hook_config(Some(runtime::AgentHookRuntimeConfig {
+        endpoint: "http://127.0.0.1:12345/agent-hooks".into(),
+        token: "test-token".into(),
+        workspace_id: "workspace-a".into(),
+        workspace_route_id: "route-a".into(),
+        norma_socket: "/tmp/norma-test.sock".into(),
+    }));
+    let (sender, commands) = std::sync::mpsc::channel();
+    runtime.set_pty_factory(Box::new(move |command, _, _, tx| {
+        sender.send(command).expect("记录正式启动参数");
+        Ok(Box::new(terminal::TestPtyBackend::echo(tx)))
+    }));
+    let bounds = CanvasRect::new(0.0, 0.0, 640.0, 400.0);
+    let codex = runtime
+        .spawn_mobile_agent_card(AgentProfile::Codex, None, bounds, 80, 24)
+        .expect("手机创建 Codex");
+    let claude = runtime
+        .spawn_mobile_agent_card(AgentProfile::Claude, None, bounds, 80, 24)
+        .expect("手机创建 Claude");
+    let codex_new = commands.try_recv().expect("Codex 新建命令");
+    let claude_new = commands.try_recv().expect("Claude 新建命令");
+    assert!(
+        codex_new.args[1].contains("--dangerously-bypass-approvals-and-sandbox"),
+        "手机新建 Codex 必须默认完全访问"
+    );
+    assert!(
+        !codex_new.args[1].contains("--sandbox")
+            && !codex_new.args[1].contains("--ask-for-approval"),
+        "不能残留只读或逐次审批参数"
+    );
+    assert!(
+        claude_new.args[1].contains("--dangerously-skip-permissions"),
+        "手机新建 Claude 必须默认完全访问"
+    );
+    assert!(
+        !claude_new.args[1].contains("--permission-mode default"),
+        "Claude 不能保留逐次审批模式"
+    );
+    assert!(
+        codex_new.args[1].contains("--dangerously-bypass-hook-trust"),
+        "Codex Hook 仍应可用"
+    );
+    assert_eq!(
+        codex_new.cwd.as_deref(),
+        Some(directory.path()),
+        "Codex 必须在目标项目启动"
+    );
+    assert_eq!(
+        claude_new.cwd.as_deref(),
+        Some(directory.path()),
+        "Claude 必须在目标项目启动"
+    );
+    runtime.restore_canvas_snapshot(runtime.collect_canvas_snapshot());
+    runtime.hydrate_agent_session_bindings(&[
+        storage::NodeSession {
+            node_id: codex,
+            kind: storage::NodeSessionKind::Agent,
+            cwd: None,
+            session_id: Some("codex-saved".into()),
+        },
+        storage::NodeSession {
+            node_id: claude,
+            kind: storage::NodeSessionKind::Agent,
+            cwd: None,
+            session_id: Some("claude-saved".into()),
+        },
+    ]);
+    assert_eq!(runtime.live_len(), 0, "重开前旧执行器必须已停止");
+    runtime
+        .start_native_agent_terminal(codex, 80, 24)
+        .expect("恢复 Codex 原卡");
+    runtime
+        .start_native_agent_terminal(claude, 80, 24)
+        .expect("恢复 Claude 原卡");
+    let codex_resume = commands.try_recv().expect("Codex 恢复命令");
+    let claude_resume = commands.try_recv().expect("Claude 恢复命令");
+    assert!(
+        codex_resume.args[1].contains("--dangerously-bypass-approvals-and-sandbox"),
+        "Codex 恢复仍应完全访问"
+    );
+    assert!(
+        !codex_resume.args[1].contains("--sandbox")
+            && !codex_resume.args[1].contains("--ask-for-approval"),
+        "Codex 恢复不能重新限制权限"
+    );
+    assert!(
+        claude_resume.args[1].contains("--dangerously-skip-permissions"),
+        "Claude 恢复仍应完全访问"
+    );
+    assert!(
+        !claude_resume.args[1].contains("--permission-mode default"),
+        "Claude 恢复不能重新要求逐次审批"
+    );
+    assert!(
+        codex_resume.args[1].contains("resume 'codex-saved'"),
+        "Codex 必须恢复自己的会话"
+    );
+    assert!(
+        claude_resume.args[1].contains("--resume 'claude-saved'"),
+        "Claude 必须恢复自己的会话"
+    );
+    assert!(commands.try_recv().is_err(), "新建和恢复不得启动额外 PTY");
+    assert_eq!(runtime.document.nodes().len(), 2, "恢复不能创建重复卡片");
+    assert_eq!(runtime.live_len(), 2, "两张原卡均应恢复执行器");
+}

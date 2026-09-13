@@ -76,15 +76,16 @@ struct ConversationView: View {
                 }
                 if binding == nil, project != nil {
                     ContentUnavailableView("开始对话", systemImage: "bubble.left.and.bubble.right", description: Text("告诉 Agent 你想完成什么。"))
-                } else if timeline.items.isEmpty && error == nil {
-                    if loading { ProgressView("正在读取对话…") }
-                    else { Text("等待 Agent 写入对话…").font(.subheadline).foregroundStyle(.secondary) }
+                } else if timeline.items.isEmpty && error == nil && !loading {
+                    Text("等待 Agent 写入对话…").font(.subheadline).foregroundStyle(.secondary)
                 }
                 ForEach(timeline.items) { item in
-                    ConversationMessageRow(item: item, profile: card.profile)
+                    ConversationMessageRow(item: item, profile: card.profile, imageSource: {
+                        try await model.client.chatImage($0, on: machine, workspaceID: workspaceID)
+                    })
                 }
                 if card.profile == "Claude", timeline.hasMore {
-                    ProgressView("正在读取后续消息…").font(.caption)
+                    WorkspaceLoadingView(message: "正在读取后续消息…", inline: true)
                 }
                 if watchEnabled, active.isBusy, let run = active.runID {
                     LiveAgentOutput(client: model.client, machine: machine,
@@ -102,6 +103,7 @@ struct ConversationView: View {
                 }
             }
         }.accessibilityIdentifier("chat-message-list")
+        .workspaceLoading(loading && timeline.items.isEmpty, "正在读取对话…")
         .coordinateSpace(name: "chat-scroll")
         .modifier(ChatScrollTracking(followsLatest: $followsLatest, viewportHeight: viewport.size.height))
         .onChange(of: timeline.items.last) { _, _ in

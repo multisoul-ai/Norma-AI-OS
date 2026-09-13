@@ -1,6 +1,72 @@
 import XCTest
 
 final class PairingFlowTests: XCTestCase {
+    /// 输入页带着键盘关闭或切后台后，主页底栏不继承键盘的安全区残留。
+    /// 数据构造：未配对模拟器，地址127.0.0.1仅本地输入；按钮底距=8pt外距+4pt轨道内距=12pt。
+    /// 执行过程：打开嵌套验证码Sheet → 唤起键盘 → 直接返回或Home恢复 → 关闭Sheet → 不切Tab先测底栏。
+    /// 预期结果：键盘及输入页完全退出，原项目仍被选中；底栏距屏幕12pt，无重复系统TabBar。
+    @MainActor func testBottomNavigationAfterKeyboardExit() {
+        continueAfterFailure = false
+        let app = XCUIApplication(); app.launch()
+        for background in [false, true] {
+            // 5s是原生导航预算；3s容纳系统键盘动画，2pt仅容纳像素取整。
+            XCTAssertTrue(app.buttons["manage-computers"].waitForExistence(timeout: 5), "需要公共电脑入口")
+            app.buttons["manage-computers"].tap(); app.buttons["add-computer"].tap()
+            app.buttons["enter-pairing-code"].tap()
+            let address = app.textFields["pairing-address-input"]
+            XCTAssertTrue(address.waitForExistence(timeout: 5), "必须进入实际输入页")
+            address.tap(); address.typeText("127.0.0.1")
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "必须实际唤起键盘，不能用未编辑页面替代")
+            if background { XCUIDevice.shared.press(.home); app.activate() }
+            app.buttons["pairing-code-close"].tap(); app.buttons["pairing-cancel"].tap()
+            app.buttons["computers-close"].tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "退出输入流程后键盘必须消失")
+            let tab = app.buttons["workspace-tab-projects"]
+            XCTAssertTrue(tab.waitForExistence(timeout: 5), "返回项目必须恢复原底栏")
+            XCTAssertTrue(tab.isSelected, "退出输入页不得切换原选中项目")
+            let gap = app.frame.maxY - tab.frame.maxY
+            print("KEYBOARD_EXIT background=\(background) gap=\(gap)")
+            XCTAssertEqual(gap, 12, accuracy: 2, "带键盘退出后不能残留旧安全区，且不能靠切换Tab修复")
+            XCTAssertEqual(app.tabBars.count, 0, "不能恢复出额外系统TabBar")
+            XCTAssertFalse(address.exists, "已关闭的输入页不能继续占用布局")
+        }
+    }
+
+    /// 底栏从后台恢复及切换Tab后，仍固定在屏幕底边8pt，而非重新叠加系统安全区。
+    /// 数据构造：3个共享主Tab；玻璃轨道内边距4pt，所以按钮底边距屏幕为8+4=12pt；2pt容纳像素取整。
+    /// 执行过程：逐页点击 → 记录位置 → Home进入后台/activate恢复 → 不点击先核验；显式fixture同时验证项目恢复。
+    /// 预期结果：恢复前后间距均为12pt；不出现额外34pt安全区，也不因切页产生第二套底栏。
+    @MainActor func testBottomNavigationSurvivesBackground() {
+        continueAfterFailure = false
+        let app = XCUIApplication(); app.launch()
+        let paired = ProcessInfo.processInfo.environment["NORMA_TEST_MODE"] == "notification-ui"
+        if paired {
+            XCTAssertTrue(app.buttons["agent-card-1"].waitForExistence(timeout: 8), "显式fixture必须先完成配对并显示项目")
+            XCTAssertEqual(app.buttons["project-switcher"].label, "通知验收项目", "只在隔离项目中执行验收")
+        }
+        for id in ["projects", "command", "tasks"] {
+            let button = app.buttons["workspace-tab-" + id]
+            // 5s覆盖原生启动/恢复及布局动画，不代表接口响应预算。
+            XCTAssertTrue(button.waitForExistence(timeout: 5), "\(id)入口必须存在")
+            button.tap()
+            for cycle in 0..<2 {
+                XCTAssertTrue(button.isSelected, "第\(cycle)轮\(id)必须保留选中态")
+                let gap = app.frame.maxY - button.frame.maxY
+                print("BOTTOM_NAV cycle=\(cycle) tab=\(id) gap=\(gap)")
+                XCTAssertEqual(gap, 12, accuracy: 2, "第\(cycle)轮\(id)不能恢复为系统安全区之上的旧位置")
+                XCTAssertEqual(app.tabBars.count, 0, "恢复后不能出现系统TabBar与自定义底栏重叠")
+                if cycle == 0 {
+                    XCUIDevice.shared.press(.home); app.activate()
+                    XCTAssertTrue(button.waitForExistence(timeout: 5), "恢复后无需再次点击就应显示原底栏")
+                    if paired && id == "projects" {
+                        // 8s = 2s快照心跳 + 6s原生导航余量；必须走目录清空再恢复的真实链路。
+                        XCTAssertTrue(app.buttons["agent-card-1"].waitForExistence(timeout: 8), "后台恢复后必须重新读到隔离项目卡片")
+                    }
+                }
+            }
+        }
+    }
+
     /// 原型主导航保持项目/指挥台/任务，电脑管理从公共入口打开且关闭后返回原Tab。
     ///
     /// 数据构造：独立空模拟器；3个主Tab；5s容纳启动和系统导航，不代表网络延迟。
@@ -137,5 +203,47 @@ final class PairingFlowTests: XCTestCase {
         app.buttons["drafts-close"].tap()
         XCTAssertTrue(app.buttons["add-computer"].waitForExistence(timeout: 5), "草稿页关闭不能丢失原导航")
         XCTAssertFalse(app.staticTexts["没有未发送的草稿"].exists, "关闭后不应残留草稿Sheet")
+    }
+}
+
+
+extension PairingFlowTests {
+    /// 地址与数字键盘均可点击外部收起，切换输入框不能丢失内容或中断编辑。
+    ///
+    /// 数据构造：独立模拟器，测试地址127.0.0.1与六位数字012345；不验证电脑、不发送网络请求。
+    /// 执行过程：地址输入 → 点击页标题收起 → 切到验证码 → 重点输入框 → 点击外部 → 使用收起按钮。
+    /// 预期结果：外部点击后键盘消失；点击输入框时保持编辑；两个值完整保留，验证从未触发。
+    @MainActor func testPairingKeyboardDismissalPreservesBothFields() {
+        let app = XCUIApplication(); app.launch()
+        // 5s覆盖启动和导航，3s=键盘系统动画与查询调度预算，不是网络等待。
+        XCTAssertTrue(app.buttons["manage-computers"].waitForExistence(timeout: 5), "需要电脑管理入口")
+        app.buttons["manage-computers"].tap(); app.buttons["add-computer"].tap()
+        app.buttons["enter-pairing-code"].tap()
+        let address = app.textFields["pairing-address-input"], code = app.textFields["pairing-code-input"]
+        XCTAssertTrue(address.waitForExistence(timeout: 5), "地址输入必须可编辑")
+        address.tap()
+        if let old = address.value as? String, old != address.placeholderValue {
+            address.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count))
+        }
+        address.typeText("127.0.0.1")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "地址编辑需显示真实键盘")
+        app.navigationBars["输入验证码"].staticTexts["输入验证码"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "点击输入框外的标题必须收起键盘")
+        guard !app.keyboards.firstMatch.exists else { return }
+        XCTAssertEqual(address.value as? String, "127.0.0.1", "收起不应更改地址")
+        address.tap(); code.tap(); code.typeText("012345")
+        code.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.exists, "切换或点击输入框不得把刚打开的键盘关闭")
+        app.staticTexts["验证码"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "数字键盘也应支持外部轻点收起")
+        XCTAssertEqual(code.value as? String, "012345", "收起不能清空验证码或去掉前导零")
+        code.tap()
+        let dismiss = app.buttons["pairing-dismiss-keyboard"]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 3), "没有Return键的数字键盘必须有明确收起入口")
+        dismiss.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "显式收起应立即生效")
+        XCTAssertEqual(address.value as? String, "127.0.0.1", "字段切换与收起必须保留地址")
+        XCTAssertFalse(app.staticTexts["正在验证…"].exists, "收起键盘不得触发验证")
+        app.buttons["pairing-code-close"].tap(); app.buttons["pairing-cancel"].tap()
     }
 }

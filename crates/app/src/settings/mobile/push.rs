@@ -17,17 +17,17 @@ pub(super) fn entry(theme: Theme, mobile: &Entity<MobileController>, busy: bool)
         .items_center()
         .gap(px(12.0))
         .child(
-            div().flex_1().child("任务提醒").child(
+            div().flex_1().child("Task Notifications").child(
                 div()
                     .text_size(px(12.0))
                     .text_color(rgba(theme.text_secondary))
-                    .child("为 iPhone 配置通知服务"),
+                    .child("Set up notifications for your iPhone"),
             ),
         )
         .child(
             Button::new("mobile-push-settings")
                 .debug_selector(|| "mobile-push-settings".into())
-                .label("配置服务")
+                .label("Configure")
                 .disabled(busy)
                 .on_click(move |_, window, cx| open(mobile.clone(), theme, window, cx)),
         )
@@ -43,7 +43,7 @@ fn open(mobile: Entity<MobileController>, theme: Theme, window: &mut Window, cx:
         let key = cx.new(|cx| {
             InputState::new(window, cx)
                 .masked(true)
-                .placeholder("服务的 64 位访问凭据")
+                .placeholder("64-character service access token")
         });
         cx.observe(&endpoint, |_, _, cx| cx.notify()).detach();
         cx.observe(&key, |_, _, cx| cx.notify()).detach();
@@ -58,7 +58,7 @@ fn open(mobile: Entity<MobileController>, theme: Theme, window: &mut Window, cx:
     let width = (f32::from(window.viewport_size().width) - 48.0).clamp(260.0, 540.0);
     window.open_dialog(cx, move |dialog, window, _| {
         dialog
-            .title("任务提醒服务")
+            .title("Notification Service")
             .width(px(width))
             .max_h(window.viewport_size().height * 0.8)
             .child(view.clone())
@@ -78,14 +78,14 @@ impl Render for PushSettings {
         let busy = host.busy;
         let summary = host.push.as_ref();
         let state = if busy {
-            "正在处理…".to_string()
+            "Working…".to_string()
         } else {
             match summary.and_then(|s| s.endpoint.as_ref()) {
                 Some(endpoint) => format!(
-                    "已配置 · {}\n{endpoint}",
+                    "Configured · {}\n{endpoint}",
                     environment_name(summary.expect("configured").environment)
                 ),
-                None => "尚未配置通知服务".into(),
+                None => "Notification service is not configured".into(),
             }
         };
         let status_id = if summary.and_then(|s| s.endpoint.as_ref()).is_some() {
@@ -97,7 +97,7 @@ impl Render for PushSettings {
             .text_size(px(13.0)).text_color(rgba(self.theme.text_primary))
             .child(div().id(status_id).debug_selector(move || status_id.into()).child(state))
             .child(div().text_size(px(12.0)).text_color(rgba(self.theme.text_secondary))
-                .child("配置保存到这台 Mac 的 Keychain。手机连接开启时生效；还需在 iPhone 中允许通知并开启这台电脑的提醒。"));
+                .child("Settings are stored in this Mac’s Keychain and apply while mobile connection is on. Allow notifications on your iPhone and enable alerts for this Mac."));
         if let Some(error) = &host.error {
             body = body.child(
                 div()
@@ -110,14 +110,14 @@ impl Render for PushSettings {
         let can_save = !busy
             && !self.endpoint.read(cx).value().trim().is_empty()
             && !self.key.read(cx).value().trim().is_empty();
-        body.child("服务地址")
+        body.child("Service URL")
             .child(
                 div()
                     .id("mobile-push-url")
                     .debug_selector(|| "mobile-push-url".into())
                     .child(Input::new(&self.endpoint).disabled(busy)),
             )
-            .child("服务访问凭据")
+            .child("Service Access Token")
             .child(
                 div()
                     .id("mobile-push-key")
@@ -128,9 +128,9 @@ impl Render for PushSettings {
                 div()
                     .text_size(px(12.0))
                     .text_color(rgba(self.theme.text_secondary))
-                    .child("每次保存都需填写服务凭据。Apple 的 .p8 密钥只保留在推送服务器。"),
+                    .child("Enter the service token each time you save. Keep the Apple .p8 key on the notification server only."),
             )
-            .child("应用环境")
+            .child("App Environment")
             .child(
                 div()
                     .flex()
@@ -157,7 +157,7 @@ impl Render for PushSettings {
                     .child(
                         Button::new("mobile-push-save")
                             .debug_selector(|| "mobile-push-save".into())
-                            .label("保存配置")
+                            .label("Save")
                             .primary()
                             .disabled(!can_save)
                             .on_click(cx.listener(|this, _, window, cx| {
@@ -174,7 +174,7 @@ impl Render for PushSettings {
                     .child(
                         Button::new("mobile-push-clear")
                             .debug_selector(|| "mobile-push-clear".into())
-                            .label("清除配置并停用")
+                            .label("Clear and Disable")
                             .disabled(busy)
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.mobile
@@ -188,7 +188,7 @@ impl Render for PushSettings {
                 div()
                     .text_size(px(12.0))
                     .text_color(rgba(self.theme.text_secondary))
-                    .child("保存配置不会发送测试通知。已交给 Apple 的提醒无法撤回。"),
+                    .child("Saving does not send a test notification. Notifications already sent to Apple cannot be recalled."),
             )
     }
 }
@@ -212,7 +212,7 @@ impl PushSettings {
 }
 fn environment_name(environment: PushEnvironment) -> &'static str {
     match environment {
-        PushEnvironment::Sandbox => "开发调试 · Sandbox",
+        PushEnvironment::Sandbox => "Development · Sandbox",
         PushEnvironment::Production => "TestFlight / App Store",
     }
 }

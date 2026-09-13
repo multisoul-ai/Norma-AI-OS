@@ -100,7 +100,7 @@ fn test_presentation_socket_authorizes_source_loads_preview_and_coalesces_notifi
                         create_new: false,
                     },
                 },
-                window,
+                Some(window),
                 cx,
             );
             let preview_node_id = match &preview.result {
@@ -125,7 +125,7 @@ fn test_presentation_socket_authorizes_source_loads_preview_and_coalesces_notifi
                         create_new: false,
                     },
                 },
-                window,
+                Some(window),
                 cx,
             );
             let browser_node_id = match &browser.result {
@@ -153,7 +153,7 @@ fn test_presentation_socket_authorizes_source_loads_preview_and_coalesces_notifi
                         create_new: false,
                     },
                 },
-                window,
+                Some(window),
                 cx,
             );
             let notification = app

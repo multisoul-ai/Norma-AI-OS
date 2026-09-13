@@ -2,7 +2,7 @@ use super::route::{WorkspaceRouteError, WorkspaceRouteIndex};
 use super::server::is_managed_agent_command;
 use super::transport::{NormaServerRequest, NormaSocketListener};
 use crate::app::MultisoulApp;
-use gpui::{AnyWindowHandle, App, Global, WeakEntity};
+use gpui::{App, Global, WeakEntity, Window};
 use norma::client::default_socket_path;
 use norma::protocol::{
     CardCommand, CardCommandResult, OrchestrationDoctorReport, WireResponse, WorkspaceSummary,
@@ -38,9 +38,29 @@ const ENDPOINT_POLL_INTERVAL: Duration = Duration::from_millis(12);
 
 #[derive(Clone)]
 struct WorkspaceTarget {
-    window: AnyWindowHandle,
     app: WeakEntity<MultisoulApp>,
     summary: WorkspaceSummary,
+}
+
+impl WorkspaceTarget {
+    fn with_optional_window<R>(
+        &self,
+        cx: &mut App,
+        update: impl FnOnce(Option<&mut Window>, &mut App) -> R,
+    ) -> anyhow::Result<R> {
+        let app = self
+            .app
+            .upgrade()
+            .ok_or_else(|| anyhow::anyhow!("project released"))?;
+        let window = app
+            .read(cx)
+            .project_window
+            .filter(|window| cx.windows().contains(window));
+        match window {
+            Some(window) => window.update(cx, |_, window, cx| update(Some(window), cx)),
+            None => Ok(update(None, cx)),
+        }
+    }
 }
 
 struct RoutedTargets {
@@ -121,7 +141,6 @@ pub(crate) fn submit_for_e2e(
 pub(crate) struct WorkspaceRegistration<'a> {
     pub(crate) workspace_id: &'a str,
     pub(crate) route_id: &'a str,
-    pub(crate) window: AnyWindowHandle,
     pub(crate) app: WeakEntity<MultisoulApp>,
     pub(crate) display_name: String,
     pub(crate) canonical_root: PathBuf,
@@ -136,7 +155,6 @@ pub(crate) fn register_workspace(
     let WorkspaceRegistration {
         workspace_id,
         route_id,
-        window,
         app,
         display_name,
         canonical_root,
@@ -150,7 +168,6 @@ pub(crate) fn register_workspace(
         workspace_id,
         route_id,
         WorkspaceTarget {
-            window,
             app,
             summary: WorkspaceSummary {
                 workspace_id: workspace_id.to_owned(),
@@ -212,7 +229,7 @@ pub(crate) fn workspace_summaries(cx: &App) -> Vec<WorkspaceSummary> {
 }
 
 /// Read only the authorized projects supplied by the mobile background owner. Reuse the exact
-/// desktop route and check installation + current workspace again; stale window entities fail closed.
+/// desktop route and check installation + current workspace again; stale project entities fail closed.
 pub(crate) fn mobile_project_snapshots(
     database: &std::path::Path,
     mut projects: Vec<norma::mobile::ProjectSnapshot>,
@@ -229,29 +246,23 @@ pub(crate) fn mobile_project_snapshots(
             continue;
         };
         let data = target
-            .window
-            .update(cx, |_, _, cx| {
-                target
-                    .app
-                    .update(cx, |app, _| {
-                        if app.database_paths.app_db_path() != database
-                            || app.workspace_id.as_deref() != Some(&project.workspace_id)
-                        {
-                            return None;
-                        }
-                        let route = app.workspace_route_id.clone()?;
-                        let count = app
-                            .runtime
-                            .document
-                            .nodes()
-                            .iter()
-                            .filter(|n| matches!(n.kind, canvas::CanvasNodeKind::Agent(_)))
-                            .count();
-                        let cards = include_cards.then(|| app.mobile_card_snapshots());
-                        Some((route, count, cards))
-                    })
-                    .ok()
-                    .flatten()
+            .app
+            .update(cx, |app, _| {
+                if app.database_paths.app_db_path() != database
+                    || app.workspace_id.as_deref() != Some(&project.workspace_id)
+                {
+                    return None;
+                }
+                let route = app.workspace_route_id.clone()?;
+                let count = app
+                    .runtime
+                    .document
+                    .nodes()
+                    .iter()
+                    .filter(|n| matches!(n.kind, canvas::CanvasNodeKind::Agent(_)))
+                    .count();
+                let cards = include_cards.then(|| app.mobile_card_snapshots());
+                Some((route, count, cards))
             })
             .ok()
             .flatten();

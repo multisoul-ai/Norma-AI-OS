@@ -11,6 +11,8 @@ struct PairingCodeView: View {
     @State private var error: String?
     @State private var operation: Task<Void, Never>?
     @State private var busy = false
+    @FocusState private var editing: Field?
+    private enum Field: Hashable { case address, code }
 
     var body: some View {
         NavigationStack {
@@ -21,12 +23,15 @@ struct PairingCodeView: View {
                 }
                 Section {
                     TextField("例如 192.168.1.2", text: $address)
+                        .focused($editing, equals: .address).submitLabel(.next)
+                        .onSubmit { editing = .code }
                         .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                         .accessibilityLabel("电脑地址").accessibilityIdentifier("pairing-address-input")
                         .disabled(busy)
                 } header: { Text("电脑地址") } footer: { Text("支持局域网 IP 或 Tailscale 地址，默认端口 9443。连接后会记住这台电脑。") }
                 Section {
                     TextField("6 位数字", text: $code)
+                        .focused($editing, equals: .code)
                         .font(.title2.monospacedDigit()).keyboardType(.numberPad).textContentType(.oneTimeCode)
                         .privacySensitive().accessibilityLabel("六位验证码")
                         .accessibilityIdentifier("pairing-code-input").disabled(busy)
@@ -46,10 +51,17 @@ struct PairingCodeView: View {
                 }
             }
             .scrollContentBackground(.hidden).background(.black)
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("输入验证码").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("返回") { cancel(); dismiss() }.accessibilityIdentifier("pairing-code-close")
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("收起键盘", systemImage: "keyboard.chevron.compact.down") { editing = nil }
+                        .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
+                        .accessibilityIdentifier("pairing-dismiss-keyboard")
                 }
             }
         }

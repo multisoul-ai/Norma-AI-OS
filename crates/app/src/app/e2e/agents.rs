@@ -83,7 +83,7 @@ impl MultisoulApp {
         cx: &mut Context<Self>,
         request: WireRequest,
     ) -> WireResponse {
-        self.execute_card_command(request, window, cx)
+        self.execute_card_command(request, Some(window), cx)
     }
 
     #[cfg(feature = "e2e-test-support")]

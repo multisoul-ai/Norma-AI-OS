@@ -12,7 +12,6 @@ private struct ApprovalEntry: Identifiable, Sendable {
 private struct ApprovalSource: Sendable {
     var items: [ApprovalEntry] = []
     var issues: [String] = []
-    var checkedAt: Date = .now
 }
 
 struct CommandCenterView: View {
@@ -37,17 +36,13 @@ struct CommandCenterView: View {
         }
     }
     private var operationID: String { "\(scenePhase)-\(refresh)-\(active)-" + model.machines.map { $0.id + $0.endpoints.map(\.absoluteString).joined() }.joined() }
-    private var sourceLabel: String {
-        let failed = sources.values.filter { !$0.issues.isEmpty }.count
-        return failed > 0 ? "电脑状态 · \(failed) 台需要重新核验" : "电脑状态 · \(sources.count)/\(model.machines.count) 已同步"
-    }
     private var decisionCount: Int? {
         guard model.machines.allSatisfy({ sources[$0.id]?.issues.isEmpty == true }) else { return nil }
         return items.count
     }
 
     var body: some View {
-        NavigationStack {
+        Group {
             VStack(spacing: 0) {
                 commandHeading
                 if model.commandShowsPlan {
@@ -103,7 +98,7 @@ struct CommandCenterView: View {
             }
             HStack(spacing: 6) {
                 modeButton(true, title: "行动计划")
-                modeButton(false, title: "待你决策" + (decisionCount.map { $0 > 0 ? " · \($0)" : "" } ?? ""))
+                modeButton(false, title: "待你决策" + (decisionCount.map { $0 > 0 ? " · \($0)" : "" } ?? " · 待核验"))
             }
         }.buttonStyle(WorkspacePressStyle()).padding(.horizontal, 20).padding(.bottom, 18)
             .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
@@ -117,16 +112,13 @@ struct CommandCenterView: View {
                 .background(model.commandShowsPlan == plan ? WorkspaceStyle.raised : WorkspaceStyle.surface, in: Capsule())
                 .overlay(Capsule().strokeBorder(WorkspaceStyle.line, lineWidth: 1))
         }.accessibilityLabel(plan ? "行动计划" : "待你决策")
+            .accessibilityValue(plan ? "" : (decisionCount.map(String.init) ?? "待核验"))
             .accessibilityAddTraits(model.commandShowsPlan == plan ? .isSelected : [])
             .accessibilityIdentifier(plan ? "command-mode-plan" : "command-mode-decisions")
     }
 
     private var decisionContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Spacer()
-                Text(decisionCount.map { "\($0) 项待确认" } ?? "数量待核验").font(.caption).foregroundStyle(.secondary)
-            }.padding(.horizontal, 20)
             if let focus, sources.count == model.machines.count,
                !items.contains(where: { $0.machine.id == focus.machineID && $0.project.id == focus.workspaceID && $0.project.routeID == focus.routeID && focus.matches($0.snapshot) }) {
                 Text("这项提醒已不在待确认列表，以下是当前事项。").font(.caption).foregroundStyle(.secondary).padding(.horizontal, 20)
@@ -136,7 +128,6 @@ struct CommandCenterView: View {
                     WorkspaceStatusButton(title: "连接电脑", action: manageComputers)
                 }
             } else {
-                sourceStatus
                 if items.isEmpty {
                     WorkspaceStatusView(title: decisionCount == nil ? "待确认事项尚未核验" : "当前没有可处理的事项", icon: decisionCount == nil ? "wifi.exclamationmark" : "checkmark.bubble", message: "决定记录保存在这台 iPhone，可随时回查。连接异常的电脑需重新核验。") {
                         if decisionCount == nil { WorkspaceStatusButton(title: "重新核验") { refresh += 1 } }
@@ -167,22 +158,7 @@ struct CommandCenterView: View {
                 }
             }
         }
-        .padding(.top, 12).background(.black)
-    }
-
-    private var sourceStatus: some View {
-        DisclosureGroup {
-            ForEach(model.machines) { machine in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(machine.name).fontWeight(.medium)
-                    if let source = sources[machine.id] {
-                        Text(source.issues.isEmpty ? "核验于 \(source.checkedAt.formatted(date: .omitted, time: .standard))" : source.issues.joined(separator: "\n"))
-                            .foregroundStyle(source.issues.isEmpty ? Color.secondary : .orange)
-                    } else { Text("等待连接…").foregroundStyle(.secondary) }
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 4)
-            }
-        } label: { Text(sourceLabel).frame(minHeight: 44) }
-        .font(.caption).padding(.horizontal, 20)
+        .background(.black)
     }
 
     private func canDecide(_ item: ApprovalEntry) -> Bool {
@@ -279,7 +255,7 @@ private struct ApprovalConversationView: View {
                             description: Text(error))
                         Button("重新核验") { retry += 1 }.frame(minHeight: 44).disabled(!paired)
                     }
-                } else { ProgressView("正在读取原任务…") }
+                } else { WorkspaceLoadingView(message: "正在读取原任务…") }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity).background(.black)
             .toolbar { ToolbarItem(placement: .cancellationAction) {

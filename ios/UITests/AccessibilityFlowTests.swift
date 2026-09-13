@@ -85,7 +85,7 @@ final class AccessibilityFlowTests: XCTestCase {
     ///
     /// 数据构造：复用notification-ui的唯一只读Mac/项目及Codex/Claude两张卡；AX5为系统最大辅助字号；
     ///   五行草稿覆盖输入框1…5行上限，5s为原生导航与WSS回源预算。
-    /// 执行过程：选择隔离电脑 → 项目与脉络 → 系统无障碍审计 → 卡片 → 输入长草稿 → 清空草稿。
+    /// 执行过程：选择隔离电脑 → 项目卡片与创建入口 → 系统无障碍审计 → 卡片 → 输入长草稿 → 清空草稿。
     /// 预期结果：卡片没有被裁切且控件可触达；输入内容完整，发送保持禁用，顶部对话保留空间。
     @MainActor func testAccessibleProjectAndChat() throws {
         try checkProjectAndChat(category: "UICTContentSizeCategoryAccessibilityXXXL", name: "AX5")
@@ -94,7 +94,7 @@ final class AccessibilityFlowTests: XCTestCase {
     /// 普通字号仍保留紧凑卡片与五行输入，不因辅助字号修复而截断草稿或开放只读发送。
     ///
     /// 数据构造：同一个隔离只读项目，系统默认Large字号，五行原文与辅助字号测试相同。
-    /// 执行过程：正式项目导航 → 卡片与脉络无障碍审计 → 原生键盘输入 → 检查正文空间和权限 → 清空。
+    /// 执行过程：正式项目导航 → 卡片与创建入口无障碍审计 → 原生键盘输入 → 检查正文空间和权限 → 清空。
     /// 预期结果：默认字号和AX5均能完成相同操作；不丢字、不发送、不遗留测试草稿。
     @MainActor func testStandardProjectAndChat() throws {
         try checkProjectAndChat(category: "UICTContentSizeCategoryL", name: "standard")
@@ -176,23 +176,23 @@ final class AccessibilityFlowTests: XCTestCase {
             // 两列同一行的上沿差不超过1pt布局取整；44pt是iOS最低触控区域。
             XCTAssertEqual(card.frame.minY, otherCard.frame.minY, accuracy: 1, "默认字号两张卡应在同一行")
             XCTAssertLessThan(card.frame.maxX, otherCard.frame.minX, "两列不能覆盖或挤压彼此")
-            XCTAssertTrue(otherCard.isHittable, "第二张卡不能被项目脉络挤到首屏之外")
+            XCTAssertTrue(otherCard.isHittable, "第二张卡应在首屏可触达")
             XCTAssertGreaterThanOrEqual(card.frame.width, 44, "卡片必须保持可触控尺寸")
-            XCTAssertFalse(app.buttons["project-session-archive"].isHittable, "记录入口默认折叠，卡片优先显示")
+            XCTAssertFalse(app.buttons["project-session-archive"].exists, "已删除的脉络区不能残留记录入口")
         } else {
             XCTAssertLessThanOrEqual(card.frame.maxY, otherCard.frame.minY, "辅助字号必须改成单列，不能挤压为两列")
             XCTAssertEqual(card.frame.minX, otherCard.frame.minX, accuracy: 1, "单列卡片应保持相同左边距")
         }
         try app.performAccessibilityAudit(for: [.textClipped, .hitRegion, .sufficientElementDescription])
         let cards = XCTAttachment(screenshot: app.screenshot()); cards.name = "accessibility-project-\(name)"; cards.lifetime = .keepAlways; add(cards)
-        let context = app.staticTexts["project-current-direction"]
-        // 两张卡各占一段，最多3次滑动到达真实项目脉络；保留完整方向与44pt入口。
-        for _ in 0..<3 where !context.isHittable { app.swipeUp() }
-        XCTAssertTrue(context.isHittable, "项目脉络须能在默认和最大辅助字号下触达")
-        XCTAssertEqual(context.label, "优先解决手机连接延迟", "大字号不能截断真实方向")
-        XCTAssertFalse(app.staticTexts["还没有设定方向"].exists, "已读计划不能显示空态")
+        let create = app.buttons["create-card-entry"]
+        // 两张卡最多占两屏；3次滑动覆盖最大辅助字号下的底部创建入口。
+        for _ in 0..<3 where !create.isHittable { app.swipeUp() }
+        XCTAssertTrue(create.isHittable, "移除脉络后仍可从底部创建卡片")
+        XCTAssertFalse(app.staticTexts["项目脉络"].exists, "所有字号下均移除脉络卡片")
+        XCTAssertFalse(app.buttons["记录与成果"].exists, "不保留原卡片内的折叠区")
         try app.performAccessibilityAudit(for: [.textClipped, .hitRegion, .sufficientElementDescription])
-        let overview = XCTAttachment(screenshot: app.screenshot()); overview.name = "project-context-\(name)"; overview.lifetime = .keepAlways; add(overview)
+        let overview = XCTAttachment(screenshot: app.screenshot()); overview.name = "project-cards-bottom-\(name)"; overview.lifetime = .keepAlways; add(overview)
         for _ in 0..<3 where !card.isHittable { app.swipeDown() }
         card.tap()
         let input = app.descendants(matching: .any)["chat-message-input"].firstMatch

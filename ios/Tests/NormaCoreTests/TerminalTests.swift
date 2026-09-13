@@ -2,6 +2,37 @@ import XCTest
 @testable import NormaCore
 
 final class TerminalTests: XCTestCase {
+    /// 竖屏只重排已确认的软折行，旧服务、真实换行和增量更新仍保持准确。
+    /// 数据构造：8列、4行；hello后3个空格占满首行；world后显式换行，空行后hard。
+    /// 执行过程：解码旧协议 → 加软折行标记 → 只更新标记的流事件 → 注入错误标记长度。
+    /// 预期结果：旧协议不猜测换行；新协议保留空格/空行；增量可恢复硬换行；异常清除可输入页。
+    func testPhoneReflowPreservesHardBreaksAndLegacyScreens() throws {
+        let scope = TerminalRequest(workspaceID: "project-a", routeID: "route-a", nodeID: 7, runID: "run-a", sessionID: nil)
+        var body: [String: Any] = ["card": ["node_id": 7, "profile": "Codex", "title": "Codex", "mobile_control": true,
+            "state": "ready", "run_id": "run-a"], "revision": 1, "screen_signature": 123, "input_sequence": 0,
+            "start_line": 0, "total_lines": 4, "cols": 8, "running": true, "input_ready": true,
+            "rows": ["hello   ", "world", "", "hard"]]
+        let legacy = try JSONDecoder().decode(TerminalPage.self, from: JSONSerialization.data(withJSONObject: body))
+        XCTAssertEqual(legacy.text(), "hello   \nworld\n\nhard", "旧服务无标记，不能猜测并合并硬换行")
+        body["soft_wrapped"] = [true, false, false, false]
+        let request = try JSONSerialization.jsonObject(with: JSONEncoder().encode(scope))
+        func event(_ sequence: Int, _ from: Int = 0) throws -> TerminalEvent {
+            try JSONDecoder().decode(TerminalEvent.self, from: JSONSerialization.data(withJSONObject: [
+                "stream_id": "stream-a", "sequence": sequence, "request": request,
+                "page": body, "replace_from": from, "remove_count": 0]))
+        }
+        var timeline = TerminalTimeline(request: scope)
+        let initial = try XCTUnwrap(timeline.apply(event(0)))
+        XCTAssertEqual(initial.text(), "hello   world\n\nhard", "软折行必须合并，显式空行必须保留")
+        XCTAssertFalse(initial.text().contains("hello   \nworld"), "竖屏不能残留电脑的软折行")
+        XCTAssertEqual(initial.text(lastRows: 3), "world\n\nhard", "预览截取不能拼接未接收的上一页")
+        body["rows"] = [String](); body["soft_wrapped"] = [false, false, false, false]
+        XCTAssertEqual(try timeline.apply(event(1, 4))?.text(), legacy.text(), "只改折行标记也必须更新正文")
+        body["soft_wrapped"] = [true]
+        XCTAssertThrowsError(try timeline.apply(event(2, 4)), "非空标记必须覆盖合并后的全部行")
+        XCTAssertNil(timeline.page, "无效页不能保留可输入状态")
+    }
+
     /// 终端增量只更新准确行，旧会话/序号缺口必须清空可操作状态。
     /// 数据构造：2行首屏，sequence=0；第二行替换sequence=1；重复旧事件sequence=0。
     /// 执行过程：首屏→增量→heartbeat→缺口→重新首屏；验证终端命令的编码和回执。

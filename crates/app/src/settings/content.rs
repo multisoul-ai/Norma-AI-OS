@@ -213,13 +213,15 @@ fn content_title(section: SettingsSection) -> &'static str {
         SettingsSection::Orchestration => "Orchestration",
         SettingsSection::Wallpaper => "Wallpaper",
         SettingsSection::Performance => "Performance",
-        SettingsSection::Mobile => "手机连接",
+        SettingsSection::Mobile => "Mobile Connection",
     }
 }
 
 fn content_subtitle(section: SettingsSection, voice_shortcut_label: &str) -> String {
     match section {
-        SettingsSection::Mobile => "通过局域网或 Tailscale 连接你的 iPhone".to_string(),
+        SettingsSection::Mobile => {
+            "Connect your iPhone over a local network or Tailscale".to_string()
+        }
         SettingsSection::Themes => "Choose one of the six reviewed Core UI V2 palettes".to_string(),
         SettingsSection::Keyboard => {
             "Customize app commands and review system input behavior".to_string()

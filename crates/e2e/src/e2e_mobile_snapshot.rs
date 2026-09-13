@@ -11,8 +11,8 @@ use crate::mobile_wire as wire;
 /// 真实 WSS 经授权门、后台请求与现有 GPUI 项目路由读取当前卡片，不泄漏另一项目或旧窗口。
 ///
 /// 数据构造：同一隔离 App 中 A/C 获只读授权、B 未授权；A 两张空卡，C 未打开；无 Provider 进程。
-/// 执行过程：查目录 → 查 A → 另一安装尝试沿共享路由查 A → 改名/删卡 → 再查 → 拒绝 B → 订阅后切到 C → 接收 A 关闭事件。
-/// 预期结果：无越权内容；A的关闭事件真实到达，关项目后无旧卡片和route；读取不执行任务。
+/// 执行过程：查目录 → 查 A → 另一安装尝试沿共享路由查 A → 改名/删卡 → 再查 → 拒绝 B → 订阅后切到 C → 接收 A 后台重载事件。
+/// 预期结果：无越权内容；A的重载事件真实到达，不能泄漏旧实体的临时卡片和route；读取不执行任务。
 #[test]
 fn e2e_mobile_snapshot_uses_actual_window_and_authorized_scope() {
     check_mobile_snapshot_scope();
@@ -280,12 +280,14 @@ fn check_mobile_snapshot_scope() -> LatencySample {
             }),
         );
         let baseline = baseline_started.elapsed();
+        let original_route = first["result"]["event"]["project"]["route_id"].clone();
         events.send((first, Instant::now())).expect("发送基线");
         loop {
             let value: Value =
                 serde_json::from_str(socket.read().expect("项目事件").to_text().expect("JSON"))
                     .expect("事件JSON");
-            let closed = value["result"]["event"]["project"]["state"] == "closed";
+            let closed = value["result"]["event"]["project"]["state"] == "open"
+                && value["result"]["event"]["project"]["route_id"] != original_route;
             events.send((value, Instant::now())).expect("发送事件");
             if closed {
                 break;
@@ -306,7 +308,9 @@ fn check_mobile_snapshot_scope() -> LatencySample {
     });
     let arrived = loop {
         let (event, time) = next_watch_frame(cx, &received);
-        if event["result"]["event"]["project"]["state"] == "closed" {
+        if event["result"]["event"]["project"]["state"] == "open"
+            && event["result"]["event"]["project"]["route_id"] != p["route_id"]
+        {
             break time;
         }
         assert!(
@@ -322,16 +326,18 @@ fn check_mobile_snapshot_scope() -> LatencySample {
     );
     let closed = fetch(cx, &server, &cert, &machine, Some(&a_id));
     assert_eq!(
-        closed["result"]["projects"][0]["state"], "closed",
-        "离开项目即失去旧窗口路由"
+        closed["result"]["projects"][0]["state"], "open",
+        "离开旧实体后应从本地存储按需重载项目"
     );
     assert!(
-        closed["result"]["projects"][0]["cards"].is_null(),
-        "关闭后不能展示旧运行快照"
+        closed["result"]["projects"][0]["cards"]
+            .as_array()
+            .is_some_and(Vec::is_empty),
+        "旧实体中未保存的临时卡片不能泄漏到重载实例"
     );
     assert!(
-        closed["result"]["projects"][0]["route_id"].is_null(),
-        "旧窗口身份不能沿用"
+        closed["result"]["projects"][0]["route_id"] != p["route_id"],
+        "实例被替换时不能沿用旧运行身份"
     );
     assert_eq!(
         app.read_with(cx, |app, _| app.runtime.live_len()),

@@ -94,16 +94,6 @@ impl MultisoulApp {
             .bg(rgba(theme.canvas_from))
             .child(launchpad_backdrop(theme, launchpad_video, overlay))
             .child(
-                div().absolute().top(px(20.0)).right(px(24.0)).child(
-                    ui::component::button::Button::new("launchpad-mobile")
-                        .debug_selector(|| "launchpad-mobile".into())
-                        .label("连接手机")
-                        .on_click(cx.listener(|app, _, window, cx| {
-                            crate::settings::mobile::open_dialog(app, window, cx);
-                        })),
-                ),
-            )
-            .child(
                 div()
                     .absolute()
                     .left(px(layout.content_left))

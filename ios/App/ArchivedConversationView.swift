@@ -28,21 +28,24 @@ struct ArchivedConversationView: View {
                 }.font(.caption).foregroundStyle(.secondary)
                 if let error {
                     Text(error).font(.subheadline).foregroundStyle(.orange)
-                    Text("需要电脑在线且项目保持打开；原始记录被清理后，将无法读取。")
+                    Text("需要电脑在线并开启手机服务；原始记录被清理后，将无法读取。")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if session.key.profile == "Codex", timeline.hasMore { more }
                 ForEach(timeline.items) { item in
-                    ConversationMessageRow(item: item, profile: session.key.profile)
+                    ConversationMessageRow(item: item, profile: session.key.profile, imageSource: {
+                        try await model.client.chatImage($0, on: machine, workspaceID: scope.workspaceID)
+                    })
                 }
                 if session.key.profile == "Claude", timeline.hasMore { more }
-                if loading { ProgressView("正在读取原始对话…") }
+                if loading && !timeline.items.isEmpty { WorkspaceLoadingView(message: "正在读取原始对话…", inline: true) }
                 if !loading && timeline.items.isEmpty && error == nil {
                     ContentUnavailableView("暂时没有消息", systemImage: "bubble.left", description: Text("会话已登记，Agent 尚未写入可读消息。"))
                 }
                 if pendingTail { Text("电脑正在写入下一条消息，请稍后刷新。") .font(.caption).foregroundStyle(.secondary) }
             }.padding(16)
         }
+        .workspaceLoading(loading && timeline.items.isEmpty, "正在读取原始对话…")
         .background(.black).navigationTitle(session.title).navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

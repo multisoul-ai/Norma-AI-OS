@@ -13,7 +13,7 @@ import XCTest
 
     /// 原生 Codex 在首次提交前只有 PTY 运行身份，草稿仍应可保存。
     ///
-    /// 数据构造：node7/run-a，无 session；对照为有 session 无 run、无 session 的成果反馈。
+    /// 数据构造：node7/run-a，无 session；对照为非法 run ID、缺少 session 或 run 的成果反馈。
     /// 执行过程：编辑 → 落盘 → 重建客户端 → 核验草稿范围及非法身份。
     /// 预期结果：首次输入完整恢复，不自动进入随后创建的会话；非法身份和无会话反馈被拒绝。
     func testNativePromptDraftBeforeSessionStarts() async throws {
@@ -26,10 +26,13 @@ import XCTest
         let reopened = ChatDraftBook(store: ChatDraftStore(url: url)); await reopened.load()
         XCTAssertEqual(reopened.draft(for: pending)?.text, "第一次输入", "原生空提示符的草稿必须落盘并恢复")
         XCTAssertNil(reopened.draft(for: scope()), "新会话不能自动继承旧范围草稿")
-        XCTAssertThrowsError(try scope(run: nil).validate(), "会话身份不能脱离运行身份")
+        XCTAssertThrowsError(try scope(run: "invalid/run").validate(), "允许尚无运行的历史会话不能放松 ID 格式校验")
         var feedback = pending
         feedback.feedbackFingerprint = String(repeating: "a", count: 64)
         XCTAssertThrowsError(try feedback.validate(), "成果反馈必须绑定已存在的会话")
+        var inactiveFeedback = scope(run: nil)
+        inactiveFeedback.feedbackFingerprint = String(repeating: "a", count: 64)
+        XCTAssertThrowsError(try inactiveFeedback.validate(), "成果反馈仍须绑定准确运行，不能仅凭历史会话")
     }
 
     /// 草稿在重建客户端后恢复，并按电脑/项目/窗口/卡片/运行/会话完整隔离。

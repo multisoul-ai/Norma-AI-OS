@@ -264,6 +264,7 @@ impl Runtime {
                 if run.prompt_id.is_some() {
                     return false;
                 }
+                run.native_input.acknowledge_start();
             }
             "UserPromptSubmit" => {
                 if run.prompt_id.is_some() && run.prompt_id == event.turn_id {

@@ -42,6 +42,9 @@ pub struct TerminalPage {
     pub running: bool,
     pub input_ready: bool,
     pub rows: Vec<String>,
+    /// Full-page wrap flags, even when rows contains only a delta. Empty for older senders.
+    #[serde(default)]
+    pub soft_wrapped: Vec<bool>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

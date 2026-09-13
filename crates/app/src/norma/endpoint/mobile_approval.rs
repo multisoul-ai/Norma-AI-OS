@@ -74,36 +74,33 @@ pub(crate) fn read(database: &Path, call: LiveApprovalRequest, cx: &mut App) {
         .cloned();
     let result = target.ok_or("route_expired").and_then(|target| {
         target
-            .window
-            .update(cx, |_, _, cx| {
-                target.app.update(cx, |app, _| {
-                    if app.database_paths.app_db_path() != database
-                        || app.workspace_id.as_deref() != Some(&call.request.workspace_id)
-                        || app.workspace_route_id.as_deref() != Some(&call.request.route_id)
-                    {
-                        return Err("route_expired");
+            .app
+            .update(cx, |app, _| {
+                if app.database_paths.app_db_path() != database
+                    || app.workspace_id.as_deref() != Some(&call.request.workspace_id)
+                    || app.workspace_route_id.as_deref() != Some(&call.request.route_id)
+                {
+                    return Err("route_expired");
+                }
+                let cards = app.runtime.mobile_card_snapshots();
+                let mut items = Vec::new();
+                for card in cards
+                    .into_iter()
+                    .filter(|c| c.mobile_control && c.run_id.is_some())
+                {
+                    if Instant::now() >= call.deadline {
+                        return Err("unavailable");
                     }
-                    let cards = app.runtime.mobile_card_snapshots();
-                    let mut items = Vec::new();
-                    for card in cards
-                        .into_iter()
-                        .filter(|c| c.mobile_control && c.run_id.is_some())
-                    {
-                        if Instant::now() >= call.deadline {
-                            return Err("unavailable");
-                        }
-                        items.extend(app.runtime.mobile_approval_snapshots(card.node_id)?);
-                        // 128 requests * 64KiB Provider payload = 8MiB maximum foreground handoff.
-                        // The background wire layer additionally enforces its existing 500KiB envelope.
-                        if items.len() > 128 {
-                            return Err("approval_too_large");
-                        }
+                    items.extend(app.runtime.mobile_approval_snapshots(card.node_id)?);
+                    // 128 requests * 64KiB Provider payload = 8MiB maximum foreground handoff.
+                    // The background wire layer additionally enforces its existing 500KiB envelope.
+                    if items.len() > 128 {
+                        return Err("approval_too_large");
                     }
-                    Ok(items)
-                })
+                }
+                Ok(items)
             })
             .ok()
-            .and_then(Result::ok)
             .unwrap_or(Err("route_expired"))
     });
     let _ = call.reply.try_send(result);

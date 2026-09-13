@@ -79,14 +79,12 @@ rustls.workspace = true
 tungstenite.workspace = true
 hound = "3.5"
 image = "0.25"
+tempfile.workspace = true
 base64 = "0.22"
 
 # Native file picker for wallpaper import (Task 8). AsyncFileDialog is awaited
 # inside a cx.spawn task so it never blocks the GPUI event loop.
 rfd = "0.16"
-
-[dev-dependencies]
-tempfile.workspace = true
 
 # Video wallpaper spike (Task 1): objc2 + AVAssetReader → 420f CVPixelBuffer.
 # All AVFoundation interop is macOS-only; on other targets these crates are

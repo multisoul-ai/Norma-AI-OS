@@ -9,6 +9,7 @@ use std::time::Duration;
 pub(crate) struct NativeInput {
     pub(super) sequence: u64,
     submitted: Option<u64>,
+    started: bool,
     pub(super) dirty: bool,
 }
 impl NativeInput {
@@ -17,13 +18,23 @@ impl NativeInput {
             return;
         }
         self.advance();
-        self.dirty = true;
-        if matches!(input, NodeInput::Key(key) if key.key == terminal::Key::Enter && !key.ctrl && !key.alt && !key.shift)
-        {
+        let submit = matches!(input, NodeInput::Key(key) if key.key == terminal::Key::Enter && !key.ctrl && !key.alt && !key.shift);
+        // These keys cannot create text in an empty composer. History recall/Tab remain unknown.
+        // An existing draft stays protected: a deletion key alone does not prove it is now empty.
+        self.dirty |= !submit
+            && !matches!(input, NodeInput::Key(key) if matches!(key.key,
+            terminal::Key::Escape | terminal::Key::Backspace | terminal::Key::Left | terminal::Key::Right));
+        if submit {
             self.submitted = Some(self.sequence);
         }
     }
+    pub(crate) fn acknowledge_start(&mut self) {
+        if !self.started {
+            self.acknowledge();
+        }
+    }
     pub(crate) fn acknowledge(&mut self) {
+        self.started = true;
         // A late Provider hook must not clear the next draft typed after Enter.
         if self.submitted.take() == Some(self.sequence) {
             self.dirty = false;
@@ -175,8 +186,8 @@ impl Runtime {
             if run.message.is_some() || run.interrupt.is_some() || run.control.is_cancelled() {
                 return Err("state_not_ready");
             }
-            // ponytail: no native draft-buffer API; navigation also blocks sends until a Provider submit.
-            // Replace with Provider draft acknowledgement if that interface becomes available.
+            // ponytail: no Provider draft-buffer API; unknown edits stay protected until confirmed.
+            // Replace conservative tracking with Provider draft acknowledgement when available.
             if run.native_input.dirty {
                 return Err("desktop_input_pending");
             }

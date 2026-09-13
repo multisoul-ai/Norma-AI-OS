@@ -33,19 +33,20 @@ struct CommandPlanView: View {
                                                              decisionCount: decisionCount, showDecisions: showDecisions,
                                                              showing: !active || editing != nil || deliveryProject != nil, open: { deliveryProject = project }))
                         .id(progress.plan.id)
+                } else if loading {
+                    WorkspaceLoadingView(message: "正在读取行动计划…")
                 } else {
                     ScrollView {
                         VStack(spacing: 12) {
                             CommandBriefCard(machineName: machine.name, agentCount: project.cardCount,
-                                title: loading ? "正在同步工作…" : error == nil ? "从一个方向开始。" : "等待重新连接",
-                                summary: loading ? "正在读取电脑上的行动计划。" : "你定方向，Agent 负责执行。")
+                                title: error == nil ? "从一个方向开始。" : "等待重新连接",
+                                summary: "你定方向，Agent 负责执行。")
                                 .padding(.horizontal, 20)
                             CommandInboxLinks(model: model, machine: machine, project: project,
                                               decisionCount: decisionCount, showDecisions: showDecisions,
                                               showing: !active || editing != nil || deliveryProject != nil, open: { deliveryProject = project })
                                 .id(project.id + (project.routeID ?? "") + String(retry))
-                            if loading { ProgressView("正在读取行动计划…").font(.caption).padding() }
-                            else if let error {
+                            if let error {
                                 WorkspaceStatusView(title: "暂时无法读取计划", icon: "wifi.exclamationmark", message: error, inline: true) {
                                     WorkspaceStatusButton(title: "重新读取") { retry += 1 }
                                 }
@@ -62,7 +63,7 @@ struct CommandPlanView: View {
                     WorkspaceStatusButton(title: "连接电脑", action: manageComputers)
                 }
             } else if model.connecting {
-                ProgressView("正在读取项目…").font(.caption).frame(maxWidth: .infinity, maxHeight: .infinity)
+                WorkspaceLoadingView(message: "正在读取项目…")
             } else {
                 if model.projects == nil {
                     WorkspaceStatusView(title: "暂时无法读取项目", icon: "wifi.exclamationmark", message: "请保持 Norma 打开，并检查网络连接。") {

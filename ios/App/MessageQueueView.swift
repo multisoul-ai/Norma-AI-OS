@@ -15,7 +15,10 @@ struct MessageQueueView: View {
                         QueuedMessageDetail(model: model, command: command)
                     } label: {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(command.request.command.messageContent?.text ?? "").font(.subheadline).lineLimit(2)
+                            let message = command.request.command.messageContent?.text ?? ""
+                            let images = ChatImageMessage.parse(message)
+                            Text(images?.text.isEmpty == true ? "图片消息" : images?.text ?? message).font(.subheadline).lineLimit(2)
+                            if let images { Label("\(images.paths.count) 张图片", systemImage: "photo").font(.caption).foregroundStyle(.secondary) }
                             Text([model.machines.first { $0.id == command.machineID }?.name ?? "已移除的电脑", queueProjectName(model, command), command.request.command.displayName].joined(separator: " · "))
                                 .font(.caption).foregroundStyle(.secondary)
                             Text("上次状态：" + queueLabel(model.queueStatuses[command.id])).font(.caption).foregroundStyle(.secondary)
@@ -67,7 +70,7 @@ private struct QueuedMessageDetail: View {
                 Text((checkedAt == nil && status != nil ? "上次状态：" : "") + queueLabel(status)).fontWeight(.medium).accessibilityIdentifier("queued-message-status")
                 if let checkedAt { Text("核验于 \(checkedAt.formatted(date: .omitted, time: .standard))").font(.caption).foregroundStyle(.secondary) }
                 if let error { Text(error).font(.caption).foregroundStyle(.orange) }
-                if busy { ProgressView("正在核验…") }
+                if busy { WorkspaceLoadingView(message: "正在核验…", inline: true) }
                 Button("查询最新状态") { Task { await refresh() } }.disabled(busy || machine == nil)
                 if status?.state == "queued" {
                     Button("撤回这条消息", role: .destructive) { Task { await cancel() } }
@@ -75,7 +78,21 @@ private struct QueuedMessageDetail: View {
                 }
             } footer: { Text("重新连接只查询状态。只有尚未开始发送的消息可以撤回；入队成功不代表 Agent 已收到。") }
             Section("消息原文") {
-                Text(command.request.command.messageContent?.text ?? "").textSelection(.enabled)
+                let message = command.request.command.messageContent?.text ?? ""
+                Text(ChatImageMessage.parse(message)?.text ?? message).textSelection(.enabled)
+                if let images = ChatImageMessage.parse(message), let machine {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 8) {
+                            ForEach(Array(images.paths.enumerated()), id: \.offset) { index, path in
+                                if let id = ChatImageMessage.imageID(path: path) {
+                                    ChatPhotoTile(id: id, label: "图片 \(index + 1)", load: {
+                                        try await model.client.chatImage(id, on: machine, workspaceID: command.request.workspaceID)
+                                    })
+                                }
+                            }
+                        }
+                    }.scrollIndicators(.hidden)
+                }
                 Button(copied ? "已复制原文" : "复制原文") { UIPasteboard.general.string = command.request.command.messageContent?.text; copied = true }
                     .accessibilityIdentifier("copy-queued-message")
             }

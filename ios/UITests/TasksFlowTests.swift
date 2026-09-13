@@ -1,6 +1,43 @@
 import XCTest
 
 final class TasksFlowTests: XCTestCase {
+    /// Claude 历史尚不可读时不能永久加载，恢复后用户可在原卡重新读取。
+    ///
+    /// 数据构造：原卡 7 / session-7，真实 WSS 返回 history_unavailable；
+    ///   12s = 1+2+4s 有限重连退避 + 5s 原生导航和调度余量。
+    /// 执行过程：打开 Claude → 等待读取失败 → 恢复历史源 → 点击重新读取。
+    /// 预期结果：失败时 spinner 消失、刷新可用；恢复后显示原会话且不发送任何命令。
+    @MainActor func testClaudeUnavailableHistoryCanRecoverWithoutEndlessLoading() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard env["NORMA_TEST_MODE"] == "notification-ui", let path = env["NORMA_TEST_QR"] else {
+            throw XCTSkip("只使用明确的隔离聊天服务")
+        }
+        let dir = URL(fileURLWithPath: path).deletingLastPathComponent()
+        let marker = dir.appendingPathComponent("ui-chat-history-unavailable")
+        try Data().write(to: marker)
+        defer { try? FileManager.default.removeItem(at: marker) }
+        let app = XCUIApplication(); app.launch()
+        app.buttons["manage-computers"].tap()
+        let machine = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "通知验收 Mac")).firstMatch
+        XCTAssertTrue(machine.waitForExistence(timeout: 5), "只能操作隔离电脑")
+        machine.tap()
+        let card = app.buttons["agent-card-7"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5), "应打开具有确切会话的 Claude 原卡")
+        card.tap()
+        let failure = app.staticTexts["对话暂时无法读取，请刷新后重试。"]
+        XCTAssertTrue(failure.waitForExistence(timeout: 12), "历史缺失必须结束加载并显示真实错误")
+        XCTAssertFalse(app.descendants(matching: .any)["workspace-loading"].firstMatch.exists, "失败后不应继续转圈")
+        let refresh = app.buttons["重新读取对话"]
+        XCTAssertTrue(refresh.isEnabled, "失败后应允许在当前卡重新读取")
+        try FileManager.default.removeItem(at: marker)
+        refresh.tap()
+        XCTAssertTrue(app.staticTexts["来自原会话 session-7 的完整回复"].waitForExistence(timeout: 8), "恢复后应显示同一会话的正文")
+        XCTAssertFalse(failure.exists, "恢复后必须清除旧错误")
+        XCTAssertFalse(app.descendants(matching: .any)["workspace-loading"].firstMatch.exists, "收到正文后不能残留加载")
+        XCTAssertFalse(app.buttons["chat-send-message"].isEnabled, "只读权限不能因重试被提升")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-chat-sent.json").path), "读取和恢复都不能自动发消息")
+    }
+
     /// 最大字号下任务表单可操作，同名node在不同项目及新旧窗口不能共享草稿。
     /// 数据构造：两个只读项目都使用Codex node1，但workspace/route/run/session均不同；AX5字体；
     ///   每段最多8次滚动覆盖两屏高表单，8s = 2s心跳 + 6s布局与网络调度余量。
@@ -183,7 +220,7 @@ final class TasksFlowTests: XCTestCase {
     /// 数据构造：notification-ui隔离只读项目，Codex有一项已完成任务，Claude为空白卡；
     ///   8s = 2s服务心跳 + 6s原生导航/调度余量，不是网络性能指标。
     /// 执行过程：选择验收电脑及首项目 → 任务筛选 → 服务端改运行状态 → 搜索与清除 → 打开原对话并返回 → 服务端不可读再恢复。
-    /// 预期结果：状态变化自动更新，不显示空白卡；只读不得发送；返回仍有原任务；不可读不能冒充没有任务。
+    /// 预期结果：状态变化自动更新，不显示空白卡；只读不得发送；不可读不显示冗余提示，也不能冒充零任务。
     @MainActor func testLiveTaskFiltersAndConversationReturn() throws {
         let env = ProcessInfo.processInfo.environment
         guard env["NORMA_TEST_MODE"] == "notification-ui", let path = env["NORMA_TEST_QR"], path.hasPrefix("/") else {
@@ -201,13 +238,18 @@ final class TasksFlowTests: XCTestCase {
         let task = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "本地通知定位验收")).firstMatch
         XCTAssertTrue(task.waitForExistence(timeout: 8), "任务应来自已配对服务的真实WSS快照")
         XCTAssertFalse(app.staticTexts["空白验收卡片"].exists, "空白Agent不应成为任务")
+        XCTAssertFalse(app.staticTexts["第二验收项目：项目尚未在电脑上打开"].exists, "未打开项目不再逐条显示橙色提示")
         app.buttons["task-project-filter"].tap()
         let scope = app.buttons["通知验收项目"]
         XCTAssertTrue(scope.waitForExistence(timeout: 3), "只筛选首项目的任务，其他未打开项目不能混入无匹配状态")
         scope.tap()
         app.buttons["task-filter-已完成"].tap()
+        XCTAssertTrue(app.buttons["task-filter-已完成"].isSelected, "玻璃选中项必须对应实际完成筛选")
+        XCTAssertFalse(app.buttons["task-filter-all"].isSelected, "选中完成后全部不能仍为选中态")
         XCTAssertTrue(task.exists, "完成筛选应保留已完成任务")
         app.buttons["task-filter-进行中"].tap()
+        XCTAssertTrue(app.buttons["task-filter-进行中"].isSelected, "选中高亮必须随筛选移动")
+        XCTAssertFalse(app.buttons["task-filter-已完成"].isSelected, "旧选中项必须退出")
         XCTAssertTrue(app.staticTexts["没有匹配的任务"].waitForExistence(timeout: 8), "完成任务不得混入进行中")
         XCTAssertFalse(task.exists, "完成任务应从进行中结果中消失")
         try Data().write(to: running, options: .atomic)
@@ -222,16 +264,26 @@ final class TasksFlowTests: XCTestCase {
         try FileManager.default.removeItem(at: running)
         app.buttons["task-filter-已完成"].tap()
         XCTAssertTrue(task.waitForExistence(timeout: 8), "同一订阅也应接收完成更新")
+        app.buttons["workspace-tab-projects"].tap()
+        app.buttons["workspace-tab-tasks"].tap()
+        XCTAssertTrue(app.buttons["task-filter-已完成"].isSelected, "切换底栏后保留实际任务筛选")
+        XCTAssertTrue(task.waitForExistence(timeout: 8), "玻璃底栏切换后仍订阅原任务")
         task.tap()
         let send = app.buttons["chat-send-message"]
         XCTAssertTrue(send.waitForExistence(timeout: 8), "任务应直接打开原Agent对话")
         XCTAssertFalse(send.isEnabled, "任务入口不能提升只读权限")
+        XCTAssertFalse(app.buttons["workspace-tab-tasks"].exists, "共享底栏不能盖住聊天页和键盘")
         let back = app.navigationBars.buttons.matching(NSPredicate(format: "label IN %@", ["任务", "Back", "返回"])).firstMatch
         XCTAssertTrue(back.waitForExistence(timeout: 8), "聊天导航不能因任务源onDisappear清空而丢失")
         back.tap()
+        XCTAssertTrue(app.buttons["workspace-tab-tasks"].isSelected, "返回后玻璃底栏仍选中任务")
         XCTAssertTrue(task.waitForExistence(timeout: 8), "返回应恢复同一筛选结果")
         try Data().write(to: unavailable, options: .atomic)
-        XCTAssertTrue(app.staticTexts["部分任务暂时无法读取"].waitForExistence(timeout: 8), "不可读必须有明确状态")
+        // 等待首项目的WSS失效更新，避免在仍有旧任务时提前验证不可读状态。
+        XCTAssertTrue(task.waitForNonExistence(timeout: 8), "收到不可读更新后，旧任务必须在订阅等待预算内退出")
+        XCTAssertFalse(app.staticTexts["部分任务暂时无法读取"].exists, "任务列表不再显示冗余读取提示")
+        XCTAssertFalse(app.staticTexts["已连接项目的任务仍会更新，其他项目恢复连接后自动显示。"].exists, "提示说明也应一并移除")
+        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "通知验收项目：")).count, 0, "已打开项目读取失败也不应重复显示逐项目错误")
         XCTAssertFalse(app.staticTexts["当前没有任务"].exists, "未知任务数不能显示为零")
         XCTAssertFalse(app.staticTexts["没有匹配的任务"].exists, "不可读不是筛选无结果")
         XCTAssertFalse(task.exists, "不可读时必须清除过期任务")

@@ -40,6 +40,8 @@ mod launch;
 mod message_tests;
 mod messages;
 mod native;
+mod native_launch;
+pub use native_launch::NativeAgentLaunch;
 mod native_approval;
 mod native_approval_action;
 mod progress;
@@ -145,9 +147,11 @@ mod claude_audit_tests;
 
 impl Runtime {
     pub fn mobile_agent_is_preparing(&self, node_id: NodeId) -> bool {
-        self.mobile_runs
-            .get(&node_id)
-            .is_some_and(|run| run.run_id.is_none() || run.message.is_some())
+        self.mobile_runs.get(&node_id).is_some_and(|run| {
+            run.run_id.is_none()
+                || run.message.is_some()
+                || (run.native && !self.live.contains_key(&node_id))
+        })
     }
 
     /// On-demand display projection; never reads transcripts, drains PTYs, or starts an executor.
@@ -187,11 +191,13 @@ impl Runtime {
                     node_id: node.id,
                     profile: spec.profile.display_title().into(),
                     title: node.kind.display_title().chars().take(256).collect(),
-                    mobile_control: spec.mobile_control
-                        || self
-                            .mobile_runs
-                            .get(&node.id)
-                            .is_some_and(MobileRun::is_native),
+                    mobile_control: matches!(
+                        spec.profile,
+                        AgentProfile::Claude | AgentProfile::Codex
+                    ) || self
+                        .mobile_runs
+                        .get(&node.id)
+                        .is_some_and(MobileRun::is_native),
                     can_interrupt: self.mobile_runs.get(&node.id).filter(|run| run.native).map(
                         |run| {
                             spec.profile == AgentProfile::Codex

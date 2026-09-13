@@ -24,17 +24,14 @@ pub(crate) fn read(database: PathBuf, call: LiveReviewRequest, cx: &mut App) {
         return;
     };
     let root = target
-        .window
-        .update(cx, |_, _, cx| {
-            target.app.update(cx, |app, _| {
-                if !matches(app, &database, &call.request) || Instant::now() >= call.deadline {
-                    return None;
-                }
-                app.runtime.workspace_root().map(Path::to_path_buf)
-            })
+        .app
+        .update(cx, |app, _| {
+            if !matches(app, &database, &call.request) || Instant::now() >= call.deadline {
+                return None;
+            }
+            app.runtime.workspace_root().map(Path::to_path_buf)
         })
         .ok()
-        .and_then(Result::ok)
         .flatten();
     let Some(root) = root else {
         let _ = call.reply.try_send(Err("route_expired"));
@@ -53,14 +50,9 @@ pub(crate) fn read(database: PathBuf, call: LiveReviewRequest, cx: &mut App) {
     cx.spawn(async move |cx| {
         let result = work.await;
         let current = target
-            .window
-            .update(cx, |_, _, cx| {
-                target
-                    .app
-                    .update(cx, |app, _| matches(app, &database, &call.request))
-            })
+            .app
+            .update(cx, |app, _| matches(app, &database, &call.request))
             .ok()
-            .and_then(Result::ok)
             .unwrap_or(false);
         let result = if !current {
             Err("route_expired")

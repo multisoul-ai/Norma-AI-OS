@@ -3,7 +3,8 @@ use norma::claude::{read_transcript, TranscriptCursor, TranscriptPage};
 
 /// Bound by Runtime before scheduling IO. Remote callers cannot supply a filesystem path.
 pub struct MobileClaudeHistoryRead {
-    path: PathBuf,
+    path: Option<PathBuf>,
+    awaiting_first_prompt: bool,
     pub(super) projects_root: PathBuf,
     session_id: String,
     workspace: PathBuf,
@@ -20,7 +21,9 @@ impl MobileClaudeHistoryRead {
             return Err("controlled Claude run closed".into());
         }
         let cursor = norma::claude::transcript_end(
-            &self.path,
+            self.path
+                .as_deref()
+                .ok_or("Claude has not provided a transcript path")?,
             &self.projects_root,
             &self.session_id,
             &self.workspace,
@@ -40,14 +43,33 @@ impl MobileClaudeHistoryRead {
         if self.control.is_cancelled() {
             return Err("controlled Claude run closed".into());
         }
-        let page = read_transcript(
-            &self.path,
-            &self.projects_root,
-            &self.session_id,
-            &self.workspace,
-            cursor,
-            limit,
-        )?;
+        if !(1..=100).contains(&limit) {
+            return Err("invalid transcript page limit".into());
+        }
+        let cursor = cursor.filter(|cursor| !cursor.is_waiting_for_file());
+        let missing = self.awaiting_first_prompt
+            && cursor.is_none()
+            && !self
+                .path
+                .as_ref()
+                .map(|path| path.try_exists())
+                .transpose()
+                .map_err(|error| error.to_string())?
+                .unwrap_or(false);
+        let page = if missing {
+            TranscriptPage::waiting_for_file()
+        } else {
+            read_transcript(
+                self.path
+                    .as_deref()
+                    .ok_or("Claude has not provided a transcript path")?,
+                &self.projects_root,
+                &self.session_id,
+                &self.workspace,
+                cursor,
+                limit,
+            )?
+        };
         if self.control.is_cancelled() {
             return Err("controlled Claude run closed".into());
         }
@@ -92,10 +114,8 @@ impl Runtime {
             .filter(|run| run.run_id.as_deref() == Some(run_id) && !run.control.is_cancelled())
             .ok_or("controlled Claude run unavailable")?;
         Ok(MobileClaudeHistoryRead {
-            path: run
-                .transcript_path
-                .clone()
-                .ok_or("Claude has not provided a transcript path")?,
+            path: run.transcript_path.clone(),
+            awaiting_first_prompt: run.latest_prompt_id.is_none(),
             projects_root: claude_projects_root()?,
             session_id: run.session_id.clone().ok_or("Claude session unavailable")?,
             workspace: self.workspace_root.clone().ok_or("project unavailable")?,

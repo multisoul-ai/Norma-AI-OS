@@ -157,31 +157,28 @@ fn live(
     cx: &mut AsyncApp,
 ) -> bool {
     target
-        .window
-        .update(cx, |_, _, cx| {
-            target.app.update(cx, |app, _| {
-                if app.database_paths.app_db_path() != database
-                    || app.workspace_id.as_deref() != Some(&request.workspace_id)
-                    || app.workspace_route_id.as_deref() != Some(&request.route_id)
-                {
-                    return false;
-                }
-                let Some(draft) = draft else {
-                    return true;
-                };
-                let current = app.runtime.mobile_card_snapshots();
-                draft.todos.iter().all(|todo| {
-                    current.iter().any(|card| {
-                        card.node_id == todo.target.node_id
-                            && card.profile == todo.target.profile
-                            && card.mobile_control
-                            && card.run_id == todo.target.run_id
-                            && card.session_id == todo.target.session_id
-                    })
+        .app
+        .update(cx, |app, _| {
+            if app.database_paths.app_db_path() != database
+                || app.workspace_id.as_deref() != Some(&request.workspace_id)
+                || app.workspace_route_id.as_deref() != Some(&request.route_id)
+            {
+                return false;
+            }
+            let Some(draft) = draft else {
+                return true;
+            };
+            let current = app.runtime.mobile_card_snapshots();
+            draft.todos.iter().all(|todo| {
+                current.iter().any(|card| {
+                    card.node_id == todo.target.node_id
+                        && card.profile == todo.target.profile
+                        && card.mobile_control
+                        && card.run_id == todo.target.run_id
+                        && card.session_id == todo.target.session_id
                 })
             })
         })
         .ok()
-        .and_then(Result::ok)
         .unwrap_or(false)
 }

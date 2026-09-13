@@ -41,9 +41,12 @@ pub(super) fn load(store: &AppStore) -> Result<Option<Option<PushRelayConfig>>> 
     let Some(bytes) = read(&account)? else {
         return Ok(None);
     };
-    ensure!(bytes.len() <= 4096, "已保存的通知配置过长");
-    let saved: Option<Saved> =
-        serde_json::from_slice(&bytes).context("通知配置损坏，请重新保存或停用")?;
+    ensure!(
+        bytes.len() <= 4096,
+        "Saved notification settings are too large"
+    );
+    let saved: Option<Saved> = serde_json::from_slice(&bytes)
+        .context("Notification settings are invalid. Save again or disable the service.")?;
     saved
         .map(|s| PushRelayConfig::from_fields(&s.endpoint, &s.key, s.environment))
         .transpose()
@@ -68,7 +71,9 @@ fn read(account: &str) -> Result<Option<Vec<u8>>> {
     ) {
         Ok(bytes) => Ok(Some(bytes)),
         Err(e) if e.code() == -25300 => Ok(None), // errSecItemNotFound; other Keychain errors are not an empty config.
-        Err(_) => anyhow::bail!("无法读取通知服务 Keychain，请解锁后重试"),
+        Err(_) => anyhow::bail!(
+            "Unable to read the notification service Keychain item. Unlock Keychain and try again."
+        ),
     }
 }
 #[cfg(not(any(test, feature = "e2e-test-support")))]
@@ -78,7 +83,7 @@ fn write(account: &str, bytes: &[u8]) -> Result<()> {
         account,
         bytes,
     )
-    .map_err(|_| anyhow::anyhow!("无法保存通知服务 Keychain，原配置未更改"))
+    .map_err(|_| anyhow::anyhow!("Unable to save the notification service Keychain item. Previous settings are unchanged."))
 }
 
 #[cfg(any(test, feature = "e2e-test-support"))]

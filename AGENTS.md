@@ -65,8 +65,8 @@ Workspace 分层：
 - **测试目录按 crate 维护**：大型独立单元测试放 `crates/<crate>/tests/unit/` 并从源码模块用 `#[path]` 挂载；集成测试放 `crates/<crate>/tests/*.rs`；crate 专用 helper 放 `crates/<crate>/tests/support/`。
 - **测试注释必须完整**：测试上方写场景、数据构造、执行过程、预期结果；关键数值写推导。
 - **断言必须具体**：每个 `assert!` / `assert_eq!` 带说明字符串；关键状态要有正断言和负断言。
-- **PTY 生命周期要收口**：窗口关闭或 session 释放必须 kill/wait 子进程，避免僵尸进程。
-- **关窗必须退出进程**：GPUI 在 macOS 上关闭最后一个窗口后不会自动 quit，必须在 `main.rs` 的 `run` 闭包内注册 `cx.on_window_closed(|cx| { if cx.windows().is_empty() { cx.quit(); } }).detach()`；不得省略，否则进程常驻后台。
+- **PTY 生命周期要收口**：项目运行实例释放或主动退出 App 时必须 kill/wait 子进程；手机服务开启后关窗只解除视图，保留同一 Runtime / PTY。
+- **关窗生命周期有明确例外**：未启用手机服务且无后台项目时，关闭最后窗口必须 quit；手机服务开启后可无窗口运行，Dock 重开复用项目，主动退出统一停止服务/项目并取消迟到加载。见 [`docs/exec-plans/2026-09-12-mobile-background-projects.md`](docs/exec-plans/2026-09-12-mobile-background-projects.md)。
 - **交互决策放 runtime**：输入意图先通过 `runtime::route` 这类纯函数表达，再由 `app` 层执行副作用。
 - **新增可配置快捷键必须进 Settings**：任何新的 app shortcut 都要注册到 `shortcuts.rs`，并在 Settings → Keyboard Shortcuts 支持录制与恢复。
 - **验收标准要落 e2e**：涉及用户可观察流程、Settings、Canvas、Terminal、焦点/输入路由、PTY 或持久化闭环时，必须根据验收标准自动新增/更新 `crates/e2e` 用例；不要只写单测或手测说明。

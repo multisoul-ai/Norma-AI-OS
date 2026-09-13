@@ -23,7 +23,7 @@ struct ReviewImagePreview: View {
                         ? "请在电脑查看原图。手机支持 1 MiB、1677 万像素以内的图片。"
                         : "支持常见栅格图片。文件可能损坏，或需要在电脑上打开。"))
             case nil:
-                ProgressView("正在读取图片").frame(maxWidth: .infinity, maxHeight: .infinity)
+                WorkspaceLoadingView(message: "正在读取图片…")
             }
         }.task(id: version.bytes) {
             result = nil
@@ -64,7 +64,7 @@ struct ReviewImagePreview: View {
     }
 }
 
-private struct ReviewImageCanvas: UIViewRepresentable {
+struct ReviewImageCanvas: UIViewRepresentable {
     let image: CGImage
     let name: String
     func makeUIView(context: Context) -> ImageScrollView { ImageScrollView() }
@@ -77,7 +77,7 @@ private struct ReviewImageCanvas: UIViewRepresentable {
     }
 }
 
-private final class ImageScrollView: UIScrollView, UIScrollViewDelegate {
+final class ImageScrollView: UIScrollView, UIScrollViewDelegate {
     let picture = UIImageView()
     private var viewport = CGSize.zero
 

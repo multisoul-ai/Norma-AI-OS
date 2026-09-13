@@ -27,20 +27,17 @@ pub(super) fn prepare(database: PathBuf, call: LiveCommandRequest, cx: &mut App)
         .cloned();
     let root = target.as_ref().and_then(|target| {
         target
-            .window
-            .update(cx, |_, _, cx| {
-                target.app.update(cx, |app, _| {
-                    if app.database_paths.app_db_path() != database
-                        || app.workspace_id.as_deref() != Some(&call.request.workspace_id)
-                        || app.workspace_route_id.as_deref() != Some(&call.request.route_id)
-                    {
-                        return None;
-                    }
-                    app.runtime.workspace_root().map(Path::to_path_buf)
-                })
+            .app
+            .update(cx, |app, _| {
+                if app.database_paths.app_db_path() != database
+                    || app.workspace_id.as_deref() != Some(&call.request.workspace_id)
+                    || app.workspace_route_id.as_deref() != Some(&call.request.route_id)
+                {
+                    return None;
+                }
+                app.runtime.workspace_root().map(Path::to_path_buf)
             })
             .ok()
-            .and_then(Result::ok)
             .flatten()
     });
     let Some(root) = root else {

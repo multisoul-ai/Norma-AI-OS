@@ -11,58 +11,14 @@ use gpui::{AppContext, Context, Window};
 use runtime::Runtime;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
-use storage::{NodeSession, ProjectStore, SessionCheckpoint};
+use storage::ProjectStore;
 use workspace::WorkspaceSource;
 
 #[path = "flow/session_restore_plan.rs"]
 mod session_restore_plan;
 
-#[derive(Clone, Debug)]
-pub(crate) struct PendingLiveSessionRestore {
-    root: PathBuf,
-    checkpoints: Vec<SessionCheckpoint>,
-    node_sessions: Vec<NodeSession>,
-    node_ids: Vec<NodeId>,
-    legacy_discovery_node_ids: Vec<NodeId>,
-}
-
-impl PendingLiveSessionRestore {
-    fn new(
-        root: PathBuf,
-        runtime: &Runtime,
-        checkpoints: Vec<SessionCheckpoint>,
-        node_sessions: Vec<NodeSession>,
-    ) -> Self {
-        let node_ids = runtime
-            .document
-            .nodes()
-            .iter()
-            .filter(|node| {
-                matches!(
-                    node.kind,
-                    canvas::CanvasNodeKind::Term(_) | canvas::CanvasNodeKind::Agent(_)
-                )
-            })
-            .map(|node| node.id)
-            .collect();
-        let legacy_discovery_node_ids = session_restore_plan::legacy_discovery_node_ids(runtime);
-        Self {
-            root,
-            checkpoints,
-            node_sessions,
-            node_ids,
-            legacy_discovery_node_ids,
-        }
-    }
-
-    fn len(&self) -> usize {
-        self.node_ids.len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.node_ids.is_empty()
-    }
-}
+mod pending_restore;
+pub(crate) use pending_restore::PendingLiveSessionRestore;
 
 #[derive(Debug)]
 pub(crate) struct WorkspaceOpenResult {
@@ -186,15 +142,17 @@ impl MultisoulApp {
         Ok(())
     }
 
-    fn spawn_deferred_live_session_restore(
+    pub(crate) fn spawn_deferred_live_session_restore(
         &mut self,
         pending: PendingLiveSessionRestore,
         cx: &mut Context<Self>,
     ) {
         if pending.is_empty() {
+            self.background_restore = None;
             return;
         }
-
+        self.background_restore = Some(pending.clone());
+        let source_window = self.project_window;
         let root = pending.root.clone();
         let total_sessions = pending.len();
         tracing::info!(
@@ -207,6 +165,14 @@ impl MultisoulApp {
             let mut next_index = 0usize;
             loop {
                 if next_index >= pending.node_ids.len() {
+                    let _ = this.update(cx, |app, _| {
+                        if !app.background_project
+                            && app.project_window == source_window
+                            && app.workspace_state.current_root.as_deref() == Some(root.as_path())
+                        {
+                            app.background_restore = None;
+                        }
+                    });
                     tracing::info!(
                         stage = "workspace_open_restore_live_sessions_deferred_done",
                         path = %root.display(),
@@ -222,10 +188,15 @@ impl MultisoulApp {
                 next_index += 1;
                 let remaining = pending.node_ids.len().saturating_sub(next_index);
                 let discovery_profile = this.update(cx, |app, _cx| {
-                    if app.workspace_state.current_root.as_deref() != Some(root.as_path()) {
+                    if app.background_project
+                        || app.project_window != source_window
+                        || app.workspace_state.current_root.as_deref() != Some(root.as_path())
+                    {
                         return None;
                     }
-                    if !pending.legacy_discovery_node_ids.contains(&node_id) {
+                    if app.runtime.node_run_state(node_id).is_some()
+                        || !pending.legacy_discovery_node_ids.contains(&node_id)
+                    {
                         return None;
                     }
                     match app.runtime.document.node(node_id).map(|node| &node.kind) {
@@ -251,8 +222,14 @@ impl MultisoulApp {
                     None => None,
                 };
                 let update = this.update(cx, |app, cx| {
-                    if app.workspace_state.current_root.as_deref() != Some(root.as_path()) {
+                    if app.background_project
+                        || app.project_window != source_window
+                        || app.workspace_state.current_root.as_deref() != Some(root.as_path())
+                    {
                         return false;
+                    }
+                    if app.runtime.node_run_state(node_id).is_some() {
+                        return true;
                     }
                     let restore_start = Instant::now();
                     let binding_changed =
@@ -432,6 +409,7 @@ pub(crate) fn enter_workspace_for_path_with_source(
     runtime.kill_all();
     *runtime = next_runtime;
     persistence.set_project_store(project_store);
+    persistence.retained_checkpoints = pending_live_restore.checkpoints.clone();
     agent_definitions.bind_project_store(agent_definition_store);
     motion.clear_transient();
     motion.retain_nodes(std::iter::empty::<NodeId>());
@@ -493,3 +471,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../../tests/unit/workspace_open_timing_tests.rs"]
 mod workspace_open_timing_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/workspace_deferred_restore_tests.rs"]
+mod deferred_restore_tests;

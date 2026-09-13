@@ -9,6 +9,7 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.project_window = Some(window.window_handle());
         if let (Some(workspace_id), Some(route_id)) = (
             self.workspace_id.as_deref(),
             self.workspace_route_id.as_deref(),
@@ -36,6 +37,27 @@ impl MultisoulApp {
                 return;
             }
         };
+        self.workspace_id = Some(identity.workspace_id);
+        self.register_loaded_project_route(Some(window.window_handle()), cx);
+    }
+
+    pub(crate) fn register_loaded_project_route(
+        &mut self,
+        window: Option<gpui::AnyWindowHandle>,
+        cx: &mut Context<Self>,
+    ) {
+        self.project_window = window;
+        let Some(workspace_id) = self.workspace_id.clone() else {
+            return;
+        };
+        let Some(root) = self.runtime.workspace_root().map(Path::to_path_buf) else {
+            return;
+        };
+        let display_name = root
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("Workspace")
+            .to_owned();
         let route_id = match crate::norma::endpoint::new_workspace_route_id() {
             Ok(route_id) => route_id,
             Err(error) => {
@@ -47,15 +69,13 @@ impl MultisoulApp {
             }
         };
 
-        let workspace_id = identity.workspace_id;
         if let Err(error) = crate::norma::endpoint::register_workspace(
             crate::norma::endpoint::WorkspaceRegistration {
                 workspace_id: &workspace_id,
                 route_id: &route_id,
-                window: window.window_handle(),
                 app: cx.weak_entity(),
-                display_name: identity.display_name,
-                canonical_root: identity.canonical_root,
+                display_name,
+                canonical_root: root,
                 agent_count: self.agent_definitions.definitions().len(),
             },
             cx,
@@ -79,5 +99,11 @@ impl MultisoulApp {
             config
         });
         self.runtime.set_agent_hook_config(runtime_config);
+        crate::workspace::sessions::register(
+            self.database_paths.app_db_path().to_owned(),
+            self.workspace_id.clone().expect("registered workspace"),
+            cx.entity(),
+            cx,
+        );
     }
 }

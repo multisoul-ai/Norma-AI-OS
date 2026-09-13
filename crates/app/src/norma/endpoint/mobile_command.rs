@@ -43,8 +43,7 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
         return;
     };
     let created = target
-        .window
-        .update(cx, |_, window, cx| {
+        .with_optional_window(cx, |mut window, cx| {
             target.app.update(cx, |app, cx| {
                 if app.database_paths.app_db_path() != database
                     || app.workspace_id.as_deref() != Some(&call.request.workspace_id)
@@ -120,7 +119,7 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
                                 MobileProvider::Claude => canvas::AgentProfile::Claude,
                             },
                             title.clone(),
-                            window,
+                            window.as_deref_mut(),
                             cx,
                         )
                         .map(Started::Card)
@@ -134,7 +133,7 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
                         }) {
                             return Err("state_not_ready");
                         }
-                        app.delete_mobile_card_in_canvas(expected, *confirm_busy, window, cx)
+                        app.delete_mobile_card_in_canvas(expected, *confirm_busy, window.as_deref_mut(), cx)
                             .map(Started::Card)
                     }
                     MobileCommand::InterruptTurn { expected } => {

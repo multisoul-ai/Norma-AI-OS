@@ -18,7 +18,7 @@ struct ScannerScreen: View {
         NavigationStack {
             Group {
                 if decoding {
-                    ProgressView("正在识别二维码…")
+                    WorkspaceLoadingView(message: "正在识别二维码…")
                 } else if ready {
                     QRScanner(onCode: onCode, onFailure: { ready = false; unavailable = true })
                         .ignoresSafeArea(edges: .bottom)
@@ -33,7 +33,7 @@ struct ScannerScreen: View {
                             Link("打开系统设置", destination: url).buttonStyle(.bordered)
                         }
                     }.padding(32)
-                } else { ProgressView("准备相机…") }
+                } else { WorkspaceLoadingView(message: "准备相机…") }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity).background(.black)
             .safeAreaInset(edge: .bottom) {

@@ -1,5 +1,31 @@
 import SwiftUI
 
+/// Initial reads use the available viewport; incremental reads stay with their existing content.
+struct WorkspaceLoadingView: View {
+    let message: String
+    var inline = false
+
+    var body: some View {
+        ProgressView(message)
+            .font(.subheadline).tint(.secondary)
+            .multilineTextAlignment(.center)
+            .padding(inline ? 0 : 24)
+            .frame(maxWidth: .infinity, maxHeight: inline ? nil : .infinity)
+            .accessibilityIdentifier("workspace-loading")
+            .listRowBackground(Color.clear).listRowSeparator(.hidden)
+    }
+}
+
+extension View {
+    /// Attach outside ScrollView/List so the loader follows the viewport, not its first row.
+    func workspaceLoading(_ loading: Bool, _ message: String) -> some View {
+        frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay {
+                if loading { WorkspaceLoadingView(message: message).allowsHitTesting(false) }
+            }
+    }
+}
+
 /// One layout for root-page and inline notices, with recovery actions beside their explanation.
 struct WorkspaceStatusView<Actions: View>: View {
     let title: String

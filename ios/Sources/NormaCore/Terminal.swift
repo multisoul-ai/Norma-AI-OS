@@ -29,7 +29,19 @@ public struct TerminalPage: Codable, Equatable, Sendable {
     public let running: Bool
     public let inputReady: Bool
     public var rows: [String]
-    enum CodingKeys: String, CodingKey { case card, revision, screenSignature = "screen_signature", inputSequence = "input_sequence", startLine = "start_line", totalLines = "total_lines", cols, running, inputReady = "input_ready", rows }
+    public let softWrapped: [Bool]?
+    enum CodingKeys: String, CodingKey { case card, revision, screenSignature = "screen_signature", inputSequence = "input_sequence", startLine = "start_line", totalLines = "total_lines", cols, running, inputReady = "input_ready", rows, softWrapped = "soft_wrapped" }
+
+    /// Reflow only confirmed soft boundaries; a legacy screen keeps its original line breaks.
+    public func text(lastRows: Int = 120) -> String {
+        let start = rows.count - min(rows.count, max(0, lastRows))
+        var text = ""
+        for index in start..<rows.count {
+            text += rows[index]
+            if index < rows.count - 1 && !(softWrapped?.count == rows.count && softWrapped?[index] == true) { text += "\n" }
+        }
+        return text
+    }
     func validate(for request: TerminalRequest) throws {
         try request.validate(); try card.validate()
         guard card.nodeID == request.nodeID, card.runID == request.runID,
@@ -37,6 +49,7 @@ public struct TerminalPage: Codable, Equatable, Sendable {
         let end = request.before ?? totalLines
         guard (1...100_000).contains(totalLines), (1...512).contains(cols), end <= totalLines, end > 0,
               startLine == max(0, end - 120), rows.count == end - startLine,
+              softWrapped == nil || softWrapped?.isEmpty == true || softWrapped?.count == rows.count,
               request.revision == nil || request.revision == revision,
               !inputReady || (running && request.before == nil && inputSequence < UInt64.max),
               rows.allSatisfy({ $0.unicodeScalars.count <= cols && !$0.unicodeScalars.contains(where: { $0.value < 32 || (127...159).contains($0.value) }) }) else { throw MobileError.invalidResponse }

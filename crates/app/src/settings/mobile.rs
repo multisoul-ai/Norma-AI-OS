@@ -1,7 +1,4 @@
-use crate::{
-    app::MultisoulApp,
-    mobile::controller::{Command, MobileController},
-};
+use crate::mobile::controller::{Command, MobileController};
 use gpui::{div, img, prelude::*, px, rgba, App, Div, Entity, SharedString};
 use storage::MobilePermission;
 use ui::{
@@ -10,40 +7,6 @@ use ui::{
 };
 
 mod push;
-
-pub(crate) fn open_dialog(
-    app: &mut MultisoulApp,
-    window: &mut gpui::Window,
-    cx: &mut gpui::Context<MultisoulApp>,
-) {
-    use ui::component::WindowExt;
-    let mobile = app.mobile.clone();
-    mobile.update(cx, |host, cx| host.request(Command::Reload, cx));
-    let theme = app.theme;
-    let view = cx.new(|cx| {
-        cx.observe(&mobile, |_, _, cx| cx.notify()).detach();
-        MobileSettingsView { mobile, theme }
-    });
-    let width = (f32::from(window.viewport_size().width) - 48.0).clamp(260.0, 600.0);
-    window.open_dialog(cx, move |dialog, window, _| {
-        dialog
-            .title("手机连接")
-            .width(px(width))
-            // Dialog already owns a native scroll area; bound it below its 10% top inset.
-            .max_h(window.viewport_size().height * 0.8)
-            .child(view.clone())
-    });
-}
-
-struct MobileSettingsView {
-    mobile: Entity<MobileController>,
-    theme: Theme,
-}
-impl gpui::Render for MobileSettingsView {
-    fn render(&mut self, _: &mut gpui::Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
-        settings(self.theme, &self.mobile, cx)
-    }
-}
 
 pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut App) -> Div {
     let state = entity.read(cx);
@@ -55,11 +18,11 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
         .text_size(px(14.0))
         .text_color(rgba(theme.text_primary));
     let status = if state.busy {
-        "正在处理…"
+        "Working…"
     } else if state.enabled() {
-        "手机连接已开启"
+        "Mobile connection is on"
     } else {
-        "手机连接已关闭"
+        "Mobile connection is off"
     };
     let mut controls = div()
         .flex()
@@ -71,20 +34,20 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
         controls = controls.child(
             Button::new("mobile-disable")
                 .debug_selector(|| "mobile-disable".into())
-                .label("关闭连接")
+                .label("Disable")
                 .on_click(move |_, _, cx| target.update(cx, |host, cx| host.disable(cx))),
         );
     } else {
         controls = controls.child(action(
             entity,
             "mobile-enable",
-            "开启手机连接",
+            "Enable",
             Command::Enable,
             state.busy,
         ));
     }
     body = body.child(controls).child(push::entry(theme, entity, state.busy)).child(div().text_size(px(12.0)).text_color(rgba(theme.text_secondary))
-        .child("关闭所有 Norma 窗口会断开手机连接，其中的 Agent 会停止。手机断线不影响电脑继续执行。"));
+        .child("With Mobile Connection enabled, projects and agents keep running after all windows close. Quit Norma to stop them. Disconnecting your phone does not stop agents."));
     if let Some(error) = &state.error {
         body = body.child(
             div()
@@ -97,7 +60,10 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
             div()
                 .text_size(px(12.0))
                 .text_color(rgba(theme.text_secondary))
-                .child(format!("连接地址：{}", state.addresses().join(" · "))),
+                .child(format!(
+                    "Connection addresses: {}",
+                    state.addresses().join(" · ")
+                )),
         );
     }
     if let Some(pending) = &state.pending {
@@ -106,7 +72,7 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
                 .flex()
                 .flex_col()
                 .gap(px(10.0))
-                .child(format!("{} 请求配对", pending.device_name))
+                .child(format!("{} wants to pair", pending.device_name))
                 .child(
                     div()
                         .text_size(px(30.0))
@@ -115,7 +81,7 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
                 .child(
                     div()
                         .text_color(rgba(theme.text_secondary))
-                        .child("请确认 iPhone 显示相同核对码，再选择允许访问的项目。"),
+                        .child("Confirm that your iPhone shows the same code, then choose which projects it can access."),
                 ),
         );
         body = body.child(projects(theme, entity, cx));
@@ -126,7 +92,7 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
                 .child(action(
                     entity,
                     "mobile-approve",
-                    "核对一致，批准配对",
+                    "Approve Pairing",
                     Command::Approve {
                         request_id: pending.request_id.clone(),
                         projects: state.chosen_projects(),
@@ -136,7 +102,7 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
                 .child(action(
                     entity,
                     "mobile-reject",
-                    "拒绝",
+                    "Reject",
                     Command::CancelCode,
                     state.busy,
                 )),
@@ -148,12 +114,12 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
                 .flex_col()
                 .items_start()
                 .gap(px(12.0))
-                .child("在 iPhone 的 Norma 中选择「添加电脑」，输入验证码或扫码")
-                .child("验证码")
+                .child("In Norma on your iPhone, choose Add Computer, then enter the code or scan the QR code.")
+                .child("Pairing Code")
                 .child(div().id("mobile-code").debug_selector(|| "mobile-code".into())
                     .text_size(px(32.0)).child(state.pairing_code.clone().unwrap_or_default()))
                 .child(div().text_size(px(12.0)).text_color(rgba(theme.text_secondary))
-                    .child("在手机输入上方电脑地址与 6 位验证码，每组最多验证 3 次。也可以扫描下方二维码。"))
+                    .child("Enter the Mac address above and the 6-digit code on your iPhone. Each code allows up to 3 attempts. You can also scan the QR code below."))
                 .child(
                     div()
                         .id("mobile-qr")
@@ -164,15 +130,15 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
                         .child(img(image.clone()).w(px(144.0)).h(px(144.0))),
                 )
                 .child(format!(
-                    "验证码与二维码将在 {} 秒后失效",
+                    "Code and QR code expire in {} seconds",
                     state.seconds_left
                 ))
                 .child(
                     Button::new("mobile-copy-code")
                         .label(if state.code_copied {
-                            "已复制验证码"
+                            "Code Copied"
                         } else {
-                            "复制验证码"
+                            "Copy Code"
                         })
                         .outline()
                         .disabled(state.busy || state.seconds_left == 0)
@@ -190,14 +156,14 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
                         .child(action(
                             entity,
                             "mobile-new-code",
-                            "换一组验证码",
+                            "New Code",
                             Command::NewCode,
                             state.busy,
                         ))
                         .child(action(
                             entity,
                             "mobile-cancel-code",
-                            "结束配对",
+                            "Cancel Pairing",
                             Command::CancelCode,
                             state.busy,
                         )),
@@ -207,14 +173,14 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
         body = body.child(action(
             entity,
             "mobile-new-code",
-            "配对新手机",
+            "Pair a Phone",
             Command::NewCode,
             state.busy,
         ));
     }
     if let Some((device_id, revision)) = &state.editing {
         body = body
-            .child("调整项目权限")
+            .child("Edit Project Access")
             .child(projects(theme, entity, cx))
             .child(
                 div()
@@ -223,7 +189,7 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
                     .child(action(
                         entity,
                         "mobile-save-permissions",
-                        "保存权限",
+                        "Save Permissions",
                         Command::Permissions {
                             device_id: device_id.clone(),
                             revision: *revision,
@@ -234,13 +200,13 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
                     .child(action(
                         entity,
                         "mobile-cancel-permissions",
-                        "取消",
+                        "Cancel",
                         Command::Reload,
                         state.busy,
                     )),
             );
     }
-    let mut devices = div().flex().flex_col().gap(px(12.0)).child("已配对的手机");
+    let mut devices = div().flex().flex_col().gap(px(12.0)).child("Paired Phones");
     for (index, device) in state
         .devices
         .iter()
@@ -267,7 +233,7 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
                                 .text_size(px(12.0))
                                 .text_color(rgba(theme.text_secondary))
                                 .child(format!(
-                                    "{} 个项目 · 权限版本 {}",
+                                    "{} projects · Permission version {}",
                                     device.projects.len(),
                                     device.revision
                                 )),
@@ -275,7 +241,7 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
                 )
                 .child(
                     Button::new(("mobile-edit", index))
-                        .label("权限")
+                        .label("Permissions")
                         .disabled(state.busy || !state.enabled() || state.qr.is_some())
                         .on_click(move |_, _, cx| {
                             target.update(cx, |host, cx| host.edit(&editing, cx))
@@ -284,7 +250,7 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
                 .child(action(
                     entity,
                     &format!("mobile-revoke-{index}"),
-                    "撤销配对",
+                    "Unpair",
                     Command::Revoke(device.device_id.clone()),
                     state.busy,
                 )),
@@ -294,7 +260,7 @@ pub(super) fn settings(theme: Theme, entity: &Entity<MobileController>, cx: &mut
         devices = devices.child(
             div()
                 .text_color(rgba(theme.text_secondary))
-                .child("还没有配对的手机"),
+                .child("No paired phones yet"),
         );
     }
     body.child(devices)
@@ -323,9 +289,9 @@ fn projects(theme: Theme, entity: &Entity<MobileController>, cx: &App) -> Div {
     for project in &host.projects {
         let mut choices = div().flex().gap(px(6.0));
         for (index, (label, access)) in [
-            ("不允许", None),
-            ("只读", Some(MobilePermission::Read)),
-            ("可控制", Some(MobilePermission::Control)),
+            ("No Access", None),
+            ("Read Only", Some(MobilePermission::Read)),
+            ("Control", Some(MobilePermission::Control)),
         ]
         .into_iter()
         .enumerate()
@@ -371,6 +337,8 @@ fn projects(theme: Theme, entity: &Entity<MobileController>, cx: &App) -> Div {
         div()
             .text_size(px(12.0))
             .text_color(rgba(theme.text_secondary))
-            .child("未选择项目时，手机只会完成设备配对，不获得任何项目权限。"),
+            .child(
+                "If no projects are selected, your phone will pair without access to any projects.",
+            ),
     )
 }

@@ -26,10 +26,9 @@ struct WorkspaceChrome: ViewModifier {
     var enabled = true
     @Environment(\.workspaceTab) private var tab
     func body(content: Content) -> some View {
-        if enabled, let tab {
+        if enabled, tab != nil {
             content
                 .safeAreaInset(edge: .top, spacing: 9) { WorkspaceTopBar(model: model, manageComputers: manageComputers) }
-                .safeAreaInset(edge: .bottom, spacing: 0) { WorkspaceTabBar(selection: tab).padding(.horizontal, 17).padding(.top, 4).padding(.bottom, 8) }
                 .toolbar(.hidden, for: .navigationBar, .tabBar)
         } else { content }
     }
@@ -82,16 +81,19 @@ private struct WorkspaceTopBar: View {
     }
 }
 
-private struct WorkspaceTabBar: View {
+struct WorkspaceTabBar: View {
     @Binding var selection: Int
+    @Namespace private var highlight
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        HStack(spacing: 0) {
-            item(0, title: "项目", symbol: "folder", id: "projects")
-            item(1, title: "指挥台", symbol: nil, id: "command")
-            item(2, title: "任务", symbol: "list.bullet", id: "tasks")
-        }.padding(4).frame(height: 74)
-            .background(WorkspaceStyle.raised.opacity(0.96), in: Capsule())
-            .overlay(Capsule().strokeBorder(WorkspaceStyle.line, lineWidth: 1))
+        WorkspaceGlassTrack {
+            HStack(spacing: 0) {
+                item(0, title: "项目", symbol: "folder", id: "projects")
+                item(1, title: "指挥台", symbol: nil, id: "command")
+                item(2, title: "任务", symbol: "list.bullet", id: "tasks")
+            }.frame(height: 66)
+        }
+            .animation(reduceMotion ? .easeOut(duration: 0.12) : .interactiveSpring(response: 0.28, dampingFraction: 0.9), value: selection)
             .dynamicTypeSize(...DynamicTypeSize.large)
     }
     private func item(_ index: Int, title: String, symbol: String?, id: String) -> some View {
@@ -106,9 +108,48 @@ private struct WorkspaceTabBar: View {
                 }
                 Text(title).font(.system(size: 10))
             }.foregroundStyle(selection == index ? .white : WorkspaceStyle.muted)
-                .frame(maxWidth: .infinity, minHeight: 58).offset(y: index == 1 ? -5 : 0).contentShape(Rectangle())
+                .frame(maxWidth: .infinity, minHeight: 66).contentShape(Rectangle())
+                .background {
+                    if selection == index { WorkspaceGlassSelection(namespace: highlight) }
+                }
         }.buttonStyle(WorkspacePressStyle()).accessibilityLabel(title)
             .accessibilityIdentifier("workspace-tab-" + id).accessibilityAddTraits(selection == index ? .isSelected : [])
+    }
+}
+
+/// One moving glass lens per selector; the track uses Material so glass is not stacked on glass.
+struct WorkspaceGlassTrack<Content: View>: View {
+    @ViewBuilder var content: Content
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var body: some View {
+        content.padding(4)
+            .background {
+                if reduceTransparency { Capsule().fill(WorkspaceStyle.raised) }
+                else { Capsule().fill(.ultraThinMaterial) }
+            }
+            .overlay(Capsule().strokeBorder(.white.opacity(0.14), lineWidth: 0.5).allowsHitTesting(false))
+    }
+}
+
+struct WorkspaceGlassSelection: View {
+    let namespace: Namespace.ID
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var body: some View {
+        Group {
+            if reduceMotion { lens.transition(.opacity) }
+            else { lens.matchedGeometryEffect(id: "selection", in: namespace) }
+        }.allowsHitTesting(false).accessibilityHidden(true)
+    }
+    @ViewBuilder private var lens: some View {
+        if reduceTransparency {
+            Capsule().fill(Color(white: 0.28))
+        } else if #available(iOS 26.0, *) {
+            Color.clear.glassEffect(.regular.tint(.white.opacity(0.12)).interactive(), in: Capsule())
+        } else {
+            Capsule().fill(.thinMaterial).overlay(Capsule().fill(.white.opacity(0.12)))
+                .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 0.5))
+        }
     }
 }
 
@@ -128,13 +169,15 @@ struct WorkspacePageTitle: View {
     var body: some View { Text(title).font(.system(size: size, weight: .semibold)).tracking(-0.7).accessibilityAddTraits(.isHeader) }
 }
 
-struct WorkspaceSearch: View {
+struct WorkspaceSearch<Scope: View>: View {
     let placeholder: String
     @Binding var text: String
     var identifier = "workspace-search"
+    @ViewBuilder var scope: Scope
     @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         HStack(spacing: 10) {
+            scope
             Image(systemName: "magnifyingglass").font(.system(size: 17)).foregroundStyle(WorkspaceStyle.muted)
             TextField(typeSize.isAccessibilitySize ? "搜索" : placeholder, text: $text).font(.footnote).textInputAutocapitalization(.never).autocorrectionDisabled()
                 .accessibilityLabel(placeholder)
@@ -145,6 +188,12 @@ struct WorkspaceSearch: View {
             }
         }.padding(.leading, 14).padding(.trailing, 6).frame(minHeight: 48)
             .background(WorkspaceStyle.surface, in: Capsule()).overlay(Capsule().strokeBorder(WorkspaceStyle.line, lineWidth: 1))
+    }
+}
+
+extension WorkspaceSearch where Scope == EmptyView {
+    init(placeholder: String, text: Binding<String>, identifier: String = "workspace-search") {
+        self.init(placeholder: placeholder, text: text, identifier: identifier) { EmptyView() }
     }
 }
 
@@ -160,27 +209,8 @@ struct ProviderMark: View {
     let profile: String
     var size: CGFloat = 32
     var working = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.scenePhase) private var phase
-    private var mark: some View {
-        Group {
-            if ["Claude", "Codex"].contains(profile) {
-                Image(profile).renderingMode(.template).resizable().scaledToFit()
-                    .foregroundStyle(profile == "Claude" ? WorkspaceStyle.claude : .white)
-            } else { NormaMark().fill(.white) }
-        }.frame(width: size, height: size)
-    }
     var body: some View {
-        Group {
-            if working && !reduceMotion && phase == .active {
-                if profile == "Claude" {
-                    TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
-                        mark.rotationEffect(.degrees(context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 8) / 8 * 360))
-                    }
-                } else {
-                    mark.phaseAnimator([false, true]) { content, phase in content.scaleEffect(phase ? 1.07 : 1).rotationEffect(.degrees(phase ? 4 : -4)) }
-                }
-            } else { mark }
-        }.accessibilityHidden(true)
+        AgentActivityDecoration(kind: .provider(profile), active: working)
+            .frame(width: size, height: size)
     }
 }

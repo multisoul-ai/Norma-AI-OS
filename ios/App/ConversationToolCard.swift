@@ -5,7 +5,7 @@ struct ConversationToolCard: View {
     let card: ConversationDetailCard
     let identity: String
     @Environment(\.dynamicTypeSize) private var typeSize
-    @ScaledMetric(relativeTo: .subheadline) private var iconSize = 20.0
+    @ScaledMetric(relativeTo: .subheadline) private var iconSize = 28.0
     @State private var expanded = false
 
     var body: some View {
@@ -13,16 +13,20 @@ struct ConversationToolCard: View {
             Button { expanded.toggle() } label: {
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: card.symbol).font(.subheadline)
-                            .frame(width: iconSize, height: iconSize).foregroundStyle(.secondary).accessibilityHidden(true)
+                        Image(systemName: card.symbol).font(.footnote)
+                            .frame(width: iconSize, height: iconSize).foregroundStyle(WorkspaceStyle.muted)
+                            .background(WorkspaceStyle.line.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+                            .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 5) {
                             (typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4)) : AnyLayout(HStackLayout(spacing: 8))) {
-                                Text(card.title).font(.subheadline.weight(.medium))
+                                Text(card.title).font(.footnote.weight(.medium))
                                     .fixedSize(horizontal: false, vertical: true)
                                 if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
                                 if let status = card.status {
-                                    Text(status).font(.caption).foregroundStyle(card.isFailure ? .orange : .secondary)
+                                    Text(status).font(.caption2.weight(.medium)).foregroundStyle(card.isFailure ? .orange : WorkspaceStyle.muted)
                                         .fixedSize(horizontal: false, vertical: true)
+                                        .padding(.horizontal, 7).padding(.vertical, 4)
+                                        .background(card.isFailure ? Color.orange.opacity(0.1) : WorkspaceStyle.line.opacity(0.45), in: Capsule())
                                 }
                             }
                         }.frame(maxWidth: .infinity, alignment: .leading)
@@ -38,7 +42,7 @@ struct ConversationToolCard: View {
                 }
                 .padding(12).frame(minHeight: 44).contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(WorkspacePressStyle())
             .accessibilityIdentifier("tool-card-" + identity)
             .accessibilityValue(expanded ? "已展开" : "已收起")
             .accessibilityHint("查看工具的完整输入与输出")
@@ -61,7 +65,7 @@ struct ConversationToolCard: View {
                 }.padding(12)
             }
         }
-        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+        .background(WorkspaceStyle.surface, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(WorkspaceStyle.line.opacity(0.8), lineWidth: 1))
     }
 }

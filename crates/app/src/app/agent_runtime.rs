@@ -34,6 +34,7 @@ pub(crate) use identity::{self_dispatch_forbidden_error, AgentIdentitySnapshot};
 pub(crate) use session_reply_queue::AgentSessionReplyQueue;
 
 pub(crate) use artifacts::artifacts_from_agent_events;
+#[cfg(any(test, feature = "e2e-test-support"))]
 pub(crate) use commands::execute_agent_card_command;
 use context_commands::contextualized_agent_commands;
 #[cfg(test)]

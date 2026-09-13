@@ -3,6 +3,78 @@ use crate::NodeInput;
 use norma::mobile::{TerminalInput, TerminalRequest};
 use std::sync::Mutex;
 
+/// 手机重排只连接终端自动折行，显式换行与空格不丢失。
+///
+/// 数据构造：8列原PTY；"hello   world"共13列=8列首行+5列续行，随后CRLF和hard行。
+/// 执行过程：向原PTY注入文字 → 读取手机页 → 比较折行标记及桌面宽度 → 仅修改投影中的折行标记。
+/// 预期结果：保留软折行、3个空格和硬换行；电脑仍为8列、一个PTY；标记变化不能误判为空闲心跳。
+#[test]
+fn mobile_terminal_retains_soft_wraps_for_phone_reflow() {
+    let output = Arc::new(Mutex::new(None));
+    let sender = output.clone();
+    let mut runtime = Runtime::new_for_workspace("/tmp");
+    runtime.set_pty_factory(Box::new(move |_, _, _, tx| {
+        *sender.lock().expect("输出") = Some(tx.clone());
+        Ok(Box::new(terminal::TestPtyBackend::recording(
+            tx,
+            Arc::new(Mutex::new(Vec::new())),
+        )))
+    }));
+    let node = runtime
+        .spawn_agent(
+            AgentProfile::Codex,
+            CanvasRect::new(0., 0., 640., 400.),
+            8,
+            4,
+        )
+        .expect("原卡");
+    let card = runtime.mobile_card_snapshots().remove(0);
+    output
+        .lock()
+        .expect("输出")
+        .as_ref()
+        .expect("原PTY")
+        .send(terminal::PtyEvent::Output(
+            b"hello   world\r\nhard".to_vec(),
+        ))
+        .expect("输出文字");
+    runtime.drain_all();
+    let scope = TerminalRequest {
+        workspace_id: "project-a".into(),
+        route_id: "route-a".into(),
+        node_id: node,
+        run_id: card.run_id.expect("原run"),
+        session_id: None,
+        before: None,
+        revision: None,
+    };
+    let page = runtime.mobile_terminal_page(&scope).expect("手机页");
+    let wire = serde_json::to_value(&page).expect("接口序列化");
+    assert_eq!(wire["soft_wrapped"][0], true, "首行必须携带自动折行信息");
+    assert_eq!(wire["soft_wrapped"][1], false, "显式CRLF不得当成自动折行");
+    assert_eq!(wire["soft_wrapped"][2], false, "短行不得合并到上一段");
+    assert_eq!(
+        page.rows[0], "hello   ",
+        "软折行末尾空格不能被吞掉，否则hello和world会连在一起"
+    );
+    assert_eq!(page.rows[1], "world", "续行文字必须完整");
+    assert_eq!(page.rows[2], "hard", "显式换行后的文字必须完整");
+    assert_eq!(page.cols, 8, "手机重排不能改变电脑PTY列数");
+    assert_eq!(runtime.live_len(), 1, "手机阅读不得创建第二个PTY");
+    let mut projection = norma::mobile::TerminalProjection::new("stream-a".into(), scope);
+    projection.update(page.clone()).expect("首屏事件");
+    let mut next = page;
+    next.soft_wrapped[0] = false;
+    let event = projection.update(next).expect("标记更新");
+    let delta = event.page.expect("标记变化必须发送事件，不能当作心跳");
+    assert!(delta.rows.is_empty(), "标记变化不必重复发送未变化的文字");
+    assert_eq!(
+        delta.soft_wrapped,
+        vec![false; 4],
+        "增量仍携带完整页面的折行标记"
+    );
+}
+
 /// 手机终端复用原PTY；无回显的电脑输入也使旧屏幕按键失效。
 ///
 /// 数据构造：80×24录制PTY，仅1张Codex卡；200行历史=120行当前页+80行更早页。

@@ -22,10 +22,14 @@ struct ChatComposer: View {
     @State private var showResult = false
     @State private var showDrafts = false
     @State private var showQueue = false
+    @State private var loadingImages = false
+    @State private var imageError: String?
+    @State private var uploadProgress: Double?
     private var scope: ChatDraft.Scope {
         ChatDraft.Scope(machineID: machine.id, workspaceID: workspaceID, routeID: routeID, nodeID: card.id, runID: card.runID, sessionID: card.sessionID)
     }
     private var text: String { model.drafts.draft(for: scope)?.text ?? "" }
+    private var images: [ChatImage] { model.drafts.draft(for: scope)?.imageAttachments ?? [] }
     private var draftLabel: String { [machine.name, project?.displayName, card.title].compactMap { $0 }.joined(separator: " · ") }
     private var oldDrafts: [ChatDraft] {
         model.drafts.drafts.filter { $0.scope.machineID == machine.id && $0.scope.workspaceID == workspaceID && $0.scope.nodeID == card.id && $0.scope != scope }
@@ -64,8 +68,22 @@ struct ChatComposer: View {
                 }.disabled(busy)
                 .task(id: pending.id) { if !busy && scenePhase == .active { await check(pending) } }
             } else if let status { Text(status).font(.caption).foregroundStyle(.secondary) }
+            if !images.isEmpty {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(Array(images.enumerated()), id: \.element.id) { index, image in
+                            ChatPhotoTile(id: image.id, label: "图片 \(index + 1)", load: { try await model.drafts.imageData(image) },
+                                remove: busy ? nil : { model.drafts.removeImage(image.id, for: scope) })
+                        }
+                    }.padding(.vertical, 4)
+                }.scrollIndicators(.hidden).accessibilityIdentifier("chat-photo-attachments")
+            }
+            if loadingImages { WorkspaceLoadingView(message: "正在准备图片…", inline: true) }
+            if let uploadProgress { ProgressView("正在上传图片…", value: uploadProgress).accessibilityIdentifier("chat-image-upload-progress") }
+            if let imageError { Text(imageError).foregroundStyle(.orange) }
             if taskForm {
                 Text("你希望完成什么？").foregroundStyle(WorkspaceStyle.muted).font(.caption)
+                photoPicker
                 messageInput
                 Label("发送到 " + machine.name, systemImage: "laptopcomputer")
                     .fixedSize(horizontal: false, vertical: true).padding(.vertical, 6)
@@ -75,11 +93,11 @@ struct ChatComposer: View {
                             .frame(maxWidth: .infinity, minHeight: 48)
                             .background(WorkspaceStyle.raised, in: RoundedRectangle(cornerRadius: 16))
                             .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(WorkspaceStyle.line, lineWidth: 1))
-                    }.disabled(busy || !model.drafts.loaded || text.isEmpty).accessibilityIdentifier("new-task-save")
+                    }.disabled(busy || loadingImages || !model.drafts.loaded || (text.isEmpty && images.isEmpty)).accessibilityIdentifier("new-task-save")
                     sendButton
                 }.padding(.top, 4).buttonStyle(WorkspacePressStyle())
             } else {
-                HStack(alignment: .bottom, spacing: 8) { messageInput; sendButton }
+                HStack(alignment: .bottom, spacing: 8) { photoPicker; messageInput; sendButton }
             }
             if !canControl { Text("无法发送，请检查连接与权限。") }
             else if card.state == "collecting" { Text("正在保存本轮成果，下一步会排队等待。") }
@@ -90,7 +108,7 @@ struct ChatComposer: View {
             if let failure = model.drafts.failure {
                 Text(failure).foregroundStyle(.orange).accessibilityIdentifier("draft-storage-error")
                 Button("重试保存草稿") { Task { await model.drafts.retry() } }.frame(minHeight: 44)
-            } else if !text.isEmpty {
+            } else if !text.isEmpty || !images.isEmpty {
                 Text(model.drafts.saving ? "正在保存草稿…" : "草稿已保存到此手机")
                     .accessibilityIdentifier("draft-save-status")
             }
@@ -103,7 +121,7 @@ struct ChatComposer: View {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("收起键盘", systemImage: "keyboard.chevron.compact.down") { inputFocused = false }
-                    .labelStyle(.iconOnly).accessibilityIdentifier("chat-dismiss-keyboard")
+                    .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44).accessibilityIdentifier("chat-dismiss-keyboard")
             }
         }
         .sheet(isPresented: $showResult) {
@@ -115,13 +133,21 @@ struct ChatComposer: View {
         .onDisappear { work?.cancel() }
     }
 
+    private var photoPicker: some View {
+        ChatPhotoPicker(book: model.drafts, scope: scope, label: draftLabel, disabled: busy || pending != nil || !model.drafts.loaded,
+                        loading: $loadingImages, error: $imageError)
+    }
+
     private var messageInput: some View {
         TextField(taskForm ? "例如：修复语音输入重复转写，并补充回归测试" : "告诉 Agent 你的想法…", text: Binding(get: { text }, set: { model.drafts.update($0, for: scope, label: draftLabel) }), axis: .vertical)
             .focused($inputFocused).font(taskForm ? .footnote : .subheadline).foregroundStyle(.primary)
-            .lineLimit(taskForm ? 4...8 : 1...(typeSize.isAccessibilitySize ? 2 : 5))
-            .frame(minHeight: taskForm ? 120 : 44, alignment: .topLeading).padding(12)
-            .background(taskForm ? WorkspaceStyle.surface : Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 20))
-            .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(taskForm ? WorkspaceStyle.line : .clear, lineWidth: 1))
+            // Keep room for the conversation above the keyboard at accessibility sizes; text stays scrollable.
+            .lineLimit(taskForm ? 4...8 : 1...(typeSize.isAccessibilitySize && inputFocused ? 1 : typeSize.isAccessibilitySize ? 2 : 5))
+            .frame(minHeight: taskForm ? 120 : nil, alignment: .topLeading)
+            .padding(.horizontal, 14).padding(.vertical, taskForm ? 12 : 10)
+            .frame(minHeight: taskForm ? nil : 44)
+            .background(WorkspaceStyle.surface, in: RoundedRectangle(cornerRadius: 22))
+            .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(inputFocused ? WorkspaceStyle.muted : WorkspaceStyle.line, lineWidth: 1))
             .disabled(busy || !model.drafts.loaded).accessibilityIdentifier(taskForm ? "new-task-input" : "chat-message-input")
     }
 
@@ -133,11 +159,11 @@ struct ChatComposer: View {
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .background(.white, in: RoundedRectangle(cornerRadius: 16))
             } else {
-                Image(systemName: useQueue ? "text.line.first.and.arrowtriangle.forward" : "arrow.up").font(.body.weight(.semibold))
+                Image(systemName: useQueue ? "text.line.first.and.arrowtriangle.forward" : "arrow.up").font(.system(size: 17, weight: .semibold))
                     .frame(width: 44, height: 44).background(.white, in: Circle()).foregroundStyle(.black)
             }
         }
-        .disabled(!canControl || !card.mobileControl || !(ready || queueable) || busy || !model.drafts.loaded || model.drafts.failure != nil || pending != nil || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || text.utf8.count > 32 * 1024)
+        .disabled(!canControl || !card.mobileControl || !(ready || queueable) || busy || loadingImages || !model.drafts.loaded || model.drafts.failure != nil || pending != nil || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && images.isEmpty) || text.utf8.count > 32 * 1024)
         .opacity(canControl && card.mobileControl && (ready || queueable) && pending == nil && !busy ? 1 : 0.35)
         .accessibilityLabel(useQueue ? "加入队列" : taskForm ? "发送到 Mac" : "发送消息")
         .accessibilityIdentifier(taskForm ? "new-task-send" : "chat-send-message")
@@ -154,12 +180,22 @@ struct ChatComposer: View {
         guard !busy, pending == nil, let project, let route = project.routeID,
               let draft = model.drafts.draft(for: scope) else { return }
         busy = true; status = nil
-        defer { busy = false }
+        defer { busy = false; uploadProgress = nil }
         do {
             try await model.drafts.flush()
+            var paths: [String] = []
+            for (index, image) in draft.imageAttachments.enumerated() {
+                let data = try await model.drafts.imageData(image)
+                let uploaded = try await model.client.uploadImage(data, to: machine, workspaceID: project.id, revision: revision) { progress in
+                    await MainActor.run { uploadProgress = (Double(index) + progress) / Double(draft.imageAttachments.count) }
+                }
+                paths.append(uploaded.path)
+            }
+            try Task.checkCancellation()
+            let message = paths.isEmpty ? draft.text : try ChatImageMessage.compose(text: draft.text, paths: paths)
             let command = try await useQueue
-                ? model.client.prepareQueuedMessage(machine, workspaceID: project.id, routeID: route, revision: revision, card: card, text: draft.text, draftID: draft.id)
-                : model.client.prepareMessage(machine, workspaceID: project.id, routeID: route, revision: revision, card: card, text: draft.text, draftID: draft.id)
+                ? model.client.prepareQueuedMessage(machine, workspaceID: project.id, routeID: route, revision: revision, card: card, text: message, draftID: draft.id)
+                : model.client.prepareMessage(machine, workspaceID: project.id, routeID: route, revision: revision, card: card, text: message, draftID: draft.id)
             try await model.commandStore.save(command)
             try await model.reloadCommands()
             try Task.checkCancellation()
@@ -189,6 +225,14 @@ struct ChatComposer: View {
                 try await model.commandStore.remove(id: command.id)
                 try await model.reloadCommands()
                 status = "已发送"; accepted(result)
+                return
+            }
+            if receipt.state == "rejected" {
+                // A verified rejection executed nothing: retain the draft, release only this operation.
+                // Unknown outcomes remain pending and must never be retried automatically.
+                try await model.commandStore.remove(id: command.id)
+                try await model.reloadCommands()
+                status = receipt.rejectionMessage(actionName: "发送")
                 return
             }
             if receipt.state != "accepted" { status = "发送未确认，请查看结果。"; return }

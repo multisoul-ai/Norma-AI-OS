@@ -42,6 +42,30 @@ pub struct TranscriptPage {
     pub pending_tail: bool,
 }
 
+impl TranscriptCursor {
+    /// No file identity has been observed yet; the next live read must start at its beginning.
+    pub fn is_waiting_for_file(&self) -> bool {
+        self.device == 0 && self.inode == 0 && self.offset == 0 && self.observed_len == 0
+    }
+}
+
+impl TranscriptPage {
+    /// A live session can exist before Claude creates its first JSONL record.
+    pub fn waiting_for_file() -> Self {
+        Self {
+            messages: Vec::new(),
+            cursor: TranscriptCursor {
+                device: 0,
+                inode: 0,
+                offset: 0,
+                observed_len: 0,
+            },
+            has_more: false,
+            pending_tail: true,
+        }
+    }
+}
+
 /// Blocking file IO: call on a background executor. The cursor is a position, not authorization.
 /// Incomplete trailing JSON is retried at the same byte offset, never silently dropped.
 pub fn read_transcript(

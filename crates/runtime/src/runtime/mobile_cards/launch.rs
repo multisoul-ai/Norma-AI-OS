@@ -26,6 +26,11 @@ impl terminal::PtyBackend for ControlledPty {
     fn child_pid(&self) -> Option<u32> {
         terminal::PtyBackend::child_pid(&*self.0.lock().expect("controlled PTY poisoned"))
     }
+    fn child_process_observer(&self) -> Option<terminal::ChildProcessObserver> {
+        terminal::PtyBackend::child_process_observer(
+            &*self.0.lock().expect("controlled PTY poisoned"),
+        )
+    }
 }
 
 impl Drop for ControlledPty {

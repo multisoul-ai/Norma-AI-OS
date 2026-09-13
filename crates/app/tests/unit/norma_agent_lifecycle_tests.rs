@@ -151,7 +151,7 @@ fn test_orchestration_socket_validates_authorization_and_source_agent_profile() 
                     source_node_id: Some(source_node_id),
                     command: CardCommand::ListAgents,
                 },
-                window,
+                Some(window),
                 cx,
             );
             let mismatched = app.execute_card_command(
@@ -170,7 +170,7 @@ fn test_orchestration_socket_validates_authorization_and_source_agent_profile() 
                     source_node_id: Some(source_node_id),
                     command: CardCommand::ListAgents,
                 },
-                window,
+                Some(window),
                 cx,
             );
             let unauthorized = app.execute_card_command(
@@ -189,7 +189,7 @@ fn test_orchestration_socket_validates_authorization_and_source_agent_profile() 
                     source_node_id: Some(source_node_id),
                     command: CardCommand::ListAgents,
                 },
-                window,
+                Some(window),
                 cx,
             );
             (valid, mismatched, unauthorized)
@@ -330,7 +330,7 @@ fn test_orchestration_socket_dispatch_reuses_coordinator_and_derives_parent_line
                         force_untracked: false,
                     },
                 },
-                window,
+                Some(window),
                 cx,
             )
         })

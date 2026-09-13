@@ -8,7 +8,6 @@ struct NewTaskView: View {
     let projects: [ProjectSnapshot]
     @Binding var projectID: String?
     @Binding var nodeID: UInt64?
-    let openCommandCenter: (ProjectSnapshot) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -122,7 +121,7 @@ struct NewTaskView: View {
                 .font(.subheadline).foregroundStyle(WorkspaceStyle.muted)
             NavigationLink("打开项目卡片") {
                 ProjectCardsView(machine: machine, workspaceID: project.id, name: project.displayName,
-                                 model: model, openCommandCenter: { openCommandCenter(project) })
+                                 model: model)
                     .toolbar(.visible, for: .navigationBar)
             }.font(.footnote).frame(minHeight: 44)
         } else {
@@ -139,7 +138,7 @@ struct NewTaskView: View {
     }
 
     private func selectInitialCard() {
-        if projectID == nil { projectID = projects.first { $0.state == "open" }?.id }
+        if projectID == nil { projectID = projects.first?.id }
         if nodeID == nil { nodeID = cards.first?.id }
     }
 

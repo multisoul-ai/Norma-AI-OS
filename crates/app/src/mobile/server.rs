@@ -15,7 +15,7 @@ use storage::{MobileDeviceGrant, MobileProjectAccess};
 mod connection;
 
 /// App-owned endpoint. Construction and methods perform IO: call only on background workers.
-/// Owning window/app must drop this handle on closure; there is no independent daemon.
+/// The process owns this handle until disabled or App quit; there is no independent daemon.
 pub struct MobileServer {
     shared: Arc<Shared>,
     addresses: Vec<SocketAddr>,

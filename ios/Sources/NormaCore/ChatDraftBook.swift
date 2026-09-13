@@ -25,11 +25,33 @@ import Observation
         // SwiftUI may echo the existing value when focus/enabled state changes.
         // Only a real text edit creates a new revision; otherwise a send receipt cannot clear it.
         guard loaded, (draft(for: scope)?.text ?? "") != text else { return }
+        replace(text, images: draft(for: scope)?.imageAttachments ?? [], scope: scope, label: label)
+    }
+    private func replace(_ text: String, images: [ChatImage], scope: ChatDraft.Scope, label: String?) {
         let label = label ?? draft(for: scope)?.label
         drafts.removeAll { $0.scope == scope }
-        if !text.isEmpty { drafts.append(ChatDraft(id: UUID().uuidString, scope: scope, text: text, editedAt: .now, label: label)) }
+        if !text.isEmpty || !images.isEmpty {
+            drafts.append(ChatDraft(id: UUID().uuidString, scope: scope, text: text, editedAt: .now, label: label, images: images.isEmpty ? nil : images))
+        }
         persist()
     }
+    public func addImage(_ data: Data, for scope: ChatDraft.Scope, label: String? = nil) async throws {
+        guard loaded else { throw ChatImageError.unavailable }
+        guard (draft(for: scope)?.imageAttachments.count ?? 0) < 4 else { throw ChatImageError.tooMany }
+        let image = try await store.saveImage(data)
+        let draft = draft(for: scope)
+        var images = draft?.imageAttachments ?? []
+        if images.contains(where: { $0.id == image.id }) { await store.discardImage(image); return }
+        guard images.count < 4 else { await store.discardImage(image); throw ChatImageError.tooMany }
+        images.append(image)
+        replace(draft?.text ?? "", images: images, scope: scope, label: label)
+        try await flush()
+    }
+    public func removeImage(_ id: String, for scope: ChatDraft.Scope) {
+        guard loaded, let draft = draft(for: scope) else { return }
+        replace(draft.text, images: draft.imageAttachments.filter { $0.id != id }, scope: scope, label: draft.label)
+    }
+    public func imageData(_ image: ChatImage) async throws -> Data { try await store.readImage(image) }
     public func remove(id: String) {
         guard loaded, drafts.contains(where: { $0.id == id }) else { return }
         drafts.removeAll { $0.id == id }; persist()
@@ -54,7 +76,7 @@ import Observation
         let scope = ChatDraft.Scope(machineID: command.machineID, workspaceID: command.request.workspaceID,
                                     routeID: command.request.routeID, nodeID: card.nodeID, runID: card.runID, sessionID: card.sessionID,
                                     feedbackFingerprint: command.request.command.feedback?.fingerprint)
-        if let draft = draft(for: scope), draft.id == id, draft.text == text {
+        if let draft = draft(for: scope), draft.id == id, draft.text == (ChatImageMessage.parse(text)?.text ?? text) {
             remove(id: id)
         }
         try await flush() // A previous clear may still be unsaved even when its draft is already absent in memory.

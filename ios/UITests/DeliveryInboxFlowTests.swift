@@ -26,8 +26,8 @@ final class DeliveryInboxFlowTests: XCTestCase {
         let decisions = app.buttons["command-decision-inbox"]
         waitValue(decisions, "待核验", "fixture未提供审批源，不能伪造零审批")
         decisions.tap()
-        XCTAssertTrue(app.staticTexts["数量待核验"].waitForExistence(timeout: 8), "审批源异常时必须说明数量未知")
-        XCTAssertFalse(app.staticTexts["0 项待确认"].exists, "未知数量不能显示成零")
+        waitValue(app.buttons["command-mode-decisions"], "待核验", "审批源异常时顶部分段必须说明数量未知")
+        XCTAssertNotEqual(app.buttons["command-mode-decisions"].value as? String, "0", "未知数量不能显示成零")
         app.buttons["command-mode-plan"].tap()
         XCTAssertTrue(inbox.waitForExistence(timeout: 8), "切回计划保留成果入口")
         inbox.tap()

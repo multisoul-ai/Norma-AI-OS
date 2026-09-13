@@ -42,11 +42,15 @@ mod agent_queue;
 mod agent_runtime;
 pub(crate) use agent_runtime::shared_tokio_runtime;
 pub(crate) use agent_runtime::{
-    execute_agent_card_command, execute_orchestration_agent_command,
+    execute_high_level_agent_command, execute_orchestration_agent_command,
     execute_orchestration_agent_command_with_visual_origin, self_dispatch_forbidden_error,
     AgentIdentitySnapshot,
 };
 mod bootstrap;
+pub(crate) use bootstrap::StoredBootstrap;
+pub(crate) mod background_project;
+#[cfg(test)]
+pub(crate) use agent_runtime::execute_agent_card_command;
 pub(crate) mod browser;
 mod node_removal;
 mod presentation;
@@ -236,6 +240,9 @@ pub struct MultisoulApp {
     animation_frame_pending: bool,
     animation_frame_cadence: Option<std::time::Duration>,
     pub(crate) window_active: bool,
+    pub(crate) project_window: Option<gpui::AnyWindowHandle>,
+    pub(crate) background_project: bool,
+    pub(crate) background_restore: Option<crate::workspace::flow::PendingLiveSessionRestore>,
     canvas_surface: gpui::Entity<canvas_surface::CanvasSurfaceView>,
     pub(crate) working_snake_views: HashMap<NodeId, gpui::Entity<WorkingSnakeView>>,
     voice_window_inset_events: voice_window_inset::VoiceWindowInsetEventBus,

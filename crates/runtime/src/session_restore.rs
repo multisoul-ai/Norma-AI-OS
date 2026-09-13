@@ -100,6 +100,31 @@ pub fn save_session_checkpoints(
     store.replace_all_checkpoints(checkpoints)
 }
 
+/// Preserve inactive original cards, while live grids override history and deleted/retyped nodes expire.
+pub fn merge_session_checkpoints(
+    document: &Document,
+    mut current: Vec<SessionCheckpoint>,
+    retained: &[SessionCheckpoint],
+) -> Vec<SessionCheckpoint> {
+    for saved in retained {
+        if current.iter().any(|entry| entry.node_id == saved.node_id) {
+            continue;
+        }
+        let same_kind = match document.node(saved.node_id).map(|node| &node.kind) {
+            Some(CanvasNodeKind::Term(_)) => saved.kind == SessionCheckpointKind::Terminal,
+            Some(CanvasNodeKind::Agent(spec)) => {
+                saved.kind == SessionCheckpointKind::Agent
+                    && saved.agent_profile == Some(spec.profile)
+            }
+            _ => false,
+        };
+        if same_kind {
+            current.push(saved.clone());
+        }
+    }
+    current
+}
+
 /// Context needed by restore functions to attach live nodes.
 pub struct RestoreCtx<'a> {
     pub live: &'a mut HashMap<NodeId, Box<dyn LiveNode>>,

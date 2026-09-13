@@ -6,7 +6,7 @@ impl MultisoulApp {
         &mut self,
         expected: &norma::mobile::CardSnapshot,
         confirm_busy: bool,
-        window: &mut Window,
+        window: Option<&mut Window>,
         cx: &mut Context<Self>,
     ) -> Result<NodeId, &'static str> {
         let node = expected.node_id;
@@ -16,7 +16,7 @@ impl MultisoulApp {
         }
         self.runtime
             .validate_mobile_card_deletion(expected, confirm_busy)?;
-        let area = self.visible_canvas_rect(window);
+        let area = self.mobile_canvas_area(window);
         let zoom = self.runtime.document.viewport.zoom;
         super::delete_card(
             &mut self.runtime,
@@ -41,10 +41,10 @@ impl MultisoulApp {
         &mut self,
         profile: canvas::AgentProfile,
         title: Option<String>,
-        window: &mut Window,
+        window: Option<&mut Window>,
         cx: &mut Context<Self>,
     ) -> Result<NodeId, terminal::PtyError> {
-        let area = self.visible_canvas_rect(window);
+        let area = self.mobile_canvas_area(window);
         let zoom = self.runtime.document.viewport.zoom;
         let bounds = resolve_bounds(
             Placement::VisibleArea,
@@ -69,5 +69,22 @@ impl MultisoulApp {
         self.mark_session_dirty();
         cx.notify();
         Ok(node)
+    }
+
+    pub(crate) fn mobile_canvas_area(&self, window: Option<&mut Window>) -> canvas::CanvasRect {
+        window
+            .map(|window| self.visible_canvas_rect(window))
+            .unwrap_or_else(|| {
+                // No phone dimensions enter the desktop layout. Reuse the normal initial canvas area.
+                let (width, height) = crate::workspace::windowing::initial_window_dimensions(None);
+                let viewport = &self.runtime.document.viewport;
+                let origin = viewport.screen_to_canvas(canvas::Vec2::new(0.0, 0.0));
+                canvas::CanvasRect::new(
+                    origin.x,
+                    origin.y,
+                    width / viewport.zoom,
+                    height / viewport.zoom,
+                )
+            })
     }
 }

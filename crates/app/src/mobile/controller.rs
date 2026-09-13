@@ -1,5 +1,5 @@
 use super::{MobileAccess, MobileServer};
-use gpui::{App, AppContext, Context, Entity, Global, RenderImage, Task, WeakEntity};
+use gpui::{App, AppContext, Context, Entity, Global, RenderImage, Task};
 use std::{
     collections::HashMap,
     path::PathBuf,
@@ -15,99 +15,34 @@ mod work;
 use work::Completion;
 
 #[derive(Default)]
-struct Controllers(HashMap<PathBuf, WeakEntity<MobileController>>);
+struct Controllers(HashMap<PathBuf, Entity<MobileController>>);
 impl Global for Controllers {}
 
-/// Only window entities hold strong references; the process registry never keeps a server alive.
-pub(crate) fn attach(store: AppStore, cx: &mut App) -> Entity<MobileController> {
-    if !cx.has_global::<Controllers>() {
-        cx.set_global(Controllers::default());
+mod sources;
+pub(crate) use sources::attach;
+
+pub(crate) fn has_enabled_service(cx: &App) -> bool {
+    cx.try_global::<Controllers>().is_some_and(|controllers| {
+        controllers
+            .0
+            .values()
+            .any(|controller| controller.read(cx).enabled())
+    })
+}
+
+pub(crate) fn shutdown(cx: &mut App) {
+    let controllers = std::mem::take(&mut cx.default_global::<Controllers>().0);
+    for controller in controllers.into_values() {
+        controller.update(cx, |host, cx| {
+            host.disable(cx);
+            host.snapshot_task = None;
+            host.command_task = None;
+            host.terminal_task = None;
+            host.conversation_task = None;
+            host.approval_task = None;
+            host.review_task = None;
+        });
     }
-    let registry = cx.global_mut::<Controllers>();
-    registry.0.retain(|_, entity| entity.upgrade().is_some());
-    if let Some(existing) = registry.0.get(store.path()).and_then(WeakEntity::upgrade) {
-        return existing;
-    }
-    let path = store.path().to_path_buf();
-    let entity = cx.new(|cx| {
-        let mut host = MobileController::new(store);
-        let (sender, receiver) = async_channel::bounded::<super::LiveSnapshotRequest>(8);
-        host.snapshots = Some(sender);
-        let database = host.store.path().to_path_buf();
-        host.snapshot_task = Some(cx.spawn(async move |_, cx| {
-            while let Ok(request) = receiver.recv().await {
-                if Instant::now() >= request.deadline {
-                    continue;
-                }
-                let result = cx.update(|cx| {
-                    crate::norma::endpoint::mobile_project_snapshots(
-                        &database,
-                        request.projects,
-                        request.include_cards,
-                        cx,
-                    )
-                });
-                if let Ok(projects) = result {
-                    let _ = request.reply.try_send(projects);
-                }
-            }
-        }));
-        let (sender, receiver) = async_channel::bounded::<super::LiveCommandRequest>(8);
-        host.commands = Some(sender);
-        let database = host.store.path().to_path_buf();
-        host.command_task = Some(cx.spawn(async move |_, cx| {
-            while let Ok(call) = receiver.recv().await {
-                let _ = cx.update(|cx| {
-                    crate::norma::endpoint::mobile_command::execute(database.clone(), call, cx)
-                });
-            }
-        }));
-        let (sender, receiver) = async_channel::bounded::<super::LiveTerminalRequest>(8);
-        host.terminals = Some(sender);
-        let database = host.store.path().to_path_buf();
-        host.terminal_task = Some(cx.spawn(async move |_, cx| {
-            while let Ok(call) = receiver.recv().await {
-                let _ = cx.update(|cx| {
-                    crate::norma::endpoint::mobile_terminal::read(&database, call, cx)
-                });
-            }
-        }));
-        let (sender, receiver) = async_channel::bounded::<super::LiveConversationRequest>(8);
-        host.conversations = Some(sender);
-        let database = host.store.path().to_path_buf();
-        host.conversation_task = Some(cx.spawn(async move |_, cx| {
-            while let Ok(call) = receiver.recv().await {
-                let _ = cx.update(|cx| {
-                    crate::norma::endpoint::mobile_conversation::read(database.clone(), call, cx)
-                });
-            }
-        }));
-        let (sender, receiver) = async_channel::bounded::<super::LiveApprovalRequest>(8);
-        host.approvals = Some(sender);
-        let database = host.store.path().to_path_buf();
-        host.approval_task = Some(cx.spawn(async move |_, cx| {
-            while let Ok(call) = receiver.recv().await {
-                let _ = cx.update(|cx| {
-                    crate::norma::endpoint::mobile_approval::read(&database, call, cx)
-                });
-            }
-        }));
-        let (sender, receiver) = async_channel::bounded::<super::LiveReviewRequest>(8);
-        host.reviews = Some(sender);
-        let database = host.store.path().to_path_buf();
-        host.review_task = Some(cx.spawn(async move |_, cx| {
-            while let Ok(call) = receiver.recv().await {
-                let _ = cx.update(|cx| {
-                    crate::norma::endpoint::mobile_review::read(database.clone(), call, cx)
-                });
-            }
-        }));
-        host
-    });
-    cx.global_mut::<Controllers>()
-        .0
-        .insert(path, entity.downgrade());
-    entity
 }
 
 #[derive(Clone)]
@@ -170,6 +105,10 @@ pub(crate) struct MobileController {
 }
 
 impl MobileController {
+    #[cfg(feature = "e2e-test-support")]
+    pub(crate) fn use_server_for_e2e(&mut self, server: Arc<MobileServer>) {
+        self.server = Some(server);
+    }
     fn new(store: AppStore) -> Self {
         Self {
             store,
@@ -243,6 +182,7 @@ impl MobileController {
             .unwrap_or_default()
     }
     pub(crate) fn disable(&mut self, cx: &mut Context<Self>) {
+        crate::workspace::sessions::cancel_loads(self.store.path(), cx);
         self.cancelled.store(true, Ordering::Release);
         if let Some(server) = self.server.take() {
             server.shutdown();
@@ -321,7 +261,8 @@ impl MobileController {
         }
         if let Command::Approve { request_id, .. } = &command {
             if self.pending.as_ref().map(|p| &p.request_id) != Some(request_id) {
-                self.error = Some("配对申请已更新，请重新核对".into());
+                self.error =
+                    Some("The pairing request has changed. Please verify the code again.".into());
                 cx.notify();
                 return;
             }

@@ -30,6 +30,7 @@ codesign --force --sign - "$validation_bundle"
 NORMA_MOBILE_APP_BUNDLE="$validation_bundle" cargo test --manifest-path "$root/Cargo.toml" \
   -p e2e --test mobile_desktop_bundle -- --ignored
 open -n "$validation_bundle" --env "NORMA_TEST_DATA_ROOT=$validation_root/data" \
+  --env "NORMA_MOBILE_L3_LOOPBACK=1" \
   --env "NORMA_SOCKET=$validation_root/norma.sock" --env "NORMA_VISUAL_PREVIEW=$validation_preview" \
   -o "$validation_root/stdout.log" --stderr "$validation_root/stderr.log"
 printf '%s\n' "$validation_root"

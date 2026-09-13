@@ -27,6 +27,7 @@ struct Request {
 }
 mod action;
 use action::Action;
+mod image;
 mod terminal;
 
 struct SocketGuard {
@@ -100,6 +101,15 @@ pub(super) fn spawn(socket: TcpStream, tls: Arc<rustls::ServerConfig>, shared: A
                 };
                 let reply = match message {
                     Message::Text(text) => match decode(&text) {
+                        Ok(request)
+                            if matches!(
+                                request.action,
+                                Action::UploadImage { .. } | Action::ChatImage { .. }
+                            ) =>
+                        {
+                            image::serve(&mut ws, &shared, id, request);
+                            break;
+                        }
                         Ok(request) if matches!(request.action, Action::Terminal { .. }) => {
                             terminal::serve(&mut ws, &shared, id, request);
                             break;
@@ -332,7 +342,9 @@ fn handle(request: Request, shared: &Arc<Shared>, socket_id: u64) -> Value {
         return failure(id, "unauthorized");
     }
     match request.action {
-        Action::Terminal { .. }
+        Action::UploadImage { .. }
+        | Action::ChatImage { .. }
+        | Action::Terminal { .. }
         | Action::PairingCode { .. }
         | Action::WatchPlan { .. }
         | Action::WatchApprovals { .. }

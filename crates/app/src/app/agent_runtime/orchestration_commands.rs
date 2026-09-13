@@ -7,7 +7,7 @@ use norma::protocol::{
 
 pub(crate) fn execute_orchestration_agent_command(
     app: &mut MultisoulApp,
-    window: &mut Window,
+    window: Option<&mut Window>,
     command: CardCommand,
     source: agent::AgentDispatchSource,
     source_provider: AgentProfile,
@@ -24,7 +24,7 @@ pub(crate) fn execute_orchestration_agent_command(
 
 pub(crate) fn execute_orchestration_agent_command_with_visual_origin(
     app: &mut MultisoulApp,
-    window: &mut Window,
+    window: Option<&mut Window>,
     command: CardCommand,
     source: agent::AgentDispatchSource,
     source_provider: AgentProfile,
@@ -35,7 +35,7 @@ pub(crate) fn execute_orchestration_agent_command_with_visual_origin(
         CardCommand::AgentTaskResult { task_ref } => task_result(app, &task_ref),
         CardCommand::AgentTaskCancel { task_ref } => cancel_task(app, &task_ref),
         command => {
-            let area = app.visible_canvas_rect(window);
+            let area = app.mobile_canvas_area(window);
             let zoom = app.runtime.document.viewport.zoom;
             super::commands::execute_coordinated_agent_command(
                 app,

@@ -135,10 +135,10 @@ final class CardCreationFlowTests: XCTestCase {
         app.buttons["new-card-close"].tap()
         let finalRequests = try JSONSerialization.jsonObject(with: Data(contentsOf: dir.appendingPathComponent("ui-created-cards.json"))) as? [[String: Any]]
         XCTAssertEqual(finalRequests?.count, 2, "查询和关闭不能自动重试")
-        let records = app.buttons["记录与成果"]
-        for _ in 0..<4 where !records.isHittable { app.swipeUp() }
-        records.tap()
-        XCTAssertTrue(app.buttons["project-operation-records"].waitForExistence(timeout: 8), "创建成功与清理不能删除原来的未确认消息")
+        let original = app.buttons["card-options-1"]
+        for _ in 0..<4 where !original.isHittable { app.swipeDown() }
+        original.tap()
+        XCTAssertTrue(app.buttons["查询操作结果"].waitForExistence(timeout: 8), "移除脉络区不能丢失原卡片中的未确认消息")
     }
     /// 辅助字号下创建表单可滚动、字段与按钮不溢出；名称校验不能被控制授权绕过。
     /// 数据构造：AX5字体、41个ASCII字符 = 原型40字符上限 + 1；只读升control；旧窗口替换一次。

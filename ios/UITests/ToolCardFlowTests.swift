@@ -26,15 +26,21 @@ final class ToolCardFlowTests: XCTestCase {
         // 在首屏做全局审计；滚动后的边界会有正常的部分可见文本，工具本身另用下面的完整边界断言核验。
         try app.performAccessibilityAudit(for: [.textClipped, .hitRegion, .sufficientElementDescription])
         let command = app.buttons["tool-card-tool-command-0"]
-        XCTAssertTrue(command.waitForExistence(timeout: 8), "大字号应保留同一工具卡片")
         let scroll = app.scrollViews["chat-message-list"]
+        // 初次聊天停在最新消息；AX5时较早的工具可能已被LazyVStack卸载，先向上回看再定位。
+        // 最多4次半屏回看覆盖本fixture的两张后续工具卡，不改变完整边界验收标准。
+        for _ in 0..<4 where !command.exists { scroll.swipeDown(velocity: .slow) }
+        XCTAssertTrue(command.exists, "回看历史必须能找到同一工具卡片")
+        guard command.exists else { return }
         let top = app.segmentedControls["chat-content-tabs"].frame.maxY
         let bottom = app.descendants(matching: .any)["chat-message-input"].firstMatch.frame.minY
-        // 最多8次、每次120pt：覆盖本fixture的前置长回复；小幅慢拖避免整屏swipe越过目标。
-        for _ in 0..<8 {
+        // 最多12次、每次120pt：覆盖前置长回复与初次实时状态引起的布局变化。
+        for _ in 0..<12 {
+            if !command.exists { scroll.swipeDown(velocity: .slow); continue }
             let frame = command.frame
             if frame.minY >= top && frame.maxY <= bottom { break }
-            let movement = max(-120, min(120, top + 8 - frame.minY))
+            // 留36pt目标余量，让临界位置的位移也超过原生拖动识别阈值，避免轻点误展开卡片。
+            let movement = max(-120, min(120, top + 36 - frame.minY))
             let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.96, dy: 0.5))
             start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: movement)), withVelocity: .slow, thenHoldForDuration: 0.2)
         }

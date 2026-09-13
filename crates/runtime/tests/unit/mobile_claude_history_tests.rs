@@ -147,3 +147,61 @@ fn claude_reference_survives_immediate_card_deletion() {
         "错误Hook不能补登记伪身份"
     );
 }
+
+/// 空会话的等待游标在文件首次写入后能继续读取，已读文件丢失不能伪装成空会话。
+///
+/// 数据构造：临时projects目录，绑定尚不存在的session-a.jsonl；随后写入一条独立已知正文。
+///   20条是生产首屏页大小，实际构造1条消息，故has_more=false。
+/// 执行过程：准确Hook绑定路径 → 空页 → 文件首次写入 → 用等待游标读取 → 删除文件 → 用真实游标重读。
+/// 预期结果：首条正文完整出现、等待游标被真实文件游标替换；文件丢失和非法分页仍然报错。
+#[test]
+fn pending_claude_history_continues_when_first_record_is_written() {
+    let directory = tempfile::tempdir().expect("隔离projects目录");
+    let (mut runtime, node) = super::super::launch_tests::runtime_with_card();
+    // 80×24为标准终端网格；仅创建内存echo后端，不启动真实Provider。
+    let launch = runtime
+        .mobile_agent_launch(node, Path::new("unused"), 80, 24)
+        .expect("预约");
+    let factory: crate::PtyFactory =
+        Box::new(|_, _, _, tx| Ok(Box::new(terminal::TestPtyBackend::echo(tx))));
+    let live = TermLive::spawn_with_factory(
+        launch.generation,
+        PtyCommand::new("unused"),
+        80,
+        24,
+        &factory,
+    )
+    .expect("内存PTY");
+    runtime
+        .attach_mobile_live(launch, "session-a".into(), "run-a".into(), live)
+        .expect("附着");
+    let path = directory.path().join("session-a.jsonl");
+    let event = parse_hook_event(HookSource::Claude, node, json!({"hook_event_name":"SessionStart", "session_id":"session-a", "_norma_control_run_id":"run-a", "transcript_path":path})).expect("准确Hook");
+    assert!(runtime.observe_mobile_hook(&event), "只绑定准确会话路径");
+    let mut read = runtime
+        .mobile_claude_history(node, "run-a")
+        .expect("后台读取");
+    read.projects_root = directory.path().into();
+    let pending = read.read(None, 20).expect("尚未创建文件应返回空会话");
+    assert!(pending.messages.is_empty(), "无文件不能编造正文");
+    assert!(
+        pending.cursor.is_waiting_for_file(),
+        "等待游标不能冒用文件身份"
+    );
+    assert!(!pending.has_more, "无文件不能触发无限分页");
+    // 0小于合法页大小下限1；即便空会话也不能跳过参数校验。
+    assert!(read.read(None, 0).is_err(), "非法页大小必须拒绝");
+    std::fs::write(&path, format!("{}\n", json!({"type":"user", "uuid":"first-message", "sessionId":"session-a", "cwd":"/tmp", "message":{"role":"user", "content":"你好"}}))).expect("首次Provider写入");
+    let page = read
+        .read(Some(pending.cursor), 20)
+        .expect("应从第一条正文开始读取");
+    assert_eq!(page.messages.len(), 1, "首条消息不能漏读或重复");
+    assert_eq!(page.messages[0].content, json!("你好"), "准确保留首次正文");
+    assert!(!page.cursor.is_waiting_for_file(), "必须换成真实文件游标");
+    std::fs::remove_file(path).expect("模拟已读文件丢失");
+    assert!(
+        read.read(Some(page.cursor), 20).is_err(),
+        "已读历史丢失不能被报告为空会话"
+    );
+    runtime.kill_all();
+}

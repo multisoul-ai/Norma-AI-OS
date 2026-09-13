@@ -36,9 +36,9 @@ struct ProjectPlansView: View {
     private var unavailable: String? {
         if let message = connectionError ?? planError { return message }
         if !loadedPlan || project == nil { return "正在核对电脑上的项目…" }
-        if !canGenerate { return "需要项目控制权限，并在电脑上打开项目，确保 Codex 或 Claude 卡片可用。" }
+        if !canGenerate { return "需要项目控制权限、可用的电脑连接，以及 Codex 或 Claude 卡片。" }
         if source?.id != latest?.id { return "另一端已更新方向。请载入最新优先事项，再确认你的目标。" }
-        if project?.routeID != (source?.routeID ?? originalRoute) { return "项目窗口已变化，请重新打开调整方向。" }
+        if project?.routeID != (source?.routeID ?? originalRoute) { return "项目运行实例已变化，请重新打开调整方向。" }
         if let source, source.draft.todos.indices.contains(priorityIndex) {
             let target = source.draft.todos[priorityIndex].target
             if project?.cards?.contains(where: { $0.id == target.id && $0.profile == target.profile && $0.mobileControl && $0.runID == target.runID && $0.sessionID == target.sessionID }) != true {
@@ -142,7 +142,7 @@ struct ProjectPlansView: View {
         VStack(alignment: .leading, spacing: 12) {
             if case let .generatePlan(text, _) = command.request.command { Text(text).font(.footnote).textSelection(.enabled) }
             Text(receiptStatus).font(.caption).foregroundStyle(WorkspaceStyle.muted)
-            if busy { ProgressView("正在核对生成结果…").font(.caption) }
+            if busy { WorkspaceLoadingView(message: "正在核对生成结果…", inline: true) }
             Button("查询生成结果") { work = Task { await check(command) } }.frame(minHeight: 44).disabled(busy)
             Button(["succeeded", "rejected"].contains(receipt?.state ?? "") ? "完成查询" : "清除查询记录") {
                 if ["succeeded", "rejected"].contains(receipt?.state ?? "") { work = Task { await clear(command) } }

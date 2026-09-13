@@ -77,6 +77,10 @@ impl Runtime {
         {
             return;
         }
+        self.reserve_native_run(node);
+    }
+
+    pub(super) fn reserve_native_run(&mut self, node: NodeId) {
         let Ok(run_id) = fresh_control_id() else {
             return;
         };
@@ -158,6 +162,8 @@ impl Runtime {
         }
         run.native_approvals.observe(event);
         match event.provider_event.as_str() {
+            // Startup menus also use Enter. Only clear that confirmed input, never a later draft.
+            "SessionStart" => run.native_input.acknowledge_start(),
             "UserPromptSubmit" => {
                 run.finish_terminal_interrupt(Err(
                     "native turn replaced before interrupt confirmation".into(),
@@ -233,62 +239,6 @@ impl Runtime {
             recorded_at_unix: 0,
         };
         Ok(Some(saved))
-    }
-}
-
-impl Runtime {
-    /// Same TermLive and renderer as desktop cards. Opening the CLI does not submit a task.
-    pub fn spawn_mobile_agent_card(
-        &mut self,
-        profile: AgentProfile,
-        alias: Option<String>,
-        bounds: CanvasRect,
-        cols: u16,
-        rows: u16,
-    ) -> Result<NodeId, PtyError> {
-        let node = self.create_mobile_agent_card(profile, None, alias, bounds)?;
-        if let Err(error) = self.start_native_agent_terminal(node, cols, rows) {
-            self.document.remove_node(node);
-            return Err(error);
-        }
-        Ok(node)
-    }
-
-    /// Resume only this card's saved session; keep native controls and safe permissions for mobile-created cards.
-    pub fn start_native_agent_terminal(
-        &mut self,
-        node: NodeId,
-        cols: u16,
-        rows: u16,
-    ) -> Result<(), PtyError> {
-        if self.live.contains_key(&node) || self.mobile_runs.contains_key(&node) {
-            return Err(control_error("terminal already exists"));
-        }
-        let Some(CanvasNodeKind::Agent(spec)) = self.document.node(node).map(|node| &node.kind)
-        else {
-            return Err(control_error("agent missing"));
-        };
-        if !spec.mobile_control {
-            return Err(control_error("use normal desktop restore"));
-        }
-        let profile = spec.profile;
-        let hook = self.agent_hook_env(node, profile);
-        let command = crate::nodes::agent::mobile_agent_command(
-            profile,
-            self.agent_session_id(node).as_deref(),
-            hook.as_ref(),
-        )?
-        .with_cwd(self.workspace_root());
-        let sid = self.allocate_session_id();
-        let live = crate::nodes::term::spawn_term_live(
-            self.pty_factory.as_ref(),
-            sid,
-            command,
-            cols,
-            rows,
-        )?;
-        self.register_agent_live_node(node, live);
-        Ok(())
     }
 }
 
