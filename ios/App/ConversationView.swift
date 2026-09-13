@@ -74,9 +74,7 @@ struct ConversationView: View {
                     Button("加载更早的消息") { paging = Task { await loadOlder() } }
                         .font(.subheadline).frame(minHeight: 44).disabled(loading || paging != nil)
                 }
-                if binding == nil, project != nil {
-                    ContentUnavailableView("开始对话", systemImage: "bubble.left.and.bubble.right", description: Text("告诉 Agent 你想完成什么。"))
-                } else if timeline.items.isEmpty && error == nil && !loading {
+                if binding != nil || project == nil, timeline.items.isEmpty && error == nil && !loading {
                     Text("等待 Agent 写入对话…").font(.subheadline).foregroundStyle(.secondary)
                 }
                 ForEach(timeline.items) { item in
@@ -103,6 +101,12 @@ struct ConversationView: View {
                 }
             }
         }.accessibilityIdentifier("chat-message-list")
+        .overlay {
+            if binding == nil, project != nil {
+                ContentUnavailableView("开始对话", systemImage: "bubble.left.and.bubble.right", description: Text("告诉 Agent 你想完成什么。"))
+                    .allowsHitTesting(false)
+            }
+        }
         .workspaceLoading(loading && timeline.items.isEmpty, "正在读取对话…")
         .coordinateSpace(name: "chat-scroll")
         .modifier(ChatScrollTracking(followsLatest: $followsLatest, viewportHeight: viewport.size.height))

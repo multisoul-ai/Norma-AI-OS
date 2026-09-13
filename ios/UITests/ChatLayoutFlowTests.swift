@@ -1,6 +1,34 @@
 import XCTest
 
 final class ChatLayoutFlowTests: XCTestCase {
+    /// 空白对话提示在可用对话区域居中，键盘弹出后跟随视口重新布局。
+    ///
+    /// 数据构造：隔离服务的空白卡2，无run/session及消息；8s = 2s心跳 + 6s导航余量。
+    /// 执行过程：打开空白卡 → 检查提示中心 → 聚焦输入 → 检查缩小后的提示中心。
+    /// 预期结果：提示水平/垂直居中，不贴顶、不遮挡输入，也不出现等待历史提示。
+    @MainActor func testEmptyConversationIsCentered() throws {
+        _ = try fixture()
+        let app = XCUIApplication(); app.launch(); app.buttons["workspace-tab-projects"].tap()
+        let card = app.buttons["agent-card-2"]
+        XCTAssertTrue(card.waitForExistence(timeout: 8), "需要隔离服务的空白卡2")
+        card.tap()
+        let title = app.staticTexts["开始对话"]
+        let detail = app.staticTexts["告诉 Agent 你想完成什么。"]
+        let list = app.scrollViews["chat-message-list"]
+        let input = app.descendants(matching: .any)["chat-message-input"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 8), "空白卡必须显示开始对话")
+        // 原生空状态标题位于图标下方；允许80pt容纳图标与文字组合的内部布局。
+        XCTAssertEqual(title.frame.midX, list.frame.midX, accuracy: 2, "提示必须水平居中")
+        XCTAssertEqual(title.frame.midY, list.frame.midY, accuracy: 80, "提示应在视口中央，不能贴在顶部元信息下")
+        XCTAssertLessThan(detail.frame.maxY, input.frame.minY, "提示不能遮挡输入框")
+        XCTAssertFalse(app.staticTexts["等待 Agent 写入对话…"].exists, "未绑定空卡不能冒充已有会话")
+        input.tap()
+        // 3s覆盖系统键盘动画及SwiftUI重新布局。
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "必须检查键盘出现后的可用区域")
+        XCTAssertEqual(title.frame.midY, list.frame.midY, accuracy: 80, "键盘弹出后仍应居中")
+        XCTAssertLessThanOrEqual(detail.frame.maxY, input.frame.minY, "键盘弹出后提示不得覆盖输入")
+    }
+
     /// 聊天键盘未收起就返回或进入后台，不能让项目重建后的底栏上移。
     /// 数据构造：只读隔离卡7，仅聚焦空输入框；按钮底距=8pt外距+4pt轨道内距=12pt，2pt仅为取整容差。
     /// 执行过程：项目打开原聊天 → 唤起真实键盘 → 点击返回/边缘返回手势/Home恢复 → 不切Tab先测量。
