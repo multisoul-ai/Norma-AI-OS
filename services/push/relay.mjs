@@ -8,7 +8,7 @@ const digest = value => createHash('sha256').update(value).digest();
 const result = (status, error) => ({ status, body: { error } });
 const unknown = () => result(502, 'delivery_unknown');
 const identifier = (value, limit = 128) => typeof value === 'string' && value.length <= limit && /^[A-Za-z0-9_.:-]+$/.test(value);
-const fields = ['event_id', 'token', 'expires_at', 'kind', 'machine_id', 'workspace_id', 'route_id', 'node_id', 'run_id', 'session_id', 'turn_id', 'request_id'];
+const fields = ['event_id', 'token', 'expires_at', 'kind', 'machine_id', 'workspace_id', 'route_id', 'node_id', 'run_id', 'session_id', 'turn_id', 'request_id', 'preview'];
 
 function validate(input, now) {
   if (!input || Array.isArray(input) || typeof input !== 'object'
@@ -23,6 +23,15 @@ function validate(input, now) {
       || BigInt(input.node_id) > 18446744073709551615n
       || (input.kind === 'approval' ? !identifier(input.request_id, 256) : input.request_id !== undefined)) {
     throw result(400, 'invalid_event');
+  }
+  if (input.preview !== undefined) {
+    const p = input.preview;
+    if (!p || Array.isArray(p) || typeof p !== 'object'
+        || Object.keys(p).some(key => !['project', 'card', 'summary'].includes(key))
+        || !Object.entries({ project: 160, card: 240, summary: 640 }).every(([key, limit]) =>
+          typeof p[key] === 'string' && p[key].trim().length > 0 && Buffer.byteLength(p[key]) <= limit
+          && !/[\u0000-\u001f\u007f-\u009f]/u.test(p[key]))) throw result(400, 'invalid_event');
+    input = { ...input, preview: { project: p.project, card: p.card, summary: p.summary } };
   }
   // Stable property order means JSON formatting cannot bypass conflict checks.
   return Object.fromEntries(fields.filter(key => input[key] !== undefined).map(key => [key, input[key]]));
@@ -97,9 +106,12 @@ export function createRelay({ key, deliver, now = Date.now }) {
 }
 
 function payload(event) {
-  const { token, expires_at, ...target } = event;
+  const { token, expires_at, preview, ...target } = event;
   const messages = { approval: '有一项操作需要你确认', completed: 'Agent 的任务已完成', failed: 'Agent 的任务遇到问题' };
-  return JSON.stringify({ aps: { alert: { title: 'Norma', body: messages[event.kind] }, sound: 'default' }, norma: { version: 1, ...target } });
+  const states = { approval: '待确认', completed: '已完成', failed: '遇到问题' };
+  const alert = preview ? { title: `${preview.card} · ${states[event.kind]}`, subtitle: preview.project, body: preview.summary }
+    : { title: 'Norma', body: messages[event.kind] };
+  return JSON.stringify({ aps: { alert, sound: 'default' }, norma: { version: 1, ...target } });
 }
 
 export function createAPNs({ privateKey, teamID, keyID, environment, topic }, { connect = http2.connect, now = Date.now } = {}) {

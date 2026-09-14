@@ -13,6 +13,7 @@ mod archive;
 mod conversation;
 mod conversation_watch;
 mod push;
+pub(super) mod realtime;
 mod record_watch;
 mod review;
 mod stream;
@@ -61,6 +62,7 @@ pub(super) fn spawn(socket: TcpStream, tls: Arc<rustls::ServerConfig>, shared: A
             ActiveSocket {
                 stream,
                 device_id: None,
+                realtime: None,
             },
         );
     }
@@ -101,6 +103,10 @@ pub(super) fn spawn(socket: TcpStream, tls: Arc<rustls::ServerConfig>, shared: A
                 };
                 let reply = match message {
                     Message::Text(text) => match decode(&text) {
+                        Ok(request) if matches!(request.action, Action::BindRealtime { .. }) => {
+                            realtime::serve(&mut ws, &shared, id, request);
+                            break;
+                        }
                         Ok(request)
                             if matches!(
                                 request.action,
@@ -297,6 +303,19 @@ fn handle(request: Request, shared: &Arc<Shared>, socket_id: u64) -> Value {
             operation_id,
             Some(*grant_revision),
         )),
+        Action::RealtimeOperations {
+            device_id,
+            token,
+            workspace_id,
+            after,
+        } => Some(realtime::operations(
+            shared,
+            &request.machine_id,
+            device_id,
+            token,
+            workspace_id,
+            *after,
+        )),
         Action::Receipt {
             device_id,
             token,
@@ -342,7 +361,31 @@ fn handle(request: Request, shared: &Arc<Shared>, socket_id: u64) -> Value {
         return failure(id, "unauthorized");
     }
     match request.action {
+        Action::VoiceAuthorization { device_id, token } => {
+            let allowed = access
+                .authenticate(&request.machine_id, &device_id, &token)
+                .ok()
+                .flatten()
+                .is_some_and(|grant| {
+                    grant
+                        .projects
+                        .iter()
+                        .any(|project| project.access == storage::MobilePermission::Control)
+                });
+            if !allowed {
+                return failure(id, "unauthorized");
+            }
+            match access.identity.voice_authorization(&device_id) {
+                Ok(authorization) => success(
+                    id,
+                    json!({"status":"voice_authorized", "voice_authorization":authorization}),
+                ),
+                Err(_) => failure(id, "unavailable"),
+            }
+        }
         Action::UploadImage { .. }
+        | Action::RealtimeOperations { .. }
+        | Action::BindRealtime { .. }
         | Action::ChatImage { .. }
         | Action::Terminal { .. }
         | Action::PairingCode { .. }

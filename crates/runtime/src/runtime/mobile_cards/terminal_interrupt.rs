@@ -157,6 +157,9 @@ impl MobileRun {
         state: storage::MobileTurnState,
     ) -> Result<(), String> {
         let outcome = storage::MobileTurnOutcome {
+            summary: (state != storage::MobileTurnState::Interrupted)
+                .then(|| self.task_summary.snapshot())
+                .flatten(),
             key: storage::MobileTurnKey {
                 node_id,
                 profile: "Claude".into(),

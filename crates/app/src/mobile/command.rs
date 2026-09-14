@@ -31,6 +31,10 @@ pub struct PlanPriority {
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum MobileCommand {
+    // Constructed only after Mac-side NormaToolRuntime parsing and intent checks. This must
+    // remain impossible to deserialize from a paired phone's ordinary command endpoint.
+    #[serde(skip_deserializing)]
+    RealtimeTool { command: agent::AdapterCommand },
     TerminalInput {
         expected: norma::mobile::CardSnapshot,
         screen_signature: u64,
@@ -168,15 +172,24 @@ pub(super) fn submit(
         return Err("grant_changed");
     }
     let store = MobileCommandStore::new(access.store.path().to_path_buf());
+    let mut fingerprint = serde_json::to_vec(&request).map_err(|_| "invalid_request")?;
+    if matches!(request.command, MobileCommand::RealtimeTool { .. }) {
+        // Current control authorization was just checked above. Its revision is not part
+        // of a media function's durable identity; all target/command fields remain bound.
+        let mut stable = serde_json::to_value(&request).map_err(|_| "invalid_request")?;
+        stable
+            .as_object_mut()
+            .ok_or("invalid_request")?
+            .remove("grant_revision");
+        fingerprint = serde_json::to_vec(&stable).map_err(|_| "invalid_request")?;
+    }
     let record = NewMobileCommand {
         device_id: device.into(),
         operation_id: request.operation_id.clone(),
         workspace_id: request.workspace_id.clone(),
         route_id: request.route_id.clone(),
         owner_id: shared.owner_id.clone(),
-        request_hash: hex::encode(Sha256::digest(
-            serde_json::to_vec(&request).map_err(|_| "invalid_request")?,
-        )),
+        request_hash: hex::encode(Sha256::digest(fingerprint)),
     };
     if let Some(expected) = request.command.message_target() {
         if let Some(run) = &expected.run_id {

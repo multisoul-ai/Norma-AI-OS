@@ -122,9 +122,9 @@ final class ProjectBoardFlowTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["通知回源验收卡片"].exists, "不能串回第一项目")
         app.buttons["workspace-tab-command"].tap()
         XCTAssertTrue(app.buttons["workspace-tab-command"].isSelected, "底部仍可直接进入指挥台")
-        XCTAssertTrue(app.buttons["command-plan-project"].waitForExistence(timeout: 8), "切换Tab后等待指挥台完成挂载")
-        XCTAssertEqual(app.buttons["command-plan-project"].value as? String, "第二验收项目", "指挥台应保留所选项目")
-        XCTAssertTrue(app.staticTexts["先定一个方向"].waitForExistence(timeout: 8), "第二项目没有计划，应显示真实空态")
+        XCTAssertTrue(app.buttons["realtime-project"].waitForExistence(timeout: 8), "切换Tab后等待指挥台完成挂载")
+        XCTAssertEqual(app.buttons["realtime-project"].value as? String, "第二验收项目", "指挥台应保留所选项目")
+        XCTAssertFalse(app.staticTexts["工作简报"].exists, "新指挥台不保留旧dashboard")
         XCTAssertFalse(app.staticTexts["优先解决手机连接延迟"].exists, "不得错取第一项目的计划")
         app.buttons["workspace-tab-projects"].tap()
         app.buttons["project-switcher"].tap()
@@ -137,8 +137,8 @@ final class ProjectBoardFlowTests: XCTestCase {
 
     /// 手机停留指挥台时发现另一端的新方向，项目页不再重复展示方向。
     /// 数据构造：只读双项目fixture，首项目已有两份计划；标记请求发布第三份，第二项目没有计划。
-    /// 执行过程：指挥台显示旧方向 → 服务发布 → 原页面自动换方向/Todo → 返回项目 → 切第二项目指挥台。
-    /// 预期结果：无需刷新；旧方向/旧Todo退出、只读不能执行，空项目不串入首项目计划。
+    /// 执行过程：从指挥台打开方向编辑 → 服务发布 → 提示核对并保留草稿 → 查看新详情 → 切第二项目。
+    /// 预期结果：自动发现远端更新且不覆盖草稿；新详情不混旧Todo，只读不能执行，空项目不串数据。
     /// 8s = 2s服务心跳 + 6s原生布局余量，不作为物理iPhone延迟指标。
     @MainActor func testLiveDirectionUpdatesStayInCommandCenter() throws {
         let env = ProcessInfo.processInfo.environment
@@ -154,22 +154,24 @@ final class ProjectBoardFlowTests: XCTestCase {
         let machine = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "通知验收 Mac")).firstMatch
         XCTAssertTrue(machine.waitForExistence(timeout: 8), "只选择隔离电脑")
         machine.tap(); app.buttons["workspace-tab-command"].tap()
-        XCTAssertTrue(app.staticTexts["优先解决手机连接延迟"].waitForExistence(timeout: 8), "先核验当前方向")
+        openCommandPlans(in: app)
+        let field = app.descendants(matching: .any)["plan-direction"].firstMatch
+        let loaded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "优先解决手机连接延迟"), object: field)
+        XCTAssertEqual(XCTWaiter.wait(for: [loaded], timeout: 8), .completed, "先核验当前方向")
         try Data().write(to: directory.appendingPathComponent("ui-live-plan-request"), options: .atomic)
-        XCTAssertTrue(app.staticTexts["下一步验证双端输入"].waitForExistence(timeout: 8), "另一端更新必须在原页面自动出现")
-        XCTAssertFalse(app.staticTexts["优先解决手机连接延迟"].exists, "新方向不能和旧方向混用")
+        let reload = app.buttons["direction-reload-priority"]
+        XCTAssertTrue(reload.waitForExistence(timeout: 8), "另一端更新应在编辑页提示核对")
+        XCTAssertEqual(field.value as? String, "优先解决手机连接延迟", "远端更新不能覆盖正在编辑的草稿")
+        openCommandPlanRecord("下一步验证双端输入", in: app)
         let todo = app.staticTexts["验证同一会话输入"]
-        if !todo.isHittable { app.swipeUp() }
-        XCTAssertTrue(todo.waitForExistence(timeout: 8), "新计划待办应随方向同步更新")
-        XCTAssertFalse(app.staticTexts["核对连接路径"].exists, "旧待办不能留给用户误操作")
-        let detail = app.buttons["todo-open-0"]
-        scrollToWorkspaceRow(detail, in: app)
-        detail.tap()
+        scrollToWorkspaceRow(todo, in: app)
+        XCTAssertTrue(todo.exists, "共享详情应显示新计划的待办")
+        XCTAssertFalse(app.staticTexts["核对连接路径"].exists, "新详情不得混入旧待办")
         let accept = app.buttons["todo-accept-0"]
-        if !accept.isHittable { app.swipeUp() }
-        XCTAssertTrue(accept.exists, "新计划保留明确的执行入口")
+        scrollToWorkspaceRow(accept, in: app)
+        XCTAssertTrue(accept.isHittable, "新计划保留明确的执行入口")
         XCTAssertFalse(accept.isEnabled, "实时更新不得扩大只读授权")
-        app.buttons["完成"].tap()
+        closeCommandPlanRecord(in: app)
         app.buttons["workspace-tab-projects"].tap()
         XCTAssertTrue(app.buttons["agent-card-1"].exists, "项目页继续展示Agent卡片")
         XCTAssertFalse(app.staticTexts["project-current-direction"].exists, "方向不再在项目页重复展示")
@@ -177,7 +179,10 @@ final class ProjectBoardFlowTests: XCTestCase {
         app.buttons["project-switcher"].tap()
         app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "第二验收项目")).firstMatch.tap()
         app.buttons["workspace-tab-command"].tap()
-        XCTAssertTrue(app.staticTexts["先定一个方向"].waitForExistence(timeout: 8), "第二项目指挥台应显示真实空态")
+        openCommandPlans(in: app)
+        let history = app.buttons["direction-history"]
+        scrollToWorkspaceRow(history, in: app); history.tap()
+        XCTAssertTrue(app.staticTexts["还没有计划建议"].waitForExistence(timeout: 8), "第二项目计划记录应为空")
         XCTAssertFalse(app.staticTexts["下一步验证双端输入"].exists, "其他项目不能泄露旧计划")
     }
 

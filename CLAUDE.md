@@ -78,6 +78,14 @@ At a glance:
 - Input policy is expressed in `runtime::route` before app-layer side effects.
 - SQLite and session discovery must not run on PTY drain, mouse move, input routing, render, or no-op shutdown flush paths.
 
+### iOS Companion And Push Relay
+
+- `ios/` is the native SwiftUI companion app (iOS 17+, Swift 6): `ios/App` is the UI, `ios/Sources/NormaCore` is shared logic, `ios/Libraries/NormaPairing.xcframework` is the Rust pairing bridge built by `ios/scripts/build-pairing.sh`. The Xcode project is generated from `ios/project.yml` via xcodegen — do not hand-edit `project.pbxproj`.
+- The iOS app is a control/notification surface over the Mac app (`crates/app/src/mobile/`), not a standalone Norma: it does not run a PTY or Coding Agent. The realtime command center keeps one App-owned GPT WebRTC call and native avatar in `ios/App/CommandCenter`; Mac sideband execution and physical-device acceptance are tracked in `docs/exec-plans/2026-09-13-norma-ios-realtime-command-goal.md`. Pairing is QR + Mac approval; the phone persists operation identity in private `commands.json`, credentials stay in Keychain.
+- `PairingProbe` and `NormaDeviceTests` are test-only targets and must never be linked into the shipping app.
+- Simulator runs use Xcode local signing; do not set `CODE_SIGNING_ALLOWED=NO` while running Keychain tests (Security returns `errSecMissingEntitlement`).
+- `services/push/relay.mjs` is the APNs push relay: Node 22 built-in modules only (no npm deps), listens on `127.0.0.1` behind an HTTPS reverse proxy. It carries pending/completed/failed events plus bounded project/card names and the completed turn’s final-output excerpt; no full transcripts, tool parameters, project paths, or control commands. APNs `.p8` and relay keys live only on the server, never in the repo or app bundles. See [`services/push/README.md`](services/push/README.md) and [`ios/README.md`](ios/README.md).
+
 ## 4. Current User-Facing Behavior
 
 - `Cmd+1` creates a Terminal node; `Cmd+2` through `Cmd+6` create Claude, Codex, Cursor, OpenCode, and Grok cards. Each creation reflows the current layout.
@@ -119,6 +127,23 @@ E2E tests:
 ```bash
 cargo test -p e2e
 cargo test -p e2e -- --ignored
+```
+
+iOS companion (requires Rust iOS targets, xcodegen, Xcode):
+
+```bash
+bash ios/scripts/build-pairing.sh              # build NormaPairing.xcframework from Rust
+xcodegen generate --spec ios/project.yml       # regenerate Norma.xcodeproj after project.yml edits
+swift test --package-path ios                 # NormaCore unit tests
+xcodebuild -project ios/Norma.xcodeproj -scheme Norma \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+```
+
+Push relay service:
+
+```bash
+node services/push/relay.mjs
+node --test services/push/relay.test.mjs
 ```
 
 Mechanized constraints:

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/gateway.mjs": {
+      "maxDuration": 300
+    }
+  },
+  "regions": [
+    "hnd1"
+  ],
+  "rewrites": [
+    {
+      "source": "/health",
+      "destination": "/api/gateway"
+    },
+    {
+      "source": "/v1/session",
+      "destination": "/api/gateway"
+    },
+    {
+      "source": "/v1/voice",
+      "destination": "/api/gateway"
+    },
+    {
+      "source": "/v1/tools",
+      "destination": "/api/gateway"
+    }
+  ]
+}

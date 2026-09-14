@@ -114,10 +114,10 @@ final class PairingFlowTests: XCTestCase {
         let command = app.buttons["workspace-tab-command"]
         XCTAssertTrue(command.waitForExistence(timeout: 5), "中间 Tab 必须保留指挥台")
         command.tap()
-        let decisions = app.buttons["command-mode-decisions"]
-        XCTAssertTrue(decisions.waitForExistence(timeout: 5), "决策应由指挥台分段直接进入")
+        let decisions = app.buttons["command-decision-inbox"]
+        XCTAssertTrue(decisions.waitForExistence(timeout: 5), "决策应由原生指挥台提醒进入")
         decisions.tap()
-        XCTAssertTrue(app.staticTexts["全部电脑"].waitForExistence(timeout: 5), "指挥台范围不能由项目电脑选择器决定")
+        XCTAssertTrue(app.navigationBars["待决定 · 全部电脑"].waitForExistence(timeout: 5), "指挥台范围不能由项目电脑选择器决定")
         XCTAssertTrue(app.staticTexts["先连接你的电脑"].exists, "没有配对时必须说明前置条件")
         app.buttons["approval-records"].tap()
         XCTAssertTrue(app.staticTexts["没有决定记录"].waitForExistence(timeout: 5), "离线时也能进入本机记录")
@@ -127,23 +127,24 @@ final class PairingFlowTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["没有决定记录"].exists, "Sheet 不应残留")
     }
 
-    /// 指挥台默认直接显示行动计划；未连接时只展示连接指引，不伪造Todo。
+    /// 指挥台默认显示原生陪伴入口；未连接时不伪造项目或Todo。
     ///
     /// 数据构造：无配对的App；5s=启动和原生导航动画的等待上限。
-    /// 执行过程：进入指挥台 → 检查默认行动计划和空态 → 核对决定记录仍在同一页。
-    /// 预期结果：无需先进入项目目录才能看到行动计划，无虚构Agent任务，无多余返回层级。
+    /// 执行过程：进入指挥台 → 检查未绑定状态 → 打开项目菜单。
+    /// 预期结果：开聊入口独立于Mac；没有项目时无计划入口，也无虚构任务。
     @MainActor func testProjectPlansEntryWithoutPairedComputer() {
         let app = XCUIApplication(); app.launch()
         let command = app.buttons["workspace-tab-command"]
         XCTAssertTrue(command.waitForExistence(timeout: 5), "需要原生指挥台")
         command.tap()
-        let plans = app.buttons["command-mode-plan"]
-        XCTAssertTrue(plans.waitForExistence(timeout: 5), "指挥台需直接显示行动计划分段")
-        XCTAssertTrue(plans.isSelected, "默认应呈现行动计划")
-        XCTAssertTrue(app.staticTexts["连接电脑后梳理下一步"].waitForExistence(timeout: 5), "空态应说明如何开始")
+        let project = app.buttons["realtime-project"]
+        XCTAssertTrue(project.waitForExistence(timeout: 5), "原生指挥台需显示通话绑定状态")
+        XCTAssertEqual(project.value as? String, "未绑定项目", "未连接电脑不能伪造项目")
+        XCTAssertTrue(app.buttons["realtime-call-start"].isHittable, "语音入口不能依赖 Mac 在线")
         XCTAssertFalse(app.buttons["generate-project-plan"].exists, "无项目不得发起计划生成")
-        XCTAssertTrue(app.buttons["approval-records"].exists, "行动计划保留决定记录入口")
-        XCTAssertFalse(app.buttons["project-plans"].exists, "不能仍用多一级下一步入口替代直接呈现")
+        XCTAssertTrue(app.buttons["command-decision-inbox"].exists, "离线仍有全部电脑决定入口")
+        project.tap()
+        XCTAssertFalse(app.buttons["command-project-plans"].exists, "没有项目不能打开错误项目的计划")
     }
 
     /// 未连接电脑时也能打开本机队列记录，关闭后回到电脑页。

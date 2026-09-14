@@ -1,0 +1,100 @@
+{
+  "crashed_pid": 42671,
+  "recovered_receipt": {
+    "status": "accepted",
+    "message": "已创建并打开 Agent Alan，AgentCard 已接收任务",
+    "task_id": 1,
+    "node_id": 1,
+    "operation_id": "rt-97682ef5e02367726ed314d46cb0396f3c93d0940e6514c01113689b640c4492"
+  },
+  "operations": {
+    "version": 1,
+    "request_id": "recovered-operations",
+    "result": {
+      "status": "realtime_operations",
+      "grant": {
+        "device_id": "phone-l3",
+        "device_name": "Realtime Bundle Test",
+        "projects": [
+          {
+            "workspace_id": "7cfd0308-bb7e-4649-bb1e-94cf197ed024",
+            "access": "control"
+          }
+        ],
+        "revision": 1,
+        "revoked": false
+      },
+      "operations": [
+        {
+          "sequence": 1,
+          "device_id": "phone-l3",
+          "call_id": "rtc_bundle_l3",
+          "turn_id": "utterance-l3",
+          "workspace_id": "7cfd0308-bb7e-4649-bb1e-94cf197ed024",
+          "operation_id": "rt-97682ef5e02367726ed314d46cb0396f3c93d0940e6514c01113689b640c4492",
+          "result": {
+            "status": "accepted",
+            "message": "已创建并打开 Agent Alan，AgentCard 已接收任务",
+            "task_id": 1,
+            "node_id": 1
+          }
+        }
+      ]
+    }
+  },
+  "snapshot": {
+    "version": 1,
+    "request_id": "snapshot",
+    "result": {
+      "status": "snapshot",
+      "grant": {
+        "device_id": "phone-l3",
+        "device_name": "Realtime Bundle Test",
+        "projects": [
+          {
+            "workspace_id": "7cfd0308-bb7e-4649-bb1e-94cf197ed024",
+            "access": "control"
+          }
+        ],
+        "revision": 1,
+        "revoked": false
+      },
+      "projects": [
+        {
+          "workspace_id": "7cfd0308-bb7e-4649-bb1e-94cf197ed024",
+          "display_name": "Realtime Background",
+          "state": "open",
+          "route_id": "1ff5b4c2-7c57-4ad8-bf26-c7d6eeafd75f",
+          "card_count": 1,
+          "cards": [
+            {
+              "node_id": 1,
+              "profile": "Codex",
+              "title": "Alan",
+              "mobile_control": true,
+              "state": "ready",
+              "run_id": "f424b856-f971-4693-8fab-1d875a974385",
+              "session_id": null,
+              "turn_id": null,
+              "task_title": null,
+              "can_interrupt": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "stored_tasks": [
+    {
+      "runtime_task_id": 1,
+      "node_id": 1,
+      "task_text": "实现登录校验，保留约束并交付测试证据",
+      "state": "interrupted"
+    }
+  ],
+  "listeners_stopped": {
+    "59714": true,
+    "61666": true
+  },
+  "test_grant_revoked": true
+}

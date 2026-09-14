@@ -4,7 +4,7 @@
 
 当前可运行：黑色界面、居中指挥台导航、多电脑元数据管理、扫码引导、配对核对码、Keychain 独立手机凭据、TLS 1.3 / 证书 pin、真实授权回查与本地忘记电脑；项目目录读取真实 Mac 快照，极简 Agent 卡片通过持续 WSS 接收增量更新，支持 Codex / Claude 品牌图标和运行动效。已接入创建空卡、删除确认与操作结果查询；完整对话读取现已接入；已接入首条消息与同会话续发，以及按会话保存的本地草稿；原生中断和可靠消息队列已接入；手机审批与跨电脑指挥台已接入；计划生成、Todo确认/拒绝和真实发送关联已接入；Todo准确回合完成/失败/中断已接入，明确未发送后的重新安排已接入，项目变更预览和Mac任务起点已接入，不可变交付、历史成果和验收回执已接入；修改意见回原会话已接入；图片预览已接入；通知设置、APNs回调和点击回源已接入，真实推送配置和锁屏验收待完成。
 
-Mac 通过 Settings → Mobile Connection 管理手机连接，欢迎页不再提供独立连接按钮：显式开启后生成六位验证码和二维码，核对手机申请、选择项目权限、撤销或调整授权。同一 App 数据库的窗口共用服务，关闭最后一个窗口停止连接；默认不监听。完整工作仍按 [Goal](../docs/exec-plans/2026-09-07-norma-ios-goal.md) 推进。
+Mac 通过 Settings → Mobile Connection 管理手机连接，欢迎页不再提供独立连接按钮：显式开启后生成六位验证码和二维码，核对手机申请、选择项目权限、撤销或调整授权。同一 App 数据库的窗口共用服务；开启后关闭最后一个窗口保留连接及后台项目，主动退出 App 才停止；默认不监听。完整工作仍按 [Goal](../docs/exec-plans/2026-09-07-norma-ios-goal.md) 推进。
 
 桌面使用系统接口发现局域网 / Tailscale 地址，固定端口 9443；端口占用或无私网地址会明确报错。IP 变化后用验证码或重新扫码，已配对手机会验证原凭据并更新地址，不重复申请权限。已撤销的电脑需在手机上忘记后重新配对。
 
@@ -13,6 +13,17 @@ Mac 通过 Settings → Mobile Connection 管理手机连接，欢迎页不再�
 项目/卡片已支持名称、任务标题、状态和Agent筛选，使用当前授权快照即时过滤，清除或切换电脑不会保留上一台的结果。Todo默认显示仍需跟进的事项，已完成/未采纳进入「全部记录」；失败、停止、未发送和结果未知仍保留，执行完成不等同于成果验收。
 
 功能代码与外部验收单独记录在[实时计划](../docs/exec-plans/2026-09-07-norma-ios-goal.md#功能实现与验收分开跟踪v64)。APNs服务尚未部署，完整真机/界面验收后置；TestFlight 0.1.0 (1)已进入内部测试，当前账号已获邀请，见[发布记录](../docs/exec-plans/2026-09-08-norma-ios-testflight.md)。后文为各版本的历史开发记录。
+
+## 豆包实时指挥台
+
+新版指挥台使用原生虚拟人，支持豆包对话、字幕、插话、静音、切换派工目标及成果播报。实现与验收见[实时指挥台 Goal](../docs/exec-plans/2026-09-13-norma-ios-realtime-command-goal.md)。
+
+1. 更新 Mac 和 iOS 至包含自动语音授权的新版本；Mac 开启 Mobile Connection。
+2. 手机完成电脑配对并取得项目控制权限。选择项目，在指挥台点击开聊；默认豆包服务自动连接 `https://norma-voice.vercel.app`，无需填写任何 Key、地址或访问口令。
+3. 看到「任务将安排到…」表示任务工具已连接；明确提出执行请求才会派工。授权缓存24小时，电脑暂时离线仍可聊天；到期需要连接Mac自动更新。
+4. 成果播报后从记录查看产物；「已播」和「执行完成」不会自动变成「验收通过」。挂断保留已安排的任务。
+
+旧默认服务自动迁移到新地址；已有自定义开发网关保留原设置，配置见[服务说明](../services/voice/README.md)。当前生产服务登记的是此用户正式Mac安装；换装或新增Mac须由管理员登记公开证书，手机始终不填Key。本次网关部署不会自动升级已安装的Mac、手机或TestFlight版本。GPT云端与物理设备验收延后，当前以豆包为准。
 
 ## 开发
 
@@ -67,7 +78,7 @@ NORMA_SWIFT_PROBE="$PWD/scripts/check-norma-ios-transport.sh" \
 
 ## 桌面交互验收
 
-`bash scripts/run-norma-mobile-desktop-l3.sh` 构建并打开独立的 `Norma Mobile Validation.app`，使用临时数据库和 socket。复用已有克隆预览场景以跳过全局 CLI 安装调整；先取消克隆弹窗，再点首页「连接手机」。脚本打印临时目录，便于收集日志与清理，仅操作该验证 App。
+`bash scripts/run-norma-mobile-desktop-l3.sh` 构建并打开独立的 `Norma Mobile Validation.app`，使用临时数据库和 socket。默认进入无阻塞弹窗的隔离首页，并跳过全局 CLI 安装调整；直接点首页「连接手机」。脚本打印临时目录，便于收集日志与清理，仅操作该验证 App。
 
 真实 App 启动和关闭此前已检查，但 Computer Use 的坐标点击曾返回 `noWindowsAvailable`；v16 最新尝试返回 Mac 已锁定、自动解锁失败，已请求手动解锁，未完成桌面配对页面的实际操作验收。headless GPUI、Vision QR 解码与 iOS XCTest 通过不能替代这部分；相机真机扫描、双 Mac / Tailscale 和真实卡片页面操作仍未验收。
 
@@ -497,3 +508,5 @@ E2E233、Swift38、iOS45通过/4跳过；本轮生产逻辑未改。计划建议
 需同时更新Mac端以支持`upload_image`/`chat_image`。图片与原文沿用准确回执/队列，失败保留草稿，不自动重发；历史图片须连接到有授权的原电脑读取。每台Mac存储最多256MiB和2048个目录/文件项，不自动删除尚可能被Agent引用的图片。Agent配置的模型必须支持视觉：真实Codex读图通过，当前Claude的`ark-code-latest`仅支持文本，工具已返回图片但模型拒绝，不能把发送成功当作视觉回答成功。
 
 重跑核心及正式网络验证：`swift test --package-path ios`、`cargo test -p e2e --test mobile_image_network`。原生Agent专项见`crates/e2e/src/e2e_mobile_images.rs`；显式设置`NORMA_SWIFT_PROBE`和`NORMA_TEST_IMAGE`，只使用隔离AppDB与测试图片。UI复测使用独立模拟器和`NORMA_DECISION_UI=1 NORMA_NOTIFICATION_UI=1` fixture，启用`ui-decision-deck`、`ui-chat-interactions`、`ui-card-management`后放入`photo-fixture.jpg`；依次运行`NotificationFlowTests/testSeedChatPhoto`与`ChatPhotoFlowTests`，最后正式忘记测试电脑并结束fixture。未上传TestFlight，证据见`../target/norma-ios-evidence/v116/`。
+
+默认语音服务的原生生产授权验收见[部署验证](../docs/exec-plans/2026-09-14-voice-vercel-deployment.md)。复用`native_voice_authorization_without_keys` runner；显式设置`NORMA_VOICE_REGISTERED_ACCOUNT`与`NORMA_VOICE_REGISTERED_FINGERPRINT`时，使用已登记Mac的Keychain身份并在隔离项目/权限库中配对，验证自动签名→生产换票→豆包WSS就绪/关闭。手机不接收供应商Key；缺少匹配指纹或模拟器已有该Mac配对时不得算通过。

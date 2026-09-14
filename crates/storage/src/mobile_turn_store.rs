@@ -47,6 +47,9 @@ pub enum MobileTurnState {
 pub struct MobileTurnOutcome {
     pub key: MobileTurnKey,
     pub state: MobileTurnState,
+    /// Final reply excerpt frozen with this turn; old outcomes decode without a preview.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -180,8 +183,7 @@ pub(crate) fn record(
             &outcome.key.run_id,
             &outcome.key.turn_id,
         )?
-        .as_ref()
-            != Some(outcome)
+        .is_none_or(|saved| saved.key != outcome.key || saved.state != outcome.state)
     {
         return Err(invalid("conflicting mobile turn outcome"));
     }

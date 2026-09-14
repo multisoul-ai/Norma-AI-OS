@@ -361,7 +361,7 @@ fn claude_failed_commit_and_close_never_release_a_choice() {
 ///
 /// 数据构造：run-a/session-a的turn-a正常Stop，turn-b为StopFailure，stale为非当前回合。
 /// 执行过程：注入准确Hook → 开始b → 注入旧a/错stale → b失败 → 关闭runtime → 等后台落盘。
-/// 预期结果：a完成、b失败独立保存；stale无结果，关卡不改变已存回合。
+/// 预期结果：a完成/最终回复、b失败/错误原因独立保存；stale无结果，关卡不改变已存回合。
 #[test]
 fn claude_turn_outcomes_keep_exact_prompt_identity() {
     let directory = tempfile::tempdir().expect("临时目录");
@@ -369,7 +369,8 @@ fn claude_turn_outcomes_keep_exact_prompt_identity() {
     let (mut runtime, node) = fixture(ApprovalAuditStore::new(path.clone()));
     let mut observe = |name: &str, turn: &str| {
         let event = parse_hook_event(HookSource::Claude, node, json!({
-            "hook_event_name":name,"session_id":"session-a","prompt_id":turn,"_norma_control_run_id":"run-a"
+            "hook_event_name":name,"session_id":"session-a","prompt_id":turn,"_norma_control_run_id":"run-a",
+            "last_assistant_message":"已完成原回合的修复。", "message":"下一回合验证失败"
         })).expect("Hook事件");
         runtime.observe_mobile_hook(&event)
     };
@@ -402,6 +403,22 @@ fn claude_turn_outcomes_keep_exact_prompt_identity() {
         store.get(&key("turn-b")).expect("读取b").map(|r| r.state),
         Some(storage::MobileTurnState::Failed),
         "b保存自身失败"
+    );
+    assert_eq!(
+        store
+            .get(&key("turn-a"))
+            .expect("a摘要")
+            .and_then(|r| r.summary),
+        Some("已完成原回合的修复。".into()),
+        "Claude必须先读取最终回复再记录完成事件"
+    );
+    assert_eq!(
+        store
+            .get(&key("turn-b"))
+            .expect("b摘要")
+            .and_then(|r| r.summary),
+        Some("下一回合验证失败".into()),
+        "失败回合必须保存自己的错误摘要"
     );
     assert!(
         store.get(&key("stale")).expect("读取错回合").is_none(),

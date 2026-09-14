@@ -40,6 +40,7 @@ mod agent_announcements;
 mod agent_close;
 mod agent_queue;
 mod agent_runtime;
+pub(crate) use agent_runtime::execute_norma_adapter_command_with_source;
 pub(crate) use agent_runtime::shared_tokio_runtime;
 pub(crate) use agent_runtime::{
     execute_high_level_agent_command, execute_orchestration_agent_command,

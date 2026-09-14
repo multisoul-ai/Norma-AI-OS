@@ -70,6 +70,7 @@ fn delivery_inbox_stream_tracks_acceptance_without_polling_or_scope_leaks() {
         // 5s沿用后台writer的提交预算，只接受commit回执。
         writer
             .record_turn(MobileTurnOutcome {
+                summary: None,
                 key: key(turn),
                 state: MobileTurnState::Completed,
             })

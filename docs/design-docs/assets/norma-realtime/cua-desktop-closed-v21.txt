@@ -1,0 +1,13 @@
+Window: "Norma OS", App: Norma Mobile Validation.
+0 standard window Norma OS, Secondary Actions: Raise
+	1 close button
+	2 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	3 minimize button
+4 menu bar
+	5 Norma Mobile Validation
+	6 File
+	7 Edit
+	8 Layout
+	9 Help
+
+The focused UI element is 0 standard window Norma OS, Secondary Actions: Raise

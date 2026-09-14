@@ -20,16 +20,16 @@ final class DeliveryInboxFlowTests: XCTestCase {
         XCTAssertTrue(machine.waitForExistence(timeout: 8), "只选择隔离电脑")
         machine.tap(); app.buttons["workspace-tab-command"].tap()
         let inbox = app.buttons["command-delivery-inbox"]
-        XCTAssertTrue(inbox.waitForExistence(timeout: 8), "计划页应有直达验收的入口")
+        XCTAssertTrue(inbox.waitForExistence(timeout: 8), "陪伴指挥台应有直达验收的入口")
         guard inbox.exists else { return }
         waitValue(inbox, "2", "总数必须来自当前项目完整收件箱")
         let decisions = app.buttons["command-decision-inbox"]
         waitValue(decisions, "待核验", "fixture未提供审批源，不能伪造零审批")
         decisions.tap()
-        waitValue(app.buttons["command-mode-decisions"], "待核验", "审批源异常时顶部分段必须说明数量未知")
-        XCTAssertNotEqual(app.buttons["command-mode-decisions"].value as? String, "0", "未知数量不能显示成零")
-        app.buttons["command-mode-plan"].tap()
-        XCTAssertTrue(inbox.waitForExistence(timeout: 8), "切回计划保留成果入口")
+        XCTAssertTrue(app.staticTexts["待确认事项尚未核验"].waitForExistence(timeout: 8), "审批源异常必须显示未核验")
+        XCTAssertFalse(app.staticTexts["当前没有可处理的事项"].exists, "未知状态不能伪造零审批")
+        app.buttons["command-decisions-close"].tap()
+        XCTAssertTrue(inbox.waitForExistence(timeout: 8), "关闭审批弹层后保留成果入口")
         inbox.tap()
         let first = app.buttons["task-delivery-delivery-first"]
         let second = app.buttons["task-delivery-delivery-second"]
@@ -44,9 +44,9 @@ final class DeliveryInboxFlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["delivery-accepted-delivery-second"].exists, "已验收记录需要明确标识")
         app.buttons["delivery-inbox-close"].tap()
         waitValue(inbox, "1", "返回指挥台重新订阅后总数也应更新")
-        app.buttons["command-plan-project"].tap()
+        app.buttons["realtime-project"].tap()
         app.buttons["第二验收项目"].tap()
-        XCTAssertTrue(app.staticTexts["先定一个方向"].waitForExistence(timeout: 8), "第二项目保持真实计划空态")
+        waitValue(app.buttons["realtime-project"], "第二验收项目", "未开聊时可显式选择下次通话项目")
         waitValue(inbox, "0", "空项目不能使用首项目数量")
         inbox.tap()
         XCTAssertTrue(app.staticTexts["没有待验收成果"].waitForExistence(timeout: 8), "没有计划也应能打开成果空态")

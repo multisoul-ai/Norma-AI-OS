@@ -35,15 +35,15 @@ fn run(
         return Err("invalid_request");
     }
     let revision = authorize(shared, request, scope, device_id, token)?;
-    verify_route(shared, request, scope, device_id, token, revision)?;
     let result = if let Some(key) = &scope.delivery_key {
+        let deliveries = recover_deliveries(shared, request, scope, device_id, token, revision)?;
         let database = shared
             .access()
             .map_err(|_| "unavailable")?
             .store
             .path()
             .to_path_buf();
-        let saved = storage::MobileTaskDeliveryStore::new(database.clone())
+        let saved = deliveries
             .get(&scope.workspace_id, key)
             .map_err(|_| "unavailable")?
             .ok_or("not_found")?;
@@ -55,6 +55,7 @@ fn run(
             .map_err(|_| "unavailable")?;
         json!({"request":scope,"review":review,"delivery":{"outcome":saved.outcome,"fingerprint":saved.fingerprint,"saved_at_unix":saved.saved_at_unix,"acceptance":acceptance}})
     } else {
+        verify_route(shared, request, scope, device_id, token, revision)?;
         json!({"request":scope,"review":capture(shared, scope)?})
     };
     if authorize(shared, request, scope, device_id, token)? != revision {
@@ -190,14 +191,8 @@ pub(super) fn list(shared: &Shared, request: &Request) -> Result<serde_json::Val
         return Err("invalid_request");
     }
     let revision = authorize(shared, request, scope, device_id, token)?;
-    verify_route(shared, request, scope, device_id, token, revision)?;
-    let database = shared
-        .access()
-        .map_err(|_| "unavailable")?
-        .store
-        .path()
-        .to_path_buf();
-    let (items, pending_count) = storage::MobileTaskDeliveryStore::new(database)
+    let deliveries = recover_deliveries(shared, request, scope, device_id, token, revision)?;
+    let (items, pending_count) = deliveries
         .page(&scope.workspace_id, *node_id, *before, *pending_only)
         .map_err(|_| "unavailable")?;
     if authorize(shared, request, scope, device_id, token)? != revision {
@@ -218,4 +213,45 @@ pub(super) fn list(shared: &Shared, request: &Request) -> Result<serde_json::Val
     Ok(
         json!({"status":"task_deliveries","grant":current["grant"],"deliveries":{"request":scope,"node_id":node_id,"items":items,"next_cursor":cursor,"pending_only":pending_only,"pending_count":pending_count,"collecting":collecting}}),
     )
+}
+
+fn recover_deliveries(
+    shared: &Shared,
+    request: &Request,
+    scope: &ProjectReviewRequest,
+    device: &str,
+    token: &str,
+    revision: u64,
+) -> Result<storage::MobileTaskDeliveryStore, &'static str> {
+    let database = shared
+        .access()
+        .map_err(|_| "unavailable")?
+        .store
+        .path()
+        .to_path_buf();
+    let store = storage::MobileTaskDeliveryStore::new(database);
+    let candidates = store
+        .recovery_candidates(&scope.workspace_id, &scope.route_id)
+        .map_err(|_| "unavailable")?;
+    // Verify after taking the candidate snapshot, excluding commands from any later route.
+    verify_route(shared, request, scope, device, token, revision)?;
+    for key in candidates {
+        let result = store.record(
+            &scope.workspace_id,
+            &key,
+            &storage::TaskDeliveryContent::Unavailable {
+                reason: "window_closed".into(),
+            },
+        );
+        if result.is_err()
+            && store
+                .get(&scope.workspace_id, &key)
+                .map_err(|_| "unavailable")?
+                .is_none()
+        {
+            return Err("unavailable");
+        }
+        // An already frozen result wins a concurrent race; record never overwrites it.
+    }
+    Ok(store)
 }

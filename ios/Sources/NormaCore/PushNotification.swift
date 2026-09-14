@@ -36,7 +36,8 @@ public struct PushNotificationTarget: Decodable, Sendable, Identifiable, Hashabl
     public func card(in project: ProjectSnapshot) throws -> CardSnapshot {
         guard project.id == workspaceID, project.state == "open", project.routeID == routeID,
               let card = project.cards?.first(where: { String($0.id) == nodeID }),
-              card.runID == runID, card.sessionID == sessionID, card.turnID == turnID else { throw MobileError.sessionChanged }
+              card.runID == runID, card.sessionID == sessionID,
+              kind != .approval || card.turnID == turnID else { throw MobileError.sessionChanged }
         return card
     }
     public func matches(_ approval: ApprovalSnapshot) -> Bool {

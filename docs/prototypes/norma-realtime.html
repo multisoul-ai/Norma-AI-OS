@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080808">
+<title>Norma · 实时指挥台原型</title>
+<style>
+:root{color-scheme:dark;--bg:#080808;--surface:#151515;--raised:#222;--ink:#f5f5f5;--muted:#a0a0a0;--line:#303030;--accent:#c7eadb;font:14px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;font-optical-sizing:auto}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink)}h1,h2,h3,p{margin:0}button,input,textarea,select{font:inherit}button,a{touch-action:manipulation;-webkit-tap-highlight-color:transparent}button{color:inherit;cursor:pointer}a{color:inherit;text-underline-offset:4px}button:disabled{opacity:.4;cursor:not-allowed}:focus-visible{outline:2px solid var(--accent);outline-offset:4px}button:not(:disabled):active{transform:scale(.97)}.screen button:not(:disabled):hover,.review button:not(:disabled):hover,dialog button:not(:disabled):hover{background-color:#303030}a:hover{color:var(--accent)}.muted{color:var(--muted)}.mono{font-family:"SF Mono",Menlo,monospace}.eyebrow{font-size:10px;letter-spacing:2px;color:var(--muted)}.row{display:flex;align-items:center;gap:10px}.between{justify-content:space-between}.icon{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}.brand{display:flex;align-items:center;gap:9px;font-size:23px;font-weight:600;letter-spacing:-1px}.brand svg{width:26px;height:26px}.badge{display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:11px}.dot{width:5px;height:5px;background:currentColor;border-radius:50%;display:inline-block}.warning{color:#f1c491}.pill{border:1px solid var(--line);padding:3px 8px;border-radius:10px;font-size:10px;white-space:nowrap}.studio{display:grid;grid-template-columns:230px 390px 230px;gap:clamp(24px,5vw,74px);justify-content:center;align-items:center;padding:88px 32px 38px;min-height:100dvh}.intro .eyebrow{margin:58px 0 18px}.intro h1{font-size:34px;line-height:1.45;font-weight:500;letter-spacing:-1.5px}.intro p{margin:22px 0;color:var(--muted);font-size:13px;line-height:1.9}.intro footer{margin-top:62px;font-size:11px;line-height:2;color:var(--muted)}.concept-axis{margin-top:30px;border-top:1px solid var(--line);padding-top:18px;font-size:12px}.concept-axis b{display:block;color:var(--ink);margin-bottom:7px;font-weight:500}
+.phone{width:390px;height:min(820px,calc(100dvh - 126px));min-height:0;background:#050505;border:5px solid #272727;border-radius:48px;box-shadow:0 0 0 1px #555,0 30px 80px #000;overflow:hidden;position:relative;display:flex;flex-direction:column}.statusbar{height:43px;flex:none;padding:10px 26px 0;display:flex;justify-content:space-between;font-size:12px;font-weight:600;position:relative}.island{position:absolute;left:50%;top:7px;transform:translateX(-50%);background:#000;width:103px;height:26px;border-radius:24px}.battery{display:inline-block;width:19px;height:9px;border:1px solid #eee;border-radius:3px;margin-left:5px;background:linear-gradient(90deg,#eee 85%,transparent 85%)}.screen{min-height:0;flex:1;display:flex;flex-direction:column}.screen button,.screen a,.review button,dialog button{min-height:44px}.screen button,.review button,dialog button{border:0;border-radius:16px;background:transparent;transition:transform 120ms ease-out,opacity 120ms ease-out}.appbar{padding:10px 20px 8px;display:flex;align-items:center;justify-content:space-between;gap:8px}.project-button{text-align:left;padding:0 4px!important}.project-button small{display:block;font-size:10px;color:var(--muted);font-weight:400}.project-button strong{font-size:14px;font-weight:560}.round{display:grid;place-items:center;width:44px;flex:none;border:1px solid var(--line)!important;border-radius:50%!important}.banner{margin:0 20px 8px;padding:9px 12px;border:1px solid #67503a;border-radius:12px;font-size:11px;color:#efc597}.main{padding:0 20px 16px;overflow:auto;overscroll-behavior:contain;scrollbar-width:none;flex:1;min-height:0}.main::-webkit-scrollbar{display:none}.companion-hero{height:clamp(140px,calc(100dvh - 600px),275px);position:relative;overflow:hidden;border-radius:20px;background:radial-gradient(ellipse at 50% 60%,#2f3535 0%,#111414 43%,#050505 72%)}.avatar{height:100%;width:100%;display:block}.avatar-label{position:absolute;right:7px;bottom:8px;color:#838c89;font-size:9px;letter-spacing:1px}.avatar-shadow{fill:#000;opacity:.4}.portrait{transform-origin:50% 80%}.talking .portrait{animation:arrive 240ms ease-out}.listening-label{display:flex;align-items:center;justify-content:center;gap:8px;color:var(--accent);font-size:11px;margin:0 0 12px}.wave{display:flex;align-items:center;gap:3px;height:18px}.wave i{height:5px;width:2px;border-radius:3px;background:currentColor}.wave i:nth-child(2),.wave i:nth-child(4){height:12px}.wave i:nth-child(3){height:18px}.quote{text-align:center;font-size:21px;line-height:1.6;font-weight:450;letter-spacing:-.6px;margin:3px 8px 18px}.quote small{display:block;color:var(--muted);font-size:11px;letter-spacing:0;margin-top:10px}.primary,.secondary,.danger{display:flex;align-items:center;justify-content:center;gap:9px;padding:11px 16px!important;width:100%;border-radius:24px!important;font-weight:550;font-size:13px}.primary{background:#f0f0ed!important;color:#111!important}.primary:hover{background:#d9eadf!important}.secondary{background:#1d1d1d!important;border:1px solid var(--line)!important}.secondary:hover{background:#303030!important}.danger{background:#532624!important;color:#ffd4ce}.compact{width:auto;padding:7px 12px!important;font-size:11px}.call-actions{display:flex;gap:10px;justify-content:center;align-items:center}.call-actions .round{width:48px;height:48px;background:#1a1a1a}.call-actions button[aria-pressed=true]{background:#d9e9e2!important;color:#12221b}.call-actions .hangup{background:#953e36!important;color:white}.call-dock{padding:12px 20px 14px;flex:none;border-top:1px solid #181818;background:#090909}.call-caption{text-align:center;color:var(--muted);font-size:10px;margin-top:9px}.bottom-nav{display:flex;flex:none;margin:0 17px 16px;padding:4px;border-radius:30px;border:1px solid var(--line);background:#171717}.bottom-nav button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:9px;color:var(--muted);min-height:51px}.bottom-nav button[aria-current=page]{background:#303030;color:#f5f5f5;border-radius:26px}.bottom-nav .icon{width:19px;height:19px}.home-line{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);width:110px;height:4px;border-radius:10px;background:#ddd}
+.section-heading{display:flex;justify-content:space-between;align-items:center;margin:16px 0 10px}.section-heading h2{font-size:13px;font-weight:550}.section-heading span{font-size:10px;color:var(--muted)}.task-row{display:flex;align-items:center;text-align:left;gap:11px;width:100%;padding:13px 0;border-bottom:1px solid #282828!important;border-radius:0!important}.agent-icon{width:33px;height:33px;border:1px solid #414141;border-radius:10px;display:grid;place-items:center;font-size:16px;background:#1b1b1b;flex:none}.agent-icon.claude{color:#e6b498}.task-content{flex:1;min-width:0}.task-content b{display:block;font-size:12px;font-weight:500;overflow-wrap:anywhere}.task-content small{display:block;color:var(--muted);font-size:10px;margin-top:4px}.task-row>.icon{width:14px;color:#8b8b8b}.status-review{color:#e7c99f}.status-running{color:var(--accent)}.status-done{color:#aaa}.mini-task{background:#151515;border:1px solid var(--line);border-radius:18px;padding:0 13px}.mini-task .task-row{border:0!important}.draft{padding:13px;background:#171c1a;border:1px solid #35443c;border-radius:16px;margin:14px 0}.draft small{font-size:10px;color:#bcd3c8}.draft p{font-size:12px;margin:7px 0 12px;overflow-wrap:anywhere}.message{margin:14px 0 20px;font-size:14px;line-height:1.8;overflow-wrap:anywhere}.message .who{font-size:10px;color:var(--muted);margin-bottom:6px}.message.user{text-align:right}.message.user p{display:inline-block;background:#222;padding:10px 14px;border-radius:18px 18px 4px 18px;max-width:92%;text-align:left}.message.norma p{max-width:95%}.message.norma .who{color:var(--accent)}.avatar-chip{display:flex;gap:12px;align-items:center;margin:8px 0 22px}.avatar-chip .small-avatar{width:54px;height:54px;overflow:hidden;background:#202622;border:1px solid #46524c;border-radius:50%;flex:none}.small-avatar .avatar{width:100%;height:130%;transform:scale(1.3);transform-origin:50% 20%}.avatar-chip h2{font-size:17px;font-weight:500}.avatar-chip p{font-size:10px;color:var(--muted);margin-top:4px}.chat-intro{font-size:25px;font-weight:450;letter-spacing:-.7px;margin:12px 0 22px}.quick-talk{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.quick-talk button{font-size:11px;padding:5px 11px;border:1px solid var(--line);border-radius:18px;min-height:44px}.composer{display:flex;gap:7px;align-items:center;background:#191919;border:1px solid #333;border-radius:23px;padding:4px 5px 4px 13px;margin:12px 0}.composer input{background:transparent;border:0;outline:none;color:var(--ink);font-size:12px;width:100%;min-width:0;height:36px}.composer button{min-height:44px;flex:none;width:44px;border-radius:50%;background:#ddd;color:#111}.metric-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:18px 0}.metric{padding:13px 12px;border:1px solid var(--line);border-radius:16px;background:#101010}.metric strong{font-size:25px;font-weight:450;display:block}.metric small{font-size:10px;color:var(--muted)}.work-title{font-size:25px;letter-spacing:-.7px;margin-top:16px;font-weight:500}.queue-card{padding:15px;background:#171717;border:1px solid #343434;border-radius:18px;margin-bottom:12px}.queue-card p{font-size:12px;line-height:1.7;margin:8px 0 13px}.queue-card .eyebrow{font-size:9px}.review .eyebrow{margin-bottom:17px}.route-step{padding:14px 0!important;width:100%;display:flex;gap:13px;text-align:left;border-bottom:1px solid #262626!important;border-radius:0!important}.route-step>span{font:11px/22px Menlo,monospace;color:#808080}.route-step b{font-size:12px;font-weight:500;display:block}.route-step small{font-size:10px;color:var(--muted);display:block;margin-top:3px}.review .scenarios{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}.scenarios button{border:1px solid #333;border-radius:12px;font-size:10px;padding:7px 10px}.demo-note{font-size:10px;color:#a5a5a5;line-height:1.9;margin-top:22px}.toast{min-height:40px;margin-top:20px;font-size:12px;color:var(--accent);line-height:1.7}.phone-notice{font-size:11px;color:var(--accent);margin:0 20px 8px;line-height:1.6}.mobile-demo{display:none}.empty{padding:35px 0;color:var(--muted);font-size:12px;text-align:center}.back{display:flex;align-items:center;gap:6px;font-size:12px;margin:8px 0}.back .icon{width:16px}.artifact{border:1px solid #444;background:#131313;border-radius:18px;padding:14px;margin:16px 0}.artifact .version-tabs{display:flex;gap:5px;margin-bottom:13px}.version-tabs button{flex:1;border-radius:10px;background:#222;font-size:11px}.version-tabs button[aria-selected=true]{background:#ddd;color:#111}.preview{padding:16px;border-radius:12px;background:#eef0ed;color:#1d2823;min-height:170px}.preview h3{font-size:20px;letter-spacing:-.6px}.preview p{font-size:11px;margin:9px 0;color:#546259}.preview-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}.preview-cards div{padding:16px 10px;border:1px solid #c3cec6;border-radius:12px;background:#fff;font-size:10px}.preview.before .preview-cards{display:block}.preview.before .preview-cards div{padding:4px;border-radius:0;background:#ddd}.preview.before h3{font-size:14px}.evidence{font-size:11px;color:#c2c2c2;line-height:1.9;margin:13px 0}.evidence strong{color:var(--ink)}.field{display:grid;gap:8px;font-size:12px;margin:16px 0}.field textarea{width:100%;min-height:96px;background:#232323;color:white;border:1px solid #555;border-radius:14px;padding:12px;resize:vertical}.action-pair{display:flex;gap:8px;margin:12px 0}.action-pair>*{flex:1}.feedback-record{font-size:11px;border-left:2px solid #698576;padding:8px 12px;margin:12px 0;color:#c8d6ce}
+dialog{color:var(--ink);background:#161616;border:1px solid #505050;border-radius:26px;padding:23px;max-width:370px;width:calc(100% - 30px);max-height:82dvh;overflow:auto;box-shadow:0 24px 90px #0008}dialog::backdrop{background:#0009;backdrop-filter:blur(5px)}dialog[open]{animation:arrive 180ms ease-out}dialog h2{font-size:20px;font-weight:500}dialog .dialog-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px}dialog .dialog-head button{width:44px;flex:none;border:1px solid #444;border-radius:50%;display:grid;place-items:center}dialog p{font-size:13px;line-height:1.8}dialog .project-choice{width:100%;display:flex;justify-content:space-between;align-items:center;padding:13px 5px;border-bottom:1px solid #333;border-radius:0}.lock-screen{display:flex;flex-direction:column;flex:1;text-align:center;padding:40px 22px 22px;background:radial-gradient(ellipse at 60% 0,#35453e,#080b0a 65%)}.lock-screen time{font-size:72px;font-weight:350;letter-spacing:-4px}.lock-screen>p{font-size:13px;color:#c9d3cd}.lock-call{margin-top:45px;padding:24px 16px;border:1px solid #5c6a61;border-radius:24px;background:#ffffff0a;backdrop-filter:blur(20px)}.lock-call h2{font-size:20px;font-weight:500;margin-bottom:7px}.lock-call>p{color:#becac3;font-size:12px;margin-bottom:25px}.lock-call .call-actions{margin-top:22px}.unlock{margin-top:auto}.lock-caption{font-size:10px;color:#a7b3ac;margin:16px 0}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@keyframes arrive{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:1100px){.studio{grid-template-columns:190px 390px;gap:40px}.review{display:none}.mobile-demo{display:block;margin:12px 0}.intro h1{font-size:29px}}
+@media(max-width:700px){.studio{display:block;padding:76px 0 0;min-height:100dvh}.intro{display:none}.phone{width:min(100%,430px);height:calc(100dvh - 76px);min-height:570px;margin:auto;border:0;border-radius:0;box-shadow:none}.statusbar{height:28px;padding-top:2px}.island{display:none}.companion-hero{height:clamp(165px,27dvh,250px)}.quote{font-size:19px;margin-bottom:14px}.call-dock{padding-top:9px;padding-bottom:10px}.main{padding-bottom:10px}.home-line{display:none}.bottom-nav{margin-bottom:max(12px,env(safe-area-inset-bottom))}.mobile-demo summary{color:var(--muted);font-size:10px;padding:10px 0;cursor:pointer}.mobile-demo .scenarios{display:flex;gap:7px;flex-wrap:wrap}.mobile-demo .scenarios button{font-size:10px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+@media(prefers-reduced-transparency:reduce){dialog::backdrop{backdrop-filter:none;background:#000e}.lock-call{backdrop-filter:none;background:#19231e}}
+@media(prefers-contrast:more){:root{--muted:#ccc;--line:#888}button{border-color:#888!important}}
+.proto-picker {
+  position: fixed;
+  width: max-content; /* Keep the translated labels on one line on narrow screens. */
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.82);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 8px 24px rgba(0, 0, 0, 0.24),
+    0 2px 6px rgba(0, 0, 0, 0.12);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.proto-picker-highlight {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  will-change: transform;
+}
+
+/* The slide is enabled only after first paint (data-ready), so load doesn't animate. */
+.proto-picker[data-ready] .proto-picker-highlight {
+  transition:
+    transform 250ms cubic-bezier(0.23, 1, 0.32, 1),
+    width 250ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .proto-picker[data-ready] .proto-picker-highlight { transition: none; }
+}
+
+.proto-picker-item {
+  position: relative; /* sits above the highlight */
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font: inherit;
+  cursor: pointer;
+  transition: color 150ms ease-out;
+}
+
+.proto-picker-item:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.proto-picker-item:active {
+  transform: scale(0.97);
+}
+
+.proto-picker-item:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 2px;
+}
+
+.proto-picker-item[data-active] {
+  color: #fff;
+}
+
+.proto-picker-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.proto-picker-replay {
+  padding: 0 10px;
+  font-size: 14px;
+}
+
+.proto-picker[data-position="top"] {
+  bottom: auto;
+  top: 24px;
+}
+</style>
+</head>
+<body>
+<main id="stage"></main>
+<nav class="proto-picker" data-position="top" aria-label="Prototype variants">
+  <span class="proto-picker-highlight" aria-hidden="true"></span>
+  <button class="proto-picker-item" data-active aria-current="true">陪伴</button>
+  <button class="proto-picker-item">对话</button>
+  <button class="proto-picker-item">调度</button>
+  <span class="proto-picker-divider" aria-hidden="true"></span>
+  <button class="proto-picker-item proto-picker-replay" aria-label="Replay animation (R)">↻</button>
+</nav>
+<dialog id="sheet" aria-labelledby="sheet-title"></dialog>
+<script id="realtime-model">
+function initialRealtime(){
+  return {project:'Norma OS',viewProject:'Norma OS',page:'command',call:false,online:true,muted:false,quiet:false,locked:false,draft:'',composer:'',operation:1,receipts:{},notice:'',reply:'把想法，聊成下一步。',chat:[],tasks:[
+    {id:'voice',title:'改善耳机切换体验',agent:'Codex',platform:'mobile',project:'Norma OS',status:'running',summary:'正在验证蓝牙耳机断开后的音频恢复。',seen:false},
+    {id:'web',title:'项目概览，更清楚一点',agent:'Claude',platform:'web',project:'Norma OS',status:'review',summary:'页面与交互自检已结束，等你打开预览。',seen:false},
+    {id:'desktop',title:'整理桌面 Agent 卡片',agent:'Codex',platform:'desktop',project:'Norma OS',status:'review',summary:'已整理卡片层级与间距，需要在 Mac 上实际操作。',seen:false}
+  ]};
+}
+function act(s,a){
+  const result=(ok,message)=>{s.notice=message;return {ok,message};};
+  if(a.type==='discard'){s.draft='';return result(true,'当前草稿已放弃');}
+  if(a.type==='start'){s.call=true;s.reply='我在听，今天想推进什么？';return result(true,'通话已开始（演示）');}
+  if(a.type==='hangup'){s.call=false;s.locked=false;s.reply='先忙你的，Agent 会继续。';return result(true,'通话已结束，已派任务继续运行');}
+  if(a.type==='connection'){s.online=!s.online;return result(true,s.online?'Mac 已重连；草稿尚未派工':'Mac 离线，仍可讨论；任务状态为最后快照');}
+  if(a.type==='browse'){if(!['Norma OS','Studio Site'].includes(a.project))return result(false,'未知项目');s.viewProject=a.project;s.page='projects';return result(true,'正在浏览 '+a.project+'，通话仍绑定 '+s.project);}
+  if(a.type==='bind'){if(!['Norma OS','Studio Site'].includes(a.project))return result(false,'未知项目');if(s.draft)return result(false,'请先安排当前草稿，或明确放弃草稿后切换');s.project=a.project;s.viewProject=a.project;return result(true,'通话已切换到 '+a.project);}
+  if(a.type==='discuss'){
+    if(!s.call)return result(false,'先开始通话，再聊一个想法');
+    const text=(a.text||'').trim();if(!text)return result(false,'先写下一点想法');
+    s.draft=text;s.operation++;s.chat.push({role:'user',text});
+    s.reply='我先记下这个方向。可以继续聊细节，决定动手时我来安排。';
+    s.chat.push({role:'norma',text:s.reply});return result(true,'想法已整理，还没有派工');
+  }
+  if(a.type==='dispatch'){
+    if(!s.online)return result(false,'Mac 离线，想法已保留，尚未派工');
+    if(!s.call)return result(false,'开始通话后再安排草稿');
+    if(!a.operation)return result(false,'缺少操作标识');
+    if(s.receipts[a.operation])return result(true,'已核对接收回执，不重复派工');
+    if(!s.draft)return result(false,'先聊一个想法');
+    const task={id:'task-'+s.operation,title:s.draft,agent:'Codex',platform:'mobile',project:s.project,status:'running',summary:'已接收目标与交付要求，正在实现；界面完成后交给你验收。',seen:false};
+    s.tasks.unshift(task);s.receipts[a.operation]=task.id;s.draft='';s.reply='已交给 Codex，做好后请你看页面。我们可以接着聊。';
+    s.chat.push({role:'norma',text:s.reply});return result(true,'Codex 已接收 · '+s.project);
+  }
+  if(a.type==='mute'){s.muted=!s.muted;return result(true,s.muted?'麦克风已静音（演示）':'已恢复聆听（演示）');}
+  if(a.type==='quiet'){s.quiet=!s.quiet;return result(true,s.quiet?'先不播报，任务照常继续':'恢复汇报，合并提醒待验收成果');}
+  if(a.type==='interrupt'){s.reply='好，你说。我在听。';return result(true,'已打断回复，任务继续（演示）');}
+  if(a.type==='lock'){if(!s.call)return result(false,'开始通话后体验锁屏');s.locked=!s.locked;return result(true,s.locked?'锁屏示意：音频继续，角色停止渲染':'已回到指挥台');}
+  const t=s.tasks.find(t=>t.id===a.id);if(!t)return result(false,'找不到这个任务');
+  if(a.type==='inspect'){if(t.status!=='review')return result(false,'成果还未准备好');t.seen=true;return result(true,'已打开成果示例');}
+  if(!s.online)return result(false,'Mac 离线，这个操作尚未提交');
+  if(a.type==='complete'){if(t.status!=='running')return result(false,'任务当前不在执行');t.status='review';t.seen=false;t.summary='实现与自检已结束，需要你查看页面和交互。';if(s.call&&!s.quiet)s.reply='有一份界面做好了，已放到待你验收。方便时看一下就好。';return result(true,s.call&&s.quiet?'成果已进入待验收，稍后合并汇报':'实现已结束 · 待你验收');}
+  if(a.type==='accept'){if(t.status!=='review'||!t.seen)return result(false,'先查看这份成果，再确认验收');t.status='done';return result(true,'验收通过 · 决定已同步（演示）');}
+  if(a.type==='feedback'){if(t.status!=='review')return result(false,'当前不能提交验收反馈');if(!(a.text||'').trim())return result(false,'请写下需要调整的地方');t.feedback=a.text.trim();t.status='running';t.seen=false;t.summary='已收到你的修改意见，沿用原任务继续调整。';return result(true,'修改意见已交回 '+t.agent+'（演示）');}
+  return result(false,'未支持的操作');
+}
+</script>
+<script>
+let state=initialRealtime(), detailId=null, previewBefore=false, lastFocus=null;
+const directions=[
+  {name:'陪伴',title:'在路上，\n也能一起向前。',axis:'虚拟人居中 · 通话优先',description:'把屏幕留给 Norma。任务收在一张轻卡片里，戴上耳机就能继续聊。',cost:'陪伴感更强，查多项进度需要多一步。'},
+  {name:'对话',title:'聊过的想法，\n都有下一步。',axis:'讨论脉络优先 · 对话中派工',description:'想法、安排和回执留在同一段对话里，随时接着上一句往下走。',cost:'上下文更清楚，虚拟人的存在感较弱。'},
+  {name:'调度',title:'你说方向，\n看见事情向前。',axis:'任务优先 · 持续通话',description:'把进行中和待验收放到眼前，Norma 在旁边听，你可以边看边安排。',cost:'进展一目了然，屏幕信息会更多。'}
+];
+// ponytail: scripted local interactions only; real speech and durable receipts belong to the shared runtime.
+const symbols={mic:'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0zM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',phone:'M4 14c4-5 12-5 16 0l-1 4-4-1v-3H9v3l-4 1z',close:'M6 6l12 12M6 18L18 6',arrow:'M5 12h14M13 6l6 6-6 6',chevron:'M9 5l7 7-7 7',down:'M6 9l6 6 6-6',tasks:'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',check:'M5 12l4 4L19 6',headphones:'M4 14v-3a8 8 0 0 1 16 0v3M4 12H2v7h4v-7zM20 12h2v7h-4v-7z',lock:'M6 10h12v11H6zM8 10V6a4 4 0 0 1 8 0v4',chat:'M4 4h16v12H9l-5 4z',bell:'M6 8a6 6 0 0 1 12 0v6l2 3H4l2-3zM10 21h4',back:'M15 5l-7 7 7 7',send:'M12 20V4M5 11l7-7 7 7',spark:'M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z'};
+const escapeHtml=text=>String(text).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const icon=name=>'<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="'+symbols[name]+'"/></svg>';
+const mark='<svg viewBox="0 0 36 36" aria-hidden="true"><path d="M5 27L14 8h4l-2 17L26 8h5L20 29h-6l2-17L9 27z" fill="currentColor"/></svg>';
+const names={running:'进行中',review:'待你验收',done:'已验收'};
+const platforms={web:'Web',mobile:'手机端',desktop:'桌面端'};
+function button(action,label,cls='',extra=''){return '<button data-action="'+action+'" class="'+cls+'" '+extra+'>'+label+'</button>';}
+function avatar(){return '<svg class="avatar" viewBox="0 0 340 310" role="img" aria-label="Norma 虚拟人形象示意"><defs><linearGradient id="hair" x2=".7" y2="1"><stop stop-color="#dddeda"/><stop offset="1" stop-color="#636c6a"/></linearGradient><linearGradient id="coat" x2="0" y2="1"><stop stop-color="#b6bebb"/><stop offset="1" stop-color="#47514e"/></linearGradient></defs><ellipse class="avatar-shadow" cx="170" cy="298" rx="102" ry="11"/><g class="portrait"><path d="M109 107C90 42 115 12 168 12c68-1 77 48 61 112l17 103H91z" fill="url(#hair)"/><path d="M145 155h50v50h-50z" fill="#cfbfb5"/><path d="M66 306l14-72q8-30 65-42l25 18 25-18q56 12 65 42l15 72" fill="url(#coat)"/><path d="M145 190l25 22-24 36-31-45zM195 190l-25 22 25 36 30-45z" fill="#d0d5d1"/><path d="M154 216l16 12 16-12 7 90h-47z" fill="#252e2c"/><path d="M111 91q-4 61 36 85 26 16 49-7 33-25 32-79l-22-48h-66z" fill="#e4d7ce"/><ellipse cx="110" cy="119" rx="9" ry="16" fill="#d4c6bc"/><ellipse cx="227" cy="119" rx="8" ry="16" fill="#d4c6bc"/><path d="M104 102q-7-66 37-75 49-16 74 27l17 54q-18-16-33-58-30 41-73 48l33-42q-33 33-55 46" fill="url(#hair)"/><path d="M129 114q13-9 25 0M182 114q13-9 25 0" stroke="#5c625f" stroke-width="3" fill="none" stroke-linecap="round"/><ellipse cx="143" cy="121" rx="6" ry="8" fill="#536963"/><ellipse cx="194" cy="121" rx="6" ry="8" fill="#536963"/><circle cx="145" cy="119" r="2" fill="#fff"/><circle cx="196" cy="119" r="2" fill="#fff"/><path d="M167 128l-3 13 7 1" fill="none" stroke="#baaaa0" stroke-width="1.4"/><path d="M158 154q12 7 23-1" fill="none" stroke="#a17f78" stroke-width="2" stroke-linecap="round"/><path d="M106 103q8 92 12 104l-22 36 5-131M225 99q-8 87-5 112l24 18-7-120" fill="url(#hair)"/><path d="M96 254l-9 50M244 254l11 50" stroke="#7a8681" fill="none"/><circle cx="200" cy="264" r="3" fill="#d4ded7"/></g></svg>';}
+function wave(){return '<span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>';}
+function statusLine(){return '<span class="badge '+(!state.online?'warning':'')+'"><i class="dot"></i>'+(!state.online?'Mac 离线 · 可继续聊':state.call?(state.muted?'已静音':'正在聆听'):'Mac 在线')+'</span>';}
+function taskRows(tasks){return tasks.map(t=>'<button class="task-row" data-task="'+t.id+'" aria-label="查看任务：'+escapeHtml(t.title)+'"><span class="agent-icon '+(t.agent==='Claude'?'claude':'')+'">'+(t.agent==='Claude'?'✳':'⌁')+'</span><span class="task-content"><b>'+escapeHtml(t.title)+'</b><small>'+t.agent+' · '+platforms[t.platform]+' · <span class="status-'+t.status+'">'+(state.online?'':'上次同步 · ')+names[t.status]+'</span></small></span>'+icon('chevron')+'</button>').join('')||'<p class="empty">这个项目还没有任务。可以先和 Norma 聊聊。</p>';}
+function draftCard(){return state.draft?'<section class="draft"><small>讨论已整理 · '+escapeHtml(state.project)+'</small><p>'+escapeHtml(state.draft)+'</p>'+button('dispatch','就这样，交给 Agent 执行 '+icon('arrow'),'secondary','aria-label="交给 Agent 执行"')+'</section>':'';}
+function talkInput(){return '<div class="quick-talk">'+button('idea','聊聊指挥台的想法')+button('progress','现在做到哪里了？')+'</div><form class="composer" id="idea-form"><label class="sr-only" for="idea-input">补充想法</label><input id="idea-input" name="idea" value="'+escapeHtml(state.composer)+'" placeholder="也可以打字，接着聊…" maxlength="240" autocomplete="off">'+button('submit',icon('send'),'','type="submit" aria-label="发送想法"')+'</form>';}
+function companionView(){
+  const active=state.tasks.filter(t=>t.project===state.project&&t.status!=='done');
+  return '<div class="companion-hero '+(state.call?'talking':'')+'">'+avatar()+'<span class="avatar-label">角色示意</span></div><div class="listening-label">'+(state.call?wave()+ (state.muted?'已静音 · 仍能听到 Norma':'戴着耳机，也在你身边'):'N O R M A')+'</div><h2 class="quote">'+escapeHtml(state.reply)+(state.call?'':'<small>聊想法、安排任务，或问问现在的进展。</small>')+'</h2>'+draftCard()+(state.call?talkInput():'')+'<div class="mini-task">'+taskRows(active.slice(0,1))+'</div>';
+}
+function conversationView(){return '<div class="avatar-chip"><div class="small-avatar">'+avatar()+'</div><div><h2>和 Norma 接着聊</h2><p>'+escapeHtml(state.project)+' · 一次对话，一条脉络</p></div></div>'+(!state.chat.length?'<h2 class="chat-intro">想法不用完整，<br>先说出来就好。</h2><div class="message norma"><div class="who">NORMA</div><p>'+escapeHtml(state.reply)+'</p></div>':state.chat.slice(-6).map(m=>'<div class="message '+m.role+'"><div class="who">'+(m.role==='user'?'你':'NORMA')+'</div><p>'+escapeHtml(m.text)+'</p></div>').join(''))+draftCard()+talkInput()+'<div class="section-heading"><h2>这段对话关联的任务</h2></div>'+taskRows(state.tasks.filter(t=>t.project===state.project).slice(0,2));}
+function dispatchView(){
+  const tasks=state.tasks.filter(t=>t.project===state.project);
+  return '<h2 class="work-title">事情正在向前。</h2><p class="muted" style="font-size:11px;margin-top:7px">'+escapeHtml(state.project)+' · '+(state.online?'刚刚同步':'最后快照')+'</p><div class="metric-row">'+['running','review','done'].map(st=>'<div class="metric"><strong>'+tasks.filter(t=>t.status===st).length+'</strong><small>'+names[st]+'</small></div>').join('')+'</div><div class="queue-card"><div class="row between"><span class="eyebrow">NORMA · 在你身边</span>'+statusLine()+'</div><p>'+escapeHtml(state.reply)+'</p>'+button('idea','聊一个新想法 '+icon('arrow'),'secondary')+'</div>'+draftCard()+'<div class="section-heading"><h2>Agent 正在做的事</h2><span>'+tasks.length+' 项</span></div>'+taskRows(tasks);
+}
+function projectView(){return '<h2 class="work-title">'+escapeHtml(state.viewProject)+'</h2><p class="muted" style="font-size:11px;margin:7px 0 15px">当前浏览项目 · 通话绑定 '+escapeHtml(state.project)+'</p>'+button('browse-project','浏览其他项目 '+icon('down'),'secondary')+(state.viewProject!==state.project?button('bind','将通话切到此项目','secondary','style="margin-top:10px"'):'')+'<div class="section-heading"><h2>项目 Agent 卡片</h2></div>'+taskRows(state.tasks.filter(t=>t.project===state.viewProject));}
+function resultsView(){return '<h2 class="work-title">等你看一眼。</h2><p class="muted" style="font-size:12px;margin:10px 0 22px">界面和交互做好后，由你确认最后一步。<br>现在不方便看，其他任务会继续。</p><div class="section-heading"><h2>待你验收</h2><span>Web · 手机端 · 桌面端</span></div>'+taskRows(state.tasks.filter(t=>t.status==='review'&&t.project===state.project))+'<div class="section-heading"><h2>已经确认</h2></div>'+taskRows(state.tasks.filter(t=>t.status==='done'&&t.project===state.project));}
+function controls(){return state.call?'<div class="call-actions">'+button('mute',icon('mic'),'round','aria-label="'+(state.muted?'取消静音':'静音')+'" aria-pressed="'+state.muted+'"')+button('interrupt',icon('chat'),'round','aria-label="打断回复"')+button('quiet',icon('bell'),'round','aria-label="'+(state.quiet?'恢复汇报':'先别汇报')+'" aria-pressed="'+state.quiet+'"')+button('hangup',icon('phone'),'round hangup','aria-label="结束通话"')+'</div>':button('start',icon('headphones')+' 和 Norma 聊聊','primary','aria-label="开始通话"');}
+function mobileDemo(){return '<details class="mobile-demo"><summary>原型演示控制 · 不采集麦克风</summary><div class="scenarios">'+button('connection',state.online?'模拟 Mac 离线':'模拟 Mac 重连')+button('lock','体验锁屏')+button('complete-next','模拟任务完成')+'</div><p class="demo-note">角色为示意。语音、回执、构建和通知均为本地模拟。</p></details>';}
+function phone(){
+  if(state.locked)return '<div class="lock-screen"><p>9 月 13 日 星期日</p><time>9:41</time><div class="lock-call"><span class="eyebrow">通话进行中 · '+escapeHtml(state.project)+'</span><h2 style="margin-top:15px">Norma</h2><p>耳机已连接 · 角色渲染已暂停</p><div class="listening-label">'+wave()+' '+(state.muted?'已静音':'我在听')+'</div><p>'+escapeHtml(state.reply)+'</p>'+controls()+'</div><div class="unlock">'+button('lock',icon('lock')+' 返回指挥台','secondary')+'<p class="lock-caption">锁屏交互示意 · 此网页不提供后台通话</p></div></div>';
+  return '<div class="statusbar" aria-hidden="true"><span>9:41</span><span class="island"></span><span>▥ ◔ <i class="battery"></i></span></div><div class="screen"><header class="appbar">'+button('project','<small>本次通话的项目</small><strong>'+escapeHtml(state.project)+' ⌄</strong>','project-button','aria-label="通话项目"')+'<div class="row">'+statusLine()+button('lock',icon('lock'),'round','aria-label="体验锁屏"')+'</div></header>'+(!state.online?'<div class="banner">Mac 暂时离线。可以继续聊，想法先保留；下方为最后同步状态。</div>':'')+(state.notice?'<p class="phone-notice" role="status">'+escapeHtml(state.notice)+'</p>':'')+'<section class="main" aria-label="指挥台内容">'+(state.page==='projects'?projectView():state.page==='results'?resultsView():[companionView,conversationView,dispatchView][current]())+mobileDemo()+'</section><div class="call-dock">'+controls()+'<p class="call-caption">'+(state.call?'通话中 · '+escapeHtml(state.project)+' · '+(state.quiet?'稍后汇报':'随时可以插话'):'实时语音原型 · 点击体验通话流程')+'</p></div><nav class="bottom-nav" aria-label="应用导航">'+[['projects','tasks','项目'],['command','spark','指挥台'],['results','check','成果']].map(([page,ic,label])=>button('page-'+page,icon(ic)+label,'','aria-current="'+(state.page===page?'page':'false')+'"')).join('')+'</nav></div><div class="home-line"></div>';
+}
+function renderVariant(index){
+  const d=directions[index];
+  return '<div class="studio"><aside class="intro"><div class="brand">'+mark+'norma <span class="muted" style="font-size:12px;letter-spacing:0;font-weight:400">/ iOS</span></div><div class="eyebrow">REALTIME COMPANION · '+String(index+1).padStart(2,'0')+'</div><h1>'+d.title.split('\n').join('<br>')+'</h1><p>'+d.description+'</p><div class="concept-axis"><b>'+d.axis+'</b><span class="muted">'+d.cost+'</span></div><footer>按 1 / 2 / 3 切换方向 · R 重播<br><a href="norma-ios.html">返回完整工作台原型 ↗</a></footer></aside><section class="phone" aria-label="Norma iPhone 原型">'+phone()+'</section><aside class="review" aria-label="原型演示控制"><p class="eyebrow">从一个想法，到一份成果</p>'+button('start','<span>01</span><div><b>戴上耳机，开始聊</b><small>一次通话绑定一个项目</small></div>','route-step')+button('idea','<span>02</span><div><b>先聊聊，再决定做</b><small>想法整理成草稿，讨论不派工</small></div>','route-step')+button('dispatch','<span>03</span><div><b>交给合适的 Agent</b><small>收到回执，继续你的对话</small></div>','route-step','aria-label="演示派工"')+button('complete-next','<span>04</span><div><b>做好了，等你看一眼</b><small>模拟完成 → 预览 → 验收或修改</small></div>','route-step')+'<div class="scenarios">'+button('connection',state.online?'模拟 Mac 离线':'模拟 Mac 重连')+button('lock','体验锁屏')+button('reset','重置演示')+'</div><p class="demo-note">交互原型 · 无真实任务执行<br>不采集麦克风，角色为示意。<br>语音、回执、构建和通知均为模拟。</p><p class="toast" role="status" aria-live="polite">'+escapeHtml(state.notice)+'</p></aside></div>';
+}
+function render(){
+  const scroll=document.querySelector('.main')?.scrollTop||0;
+  stage.innerHTML=renderVariant(current);
+  const main=document.querySelector('.main');if(main)main.scrollTop=scroll;
+}
+function showSheet(title,body){
+  const sheet=document.getElementById('sheet');if(!sheet.open)lastFocus=document.activeElement;
+  sheet.innerHTML='<div class="dialog-head"><h2 id="sheet-title">'+title+'</h2>'+button('close',icon('close'),'','aria-label="关闭弹层"')+'</div>'+body+'<p id="sheet-message" role="status" class="toast"></p>';
+  if(!sheet.open)sheet.showModal();
+}
+function showProjects(browse=false){showSheet(browse?'浏览项目':'本次通话的项目','<p class="muted">浏览页面不会改变派工目标。切换通话项目需要明确选择。</p>'+['Norma OS','Studio Site'].map(p=>'<button class="project-choice" data-project="'+p+'" data-browse="'+browse+'"><span>'+p+'</span><span>'+(p===state.project?'通话中':icon('chevron'))+'</span></button>').join(''));}
+function showTask(id){
+  detailId=id;previewBefore=false;
+  const t=state.tasks.find(t=>t.id===id);if(!t)return;
+  showSheet('任务进展','<p class="badge">'+t.agent+' · '+platforms[t.platform]+' · '+escapeHtml(t.project)+'</p><h3 style="font-size:18px;margin:15px 0">'+escapeHtml(t.title)+'</h3><p>'+escapeHtml(t.summary)+'</p>'+(t.feedback?'<div class="feedback-record">你的意见：'+escapeHtml(t.feedback)+'</div>':'')+'<p class="evidence">'+(state.online?'':'最后同步 · ')+names[t.status]+'</p>'+(t.status==='review'?button('open-preview',icon('check')+' 查看成果并验收','primary'):t.status==='running'?button('complete', '模拟此任务完成','secondary'): '<p class="badge">'+icon('check')+' 已经由你验收</p>'));
+}
+function showPreview(){
+  const t=state.tasks.find(t=>t.id===detailId);if(!t)return;
+  const description={web:'交互预览示例 · 点击前后版本，体验页面变化。',mobile:'测试构建与录屏入口示例 · 正式验收要在对应手机上实际操作。',desktop:'截图与录屏入口示例 · 正式验收要在 Mac 上实际操作。'}[t.platform];
+  showSheet('看看这次改动','<p class="badge">'+platforms[t.platform]+' · '+escapeHtml(t.project)+'</p><h3 style="margin:12px 0">'+escapeHtml(t.title)+'</h3><p class="muted">'+description+'</p><div class="artifact"><div class="version-tabs" role="tablist" aria-label="对比版本">'+button('before','修改前','','role="tab" aria-selected="'+previewBefore+'"')+button('after','修改后','','role="tab" aria-selected="'+!previewBefore+'"')+'</div><div class="preview '+(previewBefore?'before':'')+'"><h3>你的项目，正在向前。</h3><p>'+(previewBefore?'所有工作集中在一张列表。':'重要的进展，放在你看得见的地方。')+'</p><div class="preview-cards"><div>Codex<br><b>语音派工</b><p>正在实现</p></div><div>Claude<br><b>项目概览</b><p>等你验收</p></div></div></div></div><p class="evidence"><strong>演示验证记录</strong><br>页面流程：通过（示例）<br>对应设备实际操作：待你验证</p>'+(t.platform!=='web'?button('build-info','查看测试构建 / 录屏说明','secondary'):'')+'<div class="action-pair">'+button('accept','我看过了，验收通过','primary')+button('later','稍后再看','secondary')+'</div><form id="feedback-form"><label class="field">需要调整的地方<textarea name="feedback" placeholder="例如：卡片间距再大一点…" required maxlength="400"></textarea></label>'+button('submit','把修改意见交回 Agent','secondary','type="submit"')+'</form>');
+}
+document.addEventListener('click',event=>{
+  const target=event.target.closest('button');if(!target||target.disabled||target.closest('.proto-picker'))return;
+  if(target.dataset.task){showTask(target.dataset.task);return;}
+  if(target.dataset.project){
+    if(target.dataset.drop==='true')act(state,{type:'discard'});
+    const result=act(state,{type:target.dataset.browse==='true'?'browse':'bind',project:target.dataset.project});
+    if(!result.ok){document.getElementById('sheet-message').innerHTML=escapeHtml(result.message)+'<button class="secondary" data-project="'+escapeHtml(target.dataset.project)+'" data-browse="false" data-drop="true">放弃当前草稿并切换</button>';return;}
+    document.getElementById('sheet').close();render();return;
+  }
+  const action=target.dataset.action;if(!action||action==='submit')return;
+  if(action==='close'||action==='later'){document.getElementById('sheet').close();return;}
+  if(action==='project'||action==='browse-project'){showProjects(action==='browse-project');return;}
+  if(action==='open-preview'){const result=act(state,{type:'inspect',id:detailId});if(result.ok)showPreview();return;}
+  if(action==='before'||action==='after'){previewBefore=action==='before';showPreview();return;}
+  if(action==='build-info'){document.getElementById('sheet-message').textContent='原型未生成安装包或录屏。正式版在这里打开对应测试构建与录屏，再到实际设备操作。';return;}
+  if(action==='accept'){
+    const result=act(state,{type:'accept',id:detailId});
+    if(!result.ok){document.getElementById('sheet-message').textContent=result.message;return;}
+    document.getElementById('sheet').close();state.page='results';render();return;
+  }
+  if(action==='complete'){
+    const result=act(state,{type:'complete',id:detailId});if(!result.ok){document.getElementById('sheet-message').textContent=result.message;return;}
+    showTask(detailId);render();return;
+  }
+  if(action==='reset'){state=initialRealtime();render();return;}
+  if(action.startsWith('page-')){state.page=action.slice(5);render();return;}
+  if(action==='idea'){
+    if(!state.call)act(state,{type:'start'});
+    act(state,{type:'discuss',text:'让指挥台支持语音派工，做好后让我看页面。'});state.page='command';
+  }else if(action==='dispatch'){act(state,{type:'dispatch',operation:'dispatch-'+state.operation});}
+  else if(action==='bind'){act(state,{type:'bind',project:state.viewProject});}
+  else if(action==='complete-next'){
+    const task=state.tasks.find(t=>t.status==='running'&&t.project===state.project);
+    if(task)act(state,{type:'complete',id:task.id});else state.notice='没有进行中的任务，可以先聊一个新想法。';
+    state.page='results';
+  }else if(action==='progress'){
+    const tasks=state.tasks.filter(t=>t.project===state.project),text=state.online?'目前 '+tasks.filter(t=>t.status==='running').length+' 项进行中，'+tasks.filter(t=>t.status==='review').length+' 份界面等你验收。':'Mac 离线，我只能看到最后快照，无法确认最新进度。';
+    state.reply=text;state.chat.push({role:'norma',text});state.notice=text;
+  }else act(state,{type:action});
+  render();
+});
+document.addEventListener('input',event=>{if(event.target.id==='idea-input')state.composer=event.target.value;});
+document.addEventListener('submit',event=>{
+  if(event.target.id==='idea-form'){
+    event.preventDefault();const text=new FormData(event.target).get('idea');
+    if(!state.call)act(state,{type:'start'});
+    const result=act(state,{type:'discuss',text});if(result.ok)state.composer='';render();
+  }
+  if(event.target.id==='feedback-form'){
+    event.preventDefault();const result=act(state,{type:'feedback',id:detailId,text:new FormData(event.target).get('feedback')});
+    if(!result.ok){document.getElementById('sheet-message').textContent=result.message;return;}
+    document.getElementById('sheet').close();render();
+  }
+});
+document.getElementById('sheet').addEventListener('close',()=>{if(lastFocus?.isConnected)lastFocus.focus();else document.querySelector('.bottom-nav [aria-current=page]')?.focus();});
+const variants=directions.map((_,i)=>()=>{document.getElementById('sheet').close();state=initialRealtime();return renderVariant(i);});
+// Keep malformed links usable without changing the skill's picker wiring.
+const requestedVariant=Number(new URLSearchParams(location.search).get('v')||1);
+if(!Number.isInteger(requestedVariant)||requestedVariant<1||requestedVariant>variants.length){const url=new URL(location);url.searchParams.set('v','1');history.replaceState(null,'',url);}
+// `variants` is an array of render functions, one per variant, in picker order.
+const stage = document.getElementById('stage');
+const picker = document.querySelector('.proto-picker');
+const highlight = picker.querySelector('.proto-picker-highlight');
+const items = [...picker.querySelectorAll('.proto-picker-item:not(.proto-picker-replay)')];
+const replay = picker.querySelector('.proto-picker-replay');
+let current = 0;
+
+function moveHighlight() {
+  const el = items[current];
+  highlight.style.width = el.offsetWidth + 'px';
+  highlight.style.transform = `translateX(${el.offsetLeft}px)`;
+}
+
+function mount(i) {
+  stage.innerHTML = '';
+  // Clear first, render next frame, so entrance animations re-run.
+  requestAnimationFrame(() => { stage.innerHTML = variants[i](); });
+}
+
+function setActive(i) {
+  if (i < 0 || i >= variants.length) return;
+  current = i;
+  items.forEach((el, j) => {
+    el.toggleAttribute('data-active', j === i);
+    if (j === i) el.setAttribute('aria-current', 'true');
+    else el.removeAttribute('aria-current');
+  });
+  moveHighlight();
+  const url = new URL(location);
+  url.searchParams.set('v', i + 1);
+  history.replaceState(null, '', url);
+  mount(i);
+}
+
+items.forEach((el, i) => el.addEventListener('click', () => setActive(i)));
+replay?.addEventListener('click', () => mount(current));
+window.addEventListener('resize', moveHighlight);
+
+document.addEventListener('keydown', (e) => {
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const num = parseInt(e.key, 10);
+  if (num >= 1 && num <= variants.length) setActive(num - 1);
+  else if (e.key === 'ArrowRight') setActive((current + 1) % variants.length);
+  else if (e.key === 'ArrowLeft') setActive((current - 1 + variants.length) % variants.length);
+  else if (e.key === 'r' || e.key === 'R') mount(current);
+});
+
+setActive((parseInt(new URLSearchParams(location.search).get('v'), 10) || 1) - 1);
+// Enable the slide only after first paint, so load doesn't animate.
+requestAnimationFrame(() => requestAnimationFrame(() => picker.setAttribute('data-ready', '')));
+</script>
+</body>
+</html>

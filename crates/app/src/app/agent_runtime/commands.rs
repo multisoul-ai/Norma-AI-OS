@@ -12,12 +12,21 @@ use super::command_protocol::{
 use super::command_support::{activate_definition, type_agent_task, AgentTaskSubmitError};
 use super::pending::unsafe_submission_recovery_message;
 
+#[cfg(any(test, feature = "e2e-test-support"))]
 pub(crate) fn execute_agent_card_command(
     app: &mut MultisoulApp,
     window: &mut Window,
     command: CardCommand,
 ) -> Result<CardCommandResult, String> {
-    let area = app.visible_canvas_rect(window);
+    execute_agent_card_command_with_optional_window(app, Some(window), command)
+}
+
+pub(super) fn execute_agent_card_command_with_optional_window(
+    app: &mut MultisoulApp,
+    window: Option<&mut Window>,
+    command: CardCommand,
+) -> Result<CardCommandResult, String> {
+    let area = app.mobile_canvas_area(window);
     let zoom = app.runtime.document.viewport.zoom;
     if matches!(
         command,

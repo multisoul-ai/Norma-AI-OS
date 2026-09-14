@@ -63,15 +63,18 @@ extension NotificationFlowUITests {
     /// 点击通知须越过已有弹窗并向已配对Mac回源，冷启动和旧窗口拒绝仍然有效。
     ///
     /// 数据构造：已允许系统通知的独立模拟器；5条本地通知=设置+重复事件ID但不同目标+嵌套输入+冷启动+旧窗口；10s系统导航预算。
-    /// 执行过程：设置弹窗切后台 → 通知回源 → 前台点击不同目标的通知 → 关闭恢复 → 嵌套输入/冷启动/旧窗口检查。
-    /// 预期结果：有效通知立即显示准确项目和对话入口，底层弹窗不遮挡；返回保留订阅与地址；旧窗口不能打开新任务。
+    /// 执行过程：设置弹窗切后台 → 通知回源 → 切语音/键盘 → 前台点击不同目标的通知 → 关闭恢复 → 嵌套输入/冷启动/旧窗口检查。
+    /// 预期结果：有效通知立即进入准确卡片对话，底层弹窗不遮挡；返回保留订阅与地址；旧窗口不能打开新任务。
     @MainActor func testNotificationColdLaunchAndStaleWindow() throws {
         let env = ProcessInfo.processInfo.environment
         guard let path = env["NORMA_TEST_QR"], path.hasPrefix("/"), env["NORMA_TEST_MODE"] == "notification-ui" else {
             throw XCTSkip("需要scripts/check-norma-ios-notification-clicks.py与独立fixture")
         }
         let directory = URL(fileURLWithPath: path).deletingLastPathComponent()
-        let app = XCUIApplication(); app.launch()
+        let app = XCUIApplication()
+        // 此处只检查独立通知窗口的环境注入；真实系统授权由 ChatVoiceInputFlowTests 覆盖。
+        app.launchEnvironment["NORMA_CHAT_VOICE_FIXTURE"] = "denied"
+        app.launch()
         app.buttons["manage-computers"].tap()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "通知验收 Mac")).firstMatch.waitForExistence(timeout: 5), "不能在用户其他电脑上验收")
         app.buttons["notification-settings"].tap()
@@ -85,17 +88,22 @@ extension NotificationFlowUITests {
         let warm = springboard.staticTexts["设置中的验收任务已完成"]
         XCTAssertTrue(warm.waitForExistence(timeout: 10), "暖启动通知必须实际显示")
         warm.tap()
-        guard app.buttons["打开任务对话"].waitForExistence(timeout: 10) else {
+        guard app.segmentedControls["chat-content-tabs"].waitForExistence(timeout: 10) else {
             XCTFail("通知不能被原任务提醒设置弹窗遮挡：\(app.debugDescription)"); return
         }
-        XCTAssertTrue(app.staticTexts["通知验收项目"].exists, "必须完成准确任务回源")
+        XCTAssertTrue(app.navigationBars["通知回源验收卡片"].exists, "必须直接打开准确卡片")
         XCTAssertFalse(app.buttons["notification-settings-close"].isHittable, "底层设置不能拦截通知页操作")
+        app.buttons["chat-input-mode"].tap()
+        XCTAssertTrue(app.buttons["chat-voice-hold"].waitForExistence(timeout: 10), "独立通知窗口必须提供共享通话状态，切语音不能崩溃")
+        app.buttons["chat-input-mode"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["chat-message-input"].firstMatch.exists, "通知中的聊天必须能切回键盘")
+        XCTAssertFalse(app.buttons["chat-voice-hold"].exists, "通知窗口切回键盘后不应残留语音按钮")
         try Data().write(to: directory.appendingPathComponent("replacement-push-ready"), options: .atomic)
         let replacement = springboard.staticTexts["另一项任务的提醒"]
         XCTAssertTrue(replacement.waitForExistence(timeout: 10), "第二次点击必须来自新的系统通知")
         replacement.tap()
         XCTAssertTrue(app.staticTexts["暂时无法打开这项提醒"].waitForExistence(timeout: 10), "已打开的通知页也必须按完整新目标重新核验，不能只信event_id")
-        XCTAssertFalse(app.buttons["打开任务对话"].exists, "新目标无效时不能残留上一项任务入口")
+        XCTAssertFalse(app.segmentedControls["chat-content-tabs"].exists, "新目标无效时不能残留上一项任务入口")
         app.buttons["notification-destination-close"].tap()
         XCTAssertTrue(app.staticTexts["电脑已登记此 iPhone"].waitForExistence(timeout: 5), "返回必须保留此前订阅和设置上下文")
         app.buttons["notification-settings-close"].tap()
@@ -109,7 +117,7 @@ extension NotificationFlowUITests {
         let nested = springboard.staticTexts["输入中的验收任务已完成"]
         XCTAssertTrue(nested.waitForExistence(timeout: 10), "嵌套弹窗通知必须由系统显示")
         nested.tap()
-        XCTAssertTrue(app.buttons["打开任务对话"].waitForExistence(timeout: 10), "通知必须跨过任意深度弹窗")
+        XCTAssertTrue(app.segmentedControls["chat-content-tabs"].waitForExistence(timeout: 10), "通知必须跨过任意深度弹窗")
         XCTAssertFalse(address.isHittable, "输入页不能遮挡任务入口")
         app.buttons["notification-destination-close"].tap()
         XCTAssertTrue(address.waitForExistence(timeout: 5), "关闭通知必须返回原输入页")
@@ -122,10 +130,10 @@ extension NotificationFlowUITests {
         let first = springboard.staticTexts["一项验收任务已完成"]
         XCTAssertTrue(first.waitForExistence(timeout: 10), "本地注入通知必须实际出现在系统界面")
         first.tap()
-        XCTAssertTrue(app.navigationBars["任务提醒"].waitForExistence(timeout: 10), "点击通知应冷启动Norma并打开回源页面")
+        XCTAssertTrue(app.navigationBars["通知回源验收卡片"].waitForExistence(timeout: 10), "点击通知应冷启动Norma并直接打开原卡片")
         XCTAssertTrue(app.staticTexts["通知验收 Mac"].waitForExistence(timeout: 10), "必须显示保存的正确电脑")
-        XCTAssertTrue(app.staticTexts["通知验收项目"].exists, "必须显示授权项目")
-        XCTAssertTrue(app.buttons["打开任务对话"].exists, "准确当前任务应可继续进入对话")
+        XCTAssertFalse(app.buttons["打开任务对话"].exists, "完成通知不应要求再点一次中间入口")
+        XCTAssertTrue(app.segmentedControls["chat-content-tabs"].exists, "准确任务必须直接显示对话")
         XCTAssertFalse(app.staticTexts["暂时无法打开这项提醒"].exists, "正确目标不能误判过期")
         let valid = XCTAttachment(screenshot: app.screenshot()); valid.name = "notification-current-window"; valid.lifetime = .keepAlways; add(valid)
         app.buttons["notification-destination-close"].tap()
@@ -136,7 +144,7 @@ extension NotificationFlowUITests {
         XCTAssertTrue(stale.waitForExistence(timeout: 10), "第二条通知必须由系统显示")
         stale.tap()
         XCTAssertTrue(app.staticTexts["暂时无法打开这项提醒"].waitForExistence(timeout: 10), "窗口变化后旧通知必须拒绝")
-        XCTAssertFalse(app.buttons["打开任务对话"].exists, "不能把旧通知映射到新窗口任务")
+        XCTAssertFalse(app.segmentedControls["chat-content-tabs"].exists, "不能把旧通知映射到新窗口任务")
         let rejected = XCTAttachment(screenshot: app.screenshot()); rejected.name = "notification-stale-window"; rejected.lifetime = .keepAlways; add(rejected)
         app.buttons["notification-destination-close"].tap()
         try FileManager.default.removeItem(at: directory.appendingPathComponent("ui-stale"))

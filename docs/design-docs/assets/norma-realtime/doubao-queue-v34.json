@@ -1,0 +1,90 @@
+{
+  "turns": [
+    {
+      "turn": "68949f30-249c-4c81-93b8-20c14c6f445d",
+      "prompt": "创建 result.txt，内容为 realtime complete"
+    },
+    {
+      "turn": "a9fda80c-9752-423c-88b8-2f92d0057a95",
+      "prompt": "添加 queue second 到 result.txt"
+    }
+  ],
+  "chats": 11,
+  "receipts": [
+    {
+      "status": "accepted",
+      "message": "已创建并打开 Agent Alan，AgentCard 已接收任务",
+      "node_id": 1,
+      "operation_id": "rt-9985b3ebf20a20782a287b3665247876e7a80b418d51851f1ac758e36493311f",
+      "task_id": 1
+    },
+    {
+      "status": "accepted",
+      "message": "Alan 的 AgentCard 已接收任务",
+      "node_id": 1,
+      "operation_id": "rt-96bfb5026c40efbd8781aa0fb1ac9fb19b5be57fe014f35ffe9d3b93f0c55a9a",
+      "task_id": 2
+    },
+    {
+      "status": "accepted",
+      "message": "Alan 的 AgentCard 已接收任务",
+      "node_id": 1,
+      "operation_id": "rt-dae67f2cdefc81225fcff89884bb46dfd75064d669a1cd1eddf746a58fa8a37f",
+      "task_id": 3
+    },
+    {
+      "status": "succeeded",
+      "message": "排队任务 #3 已取消",
+      "operation_id": "rt-aaf8b4bb83265ea863606147b049e878edabe4f35fe9e7769a3ed331b850b807",
+      "task_id": 3
+    },
+    {
+      "status": "succeeded",
+      "message": "找到 3 个 Agent 任务",
+      "tasks": [
+        {
+          "state": "cancelled",
+          "task": "创建 cancelled.txt",
+          "agent": "Alan",
+          "task_id": 3
+        },
+        {
+          "state": "succeeded",
+          "task": "添加 queue second 到 result.txt",
+          "agent": "Alan",
+          "task_id": 2
+        },
+        {
+          "state": "succeeded",
+          "task": "创建 result.txt，内容为 realtime complete",
+          "agent": "Alan",
+          "task_id": 1
+        }
+      ],
+      "operation_id": "rt-a90e9d6fea79b7ac698ca4474624f32298cc4bfaedec47b1c2994ead9f33f36c"
+    }
+  ],
+  "speech": [
+    "可以先讨论，尚未派工。",
+    "任务已接收，尚未完成。",
+    "任务已接收，尚未完成。",
+    "任务已接收，尚未完成。",
+    "任务已接收，尚未完成。",
+    "2项执行完成，2项待你验收。",
+    "详情在成果记录中。",
+    "任务已接收，尚未完成。"
+  ],
+  "frames": 50,
+  "stored": {
+    "mobile_commands": 5,
+    "mobile_turn_outcomes": 2,
+    "mobile_task_baselines": 2,
+    "mobile_task_deliveries": 2,
+    "mobile_delivery_acceptances": 0
+  },
+  "desktop_listener_stopped": true,
+  "asr_packet_counts": {
+    "configuration": 2,
+    "audio": 48
+  }
+}

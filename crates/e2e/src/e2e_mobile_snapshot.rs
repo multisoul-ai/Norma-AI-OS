@@ -211,6 +211,7 @@ fn check_mobile_snapshot_scope() -> LatencySample {
                 cards: None,
             }],
             include_cards: true,
+            agents: None,
             deadline,
             reply,
         })

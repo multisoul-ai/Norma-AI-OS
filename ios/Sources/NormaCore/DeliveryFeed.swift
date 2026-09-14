@@ -57,6 +57,11 @@ public enum DeliveryWatchUpdate: Sendable {
 extension MobileClient {
     public func deliveryUpdates(_ machine: PairedMachine, scope: ProjectReviewRequest, nodeID: UInt64? = nil,
                                 before: UInt64? = nil, pendingOnly: Bool = false) -> AsyncThrowingStream<DeliveryWatchUpdate, any Error> {
+        deliveryUpdates(machine, scope: scope, nodeID: nodeID, before: before, pendingOnly: pendingOnly, retainedCredential: nil)
+    }
+    func deliveryUpdates(_ machine: PairedMachine, scope: ProjectReviewRequest, nodeID: UInt64? = nil,
+                         before: UInt64? = nil, pendingOnly: Bool = false,
+                         retainedCredential: DeviceCredential?) -> AsyncThrowingStream<DeliveryWatchUpdate, any Error> {
         AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             let work = Task {
                 do {
@@ -66,7 +71,12 @@ extension MobileClient {
                     var attempts = 0
                     while !Task.isCancelled {
                         do {
-                            guard let credential = try await vault.load(machineID: machine.id) else { throw MobileError.invalidCredential }
+                            let credential: DeviceCredential
+                            if let retainedCredential { credential = retainedCredential }
+                            else {
+                                guard let saved = try await vault.load(machineID: machine.id) else { throw MobileError.invalidCredential }
+                                credential = saved
+                            }
                             let connection = try await PinnedConnection.open(machine, streaming: true)
                             defer { connection.close() }
                             let id = UUID().uuidString
@@ -103,5 +113,12 @@ extension MobileClient {
             }
             continuation.onTermination = { _ in work.cancel() }
         }
+    }
+}
+
+extension RealtimeBindingClient {
+    /// The call already holds this credential until hangup, including while the device is locked.
+    public func deliveryUpdates(scope: ProjectReviewRequest) -> AsyncThrowingStream<DeliveryWatchUpdate, any Error> {
+        MobileClient(vault: CredentialVault()).deliveryUpdates(machine, scope: scope, retainedCredential: credential)
     }
 }

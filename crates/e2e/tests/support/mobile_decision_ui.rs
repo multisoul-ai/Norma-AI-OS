@@ -342,6 +342,12 @@ fn chat_records(dir: &Path, sent: Option<&serde_json::Value>) -> Vec<serde_json:
     // 24条独立历史使内容明显超过一屏；每条约4行，不能靠输入框上方偶然可见通过滚动验收。
     let mut items: Vec<_> = (0..24).map(|index| json!({"id":format!("history-{index}"),"role":"assistant",
         "text":format!("历史消息 {index}\n核对连接路径。\n保留已确认的结果。\n下一步由用户决定。"),"details":null})).collect();
+    if dir.join("ui-chat-reading").exists() {
+        // 32 × 3 = 96行单条Markdown回复，覆盖回看长正文时输入区悬空/正文穿透的原生UI回归。
+        items = vec![json!({"id":"reading-long-reply","role":"assistant",
+            "text":format!("阅读长回复\n{}", "核对 **连接路径**。\n执行 `swift test`。\n保留已确认的结果。\n".repeat(32)),
+            "details":null})];
+    }
     items
         .push(json!({"id":"initial-tail","role":"assistant","text":"初始历史末条","details":null}));
     if dir.join("ui-chat-final").exists() {

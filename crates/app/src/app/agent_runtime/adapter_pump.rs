@@ -24,7 +24,7 @@ fn start_adapter_pump(
                     }
                     execute_norma_adapter_command_with_source(
                         app,
-                        window,
+                        Some(window),
                         cx,
                         command,
                         input_source,
@@ -50,7 +50,7 @@ pub(crate) fn execute_norma_adapter_command(
 ) -> Result<AdapterResult, AdapterError> {
     execute_norma_adapter_command_with_source(
         app,
-        window,
+        Some(window),
         cx,
         command,
         agent::AgentInputSource::Other,
@@ -59,7 +59,7 @@ pub(crate) fn execute_norma_adapter_command(
 
 pub(crate) fn execute_norma_adapter_command_with_source(
     app: &mut MultisoulApp,
-    window: &mut Window,
+    mut window: Option<&mut Window>,
     cx: &mut Context<MultisoulApp>,
     command: AdapterCommand,
     input_source: agent::AgentInputSource,
@@ -79,9 +79,9 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                 .into_iter()
                 .filter(|task| task_id.is_none_or(|expected| task.task_id == expected))
                 .filter(|task| {
-                    agent.as_ref().is_none_or(|expected| {
-                        task.agent.eq_ignore_ascii_case(expected.trim())
-                    })
+                    agent
+                        .as_ref()
+                        .is_none_or(|expected| task.agent.eq_ignore_ascii_case(expected.trim()))
                 })
                 .filter(|task| states.is_empty() || states.iter().any(|state| state == task.state))
                 .filter(|task| {
@@ -99,16 +99,15 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                     })
                 })
                 .collect::<Vec<_>>();
-            Ok(AdapterResult::succeeded(format!(
-                "找到 {} 个 Agent 任务",
-                tasks.len()
-            ))
-            .with_tasks(tasks))
+            Ok(
+                AdapterResult::succeeded(format!("找到 {} 个 Agent 任务", tasks.len()))
+                    .with_tasks(tasks),
+            )
         }
         AdapterCommand::CreateAgent { profile, task } => {
-            let result = commands::execute_agent_card_command(
+            let result = commands::execute_agent_card_command_with_optional_window(
                 app,
-                window,
+                window.as_deref_mut(),
                 CardCommand::CreateAgent {
                     name: None,
                     profile,
@@ -125,19 +124,20 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                     Some(task) => {
                         let mut receipt = adapter_task::dispatch_agent_task(
                             app,
-                            window,
+                            window.as_deref_mut(),
                             cx,
                             name.clone(),
                             task,
                         )?;
-                        receipt.message = format!("已创建并打开 Agent {name}，AgentCard 已接收任务");
+                        receipt.message =
+                            format!("已创建并打开 Agent {name}，AgentCard 已接收任务");
                         receipt.node_id = Some(node_id);
                         Ok(receipt)
                     }
-                    None => Ok(AdapterResult::succeeded(format!(
-                        "已创建并打开 Agent {name}"
-                    ))
-                    .with_node_id(node_id)),
+                    None => Ok(
+                        AdapterResult::succeeded(format!("已创建并打开 Agent {name}"))
+                            .with_node_id(node_id),
+                    ),
                 },
                 other => Err(AdapterError::Failed(format!(
                     "创建 Agent 返回了意外回执：{other:?}"
@@ -145,7 +145,7 @@ pub(crate) fn execute_norma_adapter_command_with_source(
             }
         }
         AdapterCommand::AssignAgentTask { agent, task } => {
-            adapter_task::dispatch_agent_task(app, window, cx, agent, task)
+            adapter_task::dispatch_agent_task(app, window.as_deref_mut(), cx, agent, task)
         }
         AdapterCommand::CancelAgentTask { task_id } => {
             let task_to_cancel = app.agent_task_coordinator.as_ref().and_then(|coordinator| {
@@ -244,10 +244,13 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                 }
             }
             match result {
-                agent::AgentTaskCancellation::Cancelled => Ok(AdapterResult::succeeded(format!(
-                    "排队任务 #{task_id} 已取消"
-                ))
-                .with_task_id(task_id)),
+                agent::AgentTaskCancellation::Cancelled => {
+                    app.pending_agent_submissions.remove_task(task_id);
+                    Ok(
+                        AdapterResult::succeeded(format!("排队任务 #{task_id} 已取消"))
+                            .with_task_id(task_id),
+                    )
+                }
                 agent::AgentTaskCancellation::CancelRequested => Ok(AdapterResult::accepted(
                     format!("运行任务 #{task_id} 已请求取消，等待 AgentCard 确认"),
                 )
@@ -260,7 +263,10 @@ pub(crate) fn execute_norma_adapter_command_with_source(
         }
         command @ AdapterCommand::ReplyAgent { .. } => {
             let result = reply_adapter::execute_reply_adapter_command(app, command)?;
-            if input_source == agent::AgentInputSource::Voice {
+            if let Some(window) = window
+                .as_deref_mut()
+                .filter(|_| input_source == agent::AgentInputSource::Voice)
+            {
                 let visible_area = app.visible_canvas_rect(window);
                 if dispatch_effects::spawn_accepted_session_reply(
                     app,
@@ -278,9 +284,9 @@ pub(crate) fn execute_norma_adapter_command_with_source(
             reply_adapter::execute_reply_adapter_command(app, command)
         }
         AdapterCommand::CreateTerminal => map_card_result(
-            commands::execute_agent_card_command(
+            commands::execute_agent_card_command_with_optional_window(
                 app,
-                window,
+                window.as_deref_mut(),
                 CardCommand::Create {
                     kind: CardKind::Terminal { shell: None },
                     placement: Placement::VisibleArea,
@@ -291,9 +297,9 @@ pub(crate) fn execute_norma_adapter_command_with_source(
         AdapterCommand::CreateBrowser { url } => {
             let url = crate::cards::browser::normalize_browser_url(url.as_deref().unwrap_or(""));
             map_card_result(
-                commands::execute_agent_card_command(
+                commands::execute_agent_card_command_with_optional_window(
                     app,
-                    window,
+                    window.as_deref_mut(),
                     CardCommand::Create {
                         kind: CardKind::Browser { url },
                         placement: Placement::VisibleArea,
@@ -315,9 +321,9 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                 path.to_string_lossy().as_ref(),
             )
             .map_err(|error| AdapterError::Rejected(error.to_string()))?;
-            let area = app.visible_canvas_rect(window);
+            let area = app.mobile_canvas_area(window.as_deref_mut());
             let zoom = app.runtime.document.viewport.zoom;
-            let bounds = app.next_tiled_node_bounds(window);
+            let bounds = app.next_tiled_node_bounds_for_area(area, zoom);
             let node_id = app.spawn_preview_from_path(
                 path,
                 explicit_type.map(crate::norma::server::canvas_preview_type),
@@ -329,7 +335,11 @@ pub(crate) fn execute_norma_adapter_command_with_source(
             Ok(AdapterResult::succeeded("已创建 Preview").with_node_id(node_id))
         }
         AdapterCommand::FocusCard { node_id } => map_card_result(
-            commands::execute_agent_card_command(app, window, CardCommand::Focus { node_id }),
+            commands::execute_agent_card_command_with_optional_window(
+                app,
+                window.as_deref_mut(),
+                CardCommand::Focus { node_id },
+            ),
             "已聚焦卡片",
         ),
         AdapterCommand::SendTerminalInput {
@@ -348,9 +358,9 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                 )));
             }
             map_card_result(
-                commands::execute_agent_card_command(
+                commands::execute_agent_card_command_with_optional_window(
                     app,
-                    window,
+                    window.as_deref_mut(),
                     CardCommand::SendText {
                         node_id,
                         text,
@@ -361,14 +371,12 @@ pub(crate) fn execute_norma_adapter_command_with_source(
             )
         }
         AdapterCommand::DeleteCanvasCard { node_id } => {
-            delete_card::close_node(app, window, node_id, "已删除卡片")
+            delete_card::close_node(app, window.as_deref_mut(), node_id, "已删除卡片")
         }
         AdapterCommand::DeleteCanvasCardAtPosition { position } => {
-            delete_card::close_position(app, window, position)
+            delete_card::close_position(app, window.as_deref_mut(), position)
         }
-        AdapterCommand::DeleteAgentCard { agent } => {
-            delete_card::close_agent(app, window, &agent)
-        }
+        AdapterCommand::DeleteAgentCard { agent } => delete_card::close_agent(app, window, &agent),
     }
 }
 

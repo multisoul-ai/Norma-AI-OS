@@ -64,6 +64,7 @@ pub(crate) fn attach(store: AppStore, cx: &mut App) -> Entity<MobileController> 
                                 &database,
                                 request.projects,
                                 request.include_cards,
+                                request.agents,
                                 cx,
                             )
                         }) {

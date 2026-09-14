@@ -9,7 +9,7 @@ use super::commands;
 
 pub(super) fn dispatch_agent_task(
     app: &mut MultisoulApp,
-    window: &mut Window,
+    window: Option<&mut Window>,
     cx: &mut Context<MultisoulApp>,
     agent: String,
     task: String,
@@ -19,7 +19,7 @@ pub(super) fn dispatch_agent_task(
         .definition_by_address(&agent)
         .map(|definition| definition.id)
         .ok_or_else(|| AdapterError::Rejected(format!("未找到 Agent：{agent}")))?;
-    let result = commands::execute_agent_card_command(
+    let result = commands::execute_agent_card_command_with_optional_window(
         app,
         window,
         CardCommand::DispatchAgentTasks {

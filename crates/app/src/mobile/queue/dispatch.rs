@@ -133,6 +133,7 @@ fn snapshots(shared: &Shared, entries: &[QueuedMessage]) -> Option<Vec<ProjectSn
         .try_send(LiveSnapshotRequest {
             projects,
             include_cards: true,
+            agents: None,
             deadline,
             reply,
         })

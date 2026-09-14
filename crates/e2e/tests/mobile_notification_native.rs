@@ -27,6 +27,7 @@ mod todo_ui;
 /// ui-project-navigation增加第二个只读项目，复用node_id=1且默认关闭，验证看板订阅切换。
 /// ui-catalog-offline关闭目录响应，ui-catalog-empty暂时清空测试手机项目授权；移除标记后恢复原只读范围。
 /// event.apns用于simctl本地注入，不表示真实APNs送达。
+/// 手机聊天语音验收可指定 scripts/check-norma-ios-chat-voice.sh 作为 probe（需 NORMA_DECISION_UI=1）。
 /// 预期结果：原生测试通过，配对未升权；结束后无有效测试授权；仅指定窗口/回合可被通知定位。
 #[test]
 #[ignore = "requires explicit native iOS runner and isolated simulator"]
@@ -62,7 +63,7 @@ fn native_notification_lifecycle_and_ui_fixture() {
         state: "done".into(),
         run_id: Some("notification-run".into()),
         session_id: Some("notification-session".into()),
-        turn_id: Some("notification-turn".into()),
+        turn_id: None, // Provider完成后清空活动回合，通知仍携带已完成回合ID。
         task_title: Some("本地通知定位验收".into()),
     };
     if interactive {

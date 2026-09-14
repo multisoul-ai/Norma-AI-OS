@@ -11,7 +11,9 @@ pub use conversation_transfer::{
     ConversationFragment, CONVERSATION_CHUNK_BYTES, MAX_CONVERSATION_BYTES,
 };
 mod identity;
+mod voice_authorization;
 pub use conversation::{ConversationItem, ConversationPage, ConversationRequest};
+pub use voice_authorization::VOICE_GATEWAY_ORIGIN;
 #[cfg(target_os = "macos")]
 mod keychain;
 mod pairing;

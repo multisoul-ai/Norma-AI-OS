@@ -229,7 +229,10 @@ fn cancel_task(
         .cancel_task_ref(task_ref)
         .map_err(task_reference_error)?;
     let status = match cancellation {
-        agent::AgentTaskCancellation::Cancelled => AgentTaskReceiptStatus::Cancelled,
+        agent::AgentTaskCancellation::Cancelled => {
+            app.pending_agent_submissions.remove_task(task.task_id);
+            AgentTaskReceiptStatus::Cancelled
+        }
         agent::AgentTaskCancellation::CancelRequested => AgentTaskReceiptStatus::CancelRequested,
         agent::AgentTaskCancellation::NotFound => {
             return Err(CardCommandError::agent(

@@ -126,9 +126,9 @@ fn codex_messages_wait_for_rpc_and_quarantine_unknown_outcomes() {
 
 /// 同一次Codex事件批次的两个终态按实际turn保存，不能使用drain后的当前卡片推断。
 ///
-/// 数据构造：turn-a完成、turn-b开始后失败、另一thread的turn-c完成事件是负例。
+/// 数据构造：turn-a带最终回复完成、turn-b开始后带错误原因失败，另一thread的turn-c为负例。
 /// 执行过程：正式私有WS推送一批事件 → runtime drain → 关闭 → 从项目SQLite读取两个独立回合。
-/// 预期结果：a完成、b失败，错线程c与没有结束事件的回合均没有成功记录。
+/// 预期结果：a完成与摘要、b失败与原因独立保留，错线程c与没有结束事件的回合均没有成功记录。
 #[test]
 fn codex_turn_outcomes_capture_each_provider_turn_before_state_changes() {
     let (mut runtime, node, directory, server) = super::tests::setup();
@@ -136,9 +136,11 @@ fn codex_turn_outcomes_capture_each_provider_turn_before_state_changes() {
         &runtime,
         node,
         vec![
+            json!({"method":"turn/started","params":{"threadId":"thread-a","turn":{"id":"turn-a"}}}),
+            json!({"method":"item/completed","params":{"threadId":"thread-a","turnId":"turn-a","item":{"type":"agentMessage","text":"已修复通知，测试通过。"}}}),
             json!({"method":"turn/completed","params":{"threadId":"thread-a","turn":{"id":"turn-a","status":"completed"}}}),
             json!({"method":"turn/started","params":{"threadId":"thread-a","turn":{"id":"turn-b"}}}),
-            json!({"method":"turn/completed","params":{"threadId":"thread-a","turn":{"id":"turn-b","status":"failed"}}}),
+            json!({"method":"turn/completed","params":{"threadId":"thread-a","turn":{"id":"turn-b","status":"failed","error":{"message":"下一回合失败"}}}}),
             json!({"method":"turn/completed","params":{"threadId":"thread-other","turn":{"id":"turn-c","status":"completed"}}}),
         ],
     );
@@ -168,6 +170,22 @@ fn codex_turn_outcomes_capture_each_provider_turn_before_state_changes() {
         store.get(&key("turn-b")).expect("读取b").map(|r| r.state),
         Some(storage::MobileTurnState::Failed),
         "保存b准确失败"
+    );
+    assert_eq!(
+        store
+            .get(&key("turn-a"))
+            .expect("a摘要")
+            .and_then(|r| r.summary),
+        Some("已修复通知，测试通过。".into()),
+        "同一批次下一回合开始不能抹掉旧完成摘要"
+    );
+    assert_eq!(
+        store
+            .get(&key("turn-b"))
+            .expect("b摘要")
+            .and_then(|r| r.summary),
+        Some("下一回合失败".into()),
+        "失败必须保存自己的原因"
     );
     assert!(
         store.get(&key("turn-c")).expect("错线程回合").is_none(),

@@ -95,6 +95,7 @@ impl MultisoulApp {
             }
             Err(error) => {
                 tracing::warn!(%error, path = %path.display(), "failed to open workspace");
+                self.workspace_state.error = Some(error);
             }
         }
         self.last_reflow_window_size = None;
@@ -301,7 +302,10 @@ pub(crate) fn enter_workspace_for_path_with_source(
     } = canvas;
     let total_start = Instant::now();
     let mut stage_start = total_start;
+    let previous_root = workspace_state.current_root.clone();
     let root = workspace_state.open_workspace(path, source)?;
+    // The selected directory is not an open project until restoration succeeds.
+    workspace_state.current_root = previous_root;
     log_workspace_open_timing(
         "workspace_open_record_recent",
         &root,
@@ -415,6 +419,7 @@ pub(crate) fn enter_workspace_for_path_with_source(
     motion.retain_nodes(std::iter::empty::<NodeId>());
     start_restored_card_initializations(runtime, motion);
     *screen = AppScreen::Canvas;
+    workspace_state.current_root = Some(root.clone());
     mark_canvas_open_render_pending();
     tracing::info!(
         stage = "workspace_open_total",

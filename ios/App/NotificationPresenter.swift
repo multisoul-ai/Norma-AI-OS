@@ -6,12 +6,14 @@ import NormaCore
 struct NotificationPresenter: UIViewControllerRepresentable {
     let model: ComputerModel
     @ObservedObject var notifications: PushNotifications
+    let call: VoiceCall
     @Environment(\.scenePhase) private var phase
 
     func makeUIViewController(context: Context) -> Controller { Controller() }
 
     func updateUIViewController(_ controller: Controller, context: Context) {
         controller.model = model
+        controller.call = call
         controller.notifications = notifications
         controller.phase = phase
         controller.showPending()
@@ -19,6 +21,7 @@ struct NotificationPresenter: UIViewControllerRepresentable {
 
     final class Controller: UIViewController {
         var model: ComputerModel?
+        var call: VoiceCall?
         var notifications: PushNotifications?
         var phase: ScenePhase = .inactive
         private var destination: UIHostingController<AnyView>?
@@ -29,9 +32,9 @@ struct NotificationPresenter: UIViewControllerRepresentable {
         }
 
         func showPending() {
-            guard let model, let target = notifications?.target else { return }
-            let content = AnyView(NotificationDestinationView(target: target, model: model, close: { [weak self] in self?.close() })
-                .id(target).environment(\.scenePhase, phase))
+            guard let model, let call, let target = notifications?.target else { return }
+            let content = AnyView(NotificationDestinationView(target: target, model: model, call: call, close: { [weak self] in self?.close() })
+                .id(target).environmentObject(call).environment(\.scenePhase, phase))
             if let destination {
                 if !destination.isBeingDismissed { destination.rootView = content }
                 return

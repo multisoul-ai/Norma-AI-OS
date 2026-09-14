@@ -41,6 +41,7 @@ mod message_tests;
 mod messages;
 mod native;
 mod native_launch;
+mod native_resume;
 pub use native_launch::NativeAgentLaunch;
 mod native_approval;
 mod native_approval_action;
@@ -149,6 +150,12 @@ impl Runtime {
     pub fn mobile_agent_is_preparing(&self, node_id: NodeId) -> bool {
         self.mobile_runs.get(&node_id).is_some_and(|run| {
             run.run_id.is_none()
+                || run
+                    .native_input
+                    .resume
+                    .pending
+                    .as_ref()
+                    .is_some_and(|p| !p.ready)
                 || run.message.is_some()
                 || (run.native && !self.live.contains_key(&node_id))
         })

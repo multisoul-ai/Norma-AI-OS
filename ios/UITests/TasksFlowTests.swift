@@ -38,121 +38,34 @@ final class TasksFlowTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-chat-sent.json").path), "读取和恢复都不能自动发消息")
     }
 
-    /// 最大字号下任务表单可操作，同名node在不同项目及新旧窗口不能共享草稿。
-    /// 数据构造：两个只读项目都使用Codex node1，但workspace/route/run/session均不同；AX5字体；
-    ///   每段最多8次滚动覆盖两屏高表单，8s = 2s心跳 + 6s布局与网络调度余量。
-    /// 执行过程：首项目写目标 → 切第二项目写另一目标 → 返回首项目 → 检查纵排按钮 → 替换窗口再还原。
-    /// 预期结果：目标分别保存且不串项目/窗口；只读不能发送；AX5按钮不重叠、文字不溢出屏幕。
-    @MainActor func testAccessibleNewTaskProjectAndWindowIsolation() throws {
-        let env = ProcessInfo.processInfo.environment
-        guard env["NORMA_TEST_MODE"] == "notification-ui", let path = env["NORMA_TEST_QR"] else { throw XCTSkip("仅隔离双项目fixture") }
-        let dir = URL(fileURLWithPath: path).deletingLastPathComponent()
-        guard FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-project-navigation").path) else { throw XCTSkip("必须先授权隔离第二项目") }
-        let second = dir.appendingPathComponent("ui-secondary-open")
-        let replaced = dir.appendingPathComponent("ui-stale")
-        try Data().write(to: second)
-        defer { try? FileManager.default.removeItem(at: second); try? FileManager.default.removeItem(at: replaced) }
-        let app = XCUIApplication()
-        app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
-        app.launch(); app.buttons["workspace-tab-tasks"].tap()
-        app.buttons["new-task"].tap()
-        let input = app.descendants(matching: .any)["new-task-input"].firstMatch
-        XCTAssertTrue(input.waitForExistence(timeout: 8), "AX5下仍应直接进入目标表单")
-        for _ in 0..<8 where !input.isHittable { app.scrollViews.firstMatch.swipeUp() }
-        input.tap(); input.typeText("首项目的目标")
-        app.buttons["chat-dismiss-keyboard"].tap()
-        let picker = app.buttons["new-task-project"]
-        for _ in 0..<8 where !picker.isHittable { app.scrollViews.firstMatch.swipeDown() }
-        picker.tap()
-        app.buttons["第二验收项目"].tap()
-        XCTAssertTrue(input.waitForExistence(timeout: 8), "第二项目已打开且有原Codex卡")
-        XCTAssertFalse((input.value as? String ?? "").contains("首项目的目标"), "同node_id不能串项目草稿")
-        for _ in 0..<8 where !input.isHittable { app.scrollViews.firstMatch.swipeUp() }
-        input.tap(); input.typeText("第二项目的目标")
-        app.buttons["chat-dismiss-keyboard"].tap()
-        for _ in 0..<8 where !picker.isHittable { app.scrollViews.firstMatch.swipeDown() }
-        picker.tap(); app.buttons["通知验收项目"].tap()
-        XCTAssertEqual(input.value as? String, "首项目的目标", "返回首项目应恢复其完整原文")
-        XCTAssertFalse((input.value as? String ?? "").contains("第二项目的目标"), "不得搬运另一个项目的目标")
-        let save = app.buttons["new-task-save"], send = app.buttons["new-task-send"]
-        for _ in 0..<8 where !send.isHittable { app.scrollViews.firstMatch.swipeUp() }
-        XCTAssertTrue(save.isHittable, "辅助字号的保存按钮应可点击")
-        XCTAssertTrue(send.isHittable, "辅助字号的发送按钮应可见，即使只读禁用")
-        XCTAssertFalse(send.isEnabled, "切换项目不得提升权限")
-        XCTAssertGreaterThanOrEqual(send.frame.minY, save.frame.maxY, "辅助字号两按钮必须纵排且不重叠")
-        XCTAssertLessThanOrEqual(save.frame.maxX, app.frame.maxX, "保存按钮不能溢出屏幕")
-        XCTAssertLessThanOrEqual(send.frame.maxX, app.frame.maxX, "发送按钮不能溢出屏幕")
-        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "new-task-accessibility"; shot.lifetime = .keepAlways; add(shot)
-        try Data().write(to: replaced)
-        let cleared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !(input.value as? String ?? "").contains("首项目的目标") }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [cleared], timeout: 8), .completed, "替换窗口不得自动搬运旧目标")
-        XCTAssertFalse(send.isEnabled, "新窗口没有目标和控制权限不能发送")
-        try FileManager.default.removeItem(at: replaced)
-        let restored = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in input.value as? String == "首项目的目标" }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 8), .completed, "旧窗口草稿不能因切换被丢弃")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-chat-sent.json").path), "全流程未发送任何任务")
-    }
-
-    /// 原型新建任务在同一弹层选择原卡、输入、存草稿和发送，不先进入聊天。
-    /// 数据构造：隔离TLS项目先只读；Claude原卡7/run-7/session-7，目标原文为一条中文句子；
-    ///   8s = 2s订阅心跳 + 6s原生导航和调度余量，不作为网络性能指标。
-    /// 执行过程：打开任务弹层 → 选择Claude → 写目标/收起键盘 → 只读存草稿 → 重开恢复 → 升级隔离授权 → 发送。
-    /// 预期结果：未授权不发送；草稿保留且不串Codex；准确原卡收到原文一次；成功打开同一对话并清空输入。
-    @MainActor func testNewTaskDraftAndOriginalCardSend() throws {
-        let env = ProcessInfo.processInfo.environment
-        guard env["NORMA_TEST_MODE"] == "notification-ui", let path = env["NORMA_TEST_QR"] else {
-            throw XCTSkip("仅用于隔离聊天服务")
+    /// 任务页移除占位标题和加号，普通与辅助字号均保留底部导航。
+    /// 数据构造：专用模拟器，L 和 AX5 两种系统字号；不需要配对或发送任务。
+    /// 执行过程：启动 App → 点击任务 Tab → 检查标题与加号消失 → 返回项目。
+    /// 预期结果：任务导航可点击；独立标题和新建入口不存在；可正常返回项目。
+    @MainActor func testTasksHaveNoStandaloneHeading() throws {
+        for category in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryAccessibilityXXXL"] {
+            let app = XCUIApplication()
+            app.launchArguments += ["-UIPreferredContentSizeCategoryName", category]
+            app.launch()
+            let tasks = app.buttons["workspace-tab-tasks"]
+            // 8s = 2s 启动 + 6s 模拟器调度余量，不是性能阈值。
+            XCTAssertTrue(tasks.waitForExistence(timeout: 8), "任务导航必须可用")
+            tasks.tap()
+            XCTAssertTrue(tasks.isSelected, "必须进入任务页后检查")
+            XCTAssertFalse(app.staticTexts["tasks-page-title"].exists, "任务大标题不应占用一行")
+            XCTAssertFalse(app.buttons["new-task"].exists, "圈出的加号入口应移除")
+            XCTAssertTrue(app.buttons["workspace-machine-switch"].isHittable, "电脑切换应保留")
+            app.buttons["workspace-tab-projects"].tap()
+            XCTAssertTrue(app.buttons["workspace-tab-projects"].isSelected, "仍可返回项目安排任务")
+            app.terminate()
         }
-        let dir = URL(fileURLWithPath: path).deletingLastPathComponent()
-        let flag = dir.appendingPathComponent("ui-chat-interactions")
-        try Data().write(to: flag)
-        defer { try? FileManager.default.removeItem(at: flag) }
-        let app = XCUIApplication(); app.launch(); app.buttons["workspace-tab-tasks"].tap()
-        let entry = app.buttons["new-task"]
-        XCTAssertTrue(entry.waitForExistence(timeout: 8), "任务页应保留加号入口")
-        entry.tap()
-        let input = app.descendants(matching: .any)["new-task-input"].firstMatch
-        XCTAssertTrue(input.waitForExistence(timeout: 8), "点击加号应直接看到目标输入，而非卡片目录")
-        guard input.exists else { return }
-        XCTAssertFalse(app.segmentedControls["chat-content-tabs"].exists, "输入目标前不应先打开对话")
-        app.buttons["new-task-agent"].tap(); app.buttons["new-task-agent-7"].tap()
-        let message = "请继续检查连接"
-        input.tap(); input.typeText(message)
-        let hide = app.buttons["chat-dismiss-keyboard"]
-        XCTAssertTrue(hide.waitForExistence(timeout: 3), "表单也必须能收起键盘")
-        hide.tap()
-        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "收起按钮应真正关闭键盘")
-        let send = app.buttons["new-task-send"]
-        XCTAssertFalse(send.isEnabled, "只读权限不能从新弹层发送")
-        app.buttons["new-task-agent"].tap(); app.buttons["new-task-agent-1"].tap()
-        XCTAssertFalse((input.value as? String ?? "").contains(message), "Claude草稿不能串到Codex")
-        app.buttons["new-task-agent"].tap(); app.buttons["new-task-agent-7"].tap()
-        XCTAssertEqual(input.value as? String, message, "切回原Claude卡恢复目标原文")
-        app.buttons["new-task-save"].tap()
-        XCTAssertTrue(entry.waitForExistence(timeout: 8), "保存后回到任务页")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-chat-sent.json").path), "保存草稿不得发送任务")
-        entry.tap()
-        XCTAssertTrue(input.waitForExistence(timeout: 8), "重开仍是目标表单")
-        XCTAssertEqual(input.value as? String, message, "重开应记住原Agent和已保存目标")
-        try Data().write(to: dir.appendingPathComponent("ui-card-management"))
-        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: send)
-        XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 8), .completed, "正式权限更新后才允许发送")
-        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "new-task-form"; shot.lifetime = .keepAlways; add(shot)
-        send.tap()
-        XCTAssertTrue(app.segmentedControls["chat-content-tabs"].waitForExistence(timeout: 8), "准确成功回执后打开原对话")
-        XCTAssertTrue(app.staticTexts["实时回复第一段"].waitForExistence(timeout: 8), "原会话结果应继续实时显示")
-        let chatInput = app.descendants(matching: .any)["chat-message-input"].firstMatch
-        XCTAssertFalse((chatInput.value as? String ?? "").contains(message), "成功发送后不应残留目标原文")
-        let sent = try JSONSerialization.jsonObject(with: Data(contentsOf: dir.appendingPathComponent("ui-chat-sent.json"))) as? [[String: String]]
-        XCTAssertEqual(sent?.count, 1, "新表单只能提交一次")
-        XCTAssertEqual(sent?.first?["text"], message, "保留目标原文；fixture另核对原node/run/session")
     }
 
     /// 指挥台首层直接显示最新方向、工作简报和Agent待办，不能展示旧计划或越过只读权限。
     ///
     /// 数据构造：notification-ui持久化旧/新两份计划，最新计划含一项Codex建议；8s为TLS读取与原生导航余量。
-    /// 执行过程：选择隔离电脑 → 指挥台默认行动计划 → 读取最新简报和待办 → 调整方向 → 返回 → 切换待你决策再回来。
-    /// 预期结果：无需进入项目目录/计划列表；旧计划不显示，只读不能安排或生成；两分段各自保持正确内容。
+    /// 执行过程：选择隔离电脑 → 新指挥台项目菜单 → 方向与记录 → 共享详情 → 决定弹层 → 返回。
+    /// 预期结果：真实方向和详情仍可访问；只读不能安排或生成；不保留旧分段。
     @MainActor func testCommandCenterShowsLatestPlanAndTodoDirectly() throws {
         guard ProcessInfo.processInfo.environment["NORMA_TEST_MODE"] == "notification-ui" else {
             throw XCTSkip("仅使用隔离只读计划fixture")
@@ -162,33 +75,23 @@ final class TasksFlowTests: XCTestCase {
         let machine = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "通知验收 Mac")).firstMatch
         XCTAssertTrue(machine.waitForExistence(timeout: 8), "只操作隔离电脑")
         machine.tap(); app.buttons["workspace-tab-command"].tap()
-        let planMode = app.buttons["command-mode-plan"]
-        XCTAssertTrue(planMode.isSelected, "默认直接显示行动计划")
-        XCTAssertTrue(app.staticTexts["优先解决手机连接延迟"].waitForExistence(timeout: 8), "当前方向须从实际数据库读取")
-        XCTAssertTrue(app.staticTexts["先核对连接路径，再整理实际测量结果。"].exists, "工作简报须来自最新计划")
-        XCTAssertFalse(app.staticTexts["旧工作简报"].exists, "不能误把最早计划当作当前方向")
-        let todo = app.staticTexts["核对连接路径"]
-        if !todo.isHittable { app.swipeUp() }
-        XCTAssertTrue(todo.waitForExistence(timeout: 8), "待办应直接显示，不应再点击一层计划列表")
-        let detail = app.buttons["todo-open-0"]
-        scrollToWorkspaceRow(detail, in: app)
-        detail.tap()
+        XCTAssertFalse(app.buttons["command-mode-plan"].exists, "旧分段必须删除")
+        openCommandPlans(in: app)
+        XCTAssertEqual(app.descendants(matching: .any)["plan-direction"].firstMatch.value as? String, "优先解决手机连接延迟", "方向须从实际数据库读取")
+        XCTAssertFalse(app.buttons["generate-project-plan"].isEnabled, "只读不能生成计划")
+        openCommandPlanRecord("优先解决手机连接延迟", in: app)
+        XCTAssertTrue(app.staticTexts["先核对连接路径，再整理实际测量结果。"].waitForExistence(timeout: 8), "详情简报来自准确计划")
+        XCTAssertFalse(app.staticTexts["旧工作简报"].exists, "不能把最早计划当作当前方向")
         let accept = app.buttons["todo-accept-0"]
-        if !accept.isHittable { app.swipeUp() }
-        XCTAssertTrue(accept.exists, "保留真实Todo操作及禁用状态")
-        XCTAssertFalse(accept.isEnabled, "只读手机不能通过新指挥台安排任务")
-        app.buttons["完成"].tap()
-        app.buttons["adjust-project-direction"].tap()
-        XCTAssertTrue(app.buttons["generate-project-plan"].waitForExistence(timeout: 8), "调整方向复用既有真实生成页面")
-        XCTAssertFalse(app.buttons["generate-project-plan"].isEnabled, "只读不能生成新计划")
-        app.buttons["完成"].tap()
-        XCTAssertTrue(app.buttons["command-plan-project"].waitForExistence(timeout: 8), "关闭方向页返回原指挥台")
-        app.buttons["command-mode-decisions"].tap()
-        XCTAssertTrue(app.staticTexts["command-decision-scope"].waitForExistence(timeout: 8), "决策继续汇总全部获授权电脑")
-        XCTAssertEqual(app.staticTexts["command-decision-scope"].label, "全部电脑，待你决策", "范围仍明确覆盖全部电脑")
-        XCTAssertFalse(app.buttons["todo-accept-0"].exists, "决策页不残留计划操作")
-        planMode.tap()
-        XCTAssertTrue(app.staticTexts["优先解决手机连接延迟"].waitForExistence(timeout: 8), "返回行动计划重新读取准确方向")
+        scrollToWorkspaceRow(accept, in: app)
+        XCTAssertTrue(accept.isHittable, "共享详情保留真实Todo操作")
+        XCTAssertFalse(accept.isEnabled, "只读手机不能安排任务")
+        closeCommandPlanRecord(in: app)
+        openCommandDecisions(in: app)
+        XCTAssertTrue(app.navigationBars["待决定 · 全部电脑"].exists, "决定范围仍覆盖全部获授权电脑")
+        XCTAssertFalse(accept.isHittable, "决定弹层不残留计划操作")
+        app.buttons["command-decisions-close"].tap()
+        XCTAssertTrue(app.buttons["realtime-project"].isHittable, "关闭弹层后回到原生指挥台")
     }
 
     /// 对话读取最终失败后退出重连提示，避免用户误以为请求仍在等待。

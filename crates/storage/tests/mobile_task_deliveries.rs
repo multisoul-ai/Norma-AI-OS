@@ -39,6 +39,7 @@ fn project_delivery_pages_span_cards_without_crossing_workspaces() {
         //5s为既有后台审计提交预算；测试只保存终态fixture，不运行Provider。
         writer
             .record_turn(MobileTurnOutcome {
+                summary: None,
                 key: turn.clone(),
                 state: MobileTurnState::Completed,
             })
@@ -166,6 +167,7 @@ fn delivery_is_frozen_scoped_and_requires_a_real_outcome() {
     //5s与现有后台审计测试一致，等commit，不以入队代替成功。
     writer
         .record_turn(MobileTurnOutcome {
+            summary: None,
             key: key("turn-a"),
             state: MobileTurnState::Completed,
         })
@@ -175,6 +177,7 @@ fn delivery_is_frozen_scoped_and_requires_a_real_outcome() {
         .expect("commit a");
     writer
         .record_turn(MobileTurnOutcome {
+            summary: None,
             key: key("turn-b"),
             state: MobileTurnState::Failed,
         })

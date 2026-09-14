@@ -1,4 +1,4 @@
-//! One app-owned background consumer; no Provider commands, task text or daemon.
+//! One app-owned background consumer with bounded final-output previews.
 use super::server::Shared;
 use anyhow::{ensure, Result};
 use serde_json::{json, Value};
@@ -14,6 +14,7 @@ use storage::{
 };
 
 pub(crate) mod configuration;
+mod preview;
 mod relay;
 mod source;
 pub use relay::PushRelayConfig;
@@ -32,6 +33,7 @@ struct Notice {
     request: Option<String>,
     kind: &'static str,
     created: u64,
+    summary: Option<String>,
 }
 impl Notice {
     fn event(&self, machine: &str, token: &str) -> Value {
@@ -216,6 +218,7 @@ fn run(shared: &Shared) -> Result<()> {
                                 request: Some(t.request_id),
                                 kind: "approval",
                                 created: now()?,
+                                summary: None,
                             });
                         }
                     }
@@ -236,6 +239,7 @@ fn run(shared: &Shared) -> Result<()> {
                             request: None,
                             kind,
                             created: record.recorded_at_unix,
+                            summary: record.outcome.summary,
                         });
                     }
                     for notice in notices {
@@ -263,7 +267,8 @@ fn run(shared: &Shared) -> Result<()> {
                             if registration.environment != environment {
                                 continue;
                             }
-                            let event = notice.event(&machine, &registration.token);
+                            let mut event = notice.event(&machine, &registration.token);
+                            event["preview"] = preview::content(&project, &notice);
                             let identity = (
                                 notice.workspace.clone(),
                                 grant.device_id.clone(),

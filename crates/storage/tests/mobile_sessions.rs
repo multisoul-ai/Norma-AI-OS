@@ -216,6 +216,7 @@ fn native_events_preserve_session_identity_and_record_exact_turn() {
         .record_native_event(&original, None, None)
         .expect("原生启动");
     let outcome = storage::MobileTurnOutcome {
+        summary: None,
         key: storage::MobileTurnKey {
             node_id: original.key.node_id,
             profile: original.key.profile.clone(),

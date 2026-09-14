@@ -411,3 +411,57 @@ fn native_task_timing_tracks_exact_turn_without_snapshot_polling() {
         "缺身份不能冻结新回合"
     );
 }
+
+/// 新会话Hook替换绑定时保留原PTY控制器，避免MobileRun析构取消正在运行的终端。
+///
+/// 数据构造：1张80×24 Codex卡（标准终端尺寸），session-a切换到session-b；
+///   640×400仅为画布卡片尺寸，echo后端不启动外部进程。
+/// 执行过程：绑定a → 保存控制器与run → 收到b的SessionStart → 比较控制器和身份。
+/// 预期结果：b绑定且旧run失效；控制器仍是同一实例且未取消；仅保留原终端。
+#[test]
+fn native_session_change_preserves_terminal_control() {
+    let mut runtime = Runtime::new_for_workspace("/tmp");
+    runtime.set_pty_factory(Box::new(|_, _, _, tx| {
+        Ok(Box::new(terminal::TestPtyBackend::echo(tx)))
+    }));
+    let node = runtime
+        .spawn_agent(
+            AgentProfile::Codex,
+            CanvasRect::new(0., 0., 640., 400.),
+            80,
+            24,
+        )
+        .expect("原Codex终端");
+    let event = |session| {
+        parse_hook_event(
+            HookSource::Codex,
+            node,
+            json!({"hook_event_name":"SessionStart", "session_id":session}),
+        )
+        .expect("合法会话Hook")
+    };
+    assert!(
+        runtime.observe_mobile_hook(&event("session-a")),
+        "原会话应绑定"
+    );
+    let original = runtime.mobile_runs.get(&node).expect("原运行");
+    let control = original.control.clone();
+    let run_id = original.run_id.clone();
+    assert!(
+        runtime.observe_mobile_hook(&event("session-b")),
+        "新会话应绑定"
+    );
+    let current = runtime.mobile_runs.get(&node).expect("新运行");
+    assert!(
+        Arc::ptr_eq(&control, &current.control),
+        "会话替换必须保留原PTY控制器"
+    );
+    assert!(!control.is_cancelled(), "会话切换不得通过Drop取消原终端");
+    assert_eq!(
+        current.session_id.as_deref(),
+        Some("session-b"),
+        "不应残留旧会话a"
+    );
+    assert_ne!(current.run_id, run_id, "旧运行身份必须失效");
+    assert_eq!(runtime.live_len(), 1, "只能保留一个原终端");
+}

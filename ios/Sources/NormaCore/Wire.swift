@@ -49,6 +49,7 @@ struct WireReply: Decodable, Sendable {
     let error: String?
     let result: ResultBody?
     struct ResultBody: Decodable, Sendable {
+        let voiceAuthorization: VoiceAuthorization?
         let status: String
         let image: UploadedChatImage?
         let imageOffset: Int?
@@ -75,7 +76,7 @@ struct WireReply: Decodable, Sendable {
         let approvalEvent: ApprovalFeedEvent?
         let planEvent: PlanFeedEvent?
         let deliveryEvent: DeliveryFeedEvent?
-        enum CodingKeys: String, CodingKey { case image, imageOffset = "image_offset", terminal, terminalEvent = "terminal_event", status, subscription, review, deliveries, plans, plan, decisions, workspaceID = "workspace_id", pending, grant, projects, receipt, conversation, archive, approvals, event, fragment, conversationEvent = "conversation_event", approvalEvent = "approval_event", planEvent = "plan_event", deliveryEvent = "delivery_event", queuedMessage = "queued_message" }
+        enum CodingKeys: String, CodingKey { case voiceAuthorization = "voice_authorization", image, imageOffset = "image_offset", terminal, terminalEvent = "terminal_event", status, subscription, review, deliveries, plans, plan, decisions, workspaceID = "workspace_id", pending, grant, projects, receipt, conversation, archive, approvals, event, fragment, conversationEvent = "conversation_event", approvalEvent = "approval_event", planEvent = "plan_event", deliveryEvent = "delivery_event", queuedMessage = "queued_message" }
     }
     enum CodingKeys: String, CodingKey { case version, requestID = "request_id", error, result }
     // Older servers reject unknown action fields before extracting request_id. This is used only

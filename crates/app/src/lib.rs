@@ -60,7 +60,8 @@ pub use mobile::push::configuration::l3::run_push_keychain_probe;
 pub use mobile::{
     CommandLease, LiveApprovalRequest, LiveCommandRequest, LiveConversationRequest,
     LiveReviewRequest, LiveSnapshotRequest, LiveTerminalRequest, MobileAccess, MobileCommand,
-    MobileProvider, MobileServer, MobileSources, ProjectReviewRequest, PushRelayConfig,
+    MobileCommandRequest, MobileProvider, MobileServer, MobileSources, ProjectReviewRequest,
+    PushRelayConfig,
 };
 
 #[cfg(feature = "e2e-test-support")]

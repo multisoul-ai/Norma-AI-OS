@@ -29,6 +29,57 @@ final class ChatLayoutFlowTests: XCTestCase {
         XCTAssertLessThanOrEqual(detail.frame.maxY, input.frame.minY, "键盘弹出后提示不得覆盖输入")
     }
 
+    /// 回看长对话不能让输入区悬空，正文必须止于输入区上方。
+    ///
+    /// 数据构造：隔离只读卡7，长回复含32×3=96行Markdown + 标题 + 末条，超过一屏；不发送消息。
+    ///   8s = 2s订阅心跳 + 6s导航余量；3s覆盖滚动/键盘动画；2pt仅容纳坐标取整。
+    /// 执行过程：进入最新消息 → 下滑回看 → 回到最新 → 聚焦输入 → 拖动收键盘 → 再次回看。
+    /// 预期结果：输入框始终可点击，收键盘后回到初始位置；列表可视边界不进入输入区，不显示系统TabBar。
+    @MainActor func testComposerStaysBelowHistoryWhileScrolling() throws {
+        let dir = try fixture()
+        let flags = ["ui-chat-interactions", "ui-chat-reading"].map { dir.appendingPathComponent($0) }
+        for flag in flags { try Data().write(to: flag) }
+        defer { for flag in flags { try? FileManager.default.removeItem(at: flag) } }
+        let app = XCUIApplication(); app.launch(); app.buttons["workspace-tab-projects"].tap()
+        let card = app.buttons["agent-card-7"]
+        XCTAssertTrue(card.waitForExistence(timeout: 8), "必须打开隔离原卡")
+        card.tap()
+        let tail = app.staticTexts["初始历史末条"]
+        XCTAssertTrue(tail.waitForExistence(timeout: 8), "长对话必须已加载")
+        XCTAssertTrue(tail.isHittable, "首次打开应能看到最后一条，不能停在输入区后面")
+        let input = app.descendants(matching: .any)["chat-message-input"].firstMatch
+        let list = app.scrollViews["chat-message-list"]
+        let initialY = input.frame.minY
+        list.swipeDown()
+        let latest = app.buttons["chat-latest-message"]
+        XCTAssertTrue(latest.waitForExistence(timeout: 3), "手势必须实际进入历史阅读状态")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "阅读长回复")).firstMatch.exists, "必须覆盖单条长回复，而非仅多个短消息")
+        XCTAssertEqual(input.frame.minY, initialY, accuracy: 2, "回看历史不能抬高输入框")
+        XCTAssertLessThanOrEqual(list.frame.maxY, input.frame.minY, "正文滚动视口不能延伸到输入区下方")
+        XCTAssertTrue(input.isHittable, "回看历史时仍能开始输入")
+        latest.tap()
+        XCTAssertFalse(latest.exists, "回到最新后应恢复自动跟随")
+        input.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3), "必须覆盖真实键盘避让")
+        XCTAssertLessThanOrEqual(input.frame.maxY, app.keyboards.firstMatch.frame.minY, "键盘不能覆盖输入框")
+        list.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.2))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.9)), withVelocity: .slow, thenHoldForDuration: 0.1)
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "阅读手势必须能收起键盘")
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            abs(input.frame.minY - initialY) <= 2
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 3), .completed, "收键盘后输入框必须回到底部原位")
+        list.swipeDown()
+        XCTAssertLessThanOrEqual(list.frame.maxY, input.frame.minY, "收键盘后正文仍不能穿过输入区")
+        XCTAssertEqual(input.frame.minY, initialY, accuracy: 2, "继续阅读不能再次抬高输入框")
+        // 80pt = 34pt底部安全区 + 8pt外距 + 8pt间距 + 28pt提示/输入内距 + 2pt取整余量。
+        XCTAssertLessThanOrEqual(app.frame.maxY - input.frame.maxY, 80, "输入框下方不能残留额外底栏或键盘占位")
+        XCTAssertFalse(app.buttons["chat-send-message"].isEnabled, "布局修复不能改变只读权限")
+        XCTAssertEqual(app.tabBars.count, 0, "聊天页不能残留系统底栏")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "chat-composer-history-scroll"; shot.lifetime = .keepAlways; add(shot)
+    }
+
     /// 聊天键盘未收起就返回或进入后台，不能让项目重建后的底栏上移。
     /// 数据构造：只读隔离卡7，仅聚焦空输入框；按钮底距=8pt外距+4pt轨道内距=12pt，2pt仅为取整容差。
     /// 执行过程：项目打开原聊天 → 唤起真实键盘 → 点击返回/边缘返回手势/Home恢复 → 不切Tab先测量。
@@ -201,8 +252,8 @@ final class ChatLayoutFlowTests: XCTestCase {
         try Data().write(to: flag)
         defer { try? FileManager.default.removeItem(at: flag) }
         let app = XCUIApplication(); app.launch(); app.buttons["workspace-tab-command"].tap()
-        app.buttons["command-mode-decisions"].tap()
-        let detail = app.buttons["approval-task-details"]
+        openCommandDecisions(in: app)
+        let detail = app.buttons["查看原任务"]
         XCTAssertTrue(detail.waitForExistence(timeout: 8), "只能从隔离决策打开原卡")
         detail.tap()
         let input = app.descendants(matching: .any)["chat-message-input"].firstMatch

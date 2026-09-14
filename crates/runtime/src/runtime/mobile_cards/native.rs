@@ -22,7 +22,7 @@ impl Runtime {
             return false;
         }
         // ponytail: Codex 0.153 starts its thread lazily; its loading screen also has an empty prompt.
-        // Require the loaded model header; replace these startup markers with a Provider ready event when exposed.
+        // Require a loaded model header or footer; /resume replays history without the startup header.
         let Some(crate::NodeView::Term { snapshot, .. }) = self.node_view(node) else {
             return false;
         };
@@ -51,6 +51,29 @@ impl Runtime {
             .any(|line| line.trim_start().starts_with("› Ask Codex to do anything"))
         {
             return false;
+        }
+        // /resume emits no SessionStart until the next prompt. Its live footer still identifies
+        // a loaded model and reasoning level; never treat a prompt in scrollback as readiness.
+        if lines.iter().rev().take(snapshot.lines).any(|line| {
+            let Some((model, directory)) = line.trim().split_once(" · ") else {
+                return false;
+            };
+            let mut fields = model.split_whitespace();
+            let Some(name) = fields.next() else {
+                return false;
+            };
+            let Some(effort) = fields.next() else {
+                return false;
+            };
+            (name.starts_with("gpt-") || name.starts_with("o3") || name.starts_with("o4"))
+                && matches!(
+                    effort,
+                    "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "default"
+                )
+                && fields.next().is_none()
+                && !directory.is_empty()
+        }) {
+            return true;
         }
         // A screen clear can retain old loading lines in scrollback. The latest model wins.
         // Codex's compact layout can omit directory entirely; it is not a readiness signal.
@@ -123,6 +146,17 @@ impl Runtime {
         let Some(session) = event.session_id.as_ref().filter(|id| !id.is_empty()) else {
             return true;
         };
+        if let Some(run) = self.mobile_runs.get_mut(&event.node_id) {
+            if let Some(pending) = &run.native_input.resume.pending {
+                // A previous turn can finish late while the picker is open. Only the next
+                // lifecycle/submit Hook may confirm the identity; preserve the new mobile receipt.
+                if !pending.accepts_hook(event) {
+                    return false;
+                }
+                run.native_input.resume.pending = None;
+                run.session_id = None;
+            }
+        }
         if self
             .mobile_runs
             .get(&event.node_id)
@@ -132,10 +166,11 @@ impl Runtime {
             if event.provider_event != "SessionStart" {
                 return false;
             }
-            self.mobile_runs.remove(&event.node_id);
-            self.track_native_agent(event.node_id);
+            let Ok(run_id) = fresh_control_id() else {
+                return false;
+            };
             if let Some(run) = self.mobile_runs.get_mut(&event.node_id) {
-                run.session_id = None;
+                run.reset_native_session(run_id);
             }
         }
         let Some(run) = self.mobile_runs.get_mut(&event.node_id) else {
@@ -272,6 +307,7 @@ impl Runtime {
                 return None;
             }
             Some(storage::MobileTurnOutcome {
+                summary: run.task_summary.snapshot(),
                 key,
                 state: if event.provider_event == "Stop" {
                     storage::MobileTurnState::Completed

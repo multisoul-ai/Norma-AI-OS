@@ -68,7 +68,7 @@ impl MultisoulApp {
         })
     }
 
-    pub(super) fn agent_roster_for_provider(&self) -> Vec<agent::AgentRosterEntry> {
+    pub(crate) fn agent_roster_for_provider(&self) -> Vec<agent::AgentRosterEntry> {
         self.agent_definitions
             .definitions()
             .iter()

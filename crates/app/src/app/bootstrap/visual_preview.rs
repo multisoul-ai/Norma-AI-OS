@@ -16,6 +16,7 @@ enum VisualPreview {
     DispatchReceiptImpact,
     DispatchAgentHandoffFlight,
     Orchestration,
+    Launchpad,
     GithubClone,
     FeatureGuide,
     VoiceSetup,
@@ -40,6 +41,7 @@ impl VisualPreview {
             "dispatch-receipt-impact" => Some(Self::DispatchReceiptImpact),
             "dispatch-agent-handoff-flight" => Some(Self::DispatchAgentHandoffFlight),
             "orchestration" => Some(Self::Orchestration),
+            "launchpad" => Some(Self::Launchpad),
             "github-clone" => Some(Self::GithubClone),
             "feature-guide" => Some(Self::FeatureGuide),
             "voice-setup" => Some(Self::VoiceSetup),
@@ -66,7 +68,7 @@ impl VisualPreview {
             | Self::DispatchAgentHandoffFlight
             | Self::FeatureGuide => Some(ThemeId::PaperBlue),
             Self::Orchestration => Some(ThemeId::SapphireNight),
-            Self::GithubClone => None,
+            Self::Launchpad | Self::GithubClone => None,
             Self::VoiceSetup
             | Self::VoiceReady
             | Self::VoiceCatalog
@@ -94,7 +96,10 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
     if let Some(theme_id) = preview.canonical_theme() {
         app.set_theme(theme_id, cx);
     }
-    if preview == VisualPreview::GithubClone {
+    if matches!(
+        preview,
+        VisualPreview::Launchpad | VisualPreview::GithubClone
+    ) {
         app.screen = AppScreen::Launchpad;
         app.settings_panel.close();
     } else {
@@ -123,6 +128,7 @@ pub(super) fn configure_from_env(app: &mut MultisoulApp, cx: &mut Context<Multis
             app.settings_panel.select(SettingsSection::Orchestration);
             app.orchestration_settings.use_canonical_preview();
         }
+        VisualPreview::Launchpad => {}
         VisualPreview::GithubClone => {}
         VisualPreview::FeatureGuide => {
             app.settings_panel.close();
@@ -314,25 +320,25 @@ mod tests {
     ///   supported values = working-snake(1) + agent-queue(1)
     ///                      + dispatch-flight(1) + dispatch-impact(1)
     ///                      + agent-handoff-flight(1)
-    ///                      + orchestration(1) + github-clone(1) + feature-guide(1)
+    ///                      + orchestration(1) + launchpad(1) + github-clone(1) + feature-guide(1)
     ///                      + setup(1) + ready(1) + catalog(1) + network-unavailable(1)
     ///                      + api-key(1) + caption(1) + window-inset(1)
     ///                      + azure-asr-ready(1)
     ///                      + zipvoice-reference(1) + tts-backlog-capacity(1)
-    ///                      + tts-backlog-recovered(1) = 19
+    ///                      + tts-backlog-recovered(1) = 20
     ///   unsupported values = empty(1) + unknown(1) = 2
-    ///   total cases = 19 + 2 = 21
+    ///   total cases = 20 + 2 = 22
     ///
     /// 执行过程（逐步说明系统如何处理）：
     ///   1. 解析 `working-snake` → WorkingSnake
     ///   2. 解析 `agent-queue` → AgentQueue
-    ///   3. 继续解析其余十七个已登记场景 → 各自唯一枚举值
+    ///   3. 继续解析其余十八个已登记场景 → 各自唯一枚举值
     ///   4. 解析空字符串 → None
     ///   5. 解析未知值 → None
     ///
     /// 预期结果：
-    ///   - 正断言：十九个受支持值分别映射到唯一场景
-    ///   - 负断言：空值和未知值不得意外开启视觉预览
+    ///   - 正断言：二十个受支持值分别映射到唯一场景
+    ///   - 负断言：Launchpad 不得复用 GithubClone；空值和未知值不得开启视觉预览
     #[test]
     fn visual_preview_parser_accepts_only_explicit_scenarios() {
         assert_eq!(
@@ -364,6 +370,16 @@ mod tests {
             VisualPreview::parse("orchestration"),
             Some(VisualPreview::Orchestration),
             "orchestration must select the canonical orchestration settings preview"
+        );
+        assert_eq!(
+            VisualPreview::parse("launchpad"),
+            Some(VisualPreview::Launchpad),
+            "launchpad must select the isolated home screen without a blocking dialog"
+        );
+        assert_ne!(
+            VisualPreview::parse("launchpad"),
+            Some(VisualPreview::GithubClone),
+            "launchpad must not reuse the preview that automatically opens the clone dialog"
         );
         assert_eq!(
             VisualPreview::parse("github-clone"),

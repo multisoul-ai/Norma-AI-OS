@@ -1,0 +1,11 @@
+warning: both `/Users/alan/.cargo/config` and `/Users/alan/.cargo/config.toml` exist. Using `/Users/alan/.cargo/config`
+   Compiling e2e v0.1.71 (/Users/alan/Documents/mybook/norma-ai-os/crates/e2e)
+    Finished `test` profile [optimized + debuginfo] target(s) in 3.74s
+     Running tests/ios_realtime_companion.rs (target/debug/deps/ios_realtime_companion-e129a5b6acecb4c5)
+
+running 1 test
+test native_voice_authorization_without_keys ... PASS: native automatic Mac signature -> production HTTP 200 -> Doubao WSS ready -> close ACK; no provider key or microphone
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 39.94s
+

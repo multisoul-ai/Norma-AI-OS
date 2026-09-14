@@ -5,7 +5,7 @@ use norma::protocol::CardCommand;
 
 pub(super) fn close_node(
     app: &mut MultisoulApp,
-    window: &mut Window,
+    window: Option<&mut Window>,
     node_id: u64,
     success_message: &str,
 ) -> Result<AdapterResult, AdapterError> {
@@ -21,14 +21,18 @@ pub(super) fn close_node(
         )));
     }
     super::map_card_result(
-        super::commands::execute_agent_card_command(app, window, CardCommand::Delete { node_id }),
+        super::commands::execute_agent_card_command_with_optional_window(
+            app,
+            window,
+            CardCommand::Delete { node_id },
+        ),
         success_message,
     )
 }
 
 pub(super) fn close_position(
     app: &mut MultisoulApp,
-    window: &mut Window,
+    window: Option<&mut Window>,
     position: u64,
 ) -> Result<AdapterResult, AdapterError> {
     let node_id = position
@@ -42,7 +46,7 @@ pub(super) fn close_position(
 
 pub(super) fn close_agent(
     app: &mut MultisoulApp,
-    window: &mut Window,
+    window: Option<&mut Window>,
     agent: &str,
 ) -> Result<AdapterResult, AdapterError> {
     let definition_id = app

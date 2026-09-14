@@ -69,6 +69,7 @@ impl MultisoulApp {
                     _ => storage::MobileTurnState::Failed,
                 };
                 let ended = storage::MobileTurnOutcome {
+                    summary: None,
                     key: storage::MobileTurnKey {
                         node_id: expected.node_id, profile: expected.profile.clone(),
                         run_id: expected.run_id.clone().expect("validated run"),

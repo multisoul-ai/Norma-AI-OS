@@ -74,8 +74,11 @@ impl PushRelayConfig {
                 && endpoint.password().is_none()
                 && endpoint.query().is_none()
                 && endpoint.fragment().is_none()
-                && endpoint.path() == "/v1/notifications",
-            "Use an HTTPS URL ending in /v1/notifications"
+                && matches!(
+                    endpoint.path(),
+                    "/v1/notifications" | "/norma/v1/notifications"
+                ),
+            "Use an HTTPS URL with /v1/notifications or /norma/v1/notifications"
         );
         ensure!(
             key.len() == 64
@@ -125,20 +128,32 @@ impl Relay {
             .send(body)
             .map_err(|_| "delivery_unknown")?;
         let status = response.status().as_u16();
+        if matches!(status, 401 | 403 | 422) {
+            return Err("push_configuration_error");
+        }
         let body: Value = response
             .body_mut()
             .with_config()
             .limit(4096)
             .read_json()
             .map_err(|_| "delivery_unknown")?;
-        match status {
-            200 if body["status"] == "accepted" => Ok(None),
-            410 if body["error"] == "token_unregistered" => body["invalidated_at"]
+        // Only fixed protocol codes may reach the log; never echo a response body or credential.
+        match (status, body["error"].as_str()) {
+            (200, _) if body["status"] == "accepted" => Ok(None),
+            (410, Some("token_unregistered")) => body["invalidated_at"]
                 .as_u64()
                 .filter(|time| *time <= i64::MAX as u64)
                 .map(Some)
                 .ok_or("delivery_unknown"),
-            401 | 403 | 422 => Err("push_configuration_error"),
+            (400, Some("invalid_event")) => Err("invalid_event"),
+            (400, Some("event_expired")) => Err("event_expired"),
+            (409, Some("event_conflict")) => Err("event_conflict"),
+            (413, _) => Err("body_too_large"),
+            (502, Some("apns_configuration_error")) => Err("apns_configuration_error"),
+            (502, Some("apns_rejected")) => Err("apns_rejected"),
+            (503, Some("apns_unavailable")) => Err("apns_unavailable"),
+            (503, Some("relay_busy")) => Err("relay_busy"),
+            (503, Some("push_unavailable")) => Err("push_unavailable"),
             _ => Err("delivery_unknown"),
         }
     }

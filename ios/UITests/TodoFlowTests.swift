@@ -36,9 +36,8 @@ final class TodoFlowTests: XCTestCase {
         let computer = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "通知验收 Mac")).firstMatch
         XCTAssertTrue(computer.waitForExistence(timeout: 8), "只操作隔离电脑")
         computer.tap(); app.buttons["workspace-tab-command"].tap()
-        app.buttons["command-mode-plan"].tap()
-        XCTAssertTrue(app.staticTexts["验证待办执行闭环"].waitForExistence(timeout: 8), "读取本轮计划而非旧计划")
-        try tap("todo-open-0", in: app)
+        openCommandPlanRecord("验证待办执行闭环", in: app)
+        try tap("全部记录", in: app)
         try tap("todo-accept-0", in: app)
         XCTAssertTrue(app.staticTexts["当前 Agent 正在执行，确认后加入队列。"].waitForExistence(timeout: 8), "确认页说明等待当前Agent")
         try tap("todo-confirm", in: app)
@@ -54,27 +53,22 @@ final class TodoFlowTests: XCTestCase {
         XCTAssertFalse(app.buttons["todo-retry-0"].exists, "新安排待发送时不能重复重排")
         try FileManager.default.removeItem(at: directory.appendingPathComponent("ui-task-running"))
         try status(0, equals: "本轮执行已完成 · 待验收", in: app)
-        app.buttons["完成"].tap()
-        // 详情保留完成回执；关闭后首页自动过滤已完成项，不手动刷新掩盖订阅问题。
+        // 全部记录保留终态；切换待办再验证自动过滤，不恢复旧版单项弹层。
         let completed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            FileManager.default.fileExists(atPath: sent.path) && !app.buttons["todo-open-0"].exists
+            FileManager.default.fileExists(atPath: sent.path)
         }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [completed], timeout: 8), .completed, "完成项必须自动离开待办")
-        try tap("todo-open-1", in: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [completed], timeout: 8), .completed, "完成状态必须有实际发送证据")
         try tap("todo-reject-1", in: app)
         XCTAssertTrue(app.staticTexts["不采纳这项建议，不会向 Agent 发送任务。"].waitForExistence(timeout: 8), "拒绝预览须说明无任务副作用")
         try tap("todo-confirm", in: app)
         try status(1, equals: "未采纳 · 没有安排任务", in: app)
-        app.buttons["完成"].tap()
+        try tap("待办", in: app)
         XCTAssertTrue(app.staticTexts["这份计划暂无待办"].waitForExistence(timeout: 8), "完成与不采纳后待办应为空")
         XCTAssertFalse(app.buttons["todo-accept-0"].exists, "完成项不可作为新建议重复安排")
         XCTAssertFalse(app.buttons["todo-accept-1"].exists, "拒绝项不能继续出现在待办中")
         try tap("查看全部记录", in: app)
-        try tap("todo-open-0", in: app)
         try status(0, equals: "本轮执行已完成 · 待验收", in: app)
         XCTAssertFalse(app.buttons["todo-accept-0"].exists, "完成详情不提供重复安排")
-        app.buttons["完成"].tap()
-        try tap("todo-open-1", in: app)
         try status(1, equals: "未采纳 · 没有安排任务", in: app)
         XCTAssertFalse(app.buttons["todo-retry-1"].exists, "拒绝建议不冒充发送失败")
         let data = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: sent)) as? [String: String])
@@ -86,13 +80,7 @@ final class TodoFlowTests: XCTestCase {
 
     @MainActor private func tap(_ id: String, in app: XCUIApplication) throws {
         let button = app.buttons[id]
-        if id.hasPrefix("todo-open-") { scrollToWorkspaceRow(button, in: app) }
-        else {
-            for _ in 0..<6 where !button.isHittable {
-                if button.exists && button.frame.midY < app.frame.midY { app.swipeDown() }
-                else { app.swipeUp() }
-            }
-        }
+        scrollToWorkspaceRow(button, in: app)
         XCTAssertTrue(button.waitForExistence(timeout: 8), "应显示操作：\(id)")
         XCTAssertTrue(button.isHittable, "操作不能被列表挤出：\(id)")
         XCTAssertTrue(button.isEnabled, "当前有效授权下操作应可用：\(id)")
@@ -111,15 +99,26 @@ final class TodoFlowTests: XCTestCase {
 // A partially visible row can be "hittable" behind the floating tabs. Bring its actual center into
 // the content viewport before asking XCTest to tap; never change the app's state in the test helper.
 @MainActor func scrollToWorkspaceRow(_ row: XCUIElement, in app: XCUIApplication) {
-    // 12 × 25% of a screen covers the full AX5 brief, metrics, direction and first Todo.
-    for _ in 0..<12 {
-        let bottom = app.buttons["workspace-tab-projects"].frame.minY - 24
-        let top = app.buttons["command-mode-plan"].frame.maxY + 24
+    // Each sweep covers 12 × 25% = 3 screens. List recycles offscreen rows, so an absent
+    // target can be above us: search down, then back up instead of remaining at the bottom.
+    // A sheet has its own navigation and no active tabs.
+    for step in 0..<24 {
+        let tab = app.buttons["workspace-tab-projects"]
+        let dock = app.buttons["realtime-call-start"]
+        let bottom = (dock.isHittable ? dock.frame.minY : tab.isHittable ? tab.frame.minY : app.frame.maxY - 34) - 16
+        let navigation = app.navigationBars.firstMatch
+        let project = app.buttons["realtime-project"]
+        let top = (project.isHittable && dock.isHittable ? project.frame.maxY : navigation.exists ? navigation.frame.maxY : app.frame.minY + 60) + 16
         if row.exists && row.isHittable && row.frame.midY > top && row.frame.midY < bottom { return }
-        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
-        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
-        if row.exists && row.frame.midY < top { end.press(forDuration: 0.05, thenDragTo: start) }
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        let start = origin.withOffset(CGVector(dx: app.frame.width / 2, dy: top + (bottom - top) * 0.8))
+        let end = origin.withOffset(CGVector(dx: app.frame.width / 2, dy: top + (bottom - top) * 0.3))
+        // A virtualized row may exist with a zero frame. It has no usable position; treating
+        // zero as "above" swipes down at the top of a confirmation sheet and dismisses it.
+        let positioned = row.exists && !row.frame.isEmpty
+        let above = positioned ? row.frame.midY < top : step >= 12
+        if above { end.press(forDuration: 0.05, thenDragTo: start) }
         else { start.press(forDuration: 0.05, thenDragTo: end) }
     }
-    XCTFail("待办行必须能滚入标题与悬浮底栏之间：\(row.identifier)")
+    XCTFail("目标行必须能滚入标题与悬浮底栏之间；上下两个方向均未找到可触达的行")
 }

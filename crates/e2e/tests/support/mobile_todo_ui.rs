@@ -87,6 +87,7 @@ impl Fixture {
             .expect("真实后台终态写入器");
             writer
                 .record_turn(storage::MobileTurnOutcome {
+                    summary: None,
                     key: storage::MobileTurnKey {
                         node_id: card.node_id,
                         profile: card.profile.clone(),

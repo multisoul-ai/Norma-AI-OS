@@ -471,3 +471,7 @@ mod e2e_mobile_terminal;
 
 #[cfg(test)]
 mod e2e_mobile_empty_claude;
+
+#[cfg(test)]
+mod e2e_realtime_adapter;
+mod e2e_realtime_roster;

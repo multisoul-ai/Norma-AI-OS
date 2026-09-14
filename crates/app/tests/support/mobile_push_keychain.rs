@@ -113,7 +113,7 @@ fn expected(production: bool) -> (&'static str, String, PushEnvironment) {
     // 32 synthetic bytes × 2 hex chars = 64; no Apple credentials or network access.
     if production {
         (
-            "https://production.invalid/v1/notifications",
+            "https://production.invalid/norma/v1/notifications",
             "c".repeat(64),
             PushEnvironment::Production,
         )

@@ -1,6 +1,8 @@
 use crate::app::{AppScreen, MultisoulApp};
+#[cfg(any(test, feature = "e2e-test-support"))]
+use gpui::Entity;
 use gpui::{
-    px, size, App, AppContext as _, Bounds, Context, Entity, Global, TitlebarOptions,
+    px, size, App, AppContext as _, Bounds, Context, Global, TitlebarOptions,
     WindowBackgroundAppearance, WindowBounds, WindowHandle, WindowOptions,
 };
 use std::collections::HashMap;
@@ -50,6 +52,7 @@ pub(crate) enum InitialWindowState {
 
 struct OpenedMultisoulWindow {
     root_handle: WindowHandle<Root>,
+    #[cfg(any(test, feature = "e2e-test-support"))]
     app: Entity<MultisoulApp>,
 }
 
@@ -64,6 +67,7 @@ fn open_multisoul_window(
     let (width, height) = initial_window_dimensions(visual_preview_name());
     let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
     let mut app_entity = None;
+    let opening_workspace = !matches!(&state, InitialWindowState::Launchpad);
     let existing = match &state {
         InitialWindowState::Workspace(path) | InitialWindowState::ClonedWorkspace(path) => {
             super::sessions::for_root(database_paths.app_db_path(), path, cx)
@@ -114,7 +118,21 @@ fn open_multisoul_window(
     let app = app_entity.ok_or_else(|| {
         anyhow::anyhow!("production window should create a nested MultisoulApp entity")
     })?;
-    Ok(OpenedMultisoulWindow { root_handle, app })
+    if opening_workspace && !matches!(app.read(cx).screen, AppScreen::Canvas) {
+        let error = app
+            .read(cx)
+            .workspace_state
+            .error
+            .clone()
+            .unwrap_or_else(|| "Could not initialize project window.".to_string());
+        root_handle.update(cx, |_, window, _| window.remove_window())?;
+        anyhow::bail!(error);
+    }
+    Ok(OpenedMultisoulWindow {
+        root_handle,
+        #[cfg(any(test, feature = "e2e-test-support"))]
+        app,
+    })
 }
 
 #[cfg(feature = "e2e-test-support")]
@@ -270,23 +288,10 @@ impl MultisoulApp {
                     elapsed_ms = open_start.elapsed().as_secs_f64() * 1000.0,
                     "workspace_open_timing"
                 );
-                let opened = opened_window
-                    .app
-                    .read(cx)
-                    .workspace_state
-                    .current_root
-                    .as_deref()
-                    == Some(root.as_path());
-                if opened {
-                    cx.default_global::<WorkspaceWindowRegistry>()
-                        .register(root, opened_window.root_handle);
-                    if close_current_launchpad && matches!(self.screen, AppScreen::Launchpad) {
-                        window.remove_window();
-                    }
-                } else {
-                    self.workspace_state.error =
-                        Some("Could not initialize project window.".to_string());
-                    cx.notify();
+                cx.default_global::<WorkspaceWindowRegistry>()
+                    .register(root, opened_window.root_handle);
+                if close_current_launchpad && matches!(self.screen, AppScreen::Launchpad) {
+                    window.remove_window();
                 }
             }
             Err(error) => {

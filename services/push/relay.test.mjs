@@ -114,9 +114,54 @@ test('native HTTP/2 signs APNs requests and preserves unknown or unregistered ou
   assert.equal(received[1].headers.authorization, first.headers.authorization, 'JWT must not refresh for each notification');
   assert.equal(first.body.norma.machine_id, event().machine_id, 'notification target must keep its computer identity');
   assert.equal(first.body.norma.request_id, 'approval-one', 'notification tap must locate the original approval');
+  assert.equal(first.body.aps.alert.body, '有一项操作需要你确认', 'older Macs without preview must remain compatible');
   assert.equal(Object.hasOwn(first.body.norma, 'token'), false, 'device token cannot leak in payload');
   assert.equal(Object.hasOwn(first.body.norma, 'command'), false, 'notification must never authorize task execution');
   apns.close();
   assert.deepEqual(await apns.send(event()), { status: 503, body: { error: 'relay_stopped' } }, 'shutdown must reject later queued work');
   assert.equal(connections, 1, 'shutdown must not recreate an APNs connection');
+});
+
+/// 完成通知展示项目、准确卡片和最终输出摘要；展示文本不能混入跳转身份。
+/// 数据构造：本地HTTP/2接收器，UTF-8上限项目160B、卡片240B、摘要640B=160个四字节标量。
+/// 执行过程：真实HTTP入口校验preview → APNs编码 → 超长/非字符串/额外字段拒绝。
+/// 预期结果：标题/副标题/正文具体可读，norma只保留原目标；非法预览不产生额外投递。
+test('completion preview reaches the alert without changing the routing hint', async t => {
+  const received = [];
+  const server = http2.createServer();
+  server.on('stream', (stream) => {
+    let body = '';
+    stream.setEncoding('utf8');
+    stream.on('data', chunk => { body += chunk; });
+    stream.on('end', () => { received.push(JSON.parse(body)); stream.respond({ ':status': 200 }); stream.end(); });
+  });
+  const origin = await listen(server);
+  const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const apns = createAPNs({ privateKey, teamID: 'TEAM123456', keyID: 'KEY1234567', environment: 'sandbox', topic: 'com.norma-ai.os.ios' }, {
+    now: () => seconds * 1000, connect: () => http2.connect(origin),
+  });
+  const relay = createRelay({ key, now: () => seconds * 1000, deliver: apns.send });
+  const relayOrigin = await listen(relay);
+  t.after(() => { relay.closeAllConnections(); relay.close(); apns.close(); server.close(); });
+  const value = { ...event(), kind: 'completed', preview: { project: 'Norma OS', card: '修复通知 · #7', summary: '已修复跳转，回归测试通过。' } };
+  delete value.request_id;
+  const post = async value => (await fetch(relayOrigin + '/v1/notifications', { method: 'POST', headers: {
+    authorization: `Bearer ${key}`, 'content-type': 'application/json',
+  }, body: JSON.stringify(value) })).status;
+  assert.equal(await post(value), 200, 'bounded final-output preview should be accepted');
+  assert.deepEqual(received[0].aps.alert, { title: '修复通知 · #7 · 已完成', subtitle: 'Norma OS', body: '已修复跳转，回归测试通过。' }, 'alert must name the card and project and show its outcome');
+  assert.equal(Object.hasOwn(received[0].norma, 'preview'), false, 'display text must not invalidate the strict iOS routing decoder');
+  assert.equal(received[0].norma.turn_id, 'turn-one', 'completed turn identity must remain intact');
+  assert.equal(await post({ ...value, preview: { ...value.preview, summary: '😀'.repeat(161) } }), 400, '161 × 4 = 644 bytes exceeds the 640-byte summary ceiling');
+  assert.equal(await post({ ...value, preview: { ...value.preview, card: 7 } }), 400, 'card preview must be a string');
+  assert.equal(await post({ ...value, preview: { ...value.preview, command: 'execute' } }), 400, 'preview cannot smuggle a control field');
+  assert.equal(received.length, 1, 'invalid previews must never reach APNs');
+  // Max token/IDs + quote-escaped preview = 3846 request bytes, still below 4096.
+  const largest = { ...event(), event_id: '00000000-0000-4000-8000-000000000004', token: 'b'.repeat(512),
+    workspace_id: 'a'.repeat(128), route_id: 'a'.repeat(128), node_id: '18446744073709551615',
+    run_id: 'a'.repeat(128), session_id: 'a'.repeat(128), turn_id: 'a'.repeat(128), request_id: 'a'.repeat(256),
+    preview: { project: '"'.repeat(160), card: '"'.repeat(240), summary: '"'.repeat(640) } };
+  assert.equal(await post(largest), 200, 'full protocol identity and escaped previews must fit the request budget');
+  assert.ok(Buffer.byteLength(JSON.stringify(received[1])) <= 4096, 'the final APNs payload must also fit its 4KiB ceiling');
+  assert.equal(received[1].aps.alert.body.length, 640, 'exact preview boundary must preserve the final character');
 });

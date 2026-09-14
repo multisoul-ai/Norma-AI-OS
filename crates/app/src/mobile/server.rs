@@ -22,6 +22,8 @@ pub struct MobileServer {
 }
 
 pub(super) struct Shared {
+    #[cfg(feature = "e2e-test-support")]
+    realtime_test_server: Mutex<Option<SocketAddr>>,
     access: Mutex<MobileAccess>,
     pub(super) stopped: AtomicBool,
     pub(super) push_started: AtomicBool,
@@ -41,9 +43,34 @@ pub(super) struct Shared {
 struct ActiveSocket {
     stream: TcpStream,
     device_id: Option<String>,
+    realtime: Option<Arc<connection::realtime::Session>>,
 }
 
 impl MobileServer {
+    #[cfg(feature = "e2e-test-support")]
+    pub fn use_realtime_server_for_e2e(&self, address: SocketAddr) -> Result<()> {
+        ensure!(
+            address.ip().is_loopback(),
+            "realtime fixture must use loopback"
+        );
+        *self
+            .shared
+            .realtime_test_server
+            .lock()
+            .map_err(|_| anyhow::anyhow!("test server lock"))? = Some(address);
+        Ok(())
+    }
+    #[cfg(feature = "e2e-test-support")]
+    pub fn submit_internal_command_for_e2e(
+        &self,
+        machine: &str,
+        device: &str,
+        token: &str,
+        request: super::MobileCommandRequest,
+    ) -> Result<serde_json::Value, &'static str> {
+        super::command::submit(&self.shared, machine, device, token, request)
+    }
+
     pub fn start(access: MobileAccess, addresses: Vec<SocketAddr>) -> Result<Self> {
         Self::start_with_snapshots(access, addresses, None)
     }
@@ -103,6 +130,39 @@ impl MobileServer {
             !addresses.is_empty() && addresses.len() <= 4,
             "invalid mobile listen addresses"
         );
+        #[cfg(feature = "e2e-test-support")]
+        let realtime_fixture =
+            if let Some(upstream) = std::env::var_os("NORMA_REALTIME_L3_UPSTREAM") {
+                ensure!(
+                    !cfg!(feature = "production-data")
+                        && std::env::var("NORMA_MOBILE_L3_LOOPBACK").as_deref() == Ok("1")
+                        && addresses.iter().all(|address| address.ip().is_loopback()),
+                    "realtime bundle fixture requires isolated loopback mode"
+                );
+                let root =
+                    std::path::PathBuf::from(std::env::var_os("NORMA_TEST_DATA_ROOT").ok_or_else(
+                        || anyhow::anyhow!("realtime fixture requires an isolated database"),
+                    )?);
+                ensure!(
+                    root.is_absolute()
+                        && root.join("app.sqlite").canonicalize()?
+                            == access.store.path().canonicalize()?
+                        && crate::database::default_database_paths()?
+                            .app_db_path()
+                            .canonicalize()?
+                            == access.store.path().canonicalize()?,
+                    "realtime fixture database mismatch"
+                );
+                Some((
+                    upstream
+                        .to_str()
+                        .ok_or_else(|| anyhow::anyhow!("invalid fixture address"))?
+                        .parse::<SocketAddr>()?,
+                    root,
+                ))
+            } else {
+                None
+            };
         let tls = access.server_config()?;
         let mut listeners = Vec::new();
         for address in addresses {
@@ -120,6 +180,8 @@ impl MobileServer {
             .collect::<std::io::Result<Vec<_>>>()?;
         let server = Self {
             shared: Arc::new(Shared {
+                #[cfg(feature = "e2e-test-support")]
+                realtime_test_server: Mutex::new(None),
                 access: Mutex::new(access),
                 stopped: AtomicBool::new(false),
                 push_started: AtomicBool::new(false),
@@ -137,6 +199,18 @@ impl MobileServer {
             }),
             addresses,
         };
+        #[cfg(feature = "e2e-test-support")]
+        if let Some((address, root)) = realtime_fixture {
+            server.use_realtime_server_for_e2e(address)?;
+            let access = server.shared.access()?;
+            std::fs::write(
+                root.join("realtime-public-identity.json"),
+                serde_json::to_vec(&serde_json::json!({
+                    "machine_id": access.identity.machine_id(),
+                    "certificate_der": access.identity.certificate_der(),
+                }))?,
+            )?;
+        }
         for listener in listeners {
             let shared = Arc::clone(&server.shared);
             let tls = Arc::clone(&tls);

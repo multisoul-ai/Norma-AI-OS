@@ -1,0 +1,8 @@
+.env*
+.gitignore
+.vercel/
+check*.mjs
+probe*.mjs
+node_modules/
+*.log
+README.md

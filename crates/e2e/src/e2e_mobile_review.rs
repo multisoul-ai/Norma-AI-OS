@@ -67,6 +67,7 @@ fn e2e_mobile_review_native_transport() {
     //5s审计提交上限；这是明确标注的已完成fixture，不宣称运行真实Provider。
     writer
         .record_turn(storage::MobileTurnOutcome {
+            summary: None,
             key: key.clone(),
             state: storage::MobileTurnState::Completed,
         })
@@ -222,6 +223,7 @@ fn e2e_mobile_review_reads_actual_project_without_starting_agents() {
     //5s为已有后台审计提交预算，fixture不声称执行过真实模型。
     writer
         .record_turn(storage::MobileTurnOutcome {
+            summary: None,
             key: key.clone(),
             state: storage::MobileTurnState::Completed,
         })

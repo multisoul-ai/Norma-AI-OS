@@ -8,8 +8,7 @@ final class DirectionFlowTests: XCTestCase {
     /// 预期结果：权限不能绕过，选择/编辑不提交；原文和结构化优先项保留，新建议按所选顺序展示。
     @MainActor func testDirectionPrioritySubmissionAndReadOnly() throws {
         let (app, dir) = try setup()
-        let entry = app.buttons["adjust-project-direction"]
-        scrollToWorkspaceRow(entry, in: app); entry.tap()
+        openCommandPlans(in: app)
         let field = app.descendants(matching: .any)["plan-direction"].firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 8), "调整方向应打开独立编辑面板")
         XCTAssertEqual(field.value as? String, "先核对连接，再整理界面", "必须预填当前方向，不给空框")
@@ -18,7 +17,7 @@ final class DirectionFlowTests: XCTestCase {
         XCTAssertFalse(app.buttons["generate-project-plan"].isEnabled, "只读不能提交方向")
         app.buttons["direction-close"].tap()
         try Data().write(to: dir.appendingPathComponent("ui-card-management"))
-        entry.tap()
+        openCommandPlans(in: app)
         let submit = app.buttons["generate-project-plan"]
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: submit)], timeout: 8), .completed, "控制授权更新后才可提交")
         picker.tap(); app.buttons["plan-priority-1"].tap()
@@ -38,11 +37,10 @@ final class DirectionFlowTests: XCTestCase {
             XCTFail("保存确认后应返回指挥台：" + app.debugDescription)
             return
         }
-        XCTAssertTrue(app.staticTexts["先稳定连接，再验证界面"].waitForExistence(timeout: 8), "指挥台显示真实新方向")
-        let first = app.buttons["todo-open-0"]
-        scrollToWorkspaceRow(first, in: app)
-        XCTAssertTrue(first.label.contains("整理界面布局"), "选中的第二项必须实际排到首位")
-        XCTAssertFalse(first.label.contains("核对连接路径"), "不能只改文本但保持原顺序")
+        openCommandPlans(in: app)
+        XCTAssertEqual(field.value as? String, "先稳定连接，再验证界面", "重新读取应显示保存的新方向")
+        XCTAssertTrue((picker.value as? String)?.hasSuffix("整理界面布局") == true, "选中的第二项必须实际排到首位")
+        XCTAssertFalse((picker.value as? String)?.hasSuffix("核对连接路径") == true, "不能只改文本但保持原顺序")
         let data = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: dir.appendingPathComponent("ui-direction-requests.json"))) as? [[String: Any]])
         XCTAssertEqual(data.count, 1, "一次确认只提交一次")
         XCTAssertEqual(data[0]["direction"] as? String, "先稳定连接，再验证界面", "保留目标原文")
@@ -58,8 +56,7 @@ final class DirectionFlowTests: XCTestCase {
     @MainActor func testAccessibleDirectionAndWindowChange() throws {
         let (app, dir) = try setup(accessibility: true)
         try Data().write(to: dir.appendingPathComponent("ui-card-management"))
-        let entry = app.buttons["adjust-project-direction"]
-        scrollToWorkspaceRow(entry, in: app); entry.tap()
+        openCommandPlans(in: app)
         let picker = app.buttons["plan-priority"]
         XCTAssertTrue(picker.waitForExistence(timeout: 8), "辅助字号仍提供优先事项选择")
         let submit = app.buttons["generate-project-plan"]
@@ -83,8 +80,7 @@ final class DirectionFlowTests: XCTestCase {
     @MainActor func testDirectionRejectsConcurrentPublish() throws {
         let (app, dir) = try setup()
         try Data().write(to: dir.appendingPathComponent("ui-card-management"))
-        let entry = app.buttons["adjust-project-direction"]
-        scrollToWorkspaceRow(entry, in: app); entry.tap()
+        openCommandPlans(in: app)
         let submit = app.buttons["generate-project-plan"]
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: submit)], timeout: 8), .completed, "必须先核对控制授权")
         try Data().write(to: dir.appendingPathComponent("ui-direction-race"))
@@ -109,7 +105,7 @@ final class DirectionFlowTests: XCTestCase {
         let app = XCUIApplication()
         if accessibility { app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
         app.launch(); app.buttons["workspace-tab-command"].tap()
-        XCTAssertTrue(app.staticTexts["先核对连接，再整理界面"].waitForExistence(timeout: 8), "应读取两项真实存储建议")
+        XCTAssertTrue(app.buttons["realtime-project"].waitForExistence(timeout: 8), "应进入新的原生指挥台")
         return (app, dir)
     }
 }

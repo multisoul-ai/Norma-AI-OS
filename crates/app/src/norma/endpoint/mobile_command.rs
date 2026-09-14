@@ -9,10 +9,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-enum Started {
+pub(super) enum Started {
     Immediate(serde_json::Value),
     Durable(async_channel::Receiver<Result<serde_json::Value, &'static str>>),
-    Card(canvas::NodeId),
+    Saved(
+        serde_json::Value,
+        Option<async_channel::Receiver<Result<(), &'static str>>>,
+    ),
     Async(async_channel::Receiver<Result<serde_json::Value, String>>),
 }
 
@@ -61,6 +64,9 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
                     return Err("unauthorized");
                 }
                 match &call.request.command {
+                    MobileCommand::RealtimeTool { command } => {
+                        super::mobile_realtime::start(app, window.as_deref_mut(), cx, command.clone(), call.source.clone())
+                    }
                     MobileCommand::TerminalInput { expected, screen_signature, input_sequence, input } => {
                         app.runtime.send_mobile_terminal_input(expected, *screen_signature, *input_sequence, input)?;
                         cx.notify();
@@ -122,7 +128,7 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
                             window.as_deref_mut(),
                             cx,
                         )
-                        .map(Started::Card)
+                        .map(|node| Started::Saved(serde_json::json!({"node_id":node}), None))
                         .map_err(|_| "create_failed"),
                     MobileCommand::DeleteCard {
                         expected,
@@ -133,8 +139,8 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
                         }) {
                             return Err("state_not_ready");
                         }
-                        app.delete_mobile_card_in_canvas(expected, *confirm_busy, window.as_deref_mut(), cx)
-                            .map(Started::Card)
+                        app.delete_mobile_card_in_canvas(expected, *confirm_busy, window, cx)
+                            .map(|node| Started::Saved(serde_json::json!({"node_id":node}), None))
                     }
                     MobileCommand::InterruptTurn { expected } => {
                         app.interrupt_mobile_chat(expected, cx).map(Started::Async)
@@ -164,7 +170,7 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
         .ok()
         .and_then(Result::ok)
         .unwrap_or(Err("route_expired"));
-    let node_id = match created {
+    let (value, saved) = match created {
         Ok(Started::Immediate(value)) => {
             let _ = call.reply.try_send(Ok(value));
             return;
@@ -177,7 +183,7 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
             .detach();
             return;
         }
-        Ok(Started::Card(node)) => node,
+        Ok(Started::Saved(value, saved)) => (value, saved),
         Ok(Started::Async(result)) => {
             cx.spawn(async move |_| {
                 let result = result
@@ -214,7 +220,15 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
                 .flatten();
             match state {
                 Some(PersistenceSaveState::Clean) => {
-                    break Ok(serde_json::json!({"node_id":node_id}))
+                    break if let Some(saved) = saved {
+                        saved
+                            .recv()
+                            .await
+                            .unwrap_or(Err("outcome_unknown"))
+                            .map(|()| value)
+                    } else {
+                        Ok(value)
+                    };
                 }
                 Some(PersistenceSaveState::Failed) | None => break Err("outcome_unknown"),
                 Some(PersistenceSaveState::Pending) => {}

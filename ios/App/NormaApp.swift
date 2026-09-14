@@ -5,16 +5,19 @@ import NormaCore
 @main struct NormaApp: App {
     @UIApplicationDelegateAdaptor(PushNotifications.self) private var notifications
     @State private var model = ComputerModel()
+    @StateObject private var call = VoiceCall()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
-            RootView(model: model, notifications: notifications)
+            RootView(model: model, notifications: notifications, call: call)
+                .environmentObject(call)
                 .background(KeyboardDismissal().frame(width: 0, height: 0).accessibilityHidden(true))
                 .preferredColorScheme(.dark)
                 .tint(.white)
                 .task {
                     await model.load()
+                    await call.discussions.load()
                     notifications.tokenChanged = { [weak model, weak notifications] in
                         guard let model, let notifications else { return }
                         Task { await notifications.synchronize(model.machines, client: model.client) }
@@ -22,6 +25,7 @@ import NormaCore
                     await notifications.refreshSystem()
                 }
                 .onChange(of: scenePhase) { _, phase in
+                    call.setForeground(phase == .active)
                     if phase == .background { model.disconnect(); model.finishDraftWrites() }
                     if phase == .active {
                         model.refresh()
@@ -42,7 +46,6 @@ import NormaCore
     var grant: DeviceGrant?
     var projects: [ProjectSnapshot]?
     private var projectSelections: [String: String] = [:]
-    var commandShowsPlan = true
     var selectedProject: ProjectSnapshot? {
         guard let selectedID else { return nil }
         return projects?.first { $0.id == projectSelections[selectedID] } ?? projects?.first

@@ -1,0 +1,151 @@
+{
+  "cloud": {
+    "turns": [
+      {
+        "turn": "82d6ad7e-a48b-488f-93b8-831674f33a42",
+        "prompt": "新建一个名为result.txt的文本文件，内容为“云端验证完成”加换行结尾"
+      }
+    ],
+    "receipts": [
+      {
+        "status": "accepted",
+        "message": "已创建并打开 Agent Alan，AgentCard 已接收任务",
+        "node_id": 1,
+        "operation_id": "rt-667e5ec8370d994329219f04b8d2ec0cdd892d6bb95fc9f01a6506d3bbe8d84f",
+        "task_id": 1
+      }
+    ],
+    "speech": [
+      "已为你创建Alan处理该任务，请稍等执行结果~",
+      "1项执行完成，1项待你验收。",
+      "详情在成果记录中。"
+    ],
+    "audioPackets": 100,
+    "chats": 2,
+    "users": [
+      "请让 CodeX 新建一个文本文件，文件名由小写英文单词 result 一个英文句点和小写扩展名 txt 组成。文件内容只有云端验证完成这六个汉字，并以换行结尾。"
+    ],
+    "http": [
+      {
+        "service": "chat",
+        "status": 200
+      },
+      {
+        "service": "chat",
+        "status": 200
+      },
+      {
+        "service": "tts",
+        "status": 200
+      },
+      {
+        "service": "tts",
+        "status": 200
+      },
+      {
+        "service": "tts",
+        "status": 200
+      }
+    ],
+    "tools": [
+      {
+        "id": "call_8smg9t3zowuzwyyrqwfzgisd",
+        "function": {
+          "name": "create_agent",
+          "arguments": " {\"profile\": \"codex\", \"task\": \"新建一个名为result.txt的文本文件，内容为“云端验证完成”加换行结尾\"}"
+        },
+        "type": "function"
+      }
+    ],
+    "asrConnections": 3
+  },
+  "delivery": {
+    "workspace_id": "d43d1b73-6878-4b54-b037-deab2a0e4096",
+    "outcome": {
+      "key": {
+        "node_id": 1,
+        "profile": "Codex",
+        "run_id": "ee8d60a3-ee25-4aca-8996-54cf98e65f68",
+        "session_id": "ac7d3957-3e88-4a31-83ad-51fad0df787e",
+        "turn_id": "82d6ad7e-a48b-488f-93b8-831674f33a42"
+      },
+      "state": "completed",
+      "summary": "已创建 result.txt，并核对内容。"
+    },
+    "content": {
+      "status": "available",
+      "review": {
+        "base_commit": null,
+        "files": [
+          {
+            "path": "result.txt",
+            "status": "??",
+            "before": null,
+            "after": {
+              "kind": "text",
+              "executable": false,
+              "bytes": [
+                228,
+                186,
+                145,
+                231,
+                171,
+                175,
+                233,
+                170,
+                140,
+                232,
+                175,
+                129,
+                229,
+                174,
+                140,
+                230,
+                136,
+                144,
+                10
+              ]
+            },
+            "index": null,
+            "diff": "--- before\n+++ after\n@@ -0,0 +1 @@\n+云端验证完成\n",
+            "staged_diff": ""
+          }
+        ],
+        "conflicted": false
+      }
+    },
+    "fingerprint": "82209176306698ef9d3ad72800d957ec9c7b98bde71c2b0cd5f1e5cd407c0041",
+    "saved_at_unix": 1789332630
+  },
+  "baseline": {
+    "workspace_id": "d43d1b73-6878-4b54-b037-deab2a0e4096",
+    "route_id": "f1b10443-21c8-4d75-8e0c-c538e89bf9ed",
+    "device_id": "3CC3047B-5C81-45CF-B83D-E6CAE4E0626D",
+    "operation_id": "rt-667e5ec8370d994329219f04b8d2ec0cdd892d6bb95fc9f01a6506d3bbe8d84f",
+    "key": {
+      "node_id": 1,
+      "profile": "Codex",
+      "run_id": "ee8d60a3-ee25-4aca-8996-54cf98e65f68",
+      "session_id": "ac7d3957-3e88-4a31-83ad-51fad0df787e",
+      "turn_id": "82d6ad7e-a48b-488f-93b8-831674f33a42"
+    },
+    "baseline": {
+      "status": "available",
+      "review": {
+        "base_commit": null,
+        "files": [],
+        "conflicted": false
+      }
+    },
+    "recorded_at_unix": 1789332625
+  },
+  "input": {
+    "text": "请让 Codex 新建一个文本文件，文件名由小写英文单词 result、一个英文句点和小写扩展名 txt 组成，文件内容只有云端验证完成这六个汉字，并以换行结尾。",
+    "pcm_sha256": "8f61c12e44ace4873d3019bbf7c1992f6626be8ed609d1886c8f3f49cf45c755",
+    "pcm_bytes": 546300,
+    "sample_rate": 16000,
+    "channels": 1,
+    "sample_bits": 16,
+    "source": "local macOS say Tingting; ambient microphone upload muted"
+  }
+}

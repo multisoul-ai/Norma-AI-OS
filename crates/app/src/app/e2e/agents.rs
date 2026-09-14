@@ -144,7 +144,23 @@ impl MultisoulApp {
     ) -> Result<agent::AdapterResult, String> {
         crate::app::agent_runtime::execute_norma_adapter_command_with_source(
             self,
-            window,
+            Some(window),
+            cx,
+            command,
+            agent::AgentInputSource::Voice,
+        )
+        .map_err(|error| error.to_string())
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn execute_background_norma_adapter_command_for_e2e(
+        &mut self,
+        cx: &mut Context<Self>,
+        command: agent::AdapterCommand,
+    ) -> Result<agent::AdapterResult, String> {
+        crate::app::agent_runtime::execute_norma_adapter_command_with_source(
+            self,
+            None,
             cx,
             command,
             agent::AgentInputSource::Voice,

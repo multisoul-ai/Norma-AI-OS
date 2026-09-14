@@ -231,6 +231,7 @@ impl MultisoulApp {
                     for event in &agent_hook_report.events {
                         app.ingest_hook_conversation_observation(event);
                         app.record_native_mobile_event(event, cx);
+                        app.bind_realtime_delivery(event, cx);
                         if event.provider_event == "SessionEnd" {
                             app.clear_conversation_tail_for_node(event.node_id);
                         }
@@ -241,9 +242,9 @@ impl MultisoulApp {
                             app.register_external_agent_root(started.node_id, started.task_title);
                     }
                     for node_id in agent_hook_report.ready_node_ids {
-                        queue_changed |= app.submit_pending_agent_task_for_ready_node(node_id);
+                        queue_changed |= app.submit_pending_agent_task_for_ready_node(node_id, cx);
                     }
-                    queue_changed |= app.submit_due_pending_agent_tasks(Instant::now());
+                    queue_changed |= app.submit_due_pending_agent_tasks(Instant::now(), cx);
                     app.advance_session_reply_queue();
                     let speak_agent_completions = app.dialogue.is_active()
                         && app.voice_settings.values().interaction_mode()

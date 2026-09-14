@@ -16,8 +16,8 @@ final class ToolCardFlowTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch(); app.buttons["workspace-tab-command"].tap()
-        app.buttons["command-mode-decisions"].tap()
-        let detail = app.buttons["approval-task-details"]
+        openCommandDecisions(in: app)
+        let detail = app.buttons["查看原任务"]
         XCTAssertTrue(detail.waitForExistence(timeout: 8), "详情入口必须可达")
         for _ in 0..<3 where !detail.isHittable { app.swipeUp() }
         detail.tap()
@@ -73,9 +73,9 @@ final class ToolCardFlowTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: enabled); try? FileManager.default.removeItem(at: failed) }
         let app = XCUIApplication(); app.launch()
         app.buttons["workspace-tab-command"].tap()
-        app.buttons["command-mode-decisions"].tap()
+        openCommandDecisions(in: app)
         // 8s=2s服务心跳+6s真实WSS和原生导航余量，不作为网络延迟指标。
-        let detail = app.buttons["approval-task-details"]
+        let detail = app.buttons["查看原任务"]
         XCTAssertTrue(detail.waitForExistence(timeout: 8), "从现有决策打开原聊天")
         detail.tap()
         let command = app.buttons["tool-card-tool-command-0"]

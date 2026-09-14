@@ -1,0 +1,5 @@
+CMU Graphics Lab Motion Capture Database — subject 113, trial 21 (Standing Still).
+http://mocap.cs.cmu.edu/
+The data may be used in commercial products, but may not be resold directly, in original or converted form.
+This CMU-derived idle is not CC0. The Quaternius calibration pose is CC0 (see CC0.txt).
+Credit: Carnegie Mellon University Graphics Lab; database funded by NSF EIA-0196217.

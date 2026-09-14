@@ -27,8 +27,8 @@ fn excerpt(runtime: &Runtime, node: NodeId) -> Value {
 /// 原生两类卡片展示当前回合的操作说明与最终回复，新回合清空且旧事件不能污染。
 /// 数据构造：2张原PTY卡使用同一合成session但node不同；每个回合有1次带description的工具及1次Stop。
 ///   240字符为快照摘录上限，后续边界测试单独覆盖；此处短句不截断。
-/// 执行过程：启动两类卡 → 当前工具说明 → 最终回复 → 下一回合 → 旧回合Stop → 不含说明的工具。
-/// 预期结果：正断言为真实说明/回复；命令正文不进入摘要，新回合和无说明工具不保留旧文；PTY数量始终为2。
+/// 执行过程：启动两类卡 → 当前工具说明 → 最终回复与完成摘要 → 下一回合 → 旧回合Stop → 不含说明的工具。
+/// 预期结果：正断言为真实说明/回复及冻结的完成摘要；命令正文不进入摘要，新回合和无说明工具不保留旧文；PTY数量始终为2。
 #[test]
 fn native_task_summary_is_scoped_to_current_turn() {
     let mut runtime = Runtime::new_for_workspace("/tmp");
@@ -93,6 +93,20 @@ fn native_task_summary_is_scoped_to_current_turn() {
         excerpt(&runtime, codex),
         json!("已修复重复转写，连接恢复测试通过。"),
         "最终回复应替换操作说明"
+    );
+    let (_, _, outcome) = runtime
+        .native_mobile_event(&hook(
+            codex,
+            HookSource::Codex,
+            "Stop",
+            "a",
+            json!({"last_assistant_message":"已修复重复转写，连接恢复测试通过。"}),
+        ))
+        .expect("准确的原生完成事件");
+    assert_eq!(
+        outcome.expect("完成证据").summary.as_deref(),
+        Some("已修复重复转写，连接恢复测试通过。"),
+        "通知摘要必须与该回合的完成证据一起冻结"
     );
     assert_eq!(
         excerpt(&runtime, claude),

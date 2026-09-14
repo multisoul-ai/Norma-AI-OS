@@ -29,6 +29,7 @@ pub(crate) mod mobile_approval;
 pub(crate) mod mobile_command;
 pub(crate) mod mobile_conversation;
 mod mobile_plan;
+mod mobile_realtime;
 pub(crate) mod mobile_review;
 mod mobile_task_baseline;
 pub(crate) mod mobile_terminal;
@@ -234,8 +235,11 @@ pub(crate) fn mobile_project_snapshots(
     database: &std::path::Path,
     mut projects: Vec<norma::mobile::ProjectSnapshot>,
     include_cards: bool,
+    agents: Option<crossbeam_channel::Sender<Vec<agent::AgentRosterEntry>>>,
     cx: &mut App,
 ) -> Vec<norma::mobile::ProjectSnapshot> {
+    // A roster has one workspace owner. Catalog/multi-project reads cannot mix agent identities.
+    let mut agents = agents.filter(|_| projects.len() == 1);
     for project in &mut projects {
         let Some(host) = cx.try_global::<NormaEndpointHost>() else {
             continue;
@@ -262,15 +266,19 @@ pub(crate) fn mobile_project_snapshots(
                     .filter(|n| matches!(n.kind, canvas::CanvasNodeKind::Agent(_)))
                     .count();
                 let cards = include_cards.then(|| app.mobile_card_snapshots());
-                Some((route, count, cards))
+                let roster = agents.as_ref().map(|_| app.agent_roster_for_provider());
+                Some((route, count, cards, roster))
             })
             .ok()
             .flatten();
-        if let Some((route, count, cards)) = data {
+        if let Some((route, count, cards, roster)) = data {
             project.state = "open".into();
             project.route_id = Some(route);
             project.card_count = Some(count);
             project.cards = cards;
+            if let (Some(reply), Some(roster)) = (agents.take(), roster) {
+                let _ = reply.try_send(roster);
+            }
         }
     }
     projects

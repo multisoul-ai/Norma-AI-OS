@@ -1,8 +1,110 @@
 use super::*;
 
+/// Relay 明确拒绝请求时保留可诊断原因，不能把所有失败都当成未知投递。
+///
+/// 数据构造：本地 HTTP 返回协议 400/401/502/503，另给出含敏感文本的未知错误和伪造成功；密钥 32 bytes × 2 = 64 hex。
+/// 执行过程：每例接收一次真实 POST → 返回固定状态及正文 → 检查 Mac 的结果分类。
+/// 预期结果：非法事件、APNs 配置和服务不可用分别可辨；未知正文不进入错误码，伪造成功不算接受。
+#[test]
+fn relay_preserves_known_rejections_without_exposing_response_contents() {
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::TcpListener;
+
+    let send = |status: u16, body: &'static str| {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("隔离 HTTP 入口");
+        let endpoint = format!(
+            "http://{}/v1/notifications",
+            listener.local_addr().expect("地址")
+        );
+        let server = std::thread::spawn(move || {
+            let (socket, _) = listener.accept().expect("接收唯一请求");
+            // 5 秒为本地 IO 预算，小于生产请求的 12 秒总预算。
+            socket
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .expect("读取上限");
+            let mut reader = BufReader::new(socket);
+            let mut line = String::new();
+            let mut length = 0;
+            loop {
+                line.clear();
+                assert!(
+                    reader.read_line(&mut line).expect("请求头") > 0,
+                    "请求头不能提前结束"
+                );
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some((name, value)) = line.split_once(':') {
+                    if name.eq_ignore_ascii_case("content-length") {
+                        length = value.trim().parse::<usize>().expect("请求长度");
+                    }
+                }
+            }
+            let mut request = vec![0; length];
+            reader.read_exact(&mut request).expect("完整请求");
+            assert_eq!(request, b"{}", "本地探针不含真实设备或任务");
+            write!(reader.get_mut(), "HTTP/1.1 {status} Test\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).expect("响应");
+        });
+        let config = PushRelayConfig::new(
+            &endpoint,
+            &"a".repeat(64),
+            PushEnvironment::Production,
+            true,
+        )
+        .expect("本地配置");
+        let mut relay = Relay::new(config);
+        // 沿用生产总预算：APNs 10 秒 + 网络余量 2 秒 = 12 秒；仅禁用测试进程代理。
+        relay.agent = ureq::Agent::config_builder()
+            .http_status_as_error(false)
+            .max_redirects(0)
+            .timeout_global(Some(Duration::from_secs(12)))
+            .proxy(None)
+            .build()
+            .new_agent();
+        let outcome = relay.send(&serde_json::json!({}));
+        server.join().expect("HTTP 服务退出");
+        outcome
+    };
+    assert_eq!(
+        send(400, r#"{"error":"invalid_event"}"#),
+        Err("invalid_event"),
+        "协议拒绝不能伪装为未知投递"
+    );
+    assert_eq!(
+        send(401, "Unauthorized"),
+        Err("push_configuration_error"),
+        "代理返回非 JSON 的认证拒绝仍须指向配置问题"
+    );
+    assert_eq!(
+        send(502, r#"{"error":"apns_configuration_error"}"#),
+        Err("apns_configuration_error"),
+        "Apple 密钥错误必须可定位"
+    );
+    assert_eq!(
+        send(503, r#"{"error":"apns_unavailable"}"#),
+        Err("apns_unavailable"),
+        "Apple 暂不可用必须可辨"
+    );
+    assert_eq!(
+        send(502, r#"{"error":"SECRET_RESPONSE"}"#),
+        Err("delivery_unknown"),
+        "任意响应正文不得进入日志错误码"
+    );
+    assert_eq!(
+        send(200, r#"{"status":"delivered"}"#),
+        Err("delivery_unknown"),
+        "非 accepted 回执不能报成功"
+    );
+    assert_eq!(
+        send(200, r#"{"status":"accepted"}"#),
+        Ok(None),
+        "合法 APNs 接受回执必须保持成功"
+    );
+}
+
 /// 保存的通知服务按安装隔离；错误修改不覆盖凭据，停用不会回退到启动环境。
 ///
-/// 数据构造：两个隔离 AppDB；32字节测试密钥编码为64位hex；HTTPS正式入口与不合法HTTP入口。
+/// 数据构造：两个隔离 AppDB；32字节测试密钥编码为64位hex；主域名 /norma/ 下的 HTTPS 入口与不合法 HTTP 入口。
 /// 执行过程：保存A → 重读A与B → 拒绝非法修改 → 清除A → 重读显式停用标记。
 /// 预期结果：A恢复准确地址/环境/密钥，B未配置；非法修改保留A；停用后不残留密钥。
 #[test]
@@ -13,7 +115,7 @@ fn saved_relay_is_isolated_validated_and_explicitly_disabled() {
     let b = storage::AppStore::new(dir.path().join("b.sqlite"));
     let key = "b".repeat(64); // 32 bytes × 2 hex digits = 64.
     let config = PushRelayConfig::from_fields(
-        "https://push.example/v1/notifications",
+        "https://soulvoiceai.com/norma/v1/notifications",
         &key,
         PushEnvironment::Sandbox,
     )
@@ -25,7 +127,7 @@ fn saved_relay_is_isolated_validated_and_explicitly_disabled() {
         .expect("已配置");
     assert_eq!(
         loaded.endpoint.as_str(),
-        "https://push.example/v1/notifications",
+        "https://soulvoiceai.com/norma/v1/notifications",
         "地址必须完整恢复"
     );
     assert_eq!(loaded.key, key, "密钥必须恢复且不能改写");
@@ -125,6 +227,24 @@ fn relay_configuration_preserves_the_https_credential_boundary() {
         )
         .is_err(),
         "只能投递到明确通知路径"
+    );
+    assert!(
+        PushRelayConfig::from_fields(
+            "https://soulvoiceai.com/norma/other",
+            &key,
+            PushEnvironment::Production
+        )
+        .is_err(),
+        "主域名下非通知路径不能收到服务凭据"
+    );
+    assert!(
+        PushRelayConfig::from_fields(
+            "https://soulvoiceai.com/norma/v1/notifications/extra",
+            &key,
+            PushEnvironment::Production
+        )
+        .is_err(),
+        "通知入口后不能追加其他路由"
     );
     assert!(
         PushRelayConfig::new(

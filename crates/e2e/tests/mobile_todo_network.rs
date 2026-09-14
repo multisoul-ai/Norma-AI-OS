@@ -122,6 +122,7 @@ fn todo_decisions_dispatch_original_text_once_and_share_scoped_status() {
                     storage::MobileTurnState::Failed
                 };
                 let outcome = storage::MobileTurnOutcome {
+                    summary: None,
                     key: storage::MobileTurnKey {
                         node_id: 7,
                         profile: "Codex".into(),

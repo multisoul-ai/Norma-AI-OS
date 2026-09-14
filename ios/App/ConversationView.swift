@@ -59,7 +59,9 @@ struct ConversationView: View {
         ScrollViewReader { reader in
         GeometryReader { viewport in
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 20) {
+            // Lazy height estimates can loop when a selectable reply is taller than the viewport.
+            // ponytail: lay out loaded history eagerly; use message virtualization if history size becomes costly.
+            VStack(alignment: .leading, spacing: 20) {
                 (typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4)) : AnyLayout(HStackLayout())) {
                     Label(machine.name, systemImage: "laptopcomputer")
                         .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
@@ -143,22 +145,21 @@ struct ConversationView: View {
             if showTerminal {
                 TerminalPanel(model: model, machine: machine, workspaceID: workspaceID, routeID: routeID,
                               card: active, project: project, revision: revision, canControl: canControl)
-            } else { chatContent }
+            } else {
+                // Keep history and the keyboard-aware composer in separate layout regions.
+                chatContent.clipped()
+                ChatComposer(model: model, machine: machine, workspaceID: workspaceID, routeID: routeID, project: project, card: currentCard ?? card, revision: revision, canControl: canControl && scenePhase == .active) { result in
+                    followsLatest = true; scrollRequest += 1
+                    guard let run = result.runID, let session = result.sessionID else { return }
+                    if let binding, binding.runID != run || binding.sessionID != session { notice = "已确认旧会话的发送结果，请重新打开当前卡片。"; return }
+                    if binding == nil { timeline = ConversationTimeline() }
+                    binding = ConversationRequest(workspaceID: workspaceID, routeID: routeID, nodeID: card.id, runID: run, sessionID: session, cursor: nil)
+                    error = nil
+                }
+            }
         }
         .background(.black)
         .scrollDismissesKeyboard(.interactively)
-        .safeAreaInset(edge: .bottom) {
-            if !showTerminal {
-            ChatComposer(model: model, machine: machine, workspaceID: workspaceID, routeID: routeID, project: project, card: currentCard ?? card, revision: revision, canControl: canControl && scenePhase == .active) { result in
-                followsLatest = true; scrollRequest += 1
-                guard let run = result.runID, let session = result.sessionID else { return }
-                if let binding, binding.runID != run || binding.sessionID != session { notice = "已确认旧会话的发送结果，请重新打开当前卡片。"; return }
-                if binding == nil { timeline = ConversationTimeline() }
-                binding = ConversationRequest(workspaceID: workspaceID, routeID: routeID, nodeID: card.id, runID: run, sessionID: session, cursor: nil)
-                error = nil
-            }
-        }
-        }
         .navigationTitle(typeSize.isAccessibilitySize ? "" : card.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)

@@ -5,8 +5,8 @@ final class ChatInteractionFlowTests: XCTestCase {
     ///
     /// 数据构造：原卡 7/session-7，启动前 run=null；hi 为 2 字节，远小于 64KiB 草稿上限。
     ///   8s = 2s 项目订阅周期 + 6s 原生导航及 TLS 调度余量，不是性能指标。
-    /// 执行过程：隔离 WSS 返回未启动原卡 → 输入 hi → 等待已保存 → 重启 App → 点击发送。
-    /// 预期结果：没有“草稿尚未保存”、按钮可用；重启保留正文但不自动发送；准确回执后清空。
+    /// 执行过程：隔离 WSS 返回未启动原卡 → 输入 hi → 核对无保存状态提示 → 重启 App → 点击发送。
+    /// 预期结果：正常保存不显示提示、按钮可用；重启保留正文但不自动发送；准确回执后清空。
     @MainActor func testColdOriginalCardSavesDraftAndSendsAfterReopen() throws {
         let env = ProcessInfo.processInfo.environment
         guard env["NORMA_TEST_MODE"] == "notification-ui", let path = env["NORMA_TEST_QR"] else {
@@ -25,8 +25,9 @@ final class ChatInteractionFlowTests: XCTestCase {
         let input = app.descendants(matching: .any)["chat-message-input"].firstMatch
         XCTAssertTrue(input.waitForExistence(timeout: 8), "后台原卡应能输入内容")
         input.tap(); input.typeText("hi")
-        let saved = app.staticTexts["草稿已保存到此手机"]
-        XCTAssertTrue(saved.waitForExistence(timeout: 8), "2 字节原文不能因缺少运行身份而保存失败")
+        XCTAssertFalse(app.staticTexts["draft-save-status"].exists, "输入时不应显示草稿保存状态")
+        XCTAssertFalse(app.staticTexts["正在保存草稿…"].exists, "后台保存不应占用输入区")
+        XCTAssertFalse(app.staticTexts["草稿已保存到此手机"].exists, "保存成功不应显示常驻提示")
         XCTAssertFalse(app.staticTexts["draft-storage-error"].exists, "不能出现截图中的全局草稿失败提示")
         XCTAssertTrue(app.buttons["chat-send-message"].isEnabled, "草稿保存后，原卡的发送按钮应可用")
         app.terminate(); app.launch()

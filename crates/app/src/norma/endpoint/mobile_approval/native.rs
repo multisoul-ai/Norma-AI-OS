@@ -62,6 +62,7 @@ pub(super) fn choose(
             }
             let result = request.result()?;
             let ended = (decision == ApprovalDecision::Deny).then(|| storage::MobileTurnOutcome {
+                summary: None,
                 key: storage::MobileTurnKey {
                     node_id: target.node_id,
                     profile: target.profile.clone(),

@@ -164,7 +164,7 @@ impl MultisoulApp {
                 }
             }
             command @ (CardCommand::CreateAgent { .. } | CardCommand::ActivateAgent { .. }) => {
-                let area = self.mobile_canvas_area(window.as_deref_mut());
+                let area = self.mobile_canvas_area(window);
                 let zoom = self.runtime.document.viewport.zoom;
                 crate::app::execute_high_level_agent_command(
                     self,
@@ -214,7 +214,7 @@ impl MultisoulApp {
                 })
             }
             command => {
-                let area = self.mobile_canvas_area(window.as_deref_mut());
+                let area = self.mobile_canvas_area(window);
                 let zoom = self.runtime.document.viewport.zoom;
                 execute_card_command_for_area_with_strategy(
                     &mut self.runtime,

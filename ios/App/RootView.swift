@@ -4,6 +4,7 @@ import NormaCore
 struct RootView: View {
     @Bindable var model: ComputerModel
     @ObservedObject var notifications: PushNotifications
+    @ObservedObject var call: VoiceCall
     @State private var tab = 0
     @State private var showComputers = false
     @State private var showProjects = false
@@ -13,18 +14,27 @@ struct RootView: View {
 
     var body: some View {
         NavigationStack {
+            VStack(spacing: 0) {
             TabView(selection: $tab) {
                 projects
                     .tabItem { Label("项目", systemImage: "square.grid.2x2") }.tag(0)
-                CommandCenterView(model: model, manageComputers: { showComputers = true }, active: tab == 1 && !showComputers)
+                CommandCenterView(model: model, call: call, manageComputers: { showComputers = true }, active: tab == 1 && !showComputers && notifications.target == nil, showsCallControls: false)
                     .tabItem { Label("指挥台", systemImage: "sparkle") }.tag(1)
                 TasksView(model: model, active: tab == 2 && !showComputers, manageComputers: { showComputers = true })
                     .id(model.selectedID).tabItem { Label("任务", systemImage: "checklist") }.tag(2)
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                WorkspaceTabBar(selection: $tab).padding(.horizontal, 17).padding(.top, 4).padding(.bottom, 8)
+                if tab == 1 {
+                    CallControlsView(call: call, machine: model.selected, project: model.selectedProject)
+                    WorkspaceTabBar(selection: $tab).padding(.horizontal, 17).padding(.top, 4).padding(.bottom, 8)
+                }
             }
-            // Only the home shell anchors to the screen; pushed chats keep native keyboard avoidance.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if tab != 1 {
+                    WorkspaceTabBar(selection: $tab).padding(.horizontal, 17).padding(.top, 4).padding(.bottom, 8)
+                }
+            }
+            // The call dock takes layout space so TabView cannot scroll content underneath it.
+            // Other tabs keep their existing inset and pushed chats keep keyboard avoidance.
             .ignoresSafeArea(.all, edges: .bottom)
             .environment(\.workspaceTab, $tab)
             .environment(\.workspaceNotifications, { showNotifications = true })
@@ -34,7 +44,7 @@ struct RootView: View {
         .sheet(isPresented: $showProjects) { projectPicker }
         .onChange(of: model.selectedID) { _, _ in showProjects = false; projectSearch = ""; projectState = nil }
         .sheet(isPresented: $showComputers) { ComputersView(model: model, notifications: notifications) }
-        .background(NotificationPresenter(model: model, notifications: notifications).frame(width: 0, height: 0))
+        .background(NotificationPresenter(model: model, notifications: notifications, call: call).frame(width: 0, height: 0))
         .alert("连接提示", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("好") { model.error = nil }
         } message: { Text(model.error ?? "") }

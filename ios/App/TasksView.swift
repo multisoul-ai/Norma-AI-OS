@@ -15,9 +15,6 @@ struct TasksView: View {
     @State private var search = ""
     @State private var projectID: String?
     @State private var filter = TaskListFilter.all
-    @State private var composing = false
-    @State private var newTaskProjectID: String?
-    @State private var newTaskCardID: UInt64?
     private var filtering: Bool { !search.isEmpty || filter != .all || projectID != nil }
     private var catalog: [ProjectSnapshot] { model.projects ?? [] }
     private var projectName: String { catalog.first { $0.id == projectID }?.displayName ?? "所有项目" }
@@ -39,7 +36,6 @@ struct TasksView: View {
     var body: some View {
         Group {
             VStack(spacing: 0) {
-                taskHeading
                 Group {
                 if model.selected == nil {
                     WorkspaceStatusView(title: "先连接你的电脑", icon: "laptopcomputer.and.iphone", message: "Agent 在电脑上执行，你随时查看进度、继续对话。") {
@@ -62,33 +58,11 @@ struct TasksView: View {
             .background(.black)
             .modifier(WorkspaceChrome(model: model, manageComputers: manageComputers))
             .navigationTitle("任务").navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $composing) {
-                if let machine = model.selected {
-                    NewTaskView(model: model, machine: machine, projects: catalog.compactMap { projects[$0.id] },
-                                projectID: $newTaskProjectID, nodeID: $newTaskCardID).id(machine.id)
-                }
-            }
-            .onChange(of: model.selectedID) { _, _ in
-                composing = false; newTaskProjectID = nil; newTaskCardID = nil
-            }
             .task(id: watchID) { await observe() }
             // Preserve the NavigationLink's source while its conversation is presented.
             // The next observation clears stale state before reconnecting.
             .onDisappear { generation += 1 }
         }
-    }
-
-    private var taskHeading: some View {
-        HStack {
-            WorkspacePageTitle(title: "任务").accessibilityIdentifier("tasks-page-title")
-            Spacer()
-            Button {
-                if newTaskProjectID == nil { newTaskProjectID = projectID }
-                composing = true
-            } label: { WorkspaceCircleIcon(symbol: "plus") }
-                .accessibilityLabel("新建任务").accessibilityIdentifier("new-task")
-                .disabled(projects.values.allSatisfy { $0.routeID == nil })
-        }.buttonStyle(WorkspacePressStyle()).padding(.horizontal, 20).padding(.bottom, 10)
     }
 
     private var projectFilter: some View {

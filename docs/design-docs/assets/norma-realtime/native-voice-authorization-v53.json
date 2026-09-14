@@ -1,0 +1,27 @@
+{
+  "date": "2026-09-14",
+  "production_origin": "https://norma-voice.vercel.app",
+  "production_deployment": "https://norma-voice-3berppbf2-multisoul-ai-s-projects.vercel.app",
+  "native_test": "native_voice_authorization_without_keys",
+  "native_proof": "PASS: native automatic Mac signature -> production HTTP 200 -> Doubao WSS ready -> close ACK; no provider key or microphone",
+  "unregistered_identity_http_status": 401,
+  "registered_identity_http_status": 200,
+  "e2e_regression": {
+    "passed": 270,
+    "failed": 0,
+    "ignored": 75,
+    "suites": 36
+  },
+  "changes": "Acceptance tests only; no production gateway, Mac or iOS runtime changes in v53.",
+  "isolation": "Loopback Mac fixture uses the already registered Keychain identity and separate temporary project/permission storage. Existing Mac pairing data is untouched; simulator test credentials are removed.",
+  "limits": [
+    "iOS simulator; no physical microphone or speaker audio in this authorization check.",
+    "Computer Use can operate Xcode, but getting Simulator continues to return timeoutReached even after native test launch and opening Simulator from Xcode.",
+    "Updated Mac/iOS packages have not been distributed."
+  ],
+  "source_sha256": {
+    "crates/e2e/tests/ios_realtime_companion.rs": "e910db55c2c3c445b3a8776f23651b3b4e069bfb06e8b8cc9dea048cf4e1d2d3",
+    "crates/e2e/tests/support/realtime_targets.rs": "78dcda5f250acd12c23bcd648181c113f4dfddda1816f49df854d0e8d73eabf2",
+    "ios/DeviceTests/RealtimeCompanionTests.swift": "5a43c716f2048d928e3f09bf4f0dfdf0fb7802da815ebf1eaf43528db4a3002f"
+  }
+}

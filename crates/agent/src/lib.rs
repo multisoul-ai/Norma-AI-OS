@@ -15,8 +15,13 @@ mod model;
 mod project_plan;
 mod protocol;
 mod provider_catalog;
+mod realtime_intent;
 mod reply_visibility;
 mod rig_tools;
+mod tool_policy;
+
+pub use realtime_intent::realtime_command_authorized;
+pub use tool_policy::{ToolCallBudget, ToolCallPolicy, MAX_TOOL_CALLS_PER_TURN};
 
 pub use adapter::{
     norma_tool_definitions, AdapterCommand, AdapterError, AdapterResult, AgentCardAdapter,

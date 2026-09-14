@@ -111,8 +111,8 @@ fn test_session_end_clears_waiting_tasks_before_next_norma_dispatch() {
     assert!(marked_ready, "终止队列测试必须先把 Alan 标记为 CLI Ready");
 
     let first = dispatch(&app, cx, "task-1");
-    let first_submitted = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(node_id)
+    let first_submitted = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id, cx)
     });
     let second = dispatch(&app, cx, "task-2");
     assert!(
@@ -164,8 +164,8 @@ fn test_session_end_clears_waiting_tasks_before_next_norma_dispatch() {
     );
 
     let third = dispatch(&app, cx, "task-3");
-    let third_submitted = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(node_id)
+    let third_submitted = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id, cx)
     });
     let actual_writes = writes
         .lock()

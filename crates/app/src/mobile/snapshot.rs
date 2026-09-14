@@ -9,6 +9,8 @@ use storage::MobileDeviceGrant;
 pub struct LiveSnapshotRequest {
     pub projects: Vec<ProjectSnapshot>,
     pub include_cards: bool,
+    /// Optional single-project roster, including definitions without an open card.
+    pub agents: Option<crossbeam_channel::Sender<Vec<agent::AgentRosterEntry>>>,
     pub deadline: Instant,
     pub reply: crossbeam_channel::Sender<Vec<ProjectSnapshot>>,
 }
@@ -89,11 +91,13 @@ pub(super) fn read_until(
     };
     let source = shared.snapshots.as_ref().ok_or("unavailable")?;
     let (reply, result) = crossbeam_channel::bounded(1);
+    let (agents, roster) = crossbeam_channel::bounded(1);
     // 2s bounds foreground delivery, leaving 3s of the iOS 5s exchange budget for TLS/SQLite/wire.
     source
         .try_send(LiveSnapshotRequest {
             projects,
             include_cards: workspace.is_some(),
+            agents: workspace.map(|_| agents),
             deadline,
             reply,
         })
@@ -115,7 +119,14 @@ pub(super) fn read_until(
     }) {
         return Err("unauthorized");
     }
-    let result = json!({"status":"snapshot","grant":current,"projects":projects});
+    let agents =
+        roster.try_recv().ok().map(|entries| {
+            entries.into_iter().map(|entry| {
+        json!({"name":entry.name,"speech_alias":entry.speech_alias,"profile":entry.profile,
+            "enabled":entry.enabled,"active_node_id":entry.active_node_id,"busy":entry.busy})
+    }).collect::<Vec<_>>()
+        });
+    let result = json!({"status":"snapshot","grant":current,"projects":projects,"agents":agents});
     // Fail explicitly rather than silently drop cards from a supposedly complete snapshot.
     if result.to_string().len() > 500 * 1024 {
         return Err("snapshot_too_large");

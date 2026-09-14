@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use super::command_support::{submit_agent_enter, type_agent_task};
+mod realtime;
 
 const AGENT_STARTUP_GRACE: Duration = Duration::from_secs(30);
 const AGENT_SUBMISSION_RETRY_DELAY: Duration = Duration::from_millis(500);
@@ -26,6 +27,7 @@ enum PendingSubmissionStage {
 pub(crate) struct PendingAgentSubmissions {
     ready_after: HashMap<NodeId, Instant>,
     submissions: HashMap<NodeId, PendingAgentSubmission>,
+    realtime: HashMap<u64, realtime::Delivery>,
 }
 
 #[derive(Debug)]
@@ -139,9 +141,11 @@ impl PendingAgentSubmissions {
     pub(crate) fn remove_node(&mut self, node_id: NodeId) {
         self.ready_after.remove(&node_id);
         self.submissions.remove(&node_id);
+        self.realtime.retain(|_, item| item.node != node_id);
     }
 
     pub(crate) fn remove_task(&mut self, task_id: u64) -> Option<RemovedPendingSubmission> {
+        self.realtime.remove(&task_id);
         let node_id = self.submissions.iter().find_map(|(node_id, pending)| {
             (pending.receipt.task_id == task_id).then_some(*node_id)
         })?;
@@ -167,21 +171,42 @@ impl PendingAgentSubmissions {
     pub(crate) fn clear(&mut self) {
         self.ready_after.clear();
         self.submissions.clear();
+        self.realtime.clear();
     }
 }
 
 impl MultisoulApp {
-    pub(crate) fn submit_due_pending_agent_tasks(&mut self, now: Instant) -> bool {
+    pub(crate) fn submit_due_pending_agent_tasks(
+        &mut self,
+        now: Instant,
+        cx: &mut gpui::Context<Self>,
+    ) -> bool {
         let node_ids = self.pending_agent_submissions.due_node_ids(now);
         node_ids.into_iter().fold(false, |changed, node_id| {
-            self.submit_pending_agent_task_for_ready_node(node_id) || changed
+            self.submit_pending_agent_task_for_ready_node(node_id, cx) || changed
         })
     }
 
-    pub(crate) fn submit_pending_agent_task_for_ready_node(&mut self, node_id: NodeId) -> bool {
+    pub(crate) fn submit_pending_agent_task_for_ready_node(
+        &mut self,
+        node_id: NodeId,
+        cx: &mut gpui::Context<Self>,
+    ) -> bool {
         let Some(pending) = self.pending_agent_submissions.take_ready(node_id) else {
             return false;
         };
+        if self.mobile_delivery_pending(node_id)
+            || !self.prepare_realtime_submission(pending.receipt.task_id, cx)
+        {
+            // Keep the exact stage: a task already pasted must not be pasted a second time.
+            self.pending_agent_submissions
+                .submissions
+                .insert(node_id, pending);
+            self.pending_agent_submissions
+                .ready_after
+                .insert(node_id, Instant::now() + Duration::from_millis(50));
+            return false;
+        }
         let receipt = pending.receipt;
         if pending.stage == PendingSubmissionStage::TypeTask {
             return match type_agent_task(&mut self.runtime, receipt.node_id, &receipt.task) {
@@ -205,6 +230,7 @@ impl MultisoulApp {
         }
         match submit_agent_enter(&mut self.runtime, receipt.node_id) {
             Ok(()) => {
+                self.realtime_submission_sent(receipt.task_id, cx);
                 if let Some(writer) = self.persistence.agent_dispatch_writer() {
                     writer.submit_next_queued(receipt.definition_id);
                 }
@@ -247,3 +273,7 @@ pub(super) fn unsafe_submission_recovery_message(message: &str) -> String {
 #[cfg(test)]
 #[path = "../../../tests/unit/agent_pending_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/agent_pending_cancellation_tests.rs"]
+mod cancellation_tests;

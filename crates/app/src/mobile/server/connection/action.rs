@@ -5,6 +5,23 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub(super) enum Action {
+    VoiceAuthorization {
+        device_id: String,
+        token: String,
+    },
+    RealtimeOperations {
+        device_id: String,
+        token: String,
+        workspace_id: String,
+        #[serde(default)]
+        after: u64,
+    },
+    BindRealtime {
+        device_id: String,
+        token: String,
+        binding: super::realtime::Binding,
+        gateway: Option<super::realtime::Gateway>,
+    },
     UploadImage {
         device_id: String,
         token: String,

@@ -24,8 +24,8 @@ use storage::{
 /// 真实Mac通知worker只投递可访问项目的审批与已提交终态；未知结果不重发，撤销/关窗停止新发送。
 ///
 /// 数据构造：A项目只读手机；另一项目/环境手机；phone-revoked在取到订阅快照后撤销；同run下两个独立终态。
-/// 执行过程：真实WSS host启通知 → 有界前台源返回审批 → 停用并更换地址/凭据 → 后台审计提交完成/失败 → relay断开/410 → 撤销/关窗。
-/// 预期结果：仅3个最小事件，切换不重发审批/停用期间的终态；新端点不收到旧凭据，配对授权不变；410仅清订阅，停止后无请求。
+/// 执行过程：真实WSS host启通知 → 审批被旧relay以400拒绝 → 停用并更换地址/凭据 → 后台审计提交完成/失败 → relay断开/410 → 撤销/关窗。
+/// 预期结果：仅3个有界事件，含项目/卡片/各自完成摘要，协议拒绝及切换不重发审批/停用期间的终态；新端点不收到旧凭据，配对授权不变；410仅清订阅，停止后无请求。
 #[test]
 fn push_worker_uses_durable_turns_current_grants_and_never_replays_unknown_sends() {
     let dir = tempfile::tempdir().expect("隔离目录");
@@ -127,7 +127,7 @@ fn push_worker_uses_durable_turns_current_grants_and_never_replays_unknown_sends
         can_interrupt: None,
         task_timing: None,
         task_progress: None,
-        task_summary: None,
+        task_summary: Some("另一回合的内容，不应进入这次通知".into()),
         state: "done".into(),
         run_id: Some("run-a".into()),
         session_id: Some("session-a".into()),
@@ -189,12 +189,12 @@ fn push_worker_uses_durable_turns_current_grants_and_never_replays_unknown_sends
     });
     let listener = TcpListener::bind("127.0.0.1:0").expect("本地relay");
     let endpoint = format!(
-        "http://{}/v1/notifications",
+        "http://{}/norma/v1/notifications",
         listener.local_addr().expect("地址")
     );
     let replacement = TcpListener::bind("127.0.0.1:0").expect("第二个relay");
     let replacement_endpoint = format!(
-        "http://{}/v1/notifications",
+        "http://{}/norma/v1/notifications",
         replacement.local_addr().expect("第二地址")
     );
     let (received, events) = std::sync::mpsc::channel();
@@ -211,7 +211,7 @@ fn push_worker_uses_durable_turns_current_grants_and_never_replays_unknown_sends
             let mut line = String::new();
             reader.read_line(&mut line).expect("请求行");
             assert_eq!(
-                line, "POST /v1/notifications HTTP/1.1\r\n",
+                line, "POST /norma/v1/notifications HTTP/1.1\r\n",
                 "必须发送到唯一通知入口"
             );
             let mut length = 0;
@@ -253,7 +253,10 @@ fn push_worker_uses_durable_turns_current_grants_and_never_replays_unknown_sends
                     json!({"error":"token_unregistered","invalidated_at":now}).to_string(),
                 )
             } else {
-                ("200 OK", json!({"status":"accepted"}).to_string())
+                (
+                    "400 Bad Request",
+                    json!({"error":"invalid_event"}).to_string(),
+                )
             };
             write!(reader.get_mut(), "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).expect("relay回执");
         }
@@ -293,6 +296,14 @@ fn push_worker_uses_durable_turns_current_grants_and_never_replays_unknown_sends
     )
     .expect("真实审计writer");
     let outcome = |turn: &str, state| MobileTurnOutcome {
+        summary: Some(
+            if state == MobileTurnState::Completed {
+                "已修复通知跳转，回归测试通过。"
+            } else {
+                "测试失败：连接已断开。"
+            }
+            .into(),
+        ),
         key: MobileTurnKey {
             node_id: 7,
             profile: "Codex".into(),
@@ -369,9 +380,29 @@ fn push_worker_uses_durable_turns_current_grants_and_never_replays_unknown_sends
         "撤销后不能收到下一项完成事件"
     );
     assert!(failed.get("request_id").is_none(), "终态事件不含审批ID");
+    assert_eq!(
+        completed["preview"]["project"], "Private project",
+        "通知必须显示所属项目"
+    );
+    assert_eq!(
+        completed["preview"]["card"], "PRIVATE CARD · #7",
+        "同名卡片也须由节点编号区分"
+    );
+    assert_eq!(
+        completed["preview"]["summary"], "已修复通知跳转，回归测试通过。",
+        "必须使用已完成回合冻结的最终输出"
+    );
+    assert_eq!(
+        failed["preview"]["summary"], "测试失败：连接已断开。",
+        "失败不能借用完成回合的摘要"
+    );
     assert!(
-        !format!("{approval}{completed}{failed}").contains("PRIVATE"),
-        "项目正文、工具参数与标题不能离开Mac"
+        !format!("{approval}{completed}{failed}").contains("PRIVATE COMMAND"),
+        "不能附带工具参数"
+    );
+    assert!(
+        !completed.to_string().contains("另一回合的内容"),
+        "通知不能误用卡片下一回合的摘要"
     );
     relay.join().expect("relay结束");
     let deadline = std::time::Instant::now() + budget;

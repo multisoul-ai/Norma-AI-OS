@@ -4,17 +4,20 @@ use norma::mobile::{ApprovalListRequest, ApprovalSnapshot, ProjectSnapshot};
 use std::time::{Duration, Instant};
 
 pub(super) fn snapshots(shared: &Shared, workspaces: &[String]) -> Option<Vec<ProjectSnapshot>> {
+    let identities = shared.access().ok()?.store.workspace_identity_store();
     let projects = workspaces
         .iter()
-        .map(|id| ProjectSnapshot {
-            workspace_id: id.clone(),
-            display_name: String::new(),
-            state: "unavailable".into(),
-            route_id: None,
-            card_count: None,
-            cards: None,
+        .map(|id| {
+            Some(ProjectSnapshot {
+                workspace_id: id.clone(),
+                display_name: identities.get(id).ok()??.display_name,
+                state: "unavailable".into(),
+                route_id: None,
+                card_count: None,
+                cards: None,
+            })
         })
-        .collect();
+        .collect::<Option<Vec<_>>>()?;
     let (reply, result) = crossbeam_channel::bounded(1);
     // Existing snapshot budget: 2s for the foreground owner, no database lock held while waiting.
     let deadline = Instant::now() + Duration::from_secs(2);
@@ -24,6 +27,7 @@ pub(super) fn snapshots(shared: &Shared, workspaces: &[String]) -> Option<Vec<Pr
         .try_send(LiveSnapshotRequest {
             projects,
             include_cards: true,
+            agents: None,
             deadline,
             reply,
         })

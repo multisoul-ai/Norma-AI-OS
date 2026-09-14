@@ -1,8 +1,10 @@
 # Norma 推送服务
 
-状态（v49）：Mac事件投递、SwiftUI通知设置、系统APNs回调和点击回源已接入；服务尚未部署，也未向Apple发送真实通知。iOS开发签名已完成；锁屏能力仍需APNs配置和物理iPhone验收。
+2026-09-14 排障：当前安装的 Mac 已包含 `preview` 生成代码，但公网服务拒绝带预览的合法事件，返回 `400 invalid_event`；不带预览的隔离协议探针通过入口校验并获得 APNs 的 `422 token_invalid`（故意无效的测试 token，无手机收到该探针）。已登记 iPhone 与 Mac 都为 production，relay 凭据有效。需更新实际运行的 relay 到本仓库支持预览的版本，再验证新任务投递；不能删除预览作为永久回退。用户指定部署主机为 `47.251.242.24`；下述 `47 → 118` 拓扑仅来自本地历史记录和未提交的配置文件，本轮未登录服务器核实，不得作为已确认的线上状态。入口 SSH 在认证前断开，源站候选的密码登录被拒绝；尚未部署、重启服务或确认真机收件。Mac 已补充固定错误码分类，协议拒绝和 APNs 配置错误不会再统称 `delivery_unknown`，仍不重发未知请求。
 
-使用 Node.js 22 自带的 HTTP/2 和加密模块，无 npm 依赖。只处理待确认、完成、失败三类事件，不接收聊天正文、工具参数、项目路径、代码或控制指令。通知显示固定摘要；目标身份用于手机打开后回到 Mac 重新核验。
+状态（2026-09-13）：客户端支持主域名 `/norma/v1/notifications`；阿里云源站已安装推送服务、独立 Node 22 与 systemd，公网主站到源站的 HTTPS 转发已接通。正式 APNs 密钥已配置，服务为 active/running；公网健康检查为 `200 ready`，无凭据请求为 `401 unauthorized`，正确凭据加非法请求体为 `400 invalid_event`。尚未向 Apple 发送真实通知，物理 iPhone 锁屏验收未完成。
+
+使用 Node.js 22 自带的 HTTP/2 和加密模块，无 npm 依赖。只处理待确认、完成、失败三类事件，接收项目名称、卡片名称和该回合最终输出的有界摘要，不接收完整聊天、工具参数、项目路径或控制指令。预览只进入 APNs alert，目标身份独立保留并在手机打开后回到 Mac 核验。
 
 ## 配置与运行
 
@@ -33,6 +35,40 @@ node --test services/push/relay.test.mjs
 ```
 
 服务固定监听 `127.0.0.1`。部署时用同机 HTTPS 反向代理暴露 `/v1/notifications`，Mac 只使用验证证书的 HTTPS。HTTP 监听口不得公开；反向代理不得记录 Authorization、请求体或 APNs token。当前是单用户/可信团队的私有服务，relay key 由部署者配置给可信 Mac，不是公共多租户注册系统。
+
+## 复用主域名部署
+
+外部入口为 `https://soulvoiceai.com/norma/v1/notifications`；健康检查为 `/norma/healthz`。Nginx 去掉 `/norma/` 前缀，内部仍使用 `/v1/notifications` 和 `/healthz`，无需修改 DNS。新版 Mac 配置校验只额外放行这个明确路径，保留 HTTPS、无查询/密码和禁止重定向的约束；已有 `/v1/notifications` 配置仍有效。
+
+部署文件：源站 [`deploy/nginx.conf`](deploy/nginx.conf)、公网入口 [`deploy/nginx-front.conf`](deploy/nginx-front.conf)、[`deploy/norma-push.service`](deploy/norma-push.service)、[`deploy/relay.env.example`](deploy/relay.env.example)。Nginx 片段放在对应主机现有 HTTPS `server` 块内；主站自定义错误页不能吞掉 API 网关失败，缺少后端时返回 `503 {"error":"push_unavailable"}`。不会把网关的未知投递结果自动重试。
+
+2026-09-13 实际部署位置：
+
+- 源站：`118.31.118.73`，现有 Nginx 配置 `/usr/local/nginx/conf/nginx.conf`，已新增推送片段 include；原主站首页内容校验保持一致。
+- 文件与独立运行时：`/opt/norma-push/`、`/opt/norma-push/node/bin/node`，Node `22.23.2`；系统已有 Node 保持原版本。
+- 服务账号：`norma-push`；systemd 单元为 enabled、active/running，监听 `127.0.0.1:8788`；凭据条件不满足时不启动。
+- 共享服务器资源上限：CPU 为单核的 20%、内存 128 MiB、进程/线程合计 32。现网通过 `systemctl set-property norma-push.service CPUQuota=20% MemoryMax=128M TasksMax=32` 持久化并即时生效，未重启服务；部署单元包含同样约束。
+- 专用访问凭据位于 `/etc/norma-push/relay.key`；Apple 密钥位于 `/etc/norma-push/apns.p8`，均为服务账号所有、0600。正式环境文件 `/etc/norma-push/relay.env` 为 root 所有、0600。
+- APNs 密钥：`Norma Production Push`，Key ID `2TR75XXS26`，Team ID `2BF8G9AN4L`；限定 production 环境及唯一 topic `com.norma-ai.os.ios`。未更改已有 Expo 密钥，也未使用 App Store Connect 上传密钥代替推送密钥。
+- Nginx 原文件备份：`/usr/local/nginx/conf/nginx.conf.norma-backup-20260913-115021`。
+
+公网 `soulvoiceai.com` 解析至 `47.251.242.24`。已在其 `/etc/nginx/nginx.conf` 引入 `/etc/nginx/norma-push-front.conf`，将 `/norma/` 原路径转发到 `https://118.31.118.73`，启用上游证书校验并设置 TLS 名称 `soulvoiceai.com`。配置备份为 `/etc/nginx/nginx.conf.norma-backup-20260913-131204`；未改变 DNS。
+
+公网入口已通过 TLS 证书校验和健康/鉴权/输入校验检查；主站首页内容哈希在 reload 前后保持一致。Apple Developer 登录后已创建并下载上述 APNs 密钥，安全备份不在仓库内。Apple 凭据是否被接受仍须用已授权手机登记的真实 production token 验证，健康检查不能替代该步骤。
+
+2026-09-13 14:05 CST 复查：两台主 Nginx 配置相对部署前备份均仅增加一行 Norma include，无删除或替换；两端配置检查通过。公网和源站首页均为 HTTP 200，SHA-256 与部署前一致；已检查业务进程的启动时间早于本次部署。推送进程实占约 17.5 MiB、7 个线程，施加限额前后现有业务及推送 PID 均未变化。源站另有 `voice-service.service` 的历史 failed 状态，最后退出时间为 2025-12-25 23:05:06 CST；本次未操作该服务，正在使用的 `voice-app.service` 为 running。以上为配置、进程与 HTTP 可用性检查，未逐项执行原业务的登录、支付或写入流程。
+
+如需重建部署，将 `.p8` 保存为 `/etc/norma-push/apns.p8`（服务账号所有、0600），复制环境示例为 `/etc/norma-push/relay.env` 并填写真实 Key ID；沿用 Team ID 前须核对密钥归属。TestFlight 使用 production。随后执行：
+
+```sh
+systemctl start norma-push
+systemctl status norma-push --no-pager
+curl --fail-with-body https://soulvoiceai.com/norma/healthz
+```
+
+只有健康检查不能证明 Apple 接受密钥；还须由已配对手机开启提醒，完成真实事件和锁屏点击回源验收。当前已授权 iPhone 尚未登记 token。
+
+支持新路径的桌面包已按用户要求重新生成：`build/Norma OS_0.1.71_aarch64.dmg`，192860249 bytes，SHA-256 `a5847c0cea560e3a09f784ad53d7a0665f12875554934e1e2086e4a644ff85d4`。本次为 Developer ID 签名、未公证；签名、Finder 布局与 DMG 校验通过，版本仍为 0.1.71。当前桌面有运行中的任务，尚未替换或重启。真实安装身份下已建立通知配置 Keychain 条目；系统授权尚未完成，不能将条目存在等同于新版 App 已成功回读、应用配置。
 
 ## 协议
 
@@ -100,7 +136,7 @@ JWT 每 50 分钟更新；HTTP/2 连接复用，最多一个 APNs 流，入口�
 
 ## Mac与iOS配置（v45）
 
-Mac 在「手机连接 → 任务提醒 → 配置服务」填写完整 HTTPS `/v1/notifications` 地址、64位小写 hex 的 relay 访问凭据及应用环境。开发调试选 Sandbox，TestFlight/App Store 选 production；服务端环境须一致。每次保存都需重新填写凭据，输入始终遮蔽，提交后清空。地址、环境和凭据绑定为一个 Keychain 项，SQLite 只保存安装身份定位符。这里保存的是 relay 访问凭据，Apple `.p8` 只放服务器。
+Mac 在「手机连接 → 任务提醒 → 配置服务」填写完整 HTTPS `/v1/notifications` 或 `/norma/v1/notifications` 地址、64位小写 hex 的 relay 访问凭据及应用环境。开发调试选 Sandbox，TestFlight/App Store 选 production；服务端环境须一致。每次保存都需重新填写凭据，输入始终遮蔽，提交后清空。地址、环境和凭据绑定为一个 Keychain 项，SQLite 只保存安装身份定位符。这里保存的是 relay 访问凭据，Apple `.p8` 只放服务器。
 
 保存、读取及应用配置全部在后台。运行中更换地址或凭据只切换通知发送端，保留手机连接、项目授权和 Agent；替换会等待已发出的请求结束，处理期间有禁用反馈。旧配置读取中的事件会被代次检查丢弃，新终态游标从当前水位开始；同一个服务生命周期中已尝试发送的审批不会因切换配置重发。关窗后的迟到配置不能重启服务。
 
@@ -110,7 +146,7 @@ iOS的「电脑 → 任务提醒」先由用户允许系统通知，再按电脑
 
 `ios/App/Norma.entitlements` 和 `ios/App/Info.plist` 使用同一个 `APS_ENVIRONMENT`：Debug为development→sandbox，Release为production。使用开发者账号为 `com.norma-ai.os.ios` 开启Push Notifications并选择对应Team/签名；TestFlight/App Store应使用Release归档。更改签名环境时同时使用一致的APS_ENVIRONMENT与relay环境。未签名的iphoneos构建只证明能编译，不能安装到物理设备或证明Apple接受推送。
 
-Mac通知线程随手机连接服务启动、关窗停止。复用原有有界快照/审批入口，每秒查询已订阅项目；终态从AppDB已提交事件分页读取（64条/项目/轮），不从卡片done推断。每次服务/项目订阅开始先建立历史游标，不补发旧完成任务；待审批只提示Provider实际提供可选项的请求。发送前再次检查窗口、运行、请求、设备授权与准确订阅版本。请求ID保留现有256字符上限，其他定位字段仍为128字符；消息体不含标题、路径、聊天或工具内容。
+Mac通知线程随手机连接服务启动、关窗停止。复用原有有界快照/审批入口，每秒查询已订阅项目；终态从AppDB已提交事件分页读取（64条/项目/轮），不从卡片done推断。每次服务/项目订阅开始先建立历史游标，不补发旧完成任务；待审批只提示Provider实际提供可选项的请求。发送前再次检查窗口、运行、请求、设备授权与准确订阅版本。请求ID保留现有256字符上限，其他定位字段仍为128字符；预览包含项目名（≤160 UTF-8字节）、卡片名与编号（≤240字节）、最终输出摘要（≤640字节）；无摘要时使用明确的查看输出提示，不借用下一回合内容。完成/失败点击直接进入同一项目、运行和会话的卡片对话，活动回合清空或推进不使它失效；审批仍核验准确回合和请求。
 
 通知为有界的尽力投递：事件最多存活五分钟；一次投递最多等待12秒，不重试不确定结果。活动审批最多保留4096个手机/请求去重项，确认消失后清理。完成事件由游标消费；应用退出或不可用时不建立离线重试队列。撤销可阻止后续投递，已经发送给APNs的请求无法收回。APNs 410只清除对应订阅版本且注册时间不晚于失效时间的token；保留电脑授权。HTTP 200仍只表示APNs接受。
 
@@ -123,7 +159,7 @@ Mac通知线程随手机连接服务启动、关窗停止。复用原有有界�
 
 ## 原生验收（v46）
 
-独立模拟器已通过系统授权取得真实APNs token，并从原生通知设置完成Mac登记/关闭。冷启动点击用 `simctl push` 本地注入验证，未经过relay/Apple投递；它曾发现UIKit主线程崩溃，现已通过显式主线程completion修复。服务仍未部署，不能将token就绪或本地通知可点击等同于物理iPhone锁屏成功。
+独立模拟器已通过系统授权取得真实APNs token，并从原生通知设置完成Mac登记/关闭。冷启动点击用 `simctl push` 本地注入验证，未经过relay/Apple投递；它曾发现UIKit主线程崩溃，现已通过显式主线程completion修复。该轮验收时服务尚未部署，不能将token就绪或本地通知可点击等同于物理iPhone锁屏成功。
 
 
 ## 正式Keychain跨进程验证（v49）
@@ -135,7 +171,7 @@ cargo build -p app --features l3-test-support --bin norma-push-keychain-l3
 NORMA_PUSH_KEYCHAIN_PROBE="$PWD/target/debug/norma-push-keychain-l3" cargo test -p e2e --test mobile_push_keychain -- --ignored --nocapture
 ```
 
-此证据覆盖正式库的跨进程持久化，不包括正式App窗口重启或升级后的签名ACL兼容。服务尚未部署，仍需部署位置、APNs Key ID与服务器上的.p8，以及可用物理iPhone完成真实锁屏投递。
+此证据覆盖正式库的跨进程持久化，不包括正式App窗口重启或升级后的签名ACL兼容。该轮验收时尚缺服务部署和APNs密钥；当前部署状态见文首，仍需可用物理iPhone完成真实锁屏投递。
 
 
 v49日志保全：用户删除/tmp后旧临时日志无法恢复；目录现已恢复，正式Keychain测试复验通过（1.16秒），新日志为target/norma-ios-evidence/v49/keychain-native.log。此结果仍不等于APNs投递或物理锁屏验收。

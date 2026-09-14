@@ -30,6 +30,7 @@ fn feedback_preserves_origin_and_only_binds_a_new_turn_in_the_original_session()
     //5s沿用本地writer提交预算，等待commit后才能冻结交付。
     writer
         .record_turn(MobileTurnOutcome {
+            summary: None,
             key: key.clone(),
             state: MobileTurnState::Completed,
         })

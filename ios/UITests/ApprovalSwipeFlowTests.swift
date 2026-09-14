@@ -15,9 +15,9 @@ final class ApprovalSwipeFlowTests: XCTestCase {
             try? FileManager.default.removeItem(at: dir.appendingPathComponent("ui-decision-window-replaced"))
         }
         let app = XCUIApplication(); app.launch(); app.buttons["workspace-tab-command"].tap()
-        app.buttons["command-mode-decisions"].tap()
+        openCommandDecisions(in: app)
         // 8s = 2s现有快照上限 + 6s导航/真实WSS余量，不作为性能结论。
-        let detail = app.buttons["approval-task-details"]
+        let detail = app.buttons["查看原任务"]
         XCTAssertTrue(detail.waitForExistence(timeout: 8), "决策应提供原型任务详情入口")
         guard detail.exists else { return }
         detail.tap()
@@ -57,10 +57,10 @@ final class ApprovalSwipeFlowTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch(); app.buttons["workspace-tab-command"].tap()
-        app.buttons["command-mode-decisions"].tap()
+        openCommandDecisions(in: app)
         XCTAssertTrue(app.staticTexts["检查登录测试"].waitForExistence(timeout: 8), "最大字号仍应显示首项")
         try app.performAccessibilityAudit(for: [.textClipped, .hitRegion, .sufficientElementDescription])
-        let approve = app.buttons["approve-once"]
+        let approve = app.buttons["approval-allow"]
         // 3次覆盖本fixture来源、标题与完整输入；有界滚动避免掩盖按钮丢失。
         for _ in 0..<3 where !approve.isHittable { app.scrollViews.firstMatch.swipeUp() }
         XCTAssertTrue(approve.isHittable, "批准按钮必须可滚动到达")
@@ -70,11 +70,12 @@ final class ApprovalSwipeFlowTests: XCTestCase {
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "decision-card-AX5"; shot.lifetime = .keepAlways; add(shot)
     }
 
-    /// 决策卡真实拖动走原审批接口；只读、短拖、文本选择和内容变更不应误发命令。
-    /// 数据构造：隔离TLS项目2个普通请求和1个电脑确认；先read，再单次升到control。
-    /// 执行过程：只读右滑→升级→短拖/代码拖动→跳过→拖动中更新内容→右滑第二项→左滑第一项→电脑确认。
-    /// 预期结果：仅收到second/allow和first/deny；每次显示正式回执，电脑确认无批准选项。
-    @MainActor func testSwipesSubmitOnlyTheCurrentDecision() throws {
+    /// 原生决定弹层只提交当前请求；阅读、下一项和来源更新均不能授权。
+    /// 数据构造：两项普通审批和一项电脑确认；read 升为 control 后提交两次。
+    ///   8s = 2s订阅心跳 + 6s模拟器导航余量；内容更新只等待真实订阅条件。
+    /// 执行过程：只读阅读 → 升级 → 下一项 → 另一端更新输入 → 批准第二项 → 拒绝第一项。
+    /// 预期结果：只有 second/allow 和 first/deny；电脑确认不能批准；记录保留两次准确决定。
+    @MainActor func testButtonsSubmitOnlyTheCurrentDecision() throws {
         let env = ProcessInfo.processInfo.environment
         guard env["NORMA_TEST_MODE"] == "notification-ui", let path = env["NORMA_TEST_QR"] else {
             throw XCTSkip("仅用于显式隔离审批fixture")
@@ -84,55 +85,36 @@ final class ApprovalSwipeFlowTests: XCTestCase {
             throw XCTSkip("需显式启用审批fixture")
         }
         let app = XCUIApplication(); app.launch()
-        app.buttons["workspace-tab-command"].tap()
-        app.buttons["command-mode-decisions"].tap()
-        // 8s = 2s订阅心跳 + 6s模拟器/导航余量，不把该预算当作性能测量。
+        app.buttons["workspace-tab-command"].tap(); openCommandDecisions(in: app)
         XCTAssertTrue(app.staticTexts["检查登录测试"].waitForExistence(timeout: 8), "应先显示第一个真实请求")
-        let approve = app.buttons["approve-once"]
+        let approve = app.buttons["approval-allow"]
         XCTAssertFalse(approve.isEnabled, "只读项目不得批准")
-        let surface = app.otherElements["approval-swipe-surface"]
-        XCTAssertTrue(surface.waitForExistence(timeout: 3), "应提供明确的原型左右决策卡")
-        guard surface.exists else { return }
-        drag(surface, from: 0.2, to: 0.8)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-decisions.json").path), "只读拖动不得产生请求")
+        XCTAssertFalse(app.otherElements["approval-swipe-surface"].exists, "旧滑卡交互必须删除")
+        app.staticTexts["approval-tool-input"].swipeRight()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-decisions.json").path), "阅读和滑动不能产生审批")
         try Data().write(to: dir.appendingPathComponent("ui-card-management"))
         let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: approve)
         XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 8), .completed, "授权升级后原请求才可操作")
-        drag(surface, from: 0.4, to: 0.5) // 10%卡宽小于28%阈值。
-        app.staticTexts["approval-tool-input"].swipeRight()
-        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-decisions.json").path), "短拖和命令文本区域不能授权")
-        app.buttons["approval-skip"].tap()
-        XCTAssertTrue(app.staticTexts["核对连接路径"].waitForExistence(timeout: 3), "跳过必须呈现下一项")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-decisions.json").path), "跳过不是拒绝")
+        app.buttons["下一项"].tap()
+        XCTAssertTrue(app.staticTexts["核对连接路径"].waitForExistence(timeout: 3), "下一项呈现另一请求")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-decisions.json").path), "下一项不是拒绝")
         try Data().write(to: dir.appendingPathComponent("ui-decision-change"))
-        let start = surface.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
-        let end = surface.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
-        // 4s = 1s fixture延迟 + 2s心跳 + 1s余量，更新发生于手指仍按住时。
-        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 4)
-        XCTAssertTrue(app.staticTexts["approval-tool-input"].label.contains("changed-input"), "必须接到另一端变更后的准确输入")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-decisions.json").path), "内容变更须取消旧手势，不能授权新内容")
-        drag(surface, from: 0.2, to: 0.8)
-        verifyReceipt(app)
-        app.buttons["关闭"].tap()
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "changed-input"), object: app.staticTexts["approval-tool-input"])
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 8), .completed, "应显示另一端更新后的准确输入")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-decisions.json").path), "内容更新不能自动授权")
+        approve.tap(); verifyReceipt(app); app.buttons["关闭"].tap()
         XCTAssertTrue(app.staticTexts["检查登录测试"].waitForExistence(timeout: 8), "处理第二项后第一项仍待确认")
-        drag(surface, from: 0.8, to: 0.2)
-        verifyReceipt(app)
-        app.buttons["关闭"].tap()
+        app.buttons["approval-deny"].tap(); verifyReceipt(app); app.buttons["关闭"].tap()
         XCTAssertTrue(app.staticTexts["电脑扩展确认"].waitForExistence(timeout: 8), "电脑确认仍应保留")
-        drag(surface, from: 0.2, to: 0.8)
         XCTAssertFalse(approve.exists, "电脑负责的确认不得提供手机批准")
         let received = try JSONSerialization.jsonObject(with: Data(contentsOf: dir.appendingPathComponent("ui-decisions.json"))) as? [[String: String]]
-        XCTAssertEqual(received, [["request":"request-second", "decision":"allow"], ["request":"request-first", "decision":"deny"]], "只能发送两次准确决定，其他手势不能生成命令")
+        XCTAssertEqual(received, [["request":"request-second", "decision":"allow"], ["request":"request-first", "decision":"deny"]], "只能发送两次准确决定")
         app.buttons["approval-records"].tap()
         XCTAssertTrue(app.staticTexts["检查登录测试"].waitForExistence(timeout: 3), "拒绝记录必须保留")
         XCTAssertTrue(app.staticTexts["核对连接路径"].exists, "批准记录必须保留")
         app.buttons["approval-records-close"].tap()
     }
 
-    @MainActor private func drag(_ element: XCUIElement, from: CGFloat, to: CGFloat) {
-        element.coordinate(withNormalizedOffset: CGVector(dx: from, dy: 0.5))
-            .press(forDuration: 0.05, thenDragTo: element.coordinate(withNormalizedOffset: CGVector(dx: to, dy: 0.5)))
-    }
     @MainActor private func verifyReceipt(_ app: XCUIApplication) {
         let receipt = app.staticTexts["approval-status"]
         XCTAssertTrue(receipt.waitForExistence(timeout: 8), "必须展示可查询的正式回执")

@@ -1,8 +1,50 @@
 # Norma iOS TestFlight发布记录
 
-更新时间：2026-09-13。当前状态：**0.1.0（30）已进入现有「Norma 内测」组，可安装**；Apple 回读确认 VALID / IN_BETA_TESTING、未过期，中文说明一致。
+更新时间：2026-09-14。当前状态：**0.1.0（35）已进入现有「Norma 内测」组，可安装**；Apple 回读确认 VALID / IN_BETA_TESTING、未过期，中文说明一致。
 
-配套桌面已重新打包：`build/Norma OS_0.1.71_aarch64.dmg`，版本0.1.71，新构建20260912.154818，包含手机后台项目功能。192855370字节，SHA256 `576d05168af1021f2820891e572ebd63b950473d606a6e34549c13dbe6d23046`；Developer ID签名、未公证，严格签名/DMG完整性/Finder布局/相邻校验和通过。manifest 版本未改；未安装或启动新包。证据见 `target/norma-ios-testflight/background-build29/desktop-artifact.json`。
+## 语音免配置接入 · TestFlight 0.1.0（35）（2026-09-14）
+
+按用户"打包桌面并发布 TestFlight"授权发布。独立 Vercel 语音网关（`norma-voice.vercel.app`）已部署，iOS 免 Key 接入：配对并取得项目控制权限后无需填写 URL、Key 或访问口令即可使用默认豆包语音；手机通过已配对 pin TLS 通道领取固定用途授权（24 小时有效、钥匙串保存、最后一小时自动刷新），Mac 使用 P-256 安装身份签名、网关仅信任登记的公开证书。相对构建 34 的 iOS 输入差异为 `CallSettingsView`、`VoiceCall`、`VoiceCallAuthorization`、NormaCore `VoiceAuthorization` 与 `Wire` 共 5 个文件，生产输入扩至 119 项冻结。部署细节见 [Vercel 部署记录](2026-09-14-voice-vercel-deployment.md)；GPT 云端同会话派工与物理耳机锁屏测量仍未验收。
+
+Release 归档、导出、严格分发签名、production entitlement、Apple 校验与单次上传通过；归档及上传后两次复验 119 项生产输入哈希一致。IPA：`target/norma-ios-testflight/rt-build35/export/Norma.ipa`，82571795 字节，SHA256 `e7daeda923a700fa9eed0c628129f1b3079e8f1973360a7088b21b02b2e3b972`。Build/Delivery ID：`6ad164e9-6fb3-4d2e-825a-37316a8e0a6c`；Apple 回读 VALID / IN_BETA_TESTING、未过期，原组关联及中文说明均通过。沿用既有加密分类与不在法国分发范围，没有新增邀请、外部 Beta 或公开上架。验证：Swift Core 79/79、`cargo check -p app`。证据：`target/norma-ios-testflight/rt-build35/summary.json`。
+
+配套桌面已重新打包：`build/Norma OS_0.1.71_aarch64.dmg`，版本0.1.71，新构建20260914.052310（UTC）。193066969字节，SHA256 `b175d397bed57be94547d859c2a9cbe1f403dd6454d202be882e5c46d696df4e`；Developer ID签名、未公证，DMG 完整性与相邻校验和通过。首次打包因本机 SOCKS 代理致 create-dmg 下载失败（与 build 29 同因），仅对本打包进程去掉代理后重试成功；未安装或启动新包。
+
+## 豆包闭环完成 · TestFlight 0.1.0（34）（2026-09-14）
+
+按用户"打包桌面并发布 TestFlight"授权发布。实时 Goal 已推进至 v20 并收口：豆包语音派工任务网关接入完成，可通过豆包对话向绑定项目 Agent 派工并接收真实回执，完成后通话中播报；网关三组回归、原生豆包音频 L3 与"真实豆包云端→真实 Codex→原生播报"端到端 L3 通过。相对构建 33 的 iOS 输入差异（按 mtime）：`ChatDictation`、`CommandCenter/{CallSettingsView,VoiceCall,VoiceCallBinding,VoiceCallDoubao,VoiceCallReports}`、`CommandCenterView`、`NotificationPresenter` 及 NormaCore 的 `RealtimeBinding/RealtimeOperation/VoiceSessionTicket`，共 117 项生产输入冻结。GPT 云端同会话派工、物理耳机锁屏测量与界面用户验收保留未测标记，已在更新说明中明示；默认线上网关未部署。
+
+Release 归档、导出、严格分发签名、production entitlement、Apple 校验与单次上传通过；归档及上传后两次复验 117 项生产输入哈希一致。IPA：`target/norma-ios-testflight/rt-build34/export/Norma.ipa`，82545985 字节，SHA256 `07ed1818b555c2bf88132d656a2501935868a38bdb276a5fe41808e477d8e9ec`。Build/Delivery ID：`c0b533a2-0018-41e8-957a-cbae8fe8f3bd`；Apple 回读 VALID / IN_BETA_TESTING、未过期，原组关联及中文说明均通过。沿用既有加密分类与不在法国分发范围，没有新增邀请、外部 Beta 或公开上架。验证：Swift Core 78/78、`cargo check -p app`、agent crate 测试全过。`target/` 夜间再次被清空，发布脚本第二次重建（Node WebCrypto ASC 客户端）。证据：`target/norma-ios-testflight/rt-build34/summary.json`。
+
+配套桌面已重新打包：`build/Norma OS_0.1.71_aarch64.dmg`，版本0.1.71，新构建20260914.003205（UTC）。193090793字节，SHA256 `a55a66bce0aa885dc18c55be916cdc4d083bd57ba0ec78d4915fdba55ccba653`；Developer ID签名、未公证，DMG 完整性与相邻校验和通过；包含豆包任务网关桌面接线；未安装或启动新包。
+
+## 实时指挥台当前状态 · TestFlight 0.1.0（33）（2026-09-14）
+
+配套桌面已重新打包：`build/Norma OS_0.1.71_aarch64.dmg`，版本0.1.71，新构建20260913.165230（UTC）。193058065字节，SHA256 `51a141d25bcd4b7a477c0c54339787da34e9881e16ee822dcea5a0697ac02e11`；Developer ID签名、未公证，DMG 完整性与相邻校验和通过。包含实时指挥台桌面接线（Agent 实时意图、存储持久回执、无窗口 Adapter 等）；首次打包因本项目旧 DMG 遗留挂载（`/Volumes/Norma OS`）致 create-dmg 失败，正常卸载后重试成功；未安装或启动新包。
+
+按用户"打包桌面并发布 TestFlight"授权，并在确认另一会话仍在开发豆包任务网关（工作区 180 处改动、文件持续写入）后，用户选择**立即发布当前状态**。包含实时指挥台 v7：原生陪伴界面取代旧分段指挥页、GPT WebRTC 与豆包语音传输、插话/字幕/静音/挂断重连、审批与成果收件箱、原话草稿与持久回执、明确切换通话 Mac/项目。豆包派工闭环、云端 GPT 自动汇报与真机（物理设备）验收**未完成**，已在更新说明中向测试者明示。相对构建 32 生产输入从 103 项增至 117 项（新增 `ios/App/CommandCenter/` 等实时文件）；`target/norma-ios-testflight/` 证据目录曾被清空，本轮重建了全部发布脚本（ASC 客户端改用 Node 内置 WebCrypto ES256）。
+
+Release 归档、导出、严格分发签名、production entitlement、Apple 校验与单次上传通过；归档及上传后两次复验 117 项生产输入哈希一致（另一会话写入未混入）。IPA 含 WebRTC 框架，体积增至 82,520,963 字节，SHA256 `9c726e875762d37338e9d40659955a63e319b66b8ab6d28d8285811d3cde433e`。Build/Delivery ID：`96071022-03b1-4c97-9373-866026c930c3`；Apple 回读 VALID / IN_BETA_TESTING、未过期，原组关联及中文说明均通过。沿用既有加密分类与不在法国分发范围，没有新增邀请、外部 Beta 或公开上架。验证依据：Swift Core 76/76、`cargo check -p app`、实时 Goal 文档记录的全仓串行 1842/0。证据：`target/norma-ios-testflight/rt-build33/summary.json`。
+
+## 长回复布局修复 · TestFlight 0.1.0（32）（2026-09-13）
+
+配套桌面已重新打包：`build/Norma OS_0.1.71_aarch64.dmg`，版本0.1.71，新构建20260913.070128。192860228字节，SHA256 `d736a8b50922c19deba19c47a75e0ba33fa3d8c88abdf460a8cffe5d4949a360`；Developer ID签名、未公证，DMG 完整性与相邻校验和通过。包含本轮桌面 Runtime Codex 续跑能力与推送 relay 部署配置；未安装或启动新包。
+
+按用户"打包桌面并发布 TestFlight"授权发布。相对构建 31 的 103 项生产输入仅 `ConversationView.swift` 与两份版本配置变化：卡片对话页历史消息由 `LazyVStack` 改为即时 `VStack` 布局，修复单条可选回复高于屏幕时滚动定位反复跳动；输入栏从 `safeAreaInset` 移入主布局区域并与历史区域分离（`chatContent.clipped()`），长历史下输入栏位置稳定、键盘弹出不再遮挡。不改协议。
+
+Release 归档、导出、严格分发签名、production entitlement、Apple 校验与单次上传通过；上传后生产输入及 IPA 哈希一致。IPA：`target/norma-ios-testflight/chat-build32/export/Norma.ipa`，5676372 字节，SHA256 `bc64fdea51588a5d8fbb8893e085f172459c8982d690bc56a0174d88afed67c3`。Build/Delivery ID：`96f56cf8-3501-4f33-b8ad-c2605d9233b0`；Apple 回读 VALID / IN_BETA_TESTING、未过期，原组关联及中文说明均通过。沿用既有加密分类与不在法国分发范围，没有新增邀请、外部 Beta 或公开上架。
+
+验证：Swift Core 63 项通过；Runtime 168 项通过（含本轮桌面 Codex 续跑能力，不进 iOS 包）；新增 `mobile_codex_resume` e2e 4 项通过；`ChatLayoutFlowTests` 6 项在无 TLS fixture 时按设计跳过，配对的 `ConversationView` 行为由布局代码审查与既有聊天回归覆盖。打包期间 Apple 时间戳服务两次 502 中断，恢复后桌面重试成功。证据：`target/norma-ios-testflight/chat-build32/summary.json`。
+
+## 项目页与任务页精修 · TestFlight 0.1.0（31）（2026-09-13）
+
+按用户"打包桌面并发布 TestFlight"授权发布。相对构建 30 的 103 项生产输入仅 `ProjectCardsView.swift`、`TasksView.swift` 与两份版本配置变化：项目页移除"项目脉络"信息卡、标题更紧凑、加载统一居中，"会话记录／项目成果／项目变更"入口移至卡片对话页菜单；任务页顶部布局重构、项目筛选合并。不改协议。
+
+Release 归档、导出、严格分发签名、production entitlement、Apple 校验与单次上传通过；上传后生产输入及 IPA 哈希一致。IPA：`target/norma-ios-testflight/ui-build31/export/Norma.ipa`，5676693 字节，SHA256 `d56620d7d1b569827d0ca17e7f8e3a3b2c95b7667b3a7d128c6892851303fac6`。Build/Delivery ID：`153dc3d1-4b77-4f2a-a9b7-f62ce27c877f`；Apple 回读 VALID / IN_BETA_TESTING、未过期，原组关联及中文说明均通过。沿用既有加密分类与不在法国分发范围，没有新增邀请、外部 Beta 或公开上架。
+
+验证：Swift Core 63 项通过；模拟器全量 76 通过、8 失败全部位于 PairingFlowTests——清理模拟器遗留配对数据后 9 项中 5 项转绿，余 4 项为历史测试期望漂移（"全部电脑"已改为 accessibilityLabel、"连接电脑后梳理下一步"移至 PlanProjectsView、配对地址提示文案改写、TabBar 查询类型不匹配），涉及文件与线上构建 30 哈希一致，非本次回归；覆盖本次改动视图的 TasksFlowTests／ProjectBoardFlowTests／PrototypeLayoutFlowTests／ChatLayoutFlowTests 均通过。证据：`target/norma-ios-testflight/ui-build31/summary.json`。
+
+
 
 ## 草稿校验修复 · TestFlight 0.1.0（30）（2026-09-13）
 

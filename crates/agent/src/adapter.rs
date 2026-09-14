@@ -28,7 +28,7 @@ pub struct ToolContext {
     pub cancellation: CancellationToken,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub enum AdapterCommand {
     FindAgentTasks {
         task_id: Option<u64>,

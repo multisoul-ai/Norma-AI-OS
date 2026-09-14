@@ -25,6 +25,7 @@ struct ChatComposer: View {
     @State private var loadingImages = false
     @State private var imageError: String?
     @State private var uploadProgress: Double?
+    @State private var recording = false
     private var scope: ChatDraft.Scope {
         ChatDraft.Scope(machineID: machine.id, workspaceID: workspaceID, routeID: routeID, nodeID: card.id, runID: card.runID, sessionID: card.sessionID)
     }
@@ -97,20 +98,25 @@ struct ChatComposer: View {
                     sendButton
                 }.padding(.top, 4).buttonStyle(WorkspacePressStyle())
             } else {
-                HStack(alignment: .bottom, spacing: 8) { photoPicker; messageInput; sendButton }
+                HStack(alignment: .bottom, spacing: 8) {
+                    ChatVoiceInput(
+                        text: Binding(get: { text }, set: { model.drafts.update($0, for: scope, label: draftLabel) }),
+                        recording: $recording, disabled: busy || !model.drafts.loaded,
+                        focus: { inputFocused = $0 }
+                    ) { messageInput }
+                    .id(scope)
+                    photoPicker
+                    sendButton
+                }
             }
             if !canControl { Text("无法发送，请检查连接与权限。") }
             else if card.state == "collecting" { Text("正在保存本轮成果，下一步会排队等待。") }
             else if useQueue { Text("加入队列，Agent 空闲后依次处理。") }
-            else if !ready { Text("Agent 正在准备，可以先写下下一步想法。") }
             else if text.utf8.count > 32 * 1024 { Text("消息超过长度上限，请分成几条发送。") }
             if card.profile == "Claude" && text.contains("\t") { Text("Claude 会将 Tab 转为 4 个空格。") }
             if let failure = model.drafts.failure {
                 Text(failure).foregroundStyle(.orange).accessibilityIdentifier("draft-storage-error")
                 Button("重试保存草稿") { Task { await model.drafts.retry() } }.frame(minHeight: 44)
-            } else if !text.isEmpty || !images.isEmpty {
-                Text(model.drafts.saving ? "正在保存草稿…" : "草稿已保存到此手机")
-                    .accessibilityIdentifier("draft-save-status")
             }
             if !oldDrafts.isEmpty {
                 Button("历史草稿（\(oldDrafts.count)）") { showDrafts = true }.frame(minHeight: 44)
@@ -118,10 +124,12 @@ struct ChatComposer: View {
         }
         .font(.caption).foregroundStyle(.secondary).padding(.horizontal, taskForm ? 0 : 12).padding(.vertical, taskForm ? 0 : 8).background(.black)
         .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("收起键盘", systemImage: "keyboard.chevron.compact.down") { inputFocused = false }
-                    .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44).accessibilityIdentifier("chat-dismiss-keyboard")
+            // iOS 26's keyboard accessory can intercept composer taps after restoring focus.
+            if inputFocused {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("收起键盘", systemImage: "keyboard.chevron.compact.down") { inputFocused = false }
+                        .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44).accessibilityIdentifier("chat-dismiss-keyboard")
+                }
             }
         }
         .sheet(isPresented: $showResult) {
@@ -134,7 +142,7 @@ struct ChatComposer: View {
     }
 
     private var photoPicker: some View {
-        ChatPhotoPicker(book: model.drafts, scope: scope, label: draftLabel, disabled: busy || pending != nil || !model.drafts.loaded,
+        ChatPhotoPicker(book: model.drafts, scope: scope, label: draftLabel, disabled: busy || recording || pending != nil || !model.drafts.loaded,
                         loading: $loadingImages, error: $imageError)
     }
 
@@ -163,7 +171,7 @@ struct ChatComposer: View {
                     .frame(width: 44, height: 44).background(.white, in: Circle()).foregroundStyle(.black)
             }
         }
-        .disabled(!canControl || !card.mobileControl || !(ready || queueable) || busy || loadingImages || !model.drafts.loaded || model.drafts.failure != nil || pending != nil || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && images.isEmpty) || text.utf8.count > 32 * 1024)
+        .disabled(!canControl || !card.mobileControl || !(ready || queueable) || busy || recording || loadingImages || !model.drafts.loaded || model.drafts.failure != nil || pending != nil || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && images.isEmpty) || text.utf8.count > 32 * 1024)
         .opacity(canControl && card.mobileControl && (ready || queueable) && pending == nil && !busy ? 1 : 0.35)
         .accessibilityLabel(useQueue ? "加入队列" : taskForm ? "发送到 Mac" : "发送消息")
         .accessibilityIdentifier(taskForm ? "new-task-send" : "chat-send-message")
@@ -177,7 +185,7 @@ struct ChatComposer: View {
         catch { status = error.localizedDescription }
     }
     @MainActor private func send() async {
-        guard !busy, pending == nil, let project, let route = project.routeID,
+        guard !busy, !recording, pending == nil, let project, let route = project.routeID,
               let draft = model.drafts.draft(for: scope) else { return }
         busy = true; status = nil
         defer { busy = false; uploadProgress = nil }

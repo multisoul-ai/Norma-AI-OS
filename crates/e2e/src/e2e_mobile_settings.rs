@@ -4,7 +4,7 @@ use gpui::TestAppContext;
 /// 手机连接在 Settings 可发现，默认不监听且不展示假二维码或预选授权。
 ///
 /// 数据构造：隔离 App 数据库、一个空项目窗口；不启用网络，不请求生产 Keychain。
-/// 执行过程：打开 Settings → 手机连接 → 通知配置 → 拒绝HTTP → 保存HTTPS → 关闭重开 → 清除 → 关闭 Settings。
+/// 执行过程：打开 Settings → 手机连接 → 通知配置 → 拒绝HTTP → 保存主域名 /norma/ HTTPS入口 → 关闭重开 → 清除 → 关闭 Settings。
 /// 预期结果：合法配置可恢复、清除；非法地址显示错误且不保存；整个流程不启用网络、二维码或Agent。
 #[test]
 fn e2e_mobile_settings_are_opt_in_and_have_no_fake_pairing() {
@@ -63,7 +63,7 @@ fn e2e_mobile_settings_are_opt_in_and_have_no_fake_pairing() {
     );
     let url = cx.debug_bounds("mobile-push-url").expect("地址输入框");
     cx.simulate_click(url.center(), Default::default());
-    cx.simulate_input("http://push.example/v1/notifications");
+    cx.simulate_input("http://soulvoiceai.com/norma/v1/notifications");
     let key = cx.debug_bounds("mobile-push-key").expect("凭据输入框");
     cx.simulate_click(key.center(), Default::default());
     cx.simulate_input(&"c".repeat(64)); // 32-byte test credential = 64 hex digits; never a production secret.
@@ -82,7 +82,7 @@ fn e2e_mobile_settings_are_opt_in_and_have_no_fake_pairing() {
     let url = cx.debug_bounds("mobile-push-url").expect("地址");
     cx.simulate_click(url.center(), Default::default());
     cx.simulate_keystrokes("cmd-a");
-    cx.simulate_input("https://push.example/v1/notifications");
+    cx.simulate_input("https://soulvoiceai.com/norma/v1/notifications");
     let key = cx.debug_bounds("mobile-push-key").expect("凭据");
     cx.simulate_click(key.center(), Default::default());
     cx.simulate_input(&"c".repeat(64));
@@ -98,7 +98,7 @@ fn e2e_mobile_settings_are_opt_in_and_have_no_fake_pairing() {
     let saved = app.update(cx, |app, cx| app.mobile_push_settings_for_e2e(cx));
     assert_eq!(
         saved.1.as_deref(),
-        Some("https://push.example/v1/notifications"),
+        Some("https://soulvoiceai.com/norma/v1/notifications"),
         "必须保存用户输入的准确地址"
     );
     assert!(saved.2.is_none(), "成功后不能残留失败提示");

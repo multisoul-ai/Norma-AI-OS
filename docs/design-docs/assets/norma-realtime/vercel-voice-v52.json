@@ -1,0 +1,642 @@
+{
+  "production_origin": "https://norma-voice.vercel.app",
+  "production_deployment": "https://norma-voice-3berppbf2-multisoul-ai-s-projects.vercel.app",
+  "date": "2026-09-14",
+  "caller": "Temporary authenticated Vercel function, separate unaliased deployment",
+  "fixed_input_sha256": "9daeb8621ec7c7eb560b8ae942c21f37665988deb95f862faad0b819c3128d34",
+  "source_sha256": {
+    "services/voice/server.mjs": "257002e65c9664dbe51b6837b1c84d55d254fad1b197d9f27e311284c6867b16",
+    "services/voice/plan.mjs": "95a9997eb7e21e25e44ff10e30cd1f204e1c1982c7464bbebdf17fec232ab70f",
+    "services/voice/api/gateway.mjs": "dc4d81746f7b12af8ada1e676f76eb8cb2e8bea70a0baf3f2e97b34469d19f07",
+    "services/voice/cloud-sessions.mjs": "03c39863c01fbc3edc33c85a06e5b04cc57223126d99bed0659c7eee418152f5",
+    "services/voice/cloud-tools.mjs": "8abf4548a0c0d3d1c9bfe2e0d16becacdf17ad444a540dab5f15f38eba4ca218",
+    "services/voice/voice-authorization.mjs": "ed3d82eeccd5fefd6998221acb44998193689c7b2603e07e7eeafa4e94880553",
+    "services/voice/vercel.json": "d08d4956e5a26fc2771893b428c0611f5616a69f0e7b065284c11d894557ab29"
+  },
+  "runs": [
+    {
+      "source": "fixed_generated_audio",
+      "playback": "receiver_only_no_speaker",
+      "input_seconds": 3.0598125,
+      "events": [
+        {
+          "at_ms": 2600,
+          "type": "session.created",
+          "session": {
+            "id": "d22d4403-40a6-4c68-b0e9-6704d68bae4a"
+          },
+          "call_id": "doubao_d9d9e993-378a-4c37-a356-3410c6d69615",
+          "capabilities": {
+            "task_tools": true,
+            "reports": true
+          }
+        },
+        {
+          "at_ms": 2686,
+          "type": "gateway.tools.ticket",
+          "request_id": "deployment-check",
+          "call_id": "doubao_d9d9e993-378a-4c37-a356-3410c6d69615",
+          "url": "wss://norma-voice.vercel.app/v1/tools",
+          "expires_at": 1789361217
+        },
+        {
+          "at_ms": 3459,
+          "type": "conversation.item.input_audio_transcription.started",
+          "item_id": "e15831d9-5d3d-4f6d-adf4-2e3d8788d804"
+        },
+        {
+          "at_ms": 3459,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好"
+        },
+        {
+          "at_ms": 3832,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好"
+        },
+        {
+          "at_ms": 4068,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请"
+        },
+        {
+          "at_ms": 4458,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用"
+        },
+        {
+          "at_ms": 4653,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话"
+        },
+        {
+          "at_ms": 5497,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话介绍"
+        },
+        {
+          "at_ms": 5662,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话介绍你"
+        },
+        {
+          "at_ms": 6051,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话介绍你自己"
+        },
+        {
+          "at_ms": 6732,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话介绍你自己。"
+        },
+        {
+          "at_ms": 6732,
+          "type": "conversation.item.input_audio_transcription.completed",
+          "item_id": "e15831d9-5d3d-4f6d-adf4-2e3d8788d804",
+          "transcript": "你好，请用一句话介绍你自己。"
+        },
+        {
+          "at_ms": 6732,
+          "type": "response.output_audio.started",
+          "response_id": "69bd1db3-377f-49f0-aeb6-5dd0b243266a"
+        },
+        {
+          "at_ms": 7833,
+          "type": "gateway.usage",
+          "usage": {
+            "service": "plan_chat",
+            "completion_tokens": 38,
+            "prompt_tokens": 223,
+            "total_tokens": 261,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          }
+        },
+        {
+          "at_ms": 7833,
+          "type": "response.output_text.delta",
+          "response_id": "69bd1db3-377f-49f0-aeb6-5dd0b243266a",
+          "delta": "你好，我是Norma，是一位温柔自然、带着好奇心的AI伙伴。"
+        },
+        {
+          "at_ms": 8432,
+          "type": "gateway.behavior",
+          "response_id": "69bd1db3-377f-49f0-aeb6-5dd0b243266a",
+          "name": "set_behavior",
+          "arguments": "{\"emotion\":\"neutral\",\"gesture\":\"none\"}"
+        },
+        {
+          "at_ms": 9344,
+          "type": "gateway.usage",
+          "usage": {
+            "service": "plan_tts",
+            "input_characters": 30,
+            "audio_seconds": 5.184083333333334
+          }
+        },
+        {
+          "at_ms": 9344,
+          "type": "response.output_text.done",
+          "response_id": "69bd1db3-377f-49f0-aeb6-5dd0b243266a",
+          "text": "你好，我是Norma，是一位温柔自然、带着好奇心的AI伙伴。"
+        },
+        {
+          "at_ms": 13645,
+          "type": "response.output_audio.done",
+          "response_id": "69bd1db3-377f-49f0-aeb6-5dd0b243266a"
+        },
+        {
+          "at_ms": 13652,
+          "type": "response.output_audio.started",
+          "response_id": "42780a30-89bb-4d70-88ec-274455dd6a16",
+          "report_id": "deployment-report"
+        },
+        {
+          "at_ms": 13653,
+          "type": "response.output_text.delta",
+          "response_id": "42780a30-89bb-4d70-88ec-274455dd6a16",
+          "delta": "这是一段部署验证语音。"
+        },
+        {
+          "at_ms": 14854,
+          "type": "gateway.usage",
+          "usage": {
+            "service": "plan_tts",
+            "input_characters": 11,
+            "audio_seconds": 2.3815416666666667
+          }
+        },
+        {
+          "at_ms": 14854,
+          "type": "response.output_text.done",
+          "response_id": "42780a30-89bb-4d70-88ec-274455dd6a16",
+          "text": "这是一段部署验证语音。"
+        },
+        {
+          "at_ms": 16562,
+          "type": "response.output_audio.done",
+          "response_id": "42780a30-89bb-4d70-88ec-274455dd6a16"
+        },
+        {
+          "at_ms": 16568,
+          "type": "gateway.usage",
+          "usage": {
+            "service": "plan_asr",
+            "uploaded_audio_seconds": 13.8
+          }
+        },
+        {
+          "at_ms": 16655,
+          "type": "session.closed"
+        }
+      ],
+      "chat_requests": [],
+      "gateway": "https://norma-voice.vercel.app",
+      "interrupt_check": false,
+      "behavior_check": false,
+      "anonymous_status": 401,
+      "tools_connected": true,
+      "first_audio_ms": 8433,
+      "audio_turns": [
+        {
+          "response_id": "69bd1db3-377f-49f0-aeb6-5dd0b243266a",
+          "report": false,
+          "audio_bytes": 248836
+        },
+        {
+          "response_id": "42780a30-89bb-4d70-88ec-274455dd6a16",
+          "report": true,
+          "audio_bytes": 114314
+        }
+      ],
+      "completed": true,
+      "audio_bytes": 114314,
+      "output_seconds": 2.3815416666666667,
+      "sent_input_seconds": 13.96,
+      "elapsed_ms": 16659,
+      "test_origin": "vercel_function"
+    },
+    {
+      "source": "fixed_generated_audio",
+      "playback": "receiver_only_no_speaker",
+      "input_seconds": 3.0598125,
+      "events": [
+        {
+          "at_ms": 1485,
+          "type": "session.created",
+          "session": {
+            "id": "4a160742-f759-4d65-9c1b-36a2ebe1971a"
+          },
+          "call_id": "doubao_82ad64c7-80dc-43b3-9bf2-d2f2141b77bf",
+          "capabilities": {
+            "task_tools": true,
+            "reports": true
+          }
+        },
+        {
+          "at_ms": 1567,
+          "type": "gateway.tools.ticket",
+          "request_id": "deployment-check",
+          "call_id": "doubao_82ad64c7-80dc-43b3-9bf2-d2f2141b77bf",
+          "url": "wss://norma-voice.vercel.app/v1/tools",
+          "expires_at": 1789361335
+        },
+        {
+          "at_ms": 2343,
+          "type": "conversation.item.input_audio_transcription.started",
+          "item_id": "fea26afb-d8f3-44cd-bb6e-73a7a617d2d4"
+        },
+        {
+          "at_ms": 2343,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好"
+        },
+        {
+          "at_ms": 2695,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好"
+        },
+        {
+          "at_ms": 2873,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请"
+        },
+        {
+          "at_ms": 3353,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用"
+        },
+        {
+          "at_ms": 3569,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话"
+        },
+        {
+          "at_ms": 4360,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话介绍"
+        },
+        {
+          "at_ms": 4545,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话介绍你"
+        },
+        {
+          "at_ms": 4948,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话介绍你自己"
+        },
+        {
+          "at_ms": 5534,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话介绍你自己。"
+        },
+        {
+          "at_ms": 5534,
+          "type": "conversation.item.input_audio_transcription.completed",
+          "item_id": "fea26afb-d8f3-44cd-bb6e-73a7a617d2d4",
+          "transcript": "你好，请用一句话介绍你自己。"
+        },
+        {
+          "at_ms": 5535,
+          "type": "response.output_audio.started",
+          "response_id": "ffdf3214-4e02-490d-83dc-436dc35ae9ef"
+        },
+        {
+          "at_ms": 6629,
+          "type": "gateway.usage",
+          "usage": {
+            "service": "plan_chat",
+            "completion_tokens": 39,
+            "prompt_tokens": 223,
+            "total_tokens": 262,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          }
+        },
+        {
+          "at_ms": 6629,
+          "type": "response.output_text.delta",
+          "response_id": "ffdf3214-4e02-490d-83dc-436dc35ae9ef",
+          "delta": "你好呀，我是Norma，一个温柔好奇的AI伙伴，很高兴认识你。"
+        },
+        {
+          "at_ms": 7227,
+          "type": "gateway.behavior",
+          "response_id": "ffdf3214-4e02-490d-83dc-436dc35ae9ef",
+          "name": "set_behavior",
+          "arguments": "{\"emotion\":\"happy\",\"gesture\":\"none\"}"
+        },
+        {
+          "at_ms": 8150,
+          "type": "gateway.usage",
+          "usage": {
+            "service": "plan_tts",
+            "input_characters": 31,
+            "audio_seconds": 5.40675
+          }
+        },
+        {
+          "at_ms": 8150,
+          "type": "response.output_text.done",
+          "response_id": "ffdf3214-4e02-490d-83dc-436dc35ae9ef",
+          "text": "你好呀，我是Norma，一个温柔好奇的AI伙伴，很高兴认识你。"
+        },
+        {
+          "at_ms": 12732,
+          "type": "response.output_audio.done",
+          "response_id": "ffdf3214-4e02-490d-83dc-436dc35ae9ef"
+        },
+        {
+          "at_ms": 12740,
+          "type": "response.output_audio.started",
+          "response_id": "763c0ab4-1eb2-46a6-b5bf-5a5570ca4f11",
+          "report_id": "deployment-report"
+        },
+        {
+          "at_ms": 12740,
+          "type": "response.output_text.delta",
+          "response_id": "763c0ab4-1eb2-46a6-b5bf-5a5570ca4f11",
+          "delta": "这是一段部署验证语音。"
+        },
+        {
+          "at_ms": 13635,
+          "type": "gateway.usage",
+          "usage": {
+            "service": "plan_tts",
+            "input_characters": 11,
+            "audio_seconds": 2.3895416666666667
+          }
+        },
+        {
+          "at_ms": 13635,
+          "type": "response.output_text.done",
+          "response_id": "763c0ab4-1eb2-46a6-b5bf-5a5570ca4f11",
+          "text": "这是一段部署验证语音。"
+        },
+        {
+          "at_ms": 15640,
+          "type": "response.output_audio.done",
+          "response_id": "763c0ab4-1eb2-46a6-b5bf-5a5570ca4f11"
+        },
+        {
+          "at_ms": 15646,
+          "type": "gateway.usage",
+          "usage": {
+            "service": "plan_asr",
+            "uploaded_audio_seconds": 14
+          }
+        },
+        {
+          "at_ms": 15731,
+          "type": "session.closed"
+        }
+      ],
+      "chat_requests": [],
+      "gateway": "https://norma-voice.vercel.app",
+      "interrupt_check": false,
+      "behavior_check": false,
+      "anonymous_status": 401,
+      "tools_connected": true,
+      "first_audio_ms": 7227,
+      "audio_turns": [
+        {
+          "response_id": "ffdf3214-4e02-490d-83dc-436dc35ae9ef",
+          "report": false,
+          "audio_bytes": 259524
+        },
+        {
+          "response_id": "763c0ab4-1eb2-46a6-b5bf-5a5570ca4f11",
+          "report": true,
+          "audio_bytes": 114698
+        }
+      ],
+      "completed": true,
+      "audio_bytes": 114698,
+      "output_seconds": 2.3895416666666667,
+      "sent_input_seconds": 14.14,
+      "elapsed_ms": 15733,
+      "test_origin": "vercel_function"
+    },
+    {
+      "source": "fixed_generated_audio",
+      "playback": "receiver_only_no_speaker",
+      "input_seconds": 3.0598125,
+      "events": [
+        {
+          "at_ms": 1522,
+          "type": "session.created",
+          "session": {
+            "id": "3fa15600-26a4-492f-adab-e1635cfdf483"
+          },
+          "call_id": "doubao_1fe7b40f-a842-42ca-8c45-d4e5664eaf57",
+          "capabilities": {
+            "task_tools": true,
+            "reports": true
+          }
+        },
+        {
+          "at_ms": 1603,
+          "type": "gateway.tools.ticket",
+          "request_id": "deployment-check",
+          "call_id": "doubao_1fe7b40f-a842-42ca-8c45-d4e5664eaf57",
+          "url": "wss://norma-voice.vercel.app/v1/tools",
+          "expires_at": 1789361451
+        },
+        {
+          "at_ms": 2376,
+          "type": "conversation.item.input_audio_transcription.started",
+          "item_id": "0798080f-ece5-4402-986a-a55c36e2147a"
+        },
+        {
+          "at_ms": 2377,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好"
+        },
+        {
+          "at_ms": 2713,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好"
+        },
+        {
+          "at_ms": 2965,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请"
+        },
+        {
+          "at_ms": 3372,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用"
+        },
+        {
+          "at_ms": 3603,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话"
+        },
+        {
+          "at_ms": 4345,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话介绍"
+        },
+        {
+          "at_ms": 4588,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话介绍你"
+        },
+        {
+          "at_ms": 4990,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话介绍你自己"
+        },
+        {
+          "at_ms": 5653,
+          "type": "conversation.item.input_audio_transcription.delta",
+          "transcript": "你好，请用一句话介绍你自己。"
+        },
+        {
+          "at_ms": 5653,
+          "type": "conversation.item.input_audio_transcription.completed",
+          "item_id": "0798080f-ece5-4402-986a-a55c36e2147a",
+          "transcript": "你好，请用一句话介绍你自己。"
+        },
+        {
+          "at_ms": 5653,
+          "type": "response.output_audio.started",
+          "response_id": "1349904e-9940-4c2b-8558-d1e31fb2b8ca"
+        },
+        {
+          "at_ms": 7028,
+          "type": "gateway.usage",
+          "usage": {
+            "service": "plan_chat",
+            "completion_tokens": 40,
+            "prompt_tokens": 223,
+            "total_tokens": 263,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          }
+        },
+        {
+          "at_ms": 7028,
+          "type": "response.output_text.delta",
+          "response_id": "1349904e-9940-4c2b-8558-d1e31fb2b8ca",
+          "delta": "我是Norma，一位温柔自然、有好奇心的AI伙伴，会好好陪你聊天。"
+        },
+        {
+          "at_ms": 7629,
+          "type": "gateway.behavior",
+          "response_id": "1349904e-9940-4c2b-8558-d1e31fb2b8ca",
+          "name": "set_behavior",
+          "arguments": "{\"emotion\":\"happy\",\"gesture\":\"none\"}"
+        },
+        {
+          "at_ms": 8610,
+          "type": "gateway.usage",
+          "usage": {
+            "service": "plan_tts",
+            "input_characters": 33,
+            "audio_seconds": 6.209416666666667
+          }
+        },
+        {
+          "at_ms": 8610,
+          "type": "response.output_text.done",
+          "response_id": "1349904e-9940-4c2b-8558-d1e31fb2b8ca",
+          "text": "我是Norma，一位温柔自然、有好奇心的AI伙伴，会好好陪你聊天。"
+        },
+        {
+          "at_ms": 13931,
+          "type": "response.output_audio.done",
+          "response_id": "1349904e-9940-4c2b-8558-d1e31fb2b8ca"
+        },
+        {
+          "at_ms": 13936,
+          "type": "response.output_audio.started",
+          "response_id": "feeb5b45-25e7-468a-b845-01784c17f3ff",
+          "report_id": "deployment-report"
+        },
+        {
+          "at_ms": 13937,
+          "type": "response.output_text.delta",
+          "response_id": "feeb5b45-25e7-468a-b845-01784c17f3ff",
+          "delta": "这是一段部署验证语音。"
+        },
+        {
+          "at_ms": 14858,
+          "type": "gateway.usage",
+          "usage": {
+            "service": "plan_tts",
+            "input_characters": 11,
+            "audio_seconds": 2.384708333333333
+          }
+        },
+        {
+          "at_ms": 14858,
+          "type": "response.output_text.done",
+          "response_id": "feeb5b45-25e7-468a-b845-01784c17f3ff",
+          "text": "这是一段部署验证语音。"
+        },
+        {
+          "at_ms": 16842,
+          "type": "response.output_audio.done",
+          "response_id": "feeb5b45-25e7-468a-b845-01784c17f3ff"
+        },
+        {
+          "at_ms": 16848,
+          "type": "gateway.usage",
+          "usage": {
+            "service": "plan_asr",
+            "uploaded_audio_seconds": 15.200000000000001
+          }
+        },
+        {
+          "at_ms": 16932,
+          "type": "session.closed"
+        }
+      ],
+      "chat_requests": [],
+      "gateway": "https://norma-voice.vercel.app",
+      "interrupt_check": false,
+      "behavior_check": false,
+      "anonymous_status": 401,
+      "tools_connected": true,
+      "first_audio_ms": 7629,
+      "audio_turns": [
+        {
+          "response_id": "1349904e-9940-4c2b-8558-d1e31fb2b8ca",
+          "report": false,
+          "audio_bytes": 298052
+        },
+        {
+          "response_id": "feeb5b45-25e7-468a-b845-01784c17f3ff",
+          "report": true,
+          "audio_bytes": 114466
+        }
+      ],
+      "completed": true,
+      "audio_bytes": 114466,
+      "output_seconds": 2.384708333333333,
+      "sent_input_seconds": 15.28,
+      "elapsed_ms": 16934,
+      "test_origin": "vercel_function"
+    }
+  ],
+  "limits": [
+    "Synthetic PCM reception; not physical iPhone microphone or speaker testing.",
+    "Local Mac to Vercel runs still encountered TLS failures and audio bursts beyond the 3-second bound; cloud-origin verification avoids that link.",
+    "An invocation of the third cloud probe failed on local TLS before reaching the endpoint; the subsequent invocation produced run 3.",
+    "This short sequence is not a long-duration reliability soak."
+  ]
+}

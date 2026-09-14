@@ -331,6 +331,7 @@ impl CodexHost {
                             &self.thread_id,
                             self.turn_id.as_deref().expect("matched turn"),
                             outcome,
+                            self.task_summary.snapshot(),
                         ) {
                             self.control.cancel();
                             updates.push((

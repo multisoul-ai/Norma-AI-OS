@@ -62,7 +62,7 @@ struct NotificationSettingsView: View {
                             }.padding(.vertical, 4)
                         }
                     } header: { Text("按电脑接收提醒") } footer: {
-                        Text("提醒包括待确认、完成和失败。Mac 需要保持 Norma 打开并配置推送服务；未连接时无法更改电脑上的提醒设置。")
+                        Text("提醒包括待确认、完成和失败，并显示项目、卡片名称及最终输出摘要。Mac 需要保持 Norma 打开并配置推送服务；未连接时无法更改电脑上的提醒设置。")
                     }
                 }
             }

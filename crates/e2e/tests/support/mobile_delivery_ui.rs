@@ -26,6 +26,7 @@ pub fn advance(dir: &Path, workspace: &str) {
         for turn in ["delivery-first", "delivery-second"] {
             writer
                 .record_turn(MobileTurnOutcome {
+                    summary: None,
                     key: key(turn),
                     state: MobileTurnState::Completed,
                 })

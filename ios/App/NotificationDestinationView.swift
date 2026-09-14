@@ -4,6 +4,7 @@ import NormaCore
 struct NotificationDestinationView: View {
     let target: PushNotificationTarget
     let model: ComputerModel
+    let call: VoiceCall
     let close: () -> Void
     @Environment(\.scenePhase) private var phase
     @State private var project: ProjectSnapshot?
@@ -15,31 +16,37 @@ struct NotificationDestinationView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                if let machine, let project, let card {
-                    Section {
-                        Label(machine.name, systemImage: "laptopcomputer").font(.subheadline)
-                        Text(project.displayName).font(.caption).foregroundStyle(.secondary)
-                        NavigationLink("打开任务对话") {
-                            ConversationView(machine: machine, workspaceID: project.id, routeID: target.routeID, card: card, model: model)
-                        }.frame(minHeight: 44)
-                    }
-                    if let approval {
-                        Section("电脑上当前的请求") {
-                            ApprovalContext(snapshot: approval)
-                            NavigationLink("前往指挥台处理") {
-                                CommandCenterView(model: model, manageComputers: close, focus: target)
-                            }.frame(minHeight: 44)
+            Group {
+                if target.kind != .approval, let machine, let project, let card {
+                    ConversationView(machine: machine, workspaceID: project.id, routeID: target.routeID, card: card, model: model)
+                } else {
+                    List {
+                        if let machine, let project, let card {
+                            Section {
+                                Label(machine.name, systemImage: "laptopcomputer").font(.subheadline)
+                                Text(project.displayName).font(.caption).foregroundStyle(.secondary)
+                                NavigationLink("打开任务对话") {
+                                    ConversationView(machine: machine, workspaceID: project.id, routeID: target.routeID, card: card, model: model)
+                                }.frame(minHeight: 44)
+                            }
+                            if let approval {
+                                Section("电脑上当前的请求") {
+                                    ApprovalContext(snapshot: approval)
+                                    NavigationLink("前往指挥台处理") {
+                                        CommandCenterView(model: model, call: call, manageComputers: close, focus: target)
+                                    }.frame(minHeight: 44)
+                                }
+                            }
+                        } else if let error {
+                            ContentUnavailableView("暂时无法打开这项提醒", systemImage: "bell.slash", description: Text(error))
+                            Button("重新核验") { refresh += 1 }.frame(minHeight: 44)
                         }
                     }
-                } else if let error {
-                    ContentUnavailableView("暂时无法打开这项提醒", systemImage: "bell.slash", description: Text(error))
-                    Button("重新核验") { refresh += 1 }.frame(minHeight: 44)
+                    .scrollContentBackground(.hidden).background(.black)
+                    .navigationTitle("任务提醒").navigationBarTitleDisplayMode(.inline)
                 }
             }
-            .scrollContentBackground(.hidden).background(.black)
             .workspaceLoading((project == nil || card == nil) && error == nil, "正在向电脑核验任务…")
-            .navigationTitle("任务提醒").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) {
                 Button("关闭", action: close).accessibilityIdentifier("notification-destination-close")
             } }

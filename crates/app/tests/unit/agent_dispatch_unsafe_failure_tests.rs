@@ -149,11 +149,11 @@ fn test_pending_unsafe_failure_is_visible_and_does_not_release_busy() {
     };
 
     let queued = dispatch("旧正文", cx);
-    let typed = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(node_id)
+    let typed = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id, cx)
     });
-    let submitted = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(node_id)
+    let submitted = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(node_id, cx)
     });
     let visible_error = app.update(cx, |app, _cx| app.workspace_state.error.clone());
     let first_task_ref = match &queued {
@@ -306,8 +306,8 @@ fn test_cleanup_failure_keeps_agent_busy_and_prevents_immediate_retry() {
     };
 
     let first = dispatch("旧正文", cx);
-    let submitted = app.update(cx, |app, _cx| {
-        app.submit_pending_agent_task_for_ready_node(ready_node_id)
+    let submitted = app.update(cx, |app, cx| {
+        app.submit_pending_agent_task_for_ready_node(ready_node_id, cx)
     });
     let visible_error = app.update(cx, |app, _cx| app.workspace_state.error.clone());
     let retry = dispatch("重试正文", cx);

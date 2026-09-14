@@ -30,6 +30,7 @@ fn acceptance_is_atomic_exact_and_never_transfers_to_another_turn() {
     //5s是现有本地writer提交预算，等待commit而不是仅检查入队。
     writer
         .record_turn(MobileTurnOutcome {
+            summary: None,
             key: key("done"),
             state: MobileTurnState::Completed,
         })
@@ -39,6 +40,7 @@ fn acceptance_is_atomic_exact_and_never_transfers_to_another_turn() {
         .expect("落盘");
     writer
         .record_turn(MobileTurnOutcome {
+            summary: None,
             key: key("failed"),
             state: MobileTurnState::Failed,
         })
@@ -177,6 +179,7 @@ fn acceptance_is_atomic_exact_and_never_transfers_to_another_turn() {
     //相同审计管线再造一份完整成果，注入回执更新失败以验证事务回滚。
     writer
         .record_turn(MobileTurnOutcome {
+            summary: None,
             key: key("rollback"),
             state: MobileTurnState::Completed,
         })
@@ -222,6 +225,7 @@ fn acceptance_is_atomic_exact_and_never_transfers_to_another_turn() {
     assert_eq!(restored.operation_id, "rollback", "回滚不能生成另一操作ID");
     writer
         .record_turn(MobileTurnOutcome {
+            summary: None,
             key: key("unavailable"),
             state: MobileTurnState::Completed,
         })
@@ -255,6 +259,7 @@ fn acceptance_is_atomic_exact_and_never_transfers_to_another_turn() {
     );
     writer
         .record_turn(MobileTurnOutcome {
+            summary: None,
             key: key("conflict"),
             state: MobileTurnState::Completed,
         })
@@ -300,6 +305,7 @@ fn acceptance_is_atomic_exact_and_never_transfers_to_another_turn() {
     );
     writer
         .record_turn(MobileTurnOutcome {
+            summary: None,
             key: key("race"),
             state: MobileTurnState::Completed,
         })

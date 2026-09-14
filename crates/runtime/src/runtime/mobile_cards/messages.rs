@@ -11,11 +11,12 @@ pub(crate) struct NativeInput {
     submitted: Option<u64>,
     started: bool,
     pub(super) dirty: bool,
+    pub(super) resume: native_resume::ResumeInput,
 }
 impl NativeInput {
-    pub(crate) fn observe(&mut self, input: &NodeInput) {
+    pub(crate) fn observe(&mut self, input: &NodeInput) -> bool {
         if matches!(input, NodeInput::Text(s) | NodeInput::Paste(s) if s.is_empty()) {
-            return;
+            return false;
         }
         self.advance();
         let submit = matches!(input, NodeInput::Key(key) if key.key == terminal::Key::Enter && !key.ctrl && !key.alt && !key.shift);
@@ -27,6 +28,7 @@ impl NativeInput {
         if submit {
             self.submitted = Some(self.sequence);
         }
+        self.resume.observe(input)
     }
     pub(crate) fn acknowledge_start(&mut self) {
         if !self.started {
@@ -38,7 +40,18 @@ impl NativeInput {
         // A late Provider hook must not clear the next draft typed after Enter.
         if self.submitted.take() == Some(self.sequence) {
             self.dirty = false;
+            self.resume.reset_command();
         }
+    }
+    pub(super) fn new_session(&mut self) {
+        self.started = false;
+    }
+    pub(super) fn submitted_sequence(&self) -> Option<u64> {
+        self.submitted
+    }
+    pub(super) fn acknowledge_resume(&mut self) {
+        self.submitted = Some(self.sequence);
+        self.acknowledge();
     }
     pub(super) fn advance(&mut self) {
         self.sequence = self.sequence.saturating_add(1);

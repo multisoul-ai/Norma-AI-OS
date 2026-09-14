@@ -5,13 +5,8 @@ struct ProjectTodoView: View {
     let model: ComputerModel
     let machine: PairedMachine
     let plan: ProjectPlan
-    var dashboard = false
     var active = true
-    var liveProgress: ProjectPlanProgress? = nil
-    var liveRevision = 0
-    var adjustDirection: (() -> Void)? = nil
     var focusedTodoIndex: Int? = nil
-    var inbox: CommandInboxLinks? = nil
     @Environment(\.scenePhase) private var scenePhase
     @State private var progress: ProjectPlanProgress?
     @State private var project: ProjectSnapshot?
@@ -30,8 +25,6 @@ struct ProjectTodoView: View {
     @State private var clearing: PendingMobileCommand?
     @State private var showAll = false
     @State private var legacy = false
-    private struct TodoDetail: Identifiable { let id: Int }
-    @State private var todoDetail: TodoDetail?
     private var todoIndices: [Int] {
         plan.draft.todos.indices.filter { index in
             (focusedTodoIndex == nil || focusedTodoIndex == index) && (focusedTodoIndex != nil || showAll || progress?.decisions.first(where: { $0.id == index })?.needsFollowUp != false || pending(index) != nil)
@@ -50,24 +43,13 @@ struct ProjectTodoView: View {
     }
 
     var body: some View {
-        Group {
-            if dashboard { dashboardContent }
-            else { detailedList }
-        }
+        detailedList
         .font(.subheadline).scrollContentBackground(.hidden).background(.black)
-        .navigationTitle(dashboard ? "指挥台" : "计划与执行").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("计划与执行").navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if !dashboard {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { retry += 1 } label: { Image(systemName: "arrow.clockwise") }
-                        .accessibilityLabel("刷新执行进度").disabled(busy)
-                }
-            }
-        }
-        .sheet(item: $todoDetail) { selected in
-            NavigationStack {
-                ProjectTodoView(model: model, machine: machine, plan: plan, focusedTodoIndex: selected.id)
-                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("完成") { todoDetail = nil } } }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { retry += 1 } label: { Image(systemName: "arrow.clockwise") }
+                    .accessibilityLabel("刷新执行进度").disabled(busy)
             }
         }
         .sheet(item: $selection) { preview in
@@ -97,16 +79,10 @@ struct ProjectTodoView: View {
                 project = nil; authorized = false; selection = nil; connectionError = error.localizedDescription
             }
         }
-        .task(id: "decisions-\(scenePhase)-\(retry)-\(liveRevision)-\(active)") {
+        .task(id: "decisions-\(scenePhase)-\(retry)-\(active)") {
             readGeneration += 1; progress = nil; checkedAt = nil; receipts = [:]; readError = nil
             guard scenePhase == .active && active else { return }
             do {
-                // The dashboard already owns the latest-plan stream; reuse its validated progress.
-                if dashboard {
-                    guard let liveProgress else { throw MobileError.invalidResponse }
-                    try await applyProgress(liveProgress)
-                    return
-                }
                 for try await update in model.client.planUpdates(machine, workspaceID: plan.workspaceID, planID: plan.id) {
                     try Task.checkCancellation()
                     readGeneration += 1
@@ -138,9 +114,6 @@ struct ProjectTodoView: View {
         List {
             if focusedTodoIndex != nil, let message = connectionError ?? readError ?? error { Text(message).font(.caption).foregroundStyle(.orange) }
             if focusedTodoIndex == nil {
-            if let inbox {
-                Section { inbox.listRowInsets(EdgeInsets()).listRowBackground(Color.clear) }
-            }
             Section {
                 VStack(alignment: .leading, spacing: 8) {
                     Label(machine.name, systemImage: "laptopcomputer").font(.caption).foregroundStyle(.secondary)
@@ -206,89 +179,6 @@ struct ProjectTodoView: View {
                 } header: { Text("下一步 \(index + 1)") }
             }
         }
-    }
-
-    private var dashboardContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                CommandBriefCard(machineName: machine.name, agentCount: project?.cardCount,
-                    title: project?.cards?.contains(where: \.isBusy) == true ? "一切正在推进" : "下一步，已准备好。",
-                    summary: plan.draft.summary).padding(.horizontal, 20).padding(.bottom, 4)
-                if let inbox { inbox }
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        NormaMark().frame(width: 16, height: 16)
-                        Text("当前方向").font(.caption)
-                        Spacer()
-                        Button { adjustDirection?() } label: { Text("调整方向").frame(minHeight: 44).contentShape(Rectangle()) }
-                            .font(.caption.weight(.semibold)).foregroundStyle(.white)
-                            .accessibilityIdentifier("adjust-project-direction").disabled(adjustDirection == nil)
-                    }.foregroundStyle(WorkspaceStyle.muted)
-                    Text(plan.direction).font(.headline).fixedSize(horizontal: false, vertical: true)
-                    Text(todoIndices.first.map { "下一步：" + plan.draft.todos[$0].title } ?? "当前待办已完成，Agent 的结果可在任务中查看。")
-                        .font(.caption).foregroundStyle(WorkspaceStyle.muted).fixedSize(horizontal: false, vertical: true)
-                }.padding(.horizontal, 22).padding(.top, 12).padding(.bottom, 20)
-                if let inbox, let count = inbox.decisionCount, count > 0 {
-                    Button(action: inbox.showDecisions) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "checkmark.shield").font(.title3)
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text("你现在只需 · \(count) 项待决策").font(.caption2).foregroundStyle(WorkspaceStyle.muted)
-                                Text("确认 Agent 的下一步").font(.footnote.weight(.semibold))
-                                Text("决定后，由 Agent 继续执行").font(.caption2).foregroundStyle(WorkspaceStyle.muted)
-                            }
-                            Spacer(minLength: 0)
-                            Image(systemName: "chevron.right").font(.caption)
-                        }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                            .background(WorkspaceStyle.raised, in: RoundedRectangle(cornerRadius: 22))
-                            .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(WorkspaceStyle.line, lineWidth: 1))
-                    }.buttonStyle(WorkspacePressStyle()).padding(.horizontal, 20)
-                }
-                HStack {
-                    Text("下一步").font(.headline)
-                    Spacer()
-                    Button { showAll.toggle() } label: {
-                        Text(showAll ? "只看待办" : "全部记录").font(.caption).frame(minHeight: 44).contentShape(Rectangle())
-                    }
-                        .accessibilityIdentifier("todo-list-scope")
-                }.padding(.horizontal, 20).padding(.top, 16)
-                Text("你定优先级，Agent 执行并回报结果。").font(.caption2).foregroundStyle(WorkspaceStyle.muted)
-                    .padding(.horizontal, 20).padding(.bottom, 8)
-                if let message = connectionError ?? readError ?? error {
-                    Text(message).font(.caption).foregroundStyle(.orange).padding(.horizontal, 20)
-                }
-                if todoIndices.isEmpty {
-                    WorkspaceStatusView(title: "这份计划暂无待办", icon: "checkmark.circle", message: "完成和未采纳的事项保留在全部记录中。", inline: true) {
-                        WorkspaceStatusButton(title: "查看全部记录") { showAll = true }
-                    }
-                }
-                ForEach(todoIndices, id: \.self) { index in
-                    Button { todoDetail = TodoDetail(id: index) } label: { dashboardRow(index) }
-                        .buttonStyle(WorkspacePressStyle()).accessibilityIdentifier("todo-open-\(index)")
-                }
-            }.padding(.bottom, 26)
-        }.refreshable { retry += 1 }
-    }
-
-    private func dashboardRow(_ index: Int) -> some View {
-        let todo = plan.draft.todos[index]
-        let decision = progress?.decisions.first { $0.id == index }
-        return HStack(alignment: .top, spacing: 12) {
-            Text(String(format: "%02d", index + 1)).font(.caption.monospaced()).foregroundStyle(WorkspaceStyle.muted).padding(.top, 3)
-            VStack(alignment: .leading, spacing: 8) {
-                Text(todo.title).font(.footnote.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 5) {
-                    ProviderMark(profile: todo.target.profile, size: 14)
-                    Text(todo.target.profile + " · " + (project?.displayName ?? "项目")).font(.caption2).foregroundStyle(WorkspaceStyle.muted)
-                }
-                HStack(spacing: 5) {
-                    Circle().frame(width: 5, height: 5)
-                    Text(decision.map(todoOutcomeLabel) ?? "等你确认后执行").font(.caption2)
-                }.foregroundStyle(WorkspaceStyle.muted).accessibilityIdentifier("todo-summary-\(index)")
-            }
-            Spacer(minLength: 0)
-            Image(systemName: "chevron.right").font(.caption2).foregroundStyle(WorkspaceStyle.muted).padding(.top, 5)
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 17).padding(.horizontal, 20)
     }
 
     @ViewBuilder private func decisionRow(_ decision: ProjectTodoDecision, pending: PendingMobileCommand?) -> some View {

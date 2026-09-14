@@ -34,6 +34,7 @@ fn pending_deliveries_count_and_pages_are_scoped_and_indexed() {
         // 5s为现有后台writer的提交等待预算；必须观察实际commit。
         writer
             .record_turn(MobileTurnOutcome {
+                summary: None,
                 key: key.clone(),
                 state,
             })

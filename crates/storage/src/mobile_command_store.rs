@@ -11,8 +11,10 @@ pub use delivery::DeliveryAcceptance;
 pub(crate) use feedback::migrate as migrate_delivery_feedback;
 pub use feedback::DeliveryFeedback;
 mod queue;
+mod realtime;
 mod todo;
 pub use queue::{NewQueuedMessage, QueuedMessage};
+pub use realtime::{RealtimeCall, RealtimeOperation, RealtimeReservation};
 pub use todo::{PlanTodoReservation, StoredTodoDecision, TodoDecisionRef};
 
 #[derive(Clone, Debug)]
@@ -216,6 +218,7 @@ fn reserve_on(
 
 /// Mobile command and FIFO tables share one migration owner.
 pub(crate) fn migrate(connection: &Connection) -> StorageResult<()> {
+    realtime::migrate(connection)?;
     connection.execute_batch(r#"
         CREATE TABLE IF NOT EXISTS mobile_commands (
             device_id TEXT NOT NULL,

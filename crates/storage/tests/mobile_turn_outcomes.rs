@@ -16,8 +16,8 @@ fn key(turn: &str) -> MobileTurnKey {
 
 /// 具体回合的完成证据与审批共用后台写入，旧任务不随下一回合变化，冲突不能改写。
 ///
-/// 数据构造：同run/session的turn-a完成、turn-b失败；另一项目数据库没有记录。
-/// 执行过程：同后台writer提交审批与两次终态 → 重开按精确身份查询 → 重试/冲突 → 跨项目/错节点。
+/// 数据构造：同run/session的turn-a带最终输出摘要完成、turn-b失败；另一项目数据库没有记录。
+/// 执行过程：同后台writer提交审批与两次终态 → 重开按精确身份查询 → 有/无摘要重试及状态冲突 → 跨项目/错节点。
 /// 预期结果：a仍完成、b失败；审批原样保存，错节点/会话/项目无结果，冲突保留原始终态。
 #[test]
 fn turn_outcomes_are_durable_exact_and_immutable() {
@@ -41,10 +41,10 @@ fn turn_outcomes_are_durable_exact_and_immutable() {
         .recv_timeout(budget)
         .expect("审批回执")
         .expect("审批提交");
-    let completed = MobileTurnOutcome {
-        key: key("turn-a"),
-        state: MobileTurnState::Completed,
-    };
+    let completed: MobileTurnOutcome = serde_json::from_value(serde_json::json!({
+        "key": key("turn-a"), "state": "completed", "summary": "已修复通知跳转，回归测试通过。"
+    }))
+    .expect("终态应接受绑定到该回合的最终输出摘录");
     writer
         .record_turn(completed.clone())
         .expect("a入队")
@@ -52,6 +52,7 @@ fn turn_outcomes_are_durable_exact_and_immutable() {
         .expect("a回执")
         .expect("a提交");
     let failed = MobileTurnOutcome {
+        summary: None,
         key: key("turn-b"),
         state: MobileTurnState::Failed,
     };
@@ -67,8 +68,19 @@ fn turn_outcomes_are_durable_exact_and_immutable() {
         .recv_timeout(budget)
         .expect("重复回执")
         .expect("同结果幂等");
+    // An interrupt receipt may confirm the same completion without its final reply.
     writer
         .record_turn(MobileTurnOutcome {
+            summary: None,
+            ..completed.clone()
+        })
+        .expect("同终态无摘要重复入队")
+        .recv_timeout(budget)
+        .expect("重复回执")
+        .expect("缺少展示文本的重复回执不能把完成误报为失败");
+    writer
+        .record_turn(MobileTurnOutcome {
+            summary: None,
             key: key("turn-a"),
             state: MobileTurnState::Failed,
         })
@@ -78,6 +90,12 @@ fn turn_outcomes_are_durable_exact_and_immutable() {
         .expect_err("同回合不同结果不能覆盖");
     drop(writer);
     let store = MobileTurnStore::new(path);
+    assert_eq!(
+        serde_json::to_value(store.get(&key("turn-a")).expect("完成结果")).expect("编码")
+            ["summary"],
+        "已修复通知跳转，回归测试通过。",
+        "后续回合不能抹掉原回合的最终输出摘要"
+    );
     assert_eq!(
         store.get(&key("turn-a")).expect("a查询"),
         Some(completed),
@@ -134,6 +152,7 @@ fn turn_outcomes_in_app_database_remain_workspace_scoped() {
     )
     .expect("配置共享后台存储");
     let outcome = MobileTurnOutcome {
+        summary: None,
         key: key("turn-a"),
         state: MobileTurnState::Completed,
     };

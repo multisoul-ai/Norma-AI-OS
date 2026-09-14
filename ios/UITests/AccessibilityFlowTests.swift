@@ -16,6 +16,7 @@ final class AccessibilityFlowTests: XCTestCase {
         let machine = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "通知验收 Mac")).firstMatch
         XCTAssertTrue(machine.waitForExistence(timeout: 8), "仅操作隔离电脑")
         machine.tap(); app.buttons["workspace-tab-command"].tap()
+        openCommandPlanRecord("优先解决手机连接延迟", in: app)
         XCTAssertTrue(app.staticTexts["优先解决手机连接延迟"].waitForExistence(timeout: 8), "大字号须保留完整方向")
         try app.performAccessibilityAudit(for: [.textClipped, .hitRegion, .sufficientElementDescription]) { issue in
             print("COMMAND_PLAN_AX_ISSUE: \(issue.element?.debugDescription ?? "unknown element")")
@@ -23,9 +24,6 @@ final class AccessibilityFlowTests: XCTestCase {
             return false // Record diagnostics; never suppress an audit finding.
         }
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "command-plan-AX5"; shot.lifetime = .keepAlways; add(shot)
-        let detail = app.buttons["todo-open-0"]
-        scrollToWorkspaceRow(detail, in: app)
-        detail.tap()
         let accept = app.buttons["todo-accept-0"]
         // 有限3次滚动覆盖方向、简报、筛选三个上方区段，避免无限滚动掩盖入口丢失。
         for _ in 0..<3 where !accept.isHittable { app.swipeUp() }

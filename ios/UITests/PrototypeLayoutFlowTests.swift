@@ -1,10 +1,10 @@
 import XCTest
 
 final class PrototypeLayoutFlowTests: XCTestCase {
-    /// 三个主页按v28恢复品牌头部、悬浮底栏与各自信息层级，并保留真实项目切换及只读提交保护。
+    /// 项目和任务保持v28结构，指挥台采用已确认的原生陪伴布局；原导航与只读保护继续生效。
     /// 数据构造：正式配对的隔离Mac，两张原卡和最新计划；普通字号，对应390pt原型布局。
     /// 执行过程：项目→指挥台→任务，检查标题/选择器/正文顺序，保存各页截图，再返回原卡对话。
-    /// 预期结果：顶部均显示norma，底部N入口居中；项目标题即切换入口，无重复电脑行或常驻搜索；计划有简报；任务有独立标题和胶囊筛选。
+    /// 预期结果：项目/任务保留norma头部，底部N入口居中；陪伴页有真实角色、绑定项目与开聊入口，不再显示旧简报。
     @MainActor func testThreePagesMatchPrototypeHierarchy() throws {
         guard ProcessInfo.processInfo.environment["NORMA_TEST_MODE"] == "notification-ui" else {
             throw XCTSkip("仅使用已配对隔离服务")
@@ -41,17 +41,18 @@ final class PrototypeLayoutFlowTests: XCTestCase {
         app.buttons["workspace-tab-command"].tap()
         XCTAssertTrue(app.buttons["workspace-tab-command"].isSelected, "玻璃选中态应移到中间指挥台")
         XCTAssertFalse(app.buttons["workspace-tab-projects"].isSelected, "项目不能残留旧选中态")
-        XCTAssertTrue(app.staticTexts["command-hero-title"].waitForExistence(timeout: 8), "指挥台必须先展示工作简报大卡")
-        XCTAssertTrue(app.staticTexts["优先解决手机连接延迟"].exists, "方向继续读取真实最新计划")
-        XCTAssertFalse(app.staticTexts["旧工作简报"].exists, "不能使用旧计划填充视觉")
-        XCTAssertLessThan(app.staticTexts["command-hero-title"].frame.minY, app.buttons["command-decision-inbox"].frame.minY, "简报在待决策/待验收数据卡上方")
+        XCTAssertTrue(app.buttons["realtime-call-start"].waitForExistence(timeout: 8), "指挥台应呈现原生陪伴开聊入口")
+        XCTAssertTrue(app.otherElements["realtime-avatar"].exists, "应使用真实角色，不使用示意图")
+        XCTAssertEqual(app.buttons["realtime-project"].value as? String, "通知验收项目", "开聊前显示准确的项目")
+        XCTAssertFalse(app.staticTexts["command-hero-title"].exists, "旧简报布局已由陪伴页面取代")
+        XCTAssertFalse(app.buttons["command-mode-plan"].exists, "不保留旧版分段或开关")
         try checkChrome(app, name: "原型还原-指挥台")
         app.buttons["workspace-tab-tasks"].tap()
         XCTAssertTrue(app.buttons["workspace-tab-tasks"].isSelected, "玻璃选中态应移到右侧任务")
         XCTAssertFalse(app.buttons["workspace-tab-command"].isSelected, "指挥台不能残留旧选中态")
-        let taskTitle = app.staticTexts["tasks-page-title"]
-        XCTAssertTrue(taskTitle.waitForExistence(timeout: 8), "任务页有独立大标题")
-        XCTAssertLessThan(taskTitle.frame.maxY, app.buttons["task-project-filter"].frame.minY, "所有项目选择位于任务标题下方")
+        XCTAssertTrue(app.buttons["task-project-filter"].waitForExistence(timeout: 8), "任务页直接显示项目搜索行")
+        XCTAssertFalse(app.staticTexts["tasks-page-title"].exists, "任务标题不再独占一行")
+        XCTAssertFalse(app.buttons["new-task"].exists, "移除标题旁的加号")
         XCTAssertEqual(app.buttons["task-project-filter"].frame.midY, app.textFields["task-search"].frame.midY, accuracy: 2, "项目范围应与搜索输入共用一行，2pt仅容许原生布局取整")
         XCTAssertLessThan(app.buttons["task-project-filter"].frame.maxX, app.textFields["task-search"].frame.minX, "项目菜单位于输入框左侧，不能覆盖文字输入")
         XCTAssertTrue(app.buttons["task-filter-all"].isSelected, "原型白色全部胶囊默认选中")
@@ -65,8 +66,13 @@ final class PrototypeLayoutFlowTests: XCTestCase {
 
     @MainActor private func checkChrome(_ app: XCUIApplication, name: String) throws {
         let left = app.buttons["workspace-tab-projects"], center = app.buttons["workspace-tab-command"], right = app.buttons["workspace-tab-tasks"]
-        XCTAssertTrue(app.buttons["workspace-machine-switch"].isHittable, "三个页面都能切换电脑")
-        XCTAssertTrue(app.buttons["workspace-notifications"].isHittable, "通知入口保持可访问")
+        if name == "原型还原-指挥台" {
+            XCTAssertTrue(app.buttons["realtime-settings"].isHittable, "陪伴页使用通话设置入口")
+            XCTAssertTrue(app.buttons["realtime-project"].isHittable, "绑定项目菜单持续可访问")
+        } else {
+            XCTAssertTrue(app.buttons["workspace-machine-switch"].isHittable, "项目/任务页保持电脑切换入口")
+            XCTAssertTrue(app.buttons["workspace-notifications"].isHittable, "项目/任务通知入口保持可访问")
+        }
         XCTAssertLessThan(left.frame.midX, center.frame.midX, "指挥台位于项目右侧")
         XCTAssertLessThan(center.frame.midX, right.frame.midX, "指挥台位于任务左侧")
         XCTAssertGreaterThan(right.frame.maxX - left.frame.minX, app.frame.width * 0.8, "悬浮底栏使用原型的近全宽布局")

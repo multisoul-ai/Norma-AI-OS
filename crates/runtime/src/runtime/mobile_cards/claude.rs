@@ -295,6 +295,8 @@ impl Runtime {
                     return false;
                 }
                 if matches!(event.provider_event.as_str(), "Stop" | "StopFailure") {
+                    // Freeze the final reply before the audit writer sees the outcome.
+                    run.task_summary.observe_hook(event);
                     let status = if event.provider_event == "Stop" {
                         "completed"
                     } else {

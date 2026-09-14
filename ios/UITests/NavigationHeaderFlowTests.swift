@@ -62,21 +62,18 @@ final class NavigationHeaderFlowTests: XCTestCase {
         try checkHeader(app, selector: project, below: app.buttons["card-filters"], name: "项目-\(name)")
 
         app.buttons["workspace-tab-command"].tap()
-        app.buttons["command-mode-plan"].tap()
-        let plan = app.buttons["command-plan-project"]
-        XCTAssertTrue(plan.waitForExistence(timeout: 8), "指挥台项目选择也必须在导航栏")
-        guard plan.exists else { return }
-        try checkHeader(app, selector: plan, below: app.buttons["command-mode-plan"], name: "指挥台-\(name)")
+        let plan = app.buttons["realtime-project"]
+        XCTAssertTrue(plan.waitForExistence(timeout: 8), "陪伴页必须持续显示本次通话项目")
+        XCTAssertTrue(app.buttons["realtime-settings"].isHittable, "通话设置可直接打开")
         choose("第二验收项目", from: plan, in: app)
-        XCTAssertTrue(app.staticTexts["先定一个方向"].waitForExistence(timeout: 8), "顶部切换应读取第二项目的真实空计划")
-        XCTAssertFalse(app.staticTexts["优先解决手机连接延迟"].exists, "切项目不能残留首项目方向")
-        try checkHeader(app, selector: plan, below: app.buttons["command-mode-plan"], name: "指挥台空项目-\(name)")
+        XCTAssertEqual(plan.value as? String, "第二验收项目", "未开聊时显式切换目标项目")
+        XCTAssertFalse(app.buttons["realtime-call-end"].exists, "浏览和切换项目不能自动开始通话")
         choose("通知验收项目", from: plan, in: app)
-        XCTAssertTrue(app.staticTexts["优先解决手机连接延迟"].waitForExistence(timeout: 8), "切回首项目恢复其计划")
-        app.buttons["command-mode-decisions"].tap()
-        XCTAssertTrue(app.staticTexts["command-decision-scope"].exists, "全部电脑的决策范围也应明确放在顶部")
-        XCTAssertFalse(app.buttons["command-plan-project"].exists, "全局决策不能伪装成当前项目筛选")
-        app.buttons["command-mode-plan"].tap()
+        XCTAssertEqual(plan.value as? String, "通知验收项目", "切回首项目仍可准确显示")
+        app.buttons["command-decision-inbox"].tap()
+        XCTAssertTrue(app.buttons["command-decisions-close"].waitForExistence(timeout: 3), "全部电脑的审批改从原生弹层进入")
+        XCTAssertFalse(app.buttons["command-mode-plan"].exists, "弹层不能复活旧版布局")
+        app.buttons["command-decisions-close"].tap()
 
         try checkTaskScope(app, name: name)
     }

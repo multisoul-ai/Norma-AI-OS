@@ -88,6 +88,10 @@ fn e2e_mobile_terminal_read_input_events_and_authorization() {
         &machine,
         json!({"type":"snapshot","device_id":"phone-a","token":"a".repeat(64),"workspace_id":project}),
     );
+    assert_eq!(
+        snapshot["result"]["projects"][0]["state"], "open",
+        "终端输入前真实项目路由必须可读取，实际响应: {snapshot}"
+    );
     let route = snapshot["result"]["projects"][0]["route_id"]
         .as_str()
         .expect("route");

@@ -63,11 +63,13 @@ impl CodexAudit {
         session: &str,
         turn: &str,
         state: storage::MobileTurnState,
+        summary: Option<String>,
     ) -> Result<(), String> {
         if self.receipts.len() >= 8 {
             return Err("turn outcome receipts full".into());
         }
         let outcome = storage::MobileTurnOutcome {
+            summary,
             key: storage::MobileTurnKey {
                 node_id: self.node_id,
                 profile: "Codex".into(),
