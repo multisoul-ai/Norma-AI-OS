@@ -29,7 +29,7 @@ struct CardOptionsView: View {
     private var deletionUnavailable: String? {
         if !canControl { return "当前项目为只读，请在电脑上允许控制后删除。" }
         if pending != nil { return "这张卡片有待确认的操作，请先核对结果。" }
-        if !["Codex", "Claude"].contains(card.profile) { return "请在电脑上管理这类卡片。" }
+        if !MobileAgentProfile.supports(card.profile) { return "请在电脑上管理这类卡片。" }
         if ["preparing", "unknown", "collecting", "interrupting"].contains(card.state) {
             return "卡片状态正在同步，确认后可以删除。"
         }

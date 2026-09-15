@@ -16,7 +16,7 @@ struct NewTaskView: View {
     @State private var showConversation = false
     @State private var showDrafts = false
     private var project: ProjectSnapshot? { projects.first { $0.id == projectID } }
-    private var cards: [CardSnapshot] { project?.cards?.filter { ["Codex", "Claude"].contains($0.profile) } ?? [] }
+    private var cards: [CardSnapshot] { project?.cards?.filter { MobileAgentProfile.supports($0.profile) } ?? [] }
     private var card: CardSnapshot? { cards.first { $0.id == nodeID } }
 
     var body: some View {
@@ -76,7 +76,7 @@ struct NewTaskView: View {
         VStack(alignment: .leading, spacing: 8) {
             fieldLabel("执行 Agent")
             Menu {
-                ForEach(["Codex", "Claude"], id: \.self) { profile in
+                ForEach(MobileAgentProfile.supported, id: \.self) { profile in
                     Section(profile) {
                         ForEach(cards.filter { $0.profile == profile }) { item in
                             Button { nodeID = item.id } label: {

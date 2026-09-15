@@ -61,6 +61,12 @@ pub(crate) fn mobile_agent_command(
     let command = match profile {
         AgentProfile::Claude => format!("exec claude --dangerously-skip-permissions{}", resume.map(|id| format!(" --resume {id}")).unwrap_or_default()),
         AgentProfile::Codex => format!("exec codex -c disable_paste_burst=true -c check_for_update_on_startup=false --dangerously-bypass-approvals-and-sandbox{}{}", if hook.is_some() { " --dangerously-bypass-hook-trust" } else { "" }, resume.map(|id| format!(" resume {id}")).unwrap_or_default()),
+        AgentProfile::Cursor => format!(
+            "exec cursor-agent{}",
+            resume
+                .map(|id| format!(" --resume {id}"))
+                .unwrap_or_default()
+        ),
         _ => return Err(PtyError::Spawn("mobile Provider unavailable".into())),
     };
     let command = PtyCommand::new("/bin/zsh").args(["-lic", &command]);

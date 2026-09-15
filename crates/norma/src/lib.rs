@@ -6,6 +6,8 @@ pub mod cli_runtime;
 pub mod client;
 #[cfg(unix)]
 pub mod codex;
+#[cfg(unix)]
+pub mod cursor;
 pub mod mobile;
 pub mod orchestration;
 pub mod presentation;

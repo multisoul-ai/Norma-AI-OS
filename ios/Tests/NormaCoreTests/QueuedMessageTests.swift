@@ -22,7 +22,7 @@ final class QueuedMessageTests: XCTestCase {
         let pending = try PendingMobileCommand(machineID: machine, deviceID: "phone-a", workspaceID: "project-a", routeID: "route-a", revision: 2, queuing: card, text: text, draftID: draft.id, operationID: "queued-a")
         let invalidSession = try JSONDecoder().decode(CardSnapshot.self, from: Data(raw.replacingOccurrences(of: "session-a", with: "").utf8))
         XCTAssertThrowsError(try PendingMobileCommand(machineID: machine, deviceID: "phone-a", workspaceID: "project-a", routeID: "route-a", revision: 2, queuing: invalidSession, text: text), "缺失会话不能持久化为可提交队列")
-        let unsupported = try JSONDecoder().decode(CardSnapshot.self, from: Data(raw.replacingOccurrences(of: "Claude", with: "Cursor").utf8))
+        let unsupported = try JSONDecoder().decode(CardSnapshot.self, from: Data(raw.replacingOccurrences(of: "Claude", with: "OpenCode").utf8))
         XCTAssertThrowsError(try PendingMobileCommand(machineID: machine, deviceID: "phone-a", workspaceID: "project-a", routeID: "route-a", revision: 2, queuing: unsupported, text: text), "尚未支持的Provider不能提交手机队列")
         let store = PendingCommandStore(url: directory.appendingPathComponent("commands.json"))
         try await store.save(pending)

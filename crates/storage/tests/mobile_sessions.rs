@@ -16,6 +16,12 @@ fn session(run: &str) -> MobileSession {
     }
 }
 
+fn cursor_session(run: &str) -> MobileSession {
+    let mut value = session(run);
+    value.key.profile = "Cursor".into();
+    value
+}
+
 /// 会话索引在任务完成前落盘，不依赖画布节点，重复登记不能更换身份。
 ///
 /// 数据构造：共享AppDB中项目A的run-a、run-b复用同一session；项目B没有登记。
@@ -159,6 +165,46 @@ fn transcript_reference_uses_existing_writer_and_cannot_be_rebound() {
             .expect("项目库")
             .is_empty(),
         "配置AppDB后不得额外镜像到项目库"
+    );
+}
+
+/// Cursor复用原生会话索引和只存路径的隐私边界，不把聊天正文复制进SQLite。
+///
+/// 数据构造：Cursor run-cursor/session-a及对应绝对JSONL路径；另一个错误文件名作为负例。
+/// 执行过程：登记会话 → 绑定路径 → 重开查询 → 尝试绑定错误会话文件名。
+/// 预期结果：Cursor身份与路径持久化；错误文件名被拒绝；Codex/Claude语义不被冒充。
+#[test]
+fn cursor_session_persists_bound_transcript_reference() {
+    let dir = tempfile::tempdir().expect("隔离目录");
+    let path = dir.path().join("app.sqlite");
+    let store = MobileTurnStore::for_workspace(path.clone(), "workspace-a".into());
+    let original = cursor_session("run-cursor");
+    store.record_session(&original).expect("登记Cursor会话");
+    let transcript = dir.path().join("session-a.jsonl");
+    store
+        .record_native_event(&original, Some(&transcript), None)
+        .expect("绑定Cursor transcript");
+
+    let reopened = MobileTurnStore::for_workspace(path, "workspace-a".into());
+    let saved = reopened
+        .session(&original.key)
+        .expect("查询Cursor会话")
+        .expect("Cursor会话存在");
+    assert_eq!(saved.session, original, "重启后必须保留完整Cursor身份");
+    assert_eq!(
+        saved.transcript_path,
+        Some(transcript),
+        "SQLite只应保存准确的Cursor transcript引用"
+    );
+    assert!(
+        reopened
+            .record_native_event(
+                &cursor_session("run-cursor"),
+                Some(&dir.path().join("another-session.jsonl")),
+                None,
+            )
+            .is_err(),
+        "Cursor transcript文件名必须和session_id一致"
     );
 }
 

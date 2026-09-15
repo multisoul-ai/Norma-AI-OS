@@ -201,7 +201,7 @@ impl NewQueuedMessage {
             || self.node_id > i64::MAX as u64
             || self.grant_revision == 0
             || self.grant_revision > i64::MAX as u64
-            || !matches!(self.profile.as_str(), "Codex" | "Claude")
+            || !crate::is_mobile_agent_profile(&self.profile)
             || self.text.trim().is_empty()
             || self.text.len() > 32 * 1024
             || self

@@ -54,7 +54,7 @@ struct NewCardView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Agent").font(.caption).foregroundStyle(WorkspaceStyle.muted)
                         Menu {
-                            ForEach(["Codex", "Claude"], id: \.self) { item in
+                            ForEach(MobileAgentProfile.supported, id: \.self) { item in
                                 Button { selectProfile(item) } label: { Label(item, image: item) }
                                     .accessibilityIdentifier("create-agent-" + item)
                             }

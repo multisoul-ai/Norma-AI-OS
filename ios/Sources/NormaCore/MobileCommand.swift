@@ -127,7 +127,7 @@ public struct PendingMobileCommand: Codable, Sendable, Identifiable, Equatable {
         switch request.command {
         case let .terminalInput(card, _, sequence, input):
             try card.validate(); try input.validate()
-            guard card.mobileControl, card.runID != nil, ["Codex", "Claude"].contains(card.profile), sequence < UInt64.max else { throw MobileError.invalidResponse }
+            guard card.mobileControl, card.runID != nil, MobileAgentProfile.supports(card.profile), sequence < UInt64.max else { throw MobileError.invalidResponse }
         case let .feedbackDelivery(card, feedback):
             try feedback.validate(for: card)
         case let .acceptDelivery(key, fingerprint):
@@ -149,7 +149,7 @@ public struct PendingMobileCommand: Codable, Sendable, Identifiable, Equatable {
             guard let preview = approvalPreview, preview.target == target, preview.decisions.contains(decision) else { throw MobileError.invalidResponse }
             try preview.validate()
         case let .createCard(profile, title, definitionID):
-            guard ["Codex", "Claude"].contains(profile) else { throw MobileError.invalidResponse }
+            guard MobileAgentProfile.supports(profile) else { throw MobileError.invalidResponse }
             if let definitionID {
                 guard definitionID > 0, title != nil else { throw MobileError.invalidResponse }
             }
@@ -159,18 +159,18 @@ public struct PendingMobileCommand: Codable, Sendable, Identifiable, Equatable {
             }
         case let .deleteCard(card, confirmBusy):
             try card.validate()
-            guard ["Codex", "Claude"].contains(card.profile), !["preparing", "unknown", "collecting"].contains(card.state),
+            guard MobileAgentProfile.supports(card.profile), !["preparing", "unknown", "collecting"].contains(card.state),
                   !card.isBusy || (confirmBusy && card.runID != nil && card.sessionID != nil && card.turnID != nil) else { throw MobileError.invalidResponse }
         case let .interruptTurn(card):
             try card.validate()
-            guard card.mobileControl, card.canInterrupt != false, ["Codex", "Claude"].contains(card.profile),
+            guard card.mobileControl, card.canInterrupt != false, MobileAgentProfile.supports(card.profile),
                   ["thinking", "running_tool", "waiting_approval"].contains(card.state),
                   let run = card.runID, let session = card.sessionID, let turn = card.turnID,
                   [run, session, turn].allSatisfy(validID) else { throw MobileError.invalidResponse }
         case let .sendMessage(card, text), let .queueMessage(card, text):
             try card.validate()
             if request.command.isQueuedMessage {
-                guard !["unknown", "preparing"].contains(card.state), ["Codex", "Claude"].contains(card.profile),
+                guard !["unknown", "preparing"].contains(card.state), MobileAgentProfile.supports(card.profile),
                       let run = card.runID, let session = card.sessionID, [run, session].allSatisfy(validID) else { throw MobileError.invalidResponse }
             } else {
                 guard ["idle", "ready", "done", "ended", "failed"].contains(card.state) else { throw MobileError.invalidResponse }

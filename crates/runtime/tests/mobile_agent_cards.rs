@@ -71,11 +71,11 @@ fn idle_mobile_cards_survive_restore_without_starting_agents() {
     );
 }
 
-/// 首版手机控制拒绝不支持的 Provider，并保留已有卡片。
+/// 手机控制接受 Cursor，并拒绝尚未接入的 Provider，同时保留已有卡片。
 ///
-/// 数据构造：一个 Claude 手机卡片和一次 Cursor 创建请求；首版只支持两种执行 Provider。
-/// 执行过程：创建 Claude → 尝试创建 Cursor → 检查返回值及文档。
-/// 预期结果：Cursor 被拒绝且没有新增节点；Claude 元数据完整保留。
+/// 数据构造：一个 Claude 手机卡片、一次 Cursor 创建请求和一次 Grok 创建请求。
+/// 执行过程：创建 Claude → 创建 Cursor → 尝试创建 Grok → 检查返回值及文档。
+/// 预期结果：Cursor成功；Grok被拒绝且没有新增节点；已有两张卡元数据完整保留。
 #[test]
 fn unsupported_mobile_provider_does_not_create_a_card() {
     let mut runtime = Runtime::new();
@@ -83,15 +83,22 @@ fn unsupported_mobile_provider_does_not_create_a_card() {
     let claude = runtime
         .create_mobile_agent_card(AgentProfile::Claude, None, None, bounds)
         .expect("Claude 属于首版支持范围");
+    let cursor = runtime
+        .create_mobile_agent_card(AgentProfile::Cursor, None, None, bounds)
+        .expect("Cursor属于移动端支持范围");
+    assert!(
+        runtime.document.node(cursor).is_some(),
+        "Cursor卡片必须真实写入文档"
+    );
     assert!(
         runtime
-            .create_mobile_agent_card(AgentProfile::Cursor, None, None, bounds)
+            .create_mobile_agent_card(AgentProfile::Grok, None, None, bounds)
             .is_err(),
-        "不支持的手机 Provider 不得悄悄退回不受控的终端"
+        "尚未支持的手机Provider不得悄悄退回不受控终端"
     );
     assert_eq!(
         runtime.document.nodes().len(),
-        1,
+        2,
         "失败的创建不得留下额外卡片"
     );
     assert!(

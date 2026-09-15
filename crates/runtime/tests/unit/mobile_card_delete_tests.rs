@@ -4,8 +4,8 @@ use super::*;
 ///
 /// 数据构造：复用零 Provider 的 Claude 卡；80×24 为标准终端尺寸，仅预约启动而不执行。
 /// 执行过程：空卡校验 → 预约启动 → 陈旧快照拒绝 → 模拟 run-a/turn-a → 无确认拒绝 → 确认通过 → 切换 turn-b。
-/// 再将卡片改为原生模式 → 准确确认通过 → 无确认/旧运行拒绝 → 改为未支持的Cursor并拒绝。
-/// 预期结果：受控和原生卡的准确回合均可关闭；旧快照/旧回合/准备态/未支持Provider拒绝，无删除或启动副作用。
+/// 再将卡片改为原生模式 → 准确确认通过 → 无确认/旧运行拒绝 → Cursor通过 → 改为未支持的Grok并拒绝。
+/// 预期结果：受控、原生和Cursor卡的准确回合均可关闭；旧快照/旧回合/准备态/Grok拒绝，无删除或启动副作用。
 #[test]
 fn delete_guard_requires_current_turn_and_explicit_busy_confirmation() {
     let (mut runtime, node) = launch_tests::runtime_with_card();
@@ -85,11 +85,21 @@ fn delete_guard_requires_current_turn_and_explicit_busy_confirmation() {
     {
         spec.profile = AgentProfile::Cursor;
     }
+    let cursor = runtime.mobile_card_snapshots().remove(0);
+    assert_eq!(
+        runtime.validate_mobile_card_deletion(&cursor, true),
+        Ok(()),
+        "iOS支持的Cursor卡必须能走同一确认删除流程"
+    );
+    if let CanvasNodeKind::Agent(spec) = &mut runtime.document.node_mut(node).expect("卡片").kind
+    {
+        spec.profile = AgentProfile::Grok;
+    }
     let unsupported = runtime.mobile_card_snapshots().remove(0);
     assert_eq!(
         runtime.validate_mobile_card_deletion(&unsupported, true),
         Err("unsupported_profile"),
-        "首版仅允许管理Codex与Claude"
+        "尚未接入移动控制的Grok必须继续拒绝"
     );
     drop(launch);
 }

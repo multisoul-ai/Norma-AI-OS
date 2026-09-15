@@ -22,7 +22,7 @@ public struct DeliveryFeedback: Codable, Sendable, Equatable {
 
 extension MobileTurnOutcome.Key {
     func validate() throws {
-        guard nodeID > 0, nodeID <= Int64.max, ["Codex", "Claude"].contains(profile),
+        guard nodeID > 0, nodeID <= Int64.max, MobileAgentProfile.supports(profile),
               [runID, sessionID, turnID].allSatisfy(validID) else { throw MobileError.invalidResponse }
     }
 }

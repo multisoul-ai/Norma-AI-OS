@@ -84,7 +84,7 @@ struct ConversationView: View {
                         try await model.client.chatImage($0, on: machine, workspaceID: workspaceID)
                     })
                 }
-                if card.profile == "Claude", timeline.hasMore {
+                if card.profile != "Codex", timeline.hasMore {
                     WorkspaceLoadingView(message: "正在读取后续消息…", inline: true)
                 }
                 if watchEnabled, active.isBusy, let run = active.runID {

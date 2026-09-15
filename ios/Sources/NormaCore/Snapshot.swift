@@ -1,5 +1,10 @@
 import Foundation
 
+public enum MobileAgentProfile {
+    public static let supported = ["Codex", "Claude", "Cursor"]
+    public static func supports(_ profile: String) -> Bool { supported.contains(profile) }
+}
+
 public struct CardSnapshot: Codable, Sendable, Identifiable, Equatable {
     public let nodeID: UInt64
     public let profile: String
@@ -50,7 +55,7 @@ public struct ProjectAgentDefinition: Decodable, Sendable, Identifiable, Equatab
     public let busy: Bool
     public var id: Int64 { definitionID }
     public var isCreatableOnIOS: Bool {
-        enabled && activeNodeID == nil && ["Codex", "Claude"].contains(profile)
+        enabled && activeNodeID == nil && MobileAgentProfile.supports(profile)
     }
     enum CodingKeys: String, CodingKey {
         case definitionID = "definition_id", name, speechAlias = "speech_alias", profile, enabled

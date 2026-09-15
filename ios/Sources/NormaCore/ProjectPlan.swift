@@ -40,7 +40,7 @@ public struct ProjectPlan: Codable, Sendable, Identifiable, Equatable {
               try JSONEncoder().encode(self).count <= 80 * 1024 else { throw MobileError.invalidResponse }
         for todo in draft.todos {
             try todo.target.validate()
-            guard todo.target.mobileControl, ["Codex", "Claude"].contains(todo.target.profile),
+            guard todo.target.mobileControl, MobileAgentProfile.supports(todo.target.profile),
                   todo.target.sessionID == nil || todo.target.runID != nil,
                   validPlanText(todo.title, maxBytes: 320), validPlanText(todo.instruction, maxBytes: 8 * 1024) else { throw MobileError.invalidResponse }
         }

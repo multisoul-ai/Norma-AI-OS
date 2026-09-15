@@ -38,7 +38,7 @@ extension ProjectPlan.Todo {
 
     func validate(choice: PlanTodoChoice) throws {
         try target.validate()
-        guard target.mobileControl, ["Codex", "Claude"].contains(target.profile),
+        guard target.mobileControl, MobileAgentProfile.supports(target.profile),
               validPlanText(title, maxBytes: 320), validPlanText(instruction, maxBytes: 8 * 1024) else { throw MobileError.invalidResponse }
         if case let .accept(current, queue) = choice {
             try current.validate()

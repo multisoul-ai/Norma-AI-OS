@@ -75,7 +75,7 @@ final class CardCreationFlowTests: XCTestCase {
     /// 创建弹层可随机选择项目 Agent，也保留手动类型和名称；无关未决消息不锁住创建。
     /// 数据构造：隔离只读项目、1个未打开的Codex「界面助手」及1条仅保存在手机的未决消息；空卡投影101/102；第3次服务拒绝。
     ///   8s = 2s订阅心跳 + 6s原生导航余量；最多4次滚动覆盖新增卡片与创建入口。
-    /// 执行过程：只读打开弹层 → 升级 → 随机选择项目Agent创建 → 底部手动Claude创建 → 拒绝 → 查询清理 → 重开。
+    /// 执行过程：只读打开弹层 → 升级 → 随机选择项目Agent创建 → 底部手动Cursor创建 → 拒绝 → 查询清理 → 重开。
     /// 预期结果：未授权不提交，随机选择不提前创建；首卡绑定definition_id=7，手动卡不绑定；未决创建不能重发。
     @MainActor func testCreateCardFormAndUnrelatedPendingMessage() throws {
         let env = ProcessInfo.processInfo.environment
@@ -113,20 +113,23 @@ final class CardCreationFlowTests: XCTestCase {
         let bottom = app.buttons["create-card-entry"]
         for _ in 0..<4 where !bottom.isHittable { app.swipeUp() }
         bottom.tap(); app.buttons["new-card-agent"].tap()
-        app.buttons["create-agent-Claude"].tap()
+        let cursor = app.buttons["create-agent-Cursor"]
+        XCTAssertTrue(cursor.waitForExistence(timeout: 3), "手动类型菜单必须提供Cursor")
+        cursor.tap()
         XCTAssertTrue(submit.exists, "选类型后仍应等待明确创建")
         XCTAssertNotEqual(title.value as? String, "界面助手", "新卡不能沿用上次名称；空字段的占位示例不算已填值")
         submit.tap()
         let second = app.buttons["agent-card-102"]
         XCTAssertTrue(second.waitForExistence(timeout: 8), "底部入口也应创建成功")
-        XCTAssertTrue(second.label.contains("Claude"), "第二张类型准确")
-        XCTAssertTrue(second.label.contains("未安排任务"), "Claude也是空卡")
+        XCTAssertTrue(second.label.contains("Cursor"), "第二张必须保留Cursor类型")
+        XCTAssertTrue(second.label.contains("未安排任务"), "Cursor也是空卡")
         let requests = try JSONSerialization.jsonObject(with: Data(contentsOf: dir.appendingPathComponent("ui-created-cards.json"))) as? [[String: Any]]
         XCTAssertEqual(requests?.count, 2, "每次确认只能创建一张")
         XCTAssertEqual(requests?.first?["title"] as? String, "界面助手", "不能丢失可选名称")
         XCTAssertEqual(requests?.first?["definition_id"] as? Int, 7, "随机选择必须发送稳定项目定义，不得只发送同名标题")
         XCTAssertTrue(requests?.last?["title"] is NSNull, "留空让电脑分配默认名称")
         XCTAssertTrue(requests?.last?["definition_id"] is NSNull, "手动新建必须保留原有的无定义语义")
+        XCTAssertEqual(requests?.last?["profile"] as? String, "Cursor", "创建请求不能把Cursor降级为Codex或Claude")
         try Data().write(to: dir.appendingPathComponent("ui-create-reject"))
         for _ in 0..<4 where !entry.isHittable { app.swipeDown() }
         entry.tap(); submit.tap()

@@ -12,7 +12,7 @@ impl Runtime {
             .into_iter()
             .find(|card| card.node_id == expected.node_id)
             .ok_or("not_found")?;
-        if !matches!(current.profile.as_str(), "Codex" | "Claude") {
+        if !matches!(current.profile.as_str(), "Codex" | "Claude" | "Cursor") {
             return Err("unsupported_profile");
         }
         if &current != expected {

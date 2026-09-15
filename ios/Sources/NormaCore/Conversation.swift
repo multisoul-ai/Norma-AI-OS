@@ -92,7 +92,7 @@ extension MobileClient {
         try await readConversation(machine, request: request, archivedProfile: nil)
     }
     public func archivedConversation(_ machine: PairedMachine, request: ConversationRequest, profile: String) async throws -> ConversationResponse {
-        guard ["Codex", "Claude"].contains(profile), request.nodeID <= Int64.max else { throw MobileError.invalidResponse }
+        guard MobileAgentProfile.supports(profile), request.nodeID <= Int64.max else { throw MobileError.invalidResponse }
         return try await readConversation(machine, request: request, archivedProfile: profile)
     }
     private func readConversation(_ machine: PairedMachine, request: ConversationRequest, archivedProfile: String?) async throws -> ConversationResponse {

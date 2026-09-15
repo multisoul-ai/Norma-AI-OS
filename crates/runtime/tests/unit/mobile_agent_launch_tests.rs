@@ -21,6 +21,74 @@ pub(super) fn runtime_with_card() -> (Runtime, NodeId) {
     (runtime, id)
 }
 
+/// iOS 创建 Cursor 卡片时应启动现有 cursor-agent PTY，并注入同一卡片的 Hook 身份。
+///
+/// 数据构造：Cursor definition_id=10、名称 Chloe、640×400 卡片、80×24 终端；PTY factory 只记录命令不启动真实 Provider。
+/// 执行过程：配置 Hook ingress → 创建并启动 Cursor 卡片 → 读取卡片快照与捕获命令。
+/// 预期结果：卡片为可控 Cursor 且保留定义；命令使用 cursor-agent 并注入 node/profile；不得误启动 Codex。
+#[test]
+fn mobile_cursor_card_launches_existing_cli_with_bound_hook_identity() {
+    let mut runtime = Runtime::new_for_workspace("/tmp");
+    runtime.set_agent_hook_config(Some(crate::AgentHookRuntimeConfig {
+        endpoint: "http://127.0.0.1:12345/agent-hooks".into(),
+        token: "cursor-token".into(),
+        workspace_id: "workspace-cursor".into(),
+        workspace_route_id: "route-cursor".into(),
+        norma_socket: "/tmp/norma-cursor.sock".into(),
+    }));
+    let commands = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let captured = commands.clone();
+    runtime.set_pty_factory(Box::new(move |command, _, _, tx| {
+        captured.lock().expect("Cursor 命令记录锁").push(command);
+        Ok(Box::new(terminal::TestPtyBackend::echo(tx)))
+    }));
+
+    let node = runtime
+        .spawn_mobile_agent_card_for_definition(
+            AgentProfile::Cursor,
+            10,
+            "Chloe".into(),
+            CanvasRect::new(0., 0., 640., 400.),
+            80,
+            24,
+        )
+        .expect("iOS 应能创建 Cursor 卡片");
+    let card = runtime
+        .mobile_card_snapshots()
+        .into_iter()
+        .find(|card| card.node_id == node)
+        .expect("创建后应有 Cursor 快照");
+    let commands = commands.lock().expect("读取 Cursor 启动命令");
+
+    assert_eq!(card.profile, "Cursor", "快照必须保留 Cursor Provider");
+    assert!(
+        card.mobile_control,
+        "iOS 创建的 Cursor 卡片必须可由手机继续控制"
+    );
+    assert!(
+        runtime.live.contains_key(&node),
+        "Cursor 必须复用真实卡片 PTY"
+    );
+    assert_eq!(commands.len(), 1, "创建一张 Cursor 卡只能启动一个 PTY");
+    assert!(
+        commands[0].args[1].contains("exec cursor-agent"),
+        "Cursor 卡片必须启动 cursor-agent，实际命令：{:?}",
+        commands[0].args
+    );
+    assert!(
+        commands[0]
+            .env
+            .iter()
+            .any(|(key, value)| key == "MULTISOUL_AGENT_PROFILE" && value == "cursor"),
+        "Cursor PTY 必须注入准确 Hook Provider，实际环境：{:?}",
+        commands[0].env
+    );
+    assert!(
+        !commands[0].args[1].contains("codex"),
+        "Cursor 卡片不得误启动 Codex"
+    );
+}
+
 /// 所属进程在 kill_all 后立即退出，受控 host 仍必须被回收，不能依赖后台线程来得及调度。
 ///
 /// 数据构造：子测试进程持有一个真实 PTY sleep(60s)，60s 保证观察期内不会自行退出；父进程以 2s 检查回收。

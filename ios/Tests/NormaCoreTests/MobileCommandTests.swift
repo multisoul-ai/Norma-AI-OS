@@ -49,8 +49,8 @@ final class MobileCommandTests: XCTestCase {
     /// 原生卡片可构造删除请求，但未知状态、缺少运行确认和未支持Provider不能通过。
     ///
     /// 数据构造：node=7的原生Claude空卡，mobile_control=false；32字节哈希编码为64字符机器身份。
-    /// 执行过程：原生空卡构造并往返 → 改为unknown → 改为无回合thinking → 改为Cursor。
-    /// 预期结果：原模式保持false且删除可保存；不就绪或超出首版范围的目标被拒绝。
+    /// 执行过程：原生空卡构造并往返 → 改为unknown → 改为无回合thinking → 改为Cursor与Grok。
+    /// 预期结果：原模式保持false且Claude/Cursor删除可保存；不就绪或未支持Grok目标被拒绝。
     func testNativeCardDeletionDoesNotRequireControlledMode() throws {
         let raw = #"{"node_id":7,"profile":"Claude","title":"旧卡","mobile_control":false,"state":"idle"}"#
         func command(_ json: String) throws -> PendingMobileCommand {
@@ -63,7 +63,60 @@ final class MobileCommandTests: XCTestCase {
         else { XCTFail("必须是删除卡片命令") }
         XCTAssertThrowsError(try command(raw.replacingOccurrences(of: "idle", with: "unknown")), "未知状态不可删除")
         XCTAssertThrowsError(try command(raw.replacingOccurrences(of: "idle", with: "thinking")), "忙碌卡不能绕过运行确认")
-        XCTAssertThrowsError(try command(raw.replacingOccurrences(of: "Claude", with: "Cursor")), "未支持Provider不可操作")
+        XCTAssertNoThrow(try command(raw.replacingOccurrences(of: "Claude", with: "Cursor")), "Cursor 原生卡应能使用同一删除契约")
+        XCTAssertThrowsError(try command(raw.replacingOccurrences(of: "Claude", with: "Grok")), "未支持Provider不可操作")
+    }
+
+    /// Cursor 卡片应复用既有创建与消息队列协议，不能在本机持久化时退化成未知 Provider。
+    ///
+    /// 数据构造：definition_id=10 的 Cursor「Chloe」，以及 node=12/run/session 的就绪 Cursor 卡片。
+    /// 执行过程：构造并往返创建命令 → 为同一卡片构造排队消息 → 检查 JSON 中的 Provider 与稳定身份。
+    /// 预期结果：两类命令均可保存；创建保留 definition_id，排队目标仍是 Cursor；不得改写成 Codex。
+    func testCursorCardCreationAndQueuedMessagePreserveProviderIdentity() throws {
+        let machine = "mac-" + String(repeating: "c", count: 64)
+        let creation = try PendingMobileCommand(
+            machineID: machine,
+            deviceID: "phone-cursor",
+            workspaceID: "project-a",
+            routeID: "route-a",
+            revision: 3,
+            profile: "Cursor",
+            title: "Chloe",
+            definitionID: 10,
+            operationID: "create-cursor"
+        )
+        let creationData = try JSONEncoder().encode(creation)
+        let reopened = try JSONDecoder().decode(PendingMobileCommand.self, from: creationData)
+        let card = try JSONDecoder().decode(
+            CardSnapshot.self,
+            from: Data(#"{"node_id":12,"profile":"Cursor","title":"Chloe","mobile_control":true,"state":"ready","run_id":"run-cursor","session_id":"session-cursor","turn_id":null}"#.utf8)
+        )
+        let queued = try PendingMobileCommand(
+            machineID: machine,
+            deviceID: "phone-cursor",
+            workspaceID: "project-a",
+            routeID: "route-a",
+            revision: 3,
+            queuing: card,
+            text: "继续检查测试",
+            operationID: "queue-cursor"
+        )
+
+        XCTAssertEqual(reopened, creation, "Cursor 创建命令必须可跨重启精确恢复")
+        if case let .createCard(profile, title, definitionID) = reopened.request.command {
+            XCTAssertEqual(profile, "Cursor", "创建请求不能把 Cursor 改写成其他 Provider")
+            XCTAssertEqual(title, "Chloe", "创建请求必须保留项目 Agent 名称")
+            XCTAssertEqual(definitionID, 10, "创建请求必须保留 Cursor 定义身份")
+        } else {
+            XCTFail("Cursor 创建必须编码为 create_card")
+        }
+        if case let .queueMessage(target, text) = queued.request.command {
+            XCTAssertEqual(target.profile, "Cursor", "排队消息必须指向原 Cursor 卡片")
+            XCTAssertEqual(text, "继续检查测试", "排队消息不得改写正文")
+            XCTAssertNotEqual(target.profile, "Codex", "Cursor 目标不得退化为 Codex")
+        } else {
+            XCTFail("Cursor 忙碌消息必须编码为 queue_message")
+        }
     }
     /// 删除记录绑定卡片快照和确认选项；回执不能把另一张卡的删除显示为成功。
     ///

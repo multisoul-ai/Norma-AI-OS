@@ -19,7 +19,7 @@ impl MobileSessionKey {
     pub fn validate(&self) -> StorageResult<()> {
         if self.node_id == 0
             || self.node_id > i64::MAX as u64
-            || !matches!(self.profile.as_str(), "Codex" | "Claude")
+            || !crate::is_mobile_agent_profile(&self.profile)
             || [&self.run_id, &self.session_id].into_iter().any(|s| {
                 s.is_empty()
                     || s.len() > 128
@@ -154,10 +154,10 @@ fn read(
 pub(crate) fn validate_transcript(key: &MobileSessionKey, path: &Path) -> StorageResult<()> {
     key.validate()?;
     valid_path(path)?;
-    if key.profile != "Claude"
+    if !matches!(key.profile.as_str(), "Claude" | "Cursor")
         || path.file_name().and_then(|s| s.to_str()) != Some(&format!("{}.jsonl", key.session_id))
     {
-        return Err(invalid("transcript does not match Claude session"));
+        return Err(invalid("transcript does not match native session"));
     }
     Ok(())
 }

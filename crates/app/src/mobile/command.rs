@@ -117,6 +117,7 @@ impl MobileCommand {
 pub enum MobileProvider {
     Codex,
     Claude,
+    Cursor,
 }
 
 /// A single dispatch claim; revoke/shutdown competes with begin without locking GPUI.

@@ -156,7 +156,10 @@ impl Runtime {
         else {
             return Err(control_error("agent missing"));
         };
-        if !matches!(spec.profile, AgentProfile::Codex | AgentProfile::Claude) {
+        if !matches!(
+            spec.profile,
+            AgentProfile::Codex | AgentProfile::Claude | AgentProfile::Cursor
+        ) {
             return Err(control_error("mobile Provider unavailable"));
         }
         let profile = spec.profile;

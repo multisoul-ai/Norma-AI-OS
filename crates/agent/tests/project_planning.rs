@@ -305,9 +305,9 @@ async fn check_planning_transport(native: bool, prioritized: bool) {
 
 /// Norma的计划只建议已提供的受控卡片，不能伪造执行者或执行结果。
 ///
-/// 数据构造：卡片7为Codex/run-a，卡片8为未受控Claude；回复只含一条建议，不含执行状态。
-/// 执行过程：解析合法JSON → 绑定卡片7 → 验证原生CLI首次输入前无session → 尝试错身份/卡片8/9/完成字段。
-/// 预期结果：合法建议及原生待输入卡保留准确运行；孤立session、无授权目标、额外状态均拒绝。
+/// 数据构造：卡片7为Codex/run-a，卡片8为未受控Claude，卡片9为受控Cursor；回复只含一条建议，不含执行状态。
+/// 执行过程：解析合法JSON → 分别绑定Codex/Cursor → 验证原生CLI首次输入前无session → 尝试错身份/卡片8/10/完成字段。
+/// 预期结果：Codex与Cursor建议及原生待输入卡保留准确运行；孤立session、无授权目标、额外状态均拒绝。
 #[test]
 fn plans_bind_only_supplied_controlled_cards_without_claiming_execution() {
     let codex = CardSnapshot {
@@ -342,6 +342,18 @@ fn plans_bind_only_supplied_controlled_cards_without_claiming_execution() {
         draft.todos[0].instruction, "为登录流程补充测试。",
         "指令不能被摘要替代"
     );
+    let mut cursor = codex.clone();
+    cursor.node_id = 9;
+    cursor.profile = "Cursor".into();
+    cursor.run_id = Some("cursor-run".into());
+    cursor.session_id = Some("cursor-session".into());
+    let cursor_json = r#"{"summary":"继续实现","todos":[{"node_id":9,"title":"补齐移动端","instruction":"验证Cursor卡片。"}]}"#;
+    let cursor_draft = ProjectPlanDraft::from_response(cursor_json, std::slice::from_ref(&cursor))
+        .expect("受控Cursor卡应能成为计划目标");
+    assert_eq!(
+        cursor_draft.todos[0].target, cursor,
+        "计划必须保留Cursor的准确运行与会话身份"
+    );
     let mut native = codex.clone();
     native.session_id = None;
     let first = ProjectPlanDraft::from_response(json, &[native]).expect("原生待输入卡应能接收计划");
@@ -365,7 +377,7 @@ fn plans_bind_only_supplied_controlled_cards_without_claiming_execution() {
         "未受控Claude不能成为建议执行者"
     );
     assert!(
-        ProjectPlanDraft::from_response(&json.replace(":7,", ":9,"), &cards).is_err(),
+        ProjectPlanDraft::from_response(&json.replace(":7,", ":10,"), &cards).is_err(),
         "不存在的卡片不能由模型创建"
     );
     assert!(

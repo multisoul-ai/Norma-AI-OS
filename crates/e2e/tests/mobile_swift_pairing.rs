@@ -76,6 +76,7 @@ fn swift_native_client_pairs_authenticates_and_rejects_wrong_pin() {
                         let profile = match profile {
                             app::MobileProvider::Codex => canvas::AgentProfile::Codex,
                             app::MobileProvider::Claude => canvas::AgentProfile::Claude,
+                            app::MobileProvider::Cursor => canvas::AgentProfile::Cursor,
                         };
                         runtime
                             .create_mobile_agent_card(profile, None, title.clone(), rect)

@@ -127,6 +127,7 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
                             match profile {
                                 MobileProvider::Codex => canvas::AgentProfile::Codex,
                                 MobileProvider::Claude => canvas::AgentProfile::Claude,
+                                MobileProvider::Cursor => canvas::AgentProfile::Cursor,
                             },
                             title.clone(),
                             *definition_id,

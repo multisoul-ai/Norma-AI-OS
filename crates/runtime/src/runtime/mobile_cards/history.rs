@@ -193,3 +193,11 @@ pub(super) fn claude_projects_root() -> Result<PathBuf, String> {
         .ok_or("Claude config root unavailable")?;
     Ok(config.join("projects"))
 }
+
+pub(super) fn cursor_projects_root() -> Result<PathBuf, String> {
+    let home = std::env::var_os("HOME")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .ok_or("Cursor projects root unavailable")?;
+    Ok(home.join(".cursor/projects"))
+}

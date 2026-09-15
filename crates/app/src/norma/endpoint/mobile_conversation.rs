@@ -114,6 +114,20 @@ pub(crate) fn read(database: PathBuf, call: LiveConversationRequest, cx: &mut Ap
                         ConversationPage::from_claude(raw).map_err(|_| "invalid_history")
                     }))
                 }
+                "Cursor" => {
+                    let (reader, saved) = app
+                        .runtime
+                        .mobile_native_history(card.node_id)
+                        .map_err(|_| "history_unavailable")?
+                        .ok_or("history_unavailable")?;
+                    let cursor = call.request.cursor.clone();
+                    let deadline = call.deadline;
+                    Ok(cx.background_executor().spawn(async move {
+                        reader
+                            .read(saved, cursor, deadline)
+                            .map_err(|_| "history_unavailable")
+                    }))
+                }
                 _ => Err("history_unavailable"),
             }
         })

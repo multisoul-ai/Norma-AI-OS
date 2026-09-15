@@ -72,6 +72,9 @@ mod native_card_tests;
 #[path = "../../tests/unit/mobile_native_codex_approval_tests.rs"]
 mod native_codex_approval_tests;
 #[cfg(test)]
+#[path = "../../tests/unit/mobile_cursor_card_tests.rs"]
+mod native_cursor_card_tests;
+#[cfg(test)]
 #[path = "../../tests/unit/mobile_native_interrupt_tests.rs"]
 mod native_interrupt_tests;
 mod reopen;
@@ -200,7 +203,7 @@ impl Runtime {
                     title: node.kind.display_title().chars().take(256).collect(),
                     mobile_control: matches!(
                         spec.profile,
-                        AgentProfile::Claude | AgentProfile::Codex
+                        AgentProfile::Claude | AgentProfile::Codex | AgentProfile::Cursor
                     ) || self
                         .mobile_runs
                         .get(&node.id)
@@ -469,9 +472,12 @@ impl Runtime {
         alias: Option<String>,
         bounds: CanvasRect,
     ) -> Result<NodeId, PtyError> {
-        if !matches!(profile, AgentProfile::Codex | AgentProfile::Claude) {
+        if !matches!(
+            profile,
+            AgentProfile::Codex | AgentProfile::Claude | AgentProfile::Cursor
+        ) {
             return Err(PtyError::Spawn(
-                "mobile control currently supports Codex and Claude only".into(),
+                "mobile control currently supports Codex, Claude and Cursor only".into(),
             ));
         }
         Ok(self.document.add_node(

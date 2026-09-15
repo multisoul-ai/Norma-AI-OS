@@ -72,6 +72,7 @@ impl Fixture {
             let agent = match profile {
                 MobileProvider::Codex => canvas::AgentProfile::Codex,
                 MobileProvider::Claude => canvas::AgentProfile::Claude,
+                MobileProvider::Cursor => canvas::AgentProfile::Cursor,
             };
             // 640×400为现有空卡默认画布占位，UI选择不会初始化Provider或发送目标。
             let node = self

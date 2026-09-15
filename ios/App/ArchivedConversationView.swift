@@ -37,7 +37,7 @@ struct ArchivedConversationView: View {
                         try await model.client.chatImage($0, on: machine, workspaceID: scope.workspaceID)
                     })
                 }
-                if session.key.profile == "Claude", timeline.hasMore { more }
+                if session.key.profile != "Codex", timeline.hasMore { more }
                 if loading && !timeline.items.isEmpty { WorkspaceLoadingView(message: "正在读取原始对话…", inline: true) }
                 if !loading && timeline.items.isEmpty && error == nil {
                     ContentUnavailableView("暂时没有消息", systemImage: "bubble.left", description: Text("会话已登记，Agent 尚未写入可读消息。"))

@@ -27,6 +27,11 @@ pub fn parse_hook_event(
         turn_id: string_field(&raw_json, "turn_id")
             .or_else(|| string_field(&raw_json, "turnId"))
             .or_else(|| {
+                (source == HookSource::Cursor)
+                    .then(|| string_field(&raw_json, "generation_id"))
+                    .flatten()
+            })
+            .or_else(|| {
                 (source == HookSource::Claude)
                     .then(|| string_field(&raw_json, "prompt_id"))
                     .flatten()

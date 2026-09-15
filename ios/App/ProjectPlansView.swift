@@ -36,7 +36,7 @@ struct ProjectPlansView: View {
     private var unavailable: String? {
         if let message = connectionError ?? planError { return message }
         if !loadedPlan || project == nil { return "正在核对电脑上的项目…" }
-        if !canGenerate { return "需要项目控制权限、可用的电脑连接，以及 Codex 或 Claude 卡片。" }
+        if !canGenerate { return "需要项目控制权限、可用的电脑连接，以及 Codex、Claude 或 Cursor 卡片。" }
         if source?.id != latest?.id { return "另一端已更新方向。请载入最新优先事项，再确认你的目标。" }
         if project?.routeID != (source?.routeID ?? originalRoute) { return "项目运行实例已变化，请重新打开调整方向。" }
         if let source, source.draft.todos.indices.contains(priorityIndex) {
@@ -183,7 +183,7 @@ struct ProjectPlansView: View {
                     project = fresh.projects.first; revision = fresh.grant.revision; connectionError = nil
                     if originalRoute == nil { originalRoute = project?.routeID }
                     canGenerate = project?.state == "open" && fresh.grant.projects.contains { $0.id == workspaceID && $0.access == "control" }
-                        && project?.cards?.contains { $0.mobileControl && ["Codex", "Claude"].contains($0.profile) } == true
+                        && project?.cards?.contains { $0.mobileControl && MobileAgentProfile.supports($0.profile) } == true
                 case .recovering: project = nil; canGenerate = false; connectionError = "正在重新连接电脑…"
                 }
             }
@@ -219,7 +219,7 @@ struct ProjectPlansView: View {
         case "rejected":
             switch receipt?.error {
             case "provider_unconfigured": "请先在电脑上配置 Norma 使用的模型"
-            case "no_plan_agents": "项目中需要可用的 Codex 或 Claude 卡片"
+            case "no_plan_agents": "项目中需要可用的 Codex、Claude 或 Cursor 卡片"
             case "plan_timeout", "plan_provider_failed": "模型暂未生成建议，可以调整方向后再试"
             case "route_expired", "session_changed": "项目窗口或 Agent 已变化，这次建议未保存"
             case "plan_changed": "另一端已更新方向，这次建议未保存。你的输入仍保留，请核对最新优先事项。"

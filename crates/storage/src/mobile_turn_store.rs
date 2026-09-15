@@ -17,7 +17,7 @@ impl MobileTurnKey {
     pub fn validate(&self) -> StorageResult<()> {
         if self.node_id == 0
             || self.node_id > i64::MAX as u64
-            || !matches!(self.profile.as_str(), "Codex" | "Claude")
+            || !crate::is_mobile_agent_profile(&self.profile)
             || [&self.run_id, &self.session_id, &self.turn_id]
                 .iter()
                 .any(|s| {

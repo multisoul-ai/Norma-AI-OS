@@ -21,6 +21,7 @@ fn message(text: &str) -> NewQueuedMessage {
         text: text.into(),
     }
 }
+
 fn receipt(turn: &str) -> serde_json::Value {
     json!({"node_id":7,"run_id":"run-a","session_id":"session-a","turn_id":turn})
 }

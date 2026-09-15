@@ -31,7 +31,7 @@ public struct SessionArchivePage: Decodable, Sendable {
         var previous = before ?? UInt64.max
         for item in items {
             try item.conversationRequest(scope: scope, cursor: nil).validate()
-            guard item.key.nodeID <= Int64.max, ["Codex", "Claude"].contains(item.key.profile),
+            guard item.key.nodeID <= Int64.max, MobileAgentProfile.supports(item.key.profile),
                   item.sequence > 0, item.sequence <= Int64.max, item.sequence < previous,
                   item.recordedAtUnix > 0, item.recordedAtUnix <= Int64.max,
                   !item.title.isEmpty, item.title.utf8.count <= 4096 else { throw MobileError.invalidResponse }

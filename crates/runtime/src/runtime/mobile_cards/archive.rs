@@ -118,6 +118,25 @@ impl MobileArchiveRead {
                 )?;
                 ConversationPage::from_claude(raw)?
             }
+            "Cursor" => {
+                let cursor = cursor
+                    .as_deref()
+                    .map(serde_json::from_str::<norma::cursor::TranscriptCursor>)
+                    .transpose()
+                    .map_err(|error| error.to_string())?;
+                let raw = norma::cursor::read_transcript(
+                    saved
+                        .transcript_path
+                        .as_deref()
+                        .ok_or("Cursor has no saved transcript")?,
+                    &history::cursor_projects_root()?,
+                    &saved.session.key.session_id,
+                    &self.workspace,
+                    cursor,
+                    20,
+                )?;
+                ConversationPage::from_cursor(raw)?
+            }
             "Codex" => self.codex(&saved.session.key.session_id, cursor, deadline)?,
             _ => return Err("archive provider unavailable".into()),
         };

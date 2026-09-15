@@ -139,6 +139,35 @@ impl ConversationPage {
         Ok(page)
     }
 
+    pub fn from_cursor(raw: crate::cursor::TranscriptPage) -> Result<Self, String> {
+        let mut items = Vec::new();
+        for message in raw.messages {
+            if !matches!(message.role.as_str(), "user" | "assistant") {
+                return Err("Cursor history contains an unknown message role".into());
+            }
+            let (text, details) = content(&message.content)?;
+            items.push(ConversationItem {
+                id: message.id,
+                role: if text.is_empty() && details.is_some() {
+                    "tool".into()
+                } else {
+                    message.role
+                },
+                text,
+                details,
+            });
+        }
+        let page = Self {
+            items,
+            cursor: Some(serde_json::to_string(&raw.cursor).map_err(|error| error.to_string())?),
+            has_more: raw.has_more,
+            pending_tail: raw.pending_tail,
+            direction: "newer".into(),
+        };
+        page.validate()?;
+        Ok(page)
+    }
+
     fn validate(&self) -> Result<(), String> {
         let mut ids = HashSet::new();
         if self

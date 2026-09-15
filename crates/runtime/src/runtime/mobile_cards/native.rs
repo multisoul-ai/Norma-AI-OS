@@ -96,7 +96,7 @@ impl Runtime {
     pub(crate) fn track_native_agent(&mut self, node: NodeId) {
         if self.mobile_runs.contains_key(&node)
             || !self.live.contains_key(&node)
-            || !matches!(self.document.node(node).map(|node| &node.kind), Some(CanvasNodeKind::Agent(spec)) if matches!(spec.profile, AgentProfile::Claude | AgentProfile::Codex))
+            || !matches!(self.document.node(node).map(|node| &node.kind), Some(CanvasNodeKind::Agent(spec)) if matches!(spec.profile, AgentProfile::Claude | AgentProfile::Codex | AgentProfile::Cursor))
         {
             return;
         }
@@ -187,7 +187,10 @@ impl Runtime {
             return false;
         }
         run.session_id = Some(session.clone());
-        if event.profile == norma::protocol::AgentProfile::Claude {
+        if matches!(
+            event.profile,
+            norma::protocol::AgentProfile::Claude | norma::protocol::AgentProfile::Cursor
+        ) {
             let Ok(path) = history::hook_path(run, event) else {
                 return false;
             };

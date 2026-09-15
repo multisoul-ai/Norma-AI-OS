@@ -63,6 +63,44 @@ fn test_cursor_before_submit_prompt_maps_to_thinking_and_caches_conversation() {
     );
 }
 
+/// Cursor Hook 的 generation_id 是单轮稳定身份，必须与跨多轮稳定的 conversation_id 分开保存。
+///
+/// 数据构造：同一 conversation_id="cursor-session-12"，当前 generation_id="cursor-turn-3"，并携带官方 transcript_path。
+/// 执行过程：解析 beforeSubmitPrompt → 读取 session_id、turn_id 与原始 transcript_path。
+/// 预期结果：session 使用 conversation_id，turn 使用 generation_id；二者不得相等，原路径不得丢失或被客户端字段替换。
+#[test]
+fn cursor_generation_and_transcript_fields_preserve_exact_mobile_identity() {
+    let raw = json!({
+        "hook_event_name": "beforeSubmitPrompt",
+        "conversation_id": "cursor-session-12",
+        "generation_id": "cursor-turn-3",
+        "transcript_path": "/tmp/cursor-session-12.jsonl",
+        "prompt": "检查 Cursor 卡片"
+    });
+
+    let event =
+        parse_hook_event(HookSource::Cursor, 12, raw).expect("Cursor 官方 Hook 字段应可解析");
+
+    assert_eq!(
+        event.session_id.as_deref(),
+        Some("cursor-session-12"),
+        "conversation_id 必须作为跨轮会话身份"
+    );
+    assert_eq!(
+        event.turn_id.as_deref(),
+        Some("cursor-turn-3"),
+        "generation_id 必须作为本轮回执身份"
+    );
+    assert_ne!(
+        event.session_id, event.turn_id,
+        "会话身份不能被错误复用为每轮身份"
+    );
+    assert_eq!(
+        event.raw_json["transcript_path"], "/tmp/cursor-session-12.jsonl",
+        "Cursor 提供的本地 transcript_path 必须保留给受控后台读取"
+    );
+}
+
 /// Cursor Hook 安装与清理应只修改 `~/.cursor/hooks.json` 的 Norma 命令。
 ///
 /// 数据构造（含关键数值的推导过程）：

@@ -91,3 +91,7 @@ pub(crate) fn current_unix_timestamp() -> StorageResult<u64> {
         .duration_since(std::time::UNIX_EPOCH)?
         .as_secs())
 }
+
+pub(crate) fn is_mobile_agent_profile(profile: &str) -> bool {
+    matches!(profile, "Codex" | "Claude" | "Cursor")
+}

@@ -194,7 +194,7 @@ impl ProjectPlanDraft {
 fn controlled(card: &CardSnapshot) -> bool {
     card.node_id > 0
         && card.mobile_control
-        && matches!(card.profile.as_str(), "Codex" | "Claude")
+        && matches!(card.profile.as_str(), "Codex" | "Claude" | "Cursor")
         && (card.session_id.is_none() || card.run_id.is_some())
 }
 

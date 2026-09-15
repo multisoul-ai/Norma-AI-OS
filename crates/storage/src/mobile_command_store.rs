@@ -239,7 +239,7 @@ pub(crate) fn migrate(connection: &Connection) -> StorageResult<()> {
             device_id TEXT NOT NULL,
             operation_id TEXT NOT NULL,
             node_id INTEGER NOT NULL CHECK(node_id > 0),
-            profile TEXT NOT NULL CHECK(profile IN ('Codex','Claude')),
+            profile TEXT NOT NULL CHECK(profile IN ('Codex','Claude','Cursor')),
             run_id TEXT NOT NULL,
             session_id TEXT NOT NULL,
             grant_revision INTEGER NOT NULL CHECK(grant_revision > 0),
@@ -253,5 +253,51 @@ pub(crate) fn migrate(connection: &Connection) -> StorageResult<()> {
         CREATE INDEX IF NOT EXISTS idx_mobile_queue_state_sequence ON mobile_message_queue(state,sequence);
 
     "#)?;
+    migrate_mobile_message_queue_profiles(connection)?;
+    Ok(())
+}
+
+/// SQLite cannot widen a CHECK constraint in place. Preserve every row and AUTOINCREMENT value
+/// while upgrading databases created before Cursor became a mobile-controlled provider.
+fn migrate_mobile_message_queue_profiles(connection: &Connection) -> StorageResult<()> {
+    let schema: Option<String> = connection
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='mobile_message_queue'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if schema.as_ref().is_none_or(|sql| sql.contains("'Cursor'")) {
+        return Ok(());
+    }
+    let transaction = connection.unchecked_transaction()?;
+    transaction.execute_batch(
+        r#"
+        CREATE TABLE mobile_message_queue_next (
+            sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL,
+            operation_id TEXT NOT NULL,
+            node_id INTEGER NOT NULL CHECK(node_id > 0),
+            profile TEXT NOT NULL CHECK(profile IN ('Codex','Claude','Cursor')),
+            run_id TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            grant_revision INTEGER NOT NULL CHECK(grant_revision > 0),
+            message TEXT NOT NULL,
+            state TEXT NOT NULL CHECK(state IN ('queued','dispatching','sent','cancelled','outcome_unknown')),
+            result_json TEXT,
+            error TEXT,
+            UNIQUE(device_id,operation_id),
+            FOREIGN KEY(device_id,operation_id) REFERENCES mobile_commands(device_id,operation_id)
+        );
+        INSERT INTO mobile_message_queue_next
+            (sequence,device_id,operation_id,node_id,profile,run_id,session_id,grant_revision,message,state,result_json,error)
+        SELECT sequence,device_id,operation_id,node_id,profile,run_id,session_id,grant_revision,message,state,result_json,error
+        FROM mobile_message_queue;
+        DROP TABLE mobile_message_queue;
+        ALTER TABLE mobile_message_queue_next RENAME TO mobile_message_queue;
+        CREATE INDEX idx_mobile_queue_state_sequence ON mobile_message_queue(state,sequence);
+        "#,
+    )?;
+    transaction.commit()?;
     Ok(())
 }
