@@ -11,6 +11,8 @@ mod realtime_targets;
 /// 预期结果：原生断言通过、有效 PCM 上行、两次接通均关闭，没有静默丢帧或重叠会话。
 /// NORMA_DOUBAO_BACKGROUND_L3=1改为正式UI主动接通→系统Home后台5s→返回→挂断，
 ///   只建立1个会话并检查后台帧数增加，不能用setForeground调用替代系统生命周期。
+/// NORMA_DOUBAO_RECOVERY_L3=1在首个20ms麦克风帧后反复断流：首次+3次重试=最多4个会话，
+///   30s原生截止内必须停止恢复；稳定30s（2×15s就绪预算）之后的新断流才获得新预算。
 #[test]
 #[ignore = "requires explicit iOS simulator; runs real microphone and PCM playback against loopback"]
 fn native_doubao_realtime_audio_and_reconnect() {
@@ -22,6 +24,10 @@ fn native_doubao_realtime_audio_and_reconnect() {
         .expect("workspace");
     let derived = std::env::var("NORMA_IOS_DERIVED_DATA").expect("显式指定独立构建目录");
     let fixture = doubao_voice::Fixture::new();
+    let recovery = std::env::var("NORMA_DOUBAO_RECOVERY_L3").as_deref() == Ok("1");
+    if recovery {
+        fixture.stats.lock().expect("recovery fixture")["disconnect_on_audio"] = true.into();
+    }
     let targets = realtime_targets::Targets::new();
     let directory = tempfile::tempdir().expect("voice fixture directory");
     let config = directory.path().join("voice-origin.txt");
@@ -100,6 +106,22 @@ fn native_doubao_realtime_audio_and_reconnect() {
         }
         return;
     }
+    let selectors = if recovery {
+        vec![
+            "-only-testing:NormaDeviceTests/DoubaoCallTests/testRepeatedShortConnectionsStopRecovering",
+            "-only-testing:NormaDeviceTests/DoubaoCallTests/testStableReadinessResetsRetryBudget",
+        ]
+    } else {
+        vec![
+            "-only-testing:NormaDeviceTests/DoubaoCallTests",
+            "-only-testing:NormaDeviceTests/DoubaoAudioTests",
+            "-only-testing:NormaDeviceTests/RealtimeDiscussionCallTests",
+            "-only-testing:NormaDeviceTests/RealtimeReportCallTests",
+            "-only-testing:NormaDeviceTests/RealtimeOperationTests",
+            "-only-testing:NormaDeviceTests/RealtimeReportTests",
+            "-only-testing:NormaDeviceTests/VoiceSessionTicketTests",
+        ]
+    };
     let output = Command::new("xcodebuild")
         .current_dir(root)
         .args([
@@ -112,16 +134,14 @@ fn native_doubao_realtime_audio_and_reconnect() {
             "-derivedDataPath",
             &derived,
             &format!("NORMA_TEST_QR={}", config.display()),
-            "NORMA_TEST_MODE=doubao-loopback",
-            "-only-testing:NormaDeviceTests/DoubaoCallTests",
-            "-only-testing:NormaDeviceTests/DoubaoAudioTests",
-            "-only-testing:NormaDeviceTests/RealtimeDiscussionCallTests",
-            "-only-testing:NormaDeviceTests/RealtimeReportCallTests",
-            "-only-testing:NormaDeviceTests/RealtimeOperationTests",
-            "-only-testing:NormaDeviceTests/RealtimeReportTests",
-            "-only-testing:NormaDeviceTests/VoiceSessionTicketTests",
-            "test",
+            if recovery {
+                "NORMA_TEST_MODE=doubao-recovery"
+            } else {
+                "NORMA_TEST_MODE=doubao-loopback"
+            },
         ])
+        .args(selectors)
+        .arg("test")
         .output()
         .expect("native doubao runner");
     let stats = fixture.stats.lock().expect("voice stats").clone();
@@ -136,12 +156,25 @@ fn native_doubao_realtime_audio_and_reconnect() {
         "测试必须经过真实麦克风上行"
     );
     assert_eq!(stats["invalid_frames"], 0, "上行格式不能错位");
-    // Two explicit connects + one muted network recovery = three independently closed sessions.
-    assert_eq!(
-        stats["sessions"], 3,
-        "两次手动接通与一次静音重连应建立三个会话"
-    );
-    assert_eq!(stats["closed"], 3, "所有通话都必须关闭");
+    if recovery {
+        // Initial + three retries = at most four media sessions. A failed HTTP/WS handshake
+        // also consumes a retry, so the native test checks exactly four attempts separately.
+        let sessions = stats["sessions"].as_u64().expect("真实会话计数");
+        assert!(sessions > 0, "必须真实接通过并由首个麦克风帧触发断流");
+        assert!(sessions <= 4, "连续短暂断流最多四次连接，不能无限创建会话");
+        assert_eq!(
+            stats["closed"], stats["sessions"],
+            "每个已建立的媒体会话都必须关闭"
+        );
+    } else {
+        // Two explicit connects + one muted network recovery = three closed sessions.
+        assert_eq!(
+            stats["sessions"], 3,
+            "两次手动接通与一次静音重连应建立三个会话"
+        );
+        assert_eq!(stats["closed"], 3, "三个媒体会话都必须关闭");
+    }
+    assert_eq!(stats["active"], 0, "验收结束不能留下活动媒体连接");
     assert_eq!(stats["overlap"], 0, "重拨不能与旧付费连接重叠");
 }
 
@@ -180,8 +213,9 @@ fn realtime_adapter_command_cannot_be_injected_by_a_phone() {
 /// 原生陪伴指挥台使用正式 bundle，入口与共享导航可用，未接通不能伪造媒体状态。
 ///
 /// 数据构造：显式指定的 iOS 模拟器、真实角色/动作资源；不创建任务或连接付费模型。
-/// 执行过程：xcodebuild 启动正式 App → 角色/凭据检查 → 点击指挥台、设置、审批记录与三个 Tab。
-/// 预期结果：原生测试全部成功；旧分段与简报不存在；缺少凭据时不会建立媒体连接。
+/// 执行过程：xcodebuild 启动正式 App → 角色/凭据检查 → 标准/最大辅助字号布局 → 设置、审批记录与三个 Tab。
+///   标准竖屏人物区域至少占屏宽95%、屏高44%（874pt屏约385pt）；44pt触控目标遵循iOS基线。
+/// 预期结果：人物不被文字栏边距压缩，字幕/底栏不遮挡，辅助字号可滚动；缺少凭据不建立媒体连接。
 #[test]
 #[ignore = "requires explicit iOS simulator and Xcode; launches the native app"]
 fn native_realtime_companion_entry_and_resources() {

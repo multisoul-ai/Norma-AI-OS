@@ -63,13 +63,21 @@ impl Gateway {
             && !cfg!(feature = "production-data")
             && url.scheme() == "ws"
             && matches!(url.host_str(), Some("127.0.0.1" | "[::1]"));
+        let tools_path = url.path().strip_suffix("/v1/tools").is_some_and(|prefix| {
+            prefix.split('/').skip(1).all(|segment| {
+                !segment.is_empty()
+                    && segment
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || b"_-".contains(&byte))
+            })
+        });
         if (url.scheme() != "wss" && !local)
             || url.host_str().is_none()
             || !url.username().is_empty()
             || url.password().is_some()
             || url.query().is_some()
             || url.fragment().is_some()
-            || url.path() != "/v1/tools"
+            || !tools_path
             || self.expires_at <= now
             || self.expires_at > now.saturating_add(60)
             || self.token.len() != 43

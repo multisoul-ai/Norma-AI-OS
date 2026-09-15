@@ -146,6 +146,7 @@ fn native_notification_lifecycle_and_ui_fixture() {
     let mut navigation = false;
     let mut live_plan = false;
     let mut empty_scope = false;
+    let mut paused_snapshots: Vec<LiveSnapshotRequest> = Vec::new();
     loop {
         if interactive {
             if let Some(directions) = &mut directions {
@@ -186,6 +187,12 @@ fn native_notification_lifecycle_and_ui_fixture() {
                 } else {
                     fs::remove_file(applied).expect("恢复原项目授权");
                 }
+            }
+        }
+        let pause_chat_project = interactive && dir.path().join("ui-chat-project-paused").exists();
+        if !pause_chat_project {
+            for request in paused_snapshots.drain(..) {
+                let _ = request.reply.send(request.projects);
             }
         }
         while let Ok(mut request) = snapshots.try_recv() {
@@ -288,7 +295,11 @@ fn native_notification_lifecycle_and_ui_fixture() {
                     cards
                 });
             }
-            let _ = request.reply.send(request.projects);
+            if pause_chat_project {
+                paused_snapshots.push(request);
+            } else {
+                let _ = request.reply.send(request.projects);
+            }
         }
         if let Some(pending) = server.pending().expect("读取配对请求") {
             assert!(approved.is_none(), "不能覆盖或重复批准测试手机");

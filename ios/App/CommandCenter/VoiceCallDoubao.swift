@@ -68,7 +68,7 @@ extension VoiceCall {
             try await audio.start(speaker: speaker, owner: current)
             guard current == generation, wantsCall else { await audio.stop(owner: current); return }
             connectDeadline?.cancel(); state = .connected; status = "我在听"; phase = .listening
-            attempts = 0; updateRoute(); audio.setMuted(muted)
+            connectedAt = ProcessInfo.processInfo.systemUptime; updateRoute(); audio.setMuted(muted)
             if muted { sender.setMuted(true) }
             configureDoubaoMedia(event)
             if doubaoTools { startMacBinding() }

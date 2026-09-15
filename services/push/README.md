@@ -1,10 +1,10 @@
 # Norma 推送服务
 
-2026-09-14 排障：当前安装的 Mac 已包含 `preview` 生成代码，但公网服务拒绝带预览的合法事件，返回 `400 invalid_event`；不带预览的隔离协议探针通过入口校验并获得 APNs 的 `422 token_invalid`（故意无效的测试 token，无手机收到该探针）。已登记 iPhone 与 Mac 都为 production，relay 凭据有效。需更新实际运行的 relay 到本仓库支持预览的版本，再验证新任务投递；不能删除预览作为永久回退。用户指定部署主机为 `47.251.242.24`；下述 `47 → 118` 拓扑仅来自本地历史记录和未提交的配置文件，本轮未登录服务器核实，不得作为已确认的线上状态。入口 SSH 在认证前断开，源站候选的密码登录被拒绝；尚未部署、重启服务或确认真机收件。Mac 已补充固定错误码分类，协议拒绝和 APNs 配置错误不会再统称 `delivery_unknown`，仍不重发未知请求。
+状态（2026-09-14）：已按用户授权将支持 `preview` 的 relay 直接部署到 `47.251.242.24`，公网 URL 与 Mac 凭据保持不变，Nginx `/norma/` 改为转发至本机 `127.0.0.1:8788`。真实已登记的 production iPhone 诊断请求携带项目、卡片、摘要，经公网返回 `200 {"status":"accepted"}`；Apple 已接受，尚未观察到手机展示或点击结果。
 
-状态（2026-09-13）：客户端支持主域名 `/norma/v1/notifications`；阿里云源站已安装推送服务、独立 Node 22 与 systemd，公网主站到源站的 HTTPS 转发已接通。正式 APNs 密钥已配置，服务为 active/running；公网健康检查为 `200 ready`，无凭据请求为 `401 unauthorized`，正确凭据加非法请求体为 `400 invalid_event`。尚未向 Apple 发送真实通知，物理 iPhone 锁屏验收未完成。
+根因：安装中的 Mac 已发送 `preview`，旧线上 relay 严格拒绝该字段并返回 `400 invalid_event`。切换前通过 47 的 SSH 2222 端口登录，线上 `nginx -T` 确认其 `/norma/` 原来转发至 `118.31.118.73`，47 尚无本机 relay；本轮未登录或修改 118。Mac 已补充固定错误码分类，协议拒绝和 APNs 配置错误不会再统称 `delivery_unknown`，仍不重发未知请求。
 
-使用 Node.js 22 自带的 HTTP/2 和加密模块，无 npm 依赖。只处理待确认、完成、失败三类事件，接收项目名称、卡片名称和该回合最终输出的有界摘要，不接收完整聊天、工具参数、项目路径或控制指令。预览只进入 APNs alert，目标身份独立保留并在手机打开后回到 Mac 核验。
+使用 Node.js 自带的 HTTP/2 和加密模块，无 npm 依赖；当前部署复用 Node 20.18.1，并已在该版本通过 relay 全部 3 项测试。只处理待确认、完成、失败三类事件，接收项目名称、卡片名称和该回合最终输出的有界摘要，不接收完整聊天、工具参数、项目路径或控制指令。预览只进入 APNs alert，目标身份独立保留并在手机打开后回到 Mac 核验。
 
 ## 配置与运行
 
@@ -40,23 +40,23 @@ node --test services/push/relay.test.mjs
 
 外部入口为 `https://soulvoiceai.com/norma/v1/notifications`；健康检查为 `/norma/healthz`。Nginx 去掉 `/norma/` 前缀，内部仍使用 `/v1/notifications` 和 `/healthz`，无需修改 DNS。新版 Mac 配置校验只额外放行这个明确路径，保留 HTTPS、无查询/密码和禁止重定向的约束；已有 `/v1/notifications` 配置仍有效。
 
-部署文件：源站 [`deploy/nginx.conf`](deploy/nginx.conf)、公网入口 [`deploy/nginx-front.conf`](deploy/nginx-front.conf)、[`deploy/norma-push.service`](deploy/norma-push.service)、[`deploy/relay.env.example`](deploy/relay.env.example)。Nginx 片段放在对应主机现有 HTTPS `server` 块内；主站自定义错误页不能吞掉 API 网关失败，缺少后端时返回 `503 {"error":"push_unavailable"}`。不会把网关的未知投递结果自动重试。
+部署文件：同机反代 [`deploy/nginx.conf`](deploy/nginx.conf)、现网入口副本 [`deploy/nginx-front.conf`](deploy/nginx-front.conf)、[`deploy/norma-push.service`](deploy/norma-push.service)、[`deploy/relay.env.example`](deploy/relay.env.example)。两个 Nginx 片段内容相同，选择一个放入现有 HTTPS `server` 块，不要同时 include；主站自定义错误页不能吞掉 API 网关失败，缺少后端时返回 `503 {"error":"push_unavailable"}`。不会把网关的未知投递结果自动重试。
 
-2026-09-13 实际部署位置：
+2026-09-14 实际部署位置：
 
-- 源站：`118.31.118.73`，现有 Nginx 配置 `/usr/local/nginx/conf/nginx.conf`，已新增推送片段 include；原主站首页内容校验保持一致。
-- 文件与独立运行时：`/opt/norma-push/`、`/opt/norma-push/node/bin/node`，Node `22.23.2`；系统已有 Node 保持原版本。
+- 主机：`47.251.242.24:2222`（SSH），主机名 `iZrj99wrem2lvepmol23n1Z`。现有 `/etc/nginx/nginx.conf` 引入 `/etc/nginx/norma-push-front.conf`，`/norma/` 去掉前缀后转发至本机 relay；未更改 DNS。
+- 文件：`/opt/norma-push/relay.mjs`；复用 `/usr/local/bin/node`，Node `20.18.1`。relay SHA-256：`010faed23d882afb23c3993d0e2e56f176f1e86e8efb75484f94346740e6ef4a`。
 - 服务账号：`norma-push`；systemd 单元为 enabled、active/running，监听 `127.0.0.1:8788`；凭据条件不满足时不启动。
-- 共享服务器资源上限：CPU 为单核的 20%、内存 128 MiB、进程/线程合计 32。现网通过 `systemctl set-property norma-push.service CPUQuota=20% MemoryMax=128M TasksMax=32` 持久化并即时生效，未重启服务；部署单元包含同样约束。
+- 共享服务器资源上限：CPU 为单核的 20%、内存 128 MiB、进程/线程合计 32，包含在 `/etc/systemd/system/norma-push.service` 中。
 - 专用访问凭据位于 `/etc/norma-push/relay.key`；Apple 密钥位于 `/etc/norma-push/apns.p8`，均为服务账号所有、0600。正式环境文件 `/etc/norma-push/relay.env` 为 root 所有、0600。
 - APNs 密钥：`Norma Production Push`，Key ID `2TR75XXS26`，Team ID `2BF8G9AN4L`；限定 production 环境及唯一 topic `com.norma-ai.os.ios`。未更改已有 Expo 密钥，也未使用 App Store Connect 上传密钥代替推送密钥。
-- Nginx 原文件备份：`/usr/local/nginx/conf/nginx.conf.norma-backup-20260913-115021`。
+- 本次 Nginx 片段备份：`/etc/nginx/norma-push-front.conf.before-local-20260914-143841`。原主配置备份：`/etc/nginx/nginx.conf.norma-backup-20260913-131204`。
 
-公网 `soulvoiceai.com` 解析至 `47.251.242.24`。已在其 `/etc/nginx/nginx.conf` 引入 `/etc/nginx/norma-push-front.conf`，将 `/norma/` 原路径转发到 `https://118.31.118.73`，启用上游证书校验并设置 TLS 名称 `soulvoiceai.com`。配置备份为 `/etc/nginx/nginx.conf.norma-backup-20260913-131204`；未改变 DNS。
+本轮 `nginx -t`、reload、服务 active/running 及本机/公网 health 检查通过。公网 TLS 校验通过且实际 remote IP 为 `47.251.242.24`；无凭据返回 401、正确凭据加非法事件返回 400。带 preview 的真实 iPhone 诊断事件 `cc167f44-112b-4ae9-9a9c-4c0b85f49919` 返回 200 accepted；使用当前卡片 #507 的定位身份与新事件 ID，没有重放历史任务或重复投递。
 
-公网入口已通过 TLS 证书校验和健康/鉴权/输入校验检查；主站首页内容哈希在 reload 前后保持一致。Apple Developer 登录后已创建并下载上述 APNs 密钥，安全备份不在仓库内。Apple 凭据是否被接受仍须用已授权手机登记的真实 production token 验证，健康检查不能替代该步骤。
+切换前后网站首页 SHA-256 均为 `201cd1bf3d32e7f5fd8aa22c6de5370852fe03fb654ee22d345dd82f16a246a0`，Nginx 主 PID 未变。这里只验证配置、服务和 HTTP 可用性，未逐项执行网站登录、支付或写入流程。
 
-2026-09-13 14:05 CST 复查：两台主 Nginx 配置相对部署前备份均仅增加一行 Norma include，无删除或替换；两端配置检查通过。公网和源站首页均为 HTTP 200，SHA-256 与部署前一致；已检查业务进程的启动时间早于本次部署。推送进程实占约 17.5 MiB、7 个线程，施加限额前后现有业务及推送 PID 均未变化。源站另有 `voice-service.service` 的历史 failed 状态，最后退出时间为 2025-12-25 23:05:06 CST；本次未操作该服务，正在使用的 `voice-app.service` 为 running。以上为配置、进程与 HTTP 可用性检查，未逐项执行原业务的登录、支付或写入流程。
+回滚入口时恢复上述 `before-local` 片段，执行 `nginx -t` 成功后 reload。备份指向旧的 118 服务，会重新出现拒绝 preview 的问题；本轮未验证 118 当前进程状态。
 
 如需重建部署，将 `.p8` 保存为 `/etc/norma-push/apns.p8`（服务账号所有、0600），复制环境示例为 `/etc/norma-push/relay.env` 并填写真实 Key ID；沿用 Team ID 前须核对密钥归属。TestFlight 使用 production。随后执行：
 
@@ -66,9 +66,9 @@ systemctl status norma-push --no-pager
 curl --fail-with-body https://soulvoiceai.com/norma/healthz
 ```
 
-只有健康检查不能证明 Apple 接受密钥；还须由已配对手机开启提醒，完成真实事件和锁屏点击回源验收。当前已授权 iPhone 尚未登记 token。
+当前已授权 iPhone 已登记 production token，且 Apple 已接受诊断通知；新任务自动触发、手机实际展示及锁屏点击回源仍需真机验收。
 
-支持新路径的桌面包已按用户要求重新生成：`build/Norma OS_0.1.71_aarch64.dmg`，192860249 bytes，SHA-256 `a5847c0cea560e3a09f784ad53d7a0665f12875554934e1e2086e4a644ff85d4`。本次为 Developer ID 签名、未公证；签名、Finder 布局与 DMG 校验通过，版本仍为 0.1.71。当前桌面有运行中的任务，尚未替换或重启。真实安装身份下已建立通知配置 Keychain 条目；系统授权尚未完成，不能将条目存在等同于新版 App 已成功回读、应用配置。
+历史桌面包（2026-09-13）：`build/Norma OS_0.1.71_aarch64.dmg`，192860249 bytes，SHA-256 `a5847c0cea560e3a09f784ad53d7a0665f12875554934e1e2086e4a644ff85d4`，Developer ID 签名、未公证。2026-09-14 本次部署未替换或重启桌面 App，未上传 iOS/TestFlight。
 
 ## 协议
 
@@ -109,7 +109,7 @@ ID 必须是协议的 ASCII 标识，`node_id` 使用十进制字符串，保留
 
 ## 已验证边界
 
-本地真实 HTTP 与 HTTP/2 测试覆盖入口认证、大小和有效期、未知字段拒绝、重复/冲突、ES256 签名、正确 topic/环境、JWT 复用、失效 token 和连接断开不重发。没有向 Apple 发送真实通知。
+本地真实 HTTP 与 HTTP/2 测试覆盖入口认证、大小和有效期、未知字段拒绝、重复/冲突、ES256 签名、正确 topic/环境、JWT 复用、失效 token 和连接断开不重发。这些自动化测试不向 Apple 投递；真实 iPhone 诊断请求的 Apple accepted 证据见部署记录。
 
 JWT 每 50 分钟更新；HTTP/2 连接复用，最多一个 APNs 流，入口最多 8 个在途请求。相同设备/事件在有效期内共用一次结果，包含未知结果；内存最多保留 4096 个未过期条目。重启不保留去重记录，不能在当前实现上部署多个副本或依赖自动重试。需要这些能力时再接持久化账本。
 

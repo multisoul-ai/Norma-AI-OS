@@ -8,8 +8,8 @@ use std::time::Duration;
 ///
 /// 数据构造：隔离测试数据库及临时项目；无工具任务只要求返回固定文本，不修改全局 Hook。
 /// 超时：启动 30s，模型 120s，本地历史 RPC 5s；分别覆盖冷启动、生成和本机通信。
-/// 执行过程：创建空卡 → App 派发 → 收会话回执 → 读历史 → 关闭 → 将元数据标为旧卡 → 正式重开 → 删除卡片并重查索引。
-/// 预期结果：创建时无进程；真实回复与 Done；重开不增加新回合；删除后两个run的准确AppDB身份均保留且旧控制连接失效。
+/// 执行过程：创建空卡 → App 派发 → 收会话回执 → 读历史 → 关闭 → 将元数据标为旧卡 → 正式重开 → 删除卡片并连续两次读取归档。
+/// 预期结果：创建时无进程；真实回复与 Done；重开不增加新回合；删除后两个run的准确AppDB身份均保留，连续读取不受旧连接影响。
 /// 这是 headless GPUI + 真实 Codex，不能替代真实 .app / iPhone 验收。
 #[test]
 #[ignore = "requires installed Codex and real model access"]
@@ -309,7 +309,8 @@ fn e2e_mobile_controlled_codex_dispatch() {
     let archived = serde_json::json!({"type":"archived_conversation","device_id":"phone-archive","token":"b".repeat(64),"profile":"Codex",
         "request":{"workspace_id":project.workspace_id,"route_id":app.read_with(cx, |app, _| app.norma_workspace_identity_for_e2e().expect("当前路由").1),
         "node_id":id,"run_id":original_key.run_id,"session_id":session}});
-    let result = crate::e2e_mobile_snapshot::fetch_action(cx, &server, &cert, &machine, archived);
+    let result =
+        crate::e2e_mobile_snapshot::fetch_action(cx, &server, &cert, &machine, archived.clone());
     assert_eq!(
         result["result"]["status"], "conversation",
         "原host关闭并删卡后必须能只读原始历史: {result}"
@@ -318,6 +319,17 @@ fn e2e_mobile_controlled_codex_dispatch() {
         result["result"]["conversation"]["page"]["items"],
         network_history["result"]["conversation"]["page"]["items"],
         "只读归档不能增加回合或丢失完整正文"
+    );
+    // 2次读取 = 首次归档读取 + 同一卡片再次打开；第二次守住断线缓存回归。
+    let repeated = crate::e2e_mobile_snapshot::fetch_action(cx, &server, &cert, &machine, archived);
+    assert!(
+        repeated.get("error").is_none(),
+        "再次打开同一卡片不应返回 history_unavailable: {repeated}"
+    );
+    assert_eq!(
+        repeated["result"]["conversation"]["page"]["items"],
+        network_history["result"]["conversation"]["page"]["items"],
+        "再次读取必须保留同一份完整 Provider 历史"
     );
     assert_eq!(
         app.read_with(cx, |app, _| app.runtime.mobile_card_snapshots().len()),

@@ -61,7 +61,7 @@ fn paired_control_device_gets_signed_voice_access_without_provider_keys() {
     );
     let grant = &valid["result"]["voice_authorization"];
     assert_eq!(
-        grant["origin"], "https://norma-voice.vercel.app",
+        grant["origin"], "https://soulvoiceai.com/norma/voice",
         "只能签发固定服务授权，不能由手机任意指定"
     );
     assert_eq!(

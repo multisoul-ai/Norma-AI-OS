@@ -1,6 +1,26 @@
 # Norma iOS TestFlight发布记录
 
-更新时间：2026-09-14。当前状态：**0.1.0（35）已进入现有「Norma 内测」组，可安装**；Apple 回读确认 VALID / IN_BETA_TESTING、未过期，中文说明一致。
+更新时间：2026-09-15。当前状态：**0.1.0（38）已进入现有「Norma 内测」组，可安装**；Apple 回读确认 VALID / IN_BETA_TESTING、未过期，中文说明一致。
+
+## 语音服务迁移自有服务器 · TestFlight 0.1.0（38）（2026-09-15）
+
+按用户"打包桌面并发布 TestFlight"授权发布。语音服务从 Vercel 网关迁移到自有服务器 `soulvoiceai.com/norma/voice`（部署细节见 [迁移记录](2026-09-15-voice-server-deployment.md)）。相对构建 37 的 iOS 输入差异为 `VoiceCall`、`VoiceCallAuthorization`、`VoiceCallDoubao`、`VoiceCallEvents` 与 NormaCore 的 `VoiceAuthorization`、`VoiceSessionTicket` 共 8 项（含版本配置）：iOS 默认地址改为新基址并自动迁移旧 Norma/Vercel 默认值（自定义地址保留），票据校验保留同源/同挂载目录/协议/过期/凭据边界；配套 Rust 侧 `realtime.rs`/`voice_authorization.rs`/`archive.rs` 同步更新并进入桌面包。验证：Swift Core 81/81、`cargo check -p app`。
+
+Release 归档、导出、严格分发签名、production entitlement、Apple 校验与单次上传通过；归档及上传后两次复验 119 项生产输入哈希一致。期间 verify 一度报 `VoiceCall.swift` 哈希不符，排查为发布脚本从 rt-build37 复制时路径未替换（对比的是旧构建清单）而非源码漂移，修正后两次归档均与冻结清单一致。IPA：`target/norma-ios-testflight/rt-build38/export/Norma.ipa`，82576333 字节，SHA256 `1643a5dfc9a1e1190bc5a0901a1ca25697068f9a69544a2428c13498b2fb590f`。Build ID：`3665f83c-2c2d-4958-bc3d-0bc2164c26d2`；Apple 回读 VALID / IN_BETA_TESTING、未过期，原组关联及中文说明均通过（并确认停用的 build 23 未分发）。沿用既有加密分类与不在法国分发范围，没有新增邀请、外部 Beta 或公开上架。证据：`target/norma-ios-testflight/rt-build38/summary.json`。
+
+配套桌面已重新打包（含语音服务器迁移的 Rust 接线）：`build/Norma OS_0.1.71_aarch64.dmg`，193066849 字节，SHA256 `86e0acb2211e59764b287bb9968a3d4ca008c188da2417989f54e7c5bab86491`；Developer ID签名、未公证，DMG 完整性与相邻校验和通过。提醒：新路径的 Mac 工具能力需要更新桌面版，手机也需更新到 38 才能使用新语音基址。
+
+## 指挥台取景与状态提示 · TestFlight 0.1.0（37）（2026-09-14）
+
+按用户"iOS TestFlight 重新发布"授权发布。相对构建 36 的 iOS 生产输入差异为 `AvatarScene.swift`、`CommandCenterView.swift`、`ConversationView.swift` 及配套 UITests/e2e 更新：虚拟形象相机改为半身像取景（1.30/1.08 ≈ 1.20，保留发冠），Avatar 区域增高并加底部渐隐遮罩；通话状态、工具进度、派工目标错误与讨论保存失败提示内联集中在字幕区下方（可点击跳转）；卡片对话页只读历史与项目发现并行加载、发送仍等待快照。工作区另有 push relay 部署配置与文档更新，不进 iOS 包。`target/` 第三次被清空，发布脚本全部重建（entitlements 解析改用 `--entitlements - --xml`，旧 `:` 语法在新版 codesign 下报 No such file or directory）。
+
+Release 归档、导出、严格分发签名、production entitlement、Apple 校验与单次上传通过；归档及上传后两次复验 119 项生产输入哈希一致。IPA：`target/norma-ios-testflight/rt-build37/export/Norma.ipa`，82575158 字节，SHA256 `fbe761204593f8b8eb744fadbe39a58ee32afcdd5633614e446d47cec1c00a91`。Build ID：`40a6ccbe-8f4d-486e-93c3-e6047ed83460`；Apple 回读 VALID / IN_BETA_TESTING、未过期，原组关联及中文说明均通过（并确认停用的 build 23 未分发）。沿用既有加密分类与不在法国分发范围，没有新增邀请、外部 Beta 或公开上架。验证：Swift Core 79/79。证据：`target/norma-ios-testflight/rt-build37/summary.json`。配套桌面随后按用户要求重新打包：`build/Norma OS_0.1.71_aarch64.dmg`，193067024 字节，SHA256 `56fcbf9d539695fdf93de65344eb107524d7371c9b6371e38b873878fed7498e`；Developer ID签名、未公证，DMG 完整性与相邻校验和通过（Rust 源码相对上次打包无改动，仅测试与文档变化）。
+
+## 同内容重发 · TestFlight 0.1.0（36）（2026-09-14）
+
+按用户明确要求重新发布。本构建与 35 的 iOS 生产输入完全一致（119 项哈希逐项核对，仅 `project.yml`/`project.pbxproj` 构建号 35→36 变化），源码零改动，仅用于重新触发一次 TestFlight 发布与安装。工作区相对 `4d08e136` 的改动只有 push relay 服务器端部署配置与文档，不进入 App。桌面沿用 0.1.71（20260914.052310）DMG，未重新打包。
+
+Release 归档、导出、严格分发签名、production entitlement、Apple 校验与单次上传通过；归档及上传后两次复验 119 项生产输入哈希一致。IPA：`target/norma-ios-testflight/rt-build36/export/Norma.ipa`，82571796 字节，SHA256 `9080e2339e034f8324e58903c74ff6f7934fbb5d46ab119358eeb3b05351e936`。Build ID：`358a9b1e-22c2-4ab1-8b3b-c78582598dd6`；Apple 回读 VALID / IN_BETA_TESTING、未过期，原组关联及中文说明均通过（并确认停用的 build 23 未分发）。沿用既有加密分类与不在法国分发范围，没有新增邀请、外部 Beta 或公开上架。证据：`target/norma-ios-testflight/rt-build36/summary.json`。
 
 ## 语音免配置接入 · TestFlight 0.1.0（35）（2026-09-14）
 
@@ -318,3 +338,15 @@ Computer Use两次返回Mac locked，已请求解锁，本轮真实点击未完�
 Release归档、导出、严格签名、Apple校验/上传通过；103项发布输入及IPA上传后hash一致。IPA：`target/norma-ios-testflight/v124/export/Norma.ipa`，5679727字节，SHA256 `5bee930651634070b9fa2e76e10539dfd6f192a565354dc202cabd5e4d063400`。复用v121加载布局、v122 Rust536/Swift62及原生竖横屏/AX5/键盘、v123 Computer Use三页导航验证；未把v122工具点击故障当作CUA通过。
 
 测试说明已注明完整终端软折行重排需配套新版Mac；旧Mac仍按原行显示，本次未打包/替换运行中的桌面。APNs仍延期，真机/LAN/Tailscale由用户更新后验收。完整证据`target/norma-ios-evidence/v124/summary.json`及`target/norma-ios-testflight/v124/`。
+
+## 2026-09-15 · 聊天输入恢复与 TestFlight 构建40
+
+TestFlight **0.1.0（40）** 已回读为 VALID / IN_BETA_TESTING，Build/Delivery ID `e021e8a9-1812-487e-ba1a-509fc4793511`；原「Norma 内测」组与中文说明均核对通过。沿用已确认的加密用途及分发范围。构建39为上传后的候选版本，最终交付以40为准。
+
+相对已发布构建38，生产改动仅在 `ConversationView.swift`：项目失联保留卡片身份，避免草稿切回旧run、输入框重建与焦点丢失；项目和历史分别处理恢复，历史重新验证期间保留已读取内容，收到有效首屏后再替换；加载时允许主动重读，重试耗尽时清除恢复提示。发送仍须取得新快照并验证权限，未知发送结果仍禁止重复提交。Apple设计原则落实为保留原生编辑焦点、立即呈现输入、区分编辑能力和发送权限。
+
+Swift Core 81项通过；原生TLS/WSS回归覆盖冷卡恢复运行、断线继续输入、短暂恢复的新历史、再次断线至重试耗尽、主动重读、草稿/键盘及发送权限，61.74s通过。原生明确拒绝/未知回执/重启/用户重试流程45.89s通过。Computer Use实际点击原卡、输入、失联继续编辑、核对耗尽后无恢复提示，并通过系统主页返回验证草稿、新正文及发送恢复；全部隔离配对正式清理通过。相关红测保留，未将模拟器证据描述为物理手机或公网网络测试。
+
+Release归档、导出、严格签名、Apple校验/上传及130项生产输入hash一致性通过。IPA `target/norma-ios-testflight/rt-build40/export/Norma.ipa`，82577451字节，SHA256 `5f0df3968183d59e59016f7b2d39bb70615f3d993c3d06fdd389683e556677ac`。发布回读、测试日志、Computer Use状态与截图见同目录 `summary.json`、`acceptance.json`、`cua-recovered.png`。未更换运行中的Mac或语音服务器。
+
+可重复执行本次回归：在既有隔离模拟器上设置 `NORMA_IOS_SIMULATOR`、`NORMA_NOTIFICATION_UI=1`、`NORMA_DECISION_UI=1` 与 `NORMA_SWIFT_PROBE=$PWD/scripts/check-norma-ios-chat-recovery.sh`，运行 `cargo test -p e2e --test mobile_notification_native -- --ignored --nocapture`。

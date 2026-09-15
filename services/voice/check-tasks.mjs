@@ -37,6 +37,7 @@ const send = (ws, event) => ws.send(JSON.stringify(event));
 ///   汇报不调用LLM、不改变会话历史；票据过期或媒体关闭后不可用，关闭媒体释放Mac连接。
 ///   NORMA_CLOUD_TOOLS_CHECK=1时，HTTP/工具连接在A、媒体在B；使用真实Redis随机命名空间。
 ///   必须跨实例完成相同任务，不能靠负载均衡恰好命中同一内存实例。
+///   公网挂载 /norma/voice，代理剥离前缀；媒体与工具票据仍必须保留完整公网路径。
 async function checkTasks() {
   const asrServer = createServer(), asrPeers = new WebSocketServer({server:asrServer});
   const asrPort = await listen(asrServer);
@@ -49,7 +50,7 @@ async function checkTasks() {
   };
   asrPeers.on('connection', ws => {asr=ws; ws.once('message',()=>asrEvent({}));});
   const cloud = process.env.NORMA_CLOUD_TOOLS_CHECK === '1';
-  const env = {...process.env,COMPANION_ACCESS_TOKEN:randomBytes(32).toString('hex'),DOUBAO_PROTOCOL:'plan',DOUBAO_SPEECH_API_KEY:'local-only-secret'};
+  const env = {...process.env,PUBLIC_ORIGIN:'https://soulvoiceai.com/norma/voice',COMPANION_ACCESS_TOKEN:randomBytes(32).toString('hex'),DOUBAO_PROTOCOL:'plan',DOUBAO_SPEECH_API_KEY:'local-only-secret'};
   const options = {env, now:()=>time,
     upstreamFactory:()=>new WebSocket(`ws://127.0.0.1:${asrPort}`), fetchImpl:async (url, options) => {
       const body = JSON.parse(options.body);
@@ -76,10 +77,12 @@ async function checkTasks() {
       headers:{Authorization:`Bearer ${env.COMPANION_ACCESS_TOKEN}`,'Content-Type':'application/json'},body:'{"provider":"doubao"}'});
     assert.equal(response.status,200,'媒体票据签发必须成功，不能把存储连接失败误报成 WebSocket 鉴权失败');
     const ticket = await response.json();
+    assert.equal(ticket.url,'wss://soulvoiceai.com/norma/voice/v1/voice','媒体票据不能丢失代理挂载路径');
     phone = new WebSocket(`ws://127.0.0.1:${mediaPort}/v1/voice`,{headers:{Authorization:`Bearer ${ticket.token}`}});
     const media = inbox(phone); await media('session.created');
     send(phone,{type:'gateway.tools.request',request_id:'binding-one'});
     const grant = await media('gateway.tools.ticket');
+    assert.equal(grant.url,'wss://soulvoiceai.com/norma/voice/v1/tools','Mac工具票据必须保留同一挂载路径');
     assert.match(grant.call_id,/^doubao_[A-Za-z0-9_-]+$/,'豆包身份不能伪装OpenAI rtc身份');
     assert.equal(grant.request_id,'binding-one','异步票据必须对应请求代次');
     assert.equal(grant.expires_at,1030,'1000秒当前时间+30秒有效期');

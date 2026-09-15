@@ -1,7 +1,13 @@
 import Foundation
 
 public struct VoiceAuthorization: Decodable, Sendable {
-    public static let serviceOrigin = "https://norma-voice.vercel.app"
+    public static let serviceOrigin = "https://soulvoiceai.com/norma/voice"
+    private static let legacyOrigin = "https://norma-voice.vercel.app"
+
+    public static func initialGateway(_ stored: String?) -> String {
+        guard let stored, stored != legacyOrigin, stored != "https://milltina-voice.vercel.app" else { return serviceOrigin }
+        return stored
+    }
     public let origin: String
     public let token: String
     public let expiresAt: TimeInterval
@@ -27,7 +33,7 @@ public struct VoiceAuthorization: Decodable, Sendable {
         }
         struct Claims: Decodable { let v:Int; let aud:String; let iss:String; let sub:String; let iat:Int64; let exp:Int64 }
         guard let claims=try? JSONDecoder().decode(Claims.self,from:bytes), claims.v==1,
-              claims.aud==serviceOrigin, validID(claims.sub), claims.iss.hasPrefix("mac-"),
+              [serviceOrigin,legacyOrigin].contains(claims.aud), validID(claims.sub), claims.iss.hasPrefix("mac-"),
               validHex(String(claims.iss.dropFirst(4))), machineID==nil || machineID==claims.iss,
               claims.iat>=0, claims.exp>=claims.iat, claims.exp-claims.iat==86400,
               TimeInterval(claims.iat)<=now+30, TimeInterval(claims.exp)>now else { return nil }
@@ -35,7 +41,7 @@ public struct VoiceAuthorization: Decodable, Sendable {
     }
 
     func validate(machine: PairedMachine, deviceID: String) throws {
-        guard let cached=Self.cached(token,machineID:machine.id), origin==Self.serviceOrigin,
+        guard let cached=Self.cached(token,machineID:machine.id), origin==cached.origin,
               self.deviceID==deviceID, self.machineID==machine.id,
               cached.deviceID==deviceID, cached.expiresAt==expiresAt else { throw MobileError.invalidResponse }
     }

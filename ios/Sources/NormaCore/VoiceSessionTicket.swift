@@ -35,14 +35,16 @@ public struct VoiceSessionTicket: Sendable {
     public static func endpoint(_ origin: String) -> URL? {
         guard let url = URL(string: origin.trimmingCharacters(in: .whitespacesAndNewlines)), url.host != nil,
               url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
-              url.path.isEmpty || url.path == "/",
+              let path = URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath,
+              path.range(of: #"^(/[A-Za-z0-9_-]+)*/?$"#, options: .regularExpression) != nil,
               url.scheme == "https" || isLocalEndpoint(url) else { return nil }
         return url.appendingPathComponent("v1/session")
     }
 
     static func matchesGateway(_ url: URL, endpoint: URL, path: String) -> Bool {
         guard let host = endpoint.host, url.host == host, url.user == nil, url.password == nil,
-              url.query == nil, url.fragment == nil, url.path == path,
+              url.query == nil, url.fragment == nil, endpoint.path.hasSuffix("/v1/session"),
+              URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath == String(endpoint.path.dropLast("/v1/session".count)) + path,
               (url.port ?? (url.scheme == "wss" ? 443 : 80)) == (endpoint.port ?? (endpoint.scheme == "https" ? 443 : 80)) else { return false }
         return (endpoint.scheme == "https" && url.scheme == "wss") || (isLocalEndpoint(endpoint) && url.scheme == "ws")
     }

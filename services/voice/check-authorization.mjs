@@ -9,9 +9,9 @@ import {verifyVoiceAuthorization} from './voice-authorization.mjs';
 /// 执行过程：正确签名换票；篡改签名/错部署/未登记Mac/到期边界逐一拒绝。
 /// 预期结果：有效设备200且无供应商Key；匿名/伪造401，不因省去配置而匿名开放付费接口。
 const fixture=JSON.parse(readFileSync(process.argv[2],'utf8'));
-const {token,origin,expires_at:expires}=fixture.authorization;
+const {token,expires_at:expires}=fixture.authorization;
 const env={COMPANION_ACCESS_TOKEN:'test-only-admin-passphrase-32chars',DOUBAO_PROTOCOL:'plan',
-  DOUBAO_SPEECH_API_KEY:'test-only-doubao-key',PUBLIC_ORIGIN:origin,
+  DOUBAO_SPEECH_API_KEY:'test-only-doubao-key',PUBLIC_ORIGIN:'https://soulvoiceai.com/norma/voice',
   NORMA_VOICE_TRUSTED_CERTIFICATES:JSON.stringify([Buffer.from(fixture.certificate).toString('base64')])};
 assert.equal(verifyVoiceAuthorization(token,env),true,'真实Mac签名应可验证');
 assert.equal(verifyVoiceAuthorization(token,env,expires*1000),false,'到期瞬间必须拒绝');
@@ -26,7 +26,7 @@ try {
   assert.equal((await request('')).status,401,'不能匿名调用付费接口');
   const response=await request(token), ticket=await response.json();
   assert.equal(response.status,200,'已配对手机无需填写Key即可换取媒体票据');
-  assert.equal(ticket.url,'wss://norma-voice.vercel.app/v1/voice','票据必须指向新的同源部署');
+  assert.equal(ticket.url,'wss://soulvoiceai.com/norma/voice/v1/voice','票据必须指向新的同源部署');
   assert.equal(JSON.stringify(ticket).includes(env.DOUBAO_SPEECH_API_KEY),false,'票据不得携带豆包Key');
   assert.equal(JSON.stringify(ticket).includes(env.COMPANION_ACCESS_TOKEN),false,'票据不得携带管理口令');
 } finally {gateway.closeAllConnections();await new Promise(resolve=>gateway.close(resolve));}

@@ -5,6 +5,7 @@ import {once} from 'node:events';
 import {Agent} from 'node:https';
 import WebSocket from 'ws';
 import {makeGateway} from './server.mjs';
+import {fetchPlan} from './plan.mjs';
 
 const remoteAgent=new Agent({proxyEnv:process.env});
 const input = readFileSync(process.env.NORMA_PROBE_PCM);
@@ -17,8 +18,8 @@ const remoteArgument = process.argv.find(value=>value.startsWith('--gateway='))?
 let remoteOrigin;
 if (remoteArgument) {
   const url = new URL(remoteArgument);
-  if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('Expected HTTPS gateway origin');
-  remoteOrigin = url.origin;
+  if (url.protocol !== 'https:' || url.username || url.password || !/^(\/[A-Za-z0-9_-]+)*\/?$/.test(url.pathname) || url.search || url.hash) throw new Error('Expected HTTPS gateway base URL');
+  remoteOrigin = url.href.replace(/\/$/, '');
 }
 report.gateway = remoteOrigin || 'local_ephemeral_gateway';
 report.interrupt_check = interruptCheck;
@@ -27,7 +28,7 @@ const env = {...process.env,DOUBAO_PROTOCOL:'plan',PUBLIC_ORIGIN:'http://127.0.0
 const gateway = remoteOrigin ? null : makeGateway({env,fetchImpl:async (url,options) => {
   if (url.endsWith('/chat/completions')) report.chat_requests.push({at_ms:Math.round(performance.now()-start),
     messages:JSON.parse(options.body).messages.filter(m=>m.role!=='system')});
-  return fetch(url,options);
+  return fetchPlan(url,options);
 }});
 if (gateway) {gateway.listen(0,'127.0.0.1'); await once(gateway,'listening');}
 let mac, reportStarted=false;
@@ -47,7 +48,7 @@ try {
   if (!response.ok) throw new Error(`ticket_http_${response.status}`);
   const ticket = await response.json();
   const socketURL = new URL(remoteOrigin ? ticket.url : `${base.replace('http:','ws:')}/v1/voice`);
-  if (remoteOrigin && (socketURL.protocol !== 'wss:' || socketURL.host !== new URL(base).host)) throw new Error('Unexpected gateway voice address');
+  if (remoteOrigin && socketURL.href !== base.replace(/^https:/,'wss:')+'/v1/voice') throw new Error('Unexpected gateway voice address');
   ws = new WebSocket(socketURL,{agent:remoteOrigin?remoteAgent:undefined,headers:{Authorization:`Bearer ${ticket.token}`},handshakeTimeout:10000});
   ws.on('error',()=>{failure='gateway_transport_failed';});
   const closed = once(ws,'close');
@@ -57,8 +58,9 @@ try {
       if (event.type !== 'response.output_audio.delta') {const safe={at_ms:at,...event};delete safe.token;report.events.push(safe);}
       if (report.events.length>256) throw new Error('too_many_events');
       if (event.type === 'gateway.tools.ticket' && deploymentCheck) {
-        const toolsURL=new URL(event.url);toolsURL.searchParams.set('call_id',event.call_id);
-        if (toolsURL.protocol!=='wss:' || toolsURL.host!==new URL(base).host) throw Error('unexpected_tools_origin');
+        const toolsURL=new URL(event.url);
+        if (toolsURL.href!==base.replace(/^https:/,'wss:')+'/v1/tools') throw Error('unexpected_tools_origin');
+        toolsURL.searchParams.set('call_id',event.call_id);
         mac=new WebSocket(toolsURL,{agent:remoteAgent,headers:{Authorization:`Bearer ${event.token}`},handshakeTimeout:10000});
         mac.on('error',()=>{failure='tools_transport_failed';ws.terminate();});
         mac.on('message',raw=>{

@@ -203,6 +203,10 @@ impl Fixture {
             });
         }
         while let Ok(call) = self.conversations.try_recv() {
+            if call.request.node_id == 7 && dir.join("ui-chat-project-paused").exists() {
+                fs::write(dir.join("ui-chat-history-started"), b"")
+                    .expect("记录项目响应前的历史读取");
+            }
             assert_eq!(call.request.workspace_id, workspace, "详情只能读取原项目");
             assert_eq!(
                 call.request.route_id, "notification-route",

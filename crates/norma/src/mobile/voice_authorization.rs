@@ -4,7 +4,7 @@ use rustls::{pki_types::PrivatePkcs8KeyDer, SignatureScheme};
 use serde_json::{json, Value};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub const VOICE_GATEWAY_ORIGIN: &str = "https://norma-voice.vercel.app";
+pub const VOICE_GATEWAY_ORIGIN: &str = "https://soulvoiceai.com/norma/voice";
 
 impl ServerIdentity {
     /// Caller must authenticate the paired device and its current control grant first.

@@ -3,8 +3,7 @@ import NormaCore
 
 extension VoiceCall {
     static func initialGateway() -> String {
-        let stored=UserDefaults.standard.string(forKey:"realtime-gateway")
-        return stored == nil || stored == "https://milltina-voice.vercel.app" ? serviceOrigin : stored!
+        VoiceAuthorization.initialGateway(UserDefaults.standard.string(forKey:"realtime-gateway"))
     }
 
     var usesAutomaticAuthorization: Bool { gateway == Self.serviceOrigin }

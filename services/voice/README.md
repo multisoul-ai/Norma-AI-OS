@@ -2,7 +2,7 @@
 
 从 companion 的 `server/` 迁入，源仓库保持只读，文件来源与 SHA-256 见
 [`2026-09-13-realtime-source.json`](../../docs/design-docs/2026-09-13-realtime-source.json)。
-Node.js 22+；仅依赖既有 `ws`。独立生产地址为 `https://norma-voice.vercel.app`，部署验证见[交付记录](../../docs/exec-plans/2026-09-14-voice-vercel-deployment.md)。
+Node.js 22+；仅依赖既有 `ws`。生产地址为 `https://soulvoiceai.com/norma/voice`，部署验证见[交付记录](../../docs/exec-plans/2026-09-15-voice-server-deployment.md)。
 
 ```sh
 cd services/voice
@@ -13,16 +13,21 @@ npm test
 npm start
 ```
 
-默认 iOS 无需填写地址、Key 或访问口令。新版 Mac 开启 Mobile Connection，手机配对并取得项目控制权限后自动领取签名授权，供应商长期 Key 只留在 Vercel。
+默认 iOS 无需填写地址、Key 或访问口令。新版 Mac 开启 Mobile Connection，手机配对并取得项目控制权限后自动领取签名授权，供应商长期 Key 只留在服务器。
 `COMPANION_ACCESS_TOKEN` 沿用原字段名，作为服务端管理/本地调试口令；正式手机用 Mac 签发的 24 小时授权替代。
 授权经已配对的 pin TLS 通道领取，使用现有 Mac P-256 安装身份签名，固定 audience；手机钥匙串缓存，最后一小时尝试刷新，Mac 离线时未过期授权仍可聊天。到期需重新连接 Mac；撤销或只读设备不能领取新授权，已签发授权最长到当天到期。
 `DOUBAO_PROTOCOL=plan` 开启 ASR → 豆包 Chat → TTS，并支持 Mac 工具和成果播报。
 `2` / `3` 保留原语音协议，仅提供聊天和角色行为。
-自定义网关地址与 `PUBLIC_ORIGIN` 必须相同；真机使用 HTTPS/WSS，HTTP 只允许回环开发。
+自定义网关地址与 `PUBLIC_ORIGIN` 必须相同，可包含挂载前缀；真机使用 HTTPS/WSS，HTTP 只允许回环开发。
+当前生产由 Nginx 将 `/norma/voice/` 转发到 `127.0.0.1:8789/` 并剥离前缀，媒体与工具票据保留公网前缀。部署配置见 `deploy/`。
+`norma-voice.service` 使用独立 Node 22 常驻单实例，内存维护一次性票据；不需要 Redis，不受 Vercel 300 秒执行上限影响，单次通话仍受现有 35 分钟上限约束。
+新版 iOS 自动迁移两个旧默认地址，保留自定义部署；新服务器只为此次迁移兼容旧 Norma audience 的有效 Mac 签名，证书登记、设备绑定和到期规则不变。Mac 工具通道的子路径支持需要更新 Mac。
+
+旧 Vercel 入口仍保留以下独立部署方式：
 Vercel 使用现有 Redis 集成与独立 `norma-voice:<管理口令SHA256前24位>:` 命名空间：跨实例一次性票据、45秒独占租约及设备隔离的已播历史。
 媒体与Mac工具连接可落到不同实例，控制消息由有界Redis队列转发；音频仍只走WebSocket。云端供应商请求使用Node原生HTTPS，保留流式响应、取消与禁止跳转。每个私有部署同时仅一通电话，240秒空闲轮换，280秒强制结束以避开300秒平台上限。超过3秒音频突发仍限流，但以可重试错误交给手机恢复；正常挂断在上游结束及云端租约释放后确认。
 
-生产环境设置 `COMPANION_ACCESS_TOKEN`、`DOUBAO_PROTOCOL=plan`、`DOUBAO_SPEECH_API_KEY`、`PUBLIC_ORIGIN`、`KV_REST_API_URL`、`KV_REST_API_TOKEN` 和 `NORMA_VOICE_TRUSTED_CERTIFICATES`。
+常驻生产环境设置 `COMPANION_ACCESS_TOKEN`、`DOUBAO_PROTOCOL=plan`、`DOUBAO_SPEECH_API_KEY`、`PUBLIC_ORIGIN` 和 `NORMA_VOICE_TRUSTED_CERTIFICATES`；只有 Vercel 入口额外需要 `KV_REST_API_URL`、`KV_REST_API_TOKEN`。
 最后一项是受信任 Mac 的 DER 公开证书 base64 字符串数组；当前仅登记此用户正式 Mac 安装，最多8个。新安装由服务管理员登记公开证书，私钥不离开Mac。不要使用已脱敏的环境导出值作为供应商Key。
 
 `npm run deploy:production` 使用 Vercel CLI 58.0.0，仅上传本目录运行文件；`.vercelignore` 排除环境、测试和探针。`npm run test:cloud` 需要真实Redis环境变量，随机命名空间不触碰正式会话。
@@ -42,7 +47,7 @@ PCM、插话、回执续答和逐字成果播报；不使用云端 Key，不代�
 线上音频验收使用 `probe-plan-call.mjs`（源自 companion 同名探针），显式指定 `NORMA_PROBE_PCM`（PCM16/16kHz/单声道）、`NORMA_PROBE_OUTPUT`（已存在目录）及服务端管理口令，再运行：
 
 ```sh
-node probe-plan-call.mjs --gateway=https://norma-voice.vercel.app --deployment
+node probe-plan-call.mjs --gateway=https://soulvoiceai.com/norma/voice --deployment
 ```
 
 探针只上传预生成语音，检查匿名拒绝、真实ASR/Chat/PCM、工具通道和独立TTS，不采集现场麦克风。输出PCM是接收证据，不等同于手机实际扬声器播放。使用HTTP代理的本机需 Node.js 24.5+ 和 `NODE_USE_ENV_PROXY=1`。

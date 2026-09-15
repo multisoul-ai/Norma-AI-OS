@@ -1,6 +1,103 @@
 import XCTest
 
 final class ChatInteractionFlowTests: XCTestCase {
+    /// 冷启动原卡进入运行后，项目订阅断流不能清空正在编辑的草稿或丢失键盘焦点。
+    /// 数据构造：原卡7初始无run，随后恢复run-7/session-7；输入Keep my draft；
+    ///   8s = 5s网络读取超时 + 3s原生UI调度余量，足以触发真实重连。
+    /// 执行过程：打开原卡→恢复运行→输入→暂停项目响应→继续输入→恢复→再次断线至重试耗尽→主动重读。
+    /// 预期结果：断流保留历史、草稿及焦点；发送需重新验证权限；恢复接收新正文；终止重试后不残留恢复提示。
+    @MainActor func testReconnectKeepsDraftAndKeyboardOnOriginalCard() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard env["NORMA_TEST_MODE"] == "notification-ui", let path = env["NORMA_TEST_QR"] else { throw XCTSkip("仅隔离聊天fixture") }
+        let directory = URL(fileURLWithPath: path).deletingLastPathComponent()
+        let flags = ["ui-chat-interactions", "ui-chat-ready", "ui-card-management", "ui-chat-cold-session"].map { directory.appendingPathComponent($0) }
+        let paused = directory.appendingPathComponent("ui-chat-project-paused")
+        let final = directory.appendingPathComponent("ui-chat-final")
+        for flag in flags { try Data().write(to: flag) }
+        defer { for flag in flags + [paused, final] { try? FileManager.default.removeItem(at: flag) } }
+        let app = XCUIApplication(); app.launch()
+        let card = app.buttons["agent-card-7"]
+        XCTAssertTrue(card.waitForExistence(timeout: 8), "只打开隔离原卡")
+        card.tap()
+        let input = app.descendants(matching: .any)["chat-message-input"].firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 8), "原生输入框应可用")
+        try FileManager.default.removeItem(at: flags[3])
+        XCTAssertTrue(app.staticTexts["初始历史末条"].waitForExistence(timeout: 8), "须先绑定恢复后的真实会话")
+        input.tap(); input.typeText("Keep my draft")
+        XCTAssertTrue(app.buttons["chat-send-message"].isEnabled, "断流前需确认控制权限已有效")
+        try Data().write(to: paused)
+        XCTAssertTrue(app.staticTexts["无法发送，请检查连接与权限。"].waitForExistence(timeout: 8), "真实订阅超时后发送须暂停")
+        XCTAssertTrue(app.staticTexts["初始历史末条"].exists, "项目和历史重新验证期间须保留已确认的对话")
+        XCTAssertFalse(app.progressIndicators["正在读取对话…"].exists, "已有历史时不能用加载遮罩替换内容")
+        XCTAssertTrue(app.buttons["重新读取对话"].isEnabled, "恢复期间仍应允许用户主动重新读取")
+        XCTAssertEqual(input.value as? String, "Keep my draft", "网络重连不能切回旧run并让输入消失")
+        XCTAssertTrue(input.isEnabled, "离线草稿仍应可编辑")
+        XCTAssertTrue(app.keyboards.firstMatch.exists, "后台重连不能销毁输入框并收起键盘")
+        input.typeText(" offline")
+        XCTAssertEqual(input.value as? String, "Keep my draft offline", "重连等待期间仍须接收用户输入")
+        XCTAssertFalse(app.buttons["chat-send-message"].isEnabled, "保持编辑不能绕过失效的发送权限")
+        try Data().write(to: final)
+        try FileManager.default.removeItem(at: paused)
+        let restored = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in app.buttons["chat-send-message"].isEnabled }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 8), .completed, "重新验证同一会话后应恢复发送")
+        XCTAssertEqual(input.value as? String, "Keep my draft offline", "恢复连接不能覆盖离线编辑")
+        XCTAssertTrue(app.staticTexts["最终整理好的回复"].waitForExistence(timeout: 8), "历史重连必须接收新正文，不能停留在缓存内容")
+        XCTAssertFalse(app.staticTexts["正在重新连接对话…"].exists, "重新验证后的历史应结束恢复提示")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("ui-chat-sent.json").path), "重连不能自动提交草稿")
+
+        try Data().write(to: paused)
+        XCTAssertTrue(app.staticTexts["无法发送，请检查连接与权限。"].waitForExistence(timeout: 8), "再次断线仍须暂停发送")
+        let exhausted = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            app.staticTexts["电脑暂时无法处理请求。已发送的操作请查询结果。"].firstMatch.exists
+                && !app.staticTexts["正在重新连接对话…"].exists
+        }, object: nil)
+        // 32s = 最多4次读取 × 5s网络上限 + (1+2+4)s退避 + 5s原生调度余量。
+        XCTAssertEqual(XCTWaiter.wait(for: [exhausted], timeout: 32), .completed, "重试已耗尽时必须结束恢复提示，不能让用户一直等待")
+        XCTAssertEqual(input.value as? String, "Keep my draft offline", "重试耗尽也不能丢弃草稿")
+        XCTAssertFalse(app.buttons["chat-send-message"].isEnabled, "最终网络错误仍不能放行发送")
+        try FileManager.default.removeItem(at: paused)
+        app.buttons["重新读取对话"].tap()
+        XCTAssertTrue(app.staticTexts["最终整理好的回复"].waitForExistence(timeout: 8), "主动重读应恢复原会话")
+        XCTAssertEqual(input.value as? String, "Keep my draft offline", "主动重读也不能覆盖输入")
+        XCTAssertFalse(app.staticTexts["正在重新连接对话…"].exists, "恢复后的页面不能遗留重连提示")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("ui-chat-sent.json").path), "主动恢复只能读取，不能发送草稿")
+    }
+
+    /// 打开已知会话时，历史读取不应串行等待项目订阅的首个响应。
+    /// 数据构造：隔离原卡7/run-7/session-7；暂停项目响应，历史源正常且权限为只读。
+    ///   2s 调度预算小于服务4s超时，可区分并行读取与超时后重试。
+    /// 执行过程：打开项目 → 暂停快照 → 点击卡片 → 检查历史请求 → 恢复快照 → 验证完整正文。
+    /// 预期结果：项目等待期间已请求历史；恢复后正文可见；不能发送或出现错会话内容。
+    @MainActor func testHistoryStartsBeforeProjectSnapshotReturns() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard env["NORMA_TEST_MODE"] == "notification-ui", let path = env["NORMA_TEST_QR"] else {
+            throw XCTSkip("仅隔离配对服务")
+        }
+        let directory = URL(fileURLWithPath: path).deletingLastPathComponent()
+        let paused = directory.appendingPathComponent("ui-chat-project-paused")
+        let started = directory.appendingPathComponent("ui-chat-history-started")
+        defer {
+            try? FileManager.default.removeItem(at: paused)
+            try? FileManager.default.removeItem(at: started)
+        }
+        let app = XCUIApplication(); app.launch()
+        app.buttons["workspace-tab-projects"].tap()
+        let card = app.buttons["agent-card-7"]
+        XCTAssertTrue(card.waitForExistence(timeout: 8), "8s覆盖订阅和模拟器启动，只操作隔离原卡")
+        try Data().write(to: paused)
+        card.tap()
+        let requested = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            FileManager.default.fileExists(atPath: started.path)
+        }, object: nil)
+        let result = XCTWaiter.wait(for: [requested], timeout: 2)
+        XCTAssertEqual(result, .completed, "历史读取不能等待项目响应后才启动")
+        try FileManager.default.removeItem(at: paused)
+        guard result == .completed else { return }
+        XCTAssertTrue(app.staticTexts["来自原会话 session-7 的完整回复"].waitForExistence(timeout: 8), "核验后应显示完整原会话")
+        XCTAssertFalse(app.buttons["chat-send-message"].isEnabled, "并行只读请求不得提升发送权限")
+        XCTAssertFalse(app.staticTexts["来自原会话 session-8 的完整回复"].exists, "不能混入另一会话")
+    }
+
     /// 历史会话尚无运行进程时，原生聊天可保存短草稿，重进页面后由用户发送。
     ///
     /// 数据构造：原卡 7/session-7，启动前 run=null；hi 为 2 字节，远小于 64KiB 草稿上限。

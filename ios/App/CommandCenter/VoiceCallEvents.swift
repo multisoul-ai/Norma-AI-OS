@@ -20,7 +20,7 @@ extension VoiceCall {
                     if rtc.audio.snapshot().captured > 0, pendingHistory.isEmpty {
                         connectDeadline?.cancel(); rtc.setMuted(muted)
                         state = .connected; status = "我在听"; phase = .listening
-                        attempts = 0 // Bound consecutive failures, not separate outages across the whole call.
+                        connectedAt = ProcessInfo.processInfo.systemUptime
                         lastActivity = ProcessInfo.processInfo.systemUptime; updateRoute()
                         return
                     }

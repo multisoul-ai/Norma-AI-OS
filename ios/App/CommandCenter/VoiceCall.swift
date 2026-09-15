@@ -71,6 +71,7 @@ import NormaCore
     private var observers: [NSObjectProtocol] = []
     var generation = 0
     var attempts = 0
+    var connectedAt: TimeInterval?
     private var recovering = false
     var activeResponse = ""
     var ignored = Set<String>()
@@ -324,9 +325,12 @@ import NormaCore
     }
     func lostConnection() {
         guard wantsCall, !recovering else { return }
+        // 30s = twice Doubao's 15s transport/audio readiness budget. Brief handshakes
+        // do not replenish retries; a later outage after a stable call gets a fresh budget.
+        if let connectedAt, ProcessInfo.processInfo.systemUptime - connectedAt >= 30 { attempts = 0 }
         recovering = true; cleanTransport(); attempts += 1
         guard attempts <= 3 else { hangup(); state = .failed; status = "网络未恢复，点接通重试"; return }
-        state = .reconnecting; status = "网络中断，正在尝试恢复"
+        state = .reconnecting; status = "网络中断，正在尝试恢复（\(attempts)/3）"
         recoveryTask?.cancel()
         recoveryTask = Task {
             // 1s, 2s, 4s exponential backoff; three consecutive failures bound automatic retries.
@@ -356,6 +360,7 @@ import NormaCore
         localConfiguration = RealtimeLocalConfiguration()
         doubaoTools = false; doubaoReports = false; voiceGatewayEndpoint = nil
         gatewayRequestID = nil; gatewayTicket = nil; reportRetryAfter = 0
+        connectedAt = nil
         callID = nil; toolsStatus = "Mac 工具未连接，暂时只能聊天"
         phase = .idle; userSpeaking = false
     }

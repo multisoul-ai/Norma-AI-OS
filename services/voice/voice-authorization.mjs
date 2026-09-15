@@ -7,7 +7,9 @@ export function verifyVoiceAuthorization(token, env, current = Date.now()) {
     if (parts.length!==3 || parts[0]!=='nva1' || !/^(?:[0-9a-f]{2}){1,1536}$/.test(parts[1]) ||
         !/^(?:[0-9a-f]{2}){64,80}$/.test(parts[2])) return false;
     const payload=Buffer.from(parts[1],'hex'), value=JSON.parse(payload), now=Math.floor(current/1000);
-    if (value.v!==1 || value.aud!==env.PUBLIC_ORIGIN || typeof value.sub!=='string' || !/^[A-Za-z0-9_-]{1,128}$/.test(value.sub) ||
+    // Only this migration accepts the old Mac audience; signature, installation and expiry still apply.
+    const migrated=env.PUBLIC_ORIGIN==='https://soulvoiceai.com/norma/voice' && value.aud==='https://norma-voice.vercel.app';
+    if (value.v!==1 || (value.aud!==env.PUBLIC_ORIGIN && !migrated) || typeof value.sub!=='string' || !/^[A-Za-z0-9_-]{1,128}$/.test(value.sub) ||
         !Number.isSafeInteger(value.iat) || !Number.isSafeInteger(value.exp) ||
         value.iat<0 || value.exp-value.iat!==86400 || value.iat>now+30 || value.exp<=now) return false;
     const certificates=JSON.parse(env.NORMA_VOICE_TRUSTED_CERTIFICATES || '[]');

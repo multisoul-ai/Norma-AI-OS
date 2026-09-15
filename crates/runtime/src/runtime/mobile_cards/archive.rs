@@ -13,13 +13,18 @@ pub(crate) struct ArchiveReads {
 #[derive(Default)]
 struct CodexReader {
     connection: Mutex<Option<Arc<CodexConnection>>>,
-    control: Arc<launch::LaunchControl>,
+    control: Mutex<Arc<launch::LaunchControl>>,
+    #[cfg(test)]
+    connector: Option<Arc<dyn Fn() -> Result<CodexConnection, String> + Send + Sync>>,
     #[cfg(feature = "e2e-test-support")]
     isolated_config: Option<PathBuf>,
 }
 impl Drop for CodexReader {
     fn drop(&mut self) {
-        self.control.cancel();
+        self.control
+            .lock()
+            .expect("Codex archive control poisoned")
+            .cancel();
     }
 }
 impl Drop for ArchiveReads {
@@ -32,7 +37,11 @@ impl ArchiveReads {
         for control in self.pending.drain(..).filter_map(|weak| weak.upgrade()) {
             control.cancel();
         }
-        self.codex.control.cancel();
+        self.codex
+            .control
+            .lock()
+            .expect("Codex archive control poisoned")
+            .cancel();
         self.codex = Arc::new(CodexReader::default());
     }
 }
@@ -69,9 +78,6 @@ impl Runtime {
         let workspace = self.workspace_root.clone().ok_or("project unavailable")?;
         let control = Arc::new(launch::LaunchControl::default());
         self.archive_reads.pending.push(Arc::downgrade(&control));
-        if self.archive_reads.codex.control.is_cancelled() {
-            self.archive_reads.codex = Arc::new(CodexReader::default());
-        }
         Ok(MobileArchiveRead {
             workspace,
             control,
@@ -152,14 +158,37 @@ impl MobileArchiveRead {
                 .connection
                 .lock()
                 .map_err(|_| "Codex reader unavailable")?;
-            if cached.is_none() {
-                *cached = Some(Arc::new(self.connect_codex(deadline)?));
+            if cached
+                .as_ref()
+                .is_none_or(|connection| !connection.is_connected())
+            {
+                let control = {
+                    let mut control = self
+                        .codex
+                        .control
+                        .lock()
+                        .map_err(|_| "Codex reader unavailable")?;
+                    if cached.is_some() || control.is_cancelled() {
+                        control.cancel();
+                        *control = Arc::new(launch::LaunchControl::default());
+                    }
+                    control.clone()
+                };
+                *cached = Some(Arc::new(self.connect_codex(deadline, &control)?));
             }
             cached.as_ref().expect("connected reader").clone()
         })
     }
 
-    fn connect_codex(&self, deadline: Instant) -> Result<CodexConnection, String> {
+    fn connect_codex(
+        &self,
+        deadline: Instant,
+        control: &Arc<launch::LaunchControl>,
+    ) -> Result<CodexConnection, String> {
+        #[cfg(test)]
+        if let Some(connector) = &self.codex.connector {
+            return connector();
+        }
         let directory = tempfile::Builder::new()
             .prefix("norma-codex-archive-")
             .tempdir_in("/tmp")
@@ -185,14 +214,13 @@ impl MobileArchiveRead {
             }
             command
         };
-        self.codex
-            .control
+        control
             .spawn_codex_host(command, directory)
             .map_err(|e| e.to_string())?;
         let result = (|| {
             loop {
                 self.check(deadline)?;
-                if self.codex.control.is_cancelled() {
+                if control.is_cancelled() {
                     return Err("Codex reader closed".into());
                 }
                 if path.exists() {
@@ -203,7 +231,7 @@ impl MobileArchiveRead {
             CodexConnection::connect(&path)
         })();
         if result.is_err() {
-            self.codex.control.cancel();
+            control.cancel();
         }
         result
     }
@@ -286,6 +314,10 @@ impl MobileArchiveRead {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/mobile_codex_archive_reconnect_tests.rs"]
+mod reconnect_tests;
 
 pub(super) fn timeline_boundary(
     page: &Value,

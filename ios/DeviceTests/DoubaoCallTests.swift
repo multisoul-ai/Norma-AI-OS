@@ -102,6 +102,70 @@ import NormaCore
         }) else { throw XCTSkip("原生UI验收未请求") }
         return (try JSONDecoder().decode(GatewayFixture.self, from: Data(contentsOf: url)), directory)
     }
+    /// 短暂接通后立刻断流不能无限清零重试次数，让指挥台一直停在“正在尝试恢复”。
+    /// 数据构造：真实回环网关每次收到首个640bytes/20ms麦克风帧便报告可重试断流。
+    ///   最多4次连接=首次+3次重试；等待上限30s=退避(1+2+4)s+4×(3s音频启动+2s关闭)+3s调度余量。
+    /// 执行过程：主动接通 → 真实采集触发断流 → 自动重试 → 等待明确失败 → 检查媒体释放。
+    /// 预期结果：最终显示可重新接通的失败状态，不能继续恢复、不能遗留媒体或通话意图。
+    func testRepeatedShortConnectionsStopRecovering() async throws {
+        let env = ProcessInfo.processInfo.environment
+        guard env["NORMA_TEST_MODE"] == "doubao-recovery", let path = env["NORMA_TEST_QR"] else {
+            throw XCTSkip("需要显式反复断流回环fixture")
+        }
+        let config = try JSONDecoder().decode(GatewayFixture.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
+        let defaults = UserDefaults.standard
+        let oldGateway = defaults.object(forKey: "realtime-gateway"), oldProvider = defaults.object(forKey: "realtime-provider")
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let call = VoiceCall(discussionURL: temporary.appendingPathComponent("discussions.json"),
+            operationURL: temporary.appendingPathComponent("operations.json"), reportURL: temporary.appendingPathComponent("reports.json"))
+        call.gateway = config.origin; call.provider = .doubao; call.accessToken = "local-doubao-test-passphrase-24chars"
+        defer {
+            call.hangup(); ServiceCredential.remove(for: config.origin)
+            defaults.set(oldGateway, forKey: "realtime-gateway"); defaults.set(oldProvider, forKey: "realtime-provider")
+            try? FileManager.default.removeItem(at: temporary)
+        }
+        call.connect(machine: nil, project: nil)
+        // 300×100ms=30s；真实状态推进，不修改通话内部状态或重试计数。
+        for _ in 0..<300 {
+            if call.state == .failed { break }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        XCTAssertEqual(call.state, .failed, "反复短暂接通应耗尽重试，实际状态：\(call.status)")
+        XCTAssertEqual(call.attempts, 4, "必须是首次加三次重试耗尽，不能以其他失败冒充恢复完成")
+        XCTAssertEqual(call.status, "网络未恢复，点接通重试", "必须明确提示恢复失败和重新接通入口")
+        XCTAssertFalse(call.isCalling, "重试耗尽必须释放通话意图，允许用户重新接通")
+        XCTAssertFalse(call.status.contains("正在尝试恢复"), "不能永远停留在恢复提示，即使提示包含重试次数")
+        XCTAssertNil(call.socket, "重试耗尽后不能保留付费媒体连接")
+        call.hangup(); await call.closingTask?.value
+    }
+
+    /// 只有稳定连接才补充重试预算，短暂接通仍应耗尽预算并释放通话。
+    /// 数据构造：已有3次重试；5s短连接低于30s稳定窗口，31s稳定连接高于30s窗口。
+    ///   30s=2×15s豆包传输/音频就绪预算；通过单调时钟采样时间构造状态，不实际等待。
+    /// 执行过程：5s连接后断流 → 失败 → 手动新接通 → 31s连接后断流 → 新预算第1次重试。
+    /// 预期结果：短连接不能清零；稳定连接允许恢复并显示1/3，不直接结束通话。
+    func testStableReadinessResetsRetryBudget() {
+        let call = VoiceCall()
+        call.gateway = "http://127.0.0.1:1"; call.accessToken = "local-doubao-test-passphrase-24chars"
+        defer { call.hangup() }
+        // 同一个MainActor轮次构造状态并结束，连接Task尚未运行，不触发网络或麦克风。
+        call.connect(machine: nil, project: nil)
+        call.state = .connected; call.attempts = 3
+        call.connectedAt = ProcessInfo.processInfo.systemUptime - 5
+        call.lostConnection()
+        XCTAssertEqual(call.state, .failed, "5s短暂恢复不能重新取得三次重试")
+        XCTAssertFalse(call.isCalling, "短连接耗尽重试后应允许重新接通")
+        call.connect(machine: nil, project: nil)
+        call.state = .connected; call.attempts = 3
+        call.connectedAt = ProcessInfo.processInfo.systemUptime - 31
+        call.lostConnection()
+        XCTAssertEqual(call.state, .reconnecting, "稳定连接后的新故障应有独立恢复预算")
+        XCTAssertEqual(call.attempts, 1, "稳定连接后的恢复应从第一次重试开始")
+        XCTAssertTrue(call.status.contains("1/3"), "指挥台应显示真实恢复进度")
+        XCTAssertTrue(call.isCalling, "首次重试应保留用户的通话意图")
+        XCTAssertNil(call.socket, "旧媒体应在开始退避前释放")
+    }
+
     /// 真实模拟器音频经本机网关双向传输，插话同步播放位置，静音/后台/立即重拨保持正确生命周期。
     /// 数据构造：网关由 Rust L3 runner 在独立回环端口启动；上行 640bytes/20ms，首回复 2s，下一回复 100ms。
     /// 执行过程：接通并实际采集 → 播放中打断 → 等新回复真实播放完 → 两Mac项目选择/拒绝只读 → 静音重连/解除 → 后台保持 → 挂断立即重拨。

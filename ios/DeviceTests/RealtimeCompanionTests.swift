@@ -25,7 +25,7 @@ import NormaCore
     /// 预期结果：不弹Key设置，没有通话/媒体ID/工具连接，前后台不凭空发起通话。
     func testMissingCredentialDoesNotPretendConnected() {
         let call = VoiceCall()
-        call.gateway = "https://norma-voice.vercel.app"
+        call.gateway = "https://soulvoiceai.com/norma/voice"
         call.accessToken = ""
         call.connect(machine: nil, project: nil)
         XCTAssertFalse(call.showSettings, "默认服务不能要求用户填写Key或访问口令")

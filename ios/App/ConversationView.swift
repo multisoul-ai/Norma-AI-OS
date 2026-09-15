@@ -193,24 +193,34 @@ struct ConversationView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { timeline = ConversationTimeline(); error = nil; retry += 1 } label: { Image(systemName: "arrow.clockwise") }
-                    .accessibilityLabel("重新读取对话").disabled(loading)
+                    .accessibilityLabel("重新读取对话")
             }
         }
         .task(id: "\(scenePhase)-\(retry)") {
             clearConnection(); connectionError = nil
             guard scenePhase == .active else { return }
+            // Start the read-only history alongside project discovery. The history endpoint
+            // validates this exact run/session itself; sending still waits for accept(snapshot).
+            if binding == nil, let run = card.runID, let session = card.sessionID {
+                binding = ConversationRequest(workspaceID: workspaceID, routeID: routeID,
+                    nodeID: card.id, runID: run, sessionID: session, cursor: nil)
+            }
+            watchEnabled = binding != nil
             do {
                 for try await update in model.client.projectUpdates(machine, workspaceID: workspaceID) {
                     try Task.checkCancellation()
                     switch update {
                     case .current(let snapshot): try accept(snapshot)
                     case .recovering:
-                        clearConnection(); connectionError = "正在重新连接电脑…"
+                        clearConnection(preservingHistory: true); connectionError = "正在重新连接电脑…"
                     }
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                clearConnection(); connectionError = error.localizedDescription
+                let invalidated = (error as? MobileError).map {
+                    [.unauthorized, .wrongComputer, .invalidCredential, .sessionChanged].contains($0)
+                } ?? false
+                clearConnection(preservingHistory: !invalidated); connectionError = error.localizedDescription
                 if model.selectedID == machine.id, let failure = error as? MobileError,
                    [.unauthorized, .wrongComputer, .invalidCredential].contains(failure) { model.disconnect() }
             }
@@ -225,18 +235,20 @@ struct ConversationView: View {
                     try Task.checkCancellation()
                     switch update {
                     case .current(let page):
+                        // Replace the last verified view only when the fresh stream has a valid page.
+                        if loading { timeline = ConversationTimeline() }
                         if timeline.merge(page, continuing: false) { notice = "已重新同步最近对话，可加载更早的消息。" }
                         else if loading { notice = nil }
                         loading = false; error = nil
                     case .heartbeat: break
                     case .recovering:
                         historyEpoch += 1; paging?.cancel(); paging = nil
-                        timeline = ConversationTimeline(); loading = true; notice = nil
+                        loading = true; notice = "正在重新连接对话…"
                     }
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                loading = false; timeline = ConversationTimeline(); self.error = error.localizedDescription
+                loading = false; notice = nil; timeline = ConversationTimeline(); self.error = error.localizedDescription
                 if (error as? MobileError) == .sessionChanged { clearConnection() }
             }
         }
@@ -261,8 +273,12 @@ struct ConversationView: View {
         } catch { self.error = error.localizedDescription; showStopResult = pendingStop != nil }
     }
 
-    @MainActor private func clearConnection() {
-        project = nil; currentCard = nil; canControl = false; checkedAt = nil; watchEnabled = false
+    @MainActor private func clearConnection(preservingHistory: Bool = false) {
+        // Keep the bound card identity for local drafts and keyboard focus. Only a fresh
+        // verified snapshot can restore actions; reconnecting must not select the old run.
+        project = nil; canControl = false; checkedAt = nil
+        // History has its own pinned connection and run/session/grant checks.
+        if !preservingHistory { watchEnabled = false }
         showStopResult = false; paging?.cancel(); paging = nil
     }
 

@@ -211,3 +211,5 @@ headless GPUI 不等于真实 `.app`；HTML 原型不等于原生页面；模拟
 2026-09-14 / v52：独立Vercel网关改用原生HTTPS供应商流，修复挂断确认被云存储释放竞态吞掉，音频积压保持限流并允许重连。最终生产版本从云端发起三次完整ASR/Chat/PCM、工具及独立播报验收通过；本机网络抖动与Computer Use工具超时仍按实际记录，不宣称物理iPhone或长时稳定性验收完成。证据见[部署记录](2026-09-14-voice-vercel-deployment.md)。
 
 2026-09-14 / v53：原生iOS自动领取已登记Mac签名并连接最终生产豆包网关，HTTP200、WSS就绪和关闭确认均通过；未登记身份对照401。新增runner防止跳过被误记为成功，E2E270/0。Simulator的Computer Use绑定仍超时，Xcode可操作但未能恢复Simulator，因此该点击门禁继续未完成。
+
+2026-09-14 / v54（人物与布局）：按 Apple 内容优先原则改为全宽半身构图，人物区上限340→440pt，相机距离1.30→1.08（相同画布下投影约增大20%），保留头顶并将双手上移；项目菜单收为单行，字幕与提醒保持独立边距，底部操作和大字号滚动沿用原生布局。[真实模拟器截图](../design-docs/assets/norma-realtime/cua-companion-larger-v54.png)。新增尺寸/遮挡断言先红后绿；最终3项原生UI、1项真实资源测试及交互保持器通过，e2e270通过/75显式忽略，diff与仓库护栏通过。Computer Use 成功打开/关闭设置并取得最终构图截图；后续人物坐标点击及横屏补充验收因工具 noWindowsAvailable/timeoutReached 未完成，不将保持器成功等同于这些点击通过。未发布 TestFlight，不改写前序网关 Goal 的状态。

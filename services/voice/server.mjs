@@ -3,7 +3,7 @@ import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import WebSocket, { WebSocketServer } from 'ws';
 import {encodeDoubao2, decodeDoubao2, doubao2Session, doubao2Event} from './doubao2.mjs';
-import {createPlanUpstream} from './plan.mjs';
+import {createPlanUpstream, fetchPlan} from './plan.mjs';
 import {verifyVoiceAuthorization} from './voice-authorization.mjs';
 
 const instructions = '你是 Norma，一位温柔、自然、有自己好奇心的 AI 伙伴。你清楚自己是 AI。用简短、适合语音的中文聊天，认真倾听，不替用户做决定，不鼓励排他依赖。不声称能看到摄像头。用户说话时优先倾听。需要表达情绪或动作时可调用 set_behavior，避免每句话都调用。';
@@ -53,10 +53,12 @@ export function makeGateway({env = process.env, fetchImpl = fetch, upstreamFacto
   const legacy = protocol === '2';
   const plan = protocol === 'plan', planConversation = {id:'',messages:[]};
   const origin = new URL(env.PUBLIC_ORIGIN || 'http://127.0.0.1:8787');
-  if (origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash ||
+  if (origin.username || origin.password || !/^(\/[A-Za-z0-9_-]+)*\/?$/.test(origin.pathname) || origin.search || origin.hash ||
       (origin.protocol !== 'https:' && !(origin.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(origin.hostname)))) {
     throw new Error('PUBLIC_ORIGIN must be HTTPS, or HTTP loopback for development');
   }
+  // Nginx strips the mount path upstream; issued public URLs must retain it.
+  origin.pathname = origin.pathname.replace(/\/$/, '') + '/';
   const tickets = new Map();
   const toolTickets = new Map();
   let lastOwner = '';
@@ -116,7 +118,7 @@ export function makeGateway({env = process.env, fetchImpl = fetch, upstreamFacto
       if (sessionStore) {
         if (!await sessionStore.mint(token,body.resume === true,owner)) return json(res,429,{error:'session_limit'});
       } else tickets.set(token, {owner,expires: now() + 30000, resume: body.resume === true && owner===lastOwner && lastSession.expires > now() ? lastSession.id : ''});
-      const url = new URL('/v1/voice', origin); url.protocol = origin.protocol === 'https:' ? 'wss:' : 'ws:';
+      const url = new URL('v1/voice', origin); url.protocol = origin.protocol === 'https:' ? 'wss:' : 'ws:';
       json(res, 200, {provider: 'doubao', transport: 'websocket', token, expiresAt: Math.floor(now()/1000)+30,
         url: url.href, inputRate: 16000, outputRate: 24000});
     } catch (error) {
@@ -424,7 +426,7 @@ export function makeGateway({env = process.env, fetchImpl = fetch, upstreamFacto
         if (plan && event.type==='gateway.tools.request') {
           if (typeof event.request_id!=='string' || !/^[A-Za-z0-9_-]{1,128}$/.test(event.request_id)) throw Error('invalid_ticket_request');
           toolTickets.delete(toolToken); toolToken=randomBytes(32).toString('base64url');
-          const url=new URL('/v1/tools',origin); url.protocol=origin.protocol==='https:' ? 'wss:' : 'ws:';
+          const url=new URL('v1/tools',origin); url.protocol=origin.protocol==='https:' ? 'wss:' : 'ws:';
           const token=toolToken;
           const deliver=()=>{if (!closing && token===toolToken) sendClient({type:'gateway.tools.ticket',request_id:event.request_id,call_id:mediaID,
             url:url.href,token,expires_at:Math.floor(now()/1000)+30});};
@@ -533,6 +535,6 @@ export function makeGateway({env = process.env, fetchImpl = fetch, upstreamFacto
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const server = makeGateway();
+  const server = makeGateway({fetchImpl:fetchPlan});
   server.listen(Number(process.env.PORT || 8787), process.env.HOST || '127.0.0.1', () => console.log('Norma voice gateway ready'));
 }

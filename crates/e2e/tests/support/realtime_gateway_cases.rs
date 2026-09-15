@@ -5,6 +5,7 @@ use std::sync::atomic::Ordering;
 /// 豆包媒体使用独立短期票据加入Mac工具通道；不能伪装GPT身份或绕过项目权限。
 ///
 /// 数据构造：一个隔离TLS Mac、control手机、doubao_A媒体；票据到期=当前秒+30。
+///   网关挂载/norma/voice，Mac必须保留路径且拒绝错误API尾缀或编码斜杠。
 /// 执行过程：拒绝过期/错协议/错路径/错身份 → 两次绑定同媒体并重放同function。
 /// 预期结果：合法豆包原话只执行一次，回执完全一致；不要求OpenAI长期凭据。
 #[test]
@@ -16,7 +17,7 @@ fn doubao_binding_uses_scoped_ticket_and_durable_receipt() {
         .as_secs()
         + 30;
     let url = format!(
-        "ws://{}/v1/tools",
+        "ws://{}/norma/voice/v1/tools",
         fixture.upstream.local_addr().expect("address")
     );
     let request = |call: &str, generation, url: &str, expiry| {
@@ -57,6 +58,28 @@ fn doubao_binding_uses_scoped_ticket_and_durable_receipt() {
         "不能把凭据放入任意查询地址"
     );
     let mut original = None;
+    assert_eq!(
+        bind(request(
+            "doubao_A",
+            1,
+            &url.replace("/v1/tools", "/v1/voice"),
+            expires
+        ))
+        .1["error"],
+        "invalid_request",
+        "媒体路径不能冒充工具票据"
+    );
+    assert_eq!(
+        bind(request(
+            "doubao_A",
+            1,
+            &url.replace("/norma/voice", "/norma%2Fvoice"),
+            expires
+        ))
+        .1["error"],
+        "invalid_request",
+        "编码斜杠不能由代理二次解码为另一个服务"
+    );
     for generation in [1, 2] {
         let (phone, result) = bind(request("doubao_A", generation, &url, expires));
         assert_eq!(

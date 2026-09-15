@@ -77,9 +77,9 @@ final class AvatarScene: NSObject, SCNSceneRendererDelegate, @unchecked Sendable
             }
         }
         let head = bones["Head"]?.worldPosition ?? SCNVector3(0, 1.35, 0)
-        // 1.65 / 1.30 ≈ 1.27: enlarge the character without pushing subtitles or controls down.
-        camera.position = SCNVector3(head.x, head.y - 0.13, head.z + 1.30)
-        camera.look(at: SCNVector3(head.x, head.y - 0.14, head.z))
+        // 1.30 / 1.08 ≈ 1.20: move in for a half-body portrait; raise the aim to retain the crown.
+        camera.position = SCNVector3(head.x, head.y - 0.085, head.z + 1.08)
+        camera.look(at: SCNVector3(head.x, head.y - 0.095, head.z))
         camera.camera?.fieldOfView = 36
         camera.camera?.zNear = 0.05; camera.camera?.zFar = 20
         scene.rootNode.addChildNode(camera)

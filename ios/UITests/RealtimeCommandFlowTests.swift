@@ -51,16 +51,24 @@ final class RealtimeCommandFlowTests: XCTestCase {
     }
 
     /// 陪伴指挥台替换旧布局，并保留审批记录、项目与任务导航。
-    /// 数据构造：正式 App，无需在线 Mac；仅验证本地入口，不构造通话或执行成功。
+    /// 数据构造：正式 App、标准字号，无需在线 Mac；仅验证本地入口，不构造通话或执行成功。
+    ///   人物区域至少占屏宽95%（两侧总留白≤5%）、屏高44%（874pt屏约385pt），避免退回340pt小框。
     /// 执行过程：打开指挥台 → 查看角色和通话设置 → 查看全部电脑审批/记录 → 切换任务与项目。
     /// 预期结果：真实角色与新控件可访问，旧分段和简报卡不存在，未开聊不显示通话中。
     @MainActor func testCompanionEntryAndSharedDestinations() throws {
         let app = XCUIApplication()
+        app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         app.buttons["workspace-tab-command"].tap()
         // 8s = 场景资源加载余量 5s + 原生导航调度 3s；不作为性能指标。
         XCTAssertTrue(app.buttons["realtime-call-start"].waitForExistence(timeout: 8), "指挥台应提供主动开聊入口")
         XCTAssertTrue(app.otherElements["realtime-avatar"].exists, "必须呈现迁入的真实角色")
+        let avatar = app.otherElements["realtime-avatar"]
+        XCTAssertGreaterThanOrEqual(avatar.frame.width, app.frame.width * 0.95, "人物应接近全宽，不能被文字栏的左右边距压缩")
+        XCTAssertGreaterThanOrEqual(avatar.frame.height, app.frame.height * 0.44, "人物应占据首屏主要区域，不能退回340pt小框")
+        XCTAssertLessThanOrEqual(app.buttons["realtime-project"].frame.maxY, avatar.frame.minY, "项目栏不能覆盖人物")
+        XCTAssertLessThanOrEqual(avatar.frame.maxY, app.staticTexts["realtime-subtitle"].frame.minY, "字幕必须在人物下方，不能覆盖脸部或手势")
+        XCTAssertTrue(app.buttons["command-decision-inbox"].isHittable, "标准字号首屏应能打开待决定，无需先滚动")
         XCTAssertTrue(app.buttons["realtime-project"].exists, "派工绑定项目必须持续可见")
         XCTAssertFalse(app.buttons["command-mode-plan"].exists, "旧行动计划分段必须删除")
         XCTAssertFalse(app.buttons["command-mode-decisions"].exists, "旧决策分段必须删除")

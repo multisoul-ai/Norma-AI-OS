@@ -137,6 +137,7 @@ fn serve(mut stream: TcpStream, origin: &str, stats: &Mutex<Value>, stopped: &At
             json!({"type":"session.created"}).to_string().into(),
         ));
         let mut replied = false;
+        let mut disconnected = false;
         while !stopped.load(Ordering::Relaxed) {
             let text = match ws.read() {
                 Ok(Message::Text(text)) => text,
@@ -159,6 +160,18 @@ fn serve(mut stream: TcpStream, origin: &str, stats: &Mutex<Value>, stopped: &At
                     // 640 PCM bytes become 4 × ceil(640/3) = 856 base64 bytes.
                     if event["audio"].as_str().map(str::len) != Some(856) {
                         increment(stats, "invalid_frames");
+                    }
+                    if stats.lock().expect("stats")["disconnect_on_audio"] == true {
+                        if !disconnected {
+                            disconnected = true;
+                            let _ = ws.send(Message::Text(
+                                json!({"type":"gateway.error",
+                                "error":{"code":"upstream_unavailable","retryable":true}})
+                                .to_string()
+                                .into(),
+                            ));
+                        }
+                        continue;
                     }
                     if !replied
                         && stats.lock().expect("stats")["frames"].as_u64().unwrap_or(0) >= 10
