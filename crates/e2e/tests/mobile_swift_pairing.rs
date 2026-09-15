@@ -68,7 +68,11 @@ fn swift_native_client_pairs_authenticates_and_rejects_wrong_pin() {
                     | app::MobileCommand::InterruptTurn { .. } => {
                         panic!("空卡fixture不能执行Provider消息；使用真实messages测试")
                     }
-                    app::MobileCommand::CreateCard { profile, title } => {
+                    app::MobileCommand::CreateCard {
+                        profile,
+                        title,
+                        definition_id: _,
+                    } => {
                         let profile = match profile {
                             app::MobileProvider::Codex => canvas::AgentProfile::Codex,
                             app::MobileProvider::Claude => canvas::AgentProfile::Claude,

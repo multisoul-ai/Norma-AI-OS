@@ -29,12 +29,12 @@ public struct PendingMobileCommand: Codable, Sendable, Identifiable, Equatable {
         case decidePlanTodo(planID: String, todoIndex: Int, choice: PlanTodoChoice, retryOf: TodoDecisionRef? = nil)
         case generatePlan(direction: String, priority: PlanPriority? = nil)
         case decideApproval(expected: ApprovalTarget, decision: ApprovalDecision)
-        case createCard(profile: String, title: String?)
+        case createCard(profile: String, title: String?, definitionID: Int64?)
         case deleteCard(expected: CardSnapshot, confirmBusy: Bool)
         case sendMessage(expected: CardSnapshot, text: String)
         case queueMessage(expected: CardSnapshot, text: String)
         case interruptTurn(expected: CardSnapshot)
-        enum CodingKeys: String, CodingKey { case input, screenSignature = "screen_signature", inputSequence = "input_sequence", feedback, key, fingerprint, retryOf = "retry_of", planID = "plan_id", todoIndex = "todo_index", choice, type, profile, title, expected, text, decision, direction, priority, confirmBusy = "confirm_busy" }
+        enum CodingKeys: String, CodingKey { case input, screenSignature = "screen_signature", inputSequence = "input_sequence", feedback, key, fingerprint, retryOf = "retry_of", planID = "plan_id", todoIndex = "todo_index", choice, type, profile, title, definitionID = "definition_id", expected, text, decision, direction, priority, confirmBusy = "confirm_busy" }
         public var isTerminal: Bool { if case .terminalInput = self { true } else { false } }
         public var feedback: DeliveryFeedback? { if case let .feedbackDelivery(_, feedback) = self { feedback } else { nil } }
         public var isAcceptance: Bool { if case .acceptDelivery = self { true } else { false } }
@@ -49,7 +49,7 @@ public struct PendingMobileCommand: Codable, Sendable, Identifiable, Equatable {
             switch self { case let .sendMessage(card, text), let .queueMessage(card, text): (card, text); case let .feedbackDelivery(card, feedback): (card, feedback.text); default: nil }
         }
         public var displayName: String {
-            switch self { case .terminalInput: "终端输入"; case .feedbackDelivery: "成果修改意见"; case .acceptDelivery: "成果验收"; case .decidePlanTodo: "下一步决定"; case .generatePlan: "梳理下一步"; case let .decideApproval(target, _): target.profile + " 审批"; case let .createCard(profile, title): title ?? profile; case let .deleteCard(card, _), let .sendMessage(card, _), let .queueMessage(card, _), let .interruptTurn(card): card.title }
+            switch self { case .terminalInput: "终端输入"; case .feedbackDelivery: "成果修改意见"; case .acceptDelivery: "成果验收"; case .decidePlanTodo: "下一步决定"; case .generatePlan: "梳理下一步"; case let .decideApproval(target, _): target.profile + " 审批"; case let .createCard(profile, title, _): title ?? profile; case let .deleteCard(card, _), let .sendMessage(card, _), let .queueMessage(card, _), let .interruptTurn(card): card.title }
         }
         public init(from decoder: any Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -60,7 +60,7 @@ public struct PendingMobileCommand: Codable, Sendable, Identifiable, Equatable {
             case "decide_plan_todo": self = .decidePlanTodo(planID: try values.decode(String.self, forKey: .planID), todoIndex: try values.decode(Int.self, forKey: .todoIndex), choice: try values.decode(PlanTodoChoice.self, forKey: .choice), retryOf: try values.decodeIfPresent(TodoDecisionRef.self, forKey: .retryOf))
             case "generate_plan": self = .generatePlan(direction: try values.decode(String.self, forKey: .direction), priority: try values.decodeIfPresent(PlanPriority.self, forKey: .priority))
             case "decide_approval": self = .decideApproval(expected: try values.decode(ApprovalTarget.self, forKey: .expected), decision: try values.decode(ApprovalDecision.self, forKey: .decision))
-            case "create_card": self = .createCard(profile: try values.decode(String.self, forKey: .profile), title: try values.decodeIfPresent(String.self, forKey: .title))
+            case "create_card": self = .createCard(profile: try values.decode(String.self, forKey: .profile), title: try values.decodeIfPresent(String.self, forKey: .title), definitionID: try values.decodeIfPresent(Int64.self, forKey: .definitionID))
             case "delete_card": self = .deleteCard(expected: try values.decode(CardSnapshot.self, forKey: .expected), confirmBusy: try values.decode(Bool.self, forKey: .confirmBusy))
             case "interrupt_turn": self = .interruptTurn(expected: try values.decode(CardSnapshot.self, forKey: .expected))
             case "queue_message": self = .queueMessage(expected: try values.decode(CardSnapshot.self, forKey: .expected), text: try values.decode(String.self, forKey: .text))
@@ -87,9 +87,10 @@ public struct PendingMobileCommand: Codable, Sendable, Identifiable, Equatable {
                 try values.encodeIfPresent(priority, forKey: .priority)
             case let .decideApproval(expected, decision):
                 try values.encode("decide_approval", forKey: .type); try values.encode(expected, forKey: .expected); try values.encode(decision, forKey: .decision)
-            case let .createCard(profile, title):
+            case let .createCard(profile, title, definitionID):
                 try values.encode("create_card", forKey: .type); try values.encode(profile, forKey: .profile)
                 try values.encodeIfPresent(title, forKey: .title)
+                try values.encodeIfPresent(definitionID, forKey: .definitionID)
             case let .deleteCard(expected, confirmBusy):
                 try values.encode("delete_card", forKey: .type); try values.encode(expected, forKey: .expected)
                 try values.encode(confirmBusy, forKey: .confirmBusy)
@@ -101,9 +102,9 @@ public struct PendingMobileCommand: Codable, Sendable, Identifiable, Equatable {
             }
         }
     }
-    public init(machineID: String, deviceID: String, workspaceID: String, routeID: String, revision: UInt64, profile: String, title: String?, operationID: String = UUID().uuidString) throws {
+    public init(machineID: String, deviceID: String, workspaceID: String, routeID: String, revision: UInt64, profile: String, title: String?, definitionID: Int64? = nil, operationID: String = UUID().uuidString) throws {
         self.machineID = machineID; self.deviceID = deviceID
-        request = Request(operationID: operationID, workspaceID: workspaceID, routeID: routeID, grantRevision: revision, command: .createCard(profile: profile, title: title))
+        request = Request(operationID: operationID, workspaceID: workspaceID, routeID: routeID, grantRevision: revision, command: .createCard(profile: profile, title: title, definitionID: definitionID))
         try validate()
     }
     public init(machineID: String, deviceID: String, workspaceID: String, routeID: String, revision: UInt64, deleting card: CardSnapshot, confirmBusy: Bool, operationID: String = UUID().uuidString) throws {
@@ -147,8 +148,11 @@ public struct PendingMobileCommand: Codable, Sendable, Identifiable, Equatable {
             try target.validate()
             guard let preview = approvalPreview, preview.target == target, preview.decisions.contains(decision) else { throw MobileError.invalidResponse }
             try preview.validate()
-        case let .createCard(profile, title):
+        case let .createCard(profile, title, definitionID):
             guard ["Codex", "Claude"].contains(profile) else { throw MobileError.invalidResponse }
+            if let definitionID {
+                guard definitionID > 0, title != nil else { throw MobileError.invalidResponse }
+            }
             if let title {
                 guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, title.unicodeScalars.count <= 80,
                       !title.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { throw MobileError.invalidResponse }
@@ -345,10 +349,10 @@ extension MobileClient {
         guard let credential = try await vault.load(machineID: machine.id) else { throw MobileError.invalidCredential }
         return try PendingMobileCommand(machineID: machine.id, deviceID: credential.deviceID, workspaceID: workspaceID, routeID: routeID, revision: revision, sending: card, text: text, draftID: draftID)
     }
-    public func prepareCardCreation(_ machine: PairedMachine, workspaceID: String, routeID: String, revision: UInt64, profile: String, title: String?) async throws -> PendingMobileCommand {
+    public func prepareCardCreation(_ machine: PairedMachine, workspaceID: String, routeID: String, revision: UInt64, profile: String, title: String?, definitionID: Int64? = nil) async throws -> PendingMobileCommand {
         try machine.validate()
         guard let credential = try await vault.load(machineID: machine.id) else { throw MobileError.invalidCredential }
-        return try PendingMobileCommand(machineID: machine.id, deviceID: credential.deviceID, workspaceID: workspaceID, routeID: routeID, revision: revision, profile: profile, title: title)
+        return try PendingMobileCommand(machineID: machine.id, deviceID: credential.deviceID, workspaceID: workspaceID, routeID: routeID, revision: revision, profile: profile, title: title, definitionID: definitionID)
     }
     public func prepareCardDeletion(_ machine: PairedMachine, workspaceID: String, routeID: String, revision: UInt64, card: CardSnapshot, confirmBusy: Bool) async throws -> PendingMobileCommand {
         try machine.validate()

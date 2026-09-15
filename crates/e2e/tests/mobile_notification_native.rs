@@ -295,6 +295,19 @@ fn native_notification_lifecycle_and_ui_fixture() {
                     cards
                 });
             }
+            if let Some(agents) = request.agents.take() {
+                let _ = agents.try_send(vec![agent::AgentRosterEntry {
+                    definition_id: 7,
+                    name: "界面助手".into(),
+                    speech_alias: Some("界面助手".into()),
+                    profile: norma::protocol::AgentProfile::Codex,
+                    enabled: true,
+                    active_node_id: None,
+                    tracking: agent::AgentTrackingMode::Managed,
+                    busy: false,
+                    task_state: agent::AgentTaskState::Ready,
+                }]);
+            }
             if pause_chat_project {
                 paused_snapshots.push(request);
             } else {

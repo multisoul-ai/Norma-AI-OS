@@ -97,7 +97,8 @@ fn run(
                 socket,
                 success(
                     &request.request_id,
-                    json!({"status":"project_event","grant":result["grant"].take(),"event":event}),
+                    json!({"status":"project_event","grant":result["grant"].take(),
+                        "agents":result["agents"].take(),"event":event}),
                 ),
             )?;
             sent_at = Instant::now();

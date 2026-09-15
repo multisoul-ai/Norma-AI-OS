@@ -142,6 +142,67 @@ fn test_spawn_agent_for_definition_reuses_single_active_card() {
     runtime.kill_all();
 }
 
+/// iOS 从项目定义创建 Agent 时，卡片应同时保留定义身份与手机控制模式。
+///
+/// 数据构造（含关键数值推导）：
+///   definition_id = 17，名称 = Alan；bounds = 640×400，grid = 80×24。
+///   测试命令 sleep 1 只提供可回收 PTY，不连接真实 Provider。
+///
+/// 执行过程：
+///   1. 通过项目定义专用的手机入口创建 Codex 卡片。
+///   2. 从 document 读取同一 node_id 的 AgentSpec。
+///   3. 回收所有测试子进程。
+///
+/// 预期结果：
+///   - 正断言：definition_id 精确为 17，alias 精确为 Alan。
+///   - 正断言：mobile_control=true，手机后续可以在原卡片发起会话。
+///   - 负断言：卡片不能退化为没有项目定义身份的普通手机卡片。
+#[test]
+fn test_spawn_mobile_agent_for_definition_preserves_control_and_identity() {
+    let mut runtime = Runtime::new();
+    let bounds = CanvasRect::new(0.0, 0.0, 640.0, 400.0);
+    runtime.set_test_agent_spawn_command(PtyCommand::new("/bin/sh").args(["-lc", "sleep 1"]));
+
+    let node_id = runtime
+        .spawn_mobile_agent_card_for_definition(
+            AgentProfile::Codex,
+            17,
+            "Alan".to_string(),
+            bounds,
+            80,
+            24,
+        )
+        .expect("iOS 应能从 definition_id=17 创建可控 Alan 卡片");
+    let node = runtime
+        .document
+        .node(node_id)
+        .expect("创建结果必须指向仍存在的 Agent 节点");
+    let CanvasNodeKind::Agent(spec) = &node.kind else {
+        panic!("项目定义创建结果必须是 Agent 卡片，实际是 {:?}", node.kind);
+    };
+
+    assert_eq!(
+        spec.definition_id,
+        Some(17),
+        "iOS 智能卡片必须保留项目 definition_id"
+    );
+    assert_eq!(
+        spec.alias.as_deref(),
+        Some("Alan"),
+        "iOS 智能卡片必须显示项目定义名称"
+    );
+    assert!(
+        spec.mobile_control,
+        "项目定义卡片仍必须开启手机控制，不能退化为桌面旧会话模式"
+    );
+    assert_ne!(
+        spec.definition_id, None,
+        "项目定义身份不能在手机卡片创建路径中丢失"
+    );
+
+    runtime.kill_all();
+}
+
 /// 活跃 Agent 定义改名时应原位同步唯一卡片标题，不改变 definition 绑定或节点数量。
 ///
 /// 数据构造（含关键数值推导）：

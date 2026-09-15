@@ -72,11 +72,11 @@ final class CardCreationFlowTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ui-created-cards.json").path), "查看、取消和进入聊天都不能创建卡片或派任务")
     }
 
-    /// 原型创建弹层可选类型和名称，无关未决消息不锁住创建，创建自身未决仍防重复。
-    /// 数据构造：隔离只读项目及1条仅保存在手机的未决消息；Codex/Claude空卡投影101/102；第3次服务拒绝。
+    /// 创建弹层可随机选择项目 Agent，也保留手动类型和名称；无关未决消息不锁住创建。
+    /// 数据构造：隔离只读项目、1个未打开的Codex「界面助手」及1条仅保存在手机的未决消息；空卡投影101/102；第3次服务拒绝。
     ///   8s = 2s订阅心跳 + 6s原生导航余量；最多4次滚动覆盖新增卡片与创建入口。
-    /// 执行过程：只读打开弹层 → 升级 → 命名Codex创建 → 底部默认Claude创建 → 拒绝 → 查询清理 → 重开。
-    /// 预期结果：未授权不提交，选类型不自动创建；两张空卡准确命名；未决创建不能重发，查询不重试任务。
+    /// 执行过程：只读打开弹层 → 升级 → 随机选择项目Agent创建 → 底部手动Claude创建 → 拒绝 → 查询清理 → 重开。
+    /// 预期结果：未授权不提交，随机选择不提前创建；首卡绑定definition_id=7，手动卡不绑定；未决创建不能重发。
     @MainActor func testCreateCardFormAndUnrelatedPendingMessage() throws {
         let env = ProcessInfo.processInfo.environment
         guard env["NORMA_TEST_MODE"] == "notification-ui", let path = env["NORMA_TEST_QR"] else { throw XCTSkip("仅隔离卡片fixture") }
@@ -96,11 +96,14 @@ final class CardCreationFlowTests: XCTestCase {
         try Data().write(to: dir.appendingPathComponent("ui-card-management"))
         entry.tap()
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: submit)], timeout: 8), .completed, "正式授权更新后，无关待确认消息不得阻止创建")
-        title.tap(); title.typeText("界面助手")
-        app.buttons["new-card-dismiss-keyboard"].tap()
-        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "名称输入后必须能关闭键盘")
+        XCTAssertTrue(app.buttons["new-card-project-agent"].exists, "项目定义必须出现在原生选择菜单")
+        let random = app.buttons["new-card-random-agent"]
+        XCTAssertTrue(random.exists, "有可用项目定义时必须提供随机选取")
+        random.tap()
+        XCTAssertEqual(title.value as? String, "界面助手", "单一候选的随机结果必须准确回填名称")
+        XCTAssertTrue(app.staticTexts["new-card-selected-definition"].exists, "选中后必须清楚说明将绑定项目 Agent")
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "create-card-form"; shot.lifetime = .keepAlways; add(shot)
-        XCTAssertFalse(app.buttons["agent-card-101"].exists, "填写名称和选择类型都不能提前创建")
+        XCTAssertFalse(app.buttons["agent-card-101"].exists, "随机选择和回填名称都不能提前创建")
         submit.tap()
         let first = app.buttons["agent-card-101"]
         XCTAssertTrue(first.waitForExistence(timeout: 8), "明确创建后应回到看板")
@@ -121,7 +124,9 @@ final class CardCreationFlowTests: XCTestCase {
         let requests = try JSONSerialization.jsonObject(with: Data(contentsOf: dir.appendingPathComponent("ui-created-cards.json"))) as? [[String: Any]]
         XCTAssertEqual(requests?.count, 2, "每次确认只能创建一张")
         XCTAssertEqual(requests?.first?["title"] as? String, "界面助手", "不能丢失可选名称")
+        XCTAssertEqual(requests?.first?["definition_id"] as? Int, 7, "随机选择必须发送稳定项目定义，不得只发送同名标题")
         XCTAssertTrue(requests?.last?["title"] is NSNull, "留空让电脑分配默认名称")
+        XCTAssertTrue(requests?.last?["definition_id"] is NSNull, "手动新建必须保留原有的无定义语义")
         try Data().write(to: dir.appendingPathComponent("ui-create-reject"))
         for _ in 0..<4 where !entry.isHittable { app.swipeDown() }
         entry.tap(); submit.tap()

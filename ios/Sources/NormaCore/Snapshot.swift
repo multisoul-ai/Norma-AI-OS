@@ -40,6 +40,35 @@ public struct CardSnapshot: Codable, Sendable, Identifiable, Equatable {
     }
 }
 
+public struct ProjectAgentDefinition: Decodable, Sendable, Identifiable, Equatable {
+    public let definitionID: Int64
+    public let name: String
+    public let speechAlias: String?
+    public let profile: String
+    public let enabled: Bool
+    public let activeNodeID: UInt64?
+    public let busy: Bool
+    public var id: Int64 { definitionID }
+    public var isCreatableOnIOS: Bool {
+        enabled && activeNodeID == nil && ["Codex", "Claude"].contains(profile)
+    }
+    enum CodingKeys: String, CodingKey {
+        case definitionID = "definition_id", name, speechAlias = "speech_alias", profile, enabled
+        case activeNodeID = "active_node_id", busy
+    }
+    func validate() throws {
+        let validText = { (value: String, limit: Int) in
+            !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && value.unicodeScalars.count <= limit
+                && !value.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
+        }
+        guard definitionID > 0, validText(name, 256),
+              ["Codex", "Claude", "Cursor", "Grok", "OpenCode"].contains(profile),
+              activeNodeID.map({ $0 > 0 }) ?? true,
+              speechAlias.map({ validText($0, 256) }) ?? true else { throw MobileError.invalidResponse }
+    }
+}
+
 public struct TaskProgress: Codable, Sendable, Equatable {
     public let completed: Int
     public let total: Int
@@ -81,13 +110,17 @@ public struct ProjectSnapshot: Decodable, Sendable, Identifiable, Equatable {
 public struct MachineSnapshot: Sendable {
     public let grant: DeviceGrant
     public let projects: [ProjectSnapshot]
+    public let agentDefinitions: [ProjectAgentDefinition]
+    public var creatableAgentDefinitions: [ProjectAgentDefinition] {
+        agentDefinitions.filter(\.isCreatableOnIOS)
+    }
 
     init(reply: WireReply, deviceID: String, workspaceID: String?) throws {
-        guard reply.result?.status == "snapshot", let grant = reply.result?.grant,
-              let projects = reply.result?.projects else { throw MobileError.invalidResponse }
-        try self.init(grant: grant, projects: projects, deviceID: deviceID, workspaceID: workspaceID)
+        guard let result = reply.result, result.status == "snapshot", let grant = result.grant,
+              let projects = result.projects else { throw MobileError.invalidResponse }
+        try self.init(grant: grant, projects: projects, agentDefinitions: result.agents ?? [], deviceID: deviceID, workspaceID: workspaceID)
     }
-    init(grant: DeviceGrant, projects: [ProjectSnapshot], deviceID: String, workspaceID: String?) throws {
+    init(grant: DeviceGrant, projects: [ProjectSnapshot], agentDefinitions: [ProjectAgentDefinition] = [], deviceID: String, workspaceID: String?) throws {
         try grant.validate(deviceID: deviceID)
         let allowed = Set(grant.projects.map(\.workspaceID))
         if let workspaceID, !allowed.contains(workspaceID) { throw MobileError.unauthorized }
@@ -96,7 +129,14 @@ public struct MachineSnapshot: Sendable {
             throw MobileError.invalidResponse
         }
         try projects.forEach { try $0.validate(includeCards: workspaceID != nil) }
-        self.grant = grant; self.projects = projects
+        guard workspaceID != nil || agentDefinitions.isEmpty,
+              agentDefinitions.count <= 256,
+              Set(agentDefinitions.map(\.id)).count == agentDefinitions.count,
+              Set(agentDefinitions.map { $0.name.lowercased() }).count == agentDefinitions.count else {
+            throw MobileError.invalidResponse
+        }
+        try agentDefinitions.forEach { try $0.validate() }
+        self.grant = grant; self.projects = projects; self.agentDefinitions = agentDefinitions
     }
 }
 

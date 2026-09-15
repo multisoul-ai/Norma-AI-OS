@@ -97,6 +97,10 @@ fn realtime_snapshot_includes_unopened_agents_without_starting_them() {
         "未打开卡片的已有 Agent 不能从名单消失"
     );
     assert_eq!(
+        snapshot["result"]["agents"][0]["definition_id"], 1,
+        "手机必须拿到项目定义的稳定身份，不能只按显示名称猜测"
+    );
+    assert_eq!(
         snapshot["result"]["agents"][0]["enabled"], true,
         "执行可用性必须来自原项目定义"
     );
@@ -122,4 +126,191 @@ fn realtime_snapshot_includes_unopened_agents_without_starting_them() {
         0,
         "读取概况不得派发任务"
     );
+}
+
+/// 手机按项目 Agent 的稳定定义创建卡片，不能退化成同名的临时手机卡。
+///
+/// 数据构造：当前项目仅定义 1 个未打开的 Codex「开发甲」，手机拥有 control revision=1。
+/// 执行过程：先从真实快照读取 definition_id，再通过 WSS 创建该定义的卡片；随后重复请求同一定义。
+/// 预期结果：首次回执成功，卡片同时保留 definition_id、名称和 mobile_control；定义已激活后第二次明确拒绝，节点不增加。
+#[test]
+fn mobile_creates_phone_controlled_card_from_project_agent_definition() {
+    let mut test = TestAppContext::single();
+    let sockets = tempfile::tempdir().expect("独占路由");
+    test.update(|cx| {
+        app::install_norma_endpoint_for_e2e(sockets.path().join("norma.sock"), cx).expect("路由")
+    });
+    let (app, cx) = make_app(&mut test, echo_factory());
+    let workspace = tempfile::tempdir().expect("项目");
+    let definition_id = cx.update(|window, cx| {
+        app.update(cx, |app, cx| {
+            app.enter_canvas_and_register_norma_route_for_e2e(workspace.path(), window, cx);
+            match app
+                .execute_agent_card_command_for_e2e(
+                    window,
+                    CardCommand::CreateAgent {
+                        name: Some("开发甲".into()),
+                        profile: AgentProfile::Codex,
+                        activate: false,
+                    },
+                )
+                .expect("仅创建项目 Agent 定义")
+            {
+                norma::protocol::CardCommandResult::AgentCreated {
+                    definition_id,
+                    node_id: None,
+                    ..
+                } => definition_id,
+                other => panic!("未激活定义必须返回 definition_id 且没有节点，实际：{other:?}"),
+            }
+        })
+    });
+    let (path, snapshots, commands) = app.read_with(cx, |app, cx| {
+        (
+            app.app_database_path_for_e2e(),
+            app.mobile_snapshot_source_for_e2e(cx),
+            app.mobile_command_source_for_e2e(cx),
+        )
+    });
+    let store = AppStore::new(path);
+    let project = store
+        .workspace_identity_store()
+        .resolve_or_create(workspace.path(), "项目甲")
+        .expect("项目身份")
+        .workspace_id;
+    let token = "b".repeat(64);
+    store
+        .mobile_access_store()
+        .register(
+            "phone-create-agent",
+            "创建卡片手机",
+            &token,
+            &[MobileProjectAccess {
+                workspace_id: project.clone(),
+                access: MobilePermission::Control,
+            }],
+        )
+        .expect("控制授权");
+    let identity = norma::mobile::ServerIdentity::generate().expect("TLS 身份");
+    let certificate = identity.certificate_der().to_vec();
+    let machine = identity.machine_id();
+    let server = MobileServer::start_with_sources(
+        MobileAccess::with_identity_for_e2e(store, identity),
+        vec!["127.0.0.1:0".parse().expect("回环")],
+        snapshots,
+        commands,
+    )
+    .expect("真实命令服务");
+    let snapshot = crate::e2e_mobile_snapshot::fetch_action(
+        cx,
+        &server,
+        &certificate,
+        &machine,
+        json!({"type":"snapshot","device_id":"phone-create-agent","token":token,"workspace_id":project}),
+    );
+    assert_eq!(
+        snapshot["result"]["agents"][0]["definition_id"], definition_id,
+        "创建前必须从当前项目快照读取准确的稳定定义"
+    );
+    let route = snapshot["result"]["projects"][0]["route_id"]
+        .as_str()
+        .expect("当前项目路由")
+        .to_owned();
+    let command = |operation: &str| {
+        json!({"type":"command","device_id":"phone-create-agent","token":token,"request":{
+            "operation_id":operation,"workspace_id":project,"route_id":route,"grant_revision":1,
+            "command":{"type":"create_card","profile":"Codex","title":"开发甲","definition_id":definition_id}
+        }})
+    };
+    let accepted = crate::e2e_mobile_snapshot::fetch_action(
+        cx,
+        &server,
+        &certificate,
+        &machine,
+        command("create-project-agent"),
+    );
+    assert_eq!(
+        accepted["result"]["status"], "receipt",
+        "创建应进入持久回执"
+    );
+    let receipt = |cx: &mut _| {
+        crate::e2e_mobile_snapshot::fetch_action(
+            cx,
+            &server,
+            &certificate,
+            &machine,
+            json!({"type":"receipt","device_id":"phone-create-agent","token":token,
+                "workspace_id":project,"operation_id":"create-project-agent"}),
+        )
+    };
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let created = loop {
+        let value = receipt(cx);
+        if value["result"]["receipt"]["state"] != "accepted" {
+            break value;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "项目 Agent 卡片必须在保存后有界完成"
+        );
+    };
+    assert_eq!(
+        created["result"]["receipt"]["state"], "succeeded",
+        "项目定义有效时必须创建成功"
+    );
+    let node_id = created["result"]["receipt"]["result"]["node_id"]
+        .as_u64()
+        .expect("准确节点");
+    assert!(
+        read_runtime(&app, cx, |runtime| {
+            matches!(
+                runtime.document.node(node_id).map(|node| &node.kind),
+                Some(canvas::CanvasNodeKind::Agent(spec))
+                    if spec.definition_id == Some(definition_id)
+                        && spec.alias.as_deref() == Some("开发甲")
+                        && spec.mobile_control
+            )
+        }),
+        "创建结果必须同时绑定项目定义并保留手机控制能力"
+    );
+    let _ = crate::e2e_mobile_snapshot::fetch_action(
+        cx,
+        &server,
+        &certificate,
+        &machine,
+        command("duplicate-project-agent"),
+    );
+    let duplicate_query = json!({"type":"receipt","device_id":"phone-create-agent","token":token,
+        "workspace_id":project,"operation_id":"duplicate-project-agent"});
+    let duplicate = loop {
+        let value = crate::e2e_mobile_snapshot::fetch_action(
+            cx,
+            &server,
+            &certificate,
+            &machine,
+            duplicate_query.clone(),
+        );
+        if value["result"]["receipt"]["state"] != "accepted" {
+            break value;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "重复激活必须有界返回拒绝"
+        );
+    };
+    assert_eq!(
+        duplicate["result"]["receipt"]["state"], "rejected",
+        "同一项目定义已激活后不能再创建第二张卡"
+    );
+    assert_eq!(
+        duplicate["result"]["receipt"]["error"], "create_failed",
+        "定义不可用时应返回稳定错误"
+    );
+    assert_eq!(
+        read_runtime(&app, cx, |runtime| runtime.document.nodes().len()),
+        1,
+        "拒绝重复激活后节点数量不能增加"
+    );
+    server.shutdown();
+    app.update(cx, |app, _| app.runtime.kill_all());
 }

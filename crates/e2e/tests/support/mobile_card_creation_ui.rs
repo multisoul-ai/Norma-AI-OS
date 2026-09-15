@@ -15,6 +15,8 @@ impl Fixture {
         if std::env::var_os("NORMA_CARD_CREATION_UI").is_none() {
             return (sources, None);
         }
+        fs::write(dir.join("ui-card-creation"), b"")
+            .expect("显式创建验收必须向原生测试声明fixture能力");
         assert!(
             sources.commands.is_none(),
             "创建与审批fixture不可混用命令源"
@@ -53,7 +55,12 @@ impl Fixture {
                 "创建不得跨窗口"
             );
             assert!(call.lease.begin(), "正式执行租约必须先确认");
-            let MobileCommand::CreateCard { profile, title } = &call.request.command else {
+            let MobileCommand::CreateCard {
+                profile,
+                title,
+                definition_id,
+            } = &call.request.command
+            else {
                 panic!("选择Agent不能发送任务或其他指令");
             };
             let reject = dir.join("ui-create-reject");
@@ -71,7 +78,7 @@ impl Fixture {
                 .runtime
                 .create_mobile_agent_card(
                     agent,
-                    None,
+                    *definition_id,
                     title.clone(),
                     canvas::CanvasRect::new(0., 0., 640., 400.),
                 )
@@ -92,7 +99,7 @@ impl Fixture {
             assert!(card.task_title.is_none(), "空卡不能自动安排目标");
             assert!(card.session_id.is_none(), "空卡不能伪造执行会话");
             self.requests
-                .push(json!({"profile":profile,"title":title,"node_id":node+100}));
+                .push(json!({"profile":profile,"title":title,"definition_id":definition_id,"node_id":node+100}));
             fs::write(
                 dir.join("ui-created-cards.json"),
                 serde_json::to_vec(&self.requests).expect("编码"),

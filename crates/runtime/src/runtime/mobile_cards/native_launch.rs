@@ -85,7 +85,42 @@ impl Runtime {
         cols: u16,
         rows: u16,
     ) -> Result<NodeId, PtyError> {
-        let node = self.create_mobile_agent_card(profile, None, alias, bounds)?;
+        self.spawn_mobile_agent_card_with_identity(profile, None, alias, bounds, cols, rows)
+    }
+
+    /// Create a phone-controlled card that retains its project Agent definition identity.
+    pub fn spawn_mobile_agent_card_for_definition(
+        &mut self,
+        profile: AgentProfile,
+        definition_id: i64,
+        alias: String,
+        bounds: CanvasRect,
+        cols: u16,
+        rows: u16,
+    ) -> Result<NodeId, PtyError> {
+        if definition_id <= 0 {
+            return Err(control_error("agent definition id must be positive"));
+        }
+        self.spawn_mobile_agent_card_with_identity(
+            profile,
+            Some(definition_id),
+            Some(alias),
+            bounds,
+            cols,
+            rows,
+        )
+    }
+
+    fn spawn_mobile_agent_card_with_identity(
+        &mut self,
+        profile: AgentProfile,
+        definition_id: Option<i64>,
+        alias: Option<String>,
+        bounds: CanvasRect,
+        cols: u16,
+        rows: u16,
+    ) -> Result<NodeId, PtyError> {
+        let node = self.create_mobile_agent_card(profile, definition_id, alias, bounds)?;
         if let Err(error) = self.start_native_agent_terminal(node, cols, rows) {
             self.document.remove_node(node);
             return Err(error);

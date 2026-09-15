@@ -91,13 +91,15 @@ extension MobileClient {
                             var data = try await connection.exchange(body)
                             var timeline = ProjectTimeline(workspaceID: workspaceID)
                             var revision: UInt64?
+                            var agentDefinitions: [ProjectAgentDefinition] = []
                             while !Task.isCancelled {
                                 let reply = try WireReply.decode(data, expectedID: id)
                                 guard reply.result?.status == "project_event", let event = reply.result?.event,
                                       let grant = reply.result?.grant else { throw MobileError.invalidResponse }
                                 if let revision, revision != grant.revision { throw MobileError.grantChanged }
                                 let project = try timeline.apply(event)
-                                let snapshot = try MachineSnapshot(grant: grant, projects: [project], deviceID: credential.deviceID, workspaceID: workspaceID)
+                                if let agents = reply.result?.agents { agentDefinitions = agents }
+                                let snapshot = try MachineSnapshot(grant: grant, projects: [project], agentDefinitions: agentDefinitions, deviceID: credential.deviceID, workspaceID: workspaceID)
                                 revision = grant.revision
                                 try emit(.current(snapshot), to: continuation)
                                 data = try await connection.receive()

@@ -41,9 +41,30 @@ impl MultisoulApp {
         &mut self,
         profile: canvas::AgentProfile,
         title: Option<String>,
+        definition_id: Option<i64>,
         window: Option<&mut Window>,
         cx: &mut Context<Self>,
     ) -> Result<NodeId, terminal::PtyError> {
+        let definition = definition_id
+            .map(|id| {
+                self.agent_definitions
+                    .definitions()
+                    .iter()
+                    .find(|definition| definition.id == id)
+                    .filter(|definition| {
+                        definition.enabled
+                            && definition.runtime_profile == profile
+                            && title.as_deref() == Some(definition.name.as_str())
+                            && !self.runtime.has_active_agent_definition(id)
+                    })
+                    .cloned()
+                    .ok_or_else(|| {
+                        terminal::PtyError::Spawn(
+                            "project Agent definition changed or is unavailable".into(),
+                        )
+                    })
+            })
+            .transpose()?;
         let area = self.mobile_canvas_area(window);
         let zoom = self.runtime.document.viewport.zoom;
         let bounds = resolve_bounds(
@@ -53,9 +74,19 @@ impl MultisoulApp {
             self.layout_strategy,
             self.runtime.document.nodes().len(),
         );
-        let node = self
-            .runtime
-            .spawn_mobile_agent_card(profile, title, bounds, 80, 24)?;
+        let node = match definition {
+            Some(definition) => self.runtime.spawn_mobile_agent_card_for_definition(
+                profile,
+                definition.id,
+                definition.name,
+                bounds,
+                80,
+                24,
+            )?,
+            None => self
+                .runtime
+                .spawn_mobile_agent_card(profile, title, bounds, 80, 24)?,
+        };
         apply_layout_for_new_node_or_master(
             &mut self.master_layout,
             &mut self.runtime,

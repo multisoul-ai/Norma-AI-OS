@@ -122,7 +122,7 @@ pub(super) fn read_until(
     let agents =
         roster.try_recv().ok().map(|entries| {
             entries.into_iter().map(|entry| {
-        json!({"name":entry.name,"speech_alias":entry.speech_alias,"profile":entry.profile,
+        json!({"definition_id":entry.definition_id,"name":entry.name,"speech_alias":entry.speech_alias,"profile":entry.profile,
             "enabled":entry.enabled,"active_node_id":entry.active_node_id,"busy":entry.busy})
     }).collect::<Vec<_>>()
         });

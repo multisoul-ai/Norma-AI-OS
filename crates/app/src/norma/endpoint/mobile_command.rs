@@ -118,13 +118,18 @@ pub(super) fn execute_now(database: PathBuf, call: LiveCommandRequest, cx: &mut 
                         cx,
                     )
                     .map(Started::Durable),
-                    MobileCommand::CreateCard { profile, title } => app
+                    MobileCommand::CreateCard {
+                        profile,
+                        title,
+                        definition_id,
+                    } => app
                         .create_mobile_card_in_canvas(
                             match profile {
                                 MobileProvider::Codex => canvas::AgentProfile::Codex,
                                 MobileProvider::Claude => canvas::AgentProfile::Claude,
                             },
                             title.clone(),
+                            *definition_id,
                             window.as_deref_mut(),
                             cx,
                         )

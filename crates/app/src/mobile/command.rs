@@ -64,6 +64,8 @@ pub enum MobileCommand {
     CreateCard {
         profile: MobileProvider,
         title: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        definition_id: Option<i64>,
     },
     DeleteCard {
         expected: norma::mobile::CardSnapshot,
@@ -395,8 +397,13 @@ fn validate(request: &MobileCommandRequest) -> Result<(), &'static str> {
         MobileCommand::DecideApproval { expected, .. } if !expected.valid() => {
             Err("invalid_request")
         }
-        MobileCommand::CreateCard { title, .. }
-            if title.as_ref().is_some_and(|t| {
+        MobileCommand::CreateCard {
+            title,
+            definition_id,
+            ..
+        } if definition_id.is_some_and(|id| id <= 0)
+            || definition_id.is_some() && title.is_none()
+            || title.as_ref().is_some_and(|t| {
                 t.trim().is_empty() || t.chars().count() > 80 || t.chars().any(char::is_control)
             }) =>
         {

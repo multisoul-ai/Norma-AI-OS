@@ -13,6 +13,7 @@ struct ProjectCardsView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .headline) private var projectTitleSize = 20
     @State private var project: ProjectSnapshot?
+    @State private var agentDefinitions: [ProjectAgentDefinition] = []
     @State private var loading = false
     @State private var error: String?
     @State private var generation = 0
@@ -154,10 +155,14 @@ struct ProjectCardsView: View {
         .sheet(isPresented: $showingCreation) {
             NewCardView(projectName: project?.displayName ?? name, unavailable: creationUnavailable,
                         busy: creatingProfile != nil, notice: creationNotice, pending: pendingCreation,
-                        model: model, machine: machine, project: project, revision: revision) { profile, title in
+                        model: model, machine: machine, project: project,
+                        agentDefinitions: agentDefinitions, revision: revision) { profile, title, definitionID in
                 guard let project else { return }
                 let expectedRevision = revision
-                creationWork = Task { await createCard(profile, title: title, in: project, revision: expectedRevision) }
+                creationWork = Task {
+                    await createCard(profile, title: title, definitionID: definitionID,
+                                     in: project, revision: expectedRevision)
+                }
             }
         }
         .sheet(item: $options, onDismiss: { showingConversation = conversation != nil }) { selection in
@@ -179,7 +184,7 @@ struct ProjectCardsView: View {
         .task(id: "\(scenePhase)-\(retry)-\(active)") {
             generation += 1
             let requestGeneration = generation
-            project = nil; canCreate = false; error = nil
+            project = nil; agentDefinitions = []; canCreate = false; error = nil
             guard scenePhase == .active && active else { loading = false; options = nil; return }
             loading = true
             do {
@@ -196,10 +201,11 @@ struct ProjectCardsView: View {
                         }
                         if let options, fresh?.cards?.contains(where: { $0.id == options.id }) != true { self.options = nil }
                         project = fresh; error = nil; loading = false
+                        agentDefinitions = result.agentDefinitions
                         revision = result.grant.revision
                         canCreate = result.grant.projects.contains { $0.workspaceID == workspaceID && $0.access == "control" }
                     case .recovering:
-                        project = nil; canCreate = false; options = nil
+                        project = nil; agentDefinitions = []; canCreate = false; options = nil
                         error = "正在重新连接电脑…"; loading = true
                     }
                 }
@@ -209,7 +215,7 @@ struct ProjectCardsView: View {
                    [.unauthorized, .wrongComputer, .invalidCredential].contains(failure) {
                     model.disconnect()
                 }
-                project = nil; loading = false; canCreate = false; options = nil
+                project = nil; agentDefinitions = []; loading = false; canCreate = false; options = nil
                 self.error = error.localizedDescription
             }
         }
@@ -249,7 +255,8 @@ struct ProjectCardsView: View {
         if filtering { Button("清除筛选", action: clearFilters) }
     }
 
-    @MainActor private func createCard(_ profile: String, title: String?, in expected: ProjectSnapshot, revision expectedRevision: UInt64) async {
+    @MainActor private func createCard(_ profile: String, title: String?, definitionID: Int64?,
+                                       in expected: ProjectSnapshot, revision expectedRevision: UInt64) async {
         guard canCreate, creatingProfile == nil, pendingCreation == nil, scenePhase == .active,
               model.selectedID == machine.id, expected.state == "open",
               let route = expected.routeID, project?.routeID == route, revision == expectedRevision else { return }
@@ -258,7 +265,7 @@ struct ProjectCardsView: View {
         defer { creatingProfile = nil }
         do {
             let command = try await model.client.prepareCardCreation(machine, workspaceID: workspaceID, routeID: route,
-                revision: expectedRevision, profile: profile, title: title)
+                revision: expectedRevision, profile: profile, title: title, definitionID: definitionID)
             try Task.checkCancellation()
             guard context == generation, canCreate, project?.routeID == route, revision == expectedRevision else { return }
             try await model.commandStore.save(command)

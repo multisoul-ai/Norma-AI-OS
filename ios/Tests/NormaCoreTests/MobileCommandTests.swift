@@ -2,6 +2,50 @@ import XCTest
 @testable import NormaCore
 
 final class MobileCommandTests: XCTestCase {
+    /// 从项目定义创建卡片时，iOS 必须把稳定 definition_id 与用户看到的名称一并保存和发送。
+    ///
+    /// 数据构造：definition_id=7、Codex、名称 Alan；另构造 definition_id=0 的非法请求。
+    /// 执行过程：构造未决命令 → JSON 往返 → 检查关联身份 → 尝试非法 ID。
+    /// 预期结果：合法请求精确保留 definition_id；零 ID 被拒绝，不能退化为同名普通卡片。
+    func testProjectDefinitionCardCreationPreservesStableIdentity() throws {
+        let pending = try PendingMobileCommand(
+            machineID: "mac-" + String(repeating: "a", count: 64),
+            deviceID: "phone-a",
+            workspaceID: "project-a",
+            routeID: "route-a",
+            revision: 2,
+            profile: "Codex",
+            title: "Alan",
+            definitionID: 7,
+            operationID: "create-definition-a"
+        )
+        let data = try JSONEncoder().encode(pending)
+        let reopened = try JSONDecoder().decode(PendingMobileCommand.self, from: data)
+
+        XCTAssertEqual(reopened, pending, "项目定义创建命令必须可持久化并精确恢复")
+        if case let .createCard(profile, title, definitionID) = reopened.request.command {
+            XCTAssertEqual(profile, "Codex", "创建必须保留项目定义的 Provider")
+            XCTAssertEqual(title, "Alan", "创建必须保留用户选择时看到的定义名称")
+            XCTAssertEqual(definitionID, 7, "创建必须使用稳定 definition_id，不能只靠可变名称猜测")
+        } else {
+            XCTFail("项目定义请求必须编码为 create_card")
+        }
+        XCTAssertTrue(String(decoding: data, as: UTF8.self).contains(#""definition_id":7"#), "线上命令必须发送 definition_id")
+        XCTAssertThrowsError(
+            try PendingMobileCommand(
+                machineID: pending.machineID,
+                deviceID: pending.deviceID,
+                workspaceID: "project-a",
+                routeID: "route-a",
+                revision: 2,
+                profile: "Codex",
+                title: "Alan",
+                definitionID: 0
+            ),
+            "零 definition_id 不能被当作普通同名卡片创建"
+        )
+    }
+
     /// 原生卡片可构造删除请求，但未知状态、缺少运行确认和未支持Provider不能通过。
     ///
     /// 数据构造：node=7的原生Claude空卡，mobile_control=false；32字节哈希编码为64字符机器身份。

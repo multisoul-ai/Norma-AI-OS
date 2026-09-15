@@ -36,4 +36,24 @@ final class WireTests: XCTestCase {
         XCTAssertThrowsError(try read(Data(text.replacingOccurrences(of: #""card_count":1"#, with: #""card_count":2"#).utf8)), "不能把缺一张卡的快照当完整列表")
         XCTAssertThrowsError(try read(Data(text.replacingOccurrences(of: #""state":"open""#, with: #""state":"closed""#).utf8)), "关闭项目不得携带仍然可操作的卡片快照")
     }
+
+    /// 单项目快照应携带可供 iOS 创建卡片的项目 Agent 定义，并过滤不可创建项。
+    ///
+    /// 数据构造：4 个项目定义分别覆盖可用、已开卡、已禁用和 iOS 暂不支持的 Provider。
+    /// 执行过程：解码真实 snapshot 顶层 agents → 读取全部定义 → 计算可创建候选。
+    /// 预期结果：完整保留 4 条服务端定义；候选只包含启用、未开卡且使用 Codex/Claude 的 Alan。
+    func testSnapshotExposesCreatableProjectAgentDefinitions() throws {
+        let raw = Data(#"{"version":1,"request_id":"read-agents","result":{"status":"snapshot","grant":{"device_id":"phone-a","device_name":"iPhone","projects":[{"workspace_id":"project-a","access":"control"}],"revision":2,"revoked":false},"projects":[{"workspace_id":"project-a","display_name":"Norma","state":"open","route_id":"route-a","card_count":0,"cards":[]}],"agents":[{"definition_id":7,"name":"Alan","speech_alias":"艾伦","profile":"Codex","enabled":true,"active_node_id":null,"busy":false},{"definition_id":8,"name":"Bella","speech_alias":"贝拉","profile":"Claude","enabled":true,"active_node_id":9,"busy":false},{"definition_id":9,"name":"Bruno","speech_alias":"布鲁诺","profile":"Codex","enabled":false,"active_node_id":null,"busy":false},{"definition_id":10,"name":"Chloe","speech_alias":"克洛伊","profile":"Cursor","enabled":true,"active_node_id":null,"busy":false}]}}"#.utf8)
+
+        let snapshot = try MachineSnapshot(
+            reply: WireReply.decode(raw, expectedID: "read-agents"),
+            deviceID: "phone-a",
+            workspaceID: "project-a"
+        )
+
+        XCTAssertEqual(snapshot.agentDefinitions.count, 4, "单项目快照必须保留服务端返回的全部 Agent 定义")
+        XCTAssertEqual(snapshot.creatableAgentDefinitions.map(\.name), ["Alan"], "候选必须排除已开卡、禁用和 iOS 暂不支持的定义")
+        XCTAssertEqual(snapshot.creatableAgentDefinitions.first?.speechAlias, "艾伦", "候选应保留项目定义的语音别名用于解释身份")
+        XCTAssertFalse(snapshot.creatableAgentDefinitions.contains(where: { $0.name == "Bella" }), "已有活动卡片的定义不能再次创建")
+    }
 }
