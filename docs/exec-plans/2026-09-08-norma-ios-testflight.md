@@ -1,6 +1,16 @@
 # Norma iOS TestFlight发布记录
 
-更新时间：2026-09-15。当前状态：**0.1.0（38）已进入现有「Norma 内测」组，可安装**；Apple 回读确认 VALID / IN_BETA_TESTING、未过期，中文说明一致。
+更新时间：2026-09-16。当前状态：**0.1.0（41）已进入现有「Norma 内测」组，可安装**；Apple 回读确认 VALID / IN_BETA_TESTING、未过期，中文说明一致。构建 39、40 已上传并 VALID，但未在本文档单独记录。
+
+## 项目 Agent 卡片与 Cursor 支持 · TestFlight 0.1.0（41）（2026-09-16）
+
+按用户"打包桌面并发布 TestFlight"授权发布。相对构建 40 的 iOS 差异为三个提交（`75d51185`/`a23e81c3`/`e5d74673`）：新建卡片改为读取项目自身的 Agent 定义，可选 Agent 与桌面配置一致；新增 Cursor Agent 卡片支持，并按卡片实际能力显示可用操作；项目卡片页与计划页细节调整。涉及 `NewCardView`、`NewTaskView`、`ProjectCardsView`、`ProjectPlansView` 及 NormaCore `MobileCommand`/`Snapshot`/`Wire` 等 24 个文件（+393/−77）。
+
+归档、导出、分发签名与 Apple 校验通过。IPA：`<scratchpad>/rt-build41/export/Norma.ipa`，82620565 字节，SHA256 `ded38d237444376fd7cc30cf604165db5ffd41b25a2955f1ba5b4489f8cebd8b`。签名为 Apple Distribution (2BF8G9AN4L)，`aps-environment=production`、`get-task-allow=0`、`beta-reports-active=1`。Delivery UUID：`177aa3dd-6ee1-40a8-a341-b9a444c4d276`（同 Build ID）；Apple 回读 VALID、未过期，加密分类沿用 `usesNonExemptEncryption=false`，已关联「Norma 内测」组（IN_BETA_TESTING），中文更新说明已写入。没有新增邀请、外部 Beta 或公开上架。验证：Swift Core 84/0。
+
+首次归档误加 `SKIP_INSTALL=NO`，把测试 target 产物装入归档且缺 `ApplicationProperties`，导致 export 报 `method` 无法识别；去掉该标志重新归档后正常。`xcrun altool` 忽略 `--apiKeyPath`，只从 `~/.appstoreconnect/private_keys/` 等固定目录读取 `.p8`，已复制一份到该目录。
+
+配套桌面已重新打包：`build/Norma OS_0.1.71_aarch64.dmg`，193086846 字节，SHA256 `7e1ef3cb7e4bc1b31454768c053223665db67f6e97975dc02ce78316212f14f3`；Developer ID 签名、未公证，`hdiutil verify` 与相邻校验和通过；未安装或启动新包。本轮桌面证据未落盘到 `target/norma-ios-testflight/`（发布脚本目录历史上被多次清空），iOS 产物与日志在会话 scratchpad 内。
 
 ## 语音服务迁移自有服务器 · TestFlight 0.1.0（38）（2026-09-15）
 
