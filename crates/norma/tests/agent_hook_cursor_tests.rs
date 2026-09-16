@@ -101,6 +101,45 @@ fn cursor_generation_and_transcript_fields_preserve_exact_mobile_identity() {
     );
 }
 
+/// Cursor 同时携带通用字段与官方字段时，官方身份必须拥有更高优先级。
+///
+/// 数据构造：通用 session_id/turn_id 指向 stale 身份，Cursor 官方 conversation_id/generation_id 指向当前身份。
+/// 执行过程：解析同一条 beforeSubmitPrompt Hook，读取归一化后的会话与回合身份。
+/// 预期结果：只采用 Cursor 官方字段；不得让兼容字段覆盖当前会话或回合。
+#[test]
+fn cursor_official_identity_fields_override_generic_compatibility_fields() {
+    let raw = json!({
+        "hook_event_name": "beforeSubmitPrompt",
+        "session_id": "stale-session",
+        "turn_id": "stale-turn",
+        "conversation_id": "cursor-session-current",
+        "generation_id": "cursor-turn-current"
+    });
+
+    let event = parse_hook_event(HookSource::Cursor, 12, raw).expect("Cursor 冲突身份载荷应可解析");
+
+    assert_eq!(
+        event.session_id.as_deref(),
+        Some("cursor-session-current"),
+        "Cursor conversation_id 必须覆盖通用 session_id"
+    );
+    assert_eq!(
+        event.turn_id.as_deref(),
+        Some("cursor-turn-current"),
+        "Cursor generation_id 必须覆盖通用 turn_id"
+    );
+    assert_ne!(
+        event.session_id.as_deref(),
+        Some("stale-session"),
+        "兼容字段不得污染 Cursor 会话身份"
+    );
+    assert_ne!(
+        event.turn_id.as_deref(),
+        Some("stale-turn"),
+        "兼容字段不得污染 Cursor 回合身份"
+    );
+}
+
 /// Cursor Hook 安装与清理应只修改 `~/.cursor/hooks.json` 的 Norma 命令。
 ///
 /// 数据构造（含关键数值的推导过程）：

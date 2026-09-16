@@ -3,6 +3,7 @@ import Foundation
 public enum MobileAgentProfile {
     public static let supported = ["Codex", "Claude", "Cursor"]
     public static func supports(_ profile: String) -> Bool { supported.contains(profile) }
+    public static func historyPaginatesBackward(_ profile: String) -> Bool { profile == "Codex" }
 }
 
 public struct CardSnapshot: Codable, Sendable, Identifiable, Equatable {
@@ -20,6 +21,8 @@ public struct CardSnapshot: Codable, Sendable, Identifiable, Equatable {
     public var taskProgress: TaskProgress? = nil
     public var taskSummary: String? = nil
     public var isBusy: Bool { ["thinking", "running_tool", "waiting_approval", "interrupting"].contains(state) }
+    public var supportsInterruptAction: Bool { canInterrupt != false }
+    public var showsInterruptAction: Bool { supportsInterruptAction && isBusy }
     public var id: UInt64 { nodeID }
     enum CodingKeys: String, CodingKey {
         case nodeID = "node_id", profile, title, mobileControl = "mobile_control", state

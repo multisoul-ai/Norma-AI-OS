@@ -4,9 +4,9 @@ import XCTest
 final class InterruptTests: XCTestCase {
     /// 停止记录绑定准确回合；真实终态与请求接受严格分开，重启不改变操作身份。
     ///
-    /// 数据构造：node=7、run-a/session-a/turn-a；一份停止请求和三种真实终态。
-    /// 执行过程：保存并重开 → 编解码 → 检查准确及错回合回执 → 缺少终态/accepted 伪造结果 → 正在停止状态。
-    /// 预期结果：请求原样保留；只接受准确回合的 interrupted/completed/failed；未知/错回合不报成功；等待中不能再次停止。
+    /// 数据构造：node=7、run-a/session-a/turn-a；can_interrupt=false/true 两种原生卡；一份停止请求和三种真实终态。
+    /// 执行过程：检查停止动作显隐 → 保存并重开 → 编解码 → 检查准确及错回合回执 → 缺少终态/accepted 伪造结果 → 正在停止状态。
+    /// 预期结果：不支持停止时隐藏动作、支持时显示；请求原样保留；只接受准确回合的 interrupted/completed/failed；未知/错回合不报成功；等待中不能再次停止。
     func testInterruptPersistsAndRequiresExactTerminalEvidence() async throws {
         let raw = #"{"node_id":7,"profile":"Claude","title":"写作","mobile_control":true,"state":"thinking","run_id":"run-a","session_id":"session-a","turn_id":"turn-a","task_title":null}"#
         func card(_ raw: String) throws -> CardSnapshot { try JSONDecoder().decode(CardSnapshot.self, from: Data(raw.utf8)) }
@@ -16,8 +16,10 @@ final class InterruptTests: XCTestCase {
         let pending = try command(card(raw))
         let native = try card(raw.replacingOccurrences(of: #""mobile_control":true"#, with: #""mobile_control":true,"can_interrupt":false"#))
         XCTAssertThrowsError(try command(native), "原生终端尚无停止回执能力时不能显示可停止")
+        XCTAssertFalse(native.showsInterruptAction, "无可靠停止协议的原生卡片必须隐藏停止动作，不能只显示为禁用")
         let supported = try card(raw.replacingOccurrences(of: #""mobile_control":true"#, with: #""mobile_control":true,"can_interrupt":true"#))
         XCTAssertNoThrow(try command(supported), "已接通回执的原生Claude应复用停止命令")
+        XCTAssertTrue(supported.showsInterruptAction, "运行中且支持停止的卡片必须显示停止动作")
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("pending.json")
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
         try await PendingCommandStore(url: url).save(pending)

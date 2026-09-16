@@ -229,7 +229,7 @@ fn native_notification_lifecycle_and_ui_fixture() {
                 );
                 let mut created = creation
                     .as_ref()
-                    .map_or_else(Vec::new, |fixture| fixture.cards());
+                    .map_or_else(Vec::new, |fixture| fixture.cards(dir.path()));
                 if let Some(decisions) = &decisions {
                     created.extend(decisions.cards(dir.path()));
                 }

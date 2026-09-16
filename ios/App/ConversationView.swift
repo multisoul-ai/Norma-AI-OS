@@ -72,7 +72,7 @@ struct ConversationView: View {
                 if let connectionError { Text(connectionError).font(.footnote).foregroundStyle(.orange) }
                 if let error { Text(error).font(.footnote).foregroundStyle(.orange) }
                 if let notice { Text(notice).font(.footnote).foregroundStyle(.secondary) }
-                if card.profile == "Codex", timeline.hasMore {
+                if MobileAgentProfile.historyPaginatesBackward(card.profile), timeline.hasMore {
                     Button("加载更早的消息") { paging = Task { await loadOlder() } }
                         .font(.subheadline).frame(minHeight: 44).disabled(loading || paging != nil)
                 }
@@ -84,7 +84,7 @@ struct ConversationView: View {
                         try await model.client.chatImage($0, on: machine, workspaceID: workspaceID)
                     })
                 }
-                if card.profile != "Codex", timeline.hasMore {
+                if !MobileAgentProfile.historyPaginatesBackward(card.profile), timeline.hasMore {
                     WorkspaceLoadingView(message: "正在读取后续消息…", inline: true)
                 }
                 if watchEnabled, active.isBusy, let run = active.runID {
@@ -177,7 +177,7 @@ struct ConversationView: View {
                 resultsMenu
             }
             ToolbarItem(placement: .topBarTrailing) {
-                if currentCard?.isBusy == true || pendingStop != nil {
+                if active.showsInterruptAction || (active.supportsInterruptAction && pendingStop != nil) {
                     Button {
                         if pendingStop != nil { showStopResult = true }
                         else { Task { await stop() } }

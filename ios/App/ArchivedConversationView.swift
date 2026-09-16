@@ -16,7 +16,9 @@ struct ArchivedConversationView: View {
     @State private var pendingTail = false
 
     private var more: some View {
-        Button(session.key.profile == "Codex" ? "加载更早的消息" : "继续加载消息") { cursor = timeline.cursor }
+        Button(
+            MobileAgentProfile.historyPaginatesBackward(session.key.profile) ? "加载更早的消息" : "继续加载消息"
+        ) { cursor = timeline.cursor }
             .font(.subheadline).frame(minHeight: 44).disabled(loading || phase != .active)
     }
     var body: some View {
@@ -31,13 +33,13 @@ struct ArchivedConversationView: View {
                     Text("需要电脑在线并开启手机服务；原始记录被清理后，将无法读取。")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                if session.key.profile == "Codex", timeline.hasMore { more }
+                if MobileAgentProfile.historyPaginatesBackward(session.key.profile), timeline.hasMore { more }
                 ForEach(timeline.items) { item in
                     ConversationMessageRow(item: item, profile: session.key.profile, imageSource: {
                         try await model.client.chatImage($0, on: machine, workspaceID: scope.workspaceID)
                     })
                 }
-                if session.key.profile != "Codex", timeline.hasMore { more }
+                if !MobileAgentProfile.historyPaginatesBackward(session.key.profile), timeline.hasMore { more }
                 if loading && !timeline.items.isEmpty { WorkspaceLoadingView(message: "正在读取原始对话…", inline: true) }
                 if !loading && timeline.items.isEmpty && error == nil {
                     ContentUnavailableView("暂时没有消息", systemImage: "bubble.left", description: Text("会话已登记，Agent 尚未写入可读消息。"))

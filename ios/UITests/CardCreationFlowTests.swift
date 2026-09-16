@@ -75,8 +75,8 @@ final class CardCreationFlowTests: XCTestCase {
     /// 创建弹层可随机选择项目 Agent，也保留手动类型和名称；无关未决消息不锁住创建。
     /// 数据构造：隔离只读项目、1个未打开的Codex「界面助手」及1条仅保存在手机的未决消息；空卡投影101/102；第3次服务拒绝。
     ///   8s = 2s订阅心跳 + 6s原生导航余量；最多4次滚动覆盖新增卡片与创建入口。
-    /// 执行过程：只读打开弹层 → 升级 → 随机选择项目Agent创建 → 底部手动Cursor创建 → 拒绝 → 查询清理 → 重开。
-    /// 预期结果：未授权不提交，随机选择不提前创建；首卡绑定definition_id=7，手动卡不绑定；未决创建不能重发。
+    /// 执行过程：只读打开弹层 → 升级 → 随机选择项目Agent创建 → 底部手动Cursor创建 → 投影为运行中并打开 → 拒绝 → 查询清理 → 重开。
+    /// 预期结果：未授权不提交，随机选择不提前创建；首卡绑定definition_id=7，手动卡不绑定；运行中Cursor隐藏停止动作；未决创建不能重发。
     @MainActor func testCreateCardFormAndUnrelatedPendingMessage() throws {
         let env = ProcessInfo.processInfo.environment
         guard env["NORMA_TEST_MODE"] == "notification-ui", let path = env["NORMA_TEST_QR"] else { throw XCTSkip("仅隔离卡片fixture") }
@@ -130,6 +130,18 @@ final class CardCreationFlowTests: XCTestCase {
         XCTAssertTrue(requests?.last?["title"] is NSNull, "留空让电脑分配默认名称")
         XCTAssertTrue(requests?.last?["definition_id"] is NSNull, "手动新建必须保留原有的无定义语义")
         XCTAssertEqual(requests?.last?["profile"] as? String, "Cursor", "创建请求不能把Cursor降级为Codex或Claude")
+        let cursorBusy = dir.appendingPathComponent("ui-cursor-busy")
+        defer { try? FileManager.default.removeItem(at: cursorBusy) }
+        try Data().write(to: cursorBusy)
+        let busy = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", "思考中"), object: second
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [busy], timeout: 8), .completed, "fixture必须把Cursor投影为运行中，确保验证的是能力隐藏而非空闲隐藏")
+        second.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["chat-message-input"].firstMatch.waitForExistence(timeout: 8), "运行中Cursor必须能打开对话")
+        XCTAssertFalse(app.buttons["chat-stop-task"].exists, "Cursor没有可靠停止协议时必须隐藏停止动作，不能只禁用")
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(entry.waitForExistence(timeout: 8), "关闭Cursor对话后必须回到原项目")
         try Data().write(to: dir.appendingPathComponent("ui-create-reject"))
         for _ in 0..<4 where !entry.isHittable { app.swipeDown() }
         entry.tap(); submit.tap()

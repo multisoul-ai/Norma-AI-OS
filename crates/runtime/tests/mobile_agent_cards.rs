@@ -77,7 +77,7 @@ fn idle_mobile_cards_survive_restore_without_starting_agents() {
 /// 执行过程：创建 Claude → 创建 Cursor → 尝试创建 Grok → 检查返回值及文档。
 /// 预期结果：Cursor成功；Grok被拒绝且没有新增节点；已有两张卡元数据完整保留。
 #[test]
-fn unsupported_mobile_provider_does_not_create_a_card() {
+fn cursor_mobile_provider_creates_card_and_grok_is_rejected() {
     let mut runtime = Runtime::new();
     let bounds = CanvasRect::new(0.0, 0.0, 640.0, 400.0);
     let claude = runtime

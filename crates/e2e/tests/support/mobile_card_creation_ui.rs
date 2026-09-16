@@ -33,13 +33,21 @@ impl Fixture {
             }),
         )
     }
-    pub fn cards(&self) -> Vec<CardSnapshot> {
+    pub fn cards(&self, dir: &Path) -> Vec<CardSnapshot> {
         self.runtime
             .mobile_card_snapshots()
             .into_iter()
             .map(|mut card| {
                 // 基础通知fixture保留node1/2；偏移100避免合成投影与真实Runtime局部ID重叠。
                 card.node_id += 100;
+                if card.profile == "Cursor" && dir.join("ui-cursor-busy").exists() {
+                    // 合成运行态只验证能力驱动的UI显隐；真实Cursor Hook身份另由Rust集成测试覆盖。
+                    card.state = "thinking".into();
+                    card.run_id = Some("cursor-ui-run".into());
+                    card.session_id = Some("cursor-ui-session".into());
+                    card.turn_id = Some("cursor-ui-turn".into());
+                    card.can_interrupt = Some(false);
+                }
                 card
             })
             .collect()

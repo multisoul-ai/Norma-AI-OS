@@ -17,25 +17,8 @@ pub fn parse_hook_event(
         node_id,
         profile: profile_for_source(source),
         provider_event,
-        session_id: string_field(&raw_json, "session_id")
-            .or_else(|| string_field(&raw_json, "sessionId"))
-            .or_else(|| {
-                (source == HookSource::Cursor)
-                    .then(|| string_field(&raw_json, "conversation_id"))
-                    .flatten()
-            }),
-        turn_id: string_field(&raw_json, "turn_id")
-            .or_else(|| string_field(&raw_json, "turnId"))
-            .or_else(|| {
-                (source == HookSource::Cursor)
-                    .then(|| string_field(&raw_json, "generation_id"))
-                    .flatten()
-            })
-            .or_else(|| {
-                (source == HookSource::Claude)
-                    .then(|| string_field(&raw_json, "prompt_id"))
-                    .flatten()
-            }),
+        session_id: provider_session_id(source, &raw_json),
+        turn_id: provider_turn_id(source, &raw_json),
         tool_name: string_field(&raw_json, "tool_name")
             .or_else(|| string_field(&raw_json, "toolName")),
         message: string_field(&raw_json, "message")
@@ -43,6 +26,31 @@ pub fn parse_hook_event(
             .or_else(|| string_field(&raw_json, "reason")),
         raw_json,
     })
+}
+
+fn provider_session_id(source: HookSource, raw_json: &Value) -> Option<String> {
+    if source == HookSource::Cursor {
+        string_field(raw_json, "conversation_id")
+            .or_else(|| string_field(raw_json, "session_id"))
+            .or_else(|| string_field(raw_json, "sessionId"))
+    } else {
+        string_field(raw_json, "session_id").or_else(|| string_field(raw_json, "sessionId"))
+    }
+}
+
+fn provider_turn_id(source: HookSource, raw_json: &Value) -> Option<String> {
+    if source == HookSource::Cursor {
+        return string_field(raw_json, "generation_id")
+            .or_else(|| string_field(raw_json, "turn_id"))
+            .or_else(|| string_field(raw_json, "turnId"));
+    }
+    string_field(raw_json, "turn_id")
+        .or_else(|| string_field(raw_json, "turnId"))
+        .or_else(|| {
+            (source == HookSource::Claude)
+                .then(|| string_field(raw_json, "prompt_id"))
+                .flatten()
+        })
 }
 
 pub fn task_state_for_provider_event(event: &AgentHookEvent) -> Option<AgentHookTaskState> {
