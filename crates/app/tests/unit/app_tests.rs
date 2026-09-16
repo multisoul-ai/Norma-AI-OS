@@ -181,29 +181,29 @@ fn test_mark_runtime_node_viewed_if_needed_marks_done_attention_viewed() {
     );
 }
 
-/// 删除中间卡片后，剩余卡片应立即按默认的每列两张布局策略重排。
+/// 删除中间卡片后，剩余卡片应立即按默认的每行三张布局策略重排。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   area = origin(0,0), size(1200x900)
 ///   zoom = 1.0
-///   默认策略 = 按列向右 + 每列 2 张 + 适应可视区域
+///   默认策略 = 按行向下 + 每行 3 张 + 适应可视区域
 ///   usable width = 1200 - 96 - 32 = 1072；usable height = 900 - 86 - 84 = 730
-///   gap = 16
-///   三节点布局：rows = 2，cols = ceil(3/2) = 2；card_width = (1072 - 16*(2+1)) / 2 = 512
-///   C 位于第二列：x = 96 + 16 + 1*(512+16) = 640，y = 86 + 16 = 102
-///   删除中间节点后：rows = 2，cols = ceil(2/2) = 1；card_width = (1072 - 16*(1+1)) / 1 = 1040
-///   C 移到第一列第二行：x = 96 + 16 = 112，card_height = (730 - 16*(2+1)) / 2 = 341，y = 86 + 16 + 341 + 16 = 459
+///   gap = 8；三节点布局 rows = ceil(3/3) = 1，cols = 3
+///   card_width = (1072 - 8*(3+1)) / 3 = 1040/3；card_height = 730 - 8*(1+1) = 714
+///   C 位于第三列：x = 96 + 8 + 2*(1040/3+8)，y = 86 + 8 = 94
+///   删除中间节点后 rows = ceil(2/3) = 1，cols = 3，尺寸不变
+///   C 移到第二列：x = 96 + 8 + (1040/3+8)，y = 94
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 创建 A/B/C 三张普通卡片，并手动放到默认的两行两列布局位置
+///   1. 创建 A/B/C 三张普通卡片，并手动放到默认的一行三列布局位置
 ///   2. close_node_and_reflow_for_area(B) → 删除 B，并用剩余顺序 [A,C] 重新计算布局
 ///   3. 查询 A/B/C 的 document bounds
 ///
 /// 预期结果：
 ///   - 正断言：B 被删除，返回 true
-///   - 正断言：A 仍位于默认布局的第一列第一行，并扩展到单列宽度
-///   - 正断言：C 移到默认布局的第一列第二行
-///   - 负断言：C 不应停留在删除前的第二列位置
+///   - 正断言：A 仍位于默认布局的第一列第一行，尺寸不变
+///   - 正断言：C 移到默认布局的第二列第一行
+///   - 负断言：C 不应停留在删除前的第三列位置
 #[test]
 fn test_close_node_reflows_remaining_cards_with_default_layout_strategy() {
     let mut runtime = Runtime::new();
@@ -269,15 +269,15 @@ fn test_close_node_reflows_remaining_cards_with_default_layout_strategy() {
     );
     assert_eq!(
         a_after, two_nodes_layout[0].bounds,
-        "A 应按删除后的默认布局策略占据第一列第一行，而不是保留旧三卡的尺寸"
+        "A 应按删除后的默认布局策略占据第一列第一行，并保留尺寸"
     );
     assert_eq!(
         c_after, two_nodes_layout[1].bounds,
-        "C 应按删除后的默认布局策略移动到第一列第二行"
+        "C 应按删除后的默认布局策略移动到第二列第一行"
     );
     assert_ne!(
         c_after, c_right_column_bounds,
-        "C 不应停留在删除前的第二列位置，否则说明删除没有触发重排"
+        "C 不应停留在删除前的第三列位置，否则说明删除没有触发重排"
     );
 }
 

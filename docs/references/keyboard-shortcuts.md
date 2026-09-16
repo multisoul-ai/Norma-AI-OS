@@ -190,6 +190,9 @@ Layout:   Reflow Layout / Toggle Master Layout
 
 - 字母、数字、符号（含 IME  finalized 字符的 `key_char` 路径）
 - `Enter`、`Tab`、`Backspace`、`Esc`、方向键
+- `Shift+Enter`：所有 PTY 卡片共用同一策略；已请求 Kitty 增强键盘协议时发送
+  `CSI 13;2u`；仅启用 bracketed paste 时发送包裹的 LF，支持 Claude 等 TUI 换行而不提交。
+  两种协议均未启用时保留 legacy `CR`；普通 `Enter` 始终保持原有提交行为。
 - `Option+Enter`：终端应用请求增强键盘协议时发送 `CSI 13;3u`，供 Codex 等 TUI 插入换行；
   未请求时回退为 legacy `CR`
 - `Ctrl+*`、`Alt+*` 组合（如 `Ctrl+C` → ETX）

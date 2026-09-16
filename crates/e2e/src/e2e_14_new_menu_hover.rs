@@ -76,13 +76,13 @@ fn e2e_14_new_card_menu_hover_has_visible_theme_feedback() {
 /// E2E-14：New 菜单与 Browser 原生内容区重叠时，菜单必须保持在最上层可见。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   Browser 卡片数 = 4，由 4 次 `NewBrowser` action 创建，触发 2 × 2 自动布局。
+///   Browser 卡片数 = 5，由 5 次 `NewBrowser` action 创建；每行 3 张 → ceil(5/3) = 2 行。
 ///   New 菜单宽度 = 180px；生产布局高度固定为 362px，避免文字度量的 0.5px 波动。
-///   默认 headless viewport 中第 4 张 Browser 卡片位于右下工作区，菜单从底部 Dock 向上展开，
+///   默认 headless viewport 中第 5 张 Browser 卡片位于第二行中间列，菜单从底部 Dock 向上展开，
 ///   因此两者 bounds 必须存在非空交集，该交集即用户截图中的遮挡区域。
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 进入 Canvas，通过公开 `NewBrowser` action 创建 4 张 Browser 卡片。
+///   1. 进入 Canvas，通过公开 `NewBrowser` action 创建 5 张 Browser 卡片。
 ///   2. 确认菜单未打开时 Browser 使用正常内容区，没有渲染遮挡占位层。
 ///   3. 点击底部 New，读取菜单与 Browser 内容区的真实 bounds 并确认重叠。
 ///   4. 检查 Browser 已切换为 GPUI 遮挡占位层，从渲染树移除会穿透 GPUI 的原生视图。
@@ -98,6 +98,7 @@ fn e2e_14_new_card_menu_occludes_overlapping_native_browser_content() {
     let workspace = tempfile::TempDir::new().expect("New 菜单遮挡 e2e 应创建临时 workspace");
     enter_canvas(&app, cx, workspace.path());
 
+    cx.dispatch_action(NewBrowser);
     cx.dispatch_action(NewBrowser);
     cx.dispatch_action(NewBrowser);
     cx.dispatch_action(NewBrowser);

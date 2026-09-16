@@ -1,7 +1,7 @@
 //! TerminalSession：把 PtyHandle + TerminalGrid + 通道接收端组装为一个可 drain 的会话。
 
 use crate::grid::{terminal_wheel_action, Cell, GridSnapshot, TerminalGrid, TerminalWheelAction};
-use crate::input::{encode_for_keyboard_mode, KeyInput};
+use crate::input::{encode_for_keyboard_mode, Key, KeyInput};
 use crate::message::PtyEvent;
 use crate::paste::encode_paste;
 use crate::pty::{PtyBackend, PtyCommand, PtyError, PtyHandle};
@@ -109,6 +109,17 @@ impl TerminalSession {
 
     pub fn write_input(&mut self, input: &KeyInput) -> Result<(), PtyError> {
         let enhanced_keyboard = self.grid.enhanced_keyboard_enabled();
+        // Claude 等 TUI 可能只声明 bracketed paste；用粘贴换行保留编辑语义，
+        // 不把 Shift+Enter 降级为提交。已协商 Kitty 时仍优先发送原始按键。
+        if !enhanced_keyboard
+            && self.grid.bracketed_paste_enabled()
+            && input.key == Key::Enter
+            && input.shift
+            && !input.ctrl
+            && !input.alt
+        {
+            return self.write_paste("\n");
+        }
         let bytes = encode_for_keyboard_mode(input, enhanced_keyboard);
         self.pty.write(&bytes)
     }

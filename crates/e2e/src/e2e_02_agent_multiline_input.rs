@@ -8,8 +8,8 @@ use runtime::{NodeInput, PtyFactory};
 use terminal::{PtyBackend, PtyEvent, TestPtyBackend};
 
 use crate::harness::{
-    create_codex_agent, create_terminal, drain_until, echo_factory, enter_canvas, make_app,
-    read_grid,
+    create_claude_agent, create_codex_agent, create_terminal, drain_until, echo_factory,
+    enter_canvas, make_app, read_grid,
 };
 
 /// E2E-02：Codex Agent 卡片收到含 LF 的文本粘贴后，第二行必须在第 0 列完整显示。
@@ -324,5 +324,53 @@ fn e2e_02_shift_enter_in_terminal_card_preserves_newline_modifier() {
         "Terminal 的 Shift+Enter 不得退化为裸 CR，否则卡片内 TUI 会直接提交消息"
     );
 
+    app.update(cx, |app, _cx| app.runtime.kill_all());
+}
+
+/// E2E-02：Claude、Codex 和 Terminal 在仅启用 bracketed paste 时统一 Shift+Enter 换行。
+///
+/// 数据构造（含关键数值推导）：
+///   三种卡片分别使用 recording PTY，仅声明 ESC[?2004h，不请求 Kitty。
+///   每张卡片两次按键：Shift+Enter + Enter，共 3 × 2 = 6 次 PTY write。
+///   换行包 = begin(6) + LF(1) + end(6) = 13 bytes；提交 = CR(1)。
+/// 执行过程：
+///   1. 通过公开 action 逐一创建并聚焦 Claude、Codex、Terminal 卡片。
+///   2. drain 模式声明，通过 GPUI 模拟 Shift+Enter 后再模拟普通 Enter。
+///   3. 检查每张卡片经共享 Runtime/TerminalSession 写出的字节。
+/// 预期结果：
+///   - 三种卡片都先收到粘贴换行，再收到 CR 提交。
+///   - Shift+Enter 不得退化为 CR，也不得向未声明 Kitty 的程序发送 CSI-u。
+#[test]
+fn e2e_02_shift_enter_without_kitty_is_consistent_across_cards() {
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    let recorded_writes = writes.clone();
+    let factory: PtyFactory = Box::new(move |_command, _cols, _rows, tx| {
+        tx.send(PtyEvent::Output(b"\x1b[?2004h".to_vec()))
+            .expect("测试 PTY 应声明 bracketed paste");
+        Ok(Box::new(TestPtyBackend::recording(tx, recorded_writes.clone())) as Box<dyn PtyBackend>)
+    });
+    let mut test_cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut test_cx, factory);
+    let workspace = tempfile::tempdir().expect("应创建隔离 workspace");
+    enter_canvas(&app, cx, workspace.path());
+    for create in [create_claude_agent, create_codex_agent, create_terminal] {
+        create(&app, cx);
+        app.update(cx, |app, _cx| {
+            app.runtime.drain_all();
+        });
+        cx.simulate_keystrokes("shift-enter");
+        cx.simulate_keystrokes("enter");
+    }
+    let recorded = writes.lock().expect("写入记录锁应可用").clone();
+    assert_eq!(recorded.len(), 6, "每张卡片应产生两次独立写入");
+    assert_eq!(recorded[0], b"\x1b[200~\n\x1b[201~", "Claude 应插入换行");
+    assert_ne!(recorded[0], b"\r", "Claude Shift+Enter 不得提交");
+    assert_eq!(recorded[1], b"\r", "Claude Enter 应提交");
+    assert_eq!(recorded[2], b"\x1b[200~\n\x1b[201~", "Codex 应插入换行");
+    assert_ne!(recorded[2], b"\x1b[13;2u", "未启用 Kitty 时不得强发 CSI-u");
+    assert_eq!(recorded[3], b"\r", "Codex Enter 应提交");
+    assert_eq!(recorded[4], b"\x1b[200~\n\x1b[201~", "Terminal 应插入换行");
+    assert_ne!(recorded[4], b"\r", "Terminal Shift+Enter 不得提交");
+    assert_eq!(recorded[5], b"\r", "Terminal Enter 应提交");
     app.update(cx, |app, _cx| app.runtime.kill_all());
 }
