@@ -1,7 +1,7 @@
 use super::*;
 use crate::cards::term::paint::TerminalRenderMetrics;
 use gpui::{px, Point};
-use terminal::{Cell, CellAttrs, GridSnapshot, TerminalColor, TerminalNamedColor};
+use terminal::{Cell, CellAttrs, GridSnapshot, TerminalColor, TerminalGrid, TerminalNamedColor};
 
 fn default_cell(c: char) -> Cell {
     Cell {
@@ -148,7 +148,62 @@ fn test_terminal_selected_text_copies_multiline_range_with_newlines() {
     );
 }
 
-/// terminal 宽字符 spacer：wide-char spacer 不应重复复制前一个宽字符。
+/// terminal 复制：wide-char spacer 必须跳过，不能在字符之间插入空格。
+///
+/// 数据构造（含关键数值推导）：
+///   可见文本 = "12345"，共 5 个字符
+///   每个字符被网格标成宽字符，后随 1 个 wide_char_spacer
+///   因此 row 有 5 * 2 = 10 格：1,spacer,2,spacer,3,spacer,4,spacer,5,spacer
+///   range = row 0 col 0 → row 0 col 10，覆盖全部格子
+///
+/// 执行过程：
+///   1. 构造带 spacer 的 snapshot
+///   2. terminal_selected_text(range=0..10)
+///
+/// 预期结果：
+///   - 正断言：复制结果是连续 "12345"
+///   - 负断言：不应变成 "1 2 3 4 5"
+#[test]
+fn test_terminal_selected_text_skips_wide_char_spacers_between_characters() {
+    let mut row = Vec::new();
+    for c in "12345".chars() {
+        row.push(default_cell(c));
+        let mut spacer = default_cell(c);
+        spacer.attrs.wide_char_spacer = true;
+        row.push(spacer);
+    }
+    let cols = row.len();
+    let snapshot = GridSnapshot {
+        rows: vec![row],
+        cursor_line: 0,
+        cursor_col: 0,
+        cols,
+        lines: 1,
+        display_offset: 0,
+        history_size: 0,
+        alt_screen: false,
+        alternate_scroll: true,
+        mouse_mode: false,
+        sgr_mouse: false,
+    };
+    let range = crate::canvas::text_selection::TextRange::new(
+        crate::canvas::text_selection::TextPoint::new(0, 0),
+        crate::canvas::text_selection::TextPoint::new(0, cols),
+    );
+
+    let text = terminal_selected_text(&snapshot, range);
+
+    assert_eq!(
+        text, "12345",
+        "复制可见字符时应跳过 wide-char spacer，保持 12345 连续"
+    );
+    assert_ne!(
+        text, "1 2 3 4 5",
+        "spacer 不能变成空格，否则复制会在每个字符之间插入多余空格"
+    );
+}
+
+/// terminal 宽字符 spacer：wide-char spacer 不应重复复制前一个宽字符，也不应变成空格。
 ///
 /// 数据构造（含关键数值推导）：
 ///   row = ['界', spacer, 'A', ' ']，cols=4
@@ -161,8 +216,8 @@ fn test_terminal_selected_text_copies_multiline_range_with_newlines() {
 ///   3. 检查复制文本
 ///
 /// 预期结果：
-///   - 正断言：结果包含一次 "界" 和 "A"
-///   - 负断言：结果不应重复为 "界界A"
+///   - 正断言：结果为 "界A"
+///   - 负断言：结果不应重复为 "界界A"，也不应插入空格变成 "界 A"
 #[test]
 fn test_terminal_selected_text_does_not_duplicate_wide_char_spacer() {
     let mut spacer = default_cell('界');
@@ -193,12 +248,16 @@ fn test_terminal_selected_text_does_not_duplicate_wide_char_spacer() {
     let text = terminal_selected_text(&snapshot, range);
 
     assert_eq!(
-        text, "界 A",
-        "wide-char spacer 应作为占位空格处理，避免重复复制宽字符"
+        text, "界A",
+        "wide-char spacer 应跳过，只复制一次宽字符和后续 ASCII"
     );
     assert_ne!(
         text, "界界A",
         "spacer 不应被当作第二个宽字符复制，否则中文/emoji 会重复"
+    );
+    assert_ne!(
+        text, "界 A",
+        "spacer 不能变成空格，否则中文和后续字符之间会出现多余空格"
     );
 }
 
@@ -288,4 +347,68 @@ fn test_terminal_selection_spans_clip_to_viewport() {
 
     let rows: Vec<usize> = spans.iter().map(|s| s.row).collect();
     assert_eq!(rows, vec![0, 1], "应只剩视口内的 2 行，转为视口相对行 0/1");
+}
+
+/// 真实 grid 复制：ASCII 与中文经 alacritty 解析后，复制文本不得插入 spacer 空格。
+///
+/// 数据构造（含关键数值推导）：
+///   grid = 80 cols × 24 lines
+///   ASCII 输入 = b"12345"，5 个窄字符，应占 col 0..5
+///   中文输入 = "你好"，每个汉字宽 2 列，应占 col 0..4，中间夹 wide_char_spacer
+///
+/// 执行过程：
+///   1. TerminalGrid::advance 写入 ASCII / 中文
+///   2. terminal_selected_text 复制对应列范围
+///   3. terminal_text_from_absolute_rows 再走 Cmd+C 的 scrollback 路径
+///
+/// 预期结果：
+///   - 正断言：ASCII 复制为 "12345"
+///   - 正断言：中文复制为 "你好"
+///   - 负断言：都不应变成带空格的 "1 2 3 4 5" / "你 好"
+#[test]
+fn test_terminal_grid_copy_keeps_ascii_and_cjk_without_spacer_spaces() {
+    let mut ascii_grid = TerminalGrid::new(80, 24);
+    ascii_grid.advance(b"12345");
+    let ascii_snapshot = ascii_grid.snapshot();
+    let ascii_range = crate::canvas::text_selection::TextRange::new(
+        crate::canvas::text_selection::TextPoint::new(0, 0),
+        crate::canvas::text_selection::TextPoint::new(0, 5),
+    );
+
+    let mut cjk_grid = TerminalGrid::new(80, 24);
+    cjk_grid.advance("你好".as_bytes());
+    let cjk_snapshot = cjk_grid.snapshot();
+    let cjk_range = crate::canvas::text_selection::TextRange::new(
+        crate::canvas::text_selection::TextPoint::new(0, 0),
+        crate::canvas::text_selection::TextPoint::new(0, 4),
+    );
+
+    let ascii_text = terminal_selected_text(&ascii_snapshot, ascii_range);
+    let cjk_text = terminal_selected_text(&cjk_snapshot, cjk_range);
+    let ascii_abs =
+        terminal_text_from_absolute_rows(&ascii_grid.rows_for_absolute(0, 0), 80, 0, ascii_range);
+    let cjk_abs =
+        terminal_text_from_absolute_rows(&cjk_grid.rows_for_absolute(0, 0), 80, 0, cjk_range);
+
+    assert_eq!(
+        ascii_text, "12345",
+        "ASCII 12345 复制应保持连续，不插入空格"
+    );
+    assert_eq!(
+        cjk_text, "你好",
+        "中文复制应跳过 wide-char spacer，保持 你好"
+    );
+    assert_eq!(
+        ascii_abs, "12345",
+        "Cmd+C 的绝对行路径对 ASCII 12345 也应保持连续"
+    );
+    assert_eq!(cjk_abs, "你好", "Cmd+C 的绝对行路径对中文也应跳过 spacer");
+    assert_ne!(
+        ascii_text, "1 2 3 4 5",
+        "ASCII 复制不能在每个数字之间插入空格"
+    );
+    assert_ne!(
+        cjk_text, "你 好",
+        "中文复制不能把 spacer 变成汉字之间的空格"
+    );
 }

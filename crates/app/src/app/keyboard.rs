@@ -111,20 +111,7 @@ pub(crate) fn copy_text_for_active_selection(
 
 #[cfg(test)]
 fn terminal_row_copy_text(row: &[Cell]) -> String {
-    let mut line = row
-        .iter()
-        .map(|cell| {
-            if cell.attrs.hidden || cell.attrs.wide_char_spacer || cell.c == '\0' {
-                ' '
-            } else {
-                cell.c
-            }
-        })
-        .collect::<String>();
-    while line.ends_with(' ') {
-        line.pop();
-    }
-    line
+    crate::cards::term::selection::terminal_line_copy_text(row)
 }
 
 fn canvas_navigation_direction(key: &str, modifiers: Modifiers) -> Option<NavigationDirection> {
