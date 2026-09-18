@@ -12,6 +12,11 @@ struct CardOptionsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var showingCommand = false
+    @State private var confirmingDeletion = false
+    @State private var deleting = false
+    @State private var deletionNotice: String?
+    @State private var deletionWork: Task<Void, Never>?
+    @Environment(\.scenePhase) private var scenePhase
 
     private var pending: PendingMobileCommand? {
         model.pendingCommands.first {
@@ -27,6 +32,7 @@ struct CardOptionsView: View {
         }
     }
     private var deletionUnavailable: String? {
+        if deleting { return "正在删除卡片…" }
         if !canControl { return "当前项目为只读，请在电脑上允许控制后删除。" }
         if pending != nil { return "这张卡片有待确认的操作，请先核对结果。" }
         if !MobileAgentProfile.supports(card.profile) { return "请在电脑上管理这类卡片。" }
@@ -46,7 +52,7 @@ struct CardOptionsView: View {
                         Image(systemName: "xmark").font(.system(size: 14)).frame(width: 44, height: 44)
                             .background(WorkspaceStyle.line.opacity(0.5), in: Circle())
                             .overlay(Circle().strokeBorder(WorkspaceStyle.line, lineWidth: 1))
-                    }.accessibilityLabel("关闭").accessibilityIdentifier("card-options-close")
+                    }.disabled(deleting).accessibilityLabel("关闭").accessibilityIdentifier("card-options-close")
                 }
                 HStack(spacing: 14) {
                     ProviderMark(profile: card.profile, size: 30, working: card.isBusy)
@@ -69,10 +75,10 @@ struct CardOptionsView: View {
                             Spacer(minLength: 0)
                             Image(systemName: "chevron.right").font(.caption).foregroundStyle(WorkspaceStyle.muted)
                         }.padding(18).frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
-                    }.accessibilityIdentifier("card-open-task")
+                    }.disabled(deleting).accessibilityIdentifier("card-open-task")
                     Rectangle().fill(WorkspaceStyle.line).frame(height: 1)
-                    Button(role: .destructive) { showingCommand = true } label: {
-                        Label("删除卡片", systemImage: "trash").font(.footnote)
+                    Button(role: .destructive) { confirmingDeletion = true } label: {
+                        Label(deleting ? "正在删除…" : "删除卡片", systemImage: "trash").font(.footnote)
                             .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading).padding(.horizontal, 18)
                     }.foregroundStyle(Color(red: 0.94, green: 0.59, blue: 0.54))
                         .disabled(deletionUnavailable != nil).opacity(deletionUnavailable == nil ? 1 : 0.45)
@@ -82,7 +88,10 @@ struct CardOptionsView: View {
                 if let reason = deletionUnavailable {
                     Text(reason).font(.caption).foregroundStyle(WorkspaceStyle.muted).fixedSize(horizontal: false, vertical: true)
                 }
-                if pending != nil {
+                if let deletionNotice {
+                    Text(deletionNotice).font(.caption).foregroundStyle(.orange)
+                }
+                if pending != nil && !deleting {
                     Button("查询操作结果") { showingCommand = true }.font(.footnote).frame(minHeight: 44)
                         .accessibilityIdentifier("card-check-result")
                 }
@@ -90,9 +99,48 @@ struct CardOptionsView: View {
         }.background(WorkspaceStyle.raised).foregroundStyle(.white).buttonStyle(WorkspacePressStyle())
             .presentationDetents(typeSize.isAccessibilitySize ? [.large] : [.height(pending != nil ? 420 : deletionUnavailable == nil ? 310 : 360), .large])
             .presentationDragIndicator(.visible).presentationBackground(WorkspaceStyle.raised)
+            .interactiveDismissDisabled(deleting)
+            .confirmationDialog("删除“\(card.title)”？", isPresented: $confirmingDeletion, titleVisibility: .visible) {
+                Button(card.isBusy ? "停止并删除卡片" : "删除卡片", role: .destructive) {
+                    deletionWork = Task { await deleteCard() }
+                }.accessibilityIdentifier("confirm-delete-card")
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text(card.isBusy ? "会停止当前任务。已有任务记录和对话保留。" : "已有任务记录和对话保留。")
+            }
+            .onChange(of: scenePhase) { _, phase in if phase != .active { deletionWork?.cancel() } }
             .sheet(isPresented: $showingCommand) {
                 CardCommandSheet(model: model, machine: machine, project: project, revision: revision,
-                                 pending: pending, deleting: card)
+                                 pending: pending)
             }
+    }
+
+    @MainActor private func deleteCard() async {
+        guard deletionUnavailable == nil, scenePhase == .active, let route = project.routeID else { return }
+        deleting = true; deletionNotice = nil
+        defer { deleting = false }
+        do {
+            let command = try await model.client.prepareCardDeletion(machine, workspaceID: project.id,
+                routeID: route, revision: revision, card: card, confirmBusy: card.isBusy)
+            try Task.checkCancellation()
+            try await model.commandStore.save(command)
+            try await model.reloadCommands()
+            try Task.checkCancellation()
+            var receipt = try await model.client.submit(command, to: machine)
+            // 与现有命令查询一致：10 × 500ms = 5s，覆盖通常360ms的持久化等待。
+            for _ in 0..<10 where receipt.state == "accepted" {
+                try await Task.sleep(for: .milliseconds(500))
+                receipt = try await model.client.receipt(for: command, on: machine)
+            }
+            if receipt.state == "succeeded" {
+                // 列表可能先收到卡片移除事件；仍需完成已知成功请求的本地清理。
+                try await model.commandStore.remove(id: command.id)
+                try await model.reloadCommands()
+                dismiss()
+            } else {
+                deletionNotice = receipt.state == "rejected"
+                    ? receipt.rejectionMessage(actionName: "删除") : "删除结果待确认，请查询操作结果。"
+            }
+        } catch { deletionNotice = error.localizedDescription }
     }
 }

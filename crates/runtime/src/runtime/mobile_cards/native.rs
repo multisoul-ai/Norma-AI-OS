@@ -202,6 +202,7 @@ impl Runtime {
         match event.provider_event.as_str() {
             // Startup menus also use Enter. Only clear that confirmed input, never a later draft.
             "SessionStart" => run.native_input.acknowledge_start(),
+            "PermissionRequest" => run.native_input.approval_menu_open = true,
             "UserPromptSubmit" => {
                 run.finish_terminal_interrupt(Err(
                     "native turn replaced before interrupt confirmation".into(),

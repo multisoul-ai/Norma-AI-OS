@@ -1,5 +1,6 @@
+use super::card;
 use crate::mobile::controller::{Command, MobileController};
-use gpui::{div, prelude::*, px, rgba, App, Context, Div, Entity, Window};
+use gpui::{div, prelude::*, px, rgba, App, Context, Div, Entity, FontWeight, Window};
 use storage::PushEnvironment;
 use ui::{
     component::{
@@ -12,22 +13,33 @@ use ui::{
 
 pub(super) fn entry(theme: Theme, mobile: &Entity<MobileController>, busy: bool) -> Div {
     let mobile = mobile.clone();
-    div()
-        .flex()
+    card(theme)
+        .flex_row()
         .items_center()
         .gap(px(12.0))
         .child(
-            div().flex_1().child("Task Notifications").child(
-                div()
-                    .text_size(px(12.0))
-                    .text_color(rgba(theme.text_secondary))
-                    .child("Set up notifications for your iPhone"),
-            ),
+            div()
+                .flex_1()
+                .flex()
+                .flex_col()
+                .gap(px(3.0))
+                .child(
+                    div()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child("Task Notifications"),
+                )
+                .child(
+                    div()
+                        .text_size(px(12.0))
+                        .text_color(rgba(theme.text_tertiary))
+                        .child("Set up notifications for your iPhone"),
+                ),
         )
         .child(
             Button::new("mobile-push-settings")
                 .debug_selector(|| "mobile-push-settings".into())
                 .label("Configure")
+                .outline()
                 .disabled(busy)
                 .on_click(move |_, window, cx| open(mobile.clone(), theme, window, cx)),
         )

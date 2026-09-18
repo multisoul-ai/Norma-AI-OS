@@ -7,6 +7,82 @@ fn scope(project: &str, access: MobilePermission) -> MobileProjectAccess {
     }
 }
 
+/// 读取手机授权不能写数据库，也不能等待无关写事务释放写锁。
+///
+/// 数据构造：一个只读设备；64个hex字符=32字节测试token；
+///   32次鉴权对应2MiB对话按64KiB分片：2×1024/64=32，每片都需重新核验权限。
+/// 执行过程：
+///   1. 注册设备，另一连接记录data_version，再连续鉴权32次并记录耗时。
+///   2. 确认鉴权没有提交写入；持有BEGIN IMMEDIATE写锁时再鉴权。
+///   3. 释放写锁并撤销设备，重新鉴权。
+/// 预期结果：只读权限存在、控制权限不存在；data_version不变；
+///   无关写锁不阻塞鉴权，撤销后不能继续使用旧权限。
+#[test]
+fn authentication_does_not_write_or_wait_for_a_writer() {
+    let dir = tempfile::tempdir().expect("隔离数据库目录");
+    let path = dir.path().join("app.sqlite");
+    let store = MobileAccessStore::new(path.clone());
+    let token = "a".repeat(64);
+    store
+        .register(
+            "phone-a",
+            "iPhone",
+            &token,
+            &[scope("project-a", MobilePermission::Read)],
+        )
+        .expect("注册只读设备");
+    let observer = rusqlite::Connection::open(path).expect("独立观察连接");
+    let version = || {
+        observer
+            .query_row("PRAGMA data_version", [], |row| row.get::<_, i64>(0))
+            .expect("读取提交版本")
+    };
+    let before = version();
+    let started = std::time::Instant::now();
+    for _ in 0..32 {
+        std::hint::black_box(store.authenticate("phone-a", &token).expect("逐片重新鉴权"));
+    }
+    eprintln!(
+        "MOBILE_AUTH_32_READS_MS={:.3}",
+        started.elapsed().as_secs_f64() * 1000.0
+    );
+    let after = version();
+    observer
+        .execute_batch("BEGIN IMMEDIATE")
+        .expect("模拟无关写事务");
+    let blocked_at = std::time::Instant::now();
+    let result = store.authenticate("phone-a", &token);
+    eprintln!(
+        "MOBILE_AUTH_WITH_WRITER_MS={:.3} DB_CHANGED={}",
+        blocked_at.elapsed().as_secs_f64() * 1000.0,
+        after != before
+    );
+    let grant = result
+        .expect("已有schema的鉴权不应申请写锁")
+        .expect("已提交的设备授权应仍可读");
+    assert_eq!(
+        after, before,
+        "只读鉴权不应重复写入schema版本或制造磁盘提交"
+    );
+    assert!(
+        grant.allows("project-a", false),
+        "写锁期间仍应读到已提交的只读权限"
+    );
+    assert!(
+        !grant.allows("project-a", true),
+        "只读设备不能因优化获得控制权限"
+    );
+    observer.execute_batch("ROLLBACK").expect("释放写锁");
+    store.revoke("phone-a").expect("撤销设备");
+    assert!(
+        store
+            .authenticate("phone-a", &token)
+            .expect("重新查询权限")
+            .is_none(),
+        "优化不得缓存已撤销权限"
+    );
+}
+
 /// 手机授权按设备和项目持久化，撤销一台设备不能影响另一台，也不能由迟到更新恢复旧权限。
 ///
 /// 数据构造：两台手机 A/B，各一个 64 hex 字符测试 token（32 字节、256 bit 格式）；A 可读项目一并控制项目二。

@@ -108,6 +108,7 @@ fn codex_archive_reconnects_after_cached_connection_disconnects() {
         connection: Mutex::new(None),
         control: Mutex::new(Arc::new(launch::LaunchControl::default())),
         connector: Some(Arc::new(move || CodexConnection::connect(&connect_path))),
+        isolated_config: None,
     });
     let reader = MobileArchiveRead {
         workspace: workspace.clone(),

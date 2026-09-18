@@ -12,8 +12,9 @@ mod support;
 /// 大于旧500KiB上限的正文与工具输出分片传输，完整组装后仍绑定原请求。
 ///
 /// 数据构造：中文3字节×200000=600000字节，另600000字符的工具输出；隔离只读手机与准确卡片fixture。
-/// 执行过程：真实TLS/WSS请求 → 前后台权限/运行核验 → 连续分片 → 原JSON重组 → 撤销后再请求。
-/// 预期结果：每帧<500KiB；正文/工具字节准确且无截断；撤销后无内容，不访问真实Provider或用户文件。
+///   无关BEGIN IMMEDIATE事务持有写锁，SQLite仍允许读取此前已提交的授权和项目。
+/// 执行过程：持有写锁 → 真实TLS/WSS请求 → 前后台权限/运行核验 → 连续分片 → 原JSON重组 → 释放锁并撤销后再请求。
+/// 预期结果：鉴权及项目读取不等待写锁；每帧<500KiB；正文/工具字节准确且无截断；撤销后无内容，不访问真实Provider或用户文件。
 #[test]
 fn conversation_transfer_crosses_frame_limit_without_truncation() {
     check(None, false);
@@ -36,7 +37,7 @@ fn native_large_conversation_transport() {
 
 /// 本机大聊天响应分别记录连接、首个完整WSS分片与全文校验耗时，不把整页时间当首包。
 ///
-/// 数据构造：复用600000字节中文与引号/换行工具fixture；20次独立连接，无新增模型任务。
+/// 数据构造：复用600000字节中文与引号/换行工具fixture；持有无关写锁，20次独立连接，无新增模型任务。
 ///   20次允许nearest-rank p50取第10项、p95取第19项；原样保留全部样本。
 /// 执行过程：每次TLS/WSS连接 → 发送 → 记录首帧到达（JSON解析前） → 无损重组/精确正文 → 原路由竞争/撤销检查。
 /// 预期结果：每次全文与工具内容都精确，不能只收到首帧便算成功；失效运行不能收到完整尾片。
@@ -252,6 +253,10 @@ fn check(probe: Option<String>, measuring: bool) {
     }
     let action = json!({"type":"conversation","device_id":"phone-a","token":"a".repeat(64),"request":{
         "workspace_id":workspace,"route_id":"route-a","node_id":7,"run_id":"run-a","session_id":"session-a","cursor":null}});
+    let writer = rusqlite::Connection::open(dir.path().join("app.db")).expect("隔离并发写连接");
+    writer
+        .execute_batch("BEGIN IMMEDIATE")
+        .expect("持有写锁，已提交内容仍应可读");
     let mut samples = Vec::new();
     // Ordinary regression keeps one full read; the dedicated benchmark takes20 independent samples.
     for _ in 0..if measuring { 20 } else { 1 } {
@@ -322,11 +327,14 @@ fn check(probe: Option<String>, measuring: bool) {
             "page_validated_ms":started.elapsed().as_secs_f64()*1000.0,"frames":frames,"json_bytes":json_bytes,"payload_bytes":complete.len()}));
         drop(socket);
     }
+    writer
+        .execute_batch("ROLLBACK")
+        .expect("释放写锁以验证后续撤销");
     if measuring {
         eprintln!(
             "CONVERSATION_FRAGMENT_TIMING={}",
             json!({"samples":samples,
-            "scope":"Rust loopback WSS; first complete application frame before JSON decode; frozen Unicode/tool fixture, no Provider; byte counts exclude baseline/TLS/TCP headers"})
+            "scope":"Rust loopback WSS with unrelated SQLite writer held; first complete application frame before JSON decode; frozen Unicode/tool fixture, no Provider; byte counts exclude baseline/TLS/TCP headers"})
         );
     }
     // First validation sees run-a; final validation sees a replacement run, after some fragments.

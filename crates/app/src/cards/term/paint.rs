@@ -131,7 +131,7 @@ fn build_layout(
         cursor_text_run: cursor_text_run(snapshot, palette),
         cursor_line: snapshot.cursor_line,
         cursor_col: snapshot.cursor_col,
-        cursor_visible: snapshot.display_offset == 0,
+        cursor_visible: snapshot.display_offset == 0 && snapshot.show_cursor,
         metrics,
         selection_spans: Vec::new(),
         default_bg: palette.resolve(TerminalColor::Named(TerminalNamedColor::Background)),

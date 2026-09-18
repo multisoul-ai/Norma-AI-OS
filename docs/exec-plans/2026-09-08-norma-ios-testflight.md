@@ -1,6 +1,12 @@
 # Norma iOS TestFlight发布记录
 
-更新时间：2026-09-16。当前状态：**0.1.0（41）已进入现有「Norma 内测」组，可安装**；Apple 回读确认 VALID / IN_BETA_TESTING、未过期，中文说明一致。构建 39、40 已上传并 VALID，但未在本文档单独记录。
+更新时间：2026-09-16。当前状态：**0.1.0（42）已进入现有「Norma 内测」组，可安装**；Apple 回读确认 VALID / IN_BETA_TESTING、未过期，中文说明一致。构建 39、40 已上传并 VALID，但未在本文档单独记录。
+
+## 原生删除确认 · TestFlight 0.1.0（42）（2026-09-16）
+
+按用户“发布和构建一下iOS手机端”授权发布。相对构建 41 的 iOS 差异为卡片删除流程：选项页改为系统原生确认弹窗，确认后直接提交；成功后自动回到项目列表，删除过程中禁止关掉选项页；结果未知时保留查询入口，不自动重发。涉及 `CardOptionsView`、`CardCommandSheet`、`CardCreationFlowTests` 与 e2e 卡片 fixture。本轮只发布 iOS，未重新打包桌面。
+
+归档、导出、分发签名与 Apple 校验通过。IPA：`target/norma-ios-testflight/rt-build42/export/Norma.ipa`，82626811 字节，SHA256 `9b07d38c442a93d1abb3aab7297f6d41f8ec9bebd08c23b44a1255b9b5570987`。签名为 Apple Distribution (2BF8G9AN4L)，`aps-environment=production`、`get-task-allow=0`、`beta-reports-active=1`。Delivery UUID：`17228816-43bf-43eb-96f1-abd1f2a7dfc7`（同 Build ID）；Apple 回读 VALID、未过期，加密分类沿用 `usesNonExemptEncryption=false`，已关联「Norma 内测」组（IN_BETA_TESTING），中文更新说明已写入。没有新增邀请、外部 Beta 或公开上架。验证：Swift Core 84/0。
 
 ## 项目 Agent 卡片与 Cursor 支持 · TestFlight 0.1.0（41）（2026-09-16）
 

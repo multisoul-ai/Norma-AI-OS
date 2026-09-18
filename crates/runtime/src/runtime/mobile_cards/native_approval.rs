@@ -156,6 +156,50 @@ impl NativeApprovals {
 }
 
 impl Runtime {
+    pub(crate) fn native_menu_navigation(&self, node: NodeId) -> bool {
+        if !self
+            .mobile_runs
+            .get(&node)
+            .is_some_and(|run| run.native && run.native_input.approval_menu_open)
+            || !matches!(
+                self.agent_task_state(node),
+                Some(crate::AgentTaskState::WaitingApproval { .. })
+            )
+        {
+            return false;
+        }
+        let Some(lines) = self.native_dialog_lines(node) else {
+            return false;
+        };
+        let Some(CanvasNodeKind::Agent(spec)) = self.document.node(node).map(|node| &node.kind)
+        else {
+            return false;
+        };
+        // Choice recognition survives target invalidation, but never grants approval or clears text.
+        match spec.profile {
+            AgentProfile::Claude => {
+                let Some(first) = lines
+                    .iter()
+                    .rposition(|line| line.trim_start_matches('❯').trim() == "1. Yes")
+                else {
+                    return false;
+                };
+                lines.last().is_some_and(|footer| {
+                    matches!(
+                        footer.as_str(),
+                        "Esc to cancel · Tab to amend · ctrl+e to explain"
+                            | "Esc to cancel · Tab to amend"
+                    ) && claude_choices(&lines[first..], footer).is_some()
+                })
+            }
+            AgentProfile::Codex => lines
+                .iter()
+                .rposition(|line| line.trim_start_matches('›').trim() == "1. Yes, proceed (y)")
+                .is_some_and(|first| codex_choices(&lines[first..]).is_some()),
+            _ => false,
+        }
+    }
+
     pub(super) fn native_approval_snapshot(
         &self,
         card: &norma::mobile::CardSnapshot,
@@ -196,30 +240,37 @@ impl Runtime {
         })
     }
 
+    // Only the live viewport can establish which UI receives the next key.
+    fn native_dialog_lines(&self, node: NodeId) -> Option<Vec<String>> {
+        let crate::NodeView::Term {
+            snapshot, status, ..
+        } = self.node_view(node)?;
+        if status != TerminalStatus::Running || snapshot.display_offset != 0 {
+            return None;
+        }
+        Some(
+            snapshot
+                .rows
+                .iter()
+                .map(|row| {
+                    row.iter()
+                        .map(|c| c.c)
+                        .collect::<String>()
+                        .trim()
+                        .to_owned()
+                })
+                .filter(|s| !s.is_empty())
+                .collect(),
+        )
+    }
+
     pub(super) fn native_dialog_keys(
         &self,
         node: NodeId,
         tool: &str,
         input: &Value,
     ) -> Option<(terminal::Key, terminal::Key)> {
-        let crate::NodeView::Term {
-            snapshot, status, ..
-        } = self.node_view(node)?;
-        if status != TerminalStatus::Running {
-            return None;
-        }
-        let lines: Vec<String> = snapshot
-            .rows
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .map(|c| c.c)
-                    .collect::<String>()
-                    .trim()
-                    .to_owned()
-            })
-            .filter(|s| !s.is_empty())
-            .collect();
+        let lines = self.native_dialog_lines(node)?;
         let CanvasNodeKind::Agent(spec) = &self.document.node(node)?.kind else {
             return None;
         };
@@ -291,7 +342,11 @@ fn codex_dialog_keys(
     if body != format!("Environment: local Reason: {description} $ {command}") {
         return None;
     }
-    let options: Vec<&str> = tail[first..]
+    codex_choices(&tail[first..])
+}
+
+fn codex_choices(tail: &[String]) -> Option<(terminal::Key, terminal::Key)> {
+    let options: Vec<&str> = tail
         .iter()
         .map(|s| s.trim_start_matches('›').trim())
         .collect();

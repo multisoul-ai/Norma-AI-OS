@@ -36,6 +36,7 @@ fn snapshot_from_lines(lines: &[&str], cols: usize) -> GridSnapshot {
         alternate_scroll: true,
         mouse_mode: false,
         sgr_mouse: false,
+        show_cursor: true,
     }
 }
 
@@ -185,6 +186,7 @@ fn test_terminal_selected_text_skips_wide_char_spacers_between_characters() {
         alternate_scroll: true,
         mouse_mode: false,
         sgr_mouse: false,
+        show_cursor: true,
     };
     let range = crate::canvas::text_selection::TextRange::new(
         crate::canvas::text_selection::TextPoint::new(0, 0),
@@ -239,6 +241,7 @@ fn test_terminal_selected_text_does_not_duplicate_wide_char_spacer() {
         alternate_scroll: true,
         mouse_mode: false,
         sgr_mouse: false,
+        show_cursor: true,
     };
     let range = crate::canvas::text_selection::TextRange::new(
         crate::canvas::text_selection::TextPoint::new(0, 0),
@@ -337,6 +340,7 @@ fn test_terminal_selection_spans_clip_to_viewport() {
         alternate_scroll: true,
         mouse_mode: false,
         sgr_mouse: false,
+        show_cursor: true,
     };
     let range = crate::canvas::text_selection::TextRange::new(
         crate::canvas::text_selection::TextPoint::new(1, 0),

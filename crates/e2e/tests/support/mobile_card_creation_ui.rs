@@ -63,6 +63,32 @@ impl Fixture {
                 "创建不得跨窗口"
             );
             assert!(call.lease.begin(), "正式执行租约必须先确认");
+            if let MobileCommand::DeleteCard {
+                expected,
+                confirm_busy,
+            } = &call.request.command
+            {
+                let mut target = expected.clone();
+                // UI投影ID = Runtime ID + 100；恢复同一真实空卡身份再走正式校验。
+                target.node_id = target
+                    .node_id
+                    .checked_sub(100)
+                    .expect("仅删除fixture创建的卡");
+                self.runtime
+                    .validate_mobile_card_deletion(&target, *confirm_busy)
+                    .expect("删除必须通过正式快照与忙态校验");
+                assert!(
+                    self.runtime.remove_node(target.node_id),
+                    "目标空卡必须被移除"
+                );
+                self.runtime
+                    .save_canvas_snapshot(&self.store)
+                    .expect("删除持久化");
+                fs::write(dir.join("ui-deleted-card"), expected.node_id.to_string())
+                    .expect("删除证据");
+                let _ = call.reply.send(Ok(json!({"node_id":expected.node_id})));
+                continue;
+            }
             let MobileCommand::CreateCard {
                 profile,
                 title,

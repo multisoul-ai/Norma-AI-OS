@@ -149,7 +149,11 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
         "CREATE INDEX IF NOT EXISTS idx_orchestration_task_routes_root
          ON orchestration_task_routes(root_task_ref, state);",
     )?;
-    connection.pragma_update(None, "user_version", 1)?;
+    // Rewriting the same version still takes SQLite's write lock. Mobile reads reopen this
+    // connection for each authorization check, including every conversation fragment.
+    if connection.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))? != 1 {
+        connection.pragma_update(None, "user_version", 1)?;
+    }
     crate::mobile_access_store::migrate(connection)?;
     crate::mobile_push_store::migrate(connection)?;
     crate::project_plan_store::migrate(connection)?;

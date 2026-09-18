@@ -165,6 +165,7 @@ fn test_terminal_snapshot_copy_text_trims_padding_and_blank_tail() {
         alternate_scroll: true,
         mouse_mode: false,
         sgr_mouse: false,
+        show_cursor: true,
     };
 
     let text = terminal_snapshot_copy_text(&snapshot);

@@ -3,7 +3,7 @@ import XCTest
 final class CardCreationFlowTests: XCTestCase {
     /// 卡片选项始终可打开；只读解释权限，无关未决消息不影响另一张空卡。
     /// 数据构造：原卡1为Codex完成任务且有1条未发送的持久请求，原卡2为Claude空卡；初始只读。
-    /// 执行过程：查看卡1 → 查看卡2 → 升级control → 打开删除确认并取消 → 安排任务打开原卡聊天。
+    /// 执行过程：查看卡1 → 查看卡2 → 升级control → 打开原生删除确认并取消 → 安排任务打开原卡聊天。
     /// 预期结果：同卡先核对，无关卡可删除；打开和取消不发送指令，安排任务仅进入原卡输入框。
     @MainActor func testCardOptionsStayAvailableAndTargetOriginalCard() throws {
         try awaitCardOptions(accessibility: false)
@@ -50,10 +50,10 @@ final class CardCreationFlowTests: XCTestCase {
         XCTAssertLessThanOrEqual(delete.frame.maxX, app.frame.maxX, "按钮不得横向裁切")
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = accessibility ? "card-options-AX5" : "card-options"; shot.lifetime = .keepAlways; add(shot)
         delete.tap()
-        XCTAssertTrue(app.navigationBars["删除卡片"].waitForExistence(timeout: 3), "必须打开删除确认页")
+        XCTAssertTrue(app.buttons["confirm-delete-card"].waitForExistence(timeout: 3), "删除应直接显示原生确认弹窗")
+        XCTAssertFalse(app.navigationBars["删除卡片"].exists, "不能再进入整页删除表单")
         let confirm = app.buttons["confirm-delete-card"]
-        // Form按可见行加载AX；AX5的电脑/项目/说明会将确认行推到下一屏。
-        for _ in 0..<6 where !confirm.isHittable { app.collectionViews.firstMatch.swipeUp() }
+        XCTAssertTrue(confirm.isHittable, "确认操作应直接可触达，无需滚动电脑和项目信息")
         XCTAssertTrue(confirm.exists, "必须进入卡2删除确认，不能误进卡1消息结果")
         XCTAssertFalse(app.buttons["查询结果"].exists, "删除确认不得混入其他卡请求")
         app.buttons["取消"].tap()
@@ -75,8 +75,8 @@ final class CardCreationFlowTests: XCTestCase {
     /// 创建弹层可随机选择项目 Agent，也保留手动类型和名称；无关未决消息不锁住创建。
     /// 数据构造：隔离只读项目、1个未打开的Codex「界面助手」及1条仅保存在手机的未决消息；空卡投影101/102；第3次服务拒绝。
     ///   8s = 2s订阅心跳 + 6s原生导航余量；最多4次滚动覆盖新增卡片与创建入口。
-    /// 执行过程：只读打开弹层 → 升级 → 随机选择项目Agent创建 → 底部手动Cursor创建 → 投影为运行中并打开 → 拒绝 → 查询清理 → 重开。
-    /// 预期结果：未授权不提交，随机选择不提前创建；首卡绑定definition_id=7，手动卡不绑定；运行中Cursor隐藏停止动作；未决创建不能重发。
+    /// 执行过程：只读打开弹层 → 升级 → 随机选择项目Agent创建 → 底部手动Cursor创建 → 投影为运行中并打开 → 拒绝 → 查询清理 → 重开 → 确认删除101并自动回列表。
+    /// 预期结果：未授权不提交，随机选择不提前创建；首卡绑定definition_id=7，手动卡不绑定；运行中Cursor隐藏停止动作；未决创建不能重发；删除101自动返回，102保留。
     @MainActor func testCreateCardFormAndUnrelatedPendingMessage() throws {
         let env = ProcessInfo.processInfo.environment
         guard env["NORMA_TEST_MODE"] == "notification-ui", let path = env["NORMA_TEST_QR"] else { throw XCTSkip("仅隔离卡片fixture") }
@@ -159,6 +159,17 @@ final class CardCreationFlowTests: XCTestCase {
         for _ in 0..<4 where !original.isHittable { app.swipeDown() }
         original.tap()
         XCTAssertTrue(app.buttons["查询操作结果"].waitForExistence(timeout: 8), "移除脉络区不能丢失原卡片中的未确认消息")
+        app.buttons["card-options-close"].tap()
+        let firstOptions = app.buttons["card-options-101"]
+        for _ in 0..<4 where !firstOptions.isHittable { app.swipeUp() }
+        firstOptions.tap(); app.buttons["card-delete"].tap()
+        let delete = app.buttons["confirm-delete-card"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 3), "已创建空卡应直接显示删除确认")
+        delete.tap()
+        XCTAssertTrue(first.waitForNonExistence(timeout: 8), "删除成功应自动回到列表并移除目标卡")
+        XCTAssertFalse(app.buttons["card-options-close"].exists, "删除成功不能留在选项或结果页等待完成")
+        XCTAssertTrue(second.exists, "删除第一张卡不能影响第二张卡")
+        XCTAssertEqual(try String(contentsOf: dir.appendingPathComponent("ui-deleted-card"), encoding: .utf8), "101", "只能提交目标卡删除")
     }
     /// 辅助字号下创建表单可滚动、字段与按钮不溢出；名称校验不能被控制授权绕过。
     /// 数据构造：AX5字体、41个ASCII字符 = 原型40字符上限 + 1；只读升control；旧窗口替换一次。

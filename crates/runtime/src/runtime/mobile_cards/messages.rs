@@ -11,14 +11,22 @@ pub(crate) struct NativeInput {
     submitted: Option<u64>,
     started: bool,
     pub(super) dirty: bool,
+    pub(super) approval_menu_open: bool,
     pub(super) resume: native_resume::ResumeInput,
 }
 impl NativeInput {
-    pub(crate) fn observe(&mut self, input: &NodeInput) -> bool {
+    pub(crate) fn observe(&mut self, input: &NodeInput, menu_navigation: bool) -> bool {
         if matches!(input, NodeInput::Text(s) | NodeInput::Paste(s) if s.is_empty()) {
             return false;
         }
         self.advance();
+        if menu_navigation {
+            // Menu confirmation is not a prompt submission. Invalidate the old screen's
+            // navigation context immediately, before its closing redraw/Hook can arrive.
+            self.approval_menu_open = matches!(input, NodeInput::Key(key) if matches!(key.key, terminal::Key::Up | terminal::Key::Down));
+            return false;
+        }
+        self.approval_menu_open = false;
         let submit = matches!(input, NodeInput::Key(key) if key.key == terminal::Key::Enter && !key.ctrl && !key.alt && !key.shift);
         // These keys cannot create text in an empty composer. History recall/Tab remain unknown.
         // An existing draft stays protected: a deletion key alone does not prove it is now empty.
@@ -37,6 +45,7 @@ impl NativeInput {
     }
     pub(crate) fn acknowledge(&mut self) {
         self.started = true;
+        self.approval_menu_open = false;
         // A late Provider hook must not clear the next draft typed after Enter.
         if self.submitted.take() == Some(self.sequence) {
             self.dirty = false;
@@ -45,6 +54,7 @@ impl NativeInput {
     }
     pub(super) fn new_session(&mut self) {
         self.started = false;
+        self.approval_menu_open = false;
     }
     pub(super) fn submitted_sequence(&self) -> Option<u64> {
         self.submitted

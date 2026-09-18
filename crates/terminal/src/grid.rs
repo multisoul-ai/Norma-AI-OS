@@ -122,6 +122,8 @@ pub struct GridSnapshot {
     pub alternate_scroll: bool,
     pub mouse_mode: bool,
     pub sgr_mouse: bool,
+    /// 应用是否请求显示光标（DECTCEM / CSI ?25h）。TUI 常用 ?25l 隐藏硬件光标。
+    pub show_cursor: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -270,6 +272,7 @@ impl TerminalGrid {
             alternate_scroll: mode.contains(TermMode::ALTERNATE_SCROLL),
             mouse_mode: mode.intersects(TermMode::MOUSE_MODE),
             sgr_mouse: mode.contains(TermMode::SGR_MOUSE),
+            show_cursor: mode.contains(TermMode::SHOW_CURSOR),
         }
     }
 

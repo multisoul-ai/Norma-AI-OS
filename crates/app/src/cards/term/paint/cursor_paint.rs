@@ -20,7 +20,7 @@ pub(super) fn cursor_text_run(
     snapshot: &GridSnapshot,
     palette: TerminalPalette,
 ) -> Option<TerminalTextRun> {
-    if snapshot.display_offset != 0 {
+    if snapshot.display_offset != 0 || !snapshot.show_cursor {
         return None;
     }
     let cell = snapshot

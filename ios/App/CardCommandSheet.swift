@@ -7,12 +7,11 @@ struct CardCommandSheet: View {
     let project: ProjectSnapshot
     let revision: UInt64
     @State var pending: PendingMobileCommand?
-    var deleting: CardSnapshot? = nil
     var accepting: TaskDeliveryReference? = nil
     var feedbackFor: TaskDeliveryReference? = nil
     private var isFeedback: Bool { pending?.request.command.feedback != nil || feedbackFor != nil }
     private var isAcceptance: Bool { pending?.request.command.isAcceptance ?? (accepting != nil) }
-    private var isDeletion: Bool { pending?.request.command.isDeletion ?? (deleting != nil) }
+    private var isDeletion: Bool { pending?.request.command.isDeletion == true }
     private var isInterrupt: Bool { pending?.request.command.isInterrupt == true }
     private var isTerminal: Bool { pending?.request.command.isTerminal == true }
     private var actionName: String { isTerminal ? "输入" : isFeedback ? "修改" : isAcceptance ? "验收" : isInterrupt ? "停止" : pending?.request.command.isMessage == true ? "发送" : isDeletion ? "删除" : "创建" }
@@ -96,19 +95,6 @@ struct CardCommandSheet: View {
                         if busy { WorkspaceLoadingView(message: "正在保存验收…", inline: true) }
                         if let error { Text(error).font(.caption).foregroundStyle(.orange) }
                     }
-                } else if let deleting {
-                    Section {
-                        Label(deleting.title, systemImage: "square.stack")
-                        Text(deleting.isBusy ? "这个 Agent 正在执行任务。删除会停止当前任务并移除卡片。" : "这张卡片将从项目中移除。")
-                            .font(.subheadline)
-                    } footer: { Text("已有任务记录和对话文件保留在电脑上。") }
-                    Section {
-                        Button(role: .destructive) { work = Task { await submit() } } label: {
-                            HStack { Text(deleting.isBusy ? "停止并删除卡片" : "删除卡片"); Spacer(); if busy { ProgressView() } }
-                        }.disabled(busy).accessibilityIdentifier("confirm-delete-card")
-                        Button("取消") { dismiss() }.disabled(busy)
-                        if let error { Text(error).font(.caption).foregroundStyle(.orange) }
-                    }
                 } else {
                     ContentUnavailableView("没有待查询的操作", systemImage: "checkmark.circle")
                 }
@@ -157,8 +143,6 @@ struct CardCommandSheet: View {
             } else if feedbackFor != nil { throw MobileError.sessionChanged }
             else if let accepting {
                 command = try await model.client.prepareDeliveryAcceptance(machine, workspaceID: project.id, routeID: route, revision: revision, delivery: accepting)
-            } else if let deleting {
-                command = try await model.client.prepareCardDeletion(machine, workspaceID: project.id, routeID: route, revision: revision, card: deleting, confirmBusy: deleting.isBusy)
             } else { throw MobileError.invalidResponse }
             try await model.commandStore.save(command)
             pending = command

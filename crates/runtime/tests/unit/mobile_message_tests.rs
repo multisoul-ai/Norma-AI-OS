@@ -311,12 +311,15 @@ fn delivery_requires_exact_quiescent_claude_turn() {
         .get_mut(&node)
         .expect("run")
         .native_input
-        .observe(&NodeInput::Key(terminal::KeyInput {
-            key: terminal::Key::Enter,
-            ctrl: false,
-            alt: false,
-            shift: false,
-        }));
+        .observe(
+            &NodeInput::Key(terminal::KeyInput {
+                key: terminal::Key::Enter,
+                ctrl: false,
+                alt: false,
+                shift: false,
+            }),
+            false,
+        );
     assert!(
         !runtime.mobile_delivery_can_capture(&key),
         "Enter已经提交，不能将Provider尚未通知理解成旧任务静止"

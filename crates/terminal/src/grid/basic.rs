@@ -399,3 +399,46 @@ fn test_snapshot_preserves_inverse_and_hidden_attrs() {
         "reset 后的 hidden 字符不应误带 inverse 属性"
     );
 }
+
+/// DECTCEM：CSI ?25l 隐藏光标后，快照必须带上 show_cursor=false。
+///
+/// 数据构造（含关键数值推导）：
+///   默认 TermMode 含 SHOW_CURSOR，因此初始 snapshot.show_cursor = true
+///   ESC[?25l = DECTCEM off，长 6 字节：ESC [ ? 2 5 l
+///   ESC[?25h = DECTCEM on，同样 6 字节
+///
+/// 执行过程：
+///   1. 新建 80×24 grid，读取初始 snapshot
+///   2. advance(CSI ?25l) 后再 snapshot
+///   3. advance(CSI ?25h) 后再 snapshot
+///
+/// 预期结果：
+///   - 正断言：默认显示光标
+///   - 正断言：?25l 后 show_cursor=false，避免 TUI 把硬件光标停在输入框左缘时 Norma 再画一层
+///   - 负断言：隐藏后不应仍为 true
+///   - 正断言：?25h 后恢复 true
+#[test]
+fn test_snapshot_hides_cursor_after_dectcem_off() {
+    let mut grid = TerminalGrid::new(80, 24);
+    let initial = grid.snapshot();
+
+    grid.advance(b"\x1b[?25l");
+    let hidden = grid.snapshot();
+
+    grid.advance(b"\x1b[?25h");
+    let restored = grid.snapshot();
+
+    assert!(
+        initial.show_cursor,
+        "新建 terminal 默认应显示光标，和 Alacritty SHOW_CURSOR 默认一致"
+    );
+    assert!(
+        !hidden.show_cursor,
+        "CSI ?25l 后快照必须隐藏光标，否则 Codex 输入框左缘会再出现 Norma 玻璃光标"
+    );
+    assert_ne!(
+        hidden.show_cursor, true,
+        "隐藏光标后 show_cursor 不应仍为 true"
+    );
+    assert!(restored.show_cursor, "CSI ?25h 后快照应恢复显示光标");
+}
