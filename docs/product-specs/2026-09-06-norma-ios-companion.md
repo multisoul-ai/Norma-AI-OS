@@ -4,7 +4,9 @@
 
 **定位：随身的 Norma 工作台。** 用户离开 Mac 后，能够看懂 Agent 做到哪里、处理阻塞、补充方向，并查看项目中的所有 AI 卡片。代码、Shell、Agent 和执行上下文仍留在用户的 Mac 上。
 
-**[打开可交互原型](../prototypes/norma-ios.html)**。桌面浏览器显示手机与演示路线；手机直接显示应用界面。全部数据为模拟，点击不会运行本地命令或发布软件。状态仅保留在本次页面会话。
+> **此工作台 HTML 原型已于 2026-09-20 归档。** 当前可交互原型是[实时虚拟人指挥台](../prototypes/norma-realtime.html)。归档副本：[v28 工作台](../prototypes/archive/2026-09-06-norma-ios/norma-ios.html)。
+
+桌面浏览器显示手机与演示路线；手机直接显示应用界面。全部数据为模拟，点击不会运行本地命令或发布软件。状态仅保留在本次页面会话。
 
 实现推进见 [Goal 实时实施计划](../exec-plans/2026-09-07-norma-ios-goal.md)，其中单独记录已完成的规划与尚未启动的真实开发阶段。
 
@@ -222,7 +224,7 @@ Enter 发送，Shift+Enter 换行，中文输入法组词期间不提交；空�
 
 ### 居中导航与扫码连接
 
-底部导航已通过 390px 与 320px 真实浏览器验收，中央入口偏移不超过 0.01px，顶部无重叠，触控区域至少 44px。[项目页与新版导航](../prototypes/assets/norma-ios-project-navigation.png)。
+底部导航已通过 390px 与 320px 真实浏览器验收，中央入口偏移不超过 0.01px，顶部无重叠，触控区域至少 44px。[项目页与新版导航](../prototypes/archive/2026-09-06-norma-ios/assets/norma-ios-project-navigation.png)。
 
 底部导航固定为「项目 · 指挥台 · 任务」，三个等宽入口让指挥台始终处于手机正中。中央使用 Norma 标志，保留文字名称，选中时显示白色圆形按钮；设备管理移到右上角，仍可一键进入扫码连接和授权管理。默认保持深色，44px 触控与键盘焦点不缩小。
 
@@ -268,13 +270,13 @@ URL 同时携带电脑身份与项目 / 任务位置，浏览器后退和前进�
 
 Node 状态检查通过：相同任务 ID 的指令隔离、授权项目校验、草稿、离线、权限与单机撤销。Computer Use 在 390px 验证切换、浏览器历史、聊天草稿、第三台添加 / 取消 / Mac 确认；320px 验证单机权限与撤销、切换弹层和聊天输入布局，无横向溢出。
 
-截图证据：[我的电脑列表](../prototypes/assets/norma-ios-machines.png)、[项目内切换电脑](../prototypes/assets/norma-ios-machine-switch.png)。浏览器未报告错误或警告。
+截图证据：[我的电脑列表](../prototypes/archive/2026-09-06-norma-ios/assets/norma-ios-machines.png)、[项目内切换电脑](../prototypes/archive/2026-09-06-norma-ios/assets/norma-ios-machine-switch.png)。浏览器未报告错误或警告。
 
 ### v27 · 纯黑外观历史验证
 
 采用 `apple-design` 的内容优先与克制原则，统一全局中性色，保留触控、焦点和运行反馈。Node 状态检查通过；390×844 与 320×740 的 Computer Use 外观、导航、成果验收和聊天流程通过；项目卡片无渐变和横向溢出，320px 创建弹层可完整操作。
 
-当前截图：[黑色设备页](../prototypes/assets/norma-ios-black-devices.png) · [黑色指挥台](../prototypes/assets/norma-ios-black-command.png)。
+当前截图：[黑色设备页](../prototypes/archive/2026-09-06-norma-ios/assets/norma-ios-black-devices.png) · [黑色指挥台](../prototypes/archive/2026-09-06-norma-ios/assets/norma-ios-black-command.png)。
 
 ### v26 · Emerald 历史验证
 
@@ -282,7 +284,7 @@ Node 状态检查通过。Computer Use 已在真实浏览器验证：项目卡�
 
 重新配对发现并修复了原有流程问题：撤销配对后从原页面重新连接，会跳过成功页。现在重新配对先归一到连接流程，再展示 Mac 确认与成功页，完整流程已通过。
 
-v26 历史截图：[指挥台](../prototypes/assets/norma-ios-emerald/interactive-command.png) · [项目](../prototypes/assets/norma-ios-emerald/interactive-project.png) · [任务](../prototypes/assets/norma-ios-emerald/interactive-tasks.png) · [聊天](../prototypes/assets/norma-ios-emerald/interactive-chat.png) · [成果](../prototypes/assets/norma-ios-emerald/interactive-review.png) · [连接 Mac](../prototypes/assets/norma-ios-emerald/interactive-connect.png)。旧版 `norma-ios-*.png` 为历史证据，以当前 HTML 为准。
+v26 历史截图：[指挥台](../prototypes/archive/2026-09-06-norma-ios/assets/norma-ios-emerald/interactive-command.png) · [项目](../prototypes/archive/2026-09-06-norma-ios/assets/norma-ios-emerald/interactive-project.png) · [任务](../prototypes/archive/2026-09-06-norma-ios/assets/norma-ios-emerald/interactive-tasks.png) · [聊天](../prototypes/archive/2026-09-06-norma-ios/assets/norma-ios-emerald/interactive-chat.png) · [成果](../prototypes/archive/2026-09-06-norma-ios/assets/norma-ios-emerald/interactive-review.png) · [连接 Mac](../prototypes/archive/2026-09-06-norma-ios/assets/norma-ios-emerald/interactive-connect.png)。旧版 `norma-ios-*.png` 为历史证据，以归档 HTML 为准。
 
 浏览器验证仅覆盖模拟原型，未进行 iOS 真机、VoiceOver、APNs、真实相机或远程连接验收。本轮未改 Rust 或原生 iOS 代码。
 
@@ -302,7 +304,7 @@ node scripts/check-norma-mobile-prototype.cjs
 python3 -m http.server 8766 --bind 127.0.0.1 --directory docs
 ```
 
-浏览器访问 `http://127.0.0.1:8766/prototypes/norma-ios.html`。也可以直接双击 HTML，主体交互不依赖服务或 CDN；直接文件方式的剪贴板由浏览器权限决定，失败时可手动选取摘要。
+浏览器访问归档副本 `http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html`。当前可交互原型为 `http://127.0.0.1:8766/prototypes/norma-realtime.html`。也可以直接打开归档 HTML，主体交互不依赖服务或 CDN；直接文件方式的剪贴板由浏览器权限决定，失败时可手动选取摘要。
 
 定位链接：`#connect`、`#project/norma-os`、`#project/studio-site`、`#tasks`、`#task/voice`、`#devices`；异常场景：`?scenario=offline`、`?scenario=readonly`、`?scenario=pairing`。
 

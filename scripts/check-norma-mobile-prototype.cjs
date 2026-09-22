@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
-const html = fs.readFileSync(path.join(__dirname, '../docs/prototypes/norma-ios.html'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '../docs/prototypes/archive/2026-09-06-norma-ios/norma-ios.html'), 'utf8');
 assert.match(html, /<html[^>]*data-dark="true"/, '用户要求的深色必须是初始外观，不能等待手动切换');
 const script = html.match(/<script id="prototype-model">([\s\S]*?)<\/script>/);
 assert.ok(script, '原型必须包含可独立执行的状态逻辑');

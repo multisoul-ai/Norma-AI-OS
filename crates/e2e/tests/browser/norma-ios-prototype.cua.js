@@ -1,4 +1,5 @@
-// CUA browser E2E for the standalone HTML prototype; no native iOS / GPUI claim.
+// CUA browser E2E for the archived v28 workbench HTML; no native iOS / GPUI claim.
+// Current interactive prototype is docs/prototypes/norma-realtime.html.
 // Start: python3 -m http.server 8766 --bind 127.0.0.1 --directory docs
 // Import this module in the CUA JavaScript session, then run each exported
 // test with the existing prototypeTab binding at an iPhone viewport (390 x 844).
@@ -13,7 +14,7 @@ export {testNormaMobileEmerald,testNormaMobileCardManagement,testNormaMobilePair
 /// 执行过程：指挥台 → 验收入口 → 对比前后 → 验收 → 继续调整 → 对话 → 运行中成果。
 /// 预期结果：导航严格居中；成果比较有实际变化；验收记录只生效一次；反馈回到原任务；运行中不能验收。
 async function testNormaMobileEmerald(tab) {
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html?check=emerald-'+Date.now()+'#overview');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html?check=emerald-'+Date.now()+'#overview');
   const layout=await tab.playwright.evaluate(()=>{
     const nav=document.querySelector('#navigation').getBoundingClientRect();
     const command=document.querySelector('#navigation [data-page="overview"]').getBoundingClientRect();
@@ -52,7 +53,7 @@ async function testNormaMobileEmerald(tab) {
 /// 执行过程：创建 Claude 空闲卡片 → 检查任务列表 → 安排前返回 → 删除取消 → 显式发送 → 删除卡片 → 查看保留任务。
 /// 预期结果：创建时没有任务和运行动画；取消删除保留卡片；安排复用原卡片；删除后任务仍可访问。
 async function testNormaMobileCardManagement(tab) {
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html?check=card-management-'+Date.now()+'#project/norma-os');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html?check=card-management-'+Date.now()+'#project/norma-os');
   await mobileButton(tab,'创建卡片').click();
   mobileAssert(!(await tab.playwright.getByLabel('你希望完成什么？').isVisible()), '创建卡片时不能要求填写任务');
   await tab.playwright.getByLabel('Agent',{exact:true}).selectOption('Claude');
@@ -91,7 +92,7 @@ async function testNormaMobileCardManagement(tab) {
 /// 执行过程：引导 → 扫码 → 核对 → 重新扫描 → 手动错误码 → 正确码 → Mac 确认 → 指挥台 → 设备 → 取消连接。
 /// 预期结果：识别不能提前配对；错误码留在原页；确认后可查看设备；返回保留现有配对；布局无横向溢出。
 async function testNormaMobilePairing(tab) {
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html?scenario=pairing&check=scan-'+Date.now()+'#connect');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html?scenario=pairing&check=scan-'+Date.now()+'#connect');
   mobileAssert(await mobileButton(tab,'扫描二维码').isVisible(), '未配对应显示独立扫码引导');
   mobileAssert(!(await mobileButton(tab,'指挥台').isVisible()), '连接引导期间应收起主导航');
   await mobileButton(tab,'连接帮助').click();
@@ -134,7 +135,7 @@ async function testNormaMobilePairing(tab) {
 /// 执行过程：进入对话→空输入→输入草稿→切终端再返回→发送→换行/键盘发送→只读草稿。
 /// 预期结果：空消息不可发送；草稿不丢失；发送后消息与模拟回复出现，输入清空且仍可继续输入。
 async function testNormaMobileChat(tab) {
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html?check=chat&run='+Date.now()+'#task/voice');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html?check=chat&run='+Date.now()+'#task/voice');
   mobileAssert(await tab.playwright.getByRole('tab',{name:'对话',exact:true}).isVisible(), '任务详情必须提供默认对话页');
   mobileAssert(!(await mobileButton(tab, '发送消息').isEnabled()), '空消息不能发送');
   const message='先检查 <重连> 问题\n暂时不要调整界面';
@@ -163,7 +164,7 @@ async function testNormaMobileChat(tab) {
   mobileAssert(await tab.playwright.evaluate(()=>document.querySelector('#message-text').value)==='先给我测试结论\n', 'Shift+Enter 必须换行，不应发送');
   await tab.playwright.getByLabel('消息内容',{exact:true}).press('Enter');
   mobileAssert(await tab.playwright.evaluate(()=>document.querySelectorAll('.chat-turn').length)===3, 'Enter 应恰好新增第三轮对话');
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html?scenario=readonly&check=chat#task/voice');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html?scenario=readonly&check=chat#task/voice');
   await tab.playwright.getByLabel('消息内容',{exact:true}).fill('恢复控制后再发送');
   mobileAssert(!(await mobileButton(tab, '发送消息').isEnabled()), '只读状态可以编辑草稿，但不能发送');
   mobileAssert(await tab.playwright.evaluate(()=>document.querySelectorAll('.chat-turn').length)===1, '编辑草稿不能伪造已送达对话');
@@ -175,7 +176,7 @@ async function testNormaMobileChat(tab) {
 /// 执行过程：项目卡片→终端→量取内容与工具栏→发送模拟输入→中断/继续→任务信息→返回项目。
 /// 预期结果：详情无全局头尾导航；日志占主要空间；输入可见；返回后导航恢复。
 async function testNormaMobileDetailLayout(tab) {
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html?check=detail-layout#project/norma-os');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html?check=detail-layout#project/norma-os');
   await mobileButton(tab, '查看卡片：完善语音输入体验').click();
   await tab.playwright.getByRole('tab',{name:'终端',exact:true}).click();
   const layout = await tab.playwright.evaluate(() => ({
@@ -213,7 +214,7 @@ async function testNormaMobileDetailLayout(tab) {
 /// 执行过程：加载 → 两帧读取动画位置 → 中断/返回 → 继续/返回 → 切项目 → 离线。
 /// 预期结果：只显示所属项目；亮线位置连续变化；非运行状态及离线无动态 SVG。
 async function testNormaMobileProjectCards(tab) {
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html?check=project-cards#project/norma-os');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html?check=project-cards#project/norma-os');
   await tab.getAXState();
   let snapshot = await tab.playwright.evaluate(() => ({
     ids: [...document.querySelectorAll('.ai-card')].map(c => c.dataset.card),
@@ -273,7 +274,7 @@ async function testNormaMobileProjectCards(tab) {
 /// 执行过程：搜索不存在名称 → 空结果；清除 → 创建 → 指令回执 → 中断 → 继续 → 审批。
 /// 预期结果：新任务和消息存在；未创建任务不出现；拒绝/允许入口不在处理后残留。
 async function testNormaMobileTasks(tab) {
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html#tasks');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html#tasks');
   await tab.playwright.getByRole('searchbox', {name:'搜索任务'}).fill('不存在的测试任务');
   await tab.getAXState();
   mobileAssert(await tab.playwright.getByRole('heading', {name:'没有找到任务'}).isVisible(), '搜索无结果应显示空状态');
@@ -311,7 +312,7 @@ async function testNormaMobileTasks(tab) {
 /// 执行过程：断线→保存草稿→重连→显式发送→只读→恢复授权→撤销→错误码→正确配对。
 /// 预期结果：离线发送禁用，草稿重连后存在，只读不能发送；正确配对才恢复访问。
 async function testNormaMobileConnection(tab) {
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html?check=connection&run='+Date.now()+'#devices');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html?check=connection&run='+Date.now()+'#devices');
   await mobileButton(tab, '模拟断线').click();
   await mobileButton(tab, '任务').click();
   await mobileButton(tab, '新建任务').click();
@@ -358,7 +359,7 @@ async function testNormaMobileConnection(tab) {
 /// 执行过程：打开旧链接 → 量取指挥台与导航中轴 → 通知 → 项目 → 任务 → 指挥台 → 顶部设备。
 /// 预期结果：指挥台居中且保留品牌图标；设备不占底部位置；四个页面均可访问，无发布入口。
 async function testNormaMobileNavigation(tab) {
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html?check=navigation-'+Date.now()+'#releases');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html?check=navigation-'+Date.now()+'#releases');
   await tab.getAXState();
   const navigation = await tab.playwright.evaluate(() => ({
     labels: [...document.querySelectorAll('#navigation button')].map(b => b.textContent),
@@ -392,7 +393,7 @@ async function testNormaMobileNavigation(tab) {
 /// 执行过程：短滑→跳过→右滑锁文件→左滑连接测试→按钮允许快照→处理记录。
 /// 预期结果：队列 3→3→2→1→0；记录正好三条；空队列没有允许按钮。
 async function testNormaMobileDecisions(tab) {
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html?check=decisions#overview');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html?check=decisions#overview');
   await tab.playwright.getByRole('tab', {name:'待你决策 · 3',exact:true}).click();
   const dragCard = async ratio => {
     const point = await tab.playwright.evaluate(() => {
@@ -427,7 +428,7 @@ async function testNormaMobileDecisions(tab) {
 /// 执行过程：调整优先项和目标→提交→查看待办交付→任务收到指令→确认 login→待办同步。
 /// 预期结果：表单确实提交；方向/排序一致；负责人是 Agent，用户无完成勾选；确认只更新对应工作。
 async function testNormaMobileNextSteps(tab) {
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html?check=nextsteps-e2e#overview');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html?check=nextsteps-e2e#overview');
   await mobileButton(tab, '调整方向').click();
   await tab.playwright.locator('#direction-form select[name="priorityId"]').selectOption('voice');
   await tab.playwright.locator('#direction-form textarea[name="text"]').fill('先保证语音稳定，视觉调整稍后再做。');
@@ -462,7 +463,7 @@ async function testNormaMobileNextSteps(tab) {
 /// 执行过程：A 草稿 → B → 后退/前进 → B 发消息 → A 草稿。
 /// 预期结果：消息不串机；不同项目可辨认；A 的草稿和任务保持原样。
 async function testNormaMobileMachines(tab) {
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html?check=machines-'+Date.now()+'#project/norma-os');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html?check=machines-'+Date.now()+'#project/norma-os');
   await mobileButton(tab,'查看卡片：完善语音输入体验').click();
   await tab.playwright.getByLabel('消息内容',{exact:true}).fill('MacBook 的未发送草稿');
   await mobileButton(tab,'返回项目卡片').click();
@@ -493,7 +494,7 @@ async function testNormaMobileMachines(tab) {
 /// 执行过程：mini 只读 → 离线 → 禁止创建 → 撤销 → 切换 MacBook。
 /// 预期结果：mini 无法写入；撤销后仍能切换；MacBook 可创建且两个 Agent 继续运行。
 async function testNormaMobileMachineAccess(tab) {
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html?machine=mac-mini&check=machine-access-'+Date.now()+'#devices');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html?machine=mac-mini&check=machine-access-'+Date.now()+'#devices');
   await mobileButton(tab,'切换只读').click();
   await mobileButton(tab,'模拟断线').click();
   await mobileButton(tab,'项目').click();
@@ -514,7 +515,7 @@ async function testNormaMobileMachineAccess(tab) {
 /// 执行过程：添加 → 取消 → 再添加 → 扫码 → 命名 → Mac 只读确认 → 查看设备 → 切回旧电脑。
 /// 预期结果：取消不能注册；新机默认只读；原机器和运行卡片仍存在。
 async function testNormaMobileAddMachine(tab) {
-  await tab.goto('http://127.0.0.1:8766/prototypes/norma-ios.html?check=add-machine-'+Date.now()+'#project/norma-os');
+  await tab.goto('http://127.0.0.1:8766/prototypes/archive/2026-09-06-norma-ios/norma-ios.html?check=add-machine-'+Date.now()+'#project/norma-os');
   await mobileButton(tab,'切换电脑').click();
   await mobileButton(tab,'添加电脑').click();
   await mobileButton(tab,'返回设备').click();
