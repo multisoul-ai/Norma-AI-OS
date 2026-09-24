@@ -6,6 +6,10 @@
 # On failure: 打印缺失项，退出码 1。挂 pre-commit 与 CI。
 #
 # Background: docs/design-docs/2026-07-05-developer-id-notarize-design.md
+#
+# On non-macOS hosts (e.g. Linux Cloud Agents), plist tooling is unavailable.
+# File presence and Packager.toml field checks still run; macOS-only plist
+# key lint is skipped with a clear notice rather than a hard fail.
 
 set -euo pipefail
 
@@ -17,20 +21,37 @@ PKG_DEV="$ROOT/Packager.dev.toml"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-# 1. entitlements 存在且为合法 plist
+# 1. entitlements 存在；macOS 上再做合法 plist 校验
 [ -f "$ENT" ] || fail "entitlements 文件缺失: $ENT"
-plutil -lint "$ENT" >/dev/null || fail "entitlements 不是合法 plist: $ENT"
+if command -v plutil >/dev/null 2>&1; then
+  plutil -lint "$ENT" >/dev/null || fail "entitlements 不是合法 plist: $ENT"
+else
+  echo "SKIP: plutil 不可用，跳过 entitlements plist lint（非 macOS）"
+fi
 
-# 2. Info.plist 关键键
+# 2. Info.plist 关键键（需要 PlistBuddy）
 [ -f "$INFO" ] || fail "Info.plist 缺失: $INFO"
-/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$INFO" >/dev/null 2>&1 \
-  || fail "Info.plist 缺 LSMinimumSystemVersion"
-/usr/libexec/PlistBuddy -c "Print :LSApplicationCategoryType" "$INFO" >/dev/null 2>&1 \
-  || fail "Info.plist 缺 LSApplicationCategoryType"
-/usr/libexec/PlistBuddy -c "Print :NSMicrophoneUsageDescription" "$INFO" >/dev/null 2>&1 \
-  || fail "Info.plist 缺 NSMicrophoneUsageDescription"
-/usr/libexec/PlistBuddy -c "Print :NSSpeechRecognitionUsageDescription" "$INFO" >/dev/null 2>&1 \
-  || fail "Info.plist 缺 NSSpeechRecognitionUsageDescription"
+if [ -x /usr/libexec/PlistBuddy ]; then
+  /usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$INFO" >/dev/null 2>&1 \
+    || fail "Info.plist 缺 LSMinimumSystemVersion"
+  /usr/libexec/PlistBuddy -c "Print :LSApplicationCategoryType" "$INFO" >/dev/null 2>&1 \
+    || fail "Info.plist 缺 LSApplicationCategoryType"
+  /usr/libexec/PlistBuddy -c "Print :NSMicrophoneUsageDescription" "$INFO" >/dev/null 2>&1 \
+    || fail "Info.plist 缺 NSMicrophoneUsageDescription"
+  /usr/libexec/PlistBuddy -c "Print :NSSpeechRecognitionUsageDescription" "$INFO" >/dev/null 2>&1 \
+    || fail "Info.plist 缺 NSSpeechRecognitionUsageDescription"
+else
+  for key in \
+    LSMinimumSystemVersion \
+    LSApplicationCategoryType \
+    NSMicrophoneUsageDescription \
+    NSSpeechRecognitionUsageDescription
+  do
+    grep -Fq "<key>$key</key>" "$INFO" \
+      || fail "Info.plist 缺 $key"
+  done
+  echo "SKIP: PlistBuddy 不可用，已用 XML key 扫描代替（非 macOS）"
+fi
 
 # 3. Packager.toml 含 entitlements + resources 字段
 grep -q '^entitlements' "$PKG" || fail "Packager.toml 缺 entitlements 字段"
