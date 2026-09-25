@@ -1,7 +1,7 @@
 # 伴侣面词汇：首页区域与物件怎么命名
 
 Type: grilling  
-Status: open  
+Status: claimed  
 Part of: [Norma iOS 伴侣：注意力优先指挥面](../map.md)
 
 ## Question

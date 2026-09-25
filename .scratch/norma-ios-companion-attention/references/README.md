@@ -42,7 +42,7 @@
 | 底栏 / 上浮 Composer「Plan, ask, build...」 | 顶部或底部 **Norma 指挥条**（+ / 输入 / 麦） | 默认不胀成全屏会话 |
 | All Agents / Working 列表 | 次级「舰队 / 在跑」下钻 | 对齐 Agent Chief：监视不是默认税 |
 | Open PR 行上的 +/− · Files | 决策卡/摘要卡上的 **可扫指标**（可选） | 完成项进摘要，不抢主队列 |
-| 锁屏 Live Activity | 仅 **interrupt 级** 或「正在代办」摘要；禁止心跳刷屏 | 与 Q12=B、Chief 投递等级一致 |
+| 锁屏 Live Activity | 仅 **interrupt 级**；**默认短下一步（A）**，权限/失败必带方案，普通提问可标题+极短线索（融 C）；禁止心跳刷屏 | 见票 [03](../issues/03-grilling-resume-cue-in-home-c.md) |
 | Context sheet | 指挥条「+」展开：项目/附图/模式 | 保持分组列表，勿做成设置坟场 |
 
 ---

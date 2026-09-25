@@ -20,7 +20,7 @@ Tracker note: GitHub issue create 403，本 effort 落在本地 markdown tracker
 
 ## Decisions so far
 
-<!-- 关闭的票：名称链接 + 一行 gist -->
+- [Resume 线索落在首页 C 的哪里](./issues/03-grilling-resume-cue-in-home-c.md)：决策卡一行方案 + 指挥条「继续」短线索 + zoom 才预填完整；锁屏默认短下一步，权限/失败必带方案；文案模板优先 suggested_action；发送/清空/叉掉即清指挥条线索；原型必见卡/条/锁屏三处。
 
 ## Not yet specified
 
