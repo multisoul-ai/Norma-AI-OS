@@ -38,12 +38,14 @@
 
 | Cursor Mobile | Norma 伴侣（拟映射） | 注意 |
 |---------------|----------------------|------|
-| Inbox 状态格里的 **Needs Attention** | 首页主区「需要你」决策队列 | 计数为 0 时要平静，不要空热闹 |
-| 底栏 / 上浮 Composer「Plan, ask, build...」 | 顶部或底部 **Norma 指挥条**（+ / 输入 / 麦） | 默认不胀成全屏会话 |
-| All Agents / Working 列表 | 次级「舰队 / 在跑」下钻 | 对齐 Agent Chief：监视不是默认税 |
-| Open PR 行上的 +/− · Files | 决策卡/摘要卡上的 **可扫指标**（可选） | 完成项进摘要，不抢主队列 |
-| 锁屏 Live Activity | 仅 **interrupt 级**；**默认短下一步（A）**，权限/失败必带方案，普通提问可标题+极短线索（融 C）；禁止心跳刷屏 | 见票 [03](../issues/03-grilling-resume-cue-in-home-c.md) |
-| Context sheet | 指挥条「+」展开：项目/附图/模式 | 保持分组列表，勿做成设置坟场 |
+| Inbox 状态格里的 **Needs Attention** | 首页主区 **需要你** | 空状态：**暂时没有需要你的事**（可选副行 Norma 会在需要时找你） |
+| 底栏 / 上浮 Composer「Plan, ask, build...」 | 对内 **指挥条**；UI 无标题，placeholder 自解释 | 默认不胀成全屏会话 |
+| All Agents / Working 列表 | 二级页 **全部 Agent** | 监视不是默认税 |
+| Open PR 行上的 +/− · Files | 决策条目可扫指标（可选）；条目带徽标 **提问 / 权限 / 失败** | 完成项进 **摘要** |
+| 锁屏 Live Activity | 仅 interrupt；默认短下一步，权限/失败必带方案 | 见票 03 |
+| Context sheet | 指挥条「+」展开 | 勿做成设置坟场 |
+
+**用户可见 Avoid**：Inbox、把 Agent Chief/闸门当品牌露出、桌面「编排」。词汇已入根目录 `CONTEXT.md`「Norma iOS 伴侣（草案）」。
 
 ---
 

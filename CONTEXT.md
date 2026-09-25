@@ -328,3 +328,35 @@ _Avoid_: 激活窗与工作台窗两套生命周期接力
 **Keygate 客户端接入**：
 主 App 复用 Keygate activate / 离线 token 契约：公钥内嵌（或 `NORMA_LICENSE_PUBKEY_HEX`）、token 落盘、启动时本地验签（含过期与机器 `did` 绑定）；`NORMA_SKIP_LICENSE` 可跳过门控，`NORMA_LICENSE_URL` 可覆盖服务地址；不在 Settings 做完整 License 管理页（一期）；不落盘保存 License Key；不接支付。
 _Avoid_: 每次启动强制联网、以落盘公钥为信任根、Settings 暴露改服务器地址、深耦合支付
+
+## Norma iOS 伴侣（草案）
+
+手机端注意力优先指挥面的产品词汇；实现仍属草案，与桌面 Norma OS 共享 Norma / Agent 卡片等既有概念。
+
+**Norma iOS 伴侣**：
+文档与 SPEC 中对「可指挥桌上 Norma OS 的 iOS 注意力优先界面」的称呼；首版用户可见 UI 不单独拍板 App 品牌名，界面使用功能名。
+_Avoid_: 在主 UI 强推未定品牌名、Inbox App、通用多 CLI 驾驶舱产品名
+
+**需要你**：
+伴侣首页主队列：仅展示须用户决策或处理的打断项（提问、权限、失败等），对应注意力闸门的 interrupt 级事项。
+_Avoid_: Inbox、收件箱、审批（单独作区名时过窄）
+
+**摘要**：
+伴侣首页次级区域：默认收纳完成汇报与其它 digest 级事项，不抢「需要你」主位。
+_Avoid_: 动态、已处理（作唯一区名时易混淆）、时间线
+
+**指挥条**：
+对内名称：向 Norma 发送语音或文字指令的 pill 输入入口；UI 不展示该组件标题，靠 placeholder 自解释。
+_Avoid_: 把「指挥条」三字印在主 UI 标题上、满屏聊天作曲家当首页
+
+**类型徽标**：
+「需要你」条目上对用户可见的种类标记：提问、权限、失败。
+_Avoid_: 无类型的笼统「事项」作为唯一用户可见标签
+
+**全部 Agent**：
+舰队二级列表页标题：浏览桌上 Agent 卡片/会话状态；非首页主舞台。
+_Avoid_: 在跑（单独作唯一页名时易漏非 running）、把舰队塞进首页主区
+
+**暂时没有需要你的事**：
+「需要你」为空时的主空状态文案；可选副行「Norma 会在需要时找你」。
+_Avoid_: 闸门之后、Agent Chief、Inbox Zero 话术
