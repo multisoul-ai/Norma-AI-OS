@@ -62,6 +62,7 @@ impl MultisoulApp {
             key: Key::Tab,
             ctrl: false,
             alt: false,
+            shift: false,
         };
         end_active_agent_task_for_manual_interrupt(self, node_id, &input);
         self.interaction.clear_text_selection_for_node(node_id);

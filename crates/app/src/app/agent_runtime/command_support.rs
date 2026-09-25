@@ -41,6 +41,7 @@ pub(super) fn submit_agent_enter(
             key: terminal::Key::Enter,
             ctrl: false,
             alt: false,
+            shift: false,
         }),
     ) {
         let cleanup = runtime.send_node_input(
@@ -49,6 +50,7 @@ pub(super) fn submit_agent_enter(
                 key: terminal::Key::Char('u'),
                 ctrl: true,
                 alt: false,
+                shift: false,
             }),
         );
         return match cleanup {
@@ -78,6 +80,7 @@ pub(super) fn clear_agent_task_input(
                 key: terminal::Key::Char('u'),
                 ctrl: true,
                 alt: false,
+                shift: false,
             }),
         )
         .map_err(|error| error.to_string())

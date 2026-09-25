@@ -142,6 +142,7 @@ fn send_terminal_text(runtime: &mut Runtime, node_id: u64, text: &str) {
                     key: Key::Char(character),
                     ctrl: false,
                     alt: false,
+                    shift: false,
                 }),
             )
             .expect("test should send character input to terminal");
@@ -153,6 +154,7 @@ fn send_terminal_text(runtime: &mut Runtime, node_id: u64, text: &str) {
                 key: Key::Enter,
                 ctrl: false,
                 alt: false,
+                shift: false,
             }),
         )
         .expect("test should send Enter to terminal");

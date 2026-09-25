@@ -7,9 +7,9 @@ target/
 build
 .agents/*
 !.agents/skills/
-.agents/skills/*
-!.agents/skills/release-dmg/
-!.agents/skills/release-dmg/**
+!.agents/skills/**
+# Keep local skill scratch / caches out of git if any appear later
+.agents/skills/**/.DS_Store
 .multisoul
 tmp/
 .idea

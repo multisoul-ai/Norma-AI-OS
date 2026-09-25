@@ -212,3 +212,117 @@ fn e2e_02_option_enter_in_codex_agent_inserts_newline_instead_of_submitting() {
 
     app.update(cx, |app, _cx| app.runtime.kill_all());
 }
+
+/// E2E-02：Codex 请求增强键盘协议后，Shift+Enter 必须作为换行键发送且不能退化为提交。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Codex Agent cards = 1（经真实 NewCodexAgent action 创建并聚焦）
+///   keyboard mode request = CSI > 7 u = ESC(1) + "[>7u"(4) = 5 bytes
+///   Shift modifier value = 1(default) + 1(shift bit) = 2
+///   expected Shift+Enter = CSI 13;2u = ESC(1) + "[13;2u"(6) = 7 bytes
+///   forbidden plain Enter = CR = [0x0d] = 1 byte
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 装配 recording PTY，并从输出侧发送 CSI > 7 u，模拟 Codex 请求增强键盘协议。
+///   2. 通过公开 NewCodexAgent action 创建并聚焦 Agent 卡片，再 drain 协议声明。
+///   3. 通过 GPUI `simulate_keystrokes("shift-enter")` 模拟 Shift+Enter，走真实 root
+///      keydown、Runtime 和 PTY 路径。
+///   4. 读取 recording PTY 的实际写入，区分增强 Shift+Enter 与裸 Enter 提交。
+///
+/// 预期结果：
+///   - 正断言：PTY 精确收到 CSI 13;2u，Codex 可识别为 Shift+Enter 并插入换行。
+///   - 负断言：PTY 不得收到裸 CR，否则 Codex 会把它当成 Enter 并直接发送消息。
+#[test]
+fn e2e_02_shift_enter_in_codex_agent_inserts_newline_instead_of_submitting() {
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    let recorded_writes = writes.clone();
+    let factory: PtyFactory = Box::new(move |_command, _cols, _rows, tx| {
+        tx.send(PtyEvent::Output(b"\x1b[>7u".to_vec()))
+            .expect("Codex Shift+Enter 测试 PTY 应能请求增强键盘协议");
+        Ok(Box::new(TestPtyBackend::recording(tx, recorded_writes.clone())) as Box<dyn PtyBackend>)
+    });
+    let mut test_cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut test_cx, factory);
+    let workspace = tempfile::tempdir().expect("Shift+Enter e2e 应创建临时 workspace");
+    enter_canvas(&app, cx, workspace.path());
+    let _node_id = create_codex_agent(&app, cx);
+    app.update(cx, |app, _cx| {
+        app.runtime.drain_all();
+    });
+
+    cx.simulate_keystrokes("shift-enter");
+
+    let recorded = writes
+        .lock()
+        .expect("Shift+Enter 写入记录锁不应被污染")
+        .clone();
+    assert_eq!(
+        recorded,
+        vec![b"\x1b[13;2u".to_vec()],
+        "增强键盘模式下 Shift+Enter 应精确编码为 CSI 13;2u，实际写入: {recorded:?}"
+    );
+    assert_ne!(
+        recorded,
+        vec![vec![0x0d]],
+        "Shift+Enter 不得退化为裸 CR，否则 Codex 会直接提交消息"
+    );
+
+    app.update(cx, |app, _cx| app.runtime.kill_all());
+}
+
+/// E2E-02：Terminal 卡片内的 TUI 请求增强键盘协议后，Shift+Enter 必须保留换行语义。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   Terminal cards = 1（经真实 NewTerminal action 创建并聚焦）
+///   keyboard mode request = CSI > 7 u = ESC(1) + "[>7u"(4) = 5 bytes
+///   Shift modifier value = 1(default) + 1(shift bit) = 2
+///   expected Shift+Enter = CSI 13;2u = ESC(1) + "[13;2u"(6) = 7 bytes
+///   forbidden plain Enter = CR = [0x0d] = 1 byte
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 装配 recording PTY，并从输出侧发送 CSI > 7 u，模拟 Terminal 中的 TUI 请求增强协议。
+///   2. 通过公开 NewTerminal action 创建并聚焦 Terminal 卡片，再 drain 协议声明。
+///   3. 通过 GPUI `simulate_keystrokes("shift-enter")` 模拟 Shift+Enter，覆盖 root keydown、
+///      Runtime 和 Terminal PTY 的完整输入链路。
+///   4. 读取 recording PTY 的实际写入，验证 Terminal 卡片没有丢失 Shift 修饰键。
+///
+/// 预期结果：
+///   - 正断言：PTY 精确收到 CSI 13;2u，卡片内 TUI 可将其解释为插入换行。
+///   - 负断言：PTY 不得收到裸 CR，避免 Shift+Enter 被错误解释为直接提交。
+#[test]
+fn e2e_02_shift_enter_in_terminal_card_preserves_newline_modifier() {
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    let recorded_writes = writes.clone();
+    let factory: PtyFactory = Box::new(move |_command, _cols, _rows, tx| {
+        tx.send(PtyEvent::Output(b"\x1b[>7u".to_vec()))
+            .expect("Terminal Shift+Enter 测试 PTY 应能请求增强键盘协议");
+        Ok(Box::new(TestPtyBackend::recording(tx, recorded_writes.clone())) as Box<dyn PtyBackend>)
+    });
+    let mut test_cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut test_cx, factory);
+    let workspace = tempfile::tempdir().expect("Terminal Shift+Enter e2e 应创建临时 workspace");
+    enter_canvas(&app, cx, workspace.path());
+    let _node_id = create_terminal(&app, cx);
+    app.update(cx, |app, _cx| {
+        app.runtime.drain_all();
+    });
+
+    cx.simulate_keystrokes("shift-enter");
+
+    let recorded = writes
+        .lock()
+        .expect("Terminal Shift+Enter 写入记录锁不应被污染")
+        .clone();
+    assert_eq!(
+        recorded,
+        vec![b"\x1b[13;2u".to_vec()],
+        "Terminal 增强键盘模式下 Shift+Enter 应精确编码为 CSI 13;2u，实际写入: {recorded:?}"
+    );
+    assert_ne!(
+        recorded,
+        vec![vec![0x0d]],
+        "Terminal 的 Shift+Enter 不得退化为裸 CR，否则卡片内 TUI 会直接提交消息"
+    );
+
+    app.update(cx, |app, _cx| app.runtime.kill_all());
+}

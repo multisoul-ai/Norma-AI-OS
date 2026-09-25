@@ -5,38 +5,38 @@ use gpui::{px, Modifiers, TestAppContext};
 
 const INTERNAL_BETA_LICENSE_KEY: &str = "KG-WACEHBCB-2ZL4AM23-JBJQJZBG-YVT55VDN";
 
-/// E2E-17-default-on：默认开启 licenses 时，无凭证启动必须展示激活壳。
+/// E2E-17-default-off：默认关闭 licenses 时，无凭证启动也必须直接进入工作台。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   licenses feature = true（app 默认 features 包含 `licenses`）
+///   licenses feature = false（app 默认 features 不包含 `licenses`）
 ///   local status     = Invalid(Missing)（模拟首次安装且没有离线凭证）
-///   activation roots = 1 个（默认开启 License 后显示激活壳）
-///   workbench roots  = 0 个（激活前不得构造工作台）
+///   activation roots = 0 个（默认关闭 License 后不显示激活壳）
+///   workbench roots  = 1 个（无凭证也直接构造工作台）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. build_configured_unlicensed_root_e2e 使用当前构建开关和缺失凭证计算启动阶段
-///   2. GateRoot 按启动阶段挂载激活壳并完成首帧渲染
-///   3. 查询稳定 debug selector，确认激活壳存在且工作台不存在
+///   2. GateRoot 按启动阶段挂载工作台并完成首帧渲染
+///   3. 查询稳定 debug selector，确认工作台存在且激活壳不存在
 ///
 /// 预期结果：
-///   - 正断言：activation-shell 与 license-key-input 均存在
-///   - 负断言：gate-workbench 不存在
+///   - 正断言：gate-workbench 存在
+///   - 负断言：activation-shell 与 license-key-input 均不存在
 #[test]
-fn e2e_17_default_enabled_license_opens_activation_shell_without_workbench() {
+fn e2e_17_default_disabled_license_opens_workbench_without_activation_shell() {
     let mut test_cx = TestAppContext::single();
     let (_root, window_cx) = test_cx.add_window_view(build_configured_unlicensed_root_e2e);
 
     assert!(
-        window_cx.debug_bounds("activation-shell").is_some(),
-        "licenses 默认开启且本地凭证缺失时必须渲染 activation-shell"
+        window_cx.debug_bounds("gate-workbench").is_some(),
+        "licenses 默认关闭时，本地凭证缺失也必须渲染 gate-workbench"
     );
     assert!(
-        window_cx.debug_bounds("license-key-input").is_some(),
-        "licenses 默认开启时必须渲染可编辑的 License Key 输入框"
+        window_cx.debug_bounds("activation-shell").is_none(),
+        "licenses 默认关闭时不得渲染 activation-shell"
     );
     assert!(
-        window_cx.debug_bounds("gate-workbench").is_none(),
-        "licenses 默认开启且本地凭证缺失时不得提前渲染 gate-workbench"
+        window_cx.debug_bounds("license-key-input").is_none(),
+        "licenses 默认关闭时不得渲染 License Key 输入框"
     );
 }
 

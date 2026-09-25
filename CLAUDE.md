@@ -8,7 +8,7 @@ Every session must begin by reading [`AGENTS.md`](AGENTS.md). It is the short na
 
 ## 1. Project Overview
 
-Norma OS is a macOS spatial workbench scaffold. The product direction is **Live Node on Infinite Canvas**: an infinite canvas hosts live executable nodes, with Terminal as the first live node.
+Norma OS is a macOS AI companion for vibe coding. The user sets the intent and direction; Norma coordinates multiple coding agents while keeping execution, context, and artifacts visible and interruptible. Its product form is **Live Node on Infinite Canvas**: an infinite canvas hosts live executable nodes, with Terminal as the first live node.
 
 Workspace crates:
 

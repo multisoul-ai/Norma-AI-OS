@@ -217,6 +217,7 @@ pub(crate) fn execute_norma_adapter_command_with_source(
                     key: terminal::Key::Char('c'),
                     ctrl: true,
                     alt: false,
+                    shift: false,
                 });
                 if let Err(error) = app.runtime.send_node_input(node_id, interrupt) {
                     return Ok(AdapterResult::unknown(format!(

@@ -191,6 +191,7 @@ impl MultisoulApp {
                             key: Key::Char('v'),
                             ctrl: true,
                             alt: false,
+                            shift: false,
                         }),
                     ) {
                         tracing::error!(%error, "native clipboard image paste failed");
