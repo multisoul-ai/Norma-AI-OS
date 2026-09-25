@@ -21,6 +21,7 @@ Tracker note: GitHub issue create 403，本 effort 落在本地 markdown tracker
 ## Decisions so far
 
 - [对照 Agent Chief：抽出可复用的注意力协议与 UX 模式](./issues/01-research-agent-chief-patterns.md)：propose→Decision→服从；interrupt/digest/drop（+dispatch 带 plan）；完成→摘要，提问/权限/失败→需要你；详见 [research/agent-chief-patterns.md](./research/agent-chief-patterns.md)。
+- [Norma 事件的打断 / 摘要分类法](./issues/02-grilling-interrupt-digest-taxonomy.md)：路由表已锁；卡片必填 summary/方案/来源/徽标、证据可选；Norma 短澄清内联、复杂进需要你；原型覆盖提问·权限·失败·完成·带方案项。
 - [Resume 线索落在首页 C 的哪里](./issues/03-grilling-resume-cue-in-home-c.md)：决策卡一行方案 + 指挥条「继续」短线索 + zoom 才预填完整；锁屏默认短下一步，权限/失败必带方案；文案模板优先 suggested_action；发送/清空/叉掉即清指挥条线索；原型必见卡/条/锁屏三处。
 - [伴侣面词汇：首页区域与物件怎么命名](./issues/04-grilling-companion-glossary.md)：需要你 / 摘要 / 指挥条(对内) / 徽标提问·权限·失败 / 全部 Agent；空状态「暂时没有需要你的事」；Avoid Inbox、闸门品牌化、编排；产品名暂不拍板。
 

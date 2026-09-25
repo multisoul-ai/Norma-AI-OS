@@ -2,7 +2,6 @@
 
 Type: prototype  
 Status: open  
-Blocked by: 02, 03, 04  
 Part of: [Norma iOS 伴侣：注意力优先指挥面](../map.md)
 
 ## Question
