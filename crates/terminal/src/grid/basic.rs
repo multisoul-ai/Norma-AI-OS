@@ -436,9 +436,5 @@ fn test_snapshot_hides_cursor_after_dectcem_off() {
         !hidden.show_cursor,
         "CSI ?25l 后快照必须隐藏光标，否则 Codex 输入框左缘会再出现 Norma 玻璃光标"
     );
-    assert_ne!(
-        hidden.show_cursor, true,
-        "隐藏光标后 show_cursor 不应仍为 true"
-    );
     assert!(restored.show_cursor, "CSI ?25h 后快照应恢复显示光标");
 }

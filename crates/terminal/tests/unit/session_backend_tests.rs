@@ -133,6 +133,7 @@ fn test_option_enter_uses_csi_u_when_enhanced_keyboard_is_enabled() {
 ///   1. 开启 bracketed paste，写 Shift+Enter 和 Enter，分别记录换行与提交。
 ///   2. 同时开启 Kitty，Shift+Enter 应优先保留原始按键协议。
 ///   3. 退出两个模式，再写 Shift+Enter，验证模式不会泄漏到 legacy shell。
+///
 /// 预期结果：
 ///   - 换行是单个 bracketed paste，不能成为裸 CR；普通 Enter 仍提交。
 ///   - Kitty 返回 CSI-u；关闭协议后返回 legacy CR。

@@ -60,6 +60,8 @@ pub(crate) fn terminate_or_signal(
             return;
         }
     }
+    #[cfg(not(target_os = "macos"))]
+    let _ = root;
 
     let _ = fallback.kill();
 }

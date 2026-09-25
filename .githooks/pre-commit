@@ -19,9 +19,42 @@ staged_rust=$(
     true
 )
 
+# Derive -p crate args from staged crate paths (crates/<name>/...).
+staged_crate_packages() {
+  git diff --cached --name-only --diff-filter=ACMR |
+    sed -n 's|^crates/\([^/]*\)/.*|\1|p' |
+    sort -u |
+    while read -r crate; do
+      if [ -f "crates/$crate/Cargo.toml" ]; then
+        printf '%s\n' "$crate"
+      fi
+    done
+}
+
 if [ -n "$staged_rust" ]; then
   echo "[pre-commit] running cargo check..."
-  cargo check --workspace --quiet
+  if [ "$(uname -s)" = "Darwin" ]; then
+    cargo check --workspace --quiet
+  else
+    # sherpa-onnx and other native deps are macOS-only; full workspace check
+    # cannot succeed on Linux Cloud Agents. Check only crates touched by the
+    # staged Rust diff; macOS CI still runs the full workspace gate.
+    if echo "$staged_rust" | grep -qE '(^Cargo\.toml$|^Cargo\.lock$|^rust-toolchain\.toml$|^src/)'; then
+      echo "[pre-commit] workspace/root Rust files staged on non-macOS; skipping local cargo check (CI covers macOS workspace)"
+    else
+      packages=$(staged_crate_packages)
+      if [ -z "$packages" ]; then
+        echo "[pre-commit] no crate packages derived from staged Rust files; skipping cargo check"
+      else
+        check_args=()
+        while read -r crate; do
+          check_args+=(-p "$crate")
+        done <<<"$packages"
+        echo "[pre-commit] non-macOS scoped check: cargo check ${check_args[*]}"
+        cargo check "${check_args[@]}" --quiet
+      fi
+    fi
+  fi
 
   echo "[pre-commit] running cargo fmt --check..."
   cargo fmt --check
