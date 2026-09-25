@@ -106,13 +106,19 @@ fn process_exit_label(code: Option<i32>) -> String {
 pub fn keystroke_to_input(ks: &Keystroke) -> Option<KeyInput> {
     let ctrl = ks.modifiers.control;
     let alt = ks.modifiers.alt;
+    let shift = ks.modifiers.shift;
 
     if ks.modifiers.platform {
         return None;
     }
 
     if let Some(key) = named_control_key(&ks.key) {
-        return Some(KeyInput { key, ctrl, alt });
+        return Some(KeyInput {
+            key,
+            ctrl,
+            alt,
+            shift,
+        });
     }
 
     // When key_char holds exactly one char and no Ctrl/Cmd is active, use it
@@ -126,6 +132,7 @@ pub fn keystroke_to_input(ks: &Keystroke) -> Option<KeyInput> {
                     key: Key::Char(c),
                     ctrl: false,
                     alt: false,
+                    shift: false,
                 });
             }
         }
@@ -136,7 +143,12 @@ pub fn keystroke_to_input(ks: &Keystroke) -> Option<KeyInput> {
         s if s.chars().count() == 1 => Key::Char(s.chars().next().unwrap()),
         _ => return None,
     };
-    Some(KeyInput { key, ctrl, alt })
+    Some(KeyInput {
+        key,
+        ctrl,
+        alt,
+        shift,
+    })
 }
 
 fn named_control_key(key: &str) -> Option<Key> {
@@ -257,7 +269,8 @@ mod tests {
             Some(KeyInput {
                 key: Key::Char('你'),
                 ctrl: false,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             "key_char='你' 应优先于物理键 key='n'"
         );
@@ -266,7 +279,8 @@ mod tests {
             Some(KeyInput {
                 key: Key::Char('n'),
                 ctrl: false,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             "不应返回物理键字符 'n'，key_char 优先级更高"
         );
@@ -303,7 +317,8 @@ mod tests {
             Some(KeyInput {
                 key: Key::Char('c'),
                 ctrl: true,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             "Ctrl+C 应保留 ctrl=true，不受 key_char 影响"
         );
@@ -312,7 +327,8 @@ mod tests {
             Some(KeyInput {
                 key: Key::Char('c'),
                 ctrl: false,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             "ctrl 修饰时不应跳过 ctrl=true 标志走 key_char 路径"
         );
@@ -352,7 +368,8 @@ mod tests {
             Some(KeyInput {
                 key: Key::Char('å'),
                 ctrl: false,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             "Option+a 产生的合成字符 'å' 应以 alt: false 返回，OS 已将修饰编码进字符"
         );
@@ -361,7 +378,8 @@ mod tests {
             Some(KeyInput {
                 key: Key::Char('å'),
                 ctrl: false,
-                alt: true
+                alt: true,
+                shift: false,
             }),
             "alt: true 会导致 encode() 在 'å' 前多插 ESC，modifier 不应被双重应用"
         );
@@ -395,7 +413,8 @@ mod tests {
             Some(KeyInput {
                 key: Key::Char('a'),
                 ctrl: false,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             "多字符 key_char 应回落到 ks.key 处理"
         );
@@ -404,7 +423,8 @@ mod tests {
             Some(KeyInput {
                 key: Key::Char('b'),
                 ctrl: false,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             "多字符 key_char 不应取第二个字符"
         );
@@ -447,7 +467,8 @@ mod tests {
             Some(KeyInput {
                 key: Key::Char('m'),
                 ctrl: false,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             "Cmd+M 不应变成裸字符 m 发送到 PTY"
         );

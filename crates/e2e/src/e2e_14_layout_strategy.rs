@@ -79,7 +79,7 @@ fn e2e_layout_menu_defaults_to_reference_layout() {
 /// 数据构造（含关键数值的推导过程）：
 ///   默认数量 = 2；点击加号 1 次再点击减号 1 次 → track_count = 2 + 1 - 1 = 2
 ///   填充方式 = ColumnFirst，因此 index=0 → row=0,col=0；index=1 → row=1,col=0；index=2 → row=0,col=1
-///   固定尺寸宽度 = 360 screen px；gap = 16 screen px，因此第三张相对第一张 x 增量 = 360 + 16 = 376 px
+///   固定尺寸宽度 = 360 screen px；gap = 8 screen px，因此第三张相对第一张 x 增量 = 360 + 8 = 368 px
 ///   创建次数 = 3；在创建第 3 张前记录前两张的 bounds，作为“不跳动”正反验收基线
 ///
 /// 执行过程（逐步说明系统如何处理）：

@@ -344,6 +344,7 @@ fn test_send_node_input_dispatches_to_live_node() {
         key: Key::Enter,
         ctrl: false,
         alt: false,
+        shift: false,
     });
 
     let existing = rt.send_node_input(node_id, input.clone());

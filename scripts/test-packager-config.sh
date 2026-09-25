@@ -11,13 +11,15 @@
 #   planner helper path  = sidecars/openai-card-planner/openai-card-planner.mjs
 #   release build hook   = before-packaging-command in Packager.toml
 #   required cargo target = -p app（app package now owns both release binaries）
+#   app default features = []（普通构建不启用 License 硬门控）
+#   release feature mode = --no-default-features + production-data
 #   release profile      = thin LTO + 1 codegen unit + symbol stripping
 #   wallpaper budget     = 140 MiB = 140 * 1024 * 1024 bytes
 #
 # Execution:
 #   1. Read Packager.toml from the repository root.
 #   2. Verify the secondary hook binary is listed as a packaged binary.
-#   3. Verify the one-shot pre-packaging command builds the app package.
+#   3. Verify the one-shot pre-packaging command builds the app package without License defaults.
 #
 # Expected result:
 #   - Positive: product-name is Norma OS.
@@ -27,6 +29,8 @@
 #   - Positive: the OpenAI card planner helper is packaged as a resource.
 #   - Positive: before-packaging-command validates the persisted release version without mutating it.
 #   - Positive: before-packaging-command invokes `cargo build --release -p app`.
+#   - Positive: normal and packaged builds both leave the License feature disabled.
+#   - Negative: the packaging hook must not explicitly enable `licenses`.
 #   - Positive: release binaries use size-conscious link/strip settings.
 #   - Positive: packaged wallpaper sources stay within the 140 MiB budget.
 #   - Negative: the old target/release/multisoul main binary path is not retained.
@@ -61,6 +65,7 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config="$repo_root/Packager.toml"
 dev_config="$repo_root/Packager.dev.toml"
 cargo_config="$repo_root/Cargo.toml"
+app_manifest="$repo_root/crates/app/Cargo.toml"
 icon_source="$repo_root/assets/app-icon-source.png"
 macos_icon="$repo_root/assets/app-icon-macos.png"
 app_icon="$repo_root/assets/AppIcon.icns"
@@ -140,6 +145,18 @@ fi
 
 if ! printf '%s\n' "$hook" | grep -Fq -- 'cargo build --release -p app'; then
   fail "before-packaging-command must build the app package release binaries"
+fi
+
+if ! grep -Fq 'default = []' "$app_manifest"; then
+  fail "crates/app/Cargo.toml must keep default features empty so normal builds bypass License authorization"
+fi
+
+if ! printf '%s\n' "$hook" | grep -Fq -- '--no-default-features --features production-data'; then
+  fail "before-packaging-command must explicitly disable default features while enabling production-data"
+fi
+
+if printf '%s\n' "$hook" | grep -Eq -- '--features(=|[[:space:]])[^&]*licenses'; then
+  fail "before-packaging-command must not enable the licenses feature"
 fi
 
 if printf '%s\n' "$hook" | grep -Fq -- 'scripts/bump-release-version.sh'; then

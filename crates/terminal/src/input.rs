@@ -19,6 +19,7 @@ pub struct KeyInput {
     pub key: Key,
     pub ctrl: bool,
     pub alt: bool,
+    pub shift: bool,
 }
 
 /// 把一次按键编码为写入 PTY 的字节序列。
@@ -50,11 +51,16 @@ pub fn encode(input: &KeyInput) -> Vec<u8> {
 
 /// 按终端应用声明的增强键盘模式编码按键。
 ///
-/// Option+Enter 在 legacy 模式下与 Enter 都是 CR；应用请求 Kitty 键盘增强协议后，
-/// 才能用 CSI-u 保留 Alt/Option 修饰，避免多行编辑被误识别为提交。
+/// Option+Enter / Shift+Enter 在 legacy 模式下与 Enter 都是 CR；应用请求 Kitty 键盘增强
+/// 协议后，才能用 CSI-u 保留修饰键，避免多行编辑被误识别为提交。
 pub(crate) fn encode_for_keyboard_mode(input: &KeyInput, enhanced_keyboard: bool) -> Vec<u8> {
-    if enhanced_keyboard && matches!(input.key, Key::Enter) && input.alt && !input.ctrl {
-        return b"\x1b[13;3u".to_vec();
+    if enhanced_keyboard && matches!(input.key, Key::Enter) && !input.ctrl {
+        return match (input.shift, input.alt) {
+            (true, false) => b"\x1b[13;2u".to_vec(),
+            (false, true) => b"\x1b[13;3u".to_vec(),
+            (true, true) => b"\x1b[13;4u".to_vec(),
+            (false, false) => encode(input),
+        };
     }
     encode(input)
 }
@@ -77,6 +83,7 @@ mod tests {
             key: Key::Char('c'),
             ctrl: true,
             alt: false,
+            shift: false,
         });
         assert_eq!(out, vec![0x03], "Ctrl+C 应编码为 0x03（'c'&0x1f）");
         assert_ne!(out, vec![0x63], "不应是裸 'c'(0x63)，说明 ctrl 修饰未生效");
@@ -92,6 +99,7 @@ mod tests {
             key: Key::Char('a'),
             ctrl: false,
             alt: false,
+            shift: false,
         });
         assert_eq!(out, vec![0x61], "'a' 应编码为单字节 0x61");
     }
@@ -107,7 +115,8 @@ mod tests {
             encode(&KeyInput {
                 key: Key::Enter,
                 ctrl: false,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             vec![0x0d],
             "Enter → CR"
@@ -116,7 +125,8 @@ mod tests {
             encode(&KeyInput {
                 key: Key::Tab,
                 ctrl: false,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             vec![0x09],
             "Tab → HT"
@@ -125,7 +135,8 @@ mod tests {
             encode(&KeyInput {
                 key: Key::Backspace,
                 ctrl: false,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             vec![0x7f],
             "Backspace → DEL"
@@ -134,7 +145,8 @@ mod tests {
             encode(&KeyInput {
                 key: Key::Escape,
                 ctrl: false,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             vec![0x1b],
             "Escape → ESC"
@@ -154,6 +166,7 @@ mod tests {
             key: Key::Up,
             ctrl: false,
             alt: false,
+            shift: false,
         });
         assert_eq!(up, vec![0x1b, b'[', b'A'], "Up 应为 CSI A 序列");
         assert_eq!(up.len(), 3, "方向键应是 3 字节 CSI 序列");
@@ -161,7 +174,8 @@ mod tests {
             encode(&KeyInput {
                 key: Key::Down,
                 ctrl: false,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             vec![0x1b, b'[', b'B'],
             "Down → CSI B"
@@ -170,7 +184,8 @@ mod tests {
             encode(&KeyInput {
                 key: Key::Right,
                 ctrl: false,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             vec![0x1b, b'[', b'C'],
             "Right → CSI C"
@@ -179,7 +194,8 @@ mod tests {
             encode(&KeyInput {
                 key: Key::Left,
                 ctrl: false,
-                alt: false
+                alt: false,
+                shift: false,
             }),
             vec![0x1b, b'[', b'D'],
             "Left → CSI D"
@@ -198,7 +214,54 @@ mod tests {
             key: Key::Char('b'),
             ctrl: false,
             alt: true,
+            shift: false,
         });
         assert_eq!(out, vec![0x1b, 0x62], "Alt+b 应为 ESC 前缀 + 'b'");
+    }
+
+    /// Shift+Enter 仅在终端应用启用增强键盘协议后保留 Shift 修饰。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   key = Enter = Unicode code point 13
+    ///   Shift modifier value = 1(default) + 1(shift bit) = 2
+    ///   enhanced encoding = CSI 13;2u = ESC(1) + "[13;2u"(6) = 7 bytes
+    ///   legacy encoding = CR = [0x0d] = 1 byte
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 构造 `KeyInput { key: Enter, shift: true }`，其余修饰键关闭。
+    ///   2. 在 enhanced_keyboard=true 下编码，终端应保留 Shift bit。
+    ///   3. 在 enhanced_keyboard=false 下编码，终端应按 legacy 兼容规则回退为 CR。
+    ///
+    /// 预期结果：
+    ///   - 正断言：增强模式精确返回 CSI 13;2u。
+    ///   - 正断言：legacy 模式精确返回 CR，避免普通 shell 收到无法识别的 CSI-u 文本。
+    ///   - 负断言：增强模式不得退化为裸 CR，否则 TUI 会把 Shift+Enter 当提交键。
+    #[test]
+    fn test_shift_enter_preserves_modifier_only_in_enhanced_keyboard_mode() {
+        let input = KeyInput {
+            key: Key::Enter,
+            ctrl: false,
+            alt: false,
+            shift: true,
+        };
+
+        let enhanced = encode_for_keyboard_mode(&input, true);
+        let legacy = encode_for_keyboard_mode(&input, false);
+
+        assert_eq!(
+            enhanced,
+            b"\x1b[13;2u".to_vec(),
+            "增强键盘模式下 Shift+Enter 应编码为 CSI 13;2u"
+        );
+        assert_eq!(
+            legacy,
+            vec![0x0d],
+            "legacy 模式应保持兼容并把 Shift+Enter 编码为 CR"
+        );
+        assert_ne!(
+            enhanced,
+            vec![0x0d],
+            "增强键盘模式不得丢失 Shift 修饰并退化为裸 CR"
+        );
     }
 }

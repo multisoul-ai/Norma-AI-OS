@@ -15,8 +15,10 @@
 Create a refined visual asset for “Norma OS”.
 
 Product:
-Norma OS is a spatial macOS workbench: an infinite canvas where live Terminal,
-AI Agent, Browser and File Preview cards stay running.
+Norma OS is a macOS AI companion for vibe coding. The user sets the intent and
+direction; Norma coordinates multiple coding agents and keeps their Terminal,
+Browser, File Preview, process and artifacts visible on one infinite canvas.
+The companion relationship is the product promise; Live Nodes are its spatial form.
 
 Character invariants:
 Preserve Norma as a young adult anime AI woman with a long cool-lilac ponytail,
@@ -91,4 +93,3 @@ Keep objects widely spaced and photographed in soft architectural daylight.
 - 产品 UI 是否真实、清晰、不是通用仪表盘？
 - 小字、色值、尺寸、终端内容和产品规格是否经过人工校对？
 - 是否避免直接复刻 Apple 的具体物料？
-

@@ -99,6 +99,7 @@ fn test_option_enter_uses_csi_u_when_enhanced_keyboard_is_enabled() {
             key: crate::input::Key::Enter,
             ctrl: false,
             alt: true,
+            shift: false,
         })
         .expect("Option+Enter 应成功写入 recording PTY");
 

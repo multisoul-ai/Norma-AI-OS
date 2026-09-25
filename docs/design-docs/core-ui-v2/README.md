@@ -1,7 +1,7 @@
 # Norma OS Core UI V2：配色与评审素材
 
 > 状态：当前设计基线  
-> 更新日期：2026-07-16  
+> 更新日期：2026-08-08
 > 默认浅色主题：**Paper Blue**  
 > 交互原型：[docs/product-ui.html](../../product-ui.html)
 
@@ -20,7 +20,7 @@
 
 ## 2. 视觉方向
 
-Norma OS 是 macOS 空间工作台，不是网页仪表盘。主题需要满足以下原则：
+Norma OS 是面向 vibe coding 的 macOS AI 伙伴；空间工作台是伙伴协作的交互形态，不是网页仪表盘。主题需要满足以下原则：
 
 - 中性色承担大面积背景，品牌色只用于焦点、状态、选择与短暂反馈。
 - 高饱和色的可见面积原则上不超过界面的 10%。
@@ -137,4 +137,3 @@ bash scripts/check-product-ui-prototype.sh
 - [`docs/brand/`](../../brand/)
 - [BairesDev AI Colors](https://www.bairesdev.com/tools/ai-colors)
 - [BairesDev Palette App](https://www.bairesdev.com/tools/color-palette-app/)
-
