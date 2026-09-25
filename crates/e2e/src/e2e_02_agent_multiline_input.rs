@@ -337,6 +337,7 @@ fn e2e_02_shift_enter_in_terminal_card_preserves_newline_modifier() {
 ///   1. 通过公开 action 逐一创建并聚焦 Claude、Codex、Terminal 卡片。
 ///   2. drain 模式声明，通过 GPUI 模拟 Shift+Enter 后再模拟普通 Enter。
 ///   3. 检查每张卡片经共享 Runtime/TerminalSession 写出的字节。
+///
 /// 预期结果：
 ///   - 三种卡片都先收到粘贴换行，再收到 CR 提交。
 ///   - Shift+Enter 不得退化为 CR，也不得向未声明 Kitty 的程序发送 CSI-u。

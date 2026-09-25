@@ -48,6 +48,7 @@ fn context(input: &str) -> ToolContext {
 ///   Adapter 返回 task_id=41 的 accepted，不能被升级为 completed。
 /// 执行过程：1. 两个入口交替完成前 20 次调用。2. 第 21 次调用被挡在 Adapter 前。
 ///   3. 新回合执行一次，共 20 + 1 = 21 次真实 Adapter 调用。
+///
 /// 预期结果：前 20 次接收；溢出调用不存在；下一回合正常接收且不是任务完成。
 #[tokio::test]
 async fn shared_budget_stops_before_twenty_first_side_effect() {

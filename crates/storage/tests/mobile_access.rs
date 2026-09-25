@@ -15,8 +15,9 @@ fn scope(project: &str, access: MobilePermission) -> MobileProjectAccess {
 ///   1. 注册设备，另一连接记录data_version，再连续鉴权32次并记录耗时。
 ///   2. 确认鉴权没有提交写入；持有BEGIN IMMEDIATE写锁时再鉴权。
 ///   3. 释放写锁并撤销设备，重新鉴权。
+///
 /// 预期结果：只读权限存在、控制权限不存在；data_version不变；
-///   无关写锁不阻塞鉴权，撤销后不能继续使用旧权限。
+/// 无关写锁不阻塞鉴权，撤销后不能继续使用旧权限。
 #[test]
 fn authentication_does_not_write_or_wait_for_a_writer() {
     let dir = tempfile::tempdir().expect("隔离数据库目录");

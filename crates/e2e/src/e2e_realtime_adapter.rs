@@ -304,8 +304,9 @@ fn realtime_adapter_receipt_requires_persisted_task_and_canvas() {
 ///   查询不增加任务；取消尚未提交的 task_id=1 → 未结束任务由 1 减到 0。
 /// 执行过程：1. 建立 headless 项目，所有 Adapter 操作都不传 Window。
 ///   2. 新建 Codex 并派工。3. 查询真实任务。4. 明确取消该任务后重新查询。
+///
 /// 预期结果：真实 accepted 和任务身份保留；查询不重复派工；取消保留原卡片，
-///   已取消任务不再作为未结束任务返回。此测试不等于真实 .app 关窗验收。
+/// 已取消任务不再作为未结束任务返回。此测试不等于真实 .app 关窗验收。
 #[test]
 fn realtime_adapter_dispatches_and_queries_without_a_window() {
     let mut gpui = TestAppContext::single();
