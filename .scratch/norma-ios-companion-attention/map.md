@@ -17,7 +17,7 @@ Tracker note: GitHub issue create 403，本 effort 落在本地 markdown tracker
   - **Q9=C** Norma 指挥条 + 闸门主舞台 · Q10=C Norma 为主、卡住 zoom · Q11=A HTML 原型 · Q12=B 完成进 digest
 - **Plan, don't do**: 本 map 只产决策与原型资产，不实现生产 SwiftUI、不接真联调。
 - **Visual reference**: 用户偏好 Cursor Mobile 的简洁设计（大留白、pill 指挥条、Needs Attention 计数、舰队二级列表、锁屏 Live Activity 极简）。截图与映射见 [`references/README.md`](./references/README.md)；原图在 [`references/cursor-mobile/`](./references/cursor-mobile/)。
-- **Interactive prototype**: [`prototype/index.html`](./prototype/index.html)（Quiet / Stacked / Hub 三变体 picker）。旧线框草图已归档至 [`assets/archive/`](./assets/archive/)。
+- **Interactive prototype**: [`prototype/index.html`](./prototype/index.html)（Quiet / Stacked / Hub；`?demo=lock|empty|zoom|agents|digest`）。旧线框已归档 [`assets/archive/`](./assets/archive/)。证据 [`prototype/shots/`](./prototype/shots/)。待用户 `keep <variant>`。
 
 ## Decisions so far
 
@@ -25,6 +25,7 @@ Tracker note: GitHub issue create 403，本 effort 落在本地 markdown tracker
 - [Norma 事件的打断 / 摘要分类法](./issues/02-grilling-interrupt-digest-taxonomy.md)：路由表已锁；卡片必填 summary/方案/来源/徽标、证据可选；Norma 短澄清内联、复杂进需要你；原型覆盖提问·权限·失败·完成·带方案项。
 - [Resume 线索落在首页 C 的哪里](./issues/03-grilling-resume-cue-in-home-c.md)：决策卡一行方案 + 指挥条「继续」短线索 + zoom 才预填完整；锁屏默认短下一步，权限/失败必带方案；文案模板优先 suggested_action；发送/清空/叉掉即清指挥条线索；原型必见卡/条/锁屏三处。
 - [伴侣面词汇：首页区域与物件怎么命名](./issues/04-grilling-companion-glossary.md)：需要你 / 摘要 / 指挥条(对内) / 徽标提问·权限·失败 / 全部 Agent；空状态「暂时没有需要你的事」；Avoid Inbox、闸门品牌化、编排；产品名暂不拍板。
+- [可点 HTML 原型：首页 C + 摘要 + zoom + 空状态](./issues/05-prototype-home-c-html.md)：三变体可交互；主路径与锁屏/空态/zoom/Agent 已证据化；`keep` 待选。
 
 ## Not yet specified
 
