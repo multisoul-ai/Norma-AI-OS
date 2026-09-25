@@ -17,6 +17,7 @@ Tracker note: GitHub issue create 403，本 effort 落在本地 markdown tracker
   - **Q9=C** Norma 指挥条 + 闸门主舞台 · Q10=C Norma 为主、卡住 zoom · Q11=A HTML 原型 · Q12=B 完成进 digest
 - **Plan, don't do**: 本 map 只产决策与原型资产，不实现生产 SwiftUI、不接真联调。
 - **Visual reference**: 用户偏好 Cursor Mobile 的简洁设计（大留白、pill 指挥条、Needs Attention 计数、舰队二级列表、锁屏 Live Activity 极简）。截图与映射见 [`references/README.md`](./references/README.md)；原图在 [`references/cursor-mobile/`](./references/cursor-mobile/)。
+- **Interactive prototype**: [`prototype/index.html`](./prototype/index.html)（Quiet / Stacked / Hub 三变体 picker）。旧线框草图已归档至 [`assets/archive/`](./assets/archive/)。
 
 ## Decisions so far
 
