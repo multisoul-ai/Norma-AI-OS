@@ -1,0 +1,10 @@
+{
+  "name": "norma-ios-prototype-site",
+  "private": true,
+  "description": "Static host for Norma iOS interactive prototypes (docs/prototypes + referenced assets).",
+  "scripts": {
+    "prepare:static": "bash scripts/prepare-static.sh",
+    "deploy": "bash scripts/prepare-static.sh && npx --yes vercel@41.0.2 deploy dist --yes",
+    "deploy:prod": "bash scripts/prepare-static.sh && npx --yes vercel@41.0.2 deploy dist --prod --yes"
+  }
+}
