@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="860" viewBox="0 0 1440 860" role="img" aria-labelledby="title desc">
+  <title id="title">Norma OS 功能设计简图</title>
+  <desc id="desc">用户保存想法创建频道，在频道中讨论或点名 Agent；Norma 在硬约束内派工，Agent 执行并提交真实回执和成果，需用户处理的事项进入收件箱。</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#141619"/><stop offset="1" stop-color="#0a0b0d"/></linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M1 1 9 5 1 9" fill="none" stroke="#9eafa4" stroke-width="1.8"/></marker>
+    <style>
+      text{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC",sans-serif;fill:#f5f5f5}
+      .title{font-size:34px;font-weight:700}.sub{font-size:16px;fill:#aeb1b0}
+      .eyebrow{font-size:13px;font-weight:700;letter-spacing:1.5px}
+      .head{font-size:25px;font-weight:680}.body{font-size:17px}.small{font-size:15px;fill:#aeb1b0}
+      .line{fill:none;stroke:#9eafa4;stroke-width:2;marker-end:url(#arrow)}
+      .mint{fill:#c7ead4}.blue{fill:#b6cff5}.amber{fill:#f0d4a9}.rose{fill:#f2bfbb}
+    </style>
+  </defs>
+  <rect width="1440" height="860" fill="url(#bg)"/>
+  <text x="64" y="52" class="eyebrow mint">NORMA OS · FUNCTIONAL OVERVIEW</text>
+  <text x="64" y="102" class="title">一个想法，进入一个频道；多个 Agent 在其中完成工作</text>
+  <text x="64" y="135" class="sub">频道承载共享上下文；Norma 虚拟人提供实时语音入口；收件箱集中需要人的判断。</text>
+
+  <rect x="66" y="206" width="248" height="188" rx="25" fill="#222123" stroke="#626065"/>
+  <circle cx="100" cy="244" r="14" fill="#f0d4a9"/>
+  <text x="128" y="252" class="head">你</text>
+  <text x="95" y="298" class="body">保存想法 → 建频道</text>
+  <text x="95" y="329" class="body">打字或与 Norma 实时聊</text>
+  <text x="95" y="360" class="small">设定不可越过的硬约束</text>
+  <path d="M314 300H352" class="line"/>
+
+  <rect x="366" y="187" width="493" height="228" rx="28" fill="#1d2821" stroke="#729783" stroke-width="1.7"/>
+  <text x="398" y="227" class="eyebrow mint">CHANNEL · 共同工作现场</text>
+  <text x="398" y="264" class="head">频道</text>
+  <rect x="396" y="281" width="142" height="94" rx="17" fill="#2b3930"/>
+  <text x="410" y="313" class="body">文字 / 实时语音</text>
+  <text x="410" y="342" class="small">通话记录回频道</text>
+  <rect x="548" y="281" width="144" height="94" rx="17" fill="#2b3930"/>
+  <text x="562" y="313" class="body">共享上下文</text>
+  <text x="562" y="342" class="small">目标 · 决定 · 证据</text>
+  <rect x="702" y="281" width="127" height="94" rx="17" fill="#2b3930"/>
+  <text x="716" y="313" class="body">关联项目</text>
+  <text x="716" y="342" class="small">iOS · API…</text>
+  <path d="M790 415V440H943V459" class="line"/>
+  <text x="805" y="432" class="small blue">直接 @Agent</text>
+  <path d="M859 300H897" class="line"/>
+
+  <rect x="911" y="206" width="462" height="188" rx="25" fill="#22251f" stroke="#716e57"/>
+  <circle cx="945" cy="244" r="14" fill="#c7ead4"/>
+  <text x="973" y="252" class="head">Norma · 实时对话与协调</text>
+  <text x="940" y="298" class="body">聆听、插话、理解意图并更新频道摘要</text>
+  <text x="940" y="329" class="body">自主关联项目、加入 Agent、派工</text>
+  <text x="940" y="360" class="small">普通范围可调整；硬约束必须遵守</text>
+
+  <path d="M1142 394V453" class="line"/>
+  <rect x="911" y="468" width="462" height="135" rx="25" fill="#1e242d" stroke="#627999"/>
+  <text x="940" y="505" class="eyebrow blue">EXECUTION · AGENT CARDS</text>
+  <text x="940" y="540" class="head">执行 Agent</text>
+  <text x="940" y="573" class="body">回应点名 · 执行任务 · 提交成果与证据</text>
+
+  <path d="M911 537H861" class="line"/>
+  <rect x="540" y="468" width="307" height="135" rx="25" fill="#262420" stroke="#81735d"/>
+  <text x="569" y="505" class="eyebrow amber">TASK EVENT</text>
+  <text x="569" y="540" class="head">真实回执</text>
+  <text x="569" y="573" class="body">已接收 ≠ 已完成</text>
+  <path d="M680 468V425" class="line"/>
+  <text x="697" y="454" class="small amber">结果回写频道</text>
+
+  <path d="M540 537H490V665H440" class="line"/>
+  <rect x="66" y="646" width="374" height="143" rx="25" fill="#2b211f" stroke="#936d68"/>
+  <text x="95" y="685" class="eyebrow rose">INBOX · 只打断重要事项</text>
+  <text x="95" y="724" class="head">收件箱</text>
+  <text x="95" y="758" class="body">待决定 · 失败 · 待验收</text>
+
+  <path d="M440 718H555" class="line"/>
+  <rect x="569" y="646" width="421" height="143" rx="25" fill="#232722" stroke="#728475"/>
+  <text x="598" y="685" class="eyebrow mint">REVIEW · RETURN TO CHANNEL</text>
+  <text x="598" y="724" class="head">你验收 / 退回原任务</text>
+  <text x="598" y="758" class="body">通过后归档频道，需要时可重开</text>
+
+  <rect x="1025" y="651" width="346" height="128" rx="22" fill="#191a1c" stroke="#414346"/>
+  <text x="1051" y="686" class="eyebrow" fill="#aeb1b0">注意力原则</text>
+  <text x="1051" y="723" class="body">过程留在原任务里</text>
+  <text x="1051" y="752" class="small">语音可延后汇报；决策进收件箱</text>
+</svg>

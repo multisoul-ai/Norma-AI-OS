@@ -1,268 +1,144 @@
 // Run: node scripts/check-norma-realtime-prototype.cjs
+const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const assert = require('node:assert/strict');
+const {initialState, act, inboxItems} = require('../docs/prototypes/norma-channel-model.js');
 const html = fs.readFileSync('docs/prototypes/norma-realtime.html', 'utf8');
-const source = html.match(/<script id="realtime-model">([\s\S]*?)<\/script>/);
-assert.ok(source, '原型必须提供可独立检查的状态逻辑');
-for (const [, script] of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)) new vm.Script(script);
-const context = vm.createContext({});
-vm.runInContext(source[1] + '\nthis.api={initialRealtime, act, iphone17PreviewFrame, showsConversationDock};', context);
-const {initialRealtime, act, iphone17PreviewFrame, showsConversationDock} = context.api;
-const css = html.match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? '';
 
-/// [iOS 页面层级]：执行空间使用手机底部 Sheet，通话控制只属于 Norma 页面。
-///
-/// 数据构造（含关键数值的推导过程）：
-///   主页面 = Norma、Work、Inbox 共 3 个
-///   通话控制可见页面 = 1 个（Norma）
-///   项目 Sheet 状态 = closed → projects → closed
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 初始化 → 没有 Sheet
-///   2. 打开执行空间 → phoneSheet 进入 projects
-///   3. 选择 Norma API → 切到 Work 并关闭 Sheet
-///
-/// 预期结果：
-///   - 正断言：Norma 显示通话控制，执行空间可打开为 projects Sheet
-///   - 正断言：选择项目后过滤值为 Norma API，Sheet 已关闭
-///   - 负断言：Work、Inbox 和 Agent Card 不得显示持久通话 Dock
+/// [浏览器脚本加载]：模型脚本和页面脚本在同一全局环境执行时，首页应完成渲染。
+/// 数据构造：1 份模型脚本 + 1 份页面内联脚本；根节点初始内容为空。
+/// 执行过程：1. 加载模型脚本；2. 加载页面脚本；3. 检查根节点内容。
+/// 预期结果：频道首页可见；脚本加载不发生重复声明异常或黑屏。
 {
-  const s = initialRealtime();
-  assert.equal(s.phoneSheet, null, '初始化时不能残留手机 Sheet');
-  assert.equal(showsConversationDock('norma'), true, 'Norma 页面必须保留通话控制');
-  assert.equal(showsConversationDock('work'), false, 'Work 页面不能显示占据内容的通话 Dock');
-  assert.equal(showsConversationDock('inbox'), false, 'Inbox 页面不能显示占据内容的通话 Dock');
-  assert.equal(showsConversationDock('card'), false, 'Agent Card 页面必须使用自己的定向输入栏');
-  assert.equal(act(s, {type:'open-conversation'}).ok, true, 'Norma 的文字对话与想法必须能进入手机抽屉');
-  assert.equal(s.phoneSheet, 'conversation', 'Norma 首页的次要内容必须收进 conversation Sheet');
-  assert.equal(act(s, {type:'close-sheet'}).ok, true, '用户必须能关闭对话抽屉回到虚拟人');
-  assert.equal(s.phoneSheet, null, '关闭对话抽屉后不能残留遮罩或 Sheet 状态');
-  assert.equal(act(s, {type:'open-projects'}).ok, true, '点击执行空间应打开手机项目 Sheet');
-  assert.equal(s.phoneSheet, 'projects', '执行空间必须进入 phone-local projects Sheet 状态');
-  assert.equal(act(s, {type:'browse', project:'Norma API'}).ok, true, '应能从 Sheet 选择 Norma API');
-  assert.equal(s.viewProject, 'Norma API', '项目选择必须更新 Work 过滤条件');
-  assert.equal(s.phoneSheet, null, '选择项目后手机 Sheet 必须关闭');
-  assert.match(css, /\.phone button,\.review button\{-webkit-appearance:none;appearance:none;/, '所有手机层级按钮都必须重置浏览器原生外观，包括 screen 外的 Sheet');
-  assert.doesNotMatch(css, /\.screen button,\.review button\{/, '按钮基础样式不能只覆盖 screen，否则手机 Sheet 会回退为灰色浏览器按钮');
+  const root = {innerHTML:''};
+  const context = vm.createContext({
+    window:{addEventListener(){}},
+    document:{getElementById:id=>id==='root'?root:null,addEventListener(){},documentElement:{style:{setProperty(){}}}},
+    location:{search:'?variant=A',href:'http://127.0.0.1:8766/prototypes/norma-realtime.html?variant=A'},
+    URLSearchParams, URL, innerHeight:900, matchMedia:()=>({matches:false}),
+  });
+  const inline = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(inline, '页面必须包含可执行的原型脚本');
+  assert.doesNotThrow(() => {
+    vm.runInContext(fs.readFileSync('docs/prototypes/norma-channel-model.js','utf8'), context);
+    vm.runInContext(inline, context);
+  }, '浏览器加载模型和页面脚本时不能发生重复声明或运行异常');
+  assert.match(root.innerHTML, /频道/, '模型和页面脚本加载后应渲染频道首页');
 }
 
-/// [扫码注册电脑]：扫描有效的 Norma 配对码后，必须经用户确认才能新增电脑。
+/// [保存想法]：保存即建频道，但必须等明确执行指令才让 Norma 派工。
 ///
-/// 数据构造（含关键数值的推导过程）：
-///   初始电脑 = Alan Studio + Build Mac = 2 台
-///   无效二维码 = https://example.com
-///   有效二维码 = norma://pair/studio-mini
-///   确认后电脑 = 2 + 1 = 3 台
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 打开扫码器 → 先扫描无效码，保持扫码状态且不新增
-///   2. 扫描有效 Norma 配对码 → 只生成待确认电脑，不立即注册
-///   3. 用户确认 → 新增 Studio Mini，并关闭注册流程
-///
-/// 预期结果：
-///   - 正断言：有效码解析出 Studio Mini，确认后电脑总数为 3
-///   - 负断言：无效码和仅扫描未确认都不得新增电脑
-///   - 负断言：重复确认不能生成第二台 Studio Mini
+/// 数据构造（含关键数值的推导过程）：初始 3 个频道；保存 1 个后应有 3 + 1 = 4 个，新频道初始任务 0 个。
+/// 执行过程：1. 保存一句想法 → 建频道；2. 明确开始 → 关联 2 个项目、派给 2 位 Agent。
+/// 预期结果：执行前没有任务，执行后 Codex 和 Design 均有接收回执。
 {
-  const s = initialRealtime();
-  assert.equal(s.machines.length, 2, '初始必须只有两台已注册电脑');
-  assert.equal(act(s, {type:'open-scanner'}).ok, true, '应能从执行空间进入扫码注册');
-  assert.equal(s.phoneSheet, 'scanner', '扫码注册必须使用手机全屏扫描界面');
-  assert.equal(act(s, {type:'scan-code', code:'https://example.com'}).ok, false, '非 Norma 配对码必须被拒绝');
-  assert.equal(s.machines.length, 2, '无效二维码不得新增电脑');
-  assert.equal(s.phoneSheet, 'scanner', '无效二维码后应留在扫码界面继续扫描');
-  assert.equal(act(s, {type:'scan-code', code:'norma://pair/studio-mini'}).ok, true, '有效 Norma 配对码应进入确认页');
-  assert.equal(s.pendingMachine.name, 'Studio Mini', '配对确认页必须显示二维码对应的 Studio Mini');
-  assert.equal(s.machines.length, 2, '扫描成功但用户未确认前不能注册电脑');
-  assert.equal(act(s, {type:'confirm-pair'}).ok, true, '用户确认后应完成电脑注册');
-  assert.equal(s.machines.length, 3, '确认后电脑总数必须从 2 增至 3');
-  assert.equal(s.machines.filter(machine => machine.name === 'Studio Mini').length, 1, 'Studio Mini 必须且只能注册一次');
-  assert.equal(s.phoneSheet, null, '注册完成后必须退出扫码流程');
-  assert.equal(act(s, {type:'confirm-pair'}).ok, false, '没有待确认电脑时不能重复注册');
-  assert.equal(s.machines.length, 3, '重复确认不得生成第二台 Studio Mini');
+  const state = initialState();
+  const saved = act(state, {type:'save', text:'让手机交接更清楚'});
+  assert.equal(saved.ok, true, '想法应成功保存');
+  assert.equal(state.channels.length, 4, '只应新增一个频道');
+  const channel = state.channels.find(item => item.id === saved.channelId);
+  assert.equal(channel.status, 'idea', '新频道应保持构思状态');
+  assert.equal(channel.tasks.length, 0, '仅保存时不能生成 Agent 任务');
+  assert.equal(channel.projects.length, 0, '仅保存时不能擅自关联项目');
+  assert.equal(act(state, {type:'start', channelId:channel.id}).ok, true, '明确开始后应派工');
+  assert.equal(channel.status, 'running', '频道应显示执行中');
+  assert.equal(channel.projects.join(','), 'iOS App,Norma API', 'Norma 应关联两个项目');
+  assert.equal(channel.tasks.length, 2, 'Norma 应创建两张具名任务卡');
+  assert.ok(channel.messages.some(message => message.author === 'Codex' && message.text.includes('已接收')), 'Codex 应在频道回应');
+  assert.ok(channel.messages.some(message => message.author === 'Design' && message.text.includes('已接收')), 'Design 应在频道回应');
 }
 
-/// Work 默认展示全部卡片，并允许用项目过滤：过滤只改变视图，不改变任务归属。
+/// [共享上下文]：频道内 @Agent 必有回应，且不会污染别的频道或复制活跃任务。
 ///
-/// 数据构造（含关键数值的推导过程）：
-///   Norma OS   = 2 张卡片（Alan、Chloe）
-///   Norma API  = 1 张卡片（Bella）
-///   Release Ops = 1 张卡片（Bruno）
-///   Total      = 2 + 1 + 1 = 4 张卡片
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 初始化 Work → 默认过滤值为 all，4 张卡片都属于当前视图
-///   2. 选择 Norma API → 视图只命中 Bella，底层任务仍保持 4 张
-///   3. 切回全部 → 过滤值恢复 all
-///
-/// 预期结果：
-///   - 正断言：默认值与切回后的值都为 all
-///   - 正断言：Norma API 过滤结果只包含 Bella
-///   - 负断言：过滤不得删除 Norma OS 或 Release Ops 的任务
+/// 数据构造（含关键数值的推导过程）：初始 3 个频道；在第 1 个频道追加 1 条用户消息和至少 1 条回应。
+/// 执行过程：1. @Codex 检查 API；2. 检查回应、任务数、另一个频道及硬约束。
+/// 预期结果：Codex 回应，原任务数不变，别的频道消息数不变，生产发布禁令保持有效。
 {
-  const s = initialRealtime();
-  assert.equal(s.viewProject, 'all', 'Work 初始必须选择“全部项目”');
-  assert.equal(s.tasks.length, 4, 'Work 默认必须保留全部 4 张 Agent Card');
-  assert.equal(act(s, {type:'filter', project:'Norma API'}).ok, true, '选择已知项目应成功更新过滤条件');
-  assert.equal(s.viewProject, 'Norma API', 'Work 应记录当前选择的 Norma API 过滤条件');
-  const apiCards = s.tasks.filter(t => t.project === s.viewProject);
-  assert.equal(apiCards.length, 1, 'Norma API 过滤后应只显示 1 张卡片');
-  assert.equal(apiCards[0].cardName, 'Bella', 'Norma API 过滤结果必须包含 Bella');
-  assert.equal(s.tasks.length, 4, '项目过滤不能删除其他项目的 Agent Card');
-  assert.ok(s.tasks.some(t => t.cardName === 'Alan'), '过滤后底层任务仍应保留 Norma OS 的 Alan');
-  assert.ok(s.tasks.some(t => t.cardName === 'Bruno'), '过滤后底层任务仍应保留 Release Ops 的 Bruno');
-  assert.equal(act(s, {type:'filter', project:'all'}).ok, true, '选择“全部项目”应恢复总览');
-  assert.equal(s.viewProject, 'all', '切回全部后过滤条件必须恢复为 all');
+  const state = initialState(), channel = state.channels[0], other = state.channels[1];
+  const taskCount = channel.tasks.length, otherCount = other.messages.length;
+  assert.equal(act(state, {type:'send', channelId:channel.id, text:'@Codex 请继续检查 API 状态'}).ok, true, '@Codex 指令应被接收');
+  assert.ok(channel.messages.some(message => message.author === 'Codex' && message.text.includes('收到')), '@Codex 后应有明确回应');
+  assert.equal(channel.tasks.length, taskCount, '续聊不应自动复制任务');
+  assert.equal(other.messages.length, otherCount, '另一个频道不应混入消息');
+  assert.ok(channel.hardRules.includes('禁止发布生产环境'), '硬约束必须保留');
 }
 
-/// [Agent Card 手机工作空间]：卡片必须携带可查看的执行方案，并允许用户把补充指令发回原卡片。
+/// [收件箱去重]：一个失败若已有待决定的恢复方案，只占用一个注意力事项。
+/// 数据构造：初始部署检查频道有 1 次失败和 1 个待决定恢复方案，预期为 1 件待办。
+/// 执行过程：1. 生成收件箱；2. 筛出部署检查事项；3. 对比其类型与数量。
+/// 预期结果：保留可操作的“需要决定”；不再重复显示同一失败的“执行失败”。
+{
+  const items = inboxItems(initialState()).filter(item => item.channelId === 'release-check');
+  assert.equal(items.length, 1, '同一失败及其恢复决定应合并为一件待办');
+  assert.equal(items[0].type, 'decision', '可操作的恢复决定应作为待办入口');
+  assert.ok(!items.some(item => item.type === 'failed'), '已有恢复决定时不应重复列出失败卡片');
+}
+
+/// [电脑注册与频道项目]：用户先注册电脑，再显式选择频道可用的跨项目范围。
+/// 数据构造：初始 2 台电脑提供 3 个项目；注册 1 台后为 3 台，新电脑项目数为 0。
+/// 执行过程：1. 检查项目来源；2. 模拟扫码确认注册；3. 给构思频道关联 Release Ops；4. 开始派工。
+/// 预期结果：只使用已注册项目；手动范围被派工沿用；未知项目和重复电脑不能被加入。
+{
+  const state = initialState(), channel = state.channels.find(item => item.id === 'first-connect');
+  assert.equal(state.machines.length, 2, '演示初始应有两台已注册电脑');
+  assert.ok(state.machines.some(machine => machine.projects.includes('Release Ops')), 'Release Ops 必须来自已注册电脑');
+  assert.equal(act(state, {type:'pair-computer'}).ok, true, '扫码确认后应能注册演示电脑');
+  assert.equal(state.machines.length, 3, '注册后应恰好多一台电脑');
+  assert.equal(state.machines.find(machine => machine.id === 'studio-mini').projects.length, 0, '新电脑不能虚构项目');
+  assert.equal(act(state, {type:'pair-computer'}).ok, false, '同一电脑不能重复注册');
+  assert.equal(act(state, {type:'toggle-project', channelId:channel.id, project:'不存在的仓库'}).ok, false, '不能关联未注册的项目');
+  assert.equal(act(state, {type:'toggle-project', channelId:channel.id, project:'Release Ops'}).ok, true, '用户应能关联已注册项目');
+  assert.deepEqual(channel.projects, ['Release Ops'], '频道只应关联用户选中的项目');
+  assert.equal(act(state, {type:'start', channelId:channel.id}).ok, true, '配置项目后应可开始派工');
+  assert.deepEqual(channel.projects, ['Release Ops'], 'Norma 派工不得覆盖频道手动项目范围');
+  assert.ok(channel.tasks.every(task => task.project === 'Release Ops'), '两张任务卡应使用频道配置的项目');
+  assert.ok(!channel.projects.includes('iOS App'), '手动只选 Release Ops 时不得自动加入 iOS App');
+}
+
+/// [工作简报纠偏]：用户修改目标和禁令后，所有 Agent 以同一频道事实继续工作。
+/// 数据构造：初始频道 1 个目标、1 条禁令；另一个频道的目标作为隔离对照。
+/// 执行过程：1. 尝试空目标；2. 提交新目标与 2 条禁令；3. 检查频道记录和相邻频道。
+/// 预期结果：空目标被拒绝；新事实和同步回执出现；其他频道不受影响。
+{
+  const state=initialState(),channel=state.channels[0],other=state.channels[1],otherGoal=other.goal;
+  assert.equal(act(state,{type:'update-brief',channelId:channel.id,goal:'  ',hardRules:[]}).ok,false,'工作简报不能接受空目标');
+  assert.equal(act(state,{type:'update-brief',channelId:channel.id,goal:'先让交接状态清楚',hardRules:['禁止发布生产环境','不得删除用户数据']}).ok,true,'用户应能直接纠正工作简报');
+  assert.equal(channel.goal,'先让交接状态清楚','所有参与者应看到更新后的目标');
+  assert.deepEqual(channel.hardRules,['禁止发布生产环境','不得删除用户数据'],'两条禁令应进入正式工作简报');
+  assert.ok(channel.messages.some(message=>message.author==='Norma'&&message.text.includes('工作简报已更新')),'Norma 应在频道确认已同步给参与 Agent');
+  assert.equal(other.goal,otherGoal,'修改一个频道不能污染另一个频道');
+}
+
+/// [语音、验收与收口]：通话转写留在原频道，任务经用户验收后方可归档。
 ///
-/// 数据构造（含关键数值的推导过程）：
-///   初始卡片 = 4 张
-///   Alan 执行方案 = 3 个步骤
-///   补充指令 = 1 条「先补登录恢复测试，再处理视觉细节」
-///
-/// 执行过程（逐步说明系统如何处理）：
-///   1. 打开 Alan → 读取目标、3 步方案与当前步骤
-///   2. 向 Alan 发送补充指令 → 写回 Alan 的最近指令
-///   3. 核对任务集合 → 仍为原 4 张卡片
-///
-/// 预期结果：
-///   - 正断言：Alan 有目标、3 步方案和且仅一个 current 步骤
-///   - 正断言：补充指令记录在 Alan，而不是新建卡片
-///   - 负断言：Bella 不得收到发给 Alan 的指令
+/// 数据构造（含关键数值的推导过程）：第 1 个频道原有 2 张任务；完成 2 张后形成 1 件待验收成果。
+/// 执行过程：1. 开始通话并静音，拒绝转写；2. 取消静音后模拟指令并挂断；3. 模拟完成、验收、归档并重开。
+/// 预期结果：静音时无转写，取消静音后的转写留在频道；未验收不能归档，重开后仍保留记录。
 {
-  const s = initialRealtime();
-  const alan = s.tasks.find(t => t.id === 'voice');
-  const bella = s.tasks.find(t => t.id === 'api');
-  assert.ok(alan.goal.length > 0, 'Alan 卡片必须提供可查看的任务目标');
-  assert.equal(alan.plan.length, 3, 'Alan 卡片必须提供 3 步执行方案');
-  assert.equal(alan.plan.filter(step => step.state === 'current').length, 1, 'Alan 方案必须有且仅有一个当前步骤');
-  assert.equal(act(s, {type:'message', id:'voice', text:'先补登录恢复测试，再处理视觉细节'}).ok, true, '应能向 Alan 原卡片发送补充指令');
-  assert.equal(alan.lastInstruction, '先补登录恢复测试，再处理视觉细节', 'Alan 必须记录用户刚发送的补充指令');
-  assert.equal(bella.lastInstruction, undefined, 'Bella 不得收到发给 Alan 的补充指令');
-  assert.equal(s.tasks.length, 4, '定向对话不得复制或新建 Agent Card');
+  const state = initialState(), channel = state.channels[0];
+  assert.equal(act(state, {type:'call-start', channelId:channel.id}).ok, true, '当前频道应能开始通话');
+  assert.equal(act(state, {type:'call-mute', channelId:channel.id}).ok, true, '通话应能切换到静音');
+  assert.equal(act(state, {type:'call-utterance', channelId:channel.id}).ok, false, '静音时不能产生语音指令');
+  assert.ok(!channel.messages.some(message => message.kind === 'transcript'), '静音时频道不应出现转写');
+  assert.equal(act(state, {type:'call-mute', channelId:channel.id}).ok, true, '通话应能取消静音');
+  assert.equal(act(state, {type:'call-utterance', channelId:channel.id}).ok, true, '语音指令应被模拟接收');
+  assert.equal(act(state, {type:'call-end', channelId:channel.id}).ok, true, '通话应能结束');
+  assert.ok(channel.messages.some(message => message.kind === 'transcript'), '语音转写必须留在原频道');
+  assert.equal(act(state, {type:'archive', channelId:channel.id}).ok, false, '执行中的频道不能归档');
+  assert.equal(act(state, {type:'complete', channelId:channel.id}).ok, true, '任务应能模拟完成');
+  assert.equal(channel.status, 'review', '完成后应进入待验收');
+  assert.ok(inboxItems(state).some(item => item.channelId === channel.id && item.type === 'review'), '成果应进入收件箱');
+  assert.equal(act(state, {type:'archive', channelId:channel.id}).ok, false, '未验收成果不能归档');
+  assert.equal(act(state, {type:'accept', channelId:channel.id}).ok, true, '用户应能验收');
+  assert.equal(act(state, {type:'archive', channelId:channel.id}).ok, true, '验收后应能归档');
+  assert.equal(channel.status, 'archived', '归档状态应准确');
+  assert.equal(act(state, {type:'send', channelId:channel.id, text:'@Codex 继续'}).ok, false, '归档频道不能继续派发文字指令');
+  assert.equal(act(state, {type:'call-start', channelId:channel.id}).ok, false, '归档频道不能通过语音继续派工');
+  assert.equal(act(state, {type:'reopen', channelId:channel.id}).ok, true, '已归档频道应能重开');
+  assert.equal(channel.status, 'idle', '重开后应待下一步指令');
+  assert.ok(channel.messages.some(message => message.kind === 'transcript'), '重开不能丢失语音记录');
 }
 
-/// 场景：桌面预览框必须是 iPhone 17 / 17 Pro 逻辑点阵，矮窗口只能等比缩放。
-/// 数据构造：2622×1206 @3x → 402×874；比例 402/874。
-///   桌面上下留白 88+38=126；满高窗口 1000 的可用高 1000-126=874，缩放=1。
-///   720 窗口可用高 720-126=594；缩放=594/874；宽=402×594/874。
-/// 执行过程：读取 CSS 常量与预览框公式，分别计算满高与 720 窗口。
-/// 预期结果：两档窗口宽高比均为 402/874；720 窗口高度为 594，不得固定 390 宽或单独压到 820。
-{
-  assert.match(css, /--iphone-w:\s*402\b/, '桌面框宽度必须是 iPhone 17 Pro 逻辑宽度 402');
-  assert.match(css, /--iphone-h:\s*874\b/, '桌面框高度必须是 iPhone 17 Pro 逻辑高度 874');
-  assert.doesNotMatch(css, /\.phone\{width:390px/, '不能继续使用 iPhone 14/15 的 390 宽');
-  assert.doesNotMatch(css, /height:min\(820px/, '不能再单独把高度压到 820，那会破坏 402/874 比例');
-  assert.equal(typeof iphone17PreviewFrame, 'function', '必须提供可独立检查的预览框公式');
-  const full = iphone17PreviewFrame(1000);
-  assert.equal(full.width, 402, '可用高度恰好 874 时应保持 402 宽');
-  assert.equal(full.height, 874, '可用高度恰好 874 时应保持 874 高');
-  assert.equal(full.scale, 1, '满高窗口不得缩小 iPhone 17 画布');
-  const short = iphone17PreviewFrame(720);
-  assert.equal(short.height, 594, '720-126=594，矮窗口高度必须钳在可用高度');
-  assert.equal(short.width, 402 * 594 / 874, '矮窗口宽度必须按 594/874 同比缩小');
-  assert.ok(Math.abs(short.width / short.height - 402 / 874) < 1e-9, '缩放后仍须保持 iPhone 17 的 402/874 比例');
-  assert.notEqual(short.width, 390, '矮窗口不得继续使用固定 390 宽');
-}
-
-/// 场景：想法默认只记录，只有用户明确确认才升级为跨仓 Mission。
-/// 数据构造：初始想法 1 条、Agent Card 4 张；已有卡片均忙，明确执行新建 Daisy/Ethan/Felix 3 张，最终为 4 + 3 = 7 张。
-/// 执行过程：记录想法 → 先收起 → 浏览 Norma API → 明确执行 → 重复回执 → 挂断。
-/// 预期结果：记录和收起都不派工；明确执行后三仓分流；重复回执不新增；挂断不取消任务。
-{
-  const s = initialRealtime();
-  assert.equal(s.tasks.find(t => t.id === 'voice').cardName, 'Alan', '已有 Codex 卡片必须显示稳定名称 Alan');
-  assert.equal(s.tasks.find(t => t.id === 'api').cardName, 'Bella', '已有 Claude 卡片必须显示稳定名称 Bella');
-  assert.equal(s.tasks.find(t => t.id === 'voice').title, '修复 iOS 登录恢复与 Keychain 回归', '卡片动态标题必须概括当前正在做的事');
-  assert.notEqual(s.tasks.find(t => t.id === 'voice').cardName, s.tasks.find(t => t.id === 'voice').agent, '卡片名称不能退化为 Agent Provider 名');
-  assert.equal(s.thoughts.length, 1, '初始应有一条已保存想法作为示例');
-  act(s, {type:'discuss', text:'也许可以让 Norma 在通勤时提醒我没想完的事'});
-  const thoughtId = s.focusThought;
-  assert.equal(s.thoughts.length, 2, '新想法必须被记录');
-  assert.equal(s.thoughts[0].status, 'saved', '新想法默认必须是未执行状态');
-  assert.equal(s.tasks.length, 4, '记录想法不能创建任务');
-  act(s, {type:'shelve'});
-  assert.equal(s.focusThought, null, '先收起应关闭当前行动提示');
-  assert.equal(s.thoughts.find(t => t.id === thoughtId).status, 'saved', '收起不能丢失或执行想法');
-  act(s, {type:'browse', project:'Norma API'});
-  assert.equal(s.mission, '秋季发布', '浏览仓库不能切换当前 Mission');
-  assert.equal(act(s, {type:'dispatch', operation:'op-1', thoughtId}).ok, true, '明确执行应返回已接收');
-  assert.equal(s.tasks.length, 7, '新建 Daisy/Ethan/Felix 后应为 4 + 3 = 7 张卡片');
-  assert.equal(new Set(s.tasks.map(t => t.cardName)).size, 7, '每张 Agent Card 必须拥有唯一稳定名称');
-  assert.equal(s.thoughts.find(t => t.id === thoughtId).status, 'mission', '被确认的想法应留下已升级标记');
-  assert.equal(s.tasks[0].project, 'Norma OS', 'iOS 任务必须进入 Norma OS');
-  assert.equal(s.tasks[1].project, 'Norma API', '聚合接口任务必须进入 Norma API');
-  assert.equal(s.tasks[2].project, 'Release Ops', '发布检查任务必须进入 Release Ops');
-  assert.equal(s.tasks[0].cardName, 'Daisy', 'iOS 任务必须派给新建 Daisy 卡片');
-  assert.equal(s.tasks[0].cardRoute, 'create', 'Daisy 不存在时必须明确新建卡片');
-  assert.equal(s.tasks[1].cardName, 'Ethan', 'API 任务必须派给新建 Ethan 卡片');
-  assert.equal(s.tasks[1].cardRoute, 'create', 'Ethan 不存在时必须明确新建卡片');
-  assert.equal(s.tasks[2].cardName, 'Felix', '发布任务必须派给新建 Felix 卡片');
-  assert.equal(s.tasks[2].cardRoute, 'create', 'Felix 不存在时必须明确新建卡片');
-  assert.equal(s.tasks[0].machine, 'Alan Studio', 'iOS 任务必须绑定 Alan Studio');
-  assert.equal(s.tasks[1].machine, 'Build Mac', 'API 任务必须绑定 Build Mac');
-  assert.notEqual(s.tasks[0].project, s.tasks[1].project, '跨仓拆解不能把所有任务误派到同一仓库');
-  act(s, {type:'dispatch', operation:'op-1', thoughtId});
-  assert.equal(s.tasks.length, 7, '同一回执重试不得重复创建卡片');
-  act(s, {type:'hangup'});
-  assert.equal(s.tasks[0].status, 'running', '挂断不能取消已派任务');
-  assert.equal(s.call, false, '挂断后通话必须结束');
-}
-
-/// 场景：Mac 离线仍能记录想法，重连不会自动执行。
-/// 数据构造：初始 Agent Card 4 张；离线记录一条想法，显式执行后新建 3 张，共 4 + 3 = 7 张。
-/// 执行过程：Mac 离线 → 记录想法与尝试执行 → 重连 → 显式执行。
-/// 预期结果：离线执行被拒绝；想法不丢失；重连不自动新增任务。
-{
-  const s = initialRealtime();
-  act(s, {type:'connection'});
-  act(s, {type:'discuss', text:'保留离线讨论'});
-  const thoughtId = s.focusThought;
-  assert.equal(s.call, false, '文字记录想法不应偷偷开启语音会话');
-  assert.equal(act(s, {type:'dispatch', operation:'offline', thoughtId}).ok, false, '离线不能声称派工成功');
-  assert.equal(s.thoughts.find(t => t.id === thoughtId).text, '保留离线讨论', '离线想法必须保留');
-  assert.equal(s.thoughts.find(t => t.id === thoughtId).status, 'saved', '离线想法不能被误标为 Mission');
-  act(s, {type:'connection'});
-  assert.equal(s.tasks.length, 4, '重连不能自动提交草稿');
-  act(s, {type:'dispatch', operation:'online', thoughtId});
-  assert.equal(s.tasks.length, 7, '明确继续后应新建三张具名 Agent Card');
-  assert.equal(s.thoughts.find(t => t.id === thoughtId).status, 'mission', '产生接收回执后才能升级想法');
-}
-
-/// 场景：界面成果必须经用户查看，退回修改沿用原任务。
-/// 数据构造：web 待验收，voice/release 运行中，api 待决定，共 4 条任务；一条具体修改意见。
-/// 执行过程：越序验收 → 查看 web → 验收 → 重复验收；重新构造状态后退回 web。
-/// 预期结果：越序和重复请求失败；查看后才能验收；反馈只更新原任务。
-{
-  const s = initialRealtime();
-  assert.equal(act(s, {type:'accept', id:'voice'}).ok, false, '运行中不能验收');
-  assert.equal(act(s, {type:'accept', id:'web'}).ok, false, '未打开成果不能算用户已查看');
-  act(s, {type:'inspect', id:'web'});
-  assert.equal(act(s, {type:'accept', id:'web'}).ok, true, '查看成果后应能验收');
-  assert.equal(s.tasks.find(t=>t.id==='web').status, 'done', 'web 应留下用户验收状态');
-  assert.equal(act(s, {type:'accept', id:'web'}).ok, false, '同一成果不能重复验收');
-  const retry = initialRealtime();
-  act(retry, {type:'inspect', id:'web'});
-  act(retry, {type:'feedback', id:'web', text:'增大卡片间距'});
-  assert.equal(retry.tasks.find(t=>t.id==='web').status, 'running', '反馈必须让原任务继续修改');
-  assert.equal(retry.tasks.find(t=>t.id==='web').seen, false, '新版本不能沿用旧查看状态');
-  assert.equal(retry.tasks.find(t=>t.id==='web').feedback, '增大卡片间距', '调整意见必须保留');
-  assert.equal(retry.tasks.length, 4, '退回修改不得复制任务');
-}
-
-/// 场景：注意力收件箱中的决定必须回到原 Agent，且不能误改其他任务。
-/// 数据构造：api 为唯一待决定任务；其余 3 条分别为运行中或待验收。
-/// 执行过程：对运行中 voice 越权决定 → 对 api 采用建议。
-/// 预期结果：越权请求失败；api 恢复运行；voice 与 web 状态保持不变。
-{
-  const s = initialRealtime();
-  assert.equal(act(s, {type:'resolve', id:'voice'}).ok, false, '运行中的任务不能接受决定操作');
-  assert.equal(act(s, {type:'resolve', id:'api'}).ok, true, '待决定任务应能采用 Agent 建议继续');
-  assert.equal(s.tasks.find(t=>t.id==='api').status, 'running', '决定必须让原 api 任务继续运行');
-  assert.equal(s.tasks.find(t=>t.id==='voice').status, 'running', '决定不能改变无关的 voice 任务');
-  assert.equal(s.tasks.find(t=>t.id==='web').status, 'review', '决定不能跳过待验收成果');
-}
-console.log('PASS · 想法记录、明确升级、跨仓拆解、离线保留、决策与验收；全部脚本语法通过');
+assert.match(html, /variant=A\|B\|C/, '原型应说明三种可分享的视觉方案');
+assert.match(html, /prefers-reduced-motion/, '动效应响应减少动态效果偏好');
+console.log('PASS · 频道创建、派工、@ 回应、语音、验收与归档');

@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">Norma OS 频道对话模式</title>
+  <desc id="desc">iPhone 频道概念界面，以及主时间线、任务线程、点名 Agent 和收件箱的交互规则。</desc>
+  <defs>
+    <linearGradient id="background" x2="1" y2="1"><stop stop-color="#111115"/><stop offset="1" stop-color="#08090b"/></linearGradient>
+    <linearGradient id="phone" x2="0" y2="1"><stop stop-color="#111216"/><stop offset="1" stop-color="#060708"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="22" stdDeviation="25" flood-color="#000" flood-opacity=".35"/></filter>
+    <style>
+      text{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC",sans-serif;fill:#f5f5f5}
+      .muted{fill:#93949a}.soft{fill:#c8c9cc}.accent{fill:#c7e9d5}.amber{fill:#edd2a9}
+      .title{font-size:34px;font-weight:680;letter-spacing:-.8px}.subtitle{font-size:15px}
+      .phoneTitle{font-size:20px;font-weight:660}.label{font-size:13px;font-weight:650}
+      .body{font-size:13px}.small{font-size:11px}.cardTitle{font-size:19px;font-weight:650}
+      .cardBody{font-size:14px}.eyebrow{font-size:12px;font-weight:690;letter-spacing:1.3px}
+    </style>
+  </defs>
+  <rect width="1400" height="900" fill="url(#background)"/>
+  <circle cx="1380" cy="20" r="420" fill="#3b4b42" opacity=".10"/>
+  <text class="eyebrow accent" x="70" y="53">NORMA OS · CHANNEL MODEL</text>
+  <text class="title" x="70" y="96">一个想法，一个持续协作的频道</text>
+  <text class="subtitle muted" x="70" y="123">频道像 Slack / Buzz 一样让人和 Agent 同处一室；执行、证据和注意力有各自清晰的位置。</text>
+
+  <rect x="66" y="146" width="446" height="714" rx="48" fill="#303136" filter="url(#shadow)"/>
+  <rect x="72" y="152" width="434" height="702" rx="43" fill="url(#phone)" stroke="#5b5d62"/>
+  <rect x="218" y="165" width="142" height="28" rx="14" fill="#030304"/>
+  <text x="101" y="184" font-size="15" font-weight="650">9:41</text>
+  <text x="432" y="184" font-size="13">●●●  ▰</text>
+  <text x="98" y="227" class="body muted">‹  频道</text>
+  <text x="98" y="260" class="phoneTitle">改进 iOS 首屏交接</text>
+  <text x="451" y="260" class="body accent">···</text>
+  <text x="98" y="284" class="small muted">执行中 · 2 个任务 · 关联 iOS App、API</text>
+  <line x1="98" y1="302" x2="480" y2="302" stroke="#2b2d31"/>
+  <circle cx="111" cy="328" r="11" fill="#c7e9d5"/><text x="107" y="332" class="small" fill="#102019">N</text>
+  <circle cx="138" cy="328" r="11" fill="#8eacdf"/><text x="134" y="332" class="small">C</text>
+  <circle cx="165" cy="328" r="11" fill="#d5b6a2"/><text x="161" y="332" class="small">D</text>
+  <text x="188" y="332" class="small soft">Norma · Codex · Design</text>
+  <rect x="95" y="352" width="388" height="92" rx="17" fill="#1c221f" stroke="#354b3e"/>
+  <text x="111" y="374" class="small accent">频道摘要 · 昨日 21:10 更新</text>
+  <text x="111" y="397" class="body">目标：让新用户从桌面切到手机时不迷路</text>
+  <text x="111" y="418" class="small soft">决定 2 条 · 硬约束 1 条 · 查看来源  ›</text>
+
+  <text x="100" y="473" class="small muted">今天 09:41</text>
+  <circle cx="110" cy="496" r="12" fill="#6f7483"/><text x="106" y="500" class="small">我</text>
+  <text x="132" y="499" class="label">你</text>
+  <text x="132" y="520" class="body soft">@Norma，把首屏交接做顺，iOS 和 API 都看一下。</text>
+  <circle cx="110" cy="553" r="12" fill="#c7e9d5"/><text x="106" y="557" class="small" fill="#102019">N</text>
+  <text x="132" y="556" class="label accent">Norma</text>
+  <text x="132" y="577" class="body soft">已关联两个项目，并让 Codex 与 Design 分工。</text>
+  <text x="132" y="596" class="small muted">依据：2 条派工接收回执 · 查看记录  ›</text>
+
+  <rect x="95" y="615" width="388" height="102" rx="16" fill="#18191d" stroke="#35363b"/>
+  <rect x="95" y="615" width="4" height="102" rx="2" fill="#8eacdf"/>
+  <text x="112" y="638" class="small muted">任务线程 · Codex · 执行中</text>
+  <text x="112" y="663" class="body">调整 iOS 入口和状态提示</text>
+  <text x="112" y="685" class="small soft">已提交方案；3 条进展在原任务内继续</text>
+  <text x="452" y="696" class="body accent">›</text>
+  <text x="101" y="743" class="small muted">普通进展留在任务里；需要你时进入收件箱</text>
+  <rect x="94" y="761" width="389" height="49" rx="22" fill="#202125" stroke="#48494d"/>
+  <text x="113" y="791" class="body muted">发消息，或 @ Agent…</text>
+  <circle cx="456" cy="785" r="17" fill="#e4e4e4"/><text x="450" y="790" font-size="17" fill="#101010">↑</text>
+  <rect x="240" y="835" width="98" height="5" rx="3" fill="#d1d1d1"/>
+
+  <rect x="556" y="153" width="775" height="148" rx="24" fill="#181a1d" stroke="#35383b"/>
+  <text x="586" y="187" class="eyebrow accent">01 · 频道主时间线</text>
+  <text x="586" y="219" class="cardTitle">共同事实，按时间可追溯</text>
+  <text x="586" y="246" class="cardBody soft">想法、人和 Agent 的对话、目标修订与成果留在同一频道。</text>
+  <text x="586" y="271" class="cardBody muted">置顶摘要有消息来源；完整历史可查，Agent 只按需取旧内容。</text>
+
+  <rect x="556" y="317" width="775" height="148" rx="24" fill="#181a1d" stroke="#35383b"/>
+  <text x="586" y="351" class="eyebrow" fill="#9bb8ea">02 · 任务线程</text>
+  <text x="586" y="383" class="cardTitle">讨论主线清爽，执行细节有去处</text>
+  <text x="586" y="410" class="cardBody soft">每张任务卡承载方案、追问、过程、失败、返工和新版本。</text>
+  <text x="586" y="435" class="cardBody muted">频道展示可读回复与关键状态；工具日志留在任务详情。</text>
+
+  <rect x="556" y="481" width="775" height="148" rx="24" fill="#181a1d" stroke="#35383b"/>
+  <text x="586" y="515" class="eyebrow amber">03 · @ 点名与派工</text>
+  <text x="586" y="547" class="cardTitle">点名必须有回应；执行必须有回执</text>
+  <text x="586" y="574" class="cardBody soft">无 @ 的消息默认由 Norma 判断是讨论还是执行请求。</text>
+  <text x="586" y="599" class="cardBody muted">@Agent 直达该 Agent；其他 Agent 求助时，由 Norma 统一派工。</text>
+
+  <rect x="556" y="645" width="775" height="148" rx="24" fill="#181a1d" stroke="#35383b"/>
+  <text x="586" y="679" class="eyebrow" fill="#f2afaa">04 · 收件箱与注意力</text>
+  <text x="586" y="711" class="cardTitle">只有人的判断需要主动打断</text>
+  <text x="586" y="738" class="cardBody soft">待决定、硬约束冲突、失败、待验收成果聚合为事项。</text>
+  <text x="586" y="763" class="cardBody muted">事项直接定位原频道与原任务；普通进展不产生提醒。</text>
+  <text x="559" y="835" class="small muted">交互概念图 · 视觉遵循 iOS 内容优先、清晰层级和即时反馈；具体通知优先级仍需产品验证。</text>
+</svg>

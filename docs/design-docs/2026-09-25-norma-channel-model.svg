@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1000" viewBox="0 0 1400 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Norma OS 产品模块、数据关系与职责</title>
+  <desc id="desc">收件箱和频道是手机主要入口；一个频道关联多个项目、成员、消息、修订和任务，任务产生可核验事件和成果。底部说明人、Norma 和执行 Agent 的职责。</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#121315"/><stop offset="1" stop-color="#090a0b"/></linearGradient>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5 0 9" fill="none" stroke="#7a8a80" stroke-width="1.6"/></marker>
+    <style>
+      text{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC",sans-serif;fill:#f3f4f3}
+      .muted{fill:#989c9a}.soft{fill:#c7cac8}.mint{fill:#c4e7d1}.blue{fill:#aac7ee}.amber{fill:#eacfa5}
+      .title{font-size:34px;font-weight:680;letter-spacing:-.8px}.eyebrow{font-size:12px;font-weight:700;letter-spacing:1.3px}
+      .h{font-size:20px;font-weight:650}.body{font-size:14px}.small{font-size:12px}
+      .rule{stroke:#688475;stroke-width:1.8;fill:none;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1400" height="1000" fill="url(#bg)"/>
+  <text x="64" y="50" class="eyebrow mint">NORMA OS · PRODUCT / DATA MODEL</text>
+  <text x="64" y="96" class="title">频道是工作现场，收件箱是注意力入口</text>
+  <text x="64" y="124" class="body muted">借鉴 Buzz 的共享空间和事件记录，以及 Slack 的频道、线程和点名；围绕个人指挥多个 Agent 重新安排信息层级。</text>
+
+  <rect x="62" y="154" width="395" height="146" rx="23" fill="#1a1c1e" stroke="#3d4640"/>
+  <circle cx="90" cy="184" r="10" fill="#f0baad"/>
+  <text x="112" y="190" class="h">收件箱</text>
+  <text x="86" y="223" class="body soft">决定 · 失败 · 硬约束冲突 · 待验收</text>
+  <text x="86" y="248" class="small muted">InboxItem → 指向原任务事件；处理后回到原频道</text>
+  <text x="86" y="274" class="small mint">全局聚合，普通进展安静</text>
+
+  <rect x="502" y="154" width="395" height="146" rx="23" fill="#1a1c1e" stroke="#3d4640"/>
+  <circle cx="530" cy="184" r="10" fill="#b8d5c3"/>
+  <text x="552" y="190" class="h">频道</text>
+  <text x="526" y="223" class="body soft">保存想法即创建 · 可跨项目 · 可归档重开</text>
+  <text x="526" y="248" class="small muted">搜索、未读、进行中、已归档是视图和筛选</text>
+  <text x="526" y="274" class="small mint">一件事的共同上下文与完整记录</text>
+
+  <rect x="942" y="154" width="395" height="146" rx="23" fill="#1a1c1e" stroke="#3d4640"/>
+  <circle cx="970" cy="184" r="10" fill="#d8cfb3"/>
+  <text x="992" y="190" class="h">Norma 输入</text>
+  <text x="966" y="223" class="body soft">文字 / 语音，当前频道内常驻</text>
+  <text x="966" y="248" class="small muted">创建想法、讨论、点名、发起执行、查询进度</text>
+  <text x="966" y="274" class="small amber">保存想法本身不会自动开工</text>
+
+  <path d="M699 300V341" class="rule"/>
+  <rect x="432" y="350" width="536" height="250" rx="27" fill="#1d2520" stroke="#668772" stroke-width="1.5"/>
+  <text x="458" y="385" class="eyebrow mint">CHANNEL · 核心聚合对象</text>
+  <text x="458" y="424" class="h">频道  channel_id</text>
+  <text x="458" y="457" class="body soft">title · status · created_from_idea · archived_at?</text>
+  <line x1="458" y1="478" x2="940" y2="478" stroke="#3c5343"/>
+  <text x="458" y="508" class="body">Message：消息、@点名、回复所属任务</text>
+  <text x="458" y="537" class="body">Revision：目标、决定、硬约束及来源</text>
+  <text x="458" y="566" class="body muted">共享摘要由上述事实生成；不替代原始记录</text>
+
+  <rect x="62" y="374" width="326" height="200" rx="23" fill="#191c20" stroke="#3b4652"/>
+  <text x="88" y="407" class="eyebrow blue">CHANNEL PROJECT</text>
+  <text x="88" y="441" class="h">关联项目  0..n</text>
+  <text x="88" y="474" class="body soft">iOS、API 等已注册项目</text>
+  <text x="88" y="500" class="small muted">加入项目 → 频道成员获得操作范围</text>
+  <text x="88" y="528" class="small muted">记录谁加入、何时、为什么</text>
+  <path d="M389 474H423" class="rule"/>
+
+  <rect x="1012" y="374" width="326" height="200" rx="23" fill="#1e1b1e" stroke="#544552"/>
+  <text x="1038" y="407" class="eyebrow" fill="#e3bdd1">CHANNEL MEMBER</text>
+  <text x="1038" y="441" class="h">参与者  1..n</text>
+  <text x="1038" y="474" class="body soft">人 · Norma · 执行 Agent</text>
+  <text x="1038" y="500" class="small muted">Agent 身份与任务实例分开</text>
+  <text x="1038" y="528" class="small muted">加入、移除和授权变化留痕</text>
+  <path d="M1011 474H976" class="rule"/>
+
+  <path d="M700 600V638H235V653" class="rule"/>
+  <rect x="62" y="662" width="345" height="173" rx="23" fill="#1b1e24" stroke="#48566b"/>
+  <text x="88" y="695" class="eyebrow blue">TASK · AGENT CARD</text>
+  <text x="88" y="730" class="h">任务与原线程</text>
+  <text x="88" y="760" class="body soft">task_id · channel_id · assignee</text>
+  <text x="88" y="787" class="body muted">方案、续聊、取消、返工沿用同一任务</text>
+  <text x="88" y="812" class="small muted">一条任务可有多个版本</text>
+
+  <path d="M407 747H485" class="rule"/>
+  <rect x="500" y="662" width="345" height="173" rx="23" fill="#1e1e1d" stroke="#585245"/>
+  <text x="526" y="695" class="eyebrow amber">TASK EVENT · RECEIPT</text>
+  <text x="526" y="730" class="h">真实事件与回执</text>
+  <text x="526" y="760" class="body soft">接收 · 执行 · 失败 · 等待 · 完成</text>
+  <text x="526" y="787" class="body muted">event_id · task_id · source · occurred_at</text>
+  <text x="526" y="812" class="small muted">派工回执不等于完成；失败不能冒充成功</text>
+
+  <path d="M845 747H923" class="rule"/>
+  <rect x="938" y="662" width="400" height="173" rx="23" fill="#1c211e" stroke="#536c58"/>
+  <text x="964" y="695" class="eyebrow mint">ARTIFACT · ACCEPTANCE</text>
+  <text x="964" y="730" class="h">成果和验收</text>
+  <text x="964" y="760" class="body soft">产物、版本、预览、证据、验收结果</text>
+  <text x="964" y="787" class="body muted">执行完成与用户验收是两个状态</text>
+  <text x="964" y="812" class="small muted">待验收事件投递到收件箱</text>
+
+  <line x1="62" y1="869" x2="1338" y2="869" stroke="#363a38"/>
+  <text x="65" y="902" class="eyebrow amber">人</text>
+  <text x="65" y="930" class="body soft">定目标 / 硬约束 · 判断成果 · 归档</text>
+  <text x="494" y="902" class="eyebrow mint">NORMA</text>
+  <text x="494" y="930" class="body soft">梳理上下文 · 自主派工 · 汇总例外</text>
+  <text x="942" y="902" class="eyebrow blue">执行 AGENT</text>
+  <text x="942" y="930" class="body soft">回应点名 · 执行任务 · 提交证据</text>
+  <text x="65" y="972" class="small muted">数据关系概念图：沿用现有 Agent Card / 任务系统；此处定义产品对象，不代表当前源码已实现频道持久化。</text>
+</svg>

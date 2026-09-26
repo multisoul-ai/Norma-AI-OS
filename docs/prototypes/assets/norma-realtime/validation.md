@@ -1,6 +1,6 @@
 # Norma 对话与多仓协作原型验证
 
-2026-09-22 · Chrome / Computer Use · 本地 HTML 模拟流程。
+2026-09-23 · Chrome / Computer Use · 本地 HTML 模拟流程。
 
 入口：http://127.0.0.1:8766/prototypes/norma-realtime.html
 启动：`python3 -m http.server 8766 --bind 127.0.0.1 --directory docs`
@@ -13,7 +13,15 @@
 | 输入想法 → 只记录为 Thought，不创建任务、不启动 Agent | 通过 |
 | “先放着”后想法仍可找回；明确升级后才创建 Mission | 通过 |
 | 派工前显示 Agent Card 路由：Daisy / Codex、Ethan / Claude、Felix / Codex，并明确标记新建 | 通过 |
+| 派工时勾选方案审核 → Inbox 将三份方案合并为一项，三张卡片均停在待审核 | 通过 |
+| Daisy 方案 v1 退回修改 → v2 显示调整；Ethan 单独批准；Daisy/Felix 看完后一起批准 | 通过 |
+| 未查看全部当前版本时，“全部批准并执行”不可用；批准后 Inbox 不再显示这组待办 | 通过 |
 | Work 默认汇总所有项目的 Agent Card，项目筛选只改变视图、不删除任务 | 通过 |
+| Work 按决定 → 方案审核 → 成果验收 → 运行中 → 已验收排序；过滤与状态变化后重排，同级顺序稳定 | Node 状态检查通过；Chrome 桌面与 390×844 手机视口检查通过 |
+| 首次使用：0 台电脑、0 个项目、0 张卡片 → 扫码确认后 1 台电脑、仍无项目；Work 分阶段引导，执行空间不显示虚构仓库 | Node 状态检查与 Chrome 交互验收通过 |
+| Norma 对话输入切换文字／模拟语音；按下即时反馈，上滑松开取消不记录，松开正常发送一条标明模拟来源的想法 | Chrome 桌面与 390×844 手机视口 Computer Use 验证通过；未采集麦克风 |
+| Chloe Agent Card 底栏切换文字／模拟语音；上滑取消不写动态，松开发给 Chloe；Alan 不收到指令，卡片间文字草稿隔离 | Chrome 桌面与 390×844 手机视口 Computer Use 验证通过；未采集麦克风 |
+| Agent Card 文字输入栏去除双层背景与绿色方框；空草稿隐藏发送按钮，输入后保留 44px 触控目标 | 浏览器用例已新增并通过语法检查；本轮 Computer Use 服务异常，视觉复验待补 |
 | Work 收起桌面式 Mission 仪表盘，只主动突出需要决定或验收的事项 | 通过 |
 | 每张卡片显示稳定名称和 Norma 概括的当前任务标题 | 通过 |
 | 点击卡片使用手机层级导航进入全屏工作空间；想法、派工与成果也使用手机 Sheet | 通过 |
@@ -32,6 +40,10 @@
 
 当前设计目标是让一个人跨仓库指挥多个 Agent，同时减少项目、终端和会话之间的注意力切换。产品流程收敛为 `Thought → Mission → Agent Card → Plan → Run → Artifact`；Work 汇总全局，Inbox 只承接例外，Agent Card 是可查看方案、定向对话和随时接管的手机工作空间。
 
-实际检查的是 HTML 原型。没有验证真实麦克风、实时模型、Mac 派工、安装包、APNs 或原生锁屏音频。
+首次使用空状态按 `apple-design` 的清晰路径与用户控制原则落地：保留底部导航，每一阶段只突出一个下一步；配对后即时切换引导，不把“注册电脑”冒充“已有项目”。
+
+输入栏视觉参考 `apple-design` 的内容优先、平台熟悉性和可访问焦点，以及 `emil-design-eng` 对高频操作不加动效的建议：只保留一个圆角输入区域，按需显示发送动作，键盘焦点用低干扰的边框反馈。`frontend-design` 的视觉一致性原则落实为与卡片灰阶材质共用色值；未引入新动效。
+
+实际检查的是 HTML 原型。方案 v2 与执行门禁均为演示状态，没有接入真实 CLI 只读权限；按住说话仅模拟手势和固定文本，没有验证真实麦克风、语音识别、实时模型、Mac 派工、安装包、APNs 或原生锁屏音频。
 
 历史截图仅用于对照旧方向：[陪伴](companion-desktop.png) · [对话](conversation-desktop.png) · [调度](dispatch-desktop.png) · [手机通话](companion-mobile.png) · [锁屏示意](lock-mobile.png)。
