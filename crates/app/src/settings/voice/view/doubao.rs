@@ -61,8 +61,8 @@ pub(super) fn doubao_settings(
     cx: &mut Context<MultisoulApp>,
 ) -> Div {
     let configured = state.values().doubao_credential_ref().is_some();
-    let microphone_ready =
-        state.requirement_state(VoiceRequirement::Microphone) == VoiceRequirementState::Ready;
+    let microphone = state.requirement_state(VoiceRequirement::Microphone);
+    let microphone_ready = microphone == VoiceRequirementState::Ready;
     div()
         .w_full()
         .flex()
@@ -146,6 +146,25 @@ pub(super) fn doubao_settings(
                         } else {
                             "●  Microphone permission required"
                         }),
+                )
+                .when(
+                    matches!(microphone, VoiceRequirementState::Missing | VoiceRequirementState::Failed),
+                    |group| {
+                        group.child(
+                            super::action_button(
+                                theme,
+                                if microphone == VoiceRequirementState::Failed {
+                                    "Open Microphone Settings"
+                                } else {
+                                    "Grant Access"
+                                },
+                                theme.accent_blue,
+                            )
+                            .id("settings-voice-doubao-microphone-action")
+                            .debug_selector(|| "settings-voice-doubao-microphone-action".to_string())
+                            .on_click(cx.listener(MultisoulApp::on_voice_setup_request_microphone)),
+                        )
+                    },
                 )
                 .child(
                     div()

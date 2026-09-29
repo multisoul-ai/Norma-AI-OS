@@ -16,6 +16,55 @@ static DOUBAO_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 mod reports;
 
+/// 豆包首次使用：已保存 Key 但麦克风未授权时，设置页必须提供授权入口。
+///
+/// 数据构造（含关键数值的推导过程）：1 个合成 Key；麦克风 Ready 项数从 0 变为 1。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 进入 Canvas，选择豆包并设置合成凭据，再模拟未授权麦克风。
+///   2. 检查设置页提供授权按钮，且语音入口仍不可用。
+///   3. 点击授权入口（E2E 的麦克风请求返回成功），重新检查入口与按钮状态。
+///
+/// 预期结果：未授权时有授权按钮且入口不可用；授权后入口 Ready，授权按钮消失。
+#[test]
+fn doubao_settings_offer_microphone_access_until_authorized() {
+    let mut test_cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut test_cx, echo_factory());
+    let workspace = tempfile::tempdir().expect("应建立豆包设置测试项目");
+    enter_canvas(&app, cx, workspace.path());
+    click(cx, "toolbar-settings");
+    click(cx, "settings-section-voice");
+    click(cx, "settings-voice-desktop-mode-doubao");
+    app.update(cx, |app, cx| {
+        app.configure_doubao_for_e2e("synthetic-ark-key");
+        app.set_voice_setup_requirements_for_e2e(false, false);
+        cx.notify();
+    });
+
+    assert_eq!(
+        app.update(cx, |app, _| app.voice_e2e_snapshot().entry_state),
+        "unavailable",
+        "麦克风未授权时豆包语音不得显示为可用"
+    );
+    assert!(
+        cx.debug_bounds("settings-voice-doubao-microphone-action")
+            .is_some(),
+        "麦克风未授权时豆包设置页必须提供授权入口"
+    );
+
+    click(cx, "settings-voice-doubao-microphone-action");
+    assert_eq!(
+        app.update(cx, |app, _| app.voice_e2e_snapshot().entry_state),
+        "ready",
+        "Key 已保存且麦克风授权后豆包语音应可用"
+    );
+    assert!(
+        cx.debug_bounds("settings-voice-doubao-microphone-action")
+            .is_none(),
+        "授权完成后不应继续显示授权入口"
+    );
+}
+
 /// 桌面豆包 2.0：设置切换后走 ASR 2.0 → 方舟 Chat → TTS 2.0，工具仍经现有桌面 Adapter。
 ///
 /// 数据构造（含关键数值的推导过程）：5 × 640 字节 = 100 ms 的 16 kHz PCM16；

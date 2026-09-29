@@ -71,6 +71,10 @@ impl MultisoulApp {
     pub(crate) fn can_open_microphone_privacy_settings(&self) -> bool {
         self.voice.microphone_settings_recovery_available()
             || self.dialogue.microphone_settings_recovery_available()
+            || self
+                .voice_settings
+                .requirement_state(crate::settings::voice::VoiceRequirement::Microphone)
+                == crate::settings::voice::VoiceRequirementState::Failed
     }
 
     pub(crate) fn start_continuous_listening(&mut self, cx: &mut Context<Self>) {
