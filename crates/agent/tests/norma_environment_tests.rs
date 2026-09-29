@@ -252,24 +252,22 @@ fn norma_system_prompt_combines_identity_direct_assignment_and_environment() {
     );
 }
 
-/// PROMPT-2：Norma 的固定提示词必须要求完整表达并保持柔软口语人格。
+/// PROMPT-2：Norma 默认用一句结论回答，必要时只补一句依据或下一步。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   固定字符上限 = 0 个
-///   完整表达规则 = 1 条
-///   语气词示例 = 3 个（“哦”“呢”“啦”）
-///   自称候选 = 1 个（“诺诺”，仅偶尔使用）
+///   简单问题默认句数 = 1 句结论；需要解释时再加 1 句依据或下一步
+///   风格限制 = 0 句开场寒暄、0 句过程播报
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 使用空画布与空 Agent roster 构建完整 system prompt
 ///   2. 读取固定表达规则，不依赖动态环境内容
-///   3. 核对完整性、口语、尾音、自称和格式约束
+///   3. 核对结论优先、按需展开、真实状态和格式约束
 ///
 /// 预期结果：
-///   - 正断言：提示词明确要求保留必要信息、柔软口语和可选“诺诺”自称
-///   - 负断言：提示词不得包含十五字符硬限制、书面长句、Markdown 或每句强制自称
+///   - 正断言：提示词要求先给结论，解释限于依据或下一步，执行状态仍准确
+///   - 负断言：提示词不鼓励开场寒暄、昵称、语气词或过程播报
 #[test]
-fn norma_system_prompt_defines_complete_soft_spoken_persona() {
+fn norma_system_prompt_leads_with_one_conclusion_and_no_process_narration() {
     let prompt = norma_system_prompt(
         &CurrentCanvasContext {
             project_name: "norma-ai-os".to_string(),
@@ -282,25 +280,34 @@ fn norma_system_prompt_defines_complete_soft_spoken_persona() {
     );
 
     assert!(
-        prompt.contains("完整表达必要信息") && prompt.contains("不要为了追求简短而省略关键事实"),
-        "提示词必须要求模型完整保留用户需要的事实"
+        prompt.contains("先给结论") && prompt.contains("简单问题一句话"),
+        "提示词必须要求简单问题先给一句结论"
     );
     assert!(
-        !prompt.contains("15 个 Unicode 字符") && !prompt.contains("十五字限制"),
-        "提示词不得继续诱导模型把最终回复压缩到十五字符"
+        prompt.contains("必要时再补一句依据或下一步") && prompt.contains("用户要细节再展开"),
+        "解释应限于必要依据或下一步，细节按需展开"
     );
     assert!(
-        prompt.contains("语气柔软、自然、口语化")
-            && prompt.contains("“哦”“呢”“啦”")
-            && prompt.contains("偶尔可以自称“诺诺”"),
-        "提示词必须完整描述柔软尾音与偶尔使用的诺诺自称"
+        prompt.contains("已接收、排队和完成") && prompt.contains("失败或不确定要说清楚"),
+        "压缩回复不能牺牲真实回执和失败状态"
+    );
+    assert!(
+        prompt.contains("直接、自然的中文") && prompt.contains("不加开场寒暄"),
+        "提示词应自然干练，不加入固定寒暄"
+    );
+    assert!(
+        prompt.contains("不要照读项目、卡片或会话摘要")
+            && prompt.contains("用户明确要求列出时除外"),
+        "动态环境只应用于判断，普通回复不应逐项复述"
     );
     assert!(
         prompt.contains("不使用 Markdown") && prompt.contains("不要写书面长句"),
         "短口语回复必须禁止 Markdown 和书面长句"
     );
     assert!(
-        !prompt.contains("每句都自称“诺诺”"),
-        "诺诺只能偶尔自称，不能变成每句重复的固定前缀"
+        !prompt.contains("诺诺")
+            && !prompt.contains("“哦”“呢”“啦”")
+            && !prompt.contains("逐项罗列内部步骤"),
+        "提示词不应诱导昵称、语气词或过程播报"
     );
 }
