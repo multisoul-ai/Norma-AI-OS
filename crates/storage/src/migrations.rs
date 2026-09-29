@@ -1,3 +1,4 @@
+mod desktop;
 use crate::{error::StorageError, StorageResult};
 use rusqlite::Connection;
 use std::path::Path;
@@ -13,7 +14,6 @@ pub(crate) fn open_project_connection(path: &Path) -> StorageResult<Connection> 
     migrate_project_db(&connection)?;
     Ok(connection)
 }
-
 fn open_connection(path: &Path) -> StorageResult<Connection> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -22,7 +22,6 @@ fn open_connection(path: &Path) -> StorageResult<Connection> {
     connection.pragma_update(None, "foreign_keys", "ON")?;
     Ok(connection)
 }
-
 pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
     crate::mobile_session_store::migrate(connection)?;
     crate::mobile_turn_store::migrate(connection)?;
@@ -109,6 +108,7 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
         );
         "#,
     )?;
+    desktop::migrate(connection)?;
     ensure_column(
         connection,
         "orchestration_task_routes",
@@ -163,7 +163,6 @@ pub fn migrate_app_db(connection: &Connection) -> StorageResult<()> {
     crate::mobile_command_store::migrate_delivery_feedback(connection)?;
     Ok(())
 }
-
 pub fn migrate_project_db(connection: &Connection) -> StorageResult<()> {
     crate::mobile_session_store::migrate(connection)?;
     crate::mobile_turn_store::migrate(connection)?;

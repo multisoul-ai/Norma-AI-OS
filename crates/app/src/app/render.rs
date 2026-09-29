@@ -74,7 +74,10 @@ impl Render for MultisoulApp {
 
         match self.screen {
             AppScreen::Launchpad => {
-                root = root.child(self.render_launchpad(window, cx));
+                root = root.child(self.render_desktop_launchpad(window, cx));
+            }
+            AppScreen::DesktopWorkspace => {
+                root = root.child(self.render_desktop_workspace(window, cx));
             }
             AppScreen::Canvas => {
                 root = root
@@ -104,6 +107,21 @@ impl Render for MultisoulApp {
         }
         if self.clone_project.is_open() {
             root = root.child(self.render_clone_project_dialog(window, cx));
+        }
+        if self.desktop_workspace.rename_target.is_some() {
+            root = root.child(self.render_desktop_rename_dialog(cx));
+        }
+        if self.desktop_workspace.switcher_open {
+            root = root.child(self.render_desktop_switcher(cx));
+        }
+        if self.desktop_workspace.pending_delete.is_some() {
+            root = root.child(self.render_desktop_delete_confirmation(cx));
+        }
+        if self.desktop_workspace.pending_project_path.is_some() {
+            root = root.child(self.render_desktop_project_destination(cx));
+        }
+        if self.desktop_workspace.agent_creation.is_some() {
+            root = root.child(self.render_desktop_agent_worktree_picker(cx));
         }
         if let Some(dialogs) = ui::component::Root::render_dialog_layer(window, cx) {
             root = root.child(dialogs);

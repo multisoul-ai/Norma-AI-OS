@@ -1,4 +1,5 @@
 pub(crate) mod clone_project;
+pub mod desktop;
 pub mod flow;
 pub mod launchpad;
 pub(crate) mod legacy_agent_migration;

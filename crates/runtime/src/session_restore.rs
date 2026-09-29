@@ -254,6 +254,10 @@ pub fn restore_live_sessions_with_node_sessions(
                     .agent_session_bindings
                     .session_id(node_id)
                     .map(ToString::to_string);
+                let cwd = node_session
+                    .and_then(|session| session.cwd.as_deref())
+                    .map(Path::new)
+                    .or(ctx.workspace_root);
 
                 let command = match use_resume.as_deref() {
                     Some(session_id) => session_snapshot::build_agent_resume_command(
@@ -261,9 +265,9 @@ pub fn restore_live_sessions_with_node_sessions(
                         DEFAULT_TERMINAL_SHELL,
                         session_id,
                         hook_env.as_ref(),
-                        ctx.workspace_root,
+                        cwd,
                     ),
-                    None => agent_command(profile, hook_env.as_ref()).with_cwd(ctx.workspace_root),
+                    None => agent_command(profile, hook_env.as_ref()).with_cwd(cwd),
                 };
                 attach_agent_live_with_command(node_id, command, cols, rows, ctx)
             }
@@ -318,15 +322,19 @@ pub fn restore_live_session_for_node_with_node_sessions(
                 .agent_session_bindings
                 .session_id(node_id)
                 .map(ToString::to_string);
+            let cwd = node_session
+                .and_then(|session| session.cwd.as_deref())
+                .map(Path::new)
+                .or(ctx.workspace_root);
             let command = match use_resume.as_deref() {
                 Some(session_id) => session_snapshot::build_agent_resume_command(
                     profile,
                     DEFAULT_TERMINAL_SHELL,
                     session_id,
                     hook_env.as_ref(),
-                    ctx.workspace_root,
+                    cwd,
                 ),
-                None => agent_command(profile, hook_env.as_ref()).with_cwd(ctx.workspace_root),
+                None => agent_command(profile, hook_env.as_ref()).with_cwd(cwd),
             };
             attach_agent_live_with_command(node_id, command, cols, rows, ctx)
         }
@@ -345,12 +353,14 @@ pub fn save_node_sessions(
     document: &Document,
     workspace_root: Option<&Path>,
     agent_session_bindings: &AgentSessionBindings,
+    agent_launch_cwds: &HashMap<NodeId, std::path::PathBuf>,
 ) -> StorageResult<()> {
     let sessions = session_snapshot::collect_node_sessions(
         live,
         document,
         workspace_root,
         agent_session_bindings,
+        agent_launch_cwds,
     );
     let current_nodes = document
         .nodes()

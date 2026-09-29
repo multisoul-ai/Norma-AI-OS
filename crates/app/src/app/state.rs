@@ -6,6 +6,7 @@ use runtime::Runtime;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AppScreen {
     Launchpad,
+    DesktopWorkspace,
     Canvas,
 }
 

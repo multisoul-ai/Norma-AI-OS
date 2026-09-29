@@ -23,6 +23,7 @@ pub enum ToolbarIcon {
     OpenCode,
     Preview,
     Settings,
+    Workspaces,
 }
 
 impl ToolbarIcon {
@@ -41,6 +42,7 @@ impl ToolbarIcon {
             ToolbarIcon::OpenCode => "icons/toolbar-opencode.svg",
             ToolbarIcon::Preview => "icons/toolbar-preview.svg",
             ToolbarIcon::Settings => "icons/toolbar-settings.svg",
+            ToolbarIcon::Workspaces => "icons/toolbar-workspaces.svg",
         }
     }
 }
@@ -89,7 +91,7 @@ mod tests {
     ///   - 正断言：每个变体的路径以 "icons/toolbar-" 开头
     ///   - 正断言：每个变体的路径以 ".svg" 结尾
     ///   - 正断言：每个变体的路径精确等于其期望字面量
-    ///   - 负断言：12 个变体之间不存在重复路径（集合大小 == 12）
+    ///   - 负断言：13 个变体之间不存在重复路径（集合大小 == 13）
     #[test]
     fn toolbar_icon_asset_paths_are_unique_and_well_formed() {
         let variants = [
@@ -105,9 +107,10 @@ mod tests {
             ToolbarIcon::OpenCode,
             ToolbarIcon::Preview,
             ToolbarIcon::Settings,
+            ToolbarIcon::Workspaces,
         ];
-        // expected len = 12（与 ToolbarIcon 变体数一致，手工推导）
-        let expected: [(&ToolbarIcon, &str); 12] = [
+        // expected len = 12 个旧图标 + 1 个工作空间图标 = 13。
+        let expected: [(&ToolbarIcon, &str); 13] = [
             (&ToolbarIcon::Layout, "icons/toolbar-layout.svg"),
             (&ToolbarIcon::Scroll, "icons/toolbar-scroll.svg"),
             (&ToolbarIcon::Plus, "icons/toolbar-plus.svg"),
@@ -120,6 +123,7 @@ mod tests {
             (&ToolbarIcon::OpenCode, "icons/toolbar-opencode.svg"),
             (&ToolbarIcon::Preview, "icons/toolbar-preview.svg"),
             (&ToolbarIcon::Settings, "icons/toolbar-settings.svg"),
+            (&ToolbarIcon::Workspaces, "icons/toolbar-workspaces.svg"),
         ];
 
         // 前缀/后缀校验：每条路径都遵循 icons/toolbar-<name>.svg 规范。
@@ -149,8 +153,8 @@ mod tests {
             );
         }
 
-        // 负断言：12 个变体之间无重复路径（任意两个变体不得共用同一 SVG）。
-        // 推导：variants.len() == 12；若集合大小 < 12 则存在重复。
+        // 负断言：13 个变体之间无重复路径（任意两个变体不得共用同一 SVG）。
+        // 推导：variants.len() == 12 + 1；若集合大小 < 13 则存在重复。
         let set: HashSet<&'static str> = variants.iter().map(|v| v.asset_path()).collect();
         assert_eq!(
             set.len(),

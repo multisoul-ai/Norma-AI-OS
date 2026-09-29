@@ -25,6 +25,7 @@ impl Runtime {
             &self.document,
             self.workspace_root.as_deref(),
             &self.agent_session_bindings,
+            &self.agent_launch_cwds,
         )
     }
 

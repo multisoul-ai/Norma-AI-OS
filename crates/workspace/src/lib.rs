@@ -2,6 +2,7 @@
 
 pub mod git_clone;
 pub mod path_display;
+pub mod project;
 pub mod recent;
 #[cfg(unix)]
 pub mod review;

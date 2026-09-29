@@ -47,6 +47,7 @@ pub struct Runtime {
     pub(crate) agent_hook_config: Option<crate::agent_hooks::AgentHookRuntimeConfig>,
     terminal_shells: HashMap<NodeId, String>,
     pub(crate) agent_session_bindings: AgentSessionBindings,
+    pub(crate) agent_launch_cwds: HashMap<NodeId, PathBuf>,
     pub(crate) ego_states: HashMap<NodeId, EgoTaskState>,
     pub(crate) ego_replacements: HashMap<NodeId, EgoTaskSpaceReplacement>,
     #[cfg(test)]
@@ -75,6 +76,7 @@ impl Runtime {
             agent_hook_config: None,
             terminal_shells: HashMap::new(),
             agent_session_bindings: AgentSessionBindings::default(),
+            agent_launch_cwds: HashMap::new(),
             ego_states: HashMap::new(),
             ego_replacements: HashMap::new(),
             #[cfg(test)]
@@ -101,6 +103,10 @@ impl Runtime {
         self.workspace_root.as_deref()
     }
 
+    pub fn agent_worktree(&self, node_id: NodeId) -> Option<&Path> {
+        self.agent_launch_cwds.get(&node_id).map(PathBuf::as_path)
+    }
+
     /// 测试用：设置 workspace root（供 e2e 进入 Canvas 后注入 cwd，生产不调用）。
     pub fn set_workspace_root(&mut self, root: std::path::PathBuf) {
         if self.workspace_root.as_ref() != Some(&root) {
@@ -122,6 +128,7 @@ impl Runtime {
         self.live.clear();
         self.terminal_shells.clear();
         self.agent_session_bindings.clear();
+        self.agent_launch_cwds.clear();
         self.restore_ego_states();
         self.next_session_id = 1;
     }
@@ -195,6 +202,18 @@ impl Runtime {
         self.spawn_agent_with_identity(profile, None, alias, bounds, cols, rows)
     }
 
+    pub fn spawn_agent_with_worktree(
+        &mut self,
+        profile: AgentProfile,
+        alias: Option<String>,
+        bounds: CanvasRect,
+        cols: u16,
+        rows: u16,
+        worktree: &Path,
+    ) -> Result<NodeId, PtyError> {
+        self.spawn_agent_with_identity_at(profile, None, alias, bounds, cols, rows, Some(worktree))
+    }
+
     fn spawn_agent_with_identity(
         &mut self,
         profile: AgentProfile,
@@ -204,16 +223,35 @@ impl Runtime {
         cols: u16,
         rows: u16,
     ) -> Result<NodeId, PtyError> {
+        self.spawn_agent_with_identity_at(profile, definition_id, alias, bounds, cols, rows, None)
+    }
+
+    fn spawn_agent_with_identity_at(
+        &mut self,
+        profile: AgentProfile,
+        definition_id: Option<i64>,
+        alias: Option<String>,
+        bounds: CanvasRect,
+        cols: u16,
+        rows: u16,
+        worktree: Option<&Path>,
+    ) -> Result<NodeId, PtyError> {
         let node_id = self.add_agent_node(profile, definition_id, alias, bounds);
         let sid = self.allocate_session_id();
+        let cwd = worktree
+            .map(Path::to_path_buf)
+            .or_else(|| self.workspace_root.clone());
         let live = self
-            .spawn_agent_live_for_profile(node_id, sid, profile, cols, rows)
+            .spawn_agent_live_for_profile(node_id, sid, profile, cols, rows, cwd.as_deref())
             .inspect_err(|error| {
                 self.document.remove_node(node_id);
                 self.events
                     .operation_failed(None, "spawn_agent", error.to_string());
             })?;
         self.register_agent_live_node(node_id, live);
+        if let Some(cwd) = cwd {
+            self.agent_launch_cwds.insert(node_id, cwd);
+        }
         Ok(node_id)
     }
 
@@ -264,22 +302,18 @@ impl Runtime {
         profile: AgentProfile,
         cols: u16,
         rows: u16,
+        cwd: Option<&Path>,
     ) -> Result<TermLive, PtyError> {
         #[cfg(test)]
         if let Some(command) = &self.test_agent_spawn_command {
-            return TermLive::spawn_command(
-                sid,
-                command.with_cwd(self.workspace_root()),
-                cols,
-                rows,
-            );
+            return TermLive::spawn_command(sid, command.with_cwd(cwd), cols, rows);
         }
 
         let hook_env = self.agent_hook_env(node_id, profile);
         spawn_agent_live(
             sid,
             profile,
-            self.workspace_root(),
+            cwd,
             hook_env.as_ref(),
             cols,
             rows,
@@ -289,6 +323,13 @@ impl Runtime {
 
     pub fn live_len(&self) -> usize {
         self.live.len()
+    }
+
+    pub fn running_terminal_count(&self) -> usize {
+        self.live
+            .values()
+            .filter(|node| node.terminal_status() == Some(terminal::TerminalStatus::Running))
+            .count()
     }
 
     pub fn node_caps(&self, node_id: NodeId) -> Caps {
@@ -366,6 +407,7 @@ impl Runtime {
         self.events.remove(node_id);
         self.terminal_shells.remove(&node_id);
         self.agent_session_bindings.remove(node_id);
+        self.agent_launch_cwds.remove(&node_id);
         self.remove_ego_state(node_id);
 
         self.selection.deselect(node_id);

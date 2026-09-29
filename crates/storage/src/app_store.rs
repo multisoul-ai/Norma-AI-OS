@@ -60,6 +60,10 @@ impl AppStore {
         crate::WorkspaceIdentityStore::new(self.path.clone())
     }
 
+    pub fn desktop_workspace_store(&self) -> crate::DesktopWorkspaceStore {
+        crate::DesktopWorkspaceStore::new(self.path.clone())
+    }
+
     pub fn orchestration_task_route_store(&self) -> crate::OrchestrationTaskRouteStore {
         crate::OrchestrationTaskRouteStore::new(self.path.clone())
     }

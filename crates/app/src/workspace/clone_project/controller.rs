@@ -27,6 +27,14 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if matches!(
+            self.screen,
+            AppScreen::Launchpad | AppScreen::DesktopWorkspace
+        ) || self.desktop_host.is_some()
+        {
+            self.accept_project_for_desktop(path, window, cx);
+            return;
+        }
         self.open_workspace_in_project_window_with_state(
             path,
             close_current_launchpad,
@@ -53,6 +61,10 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if let Some(host) = self.desktop_host.as_ref().and_then(|host| host.upgrade()) {
+            host.update(cx, |host, cx| host.open_clone_project_dialog(window, cx));
+            return;
+        }
         if self.clone_project.is_open() {
             return;
         }

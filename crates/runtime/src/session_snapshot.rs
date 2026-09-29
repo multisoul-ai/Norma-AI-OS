@@ -23,6 +23,7 @@ pub(crate) fn collect_node_sessions(
     document: &Document,
     _workspace_root: Option<&Path>,
     agent_session_bindings: &AgentSessionBindings,
+    agent_launch_cwds: &HashMap<NodeId, PathBuf>,
 ) -> Vec<NodeSession> {
     let mut sessions = Vec::new();
 
@@ -47,7 +48,9 @@ pub(crate) fn collect_node_sessions(
                 sessions.push(NodeSession {
                     node_id: node.id,
                     kind: NodeSessionKind::Agent,
-                    cwd: None,
+                    cwd: agent_launch_cwds
+                        .get(&node.id)
+                        .map(|cwd| cwd.to_string_lossy().into_owned()),
                     session_id,
                 });
             }

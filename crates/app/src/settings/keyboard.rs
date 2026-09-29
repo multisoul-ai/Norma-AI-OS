@@ -279,6 +279,7 @@ fn scope_badge(theme: Theme, label: &'static str) -> Div {
 fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
     match command {
         ShortcutCommandId::NewWindow => "settings-shortcut-new-window",
+        ShortcutCommandId::SwitchWorkspace => "settings-shortcut-switch-workspace",
         ShortcutCommandId::NewTerminal => "settings-shortcut-new-terminal",
         ShortcutCommandId::NewBrowser => "settings-shortcut-new-browser",
         ShortcutCommandId::CopyCardContent => "settings-shortcut-copy-card-content",
@@ -301,6 +302,7 @@ fn shortcut_row_id(command: ShortcutCommandId) -> &'static str {
 fn shortcut_restore_id(command: ShortcutCommandId) -> &'static str {
     match command {
         ShortcutCommandId::NewWindow => "settings-shortcut-restore-new-window",
+        ShortcutCommandId::SwitchWorkspace => "settings-shortcut-restore-switch-workspace",
         ShortcutCommandId::NewTerminal => "settings-shortcut-restore-new-terminal",
         ShortcutCommandId::NewBrowser => "settings-shortcut-restore-new-browser",
         ShortcutCommandId::CopyCardContent => "settings-shortcut-restore-copy-card-content",

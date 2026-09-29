@@ -10,6 +10,9 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use ui::component::Root;
 
+#[cfg(feature = "e2e-test-support")]
+mod e2e;
+
 const APP_DISPLAY_NAME: &str = "Norma OS";
 
 #[derive(Default)]
@@ -68,15 +71,22 @@ fn open_multisoul_window(
     let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
     let mut app_entity = None;
     let opening_workspace = !matches!(&state, InitialWindowState::Launchpad);
+    let desktop_database = database_paths.app_db_path().to_owned();
     let existing = match &state {
         InitialWindowState::Workspace(path) | InitialWindowState::ClonedWorkspace(path) => {
             super::sessions::for_root(database_paths.app_db_path(), path, cx)
         }
-        InitialWindowState::Launchpad => None,
+        InitialWindowState::Launchpad => super::desktop::sessions::detached(&desktop_database, cx),
     };
     let root_handle = cx.open_window(window_options(title, bounds), |window, cx| {
         let app = if let Some(app) = existing {
-            app.update(cx, |app, cx| app.attach_project_window(window, cx));
+            app.update(cx, |app, cx| {
+                if opening_workspace {
+                    app.attach_project_window(window, cx);
+                } else {
+                    app.attach_desktop_host_window(window, cx);
+                }
+            });
             app
         } else {
             cx.new(|cx| {
@@ -118,6 +128,9 @@ fn open_multisoul_window(
     let app = app_entity.ok_or_else(|| {
         anyhow::anyhow!("production window should create a nested MultisoulApp entity")
     })?;
+    if !opening_workspace {
+        super::desktop::sessions::register(desktop_database, root_handle.into(), app.clone(), cx);
+    }
     if opening_workspace && !matches!(app.read(cx).screen, AppScreen::Canvas) {
         let error = app
             .read(cx)
@@ -181,18 +194,6 @@ pub(crate) fn window_options(title: String, bounds: Bounds<gpui::Pixels>) -> Win
 }
 
 impl MultisoulApp {
-    #[cfg(feature = "e2e-test-support")]
-    pub fn reopen_project_window_for_e2e(
-        app: &Entity<Self>,
-        path: PathBuf,
-        cx: &mut App,
-    ) -> anyhow::Result<(Entity<MultisoulApp>, gpui::AnyWindowHandle)> {
-        let (paths, guard) = app.read_with(cx, |app, _| {
-            (app.database_paths.clone(), app.test_database_guard.clone())
-        });
-        let opened = open_multisoul_window(InitialWindowState::Workspace(path), paths, guard, cx)?;
-        Ok((opened.app, opened.root_handle.into()))
-    }
     pub(crate) fn unregister_workspace_window_if_needed(&mut self, cx: &mut App) {
         if let (Some(workspace_id), Some(route_id)) = (
             self.workspace_id.as_deref(),

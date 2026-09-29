@@ -134,6 +134,20 @@ impl Runtime {
         &mut self,
         sessions: &[NodeSession],
     ) -> AgentSessionHydrationReport {
+        self.agent_launch_cwds = sessions
+            .iter()
+            .filter_map(|session| {
+                (session.kind == NodeSessionKind::Agent
+                    && self.document.node(session.node_id).is_some())
+                .then(|| {
+                    session
+                        .cwd
+                        .as_ref()
+                        .map(|cwd| (session.node_id, cwd.into()))
+                })
+                .flatten()
+            })
+            .collect();
         self.agent_session_bindings
             .hydrate(&self.document, sessions)
     }

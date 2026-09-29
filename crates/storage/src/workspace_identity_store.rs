@@ -106,7 +106,7 @@ fn decode_identity(row: &Row<'_>) -> rusqlite::Result<WorkspaceIdentity> {
     })
 }
 
-fn random_workspace_id() -> StorageResult<String> {
+pub(crate) fn random_workspace_id() -> StorageResult<String> {
     let mut bytes = [0u8; 16];
     File::open("/dev/urandom")?.read_exact(&mut bytes)?;
     // RFC 4122 v4: version nibble = 0100, variant high bits = 10.

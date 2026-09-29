@@ -135,6 +135,20 @@ impl MultisoulApp {
                     .when(bottom_voice_bar_visible(), |dock| {
                         dock.child(self.render_voice_bar(window, cx))
                     })
+                    .when(self.desktop_host.is_some(), |dock| {
+                        dock.child(
+                            chrome_icon_button(
+                                theme,
+                                ToolbarIcon::Workspaces,
+                                false,
+                                "toolbar-switch-workspace",
+                                "Switch Workspace  ⌘⇧K",
+                            )
+                            .on_click(cx.listener(
+                                |app, _, window, cx| app.open_desktop_switcher(window, cx),
+                            )),
+                        )
+                    })
                     .child(
                         chrome_icon_button(
                             theme,

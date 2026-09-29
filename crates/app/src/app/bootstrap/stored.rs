@@ -4,6 +4,7 @@ use super::*;
 pub(crate) struct StoredBootstrap {
     pub(super) wallpaper: WallpaperSettingsState,
     pub(super) workspace: WorkspaceState,
+    pub(super) desktop: crate::workspace::desktop::DesktopWorkspaceUiState,
     pub(super) theme_id: ui::ThemeId,
     pub(super) theme: ThemeSettingsState,
     pub(super) performance: PerformanceSettingsState,
@@ -21,6 +22,9 @@ impl StoredBootstrap {
         Self {
             wallpaper: WallpaperSettingsState::load_from_store(store.settings_store()),
             workspace: WorkspaceState::load_from_storage(store.recent_store()),
+            desktop: crate::workspace::desktop::DesktopWorkspaceUiState::load(
+                store.desktop_workspace_store(),
+            ),
             theme_id,
             theme,
             performance: PerformanceSettingsState::in_memory_default(),
@@ -42,6 +46,9 @@ impl StoredBootstrap {
         Self {
             wallpaper: WallpaperSettingsState::load_from_store(settings.clone()),
             workspace,
+            desktop: crate::workspace::desktop::DesktopWorkspaceUiState::load(
+                store.desktop_workspace_store(),
+            ),
             theme_id,
             theme,
             performance: PerformanceSettingsState::load_from_store(settings.clone()),

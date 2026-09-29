@@ -1,6 +1,7 @@
 //! runtime — 域层（零 gpui）：节点生命周期、焦点、输入路由。
 pub mod agent_hooks;
 mod agent_session_bindings;
+pub mod desktop_dispatch;
 pub mod ego;
 pub mod events;
 pub mod focus;

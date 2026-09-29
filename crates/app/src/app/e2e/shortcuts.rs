@@ -3,6 +3,7 @@ use crate::shortcuts::ShortcutCommandId;
 pub(super) fn shortcut_command_name(command: ShortcutCommandId) -> &'static str {
     match command {
         ShortcutCommandId::NewWindow => "new_window",
+        ShortcutCommandId::SwitchWorkspace => "switch_workspace",
         ShortcutCommandId::NewTerminal => "new_terminal",
         ShortcutCommandId::NewBrowser => "new_browser",
         ShortcutCommandId::CopyCardContent => "copy_card_content",

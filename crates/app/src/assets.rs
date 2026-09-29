@@ -21,6 +21,7 @@ pub const TOOLBAR_GROK_ASSET: &str = "icons/toolbar-grok.svg";
 pub const TOOLBAR_OPENCODE_ASSET: &str = "icons/toolbar-opencode.svg";
 pub const TOOLBAR_PREVIEW_ASSET: &str = "icons/toolbar-preview.svg";
 pub const TOOLBAR_SETTINGS_ASSET: &str = "icons/toolbar-settings.svg";
+pub const TOOLBAR_WORKSPACES_ASSET: &str = "icons/toolbar-workspaces.svg";
 pub const SETTINGS_NAV_THEMES_ASSET: &str = "icons/settings-nav-themes.svg";
 pub const SETTINGS_NAV_WALLPAPER_ASSET: &str = "icons/settings-nav-wallpaper.svg";
 pub const SETTINGS_NAV_KEYBOARD_ASSET: &str = "icons/settings-nav-keyboard.svg";
@@ -43,6 +44,7 @@ const TOOLBAR_GROK_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-grok.s
 const TOOLBAR_OPENCODE_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-opencode.svg");
 const TOOLBAR_PREVIEW_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-preview.svg");
 const TOOLBAR_SETTINGS_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-settings.svg");
+const TOOLBAR_WORKSPACES_BYTES: &[u8] = include_bytes!("../assets/icons/toolbar-workspaces.svg");
 const SETTINGS_NAV_THEMES_BYTES: &[u8] = include_bytes!("../assets/icons/settings-nav-themes.svg");
 const SETTINGS_NAV_WALLPAPER_BYTES: &[u8] =
     include_bytes!("../assets/icons/settings-nav-wallpaper.svg");
@@ -72,6 +74,7 @@ impl AssetSource for EmbeddedAssets {
             TOOLBAR_OPENCODE_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_OPENCODE_BYTES))),
             TOOLBAR_PREVIEW_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_PREVIEW_BYTES))),
             TOOLBAR_SETTINGS_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_SETTINGS_BYTES))),
+            TOOLBAR_WORKSPACES_ASSET => Ok(Some(Cow::Borrowed(TOOLBAR_WORKSPACES_BYTES))),
             SETTINGS_NAV_THEMES_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_THEMES_BYTES))),
             SETTINGS_NAV_WALLPAPER_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_WALLPAPER_BYTES))),
             SETTINGS_NAV_KEYBOARD_ASSET => Ok(Some(Cow::Borrowed(SETTINGS_NAV_KEYBOARD_BYTES))),
@@ -101,6 +104,7 @@ impl AssetSource for EmbeddedAssets {
                 SharedString::from("toolbar-opencode.svg"),
                 SharedString::from("toolbar-preview.svg"),
                 SharedString::from("toolbar-settings.svg"),
+                SharedString::from("toolbar-workspaces.svg"),
                 SharedString::from("settings-nav-themes.svg"),
                 SharedString::from("settings-nav-wallpaper.svg"),
                 SharedString::from("settings-nav-keyboard.svg"),
@@ -244,15 +248,15 @@ mod tests {
     /// 顶栏 SVG 图标资产：每个 icons/toolbar-*.svg 路径都应能通过 AssetSource 加载。
     ///
     /// 数据构造（含关键数值的推导过程）：
-    ///   toolbar 路径数 = 12；首非空白字节期望 = b'<'（ASCII 60）；
+    ///   toolbar 路径数 = 12 + 1 = 13；首非空白字节期望 = b'<'（ASCII 60）；
     ///   负样本路径 = "icons/toolbar-missing.svg"。
     ///
     /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 逐一 load 12 条 toolbar 路径并检查首非空白字节
+    ///   1. 逐一 load 13 条 toolbar 路径并检查首非空白字节
     ///   2. load 缺失路径并期望 None
     ///
     /// 预期结果：
-    ///   - 正断言：12 条路径均返回 Some 且首非空白字节为 b'<'
+    ///   - 正断言：13 条路径均返回 Some 且首非空白字节为 b'<'
     ///   - 负断言：不存在的 toolbar-missing.svg 返回 None
     #[test]
     fn test_embedded_assets_load_toolbar_svg_icons() {
@@ -271,6 +275,7 @@ mod tests {
             TOOLBAR_OPENCODE_ASSET,
             TOOLBAR_PREVIEW_ASSET,
             TOOLBAR_SETTINGS_ASSET,
+            TOOLBAR_WORKSPACES_ASSET,
         ];
 
         for path in toolbar_paths.iter() {

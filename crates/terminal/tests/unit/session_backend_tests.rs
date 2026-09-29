@@ -64,6 +64,52 @@ fn test_spawn_with_backend_echo_drives_session() {
     );
 }
 
+/// 已停止的 Agent 会话不得继续接受输入并报告派工成功。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   1 个 echo PTY 会话、会话 ID=10、终端尺寸=80×24；停止后尝试写入 1 条任务。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建会话，调用 kill 结束其运行实例。
+///   2. 向同一会话写入任务和 Enter。
+///   3. 排空 PTY 输出并检查屏幕内容。
+///
+/// 预期结果：
+///   - 正断言：会话状态为 Exited，两次输入都返回错误。
+///   - 负断言：停止后的任务没有出现在屏幕上。
+#[test]
+fn stopped_session_rejects_agent_input() {
+    let (tx, rx) = unbounded();
+    let backend = TestPtyBackend::echo(tx);
+    let mut session = TerminalSession::spawn_with_backend(10, 80, 24, Box::new(backend), rx);
+    session.kill();
+
+    let task_result = session.write_paste("task-after-stop");
+    let enter_result = session.write_input(&KeyInput {
+        key: crate::input::Key::Enter,
+        ctrl: false,
+        alt: false,
+        shift: false,
+    });
+    session.drain();
+    let first_row: String = session.snapshot().rows[0]
+        .iter()
+        .map(|cell| cell.c)
+        .collect();
+
+    assert_eq!(
+        session.status,
+        TerminalStatus::Exited { code: None },
+        "kill 后的会话必须立即标记为已退出"
+    );
+    assert!(task_result.is_err(), "已停止会话不得接受新任务");
+    assert!(enter_result.is_err(), "已停止会话不得接受提交键");
+    assert!(
+        !first_row.contains("task-after-stop"),
+        "停止后的输入不得到达 PTY 输出"
+    );
+}
+
 /// Option+Enter：终端应用请求增强键盘协议后必须保留 Alt 修饰，不能退化为提交键。
 ///
 /// 数据构造（含关键数值的推导过程）：
