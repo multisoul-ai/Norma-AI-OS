@@ -35,7 +35,7 @@
 
   <rect x="70" y="130" width="280" height="100" rx="18" fill="#fff" stroke="#cbd5e5" stroke-width="2"/>
   <text class="label" x="98" y="168">Voice Setup</text>
-  <text class="body" x="98" y="200">选择：现有模式 / 豆包双工</text>
+  <text class="body" x="98" y="200">选择：现有模式 / 豆包 2.0 对话</text>
 
   <rect x="425" y="130" width="1105" height="100" rx="18" fill="#e8f5f0" stroke="#9dcebb" stroke-width="2"/>
   <text class="label green" x="455" y="168">同一个提示词组装入口</text>
@@ -67,27 +67,27 @@
   <text class="small" x="125" y="588">工具回执返回 Norma 模型，由原 TTS 播报真实结果。</text>
 
   <rect x="800" y="300" width="730" height="345" rx="22" fill="#f3edfc" stroke="#cab4ec" stroke-width="2"/>
-  <text class="section purple" x="830" y="345">② 豆包双工：新增独立会话</text>
-  <text class="small" x="830" y="371">豆包同时听与说；普通聊天不经过桌面第二个模型</text>
+  <text class="section purple" x="830" y="345">② 豆包 2.0 对话：新增独立会话</text>
+  <text class="small" x="830" y="371">ASR 持续收音，方舟 Chat 回复，TTS 流式播报</text>
   <rect x="830" y="405" width="115" height="84" rx="14" fill="#fff" stroke="#d5c4eb"/>
   <text class="label" x="887" y="439" text-anchor="middle">麦克风</text>
   <text class="small" x="887" y="464" text-anchor="middle">连续音频</text>
   <rect x="988" y="405" width="294" height="84" rx="14" fill="#e7dafa" stroke="#a17ad8" stroke-width="2"/>
-  <text class="label purple" x="1135" y="439" text-anchor="middle">豆包 Realtime 会话</text>
-  <text class="small" x="1135" y="464" text-anchor="middle">语音理解、对话、语音输出</text>
+  <text class="label purple" x="1135" y="439" text-anchor="middle">ASR 2.0 → Chat → TTS 2.0</text>
+  <text class="small" x="1135" y="464" text-anchor="middle">桌面编排，可在播报时插话</text>
   <rect x="1325" y="405" width="175" height="84" rx="14" fill="#fff" stroke="#d5c4eb"/>
   <text class="label" x="1412" y="455" text-anchor="middle">扬声器</text>
   <path class="purple-line" d="M945 447 H985"/>
   <path class="purple-line" d="M1282 447 H1322"/>
   <rect x="830" y="525" width="670" height="88" rx="14" fill="#fff" stroke="#dacbec"/>
-  <text class="body" x="855" y="559">豆包发出 Function Calling：工具名、参数、call_id。</text>
-  <text class="small" x="855" y="588">校验后复用下方执行链；回执按原 call_id 返回，豆包继续说话。</text>
+  <text class="body" x="855" y="559">方舟 Chat 发出 Function Calling：工具名、参数、call_id。</text>
+  <text class="small" x="855" y="588">校验后复用下方执行链；回执按原 call_id 返回方舟 Chat。</text>
 
   <text class="section" x="70" y="696">项目操作怎样复用现有代码</text>
   <path class="blue-line" d="M443 613 V736 H302 V769"/>
   <path class="purple-line" d="M1165 613 V724 H1075 V741"/>
   <rect x="870" y="741" width="420" height="84" rx="16" fill="#f3edfc" stroke="#b69bdf" stroke-width="2"/>
-  <text class="label purple" x="1080" y="773" text-anchor="middle">新增：豆包事件适配与安全门</text>
+  <text class="label purple" x="1080" y="773" text-anchor="middle">新增：方舟函数适配与安全门</text>
   <text class="small" x="1080" y="800" text-anchor="middle">转写授权 · call_id 去重 · 会话/项目校验</text>
 
   <rect x="70" y="769" width="464" height="112" rx="18" fill="#e8f5f0" stroke="#9dcebb" stroke-width="2"/>

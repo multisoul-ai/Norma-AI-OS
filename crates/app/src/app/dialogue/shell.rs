@@ -13,7 +13,7 @@ impl MultisoulApp {
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
             return match &self.doubao.status {
-                crate::app::doubao::DoubaoStatus::Idle => "Doubao Duplex".into(),
+                crate::app::doubao::DoubaoStatus::Idle => "Doubao 2.0 Voice".into(),
                 crate::app::doubao::DoubaoStatus::Connecting => "Connecting to Doubao…".into(),
                 crate::app::doubao::DoubaoStatus::Connected => "Doubao is listening".into(),
                 crate::app::doubao::DoubaoStatus::Disconnected(message) => message.clone(),
@@ -53,7 +53,7 @@ impl MultisoulApp {
             == crate::settings::voice::DesktopVoiceMode::Doubao
         {
             return match self.doubao.status {
-                crate::app::doubao::DoubaoStatus::Idle => "Doubao Duplex",
+                crate::app::doubao::DoubaoStatus::Idle => "Doubao 2.0 Voice",
                 crate::app::doubao::DoubaoStatus::Connecting => "Connecting…",
                 crate::app::doubao::DoubaoStatus::Connected => "Listening · Doubao",
                 crate::app::doubao::DoubaoStatus::Disconnected(_) => "Doubao disconnected",

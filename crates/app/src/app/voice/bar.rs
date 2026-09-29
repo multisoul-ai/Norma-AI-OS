@@ -212,7 +212,7 @@ fn voice_content(
                     if app.voice_settings.values().desktop_mode()
                         == crate::settings::voice::DesktopVoiceMode::Doubao
                     {
-                        format!("Doubao Duplex  {shortcut}")
+                        format!("Doubao 2.0 Voice  {shortcut}")
                     } else {
                         format!("Voice  {shortcut}")
                     }

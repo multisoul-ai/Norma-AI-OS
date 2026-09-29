@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1080" viewBox="0 0 1700 1080" role="img" aria-labelledby="title desc">
-  <title id="title">Norma OS 桌面豆包全双工技术架构</title>
-  <desc id="desc">Voice Settings 和快捷键交给 app 中的会话协调器，协调器只启动一条语音链路。左侧保留现有 ASR、Norma Agent、TTS 链路。右侧新增全双工会话控制器和豆包 WebSocket 适配器，音频双向流动；豆包的项目工具调用通过 app 的桥接层交给现有 Norma Agent，回执按 call_id 返回。底层复用 voice_input、播放和 Keychain。</desc>
+  <title id="title">Norma OS 桌面豆包 2.0 对话技术架构</title>
+  <desc id="desc">Voice Settings 和快捷键在 app 中选择一条语音链路。左侧保留现有 ASR、Norma Agent、TTS 链路。右侧由 app 的豆包会话协调 ASR 2.0 WebSocket、方舟 Chat HTTP 和 TTS 2.0 HTTP；项目工具调用通过现有 NormaToolRuntime 和 AgentCardAdapter 执行，回执按 call_id 返回。底层复用 voice_input、播放和 Keychain。</desc>
   <defs>
     <style>
       text { font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; }
@@ -25,23 +25,23 @@
   </defs>
 
   <rect width="1700" height="1080" fill="#f5f7f4"/>
-  <text x="54" y="71" class="ink strong" font-size="35">桌面 Voice 技术架构：只新增豆包全双工链路</text>
-  <text x="54" y="106" class="muted body">控制流为蓝色，音频流为绿色，项目工具调用为橙色；现有链路保持灰色。</text>
+  <text x="54" y="71" class="ink strong" font-size="35">桌面 Voice 技术架构：只新增豆包 2.0 对话链路</text>
+  <text x="54" y="106" class="muted body">控制流为蓝色，语音链路为绿色，项目工具调用为橙色；现有链路保持灰色。</text>
 
   <!-- Entry and exclusive session routing. -->
   <rect x="54" y="143" width="1592" height="165" rx="21" fill="#ffffff" stroke="#dfe7df" stroke-width="2"/>
   <text x="85" y="181" class="blue strong body">crates/app · 入口与会话协调</text>
   <rect x="86" y="205" width="393" height="75" rx="13" class="box"/>
   <text x="282" y="236" text-anchor="middle" class="ink strong body">Voice Settings ＋ 快捷键</text>
-  <text x="282" y="260" text-anchor="middle" class="muted small">选择“现有语音”或“豆包全双工”</text>
+  <text x="282" y="260" text-anchor="middle" class="muted small">选择“现有语音”或“豆包 2.0 对话”</text>
   <path d="M 486 242 L 616 242" class="control"/>
   <rect x="626" y="205" width="455" height="75" rx="13" fill="#e8f2f9" stroke="#8db7d2" stroke-width="2"/>
-  <text x="853" y="236" text-anchor="middle" class="blue strong body">VoiceCoordinator（新增）</text>
+  <text x="853" y="236" text-anchor="middle" class="blue strong body">app 会话协调</text>
   <text x="853" y="260" text-anchor="middle" class="muted small">一次只持有一条会话；切换时先停旧会话</text>
   <path d="M 1088 242 L 1219 242" class="control"/>
   <rect x="1228" y="205" width="385" height="75" rx="13" class="box"/>
-  <text x="1420" y="236" text-anchor="middle" class="ink strong body">Voice 状态与字幕</text>
-  <text x="1420" y="260" text-anchor="middle" class="muted small">连接中／听／说／工具执行／错误</text>
+  <text x="1420" y="236" text-anchor="middle" class="ink strong body">Voice 状态</text>
+  <text x="1420" y="260" text-anchor="middle" class="muted small">连接中／收音／播音／错误</text>
 
   <!-- Existing chain. -->
   <rect x="54" y="338" width="752" height="462" rx="21" fill="#ffffff" stroke="#dfe7df" stroke-width="2"/>
@@ -72,36 +72,35 @@
 
   <!-- New duplex chain. -->
   <rect x="838" y="338" width="808" height="462" rx="21" fill="#f2faf5" stroke="#77bd96" stroke-width="2"/>
-  <text x="869" y="382" class="green strong" font-size="24">② 豆包全双工：新增</text>
-  <text x="869" y="410" class="muted small">实时输入／输出、插话和工具调用都属于同一会话</text>
+  <text x="869" y="382" class="green strong" font-size="24">② 豆包 2.0 对话：新增</text>
+  <text x="869" y="410" class="muted small">桌面编排 ASR 2.0、方舟 Chat、TTS 2.0；持续收音并支持插话</text>
 
   <rect x="870" y="465" width="128" height="95" rx="14" class="box"/>
   <text x="934" y="505" text-anchor="middle" class="ink strong small">麦克风</text>
   <text x="934" y="529" text-anchor="middle" class="muted" font-size="14">PCM16／16k</text>
   <path d="M 1002 512 L 1027 512" class="audio"/>
   <rect x="1035" y="465" width="174" height="95" rx="14" fill="#e8f2f9" stroke="#8db7d2" stroke-width="2"/>
-  <text x="1122" y="503" text-anchor="middle" class="blue strong small">DuplexController</text>
-  <text x="1122" y="528" text-anchor="middle" class="muted" font-size="14">app/voice/duplex</text>
+  <text x="1122" y="503" text-anchor="middle" class="blue strong small">VoiceSession</text>
+  <text x="1122" y="528" text-anchor="middle" class="muted" font-size="14">app/doubao/plan</text>
   <path d="M 1214 512 L 1239 512" class="audio"/>
   <rect x="1246" y="465" width="182" height="95" rx="14" fill="#dcf2e5" stroke="#59ad80" stroke-width="2"/>
-  <text x="1337" y="503" text-anchor="middle" class="green strong small">DoubaoAdapter</text>
-  <text x="1337" y="528" text-anchor="middle" class="muted" font-size="14">新增语音网络模块</text>
+  <text x="1337" y="503" text-anchor="middle" class="green strong small">ASR 2.0 + Chat</text>
+  <text x="1337" y="528" text-anchor="middle" class="muted" font-size="14">WSS + 方舟 HTTP</text>
   <path d="M 1433 512 L 1455 512" class="audio"/>
   <rect x="1463" y="465" width="150" height="95" rx="14" class="box"/>
-  <text x="1538" y="503" text-anchor="middle" class="ink strong small">豆包云端</text>
-  <text x="1538" y="528" text-anchor="middle" class="muted" font-size="14">WSS 双向事件</text>
+  <text x="1538" y="503" text-anchor="middle" class="ink strong small">TTS 2.0</text>
+  <text x="1538" y="528" text-anchor="middle" class="muted" font-size="14">HTTP 流式 PCM</text>
 
   <path d="M 1320 565 L 1320 593 L 1151 593 L 1151 610" class="audio"/>
   <rect x="1035" y="619" width="230" height="60" rx="13" class="box"/>
   <text x="1150" y="655" text-anchor="middle" class="green strong small">PCM 播放与立即打断</text>
   <path d="M 1373 565 L 1373 699 L 1403 699" class="tool"/>
   <rect x="1411" y="675" width="202" height="51" rx="13" fill="#fff1e2" stroke="#d5a476" stroke-width="2"/>
-  <text x="1512" y="707" text-anchor="middle" class="orange strong small">AgentBridge · call_id</text>
+  <text x="1512" y="707" text-anchor="middle" class="orange strong small">工具适配 · call_id</text>
   <path d="M 1410 746 L 1245 746" class="tool"/>
   <rect x="1035" y="715" width="202" height="61" rx="13" class="box"/>
-  <text x="1136" y="740" text-anchor="middle" class="ink strong small">现有 Norma Agent</text>
-  <text x="1136" y="762" text-anchor="middle" class="muted" font-size="14">执行任务、返回回执</text>
-  <text x="869" y="766" class="muted small">普通对话由豆包回复；项目动作只交给 Norma 执行一次。</text>
+  <text x="1136" y="740" text-anchor="middle" class="ink strong small">NormaToolRuntime</text>
+  <text x="1136" y="762" text-anchor="middle" class="muted" font-size="14">Adapter 执行并回执</text>
 
   <!-- Shared existing foundations and design invariants. -->
   <rect x="54" y="830" width="1592" height="190" rx="21" fill="#ffffff" stroke="#dfe7df" stroke-width="2"/>
@@ -111,9 +110,9 @@
   <text x="113" y="952" class="muted small">设备、权限、采集与 PCM；同时只给一种模式</text>
   <rect x="572" y="895" width="470" height="79" rx="13" fill="#f4f7f4"/>
   <text x="600" y="928" class="ink strong body">app/voice/playback</text>
-  <text x="600" y="952" class="muted small">音频播放；全双工补有界队列与立即停止</text>
+  <text x="600" y="952" class="muted small">音频播放；插话时清空旧音频并拒绝迟到块</text>
   <rect x="1069" y="895" width="544" height="79" rx="13" fill="#f4f7f4"/>
   <text x="1097" y="928" class="ink strong body">Settings ＋ macOS Keychain</text>
   <text x="1097" y="952" class="muted small">仅保存豆包凭据引用；切换模式不删除旧配置</text>
-  <text x="55" y="1055" class="muted small">实现范围：豆包全双工；GPT-Live 只作为未来可能接入的方向，本次没有适配器或设置项。</text>
+  <text x="55" y="1055" class="muted small">实现范围：豆包 2.0 对话；GPT-Live 只作为未来可能接入的方向，本次没有适配器或设置项。</text>
 </svg>

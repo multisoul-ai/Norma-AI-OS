@@ -38,31 +38,20 @@ pub(super) async fn execute_call(
         .as_str()
         .filter(|id| !id.is_empty() && id.len() <= 128)
     else {
-        return output(
-            "invalid",
-            json!({"status":"rejected","message":"工具调用缺少 ID"}),
-        );
+        return json!({"status":"rejected","message":"工具调用缺少 ID"});
     };
     let Some(name) = call["name"].as_str() else {
-        return output(call_id, json!({"status":"rejected","message":"工具名缺失"}));
+        return json!({"status":"rejected","message":"工具名缺失"});
     };
     let arguments = match call["arguments"]
         .as_str()
         .map(serde_json::from_str::<Value>)
     {
         Some(Ok(value)) if value.is_object() => value,
-        _ => {
-            return output(
-                call_id,
-                json!({"status":"rejected","message":"工具参数无效"}),
-            )
-        }
+        _ => return json!({"status":"rejected","message":"工具参数无效"}),
     };
     if transcript.trim().is_empty() {
-        return output(
-            call_id,
-            json!({"status":"rejected","message":"缺少用户实际转写，不能执行工具"}),
-        );
+        return json!({"status":"rejected","message":"缺少用户实际转写，不能执行工具"});
     }
     let operation_id = format!("db-{}", hash(&[project, session, call_id]));
     let request = NewMobileCommand {
@@ -92,9 +81,9 @@ pub(super) async fn execute_call(
                 "rejected" => json!({"status":"rejected","message":"原工具调用已拒绝，未再次执行"}),
                 _ => json!(unknown()),
             };
-            return output(call_id, result);
+            return result;
         }
-        _ => return output(call_id, json!(unknown())),
+        _ => return json!(unknown()),
     }
     let context = ToolContext {
         project_id: project.into(),
@@ -118,11 +107,7 @@ pub(super) async fn execute_call(
     let persisted =
         tokio::task::spawn_blocking(move || store.finish(&request, durable_outcome)).await;
     if !matches!(persisted, Ok(Ok(()))) {
-        return output(call_id, json!(unknown()));
+        return json!(unknown());
     }
-    output(call_id, result)
-}
-
-pub(super) fn output(call_id: &str, receipt: Value) -> Value {
-    json!({"call_id":call_id,"role":"tool","content":[{"type":"input_text","text":receipt.to_string()}]})
+    result
 }

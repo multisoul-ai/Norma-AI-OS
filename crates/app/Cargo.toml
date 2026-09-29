@@ -78,6 +78,9 @@ ureq.workspace = true
 rustls.workspace = true
 tungstenite.workspace = true
 tokio-tungstenite.workspace = true
+reqwest = { workspace = true, features = ["stream"] }
+flate2 = "1"
+uuid = { version = "1", features = ["v4"] }
 hound = "3.5"
 image = "0.25"
 tempfile.workspace = true

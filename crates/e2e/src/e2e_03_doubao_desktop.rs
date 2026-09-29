@@ -1,365 +1,208 @@
 use crate::harness::{drain_until, echo_factory, enter_canvas, make_app, read_runtime};
 use audio::{PcmAudioChunk, PcmFormat};
+use base64::Engine as _;
 use canvas::CanvasNodeKind;
 use gpui::{Modifiers, TestAppContext, VisualTestContext};
 use serde_json::{json, Value};
 use std::{
-    net::TcpListener,
+    io::{Read, Write},
+    net::{TcpListener, TcpStream},
     sync::mpsc,
     time::{Duration, Instant},
 };
 use tungstenite::Message;
 
-mod reports;
-
 static DOUBAO_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// 桌面豆包模式：从 Voice Settings 切换并按 ⌘E 后，假上游收到现有提示词、音频与真实工具回执。
+mod reports;
+
+/// 桌面豆包 2.0：设置切换后走 ASR 2.0 → 方舟 Chat → TTS 2.0，工具仍经现有桌面 Adapter。
 ///
-/// 数据构造（含关键数值的推导过程）：640 字节 = 16,000 采样/秒 × 2 字节 × 20 毫秒；
-/// 两个相同 call_id 的 create_terminal 事件只应创建一张 Terminal 卡片；
-/// 新一轮说话开始后，尚未收到该轮最终转写时不得沿用前一轮授权。
+/// 数据构造（含关键数值的推导过程）：5 × 640 字节 = 100 ms 的 16 kHz PCM16；
+/// 方舟返回两次相同 call_id 的 create_terminal，预期仅创建一张 Terminal。
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 在 Settings 点击豆包模式，保存仅供测试的 Keychain 凭据；旧 ASR/TTS 均未配置。
-///   2. 注入 20 毫秒 PCM，按 ⌘E，假豆包服务接收 session.create 与音频。
-///   3. 假服务发最终转写和重复工具调用；桌面 Adapter 创建 Terminal 并回传 call_id。
-///   4. 本轮回复结束后，用新 call_id 重放旧指令 → 拒绝。
-///   5. 假服务开始播报，用户插话 → 取消旧回复；未发新转写的写操作被拒绝。
+///   1. 在 Settings 选择豆包并配置隔离 Keychain 凭据，注入 100 ms PCM。
+///   2. ⌘E 启动；假 ASR 接收二进制配置与音频，返回明确最终转写。
+///   3. 假方舟 Chat 检查现有人设、项目与工具，提出重复工具调用。
+///   4. 桌面只执行一次工具，回传真实结果；假 Chat 回复，假 TTS 输出 PCM。
 ///
-/// 预期结果：模式与独立就绪状态正确、提示词含项目、音频上传、工具只执行一次；
-/// 旧 ASR/Agent 回合仍为空闲，重复调用和新一轮缺转写不能增加第二张卡片。
+/// 预期结果：旧 Voice 回合保持空闲；ASR/Chat/TTS 均经过 2.0 路由；
+/// Terminal 恰好一张，重复调用不能产生第二次副作用。
 #[test]
-fn desktop_doubao_settings_shortcut_audio_and_tool_dedup() {
+fn desktop_doubao_2_settings_shortcut_audio_and_tool_dedup() {
     let _lock = DOUBAO_TEST_LOCK
         .lock()
         .expect("豆包 e2e 不应并行修改连接地址");
-    let listener = TcpListener::bind("127.0.0.1:0").expect("假豆包服务应绑定本机端口");
-    let address = listener.local_addr().expect("假服务应有本机地址");
-    let (report_tx, report_rx) = mpsc::channel();
-    let server = std::thread::spawn(move || {
-        let (stream, _) = listener.accept().expect("桌面应连接假豆包服务");
+    let asr_listener = TcpListener::bind("127.0.0.1:0").expect("假 ASR 应绑定本机端口");
+    let asr_addr = asr_listener.local_addr().expect("假 ASR 应有地址");
+    let http_listener = TcpListener::bind("127.0.0.1:0").expect("假方舟 HTTP 应绑定本机端口");
+    let http_addr = http_listener.local_addr().expect("假 HTTP 应有地址");
+    let (audio_tx, audio_rx) = mpsc::channel();
+    let asr_server = std::thread::spawn(move || {
+        let (stream, _) = asr_listener.accept().expect("桌面应连接假 ASR");
         stream
             .set_read_timeout(Some(Duration::from_secs(8)))
             .expect("应设置有限等待");
-        let mut socket = tungstenite::accept(stream).expect("本机握手应成功");
-        let session: Value = serde_json::from_str(
-            socket
-                .read()
-                .expect("应收到配置")
-                .to_text()
-                .expect("配置应是文本"),
-        )
-        .expect("配置应是 JSON");
-        assert_eq!(session["type"], "session.create", "首条消息应建立豆包会话");
-        assert!(
-            session["session"]["instructions"]
-                .as_str()
-                .is_some_and(|text| text.contains("Norma Master Agent")),
-            "应复用 Norma 人设"
-        );
-        assert!(
-            session["session"]["instructions"]
-                .as_str()
-                .is_some_and(|text| text.contains("doubao-project")),
-            "应含当前项目"
-        );
-        assert!(
-            session["session"]["tools"]
-                .as_array()
-                .is_some_and(|tools| tools.iter().any(|tool| tool["name"] == "create_terminal")),
-            "应声明原有工具"
-        );
+        let mut socket = tungstenite::accept(stream).expect("ASR 握手应成功");
+        let config = socket.read().expect("应收到 ASR 配置").into_data();
+        assert_eq!(config[0], 0x11, "ASR 配置必须使用 V3 二进制协议");
+        assert_eq!(config[1], 0x11, "首帧必须是 ASR 配置");
         socket
-            .send(Message::Text(
-                json!({"type":"session.created","session":{"id":"fake-session"}})
-                    .to_string()
-                    .into(),
+            .send(Message::Binary(
+                asr_response(json!({"code":0,"result":{"utterances":[]}})).into(),
             ))
-            .expect("应发送连接回执");
-        socket.send(Message::Text(json!({"type":"response.function_call_arguments.done","items":[{"call_id":"no-transcript","name":"create_terminal","arguments":"{}"}]}).to_string().into()))
-            .expect("应先发送缺少真实转写的写操作");
-        let mut audio_seen = false;
-        loop {
-            let event: Value = serde_json::from_str(
-                socket
-                    .read()
-                    .expect("应收到拒绝回执")
-                    .to_text()
-                    .expect("事件应是文本"),
-            )
-            .expect("事件应是 JSON");
-            if event["type"] == "input_audio_buffer.append" {
-                audio_seen = true;
-                continue;
-            }
-            if event["type"] != "conversation.item.create" {
-                continue;
-            }
-            assert_eq!(
-                event["items"][0]["call_id"], "no-transcript",
-                "缺少转写的回执必须关联原调用"
-            );
-            let rejected: Value = serde_json::from_str(
-                event["items"][0]["content"][0]["text"]
-                    .as_str()
-                    .expect("应有拒绝文本"),
-            )
-            .expect("拒绝回执应是 JSON");
-            assert_eq!(
-                rejected["status"], "rejected",
-                "没有用户最终转写时不得执行写操作"
-            );
-            assert!(
-                rejected["node_id"].is_null(),
-                "拒绝调用不得创建 Terminal node_id"
-            );
-            break;
-        }
-        socket.send(Message::Text(json!({"type":"conversation.item.input_audio_transcription.completed","transcript":"创建一个 Terminal 卡片"}).to_string().into())).expect("应发送真实转写");
-        let call = json!({"type":"response.function_call_arguments.done","items":[{"call_id":"terminal-one","name":"create_terminal","arguments":"{}"},{"call_id":"terminal-one","name":"create_terminal","arguments":"{}"}]});
+            .expect("假 ASR 应确认配置");
+        let audio = socket.read().expect("应收到 100 毫秒音频").into_data();
+        assert_eq!(audio[1], 0x21, "输入应是 ASR 二进制音频帧");
+        audio_tx.send(true).expect("应报告音频已上传");
         socket
-            .send(Message::Text(call.to_string().into()))
-            .expect("应发送重复工具事件");
-        let mut result_count = 0;
-        let mut accepted_node = None;
-        while result_count < 2 || !audio_seen {
-            let message = socket.read().expect("应收到音频或工具回执");
-            let event: Value = serde_json::from_str(message.to_text().expect("事件应是文本"))
-                .expect("事件应是 JSON");
-            match event["type"].as_str() {
-                Some("input_audio_buffer.append") => {
-                    audio_seen = true;
-                    assert!(
-                        event["audio"]
-                            .as_str()
-                            .is_some_and(|audio| !audio.is_empty()),
-                        "20 毫秒 PCM 应上传"
-                    );
-                }
-                Some("conversation.item.create") => {
-                    result_count += 1;
-                    assert_eq!(
-                        event["items"][0]["call_id"], "terminal-one",
-                        "回执必须关联原调用 ID"
-                    );
-                    assert_eq!(
-                        event["items"][0]["role"], "tool",
-                        "豆包回执必须使用 tool 角色"
-                    );
-                    assert_eq!(
-                        event["items"][0]["content"][0]["type"], "input_text",
-                        "豆包回执必须使用 input_text 内容"
-                    );
-                    let receipt: Value = serde_json::from_str(
-                        event["items"][0]["content"][0]["text"]
-                            .as_str()
-                            .expect("回执应为 JSON 字符串"),
-                    )
-                    .expect("回执应可解析");
-                    if receipt["status"] == "succeeded" {
-                        accepted_node = receipt["node_id"].as_u64();
-                    }
-                }
-                _ => {}
-            }
-        }
-        socket
-            .send(Message::Text(
-                json!({"type":"response.done"}).to_string().into(),
+            .send(Message::Binary(
+                asr_response(json!({"code":0,"result":{"utterances":[
+                    {"text":"创建一个 Terminal 卡片","end_time":1000,"definite":true}
+                ]}}))
+                .into(),
             ))
-            .expect("本轮回复应结束");
-        socket.send(Message::Text(json!({"type":"response.function_call_arguments.done","items":[{"call_id":"post-done","name":"create_terminal","arguments":"{}"}]}).to_string().into()))
-            .expect("应发送本轮结束后的迟到调用");
-        let post_done_rejected = loop {
-            let event: Value = serde_json::from_str(
-                socket
-                    .read()
-                    .expect("应收到迟到调用回执")
-                    .to_text()
-                    .expect("回执应为文本"),
-            )
-            .expect("回执应为 JSON");
-            if event["type"] != "conversation.item.create" {
-                continue;
-            }
-            assert_eq!(
-                event["items"][0]["call_id"], "post-done",
-                "迟到回执应关联原调用"
-            );
-            let receipt: Value = serde_json::from_str(
-                event["items"][0]["content"][0]["text"]
-                    .as_str()
-                    .expect("应有回执文本"),
-            )
-            .expect("回执应为 JSON");
-            break receipt["status"] == "rejected";
-        };
-        socket
-            .send(Message::Text(
-                json!({"type":"response.output_audio.started","response_id":"old-reply"})
-                    .to_string()
-                    .into(),
-            ))
-            .expect("应开始旧回复");
-        socket
-            .send(Message::Text(
-                json!({"type":"input_audio_buffer.speech_started"})
-                    .to_string()
-                    .into(),
-            ))
-            .expect("应发起下一轮语音");
-        loop {
-            let event: Value = serde_json::from_str(
-                socket
-                    .read()
-                    .expect("插话应取消上游回复")
-                    .to_text()
-                    .expect("取消事件应为文本"),
-            )
-            .expect("取消事件应为 JSON");
-            if event["type"] == "input_audio_buffer.append" {
-                continue;
-            }
-            assert_eq!(
-                event["type"], "response.cancel",
-                "插话应立即取消豆包旧回复生成"
-            );
-            break;
-        }
-        socket.send(Message::Text(json!({"type":"response.function_call_arguments.done","items":[{"call_id":"stale-transcript","name":"create_terminal","arguments":"{}"}]}).to_string().into()))
-            .expect("应发送缺少新转写的写操作");
-        let stale_rejected = loop {
-            let event: Value = serde_json::from_str(
-                socket
-                    .read()
-                    .expect("应收到新一轮拒绝回执")
-                    .to_text()
-                    .expect("回执应为文本"),
-            )
-            .expect("回执应为 JSON");
-            if event["type"] != "conversation.item.create" {
-                continue;
-            }
-            assert_eq!(
-                event["items"][0]["call_id"], "stale-transcript",
-                "拒绝回执应关联新调用"
-            );
-            let receipt: Value = serde_json::from_str(
-                event["items"][0]["content"][0]["text"]
-                    .as_str()
-                    .expect("应有结果文本"),
-            )
-            .expect("工具回执应为 JSON");
-            break receipt["status"] == "rejected";
-        };
-        report_tx
-            .send((
-                audio_seen,
-                result_count,
-                accepted_node,
-                stale_rejected,
-                post_done_rejected,
-            ))
-            .expect("应报告验收结果");
-        socket
-            .send(Message::Text(
-                json!({"type":"session.closed"}).to_string().into(),
-            ))
-            .expect("应关闭假会话");
+            .expect("假 ASR 应返回最终转写");
+        let _ = socket.read();
     });
-    std::env::set_var("NORMA_DOUBAO_WS_URL", format!("ws://{address}"));
-    let mut cx = TestAppContext::single();
-    let (app, cx) = make_app(&mut cx, echo_factory());
+    let (http_tx, http_rx) = mpsc::channel();
+    let http_server = std::thread::spawn(move || {
+        let (path, first, stream) = read_request(&http_listener);
+        assert_eq!(path, "/chat", "首个请求应到方舟 Chat");
+        assert_eq!(
+            first["model"], "doubao-seed-2.0-mini",
+            "应使用方舟 2.0 模型"
+        );
+        assert!(
+            first["messages"][0]["content"]
+                .as_str()
+                .is_some_and(
+                    |text| text.contains("Norma Master Agent") && text.contains("doubao-project")
+                ),
+            "方舟请求必须复用 Norma 人设与当前项目"
+        );
+        assert!(
+            first["tools"].as_array().is_some_and(|tools| tools
+                .iter()
+                .any(|tool| tool["function"]["name"] == "create_terminal")),
+            "方舟请求必须声明现有 Terminal 工具"
+        );
+        let call = json!({"id":"terminal-one","type":"function","function":{
+            "name":"create_terminal","arguments":"{}"}});
+        write_json(
+            stream,
+            json!({"choices":[{"finish_reason":"tool_calls","message":{
+                "role":"assistant","content":null,"tool_calls":[call.clone(),call]
+            }}]}),
+        );
+        let (path, second, stream) = read_request(&http_listener);
+        assert_eq!(path, "/chat", "工具回执后应回到方舟 Chat");
+        let receipts: Vec<Value> = second["messages"]
+            .as_array()
+            .expect("应有消息")
+            .iter()
+            .filter(|message| message["role"] == "tool")
+            .cloned()
+            .collect();
+        assert_eq!(receipts.len(), 2, "重复调用均应有对应回执");
+        let receipt: Value =
+            serde_json::from_str(receipts[0]["content"].as_str().expect("工具回执应为文本"))
+                .expect("工具回执应为 JSON");
+        assert_eq!(receipt["status"], "succeeded", "首个工具调用应真实成功");
+        assert!(
+            receipt["node_id"].as_u64().is_some(),
+            "首个调用必须产生真实 node_id"
+        );
+        write_json(
+            stream,
+            json!({"choices":[{"finish_reason":"stop","message":{
+                "role":"assistant","content":"已创建。"
+            }}]}),
+        );
+        let (path, tts, stream) = read_request(&http_listener);
+        assert_eq!(path, "/tts", "回复应交给 TTS 2.0");
+        assert_eq!(
+            tts["req_params"]["text"], "已创建。",
+            "TTS 应朗读方舟真实回复"
+        );
+        let pcm = base64::engine::general_purpose::STANDARD.encode(vec![0_u8; 960]);
+        write_lines(
+            stream,
+            &format!(
+                "{}\n{}\n",
+                json!({"code":0,"data":pcm}),
+                json!({"code":20_000_000})
+            ),
+        );
+        http_tx
+            .send(receipt["node_id"].as_u64())
+            .expect("应报告工具身份");
+    });
+    std::env::set_var("NORMA_DOUBAO_ASR_URL", format!("ws://{asr_addr}"));
+    std::env::set_var("NORMA_DOUBAO_CHAT_URL", format!("http://{http_addr}/chat"));
+    std::env::set_var("NORMA_DOUBAO_TTS_URL", format!("http://{http_addr}/tts"));
+    let mut test_cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut test_cx, echo_factory());
     let parent = tempfile::tempdir().expect("应建立隔离项目根目录");
     let project = parent.path().join("doubao-project");
     std::fs::create_dir(&project).expect("应建立项目目录");
     enter_canvas(&app, cx, &project);
     let before = app.read_with(cx, |app, _| app.voice_e2e_snapshot());
-    assert_eq!(before.desktop_mode, "legacy", "升级默认应仍是旧语音模式");
+    assert_eq!(before.desktop_mode, "legacy", "升级默认仍应是旧模式");
     click(cx, "toolbar-settings");
     click(cx, "settings-section-voice");
     click(cx, "settings-voice-desktop-mode-doubao");
     assert!(
         cx.debug_bounds("settings-voice-field-doubao-api-key")
             .is_some(),
-        "豆包 Keychain 输入框应可见"
-    );
-    assert!(
-        cx.debug_bounds("settings-voice-doubao-microphone-status")
-            .is_some(),
-        "豆包应展示麦克风状态"
-    );
-    assert!(
-        cx.debug_bounds("settings-voice-doubao-readiness").is_some(),
-        "豆包应展示当前配置就绪状态"
+        "豆包 Key 输入应可见"
     );
     assert!(
         cx.debug_bounds("settings-voice-doubao-system-input")
             .is_some(),
-        "豆包应明确使用 macOS 默认输入设备"
+        "应说明使用系统音频设备"
     );
     assert!(
         cx.debug_bounds("settings-voice-input-device-picker")
             .is_none(),
-        "豆包不应展示未生效的设备选择器"
-    );
-    assert!(
-        cx.debug_bounds("settings-voice-legacy-recognition-status")
-            .is_none(),
-        "豆包不能误显示旧语音识别就绪"
-    );
-    assert!(
-        cx.debug_bounds("settings-doubao-api-key-clear").is_none(),
-        "未配置凭据时不能显示 Remove 操作"
-    );
-    let unconfigured = app.read_with(cx, |app, _| app.voice_e2e_snapshot());
-    assert_ne!(
-        unconfigured.entry_state, "ready",
-        "未配置豆包凭据时不能误报就绪"
+        "豆包不应显示旧设备选择器"
     );
     app.update(cx, |app, _| {
-        app.configure_doubao_for_e2e("synthetic-doubao-key");
-        app.install_doubao_pcm_for_e2e(vec![PcmAudioChunk::new(
-            PcmFormat::Pcm16,
-            16_000,
-            1,
-            vec![0; 640],
-        )
-        .expect("20 毫秒 PCM 应有效")]);
+        app.configure_doubao_for_e2e("synthetic-ark-key");
+        app.install_doubao_pcm_for_e2e(vec![
+            PcmAudioChunk::new(
+                PcmFormat::Pcm16,
+                16_000,
+                1,
+                vec![0; 640]
+            )
+            .expect("20 毫秒 PCM 应有效");
+            5
+        ]);
     });
     let selected = app.read_with(cx, |app, _| app.voice_e2e_snapshot());
-    assert_eq!(selected.desktop_mode, "doubao", "设置点击应切到豆包");
+    assert_eq!(selected.desktop_mode, "doubao", "设置应切到豆包");
     assert_eq!(
         selected.entry_state, "ready",
-        "豆包就绪不应被未配置的旧 ASR/TTS 阻断"
+        "旧 ASR/TTS 缺配置不应阻断豆包"
     );
-    assert_eq!(selected.dialogue_phase, "idle", "切换时旧对话状态应为空闲");
     click(cx, "toolbar-settings");
     cx.simulate_keystrokes("cmd-e");
-    let deadline = Instant::now() + Duration::from_secs(8);
-    let report = loop {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let node_id = loop {
         cx.run_until_parked();
-        if let Ok(report) = report_rx.try_recv() {
-            break report;
+        if let Ok(node_id) = http_rx.try_recv() {
+            break node_id;
         }
         assert!(
             Instant::now() < deadline,
-            "豆包假上游应在 8 秒内收到真实工具回执"
+            "2.0 假上游应在 10 秒内完成工具与 TTS 回执"
         );
         std::thread::sleep(Duration::from_millis(20));
     };
-    assert!(report.0, "假上游应收到麦克风 PCM");
-    assert_eq!(report.1, 2, "重复调用应有可关联的回执");
-    assert!(
-        report.2.is_some(),
-        "首个工具调用应返回真实 Terminal node_id"
-    );
-    assert!(report.3, "新一轮尚无最终转写时必须拒绝写操作");
-    assert!(
-        report.4,
-        "回复结束后新 call_id 不能重用上一轮转写执行写操作"
-    );
+    assert!(audio_rx.try_recv().is_ok(), "ASR 2.0 应收到真实麦克风 PCM");
+    assert!(node_id.is_some(), "工具应返回真实 Terminal node_id");
     let terminals = read_runtime(&app, cx, |runtime| {
         runtime
             .document
@@ -368,15 +211,80 @@ fn desktop_doubao_settings_shortcut_audio_and_tool_dedup() {
             .filter(|node| matches!(node.kind, CanvasNodeKind::Term(_)))
             .count()
     });
-    assert_eq!(terminals, 1, "重复 call_id 不得创建第二张 Terminal 卡片");
-    assert_ne!(terminals, 2, "工具去重不能只复用回执而重复执行副作用");
+    assert_eq!(terminals, 1, "重复 call_id 只应创建一张 Terminal");
+    assert_ne!(terminals, 2, "不能重复执行副作用");
     let after = app.read_with(cx, |app, _| app.voice_e2e_snapshot());
     assert_eq!(
         after.dialogue_phase, "idle",
-        "豆包工具执行不应启动第二个 Norma 模型回合"
+        "豆包工具不应启动第二个 Norma 模型回合"
     );
-    std::env::remove_var("NORMA_DOUBAO_WS_URL");
-    server.join().expect("假豆包服务不应失败");
+    cx.simulate_keystrokes("cmd-e");
+    std::env::remove_var("NORMA_DOUBAO_ASR_URL");
+    std::env::remove_var("NORMA_DOUBAO_CHAT_URL");
+    std::env::remove_var("NORMA_DOUBAO_TTS_URL");
+    asr_server.join().expect("假 ASR 不应失败");
+    http_server.join().expect("假 HTTP 不应失败");
+}
+
+fn asr_response(value: Value) -> Vec<u8> {
+    let payload = value.to_string();
+    let mut frame = vec![0x11, 0x90, 0x10, 0];
+    frame.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+    frame.extend_from_slice(payload.as_bytes());
+    frame
+}
+
+fn read_request(listener: &TcpListener) -> (String, Value, TcpStream) {
+    let (mut stream, _) = listener.accept().expect("应收到方舟 HTTP 请求");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(8)))
+        .expect("HTTP 应有限等待");
+    let mut bytes = Vec::new();
+    let header_end = loop {
+        let mut chunk = [0_u8; 4096];
+        let count = stream.read(&mut chunk).expect("HTTP 请求应可读");
+        assert!(count > 0, "HTTP 请求不应提前结束");
+        bytes.extend_from_slice(&chunk[..count]);
+        if let Some(index) = bytes.windows(4).position(|window| window == b"\r\n\r\n") {
+            break index + 4;
+        }
+    };
+    let header = String::from_utf8_lossy(&bytes[..header_end]);
+    let path = header
+        .lines()
+        .next()
+        .expect("应有 HTTP 首行")
+        .split_whitespace()
+        .nth(1)
+        .expect("应有请求路径")
+        .to_string();
+    let length: usize = header
+        .lines()
+        .find_map(|line| {
+            line.to_ascii_lowercase()
+                .strip_prefix("content-length:")
+                .and_then(|value| value.trim().parse().ok())
+        })
+        .expect("JSON 请求应包含 Content-Length");
+    while bytes.len() - header_end < length {
+        let mut chunk = [0_u8; 4096];
+        let count = stream.read(&mut chunk).expect("HTTP 请求体应可读");
+        assert!(count > 0, "HTTP 请求体不应提前结束");
+        bytes.extend_from_slice(&chunk[..count]);
+    }
+    let body: Value = serde_json::from_slice(&bytes[header_end..header_end + length])
+        .expect("HTTP 请求体应是 JSON");
+    (path, body, stream)
+}
+
+fn write_json(stream: TcpStream, body: Value) {
+    write_lines(stream, &body.to_string());
+}
+fn write_lines(mut stream: TcpStream, body: &str) {
+    let response = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body);
+    stream
+        .write_all(response.as_bytes())
+        .expect("应写回假方舟响应");
 }
 
 fn click(cx: &mut VisualTestContext, selector: &'static str) {

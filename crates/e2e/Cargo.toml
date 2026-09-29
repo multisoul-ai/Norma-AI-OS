@@ -31,5 +31,6 @@ workspace.workspace = true
 gpui = { workspace = true, features = ["test-support"] }
 crossbeam-channel = { workspace = true }
 async-channel.workspace = true
+base64 = "0.22"
 tempfile = { workspace = true }
 tracing-subscriber.workspace = true

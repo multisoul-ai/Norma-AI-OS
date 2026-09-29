@@ -36,7 +36,7 @@ pub(super) fn desktop_mode_picker(
             .child(
                 super::interaction::mode_option(
                     theme,
-                    "Doubao Duplex",
+                    "Doubao 2.0 Voice",
                     mode == DesktopVoiceMode::Doubao,
                 )
                 .id("settings-voice-desktop-mode-doubao")
@@ -96,7 +96,7 @@ pub(super) fn doubao_settings(
                         .child(if configured {
                             "API Key saved in macOS Keychain"
                         } else {
-                            "Enter a Doubao Voice API Key with Seeduplex 3.0 access"
+                            "Enter your Volcengine Ark API Key for ASR 2.0, Chat and TTS 2.0"
                         }),
                 )
                 .child(
