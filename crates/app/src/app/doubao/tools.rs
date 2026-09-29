@@ -89,7 +89,7 @@ pub(super) async fn execute_call(
         project_id: project.into(),
         turn_id: turn.to_string(),
         user_input: transcript.into(),
-        input_source: agent::AgentInputSource::Voice,
+        input_source: agent::AgentInputSource::DoubaoVoice,
         contextual_delete_targets: Vec::new(),
         tool_call_id: call_id.into(),
         operation_id: Some(operation_id),

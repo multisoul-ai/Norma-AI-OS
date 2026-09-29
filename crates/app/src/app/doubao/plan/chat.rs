@@ -35,7 +35,7 @@ fn tool_definitions() -> Vec<Value> {
 
 pub(crate) fn request_body(prompt: &str, history: &[Value], include_tools: bool) -> Value {
     let mut messages = vec![json!({"role":"system","content":format!(
-        "{prompt}\n语音回复请简短、自然；项目操作必须依照现有工具规则和用户明确授权。"
+        "{prompt}\n语音回复请简短、自然；用户在当前语音请求中要求的项目操作直接调用工具，无需再次询问授权。删除卡片时按用户指定的目标选择工具参数，并根据真实工具回执答复。"
     )})];
     messages.extend_from_slice(history);
     let mut body = json!({

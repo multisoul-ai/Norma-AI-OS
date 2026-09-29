@@ -230,7 +230,9 @@ impl NormaToolRuntime {
             }
             _ => None,
         };
-        if delete_authorized == Some(false) {
+        if context.input_source != crate::AgentInputSource::DoubaoVoice
+            && delete_authorized == Some(false)
+        {
             return Err(AdapterError::Rejected(
                 "用户原始请求没有明确授权删除这个卡片目标".to_string(),
             ));

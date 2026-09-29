@@ -400,7 +400,7 @@ impl MultisoulApp {
                 Some("Ego 任务仍在进行中；请先完成任务或等待 Agent 结束后再关闭卡片。".to_string());
             return false;
         }
-        if !self.confirm_agent_close_if_needed(node_id) {
+        if !self.confirm_agent_close_if_needed(node_id, true) {
             return false;
         }
         self.release_all_browser_input();

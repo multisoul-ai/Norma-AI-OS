@@ -13,6 +13,7 @@ pub(super) fn dispatch_agent_task(
     cx: &mut Context<MultisoulApp>,
     agent: String,
     task: String,
+    force_untracked: bool,
 ) -> Result<AdapterResult, AdapterError> {
     let definition_id = app
         .agent_definitions
@@ -27,7 +28,7 @@ pub(super) fn dispatch_agent_task(
                 name: agent,
                 task: task.clone(),
             }],
-            force_untracked: false,
+            force_untracked,
         },
     )
     .map_err(AdapterError::Rejected)?;

@@ -14,6 +14,7 @@ use tungstenite::Message;
 
 static DOUBAO_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+mod delete;
 mod reports;
 
 /// 豆包首次使用：已保存 Key 但麦克风未授权时，设置页必须提供授权入口。
@@ -72,7 +73,7 @@ fn doubao_settings_offer_microphone_access_until_authorized() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 在 Settings 选择豆包并配置隔离 Keychain 凭据，注入 100 ms PCM。
-///   2. ⌘E 启动；假 ASR 接收二进制配置与音频，返回明确最终转写。
+///   2. ⌘E 启动；假 ASR 接收二进制配置与音频，返回口语化建卡指令。
 ///   3. 假方舟 Chat 检查现有人设、项目与工具，提出重复工具调用。
 ///   4. 桌面只执行一次工具，回传真实结果；假 Chat 回复，假 TTS 输出 PCM。
 ///
@@ -108,7 +109,7 @@ fn desktop_doubao_2_settings_shortcut_audio_and_tool_dedup() {
         socket
             .send(Message::Binary(
                 asr_response(json!({"code":0,"result":{"utterances":[
-                    {"text":"创建一个 Terminal 卡片","end_time":1000,"definite":true}
+                    {"text":"给我开一个 Terminal 卡片","end_time":1000,"definite":true}
                 ]}}))
                 .into(),
             ))

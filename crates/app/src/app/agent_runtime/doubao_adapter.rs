@@ -19,7 +19,6 @@ fn start_doubao_adapter_pump(
     cx: &mut Context<MultisoulApp>,
 ) {
     cx.spawn_in(window, async move |this, cx| {
-        let mut confirmation = voice_confirmation::PendingVoiceConfirmation::default();
         while let Ok(request) = requests.recv().await {
             let result = this
                 .update_in(cx, |app, window, cx| {
@@ -35,15 +34,6 @@ fn start_doubao_adapter_pump(
                     if app.doubao.generation != generation {
                         return Err(AdapterError::Rejected(
                             "豆包通话已结束，工具调用已拒绝".into(),
-                        ));
-                    }
-                    if !confirmation.authorize(
-                        &request.command,
-                        &request.context.user_input,
-                        &request.context.turn_id,
-                    ) {
-                        return Err(AdapterError::Rejected(
-                            "用户转写没有明确授权执行该操作".into(),
                         ));
                     }
                     let result = execute_norma_adapter_command_with_source(

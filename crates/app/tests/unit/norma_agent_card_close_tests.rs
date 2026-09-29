@@ -1,4 +1,7 @@
-use super::{execute_agent_card_command, execute_norma_adapter_command};
+use super::{
+    execute_agent_card_command, execute_norma_adapter_command,
+    execute_norma_adapter_command_with_source,
+};
 use agent::AdapterError;
 use gpui::TestAppContext;
 use norma::protocol::{AgentProfile as NormaAgentProfile, CardCommand, CardCommandResult};
@@ -257,4 +260,94 @@ fn test_norma_adapter_requires_second_close_for_busy_named_agent() {
         definition_after_second,
         "confirmed card close must not delete Chloe's explicit Agent definition"
     );
+}
+
+/// 豆包关闭忙碌 AgentCard：用户语音删除应一次完成，显式 Agent 定义仍保留。
+///
+/// 数据构造（含关键数值的推导过程）：Chloe 卡片 1 张、任务 1 个；
+/// 豆包关闭请求 1 次，预期卡片数 = 1 - 1 = 0，定义数保持 1。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 创建并激活 Chloe/Codex，派发任务使 coordinator 标记忙碌。
+///   2. 用 DoubaoVoice 来源执行一次 DeleteAgentCard。
+///   3. 检查回执、卡片和定义状态。
+///
+/// 预期结果：一次删除成功；旧卡片不存在；定义仍存在。
+#[test]
+fn test_doubao_voice_closes_busy_agent_card_without_second_confirmation() {
+    let mut gpui = TestAppContext::single();
+    let workspace = tempfile::TempDir::new().expect("应创建豆包忙碌删除测试项目");
+    let (app, cx) = gpui.add_window_view(|_window, cx| {
+        crate::app::MultisoulApp::new_with_pty_factory(cx, echo_factory())
+    });
+    app.update(cx, |app, cx| {
+        app.enter_canvas_for_test(workspace.path(), cx)
+    });
+    let created = cx
+        .update(|window, app_cx| {
+            app.update(app_cx, |app, _| {
+                execute_agent_card_command(
+                    app,
+                    window,
+                    CardCommand::CreateAgent {
+                        name: Some("Chloe".into()),
+                        profile: NormaAgentProfile::Codex,
+                        activate: true,
+                    },
+                )
+            })
+        })
+        .expect("应创建 Chloe 卡片");
+    let CardCommandResult::AgentCreated {
+        node_id: Some(node_id),
+        ..
+    } = created
+    else {
+        panic!("创建 Chloe 后应返回真实 node_id");
+    };
+    let assigned = cx
+        .update(|window, app_cx| {
+            app.update(app_cx, |app, cx| {
+                execute_norma_adapter_command(
+                    app,
+                    window,
+                    cx,
+                    agent::AdapterCommand::AssignAgentTask {
+                        agent: "Chloe".into(),
+                        task: "检查当前项目".into(),
+                    },
+                )
+            })
+        })
+        .expect("任务应成功派发");
+    assert_eq!(assigned.status, "accepted", "任务应使 Chloe 进入忙碌状态");
+
+    let closed = cx.update(|window, app_cx| {
+        app.update(app_cx, |app, cx| {
+            execute_norma_adapter_command_with_source(
+                app,
+                Some(window),
+                cx,
+                agent::AdapterCommand::DeleteAgentCard {
+                    agent: "Chloe".into(),
+                },
+                agent::AgentInputSource::DoubaoVoice,
+            )
+        })
+    });
+    let (card_exists, definition_exists) = app.read_with(cx, |app, _| {
+        (
+            app.runtime.document.node(node_id).is_some(),
+            app.agent_definitions
+                .definitions()
+                .iter()
+                .any(|definition| definition.name == "Chloe"),
+        )
+    });
+    assert!(
+        closed.is_ok(),
+        "豆包一次关闭忙碌卡片应成功；实际：{closed:?}"
+    );
+    assert!(!card_exists, "一次关闭后 Chloe 旧卡片不应存在");
+    assert!(definition_exists, "关闭卡片不应删除 Chloe 定义");
 }
