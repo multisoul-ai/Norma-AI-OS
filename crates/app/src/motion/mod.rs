@@ -279,6 +279,7 @@ pub struct NodeMotion {
     breathing_intent: BreathingIntent,
     breathing_fade: AnimatedScalar,
     breathing_repaint_elapsed: Duration,
+    completion_flash: AnimatedScalar,
     completion_settle: AnimatedScalar,
     chase_phase: f32,
     chase_started_at: Option<Instant>,
@@ -306,6 +307,7 @@ impl NodeMotion {
             breathing_intent: BreathingIntent::Inactive,
             breathing_fade: AnimatedScalar::off(),
             breathing_repaint_elapsed: Duration::ZERO,
+            completion_flash: AnimatedScalar::off(),
             completion_settle: AnimatedScalar::off(),
             chase_phase: 0.0,
             chase_started_at: None,
@@ -318,6 +320,13 @@ impl NodeMotion {
         let previous_intent = self.breathing_intent;
         self.breathing_intent = intent;
         let state = intent.breathing_state();
+        if intent == BreathingIntent::Cool
+            && previous_intent != BreathingIntent::Cool
+            && !reduce_motion
+        {
+            self.completion_flash.value = 1.0;
+            self.completion_flash.target = 0.0;
+        }
         if intent == BreathingIntent::Done && previous_intent.is_active() && !reduce_motion {
             self.completion_settle.value = 1.0;
             self.completion_settle.target = 0.0;
@@ -398,6 +407,7 @@ impl NodeMotion {
         );
         let breathing_fade_changed = self.breathing_fade.tick(delta, tokens.breathing_fade);
         changed |= breathing_fade_changed;
+        changed |= self.completion_flash.tick(delta, tokens.completion_settle);
         changed |= self.completion_settle.tick(delta, tokens.completion_settle);
         let chase_fade_changed = self.chase_fade.tick(delta, tokens.chase_fade);
         changed |= chase_fade_changed;

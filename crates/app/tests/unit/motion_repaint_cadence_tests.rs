@@ -68,7 +68,7 @@ fn test_working_snake_repaint_cadence_preserves_overshoot() {
 /// MRC-2：稳定 breathing 跨过 67ms 边界后必须保留余量，且不超过 15fps。
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   fade-in tick = 150ms（完成 breathing_fade，节流累计清零）
+///   fade-in + flash tick = 520ms（淡入 150ms、首次亮起 520ms 均结束，节流累计清零）
 ///   steady ticks = 50ms × 4 = 200ms
 ///   repaint interval = ceil(1000ms / 15fps) = 67ms
 ///   expected repaint count = floor(200 / 67) = 2
@@ -76,7 +76,7 @@ fn test_working_snake_repaint_cadence_preserves_overshoot() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 创建节点并进入 Cool breathing 状态。
-///   2. tick(150ms) 完成淡入，使后续只经过稳定期节流分支。
+///   2. tick(520ms) 完成淡入与首次亮起，使后续只经过稳定期节流分支。
 ///   3. 连续输入四个 50ms tick，逐次记录是否请求 repaint。
 ///   4. 读取 breathing_repaint_elapsed，验证 66ms 余量被保留。
 ///
@@ -91,7 +91,8 @@ fn test_breathing_repaint_cadence_preserves_overshoot() {
     let mut store = MotionStore::new(false);
     store.ensure_node(node_id, cadence_rect());
     store.set_breathing_intent(node_id, BreathingIntent::Cool);
-    let fade_in_changed = store.tick(Duration::from_millis(150));
+    // 520ms = max(呼吸淡入 150ms, 首次亮起 520ms)，再测 67ms 稳态预算。
+    let fade_in_changed = store.tick(Duration::from_millis(520));
 
     let first = store.tick(Duration::from_millis(50));
     let second = store.tick(Duration::from_millis(50));
@@ -109,7 +110,7 @@ fn test_breathing_repaint_cadence_preserves_overshoot() {
 
     assert!(
         fade_in_changed,
-        "150ms tick 必须完成 breathing 淡入并触发首帧"
+        "520ms tick 必须完成 breathing 淡入及首次亮起并触发 repaint"
     );
     assert!(!first, "第 1 个 50ms tick 小于 67ms，不应 repaint");
     assert!(second, "累计 100ms 跨过首个 67ms 边界，应 repaint");

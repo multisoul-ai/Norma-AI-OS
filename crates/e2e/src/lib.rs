@@ -95,6 +95,7 @@ mod e2e_05_card_initialization_animation;
 mod e2e_05_master_layout_animation;
 
 // Agent 任务结束后：即使交互式 PTY 存活，光标运行态动画也必须停止。
+mod e2e_05_agent_border;
 mod e2e_05_agent_task_cursor_animation;
 
 // 语音驱动窗口内缘光：PCM 能量、Settings 层级与正常收束。

@@ -1,6 +1,7 @@
 //! Card registry: app 层按 NodeType 分发卡片渲染。
 
 pub mod agent;
+pub(crate) mod border_glow;
 pub mod browser;
 pub mod chrome;
 pub(crate) mod intro;

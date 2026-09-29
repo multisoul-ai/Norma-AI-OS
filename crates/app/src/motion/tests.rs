@@ -5,12 +5,12 @@ use super::*;
 mod motion_tests;
 
 #[cfg(test)]
-#[path = "../../tests/unit/motion_completion_tests.rs"]
-mod completion_tests;
+#[path = "../../tests/unit/motion_border_glow_tests.rs"]
+mod motion_border_glow_tests;
 
 #[cfg(test)]
-#[path = "../../tests/unit/motion_corner_glow_tests.rs"]
-mod corner_glow_tests;
+#[path = "../../tests/unit/motion_completion_tests.rs"]
+mod completion_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/working_snake_tests.rs"]

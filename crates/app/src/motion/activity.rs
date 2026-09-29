@@ -37,6 +37,7 @@ impl NodeMotion {
             self.dragging,
             self.opacity,
             self.breathing_fade,
+            self.completion_flash,
             self.completion_settle,
             self.chase_fade,
         ]

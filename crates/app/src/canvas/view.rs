@@ -21,10 +21,10 @@ use crate::cards::agent::card::{agent_breathing_intent, agent_chase_intent};
 use crate::cards::agent::queue::{
     render_badge as render_agent_queue_badge, waiting_count as agent_waiting_count,
 };
+use crate::cards::border_glow::render_border_glow;
 use crate::cards::browser::card::BROWSER_TOOLBAR_H_PX;
 use crate::cards::chrome::{
-    card_title_background, node_shadow, render_card_title, render_task_badge,
-    CORNER_GLOW_MIN_SCREEN_PX, TITLE_BAR_H,
+    card_title_background, node_shadow, render_card_title, render_task_badge, TITLE_BAR_H,
 };
 use crate::cards::{card_for, CardBodyContext};
 #[cfg(test)]
@@ -171,11 +171,7 @@ pub fn render_canvas(
             .h(px(h))
             .flex()
             .flex_col()
-            .shadow(node_shadow(
-                visual,
-                vp.zoom,
-                w >= CORNER_GLOW_MIN_SCREEN_PX && h >= CORNER_GLOW_MIN_SCREEN_PX,
-            ))
+            .shadow(node_shadow(visual))
             .border_color(rgba(stroke))
             .opacity(visual.opacity)
             .rounded(px(node_radius))
@@ -404,6 +400,12 @@ pub fn render_canvas(
             )
             .into_any_element(),
         );
+        node_elems.extend(render_border_glow(
+            CanvasRect::new(top_left.x, top_left.y, w, h),
+            node_radius,
+            vp.zoom,
+            visual,
+        ));
         node_div = node_div.child(title_layer).child(card_body);
         if is_agent && chase_active {
             snake_nodes += 1;

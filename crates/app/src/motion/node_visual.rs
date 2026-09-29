@@ -1,9 +1,9 @@
 //! 单个卡片动效状态到可绘制视觉参数的映射。
 
 use super::NodeMotion;
-use crate::motion::breathing::{breathing_color_for_phase, resolve_corner_glow, BreathingState};
+use crate::motion::breathing::{breathing_color_for_phase, BreathingState};
 use crate::motion::util::{alpha, mix_color, visual_priority, with_alpha, EPSILON};
-use crate::motion::visual::{ResolvedNodeVisual, VisualPriority};
+use crate::motion::visual::{BorderGlow, ResolvedNodeVisual, VisualPriority};
 use crate::motion::working::{resolve_working_visual, WorkingVisualInput};
 use canvas::CanvasRect;
 use std::time::Instant;
@@ -71,20 +71,22 @@ pub(super) fn resolve(
     let press_sink = pressed * (1.0 - dragging).clamp(0.0, 1.0);
 
     let base_stroke = mix_color(theme.node_stroke, accent_color, accent_mix);
-    let stroke_color = if node.breathing_fade.value > EPSILON
-        && node.breathing_display_state != BreathingState::Inactive
-    {
+    let breathing_border_active = node.breathing_fade.value > EPSILON
+        && node.breathing_display_state != BreathingState::Inactive;
+    let border_glow = (breathing_border_active
+        && node.breathing_display_state == BreathingState::Cool)
+        .then(|| BorderGlow {
+            intensity: node.breathing_fade.value
+                * (0.75 + 0.25 * (node.breathing_phase * std::f32::consts::TAU).sin()),
+            flash: node.completion_flash.value,
+        });
+    let stroke_color = if breathing_border_active {
         let breathing =
             breathing_color_for_phase(node.breathing_phase, node.breathing_display_state, theme);
         mix_color(base_stroke, breathing, node.breathing_fade.value)
     } else {
         base_stroke
     };
-    let corner_glow = resolve_corner_glow(
-        node.breathing_phase,
-        node.breathing_fade.value,
-        node.breathing_display_state,
-    );
     let settle = node.completion_settle.value.clamp(0.0, 1.0);
     let settle_color = with_alpha(
         theme.accent_green,
@@ -113,7 +115,10 @@ pub(super) fn resolve(
         shadow_y: base_shadow_y,
         shadow_blur: base_shadow_blur,
         shadow_spread: base_shadow_spread,
-        border_is_emphasized: focus > 0.25 || selected > 0.35 || settle > 0.45,
+        border_is_emphasized: breathing_border_active
+            || focus > 0.25
+            || selected > 0.35
+            || settle > 0.45,
         fade: node.chase_fade.value,
         phase: node.chase_phase_at(now),
     });
@@ -139,7 +144,8 @@ pub(super) fn resolve(
         shadow_spread: working_visual.shadow_spread,
         border_is_emphasized: working_visual.border_is_emphasized,
         opacity: node.opacity.value,
-        corner_glow,
+        breathing_border_active,
+        border_glow,
         working_snake: working_visual.working_snake,
     }
 }
