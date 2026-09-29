@@ -81,18 +81,21 @@ pub(super) async fn run_session(
                         if let Some(token) = reply_token.take() { token.cancel(); }
                         playback.interrupt();
                         reply_active = false;
+                        let _ = events.send(DoubaoStatus::Connected).await;
                     }
                     Ok(asr::SpeechEvent::Final(transcript)) => {
                         turn = turn.wrapping_add(1);
                         reply_id = reply_id.wrapping_add(1);
                         reply_active = true;
+                        let _ = events.send(DoubaoStatus::Thinking).await;
                         let id = reply_id;
                         let token = CancellationToken::new();
                         reply_token = Some(token.clone());
                         let chat = Arc::clone(&chat);
                         let done = done_tx.clone();
+                        let status = events.clone();
                         tokio::spawn(async move {
-                            let result = chat.respond(transcript, turn, token).await;
+                            let result = chat.respond(transcript, turn, token, status).await;
                             let _ = done.send((id, result)).await;
                         });
                     }
@@ -103,6 +106,7 @@ pub(super) async fn run_session(
                 if let Ok(report) = report {
                     reply_id = reply_id.wrapping_add(1);
                     reply_active = true;
+                    let _ = events.send(DoubaoStatus::Speaking).await;
                     let id = reply_id;
                     let token = CancellationToken::new();
                     reply_token = Some(token.clone());
@@ -120,6 +124,7 @@ pub(super) async fn run_session(
                         reply_active = false;
                         reply_token = None;
                         if let Err(error) = outcome { break Err(error); }
+                        let _ = events.send(DoubaoStatus::Connected).await;
                     }
                 }
             }

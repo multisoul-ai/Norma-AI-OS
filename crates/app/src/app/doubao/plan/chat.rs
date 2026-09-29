@@ -1,4 +1,5 @@
 use agent::NormaToolRuntime;
+use async_channel::Sender;
 use reqwest::Client;
 use serde_json::{json, Value};
 use std::{path::PathBuf, sync::Arc};
@@ -6,7 +7,7 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 use super::{plan_url, tts};
-use crate::app::doubao::{playback::PlaybackQueue, tools};
+use crate::app::doubao::{playback::PlaybackQueue, tools, DoubaoStatus};
 
 pub(super) struct ChatRuntime {
     pub(super) client: Client,
@@ -56,6 +57,7 @@ impl ChatRuntime {
         transcript: String,
         turn: u64,
         cancellation: CancellationToken,
+        status: Sender<DoubaoStatus>,
     ) -> Result<(), String> {
         if transcript.trim().is_empty() {
             return Ok(());
@@ -161,6 +163,7 @@ impl ChatRuntime {
             history.push(json!({"role":"assistant","content":reply}));
             trim_history(&mut history);
         }
+        let _ = status.send(DoubaoStatus::Speaking).await;
         tts::speak(
             &self.client,
             &self.key,

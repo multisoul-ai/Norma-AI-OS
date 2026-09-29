@@ -32,6 +32,8 @@ impl MultisoulApp {
                 crate::app::doubao::DoubaoStatus::Idle => "idle",
                 crate::app::doubao::DoubaoStatus::Connecting => "connecting",
                 crate::app::doubao::DoubaoStatus::Connected => "connected",
+                crate::app::doubao::DoubaoStatus::Thinking => "thinking",
+                crate::app::doubao::DoubaoStatus::Speaking => "speaking",
                 crate::app::doubao::DoubaoStatus::Disconnected(_) => "disconnected",
             },
             phase: match self.voice.phase() {
@@ -84,6 +86,20 @@ impl MultisoulApp {
     #[cfg(feature = "e2e-test-support")]
     pub fn configure_doubao_for_e2e(&mut self, secret: &str) {
         self.voice_settings.configure_doubao_for_e2e(secret);
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn show_doubao_status_for_e2e(&mut self, status: &str) {
+        self.doubao.status = match status {
+            "idle" => crate::app::doubao::DoubaoStatus::Idle,
+            "connected" => crate::app::doubao::DoubaoStatus::Connected,
+            "thinking" => crate::app::doubao::DoubaoStatus::Thinking,
+            "speaking" => crate::app::doubao::DoubaoStatus::Speaking,
+            "disconnected" => crate::app::doubao::DoubaoStatus::Disconnected(
+                "豆包 ASR 2.0 连接失败，请检查网络和资源权限".into(),
+            ),
+            _ => panic!("unknown Doubao e2e status: {status}"),
+        };
     }
 
     #[cfg(feature = "e2e-test-support")]

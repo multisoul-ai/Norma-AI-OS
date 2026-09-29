@@ -211,7 +211,7 @@ fn long_voice_transcript_defaults_to_full_and_can_be_collapsed_without_growing_d
     );
 }
 
-/// Voice 等待与回复切换：字幕在 Thinking 与 Speaking 都显示原文，但回复阶段停止波形动画。
+/// Voice 等待与回复切换：字幕在 Thinking 与 Speaking 都显示原文，声纹随状态持续反馈。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   transcript = 9 个中文字符（「请总结本周项目进展」，非空，因此两个处理阶段都必须显示）
@@ -230,9 +230,9 @@ fn long_voice_transcript_defaults_to_full_and_can_be_collapsed_without_growing_d
 /// 预期结果：
 ///   - 正断言：Thinking 时卡片标记「Thinking…」、默认全文、宽高有界且波形会推进。
 ///   - 正断言：Speaking 时卡片标记「Replying...」并继续显示完全相同的原文。
-///   - 负断言：Thinking 卡片不得使用不透明表面；Speaking 不得隐藏字幕或继续波形动画。
+///   - 负断言：Thinking 卡片不得使用不透明表面；Speaking 不得隐藏字幕或冻结声纹。
 #[test]
-fn voice_caption_remains_visible_while_replying_but_stops_animating() {
+fn voice_caption_remains_visible_and_animated_while_replying() {
     let transcript = "请总结本周项目进展";
     let mut cx = TestAppContext::single();
     let (app, cx) = make_app(&mut cx, echo_factory());
@@ -336,9 +336,63 @@ fn voice_caption_remains_visible_while_replying_but_stops_animating() {
         replying_bounds.size.height <= gpui::px(128.0),
         "Speaking caption must retain the same bounded full-caption height budget"
     );
-    assert_eq!(
+    assert_ne!(
         replying.caption_waveform_phase_milli, 0,
-        "Speaking caption must reset its waveform phase instead of continuing animation"
+        "Speaking caption must keep the reply waveform moving"
+    );
+}
+
+/// Voice Dock 无字幕动效：一开始收音就能看到声纹，减少动态效果时保持静态反馈。
+///
+/// 数据构造（含关键数值的推导过程）：160 ms × 1.2 cycles/s = 0.192 周期，足以观察相位变化。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 进入 Canvas 并注入空的录音 partial，确认无字幕但有 Dock 声纹。
+///   2. 推进 160 ms，确认相位变化。
+///   3. 启用减少动态效果，再推进 160 ms，确认相位归零且声纹仍可见。
+///
+/// 预期结果：录音时有可见声纹且相位推进；减少动态效果后静态声纹仍存在，动画停止。
+#[test]
+fn voice_dock_waveform_runs_without_caption_and_respects_reduced_motion() {
+    let mut cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut cx, echo_factory());
+    let workspace = tempfile::TempDir::new().expect("Voice waveform workspace should create");
+    enter_canvas(&app, cx, workspace.path());
+    app.update(cx, |app, cx| {
+        app.show_voice_recording_transcript_for_e2e("");
+        cx.notify();
+    });
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("workspace-voice-waveform").is_some(),
+        "recording Dock must render the selected five-bar waveform before ASR partials arrive"
+    );
+    assert!(
+        cx.debug_bounds("workspace-voice-caption").is_none(),
+        "empty ASR partial must not fabricate a transcript caption"
+    );
+    app.update(cx, |app, cx| {
+        app.advance_animations_for_e2e(Duration::from_millis(160), cx)
+    });
+    let animated = app.read_with(cx, |app, _| app.voice_e2e_snapshot());
+    assert_ne!(
+        animated.caption_waveform_phase_milli, 0,
+        "Dock waveform must animate even when no caption has appeared"
+    );
+    app.update(cx, |app, cx| {
+        app.set_feature_guide_reduce_motion_for_e2e(true, cx);
+        app.advance_animations_for_e2e(Duration::from_millis(160), cx);
+        cx.notify();
+    });
+    cx.run_until_parked();
+    let reduced = app.read_with(cx, |app, _| app.voice_e2e_snapshot());
+    assert_eq!(
+        reduced.caption_waveform_phase_milli, 0,
+        "reduced motion must stop the voice waveform phase"
+    );
+    assert!(
+        cx.debug_bounds("workspace-voice-waveform").is_some(),
+        "reduced motion must retain a static voice status glyph"
     );
 }
 

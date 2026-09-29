@@ -66,6 +66,117 @@ fn doubao_settings_offer_microphone_access_until_authorized() {
     );
 }
 
+/// 桌面语音状态：底部声纹按听、想、说切换，通话界面不展示供应商名称。
+///
+/// 数据构造（含关键数值的推导过程）：回复阶段推进 160 ms；
+///   160 ms × 1.2 cycles/s = 0.192 周期，足以观测一次声纹相位变化。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 进入 Canvas，在设置中选择豆包并配置合成凭据。
+///   2. 依次注入 Connected、Thinking、Speaking、Disconnected、Idle 状态，读取 Dock 与真实渲染树。
+///   3. 在聆听状态推进动画，确认不依赖字幕也会更新。
+///
+/// 预期结果：活跃状态显示通用状态文案与声纹；Idle 隐藏声纹；
+///   所有 Dock 文案均不含 Doubao/豆包，包括底层错误信息含供应商名称时。
+#[test]
+fn doubao_voice_dock_uses_generic_labels_and_stateful_waveform() {
+    let mut test_cx = TestAppContext::single();
+    let (app, cx) = make_app(&mut test_cx, echo_factory());
+    let workspace = tempfile::tempdir().expect("应建立语音动画测试项目");
+    enter_canvas(&app, cx, workspace.path());
+    click(cx, "toolbar-settings");
+    click(cx, "settings-section-voice");
+    click(cx, "settings-voice-desktop-mode-doubao");
+    app.update(cx, |app, cx| {
+        app.configure_doubao_for_e2e("synthetic-ark-key");
+        cx.notify();
+    });
+    click(cx, "toolbar-settings");
+
+    app.update(cx, |app, cx| {
+        app.show_doubao_status_for_e2e("connected");
+        cx.notify();
+    });
+    cx.run_until_parked();
+    let listening = app.read_with(cx, |app, _| app.voice_e2e_snapshot());
+    assert_eq!(listening.dock_label, "Listening", "聆听阶段应显示通用状态");
+    assert!(
+        cx.debug_bounds("workspace-voice-waveform").is_some(),
+        "聆听阶段应渲染五柱声纹"
+    );
+    assert!(
+        !listening.dock_label.contains("Doubao") && !listening.dock_label.contains("豆包"),
+        "聆听文案不应展示供应商名称"
+    );
+
+    app.update(cx, |app, cx| {
+        app.show_doubao_status_for_e2e("thinking");
+        cx.notify();
+    });
+    cx.run_until_parked();
+    let thinking = app.read_with(cx, |app, _| app.voice_e2e_snapshot());
+    assert_eq!(thinking.dock_label, "Thinking…", "思考阶段应显示通用状态");
+    assert!(
+        cx.debug_bounds("workspace-voice-waveform").is_some(),
+        "思考阶段应保留声纹反馈"
+    );
+    assert!(
+        !thinking.dock_label.contains("Doubao") && !thinking.dock_label.contains("豆包"),
+        "思考文案不应展示供应商名称"
+    );
+
+    app.update(cx, |app, cx| {
+        app.show_doubao_status_for_e2e("speaking");
+        cx.notify();
+    });
+    cx.run_until_parked();
+    let speaking = app.read_with(cx, |app, _| app.voice_e2e_snapshot());
+    assert_eq!(speaking.dock_label, "Replying…", "回复阶段应显示通用状态");
+    assert!(
+        cx.debug_bounds("workspace-voice-waveform").is_some(),
+        "回复阶段应保留声纹反馈"
+    );
+    assert!(
+        !speaking.dock_label.contains("Doubao") && !speaking.dock_label.contains("豆包"),
+        "回复文案不应展示供应商名称"
+    );
+    app.update(cx, |app, cx| {
+        app.advance_animations_for_e2e(Duration::from_millis(160), cx);
+    });
+    assert_ne!(
+        app.read_with(cx, |app, _| app
+            .voice_e2e_snapshot()
+            .caption_waveform_phase_milli),
+        0,
+        "豆包语音 Dock 应在无字幕时持续推进声纹相位"
+    );
+    app.update(cx, |app, cx| {
+        app.show_doubao_status_for_e2e("disconnected");
+        cx.notify();
+    });
+    cx.run_until_parked();
+    let disconnected = app.read_with(cx, |app, _| app.voice_e2e_snapshot());
+    assert_eq!(
+        disconnected.label, "Voice disconnected",
+        "底层连接错误含供应商名称时，Dock 应显示通用错误文案"
+    );
+    assert!(
+        cx.debug_bounds("workspace-voice-waveform").is_none(),
+        "断线状态不应继续显示活跃声纹"
+    );
+    app.update(cx, |app, cx| {
+        app.show_doubao_status_for_e2e("idle");
+        cx.notify();
+    });
+    cx.run_until_parked();
+    let idle = app.read_with(cx, |app, _| app.voice_e2e_snapshot());
+    assert_eq!(idle.dock_label, "Voice", "空闲入口应使用通用名称");
+    assert!(
+        cx.debug_bounds("workspace-voice-waveform").is_none(),
+        "空闲状态不应显示活跃声纹"
+    );
+}
+
 /// 桌面豆包 2.0：设置切换后走 ASR 2.0 → 方舟 Chat → TTS 2.0，工具仍经现有桌面 Adapter。
 ///
 /// 数据构造（含关键数值的推导过程）：5 × 640 字节 = 100 ms 的 16 kHz PCM16；

@@ -5,9 +5,12 @@
 //! `VoicePhase` 在 `control.rs` 里已被压缩成 5 类视觉，这里不再处理 phase
 //! 细节，只翻译"应该长什么样"。
 
+use super::caption::{voice_waveform, VoiceWaveformState};
 use super::control::VoiceVisual;
 use crate::app::MultisoulApp;
-use gpui::{div, prelude::*, px, rgba, svg, Context, Div, SharedString, Stateful, Window};
+use gpui::{
+    div, prelude::*, px, rgba, svg, Context, Div, KeyDownEvent, SharedString, Stateful, Window,
+};
 use ui::Theme;
 
 impl MultisoulApp {
@@ -31,7 +34,8 @@ fn voice_pill(
     app: &mut MultisoulApp,
     cx: &mut Context<MultisoulApp>,
 ) -> Stateful<Div> {
-    let palette = voice_palette(theme, visual);
+    let waveform_state = app.voice_waveform_state();
+    let palette = voice_palette(theme, visual, waveform_state);
     div()
         .id("workspace-voice-control")
         .debug_selector(|| "workspace-voice-control".to_string())
@@ -50,21 +54,46 @@ fn voice_pill(
         .text_color(rgba(palette.text))
         .text_size(px(11.0))
         .cursor_pointer()
+        .hover(|style| style.bg(rgba(0xffffff20)))
+        .active(|style| style.bg(rgba(0xffffff2c)))
+        .tab_index(0)
+        .focus(move |style| style.border_color(rgba(theme.accent_blue)))
         .on_click(cx.listener(MultisoulApp::on_voice_bar_click))
-        .child(interactive_status_glyph(theme, visual, cx))
+        .on_key_down(cx.listener(MultisoulApp::on_voice_bar_key_down))
+        .child(interactive_status_glyph(
+            theme,
+            visual,
+            waveform_state,
+            app.voice_caption_waveform_phase,
+            app.motion.reduce_motion,
+            cx,
+        ))
         .child(voice_content(theme, visual, app, cx))
 }
 
 fn interactive_status_glyph(
     theme: Theme,
     visual: VoiceVisual,
+    waveform_state: Option<VoiceWaveformState>,
+    phase: f32,
+    reduce_motion: bool,
     cx: &mut Context<MultisoulApp>,
 ) -> gpui::AnyElement {
+    if waveform_state.is_some() {
+        return voice_waveform(
+            theme,
+            phase,
+            waveform_state,
+            reduce_motion,
+            "workspace-voice-waveform",
+        )
+        .into_any_element();
+    }
     if visual != VoiceVisual::Error {
         return status_glyph(theme, visual).into_any_element();
     }
 
-    let palette = voice_palette(theme, visual);
+    let palette = voice_palette(theme, visual, None);
     div()
         .id("voice-error-dismiss")
         .debug_selector(|| "voice-error-dismiss".to_string())
@@ -90,7 +119,24 @@ fn interactive_status_glyph(
 }
 
 /// 按 `visual` 取色：图标色、文字色、pill 填充与描边。Idle 一律弱化。
-fn voice_palette(theme: Theme, visual: VoiceVisual) -> VoicePalette {
+fn voice_palette(
+    theme: Theme,
+    visual: VoiceVisual,
+    waveform_state: Option<VoiceWaveformState>,
+) -> VoicePalette {
+    if let Some(state) = waveform_state {
+        let accent = match state {
+            VoiceWaveformState::Listening => theme.accent_green,
+            VoiceWaveformState::Thinking => theme.accent_violet,
+            VoiceWaveformState::Replying => theme.accent_blue,
+        };
+        return VoicePalette {
+            icon: accent,
+            text: 0xffffffff,
+            fill: 0xffffff12,
+            border: with_alpha(accent, 0x55),
+        };
+    }
     match visual {
         VoiceVisual::Idle => VoicePalette {
             icon: 0xffffffd6,
@@ -125,10 +171,9 @@ fn voice_palette(theme: Theme, visual: VoiceVisual) -> VoicePalette {
     }
 }
 
-/// 左侧状态图标：Idle/Recording 用麦克字符，Recording 叠加呼吸色点；
-/// Processing 用 ◌，Success 用 ✓，Error 用 ✕。颜色取自 palette.icon。
+/// 非活跃状态的图标；活跃状态由五柱声纹替代。
 fn status_glyph(theme: Theme, visual: VoiceVisual) -> Div {
-    let palette = voice_palette(theme, visual);
+    let palette = voice_palette(theme, visual, None);
     match visual {
         VoiceVisual::Idle => voice_icon_cell(palette.icon),
         VoiceVisual::Recording => div().flex().flex_row().items_center().gap_2().child(
@@ -173,25 +218,8 @@ fn voice_icon_cell(color: u32) -> Div {
         )
 }
 
-/// 静态"正在收音"波形：3 根高度不同的圆角竖条，accent_orange 配不同透明度，
-/// 表达动态感但不驱动任何定时器。
-fn static_waveform(theme: Theme) -> Div {
-    let bars = [(6.0, 0x99u8), (12.0, 0xcc), (8.0, 0x99)];
-    let mut row = div().flex().flex_row().items_center().gap_1().h(px(16.0));
-    for (h, alpha) in bars {
-        row = row.child(
-            div()
-                .w(px(3.0))
-                .h(px(h))
-                .rounded(px(1.5))
-                .bg(rgba(with_alpha(theme.accent_orange, alpha))),
-        );
-    }
-    row
-}
-
 /// pill 右侧的内容区，按 `visual` 分支：
-/// Idle = 键帽提示；Recording = 波形 + 转写；其余 = 状态文字。
+/// Idle = 快捷键提示；Recording = 状态文字与快捷键；其余 = 状态文字。
 fn voice_content(
     theme: Theme,
     visual: VoiceVisual,
@@ -209,13 +237,7 @@ fn voice_content(
                     format!("Setting up Voice · {percent}%")
                 }
                 crate::settings::voice::VoiceEntryState::Ready => {
-                    if app.voice_settings.values().desktop_mode()
-                        == crate::settings::voice::DesktopVoiceMode::Doubao
-                    {
-                        format!("Doubao 2.0 Voice  {shortcut}")
-                    } else {
-                        format!("Voice  {shortcut}")
-                    }
+                    format!("Voice  {shortcut}")
                 }
                 crate::settings::voice::VoiceEntryState::Unavailable { .. } => {
                     "Voice unavailable".to_string()
@@ -232,7 +254,6 @@ fn voice_content(
             .flex_row()
             .items_center()
             .gap_2()
-            .child(static_waveform(theme))
             .child(
                 div()
                     .whitespace_nowrap()
@@ -273,6 +294,24 @@ impl MultisoulApp {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.activate_voice_bar(window, cx);
+    }
+
+    fn on_voice_bar_key_down(
+        &mut self,
+        event: &KeyDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if matches!(event.keystroke.key.as_str(), "enter" | "space")
+            && !event.keystroke.modifiers.modified()
+        {
+            cx.stop_propagation();
+            self.activate_voice_bar(window, cx);
+        }
+    }
+
+    fn activate_voice_bar(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if matches!(
             self.voice_settings.readiness(),
             crate::settings::voice::VoiceEntryState::Ready
@@ -318,13 +357,7 @@ impl MultisoulApp {
                             .child(format!(
                                 "Press {} to start {}.",
                                 self.shortcuts.voice_interaction_label(),
-                                if self.voice_settings.values().desktop_mode()
-                                    == crate::settings::voice::DesktopVoiceMode::Doubao
-                                {
-                                    "a Doubao call"
-                                } else {
-                                    "a voice command"
-                                }
+                                "a voice conversation"
                             )),
                     ),
             )

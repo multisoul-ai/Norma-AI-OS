@@ -112,8 +112,8 @@ impl MultisoulApp {
     pub(in crate::app) fn animation_activity(&self) -> AnimationActivity {
         let motion_activity = self.motion.activity_summary();
         AnimationActivity {
-            // Voice window inset owns an independent child driver. Only the caption waveform
-            // remains on the root schedule because it is rendered inside workspace chrome.
+            // Voice window inset owns an independent child driver. Dock and caption share
+            // the root waveform schedule because both render inside workspace chrome.
             voice_active: self.voice_caption_animation_active(),
             canvas_motion_active: motion_activity.canvas_active,
             canvas_frame_synced_active: motion_activity.frame_synced_active,

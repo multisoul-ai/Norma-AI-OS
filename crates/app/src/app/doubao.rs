@@ -26,6 +26,8 @@ pub(crate) enum DoubaoStatus {
     Idle,
     Connecting,
     Connected,
+    Thinking,
+    Speaking,
     Disconnected(String),
 }
 
@@ -181,6 +183,9 @@ impl MultisoulApp {
                     }
                     while let Ok(status) = events_rx.try_recv() {
                         let ended = matches!(status, DoubaoStatus::Disconnected(_));
+                        if let DoubaoStatus::Disconnected(message) = &status {
+                            tracing::info!(target: "norma_voice", reason = %message, "voice conversation ended");
+                        }
                         app.doubao.status = status;
                         if ended {
                             app.doubao.cancellation = None;

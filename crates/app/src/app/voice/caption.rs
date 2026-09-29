@@ -4,7 +4,7 @@ use crate::app::MultisoulApp;
 use dialogue::DialoguePhase;
 use gpui::{
     div, point, prelude::*, px, rgba, BoxShadow, Context, Div, FontWeight, KeyDownEvent,
-    MouseButton, Window,
+    MouseButton, Stateful, Window,
 };
 use ui::component::button::{Button, ButtonCustomVariant, ButtonVariants};
 use ui::component::{Icon, IconName, Sizable, Size};
@@ -18,6 +18,13 @@ const EXPANDED_CAPTION_MIN_HEIGHT: f32 = 72.0;
 pub(crate) const CAPTION_SURFACE_ALPHA: u8 = 0xb8;
 pub(crate) const CAPTION_SURFACE_OPACITY_MILLI: u16 =
     ((CAPTION_SURFACE_ALPHA as u32 * 1_000 + 127) / 255) as u16;
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(crate) enum VoiceWaveformState {
+    Listening,
+    Thinking,
+    Replying,
+}
 
 impl MultisoulApp {
     pub(crate) fn voice_caption_text(&self) -> Option<String> {
@@ -48,18 +55,44 @@ impl MultisoulApp {
     }
 
     pub(crate) fn voice_caption_animation_active(&self) -> bool {
-        self.voice_caption_is_visible()
-            && self.dialogue.phase() != DialoguePhase::Speaking
+        self.voice_waveform_state().is_some()
+            && !self.motion.reduce_motion
             && matches!(self.screen, crate::app::AppScreen::Canvas)
             && self.window_active
             && !self.settings_panel.open
+    }
+
+    pub(crate) fn voice_waveform_state(&self) -> Option<VoiceWaveformState> {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::Doubao
+        {
+            return match self.doubao.status {
+                crate::app::doubao::DoubaoStatus::Connected => Some(VoiceWaveformState::Listening),
+                crate::app::doubao::DoubaoStatus::Thinking => Some(VoiceWaveformState::Thinking),
+                crate::app::doubao::DoubaoStatus::Speaking => Some(VoiceWaveformState::Replying),
+                _ => None,
+            };
+        }
+        if self.effective_voice_visual() == super::control::VoiceVisual::Error {
+            return None;
+        }
+        match self.dialogue.phase() {
+            DialoguePhase::Speaking => Some(VoiceWaveformState::Replying),
+            DialoguePhase::Thinking => Some(VoiceWaveformState::Thinking),
+            DialoguePhase::Listening => Some(VoiceWaveformState::Listening),
+            DialoguePhase::Idle => match self.voice.visual() {
+                super::control::VoiceVisual::Recording => Some(VoiceWaveformState::Listening),
+                super::control::VoiceVisual::Processing => Some(VoiceWaveformState::Thinking),
+                _ => None,
+            },
+        }
     }
 
     pub(in crate::app) fn advance_voice_caption_waveform(
         &mut self,
         delta: std::time::Duration,
     ) -> bool {
-        if !self.voice_caption_is_visible() || self.dialogue.phase() == DialoguePhase::Speaking {
+        if self.voice_waveform_state().is_none() || self.motion.reduce_motion {
             let changed = self.voice_caption_waveform_phase != 0.0;
             self.voice_caption_waveform_phase = 0.0;
             return changed;
@@ -151,7 +184,13 @@ impl MultisoulApp {
                         .shadow(caption_shadow())
                         .bg(rgba(with_alpha(theme.dock, CAPTION_SURFACE_ALPHA)))
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .child(caption_waveform(theme, self.voice_caption_waveform_phase))
+                        .child(voice_waveform(
+                            theme,
+                            self.voice_caption_waveform_phase,
+                            self.voice_waveform_state(),
+                            self.motion.reduce_motion,
+                            "voice-caption-waveform",
+                        ))
                         .child(caption_divider(theme))
                         .child(
                             div()
@@ -199,24 +238,47 @@ fn trailing_chars(text: &str, max_chars: usize) -> String {
     text.chars().skip(count.saturating_sub(max_chars)).collect()
 }
 
-fn caption_waveform(theme: Theme, phase: f32) -> Div {
-    let heights = [6.0, 10.0, 15.0, 20.0, 13.0, 8.0, 17.0, 11.0, 7.0];
+pub(crate) fn voice_waveform(
+    theme: Theme,
+    phase: f32,
+    state: Option<VoiceWaveformState>,
+    reduce_motion: bool,
+    selector: &'static str,
+) -> Stateful<Div> {
+    let color = match state {
+        Some(VoiceWaveformState::Listening) => theme.accent_green,
+        Some(VoiceWaveformState::Thinking) => theme.accent_violet,
+        Some(VoiceWaveformState::Replying) => theme.accent_blue,
+        None => theme.text_secondary,
+    };
+    let peaks = [0.60, 0.95, 0.72, 1.0, 0.55];
     let mut waveform = div()
+        .id(selector)
+        .debug_selector(move || selector.to_string())
         .flex_none()
-        .w(px(34.0))
-        .h(px(22.0))
+        .w(px(27.0))
+        .h(px(20.0))
         .flex()
         .items_center()
-        .gap(px(2.0));
-    for (index, base_height) in heights.into_iter().enumerate() {
-        let pulse = ((phase * std::f32::consts::TAU + index as f32 * 0.85).sin() + 1.0) * 0.5;
-        let height = base_height * (0.55 + pulse * 0.45);
+        .gap(px(3.0));
+    for (index, peak) in peaks.into_iter().enumerate() {
+        let height = if reduce_motion || state.is_none() {
+            4.0 + peak * 10.0
+        } else {
+            let pulse = ((phase * std::f32::consts::TAU + index as f32 * 1.6).sin() + 1.0) * 0.5;
+            let movement = if state == Some(VoiceWaveformState::Thinking) {
+                0.25 + pulse * 0.25
+            } else {
+                0.2 + pulse * 0.8
+            };
+            4.0 + peak * 14.0 * movement
+        };
         waveform = waveform.child(
             div()
-                .w(px(2.0))
+                .w(px(3.0))
                 .h(px(height))
-                .rounded(px(1.0))
-                .bg(rgba(with_alpha(theme.accent_orange, 0xdc))),
+                .rounded(px(1.5))
+                .bg(rgba(with_alpha(color, 0xe0))),
         );
     }
     waveform
