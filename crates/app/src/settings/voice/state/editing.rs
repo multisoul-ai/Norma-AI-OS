@@ -61,6 +61,7 @@ impl VoiceSettingsState {
                 VoiceSettingsField::ApiKey
                     | VoiceSettingsField::AzureApiKey
                     | VoiceSettingsField::MiniMaxApiKey
+                    | VoiceSettingsField::DoubaoApiKey
             )
         {
             format!("{}|", "•".repeat(self.draft.chars().count()))
@@ -84,6 +85,12 @@ impl VoiceSettingsState {
             }
         } else if field == VoiceSettingsField::MiniMaxApiKey {
             if self.minimax_credential_configured() {
+                "*********".to_string()
+            } else {
+                "Not configured".to_string()
+            }
+        } else if field == VoiceSettingsField::DoubaoApiKey {
+            if self.values.doubao_credential_ref().is_some() {
                 "*********".to_string()
             } else {
                 "Not configured".to_string()
@@ -112,6 +119,7 @@ impl VoiceSettingsState {
                 VoiceSettingsField::ApiKey
                     | VoiceSettingsField::AzureApiKey
                     | VoiceSettingsField::MiniMaxApiKey
+                    | VoiceSettingsField::DoubaoApiKey
             ) {
                 if finish_editing {
                     self.editing = None;
@@ -149,6 +157,11 @@ impl VoiceSettingsState {
                 self.finish_editing_if_requested(finish_editing);
                 self.refresh_values();
                 return Some(value);
+            }
+            VoiceSettingsField::DoubaoApiKey => {
+                self.save_doubao_credential(value);
+                self.finish_editing_if_requested(finish_editing);
+                return Some(String::new());
             }
             VoiceSettingsField::MiniMaxApiKey => {
                 self.update_minimax_api_key_draft(value.clone());
@@ -246,6 +259,7 @@ impl VoiceSettingsState {
             VoiceSettingsField::ApiKey
             | VoiceSettingsField::AzureApiKey
             | VoiceSettingsField::MiniMaxApiKey => String::new(),
+            VoiceSettingsField::DoubaoApiKey => String::new(),
             VoiceSettingsField::AzureRegion => self.values.azure_asr_profile().region().to_string(),
             VoiceSettingsField::AzureLocale => self.values.azure_asr_profile().locale().to_string(),
             VoiceSettingsField::MiniMaxVoiceId => self

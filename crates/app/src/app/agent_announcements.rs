@@ -269,6 +269,12 @@ impl MultisoulApp {
         events: &[RuntimeEvent],
         cx: &mut Context<Self>,
     ) {
+        self.queue_doubao_terminal_reports();
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::Doubao
+        {
+            return;
+        }
         let tts_availability = self.agent_announcement_tts_availability();
         let eligibility = AnnouncementEligibility::with_tts_availability(
             self.voice_settings

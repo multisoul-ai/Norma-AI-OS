@@ -181,7 +181,7 @@ fn test_macos_audio_capture_does_not_use_aborting_audio_unit_selector() {
     );
 }
 
-/// AUDIO-7：Always Listening 不得启用会让 macOS input tap 静默失效的 Voice Processing。
+/// AUDIO-7：旧录音入口不得启用曾让 macOS input tap 静默失效的 Voice Processing。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   source = 生产 `audio.rs`
@@ -190,11 +190,11 @@ fn test_macos_audio_capture_does_not_use_aborting_audio_unit_selector() {
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 读取 macOS AudioCapture 启动代码。
 ///   2. 确认仍使用 AVAudioEngine + input tap 采集。
-///   3. 确认核心录音路径不再强制开启不稳定的 voice processing。
+///   3. 确认 `AudioCapture::start` 固定传入 false；豆包专用入口另行启用并单独验收。
 ///
 /// 预期结果：
 ///   - 正断言：AVAudioEngine input tap 仍存在，保留已验证的麦克风路径。
-///   - 负断言：不得强制开启会出现 engine started 但零 PCM 的 voice processing。
+///   - 负断言：旧入口不得强制开启会出现 engine started 但零 PCM 的 voice processing。
 #[cfg(target_os = "macos")]
 #[test]
 fn test_macos_audio_capture_avoids_unstable_voice_processing_path() {
@@ -205,9 +205,17 @@ fn test_macos_audio_capture_avoids_unstable_voice_processing_path() {
             && source.contains("installTapOnBus_bufferSize_format_block"),
         "Always Listening 应保留已验证的 AVAudioEngine input tap 录音路径"
     );
+    let legacy_start = source
+        .split("pub(crate) fn start_with_voice_processing")
+        .next()
+        .expect("源码应包含旧录音入口");
     assert!(
-        !source.contains("setVoiceProcessingEnabled_error(true)"),
-        "核心录音不得强制开启会让 macOS App bundle 静默零 PCM 的 voice processing"
+        legacy_start.contains("target_sample_rate_hz,\n            false,"),
+        "旧录音入口必须显式关闭 Voice Processing"
+    );
+    assert!(
+        !legacy_start.contains("target_sample_rate_hz,\n            true,"),
+        "旧录音入口不能开启可能导致零 PCM 的处理路径"
     );
 }
 

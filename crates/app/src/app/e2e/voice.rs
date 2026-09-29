@@ -3,6 +3,8 @@ use crate::app::MultisoulApp;
 /// 语音入口的稳定 e2e 投影：覆盖用户可见状态，不暴露录音或对话实现对象。
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VoiceE2eSnapshot {
+    pub desktop_mode: &'static str,
+    pub doubao_status: &'static str,
     pub phase: &'static str,
     pub dialogue_phase: &'static str,
     pub visual: &'static str,
@@ -25,6 +27,13 @@ pub struct VoiceE2eSnapshot {
 impl MultisoulApp {
     pub fn voice_e2e_snapshot(&self) -> VoiceE2eSnapshot {
         VoiceE2eSnapshot {
+            desktop_mode: self.voice_settings.values().desktop_mode().as_str(),
+            doubao_status: match self.doubao.status {
+                crate::app::doubao::DoubaoStatus::Idle => "idle",
+                crate::app::doubao::DoubaoStatus::Connecting => "connecting",
+                crate::app::doubao::DoubaoStatus::Connected => "connected",
+                crate::app::doubao::DoubaoStatus::Disconnected(_) => "disconnected",
+            },
             phase: match self.voice.phase() {
                 crate::app::voice::control::VoicePhase::Idle => "idle",
                 crate::app::voice::control::VoicePhase::Recording { .. } => "recording",
@@ -70,6 +79,16 @@ impl MultisoulApp {
                 crate::app::voice::caption::CAPTION_SURFACE_OPACITY_MILLI,
             recording_generation: self.voice.recording_generation(),
         }
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn configure_doubao_for_e2e(&mut self, secret: &str) {
+        self.voice_settings.configure_doubao_for_e2e(secret);
+    }
+
+    #[cfg(feature = "e2e-test-support")]
+    pub fn install_doubao_pcm_for_e2e(&mut self, chunks: Vec<audio::PcmAudioChunk>) {
+        voice_input::install_test_duplex_pcm_stream(chunks);
     }
 
     pub fn show_voice_recording_transcript_for_e2e(&mut self, transcript: impl Into<String>) {

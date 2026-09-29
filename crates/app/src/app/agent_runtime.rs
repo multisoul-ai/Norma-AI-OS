@@ -20,6 +20,7 @@ mod create_agent_command;
 mod delete_card;
 mod diagnostics;
 mod dispatch_effects;
+mod doubao_adapter;
 mod identity;
 mod mobile_control;
 mod mobile_delivery;
@@ -28,6 +29,7 @@ mod orchestration_commands;
 pub(super) mod pending;
 mod reply_adapter;
 mod session_reply_queue;
+mod voice_confirmation;
 
 pub(crate) use conversation_tails::{ConversationTailMemory, ConversationTailWriter};
 pub(crate) use identity::{self_dispatch_forbidden_error, AgentIdentitySnapshot};
@@ -39,6 +41,7 @@ pub(crate) use commands::execute_agent_card_command;
 use context_commands::contextualized_agent_commands;
 #[cfg(test)]
 use coordination::agent_completion_report;
+pub(crate) use doubao_adapter::start_doubao_adapter;
 pub(crate) use orchestration_commands::execute_high_level_agent_command;
 pub(crate) use orchestration_commands::execute_orchestration_agent_command;
 pub(crate) use orchestration_commands::execute_orchestration_agent_command_with_visual_origin;

@@ -9,6 +9,16 @@ impl MultisoulApp {
     }
 
     pub(crate) fn effective_voice_label(&self) -> String {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::Doubao
+        {
+            return match &self.doubao.status {
+                crate::app::doubao::DoubaoStatus::Idle => "Doubao Duplex".into(),
+                crate::app::doubao::DoubaoStatus::Connecting => "Connecting to Doubao…".into(),
+                crate::app::doubao::DoubaoStatus::Connected => "Doubao is listening".into(),
+                crate::app::doubao::DoubaoStatus::Disconnected(message) => message.clone(),
+            };
+        }
         if self.dialogue_voice_label().is_some() {
             self.dialogue.effective_voice_label(self.voice_label())
         } else {
@@ -17,10 +27,38 @@ impl MultisoulApp {
     }
 
     pub(crate) fn effective_voice_visual(&self) -> crate::app::voice::control::VoiceVisual {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::Doubao
+        {
+            return match self.doubao.status {
+                crate::app::doubao::DoubaoStatus::Idle => {
+                    crate::app::voice::control::VoiceVisual::Idle
+                }
+                crate::app::doubao::DoubaoStatus::Connecting => {
+                    crate::app::voice::control::VoiceVisual::Processing
+                }
+                crate::app::doubao::DoubaoStatus::Connected => {
+                    crate::app::voice::control::VoiceVisual::Recording
+                }
+                crate::app::doubao::DoubaoStatus::Disconnected(_) => {
+                    crate::app::voice::control::VoiceVisual::Error
+                }
+            };
+        }
         self.dialogue.effective_voice_visual(self.voice.visual())
     }
 
     pub(crate) fn effective_voice_dock_label(&self) -> &'static str {
+        if self.voice_settings.values().desktop_mode()
+            == crate::settings::voice::DesktopVoiceMode::Doubao
+        {
+            return match self.doubao.status {
+                crate::app::doubao::DoubaoStatus::Idle => "Doubao Duplex",
+                crate::app::doubao::DoubaoStatus::Connecting => "Connecting…",
+                crate::app::doubao::DoubaoStatus::Connected => "Listening · Doubao",
+                crate::app::doubao::DoubaoStatus::Disconnected(_) => "Doubao disconnected",
+            };
+        }
         match self.dialogue.phase() {
             dialogue::DialoguePhase::Thinking => "Thinking…",
             dialogue::DialoguePhase::Speaking => "Replying...",

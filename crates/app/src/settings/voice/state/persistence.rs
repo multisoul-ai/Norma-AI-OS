@@ -33,6 +33,7 @@ pub(super) struct VoicePersistenceBatch {
     minimax_credential: bool,
     minimax_clear: bool,
     minimax_validation: bool,
+    doubao_credential: bool,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -168,6 +169,11 @@ impl VoiceSettingsState {
                     .pending_writes
                     .iter()
                     .any(PendingVoiceSettingWrite::writes_minimax_validation),
+            doubao_credential: self.doubao_credential_previous.is_some()
+                && self
+                    .pending_writes
+                    .iter()
+                    .any(|write| write.stores_credential(Some("doubao-desktop"))),
         });
         std::mem::take(&mut self.pending_writes)
     }
@@ -192,6 +198,14 @@ impl VoiceSettingsState {
         }
         if batch.minimax_validation {
             self.finish_minimax_validation_persistence(&result);
+        }
+        if batch.doubao_credential {
+            if result.is_err() {
+                self.saved.doubao_credential_ref = self.doubao_credential_previous.take().flatten();
+                self.refresh_values();
+            } else {
+                self.doubao_credential_previous = None;
+            }
         }
         self.status = Some(match result {
             Ok(()) => ok_status("Saved"),

@@ -36,12 +36,14 @@ fn test_drop_pcm_stream_session_stops_capture_and_closes_stream() {
         stopped_for_thread.store(true, Ordering::SeqCst);
         drop(pcm_tx);
     });
-    let forward_thread = std::thread::spawn(move || forward_pcm_events(pcm_rx, chunk_tx));
+    let forward_thread = std::thread::spawn(move || forward_pcm_events(pcm_rx, chunk_tx, None));
 
     let session = PcmStreamSession {
         stop_tx: Some(stop_tx),
         capture_thread: Some(capture_thread),
         forward_thread: Some(forward_thread),
+        #[cfg(feature = "test-support")]
+        test_hold_tx: None,
     };
     drop(session);
 
@@ -92,6 +94,8 @@ fn test_cancel_consumes_session_and_stops_capture_once() {
         stop_tx: Some(stop_tx),
         capture_thread: Some(capture_thread),
         forward_thread: None,
+        #[cfg(feature = "test-support")]
+        test_hold_tx: None,
     };
     session.cancel();
 
@@ -154,6 +158,47 @@ fn test_start_pcm_stream_requires_microphone_authorization_without_recognizer() 
     );
 }
 
+/// STREAM-4：双工网络发送暂慢时，麦克风队列应保留最新音频而非旧音频。
+///
+/// 数据构造（含关键数值的推导过程）：输出队列容量 2，连续输入 3 个 PCM chunk；
+///   每个 chunk 为 320 采样 × 2 字节 = 640 字节 ≈ 20 毫秒；
+///   饱和后应保留第 2、3 个 chunk，丢弃第 1 个旧 chunk。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 网络消费者暂不取音频，依次送入 0.1、0.2、0.3 的采样。
+///   2. 前向线程把前两段放入容量为 2 的队列。
+///   3. 第三段到达时移除最旧段，再放入最新段。
+///
+/// 预期结果：队列中依次为 0.2 与 0.3；0.1 不存在，也没有额外旧音频。
+#[test]
+fn test_duplex_pcm_queue_discards_stale_audio_when_network_lags() {
+    let (pcm_tx, pcm_rx) = crossbeam_channel::unbounded();
+    let (chunk_tx, chunk_rx) = async_channel::bounded(2);
+    for level in [0.1_f32, 0.2, 0.3] {
+        pcm_tx
+            .send(PcmEvent::Samples(vec![level; 320]))
+            .expect("三个 20 毫秒 PCM 事件应进入测试输入队列");
+    }
+    drop(pcm_tx);
+    forward_pcm_events(pcm_rx, chunk_tx, Some(chunk_rx.clone()));
+
+    let first = chunk_rx.try_recv().expect("队列应保留第二段音频");
+    let second = chunk_rx.try_recv().expect("队列应保留第三段音频");
+    let first_sample = i16::from_le_bytes([first.bytes[0], first.bytes[1]]);
+    let second_sample = i16::from_le_bytes([second.bytes[0], second.bytes[1]]);
+    // 0.2 × 32767 ≈ 6553；0.3 × 32767 ≈ 9830；旧 0.1 × 32767 ≈ 3277。
+    assert_eq!(first_sample, 6553, "第一段应是第二个 20 毫秒音频块");
+    assert_eq!(second_sample, 9830, "第二段应是最新的 20 毫秒音频块");
+    assert_ne!(first_sample, 3277, "网络恢复后不得先发送积压的旧音频");
+    assert!(
+        matches!(
+            chunk_rx.try_recv(),
+            Err(async_channel::TryRecvError::Closed)
+        ),
+        "前向结束后不得残留第三段积压音频"
+    );
+}
+
 /// STREAM-4：完整 PcmStreamSession 启动后必须把 AVAudioEngine tap 数据转发到异步队列。
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -195,5 +240,43 @@ fn test_pcm_stream_session_forwards_microphone_chunks() {
     assert!(
         !chunk.bytes.is_empty(),
         "完整 PCM stream 收到的首块音频不得为空"
+    );
+}
+
+/// STREAM-5：豆包专用 Voice Processing 启动后仍须向会话提供真实 PCM。
+///
+/// 数据构造（含关键数值的推导过程）：16 kHz 单声道 PCM16 为 32,000 字节/秒；
+/// 每次轮询 10 ms，最多 200 次 = 2 秒，至少收到一段非空音频。
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 用系统默认麦克风启动豆包专用流。
+///   2. 最多轮询 2 秒，接收首段 PCM，取消会话并等待线程退出。
+///
+/// 预期结果：有真实 PCM 到达；不能仅显示已启动而没有音频。
+#[test]
+#[ignore = "requires microphone hardware and permission"]
+fn test_duplex_pcm_stream_forwards_microphone_chunks() {
+    let (session, pcm_rx) =
+        super::start_duplex_pcm_stream(None).expect("豆包专用 PCM stream 应能用系统默认麦克风启动");
+    let mut received = None;
+    for _ in 0..200 {
+        match pcm_rx.try_recv() {
+            Ok(chunk) => {
+                received = Some(chunk);
+                break;
+            }
+            Err(async_channel::TryRecvError::Empty) => {
+                std::thread::sleep(std::time::Duration::from_millis(10))
+            }
+            Err(async_channel::TryRecvError::Closed) => break,
+        }
+    }
+    session.cancel();
+    let chunk = received.expect("Voice Processing 启动后 2 秒内必须有 PCM 到达");
+    assert!(!chunk.bytes.is_empty(), "豆包会话首段 PCM 不能是空字节");
+    assert_eq!(chunk.sample_rate_hz, 16_000, "豆包上行应使用 16 kHz PCM");
+    assert_ne!(
+        chunk.sample_rate_hz, 24_000,
+        "豆包上行不能误用 24 kHz 播放采样率"
     );
 }

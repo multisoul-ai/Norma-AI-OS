@@ -209,7 +209,13 @@ fn voice_content(
                     format!("Setting up Voice · {percent}%")
                 }
                 crate::settings::voice::VoiceEntryState::Ready => {
-                    format!("Voice  {shortcut}")
+                    if app.voice_settings.values().desktop_mode()
+                        == crate::settings::voice::DesktopVoiceMode::Doubao
+                    {
+                        format!("Doubao Duplex  {shortcut}")
+                    } else {
+                        format!("Voice  {shortcut}")
+                    }
                 }
                 crate::settings::voice::VoiceEntryState::Unavailable { .. } => {
                     "Voice unavailable".to_string()
@@ -310,8 +316,15 @@ impl MultisoulApp {
                             .text_size(px(11.0))
                             .text_color(rgba(theme.text_secondary))
                             .child(format!(
-                                "Press {} to start a voice command.",
-                                self.shortcuts.voice_interaction_label()
+                                "Press {} to start {}.",
+                                self.shortcuts.voice_interaction_label(),
+                                if self.voice_settings.values().desktop_mode()
+                                    == crate::settings::voice::DesktopVoiceMode::Doubao
+                                {
+                                    "a Doubao call"
+                                } else {
+                                    "a voice command"
+                                }
                             )),
                     ),
             )

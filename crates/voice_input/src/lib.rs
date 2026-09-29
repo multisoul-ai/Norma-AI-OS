@@ -17,8 +17,10 @@ pub use permissions::{
     ensure_microphone_authorized, microphone_authorization_status, MicrophoneAuthorization,
 };
 #[cfg(feature = "test-support")]
+pub use stream::install_test_duplex_pcm_stream;
+#[cfg(feature = "test-support")]
 pub use stream::install_test_pcm_stream;
-pub use stream::{start_pcm_stream, PcmStreamSession};
+pub use stream::{start_duplex_pcm_stream, start_pcm_stream, PcmStreamSession};
 pub use vad::{FakeEnergyVadClient, SherpaVadClient};
 
 use std::sync::atomic::{AtomicUsize, Ordering};

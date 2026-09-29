@@ -195,6 +195,7 @@ impl MultisoulApp {
             clone_project: crate::workspace::clone_project::CloneProjectUiState::default(),
             recent_project_context_path: None,
             voice: crate::app::voice::control::VoiceControlState::default(),
+            doubao: crate::app::doubao::DoubaoVoiceState::default(),
             dialogue,
             tts_preview,
             pending_tts_activation: None,

@@ -5,6 +5,14 @@ use super::{
 use std::path::PathBuf;
 
 impl VoiceSettingsState {
+    pub(crate) fn configure_doubao_for_e2e(&mut self, secret: &str) {
+        crate::settings::voice::credentials::store("doubao-desktop", secret)
+            .expect("E2E in-memory Keychain should accept synthetic credential");
+        self.saved.doubao_credential_ref = Some("doubao-desktop".into());
+        self.microphone_requirement = crate::settings::voice::VoiceRequirementState::Ready;
+        self.readiness_override = None;
+        self.refresh_values();
+    }
     pub(crate) fn assume_legacy_ready_for_e2e(&mut self) {
         self.readiness_override = Some(crate::settings::voice::VoiceEntryState::Ready);
         self.setup_destination = VoiceSetupDestination::Overview;

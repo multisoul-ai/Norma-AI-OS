@@ -13,11 +13,15 @@ use std::thread::JoinHandle;
 use std::sync::{Mutex, OnceLock};
 
 const STREAM_CHUNK_QUEUE: usize = 64;
+// 8 × 20 ms = 160 ms：双工采集不能在网络短暂停顿后补发一整秒旧语音。
+const DUPLEX_STREAM_CHUNK_QUEUE: usize = 8;
 
 pub struct PcmStreamSession {
     stop_tx: Option<mpsc::Sender<()>>,
     capture_thread: Option<JoinHandle<()>>,
     forward_thread: Option<JoinHandle<()>>,
+    #[cfg(feature = "test-support")]
+    test_hold_tx: Option<async_channel::Sender<PcmAudioChunk>>,
 }
 
 impl PcmStreamSession {
@@ -35,6 +39,8 @@ impl PcmStreamSession {
         if let Some(forward_thread) = self.forward_thread.take() {
             let _ = forward_thread.join();
         }
+        #[cfg(feature = "test-support")]
+        self.test_hold_tx.take();
     }
 }
 
@@ -45,8 +51,8 @@ impl Drop for PcmStreamSession {
 }
 
 #[cfg(feature = "test-support")]
-fn test_pcm_stream() -> &'static Mutex<Option<Vec<PcmAudioChunk>>> {
-    static STREAM: OnceLock<Mutex<Option<Vec<PcmAudioChunk>>>> = OnceLock::new();
+fn test_pcm_stream() -> &'static Mutex<Option<(Vec<PcmAudioChunk>, bool)>> {
+    static STREAM: OnceLock<Mutex<Option<(Vec<PcmAudioChunk>, bool)>>> = OnceLock::new();
     STREAM.get_or_init(|| Mutex::new(None))
 }
 
@@ -54,12 +60,19 @@ fn test_pcm_stream() -> &'static Mutex<Option<Vec<PcmAudioChunk>>> {
 pub fn install_test_pcm_stream(chunks: Vec<PcmAudioChunk>) {
     *test_pcm_stream()
         .lock()
-        .expect("test PCM stream lock must not be poisoned") = Some(chunks);
+        .expect("test PCM stream lock must not be poisoned") = Some((chunks, false));
+}
+
+#[cfg(feature = "test-support")]
+pub fn install_test_duplex_pcm_stream(chunks: Vec<PcmAudioChunk>) {
+    *test_pcm_stream()
+        .lock()
+        .expect("test PCM stream lock must not be poisoned") = Some((chunks, true));
 }
 
 #[cfg(feature = "test-support")]
 fn take_test_pcm_stream() -> Option<(PcmStreamSession, async_channel::Receiver<PcmAudioChunk>)> {
-    let chunks = test_pcm_stream()
+    let (chunks, keep_open) = test_pcm_stream()
         .lock()
         .expect("test PCM stream lock must not be poisoned")
         .take()?;
@@ -69,12 +82,13 @@ fn take_test_pcm_stream() -> Option<(PcmStreamSession, async_channel::Receiver<P
             .send_blocking(chunk)
             .expect("bounded test PCM stream must accept its pre-sized chunks");
     }
-    drop(sender);
+    let test_hold_tx = keep_open.then_some(sender);
     Some((
         PcmStreamSession {
             stop_tx: None,
             capture_thread: None,
             forward_thread: None,
+            test_hold_tx,
         },
         receiver,
     ))
@@ -82,6 +96,19 @@ fn take_test_pcm_stream() -> Option<(PcmStreamSession, async_channel::Receiver<P
 
 pub fn start_pcm_stream(
     input_device_id: Option<String>,
+) -> Result<(PcmStreamSession, async_channel::Receiver<PcmAudioChunk>), VoiceInputError> {
+    start_pcm_stream_with_voice_processing(input_device_id, false)
+}
+
+pub fn start_duplex_pcm_stream(
+    input_device_id: Option<String>,
+) -> Result<(PcmStreamSession, async_channel::Receiver<PcmAudioChunk>), VoiceInputError> {
+    start_pcm_stream_with_voice_processing(input_device_id, true)
+}
+
+fn start_pcm_stream_with_voice_processing(
+    input_device_id: Option<String>,
+    voice_processing: bool,
 ) -> Result<(PcmStreamSession, async_channel::Receiver<PcmAudioChunk>), VoiceInputError> {
     #[cfg(feature = "test-support")]
     if let Some(stream) = take_test_pcm_stream() {
@@ -96,11 +123,22 @@ pub fn start_pcm_stream(
     ensure_microphone_authorized()?;
 
     let (pcm_tx, pcm_rx) = bounded::<PcmEvent>(PCM_QUEUE_CHUNKS);
-    let (chunk_tx, chunk_rx) = async_channel::bounded::<PcmAudioChunk>(STREAM_CHUNK_QUEUE);
+    let queue_capacity = if voice_processing {
+        DUPLEX_STREAM_CHUNK_QUEUE
+    } else {
+        STREAM_CHUNK_QUEUE
+    };
+    let (chunk_tx, chunk_rx) = async_channel::bounded::<PcmAudioChunk>(queue_capacity);
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
     let (started_tx, started_rx) = mpsc::channel::<Result<(), VoiceInputError>>();
 
-    let capture_thread = spawn_capture_thread(pcm_tx, stop_rx, started_tx, input_device_id)?;
+    let capture_thread = spawn_capture_thread(
+        pcm_tx,
+        stop_rx,
+        started_tx,
+        input_device_id,
+        voice_processing,
+    )?;
     match started_rx.recv() {
         Ok(Ok(())) => {}
         Ok(Err(error)) => {
@@ -120,7 +158,8 @@ pub fn start_pcm_stream(
         }
     }
 
-    let forward_thread = match spawn_forward_thread(pcm_rx, chunk_tx) {
+    let stale_rx = voice_processing.then(|| chunk_rx.clone());
+    let forward_thread = match spawn_forward_thread(pcm_rx, chunk_tx, stale_rx) {
         Ok(thread) => thread,
         Err(error) => {
             let _ = stop_tx.send(());
@@ -136,6 +175,8 @@ pub fn start_pcm_stream(
             stop_tx: Some(stop_tx),
             capture_thread: Some(capture_thread),
             forward_thread: Some(forward_thread),
+            #[cfg(feature = "test-support")]
+            test_hold_tx: None,
         },
         chunk_rx,
     ))
@@ -146,16 +187,18 @@ fn spawn_capture_thread(
     stop_rx: mpsc::Receiver<()>,
     started_tx: mpsc::Sender<Result<(), VoiceInputError>>,
     input_device_id: Option<String>,
+    voice_processing: bool,
 ) -> Result<JoinHandle<()>, VoiceInputError> {
     std::thread::Builder::new()
         .name("voice_input_pcm_capture".to_string())
         .spawn(move || {
             let stats = Arc::new(AudioQueueStats::default());
-            let capture = AudioCapture::start(
+            let capture = AudioCapture::start_with_voice_processing(
                 pcm_tx,
                 stats.clone(),
                 input_device_id.as_deref(),
                 PCM_STREAM_SAMPLE_RATE_HZ,
+                voice_processing,
             );
             match capture {
                 Ok(capture) => {
@@ -191,10 +234,11 @@ fn spawn_capture_thread(
 fn spawn_forward_thread(
     pcm_rx: crossbeam_channel::Receiver<PcmEvent>,
     chunk_tx: async_channel::Sender<PcmAudioChunk>,
+    stale_rx: Option<async_channel::Receiver<PcmAudioChunk>>,
 ) -> Result<JoinHandle<()>, VoiceInputError> {
     std::thread::Builder::new()
         .name("voice_input_pcm_forwarder".to_string())
-        .spawn(move || forward_pcm_events(pcm_rx, chunk_tx))
+        .spawn(move || forward_pcm_events(pcm_rx, chunk_tx, stale_rx))
         .map_err(|error| {
             VoiceInputError::Audio(format!(
                 "could not spawn pcm stream forwarder thread: {error}"
@@ -205,6 +249,7 @@ fn spawn_forward_thread(
 fn forward_pcm_events(
     pcm_rx: crossbeam_channel::Receiver<PcmEvent>,
     chunk_tx: async_channel::Sender<PcmAudioChunk>,
+    stale_rx: Option<async_channel::Receiver<PcmAudioChunk>>,
 ) {
     let mut first_chunk_forwarded = false;
     while let Ok(event) = pcm_rx.recv() {
@@ -213,7 +258,16 @@ fn forward_pcm_events(
                 let Some(chunk) = pcm_stream_chunk_from_samples(&samples) else {
                     continue;
                 };
-                match chunk_tx.try_send(chunk) {
+                let sent = match chunk_tx.try_send(chunk) {
+                    Err(async_channel::TrySendError::Full(chunk)) if stale_rx.is_some() => {
+                        if let Some(receiver) = &stale_rx {
+                            let _ = receiver.try_recv();
+                        }
+                        chunk_tx.try_send(chunk)
+                    }
+                    result => result,
+                };
+                match sent {
                     Ok(()) => {
                         if !first_chunk_forwarded {
                             first_chunk_forwarded = true;

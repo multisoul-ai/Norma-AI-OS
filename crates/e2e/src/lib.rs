@@ -71,6 +71,7 @@ mod e2e_02_real_pty;
 // Settings E2E：真实点击 Settings 面板控件、录制快捷键、恢复默认、关闭面板。
 mod e2e_03_api_key_visibility;
 mod e2e_03_azure_asr_settings;
+mod e2e_03_doubao_desktop;
 mod e2e_03_orchestration_auto_repair;
 mod e2e_03_orchestration_settings;
 mod e2e_03_performance_settings;

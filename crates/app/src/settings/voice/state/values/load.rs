@@ -15,6 +15,11 @@ impl SavedVoiceSettings {
         let openai_plaintext =
             non_empty_option(store.get_string(KEY_AGENT_OPENAI_API_KEY)?).or(legacy_openai_api_key);
         Ok(Self {
+            desktop_mode: store
+                .get_string(KEY_DESKTOP_MODE)?
+                .as_deref()
+                .and_then(DesktopVoiceMode::from_stored),
+            doubao_credential_ref: non_empty_option(store.get_string(KEY_DOUBAO_CREDENTIAL_REF)?),
             interaction_mode: store
                 .get_string(KEY_INTERACTION_MODE)?
                 .as_deref()

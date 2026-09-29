@@ -21,6 +21,22 @@ impl AudioCapture {
         input_device_id: Option<&str>,
         target_sample_rate_hz: u32,
     ) -> Result<Self, VoiceInputError> {
+        Self::start_with_voice_processing(
+            sender,
+            stats,
+            input_device_id,
+            target_sample_rate_hz,
+            false,
+        )
+    }
+
+    pub(crate) fn start_with_voice_processing(
+        sender: Sender<PcmEvent>,
+        stats: Arc<AudioQueueStats>,
+        input_device_id: Option<&str>,
+        target_sample_rate_hz: u32,
+        voice_processing: bool,
+    ) -> Result<Self, VoiceInputError> {
         #[cfg(target_os = "macos")]
         {
             Ok(Self {
@@ -29,6 +45,7 @@ impl AudioCapture {
                     stats,
                     input_device_id,
                     target_sample_rate_hz,
+                    voice_processing,
                 )?,
             })
         }
@@ -38,6 +55,7 @@ impl AudioCapture {
             let _ = stats;
             let _ = input_device_id;
             let _ = target_sample_rate_hz;
+            let _ = voice_processing;
             Err(VoiceInputError::Audio(
                 "audio not supported on this platform".to_string(),
             ))
@@ -110,9 +128,18 @@ mod macos {
             stats: Arc<AudioQueueStats>,
             _input_device_id: Option<&str>,
             target_sample_rate_hz: u32,
+            voice_processing: bool,
         ) -> Result<Self, VoiceInputError> {
             let engine = unsafe { AVAudioEngine::new() };
             let input_node = unsafe { engine.inputNode() };
+            if voice_processing {
+                unsafe { input_node.setVoiceProcessingEnabled_error(true) }.map_err(|error| {
+                    VoiceInputError::Audio(format!(
+                        "cannot enable acoustic echo cancellation: {}",
+                        error.localizedDescription()
+                    ))
+                })?;
+            }
 
             // AVAudioEngine will NOT resample on an inputNode tap: the tap format
             // must equal the hardware output format, otherwise it throws

@@ -5,7 +5,7 @@ use super::provider_values::{
     KEY_AGENT_OPENAI_API_KEY, KEY_AGENT_OPENAI_BASE_URL, KEY_AGENT_OPENAI_CREDENTIAL_REF,
     KEY_AGENT_OPENAI_MODEL, KEY_AGENT_PROVIDER,
 };
-use super::{DictationTrigger, VoiceInteractionMode};
+use super::{DesktopVoiceMode, DictationTrigger, VoiceInteractionMode};
 use asr::AsrModelId;
 use tts::{TtsModelId, TtsVoiceId};
 mod debug;
@@ -15,6 +15,8 @@ pub(super) const KEY_OLLAMA_MODEL: &str = "voice.ollama.model";
 pub(super) const KEY_DIALOGUE_MODEL: &str = "voice.dialogue.model";
 pub(super) const KEY_REFINE_MODEL: &str = "voice.refine.model";
 pub(super) const KEY_INTERACTION_MODE: &str = "voice.interaction.mode";
+pub(super) const KEY_DESKTOP_MODE: &str = "voice.desktop.mode";
+pub(super) const KEY_DOUBAO_CREDENTIAL_REF: &str = "voice.doubao.credential_ref";
 pub(super) const KEY_SINGLE_VOICE_COMMAND_TRIGGER: &str = "voice.single_voice_command.trigger";
 pub(super) const LEGACY_KEY_DICTATION_TRIGGER: &str = "voice.dictation.trigger";
 pub(super) const KEY_ASR_MODEL_ID: &str = "voice.asr.model_id";
@@ -44,6 +46,8 @@ pub(super) const KEY_OPENAI_API_KEY: &str = "voice.openai.api_key";
 pub(super) const KEY_OPENAI_CARD_PLANNER_MODEL: &str = "voice.openai.card_planner_model";
 #[derive(Clone, Default, Eq, PartialEq)]
 pub(crate) struct SavedVoiceSettings {
+    pub(crate) desktop_mode: Option<DesktopVoiceMode>,
+    pub(crate) doubao_credential_ref: Option<String>,
     pub(crate) interaction_mode: Option<VoiceInteractionMode>,
     pub(crate) dictation_trigger: Option<DictationTrigger>,
     pub(crate) asr_model_id: Option<AsrModelId>,
@@ -116,6 +120,8 @@ pub(crate) struct EnvVoiceSettings {
 }
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct VoiceSettingsValues {
+    pub(crate) desktop_mode: DesktopVoiceMode,
+    pub(crate) doubao_credential_ref: Option<String>,
     pub(crate) interaction_mode: VoiceInteractionMode,
     pub(crate) dictation_trigger: DictationTrigger,
     pub(crate) asr_model_id: Option<AsrModelId>,
@@ -143,6 +149,7 @@ pub(crate) struct VoiceSettingsValues {
 }
 impl VoiceSettingsValues {
     pub(crate) fn resolve(saved: &SavedVoiceSettings, env: &EnvVoiceSettings) -> Self {
+        let desktop_mode = saved.desktop_mode.unwrap_or_default();
         let interaction_mode = saved.interaction_mode.unwrap_or_default();
         let dictation_trigger = saved.dictation_trigger.unwrap_or_default();
         let asr_model_id = saved.asr_model_id.clone();
@@ -275,6 +282,8 @@ impl VoiceSettingsValues {
         };
 
         Self {
+            desktop_mode,
+            doubao_credential_ref: saved.doubao_credential_ref.clone(),
             interaction_mode,
             dictation_trigger,
             asr_model_id,
@@ -310,6 +319,14 @@ impl VoiceSettingsValues {
 
     pub(crate) fn interaction_mode(&self) -> VoiceInteractionMode {
         self.interaction_mode
+    }
+
+    pub(crate) fn desktop_mode(&self) -> DesktopVoiceMode {
+        self.desktop_mode
+    }
+
+    pub(crate) fn doubao_credential_ref(&self) -> Option<&str> {
+        self.doubao_credential_ref.as_deref()
     }
 
     pub(crate) fn dictation_trigger(&self) -> DictationTrigger {

@@ -139,7 +139,7 @@ fn compact_interaction_row(theme: Theme, title: &'static str, hint: String, cont
 
 /// This is a two-state segmented option, not a general button. The pinned component Button lacks
 /// the selected-state theme plus stable debug-selector seam required by the Settings e2e tests.
-fn mode_option(theme: Theme, label: &'static str, selected: bool) -> Div {
+pub(super) fn mode_option(theme: Theme, label: &'static str, selected: bool) -> Div {
     let accent = if selected {
         theme.accent_orange
     } else {
@@ -165,5 +165,6 @@ fn mode_option(theme: Theme, label: &'static str, selected: bool) -> Div {
             theme.text_secondary
         }))
         .cursor_pointer()
+        .hover(move |style| style.bg(rgba(with_alpha(accent, 0x2b))))
         .child(label)
 }

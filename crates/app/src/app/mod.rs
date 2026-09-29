@@ -66,6 +66,7 @@ mod cursor_animation;
 #[cfg(test)]
 use cursor_animation::focused_cursor_animation_active;
 pub(crate) mod dialogue;
+mod doubao;
 mod e2e;
 pub(crate) mod ego;
 #[cfg(all(target_os = "macos", any(test, not(feature = "e2e-test-support"))))]
@@ -200,6 +201,7 @@ pub struct MultisoulApp {
     pub(crate) clone_project: CloneProjectUiState,
     pub(crate) recent_project_context_path: Option<PathBuf>,
     pub(crate) voice: crate::app::voice::control::VoiceControlState,
+    pub(crate) doubao: doubao::DoubaoVoiceState,
     pub(crate) dialogue: crate::app::dialogue::DialogueControlState,
     pub(crate) tts_preview: crate::app::dialogue::TtsPreviewState,
     pub(crate) pending_tts_activation: Option<crate::app::dialogue::PendingTtsActivation>,
